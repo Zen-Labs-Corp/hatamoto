@@ -34,7 +34,22 @@ func (s *Server) setupPluginRuns(svc *pluginhost.Services) {
 		svc.Site = siteInfoSource{s}
 	}
 	if s.db != nil {
-		svc.SlugTaken = entity.NewPostgresPublicRepository(s.db).SlugTaken
+		repo := entity.NewPostgresPublicRepository(s.db)
+		svc.SlugTaken = repo.SlugTaken
+		// The fetch phase reads what the site shows: the same locales as the
+		// sitemap, and the same visibility rule as every public read.
+		scoped := func(ctx context.Context) context.Context {
+			if set := s.urlSnapshot(ctx).Locales(); set.Multi() {
+				return entity.WithVisibleLocaleSet(ctx, set.PublicTags()...)
+			}
+			return ctx
+		}
+		svc.PublicEntityIDs = func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+			return repo.PublicIDs(scoped(ctx), ids)
+		}
+		svc.PublicMediaStems = func(ctx context.Context, stems []string) (map[string]bool, error) {
+			return repo.PublicMediaStems(scoped(ctx), stems)
+		}
 	}
 	svc.LivePath = func(ctx context.Context, path string) bool {
 		live, err := s.pathIsLivePage(ctx, path)

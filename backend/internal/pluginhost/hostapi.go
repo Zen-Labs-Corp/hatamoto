@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/mail"
+	"path"
 	"slices"
 	"strings"
 	"sync"
@@ -87,6 +88,11 @@ type Services struct {
 	Site       SiteSource
 	// SlugTaken reports whether a published, public entity holds the slug.
 	SlugTaken func(ctx context.Context, schema, slug, locale string) (bool, error)
+	// PublicEntityIDs and PublicMediaStems say which entities and media files
+	// an anonymous visitor can see; the fetch phase of a run reads only those
+	// (nil: those reads are unavailable there).
+	PublicEntityIDs  func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error)
+	PublicMediaStems func(ctx context.Context, stems []string) (map[string]bool, error)
 	// LivePath reports whether path is served by live content now; a staged
 	// redirect may not start there.
 	LivePath func(ctx context.Context, path string) bool
@@ -777,6 +783,15 @@ func fnEntitiesGet(ctx context.Context, a *API, env *callEnv, raw json.RawMessag
 	if runSeesOnlyPublished(ctx, ent.Status) {
 		return nil, herr(sdk.ErrNotFound, "entity not found")
 	}
+	if inFetchPhase(ctx) {
+		vis, err := a.publicEntities(ctx, []uuid.UUID{ent.ID})
+		if err != nil {
+			return nil, err
+		}
+		if !vis[ent.ID] {
+			return nil, herr(sdk.ErrNotFound, "entity not found")
+		}
+	}
 	return a.entityDTOGrouped(ctx, ent)
 }
 
@@ -787,6 +802,21 @@ func fnEntitiesGet(ctx context.Context, a *API, env *callEnv, raw json.RawMessag
 func runSeesOnlyPublished(ctx context.Context, status entity.EntityStatus) bool {
 	_, inRun := RunFrom(ctx)
 	return inRun && status != entity.StatusPublished
+}
+
+// inFetchPhase reports whether ctx is the fetch phase of a run, the phase that
+// can reach the network: its reads see only what an anonymous visitor sees.
+func inFetchPhase(ctx context.Context) bool {
+	rc, ok := RunFrom(ctx)
+	return ok && rc.Phase == sdk.RunPhaseFetch
+}
+
+// publicEntities returns which of ids the public site shows.
+func (a *API) publicEntities(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+	if a.svc.PublicEntityIDs == nil {
+		return nil, unavailable("public content")
+	}
+	return a.svc.PublicEntityIDs(ctx, ids)
 }
 
 func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
@@ -831,6 +861,17 @@ func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage
 	res, err := a.svc.Entities.ListEntities(ctx, filter, page)
 	if err != nil {
 		return nil, err
+	}
+	if inFetchPhase(ctx) && len(res.Items) > 0 {
+		ids := make([]uuid.UUID, len(res.Items))
+		for i, it := range res.Items {
+			ids[i] = it.ID
+		}
+		vis, err := a.publicEntities(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		res.Items = slices.DeleteFunc(res.Items, func(e *entity.Entity) bool { return !vis[e.ID] })
 	}
 	var groups map[uuid.UUID]entity.GroupMember
 	if a.svc.Groups != nil && len(res.Items) > 0 {
@@ -921,6 +962,17 @@ func fnEntitiesTranslations(ctx context.Context, a *API, _ *callEnv, raw json.Ra
 	out := []translationDTO{}
 	if _, inRun := RunFrom(ctx); inRun { // published members only, and only for a published entity
 		members = slices.DeleteFunc(members, func(m entity.Member) bool { return m.Status != string(entity.StatusPublished) })
+		if inFetchPhase(ctx) && len(members) > 0 {
+			ids := make([]uuid.UUID, len(members))
+			for i, m := range members {
+				ids[i] = m.ID
+			}
+			vis, err := a.publicEntities(ctx, ids)
+			if err != nil {
+				return nil, err
+			}
+			members = slices.DeleteFunc(members, func(m entity.Member) bool { return !vis[m.ID] })
+		}
 		if !slices.ContainsFunc(members, func(m entity.Member) bool { return m.ID == id }) {
 			return nil, herr(sdk.ErrNotFound, "entity not found")
 		}
@@ -1040,7 +1092,34 @@ func fnMediaGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (a
 	if err != nil {
 		return nil, err
 	}
+	if inFetchPhase(ctx) {
+		vis, err := a.publicMedia(ctx, []*media.Media{m})
+		if err != nil {
+			return nil, err
+		}
+		if len(vis) == 0 {
+			return nil, herr(sdk.ErrNotFound, "media not found")
+		}
+	}
 	return toMediaDTO(m), nil
+}
+
+// publicMedia keeps the media files a public page references.
+func (a *API) publicMedia(ctx context.Context, items []*media.Media) ([]*media.Media, error) {
+	if a.svc.PublicMediaStems == nil {
+		return nil, unavailable("public media")
+	}
+	stems := make([]string, 0, len(items))
+	for _, m := range items {
+		if s := strings.TrimSuffix(m.Filename, path.Ext(m.Filename)); s != "" {
+			stems = append(stems, s)
+		}
+	}
+	vis, err := a.svc.PublicMediaStems(ctx, stems)
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(items, func(m *media.Media) bool { return !vis[strings.TrimSuffix(m.Filename, path.Ext(m.Filename))] }), nil
 }
 
 func fnMediaList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
@@ -1059,6 +1138,11 @@ func fnMediaList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (
 		clamp(args.Limit, 50, 200), max(args.Offset, 0))
 	if err != nil {
 		return nil, err
+	}
+	if inFetchPhase(ctx) {
+		if res.Items, err = a.publicMedia(ctx, res.Items); err != nil {
+			return nil, err
+		}
 	}
 	items := make([]mediaDTO, 0, len(res.Items))
 	for _, m := range res.Items {
