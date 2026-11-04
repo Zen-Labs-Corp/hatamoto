@@ -3,10 +3,9 @@
 <div class="hm-stack">
 {{template "hm/badge" (dict "Label" .BadgeLabel "Kind" .BadgeKind "Wrap" true)}}
 <p>{{.Sentence}}</p>
-<dl class="hm-dl">
-{{with .SourceKey}}<dt>Came from</dt><dd><code>{{.}}</code></dd>
-{{end}}{{with .LastLabel}}<dt>Last import</dt><dd>{{if $.LastHref}}<a href="{{$.LastHref}}">{{.}}</a>{{else}}{{.}}{{end}}</dd>
-{{end}}</dl>
+{{with .SourceKey}}<div><p class="hm-muted">Came from</p><p><code>{{.}}</code></p></div>
+{{end}}{{with .LastLabel}}<div><p class="hm-muted">Last import</p><p>{{if $.LastHref}}<a href="{{$.LastHref}}">{{.}}</a>{{else}}{{.}}{{end}}</p></div>
+{{end}}
 </div>
 {{if .ButtonLabel}}{{template "hm/card-foot"}}{{template "hm/button" dict "Label" .ButtonLabel "Type" "submit" "Attrs" (attrmap "form" .FormID)}}{{template "hm/card-foot-end"}}{{else}}{{template "hm/card-end"}}{{end}}
 {{template "hm/card-start" dict "ID" (printf "%s-never" .CardID) "Title" "Things a plugin can never own"}}
