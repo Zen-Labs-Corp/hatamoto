@@ -27,7 +27,7 @@ func newFakeUsers() *fakeUsers {
 func (f *fakeUsers) GetByID(_ context.Context, id uuid.UUID) (*user.User, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	u := &user.User{ID: id}
+	u := &user.User{ID: id, Email: "demo@example.test"}
 	if t, ok := f.locked[id]; ok {
 		u.LockedUntil = &t
 	}
@@ -157,6 +157,19 @@ func TestWrongCodesLockTheAccount(t *testing.T) {
 	// Locked: even the right code is refused, with the same error.
 	if err := r.svc.Verify(ctx, r.uid, Code(secret, StepAt(r.now))); !errors.Is(err, ErrWrongCode) {
 		t.Fatalf("locked account accepted a code: %v", err)
+	}
+}
+
+func TestNeverLockedAccountIsNotLockedByWrongCodes(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	r.svc.cfg.NeverLock = func(email string) bool { return email == "demo@example.test" }
+	r.enrol(t)
+	for i := 0; i < 8; i++ {
+		_ = r.svc.Verify(ctx, r.uid, "000000")
+	}
+	if r.users.failed[r.uid] != 0 {
+		t.Fatalf("exempt account counted %d failures", r.users.failed[r.uid])
 	}
 }
 

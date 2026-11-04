@@ -112,6 +112,9 @@ func (s *Service) NeverLock(email string) {
 	s.noLockoutEmail = strings.ToLower(strings.TrimSpace(email))
 }
 
+// NeverLocked reports whether email is the account exempted by NeverLock.
+func (s *Service) NeverLocked(email string) bool { return s.neverLocked(email) }
+
 func (s *Service) neverLocked(email string) bool {
 	return s.noLockoutEmail != "" && strings.ToLower(strings.TrimSpace(email)) == s.noLockoutEmail
 }

@@ -42,6 +42,9 @@ type Config struct {
 	// MaxFailed and Lock are the account-lock policy shared with password sign-in.
 	MaxFailed int
 	Lock      time.Duration
+	// NeverLock reports an email whose account is never locked (the public
+	// demo's shared login); nil means every account can lock.
+	NeverLock func(email string) bool
 	// Issuer names the site in the authenticator app.
 	Issuer func(ctx context.Context) string
 	// Now is the clock; nil means time.Now.
@@ -124,7 +127,13 @@ func (s *Service) Locked(ctx context.Context, uid uuid.UUID) (bool, error) {
 }
 
 // Fail counts a failed second-factor attempt against the account lock.
+// An account exempt from lockout is not counted.
 func (s *Service) Fail(ctx context.Context, uid uuid.UUID) {
+	if s.cfg.NeverLock != nil {
+		if u, err := s.users.GetByID(database.WithSuperadmin(ctx), uid); err == nil && s.cfg.NeverLock(u.Email) {
+			return
+		}
+	}
 	if err := s.users.RecordFailedLogin(database.WithSuperadmin(ctx), uid, s.cfg.MaxFailed, s.cfg.Lock); err != nil {
 		fmt.Printf("failed to record failed second factor (non-fatal): %v\n", err)
 	}

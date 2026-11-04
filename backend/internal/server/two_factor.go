@@ -39,6 +39,7 @@ func (s *Server) initTwoFactor() {
 		RecoveryKey: twofactor.RecoveryKey(s.cfg.Secret),
 		MaxFailed:   auth.MaxFailedLogins,
 		Lock:        auth.LockoutDuration,
+		NeverLock:   s.authService.NeverLocked,
 		Issuer:      s.siteName,
 	})
 	s.twoFactor = svc

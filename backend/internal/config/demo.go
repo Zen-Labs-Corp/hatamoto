@@ -91,13 +91,14 @@ func rule(methods, path, msg string) demoRule {
 }
 
 const (
-	msgUpload   = "Uploading plugins and themes, and allowing unsigned packages, is switched off in the public demo. Install first-party packages from the registry instead."
-	msgUsers    = "Users cannot be created, invited, changed or removed in the public demo."
-	msgPassword = "Passwords and email addresses cannot be changed in the public demo."
-	msgKeys     = "API keys cannot be created in the public demo."
-	msgOutbound = "This setting sends data to other servers (webhooks, email, captcha, imports), so it is switched off in the public demo."
-	msgBackups  = "Backups and exports copy the whole site to disk, so they are switched off in the public demo."
-	msgUpdates  = "Updates are switched off in the public demo."
+	msgUpload    = "Uploading plugins and themes, and allowing unsigned packages, is switched off in the public demo. Install first-party packages from the registry instead."
+	msgUsers     = "Users cannot be created, invited, changed or removed in the public demo."
+	msgPassword  = "Passwords and email addresses cannot be changed in the public demo."
+	msgTwoFactor = "Two-step sign-in cannot be changed in the public demo."
+	msgKeys      = "API keys cannot be created in the public demo."
+	msgOutbound  = "This setting sends data to other servers (webhooks, email, captcha, imports), so it is switched off in the public demo."
+	msgBackups   = "Backups and exports copy the whole site to disk, so they are switched off in the public demo."
+	msgUpdates   = "Updates are switched off in the public demo."
 )
 
 // demoRules are the routes a public demo refuses. They are matched on method
@@ -113,6 +114,8 @@ var demoRules = []demoRule{
 	rule("POST", `/admin/settings/users(/.*)?`, msgUsers),
 	rule("POST PATCH DELETE", `/api/v1/users(/.*)?`, msgUsers),
 	rule("POST", `/admin/profile/password|/admin/forgot|/admin/reset|/admin/accept`, msgPassword),
+	rule("POST", `/admin/profile/security(/.*)?`, msgTwoFactor),
+	rule("GET", `/admin/profile/security/totp`, msgTwoFactor),
 	rule("PATCH", `/api/v1/me`, msgPassword),
 	rule("POST", `/admin/settings/api-keys|/admin/settings/api-keys/.+/regenerate`, msgKeys),
 	rule("POST PATCH", `/api/v1/api-keys(/.*)?`, msgKeys),
