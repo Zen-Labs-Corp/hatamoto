@@ -17,13 +17,15 @@ func TestClassify(t *testing.T) {
 		want              Origin
 	}{
 		{"searchconsole old key", "searchconsole", "a592a1276b3947b1", OriginFirstParty},
-		{"gtm new key", "gtm", "adea8e00f5ac74ca", OriginFirstParty},
-		{"gtm config key", "gtm", cfgKey, OriginFirstParty},
+		{"searchconsole new key", "searchconsole", "adea8e00f5ac74ca", OriginFirstParty},
+		{"searchconsole config key", "searchconsole", cfgKey, OriginFirstParty},
+		{"gtm was folded into core and is community now", "gtm", "adea8e00f5ac74ca", OriginCommunity},
+		{"google-analytics was folded into core and is community now", "google-analytics", cfgKey, OriginCommunity},
 		{"off-list name is community", "fancy-widgets", "adea8e00f5ac74ca", OriginCommunity},
 		{"off-list name config key", "fancy-widgets", cfgKey, OriginCommunity},
-		{"unsigned list name", "gtm", "", OriginSelfBuilt},
+		{"unsigned list name", "searchconsole", "", OriginSelfBuilt},
 		{"unsigned other name", "fancy-widgets", "", OriginSelfBuilt},
-		{"other trusted key", "gtm", "0123456789abcdef", OriginSelfBuilt},
+		{"other trusted key", "searchconsole", "0123456789abcdef", OriginSelfBuilt},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -338,25 +338,25 @@ func TestPackagesIntegration(t *testing.T) {
 		if body := rec.Body.String(); rec.Code != 200 || !strings.Contains(body, "Signed by "+key.ID) || strings.Contains(body, "First-party") {
 			t.Errorf("a community name signed by the registry key must not get the star: %d\n%s", rec.Code, body)
 		}
-		official, files := pack("gtm")
+		official, files := pack("searchconsole")
 		if body := upload(official).Body.String(); !strings.Contains(body, "First-party") {
 			t.Errorf("a first-party plugin with a verified signature gets the star:\n%s", body)
 		}
 		// An installed row that is uninstalling refuses the upload: no star beside the refusal.
 		if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_packages (kind, name, version, manifest, data, sha256, signature, signer_key_id, source, state)
-			VALUES ('plugin', 'gtm', '0.9.0', '{"name":"gtm","version":"0.9.0"}', '\x00', 'x', '\x00', $1, 'registry', 'uninstalling')`, key.ID); err != nil {
+			VALUES ('plugin', 'searchconsole', '0.9.0', '{"name":"searchconsole","version":"0.9.0"}', '\x00', 'x', '\x00', $1, 'registry', 'uninstalling')`, key.ID); err != nil {
 			t.Fatal(err)
 		}
 		if body := upload(official).Body.String(); !strings.Contains(body, "uninstall") || strings.Contains(body, "First-party") {
 			t.Errorf("no star beside an uninstalling refusal:\n%s", body)
 		}
-		if _, err := db.Pool().Exec(ctx, `DELETE FROM hatamoto_packages WHERE name = 'gtm'`); err != nil {
+		if _, err := db.Pool().Exec(ctx, `DELETE FROM hatamoto_packages WHERE name = 'searchconsole'`); err != nil {
 			t.Fatal(err)
 		}
 		// The same signature over other contents: it claims the key but does not verify.
-		files[packages.PluginManifest] = []byte(`{"name":"gtm","version":"1.0.0","sdk":"^0.7","permissions":["kv"],"description":"changed after signing"}`)
+		files[packages.PluginManifest] = []byte(`{"name":"searchconsole","version":"1.0.0","sdk":"^0.7","permissions":["kv"],"description":"changed after signing"}`)
 		forged := packages.SignatureFile
-		signed, _ := pack("gtm")
+		signed, _ := pack("searchconsole")
 		zr, err := zip.NewReader(bytes.NewReader(signed), int64(len(signed)))
 		if err != nil {
 			t.Fatal(err)

@@ -30,10 +30,10 @@ func TestFirstPartyRow(t *testing.T) {
 		name, signer string
 		want         bool
 	}{
-		{"gtm", reg, true},
+		{"searchconsole", reg, true},
 		{"fancy", reg, false},
-		{"gtm", "0123456789abcdef", false},
-		{"gtm", "", false},
+		{"searchconsole", "0123456789abcdef", false},
+		{"searchconsole", "", false},
 	} {
 		if got := firstPartyRow(packages.Row{Name: c.name, SignerKeyID: c.signer}); got != c.want {
 			t.Errorf("%s signed by %q: got %v, want %v", c.name, c.signer, got, c.want)

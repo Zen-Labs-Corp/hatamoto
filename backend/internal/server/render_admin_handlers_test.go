@@ -240,6 +240,9 @@ func dropThemeScript(html string) string {
 var robotsMetaRe = regexp.MustCompile(`\s*<meta name="robots" content="noindex,follow">`)
 
 func TestRenderPreviewOwnRouteEqualsPublicRender(t *testing.T) { // A1
+	// Earlier tests that boot a whole server leave the process-wide consent and tag hooks installed.
+	render.SetConsent(nil)
+	render.SetTags(nil)
 	w := newRouteWorld()
 	pub := w.publicHTML(t, "/own")
 	for _, want := range []string{"Stored body", `rel="canonical"`, "BreadcrumbList", "Sec"} {

@@ -40,7 +40,7 @@ func TestManagerCheckGrantUsesOrigins(t *testing.T) {
 	m := &Manager{}
 	m.refreshOrigins([]Row{
 		{Kind: KindPlugin, Name: "fancy", SignerKeyID: "adea8e00f5ac74ca"},
-		{Kind: KindPlugin, Name: "gtm", SignerKeyID: "adea8e00f5ac74ca"},
+		{Kind: KindPlugin, Name: "searchconsole", SignerKeyID: "adea8e00f5ac74ca"},
 		{Kind: KindPlugin, Name: "mine"},
 	})
 	scripts := []string{sdk.PermSiteScripts}
@@ -50,18 +50,18 @@ func TestManagerCheckGrantUsesOrigins(t *testing.T) {
 	if err := m.CheckGrant("fancy", []sdk.Permission{sdk.PermBuilderIsland}); !errors.Is(err, ErrCommunityScripts) || !strings.Contains(err.Error(), "builder.island") {
 		t.Fatalf("community island: %v", err)
 	}
-	if err := m.CheckGrant("gtm", []sdk.Permission{sdk.PermBuilderIsland}); err != nil {
+	if err := m.CheckGrant("searchconsole", []sdk.Permission{sdk.PermBuilderIsland}); err != nil {
 		t.Fatalf("first party island: %v", err)
 	}
 	if err := m.CheckGrant("fancy", []string{sdk.PermKV}); err != nil {
 		t.Fatalf("community without scripts: %v", err)
 	}
-	for _, name := range []string{"gtm", "mine", "unknown"} {
+	for _, name := range []string{"searchconsole", "mine", "unknown"} {
 		if err := m.CheckGrant(name, scripts); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 	}
-	if !m.ScriptsRefused("fancy") || m.ScriptsRefused("gtm") {
+	if !m.ScriptsRefused("fancy") || m.ScriptsRefused("searchconsole") {
 		t.Fatal("ScriptsRefused disagrees with the origin map")
 	}
 }
@@ -91,12 +91,12 @@ func TestScriptGateAndCommunityLive(t *testing.T) {
 		return pluginhost.Status{Name: name, Loaded: true, Manifest: sdk.Manifest{Name: name, Permissions: []string{sdk.PermSiteScripts}}}
 	}
 	m := &Manager{Options: Options{
-		Plugins: statusPlugins{loaded("fancy"), loaded("gtm"), loaded("mine")},
-		Grants:  scriptGrants{"fancy": true, "gtm": true, "mine": true},
+		Plugins: statusPlugins{loaded("fancy"), loaded("searchconsole"), loaded("mine")},
+		Grants:  scriptGrants{"fancy": true, "searchconsole": true, "mine": true},
 	}}
 	m.refreshOrigins([]Row{
 		{Kind: KindPlugin, Name: "fancy", SignerKeyID: "adea8e00f5ac74ca"},
-		{Kind: KindPlugin, Name: "gtm", SignerKeyID: "adea8e00f5ac74ca"},
+		{Kind: KindPlugin, Name: "searchconsole", SignerKeyID: "adea8e00f5ac74ca"},
 		{Kind: KindPlugin, Name: "mine"},
 	})
 
@@ -104,7 +104,7 @@ func TestScriptGateAndCommunityLive(t *testing.T) {
 	if m.scriptGate("fancy") || m.CommunityScriptsLive() {
 		t.Fatal("a stored community grant must be neutralised")
 	}
-	if !m.scriptGate("gtm") || !m.scriptGate("mine") {
+	if !m.scriptGate("searchconsole") || !m.scriptGate("mine") {
 		t.Fatal("first-party and self-built scripts must be unaffected")
 	}
 
@@ -116,7 +116,7 @@ func TestScriptGateAndCommunityLive(t *testing.T) {
 	}
 
 	// Live needs the grant, the loaded manifest and a community plugin.
-	m.Grants = scriptGrants{"gtm": true, "mine": true}
+	m.Grants = scriptGrants{"searchconsole": true, "mine": true}
 	if m.CommunityScriptsLive() {
 		t.Fatal("without the grant nothing community is live")
 	}
@@ -131,10 +131,10 @@ func TestCommunityPluginUsesOriginsMap(t *testing.T) {
 	m := &Manager{}
 	m.refreshOrigins([]Row{
 		{Kind: KindPlugin, Name: "fancy", SignerKeyID: "adea8e00f5ac74ca"},
-		{Kind: KindPlugin, Name: "gtm", SignerKeyID: "adea8e00f5ac74ca"},
+		{Kind: KindPlugin, Name: "searchconsole", SignerKeyID: "adea8e00f5ac74ca"},
 		{Kind: KindPlugin, Name: "mine"},
 	})
-	for name, want := range map[string]bool{"fancy": true, "gtm": false, "mine": false, "unknown": false} {
+	for name, want := range map[string]bool{"fancy": true, "searchconsole": false, "mine": false, "unknown": false} {
 		if got := m.CommunityPlugin(name); got != want {
 			t.Errorf("CommunityPlugin(%q) = %v, want %v", name, got, want)
 		}
