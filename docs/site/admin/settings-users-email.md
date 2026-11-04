@@ -261,7 +261,7 @@ How it works:
 - After a form is sent, the page dispatches one `hm:conversion` event on `document` with the submission id in `detail.id`. Google Analytics 4 receives `generate_lead` and Meta Pixel `Lead`, with the submission id as the event ID.
 - Every change is recorded in the audit log with the tags turned on, turned off or edited. IDs are not written there. Saving clears the page cache.
 
-**Upgrade:** the Google Tag Manager and Google Analytics plugins are replaced by this page. At the next start, an ID stored in a plugin signed by the first-party key is copied here (turned on if the plugin was), the plugin is uninstalled and the audit log records `tracking.import_plugin`. A **Moved into core** notice shows once on the page until you dismiss it. A plugin with these names that is not first-party signed is left alone: enter its ID here, then remove it from Plugins. The migration adds one table.
+**Upgrade:** the Google Tag Manager and Google Analytics plugins are replaced by this page. At the next start, an ID stored in a plugin signed by the first-party key is copied here (turned on only if the plugin was installed, on, allowed to add scripts and granted that permission, so an upgrade never starts a tracker that was not running), the plugin is uninstalled and the audit log records `tracking.import_plugin`. A **Moved into core** notice shows once on the page until you dismiss it. A plugin with these names that is not first-party signed is left alone, and so is a plugin whose ID is not a valid ID for the tag (it is not uninstalled and its settings are kept): enter its ID here, then remove it from Plugins. The migration adds one table.
 
 ## Visitor consent API
 

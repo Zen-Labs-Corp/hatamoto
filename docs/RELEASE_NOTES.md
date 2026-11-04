@@ -7,10 +7,10 @@ Settings > Tracking loads 13 common tags (Google Analytics 4, Tag Manager, Ads, 
 - **Off by default.** With no tag on, public HTML and the policy header are byte-identical to before.
 - **Signed-in users.** A shared switch (on by default) skips tags when the new `hm_member` cookie is present. Previews and the editor never load tags.
 - **Conversions.** One `hm:conversion` event per form success carries the submission id.
-- **Plugins moved into core.** The first-party `gtm` and `google-analytics` plugins are folded into this page on upgrade and removed; a one-time notice and audit entries record it.
+- **Plugins moved into core.** The first-party `gtm` and `google-analytics` plugins are folded into this page on upgrade and removed; a one-time notice and audit entries record it. The tag is turned on only if the plugin was really running; an ID that is not valid for the tag leaves the plugin installed.
 - **Migration.** One new table (expand-only).
 
-**Rollback floor: unchanged.** The previous release ignores the new table; the removed plugins would have to be installed again.
+**Rollback floor: unchanged.** The previous release ignores the new table; the removed plugins would have to be installed again and their IDs entered again, because their settings are deleted with them.
 
 ## Unreleased: Cookie consent banner and Consent Mode v2
 

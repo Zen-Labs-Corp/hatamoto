@@ -37,7 +37,7 @@ var legacyTrackingPlugins = []struct {
 // so the plugin never loads again and the tag is never emitted twice.
 //
 // It is idempotent, only touches a plugin signed by a first-party key, and
-// keeps the plugin when the copy failed (the next boot retries). Ids are not
+// keeps the plugin when the copy failed or its id is not valid for the vendor. Ids are not
 // secrets but the audit record carries only the plugin names anyway.
 func (s *Server) retireTrackingPlugins(ctx context.Context) {
 	if s.tagsStore == nil || s.packages == nil {
@@ -68,6 +68,14 @@ func (s *Server) retireTrackingPlugins(ctx context.Context) {
 		if err != nil {
 			log.Error("tracking: cannot read the tracking settings; the plugin is kept", slog.Any("error", err))
 			continue
+		}
+		// An id the vendor pattern rejects cannot be copied; uninstalling would
+		// destroy the only copy of it, so the plugin and its settings stay.
+		if cur := set.Vendors[lp.vendor]; id != "" && !cur.Enabled && cur.ID == "" {
+			if cand, _ := tags.ByID(lp.vendor); !cand.ValidID(cand.NormalizeID(id)) {
+				log.Warn("tracking: the old plugin's ID is not a valid ID for this tag; the plugin and its settings are kept. Enter the ID in Settings > Tracking, then uninstall the plugin from Plugins")
+				continue
+			}
 		}
 		// Read before the uninstall deletes the grants. A tracker that was not
 		// running must not start sending visitor data because of the upgrade.
@@ -127,14 +135,14 @@ func (s *Server) legacyPluginID(ctx context.Context, plugin, key string) (string
 }
 
 // legacyTrackingLeftBehind names the retired tracking plugins still installed
-// after boot because they are not first-party signed.
+// after boot: not first-party signed, or kept because their id could not be copied.
 func (s *Server) legacyTrackingLeftBehind(ctx context.Context) []string {
 	if s.packages == nil {
 		return nil
 	}
 	var out []string
 	for _, lp := range legacyTrackingPlugins {
-		if row, err := s.packages.Store().Get(ctx, packages.KindPlugin, lp.plugin); err == nil && !firstPartySigned(row) {
+		if _, err := s.packages.Store().Get(ctx, packages.KindPlugin, lp.plugin); err == nil {
 			out = append(out, lp.plugin)
 		}
 	}

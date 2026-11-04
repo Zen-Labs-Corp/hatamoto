@@ -263,7 +263,7 @@ type Deps struct {
 	// answers that page with 503.
 	Tracking TrackingService
 	// LegacyTrackingPlugins names the retired gtm or google-analytics plugins
-	// still installed (not first-party signed), for a notice on Tracking; nil
+	// still installed, for a notice on Tracking; nil
 	// shows none.
 	LegacyTrackingPlugins func(ctx context.Context) []string
 	// TrackingNeverLoads returns a predicate: true for a tag category the

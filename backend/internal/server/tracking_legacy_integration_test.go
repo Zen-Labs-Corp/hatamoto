@@ -116,3 +116,23 @@ func TestTrackingLegacyPluginThatWasNotRunningIsCopiedOff(t *testing.T) {
 		})
 	}
 }
+
+// An id the vendor pattern rejects cannot be copied, so the plugin and its
+// settings stay: uninstalling would destroy the only copy.
+func TestTrackingLegacyPluginWithAnInvalidIDIsKept(t *testing.T) {
+	r := trackingRig(t)
+	ctx := context.Background()
+	r.insertTracking(t, legacyPlugin{name: "gtm", settings: `{"container_id":"not a container"}`, grants: "{site.scripts}"})
+
+	r.s.retireTrackingPlugins(ctx)
+
+	if n := r.count(t, `SELECT count(*) FROM hatamoto_packages WHERE name = 'gtm'`); n != 1 {
+		t.Errorf("plugin rows = %d, want the plugin kept", n)
+	}
+	if n := r.count(t, `SELECT count(*) FROM hatamoto_plugin_settings WHERE plugin = 'gtm'`); n != 1 {
+		t.Errorf("settings rows = %d, want the settings kept", n)
+	}
+	if got := r.s.legacyTrackingLeftBehind(ctx); len(got) != 1 || got[0] != "gtm" {
+		t.Errorf("left behind = %v, want [gtm] for the notice", got)
+	}
+}
