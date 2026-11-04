@@ -1,5 +1,9 @@
 # Release notes
 
+## Unreleased: Site access
+
+- **Site access: coming soon, maintenance and password modes.** Settings > Site access holds the public site back with a themed page, a 503 with `Retry-After`, or one shared password, while signed-in admin users still see the real site. A banner reminds owners and editors on every admin page. New columns only (expand-only); the previous binary ignores them and shows the site as open.
+
 ## Unreleased: Tag manager in Settings > Tracking
 
 Settings > Tracking loads 13 common tags (Google Analytics 4, Tag Manager, Ads, Meta, Clarity, UET, LinkedIn, TikTok, Pinterest, Tawk.to, Crisp, HubSpot, AdSense) from one fingerprinted script, after cookie consent, with the page policy widened only for the tags you turn on.

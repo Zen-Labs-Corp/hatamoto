@@ -22,6 +22,7 @@ my-theme/
     search.html         optional: /search
     404.html            defines "content" for not-found
     error.html          defines "content" for 5xx
+    coming-soon.html    defines "content" for the site access notices (coming soon, maintenance, password form)
   partials/
     head.html header.html nav.html footer.html section.html scripts.html doc.html
     plugin-assets.html  the plugin-head and plugin-body slots
@@ -54,6 +55,7 @@ The engine picks the first layout that exists, trying the candidates in order:
 | author (`/author/x`) | `author`, then `page` |
 | search (`/search?q=`, optional `&type=<schema slug>`) | `search`, then `page` |
 | not found or error | `404` or `error` |
+| site access notice (coming soon, maintenance, password) | `coming-soon` |
 
 A theme may omit any of them. A schema-specific layout is `layouts/single-<schema-slug>.html`; the old `layouts/<schema-slug>.html` is no longer read. The slug must match `[a-z][a-z0-9_-]*`. A slug that is not a valid name falls back down the chain, and the slug is only a lookup key, never used to build a path. A broken schema-specific layout rejects the theme version like any other layout.
 

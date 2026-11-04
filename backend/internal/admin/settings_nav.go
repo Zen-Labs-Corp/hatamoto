@@ -55,7 +55,7 @@ var settingsLive = map[string]bool{
 	"themes": true, "blocks": true, "colours": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
-	"admin-address": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
+	"admin-address": true, "site-access": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"privacy": true, "tracking": true,
 	"user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
@@ -79,6 +79,9 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "locales", Label: "Locales", Final: "/settings/locales", Roles: ownerOnly},
 		{ID: "locale-addresses", Label: "Addresses and search engines", Final: "/settings/locales/addresses", Roles: ownerOnly},
 		{ID: "locale-business", Label: "Business details", Final: "/settings/locales/business", Roles: ownerOnly},
+	}},
+	{ID: "site-access", Label: "Site access", Icon: "lock", Desc: "Coming soon, maintenance and password modes.", Group: "Site", Tabs: []settingsTabDef{
+		{ID: "site-access", Label: "Site access", Final: "/settings/site-access", Roles: ownerOnly},
 	}},
 	{ID: "email", Label: "Email", Icon: "mail", Desc: "Password resets, invitations and form notices.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "email", Label: "Email", Final: "/settings/email", Roles: ownerOnly},

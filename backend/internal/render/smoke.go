@@ -47,7 +47,7 @@ func (e *Engine) smokeRender(chain Chain) error {
 	if err != nil {
 		return err
 	}
-	for _, kind := range []string{KindPage, KindSingle, KindHome, KindArchive, KindTaxonomy, KindAuthor, KindSearch, KindRegistry, "404", "error"} {
+	for _, kind := range []string{KindPage, KindSingle, KindHome, KindArchive, KindTaxonomy, KindAuthor, KindSearch, KindRegistry, "404", "error", "coming-soon"} {
 		v := smokeView(kind)
 		cands := layoutCandidates(kind, "post")
 		status := 200
@@ -56,6 +56,8 @@ func (e *Engine) smokeRender(chain Chain) error {
 			cands, status = []string{"404"}, 404
 		case "error":
 			cands, status = []string{"error"}, 500
+		case "coming-soon":
+			cands, status = []string{"coming-soon"}, 200
 		case KindTaxonomy:
 			cands = layoutCandidates(kind, "category")
 		}
@@ -86,6 +88,9 @@ func smokeView(kind string) *PageView {
 		PostsByAuthor: func(_, page int) PostsPage {
 			return PostsPage{Items: smokeItems, Total: 1, Page: page, Pages: 1}
 		},
+	}
+	if kind == "coming-soon" {
+		v.Access = &AccessView{Mode: "password", Action: "/-/site-access", Next: "/", Error: "Wrong password.", HasError: true}
 	}
 	if kind == KindRegistry {
 		v.Registry = &RegistryPageView{Type: "plugin", ListName: "Plugins", ListURL: "/plugins", Plugin: &PluginCard{

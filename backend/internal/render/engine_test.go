@@ -463,3 +463,44 @@ func TestEngineSeriesAndPostsByAuthor(t *testing.T) {
 		t.Errorf("set:\n%s", out)
 	}
 }
+
+func TestEngineRenderAccess(t *testing.T) {
+	t.Parallel()
+	e := newTestEngine(t, Options{})
+	for _, c := range []struct {
+		name   string
+		a      AccessView
+		status int
+		want   []string
+		deny   []string
+	}{
+		{"coming soon", AccessView{Mode: "coming-soon"}, 200, []string{"We are launching soon", "Check back shortly."}, []string{"<form"}},
+		{"maintenance", AccessView{Mode: "maintenance", Heading: "Down", Message: "Back at noon"}, 503, []string{"<h1>Down</h1>", "Back at noon"}, []string{"<form"}},
+		{"password", AccessView{Mode: "password", Action: "/-/site-access", Next: "/about", HasError: true, Error: "Wrong password."}, 401,
+			[]string{`<form method="post" action="/-/site-access">`, `<label for="hm-site-access-password">`, `type="password"`, `name="next" value="/about"`, `role="alert"`}, nil},
+	} {
+		v := minimalView()
+		v.Page.Title = ""
+		v.Access = &c.a
+		v.Site.Nav = []NavItem{{Label: "Secret Pricing", Href: "/secret-pricing"}}
+		v.Site.FooterNav = []NavItem{{Label: "Secret Investors", Href: "/secret-investors"}}
+		v.Site.SocialLinks = []Link{{Label: "Secret Social", URL: "https://social.example/secret"}}
+		v.Site.HeaderCTA = &Link{Label: "Secret Buy", URL: "/secret-buy"}
+		v.Site.Feeds = []FeedLink{{Title: "Secret Feed", Href: "/secret-feed.xml"}}
+		var b bytes.Buffer
+		if err := e.RenderAccess(&b, v, c.status); err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		o := b.String()
+		for _, w := range append(c.want, `name="robots" content="noindex`) {
+			if !strings.Contains(o, w) {
+				t.Errorf("%s: missing %q in:\n%s", c.name, w, o)
+			}
+		}
+		for _, d := range append(c.deny, "Secret", "secret-", "hm.js", "<script src", "<script>", " style=") {
+			if strings.Contains(o, d) {
+				t.Errorf("%s: unexpected %q in:\n%s", c.name, d, o)
+			}
+		}
+	}
+}

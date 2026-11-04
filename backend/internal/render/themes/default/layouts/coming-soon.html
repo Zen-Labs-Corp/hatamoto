@@ -1,0 +1,14 @@
+{{define "content"}}{{with .Access}}<section class="hm-error">
+<div class="hm-container">
+<p class="hm-error__code">{{$.Site.Name}}</p>
+<h1>{{if .Heading}}{{.Heading}}{{else if eq .Mode "maintenance"}}We will be back soon{{else if eq .Mode "password"}}This site is private.{{else}}We are launching soon{{end}}</h1>
+<p>{{if .Message}}{{.Message}}{{else if eq .Mode "password"}}Enter the password to continue.{{else}}Check back shortly.{{end}}</p>
+{{if eq .Mode "password"}}<form method="post" action="{{.Action}}">
+{{if .HasError}}<p role="alert">{{.Error}}</p>{{end}}
+<p><label for="hm-site-access-password">Password</label><br>
+<input id="hm-site-access-password" type="password" name="password" autocomplete="current-password" required></p>
+<input type="hidden" name="next" value="{{.Next}}">
+<p><button class="hm-btn" type="submit">Continue</button></p>
+</form>{{end}}
+</div>
+</section>{{end}}{{end}}

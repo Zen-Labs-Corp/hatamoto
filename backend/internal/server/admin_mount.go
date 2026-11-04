@@ -19,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/seo"
+	"hatamoto.dev/core/internal/siteaccess"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -116,6 +117,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.siteConfig != nil && s.infra != nil && s.cfg != nil {
 		s.pageCache = s.newPageCacheService()
 		d.PageCache = s.pageCache
+		d.SiteAccess = siteAccessAdmin{site: s.siteConfig, purge: s.purgeRendered}
 	}
 	if s.spamStore != nil {
 		d.Spam = spamAdmin{store: s.spamStore, verifier: s.spamVerifier, key: s.spam.SecretKey}
@@ -350,4 +352,29 @@ func regionTreeCandidates(pool *pgxpool.Pool) func(context.Context) (bool, error
 // real file.
 func (s *Server) robotsPreview(r *http.Request, rs seo.Robots) string {
 	return render.RobotsForAdminLines(s.publicBaseURL(r), nil, rs.ExtraLines, s.robotsDenyTokens(r.Context()), s.adminPathValue())
+}
+
+// siteAccessAdmin is the admin's view of the site access gate. A save clears
+// the page cache so no visitor is served a page cached under the old mode.
+type siteAccessAdmin struct {
+	site  *siteconfig.Store
+	purge func(ctx context.Context)
+}
+
+func (a siteAccessAdmin) Get(ctx context.Context) (siteaccess.Settings, error) {
+	c, err := a.site.Get(ctx)
+	if err != nil {
+		return siteaccess.Settings{}, err
+	}
+	return c.SiteAccess, nil
+}
+
+func (a siteAccessAdmin) Save(ctx context.Context, s siteaccess.Settings) error {
+	if err := a.site.SetSiteAccess(ctx, s); err != nil {
+		return err
+	}
+	if a.purge != nil {
+		a.purge(ctx)
+	}
+	return nil
 }

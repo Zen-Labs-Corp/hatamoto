@@ -130,6 +130,9 @@ type View struct {
 	// StatsBanner asks the owner of an existing install about install stats
 	// (nil otherwise); NewView fills it for owner GET requests off the Updates page.
 	StatsBanner *StatsBanner
+	// AccessBanner tells owners and editors the public site is not open to
+	// visitors (nil while it is open); NewView fills it on GET requests.
+	AccessBanner *AccessBanner
 	// DemoBanner is the public demo notice ("" outside demo mode).
 	DemoBanner string
 	Data       any // page-specific data
@@ -474,6 +477,7 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 		v.UpdateBanner = a.updateBanner(r, v.User)
 		v.AddressBanner = a.addressBanner(r, v.User)
 		v.StatsBanner = a.statsBanner(r, v.User, v.SetupPending)
+		v.AccessBanner = a.accessBanner(r, v.User)
 	}
 	return v
 }

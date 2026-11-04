@@ -56,7 +56,7 @@ var requiredTemplates = []string{"head", "header", "nav", "footer", "section", "
 
 // fixedLayouts are the layouts a theme may ship; the embedded default ships
 // all of them, so the lookup always ends somewhere.
-var fixedLayouts = []string{"page", "single", "home", "archive", "taxonomy", "author", "search", "registry", "404", "error"}
+var fixedLayouts = []string{"page", "single", "home", "archive", "taxonomy", "author", "search", "registry", "404", "error", "coming-soon"}
 
 // layoutPrefixes name the family layouts: single-<schema>, archive-<schema>
 // and taxonomy-<kind>.
@@ -613,7 +613,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	// frame can drive the editor. Stylesheets and JSON-LD data blocks stay.
 	// Exceptions the gate cannot cover: sanitiser gaps and scripts a third-party
 	// theme hardcodes; the sandbox CSP and the bridge port are the backstop.
-	editor := v.Preview || v.Canvas
+	editor := v.Preview || v.Canvas || v.Access != nil // access notices run no plugin or page scripts
 	d.PluginHead, d.PluginBody = pluginAssetMarkup(!editor)
 	d.PluginHead += docCSS.head()
 	var islands template.HTML
@@ -777,6 +777,28 @@ func (e *Engine) RenderNotFound(w io.Writer, v *PageView) error {
 		nv.Page.Title = "Page not found"
 	}
 	return e.execute(w, []string{"404"}, &nv, http.StatusNotFound)
+}
+
+// RenderAccess renders layouts/coming-soon.html (noindex, no sections) for a
+// site access notice: coming soon, maintenance or the password form. It runs
+// no plugin, tracking or page scripts. v.Access must be set.
+func (e *Engine) RenderAccess(w io.Writer, v *PageView, status int) error {
+	nv := *v
+	nv.Sections, nv.Doc = nil, nil
+	nv.Kind = KindPage
+	nv.Page.NoIndex, nv.Page.RobotsRaw = true, ""
+	// The notice stands in for a site the visitor may not see: no menus, header
+	// button, social links, feeds or theme parts that could list its content.
+	nv.NoParts = true
+	nv.Site.Nav, nv.Site.FooterNav, nv.Site.SocialLinks = nil, nil, nil
+	nv.Site.HeaderCTA, nv.Site.Feeds = nil, nil
+	if nv.Access == nil {
+		nv.Access = &AccessView{}
+	}
+	if nv.Page.Title == "" {
+		nv.Page.Title = nv.Site.Name
+	}
+	return e.execute(w, []string{"coming-soon"}, &nv, status)
 }
 
 // RenderError renders layouts/error.html for an HTTP error status.

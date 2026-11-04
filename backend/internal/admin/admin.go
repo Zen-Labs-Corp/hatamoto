@@ -250,6 +250,9 @@ type Deps struct {
 	// PageCache is the rendered-page cache behind Settings > Performance;
 	// nil answers that page with 503.
 	PageCache PageCacheService
+	// SiteAccess is the public site gate (open, coming soon, maintenance,
+	// password) behind Settings > Site access; nil answers that page with 503.
+	SiteAccess SiteAccessService
 	// Spam is the spam protection settings behind Settings > Forms > Spam
 	// protection; nil answers that page with 503.
 	Spam SpamService
