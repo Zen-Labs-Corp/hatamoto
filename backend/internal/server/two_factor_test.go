@@ -24,6 +24,22 @@ func TestPasskeyRPNeedsASiteAddress(t *testing.T) {
 	}
 }
 
+func TestPasskeyRPOriginDropsTheDefaultPort(t *testing.T) {
+	t.Parallel()
+
+	for base, want := range map[string]string{
+		"https://example.com:443":  "https://example.com",
+		"http://example.com:80":    "http://example.com",
+		"https://example.com:8443": "https://example.com:8443",
+		"https://[::1]:443":        "https://[::1]",
+	} {
+		rp, err := (&Server{cfg: cfgWithBase(base)}).passkeyRP(context.Background())
+		if err != nil || len(rp.Origins) != 1 || rp.Origins[0] != want {
+			t.Errorf("%s: origins %v, %v; want %s", base, rp.Origins, err, want)
+		}
+	}
+}
+
 func TestSudoFactorMapsWrongCode(t *testing.T) {
 	t.Parallel()
 

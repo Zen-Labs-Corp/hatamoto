@@ -80,7 +80,15 @@ func (s *Server) passkeyRP(ctx context.Context) (twofactor.RP, error) {
 	if err != nil || u.Host == "" || u.Hostname() == "" {
 		return twofactor.RP{}, twofactor.ErrNoRelyingParty
 	}
-	return twofactor.RP{ID: u.Hostname(), Name: s.siteName(ctx), Origins: []string{u.Scheme + "://" + u.Host}}, nil
+	// Browsers send the origin without a default port.
+	host := u.Host
+	if (u.Scheme == "https" && u.Port() == "443") || (u.Scheme == "http" && u.Port() == "80") {
+		host = u.Hostname()
+		if strings.Contains(host, ":") {
+			host = "[" + host + "]"
+		}
+	}
+	return twofactor.RP{ID: u.Hostname(), Name: s.siteName(ctx), Origins: []string{u.Scheme + "://" + host}}, nil
 }
 
 // wireTwoFactor hands the admin its two-factor services and the sudo provider.
