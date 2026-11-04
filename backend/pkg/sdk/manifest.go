@@ -162,8 +162,37 @@ func (c *CSP) validate() error {
 			if seen[h] {
 				return fmt.Errorf("csp.%s: duplicate host %q", name, h)
 			}
+			if err := checkCSPHost(name, h); err != nil {
+				return err
+			}
 			seen[h] = true
 		}
+	}
+	return nil
+}
+
+// sharedHostSuffixes are public suffixes and multi-tenant platforms where
+// anyone can register a subdomain, so a wildcard over them trusts strangers.
+var sharedHostSuffixes = []string{"github.io", "githubusercontent.com", "herokuapp.com", "amazonaws.com", "cloudfront.net", "netlify.app", "vercel.app", "pages.dev", "workers.dev", "web.app", "firebaseapp.com", "blogspot.com", "azurewebsites.net", "appspot.com", "co.uk", "com.au", "co.jp", "co.nz", "org.uk"}
+
+// checkCSPHost refuses hosts a well-formed pattern still makes unsafe: a
+// wildcard in script-src (public-suffix wildcards such as *.github.io let
+// anyone who can register a subdomain serve scripts), a wildcard with fewer
+// than two labels after it, and IP literals.
+func checkCSPHost(list, h string) error {
+	host := strings.TrimPrefix(h, "https://")
+	wild := strings.HasPrefix(host, "*.")
+	if wild && list == "script_src" {
+		return fmt.Errorf("csp.%s: wildcard host %q is not allowed in script_src", list, h)
+	}
+	if wild && strings.Count(host, ".") < 2 {
+		return fmt.Errorf("csp.%s: wildcard host %q needs at least two labels after the *", list, h)
+	}
+	if wild && slices.Contains(sharedHostSuffixes, strings.TrimPrefix(host, "*.")) {
+		return fmt.Errorf("csp.%s: wildcard host %q covers hosts anyone can register", list, h)
+	}
+	if last := host[strings.LastIndex(host, ".")+1:]; last[0] >= '0' && last[0] <= '9' {
+		return fmt.Errorf("csp.%s: %q is an IP address, not a host name", list, h)
 	}
 	return nil
 }
