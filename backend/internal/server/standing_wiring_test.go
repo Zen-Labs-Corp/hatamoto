@@ -40,9 +40,13 @@ func (f *fakeStandingStore) Waiting(context.Context, string) ([]standing.Waiting
 	return f.waiting, nil
 }
 
-func (f *fakeStandingStore) Void(_ context.Context, _, reason string) error {
+func (f *fakeStandingStore) Void(_ context.Context, _, reason string) (int64, error) {
+	var n int64
+	if f.active != nil {
+		n = 1
+	}
 	f.active, f.voided = nil, &standing.Voided{Reason: reason}
-	return nil
+	return n, nil
 }
 
 func (f *fakeStandingStore) LastVoided(context.Context, string, string) (*standing.Voided, error) {
@@ -344,5 +348,28 @@ func TestTurnOffVoidsWithItsOwnReason(t *testing.T) {
 	}
 	if last := (*r.audits)[len(*r.audits)-1]; last != "standing.void" {
 		t.Fatalf("last audit = %s", last)
+	}
+}
+
+// A second or stale turn off finds nothing active and writes no audit row.
+func TestTurnOffAuditsOnlyWhenSomethingWasOn(t *testing.T) {
+	r := newStandingRig()
+	ctx := context.Background()
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", standingHash); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := r.svc.TurnOff(ctx, "pricer"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	voids := 0
+	for _, a := range *r.audits {
+		if a == "standing.void" {
+			voids++
+		}
+	}
+	if voids != 1 {
+		t.Fatalf("audits = %v, want one standing.void", *r.audits)
 	}
 }

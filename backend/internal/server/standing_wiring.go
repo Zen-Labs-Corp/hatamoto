@@ -29,7 +29,7 @@ type standingStore interface {
 	Approve(ctx context.Context, plugin, run string, p standing.Policy, fp standing.Fingerprint, by string) (standing.Approval, error)
 	Waiting(ctx context.Context, plugin string) ([]standing.WaitingRun, error)
 	LastVoided(ctx context.Context, plugin, run string) (*standing.Voided, error)
-	Void(ctx context.Context, plugin, reason string) error
+	Void(ctx context.Context, plugin, reason string) (int64, error)
 }
 
 // installedPlugin is the plugin as installed right now: its version and the
@@ -196,8 +196,9 @@ func (g *standingService) Approve(ctx context.Context, plugin, run, by, version,
 // TurnOff ends the plugin's approval because the owner asked. It only narrows
 // what the plugin may do, so the admin asks for no extra sign in.
 func (g *standingService) TurnOff(ctx context.Context, plugin string) error {
-	if err := g.store.Void(ctx, plugin, "turned off"); err != nil {
-		return err
+	n, err := g.store.Void(ctx, plugin, "turned off")
+	if err != nil || n == 0 {
+		return err // nothing was on: no audit row for a stale or repeated request
 	}
 	g.audit(ctx, "standing.void", "plugin:"+plugin, map[string]any{"reason": "turned off"})
 	return nil
@@ -236,7 +237,7 @@ func (g standingGate) Active(ctx context.Context, plugin, run string) (bool, err
 		if a.FP.Version != cur.Version || a.FP.ManifestHash != cur.ManifestHash {
 			reason = "plugin updated"
 		}
-		if err := g.store.Void(ctx, plugin, reason); err != nil {
+		if _, err := g.store.Void(ctx, plugin, reason); err != nil {
 			return false, err
 		}
 		g.audit(ctx, "standing.void", "plugin:"+plugin, map[string]any{"run": run, "approval_id": a.ID, "reason": reason})

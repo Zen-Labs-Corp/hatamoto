@@ -203,8 +203,11 @@ func TestVoidEndsTheActiveApproval(t *testing.T) {
 	if _, err := s.Approve(ctx, p, "sync", samplePolicy(), sampleFP("1.0.0"), ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Void(ctx, p, "schema changed"); err != nil {
-		t.Fatal(err)
+	if n, err := s.Void(ctx, p, "schema changed"); err != nil || n != 1 {
+		t.Fatalf("Void = %d, %v; want 1", n, err)
+	}
+	if n, err := s.Void(ctx, p, "again"); err != nil || n != 0 {
+		t.Fatalf("second Void = %d, %v; want 0", n, err)
 	}
 	if _, err := s.Active(ctx, p, "sync"); !errors.Is(err, ErrNoApproval) {
 		t.Fatalf("active after a void: %v", err)

@@ -91,12 +91,13 @@ func (s *Store) Approve(ctx context.Context, plugin, run string, p Policy, fp Fi
 }
 
 // Void ends the plugin's active approvals with a reason the Automatic updates
-// tab shows.
-func (s *Store) Void(ctx context.Context, plugin, reason string) error {
-	return s.DB.WithTx(ctx, func(tx pgx.Tx) error {
-		_, err := VoidTx(ctx, tx, plugin, reason)
+// tab shows. It returns how many approvals it ended (0 when none was active).
+func (s *Store) Void(ctx context.Context, plugin, reason string) (n int64, err error) {
+	err = s.DB.WithTx(ctx, func(tx pgx.Tx) error {
+		n, err = VoidTx(ctx, tx, plugin, reason)
 		return err
 	})
+	return n, err
 }
 
 // VoidTx voids every active approval of the plugin inside the caller's
