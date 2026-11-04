@@ -56,7 +56,13 @@ func (r *Runtime) tickRun(ctx context.Context, plugin string, run sdk.Run) error
 	if err != nil || !ok {
 		return err
 	}
-	_, err = r.StartRun(ctx, plugin, run.Name, StartRunInput{Trigger: plugrun.TriggerCron})
+	// No owner confirms hosts for a cron run: it gets the manifest's
+	// allowed_hosts the owner saw at install, without the "*" wildcard.
+	var hosts []string
+	if m, ok := r.manifest(plugin); ok {
+		hosts = slices.DeleteFunc(slices.Clone(m.AllowedHosts), func(h string) bool { return h == "*" })
+	}
+	_, err = r.StartRun(ctx, plugin, run.Name, StartRunInput{Trigger: plugrun.TriggerCron, Hosts: hosts})
 	if errors.Is(err, ErrActiveRun) {
 		return nil // the previous run is still going: skip this tick
 	}

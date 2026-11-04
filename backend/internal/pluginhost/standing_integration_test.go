@@ -6,8 +6,12 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"hatamoto.dev/core/internal/changeset"
@@ -46,6 +50,8 @@ type cronRig struct {
 	rt    *Runtime
 	sched *fakeScheduler
 	gate  *fakeGate
+	feed  *httptest.Server
+	hits  atomic.Int32 // requests the feed has served
 }
 
 // newCronRig loads a plugin whose "tick" cron job is bound to a run with a
@@ -60,9 +66,19 @@ func newCronRig(t *testing.T) *cronRig {
 	}
 	t.Cleanup(func() { rt.Close(context.Background()) })
 	r := &cronRig{driverRig: d, rt: rt, sched: &fakeScheduler{}, gate: &fakeGate{active: true}}
-	rt.Configure(Config{Services: Services{Runs: d.runs, Changesets: d.eng}, Scheduler: r.sched})
+	r.feed = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		r.hits.Add(1)
+		w.Write([]byte(`{}`))
+	}))
+	t.Cleanup(r.feed.Close)
+	feedURL, _ := url.Parse(r.feed.URL)
+	rt.Configure(Config{Services: Services{Runs: d.runs, Changesets: d.eng, Fetcher: NewFetcherForTests()}, Scheduler: r.sched})
+	if err := rt.Grants().Set(context.Background(), cronPlugin, []sdk.Permission{sdk.PermHTTPFetch}); err != nil {
+		t.Fatal(err)
+	}
 	rt.SetStandingGate(r.gate)
 	m := sdk.Manifest{Name: cronPlugin, Version: "0.1.0", SDK: "^0.17",
+		Permissions: []sdk.Permission{sdk.PermHTTPFetch, sdk.PermHTTPFetchAny}, AllowedHosts: []string{feedURL.Host, "*"},
 		Cron: []sdk.CronJob{{Name: "tick", Every: "1h"}},
 		Runs: []sdk.Run{{Name: "sync", Title: "Sync", Stages: []string{sdk.RunPhaseFetch, sdk.RunPhaseTransform},
 			Cron: "tick", StandingApproval: &sdk.StandingApproval{Fields: []string{"price"}, Schemas: []string{"product"}}}}}
@@ -118,6 +134,25 @@ func TestCronRunAutoPublishUsesChangeset(t *testing.T) {
 	}
 	if got := r.changesetState(*runs[0].ChangesetID); got != changeset.StateStaged {
 		t.Fatalf("changeset is %s: only the gate may publish", got)
+	}
+}
+
+// A cron started run has no owner to confirm hosts, so it gets the manifest's
+// allowed_hosts (never "*") and its fetch phase can read from them.
+func TestCronStartedRunFetchesFromAllowedHost(t *testing.T) {
+	r := newCronRig(t)
+	if err := r.tick(); err != nil {
+		t.Fatal(err)
+	}
+	r.rt.WaitRuns()
+	run := r.runs2()[0]
+	if run.State != plugrun.StateFinished || r.hits.Load() != 1 {
+		t.Fatalf("state %s (%q), feed served %d requests", run.State, run.Reason, r.hits.Load())
+	}
+	for _, h := range run.Hosts {
+		if h == "*" {
+			t.Fatalf("hosts %v include the wildcard", run.Hosts)
+		}
 	}
 }
 
