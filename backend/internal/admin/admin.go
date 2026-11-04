@@ -29,6 +29,7 @@ import (
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/session"
 	"hatamoto.dev/core/internal/siteconfig"
+	"hatamoto.dev/core/internal/twofactor"
 	"hatamoto.dev/core/internal/user"
 	"hatamoto.dev/core/internal/webhook"
 	"hatamoto.dev/core/web"
@@ -68,6 +69,24 @@ type StarterInstaller interface {
 type Authenticator interface {
 	LoginSession(ctx context.Context, email, password, userAgent, ip string) (*user.User, string, error)
 	IssueSession(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error)
+}
+
+// PasswordStep is the two-step half of auth.Service: CheckPassword verifies
+// the password without issuing a session; IssueVerifiedSession is the only way
+// to a session for a user who has a second factor, and is called only after
+// that factor was verified (or none exists).
+type PasswordStep interface {
+	CheckPassword(ctx context.Context, email, password string) (*user.User, error)
+	IssueVerifiedSession(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error)
+}
+
+// TwoFactorService is the second-factor domain (twofactor.Service) as the
+// sign-in screens use it.
+type TwoFactorService interface {
+	HasAnyFactor(ctx context.Context, uid uuid.UUID) (bool, error)
+	// Verify checks a typed code; twofactor.ErrWrongCode is the neutral refusal.
+	Verify(ctx context.Context, uid uuid.UUID, code string) error
+	Status(ctx context.Context, uid uuid.UUID) (twofactor.Factors, error)
 }
 
 // TokenService is the reset/invite token flow (auth.UserTokens).
@@ -158,9 +177,14 @@ type Deps struct {
 	Site     SiteStore
 	Nav      *Nav
 	Auth     Authenticator
-	Tokens   TokenService
-	Finder   UserFinder
-	Mailer   Mailer
+	// TwoFactor, with an Auth that is also a PasswordStep and a PendingKey,
+	// turns on two-step sign-in. nil means password-only sign-in.
+	TwoFactor TwoFactorService
+	// PendingKey signs the pending sign-in cookie (twofactor.PendingKeyFor).
+	PendingKey twofactor.PendingKey
+	Tokens     TokenService
+	Finder     UserFinder
+	Mailer     Mailer
 	// BaseURL returns the site address the owner or operator configured
 	// (PUBLIC_BASE_URL, else the Site address setting); "" when none is set.
 	// Emailed links use only this, never the request's headers.
