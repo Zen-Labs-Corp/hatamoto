@@ -119,7 +119,7 @@ func TestTagPackAuditDetailAndCount(t *testing.T) {
 		t.Fatalf("detail = %v", d)
 	}
 	none := map[string]any{}
-	addTagDetail(none, parse(t, mustPack(t, map[string][]byte{PluginManifest: []byte(`{"name":"hello","version":"1.0.0","sdk":"^0.11"}`), PluginWasm: []byte("\x00asm")})))
+	addTagDetail(none, parse(t, packFilesT(t, map[string][]byte{PluginManifest: []byte(`{"name":"hello","version":"1.0.0","sdk":"^0.11"}`), PluginWasm: []byte("\x00asm")})))
 	if len(none) != 0 {
 		t.Fatalf("detail for a wasm plugin = %v", none)
 	}
@@ -133,7 +133,7 @@ func TestTagPackAuditDetailAndCount(t *testing.T) {
 	}
 }
 
-func mustPack(t *testing.T, files map[string][]byte) []byte {
+func packFilesT(t *testing.T, files map[string][]byte) []byte {
 	t.Helper()
 	raw, err := PackFiles(files, nil)
 	if err != nil {
