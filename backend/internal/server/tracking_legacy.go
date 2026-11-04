@@ -106,7 +106,7 @@ func (s *Server) retireTrackingPlugins(ctx context.Context) {
 			log.Error("tracking: copying the old plugin's ID failed; the plugin is kept and the copy retried next start", slog.Any("error", err))
 			continue
 		}
-		uninstalled := s.packages.Uninstall(ctx, packages.KindPlugin, lp.plugin, true) == nil
+		uninstalled := s.packages.Uninstall(ctx, packages.KindPlugin, lp.plugin, packages.UninstallOpts{DropData: true}) == nil
 		if !uninstalled {
 			log.Error("tracking: uninstalling the old plugin failed; it is retried next start")
 		}
