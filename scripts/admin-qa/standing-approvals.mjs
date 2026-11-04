@@ -47,7 +47,8 @@ const cs = psql(`
   SELECT id, 'frameplug', 'staged', now() + interval '70 hours', 15 FROM run RETURNING id`).split("\n")[0];
 await p.goto(tab, { waitUntil: "load" });
 const outside = await p.locator("#outside").innerText();
-check(/is waiting for you/.test(outside) && /15 changes staged/.test(outside), "the waiting run is called out", outside);
+check(new RegExp(`run #${cs} is waiting for you`).test(outside) && /15 changes staged/.test(outside), "the waiting run is called out", outside);
+await shot(p, "standing-s8-waiting-1440.png");
 check((await p.locator(`#outside a[href$="/plugins/frameplug/changesets/${cs}"]`).count()) === 1, "the callout links to the review");
 
 // Allowing asks for the password first, and that POST is not replayed.
@@ -80,10 +81,11 @@ const body = await p.locator("main").innerText();
 check(/Updated/.test(body) && /Its automatic updates are paused\./.test(body), "the paused callout and the Updated badge show", body.slice(0, 300));
 check((await p.getByRole("link", { name: "Review and allow again" }).count()) === 1 && (await p.getByRole("link", { name: "Keep paused" }).count()) === 1, "both choices are offered");
 const summary = await p.locator("#summary-card").innerText().catch(() => "");
+check((await p.locator("#opt1, #opt2, #outside").count()) === 0, "the paused tab shows no rule cards, only the notice and the summary");
 check(/Daily summary, /.test(summary) && /frameplug/.test(summary) && /See runs/.test(summary), "the daily summary lists the automatic run", summary);
 await shot(p, "standing-s9-1440.png");
 await p.getByRole("link", { name: "Review and allow again" }).click();
-check(p.url().endsWith("#opt2"), "Review and allow again goes to the rule", p.url());
+check(p.url().endsWith("?review=1") && (await p.locator("#opt2").count()) === 1, "Review and allow again brings the rule back", p.url());
 
 check(errors.length === 0, "no page or console errors", errors.join(" | "));
 await b.close();
