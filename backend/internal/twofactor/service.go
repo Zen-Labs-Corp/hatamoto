@@ -310,6 +310,11 @@ func (s *Service) RemovePasskey(ctx context.Context, uid, id uuid.UUID) (bool, e
 	return true, s.dropCodesIfNoFactor(ctx, uid)
 }
 
+// Passkeys lists the user's passkeys, oldest first.
+func (s *Service) Passkeys(ctx context.Context, uid uuid.UUID) ([]Passkey, error) {
+	return s.repo.ListPasskeys(ctx, uid)
+}
+
 // Reset removes every factor of the user (the CLI lock-out path).
 func (s *Service) Reset(ctx context.Context, uid uuid.UUID) (Removed, error) {
 	return s.repo.Reset(ctx, uid)

@@ -87,10 +87,21 @@ type TwoFactorService interface {
 	// Verify checks a typed code; twofactor.ErrWrongCode is the neutral refusal.
 	Verify(ctx context.Context, uid uuid.UUID, code string) error
 	Status(ctx context.Context, uid uuid.UUID) (twofactor.Factors, error)
+	// Counts is Status for many users at once (the Users table).
+	Counts(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]twofactor.Factors, error)
+	Passkeys(ctx context.Context, uid uuid.UUID) ([]twofactor.Passkey, error)
+	BeginTOTP(ctx context.Context, uid uuid.UUID, account string) (secretB32, uri string, err error)
+	PendingSecret(ctx context.Context, uid uuid.UUID, account string) (secretB32, uri string, err error)
+	ConfirmTOTP(ctx context.Context, uid uuid.UUID, code string) ([]string, error)
+	RegenerateCodes(ctx context.Context, uid uuid.UUID) ([]string, error)
+	RemoveTOTP(ctx context.Context, uid uuid.UUID) error
+	RemovePasskey(ctx context.Context, uid, id uuid.UUID) (bool, error)
 }
 
-// PasskeyLogin is the passkey sign-in ceremony (twofactor.Passkeys).
-type PasskeyLogin interface {
+// PasskeyService is the passkey ceremonies, sign-in and enrolment (twofactor.Passkeys).
+type PasskeyService interface {
+	BeginRegistration(ctx context.Context, uid uuid.UUID, name, displayName string) (json.RawMessage, string, error)
+	FinishRegistration(ctx context.Context, ceremonyID string, uid uuid.UUID, keyName string, r *http.Request) (uuid.UUID, error)
 	BeginLogin(ctx context.Context, uid *uuid.UUID) (json.RawMessage, string, error)
 	FinishLogin(ctx context.Context, ceremonyID string, uid *uuid.UUID, r *http.Request) (uuid.UUID, error)
 }
@@ -187,7 +198,7 @@ type Deps struct {
 	// turns on two-step sign-in. nil means password-only sign-in.
 	TwoFactor TwoFactorService
 	// Passkeys is the passkey sign-in; nil answers its endpoints with 404.
-	Passkeys PasskeyLogin
+	Passkeys PasskeyService
 	// PendingKey signs the pending sign-in cookie (twofactor.PendingKeyFor).
 	PendingKey twofactor.PendingKey
 	Tokens     TokenService

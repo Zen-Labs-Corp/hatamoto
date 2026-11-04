@@ -46,14 +46,91 @@ type fakeTwoFactor struct {
 	recovery string
 	fails    int
 	verifies int
+
+	// Security page state: secure switches the fake from "has a factor" to the fields below.
+	secure   bool
+	totpOn   bool
+	pending  bool
+	keys     []twofactor.Passkey
+	left     int
+	confirm  string
+	removedP int
+	newCodes []string
 }
 
 func (f *fakeTwoFactor) HasAnyFactor(_ context.Context, id uuid.UUID) (bool, error) {
+	if f.secure {
+		return f.totpOn || len(f.keys) > 0, f.hasErr
+	}
 	return f.hasErr == nil && id == f.uid, f.hasErr
 }
 
 func (f *fakeTwoFactor) Status(context.Context, uuid.UUID) (twofactor.Factors, error) {
+	if f.secure {
+		return twofactor.Factors{TOTP: f.totpOn, Passkeys: len(f.keys), RecoveryLeft: f.left}, nil
+	}
 	return twofactor.Factors{TOTP: true, Passkeys: f.passkeys}, nil
+}
+
+func (f *fakeTwoFactor) Counts(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]twofactor.Factors, error) {
+	out := map[uuid.UUID]twofactor.Factors{}
+	for _, id := range ids {
+		if id == f.uid {
+			out[id] = twofactor.Factors{TOTP: true}
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeTwoFactor) Passkeys(context.Context, uuid.UUID) ([]twofactor.Passkey, error) {
+	return f.keys, nil
+}
+
+func (f *fakeTwoFactor) BeginTOTP(context.Context, uuid.UUID, string) (string, string, error) {
+	if f.totpOn {
+		return "", "", twofactor.ErrAlreadyEnrolled
+	}
+	f.pending = true
+	return "JBSWY3DPEHPK3PXP", "otpauth://totp/Acme:olga@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Acme", nil
+}
+
+func (f *fakeTwoFactor) PendingSecret(ctx context.Context, uid uuid.UUID, a string) (string, string, error) {
+	if !f.pending || f.totpOn {
+		return "", "", twofactor.ErrNothingPending
+	}
+	return "JBSWY3DPEHPK3PXP", "otpauth://totp/Acme:olga@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Acme", nil
+}
+
+func (f *fakeTwoFactor) ConfirmTOTP(_ context.Context, _ uuid.UUID, code string) ([]string, error) {
+	if !f.pending {
+		return nil, twofactor.ErrNothingPending
+	}
+	if code != f.confirm {
+		return nil, twofactor.ErrWrongCode
+	}
+	f.pending, f.totpOn, f.left = false, true, 10
+	return []string{"AAAA-BBBB-CCCC", "DDDD-EEEE-FFFF"}, nil
+}
+
+func (f *fakeTwoFactor) RegenerateCodes(context.Context, uuid.UUID) ([]string, error) {
+	f.left = 10
+	return []string{"GGGG-HHHH-JJJJ"}, nil
+}
+
+func (f *fakeTwoFactor) RemoveTOTP(context.Context, uuid.UUID) error {
+	f.totpOn = false
+	return nil
+}
+
+func (f *fakeTwoFactor) RemovePasskey(_ context.Context, _, id uuid.UUID) (bool, error) {
+	for i, k := range f.keys {
+		if k.ID == id {
+			f.keys = append(f.keys[:i:i], f.keys[i+1:]...)
+			f.removedP++
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (f *fakeTwoFactor) Verify(_ context.Context, id uuid.UUID, code string) error {

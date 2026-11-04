@@ -1,0 +1,17 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Two-step sign-in" "Description" "Ask for a second proof after your password." "CSRF" $.CSRF}}
+{{if .Required}}{{template "hm/callout-start" (dict "Kind" "info" "Title" "Required on this site")}}Your site asks for two-step sign-in. Keep at least one method.{{template "hm/callout-end"}}{{end}}
+{{template "hm/card-start" dict "ID" "totp-card" "Title" "Authenticator app" "Description" "A 6-digit code from an app on your phone."}}
+<p>Status: {{if .TOTP}}{{template "hm/badge" (dict "Label" "On" "Kind" "success")}}{{else}}{{template "hm/badge" (dict "Label" "Off" "Kind" "neutral")}}{{end}}</p>
+{{template "hm/card-foot"}}
+{{if .TOTP}}<form method="post" action="{{adminPath}}/profile/security/totp/remove">{{template "hm/csrf" $}}{{template "hm/button" dict "Label" "Remove" "Variant" "danger-text" "Type" "submit"}}</form>
+{{else}}{{template "hm/button" dict "Label" "Set up" "Variant" "primary" "Href" (printf "%s/profile/security/totp" adminPath)}}{{end}}
+{{template "hm/card-foot-end"}}
+{{template "hm/card-start" dict "ID" "codes-card" "Title" "Recovery codes" "Description" "One-time codes for when you lose your device."}}
+{{if .HasFactor}}<p>{{.RecoveryLeft}} of {{.RecoveryTotal}} left.</p>{{else}}<p class="hm-muted">Recovery codes are made when you set up a method.</p>{{end}}
+{{template "hm/card-foot"}}
+{{if .HasFactor}}<form method="post" action="{{adminPath}}/profile/security/codes">{{template "hm/csrf" $}}{{template "hm/button" dict "Label" "Get new codes" "Type" "submit"}}</form>{{end}}
+{{template "hm/card-foot-end"}}
+<div class="hm-row"><h2>Passkeys</h2>{{template "hm/badge" (dict "Label" (printf "%d" .PasskeyCount) "Kind" "neutral")}}{{template "hm/button" dict "Label" "Add a passkey" "Href" (printf "%s/profile/security/passkeys/add" adminPath)}}</div>
+{{template "hm/table" .Passkeys}}
+{{end}}{{end}}

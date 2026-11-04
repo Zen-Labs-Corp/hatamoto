@@ -159,3 +159,21 @@ func TestPasskeyButtonsGolden(t *testing.T) {
 	}
 	compareGolden(t, "pages/auth-two-step-passkey.html", normalizePage(two))
 }
+
+func (f *fakePasskeys) BeginRegistration(_ context.Context, uid uuid.UUID, _, _ string) (json.RawMessage, string, error) {
+	id := uuid.NewString()
+	if f.ceremony == nil {
+		f.ceremony = map[string]*uuid.UUID{}
+	}
+	f.ceremony[id] = &uid
+	return json.RawMessage(`{"publicKey":{"challenge":"AAAA"}}`), id, nil
+}
+
+func (f *fakePasskeys) FinishRegistration(_ context.Context, id string, uid uuid.UUID, _ string, _ *http.Request) (uuid.UUID, error) {
+	want, ok := f.ceremony[id]
+	delete(f.ceremony, id)
+	if !ok || want == nil || *want != uid {
+		return uuid.Nil, twofactor.ErrPasskeyFailed
+	}
+	return uuid.New(), nil
+}

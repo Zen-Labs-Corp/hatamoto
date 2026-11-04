@@ -365,7 +365,10 @@ func (c *checker) page() {
 		case "html":
 			htmlLang = attrv(n, "lang")
 		case "title":
-			title = text(n)
+			// An SVG <title> names the graphic, not the page.
+			if n.Parent == nil || n.Parent.Data != "svg" {
+				title = text(n)
+			}
 		case "main":
 			mains++
 			if attrv(n, "id") != "hm-main" {
