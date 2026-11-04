@@ -176,3 +176,76 @@ func TestFAQEnabledDefaultsOn(t *testing.T) {
 		t.Errorf("false must read as off: %v", err)
 	}
 }
+
+func TestURLSettings_LocaleNeutral(t *testing.T) {
+	t.Parallel()
+	for in, want := range map[string]bool{
+		`{"locale_neutral":true}`:  true,
+		`{"locale_neutral":false}`: false,
+		`{}`:                       false,
+		`{"locale_neutral":"yes"}`: false,
+		`{"locale_neutral":1}`:     false,
+	} {
+		st, err := (&EntitySchema{Settings: json.RawMessage(in)}).URLSettings()
+		if err != nil {
+			t.Fatalf("%s: %v", in, err)
+		}
+		if st.IsLocaleNeutral() != want {
+			t.Errorf("%s: IsLocaleNeutral = %v, want %v", in, st.IsLocaleNeutral(), want)
+		}
+	}
+}
+
+func TestValidateSchemaSettingsForWrite_LocaleNeutral(t *testing.T) {
+	t.Parallel()
+	for in, ok := range map[string]bool{
+		`{"locale_neutral":"yes"}`:             false,
+		`{"locale_neutral":1}`:                 false,
+		`{"locale_neutral":null}`:              false,
+		`{"locale_neutral":true}`:              true,
+		`{"locale_neutral":false}`:             true,
+		`{"locale_neutral":true,"x_custom":1}`: true,
+	} {
+		err := ValidateSchemaSettingsForWrite(json.RawMessage(in))
+		if (err == nil) != ok {
+			t.Errorf("%s: err = %v, want ok=%v", in, err, ok)
+		}
+	}
+}
+
+func TestBuildURLSnapshot_BadLocaleNeutralKeepsURLConfig(t *testing.T) {
+	for _, v := range []string{`"yes"`, `1`, `null`, `[true]`} {
+		schemas := []*EntitySchema{{
+			Slug:     "guide",
+			Settings: json.RawMessage(`{"url_pattern":"/guides/{slug}","locale_neutral":` + v + `}`),
+		}}
+		snap, err := BuildURLSnapshot(schemas, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := snap.EntityPath(&Entity{Slug: "x", Schema: schemas[0]}, nil); got != "/guides/x" {
+			t.Errorf("locale_neutral %s: path = %q, want /guides/x", v, got)
+		}
+	}
+}
+
+func TestDefaultLocale(t *testing.T) {
+	t.Parallel()
+	flagged := &EntitySchema{Settings: json.RawMessage(`{"locale_neutral":true}`)}
+	for _, c := range []struct {
+		name     string
+		s        *EntitySchema
+		explicit string
+		want     string
+	}{
+		{"flagged omitted", flagged, "", "und"},
+		{"flagged explicit kept", flagged, "en-AU", "en-AU"},
+		{"unflagged omitted", &EntitySchema{Settings: json.RawMessage(`{"locale_neutral":false}`)}, "", ""},
+		{"empty settings", &EntitySchema{}, "", ""},
+		{"nil schema", nil, "", ""},
+	} {
+		if got := c.s.DefaultLocale(c.explicit); got != c.want {
+			t.Errorf("%s: got %q, want %q", c.name, got, c.want)
+		}
+	}
+}

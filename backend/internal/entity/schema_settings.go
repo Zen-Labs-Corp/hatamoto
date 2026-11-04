@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -59,6 +60,38 @@ type SchemaURLSettings struct {
 	// form, EditorPost is the post (TipTap) editor used by blog posts.
 	// Any other value, including a non-string, reads as "" (checked on write only).
 	Editor EditorSetting `json:"editor,omitempty"`
+	// LocaleNeutral makes new entries of the type default to the shared locale
+	// (und) when the create call names none. Anything but JSON true reads as
+	// false (checked on write only).
+	LocaleNeutral LocaleNeutralSetting `json:"locale_neutral,omitempty"`
+}
+
+// LocaleNeutralSetting is settings.locale_neutral as stored. It decodes
+// leniently: anything but JSON true is false, so a stale or hand-edited value
+// can never make URLSettings fail and reset the schema's URL routing.
+type LocaleNeutralSetting bool
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (l *LocaleNeutralSetting) UnmarshalJSON(b []byte) error {
+	*l = string(bytes.TrimSpace(b)) == "true"
+	return nil
+}
+
+// IsLocaleNeutral reports whether new entries default to the shared locale.
+func (st SchemaURLSettings) IsLocaleNeutral() bool { return bool(st.LocaleNeutral) }
+
+// DefaultLocale returns the locale a new entry of this type gets: the explicit
+// one when given, else the shared locale for a locale-neutral type, else ""
+// (the repository then stores the site language). Call it after NormalizeLocale
+// so a user-supplied und is still rejected.
+func (s *EntitySchema) DefaultLocale(explicit string) string {
+	if explicit != "" {
+		return explicit
+	}
+	if st, err := s.URLSettings(); err == nil && st.IsLocaleNeutral() {
+		return LocaleShared
+	}
+	return ""
 }
 
 // EditorSetting is settings.editor as stored. It decodes leniently: a value
@@ -205,6 +238,11 @@ func ValidateSchemaSettingsForWrite(raw json.RawMessage) error {
 		var ed string
 		if json.Unmarshal(v, &ed) != nil || (ed != "" && ed != EditorPost) {
 			return settingsErr("editor", "settings.editor must be empty or %q", EditorPost)
+		}
+	}
+	if v, ok := obj["locale_neutral"]; ok {
+		if b := string(bytes.TrimSpace(v)); b != "true" && b != "false" {
+			return settingsErr("locale_neutral", "settings.locale_neutral must be true or false")
 		}
 	}
 	return nil
