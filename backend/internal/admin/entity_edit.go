@@ -143,7 +143,9 @@ type entityForm struct {
 	PublicURL, EditorURL string
 	Version              int
 	Actions              []ui.Button
-	Subtitle             string
+	// Overflow is the header's More actions menu (Duplicate).
+	Overflow []ui.Action
+	Subtitle string
 	// Panel is the shared SEO panel; AnalyzeURL is where it refreshes (empty on
 	// a new entity, which has no address yet) and Noun what the entry is called.
 	Panel      seoPanel
@@ -732,6 +734,10 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 	}
 	if f.EditorURL != "" {
 		f.Actions = append(f.Actions, ui.Button{Label: "Visual editor", Href: f.EditorURL})
+	}
+	f.Overflow = nil
+	if !f.New && a.deps.Content.Duplicator != nil && canEditTranslations(r) && entity.CanDuplicate(sc) {
+		f.Overflow = append(f.Overflow, ui.Action{Label: "Duplicate", Hint: "Copy into a new draft", Post: a.adminPath + "/entities/" + f.ID + "/duplicate"})
 	}
 	if f.Errors == nil {
 		f.Errors = map[string]string{}
