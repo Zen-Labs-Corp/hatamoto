@@ -227,7 +227,7 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 		}
 		if p.Name == legacyWebhooksPlugin {
 			row.Legacy, row.RemoveHref = "other", a.pluginURL(p.Name, "uninstall")
-			if p.Package != nil && p.Package.FirstParty {
+			if p.Package != nil && p.Package.LegacyFirstParty {
 				// Remove is offered only once core holds the subscriptions: removing the
 				// plugin earlier would strand them (boot never imports a plugin with no package row).
 				row.Legacy = "imported"

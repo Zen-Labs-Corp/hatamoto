@@ -73,3 +73,28 @@ func TestPluginAdminCommunityGrant(t *testing.T) {
 		t.Errorf("granted after save = %v", g)
 	}
 }
+
+// The legacy webhooks row is judged by its key alone (it is not on the first-party
+// list), while the star follows the list: a community row signed by a first-party
+// key gets no star.
+func TestPluginAdminLegacyWebhooksMeta(t *testing.T) {
+	r := newLegacyRig(t)
+	s := r.s
+	ctx := context.Background()
+	const signer = "adea8e00f5ac74ca" // the rig signs its webhooks row with the same first-party key
+	if _, err := s.db.Pool().Exec(ctx, `INSERT INTO hatamoto_packages (kind, name, version, manifest, data, sha256, signature, signer_key_id, source)
+		VALUES ('plugin', 'fancy', '0.1.0', '{"name":"fancy","version":"0.1.0"}', '\x00', 'x', '\x00', $1, 'registry')`, signer); err != nil {
+		t.Fatal(err)
+	}
+	pa := pluginAdmin{s: s, pkgs: &packageAdmin{s: s}}
+	got := map[string]*admin.PackageMeta{}
+	for _, p := range pa.Plugins() {
+		got[p.Name] = p.Package
+	}
+	if w := got[legacyWebhooksPlugin]; w == nil || !w.LegacyFirstParty || w.FirstParty {
+		t.Errorf("webhooks row: %+v, want LegacyFirstParty and no star", w)
+	}
+	if f := got["fancy"]; f == nil || f.FirstParty || f.LegacyFirstParty {
+		t.Errorf("community row: %+v, want neither", f)
+	}
+}

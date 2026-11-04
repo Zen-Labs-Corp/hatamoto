@@ -87,6 +87,10 @@ type PackageMeta struct {
 	// FirstParty is set when the package is signed by one of the project's own keys
 	// (whether that key is still trusted is Blocked's business).
 	FirstParty bool
+	// LegacyFirstParty (webhooks row only) is set when the row is signed by a
+	// first-party key. The plugin is no longer on the first-party list, so
+	// FirstParty cannot say whether it is the real one.
+	LegacyFirstParty bool
 	// WebhooksImported is set (webhooks row only) when the boot step has recorded that
 	// the plugin's subscriptions were copied into core.
 	WebhooksImported bool
