@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS hatamoto_webauthn_ceremonies (
   data       jsonb NOT NULL,
   expires_at timestamptz NOT NULL
 );
+-- The purge on every begin deletes by expires_at.
+CREATE INDEX IF NOT EXISTS hatamoto_webauthn_ceremonies_expires_idx ON hatamoto_webauthn_ceremonies (expires_at);
 
 -- +goose Down
 DROP TABLE IF EXISTS hatamoto_webauthn_ceremonies;
