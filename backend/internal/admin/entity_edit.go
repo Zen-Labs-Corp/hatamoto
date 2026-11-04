@@ -1377,6 +1377,9 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 	if note := a.afterSave(r, p, updated, sc, e.Status); note != "" {
 		msg, kind = "Saved. "+note, "error"
 	}
+	if updated.TookOwnership {
+		msg += " " + a.tookOverNote(r, e.ID)
+	}
 	a.SetFlash(w, r, kind, msg)
 	Redirect(w, r, a.adminPath+"/entities/"+e.ID.String())
 }

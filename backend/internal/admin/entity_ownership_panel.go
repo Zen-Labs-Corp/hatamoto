@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
 )
@@ -73,6 +75,18 @@ func (a *Admin) ownershipPanel(r *http.Request, e *entity.Entity) *ownershipPane
 		}
 	}
 	return p
+}
+
+// tookOverNote is the sentence a save adds to its flash when it took a plugin's
+// page over, so the person is told that the page left the plugin's care.
+func (a *Admin) tookOverNote(r *http.Request, id uuid.UUID) string {
+	who := "its plugin"
+	if own := a.deps.Content.Ownership; own != nil {
+		if o, err := own.Get(r.Context(), id); err == nil && o != nil && o.Plugin != "" {
+			who = a.pluginLabel(o.Plugin)
+		}
+	}
+	return fmt.Sprintf("This page is yours now, so %s no longer updates it.", who)
 }
 
 // pluginLabel is the name people know a plugin by: the title of its first

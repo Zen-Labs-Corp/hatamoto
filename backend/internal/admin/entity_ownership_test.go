@@ -162,3 +162,48 @@ func TestEntitySaveAuditsTakeOver(t *testing.T) {
 		}
 	}
 }
+
+// A save that took a plugin's page over tells the person in the flash.
+func TestSaveFlashSaysWhenPageIsYoursNow(t *testing.T) {
+	t.Parallel()
+	const note = "Saved. This page is yours now, so Demo Import no longer updates it."
+	plugins := &fakePlugins{list: []PluginInfo{{Name: "demo", Runs: []RunDecl{{Name: "sync", Title: "Demo Import"}}}}}
+
+	t.Run("entity form", func(t *testing.T) {
+		t.Parallel()
+		c, _ := ownershipRig(t)
+		c.a.deps.Growth.Plugins = plugins
+		c.ents.tookOwnership = true
+		c.a.deps.Content.Ownership.(*fakeOwnership).own = yoursOwnership
+		path := "/admin/entities/" + fid(12).String()
+		rec := c.post(path, url.Values{"name": {"Beta renamed"}, "slug": {"beta"}, "status": {"draft"}, "attr.summary": {"New"}})
+		if rec.Code != 303 {
+			t.Fatalf("save: %d", rec.Code)
+		}
+		has(t, c.next(rec, path), note)
+	})
+
+	t.Run("blog editor", func(t *testing.T) {
+		t.Parallel()
+		r := newBlogRig(t)
+		f := &fakeOwnership{own: yoursOwnership}
+		r.a.deps.Content.Ownership = f
+		r.a.deps.Growth.Plugins = plugins
+		r.ents.tookOwnership = true
+		form := r.form(t)
+		form.Set("_op", "save")
+		rec := r.post(r.path(), form)
+		if rec.Code != 303 {
+			t.Fatalf("save: %d %s", rec.Code, rec.Body)
+		}
+		has(t, r.next(rec, r.path()), note)
+	})
+
+	t.Run("no take-over, no sentence", func(t *testing.T) {
+		t.Parallel()
+		c, _ := ownershipRig(t)
+		path := "/admin/entities/" + fid(12).String()
+		rec := c.post(path, url.Values{"name": {"Beta renamed"}, "slug": {"beta"}, "status": {"draft"}, "attr.summary": {"New"}})
+		lacks(t, c.next(rec, path), "yours now")
+	})
+}
