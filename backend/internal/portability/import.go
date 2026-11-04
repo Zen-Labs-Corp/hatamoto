@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -619,7 +618,7 @@ func (m *mediaStage) add(rel string, r io.Reader) (n int64, warn string, err err
 	br := bufio.NewReaderSize(r, 512)
 	head, _ := br.Peek(512)
 	ext := filepath.Ext(clean)
-	if sniffed := http.DetectContentType(head); !media.ExtensionMatchesMIME(ext, sniffed) && !media.ImageTypeAndExtensionAllowed(ext, sniffed) {
+	if sniffed := media.SniffContentType(head); !media.ExtensionMatchesMIME(ext, sniffed) && !media.ImageTypeAndExtensionAllowed(ext, sniffed) {
 		n, err := io.Copy(io.Discard, br)
 		if err != nil {
 			return 0, "", err

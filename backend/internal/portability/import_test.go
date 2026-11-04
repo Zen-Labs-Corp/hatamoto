@@ -156,3 +156,15 @@ func TestMediaStageAcceptsJPEGBytesNamedWebP(t *testing.T) {
 		t.Errorf("staged %v, want only the webp-named jpeg", st.staged)
 	}
 }
+
+func TestMediaStageAcceptsAVIFCopies(t *testing.T) {
+	st := &mediaStage{root: t.TempDir()}
+	defer st.cleanup()
+	avif := "\x00\x00\x00\x1cftypavif\x00\x00\x00\x00avifmif1miaf"
+	if _, warn, err := st.add("default/a_large.avif", strings.NewReader(avif)); err != nil || warn != "" {
+		t.Fatalf("avif copy: warn=%q err=%v", warn, err)
+	}
+	if _, warn, _ := st.add("default/b.png", strings.NewReader(avif)); warn != "" {
+		t.Errorf("an AVIF copy under another image extension is still an allowed image pair, got %q", warn)
+	}
+}

@@ -260,7 +260,7 @@ func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
 	// Detect content type
 	buffer := make([]byte, 512)
 	n, _ := file.Read(buffer)
-	contentType := http.DetectContentType(buffer[:n])
+	contentType := media.SniffContentType(buffer[:n])
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to access file")
 		return

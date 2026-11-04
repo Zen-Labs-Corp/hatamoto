@@ -1,8 +1,10 @@
 package media
 
-import "slices"
-
-import "strings"
+import (
+	"net/http"
+	"slices"
+	"strings"
+)
 
 // mimeToExts maps each ALLOWED sniffed MIME type to the file extension(s)
 // permitted for it. image/svg+xml is intentionally absent: SVG can carry
@@ -12,9 +14,22 @@ var mimeToExts = map[string][]string{
 	"image/png":       {".png"},
 	"image/gif":       {".gif"},
 	"image/webp":      {".webp"},
+	"image/avif":      {".avif"},
 	"application/pdf": {".pdf"},
 	"video/mp4":       {".mp4"},
 	"video/webm":      {".webm"},
+}
+
+// SniffContentType is http.DetectContentType plus AVIF, which Go does not
+// know. It is for serving and restoring stored files; uploads keep using
+// http.DetectContentType, so an AVIF original is still refused.
+func SniffContentType(head []byte) string {
+	if len(head) >= 12 && string(head[4:8]) == "ftyp" {
+		if brand := string(head[8:12]); brand == "avif" || brand == "avis" {
+			return "image/avif"
+		}
+	}
+	return http.DetectContentType(head)
 }
 
 // AllowedExtensionsForMIME returns the extensions permitted for a sniffed MIME
