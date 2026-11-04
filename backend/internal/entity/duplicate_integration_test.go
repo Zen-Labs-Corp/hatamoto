@@ -195,3 +195,29 @@ func TestDuplicateTermsFailureKeepsTheCopy(t *testing.T) {
 		t.Fatalf("copy = %v, %v", cp, err)
 	}
 }
+
+func TestDuplicateOfImportedEntryDropsImportKey(t *testing.T) {
+	ctx := context.Background()
+	d, f := newDuplicateFixture(t, `{}`)
+	src, err := f.svc.CreateEntity(ctx, nil, &CreateEntityInput{
+		SchemaID: f.schemaID, Name: "Imported", Slug: "imported", Locale: "en",
+		Attributes: json.RawMessage(`{}`),
+		Metadata:   json.RawMessage(`{"k":"v","import_key":"wp:` + uuid.NewString() + `"}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cp, err := d.Duplicate(ctx, uuid.Nil, src.ID)
+	if err != nil || cp.Slug != "imported-copy" {
+		t.Fatalf("copy = %+v, %v", cp, err)
+	}
+	got, err := f.svc.GetEntity(ctx, cp.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var meta map[string]any
+	_ = json.Unmarshal(got.Metadata, &meta)
+	if _, has := meta["import_key"]; has || meta["k"] != "v" {
+		t.Errorf("metadata = %s", got.Metadata)
+	}
+}

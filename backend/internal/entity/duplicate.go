@@ -2,6 +2,7 @@ package entity
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -52,13 +53,17 @@ func (d *Duplicator) Duplicate(ctx context.Context, userID, srcID uuid.UUID) (*E
 	if err != nil {
 		return nil, err
 	}
+	meta, err := withoutImportKey(src.Metadata)
+	if err != nil {
+		return nil, err
+	}
 	in := &CreateEntityInput{
 		SchemaID:       src.SchemaID,
 		Name:           "Copy of " + src.Name,
 		Locale:         src.Locale,
 		ParentID:       src.ParentID,
 		Attributes:     attrs,
-		Metadata:       src.Metadata,
+		Metadata:       meta,
 		AuthorID:       src.AuthorID,
 		BylinePersonID: src.BylinePersonID,
 		BylineOrg:      src.BylineOrg,
@@ -92,4 +97,25 @@ func (d *Duplicator) copyTerms(ctx context.Context, src, cp *Entity) {
 	if err != nil {
 		d.svc.logger.Warn("duplicate: terms not copied", slog.String("entity_id", cp.ID.String()), slog.String("error", err.Error()))
 	}
+}
+
+// withoutImportKey returns metadata without the importer's import_key: a
+// copy is not the imported item, and import_key is unique across entities.
+func withoutImportKey(meta json.RawMessage) (json.RawMessage, error) {
+	if len(meta) == 0 {
+		return meta, nil
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(meta, &m); err != nil {
+		return nil, fmt.Errorf("read metadata: %w", err)
+	}
+	if _, ok := m["import_key"]; !ok {
+		return meta, nil
+	}
+	delete(m, "import_key")
+	out, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("write metadata: %w", err)
+	}
+	return out, nil
 }
