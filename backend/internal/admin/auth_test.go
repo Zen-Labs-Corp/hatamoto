@@ -25,6 +25,8 @@ type fakeAuth struct {
 	users  map[string]*user.User
 	fails  map[string]int
 	issued []uuid.UUID
+	// needFactor makes IssueSession refuse, as it does for a user with a second factor.
+	needFactor bool
 }
 
 func (f *fakeAuth) LoginSession(_ context.Context, email, password, _, _ string) (*user.User, string, error) {
@@ -47,6 +49,9 @@ func (f *fakeAuth) LoginSession(_ context.Context, email, password, _, _ string)
 func (f *fakeAuth) IssueSession(_ context.Context, id uuid.UUID, _, _ string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.needFactor {
+		return "", auth.ErrSecondFactorRequired
+	}
 	f.issued = append(f.issued, id)
 	return "owner-token", nil
 }
@@ -527,6 +532,24 @@ func TestResetFlow(t *testing.T) {
 	}
 	if rec := g.do("GET", "/admin/reset?token=nope", "", nil, nil); !strings.Contains(rec.Body.String(), "This link no longer works") {
 		t.Error("bad token page")
+	}
+}
+
+func TestResetForAUserWithAFactorLandsOnLoginWithAMessage(t *testing.T) {
+	t.Parallel()
+
+	g := newAuthRig(t, true)
+	g.auth.needFactor = true
+	tok, _ := g.tokens.IssueReset(context.Background(), uuid.Nil)
+	rec := g.do("POST", "/admin/reset", "", url.Values{"token": {tok}, "password": {"a-long-enough-pw-1"}, "confirm": {"a-long-enough-pw-1"}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/login" {
+		t.Fatalf("reset: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if c := cookieNamed(rec, flashCookie); c == nil || c.Value == "" {
+		t.Error("no flash tells the user the password was saved")
+	}
+	if cookieNamed(rec, auth.SessionCookieName) != nil {
+		t.Error("a session cookie was set")
 	}
 }
 

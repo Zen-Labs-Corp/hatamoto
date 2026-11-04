@@ -189,6 +189,12 @@ func (a *Admin) handleReset(w http.ResponseWriter, r *http.Request) {
 // lands on the admin home with a flash message.
 func (a *Admin) signInAfter(w http.ResponseWriter, r *http.Request, u *user.User, message string) {
 	token, err := a.deps.Auth.IssueSession(r.Context(), u.ID, r.UserAgent(), middleware.GetClientIP(r))
+	if errors.Is(err, auth.ErrSecondFactorRequired) {
+		// The password is saved; this user still owes the second step.
+		a.SetFlash(w, r, "success", "Password updated. Sign in with your new password.")
+		http.Redirect(w, r, a.adminPath+"/login", http.StatusSeeOther)
+		return
+	}
 	if err != nil {
 		a.logger().Error("issue session failed", "err", err)
 		http.Redirect(w, r, a.adminPath+"/login", http.StatusSeeOther)
