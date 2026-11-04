@@ -233,6 +233,7 @@ POST /admin/entities/{id}/builder/save -> admin.(*Admin).handleBuilderSave-fm
 POST /admin/entities/{id}/builder/stage -> admin.(*Admin).handleBuilderStage-fm
 POST /admin/entities/{id}/builder/template -> admin.(*Admin).handleSaveTemplate-fm
 POST /admin/entities/{id}/delete -> admin.(*Admin).handleEntityDelete-fm
+POST /admin/entities/{id}/duplicate -> admin.(*Admin).handleEntityDuplicate-fm
 POST /admin/entities/{id}/edit -> admin.(*Admin).handlePageEditorPost-fm
 POST /admin/entities/{id}/edit/analyze -> admin.(*Admin).handleBlogAnalyze-fm
 POST /admin/entities/{id}/edit/autosave -> admin.(*Admin).handleBlogAutosave-fm
