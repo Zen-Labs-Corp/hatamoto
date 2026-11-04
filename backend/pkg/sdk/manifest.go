@@ -176,9 +176,8 @@ func (c *CSP) validate() error {
 var sharedHostSuffixes = []string{"github.io", "githubusercontent.com", "herokuapp.com", "amazonaws.com", "cloudfront.net", "netlify.app", "vercel.app", "pages.dev", "workers.dev", "web.app", "firebaseapp.com", "blogspot.com", "azurewebsites.net", "appspot.com", "co.uk", "com.au", "co.jp", "co.nz", "org.uk"}
 
 // checkCSPHost refuses hosts a well-formed pattern still makes unsafe: a
-// wildcard in script-src (public-suffix wildcards such as *.github.io let
-// anyone who can register a subdomain serve scripts), a wildcard with fewer
-// than two labels after it, and IP literals.
+// wildcard in script-src, a wildcard over a shared suffix or with fewer than
+// two labels after it, and IP literals.
 func checkCSPHost(list, h string) error {
 	host := strings.TrimPrefix(h, "https://")
 	wild := strings.HasPrefix(host, "*.")

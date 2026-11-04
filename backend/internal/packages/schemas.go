@@ -27,7 +27,7 @@ const (
 	schemaOriginCol = "origin_plugin"
 )
 
-var schemaSlugRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
+var schemaSlugRe = regexp.MustCompile(`^[a-z]([a-z0-9]|-[a-z0-9]){0,63}$`)
 
 // SchemaStore is the entity service as the manager uses it: it creates the
 // types of a plugin and removes them again.
@@ -58,7 +58,7 @@ func (p *Package) EntitySchemas() ([]ContentType, error) {
 		if p.Has("sections/" + slug + ".html") {
 			continue
 		}
-		if !schemaSlugRe.MatchString(slug) {
+		if len(slug) > 64 || !schemaSlugRe.MatchString(slug) {
 			return nil, refuse("%s: the content type name must be lowercase letters, digits and dashes, starting with a letter", f)
 		}
 		raw, err := p.ReadFile(f)
