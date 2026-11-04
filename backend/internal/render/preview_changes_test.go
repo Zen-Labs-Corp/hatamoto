@@ -117,3 +117,26 @@ func TestPreviewChangesVisibleMarks(t *testing.T) {
 		t.Error("marks emitted without Changes")
 	}
 }
+
+func TestPreviewChangesContentComponent(t *testing.T) {
+	e := newTestEngine(t, Options{})
+	comp := func(id, headline string) *builder.Node {
+		return &builder.Node{ID: id, T: "component", P: map[string]any{"type": "content", "content": map[string]any{"headline": headline, "body": "<p>b</p>"}}}
+	}
+	v := minimalView()
+	v.EntityID = "ent-1"
+	v.Doc = &builder.Doc{V: 2, Nodes: []*builder.Node{comp("about", "Hello"), comp("more", "More")}}
+	v.Preview = true
+	v.Changes = &PageChanges{Nodes: map[string]string{"about": "changed"}, Label: "#1"}
+	out := renderToString(t, e, v)
+	if !strings.Contains(out, `<div data-hm-change="changed">`) {
+		t.Errorf("content component not marked:\n%s", out)
+	}
+
+	// Marks that land nowhere fall back to the whole page.
+	v.Changes = &PageChanges{Nodes: map[string]string{"ghost": "new"}, Label: "#1"}
+	out = renderToString(t, e, v)
+	if !strings.Contains(out, `data-hm-change="changed" data-hm-entity="ent-1"`) {
+		t.Errorf("no page fallback:\n%s", out)
+	}
+}

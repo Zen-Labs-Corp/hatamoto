@@ -24,6 +24,7 @@ const previewChangeStyle = `<style data-hm-preview-style>` +
 	`[data-hm-change=changed]{outline:2px solid #b7791f;outline-offset:-2px}` +
 	`main[data-hm-change=new] h1,main[data-hm-change=new]>*{outline:2px solid #2f6b4f;outline-offset:-2px}` +
 	`main[data-hm-change=changed] h1,main[data-hm-change=changed]>*{outline:2px solid #b7791f;outline-offset:-2px}` +
+	`[data-hm-change],main[data-hm-change]>*{border-radius:4px}` +
 	`.hm-preview-banner{margin:0;padding:.6rem 1rem;background:#8a5a14;color:#fff;font:14px/1.4 system-ui,sans-serif;text-align:center}` +
 	`.hm-preview-banner strong{font-weight:700}` +
 	`</style>`
@@ -70,7 +71,13 @@ func markPreviewChanges(out []byte, v *PageView) []byte {
 		cls := []byte(` hm-n-` + html.EscapeString(id) + `"`)
 		out = bytes.ReplaceAll(out, cls, append(append([]byte{}, cls...), attr...))
 	}
-	if attr := changeAttrValue(v.Changes.Page); attr != "" {
+	page := v.Changes.Page
+	if page == "" && !bytes.Contains(out, []byte(" data-hm-change=")) {
+		// Node marks that reach no element (or none at all) must not leave a
+		// changed page without an outline.
+		page = changeChanged
+	}
+	if attr := changeAttrValue(page); attr != "" {
 		out = mainOpenRe.ReplaceAllFunc(out, func(m []byte) []byte {
 			i := len(m) - len("data-hm-entity=")
 			return append(append(append([]byte{}, m[:i]...), attr[1:]+" "...), m[i:]...)

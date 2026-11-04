@@ -743,6 +743,14 @@ func (e *Engine) renderComponent(b *bytes.Buffer, c *compiled, v *PageView, n *b
 		b.WriteString("</div>")
 		return
 	}
+	if attr := changeAttr(v, n.ID); attr != "" {
+		// A plain block (display:contents cannot be outlined) so a changed
+		// component shows its mark in a changeset preview.
+		b.WriteString("<div" + attr + ">")
+		b.Write(out.Bytes())
+		b.WriteString("</div>")
+		return
+	}
 	b.Write(out.Bytes())
 }
 
