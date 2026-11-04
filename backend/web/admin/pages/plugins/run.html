@@ -1,0 +1,26 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" .Title "Badge" .Badge "Actions" .Actions "CSRF" $.CSRF}}
+{{/* While the run is going the panel asks again every 3 seconds and swaps itself; once it ends there is no trigger, so nothing polls. */}}
+<div id="run-live" class="hm-stack"{{if .Running}} hx-get="{{.PollURL}}" hx-trigger="every 3s" hx-target="this" hx-select="#run-live" hx-swap="outerHTML" hx-indicator="#run-busy"{{end}}>
+{{if .Running}}{{template "hm/indicator" dict "ID" "run-busy" "Text" ""}}{{end}}
+{{if .Message}}<p class="hm-muted" role="status">{{.Message}}</p>{{end}}
+<div class="hm-rooms">
+{{with .Fetch}}{{template "hm/card-start" (dict "Title" .Title "Heading" "h2" "ID" "room-fetch" "Class" (cond .Active "hm-rooms__room hm-rooms__room--active" "hm-rooms__room"))}}
+<p>{{template "hm/badge" .Badge}}</p>
+<ul class="hm-badgelist">{{range .Chips}}<li>{{template "hm/badge" .}}</li>{{end}}</ul>
+{{template "hm/progress" .Progress}}
+{{template "hm/card-end"}}{{end}}
+<div class="hm-rooms__link" aria-hidden="true">{{icon "arrow-right"}}<span class="hm-muted">Buffer, one way</span></div>
+{{with .Build}}{{template "hm/card-start" (dict "Title" .Title "Heading" "h2" "ID" "room-build" "Class" (cond .Active "hm-rooms__room hm-rooms__room--active" "hm-rooms__room"))}}
+<p>{{template "hm/badge" .Badge}}</p>
+<ul class="hm-badgelist">{{range .Chips}}<li>{{template "hm/badge" .}}</li>{{end}}</ul>
+{{template "hm/progress" .Progress}}
+{{template "hm/card-end"}}{{end}}
+</div>
+{{template "hm/card-start" dict "Title" "Limits for this run" "ID" "run-limits" "Heading" "h2"}}
+<dl class="hm-dl"><dt>Staged changes</dt><dd>{{.Staged}}</dd>
+<dt>Staged size</dt><dd>{{.Bytes}}</dd></dl>
+{{template "hm/card-end"}}
+</div>
+{{if .Review}}<p>{{template "hm/button" (dict "Label" "Review changes" "Variant" "primary" "Href" .Review)}}</p>{{end}}
+{{end}}{{end}}

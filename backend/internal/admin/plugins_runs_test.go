@@ -44,7 +44,7 @@ func TestPluginRunStart(t *testing.T) {
 	rec := g.do("POST", runStartPath, "owner-token", url.Values{
 		"input_site": {"https://example.com"}, "hosts": {"example.com", "cdn.example.com"}, "upload_id": {up.String()}, "stray": {"x"},
 	}, nil)
-	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/plugins/hello/settings" {
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/plugins/hello/runs/"+fr.lastUUID.String() {
 		t.Fatalf("start: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
 	if fr.started != 1 || fr.plugin != "hello" || fr.run != "import" || fr.in.Inputs["site"] != "https://example.com" ||

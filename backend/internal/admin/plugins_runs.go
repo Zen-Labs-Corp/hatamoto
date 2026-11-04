@@ -71,7 +71,7 @@ func (a *Admin) handlePluginRunStart(w http.ResponseWriter, r *http.Request) {
 		}
 		in.UploadID = &id
 	}
-	_, err := a.deps.Growth.PluginRuns.StartRun(r.Context(), name, run, in)
+	runID, err := a.deps.Growth.PluginRuns.StartRun(r.Context(), name, run, in)
 	var bad *RunInputError
 	switch {
 	case errors.Is(err, ErrRunActive):
@@ -92,5 +92,5 @@ func (a *Admin) handlePluginRunStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.SetFlash(w, r, "success", "Started the "+run+" run of "+name+".")
-	http.Redirect(w, r, a.pluginURL(name, "settings"), http.StatusSeeOther)
+	http.Redirect(w, r, a.pluginURL(name, "runs/"+runID.String()), http.StatusSeeOther)
 }
