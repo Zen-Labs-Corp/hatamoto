@@ -103,11 +103,29 @@ func (s *Server) buildAdminBundle(d admin.Deps, prefix string, mux *http.ServeMu
 	return &adminBundle{prefix: prefix, a: a, h: httpx.WithErrorBodies(mux, jsonNotFoundOrNotAllowed)}, nil
 }
 
+// previewHost is the configured changeset preview host ("" = off).
+func (s *Server) previewHost() string {
+	if s.cfg == nil {
+		return ""
+	}
+	return s.cfg.Admin.PreviewHost
+}
+
 // dispatcher serves the admin's address from the live bundle and everything
-// else from the main mux.
+// else from the main mux. The changeset preview host, when configured, is
+// served by the preview handler alone: any other path there is a plain 404 and
+// nothing of the site or the admin answers on it.
 func (s *Server) dispatcher() http.Handler {
 	public := httpx.WithErrorBodies(s.mux, jsonNotFoundOrNotAllowed)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if h := s.previewHost(); h != "" && strings.EqualFold(r.Host, h) {
+			if b := s.adminBundle.Load(); b != nil {
+				b.a.PreviewHostHandler().ServeHTTP(w, r)
+			} else {
+				httpx.Refuse(w, r)
+			}
+			return
+		}
 		if b := s.adminBundle.Load(); b != nil && underPrefix(r.URL.Path, b.prefix) {
 			b.h.ServeHTTP(w, r)
 			return

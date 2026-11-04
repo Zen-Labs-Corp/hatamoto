@@ -67,6 +67,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 		AppVersion:       s.cfg.Admin.Version,
 		PublicAPIPrefix:  s.cfg.PublicSite.APIPrefix,
 		Demo:             s.cfg.Demo,
+		PreviewHost:      s.cfg.Admin.PreviewHost,
 	}
 	// Interfaces are only set from non-nil services (a typed nil would pass a
 	// nil check later); the route-table build has none and never serves.

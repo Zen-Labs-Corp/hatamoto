@@ -350,6 +350,7 @@ func (a *Admin) serveChangesetFrame(w http.ResponseWriter, r *http.Request, id i
 	hd := w.Header()
 	hd.Del("Set-Cookie")
 	hd.Del("X-Frame-Options") // frame-ancestors below is the rule
+	hd.Del("Content-Security-Policy-Report-Only")
 	hd.Set("Content-Security-Policy", "sandbox; default-src 'none'; script-src 'none'; form-action 'none'; base-uri 'none'; "+
 		"style-src 'unsafe-inline'; img-src 'self' data: https:; frame-ancestors "+origin)
 	hd.Set("Content-Type", "text/html; charset=utf-8")
