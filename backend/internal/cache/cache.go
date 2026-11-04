@@ -74,6 +74,7 @@ type Cache struct {
 	seq            uint64 // last write sequence number
 	renderBytes    int64
 	renderCount    int
+	variantCount   int    // compressed variants among the render entries
 	renderMaxBytes int64  // 0 = no limit
 	evictions      uint64 // cap evictions, monotonic
 }
@@ -144,6 +145,9 @@ func (c *Cache) removeLocked(key string) {
 	if isRenderKey(key) {
 		c.renderBytes -= int64(len(e.value))
 		c.renderCount--
+		if isVariantKey(key) {
+			c.variantCount--
+		}
 	}
 	delete(c.entries, key)
 }
@@ -216,6 +220,9 @@ func (c *Cache) setLocked(key string, value []byte, ttl time.Duration) bool {
 		}
 		c.renderBytes += int64(len(value))
 		c.renderCount++
+		if isVariantKey(key) {
+			c.variantCount++
+		}
 	}
 	c.seq++
 	c.entries[key] = entry{value: value, expires: now.Add(ttl), seq: c.seq}
@@ -225,11 +232,12 @@ func (c *Cache) setLocked(key string, value []byte, ttl time.Duration) bool {
 // RenderStats returns the number of cached "render:" entries and the sum of
 // their value sizes. Rendered pages and feeds share the prefix (feeds.go uses
 // RenderedPageKey too), so "pages" includes feeds; sitemaps and JSON keys are
-// not counted.
+// not counted. Compressed variants of a page (EncodedKey) count toward bytes,
+// which the cap bounds, but not toward pages.
 func (c *Cache) RenderStats() (pages int, bytes int64) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.renderCount, c.renderBytes
+	return c.renderCount - c.variantCount, c.renderBytes
 }
 
 // SetRenderMaxBytes caps the bytes held by "render:" entries; 0 means no

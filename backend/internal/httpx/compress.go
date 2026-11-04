@@ -8,9 +8,9 @@ import (
 	"strings"
 )
 
-// compressMinSize is the body size below which compressing costs more than it
+// CompressMinSize is the body size below which compressing costs more than it
 // saves. Smaller bodies, and streams flushed before they reach it, go out plain.
-const compressMinSize = 1024
+const CompressMinSize = 1024
 
 // Compress compresses text responses with zstd or gzip, whichever the client
 // prefers (see NegotiateEncoding). enabled is read per request, so the switch
@@ -19,7 +19,7 @@ const compressMinSize = 1024
 // The decision is made at the first body write, when the handler's headers are
 // final: only compressible content types are touched, never a response that
 // already carries a Content-Encoding, a Range request, a partial or bodiless
-// status, or a HEAD request. The body is held until it reaches compressMinSize;
+// status, or a HEAD request. The body is held until it reaches CompressMinSize;
 // a handler that flushes earlier (a stream) is passed through plain. Vary:
 // Accept-Encoding is added to every compressible response, compressed or not.
 func Compress(enabled func() bool) Middleware {
@@ -75,7 +75,7 @@ func (w *compressWriter) decideNoBody() {
 	h := w.Header()
 	if !bodiless(w.status) && w.eligible(h.Get("Content-Type")) {
 		n, err := strconv.Atoi(h.Get("Content-Length"))
-		if err == nil && n >= compressMinSize && w.enc != EncodingNone {
+		if err == nil && n >= CompressMinSize && w.enc != EncodingNone {
 			w.markCompressed()
 		}
 	}
@@ -144,13 +144,13 @@ func (w *compressWriter) Write(p []byte) (int, error) {
 		w.ResponseWriter.WriteHeader(w.status)
 		return w.ResponseWriter.Write(p)
 	}
-	if n, err := strconv.Atoi(w.Header().Get("Content-Length")); err == nil && n < compressMinSize {
+	if n, err := strconv.Atoi(w.Header().Get("Content-Length")); err == nil && n < CompressMinSize {
 		w.state = cwPlain
 		w.ResponseWriter.WriteHeader(w.status)
 		return w.ResponseWriter.Write(p)
 	}
 	w.buf = append(w.buf, p...)
-	if len(w.buf) >= compressMinSize {
+	if len(w.buf) >= CompressMinSize {
 		if err := w.startCompress(); err != nil {
 			return 0, err
 		}
