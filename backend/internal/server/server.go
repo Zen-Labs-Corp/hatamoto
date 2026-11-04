@@ -32,6 +32,7 @@ import (
 	"hatamoto.dev/core/internal/consent"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/email"
+	"hatamoto.dev/core/internal/emaillog"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/hooks"
@@ -109,6 +110,7 @@ type Server struct {
 	spamVerifier           *spam.HTTPVerifier
 	emailService           *email.Service
 	mailStore              smtpSettingsStore
+	emailLog               *emaillog.Store
 	applyMu                sync.Mutex // serialises applyEmail end to end
 	emailMu                sync.Mutex // guards emailRes and emailApplied
 	emailRes               emailResolution
@@ -452,6 +454,7 @@ func (s *Server) setupDependencies() {
 	// admin settings can bring it to life later; the resolver then picks saved
 	// settings over the server's SMTP_* environment.
 	s.mailStore = mailsettings.NewStore(s.db.Pool())
+	s.emailLog = emaillog.NewStore(s.db.Pool())
 	emailUsable := false
 	emailSvc, err := email.NewService(envEmailConfig(s.cfg.SMTP), s.logger)
 	if err != nil {
@@ -459,6 +462,7 @@ func (s *Server) setupDependencies() {
 	} else {
 		s.emailService = emailSvc
 		emailSvc.SetSiteNameSource(s.siteName)
+		emailSvc.SetRecorder(s.emailLog)
 		s.formConfirmationSender = emailSvc
 		bootCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		res := s.applyEmail(bootCtx)
@@ -543,6 +547,7 @@ func (s *Server) setupDependencies() {
 		if workerJobEnabled("retention_purge") {
 			retention := worker.NewRetentionPurgeWorker(s.sessionStore, s.logger)
 			retention.AddPurge("user tokens", s.userTokens.PurgeExpired)
+			retention.AddPurge("email log", s.emailLog.Purge)
 			s.scheduler.SetRetentionPurgeWorker(retention)
 		}
 

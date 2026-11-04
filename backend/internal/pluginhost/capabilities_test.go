@@ -833,7 +833,7 @@ type fakeMailer struct {
 }
 
 func (f *fakeMailer) IsConfigured() bool { return true }
-func (f *fakeMailer) Send(_ context.Context, to []string, _, _, _ string) error {
+func (f *fakeMailer) SendPlugin(_ context.Context, _ string, to []string, _, _, _ string) error {
 	f.sent = append(f.sent, to)
 	return nil
 }

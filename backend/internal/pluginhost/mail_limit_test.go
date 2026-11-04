@@ -16,7 +16,7 @@ type countingMailer struct {
 
 func (m *countingMailer) IsConfigured() bool { return true }
 
-func (m *countingMailer) Send(_ context.Context, to []string, _, _, _ string) error {
+func (m *countingMailer) SendPlugin(_ context.Context, _ string, to []string, _, _, _ string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.sent += len(to)
