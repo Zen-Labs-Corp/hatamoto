@@ -301,6 +301,7 @@ POST /admin/profile/security/passkeys/begin -> admin.(*Admin).handlePasskeyAddBe
 POST /admin/profile/security/passkeys/finish -> admin.(*Admin).handlePasskeyAddFinish-fm
 POST /admin/profile/security/passkeys/{id}/remove -> admin.(*Admin).handlePasskeyRemove-fm
 POST /admin/profile/security/totp -> admin.(*Admin).handleTOTPConfirm-fm
+POST /admin/profile/security/totp/begin -> admin.(*Admin).handleTOTPBegin-fm
 POST /admin/profile/security/totp/remove -> admin.(*Admin).handleTOTPRemove-fm
 POST /admin/reset -> admin.(*Admin).handleReset-fm
 POST /admin/settings/api-keys -> admin.(*Admin).handleAPIKeyCreate-fm
