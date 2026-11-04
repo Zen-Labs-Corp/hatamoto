@@ -664,6 +664,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	if track != "" && !bytes.Contains(out, []byte(track)) {
 		out = spliceBody(out, track) // the theme never printed plugin-body
 	}
+	out = markPreviewChanges(out, v)
 	_, err := w.Write(out)
 	return err
 }

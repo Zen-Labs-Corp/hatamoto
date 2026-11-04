@@ -40,6 +40,9 @@ func styleguideSamples(prefix string) map[string][]sample {
 			{Label: "Danger", Data: ui.Badge{Label: "Failed", Kind: "danger"}},
 			{Label: "Small", Variant: "sm", Data: ui.Badge{Label: "First-party", Plain: true, Size: "sm", Icon: "star"}},
 		},
+		"pluginframe": {
+			{Label: "Preview", Variant: "preview", HTML: `<iframe class="hm-pluginframe hm-pluginframe--preview" sandbox="" referrerpolicy="no-referrer" title="Isolated preview sample"></iframe>`},
+		},
 		"button": {
 			{Label: "Primary", Variant: "primary", Data: ui.Button{Label: "Save", Variant: "primary"}.Dict()},
 			{Label: "Secondary", Data: ui.Button{Label: "Cancel", Variant: "secondary"}.Dict()},

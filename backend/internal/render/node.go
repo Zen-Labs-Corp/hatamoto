@@ -405,6 +405,9 @@ func nodeAttrs(b *bytes.Buffer, v *PageView, n *builder.Node, extra string, canv
 			b.WriteString(` title="` + html.EscapeString(t) + `"`)
 		}
 	}
+	if v != nil {
+		b.WriteString(changeAttr(v, n.ID))
+	}
 	if canvas {
 		b.WriteString(" " + nodeMarker(n.ID) + " " + kindMarker(n.T))
 		if builder.TakesChildren(n.T) {
@@ -736,6 +739,14 @@ func (e *Engine) renderComponent(b *bytes.Buffer, c *compiled, v *PageView, n *b
 	}
 	if canvas {
 		b.WriteString(`<div style="display:contents" ` + nodeMarker(n.ID) + " " + kindMarker(p.Type) + " " + string(sectionMarker(p)) + ">")
+		b.Write(out.Bytes())
+		b.WriteString("</div>")
+		return
+	}
+	if attr := changeAttr(v, n.ID); attr != "" {
+		// A plain block (display:contents cannot be outlined) so a changed
+		// component shows its mark in a changeset preview.
+		b.WriteString("<div" + attr + ">")
 		b.Write(out.Bytes())
 		b.WriteString("</div>")
 		return

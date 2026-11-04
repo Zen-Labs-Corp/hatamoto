@@ -402,3 +402,23 @@ func TestSessionCookieIsNotPrefixBound(t *testing.T) {
 		t.Errorf("cookies = %v", c)
 	}
 }
+
+// With a preview host configured, that host answers only the changeset frame
+// route; the site and the admin are not served on it. Other hosts are unchanged.
+func TestPreviewHostServesNothingElse(t *testing.T) {
+	_, s, _ := swapServer(t)
+	s.cfg.Admin.PreviewHost = "preview.example.net"
+	h := s.dispatcher()
+	for _, p := range []string{"/", swapStart + "/login", "/robots.txt", "/changesets/1/frame/1/" + strings.Repeat("A", 32)} {
+		req := httptest.NewRequest("GET", p, nil)
+		req.Host = "preview.example.net"
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%s on the preview host: %d, want 404", p, rec.Code)
+		}
+	}
+	if rec := swapGet(h, swapStart+"/login"); rec.Code == http.StatusNotFound {
+		t.Errorf("admin on the normal host: %d", rec.Code)
+	}
+}

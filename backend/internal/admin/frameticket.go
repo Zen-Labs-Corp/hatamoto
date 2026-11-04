@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -29,6 +30,9 @@ const (
 
 	ticketPreview  = "preview"
 	ticketPluginUI = "pluginui"
+	// ticketChangesetPreview opens one item of a staged changeset in the
+	// sealed preview frame; the target is changesetTarget(id, seq).
+	ticketChangesetPreview = "changeset-preview"
 
 	ticketLen = 32
 	nonceLen  = 8
@@ -169,6 +173,43 @@ func (s *ticketStore) consume(purpose, tok string, sess uuid.UUID, target string
 	return rec.payload, true
 }
 
+// consumeBound is consume for the preview host, where the frame request
+// carries no cookie: the session is the one recorded at mint, and the HMAC is
+// verified against it. It returns that session so the caller can check it is
+// still signed in, and the payload minted with it (the admin origin the frame
+// may be embedded by). Same spending rules as consume. Only the preview-host
+// handler may call it; the admin guard never does.
+func (s *ticketStore) consumeBound(purpose, tok, target string) (uuid.UUID, []byte, bool) {
+	if len(tok) != ticketLen || len(s.key) == 0 {
+		return uuid.Nil, nil, false
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(tok)
+	if err != nil || len(raw) != nonceLen+tagLen {
+		return uuid.Nil, nil, false
+	}
+	nonce, got := raw[:nonceLen], raw[nonceLen:]
+	key := base64.RawURLEncoding.EncodeToString(nonce)
+
+	s.mu.Lock()
+	rec, ok := s.m[key]
+	delete(s.m, key)
+	s.mu.Unlock()
+	if !ok || s.clock().After(rec.expiry) {
+		return uuid.Nil, nil, false
+	}
+	if rec.purpose != purpose || rec.target != target || rec.session == uuid.Nil {
+		return uuid.Nil, nil, false
+	}
+	if !hmac.Equal(got, s.tag(rec.purpose, rec.session, rec.target, nonce, rec.expiry.Unix())) {
+		return uuid.Nil, nil, false
+	}
+	return rec.session, rec.payload, true
+}
+
+// changesetTarget is the ticket target of one item of a changeset: a ticket
+// for changeset N, item S opens nothing else.
+func changesetTarget(id int64, seq int) string { return fmt.Sprintf("cs:%d:%d", id, seq) }
+
 type previewPayloadKey struct{}
 
 // previewPayload is the staged body the guard left on the request after it
@@ -186,5 +227,18 @@ func (a *Admin) mintPreview(r *http.Request, entityID uuid.UUID, body []byte) (s
 		return "", false
 	}
 	tok := a.tickets.mint(ticketPreview, sess.ID, entityID.String(), body)
+	return tok, tok != ""
+}
+
+// mintChangesetPreview issues the ticket for the frame of changeset id, item
+// seq, bound to the signed-in session of r. ok is false without a session.
+// origin is kept with the ticket for the preview host, which has no cookie to
+// tell it who may embed the frame.
+func (a *Admin) mintChangesetPreview(r *http.Request, id int64, seq int, origin string) (string, bool) {
+	_, sess, ok := a.cachedAuth(r)
+	if !ok || sess == nil {
+		return "", false
+	}
+	tok := a.tickets.mint(ticketChangesetPreview, sess.ID, changesetTarget(id, seq), []byte(origin))
 	return tok, tok != ""
 }

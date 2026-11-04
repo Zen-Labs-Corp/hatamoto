@@ -238,8 +238,12 @@ type GrowthDeps struct {
 	Plugins    PluginAdmin
 	// PluginRuns starts plugin runs (nil = the start route answers "not available").
 	PluginRuns RunStarter
-	Packages   PackageAdmin
-	FormMail   FormMailer
+	// Changesets reads staged changesets (nil = the changeset pages are unavailable).
+	Changesets ChangesetReader
+	// ChangesetPreview renders one item of a staged changeset (nil = no preview).
+	ChangesetPreview ChangesetPreviewer
+	Packages         PackageAdmin
+	FormMail         FormMailer
 	// AgentRegistry names the crawlers (agents.Default() when nil).
 	AgentRegistry *agents.Registry
 }

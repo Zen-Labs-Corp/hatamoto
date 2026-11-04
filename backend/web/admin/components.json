@@ -201,6 +201,16 @@
     "owner": "css/partials/colophon.css",
     "props": {}
   },
+  "pluginframe": {
+    "selector": ".hm-pluginframe",
+    "owner": "css/pages/packages.css",
+    "variants": {
+      "preview": ".hm-pluginframe--preview"
+    },
+    "props": {
+      "border-top-left-radius": "var(--radius-md)"
+    }
+  },
   "dropzone": {
     "selector": ".hm-dropzone",
     "owner": "css/partials/dropzone.css",

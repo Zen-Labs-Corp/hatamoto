@@ -51,8 +51,13 @@ type AdminConfig struct {
 	// Empty means off, which is the default.
 	TrustedCDN string
 
+	// PreviewHost is HATAMOTO_PREVIEW_HOST: a bare host[:port], lower-case, that
+	// serves only changeset previews, on its own origin. Empty means off, which
+	// is the default.
+	PreviewHost string
+
 	// Parse errors, reported by Validate so Load stays infallible.
-	pathErr, perMinErr, blockErr, trustedCDNErr error
+	pathErr, perMinErr, blockErr, trustedCDNErr, previewHostErr error
 }
 
 func loadAdminConfig() AdminConfig {
@@ -81,6 +86,12 @@ func loadAdminConfig() AdminConfig {
 		a.TrustedCDN = v
 	default:
 		a.trustedCDNErr = fmt.Errorf("HATAMOTO_TRUSTED_CDN: %q is not a known preset (cloudflare)", v)
+	}
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("HATAMOTO_PREVIEW_HOST"))); v != "" {
+		a.PreviewHost = v
+		if !validPreviewHost(v) {
+			a.previewHostErr = fmt.Errorf("HATAMOTO_PREVIEW_HOST: %q is not a bare host like preview.example.com (no scheme, path or credentials; an optional :port)", v)
+		}
 	}
 	if raw := strings.TrimSpace(os.Getenv("HATAMOTO_ADMIN_PATH")); raw != "" {
 		if p, err := adminpath.Normalize(raw); err != nil {
@@ -163,7 +174,7 @@ func (a AdminConfig) CheckSetupCode() error {
 // Validate rejects an unusable trusted-proxy list, a malformed
 // HATAMOTO_ADMIN_PATH and bad HATAMOTO_NOTFOUND_* values.
 func (a AdminConfig) Validate() error {
-	for _, err := range []error{a.pathErr, a.perMinErr, a.blockErr, a.trustedCDNErr} {
+	for _, err := range []error{a.pathErr, a.perMinErr, a.blockErr, a.trustedCDNErr, a.previewHostErr} {
 		if err != nil {
 			return err
 		}
@@ -174,4 +185,31 @@ func (a AdminConfig) Validate() error {
 		}
 	}
 	return nil
+}
+
+// validPreviewHost reports whether v is a bare host or host:port: no scheme,
+// path, query, fragment, credentials or whitespace.
+func validPreviewHost(v string) bool {
+	if strings.ContainsAny(v, "/?#@ \t\r\n") || strings.Contains(v, "://") {
+		return false
+	}
+	host := v
+	if h, port, err := net.SplitHostPort(v); err == nil {
+		if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
+			return false
+		}
+		host = h
+	} else if strings.Contains(v, ":") {
+		return false
+	}
+	return host != "" && !strings.HasPrefix(host, ".") && !strings.HasSuffix(host, ".")
+}
+
+// sameOriginHost reports whether two host[:port] values name the same host,
+// treating an explicit default port as absent.
+func sameOriginHost(a, b string) bool {
+	trim := func(h string) string {
+		return strings.TrimSuffix(strings.TrimSuffix(strings.ToLower(h), ":443"), ":80")
+	}
+	return trim(a) == trim(b)
 }

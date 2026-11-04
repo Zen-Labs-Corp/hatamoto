@@ -58,7 +58,9 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 	publicRepo := entity.NewPostgresPublicRepository(s.db)
 	var ent *entity.Entity
 	var err error
-	if scoped && scope.EntityID != uuid.Nil {
+	if staged := stagedByScope(ctx, scope, scoped); staged != nil {
+		ent = staged // changeset preview only: a staged entity has no published row
+	} else if scoped && scope.EntityID != uuid.Nil {
 		ent, err = publicRepo.GetPublishedByID(ctx, scope.EntityID)
 	} else if scoped {
 		ent, err = publicRepo.GetPublishedBySlugAndSchemas(ctx, slug, scope.SchemaSlugs)
@@ -77,6 +79,7 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 			&pageError{http.StatusInternalServerError, "failed to get page"}
 	}
 
+	applyStagedEntity(ctx, ent)
 	applyPreviewAttributes(ctx, ent.ID, &ent.Attributes)
 	ent.Attributes = entity.DerivedAttributes(ent.Attributes)
 	s.applyAuthorName(ctx, ent)
@@ -206,6 +209,7 @@ func (s *Server) loadHomepage(r *http.Request) (*PublicPageResponse, pageOutcome
 			&pageError{http.StatusInternalServerError, "failed to get homepage"}
 	}
 
+	applyStagedEntity(ctx, ent)
 	applyPreviewAttributes(ctx, ent.ID, &ent.Attributes)
 	ent.Attributes = entity.DerivedAttributes(ent.Attributes)
 	s.applyAuthorName(ctx, ent)

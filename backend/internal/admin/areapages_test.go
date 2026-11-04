@@ -14,7 +14,7 @@ var areaPages = map[string][]string{
 	"sections":  {"sections/list", "sections/edit"},
 	"analytics": {"analytics/overview", "analytics/traffic", "analytics/conversions", "analytics/crawlers", "analytics/google", "analytics/content", "analytics/referrals", "analytics/health", "analytics/agent"},
 	"linking":   {"linking/rules", "linking/rule", "linking/import", "linking/suggestions", "linking/equity", "linking/inbound"},
-	"plugins":   {"settings/plugins", "plugins/plugin", "plugins/permissions"},
+	"plugins":   {"settings/plugins", "plugins/plugin", "plugins/permissions", "plugins/changeset", "plugins/changeset-preview"}, // changeset pages: plugins_changeset_test.go,
 	"forms":     {"forms/list", "forms/new", "forms/edit", "forms/submissions", "forms/submission", "bulkdelete"},
 }
 

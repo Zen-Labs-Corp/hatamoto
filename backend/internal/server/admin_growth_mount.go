@@ -50,6 +50,10 @@ func (s *Server) adminGrowth() admin.GrowthDeps {
 	}
 	g.Plugins = pluginAdmin{s: s}
 	g.PluginRuns = pluginRunStarter{s}
+	if s.changesets != nil {
+		g.Changesets = s.changesets
+		g.ChangesetPreview = s
+	}
 	if s.packages != nil {
 		g.Packages = &packageAdmin{s: s}
 		g.Plugins = pluginAdmin{s: s, pkgs: g.Packages.(*packageAdmin)}

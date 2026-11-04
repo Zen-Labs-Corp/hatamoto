@@ -1,0 +1,4 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (printf "Changeset #%d" .ID) "Badge" .Badge "Description" .Intro "Primary" (and .Preview (dict "Href" .Preview "Label" "Preview the site" "Icon" "eye"))}}
+{{template "hm/table" .Table}}
+{{end}}{{end}}

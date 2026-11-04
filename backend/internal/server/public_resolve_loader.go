@@ -137,7 +137,7 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 		return rr, outcome, err
 	}
 	notFound := &routeResult{NotFound: true, Locale: locale, Rest: path}
-	res, err := resolveEntity(ctx, deps.repo, snap, path)
+	res, err := resolveStagedOrLive(ctx, deps.repo, snap, fullPath, path)
 	if err != nil {
 		s.logger.Error("resolve: lookup", "error", err, "path", path)
 		return fail()

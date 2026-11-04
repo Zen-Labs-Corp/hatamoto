@@ -137,6 +137,9 @@ type PageView struct {
 	MaxCacheAge time.Duration
 	// Preview marks an unsaved-draft render (noindex, data-hm-preview).
 	Preview bool
+	// Changes marks the new and changed parts of a changeset preview. Only the
+	// changeset preview sets it; nil renders exactly as before.
+	Changes *PageChanges
 	// Canvas marks an admin canvas render: html-kind bodies carry data-hm-text
 	// editor markers (see canvas_text.go).
 	Canvas bool
@@ -898,4 +901,14 @@ type FormOption struct {
 // FeedLink is one advertised feed: Type is its MIME type, Href its URL.
 type FeedLink struct {
 	Title, Type, Href string
+}
+
+// PageChanges says which parts of a changeset preview differ from the live site.
+type PageChanges struct {
+	// Page marks the whole page: "", "new" or "changed".
+	Page string
+	// Nodes maps a node or section id to "new" or "changed".
+	Nodes map[string]string
+	// Label names the changeset in the banner, for example "#42".
+	Label string
 }

@@ -36,7 +36,7 @@ func lockChangeset(ctx context.Context, tx pgx.Tx, id int64) (changesetRow, erro
 	return c, nil
 }
 
-func loadItems(ctx context.Context, tx pgx.Tx, csID int64, reverse bool) ([]StoredItem, error) {
+func loadItems(ctx context.Context, tx rowsQuerier, csID int64, reverse bool) ([]StoredItem, error) {
 	order := "ASC"
 	if reverse {
 		order = "DESC"
@@ -66,6 +66,11 @@ func loadItems(ctx context.Context, tx pgx.Tx, csID int64, reverse bool) ([]Stor
 		out = append(out, it)
 	}
 	return out, rows.Err()
+}
+
+// rowsQuerier is what loadItems needs: a transaction or the pool.
+type rowsQuerier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
 // rowQuerier is what mappedTarget needs: a transaction or the pool.
