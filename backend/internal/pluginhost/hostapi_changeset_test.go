@@ -6,7 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/sdk"
 )
@@ -169,5 +172,14 @@ func TestQuotaErrorMapsToInvalidArgument(t *testing.T) {
 	he := a.toHostError("p", fmt.Errorf("stage: %w", changeset.ErrQuotaExceeded))
 	if he == nil || he.Code != sdk.ErrInvalidArgument || !strings.Contains(he.Message, "quota") {
 		t.Fatalf("quota error mapped to %+v", he)
+	}
+}
+
+// Plugins read the caption and credit back with the alt text.
+func TestMediaDTOCarriesCaptionAndCredit(t *testing.T) {
+	c, cr := "A caption", "A credit"
+	d := toMediaDTO(&media.Media{ID: uuid.New(), Caption: &c, Credit: &cr})
+	if d.Caption == nil || *d.Caption != c || d.Credit == nil || *d.Credit != cr {
+		t.Fatalf("dto = %+v", d)
 	}
 }

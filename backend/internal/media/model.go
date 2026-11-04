@@ -73,6 +73,7 @@ type CreateMediaInput struct {
 type UpdateMediaInput struct {
 	AltText *string `json:"alt_text,omitempty"`
 	Caption *string `json:"caption,omitempty"`
+	Credit  *string `json:"credit,omitempty"`
 	Folder  *string `json:"folder,omitempty"`
 }
 

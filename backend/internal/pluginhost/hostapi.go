@@ -1015,11 +1015,13 @@ type mediaDTO struct {
 	Width     *int    `json:"width,omitempty"`
 	Height    *int    `json:"height,omitempty"`
 	AltText   *string `json:"alt_text,omitempty"`
+	Caption   *string `json:"caption,omitempty"`
+	Credit    *string `json:"credit,omitempty"`
 }
 
 func toMediaDTO(m *media.Media) mediaDTO {
 	return mediaDTO{ID: m.ID.String(), Filename: m.OriginalFilename, MimeType: m.MimeType, FileSize: m.FileSize,
-		PublicURL: m.PublicURL, Width: m.Width, Height: m.Height, AltText: m.AltText}
+		PublicURL: m.PublicURL, Width: m.Width, Height: m.Height, AltText: m.AltText, Caption: m.Caption, Credit: m.Credit}
 }
 
 func fnMediaGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {

@@ -280,6 +280,9 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input *UpdateMediaIn
 	if input.Caption != nil {
 		m.Caption = input.Caption
 	}
+	if input.Credit != nil {
+		m.Credit = input.Credit
+	}
 	if input.Folder != nil {
 		m.Folder = *input.Folder
 	}

@@ -10,6 +10,7 @@
 {{template "hm/csrf" $}}
 {{template "hm/field" dict "ID" "alt_text" "Name" "alt_text" "Label" "Alt text" "Value" .Alt "Help" "Describes the image for people who cannot see it. Leave empty for a purely decorative image." "Error" .Error "Attrs" (attrmap "autocomplete" "off")}}
 {{template "hm/field" dict "ID" "caption" "Name" "caption" "Label" "Caption" "Control" "textarea" "Rows" 3 "Value" .Caption}}
+{{template "hm/field" dict "ID" "credit" "Name" "credit" "Label" "Credit" "Value" .Credit}}
 {{template "hm/card-foot"}}
 <span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Delete" "Variant" "danger-text" "Href" (printf "%s/media/%s/delete" adminPath .ID) "Attrs" (attrmap "data-hm-confirm" $confirm "data-hm-confirm-label" "Delete file" "data-hm-post" (printf "%s/media/%s/delete" adminPath .ID) "data-hm-danger" "")}}</span>
 {{template "hm/button" (dict "Label" "Download" "Href" .URL "Attrs" (attrmap "download" ""))}}

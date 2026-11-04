@@ -1074,8 +1074,8 @@ func TestMediaDetailAltCaptionUsageAndDelete(t *testing.T) {
 	has(t, body, `value=""`, "The team", "Alpha service", "Where it is used", "800 × 600")
 	body = c.get(t, "owner-token", "/admin/media/"+fid(52).String(), "")
 	has(t, body, "Not used by any entity")
-	rec := c.post("/admin/media/"+id, url.Values{"alt_text": {"The whole team"}, "caption": {"Spring offsite"}})
-	if rec.Code != 303 || *c.media.files[0].AltText != "The whole team" || *c.media.files[0].Caption != "Spring offsite" {
+	rec := c.post("/admin/media/"+id, url.Values{"alt_text": {"The whole team"}, "caption": {"Spring offsite"}, "credit": {"Photo: A. Writer"}})
+	if rec.Code != 303 || *c.media.files[0].AltText != "The whole team" || *c.media.files[0].Caption != "Spring offsite" || *c.media.files[0].Credit != "Photo: A. Writer" {
 		t.Fatalf("update: %d", rec.Code)
 	}
 	if rec := c.post("/admin/media/"+id, url.Values{"alt_text": {strings.Repeat("a", 600)}}); rec.Code != 422 {
