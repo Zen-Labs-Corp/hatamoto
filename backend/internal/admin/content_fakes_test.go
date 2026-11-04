@@ -212,6 +212,9 @@ func (f *fakeEntities) UpdateEntity(_ context.Context, id uuid.UUID, _ *uuid.UUI
 	if !ok {
 		return nil, entity.ErrEntityNotFound
 	}
+	if in.ExpectedVersion != nil && *in.ExpectedVersion != e.Version {
+		return nil, &entity.VersionConflictError{Current: e.Version}
+	}
 	if in.Attributes != nil {
 		if err := f.validator.ValidateAttributes(f.schemaOf(e.SchemaID).Schema, *in.Attributes); err != nil {
 			return nil, err

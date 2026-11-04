@@ -156,6 +156,8 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-03", File: "pages/plugins/permissions.html", Needle: `name="permission"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "partials/form-apikey.html", Needle: `"scopes"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/import/options.html", Needle: `.Types`, Reason: reasonMulti},
+	{Rule: "UI-03", File: "pages/settings/search-replace.html", Needle: `"Name" "in"`, Reason: reasonMulti},
+	{Rule: "UI-03", File: "pages/settings/search-replace.html", Needle: `name="sel"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/entities/edit.html", Needle: `name="term"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/entities/blogedit.html", Needle: `name="term"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "partials/table.html", Needle: `data-hm-select-all`, Reason: "table select-all box"},

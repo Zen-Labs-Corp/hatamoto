@@ -32,6 +32,8 @@ type MenuStore interface {
 	CreateMenu(ctx context.Context, in *menu.CreateMenuInput) (*menu.Menu, error)
 	ReplaceMenu(ctx context.Context, id uuid.UUID, fields *menu.UpdateMenuInput, items []menu.ReplaceItem) (*menu.Menu, error)
 	DeleteMenu(ctx context.Context, id uuid.UUID) error
+	GetMenuItem(ctx context.Context, id uuid.UUID) (*menu.MenuItem, error)
+	UpdateMenuItem(ctx context.Context, id uuid.UUID, in *menu.UpdateMenuItemInput) (*menu.MenuItem, error)
 }
 
 // FormStore is form.Service as the forms screens use it.

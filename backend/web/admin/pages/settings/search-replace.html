@@ -1,0 +1,38 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="get" action="{{.Action}}" class="hm-cardform">
+{{template "hm/card-start" dict "ID" "sr-search" "Title" "Find" "Heading" "h2" "Description" "Step 1: say what to find and what to put in its place. The next step lists every match and changes nothing."}}<div class="hm-stack">
+{{template "hm/field" dict "ID" "sr-find" "Name" "find" "Label" "Find" "Value" .Q.Find "Required" true "Error" (index .Errs "sr-find") "Attrs" (attrmap "autocomplete" "off" "spellcheck" "false")}}
+{{template "hm/field" dict "ID" "sr-replace" "Name" "replace" "Label" "Replace with" "Value" .Q.Replace "Help" "Leave it empty to remove the text." "Attrs" (attrmap "autocomplete" "off" "spellcheck" "false")}}
+{{template "hm/field" dict "ID" "sr-mode" "Name" "mode" "Label" "Match" "Control" "radio" "Options" .Modes}}
+{{template "hm/field" dict "ID" "sr-case" "Name" "match_case" "Label" "Match upper and lower case" "Control" "switch" "Value" "1" "Checked" .Q.MatchCase}}
+<div class="hm-field{{if index .Errs "sr-in-content"}} hm-field--invalid{{end}}"><fieldset class="hm-field__group"{{if index .Errs "sr-in-content"}} aria-describedby="sr-in-content-error"{{end}}><legend class="hm-field__label">Look in</legend>
+{{range .Places}}{{template "hm/field" dict "ID" (printf "sr-in-%s" .Value) "Name" "in" "Label" .Label "Control" "checkbox" "Value" .Value "Checked" .Checked}}
+{{end}}
+{{with index .Errs "sr-in-content"}}<p class="hm-field__error" id="sr-in-content-error">{{.}}</p>{{end}}
+</fieldset></div>
+</div>
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Preview" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+{{with .Preview}}
+{{template "hm/card-start" dict "ID" "sr-result" "Title" "Preview" "Heading" "h2" "Description" "Step 2: tick the matches to replace. Nothing changes until you press the button."}}
+<p role="status">{{.Headline}}</p>
+{{if .CapNote}}<p class="hm-muted">{{.CapNote}}</p>{{end}}
+{{template "hm/card-end"}}
+{{if not .Empty}}
+<form method="post" action="{{$.Data.Action}}" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{range .Hidden}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">
+{{end}}
+{{template "hm/card-start" dict "ID" "sr-matches" "Title" "Matches" "Heading" "h2"}}<div class="hm-stack">
+{{range .Groups}}<div class="hm-field"><fieldset class="hm-field__group"><legend class="hm-field__label">{{.Title}} <span class="hm-muted">({{.Count}})</span></legend>
+{{with .Note}}<p class="hm-muted">{{.}}</p>{{end}}
+{{range .Matches}}<label class="hm-field__check" for="{{.ID}}"><input class="hm-field__box" type="checkbox" id="{{.ID}}" name="sel" value="{{.Token}}"{{if .Checked}} checked{{end}}><span><span class="hm-muted">{{.Label}}:</span> {{.Context}}</span></label>
+{{end}}</fieldset></div>
+{{end}}</div>
+{{template "hm/card-foot"}}<span class="hm-muted hm-card__foot-note">Only ticked matches are replaced. Each changed item gets a new version you can restore from its Versions tab.{{if .Menus}} Menus have no version history and cannot be restored.{{end}}</span>{{template "hm/button" dict "Label" "Back" "Href" .Back}}{{template "hm/button" dict "Label" .Button "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+{{end}}
+{{end}}
+{{end}}{{end}}
