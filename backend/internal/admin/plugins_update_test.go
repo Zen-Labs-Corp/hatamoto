@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/base64"
 	"encoding/json"
+	"hatamoto.dev/core/internal/admin/a11y"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -351,5 +352,48 @@ func TestPluginUpdateOneClickInspectOnlyConfirm(t *testing.T) {
 				t.Errorf("installed without review: %+v", pk.installed)
 			}
 		})
+	}
+}
+
+// An update that asks for something new is not installed on its own: the
+// plugin's page says so, names the new ask, and offers the review.
+func TestPluginHeadUpdateReviewCallout(t *testing.T) {
+	t.Parallel()
+
+	g, pk, fp := updateRig(t)
+	text := func(name string) string {
+		rec := g.do("GET", "/admin/plugins/"+name+"/settings", "owner-token", nil, nil)
+		if rec.Code != 200 {
+			t.Fatalf("%s: %d", name, rec.Code)
+		}
+		return visibleText(rec.Body.String())
+	}
+	if got := text("beta"); strings.Contains(got, "not installed automatically") {
+		t.Error("a plain update installs on one click and needs no callout")
+	}
+	fp.list[0].Package.UpdateNew = []string{"mail.send"}
+	rec := g.do("GET", "/admin/plugins/beta/settings", "owner-token", nil, nil)
+	body := rec.Body.String()
+	got := visibleText(body)
+	for _, want := range []string{
+		"beta 1.1.0 is ready but was not installed automatically.", "It asks for something new:",
+		"Review it to update. Until then 1.0.0 keeps running.", "Review update",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("callout lacks %q in %s", want, got)
+		}
+	}
+	if !strings.Contains(body, `action="/admin/plugins/beta/update"`) {
+		t.Error("Review update posts to the update prompt")
+	}
+	if len(pk.installed) != 0 {
+		t.Errorf("the callout installed something: %+v", pk.installed)
+	}
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %s", strings.Join(issues, "; "))
+	}
+	// A plugin that takes no update shows no callout even with new asks listed.
+	if got := text("leaving"); strings.Contains(got, "not installed automatically") {
+		t.Error("an uninstalling plugin shows no update callout")
 	}
 }

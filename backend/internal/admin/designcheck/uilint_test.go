@@ -82,6 +82,7 @@ var uiAllow = []uiAllowEntry{
 	// and of partial forms that were skipped as "partials".
 	{Rule: "UI-01", File: "partials/table.html", Needle: `data-hm-seobulk-save`, Reason: "row action of an editable list: the row's own form saves that one row without JavaScript"},
 	{Rule: "UI-01", File: "pages/settings/theme.html", Needle: `(printf "Update to %s" .Update) "Variant" "secondary" "Size" "sm" "Type" "submit"`, Reason: "the Live card's Update action sits in its own one-button form in the card body, now that theme cards have no footer band"},
+	{Rule: "UI-01", File: "partials/pluginhead.html", Needle: `"Label" "Review update"`, Reason: "the callout's action, a one-button form that opens the update prompt; it posts because the update route is a POST"},
 	{Rule: "UI-01", File: "pages/settings/performance.html", Needle: `"Preload now"`, Reason: "setting row action bound to its own form by the form attribute"},
 	{Rule: "UI-01", File: "pages/settings/layoutparts.html", Needle: `printf "Create %s part"`, Reason: "one create button per slot, each in its own one-button form in a row"},
 	{Rule: "UI-01", File: "pages/entities/new.html", Needle: `<button class="hm-choice__link" type="submit">`, Reason: "a type card is its own one-button form: one click creates the draft, as the Create menu does"},
