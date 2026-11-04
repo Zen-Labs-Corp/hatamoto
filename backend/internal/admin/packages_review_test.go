@@ -411,6 +411,23 @@ func TestPromptLeavesOutRefusedPermissions(t *testing.T) {
 	}
 }
 
+// The registry did not review these permissions: the danger callout shows and
+// there is no Install button.
+func TestPromptRefusesPermissionsTheRegistryDidNotReview(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-unreviewed:gtm").Body.String()
+	for _, want := range []string{"It will not be installed", "Can&#39;t install gtm: it asks for permissions the registry did not review"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("prompt lacks %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "Install plugin") {
+		t.Errorf("an unreviewed package must have no Install button")
+	}
+}
+
 func readFileT(t *testing.T, path string) []byte {
 	t.Helper()
 	b, err := os.ReadFile(path)

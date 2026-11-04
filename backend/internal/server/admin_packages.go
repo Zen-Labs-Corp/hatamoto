@@ -150,6 +150,25 @@ func (p *packageAdmin) updateNewFor(ctx context.Context, name, installed string,
 	return nil
 }
 
+// unreviewedProblem says why a plugin package must not be installed when it
+// asks for permissions beyond what the registry entry of that name lists as
+// reviewed; "" when the registry has no entry (or cannot be read), as before.
+func (p *packageAdmin) unreviewedProblem(ctx context.Context, name string, requested []string) string {
+	idx, err := p.index(ctx)
+	if err != nil || idx == nil {
+		return ""
+	}
+	e, ok := idx.Find(packages.KindPlugin, name)
+	if !ok {
+		return ""
+	}
+	extra := newPermissions(requested, e.Permissions)
+	if len(extra) == 0 {
+		return ""
+	}
+	return "Can't install " + name + ": it asks for permissions the registry did not review (" + strings.Join(extra, ", ") + ")."
+}
+
 func (p *packageAdmin) Registry(ctx context.Context) admin.RegistryView {
 	idx, err := p.index(ctx)
 	switch {
@@ -233,6 +252,9 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	if err := p.mgr().CheckPolicy(ctx, pkg, packages.SourceUpload); err != nil {
 		sum.Problem = err.Error()
 	}
+	if sum.Problem == "" && pkg.Kind == packages.KindPlugin {
+		sum.Problem = p.unreviewedProblem(ctx, pkg.Name, sum.Permissions)
+	}
 	if row, err := p.mgr().Store().Get(ctx, pkg.Kind, pkg.Name); err == nil {
 		sum.Updating, sum.InstalledVersion = true, row.Version
 		if p.s.plugins != nil {
@@ -255,6 +277,14 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 }
 
 func (p *packageAdmin) Install(ctx context.Context, data []byte, source string, grant []string, confirm bool) error {
+	// The prompt hides its Install button for a package the registry did not
+	// review; a posted form must not get past that.
+	if pkg, err := packages.Parse(data, packages.DefaultLimits); err == nil && pkg.Kind == packages.KindPlugin {
+		m, _ := pkg.PluginManifest()
+		if msg := p.unreviewedProblem(ctx, pkg.Name, m.Permissions); msg != "" {
+			return &admin.Refusal{Msg: msg}
+		}
+	}
 	_, err := p.mgr().Install(actorCtx(ctx), data, packages.InstallRequest{Source: packages.Source(source), Grant: grant, Confirm: confirm})
 	return refusal(err)
 }

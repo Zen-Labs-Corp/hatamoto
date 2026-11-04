@@ -111,6 +111,10 @@ func (f *fakePackages) Inspect(_ context.Context, data []byte) (PackageSummary, 
 		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-island:"), Version: "1.0.0", Permissions: []string{"kv", "builder.island"}, Signed: true, Signer: "abc123"}, nil
 	case strings.HasPrefix(s, "plugin-refused:"): // the same, from a source whose policy refuses builder.island
 		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-refused:"), Version: "1.0.0", Permissions: []string{"kv", "builder.island"}, Refused: []string{"builder.island"}, Signed: true, Signer: "abc123"}, nil
+	case strings.HasPrefix(s, "plugin-unreviewed:"): // asks for more than the registry reviewed
+		name := strings.TrimPrefix(s, "plugin-unreviewed:")
+		return PackageSummary{Kind: "plugin", Name: name, Version: "1.0.0", Permissions: []string{"kv", "mail.send"}, Signed: true, Signer: "abc123",
+			Problem: "Can't install " + name + ": it asks for permissions the registry did not review (mail.send)."}, nil
 	case strings.HasPrefix(s, "theme:"):
 		return PackageSummary{Kind: "theme", Name: strings.TrimPrefix(s, "theme:"), Version: "1.0.0", Signed: true, Signer: "abc123"}, nil
 	}
