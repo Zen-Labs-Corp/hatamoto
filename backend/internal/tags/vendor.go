@@ -1,8 +1,8 @@
 // Package tags holds the vendor tag table behind Settings > Tracking: which
 // third-party tags the core script can load, how their ids look, which
 // consent category they belong to and which hosts the page CSP must allow.
-// It is a leaf package: render, server and admin import it, it imports only
-// consent for the category names.
+// It is a leaf package: render, server, admin and packages import it, it
+// imports only the standard library.
 package tags
 
 import (
@@ -48,8 +48,9 @@ type Hosts struct {
 	Script, Connect, Style, Font []string
 }
 
-// Vendors lists the supported tags in display order. Each entry names the
-// vendor's install page its hosts were taken from.
+// Vendors lists the built-in tags in display order; All adds the vendors of
+// installed tag packs. Each entry names the vendor's install page its hosts
+// were taken from.
 var Vendors = []Vendor{
 	{
 		// https://developers.google.com/tag-platform/tag-manager/csp
@@ -190,9 +191,9 @@ var Vendors = []Vendor{
 	},
 }
 
-// ByID returns the vendor with the given id.
+// ByID returns the built-in or pack vendor with the given id.
 func ByID(id string) (Vendor, bool) {
-	for _, v := range Vendors {
+	for _, v := range All() {
 		if v.ID == id {
 			return v, true
 		}
