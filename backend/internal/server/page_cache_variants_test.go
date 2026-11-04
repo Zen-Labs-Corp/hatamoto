@@ -213,3 +213,37 @@ func TestFeedVariant(t *testing.T) {
 		t.Fatal("plain feed")
 	}
 }
+
+// A request path is decoded before the cache lookup, so "%23zstd" must not
+// reach a variant key: it is a miss that renders, never the stored variant,
+// and a variant of it never answers a longer "%23zstd%23zstd" path.
+func TestCachedVariantKeyUnreachableFromPath(t *testing.T) {
+	f, c := variantFixture(t, true)
+	_ = f.get("/about")
+	z := f.get("/about", withAE("zstd")) // stores the variant
+	if z.Header().Get("Content-Encoding") != "zstd" {
+		t.Fatal("setup: no variant")
+	}
+	resolves := f.resolves
+	for _, path := range []string{"/about%23zstd", "/about%23zstd%23zstd"} {
+		w := f.get(path)
+		resolves++
+		if f.resolves != resolves {
+			t.Fatalf("GET %s resolves = %d, want %d: it hit a cached entry", path, f.resolves, resolves)
+		}
+		if bytes.Equal(w.Body.Bytes(), z.Body.Bytes()) {
+			t.Fatalf("GET %s served the stored variant bytes", path)
+		}
+		_ = f.get(path, withAE("zstd")) // hit on its own plain entry, variant under its own key
+		if f.resolves != resolves {
+			t.Fatalf("GET %s with zstd re-rendered", path)
+		}
+	}
+	pages, _ := c.RenderStats()
+	if pages != 3 {
+		t.Errorf("pages = %d, want 3 (variants are not pages)", pages)
+	}
+	if v, _ := c.Get(context.Background(), cache.RenderedPageKey(f.h.engine.Version(), "/about#zstd#zstd")); len(v) == 0 {
+		t.Error("the nested path should only own its plain entry")
+	}
+}
