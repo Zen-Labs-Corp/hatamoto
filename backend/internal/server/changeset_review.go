@@ -517,7 +517,7 @@ func (r *changesetReviewer) History(ctx context.Context, limit, offset int) ([]a
 		case h.PublishedAt != nil:
 			when = *h.PublishedAt
 		}
-		out = append(out, admin.HistoryRow{ID: h.ID, Plugin: h.Plugin, RunName: h.RunName, State: h.State, By: by[h.ID],
+		out = append(out, admin.HistoryRow{ID: h.ID, Plugin: h.Plugin, RunName: h.RunName, State: h.State, By: by[h.ID], Auto: h.Auto,
 			Building: h.State == changeset.StateStaged && h.RunState != plugrun.StateFinished,
 			When:     when, Applied: h.Applied, Skipped: h.Skipped, Dropped: h.Dropped})
 	}

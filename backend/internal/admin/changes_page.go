@@ -93,8 +93,13 @@ func (a *Admin) handleChanges(w http.ResponseWriter, r *http.Request) {
 		if h.State == changeset.StatePublished || h.State == changeset.StateReverted {
 			changes = thousands(h.Applied)
 		}
+		by := ui.Cell{Text: h.By}
+		if h.Auto {
+			auto := ui.Badge{Label: "Published automatically", Kind: "success"}
+			by = ui.Cell{Badge: &auto}
+		}
 		row := ui.Row{ID: strconv.FormatInt(h.ID, 10), Label: h.RunName + " " + fmtDateTime(h.When.In(loc)), Cells: []ui.Cell{
-			run, {Text: h.By}, {Text: fmtDateTime(h.When.In(loc)), Nowrap: true}, {Text: changes, Nowrap: true}, {Badge: &badge},
+			run, by, {Text: fmtDateTime(h.When.In(loc)), Nowrap: true}, {Text: changes, Nowrap: true}, {Badge: &badge},
 		}}
 		switch h.State {
 		case changeset.StateStaged:

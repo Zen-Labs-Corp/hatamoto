@@ -357,13 +357,14 @@ type HistoryRow struct {
 	PublishedAt, RevertedAt   *time.Time
 	Applied, Skipped, Dropped int
 	PayloadBytes              int64
+	Auto                      bool // published under a standing approval
 }
 
 // List reads changesets newest first, limited to plugin ("" is all plugins).
 // Applied counts the items a publish applied, reverted ones included.
 func (e *Engine) List(ctx context.Context, plugin string, limit, offset int) ([]HistoryRow, error) {
 	rows, err := e.DB.Pool().Query(ctx, `
-		SELECT c.id, c.run_id, c.plugin, c.state, c.expires_at, c.item_count, r.name, r.state, c.published_at, c.reverted_at, c.payload_bytes,
+		SELECT c.id, c.run_id, c.plugin, c.state, c.expires_at, c.item_count, r.name, r.state, c.published_at, c.reverted_at, c.payload_bytes, c.auto_published,
 		       count(i.id) FILTER (WHERE i.result IN ('applied', 'reverted')),
 		       count(i.id) FILTER (WHERE i.result IN ('skipped_conflict', 'skipped_other')),
 		       count(i.id) FILTER (WHERE i.result = 'dropped')
@@ -381,7 +382,7 @@ func (e *Engine) List(ctx context.Context, plugin string, limit, offset int) ([]
 	for rows.Next() {
 		var h HistoryRow
 		if err := rows.Scan(&h.ID, &h.RunID, &h.Plugin, &h.State, &h.ExpiresAt, &h.ItemCount, &h.RunName, &h.RunState, &h.PublishedAt, &h.RevertedAt,
-			&h.PayloadBytes, &h.Applied, &h.Skipped, &h.Dropped); err != nil {
+			&h.PayloadBytes, &h.Auto, &h.Applied, &h.Skipped, &h.Dropped); err != nil {
 			return nil, err
 		}
 		out = append(out, h)
