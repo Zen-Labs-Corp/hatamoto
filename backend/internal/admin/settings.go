@@ -33,6 +33,7 @@ func (a *Admin) mountSettings(authed *httpx.Group) {
 	a.mountExportSettings(owner)
 	a.mountSearchReplace(owner)
 	a.mountPerformanceSettings(owner)
+	a.mountSiteAccessSettings(owner)
 	a.mountSpamSettings(owner)
 	a.mountSEOSettings(owner)
 	a.mountPrivacySettings(owner)
