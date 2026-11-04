@@ -129,7 +129,7 @@ func TestChangesetReviewIntegration(t *testing.T) {
 		t.Fatalf("publish with undecided suggestions: %v", err)
 	}
 	// An unsupported kind cannot be approved, only rejected.
-	if err := rev.DecideSuggestion(ctx, cs, other.ID, plugrun.ProposalApproved); !errors.Is(err, ErrSuggestionNotApplicable) {
+	if err := rev.DecideSuggestion(ctx, cs, other.ID, plugrun.ProposalApproved); !errors.Is(err, admin.ErrReviewNotApplicable) {
 		t.Fatalf("approve unsupported: %v", err)
 	}
 	if err := rev.DecideSuggestion(ctx, cs, other.ID, plugrun.ProposalRejected); err != nil {

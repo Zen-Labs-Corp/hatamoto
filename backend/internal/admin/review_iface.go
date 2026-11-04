@@ -130,4 +130,8 @@ var (
 	ErrReviewExpired      = errors.New("the changes expired")
 	ErrReviewNotFound     = errors.New("changes not found")
 	ErrReviewNotPublished = errors.New("the changes are not published")
+	// ErrReviewSuggestionDecided: the suggestion already has a decision.
+	ErrReviewSuggestionDecided = errors.New("that suggestion was already decided")
+	// ErrReviewNotApplicable: the suggestion can only be rejected.
+	ErrReviewNotApplicable = errors.New("that suggestion can only be rejected")
 )

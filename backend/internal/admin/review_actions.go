@@ -147,7 +147,11 @@ func (a *Admin) handleReviewSuggestions(w http.ResponseWriter, r *http.Request) 
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	for _, id := range ids {
 		decision := byID[id]
-		if a.reviewError(w, r, h, rv.DecideSuggestion(r.Context(), h.ID, id, decision)) {
+		if err := rv.DecideSuggestion(r.Context(), h.ID, id, decision); errors.Is(err, ErrReviewSuggestionDecided) || errors.Is(err, ErrReviewNotApplicable) {
+			a.SetFlash(w, r, "error", err.Error()+".")
+			http.Redirect(w, r, a.changesetURL(h.Plugin, h.ID, ""), http.StatusSeeOther)
+			return
+		} else if a.reviewError(w, r, h, err) {
 			return
 		}
 		action := "changeset.suggestion.reject"

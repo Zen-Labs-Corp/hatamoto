@@ -167,21 +167,26 @@ func runView(run plugrun.Run) admin.RunView {
 // reads the runtime at call time.
 type pluginRunCanceller struct{ s *Server }
 
-// CancelRun ends a running run. A run that already ended is left as it is: the
-// page the owner returns to shows how it ended.
-func (c pluginRunCanceller) CancelRun(ctx context.Context, plugin string, id uuid.UUID) error {
-	if c.s.plugins == nil {
-		return admin.ErrRunsUnavailable
-	}
-	err := c.s.plugins.CancelRun(ctx, plugin, id)
+// cancelErr maps the runtime's answer to the admin's. A run that already ended
+// is left as it is and reported as admin.ErrRunNotCancellable.
+func cancelErr(err error) error {
 	switch {
 	case errors.Is(err, plugrun.ErrNotFound):
 		return admin.ErrRunNotFound
 	case errors.Is(err, pluginhost.ErrRunsUnavailable):
 		return admin.ErrRunsUnavailable
 	case errors.Is(err, pluginhost.ErrRunNotCancellable):
-		return nil
-	case err != nil:
+		return admin.ErrRunNotCancellable
+	}
+	return err
+}
+
+// CancelRun ends a running run.
+func (c pluginRunCanceller) CancelRun(ctx context.Context, plugin string, id uuid.UUID) error {
+	if c.s.plugins == nil {
+		return admin.ErrRunsUnavailable
+	}
+	if err := cancelErr(c.s.plugins.CancelRun(ctx, plugin, id)); err != nil {
 		return err
 	}
 	c.s.changesetAudit(ctx, "plugin.run.cancel", "plugin:"+plugin, map[string]any{"run_id": id.String()})

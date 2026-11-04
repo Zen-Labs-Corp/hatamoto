@@ -116,3 +116,17 @@ func TestReviewPublishAndDiscard(t *testing.T) {
 		t.Errorf("other plugin: %d", rec.Code)
 	}
 }
+
+func TestReviewSuggestionRefusalsFlash(t *testing.T) {
+	t.Parallel()
+
+	for _, refusal := range []error{ErrReviewSuggestionDecided, ErrReviewNotApplicable} {
+		g, fr, _ := newReviewRig(t)
+		grantSudo(g)
+		fr.suggestErr = refusal
+		rec := g.do("POST", reviewBase+"/suggestions", "owner-token", url.Values{"suggestion_7": {"approved"}}, nil)
+		if rec.Code != 303 || rec.Header().Get("Location") != reviewBase || rec.Header().Get("Set-Cookie") == "" {
+			t.Errorf("%v: %d %s, want 303 back to the review with a flash", refusal, rec.Code, rec.Header().Get("Location"))
+		}
+	}
+}

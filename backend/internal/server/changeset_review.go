@@ -18,11 +18,6 @@ import (
 	"hatamoto.dev/sdk"
 )
 
-// ErrSuggestionNotApplicable means the owner can only reject this suggestion:
-// its kind is not applied from the review page, or it proposes a setting that
-// is.
-var ErrSuggestionNotApplicable = errors.New("this suggestion can only be rejected")
-
 // reviewRiskyLimit is how many risky rows the review page lists; the counts
 // above it are for the whole changeset.
 const reviewRiskyLimit = 200
@@ -105,7 +100,7 @@ func (r *changesetReviewer) applySettings(ctx context.Context, values map[string
 	for k, v := range values {
 		s, ok := settingByKey(k)
 		if !ok {
-			return fmt.Errorf("%w: %q", ErrSuggestionNotApplicable, k)
+			return fmt.Errorf("%w: %q", admin.ErrReviewNotApplicable, k)
 		}
 		s.set(&in, v)
 	}
@@ -354,7 +349,19 @@ func (r *changesetReviewer) stagedHeader(ctx context.Context, id int64) (changes
 	return h, nil
 }
 
+// suggestionErr maps the run store's refusal to the admin's.
+func suggestionErr(err error) error {
+	if errors.Is(err, plugrun.ErrProposalDecided) {
+		return admin.ErrReviewSuggestionDecided
+	}
+	return err
+}
+
 func (r *changesetReviewer) DecideSuggestion(ctx context.Context, id, proposalID int64, decision string) error {
+	return suggestionErr(r.decideSuggestion(ctx, id, proposalID, decision))
+}
+
+func (r *changesetReviewer) decideSuggestion(ctx context.Context, id, proposalID int64, decision string) error {
 	h, err := r.stagedHeader(ctx, id)
 	if err != nil {
 		return err
@@ -369,7 +376,7 @@ func (r *changesetReviewer) DecideSuggestion(ctx context.Context, id, proposalID
 	}
 	p := props[i]
 	if p.Decision != "" {
-		return plugrun.ErrProposalDecided
+		return admin.ErrReviewSuggestionDecided
 	}
 	switch decision {
 	case plugrun.ProposalRejected:
@@ -392,7 +399,7 @@ func (r *changesetReviewer) DecideSuggestion(ctx context.Context, id, proposalID
 func (r *changesetReviewer) approve(ctx context.Context, runID uuid.UUID, p plugrun.Proposal) error {
 	values, ok := suggestionValues(p)
 	if !ok {
-		return ErrSuggestionNotApplicable
+		return admin.ErrReviewNotApplicable
 	}
 	cfg, err := r.settings.Get(ctx)
 	if err != nil {
