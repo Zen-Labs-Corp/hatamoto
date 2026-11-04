@@ -1,4 +1,5 @@
 {{template "layouts/bare" .}}
+{{define "modules"}}@hm/passkey{{end}}
 {{define "main"}}{{with .Data}}<h1>Two-step sign-in</h1>
 <p>{{if .Recovery}}Enter one of your recovery codes. Each one works once.{{else}}Enter the 6-digit code from your authenticator app.{{end}}</p>
 {{with .Status}}<div id="two-step-status">{{template "hm/flash" (dict "Kind" .Kind "Message" .Message "Inline" true)}}</div>{{end}}
@@ -11,5 +12,9 @@
 {{template "hm/button" dict "Label" "Verify" "Variant" "primary" "Type" "submit"}}
 {{template "hm/foot-end"}}
 </form>
+{{if .Passkey}}<div class="hm-bare__alt">
+{{template "hm/button" dict "Label" "Use a passkey instead" "Variant" "secondary" "Type" "button" "Attrs" (attrmap "data-passkey" "1" "hidden" "hidden")}}
+<p id="passkey-status" class="hm-muted" role="status" aria-live="polite"></p>
+</div>{{end}}
 <p class="hm-bare__links hm-bare__links--start">{{if .Recovery}}<a href="{{adminPath}}/login/2fa">Use your authenticator app</a>{{else}}<a href="{{adminPath}}/login/2fa?recovery=1">Use a recovery code</a>{{end}} · <a href="{{adminPath}}/login">Start over</a></p>
 {{end}}{{end}}

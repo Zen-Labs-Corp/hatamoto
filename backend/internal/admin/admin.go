@@ -89,6 +89,12 @@ type TwoFactorService interface {
 	Status(ctx context.Context, uid uuid.UUID) (twofactor.Factors, error)
 }
 
+// PasskeyLogin is the passkey sign-in ceremony (twofactor.Passkeys).
+type PasskeyLogin interface {
+	BeginLogin(ctx context.Context, uid *uuid.UUID) (json.RawMessage, string, error)
+	FinishLogin(ctx context.Context, ceremonyID string, uid *uuid.UUID, r *http.Request) (uuid.UUID, error)
+}
+
 // TokenService is the reset/invite token flow (auth.UserTokens).
 type TokenService interface {
 	IssueReset(ctx context.Context, userID uuid.UUID) (string, error)
@@ -180,6 +186,8 @@ type Deps struct {
 	// TwoFactor, with an Auth that is also a PasswordStep and a PendingKey,
 	// turns on two-step sign-in. nil means password-only sign-in.
 	TwoFactor TwoFactorService
+	// Passkeys is the passkey sign-in; nil answers its endpoints with 404.
+	Passkeys PasskeyLogin
 	// PendingKey signs the pending sign-in cookie (twofactor.PendingKeyFor).
 	PendingKey twofactor.PendingKey
 	Tokens     TokenService

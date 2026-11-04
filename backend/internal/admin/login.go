@@ -21,6 +21,8 @@ type loginData struct {
 	Status *Flash
 	// DemoLogin is the public demo's sign-in (nil outside demo mode).
 	DemoLogin *demoLogin
+	// Passkeys shows the "Sign in with a passkey" button (passkey sign-in is on).
+	Passkeys bool
 }
 
 type demoLogin struct{ Email, Password string }
@@ -41,6 +43,8 @@ func (a *Admin) mountLogin(public, authed *httpx.Group) {
 	public.HandleFunc("POST /login", a.handleLogin)
 	public.HandleFunc("GET /login/2fa", a.handleTwoStepForm)
 	public.HandleFunc("POST /login/2fa", a.handleTwoStep)
+	public.HandleFunc("POST /login/passkey/begin", a.handlePasskeyBegin)
+	public.HandleFunc("POST /login/passkey/finish", a.handlePasskeyFinish)
 	authed.HandleFunc("POST /logout", a.handleLogout)
 }
 
@@ -69,7 +73,7 @@ func (a *Admin) handleLoginForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, next, http.StatusSeeOther)
 		return
 	}
-	d := loginData{Next: next, DemoLogin: a.demoLoginData()}
+	d := loginData{Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn()}
 	if r.URL.Query().Get("expired") == "1" {
 		d.Status = &Flash{Kind: "info", Message: "Your session expired. Sign in again."}
 	}
@@ -116,7 +120,7 @@ func (a *Admin) loginFailed(w http.ResponseWriter, r *http.Request, err error, e
 		fallthrough
 	case errors.Is(err, auth.ErrInvalidCredentials), errors.Is(err, auth.ErrUserNotFound), errors.Is(err, auth.ErrUserDisabled), errors.Is(err, auth.ErrSecondFactorRequired):
 		v := a.NewView(w, r, "Sign in")
-		v.Data = loginData{Email: email, Next: next, DemoLogin: a.demoLoginData(), Status: &Flash{Kind: "error", Message: loginMessage}}
+		v.Data = loginData{Email: email, Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Status: &Flash{Kind: "error", Message: loginMessage}}
 		a.Render(w, r, http.StatusUnprocessableEntity, "auth/login", v)
 	case errors.Is(err, context.Canceled):
 		// The client left (or was dropped while queued for a hash): nothing to answer.

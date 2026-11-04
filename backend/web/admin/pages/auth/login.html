@@ -1,4 +1,5 @@
 {{template "layouts/bare" .}}
+{{define "modules"}}@hm/passkey{{end}}
 {{define "main"}}{{with .Data}}<h1>Sign in</h1>
 {{with .DemoLogin}}{{template "hm/callout-start" (dict "Kind" "info" "Title" "Public demo login")}}Email <code>{{.Email}}</code><br>Password <code>{{.Password}}</code>{{template "hm/callout-end"}}{{end}}
 {{with .Status}}{{if eq .Kind "error"}}<div id="login-status">{{template "hm/flash" (dict "Kind" .Kind "Message" .Message "Inline" true)}}</div>{{else}}<div id="login-status" class="hm-bare__notice">{{icon "clock"}}{{template "hm/flash" (dict "Kind" "neutral" "Message" .Message "Inline" true)}}</div>{{end}}{{end}}
@@ -11,5 +12,9 @@
 {{template "hm/button" dict "Label" "Sign in" "Variant" "primary" "Type" "submit"}}
 {{template "hm/foot-end"}}
 </form>
+{{if .Passkeys}}<div class="hm-bare__alt">
+{{template "hm/button" dict "Label" "Sign in with a passkey" "Variant" "secondary" "Type" "button" "Attrs" (attrmap "data-passkey" "1" "hidden" "hidden" "data-next" .Next)}}
+<p id="passkey-status" class="hm-muted" role="status" aria-live="polite"></p>
+</div>{{end}}
 <p class="hm-bare__links hm-bare__links--start"><a href="{{adminPath}}/forgot">Forgot your password?</a></p>
 {{end}}{{end}}
