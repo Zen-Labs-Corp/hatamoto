@@ -66,6 +66,10 @@ type Runtime struct {
 	scriptsDeny atomic.Pointer[func(plugin string) bool]
 	grantPolicy atomic.Pointer[func(plugin string, perms []sdk.Permission) error]
 
+	// csp is the snapshot of the loaded plugins' csp blocks (see CSPHosts).
+	csp   atomic.Pointer[map[string]sdk.CSP]
+	cspMu sync.Mutex
+
 	mu       sync.Mutex
 	statuses []Status
 
