@@ -1,6 +1,9 @@
 package server
 
 import (
+	"bytes"
+	"encoding/binary"
+	"hash/fnv"
 	"net/http"
 	"time"
 
@@ -23,6 +26,18 @@ func (h *renderHandlers) encodedVariant(r *http.Request, key string, plain []byt
 	return cachedVariant(r, h.cache, key, plain, h.pageCacheTTL(), gen, h.logger.Warn)
 }
 
+// A stored variant is fingerprint(plain) + compressed bytes. The plain entry
+// can be rewritten (a short MaxCacheAge, a preload refresh, expiry) without
+// touching its variants, so a variant is served only while the fingerprint of
+// the plain body it was made from still matches the body being served.
+const fingerprintLen = 8
+
+func fingerprint(plain []byte) []byte {
+	h := fnv.New64a()
+	_, _ = h.Write(plain)
+	return binary.BigEndian.AppendUint64(nil, h.Sum64())
+}
+
 // cachedVariant is the lookup-or-compress step shared by pages and feeds.
 func cachedVariant(r *http.Request, c htmlCache, key string, plain []byte, ttl time.Duration, gen uint64, warn func(string, ...any)) (httpx.Encoding, []byte) {
 	enc := httpx.NegotiateEncoding(r)
@@ -31,15 +46,16 @@ func cachedVariant(r *http.Request, c htmlCache, key string, plain []byte, ttl t
 	}
 	ctx := r.Context()
 	vkey := cache.EncodedKey(key, string(enc))
-	if packed, err := c.Get(ctx, vkey); err == nil && len(packed) > 0 {
-		return enc, packed
+	fp := fingerprint(plain)
+	if stored, err := c.Get(ctx, vkey); err == nil && len(stored) > fingerprintLen && bytes.HasPrefix(stored, fp) {
+		return enc, stored[fingerprintLen:]
 	}
 	packed, err := httpx.CompressBytes(enc, plain, true)
 	if err != nil {
 		warn("render: compress cached page failed", "error", err)
 		return httpx.EncodingNone, nil
 	}
-	if _, err := c.SetIfGeneration(ctx, vkey, packed, ttl, gen); err != nil {
+	if _, err := c.SetIfGeneration(ctx, vkey, append(fp, packed...), ttl, gen); err != nil {
 		warn("render: cache set failed", "error", err)
 	}
 	return enc, packed

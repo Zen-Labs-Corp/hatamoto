@@ -62,7 +62,7 @@ func TestCachedVariantServedWithoutRecompression(t *testing.T) {
 	if first.Header().Get("Content-Encoding") != "zstd" || !strings.Contains(first.Header().Get("Vary"), "Accept-Encoding") {
 		t.Fatalf("headers: %v", first.Header())
 	}
-	stored, _ := c.Get(ctx, zKey)
+	stored := storedVariant(t, c, zKey)
 	if len(stored) == 0 || !bytes.Equal(stored, first.Body.Bytes()) {
 		t.Fatal("served bytes are not the stored variant")
 	}
@@ -79,7 +79,8 @@ func TestCachedVariantServedWithoutRecompression(t *testing.T) {
 	// Overwrite the stored variant with a marker body: if the hit path
 	// compressed again it would not be served.
 	marker, _ := httpx.CompressBytes(httpx.EncodingZstd, []byte(strings.Repeat("marker ", 300)), true)
-	_, _ = c.SetIfGeneration(ctx, zKey, marker, time.Hour, c.Generation())
+	raw, _ := c.Get(ctx, zKey)
+	_, _ = c.SetIfGeneration(ctx, zKey, append(raw[:fingerprintLen:fingerprintLen], marker...), time.Hour, c.Generation())
 	second := f.get("/about", withAE("zstd"))
 	if !bytes.Equal(second.Body.Bytes(), marker) {
 		t.Fatal("a variant hit must serve the stored bytes untouched")
@@ -245,5 +246,80 @@ func TestCachedVariantKeyUnreachableFromPath(t *testing.T) {
 	}
 	if v, _ := c.Get(context.Background(), cache.RenderedPageKey(f.h.engine.Version(), "/about#zstd#zstd")); len(v) == 0 {
 		t.Error("the nested path should only own its plain entry")
+	}
+}
+
+// storedVariant is the compressed bytes of a stored variant, without its fingerprint.
+func storedVariant(t *testing.T, c *cache.Cache, key string) []byte {
+	t.Helper()
+	raw, _ := c.Get(context.Background(), key)
+	if len(raw) <= fingerprintLen {
+		return nil
+	}
+	return raw[fingerprintLen:]
+}
+
+// The plain entry is rewritten without touching its variants (a preload
+// refresh, a short MaxCacheAge, expiry): a variant made from other bytes must
+// never be served.
+func TestCachedVariantFollowsPlainBytes(t *testing.T) {
+	f, c := variantFixture(t, true)
+	ctx := context.Background()
+	_ = f.get("/about")
+	old := f.get("/about", withAE("zstd")) // variant of the old page
+	if old.Header().Get("Content-Encoding") != "zstd" {
+		t.Fatal("setup: no variant")
+	}
+	plainKey := cache.RenderedPageKey(f.h.engine.Version(), "/about")
+	fresh := strings.Repeat("Fresh words after a refresh. ", 120)
+	_ = c.Set(ctx, plainKey, []byte(fresh), time.Hour) // plain overwritten, variant left in place
+
+	for _, ae := range []string{"zstd", "gzip"} {
+		w := f.get("/about", withAE(ae))
+		var got string
+		if ae == "zstd" {
+			zr, _ := zstd.NewReader(nil)
+			b, err := zr.DecodeAll(w.Body.Bytes(), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got = string(b)
+		} else {
+			got = gunzip(t, w.Body.Bytes())
+		}
+		if got != fresh {
+			t.Errorf("%s hit served stale bytes: %.40q", ae, got)
+		}
+	}
+	// A plain entry that expired and came back with the same bytes keeps its variant.
+	_ = c.Set(ctx, plainKey, []byte(fresh), time.Hour)
+	marker := storedVariant(t, c, cache.EncodedKey(plainKey, "zstd"))
+	if again := f.get("/about", withAE("zstd")); !bytes.Equal(again.Body.Bytes(), marker) {
+		t.Error("identical plain bytes must reuse the variant")
+	}
+}
+
+// Feeds are tied to their plain body the same way.
+func TestFeedVariantFollowsPlainBytes(t *testing.T) {
+	c := cache.New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	s := &Server{logger: slog.New(slog.NewTextHandler(io.Discard, nil)), infra: &Infrastructure{Cache: c}}
+	s.compressOn.Store(true)
+	probe := httptest.NewRequest(http.MethodGet, "/feed.xml", nil)
+	key := cache.RenderedPageKey("feed:"+s.publicBaseURL(probe), "/feed.xml")
+	feed := func(item string) []byte {
+		return []byte(`<rss>` + strings.Repeat("<item>"+item+"</item>", 200) + `</rss>`)
+	}
+	get := func() string {
+		r := httptest.NewRequest(http.MethodGet, "/feed.xml", nil)
+		r.Header.Set("Accept-Encoding", "gzip")
+		w := httptest.NewRecorder()
+		s.handleFeed(w, r)
+		return gunzip(t, w.Body.Bytes())
+	}
+	_ = c.Set(context.Background(), key, feed("old"), time.Hour)
+	_ = get()
+	_ = c.Set(context.Background(), key, feed("new"), time.Hour)
+	if got := get(); got != string(feed("new")) {
+		t.Fatalf("feed variant is stale: %.40q", got)
 	}
 }
