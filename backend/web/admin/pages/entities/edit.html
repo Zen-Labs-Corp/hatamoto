@@ -52,7 +52,7 @@
 {{template "hm/field" dict "ID" "new_term_kind" "Name" "new_term_kind" "Label" "Kind" "Control" "select" "Options" .KindOptions}}
 </div>{{end}}
 </div>
-{{template "hm/card-end"}}{{end}}
+{{template "hm/card-end"}}{{end}}{{template "hm/ownership-card" .Ownership}}
 </aside>
 {{template "hm/card-start" dict "ID" "seo"}}
 {{template "hm/seopanel" dict "Panel" .Panel "SEO" .SEO "Errors" .Errors "Noun" .Noun "AnalyzeURL" .AnalyzeURL "Include" "#hm-entityform" "ShowSocialText" true "ShowRobotsAdvanced" true}}
@@ -63,5 +63,5 @@
 {{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "entities")}}
 {{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}
 </div>
-</form>
+</form>{{template "hm/ownership-form" (dict "P" .Ownership "CSRF" $.CSRF)}}
 {{end}}{{end}}

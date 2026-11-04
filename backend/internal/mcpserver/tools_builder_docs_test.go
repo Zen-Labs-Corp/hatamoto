@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"reflect"
 	"slices"
 	"strings"
@@ -24,6 +26,7 @@ type memStore struct {
 	ents      map[uuid.UUID]*entity.Entity
 	schemas   map[uuid.UUID]*entity.EntitySchema
 	updates   []entity.UpdateEntityInput
+	took      bool // UpdateEntity reports a hand-over
 	statusLog []entity.EntityStatus
 	statusErr error // UpdateEntityStatus fails with it
 }
@@ -78,6 +81,7 @@ func (m *memStore) UpdateEntity(_ context.Context, id uuid.UUID, _ *uuid.UUID, i
 		e.Version++
 	}
 	c := *e
+	c.TookOwnership = m.took
 	return &c, nil
 }
 
@@ -472,6 +476,45 @@ func TestEntitiesUpdateRefusesSlotAndRefCycle(t *testing.T) {
 	}
 }
 
+// memRepo lets the real entity service run over memStore for the two calls an
+// update makes; the embedded nil interface panics on anything else.
+type memRepo struct {
+	entity.EntityRepository
+	st *memStore
+}
+
+func (m memRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.Entity, error) {
+	return m.st.GetEntity(ctx, id)
+}
+
+func (m memRepo) Update(ctx context.Context, id uuid.UUID, by *uuid.UUID, in *entity.UpdateEntityInput) (*entity.Entity, error) {
+	return m.st.UpdateEntity(ctx, id, by, in)
+}
+
+// An update that takes a plugin's entity over says so in the audit.
+func TestEntitiesUpdateAuditsTakeOver(t *testing.T) {
+	for _, took := range []bool{true, false} {
+		st := newMemStore()
+		st.took = took
+		page := st.add(st.schema("page", true, `{}`), entity.StatusDraft, `{"page_doc":`+heroDoc+`}`)
+		page.Schema = st.schemas[page.SchemaID]
+		audit := &recAudit{}
+		svc := entity.NewService(nil, memRepo{st: st}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		sess := session(t, newTestServer(t, []hmauth.APIKeyScope{hmauth.ScopeReadEntities, hmauth.ScopeWriteEntities}, Deps{Entities: svc, BuilderEntities: st, Audit: audit}))
+		text, isErr := call(t, sess, "entities_update", map[string]any{"id": page.ID.String(), "attributes": map[string]any{"page_doc": json.RawMessage(heroDoc), "meta_title": "T"}})
+		if isErr {
+			t.Fatalf("update: %s", text)
+		}
+		var tools []string
+		for _, e := range audit.entries {
+			tools = append(tools, e.Tool)
+		}
+		if got := strings.Contains(strings.Join(tools, ","), "entities_take_over"); got != took {
+			t.Errorf("took = %v, audit tools = %v", took, tools)
+		}
+	}
+}
+
 // The part slot rules read the slot being stored (entities_update sends all
 // attributes), not the stored one.
 func TestCheckPageDocRulesReadsIncomingSlot(t *testing.T) {
@@ -542,5 +585,23 @@ func TestBuilderApplyOpsConcurrentSameVersion(t *testing.T) {
 			t.Fatalf("round %d: %d applied, %d conflicts: %q", round, ok, conflicts, results)
 		}
 		version++
+	}
+}
+
+// A builder edit that takes a plugin's page over says so in the audit.
+func TestBuilderApplyOpsAuditsTakeOver(t *testing.T) {
+	for _, took := range []bool{true, false} {
+		r := newRig(t)
+		r.st.took = took
+		if text, isErr := r.apply(t, 3, map[string]any{"op": "setProp", "id": "h", "key": "text", "value": "Hello"}); isErr {
+			t.Fatal(text)
+		}
+		var tools []string
+		for _, e := range r.audit.entries {
+			tools = append(tools, e.Tool)
+		}
+		if got := strings.Contains(strings.Join(tools, ","), "entities_take_over"); got != took {
+			t.Errorf("took = %v, audit tools = %v", took, tools)
+		}
 	}
 }

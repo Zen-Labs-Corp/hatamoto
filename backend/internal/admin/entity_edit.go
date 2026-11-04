@@ -104,6 +104,7 @@ type termGroup struct {
 }
 
 type entityForm struct {
+	Ownership      *ownershipPanel // nil: no plugin imported the entity
 	Parent         parentChoice
 	UpdatedAt      string // when the entity was last saved, for the save indicator; empty on a new or re-rendered form
 	ParentOrig     string // the parent when the form was opened; a save that posts it back leaves the parent alone
@@ -740,6 +741,9 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 		f.AnalyzeURL = a.adminPath + "/entities/" + f.ID + "/analyze"
 	}
 	f.Panel = a.entityPanel(r, e, sc, f, values)
+	if !f.New {
+		f.Ownership = a.ownershipPanel(r, e)
+	}
 	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"status", "Status"}, {"locale", "Locale"}, {"schedule", "Publish date"}, {"parent", "Parent"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}, {"seo_schema_type", "Schema type"}, {"seo_custom_jsonld", "Custom JSON-LD"}, {"seo_max_snippet", "Max snippet"}, {"seo_max_image_preview", "Max image preview"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
@@ -1364,11 +1368,17 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 	if in.Locale != nil {
 		detail["locale"] = *in.Locale
 	}
+	if updated.TookOwnership {
+		detail["took_ownership"] = true
+	}
 	a.auditEntity(r, auditEntityUpdate, e.ID, updated, detail)
 	msg := "Saved."
 	kind := "success"
 	if note := a.afterSave(r, p, updated, sc, e.Status); note != "" {
 		msg, kind = "Saved. "+note, "error"
+	}
+	if updated.TookOwnership {
+		msg += " " + a.tookOverNote(r, e.ID)
 	}
 	a.SetFlash(w, r, kind, msg)
 	Redirect(w, r, a.adminPath+"/entities/"+e.ID.String())

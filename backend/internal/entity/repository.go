@@ -481,10 +481,11 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 	// Get current entity state with FOR UPDATE lock to prevent race conditions
 	var currentVersion int
 	var currentAttributes json.RawMessage
+	var prevOrigin string
 	err = tx.QueryRow(ctx,
-		`SELECT version, attributes FROM hatamoto_entities WHERE id = $1 FOR UPDATE`,
+		`SELECT version, attributes, origin FROM hatamoto_entities WHERE id = $1 FOR UPDATE`,
 		id,
-	).Scan(&currentVersion, &currentAttributes)
+	).Scan(&currentVersion, &currentAttributes, &prevOrigin)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -561,7 +562,8 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 		    published_at = CASE WHEN $14::text = 'published' AND published_at IS NULL THEN NOW() ELSE published_at END,
 		    updated_by = $6,
 		    version = CASE WHEN $4 IS NOT NULL THEN version + 1 ELSE version END,
-		    updated_at = CASE WHEN $15 THEN updated_at ELSE NOW() END
+		    updated_at = CASE WHEN $15 THEN updated_at ELSE NOW() END,
+		    origin = CASE WHEN $17 THEN 'owner' ELSE origin END
 		WHERE id = $1
 		RETURNING id, schema_id, name, slug, locale, status, attributes, metadata,
 		          version, created_by, updated_by, created_at, updated_at, published_at, parent_id, author_id, byline_person_id, byline_org
@@ -570,7 +572,7 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 	var e Entity
 	err = tx.QueryRow(ctx, query, id, input.Name, input.Slug, attrsArg, input.Metadata, userID,
 		input.ClearParent, input.ParentID, input.ClearAuthor, input.AuthorID,
-		input.ClearBylinePerson, input.BylinePersonID, input.BylineOrg, statusArg(input.Status), input.KeepUpdatedAt, input.Locale).Scan(
+		input.ClearBylinePerson, input.BylinePersonID, input.BylineOrg, statusArg(input.Status), input.KeepUpdatedAt, input.Locale, input.TakeOwnership).Scan(
 		&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata,
 		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg,
 	)
@@ -592,6 +594,7 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
+	e.TookOwnership = input.TakeOwnership && prevOrigin != "owner"
 	return &e, nil
 }
 

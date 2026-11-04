@@ -247,6 +247,11 @@ func (s *Server) registerContent() {
 			if err != nil {
 				return nil, err
 			}
+			if e.TookOwnership {
+				// The call's own audit row carries the arguments; this one says
+				// the plugin lost the entity.
+				s.d.Audit.Record(ctx, AuditEntry{KeyID: key.ID, KeyName: key.Name, Tool: "entities_take_over", Args: auditArgs(map[string]string{"id": in.ID})})
+			}
 			return s.summary(ctx, e, true), nil
 		})
 

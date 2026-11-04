@@ -11,6 +11,8 @@ import (
 // Audit actions for explicit entity changes made in the admin. Autosave
 // (blog_editor.go), draft auto-create (entity_draft.go) and the builder's
 // per-keystroke saves are deliberately not audited: they would flood the log.
+// The exception is the one save or autosave that takes a plugin's page over, which
+// writes entity.take_over (once per page: the next save finds it the owner's).
 // MCP, API and scheduled publishes have no admin request, so they are not
 // audited here either.
 const (
@@ -22,6 +24,8 @@ const (
 	auditEntityDelete         = "entity.delete"
 	auditEntityRestoreVersion = "entity.restore_version"
 	auditEntityCreateCopy     = "entity.create_copy"
+	auditEntityHandBack       = "entity.hand_back"
+	auditEntityTakeOver       = "entity.take_over"
 )
 
 // auditStatusAction names the audit action of a move to st: published is a

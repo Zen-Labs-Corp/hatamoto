@@ -208,6 +208,7 @@ type blogData struct {
 	// The editor top bar.
 	SchemaName, ListHref, VersionsHref, DetailsHref, ViewHref, UpdatedAt, EditedBy string
 	StatusBadge                                                                    *ui.Badge
+	Ownership                                                                      *ownershipPanel // nil: no plugin imported the entity
 }
 
 // asideTab is one tab of the blog editor's settings aside.
@@ -504,6 +505,9 @@ func (a *Admin) buildBlogView(r *http.Request, e *entity.Entity, sc *entity.Enti
 	d.SchemaName, d.ListHref = sc.Name+"s", a.adminPath+"/entities?type="+url.QueryEscape(sc.Slug)
 	d.VersionsHref, d.DetailsHref = a.adminPath+"/entities/"+f.ID+"/versions", a.adminPath+"/entities/"+f.ID
 	d.StatusBadge = statusBadge(e.Status)
+	if d.Ownership = a.ownershipPanel(r, e); d.Ownership != nil {
+		d.Ownership.CardID = "be-own"
+	}
 	if !e.UpdatedAt.IsZero() {
 		d.UpdatedAt = fmtDateTime(e.UpdatedAt.In(a.siteLocation(r.Context())))
 	}
@@ -632,7 +636,11 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 	}
 	updated.PublishedAt = e.PublishedAt
 	a.dropRecovery(r.Context(), actorID(r), e.ID)
-	a.auditEntity(r, auditEntityUpdate, e.ID, updated, map[string]any{"schema": sc.Slug})
+	detail := map[string]any{"schema": sc.Slug}
+	if updated.TookOwnership {
+		detail["took_ownership"] = true
+	}
+	a.auditEntity(r, auditEntityUpdate, e.ID, updated, detail)
 	msg, kind := "Saved.", "success"
 	switch {
 	case e.Status == entity.StatusPublished && p.f.Status == string(entity.StatusPublished):
@@ -642,6 +650,9 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 	}
 	if note := a.afterSave(r, p, updated, sc, e.Status); note != "" {
 		msg, kind = "Saved. "+note, "error"
+	}
+	if updated.TookOwnership {
+		msg += " " + a.tookOverNote(r, e.ID)
 	}
 	a.SetFlash(w, r, kind, msg)
 	Redirect(w, r, a.adminPath+"/entities/"+e.ID.String()+"/edit")
@@ -722,7 +733,8 @@ func (a *Admin) handleBlogAutosave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Autosave is not audited: it runs on every pause in typing. Only the explicit
-	// save in handleBlogSave writes an audit row.
+	// save in handleBlogSave writes an audit row, and the one autosave that takes
+	// a plugin's page over (it happens once per page).
 	updated, err := c.Entities.UpdateEntity(r.Context(), e.ID, actorID(r), in)
 	if err != nil {
 		if errors.Is(err, entity.ErrSlugAlreadyExists) && in.Slug != nil {
@@ -739,6 +751,9 @@ func (a *Admin) handleBlogAutosave(w http.ResponseWriter, r *http.Request) {
 		a.logger().Error("blog autosave failed", "err", err)
 		reply(http.StatusInternalServerError, autosaveReply{Version: e.Version, Error: "The draft could not be saved."})
 		return
+	}
+	if updated.TookOwnership {
+		a.auditEntity(r, auditEntityTakeOver, e.ID, updated, map[string]any{"schema": sc.Slug, "autosave": true})
 	}
 	reply(http.StatusOK, autosaveReply{OK: true, Version: updated.Version, SavedAt: time.Now().UTC().Format(time.RFC3339)})
 }

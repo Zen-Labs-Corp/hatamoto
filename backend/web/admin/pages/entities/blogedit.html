@@ -109,7 +109,7 @@
 {{template "hm/field" dict "ID" "author" "Name" "author" "Label" "Author" "Control" "select" "Options" .AuthorOptions}}
 {{template "hm/field" dict "ID" "new_author" "Name" "new_author" "Label" "Or add a new author" "Value" .NewAuthor "Help" "Type a name to create an author and use it for this post." "Attrs" (attrmap "autocomplete" "off")}}
 </div>
-{{template "hm/card-end"}}{{end}}
+{{template "hm/card-end"}}{{end}}{{template "hm/ownership-card" .Ownership}}
 </section>
 <section class="hm-be__panel hm-stack" role="tabpanel" id="be-tabpanel-seo" aria-labelledby="be-tab-seo" data-hm-be-panel>
 <h2 class="hm-be__panel-h" data-hm-be-panel-h>SEO and AEO</h2>
@@ -131,6 +131,6 @@
 </section>{{end}}
 </aside>
 </div>
-</form>{{with .Translations}}
+</form>{{template "hm/ownership-form" (dict "P" .Ownership "CSRF" $.CSRF)}}{{with .Translations}}
 {{template "hm/translations-dialogs" (dict "CSRF" $.CSRF "P" .)}}{{end}}
 {{end}}{{end}}

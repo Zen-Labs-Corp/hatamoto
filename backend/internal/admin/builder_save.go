@@ -170,6 +170,8 @@ type savedPage struct {
 	// Note is something the person should know although the save worked: the
 	// address was taken, or the page was saved but not published.
 	Note string
+	// TookOwnership is true when the save took the page from its plugin.
+	TookOwnership bool
 }
 
 // saveBuilderDoc stores doc as e's page_doc for op (autosave, save or publish)
@@ -267,7 +269,7 @@ func (a *Admin) saveBuilderDocSEO(ctx context.Context, actor *uuid.UUID, e *enti
 		a.dropRecovery(ctx, actor, e.ID)
 	}
 
-	out := &savedPage{Entity: res.Entity}
+	out := &savedPage{Entity: res.Entity, TookOwnership: res.TookOwnership}
 	parsed := res.Parsed
 	if res.TakenSlug != "" {
 		out.Note = "The address /" + res.TakenSlug + " is in use; the page keeps /" + res.Entity.Slug + ". Change it under Details."
@@ -357,6 +359,10 @@ func (a *Admin) handleBuilderSave(w http.ResponseWriter, r *http.Request) {
 		a.logger().Error("admin: builder save failed", "err", err)
 		reply(http.StatusInternalServerError, builderSaveReply{Code: "server_error", Error: "The page could not be saved."})
 		return
+	}
+	if saved.TookOwnership {
+		a.auditEntity(r, auditEntityTakeOver, e.ID, saved.Entity, nil)
+		saved.Note = strings.TrimSpace(saved.Note + " " + a.tookOverNote(r, e.ID))
 	}
 	rep := builderSaveReply{
 		OK:      true,

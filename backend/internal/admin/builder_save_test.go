@@ -522,3 +522,28 @@ func TestBuilderSaveSEOKeepsTheSchemaTabKeys(t *testing.T) {
 		t.Errorf("attributes = %s", r.ents.ents[r.page.ID].Attributes)
 	}
 }
+
+// tookOverEntities reports every update as one that took the page from its plugin.
+type tookOverEntities struct{ *recordingEntities }
+
+func (f tookOverEntities) UpdateEntity(ctx context.Context, id uuid.UUID, by *uuid.UUID, in *entity.UpdateEntityInput) (*entity.Entity, error) {
+	e, err := f.recordingEntities.UpdateEntity(ctx, id, by, in)
+	if e != nil {
+		e.TookOwnership = true
+	}
+	return e, err
+}
+
+// A builder save that takes a plugin's page over is audited and tells the person.
+func TestBuilderSaveAuditsTakeOver(t *testing.T) {
+	t.Parallel()
+
+	r := newSaveRig(t)
+	r.a.deps.Content.Entities = tookOverEntities{r.rec}
+	rows := r.record()
+	code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", ""))
+	if code != 200 || !out.OK || !strings.Contains(out.Note, "This page is yours now") {
+		t.Fatalf("save: %d %+v", code, out)
+	}
+	wantAudit(t, rows(), "entity.take_over")
+}

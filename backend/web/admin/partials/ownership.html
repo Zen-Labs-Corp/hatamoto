@@ -1,0 +1,17 @@
+{{/* hm/ownership-card: the ownership panel of the entity editors (a *ownershipPanel; nil renders nothing): who tracks the page, then the card that lists what a plugin can never own. hm/ownership-form: its one-button hand-back form (P, CSRF; only when there is something to hand back), placed after the editor's own form so the card's button can submit it with form=. */}}
+{{define "hm/ownership-card"}}{{with .}}{{template "hm/card-start" dict "ID" .CardID "Title" .Title}}
+<div class="hm-stack">
+{{template "hm/badge" (dict "Label" .BadgeLabel "Kind" .BadgeKind "Wrap" true)}}
+<p>{{.Sentence}}</p>
+{{with .SourceKey}}<div><p class="hm-muted">Came from</p><p><code>{{.}}</code></p></div>
+{{end}}{{with .LastLabel}}<div><p class="hm-muted">Last import</p><p>{{if $.LastHref}}<a href="{{$.LastHref}}">{{.}}</a>{{else}}{{.}}{{end}}</p></div>
+{{end}}
+</div>
+{{if .ButtonLabel}}{{template "hm/card-foot"}}{{template "hm/button" dict "Label" .ButtonLabel "Type" "submit" "Attrs" (attrmap "form" .FormID)}}{{template "hm/card-foot-end"}}{{else}}{{template "hm/card-end"}}{{end}}
+{{template "hm/card-start" dict "ID" (printf "%s-never" .CardID) "Title" "Things a plugin can never own"}}
+<div class="hm-stack">
+<p>Site settings, link structures, the home page, menu positions, the 404 page, robots and templates. Plugins can only suggest.</p>
+{{template "hm/callout" (dict "Kind" "info" "Body" "A prepared page whose link would clash with one of your pages, a core address or a reserved path is refused before it is staged. Your pages always win.")}}
+</div>
+{{template "hm/card-end"}}{{end}}{{end}}
+{{define "hm/ownership-form"}}{{with .P}}{{if .ButtonLabel}}<form method="post" action="{{.ActionURL}}" id="{{.FormID}}">{{template "hm/csrf" $}}</form>{{end}}{{end}}{{end}}
