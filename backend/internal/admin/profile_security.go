@@ -239,8 +239,12 @@ func (a *Admin) handleTOTPConfirm(w http.ResponseWriter, r *http.Request) {
 // showCodes parks the plaintext codes in the one-shot store and redirects to
 // the page that shows them once.
 func (a *Admin) showCodes(w http.ResponseWriter, r *http.Request, codes []string) {
+	http.Redirect(w, r, a.codesURL(r, codes), http.StatusSeeOther)
+}
+
+func (a *Admin) codesURL(r *http.Request, codes []string) string {
 	id := a.secrets.putEntry(secretEntry{user: userFrom(r.Context()).ID, key: strings.Join(codes, "\n"), kind: "recovery"})
-	http.Redirect(w, r, a.securityURL("codes")+"?id="+id, http.StatusSeeOther)
+	return a.securityURL("codes") + "?id=" + id
 }
 
 func (a *Admin) handleSecurityCodes(w http.ResponseWriter, r *http.Request) {
@@ -414,5 +418,16 @@ func (a *Admin) handlePasskeyAddFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	a.audit(r, "user.passkey.add", userFrom(r.Context()).Email, nil)
 	a.SetFlash(w, r, "success", fmt.Sprintf("Passkey %q added.", name))
-	a.writeJSON(w, http.StatusOK, map[string]string{"redirect": a.securityURL()})
+	redirect := a.securityURL()
+	// A user with no recovery codes (a passkey is their first method) gets
+	// a set now: without one, a lost device ends only at the server's CLI.
+	if f, err := a.deps.TwoFactor.Status(r.Context(), uid); err == nil && f.RecoveryLeft == 0 {
+		if codes, err := a.deps.TwoFactor.RegenerateCodes(r.Context(), uid); err != nil {
+			a.logger().Error("recovery codes for a first passkey failed", "err", err)
+		} else {
+			a.audit(r, "user.recovery_codes.regenerate", userFrom(r.Context()).Email, nil)
+			redirect = a.codesURL(r, codes)
+		}
+	}
+	a.writeJSON(w, http.StatusOK, map[string]string{"redirect": redirect})
 }

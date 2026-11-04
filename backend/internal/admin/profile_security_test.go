@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 	"strings"
 	"sync"
@@ -236,5 +237,31 @@ func TestSecurityPasskeyAddPage(t *testing.T) {
 	}
 	if issues := a11y.Check(rec.Body.String(), a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
+	}
+}
+
+func TestSecurityFirstPasskeyGetsRecoveryCodes(t *testing.T) {
+	t.Parallel()
+
+	g := newTwoFactorSecRig(t)
+	g.grant()
+	var begun struct {
+		Ceremony string `json:"ceremony"`
+	}
+	if err := json.Unmarshal(g.postJSON("/admin/profile/security/passkeys/begin", "owner-token", "{}", nil).Body.Bytes(), &begun); err != nil {
+		t.Fatal(err)
+	}
+	rec := g.postJSON("/admin/profile/security/passkeys/finish?c="+begun.Ceremony+"&name=Key", "owner-token", "{}", nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "/profile/security/codes?id=") || g.tf.left != 10 {
+		t.Fatalf("finish: %d %s left=%d", rec.Code, rec.Body, g.tf.left)
+	}
+	// A user who already has codes is sent back to the Security page.
+	g2 := newTwoFactorSecRig(t)
+	g2.grant()
+	g2.tf.left = 4
+	_ = json.Unmarshal(g2.postJSON("/admin/profile/security/passkeys/begin", "owner-token", "{}", nil).Body.Bytes(), &begun)
+	rec = g2.postJSON("/admin/profile/security/passkeys/finish?c="+begun.Ceremony, "owner-token", "{}", nil)
+	if strings.Contains(rec.Body.String(), "codes?id=") || g2.tf.left != 4 {
+		t.Fatalf("existing codes were replaced: %s left=%d", rec.Body, g2.tf.left)
 	}
 }
