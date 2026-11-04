@@ -143,7 +143,7 @@ func (a *Admin) handlePluginStanding(w http.ResponseWriter, r *http.Request) {
 			d.State.Badge = ui.Badge{Label: "Off", Kind: "info"}
 			body = "You turned them off. Until you allow them again, its automatic runs do not start."
 		}
-		d.Paused = &pausedNotice{Title: pausedTitle(p, paused.Reason), Body: body, Allow: d.Action + "?review=1", Keep: d.Cancel}
+		d.Paused = &pausedNotice{Title: pausedTitle(p, paused.Reason), Body: body, Allow: d.Action + "?review=1#opt2", Keep: d.Cancel}
 		if len(waiting) > 0 {
 			d.Paused.Waiting = countNoun(len(waiting), "run") + " waiting for your review."
 			d.Paused.WaitingHref = a.pluginURL(p.Name, "runs")

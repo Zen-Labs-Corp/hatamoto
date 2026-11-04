@@ -260,7 +260,7 @@ func TestStandingTabPausedState(t *testing.T) {
 		t.Errorf("a paused tab names the run that waits:\n%s", body)
 	}
 	for _, want := range []string{
-		"Updated", "shop-sync was updated to 1.2.4. Its automatic updates are paused.", "Review and allow again", `href="` + standingPath + `?review=1"`,
+		"Updated", "shop-sync was updated to 1.2.4. Its automatic updates are paused.", "Review and allow again", `href="` + standingPath + `?review=1#opt2"`,
 		"Keep paused", `href="/admin/plugins/shop-sync/settings"`,
 		"Daily summary, 2 Nov 2026", "Automatic runs", "<td", ">311<", ">12<", "See runs",
 	} {
