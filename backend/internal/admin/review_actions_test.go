@@ -97,6 +97,19 @@ func TestReviewPublishAndDiscard(t *testing.T) {
 	if len(events) != 1 || events[0].Action != "changeset.publish" {
 		t.Errorf("audit = %+v", events)
 	}
+	// Choices posted with Publish are saved first, so a Drop that was never saved is not published.
+	fr.decides, fr.publishes = nil, 0
+	form := url.Values{"item_3": {"approved"}, "item_4": {"dropped"}, "group_redirects": {"dropped"}}
+	if rec := g.do("POST", reviewBase+"/publish", "owner-token", form, nil); rec.Code != 303 || fr.publishes != 1 {
+		t.Fatalf("publish with choices: %d, %d publishes", rec.Code, fr.publishes)
+	}
+	if want := []decideCall{{42, []int{3}, "approved"}, {42, []int{4, 10, 11}, "dropped"}}; !reflect.DeepEqual(fr.decides, want) {
+		t.Errorf("decides before publish = %+v, want %+v", fr.decides, want)
+	}
+	fr.decides, fr.publishes = nil, 0
+	if rec := g.do("POST", reviewBase+"/publish", "owner-token", url.Values{"item_4": {"nope"}}, nil); rec.Code != 400 || fr.publishes != 0 {
+		t.Errorf("bad choice must not publish: %d, %d publishes", rec.Code, fr.publishes)
+	}
 	fr.publishErr = ErrReviewExpired
 	if rec := g.do("POST", reviewBase+"/publish", "owner-token", nil, nil); rec.Code != 409 {
 		t.Errorf("expired: %d", rec.Code)

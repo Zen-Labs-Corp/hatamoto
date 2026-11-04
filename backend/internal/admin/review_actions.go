@@ -66,9 +66,22 @@ func (a *Admin) handleReviewDecide(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	n, ok := a.saveDecisions(w, r, h, rv)
+	if !ok {
+		return
+	}
+	if n > 0 {
+		a.SetFlash(w, r, "success", "Saved your decisions.")
+	}
+	http.Redirect(w, r, a.changesetURL(h.Plugin, h.ID, ""), http.StatusSeeOther)
+}
+
+// saveDecisions records the Keep/Drop choices posted with the form and reports
+// how many there were. It has answered the request itself when ok is false.
+func (a *Admin) saveDecisions(w http.ResponseWriter, r *http.Request, h changeset.Header, rv ChangesetReviewer) (n int, ok bool) {
 	if err := r.ParseForm(); err != nil {
 		a.Error(w, r, http.StatusBadRequest, "Bad request", "The form could not be read.")
-		return
+		return 0, false
 	}
 	bySeq := map[int]string{}
 	for k, v := range r.PostForm {
@@ -76,21 +89,21 @@ func (a *Admin) handleReviewDecide(w http.ResponseWriter, r *http.Request) {
 		if !ok || len(v) == 0 {
 			continue
 		}
-		n, err := strconv.Atoi(seq)
-		if err != nil || n <= 0 || !validDecision(v[0], "dropped") {
+		num, err := strconv.Atoi(seq)
+		if err != nil || num <= 0 || !validDecision(v[0], "dropped") {
 			a.Error(w, r, http.StatusBadRequest, "Bad request", "A decision in the form is not valid.")
-			return
+			return 0, false
 		}
-		bySeq[n] = v[0]
+		bySeq[num] = v[0]
 	}
 	if g := r.PostFormValue(reviewGroupField); g != "" {
 		if !validDecision(g, "dropped") {
 			a.Error(w, r, http.StatusBadRequest, "Bad request", "A decision in the form is not valid.")
-			return
+			return 0, false
 		}
 		rd, err := rv.Review(r.Context(), h.ID)
 		if a.reviewError(w, r, h, err) {
-			return
+			return 0, false
 		}
 		if rd.RedirectGroup != nil {
 			for _, seq := range rd.RedirectGroup.Seqs {
@@ -110,13 +123,10 @@ func (a *Admin) handleReviewDecide(w http.ResponseWriter, r *http.Request) {
 		}
 		sort.Ints(seqs)
 		if a.reviewError(w, r, h, rv.Decide(r.Context(), h.ID, seqs, decision)) {
-			return
+			return 0, false
 		}
 	}
-	if len(bySeq) > 0 {
-		a.SetFlash(w, r, "success", "Saved your decisions.")
-	}
-	http.Redirect(w, r, a.changesetURL(h.Plugin, h.ID, ""), http.StatusSeeOther)
+	return len(bySeq), true
 }
 
 // validDecision reports whether v is "approved" or the other allowed word.
@@ -174,6 +184,10 @@ func (a *Admin) handleReviewPublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	review := a.changesetURL(h.Plugin, h.ID, "")
+	// The Keep/Drop choices on screen may not be saved yet: they decide what goes live.
+	if _, ok := a.saveDecisions(w, r, h, rv); !ok {
+		return
+	}
 	applied, dropped, err := rv.Publish(r.Context(), h.ID)
 	if errors.Is(err, ErrReviewUndecided) {
 		a.SetFlash(w, r, "error", a.undecidedText(r, rv, h.ID))
