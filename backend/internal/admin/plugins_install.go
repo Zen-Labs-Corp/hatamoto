@@ -321,7 +321,11 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 	}
 	d.Title = strings.TrimSpace(verb+" "+sum.Name+" "+sum.Version) + "?"
 	if sum.Signed {
-		d.Chips = append(d.Chips, ui.Badge{Label: "Signed by " + sum.Signer, Kind: "success"})
+		chip := ui.Badge{Label: "Signed by " + sum.Signer, Kind: "success"}
+		if sum.Problem != "" {
+			chip = ui.Badge{Label: "Signed by " + sum.Signer, Plain: true}
+		}
+		d.Chips = append(d.Chips, chip)
 	}
 	if sum.FirstParty {
 		d.Chips = append(d.Chips, ui.Badge{Label: "First-party", Plain: true, Icon: "star"})

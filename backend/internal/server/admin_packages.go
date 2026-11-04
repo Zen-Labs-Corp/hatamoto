@@ -254,7 +254,6 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	}
 	if pkg.Signature != nil {
 		sum.Signed, sum.Signer = true, pkg.Signature.Signer
-		sum.FirstParty = packages.IsFirstPartyKey(sum.Signer)
 	}
 	if err := p.mgr().CheckPolicy(ctx, pkg, packages.SourceUpload); err != nil {
 		sum.Problem = err.Error()
@@ -262,6 +261,9 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	if sum.Problem == "" && pkg.Kind == packages.KindPlugin {
 		sum.Problem = p.unreviewedProblem(ctx, pkg.Name, sum.Signer, sum.Permissions)
 	}
+	// First-party is a claim about whose plugin this is, so it needs a
+	// verified signature and a name on the first-party list.
+	sum.FirstParty = sum.Problem == "" && packages.Classify(pkg.Name, sum.Signer) == packages.OriginFirstParty
 	if row, err := p.mgr().Store().Get(ctx, pkg.Kind, pkg.Name); err == nil {
 		sum.Updating, sum.InstalledVersion = true, row.Version
 		if p.s.plugins != nil {
@@ -538,6 +540,12 @@ func (p *packageAdmin) grantedOf(name string) []string {
 	return p.s.plugins.Grants().Granted(name)
 }
 
+// firstPartyRow reports whether an installed row is a first-party plugin: the
+// registry key alone also signs community plugins, so the name must be listed.
+func firstPartyRow(r packages.Row) bool {
+	return r.Signed() && packages.ClassifyRow(r) == packages.OriginFirstParty
+}
+
 func (p *packageAdmin) meta(ctx context.Context, r packages.Row) *admin.PackageMeta {
 	var man sdk.Manifest
 	_ = json.Unmarshal(r.Manifest, &man)
@@ -545,7 +553,7 @@ func (p *packageAdmin) meta(ctx context.Context, r packages.Row) *admin.PackageM
 	if !scripts && p.s.plugins != nil && p.s.plugins.ScriptsDropped(r.Name) {
 		scripts = !p.s.plugins.Grants().Has(r.Name, sdk.PermSiteScripts)
 	}
-	m := &admin.PackageMeta{Enabled: r.Enabled, Signed: r.Signed(), Signer: r.SignerKeyID, FirstParty: firstPartySigned(r), Source: string(r.Source),
+	m := &admin.PackageMeta{Enabled: r.Enabled, Signed: r.Signed(), Signer: r.SignerKeyID, FirstParty: firstPartyRow(r), Source: string(r.Source),
 		Update: p.updateFor(ctx, packages.KindPlugin, r.Name, r.Version), UpdateNew: p.updateNewFor(ctx, r.Name, r.Version, man.Permissions),
 		Blocked: p.mgr().Blocked(packages.KindPlugin, r.Name), LoadError: p.mgr().LoadError(r.Name), ScriptsBlocked: scripts, MarkupStopped: p.mgr().MarkupStopped(r.Name), AsksScripts: slices.Contains(man.Permissions, sdk.PermSiteScripts), Uninstalling: r.State == packages.StateUninstalling}
 	if r.Name == legacyWebhooksPlugin {
