@@ -132,6 +132,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="unpin-form"`, Reason: "Unpin, a row action of the policy card and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="stats-form"`, Reason: "the Install stats switch, a settings form and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="reset-stats-form"`, Reason: "Reset ID, a row action of the Install stats card and not a create form"},
+	{Rule: "UI-10", File: "pages/plugins/changeset.html", Needle: `data-hm-review-form`, Reason: "review page: decision forms (risky items, suggestions, publish) about the listed items, not a create form beside a list"},
 	{Rule: "UI-10", File: "pages/plugins/runs.html", Needle: `id="run-form"`, Reason: "the Start form of a run: host ticks and inputs are core's, a settings-like form and not a create form beside the list; the recent runs table below is read-only"},
 	{Rule: "UI-10", File: "pages/settings/backups.html", Needle: `id="backup-form"`, Reason: "Back up now, a header action that starts a background job and takes no input, so there is nothing to put in a dialog"},
 

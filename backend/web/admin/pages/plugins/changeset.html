@@ -1,4 +1,47 @@
 {{template "layouts/shell" .}}
-{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (printf "Changeset #%d" .ID) "Badge" .Badge "Description" .Intro "Primary" (and .Preview (dict "Href" .Preview "Label" "Preview the site" "Icon" "eye"))}}
+{{define "main"}}{{with .Data}}{{if .Review}}{{template "review-screen" (dict "R" .Review "CSRF" $.CSRF)}}{{else}}{{template "hm/pageheader" dict "Title" (printf "Changeset #%d" .ID) "Badge" .Badge "Description" .Intro "Primary" (and .Preview (dict "Href" .Preview "Label" "Preview the site" "Icon" "eye"))}}
 {{template "hm/table" .Table}}
-{{end}}{{end}}
+{{end}}{{end}}{{end}}{{define "review-screen"}}{{$csrf := .CSRF}}{{with .R}}{{if .Closed}}{{template "hm/pageheader" dict "Title" (printf "Changeset #%d" .ID) "Badge" .Badge}}
+{{template "hm/callout" (dict "Kind" "info" "Body" .ClosedNote)}}
+<p>{{template "hm/button" (dict "Label" "Open Settings, Changes" "Href" .ChangesHref)}}</p>
+{{else}}{{template "hm/pageheader" dict "Title" .Title "Badge" .Badge "ChipBadges" .ChipBadges "Actions" .Actions}}
+{{if or .SkippedNote .Expiry}}<ul class="hm-badgelist">{{if .SkippedNote}}<li>{{template "hm/badge" (dict "Label" .SkippedNote "Kind" "warning")}}</li>{{end}}{{if .Expiry}}<li>{{template "hm/badge" (dict "Label" .Expiry "Kind" "muted")}}</li>{{end}}</ul>{{end}}
+{{if .Suggestions}}<form method="post" action="{{.SuggestionsURL}}" class="hm-stack" data-hm-review-form>
+{{template "hm/csrf" (dict "CSRF" $csrf)}}
+{{template "hm/card-start" dict "ID" "suggestions" "Title" "Site-wide suggestions" "Description" "The plugin suggests these changes to your site settings. Nothing changes until you approve it." "Heading" "h2"}}
+<div class="hm-table__scroll" role="region" aria-label="Site-wide suggestions" tabindex="0"><table class="hm-table hm-table--wrap"><caption class="hm-visually-hidden">Site-wide suggestions</caption>
+<thead><tr><th scope="col">Setting</th><th scope="col">Change</th><th scope="col" class="hm-table__actions">Decision</th></tr></thead>
+<tbody>{{range .Suggestions}}<tr><th scope="row" class="hm-table__rowhead">{{.Title}}</th>
+<td>{{range .Fields}}<p>{{if .Name}}<span class="hm-muted">{{.Name}}</span> {{end}}<code class="hm-valuediff">{{if .Old}}<del>{{.Old}}</del> {{end}}<ins>{{.New}}</ins></code></p>{{end}}</td>
+<td class="hm-table__actions">{{if not .Applicable}}<span class="hm-table__sub">Cannot be applied in this release</span>{{end}}{{template "hm/segmented" .Seg}}</td></tr>
+{{end}}</tbody></table></div>
+{{template "hm/card-foot"}}<span class="hm-muted">Each approval asks you to sign in again.</span>{{template "hm/button" (dict "Label" "Save suggestion decisions" "Variant" "primary" "Type" "submit")}}{{template "hm/card-foot-end"}}
+</form>
+{{end}}<form id="review-form" method="post" action="{{.DecideURL}}" class="hm-stack" data-hm-review-form>
+{{template "hm/csrf" (dict "CSRF" $csrf)}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save decisions</button>
+{{if or .Risky .Group}}{{template "hm/card-start" dict "ID" "risky" "Title" "Risky changes" "Description" "Each of these needs your decision before anything is published." "Heading" "h2"}}
+<p>{{template "hm/badge" .Decided}}</p>
+<div class="hm-table__scroll" role="region" aria-label="Risky changes" tabindex="0"><table class="hm-table hm-table--wrap"><caption class="hm-visually-hidden">Risky changes</caption>
+<thead><tr><th scope="col">Change</th><th scope="col">What it does</th><th scope="col" class="hm-table__actions">Decision</th></tr></thead>
+<tbody>{{range .Risky}}<tr><th scope="row" class="hm-table__rowhead">{{.Label}}{{if .Hidden}} {{template "hm/badge" (dict "Label" "hidden character" "Mono" true "Kind" "warning")}}{{end}}</th>
+<td>{{.Reason}}{{if or .Old .New}}<span class="hm-table__sub"><code class="hm-valuediff">{{if .Old}}<del>{{.Old}}</del> {{end}}{{if .New}}<ins>{{.New}}</ins>{{end}}</code></span>{{end}}</td>
+<td class="hm-table__actions">{{template "hm/segmented" .Seg}}</td></tr>
+{{end}}{{with .Group}}<tr><th scope="row" class="hm-table__rowhead">{{.Label}}</th>
+<td>{{.Sub}}{{if .Open}} <a href="{{.Open}}">Open preview</a>{{end}}</td>
+<td class="hm-table__actions">{{template "hm/segmented" .Seg}}</td></tr>
+{{end}}</tbody></table></div>
+{{template "hm/card-foot"}}{{template "hm/button" (dict "Label" "Save decisions" "Variant" "primary" "Type" "submit")}}{{template "hm/card-foot-end"}}
+{{end}}<h2>Ordinary changes</h2>
+<p class="hm-muted">These are approved together when you publish.</p>
+{{template "hm/table" .Kinds}}
+{{if .Skipped.Rows}}<h2>Skipped</h2>
+<p class="hm-muted">You edited these after the import started, so it left them alone.</p>
+{{template "hm/table" .Skipped}}
+{{end}}<div class="hm-savebar">
+<span class="hm-savebar__aside" role="status">{{.Note}}</span>
+{{template "hm/button" (dict "Label" "Discard all" "Variant" "danger" "Type" "submit" "Attrs" (attrmap "formaction" .DiscardURL "data-hm-confirm" "Everything this run staged is thrown away. Nothing reaches the site." "data-hm-confirm-label" "Discard all" "data-hm-danger" ""))}}
+{{template "hm/button" (dict "Label" .PublishLabel "Variant" "primary" "Type" "submit" "Attrs" (cond .CanPublish (attrmap "formaction" .PublishURL) (attrmap "formaction" .PublishURL "disabled" "" "aria-disabled" "true")))}}
+</div>
+</form>
+{{end}}{{end}}{{end}}
