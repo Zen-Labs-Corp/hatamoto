@@ -767,8 +767,11 @@ func (m *Manager) SetEnabled(ctx context.Context, name string, on bool) error {
 		if err != nil {
 			return err
 		}
+		// A plugin installed before content types existed may ship a schema the
+		// rules refuse, or one whose name the owner has since taken. That must
+		// not keep a working plugin switched off.
 		if err := m.installSchemas(ctx, p); err != nil {
-			return err
+			m.Logger.Error("packages: content types not installed; the plugin is enabled without them", "plugin", name, "error", err)
 		}
 	}
 	if err := m.store.SetEnabled(ctx, KindPlugin, name, on); err != nil {

@@ -156,3 +156,27 @@ func TestUninstallContentTypes(t *testing.T) {
 		})
 	}
 }
+
+// A content type the owner has taken since never keeps the plugin disabled.
+func TestEnableSurvivesContentTypeConflict(t *testing.T) {
+	r, svc := schemaRig(t)
+	ctx := context.Background()
+	if err := r.installPack(schemaPack("shop")); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.mgr.SetEnabled(ctx, "shop", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.pool.Exec(ctx, `DELETE FROM hatamoto_entity_schemas WHERE slug = 'product'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.CreateSchema(ctx, &entity.CreateSchemaInput{Name: "Mine", Slug: "product", Schema: []byte(productSchema)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.mgr.SetEnabled(ctx, "shop", true); err != nil {
+		t.Fatalf("enable failed on a content type conflict: %v", err)
+	}
+	if owner, _ := r.typeOwner("product"); owner != "" {
+		t.Fatalf("the owner's type was claimed by %q", owner)
+	}
+}
