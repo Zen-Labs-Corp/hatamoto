@@ -69,6 +69,9 @@ type Runtime struct {
 	mu       sync.Mutex
 	statuses []Status
 
+	// gate decides about runs a cron job starts (see SetStandingGate).
+	gate atomic.Pointer[StandingGate]
+
 	runWG sync.WaitGroup // drivers started by StartRun
 	// runMu guards runsClosed and the WaitGroup Add against Close's Wait.
 	runMu      sync.Mutex

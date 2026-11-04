@@ -243,6 +243,18 @@ func (r *Runtime) scheduleCron(m sdk.Manifest) {
 		return
 	}
 	for _, c := range m.Cron {
+		if run, ok := cronRun(m, c.Name); ok {
+			// A job bound to a run starts it; the job's hook is not called.
+			every, _ := time.ParseDuration(c.Every)
+			name := m.Name
+			err := r.caps.cron.Schedule(cronID(name, c.Name), every, func(ctx context.Context) error {
+				return r.tickRun(ctx, name, run)
+			})
+			if err != nil {
+				r.log.Error("plugin cron job not scheduled", slog.String("plugin", name), slog.String("job", c.Name), slog.Any("error", err))
+			}
+			continue
+		}
 		export := "on_cron_" + c.Name
 		if !r.host.HasExport(m.Name, export) {
 			r.log.Warn("plugin cron job has no export; not scheduled", slog.String("plugin", m.Name), slog.String("job", c.Name), slog.String("export", export))

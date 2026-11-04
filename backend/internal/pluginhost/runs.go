@@ -56,6 +56,8 @@ type StartRunInput struct {
 	Hosts []string
 	// UploadID is the owner's uploaded file for upload.read.
 	UploadID *uuid.UUID
+	// Trigger is plugrun.TriggerOwner (the default) or plugrun.TriggerCron.
+	Trigger string
 }
 
 // StartRun starts the run name of plugin and returns its id. The run row is
@@ -92,7 +94,7 @@ func (r *Runtime) StartRun(ctx context.Context, plugin, name string, in StartRun
 	if err := r.failStale(ctx, plugin); err != nil {
 		return uuid.Nil, err
 	}
-	run, err := svc.Runs.Create(ctx, plugrun.Run{Plugin: plugin, Name: name, Params: params, Hosts: hosts, UploadID: in.UploadID})
+	run, err := svc.Runs.Create(ctx, plugrun.Run{Plugin: plugin, Name: name, Params: params, Hosts: hosts, UploadID: in.UploadID, Trigger: in.Trigger})
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -338,7 +340,9 @@ func (r *Runtime) drive(runID uuid.UUID) {
 				return
 			}
 		case finish:
-			r.try(runID, "finish the run", func() error { return runs.Finish(bg, runID, summary) })
+			if r.try(runID, "finish the run", func() error { return runs.Finish(bg, runID, summary) }) {
+				r.autoPublish(bg, run)
+			}
 			return
 		}
 	}

@@ -53,6 +53,12 @@ var (
 	ErrInvalid = errors.New("plugrun: invalid argument")
 )
 
+// What started a run.
+const (
+	TriggerOwner = "owner"
+	TriggerCron  = "cron"
+)
+
 // Run is one row of hatamoto_runs.
 type Run struct {
 	ID          uuid.UUID
@@ -69,8 +75,10 @@ type Run struct {
 	Summary     json.RawMessage // nil until finished
 	ChangesetID *int64
 	Steps       int
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// Trigger is what started the run: "owner" (the default) or "cron".
+	Trigger   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // Store is the run store.
@@ -86,13 +94,13 @@ func (s *Store) now() time.Time {
 	return time.Now().UTC()
 }
 
-const runColumns = `id, plugin, name, state, phase, cursor, reason, params, hosts, upload_id, progress, summary, changeset_id, steps, created_at, updated_at`
+const runColumns = `id, plugin, name, state, phase, cursor, reason, params, hosts, upload_id, progress, summary, changeset_id, steps, created_at, updated_at, trigger`
 
 func scanRun(row pgx.Row) (Run, error) {
 	var r Run
 	var params, progress, summary []byte
 	err := row.Scan(&r.ID, &r.Plugin, &r.Name, &r.State, &r.Phase, &r.Cursor, &r.Reason, &params, &r.Hosts,
-		&r.UploadID, &progress, &summary, &r.ChangesetID, &r.Steps, &r.CreatedAt, &r.UpdatedAt)
+		&r.UploadID, &progress, &summary, &r.ChangesetID, &r.Steps, &r.CreatedAt, &r.UpdatedAt, &r.Trigger)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, ErrNotFound
 	}
@@ -122,11 +130,14 @@ func (s *Store) Create(ctx context.Context, r Run) (Run, error) {
 	if r.Hosts == nil {
 		r.Hosts = []string{}
 	}
+	if r.Trigger == "" {
+		r.Trigger = TriggerOwner
+	}
 	now := s.now()
 	_, err := s.DB.Pool().Exec(ctx, `
-		INSERT INTO hatamoto_runs (id, plugin, name, state, phase, params, hosts, upload_id, created_at, updated_at)
-		VALUES ($1, $2, $3, 'running', 'fetch', $4, $5, $6, $7, $7)`,
-		r.ID, r.Plugin, r.Name, []byte(r.Params), r.Hosts, r.UploadID, now)
+		INSERT INTO hatamoto_runs (id, plugin, name, state, phase, params, hosts, upload_id, trigger, created_at, updated_at)
+		VALUES ($1, $2, $3, 'running', 'fetch', $4, $5, $6, $7, $8, $8)`,
+		r.ID, r.Plugin, r.Name, []byte(r.Params), r.Hosts, r.UploadID, r.Trigger, now)
 	if err != nil {
 		var pg *pgconn.PgError
 		if errors.As(err, &pg) && pg.Code == "23505" && pg.ConstraintName == "hatamoto_runs_one_active" {
