@@ -27,8 +27,10 @@ type pluginView struct {
 	Routes      []sdk.Route   `json:"routes,omitempty"`
 	Cron        []sdk.CronJob `json:"cron,omitempty"`
 	Cookies     []string      `json:"cookies,omitempty"`
-	Funcs       []string      `json:"funcs,omitempty"`
-	DataError   string        `json:"data_error,omitempty"`
+	// RequestHeaders are the extra request headers its routes receive.
+	RequestHeaders []string `json:"request_headers,omitempty"`
+	Funcs          []string `json:"funcs,omitempty"`
+	DataError      string   `json:"data_error,omitempty"`
 }
 
 // pluginStatuses returns the load results of the plugin runtime (none before
@@ -58,7 +60,7 @@ func (s *Server) pluginViews() []pluginView {
 			Name: st.Name, Loaded: st.Loaded, Error: st.Error, Hooks: st.Hooks,
 			Version: m.Version, SDK: m.SDK, Description: m.Description, AllowedHosts: m.AllowedHosts,
 			Permissions: orEmpty(m.Permissions), Granted: []string{}, Routes: m.Routes, Cron: m.Cron,
-			Cookies: m.Cookies, Funcs: m.Funcs, DataError: st.DataError,
+			Cookies: m.Cookies, RequestHeaders: m.RequestHeaders, Funcs: m.Funcs, DataError: st.DataError,
 		}
 		if s.plugins != nil {
 			v.Granted = orEmpty(s.plugins.Grants().Granted(st.Name))

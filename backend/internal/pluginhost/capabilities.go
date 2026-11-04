@@ -138,8 +138,8 @@ func AssetsFromFS(root fs.FS) (Assets, error) {
 // partials and sections live and prepares its data. It returns the reason the
 // plugin's data is not ready ("" when it is, or none was asked for).
 func (r *Runtime) activate(ctx context.Context, m sdk.Manifest, a Assets) string {
-	r.caps.admin.Set(m.Name, m.Routes)
-	r.caps.public.Set(m.Name, m.Routes)
+	r.caps.admin.Set(m.Name, &m)
+	r.caps.public.Set(m.Name, &m)
 	r.scheduleCron(m)
 	r.registerTemplates(m, a)
 	return r.prepareData(ctx, m, a)

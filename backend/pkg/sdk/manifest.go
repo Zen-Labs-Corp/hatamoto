@@ -82,6 +82,12 @@ type Manifest struct {
 	// Cookies are the cookie names a render.page filter may read and set.
 	Cookies []string `json:"cookies,omitempty"`
 
+	// RequestHeaders are extra request header names (for example a webhook
+	// signature) passed to this plugin's routes, on top of the fixed list.
+	// Credentials and the visitor's address can never be listed
+	// (see forbiddenRequestHeaders). At most MaxRequestHeaders.
+	RequestHeaders []string `json:"request_headers,omitempty"`
+
 	// RenderPage tunes the render.page filter (see PageOptions).
 	RenderPage *PageOptions `json:"render_page,omitempty"`
 
@@ -257,11 +263,13 @@ type CronJob struct {
 
 // Limits on the manifest's lists.
 const (
-	MaxRoutes    = 64
-	MaxCronJobs  = 16
-	MaxFuncs     = 64
-	MaxCookies   = 8
-	MinCronEvery = time.Minute
+	MaxRoutes   = 64
+	MaxCronJobs = 16
+	MaxFuncs    = 64
+	MaxCookies  = 8
+	// MaxRequestHeaders caps Manifest.RequestHeaders.
+	MaxRequestHeaders = 8
+	MinCronEvery      = time.Minute
 )
 
 // identPattern is a cron job, template func or section name.
@@ -269,6 +277,14 @@ var identPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}$`)
 
 // cookieNamePattern restricts declared cookie names to a safe token.
 var cookieNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+// headerNamePattern is an HTTP header field name (a token), as declared in
+// request_headers.
+var headerNamePattern = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
+
+// forbiddenRequestHeaders never reach a plugin: credentials and every header
+// that carries the visitor's address.
+var forbiddenRequestHeaders = []string{"authorization", "cookie", "proxy-authorization", "x-forwarded-for", "x-real-ip", "forwarded", "cf-connecting-ip"}
 
 // WithDefaults returns m with zero limits replaced by the defaults.
 func (m Manifest) WithDefaults() Manifest {
@@ -460,6 +476,31 @@ func (m Manifest) validateCapabilities() error {
 		if lc := strings.ToLower(c); strings.HasPrefix(lc, "hatamoto_") || strings.HasPrefix(lc, "__host-") || strings.HasPrefix(lc, "__secure-") || strings.HasPrefix(lc, "hmp_") {
 			return fmt.Errorf("sdk: plugin %q: cookie name %q is reserved", m.Name, c)
 		}
+	}
+	if err := m.validateRequestHeaders(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateRequestHeaders checks the declared request header names.
+func (m Manifest) validateRequestHeaders() error {
+	if len(m.RequestHeaders) > MaxRequestHeaders {
+		return fmt.Errorf("sdk: plugin %q: more than %d request headers", m.Name, MaxRequestHeaders)
+	}
+	seen := map[string]bool{}
+	for _, h := range m.RequestHeaders {
+		lc := strings.ToLower(h)
+		if !headerNamePattern.MatchString(h) {
+			return fmt.Errorf("sdk: plugin %q: request header name %q", m.Name, h)
+		}
+		if slices.Contains(forbiddenRequestHeaders, lc) {
+			return fmt.Errorf("sdk: plugin %q: request header %q is never passed to plugins", m.Name, h)
+		}
+		if seen[lc] {
+			return fmt.Errorf("sdk: plugin %q: duplicate request header %q", m.Name, h)
+		}
+		seen[lc] = true
 	}
 	return nil
 }

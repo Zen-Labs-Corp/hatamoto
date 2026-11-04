@@ -47,6 +47,7 @@ A manifest that uses most fields:
 | `allowed_hosts` | no | Allowlist for `http.fetch`. |
 | `routes` | no | HTTP routes, at most 64. |
 | `cron` | no | Scheduled calls, at most 16. |
+| `request_headers` | no | Extra request header names passed to this plugin's routes (for example `Stripe-Signature`), at most 8. `Authorization`, `Cookie`, `Proxy-Authorization` and every header that carries the visitor's address are refused. The plugin page lists them. |
 | `cookies` | no | Cookie names `render.page` may read and set, at most 8. |
 | `render_page` | no | `{ "full_blocks": true }` sends `render.page` whole blocks (SDK 0.9 and later). |
 | `funcs` | no | Template functions, at most 64. |

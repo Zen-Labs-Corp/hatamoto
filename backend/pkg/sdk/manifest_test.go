@@ -243,3 +243,27 @@ func TestValidateAcceptsSiteScriptsUnderOldRange(t *testing.T) {
 		t.Fatalf("Validate: %v", err)
 	}
 }
+
+func TestManifestRequestHeaders(t *testing.T) {
+	base := Manifest{Name: "hook-plugin", Version: "1.0.0", SDK: "^0.7"}
+	for name, hs := range map[string][]string{
+		"ok":            {"Stripe-Signature", "x-hook-id"},
+		"authorization": {"Authorization"},
+		"cookie":        {"COOKIE"},
+		"proxy auth":    {"proxy-authorization"},
+		"address":       {"x-forwarded-for"},
+		"real ip":       {"X-Real-IP"},
+		"forwarded":     {"forwarded"},
+		"cf":            {"cf-connecting-ip"},
+		"duplicate":     {"x-a", "X-A"},
+		"not a token":   {"bad header"},
+		"empty":         {""},
+		"too many":      {"a", "b", "c", "d", "e", "f", "g", "h", "i"},
+	} {
+		m := base
+		m.RequestHeaders = hs
+		if err := m.Validate(); (err == nil) != (name == "ok") {
+			t.Errorf("%s: err = %v", name, err)
+		}
+	}
+}

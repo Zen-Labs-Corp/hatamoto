@@ -370,7 +370,7 @@ func (p pluginAdmin) Plugins() []admin.PluginInfo {
 		info := admin.PluginInfo{
 			Runs: runDecls(runs[v.Name]), Standing: declaresRule(runs[v.Name]),
 			Name: v.Name, Version: v.Version, SDK: v.SDK, Description: v.Description, Error: v.Error, DataError: v.DataError, Loaded: v.Loaded,
-			Hooks: v.Hooks, Permissions: v.Permissions, Granted: v.Granted, AllowedHosts: v.AllowedHosts, Cookies: v.Cookies, Funcs: v.Funcs,
+			Hooks: v.Hooks, Permissions: v.Permissions, Granted: v.Granted, AllowedHosts: v.AllowedHosts, Cookies: v.Cookies, RequestHeaders: v.RequestHeaders, Funcs: v.Funcs,
 			Refused: p.s.refusedPermissions(v.Name, v.Permissions),
 		}
 		for _, r := range v.Routes {

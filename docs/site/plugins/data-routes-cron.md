@@ -103,7 +103,7 @@ The request is JSON on the `http_handle` input and the response is JSON on its o
 ```
 
 - `user` is absent on public routes. `pattern` is the manifest route that matched and `path_values` holds its wildcard values. A path the router would clean or redirect (`..`, `//`) is `404`, never another route.
-- Request headers passed are `Accept`, `Accept-Language`, `Content-Type`, `User-Agent`, `Referer`, `Origin` and `X-Request-Id`. Never `Authorization`, cookies or the client address.
+- Request headers passed are `Accept`, `Accept-Language`, `Content-Type`, `User-Agent`, `Referer`, `Origin` and `X-Request-Id`. Add more with `request_headers` in `plugin.json` (a webhook signature, say); the value is passed unchanged. Never `Authorization`, cookies or the client address, even if listed: the manifest is refused.
 - The request body is at most 1 MiB (`413` beyond) and arrives as `body`, or `body_b64` when it is not UTF-8.
 - Response headers passed are `Content-Type`, `Cache-Control`, `Location`, `Content-Disposition` and `ETag`. `status` defaults to 200 and must be 200 to 599. `Location` may only be a same-site path, so a route cannot become an open redirect.
 - Every response is `Cache-Control: no-store` unless the plugin sets it, and carries a sandboxing `Content-Security-Policy` and `nosniff`, so returned HTML runs without scripts in an opaque origin.

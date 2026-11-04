@@ -66,7 +66,7 @@ func newPluginRig(t *testing.T) (*rig, *fakePlugins) {
 	t.Helper()
 	fp := &fakePlugins{settings: map[string]map[string]any{"hello": {"site_id": "abc"}}, list: []PluginInfo{
 		{Name: "hello", Version: "1.2.0", SDK: "1", Description: "Says <hello>", Loaded: true, Hooks: []string{"on_entity_published"}, Permissions: []string{"kv", "mail.send"}, Granted: []string{"kv"},
-			Routes: []string{"GET /p/hello/ping (public)"}, Cron: []string{"sync every 1h"}, AllowedHosts: []string{"api.example.com"}, SettingsSchema: []byte(hookSchema)},
+			Routes: []string{"GET /p/hello/ping (public)"}, Cron: []string{"sync every 1h"}, AllowedHosts: []string{"api.example.com"}, RequestHeaders: []string{"stripe-signature"}, SettingsSchema: []byte(hookSchema)},
 		{Name: "broken", Error: "wasm: bad module"},
 	}}
 	return newRig(t, func(d *Deps) { d.Growth.Plugins = fp }), fp
@@ -191,7 +191,7 @@ func TestPluginPermissionsPage(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("status %d", rec.Code)
 	}
-	for _, want := range []string{"on_entity_published", "api.example.com", "1 of 2 allowed", "GET /p/hello/ping (public)", "sync every 1h", `value="kv" checked`, `action="/admin/plugins/hello/grant"`} {
+	for _, want := range []string{"on_entity_published", "api.example.com", "1 of 2 allowed", "GET /p/hello/ping (public)", "sync every 1h", `id="headers-card"`, "stripe-signature", "are never passed", `value="kv" checked`, `action="/admin/plugins/hello/grant"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}

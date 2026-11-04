@@ -500,7 +500,8 @@ func TestRouteSwapUnderLoad(t *testing.T) {
 		if i%2 == 0 {
 			admin.Set("capa", nil)
 		} else {
-			admin.Set("capa", capaManifest(nil).Routes)
+			cm := capaManifest(nil)
+			admin.Set("capa", &cm)
 		}
 	}
 	close(stop)

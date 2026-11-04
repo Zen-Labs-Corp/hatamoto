@@ -51,6 +51,9 @@ type Caller func(ctx context.Context, plugin, export string, in []byte) ([]byte,
 type pluginRouter struct {
 	mux    *http.ServeMux
 	routes map[string]sdk.Route // by "METHOD /path" pattern
+	// extraHeaders are the request headers the manifest declares, lower-case,
+	// passed on top of requestHeaders.
+	extraHeaders []string
 }
 
 // RouteRegistry holds the per-plugin routers of one mount (admin or public).
@@ -73,17 +76,22 @@ func NewRouteRegistry(call Caller, public bool, log *slog.Logger) *RouteRegistry
 	return g
 }
 
-// Set replaces plugin's router with one built from routes (only the routes of
-// this registry's mount are used). No routes removes it. It is safe to call
-// while requests are being served.
-func (g *RouteRegistry) Set(plugin string, routes []sdk.Route) {
+// Set replaces plugin's router with one built from m's routes (only the routes
+// of this registry's mount are used) and its declared request headers. A nil
+// manifest, or one without routes here, removes it. It is safe to call while
+// requests are being served.
+func (g *RouteRegistry) Set(plugin string, m *sdk.Manifest) {
 	var pr *pluginRouter
+	var routes []sdk.Route
+	if m != nil {
+		routes = m.Routes
+	}
 	for _, r := range routes {
 		if r.Public != g.public {
 			continue
 		}
 		if pr == nil {
-			pr = &pluginRouter{mux: http.NewServeMux(), routes: map[string]sdk.Route{}}
+			pr = &pluginRouter{mux: http.NewServeMux(), routes: map[string]sdk.Route{}, extraHeaders: m.RequestHeaders}
 		}
 		pattern := r.Method + " " + r.Path
 		pr.mux.HandleFunc(pattern, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }) // matcher only; validated by the manifest
@@ -174,7 +182,7 @@ func (g *RouteRegistry) Serve(w http.ResponseWriter, r *http.Request, plugin, re
 	}
 	req := sdk.HTTPRequest{Method: r.Method, Path: path, Pattern: route.Path, PathValues: pathValues(route.Path, probe),
 		Query: r.URL.Query(), Headers: map[string]string{}, User: user}
-	for _, h := range requestHeaders {
+	for _, h := range append(slices.Clone(requestHeaders), pr.extraHeaders...) {
 		if v := r.Header.Get(h); v != "" {
 			req.Headers[strings.ToLower(h)] = v
 		}
