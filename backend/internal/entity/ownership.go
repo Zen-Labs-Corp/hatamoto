@@ -33,7 +33,7 @@ func containsString(list []string, s string) bool {
 
 // structuralAttrsChanged reports whether the structural attributes differ
 // between two blobs once both are put in the shape the admin forms write:
-// absent, "", false and an empty object are the same, strings are trimmed,
+// absent, "", false and an empty object are the same, strings are trimmed with CRLF read as LF (browsers post textareas that way),
 // and a schema's x-hm-alias keys stand in for an empty canonical key.
 func structuralAttrsChanged(schema *EntitySchema, a, b json.RawMessage) bool {
 	am, bm := structuralView(schema, a), structuralView(schema, b)
@@ -101,7 +101,7 @@ func canonAttr(v any) any {
 	case nil:
 		return nil
 	case string:
-		if t = strings.TrimSpace(t); t != "" {
+		if t = strings.TrimSpace(strings.ReplaceAll(t, "\r\n", "\n")); t != "" {
 			return t
 		}
 		return nil

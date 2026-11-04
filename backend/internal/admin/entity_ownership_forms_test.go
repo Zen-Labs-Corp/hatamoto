@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -93,8 +94,11 @@ func TestEditorsKeepPluginOwnershipOnNonStructuralSave(t *testing.T) {
 		t.Parallel()
 		r := newBlogRig(t)
 		p := pluginRig(r.contentRig, r.ent.ID)
-		r.setAttrs(r.ent.ID, `{"content":`+jsonString(postBody)+`,"excerpt":"","featured_image":"","meta_description":"","no_index":false,"seo":{},"title":"Old title"}`)
+		// Stored with LF; a browser posts a textarea back with CRLF.
+		stored := "<p>One</p>\n<p>Two</p>"
+		r.setAttrs(r.ent.ID, `{"content":`+jsonString(stored)+`,"excerpt":"","featured_image":"","meta_description":"","no_index":false,"seo":{},"title":"Old title"}`)
 		f := r.form(t)
+		f.Set("content", strings.ReplaceAll(stored, "\n", "\r\n"))
 		f.Add("term", fid(33).String())
 		f.Set("_op", "save")
 		if rec := r.post(r.path(), f); rec.Code != 303 {
