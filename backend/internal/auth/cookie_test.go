@@ -10,8 +10,8 @@ func TestSetSessionCookie_Attributes(t *testing.T) {
 	rec := httptest.NewRecorder()
 	SetSessionCookie(rec, "opaque-token", true)
 	cs := rec.Result().Cookies()
-	if len(cs) != 1 {
-		t.Fatalf("expected 1 cookie, got %d", len(cs))
+	if len(cs) != 2 {
+		t.Fatalf("expected the session cookie and the member marker, got %d cookies", len(cs))
 	}
 	c := cs[0]
 	if c.Name != SessionCookieName || c.Value != "opaque-token" {
@@ -62,8 +62,8 @@ func TestSessionCookieHelpersNeverNameLegacy(t *testing.T) {
 		rec := httptest.NewRecorder()
 		fn(rec)
 		cs := rec.Result().Cookies()
-		if len(cs) != 1 || cs[0].Name != "__Host-s" {
-			t.Fatalf("cookies %v, want only __Host-s", cs)
+		if len(cs) != 2 || cs[0].Name != "__Host-s" || cs[1].Name != MemberMarkerName {
+			t.Fatalf("cookies %v, want only __Host-s and the member marker", cs)
 		}
 	}
 }
@@ -142,5 +142,35 @@ func TestNeutralAPISessionCookieAttributes(t *testing.T) {
 				t.Errorf("secure=%v %s: Secure=%v Path=%q Domain=%q HttpOnly=%v SameSite=%v", tc.secure, what, c.Secure, c.Path, c.Domain, c.HttpOnly, c.SameSite)
 			}
 		}
+	}
+}
+
+func TestMemberMarkerSetAndCleared(t *testing.T) {
+	set, clear := httptest.NewRecorder(), httptest.NewRecorder()
+	SetSessionCookie(set, "secret-token", true)
+	ClearSessionCookie(clear, true)
+	find := func(rec *httptest.ResponseRecorder) *http.Cookie {
+		for _, c := range rec.Result().Cookies() {
+			if c.Name == MemberMarkerName {
+				return c
+			}
+		}
+		t.Fatal("no member marker cookie")
+		return nil
+	}
+	m := find(set)
+	if m.Value != "1" || m.Path != "/" || m.HttpOnly || !m.Secure || m.SameSite != http.SameSiteLaxMode || m.MaxAge <= 0 {
+		t.Errorf("marker = %+v", m)
+	}
+	if m.Value == "secret-token" {
+		t.Error("marker must not carry the token")
+	}
+	if c := find(clear); c.MaxAge >= 0 {
+		t.Errorf("cleared marker MaxAge = %d, want negative", c.MaxAge)
+	}
+	insecure := httptest.NewRecorder()
+	SetSessionCookie(insecure, "t", false)
+	if find(insecure).Secure {
+		t.Error("marker Secure must follow the session cookie")
 	}
 }

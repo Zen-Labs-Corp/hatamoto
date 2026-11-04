@@ -220,12 +220,17 @@
           if (!res) return;
           if (res.ok) {
             try { sessionStorage.removeItem(RELOAD_KEY + slug); } catch (e) { /* no storage */ }
-            var ok = document.createElement('p');
-            ok.className = 'hm-form__success';
-            ok.setAttribute('role', 'status');
-            ok.textContent = 'Thank you, your message has been sent.';
-            form.replaceWith(ok);
-            return;
+            return res.json().catch(function () { return {}; }).then(function (body) {
+              // The public contract for tag scripts: one event per real submit.
+              if (body && body.submission_id) {
+                document.dispatchEvent(new CustomEvent('hm:conversion', { detail: { id: body.submission_id, form: slug, value: null } }));
+              }
+              var ok = document.createElement('p');
+              ok.className = 'hm-form__success';
+              ok.setAttribute('role', 'status');
+              ok.textContent = 'Thank you, your message has been sent.';
+              form.replaceWith(ok);
+            });
           }
           if (res.status === 422) {
             return res.json().catch(function () { return {}; }).then(function (body) {
