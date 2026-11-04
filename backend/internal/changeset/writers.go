@@ -102,22 +102,22 @@ type entityPayload struct {
 	// applied earlier in the same transaction, so a parent must be staged
 	// before its children.
 	ParentKey string     `json:"parent_key"`
-	SEO       *entitySEO `json:"seo"`
+	SEO       *EntitySEO `json:"seo"`
 	Status    string     `json:"status"`
 }
 
-// entitySEO is the search metadata of an entity. It is merged into the
+// EntitySEO is the search metadata of an entity. It is merged into the
 // attributes keys the public site reads (meta_title, meta_description,
 // canonical_url and seo.robots).
-type entitySEO struct {
+type EntitySEO struct {
 	MetaTitle       string `json:"meta_title"`
 	MetaDescription string `json:"meta_description"`
 	Canonical       string `json:"canonical"`
 	Robots          string `json:"robots"`
 }
 
-// mergeSEO returns attrs with s merged in; empty fields leave the attribute alone.
-func mergeSEO(attrs json.RawMessage, s *entitySEO) (json.RawMessage, error) {
+// MergeSEO returns attrs with s merged in; empty fields leave the attribute alone.
+func MergeSEO(attrs json.RawMessage, s *EntitySEO) (json.RawMessage, error) {
 	if s == nil {
 		return attrs, nil
 	}
@@ -194,7 +194,7 @@ func (w EntityWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, 
 			return Outcome{}, err
 		}
 	}
-	attrs, err := mergeSEO(p.Attributes, p.SEO)
+	attrs, err := MergeSEO(p.Attributes, p.SEO)
 	if err != nil {
 		return Outcome{}, err
 	}
