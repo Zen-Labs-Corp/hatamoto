@@ -300,3 +300,25 @@ func TestCronTickVoidsAnApprovalThatNoLongerMatches(t *testing.T) {
 		})
 	}
 }
+
+// Turning off ends the approval with its own reason and is audited, so the
+// tab shows the paused state and the tick stops.
+func TestTurnOffVoidsWithItsOwnReason(t *testing.T) {
+	r := newStandingRig()
+	ctx := context.Background()
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", standingHash); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.svc.TurnOff(ctx, "pricer"); err != nil {
+		t.Fatal(err)
+	}
+	if on, _ := (standingGate{r.svc}).Active(ctx, "pricer", "prices"); on {
+		t.Fatal("the tick may still start the run")
+	}
+	if r.store.voided == nil || r.store.voided.Reason != "turned off" {
+		t.Fatalf("voided = %+v", r.store.voided)
+	}
+	if last := (*r.audits)[len(*r.audits)-1]; last != "standing.void" {
+		t.Fatalf("last audit = %s", last)
+	}
+}

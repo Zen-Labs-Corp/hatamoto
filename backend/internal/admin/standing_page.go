@@ -22,6 +22,8 @@ const standingWaitingShown = 5
 // for the password again; a POST is never replayed after that page.
 func (a *Admin) mountStandingPages(owner *httpx.Group) {
 	owner.HandleFunc("GET /plugins/{name}/"+standingRel, a.handlePluginStanding)
+	// Turning off only narrows what the plugin may do: no sign in again.
+	owner.HandleFunc("POST /plugins/{name}/"+standingRel+"/off", a.handleStandingOff)
 	owner.Group("", a.RequireSudo).HandleFunc("POST /plugins/{name}/"+standingRel, a.handleStandingApprove)
 }
 
@@ -37,6 +39,7 @@ type standingData struct {
 	Rule   StandingRule
 	Lines  []promptStatement
 	Action string // the sign in again and allow POST
+	Off    string // the turn off POST
 	Cancel string
 	// Approval is set while the rule is allowed.
 	Approval   *StandingApproval
@@ -59,8 +62,13 @@ type pausedNotice struct {
 
 // pausedTitle says what ended the approval, in words for the owner.
 func pausedTitle(p PluginInfo, reason string) string {
-	if reason == "schema changed" {
+	switch reason {
+	case "schema changed":
 		return "A content type " + p.Name + " updates was changed. Its automatic updates are paused."
+	case "turned off":
+		return "Automatic updates for " + p.Name + " are turned off."
+	case "plugin uninstalled":
+		return p.Name + " was installed again. Its automatic updates are paused."
 	}
 	return p.Name + " was updated to " + p.Version + ". Its automatic updates are paused."
 }
@@ -121,14 +129,15 @@ func (a *Admin) handlePluginStanding(w http.ResponseWriter, r *http.Request) {
 	}
 	d := standingData{pluginHead: a.newPluginHead(p, standingRel, true), Rule: rule, Lines: ruleLines(rule),
 		Sample: "{{ plugin_" + strings.ReplaceAll(p.Name, "-", "_") + "_<function> \"key\" }}",
-		Action: a.pluginURL(p.Name, standingRel), Cancel: a.pluginURL(p.Name, "settings"), Approval: active}
+		Action: a.pluginURL(p.Name, standingRel), Off: a.pluginURL(p.Name, standingRel+"/off"), Cancel: a.pluginURL(p.Name, "settings"), Approval: active}
 	if paused != nil && active == nil {
 		d.State.Badge = ui.Badge{Label: "Updated", Kind: "info"}
-		d.Paused = &pausedNotice{
-			Title: pausedTitle(p, paused.Reason),
-			Body:  "Approvals end whenever the plugin or a content type it updates changes, so a new version can\u2019t inherit one. Until you allow it again, its automatic runs do not start.",
-			Allow: "#opt2", Keep: d.Cancel,
+		body := "Approvals end whenever the plugin or a content type it updates changes, so a new version can\u2019t inherit one. Until you allow it again, its automatic runs do not start."
+		if paused.Reason == "turned off" {
+			d.State.Badge = ui.Badge{Label: "Off", Kind: "info"}
+			body = "You turned them off. Until you allow them again, its automatic runs do not start."
 		}
+		d.Paused = &pausedNotice{Title: pausedTitle(p, paused.Reason), Body: body, Allow: "#opt2", Keep: d.Cancel}
 	}
 	d.SummaryTitle, d.Summary = a.standingSummary(r.Context(), digest)
 	if active != nil {
@@ -210,6 +219,21 @@ func (a *Admin) handleStandingApprove(w http.ResponseWriter, r *http.Request) {
 	}
 	a.SetFlash(w, r, "success", "Automatic updates are allowed for "+p.Name+".")
 	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// handleStandingOff ends the plugin's approval. It narrows access, so it asks
+// for no password.
+func (a *Admin) handleStandingOff(w http.ResponseWriter, r *http.Request) {
+	p, _, ok := a.standingPlugin(w, r)
+	if !ok {
+		return
+	}
+	if err := a.deps.Growth.Standing.TurnOff(r.Context(), p.Name); err != nil {
+		a.serverError(w, r, "The automatic updates could not be turned off", err)
+		return
+	}
+	a.SetFlash(w, r, "success", "Automatic updates are off for "+p.Name+".")
+	http.Redirect(w, r, a.pluginURL(p.Name, standingRel), http.StatusSeeOther)
 }
 
 // ruleLines words the rule as the permission list: what it allows, then what

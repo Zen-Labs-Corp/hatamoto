@@ -30,8 +30,8 @@ type StandingApproval struct {
 	At time.Time
 }
 
-// StandingPaused says an approval ended and why ("plugin updated" or
-// "schema changed").
+// StandingPaused says an approval ended and why ("plugin updated", "schema
+// changed", "plugin uninstalled" or "turned off").
 type StandingPaused struct {
 	At     time.Time
 	Reason string
@@ -67,6 +67,8 @@ type StandingApprovals interface {
 	// version and hash are those the form showed (StandingRule); a plugin that
 	// no longer matches them is refused with ErrStandingChanged.
 	Approve(ctx context.Context, plugin, run, by, version, hash string) error
+	// TurnOff ends the plugin's approval at the owner's request.
+	TurnOff(ctx context.Context, plugin string) error
 	// Waiting lists the plugin's runs held back for review.
 	Waiting(ctx context.Context, plugin string) ([]StandingWaiting, error)
 	// Digest lists the runs that published themselves since the given time.

@@ -75,6 +75,14 @@ func (a standingAdmin) Approve(ctx context.Context, plugin, run, by, version, ha
 	return svc.Approve(ctx, plugin, run, by, version, hash)
 }
 
+func (a standingAdmin) TurnOff(ctx context.Context, plugin string) error {
+	svc := a.svc()
+	if svc == nil {
+		return ErrStandingUnavailable
+	}
+	return svc.TurnOff(ctx, plugin)
+}
+
 func (a standingAdmin) Waiting(ctx context.Context, plugin string) ([]admin.StandingWaiting, error) {
 	svc := a.svc()
 	if svc == nil {

@@ -19,6 +19,7 @@ type fakeStanding struct {
 	paused   *StandingPaused
 	digest   []StandingDigestRow
 	approved []string // plugin/run of each Approve
+	off      []string // plugin of each TurnOff
 }
 
 func (f *fakeStanding) Rule(string) (StandingRule, bool) { return f.rule, f.rule.Run != "" }
@@ -30,6 +31,10 @@ func (f *fakeStanding) Approve(_ context.Context, plugin, run, _, version, hash 
 		return ErrStandingChanged
 	}
 	f.approved = append(f.approved, plugin+"/"+run)
+	return nil
+}
+func (f *fakeStanding) TurnOff(_ context.Context, plugin string) error {
+	f.off = append(f.off, plugin)
 	return nil
 }
 func (f *fakeStanding) Waiting(context.Context, string) ([]StandingWaiting, error) {
@@ -188,6 +193,53 @@ func TestStandingApproveRefusesWhatWasNotRead(t *testing.T) {
 		}
 		if body := serve(g.h, req, nil).Body.String(); !strings.Contains(body, "The plugin changed; review the rule again.") {
 			t.Fatalf("%s: the owner is not told to review again", name)
+		}
+	}
+}
+
+// Turning off is owner-only and needs no password: it only narrows access.
+func TestStandingTurnOff(t *testing.T) {
+	t.Parallel()
+
+	fs := &fakeStanding{rule: standingRule, active: &StandingApproval{By: "owner@example.com", At: time.Now()}}
+	g := newStandingRig(t, fs)
+	body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `action="`+standingPath+`/off"`) || !strings.Contains(body, "Turn off automatic updates") {
+		t.Fatalf("the approved tab has no turn off button:\n%s", body)
+	}
+	fs.active = nil
+	if body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String(); strings.Contains(body, "Turn off automatic updates") {
+		t.Error("nothing to turn off before an approval")
+	}
+	if rec := g.do("POST", standingPath+"/off", "editor-token", url.Values{}, nil); rec.Code != 403 || len(fs.off) != 0 {
+		t.Fatalf("editor: %d, %v", rec.Code, fs.off)
+	}
+	// No sudo session is granted: the owner can still turn it off.
+	rec := g.do("POST", standingPath+"/off", "owner-token", url.Values{}, nil)
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != standingPath || len(fs.off) != 1 || fs.off[0] != "shop-sync" {
+		t.Fatalf("turn off: %d %s %v", rec.Code, rec.Header().Get("Location"), fs.off)
+	}
+}
+
+// The paused title says what ended the approval for every reason a void has.
+func TestStandingPausedTitles(t *testing.T) {
+	t.Parallel()
+
+	fs := &fakeStanding{rule: standingRule}
+	g := newStandingRig(t, fs)
+	for reason, want := range map[string]string{
+		"plugin updated":     "shop-sync was updated to 1.2.4.",
+		"schema changed":     "A content type shop-sync updates was changed.",
+		"turned off":         "Automatic updates for shop-sync are turned off.",
+		"plugin uninstalled": "shop-sync was installed again.",
+	} {
+		fs.paused = &StandingPaused{At: time.Now(), Reason: reason}
+		body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String()
+		if !strings.Contains(body, want) {
+			t.Errorf("%s: title lacks %q", reason, want)
+		}
+		if reason != "plugin updated" && strings.Contains(body, "was updated to") {
+			t.Errorf("%s: worded as an update", reason)
 		}
 	}
 }

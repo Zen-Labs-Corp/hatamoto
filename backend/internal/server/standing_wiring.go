@@ -193,6 +193,16 @@ func (g *standingService) Approve(ctx context.Context, plugin, run, by, version,
 	return nil
 }
 
+// TurnOff ends the plugin's approval because the owner asked. It only narrows
+// what the plugin may do, so the admin asks for no extra sign in.
+func (g *standingService) TurnOff(ctx context.Context, plugin string) error {
+	if err := g.store.Void(ctx, plugin, "turned off"); err != nil {
+		return err
+	}
+	g.audit(ctx, "standing.void", "plugin:"+plugin, map[string]any{"reason": "turned off"})
+	return nil
+}
+
 // activeForCron reports whether the cron tick may start the run.
 func (g *standingService) activeForCron(ctx context.Context, plugin, run string) (bool, error) {
 	a, err := g.Active(ctx, plugin, run)
