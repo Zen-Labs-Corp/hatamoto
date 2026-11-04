@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/standing"
 )
@@ -65,6 +66,9 @@ func (f *fakeStandingEngine) PublishUnderPolicy(_ context.Context, _ int64, p ch
 	return f.verdict, changeset.PublishResult{Result: changeset.Result{Applied: 2}}, nil
 }
 
+// standingHash is what the tab posts back: the hash of the manifest it showed.
+var standingHash, _ = standing.ManifestHash(json.RawMessage(standingManifest))
+
 const standingManifest = `{"name":"pricer","version":"1.0.0","runs":[{"name":"prices","title":"Prices","cron":"daily",
 	"standing_approval":{"fields":["price"],"schemas":["product"],"max_per_hour":50}}],"cron":[{"name":"daily","every":"24h"}]}`
 
@@ -109,7 +113,7 @@ func TestApprovalOnlyFromOwnerUI(t *testing.T) {
 	if err := gate.AutoPublish(ctx, "pricer", "prices", 7); err != nil || len(r.eng.calls) != 0 || len(r.store.approved) != 0 {
 		t.Fatalf("AutoPublish without approval: err=%v calls=%v approved=%d", err, r.eng.calls, len(r.store.approved))
 	}
-	if err := r.svc.Approve(ctx, "pricer", "prices", "owner"); err != nil {
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", standingHash); err != nil {
 		t.Fatal(err)
 	}
 	if on, _ := gate.Active(ctx, "pricer", "prices"); !on || len(r.store.approved) != 1 {
@@ -123,11 +127,11 @@ func TestApprovalOnlyFromOwnerUI(t *testing.T) {
 
 func TestApproveRefusesARunWithoutARule(t *testing.T) {
 	r := newStandingRig()
-	if err := r.svc.Approve(context.Background(), "pricer", "other", "owner"); !errors.Is(err, ErrNoStandingRule) {
+	if err := r.svc.Approve(context.Background(), "pricer", "other", "owner", "1.0.0", standingHash); !errors.Is(err, ErrNoStandingRule) {
 		t.Fatalf("Approve of an undeclared run = %v, want ErrNoStandingRule", err)
 	}
 	*r.manifest = json.RawMessage(`{"name":"pricer","version":"1.0.0"}`)
-	if err := r.svc.Approve(context.Background(), "pricer", "prices", "owner"); !errors.Is(err, ErrNoStandingRule) {
+	if err := r.svc.Approve(context.Background(), "pricer", "prices", "owner", "1.0.0", standingHash); !errors.Is(err, ErrNoStandingRule) {
 		t.Fatalf("Approve without a rule = %v, want ErrNoStandingRule", err)
 	}
 	if len(r.store.approved) != 0 {
@@ -138,7 +142,7 @@ func TestApproveRefusesARunWithoutARule(t *testing.T) {
 func TestAutoPublishInsidePolicyMarksAutomatic(t *testing.T) {
 	r := newStandingRig()
 	ctx := context.Background()
-	if err := r.svc.Approve(ctx, "pricer", "prices", "owner"); err != nil {
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", standingHash); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.svc.autoPublish(ctx, "pricer", "prices", 9); err != nil {
@@ -167,7 +171,7 @@ func TestAutoPublishWaitsWhenStaleOrOutsidePolicy(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			r := newStandingRig()
 			ctx := context.Background()
-			if err := r.svc.Approve(ctx, "pricer", "prices", "owner"); err != nil {
+			if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", standingHash); err != nil {
 				t.Fatal(err)
 			}
 			mutate(r)
@@ -197,7 +201,7 @@ func TestStandingAdminMapsRuleAndApproval(t *testing.T) {
 	if got, err := a.Active(ctx, "pricer", "prices"); err != nil || got != nil {
 		t.Fatalf("Active before approving = %+v, %v", got, err)
 	}
-	if err := a.Approve(ctx, "pricer", "prices", "owner@example.com"); err != nil {
+	if err := a.Approve(ctx, "pricer", "prices", "owner@example.com", "1.0.0", standingHash); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := a.Active(ctx, "pricer", "prices"); err != nil || got == nil || got.By != "owner@example.com" {
@@ -207,7 +211,7 @@ func TestStandingAdminMapsRuleAndApproval(t *testing.T) {
 	if _, ok := none.Rule("pricer"); ok {
 		t.Fatal("no rule without the service")
 	}
-	if err := none.Approve(ctx, "pricer", "prices", "x"); !errors.Is(err, ErrStandingUnavailable) {
+	if err := none.Approve(ctx, "pricer", "prices", "x", "1.0.0", standingHash); !errors.Is(err, ErrStandingUnavailable) {
 		t.Fatalf("Approve without the service = %v", err)
 	}
 }
@@ -220,5 +224,21 @@ func TestStandingAdminPausedAfterVoid(t *testing.T) {
 	got, err := a.Paused(context.Background(), "pricer", "prices")
 	if err != nil || got == nil || got.Reason != "plugin updated" || !got.At.Equal(voidedAt) {
 		t.Fatalf("Paused = %+v, %v", got, err)
+	}
+}
+
+// An update between showing the rule and allowing it is refused, and nothing
+// is recorded.
+func TestApproveRefusesAReleaseTheOwnerDidNotRead(t *testing.T) {
+	r := newStandingRig()
+	ctx := context.Background()
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "0.9.0", standingHash); !errors.Is(err, admin.ErrStandingChanged) {
+		t.Fatalf("old version: %v", err)
+	}
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", "other"); !errors.Is(err, admin.ErrStandingChanged) {
+		t.Fatalf("old manifest: %v", err)
+	}
+	if len(r.store.approved) != 0 {
+		t.Fatalf("%d approvals recorded", len(r.store.approved))
 	}
 }

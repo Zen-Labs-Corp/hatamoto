@@ -25,7 +25,10 @@ func (f *fakeStanding) Rule(string) (StandingRule, bool) { return f.rule, f.rule
 func (f *fakeStanding) Active(context.Context, string, string) (*StandingApproval, error) {
 	return f.active, nil
 }
-func (f *fakeStanding) Approve(_ context.Context, plugin, run, _ string) error {
+func (f *fakeStanding) Approve(_ context.Context, plugin, run, _, version, hash string) error {
+	if version != f.rule.Version || hash != f.rule.Hash {
+		return ErrStandingChanged
+	}
 	f.approved = append(f.approved, plugin+"/"+run)
 	return nil
 }
@@ -44,7 +47,7 @@ var standingPlugin = PluginInfo{
 	Runs: []RunDecl{{Name: "prices", Title: "Price sync"}},
 }
 
-var standingRule = StandingRule{Run: "prices", Fields: []string{"price", "stock"}, Schemas: []string{"products"}, MaxPerHour: 200}
+var standingRule = StandingRule{Version: "1.2.4", Hash: "rulehash1", Run: "prices", Fields: []string{"price", "stock"}, Schemas: []string{"products"}, MaxPerHour: 200}
 
 func newStandingRig(t *testing.T, fs *fakeStanding, plugins ...PluginInfo) *rig {
 	t.Helper()
@@ -72,7 +75,7 @@ func TestStandingTab(t *testing.T) {
 	for _, want := range []string{
 		"Option 1: no approval needed", "plugin_shop_sync_&lt;function&gt;", "Option 2: standing approval",
 		`class="hm-permlist"`, "May change price and stock", "Only on products it created", "Up to 200 changes an hour", "Never text, links",
-		`action="` + standingPath + `"`, `name="run" value="prices"`, "Sign in again and allow", "Not now",
+		`action="` + standingPath + `"`, `name="run" value="prices"`, `name="version" value="1.2.4"`, `name="rule" value="rulehash1"`, "Sign in again and allow", "Not now",
 		"When a run steps outside the rule", "Price sync is waiting for you.", `href="/admin/plugins/shop-sync/changesets/44"`, ">Review</a>",
 		`aria-current="page">Automatic updates`,
 	} {
@@ -143,7 +146,7 @@ func TestStandingApprovalSaveNeedsSudo(t *testing.T) {
 
 	fs := &fakeStanding{rule: standingRule}
 	g := newStandingRig(t, fs)
-	form := url.Values{"run": {"prices"}}
+	form := url.Values{"run": {"prices"}, "version": {"1.2.4"}, "rule": {"rulehash1"}}
 	rec := g.do("POST", standingPath, "owner-token", form, map[string]string{"Referer": "http://example.com" + standingPath})
 	if rec.Code != http.StatusSeeOther || !strings.HasPrefix(rec.Header().Get("Location"), g.a.sudoPath()) || len(fs.approved) != 0 {
 		t.Fatalf("no sudo: %d %s, %d approvals", rec.Code, rec.Header().Get("Location"), len(fs.approved))
@@ -159,6 +162,33 @@ func TestStandingApprovalSaveNeedsSudo(t *testing.T) {
 	}
 	if rec := g.do("POST", standingPath, "editor-token", form, nil); rec.Code != 403 {
 		t.Errorf("editor: %d, want 403", rec.Code)
+	}
+}
+
+// The owner approves what the tab showed: a form read from an older release
+// (the plugin updated in between) allows nothing.
+func TestStandingApproveRefusesWhatWasNotRead(t *testing.T) {
+	t.Parallel()
+
+	fs := &fakeStanding{rule: standingRule}
+	g := newStandingRig(t, fs)
+	grantSudo(g)
+	for name, form := range map[string]url.Values{
+		"old version": {"run": {"prices"}, "version": {"1.2.3"}, "rule": {"rulehash1"}},
+		"old rule":    {"run": {"prices"}, "version": {"1.2.4"}, "rule": {"oldhash"}},
+		"no fields":   {"run": {"prices"}},
+	} {
+		rec := g.do("POST", standingPath, "owner-token", form, nil)
+		if rec.Code != http.StatusSeeOther || len(fs.approved) != 0 {
+			t.Fatalf("%s: %d, %d approvals", name, rec.Code, len(fs.approved))
+		}
+		req := httptestReq("GET", standingPath, "owner-token")
+		for _, c := range rec.Result().Cookies() {
+			req.AddCookie(c)
+		}
+		if body := serve(g.h, req, nil).Body.String(); !strings.Contains(body, "The plugin changed; review the rule again.") {
+			t.Fatalf("%s: the owner is not told to review again", name)
+		}
 	}
 }
 

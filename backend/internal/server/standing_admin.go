@@ -40,7 +40,7 @@ func (a standingAdmin) Rule(plugin string) (admin.StandingRule, bool) {
 	if !ok {
 		return admin.StandingRule{}, false
 	}
-	return admin.StandingRule{Run: r.Run, Fields: r.Policy.Fields, Schemas: r.Policy.Schemas, MaxPerHour: r.Policy.MaxPerHour}, true
+	return admin.StandingRule{Version: r.Version, Hash: r.Hash, Run: r.Run, Fields: r.Policy.Fields, Schemas: r.Policy.Schemas, MaxPerHour: r.Policy.MaxPerHour}, true
 }
 
 func (a standingAdmin) Active(ctx context.Context, plugin, run string) (*admin.StandingApproval, error) {
@@ -67,12 +67,12 @@ func (a standingAdmin) Paused(ctx context.Context, plugin, run string) (*admin.S
 	return &admin.StandingPaused{At: v.At, Reason: v.Reason}, nil
 }
 
-func (a standingAdmin) Approve(ctx context.Context, plugin, run, by string) error {
+func (a standingAdmin) Approve(ctx context.Context, plugin, run, by, version, hash string) error {
 	svc := a.svc()
 	if svc == nil {
 		return ErrStandingUnavailable
 	}
-	return svc.Approve(ctx, plugin, run, by)
+	return svc.Approve(ctx, plugin, run, by, version, hash)
 }
 
 func (a standingAdmin) Waiting(ctx context.Context, plugin string) ([]admin.StandingWaiting, error) {

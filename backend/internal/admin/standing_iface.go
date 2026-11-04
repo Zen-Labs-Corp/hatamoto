@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,11 +11,18 @@ import (
 // StandingRule is the automatic update rule a plugin declares for one of its
 // cron runs. It only describes the rule: the owner's approval is separate.
 type StandingRule struct {
-	Run        string
-	Fields     []string
-	Schemas    []string
-	MaxPerHour int
+	// Version and Hash name the release the rule was read from; the form
+	// posts them back so Approve can tell the owner approved what was read.
+	Version, Hash string
+	Run           string
+	Fields        []string
+	Schemas       []string
+	MaxPerHour    int
 }
+
+// ErrStandingChanged means the plugin changed between showing the rule and
+// the owner allowing it.
+var ErrStandingChanged = errors.New("the plugin changed; review the rule again")
 
 // StandingApproval is the owner's active approval of a rule.
 type StandingApproval struct {
@@ -55,8 +63,10 @@ type StandingApprovals interface {
 	// active and when it never existed.
 	Paused(ctx context.Context, plugin, run string) (*StandingPaused, error)
 	// Approve records the approval of the rule the plugin declares now. The
-	// caller passes no rule: the implementation reads it from the plugin.
-	Approve(ctx context.Context, plugin, run, by string) error
+	// caller passes no rule: the implementation reads it from the plugin. The
+	// version and hash are those the form showed (StandingRule); a plugin that
+	// no longer matches them is refused with ErrStandingChanged.
+	Approve(ctx context.Context, plugin, run, by, version, hash string) error
 	// Waiting lists the plugin's runs held back for review.
 	Waiting(ctx context.Context, plugin string) ([]StandingWaiting, error)
 	// Digest lists the runs that published themselves since the given time.

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -197,7 +198,13 @@ func (a *Admin) handleStandingApprove(w http.ResponseWriter, r *http.Request) {
 	if u := userFrom(r.Context()); u != nil {
 		by = u.Email
 	}
-	if err := a.deps.Growth.Standing.Approve(r.Context(), p.Name, rule.Run, by); err != nil {
+	err := a.deps.Growth.Standing.Approve(r.Context(), p.Name, rule.Run, by, r.PostFormValue("version"), r.PostFormValue("rule"))
+	if errors.Is(err, ErrStandingChanged) {
+		a.SetFlash(w, r, "warning", "The plugin changed; review the rule again.")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	if err != nil {
 		a.serverError(w, r, "The automatic updates could not be allowed", err)
 		return
 	}

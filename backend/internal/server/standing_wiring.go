@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"slices"
 
+	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/standing"
@@ -86,14 +87,19 @@ func (s *Server) standingServiceFor() *standingService {
 
 // standingRule is the standing rule a plugin declares for one of its runs.
 type standingRule struct {
-	Run    string
-	Policy standing.Policy
+	Version, Hash string // the release the rule was read from
+	Run           string
+	Policy        standing.Policy
 }
 
 // Policy returns the rule the installed plugin declares, if any.
 func (g *standingService) Policy(plugin string) (standingRule, bool) {
-	_, raw, ok := g.plugin(plugin)
+	version, raw, ok := g.plugin(plugin)
 	if !ok {
+		return standingRule{}, false
+	}
+	hash, err := standing.ManifestHash(raw)
+	if err != nil {
 		return standingRule{}, false
 	}
 	var m sdk.Manifest
@@ -109,7 +115,7 @@ func (g *standingService) Policy(plugin string) (standingRule, bool) {
 	if max <= 0 || max > sdk.DefaultStandingPerHour {
 		max = sdk.DefaultStandingPerHour
 	}
-	return standingRule{Run: r.Name, Policy: standing.Policy{
+	return standingRule{Version: version, Hash: hash, Run: r.Name, Policy: standing.Policy{
 		Fields: slices.Clone(r.StandingApproval.Fields), Schemas: slices.Clone(r.StandingApproval.Schemas), MaxPerHour: max,
 	}}, true
 }
@@ -164,11 +170,15 @@ func (g *standingService) currentFingerprint(ctx context.Context, plugin string,
 
 // Approve records the owner's approval of the rule the plugin declares now.
 // The caller passes no policy: it is read from the installed manifest and
-// fingerprinted here, so a form can never widen it.
-func (g *standingService) Approve(ctx context.Context, plugin, run, by string) error {
+// fingerprinted here, so a form can never widen it. The version and manifest
+// hash are those the owner was shown: an update in between is refused.
+func (g *standingService) Approve(ctx context.Context, plugin, run, by, version, hash string) error {
 	rule, ok := g.Policy(plugin)
 	if !ok || rule.Run != run {
 		return ErrNoStandingRule
+	}
+	if rule.Version != version || rule.Hash != hash {
+		return admin.ErrStandingChanged
 	}
 	fp, err := g.currentFingerprint(ctx, plugin, rule.Policy.Schemas)
 	if err != nil {
