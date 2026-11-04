@@ -192,7 +192,7 @@ build_all() {
   local v
   for v in v1.0.0 v1.0.1 v1.0.2; do
     mkdir -p "$E2E/bin/$v"
-    CGO_ENABLED=0 go build -tags hatamoto_testkeys -trimpath -ldflags "$(LDF $v)" -o "$E2E/bin/$v/hatamoto" ./cmd/hatamoto
+    CGO_ENABLED=0 go build -tags "nodynamic hatamoto_testkeys" -trimpath -ldflags "$(LDF $v)" -o "$E2E/bin/$v/hatamoto" ./cmd/hatamoto
     "$E2E/bin/$v/hatamoto" version --json > "$E2E/bin/$v/facts.json"
   done
   cp "$E2E/bin/v1.0.0/hatamoto" "$E2E/bin/boot/hatamoto"

@@ -42,6 +42,7 @@ import (
 	"hatamoto.dev/core/internal/installstats"
 	"hatamoto.dev/core/internal/mailsettings"
 	"hatamoto.dev/core/internal/media"
+	"hatamoto.dev/core/internal/media/modern"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/packages"
@@ -877,6 +878,10 @@ func (s *Server) Start() error {
 	// Establish the server's lifecycle context. Plugin goroutines watch
 	// its Done channel; Shutdown cancels it to signal clean exit.
 	s.lifecycleCtx, s.lifecycleCancel = context.WithCancel(context.Background())
+
+	if !modern.StaticBuild {
+		s.logger.Warn("built without the nodynamic tag: the binary may be dynamically linked; rebuild with -tags nodynamic")
+	}
 
 	// Start background scheduler if it was wired up (the in-process worker).
 	// Constructs were happening in setupDependencies but the loops never

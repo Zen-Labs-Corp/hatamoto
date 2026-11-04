@@ -88,7 +88,7 @@ want_stuck 1 "no status text" ""
 echo "PASS: stuck_reason stops the wait only for states the box cannot leave by itself"
 
 # The script must stay a production-only check.
-if grep -nE 'echo "HATAMOTO_(TEST_|UPDATE_URL)|-e "?HATAMOTO_(TEST_|UPDATE_URL)|-tags[ =]|TAGS=' "$S"; then
+if grep -nE 'echo "HATAMOTO_(TEST_|UPDATE_URL)|-e "?HATAMOTO_(TEST_|UPDATE_URL)|-tags[ =][^ ]*testkeys|TAGS=' "$S"; then
   fail "the staging script sets a test seam or an update URL"
 fi
 echo "staging script tests ok"

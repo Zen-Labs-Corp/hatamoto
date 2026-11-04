@@ -89,7 +89,7 @@ arch="$(cd "$repo/backend" && go env GOARCH)"
 VER=v1.0.1
 echo "== building the test binary (tags hatamoto_testkeys) and the mirror"
 mirror_init "$E/m"
-(cd "$repo/backend" && CGO_ENABLED=0 go build -tags hatamoto_testkeys -trimpath \
+(cd "$repo/backend" && CGO_ENABLED=0 go build -tags "nodynamic hatamoto_testkeys" -trimpath \
   -ldflags "-X hatamoto.dev/core/app.Version=$VER -X hatamoto.dev/core/app.Commit=e2e" \
   -o "$E/hatamoto" ./cmd/hatamoto)
 mirror_add "$VER" now:100

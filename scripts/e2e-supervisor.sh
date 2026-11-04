@@ -128,8 +128,8 @@ build_all() {
   )
   cp "$E2E/priv/release.pub" "$E2E/trust/release-test.pub"
   cp "$E2E/priv/manifest.pub" "$E2E/trust/manifest.pub"
-  CGO_ENABLED=0 go build -tags hatamoto_testkeys -trimpath -ldflags "$(LDF v1.0.0)" -o "$E2E/bin/boot/hatamoto" ./cmd/hatamoto
-  CGO_ENABLED=0 go build -tags hatamoto_testkeys -trimpath -ldflags "$(LDF v1.0.1)" -o "$E2E/n1/hatamoto" ./cmd/hatamoto
+  CGO_ENABLED=0 go build -tags "nodynamic hatamoto_testkeys" -trimpath -ldflags "$(LDF v1.0.0)" -o "$E2E/bin/boot/hatamoto" ./cmd/hatamoto
+  CGO_ENABLED=0 go build -tags "nodynamic hatamoto_testkeys" -trimpath -ldflags "$(LDF v1.0.1)" -o "$E2E/n1/hatamoto" ./cmd/hatamoto
 
   local rel="$E2E/site/releases/v1.0.1" p
   for p in linux-amd64 linux-arm64 darwin-amd64 darwin-arm64; do

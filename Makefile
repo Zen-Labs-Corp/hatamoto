@@ -123,7 +123,8 @@ registry: registry-guard
 
 build-api:
 	@echo "Building the hatamoto binary (linux)..."
-	cd backend && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(GO_LDFLAGS)" -o bin/hatamoto ./cmd/hatamoto
+	cd backend && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags nodynamic -trimpath -ldflags "$(GO_LDFLAGS)" -o bin/hatamoto ./cmd/hatamoto
+	@file backend/bin/hatamoto | grep -q "statically linked" || { echo "ERROR: backend/bin/hatamoto is not statically linked (build with -tags nodynamic)"; exit 1; }
 	@echo "Binary built: backend/bin/hatamoto"
 
 build: build-api
@@ -146,7 +147,7 @@ release-build:
 	tc=$$(awk '/^toolchain /{print $$2}' backend/go.mod); test -n "$$tc" || { echo "backend/go.mod has no toolchain line" >&2; exit 1; }; \
 	for t in $(RELEASE_TARGETS); do os=$${t%/*}; arch=$${t#*/}; \
 	  (cd backend && env GOENV=off GOWORK=off GOTOOLCHAIN="$$tc" GOAMD64=v1 GOARM64=v8.0 GOFLAGS= GOEXPERIMENT= \
-	    CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -buildvcs=false \
+	    CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -tags nodynamic -trimpath -buildvcs=false \
 	    -ldflags "-X hatamoto.dev/core/app.Version=$$RELEASE_VERSION -X hatamoto.dev/core/app.Commit=$$RELEASE_COMMIT" \
 	    -o "$$dist/hatamoto-$$os-$$arch" ./cmd/hatamoto) || exit 1; done
 	@$(MAKE) --no-print-directory release-bundles DIST="$(DIST)"
