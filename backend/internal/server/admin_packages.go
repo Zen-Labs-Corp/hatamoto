@@ -152,14 +152,20 @@ func (p *packageAdmin) updateNewFor(ctx context.Context, name, installed string,
 
 // unreviewedProblem says why a plugin package must not be installed when it
 // asks for permissions beyond what the registry entry of that name lists as
-// reviewed; "" when the registry has no entry (or cannot be read), as before.
-func (p *packageAdmin) unreviewedProblem(ctx context.Context, name string, requested []string) string {
+// reviewed. It applies only to a package the registry itself signs (the
+// signer is the registry's key; a self-built upload of the same name is the
+// owner's own) and to an entry that lists permissions at all; "" otherwise,
+// and when the registry has no entry or cannot be read, as before.
+func (p *packageAdmin) unreviewedProblem(ctx context.Context, name, signer string, requested []string) string {
+	if !packages.IsFirstPartyKey(signer) {
+		return ""
+	}
 	idx, err := p.index(ctx)
 	if err != nil || idx == nil {
 		return ""
 	}
 	e, ok := idx.Find(packages.KindPlugin, name)
-	if !ok {
+	if !ok || e.Permissions == nil {
 		return ""
 	}
 	extra := newPermissions(requested, e.Permissions)
@@ -253,7 +259,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		sum.Problem = err.Error()
 	}
 	if sum.Problem == "" && pkg.Kind == packages.KindPlugin {
-		sum.Problem = p.unreviewedProblem(ctx, pkg.Name, sum.Permissions)
+		sum.Problem = p.unreviewedProblem(ctx, pkg.Name, sum.Signer, sum.Permissions)
 	}
 	if row, err := p.mgr().Store().Get(ctx, pkg.Kind, pkg.Name); err == nil {
 		sum.Updating, sum.InstalledVersion = true, row.Version
@@ -281,7 +287,11 @@ func (p *packageAdmin) Install(ctx context.Context, data []byte, source string, 
 	// review; a posted form must not get past that.
 	if pkg, err := packages.Parse(data, packages.DefaultLimits); err == nil && pkg.Kind == packages.KindPlugin {
 		m, _ := pkg.PluginManifest()
-		if msg := p.unreviewedProblem(ctx, pkg.Name, m.Permissions); msg != "" {
+		signer := ""
+		if pkg.Signature != nil {
+			signer = pkg.Signature.Signer
+		}
+		if msg := p.unreviewedProblem(ctx, pkg.Name, signer, m.Permissions); msg != "" {
 			return &admin.Refusal{Msg: msg}
 		}
 	}
