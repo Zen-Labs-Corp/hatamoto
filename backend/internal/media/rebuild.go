@@ -29,6 +29,9 @@ type RebuildSource interface {
 	CountImages(ctx context.Context) (int, error)
 	ListImagesAfter(ctx context.Context, after uuid.UUID, limit int) ([]*Media, error)
 	RegenerateVariants(ctx context.Context, id uuid.UUID) (*Media, error)
+	// RemoveStale deletes the copies RegenerateVariants replaced. It runs after
+	// the Done hook, once rendered pages no longer link to them.
+	RemoveStale(ctx context.Context)
 }
 
 // RebuildHooks are the optional side effects of a rebuild.
@@ -206,6 +209,7 @@ func (r *Rebuilder) run(ctx context.Context, st State) {
 	if r.hooks.Done != nil {
 		r.hooks.Done(fctx)
 	}
+	r.src.RemoveStale(fctx)
 	r.audit(fctx, "media.rebuild.finish", st.StartedBy, map[string]any{
 		"run_id": st.RunID, "images": st.Done, "skipped": st.SkippedCount,
 	})

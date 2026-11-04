@@ -19,6 +19,7 @@ type fakeSource struct {
 	fail     map[uuid.UUID]error
 	onRegen  func(n int) // called after the n-th regenerate, with the mutex free
 	regens   int
+	events   []string // "stale" from RemoveStale, in call order
 	nameByID map[uuid.UUID]string
 }
 
@@ -54,6 +55,12 @@ func (f *fakeSource) RegenerateVariants(_ context.Context, id uuid.UUID) (*Media
 		f.onRegen(n)
 	}
 	return &Media{ID: id}, err
+}
+
+func (f *fakeSource) RemoveStale(context.Context) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.events = append(f.events, "stale")
 }
 
 type memState struct {
@@ -115,6 +122,33 @@ func TestRebuildRunsEveryImageOnce(t *testing.T) {
 	}
 	if len(log.actions) != 2 || log.actions[0] != "media.rebuild.start" || log.actions[1] != "media.rebuild.finish" {
 		t.Errorf("audit %v", log.actions)
+	}
+}
+
+// Cached pages link to the copies a rebuild replaces, so they are deleted only
+// after the Done hook purged the pages, never while images are being processed.
+func TestRebuildRemovesStaleCopiesAfterThePagePurge(t *testing.T) {
+	ctx := context.Background()
+	src, store := newFakeSource(5), &memState{}
+	src.onRegen = func(int) {
+		src.mu.Lock()
+		defer src.mu.Unlock()
+		if len(src.events) != 0 {
+			t.Errorf("stale copies removed mid-run: %v", src.events)
+		}
+	}
+	hooks := RebuildHooks{Done: func(context.Context) {
+		src.mu.Lock()
+		src.events = append(src.events, "purge")
+		src.mu.Unlock()
+	}}
+	r := NewRebuilder(src, store, func() context.Context { return ctx }, hooks, quiet())
+	if err := r.Start(ctx, "a"); err != nil {
+		t.Fatal(err)
+	}
+	r.Wait(ctx)
+	if got := src.events; len(got) != 2 || got[0] != "purge" || got[1] != "stale" {
+		t.Errorf("events %v, want purge then stale", got)
 	}
 }
 

@@ -87,6 +87,11 @@ type Service struct {
 	local *localStore
 	// formats decides which modern formats are written; nil = WebP only.
 	formats func(context.Context) Formats
+
+	// stale holds copies a rebuild replaced. They stay on disk until
+	// RemoveStale, because cached pages still link to them.
+	staleMu sync.Mutex
+	stale   []string
 }
 
 // uploadRoot is the resolved upload directory.
@@ -649,8 +654,10 @@ func (s *Service) buildVariants(ctx context.Context, m *Media, sourcePath string
 // RegenerateVariants rebuilds every resized copy of an image from its stored
 // original, stores the new variant list and deletes copies the new list no
 // longer names (for example the .jpg copies an old WebP upload got). The
-// original is never touched. It does not notify the change observer: a caller
-// that rebuilds many images does that once.
+// original is never touched. Replaced copies are not deleted here: cached pages
+// may still link to them, so the caller purges the pages and then calls
+// RemoveStale. It does not notify the change observer either: a caller that
+// rebuilds many images does that once.
 func (s *Service) RegenerateVariants(ctx context.Context, id uuid.UUID) (*Media, error) {
 	m, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -675,12 +682,25 @@ func (s *Service) RegenerateVariants(ctx context.Context, id uuid.UUID) (*Media,
 	for _, v := range variants {
 		keep[v.Path] = true
 	}
+	s.staleMu.Lock()
 	for _, v := range old {
 		if !keep[v.Path] {
-			s.removeBlob(ctx, v.Path)
+			s.stale = append(s.stale, v.Path)
 		}
 	}
+	s.staleMu.Unlock()
 	return m, nil
+}
+
+// RemoveStale deletes the copies RegenerateVariants replaced.
+func (s *Service) RemoveStale(ctx context.Context) {
+	s.staleMu.Lock()
+	paths := s.stale
+	s.stale = nil
+	s.staleMu.Unlock()
+	for _, p := range paths {
+		s.removeBlob(ctx, p)
+	}
 }
 
 // ListImagesAfter and CountImages let the rebuild job walk the library.

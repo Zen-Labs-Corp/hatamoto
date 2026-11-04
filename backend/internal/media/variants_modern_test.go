@@ -292,6 +292,10 @@ func TestRegenerateVariantsReplacesStaleCopies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := os.Stat(svc.local.localPath(stale)); err != nil {
+		t.Error("stale .jpg copy deleted before RemoveStale: cached pages still link to it")
+	}
+	svc.RemoveStale(context.Background())
 	if _, err := os.Stat(svc.local.localPath(stale)); !os.IsNotExist(err) {
 		t.Error("stale .jpg copy not deleted")
 	}
