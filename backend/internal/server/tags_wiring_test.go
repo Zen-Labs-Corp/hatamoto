@@ -150,13 +150,20 @@ func TestTagsRenderHookServesScriptAndNilStoreIsOff(t *testing.T) {
 }
 
 func TestTagsHashChangesWithSettings(t *testing.T) {
-	tagOf := func(raw string) string {
-		page, _ := tagsPage(t, docQuerier{tracking: raw, privacy: `{}`})
+	tagOf := func(raw, privacy string) string {
+		page, _ := tagsPage(t, docQuerier{tracking: raw, privacy: privacy})
 		i := strings.Index(page, "hm-tags.js?v=")
 		return page[i : i+len("hm-tags.js?v=")+12]
 	}
-	if tagOf(ga4Only) == tagOf(gtmOnly) || tagOf(ga4Only) != tagOf(ga4Only) {
-		t.Error("script hash must follow the settings")
+	before := tagOf(ga4Only, `{}`)
+	if again := tagOf(ga4Only, `{}`); again != before {
+		t.Errorf("same settings gave a different hash: %q then %q", before, again)
+	}
+	if after := tagOf(gtmOnly, `{}`); after == before {
+		t.Errorf("hash %q did not change when the tracking IDs changed", before)
+	}
+	if after := tagOf(ga4Only, consentO); after == before {
+		t.Errorf("hash %q did not change when the consent banner was turned on", before)
 	}
 }
 
