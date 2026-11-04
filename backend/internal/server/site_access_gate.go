@@ -32,10 +32,12 @@ type siteAccessGate struct {
 	verify func(ctx context.Context, password, hash string) bool
 	// pages renders the notices; it is read per request because the render
 	// handlers are built after the dispatcher.
-	pages   func() *renderHandlers
-	key     []byte
-	limiter *middleware.RateLimiter
-	now     func() time.Time
+	pages func() *renderHandlers
+	// apiPrefix is the extra public API mount (PUBLIC_API_PREFIX), "" if none.
+	apiPrefix string
+	key       []byte
+	limiter   *middleware.RateLimiter
+	now       func() time.Time
 }
 
 // siteAccessKey derives the cookie key from the server secret, so it never
@@ -57,6 +59,7 @@ func (s *Server) siteAccessGate(next http.Handler) http.Handler {
 		now:     time.Now,
 	}
 	if s.cfg != nil {
+		g.apiPrefix = s.cfg.PublicSite.APIPrefix
 		g.key = siteAccessKey(s.cfg.Secret)
 	}
 	return g.wrap(next)
@@ -65,6 +68,13 @@ func (s *Server) siteAccessGate(next http.Handler) http.Handler {
 // siteAccessSettings reads the gate settings from the hot site-config cache. A
 // read failure counts as open: a database hiccup must not lock the site.
 func (s *Server) siteAccessSettings(ctx context.Context) siteaccess.Settings {
+	if s.accessSettings != nil {
+		set, err := s.accessSettings(ctx)
+		if err != nil {
+			return siteaccess.Settings{Mode: siteaccess.ModeOpen}
+		}
+		return set
+	}
 	if s.siteConfig == nil {
 		return siteaccess.Settings{Mode: siteaccess.ModeOpen}
 	}
@@ -95,7 +105,7 @@ func (g *siteAccessGate) wrap(next http.Handler) http.Handler {
 			return
 		}
 		path := r.URL.Path
-		if siteaccess.Bypass(path, r.Method) {
+		if !g.publicAPI(path) && siteaccess.Bypass(path) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -124,8 +134,19 @@ func (g *siteAccessGate) hasCookie(r *http.Request, set siteaccess.Settings) boo
 	return err == nil && siteaccess.Verify(g.key, c.Value, set.Epoch, g.now())
 }
 
-// feedPath reports the machine-readable paths (sitemaps, feeds, llms.txt) that
-// get no themed notice.
+// publicAPI reports a path of the anonymous public API (/api/v1/public and the
+// PUBLIC_API_PREFIX mount): it serves published content, so it follows the mode.
+func (g *siteAccessGate) publicAPI(p string) bool {
+	return g.apiPrefix != "" && (p == g.apiPrefix || strings.HasPrefix(p, g.apiPrefix+"/"))
+}
+
+// machinePath reports the paths that get no themed notice: sitemaps, feeds,
+// llms.txt and the whole public API.
+func (g *siteAccessGate) machinePath(p string) bool {
+	return feedPath(p) || g.publicAPI(p) || p == "/api" || strings.HasPrefix(p, "/api/")
+}
+
+// feedPath reports the sitemaps, feeds and llms.txt at the site root.
 func feedPath(p string) bool {
 	switch p {
 	case "/sitemap.xml", "/sitemap.xsl", "/feed.xml", "/atom.xml", "/llms.txt":
@@ -143,7 +164,7 @@ func retryAfter(set siteaccess.Settings) int {
 
 // refuse answers a held-back visitor for the current mode.
 func (g *siteAccessGate) refuse(w http.ResponseWriter, r *http.Request, set siteaccess.Settings) {
-	if feedPath(r.URL.Path) {
+	if g.machinePath(r.URL.Path) {
 		if set.Mode == siteaccess.ModeMaintenance {
 			writeGateText(w, r, http.StatusServiceUnavailable, "Service unavailable\n", retryAfter(set))
 		} else {

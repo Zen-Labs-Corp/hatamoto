@@ -236,3 +236,55 @@ func TestSiteAccessPausesIndexNow(t *testing.T) {
 		t.Fatal("a held-back site must not ping")
 	}
 }
+
+// The anonymous public API, through the real mux and dispatcher, must follow
+// the mode: it lists every published entity, so it may not answer a visitor.
+func TestSiteAccessGatesPublicAPIOnRealMux(t *testing.T) {
+	h, s := wiredHandler(t, false, "/admin")
+	var set siteaccess.Settings
+	s.accessSettings = func(context.Context) (siteaccess.Settings, error) { return set, nil }
+
+	paths := []string{
+		"/api/v1/public/llms.txt", "/api/v1/public/sitemap.xml", "/api/v1/public/sitemap-posts.xml",
+		"/api/v1/public/knowledge-graph?page=1", "/api/v1/public/terms/tag/news/entities",
+		"/api/v1/public/forms/contact",
+	}
+	for mode, want := range map[siteaccess.Mode]int{
+		siteaccess.ModeComingSoon: 404, siteaccess.ModePassword: 404, siteaccess.ModeMaintenance: 503,
+	} {
+		set = siteaccess.Settings{Mode: mode, RetryAfter: 900, Epoch: 1, PasswordHash: "x"}
+		for _, p := range paths {
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, httptest.NewRequest("GET", p, nil))
+			if w.Code != want || w.Header().Get("Cache-Control") != "no-store" || strings.Contains(w.Body.String(), "{") {
+				t.Errorf("%s GET %s: %d %q %v", mode, p, w.Code, w.Body.String(), w.Header())
+			}
+		}
+		// The authenticated API still reaches its own guard (401), not the gate.
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/entities", nil))
+		if w.Code != 401 {
+			t.Errorf("%s: admin API answered %d, want its own 401", mode, w.Code)
+		}
+	}
+}
+
+func TestSiteAccessPublicAPIPrefixAndPass(t *testing.T) {
+	x := newGateFixture(t)
+	x.gate.apiPrefix = "/api/feed"
+	x.set.Mode = siteaccess.ModePassword
+	for _, p := range []string{"/api/feed/llms.txt", "/api/v1/public/llms.txt", "/api/other"} {
+		if w := x.do("GET", p, ""); w.Code != 404 || x.reach != 0 {
+			t.Errorf("%s: %d, reached %d", p, w.Code, x.reach)
+		}
+	}
+	// A signed-in admin and a valid visitor cookie still get through.
+	x.signed = true
+	x.do("GET", "/api/v1/public/llms.txt", "")
+	x.signed = false
+	cookie := &http.Cookie{Name: siteaccess.CookieName, Value: siteaccess.Sign(x.gate.key, x.set.Epoch, time.Now())}
+	x.do("GET", "/api/feed/llms.txt", "", func(r *http.Request) { r.AddCookie(cookie) })
+	if x.reach != 2 {
+		t.Errorf("admin and cookie requests reached %d, want 2", x.reach)
+	}
+}

@@ -52,6 +52,7 @@ import (
 	"hatamoto.dev/core/internal/sectiontemplate"
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/session"
+	"hatamoto.dev/core/internal/siteaccess"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/spam"
 	"hatamoto.dev/core/internal/standing"
@@ -81,7 +82,10 @@ type Server struct {
 	sessionStore *session.Store
 	userTokens   *auth.UserTokens
 	siteConfig   *siteconfig.Store
-	httpServer   *http.Server
+	// accessSettings replaces the site-config read behind the site access gate
+	// (tests).
+	accessSettings func(context.Context) (siteaccess.Settings, error)
+	httpServer     *http.Server
 
 	// Infrastructure
 	infra *Infrastructure

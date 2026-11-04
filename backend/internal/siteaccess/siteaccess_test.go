@@ -30,23 +30,21 @@ func TestSignVerify(t *testing.T) {
 }
 
 func TestBypass(t *testing.T) {
-	cases := []struct {
-		path, method string
-		want         bool
-	}{
-		{"/health", "GET", true}, {"/ready", "GET", true},
-		{"/api/v1/pages", "GET", true}, {"/api/v1/public/forms/x/submit", "POST", false},
-		{"/api/v1/public/forms/x/submit", "OPTIONS", true}, {"/api/v1/public/forms/x/token", "POST", true},
-		{"/forms/contact/submit", "POST", false}, {"/forms/contact/submit", "GET", false},
-		{"/p/plugin/x", "GET", true}, {"/.well-known/security.txt", "GET", true},
-		{"/media/a.png", "GET", true}, {"/theme/assets/a.css", "GET", true},
-		{"/favicon.ico", "GET", true}, {"/auth/login", "POST", true},
-		{"/", "GET", false}, {"/about", "GET", false}, {"/sitemap.xml", "GET", false},
-		{"/robots.txt", "GET", false}, {"/apiary", "GET", false}, {"/-/site-access", "POST", false},
-	}
-	for _, c := range cases {
-		if got := Bypass(c.path, c.method); got != c.want {
-			t.Errorf("Bypass(%q,%s)=%v want %v", c.path, c.method, got, c.want)
+	for path, want := range map[string]bool{
+		"/health": true, "/ready": true, "/api/v1/pages": true, "/api/v1/auth/login": true,
+		"/api/v1/track": true, "/api/v1/entities/1": true,
+		"/api/v1/public": false, "/api/v1/public/llms.txt": false, "/api/v1/public/sitemap.xml": false,
+		"/api/v1/public/knowledge-graph": false, "/api/v1/public/terms/a/b/entities": false,
+		"/api/v1/public/forms/x/submit": false, "/forms/contact/submit": false,
+		"/api/other": false, "/api": false,
+		"/p/plugin/x": true, "/.well-known/security.txt": true,
+		"/media/a.png": true, "/theme/assets/a.css": true,
+		"/favicon.ico": true, "/auth/login": true,
+		"/": false, "/about": false, "/sitemap.xml": false,
+		"/robots.txt": false, "/apiary": false, "/-/site-access": false,
+	} {
+		if got := Bypass(path); got != want {
+			t.Errorf("Bypass(%q)=%v want %v", path, got, want)
 		}
 	}
 }

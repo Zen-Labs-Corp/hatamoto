@@ -48,7 +48,7 @@ The full header list, the policy text and what a captcha provider adds to it are
 
 ### Keep a site private while you build it
 
-Before launch, or during a risky change, set Settings > Site access to Coming soon, Maintenance or Password. Visitors and crawlers get a `noindex` page that is never cached, `robots.txt` says `Disallow: /`, and the admin address, `/health`, `/ready`, `/api/`, `/media/` and plugin pages under `/p/` stay reachable, so monitoring and plugins keep working. Signed-in admin users see the real site. Put the password gate behind HTTPS so the cookie is `Secure`, and set the mode back to Open before you announce the site.
+Before launch, or during a risky change, set Settings > Site access to Coming soon, Maintenance or Password. Visitors and crawlers get a `noindex` page that is never cached, `robots.txt` says `Disallow: /`, and the admin address, `/health`, `/ready`, the signed-in JSON API under `/api/v1/`, `/media/` and plugin pages under `/p/` stay reachable, so monitoring and plugins keep working. The anonymous public API (`/api/v1/public/`) is gated with the site. Signed-in admin users see the real site. Put the password gate behind HTTPS so the cookie is `Secure`, and set the mode back to Open before you announce the site.
 
 ### Plugins, files and outbound calls
 

@@ -72,7 +72,7 @@ const CookieName = "hatamoto_site_access"
 const CookieTTL = 30 * 24 * time.Hour
 
 var bypassPrefixes = []string{
-	"/api/", "/p/", "/.well-known/", "/media/", "/theme/assets/",
+	"/p/", "/.well-known/", "/media/", "/theme/assets/",
 	// Address-independent admin routes that the main mux forwards.
 	"/auth/", "/plugin-ui/",
 }
@@ -82,16 +82,21 @@ var bypassExact = map[string]bool{
 	"/favicon.ico": true, "/favicon.svg": true, "/apple-touch-icon.png": true,
 	"/apple-touch-icon-precomposed.png": true, "/icon.svg": true, "/icon.png": true,
 	"/manifest.webmanifest": true, "/site.webmanifest": true,
+	// The pageview beacon.
+	"/api/v1/track": true,
 }
 
+const publicAPI = "/api/v1/public"
+
 // Bypass reports whether the gate leaves a request alone in every mode. The
-// admin address is not listed: it is served before the public site. Public
-// form submits are the one POST under /api/ that the gate still holds back.
-func Bypass(path, method string) bool {
-	if method == "POST" && isFormSubmit(path) {
+// admin address is not listed: it is served before the public site. Under
+// /api/v1 only the authenticated JSON API passes; the anonymous public API
+// (/api/v1/public) serves published content and follows the mode.
+func Bypass(path string) bool {
+	if path == publicAPI || strings.HasPrefix(path, publicAPI+"/") {
 		return false
 	}
-	if bypassExact[path] {
+	if bypassExact[path] || strings.HasPrefix(path, "/api/v1/") {
 		return true
 	}
 	for _, p := range bypassPrefixes {
@@ -100,19 +105,6 @@ func Bypass(path, method string) bool {
 		}
 	}
 	return false
-}
-
-func isFormSubmit(path string) bool {
-	rest, ok := strings.CutPrefix(path, "/api/v1/public")
-	if !ok {
-		rest = path
-	}
-	slug, ok := strings.CutPrefix(rest, "/forms/")
-	if !ok {
-		return false
-	}
-	slug, ok = strings.CutSuffix(slug, "/submit")
-	return ok && slug != "" && !strings.Contains(slug, "/")
 }
 
 func mac(key []byte, payload string) string {
