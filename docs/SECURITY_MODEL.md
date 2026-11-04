@@ -202,7 +202,7 @@ Residual risks, stated plainly:
   refuses the sign-in. Wrong codes share the account lock. An owner policy can require it, but a
   user who has no factor yet is held on the Security page in the admin, and the JSON login refuses a password-only session for them (403) until they set one up.
   Residual: a user with only passkeys confirms sudo mode with the password alone, passkeys are tied
-  to the site address, and `hatamoto user reset-2fa` on the server removes every factor.
+  to the site address, rotating `HATAMOTO_SECRET` invalidates every authenticator secret and recovery code (run `hatamoto user reset-2fa` per user), and `hatamoto user reset-2fa` on the server removes every factor.
 - **Community `builder.island` gap.** A builder island is a same-origin
   `<script type="module">` (`internal/render`, `islandTags`). The Layer B sandbox applies only when
   the plugin also holds a live `site.scripts` grant (`internal/packages`, `CommunityScriptsLive`), so

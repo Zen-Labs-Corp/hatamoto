@@ -334,7 +334,9 @@ func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, userAgent,
 // IssueVerifiedSession starts an admin session for a user who has just passed
 // every step sign-in requires of them (password plus second factor, or a
 // passkey). It is the only way past the second-factor gate, and only the
-// second-factor completion handlers call it.
+// second-factor completion handlers call it. It skips the checks of
+// authenticate (the passkey sign-in has no password step), so any account-state
+// rule added to authenticate must be added here too.
 func (s *Service) IssueVerifiedSession(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error) {
 	token, err := s.issueAdmin(ctx, userID, userAgent, ip)
 	if err != nil {
