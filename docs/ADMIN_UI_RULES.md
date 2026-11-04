@@ -82,9 +82,9 @@ handoff material are stale, do not copy them.
    checkboxes: multi-pick lists (API scopes, permissions, content types, terms, spam script blocks,
    table row and select-all, media tile select, the schemaform "clear the stored
    value" box) and consent gates ("I understand ..."). A multi-pick list may be drawn as toggle chips: `hm/field` Control `chip` (one checkbox, optional `Code` key shown in mono) or `chipradio` (one radio group, optional `Mono`). Two short fields that belong together sit side by side between `hm/pair-start` and `hm/pair-end`.
-5. **Flat sticky footer only on four editor screens, the menu editor, the term editor and Titles & meta:** entity edit, entity model edit,
+5. **Flat sticky footer only on four editor screens, the menu editor, the term editor, Titles & meta and the changeset review page:** entity edit, entity model edit,
    form editor and plugin settings, plus the menu editor, whose save bar stays in reach
-   beside a long tree, and the taxonomy term editor, whose Cancel, Merge into another term and Save sit together in one bar below the Search appearance card, and Settings > SEO > Titles & meta, whose one save bar stays in reach below its long list of patterns (the approved design shows it sticky). They use `.hm-savebar` (flat, hairline top
+   beside a long tree, and the taxonomy term editor, whose Cancel, Merge into another term and Save sit together in one bar below the Search appearance card, and Settings > SEO > Titles & meta, whose one save bar stays in reach below its long list of patterns (the approved design shows it sticky), and the changeset review page, whose Publish bar stays in reach beside a long list of risky changes. They use `.hm-savebar` (flat, hairline top
    border, no radius, no shadow). Every other form uses a card footer. One opt-in exception: the Identity, Homepage and Business details cards on Settings > General add `hm-card--sticky-foot` (via card-start `Class`), which keeps that card footer sticky at the bottom of the viewport on a tall card.
 6. **No shadows except popups and focus or selected rings.** Allowed:
    `none`, ring shadows such as `0 0 0 2px`, `inset` shadows (selected marker,
@@ -150,6 +150,7 @@ A change to one component edits only its own subsection below and its entry in t
 | pluginframe | `.hm-pluginframe` | `css/pages/packages.css` | none | `border-top-left-radius: var(--radius-md)` |
 | popover | `.hm-popover-panel` | `css/partials/popover.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)` |
 | radiocard | `.hm-radiocard` | `css/partials/radiocard.css` | `hm/radiocard` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-4)`, `padding-right: var(--space-4)` |
+| rooms | `.hm-rooms` | `css/pages/pluginruns.css` | none |  |
 | savebar | `.hm-savebar` | `css/partials/savebar.css` | none |  |
 | savestate | `.hm-savestate` | `css/partials/savestate.css` | `hm/savestate` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)` |
 | searchselect-list | `.hm-searchselect__list` | `css/partials/searchselect.css` | `hm/searchselect` | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-md)`, `box-shadow: var(--shadow-2)`, `z-index: var(--z-popup)` |
@@ -162,9 +163,10 @@ A change to one component edits only its own subsection below and its entry in t
 | status | `.hm-status` | `css/partials/table.css` | `hm/cell` |  |
 | swatches | `.hm-swatches__opt` | `css/partials/swatches.css` | `hm/swatches` | `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-2)` |
 | switch | `.hm-switch .hm-field__box` | `css/partials/field.css` | `hm/field` |  |
-| table | `.hm-table` | `css/partials/table.css` | `hm/table` |  |
+| table | `.hm-table` | `css/partials/table.css` | `hm/table` | ; `.hm-table--wrap`: `white-space: normal` |
 | tabs | `.hm-tabs__tab, .hm-tablist__tab` | `css/partials/tabs.css` | `hm/tabs` | `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab`: `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"]`: `background-color: var(--color-paper)`, `box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel)`, `color: var(--color-sumi)`, `font-weight: var(--weight-semibold)`; `.hm-tabs[data-variant="sub"] .hm-tabs__tab`: `font-size: var(--text-xs)` |
 | togglechip | `.hm-field__chip` | `css/partials/field.css` | `hm/field` | `border-top-left-radius: var(--radius-full)`, `font-size: var(--text-sm)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)` |
+| valuediff | `.hm-valuediff` | `css/partials/diff.css` | none |  |
 <!-- components:end -->
 
 ### Button
@@ -527,6 +529,18 @@ are absolute.
 ### Plugin frame
 
 Contract: `components.json` key `pluginframe` (no partial; the frame is a plain element). The base `.hm-pluginframe` hosts plugin UI. The `--preview` variant is the isolated changeset preview: a direct `<iframe sandbox="" referrerpolicy="no-referrer" title="...">`, never combined with `data-hm-pluginframe`, never given `allow-same-origin` or `allow-scripts`.
+
+### Value diff
+
+Contract: `components.json` key `valuediff` (no partial). `<code class="hm-valuediff"><del>old</del> <ins>new</ins></code>` shows one value change inline: the old value struck out on a danger wash, the new one on a success wash, monospace. Use it wherever a suggestion or a staged change shows old and new values; the version compare tables keep their own `hm-diff` markup.
+
+### Rooms
+
+Contract: `components.json` key `rooms` (no partial; built from `hm/card`). `.hm-rooms` lays two cards side by side with a one-way link between them (`.hm-rooms__link`); the room that is working carries `hm-rooms__room--active` (an accent ring). It stacks below 960px. Use it for a run's parallel scopes (what each room can reach), not for one sequence of steps (`hm/steps`).
+
+### Table wrap
+
+`components.json` key `table`, variant `wrap` (`.hm-table--wrap`). Table cells do not wrap by default; the wrap variant lets cells hold sentences (review rows) and keeps the actions column on one line.
 
 ### Dropzone
 

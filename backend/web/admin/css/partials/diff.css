@@ -1,0 +1,4 @@
+/* Inline old/new value: the old one struck out, the new one marked. */
+.hm-valuediff { font-family: var(--font-mono); font-size: var(--text-xs); overflow-wrap: anywhere; }
+.hm-valuediff del { background: var(--color-danger-soft); color: var(--color-danger); text-decoration: line-through; border-radius: var(--radius-sm); padding: 0 var(--space-1); }
+.hm-valuediff ins { background: var(--color-success-soft); color: var(--color-success); text-decoration: none; border-radius: var(--radius-sm); padding: 0 var(--space-1); }

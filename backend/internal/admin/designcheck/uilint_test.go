@@ -274,6 +274,8 @@ var uiStickyTemplates = map[string]bool{
 	"pages/forms/edit.html":      true,
 	"pages/taxonomies/term.html": true,
 	"pages/plugins/plugin.html":  true,
+	// The changeset review page: the publish bar stays in reach beside a long list of risky changes.
+	"pages/plugins/changeset.html": true,
 	// The menu editor: Save, Discard and the unsaved state stay in reach beside a long tree.
 	"pages/menus/edit.html": true,
 	// Titles & meta: one save bar below a long list of patterns.

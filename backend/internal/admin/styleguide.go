@@ -43,6 +43,15 @@ func styleguideSamples(prefix string) map[string][]sample {
 		"pluginframe": {
 			{Label: "Preview", Variant: "preview", HTML: `<iframe class="hm-pluginframe hm-pluginframe--preview" sandbox="" referrerpolicy="no-referrer" title="Isolated preview sample"></iframe>`},
 		},
+		"valuediff": {
+			{Label: "Old and new", HTML: `<code class="hm-valuediff"><del>Old title</del> <ins>New title</ins></code>`},
+		},
+		"rooms": {
+			{Label: "Two rooms", HTML: `<div class="hm-rooms"><section class="hm-card hm-rooms__room hm-rooms__room--active"><div class="hm-card__head"><h3 class="hm-card__title">Fetch</h3></div><div class="hm-card__body"><p>Reads the pages.</p></div></section><div class="hm-rooms__link" aria-hidden="true"><span>passes notes</span></div><section class="hm-card hm-rooms__room"><div class="hm-card__head"><h3 class="hm-card__title">Build</h3></div><div class="hm-card__body"><p>Prepares the changes.</p></div></section></div>`},
+		},
+		"table": {
+			{Label: "Wrap", Variant: "wrap", HTML: `<div class="hm-table__scroll" role="region" aria-label="Wrapping table sample" tabindex="0"><table class="hm-table hm-table--wrap"><caption class="hm-visually-hidden">Wrapping table sample</caption><thead><tr><th scope="col">Change</th><th scope="col">Why it needs a look</th><th scope="col" class="hm-table__actions"><span class="hm-visually-hidden">Actions</span></th></tr></thead><tbody><tr><th scope="row" class="hm-table__rowhead">About us</th><td>Links to a site that is not yours, so it waits for your decision.</td><td class="hm-table__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="#"><span>Open</span></a></td></tr></tbody></table></div>`},
+		},
 		"button": {
 			{Label: "Primary", Variant: "primary", Data: ui.Button{Label: "Save", Variant: "primary"}.Dict()},
 			{Label: "Secondary", Data: ui.Button{Label: "Cancel", Variant: "secondary"}.Dict()},

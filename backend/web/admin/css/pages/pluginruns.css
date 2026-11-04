@@ -1,0 +1,5 @@
+/* A plugin run's two rooms: two cards joined by a one-way link, the active room ringed. */
+.hm-rooms { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--space-4); align-items: stretch; }
+.hm-rooms__link { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); font-size: var(--text-xs); }
+.hm-rooms__room--active { box-shadow: 0 0 0 2px var(--color-accent); }
+@media (max-width: 960px) { .hm-rooms { grid-template-columns: minmax(0, 1fr); } .hm-rooms__link { flex-direction: row; } }
