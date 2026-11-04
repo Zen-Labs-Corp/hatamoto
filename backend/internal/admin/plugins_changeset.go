@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -328,6 +329,32 @@ func validOrigin(o string) bool {
 		u.Path == "" && u.RawQuery == "" && u.Fragment == "" && u.User == nil && !strings.ContainsAny(o, " ;,'\"")
 }
 
+// frameSiteOrigin is the scheme://host of the configured site address, or ""
+// when none is set or it is not a plain origin.
+func (a *Admin) frameSiteOrigin(r *http.Request) string {
+	if a.deps.BaseURL == nil {
+		return ""
+	}
+	u, err := url.Parse(strings.TrimSpace(a.deps.BaseURL(r)))
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	if o := u.Scheme + "://" + u.Host; validOrigin(o) {
+		return o
+	}
+	return ""
+}
+
+// rootRelAttr matches an href, src, poster or srcset value that starts with a
+// single slash, so it is relative to the site root.
+var rootRelAttr = regexp.MustCompile(`((?:href|src|poster|srcset)=")/([^/"])`)
+
+// absolutizeAssets points root-relative URLs at the public site, so a frame
+// served from the preview host (or any other address) still loads the theme.
+func absolutizeAssets(body []byte, site string) []byte {
+	return rootRelAttr.ReplaceAll(body, []byte("${1}"+site+"/${2}"))
+}
+
 // serveChangesetFrame writes the rendered document under the sealed header
 // set: it runs no script, takes no form, may only be framed by the admin's
 // origin, and is never stored or indexed. It sets no cookie.
@@ -351,8 +378,17 @@ func (a *Admin) serveChangesetFrame(w http.ResponseWriter, r *http.Request, id i
 	hd.Del("Set-Cookie")
 	hd.Del("X-Frame-Options") // frame-ancestors below is the rule
 	hd.Del("Content-Security-Policy-Report-Only")
+	// The theme's stylesheet, fonts and images come from the public site: its
+	// origin when one is configured (the only way on a preview host, which
+	// serves nothing else), the frame's own origin otherwise. Scripts stay off.
+	site := a.frameSiteOrigin(r)
+	src := "'self'"
+	if site != "" {
+		src = site
+		body = absolutizeAssets(body, site)
+	}
 	hd.Set("Content-Security-Policy", "sandbox; default-src 'none'; script-src 'none'; form-action 'none'; base-uri 'none'; "+
-		"style-src 'unsafe-inline'; img-src 'self' data: https:; frame-ancestors "+origin)
+		"style-src 'unsafe-inline' "+src+"; font-src "+src+"; img-src "+src+" data: https:; frame-ancestors "+origin)
 	hd.Set("Content-Type", "text/html; charset=utf-8")
 	hd.Set("Cache-Control", "no-store")
 	hd.Set("X-Robots-Tag", "noindex")

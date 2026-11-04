@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"strings"
@@ -30,12 +31,16 @@ func (f *fakeChangesets) Get(_ context.Context, id int64) (changeset.Header, []c
 type fakePreviewer struct {
 	err   error
 	calls []int
+	body  string
 }
 
 func (f *fakePreviewer) PreviewChangeset(_ context.Context, _ int64, seq int) ([]byte, error) {
 	f.calls = append(f.calls, seq)
 	if f.err != nil {
 		return nil, f.err
+	}
+	if f.body != "" {
+		return []byte(f.body), nil
 	}
 	return []byte("<!doctype html><title>Staged title</title>"), nil
 }
@@ -320,6 +325,51 @@ func TestChangesetPageGoldens(t *testing.T) {
 		compareGolden(t, "pages/plugins-"+p.name+".html", body)
 		if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 			t.Errorf("%s a11y: %s", p.name, strings.Join(issues, "; "))
+		}
+	}
+}
+
+// The frame must let the theme style the page (stylesheet, fonts, images from
+// the public site) and stay free of script.
+func TestChangesetFrameLoadsTheme(t *testing.T) {
+	t.Parallel()
+
+	const site = "https://www.example.org"
+	for _, host := range []string{"", "preview.example.net"} {
+		g, _, fp := newChangesetRig(t, host)
+		fp.body = `<!doctype html><head><link rel="stylesheet" href="/theme/assets/a.css"></head><img src="/media/x.png"><a href="//cdn.example/y">y</a>`
+		g.a.deps.BaseURL = func(*http.Request) string { return site + "/" }
+		ls := liveSessions{fakeSessions: g.sessions, user: g.owner.ID, live: true}
+		g.a.deps.Sessions = ls
+		m := frameSrcRe.FindStringSubmatch(g.do("GET", csPreviewPath, "owner-token", nil, nil).Body.String())
+		if m == nil {
+			t.Fatal("no iframe src")
+		}
+		var rec *httptest.ResponseRecorder
+		if host == "" {
+			rec = g.do("GET", m[1], "owner-token", nil, iframeFrame)
+		} else {
+			req := httptest.NewRequest("GET", strings.TrimPrefix(m[1], "https://"+host), nil)
+			req.Host = host
+			req.Header.Set("Sec-Fetch-Dest", "iframe")
+			req.Header.Set("Sec-Fetch-Mode", "navigate")
+			rec = httptest.NewRecorder()
+			g.a.PreviewHostHandler().ServeHTTP(rec, req)
+		}
+		if rec.Code != 200 {
+			t.Fatalf("host %q: %d", host, rec.Code)
+		}
+		csp := rec.Header().Get("Content-Security-Policy")
+		for _, want := range []string{"style-src 'unsafe-inline' " + site + ";", "font-src " + site + ";", "img-src " + site + " data:", "script-src 'none'", "form-action 'none'", "sandbox;"} {
+			if !strings.Contains(csp, want) {
+				t.Errorf("host %q: CSP %q lacks %s", host, csp, want)
+			}
+		}
+		body := rec.Body.String()
+		for _, want := range []string{`href="` + site + `/theme/assets/a.css"`, `src="` + site + `/media/x.png"`, `href="//cdn.example/y"`} {
+			if !strings.Contains(body, want) {
+				t.Errorf("host %q: body lacks %s: %s", host, want, body)
+			}
 		}
 	}
 }
