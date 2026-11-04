@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -156,7 +157,7 @@ func (a *Admin) handlePluginStanding(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		d.Waiting = append(d.Waiting, waitingRun{
-			Title:  runTitle(p, wr.Run) + " is waiting for you.",
+			Title:  fmt.Sprintf("%s run #%d is waiting for you.", runTitle(p, wr.Run), wr.ChangesetID),
 			Body:   countNoun(wr.Items, "change") + " staged. Some may be outside what you allowed, so nothing was published.",
 			Review: a.changesetURL(p.Name, wr.ChangesetID, ""),
 		})

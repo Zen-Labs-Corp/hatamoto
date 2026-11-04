@@ -81,7 +81,7 @@ func TestStandingTab(t *testing.T) {
 		"Option 1: no approval needed", "plugin_shop_sync_&lt;function&gt;", "Option 2: standing approval",
 		`class="hm-permlist"`, "May change price and stock", "Only on products it created", "Up to 200 changes an hour", "Never text, links",
 		`action="` + standingPath + `"`, `name="run" value="prices"`, `name="version" value="1.2.4"`, `name="rule" value="rulehash1"`, "Sign in again and allow", "Not now",
-		"When a run steps outside the rule", "Price sync is waiting for you.", `href="/admin/plugins/shop-sync/changesets/44"`, ">Review</a>",
+		"When a run steps outside the rule", "Price sync run #44 is waiting for you.", "15 changes staged.", `href="/admin/plugins/shop-sync/changesets/44"`, ">Review</a>",
 		`aria-current="page">Automatic updates`,
 	} {
 		if !strings.Contains(body, want) {
