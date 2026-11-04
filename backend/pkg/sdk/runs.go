@@ -19,6 +19,12 @@ const (
 
 	MaxRuns      = 8
 	MaxRunInputs = 16
+
+	// MaxStandingFields caps the fields and the schemas of a standing approval.
+	MaxStandingFields = 16
+	// DefaultStandingPerHour is the changes an hour a standing approval allows
+	// when max_per_hour is 0, and its ceiling.
+	DefaultStandingPerHour = 200
 )
 
 // Proposal kinds a run may declare in Run.Proposes.
@@ -45,6 +51,56 @@ type Run struct {
 	// Proposes lists the proposal kinds the run may submit with
 	// changeset.propose.
 	Proposes []string `json:"proposes,omitempty"`
+	// Cron names a cron job that starts this run on its schedule instead of
+	// calling the job's hook. It needs StandingApproval and an approval the
+	// owner has given; without one the tick does nothing.
+	Cron string `json:"cron,omitempty"`
+	// StandingApproval is the rule the owner may approve once so a cron
+	// started run publishes by itself when everything it staged is inside it.
+	StandingApproval *StandingApproval `json:"standing_approval,omitempty"`
+}
+
+// StandingApproval is the policy a run declares for automatic publishing. It
+// is only a request: nothing publishes until the owner approves it.
+type StandingApproval struct {
+	// Fields are the attribute keys the run may change, for example "price".
+	Fields []string `json:"fields"`
+	// Schemas are the entity schema slugs the rule applies to.
+	Schemas []string `json:"schemas"`
+	// MaxPerHour caps the changes published an hour; 0 means
+	// DefaultStandingPerHour, and the value may not exceed it.
+	MaxPerHour int `json:"max_per_hour,omitempty"`
+}
+
+func (m Manifest) validateStanding(r Run) error {
+	sa := r.StandingApproval
+	if sa == nil {
+		if r.Cron != "" {
+			return fmt.Errorf("sdk: plugin %q: run %q: cron needs a standing_approval block", m.Name, r.Name)
+		}
+		return nil
+	}
+	switch {
+	case !slices.ContainsFunc(m.Cron, func(j CronJob) bool { return j.Name == r.Cron }):
+		return fmt.Errorf("sdk: plugin %q: run %q: standing_approval needs cron to name a declared cron job", m.Name, r.Name)
+	case len(r.Inputs) > 0:
+		return fmt.Errorf("sdk: plugin %q: run %q: a run with a standing_approval takes no inputs", m.Name, r.Name)
+	case sa.MaxPerHour < 0 || sa.MaxPerHour > DefaultStandingPerHour:
+		return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.max_per_hour %d outside 0..%d", m.Name, r.Name, sa.MaxPerHour, DefaultStandingPerHour)
+	}
+	for label, list := range map[string][]string{"fields": sa.Fields, "schemas": sa.Schemas} {
+		if len(list) == 0 || len(list) > MaxStandingFields {
+			return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.%s needs 1..%d entries", m.Name, r.Name, label, MaxStandingFields)
+		}
+		seen := map[string]bool{}
+		for _, v := range list {
+			if !identPattern.MatchString(v) || seen[v] {
+				return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.%s: bad or duplicate entry %q (want %s)", m.Name, r.Name, label, v, identPattern)
+			}
+			seen[v] = true
+		}
+	}
+	return nil
 }
 
 // RunInput is one value the owner supplies when starting a run.
@@ -78,6 +134,9 @@ func (m Manifest) validateRuns() error {
 			return fmt.Errorf("sdk: plugin %q: run %q: more than %d inputs", m.Name, r.Name, MaxRunInputs)
 		}
 		seen[r.Name] = true
+		if err := m.validateStanding(r); err != nil {
+			return err
+		}
 		for _, k := range r.Proposes {
 			if !slices.Contains(proposalKinds, k) {
 				return fmt.Errorf("sdk: plugin %q: run %q: unknown proposal kind %q", m.Name, r.Name, k)

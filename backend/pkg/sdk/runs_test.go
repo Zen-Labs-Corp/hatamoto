@@ -9,6 +9,10 @@ func validRun() Run {
 	return Run{Name: "import", Title: "Import", Stages: []string{RunPhaseFetch, RunPhaseTransform}}
 }
 
+func validStanding() *StandingApproval {
+	return &StandingApproval{Fields: []string{"price"}, Schemas: []string{"product"}}
+}
+
 func TestRunsValidate(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -27,6 +31,40 @@ func TestRunsValidate(t *testing.T) {
 		{"unknown proposal", func(r *Run) { r.Proposes = []string{"theme"} }, "proposal kind"},
 		{"duplicate input", func(r *Run) { r.Inputs = []RunInput{{Name: "a", Label: "A"}, {Name: "a", Label: "B"}} }, "duplicate input"},
 		{"input without label", func(r *Run) { r.Inputs = []RunInput{{Name: "a"}} }, "needs a label"},
+		{"standing valid", func(r *Run) { r.Cron = "tick"; r.StandingApproval = validStanding() }, ""},
+		{"standing at the cap", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.MaxPerHour = DefaultStandingPerHour
+		}, ""},
+		{"standing unknown cron", func(r *Run) { r.Cron = "nope"; r.StandingApproval = validStanding() }, "declared cron job"},
+		{"standing without cron", func(r *Run) { r.StandingApproval = validStanding() }, "declared cron job"},
+		{"cron without standing", func(r *Run) { r.Cron = "tick" }, "needs a standing_approval"},
+		{"standing empty fields", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.Fields = nil
+		}, "fields needs"},
+		{"standing empty schemas", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.Schemas = nil
+		}, "schemas needs"},
+		{"standing bad field", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.Fields = []string{"Price"}
+		}, "bad or duplicate"},
+		{"standing cap 201", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.MaxPerHour = DefaultStandingPerHour + 1
+		}, "max_per_hour"},
+		{"standing with inputs", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.Inputs = []RunInput{{Name: "a", Label: "A"}}
+		}, "takes no inputs"},
 		{"too many inputs", func(r *Run) {
 			for i := 0; i <= MaxRunInputs; i++ {
 				r.Inputs = append(r.Inputs, RunInput{Name: "i" + strings.Repeat("x", i), Label: "L"})
@@ -35,7 +73,7 @@ func TestRunsValidate(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			m := Manifest{Name: "wp", Version: "1.0.0", SDK: "^0.17"}
+			m := Manifest{Name: "wp", Version: "1.0.0", SDK: "^0.17", Cron: []CronJob{{Name: "tick", Every: "1h"}}}
 			r := validRun()
 			tc.mutate(&r)
 			m.Runs = []Run{r}
