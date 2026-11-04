@@ -90,6 +90,8 @@ GET /admin/settings/backups/{id}/download -> admin.(*Admin).handleBackupDownload
 GET /admin/settings/changes -> admin.(*Admin).handleChanges-fm
 GET /admin/settings/content-model -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/email -> admin.(*Admin).handleEmail-fm
+GET /admin/settings/email/log -> admin.(*Admin).handleEmailLog-fm
+GET /admin/settings/email/log/{id} -> admin.(*Admin).handleEmailLogEntry-fm
 GET /admin/settings/entity-models -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/export -> admin.(*Admin).handleExportInfo-fm
 GET /admin/settings/forms -> admin.(*Admin).handleForms-fm
@@ -295,7 +297,9 @@ POST /admin/settings/backups -> admin.(*Admin).handleBackupStart-fm
 POST /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDelete-fm
 POST /admin/settings/changes/{id}/undo -> admin.(*Admin).handleChangesUndo-fm
 POST /admin/settings/email -> admin.(*Admin).handleEmailSave-fm
+POST /admin/settings/email/log/{id}/resend -> admin.(*Admin).handleEmailLogResend-fm
 POST /admin/settings/email/reset -> admin.(*Admin).handleEmailReset-fm
+POST /admin/settings/email/retention -> admin.(*Admin).handleEmailRetention-fm
 POST /admin/settings/email/test -> admin.(*Admin).handleEmailSettingsTest-fm
 POST /admin/settings/forms -> admin.(*Admin).handleFormCreate-fm
 POST /admin/settings/forms/{id}/delete -> admin.(*Admin).handleFormDelete-fm

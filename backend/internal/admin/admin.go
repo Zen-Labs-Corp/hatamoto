@@ -142,6 +142,9 @@ type Mailer interface {
 	SendTest(ctx context.Context, to, siteName string) error
 	SendAdminAddressChanged(ctx context.Context, to string, data email.AdminAddressChangedData) error
 	SendAdminAddressSetup(ctx context.Context, to string, data email.AdminAddressSetupData) error
+	// SendTrackedWith is the one send path; Resend in the email log uses it
+	// so a repeat is logged like every other mail.
+	SendTrackedWith(ctx context.Context, opts email.SendOptions, to []string, subject, htmlBody, textBody string) (string, error)
 }
 
 // Deps is everything the admin needs. Interfaces are declared here (not in the
@@ -218,6 +221,10 @@ type Deps struct {
 	// EmailSettings is the SMTP configuration behind Settings > Email and the
 	// setup wizard's Email step; nil answers those pages with 503.
 	EmailSettings EmailSettingsService
+	// EmailLog is the email log behind Settings > Email log and the retention
+	// card on Settings > Email; nil answers the log pages with 503 and hides
+	// the card.
+	EmailLog EmailLogService
 	// Updates is the automatic-update service behind Settings > Updates and
 	// the owner banner; nil renders that page as unavailable and no banner.
 	// Set it only when non-nil: a typed nil would defeat the check.

@@ -114,6 +114,8 @@ type emailData struct {
 	Saved      bool
 	// Using is the "Using:" line: where the live settings come from.
 	Using string
+	// Retention is the email log retention card; nil hides it.
+	Retention *emailRetention
 }
 
 func emailUsing(src EmailSource) string {
@@ -193,6 +195,7 @@ func (a *Admin) mountEmailSettings(owner *httpx.Group) {
 	owner.HandleFunc("POST /settings/email", a.handleEmailSave)
 	owner.HandleFunc("POST /settings/email/test", a.handleEmailSettingsTest)
 	owner.HandleFunc("POST /settings/email/reset", a.handleEmailReset)
+	a.mountEmailLog(owner)
 }
 
 func (a *Admin) emailView(w http.ResponseWriter, r *http.Request) (EmailSettingsService, EmailSettingsView, bool) {
@@ -212,7 +215,7 @@ func (a *Admin) emailView(w http.ResponseWriter, r *http.Request) (EmailSettings
 
 func (a *Admin) handleEmail(w http.ResponseWriter, r *http.Request) {
 	if _, v, ok := a.emailView(w, r); ok {
-		a.renderEmail(w, r, http.StatusOK, v, emailFormEcho{}, nil, "")
+		a.renderEmail(w, r, http.StatusOK, v, emailFormEcho{}, nil, "", nil)
 	}
 }
 
@@ -226,7 +229,7 @@ func (a *Admin) handleEmailSave(w http.ResponseWriter, r *http.Request) {
 	case res.fatal:
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The email settings could not be saved.")
 	case !res.saved:
-		a.renderEmail(w, r, http.StatusUnprocessableEntity, stored, res.echo, res.errs, res.checkFailed)
+		a.renderEmail(w, r, http.StatusUnprocessableEntity, stored, res.echo, res.errs, res.checkFailed, nil)
 	default:
 		a.SetFlash(w, r, "success", "Email settings saved. Email is set up.")
 		http.Redirect(w, r, a.adminPath+emailPath, http.StatusSeeOther)
@@ -318,10 +321,14 @@ func (a *Admin) handleEmailReset(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.adminPath+emailPath, http.StatusSeeOther)
 }
 
-func (a *Admin) renderEmail(w http.ResponseWriter, r *http.Request, status int, stored EmailSettingsView, echo emailFormEcho, errs []ui.FieldError, checkFailed string) {
+func (a *Admin) renderEmail(w http.ResponseWriter, r *http.Request, status int, stored EmailSettingsView, echo emailFormEcho, errs []ui.FieldError, checkFailed string, ret *emailRetention) {
+	if ret == nil {
+		ret = a.loadEmailRetention(r)
+	}
 	d := emailData{
 		Form: newEmailFields(stored, echo, errs), Summary: errs, CheckFailed: checkFailed,
 		Configured: stored.Configured, Disabled: stored.Disabled, Saved: stored.Saved, Using: emailUsing(stored.Source),
+		Retention: ret,
 	}
 	v := a.NewView(w, r, "Email")
 	v.Section, v.Tab = "email", "email"

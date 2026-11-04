@@ -51,6 +51,20 @@ Settings saved in the admin replace these variables as a whole, not field by fie
 
 While email is off, Hatamoto still works: owners get one-time links to pass on, and form submissions are kept in the admin without a notification. The full list of mails, these fallbacks and the rules for several processes are in the [configuration reference](configuration-reference.md#email-delivery).
 
+## The email log
+
+Every email Hatamoto sends, or drops, leaves one entry in **Settings > Email log** (`<admin>/settings/email/log`, owners only). Each entry has the time, the recipients, the subject, the kind and a status:
+
+- **Sent**: the mail server accepted it. This is not proof it was delivered; bounces and opens are not tracked.
+- **Failed**: the mail server refused it. The entry shows a short error with any SMTP user name and password removed. Nothing is retried; fix the cause and resend.
+- **Suppressed**: email is not set up, or `EMAIL_DISABLED` is `true`, so nothing left the server.
+
+Use the **Status** filter to see one status at a time. The kind says why the mail was sent: form notification, form forward, form confirmation, password reset, invitation, admin address mails, test email, run digest, or `Plugin: <id>` for a mail a plugin sent with `mail.send`.
+
+Open an entry to read it. **Resend** sends the stored message again to the same recipients and adds a new entry that links back to the original. Password reset, invitation and the two admin address mails carry a private link, so their body is never stored: the entry says "Body not stored" and has no Resend. For the other kinds the page says "Body no longer kept" once the body period has passed.
+
+Under **Settings > Email**, **Keep message bodies (days)** (default 30) and **Keep log entries (days)** (default 90) set how long the text and the entry live. Each is 1 to 365 days and bodies cannot be kept longer than entries. A stored form notification holds what the visitor typed, so lower the body days if you do not want that kept.
+
 ## Check it worked
 
 **Settings > Email** shows **Email is set up**, and a **Using:** line says where the settings come from: "settings saved here" or "the server's SMTP_* settings". The test says `Test email sent to <your address>. Check your inbox.`, and the message arrives from the name and address you set. A second check: sign out, use **Forgot your password?** on the sign-in page with your own address, and follow the link in the mail within one hour.

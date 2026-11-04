@@ -77,6 +77,7 @@ func (s Security) Valid() bool {
 type Service struct {
 	cfg       atomic.Pointer[Config]
 	siteName  atomic.Pointer[func(context.Context) string]
+	recorder  atomic.Pointer[Recorder]
 	logger    *slog.Logger
 	templates *template.Template
 }
@@ -270,7 +271,8 @@ func (s *Service) SendFormSubmission(ctx context.Context, to []string, data Form
 
 	subject := fmt.Sprintf("New Form Submission: %s", data.FormName)
 
-	return s.Send(ctx, to, subject, htmlBuf.String(), textBody)
+	_, err := s.SendTrackedWith(ctx, SendOptions{Kind: KindFormNotification}, to, subject, htmlBuf.String(), textBody)
+	return err
 }
 
 // SendFormSubmissionForward sends a forwarded form submission to an arbitrary recipient.
@@ -291,7 +293,8 @@ func (s *Service) SendFormSubmissionForward(ctx context.Context, to []string, da
 		textBody = fmt.Sprintf("Forwarded by: %s\n\n%s", forwardedBy, textBody)
 	}
 
-	return s.Send(ctx, to, subject, htmlBuf.String(), textBody)
+	_, err := s.SendTrackedWith(ctx, SendOptions{Kind: KindFormForward}, to, subject, htmlBuf.String(), textBody)
+	return err
 }
 
 // createPlainTextSubmission creates a plain text version of the form submission email.
@@ -335,7 +338,8 @@ func (s *Service) createPlainTextSubmission(data FormSubmissionData) string {
 // Send sends an email with both HTML and plain text bodies. Returns nil
 // on success or when the service is unconfigured / disabled.
 //
-// Send is the entrypoint for callers that don't need the Message-ID.
+// Send is the entrypoint for callers that don't need the Message-ID. It logs
+// the mail as kind "other"; callers with a real kind use SendTrackedWith.
 func (s *Service) Send(ctx context.Context, to []string, subject, htmlBody, textBody string) error {
 	_, err := s.SendTracked(ctx, to, subject, htmlBody, textBody)
 	return err
@@ -349,6 +353,27 @@ type SendOptions struct {
 	FromAddress string
 	FromName    string
 	ReplyTo     string
+	// Kind labels the mail in the email log. Empty means KindOther.
+	Kind Kind
+	// Plugin is the plugin id behind a KindPlugin mail.
+	Plugin string
+	// ResentFrom is the log id of the entry this send repeats, or 0.
+	ResentFrom int64
+}
+
+// SetRecorder makes every send leave one email log entry. Pass nil to stop.
+func (s *Service) SetRecorder(r Recorder) {
+	if r == nil {
+		s.recorder.Store(nil)
+		return
+	}
+	s.recorder.Store(&r)
+}
+
+// SendPlugin sends a mail a plugin asked for and logs it as that plugin's.
+func (s *Service) SendPlugin(ctx context.Context, plugin string, to []string, subject, htmlBody, textBody string) error {
+	_, err := s.SendTrackedWith(ctx, SendOptions{Kind: KindPlugin, Plugin: plugin}, to, subject, htmlBody, textBody)
+	return err
 }
 
 // SendTracked is the Send variant that returns the generated Message-ID
@@ -372,6 +397,7 @@ func (s *Service) SendTrackedWith(ctx context.Context, opts SendOptions, to []st
 			slog.String("subject", subject),
 			slog.Int("recipient_count", len(to)),
 		)
+		s.record(ctx, c, opts, to, subject, htmlBody, textBody, "", StatusSuppressed, nil)
 		return "", nil
 	}
 
@@ -384,6 +410,7 @@ func (s *Service) SendTrackedWith(ctx context.Context, opts SendOptions, to []st
 			slog.String("subject", subject),
 			slog.Int("recipient_count", len(to)),
 		)
+		s.record(ctx, c, opts, to, subject, htmlBody, textBody, "", StatusSuppressed, nil)
 		return "", nil
 	}
 
@@ -404,6 +431,7 @@ func (s *Service) SendTrackedWith(ctx context.Context, opts SendOptions, to []st
 	ctx, cancel := context.WithTimeout(ctx, sendTimeout)
 	defer cancel()
 	if err := s.deliver(ctx, c, envelopeFrom, to, msg); err != nil {
+		s.record(ctx, c, opts, to, subject, htmlBody, textBody, "", StatusFailed, err)
 		s.logger.Error("failed to send email",
 			slog.String("error", err.Error()),
 			slog.String("subject", subject),
@@ -417,6 +445,7 @@ func (s *Service) SendTrackedWith(ctx context.Context, opts SendOptions, to []st
 		slog.String("message_id", messageID),
 	)
 
+	s.record(ctx, c, opts, to, subject, htmlBody, textBody, messageID, StatusSent, nil)
 	return messageID, nil
 }
 
@@ -564,5 +593,6 @@ func (s *Service) SendFormConfirmation(ctx context.Context, to string, data Form
 	} else {
 		subject = "We received your submission"
 	}
-	return s.Send(ctx, []string{to}, subject, htmlBuf.String(), text.String())
+	_, err := s.SendTrackedWith(ctx, SendOptions{Kind: KindFormConfirmation}, []string{to}, subject, htmlBuf.String(), text.String())
+	return err
 }

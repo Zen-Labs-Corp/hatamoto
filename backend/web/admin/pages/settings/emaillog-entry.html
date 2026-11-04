@@ -1,0 +1,20 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<section class="hm-stack">
+{{template "hm/card-start" dict "ID" "email-entry" "Title" "Email" "Heading" "h2"}}
+<div class="hm-setlist">
+<div class="hm-setrow"><div class="hm-setrow__text"><p class="hm-setrow__name">Subject</p><p class="hm-field__help">{{.Subject}}</p></div></div>
+<div class="hm-setrow"><div class="hm-setrow__text"><p class="hm-setrow__name">To</p><p class="hm-field__help">{{.To}}</p></div></div>
+<div class="hm-setrow"><div class="hm-setrow__text"><p class="hm-setrow__name">Kind</p><p class="hm-field__help">{{.Kind}}</p></div></div>
+<div class="hm-setrow"><div class="hm-setrow__text"><p class="hm-setrow__name">Sent at</p><p class="hm-field__help">{{.When}}</p></div></div>
+<div class="hm-setrow"><div class="hm-setrow__text"><p class="hm-setrow__name">Status</p></div><div class="hm-setrow__control">{{template "hm/badge" .Status}}</div></div>
+{{if .Error}}<div class="hm-setrow"><div class="hm-setrow__text"><p class="hm-setrow__name">Error</p><p class="hm-field__help">{{.Error}}</p></div></div>
+{{end}}{{if .ResentOf}}<div class="hm-setrow"><div class="hm-setrow__text"><p class="hm-setrow__name">Resent from</p><p class="hm-field__help"><a href="{{.ResentOf}}">The original email</a></p></div></div>
+{{end}}</div>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "email-body" "Title" "Message" "Heading" "h2" "Description" .BodyNote}}
+{{if .Body}}<pre class="hm-code" tabindex="0" aria-label="Message body">{{.Body}}</pre>
+{{end}}{{if .CanResend}}{{template "hm/card-foot"}}<form method="post" action="{{adminPath}}/settings/email/log/{{.ID}}/resend">{{template "hm/csrf" $}}{{template "hm/button" dict "Label" "Resend" "Variant" "primary" "Type" "submit"}}</form>
+{{template "hm/card-foot-end"}}{{else}}{{template "hm/card-end"}}{{end}}
+</section>
+{{end}}{{end}}

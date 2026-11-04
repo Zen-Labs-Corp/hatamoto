@@ -43,6 +43,9 @@ type Options struct {
 	User, Pass string
 	// RejectAuth answers every AUTH attempt with 535, whatever the credentials.
 	RejectAuth bool
+	// RejectRcpt answers every RCPT with 550, as a server that refuses the
+	// mailbox does.
+	RejectRcpt bool
 	// Blackhole accepts TCP connections and never replies.
 	Blackhole bool
 }
@@ -253,6 +256,10 @@ func (s *Server) serve(c net.Conn) {
 			from = between(line, '<', '>')
 			reply("250 OK")
 		case "RCPT":
+			if s.opts.RejectRcpt {
+				reply("550 5.1.1 mailbox unavailable")
+				continue
+			}
 			to = append(to, between(line, '<', '>'))
 			reply("250 OK")
 		case "RSET":

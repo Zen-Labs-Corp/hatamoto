@@ -31,7 +31,7 @@ import (
 // Mailer is the slice of the email service mail.send uses.
 type Mailer interface {
 	IsConfigured() bool
-	Send(ctx context.Context, to []string, subject, htmlBody, textBody string) error
+	SendPlugin(ctx context.Context, plugin string, to []string, subject, htmlBody, textBody string) error
 }
 
 // EntityPaths gives the entities.* host functions the public site's view of
@@ -452,7 +452,7 @@ func fnMailSend(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (a
 	if !a.limits(e.plugin).mail.AllowN(time.Now(), len(args.To)) {
 		return nil, herr(sdk.ErrRateLimited, "mail rate limit (6 recipients per minute, burst 10)")
 	}
-	if err := a.svc.Mail.Send(ctx, args.To, args.Subject, args.HTML, args.Text); err != nil {
+	if err := a.svc.Mail.SendPlugin(ctx, e.plugin, args.To, args.Subject, args.HTML, args.Text); err != nil {
 		return nil, err
 	}
 	return map[string]any{"sent": len(args.To)}, nil
