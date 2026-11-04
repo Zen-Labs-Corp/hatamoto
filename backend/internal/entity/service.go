@@ -412,6 +412,10 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 		return nil, err
 	}
 
+	// The auto-conversion below fills Attributes when the caller sent none; that
+	// is a machine rewrite, so only caller-sent attributes can hand ownership over.
+	callerSentAttrs := input.Attributes != nil
+
 	if input.Locale != nil {
 		locale, err := NormalizeLocale(*input.Locale)
 		if err != nil {
@@ -487,6 +491,13 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	}
 	if err := s.creditUpdate(ctx, existing, input); err != nil {
 		return nil, err
+	}
+
+	// A person changing the structure of a plugin-imported entity takes it
+	// over; the repository writes origin = 'owner' in the same transaction.
+	// Machine rewrites (KeepUpdatedAt) never do.
+	if !input.KeepUpdatedAt && structuralChange(existing, input, callerSentAttrs) {
+		input.TakeOwnership = true
 	}
 
 	attrs := existing.Attributes
@@ -608,6 +619,23 @@ func (s *Service) fireLinkRewrite(before, after *Entity, actor *uuid.UUID) {
 			)
 		}
 	}()
+}
+
+// structuralChange reports whether an update changes what a plugin imported:
+// the slug, the parent, or the attributes (body and SEO fields live in one
+// blob, so any attribute change counts). Name and locale do not count, and
+// entities have no template field, so there is nothing to detect for it.
+func structuralChange(ex *Entity, in *UpdateEntityInput, callerSentAttrs bool) bool {
+	if in.Slug != nil && *in.Slug != ex.Slug {
+		return true
+	}
+	if in.ClearParent && ex.ParentID != nil {
+		return true
+	}
+	if in.ParentID != nil && !in.ClearParent && (ex.ParentID == nil || *in.ParentID != *ex.ParentID) {
+		return true
+	}
+	return callerSentAttrs && in.Attributes != nil && !jsonRawEqual(*in.Attributes, ex.Attributes)
 }
 
 // UpdateEntityStatus changes an entity's status.
@@ -838,6 +866,7 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 		Attributes:    &restoredAttrs,
 		ChangeSummary: &changeSummary,
 		Status:        lockedStatus(existing.Schema, restoredAttrs),
+		TakeOwnership: !jsonRawEqual(restoredAttrs, existing.Attributes),
 	})
 	if err != nil {
 		s.logger.Error("failed to restore entity version",

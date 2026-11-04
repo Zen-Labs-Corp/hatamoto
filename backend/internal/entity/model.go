@@ -74,21 +74,24 @@ type EntitySchema struct {
 
 // Entity represents a data entity following a schema.
 type Entity struct {
-	ID          uuid.UUID       `json:"id"`
-	SchemaID    uuid.UUID       `json:"schema_id"`
-	Name        string          `json:"name"`
-	Slug        string          `json:"slug"`
-	Locale      string          `json:"locale"`
-	Status      EntityStatus    `json:"status"`
-	Attributes  json.RawMessage `json:"attributes"`
-	Metadata    json.RawMessage `json:"metadata,omitempty"`
-	Editorial   json.RawMessage `json:"editorial,omitempty"`
-	Version     int             `json:"version"`
-	CreatedBy   *uuid.UUID      `json:"created_by,omitempty"`
-	UpdatedBy   *uuid.UUID      `json:"updated_by,omitempty"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
-	PublishedAt *time.Time      `json:"published_at,omitempty"`
+	// TookOwnership is true on the row returned by an update that switched the
+	// origin from a plugin to 'owner'.
+	TookOwnership bool            `json:"-"`
+	ID            uuid.UUID       `json:"id"`
+	SchemaID      uuid.UUID       `json:"schema_id"`
+	Name          string          `json:"name"`
+	Slug          string          `json:"slug"`
+	Locale        string          `json:"locale"`
+	Status        EntityStatus    `json:"status"`
+	Attributes    json.RawMessage `json:"attributes"`
+	Metadata      json.RawMessage `json:"metadata,omitempty"`
+	Editorial     json.RawMessage `json:"editorial,omitempty"`
+	Version       int             `json:"version"`
+	CreatedBy     *uuid.UUID      `json:"created_by,omitempty"`
+	UpdatedBy     *uuid.UUID      `json:"updated_by,omitempty"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
+	PublishedAt   *time.Time      `json:"published_at,omitempty"`
 
 	// Hierarchy and content classification fields
 	ParentID *uuid.UUID `json:"parent_id,omitempty"`
@@ -179,6 +182,11 @@ type UpdateEntityInput struct {
 	// Internal: used by `builder convert`, so a lossless shape
 	// change does not look like a content edit (JSON-LD dateModified, sitemap lastmod).
 	KeepUpdatedAt bool `json:"-"`
+	// TakeOwnership makes the write set the entity's origin to 'owner': a
+	// person changed its structure (slug, parent or attributes), so a plugin
+	// that imported it no longer owns it. Set by Service.UpdateEntity and
+	// RestoreVersion, never by callers.
+	TakeOwnership bool `json:"-"`
 	// ParentID moves the entity under a parent; ClearParent makes it a root.
 	// Both unset leaves the parent alone. The same holds for AuthorID.
 	ParentID    *uuid.UUID `json:"parent_id,omitempty"`
