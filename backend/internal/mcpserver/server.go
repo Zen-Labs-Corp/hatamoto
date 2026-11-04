@@ -81,6 +81,11 @@ type Deps struct {
 	// events do not cover (menus, redirects, terms).
 	Changed func(ctx context.Context)
 
+	// Duplicator serves entities_duplicate; optional, the tool says so when nil.
+	Duplicator interface {
+		Duplicate(ctx context.Context, userID, srcID uuid.UUID) (*entity.Entity, error)
+	}
+
 	// SEO and NotFound serve the seo_* tools; both are optional and the tools
 	// say so when one is nil.
 	SEO      seosvc.Service

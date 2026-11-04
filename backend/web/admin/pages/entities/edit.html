@@ -1,7 +1,7 @@
 {{template "layouts/shell" .}}
 {{define "modules"}}@hm/repeater @hm/content @hm/entityform @hm/seopanel{{end}}
 {{define "scripts"}}sortablejs{{end}}
-{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "Description" .Subtitle "CSRF" $.CSRF "Actions" .Actions}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "Description" .Subtitle "CSRF" $.CSRF "Actions" .Actions "Overflow" .Overflow}}
 {{if not .New}}{{template "hm/tabs" dict "Label" "Entity sections" "Items" .Tabs}}{{end}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 <form method="post" action="{{if .New}}{{adminPath}}/entities{{else}}{{adminPath}}/entities/{{.ID}}{{end}}" id="hm-entityform" class="hm-stack hm-entityform" novalidate>

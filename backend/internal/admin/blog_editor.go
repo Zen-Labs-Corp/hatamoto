@@ -206,9 +206,9 @@ type blogData struct {
 	Translations *translationsPanelData
 	SiteHost     string
 	// The editor top bar.
-	SchemaName, ListHref, VersionsHref, DetailsHref, ViewHref, UpdatedAt, EditedBy string
-	StatusBadge                                                                    *ui.Badge
-	Ownership                                                                      *ownershipPanel // nil: no plugin imported the entity
+	SchemaName, ListHref, VersionsHref, DetailsHref, ViewHref, DuplicateHref, UpdatedAt, EditedBy string
+	StatusBadge                                                                                   *ui.Badge
+	Ownership                                                                                     *ownershipPanel // nil: no plugin imported the entity
 }
 
 // asideTab is one tab of the blog editor's settings aside.
@@ -504,6 +504,7 @@ func (a *Admin) buildBlogView(r *http.Request, e *entity.Entity, sc *entity.Enti
 	d.Noun = draftNoun(sc)
 	d.SchemaName, d.ListHref = sc.Name+"s", a.adminPath+"/entities?type="+url.QueryEscape(sc.Slug)
 	d.VersionsHref, d.DetailsHref = a.adminPath+"/entities/"+f.ID+"/versions", a.adminPath+"/entities/"+f.ID
+	d.DuplicateHref = a.duplicateHref(r, sc, f.ID)
 	d.StatusBadge = statusBadge(e.Status)
 	if d.Ownership = a.ownershipPanel(r, e); d.Ownership != nil {
 		d.Ownership.CardID = "be-own"

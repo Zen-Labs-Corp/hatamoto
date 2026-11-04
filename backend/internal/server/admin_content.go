@@ -46,6 +46,7 @@ func (s *Server) contentDeps() admin.ContentDeps {
 		d.Groups = groups
 		if s.entityService != nil && s.taxonomyService != nil && s.termGroups != nil {
 			d.Copier = entity.NewCopyService(s.entityService, groups, copyTerms{tax: s.taxonomyService, groups: s.termGroups})
+			d.Duplicator = entity.NewDuplicator(s.entityService, copyTerms{tax: s.taxonomyService, groups: s.termGroups})
 			d.TermGroups = termGrouper{TermGroupStore: s.termGroups, svc: s.taxonomyService}
 		}
 		d.Ownership = &changeset.OwnershipService{DB: s.db}

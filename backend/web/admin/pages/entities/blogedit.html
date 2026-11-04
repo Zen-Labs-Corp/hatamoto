@@ -24,6 +24,7 @@
 {{if .CanPreview}}<button type="button" role="menuitem" class="hm-be__menu-narrow" hidden data-hm-be-proxy="preview-toggle">Preview</button>
 <button type="submit" role="menuitem" form="hm-be" formaction="{{adminPath}}/entities/{{.ID}}/edit/preview" formtarget="_blank" formnovalidate name="_op" value="preview">Open preview in a new tab</button>{{end}}
 {{if not .Published}}<button type="button" role="menuitem" class="hm-be__menu-narrow" hidden data-hm-be-proxy="schedule">Schedule</button>{{end}}
+{{with .DuplicateHref}}<form method="post" action="{{.}}">{{template "hm/csrf" $}}<button role="menuitem">Duplicate</button></form>{{end}}
 <div role="separator"></div><a role="menuitem" href="{{adminPath}}/entities/{{.ID}}/delete" data-hm-confirm="This entity and its version history will be deleted. This cannot be undone." data-hm-confirm-label="Delete entity" data-hm-post="{{adminPath}}/entities/{{.ID}}/delete" data-tone="danger" data-hm-danger>Delete</a></div>
 {{end}}{{end}}
 {{define "main"}}{{with .Data}}<h1 class="hm-visually-hidden">Write {{or .Name (printf "Untitled %s" .Noun)}}</h1>

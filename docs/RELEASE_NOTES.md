@@ -11,6 +11,12 @@ Settings > Privacy adds an optional cookie banner. Visitors can accept all, reje
 
 **Rollback floor: unchanged.** The previous release runs against the migrated data and ignores the new tables.
 
+## Unreleased: Duplicate a page or post
+
+- **Admin.** Entities has a **Duplicate** row action, and the editor has the same item under **More actions**. It creates a draft copy named "Copy of ..." (slug `-copy`, then `-copy-2`) in the same language and under the same parent, with the content, search details (not the canonical address), image, byline and terms. Status, dates and translations are not copied. People and reusable blocks cannot be duplicated.
+- **MCP.** New tool `entities_duplicate` (scope `write:entities`, audited, not destructive) returns `id`, `name`, `slug` and `status` of the draft.
+- No migration, SDK or plugin change. **Rollback floor: unchanged.**
+
 ## Unreleased: Plugins change content through runs and changesets (breaking for plugins that write)
 
 Core 1.1.0 with SDK 0.17.0 is a deliberate hard break of the plugin write API. A plugin can no longer change live content directly: it starts a run, stages its writes into a changeset, and the owner publishes or discards the changeset. There is no compatibility shim. Read the upgrade note before you move: [Plugins write through runs](UPGRADES.md#plugins-write-through-runs).

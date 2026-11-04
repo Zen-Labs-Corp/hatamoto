@@ -186,6 +186,26 @@ func (s *Server) registerContent() {
 			return s.summary(ctx, e, false), nil
 		})
 
+	register(s, toolSpec{name: "entities_duplicate", description: "Copy a page or post into a new DRAFT in the same language and under the same parent, named \"Copy of <name>\" with the slug \"<slug>-copy\" (\"-copy-2\" when taken). Content, SEO fields (not the canonical address), image, byline, metadata and terms are copied; never the status, dates or translation group. People and reusable blocks cannot be duplicated. Nothing is public until entities_publish.", scope: writeScope, write: true},
+		func(ctx context.Context, key *hmauth.APIKey, in idIn) (any, error) {
+			if s.d.Duplicator == nil {
+				return nil, userErr("duplicating entities is not available on this site")
+			}
+			id, err := parseID("id", in.ID)
+			if err != nil {
+				return nil, err
+			}
+			var actor uuid.UUID
+			if key.CreatedBy != nil {
+				actor = *key.CreatedBy
+			}
+			e, err := s.d.Duplicator.Duplicate(ctx, actor, id)
+			if err != nil {
+				return nil, err
+			}
+			return s.summary(ctx, e, false), nil
+		})
+
 	type updateIn struct {
 		ID            string `json:"id"`
 		Name          string `json:"name,omitempty"`

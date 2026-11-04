@@ -48,6 +48,9 @@ func (s *Server) mountMCP(r *httpx.Group) {
 		Design:         s.mcpDesign,
 		RenderPage:     s.mcpRenderPage,
 	}
+	if s.entityService != nil && s.taxonomyService != nil && s.termGroups != nil {
+		deps.Duplicator = entity.NewDuplicator(s.entityService, copyTerms{tax: s.taxonomyService, groups: s.termGroups})
+	}
 	if s.redirectService != nil {
 		deps.NotFound = s.redirectService
 	}

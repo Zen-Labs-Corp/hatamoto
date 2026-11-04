@@ -55,6 +55,7 @@ func (a *Admin) mountEntities(authed *httpx.Group) {
 	authed.HandleFunc("POST /entities/{id}/analyze", a.handleEntityAnalyze)
 	authed.HandleFunc("POST /entities/{id}/seo", a.handleEntitySEOInline)
 	authed.HandleFunc("POST /entities/{id}/status", a.handleEntityStatus)
+	authed.Group("", a.RequireRole("owner", "editor")).HandleFunc("POST /entities/{id}/duplicate", a.handleEntityDuplicate)
 	authed.HandleFunc("GET /entities/{id}/delete", a.handleEntityDeleteConfirm)
 	authed.HandleFunc("POST /entities/{id}/delete", a.handleEntityDelete)
 	authed.HandleFunc("GET /entities/{id}/translations", a.handleTranslations)
@@ -417,6 +418,7 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 		id := e.ID.String()
 		visual := usesVisualEditor(sc, e)
 		edit := a.entityEditHref(visual, id)
+		canDup := c.Duplicator != nil && entity.CanDuplicate(sc)
 		var path string
 		if c.PublicPath != nil {
 			e.Schema = sc
@@ -446,10 +448,13 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 		if visual {
 			row.Actions = append(row.Actions, ui.Action{Label: "Settings", Href: a.adminPath + "/entities/" + id})
 		}
+		if e.Status == entity.StatusPublished && path != "" {
+			row.Actions = append(row.Actions, ui.Action{Label: "View on site", Href: path})
+		}
+		if canDup {
+			row.Actions = append(row.Actions, ui.Action{Label: "Duplicate", Post: a.adminPath + "/entities/" + id + "/duplicate", Fields: map[string]string{"back": back}})
+		}
 		if e.Status == entity.StatusPublished {
-			if path != "" {
-				row.Actions = append(row.Actions, ui.Action{Label: "View on site", Href: path})
-			}
 			row.Actions = append(row.Actions, ui.Action{Label: "Unpublish", Post: a.adminPath + "/entities/" + id + "/status", Fields: map[string]string{"status": "draft", "back": back}})
 		} else if e.Status != entity.StatusScheduled {
 			row.Actions = append(row.Actions, ui.Action{Label: "Publish", Post: a.adminPath + "/entities/" + id + "/status", Fields: map[string]string{"status": "published", "back": back}})
@@ -798,6 +803,57 @@ func (a *Admin) handleEntityStatus(w http.ResponseWriter, r *http.Request) {
 	a.auditEntity(r, auditStatusAction(st), id, e, nil)
 	a.SetFlash(w, r, "success", "Status changed to "+string(st)+".")
 	Redirect(w, r, back)
+}
+
+// handleEntityDuplicate copies an entry into a new draft and opens the copy.
+func (a *Admin) handleEntityDuplicate(w http.ResponseWriter, r *http.Request) {
+	c := a.deps.Content
+	id, ok := uuidParam(r, "id")
+	if !ok || c.Entities == nil || c.Duplicator == nil {
+		a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
+		return
+	}
+	src, err := c.Entities.GetEntity(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, entity.ErrEntityNotFound) {
+			a.notFound(w, r, "Entity", a.adminPath+"/entities", "Back to entities")
+			return
+		}
+		a.serverError(w, r, "The entry could not be loaded", err)
+		return
+	}
+	back := a.adminPath + "/entities/" + id.String()
+	uid := uuid.Nil
+	if p := actorID(r); p != nil {
+		uid = *p
+	}
+	cp, err := c.Duplicator.Duplicate(r.Context(), uid, id)
+	switch {
+	case errors.Is(err, entity.ErrDuplicateUnsupported):
+		a.SetFlash(w, r, "error", "This kind of entry cannot be duplicated.")
+		Redirect(w, r, backTo(r, a.adminPath+"/entities", back))
+		return
+	case errors.Is(err, entity.ErrSlugAlreadyExists):
+		a.SetFlash(w, r, "error", "A copy could not be named: every copy address is already used. Rename or delete an older copy.")
+		Redirect(w, r, backTo(r, a.adminPath+"/entities", back))
+		return
+	case errors.Is(err, entity.ErrValidationFailed), errors.Is(err, entity.ErrRejectedByPlugin), errors.Is(err, entity.ErrInvalidDoc),
+		errors.Is(err, entity.ErrParentNotFound), errors.Is(err, entity.ErrParentTooDeep), errors.Is(err, entity.ErrAuthorNotFound):
+		a.SetFlash(w, r, "error", "The copy could not be created: "+fullStop(err.Error()))
+		Redirect(w, r, backTo(r, a.adminPath+"/entities", back))
+		return
+	case err != nil:
+		a.serverError(w, r, "The copy could not be created", err)
+		return
+	}
+	a.auditEntity(r, auditEntityDuplicate, cp.ID, cp, map[string]any{"source": id.String(), "source_name": src.Name})
+	a.invalidate(r.Context())
+	a.SetFlash(w, r, "success", "Copied. This is a draft copy of “"+src.Name+"”.")
+	visual := false
+	if full, err := c.Entities.GetEntity(r.Context(), cp.ID); err == nil {
+		visual = usesVisualEditor(full.Schema, full)
+	}
+	Redirect(w, r, a.entityEditHref(visual, cp.ID.String()))
 }
 
 // entityBack is where a delete returns to: the entity list or, for a block
