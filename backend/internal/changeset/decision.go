@@ -40,7 +40,7 @@ type PublishResult struct {
 // dropped page is dropped too. A high or critical item that is not approved
 // refuses the whole publish with ErrUndecided and nothing is written.
 func (e *Engine) PublishReviewed(ctx context.Context, csID int64) (PublishResult, error) {
-	res, dropped, err := e.publish(ctx, csID, publishReviewed)
+	res, dropped, err := e.publish(ctx, csID, publishReviewed, nil, 0)
 	return PublishResult{Result: res, Dropped: dropped}, err
 }
 

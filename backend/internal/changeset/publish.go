@@ -16,7 +16,7 @@ import (
 // clean-up run only after the commit. A changeset past its expiry is closed
 // and refused, so installs without the sweeper never publish stale work.
 func (e *Engine) Publish(ctx context.Context, csID int64) (Result, error) {
-	res, _, err := e.publish(ctx, csID, publishAll)
+	res, _, err := e.publish(ctx, csID, publishAll, nil, 0)
 	return res, err
 }
 
@@ -31,7 +31,12 @@ const (
 	publishReviewed
 )
 
-func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode) (Result, int, error) {
+// publishGate, when given, runs inside the publish transaction after the
+// changeset is locked and found staged; an error from it rolls the publish
+// back. A gate marks the published changeset automatic with approvalID.
+type publishGate func(tx pgx.Tx, cs changesetRow) error
+
+func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode, gate publishGate, approvalID int64) (Result, int, error) {
 	var (
 		res     Result
 		keys    []string
@@ -50,6 +55,11 @@ func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode) (Res
 		if !e.now().Before(cs.ExpiresAt) {
 			stale = true
 			return ErrExpired
+		}
+		if gate != nil {
+			if err := gate(tx, cs); err != nil {
+				return err
+			}
 		}
 		items, err := loadItems(ctx, tx, csID, false)
 		if err != nil {
@@ -90,6 +100,11 @@ func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode) (Res
 		}
 		if _, err := tx.Exec(ctx, `UPDATE hatamoto_changesets SET state = 'published', published_at = $2 WHERE id = $1`, csID, e.now()); err != nil {
 			return fmt.Errorf("failed to mark changeset published: %w", err)
+		}
+		if gate != nil {
+			if _, err := tx.Exec(ctx, `UPDATE hatamoto_changesets SET auto_published = true, approval_id = $2 WHERE id = $1`, csID, approvalID); err != nil {
+				return fmt.Errorf("failed to mark changeset automatic: %w", err)
+			}
 		}
 		return nil
 	})

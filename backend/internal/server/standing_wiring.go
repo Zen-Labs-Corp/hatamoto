@@ -15,13 +15,11 @@ import (
 )
 
 // standingEngine is the part of the changeset engine the standing gate uses.
-// It never publishes with Publish: the gate classifies, checks the policy and
-// only then publishes through PublishReviewed.
+// It never publishes with Publish: the gate classifies, then checks the
+// policy, publishes and marks the changeset automatic in one transaction.
 type standingEngine interface {
 	Classify(ctx context.Context, csID int64) error
-	CheckPolicy(ctx context.Context, csID int64, p changeset.StandingPolicy) (changeset.PolicyVerdict, error)
-	PublishReviewed(ctx context.Context, csID int64) (changeset.PublishResult, error)
-	MarkAutoPublished(ctx context.Context, csID, approvalID int64) error
+	PublishUnderPolicy(ctx context.Context, csID int64, p changeset.StandingPolicy, approvalID int64) (changeset.PolicyVerdict, changeset.PublishResult, error)
 }
 
 // standingStore is the part of the approval store the gate uses.
@@ -215,27 +213,20 @@ func (g *standingService) autoPublish(ctx context.Context, plugin, run string, c
 		g.refused(ctx, plugin, run, csID, a.ID, []string{"The plugin or a schema it names changed since you allowed it."})
 		return nil // fail closed
 	}
-	// Classify first: PublishReviewed classifies in its own transaction and
-	// that rolls back when it refuses.
+	// Classify first: the publish transaction rolls back when it refuses, and
+	// the classes should stay for the owner's review.
 	if err := g.eng.Classify(ctx, csID); err != nil {
 		return err
 	}
-	v, err := g.eng.CheckPolicy(ctx, csID, changeset.StandingPolicy{
+	v, res, err := g.eng.PublishUnderPolicy(ctx, csID, changeset.StandingPolicy{
 		Plugin: plugin, Fields: a.Policy.Fields, Schemas: a.Policy.Schemas, MaxPerHour: a.Policy.MaxPerHour,
-	})
+	}, a.ID)
 	if err != nil {
 		return err
 	}
 	if !v.OK {
 		g.refused(ctx, plugin, run, csID, a.ID, v.Reasons)
 		return nil
-	}
-	res, err := g.eng.PublishReviewed(ctx, csID)
-	if err != nil {
-		return err
-	}
-	if err := g.eng.MarkAutoPublished(ctx, csID, a.ID); err != nil {
-		return err
 	}
 	g.audit(ctx, "changeset.publish_auto", changesetTarget(csID), map[string]any{
 		"plugin": plugin, "run": run, "approval_id": a.ID, "applied": res.Applied,

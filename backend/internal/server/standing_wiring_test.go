@@ -46,6 +46,8 @@ type fakeStandingEngine struct {
 	verdict    changeset.PolicyVerdict
 	calls      []string
 	policySeen changeset.StandingPolicy
+	approvalID int64
+	published  bool // the engine published (the verdict was OK)
 }
 
 func (f *fakeStandingEngine) Classify(context.Context, int64) error {
@@ -53,20 +55,14 @@ func (f *fakeStandingEngine) Classify(context.Context, int64) error {
 	return nil
 }
 
-func (f *fakeStandingEngine) CheckPolicy(_ context.Context, _ int64, p changeset.StandingPolicy) (changeset.PolicyVerdict, error) {
-	f.calls = append(f.calls, "check")
-	f.policySeen = p
-	return f.verdict, nil
-}
-
-func (f *fakeStandingEngine) PublishReviewed(context.Context, int64) (changeset.PublishResult, error) {
+func (f *fakeStandingEngine) PublishUnderPolicy(_ context.Context, _ int64, p changeset.StandingPolicy, approvalID int64) (changeset.PolicyVerdict, changeset.PublishResult, error) {
 	f.calls = append(f.calls, "publish")
-	return changeset.PublishResult{Result: changeset.Result{Applied: 2}}, nil
-}
-
-func (f *fakeStandingEngine) MarkAutoPublished(_ context.Context, _, approvalID int64) error {
-	f.calls = append(f.calls, "mark")
-	return nil
+	f.policySeen, f.approvalID = p, approvalID
+	if !f.verdict.OK {
+		return f.verdict, changeset.PublishResult{}, nil
+	}
+	f.published = true
+	return f.verdict, changeset.PublishResult{Result: changeset.Result{Applied: 2}}, nil
 }
 
 const standingManifest = `{"name":"pricer","version":"1.0.0","runs":[{"name":"prices","title":"Prices","cron":"daily",
@@ -148,8 +144,8 @@ func TestAutoPublishInsidePolicyMarksAutomatic(t *testing.T) {
 	if err := r.svc.autoPublish(ctx, "pricer", "prices", 9); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(r.eng.calls, ","); got != "classify,check,publish,mark" {
-		t.Fatalf("call order = %s, want classify,check,publish,mark", got)
+	if got := strings.Join(r.eng.calls, ","); got != "classify,publish" {
+		t.Fatalf("call order = %s, want classify,publish", got)
 	}
 	if r.eng.policySeen.Plugin != "pricer" || r.eng.policySeen.MaxPerHour != 50 {
 		t.Fatalf("policy passed to the check = %+v", r.eng.policySeen)
@@ -178,10 +174,8 @@ func TestAutoPublishWaitsWhenStaleOrOutsidePolicy(t *testing.T) {
 			if err := r.svc.autoPublish(ctx, "pricer", "prices", 9); err != nil {
 				t.Fatalf("a refusal is not an error: %v", err)
 			}
-			for _, c := range r.eng.calls {
-				if c == "publish" || c == "mark" {
-					t.Fatalf("published despite refusal: %v", r.eng.calls)
-				}
+			if r.eng.published {
+				t.Fatalf("published despite refusal: %v", r.eng.calls)
 			}
 			if last := (*r.audits)[len(*r.audits)-1]; last != "changeset.publish_auto_refused" {
 				t.Fatalf("last audit = %s", last)

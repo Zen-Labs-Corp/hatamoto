@@ -63,21 +63,6 @@ func autoPublishedSince(ctx context.Context, q rowQuerier, plugin string, since 
 	return n, nil
 }
 
-// MarkAutoPublished records that a published changeset went out under a
-// standing approval.
-func (e *Engine) MarkAutoPublished(ctx context.Context, csID, approvalID int64) error {
-	tag, err := e.DB.Pool().Exec(ctx, `
-		UPDATE hatamoto_changesets SET auto_published = true, approval_id = $2 WHERE id = $1 AND state = $3`,
-		csID, approvalID, StatePublished)
-	if err != nil {
-		return fmt.Errorf("failed to mark changeset automatic: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotPublished
-	}
-	return nil
-}
-
 // CheckPolicy judges a staged changeset against a standing policy. It never
 // changes the changeset beyond classing its items, and it fails closed: any
 // item or value it cannot read is a refusal. The caller publishes with
@@ -92,60 +77,104 @@ func (e *Engine) CheckPolicy(ctx context.Context, csID int64, p StandingPolicy) 
 		if cs.State != StateStaged {
 			return ErrNotStaged
 		}
-		if cs.Plugin != p.Plugin || p.Plugin == "" {
-			v.refuse("The changeset belongs to another plugin.")
-			return nil
-		}
-		var proposals int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM hatamoto_run_proposals WHERE run_id = $1`, cs.RunID).Scan(&proposals); err != nil {
-			return fmt.Errorf("failed to read proposals: %w", err)
-		}
-		if proposals > 0 {
-			v.refuse("The run suggests changes that need your review.")
-			return nil
-		}
-		if cs.Items == 0 {
-			v.refuse("The run changed nothing.")
-			return nil
-		}
-		used, err := autoPublishedSince(ctx, tx, cs.Plugin, e.now().Add(-time.Hour))
-		if err != nil {
-			return err
-		}
-		if used+int(cs.Items) > p.cap() {
-			v.refuse(fmt.Sprintf("It would pass %d automatic changes in an hour.", p.cap()))
-			return nil
-		}
-		if err := e.ensureClassified(ctx, tx, csID, cs.Plugin); err != nil {
-			return err
-		}
-		items, err := loadItems(ctx, tx, csID, false)
-		if err != nil {
-			return err
-		}
-		risks, err := loadRisks(ctx, tx, csID)
-		if err != nil {
-			return err
-		}
-		for _, it := range items {
-			if len(v.Reasons) >= maxPolicyReasons {
-				break
-			}
-			if risks[it.Seq] != string(RiskLow) {
-				v.refuse(fmt.Sprintf("Change %d needs a closer look.", it.Seq))
-				continue
-			}
-			if reason := checkStandingItem(ctx, tx, p, it); reason != "" {
-				v.refuse(fmt.Sprintf("Change %d: %s", it.Seq, reason))
-			}
-		}
-		return nil
+		return e.checkPolicyIn(ctx, tx, cs, p, &v)
 	})
 	if err != nil {
 		return PolicyVerdict{}, err
 	}
 	v.OK = len(v.Reasons) == 0
 	return v, nil
+}
+
+// PublishUnderPolicy publishes a staged changeset only when it is inside the
+// standing policy, all in one transaction under a per-plugin lock: the hourly
+// cap is counted, the policy checked, the changes applied and the changeset
+// marked automatic (with approvalID) atomically, so two runs of one plugin
+// can never both pass a cap that only one fits. A refusal returns the verdict
+// with OK false, publishes nothing and leaves the changeset staged.
+func (e *Engine) PublishUnderPolicy(ctx context.Context, csID int64, p StandingPolicy, approvalID int64) (PolicyVerdict, PublishResult, error) {
+	var v PolicyVerdict
+	res, dropped, err := e.publish(ctx, csID, publishReviewed, func(tx pgx.Tx, cs changesetRow) error {
+		if p.Plugin == "" || cs.Plugin != p.Plugin {
+			v.refuse("The changeset belongs to another plugin.")
+			return errPolicyRefused
+		}
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, "standing:"+p.Plugin); err != nil {
+			return fmt.Errorf("failed to lock plugin: %w", err)
+		}
+		if err := e.checkPolicyIn(ctx, tx, cs, p, &v); err != nil {
+			return err
+		}
+		if len(v.Reasons) > 0 {
+			return errPolicyRefused
+		}
+		return nil
+	}, approvalID)
+	if errors.Is(err, errPolicyRefused) {
+		return v, PublishResult{}, nil
+	}
+	if err != nil {
+		return PolicyVerdict{}, PublishResult{}, err
+	}
+	v.OK = true
+	return v, PublishResult{Result: res, Dropped: dropped}, nil
+}
+
+// errPolicyRefused rolls a PublishUnderPolicy transaction back.
+var errPolicyRefused = errors.New("changeset: outside the standing policy")
+
+// checkPolicyIn is CheckPolicy inside the caller's transaction, with the
+// changeset already locked and staged.
+func (e *Engine) checkPolicyIn(ctx context.Context, tx pgx.Tx, cs changesetRow, p StandingPolicy, v *PolicyVerdict) error {
+	csID := cs.ID
+	if cs.Plugin != p.Plugin || p.Plugin == "" {
+		v.refuse("The changeset belongs to another plugin.")
+		return nil
+	}
+	var proposals int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM hatamoto_run_proposals WHERE run_id = $1`, cs.RunID).Scan(&proposals); err != nil {
+		return fmt.Errorf("failed to read proposals: %w", err)
+	}
+	if proposals > 0 {
+		v.refuse("The run suggests changes that need your review.")
+		return nil
+	}
+	if cs.Items == 0 {
+		v.refuse("The run changed nothing.")
+		return nil
+	}
+	used, err := autoPublishedSince(ctx, tx, cs.Plugin, e.now().Add(-time.Hour))
+	if err != nil {
+		return err
+	}
+	if used+int(cs.Items) > p.cap() {
+		v.refuse(fmt.Sprintf("It would pass %d automatic changes in an hour.", p.cap()))
+		return nil
+	}
+	if err := e.ensureClassified(ctx, tx, csID, cs.Plugin); err != nil {
+		return err
+	}
+	items, err := loadItems(ctx, tx, csID, false)
+	if err != nil {
+		return err
+	}
+	risks, err := loadRisks(ctx, tx, csID)
+	if err != nil {
+		return err
+	}
+	for _, it := range items {
+		if len(v.Reasons) >= maxPolicyReasons {
+			break
+		}
+		if risks[it.Seq] != string(RiskLow) {
+			v.refuse(fmt.Sprintf("Change %d needs a closer look.", it.Seq))
+			continue
+		}
+		if reason := checkStandingItem(ctx, tx, p, it); reason != "" {
+			v.refuse(fmt.Sprintf("Change %d: %s", it.Seq, reason))
+		}
+	}
+	return nil
 }
 
 func (v *PolicyVerdict) refuse(reason string) { v.Reasons = append(v.Reasons, reason) }

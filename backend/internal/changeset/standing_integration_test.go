@@ -5,6 +5,7 @@ package changeset
 import (
 	"encoding/json"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +26,11 @@ type standingFixture struct {
 func newStandingFixture(t *testing.T) *standingFixture {
 	t.Helper()
 	f := newFixture(t)
+	// The plugin name is shared: forget automatic publishes of earlier tests
+	// so the hourly count starts at zero.
+	if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_changesets SET auto_published = false WHERE plugin = $1`, standingPlugin); err != nil {
+		t.Fatal(err)
+	}
 	slug := "pr-" + f.tag
 	sc, err := entity.NewPostgresSchemaRepository(f.db).Create(f.ctx, &entity.CreateSchemaInput{Name: "pr " + f.tag, Slug: slug,
 		Schema: json.RawMessage(`{"type":"object","properties":{
@@ -184,11 +190,8 @@ func TestStandingApproval(t *testing.T) {
 				t.Errorf("check changed the state to %s", st)
 			}
 			if c.ok {
-				if _, err := s.eng.PublishReviewed(s.ctx, cs); err != nil {
-					t.Fatal(err)
-				}
-				if err := s.eng.MarkAutoPublished(s.ctx, cs, 7); err != nil {
-					t.Fatal(err)
+				if v, _, err := s.eng.PublishUnderPolicy(s.ctx, cs, s.policy, 7); err != nil || !v.OK {
+					t.Fatalf("publish: %+v %v", v, err)
 				}
 				if n, _ := s.eng.AutoPublishedLastHour(s.ctx, standingPlugin); n != 1 {
 					t.Errorf("automatic last hour = %d, want 1", n)
@@ -205,11 +208,8 @@ func TestStandingApprovalHourlyCap(t *testing.T) {
 	if v := s.verdict(first); !v.OK {
 		t.Fatalf("first: %+v", v)
 	}
-	if _, err := s.eng.PublishReviewed(s.ctx, first); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.eng.MarkAutoPublished(s.ctx, first, 1); err != nil {
-		t.Fatal(err)
+	if v, _, err := s.eng.PublishUnderPolicy(s.ctx, first, s.policy, 1); err != nil || !v.OK {
+		t.Fatalf("publish: %+v %v", v, err)
 	}
 	// One more item fits (1+1 <= 2), two do not (1+2 > 2).
 	two := s.begin(standingPlugin)
@@ -246,5 +246,105 @@ func TestOutsidePolicyRunStaysStagedAndExpires(t *testing.T) {
 	}
 	if st := s.state(cs); st != StateExpired {
 		t.Errorf("after sweep state = %s, want expired", st)
+	}
+}
+
+// twoItems stages a changeset of two updates of the plugin's entity.
+func (s *standingFixture) twoItems(price float64) int64 {
+	cs := s.begin(standingPlugin)
+	for i := 0; i < 2; i++ {
+		a := s.attrs()
+		a["price"] = price + float64(i)
+		s.stage(cs, Item{Kind: KindEntity, Op: OpUpsert, SourceKey: "k-" + s.tag, TargetID: s.target, Payload: s.payload("s-"+s.tag, a)})
+	}
+	return cs
+}
+
+// The publish sets the automatic marker in its own transaction: a published
+// changeset is never left looking manual.
+func TestPublishUnderPolicyMarksAutomaticAtomically(t *testing.T) {
+	s := newStandingFixture(t)
+	cs := s.update(func(a map[string]any) { a["price"] = 99.0 })
+	v, res, err := s.eng.PublishUnderPolicy(s.ctx, cs, s.policy, 42)
+	if err != nil || !v.OK || res.Applied != 1 {
+		t.Fatalf("publish: %+v %+v %v", v, res, err)
+	}
+	var auto bool
+	var approval *int64
+	if err := s.db.Pool().QueryRow(s.ctx, `SELECT auto_published, approval_id FROM hatamoto_changesets WHERE id = $1 AND state = 'published'`, cs).Scan(&auto, &approval); err != nil {
+		t.Fatal(err)
+	}
+	if !auto || approval == nil || *approval != 42 {
+		t.Fatalf("marker = %v %v", auto, approval)
+	}
+	// A refusal publishes nothing and marks nothing.
+	bad := s.update(func(a map[string]any) { a["title"] = "Changed" })
+	if v, _, err := s.eng.PublishUnderPolicy(s.ctx, bad, s.policy, 42); err != nil || v.OK {
+		t.Fatalf("outside the rule: %+v %v", v, err)
+	}
+	if st := s.state(bad); st != StateStaged {
+		t.Fatalf("refused changeset is %s", st)
+	}
+}
+
+// Two runs of one plugin that finish together cannot both pass a cap only one
+// fits: the count and the publish happen under a per-plugin lock.
+func TestStandingCapHoldsAcrossConcurrentGates(t *testing.T) {
+	s := newStandingFixture(t)
+	s.policy.MaxPerHour = 2
+	a, b := s.twoItems(1), s.twoItems(5)
+	var wg sync.WaitGroup
+	oks := make([]bool, 2)
+	for i, cs := range []int64{a, b} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			v, _, err := s.eng.PublishUnderPolicy(s.ctx, cs, s.policy, 1)
+			if err != nil {
+				t.Error(err)
+			}
+			oks[i] = v.OK
+		}()
+	}
+	wg.Wait()
+	if oks[0] == oks[1] {
+		t.Fatalf("both or neither published: %v", oks)
+	}
+	if n, _ := s.eng.AutoPublishedLastHour(s.ctx, standingPlugin); n != 2 {
+		t.Fatalf("automatic last hour = %d, want 2", n)
+	}
+}
+
+// The gate waits for the plugin's lock before it counts: while another
+// transaction holds it, the publish does not start.
+func TestPublishUnderPolicyWaitsForThePluginLock(t *testing.T) {
+	s := newStandingFixture(t)
+	cs := s.update(func(a map[string]any) { a["price"] = 7.0 })
+	tx, err := s.db.Pool().Begin(s.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(s.ctx)
+	if _, err := tx.Exec(s.ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, "standing:"+standingPlugin); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, _, err := s.eng.PublishUnderPolicy(s.ctx, cs, s.policy, 1)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		t.Fatalf("published while the plugin lock was held (err %v)", err)
+	case <-time.After(400 * time.Millisecond):
+	}
+	if err := tx.Commit(s.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if st := s.state(cs); st != StatePublished {
+		t.Fatalf("state %s", st)
 	}
 }
