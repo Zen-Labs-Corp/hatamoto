@@ -83,6 +83,13 @@ func TestSecurityEnrolmentFlow(t *testing.T) {
 		t.Fatalf("no sudo: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
 	g.grant()
+	// A GET writes nothing: with no enrolment begun it goes back to the Security page.
+	if rec := g.do("GET", "/admin/profile/security/totp", "owner-token", nil, nil); rec.Code != 303 || g.tf.pending {
+		t.Fatalf("GET without begin: %d pending=%v", rec.Code, g.tf.pending)
+	}
+	if rec := g.do("POST", "/admin/profile/security/totp/begin", "owner-token", url.Values{}, nil); rec.Code != 303 || !g.tf.pending {
+		t.Fatalf("begin: %d pending=%v", rec.Code, g.tf.pending)
+	}
 	rec := g.do("GET", "/admin/profile/security/totp", "owner-token", nil, nil)
 	body := rec.Body.String()
 	if rec.Code != 200 || !strings.Contains(body, "<svg") || !strings.Contains(body, "JBSW Y3DP EHPK 3PXP") {
@@ -166,7 +173,7 @@ func TestSecurityMutationsNeedSudo(t *testing.T) {
 
 	g := newTwoFactorSecRig(t)
 	g.tf.totpOn = true
-	for _, p := range []string{"/admin/profile/security/totp", "/admin/profile/security/totp/remove", "/admin/profile/security/codes"} {
+	for _, p := range []string{"/admin/profile/security/totp/begin", "/admin/profile/security/totp", "/admin/profile/security/totp/remove", "/admin/profile/security/codes"} {
 		if rec := g.do("POST", p, "owner-token", url.Values{"code": {"424242"}}, nil); rec.Code != 303 || !strings.Contains(rec.Header().Get("Location"), "/sudo") {
 			t.Errorf("%s without sudo: %d %s", p, rec.Code, rec.Header().Get("Location"))
 		}

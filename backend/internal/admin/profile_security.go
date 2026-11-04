@@ -51,6 +51,7 @@ func (a *Admin) mountSecurity(authed *httpx.Group) {
 	authed.HandleFunc("POST /profile/security/passkeys/begin", a.handlePasskeyAddBegin)
 	authed.HandleFunc("POST /profile/security/passkeys/finish", a.handlePasskeyAddFinish)
 	sudo := authed.Group("", a.RequireSudo)
+	sudo.HandleFunc("POST /profile/security/totp/begin", a.handleTOTPBegin)
 	sudo.HandleFunc("GET /profile/security/totp", a.handleTOTPForm)
 	sudo.HandleFunc("POST /profile/security/totp", a.handleTOTPConfirm)
 	sudo.HandleFunc("POST /profile/security/totp/remove", a.handleTOTPRemove)
@@ -153,8 +154,29 @@ func (a *Admin) handleSecurity(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleTOTPForm shows the enrolment: the pending secret (or a fresh one) as a
-// QR code and as text, with the form that confirms the first code.
+// handleTOTPBegin starts an enrolment (the one place a secret is written) and
+// shows its page. A GET never writes.
+func (a *Admin) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
+	uid, ok := a.twoFactorReady(w, r)
+	if !ok {
+		return
+	}
+	account := userFrom(r.Context()).Email
+	if _, _, err := a.deps.TwoFactor.PendingSecret(r.Context(), uid, account); errors.Is(err, twofactor.ErrNothingPending) {
+		_, _, err = a.deps.TwoFactor.BeginTOTP(r.Context(), uid, account)
+		if err != nil && !errors.Is(err, twofactor.ErrAlreadyEnrolled) {
+			a.securityFail(w, r, "begin authenticator enrolment failed", err)
+			return
+		}
+	} else if err != nil {
+		a.securityFail(w, r, "begin authenticator enrolment failed", err)
+		return
+	}
+	http.Redirect(w, r, a.securityURL("totp"), http.StatusSeeOther)
+}
+
+// handleTOTPForm shows the pending enrolment: the secret as a QR code and as
+// text, with the form that confirms the first code. It only reads.
 func (a *Admin) handleTOTPForm(w http.ResponseWriter, r *http.Request) {
 	uid, ok := a.twoFactorReady(w, r)
 	if !ok {
@@ -164,17 +186,13 @@ func (a *Admin) handleTOTPForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Admin) renderTOTP(w http.ResponseWriter, r *http.Request, uid uuid.UUID, status int, flash *Flash) {
-	account := userFrom(r.Context()).Email
-	key, uri, err := a.deps.TwoFactor.PendingSecret(r.Context(), uid, account)
-	if errors.Is(err, twofactor.ErrNothingPending) {
-		key, uri, err = a.deps.TwoFactor.BeginTOTP(r.Context(), uid, account)
-	}
-	if errors.Is(err, twofactor.ErrAlreadyEnrolled) {
+	key, uri, err := a.deps.TwoFactor.PendingSecret(r.Context(), uid, userFrom(r.Context()).Email)
+	if errors.Is(err, twofactor.ErrNothingPending) || errors.Is(err, twofactor.ErrAlreadyEnrolled) {
 		http.Redirect(w, r, a.securityURL(), http.StatusSeeOther)
 		return
 	}
 	if err != nil {
-		a.securityFail(w, r, "begin authenticator enrolment failed", err)
+		a.securityFail(w, r, "read authenticator enrolment failed", err)
 		return
 	}
 	qr, err := twofactor.QRSVG(uri)
