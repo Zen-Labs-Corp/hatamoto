@@ -400,6 +400,11 @@
     "partial": "hm/stat",
     "props": {}
   },
+  "permlist": {
+    "selector": ".hm-permlist",
+    "owner": "css/partials/permlist.css",
+    "props": {}
+  },
   "rooms": {
     "selector": ".hm-rooms",
     "owner": "css/pages/pluginruns.css",

@@ -147,6 +147,7 @@ A change to one component edits only its own subsection below and its entry in t
 | menu | `.hm-menu` | `css/partials/menu.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)` |
 | meterthin | `.hm-meter--thin .hm-meter__bar` | `css/partials/viz.css` | `hm/progress` |  |
 | pair | `.hm-pair` | `css/partials/field.css` | `hm/pair-start` |  |
+| permlist | `.hm-permlist` | `css/partials/permlist.css` | none |  |
 | pluginframe | `.hm-pluginframe` | `css/pages/packages.css` | none | `border-top-left-radius: var(--radius-md)` |
 | popover | `.hm-popover-panel` | `css/partials/popover.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)` |
 | radiocard | `.hm-radiocard` | `css/partials/radiocard.css` | `hm/radiocard` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-4)`, `padding-right: var(--space-4)` |
@@ -533,6 +534,10 @@ Contract: `components.json` key `pluginframe` (no partial; the frame is a plain 
 ### Value diff
 
 Contract: `components.json` key `valuediff` (no partial). `<code class="hm-valuediff"><del>old</del> <ins>new</ins></code>` shows one value change inline: the old value struck out on a danger wash, the new one on a success wash, monospace. Use it wherever a suggestion or a staged change shows old and new values; the version compare tables keep their own `hm-diff` markup.
+
+### Permission list
+
+Contract: `components.json` key `permlist` (no partial; each row is plain markup with the `hm/icon` partial). `<ul class="hm-permlist">` holds rows `<li class="hm-permlist__item hm-permlist__item--ok|review|no">` with a tinted icon tile (`__icon`: check for allowed, layers for needs review, x for never) and a bold sentence with an optional muted sub line. Use it to say what a plugin can and cannot do; the kind is also carried by the words, never by colour alone.
 
 ### Rooms
 

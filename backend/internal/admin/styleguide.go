@@ -29,6 +29,15 @@ type sample struct {
 // whatever prefix this instance is mounted on.
 const sgGuessable = DefaultAdminPath
 
+// sgPermItem renders one hm-permlist row for the styleguide, with the shared icon glyph.
+func sgPermItem(kind, icon, title, sub string) string {
+	svg, err := iconSVG(icon)
+	if err != nil {
+		panic(err) // a constant name above
+	}
+	return `<li class="hm-permlist__item hm-permlist__item--` + kind + `"><span class="hm-permlist__icon">` + string(svg) + `</span><div><b>` + title + `</b><br><span class="hm-muted">` + sub + `</span></div></li>`
+}
+
 // styleguideSamples maps a components.json key to its samples. new-component.sh adds
 // an entry here; TestStyleguideCoversTheSpec fails for a component without one.
 func styleguideSamples(prefix string) map[string][]sample {
@@ -45,6 +54,12 @@ func styleguideSamples(prefix string) map[string][]sample {
 		},
 		"valuediff": {
 			{Label: "Old and new", HTML: `<code class="hm-valuediff"><del>Old title</del> <ins>New title</ins></code>`},
+		},
+		"permlist": {
+			{Label: "Allowed, review, never", HTML: template.HTML(`<ul class="hm-permlist">` + //nolint:gosec // constants and icon constants
+				sgPermItem("ok", "check", "Read your pages", "Only the ones you choose.") +
+				sgPermItem("review", "layers", "Prepare changes for you to review", "Nothing is published until you say so.") +
+				sgPermItem("no", "x", "Change your settings", "No plugin can.") + `</ul>`)},
 		},
 		"rooms": {
 			{Label: "Two rooms", HTML: `<div class="hm-rooms"><section class="hm-card hm-rooms__room hm-rooms__room--active"><div class="hm-card__head"><h3 class="hm-card__title">Fetch</h3></div><div class="hm-card__body"><p>Reads the pages.</p></div></section><div class="hm-rooms__link" aria-hidden="true"><span>passes notes</span></div><section class="hm-card hm-rooms__room"><div class="hm-card__head"><h3 class="hm-card__title">Build</h3></div><div class="hm-card__body"><p>Prepares the changes.</p></div></section></div>`},

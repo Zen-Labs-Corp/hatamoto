@@ -1,0 +1,9 @@
+/* hm-permlist: icon + sentence rows (allowed / needs review / never) */
+.hm-permlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.hm-permlist__item { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border); }
+.hm-permlist__item:first-child { border-top: 0; padding-top: 0; }
+.hm-permlist__icon { flex: none; display: inline-grid; place-items: center; width: var(--space-6); height: var(--space-6); border-radius: var(--radius-sm); }
+.hm-permlist__icon .hm-icon { width: var(--space-4); height: var(--space-4); }
+.hm-permlist__item--ok .hm-permlist__icon { background: var(--color-success-soft); color: var(--color-success); }
+.hm-permlist__item--review .hm-permlist__icon { background: var(--color-accent-soft); color: var(--color-accent); }
+.hm-permlist__item--no .hm-permlist__icon { background: var(--color-danger-soft); color: var(--color-danger); }
