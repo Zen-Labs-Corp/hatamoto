@@ -29,18 +29,19 @@ var t0 = time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC)
 // fakeEntities is entity.Service in memory: enough behaviour for the screens
 // (validation by the real validator, versions on attribute change, parents).
 type fakeEntities struct {
-	mu           sync.Mutex
-	schemas      []*entity.EntitySchema
-	ents         map[uuid.UUID]*entity.Entity
-	versions     map[uuid.UUID][]*entity.EntityVersion
-	lastList     *entity.ListEntitiesFilter
-	lists        int   // ListEntitiesWithOffset calls
-	maxLimit     int   // the largest page limit any list call asked for
-	counts       int   // CountEntitiesBySchemaStatus calls
-	countErr     error // returned by CountEntitiesBySchemaStatus when set
-	parentCounts int   // CountEntitiesByParent calls
-	nextID       int
-	validator    *entity.Validator
+	mu            sync.Mutex
+	tookOwnership bool // UpdateEntity reports a hand-over, as the service does for a plugin-owned entity
+	schemas       []*entity.EntitySchema
+	ents          map[uuid.UUID]*entity.Entity
+	versions      map[uuid.UUID][]*entity.EntityVersion
+	lastList      *entity.ListEntitiesFilter
+	lists         int   // ListEntitiesWithOffset calls
+	maxLimit      int   // the largest page limit any list call asked for
+	counts        int   // CountEntitiesBySchemaStatus calls
+	countErr      error // returned by CountEntitiesBySchemaStatus when set
+	parentCounts  int   // CountEntitiesByParent calls
+	nextID        int
+	validator     *entity.Validator
 }
 
 func newFakeEntities() *fakeEntities {
@@ -266,6 +267,7 @@ func (f *fakeEntities) UpdateEntity(_ context.Context, id uuid.UUID, _ *uuid.UUI
 	}
 	e.UpdatedAt = t0.Add(48 * time.Hour)
 	c := *e
+	c.TookOwnership = f.tookOwnership
 	return &c, nil
 }
 func (f *fakeEntities) UpdateEntityStatus(_ context.Context, id uuid.UUID, _ *uuid.UUID, st entity.EntityStatus) (*entity.Entity, error) {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
@@ -57,6 +58,13 @@ type GroupStore interface {
 type EntityCopier interface {
 	CreateCopy(ctx context.Context, userID, srcID uuid.UUID, o entity.CopyOptions) (*entity.Entity, error)
 	MissingParents(ctx context.Context, srcID uuid.UUID, locale string) ([]entity.MissingParent, error)
+}
+
+// EntityOwnership is changeset.OwnershipService as the entity editors use it:
+// who owns a page, and the hand-back to the plugin that imported it.
+type EntityOwnership interface {
+	Get(ctx context.Context, id uuid.UUID) (*changeset.Ownership, error)
+	HandBack(ctx context.Context, id uuid.UUID) (plugin string, err error)
 }
 
 // TermGrouper is the locale and translation links of terms, with creating a
@@ -128,6 +136,9 @@ type ContentDeps struct {
 	// Copier creates linked copies in other locales. Nil turns Create copy
 	// off everywhere (dialog, bulk, Start with).
 	Copier EntityCopier
+	// Ownership shows which plugin tracks a page and hands a page back to it.
+	// Nil hides the ownership card and turns the hand-back off.
+	Ownership EntityOwnership
 	// TermGroups gives terms a locale and translated copies. Nil hides the
 	// term page's Locale and copies.
 	TermGroups TermGrouper

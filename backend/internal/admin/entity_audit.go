@@ -22,6 +22,7 @@ const (
 	auditEntityDelete         = "entity.delete"
 	auditEntityRestoreVersion = "entity.restore_version"
 	auditEntityCreateCopy     = "entity.create_copy"
+	auditEntityHandBack       = "entity.hand_back"
 )
 
 // auditStatusAction names the audit action of a move to st: published is a

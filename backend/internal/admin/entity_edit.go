@@ -1364,6 +1364,9 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 	if in.Locale != nil {
 		detail["locale"] = *in.Locale
 	}
+	if updated.TookOwnership {
+		detail["took_ownership"] = true
+	}
 	a.auditEntity(r, auditEntityUpdate, e.ID, updated, detail)
 	msg := "Saved."
 	kind := "success"

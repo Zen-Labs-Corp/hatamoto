@@ -9,6 +9,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/agents"
+	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/person"
@@ -47,6 +48,7 @@ func (s *Server) contentDeps() admin.ContentDeps {
 			d.Copier = entity.NewCopyService(s.entityService, groups, copyTerms{tax: s.taxonomyService, groups: s.termGroups})
 			d.TermGroups = termGrouper{TermGroupStore: s.termGroups, svc: s.taxonomyService}
 		}
+		d.Ownership = &changeset.OwnershipService{DB: s.db}
 		d.Authors = authorPicker{Store: s.people(), Byline: person.NewByline(s.db.Pool())}
 	}
 	if s.db != nil {
