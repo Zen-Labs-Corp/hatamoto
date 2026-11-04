@@ -710,7 +710,7 @@ create forms on pages with a table. The theme and plugin list pages are covered 
 the static UI-10 lint only: their primary header action is Browse (the catalogue),
 not a create page, so they are not UI-D10 list screens.
 Row actions (the registry Install and Update forms) and settings (the unsigned
-packages form) are exempt by name in both checks.
+packages form, the media image formats and rebuild forms below the list) are exempt by name in the Chrome check.
 
 ## After create
 
