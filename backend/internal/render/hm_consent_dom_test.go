@@ -112,3 +112,11 @@ func TestConsentScriptSandboxedPage(t *testing.T) {
 		}
 	}
 }
+
+func TestConsentDialogFocusStartsAtFirstCategory(t *testing.T) {
+	t.Parallel()
+	out := runConsentDOM(t, "OPEN=1")
+	if !strings.Contains(out, `"focused":"Analytics"`) {
+		t.Errorf("first focus not on Analytics: %s", out)
+	}
+}

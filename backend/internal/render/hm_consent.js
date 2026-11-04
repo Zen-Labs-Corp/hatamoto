@@ -307,7 +307,7 @@
     dialog = { backdrop: backdrop, opener: opener, onKey: onKey };
     d.body.appendChild(backdrop);
     var f = focusables(box);
-    (f.length > 1 ? f[1] : f[0]).focus();
+    if (f.length) f[0].focus();
   }
 
   function onReady(fn) {
