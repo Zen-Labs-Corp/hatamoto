@@ -176,8 +176,8 @@ export const screens = [
 //  - plugin settings (/admin/plugins/{name}/settings) needs an installed plugin, and
 //    the seeded instance has none. The static lint (UI-01..06) still covers both templates;
 //  - the changeset pages (/admin/plugins/{name}/changesets/{id} and its /preview) need a plugin
-//    run that staged a changeset. Their markup is pinned by TestChangesetPageGoldens, and the
-//    sealed frame's browser behaviour is checked by changeset-frame.mjs.
+//    run that staged a changeset. Their markup is pinned by TestChangesetPageGoldens. The
+//    sealed frame's browser behaviour is not scripted yet: it is left to visual acceptance.
 
 // Mockup screens with no counterpart in a signed-in admin (setup wizard, kit page)
 // stay out of the pairing on purpose: onboarding, components.
