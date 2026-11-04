@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"slices"
 	"strconv"
@@ -463,6 +464,12 @@ func (c *Config) Validate() error {
 	}
 	if err := c.PublicSite.Validate(); err != nil {
 		return err
+	}
+	// The admin lives on the public host, so one comparison covers both.
+	if h := c.Admin.PreviewHost; h != "" && c.PublicSite.BaseURL != "" {
+		if u, err := url.Parse(c.PublicSite.BaseURL); err == nil && sameOriginHost(h, u.Host) {
+			return fmt.Errorf("HATAMOTO_PREVIEW_HOST: %q is the public and admin host; it must be a separate host", h)
+		}
 	}
 	// The pinned admin address is known here; a stored one is checked at boot.
 	if err := CheckPrefixAgainstAdmin(c.PublicSite.APIPrefix, c.Admin.Path); err != nil {

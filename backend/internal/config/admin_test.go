@@ -169,3 +169,56 @@ func TestTrustedCDNParsing(t *testing.T) {
 		}
 	}
 }
+
+func TestPreviewHostParsing(t *testing.T) {
+	for _, c := range []struct {
+		env, want string
+		bad       bool
+	}{
+		{"", "", false},
+		{" Preview.Example.com ", "preview.example.com", false},
+		{"preview.example.com:8443", "preview.example.com:8443", false},
+		{"https://preview.example.com", "https://preview.example.com", true},
+		{"preview.example.com/p", "preview.example.com/p", true},
+		{"preview.example.com?x=1", "preview.example.com?x=1", true},
+		{"user@preview.example.com", "user@preview.example.com", true},
+		{"preview .example.com", "preview .example.com", true},
+		{"preview.example.com:", "preview.example.com:", true},
+		{"preview.example.com:99999", "preview.example.com:99999", true},
+	} {
+		t.Setenv("HATAMOTO_PREVIEW_HOST", c.env)
+		a := loadAdminConfig()
+		err := a.Validate()
+		if a.PreviewHost != c.want || (err != nil) != c.bad {
+			t.Errorf("%q: PreviewHost=%q err=%v, want %q bad=%v", c.env, a.PreviewHost, err, c.want, c.bad)
+		}
+		if c.bad && !strings.HasPrefix(err.Error(), "HATAMOTO_PREVIEW_HOST: ") {
+			t.Errorf("%q: error text = %q", c.env, err)
+		}
+	}
+}
+
+func TestPreviewHostMustDifferFromPublicHost(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x")
+	t.Setenv("HATAMOTO_SECRET", strings.Repeat("s", 32))
+	for _, c := range []struct {
+		base, preview string
+		bad           bool
+	}{
+		{"https://www.example.com", "www.example.com", true},
+		{"https://www.example.com:443", "www.example.com", true},
+		{"https://www.example.com", "preview.example.com", false},
+		{"https://www.example.com", "www.example.com:8443", false},
+		{"", "www.example.com", false},
+	} {
+		t.Setenv("PUBLIC_BASE_URL", c.base)
+		t.Setenv("HATAMOTO_PREVIEW_HOST", c.preview)
+		cfg, lerr := Load()
+		if lerr != nil {
+			t.Fatal(lerr)
+		}
+		if err := cfg.Validate(); (err != nil) != c.bad {
+			t.Errorf("%q vs %q: err=%v, want bad=%v", c.base, c.preview, err, c.bad)
+		}
+	}
+}

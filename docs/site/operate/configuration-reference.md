@@ -87,6 +87,7 @@ With several processes, multiply the maximum by the number of processes and chec
 | `SERVER_IDLE_TIMEOUT` | `120s` | Keep-alive idle timeout (duration). |
 | `HATAMOTO_TRUSTED_PROXIES` | loopback only | Comma-separated CIDRs (or bare IPs) whose `X-Forwarded-*` headers are believed. See [Trusted proxies](#trusted-proxies). |
 | `HATAMOTO_TRUSTED_CDN` | off | `cloudflare` trusts Cloudflare's edge addresses to name the visitor in `CF-Connecting-IP`. `off` or empty leaves it off. See [Trusted CDN](#trusted-cdn). |
+| `HATAMOTO_PREVIEW_HOST` | off | A bare host (optionally `:port`), like `preview.example.com`, that serves only changeset previews. See [Preview host](#preview-host). |
 
 ## Security
 
@@ -276,6 +277,16 @@ What trust changes:
 
 If the proxy runs in another container or on another network, such as a cloud load balancer, add its address or range. If no proxy is in front at all, leave the variable empty.
 
+## Preview host
+
+Changeset previews are shown in a sandboxed frame. By default the frame is loaded from the admin address on the same origin, which needs no setup. Set `HATAMOTO_PREVIEW_HOST=preview.example.com` to load it from a separate origin instead, so the preview never shares an origin with the admin.
+
+Unset, it is off and nothing changes. When set:
+
+- You need a second site for that host: DNS pointing at this server and a TLS certificate, served by your proxy to Hatamoto like the main site.
+- The host serves only changeset previews. Every other path on it returns 404, and it sets no cookies.
+- The value is a bare host with an optional port. A scheme, path, query, credentials or whitespace stops the boot, and so does the same host as `PUBLIC_BASE_URL`.
+
 ## Trusted CDN
 
 `HATAMOTO_TRUSTED_CDN=cloudflare` is for a site served through Cloudflare. It is off by default. Without it, a request that passed through Cloudflare and then your own proxy shows the Cloudflare edge address as the client, so every visitor, and every real crawler, looks like the same few addresses. Crawlers with published IP ranges then fail verification and show as `spoofed`.
@@ -383,6 +394,8 @@ Roles belong to the Postgres cluster, not to one database, so `pg_dump` of the d
 | `HATAMOTO_SETUP_CODE must be at least 12 characters` | The setup code is too short (counted after case, spaces and dashes are removed). It stops the boot only while the site has no users. A code that is one repeated character or pattern is refused with `HATAMOTO_SETUP_CODE is too guessable`. |
 | `HATAMOTO_TRUSTED_PROXIES: "..." is not a CIDR like 10.0.0.0/8` | An entry in the proxy list is not a CIDR or IP. |
 | `HATAMOTO_TRUSTED_CDN: "..." is not a known preset (cloudflare)` | The preset name is not `cloudflare` (or `off`). |
+| `HATAMOTO_PREVIEW_HOST: "..." is not a bare host ...` | The value has a scheme, path, query, credentials, whitespace or a bad port. Use `preview.example.com` or `preview.example.com:8443`. |
+| `HATAMOTO_PREVIEW_HOST: "..." is the public and admin host; ...` | The preview host equals the host of `PUBLIC_BASE_URL`. It must be a separate host. |
 | `HATAMOTO_TRUSTED_KEYS holds "...", which is not an ed25519 public key` | A trusted key is not 32 bytes of base64. |
 | `HATAMOTO_REGISTRY_URL "..." must be an https URL (or "off")` | The registry address is not an http or https URL with a host. |
 | `HATAMOTO_REGISTRY_URL "..." is http: the registry must be served over https` | The registry address is http and `HATAMOTO_REGISTRY_ALLOW_HTTP=true` is not set. |
