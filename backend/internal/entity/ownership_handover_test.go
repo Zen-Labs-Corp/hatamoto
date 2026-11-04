@@ -44,8 +44,7 @@ func ptr[T any](v T) *T { return &v }
 func TestOwnershipHandOver(t *testing.T) {
 	f := newCSFixture(t)
 
-	// Any attribute change hands over: the body, and every SEO key. A key like
-	// "featured" counts too (accepted: one blob, no key list).
+	// A change to the body or to an SEO key hands over.
 	attrCases := map[string]string{
 		"body":             `{"content":"two"}`,
 		"meta_title":       `{"content":"one","meta_title":"T"}`,
@@ -54,7 +53,6 @@ func TestOwnershipHandOver(t *testing.T) {
 		"og_image":         `{"content":"one","og_image":"https://example.com/i.png"}`,
 		"no_index":         `{"content":"one","no_index":true}`,
 		"seo.focus":        `{"content":"one","seo":{"focus_keyword":"k"}}`,
-		"featured":         `{"content":"one","featured":true}`,
 	}
 	for name, attrs := range attrCases {
 		t.Run("attrs/"+name, func(t *testing.T) {
@@ -142,6 +140,43 @@ func TestOwnershipHandOver(t *testing.T) {
 		}
 		if got := f.origin(e.ID); got != demoOrigin || out.TookOwnership {
 			t.Errorf("identical re-save: origin = %q, took = %v", got, out.TookOwnership)
+		}
+	})
+
+	// Attributes outside the body and SEO set stay with the plugin, and so do
+	// saves that only reshape the stored attributes the way the forms do.
+	notStructural := map[string]string{
+		"featured":       `{"content":"one","featured":true}`,
+		"featured_image": `{"content":"one","featured_image":"https://example.com/i.png"}`,
+		"excerpt":        `{"content":"one","excerpt":"short"}`,
+		"custom field":   `{"content":"one","rating":5}`,
+		"title":          `{"content":"one","title":"Mirrored"}`,
+	}
+	for name, attrs := range notStructural {
+		t.Run("not structural/"+name, func(t *testing.T) {
+			e := f.demoEntity("ns-" + uuid.NewString()[:8])
+			out, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(json.RawMessage(attrs))})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := f.origin(e.ID); got != demoOrigin || out.TookOwnership {
+				t.Errorf("origin = %q, took = %v", got, out.TookOwnership)
+			}
+		})
+	}
+
+	t.Run("canonical reshaping", func(t *testing.T) {
+		e := f.demoEntity("canon-" + uuid.NewString()[:8])
+		if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_entities SET attributes=$2 WHERE id=$1`, e.ID,
+			`{"content":"one ","excerpt":"","meta_description":"","no_index":false,"seo":{"focus_keyword":"","include_in_llms_txt":false}}`); err != nil {
+			t.Fatal(err)
+		}
+		out, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(json.RawMessage(`{"content":"one","seo":{"include_in_llms_txt":false}}`))})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := f.origin(e.ID); got != demoOrigin || out.TookOwnership {
+			t.Errorf("origin = %q, took = %v", got, out.TookOwnership)
 		}
 	})
 

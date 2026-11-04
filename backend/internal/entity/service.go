@@ -413,8 +413,12 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	}
 
 	// The auto-conversion below fills Attributes when the caller sent none; that
-	// is a machine rewrite, so only caller-sent attributes can hand ownership over.
-	callerSentAttrs := input.Attributes != nil
+	// is a machine rewrite, so only caller-sent attributes can hand ownership
+	// over, and they are compared as sent (before sanitising and normalising).
+	var callerAttrs json.RawMessage
+	if input.Attributes != nil {
+		callerAttrs = bytes.Clone(*input.Attributes)
+	}
 
 	if input.Locale != nil {
 		locale, err := NormalizeLocale(*input.Locale)
@@ -496,7 +500,7 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	// A person changing the structure of a plugin-imported entity takes it
 	// over; the repository writes origin = 'owner' in the same transaction.
 	// Machine rewrites (KeepUpdatedAt) never do.
-	if !input.KeepUpdatedAt && structuralChange(existing, input, callerSentAttrs) {
+	if !input.KeepUpdatedAt && structuralChange(existing, input, callerAttrs) {
 		input.TakeOwnership = true
 	}
 
@@ -622,10 +626,12 @@ func (s *Service) fireLinkRewrite(before, after *Entity, actor *uuid.UUID) {
 }
 
 // structuralChange reports whether an update changes what a plugin imported:
-// the slug, the parent, or the attributes (body and SEO fields live in one
-// blob, so any attribute change counts). Name and locale do not count, and
-// entities have no template field, so there is nothing to detect for it.
-func structuralChange(ex *Entity, in *UpdateEntityInput, callerSentAttrs bool) bool {
+// the slug, the parent, or the body and SEO attributes (see structuralKeys).
+// Name, locale and every other attribute do not count, and entities have no
+// template field, so there is nothing to detect for it. The attributes are
+// the caller's, before normalisation and hooks, so a round trip that the
+// service itself rewrites is not an edit.
+func structuralChange(ex *Entity, in *UpdateEntityInput, callerAttrs json.RawMessage) bool {
 	if in.Slug != nil && *in.Slug != ex.Slug {
 		return true
 	}
@@ -635,7 +641,7 @@ func structuralChange(ex *Entity, in *UpdateEntityInput, callerSentAttrs bool) b
 	if in.ParentID != nil && !in.ClearParent && (ex.ParentID == nil || *in.ParentID != *ex.ParentID) {
 		return true
 	}
-	return callerSentAttrs && in.Attributes != nil && !jsonRawEqual(*in.Attributes, ex.Attributes)
+	return callerAttrs != nil && structuralAttrsChanged(ex.Schema, callerAttrs, ex.Attributes)
 }
 
 // UpdateEntityStatus changes an entity's status.
@@ -866,7 +872,7 @@ func (s *Service) RestoreVersion(ctx context.Context, entityID uuid.UUID, userID
 		Attributes:    &restoredAttrs,
 		ChangeSummary: &changeSummary,
 		Status:        lockedStatus(existing.Schema, restoredAttrs),
-		TakeOwnership: !jsonRawEqual(restoredAttrs, existing.Attributes),
+		TakeOwnership: structuralAttrsChanged(existing.Schema, restoredAttrs, existing.Attributes),
 	})
 	if err != nil {
 		s.logger.Error("failed to restore entity version",
