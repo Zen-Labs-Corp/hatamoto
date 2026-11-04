@@ -142,7 +142,7 @@ func (s *createSpy) CreateEntity(ctx context.Context, by *uuid.UUID, in *entity.
 	if err != nil {
 		return nil, err
 	}
-	locale := s.ents.schemaOf(in.SchemaID).DefaultLocale(in.Locale)
+	locale := s.ents.schemaOf(in.SchemaID).DefaultLocale(in.Locale, true)
 	if locale == "" {
 		locale = "en"
 	}

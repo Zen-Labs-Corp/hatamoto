@@ -202,11 +202,14 @@ func TestImport_LocaleNeutral(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	attrs := json.RawMessage(`{"title":"T"}`)
-	run := func(settings, locale string) *ImportRecord {
+	run := func(settings, locale string, multi bool) *ImportRecord {
 		t.Helper()
 		sr := newMockSchemaRepository()
 		repo := newImportRepo()
 		svc := NewService(sr, repo, testLogger())
+		if multi {
+			useLocales(t, svc, "en", "fr")
+		}
 		seedSchema(t, sr, func(s *EntitySchema) {
 			s.Slug = "page"
 			s.Settings = json.RawMessage(settings)
@@ -228,9 +231,10 @@ func TestImport_LocaleNeutral(t *testing.T) {
 		}
 		return repo.recs[0]
 	}
-	testutil.Equal(t, "und", run(`{"locale_neutral":true}`, "").Locale)
-	testutil.Equal(t, "en-AU", run(`{"locale_neutral":true}`, "en-AU").Locale)
-	testutil.Equal(t, "", run(`{}`, "").Locale)
+	testutil.Equal(t, "und", run(`{"locale_neutral":true}`, "", true).Locale)
+	testutil.Equal(t, "", run(`{"locale_neutral":true}`, "", false).Locale) // single-language site: site language
+	testutil.Equal(t, "en-AU", run(`{"locale_neutral":true}`, "en-AU", true).Locale)
+	testutil.Equal(t, "", run(`{}`, "", true).Locale)
 }
 
 func TestImport_ParentErrors(t *testing.T) {

@@ -236,15 +236,18 @@ func TestDefaultLocale(t *testing.T) {
 		name     string
 		s        *EntitySchema
 		explicit string
+		multi    bool
 		want     string
 	}{
-		{"flagged omitted", flagged, "", "und"},
-		{"flagged explicit kept", flagged, "en-AU", "en-AU"},
-		{"unflagged omitted", &EntitySchema{Settings: json.RawMessage(`{"locale_neutral":false}`)}, "", ""},
-		{"empty settings", &EntitySchema{}, "", ""},
-		{"nil schema", nil, "", ""},
+		{"flagged omitted", flagged, "", true, "und"},
+		{"flagged omitted single-language", flagged, "", false, ""},
+		{"flagged explicit kept", flagged, "en-AU", true, "en-AU"},
+		{"flagged explicit kept single-language", flagged, "en-AU", false, "en-AU"},
+		{"unflagged omitted", &EntitySchema{Settings: json.RawMessage(`{"locale_neutral":false}`)}, "", true, ""},
+		{"empty settings", &EntitySchema{}, "", true, ""},
+		{"nil schema", nil, "", true, ""},
 	} {
-		if got := c.s.DefaultLocale(c.explicit); got != c.want {
+		if got := c.s.DefaultLocale(c.explicit, c.multi); got != c.want {
 			t.Errorf("%s: got %q, want %q", c.name, got, c.want)
 		}
 	}

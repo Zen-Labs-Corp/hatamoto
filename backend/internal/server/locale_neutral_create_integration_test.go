@@ -35,7 +35,9 @@ type localeNeutralEnv struct {
 	db                     *database.DB
 }
 
-func newLocaleNeutralEnv(t *testing.T) *localeNeutralEnv {
+// newLocaleNeutralEnv boots the server over a site with the given locales
+// (JSON array for hatamoto_site_config.locales; "[]" is a single-language site).
+func newLocaleNeutralEnv(t *testing.T, locales string) *localeNeutralEnv {
 	t.Helper()
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -64,6 +66,23 @@ func newLocaleNeutralEnv(t *testing.T) *localeNeutralEnv {
 			t.Fatalf("%s: %v", q, err)
 		}
 	}
+	var prev struct {
+		name, lang, xdef string
+		locales          []byte
+		prefixAll        bool
+	}
+	hadSite := db.Pool().QueryRow(ctx, `SELECT company_name, language, locales, prefix_all, x_default_locale FROM hatamoto_site_config`).
+		Scan(&prev.name, &prev.lang, &prev.locales, &prev.prefixAll, &prev.xdef) == nil
+	exec(`INSERT INTO hatamoto_site_config (company_name, language, locales, prefix_all) VALUES ('Locale IT', 'en', $1::jsonb, false)
+		ON CONFLICT (id) DO UPDATE SET language = 'en', locales = EXCLUDED.locales, prefix_all = false, homepage_entity_id = NULL, x_default_locale = ''`, locales)
+	t.Cleanup(func() {
+		c := context.Background()
+		if hadSite {
+			_, _ = db.Pool().Exec(c, `UPDATE hatamoto_site_config SET locales=$1::jsonb, prefix_all=$2, x_default_locale=$3`, string(prev.locales), prev.prefixAll, prev.xdef)
+		} else {
+			_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_site_config`)
+		}
+	})
 	sfx := uuid.NewString()[:6]
 	e := &localeNeutralEnv{
 		ctx: ctx, db: db,
@@ -96,8 +115,13 @@ func newLocaleNeutralEnv(t *testing.T) *localeNeutralEnv {
 	return e
 }
 
+const (
+	multiLocales  = `[{"tag":"en","segment":""},{"tag":"fr","segment":"fr"}]`
+	singleLocales = `[]`
+)
+
 func TestRESTCreate_LocaleNeutral(t *testing.T) {
-	e := newLocaleNeutralEnv(t)
+	e := newLocaleNeutralEnv(t, multiLocales)
 	create := func(schema uuid.UUID, locale string) (int, string) {
 		t.Helper()
 		body := map[string]any{"schema_id": schema, "name": "N " + uuid.NewString()[:6], "attributes": map[string]any{}}
@@ -149,7 +173,7 @@ func TestRESTCreate_LocaleNeutral(t *testing.T) {
 }
 
 func TestMCPCreate_LocaleNeutral(t *testing.T) {
-	e := newLocaleNeutralEnv(t)
+	e := newLocaleNeutralEnv(t, multiLocales)
 	c := mcp.NewClient(&mcp.Implementation{Name: "it", Version: "1"}, nil)
 	sess, err := c.Connect(e.ctx, &mcp.StreamableClientTransport{
 		Endpoint: e.ts.URL + "/mcp", HTTPClient: &http.Client{Transport: bearer{e.key}}}, nil)
@@ -181,5 +205,35 @@ func TestMCPCreate_LocaleNeutral(t *testing.T) {
 	}
 	if got := create(e.plainSlug); got != e.siteLanguage {
 		t.Errorf("unflagged omitted locale = %q, want %q", got, e.siteLanguage)
+	}
+}
+
+// On a single-language site the public side serves only the site language, so
+// a flagged type must store the site language, never an invisible und.
+func TestRESTCreate_LocaleNeutralSingleLanguageSite(t *testing.T) {
+	e := newLocaleNeutralEnv(t, singleLocales)
+	raw, _ := json.Marshal(map[string]any{"schema_id": e.flaggedID, "name": "N " + uuid.NewString()[:6], "attributes": map[string]any{}})
+	req, _ := http.NewRequest(http.MethodPost, e.ts.URL+"/api/v1/entities", bytes.NewReader(raw))
+	req.Header.Set("X-API-Key", e.key)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		ID uuid.UUID `json:"id"`
+	}
+	b, _ := io.ReadAll(resp.Body)
+	_ = json.Unmarshal(b, &out)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("status %d: %s", resp.StatusCode, b)
+	}
+	var stored string
+	if err := e.db.Pool().QueryRow(e.ctx, `SELECT locale FROM hatamoto_entities WHERE id = $1`, out.ID).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored != e.siteLanguage {
+		t.Errorf("stored locale = %q, want the site language %q", stored, e.siteLanguage)
 	}
 }

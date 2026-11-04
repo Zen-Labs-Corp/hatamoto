@@ -85,6 +85,15 @@ func NewService(schemaRepo SchemaRepository, entityRepo EntityRepository, logger
 // CreateSchema, UpdateSchema and DeleteSchema.
 func (s *Service) URLRegistry() *URLRegistry { return s.urls }
 
+// siteIsMulti reports whether the site serves several languages, by the same
+// locale set the public read side uses. A failed or degraded snapshot counts
+// as one language, so a create then stores the site language, which is always
+// publicly visible.
+func (s *Service) siteIsMulti(ctx context.Context) bool {
+	snap, err := s.urls.Snapshot(ctx)
+	return err == nil && !snap.Degraded() && snap.Locales().Multi()
+}
+
 // SetOnSchemaChange registers a callback run after a schema is created,
 // updated or deleted (after the URL registry was invalidated), for example to
 // purge caches derived from schema settings.
@@ -299,7 +308,7 @@ func (s *Service) CreateEntity(ctx context.Context, userID *uuid.UUID, input *Cr
 	if err != nil {
 		return nil, err
 	}
-	input.Locale = schema.DefaultLocale(input.Locale)
+	input.Locale = schema.DefaultLocale(input.Locale, s.siteIsMulti(ctx))
 
 	// Validate attributes against schema
 	if err := s.validator.ValidateAttributes(schema.Schema, input.Attributes); err != nil {

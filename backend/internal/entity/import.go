@@ -296,7 +296,7 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		stored = existing.Attributes
 	} else {
 		// Only a new item gets the schema default; an update keeps its stored locale.
-		locale = schema.DefaultLocale(locale)
+		locale = schema.DefaultLocale(locale, r.s.siteIsMulti(ctx))
 	}
 	if attrs, err = normalizeDocRaw(docWrite, stored, attrs, EligibleForPageDoc(schema)); err != nil {
 		return nil, false, err

@@ -136,14 +136,19 @@ func TestChangesetTxParityWithCreateEntity(t *testing.T) {
 func TestChangesetTxLocaleNeutral(t *testing.T) {
 	for _, c := range []struct {
 		name, settings, locale, want string // want "" = site language; "!" = error
+		single                       bool   // the site has one language
 	}{
-		{"flagged omitted", `{"locale_neutral":true}`, "", "und"},
-		{"flagged explicit", `{"locale_neutral":true}`, "en-AU", "en-AU"},
-		{"unflagged omitted", `{}`, "", ""},
-		{"flagged explicit und refused", `{"locale_neutral":true}`, "und", "!"},
+		{"flagged omitted", `{"locale_neutral":true}`, "", "und", false},
+		{"flagged omitted single-locale site", `{"locale_neutral":true}`, "", "", true},
+		{"flagged explicit", `{"locale_neutral":true}`, "en-AU", "en-AU", false},
+		{"unflagged omitted", `{}`, "", "", false},
+		{"flagged explicit und refused", `{"locale_neutral":true}`, "und", "!", false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f := newCSFixtureSettings(t, json.RawMessage(c.settings))
+			if !c.single {
+				useLocales(t, f.svc, "en", "fr")
+			}
 			res, err := f.apply(TxOp{Name: "L", Slug: "loc", Locale: c.locale, Attributes: json.RawMessage(`{"content":"x"}`)})
 			if c.want == "!" {
 				if err == nil {
@@ -170,6 +175,7 @@ func TestChangesetTxLocaleNeutral(t *testing.T) {
 
 func TestChangesetTxParityWithCreateEntityLocaleNeutral(t *testing.T) {
 	f := newCSFixtureSettings(t, json.RawMessage(`{"locale_neutral":true}`))
+	useLocales(t, f.svc, "en", "fr")
 	attrs := json.RawMessage(`{"content":"x"}`)
 	normal, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "A", Slug: "parity-a", Attributes: attrs})
 	if err != nil {
