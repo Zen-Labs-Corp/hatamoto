@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,7 +34,39 @@ func (a *Admin) pendingCookie(r *http.Request, value string, maxAge int) *http.C
 		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: a.secure(r)}
 }
 
+// spentIDs remembers finished pending sign-ins until they would have expired.
+type spentIDs struct {
+	mu  sync.Mutex
+	ids map[string]time.Time
+}
+
+func (s *spentIDs) add(id string, until, now time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ids == nil {
+		s.ids = map[string]time.Time{}
+	}
+	for k, t := range s.ids {
+		if !now.Before(t) {
+			delete(s.ids, k)
+		}
+	}
+	s.ids[id] = until
+}
+
+func (s *spentIDs) has(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, ok := s.ids[id]
+	return ok
+}
+
+// clearPending ends the pending sign-in: the cookie goes, and its token cannot
+// be used again. Call it only once the sign-in succeeded.
 func (a *Admin) clearPending(w http.ResponseWriter, r *http.Request) {
+	if p, ok := a.readPending(r); ok {
+		a.spentPending.add(p.ID, p.Expires, time.Now())
+	}
 	http.SetCookie(w, a.pendingCookie(r, "", -1))
 }
 
@@ -44,7 +77,10 @@ func (a *Admin) readPending(r *http.Request) (twofactor.Pending, bool) {
 		return twofactor.Pending{}, false
 	}
 	p, err := a.deps.PendingKey.Open(c.Value, time.Now())
-	return p, err == nil
+	if err != nil || a.spentPending.has(p.ID) {
+		return twofactor.Pending{}, false
+	}
+	return p, true
 }
 
 // handleLoginTwoStep is the password step when second factors exist: no

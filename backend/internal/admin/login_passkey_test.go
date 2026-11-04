@@ -124,6 +124,7 @@ func TestPasskeyAsSecondFactorNeedsThePendingCookie(t *testing.T) {
 	}
 	// A ceremony begun with the pending cookie cannot be finished without it.
 	var r passkeyBeginReply
+	p = g.password(t)
 	_ = json.Unmarshal(g.postJSONPending("/admin/login/passkey/begin", p, "{}").Body.Bytes(), &r)
 	if rec := g.postJSONPending("/admin/login/passkey/finish?c="+r.Ceremony, "", `{"id":"ok"}`); rec.Code != 401 {
 		t.Fatalf("finish without pending: %d", rec.Code)

@@ -243,6 +243,21 @@ func TestTwoStepPasswordThenCodeSignsIn(t *testing.T) {
 	}
 }
 
+func TestTwoStepPendingCookieIsSingleUse(t *testing.T) {
+	t.Parallel()
+
+	g := newTwoStepRig(t)
+	p := g.password(t)
+	if rec := g.second(p, "123456", nil); rec.Code != 303 {
+		t.Fatalf("first use: %d", rec.Code)
+	}
+	// The same cookie, replayed after the sign-in finished, is no pending sign-in.
+	rec := g.second(p, "123456", nil)
+	if rec.Code != 303 || !strings.HasSuffix(rec.Header().Get("Location"), "/login") || cookieNamed(rec, "hatamoto_session") != nil {
+		t.Fatalf("replayed cookie: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
 func TestTwoStepReplayedCodeAndSpentRecoveryCodeRefused(t *testing.T) {
 	t.Parallel()
 
@@ -251,12 +266,14 @@ func TestTwoStepReplayedCodeAndSpentRecoveryCodeRefused(t *testing.T) {
 	if rec := g.second(p, "123456", nil); rec.Code != 303 {
 		t.Fatalf("first use: %d", rec.Code)
 	}
+	p = g.password(t)
 	if rec := g.second(p, "123456", nil); rec.Code != 422 || cookieNamed(rec, "hatamoto_session") != nil {
 		t.Fatalf("replay: %d", rec.Code)
 	}
 	if rec := g.second(p, "ABCDEFGHJKMN", url.Values{"recovery": {"1"}}); rec.Code != 303 {
 		t.Fatalf("recovery code: %d", rec.Code)
 	}
+	p = g.password(t)
 	if rec := g.second(p, "ABCDEFGHJKMN", url.Values{"recovery": {"1"}}); rec.Code != 422 {
 		t.Fatalf("spent recovery code: %d", rec.Code)
 	}

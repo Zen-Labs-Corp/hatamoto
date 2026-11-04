@@ -381,6 +381,9 @@ type Admin struct {
 	// secrets holds a freshly minted API key between the POST that created it
 	// and the one GET that shows it.
 	secrets secretStore
+	// spentPending holds the ids of pending sign-ins that already finished,
+	// so a copied cookie is no use after the real one signed in.
+	spentPending spentIDs
 	// convertReviews holds the plans whose dry run passed until the owner
 	// opens the confirm page (see settings_locale_convert.go).
 	convertReviews convertReviewStore
