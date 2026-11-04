@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/user"
 )
 
 var (
@@ -99,4 +100,23 @@ func TestBlogEditorOwnership(t *testing.T) {
 	lacks(t, body, `hm-ownform`)
 	f.own = nil
 	lacks(t, r.get(t, "owner-token", r.path(), ""), `be-own`, `hm-ownform`)
+}
+
+// The hand-back button is shown only to the roles the route lets in.
+func TestEntityEditOwnershipButtonFollowsRole(t *testing.T) {
+	t.Parallel()
+	for role, want := range map[string]bool{"owner": true, "editor": true, "viewer": false} {
+		c, f := ownershipRig(t)
+		f.own = yoursOwnership
+		c.editor.Role = user.Role(role)
+		rec := c.do("GET", "/admin/entities/"+fid(11).String(), "editor-token", nil, nil)
+		if rec.Code != 200 {
+			t.Fatalf("%s: %d", role, rec.Code)
+		}
+		body := rec.Body.String()
+		has(t, body, `Who owns this page`)
+		if got := strings.Contains(body, `id="hm-ownform"`) && strings.Contains(body, `Let demo track this again`); got != want {
+			t.Errorf("%s: hand-back button shown = %v, want %v", role, got, want)
+		}
+	}
 }
