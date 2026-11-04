@@ -231,6 +231,10 @@ func TestEmailRetentionForm(t *testing.T) {
 			t.Errorf("email page lacks %q", want)
 		}
 	}
+	if strings.Count(body, "<section") != strings.Count(body, "</section>") || strings.Count(body, "<div") != strings.Count(body, "</div>") {
+		t.Errorf("email page markup is unbalanced: %d/%d sections, %d/%d divs", strings.Count(body, "<section"), strings.Count(body, "</section>"), strings.Count(body, "<div"), strings.Count(body, "</div>"))
+	}
+	compareGolden(t, "pages/settings-email-retention.html", normalizePage(body))
 
 	for _, bad := range []url.Values{
 		{"body_days": {"0"}, "entry_days": {"90"}},
