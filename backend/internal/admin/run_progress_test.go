@@ -229,3 +229,18 @@ func TestRunCancel(t *testing.T) {
 		t.Errorf("not wired: %d, want 503", rec.Code)
 	}
 }
+
+func TestStepTimeout(t *testing.T) {
+	t.Parallel()
+
+	for d, want := range map[time.Duration]string{
+		250 * time.Millisecond:  "250 ms",
+		time.Second:             "1 second",
+		1500 * time.Millisecond: "1.5 seconds",
+		10 * time.Second:        "10 seconds",
+	} {
+		if got := stepTimeout(d); got != want {
+			t.Errorf("stepTimeout(%v) = %q, want %q", d, got, want)
+		}
+	}
+}

@@ -58,7 +58,7 @@ func (a *Admin) runLimits(rv RunView) []runLimit {
 	if rl := a.deps.Growth.RunLimits; rl != nil {
 		if l, ok := rl.RunLimitsFor(rv.Plugin); ok {
 			out = append(out,
-				runLimit{"Each step", fmt.Sprintf("%s at most, then it is stopped", countNoun(int(l.StepTimeout.Round(time.Second)/time.Second), "second"))},
+				runLimit{"Each step", fmt.Sprintf("%s at most, then it is stopped", stepTimeout(l.StepTimeout))},
 				runLimit{"Memory", fmt.Sprintf("%d MiB per instance", l.MemoryBytes>>20)})
 		}
 	}
@@ -233,4 +233,16 @@ func (a *Admin) handleRunCancel(w http.ResponseWriter, r *http.Request) {
 	a.audit(r, "plugin.run.cancel", id.String(), map[string]any{"plugin": name})
 	a.SetFlash(w, r, "success", "Cancelled the run. Nothing it staged was kept.")
 	http.Redirect(w, r, runPath, http.StatusSeeOther)
+}
+
+// stepTimeout words a step's time limit: milliseconds below a second, else
+// seconds with a decimal only when there is one.
+func stepTimeout(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%d ms", d.Milliseconds())
+	}
+	if s := d.Seconds(); s != float64(int(s)) {
+		return fmt.Sprintf("%.1f seconds", s)
+	}
+	return countNoun(int(d/time.Second), "second")
 }
