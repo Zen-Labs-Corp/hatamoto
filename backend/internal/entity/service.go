@@ -284,7 +284,9 @@ func (s *Service) ListSchemas(ctx context.Context) ([]*EntitySchema, error) {
 
 // CreateEntity creates a new entity.
 func (s *Service) CreateEntity(ctx context.Context, userID *uuid.UUID, input *CreateEntityInput) (*Entity, error) {
-	// An empty locale stays empty: the database stores the site language.
+	// An empty locale stays empty here: the schema default (und for a shared
+	// type) is applied below, otherwise the database stores the site language.
+	// NormalizeLocale rejects a user-supplied und, so the default comes after it.
 	if input.Locale != "" {
 		locale, err := NormalizeLocale(input.Locale)
 		if err != nil {
@@ -297,6 +299,7 @@ func (s *Service) CreateEntity(ctx context.Context, userID *uuid.UUID, input *Cr
 	if err != nil {
 		return nil, err
 	}
+	input.Locale = schema.DefaultLocale(input.Locale)
 
 	// Validate attributes against schema
 	if err := s.validator.ValidateAttributes(schema.Schema, input.Attributes); err != nil {
