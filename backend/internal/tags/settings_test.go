@@ -91,18 +91,20 @@ func TestHostsMergeOnlyEnabled(t *testing.T) {
 	}
 }
 
-// A stored key of an uninstalled pack must not block saving the page, and is
-// dropped by the next save; a dot-free unknown key is still an error.
-func TestOrphanPackKeyIsPrunedNotRejected(t *testing.T) {
+// A stored key of a pack that is not live (off, blocked, unreadable, not yet
+// reconciled) must not block saving the page and must survive it, so its id
+// and switch are still there when the pack comes back. A dot-free unknown key
+// is still an error.
+func TestNotLivePackKeyIsKeptNotRejected(t *testing.T) {
 	s := Settings{Vendors: map[string]VendorState{
 		"gone.pack": {Enabled: true, ID: "123456"},
 		"ga4":       {Enabled: true, ID: "G-ABC123XYZ9"},
 	}}
 	if errs := s.Validate(); len(errs) != 0 {
-		t.Fatalf("orphan pack key rejected: %v", errs)
+		t.Fatalf("pack key rejected: %v", errs)
 	}
 	n := s.Normalize()
-	if _, ok := n.Vendors["gone.pack"]; ok || len(n.Vendors) != 1 {
+	if got := n.Vendors["gone.pack"]; got != (VendorState{Enabled: true, ID: "123456"}) || len(n.Vendors) != 2 {
 		t.Fatalf("normalized = %+v", n.Vendors)
 	}
 	if len(s.Enabled()) != 1 {
@@ -111,6 +113,20 @@ func TestOrphanPackKeyIsPrunedNotRejected(t *testing.T) {
 	bad := Settings{Vendors: map[string]VendorState{"nope": {ID: "1"}}}
 	if errs := bad.Validate(); len(errs) != 1 || errs[0].Field != "nope" {
 		t.Fatalf("unknown key errs = %v", errs)
+	}
+}
+
+// A stored id the live declaration's pattern refuses never loads.
+func TestEnabledSkipsStoredPackIDFailingPattern(t *testing.T) {
+	t.Cleanup(func() { SetPacks(nil) })
+	v, err := ParseDecl("acme", "stats", []byte(goodDecl))
+	if err != nil {
+		t.Fatal(err)
+	}
+	SetPacks([]PackVendor{{Vendor: v, PluginVersion: "1.0.0"}})
+	s := Settings{Vendors: map[string]VendorState{"acme.stats": {Enabled: true, ID: "not-an-id"}}}
+	if len(s.Enabled()) != 0 || len(s.Hosts().Script) != 0 {
+		t.Fatalf("invalid stored id is live: %+v", s.Enabled())
 	}
 }
 
