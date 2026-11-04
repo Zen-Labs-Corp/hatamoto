@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/siteaccess"
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 type gateFixture struct {
@@ -286,5 +288,32 @@ func TestSiteAccessPublicAPIPrefixAndPass(t *testing.T) {
 	x.do("GET", "/api/feed/llms.txt", "", func(r *http.Request) { r.AddCookie(cookie) })
 	if x.reach != 2 {
 		t.Errorf("admin and cookie requests reached %d, want 2", x.reach)
+	}
+}
+
+// A failed settings read must not open the gate: with a mode already read it
+// keeps that mode, with none yet it holds visitors back, and a site without a
+// config row is open.
+func TestSiteAccessSettingsFailClosed(t *testing.T) {
+	var set siteaccess.Settings
+	var err error
+	s := &Server{accessSettings: func(context.Context) (siteaccess.Settings, error) { return set, err }}
+	ctx := context.Background()
+
+	err = errors.New("db down")
+	if got := s.siteAccessSettings(ctx); got.Mode != siteaccess.ModeMaintenance {
+		t.Fatalf("no settings read yet: mode %q, want maintenance", got.Mode)
+	}
+	set, err = siteaccess.Settings{Mode: siteaccess.ModePassword, Epoch: 3}, nil
+	if got := s.siteAccessSettings(ctx); got.Mode != siteaccess.ModePassword {
+		t.Fatalf("read: %+v", got)
+	}
+	set, err = siteaccess.Settings{}, errors.New("db down")
+	if got := s.siteAccessSettings(ctx); got.Mode != siteaccess.ModePassword || got.Epoch != 3 {
+		t.Fatalf("failed read: %+v, want the last settings", got)
+	}
+	err = siteconfig.ErrNotConfigured
+	if got := s.siteAccessSettings(ctx); got.Mode != siteaccess.ModeOpen {
+		t.Fatalf("no config row: mode %q, want open", got.Mode)
 	}
 }

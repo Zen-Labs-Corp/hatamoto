@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/session"
 	"hatamoto.dev/core/internal/siteaccess"
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 // siteAccessMaxForm bounds the password form body.
@@ -65,24 +67,36 @@ func (s *Server) siteAccessGate(next http.Handler) http.Handler {
 	return g.wrap(next)
 }
 
-// siteAccessSettings reads the gate settings from the hot site-config cache. A
-// read failure counts as open: a database hiccup must not lock the site.
+// siteAccessSettings reads the gate settings from the hot site-config cache.
+// A failed read must not open the gate: it keeps the last settings read, and
+// with none yet it holds visitors back as under maintenance. Only a site with
+// no config row at all counts as open.
 func (s *Server) siteAccessSettings(ctx context.Context) siteaccess.Settings {
-	if s.accessSettings != nil {
-		set, err := s.accessSettings(ctx)
-		if err != nil {
+	read := s.accessSettings
+	if read == nil {
+		if s.siteConfig == nil {
 			return siteaccess.Settings{Mode: siteaccess.ModeOpen}
 		}
+		read = func(ctx context.Context) (siteaccess.Settings, error) {
+			c, err := s.siteConfig.Get(ctx)
+			if err != nil || c == nil {
+				return siteaccess.Settings{}, err
+			}
+			return c.SiteAccess, nil
+		}
+	}
+	set, err := read(ctx)
+	switch {
+	case err == nil:
+		s.lastAccess.Store(&set)
 		return set
-	}
-	if s.siteConfig == nil {
+	case errors.Is(err, siteconfig.ErrNotConfigured):
 		return siteaccess.Settings{Mode: siteaccess.ModeOpen}
 	}
-	c, err := s.siteConfig.Get(ctx)
-	if err != nil || c == nil {
-		return siteaccess.Settings{Mode: siteaccess.ModeOpen}
+	if last := s.lastAccess.Load(); last != nil {
+		return *last
 	}
-	return c.SiteAccess
+	return siteaccess.Settings{Mode: siteaccess.ModeMaintenance}
 }
 
 func (s *Server) siteAccessSignedIn(r *http.Request) bool {

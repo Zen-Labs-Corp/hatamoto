@@ -83,8 +83,9 @@ type Server struct {
 	userTokens   *auth.UserTokens
 	siteConfig   *siteconfig.Store
 	// accessSettings replaces the site-config read behind the site access gate
-	// (tests).
+	// (tests); lastAccess is the last settings read, kept for a failed read.
 	accessSettings func(context.Context) (siteaccess.Settings, error)
+	lastAccess     atomic.Pointer[siteaccess.Settings]
 	httpServer     *http.Server
 
 	// Infrastructure
