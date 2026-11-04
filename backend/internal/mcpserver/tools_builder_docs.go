@@ -293,6 +293,9 @@ func (s *Server) registerBuilderDocs() {
 			if err != nil {
 				return nil, err
 			}
+			if res.TookOwnership {
+				s.d.Audit.Record(ctx, AuditEntry{KeyID: key.ID, KeyName: key.Name, Tool: "entities_take_over", Args: auditArgs(map[string]string{"id": t.e.ID.String()})})
+			}
 			saved := res.Entity
 			if fresh, err := s.store().GetEntity(ctx, t.e.ID); err == nil {
 				saved = fresh

@@ -587,3 +587,21 @@ func TestBuilderApplyOpsConcurrentSameVersion(t *testing.T) {
 		version++
 	}
 }
+
+// A builder edit that takes a plugin's page over says so in the audit.
+func TestBuilderApplyOpsAuditsTakeOver(t *testing.T) {
+	for _, took := range []bool{true, false} {
+		r := newRig(t)
+		r.st.took = took
+		if text, isErr := r.apply(t, 3, map[string]any{"op": "setProp", "id": "h", "key": "text", "value": "Hello"}); isErr {
+			t.Fatal(text)
+		}
+		var tools []string
+		for _, e := range r.audit.entries {
+			tools = append(tools, e.Tool)
+		}
+		if got := strings.Contains(strings.Join(tools, ","), "entities_take_over"); got != took {
+			t.Errorf("took = %v, audit tools = %v", took, tools)
+		}
+	}
+}

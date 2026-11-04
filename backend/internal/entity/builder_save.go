@@ -212,6 +212,8 @@ type SavedDoc struct {
 	Parsed *builder.Doc
 	// TakenSlug is the address Tune asked for that was in use; the entity kept its old one.
 	TakenSlug string
+	// TookOwnership is true when the save took the entity from its plugin.
+	TookOwnership bool
 	// PublishSkipped is the PublishGate's reason; PublishErr a failed status
 	// change. Either way the doc is stored.
 	PublishSkipped string
@@ -286,6 +288,7 @@ func SaveBuilderDoc(ctx context.Context, st BuilderStore, actor *uuid.UUID, e *E
 		return nil, nil, err
 	}
 	out.Entity = updated
+	out.TookOwnership = updated.TookOwnership
 	if opts.Publish {
 		if opts.PublishGate != nil {
 			out.PublishSkipped = opts.PublishGate(updated)
