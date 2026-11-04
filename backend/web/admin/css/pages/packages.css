@@ -52,6 +52,7 @@
 .hm-theme__strip rect { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .hm-theme__swatch--none { fill: var(--border); }
 .hm-pluginframe { width: 100%; min-height: 70vh; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.hm-pluginframe--preview { min-height: 60vh; }
 .hm-pluginframe-host [data-hm-pluginframe-notice][hidden] { display: none; }
 .hm-pluginhead { align-items: center; margin-block: var(--space-2) var(--space-4); }
 /* Routes and hosts are long identifiers: let them wrap inside the chip instead of widening the page at 390px. */
