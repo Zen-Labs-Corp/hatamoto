@@ -1,7 +1,24 @@
 {{template "layouts/shell" .}}
 {{define "modules"}}@hm/content{{end}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
-<div class="hm-card hm-media">
+{{with .Formats}}<form method="post" action="{{adminPath}}/settings/media/formats" class="hm-cardform" id="image-formats-form">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "image-formats" "Title" "Image formats" "Heading" "h2" "Description" "Resized copies of JPEG, PNG and WebP images are also made as WebP and AVIF. Pages send them to browsers that support them and keep the original format for the rest. A copy is kept only when it is smaller."}}<div class="hm-setlist">
+<div class="hm-setrow">
+<div class="hm-setrow__text"><label class="hm-setrow__name" for="fmt-webp">WebP copies</label></div>
+<div class="hm-setrow__control">{{template "hm/field" (dict "Control" "switch" "ID" "fmt-webp" "Name" "webp" "Value" "on" "Label" "WebP copies" "Bare" true "OffValue" "off" "Checked" .WebP)}}</div>
+</div>
+<div class="hm-setrow">
+<div class="hm-setrow__text"><label class="hm-setrow__name" for="fmt-avif">AVIF copies</label>
+<p class="hm-field__help">Smallest files, slowest to make.</p></div>
+<div class="hm-setrow__control">{{template "hm/field" (dict "Control" "switch" "ID" "fmt-avif" "Name" "avif" "Value" "on" "Label" "AVIF copies" "Bare" true "OffValue" "off" "Checked" .AVIF)}}</div>
+</div>
+</div>{{with .Progress}}<div id="rebuild-progress" hx-get="{{adminPath}}/settings/media" hx-trigger="load delay:3s" hx-target="#image-formats" hx-select="#image-formats" hx-swap="outerHTML">{{template "hm/progress" .}}</div>
+{{end}}{{if .Line}}<p class="hm-field__help">{{.Line}}</p>{{end}}{{if .Skipped}}<details><summary>Skipped images</summary><ul>{{range .Skipped}}<li>{{.Name}}: {{.Reason}}</li>{{end}}</ul>{{if .SkippedMore}}<p class="hm-muted">And {{.SkippedMore}} more.</p>{{end}}</details>
+{{end}}{{template "hm/card-foot"}}<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Rebuild copies" "Type" "submit" "Attrs" (attrmap "form" "rebuild-form" "disabled" (printf "%t" .Running))}}</span>{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+<form method="post" action="{{adminPath}}/settings/media/rebuild" id="rebuild-form">{{template "hm/csrf" $}}</form>
+{{end}}<div class="hm-card hm-media">
 <div class="hm-media-toolbar">
 <form class="hm-row hm-media-toolbar__filters" role="search" method="get" action="{{adminPath}}/settings/media" hx-get="{{adminPath}}/settings/media" hx-trigger="input changed delay:300ms from:#media-q, change" hx-target="#media-results" hx-select="#media-results" hx-select-oob="#media-tabs" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#media-busy">
 <input type="hidden" name="view" value="{{.View}}">
