@@ -20,7 +20,9 @@ const (
 // changesets and the undo of a published one.
 func (a *Admin) mountChangesSettings(g *httpx.Group) {
 	g.HandleFunc("GET "+changesRel, a.handleChanges)
-	g.HandleFunc("POST "+changesRel+"/{id}/undo", a.handleChangesUndo)
+	// Undo rewrites pages and site settings, so it asks for the password
+	// again; a POST is never replayed after that page.
+	g.Group("", a.RequireSudo).HandleFunc("POST "+changesRel+"/{id}/undo", a.handleChangesUndo)
 }
 
 type changesData struct {

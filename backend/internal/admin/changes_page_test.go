@@ -83,6 +83,11 @@ func TestChangesUndo(t *testing.T) {
 		t.Fatalf("editor: %d", rec.Code)
 	}
 	rec := g.do("POST", "/admin/settings/changes/1/undo", "owner-token", url.Values{}, nil)
+	if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), g.a.sudoPath()) || fr.undos != 0 {
+		t.Fatalf("no sudo: %d %s %d", rec.Code, rec.Header().Get("Location"), fr.undos)
+	}
+	grantSudo(g)
+	rec = g.do("POST", "/admin/settings/changes/1/undo", "owner-token", url.Values{}, nil)
 	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/changes" || fr.undos != 1 {
 		t.Fatalf("undo: %d %s %d", rec.Code, rec.Header().Get("Location"), fr.undos)
 	}
