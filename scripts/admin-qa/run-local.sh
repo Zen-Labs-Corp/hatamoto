@@ -38,7 +38,7 @@ fi
 
 qa_guard_database_url || die "database not allowed"
 if [ -z "${DATABASE_URL:-}" ]; then
-  PG_BIN=$(qa_find_pg_bin)
+  PG_BIN=$(qa_find_pg_bin); export PG_BIN
   [ -x "${PG_BIN:-/nonexistent}/initdb" ] || die "no postgres binaries (set PG_BIN or DATABASE_URL)"
   "$PG_BIN/initdb" -D "$W/pg" -U hatamoto --auth=trust >/dev/null
   # free_port is only a hint (another session or an outgoing connection can take it
@@ -84,7 +84,7 @@ export BASE="http://127.0.0.1:$API_PORT" HATAMOTO_BIN="$W/hm"
 # The dev override loads this fixture (a UI-only plugin, empty wasm module). A caller's
 # HATAMOTO_PLUGIN_DIR wins; the fixture is set for the server process only.
 PLUGIN_DIR=${HATAMOTO_PLUGIN_DIR:-}
-case " $* " in *" frame-tickets.mjs "*|*" tabs.mjs "*) PLUGIN_DIR=${PLUGIN_DIR:-$QA/fixtures/frame-plugin} ;; esac
+case " $* " in *" frame-tickets.mjs "*|*" tabs.mjs "*|*" runs-screens.mjs "*|*" review-flow.mjs "*) PLUGIN_DIR=${PLUGIN_DIR:-$QA/fixtures/frame-plugin} ;; esac
 mkdir -p "$W/cwd"
 (cd "$W/cwd" && ${PLUGIN_DIR:+export HATAMOTO_PLUGIN_DIR="$PLUGIN_DIR"} && exec "$W/hm" serve >"$W/hm.log" 2>&1) &
 SRV=$!

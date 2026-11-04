@@ -3,5 +3,18 @@
   "version": "0.1.0",
   "sdk": "^0.8",
   "description": "QA fixture: a UI-only plugin for the frame ticket browser script.",
+  "allowed_hosts": ["example.com"],
+  "runs": [
+    {
+      "name": "import",
+      "title": "Import",
+      "inputs": [
+        { "name": "source", "label": "Source address", "type": "url", "required": true },
+        { "name": "limit", "label": "How many pages", "type": "number" }
+      ],
+      "stages": ["fetch", "transform"],
+      "proposes": ["site_settings", "url_patterns"]
+    }
+  ],
   "ui": { "title": "Frames", "entry": "index.html", "roles": ["owner", "editor"] }
 }
