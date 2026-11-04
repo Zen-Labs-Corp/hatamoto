@@ -620,6 +620,7 @@ func (s *Server) setupDependencies() {
 	pluginhost.BindHostHooks(s.hooks)
 	s.setupPlugins()
 	s.setupStanding()
+	s.scheduleStandingDigest()
 }
 
 // buildHandler wraps the finished mux in the global middleware. It runs after

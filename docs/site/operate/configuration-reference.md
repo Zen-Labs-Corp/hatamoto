@@ -51,7 +51,7 @@ Under systemd put them in the environment file; under Docker use `environment:` 
 | `HATAMOTO_PAGE_CACHE_TTL` | `5m` | How long rendered public pages stay in the HTML cache. Go duration from `30s` to `720h`; an invalid or out-of-range value falls back to the default and logs a warning at boot. A lifetime saved in **Settings > Performance** wins. |
 | `HATAMOTO_GEOIP_DB` | empty | Path to a country `.mmdb` file (DB-IP Lite or MaxMind GeoLite2 Country) that fills the Countries card of Analytics > Traffic. Empty turns countries off. Read once at boot, up to 256 MB, so restart to reload it. Hatamoto downloads nothing; you supply the file and its licence applies. A bad file logs a warning and the server still starts. |
 | `HATAMOTO_WORKER` | on | The in-process scheduler runs unless this is `off` (case-insensitive). |
-| `WORKER_DISABLE_JOBS` | empty | Comma-separated scheduler jobs to skip. The job names are listed in [Multiple replicas and health checks](multi-replica-and-health.md); `stats_ping` is the install stats job and `changeset_sweep` the content changeset housekeeping. |
+| `WORKER_DISABLE_JOBS` | empty | Comma-separated scheduler jobs to skip. The job names are listed in [Multiple replicas and health checks](multi-replica-and-health.md); `stats_ping` is the install stats job and `changeset_sweep` the content changeset housekeeping and `standing_digest` the daily mail about automatic runs. |
 | `WORKER_DRAIN` | unset | `1`, `true`, `yes` or `on` (case-insensitive) stops the worker loops from starting. For maintenance windows. |
 | `REPORT_OUTPUT_DIR` | `./reports` | Read into the configuration but not used by any current feature. Leave it alone. |
 
