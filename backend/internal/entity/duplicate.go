@@ -65,7 +65,7 @@ func (d *Duplicator) Duplicate(ctx context.Context, userID, srcID uuid.UUID) (*E
 	if locale == LocaleShared {
 		locale = "" // CreateEntity refuses und; the schema default restores it
 	}
-	in := &CreateEntityInput{
+	base := CreateEntityInput{
 		SchemaID:       src.SchemaID,
 		Name:           name,
 		Locale:         locale,
@@ -78,11 +78,12 @@ func (d *Duplicator) Duplicate(ctx context.Context, userID, srcID uuid.UUID) (*E
 	}
 	var cp *Entity
 	for n := 1; n <= maxDuplicateSlugs; n++ {
+		in := base // CreateEntity writes hook results back into its input
 		in.Slug = src.Slug + "-copy"
 		if n > 1 {
 			in.Slug += "-" + strconv.Itoa(n)
 		}
-		cp, err = d.svc.CreateEntity(ctx, actor(userID), in)
+		cp, err = d.svc.CreateEntity(ctx, actor(userID), &in)
 		if !errors.Is(err, ErrSlugAlreadyExists) {
 			break
 		}
