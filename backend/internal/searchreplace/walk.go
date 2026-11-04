@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
 )
 
@@ -126,9 +127,16 @@ func (w *walker) visit(v any, path string, scope Scope, sh shape, isHTML bool) a
 		}
 		return w.str(x, path, scope, isHTML)
 	case map[string]any:
+		kind, _ := x["t"].(string)
 		for k, child := range x {
 			csh, ok := childShape(sh, k)
 			if !ok {
+				continue
+			}
+			if sh == shapeNode && k == "p" {
+				if props, ok := child.(map[string]any); ok {
+					w.visitProps(kind, props, path+"/p", scope)
+				}
 				continue
 			}
 			x[k] = w.visit(child, path+"/"+escapeKey(k), scope, csh, isHTMLKey(k))
@@ -169,6 +177,32 @@ func childShape(sh shape, k string) (shape, bool) {
 // html prop. Every other string is plain text.
 func isHTMLKey(k string) bool {
 	return k == "content" || k == "body" || k == "html"
+}
+
+// textProps are the node props that hold visible text or a link, besides the
+// ones a kind binds as text or url. Everything else under p is structure: the
+// component type, preset, anchor, rel, target, tag, layout, ref.block, ids.
+var textProps = map[string]bool{
+	"text": true, "html": true, "alt": true, "caption": true, "title": true,
+	"aria": true, "tip": true, "href": true, "src": true,
+}
+
+// freeProps are the component props that hold content objects.
+var freeProps = map[string]bool{"content": true, "extra": true}
+
+// visitProps edits the text props of one node, in place.
+func (w *walker) visitProps(kind string, props map[string]any, path string, scope Scope) {
+	for k, v := range props {
+		p := path + "/" + escapeKey(k)
+		switch {
+		case kind == "component" && freeProps[k]:
+			props[k] = w.visit(v, p, scope, shapeFree, false)
+		case textProps[k] || builder.PropBindClass(kind, k) == "text" || builder.PropBindClass(kind, k) == "url":
+			if s, ok := v.(string); ok {
+				props[k] = w.str(s, p, scope, isHTMLKey(k))
+			}
+		}
+	}
 }
 
 func (w *walker) str(s, path string, scope Scope, isHTML bool) string {

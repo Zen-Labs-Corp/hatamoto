@@ -107,3 +107,39 @@ func TestWalkPlainPropWithLessThan(t *testing.T) {
 		}
 	}
 }
+
+func TestWalkOnlyEditsVisibleNodeText(t *testing.T) {
+	attrs := json.RawMessage(`{"page_doc":{"v":2,"nodes":[
+	 {"id":"hero","t":"component","p":{"type":"hero","title":"hero title","preset":"hero-dark","anchor":"hero","content":{"body":"the hero"}}},
+	 {"id":"c","t":"container","p":{"tag":"section","rel":"hero","layout":"hero"},"c":[
+	  {"id":"r","t":"ref","p":{"block":"hero"}},
+	  {"id":"b","t":"button","p":{"text":"hero","href":"/hero","navlabel":"hero","aria":"hero","rel":"hero"}}]}]}}`)
+	out, _, n, err := Walk(attrs, Options{Find: "hero", Replace: "banner"}, ScopeContent, func(string, int) bool { return true })
+	if err != nil || n != 5 {
+		t.Fatalf("err=%v n=%d out=%s", err, n, out)
+	}
+	var doc struct {
+		PageDoc struct {
+			Nodes []map[string]any `json:"nodes"`
+		} `json:"page_doc"`
+	}
+	if err := json.Unmarshal(out, &doc); err != nil {
+		t.Fatal(err)
+	}
+	comp := doc.PageDoc.Nodes[0]["p"].(map[string]any)
+	if comp["type"] != "hero" || comp["preset"] != "hero-dark" || comp["anchor"] != "hero" || comp["title"] != "banner title" {
+		t.Errorf("component props: %v", comp)
+	}
+	cont := doc.PageDoc.Nodes[1]["p"].(map[string]any)
+	if cont["tag"] != "section" || cont["rel"] != "hero" || cont["layout"] != "hero" {
+		t.Errorf("container props: %v", cont)
+	}
+	kids := doc.PageDoc.Nodes[1]["c"].([]any)
+	if kids[0].(map[string]any)["p"].(map[string]any)["block"] != "hero" {
+		t.Errorf("ref block changed")
+	}
+	btn := kids[1].(map[string]any)["p"].(map[string]any)
+	if btn["text"] != "banner" || btn["href"] != "/banner" || btn["aria"] != "banner" || btn["navlabel"] != "hero" || btn["rel"] != "hero" {
+		t.Errorf("button props: %v", btn)
+	}
+}
