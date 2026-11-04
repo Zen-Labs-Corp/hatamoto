@@ -31,3 +31,24 @@ func TestUninstallClearsTagSettings(t *testing.T) {
 		t.Fatalf("audit rows = %d, %v", n, err)
 	}
 }
+
+func TestUpdateConfirmsWhenInstalledPackCannotBeRead(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	old := tagPackParsed(t, "acme-tags", "1.0.0", tagDeclWith(`"cdn.acme.example"`, "analytics"))
+	if err := r.mgr.store.Put(ctx, old, SourceUpload, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.pool.Exec(ctx, `UPDATE hatamoto_packages SET data = '\x00' WHERE name = 'acme-tags'`); err != nil {
+		t.Fatal(err)
+	}
+	next := tagPackParsed(t, "acme-tags", "1.1.0", tagDeclWith(`"cdn.other.example"`, "analytics"))
+	prev, err := r.mgr.store.Get(ctx, KindPlugin, "acme-tags")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := r.mgr.needsConfirmation(ctx, next, prev, SourceUpload)
+	if err != nil || c == nil || !c.WidenedAccess || !c.TagCompareFailed {
+		t.Fatalf("confirmation = %+v, %v", c, err)
+	}
+}

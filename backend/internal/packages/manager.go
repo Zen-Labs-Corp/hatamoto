@@ -90,7 +90,10 @@ type ConfirmationRequired struct {
 	// category. Both count as widened access too.
 	NewTagHosts        []string
 	TagCategoryChanged bool
-	Missing            []MissingSection
+	// TagCompareFailed is set when the installed package could not be read to
+	// compare its tags; the update is confirmed rather than assumed safe.
+	TagCompareFailed bool
+	Missing          []MissingSection
 }
 
 func (e *ConfirmationRequired) Error() string {
@@ -528,10 +531,14 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 		c.NewHosts, c.NewFetchAny, c.NewIsland, c.NewScripts = widenedAccess(prev.Manifest, p)
 		c.NewCSPHosts = newCSPHosts(prev.Manifest, p)
 		c.NewRequestHeaders = newRequestHeaders(prev.Manifest, p)
-		if prevPkg, _, err := m.store.Load(ctx, KindPlugin, p.Name); err == nil {
+		// Fail closed: if the installed package cannot be read, its tags cannot
+		// be compared, so the owner is asked.
+		prevPkg, _, loadErr := m.store.Load(ctx, KindPlugin, p.Name)
+		if loadErr == nil {
 			c.NewTagHosts, c.TagCategoryChanged = newTagAccess(prevPkg, p)
 		}
-		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged
+		c.TagCompareFailed = loadErr != nil
+		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
 	}
 	if !c.Downgrade && !c.SignerChange && !c.WidenedAccess && len(c.Missing) == 0 {
 		return nil, nil
