@@ -30,6 +30,7 @@ const (
 type Entities interface {
 	ListEntitiesWithOffset(ctx context.Context, filter *entity.ListEntitiesFilter, page *entity.OffsetPage) (*entity.OffsetPagedResult[*entity.Entity], error)
 	GetEntity(ctx context.Context, id uuid.UUID) (*entity.Entity, error)
+	GetSchema(ctx context.Context, id uuid.UUID) (*entity.EntitySchema, error)
 	UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.UUID, input *entity.UpdateEntityInput) (*entity.Entity, error)
 }
 
@@ -51,6 +52,21 @@ type Service struct {
 	Ents   Entities
 	Menus  Menus
 	Owners Owners
+}
+
+// kindsFor is the field-kind lookup of an entity: its schema for attributes
+// and the active theme for builder components. Preview and apply both use it.
+// A schema that cannot be read leaves the key-name rule in force.
+func (s *Service) kindsFor(ctx context.Context, cache map[uuid.UUID]*Kinds, e *entity.Entity) *Kinds {
+	if k, ok := cache[e.SchemaID]; ok {
+		return k
+	}
+	k := &Kinds{Component: entity.ComponentFieldKind}
+	if sc, err := s.Ents.GetSchema(ctx, e.SchemaID); err == nil && sc != nil {
+		k.Attr = schemaKinds(sc.Schema)
+	}
+	cache[e.SchemaID] = k
+	return k
 }
 
 // Match is one listed occurrence.
@@ -116,6 +132,7 @@ func (s *Service) Preview(ctx context.Context, o Options, scopes Scope) (*Previe
 }
 
 func (s *Service) previewEntities(ctx context.Context, o Options, scopes Scope, p *Preview) error {
+	kinds := map[uuid.UUID]*Kinds{}
 	for page := 1; ; page++ {
 		res, err := s.Ents.ListEntitiesWithOffset(ctx, &entity.ListEntitiesFilter{}, &entity.OffsetPage{Page: page, Limit: ScanPage})
 		if err != nil {
@@ -125,7 +142,7 @@ func (s *Service) previewEntities(ctx context.Context, o Options, scopes Scope, 
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			_, hits, _, err := Walk(e.Attributes, o, scopes, nil)
+			_, hits, _, err := Walk(e.Attributes, o, scopes, s.kindsFor(ctx, kinds, e), nil)
 			if err != nil || len(hits) == 0 {
 				continue
 			}
@@ -268,11 +285,12 @@ func (s *Service) Apply(ctx context.Context, actor *uuid.UUID, o Options, scopes
 		ids = append(ids, id)
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i].String() < ids[j].String() })
+	kinds := map[uuid.UUID]*Kinds{}
 	for _, id := range ids {
 		if err := ctx.Err(); err != nil {
 			return rep, err
 		}
-		s.applyEntity(ctx, actor, o, scopes, summary, id, sel.Entities[id], rep)
+		s.applyEntity(ctx, actor, o, scopes, summary, id, sel.Entities[id], kinds, rep)
 	}
 	if s.Menus != nil {
 		s.applyMenus(ctx, o, sel, rep)
@@ -280,7 +298,7 @@ func (s *Service) Apply(ctx context.Context, actor *uuid.UUID, o Options, scopes
 	return rep, nil
 }
 
-func (s *Service) applyEntity(ctx context.Context, actor *uuid.UUID, o Options, scopes Scope, summary string, id uuid.UUID, es *entitySel, rep *Report) {
+func (s *Service) applyEntity(ctx context.Context, actor *uuid.UUID, o Options, scopes Scope, summary string, id uuid.UUID, es *entitySel, kinds map[uuid.UUID]*Kinds, rep *Report) {
 	e, err := s.Ents.GetEntity(ctx, id)
 	if err != nil {
 		rep.Failed = append(rep.Failed, Failure{Name: id.String(), Reason: err.Error()})
@@ -290,7 +308,7 @@ func (s *Service) applyEntity(ctx context.Context, actor *uuid.UUID, o Options, 
 		rep.Skipped++
 		return
 	}
-	out, _, n, err := Walk(e.Attributes, o, scopes, func(path string, i int) bool { return es.pick(path, i) })
+	out, _, n, err := Walk(e.Attributes, o, scopes, s.kindsFor(ctx, kinds, e), func(path string, i int) bool { return es.pick(path, i) })
 	if err != nil {
 		rep.Failed = append(rep.Failed, Failure{Name: e.Name, Reason: err.Error()})
 		return

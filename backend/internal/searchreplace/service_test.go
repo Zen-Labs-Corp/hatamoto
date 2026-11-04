@@ -18,6 +18,7 @@ type fakeEnts struct {
 	list    []*entity.Entity
 	updates []*entity.UpdateEntityInput
 	failOn  uuid.UUID
+	schema  json.RawMessage
 }
 
 func (f *fakeEnts) ListEntitiesWithOffset(_ context.Context, _ *entity.ListEntitiesFilter, p *entity.OffsetPage) (*entity.OffsetPagedResult[*entity.Entity], error) {
@@ -37,6 +38,10 @@ func (f *fakeEnts) GetEntity(_ context.Context, id uuid.UUID) (*entity.Entity, e
 		}
 	}
 	return nil, errors.New("not found")
+}
+
+func (f *fakeEnts) GetSchema(context.Context, uuid.UUID) (*entity.EntitySchema, error) {
+	return &entity.EntitySchema{Schema: f.schema}, nil
 }
 
 func (f *fakeEnts) UpdateEntity(_ context.Context, id uuid.UUID, _ *uuid.UUID, in *entity.UpdateEntityInput) (*entity.Entity, error) {
@@ -231,5 +236,20 @@ func TestParseSelection(t *testing.T) {
 	sel, err := ParseSelection([]string{entityToken(id, 2, "/page_doc/nodes/0/p/a b", 4)})
 	if err != nil || !sel.Entities[id].pick("/page_doc/nodes/0/p/a b", 4) || sel.Entities[id].Version != 2 {
 		t.Fatalf("%+v %v", sel, err)
+	}
+}
+
+func TestPreviewAndApplyUseTheSchemaKinds(t *testing.T) {
+	a := ent("A", `{"intro":"<p>Joe&#39;s &amp; Co</p>"}`)
+	ents := &fakeEnts{list: []*entity.Entity{a}, schema: json.RawMessage(richSchema)}
+	s := &Service{Ents: ents}
+	o := Options{Find: "Joe's & Co", Replace: "Max"}
+	p, err := s.Preview(context.Background(), o, ScopeOther)
+	if err != nil || p.Total != 1 {
+		t.Fatalf("preview %+v err=%v", p, err)
+	}
+	rep, err := s.Apply(context.Background(), nil, o, ScopeOther, tokens(p))
+	if err != nil || rep.Replaced != 1 || string(a.Attributes) != `{"intro":"<p>Max</p>"}` {
+		t.Fatalf("report %+v err=%v attrs %s", rep, err, a.Attributes)
 	}
 }

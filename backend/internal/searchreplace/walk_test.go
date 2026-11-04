@@ -2,6 +2,7 @@ package searchreplace
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -33,7 +34,7 @@ func TestWalkCollectsByScope(t *testing.T) {
 		{ScopeOther, []string{"/title"}},
 	}
 	for _, c := range cases {
-		_, hits, n, err := Walk(json.RawMessage(sample), o, c.scopes, nil)
+		_, hits, n, err := Walk(json.RawMessage(sample), o, c.scopes, nil, nil)
 		if err != nil || n != 0 {
 			t.Fatalf("scopes %d: err=%v n=%d", c.scopes, err, n)
 		}
@@ -52,7 +53,7 @@ func TestWalkCollectsByScope(t *testing.T) {
 
 func TestWalkReplaceKeepsEverythingElse(t *testing.T) {
 	o := Options{Find: "old", Replace: "new"}
-	out, _, n, err := Walk(json.RawMessage(sample), o, ScopeContent|ScopeSEO|ScopeOther, func(string, int) bool { return true })
+	out, _, n, err := Walk(json.RawMessage(sample), o, ScopeContent|ScopeSEO|ScopeOther, nil, func(string, int) bool { return true })
 	if err != nil || n != 7 {
 		t.Fatalf("err=%v n=%d", err, n)
 	}
@@ -75,7 +76,7 @@ func TestWalkReplaceKeepsEverythingElse(t *testing.T) {
 
 func TestWalkPickOne(t *testing.T) {
 	o := Options{Find: "old", Replace: "new"}
-	out, _, n, _ := Walk(json.RawMessage(sample), o, ScopeSEO, func(path string, i int) bool { return path == "/og_title" })
+	out, _, n, _ := Walk(json.RawMessage(sample), o, ScopeSEO, nil, func(path string, i int) bool { return path == "/og_title" })
 	if n != 1 || !strings.Contains(string(out), `"og_title":"new shop og"`) || !strings.Contains(string(out), `"meta_title":"Old shop deals"`) {
 		t.Fatalf("n=%d %s", n, out)
 	}
@@ -83,7 +84,7 @@ func TestWalkPickOne(t *testing.T) {
 
 func TestWalkNoReplaceKeepsInputBytes(t *testing.T) {
 	in := json.RawMessage(`{"title":  "none",   "n": 1.0}`)
-	out, hits, n, _ := Walk(in, Options{Find: "zzz", Replace: "x"}, ScopeOther, func(string, int) bool { return true })
+	out, hits, n, _ := Walk(in, Options{Find: "zzz", Replace: "x"}, ScopeOther, nil, func(string, int) bool { return true })
 	if string(out) != string(in) || len(hits) != 0 || n != 0 {
 		t.Fatalf("%s %v %d", out, hits, n)
 	}
@@ -97,7 +98,7 @@ func TestComparePath(t *testing.T) {
 
 func TestWalkPlainPropWithLessThan(t *testing.T) {
 	attrs := json.RawMessage(`{"meta_description":"Compare old.example plans if a<b","page_doc":{"v":2,"nodes":[{"id":"a","t":"heading","p":{"text":"Kids <12 eat free at Joe's old.example & co"}}]}}`)
-	out, _, n, err := Walk(attrs, Options{Find: "old.example", Replace: "new.example"}, ScopeContent|ScopeSEO, func(string, int) bool { return true })
+	out, _, n, err := Walk(attrs, Options{Find: "old.example", Replace: "new.example"}, ScopeContent|ScopeSEO, nil, func(string, int) bool { return true })
 	if err != nil || n != 2 {
 		t.Fatalf("err=%v n=%d", err, n)
 	}
@@ -114,7 +115,7 @@ func TestWalkOnlyEditsVisibleNodeText(t *testing.T) {
 	 {"id":"c","t":"container","p":{"tag":"section","rel":"hero","layout":"hero"},"c":[
 	  {"id":"r","t":"ref","p":{"block":"hero"}},
 	  {"id":"b","t":"button","p":{"text":"hero","href":"/hero","navlabel":"hero","aria":"hero","rel":"hero"}}]}]}}`)
-	out, _, n, err := Walk(attrs, Options{Find: "hero", Replace: "banner"}, ScopeContent, func(string, int) bool { return true })
+	out, _, n, err := Walk(attrs, Options{Find: "hero", Replace: "banner"}, ScopeContent, nil, func(string, int) bool { return true })
 	if err != nil || n != 5 {
 		t.Fatalf("err=%v n=%d out=%s", err, n, out)
 	}
@@ -141,5 +142,54 @@ func TestWalkOnlyEditsVisibleNodeText(t *testing.T) {
 	btn := kids[1].(map[string]any)["p"].(map[string]any)
 	if btn["text"] != "banner" || btn["href"] != "/banner" || btn["aria"] != "banner" || btn["navlabel"] != "hero" || btn["rel"] != "hero" {
 		t.Errorf("button props: %v", btn)
+	}
+}
+
+const richSchema = `{"type":"object","properties":{
+ "intro":{"type":"string","format":"richtext"},
+ "raw":{"type":"string","x-hm-field":"html"},
+ "note":{"type":"string"},
+ "faqs":{"type":"array","items":{"type":"object","properties":{"a":{"type":"string","format":"richtext"}}}}}}`
+
+func TestWalkSchemaRichTextAttribute(t *testing.T) {
+	kinds := &Kinds{Attr: schemaKinds(json.RawMessage(richSchema))}
+	attrs := json.RawMessage(`{"intro":"<p>Joe&#39;s &amp; Co</p>","note":"Joe&#39;s &amp; Co","faqs":[{"a":"<strong>Strong</strong> a<b"}]}`)
+	all := func(string, int) bool { return true }
+
+	_, hits, _, _ := Walk(attrs, Options{Find: "Joe's & Co", Replace: "X"}, ScopeOther, kinds, nil)
+	if len(hits) != 1 || hits[0].Path != "/intro" {
+		t.Fatalf("hits %+v", hits)
+	}
+	out, _, n, err := Walk(attrs, Options{Find: "Strong", Replace: "Robust"}, ScopeOther, kinds, all)
+	if err != nil || n != 1 || !strings.Contains(string(out), `<strong>Robust</strong>`) {
+		t.Fatalf("err=%v n=%d out=%s", err, n, out)
+	}
+	// Without a kind the same field is plain text and the tag is hit too.
+	_, hits, _, _ = Walk(attrs, Options{Find: "strong"}, ScopeOther, nil, nil)
+	if len(hits) != 3 {
+		t.Errorf("plain hits=%d", len(hits))
+	}
+}
+
+func TestWalkThemeRichTextComponentContent(t *testing.T) {
+	raw, err := os.ReadFile("../render/themes/default/schemas/faq.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	faq := schemaKinds(raw)
+	kinds := &Kinds{Component: func(typ string, path []string) string {
+		if typ != "faq" {
+			return ""
+		}
+		return faq(path)
+	}}
+	attrs := json.RawMessage(`{"page_doc":{"v":2,"nodes":[{"id":"f","t":"component","p":{"type":"faq","content":{"items":[{"question":"Joe&#39;s?","answer":"<p><strong>Joe&#39;s &amp; Co</strong></p>"}]}}}]}}`)
+	out, _, n, err := Walk(attrs, Options{Find: "Joe's & Co", Replace: "Max"}, ScopeContent, kinds, func(string, int) bool { return true })
+	if err != nil || n != 1 || !strings.Contains(string(out), `<p><strong>Max</strong></p>`) || !strings.Contains(string(out), `Joe&#39;s?`) {
+		t.Fatalf("err=%v n=%d out=%s", err, n, out)
+	}
+	out, _, n, _ = Walk(attrs, Options{Find: "STRONG", Replace: "b"}, ScopeContent, kinds, func(string, int) bool { return true })
+	if n != 0 || string(out) != string(attrs) {
+		t.Errorf("tag name edited: n=%d %s", n, out)
 	}
 }

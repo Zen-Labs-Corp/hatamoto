@@ -37,11 +37,47 @@ type FieldHit struct {
 	Hit
 }
 
+// Kinds looks up the kind of a field from its schema. Either func may be nil.
+// Only "richtext" and "html" matter: they make a string markup. A field with
+// no kind keeps the key-name rule (content, body, html).
+type Kinds struct {
+	// Attr is the kind of the entity attribute at path (object keys only,
+	// array indices skipped).
+	Attr func(path []string) string
+	// Component is the kind of the content field at path of a page builder
+	// component of the given type.
+	Component entity.FieldKindResolver
+}
+
+// markup reports whether the schema marks the field at keys as rich text or
+// HTML. A kind on an enclosing field sticks, as in the save-time sanitiser.
+func (k *Kinds) markup(inComp bool, comp string, keys []string) bool {
+	if k == nil {
+		return false
+	}
+	for n := len(keys); n > 0; n-- {
+		var kind string
+		switch {
+		case inComp && k.Component != nil:
+			kind = k.Component(comp, keys[:n])
+		case !inComp && k.Attr != nil:
+			kind = k.Attr(keys[:n])
+		}
+		if kind == "richtext" || kind == "html" {
+			return true
+		}
+	}
+	return false
+}
+
 // walker visits the strings of one attributes object.
 type walker struct {
 	o      Options
 	scopes Scope
 	pick   func(path string, i int) bool
+	kinds  *Kinds
+	inComp bool   // visiting the content of a component
+	comp   string // its type
 	hits   []FieldHit
 	n      int // replacements
 }
@@ -66,7 +102,7 @@ const (
 //
 // page_sections (the legacy section list) is skipped: it converts to a page
 // doc on the next write. Map keys, numbers and booleans are never edited.
-func Walk(attrs json.RawMessage, o Options, scopes Scope, pick func(path string, i int) bool) (out json.RawMessage, hits []FieldHit, replaced int, err error) {
+func Walk(attrs json.RawMessage, o Options, scopes Scope, kinds *Kinds, pick func(path string, i int) bool) (out json.RawMessage, hits []FieldHit, replaced int, err error) {
 	if o.Find == "" {
 		return attrs, nil, 0, nil
 	}
@@ -76,7 +112,7 @@ func Walk(attrs json.RawMessage, o Options, scopes Scope, pick func(path string,
 	if err := dec.Decode(&root); err != nil || root == nil {
 		return attrs, nil, 0, nil // not an object: nothing to search
 	}
-	w := &walker{o: o, scopes: scopes, pick: pick}
+	w := &walker{o: o, scopes: scopes, pick: pick, kinds: kinds}
 	for k, v := range root {
 		scope, ok := classify(k)
 		if !ok || scope&scopes == 0 {
@@ -86,7 +122,7 @@ func Walk(attrs json.RawMessage, o Options, scopes Scope, pick func(path string,
 		if k == "page_doc" {
 			sh = shapeDoc
 		}
-		root[k] = w.visit(v, "/"+escapeKey(k), scope, sh, isHTMLKey(k))
+		root[k] = w.visit(v, []string{k}, "/"+escapeKey(k), scope, sh, isHTMLKey(k))
 	}
 	sortHits(w.hits)
 	if w.n == 0 {
@@ -119,13 +155,13 @@ func escapeKey(k string) string {
 	return strings.NewReplacer("~", "~0", "/", "~1").Replace(k)
 }
 
-func (w *walker) visit(v any, path string, scope Scope, sh shape, isHTML bool) any {
+func (w *walker) visit(v any, keys []string, path string, scope Scope, sh shape, isHTML bool) any {
 	switch x := v.(type) {
 	case string:
 		if sh != shapeFree {
 			return x
 		}
-		return w.str(x, path, scope, isHTML)
+		return w.str(x, path, scope, isHTML || w.kinds.markup(w.inComp, w.comp, keys))
 	case map[string]any:
 		kind, _ := x["t"].(string)
 		for k, child := range x {
@@ -139,7 +175,7 @@ func (w *walker) visit(v any, path string, scope Scope, sh shape, isHTML bool) a
 				}
 				continue
 			}
-			x[k] = w.visit(child, path+"/"+escapeKey(k), scope, csh, isHTMLKey(k))
+			x[k] = w.visit(child, append(keys[:len(keys):len(keys)], k), path+"/"+escapeKey(k), scope, csh, isHTMLKey(k))
 		}
 		return x
 	case []any:
@@ -148,7 +184,7 @@ func (w *walker) visit(v any, path string, scope Scope, sh shape, isHTML bool) a
 			if sh == shapeNodeList {
 				csh = shapeNode
 			}
-			x[i] = w.visit(child, path+"/"+strconv.Itoa(i), scope, csh, isHTML)
+			x[i] = w.visit(child, keys, path+"/"+strconv.Itoa(i), scope, csh, isHTML)
 		}
 		return x
 	}
@@ -196,7 +232,12 @@ func (w *walker) visitProps(kind string, props map[string]any, path string, scop
 		p := path + "/" + escapeKey(k)
 		switch {
 		case kind == "component" && freeProps[k]:
-			props[k] = w.visit(v, p, scope, shapeFree, false)
+			if k == "content" {
+				w.inComp = true
+				w.comp, _ = props["type"].(string)
+			}
+			props[k] = w.visit(v, nil, p, scope, shapeFree, false)
+			w.inComp, w.comp = false, ""
 		case textProps[k] || builder.PropBindClass(kind, k) == "text" || builder.PropBindClass(kind, k) == "url":
 			if s, ok := v.(string); ok {
 				props[k] = w.str(s, p, scope, isHTMLKey(k))
