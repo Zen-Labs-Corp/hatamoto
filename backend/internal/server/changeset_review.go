@@ -416,34 +416,50 @@ func (r *changesetReviewer) decideSuggestion(ctx context.Context, id, proposalID
 	return nil
 }
 
-// approve applies a site_settings suggestion and records it with the values it
-// replaced. If the decision cannot be recorded the old values go back.
+// approve records the owner's approval of a site_settings suggestion. The
+// settings change at publish time (applyApproved), so a discarded or expired
+// changeset leaves them alone.
 func (r *changesetReviewer) approve(ctx context.Context, runID uuid.UUID, p plugrun.Proposal) error {
-	values, ok := suggestionValues(p)
-	if !ok {
+	if _, ok := suggestionValues(p); !ok {
 		return admin.ErrReviewNotApplicable
 	}
-	cfg, err := r.settings.Get(ctx)
+	return r.runs.SetProposalDecision(ctx, runID, p.ID, plugrun.ProposalApproved, nil)
+}
+
+// applyApproved writes the approved suggestions that are not applied yet, each
+// with the values it replaced so Undo can put them back.
+func (r *changesetReviewer) applyApproved(ctx context.Context, runID uuid.UUID) error {
+	props, err := r.runs.Proposals(ctx, runID)
 	if err != nil {
-		return fmt.Errorf("failed to read settings: %w", err)
+		return fmt.Errorf("failed to read suggestions: %w", err)
 	}
-	before := make(map[string]string, len(values))
-	for k := range values {
-		def, _ := settingByKey(k)
-		before[k] = def.get(cfg)
-	}
-	raw, err := json.Marshal(before)
-	if err != nil {
-		return err
-	}
-	if err := r.applySettings(ctx, values); err != nil {
-		return err
-	}
-	if err := r.runs.SetProposalDecision(ctx, runID, p.ID, plugrun.ProposalApproved, raw); err != nil {
-		if rerr := r.applySettings(ctx, before); rerr != nil {
-			return errors.Join(err, rerr)
+	for _, p := range props {
+		if p.Decision != plugrun.ProposalApproved || len(p.Before) > 0 {
+			continue
 		}
-		return err
+		values, ok := suggestionValues(p)
+		if !ok {
+			return admin.ErrReviewNotApplicable
+		}
+		cfg, err := r.settings.Get(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to read settings: %w", err)
+		}
+		before := make(map[string]string, len(values))
+		for k := range values {
+			def, _ := settingByKey(k)
+			before[k] = def.get(cfg)
+		}
+		raw, err := json.Marshal(before)
+		if err != nil {
+			return err
+		}
+		if err := r.runs.SetProposalBefore(ctx, runID, p.ID, raw); err != nil {
+			return err
+		}
+		if err := r.applySettings(ctx, values); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -468,6 +484,9 @@ func (r *changesetReviewer) Publish(ctx context.Context, id int64) (applied, dro
 	res, err := r.eng.PublishReviewed(ctx, id)
 	if err != nil {
 		return 0, 0, reviewErr(err)
+	}
+	if err := r.applyApproved(ctx, h.RunID); err != nil {
+		return res.Applied, res.Dropped, fmt.Errorf("published, but the approved suggestions could not be applied: %w", err)
 	}
 	r.audit(ctx, "changeset.publish", changesetTarget(id), map[string]any{"applied": res.Applied, "skipped": res.Skipped, "dropped": res.Dropped})
 	return res.Applied, res.Dropped, nil

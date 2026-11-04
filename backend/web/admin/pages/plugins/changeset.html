@@ -8,7 +8,7 @@
 {{if or .SkippedNote .Expiry}}<ul class="hm-badgelist">{{if .SkippedNote}}<li>{{template "hm/badge" (dict "Label" .SkippedNote "Kind" "warning")}}</li>{{end}}{{if .Expiry}}<li>{{template "hm/badge" (dict "Label" .Expiry "Kind" "muted")}}</li>{{end}}</ul>{{end}}
 {{if .Suggestions}}<form method="post" action="{{.SuggestionsURL}}" class="hm-stack" data-hm-review-form>
 {{template "hm/csrf" (dict "CSRF" $csrf)}}
-{{template "hm/card-start" dict "ID" "suggestions" "Title" "Site-wide suggestions" "Description" "The plugin suggests these changes to your site settings. Nothing changes until you approve it." "Heading" "h2"}}
+{{template "hm/card-start" dict "ID" "suggestions" "Title" "Site-wide suggestions" "Description" "The plugin suggests these changes to your site settings. Nothing changes until you approve it and publish." "Heading" "h2"}}
 <div class="hm-table__scroll" role="region" aria-label="Site-wide suggestions" tabindex="0"><table class="hm-table hm-table--cards hm-table--wrap"><caption class="hm-visually-hidden">Site-wide suggestions</caption>
 <thead><tr><th scope="col">Setting</th><th scope="col">Change</th><th scope="col" class="hm-table__actions">Decision</th></tr></thead>
 <tbody>{{range .Suggestions}}<tr><th scope="row" data-label="Setting" class="hm-table__rowhead">{{.Title}}</th>

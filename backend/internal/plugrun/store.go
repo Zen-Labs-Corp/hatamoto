@@ -368,6 +368,25 @@ func (s *Store) proposalMissOrDecided(ctx context.Context, runID uuid.UUID, id i
 	return ErrProposalDecided
 }
 
+// SetProposalBefore stores the pre-image of an approved proposal at the moment
+// its change is applied, for Undo. It yields ErrNotFound unless the proposal is
+// approved and has no pre-image yet.
+func (s *Store) SetProposalBefore(ctx context.Context, runID uuid.UUID, id int64, before json.RawMessage) error {
+	if !json.Valid(before) {
+		return fmt.Errorf("%w: before", ErrInvalid)
+	}
+	tag, err := s.DB.Pool().Exec(ctx, `
+		UPDATE hatamoto_run_proposals SET before = $3
+		WHERE run_id = $1 AND id = $2 AND decision = 'approved' AND before IS NULL`, runID, id, []byte(before))
+	if err != nil {
+		return fmt.Errorf("failed to store pre-image: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // UndecidedProposals counts the proposals of a run without a decision.
 func (s *Store) UndecidedProposals(ctx context.Context, runID uuid.UUID) (int, error) {
 	var n int

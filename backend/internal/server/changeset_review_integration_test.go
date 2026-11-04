@@ -155,8 +155,9 @@ func TestChangesetReviewIntegration(t *testing.T) {
 	if err := rev.DecideSuggestion(ctx, cs, site.ID, plugrun.ProposalApproved); err != nil {
 		t.Fatal(err)
 	}
-	if cfg, _ := store.Get(ctx); cfg.Tagline != newTagline {
-		t.Fatalf("tagline = %q, want the approved one", cfg.Tagline)
+	// An approval only records the decision: the setting changes at publish.
+	if cfg, _ := store.Get(ctx); cfg.Tagline != origTagline {
+		t.Fatalf("tagline = %q after approval, want it untouched until publish", cfg.Tagline)
 	}
 	if d, _ = rev.Review(ctx, cs); !d.CanPublish {
 		t.Fatalf("cannot publish: %+v", d)
@@ -164,6 +165,9 @@ func TestChangesetReviewIntegration(t *testing.T) {
 	applied, dropped, err := rev.Publish(ctx, cs)
 	if err != nil || applied != 3 || dropped != 0 {
 		t.Fatalf("publish = %d, %d, %v", applied, dropped, err)
+	}
+	if cfg, _ := store.Get(ctx); cfg.Tagline != newTagline {
+		t.Fatalf("tagline = %q after publish, want the approved one", cfg.Tagline)
 	}
 
 	// The owner edits one page, then undoes the changeset.
@@ -195,5 +199,65 @@ func TestChangesetReviewIntegration(t *testing.T) {
 	}
 	if _, _, err := rev.Undo(ctx, cs+1000000); !errors.Is(err, admin.ErrReviewNotFound) {
 		t.Errorf("undo of an unknown changeset: %v", err)
+	}
+}
+
+// An approved suggestion changes nothing until publish, so discarding the
+// changeset afterwards leaves the site settings as they were.
+func TestChangesetReviewDiscardKeepsApprovedSettingsOut(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 6, MinConnections: 1,
+		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_site_config (company_name) VALUES ('Review IT') ON CONFLICT (id) DO NOTHING`); err != nil {
+		t.Fatal(err)
+	}
+	store := siteconfig.NewStore(db, logger)
+	orig, err := store.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	origTagline := orig.Tagline
+	t.Cleanup(func() { _, _ = store.Update(context.Background(), siteconfig.UpdateInput{Tagline: &origTagline}) })
+
+	eng := &changeset.Engine{DB: db, Logger: logger, Writers: map[changeset.Kind]changeset.KindWriter{}}
+	runs := &plugrun.Store{DB: db}
+	rev := &changesetReviewer{eng: eng, runs: runs, settings: store, audit: func(context.Context, string, string, map[string]any) {}}
+	plugin := "rd" + uuid.NewString()[:8]
+	run, err := runs.Create(ctx, plugrun.Run{Plugin: plugin, Name: "import"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_runs WHERE id = $1`, run.ID) })
+	cs, err := eng.Begin(ctx, run.ID, plugin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runs.AddProposal(ctx, run.ID, "site_settings", json.RawMessage(`{"tagline":"Discarded tagline"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := runs.Finish(ctx, run.ID, json.RawMessage(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	props, err := runs.Proposals(ctx, run.ID)
+	if err != nil || len(props) != 1 {
+		t.Fatalf("proposals = %+v, %v", props, err)
+	}
+	if err := rev.DecideSuggestion(ctx, cs, props[0].ID, plugrun.ProposalApproved); err != nil {
+		t.Fatal(err)
+	}
+	if err := rev.Discard(ctx, cs); err != nil {
+		t.Fatal(err)
+	}
+	if cfg, _ := store.Get(ctx); cfg.Tagline != origTagline {
+		t.Fatalf("tagline = %q after discard, want %q", cfg.Tagline, origTagline)
 	}
 }
