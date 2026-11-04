@@ -88,6 +88,14 @@ const text = await dialog.innerText();
 check(/Undo/.test(text) && /import/i.test(text), "the Undo dialog explains the undo", text.replace(/\s+/g, " "));
 await shot(p, "changes-undo-dialog-1440.png");
 await Promise.all([p.waitForLoadState("load"), dialog.getByRole("button", { name: "Undo run" }).click()]);
+if (p.url().includes("/admin/sudo")) {
+  // Undo rewrites the site, so it needs a fresh password; the POST is not replayed.
+  await p.fill("#password", password);
+  await Promise.all([p.waitForURL((u) => !u.pathname.endsWith("/sudo")), p.getByRole("button", { name: "Confirm" }).click()]);
+  await p.goto(`${base}/admin/settings/changes`, { waitUntil: "load" });
+  await p.locator('[data-hm-open^="undo-"]').first().click();
+  await Promise.all([p.waitForLoadState("load"), p.locator("dialog[open]").getByRole("button", { name: "Undo run" }).click()]);
+}
 check(/Undid|restored|Undone/i.test(await flash()), "Undo answers with a flash", await flash());
 check(!(await published()).includes("QA Import Plain"), "the undone page is gone");
 check(tagline() === taglineBefore, "settings are as before");
