@@ -17,6 +17,17 @@ Settings > Privacy adds an optional cookie banner. Visitors can accept all, reje
 - **MCP.** New tool `entities_duplicate` (scope `write:entities`, audited, not destructive) returns `id`, `name`, `slug` and `status` of the draft.
 - No migration, SDK or plugin change. **Rollback floor: unchanged.**
 
+## Unreleased: Email log and resend
+
+**Settings > Email > Email log** lists every email the server hands to the mail server, or drops because email is off. Filter by status (Sent, Failed, Suppressed), open an entry to read it, and resend a failed or lost one to the same recipients. Each entry shows its kind, such as a form notification or `Plugin: <id>` for a plugin's mail, and for a refused send a short error with no credentials.
+
+- **Bodies.** Form mails keep their text for 30 days and their log entry for 90 days; both are set under **Settings > Email** (1 to 365 days, bodies no longer than entries). Password reset, invitation and admin address mails never keep a body, so they cannot be resent.
+- **Personal data.** A stored form notification holds what the visitor typed. Lower the body days if that is more than you want to keep.
+- **Migration:** adds `hatamoto_email_log` and two columns on `hatamoto_site_config` (expand-only). The previous release ignores them.
+- No SDK, hook or plugin manifest change. A plugin's `mail.send` behaves as before and is now logged.
+
+**Rollback floor: unchanged.** The previous release runs against the migrated data and writes no log.
+
 ## Unreleased: Plugins change content through runs and changesets (breaking for plugins that write)
 
 Core 1.1.0 with SDK 0.17.0 is a deliberate hard break of the plugin write API. A plugin can no longer change live content directly: it starts a run, stages its writes into a changeset, and the owner publishes or discards the changeset. There is no compatibility shim. Read the upgrade note before you move: [Plugins write through runs](UPGRADES.md#plugins-write-through-runs).

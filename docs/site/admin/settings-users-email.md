@@ -257,6 +257,12 @@ When the banner is on, a script `/theme/assets/hm-consent.js` is the first eleme
 
 The banner only gates and announces. It does not load or block vendor scripts by itself: a script that sets analytics or marketing cookies has to wait for `hm.consent.allows(...)` or the Consent Mode signal.
 
+### Email log
+
+`<admin>/settings/email/log` (the Email log tab, owners only) lists every email the server sent or dropped, 25 to a page, newest first. The **Status** filter shows Sent, Failed or Suppressed (email off). The Kind column names the mail, for example Form notification, Password reset or `Plugin: <id>`. Open an entry to see its recipients, time, error text and message. **Resend** sends a stored message again to the same recipients and adds a linked entry. Password reset, invitation and admin address mails never keep a body ("Body not stored"), and a body removed by retention shows "Body no longer kept"; neither has Resend.
+
+On **Settings > Email**, **Keep message bodies (days)** (default 30) and **Keep log entries (days)** (default 90) set the retention, each 1 to 365 with bodies no longer than entries. See [Set up email](../operate/email.md#the-email-log).
+
 ## Import and export
 
 - **WordPress import** (`<admin>/settings/import`) is a five-step wizard: Source, Scan report, Options, Run and Report. Scanning and importing run as background jobs, and the page refreshes itself while a job runs. You can cancel or resume a run. See [Migrate and contribute](../migrate-contribute/index.md).
