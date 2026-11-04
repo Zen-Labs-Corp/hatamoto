@@ -105,7 +105,7 @@ func TestTagsNoscriptFollowsConsent(t *testing.T) {
 	}{
 		"banner off":                     {`{}`, true},
 		"banner on, marketing asked":     {consentO, false},
-		"banner on, marketing not asked": {`{"enabled":true,"categories":["analytics"]}`, true},
+		"banner on, marketing not asked": {`{"enabled":true,"categories":["analytics"]}`, false},
 	}
 	for name, c := range cases {
 		page, _ := tagsPage(t, docQuerier{tracking: gtmOnly, privacy: c.privacy})

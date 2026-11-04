@@ -7,7 +7,7 @@
 {{template "hm/foot"}}{{template "hm/button" dict "Label" "Dismiss this notice" "Variant" "secondary" "Type" "submit"}}{{template "hm/foot-end"}}
 </form>{{end}}
 {{if .Legacy}}{{template "hm/callout" dict "Kind" "warning" "ID" "tracking-legacy" "Title" "An old tracking plugin is still installed" "Body" (printf "A plugin named %s is installed and is not first-party signed. It is not used by Settings > Tracking. Remove it from Plugins." (join .Legacy ", "))}}{{end}}
-<form method="post" action="{{adminPath}}/settings/tracking" class="hm-cardform">
+{{if .NeverLoad}}{{template "hm/callout" dict "Kind" "warning" "ID" "tracking-never-loads" "Title" "Some tags will never load" "Body" (printf "Settings > Privacy does not ask visitors about the category of %s, so it is never allowed. Turn that category on in Settings > Privacy or turn the tag off." (join .NeverLoad ", "))}}{{end}}<form method="post" action="{{adminPath}}/settings/tracking" class="hm-cardform">
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "ID" "shared" "Title" "Shared settings" "Heading" "h2"}}
 {{template "hm/field" dict "ID" "tracking-exclude" "Name" "exclude_signed_in" "Label" "Do not load tags for signed-in users" "Control" "switch" "Value" "true" "OffValue" "false" "Checked" .ExcludeSignedIn "Help" "Tags never load in previews. Non-necessary tags wait for cookie consent (Settings > Privacy)."}}

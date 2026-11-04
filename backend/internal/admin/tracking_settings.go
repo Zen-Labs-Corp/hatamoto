@@ -40,6 +40,8 @@ type trackingData struct {
 	Rows            []trackingRow
 	MovedNotice     string
 	Legacy          []string
+	// NeverLoad names the enabled tags whose category the consent banner does not ask.
+	NeverLoad []string
 }
 
 // trackingFromForm applies the posted fields over stored. A vendor the post
@@ -224,6 +226,10 @@ func (a *Admin) renderTracking(w http.ResponseWriter, r *http.Request, status in
 		errBy[e.ID] = e.Message
 	}
 	adsTxt := a.settingsTabURL("seo-ads-txt")
+	var never func(string) bool
+	if a.deps.TrackingNeverLoads != nil {
+		never = a.deps.TrackingNeverLoads(r.Context())
+	}
 	for _, v := range tags.Vendors {
 		st := set.Vendors[v.ID]
 		row := trackingRow{
@@ -238,6 +244,9 @@ func (a *Admin) renderTracking(w http.ResponseWriter, r *http.Request, status in
 		}
 		if v.ID == "adsense" {
 			row.AdsTxtURL = adsTxt
+		}
+		if never != nil && st.Enabled && never(v.Category) {
+			d.NeverLoad = append(d.NeverLoad, v.Label)
 		}
 		d.Rows = append(d.Rows, row)
 	}

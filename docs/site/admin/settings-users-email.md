@@ -257,7 +257,7 @@ How it works:
 
 - One script, `/theme/assets/hm-tags.<hash>.js`, is added to public pages. It loads the tags that are on, and each one waits for the visitor's choice in Settings > Privacy when the banner is on. Nothing is loaded in the editor or in previews.
 - The page policy allows only the hosts of the tags that are on.
-- Google Tag Manager also adds a `noscript` frame, only when no visitor could be asked for Marketing.
+- Google Tag Manager also adds a `noscript` frame, only when the consent banner is off (with the banner on, a category it does not ask is never allowed).
 - After a form is sent, the page dispatches one `hm:conversion` event on `document` with the submission id in `detail.id`. Google Analytics 4 receives `generate_lead` and Meta Pixel `Lead`, with the submission id as the event ID.
 - Every change is recorded in the audit log with the tags turned on, turned off or edited. IDs are not written there. Saving clears the page cache.
 

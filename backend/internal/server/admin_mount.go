@@ -129,6 +129,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.tagsStore != nil {
 		d.Tracking = s.tagsStore
 		d.LegacyTrackingPlugins = s.legacyTrackingLeftBehind
+		d.TrackingNeverLoads = s.tagsNeverLoad
 	}
 	if s.siteConfig != nil {
 		d.SiteGraph = s.siteGraphPreview

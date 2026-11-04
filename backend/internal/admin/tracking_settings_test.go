@@ -165,3 +165,20 @@ func TestTrackingAdSenseLinksAdsTxtOnlyWhenTheTabExists(t *testing.T) {
 		t.Error("ads.txt link shown without the tab")
 	}
 }
+
+func TestTrackingWarnsWhenAnEnabledTagsCategoryIsNotAsked(t *testing.T) {
+	s, f := newTrackingRig(t)
+	f.set.Vendors["gtm"] = tags.VendorState{Enabled: true, ID: "GTM-ABC123"}
+	f.set.Vendors["ga4"] = tags.VendorState{Enabled: true, ID: "G-ABC123XYZ9"}
+	s.a.deps.TrackingNeverLoads = func(context.Context) func(string) bool {
+		return func(category string) bool { return category == "marketing" }
+	}
+	body := s.get(t, "/admin/settings/tracking")
+	if !strings.Contains(body, "Some tags will never load") || !strings.Contains(body, "Google Tag Manager") {
+		t.Errorf("no warning for the unasked marketing tag")
+	}
+	s.a.deps.TrackingNeverLoads = func(context.Context) func(string) bool { return func(string) bool { return false } }
+	if strings.Contains(s.get(t, "/admin/settings/tracking"), "Some tags will never load") {
+		t.Errorf("warned although every category is asked")
+	}
+}

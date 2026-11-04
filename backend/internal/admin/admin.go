@@ -266,6 +266,10 @@ type Deps struct {
 	// still installed (not first-party signed), for a notice on Tracking; nil
 	// shows none.
 	LegacyTrackingPlugins func(ctx context.Context) []string
+	// TrackingNeverLoads returns a predicate: true for a tag category the
+	// consent banner does not ask, so a tag of it is never allowed; nil warns
+	// about none.
+	TrackingNeverLoads func(ctx context.Context) func(category string) bool
 	// SiteGraph returns the site-wide Organization + WebSite JSON-LD graph
 	// exactly as the public head emits it; nil hides the preview.
 	SiteGraph func(r *http.Request) (map[string]any, error)
