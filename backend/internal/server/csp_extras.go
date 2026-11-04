@@ -106,7 +106,7 @@ func addToDirective(csp, name string, origins []string) string {
 // cspExtras gathers the origins every public and preview response adds to
 // its policy. It reads cached settings only.
 func (s *Server) cspExtras(ctx context.Context) cspExtras {
-	return captchaExtras(s.captchaProvider(ctx))
+	return captchaExtras(s.captchaProvider(ctx)).merge(s.tagsHosts(ctx))
 }
 
 // extrasOf reads the extras through fn; nil fn means none.
