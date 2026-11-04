@@ -58,7 +58,7 @@ var settingsLive = map[string]bool{
 	"admin-address": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"privacy":      true,
-	"user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true,
+	"user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
 }
 
 // adminArea is a primary nav item with a secondary sidebar of sections and
@@ -147,6 +147,9 @@ var settingsRegistry = []settingsSectionDef{
 	}},
 	{ID: "security", Label: "Security", Icon: "shield-check", Desc: "Where you sign in and who can change it.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "admin-address", Label: "Admin address", Final: "/settings/security/admin-address", Roles: ownerOnly},
+	}},
+	{ID: "search-replace", Label: "Search and replace", Icon: "search", Desc: "Find text or an address across your content and change it, with a preview first.", Group: "Tools", Tabs: []settingsTabDef{
+		{ID: "search-replace", Label: "Search and replace", Final: "/settings/search-replace", Roles: ownerOnly},
 	}},
 }
 

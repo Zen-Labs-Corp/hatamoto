@@ -27,6 +27,17 @@ func SetFieldKindResolver(r FieldKindResolver) {
 	fieldKindResolver.Store(&r)
 }
 
+// ComponentFieldKind is the x-hm-field kind of a component content field
+// according to the registered resolver, or "" when none is registered or the
+// field is unknown.
+func ComponentFieldKind(sectionType string, path []string) string {
+	rp := fieldKindResolver.Load()
+	if rp == nil {
+		return ""
+	}
+	return (*rp)(sectionType, path)
+}
+
 // sanitizeSchemaFields sanitizes, on save, every string that the active theme
 // schema marks richtext (rich-text policy) or html (html-section policy) in
 // attributes.page_sections[].content. Values equal to the stored ones at the

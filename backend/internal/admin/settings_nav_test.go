@@ -227,13 +227,14 @@ func TestSettingsNavGroups(t *testing.T) {
 	t.Parallel()
 
 	order, members := groupsOf(SettingsFor("owner"))
-	if got := strings.Join(order, ","); got != "Site,Content,System" {
+	if got := strings.Join(order, ","); got != "Site,Content,System,Tools" {
 		t.Fatalf("owner group order %q", got)
 	}
 	for g, want := range map[string]string{
 		"Site":    "general locales email privacy users",
 		"Content": "media entity-models forms seo redirects linking",
 		"System":  "api webhooks performance updates backups changes import-export security",
+		"Tools":   "search-replace",
 	} {
 		if got := strings.Join(members[g], " "); got != want {
 			t.Errorf("owner %s sections %q, want %q", g, got, want)

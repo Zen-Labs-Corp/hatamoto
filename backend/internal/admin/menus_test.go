@@ -864,3 +864,42 @@ func TestMenuListBadgeMarksUnusedLocation(t *testing.T) {
 		t.Error("a declared location shows its title")
 	}
 }
+
+func (f *fakeMenus) GetMenuItem(_ context.Context, id uuid.UUID) (*menu.MenuItem, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var find func(items []*menu.MenuItem) *menu.MenuItem
+	find = func(items []*menu.MenuItem) *menu.MenuItem {
+		for _, it := range items {
+			if it.ID == id {
+				return it
+			}
+			if c := find(it.Children); c != nil {
+				return c
+			}
+		}
+		return nil
+	}
+	for _, m := range f.menus {
+		if it := find(m.Items); it != nil {
+			return it, nil
+		}
+	}
+	return nil, menu.ErrMenuItemNotFound
+}
+
+func (f *fakeMenus) UpdateMenuItem(ctx context.Context, id uuid.UUID, in *menu.UpdateMenuItemInput) (*menu.MenuItem, error) {
+	it, err := f.GetMenuItem(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if in.Label != nil {
+		it.Label = *in.Label
+	}
+	if in.URL != nil {
+		it.URL = in.URL
+	}
+	return it, nil
+}

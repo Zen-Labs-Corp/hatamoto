@@ -31,6 +31,7 @@ func (a *Admin) mountSettings(authed *httpx.Group) {
 	a.mountSettingsFrame(authed)
 	owner := authed.Group("", a.RequireRole("owner"))
 	a.mountExportSettings(owner)
+	a.mountSearchReplace(owner)
 	a.mountPerformanceSettings(owner)
 	a.mountSpamSettings(owner)
 	a.mountSEOSettings(owner)

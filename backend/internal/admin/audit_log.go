@@ -27,6 +27,7 @@ var auditLabels = map[string]string{
 	"entity.schedule":              "Scheduled",
 	"entity.delete":                "Deleted",
 	"entity.restore_version":       "Restored a version",
+	"search_replace.apply":         "Searched and replaced",
 	"backups.create":               "Started a backup",
 	"backups.download":             "Downloaded a backup",
 	"backups.delete":               "Deleted a backup",
