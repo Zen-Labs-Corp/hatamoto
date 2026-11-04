@@ -209,6 +209,9 @@ type Deps struct {
 	// SEO is the SEO settings store behind Settings > SEO; nil answers those
 	// pages with 503. Set it only when non-nil.
 	SEO SEOService
+	// Privacy is the cookie consent settings and choice counts behind Settings >
+	// Privacy; nil answers that page with 503.
+	Privacy PrivacyService
 	// SiteGraph returns the site-wide Organization + WebSite JSON-LD graph
 	// exactly as the public head emits it; nil hides the preview.
 	SiteGraph func(r *http.Request) (map[string]any, error)

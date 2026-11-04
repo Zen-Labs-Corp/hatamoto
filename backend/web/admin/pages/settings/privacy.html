@@ -1,0 +1,19 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/settings/privacy" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "banner" "Title" "Cookie consent" "Heading" "h2" "Description" "Ask visitors before analytics, marketing or preference cookies are used. Off by default: nothing changes on your site until you turn it on."}}
+{{template "hm/field" dict "ID" "privacy-enabled" "Name" "enabled" "Label" "Show a cookie banner" "Control" "switch" "Value" "true" "OffValue" "false" "Checked" .State.Enabled}}
+{{template "hm/field" dict "ID" "privacy-region" "Name" "region" "Label" "Show the banner to" "Control" "select" "Options" .Regions "Help" "Visitors in the EU and UK mode are found from the country header your CDN adds. Without that header everyone sees the banner." "Error" (index .Errs "privacy-region")}}
+{{template "hm/field" dict "ID" "privacy-title" "Name" "title" "Label" "Banner title" "Value" .State.Title "Error" (index .Errs "privacy-title")}}
+{{template "hm/field" dict "ID" "privacy-text" "Name" "text" "Label" "Banner text" "Control" "textarea" "Rows" 3 "Value" .State.Text "Error" (index .Errs "privacy-text")}}
+<input type="hidden" name="categories_present" value="1">
+<fieldset class="hm-field__group" id="privacy-categories"><legend class="hm-field__label">Categories to ask about</legend>
+<div class="hm-field__chips">{{range .Categories}}{{template "hm/field" dict "ID" (printf "privacy-cat-%s" .ID) "Name" "categories" "Control" "chip" "Value" .ID "Label" .Label "Checked" .Checked}}
+{{end}}</div>{{with index .Errs "privacy-categories"}}<p class="hm-field__error" id="privacy-categories-error">{{.}}</p>{{end}}</fieldset>
+<p class="hm-muted">A visitor's choice is remembered for 12 months. Choices are counted per day without any visitor data.</p>
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+{{template "hm/table" .Counts}}
+{{end}}{{end}}

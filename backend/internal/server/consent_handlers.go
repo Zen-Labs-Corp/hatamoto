@@ -86,3 +86,17 @@ func (s *Server) handleConsentLog(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// privacyAdmin adapts the consent store and counter to admin.PrivacyService.
+type privacyAdmin struct {
+	store   *consent.Store
+	counter *consent.Counter
+}
+
+func (p privacyAdmin) Get(ctx context.Context) (consent.Settings, error) { return p.store.Get(ctx) }
+func (p privacyAdmin) Save(ctx context.Context, s consent.Settings) error {
+	return p.store.Save(ctx, s)
+}
+func (p privacyAdmin) Counts(ctx context.Context, days int) ([]consent.DayCounts, error) {
+	return p.counter.Last(ctx, days)
+}

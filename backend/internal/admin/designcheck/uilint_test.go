@@ -125,6 +125,7 @@ var uiAllow = []uiAllowEntry{
 
 	// UI-10: page-level forms that edit or remove something, not a create form beside the list.
 	{Rule: "UI-10", File: "pages/linking/rules.html", Needle: `rules/delete-source`, Reason: "removes a set of rules by source, a destructive action and not a create form"},
+	{Rule: "UI-10", File: "pages/settings/privacy.html", Needle: `action="{{adminPath}}/settings/privacy"`, Reason: "the cookie consent settings form, a settings form and not a create form; the counts table below is read-only"},
 	{Rule: "UI-10", File: "pages/settings/theme.html", Needle: `Update to %s`, Reason: "per-card Update button of an installed theme, a row action and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `action="{{adminPath}}/settings/updates" class`, Reason: "the update policy form, a settings form and not a create form; the history table below is read-only"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="check-form"`, Reason: "Check now, a row action of the status card and not a create form"},
