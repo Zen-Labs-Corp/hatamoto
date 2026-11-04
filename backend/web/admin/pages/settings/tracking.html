@@ -14,7 +14,8 @@
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "tags" "Title" "Tags" "Heading" "h2" "Description" "Each tag loads once, after consent, and adds only its own hosts to the page policy. Off by default: nothing changes on your site until you turn a tag on."}}
 {{range .Rows}}<fieldset class="hm-field__group" id="tracking-{{.Key}}"><legend class="hm-field__label">{{.Label}}</legend>
-<input type="hidden" name="{{.Key}}_present" value="1">
+{{with .Source}}<p class="hm-muted">{{.}}</p>
+{{end}}<input type="hidden" name="{{.Key}}_present" value="1">
 {{template "hm/field" dict "ID" (printf "tracking-%s-enabled" .Key) "Name" (printf "%s_enabled" .Key) "Label" (printf "Turn on %s" .Label) "Control" "switch" "Value" "true" "OffValue" "false" "Checked" .Enabled}}
 {{template "hm/field" dict "ID" (printf "tracking-%s-id" .Key) "Name" (printf "%s_id" .Key) "Label" .IDLabel "Value" .Value "Help" .IDHelp "Error" .IDErr}}
 {{if .HasAux}}{{template "hm/field" dict "ID" (printf "tracking-%s-aux" .Key) "Name" (printf "%s_aux" .Key) "Label" .AuxLabel "Value" .Aux "Help" .AuxHelp "Error" .AuxErr}}

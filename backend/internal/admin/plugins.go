@@ -358,7 +358,7 @@ type pluginState struct {
 }
 
 // pluginStatus derives the state once. Precedence: uninstalling, blocked,
-// turned off, loaded, widget-only, failed.
+// turned off, loaded, widget-only, tag pack, failed.
 func pluginStatus(p PluginInfo) pluginState {
 	switch {
 	case p.Package != nil && p.Package.Uninstalling:
@@ -372,6 +372,9 @@ func pluginStatus(p PluginInfo) pluginState {
 	case p.Package != nil && p.Package.WidgetOnly:
 		// No wasm to load: its widgets are registered, which is all it does.
 		return pluginState{Badge: ui.Badge{Label: "Widgets", Kind: "neutral"}, Active: true}
+	case p.Package != nil && p.Package.TagPack:
+		// No wasm to load: its tags are published, which is all it does.
+		return pluginState{Badge: ui.Badge{Label: "Tag pack", Kind: "neutral"}, Active: true}
 	}
 	return pluginState{Badge: ui.Badge{Label: "Failed", Kind: "danger"}, Marker: "Failed"}
 }
@@ -445,7 +448,7 @@ type pluginPageData struct {
 // settings schema).
 func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAdmin, status int, p PluginInfo, values map[string]any, errs schemaform.Errors, openPath string) {
 	role := userFrom(r.Context()).Role
-	d := pluginPageData{pluginHead: a.newPluginHead(p, "settings", role == "owner"), Owner: role == "owner", UI: a.pluginUIFor(r, p, role), Inactive: !p.Loaded && (p.Package == nil || !p.Package.WidgetOnly)}
+	d := pluginPageData{pluginHead: a.newPluginHead(p, "settings", role == "owner"), Owner: role == "owner", UI: a.pluginUIFor(r, p, role), Inactive: !p.Loaded && (p.Package == nil || (!p.Package.WidgetOnly && !p.Package.TagPack))}
 	title := p.Name + " settings"
 	if !d.Owner && d.UI != nil {
 		title = d.UI.Title

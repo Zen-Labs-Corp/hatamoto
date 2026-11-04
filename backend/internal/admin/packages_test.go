@@ -1046,3 +1046,34 @@ func TestPermissionsPageLabelsOnlyRemovedPermissions(t *testing.T) {
 		t.Fatalf("the unknown permission must still be disabled:\n%s", body)
 	}
 }
+
+func TestTrackingRowSourceNamesThePack(t *testing.T) {
+	t.Parallel()
+
+	if got := trackingSource("ga4", map[string]string{"x.y": "1.0.0"}); got != "" {
+		t.Errorf("built-in = %q", got)
+	}
+	if got := trackingSource("x.y", map[string]string{"x.y": "1.0.0"}); got != "Tag pack v1.0.0" {
+		t.Errorf("pack = %q", got)
+	}
+}
+
+func TestTagPackCardAndDetailShowHostsNotPermissions(t *testing.T) {
+	t.Parallel()
+
+	view := RegistryView{Host: "registry.example.test", Entries: []RegistryEntry{{Kind: "plugin", Name: "acme", Version: "1.0.0", Description: "Acme tag",
+		Tags: []TagInfo{{Name: "Acme", Category: "marketing", Hosts: []string{"cdn.acme.example"}}}}}}
+	g, _ := browseRig(t, view)
+	if body := getBrowse(g, ""); !strings.Contains(body, "Tag pack · Runs no code") {
+		t.Error("card lacks the tag pack line")
+	}
+	_, body := getAbout(g, "acme", nil)
+	for _, want := range []string{"cdn.acme.example", "Marketing", "runs no code"} {
+		if !strings.Contains(strings.ToLower(body), strings.ToLower(want)) {
+			t.Errorf("detail lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "It asks for no permissions") {
+		t.Error("detail shows a permission list for a tag pack")
+	}
+}

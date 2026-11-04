@@ -28,8 +28,10 @@ func (a *Admin) mountTrackingSettings(owner *httpx.Group) {
 // trackingRow is one vendor fieldset of the page.
 type trackingRow struct {
 	Key, Label, Value, Aux, IDLabel, AuxLabel, IDHelp, AuxHelp string
-	Enabled, HasAux                                            bool
-	IDErr, AuxErr                                              string
+	// Source is "Tag pack v1.0.0" for a pack tag, "" for a built-in one.
+	Source          string
+	Enabled, HasAux bool
+	IDErr, AuxErr   string
 	// AdsTxtURL is set on the AdSense row when the ads.txt settings tab exists.
 	AdsTxtURL string
 }
@@ -230,10 +232,15 @@ func (a *Admin) renderTracking(w http.ResponseWriter, r *http.Request, status in
 	if a.deps.TrackingNeverLoads != nil {
 		never = a.deps.TrackingNeverLoads(r.Context())
 	}
+	packVersions := map[string]string{}
+	for _, pv := range tags.Packs() {
+		packVersions[pv.ID] = pv.PluginVersion
+	}
 	for _, v := range tags.All() {
 		st := set.Vendors[v.ID]
 		row := trackingRow{
 			Key: v.ID, Label: v.Label, Enabled: st.Enabled, Value: st.ID, Aux: st.Aux,
+			Source:  trackingSource(v.ID, packVersions),
 			IDLabel: v.IDLabel,
 			IDHelp:  v.Help + " Category: " + strings.ToUpper(v.Category[:1]) + v.Category[1:] + ". Allows: " + trackingHosts(v) + ".",
 			IDErr:   errBy[trackingFieldID(v.ID)],
@@ -272,6 +279,14 @@ func (a *Admin) settingsTabURL(tabID string) string {
 				return a.adminPath + t.Final
 			}
 		}
+	}
+	return ""
+}
+
+// trackingSource labels a pack tag row, as text (not colour alone); built-in rows have no label.
+func trackingSource(id string, packVersions map[string]string) string {
+	if ver, ok := packVersions[id]; ok {
+		return "Tag pack v" + strings.TrimPrefix(ver, "v")
 	}
 	return ""
 }

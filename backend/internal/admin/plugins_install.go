@@ -76,6 +76,22 @@ type promptData struct {
 	Unsigned bool
 	Title    string     // "Install <Name> <version>?"
 	Chips    []ui.Badge // the signature, first-party and replaced-version badges beside the title
+	Tags     []tagCard  // the tags of a tag pack, shown instead of permissions
+}
+
+// tagCard is one tag of a tag pack on the install prompt or the browse detail.
+type tagCard struct {
+	Name  string
+	Lines []permtext.Line
+}
+
+// tagCards shapes tag infos for a prompt: the lines say the tag runs no code.
+func tagCards(in []TagInfo) []tagCard {
+	out := make([]tagCard, len(in))
+	for i, t := range in {
+		out[i] = tagCard{Name: t.Name, Lines: permtext.TagLines(t.IDLabel, t.Hosts, t.Category, t.Websockets)}
+	}
+	return out
 }
 
 // statementIcon is the glyph of a statement kind.
@@ -321,6 +337,10 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 		verb = "Update"
 	}
 	d.Title = strings.TrimSpace(verb+" "+sum.Name+" "+sum.Version) + "?"
+	if len(sum.Tags) > 0 {
+		d.Tags = tagCards(sum.Tags)
+		d.Chips = append(d.Chips, ui.Badge{Label: "Tracking tag", Plain: true})
+	}
 	if sum.Signed {
 		chip := ui.Badge{Label: "Signed by " + sum.Signer, Kind: "success"}
 		if sum.Problem != "" {

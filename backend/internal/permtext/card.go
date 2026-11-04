@@ -83,3 +83,28 @@ func ContentTypesLine(names []string) string {
 	}
 	return "Create the content " + label + " " + strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }
+
+// TagLines is the prompt text for one tag of a tag pack: what core loads, from
+// which hosts, after which consent, and which id the owner enters. A tag pack
+// runs no code, so the permission list does not apply to it.
+func TagLines(idLabel string, hosts []string, category string, websockets bool) []Line {
+	from := "It runs no code of its own. Core loads one script from: " + strings.Join(hosts, ", ")
+	if websockets {
+		from += ", and may open live connections (WebSocket) to them"
+	}
+	lines := []Line{
+		{Name: "Script", Text: from + "."},
+		{Name: "Consent", Text: "Consent category: " + upperFirst(category) + " (loads only after the visitor agrees)."},
+	}
+	if idLabel != "" {
+		lines = append(lines, Line{Name: "Needs", Text: "Needs: a " + idLabel + " (you enter it after installing)."})
+	}
+	return lines
+}
+
+func upperFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}

@@ -138,6 +138,10 @@ func newTagAccess(installed, update *Package) (hosts []string, categoryChanged b
 	return slices.Compact(hosts), categoryChanged
 }
 
+// TagCount is how many tags the published packs hold for a plugin: zero for a
+// plugin that is not a tag pack, or one that is off.
+func (m *Manager) TagCount(name string) int { return tagPackCount(name) }
+
 // tagPackCount is how many tags the published packs hold for a plugin.
 func tagPackCount(name string) int {
 	n := 0
