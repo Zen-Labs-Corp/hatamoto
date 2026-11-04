@@ -146,10 +146,12 @@ func (r *changesetReviewer) Review(ctx context.Context, id int64, page int) (adm
 	if err := r.runFinished(ctx, h); err != nil {
 		return admin.ReviewData{}, err
 	}
+	// Count the items themselves: the header's stored counter is only a cache.
+	items := counts.Low + counts.High + counts.Critical
 	d := admin.ReviewData{
-		ID: id, Plugin: h.Plugin, State: h.State, ExpiresAt: h.ExpiresAt, Items: h.ItemCount,
+		ID: id, Plugin: h.Plugin, State: h.State, ExpiresAt: h.ExpiresAt, Items: items,
 		Low: counts.Low, High: counts.High, Critical: counts.Critical, HighDecided: counts.HighDecided,
-		DroppedCount: counts.Dropped, PublishCount: max(h.ItemCount-counts.Dropped, 0), PayloadBytes: counts.PayloadBytes,
+		DroppedCount: counts.Dropped, PublishCount: max(items-counts.Dropped, 0), PayloadBytes: counts.PayloadBytes,
 		Previewable: h.State == changeset.StateStaged,
 	}
 	run, err := r.runs.Get(ctx, h.RunID)

@@ -124,9 +124,16 @@ func TestChangesetReviewIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// The counts come from the items themselves, not the changeset's stored counter.
+	if _, err := db.Pool().Exec(ctx, `UPDATE hatamoto_changesets SET item_count = 0 WHERE id = $1`, cs); err != nil {
+		t.Fatal(err)
+	}
 	d, err := rev.Review(ctx, cs, 1)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if d.PublishCount != 3 || d.DroppedCount != 0 {
+		t.Fatalf("publish count = %d, dropped = %d, want 3 and 0", d.PublishCount, d.DroppedCount)
 	}
 	if d.RunName != "import" || d.Items != 3 || d.Pending != 1 || d.CanPublish || len(d.Risky) != 1 || len(d.Suggestions) != 2 {
 		t.Fatalf("review = %+v", d)
@@ -139,6 +146,12 @@ func TestChangesetReviewIntegration(t *testing.T) {
 	// Nothing is decided: publish is refused and writes nothing.
 	if _, _, err := rev.Publish(ctx, cs); !errors.Is(err, admin.ErrReviewUndecided) {
 		t.Fatalf("publish undecided: %v", err)
+	}
+	if err := rev.Decide(ctx, cs, []int{3}, "dropped"); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ = rev.Review(ctx, cs, 1); d.Items != 3 || d.PublishCount != 2 || d.DroppedCount != 1 {
+		t.Fatalf("after a drop: total %d, publish %d, dropped %d, want 3, 2, 1", d.Items, d.PublishCount, d.DroppedCount)
 	}
 	if err := rev.Decide(ctx, cs, []int{3}, "approved"); err != nil {
 		t.Fatal(err)
