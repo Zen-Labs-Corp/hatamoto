@@ -49,6 +49,9 @@ type standingData struct {
 	WaitingMore int
 	// Paused is set while an ended approval has not been given again.
 	Paused *pausedNotice
+	// ShowRule is false while the paused notice stands alone: the rule and
+	// the waiting runs come back once the owner chose to review it.
+	ShowRule bool
 	// Summary is the daily summary table; SummaryTitle is "" when no run
 	// published itself in the last day.
 	Summary      ui.Table
@@ -137,7 +140,11 @@ func (a *Admin) handlePluginStanding(w http.ResponseWriter, r *http.Request) {
 			d.State.Badge = ui.Badge{Label: "Off", Kind: "info"}
 			body = "You turned them off. Until you allow them again, its automatic runs do not start."
 		}
-		d.Paused = &pausedNotice{Title: pausedTitle(p, paused.Reason), Body: body, Allow: "#opt2", Keep: d.Cancel}
+		d.Paused = &pausedNotice{Title: pausedTitle(p, paused.Reason), Body: body, Allow: d.Action + "?review=1", Keep: d.Cancel}
+	}
+	d.ShowRule = d.Paused == nil || r.URL.Query().Get("review") != ""
+	if d.ShowRule {
+		d.Paused = nil
 	}
 	d.SummaryTitle, d.Summary = a.standingSummary(r.Context(), digest)
 	if active != nil {

@@ -253,12 +253,17 @@ func TestStandingTabPausedState(t *testing.T) {
 	g := newStandingRig(t, fs)
 	body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String()
 	for _, want := range []string{
-		"Updated", "shop-sync was updated to 1.2.4. Its automatic updates are paused.", "Review and allow again", `href="#opt2"`,
-		"Keep paused", `href="/admin/plugins/shop-sync/settings"`, "Sign in again and allow",
+		"Updated", "shop-sync was updated to 1.2.4. Its automatic updates are paused.", "Review and allow again", `href="` + standingPath + `?review=1"`,
+		"Keep paused", `href="/admin/plugins/shop-sync/settings"`,
 		"Daily summary, 2 Nov 2026", "Automatic runs", "<td", ">311<", ">12<", "See runs",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("paused tab lacks %q", want)
+		}
+	}
+	for _, gone := range []string{"Sign in again and allow", "Option 1", "Option 2", "When a run steps outside"} {
+		if strings.Contains(body, gone) {
+			t.Errorf("a paused tab shows only the notice and the summary, found %q", gone)
 		}
 	}
 	if strings.Count(body, `>See runs<`) != 2 {
@@ -268,6 +273,17 @@ func TestStandingTabPausedState(t *testing.T) {
 		t.Errorf("a11y: %s", strings.Join(issues, "; "))
 	}
 	compareGolden(t, "pages/plugins-automatic-paused.html", normalizePage(body))
+
+	// Review and allow again brings the rule back, and the notice goes.
+	body = g.do("GET", standingPath+"?review=1", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{"Option 2: standing approval", "Sign in again and allow"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("review lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "Review and allow again") {
+		t.Error("the review shows the rule, not the paused notice")
+	}
 
 	fs.paused.Reason = "schema changed"
 	if body := g.do("GET", standingPath, "owner-token", nil, nil).Body.String(); !strings.Contains(body, "A content type shop-sync updates was changed.") {
