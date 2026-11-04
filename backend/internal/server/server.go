@@ -233,6 +233,11 @@ type Server struct {
 	// once loaded. The zero value (test shells) is off.
 	compressOn atomic.Bool
 
+	// compressCheck is the last public-address compression check (nil until
+	// one finished); compressCheckMu serialises runs.
+	compressCheck   atomic.Pointer[compressionResult]
+	compressCheckMu sync.Mutex
+
 	// renderErr is a failed theme load with rendering enabled; Start returns it.
 	renderErr error
 
@@ -910,6 +915,9 @@ func (s *Server) Start() error {
 			errChan <- err
 		}
 	}()
+
+	// Public-address compression check: background, after the listener starts.
+	s.startCompressionCheck(s.lifecycleCtx)
 
 	// Wait for interrupt signal
 	quit := make(chan os.Signal, 1)

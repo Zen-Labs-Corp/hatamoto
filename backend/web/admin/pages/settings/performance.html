@@ -33,7 +33,8 @@
 {{with index .Errs "compress"}}<p class="hm-field__error" id="compress-error">{{.}}</p>{{end}}</div>
 <div class="hm-setrow__control">{{template "hm/field" (dict "Control" "switch" "ID" "compress" "Name" "compress" "Value" "on" "Label" "Compress responses" "Bare" true "OffValue" "off" "Checked" .Compress "Error" (index .Errs "compress"))}}</div>
 </div>
-</div>{{template "hm/card-foot"}}<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Clear cache" "Type" "submit" "Attrs" (attrmap "form" "clear-form")}}</span>{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</div>{{if .CompressionWarn}}{{template "hm/callout-start" (dict "Kind" "warning" "ID" "compression-check" "Title" "Visitors get uncompressed pages")}}{{.CompressionURL}} answered without compression (checked {{.CompressionAt}}). Turn on Compress responses, or add <code>encode zstd gzip</code> to your Caddy site.{{template "hm/callout-end"}}
+{{end}}{{template "hm/card-foot"}}<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Clear cache" "Type" "submit" "Attrs" (attrmap "form" "clear-form")}}</span>{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
 {{template "hm/card-start" dict "ID" "preload-card" "Title" "Preload" "Heading" "h2" "Description" "Builds pages ahead of visitors."}}<div class="hm-setlist">
 <div class="hm-setrow">
 <div class="hm-setrow__text"><label class="hm-setrow__name" for="preload">Enable preload</label>

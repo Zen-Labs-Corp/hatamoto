@@ -52,7 +52,11 @@ type pageCacheService struct {
 	// setCompress flips the live response compression switch; nil in tests
 	// that build the service by hand.
 	setCompress func(bool)
-	schedMu     sync.Mutex
+	// compressionResult and runCompressionCheck expose the public-address
+	// compression check; nil in tests that build the service by hand.
+	compressionResult   func() *compressionResult
+	runCompressionCheck func(context.Context)
+	schedMu             sync.Mutex
 
 	// Live preload settings and the debounced after-change trigger.
 	missingOnly  atomic.Bool
@@ -271,6 +275,11 @@ func (p *pageCacheService) Save(ctx context.Context, in admin.PageCacheSettings)
 		return err
 	}
 	wasOn, isOn := p.Apply(*updated)
+	if p.runCompressionCheck != nil {
+		if lc := p.lifecycleCtx(); lc != nil {
+			go p.runCompressionCheck(lc)
+		}
+	}
 	if wasOn && !isOn {
 		p.preloader.Cancel()
 		if p.invalidate != nil {
@@ -332,7 +341,9 @@ func (s *Server) newPageCacheService() *pageCacheService {
 		baseURL:    s.preloadBase,
 		lifecycle:  func() context.Context { return s.lifecycleCtx },
 
-		setCompress: s.compressOn.Store,
+		setCompress:         s.compressOn.Store,
+		compressionResult:   s.compressCheck.Load,
+		runCompressionCheck: s.checkCompression,
 	}
 	if s.scheduler != nil {
 		p.scheduler = s.scheduler

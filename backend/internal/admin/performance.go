@@ -20,18 +20,20 @@ type performanceData struct {
 	Summary []ui.FieldError
 	Errs    map[string]string
 
-	Enabled, PreloadEnabled     bool
-	AfterChanges, Compress      bool
-	TTLOptions, IntervalOptions []ui.Option
-	MaxMB                       string
-	TTLSource                   string
-	LastPreload, StoppedLine    string
-	Running                     string
-	Stats                       []ui.Stat
-	CacheUse, PreloadProgress   *ui.Progress // nil without a size limit / while no preload runs
-	FailedLine                  string
-	ModeOptions                 []ui.Option
-	NoBaseURL, NoScheduler      bool
+	Enabled, PreloadEnabled       bool
+	AfterChanges, Compress        bool
+	TTLOptions, IntervalOptions   []ui.Option
+	MaxMB                         string
+	TTLSource                     string
+	LastPreload, StoppedLine      string
+	Running                       string
+	Stats                         []ui.Stat
+	CacheUse, PreloadProgress     *ui.Progress // nil without a size limit / while no preload runs
+	FailedLine                    string
+	ModeOptions                   []ui.Option
+	NoBaseURL, NoScheduler        bool
+	CompressionWarn               bool // the public address answered uncompressed
+	CompressionURL, CompressionAt string
 }
 
 func (a *Admin) mountPerformanceSettings(owner *httpx.Group) {
@@ -160,6 +162,10 @@ func (a *Admin) renderPerformance(w http.ResponseWriter, r *http.Request, status
 	}
 	for _, e := range errs {
 		d.Errs[e.ID] = e.Message
+	}
+	if cc := a.deps.PageCache.CompressionCheck(); cc.Checked && cc.Plain && cc.Err == "" {
+		d.CompressionWarn = true
+		d.CompressionURL, d.CompressionAt = cc.URL, fmtDateTime(cc.At.In(loc))
 	}
 	switch {
 	case pre.Running:

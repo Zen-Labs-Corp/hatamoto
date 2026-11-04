@@ -26,6 +26,7 @@ type fakePageCache struct {
 	startErr  error
 	preloads  int
 	saveError error
+	check     CompressionCheck
 }
 
 func (f *fakePageCache) Stats(context.Context) PageCacheStats { return f.stats }
@@ -45,7 +46,8 @@ func (f *fakePageCache) PreloadNow(context.Context) (bool, error) {
 	f.preloads++
 	return f.started, f.startErr
 }
-func (f *fakePageCache) PreloadStatus() PreloadStatus { return f.preload }
+func (f *fakePageCache) PreloadStatus() PreloadStatus       { return f.preload }
+func (f *fakePageCache) CompressionCheck() CompressionCheck { return f.check }
 
 func newPerfFake() *fakePageCache {
 	return &fakePageCache{
@@ -122,6 +124,38 @@ func TestPerformancePage(t *testing.T) {
 		t.Error("max-mb input is not described by the MB unit element")
 	}
 	compareGolden(t, "pages/settings-performance.html", normalizePage(body))
+}
+
+func TestPerformancePageCompressionCallout(t *testing.T) {
+	t.Parallel()
+
+	checked := time.Date(2026, 11, 4, 9, 30, 0, 0, time.UTC)
+	cases := []struct {
+		name  string
+		check CompressionCheck
+		want  bool
+	}{
+		{"never checked", CompressionCheck{}, false},
+		{"plain", CompressionCheck{Checked: true, URL: "https://example.com/", At: checked, Plain: true}, true},
+		{"compressed", CompressionCheck{Checked: true, URL: "https://example.com/", At: checked}, false},
+		{"could not run", CompressionCheck{Checked: true, URL: "https://example.com/", At: checked, Plain: true, Err: "timeout"}, false},
+	}
+	for _, c := range cases {
+		fake := newPerfFake()
+		fake.check = c.check
+		body := newPerfRig(t, fake).get(t)
+		got := strings.Contains(body, "Visitors get uncompressed pages")
+		if got != c.want {
+			t.Errorf("%s: callout shown = %v, want %v", c.name, got, c.want)
+		}
+		if c.want {
+			for _, s := range []string{"https://example.com/ answered without compression", "Nov 2026 ", "<code>encode zstd gzip</code>"} {
+				if !strings.Contains(body, s) {
+					t.Errorf("%s: callout lacks %q", c.name, s)
+				}
+			}
+		}
+	}
 }
 
 func TestPerformancePageVariants(t *testing.T) {
