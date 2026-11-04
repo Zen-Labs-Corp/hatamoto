@@ -22,6 +22,7 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/portability"
 	"hatamoto.dev/core/internal/redirect"
+	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -110,6 +111,8 @@ func runEntity(ctx context.Context, db *database.DB, args []string, out io.Write
 		return errors.New("usage: hatamoto entity list|get|create|publish|unpublish")
 	}
 	svc := entity.NewService(entity.NewPostgresSchemaRepository(db), entity.NewPostgresEntityRepository(db), logger)
+	// A locale-neutral type defaults to all languages on a multi-language site.
+	svc.URLRegistry().SetLocales(siteconfig.NewStore(db, logger).LocaleSource())
 	sub, rest := args[0], args[1:]
 	switch sub {
 	case "list":

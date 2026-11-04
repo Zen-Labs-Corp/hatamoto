@@ -52,6 +52,8 @@ func NewDeps(db *database.DB, cfg DepsConfig, logger *slog.Logger) *Deps {
 		}
 		return ""
 	})
+	// The public locale set and the shared-type default, as the server wires them.
+	ents.URLRegistry().SetLocales(site.LocaleSource())
 	mc := media.DefaultConfig()
 	if cfg.MediaDir != "" {
 		mc.UploadDir = cfg.MediaDir
