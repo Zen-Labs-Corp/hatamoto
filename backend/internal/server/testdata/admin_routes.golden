@@ -139,6 +139,7 @@ GET /admin/settings/redirects/explain -> admin.(*Admin).handleRedirectExplain-fm
 GET /admin/settings/redirects/new -> admin.(*Admin).handleRedirectNew-fm
 GET /admin/settings/redirects/{id}/delete -> admin.(*Admin).handleRedirectDeleteForm-fm
 GET /admin/settings/redirects/{id}/edit -> admin.(*Admin).handleRedirectEdit-fm
+GET /admin/settings/search-replace -> admin.(*Admin).handleSearchReplace-fm
 GET /admin/settings/security -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/security/admin-address -> admin.(*Admin).handleSecurityAddress-fm
 GET /admin/settings/security/admin-address/change -> admin.(*Admin).handleAddressChange-fm
@@ -358,6 +359,7 @@ POST /admin/settings/redirects/bulk -> admin.(*Admin).handleRedirectsBulk-fm
 POST /admin/settings/redirects/{id}/delete -> admin.(*Admin).handleRedirectDelete-fm
 POST /admin/settings/redirects/{id}/edit -> admin.(*Admin).handleRedirectSave-fm
 POST /admin/settings/redirects/{id}/toggle -> admin.(*Admin).handleRedirectToggle-fm
+POST /admin/settings/search-replace -> admin.(*Admin).handleSearchReplaceApply-fm
 POST /admin/settings/security/admin-address/change -> admin.(*Admin).handleAddressChangeSave-fm
 POST /admin/settings/security/admin-address/change/regenerate -> admin.(*Admin).handleAddressChangeRegen-fm
 POST /admin/settings/security/admin-address/keep -> admin.(*Admin).handleAddressKeepSave-fm
