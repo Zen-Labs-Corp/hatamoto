@@ -46,7 +46,8 @@ In this guide you put a reverse proxy in front of Hatamoto so visitors reach you
        # ssl_certificate and ssl_certificate_key go here
 
        gzip on;
-       gzip_types text/css application/javascript application/json image/svg+xml text/plain application/xml;
+       gzip_vary on;
+       gzip_types text/css text/javascript application/javascript application/json application/ld+json application/xml application/rss+xml application/atom+xml text/xsl text/plain image/svg+xml;
 
        location / {
            proxy_pass http://127.0.0.1:8090;
