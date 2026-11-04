@@ -4,8 +4,10 @@
 // public page) which must answer the admin 404.
 //
 // Plugin part: the seeded instance has no plugin with an admin page, so run-local.sh points
-// HATAMOTO_PLUGIN_DIR at fixtures/frame-plugin when this script is requested (a UI-only plugin
-// whose plugin.wasm is the 8 byte empty module; the dev override loads it as an unsigned package).
+// HATAMOTO_PLUGIN_DIR at a copy of fixtures/frame-plugin when this script is requested (a plugin with
+// an admin page and an import run; the dev override loads it as an unsigned package). The committed
+// plugin.wasm is an 8 byte stub: run-local.sh always rebuilds it in the copy, so run this script
+// through run-local.sh; pointing HATAMOTO_PLUGIN_DIR at the fixture by hand loads a Failed plugin.
 //
 // Run: SHOTS=<dir> bash scripts/admin-qa/run-local.sh frame-tickets.mjs   (SHOTS: where screenshots go)   Exit 1 on any problem.
 import fs from "node:fs";
