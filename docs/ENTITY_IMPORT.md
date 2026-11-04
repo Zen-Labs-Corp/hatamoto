@@ -23,7 +23,8 @@ res, err := svc.Import(ctx, actor, entity.ImportBatch{
 ```
 
 * **Locale** is applied on create only. An empty one gets the site language, or
-  `und` (all languages) when the type is marked "Shared across languages"; an
+  `und` (all languages) when the type is marked "Shared across languages" and the
+  site has more than one language; an
   explicit locale is stored as sent. A re-run never changes the stored locale.
 * **Dates are kept.** `created_at`, `updated_at` and `published_at` are stored as
   given (UTC); missing ones default to now, to `created_at`, and (for a

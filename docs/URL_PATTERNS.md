@@ -102,9 +102,12 @@ created without one gets the site language. Slugs are unique per schema and
 locale, so an `en` and an `fr` entity can share a slug.
 
 An entity type can be marked **Shared across languages** (the schema setting
-`locale_neutral`, off by default). A new entry of that type with no locale gets
+`locale_neutral`, off by default). On a site with more than one language, a new entry of that type with no locale gets
 the shared locale `und` instead of the site language, on every way of creating
 entries: the admin, the REST API, MCP, plugin and changeset creates and imports.
+On a single-language site the setting does nothing (the public site serves only
+the site language, so an `und` entry would never show) and new entries get the
+site language; it starts working when a second language is added.
 A locale sent explicitly is stored as sent, so one entry of a shared type can
 still belong to a single language. Turning the setting on or off does not change
 existing entries, and an update never changes an entry's locale. Built-in types

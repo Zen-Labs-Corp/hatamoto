@@ -156,8 +156,8 @@ different repository.
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
-> `EntityDraft` has it as an optional field (filled on `entity.before_save` from the entity, and empty, so left out of the JSON, on a create that sent no locale; the host never reads it back), and `entities.create` / `entities.update` accept `locale`
-> (empty on create means the site language, or `und` for an entity type marked "Shared across languages"; a locale you send is kept). SDK 0.13 carries it: no rule requires a bump for an additive field, but a published SDK
+> `EntityDraft` has it as an optional field (filled on `entity.before_save` from the entity, and empty, so left out of the JSON, on a create that sent no locale, except that it is `und` for a type shared across languages on a multi-language site; the host never reads it back), and `entities.create` / `entities.update` accept `locale`
+> (empty on create means the site language, or `und` for an entity type marked "Shared across languages" on a site with several languages; a locale you send is kept). SDK 0.13 carries it: no rule requires a bump for an additive field, but a published SDK
 > tree cannot change under the same version, and 0.10 and 0.11 shipped additive payload changes as a minor too.
 > A plugin built earlier ignores unknown JSON fields; on a host older than SDK 0.13 the field is absent.
 > On `entity.published` from a scheduled publish the host looks the locale up; if that fails it is `""`.
@@ -168,7 +168,7 @@ different repository.
 >
 > **0.15 changes (additive for plugins built for 0.14 or older):** locale support for plugins that manage a multi-locale site.
 > `HeadContext` carries `locale` and `segment`, `SitemapURLs` carries `segment` and `file`, entities carry `translation_group`,
-> `entities.create` takes `translation_of` (and, for a plugin declaring 0.15 or later, needs `locale` on a multi-locale site; `entities.create` is removed since 0.17, and `changeset.entity.upsert` with no `locale` takes the site language or `und` for a shared type), the `entities.translations` host function lists a
+> `entities.create` takes `translation_of` (and, for a plugin declaring 0.15 or later, needs `locale` on a multi-locale site; `entities.create` is removed since 0.17, and `changeset.entity.upsert` with no `locale` takes the site language, or `und` for a shared type on a multi-language site), the `entities.translations` host function lists a
 > translation group (it needs `entities.read`, no new permission), and `entities.get` with a `path` reads a locale-prefixed path in that locale (only for a plugin whose `sdk` range requires 0.15 or later; `^0.14` and older resolve paths as before).
 > All new payload fields are left out when empty, so a one-language site sends the same JSON as before. A plugin built earlier ignores the unknown
 > fields; on a host older than SDK 0.15 they are absent, and `entities.translations` fails with `unknown_function`.
