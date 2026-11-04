@@ -7,11 +7,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/session"
+	"hatamoto.dev/core/internal/twofactor"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -30,8 +32,10 @@ func parseUserFlags(name string, args []string, create bool) (*userFlags, error)
 	f := &userFlags{}
 	fs := flag.NewFlagSet("user "+name, flag.ContinueOnError)
 	fs.StringVar(&f.email, "email", "", "user email (required)")
-	fs.StringVar(&f.password, "password", "", "password (visible in the process list; prefer --password-stdin)")
-	fs.BoolVar(&f.passwordStdin, "password-stdin", false, "read the password from stdin")
+	if name != "reset-2fa" { // reset-2fa takes no password
+		fs.StringVar(&f.password, "password", "", "password (visible in the process list; prefer --password-stdin)")
+		fs.BoolVar(&f.passwordStdin, "password-stdin", false, "read the password from stdin")
+	}
 	if create {
 		fs.StringVar(&f.name, "name", "", "display name")
 		fs.StringVar(&f.role, "role", string(user.RoleOwner), "owner or editor")
@@ -130,4 +134,54 @@ func runUserResetPassword(ctx context.Context, db *database.DB, f *userFlags, st
 		fmt.Fprintf(out, "temporary password: %s\n", pw)
 	}
 	return nil
+}
+
+// runUserReset2FA removes every second factor of a user (authenticator app,
+// passkeys, recovery codes) so they can sign in with the password again. It
+// leaves sessions and the password alone and writes an audit row.
+func runUserReset2FA(ctx context.Context, db *database.DB, f *userFlags, out io.Writer) error {
+	u, err := user.NewPostgresRepository(db).GetByEmail(ctx, f.email)
+	if err != nil {
+		if errors.Is(err, user.ErrUserNotFound) {
+			return fmt.Errorf("no user with email %s", f.email)
+		}
+		return err
+	}
+	rm, err := twofactor.NewStore(db.Pool()).Reset(ctx, u.ID)
+	if err != nil {
+		return fmt.Errorf("removing second factors: %w", err)
+	}
+	detail := fmt.Sprintf(`{"totp":%t,"passkeys":%d,"recovery_codes":%d}`, rm.TOTP, rm.Passkeys, rm.RecoveryCodes)
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_admin_audit (actor_id, actor, action, target, detail) VALUES (NULL, 'cli', 'user.2fa.reset', $1, $2::jsonb)`, u.Email, detail); err != nil {
+		return fmt.Errorf("second factors removed but the audit row failed: %w", err)
+	}
+	fmt.Fprintln(out, describeReset2FA(rm, u.Email))
+	if rm.TOTP || rm.Passkeys > 0 || rm.RecoveryCodes > 0 {
+		fmt.Fprintln(out, "They can sign in with their password and set up two-step sign-in again. Sessions and the password are unchanged.")
+	}
+	return nil
+}
+
+func describeReset2FA(rm twofactor.Removed, email string) string {
+	var parts []string
+	if rm.TOTP {
+		parts = append(parts, "the authenticator app")
+	}
+	switch rm.Passkeys {
+	case 0:
+	case 1:
+		parts = append(parts, "1 passkey")
+	default:
+		parts = append(parts, strconv.Itoa(rm.Passkeys)+" passkeys")
+	}
+	if rm.RecoveryCodes > 0 {
+		parts = append(parts, "the recovery codes")
+	}
+	switch len(parts) {
+	case 0:
+		return email + " had no second factor to remove."
+	case 1:
+		return "Removed " + parts[0] + " for " + email + "."
+	}
+	return "Removed " + strings.Join(parts[:len(parts)-1], ", ") + " and " + parts[len(parts)-1] + " for " + email + "."
 }

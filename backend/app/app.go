@@ -29,6 +29,7 @@ const (
 	cmdMigrateStatus
 	cmdUserCreate
 	cmdUserResetPassword
+	cmdUserReset2FA
 	cmdPluginsList
 	cmdSanitizeHTMLSections
 	cmdRoutes
@@ -54,6 +55,7 @@ commands:
                                    create a user (a temporary password is printed unless one is given)
   user reset-password --email E [--password P | --password-stdin]
                                    set a new password (temporary one printed unless given), unlock, sign out
+  user reset-2fa --email E         remove the authenticator app, passkeys and recovery codes of a user (password sign-in only afterwards)
   admin-url                        print the admin address
   admin-url set PATH [--i-understand-weak]
                                    store a new admin address (weak ones need the flag; applies after a restart)
@@ -128,6 +130,9 @@ func parseArgs(args []string) (command, error) {
 		}
 		if len(args) >= 2 && args[1] == "reset-password" {
 			return cmdUserResetPassword, nil
+		}
+		if len(args) >= 2 && args[1] == "reset-2fa" {
+			return cmdUserReset2FA, nil
 		}
 	case "admin-url":
 		if _, err := parseAdminURLArgs(args[1:]); err == nil {
@@ -280,6 +285,10 @@ func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) e
 		if uf, err = parseUserFlags("reset-password", args[2:], false); err != nil {
 			return err
 		}
+	case cmdUserReset2FA:
+		if uf, err = parseUserFlags("reset-2fa", args[2:], false); err != nil {
+			return err
+		}
 	}
 	db, err := openDB(ctx)
 	if err != nil {
@@ -302,6 +311,8 @@ func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) e
 		return runUserCreate(ctx, db, uf, os.Stdin, os.Stdout)
 	case cmdUserResetPassword:
 		return runUserResetPassword(ctx, db, uf, os.Stdin, os.Stdout)
+	case cmdUserReset2FA:
+		return runUserReset2FA(ctx, db, uf, os.Stdout)
 	}
 	return fmt.Errorf("unhandled command %d", cmd)
 }
