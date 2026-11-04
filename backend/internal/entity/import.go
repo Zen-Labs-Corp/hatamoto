@@ -32,7 +32,7 @@ type ImportItem struct {
 	SchemaSlug string
 	Name       string
 	Slug       string // generated from Name when empty
-	Locale     string // BCP 47 tag; empty is the site language on insert and unchanged on update
+	Locale     string // BCP 47 tag; empty is the site language (und for a locale-neutral type) on insert and unchanged on update
 	Status     EntityStatus
 	Attributes json.RawMessage
 	Metadata   json.RawMessage
@@ -294,6 +294,9 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 	var stored json.RawMessage
 	if existing != nil {
 		stored = existing.Attributes
+	} else {
+		// Only a new item gets the schema default; an update keeps its stored locale.
+		locale = schema.DefaultLocale(locale, func() bool { return r.s.siteIsMulti(ctx) })
 	}
 	if attrs, err = normalizeDocRaw(docWrite, stored, attrs, EligibleForPageDoc(schema)); err != nil {
 		return nil, false, err

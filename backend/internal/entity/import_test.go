@@ -16,6 +16,7 @@ import (
 type importRepo struct {
 	*mockEntityRepository
 	byKey map[string]uuid.UUID
+	recs  []*ImportRecord // every record handed to ImportUpsert, in order
 }
 
 func newImportRepo() *importRepo {
@@ -31,6 +32,7 @@ func (r *importRepo) GetByImportKey(_ context.Context, key string) (*Entity, err
 }
 
 func (r *importRepo) ImportUpsert(_ context.Context, rec *ImportRecord) (*Entity, bool, error) {
+	r.recs = append(r.recs, rec)
 	var meta map[string]any
 	_ = json.Unmarshal(rec.Metadata, &meta)
 	key, _ := meta["import_key"].(string)
@@ -194,6 +196,45 @@ func TestImport_ParentsDatesIdempotencyAndOneEvent(t *testing.T) {
 		testutil.Equal(t, res.Items[i].ID, res2.Items[i].ID)
 	}
 	testutil.Equal(t, []EventKind{EventImportCompleted, EventImportCompleted}, sink.kinds())
+}
+
+func TestImport_LocaleNeutral(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	attrs := json.RawMessage(`{"title":"T"}`)
+	run := func(settings, locale string, multi bool) *ImportRecord {
+		t.Helper()
+		sr := newMockSchemaRepository()
+		repo := newImportRepo()
+		svc := NewService(sr, repo, testLogger())
+		if multi {
+			useLocales(t, svc, "en", "fr")
+		}
+		seedSchema(t, sr, func(s *EntitySchema) {
+			s.Slug = "page"
+			s.Settings = json.RawMessage(settings)
+			s.Schema = json.RawMessage(`{"type":"object","properties":{"title":{"type":"string"}}}`)
+		})
+		res, err := svc.Import(ctx, &testUserID, ImportBatch{Source: "test", Items: []ImportItem{
+			{Key: "k", SchemaSlug: "page", Name: "T", Locale: locale, Attributes: attrs},
+		}})
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, 1, res.Created)
+		// Re-import: an update must keep the stored locale (record Locale "").
+		if settings == `{"locale_neutral":true}` && locale == "" {
+			res2, err := svc.Import(ctx, &testUserID, ImportBatch{Source: "test", Items: []ImportItem{
+				{Key: "k", SchemaSlug: "page", Name: "T", Attributes: attrs},
+			}})
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, 1, res2.Updated)
+			testutil.Equal(t, "", repo.recs[1].Locale)
+		}
+		return repo.recs[0]
+	}
+	testutil.Equal(t, "und", run(`{"locale_neutral":true}`, "", true).Locale)
+	testutil.Equal(t, "", run(`{"locale_neutral":true}`, "", false).Locale) // single-language site: site language
+	testutil.Equal(t, "en-AU", run(`{"locale_neutral":true}`, "en-AU", true).Locale)
+	testutil.Equal(t, "", run(`{}`, "", true).Locale)
 }
 
 func TestImport_ParentErrors(t *testing.T) {

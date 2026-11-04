@@ -122,3 +122,53 @@ func TestPatternConflict_IgnoresOtherLocales(t *testing.T) {
 		t.Errorf("conflict names kid and not solo: %v", err)
 	}
 }
+
+func TestCreateEntity_LocaleNeutral(t *testing.T) {
+	ctx := context.Background()
+	for _, c := range []struct {
+		name, settings, locale, want string // want "" = site language; "!" = error
+		single                       bool   // the site has one language
+	}{
+		{"flagged omitted", `{"locale_neutral":true}`, "", "und", false},
+		{"flagged omitted single-locale site", `{"locale_neutral":true}`, "", "", true},
+		{"flagged explicit", `{"locale_neutral":true}`, "en-AU", "en-AU", false},
+		{"unflagged omitted", `{}`, "", "", false},
+		{"flagged explicit und refused", `{"locale_neutral":true}`, "und", "!", false},
+		{"unflagged explicit und refused", `{}`, "und", "!", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			svc, schemaID, site := localeFixture(t, c.settings)
+			if !c.single {
+				useLocales(t, svc, "en", "fr")
+			}
+			got, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "x", Slug: "x", Locale: c.locale, Attributes: json.RawMessage(`{}`)})
+			if c.want == "!" {
+				if err == nil {
+					t.Fatalf("explicit und accepted: %+v", got)
+				}
+				return
+			}
+			want := c.want
+			if want == "" {
+				want = site
+			}
+			if err != nil || got.Locale != want {
+				t.Fatalf("got %+v, %v; want locale %q", got, err, want)
+			}
+		})
+	}
+
+	t.Run("update keeps locale", func(t *testing.T) {
+		svc, schemaID, _ := localeFixture(t, `{"locale_neutral":true}`)
+		useLocales(t, svc, "en", "fr")
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "x", Slug: "x", Attributes: json.RawMessage(`{}`)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		name := "renamed"
+		up, err := svc.UpdateEntity(ctx, e.ID, nil, &UpdateEntityInput{Name: &name})
+		if err != nil || up.Locale != "und" {
+			t.Fatalf("update: %+v, %v; want locale und", up, err)
+		}
+	})
+}

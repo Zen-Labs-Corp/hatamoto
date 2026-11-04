@@ -1,9 +1,13 @@
 package admin
 
 import (
+	"context"
+	"encoding/json"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
 )
@@ -120,5 +124,152 @@ func TestDetailsSharedEntryShowsNote(t *testing.T) {
 	}
 	if c.ents.ents[fid(11)].Locale != entity.LocaleShared {
 		t.Error("a shared entry was re-tagged")
+	}
+}
+
+// createSpy records what the admin sends to CreateEntity and stores the
+// locale the way the service does: the type's default, else the site language.
+type createSpy struct {
+	EntityStore
+	ents *fakeEntities
+	got  []*entity.CreateEntityInput
+}
+
+func (s *createSpy) CreateEntity(ctx context.Context, by *uuid.UUID, in *entity.CreateEntityInput) (*entity.Entity, error) {
+	cp := *in
+	s.got = append(s.got, &cp)
+	e, err := s.EntityStore.CreateEntity(ctx, by, in)
+	if err != nil {
+		return nil, err
+	}
+	locale := s.ents.schemaOf(in.SchemaID).DefaultLocale(in.Locale, func() bool { return true })
+	if locale == "" {
+		locale = "en"
+	}
+	s.ents.ents[e.ID].Locale = locale
+	return e, nil
+}
+
+// neutralRig is a rig whose Recipe type is locale neutral and whose Service
+// type is not, with CreateEntity spied on.
+func neutralRig(t *testing.T, tags ...string) (*contentRig, *createSpy) {
+	t.Helper()
+	c, _ := translationsRig(t, tags...)
+	c.recipe.Settings = json.RawMessage(`{"locale_neutral":true}`)
+	spy := &createSpy{EntityStore: c.a.deps.Content.Entities, ents: c.ents}
+	c.a.deps.Content.Entities = spy
+	return c, spy
+}
+
+func recipeForm(locale *string) url.Values {
+	f := url.Values{"type": {"recipe"}, "name": {"Soup"}, "slug": {"soup"}, "status": {"draft"}}
+	if locale != nil {
+		f.Set("locale", *locale)
+	}
+	return f
+}
+
+func createdLocale(t *testing.T, c *contentRig) string {
+	t.Helper()
+	for _, e := range c.ents.ents {
+		if e.Slug == "soup" {
+			return e.Locale
+		}
+	}
+	t.Fatal("no entity was created")
+	return ""
+}
+
+func TestNewFormFlaggedTypeOffersSharedPreselected(t *testing.T) {
+	t.Parallel()
+	c, _ := neutralRig(t, "en", "fr")
+	body := c.get(t, "owner-token", "/admin/entities/new?type=recipe", "")
+	has(t, body, `name="locale"`, `<option value="" selected`, "All languages (shared)", `value="en"`, `value="fr"`)
+	lacks(t, body, `value="und"`, "Changing it moves this page")
+}
+
+func TestNewFormUnflaggedTypeHasNoLocaleSelect(t *testing.T) {
+	t.Parallel()
+	c, _ := neutralRig(t, "en", "fr")
+	body := c.get(t, "owner-token", "/admin/entities/new?type=service", "")
+	lacks(t, body, `name="locale"`, "All languages (shared)")
+}
+
+func TestNewFormSingleLocaleSiteHasNoSelect(t *testing.T) {
+	t.Parallel()
+	c, _ := neutralRig(t)
+	body := c.get(t, "owner-token", "/admin/entities/new?type=recipe", "")
+	lacks(t, body, `name="locale"`, "All languages (shared)")
+}
+
+func TestCreateFlaggedSharedStoresUnd(t *testing.T) {
+	t.Parallel()
+	c, spy := neutralRig(t, "en", "fr")
+	empty := ""
+	if rec := c.post("/admin/entities", recipeForm(&empty)); rec.Code != 303 {
+		t.Fatalf("create: %d\n%s", rec.Code, rec.Body.String())
+	}
+	if len(spy.got) != 1 || spy.got[0].Locale != "" {
+		t.Errorf("input = %+v, want no locale so the service defaults it", spy.got)
+	}
+	if got := createdLocale(t, c); got != entity.LocaleShared {
+		t.Errorf("locale = %q, want %q", got, entity.LocaleShared)
+	}
+}
+
+func TestCreateFlaggedExplicitLocaleStored(t *testing.T) {
+	t.Parallel()
+	c, spy := neutralRig(t, "en", "fr")
+	loc := "fr"
+	if rec := c.post("/admin/entities", recipeForm(&loc)); rec.Code != 303 {
+		t.Fatalf("create: %d\n%s", rec.Code, rec.Body.String())
+	}
+	if len(spy.got) != 1 || spy.got[0].Locale != "fr" {
+		t.Errorf("input = %+v, want fr", *spy.got[0])
+	}
+	if got := createdLocale(t, c); got != "fr" {
+		t.Errorf("locale = %q, want fr", got)
+	}
+}
+
+func TestCreateFlaggedRefusesUnd(t *testing.T) {
+	t.Parallel()
+	c, spy := neutralRig(t, "en", "fr")
+	for _, loc := range []string{"und", "xx"} {
+		rec := c.post("/admin/entities", recipeForm(&loc))
+		if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Choose one of the site languages.") {
+			t.Errorf("locale %q: %d", loc, rec.Code)
+		}
+	}
+	if len(spy.got) != 0 {
+		t.Errorf("something was created: %+v", spy.got)
+	}
+}
+
+func TestQuickDraftFlaggedTypeStoresUnd(t *testing.T) {
+	t.Parallel()
+	c, spy := neutralRig(t, "en", "fr")
+	schema := `{"type":"object","properties":{"title":{"type":"string"},"content":{"type":"string"}}}`
+	c.ents.addSchema(70, "Note", "note", schema, `{"editor":"post","locale_neutral":true}`, false)
+	c.ents.addSchema(71, "Memo", "memo", schema, `{"editor":"post"}`, false)
+	for _, slug := range []string{"note", "memo"} {
+		if rec := c.post("/admin/entities/drafts", url.Values{"type": {slug}}); rec.Code != 303 {
+			t.Fatalf("%s draft: %d\n%s", slug, rec.Code, rec.Body.String())
+		}
+	}
+	if len(spy.got) != 2 || spy.got[0].Locale != "" || spy.got[1].Locale != "" {
+		t.Fatalf("inputs = %+v, want no locale on both", spy.got)
+	}
+	want := map[string]string{"Untitled note": entity.LocaleShared, "Untitled memo": "en"}
+	for _, e := range c.ents.ents {
+		if w, ok := want[e.Name]; ok {
+			if e.Locale != w {
+				t.Errorf("%s: locale %q, want %q", e.Name, e.Locale, w)
+			}
+			delete(want, e.Name)
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("drafts not created: %v", want)
 	}
 }

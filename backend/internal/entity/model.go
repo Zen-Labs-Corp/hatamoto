@@ -145,7 +145,7 @@ type CreateEntityInput struct {
 	SchemaID   uuid.UUID       `json:"schema_id"`
 	Name       string          `json:"name"`
 	Slug       string          `json:"slug,omitempty"`   // Auto-generated if empty
-	Locale     string          `json:"locale,omitempty"` // BCP 47; empty stores the site language
+	Locale     string          `json:"locale,omitempty"` // BCP 47; empty stores the site language, or und for a locale-neutral type
 	Attributes json.RawMessage `json:"attributes"`
 	Metadata   json.RawMessage `json:"metadata,omitempty"`
 	ParentID   *uuid.UUID      `json:"parent_id,omitempty"`

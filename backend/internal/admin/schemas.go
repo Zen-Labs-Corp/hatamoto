@@ -542,7 +542,7 @@ func buildSchema(base json.RawMessage, rows []schemaField) (json.RawMessage, boo
 
 type schemaSettingsForm struct {
 	URLPattern, ArchivePath, SitemapGroup, Aliases, ArchiveTitle, ArchiveCrumbLabel, ArchiveDescription, SchemaOrgType, Editor string
-	SectionPages                                                                                                               bool
+	SectionPages, LocaleNeutral                                                                                                bool
 }
 
 func settingsFormFrom(raw json.RawMessage) schemaSettingsForm {
@@ -551,7 +551,7 @@ func settingsFormFrom(raw json.RawMessage) schemaSettingsForm {
 	f := schemaSettingsForm{
 		URLPattern: st.URLPattern, ArchivePath: st.ArchivePath, SitemapGroup: st.SitemapGroup, Aliases: strings.Join(st.Aliases, ", "),
 		ArchiveTitle: st.ArchiveTitle, ArchiveCrumbLabel: st.ArchiveCrumbLabel, ArchiveDescription: st.ArchiveDescription, SchemaOrgType: st.SchemaOrgType, Editor: string(st.Editor),
-		SectionPages: st.SectionPages,
+		SectionPages: st.SectionPages, LocaleNeutral: st.IsLocaleNeutral(),
 	}
 	return f
 }
@@ -561,7 +561,7 @@ func settingsFormFromPost(r *http.Request) schemaSettingsForm {
 	return schemaSettingsForm{
 		URLPattern: g("url_pattern"), ArchivePath: g("archive_path"), SitemapGroup: g("sitemap_group"), Aliases: g("aliases"),
 		ArchiveTitle: g("archive_title"), ArchiveCrumbLabel: g("archive_crumb_label"), ArchiveDescription: g("archive_description"), SchemaOrgType: g("schema_org_type"), Editor: g("editor"),
-		SectionPages: r.PostFormValue("section_pages") == "true",
+		SectionPages: r.PostFormValue("section_pages") == "true", LocaleNeutral: r.PostFormValue("locale_neutral") == "true",
 	}
 }
 
@@ -606,6 +606,11 @@ func (s schemaSettingsForm) settingsJSON(base json.RawMessage) (json.RawMessage,
 		m["section_pages"] = json.RawMessage("true")
 	} else {
 		delete(m, "section_pages")
+	}
+	if s.LocaleNeutral {
+		m["locale_neutral"] = json.RawMessage("true")
+	} else {
+		delete(m, "locale_neutral")
 	}
 	if s.URLPattern != "" {
 		if _, err := urlpattern.Parse(s.URLPattern); err != nil {

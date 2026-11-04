@@ -121,3 +121,21 @@ func TestURLRegistry_LocalesErrorIsNotCached(t *testing.T) {
 		t.Fatalf("after recovery: locales = %v, %v", snap.Locales(), err)
 	}
 }
+
+// useLocales makes svc serve the given locales ("en" first, the default), the
+// way the server wires the site settings.
+func useLocales(t *testing.T, svc *Service, tags ...string) {
+	t.Helper()
+	entries := make([]LocaleEntry, len(tags))
+	for i, tag := range tags {
+		entries[i] = LocaleEntry{Tag: tag, Segment: tag}
+		if i == 0 {
+			entries[i].Segment = ""
+		}
+	}
+	set, err := NewLocaleSet(tags[0], entries, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc.URLRegistry().SetLocales(func(context.Context) (*LocaleSet, error) { return set, nil })
+}
