@@ -35,6 +35,11 @@ type renderData struct {
 
 	mu       sync.Mutex
 	variants map[string]cachedVariants
+
+	// formats is the cached modern-format policy (a settings read), so a loop
+	// of ImageVariants calls costs no statement; fmtsExpire is when it is read again.
+	formats    media.Formats
+	fmtsExpire time.Time
 }
 
 // cachedVariants is the cached media lookup of one URL: srcset candidates and
@@ -57,6 +62,7 @@ func newRenderData(s *Server) *renderData { return &renderData{s: s} }
 func (d *renderData) resetVariants() {
 	d.mu.Lock()
 	d.variants = nil
+	d.fmtsExpire = time.Time{}
 	d.mu.Unlock()
 }
 
@@ -285,7 +291,7 @@ func (d *renderData) ImageVariants(u string) []render.ImageVariant {
 // filterFormats drops copies in formats the owner has switched off. The
 // lookup cache keeps them, so a settings change needs no purge of it.
 func (d *renderData) filterFormats(list []render.ImageVariant) []render.ImageVariant {
-	f := d.s.currentMediaFormats(context.Background())
+	f := d.mediaFormats()
 	if f.WebP && f.AVIF {
 		return list
 	}
@@ -297,6 +303,23 @@ func (d *renderData) filterFormats(list []render.ImageVariant) []render.ImageVar
 		out = append(out, v)
 	}
 	return out
+}
+
+// mediaFormats returns the format policy, read at most once per variantsCacheTTL.
+// A settings save notifies a media change, which clears it at once.
+func (d *renderData) mediaFormats() media.Formats {
+	d.mu.Lock()
+	if time.Now().Before(d.fmtsExpire) {
+		f := d.formats
+		d.mu.Unlock()
+		return f
+	}
+	d.mu.Unlock()
+	f := d.s.currentMediaFormats(context.Background())
+	d.mu.Lock()
+	d.formats, d.fmtsExpire = f, time.Now().Add(variantsCacheTTL)
+	d.mu.Unlock()
+	return f
 }
 
 // ImageSize returns the intrinsic size of a stored media file (see
@@ -380,6 +403,7 @@ func (d *renderData) PrefetchVariants(urls []string) {
 	if len(want) == 0 {
 		return
 	}
+	d.mediaFormats() // warm, so the ImageVariants calls that follow run no statement
 	ctx, cancel := d.ctx()
 	defer cancel()
 	conn, err := d.s.db.GetConn(ctx)
