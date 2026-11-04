@@ -104,7 +104,7 @@ func loadUnclassified(ctx context.Context, tx pgx.Tx, csID int64, afterSeq int) 
 
 // loadLive reads the entity an item updates, or nil for a create and for the
 // kinds the classifier needs no live state of.
-func loadLive(ctx context.Context, tx pgx.Tx, origin string, it StoredItem) (*Live, error) {
+func loadLive(ctx context.Context, tx rowQuerier, origin string, it StoredItem) (*Live, error) {
 	if it.Kind != KindEntity {
 		return nil, nil
 	}
