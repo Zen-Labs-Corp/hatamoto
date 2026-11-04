@@ -16,6 +16,7 @@ Settings holds everything about the site as a whole rather than one entity. Each
 |---|---|---|
 | General | `general` | owner |
 | Email | `email` | owner |
+| Privacy | `privacy` | owner |
 | Media | `media` | owner, editor |
 | Entity models | `types`, `taxonomies` | owner |
 | Forms | `forms`, `submissions` | owner, editor |
@@ -222,6 +223,39 @@ Keys can also be created on the server with `hatamoto apikey create --name <name
 | Kill switch | `EMAIL_DISABLED=true` still switches all sending off. |
 
 Links in emails use the configured site address (`PUBLIC_BASE_URL`, else the site address under **Settings > General**), never request headers. Without a site address, or without email set up, nothing is emailed: invitations and resets created by an owner show the one-time link on screen to pass on, and "forgot password" points to `hatamoto user reset-password`. Reset links last an hour. See [Set up email](../operate/email.md) for the full guide.
+
+## Privacy: cookie consent
+
+`<admin>/settings/privacy` (the Privacy section of Settings, owners only) turns on a cookie banner for your visitors and announces their choice to the scripts on your pages. It is **off by default**: until you turn it on, your public pages are exactly what they were before.
+
+| Field | Meaning |
+|---|---|
+| Show a cookie banner | The switch. Off by default. |
+| Show the banner to | **Every visitor**, or **Visitors in the EU and UK**. The second mode asks the browser to check `GET /api/v1/public/consent/region`, which reads the country header your CDN adds (`CF-IPCountry` or `CloudFront-Viewer-Country`). The page HTML is the same for every country, so it stays cached. A missing header shows the banner; a country outside the EU, the UK, Iceland, Liechtenstein and Norway does not, and those visitors are treated as having allowed everything. There is no GeoIP database: without a CDN header, use Every visitor. |
+| Banner title, Banner text | Your own wording, up to 80 and 500 characters. The button and dialog labels are built in (English). |
+| Categories to ask about | Analytics, Marketing and Functional. A category you untick is not offered and is reported as not allowed. Necessary is always on. |
+
+A visitor's choice is stored for 12 months in the `hm_consent` cookie, a necessary cookie that holds only the choice. It is asked again after 12 months, or when you change the set of categories. Add `data-hm-consent-open` to any link or button, for example in your footer, to let visitors reopen the dialog; without one, a small "Cookie preferences" button is added to the page.
+
+Under the form, a table shows how many visitors chose Accept all, Reject all or Custom each day for the last 30 days. Only these daily totals are stored. There is no IP address, user agent or visitor id, and no record of who chose what. Saving the page clears the page cache so the change shows at once.
+
+**Upgrade:** nothing changes until you turn the switch on. The migration adds two tables and nothing else.
+
+## Visitor consent API
+
+When the banner is on, a script `/theme/assets/hm-consent.js` is the first element inside `<head>` of every public page (not in the editor preview). Scripts on your pages, plugin scripts and tag managers read the visitor's choice from it:
+
+- `window.hm.consent.get()` returns `{necessary: true, analytics, marketing, functional, decided}`. Before a decision `decided` is `false` and the three categories are `false`. A visitor outside the region in EU and UK mode gets `decided: true` and every category `true`, with no banner, no cookie and no count.
+- `hm.consent.allows(category)` returns a boolean for `analytics`, `marketing`, `functional` or `necessary`.
+- `hm.consent.open()` opens the preferences dialog. `hm.consent.version` is the version of the category set.
+- The event `hm:consent` is dispatched on `document` on every change, and once at load when a valid stored choice exists. Its `detail` has the same shape as `get()`. The event can fire before your listener exists, so call `get()` first and then listen.
+- **No banner means no `hm.consent`.** When the banner is off the script is not on the page and `hm.consent` is undefined. Treat undefined as every category granted.
+- **Sandboxed pages do not remember the choice.** When a community plugin adds a script to your public pages, the browser runs them in a sandbox that blocks cookies. The banner still shows on every page and the visitor's choice applies to that page view only.
+- **Consent Mode v2.** The script defines `window.dataLayer` and `gtag` if they are missing and pushes `consent default` first, before any other script, with `ad_storage`, `ad_user_data`, `ad_personalization`, `analytics_storage`, `functionality_storage` and `personalization_storage` set to `denied` and `security_storage` to `granted` (in EU and UK mode with `wait_for_update: 500`). On every change it pushes `consent update`. Analytics maps to `analytics_storage`; Marketing to `ad_storage`, `ad_user_data` and `ad_personalization`; Functional to `functionality_storage` and `personalization_storage`.
+- **Cookie.** `hm_consent` holds `encodeURIComponent` of JSON `{v, t, a, m, f}` (category-set version, Unix seconds, and 0 or 1 for analytics, marketing, functional), with `Max-Age=31536000`, `Path=/` and `SameSite=Lax` (`Secure` on https). It is mirrored in `localStorage["hm_consent"]`; the cookie wins.
+- **Counter.** After a choice the browser posts `{"choice": "all" | "none" | "custom"}` to `POST /api/v1/public/consent`, limited per IP, which adds one to the day's total.
+
+The banner only gates and announces. It does not load or block vendor scripts by itself: a script that sets analytics or marketing cookies has to wait for `hm.consent.allows(...)` or the Consent Mode signal.
 
 ## Import and export
 

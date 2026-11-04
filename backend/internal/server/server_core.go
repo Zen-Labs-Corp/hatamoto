@@ -308,6 +308,12 @@ func (s *Server) mountCorePublicCMSRoutes(r *httpx.Group) {
 	formSubmitLimiter := middleware.NewRateLimiter(0.1, 5)
 	handleCORS(r, http.MethodPost, "/forms/{slug}/submit", s.handlePublicFormSubmit, formSubmitLimiter.Middleware)
 
+	// Cookie consent: the region answer is per request and never cached; the
+	// counter beacon stores only a daily total, limited per IP like the forms.
+	handleCORS(r, http.MethodGet, "/consent/region", s.handleConsentRegion)
+	consentLimiter := middleware.NewRateLimiter(1, 10)
+	handleCORS(r, http.MethodPost, "/consent", s.handleConsentLog, consentLimiter.Middleware)
+
 	// Public taxonomy archive (Phase 2): list published
 	// entities tagged with {kind}/{slug}. Rate-limited per
 	// IP — same posture as other public archive endpoints.

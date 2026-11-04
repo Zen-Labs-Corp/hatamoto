@@ -122,6 +122,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.seoStore != nil && s.entityService != nil && s.db != nil {
 		d.SEO = seoAdmin{db: s.db, store: s.seoStore, entities: s.entityService}
 	}
+	if s.consentStore != nil && s.consentCounter != nil {
+		d.Privacy = privacyAdmin{store: s.consentStore, counter: s.consentCounter}
+	}
 	if s.siteConfig != nil {
 		d.SiteGraph = s.siteGraphPreview
 	}

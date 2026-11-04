@@ -1,5 +1,16 @@
 # Release notes
 
+## Unreleased: Cookie consent banner and Consent Mode v2
+
+Settings > Privacy adds an optional cookie banner. Visitors can accept all, reject all or choose Analytics, Marketing and Functional, and the choice is announced to your scripts through `window.hm.consent`, the `hm:consent` event and Google Consent Mode v2. A choice is remembered for 12 months; the page shows daily counts of the choices without storing any visitor data.
+
+- **Off by default.** Until you turn it on, public pages are byte-identical to before.
+- **EU and UK mode.** Shows the banner by the country header of your CDN (`CF-IPCountry` or `CloudFront-Viewer-Country`); the page HTML and its cache are the same for every country.
+- **Public API.** `GET /api/v1/public/consent/region` (never cached) and `POST /api/v1/public/consent` (daily counter, limited per IP).
+- **Migration.** Two new tables (expand-only). No SDK, hook or plugin manifest change.
+
+**Rollback floor: unchanged.** The previous release runs against the migrated data and ignores the new tables.
+
 ## Unreleased: Plugins change content through runs and changesets (breaking for plugins that write)
 
 Core 1.1.0 with SDK 0.17.0 is a deliberate hard break of the plugin write API. A plugin can no longer change live content directly: it starts a run, stages its writes into a changeset, and the owner publishes or discards the changeset. There is no compatibility shim. Read the upgrade note before you move: [Plugins write through runs](UPGRADES.md#plugins-write-through-runs).

@@ -29,6 +29,7 @@ import (
 	"hatamoto.dev/core/internal/author"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/consent"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/entity"
@@ -99,7 +100,9 @@ type Server struct {
 	formService            *form.Service
 	spam                   *spam.Pipeline // nil in tests that skip spam checks
 	spamStore              *spam.Store
-	seoStore               *seo.Store // site-wide SEO templates; nil in tests that skip them
+	seoStore               *seo.Store     // site-wide SEO templates; nil in tests that skip them
+	consentStore           *consent.Store // cookie consent settings; nil in tests that skip them
+	consentCounter         *consent.Counter
 	seoLogOnce             sync.Once
 	indexNow               *indexnow.Runner // nil in demo mode
 	indexNowBaseWarn       sync.Once
@@ -433,6 +436,8 @@ func (s *Server) setupDependencies() {
 	formRepo := form.NewPostgresRepository(s.db)
 	s.formService = form.NewService(formRepo, s.logger)
 	s.seoStore = seo.NewStore(s.db.Pool())
+	s.consentStore = consent.NewStore(s.db.Pool())
+	s.consentCounter = consent.NewCounter(s.db.Pool())
 	spamStore := spam.NewStore(s.db.Pool())
 	spamVerifier := spam.NewHTTPVerifier(spam.NewClient(), nil)
 	s.spamStore, s.spamVerifier = spamStore, spamVerifier
