@@ -358,7 +358,7 @@ func (t *UserTokens) ChangePassword(ctx context.Context, userID uuid.UUID, curre
 	if errors.Is(err, ErrInvalidCredentials) {
 		// Wrong current password counts like a wrong login (same lockout), so a
 		// stolen session cannot guess it without limit.
-		_ = user.NewPostgresRepository(t.db).RecordFailedLogin(database.WithSuperadmin(ctx), userID, maxFailedLogins, lockoutDuration)
+		_ = user.NewPostgresRepository(t.db).RecordFailedLogin(database.WithSuperadmin(ctx), userID, MaxFailedLogins, LockoutDuration)
 	}
 	return err
 }
