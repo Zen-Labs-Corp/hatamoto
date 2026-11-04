@@ -15,12 +15,16 @@ import (
 // fakeOwnership is an EntityOwnership with one answer for every entity.
 type fakeOwnership struct {
 	own    *changeset.Ownership
+	getErr error
 	plugin string
 	err    error
 	handed []uuid.UUID
 }
 
 func (f *fakeOwnership) Get(context.Context, uuid.UUID) (*changeset.Ownership, error) {
+	if f.getErr != nil {
+		return nil, f.getErr
+	}
 	if f.own == nil {
 		return &changeset.Ownership{}, nil
 	}
