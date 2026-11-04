@@ -55,6 +55,9 @@ func (r *Runner) importSettings(ctx context.Context) error {
 // reportSettingDiffs leaves the settings of a site that has content alone and
 // lists where WordPress differs.
 func (r *Runner) reportSettingDiffs(ctx context.Context) error {
+	// Read the stored settings, not the cache: the entity services also read
+	// them through this store, and the report must compare against what is saved.
+	r.d.Site.Invalidate()
 	cur, err := r.d.Site.Get(ctx)
 	if err != nil {
 		return nil // no site row yet: nothing to differ from
