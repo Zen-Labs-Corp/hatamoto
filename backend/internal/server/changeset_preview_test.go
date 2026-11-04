@@ -38,7 +38,7 @@ func testSource(live map[uuid.UUID]*entity.Entity, mapped map[string]uuid.UUID) 
 			}
 			return nil, entity.ErrEntityNotFound
 		},
-		mapped: func(_ context.Context, _, key string) (uuid.UUID, bool, error) {
+		mapped: func(_ context.Context, _ string, _ changeset.Kind, key string) (uuid.UUID, bool, error) {
 			id, ok := mapped[key]
 			return id, ok, nil
 		},

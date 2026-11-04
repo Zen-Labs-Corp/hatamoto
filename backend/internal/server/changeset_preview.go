@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -41,6 +42,9 @@ func (s *Server) PreviewChangeset(ctx context.Context, id int64, seq int) ([]byt
 		return nil, changeset.ErrExpired
 	}
 	o := newStagedChangeset(ctx, h, items, s.stagedSource(ctx))
+	if r := o.redirectBySeq(seq); r != nil {
+		return redirectNotice(r.Source, r.Target, r.Status), nil
+	}
 	se := o.pick(seq)
 	if se == nil {
 		return previewNotice("Nothing to preview in this changeset."), nil
@@ -72,7 +76,17 @@ func (s *Server) stagedSource(ctx context.Context) stagedSource {
 		snapshot: s.urlSnapshot(ctx),
 		entity:   s.entityService.GetEntity,
 		schema:   s.entityService.GetSchemaBySlug,
-		mapped: func(ctx context.Context, origin, sourceKey string) (uuid.UUID, bool, error) {
+		menuBySlug: func(ctx context.Context, slug string) (uuid.UUID, bool) {
+			if s.menuService == nil {
+				return uuid.Nil, false
+			}
+			m, err := s.menuService.GetMenuBySlug(ctx, slug)
+			if err != nil || m == nil {
+				return uuid.Nil, false
+			}
+			return m.ID, true
+		},
+		mapped: func(ctx context.Context, origin string, kind changeset.Kind, sourceKey string) (uuid.UUID, bool, error) {
 			conn, err := s.db.GetConn(ctx)
 			if err != nil {
 				return uuid.Nil, false, err
@@ -80,7 +94,7 @@ func (s *Server) stagedSource(ctx context.Context) stagedSource {
 			defer conn.Release()
 			var target string
 			err = conn.QueryRow(ctx, `SELECT target_id FROM hatamoto_changeset_source_keys WHERE origin = $1 AND kind = $2 AND source_key = $3`,
-				origin, string(changeset.KindEntity), sourceKey).Scan(&target)
+				origin, string(kind), sourceKey).Scan(&target)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return uuid.Nil, false, nil
 			}
@@ -113,19 +127,23 @@ func (s *Server) renderStaged(ctx context.Context, o *stagedChangeset, se *stage
 	if err != nil {
 		return nil, err
 	}
-	// No checkRedirect: a live redirect must not hide the staged page, and a
-	// sandboxed frame never follows one.
+	// Only staged redirects are consulted: a live rule must not hide the staged
+	// page, and a sandboxed frame never follows a Location.
 	deps := routeDeps{
-		snapshot: s.urlSnapshotOrErr,
-		repo:     entity.NewPostgresPublicRepository(s.db),
-		loadPage: s.loadPublicPage,
-		loadHome: s.loadHomepage,
+		checkRedirect: func(_ context.Context, p string) *redirect.Redirect { return o.matchRedirect(p) },
+		snapshot:      s.urlSnapshotOrErr,
+		repo:          entity.NewPostgresPublicRepository(s.db),
+		loadPage:      s.loadPublicPage,
+		loadHome:      s.loadHomepage,
 	}
 	rr, _, err := s.resolveRouteWith(ctx, deps, se.Path, r)
 	if err != nil {
 		return nil, err
 	}
-	if rr == nil || rr.Redirect != nil {
+	if rr != nil && rr.Redirect != nil {
+		return redirectNotice(se.Path, rr.Redirect.Target, rr.Redirect.Status), nil
+	}
+	if rr == nil {
 		return nil, errors.New("the path does not resolve to a page")
 	}
 	if !se.Delete && (rr.NotFound || routeEntityID(rr) != se.Ent.ID) {
@@ -143,7 +161,7 @@ func (s *Server) renderStaged(ctx context.Context, o *stagedChangeset, se *stage
 	if err := s.renderEngine.RenderPage(&buf, v); err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+	return o.maskMedia(buf.Bytes()), nil
 }
 
 // changesFor marks what the item changes: a created page is new as a whole; an

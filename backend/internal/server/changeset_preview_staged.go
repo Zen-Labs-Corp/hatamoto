@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/menu"
 )
 
 // stagedChangeset is a staged changeset held in memory so the public loaders
@@ -31,6 +32,25 @@ type stagedChangeset struct {
 	deleted map[uuid.UUID]bool
 	// items lists the previewable entity items in seq order.
 	items []*stagedEntity
+	// keys maps an entity item's source key to its id, for menu entity links.
+	keys map[string]uuid.UUID
+	// menus are the staged item lists by the id of the live menu they replace.
+	menus map[uuid.UUID][]menu.ReplaceItem
+	// menuLinks are the entity source keys of a staged menu's items by index.
+	menuLinks map[uuid.UUID]map[int]string
+	// redirects are the staged redirect rules; they are shown, never followed.
+	redirects []*stagedRedirect
+	// media are the file names of staged media. The files are not served by
+	// the preview: a reference to one renders as a neutral placeholder.
+	media map[string]bool
+}
+
+// stagedRedirect is a staged redirect rule.
+type stagedRedirect struct {
+	Seq    int
+	Source string
+	Target string
+	Status int
 }
 
 // stagedEntity is one entity item of the changeset as the staged set shows it.
@@ -57,11 +77,12 @@ func stagedFrom(ctx context.Context) *stagedChangeset {
 // stagedSource is what the staged set reads to resolve items: live rows and
 // source-key mappings. All reads.
 type stagedSource struct {
-	entity    func(ctx context.Context, id uuid.UUID) (*entity.Entity, error)
-	schema    func(ctx context.Context, slug string) (*entity.EntitySchema, error)
-	mapped    func(ctx context.Context, origin, sourceKey string) (uuid.UUID, bool, error)
-	snapshot  *entity.URLSnapshot
-	ancestors func(ctx context.Context, parent uuid.UUID) []string
+	entity     func(ctx context.Context, id uuid.UUID) (*entity.Entity, error)
+	schema     func(ctx context.Context, slug string) (*entity.EntitySchema, error)
+	mapped     func(ctx context.Context, origin string, kind changeset.Kind, sourceKey string) (uuid.UUID, bool, error)
+	menuBySlug func(ctx context.Context, slug string) (uuid.UUID, bool)
+	snapshot   *entity.URLSnapshot
+	ancestors  func(ctx context.Context, parent uuid.UUID) []string
 }
 
 // stagedID is the id a created entity has in the preview: stable for the
@@ -86,9 +107,10 @@ type stagedEntityPayload struct {
 // cannot be shown (unknown schema, missing target, bad payload) is left out:
 // the preview then shows the live page for it.
 func newStagedChangeset(ctx context.Context, h changeset.Header, items []changeset.StoredItem, src stagedSource) *stagedChangeset {
-	o := &stagedChangeset{header: h, ents: map[uuid.UUID]*stagedEntity{}, byPath: map[string]*stagedEntity{}, deleted: map[uuid.UUID]bool{}}
+	o := &stagedChangeset{header: h, ents: map[uuid.UUID]*stagedEntity{}, byPath: map[string]*stagedEntity{}, deleted: map[uuid.UUID]bool{},
+		keys: map[string]uuid.UUID{}, menus: map[uuid.UUID][]menu.ReplaceItem{}, menuLinks: map[uuid.UUID]map[int]string{}, media: map[string]bool{}}
 	origin := changeset.Origin(h.Plugin)
-	keys := map[string]uuid.UUID{} // source key -> id, for parent_key
+	keys := o.keys // source key -> id, for parent_key and menu links
 	for _, it := range items {
 		if it.Kind != changeset.KindEntity {
 			continue
@@ -130,6 +152,7 @@ func newStagedChangeset(ctx context.Context, h changeset.Header, items []changes
 		}
 		o.items = append(o.items, se)
 	}
+	o.stageOthers(ctx, src, origin, items)
 	return o
 }
 
@@ -144,7 +167,7 @@ func (o *stagedChangeset) target(ctx context.Context, src stagedSource, origin s
 		}
 		id = parsed
 	} else if it.SourceKey != "" {
-		if mapped, found, err := src.mapped(ctx, origin, it.SourceKey); err != nil {
+		if mapped, found, err := src.mapped(ctx, origin, changeset.KindEntity, it.SourceKey); err != nil {
 			return uuid.Nil, nil, false
 		} else if found {
 			id = mapped

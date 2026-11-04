@@ -533,6 +533,11 @@ func (s *Server) menuNavFound(ctx context.Context, location string, links *navLi
 	if err != nil || full == nil {
 		return nil, false
 	}
+	if o := stagedFrom(ctx); o != nil { // changeset preview only
+		if items, ok := o.menuItems(ctx, links, m.ID); ok {
+			return links.items(items), true
+		}
+	}
 	return links.items(full.Items), true
 }
 
