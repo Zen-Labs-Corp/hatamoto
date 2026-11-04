@@ -22,4 +22,13 @@
 </form>
 <form id="email-test-form" method="post" action="{{adminPath}}/settings/email/test">{{template "hm/csrf" $}}</form>
 <form id="email-reset-form" method="post" action="{{adminPath}}/settings/email/reset">{{template "hm/csrf" $}}</form>
-{{end}}{{end}}
+{{with .Retention}}<form method="post" action="{{adminPath}}/settings/email/retention" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "email-retention" "Title" "Email log" "Heading" "h2" "Description" "How long the log keeps what it stores."}}
+{{template "hm/pair-start"}}{{template "hm/field" dict "ID" "body-days" "Name" "body_days" "Label" "Keep message bodies (days)" "Type" "number" "Value" .BodyDays "Help" "After this the message text is removed. The row stays. 1 to 365." "Error" (index .Errs "body-days") "Attrs" (attrmap "min" "1" "max" "365" "step" "1")}}
+{{template "hm/field" dict "ID" "entry-days" "Name" "entry_days" "Label" "Keep log entries (days)" "Type" "number" "Value" .EntryDays "Help" "After this the row is deleted. At least as long as bodies. 1 to 365." "Error" (index .Errs "entry-days") "Attrs" (attrmap "min" "1" "max" "365" "step" "1")}}{{template "hm/pair-end"}}
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+{{template "hm/card-end"}}
+</form>
+{{end}}{{end}}{{end}}

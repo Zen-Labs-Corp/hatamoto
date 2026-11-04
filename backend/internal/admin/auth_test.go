@@ -168,6 +168,27 @@ type fakeMailer struct {
 	addrSetup   []string
 	setupAddrs  []string // the address each setup mail carried
 	addrErr     error
+
+	// tracked is what SendTrackedWith received; trackedErr and trackedID are
+	// its answer (an empty trackedID with no error is a suppressed send).
+	tracked    []trackedMail
+	trackedErr error
+	trackedID  string
+}
+
+// trackedMail is one SendTrackedWith call the fake received.
+type trackedMail struct {
+	opts          email.SendOptions
+	to            []string
+	subject, html string
+	text          string
+}
+
+func (f *fakeMailer) SendTrackedWith(_ context.Context, opts email.SendOptions, to []string, subject, html, text string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.tracked = append(f.tracked, trackedMail{opts: opts, to: to, subject: subject, html: html, text: text})
+	return f.trackedID, f.trackedErr
 }
 
 // addrMail is one admin-address-changed mail the fake received.

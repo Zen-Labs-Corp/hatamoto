@@ -55,7 +55,7 @@ var settingsLive = map[string]bool{
 	"themes": true, "blocks": true, "colours": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
-	"admin-address": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true,
+	"admin-address": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"privacy": true,
 	"locales": true, "locale-addresses": true, "locale-business": true,
@@ -82,6 +82,7 @@ var settingsRegistry = []settingsSectionDef{
 	}},
 	{ID: "email", Label: "Email", Icon: "mail", Desc: "Password resets, invitations and form notices.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "email", Label: "Email", Final: "/settings/email", Roles: ownerOnly},
+		{ID: "email-log", Label: "Email log", Final: "/settings/email/log", Roles: ownerOnly},
 	}},
 	{ID: "privacy", Label: "Privacy", Icon: "shield", Desc: "Cookie consent for your visitors.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "privacy", Label: "Privacy", Final: "/settings/privacy", Roles: ownerOnly},

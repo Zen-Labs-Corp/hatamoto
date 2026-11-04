@@ -139,6 +139,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 			current: s.currentEmailResolution,
 		}
 	}
+	if s.emailLog != nil {
+		d.EmailLog = s.emailLog
+	}
 	d.Updates, d.UpdatesUnavailable = s.adminUpdatesDeps()
 	d.Content = s.contentDeps()
 	if s.entityService != nil && s.db != nil {

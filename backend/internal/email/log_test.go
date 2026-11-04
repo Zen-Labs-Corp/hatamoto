@@ -81,8 +81,8 @@ func TestEveryKindLeavesOneRow(t *testing.T) {
 			t.Errorf("%s: row = %+v", st.kind, e)
 		}
 		hasBody := e.BodyText != "" || e.BodyHTML != ""
-		if hasBody != st.kind.storesBody() {
-			t.Errorf("%s: body stored = %v, want %v", st.kind, hasBody, st.kind.storesBody())
+		if hasBody != st.kind.StoresBody() {
+			t.Errorf("%s: body stored = %v, want %v", st.kind, hasBody, st.kind.StoresBody())
 		}
 		if strings.Contains(e.BodyText+e.BodyHTML, "SECRET") || strings.Contains(e.BodyText+e.BodyHTML, "secret-path") {
 			t.Errorf("%s: link stored in the log", st.kind)

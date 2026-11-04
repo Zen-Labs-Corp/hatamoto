@@ -52,10 +52,10 @@ type Recorder interface {
 	Record(ctx context.Context, e LogEntry) (int64, error)
 }
 
-// storesBody reports whether the log may keep the bodies of a mail of this
+// StoresBody reports whether the log may keep the bodies of a mail of this
 // kind. The four that carry a one-time link or the secret admin address
 // never do.
-func (k Kind) storesBody() bool {
+func (k Kind) StoresBody() bool {
 	switch k {
 	case KindPasswordReset, KindInvite, KindAdminAddressChanged, KindAdminAddressSetup:
 		return false
@@ -117,7 +117,7 @@ func (s *Service) record(ctx context.Context, c Config, opts SendOptions, to []s
 		Recipients: to, Subject: subject, Kind: kind, Plugin: opts.Plugin, Status: status,
 		Error: cleanError(sendErr, c), MessageID: messageID, ResentFrom: opts.ResentFrom,
 	}
-	if kind.storesBody() {
+	if kind.StoresBody() {
 		e.BodyText, e.BodyHTML = capBody(textBody), capBody(htmlBody)
 	}
 	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), recordTimeout)
