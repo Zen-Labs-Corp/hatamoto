@@ -126,6 +126,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.consentStore != nil && s.consentCounter != nil {
 		d.Privacy = privacyAdmin{store: s.consentStore, counter: s.consentCounter}
 	}
+	if s.tagsStore != nil {
+		d.Tracking = s.tagsStore
+	}
 	if s.siteConfig != nil {
 		d.SiteGraph = s.siteGraphPreview
 	}

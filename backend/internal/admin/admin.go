@@ -259,6 +259,13 @@ type Deps struct {
 	// Privacy is the cookie consent settings and choice counts behind Settings >
 	// Privacy; nil answers that page with 503.
 	Privacy PrivacyService
+	// Tracking is the tag manager settings behind Settings > Tracking; nil
+	// answers that page with 503.
+	Tracking TrackingService
+	// LegacyTrackingPlugins names the retired gtm or google-analytics plugins
+	// still installed (not first-party signed), for a notice on Tracking; nil
+	// shows none.
+	LegacyTrackingPlugins func(ctx context.Context) []string
 	// SiteGraph returns the site-wide Organization + WebSite JSON-LD graph
 	// exactly as the public head emits it; nil hides the preview.
 	SiteGraph func(r *http.Request) (map[string]any, error)
