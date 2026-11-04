@@ -194,6 +194,10 @@ func (a *Admin) handleEmailLogEntry(w http.ResponseWriter, r *http.Request) {
 	default:
 		d.BodyNote = "Body no longer kept. It was removed after the retention period."
 	}
+	if e.Status == email.StatusSuppressed {
+		d.BodyNote = "Nothing was sent: email was switched off when this was logged. " + d.BodyNote
+		d.CanResend = false
+	}
 	v := a.NewView(w, r, e.Subject)
 	v.Section, v.Tab = "email", "email-log"
 	v.Width = "compact"
@@ -233,6 +237,10 @@ func (a *Admin) handleEmailLogResend(w http.ResponseWriter, r *http.Request) {
 	}
 	entry := a.adminPath + emailLogPath + "/" + strconv.FormatInt(e.ID, 10)
 	switch {
+	case e.Status == email.StatusSuppressed:
+		a.SetFlash(w, r, "error", "Nothing was sent for this email because email was switched off, so there is nothing to send again.")
+		http.Redirect(w, r, entry, http.StatusSeeOther)
+		return
 	case !e.HasBody:
 		a.SetFlash(w, r, "error", "This email has no stored body, so it cannot be sent again.")
 		http.Redirect(w, r, entry, http.StatusSeeOther)

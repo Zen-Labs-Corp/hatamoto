@@ -262,3 +262,24 @@ func TestEmailRetentionForm(t *testing.T) {
 		t.Errorf("audit = %+v", *events)
 	}
 }
+
+func TestEmailLogSuppressedHasNoResend(t *testing.T) {
+	t.Parallel()
+
+	g, f, _ := newEmailLogRig(t)
+	f.rows = append(f.rows, emaillog.Row{ID: 4, CreatedAt: time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC), Recipients: []string{"d@example.test"},
+		Subject: "Dropped", Kind: "form_notification", Status: "suppressed", HasBody: true, BodyText: "Hello"})
+	g.mail.trackedID = "msg-1@example.test"
+
+	body := g.do("GET", "/admin/settings/email/log/4", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Nothing was sent") || strings.Contains(body, ">Resend<") || strings.Contains(body, `/log/4/resend`) {
+		t.Error("a suppressed entry must say nothing was sent and offer no Resend")
+	}
+	rec := g.do("POST", "/admin/settings/email/log/4/resend", "owner-token", url.Values{}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/email/log/4" {
+		t.Errorf("suppressed resend = %d %s, want a redirect back to the entry", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(g.mail.tracked) != 0 {
+		t.Error("a suppressed row was sent")
+	}
+}
