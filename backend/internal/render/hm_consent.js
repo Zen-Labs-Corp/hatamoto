@@ -68,8 +68,11 @@
   }
 
   // ---- Storage: cookie wins, localStorage mirrors it.
+  // A sandboxed page (opaque origin) throws on every cookie access. It cannot
+  // keep a choice, so the choice lives in memory for that page view only.
   function readCookie() {
-    var parts = d.cookie ? d.cookie.split('; ') : [];
+    var parts;
+    try { parts = d.cookie ? d.cookie.split('; ') : []; } catch (e) { return null; }
     for (var i = 0; i < parts.length; i++) {
       if (parts[i].indexOf(KEY + '=') === 0) return parts[i].slice(KEY.length + 1);
     }
@@ -96,8 +99,10 @@
       a: state.analytics ? 1 : 0, m: state.marketing ? 1 : 0, f: state.functional ? 1 : 0
     };
     var val = encodeURIComponent(JSON.stringify(o));
-    d.cookie = KEY + '=' + val + '; Max-Age=' + YEAR_S + '; Path=/; SameSite=Lax' +
-      (w.location.protocol === 'https:' ? '; Secure' : '');
+    try {
+      d.cookie = KEY + '=' + val + '; Max-Age=' + YEAR_S + '; Path=/; SameSite=Lax' +
+        (w.location.protocol === 'https:' ? '; Secure' : '');
+    } catch (e) { /* sandboxed page: the choice stays in memory */ }
     try { w.localStorage.setItem(KEY, val); } catch (e) { /* storage blocked */ }
   }
 

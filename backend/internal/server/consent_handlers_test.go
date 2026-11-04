@@ -166,3 +166,15 @@ func TestConsentRenderHook(t *testing.T) {
 		t.Errorf("disabled: status %d, want 404", rec.Code)
 	}
 }
+
+func TestConsentRegionAnswersSandboxedPage(t *testing.T) {
+	t.Parallel()
+	_, _, mux := consentServer(`{"enabled":true,"region":"eu_uk"}`)
+	req := httptest.NewRequest(http.MethodGet, "/consent/region", nil)
+	req.Header.Set("Origin", "null")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "null" {
+		t.Errorf("Allow-Origin %q, want null", got)
+	}
+}

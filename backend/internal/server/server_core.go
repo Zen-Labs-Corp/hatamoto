@@ -310,7 +310,7 @@ func (s *Server) mountCorePublicCMSRoutes(r *httpx.Group) {
 
 	// Cookie consent: the region answer is per request and never cached; the
 	// counter beacon stores only a daily total, limited per IP like the forms.
-	r.HandleFunc("GET /consent/region", s.handleConsentRegion)
+	handleCORS(r, http.MethodGet, "/consent/region", s.handleConsentRegion)
 	consentLimiter := middleware.NewRateLimiter(1, 10)
 	handleCORS(r, http.MethodPost, "/consent", s.handleConsentLog, consentLimiter.Middleware)
 
