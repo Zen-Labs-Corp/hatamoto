@@ -13,7 +13,7 @@ Settings > Privacy adds an optional cookie banner. Visitors can accept all, reje
 
 ## Unreleased: Duplicate a page or post
 
-- **Admin.** Entities has a **Duplicate** row action, and the editor has the same item under **More actions**. It creates a draft copy named "Copy of ..." (slug `-copy`, then `-copy-2`) in the same language and under the same parent, with the content, search details (not the canonical address), image, byline and terms. Status, dates and translations are not copied. People and reusable blocks cannot be duplicated.
+- **Admin.** Entities has a **Duplicate** row action, and the item's Settings screen has the same item under **More actions**. It creates a draft copy named "Copy of ..." (slug `-copy`, then `-copy-2`) in the same language and under the same parent, with the content, search details (not the canonical address), image, byline and terms. Status, dates and translations are not copied. People and reusable blocks cannot be duplicated.
 - **MCP.** New tool `entities_duplicate` (scope `write:entities`, audited, not destructive) returns `id`, `name`, `slug` and `status` of the draft.
 - No migration, SDK or plugin change. **Rollback floor: unchanged.**
 
