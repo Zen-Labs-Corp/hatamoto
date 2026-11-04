@@ -254,6 +254,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	}
 	if pkg.Signature != nil {
 		sum.Signed, sum.Signer = true, pkg.Signature.Signer
+		sum.FirstParty = packages.IsFirstPartyKey(sum.Signer)
 	}
 	if err := p.mgr().CheckPolicy(ctx, pkg, packages.SourceUpload); err != nil {
 		sum.Problem = err.Error()

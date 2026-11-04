@@ -82,7 +82,7 @@ func (a *Admin) handlePluginUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if res == needsReview {
-		a.prompt(w, r, pk, data, "registry")
+		a.prompt(w, r, pk, data, "registry", false)
 		return
 	}
 	a.invalidate(r.Context())

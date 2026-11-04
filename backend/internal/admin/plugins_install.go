@@ -73,6 +73,8 @@ type promptData struct {
 	Refused  string   // plain words for the requested permissions policy will not grant, "" when none
 	Scripts  *promptScripts
 	Unsigned bool
+	Title    string     // "Install <Name> <version>?"
+	Chips    []ui.Badge // the signature, first-party and replaced-version badges beside the title
 }
 
 // statementIcon is the glyph of a statement kind.
@@ -105,7 +107,7 @@ func (a *Admin) handlePluginFetch(w http.ResponseWriter, r *http.Request) {
 		a.refused(w, r, err, a.adminPath+"/plugins", "Back to plugins")
 		return
 	}
-	a.prompt(w, r, pk, data, "registry")
+	a.prompt(w, r, pk, data, "registry", true)
 }
 
 // handleUploadPage is the no-JS page of the Upload package dialog.
@@ -212,7 +214,7 @@ func (a *Admin) handlePackageUpload(w http.ResponseWriter, r *http.Request) {
 		a.installTheme(w, r, pk, data, "upload", sum)
 		return
 	}
-	a.prompt(w, r, pk, data, "upload")
+	a.prompt(w, r, pk, data, "upload", false)
 }
 
 // installTheme installs a theme, or stages it behind the confirmation page.
@@ -272,7 +274,7 @@ func (a *Admin) handleThemeInstallConfirmed(w http.ResponseWriter, r *http.Reque
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
-func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, data []byte, source string) {
+func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, data []byte, source string, fromBrowse bool) {
 	sum, err := pk.Inspect(r.Context(), data)
 	if err != nil {
 		a.refused(w, r, err, a.adminPath+"/plugins", "Back to plugins")
@@ -313,8 +315,25 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 		}
 		d.Grant = append(d.Grant, p)
 	}
-	v := a.NewView(w, r, "Install "+sum.Name)
+	verb := "Install"
+	if sum.Updating {
+		verb = "Update"
+	}
+	d.Title = strings.TrimSpace(verb+" "+sum.Name+" "+sum.Version) + "?"
+	if sum.Signed {
+		d.Chips = append(d.Chips, ui.Badge{Label: "Signed by " + sum.Signer, Kind: "success"})
+	}
+	if sum.FirstParty {
+		d.Chips = append(d.Chips, ui.Badge{Label: "First-party", Plain: true, Icon: "star"})
+	}
+	if sum.Updating {
+		d.Chips = append(d.Chips, ui.Badge{Label: "Replaces v" + sum.InstalledVersion, Plain: true})
+	}
+	v := a.NewView(w, r, verb+" "+sum.Name)
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: sum.Name}}
+	if fromBrowse {
+		v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: "Browse", Href: a.adminPath + "/plugins/browse"}, {Label: sum.Name}}
+	}
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "settings/pluginprompt", v)
 }

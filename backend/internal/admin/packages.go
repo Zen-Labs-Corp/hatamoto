@@ -156,6 +156,8 @@ type PackageSummary struct {
 	DeclaresRuns, Proposes bool
 	Signed                 bool
 	Signer                 string
+	// FirstParty is set when the signer is one of the project's own keys.
+	FirstParty bool
 	// Problem says why installing would be refused (untrusted signer, bad
 	// signature, unsigned while unsigned packages are off); "" when it would go ahead.
 	Problem string

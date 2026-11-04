@@ -125,6 +125,7 @@ func (f *fakePackages) Inspect(_ context.Context, data []byte) (PackageSummary, 
 	}
 	if !strings.HasPrefix(s, "upload:") {
 		sum.Signed, sum.Signer = true, "abc123"
+		sum.FirstParty = name == "seo-tools"
 	}
 	return sum, nil
 }
@@ -360,10 +361,13 @@ func TestInstallShowsThePermissionPromptThenGrantsTheTicked(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("prompt: %d %s", rec.Code, body)
 	}
-	for _, want := range []string{"Install seo-tools", "Does &lt;things&gt;", "It will be able to", "Keep its own notes", "Send email", "It will never be able to", "Run code on your public pages", "Same limits as every plugin.", "api.example.com", "Signed by <code>abc123</code>"} {
+	for _, want := range []string{"Install seo-tools 2.0.0?", "Does &lt;things&gt;", "It will be able to", "Keep its own notes", "Send email", "It will never be able to", "Run code on your public pages", "Same limits as every plugin.", "api.example.com", "Signed by abc123", "First-party", `<li aria-current="page">seo-tools</li>`, `href="/admin/plugins/browse">Browse</a>`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("prompt missing %q", want)
 		}
+	}
+	if strings.Contains(body, "Package</h2>") || strings.Contains(body, "Package</h") {
+		t.Error("the prompt has no Package card")
 	}
 	if len(pk.installed) != 0 {
 		t.Fatal("nothing may be installed before the owner confirms")
@@ -403,7 +407,7 @@ func TestUpdatePromptMarksNewPermissions(t *testing.T) {
 
 	g, _, _ := newPackageRig(t)
 	body := g.do("POST", "/admin/plugins/fetch", "owner-token", url.Values{"name": {"hello"}}, nil).Body.String()
-	if !strings.Contains(body, "replacing v1.2.0") || !strings.Contains(body, "Update plugin") {
+	if !strings.Contains(body, "Replaces v1.2.0") || !strings.Contains(body, "Update plugin") {
 		t.Errorf("update prompt:\n%s", body)
 	}
 	if !strings.Contains(body, `type="hidden" name="permission" value="kv"`) || !strings.Contains(body, `type="hidden" name="permission" value="mail.send"`) {
