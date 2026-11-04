@@ -267,12 +267,6 @@ func (a *Admin) handleCheckUpdates(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
-// detailPerm is one permission of a registry entry in plain English.
-type detailPerm struct {
-	Name, Help, Short string
-	Warn              bool
-}
-
 // detailPrimary is the header's POST action: Install or Review update.
 type detailPrimary struct {
 	// Href makes the primary a link (Activate…, Settings) instead of a POST.
@@ -289,7 +283,7 @@ type pluginDetailPage struct {
 	Byline   string
 	Badge    *ui.Badge
 	About    []string
-	Perms    []detailPerm
+	Can      []promptStatement
 	Size     string
 	Homepage string
 	Source   string
@@ -346,10 +340,7 @@ func (a *Admin) handleBrowseDetail(w http.ResponseWriter, r *http.Request) {
 			d.About = append(d.About, para)
 		}
 	}
-	for _, p := range e.Permissions {
-		t := permtext.Lookup(p)
-		d.Perms = append(d.Perms, detailPerm{Name: p, Help: t.Help, Short: t.Short, Warn: t.Warn})
-	}
+	d.Can = promptStatements(permtext.Group(e.Permissions, false, false).Can, nil)
 	fetch := a.adminPath + "/plugins/fetch"
 	switch {
 	case e.Update:

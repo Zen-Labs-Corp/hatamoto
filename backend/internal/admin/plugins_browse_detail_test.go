@@ -37,8 +37,8 @@ func TestBrowseDetailNotInstalled(t *testing.T) {
 	if code != 200 {
 		t.Fatalf("status %d", code)
 	}
-	for _, want := range []string{"By Acme", "First paragraph.", "Second &lt;b&gt;paragraph&lt;/b&gt;.", "Does two", "<code>site.scripts</code>",
-		"Handle with care", "You can turn each one off on the next screen, before anything is installed.",
+	for _, want := range []string{"By Acme", "First paragraph.", "Second &lt;b&gt;paragraph&lt;/b&gt;.", "Does two", "It will be able to", "JavaScript on every public page",
+		"Handle with care", "You see the full list again, with what no plugin can ever do, before anything is installed.",
 		`action="/admin/plugins/fetch"`, `name="name" value="fresh"`, "Install…", "2 KB", "abc1234",
 		`href="https://example.test/fresh" rel="noopener noreferrer"`, "SEO"} {
 		if !strings.Contains(body, want) {

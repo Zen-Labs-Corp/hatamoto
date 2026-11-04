@@ -17,7 +17,9 @@ const (
 )
 
 // Statement is one sentence of the install prompt: a bold title and an
-// optional line of detail.
+// optional line of detail. A permission that reaches beyond the plugin's own
+// data (scripts on public pages, any web address) is a review statement with
+// Warn set, never an allowed one.
 type Statement struct {
 	Kind  Kind
 	Title string
@@ -72,11 +74,18 @@ func Group(perms []string, declaresRuns, proposes bool) Grouped {
 			continue
 		}
 		t := Lookup(p)
-		g.Can = append(g.Can, Statement{
-			Kind:  KindOK,
-			Title: strings.TrimPrefix(t.Help, "WARNING: "),
-			Warn:  t.Warn,
-		})
+		if t.Warn {
+			// Reaching far beyond the plugin's own data is never shown as
+			// harmless: it needs the owner's review and a visible warning.
+			g.Can = append(g.Can, Statement{
+				Kind:  KindReview,
+				Title: strings.TrimSuffix(t.Short, "."),
+				Sub:   strings.TrimPrefix(t.Help, "WARNING: "),
+				Warn:  true,
+			})
+			continue
+		}
+		g.Can = append(g.Can, Statement{Kind: KindOK, Title: t.Help})
 	}
 	if declaresRuns {
 		g.Can = append(g.Can, prepareForReview)

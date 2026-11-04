@@ -59,8 +59,23 @@ func TestGroupKeepsWarn(t *testing.T) {
 	if len(g.Can) != 2 || !g.Can[0].Warn || g.Can[1].Warn {
 		t.Fatalf("warn flags wrong: %+v", g.Can)
 	}
-	if strings.HasPrefix(g.Can[0].Title, "WARNING") {
-		t.Errorf("title keeps the prefix: %q", g.Can[0].Title)
+	if strings.HasPrefix(g.Can[0].Title, "WARNING") || strings.HasPrefix(g.Can[0].Sub, "WARNING") {
+		t.Errorf("text keeps the prefix: %+v", g.Can[0])
+	}
+}
+
+// A permission that reaches beyond the plugin's own data is never an "ok"
+// sentence: the never list says plugins cannot run code on public pages, so a
+// plugin that was granted that must show as something to review.
+func TestGroupNeverShowsReachingPermissionsAsOK(t *testing.T) {
+	for _, p := range []string{sdk.PermSiteScripts, sdk.PermHTTPFetchAny, sdk.PermBuilderIsland} {
+		g := Group([]string{p}, false, false)
+		if len(g.Can) != 1 || g.Can[0].Kind != KindReview || !g.Can[0].Warn || g.Can[0].Sub == "" {
+			t.Errorf("%s: %+v, want one review statement with a warning and a detail line", p, g.Can)
+		}
+	}
+	if g := Group([]string{sdk.PermSiteScripts}, false, false); !strings.Contains(g.Can[0].Title, "JavaScript on every public page") {
+		t.Errorf("site.scripts title = %q", g.Can[0].Title)
 	}
 }
 

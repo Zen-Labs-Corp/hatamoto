@@ -148,8 +148,11 @@ type PluginUIInfo struct {
 type PackageSummary struct {
 	Kind, Name, Version, Description string
 	Permissions, AllowedHosts        []string
-	Signed                           bool
-	Signer                           string
+	// DeclaresRuns: the plugin declares runs that stage changes for review;
+	// Proposes: one of them may suggest site-wide changes.
+	DeclaresRuns, Proposes bool
+	Signed                 bool
+	Signer                 string
 	// Problem says why installing would be refused (untrusted signer, bad
 	// signature, unsigned while unsigned packages are off); "" when it would go ahead.
 	Problem string

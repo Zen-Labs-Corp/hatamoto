@@ -352,7 +352,7 @@ func TestInstallShowsThePermissionPromptThenGrantsTheTicked(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("prompt: %d %s", rec.Code, body)
 	}
-	for _, want := range []string{"Install seo-tools", "Does &lt;things&gt;", "<code>kv</code>", "<code>mail.send</code>", "api.example.com", "Signed by <code>abc123</code>"} {
+	for _, want := range []string{"Install seo-tools", "Does &lt;things&gt;", "It will be able to", "Keep its own notes", "Send email", "It will never be able to", "Run code on your public pages", "Same limits as every plugin.", "api.example.com", "Signed by <code>abc123</code>"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("prompt missing %q", want)
 		}
@@ -395,11 +395,17 @@ func TestUpdatePromptMarksNewPermissions(t *testing.T) {
 
 	g, _, _ := newPackageRig(t)
 	body := g.do("POST", "/admin/plugins/fetch", "owner-token", url.Values{"name": {"hello"}}, nil).Body.String()
-	if !strings.Contains(body, "replacing v1.2.0") || !strings.Contains(body, "(new in this version)") || !strings.Contains(body, "Update plugin") {
+	if !strings.Contains(body, "replacing v1.2.0") || !strings.Contains(body, "Update plugin") {
 		t.Errorf("update prompt:\n%s", body)
 	}
-	if !strings.Contains(body, `value="kv" checked`) || strings.Contains(body, `value="mail.send" checked`) {
-		t.Error("an update keeps earlier grants ticked and leaves new permissions unticked")
+	if !strings.Contains(body, `type="hidden" name="permission" value="kv"`) || !strings.Contains(body, `type="hidden" name="permission" value="mail.send"`) {
+		t.Error("the update posts every listed permission as a hidden field")
+	}
+	if strings.Contains(body, `type="checkbox"`) && strings.Contains(body, `name="permission"`) && !strings.Contains(body, `role="switch"`) {
+		t.Error("permissions are not free-form checkboxes")
+	}
+	if strings.Count(body, "New in this version") != 1 {
+		t.Error("only the permission the update adds is marked new")
 	}
 }
 
