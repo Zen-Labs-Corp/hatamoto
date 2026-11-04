@@ -57,8 +57,8 @@ var settingsLive = map[string]bool{
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
-	"privacy": true,
-	"locales": true, "locale-addresses": true, "locale-business": true,
+	"privacy":      true,
+	"user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true,
 }
 
 // adminArea is a primary nav item with a secondary sidebar of sections and
@@ -89,6 +89,7 @@ var settingsRegistry = []settingsSectionDef{
 	}},
 	{ID: "users", Label: "Users", Icon: "users", Desc: "Who can sign in and what they can do.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "users", Label: "Users", Final: "/settings/users", Roles: ownerOnly},
+		{ID: "user-sign-in", Label: "Sign-in", Final: "/settings/users/sign-in", Roles: ownerOnly},
 	}},
 	{ID: "media", Label: "Media", Icon: "image", Desc: "Upload, browse and describe the files on your site.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "media", Label: "Media", Final: "/settings/media"},

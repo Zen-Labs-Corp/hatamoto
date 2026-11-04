@@ -34,7 +34,7 @@ type usersData struct {
 	Secret *ui.Secret
 	// SecretGone: the URL carried a secret handle that is used up, expired or not the user's.
 	SecretGone bool
-	// Policy is the sign-in policy control (nil when two-step sign-in is not wired).
+	// Policy is the sign-in policy control of the Sign-in page.
 	Policy *ui.RadioCard
 	// PolicyErr is the message of a refused policy save.
 	PolicyErr string
@@ -74,6 +74,7 @@ func (a *Admin) mountUsers(authed *httpx.Group) {
 	owner.HandleFunc("POST /settings/users", a.handleUserCreate)
 	owner.HandleFunc("GET /settings/users/{id}", a.handleUserEdit)
 	owner.HandleFunc("POST /settings/users/{id}", a.handleUserUpdate)
+	owner.HandleFunc("GET /settings/users/sign-in", a.handleSignIn)
 	owner.Group("", a.RequireSudo).HandleFunc("POST /settings/users/two-factor", a.handleTwoFactorPolicy)
 	owner.HandleFunc("POST /settings/users/{id}/reset", a.handleUserReset)
 	owner.HandleFunc("GET /settings/users/{id}/delete", a.handleUserDeleteForm)
@@ -307,7 +308,6 @@ func (a *Admin) renderUsers(w http.ResponseWriter, r *http.Request, status int, 
 		if factors, err = a.deps.TwoFactor.Counts(r.Context(), ids); err != nil {
 			a.logger().Error("count second factors failed", "err", err)
 		}
-		d.Policy = a.policyControl(r.Context())
 	}
 	d.Table = a.usersTable(r, all, self, factors, a.deps.TwoFactor != nil)
 	d.Invites, d.HasInvites = a.invitesTable(r)
@@ -691,6 +691,23 @@ func (a *Admin) handleUserDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.adminPath+"/settings/users", http.StatusSeeOther)
 }
 
+// handleSignIn is the Users > Sign-in page: the two-step sign-in policy.
+func (a *Admin) handleSignIn(w http.ResponseWriter, r *http.Request) {
+	if a.deps.TwoFactor == nil || a.deps.Site == nil {
+		a.unavailable(w, r, "Two-step sign-in")
+		return
+	}
+	a.renderSignIn(w, r, http.StatusOK, "")
+}
+
+func (a *Admin) renderSignIn(w http.ResponseWriter, r *http.Request, status int, policyErr string) {
+	v := a.NewView(w, r, "Sign-in")
+	v.Section, v.Tab = "users", "user-sign-in"
+	v.Width = "narrow"
+	v.Data = usersData{Policy: a.policyControl(r.Context()), PolicyErr: policyErr}
+	a.Render(w, r, status, "users/sign-in", v)
+}
+
 // policyControl is the radio group for the sign-in policy, with the stored choice checked.
 func (a *Admin) policyControl(ctx context.Context) *ui.RadioCard {
 	cur, err := a.twoFactorPolicy(ctx)
@@ -715,7 +732,7 @@ func (a *Admin) handleTwoFactorPolicy(w http.ResponseWriter, r *http.Request) {
 	switch to {
 	case siteconfig.TwoFactorOptional, siteconfig.TwoFactorOwners, siteconfig.TwoFactorEveryone:
 	default:
-		a.renderUsers(w, r, http.StatusUnprocessableEntity, usersData{PolicyErr: "Choose one of the options."})
+		a.renderSignIn(w, r, http.StatusUnprocessableEntity, "Choose one of the options.")
 		return
 	}
 	from, err := a.twoFactorPolicy(r.Context())
@@ -731,5 +748,5 @@ func (a *Admin) handleTwoFactorPolicy(w http.ResponseWriter, r *http.Request) {
 	}
 	a.audit(r, "settings.two_factor_policy", "two_factor_policy", map[string]any{"from": from, "to": to})
 	a.SetFlash(w, r, "success", "Sign-in policy saved.")
-	http.Redirect(w, r, a.adminPath+"/settings/users", http.StatusSeeOther)
+	http.Redirect(w, r, a.adminPath+"/settings/users/sign-in", http.StatusSeeOther)
 }

@@ -181,6 +181,7 @@ GET /admin/settings/users -> admin.(*Admin).handleUsers-fm
 GET /admin/settings/users/invite -> admin.(*Admin).handleInviteNew-fm
 GET /admin/settings/users/invites/{id}/revoke -> admin.(*Admin).handleInviteRevokeConfirm-fm
 GET /admin/settings/users/new -> admin.(*Admin).handleUserNew-fm
+GET /admin/settings/users/sign-in -> admin.(*Admin).handleSignIn-fm
 GET /admin/settings/users/{id} -> admin.(*Admin).handleUserEdit-fm
 GET /admin/settings/users/{id}/delete -> admin.(*Admin).handleUserDeleteForm-fm
 GET /admin/settings/webhooks -> admin.(*Admin).handleWebhooks-fm

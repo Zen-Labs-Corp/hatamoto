@@ -32,8 +32,15 @@ func TestUsersPageShowsPolicyAndTwoStepColumn(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
 	}
+	if body := rec.Body.String(); !strings.Contains(body, "2-step") || strings.Contains(body, `name="policy"`) {
+		t.Error("the users list lacks the 2-step column or still carries the policy form")
+	}
+	rec = g.do("GET", "/admin/settings/users/sign-in", "owner-token", nil, nil)
+	if rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
 	body := rec.Body.String()
-	for _, want := range []string{"2-step", "Required for owners", "Required for everyone", "Optional", `name="policy"`} {
+	for _, want := range []string{"Required for owners", "Required for everyone", "Optional", `name="policy"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
 		}
@@ -44,7 +51,7 @@ func TestUsersPageShowsPolicyAndTwoStepColumn(t *testing.T) {
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %v", issues)
 	}
-	compareGolden(t, "pages/users-list-2fa.html", uuidRE.ReplaceAllString(normalizePage(body), "UUID"))
+	compareGolden(t, "pages/users-sign-in.html", uuidRE.ReplaceAllString(normalizePage(body), "UUID"))
 }
 
 func TestUsersPolicySaveNeedsSudoOwnerAndValidValue(t *testing.T) {

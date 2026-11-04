@@ -143,7 +143,6 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-10", File: "pages/profile/security.html", Needle: `profile/security/totp/remove`, Reason: "Remove, a row action of the authenticator card and not a create form; the passkey table below lists existing keys"},
 	{Rule: "UI-10", File: "pages/profile/security.html", Needle: `profile/security/totp/begin`, Reason: "Set up, a row action of the authenticator card that takes no input and not a create form"},
 	{Rule: "UI-10", File: "pages/profile/security.html", Needle: `profile/security/codes">`, Reason: "Get new codes, a row action of the recovery codes card and not a create form"},
-	{Rule: "UI-10", File: "pages/users/list.html", Needle: `settings/users/two-factor`, Reason: "the sign-in policy form, a settings form and not a create form beside the list"},
 	{Rule: "UI-10", File: "pages/settings/backups.html", Needle: `id="backup-form"`, Reason: "Back up now, a header action that starts a background job and takes no input, so there is nothing to put in a dialog"},
 
 	// UI-02: selectors that name the class, not markup that uses it.
