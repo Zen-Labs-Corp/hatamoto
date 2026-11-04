@@ -127,6 +127,18 @@ const (
 	TwoFactorEveryone = "everyone"
 )
 
+// TwoFactorBinds reports whether policy makes a second factor mandatory for
+// the user role.
+func TwoFactorBinds(policy, role string) bool {
+	switch policy {
+	case TwoFactorEveryone:
+		return true
+	case TwoFactorOwners:
+		return role == "owner"
+	}
+	return false
+}
+
 // ErrInvalidTwoFactorPolicy is returned by Update for an unknown policy.
 var ErrInvalidTwoFactorPolicy = errors.New("siteconfig: two-factor policy must be optional, owners or everyone")
 

@@ -35,6 +35,15 @@ const (
 // the caller must finish sign-in through the second-factor step.
 var ErrSecondFactorRequired = errors.New("second factor required")
 
+// ErrFactorSetupRequired is returned by the JSON login when the site policy
+// requires a second factor of this user and they have none yet. The password
+// was right; the user has to set a factor up in the admin first.
+var ErrFactorSetupRequired = errors.New("second factor must be set up first")
+
+// FactorRequirement reports whether the site policy makes a second factor
+// mandatory for u. An error fails closed: no API session.
+type FactorRequirement func(ctx context.Context, u *user.User) (bool, error)
+
 // SecondFactorGate tells the service whether a user has any second factor
 // (authenticator app or passkey). An error fails closed: no session.
 type SecondFactorGate interface {
@@ -84,7 +93,13 @@ type Service struct {
 	// exists (tests, a build without the feature).
 	gate  SecondFactorGate
 	codes CodeChecker
+	// required is the site policy; nil means no policy.
+	required FactorRequirement
 }
+
+// SetFactorRequirement wires the site policy the JSON login enforces. Call it
+// once at start-up.
+func (s *Service) SetFactorRequirement(r FactorRequirement) { s.required = r }
 
 // SetSecondFactor wires the second-factor checks. Call it once at start-up.
 func (s *Service) SetSecondFactor(g SecondFactorGate, c CodeChecker) {
@@ -258,11 +273,22 @@ func (s *Service) LoginSession(ctx context.Context, email, password, userAgent, 
 // API login. It returns the user and the opaque session token, which is both
 // the bearer token and the API cookie value. It never issues an admin session.
 // A user with a second factor must also give a valid code: an empty or wrong
-// one is ErrInvalidCredentials and counts against the account lock.
+// one is ErrInvalidCredentials and counts against the account lock. A user the
+// site policy requires to have a factor, and who has none, gets
+// ErrFactorSetupRequired instead of a session.
 func (s *Service) LoginAPISession(ctx context.Context, email, password, code, userAgent, ip string) (*user.User, string, error) {
 	u, hasFactor, err := s.authenticate(ctx, email, password)
 	if err != nil {
 		return nil, "", err
+	}
+	if !hasFactor && s.required != nil {
+		req, err := s.required(ctx, u)
+		if err != nil {
+			return nil, "", fmt.Errorf("read two-step policy: %w", err)
+		}
+		if req {
+			return nil, "", ErrFactorSetupRequired
+		}
 	}
 	if hasFactor {
 		if s.codes == nil {

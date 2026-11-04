@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -75,5 +76,24 @@ func TestHandleLoginRequiresCodeForFactorUser(t *testing.T) {
 	// so it ends in the "login failed" 500 instead of a 401.
 	if rr := post(`{"email":"ana@example.com","password":"correct-password","code":"123456"}`); rr.Code == http.StatusUnauthorized {
 		t.Errorf("a valid code was refused: %d %s", rr.Code, rr.Body)
+	}
+}
+
+// Under a policy that requires a factor, the JSON login refuses a password-only
+// session for a user without one and says why.
+func TestHandleLoginRefusesPasswordOnlyUnderRequiredPolicy(t *testing.T) {
+	hash, err := auth.HashPassword("correct-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := &user.User{ID: uuid.New(), Email: "ana@example.com", PasswordHash: hash, Role: user.RoleEditor}
+	svc := auth.NewService(loginRepo{u: u}, nil, nil)
+	svc.SetSecondFactor(allowFactor{has: false}, codeIs("123456"))
+	svc.SetFactorRequirement(func(context.Context, *user.User) (bool, error) { return true, nil })
+	s := &Server{authService: svc, logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	rr := httptest.NewRecorder()
+	s.handleLogin(rr, httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewBufferString(`{"email":"ana@example.com","password":"correct-password"}`)))
+	if rr.Code != http.StatusForbidden || !strings.Contains(rr.Body.String(), "two-step") {
+		t.Fatalf("got %d %s", rr.Code, rr.Body)
 	}
 }

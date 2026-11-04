@@ -86,7 +86,7 @@ Two-step sign-in asks for a second proof after the password. Each person sets it
 
 At sign-in, a person with a second factor enters the password, then a code, a recovery code or a passkey. Wrong codes count toward the same lock as wrong passwords: five in a row lock the account for 15 minutes. Confirming your password for a sensitive action (sudo mode) also asks for the code when you have an authenticator app. A person who has only passkeys confirms with the password alone.
 
-Owners choose who must use it under **Settings > Users > Two-step sign-in**: optional, required for owners, or required for everyone. A person who is required to use it and has not set it up is sent to **Profile > Security** until they do. The users list has a **2-step** column. A script that signs in over the JSON API sends the code in a `code` field. API keys are not affected.
+Owners choose who must use it under **Settings > Users > Two-step sign-in**: optional, required for owners, or required for everyone. A person who is required to use it and has not set it up is sent to **Profile > Security** until they do. The users list has a **2-step** column. A script that signs in over the JSON API sends the code in a `code` field. A person the policy requires to use it cannot get a JSON session by password alone until they have set it up. API keys are not affected.
 
 If someone loses their device and their recovery codes, run `hatamoto user reset-2fa --email E` on the server. They can then sign in with the password and set it up again.
 

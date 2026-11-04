@@ -84,15 +84,7 @@ func (a *Admin) securityFail(w http.ResponseWriter, r *http.Request, what string
 }
 
 // policyBinds reports whether policy makes a second factor mandatory for role.
-func policyBinds(policy, role string) bool {
-	switch policy {
-	case siteconfig.TwoFactorEveryone:
-		return true
-	case siteconfig.TwoFactorOwners:
-		return role == "owner"
-	}
-	return false
-}
+func policyBinds(policy, role string) bool { return siteconfig.TwoFactorBinds(policy, role) }
 
 // twoFactorPolicy is the site's sign-in policy ("optional" when nothing is wired).
 func (a *Admin) twoFactorPolicy(ctx context.Context) (string, error) {

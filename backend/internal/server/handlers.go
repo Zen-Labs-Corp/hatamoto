@@ -151,6 +151,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusUnauthorized, "invalid email or password")
 			return
 		}
+		if errors.Is(err, auth.ErrFactorSetupRequired) {
+			writeError(w, http.StatusForbidden, "this site requires two-step sign-in: set up an authenticator app or a passkey in the admin, then sign in again")
+			return
+		}
 		if errors.Is(err, auth.ErrSecondFactorRequired) {
 			// A user with a second factor needs a valid "code"; without one the
 			// answer is the same generic 401, never "needs a code".

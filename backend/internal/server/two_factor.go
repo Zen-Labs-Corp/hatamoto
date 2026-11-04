@@ -10,7 +10,9 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/twofactor"
+	"hatamoto.dev/core/internal/user"
 )
 
 // sudoFactor adapts the two-factor service to the admin's sudo seam: the only
@@ -45,6 +47,20 @@ func (s *Server) initTwoFactor() {
 	s.twoFactor = svc
 	s.passkeys = twofactor.NewPasskeys(s.passkeyRP, store, svc, nil)
 	s.authService.SetSecondFactor(svc, svc)
+	s.authService.SetFactorRequirement(s.factorRequired)
+}
+
+// factorRequired reports whether the owner's sign-in policy makes a second
+// factor mandatory for u: the JSON login enforces it as the admin does.
+func (s *Server) factorRequired(ctx context.Context, u *user.User) (bool, error) {
+	if s.siteConfig == nil {
+		return false, nil
+	}
+	c, err := s.siteConfig.Get(ctx)
+	if err != nil {
+		return false, err
+	}
+	return siteconfig.TwoFactorBinds(c.TwoFactorPolicy, string(u.Role)), nil
 }
 
 // passkeyRP is the relying party: the host of the configured site address.

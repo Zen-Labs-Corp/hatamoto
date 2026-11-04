@@ -195,3 +195,28 @@ func TestIssueVerifiedSessionNeedsSessionsAndResets(t *testing.T) {
 		t.Fatal("bookkeeping ran although no session was issued")
 	}
 }
+
+func TestLoginAPISessionRefusesPasswordOnlyWhenPolicyRequiresAFactor(t *testing.T) {
+	ctx := context.Background()
+	svc, _, u := factorRig(t, fakeGate{has: false}, &fakeCodes{good: "123456"})
+	svc.SetFactorRequirement(func(context.Context, *user.User) (bool, error) { return true, nil })
+	if _, _, err := svc.LoginAPISession(ctx, u.Email, "correct-password", "", "ua", "ip"); !errors.Is(err, ErrFactorSetupRequired) {
+		t.Fatalf("required, no factor = %v", err)
+	}
+	// A policy that cannot be read fails closed.
+	svc.SetFactorRequirement(func(context.Context, *user.User) (bool, error) { return false, errors.New("db down") })
+	if _, _, err := svc.LoginAPISession(ctx, u.Email, "correct-password", "", "ua", "ip"); err == nil || passed(err) {
+		t.Fatalf("unreadable policy = %v", err)
+	}
+	// Not required: the password alone still passes the gate.
+	svc.SetFactorRequirement(func(context.Context, *user.User) (bool, error) { return false, nil })
+	if _, _, err := svc.LoginAPISession(ctx, u.Email, "correct-password", "", "ua", "ip"); !passed(err) {
+		t.Fatalf("not required = %v", err)
+	}
+	// A user with a factor goes the code route, as before.
+	svc2, _, u2 := factorRig(t, fakeGate{has: true}, &fakeCodes{good: "123456"})
+	svc2.SetFactorRequirement(func(context.Context, *user.User) (bool, error) { return true, nil })
+	if _, _, err := svc2.LoginAPISession(ctx, u2.Email, "correct-password", "123456", "ua", "ip"); !passed(err) {
+		t.Fatalf("factor user = %v", err)
+	}
+}

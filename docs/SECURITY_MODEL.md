@@ -200,7 +200,7 @@ Residual risks, stated plainly:
   one-time recovery codes and passkeys (user verification required, single-use challenges). Every
   session-issuing path refuses a password alone for a user with a factor, and a failed factor lookup
   refuses the sign-in. Wrong codes share the account lock. An owner policy can require it, but a
-  user who has no factor yet is only held on the Security page, so the policy is not a sign-in check.
+  user who has no factor yet is held on the Security page in the admin, and the JSON login refuses a password-only session for them (403) until they set one up.
   Residual: a user with only passkeys confirms sudo mode with the password alone, passkeys are tied
   to the site address, and `hatamoto user reset-2fa` on the server removes every factor.
 - **Community `builder.island` gap.** A builder island is a same-origin
