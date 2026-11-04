@@ -150,6 +150,7 @@ func TestReviewPage(t *testing.T) {
 		`action="/admin/plugins/hello/changesets/42/decide"`, `name="item_3"`, `name="item_4"`, `name="group_redirects"`, "212 redirects", "All to pages in this changeset",
 		"1 of 5 decided", "Remove it", "hidden character", "Ordinary changes", "Pages", "1,200", "Skipped", "Pricing", "hm-table--wrap",
 		`class="hm-savebar"`, "4 risky items and 2 suggestions still need a decision.", "Publish 1,858 changes",
+		`data-width="wide"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("review page lacks %q", want)

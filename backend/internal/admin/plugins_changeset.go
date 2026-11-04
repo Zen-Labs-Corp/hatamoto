@@ -500,7 +500,7 @@ func (a *Admin) renderReview(w http.ResponseWriter, r *http.Request, h changeset
 	back := a.adminPath + "/settings/changes"
 	page := &reviewPage{ID: h.ID, Title: title, Badge: stateBadge(h.State), ChangesHref: back}
 	v := a.NewView(w, r, title)
-	v.Width = "narrow"
+	v.Width = "wide"
 	v.Crumbs = a.changesetCrumbs(h, Crumb{Label: title})
 	if !stagedNow(h) {
 		page.Closed = true
