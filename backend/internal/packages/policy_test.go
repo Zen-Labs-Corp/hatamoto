@@ -152,3 +152,48 @@ func TestRefusedPermissionsForCommunityPackage(t *testing.T) {
 		t.Fatalf("self built refused = %v", got)
 	}
 }
+
+func TestCheckCommunityCSP(t *testing.T) {
+	img := &sdk.CSP{ImgSrc: []string{"https://img.example.com"}}
+	for _, tt := range []struct {
+		name string
+		o    Origin
+		csp  *sdk.CSP
+		want bool
+	}{
+		{"community images", OriginCommunity, img, false},
+		{"community none", OriginCommunity, nil, false},
+		{"community script", OriginCommunity, &sdk.CSP{ScriptSrc: []string{"https://js.example.com"}}, true},
+		{"community connect", OriginCommunity, &sdk.CSP{ConnectSrc: []string{"https://api.example.com"}}, true},
+		{"community frame", OriginCommunity, &sdk.CSP{FrameSrc: []string{"https://f.example.com"}}, true},
+		{"first party script", OriginFirstParty, &sdk.CSP{ScriptSrc: []string{"https://js.example.com"}}, false},
+		{"self built script", OriginSelfBuilt, &sdk.CSP{ScriptSrc: []string{"https://js.example.com"}}, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkCommunityCSP(tt.o, sdk.Manifest{CSP: tt.csp})
+			if (err != nil) != tt.want || (err != nil && err.Error() != "Community plugins may only add image hosts.") {
+				t.Fatalf("got %v, want refusal %v", err, tt.want)
+			}
+		})
+	}
+}
+
+// An update that adds a page-security host is widened access; the same hosts are not.
+func TestNewCSPHosts(t *testing.T) {
+	files := promoPack()
+	files[PluginManifest] = []byte(`{"name":"promo","version":"1.1.0","sdk":"^0.18","permissions":["builder.island"],"csp":{"script_src":["https://js.example.com"],"img_src":["https://img.example.com"]}}`)
+	raw, err := PackFiles(files, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := parse(t, raw)
+	if got := newCSPHosts([]byte(`{"name":"promo","version":"1.0.0","sdk":"^0.18"}`), p); len(got) != 2 {
+		t.Errorf("new hosts = %v, want both", got)
+	}
+	if got := newCSPHosts([]byte(`{"name":"promo","version":"1.0.0","sdk":"^0.18","csp":{"script_src":["https://js.example.com"]}}`), p); !slices.Equal(got, []string{"https://img.example.com"}) {
+		t.Errorf("new hosts = %v, want only the image host", got)
+	}
+	if got := newCSPHosts([]byte(`{"name":"promo","csp":{"script_src":["https://js.example.com"],"img_src":["https://img.example.com"]}}`), p); len(got) != 0 {
+		t.Errorf("unchanged hosts = %v", got)
+	}
+}

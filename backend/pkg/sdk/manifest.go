@@ -88,6 +88,11 @@ type Manifest struct {
 	// (see forbiddenRequestHeaders). At most MaxRequestHeaders.
 	RequestHeaders []string `json:"request_headers,omitempty"`
 
+	// CSP lists the https hosts the plugin needs added to the public pages'
+	// Content-Security-Policy. The owner sees them in the permission prompt;
+	// they apply only while the plugin is enabled. See CSP.
+	CSP *CSP `json:"csp,omitempty"`
+
 	// RenderPage tunes the render.page filter (see PageOptions).
 	RenderPage *PageOptions `json:"render_page,omitempty"`
 
@@ -116,6 +121,51 @@ type Manifest struct {
 	// SettingsSchema is an optional JSON Schema (draft 2020-12) object
 	// describing the plugin's settings.
 	SettingsSchema json.RawMessage `json:"settings_schema,omitempty"`
+}
+
+// CSP is the set of hosts a plugin asks to have added to the public pages'
+// Content-Security-Policy, per directive. Each entry is an https origin
+// ("https://api.example.com") or one with a leading wildcard label
+// ("https://*.example.com"): no keywords, no "*", no path or port, at most
+// MaxCSPHosts per list. Only script-src and connect-src change what a page may
+// do today (the base policy already allows https images and frames); community
+// plugins may list image hosts only.
+type CSP struct {
+	FrameSrc   []string `json:"frame_src,omitempty"`
+	ImgSrc     []string `json:"img_src,omitempty"`
+	ScriptSrc  []string `json:"script_src,omitempty"`
+	ConnectSrc []string `json:"connect_src,omitempty"`
+}
+
+// MaxCSPHosts caps each list of CSP.
+const MaxCSPHosts = 8
+
+// cspHostPattern is an https origin, optionally with one leading wildcard
+// label: scheme, DNS labels, no port, path or query.
+var cspHostPattern = regexp.MustCompile(`^https://(\*\.)?([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
+
+// Empty reports whether c lists no host.
+func (c *CSP) Empty() bool {
+	return c == nil || len(c.FrameSrc)+len(c.ImgSrc)+len(c.ScriptSrc)+len(c.ConnectSrc) == 0
+}
+
+func (c *CSP) validate() error {
+	for name, list := range map[string][]string{"frame_src": c.FrameSrc, "img_src": c.ImgSrc, "script_src": c.ScriptSrc, "connect_src": c.ConnectSrc} {
+		if len(list) > MaxCSPHosts {
+			return fmt.Errorf("csp.%s: more than %d hosts", name, MaxCSPHosts)
+		}
+		seen := map[string]bool{}
+		for _, h := range list {
+			if !cspHostPattern.MatchString(h) {
+				return fmt.Errorf("csp.%s: %q is not an https host (want https://host or https://*.host)", name, h)
+			}
+			if seen[h] {
+				return fmt.Errorf("csp.%s: duplicate host %q", name, h)
+			}
+			seen[h] = true
+		}
+	}
+	return nil
 }
 
 // BuilderSource is one data source a plugin offers to the page builder.
@@ -479,6 +529,11 @@ func (m Manifest) validateCapabilities() error {
 	}
 	if err := m.validateRequestHeaders(); err != nil {
 		return err
+	}
+	if m.CSP != nil {
+		if err := m.CSP.validate(); err != nil {
+			return fmt.Errorf("sdk: plugin %q: %w", m.Name, err)
+		}
 	}
 	return nil
 }

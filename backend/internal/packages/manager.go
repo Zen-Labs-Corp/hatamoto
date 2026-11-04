@@ -22,6 +22,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/standing"
@@ -77,7 +78,10 @@ type ConfirmationRequired struct {
 	NewIsland bool
 	// NewScripts: the update newly asks for site.scripts.
 	NewScripts bool
-	Missing    []MissingSection
+	// NewCSPHosts are page-security (csp) hosts the update adds; it counts as
+	// widened access too.
+	NewCSPHosts []string
+	Missing     []MissingSection
 }
 
 func (e *ConfirmationRequired) Error() string {
@@ -288,6 +292,9 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if err := pluginhost.SDKRefusal(man); err != nil {
 			return nil, &ParseError{Msg: err.Error()}
 		}
+		if err := checkCommunityCSP(Classify(p.Name, signerOf(p)), man); err != nil {
+			return nil, err
+		}
 		if err := validateWidgets(p); err != nil {
 			return nil, err
 		}
@@ -484,7 +491,8 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 	}
 	if p.Kind == KindPlugin && !devLoop {
 		c.NewHosts, c.NewFetchAny, c.NewIsland, c.NewScripts = widenedAccess(prev.Manifest, p)
-		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts
+		c.NewCSPHosts = newCSPHosts(prev.Manifest, p)
+		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || len(c.NewCSPHosts) > 0
 	}
 	if !c.Downgrade && !c.SignerChange && !c.WidenedAccess && len(c.Missing) == 0 {
 		return nil, nil
@@ -511,6 +519,32 @@ func widenedAccess(installed json.RawMessage, p *Package) (hosts []string, fetch
 		return slices.Contains(next.Permissions, perm) && !slices.Contains(old.Permissions, perm)
 	}
 	return hosts, newly(sdk.PermHTTPFetchAny), newly(sdk.PermBuilderIsland), newly(sdk.PermSiteScripts)
+}
+
+// newCSPHosts lists the csp hosts (per directive, "directive host") the update
+// asks for that the installed manifest did not.
+func newCSPHosts(installed json.RawMessage, p *Package) []string {
+	var old sdk.Manifest
+	_ = json.Unmarshal(installed, &old)
+	next, err := p.PluginManifest()
+	if err != nil || next.CSP.Empty() {
+		return nil
+	}
+	has := map[string]bool{}
+	for _, l := range permtext.CSPLines(old.CSP) {
+		for _, h := range l.Hosts {
+			has[l.Name+" "+h] = true
+		}
+	}
+	var out []string
+	for _, l := range permtext.CSPLines(next.CSP) {
+		for _, h := range l.Hosts {
+			if !has[l.Name+" "+h] {
+				out = append(out, h)
+			}
+		}
+	}
+	return out
 }
 
 // CheckPolicy says whether p may be installed from src: signed by a trusted

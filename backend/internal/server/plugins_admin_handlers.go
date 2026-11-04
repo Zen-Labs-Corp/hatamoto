@@ -29,6 +29,7 @@ type pluginView struct {
 	Cookies     []string      `json:"cookies,omitempty"`
 	// RequestHeaders are the extra request headers its routes receive.
 	RequestHeaders []string `json:"request_headers,omitempty"`
+	CSP            *sdk.CSP `json:"csp,omitempty"`
 	Funcs          []string `json:"funcs,omitempty"`
 	DataError      string   `json:"data_error,omitempty"`
 }
@@ -60,7 +61,7 @@ func (s *Server) pluginViews() []pluginView {
 			Name: st.Name, Loaded: st.Loaded, Error: st.Error, Hooks: st.Hooks,
 			Version: m.Version, SDK: m.SDK, Description: m.Description, AllowedHosts: m.AllowedHosts,
 			Permissions: orEmpty(m.Permissions), Granted: []string{}, Routes: m.Routes, Cron: m.Cron,
-			Cookies: m.Cookies, RequestHeaders: m.RequestHeaders, Funcs: m.Funcs, DataError: st.DataError,
+			Cookies: m.Cookies, RequestHeaders: m.RequestHeaders, CSP: m.CSP, Funcs: m.Funcs, DataError: st.DataError,
 		}
 		if s.plugins != nil {
 			v.Granted = orEmpty(s.plugins.Grants().Granted(st.Name))

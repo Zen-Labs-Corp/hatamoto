@@ -14,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 	linkingv2 "hatamoto.dev/core/internal/linking/v2"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/searchperf"
 	"hatamoto.dev/core/internal/sectiontemplate"
@@ -196,6 +197,8 @@ type PluginInfo struct {
 	Routes, Cron, Cookies, Funcs []string // one human line each
 	// RequestHeaders are the extra request headers its routes receive.
 	RequestHeaders []string
+	// CSP is what it adds to the public pages' security policy.
+	CSP            []permtext.CSPLine
 	SettingsSchema []byte
 	// Package is set for a plugin installed from a package (nil for one loaded
 	// from HATAMOTO_PLUGIN_DIR); UI for one that ships an admin page.

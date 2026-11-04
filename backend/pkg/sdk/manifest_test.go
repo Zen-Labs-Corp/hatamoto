@@ -267,3 +267,31 @@ func TestManifestRequestHeaders(t *testing.T) {
 		}
 	}
 }
+
+func TestManifestCSP(t *testing.T) {
+	base := Manifest{Name: "pay-plugin", Version: "1.0.0", SDK: "^0.7"}
+	for name, c := range map[string]*CSP{
+		"ok":           {ScriptSrc: []string{"https://js.example.com"}, ConnectSrc: []string{"https://api.example.com"}, ImgSrc: []string{"https://*.example.com"}, FrameSrc: []string{"https://js.example.com"}},
+		"ok empty":     {},
+		"http":         {ScriptSrc: []string{"http://js.example.com"}},
+		"keyword":      {ScriptSrc: []string{"'unsafe-eval'"}},
+		"star":         {ConnectSrc: []string{"*"}},
+		"scheme star":  {ConnectSrc: []string{"https://*"}},
+		"tld wildcard": {ConnectSrc: []string{"https://*.com"}},
+		"double wild":  {ConnectSrc: []string{"https://*.*.example.com"}},
+		"inner wild":   {ConnectSrc: []string{"https://a.*.example.com"}},
+		"path":         {ImgSrc: []string{"https://example.com/x"}},
+		"port":         {ImgSrc: []string{"https://example.com:8443"}},
+		"semicolon":    {ImgSrc: []string{"https://example.com; script-src *"}},
+		"upper":        {ImgSrc: []string{"https://Example.com"}},
+		"bare":         {FrameSrc: []string{"example.com"}},
+		"duplicate":    {FrameSrc: []string{"https://a.example.com", "https://a.example.com"}},
+		"too many":     {ImgSrc: []string{"https://a.example.com", "https://b.example.com", "https://c.example.com", "https://d.example.com", "https://e.example.com", "https://f.example.com", "https://g.example.com", "https://h.example.com", "https://i.example.com"}},
+	} {
+		m := base
+		m.CSP = c
+		if err := m.Validate(); (err == nil) != strings.HasPrefix(name, "ok") {
+			t.Errorf("%s: err = %v", name, err)
+		}
+	}
+}

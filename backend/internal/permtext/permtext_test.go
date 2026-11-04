@@ -79,3 +79,13 @@ func TestForCard(t *testing.T) {
 		t.Errorf("unknown text = %q", l.Text)
 	}
 }
+
+func TestCSPLines(t *testing.T) {
+	if got := CSPLines(nil); got != nil {
+		t.Fatalf("nil csp: %v", got)
+	}
+	got := CSPLines(&sdk.CSP{ImgSrc: []string{"https://*.example.com"}, ScriptSrc: []string{"https://js.example.com"}})
+	if len(got) != 2 || got[0].Name != "Scripts" || got[1].Name != "Images" || got[1].Hosts[0] != "https://*.example.com" {
+		t.Fatalf("lines = %+v", got)
+	}
+}

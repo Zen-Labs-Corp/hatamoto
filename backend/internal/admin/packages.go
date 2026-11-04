@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/admin/schemaform"
+	"hatamoto.dev/core/internal/permtext"
 )
 
 // The types and interface below are what the Plugins and Themes pages need of
@@ -131,6 +132,7 @@ type ConfirmInfo struct {
 	NewFetchAny            bool
 	NewIsland              bool
 	NewScripts             bool
+	NewCSPHosts            []string
 	OldVersion, NewVersion string
 	OldSigner, NewSigner   string
 	// Missing are section types the active theme would lose.
@@ -152,6 +154,10 @@ type PluginUIInfo struct {
 type PackageSummary struct {
 	Kind, Name, Version, Description string
 	Permissions, AllowedHosts        []string
+	// RequestHeaders and CSP are what the plugin asks to receive and to add to
+	// the public pages' security policy.
+	RequestHeaders []string
+	CSP            []permtext.CSPLine
 	// Refused is the part of Permissions that policy will not grant this
 	// package; the install prompt says so and does not post them.
 	Refused []string
