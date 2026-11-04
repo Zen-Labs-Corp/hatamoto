@@ -136,6 +136,7 @@ type ConfirmInfo struct {
 	NewIsland              bool
 	NewScripts             bool
 	NewCSPHosts            []string
+	NewRequestHeaders      []string
 	OldVersion, NewVersion string
 	OldSigner, NewSigner   string
 	// Missing are section types the active theme would lose.

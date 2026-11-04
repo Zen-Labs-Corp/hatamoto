@@ -82,7 +82,10 @@ type ConfirmationRequired struct {
 	// NewCSPHosts are page-security (csp) hosts the update adds; it counts as
 	// widened access too.
 	NewCSPHosts []string
-	Missing     []MissingSection
+	// NewRequestHeaders are request headers the update asks to receive that
+	// the installed version did not; they count as widened access too.
+	NewRequestHeaders []string
+	Missing           []MissingSection
 }
 
 func (e *ConfirmationRequired) Error() string {
@@ -509,7 +512,8 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 	if p.Kind == KindPlugin && !devLoop {
 		c.NewHosts, c.NewFetchAny, c.NewIsland, c.NewScripts = widenedAccess(prev.Manifest, p)
 		c.NewCSPHosts = newCSPHosts(prev.Manifest, p)
-		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || len(c.NewCSPHosts) > 0
+		c.NewRequestHeaders = newRequestHeaders(prev.Manifest, p)
+		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0
 	}
 	if !c.Downgrade && !c.SignerChange && !c.WidenedAccess && len(c.Missing) == 0 {
 		return nil, nil
@@ -536,6 +540,28 @@ func widenedAccess(installed json.RawMessage, p *Package) (hosts []string, fetch
 		return slices.Contains(next.Permissions, perm) && !slices.Contains(old.Permissions, perm)
 	}
 	return hosts, newly(sdk.PermHTTPFetchAny), newly(sdk.PermBuilderIsland), newly(sdk.PermSiteScripts)
+}
+
+// newRequestHeaders lists the request_headers (lower case) the update declares
+// that the installed manifest did not.
+func newRequestHeaders(installed json.RawMessage, p *Package) []string {
+	var old sdk.Manifest
+	_ = json.Unmarshal(installed, &old)
+	next, err := p.PluginManifest()
+	if err != nil {
+		return nil
+	}
+	has := map[string]bool{}
+	for _, h := range old.RequestHeaders {
+		has[strings.ToLower(h)] = true
+	}
+	var out []string
+	for _, h := range next.RequestHeaders {
+		if h = strings.ToLower(h); !has[h] {
+			out = append(out, h)
+		}
+	}
+	return out
 }
 
 // newCSPHosts lists the csp hosts (per directive, "directive host") the update

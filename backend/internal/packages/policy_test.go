@@ -197,3 +197,23 @@ func TestNewCSPHosts(t *testing.T) {
 		t.Errorf("unchanged hosts = %v", got)
 	}
 }
+
+// An update that adds a request header is widened access; the same headers are not.
+func TestNewRequestHeaders(t *testing.T) {
+	files := promoPack()
+	files[PluginManifest] = []byte(`{"name":"promo","version":"1.1.0","sdk":"^0.18","permissions":["builder.island"],"request_headers":["Stripe-Signature","X-Hook"]}`)
+	raw, err := PackFiles(files, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := parse(t, raw)
+	if got := newRequestHeaders([]byte(`{"name":"promo","version":"1.0.0","sdk":"^0.18"}`), p); !slices.Equal(got, []string{"stripe-signature", "x-hook"}) {
+		t.Errorf("new headers = %v, want both", got)
+	}
+	if got := newRequestHeaders([]byte(`{"name":"promo","request_headers":["stripe-signature"]}`), p); !slices.Equal(got, []string{"x-hook"}) {
+		t.Errorf("new headers = %v, want only x-hook", got)
+	}
+	if got := newRequestHeaders([]byte(`{"name":"promo","request_headers":["x-hook","STRIPE-SIGNATURE"]}`), p); len(got) != 0 {
+		t.Errorf("unchanged headers = %v", got)
+	}
+}
