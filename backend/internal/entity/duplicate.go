@@ -53,6 +53,10 @@ func (d *Duplicator) Duplicate(ctx context.Context, userID, srcID uuid.UUID) (*E
 	if err != nil {
 		return nil, err
 	}
+	name := "Copy of " + src.Name
+	if attrs, err = retitle(attrs, src.Name, name); err != nil {
+		return nil, err
+	}
 	meta, err := withoutImportKey(src.Metadata)
 	if err != nil {
 		return nil, err
@@ -63,7 +67,7 @@ func (d *Duplicator) Duplicate(ctx context.Context, userID, srcID uuid.UUID) (*E
 	}
 	in := &CreateEntityInput{
 		SchemaID:       src.SchemaID,
-		Name:           "Copy of " + src.Name,
+		Name:           name,
 		Locale:         locale,
 		ParentID:       src.ParentID,
 		Attributes:     attrs,
@@ -120,6 +124,26 @@ func withoutImportKey(meta json.RawMessage) (json.RawMessage, error) {
 	out, err := json.Marshal(m)
 	if err != nil {
 		return nil, fmt.Errorf("write metadata: %w", err)
+	}
+	return out, nil
+}
+
+// retitle sets attributes.title to name when it mirrors the source's name, as
+// the admin keeps it for types that declare a title: public listings prefer it
+// over the name.
+func retitle(attrs json.RawMessage, from, name string) (json.RawMessage, error) {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(attrs, &m); err != nil {
+		return nil, fmt.Errorf("read attributes: %w", err)
+	}
+	var title string
+	if json.Unmarshal(m["title"], &title) != nil || title != from {
+		return attrs, nil
+	}
+	m["title"], _ = json.Marshal(name)
+	out, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("write attributes: %w", err)
 	}
 	return out, nil
 }

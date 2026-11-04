@@ -235,3 +235,26 @@ func TestDuplicateOfSharedEntryStaysShared(t *testing.T) {
 		t.Fatalf("copy = %+v, %v", cp, err)
 	}
 }
+
+func TestDuplicateRetitlesAMirroredTitle(t *testing.T) {
+	ctx := context.Background()
+	d, f := newDuplicateFixture(t, `{}`)
+	same := f.page(t, "same", "en", `{"title":"same"}`, nil)
+	other := f.page(t, "other", "en", `{"title":"Custom"}`, nil)
+	title := func(src *Entity) string {
+		cp, err := d.Duplicate(ctx, uuid.Nil, src.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var a map[string]any
+		_ = json.Unmarshal(cp.Attributes, &a)
+		s, _ := a["title"].(string)
+		return s
+	}
+	if got := title(same); got != "Copy of same" {
+		t.Errorf("mirrored title = %q", got)
+	}
+	if got := title(other); got != "Custom" {
+		t.Errorf("independent title = %q", got)
+	}
+}
