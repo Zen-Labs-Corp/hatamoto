@@ -240,6 +240,7 @@ POST /admin/entities/{id}/edit/preview -> admin.(*Admin).handlePreviewPost-fm
 POST /admin/entities/{id}/edit/recovery -> admin.(*Admin).handleBlogRecoveryPut-fm
 POST /admin/entities/{id}/edit/recovery/discard -> admin.(*Admin).handleBlogRecoveryDiscard-fm
 POST /admin/entities/{id}/edit/render -> admin.(*Admin).handlePageRender-fm
+POST /admin/entities/{id}/origin -> admin.(*Admin).handleEntityHandBack-fm
 POST /admin/entities/{id}/seo -> admin.(*Admin).handleEntitySEOInline-fm
 POST /admin/entities/{id}/status -> admin.(*Admin).handleEntityStatus-fm
 POST /admin/entities/{id}/translations/copy -> admin.(*Admin).handleTranslationCopy-fm
