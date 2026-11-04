@@ -1,6 +1,7 @@
 package permtext
 
 import (
+	"slices"
 	"strings"
 
 	"hatamoto.dev/sdk"
@@ -94,8 +95,15 @@ func Group(perms []string, declaresRuns, proposes bool) Grouped {
 		g.Can = append(g.Can, suggestSiteWide)
 	}
 	g.Never = NeverList()
+	if slices.Contains(perms, sdk.PermSiteScripts) || slices.Contains(perms, sdk.PermBuilderIsland) {
+		// The Can list says it runs code on public pages: the two lists
+		// must not contradict each other.
+		g.Never = slices.DeleteFunc(g.Never, func(s Statement) bool { return s.Title == neverPublicCode })
+	}
 	return g
 }
+
+const neverPublicCode = "Run code on your public pages"
 
 // NeverList is the fixed list of things no plugin can do, whatever it asks for.
 func NeverList() []Statement {
@@ -103,7 +111,7 @@ func NeverList() []Statement {
 		"Change your live site directly",
 		"Edit or delete pages you wrote",
 		"Touch user accounts, passwords, email settings or your site address",
-		"Run code on your public pages",
+		neverPublicCode,
 	}
 	out := make([]Statement, len(titles))
 	for i, t := range titles {

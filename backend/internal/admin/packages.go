@@ -148,6 +148,9 @@ type PluginUIInfo struct {
 type PackageSummary struct {
 	Kind, Name, Version, Description string
 	Permissions, AllowedHosts        []string
+	// Refused is the part of Permissions that policy will not grant this
+	// package; the install prompt says so and does not post them.
+	Refused []string
 	// DeclaresRuns: the plugin declares runs that stage changes for review;
 	// Proposes: one of them may suggest site-wide changes.
 	DeclaresRuns, Proposes bool

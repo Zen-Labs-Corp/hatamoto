@@ -218,6 +218,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	case packages.KindPlugin:
 		m, _ := pkg.PluginManifest()
 		sum.Description, sum.Permissions, sum.AllowedHosts = m.Description, m.Permissions, m.AllowedHosts
+		sum.Refused = packages.RefusedPermissions(pkg)
 		sum.DeclaresRuns = len(m.Runs) > 0
 		for _, r := range m.Runs {
 			sum.Proposes = sum.Proposes || len(r.Proposes) > 0

@@ -375,6 +375,42 @@ func TestFreshInstallLeavesSiteScriptsUnticked(t *testing.T) {
 	}
 }
 
+// The "never" card must not say a plugin cannot run code on public pages
+// while the same page lists a permission that does exactly that.
+func TestPromptNeverContradictsCodeOnPublicPages(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	for _, src := range []string{"plugin-fresh-scripts:gtm", "plugin-island:blocks"} {
+		body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", src).Body.String()
+		if !strings.Contains(body, "It will never be able to") || strings.Contains(body, "Run code on your public pages") {
+			t.Errorf("%s: contradiction on the prompt:\n%s", src, body)
+		}
+	}
+	body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin:plain").Body.String()
+	if !strings.Contains(body, "Run code on your public pages") {
+		t.Errorf("a plugin without script permissions keeps the never line")
+	}
+}
+
+// A permission policy refuses is not posted as a hidden grant, and the prompt
+// says it is left out; the never line is true again.
+func TestPromptLeavesOutRefusedPermissions(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-refused:blocks").Body.String()
+	if strings.Contains(body, `name="permission" value="builder.island"`) {
+		t.Errorf("a refused permission must not be posted:\n%s", body)
+	}
+	if !strings.Contains(body, `name="permission" value="kv"`) || !strings.Contains(body, "Not allowed on this site") || !strings.Contains(body, "so it is left out") {
+		t.Errorf("prompt does not explain the refusal:\n%s", body)
+	}
+	if !strings.Contains(body, "Run code on your public pages") {
+		t.Errorf("with the island refused, the never line is true")
+	}
+}
+
 func readFileT(t *testing.T, path string) []byte {
 	t.Helper()
 	b, err := os.ReadFile(path)

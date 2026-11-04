@@ -107,6 +107,10 @@ func (f *fakePackages) Inspect(_ context.Context, data []byte) (PackageSummary, 
 			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewScripts: true, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
 	case strings.HasPrefix(s, "plugin-fresh-scripts:"): // a first install that asks for site.scripts
 		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-fresh-scripts:"), Version: "1.0.0", Permissions: []string{"kv", "site.scripts"}, Signed: true, Signer: "abc123"}, nil
+	case strings.HasPrefix(s, "plugin-island:"): // a first install that asks for builder.island
+		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-island:"), Version: "1.0.0", Permissions: []string{"kv", "builder.island"}, Signed: true, Signer: "abc123"}, nil
+	case strings.HasPrefix(s, "plugin-refused:"): // the same, from a source whose policy refuses builder.island
+		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-refused:"), Version: "1.0.0", Permissions: []string{"kv", "builder.island"}, Refused: []string{"builder.island"}, Signed: true, Signer: "abc123"}, nil
 	case strings.HasPrefix(s, "theme:"):
 		return PackageSummary{Kind: "theme", Name: strings.TrimPrefix(s, "theme:"), Version: "1.0.0", Signed: true, Signer: "abc123"}, nil
 	}

@@ -96,3 +96,16 @@ func TestNeverList(t *testing.T) {
 		}
 	}
 }
+
+func TestNeverListDropsPublicCodeLineWhenCodeIsRequested(t *testing.T) {
+	for _, perm := range []string{sdk.PermSiteScripts, sdk.PermBuilderIsland} {
+		for _, s := range Group([]string{perm}, false, false).Never {
+			if s.Title == "Run code on your public pages" {
+				t.Errorf("%s: never list contradicts the can list", perm)
+			}
+		}
+	}
+	if got := Group([]string{sdk.PermKV}, false, false).Never; len(got) != 4 {
+		t.Errorf("never = %v", titles(got))
+	}
+}

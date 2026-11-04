@@ -69,7 +69,8 @@ type promptData struct {
 	Sum      PackageSummary
 	Can      []promptStatement
 	Never    []promptStatement
-	Grant    []string // posted as hidden permission fields: every listed permission except site.scripts
+	Grant    []string // posted as hidden permission fields: every listed permission except site.scripts and the refused ones
+	Refused  string   // plain words for the requested permissions policy will not grant, "" when none
 	Scripts  *promptScripts
 	Unsigned bool
 }
@@ -284,7 +285,13 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 	}
 	d := promptData{Staged: id, Sum: sum, Unsigned: !sum.Signed}
 	var added []string
-	for _, p := range sum.Permissions {
+	perms := slices.DeleteFunc(slices.Clone(sum.Permissions), func(p string) bool { return slices.Contains(sum.Refused, p) })
+	var refused []string
+	for _, p := range sum.Refused {
+		refused = append(refused, strings.TrimSuffix(permtext.Lookup(p).Short, "."))
+	}
+	d.Refused = strings.Join(refused, ", ")
+	for _, p := range perms {
 		if sum.Updating && !slices.Contains(sum.Granted, p) {
 			added = append(added, p)
 		}
@@ -293,11 +300,11 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 	for _, st := range permtext.Group(added, false, false).Can {
 		newTitles[st.Title] = true
 	}
-	g := permtext.Group(sum.Permissions, sum.DeclaresRuns, sum.Proposes)
+	g := permtext.Group(perms, sum.DeclaresRuns, sum.Proposes)
 	d.Can, d.Never = promptStatements(g.Can, newTitles), promptStatements(g.Never, nil)
 	// A package from another signer starts with nothing granted.
 	reset := sum.Confirm != nil && (sum.Confirm.SignerChange || sum.Confirm.WidenedAccess)
-	for _, p := range sum.Permissions {
+	for _, p := range perms {
 		if p == sdk.PermSiteScripts {
 			// Never granted by the install button alone: a first install gets it
 			// only by an explicit switch; an update keeps it only if it was granted.
