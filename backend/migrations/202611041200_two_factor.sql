@@ -1,10 +1,10 @@
 -- +goose Up
 -- Two-step sign-in: the owner policy, one authenticator secret per user,
 -- passkeys, one-time recovery codes and single-use WebAuthn challenges.
--- Expand-only: the previous binary ignores the column and the tables.
+-- Expand-only: the previous binary ignores the column and the tables. The
+-- policy value is validated in siteconfig.Update, not by a column CHECK.
 ALTER TABLE hatamoto_site_config
-  ADD COLUMN IF NOT EXISTS two_factor_policy text NOT NULL DEFAULT 'optional'
-  CHECK (two_factor_policy IN ('optional', 'owners', 'everyone'));
+  ADD COLUMN IF NOT EXISTS two_factor_policy text NOT NULL DEFAULT 'optional';
 
 CREATE TABLE IF NOT EXISTS hatamoto_user_totp (
   user_id       uuid PRIMARY KEY REFERENCES hatamoto_users(id) ON DELETE CASCADE,
