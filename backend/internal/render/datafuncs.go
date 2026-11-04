@@ -255,12 +255,28 @@ func pictureSources(ds DataSource, src, sizes string) string {
 		return ""
 	}
 	all := ds.ImageVariants(src)
-	need := min(widestOf(variantsOfType(all, "")), 1024)
+	fallback := variantsOfType(all, "")
+	widest := widestOf(fallback)
+	need := min(widest, 1024)
 	var b strings.Builder
 	for _, typ := range modernTypes {
 		vs := variantsOfType(all, typ)
+		if len(vs) == 0 || widestOf(vs) < need {
+			continue
+		}
+		// A browser that picks a <source> never reads the <img> srcset, so the
+		// original must be a candidate here too or HiDPI screens would get an
+		// upscaled 1024 px copy. The type attribute only gates the source.
+		if widestOf(vs) < widest {
+			for _, f := range fallback {
+				if f.Width == widest {
+					vs = append(vs, f)
+					break
+				}
+			}
+		}
 		ss := srcsetOf(vs)
-		if ss == "" || widestOf(vs) < need {
+		if ss == "" {
 			continue
 		}
 		fmt.Fprintf(&b, `<source type="%s" srcset="%s" sizes="%s">`, html.EscapeString(typ), html.EscapeString(ss), html.EscapeString(sizes))

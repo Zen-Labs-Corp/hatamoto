@@ -65,8 +65,8 @@ func concatVariants(vs ...[]ImageVariant) []ImageVariant {
 
 func TestPictureWithAVIFAndWebP(t *testing.T) {
 	out := renderPicture(t, variantData{vs: concatVariants(jpgs, webps, avifs)}, picImageDoc(map[string]any{}), false)
-	avif := `<source type="image/avif" srcset="/media/a_medium.avif 300w, /media/a_large.avif 1024w" sizes="(max-width:1024px) 100vw, 1024px">`
-	webp := `<source type="image/webp" srcset="/media/a_medium.webp 300w, /media/a_large.webp 1024w" sizes="(max-width:1024px) 100vw, 1024px">`
+	avif := `<source type="image/avif" srcset="/media/a_medium.avif 300w, /media/a_large.avif 1024w, /media/a.jpg 3000w" sizes="(max-width:1024px) 100vw, 1024px">`
+	webp := `<source type="image/webp" srcset="/media/a_medium.webp 300w, /media/a_large.webp 1024w, /media/a.jpg 3000w" sizes="(max-width:1024px) 100vw, 1024px">`
 	if !strings.Contains(out, "<picture>"+avif+webp+"<img ") || !strings.HasSuffix(strings.TrimSpace(out), "</picture>") {
 		t.Fatalf("picture markup wrong: %s", out)
 	}
