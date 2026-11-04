@@ -110,6 +110,7 @@ func classifyEntity(it Item, live *Live, env Env) Verdict {
 		ParentID   string          `json:"parent_id"`
 		ParentKey  string          `json:"parent_key"`
 		Attributes json.RawMessage `json:"attributes"`
+		SEO        *EntitySEO      `json:"seo"`
 	}
 	if json.Unmarshal(it.Payload, &p) != nil {
 		return high(ReasonUnparseable)
@@ -134,6 +135,16 @@ func classifyEntity(it Item, live *Live, env Env) Verdict {
 	if hasHidden(p.Name) {
 		scan.hidden = true
 	}
+	if s := p.SEO; s != nil {
+		// The canonical address is a link the page sends search engines to.
+		scan.scan(s.MetaTitle)
+		scan.scan(s.MetaDescription)
+		scan.scan(s.Robots)
+		if s.Canonical != "" {
+			scan.scan(s.Canonical)
+			scan.addLink(s.Canonical)
+		}
+	}
 	if scan.embed {
 		return high(ReasonEmbed)
 	}
@@ -143,6 +154,15 @@ func classifyEntity(it Item, live *Live, env Env) Verdict {
 	for _, l := range scan.links {
 		if l.bad || (l.host != "" && !env.SiteHosts[l.host] && !liveLinks.hasHost(l.host)) {
 			return high(ReasonLinkHost)
+		}
+	}
+	if live != nil {
+		// A link to another site that the page did not carry before, at that
+		// address and query, is a changed target (an affiliate id, a redirect).
+		for _, l := range scan.links {
+			if l.host != "" && !env.SiteHosts[l.host] && !liveLinks.has(l) {
+				return high(ReasonLinkQuery)
+			}
 		}
 	}
 	for _, l := range scan.links {
@@ -170,6 +190,15 @@ type linkSet []link
 func (s linkSet) hasHost(h string) bool {
 	for _, l := range s {
 		if l.host == h {
+			return true
+		}
+	}
+	return false
+}
+
+func (s linkSet) has(l link) bool {
+	for _, o := range s {
+		if o == l {
 			return true
 		}
 	}

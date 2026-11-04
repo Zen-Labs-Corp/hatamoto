@@ -9,6 +9,10 @@ func riskEntity(slug string, attrs map[string]any) Item {
 	return Item{Kind: KindEntity, Op: OpUpsert, Payload: rawJSON(map[string]any{"name": "N", "slug": slug, "attributes": attrs})}
 }
 
+func seoEntity(slug string, seo *EntitySEO) Item {
+	return Item{Kind: KindEntity, Op: OpUpsert, Payload: rawJSON(map[string]any{"name": "N", "slug": slug, "attributes": map[string]any{"content": "t"}, "seo": seo})}
+}
+
 func rawJSON(v any) json.RawMessage {
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -41,7 +45,17 @@ func TestRiskClassify(t *testing.T) {
 		{"markdown link", riskEntity("a", body("[x](https://evil.test/p)")), nil, Verdict{RiskHigh, ReasonLinkHost, 0}},
 		{"bare url value", riskEntity("a", map[string]any{"cta": "https://evil.test"}), nil, Verdict{RiskHigh, ReasonLinkHost, 0}},
 		{"javascript link", riskEntity("a", body(`<a href="javascript:alert(1)">x</a>`)), nil, Verdict{RiskHigh, ReasonLinkHost, 0}},
-		{"host already linked live", riskEntity("a", body(`<a href="https://partner.test/b">b</a>`)), liveOf("a", body(`<a href="https://partner.test/a">a</a>`)), Verdict{Risk: RiskLow}},
+		{"host already linked live", riskEntity("a", body(`<a href="https://partner.test/a">b</a> more`)), liveOf("a", body(`<a href="https://partner.test/a">a</a>`)), Verdict{Risk: RiskLow}},
+		{"link target changed on a known host", riskEntity("a", body(`<a href="https://partner.test/b">b</a>`)), liveOf("a", body(`<a href="https://partner.test/a">a</a>`)), Verdict{RiskHigh, ReasonLinkQuery, 0}},
+		{"path and query both changed", riskEntity("a", body(`<a href="https://shop.test/q?aff=attacker">b</a>`)), liveOf("a", body(`<a href="https://shop.test/p?aff=owner">a</a>`)), Verdict{RiskHigh, ReasonLinkQuery, 0}},
+		{"seo canonical to another site", seoEntity("a", &EntitySEO{Canonical: "https://evil.test/"}), liveOf("a", body("t")), Verdict{RiskHigh, ReasonLinkHost, 0}},
+		{"seo canonical on a create", seoEntity("a", &EntitySEO{Canonical: "https://evil.test/"}), nil, Verdict{RiskHigh, ReasonLinkHost, 0}},
+		{"seo canonical changed on a known host", seoEntity("a", &EntitySEO{Canonical: "https://partner.test/b"}), liveOf("a", map[string]any{"canonical_url": "https://partner.test/a"}), Verdict{RiskHigh, ReasonLinkQuery, 0}},
+		{"seo canonical unchanged", seoEntity("a", &EntitySEO{Canonical: "https://partner.test/a"}), liveOf("a", map[string]any{"canonical_url": "https://partner.test/a"}), Verdict{Risk: RiskLow}},
+		{"seo canonical on the site", seoEntity("a", &EntitySEO{Canonical: "https://example.org/a"}), nil, Verdict{Risk: RiskLow}},
+		{"seo plain text", seoEntity("a", &EntitySEO{MetaTitle: "T", MetaDescription: "D", Robots: "noindex"}), nil, Verdict{Risk: RiskLow}},
+		{"seo title with a bidi control", seoEntity("a", &EntitySEO{MetaTitle: "x\u202ey"}), nil, Verdict{RiskHigh, ReasonHiddenChar, 0}},
+		{"seo description with a zero width space", seoEntity("a", &EntitySEO{MetaDescription: "x\u200by"}), nil, Verdict{RiskHigh, ReasonHiddenChar, 0}},
 		{"link unchanged", riskEntity("a", body(`<a href="https://partner.test/a?ref=1">a</a> more`)), liveOf("a", body(`<a href="https://partner.test/a?ref=1">a</a>`)), Verdict{Risk: RiskLow}},
 		{"query param changed", riskEntity("a", body(`<a href="https://partner.test/a?ref=2">a</a>`)), liveOf("a", body(`<a href="https://partner.test/a?ref=1">a</a>`)), Verdict{RiskHigh, ReasonLinkQuery, 0}},
 		{"query param changed on site link", riskEntity("a", body(`<a href="/buy?aff=9">a</a>`)), liveOf("a", body(`<a href="/buy">a</a>`)), Verdict{RiskHigh, ReasonLinkQuery, 0}},
