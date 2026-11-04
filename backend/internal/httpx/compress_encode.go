@@ -74,8 +74,14 @@ var (
 	zstdBetter = mustZstd(zstd.SpeedBetterCompression)
 )
 
+// zstdWindow caps the match window. The default is 8 MB, which makes a pooled
+// stream encoder hold a 16 MB history buffer once a body spans two blocks; a
+// page-sized window costs little ratio and keeps each encoder small.
+const zstdWindow = 1 << 20
+
 func mustZstd(level zstd.EncoderLevel) *zstd.Encoder {
-	e, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(level), zstd.WithEncoderConcurrency(1))
+	e, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(level), zstd.WithEncoderConcurrency(1),
+		zstd.WithWindowSize(zstdWindow), zstd.WithLowerEncoderMem(true))
 	if err != nil {
 		panic("httpx: zstd encoder: " + err.Error())
 	}

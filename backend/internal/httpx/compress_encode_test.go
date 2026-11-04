@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -100,5 +101,28 @@ func TestStreamWriterRoundTrip(t *testing.T) {
 				t.Fatalf("%s stream round trip mismatch", enc)
 			}
 		}
+	}
+}
+
+// A pooled stream encoder must stay small: with the default 8 MB window a body
+// of several blocks allocates a 16 MB history buffer per encoder.
+func TestZstdStreamEncoderMemoryIsBounded(t *testing.T) {
+	body := make([]byte, 2<<20)
+	for i := range body {
+		body[i] = byte(i * 7 % 251)
+	}
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	e := mustZstd(zstd.SpeedDefault)
+	e.Reset(io.Discard)
+	if _, err := e.Write(body); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Close(); err != nil {
+		t.Fatal(err)
+	}
+	runtime.ReadMemStats(&after)
+	if got := after.TotalAlloc - before.TotalAlloc; got > 8<<20 {
+		t.Errorf("one stream encoder allocated %d MB, want under 8", got>>20)
 	}
 }
