@@ -261,9 +261,6 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	if sum.Problem == "" && pkg.Kind == packages.KindPlugin {
 		sum.Problem = p.unreviewedProblem(ctx, pkg.Name, sum.Signer, sum.Permissions)
 	}
-	// First-party is a claim about whose plugin this is, so it needs a
-	// verified signature and a name on the first-party list.
-	sum.FirstParty = sum.Problem == "" && packages.Classify(pkg.Name, sum.Signer) == packages.OriginFirstParty
 	if row, err := p.mgr().Store().Get(ctx, pkg.Kind, pkg.Name); err == nil {
 		sum.Updating, sum.InstalledVersion = true, row.Version
 		if p.s.plugins != nil {
@@ -273,6 +270,9 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 			sum.Problem = packages.ErrUninstalling.Error()
 		}
 	}
+	// First-party is a claim about whose plugin this is, so it needs a
+	// verified signature and a name on the first-party list.
+	sum.FirstParty = sum.Problem == "" && packages.Classify(pkg.Name, sum.Signer) == packages.OriginFirstParty
 	if need, err := p.mgr().NeedsConfirmation(ctx, pkg, packages.SourceUpload); err == nil && need != nil {
 		c := &admin.ConfirmInfo{Name: need.Name, Downgrade: need.Downgrade, SignerChange: need.SignerChange,
 			WidenedAccess: need.WidenedAccess, NewHosts: need.NewHosts, NewFetchAny: need.NewFetchAny, NewIsland: need.NewIsland, NewScripts: need.NewScripts,
