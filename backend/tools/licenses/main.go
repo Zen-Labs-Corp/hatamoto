@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -134,6 +135,23 @@ func scan(m *module) error {
 	m.Licence = "UNKNOWN"
 	if len(m.Files) > 0 {
 		m.Licence = classify(all.String())
+	}
+	return scanBundled(m)
+}
+
+// scanBundled adds the licence texts of C libraries a module ships compiled
+// (gen2brain/webp and avif embed libwebp, libavif and aom as WebAssembly) from
+// its lib directory. Their notices go in the bundle; they do not change the
+// module's own licence.
+func scanBundled(m *module) error {
+	ents, err := os.ReadDir(filepath.Join(m.Dir, "lib"))
+	if err != nil {
+		return nil // most modules have no lib directory
+	}
+	for _, e := range ents {
+		if !e.IsDir() && strings.HasPrefix(strings.ToUpper(e.Name()), "LICENSE.") {
+			m.Files = append(m.Files, path.Join("lib", e.Name()))
+		}
 	}
 	return nil
 }

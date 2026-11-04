@@ -50,3 +50,35 @@ func TestCheckNotice(t *testing.T) {
 		t.Errorf("missing Lucide: %v", p)
 	}
 }
+
+// A module that ships compiled C libraries (lib/LICENSE.*) gets those notices
+// into the bundle without changing its own licence.
+func TestBundleIncludesLibLicences(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "lib"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mit := "Permission is hereby granted, free of charge, to any person"
+	for name, text := range map[string]string{"LICENSE": mit, "lib/LICENSE.libwebp": "Redistribution and use in source and binary forms", "lib/README": "x"} {
+		if err := os.WriteFile(filepath.Join(dir, filepath.FromSlash(name)), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	m := module{Path: "example.com/wasm", Version: "v1.0.0", Dir: dir}
+	if err := scan(&m); err != nil {
+		t.Fatal(err)
+	}
+	if m.Licence != "MIT" {
+		t.Errorf("module licence %s, want MIT", m.Licence)
+	}
+	out := filepath.Join(t.TempDir(), "bundle")
+	if err := writeBundle(out, []module{m}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(out, "example.com", "wasm", "lib", "LICENSE.libwebp")); err != nil {
+		t.Errorf("lib licence missing from the bundle: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(out, "example.com", "wasm", "lib", "README")); err == nil {
+		t.Error("non-licence lib file copied")
+	}
+}

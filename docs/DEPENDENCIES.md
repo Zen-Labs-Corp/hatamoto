@@ -167,6 +167,12 @@ WebAssembly and run on a wazero runtime that belongs to the package (separate fr
 runtime). No cgo and no external process. The versions are the last ones that accept the held
 wazero v1.9.0.
 
+**Notices.** The WebAssembly payloads are libwebp (BSD-3-Clause), libavif (BSD-2-Clause) and
+aom (BSD-2-Clause plus the AOMedia patent licence). Their texts live in each module's `lib/`
+directory, and `tools/licenses` copies `lib/LICENSE.*` into the `THIRD_PARTY_LICENSES` bundle
+(`go-modules/github.com/gen2brain/{webp,avif}/lib/`), so release bundles and the container image
+carry them.
+
 **Static linking trap.** Both modules link `ebitengine/purego` and by default try to load a
 system libwebp or libavif at run time. Built with `CGO_ENABLED=0` and without a tag, the
 product binary becomes a *dynamically linked* ELF that needs `ld.so`, which breaks the single
