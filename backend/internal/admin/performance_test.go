@@ -49,7 +49,7 @@ func (f *fakePageCache) PreloadStatus() PreloadStatus { return f.preload }
 
 func newPerfFake() *fakePageCache {
 	return &fakePageCache{
-		settings: PageCacheSettings{Enabled: true, TTLSeconds: 3600, MaxMB: 300, PreloadEnabled: true, PreloadIntervalSeconds: 3600, PreloadMode: "missing", PreloadAfterChanges: true},
+		settings: PageCacheSettings{Enabled: true, TTLSeconds: 3600, MaxMB: 300, PreloadEnabled: true, PreloadIntervalSeconds: 3600, PreloadMode: "missing", PreloadAfterChanges: true, CompressResponses: true},
 		stats: PageCacheStats{
 			Pages: 1144, Bytes: 180 << 20, CapBytes: 300 << 20,
 			EffectiveTTL: time.Hour, ServerDefaultTTL: 5 * time.Minute, TTLSource: "admin",
@@ -224,7 +224,7 @@ func TestPerformanceSave(t *testing.T) {
 	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/performance" {
 		t.Fatalf("save = %d %s", rec.Code, rec.Header().Get("Location"))
 	}
-	if len(p.svc.saved) != 1 || p.svc.saved[0] != (PageCacheSettings{Enabled: true, TTLSeconds: 7200, MaxMB: 500, PreloadEnabled: false, PreloadIntervalSeconds: 3600, PreloadMode: "missing", PreloadAfterChanges: true}) {
+	if len(p.svc.saved) != 1 || p.svc.saved[0] != (PageCacheSettings{Enabled: true, TTLSeconds: 7200, MaxMB: 500, PreloadEnabled: false, PreloadIntervalSeconds: 3600, PreloadMode: "missing", PreloadAfterChanges: true, CompressResponses: true}) {
 		t.Fatalf("saved = %+v", p.svc.saved)
 	}
 	if len(p.events) != 1 || p.events[0].Action != "cache.settings" || p.events[0].Actor == "" || p.events[0].Detail["new"] == nil {

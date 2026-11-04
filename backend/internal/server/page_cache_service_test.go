@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -39,6 +40,9 @@ func (f *fakePageSite) Update(_ context.Context, in siteconfig.UpdateInput) (*si
 	}
 	if in.PagePreloadIntervalSeconds != nil {
 		f.cfg.PagePreloadIntervalSeconds = *in.PagePreloadIntervalSeconds
+	}
+	if in.CompressResponses != nil {
+		f.cfg.CompressResponses = *in.CompressResponses
 	}
 	c := f.cfg
 	return &c, nil
@@ -148,6 +152,34 @@ func TestPageCacheSaveAppliesLive(t *testing.T) {
 	got, _ := r.svc.Settings(context.Background())
 	if got.TTLSeconds != 3600 || got.MaxMB != 2 || !got.PreloadEnabled {
 		t.Fatalf("stored %+v", got)
+	}
+}
+
+func TestPageCacheCompressFollowsSaveAndBoot(t *testing.T) {
+	r := newServiceRig(t, false, "")
+	var live atomic.Bool
+	live.Store(true)
+	r.svc.setCompress = live.Store
+
+	if err := r.svc.Save(context.Background(), admin.PageCacheSettings{Enabled: true, CompressResponses: false}); err != nil {
+		t.Fatal(err)
+	}
+	if live.Load() {
+		t.Fatal("Save(false) must turn the live flag off")
+	}
+	got, err := r.svc.Settings(context.Background())
+	if err != nil || got.CompressResponses {
+		t.Fatalf("settings %+v %v", got, err)
+	}
+
+	live.Store(true) // a restart: the default is on until the stored value loads
+	r.svc.Apply(r.site.cfg)
+	if live.Load() {
+		t.Fatal("boot Apply must read the stored off value")
+	}
+	r.svc.Apply(siteconfig.Config{CompressResponses: true})
+	if !live.Load() {
+		t.Fatal("Apply(true) must turn the flag on")
 	}
 }
 

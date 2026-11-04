@@ -29,6 +29,8 @@ type PageCacheSettings struct {
 	PreloadMode string
 	// PreloadAfterChanges schedules a preload shortly after content changes.
 	PreloadAfterChanges bool
+	// CompressResponses sends the app's text responses as zstd or gzip.
+	CompressResponses bool
 }
 
 // PageCacheStats is the live state shown next to the form. TTLSource is
