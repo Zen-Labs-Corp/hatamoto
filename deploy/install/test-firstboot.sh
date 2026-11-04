@@ -203,7 +203,9 @@ cf h.example off "" old.example | grepq -x 'http://old.example {' || fail "off r
 cf h.example off "" old.example | grepq -xP '\tredir http://h.example\{uri\} permanent' || fail "off redirect target"
 if cf h.example auto "" h.example | grepq redir; then fail "same-host redirect"; fi
 [ "$(cf h.example auto "")" = "$(cf h.example auto "" "")" ] || fail "3-arg output changed"
-[ "$(cf h.example auto "" old.example | grep -c 'encode zstd gzip')" = 1 ] || fail "old host encodes"
+for m in auto internal off; do
+  [ "$(cf h.example $m "" old.example | grep -c 'encode zstd gzip')" = 1 ] || fail "old host encodes ($m)"
+done
 pass "Caddyfile old-host redirect for each TLS mode"
 
 # --- full run ---------------------------------------------------------------------
