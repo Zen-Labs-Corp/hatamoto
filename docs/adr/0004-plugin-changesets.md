@@ -230,7 +230,10 @@ These are binding; tests pin each one.
    fetch phase the host narrows them to what an anonymous visitor sees, using
    the same predicates as public rendering.
 5. **Ownership.** A changeset never updates or deletes an object of another
-   origin, and never assigns a singleton.
+   origin, and never assigns a singleton. The two exceptions are an alt text change on
+   media the owner uploaded, and `translation_of`, which records the translation
+   group on the source entity (a one-member group counts as no group, and revert
+   restores only the staged entity).
 6. **Operator-only switches.** Settings that weaken these rules (trusted signing
    keys, raised limits) exist only in the server's environment or config, never
    in the web admin. Core refuses them when the config file is writable by the
