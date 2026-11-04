@@ -49,7 +49,14 @@ type pageCacheService struct {
 	ttlFromEnv bool
 	baseURL    func() string
 	lifecycle  func() context.Context // nil until Start
-	schedMu    sync.Mutex
+	// setCompress flips the live response compression switch; nil in tests
+	// that build the service by hand.
+	setCompress func(bool)
+	// compressionResult and runCompressionCheck expose the public-address
+	// compression check; nil in tests that build the service by hand.
+	compressionResult   func() *compressionResult
+	runCompressionCheck func(context.Context)
+	schedMu             sync.Mutex
 
 	// Live preload settings and the debounced after-change trigger.
 	missingOnly  atomic.Bool
@@ -95,6 +102,9 @@ func (p *pageCacheService) Apply(c siteconfig.Config) (wasOn, isOn bool) {
 	p.missingOnly.Store(c.PagePreloadMode != siteconfig.PreloadModeAll)
 	p.afterChanges.Store(c.PagePreloadAfterChanges)
 	p.preloadOn.Store(c.PagePreloadEnabled)
+	if p.setCompress != nil {
+		p.setCompress(c.CompressResponses)
+	}
 	if !c.PageCacheEnabled || !c.PagePreloadEnabled || !c.PagePreloadAfterChanges {
 		p.cancelPendingPreload()
 	}
@@ -242,6 +252,7 @@ func (p *pageCacheService) Settings(ctx context.Context) (admin.PageCacheSetting
 		Enabled: c.PageCacheEnabled, TTLSeconds: c.PageCacheTTLSeconds, MaxMB: c.PageCacheMaxMB,
 		PreloadEnabled: c.PagePreloadEnabled, PreloadIntervalSeconds: c.PagePreloadIntervalSeconds,
 		PreloadMode: c.PagePreloadMode, PreloadAfterChanges: c.PagePreloadAfterChanges,
+		CompressResponses: c.CompressResponses,
 	}, nil
 }
 
@@ -258,11 +269,17 @@ func (p *pageCacheService) Save(ctx context.Context, in admin.PageCacheSettings)
 		PagePreloadIntervalSeconds: &in.PreloadIntervalSeconds,
 		PagePreloadMode:            mode,
 		PagePreloadAfterChanges:    &in.PreloadAfterChanges,
+		CompressResponses:          &in.CompressResponses,
 	})
 	if err != nil {
 		return err
 	}
 	wasOn, isOn := p.Apply(*updated)
+	if p.runCompressionCheck != nil {
+		if lc := p.lifecycleCtx(); lc != nil {
+			go p.runCompressionCheck(lc)
+		}
+	}
 	if wasOn && !isOn {
 		p.preloader.Cancel()
 		if p.invalidate != nil {
@@ -323,6 +340,10 @@ func (s *Server) newPageCacheService() *pageCacheService {
 		ttlFromEnv: s.cfg.PageCacheTTLFromEnv,
 		baseURL:    s.preloadBase,
 		lifecycle:  func() context.Context { return s.lifecycleCtx },
+
+		setCompress:         s.compressOn.Store,
+		compressionResult:   s.compressCheck.Load,
+		runCompressionCheck: s.checkCompression,
 	}
 	if s.scheduler != nil {
 		p.scheduler = s.scheduler

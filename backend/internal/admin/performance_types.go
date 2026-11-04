@@ -15,6 +15,7 @@ type PageCacheService interface {
 	Clear(ctx context.Context) (pages int, err error)
 	PreloadNow(ctx context.Context) (started bool, err error)
 	PreloadStatus() PreloadStatus
+	CompressionCheck() CompressionCheck
 }
 
 // PageCacheSettings are the owner's stored choices. TTLSeconds 0 means "use
@@ -29,6 +30,8 @@ type PageCacheSettings struct {
 	PreloadMode string
 	// PreloadAfterChanges schedules a preload shortly after content changes.
 	PreloadAfterChanges bool
+	// CompressResponses sends the app's text responses as zstd or gzip.
+	CompressResponses bool
 }
 
 // PageCacheStats is the live state shown next to the form. TTLSource is
@@ -61,4 +64,15 @@ type PreloadStatus struct {
 // PreloadFailure names a page the last preload could not build and why.
 type PreloadFailure struct {
 	Path, Reason string
+}
+
+// CompressionCheck is the last check of the site's public address for
+// compressed answers. Checked is false until one has finished. Err is set when
+// the check could not run; Plain is then meaningless.
+type CompressionCheck struct {
+	Checked bool
+	URL     string
+	At      time.Time
+	Plain   bool
+	Err     string
 }

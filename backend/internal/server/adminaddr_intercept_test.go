@@ -1022,3 +1022,20 @@ func TestInterceptRestoredAddressIsLive(t *testing.T) {
 		t.Errorf("= %d %q", code, body)
 	}
 }
+
+// unwrapOnlyWriter hides Flush from a type assertion; only
+// http.ResponseController reaches the real writer through Unwrap.
+type unwrapOnlyWriter struct{ http.ResponseWriter }
+
+func (u unwrapOnlyWriter) Unwrap() http.ResponseWriter { return u.ResponseWriter }
+
+// An SSE flush through the not-found charge writer has to reach a writer that
+// is not itself a http.Flusher (the request logger's, with compression off).
+func TestNFChargeFlushReachesWriterBehindUnwrap(t *testing.T) {
+	rec := httptest.NewRecorder()
+	w := &nfChargeWriter{ResponseWriter: unwrapOnlyWriter{rec}, charge: func() {}}
+	w.Flush()
+	if !rec.Flushed {
+		t.Error("flush must reach the writer behind Unwrap")
+	}
+}

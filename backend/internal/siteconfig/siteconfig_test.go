@@ -53,7 +53,7 @@ func TestUpdateInput_ZeroValueLeavesPageCacheUnchanged(t *testing.T) {
 	var in UpdateInput
 	if in.PageCacheEnabled != nil || in.PageCacheTTLSeconds != nil ||
 		in.PageCacheMaxMB != nil || in.PagePreloadEnabled != nil ||
-		in.PagePreloadIntervalSeconds != nil {
+		in.PagePreloadIntervalSeconds != nil || in.CompressResponses != nil {
 		t.Fatal("zero UpdateInput must leave every page cache field nil")
 	}
 }

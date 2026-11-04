@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/seo"
 )
@@ -49,7 +51,14 @@ func (s *Server) handleFeed(w http.ResponseWriter, r *http.Request) {
 		ctype = "application/atom+xml; charset=utf-8"
 	}
 	if s.infra != nil && s.infra.Cache != nil {
+		gen := s.infra.Cache.Generation() // before the read, for the variant store
 		if body, err := s.infra.Cache.Get(ctx, key); err == nil && body != nil {
+			if s.compressOn.Load() {
+				if enc, packed := cachedVariant(r, s.infra.Cache, key, body, time.Hour, gen, s.logger.Warn); packed != nil {
+					writeFeedEncoded(w, r, ctype, enc, packed)
+					return
+				}
+			}
 			writeFeed(w, ctype, body)
 			return
 		}
@@ -95,6 +104,19 @@ func (s *Server) handleFeed(w http.ResponseWriter, r *http.Request) {
 		_ = s.infra.Cache.Set(ctx, key, body, time.Hour)
 	}
 	writeFeed(w, ctype, body)
+}
+
+// writeFeedEncoded serves the stored compressed form of a cached feed.
+func writeFeedEncoded(w http.ResponseWriter, r *http.Request, ctype string, enc httpx.Encoding, packed []byte) {
+	h := w.Header()
+	h.Set("Content-Encoding", string(enc))
+	h.Add("Vary", "Accept-Encoding")
+	h.Set("Content-Length", strconv.Itoa(len(packed)))
+	h.Set("Content-Type", ctype)
+	h.Set("Cache-Control", "public, max-age=300, s-maxage=300")
+	if r.Method != http.MethodHead {
+		_, _ = w.Write(packed)
+	}
 }
 
 func writeFeed(w http.ResponseWriter, ctype string, body []byte) {

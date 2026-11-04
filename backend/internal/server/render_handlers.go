@@ -14,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/redirect"
@@ -119,6 +120,9 @@ type renderHandlers struct {
 	// communityPlugin reports whether a plugin is community-origin; nil means
 	// none. It decides the per-page sandbox from the script tags in the body.
 	communityPlugin func(name string) bool
+	// encodeCached reports whether cache hits are served from stored compressed
+	// variants; nil means never (the compression middleware may still compress).
+	encodeCached func() bool
 }
 
 // newRenderHandlers wires the handlers to the server's services. pageCache may
@@ -142,6 +146,8 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 		captchaProvider:  s.captchaProvider,
 		communityScripts: func() bool { return qaSandboxForced() || s.communityScriptsLive() },
 		communityPlugin:  s.communityPlugin,
+		// Demo pages get their banner from a middleware that needs plain bytes.
+		encodeCached: func() bool { return s.compressOn.Load() && !s.demoOn() },
 	}
 	if s.cfg != nil {
 		h.cacheTTL = s.cfg.PageCacheTTL
@@ -345,6 +351,9 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	key := ""
 	var gen uint64
 	if cacheable {
+		// Read before the page itself: a purge after this point rejects the
+		// variant store below, so no stale compressed copy outlives it.
+		hitGen := h.cache.Generation()
 		key = cache.RenderedPageKey(h.engine.Version(), path)
 		if pageN > 0 { // read-only until a render proves the page has a paged loop
 			key = cache.RenderedPageKey(h.engine.Version(), path+"?page="+strconv.Itoa(pageN))
@@ -356,7 +365,8 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 			if h.redirectIfMatched(w, r, path) {
 				return
 			}
-			h.writeHTML(w, r, http.StatusOK, body, false)
+			enc, packed := h.encodedVariant(r, key, body, hitGen)
+			h.writeHTMLEncoded(w, r, http.StatusOK, body, false, enc, packed)
 			return
 		}
 	}
@@ -580,6 +590,14 @@ var directoryMarker = []byte(`data-hm-directory`)
 // marks responses that must not be shared-cached (degraded pages,
 // errors).
 func (h *renderHandlers) writeHTML(w http.ResponseWriter, r *http.Request, status int, body []byte, private bool) {
+	h.writeHTMLEncoded(w, r, status, body, private, httpx.EncodingNone, nil)
+}
+
+// writeHTMLEncoded is writeHTML for a body that is also available compressed
+// (packed, in coding enc): the headers follow the plain body, the wire bytes
+// are the compressed ones. The compression middleware leaves a response that
+// already carries a Content-Encoding alone.
+func (h *renderHandlers) writeHTMLEncoded(w http.ResponseWriter, r *http.Request, status int, body []byte, private bool, enc httpx.Encoding, packed []byte) {
 	hd := w.Header()
 	hd.Set("Content-Type", "text/html; charset=utf-8")
 	if private {
@@ -602,6 +620,12 @@ func (h *renderHandlers) writeHTML(w http.ResponseWriter, r *http.Request, statu
 		// headers combine (the intersection applies). Set even with
 		// SECURITY_HEADERS_DISABLED: it is a safety control, not a hardening extra.
 		hd.Add("Content-Security-Policy", sandboxCSP)
+	}
+	if packed != nil {
+		body = packed
+		hd.Set("Content-Encoding", string(enc))
+		hd.Add("Vary", "Accept-Encoding")
+		hd.Set("Content-Length", strconv.Itoa(len(body)))
 	}
 	w.WriteHeader(status)
 	if r.Method != http.MethodHead {

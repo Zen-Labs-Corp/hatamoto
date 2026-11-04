@@ -18,6 +18,18 @@ func RenderedPageKey(scope, path string) string {
 	return fmt.Sprintf("%sv1:%s:%s", renderKeyPrefix, scope, path)
 }
 
+// variantKeyPrefix namespaces compressed variants. Plain keys always start
+// with "render:v1:", and a request path only ever lands after that, so no URL
+// can name a variant key (a suffix such as "#zstd" would be reachable as %23).
+const variantKeyPrefix = renderKeyPrefix + "enc:"
+
+// EncodedKey is the key of the compressed variant of a cached page, e.g.
+// "render:enc:zstd:v1:...". It keeps the render: prefix, so InvalidateRendered,
+// the size cap and eviction apply to variants with no extra code.
+func EncodedKey(key, encoding string) string {
+	return variantKeyPrefix + encoding + ":" + strings.TrimPrefix(key, renderKeyPrefix)
+}
+
 // InvalidateRendered drops every cached rendered page. Pages embed navigation
 // and sibling data, so any content, menu or site-config change invalidates the
 // whole set (coarse on purpose).
@@ -31,3 +43,6 @@ func (ci *CacheInvalidator) InvalidateSitemaps(ctx context.Context) error {
 }
 
 func isRenderKey(key string) bool { return strings.HasPrefix(key, renderKeyPrefix) }
+
+// isVariantKey reports a compressed variant key (see EncodedKey).
+func isVariantKey(key string) bool { return strings.HasPrefix(key, variantKeyPrefix) }

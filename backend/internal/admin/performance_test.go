@@ -26,6 +26,7 @@ type fakePageCache struct {
 	startErr  error
 	preloads  int
 	saveError error
+	check     CompressionCheck
 }
 
 func (f *fakePageCache) Stats(context.Context) PageCacheStats { return f.stats }
@@ -45,11 +46,12 @@ func (f *fakePageCache) PreloadNow(context.Context) (bool, error) {
 	f.preloads++
 	return f.started, f.startErr
 }
-func (f *fakePageCache) PreloadStatus() PreloadStatus { return f.preload }
+func (f *fakePageCache) PreloadStatus() PreloadStatus       { return f.preload }
+func (f *fakePageCache) CompressionCheck() CompressionCheck { return f.check }
 
 func newPerfFake() *fakePageCache {
 	return &fakePageCache{
-		settings: PageCacheSettings{Enabled: true, TTLSeconds: 3600, MaxMB: 300, PreloadEnabled: true, PreloadIntervalSeconds: 3600, PreloadMode: "missing", PreloadAfterChanges: true},
+		settings: PageCacheSettings{Enabled: true, TTLSeconds: 3600, MaxMB: 300, PreloadEnabled: true, PreloadIntervalSeconds: 3600, PreloadMode: "missing", PreloadAfterChanges: true, CompressResponses: true},
 		stats: PageCacheStats{
 			Pages: 1144, Bytes: 180 << 20, CapBytes: 300 << 20,
 			EffectiveTTL: time.Hour, ServerDefaultTTL: 5 * time.Minute, TTLSource: "admin",
@@ -108,7 +110,7 @@ func TestPerformancePage(t *testing.T) {
 
 	p := newPerfRig(t, newPerfFake())
 	body := p.get(t)
-	for _, want := range []string{"~180 MB of 300 MB", "Pages cached", "1,144", "Cache use", "set here (server default: 5 min)", "1,144 pages · 0 errors · 64 s", "(stopped early: size limit reached)", "Edits made here clear the cache at once; changes made elsewhere", "Pages to build", "After content changes", "Only missing skips pages that are already cached, so it does not refresh them."} {
+	for _, want := range []string{"~180 MB of 300 MB", "Pages cached", "1,144", "Cache use", "set here (server default: 5 min)", "1,144 pages · 0 errors · 64 s", "(stopped early: size limit reached)", "Edits made here clear the cache at once; changes made elsewhere", "Compress responses", "Pages to build", "After content changes", "Only missing skips pages that are already cached, so it does not refresh them."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
 		}
@@ -122,6 +124,38 @@ func TestPerformancePage(t *testing.T) {
 		t.Error("max-mb input is not described by the MB unit element")
 	}
 	compareGolden(t, "pages/settings-performance.html", normalizePage(body))
+}
+
+func TestPerformancePageCompressionCallout(t *testing.T) {
+	t.Parallel()
+
+	checked := time.Date(2026, 11, 4, 9, 30, 0, 0, time.UTC)
+	cases := []struct {
+		name  string
+		check CompressionCheck
+		want  bool
+	}{
+		{"never checked", CompressionCheck{}, false},
+		{"plain", CompressionCheck{Checked: true, URL: "https://example.com/", At: checked, Plain: true}, true},
+		{"compressed", CompressionCheck{Checked: true, URL: "https://example.com/", At: checked}, false},
+		{"could not run", CompressionCheck{Checked: true, URL: "https://example.com/", At: checked, Plain: true, Err: "timeout"}, false},
+	}
+	for _, c := range cases {
+		fake := newPerfFake()
+		fake.check = c.check
+		body := newPerfRig(t, fake).get(t)
+		got := strings.Contains(body, "Visitors get uncompressed pages")
+		if got != c.want {
+			t.Errorf("%s: callout shown = %v, want %v", c.name, got, c.want)
+		}
+		if c.want {
+			for _, s := range []string{"https://example.com/ answered without compression", "Nov 2026 ", "<code>encode zstd gzip</code>"} {
+				if !strings.Contains(body, s) {
+					t.Errorf("%s: callout lacks %q", c.name, s)
+				}
+			}
+		}
+	}
 }
 
 func TestPerformancePageVariants(t *testing.T) {
@@ -224,7 +258,7 @@ func TestPerformanceSave(t *testing.T) {
 	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/performance" {
 		t.Fatalf("save = %d %s", rec.Code, rec.Header().Get("Location"))
 	}
-	if len(p.svc.saved) != 1 || p.svc.saved[0] != (PageCacheSettings{Enabled: true, TTLSeconds: 7200, MaxMB: 500, PreloadEnabled: false, PreloadIntervalSeconds: 3600, PreloadMode: "missing", PreloadAfterChanges: true}) {
+	if len(p.svc.saved) != 1 || p.svc.saved[0] != (PageCacheSettings{Enabled: true, TTLSeconds: 7200, MaxMB: 500, PreloadEnabled: false, PreloadIntervalSeconds: 3600, PreloadMode: "missing", PreloadAfterChanges: true, CompressResponses: true}) {
 		t.Fatalf("saved = %+v", p.svc.saved)
 	}
 	if len(p.events) != 1 || p.events[0].Action != "cache.settings" || p.events[0].Actor == "" || p.events[0].Detail["new"] == nil {

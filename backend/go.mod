@@ -8,6 +8,7 @@ require (
 	github.com/extism/go-sdk v1.7.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
+	github.com/klauspost/compress v1.20.3
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/oschwald/maxminddb-golang v1.13.1

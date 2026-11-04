@@ -210,3 +210,27 @@ func TestValidatePerformanceLongLifetimes(t *testing.T) {
 		}
 	}
 }
+
+func TestValidatePerformanceCompress(t *testing.T) {
+	t.Parallel()
+
+	stored := PageCacheSettings{Enabled: true, TTLSeconds: 600, CompressResponses: true}
+	// Absent keeps the stored value.
+	got, errs := validatePerformance(url.Values{"enabled": {"on"}, "ttl": {"3600"}}, stored)
+	if len(errs) != 0 || !got.CompressResponses {
+		t.Fatalf("absent: %+v %+v", got, errs)
+	}
+	// Off is honoured, also while the cache itself is off.
+	got, errs = validatePerformance(url.Values{"enabled": {"off"}, "ttl": {"3600"}, "compress": {"off"}}, stored)
+	if len(errs) != 0 || got.CompressResponses {
+		t.Fatalf("off with cache off: %+v %+v", got, errs)
+	}
+	got, errs = validatePerformance(url.Values{"enabled": {"on"}, "ttl": {"3600"}, "compress": {"on", "off"}}, PageCacheSettings{Enabled: true})
+	if len(errs) != 0 || !got.CompressResponses {
+		t.Fatalf("on: %+v %+v", got, errs)
+	}
+	_, errs = validatePerformance(url.Values{"enabled": {"on"}, "ttl": {"3600"}, "compress": {"maybe"}}, stored)
+	if len(errs) != 1 || errs[0].ID != "compress" {
+		t.Fatalf("bad value: %+v", errs)
+	}
+}

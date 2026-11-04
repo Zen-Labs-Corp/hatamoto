@@ -113,6 +113,9 @@ type Config struct {
 	// PagePreloadAfterChanges schedules a preload shortly after a content
 	// change empties the cache.
 	PagePreloadAfterChanges bool
+	// CompressResponses sends the app's own text responses as zstd or gzip
+	// when the client accepts it.
+	CompressResponses bool
 }
 
 // Preload modes: skip pages that are already cached, or rebuild everything.
@@ -239,6 +242,7 @@ type UpdateInput struct {
 	PagePreloadIntervalSeconds *int
 	PagePreloadMode            *string
 	PagePreloadAfterChanges    *bool
+	CompressResponses          *bool // nil = unchanged
 	// SetupCompleted true stamps setup_completed_at once (never cleared).
 	SetupCompleted bool
 }
@@ -374,6 +378,10 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 	if in.PagePreloadMode != nil {
 		preloadMode = *in.PagePreloadMode
 	}
+	var compress any
+	if in.CompressResponses != nil {
+		compress = *in.CompressResponses
+	}
 	if in.PagePreloadAfterChanges != nil {
 		preloadAfter = *in.PagePreloadAfterChanges
 	}
@@ -440,13 +448,14 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		  x_default_locale   = COALESCE($27, x_default_locale),
 		  business_profile   = COALESCE($28, business_profile),
 		  sitemap_naming     = COALESCE($29, sitemap_naming),
+		  compress_responses = COALESCE($30, compress_responses),
 		  updated_at         = NOW()
 		WHERE id = TRUE
 	`, companyName, logoURL, customDomain, primaryColor, themeExtra,
 		tagline, timezone, homepageEntityID, notificationEmail, postalAddress,
 		language, phone, businessHours, legacyWP, publicBaseURL, in.SetupCompleted,
 		cacheEnabled, cacheTTL, cacheMaxMB, preloadEnabled, preloadInterval,
-		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale, businessProfile, sitemapNaming)
+		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale, businessProfile, sitemapNaming, compress)
 	if err != nil {
 		return nil, fmt.Errorf("update site config: %w", err)
 	}
@@ -651,7 +660,8 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       page_cache_max_mb, page_preload_enabled, page_preload_interval_seconds,
 		       page_preload_mode, page_preload_after_changes,
 		       locales, prefix_all, x_default_locale,
-		       business_profile, locale_profiles, sitemap_naming, menus_seeded_at
+		       business_profile, locale_profiles, sitemap_naming, menus_seeded_at,
+		       compress_responses
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -665,6 +675,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.PagePreloadMode, &cfg.PagePreloadAfterChanges,
 		&locales, &cfg.PrefixAll, &cfg.XDefaultLocale,
 		&businessProfile, &localeProfiles, &cfg.SitemapNaming, &cfg.MenusSeededAt,
+		&cfg.CompressResponses,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured

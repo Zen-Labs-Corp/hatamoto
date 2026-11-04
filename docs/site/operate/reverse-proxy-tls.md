@@ -62,6 +62,8 @@ In this guide you put a reverse proxy in front of Hatamoto so visitors reach you
 
    nginx has no built-in zstd, so this compresses with gzip only (`text/html` is always compressed once `gzip on;` is set).
 
+   Hatamoto also compresses its own text responses (zstd, or gzip for browsers without zstd) and stores cached pages already compressed. The switch is **Compress responses** in Settings, Performance, on by default. Proxy compression is therefore optional: Caddy's `encode` leaves a response that already has a `Content-Encoding` alone, and nginx's `gzip` does the same, so the two do not double-compress. If the switch is off and your public address still answers uncompressed, Hatamoto logs a warning at startup and after a save, and the Performance page shows a notice with the address it checked.
+
 4. Do not repeat Hatamoto's security headers in the proxy. It already sends them (see [Harden an instance](hardening.md)), and a different value set in the proxy replaces Hatamoto's. For example, public pages send `X-Frame-Options: SAMEORIGIN` so the admin preview can show them; a proxy that sets `DENY` breaks that preview.
 
 5. Set the public address in Hatamoto's environment and restart it. It fixes the host used in canonical links, sitemaps, structured data, `llms.txt` and emailed links, because the host the server sees may be an internal address. Password reset and invitation emails are sent only when this or the Site address setting is set, and the page cache needs it.

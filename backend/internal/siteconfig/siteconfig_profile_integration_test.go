@@ -112,3 +112,28 @@ func TestSetLocaleProfileMergesAndClears(t *testing.T) {
 	}
 	jsonEq(t, "LocaleProfiles after Update", cfg.LocaleProfiles, `{"xx-b":{"phone":"2"}}`)
 }
+
+// compress_responses defaults to true on the migrated row, a zero UpdateInput
+// leaves it alone and a false pointer persists.
+func TestCompressResponsesDefaultAndUpdate(t *testing.T) {
+	ctx := context.Background()
+	s := scratchStore(t)
+	cfg, err := s.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.CompressResponses {
+		t.Fatal("CompressResponses must default to true")
+	}
+	tag := "x"
+	if cfg, err = s.Update(ctx, siteconfig.UpdateInput{Tagline: &tag}); err != nil || !cfg.CompressResponses {
+		t.Fatalf("zero input changed it: %v %v", cfg, err)
+	}
+	off := false
+	if cfg, err = s.Update(ctx, siteconfig.UpdateInput{CompressResponses: &off}); err != nil || cfg.CompressResponses {
+		t.Fatalf("false did not persist: %v %v", cfg, err)
+	}
+	if cfg, err = s.Update(ctx, siteconfig.UpdateInput{Tagline: &tag}); err != nil || cfg.CompressResponses {
+		t.Fatalf("later update reset it: %v %v", cfg, err)
+	}
+}
