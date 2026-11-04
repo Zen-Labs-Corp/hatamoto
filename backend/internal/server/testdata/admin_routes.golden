@@ -30,6 +30,7 @@ GET /admin/builder/blocks/{id} -> admin.(*Admin).handleBlockNodes-fm
 GET /admin/builder/blocks/{id}/usage -> admin.(*Admin).handleBlockUsage-fm
 GET /admin/builder/stylespec -> admin.(*Admin).handleStyleSpec-fm
 GET /admin/builder/templates/{id} -> admin.(*Admin).handleTemplateNodes-fm
+GET /admin/changesets/{id}/frame/{seq}/{ticket} -> admin.(*Admin).handleChangesetFrame-fm
 GET /admin/entities -> admin.(*Admin).handleEntities-fm
 GET /admin/entities/new -> admin.(*Admin).handleEntityNew-fm
 GET /admin/entities/parent-options -> admin.(*Admin).handleParentOptions-fm
@@ -65,6 +66,8 @@ GET /admin/plugins/security -> admin.(*Admin).handlePackageSecurity-fm
 GET /admin/plugins/upload -> admin.(*Admin).handleUploadPage-fm
 GET /admin/plugins/{name} -> admin.(*Admin).handlePluginRedirect-fm
 GET /admin/plugins/{name}/about -> admin.(*Admin).handleBrowseDetail-fm
+GET /admin/plugins/{name}/changesets/{id} -> admin.(*Admin).handleChangeset-fm
+GET /admin/plugins/{name}/changesets/{id}/preview -> admin.(*Admin).handleChangesetPreview-fm
 GET /admin/plugins/{name}/permissions -> admin.(*Admin).handlePluginPermissions-fm
 GET /admin/plugins/{name}/settings -> admin.(*Admin).handlePluginSettings-fm
 GET /admin/plugins/{name}/ui -> admin.(*Admin).handlePluginUIRedirect-fm
