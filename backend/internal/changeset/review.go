@@ -228,6 +228,9 @@ func displayChange(it Item, reason RiskReason, live *Live, label string) (oldS, 
 	case ReasonDelete:
 		return label, ""
 	case ReasonAltText:
+		if p.OldAlt == "" {
+			return "(empty)", p.AltText
+		}
 		return p.OldAlt, p.AltText
 	case ReasonMenuLink:
 		for _, mi := range p.Items {
