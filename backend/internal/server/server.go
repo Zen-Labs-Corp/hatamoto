@@ -42,6 +42,7 @@ import (
 	"hatamoto.dev/core/internal/installstats"
 	"hatamoto.dev/core/internal/mailsettings"
 	"hatamoto.dev/core/internal/media"
+	"hatamoto.dev/core/internal/media/modern"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/packages"
@@ -75,10 +76,17 @@ type Server struct {
 	// mux is built once in setupRoutes and never changes afterwards; routes is
 	// its registration root (and the record behind Routes()). router is the
 	// served handler: global middleware around mux with JSON 404/405 bodies.
-	mux          *http.ServeMux
-	routes       *httpx.Group
-	router       http.Handler
-	logger       *slog.Logger
+	mux    *http.ServeMux
+	routes *httpx.Group
+	router http.Handler
+	logger *slog.Logger
+	// mediaFormats stores the modern-format switches and the rebuild state.
+	mediaFormats mediaFormatStore
+	// mediaRebuilder runs the image rebuild; mediaFormatsSvc is the admin's view of it.
+	mediaRebuilder  *media.Rebuilder
+	mediaFormatsSvc *mediaFormatsService
+	// formatPolicy answers currentMediaFormats; nil means every format is on.
+	formatPolicy func(context.Context) media.Formats
 	sessionStore *session.Store
 	userTokens   *auth.UserTokens
 	siteConfig   *siteconfig.Store
@@ -425,10 +433,11 @@ func (s *Server) setupDependencies() {
 		mediaConfig.MaxTotalBytes = int64(s.cfg.Demo.MediaQuotaMB) * 1024 * 1024
 	}
 	s.mediaService = media.NewService(mediaRepo, mediaConfig, s.logger)
-	s.mediaService.SetChangeObserver(func(ctx context.Context) {
-		s.logoSizes.reset()
-		s.invalidateRendered(ctx)
-	})
+	s.mediaService.SetChangeObserver(s.onMediaChange)
+	s.mediaFormats = mediaFormatStore{site: s.siteConfig}
+	s.formatPolicy = s.mediaFormats.policy
+	s.mediaService.SetFormatPolicy(s.formatPolicy)
+	s.mediaFormatsSvc = s.newMediaFormats()
 
 	// Menu service
 	menuRepo := menu.NewPostgresRepository(s.db)
@@ -861,6 +870,16 @@ func (s *Server) setupRoutes() {
 	s.mountRenderRoutes(s.routes)
 }
 
+// currentMediaFormats is the set of modern image formats pages may offer: the owner's
+// switches, and only formats this build can encode. Before the policy is wired
+// (tests) everything is on.
+func (s *Server) currentMediaFormats(ctx context.Context) media.Formats {
+	if s.formatPolicy == nil {
+		return media.Formats{WebP: true, AVIF: true}
+	}
+	return s.formatPolicy(ctx)
+}
+
 // Start begins listening for HTTP requests.
 func (s *Server) Start() error {
 	if s.renderErr != nil {
@@ -877,6 +896,10 @@ func (s *Server) Start() error {
 	// Establish the server's lifecycle context. Plugin goroutines watch
 	// its Done channel; Shutdown cancels it to signal clean exit.
 	s.lifecycleCtx, s.lifecycleCancel = context.WithCancel(context.Background())
+
+	if !modern.StaticBuild {
+		s.logger.Warn("built without the nodynamic tag: the binary may be dynamically linked; rebuild with -tags nodynamic")
+	}
 
 	// Start background scheduler if it was wired up (the in-process worker).
 	// Constructs were happening in setupDependencies but the loops never
@@ -899,6 +922,9 @@ func (s *Server) Start() error {
 	}
 	seedCancel()
 	s.loadPageCache(s.lifecycleCtx)
+	if s.mediaRebuilder != nil {
+		s.mediaRebuilder.Resume(s.lifecycleCtx)
+	}
 	s.warnIfAdminAddressServed(s.lifecycleCtx)
 	if s.emailService != nil {
 		go s.runEmailConvergence(s.lifecycleCtx, emailConvergeEvery)
@@ -999,6 +1025,9 @@ func (s *Server) Shutdown() error {
 	}
 	if s.backups != nil {
 		s.backups.Wait(ctx)
+	}
+	if s.mediaRebuilder != nil {
+		s.mediaRebuilder.Wait(ctx)
 	}
 
 	// Shutdown HTTP server

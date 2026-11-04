@@ -44,6 +44,10 @@ SDK 0.18.0 is an additive minor over 0.17: plugins built for earlier ranges keep
 
 A plugin that uses `csp`, `request_headers`, `translation_of`, `media_alt` or content types must declare `"sdk": "^0.18"`: an older host ignores those fields without an error.
 
+## Unreleased: WebP and AVIF image copies
+
+- Resized images are also served as WebP (AVIF where it is smaller), with the original format as fallback. Settings > Media can rebuild the copies of existing images, and copies of WebP uploads are now real WebP files. Source builds need `-tags nodynamic`. Additive; no breaking change.
+
 ## Unreleased: Plugins change content through runs and changesets (breaking for plugins that write)
 
 Core 1.1.0 with SDK 0.17.0 is a deliberate hard break of the plugin write API. A plugin can no longer change live content directly: it starts a run, stages its writes into a changeset, and the owner publishes or discards the changeset. There is no compatibility shim. Read the upgrade note before you move: [Plugins write through runs](UPGRADES.md#plugins-write-through-runs).

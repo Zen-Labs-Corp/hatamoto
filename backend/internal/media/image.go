@@ -1,6 +1,7 @@
 package media
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -8,6 +9,7 @@ import (
 	"io"
 
 	"golang.org/x/image/draw"
+	"hatamoto.dev/core/internal/media/modern"
 )
 
 // resizeImage scales an image to the specified dimensions.
@@ -46,16 +48,14 @@ func resizeImage(src image.Image, width, height int, crop bool) image.Image {
 }
 
 // encodeImage writes img to w in the format for mimeType.
-func encodeImage(w io.Writer, img image.Image, mimeType string) error {
+func encodeImage(ctx context.Context, w io.Writer, img image.Image, mimeType string) error {
 	switch mimeType {
 	case "image/jpeg":
 		return jpeg.Encode(w, img, &jpeg.Options{Quality: 85})
 	case "image/png":
 		return png.Encode(w, img)
 	case "image/webp":
-		// WebP encoding requires cgo, so resized WebP copies are JPEG; the
-		// caller names them by VariantExt, which says .jpg.
-		return jpeg.Encode(w, img, &jpeg.Options{Quality: 85})
+		return modern.Encode(ctx, w, img, modern.WebP, 80)
 	default:
 		return fmt.Errorf("unsupported image format: %s", mimeType)
 	}

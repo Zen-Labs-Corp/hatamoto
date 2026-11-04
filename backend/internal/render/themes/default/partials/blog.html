@@ -5,7 +5,7 @@
 {{if $e}}{{template "term-chips" dict "Terms" $e.Categories}}{{end}}<h1 class="hm-article__title">{{if $e}}{{$e.Title}}{{else}}{{.Page.Name}}{{end}}</h1>
 {{if $e}}{{with $e.Excerpt}}<p class="hm-article__lede">{{.}}</p>
 {{end}}{{if ne $e.Schema "page"}}{{template "entry-meta" dict "Author" $e.Author "PublishedAt" $e.PublishedAt "Words" .Body}}{{end}}{{end}}</header>
-{{if $e}}{{with $e.Image}}<figure class="hm-article__image"><img src="{{imgsrc .}}"{{with srcset .}} srcset="{{.}}" sizes="(min-width: 60rem) 60rem, 100vw"{{end}} alt="{{with $e.Attributes.featured_image_alt}}{{.}}{{end}}" fetchpriority="high"></figure>
+{{if $e}}{{with $e.Image}}{{$ps := picturesources . "(min-width: 60rem) 60rem, 100vw"}}<figure class="hm-article__image">{{if $ps}}<picture>{{$ps}}{{end}}<img src="{{imgsrc .}}"{{with srcset .}} srcset="{{.}}" sizes="(min-width: 60rem) 60rem, 100vw"{{end}} alt="{{with $e.Attributes.featured_image_alt}}{{.}}{{end}}" fetchpriority="high">{{if $ps}}</picture>{{end}}</figure>
 {{end}}{{end}}{{if .Body}}<div class="hm-prose hm-entry">{{.Body}}</div>
 {{end}}{{range .Blocks}}{{template "section" .}}
 {{end}}{{if $e}}{{with $e.Tags}}<footer class="hm-article__footer">{{template "term-chips" dict "Terms" . "Label" "Tags"}}</footer>
@@ -29,7 +29,7 @@
 {{define "post-card"}}{{template "card" dict "Item" . "Level" 2}}{{end}}
 {{define "post-card-h3"}}{{template "card" dict "Item" . "Level" 3}}{{end}}
 {{define "card"}}{{$i := .Item}}<article class="hm-card">
-{{with $i.Image}}<a class="hm-card__media" href="{{$i.URL}}" tabindex="-1" aria-hidden="true"><img src="{{imgsrc .}}"{{with srcset .}} srcset="{{.}}" sizes="(min-width: 60rem) 24rem, (min-width: 40rem) 50vw, 100vw"{{end}} alt="" loading="lazy"></a>
+{{with $i.Image}}{{$ps := picturesources . "(min-width: 60rem) 24rem, (min-width: 40rem) 50vw, 100vw"}}<a class="hm-card__media" href="{{$i.URL}}" tabindex="-1" aria-hidden="true">{{if $ps}}<picture>{{$ps}}{{end}}<img src="{{imgsrc .}}"{{with srcset .}} srcset="{{.}}" sizes="(min-width: 60rem) 24rem, (min-width: 40rem) 50vw, 100vw"{{end}} alt="" loading="lazy">{{if $ps}}</picture>{{end}}</a>
 {{end}}<div class="hm-card__body">
 {{with $i.Category}}<p class="hm-card__cat">{{.}}</p>
 {{end}}{{if eq .Level 3}}<h3 class="hm-card__title"><a href="{{$i.URL}}">{{$i.Title}}</a></h3>{{else}}<h2 class="hm-card__title"><a href="{{$i.URL}}">{{$i.Title}}</a></h2>{{end}}

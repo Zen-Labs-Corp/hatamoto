@@ -27,6 +27,9 @@ const (
 func (a *Admin) mountMedia(authed *httpx.Group) {
 	// Only the library list moved; the detail, delete, upload and picker
 	// endpoints keep their paths so the editor picker is unchanged.
+	owner := authed.Group("", a.RequireRole("owner"))
+	owner.HandleFunc("POST /settings/media/formats", a.handleMediaFormatsSave)
+	owner.HandleFunc("POST /settings/media/rebuild", a.handleMediaRebuild)
 	authed.HandleFunc("GET /settings/media", a.handleMedia)
 	authed.HandleFunc("GET /settings/media/new", a.handleMediaNew)
 	authed.HandleFunc("POST /media/upload", a.handleMediaUpload)
@@ -188,6 +191,7 @@ type mediaListData struct {
 	Storage     *ui.CategoryBar
 	StorageNote string
 	StorageSize string // total size of the files the bar counted
+	Formats     *mediaFormatsView
 }
 
 func (a *Admin) mediaFilter(r *http.Request) (*media.ListMediaFilter, string, string) {
@@ -265,6 +269,9 @@ func (a *Admin) handleMedia(w http.ResponseWriter, r *http.Request) {
 	// The bar sits outside the swapped results, so search keystrokes and filters never rescan the library.
 	if r.Header.Get("HX-Request") != "true" && page == 1 && q == "" && typ == "" {
 		d.Storage, d.StorageNote, d.StorageSize = a.mediaStorage(ctx, ms)
+	}
+	if u := userFrom(ctx); u != nil && u.Role == "owner" {
+		d.Formats = a.mediaFormatsView(ctx)
 	}
 	d.Page = ui.Pagination{Page: page, PerPage: per, Total: res.Total, BaseURL: a.adminPath + "/settings/media", Query: pq}
 	loc := a.siteLocation(ctx)

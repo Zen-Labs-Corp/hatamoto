@@ -193,7 +193,7 @@ PY
 mkdir -p "$S/bin" "$S/logs"
 build_binary() {
   echo "== building the production binary $DEV_VERSION (no test tags)"
-  ( cd "$ROOT/backend" && CGO_ENABLED=0 GOOS=linux go build -trimpath \
+  ( cd "$ROOT/backend" && CGO_ENABLED=0 GOOS=linux go build -tags nodynamic -trimpath \
       -ldflags "-X $PKG.Version=$DEV_VERSION -X $PKG.Commit=staging" -o "$S/bin/hatamoto" ./cmd/hatamoto )
   assert_production "$S/bin/hatamoto" "binary"
 }

@@ -37,6 +37,16 @@ type ImageVariant struct {
 	URL    string `json:"url"`
 	Width  int    `json:"width"`
 	Height int    `json:"height"`
+	// Format is the MIME type of the copy; empty means the original's format.
+	Format string `json:"format,omitempty"`
+}
+
+// MIME is the MIME type of the copy; orig is the original's.
+func (v ImageVariant) MIME(orig string) string {
+	if v.Format == "" {
+		return orig
+	}
+	return v.Format
 }
 
 // VariantSizes defines the standard image variant sizes.

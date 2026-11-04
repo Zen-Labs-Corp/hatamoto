@@ -25,6 +25,24 @@
 </div>
 </div>
 </div>
+{{with .Formats}}<form method="post" action="{{adminPath}}/settings/media/formats" class="hm-cardform" id="image-formats-form">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "image-formats" "Title" "Image formats" "Heading" "h2" "Description" "Resized copies of JPEG, PNG and WebP images are also made as WebP and AVIF. Pages send them to browsers that support them and keep the original format for the rest. A copy is kept only when it is smaller."}}<div class="hm-setlist">
+<div class="hm-setrow">
+<div class="hm-setrow__text"><label class="hm-setrow__name" for="fmt-webp">WebP copies</label></div>
+<div class="hm-setrow__control">{{template "hm/field" (dict "Control" "switch" "ID" "fmt-webp" "Name" "webp" "Value" "on" "Label" "WebP copies" "Bare" true "OffValue" "off" "Checked" .WebP)}}</div>
+</div>
+<div class="hm-setrow">
+<div class="hm-setrow__text"><label class="hm-setrow__name" for="fmt-avif">AVIF copies</label>
+<p class="hm-field__help">Smallest files, slowest to make.</p></div>
+<div class="hm-setrow__control">{{template "hm/field" (dict "Control" "switch" "ID" "fmt-avif" "Name" "avif" "Value" "on" "Label" "AVIF copies" "Bare" true "OffValue" "off" "Checked" .AVIF)}}</div>
+</div>
+</div>{{with .Progress}}<div id="rebuild-progress" role="status">{{template "hm/progress" .}}</div>
+{{end}}{{if .Line}}<p class="hm-field__help">{{.Line}}</p>{{end}}{{if .Skipped}}<details><summary>Skipped images</summary><ul>{{range .Skipped}}<li>{{.Name}}: {{.Reason}}</li>{{end}}</ul>{{if .SkippedMore}}<p class="hm-muted">And {{.SkippedMore}} more.</p>{{end}}</details>
+{{end}}{{template "hm/card-foot"}}<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Rebuild copies" "Type" "submit" "Attrs" (attrmap "form" "rebuild-form")}}</span>{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+<form method="post" action="{{adminPath}}/settings/media/rebuild" id="rebuild-form">{{template "hm/csrf" $}}</form>
+{{end}}
 {{template "hm/dialog-start" dict "ID" "upload" "Title" "Upload files" "Static" true}}
 {{template "hm/form-upload-media" dict "Upload" .Upload "CSRF" $.CSRF "MaxMB" .MaxMB "View" .UpView}}
 {{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Upload" "PrimaryAttrs" (attrmap "form" "upload-form")}}

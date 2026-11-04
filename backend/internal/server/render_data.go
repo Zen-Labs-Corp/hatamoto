@@ -16,6 +16,7 @@ import (
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/media"
+	"hatamoto.dev/core/internal/media/modern"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/taxonomy"
@@ -34,6 +35,11 @@ type renderData struct {
 
 	mu       sync.Mutex
 	variants map[string]cachedVariants
+
+	// formats is the cached modern-format policy (a settings read), so a loop
+	// of ImageVariants calls costs no statement; fmtsExpire is when it is read again.
+	formats    media.Formats
+	fmtsExpire time.Time
 }
 
 // cachedVariants is the cached media lookup of one URL: srcset candidates and
@@ -50,6 +56,15 @@ const (
 )
 
 func newRenderData(s *Server) *renderData { return &renderData{s: s} }
+
+// resetVariants drops the cached media lookups, so the next render reads the
+// current copies (a purge must not leave paths of deleted files behind).
+func (d *renderData) resetVariants() {
+	d.mu.Lock()
+	d.variants = nil
+	d.fmtsExpire = time.Time{}
+	d.mu.Unlock()
+}
 
 // ctx bounds a data func call. On a multi-locale site the context carries the visible locales (default plus
 // shared), so lists keep shared content that the bare site-language fallback
@@ -270,7 +285,41 @@ func (d *renderData) Failures() int64 { return d.failures.Load() }
 // copies, and any URL that is not stored media, gives none.
 func (d *renderData) ImageVariants(u string) []render.ImageVariant {
 	c, _ := d.media(u)
-	return c.list
+	return d.filterFormats(c.list)
+}
+
+// filterFormats drops copies in formats the owner has switched off. The
+// lookup cache keeps them, so a settings change needs no purge of it.
+func (d *renderData) filterFormats(list []render.ImageVariant) []render.ImageVariant {
+	f := d.mediaFormats()
+	if f.WebP && f.AVIF {
+		return list
+	}
+	out := make([]render.ImageVariant, 0, len(list))
+	for _, v := range list {
+		if (v.Type == string(modern.WebP) && !f.WebP) || (v.Type == string(modern.AVIF) && !f.AVIF) {
+			continue
+		}
+		out = append(out, v)
+	}
+	return out
+}
+
+// mediaFormats returns the format policy, read at most once per variantsCacheTTL.
+// A settings save notifies a media change, which clears it at once.
+func (d *renderData) mediaFormats() media.Formats {
+	d.mu.Lock()
+	if time.Now().Before(d.fmtsExpire) {
+		f := d.formats
+		d.mu.Unlock()
+		return f
+	}
+	d.mu.Unlock()
+	f := d.s.currentMediaFormats(context.Background())
+	d.mu.Lock()
+	d.formats, d.fmtsExpire = f, time.Now().Add(variantsCacheTTL)
+	d.mu.Unlock()
+	return f
 }
 
 // ImageSize returns the intrinsic size of a stored media file (see
@@ -354,6 +403,7 @@ func (d *renderData) PrefetchVariants(urls []string) {
 	if len(want) == 0 {
 		return
 	}
+	d.mediaFormats() // warm, so the ImageVariants calls that follow run no statement
 	ctx, cancel := d.ctx()
 	defer cancel()
 	conn, err := d.s.db.GetConn(ctx)
@@ -472,7 +522,7 @@ func imageVariants(raw []byte, original string, width *int) []render.ImageVarian
 	var out []render.ImageVariant
 	for _, v := range m.Variants {
 		if v.Size != "thumbnail" && v.Width > 0 && v.URL != "" {
-			out = append(out, render.ImageVariant{URL: v.URL, Width: v.Width})
+			out = append(out, render.ImageVariant{URL: v.URL, Width: v.Width, Type: v.Format})
 		}
 	}
 	if len(out) == 0 {

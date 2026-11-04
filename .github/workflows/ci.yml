@@ -488,7 +488,7 @@ jobs:
           node-version: 20
       - name: Build hatamoto
         if: steps.rel.outputs.relevant == 'true'
-        run: cd backend && go build -o "$RUNNER_TEMP/hatamoto" ./cmd/hatamoto
+        run: cd backend && go build -tags nodynamic -o "$RUNNER_TEMP/hatamoto" ./cmd/hatamoto
       - name: Install the QA harness
         if: steps.rel.outputs.relevant == 'true'
         working-directory: scripts/admin-qa

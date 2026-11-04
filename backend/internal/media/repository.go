@@ -18,6 +18,12 @@ type Repository interface {
 	List(ctx context.Context, filter *ListMediaFilter, limit, offset int) (*PagedResult, error)
 	Update(ctx context.Context, m *Media) error
 	Delete(ctx context.Context, id uuid.UUID) error
+	// ListImagesAfter returns up to limit JPEG, PNG and WebP records whose id
+	// is greater than after, ordered by id. The rebuild job walks the library
+	// with it.
+	ListImagesAfter(ctx context.Context, after uuid.UUID, limit int) ([]*Media, error)
+	// CountImages is the number of records ListImagesAfter walks.
+	CountImages(ctx context.Context) (int, error)
 }
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -126,6 +132,63 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Media,
 	}
 
 	return &m, nil
+}
+
+// rebuildMimes are the image types that get resized copies.
+const rebuildMimes = `mime_type IN ('image/jpeg', 'image/png', 'image/webp') AND run_id IS NULL`
+
+// ListImagesAfter implements Repository.
+func (r *PostgresRepository) ListImagesAfter(ctx context.Context, after uuid.UUID, limit int) ([]*Media, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
+	rows, err := conn.Query(ctx, `
+		SELECT id, filename, original_filename, mime_type, file_size,
+		       storage_provider, storage_path, public_url, width, height, variants,
+		       alt_text, caption, folder, uploaded_by, created_at, updated_at
+		FROM hatamoto_media
+		WHERE `+rebuildMimes+` AND id > $1
+		ORDER BY id
+		LIMIT $2`, after, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list images: %w", err)
+	}
+	defer rows.Close()
+
+	var items []*Media
+	for rows.Next() {
+		var m Media
+		var variants []byte
+		if err := rows.Scan(
+			&m.ID, &m.Filename, &m.OriginalFilename, &m.MimeType, &m.FileSize,
+			&m.StorageProvider, &m.StoragePath, &m.PublicURL, &m.Width, &m.Height, &variants,
+			&m.AltText, &m.Caption, &m.Folder, &m.UploadedBy, &m.CreatedAt, &m.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan media: %w", err)
+		}
+		if err := m.UnmarshalVariants(variants); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal variants: %w", err)
+		}
+		items = append(items, &m)
+	}
+	return items, rows.Err()
+}
+
+// CountImages implements Repository.
+func (r *PostgresRepository) CountImages(ctx context.Context) (int, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Release()
+	var n int
+	if err := conn.QueryRow(ctx, `SELECT COUNT(*) FROM hatamoto_media WHERE `+rebuildMimes).Scan(&n); err != nil {
+		return 0, fmt.Errorf("failed to count images: %w", err)
+	}
+	return n, nil
 }
 
 // List retrieves media records with filtering and pagination.

@@ -177,7 +177,8 @@ func TestRenderQueryDataIntegration(t *testing.T) {
 
 	// ISC-31: a query's statements do not grow with its items. Besides count,
 	// list, ancestors, bylines and the prefetch, the card links cost a fixed
-	// homepage lookup (navLinks, 4 statements) and the author-schema read.
+	// homepage lookup (navLinks, 4 statements), the author-schema read and the
+	// image format policy read (once, in the prefetch).
 	run := func(limit int) (items, statements int, sql []string) {
 		d := newRenderData(srv)
 		before := counter.Count()
@@ -203,8 +204,8 @@ func TestRenderQueryDataIntegration(t *testing.T) {
 	if n1 != 1 || n12 != 12 {
 		t.Fatalf("items = %d, %d", n1, n12)
 	}
-	if s12 != s1 || s12 > 10 {
-		t.Errorf("1 item ran %d statements, 12 items %d (want equal, <= 10):\n%s", s1, s12, strings.Join(sql, "\n---\n"))
+	if s12 != s1 || s12 > 11 {
+		t.Errorf("1 item ran %d statements, 12 items %d (want equal, <= 11):\n%s", s1, s12, strings.Join(sql, "\n---\n"))
 	}
 	if d.Failures() != 0 {
 		t.Errorf("failures = %d", d.Failures())

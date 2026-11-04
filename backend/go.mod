@@ -8,6 +8,8 @@ require (
 	github.com/boombuler/barcode v1.1.0
 	github.com/extism/go-sdk v1.7.1
 	github.com/fxamacker/cbor/v2 v2.9.4
+	github.com/gen2brain/avif v0.4.4
+	github.com/gen2brain/webp v0.5.5
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
@@ -29,6 +31,7 @@ require (
 require (
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/dylibso/observe-sdk/go v0.0.0-20240828172851-9145d8ad07e1 // indirect
+	github.com/ebitengine/purego v0.8.3 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/go-webauthn/x v0.3.1 // indirect
 	github.com/gobwas/glob v1.0.0 // indirect

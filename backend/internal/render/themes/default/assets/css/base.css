@@ -93,6 +93,7 @@ a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.2em
 :focus-visible { outline: 2px solid var(--hm-focus); outline-offset: 3px; border-radius: 2px; }
 code, kbd, pre, samp { font-family: var(--hm-font-mono); }
 img, svg, video { max-width: 100%; height: auto; }
+picture { display: contents; }
 
 .hm-container { width: 100%; max-width: var(--hm-container); margin: 0 auto; padding: 0 1.5rem; }
 

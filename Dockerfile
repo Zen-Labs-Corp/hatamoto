@@ -20,9 +20,11 @@ COPY scripts/third-party-licenses.sh /src/scripts/
 RUN /src/scripts/third-party-licenses.sh /out/THIRD_PARTY_LICENSES
 ARG VERSION=dev
 ARG COMMIT=unknown
-# Build tags; empty for every real image. Only the end-to-end test passes one.
+# Extra build tags; empty for every real image (only the end-to-end test passes
+# one). nodynamic is always on: it keeps the image encoders from loading a system
+# library, so the binary stays statically linked.
 ARG TAGS=""
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -tags "${TAGS}" \
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -tags "nodynamic ${TAGS}" \
     -ldflags "-X hatamoto.dev/core/app.Version=${VERSION} -X hatamoto.dev/core/app.Commit=${COMMIT}" \
     -o /out/hatamoto ./cmd/hatamoto
 

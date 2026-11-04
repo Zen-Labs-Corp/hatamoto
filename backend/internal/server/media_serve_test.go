@@ -55,3 +55,13 @@ func TestServeMedia_RefusesTraversalAndSymlinkEscape(t *testing.T) {
 		}
 	}
 }
+
+func TestServeMedia_AVIFCopyIsInline(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "p_large.avif"), []byte("\x00\x00\x00\x1cftypavif\x00\x00\x00\x00avifmif1miaf"), 0o644)
+	w := serveMediaFrom(t, dir, "p_large.avif")
+	h := w.Header()
+	if w.Code != 200 || h.Get("Content-Type") != "image/avif" || h.Get("Content-Disposition") != "" || h.Get("Content-Security-Policy") != "" {
+		t.Errorf("avif served wrong: %d %v", w.Code, h)
+	}
+}

@@ -247,6 +247,9 @@ type Deps struct {
 	// BuilderParts lists the layout slots (header, footer, single, archive) the
 	// live theme renders parts for (theme.json builder.parts); nil means none.
 	BuilderParts func() []string
+	// MediaFormats is the Image formats card on Settings > Media (owner
+	// only); nil hides the card.
+	MediaFormats MediaFormatsService
 	// PageCache is the rendered-page cache behind Settings > Performance;
 	// nil answers that page with 503.
 	PageCache PageCacheService

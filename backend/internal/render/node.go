@@ -21,6 +21,7 @@ const BaseCSS = `.hm-c{display:flex;flex-direction:column;box-sizing:border-box;
 	`.hm-c--page{max-width:var(--hm-container,72rem);margin-inline:auto;padding-inline:var(--hm-space-4,1rem)}` +
 	`.hm-w-btn{display:inline-block;align-self:flex-start}` +
 	`.hm-w-img{max-width:100%;height:auto;display:block}` +
+	`picture{display:contents}` +
 	`.hm-w-spacer{height:var(--hm-space-8,2rem)}` +
 	`.hm-w-divider{border:0;border-top:1px solid var(--hm-hair,#ddd);width:100%}`
 
@@ -656,6 +657,11 @@ func (e *Engine) renderImage(b *bytes.Buffer, v *PageView, n, parent *builder.No
 	w, h := e.imageSize(src)
 	// img writes the <img>; open writes its class (and, bare, the node's attributes).
 	img := func(open func()) {
+		sources := pictureSources(e.opts.Data, src, imageSizes)
+		if sources != "" {
+			b.WriteString("<picture>" + sources)
+			defer b.WriteString("</picture>")
+		}
 		b.WriteString("<img ")
 		open()
 		b.WriteString(` src="` + esc(safeURL(src)) + `" alt="` + esc(alt) + `"`)
