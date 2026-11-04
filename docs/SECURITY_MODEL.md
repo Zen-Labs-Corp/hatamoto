@@ -196,7 +196,13 @@ Residual risks, stated plainly:
 - **One admin endpoint that forgets a rule reopens the hole.** That is why the rules are one
   router-level guard, not per-handler checks, and why the browser job attacks the real binary.
 - **Phishing and password-manager autofill are not stopped.** Neither is attacked in the job.
-  Two-factor sign-in or WebAuthn is the control.
+  Two-step sign-in is the control: an authenticator app (TOTP, one use per time step, sealed at rest),
+  one-time recovery codes and passkeys (user verification required, single-use challenges). Every
+  session-issuing path refuses a password alone for a user with a factor, and a failed factor lookup
+  refuses the sign-in. Wrong codes share the account lock. An owner policy can require it, but a
+  user who has no factor yet is only held on the Security page, so the policy is not a sign-in check.
+  Residual: a user with only passkeys confirms sudo mode with the password alone, passkeys are tied
+  to the site address, and `hatamoto user reset-2fa` on the server removes every factor.
 - **Community `builder.island` gap.** A builder island is a same-origin
   `<script type="module">` (`internal/render`, `islandTags`). The Layer B sandbox applies only when
   the plugin also holds a live `site.scripts` grant (`internal/packages`, `CommunityScriptsLive`), so

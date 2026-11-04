@@ -28,6 +28,19 @@ Settings > Privacy adds an optional cookie banner. Visitors can accept all, reje
 
 **Rollback floor: unchanged.** The previous release runs against the migrated data and writes no log.
 
+## Unreleased: Two-step sign-in
+
+Users can add an authenticator app, recovery codes and passkeys under Profile > Security. After the password, sign-in asks for a code, a recovery code or a passkey. Passkeys can also sign in on their own.
+
+- **Policy.** Settings > Users has optional, required for owners and required for everyone. The users list shows a 2-step column.
+- **Sudo mode.** Confirming your password also asks for the code when you have an authenticator app.
+- **JSON login.** `POST` login takes a `code` field for users with a second factor; a password alone no longer signs them in. API keys are unaffected.
+- **CLI.** `hatamoto user reset-2fa --email E` removes a user's factors.
+- **Passkeys and the site address.** Passkeys are tied to the site address; the address change screen warns about it.
+- **Migration.** New tables and one column (expand-only).
+
+**Rollback floor: unchanged.** The previous binary ignores the new tables and column. Rolling back signs everyone in with the password only, so second factors stop being asked.
+
 ## Unreleased: Plugins change content through runs and changesets (breaking for plugins that write)
 
 Core 1.1.0 with SDK 0.17.0 is a deliberate hard break of the plugin write API. A plugin can no longer change live content directly: it starts a run, stages its writes into a changeset, and the owner publishes or discards the changeset. There is no compatibility shim. Read the upgrade note before you move: [Plugins write through runs](UPGRADES.md#plugins-write-through-runs).

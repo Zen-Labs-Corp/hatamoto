@@ -76,6 +76,20 @@ curl -X PATCH -H "X-API-Key: <your-key>" -H "Content-Type: application/json" \
 
 A wrong field answers `422` with a `fields` list that names each one. **Read SEO settings** is enough for `GET` on the same address.
 
+### Turn on two-step sign-in
+
+Two-step sign-in asks for a second proof after the password. Each person sets it up under **Profile > Security**, after confirming their password.
+
+1. Open **Profile > Security** and choose **Set up authenticator app**. Scan the QR code with an authenticator app, or type the key, then enter the six digit code the app shows.
+2. Save the ten recovery codes that appear. They are shown once, and each works once if you lose the app.
+3. Optionally choose **Add a passkey** to sign in with your device. Passkeys belong to the site address (the host of your site, not the admin address), so they stop working if the site address changes.
+
+At sign-in, a person with a second factor enters the password, then a code, a recovery code or a passkey. Wrong codes count toward the same lock as wrong passwords: five in a row lock the account for 15 minutes. Confirming your password for a sensitive action (sudo mode) also asks for the code when you have an authenticator app. A person who has only passkeys confirms with the password alone.
+
+Owners choose who must use it under **Settings > Users > Two-step sign-in**: optional, required for owners, or required for everyone. A person who is required to use it and has not set it up is sent to **Profile > Security** until they do. The users list has a **2-step** column. A script that signs in over the JSON API sends the code in a `code` field. API keys are not affected.
+
+If someone loses their device and their recovery codes, run `hatamoto user reset-2fa --email E` on the server. They can then sign in with the password and set it up again.
+
 ## Check it worked
 
 - Your colleague appears in the users list with the role you chose, and their **Last sign-in** shows a date once they have signed in.
