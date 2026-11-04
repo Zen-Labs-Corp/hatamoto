@@ -417,6 +417,9 @@ func (a *Admin) handlePluginEnable(w http.ResponseWriter, r *http.Request) {
 type uninstallData struct {
 	Name        string
 	DataOptions []ui.Option
+	// TagPack replaces the keep/delete choice with one sentence: uninstalling a
+	// tag pack always clears its saved IDs and enabled state.
+	TagPack bool
 	// Types are the content types the plugin installed; the switch to remove
 	// them shows only when there are some.
 	Types []ContentTypeUse
@@ -461,6 +464,15 @@ func uninstallDataOptions() []ui.Option {
 	}
 }
 
+// isTagPack reports whether name is an installed tag pack.
+func (a *Admin) isTagPack(name string) bool {
+	if a.deps.Growth.Plugins == nil {
+		return false
+	}
+	p, ok := a.findPlugin(a.deps.Growth.Plugins, name)
+	return ok && p.Package != nil && p.Package.TagPack
+}
+
 func (a *Admin) handlePluginUninstallForm(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.packageAdmin(w, r); !ok {
 		return
@@ -468,7 +480,7 @@ func (a *Admin) handlePluginUninstallForm(w http.ResponseWriter, r *http.Request
 	v := a.NewView(w, r, "Uninstall "+r.PathValue("name"))
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: r.PathValue("name")}}
 	pk, _ := a.packageAdmin(w, r)
-	v.Data = uninstallData{Name: r.PathValue("name"), DataOptions: uninstallDataOptions(), Types: pk.ContentTypes(r.Context(), r.PathValue("name"))}
+	v.Data = uninstallData{Name: r.PathValue("name"), DataOptions: uninstallDataOptions(), TagPack: a.isTagPack(r.PathValue("name")), Types: pk.ContentTypes(r.Context(), r.PathValue("name"))}
 	a.Render(w, r, http.StatusOK, "settings/pluginuninstall", v)
 }
 
@@ -478,7 +490,8 @@ func (a *Admin) handlePluginUninstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("name")
-	drop := r.PostFormValue("drop_data") == "1"
+	tagPack := a.isTagPack(name)
+	drop := r.PostFormValue("drop_data") == "1" && !tagPack
 	dropTypes := r.PostFormValue("drop_content_types") == "1"
 	if dropTypes {
 		// Deleting content is irreversible: step-up auth, then the typed name.
@@ -510,6 +523,9 @@ func (a *Admin) handlePluginUninstall(w http.ResponseWriter, r *http.Request) {
 	}
 	a.invalidate(r.Context())
 	msg := name + " was uninstalled. Its data was kept; installing it again brings it back."
+	if tagPack {
+		msg = name + " was uninstalled. Its saved IDs were removed."
+	}
 	if drop {
 		msg = name + " was uninstalled and its data was deleted. Your pages and content were not touched."
 	}

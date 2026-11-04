@@ -469,6 +469,32 @@ func TestInstallRefusalIsShownNotLost(t *testing.T) {
 	}
 }
 
+func TestTagPackUninstallPage(t *testing.T) {
+	t.Parallel()
+
+	g, pk, fp := newPackageRig(t)
+	fp.list = append(fp.list, PluginInfo{Name: "ga-pack", Version: "1.0.0", Package: &PackageMeta{Enabled: true, TagPack: true, Source: "upload"}})
+	body := g.do("GET", "/admin/plugins/ga-pack/uninstall", "owner-token", nil, nil).Body.String()
+	a11yOK(t, body)
+	for _, want := range []string{"Its saved IDs on Settings &gt; Tracking are removed. Installing it again starts with the tag off.", "hm-confirmcard"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("tag pack uninstall page missing %q", want)
+		}
+	}
+	for _, bad := range []string{"Keep its data", "brings everything back", "Delete its data too", `name="drop_data"`} {
+		if strings.Contains(body, bad) {
+			t.Errorf("tag pack uninstall page still has %q", bad)
+		}
+	}
+	if hello := g.do("GET", "/admin/plugins/hello/uninstall", "owner-token", nil, nil).Body.String(); !strings.Contains(hello, "Keep its data") || strings.Contains(hello, "saved IDs on Settings") {
+		t.Error("a normal plugin must keep the data choice")
+	}
+	// A forged drop_data does not drop a tag pack's schema.
+	if rec := g.do("POST", "/admin/plugins/ga-pack/uninstall", "owner-token", url.Values{"drop_data": {"1"}}, nil); rec.Code != 303 || pk.dropped || !slices.Equal(pk.removed, []string{"plugin/ga-pack"}) {
+		t.Fatalf("uninstall: %d dropped=%v removed=%v", rec.Code, pk.dropped, pk.removed)
+	}
+}
+
 func TestPluginEnableDisableUninstall(t *testing.T) {
 	t.Parallel()
 
