@@ -75,7 +75,7 @@ A **package** is one `.hmp` file that holds a whole plugin. **Signing** proves w
 
 1. To update, raise `version` in `plugin.json` (for example to `0.3.0`), build, pack and upload the new file. The install screen says it replaces the old version. Earlier grants stay ticked, and any permission the new version adds is marked "(new in this version)" and left unticked.
 
-2. To remove the plugin, open **Plugins > counter > Permissions** and click **Uninstall**. Choose **Keep its data.** to keep the stored count for a later install, or **Delete its data too.** to remove it for good. Your pages, posts, media and site settings are never touched. If the plugin installed content types, tick **Also remove content types and their content** to remove those types and every entry of them as well; it is off by default, and types you created yourself are never removed.
+2. To remove the plugin, open **Plugins > counter > Permissions** and click **Uninstall**. Choose **Keep its data.** to keep the stored count for a later install, or **Delete its data too.** to remove it for good. Your pages, posts, media and site settings are never touched. If the plugin installed content types, tick **Also remove content types and their content** to remove those types and every entry of them as well; it is off by default, shows how many entries will go, and asks you to confirm again and to type the plugin name. Entries you wrote yourself in those types are deleted too, and webhooks hear about each deletion. Types you created yourself are never removed.
 
 ### Ship content types
 
