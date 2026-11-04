@@ -210,12 +210,26 @@
     row.appendChild(button(S.preferences, false, function (e) { openDialog(e.currentTarget); }));
     row.appendChild(button(S.accept, true, function () { decide(allOf(true)); }));
     banner.appendChild(row);
-    d.body.appendChild(banner);
+    // First in the body so it is first in tab order, and the page keeps
+    // scroll room under it so focused content is never hidden behind it.
+    d.body.insertBefore(banner, d.body.firstChild);
+    keepClear(banner);
   }
+
+  // keepClear reserves the height of a fixed element at the bottom of the
+  // viewport as scroll padding (WCAG 2.4.11); null clears it.
+  var clearOf = null;
+  function keepClear(node) {
+    clearOf = node;
+    var h = node ? node.offsetHeight + 32 : 0;
+    d.documentElement.style.scrollPaddingBottom = h ? h + 'px' : '';
+  }
+  w.addEventListener('resize', function () { if (clearOf) keepClear(clearOf); });
 
   function removeBanner() {
     if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
     banner = null;
+    if (clearOf !== reopenBtn) keepClear(null);
   }
 
   function focusables(root) {
@@ -322,6 +336,7 @@
     reopenBtn.type = 'button';
     reopenBtn.setAttribute('data-hm-consent-open', '');
     d.body.appendChild(reopenBtn);
+    keepClear(reopenBtn);
   }
 
   d.addEventListener('click', function (e) {

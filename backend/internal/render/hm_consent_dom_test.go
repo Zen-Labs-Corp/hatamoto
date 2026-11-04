@@ -113,6 +113,16 @@ func TestConsentScriptSandboxedPage(t *testing.T) {
 	}
 }
 
+func TestConsentBannerFirstInBodyAndKeepsScrollRoom(t *testing.T) {
+	t.Parallel()
+	out := runConsentDOM(t)
+	for _, want := range []string{`"firstChild":"hm-consent-banner"`, `"pad":"82px"`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %s in %s", want, out)
+		}
+	}
+}
+
 func TestConsentDialogFocusStartsAtFirstCategory(t *testing.T) {
 	t.Parallel()
 	out := runConsentDOM(t, "OPEN=1")
