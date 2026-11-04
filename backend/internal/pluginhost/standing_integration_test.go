@@ -220,6 +220,7 @@ func TestNoRunStartHostFunction(t *testing.T) {
 		"buffer.put",
 		"changeset.delete",
 		"changeset.entity.upsert",
+		"changeset.media.alt",
 		"changeset.media.attach",
 		"changeset.menu.upsert",
 		"changeset.person.upsert",
