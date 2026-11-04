@@ -207,6 +207,30 @@ func TestCompressFlushBeforeThresholdStreamsPlain(t *testing.T) {
 	}
 }
 
+// unwrapOnly hides Flush from a type assertion; only http.ResponseController
+// can reach the real writer through Unwrap, as with the request logger's writer.
+type unwrapOnly struct{ http.ResponseWriter }
+
+func (u unwrapOnly) Unwrap() http.ResponseWriter { return u.ResponseWriter }
+
+// An SSE stream opens with WriteHeader, a comment and a flush; the flush has to
+// get past a wrapper below Compress that is not itself a http.Flusher.
+func TestCompressFlushReachesWriterBehindUnwrap(t *testing.T) {
+	h := Compress(func() bool { return true })(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, ": ok\n\n")
+		http.NewResponseController(w).Flush()
+	}))
+	rec := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Accept-Encoding", "gzip")
+	h.ServeHTTP(unwrapOnly{rec}, r)
+	if !rec.Flushed {
+		t.Error("flush must reach the writer behind Unwrap")
+	}
+}
+
 func TestCompressFlushAfterThreshold(t *testing.T) {
 	h := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")

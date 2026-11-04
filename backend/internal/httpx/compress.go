@@ -197,9 +197,9 @@ func (w *compressWriter) Flush() {
 			_ = f.Flush()
 		}
 	}
-	if f, ok := w.ResponseWriter.(http.Flusher); ok {
-		f.Flush()
-	}
+	// ResponseController, not a Flusher assertion: a writer below us may only
+	// expose Unwrap (the request logger's does).
+	_ = http.NewResponseController(w.ResponseWriter).Flush()
 }
 
 // finish runs after the handler returns: it drains the held body or closes the
