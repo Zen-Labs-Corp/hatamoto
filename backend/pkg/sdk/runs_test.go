@@ -140,3 +140,21 @@ func TestRemovedPermissionIsOnlyTheFiveRemoved(t *testing.T) {
 		}
 	}
 }
+
+func TestOnlyOneStandingApprovalRun(t *testing.T) {
+	bound := func(name, job string) Run {
+		r := validRun()
+		r.Name, r.Cron, r.StandingApproval = name, job, validStanding()
+		return r
+	}
+	m := Manifest{Name: "wp", Version: "1.0.0", SDK: "^0.17",
+		Cron: []CronJob{{Name: "tick", Every: "1h"}, {Name: "tock", Every: "1h"}},
+		Runs: []Run{bound("one", "tick")}}
+	if err := m.Validate(); err != nil {
+		t.Fatalf("one standing run: %v", err)
+	}
+	m.Runs = append(m.Runs, bound("two", "tock"))
+	if err := m.Validate(); err == nil || !strings.Contains(err.Error(), "only one run may have a standing_approval") {
+		t.Fatalf("two standing runs: %v", err)
+	}
+}

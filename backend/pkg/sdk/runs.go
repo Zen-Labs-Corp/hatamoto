@@ -120,6 +120,7 @@ func (m Manifest) validateRuns() error {
 		return fmt.Errorf("sdk: plugin %q: more than %d runs", m.Name, MaxRuns)
 	}
 	seen := map[string]bool{}
+	standing := 0
 	for _, r := range m.Runs {
 		switch {
 		case !identPattern.MatchString(r.Name):
@@ -136,6 +137,13 @@ func (m Manifest) validateRuns() error {
 		seen[r.Name] = true
 		if err := m.validateStanding(r); err != nil {
 			return err
+		}
+		if r.StandingApproval != nil {
+			// The host approves one rule per plugin: a second bound run could
+			// never be approved and its cron job would stay silent.
+			if standing++; standing > 1 {
+				return fmt.Errorf("sdk: plugin %q: run %q: only one run may have a standing_approval", m.Name, r.Name)
+			}
 		}
 		for _, k := range r.Proposes {
 			if !slices.Contains(proposalKinds, k) {
