@@ -839,7 +839,7 @@ func (a *Admin) handleEntityDuplicate(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.Is(err, entity.ErrValidationFailed), errors.Is(err, entity.ErrRejectedByPlugin), errors.Is(err, entity.ErrInvalidDoc),
 		errors.Is(err, entity.ErrParentNotFound), errors.Is(err, entity.ErrParentTooDeep), errors.Is(err, entity.ErrAuthorNotFound):
-		a.SetFlash(w, r, "error", "The copy could not be created: "+err.Error())
+		a.SetFlash(w, r, "error", "The copy could not be created: "+fullStop(err.Error()))
 		Redirect(w, r, backTo(r, a.adminPath+"/entities", back))
 		return
 	case err != nil:
