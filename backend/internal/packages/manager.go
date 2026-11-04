@@ -176,7 +176,11 @@ type Options struct {
 	// OnChange runs after what the site shows changed (theme, settings,
 	// plugins): the server clears its page cache.
 	OnChange func(ctx context.Context)
-	Logger   *slog.Logger
+	// DropTagSettings removes the owner's saved state for the plugin's tag pack
+	// tags and returns the keys removed, so a reinstall starts off. Uninstall
+	// stops, unfinished, when it fails. nil clears nothing.
+	DropTagSettings func(ctx context.Context, plugin string) ([]string, error)
+	Logger          *slog.Logger
 }
 
 // Manager installs, activates and removes packages while the server runs. The
@@ -746,6 +750,15 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts Un
 		}
 		if _, err := m.Pool.Exec(ctx, `DELETE FROM hatamoto_plugin_settings WHERE plugin = $1`, name); err != nil {
 			return err
+		}
+	}
+	if m.DropTagSettings != nil {
+		dropped, err := m.DropTagSettings(ctx, name)
+		if err != nil {
+			return fmt.Errorf("clearing the tag settings of %q (uninstall is unfinished; try again): %w", name, err)
+		}
+		if len(dropped) > 0 {
+			m.Audit(ctx, "tracking.pack_clear", "plugin:"+name, map[string]any{"tags": dropped})
 		}
 	}
 	if err := m.store.Delete(ctx, kind, name); err != nil {
