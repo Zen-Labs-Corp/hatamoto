@@ -98,7 +98,12 @@ func (r *editorRig) path() string { return "/admin/entities/" + r.ent.ID.String(
 func parseForm(t *testing.T, body string) url.Values {
 	t.Helper()
 	v := url.Values{}
+	// The header's Duplicate form comes first and is not the editor form.
+	body = strings.Replace(body, `/duplicate"><input`, `/duplicate" data-skip><input`, -1)
 	form := body[strings.Index(body, `<form method="post" action="/admin/entities/`):]
+	for strings.HasPrefix(form, `<form method="post" action="/admin/entities/`) && strings.Contains(form[:strings.Index(form, ">")], "data-skip") {
+		form = form[1+strings.Index(form[1:], `<form method="post" action="/admin/entities/`):]
+	}
 	form = form[:strings.Index(form, "</form>")]
 	for _, m := range inputRx.FindAllStringSubmatch(form, -1) {
 		tag := m[0]
