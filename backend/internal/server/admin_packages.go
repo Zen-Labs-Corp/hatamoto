@@ -335,6 +335,10 @@ func (p *packageAdmin) ContentTypes(ctx context.Context, name string) []admin.Co
 	return out
 }
 
+func (p *packageAdmin) IsTagPack(ctx context.Context, name string) bool {
+	return p.mgr().IsTagPack(ctx, name)
+}
+
 func (p *packageAdmin) AllowUnsigned(ctx context.Context) bool {
 	cfg, err := p.mgr().Store().Config(ctx)
 	return err == nil && cfg.AllowUnsigned

@@ -32,6 +32,7 @@ type installCall struct {
 }
 
 type fakePackages struct {
+	tagPacks     map[string]bool // plugin names whose stored package holds tags/
 	registry     RegistryView
 	unsigned     bool
 	unsignedEnd  *time.Time // end of a timed opt-in, with unsigned
@@ -157,7 +158,8 @@ func (f *fakePackages) Uninstall(_ context.Context, kind, name string, drop, dro
 func (f *fakePackages) ContentTypes(context.Context, string) []ContentTypeUse {
 	return []ContentTypeUse{{Slug: "product", Name: "Product", Entries: 3}}
 }
-func (f *fakePackages) AllowUnsigned(context.Context) bool { return f.unsigned }
+func (f *fakePackages) IsTagPack(_ context.Context, name string) bool { return f.tagPacks[name] }
+func (f *fakePackages) AllowUnsigned(context.Context) bool            { return f.unsigned }
 func (f *fakePackages) UnsignedState(context.Context) UnsignedState {
 	return UnsignedState{On: f.unsigned, Until: f.unsignedEnd}
 }
@@ -473,10 +475,19 @@ func TestTagPackUninstallPage(t *testing.T) {
 	t.Parallel()
 
 	g, pk, fp := newPackageRig(t)
-	fp.list = append(fp.list, PluginInfo{Name: "ga-pack", Version: "1.0.0", Package: &PackageMeta{Enabled: true, TagPack: true, Source: "upload"}})
+	fp.list = append(fp.list, PluginInfo{Name: "ga-pack", Version: "1.0.0", Package: &PackageMeta{Enabled: true, TagPack: true, Source: "upload"}},
+		// Off and blocked packs are tag packs too, though the live registry holds none of their tags.
+		PluginInfo{Name: "off-pack", Version: "1.0.0", Package: &PackageMeta{Enabled: false, Source: "upload"}},
+		PluginInfo{Name: "blocked-pack", Version: "1.0.0", Package: &PackageMeta{Enabled: true, Blocked: "signer no longer trusted", Source: "upload"}})
+	pk.tagPacks = map[string]bool{"ga-pack": true, "off-pack": true, "blocked-pack": true}
+	for _, name := range []string{"off-pack", "blocked-pack"} {
+		if off := g.do("GET", "/admin/plugins/"+name+"/uninstall", "owner-token", nil, nil).Body.String(); !strings.Contains(off, "saved IDs on Settings") || strings.Contains(off, "Keep its data") {
+			t.Errorf("%s: uninstall page must be the tag pack one", name)
+		}
+	}
 	body := g.do("GET", "/admin/plugins/ga-pack/uninstall", "owner-token", nil, nil).Body.String()
 	a11yOK(t, body)
-	for _, want := range []string{"Its saved IDs on Settings &gt; Tracking are removed. Installing it again starts with the tag off.", "hm-confirmcard"} {
+	for _, want := range []string{"Its saved IDs on Settings &gt; Tracking are removed. Installing it again starts with its tags off.", "hm-confirmcard"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("tag pack uninstall page missing %q", want)
 		}
@@ -492,6 +503,10 @@ func TestTagPackUninstallPage(t *testing.T) {
 	// A forged drop_data does not drop a tag pack's schema.
 	if rec := g.do("POST", "/admin/plugins/ga-pack/uninstall", "owner-token", url.Values{"drop_data": {"1"}}, nil); rec.Code != 303 || pk.dropped || !slices.Equal(pk.removed, []string{"plugin/ga-pack"}) {
 		t.Fatalf("uninstall: %d dropped=%v removed=%v", rec.Code, pk.dropped, pk.removed)
+	}
+	// Nor does it for an off pack.
+	if rec := g.do("POST", "/admin/plugins/off-pack/uninstall", "owner-token", url.Values{"drop_data": {"1"}}, nil); rec.Code != 303 || pk.dropped {
+		t.Fatalf("off pack uninstall: %d dropped=%v", rec.Code, pk.dropped)
 	}
 }
 

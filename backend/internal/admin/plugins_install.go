@@ -464,15 +464,6 @@ func uninstallDataOptions() []ui.Option {
 	}
 }
 
-// isTagPack reports whether name is an installed tag pack.
-func (a *Admin) isTagPack(name string) bool {
-	if a.deps.Growth.Plugins == nil {
-		return false
-	}
-	p, ok := a.findPlugin(a.deps.Growth.Plugins, name)
-	return ok && p.Package != nil && p.Package.TagPack
-}
-
 func (a *Admin) handlePluginUninstallForm(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.packageAdmin(w, r); !ok {
 		return
@@ -480,7 +471,7 @@ func (a *Admin) handlePluginUninstallForm(w http.ResponseWriter, r *http.Request
 	v := a.NewView(w, r, "Uninstall "+r.PathValue("name"))
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: r.PathValue("name")}}
 	pk, _ := a.packageAdmin(w, r)
-	v.Data = uninstallData{Name: r.PathValue("name"), DataOptions: uninstallDataOptions(), TagPack: a.isTagPack(r.PathValue("name")), Types: pk.ContentTypes(r.Context(), r.PathValue("name"))}
+	v.Data = uninstallData{Name: r.PathValue("name"), DataOptions: uninstallDataOptions(), TagPack: pk.IsTagPack(r.Context(), r.PathValue("name")), Types: pk.ContentTypes(r.Context(), r.PathValue("name"))}
 	a.Render(w, r, http.StatusOK, "settings/pluginuninstall", v)
 }
 
@@ -490,7 +481,7 @@ func (a *Admin) handlePluginUninstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("name")
-	tagPack := a.isTagPack(name)
+	tagPack := pk.IsTagPack(r.Context(), name)
 	drop := r.PostFormValue("drop_data") == "1" && !tagPack
 	dropTypes := r.PostFormValue("drop_content_types") == "1"
 	if dropTypes {

@@ -254,6 +254,9 @@ type PackageAdmin interface {
 	// ContentTypes lists the content types the plugin installed, with their
 	// entry counts (what "remove content types" would delete).
 	ContentTypes(ctx context.Context, name string) []ContentTypeUse
+	// IsTagPack reports whether the stored package holds tags, in any state
+	// (off, blocked, no longer valid).
+	IsTagPack(ctx context.Context, name string) bool
 	AllowUnsigned(ctx context.Context) bool
 	// UnsignedState is AllowUnsigned plus the end of a timed opt-in.
 	UnsignedState(ctx context.Context) UnsignedState

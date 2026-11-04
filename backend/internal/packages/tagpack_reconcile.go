@@ -2,6 +2,7 @@ package packages
 
 import (
 	"context"
+	"io/fs"
 	"slices"
 	"sort"
 	"strings"
@@ -141,6 +142,17 @@ func newTagAccess(installed, update *Package) (hosts []string, categoryChanged b
 // TagCount is how many tags the published packs hold for a plugin: zero for a
 // plugin that is not a tag pack, or one that is off.
 func (m *Manager) TagCount(name string) int { return tagPackCount(name) }
+
+// IsTagPack reports whether the stored package of a plugin holds tags/,
+// whatever its state: off, blocked or no longer valid still count.
+func (m *Manager) IsTagPack(ctx context.Context, name string) bool {
+	p, _, err := m.store.Load(ctx, KindPlugin, name)
+	if err != nil {
+		return false
+	}
+	entries, err := fs.ReadDir(p.FS(), tagsDir)
+	return err == nil && len(entries) > 0
+}
 
 // tagPackCount is how many tags the published packs hold for a plugin.
 func tagPackCount(name string) int {
