@@ -43,7 +43,10 @@ func (r *csRecorder) count() int {
 	return len(r.events)
 }
 
-func newCSFixture(t *testing.T) *csFixture {
+func newCSFixture(t *testing.T) *csFixture { return newCSFixtureSettings(t, nil) }
+
+// newCSFixtureSettings is newCSFixture with the schema's settings JSON set.
+func newCSFixtureSettings(t *testing.T, settings json.RawMessage) *csFixture {
 	t.Helper()
 	ctx := context.Background()
 	db := newIntegrationDB(t)
@@ -54,7 +57,8 @@ func newCSFixture(t *testing.T) *csFixture {
 	svc.SetEvents(rec)
 	sc, err := schemas.Create(ctx, &CreateSchemaInput{
 		Name: "cs " + uuid.NewString()[:8], Slug: "cs-" + uuid.NewString()[:8],
-		Schema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`),
+		Schema:   json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`),
+		Settings: settings,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -126,6 +130,61 @@ func TestChangesetTxParityWithCreateEntity(t *testing.T) {
 	_, e2 := f.apply(TxOp{Name: "B", Slug: "parity-d", Attributes: bad})
 	if e1 == nil || e2 == nil || !errors.Is(e1, ErrValidationFailed) || !errors.Is(e2, ErrValidationFailed) {
 		t.Errorf("validation errors differ: normal %v, changeset %v", e1, e2)
+	}
+}
+
+func TestChangesetTxLocaleNeutral(t *testing.T) {
+	for _, c := range []struct {
+		name, settings, locale, want string // want "" = site language; "!" = error
+	}{
+		{"flagged omitted", `{"locale_neutral":true}`, "", "und"},
+		{"flagged explicit", `{"locale_neutral":true}`, "en-AU", "en-AU"},
+		{"unflagged omitted", `{}`, "", ""},
+		{"flagged explicit und refused", `{"locale_neutral":true}`, "und", "!"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := newCSFixtureSettings(t, json.RawMessage(c.settings))
+			res, err := f.apply(TxOp{Name: "L", Slug: "loc", Locale: c.locale, Attributes: json.RawMessage(`{"content":"x"}`)})
+			if c.want == "!" {
+				if err == nil {
+					t.Fatal("explicit und accepted")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := c.want
+			if want == "" {
+				if err := f.db.Pool().QueryRow(f.ctx, `SELECT public.hatamoto_site_language()`).Scan(&want); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got, err := f.repo.GetByID(f.ctx, res.ID)
+			if err != nil || got.Locale != want {
+				t.Fatalf("locale = %q, %v; want %q", got.Locale, err, want)
+			}
+		})
+	}
+}
+
+func TestChangesetTxParityWithCreateEntityLocaleNeutral(t *testing.T) {
+	f := newCSFixtureSettings(t, json.RawMessage(`{"locale_neutral":true}`))
+	attrs := json.RawMessage(`{"content":"x"}`)
+	normal, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "A", Slug: "parity-a", Attributes: attrs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := f.apply(TxOp{Name: "A", Slug: "parity-b", Attributes: attrs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := f.repo.GetByID(f.ctx, res.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Locale != normal.Locale || got.Locale != LocaleShared {
+		t.Errorf("changeset locale %q, CreateEntity %q; want both %q", got.Locale, normal.Locale, LocaleShared)
 	}
 }
 
