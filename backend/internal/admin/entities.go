@@ -837,6 +837,11 @@ func (a *Admin) handleEntityDuplicate(w http.ResponseWriter, r *http.Request) {
 		a.SetFlash(w, r, "error", "A copy could not be named: every copy address is already used. Rename or delete an older copy.")
 		Redirect(w, r, backTo(r, a.adminPath+"/entities", back))
 		return
+	case errors.Is(err, entity.ErrValidationFailed), errors.Is(err, entity.ErrRejectedByPlugin), errors.Is(err, entity.ErrInvalidDoc),
+		errors.Is(err, entity.ErrParentNotFound), errors.Is(err, entity.ErrParentTooDeep), errors.Is(err, entity.ErrAuthorNotFound):
+		a.SetFlash(w, r, "error", "The copy could not be created: "+err.Error())
+		Redirect(w, r, backTo(r, a.adminPath+"/entities", back))
+		return
 	case err != nil:
 		a.serverError(w, r, "The copy could not be created", err)
 		return

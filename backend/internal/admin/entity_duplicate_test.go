@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -96,4 +98,34 @@ func TestEntityListRowMenuOffersDuplicate(t *testing.T) {
 
 	c.a.deps.Content.Duplicator = nil
 	lacks(t, c.get(t, "owner-token", "/admin/entities", ""), "/duplicate")
+}
+
+type failingDuplicator struct{ err error }
+
+func (f failingDuplicator) Duplicate(context.Context, uuid.UUID, uuid.UUID) (*entity.Entity, error) {
+	return nil, f.err
+}
+
+func TestEntityDuplicateDomainFailuresFlashInsteadOfA500(t *testing.T) {
+	t.Parallel()
+
+	for name, err := range map[string]error{
+		"validation": entity.ErrValidationFailed,
+		"plugin":     entity.ErrRejectedByPlugin,
+		"doc":        entity.ErrInvalidDoc,
+		"parent":     entity.ErrParentTooDeep,
+	} {
+		c := newContentRig(t)
+		c.a.deps.Content.Duplicator = failingDuplicator{err: fmt.Errorf("%w: detail", err)}
+		rec := c.post("/admin/entities/"+fid(14).String()+"/duplicate", url.Values{})
+		if rec.Code != 303 {
+			t.Fatalf("%s: duplicate = %d, want a redirect", name, rec.Code)
+		}
+		has(t, c.next(rec, rec.Header().Get("Location")), "The copy could not be created")
+	}
+	c := newContentRig(t)
+	c.a.deps.Content.Duplicator = failingDuplicator{err: errors.New("boom")}
+	if rec := c.post("/admin/entities/"+fid(14).String()+"/duplicate", url.Values{}); rec.Code != 500 {
+		t.Errorf("unknown error = %d, want 500", rec.Code)
+	}
 }
