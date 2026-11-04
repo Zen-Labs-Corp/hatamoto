@@ -73,7 +73,11 @@ func (a *Admin) handleReviewDecide(w http.ResponseWriter, r *http.Request) {
 	if n > 0 {
 		a.SetFlash(w, r, "success", "Saved your decisions.")
 	}
-	http.Redirect(w, r, a.changesetURL(h.Plugin, h.ID, ""), http.StatusSeeOther)
+	back := a.changesetURL(h.Plugin, h.ID, "")
+	if page := reviewPageNumber(r); page > 1 {
+		back += "?page=" + strconv.Itoa(page)
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 // saveDecisions records the Keep/Drop choices posted with the form and reports
@@ -101,7 +105,7 @@ func (a *Admin) saveDecisions(w http.ResponseWriter, r *http.Request, h changese
 			a.Error(w, r, http.StatusBadRequest, "Bad request", "A decision in the form is not valid.")
 			return 0, false
 		}
-		rd, err := rv.Review(r.Context(), h.ID)
+		rd, err := rv.Review(r.Context(), h.ID, 1)
 		if a.reviewError(w, r, h, err) {
 			return 0, false
 		}
@@ -208,7 +212,7 @@ func (a *Admin) handleReviewPublish(w http.ResponseWriter, r *http.Request) {
 
 // undecidedText says how much is still undecided, from the reviewer's own count.
 func (a *Admin) undecidedText(r *http.Request, rv ChangesetReviewer, id int64) string {
-	rd, err := rv.Review(r.Context(), id)
+	rd, err := rv.Review(r.Context(), id, 1)
 	if err != nil {
 		return "Some risky items or suggestions still need a decision."
 	}

@@ -31,6 +31,7 @@
 <td data-label="What it does">{{.Sub}}{{if .Open}} <a href="{{.Open}}">Open preview</a>{{end}}</td>
 <td data-label="Decision" class="hm-table__actions">{{template "hm/segmented" .Seg}}</td></tr>
 {{end}}</tbody></table></div>
+{{if gt .Pager.Total .Pager.PerPage}}{{template "hm/pagination" .Pager}}{{end}}
 {{template "hm/card-foot"}}{{template "hm/button" (dict "Label" "Save decisions" "Variant" "primary" "Type" "submit")}}{{template "hm/card-foot-end"}}
 {{end}}<h2>Ordinary changes</h2>
 <p class="hm-muted">These are approved together when you publish.</p>

@@ -86,7 +86,9 @@ type ReviewData struct {
 	Items, Low, High, Critical int
 	HighDecided                int
 	Suggestions                []Suggestion
-	Risky                      []ReviewItem
+	Risky                      []ReviewItem // one page of the itemised risky rows
+	RiskyPage, RiskyPerPage    int          // the page shown, and the rows a page holds
+	RiskyTotal                 int          // itemised risky rows over all pages
 	RedirectGroup              *RedirectGroup
 	Kinds                      []KindRow
 	Skipped                    []SkippedRow
@@ -113,7 +115,7 @@ type UndoPreview struct{ Applied, EditedSince, Settings int }
 // ChangesetReviewer reviews, publishes, discards and undoes changesets
 // (nil = the review pages are unavailable).
 type ChangesetReviewer interface {
-	Review(ctx context.Context, id int64) (ReviewData, error)
+	Review(ctx context.Context, id int64, page int) (ReviewData, error)
 	Decide(ctx context.Context, id int64, seqs []int, decision string) error
 	// DecideSuggestion records the decision; "approved" applies the suggestion.
 	DecideSuggestion(ctx context.Context, id, proposalID int64, decision string) error

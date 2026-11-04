@@ -126,6 +126,17 @@ type ReviewItem struct {
 // risks given (none: all). Payloads are read for the page only. ErrNotClassified
 // while an item of the page has no risk.
 func (e *Engine) ReviewItems(ctx context.Context, csID int64, risks []string, limit, offset int) ([]ReviewItem, error) {
+	return e.reviewItems(ctx, csID, risks, false, limit, offset)
+}
+
+// ReviewRiskyItems reads limit of the high and critical items from offset, ordered
+// by seq, leaving out the redirects that are decided with their page (the
+// redirect group). It is the page of the itemised risky list.
+func (e *Engine) ReviewRiskyItems(ctx context.Context, csID int64, limit, offset int) ([]ReviewItem, error) {
+	return e.reviewItems(ctx, csID, []string{string(RiskHigh), string(RiskCritical)}, true, limit, offset)
+}
+
+func (e *Engine) reviewItems(ctx context.Context, csID int64, risks []string, itemised bool, limit, offset int) ([]ReviewItem, error) {
 	var plugin string
 	if err := e.DB.Pool().QueryRow(ctx, `SELECT plugin FROM hatamoto_changesets WHERE id = $1`, csID).Scan(&plugin); errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -141,7 +152,8 @@ func (e *Engine) ReviewItems(ctx context.Context, csID int64, risks []string, li
 		       risk, COALESCE(risk_reason, ''), COALESCE(risk_ref, 0), COALESCE(decision, ''), payload
 		FROM hatamoto_changeset_items
 		WHERE changeset_id = $1 AND (cardinality($2::text[]) = 0 OR risk = ANY($2))
-		ORDER BY seq LIMIT $3 OFFSET $4`, csID, risks, limit, offset)
+		  AND (NOT $5 OR NOT (risk_reason = 'redirect' AND COALESCE(risk_ref, 0) > 0))
+		ORDER BY seq LIMIT $3 OFFSET $4`, csID, risks, limit, offset, itemised)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read items: %w", err)
 	}

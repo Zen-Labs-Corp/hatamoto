@@ -31,6 +31,7 @@ type fakeReviewer struct {
 	err  error // answered by every method when set
 
 	decides  []decideCall
+	pages    []int // the risky page asked for by each Review
 	suggests []suggestCall
 	// suggestErr, publishErr, discardErr, undoErr, undoPreviewErr override err for one method.
 	suggestErr, publishErr, discardErr, undoErr error
@@ -41,7 +42,10 @@ type fakeReviewer struct {
 	restored, kept                              int
 }
 
-func (f *fakeReviewer) Review(context.Context, int64) (ReviewData, error) { return f.data, f.err }
+func (f *fakeReviewer) Review(_ context.Context, _ int64, page int) (ReviewData, error) {
+	f.pages = append(f.pages, page)
+	return f.data, f.err
+}
 
 func (f *fakeReviewer) Decide(_ context.Context, id int64, seqs []int, decision string) error {
 	f.mu.Lock()
@@ -243,6 +247,37 @@ func TestReviewPageWhileRunning(t *testing.T) {
 	fr.err = ErrReviewRunning
 	if rec := g.do("POST", reviewBase+"/decide", "owner-token", url.Values{"item_3": {"approved"}}, nil); rec.Code != 409 {
 		t.Errorf("decide while running: %d, want 409", rec.Code)
+	}
+}
+
+// More risky rows than one page holds are reached with the pager, and saving on
+// a later page stays on it.
+func TestReviewPageRiskyPaging(t *testing.T) {
+	t.Parallel()
+
+	g, fr, _ := newReviewRig(t)
+	fr.data.RiskyPage, fr.data.RiskyPerPage, fr.data.RiskyTotal = 1, 200, 450
+	body := g.do("GET", "/admin/plugins/hello/changesets/42", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "hm-pagination") || !strings.Contains(body, "page=3") || !strings.Contains(body, `name="group_redirects"`) {
+		t.Error("450 risky rows page at 200, and the redirect group is on page 1")
+	}
+	fr.pages = nil
+	fr.data.RiskyPage = 2
+	body = g.do("GET", "/admin/plugins/hello/changesets/42?page=2", "owner-token", nil, nil).Body.String()
+	if len(fr.pages) != 1 || fr.pages[0] != 2 {
+		t.Errorf("pages asked for = %v, want [2]", fr.pages)
+	}
+	if strings.Contains(body, `name="group_redirects"`) || !strings.Contains(body, `action="/admin/plugins/hello/changesets/42/decide?page=2"`) {
+		t.Error("page 2 has no redirect group and saves back to page 2")
+	}
+	rec := g.do("POST", reviewBase+"/decide?page=2", "owner-token", url.Values{"item_3": {"approved"}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != reviewBase+"?page=2" {
+		t.Errorf("decide on page 2: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	fr.data.RiskyTotal = 150
+	fr.data.RiskyPage = 1
+	if strings.Contains(g.do("GET", "/admin/plugins/hello/changesets/42", "owner-token", nil, nil).Body.String(), "hm-pagination") {
+		t.Error("one page needs no pager")
 	}
 }
 

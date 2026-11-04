@@ -6,9 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -106,7 +108,7 @@ func TestChangesetReviewIntegration(t *testing.T) {
 	}
 
 	// The run is still staging: nothing can be reviewed, decided or published.
-	if _, err := rev.Review(ctx, cs); !errors.Is(err, admin.ErrReviewRunning) {
+	if _, err := rev.Review(ctx, cs, 1); !errors.Is(err, admin.ErrReviewRunning) {
 		t.Fatalf("review of a running run: %v", err)
 	}
 	if err := rev.Decide(ctx, cs, []int{3}, "approved"); !errors.Is(err, admin.ErrReviewRunning) {
@@ -122,7 +124,7 @@ func TestChangesetReviewIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d, err := rev.Review(ctx, cs)
+	d, err := rev.Review(ctx, cs, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +161,7 @@ func TestChangesetReviewIntegration(t *testing.T) {
 	if cfg, _ := store.Get(ctx); cfg.Tagline != origTagline {
 		t.Fatalf("tagline = %q after approval, want it untouched until publish", cfg.Tagline)
 	}
-	if d, _ = rev.Review(ctx, cs); !d.CanPublish {
+	if d, _ = rev.Review(ctx, cs, 1); !d.CanPublish {
 		t.Fatalf("cannot publish: %+v", d)
 	}
 	applied, dropped, err := rev.Publish(ctx, cs)
@@ -259,5 +261,76 @@ func TestChangesetReviewDiscardKeepsApprovedSettingsOut(t *testing.T) {
 	}
 	if cfg, _ := store.Get(ctx); cfg.Tagline != origTagline {
 		t.Fatalf("tagline = %q after discard, want %q", cfg.Tagline, origTagline)
+	}
+}
+
+// More risky items than one review page holds: every page is reachable, so all
+// of them can be decided and the changeset can be published.
+func TestChangesetReviewPagesRiskyItems(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 6, MinConnections: 1,
+		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	tag := uuid.NewString()[:8]
+	t.Cleanup(func() {
+		_, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_redirects WHERE source_path LIKE '/' || $1 || '%'`, tag)
+	})
+	eng := &changeset.Engine{DB: db, Logger: logger, Writers: map[changeset.Kind]changeset.KindWriter{
+		changeset.KindRedirect: changeset.RedirectWriter{Svc: redirect.NewService(db, logger)},
+	}}
+	runs := &plugrun.Store{DB: db}
+	rev := &changesetReviewer{eng: eng, runs: runs, audit: func(context.Context, string, string, map[string]any) {}}
+	plugin := "pg" + tag
+	run, err := runs.Create(ctx, plugrun.Run{Plugin: plugin, Name: "import"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_runs WHERE id = $1`, run.ID) })
+	cs, err := eng.Begin(ctx, run.ID, plugin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	total := reviewRiskyLimit + 50
+	for i := range total {
+		p, _ := json.Marshal(map[string]any{"source_path": fmt.Sprintf("/%s-%d", tag, i), "target": "/elsewhere"})
+		if err := eng.Stage(ctx, cs, changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, SourceKey: fmt.Sprintf("r-%s-%d", tag, i), Payload: p}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runs.Finish(ctx, run.ID, json.RawMessage(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	var seen []int
+	for page, want := range map[int]int{1: reviewRiskyLimit, 2: 50, 3: 0} {
+		d, err := rev.Review(ctx, cs, page)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(d.Risky) != want || d.RiskyTotal != total || d.RiskyPerPage != reviewRiskyLimit {
+			t.Fatalf("page %d: %d rows (want %d), total %d, per page %d", page, len(d.Risky), want, d.RiskyTotal, d.RiskyPerPage)
+		}
+		for _, it := range d.Risky {
+			seen = append(seen, it.Seq)
+		}
+	}
+	if len(slices.Compact(slices.Sorted(slices.Values(seen)))) != total {
+		t.Fatalf("pages overlap or miss rows: %d distinct of %d", len(slices.Compact(slices.Sorted(slices.Values(seen)))), total)
+	}
+	if err := rev.Decide(ctx, cs, seen, "approved"); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := rev.Review(ctx, cs, 1); !d.CanPublish {
+		t.Fatalf("cannot publish once every page is decided: %+v", d)
+	}
+	if applied, _, err := rev.Publish(ctx, cs); err != nil || applied != total {
+		t.Fatalf("publish = %d, %v", applied, err)
 	}
 }

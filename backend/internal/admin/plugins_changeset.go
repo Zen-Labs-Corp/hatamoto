@@ -445,6 +445,7 @@ type reviewPage struct {
 	Suggestions    []reviewSuggestion
 	SuggestionsURL string
 	Risky          []reviewRisk
+	Pager          ui.Pagination
 	Group          *reviewGroup
 	Decided        ui.Badge
 	Kinds          ui.Table
@@ -477,6 +478,12 @@ type reviewRisk struct {
 type reviewGroup struct {
 	Label, Sub, Open string
 	Seg              ui.Segmented
+}
+
+// reviewPageNumber is the page of the risky list the request asks for.
+func reviewPageNumber(r *http.Request) int {
+	n, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	return max(n, 1)
 }
 
 // reviewSegmented is the Keep or Drop choice of one risky item; keep names the
@@ -512,7 +519,7 @@ func (a *Admin) renderReview(w http.ResponseWriter, r *http.Request, h changeset
 		a.Render(w, r, http.StatusOK, "plugins/changeset", v)
 		return
 	}
-	rd, err := a.deps.Growth.Reviewer.Review(r.Context(), h.ID)
+	rd, err := a.deps.Growth.Reviewer.Review(r.Context(), h.ID, reviewPageNumber(r))
 	switch {
 	case errors.Is(err, ErrReviewNotFound):
 		a.ErrorBack(w, r, http.StatusNotFound, "Changeset not found", "That changeset does not exist.", a.adminPath+"/plugins", "Back to plugins")
@@ -541,6 +548,10 @@ func (a *Admin) renderReview(w http.ResponseWriter, r *http.Request, h changeset
 func (a *Admin) fillReview(p *reviewPage, h changeset.Header, rd ReviewData) {
 	p.Badge = ui.Badge{Label: "Waiting for you", Kind: "warning"}
 	p.DecideURL = a.changesetURL(h.Plugin, h.ID, "decide")
+	if rd.RiskyPage > 1 {
+		p.DecideURL += "?page=" + strconv.Itoa(rd.RiskyPage)
+	}
+	p.Pager = ui.Pagination{Page: max(rd.RiskyPage, 1), PerPage: rd.RiskyPerPage, Total: rd.RiskyTotal, BaseURL: a.changesetURL(h.Plugin, h.ID, "")}
 	p.PublishURL = a.changesetURL(h.Plugin, h.ID, "publish")
 	p.DiscardURL = a.changesetURL(h.Plugin, h.ID, "discard")
 	p.SuggestionsURL = a.changesetURL(h.Plugin, h.ID, "suggestions")
@@ -581,7 +592,7 @@ func (a *Admin) fillReview(p *reviewPage, h changeset.Header, rd ReviewData) {
 			Seg: reviewSegmented("Decision for "+label, "item_"+strconv.Itoa(it.Seq), it.Decision, "Keep", drop),
 		})
 	}
-	if g := rd.RedirectGroup; g != nil && g.Count > 0 {
+	if g := rd.RedirectGroup; g != nil && g.Count > 0 && rd.RiskyPage <= 1 {
 		label := fmt.Sprintf("%s redirects", thousands(g.Count))
 		if g.Count == 1 {
 			label = "1 redirect"

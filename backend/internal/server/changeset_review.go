@@ -18,12 +18,9 @@ import (
 	"hatamoto.dev/sdk"
 )
 
-// reviewRiskyLimit is how many risky rows the review page lists; the counts
-// above it are for the whole changeset.
+// reviewRiskyLimit is how many risky rows one page of the review lists; the
+// counts are for the whole changeset.
 const reviewRiskyLimit = 200
-
-// reviewPage is how many items one read of the risky list takes.
-const reviewPage = 500
 
 // settingsStore is the site settings service the Settings > General page
 // saves through (siteconfig.Store).
@@ -134,7 +131,7 @@ var kindLabels = map[changeset.Kind]string{
 	changeset.KindRedirect: "Redirects", changeset.KindMedia: "Media",
 }
 
-func (r *changesetReviewer) Review(ctx context.Context, id int64) (admin.ReviewData, error) {
+func (r *changesetReviewer) Review(ctx context.Context, id int64, page int) (admin.ReviewData, error) {
 	h, err := r.eng.Header(ctx, id)
 	if err != nil {
 		return admin.ReviewData{}, reviewErr(err)
@@ -163,7 +160,7 @@ func (r *changesetReviewer) Review(ctx context.Context, id int64) (admin.ReviewD
 	for _, k := range counts.ByKind {
 		d.Kinds = append(d.Kinds, admin.KindRow{Label: kindLabels[k.Kind], New: k.New, Updated: k.Updated, Removed: k.Removed})
 	}
-	if err := r.reviewRisks(ctx, id, &d); err != nil {
+	if err := r.reviewRisks(ctx, id, max(page, 1), &d); err != nil {
 		return d, err
 	}
 	if d.Pending, err = r.pendingItems(ctx, id); err != nil {
@@ -200,28 +197,21 @@ func staleLabel(it changeset.ItemSummary) string {
 	return it.SourceKey
 }
 
-// reviewRisks fills the risky rows and the redirect group. Redirects that
-// point at a staged page are decided with that page, so they are one group,
-// not rows.
-func (r *changesetReviewer) reviewRisks(ctx context.Context, id int64, d *admin.ReviewData) error {
-	for off := 0; len(d.Risky) < reviewRiskyLimit; off += reviewPage {
-		page, err := r.eng.ReviewItems(ctx, id, []string{string(changeset.RiskHigh), string(changeset.RiskCritical)}, reviewPage, off)
-		if err != nil {
-			return reviewErr(err)
-		}
-		for _, it := range page {
-			if it.Ref > 0 || len(d.Risky) >= reviewRiskyLimit {
-				continue
-			}
-			d.Risky = append(d.Risky, admin.ReviewItem{
-				Seq: it.Seq, Kind: string(it.Kind), Op: it.Op, Label: it.Label, Risk: it.Risk,
-				Reason: it.Reason, Decision: it.Decision, Old: it.Old, New: it.New,
-			})
-		}
-		if len(page) < reviewPage {
-			break
-		}
+// reviewRisks fills one page of the risky rows and the redirect group.
+// Redirects that point at a staged page are decided with that page, so they
+// are one group (shown on the first page), not rows.
+func (r *changesetReviewer) reviewRisks(ctx context.Context, id int64, page int, d *admin.ReviewData) error {
+	items, err := r.eng.ReviewRiskyItems(ctx, id, reviewRiskyLimit, (page-1)*reviewRiskyLimit)
+	if err != nil {
+		return reviewErr(err)
 	}
+	for _, it := range items {
+		d.Risky = append(d.Risky, admin.ReviewItem{
+			Seq: it.Seq, Kind: string(it.Kind), Op: it.Op, Label: it.Label, Risk: it.Risk,
+			Reason: it.Reason, Decision: it.Decision, Old: it.Old, New: it.New,
+		})
+	}
+	d.RiskyPage, d.RiskyPerPage = page, reviewRiskyLimit
 	rows, err := r.eng.DB.Pool().Query(ctx, `
 		SELECT seq, COALESCE(decision, '') FROM hatamoto_changeset_items
 		WHERE changeset_id = $1 AND risk_reason = 'redirect' AND COALESCE(risk_ref, 0) > 0 ORDER BY seq`, id)
@@ -254,6 +244,7 @@ func (r *changesetReviewer) reviewRisks(ctx context.Context, id int64, d *admin.
 		g.Count = len(g.Seqs)
 		d.RedirectGroup = &g
 	}
+	d.RiskyTotal = max(d.High+d.Critical-len(g.Seqs), 0)
 	return nil
 }
 
