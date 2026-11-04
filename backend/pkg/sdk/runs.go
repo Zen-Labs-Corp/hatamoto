@@ -346,6 +346,10 @@ type MediaAttach struct {
 	SourceKey string `json:"source_key"`
 	Handle    string `json:"handle"`
 	Alt       string `json:"alt,omitempty"`
+	// Caption and Credit are stored on the media record when it is published
+	// (SDK 0.18).
+	Caption string `json:"caption,omitempty"`
+	Credit  string `json:"credit,omitempty"`
 }
 
 // MenuUpsert stages a menu and its items.

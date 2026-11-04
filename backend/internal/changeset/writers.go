@@ -565,6 +565,7 @@ type mediaPayload struct {
 	Filename string  `json:"filename"`
 	AltText  *string `json:"alt_text"`
 	Caption  *string `json:"caption"`
+	Credit   *string `json:"credit"`
 	Folder   string  `json:"folder"`
 }
 
@@ -577,7 +578,7 @@ func (w MediaWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, t
 		return Outcome{}, err
 	}
 	m, err := w.Svc.AttachStagedTx(ctx, tx, media.MediaOp{StagedKey: it.BlobKeys[0], Filename: p.Filename,
-		Origin: origin, AltText: p.AltText, Caption: p.Caption, Folder: p.Folder})
+		Origin: origin, AltText: p.AltText, Caption: p.Caption, Credit: p.Credit, Folder: p.Folder})
 	if err != nil {
 		return Outcome{}, err
 	}

@@ -245,7 +245,7 @@ func fnChangesetMediaAttach(ctx context.Context, a *API, e *callEnv, raw json.Ra
 	if err != nil {
 		return nil, err
 	}
-	for _, c := range []error{sourceKey(in.SourceKey), text("alt", in.Alt, 1024, false), text("handle", in.Handle, maxPathLen, true)} {
+	for _, c := range []error{sourceKey(in.SourceKey), text("alt", in.Alt, 1024, false), text("caption", in.Caption, 2000, false), text("credit", in.Credit, 500, false), text("handle", in.Handle, maxPathLen, true)} {
 		if c != nil {
 			return nil, c
 		}
@@ -266,6 +266,12 @@ func fnChangesetMediaAttach(ctx context.Context, a *API, e *callEnv, raw json.Ra
 	p := map[string]string{"filename": path.Base(in.Handle)}
 	if in.Alt != "" {
 		p["alt_text"] = in.Alt
+	}
+	if in.Caption != "" {
+		p["caption"] = in.Caption
+	}
+	if in.Credit != "" {
+		p["credit"] = in.Credit
 	}
 	return s.stage(ctx, changeset.Item{Kind: changeset.KindMedia, Op: changeset.OpUpsert, SourceKey: in.SourceKey,
 		BlobKeys: []string{in.Handle}, Payload: payload(p)})

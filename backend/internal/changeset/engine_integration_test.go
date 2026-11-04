@@ -1197,3 +1197,23 @@ func TestChangesetTranslationOf(t *testing.T) {
 		t.Fatalf("result = %+v, entities %d -> %d", res, before, f.entities())
 	}
 }
+
+// A staged media item publishes its alt text, caption and credit.
+func TestChangesetMediaCaptionCredit(t *testing.T) {
+	f := newFixture(t)
+	run := uuid.New()
+	cs, err := f.eng.Begin(f.ctx, run, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.stage(cs, Item{Kind: KindMedia, Op: OpUpsert, SourceKey: "cc-" + f.tag, BlobKeys: []string{f.stageFile(run, "cc.png")},
+		Payload: raw(map[string]any{"filename": "cc.png", "alt_text": "An alt", "caption": "A caption", "credit": "A credit"})})
+	f.publish(cs)
+	var alt, caption, credit string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT alt_text, caption, credit FROM hatamoto_media WHERE original_filename = 'cc.png' ORDER BY created_at DESC LIMIT 1`).Scan(&alt, &caption, &credit); err != nil {
+		t.Fatal(err)
+	}
+	if alt != "An alt" || caption != "A caption" || credit != "A credit" {
+		t.Errorf("alt=%q caption=%q credit=%q", alt, caption, credit)
+	}
+}

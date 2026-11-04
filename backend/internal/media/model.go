@@ -23,6 +23,7 @@ type Media struct {
 	Variants         []ImageVariant `json:"variants,omitempty"`
 	AltText          *string        `json:"alt_text,omitempty"`
 	Caption          *string        `json:"caption,omitempty"`
+	Credit           *string        `json:"credit,omitempty"`
 	Folder           string         `json:"folder"`
 	UploadedBy       *uuid.UUID     `json:"uploaded_by,omitempty"`
 	CreatedAt        time.Time      `json:"created_at"`
