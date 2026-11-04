@@ -12,18 +12,27 @@ import (
 
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/tags"
+	"hatamoto.dev/sdk"
 )
 
-// legacyTrackingPlugins maps the retired first-party plugins to the tag manager
-// vendor they became and the plugin setting that held the id.
-var legacyTrackingPlugins = []struct{ plugin, vendor, key string }{
-	{"gtm", "gtm", "container_id"},
-	{"google-analytics", "ga4", "measurement_id"},
+// legacyTrackingPlugins maps the retired plugins to the tag manager vendor they
+// became and the plugin setting that held the id. firstParty says whether the
+// release before this one trusted the plugin with site.scripts: google-analytics
+// was never in the first-party list, so policy refused its script and it never
+// emitted anything.
+var legacyTrackingPlugins = []struct {
+	plugin, vendor, key string
+	firstParty          bool
+}{
+	{"gtm", "gtm", "container_id", true},
+	{"google-analytics", "ga4", "measurement_id", false},
 }
 
 // retireTrackingPlugins folds the former gtm and google-analytics plugins into
-// Settings > Tracking: the id is copied and the vendor turned on (unless the
-// owner already configured it there), then the plugin is uninstalled. It runs
+// Settings > Tracking: the id is copied (unless the owner already configured the
+// vendor there) and the vendor turned on only when the plugin was really
+// emitting its tag (installed, enabled, usable and granted site.scripts, and
+// trusted with scripts); otherwise it is copied off. Then the plugin is uninstalled. It runs
 // in setupPackages before the packages are reconciled, like retireWebhooksPlugin,
 // so the plugin never loads again and the tag is never emitted twice.
 //
@@ -60,11 +69,24 @@ func (s *Server) retireTrackingPlugins(ctx context.Context) {
 			log.Error("tracking: cannot read the tracking settings; the plugin is kept", slog.Any("error", err))
 			continue
 		}
+		// Read before the uninstall deletes the grants. A tracker that was not
+		// running must not start sending visitor data because of the upgrade.
+		running := row.Enabled && row.State == packages.StateInstalled && lp.firstParty && s.packages.Usable(row) == nil
+		if running {
+			var granted bool
+			if err := s.db.Pool().QueryRow(ctx, `SELECT coalesce(permissions @> $2::text[], false)
+				FROM hatamoto_plugin_grants WHERE plugin = $1`, lp.plugin,
+				[]string{string(sdk.PermSiteScripts)}).Scan(&granted); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				log.Error("tracking: cannot read the old plugin's grants; the plugin is kept", slog.Any("error", err))
+				continue
+			}
+			running = granted
+		}
 		copied := false
 		if cur := set.Vendors[lp.vendor]; id != "" && !cur.Enabled && cur.ID == "" {
 			cand, _ := tags.ByID(lp.vendor)
 			if norm := cand.NormalizeID(id); cand.ValidID(norm) {
-				set.Vendors[lp.vendor] = tags.VendorState{Enabled: row.Enabled, ID: norm}
+				set.Vendors[lp.vendor] = tags.VendorState{Enabled: running, ID: norm}
 				copied = true
 			}
 		}
@@ -81,7 +103,7 @@ func (s *Server) retireTrackingPlugins(ctx context.Context) {
 			log.Error("tracking: uninstalling the old plugin failed; it is retried next start")
 		}
 		s.packages.Audit(ctx, "tracking.import_plugin", "plugin:"+lp.plugin,
-			map[string]any{"vendor": lp.vendor, "copied": copied, "uninstalled": uninstalled})
+			map[string]any{"vendor": lp.vendor, "copied": copied, "enabled": copied && running, "uninstalled": uninstalled})
 		log.Info("tracking: the old plugin was moved into core", slog.Bool("copied", copied), slog.Bool("uninstalled", uninstalled))
 	}
 }
