@@ -22,6 +22,9 @@ const (
 	ScopeSEO
 	// ScopeOther is every other string attribute.
 	ScopeOther
+	// ScopeMenus is menu item labels and URLs. Walk never reports it; the
+	// service uses it to choose whether menus are searched.
+	ScopeMenus
 )
 
 // FieldHit is a hit with where it was found. Path is the "/"-joined keys and

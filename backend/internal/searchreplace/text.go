@@ -54,7 +54,7 @@ func (sc *scanner) text(s string) string {
 	for _, sp := range spans {
 		i := sc.n
 		sc.n++
-		sc.hits = append(sc.hits, Hit{Index: i, Context: context(rs, sp)})
+		sc.hits = append(sc.hits, Hit{Index: i, Context: snippet(rs, sp)})
 		if sc.pick == nil || !sc.pick(i) {
 			continue
 		}

@@ -86,9 +86,9 @@ func (o Options) matchAt(text, find []rune, i int) bool {
 	return true
 }
 
-// context is the text around a match, about contextRunes either side, with
+// snippet is the text around a match, about contextRunes either side, with
 // whitespace collapsed.
-func context(text []rune, sp span) string {
+func snippet(text []rune, sp span) string {
 	from, to := max(0, sp.start-contextRunes), min(len(text), sp.end+contextRunes)
 	return strings.Join(strings.Fields(string(text[from:to])), " ")
 }
