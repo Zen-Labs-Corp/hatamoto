@@ -18,6 +18,7 @@ SDK 0.18.0 is an additive minor over 0.17: plugins built for earlier ranges keep
 - **Request headers.** `request_headers` in `plugin.json` lists extra request headers (a webhook signature, say) passed to the plugin's routes. `Authorization`, `Cookie` and the visitor's address are never passed. The plugin page lists them.
 - **Cookies on public routes.** The cookies a plugin declares in `cookies` reach its public routes (`HTTPRequest.Cookies`) and the route may set them (`HTTPResponse.SetCookies`) under `hmp_<plugin>_<name>`, with the limits and flags `render.page` already uses. Responses that set a cookie are never cached.
 - **Page security hosts (`csp`).** `plugin.json` can list https hosts for `script_src`, `connect_src`, `frame_src` and `img_src`. The permission prompt and the plugin page show them, and an update that adds one asks for confirmation. A community plugin may only list image hosts. The hosts join the public pages' policy while the plugin is enabled (`script_src` and `connect_src` take effect; images and frames are already open to https).
+- **Translations from a run.** `changeset.entity.upsert` takes `translation_of` (an entity id or the source key of an earlier entity). Publishing joins the staged entity to the source's translation group; reverting undoes the link.
 
 ## Unreleased: Plugins change content through runs and changesets (breaking for plugins that write)
 

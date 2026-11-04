@@ -100,19 +100,21 @@ func TestChangesetArgsValidation(t *testing.T) {
 		fn   string
 		args any
 	}{
-		"entity no key":      {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{Schema: "post", Name: "N"}},
-		"entity long key":    {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: long, Schema: "post", Name: "N"}},
-		"entity no schema":   {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Name: "N"}},
-		"entity attrs array": {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", Attributes: json.RawMessage(`[1]`)}},
-		"entity self parent": {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", ParentKey: "k"}},
-		"term bad kind":      {sdk.FnChangesetTermUpsert, sdk.TermUpsert{SourceKey: "k", Kind: "Bad Kind", Slug: "s", Name: "N"}},
-		"menu both":          {sdk.FnChangesetMenuUpsert, sdk.MenuUpsert{SourceKey: "k", Slug: "s", Name: "N", Items: []sdk.MenuItem{{Label: "L", URL: "/a", EntityKey: "e"}}}},
-		"menu js url":        {sdk.FnChangesetMenuUpsert, sdk.MenuUpsert{SourceKey: "k", Slug: "s", Name: "N", Items: []sdk.MenuItem{{Label: "L", URL: "javascript:alert(1)"}}}},
-		"redirect external":  {sdk.FnChangesetRedirectUpsert, sdk.RedirectUpsert{SourceKey: "k", From: "/a", To: "https://example.com/"}},
-		"redirect protocol":  {sdk.FnChangesetRedirectUpsert, sdk.RedirectUpsert{SourceKey: "k", From: "/a", To: "//example.com/"}},
-		"redirect status":    {sdk.FnChangesetRedirectUpsert, sdk.RedirectUpsert{SourceKey: "k", From: "/a", To: "/b", StatusCode: 200}},
-		"delete media":       {sdk.FnChangesetDelete, sdk.ChangesetDeleteArgs{Kind: "media", SourceKey: "k"}},
-		"delete no kind":     {sdk.FnChangesetDelete, sdk.ChangesetDeleteArgs{SourceKey: "k"}},
+		"entity no key":                     {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{Schema: "post", Name: "N"}},
+		"entity long key":                   {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: long, Schema: "post", Name: "N"}},
+		"entity no schema":                  {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Name: "N"}},
+		"entity attrs array":                {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", Attributes: json.RawMessage(`[1]`)}},
+		"entity self parent":                {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", ParentKey: "k"}},
+		"entity translation without locale": {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", TranslationOf: "src"}},
+		"entity translation of itself":      {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", Locale: "es", TranslationOf: "k"}},
+		"term bad kind":                     {sdk.FnChangesetTermUpsert, sdk.TermUpsert{SourceKey: "k", Kind: "Bad Kind", Slug: "s", Name: "N"}},
+		"menu both":                         {sdk.FnChangesetMenuUpsert, sdk.MenuUpsert{SourceKey: "k", Slug: "s", Name: "N", Items: []sdk.MenuItem{{Label: "L", URL: "/a", EntityKey: "e"}}}},
+		"menu js url":                       {sdk.FnChangesetMenuUpsert, sdk.MenuUpsert{SourceKey: "k", Slug: "s", Name: "N", Items: []sdk.MenuItem{{Label: "L", URL: "javascript:alert(1)"}}}},
+		"redirect external":                 {sdk.FnChangesetRedirectUpsert, sdk.RedirectUpsert{SourceKey: "k", From: "/a", To: "https://example.com/"}},
+		"redirect protocol":                 {sdk.FnChangesetRedirectUpsert, sdk.RedirectUpsert{SourceKey: "k", From: "/a", To: "//example.com/"}},
+		"redirect status":                   {sdk.FnChangesetRedirectUpsert, sdk.RedirectUpsert{SourceKey: "k", From: "/a", To: "/b", StatusCode: 200}},
+		"delete media":                      {sdk.FnChangesetDelete, sdk.ChangesetDeleteArgs{Kind: "media", SourceKey: "k"}},
+		"delete no kind":                    {sdk.FnChangesetDelete, sdk.ChangesetDeleteArgs{SourceKey: "k"}},
 	} {
 		if _, he := callRun(t, a, rc, c.fn, c.args); he == nil || he.Code != sdk.ErrInvalidArgument {
 			t.Errorf("%s: %v", name, he)

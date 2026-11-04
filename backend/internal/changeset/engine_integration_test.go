@@ -1110,3 +1110,90 @@ func TestChangesetStageQuota(t *testing.T) {
 		t.Fatalf("second big item: %v, want ErrQuotaExceeded", err)
 	}
 }
+
+func (f *fixture) groupOf(id string) *string {
+	f.t.Helper()
+	var g *string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT translation_group::text FROM hatamoto_entities WHERE id = $1`, id).Scan(&g); err != nil {
+		f.t.Fatal(err)
+	}
+	return g
+}
+
+func (f *fixture) idOfSlug(slug string) string {
+	f.t.Helper()
+	var id string
+	if err := f.db.Pool().QueryRow(f.ctx, `SELECT id::text FROM hatamoto_entities WHERE schema_id = $1 AND slug = $2`, f.schema.ID, slug).Scan(&id); err != nil {
+		f.t.Fatal(err)
+	}
+	return id
+}
+
+func (f *fixture) localizedItem(key, slug, locale string, extra map[string]any) Item {
+	it := f.entityItem(key, slug, "c")
+	p := map[string]any{"locale": locale}
+	_ = json.Unmarshal(it.Payload, &p)
+	p["locale"] = locale
+	for k, v := range extra {
+		p[k] = v
+	}
+	it.Payload = raw(p)
+	return it
+}
+
+// translation_of joins the staged copy to the source's translation group at
+// publish, and a revert puts the group back.
+func TestChangesetTranslationOf(t *testing.T) {
+	f := newFixture(t)
+	src, copyKey := "src-"+f.tag, "copy-"+f.tag
+
+	// The source and its translation come in one changeset, the source first.
+	cs := f.begin("")
+	f.stage(cs, f.localizedItem(src, "en-"+f.tag, "en", nil))
+	f.stage(cs, f.localizedItem(copyKey, "es-"+f.tag, "es", map[string]any{"translation_of": src}))
+	f.publish(cs)
+	en, es := f.idOfSlug("en-"+f.tag), f.idOfSlug("es-"+f.tag)
+	g1, g2 := f.groupOf(en), f.groupOf(es)
+	if g1 == nil || g2 == nil || *g1 != *g2 {
+		t.Fatalf("groups after publish: source=%v copy=%v", g1, g2)
+	}
+
+	// An existing entity of this origin joins the source's group in a later
+	// changeset (by id), and a revert undoes the link with the row.
+	solo := f.begin("")
+	f.stage(solo, f.localizedItem("solo-"+f.tag, "fr-"+f.tag, "fr", nil))
+	f.publish(solo)
+	fr := f.idOfSlug("fr-" + f.tag)
+	if f.groupOf(fr) != nil {
+		t.Fatal("an unlinked entity has a group")
+	}
+	link := f.begin("")
+	up := f.localizedItem("solo-"+f.tag, "fr-"+f.tag, "fr", map[string]any{"translation_of": en})
+	up.TargetID = fr
+	up.BaseToken = f.entityToken(fr)
+	f.stage(link, up)
+	f.publish(link)
+	if g := f.groupOf(fr); g == nil || *g != *g1 {
+		t.Fatalf("fr group = %v, want %s", g, *g1)
+	}
+	if _, err := f.eng.Revert(f.ctx, link); err != nil {
+		t.Fatal(err)
+	}
+	if g := f.groupOf(fr); g != nil {
+		t.Errorf("revert left fr in group %s", *g)
+	}
+	if g := f.groupOf(en); g == nil || *g != *g1 {
+		t.Errorf("revert disturbed the source's group: %v", g)
+	}
+
+	// A source that does not exist, or a locale the group has, is a conflict
+	// and applies nothing.
+	bad := f.begin("")
+	f.stage(bad, f.localizedItem("b1-"+f.tag, "x1-"+f.tag, "it", map[string]any{"translation_of": "nope-" + f.tag}))
+	f.stage(bad, f.localizedItem("b2-"+f.tag, "x2-"+f.tag, "es", map[string]any{"translation_of": en}))
+	before := f.entities()
+	res := f.publish(bad)
+	if res.Skipped != 2 || len(res.Conflicts) != 2 || f.entities() != before {
+		t.Fatalf("result = %+v, entities %d -> %d", res, before, f.entities())
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
@@ -128,6 +129,7 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw json.R
 		text("slug", in.Slug, maxSlugLen, false),
 		text("parent_key", in.ParentKey, maxSourceKeyLen, false),
 		text("locale", in.Locale, maxLocaleLen, false),
+		text("translation_of", in.TranslationOf, maxSourceKeyLen, false),
 	} {
 		if c != nil {
 			return nil, c
@@ -139,9 +141,28 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw json.R
 	if in.ParentKey == in.SourceKey && in.ParentKey != "" {
 		return nil, invalid("an entity cannot be its own parent")
 	}
+	if in.TranslationOf != "" {
+		switch {
+		case in.TranslationOf == in.SourceKey:
+			return nil, invalid("an entity cannot be a translation of itself")
+		case strings.TrimSpace(in.Locale) == "":
+			return nil, invalid("locale is required with translation_of")
+		}
+	}
 	s, err := a.stager(ctx, e.plugin)
 	if err != nil {
 		return nil, err
+	}
+	if in.TranslationOf != "" {
+		if _, isID := parseUUID(in.TranslationOf); !isID {
+			ok, err := s.known(ctx, changeset.KindEntity, in.TranslationOf)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, invalid("translation_of %q is neither an entity id, nor published by an earlier run, nor staged earlier in this one; stage the source first", in.TranslationOf)
+			}
+		}
 	}
 	if in.ParentKey != "" {
 		ok, err := s.known(ctx, changeset.KindEntity, in.ParentKey)
@@ -153,7 +174,7 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw json.R
 		}
 	}
 	p := map[string]any{"schema": in.Schema, "name": in.Name}
-	for k, v := range map[string]string{"slug": in.Slug, "parent_key": in.ParentKey, "locale": in.Locale} {
+	for k, v := range map[string]string{"slug": in.Slug, "parent_key": in.ParentKey, "locale": in.Locale, "translation_of": in.TranslationOf} {
 		if v != "" {
 			p[k] = v
 		}
@@ -167,6 +188,11 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw json.R
 		p["seo"] = in.SEO
 	}
 	return s.stage(ctx, changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: in.SourceKey, Payload: payload(p)})
+}
+
+func parseUUID(s string) (uuid.UUID, bool) {
+	id, err := uuid.Parse(s)
+	return id, err == nil
 }
 
 func isJSONObject(raw json.RawMessage) bool {

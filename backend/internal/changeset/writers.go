@@ -25,6 +25,12 @@ const (
 	// reasonParentMissing: the entity's parent_key maps to nothing, because
 	// the parent was skipped or never staged.
 	reasonParentMissing = "parent_missing"
+	// reasonTranslationMissing: translation_of names an entity that does not
+	// exist (skipped, never staged or deleted since).
+	reasonTranslationMissing = "translation_missing"
+	// reasonTranslationRefused: the group rules refuse the link (same locale,
+	// another content type, a shared entity or a taken locale).
+	reasonTranslationRefused = "translation_refused"
 	// reasonEntityMissing: a menu item's entity key maps to nothing.
 	reasonEntityMissing = "entity_missing"
 	// reasonLocation: the menu is assigned to a location, which only the owner changes.
@@ -101,9 +107,13 @@ type entityPayload struct {
 	// origin was staged under. It is resolved at publish, against the items
 	// applied earlier in the same transaction, so a parent must be staged
 	// before its children.
-	ParentKey string     `json:"parent_key"`
-	SEO       *EntitySEO `json:"seo"`
-	Status    string     `json:"status"`
+	ParentKey string `json:"parent_key"`
+	// TranslationOf is the entity this one is a translation of: an entity id,
+	// or the source key of an entity of the same origin. It is resolved at
+	// publish, after the source applied, and joins the two into one group.
+	TranslationOf string     `json:"translation_of"`
+	SEO           *EntitySEO `json:"seo"`
+	Status        string     `json:"status"`
 }
 
 // EntitySEO is the search metadata of an entity. It is merged into the
@@ -201,6 +211,14 @@ func (w EntityWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, 
 	op := entity.TxOp{Schema: p.Schema, ID: id, Name: p.Name, Slug: p.Slug, Locale: p.Locale, Attributes: attrs,
 		ParentID: parent, Status: entity.EntityStatus(p.Status), Origin: origin, Delete: it.Op == OpDelete,
 		BaseVersion: ver, BaseUpdatedAt: at}
+	if p.TranslationOf != "" && it.Op != OpDelete {
+		return w.applyTranslation(ctx, tx, origin, op, p.TranslationOf)
+	}
+	return w.applyOp(ctx, tx, op, id)
+}
+
+// applyOp applies op and maps the entity errors to conflicts.
+func (w EntityWriter) applyOp(ctx context.Context, tx Tx, op entity.TxOp, id *uuid.UUID) (Outcome, error) {
 	res, err := w.Svc.ApplyChangesetTx(ctx, tx, op)
 	switch {
 	case errors.Is(err, entity.ErrConflict):
@@ -211,6 +229,71 @@ func (w EntityWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, 
 		return Outcome{}, err
 	}
 	return Outcome{TargetID: res.ID.String(), Before: res.Before, Created: res.Created, Deleted: res.Deleted, PathMoved: res.PathMoved}, nil
+}
+
+// applyTranslation applies op and joins the entity to the translation group of
+// source (an entity id or an entity source key). Both steps run in one
+// savepoint, so a refused link leaves the entity unapplied and the item a
+// conflict. The pre-image in Before is taken before the link: a revert
+// restores the previous group with the row.
+func (w EntityWriter) applyTranslation(ctx context.Context, tx Tx, origin string, op entity.TxOp, source string) (out Outcome, err error) {
+	sp, err := tx.Begin(ctx)
+	if err != nil {
+		return Outcome{}, fmt.Errorf("failed to open savepoint: %w", err)
+	}
+	defer func() {
+		if err != nil || out.Conflict {
+			_ = sp.Rollback(ctx)
+			return
+		}
+		err = sp.Commit(ctx)
+	}()
+	srcID, err := translationSource(ctx, sp, origin, source)
+	if err != nil {
+		return Outcome{}, err
+	}
+	if srcID == uuid.Nil {
+		return Outcome{Conflict: true, Detail: reasonTranslationMissing}, nil
+	}
+	out, err = w.applyOp(ctx, sp, op, op.ID)
+	if err != nil || out.Conflict {
+		return out, err
+	}
+	id, err := uuid.Parse(out.TargetID)
+	if err != nil {
+		return Outcome{}, fmt.Errorf("%w: target %q", ErrInvalidItem, out.TargetID)
+	}
+	if _, err := entity.LinkTx(ctx, sp, srcID, id); err != nil {
+		if errors.Is(err, entity.ErrInvalidGroup) {
+			return Outcome{Conflict: true, Detail: reasonTranslationRefused}, nil
+		}
+		return Outcome{}, err
+	}
+	return out, nil
+}
+
+// translationSource resolves translation_of: an entity id, else the source key
+// of an entity of this origin. uuid.Nil means nothing live answers to it.
+func translationSource(ctx context.Context, tx Tx, origin, ref string) (uuid.UUID, error) {
+	id, err := uuid.Parse(ref)
+	if err != nil {
+		target, err := liveEntityTarget(ctx, tx, origin, ref)
+		if err != nil || target == "" {
+			return uuid.Nil, err
+		}
+		if id, err = uuid.Parse(target); err != nil {
+			return uuid.Nil, fmt.Errorf("%w: mapped target %q", ErrInvalidItem, target)
+		}
+		return id, nil
+	}
+	var ok bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_entities WHERE id = $1)`, id).Scan(&ok); err != nil {
+		return uuid.Nil, fmt.Errorf("failed to look up translation source: %w", err)
+	}
+	if !ok {
+		return uuid.Nil, nil
+	}
+	return id, nil
 }
 
 func (w EntityWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func(context.Context), error) {
@@ -228,6 +311,12 @@ func (w EntityWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func(c
 	err = w.Svc.RestoreChangesetTx(ctx, tx, id, it.Before)
 	if errors.Is(err, entity.ErrHasChildren) {
 		return nil, fmt.Errorf("%w: %v", ErrRevertConflict, err)
+	}
+	if err == nil && len(it.Before) > 0 && it.Op != OpDelete {
+		var p entityPayload
+		if decodePayload(it.Payload, &p) == nil && p.TranslationOf != "" {
+			err = w.Svc.RestoreTranslationTx(ctx, tx, id, it.Before)
+		}
 	}
 	return post, err
 }

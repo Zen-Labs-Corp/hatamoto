@@ -307,16 +307,21 @@ type SEO struct {
 // EntityUpsert stages the creation or update of an entity. SourceKey is the
 // plugin's own stable key for the object: the same key on a later run updates
 // the entity the first run created. ParentKey names an earlier staged or
-// mapped entity by its source key.
+// mapped entity by its source key. TranslationOf names the entity this one is
+// a translation of, by its id or by the source key of an entity staged earlier
+// (or published by an earlier run); at publish the two join one translation
+// group, so Locale is required and must differ from the source's.
 type EntityUpsert struct {
-	SourceKey  string          `json:"source_key"`
-	Schema     string          `json:"schema"`
-	Slug       string          `json:"slug,omitempty"`
-	ParentKey  string          `json:"parent_key,omitempty"`
-	Locale     string          `json:"locale,omitempty"`
-	Name       string          `json:"name"`
-	Attributes json.RawMessage `json:"attributes,omitempty"`
-	SEO        *SEO            `json:"seo,omitempty"`
+	SourceKey string `json:"source_key"`
+	Schema    string `json:"schema"`
+	Slug      string `json:"slug,omitempty"`
+	ParentKey string `json:"parent_key,omitempty"`
+	Locale    string `json:"locale,omitempty"`
+	// TranslationOf links the entity into the translation group of another.
+	TranslationOf string          `json:"translation_of,omitempty"`
+	Name          string          `json:"name"`
+	Attributes    json.RawMessage `json:"attributes,omitempty"`
+	SEO           *SEO            `json:"seo,omitempty"`
 }
 
 // TermUpsert stages a category, tag or other term.

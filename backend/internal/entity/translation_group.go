@@ -84,7 +84,46 @@ func (s *GroupStore) Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, err
 		return uuid.Nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	group, err := linkTx(ctx, tx, ids)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, fmt.Errorf("commit link: %w", err)
+	}
+	return group, nil
+}
 
+// LinkTx is Link inside the caller's transaction (a changeset publish): it
+// takes the group lock until the transaction ends, leaves updated_at alone for
+// the rows it links, and commits nothing.
+func LinkTx(ctx context.Context, tx pgx.Tx, ids ...uuid.UUID) (uuid.UUID, error) {
+	if len(ids) < 2 {
+		return uuid.Nil, fmt.Errorf("%w: need at least two entities", ErrInvalidGroup)
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('hm_translation_group'))`); err != nil {
+		return uuid.Nil, fmt.Errorf("lock translation groups: %w", err)
+	}
+	// Keep the caller's setting for the rest of its transaction.
+	var prev string
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(current_setting('hatamoto.import', true), '')`).Scan(&prev); err != nil {
+		return uuid.Nil, fmt.Errorf("read import setting: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `SELECT set_config('hatamoto.import', 'on', true)`); err != nil {
+		return uuid.Nil, fmt.Errorf("keep updated_at: %w", err)
+	}
+	group, err := linkTx(ctx, tx, ids)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if _, err := tx.Exec(ctx, `SELECT set_config('hatamoto.import', $1, true)`, prev); err != nil {
+		return uuid.Nil, fmt.Errorf("restore import setting: %w", err)
+	}
+	return group, nil
+}
+
+// linkTx is the body of Link and LinkTx: ids are checked, then put in one group.
+func linkTx(ctx context.Context, tx pgx.Tx, ids []uuid.UUID) (uuid.UUID, error) {
 	rows, err := tx.Query(ctx, `
 		SELECT id, locale, schema_id, translation_group
 		FROM hatamoto_entities WHERE id = ANY($1) ORDER BY id FOR UPDATE`, ids)
@@ -130,7 +169,7 @@ func (s *GroupStore) Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, err
 			return uuid.Nil, fmt.Errorf("%w: entities use different schemas", ErrInvalidGroup)
 		}
 		schema = r.schema
-		if r.group != nil && !s.groupHasOthers(ctx, tx, *r.group, id) {
+		if r.group != nil && !groupHasOthers(ctx, tx, *r.group, id) {
 			continue // a one-member group (left by a delete) counts as no group
 		}
 		if r.group != nil {
@@ -172,14 +211,11 @@ func (s *GroupStore) Link(ctx context.Context, ids ...uuid.UUID) (uuid.UUID, err
 		WHERE id = ANY($2)`, *group, ids, newGroup, ids[0]); err != nil {
 		return uuid.Nil, fmt.Errorf("link entities: %w", err)
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return uuid.Nil, fmt.Errorf("commit link: %w", err)
-	}
 	return *group, nil
 }
 
 // groupHasOthers reports whether group has a member other than id.
-func (s *GroupStore) groupHasOthers(ctx context.Context, tx pgx.Tx, group, id uuid.UUID) bool {
+func groupHasOthers(ctx context.Context, tx pgx.Tx, group, id uuid.UUID) bool {
 	var n int
 	err := tx.QueryRow(ctx, `SELECT count(*) FROM hatamoto_entities WHERE translation_group = $1 AND id <> $2 AND variant_key IS NULL`, group, id).Scan(&n)
 	return err != nil || n > 0
