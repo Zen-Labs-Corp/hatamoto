@@ -80,7 +80,7 @@ func (a *Admin) handleMediaFormatsSave(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The image format settings could not be saved", err)
 		return
 	}
-	a.audit(r, "media.formats", "media", map[string]any{
+	a.audit(r, "media.formats.settings", "media", map[string]any{
 		"old": map[string]any{"webp": old.WebP, "avif": old.AVIF}, "new": map[string]any{"webp": next.WebP, "avif": next.AVIF},
 	})
 	a.SetFlash(w, r, "success", "Image format settings saved. New uploads follow them; rebuild to apply them to existing images.")

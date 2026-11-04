@@ -50,11 +50,19 @@ func TestMediaFormatsCard(t *testing.T) {
 	}
 
 	g.do("POST", "/admin/settings/media/formats", "owner-token", url.Values{"webp": {"off"}, "avif": {"on"}}, nil)
-	if fake.set.WebP || !fake.set.AVIF || len(events) != 1 || events[0].Action != "media.formats" {
+	if fake.set.WebP || !fake.set.AVIF || len(events) != 1 || events[0].Action != "media.formats.settings" {
 		t.Errorf("save: %+v %v", fake.set, events)
 	}
 	g.do("POST", "/admin/settings/media/rebuild", "owner-token", url.Values{}, nil)
 	if len(fake.started) != 1 {
 		t.Errorf("rebuild starts: %v", fake.started)
+	}
+
+	body = g.do("GET", "/admin/settings/media", "editor-token", nil, nil).Body.String()
+	if strings.Contains(body, "Image formats") {
+		t.Error("non-owner sees the card")
+	}
+	if rec := g.do("POST", "/admin/settings/media/rebuild", "editor-token", url.Values{}, nil); rec.Code != 403 || len(fake.started) != 1 {
+		t.Errorf("non-owner rebuild: %d %v", rec.Code, fake.started)
 	}
 }
