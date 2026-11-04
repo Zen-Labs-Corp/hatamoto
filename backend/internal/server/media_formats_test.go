@@ -57,3 +57,16 @@ func TestCurrentMediaFormatsDefaultsToOn(t *testing.T) {
 		t.Errorf("%+v", f)
 	}
 }
+
+func TestMediaFormatsServiceSaveSettingsPurgesPages(t *testing.T) {
+	f := &fakeThemeExtra{}
+	purged := 0
+	svc := &mediaFormatsService{store: mediaFormatStore{site: f}, changed: func(context.Context) { purged++ }}
+	if err := svc.SaveSettings(context.Background(), media.Settings{WebP: false, AVIF: true}); err != nil {
+		t.Fatal(err)
+	}
+	set, err := svc.Settings(context.Background())
+	if err != nil || set.WebP || !set.AVIF || purged != 1 {
+		t.Errorf("settings %+v err %v purged %d", set, err, purged)
+	}
+}

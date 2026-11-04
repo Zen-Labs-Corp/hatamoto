@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/media/modern"
 	"hatamoto.dev/core/internal/siteconfig"
@@ -47,4 +48,57 @@ func (m mediaFormatStore) policy(ctx context.Context) media.Formats {
 		WebP: set.WebP && modern.Available(modern.WebP),
 		AVIF: set.AVIF && modern.Available(modern.AVIF),
 	}
+}
+
+// mediaFormatsService is what the admin's Image formats card talks to: the
+// switches, and the rebuild job.
+type mediaFormatsService struct {
+	store   mediaFormatStore
+	rebuild *media.Rebuilder
+	changed func(ctx context.Context)
+}
+
+// Settings returns the switches.
+func (m *mediaFormatsService) Settings(ctx context.Context) (media.Settings, error) {
+	set, _, err := m.store.Load(ctx)
+	return set, err
+}
+
+// SaveSettings stores the switches and purges rendered pages, so the markup
+// follows them at once.
+func (m *mediaFormatsService) SaveSettings(ctx context.Context, set media.Settings) error {
+	if err := m.store.SaveSettings(ctx, set); err != nil {
+		return err
+	}
+	m.changed(ctx)
+	return nil
+}
+
+// Status returns the rebuild progress.
+func (m *mediaFormatsService) Status(ctx context.Context) (media.State, error) {
+	return m.rebuild.Status(ctx)
+}
+
+// StartRebuild begins a rebuild; media.ErrRebuildRunning when one is active.
+func (m *mediaFormatsService) StartRebuild(ctx context.Context, actor string) error {
+	return m.rebuild.Start(ctx, actor)
+}
+
+// newMediaFormats builds the rebuild job and the service over it. The job
+// runs in the server's lifecycle context and audits through the admin sink.
+func (s *Server) newMediaFormats() *mediaFormatsService {
+	base := func() context.Context {
+		if s.lifecycleCtx != nil {
+			return s.lifecycleCtx
+		}
+		return context.Background()
+	}
+	hooks := media.RebuildHooks{
+		Audit: func(ctx context.Context, action, actor string, detail map[string]any) {
+			s.adminAudit(ctx, admin.AuditEvent{Actor: actor, Action: action, Target: "media", Detail: detail})
+		},
+		Done: s.mediaService.NotifyChanged,
+	}
+	s.mediaRebuilder = media.NewRebuilder(s.mediaService, s.mediaFormats, base, hooks, s.logger)
+	return &mediaFormatsService{store: s.mediaFormats, rebuild: s.mediaRebuilder, changed: s.mediaService.NotifyChanged}
 }

@@ -82,6 +82,9 @@ type Server struct {
 	logger *slog.Logger
 	// mediaFormats stores the modern-format switches and the rebuild state.
 	mediaFormats mediaFormatStore
+	// mediaRebuilder runs the image rebuild; mediaFormatsSvc is the admin's view of it.
+	mediaRebuilder  *media.Rebuilder
+	mediaFormatsSvc *mediaFormatsService
 	// formatPolicy answers currentMediaFormats; nil means every format is on.
 	formatPolicy func(context.Context) media.Formats
 	sessionStore *session.Store
@@ -437,6 +440,7 @@ func (s *Server) setupDependencies() {
 	s.mediaFormats = mediaFormatStore{site: s.siteConfig}
 	s.formatPolicy = s.mediaFormats.policy
 	s.mediaService.SetFormatPolicy(s.formatPolicy)
+	s.mediaFormatsSvc = s.newMediaFormats()
 
 	// Menu service
 	menuRepo := menu.NewPostgresRepository(s.db)
@@ -921,6 +925,9 @@ func (s *Server) Start() error {
 	}
 	seedCancel()
 	s.loadPageCache(s.lifecycleCtx)
+	if s.mediaRebuilder != nil {
+		s.mediaRebuilder.Resume(s.lifecycleCtx)
+	}
 	s.warnIfAdminAddressServed(s.lifecycleCtx)
 	if s.emailService != nil {
 		go s.runEmailConvergence(s.lifecycleCtx, emailConvergeEvery)
@@ -1021,6 +1028,9 @@ func (s *Server) Shutdown() error {
 	}
 	if s.backups != nil {
 		s.backups.Wait(ctx)
+	}
+	if s.mediaRebuilder != nil {
+		s.mediaRebuilder.Wait(ctx)
 	}
 
 	// Shutdown HTTP server

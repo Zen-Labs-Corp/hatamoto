@@ -27,6 +27,10 @@ func (f *fakeRepo) List(context.Context, *ListMediaFilter, int, int) (*PagedResu
 }
 func (f *fakeRepo) Update(context.Context, *Media) error    { return nil }
 func (f *fakeRepo) Delete(context.Context, uuid.UUID) error { return nil }
+func (f *fakeRepo) ListImagesAfter(context.Context, uuid.UUID, int) ([]*Media, error) {
+	return nil, nil
+}
+func (f *fakeRepo) CountImages(context.Context) (int, error) { return 0, nil }
 
 func newTestService(t *testing.T, cfg Config) *Service {
 	t.Helper()

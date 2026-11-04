@@ -683,6 +683,14 @@ func (s *Service) RegenerateVariants(ctx context.Context, id uuid.UUID) (*Media,
 	return m, nil
 }
 
+// ListImagesAfter and CountImages let the rebuild job walk the library.
+func (s *Service) ListImagesAfter(ctx context.Context, after uuid.UUID, limit int) ([]*Media, error) {
+	return s.repo.ListImagesAfter(ctx, after, limit)
+}
+
+// CountImages is the number of images a rebuild walks.
+func (s *Service) CountImages(ctx context.Context) (int, error) { return s.repo.CountImages(ctx) }
+
 // variantExt is the extension of a resized copy in the original's format.
 func variantExt(_, origExt string) string { return origExt }
 
