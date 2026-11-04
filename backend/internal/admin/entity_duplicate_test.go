@@ -50,7 +50,7 @@ func TestEntityDuplicateRedirectsToTheCopyAndAudits(t *testing.T) {
 	}
 	wantAudit(t, rows(), "entity.duplicate")
 	d := rows()[0]
-	if d.Target != cp.ID.String() || d.Detail["from"] != fid(14).String() || d.Detail["from_name"] != "About us" || d.Detail["slug"] != "about-copy" {
+	if d.Target != cp.ID.String() || d.Detail["source"] != fid(14).String() || d.Detail["source_name"] != "About us" || d.Detail["slug"] != "about-copy" {
 		t.Errorf("audit = %+v", d)
 	}
 	has(t, c.next(rec, loc), "Copied. This is a draft copy of")

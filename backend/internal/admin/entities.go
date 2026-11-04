@@ -452,7 +452,7 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 			row.Actions = append(row.Actions, ui.Action{Label: "View on site", Href: path})
 		}
 		if canDup {
-			row.Actions = append(row.Actions, ui.Action{Label: "Duplicate", Post: a.adminPath + "/entities/" + id + "/duplicate"})
+			row.Actions = append(row.Actions, ui.Action{Label: "Duplicate", Post: a.adminPath + "/entities/" + id + "/duplicate", Fields: map[string]string{"back": back}})
 		}
 		if e.Status == entity.StatusPublished {
 			row.Actions = append(row.Actions, ui.Action{Label: "Unpublish", Post: a.adminPath + "/entities/" + id + "/status", Fields: map[string]string{"status": "draft", "back": back}})
@@ -846,7 +846,7 @@ func (a *Admin) handleEntityDuplicate(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The copy could not be created", err)
 		return
 	}
-	a.auditEntity(r, auditEntityDuplicate, cp.ID, cp, map[string]any{"from": id.String(), "from_name": src.Name})
+	a.auditEntity(r, auditEntityDuplicate, cp.ID, cp, map[string]any{"source": id.String(), "source_name": src.Name})
 	a.invalidate(r.Context())
 	a.SetFlash(w, r, "success", "Copied. This is a draft copy of “"+src.Name+"”.")
 	visual := false
