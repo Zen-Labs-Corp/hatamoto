@@ -125,11 +125,19 @@ func TestRunProgressLimits(t *testing.T) {
 	body := g.do("GET", "/admin/plugins/hello/runs/"+rv.ID.String(), "owner-token", nil, nil).Body.String()
 	for _, want := range []string{
 		"Each step", "10 seconds at most", "Memory", "16 MiB per instance", "Staging space", "2.0 MB of 256.0 MB for this run",
-		"If abandoned", "Deleted 72 hours after it finishes",
+		"Longest run", "48 hours, then it is stopped", "Most steps", "100,000 in one run",
+		"If abandoned", "Deleted 72 hours after the run started if nobody publishes or discards it",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("limits card lacks %q", want)
 		}
+	}
+
+	rv.ChangesetID, rv.ExpiresAt = 7, time.Now().Add(30*time.Hour+30*time.Minute)
+	g, _, _, _ = newRunsRig(t, rv)
+	body = g.do("GET", "/admin/plugins/hello/runs/"+rv.ID.String(), "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Deleted in 31 h (") || strings.Contains(body, "after the run started") {
+		t.Error("a run with a changeset shows its real expiry")
 	}
 
 	g.a.deps.Growth.RunLimits = fakeRunLimits{}

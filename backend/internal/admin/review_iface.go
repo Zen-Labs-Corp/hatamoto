@@ -32,6 +32,7 @@ type RunView struct {
 	StagedBytes                        int64
 	StagedItems                        int
 	CreatedAt, UpdatedAt               time.Time
+	ExpiresAt                          time.Time // when its changeset is deleted; zero until the run has one
 }
 
 // RunReader reads plugin runs (nil = the run pages are unavailable).

@@ -11,6 +11,8 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/plugrun"
 )
 
 // ErrRunNotCancellable means the run has already ended.
@@ -63,7 +65,20 @@ func (a *Admin) runLimits(rv RunView) []runLimit {
 	return append(out,
 		runLimit{"Staged changes", thousands(rv.StagedItems) + " of " + thousands(changeset.MaxStagedItems)},
 		runLimit{"Staging space", humanSize(rv.StagedBytes) + " of " + humanSize(changeset.MaxStagedBytes) + " for this run"},
-		runLimit{"If abandoned", fmt.Sprintf("Deleted %s after it finishes if nobody publishes or discards it", countNoun(int(changeset.TTL/time.Hour), "hour"))})
+		runLimit{"Longest run", countNoun(int(pluginhost.MaxRunAge/time.Hour), "hour") + ", then it is stopped"},
+		runLimit{"Most steps", thousands(plugrun.MaxRunSteps) + " in one run"},
+		runLimit{"If abandoned", abandonedNote(rv)})
+}
+
+// abandonedNote says when an unpublished changeset is deleted. The clock starts
+// when the changeset opens, not when the run ends, so it is the changeset's own
+// expiry once there is one, and the run's start until then.
+func abandonedNote(rv RunView) string {
+	const tail = " if nobody publishes or discards it"
+	if rv.ChangesetID != 0 && !rv.ExpiresAt.IsZero() {
+		return fmt.Sprintf("Deleted in %d h (%s)%s", max(1, int((time.Until(rv.ExpiresAt)+time.Hour-1)/time.Hour)), rv.ExpiresAt.UTC().Format("2 Jan 15:04 UTC"), tail)
+	}
+	return fmt.Sprintf("Deleted %s after the run started%s", countNoun(int(changeset.TTL/time.Hour), "hour"), tail)
 }
 
 // runPage loads the run named by the path for the plugin named by the path;
