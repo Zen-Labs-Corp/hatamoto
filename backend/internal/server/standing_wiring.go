@@ -247,8 +247,14 @@ func (g standingGate) Active(ctx context.Context, plugin, run string) (bool, err
 		return false, err
 	}
 	for _, w := range waiting {
-		if w.Run == run {
-			return false, nil
+		if w.Run != run {
+			continue
+		}
+		// A run the gate never handled (a crash after the run finished, a
+		// transient error) looks like a refused one: offer it again, so only
+		// a changeset the rule really refuses holds the tick back.
+		if ok, err := g.publishUnderApproval(ctx, plugin, run, w.ChangesetID, true); err != nil || !ok {
+			return false, err
 		}
 	}
 	return true, nil
@@ -262,34 +268,46 @@ func (g standingGate) AutoPublish(ctx context.Context, plugin, run string, csID 
 // matches the installed plugin and schemas, and the changeset is inside the
 // rule. Every refusal returns nil and leaves the changeset staged for review.
 func (g *standingService) autoPublish(ctx context.Context, plugin, run string, csID int64) error {
+	_, err := g.publishUnderApproval(ctx, plugin, run, csID, false)
+	return err
+}
+
+// publishUnderApproval is autoPublish reporting whether the changeset was
+// published. A quiet call (the tick offering a waiting changeset again) does
+// not log or audit a refusal a second time.
+func (g *standingService) publishUnderApproval(ctx context.Context, plugin, run string, csID int64, quiet bool) (bool, error) {
 	a, err := g.Active(ctx, plugin, run)
 	if err != nil || a == nil {
-		return err
+		return false, err
 	}
 	cur, err := g.currentFingerprint(ctx, plugin, a.Policy.Schemas)
 	if err != nil || !a.Matches(cur) {
-		g.refused(ctx, plugin, run, csID, a.ID, []string{"The plugin or a schema it names changed since you allowed it."})
-		return nil // fail closed
+		if !quiet {
+			g.refused(ctx, plugin, run, csID, a.ID, []string{"The plugin or a schema it names changed since you allowed it."})
+		}
+		return false, nil // fail closed
 	}
 	// Classify first: the publish transaction rolls back when it refuses, and
 	// the classes should stay for the owner's review.
 	if err := g.eng.Classify(ctx, csID); err != nil {
-		return err
+		return false, err
 	}
 	v, res, err := g.eng.PublishUnderPolicy(ctx, csID, changeset.StandingPolicy{
 		Plugin: plugin, Fields: a.Policy.Fields, Schemas: a.Policy.Schemas, MaxPerHour: a.Policy.MaxPerHour,
 	}, a.ID)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !v.OK {
-		g.refused(ctx, plugin, run, csID, a.ID, v.Reasons)
-		return nil
+		if !quiet {
+			g.refused(ctx, plugin, run, csID, a.ID, v.Reasons)
+		}
+		return false, nil
 	}
 	g.audit(ctx, "changeset.publish_auto", changesetTarget(csID), map[string]any{
 		"plugin": plugin, "run": run, "approval_id": a.ID, "applied": res.Applied,
 	})
-	return nil
+	return true, nil
 }
 
 func (g *standingService) refused(ctx context.Context, plugin, run string, csID, approvalID int64, reasons []string) {

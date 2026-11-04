@@ -262,11 +262,35 @@ func TestCronTickWaitsWhileARunIsWaiting(t *testing.T) {
 		t.Fatalf("nothing waiting: %v %v", on, err)
 	}
 	r.store.waiting = []standing.WaitingRun{{Run: "prices", ChangesetID: 3, Items: 1}}
+	r.eng.verdict = changeset.PolicyVerdict{Reasons: []string{"Change 1 needs a closer look."}}
+	before := len(*r.audits)
 	if on, err := gate.Active(ctx, "pricer", "prices"); err != nil || on {
 		t.Fatalf("a run is waiting: %v %v", on, err)
 	}
 	if r.store.active == nil {
 		t.Fatal("waiting must not end the approval")
+	}
+	if len(*r.audits) != before {
+		t.Fatalf("a refusal seen again must not be audited twice: %v", *r.audits)
+	}
+}
+
+// A staged changeset the gate never judged (a crash after the run finished, a
+// transient error) is offered to the gate again by the tick and does not stall
+// the job once it publishes.
+func TestCronTickOffersAWaitingRunToTheGateAgain(t *testing.T) {
+	r := newStandingRig()
+	ctx := context.Background()
+	gate := standingGate{r.svc}
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", standingHash); err != nil {
+		t.Fatal(err)
+	}
+	r.store.waiting = []standing.WaitingRun{{Run: "prices", ChangesetID: 3, Items: 1}}
+	if on, err := gate.Active(ctx, "pricer", "prices"); err != nil || !on {
+		t.Fatalf("Active = %v, %v; want the tick to go on", on, err)
+	}
+	if !r.eng.published {
+		t.Fatal("the waiting changeset was not offered to the gate")
 	}
 }
 

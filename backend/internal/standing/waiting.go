@@ -19,13 +19,14 @@ type WaitingRun struct {
 }
 
 // Waiting lists the plugin's finished cron started runs whose changeset is
-// still staged, newest first.
+// still staged, newest first. A run that staged nothing is not waiting: there
+// is nothing for the owner to review.
 func (s *Store) Waiting(ctx context.Context, plugin string) ([]WaitingRun, error) {
 	rows, err := s.DB.Pool().Query(ctx, `
 		SELECT r.id, r.name, c.id, c.item_count, r.created_at
 		FROM hatamoto_runs r JOIN hatamoto_changesets c ON c.run_id = r.id
 		WHERE r.plugin = $1 AND r.trigger = 'cron' AND r.state = 'finished'
-		  AND c.state = 'staged' AND c.expires_at > $2
+		  AND c.state = 'staged' AND c.item_count > 0 AND c.expires_at > $2
 		ORDER BY r.created_at DESC LIMIT 50`, plugin, s.now())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list waiting runs: %w", err)

@@ -47,3 +47,21 @@ func TestWaitingListsOnlyStagedCronRuns(t *testing.T) {
 		t.Fatalf("Waiting = %+v, want only the staged cron run", got)
 	}
 }
+
+// A run that staged nothing has nothing to review: it must not count as
+// waiting, or it would hold back the next tick.
+func TestWaitingSkipsAnEmptyChangeset(t *testing.T) {
+	s, ctx := newStore(t)
+	p := testPlugin(t, s, ctx)
+	_, cs := insertRun(t, s, p, "cron", "staged", false, time.Now().UTC())
+	if _, err := s.DB.Pool().Exec(ctx, `UPDATE hatamoto_changesets SET item_count = 0 WHERE id = $1`, cs); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Waiting(ctx, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("Waiting = %+v, want none for an empty changeset", got)
+	}
+}
