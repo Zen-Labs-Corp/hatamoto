@@ -57,9 +57,12 @@ func (s *Server) newThemePreview() *themePreview {
 	return &themePreview{key: previewKey(s.cfg.Secret), mgr: s.packages, secureCookie: s.cfg.AdminCookieSecure}
 }
 
-func previewKey(secret string) []byte {
+func previewKey(secret string) []byte { return previewKeyFor(secret, "hatamoto/theme-preview") }
+
+// previewKeyFor derives a signing key from the server secret for one purpose.
+func previewKeyFor(secret, purpose string) []byte {
 	m := hmac.New(sha256.New, []byte(secret))
-	m.Write([]byte("hatamoto/theme-preview"))
+	m.Write([]byte(purpose))
 	return m.Sum(nil)
 }
 

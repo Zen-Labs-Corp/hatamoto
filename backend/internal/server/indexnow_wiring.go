@@ -72,7 +72,9 @@ type indexNowResolver struct {
 	path     func(ctx context.Context, e *entity.Entity) string
 	// localeHidden reports a configured locale that is not public; nil means none.
 	localeHidden func(ctx context.Context, locale string) bool
-	warnBase     func() // called when IndexNow is on but no base URL is known
+	// paused reports a site that is not open to visitors (site access): no pings.
+	paused   func(ctx context.Context) bool
+	warnBase func() // called when IndexNow is on but no base URL is known
 }
 
 func (s *Server) newIndexNowResolver() *indexNowResolver {
@@ -98,6 +100,7 @@ func (s *Server) newIndexNowResolver() *indexNowResolver {
 		localeHidden: func(ctx context.Context, locale string) bool {
 			return s.urlSnapshot(ctx).Locales().IsHidden(locale)
 		},
+		paused: func(ctx context.Context) bool { return s.siteAccessSettings(ctx).On() },
 		warnBase: func() {
 			s.indexNowBaseWarn.Do(func() {
 				s.logger.Warn("indexnow: no public base URL is set; pings are off until one is")
@@ -107,6 +110,9 @@ func (s *Server) newIndexNowResolver() *indexNowResolver {
 }
 
 func (r *indexNowResolver) Config(ctx context.Context) (indexnow.Config, bool) {
+	if r.paused != nil && r.paused(ctx) {
+		return indexnow.Config{}, false
+	}
 	set := r.settings(ctx)
 	if set == nil || !set.IndexNow.Enabled || set.IndexNow.Key == "" {
 		return indexnow.Config{}, false
