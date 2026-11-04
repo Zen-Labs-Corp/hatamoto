@@ -25,7 +25,7 @@ type Settings struct {
 }
 
 // Formats is the policy view of the settings.
-func (s Settings) Formats() Formats { return Formats{WebP: s.WebP, AVIF: s.AVIF} }
+func (s Settings) Formats() Formats { return Formats(s) }
 
 // Skipped is an image a rebuild could not process.
 type Skipped struct {
