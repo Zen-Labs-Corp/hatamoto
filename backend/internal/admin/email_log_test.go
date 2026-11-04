@@ -90,7 +90,7 @@ func TestEmailLogListGoldenAndFilter(t *testing.T) {
 		t.Errorf("paging = %d/%d", f.gotLimit, f.gotOffset)
 	}
 
-	body = g.do("GET", "/admin/settings/email/log?status=failed&page=2", "owner-token", nil, nil).Body.String()
+	g.do("GET", "/admin/settings/email/log?status=failed&page=2", "owner-token", nil, nil)
 	if f.gotStatus != "failed" || f.gotOffset != 25 {
 		t.Errorf("asked status %q offset %d", f.gotStatus, f.gotOffset)
 	}
