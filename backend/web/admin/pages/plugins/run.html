@@ -18,8 +18,7 @@
 {{template "hm/card-end"}}{{end}}
 </div>
 {{template "hm/card-start" dict "Title" "Limits for this run" "ID" "run-limits" "Heading" "h2"}}
-<dl class="hm-dl"><dt>Staged changes</dt><dd>{{.Staged}}</dd>
-<dt>Staged size</dt><dd>{{.Bytes}}</dd></dl>
+<dl class="hm-dl">{{range .Limits}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>{{end}}</dl>
 {{template "hm/card-end"}}
 </div>
 {{if .Review}}<p>{{template "hm/button" (dict "Label" "Review changes" "Variant" "primary" "Href" .Review)}}</p>{{end}}

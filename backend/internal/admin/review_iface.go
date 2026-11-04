@@ -45,6 +45,18 @@ type RunCanceller interface {
 	CancelRun(ctx context.Context, plugin string, id uuid.UUID) error
 }
 
+// RunStepLimits are the limits one step of a plugin's run is held to.
+type RunStepLimits struct {
+	StepTimeout time.Duration // the guest's time for one step
+	MemoryBytes uint64        // cap on the guest's memory
+}
+
+// RunLimiter reports a loaded plugin's step limits (ok is false when the
+// plugin is not loaded).
+type RunLimiter interface {
+	RunLimitsFor(plugin string) (RunStepLimits, bool)
+}
+
 // ReviewItem is one staged item the owner decides on.
 type ReviewItem struct {
 	Seq                                               int

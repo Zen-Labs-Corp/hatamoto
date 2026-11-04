@@ -193,6 +193,18 @@ func (c pluginRunCanceller) CancelRun(ctx context.Context, plugin string, id uui
 	return nil
 }
 
+// pluginRunLimits is the admin's view of the runtime's step limits.
+type pluginRunLimits struct{ s *Server }
+
+// RunLimitsFor returns the step limits of a loaded plugin.
+func (l pluginRunLimits) RunLimitsFor(plugin string) (admin.RunStepLimits, bool) {
+	if l.s.plugins == nil {
+		return admin.RunStepLimits{}, false
+	}
+	lim, ok := l.s.plugins.RunLimitsFor(plugin)
+	return admin.RunStepLimits{StepTimeout: lim.StepTimeout, MemoryBytes: lim.MemoryBytes}, ok
+}
+
 // runDecls maps the runs a manifest declares for the Plugins page.
 func runDecls(runs []sdk.Run) []admin.RunDecl {
 	out := make([]admin.RunDecl, 0, len(runs))

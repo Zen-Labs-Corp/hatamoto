@@ -51,6 +51,7 @@ func (s *Server) adminGrowth() admin.GrowthDeps {
 	g.Plugins = pluginAdmin{s: s}
 	g.PluginRuns = pluginRunStarter{s}
 	g.RunCancel = pluginRunCanceller{s}
+	g.RunLimits = pluginRunLimits{s}
 	if rv := s.changesetReviewer(); rv != nil {
 		g.Reviewer, g.RunReader = rv, rv
 	}

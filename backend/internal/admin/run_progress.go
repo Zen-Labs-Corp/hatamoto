@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -39,10 +40,30 @@ type runProgressData struct {
 	Fetch    runRoom
 	Build    runRoom
 	Message  string
-	Staged   string
-	Bytes    string
+	Limits   []runLimit
 	Review   string // the way to the review page; "" until the run staged something
 	RunsHref string
+}
+
+// runLimit is one line of the Limits card.
+type runLimit struct{ Label, Value string }
+
+// runLimits lists the limits that hold for a run, each from the value core
+// enforces. The step limits come from the plugin runtime, so they are left out
+// when the plugin is not loaded.
+func (a *Admin) runLimits(rv RunView) []runLimit {
+	var out []runLimit
+	if rl := a.deps.Growth.RunLimits; rl != nil {
+		if l, ok := rl.RunLimitsFor(rv.Plugin); ok {
+			out = append(out,
+				runLimit{"Each step", fmt.Sprintf("%s at most, then it is stopped", countNoun(int(l.StepTimeout.Round(time.Second)/time.Second), "second"))},
+				runLimit{"Memory", fmt.Sprintf("%d MiB per instance", l.MemoryBytes>>20)})
+		}
+	}
+	return append(out,
+		runLimit{"Staged changes", thousands(rv.StagedItems) + " of " + thousands(changeset.MaxStagedItems)},
+		runLimit{"Staging space", humanSize(rv.StagedBytes) + " of " + humanSize(changeset.MaxStagedBytes) + " for this run"},
+		runLimit{"If abandoned", fmt.Sprintf("Deleted %s after it finishes if nobody publishes or discards it", countNoun(int(changeset.TTL/time.Hour), "hour"))})
 }
 
 // runPage loads the run named by the path for the plugin named by the path;
@@ -94,8 +115,7 @@ func (a *Admin) handleRunProgress(w http.ResponseWriter, r *http.Request) {
 	}
 	d := runProgressData{
 		Title: title, Badge: runStateBadge(rv), Running: running, Message: rv.Message, RunsHref: a.pluginURL(rv.Plugin, "runs"),
-		Staged: thousands(rv.StagedItems) + " of " + thousands(changeset.MaxStagedItems),
-		Bytes:  humanSize(rv.StagedBytes) + " of " + humanSize(changeset.MaxStagedBytes),
+		Limits: a.runLimits(rv),
 	}
 	runPath := a.pluginURL(rv.Plugin, "runs/"+rv.ID.String())
 	if running {

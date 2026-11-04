@@ -110,6 +110,35 @@ func TestRunProgressPage(t *testing.T) {
 	}
 }
 
+type fakeRunLimits struct{ ok bool }
+
+func (f fakeRunLimits) RunLimitsFor(string) (RunStepLimits, bool) {
+	return RunStepLimits{StepTimeout: 10 * time.Second, MemoryBytes: 16 << 20}, f.ok
+}
+
+func TestRunProgressLimits(t *testing.T) {
+	t.Parallel()
+
+	rv := runView("running", "transform")
+	g, _, _, _ := newRunsRig(t, rv)
+	g.a.deps.Growth.RunLimits = fakeRunLimits{ok: true}
+	body := g.do("GET", "/admin/plugins/hello/runs/"+rv.ID.String(), "owner-token", nil, nil).Body.String()
+	for _, want := range []string{
+		"Each step", "10 seconds at most", "Memory", "16 MiB per instance", "Staging space", "2.0 MB of 256.0 MB for this run",
+		"If abandoned", "Deleted 72 hours after it finishes",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("limits card lacks %q", want)
+		}
+	}
+
+	g.a.deps.Growth.RunLimits = fakeRunLimits{}
+	body = g.do("GET", "/admin/plugins/hello/runs/"+rv.ID.String(), "owner-token", nil, nil).Body.String()
+	if strings.Contains(body, "Each step") || !strings.Contains(body, "If abandoned") {
+		t.Error("an unloaded plugin shows no step limits but keeps the rest")
+	}
+}
+
 func TestRunProgressFinished(t *testing.T) {
 	t.Parallel()
 

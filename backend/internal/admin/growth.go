@@ -250,6 +250,8 @@ type GrowthDeps struct {
 	RunReader RunReader
 	// RunCancel cancels a running plugin run (nil = no cancel).
 	RunCancel RunCanceller
+	// RunLimits reports the step limits of a plugin's runs (nil = not shown).
+	RunLimits RunLimiter
 	Packages  PackageAdmin
 	FormMail  FormMailer
 	// AgentRegistry names the crawlers (agents.Default() when nil).
