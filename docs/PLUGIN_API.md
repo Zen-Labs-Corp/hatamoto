@@ -1,6 +1,8 @@
-# Plugin API (SDK 0.17)
+# Plugin API (SDK 0.18)
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
+
+> **0.18 changes (additive over 0.17).** `request_headers` and `csp` in `plugin.json`; `cookies` reach public routes (`HTTPRequest.Cookies`, `HTTPResponse.SetCookies`); `translation_of` on `changeset.entity.upsert`; `caption` and `credit` on `changeset.media.attach`; `changeset.media.alt` (proposal kind `media_alt`); public content reads (`entities.get`, `entities.list`, `entities.translations`, `media.get`, `media.list`) in the run fetch phase; and content types shipped as `schemas/<name>.json` without a section template, created when the plugin is enabled.
 
 > **0.17 changes (breaking).** Content writes move into **runs** and **changesets** (see [Runs and changesets](#runs-and-changesets) and [ADR 0004](adr/0004-plugin-changesets.md)), shipped with core 1.1.0. The twelve direct write functions are removed with no shim: `entities.create`, `entities.update`, `entities.set_status`, `entities.delete`, `terms.save`, `terms.delete`, `menus.save`, `menus.add_item`, `menus.delete_item`, `media.upload`, `redirects.create` and `redirects.delete`. So are the five permissions `entities.write`, `terms.write`, `menus.write`, `media.write` and `redirects.write`. Replacements: the `changeset.*` functions for content, `media.import_url` with `changeset.media.attach` for media. A manifest that requests a removed permission is refused at load with a message naming the replacement; a call to a removed function returns `unavailable` naming it. New: the `runs` manifest block, the `on_run_step` export, `run.*`, `upload.read`, `buffer.*`, `media.import_url`, `site.info`, `entities.slug_taken`, `changeset.*`, and the error codes `phase_denied` and `not_owned`. The run and changeset functions (`run.*`, `buffer.*`, `upload.read`, `media.import_url`, `site.info`, `entities.slug_taken`, `changeset.*`) reject arguments nested deeper than 32 levels, arrays of more than 10,000 elements and requests of more than 200,000 JSON tokens with `invalid_argument`; the other functions keep their existing limits (a request is at most 1 MiB). Stored grants for a removed permission are left in place and ignored. The changelog entries below are history: they name functions that 0.17 removed. A plugin built for `^0.5` to `^0.16` that never wrote content loads and runs as before.
 
@@ -121,13 +123,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.17.0`; plugins built for `^0.5` to `^0.16` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.18.0`; plugins built for `^0.5` to `^0.17` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.17.0
+go get hatamoto.dev/sdk@v0.18.0
 ```
 
 SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -137,7 +139,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.17.0` is the git tag `v0.17.0`. The core repository stays
+plain release tags: version `0.18.0` is the git tag `v0.18.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -154,7 +156,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.17 is current.
+> SDK 0.18 is current.
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,

@@ -13,7 +13,7 @@ Settings > Privacy adds an optional cookie banner. Visitors can accept all, reje
 
 ## Unreleased: Plugin SDK 0.18.0 adds eight things first-party plugins need
 
-SDK 0.18.0 is an additive minor over 0.17: plugins built for earlier ranges keep loading.
+SDK 0.18.0 is an additive minor over 0.17: plugins built for earlier ranges keep loading. The first publish takes the public SDK repository from v0.13.0 to v0.18.0 in one commit.
 
 - **Request headers.** `request_headers` in `plugin.json` lists extra request headers (a webhook signature, say) passed to the plugin's routes. `Authorization`, `Cookie` and the visitor's address are never passed. The plugin page lists them.
 - **Cookies on public routes.** The cookies a plugin declares in `cookies` reach its public routes (`HTTPRequest.Cookies`) and the route may set them (`HTTPResponse.SetCookies`) under `hmp_<plugin>_<name>`, with the limits and flags `render.page` already uses. Responses that set a cookie are never cached.
