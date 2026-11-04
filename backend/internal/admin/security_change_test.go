@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/twofactor"
+	"hatamoto.dev/core/internal/user"
 	"net/http"
 	"net/url"
 	"strings"
@@ -424,5 +427,23 @@ func TestSecurityChangeOnUnchosenRowStillAlerts(t *testing.T) {
 	defer g.mail.mu.Unlock()
 	if len(g.mail.addrChanged) != 1 || g.mail.addrChanged[0].to != "owner@example.com" {
 		t.Errorf("mails %+v", g.mail.addrChanged)
+	}
+}
+
+func TestSecurityChangeWarnsWhenPasskeysExist(t *testing.T) {
+	t.Parallel()
+
+	g := newChangeRig(t)
+	if strings.Contains(g.do("GET", changePath, "owner-token", nil, nil).Body.String(), "Passkeys are tied") {
+		t.Fatal("notice shown without passkeys")
+	}
+	tf := &fakeTwoFactor{}
+	g.a.deps.TwoFactor = tf
+	g.a.deps.Manager = &fakeManager{users: map[uuid.UUID]*user.User{g.owner.ID: g.owner}}
+	tf.secure, tf.keys = true, []twofactor.Passkey{{ID: uuid.New(), Name: "k"}}
+	tf.uid = g.owner.ID
+	body := g.do("GET", changePath, "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Passkeys are tied to the site address") {
+		t.Error("notice missing with a passkey")
 	}
 }

@@ -68,6 +68,7 @@ docker compose exec hatamoto hatamoto migrate status
 ```text
 hatamoto user create --email E [--name N] [--role owner|editor] [--password P | --password-stdin]
 hatamoto user reset-password --email E [--password P | --password-stdin]
+hatamoto user reset-2fa --email E
 ```
 
 | Flag | Commands | Meaning |
@@ -87,6 +88,8 @@ Rules for both commands:
 `user create` prints `created <role> user <email>`. An email that already exists fails with an error and changes nothing.
 
 `user reset-password` does three things at once: it sets the new password, clears the login lockout (five failed sign-ins in a row lock an account for 15 minutes), and signs the user out everywhere by revoking all their sessions. It prints `password reset for <email>`. If the address has no account, it says `no user with email ...` and changes nothing. If the password changed but revoking the sessions failed, it says so and exits with an error; run it again.
+
+`user reset-2fa` removes the authenticator app, every passkey and the recovery codes of one user, so the password alone signs them in again. It prints what it removed, for example `Removed the authenticator app, 2 passkeys and the recovery codes for ana@example.com.`, and writes an audit row. It does not change the password or sign anyone out. It rejects the password flags. An address with no account fails with `no user with email ...`.
 
 Examples:
 

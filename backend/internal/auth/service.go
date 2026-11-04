@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/session"
+	"hatamoto.dev/core/internal/twofactor"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -20,13 +21,41 @@ import (
 // to a future MFA upgrade.
 const adminSessionTTL = 30 * 24 * time.Hour
 
-// Login-lockout policy: after maxFailedLogins consecutive failures an account
-// is locked for lockoutDuration. Tuned for an admin CMS (few legit users);
+// Login-lockout policy: after MaxFailedLogins consecutive failures an account
+// is locked for LockoutDuration. Tuned for an admin CMS (few legit users);
 // the per-IP AuthRateLimiter is the complementary first line of defense.
+// Wrong second-factor codes count against the same lock.
 const (
-	maxFailedLogins = 5
-	lockoutDuration = 15 * time.Minute
+	MaxFailedLogins = 5
+	LockoutDuration = 15 * time.Minute
 )
+
+// ErrSecondFactorRequired is returned where a password alone would have
+// issued a session but the user has a second factor. No session is issued;
+// the caller must finish sign-in through the second-factor step.
+var ErrSecondFactorRequired = errors.New("second factor required")
+
+// ErrFactorSetupRequired is returned by the JSON login when the site policy
+// requires a second factor of this user and they have none yet. The password
+// was right; the user has to set a factor up in the admin first.
+var ErrFactorSetupRequired = errors.New("second factor must be set up first")
+
+// FactorRequirement reports whether the site policy makes a second factor
+// mandatory for u. An error fails closed: no API session.
+type FactorRequirement func(ctx context.Context, u *user.User) (bool, error)
+
+// SecondFactorGate tells the service whether a user has any second factor
+// (authenticator app or passkey). An error fails closed: no session.
+type SecondFactorGate interface {
+	HasAnyFactor(ctx context.Context, uid uuid.UUID) (bool, error)
+}
+
+// CodeChecker verifies a typed second-factor code for the JSON login. A wrong
+// code (also a locked account) must return an error wrapping
+// twofactor.ErrWrongCode, which counts against the account lock.
+type CodeChecker interface {
+	Verify(ctx context.Context, uid uuid.UUID, code string) error
+}
 
 // Common authentication errors.
 var (
@@ -60,6 +89,30 @@ type Service struct {
 	// demo sets its shared sign-in: its address and password are on the login
 	// page, so a lock would only let anyone keep every visitor out.
 	noLockoutEmail string
+	// gate and codes are the second-factor seam: nil means no second factor
+	// exists (tests, a build without the feature).
+	gate  SecondFactorGate
+	codes CodeChecker
+	// required is the site policy; nil means no policy.
+	required FactorRequirement
+}
+
+// SetFactorRequirement wires the site policy the JSON login enforces. Call it
+// once at start-up.
+func (s *Service) SetFactorRequirement(r FactorRequirement) { s.required = r }
+
+// SetSecondFactor wires the second-factor checks. Call it once at start-up.
+func (s *Service) SetSecondFactor(g SecondFactorGate, c CodeChecker) {
+	s.gate, s.codes = g, c
+}
+
+// hasFactor reports whether the user must pass a second step. A gate error is
+// returned as is, so every caller fails closed.
+func (s *Service) hasFactor(ctx context.Context, uid uuid.UUID) (bool, error) {
+	if s.gate == nil {
+		return false, nil
+	}
+	return s.gate.HasAnyFactor(ctx, uid)
 }
 
 // NewService creates a new authentication service. Sessions are the only
@@ -74,6 +127,9 @@ func (s *Service) NeverLock(email string) {
 	s.noLockoutEmail = strings.ToLower(strings.TrimSpace(email))
 }
 
+// NeverLocked reports whether email is the account exempted by NeverLock.
+func (s *Service) NeverLocked(email string) bool { return s.neverLocked(email) }
+
 func (s *Service) neverLocked(email string) bool {
 	return s.noLockoutEmail != "" && strings.ToLower(strings.TrimSpace(email)) == s.noLockoutEmail
 }
@@ -82,6 +138,9 @@ func (s *Service) neverLocked(email string) bool {
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	// Code is the authenticator-app or recovery code, needed by users who
+	// turned on two-step sign-in.
+	Code string `json:"code,omitempty"`
 }
 
 // LoginResponse represents a successful login response. SessionToken is sent
@@ -109,22 +168,24 @@ func dummyHash() string {
 // authenticate checks email and password with the lockout policy: a locked
 // account is rejected before spending a password verification, a failure is
 // recorded (locking at the threshold), a success clears the failure state.
-func (s *Service) authenticate(ctx context.Context, email, password string) (*user.User, error) {
+// It reports whether the user has a second factor; for such a user a correct
+// password alone does not clear the failure state, the second step does.
+func (s *Service) authenticate(ctx context.Context, email, password string) (u *user.User, hasFactor bool, err error) {
 	// Use superadmin context for login since we don't know the tenant yet
 	superCtx := database.WithSuperadmin(ctx)
 
 	// Find user by email
-	u, err := s.userRepo.GetByEmail(superCtx, email)
+	u, err = s.userRepo.GetByEmail(superCtx, email)
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
 			// Spend the same hashing time as a wrong password so response
 			// timing does not reveal which addresses have accounts.
 			if _, err := VerifyPasswordContext(ctx, password, dummyHash()); err != nil {
-				return nil, fmt.Errorf("sign-in abandoned: %w", err)
+				return nil, false, fmt.Errorf("sign-in abandoned: %w", err)
 			}
-			return nil, ErrInvalidCredentials
+			return nil, false, ErrInvalidCredentials
 		}
-		return nil, fmt.Errorf("failed to find user: %w", err)
+		return nil, false, fmt.Errorf("failed to find user: %w", err)
 	}
 
 	// Reject a locked account before spending a password verification. Checked
@@ -133,26 +194,37 @@ func (s *Service) authenticate(ctx context.Context, email, password string) (*us
 		// Spend the hashing time an unknown address spends, so a fast answer
 		// does not mark the account as existing and locked.
 		if _, err := VerifyPasswordContext(ctx, password, dummyHash()); err != nil {
-			return nil, fmt.Errorf("sign-in abandoned: %w", err)
+			return nil, false, fmt.Errorf("sign-in abandoned: %w", err)
 		}
-		return nil, ErrAccountLocked
+		return nil, false, ErrAccountLocked
 	}
 
 	// Verify password
 	valid, err := VerifyPasswordContext(ctx, password, u.PasswordHash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to verify password: %w", err)
+		return nil, false, fmt.Errorf("failed to verify password: %w", err)
 	}
 	if !valid {
 		// Record the failure (increments counter, locks at the threshold).
 		// Best-effort: a bookkeeping error must not change the auth outcome.
 		if s.neverLocked(u.Email) {
-			return nil, ErrInvalidCredentials
+			return nil, false, ErrInvalidCredentials
 		}
-		if recErr := s.userRepo.RecordFailedLogin(superCtx, u.ID, maxFailedLogins, lockoutDuration); recErr != nil {
+		if recErr := s.userRepo.RecordFailedLogin(superCtx, u.ID, MaxFailedLogins, LockoutDuration); recErr != nil {
 			fmt.Printf("failed to record failed login (non-fatal): %v\n", recErr)
 		}
-		return nil, ErrInvalidCredentials
+		return nil, false, ErrInvalidCredentials
+	}
+
+	// A user with a second factor is not signed in yet: keep the failure
+	// counter so wrong codes at the next step add to it. If we cannot tell
+	// whether a factor exists, refuse (fail closed).
+	hasFactor, err = s.hasFactor(superCtx, u.ID)
+	if err != nil {
+		return nil, false, fmt.Errorf("check second factor: %w", err)
+	}
+	if hasFactor {
+		return u, true, nil
 	}
 
 	// Successful password: clear any accumulated failure state.
@@ -160,18 +232,31 @@ func (s *Service) authenticate(ctx context.Context, email, password string) (*us
 		fmt.Printf("failed to reset failed logins (non-fatal): %v\n", rstErr)
 	}
 
+	return u, false, nil
+}
+
+// CheckPassword is the first step of admin sign-in: it verifies the password
+// with the lockout policy and returns the user, issuing nothing. The caller
+// asks the user for a second factor when one exists and then calls
+// IssueVerifiedSession.
+func (s *Service) CheckPassword(ctx context.Context, email, password string) (*user.User, error) {
+	u, _, err := s.authenticate(ctx, email, password)
+	if err != nil {
+		return nil, err
+	}
+	u.PasswordHash = ""
 	return u, nil
 }
 
 // LoginSession authenticates and issues a server-side session. It returns the
 // user and the opaque session token to set as the cookie.
 func (s *Service) LoginSession(ctx context.Context, email, password, userAgent, ip string) (*user.User, string, error) {
-	u, err := s.authenticate(ctx, email, password)
+	u, hasFactor, err := s.authenticate(ctx, email, password)
 	if err != nil {
 		return nil, "", err
 	}
-	if s.sessions == nil {
-		return nil, "", errors.New("sessions are not configured")
+	if hasFactor {
+		return nil, "", ErrSecondFactorRequired
 	}
 	token, err := s.IssueSession(ctx, u.ID, userAgent, ip)
 	if err != nil {
@@ -187,10 +272,34 @@ func (s *Service) LoginSession(ctx context.Context, email, password, userAgent, 
 // LoginAPISession authenticates and issues a kind-api session for the JSON
 // API login. It returns the user and the opaque session token, which is both
 // the bearer token and the API cookie value. It never issues an admin session.
-func (s *Service) LoginAPISession(ctx context.Context, email, password, userAgent, ip string) (*user.User, string, error) {
-	u, err := s.authenticate(ctx, email, password)
+// A user with a second factor must also give a valid code: an empty or wrong
+// one is ErrInvalidCredentials and counts against the account lock. A user the
+// site policy requires to have a factor, and who has none, gets
+// ErrFactorSetupRequired instead of a session.
+func (s *Service) LoginAPISession(ctx context.Context, email, password, code, userAgent, ip string) (*user.User, string, error) {
+	u, hasFactor, err := s.authenticate(ctx, email, password)
 	if err != nil {
 		return nil, "", err
+	}
+	if !hasFactor && s.required != nil {
+		req, err := s.required(ctx, u)
+		if err != nil {
+			return nil, "", fmt.Errorf("read two-step policy: %w", err)
+		}
+		if req {
+			return nil, "", ErrFactorSetupRequired
+		}
+	}
+	if hasFactor {
+		if s.codes == nil {
+			return nil, "", ErrSecondFactorRequired
+		}
+		if err := s.codes.Verify(ctx, u.ID, code); err != nil {
+			if errors.Is(err, twofactor.ErrWrongCode) {
+				return nil, "", ErrInvalidCredentials
+			}
+			return nil, "", fmt.Errorf("check second factor: %w", err)
+		}
 	}
 	if s.sessions == nil {
 		return nil, "", errors.New("sessions are not configured")
@@ -207,8 +316,42 @@ func (s *Service) LoginAPISession(ctx context.Context, email, password, userAgen
 }
 
 // IssueSession starts a 30-day admin session for userID (after reset, invite
-// acceptance or setup) and returns the cookie value.
+// acceptance or setup) and returns the cookie value. These callers did not
+// check a password in this request, so a user with a second factor gets
+// ErrSecondFactorRequired instead of a session; a factor lookup error is
+// returned as is. IssueVerifiedSession is the way past it.
 func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error) {
+	hasFactor, err := s.hasFactor(database.WithSuperadmin(ctx), userID)
+	if err != nil {
+		return "", fmt.Errorf("check second factor: %w", err)
+	}
+	if hasFactor {
+		return "", ErrSecondFactorRequired
+	}
+	return s.issueAdmin(ctx, userID, userAgent, ip)
+}
+
+// IssueVerifiedSession starts an admin session for a user who has just passed
+// every step sign-in requires of them (password plus second factor, or a
+// passkey). It is the only way past the second-factor gate, and only the
+// second-factor completion handlers call it. It skips the checks of
+// authenticate (the passkey sign-in has no password step), so any account-state
+// rule added to authenticate must be added here too.
+func (s *Service) IssueVerifiedSession(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error) {
+	token, err := s.issueAdmin(ctx, userID, userAgent, ip)
+	if err != nil {
+		return "", err
+	}
+	if err := s.userRepo.UpdateLastLogin(ctx, userID); err != nil {
+		fmt.Printf("failed to update last login: %v\n", err)
+	}
+	if err := s.userRepo.ResetFailedLogins(database.WithSuperadmin(ctx), userID); err != nil {
+		fmt.Printf("failed to reset failed logins (non-fatal): %v\n", err)
+	}
+	return token, nil
+}
+
+func (s *Service) issueAdmin(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error) {
 	if s.sessions == nil {
 		return "", errors.New("sessions are not configured")
 	}
@@ -222,7 +365,7 @@ func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, userAgent,
 // auditability ("active sessions" admin view). Pass empty strings if the
 // caller can't determine them; they're optional.
 func (s *Service) Login(ctx context.Context, req *LoginRequest, userAgent, ip string) (*LoginResponse, error) {
-	u, token, err := s.LoginAPISession(ctx, req.Email, req.Password, userAgent, ip)
+	u, token, err := s.LoginAPISession(ctx, req.Email, req.Password, req.Code, userAgent, ip)
 	if err != nil {
 		return nil, err
 	}

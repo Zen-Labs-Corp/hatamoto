@@ -410,13 +410,13 @@ func TestChangePasswordGuessesLockTheAccount(t *testing.T) {
 	r := newTokRig(t)
 	ctx := context.Background()
 	u := r.newUser(t, user.RoleEditor)
-	for i := 0; i < maxFailedLogins; i++ {
+	for i := 0; i < MaxFailedLogins; i++ {
 		if err := r.tok.ChangePassword(ctx, u.ID, "wrong-guess-"+uuid.NewString(), "a-new-password-123", nil); !errors.Is(err, ErrInvalidCredentials) {
 			t.Fatalf("guess %d: %v", i, err)
 		}
 	}
 	if err := r.tok.ChangePassword(ctx, u.ID, "an-old-password-123", "a-new-password-123", nil); !errors.Is(err, ErrAccountLocked) {
-		t.Fatalf("after %d wrong guesses even the right password must wait: %v", maxFailedLogins, err)
+		t.Fatalf("after %d wrong guesses even the right password must wait: %v", MaxFailedLogins, err)
 	}
 }
 
@@ -483,7 +483,7 @@ func TestAPISessionKindValidators(t *testing.T) {
 	u := r.newUser(t, user.RoleEditor)
 	svc := NewService(r.users, nil, r.sessions)
 
-	got, apiTok, err := svc.LoginAPISession(ctx, u.Email, "an-old-password-123", "ua", "203.0.113.1")
+	got, apiTok, err := svc.LoginAPISession(ctx, u.Email, "an-old-password-123", "", "ua", "203.0.113.1")
 	if err != nil || got.ID != u.ID || apiTok == "" {
 		t.Fatalf("api login: %v", err)
 	}

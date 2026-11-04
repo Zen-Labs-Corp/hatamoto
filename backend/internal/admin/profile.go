@@ -33,6 +33,9 @@ type profileData struct {
 	// Initials fill the avatar until a photo exists; RoleLabel and RoleKind draw the role badge.
 	Initials, RoleLabel, RoleKind string
 
+	// TwoFactor shows the link to Profile > Security.
+	TwoFactor bool
+
 	NameErr, PhotoErr, JobTitleErr string
 	ShortBioErr, LinkedInErr       string
 	CurrentErr                     string
@@ -51,6 +54,7 @@ func (a *Admin) mountProfile(authed *httpx.Group) {
 	authed.HandleFunc("POST /profile/password", a.handleProfilePassword)
 	authed.HandleFunc("GET /profile/complete", a.handleProfileComplete)
 	authed.HandleFunc("POST /profile/complete", a.handleProfileCompleteSave)
+	a.mountSecurity(authed)
 }
 
 // fillPerson loads the signed-in user's person into d. A user who has none yet
@@ -107,6 +111,7 @@ func (a *Admin) personPath(ctx context.Context, slug string) string {
 func (a *Admin) renderProfile(w http.ResponseWriter, r *http.Request, status int, page string, d profileData) {
 	u := userFrom(r.Context())
 	d.Email, d.Role = u.Email, u.Role
+	d.TwoFactor = a.deps.TwoFactor != nil
 	d.Initials = initialsOf(cmp.Or(d.Name, u.Name, u.Email))
 	d.RoleKind = roleBadgeKind(u.Role)
 	d.RoleLabel = strings.ToUpper(u.Role[:1]) + u.Role[1:]

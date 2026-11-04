@@ -142,6 +142,7 @@ export const screens = [
   { name: "settings-users", path: "/admin/settings/users", legacy: "/admin/users", mock: "settings-users", roles: O, list: true, states: [newDialog] },
   { name: "settings-users-new", path: "/admin/settings/users/new", legacy: "/admin/users/new", mock: null, roles: O },
   { name: "settings-users-invite", path: "/admin/settings/users/invite", mock: null, roles: O },
+  { name: "settings-users-sign-in", path: "/admin/settings/users/sign-in", mock: null, roles: O },
   { name: "settings-media", path: "/admin/settings/media", legacy: "/admin/media", mock: "media", roles: OE, primary: true, list: true, states: [newDialog] },
   { name: "settings-media-new", path: "/admin/settings/media/new", mock: null, roles: OE },
   { name: "media-detail", path: "/admin/media/{media}", mock: null, roles: OE, optional: true },

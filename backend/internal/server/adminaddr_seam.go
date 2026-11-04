@@ -99,6 +99,9 @@ func (s *Server) buildAdminBundle(d admin.Deps, prefix string, mux *http.ServeMu
 	if err != nil {
 		return nil, err
 	}
+	if s.twoFactor != nil {
+		a.SetSecondFactor(sudoFactor{svc: s.twoFactor})
+	}
 	a.Mount(g)
 	return &adminBundle{prefix: prefix, a: a, h: httpx.WithErrorBodies(mux, jsonNotFoundOrNotAllowed)}, nil
 }

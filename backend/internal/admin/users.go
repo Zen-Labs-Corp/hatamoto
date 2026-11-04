@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -14,6 +15,8 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/siteconfig"
+	"hatamoto.dev/core/internal/twofactor"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -31,6 +34,10 @@ type usersData struct {
 	Secret *ui.Secret
 	// SecretGone: the URL carried a secret handle that is used up, expired or not the user's.
 	SecretGone bool
+	// Policy is the sign-in policy control of the Sign-in page.
+	Policy *ui.RadioCard
+	// PolicyErr is the message of a refused policy save.
+	PolicyErr string
 }
 
 // linkData is a one-time link shown to the owner (invite, password reset).
@@ -67,6 +74,8 @@ func (a *Admin) mountUsers(authed *httpx.Group) {
 	owner.HandleFunc("POST /settings/users", a.handleUserCreate)
 	owner.HandleFunc("GET /settings/users/{id}", a.handleUserEdit)
 	owner.HandleFunc("POST /settings/users/{id}", a.handleUserUpdate)
+	owner.HandleFunc("GET /settings/users/sign-in", a.handleSignIn)
+	owner.Group("", a.RequireSudo).HandleFunc("POST /settings/users/two-factor", a.handleTwoFactorPolicy)
 	owner.HandleFunc("POST /settings/users/{id}/reset", a.handleUserReset)
 	owner.HandleFunc("GET /settings/users/{id}/delete", a.handleUserDeleteForm)
 	owner.HandleFunc("POST /settings/users/{id}/delete", a.handleUserDelete)
@@ -88,6 +97,14 @@ func roleBadgeKind(role string) string {
 		return "warning"
 	}
 	return "neutral"
+}
+
+// factorBadge is the "2-step" cell: words, not colour alone.
+func factorBadge(on bool) *ui.Badge {
+	if on {
+		return &ui.Badge{Label: "On", Kind: "success"}
+	}
+	return &ui.Badge{Label: "Off", Kind: "neutral"}
 }
 
 func displayName(u *user.User) string {
@@ -119,7 +136,7 @@ func (a *Admin) loadUsers(r *http.Request) ([]*user.User, error) {
 	return a.deps.Manager.List(r.Context(), 1000, 0)
 }
 
-func (a *Admin) usersTable(r *http.Request, all []*user.User, self string) ui.Table {
+func (a *Admin) usersTable(r *http.Request, all []*user.User, self string, factors map[uuid.UUID]twofactor.Factors, showFactors bool) ui.Table {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	roleFilter := r.URL.Query().Get("role")
 	sortKey, dir := r.URL.Query().Get("sort"), r.URL.Query().Get("dir")
@@ -208,6 +225,9 @@ func (a *Admin) usersTable(r *http.Request, all []*user.User, self string) ui.Ta
 		Page:  ui.Pagination{Page: page, PerPage: usersPerPage, Total: total, BaseURL: a.adminPath + "/settings/users", Query: query},
 		Empty: ui.Empty{Icon: "users", Title: "No users match", Body: "Try another search or filter."},
 	}
+	if showFactors {
+		t.Columns = append(t.Columns, ui.Col{Key: "twostep", Label: "2-step"})
+	}
 	for _, u := range rows[start:end] {
 		you := ""
 		if u.ID.String() == self {
@@ -222,6 +242,10 @@ func (a *Admin) usersTable(r *http.Request, all []*user.User, self string) ui.Ta
 			{Label: "Edit", Href: a.adminPath + "/settings/users/" + u.ID.String()},
 			{Label: "Reset password", Post: a.adminPath + "/settings/users/" + u.ID.String() + "/reset"},
 		}}
+		if showFactors {
+			f := factors[u.ID]
+			row.Cells = append(row.Cells, ui.Cell{Badge: factorBadge(f.TOTP || f.Passkeys > 0)})
+		}
 		if u.ID.String() != self {
 			row.Actions = append(row.Actions, ui.Action{Label: "Delete", Href: a.adminPath + "/settings/users/" + u.ID.String() + "/delete", Post: a.adminPath + "/settings/users/" + u.ID.String() + "/delete",
 				Danger: true, ConfirmLabel: "Delete user", Confirm: displayName(u) + " (" + u.Email + ") will no longer be able to sign in. Their content stays."})
@@ -275,7 +299,17 @@ func (a *Admin) renderUsers(w http.ResponseWriter, r *http.Request, status int, 
 	if u := userFrom(r.Context()); u != nil {
 		self = u.ID
 	}
-	d.Table = a.usersTable(r, all, self)
+	var factors map[uuid.UUID]twofactor.Factors
+	if a.deps.TwoFactor != nil {
+		ids := make([]uuid.UUID, len(all))
+		for i, u := range all {
+			ids[i] = u.ID
+		}
+		if factors, err = a.deps.TwoFactor.Counts(r.Context(), ids); err != nil {
+			a.logger().Error("count second factors failed", "err", err)
+		}
+	}
+	d.Table = a.usersTable(r, all, self, factors, a.deps.TwoFactor != nil)
 	d.Invites, d.HasInvites = a.invitesTable(r)
 	d.InviteCount = len(d.Invites.Rows)
 	d.Roles = roleOptions(d.InviteForm.Role)
@@ -655,4 +689,64 @@ func (a *Admin) handleUserDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	a.SetFlash(w, r, "success", displayName(u)+" was deleted.")
 	http.Redirect(w, r, a.adminPath+"/settings/users", http.StatusSeeOther)
+}
+
+// handleSignIn is the Users > Sign-in page: the two-step sign-in policy.
+func (a *Admin) handleSignIn(w http.ResponseWriter, r *http.Request) {
+	if a.deps.TwoFactor == nil || a.deps.Site == nil {
+		a.unavailable(w, r, "Two-step sign-in")
+		return
+	}
+	a.renderSignIn(w, r, http.StatusOK, "")
+}
+
+func (a *Admin) renderSignIn(w http.ResponseWriter, r *http.Request, status int, policyErr string) {
+	v := a.NewView(w, r, "Sign-in")
+	v.Section, v.Tab = "users", "user-sign-in"
+	v.Width = "narrow"
+	v.Data = usersData{Policy: a.policyControl(r.Context()), PolicyErr: policyErr}
+	a.Render(w, r, status, "users/sign-in", v)
+}
+
+// policyControl is the radio group for the sign-in policy, with the stored choice checked.
+func (a *Admin) policyControl(ctx context.Context) *ui.RadioCard {
+	cur, err := a.twoFactorPolicy(ctx)
+	if err != nil {
+		a.logger().Error("read two-factor policy failed", "err", err)
+		cur = siteconfig.TwoFactorOptional
+	}
+	return &ui.RadioCard{Legend: "Two-step sign-in", Name: "policy", ID: "policy", DescribedBy: "policy-help", Items: []ui.RadioCardItem{
+		{Value: siteconfig.TwoFactorOptional, Title: "Optional", Description: "People choose for themselves.", Checked: cur == siteconfig.TwoFactorOptional},
+		{Value: siteconfig.TwoFactorOwners, Title: "Required for owners", Description: "Owners must set it up before they can use the admin.", Checked: cur == siteconfig.TwoFactorOwners},
+		{Value: siteconfig.TwoFactorEveryone, Title: "Required for everyone", Description: "Every user must set it up before they can use the admin.", Checked: cur == siteconfig.TwoFactorEveryone},
+	}}
+}
+
+// handleTwoFactorPolicy saves the sign-in policy. It sits behind sudo.
+func (a *Admin) handleTwoFactorPolicy(w http.ResponseWriter, r *http.Request) {
+	if a.deps.TwoFactor == nil || a.deps.Site == nil {
+		a.unavailable(w, r, "Two-step sign-in")
+		return
+	}
+	to := r.PostFormValue("policy")
+	switch to {
+	case siteconfig.TwoFactorOptional, siteconfig.TwoFactorOwners, siteconfig.TwoFactorEveryone:
+	default:
+		a.renderSignIn(w, r, http.StatusUnprocessableEntity, "Choose one of the options.")
+		return
+	}
+	from, err := a.twoFactorPolicy(r.Context())
+	if err != nil {
+		a.logger().Error("read two-factor policy failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The setting could not be saved.")
+		return
+	}
+	if _, err := a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{TwoFactorPolicy: &to}); err != nil {
+		a.logger().Error("save two-factor policy failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The setting could not be saved.")
+		return
+	}
+	a.audit(r, "settings.two_factor_policy", "two_factor_policy", map[string]any{"from": from, "to": to})
+	a.SetFlash(w, r, "success", "Sign-in policy saved.")
+	http.Redirect(w, r, a.adminPath+"/settings/users/sign-in", http.StatusSeeOther)
 }

@@ -53,6 +53,16 @@ func (f *fakeSessions) Revoke(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 func (f *fakeSessions) RevokeAllForUser(context.Context, uuid.UUID) error { return nil }
+func (f *fakeSessions) RevokeOthersForUser(_ context.Context, uid, keep uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for tok, s := range f.byToken {
+		if s.UserID != nil && *s.UserID == uid && s.ID != keep {
+			delete(f.byToken, tok)
+		}
+	}
+	return nil
+}
 
 type fakeUsers map[uuid.UUID]*user.User
 
@@ -121,6 +131,9 @@ func (f *fakeSite) Update(_ context.Context, in siteconfig.UpdateInput) (*siteco
 	}
 	if in.PublicBaseURL != nil {
 		f.cfg.PublicBaseURL = *in.PublicBaseURL
+	}
+	if in.TwoFactorPolicy != nil {
+		f.cfg.TwoFactorPolicy = *in.TwoFactorPolicy
 	}
 	if in.PrimaryColor != nil {
 		f.cfg.PrimaryColor = *in.PrimaryColor

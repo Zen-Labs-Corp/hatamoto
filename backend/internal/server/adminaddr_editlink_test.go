@@ -29,6 +29,9 @@ func (editSess) Validate(_ context.Context, tok string) (*session.Session, error
 }
 func (editSess) Revoke(context.Context, uuid.UUID) error           { return nil }
 func (editSess) RevokeAllForUser(context.Context, uuid.UUID) error { return nil }
+func (editSess) RevokeOthersForUser(context.Context, uuid.UUID, uuid.UUID) error {
+	return nil
+}
 
 type editUsers struct{}
 

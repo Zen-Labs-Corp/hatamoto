@@ -28,6 +28,7 @@ func TestParseArgs(t *testing.T) {
 		{[]string{"migrate", "down"}, cmdHelp, true},
 		{[]string{"user", "create", "--email", "a@b.c"}, cmdUserCreate, false},
 		{[]string{"user", "reset-password", "--email", "a@b.c"}, cmdUserResetPassword, false},
+		{[]string{"user", "reset-2fa", "--email", "a@b.c"}, cmdUserReset2FA, false},
 		{[]string{"user"}, cmdHelp, true},
 		{[]string{"plugins", "list"}, cmdPluginsList, false},
 		{[]string{"routes"}, cmdRoutes, false},

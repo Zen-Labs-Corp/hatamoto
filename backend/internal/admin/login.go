@@ -21,6 +21,8 @@ type loginData struct {
 	Status *Flash
 	// DemoLogin is the public demo's sign-in (nil outside demo mode).
 	DemoLogin *demoLogin
+	// Passkeys shows the "Sign in with a passkey" button (passkey sign-in is on).
+	Passkeys bool
 }
 
 type demoLogin struct{ Email, Password string }
@@ -39,6 +41,10 @@ func (d loginData) HasStatus() bool { return d.Status != nil }
 func (a *Admin) mountLogin(public, authed *httpx.Group) {
 	public.HandleFunc("GET /login", a.handleLoginForm)
 	public.HandleFunc("POST /login", a.handleLogin)
+	public.HandleFunc("GET /login/2fa", a.handleTwoStepForm)
+	public.HandleFunc("POST /login/2fa", a.handleTwoStep)
+	public.HandleFunc("POST /login/passkey/begin", a.handlePasskeyBegin)
+	public.HandleFunc("POST /login/passkey/finish", a.handlePasskeyFinish)
 	authed.HandleFunc("POST /logout", a.handleLogout)
 }
 
@@ -67,7 +73,7 @@ func (a *Admin) handleLoginForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, next, http.StatusSeeOther)
 		return
 	}
-	d := loginData{Next: next, DemoLogin: a.demoLoginData()}
+	d := loginData{Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn()}
 	if r.URL.Query().Get("expired") == "1" {
 		d.Status = &Flash{Kind: "info", Message: "Your session expired. Sign in again."}
 	}
@@ -84,30 +90,45 @@ func (a *Admin) handleLogin(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusServiceUnavailable, "Sign-in unavailable", "The server is not ready.")
 		return
 	}
-	_, token, err := a.deps.Auth.LoginSession(r.Context(), email, password, r.UserAgent(), middleware.GetClientIP(r))
-	if err != nil {
-		switch {
-		case errors.Is(err, auth.ErrAccountLocked):
-			a.logger().Info("login attempt on locked account", "ip", middleware.GetClientIP(r))
-			fallthrough
-		case errors.Is(err, auth.ErrInvalidCredentials), errors.Is(err, auth.ErrUserNotFound), errors.Is(err, auth.ErrUserDisabled):
-			v := a.NewView(w, r, "Sign in")
-			v.Data = loginData{Email: email, Next: next, DemoLogin: a.demoLoginData(), Status: &Flash{Kind: "error", Message: loginMessage}}
-			a.Render(w, r, http.StatusUnprocessableEntity, "auth/login", v)
-		case errors.Is(err, context.Canceled):
-			// The client left (or was dropped while queued for a hash): nothing to answer.
-			a.logger().Debug("sign-in abandoned", "err", err)
-		default:
-			a.logger().Error("login failed", "err", err)
-			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "We could not sign you in. Try again in a moment.")
-		}
+	if ps, ok := a.deps.Auth.(PasswordStep); ok && a.deps.TwoFactor != nil {
+		a.handleLoginTwoStep(w, r, ps, email, password, next)
 		return
 	}
+	_, token, err := a.deps.Auth.LoginSession(r.Context(), email, password, r.UserAgent(), middleware.GetClientIP(r))
+	if err != nil {
+		a.loginFailed(w, r, err, email, next)
+		return
+	}
+	a.finishSignIn(w, r, token, next)
+}
+
+// finishSignIn sets the session cookie and sends the user on.
+func (a *Admin) finishSignIn(w http.ResponseWriter, r *http.Request, token, next string) {
 	a.setSession(w, r, token)
 	if next == "" {
 		next = a.landing()
 	}
 	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+// loginFailed answers a failed password step: the neutral message for every
+// credential problem, a log line and 500 for anything else.
+func (a *Admin) loginFailed(w http.ResponseWriter, r *http.Request, err error, email, next string) {
+	switch {
+	case errors.Is(err, auth.ErrAccountLocked):
+		a.logger().Info("login attempt on locked account", "ip", middleware.GetClientIP(r))
+		fallthrough
+	case errors.Is(err, auth.ErrInvalidCredentials), errors.Is(err, auth.ErrUserNotFound), errors.Is(err, auth.ErrUserDisabled), errors.Is(err, auth.ErrSecondFactorRequired):
+		v := a.NewView(w, r, "Sign in")
+		v.Data = loginData{Email: email, Next: next, DemoLogin: a.demoLoginData(), Passkeys: a.passkeysOn(), Status: &Flash{Kind: "error", Message: loginMessage}}
+		a.Render(w, r, http.StatusUnprocessableEntity, "auth/login", v)
+	case errors.Is(err, context.Canceled):
+		// The client left (or was dropped while queued for a hash): nothing to answer.
+		a.logger().Debug("sign-in abandoned", "err", err)
+	default:
+		a.logger().Error("login failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "We could not sign you in. Try again in a moment.")
+	}
 }
 
 // handleLogout revokes this session (every session of the user with all=1) and

@@ -1,0 +1,10 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Your recovery codes" "CSRF" $.CSRF}}
+{{if .CodesGone}}{{template "hm/secretgone" "These codes were shown once and can no longer be displayed. Get new codes from the Security page."}}
+{{else}}{{template "hm/card-start" dict "ID" "codes" "Title" "Save these codes now" "Description" "Each code works once. They will not be shown again."}}
+<ul class="hm-stack" aria-label="Recovery codes">{{range .Codes}}<li><code>{{.}}</code></li>{{end}}</ul>
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "I saved them" "Variant" "primary" "Href" (printf "%s/profile/security" adminPath)}}
+{{template "hm/card-foot-end"}}{{end}}
+<p><a href="{{adminPath}}/profile/security">Back to two-step sign-in</a></p>
+{{end}}{{end}}

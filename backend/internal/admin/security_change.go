@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"github.com/google/uuid"
 	"net/http"
 
 	"hatamoto.dev/core/internal/admin/ui"
@@ -14,6 +15,8 @@ type securityChangeData struct {
 	// Action is where the form posts; Regenerate and Strength are its helpers;
 	// Back is the Security page.
 	Action, Regenerate, Strength, Back string
+	// PasskeyNotice warns that passkeys are tied to the site address.
+	PasskeyNotice bool
 }
 
 // mountSecurityChange mounts the change flow. The role check runs first so an
@@ -56,6 +59,7 @@ func (a *Admin) renderAddressChange(w http.ResponseWriter, r *http.Request, stat
 	v.Data = securityChangeData{
 		Addr: f, Errors: f.Errors, Action: a.securityChangeURL(), Regenerate: a.securityChangeURL() + "/regenerate",
 		Strength: a.securityChangeURL() + "/strength", Back: a.securityAddressURL(),
+		PasskeyNotice: a.anyPasskey(r),
 	}
 	a.Render(w, r, status, "settings/security-change", v)
 }
@@ -115,4 +119,30 @@ func (a *Admin) handleAddressChangeSave(w http.ResponseWriter, r *http.Request) 
 	a.setFlashAt(w, r, res.Path, "success", "Admin address changed.")
 	// The old Admin finishes this response; the next page is served at the new address.
 	http.Redirect(w, r, res.Path+"/settings/security/admin-address", http.StatusSeeOther)
+}
+
+// anyPasskey reports whether any user has a passkey. A lookup that fails shows
+// the notice: a needless warning is better than a missing one.
+func (a *Admin) anyPasskey(r *http.Request) bool {
+	if a.deps.TwoFactor == nil {
+		return false
+	}
+	all, err := a.loadUsers(r)
+	if err != nil {
+		return true
+	}
+	ids := make([]uuid.UUID, len(all))
+	for i, u := range all {
+		ids[i] = u.ID
+	}
+	counts, err := a.deps.TwoFactor.Counts(r.Context(), ids)
+	if err != nil {
+		return true
+	}
+	for _, f := range counts {
+		if f.Passkeys > 0 {
+			return true
+		}
+	}
+	return false
 }

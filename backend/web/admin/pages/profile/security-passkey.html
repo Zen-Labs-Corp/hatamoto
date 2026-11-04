@@ -1,0 +1,13 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/passkey-register{{end}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Add a passkey" "Description" "Use your device's fingerprint, face or screen lock, or a security key." "CSRF" $.CSRF}}
+<form class="hm-cardform" data-passkey-register data-url="{{.RegisterURL}}" data-done="{{adminPath}}/profile/security">
+{{template "hm/card-start" dict "ID" "passkey-add" "Title" "Name this passkey"}}
+{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Help" "For example the device it lives on." "Attrs" (attrmap "maxlength" "80" "autocomplete" "off" "autofocus" "autofocus")}}
+<p id="passkey-status" class="hm-muted" role="status" aria-live="polite">Adding a passkey needs JavaScript and a browser that supports passkeys.</p>
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Cancel" "Href" (printf "%s/profile/security" adminPath)}}
+{{template "hm/button" dict "Label" "Add passkey" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "disabled" "disabled")}}
+{{template "hm/card-foot-end"}}
+</form>
+{{end}}{{end}}

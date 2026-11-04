@@ -1,6 +1,7 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
 <section class="hm-stack">
+{{if .PasskeyNotice}}{{template "hm/callout" (dict "Kind" "warning" "Title" "Passkeys are tied to the site address" "Body" "Passkeys belong to the address of your site, not to the admin address. Changing the site address makes existing passkeys stop working until people add them again. Changing only the admin address does not.")}}{{end}}
 {{template "hm/formerrors" dict "Errors" .Errors}}
 {{if .Addr.Danger}}{{template "hm/danger-confirm" .Addr.Danger}}
 {{else}}<form method="post" action="{{.Action}}" class="hm-cardform">

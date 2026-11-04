@@ -56,6 +56,7 @@ import (
 	"hatamoto.dev/core/internal/spam"
 	"hatamoto.dev/core/internal/standing"
 	"hatamoto.dev/core/internal/taxonomy"
+	"hatamoto.dev/core/internal/twofactor"
 	"hatamoto.dev/core/internal/updater"
 	"hatamoto.dev/core/internal/user"
 	"hatamoto.dev/core/internal/webhook"
@@ -86,6 +87,8 @@ type Server struct {
 
 	// Services
 	authService *auth.Service
+	twoFactor   *twofactor.Service
+	passkeys    *twofactor.Passkeys
 	// validateSession resolves API session tokens; nil means authService's.
 	// Route tests set a fake so they need no database.
 	validateSession middleware.SessionValidator
@@ -357,6 +360,7 @@ func (s *Server) setupDependencies() {
 
 	// Services. tenantLookupAdapter reads name from hatamoto_site_config.
 	s.authService = auth.NewService(s.userRepo, &tenantLookupAdapter{siteConfig: s.siteConfig}, s.sessionStore)
+	s.initTwoFactor()
 	if s.demoOn() {
 		s.authService.NeverLock(s.cfg.Demo.LoginEmail)
 	}

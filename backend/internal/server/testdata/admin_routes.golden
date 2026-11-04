@@ -51,6 +51,7 @@ GET /admin/entities/{id}/versions/{version} -> admin.(*Admin).handleVersionView-
 GET /admin/entities/{id}/versions/{version}/restore -> admin.(*Admin).handleVersionRestoreConfirm-fm
 GET /admin/forgot -> admin.(*Admin).handleForgotForm-fm
 GET /admin/login -> admin.(*Admin).handleLoginForm-fm
+GET /admin/login/2fa -> admin.(*Admin).handleTwoStepForm-fm
 GET /admin/media/picker -> admin.(*Admin).handleMediaPicker-fm
 GET /admin/media/{id} -> admin.(*Admin).handleMediaDetail-fm
 GET /admin/media/{id}/delete -> admin.(*Admin).handleMediaDeleteConfirm-fm
@@ -78,6 +79,10 @@ GET /admin/plugins/{name}/uninstall -> admin.(*Admin).handlePluginUninstallForm-
 GET /admin/preview/theme/{name} -> admin.(*Admin).handleThemePreview-fm
 GET /admin/profile -> admin.(*Admin).handleProfile-fm
 GET /admin/profile/complete -> admin.(*Admin).handleProfileComplete-fm
+GET /admin/profile/security -> admin.(*Admin).handleSecurity-fm
+GET /admin/profile/security/codes -> admin.(*Admin).handleSecurityCodes-fm
+GET /admin/profile/security/passkeys/add -> admin.(*Admin).handlePasskeyAddPage-fm
+GET /admin/profile/security/totp -> admin.(*Admin).handleTOTPForm-fm
 GET /admin/reset -> admin.(*Admin).handleResetForm-fm
 GET /admin/settings -> admin.(*Admin).areaEntry.func1
 GET /admin/settings/api-keys -> admin.(*Admin).handleAPIKeys-fm
@@ -176,6 +181,7 @@ GET /admin/settings/users -> admin.(*Admin).handleUsers-fm
 GET /admin/settings/users/invite -> admin.(*Admin).handleInviteNew-fm
 GET /admin/settings/users/invites/{id}/revoke -> admin.(*Admin).handleInviteRevokeConfirm-fm
 GET /admin/settings/users/new -> admin.(*Admin).handleUserNew-fm
+GET /admin/settings/users/sign-in -> admin.(*Admin).handleSignIn-fm
 GET /admin/settings/users/{id} -> admin.(*Admin).handleUserEdit-fm
 GET /admin/settings/users/{id}/delete -> admin.(*Admin).handleUserDeleteForm-fm
 GET /admin/settings/webhooks -> admin.(*Admin).handleWebhooks-fm
@@ -256,6 +262,9 @@ POST /admin/entities/{id}/versions/{version}/nodes/{node}/restore -> admin.(*Adm
 POST /admin/entities/{id}/versions/{version}/restore -> admin.(*Admin).handleVersionRestore-fm
 POST /admin/forgot -> admin.(*Admin).handleForgot-fm
 POST /admin/login -> admin.(*Admin).handleLogin-fm
+POST /admin/login/2fa -> admin.(*Admin).handleTwoStep-fm
+POST /admin/login/passkey/begin -> admin.(*Admin).handlePasskeyBegin-fm
+POST /admin/login/passkey/finish -> admin.(*Admin).handlePasskeyFinish-fm
 POST /admin/logout -> admin.(*Admin).handleLogout-fm
 POST /admin/media/bulk -> admin.(*Admin).handleMediaBulk-fm
 POST /admin/media/upload -> admin.(*Admin).handleMediaUpload-fm
@@ -288,6 +297,13 @@ POST /admin/plugins/{name}/update -> admin.(*Admin).handlePluginUpdate-fm
 POST /admin/profile -> admin.(*Admin).handleProfileSave-fm
 POST /admin/profile/complete -> admin.(*Admin).handleProfileCompleteSave-fm
 POST /admin/profile/password -> admin.(*Admin).handleProfilePassword-fm
+POST /admin/profile/security/codes -> admin.(*Admin).handleCodesRegenerate-fm
+POST /admin/profile/security/passkeys/begin -> admin.(*Admin).handlePasskeyAddBegin-fm
+POST /admin/profile/security/passkeys/finish -> admin.(*Admin).handlePasskeyAddFinish-fm
+POST /admin/profile/security/passkeys/{id}/remove -> admin.(*Admin).handlePasskeyRemove-fm
+POST /admin/profile/security/totp -> admin.(*Admin).handleTOTPConfirm-fm
+POST /admin/profile/security/totp/begin -> admin.(*Admin).handleTOTPBegin-fm
+POST /admin/profile/security/totp/remove -> admin.(*Admin).handleTOTPRemove-fm
 POST /admin/reset -> admin.(*Admin).handleReset-fm
 POST /admin/settings/api-keys -> admin.(*Admin).handleAPIKeyCreate-fm
 POST /admin/settings/api-keys/{id}/delete -> admin.(*Admin).handleAPIKeyDelete-fm
@@ -388,6 +404,7 @@ POST /admin/settings/users -> admin.(*Admin).handleUserCreate-fm
 POST /admin/settings/users/invite -> admin.(*Admin).handleInvite-fm
 POST /admin/settings/users/invites/{id}/resend -> admin.(*Admin).handleInviteResend-fm
 POST /admin/settings/users/invites/{id}/revoke -> admin.(*Admin).handleInviteRevoke-fm
+POST /admin/settings/users/two-factor -> admin.(*Admin).handleTwoFactorPolicy-fm
 POST /admin/settings/users/{id} -> admin.(*Admin).handleUserUpdate-fm
 POST /admin/settings/users/{id}/delete -> admin.(*Admin).handleUserDelete-fm
 POST /admin/settings/users/{id}/reset -> admin.(*Admin).handleUserReset-fm

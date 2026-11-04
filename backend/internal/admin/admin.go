@@ -29,6 +29,7 @@ import (
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/session"
 	"hatamoto.dev/core/internal/siteconfig"
+	"hatamoto.dev/core/internal/twofactor"
 	"hatamoto.dev/core/internal/user"
 	"hatamoto.dev/core/internal/webhook"
 	"hatamoto.dev/core/web"
@@ -39,6 +40,7 @@ type SessionStore interface {
 	Validate(ctx context.Context, token string) (*session.Session, error)
 	Revoke(ctx context.Context, id uuid.UUID) error
 	RevokeAllForUser(ctx context.Context, userID uuid.UUID) error
+	RevokeOthersForUser(ctx context.Context, userID, keep uuid.UUID) error
 }
 
 // UserReader loads the signed-in user.
@@ -68,6 +70,41 @@ type StarterInstaller interface {
 type Authenticator interface {
 	LoginSession(ctx context.Context, email, password, userAgent, ip string) (*user.User, string, error)
 	IssueSession(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error)
+}
+
+// PasswordStep is the two-step half of auth.Service: CheckPassword verifies
+// the password without issuing a session; IssueVerifiedSession is the only way
+// to a session for a user who has a second factor, and is called only after
+// that factor was verified (or none exists).
+type PasswordStep interface {
+	CheckPassword(ctx context.Context, email, password string) (*user.User, error)
+	IssueVerifiedSession(ctx context.Context, userID uuid.UUID, userAgent, ip string) (string, error)
+}
+
+// TwoFactorService is the second-factor domain (twofactor.Service) as the
+// sign-in screens use it.
+type TwoFactorService interface {
+	HasAnyFactor(ctx context.Context, uid uuid.UUID) (bool, error)
+	// Verify checks a typed code; twofactor.ErrWrongCode is the neutral refusal.
+	Verify(ctx context.Context, uid uuid.UUID, code string) error
+	Status(ctx context.Context, uid uuid.UUID) (twofactor.Factors, error)
+	// Counts is Status for many users at once (the Users table).
+	Counts(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]twofactor.Factors, error)
+	Passkeys(ctx context.Context, uid uuid.UUID) ([]twofactor.Passkey, error)
+	BeginTOTP(ctx context.Context, uid uuid.UUID, account string) (secretB32, uri string, err error)
+	PendingSecret(ctx context.Context, uid uuid.UUID, account string) (secretB32, uri string, err error)
+	ConfirmTOTP(ctx context.Context, uid uuid.UUID, code string) ([]string, error)
+	RegenerateCodes(ctx context.Context, uid uuid.UUID) ([]string, error)
+	RemoveTOTP(ctx context.Context, uid uuid.UUID) error
+	RemovePasskey(ctx context.Context, uid, id uuid.UUID) (bool, error)
+}
+
+// PasskeyService is the passkey ceremonies, sign-in and enrolment (twofactor.Passkeys).
+type PasskeyService interface {
+	BeginRegistration(ctx context.Context, uid uuid.UUID, name, displayName string) (json.RawMessage, string, error)
+	FinishRegistration(ctx context.Context, ceremonyID string, uid uuid.UUID, keyName string, r *http.Request) (uuid.UUID, error)
+	BeginLogin(ctx context.Context, uid *uuid.UUID) (json.RawMessage, string, error)
+	FinishLogin(ctx context.Context, ceremonyID string, uid *uuid.UUID, r *http.Request) (uuid.UUID, error)
 }
 
 // TokenService is the reset/invite token flow (auth.UserTokens).
@@ -158,9 +195,16 @@ type Deps struct {
 	Site     SiteStore
 	Nav      *Nav
 	Auth     Authenticator
-	Tokens   TokenService
-	Finder   UserFinder
-	Mailer   Mailer
+	// TwoFactor, with an Auth that is also a PasswordStep and a PendingKey,
+	// turns on two-step sign-in. nil means password-only sign-in.
+	TwoFactor TwoFactorService
+	// Passkeys is the passkey sign-in; nil answers its endpoints with 404.
+	Passkeys PasskeyService
+	// PendingKey signs the pending sign-in cookie (twofactor.PendingKeyFor).
+	PendingKey twofactor.PendingKey
+	Tokens     TokenService
+	Finder     UserFinder
+	Mailer     Mailer
 	// BaseURL returns the site address the owner or operator configured
 	// (PUBLIC_BASE_URL, else the Site address setting); "" when none is set.
 	// Emailed links use only this, never the request's headers.
@@ -338,6 +382,9 @@ type Admin struct {
 	// secrets holds a freshly minted API key between the POST that created it
 	// and the one GET that shows it.
 	secrets secretStore
+	// spentPending holds the ids of pending sign-ins that already finished,
+	// so a copied cookie is no use after the real one signed in.
+	spentPending spentIDs
 	// convertReviews holds the plans whose dry run passed until the owner
 	// opens the confirm page (see settings_locale_convert.go).
 	convertReviews convertReviewStore
@@ -436,7 +483,7 @@ func (a *Admin) Mount(r *httpx.Group) {
 	own := g.Group("", secureHeaders, a.demoGuard)
 	own.HandleFunc("POST /theme", a.handleTheme)
 
-	authed := own.Group("", a.RequireSession, a.RequireProfile)
+	authed := own.Group("", a.RequireSession, a.RequireTwoFactor, a.RequireProfile)
 	authed.HandleFunc("GET /", a.handleHome)
 
 	a.mountScreens(own, authed)

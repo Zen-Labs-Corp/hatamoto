@@ -15,3 +15,5 @@
 .hm-bare__notice > .hm-icon { flex: none; width: var(--space-4); height: var(--space-4); }
 .hm-bare__notice .hm-flash--neutral { padding: 0; border: 0; background: none; color: inherit; }
 .hm-bare .hm-bare__links--start { justify-content: flex-start; }
+.hm-bare [data-passkey][hidden] { display: none; }
+.hm-bare__alt { display: flex; flex-direction: column; gap: var(--space-2); }

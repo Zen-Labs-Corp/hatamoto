@@ -22,6 +22,7 @@ The admin is a set of server-rendered pages: the server builds each screen as HT
 | `<admin>/forgot` | Forgotten password. When outgoing email is set up, the account with that address receives a reset link. The page answers the same whether or not the address has an account. Without email, the page asks the visitor to have an owner run `hatamoto user reset-password --email <address>` on the server. |
 | `<admin>/reset` | Where a reset link lands. |
 | `<admin>/accept` | Where an invitation link lands: the new user enters a name and a password. |
+| `<admin>/profile/security` | Set up an authenticator app, recovery codes and passkeys for two-step sign-in. |
 | `<admin>/profile/complete` | Shown once after sign-in while your person profile has no name or no photo. |
 
 The profile step blocks every admin page except the profile pages, sign-out, static files, the media upload and picker (the photo field needs them) and the light or dark switch. Nothing is stored for this: "complete" is worked out from the person record.
