@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -156,5 +157,36 @@ func TestOnlyOneStandingApprovalRun(t *testing.T) {
 	m.Runs = append(m.Runs, bound("two", "tock"))
 	if err := m.Validate(); err == nil || !strings.Contains(err.Error(), "only one run may have a standing_approval") {
 		t.Fatalf("two standing runs: %v", err)
+	}
+}
+
+// A cron-started run fetches from allowed_hosts, so more than the run limit
+// is refused when the manifest declares the rule (the "*" wildcard is not
+// handed to a run and does not count).
+func TestStandingApprovalLimitsAllowedHosts(t *testing.T) {
+	hosts := func(n int) []string {
+		var out []string
+		for i := range n {
+			out = append(out, fmt.Sprintf("h%d.example.test", i))
+		}
+		return out
+	}
+	r := validRun()
+	r.Cron, r.StandingApproval = "tick", validStanding()
+	m := Manifest{Name: "wp", Version: "1.0.0", SDK: "^0.17",
+		Cron: []CronJob{{Name: "tick", Every: "1h"}}, Runs: []Run{r},
+		Permissions: []Permission{PermHTTPFetch, PermHTTPFetchAny}}
+	m.AllowedHosts = append(hosts(MaxRunHosts), "*")
+	if err := m.Validate(); err != nil {
+		t.Fatalf("at the limit: %v", err)
+	}
+	m.AllowedHosts = hosts(MaxRunHosts + 1)
+	if err := m.Validate(); err == nil || !strings.Contains(err.Error(), "allowed_hosts") {
+		t.Fatalf("over the limit: %v", err)
+	}
+	m.Runs[0].Cron, m.Runs[0].StandingApproval = "", nil
+	m.Cron = nil
+	if err := m.Validate(); err != nil {
+		t.Fatalf("no rule, no limit: %v", err)
 	}
 }

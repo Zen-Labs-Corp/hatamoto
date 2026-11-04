@@ -19,6 +19,10 @@ const (
 
 	MaxRuns      = 8
 	MaxRunInputs = 16
+	// MaxRunHosts is the most hosts one run may fetch from; a run with a
+	// standing_approval gets the manifest's allowed_hosts (without "*"), so the
+	// manifest may not list more.
+	MaxRunHosts = 32
 
 	// MaxStandingFields caps the fields and the schemas of a standing approval.
 	MaxStandingFields = 16
@@ -139,6 +143,9 @@ func (m Manifest) validateRuns() error {
 			return err
 		}
 		if r.StandingApproval != nil {
+			if n := len(m.AllowedHosts) - boolInt(slices.Contains(m.AllowedHosts, "*")); n > MaxRunHosts {
+				return fmt.Errorf("sdk: plugin %q: run %q: standing_approval needs at most %d allowed_hosts, got %d", m.Name, r.Name, MaxRunHosts, n)
+			}
 			// The host approves one rule per plugin: a second bound run could
 			// never be approved and its cron job would stay silent.
 			if standing++; standing > 1 {
@@ -379,4 +386,11 @@ type UpsertResult struct {
 type Proposal struct {
 	Kind    string          `json:"kind"`
 	Payload json.RawMessage `json:"payload"`
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

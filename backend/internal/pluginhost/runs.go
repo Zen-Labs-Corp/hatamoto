@@ -30,7 +30,7 @@ const MaxRunAge = changeset.TTL - 24*time.Hour
 // hosts the owner confirms for one run.
 const (
 	maxRunInputBytes = 4096
-	maxRunHosts      = 32
+	maxRunHosts      = sdk.MaxRunHosts
 )
 
 // Errors StartRun returns for a start the owner can correct.
