@@ -334,7 +334,23 @@ var headerNamePattern = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
 
 // forbiddenRequestHeaders never reach a plugin: credentials and every header
 // that carries the visitor's address.
-var forbiddenRequestHeaders = []string{"authorization", "cookie", "proxy-authorization", "x-forwarded-for", "x-real-ip", "forwarded", "cf-connecting-ip"}
+var forbiddenRequestHeaders = []string{"authorization", "cookie", "proxy-authorization", "x-forwarded-for", "x-real-ip", "forwarded", "cf-connecting-ip",
+	"connection", "te", "upgrade", "keep-alive", "transfer-encoding", "host", "content-length", "via", "trailer"}
+
+// forbiddenHeaderTokens are dash-separated words that mark a header as one a
+// proxy or CDN uses to carry the visitor's address (True-Client-IP,
+// Fastly-Client-IP, X-Envoy-External-Address, ...). Refusing by shape covers
+// the vendor headers the explicit list cannot name.
+var forbiddenHeaderTokens = []string{"ip", "ips", "ipv4", "ipv6", "addr", "address", "forwarded", "client", "real", "for", "connecting", "remote", "via"}
+
+// forbiddenRequestHeader reports whether the lower-case header name is never
+// passed to plugins.
+func forbiddenRequestHeader(lc string) bool {
+	if slices.Contains(forbiddenRequestHeaders, lc) || strings.HasPrefix(lc, "proxy-") || strings.Contains(lc, "forwarded") {
+		return true
+	}
+	return slices.ContainsFunc(strings.Split(lc, "-"), func(t string) bool { return slices.Contains(forbiddenHeaderTokens, t) })
+}
 
 // WithDefaults returns m with zero limits replaced by the defaults.
 func (m Manifest) WithDefaults() Manifest {
@@ -549,7 +565,7 @@ func (m Manifest) validateRequestHeaders() error {
 		if !headerNamePattern.MatchString(h) {
 			return fmt.Errorf("sdk: plugin %q: request header name %q", m.Name, h)
 		}
-		if slices.Contains(forbiddenRequestHeaders, lc) {
+		if forbiddenRequestHeader(lc) {
 			return fmt.Errorf("sdk: plugin %q: request header %q is never passed to plugins", m.Name, h)
 		}
 		if seen[lc] {
