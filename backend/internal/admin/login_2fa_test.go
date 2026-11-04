@@ -76,7 +76,7 @@ func (f *fakeTwoFactor) Counts(_ context.Context, ids []uuid.UUID) (map[uuid.UUI
 	out := map[uuid.UUID]twofactor.Factors{}
 	for _, id := range ids {
 		if id == f.uid {
-			out[id] = twofactor.Factors{TOTP: true}
+			out[id] = twofactor.Factors{TOTP: true, Passkeys: len(f.keys)}
 		}
 	}
 	return out, nil

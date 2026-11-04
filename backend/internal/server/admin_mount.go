@@ -83,6 +83,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.authService != nil {
 		d.Auth = s.authService
 	}
+	s.wireTwoFactor(&d)
 	if s.userTokens != nil {
 		d.Tokens = s.userTokens
 	}
