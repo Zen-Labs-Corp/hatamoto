@@ -221,3 +221,17 @@ func TestDuplicateOfImportedEntryDropsImportKey(t *testing.T) {
 		t.Errorf("metadata = %s", got.Metadata)
 	}
 }
+
+func TestDuplicateOfSharedEntryStaysShared(t *testing.T) {
+	ctx := context.Background()
+	d, f := newDuplicateFixture(t, `{"locale_neutral":true}`)
+	useLocales(t, f.svc, "en", "fr")
+	src := f.page(t, "shared", "", `{}`, nil)
+	if src.Locale != LocaleShared {
+		t.Fatalf("source locale = %q", src.Locale)
+	}
+	cp, err := d.Duplicate(ctx, uuid.Nil, src.ID)
+	if err != nil || cp.Locale != LocaleShared || cp.Slug != "shared-copy" {
+		t.Fatalf("copy = %+v, %v", cp, err)
+	}
+}

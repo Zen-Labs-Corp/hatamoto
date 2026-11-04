@@ -57,10 +57,14 @@ func (d *Duplicator) Duplicate(ctx context.Context, userID, srcID uuid.UUID) (*E
 	if err != nil {
 		return nil, err
 	}
+	locale := src.Locale
+	if locale == LocaleShared {
+		locale = "" // CreateEntity refuses und; the schema default restores it
+	}
 	in := &CreateEntityInput{
 		SchemaID:       src.SchemaID,
 		Name:           "Copy of " + src.Name,
-		Locale:         src.Locale,
+		Locale:         locale,
 		ParentID:       src.ParentID,
 		Attributes:     attrs,
 		Metadata:       meta,
