@@ -49,6 +49,15 @@ func changeStateBadge(state string) ui.Badge {
 	return ui.Badge{Label: "Discarded", Kind: "muted"}
 }
 
+// restoredSettings is the tail of the undo text for the site-wide settings an
+// approved suggestion changed; nothing when there were none.
+func restoredSettings(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return " and restores the " + countNoun(n, "site-wide setting")
+}
+
 func (a *Admin) handleChanges(w http.ResponseWriter, r *http.Request) {
 	rv := a.deps.Growth.Reviewer
 	if rv == nil {
@@ -102,8 +111,8 @@ func (a *Admin) handleChanges(w http.ResponseWriter, r *http.Request) {
 			}
 			dlg := undoDialog{
 				ID: id, FormID: id + "-form", Action: a.adminPath + changesRel + "/" + row.ID + "/undo",
-				Title: "Undo " + h.RunName + "?",
-				Body:  fmt.Sprintf("Removes the %s this import published and restores the %s.", countNoun(pv.Applied, "change"), countNoun(pv.Settings, "site-wide setting")),
+				Title: fmt.Sprintf("Undo run #%d?", h.ID),
+				Body:  fmt.Sprintf("Removes the %s this import published%s.", countNoun(pv.Applied, "change"), restoredSettings(pv.Settings)),
 			}
 			if pv.EditedSince > 0 {
 				dlg.Callout = fmt.Sprintf("%s edited by you since then. They are now yours and stay as they are.", countNoun(pv.EditedSince, "imported page")+" "+map[bool]string{true: "was", false: "were"}[pv.EditedSince == 1])

@@ -35,7 +35,7 @@ func TestChangesPage(t *testing.T) {
 	for _, want := range []string{
 		"Published", "Waiting for you", "Expired, deleted", "Discarded", "Reverted", "1,858",
 		`href="/admin/plugins/hello/changesets/2"`, "Undo whole run", `data-hm-open="undo-1"`,
-		"Removes the 1,858 changes this import published and restores the 2 site-wide settings.",
+		"Undo run #1?", "Removes the 1,858 changes this import published and restores the 2 site-wide settings.",
 		"4 imported pages were edited by you since then. They are now yours and stay as they are.",
 		`action="/admin/settings/changes/1/undo"`, "Undo run",
 	} {
@@ -48,6 +48,14 @@ func TestChangesPage(t *testing.T) {
 	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %s", strings.Join(issues, "; "))
+	}
+	fr.preview.Settings = 1
+	if b := g.do("GET", "/admin/settings/changes", "owner-token", nil, nil).Body.String(); !strings.Contains(b, "and restores the 1 site-wide setting.") {
+		t.Error("one setting is singular")
+	}
+	fr.preview.Settings = 0
+	if b := g.do("GET", "/admin/settings/changes", "owner-token", nil, nil).Body.String(); strings.Contains(b, "site-wide") || !strings.Contains(b, "this import published.") {
+		t.Error("no mention of settings when none were changed")
 	}
 	fr.preview.EditedSince = 0
 	if strings.Contains(g.do("GET", "/admin/settings/changes", "owner-token", nil, nil).Body.String(), "edited by you since then") {
