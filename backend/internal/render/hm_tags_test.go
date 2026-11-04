@@ -253,6 +253,19 @@ func TestTagsDOMWithoutConsentScriptLoadsAtOnce(t *testing.T) {
 	}
 }
 
+func TestTagsDOMBannerOnButConsentScriptAbsentLoadsNothing(t *testing.T) {
+	t.Parallel()
+	cfg := allVendorsConfig()
+	cfg.Consent = true
+	r := runTagsDOM(t, cfg)
+	if len(r.Before) != 0 || len(r.After) != 0 {
+		t.Errorf("loaded without a consent script while the banner is on: %+v", r)
+	}
+	if r := runTagsDOM(t, cfg, "CONSENT=1", `GRANT={"analytics":true}`); len(r.After) != 1 {
+		t.Errorf("consent present and granted: %v", r.After)
+	}
+}
+
 func TestTagsDOMMarkerSuppressesEverything(t *testing.T) {
 	t.Parallel()
 	r := runTagsDOM(t, allVendorsConfig(), "MARKER=1")

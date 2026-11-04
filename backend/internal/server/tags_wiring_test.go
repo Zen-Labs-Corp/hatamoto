@@ -159,3 +159,24 @@ func TestTagsHashChangesWithSettings(t *testing.T) {
 		t.Error("script hash must follow the settings")
 	}
 }
+
+func TestTagsScriptKnowsWhetherTheBannerIsOn(t *testing.T) {
+	scriptFor := func(privacy string) string {
+		s := tagsServer(docQuerier{tracking: ga4Only, privacy: privacy})
+		s.installTagsRender()
+		t.Cleanup(func() { render.SetTags(nil) })
+		e, err := render.New(render.Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		rec := httptest.NewRecorder()
+		e.AssetHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, render.AssetPrefix+render.TagsScriptName, nil))
+		return rec.Body.String()
+	}
+	if got := scriptFor(consentO); !strings.Contains(got, `"consent":true`) {
+		t.Errorf("banner on: script lacks consent flag: %.300s", got)
+	}
+	if got := scriptFor(`{}`); !strings.Contains(got, `"consent":false`) {
+		t.Errorf("banner off: script lacks consent=false: %.300s", got)
+	}
+}

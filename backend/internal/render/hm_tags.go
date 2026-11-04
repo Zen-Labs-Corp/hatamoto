@@ -33,10 +33,14 @@ type TagVendor struct {
 // TagsConfig is the tag manager configuration the served script is generated
 // from. Noscript is markup for the page body, not part of the script.
 type TagsConfig struct {
-	ExcludeSignedIn bool          `json:"excludeSignedIn"`
-	Member          string        `json:"member"` // marker cookie name
-	Vendors         []TagVendor   `json:"vendors"`
-	Noscript        template.HTML `json:"-"`
+	ExcludeSignedIn bool   `json:"excludeSignedIn"`
+	Member          string `json:"member"` // marker cookie name
+	// Consent is set when the consent banner is on: a vendor then loads only
+	// once hm-consent.js is present and allows it, so a blocked or uncached
+	// consent script fails closed.
+	Consent  bool          `json:"consent"`
+	Vendors  []TagVendor   `json:"vendors"`
+	Noscript template.HTML `json:"-"`
 }
 
 // hash identifies the configuration, noscript included; it is the

@@ -29,7 +29,7 @@ func (s *Server) installTagsRender() {
 			return render.TagsConfig{}, false
 		}
 		banner, _ := s.consentState(ctx)
-		cfg := render.TagsConfig{ExcludeSignedIn: set.ExcludeSignedIn, Member: auth.MemberMarkerName}
+		cfg := render.TagsConfig{ExcludeSignedIn: set.ExcludeSignedIn, Member: auth.MemberMarkerName, Consent: banner}
 		var noscript []string
 		for _, e := range enabled {
 			cfg.Vendors = append(cfg.Vendors, render.TagVendor{

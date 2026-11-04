@@ -4,8 +4,9 @@
  * on at least one tag in Settings > Tracking; themes do not ship it. The
  * enabled vendors are substituted into CFG when the file is served.
  *
- * A vendor loads when hm.consent is absent or hm.consent.allows(category) is
- * true, once, and again for newly allowed vendors on every "hm:consent".
+ * A vendor loads when hm.consent.allows(category) is true, or when hm.consent
+ * is absent and the banner is off (CFG.consent unset). It loads once, and
+ * again for newly allowed vendors on every "hm:consent".
  * Consent Mode defaults and updates are sent by hm-consent.js, never here.
  * A tag already loaded cannot be unloaded when consent is later withdrawn.
  *
@@ -28,7 +29,8 @@
 
   function allowed(cat) {
     var c = w.hm && w.hm.consent;
-    return !c || c.allows(cat);
+    if (!c) return !CFG.consent; // banner on but its script missing: fail closed
+    return c.allows(cat);
   }
 
   function gtag() {
