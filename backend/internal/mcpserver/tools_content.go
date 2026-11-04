@@ -163,10 +163,10 @@ func (s *Server) registerContent() {
 		Schema     string `json:"schema" jsonschema:"schema slug (see schemas_list)"`
 		Name       string `json:"name"`
 		Slug       string `json:"slug,omitempty" jsonschema:"derived from the name when empty"`
-		Locale     string `json:"locale,omitempty" jsonschema:"BCP 47 language tag such as en or fr; the site language when empty"`
+		Locale     string `json:"locale,omitempty" jsonschema:"BCP 47 language tag such as en or fr; the site language when empty, or all languages (und) for a type shared across languages"`
 		Attributes object `json:"attributes,omitempty" jsonschema:"content fields as the schema defines them (see schemas_get)"`
 	}
-	register(s, toolSpec{name: "entities_create", description: "Create a DRAFT entity (optionally with a locale; a slug is unique per schema and locale). Nothing is public until entities_publish. HTML in rich-text fields is sanitised.", scope: writeScope, write: true},
+	register(s, toolSpec{name: "entities_create", description: "Create a DRAFT entity (optionally with a locale, which is the site language when empty, or all languages (und) for a type shared across languages; a slug is unique per schema and locale). Nothing is public until entities_publish. HTML in rich-text fields is sanitised.", scope: writeScope, write: true},
 		func(ctx context.Context, key *hmauth.APIKey, in createIn) (any, error) {
 			if strings.TrimSpace(in.Name) == "" {
 				return nil, userErr("name is required")
