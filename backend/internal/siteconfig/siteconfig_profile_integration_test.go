@@ -5,6 +5,7 @@ package siteconfig_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"hatamoto.dev/core/internal/siteconfig"
@@ -135,5 +136,34 @@ func TestCompressResponsesDefaultAndUpdate(t *testing.T) {
 	}
 	if cfg, err = s.Update(ctx, siteconfig.UpdateInput{Tagline: &tag}); err != nil || cfg.CompressResponses {
 		t.Fatalf("later update reset it: %v %v", cfg, err)
+	}
+}
+
+// two_factor_policy defaults to optional, persists the three valid values,
+// survives an unrelated update and rejects anything else.
+func TestTwoFactorPolicyDefaultAndUpdate(t *testing.T) {
+	ctx := context.Background()
+	s := scratchStore(t)
+	cfg, err := s.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.TwoFactorPolicy != siteconfig.TwoFactorOptional {
+		t.Fatalf("default policy = %q, want optional", cfg.TwoFactorPolicy)
+	}
+	owners := siteconfig.TwoFactorOwners
+	if cfg, err = s.Update(ctx, siteconfig.UpdateInput{TwoFactorPolicy: &owners}); err != nil || cfg.TwoFactorPolicy != owners {
+		t.Fatalf("owners did not persist: %v %v", cfg, err)
+	}
+	tag := "x"
+	if cfg, err = s.Update(ctx, siteconfig.UpdateInput{Tagline: &tag}); err != nil || cfg.TwoFactorPolicy != owners {
+		t.Fatalf("unrelated update changed the policy: %v %v", cfg, err)
+	}
+	bad := "admins"
+	if _, err = s.Update(ctx, siteconfig.UpdateInput{TwoFactorPolicy: &bad}); !errors.Is(err, siteconfig.ErrInvalidTwoFactorPolicy) {
+		t.Fatalf("invalid policy err = %v", err)
+	}
+	if cfg, _ = s.Get(ctx); cfg.TwoFactorPolicy != owners {
+		t.Fatalf("invalid update changed the stored policy: %q", cfg.TwoFactorPolicy)
 	}
 }

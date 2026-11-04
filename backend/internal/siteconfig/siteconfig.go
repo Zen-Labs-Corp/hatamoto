@@ -116,7 +116,19 @@ type Config struct {
 	// CompressResponses sends the app's own text responses as zstd or gzip
 	// when the client accepts it.
 	CompressResponses bool
+	// TwoFactorPolicy is TwoFactorOptional, TwoFactorOwners or TwoFactorEveryone.
+	TwoFactorPolicy string
 }
+
+// Two-factor sign-in policies: who must have a second factor.
+const (
+	TwoFactorOptional = "optional"
+	TwoFactorOwners   = "owners"
+	TwoFactorEveryone = "everyone"
+)
+
+// ErrInvalidTwoFactorPolicy is returned by Update for an unknown policy.
+var ErrInvalidTwoFactorPolicy = errors.New("siteconfig: two-factor policy must be optional, owners or everyone")
 
 // Preload modes: skip pages that are already cached, or rebuild everything.
 const (
@@ -243,6 +255,7 @@ type UpdateInput struct {
 	PagePreloadMode            *string
 	PagePreloadAfterChanges    *bool
 	CompressResponses          *bool // nil = unchanged
+	TwoFactorPolicy            *string
 	// SetupCompleted true stamps setup_completed_at once (never cleared).
 	SetupCompleted bool
 }
@@ -382,6 +395,15 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 	if in.CompressResponses != nil {
 		compress = *in.CompressResponses
 	}
+	var twoFactorPolicy any
+	if in.TwoFactorPolicy != nil {
+		switch *in.TwoFactorPolicy {
+		case TwoFactorOptional, TwoFactorOwners, TwoFactorEveryone:
+			twoFactorPolicy = *in.TwoFactorPolicy
+		default:
+			return nil, ErrInvalidTwoFactorPolicy
+		}
+	}
 	if in.PagePreloadAfterChanges != nil {
 		preloadAfter = *in.PagePreloadAfterChanges
 	}
@@ -449,13 +471,14 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		  business_profile   = COALESCE($28, business_profile),
 		  sitemap_naming     = COALESCE($29, sitemap_naming),
 		  compress_responses = COALESCE($30, compress_responses),
+		  two_factor_policy  = COALESCE($31, two_factor_policy),
 		  updated_at         = NOW()
 		WHERE id = TRUE
 	`, companyName, logoURL, customDomain, primaryColor, themeExtra,
 		tagline, timezone, homepageEntityID, notificationEmail, postalAddress,
 		language, phone, businessHours, legacyWP, publicBaseURL, in.SetupCompleted,
 		cacheEnabled, cacheTTL, cacheMaxMB, preloadEnabled, preloadInterval,
-		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale, businessProfile, sitemapNaming, compress)
+		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale, businessProfile, sitemapNaming, compress, twoFactorPolicy)
 	if err != nil {
 		return nil, fmt.Errorf("update site config: %w", err)
 	}
@@ -661,7 +684,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       page_preload_mode, page_preload_after_changes,
 		       locales, prefix_all, x_default_locale,
 		       business_profile, locale_profiles, sitemap_naming, menus_seeded_at,
-		       compress_responses
+		       compress_responses, two_factor_policy
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -675,7 +698,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.PagePreloadMode, &cfg.PagePreloadAfterChanges,
 		&locales, &cfg.PrefixAll, &cfg.XDefaultLocale,
 		&businessProfile, &localeProfiles, &cfg.SitemapNaming, &cfg.MenusSeededAt,
-		&cfg.CompressResponses,
+		&cfg.CompressResponses, &cfg.TwoFactorPolicy,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured
