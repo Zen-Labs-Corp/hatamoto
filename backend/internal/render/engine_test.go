@@ -477,7 +477,7 @@ func TestEngineRenderAccess(t *testing.T) {
 		{"coming soon", AccessView{Mode: "coming-soon"}, 200, []string{"We are launching soon", "Check back shortly."}, []string{"<form"}},
 		{"maintenance", AccessView{Mode: "maintenance", Heading: "Down", Message: "Back at noon"}, 503, []string{"<h1>Down</h1>", "Back at noon"}, []string{"<form"}},
 		{"password", AccessView{Mode: "password", Action: "/-/site-access", Next: "/about", HasError: true, Error: "Wrong password."}, 401,
-			[]string{`<form method="post" action="/-/site-access">`, `<label for="site-access-password">`, `type="password"`, `name="next" value="/about"`, `role="alert"`}, nil},
+			[]string{`<form method="post" action="/-/site-access">`, `<label for="hm-site-access-password">`, `type="password"`, `name="next" value="/about"`, `role="alert"`}, nil},
 	} {
 		v := minimalView()
 		v.Page.Title = ""
