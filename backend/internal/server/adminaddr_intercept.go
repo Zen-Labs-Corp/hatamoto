@@ -312,6 +312,9 @@ const previewTokenLen = 32
 // no dot segment or extra segment gets through.
 func isPreviewFramePath(rel string) bool {
 	parts := strings.Split(rel, "/")
+	if len(parts) == 6 && parts[1] == "changesets" {
+		return isChangesetFramePath(parts)
+	}
 	if len(parts) != 6 || parts[0] != "" || parts[1] != "entities" || parts[3] != "edit" || parts[4] != "preview" {
 		return false
 	}
@@ -319,6 +322,40 @@ func isPreviewFramePath(rel string) bool {
 		return false
 	}
 	tok := parts[5]
+	if len(tok) != previewTokenLen {
+		return false
+	}
+	for _, c := range []byte(tok) {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '-', c == '_':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// isChangesetFramePath matches /changesets/{id}/frame/{seq}/{token}, the
+// ticketed, cookieless-capable frame of a changeset preview. parts is the path
+// split on "/".
+func isChangesetFramePath(parts []string) bool {
+	if len(parts) != 6 || parts[0] != "" || parts[1] != "changesets" || parts[3] != "frame" {
+		return false
+	}
+	for _, n := range []string{parts[2], parts[4]} {
+		if n == "" || len(n) > 18 || n[0] == '0' {
+			return false
+		}
+		for _, c := range []byte(n) {
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+	}
+	return validPreviewToken(parts[5])
+}
+
+func validPreviewToken(tok string) bool {
 	if len(tok) != previewTokenLen {
 		return false
 	}

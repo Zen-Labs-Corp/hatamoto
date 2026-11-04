@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -127,6 +128,22 @@ func (a *Admin) guardFor(s scope) func(http.Handler) http.Handler {
 					w = w.(*sealWriter).ResponseWriter
 					ctx := context.WithValue(r.Context(), frameableKey{}, true)
 					r = r.WithContext(context.WithValue(ctx, previewPayloadKey{}, body))
+				} else if cs, ok := a.changesetFrameRoute(r); ok {
+					// A changeset preview frame: one-time ticket, this session, this
+					// changeset and item. Owner sessions only. consumeBound (the
+					// cookieless preview host) is never used here.
+					u, sess, authed := a.cachedAuth(r)
+					if authed && sess != nil && u != nil && u.Role == user.RoleOwner {
+						_, ok = a.tickets.consume(ticketChangesetPreview, cs.ticket, sess.ID, changesetTarget(cs.id, cs.seq))
+					} else {
+						ok = false
+					}
+					if !ok {
+						a.refuse(w, r)
+						return
+					}
+					w = w.(*sealWriter).ResponseWriter
+					r = r.WithContext(context.WithValue(r.Context(), frameableKey{}, true))
 				} else {
 					var ok bool
 					if r, ok = a.tokenRule(w, r); !ok {
@@ -327,6 +344,45 @@ func (a *Admin) previewRoute(r *http.Request) (previewRef, bool) {
 		return previewRef{}, false
 	}
 	return previewRef{id: id, ticket: parts[3]}, true
+}
+
+type changesetRef struct {
+	id     int64
+	seq    int
+	ticket string
+}
+
+// changesetFrameRoute reports whether r is a frame navigation to a changeset
+// preview URL, <admin>/changesets/{id}/frame/{seq}/{ticket}: the same fetch
+// metadata rule as previewRoute and exactly that shape. It does not judge the
+// ticket.
+func (a *Admin) changesetFrameRoute(r *http.Request) (changesetRef, bool) {
+	h := r.Header
+	if r.Method != http.MethodGet || h.Get("Sec-Fetch-Dest") != "iframe" ||
+		h.Get("Sec-Fetch-Mode") != "navigate" || h.Get("Sec-Fetch-Site") != "same-origin" {
+		return changesetRef{}, false
+	}
+	rest, ok := strings.CutPrefix(r.URL.EscapedPath(), a.url("changesets")+"/")
+	if !ok {
+		return changesetRef{}, false
+	}
+	return parseChangesetFrame(rest)
+}
+
+// parseChangesetFrame parses {id}/frame/{seq}/{ticket}: canonical positive
+// decimals only, so one item has one URL.
+func parseChangesetFrame(rest string) (changesetRef, bool) {
+	parts := strings.Split(rest, "/")
+	if len(parts) != 4 || parts[1] != "frame" || parts[3] == "" {
+		return changesetRef{}, false
+	}
+	id, err1 := strconv.ParseInt(parts[0], 10, 64)
+	seq, err2 := strconv.Atoi(parts[2])
+	if err1 != nil || err2 != nil || id <= 0 || seq <= 0 ||
+		strconv.FormatInt(id, 10) != parts[0] || strconv.Itoa(seq) != parts[2] {
+		return changesetRef{}, false
+	}
+	return changesetRef{id: id, seq: seq, ticket: parts[3]}, true
 }
 
 // refuse is THE refusal call site: it answers with the site's standard

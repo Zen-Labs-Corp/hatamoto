@@ -504,6 +504,36 @@ func TestInterceptPreviewFrameSignedOut(t *testing.T) {
 	}
 }
 
+func TestInterceptChangesetFrameSignedOut(t *testing.T) {
+	tok := strings.Repeat("aB3_-", 6) + "xy"
+	frame := testPrefix + "/changesets/42/frame/1/" + tok
+	h := newHarness(testPrefix, 0)
+	if code, body, _ := h.do("GET", frame, "198.51.100.1"); code != 200 || body != bodyNext {
+		t.Errorf("GET frame = %d %q, want the admin", code, body)
+	}
+	for _, p := range []string{
+		testPrefix + "/changesets/42/frame/1/" + tok + "/x",
+		testPrefix + "/changesets/42/frame/1/" + tok[:31],
+		testPrefix + "/changesets/42/frame/1/",
+		testPrefix + "/changesets/042/frame/1/" + tok,
+		testPrefix + "/changesets/42/frame/01/" + tok,
+		testPrefix + "/changesets/x/frame/1/" + tok,
+		testPrefix + "/changesets/42/frame/-1/" + tok,
+		testPrefix + "/changesets/42/preview/1/" + tok,
+		testPrefix + "/changesets/42/frame/1/" + tok[:31] + "%2e",
+		testPrefix + "/changesets/42",
+	} {
+		if code, body := h.get(p); code != 404 || body != bodyRefused {
+			t.Errorf("GET %s = %d %q, want refused", p, code, body)
+		}
+	}
+	for _, m := range []string{"POST", "PUT", "DELETE", "PATCH"} {
+		if code, body, _ := h.do(m, frame, "198.51.100.1"); code != 404 || body != bodyRefused {
+			t.Errorf("%s frame = %d %q, want refused", m, code, body)
+		}
+	}
+}
+
 // Words a site can serve as a page or section are not probes.
 func TestWellKnownKeepsLegitimateSections(t *testing.T) {
 	for _, p := range []string{"/status", "/horizon", "/telescope", "/vendor/acme", "/manager/team", "/solr", "/grafana",
