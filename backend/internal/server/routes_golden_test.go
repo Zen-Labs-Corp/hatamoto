@@ -75,7 +75,10 @@ func allowedExtraPattern(pattern string, expected map[string]bool) bool {
 		return true // the Go admin; its table is pinned by testdata/admin_routes.golden
 	}
 	if method == "OPTIONS" { // preflight for sandboxed (opaque origin) pages, see public_cors.go
-		return strings.HasSuffix(path, "/forms/{slug}/token") || strings.HasSuffix(path, "/forms/{slug}/submit") || strings.HasSuffix(path, "/track")
+		return strings.HasSuffix(path, "/forms/{slug}/token") || strings.HasSuffix(path, "/forms/{slug}/submit") || strings.HasSuffix(path, "/track") || strings.HasSuffix(path, "/consent")
+	}
+	if path == "/api/v1/public/consent" && method == "POST" || path == "/api/v1/public/consent/region" && method == "GET" {
+		return true // cookie consent: the region answer and the choice counter
 	}
 	switch path {
 	case "/feed.xml", "/atom.xml": // v1-07 post feeds, root only
