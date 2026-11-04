@@ -539,8 +539,46 @@ Runs need **no permission**. They are gated by the run itself: a run function ca
 | `inputs` | values the owner enters at start (at most 16): `{ "name", "label", "type"?, "required"?, "options"? }`; `type` is `text` (default), `url`, `number`, `bool` or `select` (with `options`) |
 | `stages` | must be exactly `["fetch", "transform"]` |
 | `proposes` | proposal kinds the run may submit with `changeset.propose`: `site_settings`, `url_patterns`, `home_page`, `menu_location` |
+| `cron` | optional: the name of a job in the manifest's `cron` block. When that job fires, the host starts this run instead of calling `on_cron_<job>`. Needs `standing_approval` |
+| `standing_approval` | optional: the rule the owner may approve once so this cron-started run publishes itself; see [Standing approvals](#standing-approvals) |
 
 A plugin declares at most 8 runs. A plugin with a `runs` block must export `on_run_step`; otherwise it is refused at load.
+
+### Standing approvals
+
+Two ways to keep a value current without a review each time.
+
+**Layer 1: the data path (no approval).** Keep the value (a price, a count, a rate) in the plugin's own store (`kv` or `db`), refresh it from `on_cron_<job>`, and show it in the theme with `{{ plugin_<name>_<func> ... }}` (see [Template functions](#template-functions-partials-and-sections)). The output is escaped as text, never markup, and no content is written, so nothing needs approval. Use this first.
+
+**Layer 2: a standing approval.** When the value must live in an entity attribute, a cron-started run may publish itself, but only inside a rule the owner approved:
+
+```json
+"cron": [ { "name": "prices", "every": "1h" } ],
+"runs": [
+  {
+    "name": "refresh_prices",
+    "title": "Refresh prices",
+    "stages": ["fetch", "transform"],
+    "cron": "prices",
+    "standing_approval": { "fields": ["price"], "schemas": ["product"], "max_per_hour": 100 }
+  }
+]
+```
+
+| Field | Meaning |
+|---|---|
+| `cron` | names a declared cron job; required with `standing_approval`, and an error without it |
+| `standing_approval.fields` | attribute keys the run may change, 1 to 16, each matching the identifier pattern, no duplicates |
+| `standing_approval.schemas` | entity schema slugs the rule applies to, 1 to 16, same rules |
+| `standing_approval.max_per_hour` | most automatic changes an hour; 0 or absent means 200, and more than 200 is refused |
+
+A run with a `standing_approval` takes no `inputs`. The block is additive: older hosts ignore it, and there is no new host function or permission. Cron, hooks and routes still cannot write content: to change content on a schedule, use a cron-started run with a standing approval.
+
+Nothing happens until the owner approves the rule on the plugin's **Automatic updates** tab (a step-up sign-in is required). Without an active approval the cron tick does not start the run. With one, the run publishes itself only when every item is an update of a listed field on an object the plugin owns (`origin` is `plugin:<name>`), the field is a number, boolean, date or enum in the entity schema, nothing else in the item changed, there is no proposal and the hourly cap holds. Anything else stays staged for review as usual. Never published automatically: HTML, links, slugs, free text, creates, deletes, terms, menus, redirects and media.
+
+Because the item replaces the whole attributes object, a price-only update must resend `slug`, `name` and `parent` unchanged (and the other attributes as they are); a changed slug, name or parent is outside the rule and the changeset waits for review.
+
+The approval is void when the plugin's version or manifest changes, when a schema the rule names changes, or when the plugin is uninstalled. The owner then sees the plugin as updated, with the rule paused until they review and allow it again. A once a day summary lists what published automatically, and Settings, Changes marks those changesets as published automatically.
 
 ### `on_run_step`
 
@@ -678,7 +716,7 @@ The request is JSON on the `http_handle` input and the response JSON on its outp
 
 ## Cron
 
-`"cron": [ { "name": "digest", "every": "15m" } ]` calls the export `on_cron_digest` on the in-process scheduler (the one that runs core maintenance) every `every`, a Go duration of **at least 1 minute**. The first call is one period after the plugin loads or the server starts; a run that is still going when the next is due delays it instead of overlapping. Input: `{ "name": "digest", "scheduled_at": "<RFC 3339>" }`; output ignored; a failure is logged. Jobs are added and removed with the plugin, no restart. They do not run when the process runs with `WORKER_DRAIN` or the worker off.
+`"cron": [ { "name": "digest", "every": "15m" } ]` calls the export `on_cron_digest` on the in-process scheduler (the one that runs core maintenance) every `every`, a Go duration of **at least 1 minute**. The first call is one period after the plugin loads or the server starts; a run that is still going when the next is due delays it instead of overlapping. Input: `{ "name": "digest", "scheduled_at": "<RFC 3339>" }`; output ignored; a failure is logged. Jobs are added and removed with the plugin, no restart. They do not run when the process runs with `WORKER_DRAIN` or the worker off. Cron cannot write content. To keep a theme value fresh, store it in the plugin store and show it with `{{ plugin_<name>_<func> ... }}`; to change content on a schedule, use a cron-started run with a standing approval (see [Standing approvals](#standing-approvals)).
 
 ## Template functions, partials and sections
 
