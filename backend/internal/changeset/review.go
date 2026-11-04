@@ -338,7 +338,7 @@ func readBatchOf(ctx context.Context, tx pgx.Tx, csID int64, last int, cond stri
 // HistoryRow is one changeset in the history list.
 type HistoryRow struct {
 	Header
-	RunName                   string
+	RunName, RunState         string
 	PublishedAt, RevertedAt   *time.Time
 	Applied, Skipped, Dropped int
 	PayloadBytes              int64
@@ -348,7 +348,7 @@ type HistoryRow struct {
 // Applied counts the items a publish applied, reverted ones included.
 func (e *Engine) List(ctx context.Context, plugin string, limit, offset int) ([]HistoryRow, error) {
 	rows, err := e.DB.Pool().Query(ctx, `
-		SELECT c.id, c.run_id, c.plugin, c.state, c.expires_at, c.item_count, r.name, c.published_at, c.reverted_at, c.payload_bytes,
+		SELECT c.id, c.run_id, c.plugin, c.state, c.expires_at, c.item_count, r.name, r.state, c.published_at, c.reverted_at, c.payload_bytes,
 		       count(i.id) FILTER (WHERE i.result IN ('applied', 'reverted')),
 		       count(i.id) FILTER (WHERE i.result IN ('skipped_conflict', 'skipped_other')),
 		       count(i.id) FILTER (WHERE i.result = 'dropped')
@@ -356,7 +356,7 @@ func (e *Engine) List(ctx context.Context, plugin string, limit, offset int) ([]
 		JOIN hatamoto_runs r ON r.id = c.run_id
 		LEFT JOIN hatamoto_changeset_items i ON i.changeset_id = c.id
 		WHERE $1 = '' OR c.plugin = $1
-		GROUP BY c.id, r.name
+		GROUP BY c.id, r.name, r.state
 		ORDER BY c.created_at DESC, c.id DESC LIMIT $2 OFFSET $3`, plugin, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list changesets: %w", err)
@@ -365,7 +365,7 @@ func (e *Engine) List(ctx context.Context, plugin string, limit, offset int) ([]
 	var out []HistoryRow
 	for rows.Next() {
 		var h HistoryRow
-		if err := rows.Scan(&h.ID, &h.RunID, &h.Plugin, &h.State, &h.ExpiresAt, &h.ItemCount, &h.RunName, &h.PublishedAt, &h.RevertedAt,
+		if err := rows.Scan(&h.ID, &h.RunID, &h.Plugin, &h.State, &h.ExpiresAt, &h.ItemCount, &h.RunName, &h.RunState, &h.PublishedAt, &h.RevertedAt,
 			&h.PayloadBytes, &h.Applied, &h.Skipped, &h.Dropped); err != nil {
 			return nil, err
 		}

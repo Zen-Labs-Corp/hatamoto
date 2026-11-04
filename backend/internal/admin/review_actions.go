@@ -51,6 +51,8 @@ func (a *Admin) reviewError(w http.ResponseWriter, r *http.Request, h changeset.
 		a.ErrorBack(w, r, http.StatusNotFound, "Changeset not found", "That changeset does not exist.", a.adminPath+"/plugins", "Back to plugins")
 	case errors.Is(err, ErrReviewNotStaged):
 		a.ErrorBack(w, r, http.StatusConflict, "Not waiting for review", "These changes are no longer waiting for a decision.", back, label)
+	case errors.Is(err, ErrReviewRunning):
+		a.ErrorBack(w, r, http.StatusConflict, "Still running", "The run has not finished, so these changes cannot be reviewed or published yet.", back, label)
 	case errors.Is(err, ErrReviewExpired):
 		a.ErrorBack(w, r, http.StatusConflict, "Changes expired", "Nobody decided in time, so these changes expired and were deleted.", back, label)
 	default:

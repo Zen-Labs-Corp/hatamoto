@@ -102,6 +102,7 @@ type HistoryRow struct {
 	ID                        int64
 	Plugin, RunName, State    string
 	By                        string
+	Building                  bool // the run has not finished: nothing to review yet
 	When                      time.Time
 	Applied, Skipped, Dropped int
 }
@@ -125,8 +126,11 @@ type ChangesetReviewer interface {
 
 // What the reviewer answers when an action cannot go ahead.
 var (
-	ErrReviewUndecided    = errors.New("some changes are not decided yet")
-	ErrReviewNotStaged    = errors.New("the changes are not waiting for review")
+	ErrReviewUndecided = errors.New("some changes are not decided yet")
+	ErrReviewNotStaged = errors.New("the changes are not waiting for review")
+	// ErrReviewRunning: the run is still staging (or did not finish), so the
+	// changes cannot be reviewed or published yet.
+	ErrReviewRunning      = errors.New("the run has not finished")
 	ErrReviewExpired      = errors.New("the changes expired")
 	ErrReviewNotFound     = errors.New("changes not found")
 	ErrReviewNotPublished = errors.New("the changes are not published")

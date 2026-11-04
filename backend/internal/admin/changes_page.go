@@ -73,8 +73,11 @@ func (a *Admin) handleChanges(w http.ResponseWriter, r *http.Request) {
 	}}
 	for _, h := range rows {
 		badge := changeStateBadge(h.State)
+		if h.Building {
+			badge = ui.Badge{Label: "Running", Kind: "info"}
+		}
 		run := ui.Cell{Text: h.RunName, Sub: h.Plugin}
-		if h.State == changeset.StateStaged {
+		if h.State == changeset.StateStaged && !h.Building {
 			run.Link = a.changesetURL(h.Plugin, h.ID, "")
 		}
 		changes := "-"
@@ -86,6 +89,9 @@ func (a *Admin) handleChanges(w http.ResponseWriter, r *http.Request) {
 		}}
 		switch h.State {
 		case changeset.StateStaged:
+			if h.Building {
+				break
+			}
 			row.Actions = []ui.Action{{Label: "Review", Href: a.changesetURL(h.Plugin, h.ID, ""), Button: true}}
 		case changeset.StatePublished:
 			id := "undo-" + row.ID

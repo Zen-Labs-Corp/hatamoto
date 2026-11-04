@@ -61,6 +61,17 @@ func TestChangesPage(t *testing.T) {
 	}
 }
 
+func TestChangesPageRunningRunHasNoReview(t *testing.T) {
+	t.Parallel()
+
+	g, fr, _ := newReviewRig(t)
+	fr.history = []HistoryRow{{ID: 9, Plugin: "hello", RunName: "Half done", State: changeset.StateStaged, Building: true, When: time.Now()}}
+	body := g.do("GET", "/admin/settings/changes", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Running") || strings.Contains(body, "Waiting for you") || strings.Contains(body, "/changesets/9") || strings.Contains(body, ">Review<") {
+		t.Error("a building run is labelled Running with no Review path")
+	}
+}
+
 func TestChangesPaging(t *testing.T) {
 	t.Parallel()
 

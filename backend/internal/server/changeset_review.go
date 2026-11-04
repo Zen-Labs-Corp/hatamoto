@@ -146,6 +146,9 @@ func (r *changesetReviewer) Review(ctx context.Context, id int64) (admin.ReviewD
 	if err != nil {
 		return admin.ReviewData{}, reviewErr(err)
 	}
+	if err := r.runFinished(ctx, h); err != nil {
+		return admin.ReviewData{}, err
+	}
 	d := admin.ReviewData{
 		ID: id, Plugin: h.Plugin, State: h.State, ExpiresAt: h.ExpiresAt, Items: h.ItemCount,
 		Low: counts.Low, High: counts.High, Critical: counts.Critical, HighDecided: counts.HighDecided,
@@ -329,6 +332,9 @@ func (r *changesetReviewer) Decide(ctx context.Context, id int64, seqs []int, de
 	default:
 		return fmt.Errorf("unknown decision %q", decision)
 	}
+	if _, err := r.stagedHeader(ctx, id); err != nil {
+		return err
+	}
 	if err := r.eng.SetDecisions(ctx, id, seqs, decision); err != nil {
 		return reviewErr(err)
 	}
@@ -346,7 +352,23 @@ func (r *changesetReviewer) stagedHeader(ctx context.Context, id int64) (changes
 	if h.State != changeset.StateStaged {
 		return h, admin.ErrReviewNotStaged
 	}
-	return h, nil
+	return h, r.runFinished(ctx, h)
+}
+
+// runFinished refuses to review a changeset whose run is still staging, or
+// ended without finishing: the owner would sign off a set that is incomplete.
+func (r *changesetReviewer) runFinished(ctx context.Context, h changeset.Header) error {
+	if h.State != changeset.StateStaged {
+		return nil
+	}
+	run, err := r.runs.Get(ctx, h.RunID)
+	if err != nil {
+		return fmt.Errorf("failed to read run: %w", err)
+	}
+	if run.State != plugrun.StateFinished {
+		return admin.ErrReviewRunning
+	}
+	return nil
 }
 
 // suggestionErr maps the run store's refusal to the admin's.
@@ -474,7 +496,8 @@ func (r *changesetReviewer) History(ctx context.Context, limit, offset int) ([]a
 			when = *h.PublishedAt
 		}
 		out = append(out, admin.HistoryRow{ID: h.ID, Plugin: h.Plugin, RunName: h.RunName, State: h.State,
-			When: when, Applied: h.Applied, Skipped: h.Skipped, Dropped: h.Dropped})
+			Building: h.State == changeset.StateStaged && h.RunState != plugrun.StateFinished,
+			When:     when, Applied: h.Applied, Skipped: h.Skipped, Dropped: h.Dropped})
 	}
 	return out, nil
 }

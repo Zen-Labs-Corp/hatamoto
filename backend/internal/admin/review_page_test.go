@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -217,6 +218,31 @@ func TestReviewPageClosedStates(t *testing.T) {
 	cs.h.ExpiresAt = time.Now().Add(time.Hour)
 	if rec := g.do("GET", "/admin/plugins/hello/changesets/42", "owner-token", nil, nil); rec.Code != 404 {
 		t.Errorf("reviewer says not found: %d", rec.Code)
+	}
+}
+
+// A run that is still staging cannot be reviewed: the page is read-only and
+// every action is refused.
+func TestReviewPageWhileRunning(t *testing.T) {
+	t.Parallel()
+
+	g, fr, _ := newReviewRig(t)
+	fr.err = ErrReviewRunning
+	rec := g.do("GET", "/admin/plugins/hello/changesets/42", "owner-token", nil, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 || !strings.Contains(body, "has not finished") || strings.Contains(body, "hm-savebar") || strings.Contains(body, `name="item_`) {
+		t.Errorf("running run: %d, want a read-only notice", rec.Code)
+	}
+	fr.publishErr, fr.suggestErr = ErrReviewRunning, ErrReviewRunning
+	for _, path := range []string{"/publish", "/suggestions"} {
+		grantSudo(g)
+		if rec := g.do("POST", reviewBase+path, "owner-token", url.Values{"suggestion_7": {"approved"}}, nil); rec.Code != 409 {
+			t.Errorf("%s while running: %d, want 409", path, rec.Code)
+		}
+	}
+	fr.err = ErrReviewRunning
+	if rec := g.do("POST", reviewBase+"/decide", "owner-token", url.Values{"item_3": {"approved"}}, nil); rec.Code != 409 {
+		t.Errorf("decide while running: %d, want 409", rec.Code)
 	}
 }
 

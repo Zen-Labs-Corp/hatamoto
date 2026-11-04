@@ -105,6 +105,23 @@ func TestChangesetReviewIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// The run is still staging: nothing can be reviewed, decided or published.
+	if _, err := rev.Review(ctx, cs); !errors.Is(err, admin.ErrReviewRunning) {
+		t.Fatalf("review of a running run: %v", err)
+	}
+	if err := rev.Decide(ctx, cs, []int{3}, "approved"); !errors.Is(err, admin.ErrReviewRunning) {
+		t.Fatalf("decide on a running run: %v", err)
+	}
+	if _, _, err := rev.Publish(ctx, cs); !errors.Is(err, admin.ErrReviewRunning) {
+		t.Fatalf("publish of a running run: %v", err)
+	}
+	if h, err := rev.History(ctx, 5, 0); err != nil || len(h) == 0 || h[0].ID != cs || !h[0].Building {
+		t.Fatalf("history of a running run = %+v, %v", h, err)
+	}
+	if err := runs.Finish(ctx, run.ID, json.RawMessage(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+
 	d, err := rev.Review(ctx, cs)
 	if err != nil {
 		t.Fatal(err)

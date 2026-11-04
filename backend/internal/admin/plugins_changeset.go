@@ -517,6 +517,12 @@ func (a *Admin) renderReview(w http.ResponseWriter, r *http.Request, h changeset
 	case errors.Is(err, ErrReviewNotFound):
 		a.ErrorBack(w, r, http.StatusNotFound, "Changeset not found", "That changeset does not exist.", a.adminPath+"/plugins", "Back to plugins")
 		return
+	case errors.Is(err, ErrReviewRunning):
+		page.Closed, page.Badge = true, ui.Badge{Label: "Running", Kind: "info"}
+		page.ClosedNote = "The run has not finished. You can review these changes once it has. Nothing reached the site."
+		v.Data = changesetPage{ID: h.ID, Badge: page.Badge, Review: page}
+		a.Render(w, r, http.StatusOK, "plugins/changeset", v)
+		return
 	case errors.Is(err, ErrReviewNotStaged), errors.Is(err, ErrReviewExpired):
 		http.Redirect(w, r, a.changesetURL(h.Plugin, h.ID, ""), http.StatusSeeOther)
 		return
