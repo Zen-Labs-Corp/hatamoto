@@ -81,10 +81,19 @@ export HATAMOTO_DATA="$W/data"
 # and the binary built above already embeds this checkout's admin files.
 export BASE="http://127.0.0.1:$API_PORT" HATAMOTO_BIN="$W/hm"
 # frame-tickets.mjs and tabs.mjs need a plugin with an admin page; the seeded instance has none.
-# The dev override loads this fixture (a UI-only plugin, empty wasm module). A caller's
+# The dev override loads this fixture (a plugin with an admin page and runs; its wasm is built below). A caller's
 # HATAMOTO_PLUGIN_DIR wins; the fixture is set for the server process only.
 PLUGIN_DIR=${HATAMOTO_PLUGIN_DIR:-}
-case " $* " in *" frame-tickets.mjs "*|*" tabs.mjs "*|*" runs-screens.mjs "*|*" review-flow.mjs "*) PLUGIN_DIR=${PLUGIN_DIR:-$QA/fixtures/frame-plugin} ;; esac
+case " $* " in *" frame-tickets.mjs "*|*" tabs.mjs "*|*" runs-screens.mjs "*|*" review-flow.mjs "*)
+  if [ -z "$PLUGIN_DIR" ]; then
+    # The fixture declares runs, so core wants its wasm to export on_run_step: build the
+    # run driver's test plugin (backend/internal/pluginhost/testdata/runner) as the module.
+    PLUGIN_DIR="$W/plugins"
+    mkdir -p "$PLUGIN_DIR"
+    cp -R "$QA/fixtures/frame-plugin/frameplug" "$PLUGIN_DIR/"
+    (cd "$ROOT/backend/internal/pluginhost/testdata/runner" && GOOS=wasip1 GOARCH=wasm GOWORK=off go build -buildmode=c-shared -o "$PLUGIN_DIR/frameplug/plugin.wasm" .) || die "building the fixture wasm failed"
+  fi ;;
+esac
 mkdir -p "$W/cwd"
 (cd "$W/cwd" && ${PLUGIN_DIR:+export HATAMOTO_PLUGIN_DIR="$PLUGIN_DIR"} && exec "$W/hm" serve >"$W/hm.log" 2>&1) &
 SRV=$!
