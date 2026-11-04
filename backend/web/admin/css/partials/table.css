@@ -83,7 +83,7 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
   .hm-table--cards .hm-table__group th { flex: 1 1 100%; padding: var(--space-5) 0 var(--space-2); }
   .hm-table--cards th, .hm-table--cards td { display: block; padding: var(--space-0-5) 0; border-bottom: 0; white-space: normal; text-align: left; }
   .hm-table--cards .hm-col-title { width: auto; min-width: 0; }
-  .hm-table--cards td { order: 3; flex: none; color: var(--color-hai); }
+  .hm-table--cards td { order: 3; flex: 0 1 auto; min-width: 0; max-width: 100%; color: var(--color-hai); }
   .hm-table--cards td.hm-col-wide { display: none; }
   .hm-table--cards td:empty { display: none; }
   .hm-table--cards td[data-label]::before { content: attr(data-label) ": "; color: var(--text-muted); font-size: var(--text-xs); }
