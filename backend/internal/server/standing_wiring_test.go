@@ -183,3 +183,31 @@ func TestAutoPublishWaitsWhenStaleOrOutsidePolicy(t *testing.T) {
 		})
 	}
 }
+
+// The admin adapter reports the rule the manifest declares and the approval
+// Approve recorded, and records one only through Approve.
+func TestStandingAdminMapsRuleAndApproval(t *testing.T) {
+	r := newStandingRig()
+	a := standingAdmin{svc: func() *standingService { return r.svc }}
+	ctx := context.Background()
+	rule, ok := a.Rule("pricer")
+	if !ok || rule.Run != "prices" || rule.MaxPerHour != 50 || rule.Fields[0] != "price" || rule.Schemas[0] != "product" {
+		t.Fatalf("Rule = %+v, %v", rule, ok)
+	}
+	if got, err := a.Active(ctx, "pricer", "prices"); err != nil || got != nil {
+		t.Fatalf("Active before approving = %+v, %v", got, err)
+	}
+	if err := a.Approve(ctx, "pricer", "prices", "owner@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := a.Active(ctx, "pricer", "prices"); err != nil || got == nil || got.By != "owner@example.com" {
+		t.Fatalf("Active after approving = %+v, %v", got, err)
+	}
+	none := standingAdmin{svc: func() *standingService { return nil }}
+	if _, ok := none.Rule("pricer"); ok {
+		t.Fatal("no rule without the service")
+	}
+	if err := none.Approve(ctx, "pricer", "prices", "x"); !errors.Is(err, ErrStandingUnavailable) {
+		t.Fatalf("Approve without the service = %v", err)
+	}
+}

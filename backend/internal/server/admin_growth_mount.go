@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -51,6 +52,7 @@ func (s *Server) adminGrowth() admin.GrowthDeps {
 	g.Plugins = pluginAdmin{s: s}
 	g.PluginRuns = pluginRunStarter{s}
 	g.RunCancel = pluginRunCanceller{s}
+	g.Standing = s.standingAdmin()
 	g.RunLimits = pluginRunLimits{s}
 	if rv := s.changesetReviewer(); rv != nil {
 		g.Reviewer, g.RunReader = rv, rv
@@ -361,9 +363,12 @@ func (p pluginAdmin) Plugins() []admin.PluginInfo {
 	for _, st := range p.s.pluginStatuses() {
 		runs[st.Name] = st.Manifest.Runs
 	}
+	declaresRule := func(rs []sdk.Run) bool {
+		return slices.ContainsFunc(rs, func(r sdk.Run) bool { return r.Cron != "" && r.StandingApproval != nil })
+	}
 	for _, v := range p.s.pluginViews() {
 		info := admin.PluginInfo{
-			Runs: runDecls(runs[v.Name]),
+			Runs: runDecls(runs[v.Name]), Standing: declaresRule(runs[v.Name]),
 			Name: v.Name, Version: v.Version, SDK: v.SDK, Description: v.Description, Error: v.Error, DataError: v.DataError, Loaded: v.Loaded,
 			Hooks: v.Hooks, Permissions: v.Permissions, Granted: v.Granted, AllowedHosts: v.AllowedHosts, Cookies: v.Cookies, Funcs: v.Funcs,
 			Refused: p.s.refusedPermissions(v.Name, v.Permissions),

@@ -37,6 +37,7 @@ func (a *Admin) mountPlugins(authed *httpx.Group) {
 	a.mountPluginSecurity(owner)
 	a.mountPluginUIScreens(authed)
 	a.mountRunPages(owner)
+	a.mountStandingPages(owner)
 	a.mountRunProgress(owner)
 	a.mountReviewActions(owner)
 	// "go" is a literal segment: it wins over {name} in the mux.
@@ -167,6 +168,9 @@ func (a *Admin) newPluginHead(p PluginInfo, tab string, owner bool) pluginHead {
 	}
 	if owner && len(p.Runs) > 0 {
 		tabs = append(tabs, ui.Tab{Label: "Runs", Href: a.pluginURL(p.Name, "runs"), Active: tab == "runs"})
+	}
+	if owner && p.Standing && a.deps.Growth.Standing != nil {
+		tabs = append(tabs, ui.Tab{Label: "Automatic updates", Href: a.pluginURL(p.Name, "automatic"), Active: tab == "automatic"})
 	}
 	return pluginHead{Plugin: p, State: pluginStatus(p), Tabs: tabs}
 }

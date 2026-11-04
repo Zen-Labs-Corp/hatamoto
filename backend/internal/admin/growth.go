@@ -199,6 +199,9 @@ type PluginInfo struct {
 	UI      *PluginUIInfo
 	// Runs are the runs the plugin declares (the Runs tab shows when any).
 	Runs []RunDecl
+	// Standing says a run declares a standing approval rule (the Automatic
+	// updates tab shows for the owner when set).
+	Standing bool
 }
 
 // PluginAdmin is the plugin runtime as the plugins page uses it.
@@ -248,6 +251,8 @@ type GrowthDeps struct {
 	Reviewer ChangesetReviewer
 	// RunReader reads plugin runs (nil = the run pages are unavailable).
 	RunReader RunReader
+	// Standing reads and records standing approvals (nil = no Automatic updates tab).
+	Standing StandingApprovals
 	// RunCancel cancels a running plugin run (nil = no cancel).
 	RunCancel RunCanceller
 	// RunLimits reports the step limits of a plugin's runs (nil = not shown).
