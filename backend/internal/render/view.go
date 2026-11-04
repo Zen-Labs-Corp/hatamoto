@@ -398,6 +398,9 @@ type AttrCount struct {
 type ImageVariant struct {
 	URL   string
 	Width int
+	// Type is the MIME type of a copy in a modern format ("image/webp",
+	// "image/avif"); empty means the image's own format.
+	Type string
 }
 
 // Section is one stored page section, as in attributes.page_sections[].

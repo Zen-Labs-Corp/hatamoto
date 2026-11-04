@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"html"
 	"html/template"
 	"net/url"
 	"strconv"
@@ -69,6 +70,12 @@ func dataFuncs(ds DataSource) template.FuncMap {
 		// srcset .Entity.Image: an srcset value for a local media URL, "" when
 		// there are no resized copies.
 		"srcset": func(src any) string { return srcset(ds, strVal(src)) },
+		// picturesources .Entity.Image "<sizes>": the <source> tags (AVIF, then
+		// WebP) of the copies in modern formats, "" when there are none. Put them
+		// inside <picture> before the <img>.
+		"picturesources": func(src, sizes any) template.HTML {
+			return template.HTML(pictureSources(ds, strVal(src), strVal(sizes)))
+		},
 	}
 }
 
@@ -197,10 +204,22 @@ func srcset(ds DataSource, src string) string {
 	if ds == nil || !strings.HasPrefix(src, "/") && !strings.HasPrefix(src, "http") {
 		return ""
 	}
-	vs := ds.ImageVariants(src)
-	if len(vs) == 0 {
-		return ""
+	return srcsetOf(variantsOfType(ds.ImageVariants(src), ""))
+}
+
+// variantsOfType keeps the variants of one format ("" = the image's own).
+func variantsOfType(vs []ImageVariant, typ string) []ImageVariant {
+	var out []ImageVariant
+	for _, v := range vs {
+		if v.Type == typ {
+			out = append(out, v)
+		}
 	}
+	return out
+}
+
+// srcsetOf formats variants as "url 300w, url 1024w", capped at maxSrcset.
+func srcsetOf(vs []ImageVariant) string {
 	if len(vs) > maxSrcset {
 		vs = vs[:maxSrcset]
 	}
@@ -211,4 +230,40 @@ func srcset(ds DataSource, src string) string {
 		}
 	}
 	return strings.Join(parts, ", ")
+}
+
+// modernTypes lists the formats a <picture> offers, best first.
+var modernTypes = []string{"image/avif", "image/webp"}
+
+// widestOf is the largest width among vs.
+func widestOf(vs []ImageVariant) int {
+	w := 0
+	for _, v := range vs {
+		w = max(w, v.Width)
+	}
+	return w
+}
+
+// pictureSources builds the <source> tags that go before an <img> inside a
+// <picture>: one per modern format that has copies, best format first. A
+// format whose widest copy is narrower than the widest fallback copy (up to
+// 1024 px, the largest resized copy) is left out, so choosing it can never give
+// a smaller picture than the fallback would. "" means: no <picture>.
+func pictureSources(ds DataSource, src, sizes string) string {
+	src = imgSrc(src)
+	if ds == nil || !strings.HasPrefix(src, "/") && !strings.HasPrefix(src, "http") {
+		return ""
+	}
+	all := ds.ImageVariants(src)
+	need := min(widestOf(variantsOfType(all, "")), 1024)
+	var b strings.Builder
+	for _, typ := range modernTypes {
+		vs := variantsOfType(all, typ)
+		ss := srcsetOf(vs)
+		if ss == "" || widestOf(vs) < need {
+			continue
+		}
+		fmt.Fprintf(&b, `<source type="%s" srcset="%s" sizes="%s">`, html.EscapeString(typ), html.EscapeString(ss), html.EscapeString(sizes))
+	}
+	return b.String()
 }

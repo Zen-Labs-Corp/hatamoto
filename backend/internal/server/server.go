@@ -76,10 +76,12 @@ type Server struct {
 	// mux is built once in setupRoutes and never changes afterwards; routes is
 	// its registration root (and the record behind Routes()). router is the
 	// served handler: global middleware around mux with JSON 404/405 bodies.
-	mux          *http.ServeMux
-	routes       *httpx.Group
-	router       http.Handler
-	logger       *slog.Logger
+	mux    *http.ServeMux
+	routes *httpx.Group
+	router http.Handler
+	logger *slog.Logger
+	// formatPolicy answers mediaFormats; nil means every format is on.
+	formatPolicy func(context.Context) media.Formats
 	sessionStore *session.Store
 	userTokens   *auth.UserTokens
 	siteConfig   *siteconfig.Store
@@ -860,6 +862,16 @@ func (s *Server) setupRoutes() {
 	// Go-rendered public site (root HTML routes). Registered last among the
 	// routes; /api, /media, /health and /ready keep precedence.
 	s.mountRenderRoutes(s.routes)
+}
+
+// mediaFormats is the set of modern image formats pages may offer: the owner's
+// switches, and only formats this build can encode. Before the policy is wired
+// (tests) everything is on.
+func (s *Server) mediaFormats(ctx context.Context) media.Formats {
+	if s.formatPolicy == nil {
+		return media.Formats{WebP: true, AVIF: true}
+	}
+	return s.formatPolicy(ctx)
 }
 
 // Start begins listening for HTTP requests.

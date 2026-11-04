@@ -16,6 +16,7 @@ import (
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/media"
+	"hatamoto.dev/core/internal/media/modern"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/taxonomy"
@@ -270,7 +271,24 @@ func (d *renderData) Failures() int64 { return d.failures.Load() }
 // copies, and any URL that is not stored media, gives none.
 func (d *renderData) ImageVariants(u string) []render.ImageVariant {
 	c, _ := d.media(u)
-	return c.list
+	return d.filterFormats(c.list)
+}
+
+// filterFormats drops copies in formats the owner has switched off. The
+// lookup cache keeps them, so a settings change needs no purge of it.
+func (d *renderData) filterFormats(list []render.ImageVariant) []render.ImageVariant {
+	f := d.s.mediaFormats(context.Background())
+	if f.WebP && f.AVIF {
+		return list
+	}
+	out := make([]render.ImageVariant, 0, len(list))
+	for _, v := range list {
+		if (v.Type == string(modern.WebP) && !f.WebP) || (v.Type == string(modern.AVIF) && !f.AVIF) {
+			continue
+		}
+		out = append(out, v)
+	}
+	return out
 }
 
 // ImageSize returns the intrinsic size of a stored media file (see
@@ -472,7 +490,7 @@ func imageVariants(raw []byte, original string, width *int) []render.ImageVarian
 	var out []render.ImageVariant
 	for _, v := range m.Variants {
 		if v.Size != "thumbnail" && v.Width > 0 && v.URL != "" {
-			out = append(out, render.ImageVariant{URL: v.URL, Width: v.Width})
+			out = append(out, render.ImageVariant{URL: v.URL, Width: v.Width, Type: v.Format})
 		}
 	}
 	if len(out) == 0 {
