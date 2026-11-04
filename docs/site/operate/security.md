@@ -77,5 +77,6 @@ Out of scope:
 ## Related
 
 - [Harden an instance](hardening.md): the production checklist.
+- [Privacy: cookie consent](../admin/settings-users-email.md#privacy-cookie-consent): the visitor banner and what it stores.
 - [Signing keys](../updates/keys.md): the keys that sign releases and first-party packages.
 - [Trust and signing](../updates/trust-and-signing.md): how an instance checks an update before it installs it.
