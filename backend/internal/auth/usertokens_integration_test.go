@@ -483,7 +483,7 @@ func TestAPISessionKindValidators(t *testing.T) {
 	u := r.newUser(t, user.RoleEditor)
 	svc := NewService(r.users, nil, r.sessions)
 
-	got, apiTok, err := svc.LoginAPISession(ctx, u.Email, "an-old-password-123", "ua", "203.0.113.1")
+	got, apiTok, err := svc.LoginAPISession(ctx, u.Email, "an-old-password-123", "", "ua", "203.0.113.1")
 	if err != nil || got.ID != u.ID || apiTok == "" {
 		t.Fatalf("api login: %v", err)
 	}
