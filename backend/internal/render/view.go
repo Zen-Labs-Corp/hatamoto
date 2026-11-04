@@ -31,6 +31,8 @@ type PageView struct {
 	Query  string
 	// Registry is set on registry detail views (KindRegistry).
 	Registry *RegistryPageView
+	// Access is set on a site access notice (RenderAccess).
+	Access *AccessView
 	// SearchType is the schema slug a search is limited to ("" for the whole site).
 	SearchType string
 	// Dynamic marks a view built from per-request data (taxonomy, author,
@@ -911,4 +913,19 @@ type PageChanges struct {
 	Nodes map[string]string
 	// Label names the changeset in the banner, for example "#42".
 	Label string
+}
+
+// AccessView feeds layouts/coming-soon.html. Mode is "coming-soon",
+// "maintenance" or "password". Heading and Message are the owner's text for
+// the default locale ("" lets the layout use its own words). Action and Next
+// are the password form's target and return path; Error is the message shown
+// after a wrong password.
+type AccessView struct {
+	Mode     string
+	Heading  string
+	Message  string
+	Action   string
+	Next     string
+	Error    string
+	HasError bool
 }
