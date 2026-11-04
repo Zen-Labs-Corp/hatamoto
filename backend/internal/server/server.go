@@ -7,6 +7,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -50,6 +52,7 @@ import (
 	"hatamoto.dev/core/internal/session"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/spam"
+	"hatamoto.dev/core/internal/standing"
 	"hatamoto.dev/core/internal/taxonomy"
 	"hatamoto.dev/core/internal/updater"
 	"hatamoto.dev/core/internal/user"
@@ -362,6 +365,7 @@ func (s *Server) setupDependencies() {
 	s.entityService.SetOnSchemaChange(func() {
 		s.invalidateSitemaps(context.Background())
 		s.invalidateRendered(context.Background())
+		s.voidStandingForSchemas(context.Background())
 	})
 	s.entityService.SetLinkSync(&entityLinkSyncAdapter{db: s.db, urls: s.entityService.URLRegistry(), changed: s.invalidateRendered})
 	s.entityService.SetPathObserver(s.onEntityMoved)
@@ -615,6 +619,8 @@ func (s *Server) setupDependencies() {
 	// Plugins load last; their hooks register on the engine.
 	pluginhost.BindHostHooks(s.hooks)
 	s.setupPlugins()
+	s.setupStanding()
+	s.scheduleStandingDigest()
 }
 
 // buildHandler wraps the finished mux in the global middleware. It runs after
@@ -1142,5 +1148,28 @@ func (s *Server) setupTraffic() {
 		if err != nil {
 			s.logger.Error("analytics: traffic prune job not scheduled", "error", err)
 		}
+	}
+}
+
+// voidStandingForSchemas ends the standing approvals whose named schemas
+// changed or were deleted. Best effort: the publish gate compares the schema
+// hashes again and refuses on any difference.
+func (s *Server) voidStandingForSchemas(ctx context.Context) {
+	if s.db == nil {
+		return
+	}
+	store := &standing.Store{DB: s.db}
+	_, err := store.VoidChangedSchemas(ctx, func(ctx context.Context, slug string) (json.RawMessage, bool, error) {
+		sc, err := s.entityService.GetSchemaBySlug(ctx, slug)
+		if errors.Is(err, entity.ErrSchemaNotFound) {
+			return nil, false, nil
+		}
+		if err != nil {
+			return nil, false, err
+		}
+		return sc.Schema, true, nil
+	})
+	if err != nil {
+		s.logger.Error("failed to void standing approvals after a schema change", slog.String("error", err.Error()))
 	}
 }

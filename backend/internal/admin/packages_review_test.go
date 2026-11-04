@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -318,7 +319,7 @@ func TestPluginPromptWarnsAboutAnyAddressAndClearsGrantsWhenAccessWidens(t *test
 	if rec.Code != 200 {
 		t.Fatalf("%d", rec.Code)
 	}
-	for _, want := range []string{"needs your confirmation", "<code>http.fetch.any</code>", "every permission already granted is cleared", "Any web address.", "WARNING: send requests to ANY public web address", "Any public web address (ports 80 and 443)", `name="confirm"`} {
+	for _, want := range []string{"needs your confirmation", "<code>http.fetch.any</code>", "every permission already granted is cleared", "Any web address", "Handle with care", "send requests to ANY public web address", "Any public web address (ports 80 and 443)", `name="confirm"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("prompt missing %q", want)
 		}
@@ -337,7 +338,7 @@ func TestPluginPromptWarnsAboutSiteScripts(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("%d", rec.Code)
 	}
-	for _, want := range []string{"needs your confirmation", "<code>site.scripts</code>", "runs JavaScript on every public page with full access to the site, including signed-in admins", "JavaScript on every public page.", "Runs its JavaScript on every public page, with full access to the site, including signed-in admins.", `name="confirm"`} {
+	for _, want := range []string{"needs your confirmation", "<code>site.scripts</code>", "runs JavaScript on every public page with full access to the site, including signed-in admins", "JavaScript on every public page", "Handle with care", "Runs its JavaScript on every public page, with full access to the site, including signed-in admins.", `name="confirm"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("prompt missing %q", want)
 		}
@@ -347,21 +348,87 @@ func TestPluginPromptWarnsAboutSiteScripts(t *testing.T) {
 	}
 }
 
-// A first install that asks for site.scripts never starts with it ticked; the
-// other permissions keep their default, and the warning is said once.
+// A first install that asks for site.scripts never starts with it granted:
+// the other permissions are posted as hidden fields, site.scripts is a switch
+// that is off, and the prompt shows it as something to review, not as allowed.
 func TestFreshInstallLeavesSiteScriptsUnticked(t *testing.T) {
 	t.Parallel()
 
-	g, _, _ := newPackageRig(t)
+	g, pk, _ := newPackageRig(t)
 	body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-fresh-scripts:gtm").Body.String()
-	if !strings.Contains(body, `value="kv" checked`) {
-		t.Errorf("kv keeps its default tick:\n%s", body)
+	if !strings.Contains(body, `type="hidden" name="permission" value="kv"`) {
+		t.Errorf("kv is posted as a hidden grant:\n%s", body)
+	}
+	if strings.Contains(body, `type="hidden" name="permission" value="site.scripts"`) {
+		t.Errorf("site.scripts must never be a hidden grant:\n%s", body)
 	}
 	if !strings.Contains(body, `value="site.scripts"`) || strings.Contains(body, `value="site.scripts" checked`) {
-		t.Errorf("site.scripts must be offered unticked:\n%s", body)
+		t.Errorf("site.scripts must be offered switched off:\n%s", body)
 	}
-	if n := strings.Count(body, "every public page"); n != 2 { // the label and the help, not the same sentence twice
+	if n := strings.Count(body, "every public page"); n != 2 { // the title and the detail line, not the same sentence twice
 		t.Errorf("warning text appears %d times", n)
+	}
+	// Pressing Install with exactly the hidden fields grants everything but site.scripts.
+	id := hiddenValue(t, body, "staged")
+	if rec := g.do("POST", "/admin/plugins/install", "owner-token", url.Values{"staged": {id}, "permission": {"kv"}}, nil); rec.Code != 303 || len(pk.installed) != 1 || slices.Contains(pk.installed[0].grant, "site.scripts") {
+		t.Fatalf("install: %d %+v", rec.Code, pk.installed)
+	}
+}
+
+// The "never" card must not say a plugin cannot run code on public pages
+// while the same page lists a permission that does exactly that.
+func TestPromptNeverContradictsCodeOnPublicPages(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	for _, src := range []string{"plugin-fresh-scripts:gtm", "plugin-island:blocks"} {
+		body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", src).Body.String()
+		if !strings.Contains(body, "It will never be able to") || strings.Contains(body, "Run code on your public pages") {
+			t.Errorf("%s: contradiction on the prompt:\n%s", src, body)
+		}
+	}
+	body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin:plain").Body.String()
+	if !strings.Contains(body, "Run code on your public pages") {
+		t.Errorf("a plugin without script permissions keeps the never line")
+	}
+}
+
+// A permission policy refuses is not posted as a hidden grant, and the prompt
+// says it is left out; the never line is true again.
+func TestPromptLeavesOutRefusedPermissions(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-refused:blocks").Body.String()
+	if strings.Contains(body, `name="permission" value="builder.island"`) {
+		t.Errorf("a refused permission must not be posted:\n%s", body)
+	}
+	if !strings.Contains(body, `name="permission" value="kv"`) || !strings.Contains(body, "Not allowed on this site") || !strings.Contains(body, "so it is left out") {
+		t.Errorf("prompt does not explain the refusal:\n%s", body)
+	}
+	if !strings.Contains(body, "Run code on your public pages") {
+		t.Errorf("with the island refused, the never line is true")
+	}
+}
+
+// The registry did not review these permissions: the danger callout shows and
+// there is no Install button.
+func TestPromptRefusesPermissionsTheRegistryDidNotReview(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-unreviewed:gtm").Body.String()
+	for _, want := range []string{"It will not be installed", "Can&#39;t install gtm: it asks for permissions the registry did not review"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("prompt lacks %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "Install plugin") {
+		t.Errorf("an unreviewed package must have no Install button")
+	}
+	// The refused permission is not listed as something it will be able to do.
+	if strings.Contains(body, "It will be able to") || strings.Contains(body, "Send email") || strings.Contains(body, `name="permission"`) {
+		t.Errorf("a refused package must not list its permissions as granted:\n%s", body)
 	}
 }
 
@@ -443,8 +510,9 @@ func (p islandPackages) Inspect(ctx context.Context, data []byte) (PackageSummar
 	return p.fakePackages.Inspect(ctx, data)
 }
 
-// The warning badge on the install prompt carries permtext's short label.
-func TestPluginPromptBadgeUsesPermtextShort(t *testing.T) {
+// A permission that reaches beyond the plugin's data is a review statement
+// with a visible warning, titled with permtext's short label.
+func TestPluginPromptShowsReachingPermissionsAsReview(t *testing.T) {
 	t.Parallel()
 
 	g := newRig(t, func(d *Deps) {
@@ -461,11 +529,46 @@ func TestPluginPromptBadgeUsesPermtextShort(t *testing.T) {
 			t.Errorf("%s: permtext.Short = %q, want %q", tc.perm, short, tc.literal)
 		}
 		body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", tc.upload).Body.String()
-		if want := `<code>` + tc.perm + `</code>`; !strings.Contains(body, want) {
-			t.Errorf("%s: prompt missing %q", tc.perm, want)
+		title := "<b>" + template.HTMLEscapeString(strings.TrimSuffix(short, ".")) + "</b>"
+		if !strings.Contains(body, title) {
+			t.Errorf("%s: statement title %q missing:\n%s", tc.perm, title, body)
 		}
-		if !strings.Contains(body, ">"+template.HTMLEscapeString(short)+"<") {
-			t.Errorf("%s: badge label %q missing:\n%s", tc.perm, short, body)
+		if !strings.Contains(body, "Handle with care") {
+			t.Errorf("%s: no warning badge", tc.perm)
+		}
+		i := strings.Index(body, title)
+		if i < 0 {
+			continue
+		}
+		if row := body[strings.LastIndex(body[:i], "<li "):i]; !strings.Contains(row, "hm-permlist__item--review") {
+			t.Errorf("%s: shown as %q, want a review statement", tc.perm, row[:min(len(row), 80)])
 		}
 	}
+}
+
+// runsPackages offers a first install of a plugin that declares runs and
+// proposes site-wide changes.
+type runsPackages struct{ *fakePackages }
+
+func (p runsPackages) Inspect(ctx context.Context, data []byte) (PackageSummary, error) {
+	if name, ok := strings.CutPrefix(string(data), "plugin-runs:"); ok {
+		return PackageSummary{Kind: "plugin", Name: name, Version: "1.0.0", Permissions: []string{"kv"}, DeclaresRuns: true, Proposes: true, Signed: true, Signer: "abc123"}, nil
+	}
+	return p.fakePackages.Inspect(ctx, data)
+}
+
+func TestPluginPromptListsReviewStatementsForRuns(t *testing.T) {
+	t.Parallel()
+
+	g := newRig(t, func(d *Deps) {
+		d.Growth.Plugins = &fakePlugins{settings: map[string]map[string]any{}}
+		d.Growth.Packages = runsPackages{&fakePackages{enabled: map[string]bool{}}}
+	})
+	body := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-runs:sync").Body.String()
+	for _, want := range []string{"Prepare pages, posts, images, menus and redirects for you to review", "Suggest site-wide changes", "hm-permlist__item--review"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("prompt missing %q", want)
+		}
+	}
+	a11yOK(t, body)
 }

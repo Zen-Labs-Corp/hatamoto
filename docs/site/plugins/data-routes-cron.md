@@ -135,4 +135,16 @@ guest.OnCron("digest", func(ev sdk.CronEvent) error { return nil })
 func onCronDigest() int32 { return guest.Run(guest.CronExport("digest")) }
 ```
 
+Cron cannot write content. To change content on a schedule, use a cron-started run with a standing approval (below). To show a fresh value on the site, use the data path.
+
+### Show a fresh value: the data path
+
+Keep the value in the plugin store, refresh it from the cron job, and print it in the theme with `{{ plugin_<name>_<func> ... }}`. The output is escaped as text and nothing is written to content, so no approval is needed. See [Admin pages and templates](admin-pages-and-templates.md).
+
+### Update content on a schedule: standing approvals
+
+A run can name a cron job with `cron` and carry a `standing_approval` block (`fields`, `schemas`, `max_per_hour`; see [Manifest](manifest.md#runs)). When the job fires, Hatamoto starts the run instead of calling `on_cron_<job>`. The run publishes itself only if the owner approved the rule on the plugin's **Automatic updates** tab and every item stays inside it: an update of a listed number, boolean, date or enum field on an object the plugin owns, within the hourly cap and with no proposal. Anything else waits for review. HTML, links, slugs and free text are never published automatically.
+
+A price-only update replaces the whole attributes object, so resend `slug`, `name` and `parent` unchanged. The approval is void when the plugin updates, when a named schema changes or when the plugin is uninstalled, and a daily summary lists what published automatically. This is part of the SDK 0.17 change; there is no new SDK version.
+
 Cron is the right place for slow work. Action hooks should only record what happened, and a cron job drains the queue within a time budget.

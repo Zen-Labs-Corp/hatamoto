@@ -68,6 +68,8 @@ The subject comes first, like `hasPrefix`. Numbers are accepted where a string i
 {{with fromJSON (plugin_acme_rows .Path)}}{{range .}}<li>{{.title}}</li>{{end}}{{end}}
 ```
 
+To show a value that changes often, such as a price, have the plugin keep it in its own store and print it with `{{ plugin_<name>_<func> ... }}`. The result is escaped as text and needs no approval. A plugin that must change content itself can ask the owner for an approval on its **Automatic updates** tab; see [Data, routes and cron](../plugins/data-routes-cron.md#update-content-on-a-schedule-standing-approvals).
+
 ## HTML helpers
 
 **`sanitisedHTML v`** runs rich text, such as a TipTap body in `.Attrs.content`, through the rich-text sanitiser with `data-hm-*` stripped, and emits it unescaped. A missing or non-string value gives an empty string.

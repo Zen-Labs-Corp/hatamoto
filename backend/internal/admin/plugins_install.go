@@ -53,19 +53,47 @@ func (a *Admin) refused(w http.ResponseWriter, r *http.Request, err error, back,
 
 // ---- the permission prompt ----
 
-type promptPerm struct {
-	Name, Help string
-	Short      string // badge label of a risky permission
-	Ticked     bool
-	New        bool // requested by an update and not granted before
-	Warn       bool // reaches far beyond the plugin's own data; shown as a warning
+// promptStatement is one row of the "It will be able to" list.
+type promptStatement struct {
+	permtext.Statement
+	Icon string
+	New  bool // requested by an update and not granted before
 }
+
+// promptScripts is the one permission the owner must switch on: site.scripts
+// is never granted by the install button alone.
+type promptScripts struct{ On bool }
 
 type promptData struct {
 	Staged   string
 	Sum      PackageSummary
-	Perms    []promptPerm
+	Can      []promptStatement
+	Never    []promptStatement
+	Grant    []string // posted as hidden permission fields: every listed permission except site.scripts and the refused ones
+	Refused  string   // plain words for the requested permissions policy will not grant, "" when none
+	Scripts  *promptScripts
 	Unsigned bool
+	Title    string     // "Install <Name> <version>?"
+	Chips    []ui.Badge // the signature, first-party and replaced-version badges beside the title
+}
+
+// statementIcon is the glyph of a statement kind.
+func statementIcon(k permtext.Kind) string {
+	switch k {
+	case permtext.KindReview:
+		return "layers"
+	case permtext.KindNo:
+		return "x"
+	}
+	return "check"
+}
+
+func promptStatements(in []permtext.Statement, newTitles map[string]bool) []promptStatement {
+	out := make([]promptStatement, len(in))
+	for i, st := range in {
+		out[i] = promptStatement{Statement: st, Icon: statementIcon(st.Kind), New: newTitles[st.Title]}
+	}
+	return out
 }
 
 // handlePluginFetch downloads a registry plugin and shows the permission prompt.
@@ -79,7 +107,7 @@ func (a *Admin) handlePluginFetch(w http.ResponseWriter, r *http.Request) {
 		a.refused(w, r, err, a.adminPath+"/plugins", "Back to plugins")
 		return
 	}
-	a.prompt(w, r, pk, data, "registry")
+	a.prompt(w, r, pk, data, "registry", true)
 }
 
 // handleUploadPage is the no-JS page of the Upload package dialog.
@@ -186,7 +214,7 @@ func (a *Admin) handlePackageUpload(w http.ResponseWriter, r *http.Request) {
 		a.installTheme(w, r, pk, data, "upload", sum)
 		return
 	}
-	a.prompt(w, r, pk, data, "upload")
+	a.prompt(w, r, pk, data, "upload", false)
 }
 
 // installTheme installs a theme, or stages it behind the confirmation page.
@@ -246,7 +274,7 @@ func (a *Admin) handleThemeInstallConfirmed(w http.ResponseWriter, r *http.Reque
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
-func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, data []byte, source string) {
+func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, data []byte, source string, fromBrowse bool) {
 	sum, err := pk.Inspect(r.Context(), data)
 	if err != nil {
 		a.refused(w, r, err, a.adminPath+"/plugins", "Back to plugins")
@@ -258,21 +286,58 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 		return
 	}
 	d := promptData{Staged: id, Sum: sum, Unsigned: !sum.Signed}
-	for _, p := range sum.Permissions {
-		granted := slices.Contains(sum.Granted, p)
-		// A package from another signer starts with nothing granted.
-		reset := sum.Confirm != nil && (sum.Confirm.SignerChange || sum.Confirm.WidenedAccess)
-		// site.scripts is never ticked for the owner: a first install gets it
-		// only by an explicit tick; an update keeps it only if it was granted.
-		ticked := (!sum.Updating || granted) && !reset
-		if p == sdk.PermSiteScripts {
-			ticked = sum.Updating && granted && !reset
-		}
-		t := permtext.Lookup(p)
-		d.Perms = append(d.Perms, promptPerm{Name: p, Help: permtext.Help(p), Ticked: ticked, New: sum.Updating && !granted && !reset, Warn: t.Warn, Short: t.Short})
+	var added []string
+	perms := slices.DeleteFunc(slices.Clone(sum.Permissions), func(p string) bool { return slices.Contains(sum.Refused, p) })
+	var refused []string
+	for _, p := range sum.Refused {
+		refused = append(refused, strings.TrimSuffix(permtext.Lookup(p).Short, "."))
 	}
-	v := a.NewView(w, r, "Install "+sum.Name)
+	d.Refused = strings.Join(refused, ", ")
+	for _, p := range perms {
+		if sum.Updating && !slices.Contains(sum.Granted, p) {
+			added = append(added, p)
+		}
+	}
+	newTitles := map[string]bool{}
+	for _, st := range permtext.Group(added, false, false).Can {
+		newTitles[st.Title] = true
+	}
+	g := permtext.Group(perms, sum.DeclaresRuns, sum.Proposes)
+	d.Can, d.Never = promptStatements(g.Can, newTitles), promptStatements(g.Never, nil)
+	// A package from another signer starts with nothing granted.
+	reset := sum.Confirm != nil && (sum.Confirm.SignerChange || sum.Confirm.WidenedAccess)
+	for _, p := range perms {
+		if p == sdk.PermSiteScripts {
+			// Never granted by the install button alone: a first install gets it
+			// only by an explicit switch; an update keeps it only if it was granted.
+			d.Scripts = &promptScripts{On: sum.Updating && slices.Contains(sum.Granted, p) && !reset}
+			continue
+		}
+		d.Grant = append(d.Grant, p)
+	}
+	verb := "Install"
+	if sum.Updating {
+		verb = "Update"
+	}
+	d.Title = strings.TrimSpace(verb+" "+sum.Name+" "+sum.Version) + "?"
+	if sum.Signed {
+		chip := ui.Badge{Label: "Signed by " + sum.Signer, Kind: "success"}
+		if sum.Problem != "" {
+			chip = ui.Badge{Label: "Signed by " + sum.Signer, Plain: true}
+		}
+		d.Chips = append(d.Chips, chip)
+	}
+	if sum.FirstParty {
+		d.Chips = append(d.Chips, ui.Badge{Label: "First-party", Plain: true, Icon: "star"})
+	}
+	if sum.Updating {
+		d.Chips = append(d.Chips, ui.Badge{Label: "Replaces v" + sum.InstalledVersion, Plain: true})
+	}
+	v := a.NewView(w, r, verb+" "+sum.Name)
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: sum.Name}}
+	if fromBrowse {
+		v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: "Browse", Href: a.adminPath + "/plugins/browse"}, {Label: sum.Name}}
+	}
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "settings/pluginprompt", v)
 }

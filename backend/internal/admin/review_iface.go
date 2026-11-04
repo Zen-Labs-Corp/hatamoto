@@ -118,6 +118,7 @@ type HistoryRow struct {
 	ID                        int64
 	Plugin, RunName, State    string
 	By                        string
+	Auto                      bool // published automatically under a standing approval
 	Building                  bool // the run has not finished: nothing to review yet
 	When                      time.Time
 	Applied, Skipped, Dropped int

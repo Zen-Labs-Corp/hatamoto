@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -61,5 +62,43 @@ func TestFailedFetchKeepsLastCheckedTime(t *testing.T) {
 	}
 	if got := p.fetchedTime(); !got.Equal(good) {
 		t.Fatalf("fetchedAt = %v after a failed fetch, want %v", got, good)
+	}
+}
+
+// A package that asks for more than its registry entry lists as reviewed
+// cannot be installed when the registry signed it; with no entry, no review
+// data, another signer or no registry nothing changes.
+func TestUnreviewedProblem(t *testing.T) {
+	reg := packages.FirstPartyKeyIDs[0]
+	p := &packageAdmin{cachedAt: time.Now(), cached: &packages.Index{Packages: []packages.Entry{
+		{Kind: packages.KindPlugin, Name: "gtm", Version: "0.2.0", Permissions: []string{"kv"}},
+		{Kind: packages.KindPlugin, Name: "bare", Version: "1.0.0"},
+		{Kind: packages.KindPlugin, Name: "none", Version: "1.0.0", Permissions: []string{}},
+	}}}
+	ctx := context.Background()
+	got := p.unreviewedProblem(ctx, "gtm", reg, []string{"kv", "site.scripts"})
+	if !strings.Contains(got, "asks for permissions the registry did not review") || !strings.Contains(got, "site.scripts") || strings.Contains(got, "(kv") {
+		t.Fatalf("widened: %q", got)
+	}
+	if got := p.unreviewedProblem(ctx, "gtm", reg, []string{"kv"}); got != "" {
+		t.Fatalf("reviewed: %q", got)
+	}
+	if got := p.unreviewedProblem(ctx, "other", reg, []string{"site.scripts"}); got != "" {
+		t.Fatalf("not in the registry: %q", got)
+	}
+	if got := p.unreviewedProblem(ctx, "bare", reg, []string{"kv"}); got != "" {
+		t.Fatalf("entry without a permissions field: %q", got)
+	}
+	if got := p.unreviewedProblem(ctx, "none", reg, []string{"kv"}); got == "" {
+		t.Fatal("an entry that lists no permissions reviewed none")
+	}
+	for _, signer := range []string{"", "0123456789abcdef"} {
+		if got := p.unreviewedProblem(ctx, "gtm", signer, []string{"kv", "site.scripts"}); got != "" {
+			t.Fatalf("signer %q is not the registry's: %q", signer, got)
+		}
+	}
+	p.cached, p.cacheErr = nil, packages.ErrRegistryOff
+	if got := p.unreviewedProblem(ctx, "gtm", reg, []string{"site.scripts"}); got != "" {
+		t.Fatalf("registry off: %q", got)
 	}
 }

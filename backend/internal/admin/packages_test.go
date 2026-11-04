@@ -107,6 +107,14 @@ func (f *fakePackages) Inspect(_ context.Context, data []byte) (PackageSummary, 
 			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewScripts: true, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
 	case strings.HasPrefix(s, "plugin-fresh-scripts:"): // a first install that asks for site.scripts
 		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-fresh-scripts:"), Version: "1.0.0", Permissions: []string{"kv", "site.scripts"}, Signed: true, Signer: "abc123"}, nil
+	case strings.HasPrefix(s, "plugin-island:"): // a first install that asks for builder.island
+		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-island:"), Version: "1.0.0", Permissions: []string{"kv", "builder.island"}, Signed: true, Signer: "abc123"}, nil
+	case strings.HasPrefix(s, "plugin-refused:"): // the same, from a source whose policy refuses builder.island
+		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-refused:"), Version: "1.0.0", Permissions: []string{"kv", "builder.island"}, Refused: []string{"builder.island"}, Signed: true, Signer: "abc123"}, nil
+	case strings.HasPrefix(s, "plugin-unreviewed:"): // asks for more than the registry reviewed
+		name := strings.TrimPrefix(s, "plugin-unreviewed:")
+		return PackageSummary{Kind: "plugin", Name: name, Version: "1.0.0", Permissions: []string{"kv", "mail.send"}, Signed: true, Signer: "abc123",
+			Problem: "Can't install " + name + ": it asks for permissions the registry did not review (mail.send)."}, nil
 	case strings.HasPrefix(s, "theme:"):
 		return PackageSummary{Kind: "theme", Name: strings.TrimPrefix(s, "theme:"), Version: "1.0.0", Signed: true, Signer: "abc123"}, nil
 	}
@@ -117,6 +125,7 @@ func (f *fakePackages) Inspect(_ context.Context, data []byte) (PackageSummary, 
 	}
 	if !strings.HasPrefix(s, "upload:") {
 		sum.Signed, sum.Signer = true, "abc123"
+		sum.FirstParty = name == "seo-tools"
 	}
 	return sum, nil
 }
@@ -352,10 +361,13 @@ func TestInstallShowsThePermissionPromptThenGrantsTheTicked(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("prompt: %d %s", rec.Code, body)
 	}
-	for _, want := range []string{"Install seo-tools", "Does &lt;things&gt;", "<code>kv</code>", "<code>mail.send</code>", "api.example.com", "Signed by <code>abc123</code>"} {
+	for _, want := range []string{"Install seo-tools 2.0.0?", "Does &lt;things&gt;", "It will be able to", "Keep its own notes", "Send email", "It will never be able to", "Run code on your public pages", "Same limits as every plugin.", "api.example.com", "Signed by abc123", "First-party", `<li aria-current="page">seo-tools</li>`, `href="/admin/plugins/browse">Browse</a>`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("prompt missing %q", want)
 		}
+	}
+	if strings.Contains(body, "Package</h2>") || strings.Contains(body, "Package</h") {
+		t.Error("the prompt has no Package card")
 	}
 	if len(pk.installed) != 0 {
 		t.Fatal("nothing may be installed before the owner confirms")
@@ -395,11 +407,17 @@ func TestUpdatePromptMarksNewPermissions(t *testing.T) {
 
 	g, _, _ := newPackageRig(t)
 	body := g.do("POST", "/admin/plugins/fetch", "owner-token", url.Values{"name": {"hello"}}, nil).Body.String()
-	if !strings.Contains(body, "replacing v1.2.0") || !strings.Contains(body, "(new in this version)") || !strings.Contains(body, "Update plugin") {
+	if !strings.Contains(body, "Replaces v1.2.0") || !strings.Contains(body, "Update plugin") {
 		t.Errorf("update prompt:\n%s", body)
 	}
-	if !strings.Contains(body, `value="kv" checked`) || strings.Contains(body, `value="mail.send" checked`) {
-		t.Error("an update keeps earlier grants ticked and leaves new permissions unticked")
+	if !strings.Contains(body, `type="hidden" name="permission" value="kv"`) || !strings.Contains(body, `type="hidden" name="permission" value="mail.send"`) {
+		t.Error("the update posts every listed permission as a hidden field")
+	}
+	if strings.Contains(body, `type="checkbox"`) && strings.Contains(body, `name="permission"`) && !strings.Contains(body, `role="switch"`) {
+		t.Error("permissions are not free-form checkboxes")
+	}
+	if strings.Count(body, "New in this version") != 1 {
+		t.Error("only the permission the update adds is marked new")
 	}
 }
 

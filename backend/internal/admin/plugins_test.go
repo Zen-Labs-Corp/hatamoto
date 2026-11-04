@@ -110,10 +110,10 @@ func TestPluginsPageLegacyWebhooksRow(t *testing.T) {
 		want    []string
 		notWant []string
 	}{
-		{"first-party signed, import recorded", &PackageMeta{Signed: true, Signer: "adea8e00f5ac74ca", FirstParty: true, WebhooksImported: true},
+		{"first-party signed, import recorded", &PackageMeta{Signed: true, Signer: "adea8e00f5ac74ca", LegacyFirstParty: true, WebhooksImported: true},
 			[]string{"Webhooks are now built in under", `href="/admin/settings/webhooks">Settings &gt; Webhooks</a>`, "This old plugin is not needed any more. Until you remove it, both it and core may send each webhook."},
 			[]string{"not moved over automatically", "were imported", "Until then both may send", "has not finished"}},
-		{"first-party signed, import not proven", &PackageMeta{Signed: true, Signer: "adea8e00f5ac74ca", FirstParty: true},
+		{"first-party signed, import not proven", &PackageMeta{Signed: true, Signer: "adea8e00f5ac74ca", LegacyFirstParty: true},
 			[]string{"has not finished. Restart the server to retry; remove the plugin only after its webhooks appear there.", `href="/admin/settings/webhooks">Settings &gt; Webhooks</a>`},
 			[]string{"not needed any more", "not moved over automatically", "Until then both may send", ">Remove<", `href="/admin/plugins/webhooks/uninstall"`}},
 		{"other package", &PackageMeta{Signed: true, Signer: "ffff0000ffff0000"},

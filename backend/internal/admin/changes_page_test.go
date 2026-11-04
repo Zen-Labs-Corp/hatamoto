@@ -115,3 +115,24 @@ func TestChangesUndo(t *testing.T) {
 		t.Errorf("not published: %d", rec.Code)
 	}
 }
+
+func TestChangesPageMarksAutomaticRuns(t *testing.T) {
+	t.Parallel()
+
+	g, fr, _ := newReviewRig(t)
+	at := time.Date(2026, 3, 4, 10, 0, 0, 0, time.UTC)
+	fr.history = []HistoryRow{
+		{ID: 1, Plugin: "pricer", RunName: "Prices", State: changeset.StatePublished, Auto: true, When: at, Applied: 12},
+		{ID: 2, Plugin: "hello", RunName: "Import", State: changeset.StatePublished, By: "Olga", When: at, Applied: 3},
+	}
+	body := g.do("GET", "/admin/settings/changes", "owner-token", nil, nil).Body.String()
+	if n := strings.Count(body, "Published automatically"); n != 1 {
+		t.Errorf("Published automatically appears %d times, want once (the automatic row only)", n)
+	}
+	if !strings.Contains(body, "Olga") {
+		t.Error("an owner's publish keeps its name")
+	}
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %s", strings.Join(issues, "; "))
+	}
+}

@@ -3,6 +3,7 @@ package packages
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -137,5 +138,17 @@ func TestCommunityPluginUsesOriginsMap(t *testing.T) {
 		if got := m.CommunityPlugin(name); got != want {
 			t.Errorf("CommunityPlugin(%q) = %v, want %v", name, got, want)
 		}
+	}
+}
+
+func TestRefusedPermissionsForCommunityPackage(t *testing.T) {
+	pkg := &Package{Kind: KindPlugin, Name: "blocks", Manifest: []byte(`{"permissions":["kv","builder.island","site.scripts"]}`),
+		Signature: &Signature{Signer: FirstPartyKeyIDs[0]}}
+	if got := RefusedPermissions(pkg); !slices.Equal(got, []string{"builder.island", "site.scripts"}) {
+		t.Fatalf("community refused = %v", got)
+	}
+	pkg.Signature = nil // self built: policy does not refuse
+	if got := RefusedPermissions(pkg); len(got) != 0 {
+		t.Fatalf("self built refused = %v", got)
 	}
 }

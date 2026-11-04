@@ -150,6 +150,31 @@ func (p *packageAdmin) updateNewFor(ctx context.Context, name, installed string,
 	return nil
 }
 
+// unreviewedProblem says why a plugin package must not be installed when it
+// asks for permissions beyond what the registry entry of that name lists as
+// reviewed. It applies only to a package the registry itself signs (the
+// signer is the registry's key; a self-built upload of the same name is the
+// owner's own) and to an entry that lists permissions at all; "" otherwise,
+// and when the registry has no entry or cannot be read, as before.
+func (p *packageAdmin) unreviewedProblem(ctx context.Context, name, signer string, requested []string) string {
+	if !packages.IsFirstPartyKey(signer) {
+		return ""
+	}
+	idx, err := p.index(ctx)
+	if err != nil || idx == nil {
+		return ""
+	}
+	e, ok := idx.Find(packages.KindPlugin, name)
+	if !ok || e.Permissions == nil {
+		return ""
+	}
+	extra := newPermissions(requested, e.Permissions)
+	if len(extra) == 0 {
+		return ""
+	}
+	return "Can't install " + name + ": it asks for permissions the registry did not review (" + strings.Join(extra, ", ") + ")."
+}
+
 func (p *packageAdmin) Registry(ctx context.Context) admin.RegistryView {
 	idx, err := p.index(ctx)
 	switch {
@@ -218,6 +243,11 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	case packages.KindPlugin:
 		m, _ := pkg.PluginManifest()
 		sum.Description, sum.Permissions, sum.AllowedHosts = m.Description, m.Permissions, m.AllowedHosts
+		sum.Refused = packages.RefusedPermissions(pkg)
+		sum.DeclaresRuns = len(m.Runs) > 0
+		for _, r := range m.Runs {
+			sum.Proposes = sum.Proposes || len(r.Proposes) > 0
+		}
 	case packages.KindTheme:
 		m, _ := pkg.ThemeMeta()
 		sum.Description = m.Description
@@ -228,6 +258,9 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	if err := p.mgr().CheckPolicy(ctx, pkg, packages.SourceUpload); err != nil {
 		sum.Problem = err.Error()
 	}
+	if sum.Problem == "" && pkg.Kind == packages.KindPlugin {
+		sum.Problem = p.unreviewedProblem(ctx, pkg.Name, sum.Signer, sum.Permissions)
+	}
 	if row, err := p.mgr().Store().Get(ctx, pkg.Kind, pkg.Name); err == nil {
 		sum.Updating, sum.InstalledVersion = true, row.Version
 		if p.s.plugins != nil {
@@ -237,6 +270,9 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 			sum.Problem = packages.ErrUninstalling.Error()
 		}
 	}
+	// First-party is a claim about whose plugin this is, so it needs a
+	// verified signature and a name on the first-party list.
+	sum.FirstParty = sum.Problem == "" && packages.Classify(pkg.Name, sum.Signer) == packages.OriginFirstParty
 	if need, err := p.mgr().NeedsConfirmation(ctx, pkg, packages.SourceUpload); err == nil && need != nil {
 		c := &admin.ConfirmInfo{Name: need.Name, Downgrade: need.Downgrade, SignerChange: need.SignerChange,
 			WidenedAccess: need.WidenedAccess, NewHosts: need.NewHosts, NewFetchAny: need.NewFetchAny, NewIsland: need.NewIsland, NewScripts: need.NewScripts,
@@ -250,6 +286,18 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 }
 
 func (p *packageAdmin) Install(ctx context.Context, data []byte, source string, grant []string, confirm bool) error {
+	// The prompt hides its Install button for a package the registry did not
+	// review; a posted form must not get past that.
+	if pkg, err := packages.Parse(data, packages.DefaultLimits); err == nil && pkg.Kind == packages.KindPlugin {
+		m, _ := pkg.PluginManifest()
+		signer := ""
+		if pkg.Signature != nil {
+			signer = pkg.Signature.Signer
+		}
+		if msg := p.unreviewedProblem(ctx, pkg.Name, signer, m.Permissions); msg != "" {
+			return &admin.Refusal{Msg: msg}
+		}
+	}
 	_, err := p.mgr().Install(actorCtx(ctx), data, packages.InstallRequest{Source: packages.Source(source), Grant: grant, Confirm: confirm})
 	return refusal(err)
 }
@@ -492,6 +540,12 @@ func (p *packageAdmin) grantedOf(name string) []string {
 	return p.s.plugins.Grants().Granted(name)
 }
 
+// firstPartyRow reports whether an installed row is a first-party plugin: the
+// registry key alone also signs community plugins, so the name must be listed.
+func firstPartyRow(r packages.Row) bool {
+	return r.Signed() && packages.ClassifyRow(r) == packages.OriginFirstParty
+}
+
 func (p *packageAdmin) meta(ctx context.Context, r packages.Row) *admin.PackageMeta {
 	var man sdk.Manifest
 	_ = json.Unmarshal(r.Manifest, &man)
@@ -499,10 +553,11 @@ func (p *packageAdmin) meta(ctx context.Context, r packages.Row) *admin.PackageM
 	if !scripts && p.s.plugins != nil && p.s.plugins.ScriptsDropped(r.Name) {
 		scripts = !p.s.plugins.Grants().Has(r.Name, sdk.PermSiteScripts)
 	}
-	m := &admin.PackageMeta{Enabled: r.Enabled, Signed: r.Signed(), Signer: r.SignerKeyID, FirstParty: firstPartySigned(r), Source: string(r.Source),
+	m := &admin.PackageMeta{Enabled: r.Enabled, Signed: r.Signed(), Signer: r.SignerKeyID, FirstParty: firstPartyRow(r), Source: string(r.Source),
 		Update: p.updateFor(ctx, packages.KindPlugin, r.Name, r.Version), UpdateNew: p.updateNewFor(ctx, r.Name, r.Version, man.Permissions),
 		Blocked: p.mgr().Blocked(packages.KindPlugin, r.Name), LoadError: p.mgr().LoadError(r.Name), ScriptsBlocked: scripts, MarkupStopped: p.mgr().MarkupStopped(r.Name), AsksScripts: slices.Contains(man.Permissions, sdk.PermSiteScripts), Uninstalling: r.State == packages.StateUninstalling}
 	if r.Name == legacyWebhooksPlugin {
+		m.LegacyFirstParty = firstPartySigned(r)
 		m.WebhooksImported = p.s.webhooksImportRecorded(ctx)
 	}
 	return m

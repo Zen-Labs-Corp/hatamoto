@@ -174,6 +174,8 @@ Older plugins keep working, with these changes to be aware of:
 - `inputs` (at most 16) are `{ "name", "label", "type"?, "required"?, "options"? }`; `type` is `text` (the default), `url`, `number`, `bool` or `select`.
 - `stages` must be exactly `["fetch", "transform"]`.
 - `proposes` lists the proposal kinds the run may submit: `site_settings`, `url_patterns`, `home_page`, `menu_location`.
+- `cron` (optional) names a job in the `cron` block. When it fires, the run starts instead of `on_cron_<job>`. It needs `standing_approval`.
+- `standing_approval` (optional) is `{ "fields", "schemas", "max_per_hour"? }`: `fields` are the attribute keys the run may change and `schemas` the entity schema slugs it applies to (each 1 to 16 identifiers); `max_per_hour` is 0 to 200 and 0 means 200. A run with it takes no `inputs`. The owner approves it on the **Automatic updates** tab. A price-only update must resend `slug`, `name` and `parent` unchanged. See [Data, routes and cron](data-routes-cron.md#update-content-on-a-schedule-standing-approvals).
 
 A plugin with `runs` must export `on_run_step`, or it is refused at load. Its timeout is 10 seconds by default and can be set in `limits.hook_timeouts_ms["on_run_step"]`. How a run works is on [The host API](host-api.md#runs-and-changesets).
 

@@ -3,6 +3,7 @@
 package server
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -15,6 +16,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -143,7 +145,7 @@ func TestPackagesIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := upload(pluginPkg)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Install capa") || !strings.Contains(rec.Body.String(), "<code>kv</code>") {
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Install capa") || !strings.Contains(rec.Body.String(), "Keep its own notes") {
 		t.Fatalf("prompt: %d\n%s", rec.Code, rec.Body.String())
 	}
 	staged := regexp.MustCompile(`name="staged" value="([^"]+)"`).FindStringSubmatch(rec.Body.String())[1]
@@ -313,6 +315,69 @@ func TestPackagesIntegration(t *testing.T) {
 		}
 		if rec := postForm("/admin/theme/themes/sunrise/uninstall", url.Values{}); rec.Code != http.StatusConflict {
 			t.Errorf("the active theme cannot be uninstalled: %d", rec.Code)
+		}
+	})
+
+	t.Run("first-party chip needs a verified first-party plugin", func(t *testing.T) {
+		old := packages.FirstPartyKeyIDs
+		packages.FirstPartyKeyIDs = append(slices.Clone(old), key.ID)
+		t.Cleanup(func() { packages.FirstPartyKeyIDs = old })
+		pack := func(name string) ([]byte, map[string][]byte) {
+			files := map[string][]byte{
+				packages.PluginManifest: []byte(`{"name":"` + name + `","version":"1.0.0","sdk":"^0.7","permissions":["kv"]}`),
+				packages.PluginWasm:     plugintest.Build(t, "capa"),
+			}
+			data, err := packages.PackFiles(files, &key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return data, files
+		}
+		community, _ := pack("fancy")
+		rec := upload(community)
+		if body := rec.Body.String(); rec.Code != 200 || !strings.Contains(body, "Signed by "+key.ID) || strings.Contains(body, "First-party") {
+			t.Errorf("a community name signed by the registry key must not get the star: %d\n%s", rec.Code, body)
+		}
+		official, files := pack("gtm")
+		if body := upload(official).Body.String(); !strings.Contains(body, "First-party") {
+			t.Errorf("a first-party plugin with a verified signature gets the star:\n%s", body)
+		}
+		// An installed row that is uninstalling refuses the upload: no star beside the refusal.
+		if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_packages (kind, name, version, manifest, data, sha256, signature, signer_key_id, source, state)
+			VALUES ('plugin', 'gtm', '0.9.0', '{"name":"gtm","version":"0.9.0"}', '\x00', 'x', '\x00', $1, 'registry', 'uninstalling')`, key.ID); err != nil {
+			t.Fatal(err)
+		}
+		if body := upload(official).Body.String(); !strings.Contains(body, "uninstall") || strings.Contains(body, "First-party") {
+			t.Errorf("no star beside an uninstalling refusal:\n%s", body)
+		}
+		if _, err := db.Pool().Exec(ctx, `DELETE FROM hatamoto_packages WHERE name = 'gtm'`); err != nil {
+			t.Fatal(err)
+		}
+		// The same signature over other contents: it claims the key but does not verify.
+		files[packages.PluginManifest] = []byte(`{"name":"gtm","version":"1.0.0","sdk":"^0.7","permissions":["kv"],"description":"changed after signing"}`)
+		forged := packages.SignatureFile
+		signed, _ := pack("gtm")
+		zr, err := zip.NewReader(bytes.NewReader(signed), int64(len(signed)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, f := range zr.File {
+			if f.Name == forged {
+				rc, _ := f.Open()
+				files[forged], _ = io.ReadAll(rc)
+				rc.Close()
+			}
+		}
+		var zb bytes.Buffer
+		zw := zip.NewWriter(&zb)
+		for n, b := range files {
+			w, _ := zw.Create(n)
+			_, _ = w.Write(b)
+		}
+		_ = zw.Close()
+		body := upload(zb.Bytes()).Body.String()
+		if !strings.Contains(body, "signature does not match") || strings.Contains(body, "First-party") || strings.Contains(body, "hm-badge--success") {
+			t.Errorf("a bad signature must show no star and no success chip:\n%s", body)
 		}
 	})
 

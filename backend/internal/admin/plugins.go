@@ -37,6 +37,7 @@ func (a *Admin) mountPlugins(authed *httpx.Group) {
 	a.mountPluginSecurity(owner)
 	a.mountPluginUIScreens(authed)
 	a.mountRunPages(owner)
+	a.mountStandingPages(owner)
 	a.mountRunProgress(owner)
 	a.mountReviewActions(owner)
 	// "go" is a literal segment: it wins over {name} in the mux.
@@ -158,6 +159,32 @@ type pluginHead struct {
 	Plugin PluginInfo
 	State  pluginState
 	Tabs   []ui.Tab
+	// UpdateReview is set when a newer version asks for something new and so
+	// was not installed on its own.
+	UpdateReview *updateReview
+}
+
+// updateReview is the callout of an update that waits for the owner.
+type updateReview struct {
+	Title, Body, Action string
+}
+
+// newUpdateReview words the callout for p; nil unless an update that adds
+// permissions is waiting and the plugin may take updates at all.
+func (a *Admin) newUpdateReview(p PluginInfo) *updateReview {
+	if !takesUpdate(p) || p.Package.Update == "" || len(p.Package.UpdateNew) == 0 {
+		return nil
+	}
+	var asks []string
+	for _, st := range permtext.Group(p.Package.UpdateNew, false, false).Can {
+		r, n := utf8.DecodeRuneInString(st.Title)
+		asks = append(asks, string(unicode.ToLower(r))+st.Title[n:])
+	}
+	return &updateReview{
+		Title:  p.Name + " " + p.Package.Update + " is ready but was not installed automatically.",
+		Body:   "It asks for something new: " + strings.Join(asks, "; ") + ". Review it to update. Until then " + p.Version + " keeps running.",
+		Action: a.pluginURL(p.Name, "update"),
+	}
 }
 
 func (a *Admin) newPluginHead(p PluginInfo, tab string, owner bool) pluginHead {
@@ -168,7 +195,10 @@ func (a *Admin) newPluginHead(p PluginInfo, tab string, owner bool) pluginHead {
 	if owner && len(p.Runs) > 0 {
 		tabs = append(tabs, ui.Tab{Label: "Runs", Href: a.pluginURL(p.Name, "runs"), Active: tab == "runs"})
 	}
-	return pluginHead{Plugin: p, State: pluginStatus(p), Tabs: tabs}
+	if owner && p.Standing && a.deps.Growth.Standing != nil {
+		tabs = append(tabs, ui.Tab{Label: "Automatic updates", Href: a.pluginURL(p.Name, "automatic"), Active: tab == "automatic"})
+	}
+	return pluginHead{Plugin: p, State: pluginStatus(p), Tabs: tabs, UpdateReview: a.newUpdateReview(p)}
 }
 
 func (a *Admin) pluginAdmin(w http.ResponseWriter, r *http.Request) (PluginAdmin, bool) {
@@ -197,7 +227,7 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 		}
 		if p.Name == legacyWebhooksPlugin {
 			row.Legacy, row.RemoveHref = "other", a.pluginURL(p.Name, "uninstall")
-			if p.Package != nil && p.Package.FirstParty {
+			if p.Package != nil && p.Package.LegacyFirstParty {
 				// Remove is offered only once core holds the subscriptions: removing the
 				// plugin earlier would strand them (boot never imports a plugin with no package row).
 				row.Legacy = "imported"

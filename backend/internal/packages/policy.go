@@ -45,6 +45,20 @@ func checkScriptsGrant(o Origin, perms []string) error {
 	return nil
 }
 
+// RefusedPermissions is the part of a plugin package's requested permissions
+// that policy would refuse to grant it (site.scripts and builder.island for a
+// community package), so a prompt can say so instead of posting them.
+func RefusedPermissions(p *Package) []string {
+	m, _ := p.PluginManifest()
+	var out []string
+	for _, perm := range m.Permissions {
+		if checkScriptsGrant(Classify(p.Name, signerOf(p)), []string{perm}) != nil {
+			out = append(out, perm)
+		}
+	}
+	return out
+}
+
 // refreshOrigins rebuilds the plugin origin map from the package rows.
 func (m *Manager) refreshOrigins(rows []Row) {
 	origins := map[string]Origin{}

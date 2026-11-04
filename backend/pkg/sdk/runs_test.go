@@ -1,12 +1,17 @@
 package sdk
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
 
 func validRun() Run {
 	return Run{Name: "import", Title: "Import", Stages: []string{RunPhaseFetch, RunPhaseTransform}}
+}
+
+func validStanding() *StandingApproval {
+	return &StandingApproval{Fields: []string{"price"}, Schemas: []string{"product"}}
 }
 
 func TestRunsValidate(t *testing.T) {
@@ -27,6 +32,40 @@ func TestRunsValidate(t *testing.T) {
 		{"unknown proposal", func(r *Run) { r.Proposes = []string{"theme"} }, "proposal kind"},
 		{"duplicate input", func(r *Run) { r.Inputs = []RunInput{{Name: "a", Label: "A"}, {Name: "a", Label: "B"}} }, "duplicate input"},
 		{"input without label", func(r *Run) { r.Inputs = []RunInput{{Name: "a"}} }, "needs a label"},
+		{"standing valid", func(r *Run) { r.Cron = "tick"; r.StandingApproval = validStanding() }, ""},
+		{"standing at the cap", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.MaxPerHour = DefaultStandingPerHour
+		}, ""},
+		{"standing unknown cron", func(r *Run) { r.Cron = "nope"; r.StandingApproval = validStanding() }, "declared cron job"},
+		{"standing without cron", func(r *Run) { r.StandingApproval = validStanding() }, "declared cron job"},
+		{"cron without standing", func(r *Run) { r.Cron = "tick" }, "needs a standing_approval"},
+		{"standing empty fields", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.Fields = nil
+		}, "fields needs"},
+		{"standing empty schemas", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.Schemas = nil
+		}, "schemas needs"},
+		{"standing bad field", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.Fields = []string{"Price"}
+		}, "bad or duplicate"},
+		{"standing cap 201", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.MaxPerHour = DefaultStandingPerHour + 1
+		}, "max_per_hour"},
+		{"standing with inputs", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.Inputs = []RunInput{{Name: "a", Label: "A"}}
+		}, "takes no inputs"},
 		{"too many inputs", func(r *Run) {
 			for i := 0; i <= MaxRunInputs; i++ {
 				r.Inputs = append(r.Inputs, RunInput{Name: "i" + strings.Repeat("x", i), Label: "L"})
@@ -35,7 +74,7 @@ func TestRunsValidate(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			m := Manifest{Name: "wp", Version: "1.0.0", SDK: "^0.17"}
+			m := Manifest{Name: "wp", Version: "1.0.0", SDK: "^0.17", Cron: []CronJob{{Name: "tick", Every: "1h"}}}
 			r := validRun()
 			tc.mutate(&r)
 			m.Runs = []Run{r}
@@ -100,5 +139,54 @@ func TestRemovedPermissionIsOnlyTheFiveRemoved(t *testing.T) {
 		if RemovedPermission(p) {
 			t.Errorf("%q reported as removed", p)
 		}
+	}
+}
+
+func TestOnlyOneStandingApprovalRun(t *testing.T) {
+	bound := func(name, job string) Run {
+		r := validRun()
+		r.Name, r.Cron, r.StandingApproval = name, job, validStanding()
+		return r
+	}
+	m := Manifest{Name: "wp", Version: "1.0.0", SDK: "^0.17",
+		Cron: []CronJob{{Name: "tick", Every: "1h"}, {Name: "tock", Every: "1h"}},
+		Runs: []Run{bound("one", "tick")}}
+	if err := m.Validate(); err != nil {
+		t.Fatalf("one standing run: %v", err)
+	}
+	m.Runs = append(m.Runs, bound("two", "tock"))
+	if err := m.Validate(); err == nil || !strings.Contains(err.Error(), "only one run may have a standing_approval") {
+		t.Fatalf("two standing runs: %v", err)
+	}
+}
+
+// A cron-started run fetches from allowed_hosts, so more than the run limit
+// is refused when the manifest declares the rule (the "*" wildcard is not
+// handed to a run and does not count).
+func TestStandingApprovalLimitsAllowedHosts(t *testing.T) {
+	hosts := func(n int) []string {
+		var out []string
+		for i := range n {
+			out = append(out, fmt.Sprintf("h%d.example.test", i))
+		}
+		return out
+	}
+	r := validRun()
+	r.Cron, r.StandingApproval = "tick", validStanding()
+	m := Manifest{Name: "wp", Version: "1.0.0", SDK: "^0.17",
+		Cron: []CronJob{{Name: "tick", Every: "1h"}}, Runs: []Run{r},
+		Permissions: []Permission{PermHTTPFetch, PermHTTPFetchAny}}
+	m.AllowedHosts = append(hosts(MaxRunHosts), "*")
+	if err := m.Validate(); err != nil {
+		t.Fatalf("at the limit: %v", err)
+	}
+	m.AllowedHosts = hosts(MaxRunHosts + 1)
+	if err := m.Validate(); err == nil || !strings.Contains(err.Error(), "allowed_hosts") {
+		t.Fatalf("over the limit: %v", err)
+	}
+	m.Runs[0].Cron, m.Runs[0].StandingApproval = "", nil
+	m.Cron = nil
+	if err := m.Validate(); err != nil {
+		t.Fatalf("no rule, no limit: %v", err)
 	}
 }

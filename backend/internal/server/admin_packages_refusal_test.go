@@ -21,3 +21,22 @@ func TestRefusalCommunityGrant(t *testing.T) {
 		t.Fatal("empty refusal message")
 	}
 }
+
+// The plugin header and list star only a listed first-party plugin: the
+// registry key also signs community plugins.
+func TestFirstPartyRow(t *testing.T) {
+	reg := packages.FirstPartyKeyIDs[0]
+	for _, c := range []struct {
+		name, signer string
+		want         bool
+	}{
+		{"gtm", reg, true},
+		{"fancy", reg, false},
+		{"gtm", "0123456789abcdef", false},
+		{"gtm", "", false},
+	} {
+		if got := firstPartyRow(packages.Row{Name: c.name, SignerKeyID: c.signer}); got != c.want {
+			t.Errorf("%s signed by %q: got %v, want %v", c.name, c.signer, got, c.want)
+		}
+	}
+}

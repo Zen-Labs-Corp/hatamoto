@@ -66,6 +66,7 @@ GET /admin/plugins/security -> admin.(*Admin).handlePackageSecurity-fm
 GET /admin/plugins/upload -> admin.(*Admin).handleUploadPage-fm
 GET /admin/plugins/{name} -> admin.(*Admin).handlePluginRedirect-fm
 GET /admin/plugins/{name}/about -> admin.(*Admin).handleBrowseDetail-fm
+GET /admin/plugins/{name}/automatic -> admin.(*Admin).handlePluginStanding-fm
 GET /admin/plugins/{name}/changesets/{id} -> admin.(*Admin).handleChangeset-fm
 GET /admin/plugins/{name}/changesets/{id}/preview -> admin.(*Admin).handleChangesetPreview-fm
 GET /admin/plugins/{name}/permissions -> admin.(*Admin).handlePluginPermissions-fm
@@ -265,6 +266,8 @@ POST /admin/plugins/unsigned -> admin.(*Admin).handleAllowUnsigned-fm
 POST /admin/plugins/unsigned/off -> admin.(*Admin).handleStopUnsigned-fm
 POST /admin/plugins/update-all -> admin.(*Admin).handlePluginUpdateAll-fm
 POST /admin/plugins/upload -> admin.(*Admin).handlePackageUpload-fm
+POST /admin/plugins/{name}/automatic -> admin.(*Admin).handleStandingApprove-fm
+POST /admin/plugins/{name}/automatic/off -> admin.(*Admin).handleStandingOff-fm
 POST /admin/plugins/{name}/bridge -> admin.(*Admin).handlePluginBridge-fm
 POST /admin/plugins/{name}/changesets/{id}/decide -> admin.(*Admin).handleReviewDecide-fm
 POST /admin/plugins/{name}/changesets/{id}/discard -> admin.(*Admin).handleReviewDiscard-fm

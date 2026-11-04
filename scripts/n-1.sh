@@ -319,6 +319,9 @@ for pkg in ./internal/entity ./internal/linking/... ./internal/auth ./internal/m
   skip_re=$(broken_skip "$pkg")
   [[ -z "$skip_re" ]] || skip_args=(-skip "$skip_re")
   if ! base_go env HATAMOTO_TEST_DB_URL="$DSN" DATABASE_URL="$DSN" go test -json -count=1 -tags=integration "${skip_args[@]}" "$pkg" >"$log" 2>&1; then
+    # The -json tail alone hides which test failed (a long passing tail), so name them.
+    grep -o '"Action":"fail","Package":"[^"]*","Test":"[^"]*"' "$log" | sed -E 's#.*"Test":"([^"]*)"#failed test: \1#' | sort -u
+    grep -h '"Output":"[^"]*FAIL[^"]*"\|"OutputType":"error"' "$log" | grep -o '"Output":"[^"]*' | cut -c11-300 | head -40
     tail -40 "$log"; echo "FAIL baseline $pkg"; record "baseline $pkg"; continue
   fi
   skipped=$(grep -o '"Action":"skip","Package":"[^"]*","Test":"[^"]*"' "$log" \

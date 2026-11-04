@@ -24,6 +24,7 @@ import (
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/standing"
 	"hatamoto.dev/sdk"
 )
 
@@ -340,9 +341,20 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	}
 	// The package row and its grants are one transaction: a failed grant write
 	// must not leave the new package enabled.
+	var voided int64
 	if err := pgx.BeginFunc(ctx, m.Pool, func(tx pgx.Tx) error {
 		if err := m.store.put(ctx, tx, p, req.Source, true); err != nil {
 			return err
+		}
+		// An approval belongs to one exact release: any change to the
+		// version, the archive or the canonical manifest ends it, in the
+		// same transaction as the install.
+		if updating && p.Kind == KindPlugin && changedRelease(prev, p) {
+			n, err := standing.VoidTx(ctx, tx, p.Name, "plugin updated")
+			if err != nil {
+				return fmt.Errorf("failed to void standing approvals: %w", err)
+			}
+			voided = n
 		}
 		if grants != nil {
 			if _, err := tx.Exec(ctx, `
@@ -382,6 +394,9 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		action = "package.update"
 		detail["from_version"] = prev.Version
 		detail["from_signer"] = prev.SignerKeyID
+		if voided > 0 {
+			detail["voided_approvals"] = voided
+		}
 	}
 	if need != nil {
 		detail["confirmed_downgrade"], detail["confirmed_signer_change"], detail["confirmed_missing_sections"] = need.Downgrade, need.SignerChange, len(need.Missing)
@@ -405,6 +420,19 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	}
 	m.Audit(ctx, action, string(p.Kind)+":"+p.Name, detail)
 	return out, nil
+}
+
+// changedRelease reports whether the new package differs from the stored one
+// in version, archive bytes or canonical manifest. A manifest that cannot be
+// hashed counts as changed (fail closed).
+func changedRelease(prev Row, p *Package) bool {
+	sum := p.SHA256()
+	if prev.Version != p.Version || prev.SHA256 != hex.EncodeToString(sum[:]) {
+		return true
+	}
+	a, errA := standing.ManifestHash(prev.Manifest)
+	b, errB := standing.ManifestHash(p.Manifest)
+	return errA != nil || errB != nil || a != b
 }
 
 func signerOf(p *Package) string {
@@ -586,6 +614,12 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, dropDat
 	nwidgets := m.widgetCount(name)
 	if err := m.store.SetState(ctx, kind, name, StateUninstalling); err != nil {
 		return err
+	}
+	if err := pgx.BeginFunc(ctx, m.Pool, func(tx pgx.Tx) error {
+		_, err := standing.VoidTx(ctx, tx, name, "plugin uninstalled")
+		return err
+	}); err != nil {
+		return fmt.Errorf("failed to void standing approvals: %w", err)
 	}
 	m.reconcile(ctx) // unloads it
 	if m.Grants != nil {

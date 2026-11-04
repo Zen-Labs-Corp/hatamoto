@@ -181,7 +181,11 @@ export const screens = [
 //    with runs and a staged changeset. runs-screens.mjs and review-flow.mjs seed them on the
 //    frameplug fixture and click through; their markup is pinned by Go goldens;
 //  - the ownership card of the entity editors ("Imported, tracked by" / "Yours") needs a page a
-//    plugin imported; ownership-ui.mjs seeds one on the frameplug fixture and clicks the hand-back.
+//    plugin imported; ownership-ui.mjs seeds one on the frameplug fixture and clicks the hand-back;
+//  - the plugin Automatic updates tab (/admin/plugins/{name}/automatic) needs a plugin that declares
+//    a standing approval; standing-approvals.mjs loads the frameplug fixture, meets the password page,
+//    allows the rule and checks the paused state. The install prompt needs an uploaded package and
+//    stays with its Go golden.
 
 // Mockup screens with no counterpart in a signed-in admin (setup wizard, kit page)
 // stay out of the pairing on purpose: onboarding, components.
@@ -242,6 +246,7 @@ export const crawlIgnore = [
   { re: /^\/admin\/plugins\/[^/?]+\/settings$/, reason: "plugin settings need an installed plugin; the seeded instance has none (see Not inventoried above)" },
   { re: /^\/admin\/settings\/import\/wordpress\/[^/?]+\/options$/, reason: "import options need a finished WordPress scan (see Not inventoried above)" },
   { re: /^\/admin\/plugins\/[^/?]+\/changesets\/\d+(\/preview)?$/, reason: "changeset pages need a staged changeset; the seeded instance has none (see Not inventoried above)" },
+  { re: /^\/admin\/plugins\/[^/?]+\/automatic$/, reason: "the Automatic updates tab needs a plugin that declares a standing approval; the seeded instance has none (see Not inventoried above)" },
   { re: /^\/admin\/changesets\/\d+\/frame\/\d+\/[^/?]+$/, reason: "the changeset preview frame URL is one-time: a crawl would spend its ticket and a reload is a 404 by design" },
   { re: /^\/admin\/plugins\/[^/?]+\/about$/, reason: "the plugin detail page needs a registry entry; the harness has no registry" },
 ];

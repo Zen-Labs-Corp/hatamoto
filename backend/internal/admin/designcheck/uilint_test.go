@@ -82,6 +82,7 @@ var uiAllow = []uiAllowEntry{
 	// and of partial forms that were skipped as "partials".
 	{Rule: "UI-01", File: "partials/table.html", Needle: `data-hm-seobulk-save`, Reason: "row action of an editable list: the row's own form saves that one row without JavaScript"},
 	{Rule: "UI-01", File: "pages/settings/theme.html", Needle: `(printf "Update to %s" .Update) "Variant" "secondary" "Size" "sm" "Type" "submit"`, Reason: "the Live card's Update action sits in its own one-button form in the card body, now that theme cards have no footer band"},
+	{Rule: "UI-01", File: "partials/pluginhead.html", Needle: `"Label" "Review update"`, Reason: "the callout's action, a one-button form that opens the update prompt; it posts because the update route is a POST"},
 	{Rule: "UI-01", File: "pages/settings/performance.html", Needle: `"Preload now"`, Reason: "setting row action bound to its own form by the form attribute"},
 	{Rule: "UI-01", File: "pages/settings/layoutparts.html", Needle: `printf "Create %s part"`, Reason: "one create button per slot, each in its own one-button form in a row"},
 	{Rule: "UI-01", File: "pages/entities/new.html", Needle: `<button class="hm-choice__link" type="submit">`, Reason: "a type card is its own one-button form: one click creates the draft, as the Create menu does"},
@@ -134,6 +135,8 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="reset-stats-form"`, Reason: "Reset ID, a row action of the Install stats card and not a create form"},
 	{Rule: "UI-10", File: "pages/plugins/changeset.html", Needle: `data-hm-review-form`, Reason: "review page: decision forms (risky items, suggestions, publish) about the listed items, not a create form beside a list"},
 	{Rule: "UI-10", File: "pages/plugins/runs.html", Needle: `id="run-form"`, Reason: "the Start form of a run: host ticks and inputs are core's, a settings-like form and not a create form beside the list; the recent runs table below is read-only"},
+	{Rule: "UI-10", File: "pages/plugins/automatic.html", Needle: `name="run" value="{{.Rule.Run}}"`, Reason: "the allow form of a standing approval: a consent action about the rule on the page, not a create form beside a list; the daily summary table below is read-only"},
+	{Rule: "UI-10", File: "pages/plugins/automatic.html", Needle: `action="{{.Off}}"`, Reason: "Turn off, a row action of the approved rule and not a create form beside a list; it takes no input"},
 	{Rule: "UI-10", File: "pages/settings/backups.html", Needle: `id="backup-form"`, Reason: "Back up now, a header action that starts a background job and takes no input, so there is nothing to put in a dialog"},
 
 	// UI-02: selectors that name the class, not markup that uses it.
@@ -144,7 +147,6 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-03", File: "partials/field.html", Needle: `hm-field__chipbox" type="checkbox"`, Reason: "toggle chip: one pill per option in a multi-pick group"},
 	{Rule: "UI-03", File: "pages/settings/packageconfirm.html", Needle: `"confirm"`, Reason: reasonConsent},
 	{Rule: "UI-03", File: "pages/settings/pluginprompt.html", Needle: `"confirm"`, Reason: reasonConsent},
-	{Rule: "UI-03", File: "pages/settings/pluginprompt.html", Needle: `name="permission"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/plugins/permissions.html", Needle: `name="permission"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "partials/form-apikey.html", Needle: `"scopes"`, Reason: reasonMulti},
 	{Rule: "UI-03", File: "pages/import/options.html", Needle: `.Types`, Reason: reasonMulti},
