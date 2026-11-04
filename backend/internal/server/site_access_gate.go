@@ -295,7 +295,7 @@ func (h *renderHandlers) writeAccess(w http.ResponseWriter, r *http.Request, sta
 	if retry > 0 {
 		hd.Set("Retry-After", strconv.Itoa(retry))
 	}
-	applyRenderSecurityHeaders(hd, h.csp(), "")
+	applyRenderSecurityHeaders(hd, h.csp(), cspExtras{})
 	w.WriteHeader(status)
 	if r.Method != http.MethodHead {
 		_, _ = w.Write(buf.Bytes())
