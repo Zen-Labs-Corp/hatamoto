@@ -1,0 +1,8 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (printf "Preview changeset #%d" .ID) "Badge" .Badge "Description" "Your site with the changeset applied. Changed and new parts are outlined."}}
+{{template "hm/card-start" dict "ID" "preview" "Title" "Isolated preview" "Description" "Drawn by core on a separate address, in a sandbox that runs no plugin or theme scripts."}}
+{{if .Empty}}{{template "hm/empty" dict "Icon" "eye" "Title" "Nothing to preview" "Body" "This changeset has no page or redirect to show. The other changes are listed on the changeset page."}}{{else}}<div class="hm-row">{{template "hm/badge" (dict "Label" "Sandboxed frame, no scripts" "Kind" "info")}}{{template "hm/badge" (dict "Label" "No admin login here" "Plain" true)}}{{template "hm/badge" (dict "Label" .Shown "Mono" true)}}</div>
+<iframe class="hm-pluginframe hm-pluginframe--preview" sandbox="" referrerpolicy="no-referrer" title="{{.FrameTitle}}" src="{{.Src}}"></iframe>
+<ul class="hm-catbar__legend"><li><span class="hm-catbar__swatch hm-viz--success" aria-hidden="true"></span>New in this changeset</li><li><span class="hm-catbar__swatch hm-viz--warning" aria-hidden="true"></span>Changed by this changeset</li></ul>{{end}}
+{{template "hm/card-foot"}}{{if .Prev}}{{template "hm/button" dict "Label" "Previous change" "Icon" "chevron-left" "Href" .Prev}}{{end}}{{if .Next}}{{template "hm/button" dict "Label" "Next change" "Icon" "chevron-right" "Href" .Next}}{{end}}{{template "hm/button" dict "Label" "Back to review" "Variant" "primary" "Href" .Back}}{{template "hm/card-foot-end"}}
+{{end}}{{end}}

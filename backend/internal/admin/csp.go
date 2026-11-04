@@ -30,13 +30,20 @@ func newNonce() string {
 
 // cspHeader is strict regardless of CSP_ENFORCE: no unsafe-inline, every
 // inline <script>/<style> must carry the per-request nonce.
-func cspHeader(nonce string, frame bool) string {
+//
+// previewHost, when set, is the one extra origin the page may frame (the
+// changeset preview host); "" keeps frames to the admin's own origin.
+func cspHeader(nonce string, frame bool, previewHost string) string {
 	ancestors := "'none'"
 	if frame {
 		ancestors = "'self'"
 	}
+	frameSrc := "'self'"
+	if previewHost != "" {
+		frameSrc += " https://" + previewHost
+	}
 	return "default-src 'none'; script-src 'self' 'nonce-" + nonce + "'; style-src 'self' 'nonce-" + nonce + "'; " +
-		"img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self'; frame-src 'self'; form-action 'self'; " +
+		"img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self'; frame-src " + frameSrc + "; form-action 'self'; " +
 		"base-uri 'none'; object-src 'none'; frame-ancestors " + ancestors + "; manifest-src 'self'"
 }
 
@@ -49,7 +56,7 @@ func secureHeaders(next http.Handler) http.Handler {
 		h := w.Header()
 		h.Del("Content-Security-Policy-Report-Only")
 		frame := frameable(r.Context())
-		h.Set("Content-Security-Policy", cspHeader(nonce, frame))
+		h.Set("Content-Security-Policy", cspHeader(nonce, frame, ""))
 		if frame {
 			h.Set("X-Frame-Options", "SAMEORIGIN")
 		} else {

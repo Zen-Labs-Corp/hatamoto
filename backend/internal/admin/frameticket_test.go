@@ -178,7 +178,7 @@ func TestChangesetPreviewTicket(t *testing.T) {
 				t.Errorf("a %s ticket opened a changeset frame", p)
 			}
 			tok = s.mint(p, sess, target, nil)
-			if _, ok := s.consumeBound(ticketChangesetPreview, tok, target); ok {
+			if _, _, ok := s.consumeBound(ticketChangesetPreview, tok, target); ok {
 				t.Errorf("a %s ticket opened a changeset frame (bound)", p)
 			}
 		}
@@ -194,35 +194,35 @@ func TestChangesetPreviewTicket(t *testing.T) {
 	t.Run("bound happy path and replay", func(t *testing.T) {
 		s, _ := newTestTickets()
 		tok := s.mint(ticketChangesetPreview, sess, target, nil)
-		got, ok := s.consumeBound(ticketChangesetPreview, tok, target)
+		got, _, ok := s.consumeBound(ticketChangesetPreview, tok, target)
 		if !ok || got != sess {
 			t.Fatalf("bound = %v %v, want the minting session", got, ok)
 		}
-		if _, ok := s.consumeBound(ticketChangesetPreview, tok, target); ok {
+		if _, _, ok := s.consumeBound(ticketChangesetPreview, tok, target); ok {
 			t.Fatal("bound accepted twice")
 		}
 	})
 	t.Run("bound wrong target, expiry, forgery", func(t *testing.T) {
 		s, clock := newTestTickets()
 		tok := s.mint(ticketChangesetPreview, sess, target, nil)
-		if _, ok := s.consumeBound(ticketChangesetPreview, tok, changesetTarget(42, 2)); ok {
+		if _, _, ok := s.consumeBound(ticketChangesetPreview, tok, changesetTarget(42, 2)); ok {
 			t.Error("wrong seq accepted")
 		}
-		if _, ok := s.consumeBound(ticketChangesetPreview, tok, target); ok {
+		if _, _, ok := s.consumeBound(ticketChangesetPreview, tok, target); ok {
 			t.Error("ticket survived a wrong attempt")
 		}
 		tok = s.mint(ticketChangesetPreview, sess, target, nil)
 		clock.t = clock.t.Add(ticketTTL + time.Second)
-		if _, ok := s.consumeBound(ticketChangesetPreview, tok, target); ok {
+		if _, _, ok := s.consumeBound(ticketChangesetPreview, tok, target); ok {
 			t.Error("expired accepted")
 		}
 		other, _ := newTestTickets()
 		other.key = deriveTicketKey([]byte("other"))
 		tok = s.mint(ticketChangesetPreview, sess, target, nil)
-		if _, ok := other.consumeBound(ticketChangesetPreview, tok, target); ok {
+		if _, _, ok := other.consumeBound(ticketChangesetPreview, tok, target); ok {
 			t.Error("ticket of another key accepted")
 		}
-		if _, ok := s.consumeBound(ticketChangesetPreview, "short", target); ok {
+		if _, _, ok := s.consumeBound(ticketChangesetPreview, "short", target); ok {
 			t.Error("garbage accepted")
 		}
 	})

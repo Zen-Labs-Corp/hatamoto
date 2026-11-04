@@ -150,6 +150,27 @@ func (s *Store) Validate(ctx context.Context, token string) (*Session, error) {
 	return sess, nil
 }
 
+// LiveAdminUser reports the user of the admin session with this id when it is
+// still signed in: not expired and not idle. It only reads: unlike Validate it
+// never touches last_used_at, so a caller that has no cookie cannot keep a
+// session alive with it.
+func (s *Store) LiveAdminUser(ctx context.Context, id uuid.UUID) (uuid.UUID, bool) {
+	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
+	if err != nil {
+		return uuid.Nil, false
+	}
+	defer conn.Release()
+	var userID *uuid.UUID
+	var expires time.Time
+	var lastUsed *time.Time
+	err = conn.QueryRow(ctx, `SELECT user_id, expires_at, last_used_at FROM hatamoto_sessions WHERE id = $1 AND kind = 'admin'`, id).
+		Scan(&userID, &expires, &lastUsed)
+	if err != nil || userID == nil || time.Now().After(expires) || (lastUsed != nil && time.Since(*lastUsed) > IdleTimeout) {
+		return uuid.Nil, false
+	}
+	return *userID, true
+}
+
 // Rotate atomically consumes an admin session token and issues a fresh one.
 // The old row is DELETEd first (the DELETE ... RETURNING is the concurrency
 // gate): exactly one caller can delete it, so two concurrent refreshes with the

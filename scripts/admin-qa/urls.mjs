@@ -174,7 +174,10 @@ export const screens = [
 //  - import options (/admin/settings/import/wordpress/{id}/options) needs a finished
 //    WordPress scan, i.e. a WordPress export or site to upload;
 //  - plugin settings (/admin/plugins/{name}/settings) needs an installed plugin, and
-//    the seeded instance has none. The static lint (UI-01..06) still covers both templates.
+//    the seeded instance has none. The static lint (UI-01..06) still covers both templates;
+//  - the changeset pages (/admin/plugins/{name}/changesets/{id} and its /preview) need a plugin
+//    run that staged a changeset. Their markup is pinned by TestChangesetPageGoldens, and the
+//    sealed frame's browser behaviour is checked by changeset-frame.mjs.
 
 // Mockup screens with no counterpart in a signed-in admin (setup wizard, kit page)
 // stay out of the pairing on purpose: onboarding, components.
@@ -234,5 +237,7 @@ export const primaryScreens = () => inventory().filter((s) => s.primary);
 export const crawlIgnore = [
   { re: /^\/admin\/plugins\/[^/?]+\/settings$/, reason: "plugin settings need an installed plugin; the seeded instance has none (see Not inventoried above)" },
   { re: /^\/admin\/settings\/import\/wordpress\/[^/?]+\/options$/, reason: "import options need a finished WordPress scan (see Not inventoried above)" },
+  { re: /^\/admin\/plugins\/[^/?]+\/changesets\/\d+(\/preview)?$/, reason: "changeset pages need a staged changeset; the seeded instance has none (see Not inventoried above)" },
+  { re: /^\/admin\/changesets\/\d+\/frame\/\d+\/[^/?]+$/, reason: "the changeset preview frame URL is one-time: a crawl would spend its ticket and a reload is a 404 by design" },
   { re: /^\/admin\/plugins\/[^/?]+\/about$/, reason: "the plugin detail page needs a registry entry; the harness has no registry" },
 ];

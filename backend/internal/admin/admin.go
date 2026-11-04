@@ -275,6 +275,9 @@ type Deps struct {
 	// public login on the sign-in page and the refusals of config.DemoConfig.
 	Demo config.DemoConfig
 
+	// PreviewHost is HATAMOTO_PREVIEW_HOST: when set, changeset previews are
+	// framed from https://<host> instead of the admin's own origin.
+	PreviewHost string
 	// AdminPath is the URL prefix every admin route is served under. Empty
 	// means DefaultAdminPath; otherwise it is "/" plus one lowercase [a-z0-9-]
 	// segment of 1 to 64 characters, not starting or ending with "-". Reserved
@@ -457,6 +460,7 @@ func (a *Admin) mountScreens(public, authed *httpx.Group) {
 	a.mountContent(authed)
 	a.mountImport(authed)
 	a.mountPageEditor(authed, public)
+	a.mountChangesets(authed, public)
 }
 
 // fallback serves unowned /admin paths: a session-gated 404 page.
