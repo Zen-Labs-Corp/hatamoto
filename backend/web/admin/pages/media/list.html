@@ -15,7 +15,7 @@
 </div>
 </div>{{with .Progress}}<div id="rebuild-progress" role="status">{{template "hm/progress" .}}</div>
 {{end}}{{if .Line}}<p class="hm-field__help">{{.Line}}</p>{{end}}{{if .Skipped}}<details><summary>Skipped images</summary><ul>{{range .Skipped}}<li>{{.Name}}: {{.Reason}}</li>{{end}}</ul>{{if .SkippedMore}}<p class="hm-muted">And {{.SkippedMore}} more.</p>{{end}}</details>
-{{end}}{{template "hm/card-foot"}}<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Rebuild copies" "Type" "submit" "Attrs" (attrmap "form" "rebuild-form" "disabled" (printf "%t" .Running))}}</span>{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+{{end}}{{template "hm/card-foot"}}<span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Rebuild copies" "Type" "submit" "Attrs" (attrmap "form" "rebuild-form")}}</span>{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
 </form>
 <form method="post" action="{{adminPath}}/settings/media/rebuild" id="rebuild-form">{{template "hm/csrf" $}}</form>
 {{end}}<div class="hm-card hm-media">

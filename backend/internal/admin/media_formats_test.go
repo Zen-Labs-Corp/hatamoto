@@ -43,10 +43,17 @@ func TestMediaFormatsCard(t *testing.T) {
 		}
 	}
 
+	if strings.Contains(body, "disabled") {
+		t.Error("rebuild button is disabled while a run is active")
+	}
+
 	fake.state = media.State{Last: &media.LastRun{FinishedAt: time.Date(2026, 11, 4, 9, 0, 0, 0, time.UTC), Images: 12, Skipped: 2}}
 	body = g.do("GET", "/admin/settings/media", "owner-token", nil, nil).Body.String()
 	if !strings.Contains(body, "Last rebuild:") || !strings.Contains(body, "2 skipped") {
 		t.Error("last run line missing")
+	}
+	if strings.Contains(body, "disabled") {
+		t.Error("rebuild button is disabled while idle")
 	}
 
 	g.do("POST", "/admin/settings/media/formats", "owner-token", url.Values{"webp": {"off"}, "avif": {"on"}}, nil)
