@@ -582,7 +582,7 @@ func TestRenderCSPCaptchaProvider(t *testing.T) {
 		t.Errorf("no provider: CSP = %q, want renderCSP", got)
 	}
 	provider := "none"
-	f.h.captchaProvider = func(context.Context) string { return provider }
+	f.h.cspExtras = func(context.Context) cspExtras { return captchaExtras(provider) }
 	if got := cspOf(f.get("/about")); got != renderCSP {
 		t.Errorf("provider none: CSP = %q, want renderCSP", got)
 	}
@@ -669,7 +669,7 @@ func TestRenderCSPStrictScripts(t *testing.T) {
 		t.Errorf("renderCSPStrict differs from renderCSP beyond script-src:\n%s\n%s", renderCSPStrict, want)
 	}
 
-	f.h.captchaProvider = func(context.Context) string { return "turnstile" }
+	f.h.cspExtras = func(context.Context) cspExtras { return captchaExtras("turnstile") }
 	got = cspOf(f.get("/about"))
 	if !strings.Contains(got, "script-src 'self' https://challenges.cloudflare.com;") || strings.Contains(strings.SplitN(got, "style-src", 2)[0], "unsafe-inline") {
 		t.Errorf("strict + provider CSP = %q", got)

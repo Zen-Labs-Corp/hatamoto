@@ -379,7 +379,7 @@ func TestRenderPreviewCSPCaptchaProvider(t *testing.T) {
 	if got := preview(t, h, body).Header().Get("Content-Security-Policy"); got != renderCSP {
 		t.Errorf("no provider: CSP = %q, want renderCSP", got)
 	}
-	h.captchaProvider = func(context.Context) string { return "hcaptcha" }
+	h.cspExtras = func(context.Context) cspExtras { return captchaExtras("hcaptcha") }
 	got := preview(t, h, body).Header().Get("Content-Security-Policy")
 	if !strings.Contains(got, "script-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com;") {
 		t.Errorf("hcaptcha CSP = %q", got)

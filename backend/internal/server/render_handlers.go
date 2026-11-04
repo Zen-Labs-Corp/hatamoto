@@ -7,7 +7,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +19,6 @@ import (
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/render"
-	"hatamoto.dev/core/internal/spam"
 	"hatamoto.dev/sdk"
 )
 
@@ -111,13 +109,13 @@ type renderHandlers struct {
 	uncached bool
 	// runtime carries the live cache on/off and lifetime; nil means enabled with cacheTTL.
 	runtime *pageCacheRuntime
-	// captchaProvider names the configured captcha provider ("" or "none" for
-	// none). It is read on every response, cache hits included, so the CSP
+	// cspExtras are the origins (captcha provider, enabled tag vendors) the CSP
+	// adds. It is read on every response, cache hits included, so the CSP
 	// follows the settings even for pages cached before they changed.
-	captchaProvider func(ctx context.Context) string
+	cspExtras func(ctx context.Context) cspExtras
 	// pluginCSP returns the csp hosts of the enabled plugins; nil means none.
-	// Like the provider it is read on every response, cache hits included, so
-	// the policy follows enabling and disabling at once.
+	// Like cspExtras it is read on every response, cache hits included, so the
+	// policy follows enabling and disabling at once.
 	pluginCSP func() pluginhost.CSPSet
 	// communityScripts reports a live community site.scripts; nil means none.
 	// It is read on every response, cache hits included.
@@ -148,7 +146,7 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 		preview:       s.preview,
 		runtime:       s.pageRuntime,
 
-		captchaProvider:  s.captchaProvider,
+		cspExtras:        s.cspExtras,
 		pluginCSP:        s.pluginCSPHosts,
 		communityScripts: func() bool { return qaSandboxForced() || s.communityScriptsLive() },
 		communityPlugin:  s.communityPlugin,
@@ -614,7 +612,7 @@ func (h *renderHandlers) writeHTMLEncoded(w http.ResponseWriter, r *http.Request
 	} else {
 		hd.Set("Cache-Control", cachePublic)
 	}
-	applyRenderSecurityHeaders(hd, h.csp(), providerOf(r.Context(), h.captchaProvider), h.pluginCSPHosts())
+	applyRenderSecurityHeaders(hd, h.csp(), extrasOf(r.Context(), h.cspExtras).merge(pluginExtras(h.pluginCSPHosts())))
 	// A page is sandboxed when its own body links a community plugin.js, or when
 	// some community script is live site-wide. The live check is a REQUIRED
 	// guard, not a transition aid: the body marker only sees plugin.js, while
@@ -687,74 +685,15 @@ func (h *renderHandlers) csp() string {
 // so the admin editor can frame same-origin pages, and widens img/frame
 // sources. It only replaces what the global middleware set (it is a no-op for
 // the CSP when headers are disabled).
-// The CSP (base) gains the configured captcha provider's origins and the
-// enabled plugins' csp hosts.
-func applyRenderSecurityHeaders(hd http.Header, base, provider string, plugins pluginhost.CSPSet) {
+// The CSP (base) gains the extras' origins (captcha, tag vendors, plugins).
+func applyRenderSecurityHeaders(hd http.Header, base string, extras cspExtras) {
 	hd.Set("X-Frame-Options", "SAMEORIGIN")
-	csp := cspWithExtras(base, provider, plugins)
+	csp := cspWithExtras(base, extras)
 	for _, name := range []string{"Content-Security-Policy", "Content-Security-Policy-Report-Only"} {
 		if hd.Get(name) != "" {
 			hd.Set(name, csp)
 		}
 	}
-}
-
-// captchaOrigins are the origins a provider's script and verification traffic
-// need beyond 'self'. Its iframes are already covered by frame-src https:.
-var captchaOrigins = map[string]string{
-	spam.ProviderTurnstile: "https://challenges.cloudflare.com",
-	spam.ProviderRecaptcha: "https://www.google.com https://www.gstatic.com",
-	spam.ProviderHCaptcha:  "https://hcaptcha.com https://*.hcaptcha.com",
-}
-
-// cspWithProvider is cspWithExtras without plugin hosts, for the admin
-// previews (their pages run sandboxed in an opaque origin).
-func cspWithProvider(base, provider string) string {
-	return cspWithExtras(base, provider, pluginhost.CSPSet{})
-}
-
-// cspWithExtras adds to base what the site's services need: the captcha
-// provider's origins and the hosts of the enabled plugins' csp blocks, both to
-// script-src and connect-src (the plugins' also to img-src and frame-src
-// while base does not already allow every https origin there). It is the one
-// place the public policy is composed. Nothing to add returns base unchanged.
-func cspWithExtras(base, provider string, set pluginhost.CSPSet) string {
-	captcha := captchaOrigins[provider]
-	csp := base
-	csp = addSources(csp, "script-src", captcha, set.Script)
-	csp = addSources(csp, "connect-src", captcha, set.Connect)
-	csp = addSources(csp, "img-src", "", set.Img)
-	return addSources(csp, "frame-src", "", set.Frame)
-}
-
-// addSources appends the origins (a space-separated string, then a list) to
-// directive of csp. A directive that already allows "https:" takes nothing
-// more: it already covers every https host.
-func addSources(csp, directive, origins string, hosts []string) string {
-	add := strings.TrimSpace(origins + " " + strings.Join(hosts, " "))
-	if add == "" {
-		return csp
-	}
-	parts := strings.Split(csp, "; ")
-	for i, p := range parts {
-		if !strings.HasPrefix(p, directive+" ") {
-			continue
-		}
-		if slices.Contains(strings.Fields(p), "https:") {
-			return csp
-		}
-		parts[i] = p + " " + add
-		break
-	}
-	return strings.Join(parts, "; ")
-}
-
-// providerOf reads the provider through fn; nil fn means none.
-func providerOf(ctx context.Context, fn func(context.Context) string) string {
-	if fn == nil {
-		return ""
-	}
-	return fn(ctx)
 }
 
 // captchaProvider is the captcha provider whose origins the CSP should allow:
