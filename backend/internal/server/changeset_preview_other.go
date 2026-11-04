@@ -78,6 +78,15 @@ func (o *stagedChangeset) stageMenu(ctx context.Context, src stagedSource, origi
 	if id == uuid.Nil {
 		return // a menu the publish would create has no location: it shows nowhere
 	}
+	// Entity links to an earlier run's entities resolve as the publish does.
+	for _, key := range p.EntityKeys {
+		if _, ok := o.keys[key]; ok {
+			continue
+		}
+		if eid, found, err := src.mapped(ctx, origin, changeset.KindEntity, key); err == nil && found {
+			o.keys[key] = eid
+		}
+	}
 	o.menus[id] = p.Items
 	o.menuLinks[id] = p.EntityKeys
 }

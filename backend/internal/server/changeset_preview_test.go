@@ -219,3 +219,26 @@ func TestChangesetPreviewNoticeIsScriptless(t *testing.T) {
 		t.Errorf("notice not inert: %s", body)
 	}
 }
+
+// A parent published by an earlier run is found through the source-key table,
+// as the publish does, and an item that cannot be shown never previews as
+// another page.
+func TestChangesetPreviewParentFromEarlierRunAndDroppedItem(t *testing.T) {
+	parentID := uuid.New()
+	live := map[uuid.UUID]*entity.Entity{parentID: liveEntity(parentID, "Docs", "docs")}
+	o := newStagedChangeset(context.Background(), changeset.Header{ID: 1, RunID: testRunID, Plugin: "p"}, []changeset.StoredItem{
+		item(1, changeset.OpUpsert, "", "first", `{"schema":"page","name":"First"}`),
+		item(2, changeset.OpUpsert, "", "install", `{"schema":"page","name":"Install","parent_key":"docs"}`),
+		item(3, changeset.OpUpsert, "", "lost", `{"schema":"page","name":"Lost","parent_key":"nowhere"}`),
+	}, testSource(live, map[string]uuid.UUID{"docs": parentID}))
+	se := o.pick(2)
+	if se == nil || se.Seq != 2 || se.Ent.ParentID == nil || *se.Ent.ParentID != parentID {
+		t.Fatalf("pick(2) = %+v, want the child under the earlier run's parent", se)
+	}
+	if got := o.pick(3); got != nil {
+		t.Errorf("pick(3) = seq %d, a dropped item must not show another page", got.Seq)
+	}
+	if got := o.pick(0); got == nil || got.Seq != 1 {
+		t.Errorf("pick(0) = %+v, want the first item", got)
+	}
+}

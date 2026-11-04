@@ -82,3 +82,17 @@ func TestChangesetPreviewMediaPlaceholder(t *testing.T) {
 		t.Error("a changeset without media must leave the page alone")
 	}
 }
+
+func TestChangesetPreviewMenuLinksEarlierRunEntity(t *testing.T) {
+	menuID, pageID := uuid.New(), uuid.New()
+	src := testSource(map[uuid.UUID]*entity.Entity{pageID: liveEntity(pageID, "About", "about")}, map[string]uuid.UUID{"about": pageID})
+	src.menuBySlug = func(_ context.Context, slug string) (uuid.UUID, bool) { return menuID, slug == "main" }
+	o := newStagedChangeset(context.Background(), changeset.Header{ID: 9, RunID: testRunID}, []changeset.StoredItem{
+		{Seq: 1, Item: changeset.Item{Kind: changeset.KindMenu, Op: changeset.OpUpsert, Payload: json.RawMessage(
+			`{"slug":"main","items":[{"Label":"About","LinkType":"entity","Parent":-1}],"entity_keys":{"0":"about"}}`)}},
+	}, src)
+	tree, ok := o.menuItems(context.Background(), &navLinks{snap: entity.DefaultURLSnapshot()}, menuID)
+	if !ok || len(tree) != 1 || tree[0].EntityID == nil || *tree[0].EntityID != pageID {
+		t.Fatalf("menu entity key from an earlier run not resolved: %+v", tree)
+	}
+}

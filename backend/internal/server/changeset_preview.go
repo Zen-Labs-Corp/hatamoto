@@ -47,6 +47,9 @@ func (s *Server) PreviewChangeset(ctx context.Context, id int64, seq int) ([]byt
 	}
 	se := o.pick(seq)
 	if se == nil {
+		if seq > 0 {
+			return previewNotice("This item cannot be previewed."), nil
+		}
 		return previewNotice("Nothing to preview in this changeset."), nil
 	}
 	body, err := s.renderStaged(withStaged(withHiddenLocalesServed(ctx), o), o, se)
@@ -57,14 +60,16 @@ func (s *Server) PreviewChangeset(ctx context.Context, id int64, seq int) ([]byt
 	return body, nil
 }
 
-// pick is the staged entity of item seq, or the first one.
+// pick is the staged entity of item seq. Only a request that names no item
+// (seq 0) gets the first one: an item the staged set dropped must never show
+// another page in its place.
 func (o *stagedChangeset) pick(seq int) *stagedEntity {
 	for _, se := range o.items {
 		if se.Seq == seq {
 			return se
 		}
 	}
-	if len(o.items) > 0 {
+	if seq <= 0 && len(o.items) > 0 {
 		return o.items[0]
 	}
 	return nil

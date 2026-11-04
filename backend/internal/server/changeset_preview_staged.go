@@ -135,7 +135,7 @@ func newStagedChangeset(ctx context.Context, h changeset.Header, items []changes
 		if json.Unmarshal(it.Payload, &p) != nil {
 			continue
 		}
-		ent, ok := o.merge(ctx, src, live, id, p, keys)
+		ent, ok := o.merge(ctx, src, origin, live, id, p, keys)
 		if !ok {
 			continue
 		}
@@ -188,7 +188,7 @@ func (o *stagedChangeset) target(ctx context.Context, src stagedSource, origin s
 
 // merge returns the entity as the publish would leave it. Fields a payload
 // leaves empty keep the live value, as the publish does.
-func (o *stagedChangeset) merge(ctx context.Context, src stagedSource, live *entity.Entity, id uuid.UUID, p stagedEntityPayload, keys map[string]uuid.UUID) (*entity.Entity, bool) {
+func (o *stagedChangeset) merge(ctx context.Context, src stagedSource, origin string, live *entity.Entity, id uuid.UUID, p stagedEntityPayload, keys map[string]uuid.UUID) (*entity.Entity, bool) {
 	var ent entity.Entity
 	if live != nil {
 		ent = *live
@@ -226,9 +226,14 @@ func (o *stagedChangeset) merge(ctx context.Context, src stagedSource, live *ent
 	case p.ParentID != nil:
 		ent.ParentID = p.ParentID
 	case p.ParentKey != "":
+		// Like the publish: this changeset's items first, then entities an
+		// earlier run published under the same origin.
 		parent, ok := keys[p.ParentKey]
 		if !ok {
-			return nil, false
+			var err error
+			if parent, ok, err = src.mapped(ctx, origin, changeset.KindEntity, p.ParentKey); err != nil || !ok {
+				return nil, false
+			}
 		}
 		ent.ParentID = &parent
 	}
