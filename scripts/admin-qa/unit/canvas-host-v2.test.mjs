@@ -81,6 +81,25 @@ test("an explicit zoom survives fit(); Fit follows the pane again; the scale nev
   assert.equal(canvas.scale, 0.5, "the floor");
 });
 
+test("the stage bar readout follows the viewport, the zoom and the pane", async () => {
+  const { host, canvas } = rig();
+  let strip = null;
+  canvas.stage.parentElement = { insertBefore: (e) => (strip = e), addEventListener() {}, removeEventListener() {}, scrollTop: 0 }; // the stub has no parent links: catch the strip
+  const box = { x: 0, y: 0, w: 10, h: 10 };
+  dom.deliver(host, { hm: 2, type: "layout", docH: 100, main: box, nodes: [{ id: "s1", k: "s", t: "section", p: "", ...box }] });
+  await new Promise((r) => setTimeout(r, 150)); // the strip is a lazy chunk
+  const dims = () => strip.children.find((c) => c.attrs["data-hm-pe-dims"] !== undefined);
+  assert.ok(dims(), "the readout is mounted in the strip");
+  canvas.setViewport(1280, 2000);
+  canvas.setZoom(75);
+  assert.equal(dims().textContent, "1280px \u00b7 75%");
+  canvas.setViewport(390, 2000);
+  assert.equal(dims().textContent, "390px \u00b7 75%", "a device change");
+  canvas.setZoom("fit");
+  canvas.fit(195);
+  assert.equal(dims().textContent, "390px \u00b7 50%", "a pane resize under Fit");
+});
+
 test("nodeChain reads the parent ids of the latest layout", () => {
   const { canvas, host } = rig();
   const box = { x: 0, y: 0, w: 10, h: 10 };
@@ -237,7 +256,8 @@ test("the toolbar: parent, move, duplicate, hide, delete, more; the tab stop lan
   walk(canvas.stage);
   assert.deepEqual(Object.keys(btn).sort(), ["duplicate", "more", "movedown", "moveup", "parent", "remove", "togglehide"]);
   assert.ok(btn.moveup.hasAttribute("disabled"), "a first element cannot move up");
-  assert.equal(btn.parent.hidden, true, "a top-level element has no parent to select");
+  assert.ok(btn.parent.hasAttribute("disabled"), "a top-level element has no parent to select");
+  assert.equal(btn.parent.children.at(-1).hidden, true, "and the chip shows no parent");
   const stops = Object.values(btn).filter((b) => b.attrs.tabindex === "0");
   assert.equal(stops.length, 1, "one tab stop");
   assert.ok(!stops[0].hasAttribute("disabled"), "and it is not a disabled one");
@@ -259,9 +279,26 @@ test("the strip carries no device band label (the inspector context line shows t
   const { mountStrip } = await import(new URL("../../../backend/web/admin/js/canvas/chrome.js", import.meta.url));
   let strip = null;
   const stage = { parentElement: { insertBefore: (e) => (strip = e) }, parentNode: null };
-  const canvas = { device: "md", selectedId: null, nodeChain: () => [], zoom: "fit", setInset() {}, setZoom() {}, stage };
+  const canvas = { device: "md", selectedId: null, nodeChain: () => [], zoom: "fit", viewport: 1280, scale: 1, setInset() {}, stage };
   mountStrip(canvas, {});
   assert.ok(!strip.children.some((c) => c.attrs.class === "hm-pe__bandlabel"), "no band label element");
+});
+
+test("a selected element carries four corner squares and its mono name tag; a field outline carries neither", () => {
+  const { host, canvas } = rig({ nodeLabel: (_id, _k, t) => `Label ${t}`, sectionLabel: () => "Hero" });
+  const box = { x: 0, y: 0, w: 100, h: 20 };
+  const layout = (field) => ({ hm: 2, type: "layout", docH: 400, main: { x: 0, y: 0, w: 100, h: 400 }, nodes: [{ id: "s1", k: "s", t: "section", p: "", ...box }, { id: "h1", k: "n", t: "heading", p: "s1", ...box }], ...(field && { field }) });
+  const outline = (cls) => { let hit = null; const walk = (e) => { if (e.attrs?.class === cls) hit = e; (e.children ?? []).forEach(walk); }; walk(host); return hit; };
+  dom.deliver(host, layout());
+  dom.deliver(host, { hm: 2, type: "select", id: "h1", k: "n", shift: false, ctrl: false });
+  const kids = outline("hm-pe__outline").children;
+  assert.deepEqual(kids.filter((c) => c.attrs.class === "hm-pe__hdl").map((c) => c.attrs["data-corner"]), ["nw", "ne", "sw", "se"]);
+  const tag = kids.find((c) => c.attrs.class === "hm-pe__tag hm-pe__tag--sel");
+  assert.equal(tag.textContent, "Label heading");
+  canvas.setSelectedNode("s1", { sel: "section" });
+  canvas.setSelectedField({ sel: "section", key: "s1", paths: ["eyebrow"] });
+  dom.deliver(host, layout({ x: 5, y: 6, w: 40, h: 8 }));
+  assert.equal(outline("hm-pe__outline hm-pe__outline--field").children.length, 0);
 });
 
 test("a selected field is outlined by its reported box in place of the section; no box keeps the section outline", () => {

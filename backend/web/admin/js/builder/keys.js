@@ -7,7 +7,7 @@ export const GROUPS = [
   [
     "Insert",
     [
-      ["/ or A", "Insert a block or section (opens the Insert tab)"],
+      ["/ or A", "Insert a section after the selection (/); open the Insert tab (A)"],
       ["Ctrl/Cmd + K", "Search elements, patterns and commands"],
       ["Enter in the Insert search", "Insert the first result shown"],
       ["Shift + Enter in the Insert search", "Insert it and keep the search open for the next one"],

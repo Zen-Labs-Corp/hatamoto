@@ -49,3 +49,15 @@ test("the device chip is gone (the inspector context line is the one place) and 
 test("device tokens exist in light, dark and the auto-dark mirror", () => {
   for (const t of ["tablet", "tablet-soft", "phone", "phone-soft"]) assert.equal(tokens.split(`--color-device-${t}:`).length - 1, 3, t);
 });
+
+test("device buttons carry an icon, Fit opens a zoom menu, Preview and Shortcuts live where the mockup puts them", () => {
+  for (const [l, i] of [["Desktop", "monitor"], ["Tablet", "tablet"], ["Phone", "smartphone"]]) assert.match(html, new RegExp(`"Label" "${l}" "Icon" "${i}"`));
+  assert.match(html, /popovertarget" "bs-zoom"[^)]*"data-hm-bs-zoomtrigger"/);
+  const zoom = html.slice(html.indexOf('id="bs-zoom"'), html.indexOf("</div>", html.indexOf('id="bs-zoom"')));
+  assert.deepEqual([...zoom.matchAll(/data-zoom="(\w+)"/g)].map((m) => m[1]), ["fit", "50", "75", "100"]);
+  assert.ok(html.indexOf("bs-zoom") < html.indexOf("data-hm-bs-undo"));
+  assert.ok(html.indexOf("data-hm-bs-preview") > html.indexOf('class="hm-bs__panes"') && html.indexOf("data-hm-bs-preview") < html.indexOf('"More actions"'));
+  // the one Shortcuts control is the More menu item; the icon button and its proxy are gone
+  assert.equal(html.split("data-hm-bs-keys").length - 1, 1);
+  assert.match(more, /data-hm-bs-always data-hm-bs-keys aria-haspopup="dialog" aria-keyshortcuts="\?">Keyboard shortcuts<\/button>/);
+});

@@ -7,7 +7,7 @@ import { mountNavigator, moveOp, label as rowLabel, nameSource, useLabels } from
 import { hideTarget, selectionInfo, sectionOf, parentOf, stepSection, firstChildOf, fieldId, escapeTarget, fieldGuard } from "@hm/builder/selinfo";
 import { presetNote, clipboard } from "@hm/builder/design";
 import { resolveKey } from "@hm/builder/keymap";
-import { BP_NAME, DEVICE_LABEL, hiddenAt, ownValue, inheritedValue } from "@hm/builder/bp";
+import { BP_NAME, BREAKPOINT_MAX, hiddenAt, ownValue, inheritedValue } from "@hm/builder/bp";
 import { mountInspector as drawInspector } from "@hm/builder/inspector";
 import { idle, lazy } from "@hm/builder/lazy";
 import { insertPoint, sectionPoint, isSectionItem, makeNode, itemsOf, docPos, posValid, addLabel } from "@hm/builder/palette";
@@ -97,6 +97,7 @@ function start(root, boot) {
   const sheetChunk = lazy(() => import("@hm/builder/keys"));
   const historyChunk = lazy(() => import("@hm/builder/history"));
   const pickChunk = lazy(() => import("@hm/builder/picker"));
+  const slashChunk = lazy(() => import("@hm/builder/slashpop"));
   const menuChunk = lazy(() => import("@hm/builder/ctxmenu"));
   const clipChunk = lazy(() => import("@hm/builder/clipops")); // multi-selection ops, node clipboard
   const commandChunk = lazy(() => import("@hm/builder/commandk")); // the Ctrl/Cmd+K palette
@@ -235,6 +236,7 @@ function start(root, boot) {
     const n = find(st.doc, hideTarget(st.doc, id, device) ?? id); // the node the toolbar's Hide toggles
     return !!n && hiddenAt(n, device);
   };
+  let zoomSync = () => {}; // set with the Fit menu below; the canvas calls it whenever its zoom or scale changes
   const canvas = createCanvas(
     canvasEl,
     {
@@ -303,14 +305,13 @@ function start(root, boot) {
       stamp: () => st.past[st.past.length - 1],
       onAddSection: (index, el) => addAt({ parent: "", index }, el),
       onCrumb: (id) => select(id, false, { pick: true }), // null is the Page crumb: nothing selected; not "from the canvas", so the frame follows
-      onZoom: (mode) => announce(mode === "fit" ? "Zoom: fit to the pane." : `Zoom: ${mode}%.`),
       onAdd: (pt, btn) => {
         const pos = docPos(st.doc, pt);
         if (pos) addAt(pos, btn);
-        else announce("That spot has moved. Select the element and use Add after in the More menu.");
+        else announce("That spot has moved. Select the element and use Insert after in the More menu.");
       }, // the "+" between elements and inside empty containers
     },
-    { v2: true, minScale: () => (dock.stacked() ? 0.1 : undefined) }, // the phone shell has no room to scroll a 0.5 stage: Fit may go lower
+    { v2: true, minScale: () => (dock.stacked() ? 0.1 : undefined), onZoom: () => zoomSync() }, // the phone shell has no room to scroll a 0.5 stage: Fit may go lower
   );
 
   // The first render: a loading state until a frame is swapped in, then "Preview unavailable" with
@@ -609,7 +610,7 @@ function start(root, boot) {
     const add = (node, name) => {
       if (!run([{ op: "insert", parent: pos.parent, index: pos.index, node }], { label: addLabel(pos, name) })) return;
       select(node.id);
-      announce(`Added ${name} at position ${pos.index + 1}`);
+      announce(`Inserted ${name} at position ${pos.index + 1}`);
     };
     pickChunk()
       .then((P) =>
@@ -619,7 +620,7 @@ function start(root, boot) {
           onPick: (l) => add(l.make(), l.name),
           onChoose: (r) => {
             addTarget = pos; // the next insert from the Insert tab goes here
-            announce(`Choose ${r.mode === "pattern" ? "a ready-made section" : "an element"} to add at position ${pos.index + 1}`);
+            announce(`Choose ${r.mode === "pattern" ? "a ready-made section" : "an element"} to insert at position ${pos.index + 1}`);
             showAdd(r.mode === "pattern");
           },
         }),
@@ -631,10 +632,10 @@ function start(root, boot) {
   function insertItem(item, pos, { keepOpen = false } = {}) {
     const node = makeNode(item, boot.kinds);
     const at = pos ?? insertPoint(st.doc, selected, boot.kinds);
-    if (!run([{ op: "insert", parent: at.parent, index: at.index, node }], { label: "Add" })) return false;
+    if (!run([{ op: "insert", parent: at.parent, index: at.index, node }], { label: "Insert" })) return false;
     select(node.id);
     settle(keepOpen);
-    announce(`Added ${label(node.id)} to ${position(node.id)}`);
+    announce(`Inserted ${label(node.id)} to ${position(node.id)}`);
     return true;
   }
 
@@ -654,7 +655,7 @@ function start(root, boot) {
       reuseUI?.say(err.message);
       return announce(err.message), false;
     }
-    if (!run(pos ? insertAll(pos.parent, pos.index, nodes) : insertOps(st.doc, selected, nodes, boot.kinds), { label: `Add ${item.name}` })) return false;
+    if (!run(pos ? insertAll(pos.parent, pos.index, nodes) : insertOps(st.doc, selected, nodes, boot.kinds), { label: `Insert ${item.name}` })) return false;
     select(nodes[0].id);
     settle(keepOpen);
     announce(`Inserted ${item.name}`);
@@ -669,10 +670,10 @@ function start(root, boot) {
         select(spec.id);
         announce(`Moved ${label(spec.id)} to ${position(spec.id)}`);
       }
-    } else if (run([target.op], { label: "Add" })) {
+    } else if (run([target.op], { label: "Insert" })) {
       palette?.used(spec.key); // a dragged item counts for Recent too
       select(spec.node.id);
-      announce(`Added ${label(spec.node.id)} to ${position(spec.node.id)}`);
+      announce(`Inserted ${label(spec.node.id)} to ${position(spec.node.id)}`);
     }
   }
 
@@ -844,6 +845,20 @@ function start(root, boot) {
     return openPalette(patterns);
   }
 
+  /** "/": section cards at the selection (the Insert tab on a phone or with nothing selected); a pick lands after the selected section. */
+  function openSlash() {
+    if (dock.stacked() || !selected) return showAdd();
+    addTarget = null; // a pending "+" spot must not redirect this pick
+    const pick = $(canvasEl, "[data-hm-pe-outline]:not(.hm-pe__outline--member):not(.hm-pe__outline--field)") ?? canvasEl;
+    const items = itemsOf(boot.kinds, boot.sections, { slot: !!reuse && wantsSlot(reuse) })
+      .concat(reuse ? paletteExtra(reuse, boot.entity) : [])
+      .filter(isSectionItem);
+    if (!items.length) return showAdd(); // nothing to list here: the Insert tab says why
+    slashChunk()
+      .then((M) => M.openSlashPopover({ anchorRect: pick.getBoundingClientRect(), items, onPick: (item) => insertFrom(item, {}), restore: () => tree.focus() }))
+      .catch(() => warn("The section list did not load. Reload the page."));
+  }
+
   /** A command picked in the palette: the same actions as the buttons and keys. */
   function runCommand(id) {
     if (id.startsWith("device-")) return $(bar, `[data-hm-bs-device="${id.slice(7)}"]`)?.click();
@@ -911,6 +926,8 @@ function start(root, boot) {
           .catch(() => warn("The command palette did not load. Reload the page."));
       case "palette":
         return showAdd();
+      case "slash":
+        return openSlash();
       case "edittext": {
         const n = selected && find(st.doc, selected);
         if (!ownsText(n)) return; // only the element's own text, as Enter in the frame (never a descendant's)
@@ -1032,7 +1049,30 @@ function start(root, boot) {
     if (res.note) showNote(res.note);
   }
 
-  $(bar, "[data-hm-bs-keys]")?.addEventListener("click", () => dispatch("sheet"));
+  $(bar, "[data-hm-bs-keys]")?.addEventListener("click", (e) => {
+    e.currentTarget.closest("[popover]")?.hidePopover?.(); // the menu closes first and hands focus back to ⋯, so the sheet returns there
+    dispatch("sheet");
+  });
+  // Fit ▾: the zoom menu in the tools group. The trigger says what is applied; the menu items are radios.
+  const zoomTrigger = $(bar, "[data-hm-bs-zoomtrigger]");
+  const zoomItems = $$(bar, "#bs-zoom [data-zoom]");
+  const showZoom = () => {
+    const z = String(canvas.zoom);
+    const text = z === "fit" ? "Fit" : `${z}%`;
+    zoomItems.forEach((i) => i.setAttribute("aria-checked", String(i.dataset.zoom === z)));
+    const label = $(zoomTrigger, "span");
+    if (label) label.textContent = text;
+    zoomTrigger?.setAttribute("aria-label", `Zoom: ${text}`);
+  };
+  zoomSync = showZoom;
+  zoomItems.forEach((i) =>
+    i.addEventListener("click", () => {
+      const m = i.dataset.zoom;
+      canvas.setZoom(m === "fit" ? "fit" : Number(m));
+      i.closest("[popover]")?.hidePopover?.();
+      announce(m === "fit" ? "Zoom: fit to the pane." : `Zoom: ${m}%.`);
+    }),
+  );
   const siteBtn = $(bar, "[data-hm-bs-sitestyles]");
   if (boot.canStyle && boot.siteStyles && siteBtn) {
     siteBtn.hidden = false;
@@ -1087,8 +1127,10 @@ function start(root, boot) {
   nameInput?.addEventListener("input", () => saver.changed());
   mountToolItems(bar, matchMedia.bind(window));
   $$(bar, "[data-hm-bs-device]").forEach((b) => {
-    const d = b.dataset.hmBsDevice; // real widths in the label; the short name on a phone (CSS)
-    b.replaceChildren(h("span", { class: "hm-bs__dlong", text: DEVICE_LABEL[d] }), h("span", { class: "hm-bs__dshort", text: BP_NAME[d] }));
+    const d = b.dataset.hmBsDevice; // the icon stays; real widths (muted) in the label, the short name on a phone (CSS)
+    const limit = BREAKPOINT_MAX[d];
+    [...b.childNodes].filter((n) => n.nodeType === 3).forEach((n) => n.remove()); // the template's plain label: the spans below carry it
+    b.append(h("span", { class: "hm-bs__dlong" }, BP_NAME[d], ...(limit ? [" ", h("span", { class: "hm-bs__dmute", text: `≤${limit}` })] : [])), h("span", { class: "hm-bs__dshort", text: BP_NAME[d] }));
     b.addEventListener("click", () => {
       device = d;
       root.dataset.hmDevice = d;

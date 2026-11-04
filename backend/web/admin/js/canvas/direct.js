@@ -4,7 +4,7 @@
 // end a drag. A drag only previews in the frame (setVar, no commit); pointer-up makes ONE commit through handlers.onPadCommit.
 import { styleDecls } from "@hm/canvas/host";
 import { toBridge } from "@hm/canvas/protocol";
-import { boundaryIndex, hatchRects, keepInside, pillPoints } from "@hm/canvas/chromemodel";
+import { boundaryIndex, hatchRects, keepInside, overlaps, pillPoints, pillShift } from "@hm/canvas/chromemodel";
 import { OPPOSITE, SIDES, padAria, padLabel, padValue, padWrites, startPx } from "@hm/canvas/padding";
 
 const SIDE_LIST = ["top", "right", "bottom", "left"]; // the order of a layout node's `pd`
@@ -52,14 +52,23 @@ export function mountDirect(canvas, hd) {
     seq++;
   };
   let hoverSide = null; // from the inspector's padding fields
+  let overSide = null; // the handle under the pointer: its band shows too
+  let shownId = null; // the section the handles were last drawn for
+  const hot = () => overSide ?? hoverSide;
   let current = null; // {id, box, pd}: what the handles show now
   const pills = [];
   let lastHover = null; // the pill is reached by crossing the stage, which ends the frame's hover: it stays until the pointer leaves the canvas
-  canvas.stage.parentElement?.addEventListener("mouseleave", () => {
-    if (!lastHover) return;
+  // A pointer leaving a frame that holds it gives the pane no mouseleave, so the page's own pointer events end it: any over something outside the canvas pane.
+  const onOutside = (e) => {
+    const pane = canvas.stage.parentElement;
+    if (!lastHover || !pane || pane.contains(e.target)) return;
     lastHover = null;
     paintStrips();
-  });
+  };
+  document.addEventListener("mouseover", onOutside);
+  // The pane scrolling moves the toolbar (pinned to the view's top) and the view's bounds under a selected section's pills: they are placed again, after the toolbar's own listener.
+  const onScroll = () => pills.some((q) => q.hasAttribute("data-sel")) && paintStrips();
+  canvas.stage.parentElement?.addEventListener("scroll", onScroll, { passive: true });
 
   // The section whose handles show: the selected one, when it is a section, editable, and not being typed in.
   function target() {
@@ -78,6 +87,8 @@ export function mountDirect(canvas, hd) {
 
   function paint() {
     const t = (current = target());
+    if (t?.id !== shownId) overSide = null; // the selection moved under a still pointer: no pointerleave comes, so the old hover is dropped
+    shownId = t?.id ?? null;
     layer.hidden = !t;
     if (!t) {
       for (const s of SIDE_LIST) hatches[s].hidden = handles[s].hidden = true;
@@ -88,33 +99,47 @@ export function mountDirect(canvas, hd) {
       const { x, y, w, h } = t.box;
       for (const r of hatchRects({ w, h }, pd)) {
         const hatch = hatches[r.side];
-        const on = drag ? r.side === drag.side || (drag.alt && r.side === OPPOSITE[drag.side]) : r.side === hoverSide;
+        const on = drag ? r.side === drag.side || (drag.alt && r.side === OPPOSITE[drag.side]) : r.side === hot();
         hatch.hidden = !on;
         hatch.style.left = `${(x + r.x) * sc}px`;
         hatch.style.top = `${(y + r.y) * sc}px`;
         hatch.style.width = `${r.w * sc}px`;
         hatch.style.height = `${r.h * sc}px`;
       }
-      const at = { top: [x + w / 2, y + pd[0]], right: [x + w - pd[1], y + h / 2], bottom: [x + w / 2, y + h - pd[2]], left: [x + pd[3], y + h / 2] };
+      // Each handle sits in the middle of its padding band, kept 8px inside the section so a section with no padding still shows it (and a short one never stacks them)
+      const EDGE = 8;
+      const y0 = y * sc;
+      const y1 = (y + h) * sc;
+      const topC = Math.max(y0 + EDGE, (y + pd[0] / 2) * sc);
+      const botC = Math.min(y1 - EDGE, (y + h - pd[2] / 2) * sc);
+      const at = { top: [x + w / 2, topC], right: [x + w - pd[1] / 2, y + h / 2], bottom: [x + w / 2, botC], left: [x + pd[3] / 2, y + h / 2] };
       SIDE_LIST.forEach((s, i) => {
         const hnd = handles[s];
         hnd.hidden = false;
         const room = canvas.stage.offsetWidth || Infinity; // the frame: a handle on its edge (padding 0) must not be cut off
-        hnd.style.left = `${VERTICAL[s] ? at[s][0] * sc : keepInside(at[s][0] * sc, HANDLE_HALF, room)}px`;
-        let top = at[s][1] * sc;
-        if (s === "top" && !drag) top = Math.min(top, at.bottom[1] * sc - HANDLE_HALF - HANDLE_LONG); // a short section: the top handle ends where the bottom one starts, never under it
+        let left = VERTICAL[s] ? at[s][0] * sc : keepInside(at[s][0] * sc, HANDLE_HALF, room);
+        let top = VERTICAL[s] ? at[s][1] : at[s][1] * sc;
+        if (s === "top") top = Math.min(topC, botC - HANDLE_LONG) - HANDLE_HALF; // its box hangs from the top (the toolbar's avoid reads it); a short section: it ends where the bottom one starts
+        if (drag && s === drag.side) {
+          // The band's middle moves at half the pointer's speed: the grabbed handle follows the pointer instead, or it would be left behind
+          // and the release would land on the frame, which never reports it to the host.
+          left = drag.h0.left + (VERTICAL[s] ? 0 : drag.dx);
+          top = drag.h0.top + (VERTICAL[s] ? drag.dy : 0);
+        }
+        hnd.style.left = `${left}px`;
         hnd.style.top = `${top}px`;
         hnd.setAttribute("aria-valuenow", String(pd[i]));
         hnd.setAttribute("aria-label", padAria(s, pd[i]));
       });
-      const shown = drag ? drag.side : hoverSide;
+      const shown = drag ? drag.side : hot();
       badge.hidden = !shown;
       if (shown) {
         const i = SIDE_LIST.indexOf(shown);
         const r = hatchRects({ w, h }, pd)[i];
         badge.textContent = String(pd[i]);
-        badge.style.left = `${(x + r.x + r.w / 2) * sc}px`;
-        badge.style.top = `${(y + r.y + r.h / 2) * sc}px`;
+        // off to the side of the handle, so the value is not under the pointer
+        badge.style.left = `${(x + r.x + r.w / 2) * sc + (VERTICAL[shown] ? 40 : 0)}px`;
+        badge.style.top = `${(y + r.y + r.h / 2) * sc + (VERTICAL[shown] ? 0 : -30)}px`;
       }
     }
     paintStrips();
@@ -125,13 +150,42 @@ export function mountDirect(canvas, hd) {
     while (n && n.p !== "") n = canvas.nodes.find((x) => x.id === n.p);
     return n?.id ?? null;
   };
-  // A pill takes the pointer only while it shows: after the selected section ("sel", the one tab stop, visible without hover for touch), around
-  // the hovered one ("hover"), or on an empty page. The rest are inert, so no invisible element swallows a click.
+  // A pill shows (and takes the pointer) around the hovered section and alone on an empty page. At rest the selected section's edges show none:
+  // its padding handles and W x H badge own them. Hovering the selected section shows its two pills ("sel"), drawn at the right end of the row
+  // (data-sel, pageeditor.css) clear of the centred handle and badge. The boundary after the selected section is also the one tab stop.
+  // The rest are inert, so no invisible element swallows a click.
   function showOf(b, selTop, hoverTop) {
-    if (b.before === null && b.after === null) return "sel";
-    if (selTop && b.before === selTop) return "sel";
-    if (hoverTop && hoverTop !== selTop && (b.before === hoverTop || b.after === hoverTop)) return "hover"; // the selected section's handles own its edges
+    if (b.before === null && b.after === null) return "page";
+    if (hoverTop && (b.before === hoverTop || b.after === hoverTop)) return hoverTop === selTop ? "sel" : "hover";
     return null;
+  }
+
+  // A selected section's pill sits at the row's right end. On a narrow stage (a phone at 50%) or a short section that is under the centred handle, the badge, the toolbar or
+  // the next boundary's pill: measured against their rects, it drops to its own row (below a bottom edge, above a top one) instead, never out of the visible stage (under the
+  // sticky bar). `outward` is 0 for a pill off the selected section's edges. With no free spot it keeps its row and the colliding pill yields (one pill per boundary stays clickable).
+  const rectOf = (e) => {
+    const r = e.getBoundingClientRect();
+    return { x: r.left, y: r.top, w: r.width, h: r.height };
+  };
+  function placePill(p, outward) {
+    const pill = p.children[0];
+    if (!outward || typeof pill.getBoundingClientRect !== "function") return;
+    const stage = canvas.stage;
+    const others = [...stage.querySelectorAll("[data-hm-pe-padh], [data-hm-pe-size], [data-hm-pe-toolbar], .hm-pe__tag--sel")].filter((e) => !e.hidden).map(rectOf);
+    const near = pills.filter((q) => q !== p && !q.hasAttribute("data-yield"));
+    const scroller = stage.parentElement;
+    const sr = scroller?.getBoundingClientRect?.();
+    const bounds = sr ? { x: sr.left, y: sr.top + (canvas.inset ?? 0), w: sr.width, h: sr.height - (canvas.inset ?? 0) } : null;
+    const dy = pillShift(rectOf(pill), [...others, ...near.map((q) => rectOf(q.children[0]))], outward, 4, bounds);
+    if (dy) pill.style.top = `${dy}px`;
+    if (dy === null) {
+      const stop = (e) => e.getAttribute("tabindex") === "0"; // a tab stop is never hidden: the other pill yields
+      near.forEach((q) => {
+        if (!overlaps(rectOf(pill), rectOf(q.children[0]))) return;
+        if (!stop(q)) q.setAttribute("data-yield", "");
+        else if (!stop(p)) p.setAttribute("data-yield", "");
+      });
+    }
   }
 
   function paintStrips() {
@@ -141,6 +195,7 @@ export function mountDirect(canvas, hd) {
     const hoverTop = lastHover ? topOf(lastHover) : null;
     strips.hidden = canvas.editingId != null;
     while (pills.length > points.length) pills.pop().remove();
+    pills.forEach((q) => q.removeAttribute?.("data-yield"));
     points.forEach((b, i) => {
       let p = pills[i];
       if (!p) {
@@ -157,9 +212,14 @@ export function mountDirect(canvas, hd) {
       const show = showOf(b, selTop, hoverTop);
       if (show) p.setAttribute("data-show", show);
       else p.removeAttribute("data-show");
-      p.setAttribute("tabindex", show === "sel" ? "0" : "-1");
+      if (selTop && (b.before === selTop || b.after === selTop)) p.setAttribute("data-sel", "");
+      else p.removeAttribute("data-sel");
+      p.setAttribute("tabindex", (selTop && b.before === selTop) || show === "page" ? "0" : "-1");
       p.style.top = `${b.y * canvas.scale}px`;
+      p.children[0].style.top = "";
     });
+    // once every row is in place, so each pill measures its neighbours where they really are; for every state: the pill must not jump while the pointer is on its way to it
+    points.forEach((b, i) => placePill(pills[i], selTop && (b.before === selTop || b.after === selTop) ? (b.before === selTop ? 1 : -1) : 0));
   }
 
   /** Previews (or, with null, restores) one side in the frame. Nothing is committed. */
@@ -216,6 +276,9 @@ export function mountDirect(canvas, hd) {
         start,
         x0: e.clientX,
         y0: e.clientY,
+        dx: 0,
+        dy: 0,
+        h0: { left: parseFloat(hnd.style.left) || 0, top: parseFloat(hnd.style.top) || 0 }, // where the handle was grabbed
         live: { [side]: start, [OPPOSITE[side]]: valueOf(current, OPPOSITE[side]) },
         previewed: false,
         entries: Object.fromEntries(keys.map((s) => [s, hd.styleEntry(SIDES[s])])),
@@ -225,9 +288,19 @@ export function mountDirect(canvas, hd) {
       document.addEventListener("keydown", onEsc, true);
       paint();
     });
+    hnd.addEventListener("pointerenter", () => {
+      overSide = side;
+      if (!drag) paint();
+    });
+    hnd.addEventListener("pointerleave", () => {
+      overSide = null;
+      if (!drag) paint();
+    });
     hnd.addEventListener("pointermove", (e) => {
       if (!drag || drag.side !== side) return;
-      const d = VERTICAL[side] ? e.clientY - drag.y0 : e.clientX - drag.x0;
+      drag.dx = e.clientX - drag.x0;
+      drag.dy = e.clientY - drag.y0;
+      const d = VERTICAL[side] ? drag.dy : drag.dx;
       const px = padValue({ start: drag.start, d, scale: canvas.scale, side, shift: e.shiftKey });
       drag.live[side] = px;
       if (drag.alt) drag.live[OPPOSITE[side]] = px;
@@ -284,6 +357,8 @@ export function mountDirect(canvas, hd) {
     update,
     destroy() {
       document.removeEventListener("hm-pad-hover", onHover);
+      document.removeEventListener("mouseover", onOutside);
+      canvas.stage.parentElement?.removeEventListener("scroll", onScroll);
       document.removeEventListener("keydown", onEsc, true);
       layer.remove();
       strips.remove();

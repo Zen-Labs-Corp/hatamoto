@@ -7,7 +7,8 @@ import { GROUP_ORDER, insertSplit, itemsOf, makeNode } from "@hm/builder/palette
 import { ICON_FOR } from "@hm/builder/navigator";
 import { filterItems, rank } from "@hm/builder/search";
 import * as recent from "@hm/builder/recent";
-import { patternRow, shapeOf, templateShapes, thumb } from "@hm/builder/patterns";
+import { patternRow, shapeOf, templateShapes } from "@hm/builder/patterns";
+import { sectionCard, whereText } from "@hm/builder/sectioncard";
 import { actButton } from "@hm/builder/dom";
 
 /**
@@ -43,10 +44,9 @@ export function mountPalette(root, { kinds, sections, onInsert, announce = () =>
   };
   root.append(h("div", { class: "hm-field hm-bs-field" }, h("label", { class: "hm-field__label", for: "hm-bs-pal-q", text: "Search blocks and sections" }), search), list);
 
-  const where = (i) => `${i.name}${i.hint ? `: ${i.hint}` : ""}. Click or Enter to insert, or drag onto the page.`;
-  const btn = (i, cls, ...kids) => h("button", { type: "button", class: cls, "data-pal": i.key, title: where(i) }, ...kids);
+  const btn = (i, cls, ...kids) => h("button", { type: "button", class: cls, "data-pal": i.key, title: whereText(i) }, ...kids);
   const tile = (i) => h("li", {}, btn(i, "hm-bs-pal__item", h("span", { class: "hm-bs-pal__n", text: i.name })));
-  const card = (i) => h("li", {}, btn(i, "hm-bs-pal__item hm-bs-pal__item--pat hm-bs-pal__card", thumb(shapeFor(i)), h("span", { class: "hm-bs-pal__n", text: i.name }), h("span", { class: "hm-bs-pal__h", text: i.hint || i.description || "" })));
+  const card = (i) => sectionCard(i, shapeFor, h);
   const icon = (i) => {
     const name = ICON_FOR[i.kind];
     return name && document.querySelector("template[data-hm-bs-ico]")?.content?.querySelector(`[data-ico="${name}"]`)?.cloneNode(true);

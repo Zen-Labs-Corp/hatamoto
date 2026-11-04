@@ -38,9 +38,9 @@ export function contentHeight(m) {
 
 /**
  * Where the element toolbar goes (stage px). `box` is the element, `bar` the toolbar size, `view` the visible part of the
- * stage {top, left, right, bottom}. Above the element by `gap`; below when there is no room above (or when `below` is
- * asked for, e.g. while the text formatting bar takes the space above); inside the element's top edge (8px in) when neither fits.
- * Kept inside the view horizontally. `avoid` ({x, y, w, h}, e.g. the top padding handle) is never covered: an inside toolbar that would overlap it moves under it. `flip` says it went below, `inside` that it sits over the element. Pure.
+ * stage {top, left, right, bottom}. Above the element by `gap`; inside the element's top edge (8px in) when there is no room above, never below it (the "Add section" line sits there).
+ * Only when `below` is asked for (the text formatting bar takes the space above while editing) does it go under the element.
+ * Kept inside the view horizontally. `avoid` ({x, y, w, h}, e.g. the top padding handle) is never covered: an inside toolbar that would overlap it moves under it. `flip` says it went below (editing only), `inside` that it sits over the element. Pure.
  */
 export function placeToolbar({ box, bar, view, gap = 8, below = false, avoid = null }) {
   const bottom = view.bottom ?? Infinity;
@@ -50,9 +50,9 @@ export function placeToolbar({ box, bar, view, gap = 8, below = false, avoid = n
   let flip = false;
   let inside = false;
   if (!below && above >= view.top) y = above;
-  else if (under + bar.h <= bottom) (y = under), (flip = true);
+  else if (below && under + bar.h <= bottom) (y = under), (flip = true);
   else if (above >= view.top) y = above; // `below` was asked for but there is no room under the element
-  else (y = Math.max(view.top, Math.min(box.y + gap, bottom - bar.h))), (inside = true); // no room either way: inside the element's top edge
+  else (y = Math.max(view.top, Math.min(box.y + gap, bottom - bar.h))), (inside = true); // no room above (or under, when asked): inside the element's top edge
   const x = Math.max(view.left, Math.min(box.x + (inside ? gap : 0), view.right - bar.w));
   if (inside && avoid && x < avoid.x + avoid.w && x + bar.w > avoid.x && y < avoid.y + avoid.h && y + bar.h > avoid.y) y = avoid.y + avoid.h + gap / 2;
   return { x, y, flip, inside };

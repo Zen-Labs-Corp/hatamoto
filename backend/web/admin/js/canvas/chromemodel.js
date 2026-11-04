@@ -3,7 +3,7 @@
 
 /**
  * The element toolbar. info (screen's toolbarState): {name, kind, parentId, parentName, canUp, canDown, hidden, editing}.
- * -> {title: {icon, name}, up: {id, text, aria} | null, buttons: [{act, icon, aria, disabled?}]}. No buttons while text is edited.
+ * -> {title: {icon, name}, up: {id, text, aria, title} | null, buttons: [{act, icon, aria, disabled?}]}. No buttons while text is edited.
  */
 export function toolbarModel(info) {
   const name = info.name || info.kind || "";
@@ -11,7 +11,7 @@ export function toolbarModel(info) {
   const button = (act, icon, aria, disabled) => ({ act, icon, aria, ...(disabled ? { disabled: true } : {}) });
   return {
     title: { icon: info.kind, name },
-    up: info.parentId ? { id: info.parentId, text: `↑ ${parent}`, aria: `Select parent, ${parent}` } : null,
+    up: info.parentId ? { id: info.parentId, text: `↑ ${parent}`, aria: `${name} ↑ ${parent}, select parent`, title: `Select parent, ${parent}` } : null,
     buttons: info.editing
       ? []
       : [
@@ -71,12 +71,35 @@ export function hatchRects(box, pd) {
 }
 
 /**
- * Where the size badge hangs under a selection: its x (px, any unit the box is in) and which edge of the badge sits there.
- * A top-level element's badge (a section) hangs from its right edge: the centred "Add section" pill sits on the same boundary and would hide it.
+ * Where the size badge hangs under a selection: its x (px, any unit the box is in), always the box's middle. The selection's name tag hangs from the
+ * box's left edge on the same row: when the two would touch (a small element), `below` says the badge drops to a second row.
  */
-export function sizeAnchor(box, section) {
-  return section ? { x: box.x + box.w, align: "end" } : { x: box.x + box.w / 2, align: "center" };
-}
+export const sizeAnchor = (box, tagW = 0, badgeW = 0) => {
+  const x = box.x + box.w / 2;
+  return { x, align: "center", below: tagW > 0 && x - badgeW / 2 < box.x + tagW + 4 };
+};
 
 /** A handle's centre kept so a handle `half` px thick stays inside 0..max: padding 0 puts its centre on the frame's edge, where it would be cut in half. */
 export const keepInside = (centre, half, max) => Math.max(half, Math.min(centre, Math.max(half, max - half)));
+
+const clear = (r, o, gap) => r.x + r.w + gap <= o.x || o.x + o.w + gap <= r.x || r.y + r.h + gap <= o.y || o.y + o.h + gap <= r.y;
+
+/**
+ * How far a selected section's "Add section" pill moves off its row (px, + is down) so it never touches what else sits there: the padding handles, the W x H badge, the
+ * toolbar and the other boundaries' pills. `pill` is its rect at the row's right end, `obstacles` the rects of those, all in one space; `bounds` (optional, same space) is the
+ * visible area it must stay inside (the stage below its sticky bar), so a pill is never moved out of sight. 0 when the row is clear with `gap` to spare, or when the row itself is wholly outside the bounds (the pill stays at its boundary, out of sight). Otherwise the nearest
+ * spot just outside an obstacle that clears every one, the `outward` side (+1 below a bottom edge, -1 above a top edge) favoured by a pill's height; a spot outside the bounds
+ * is no spot, which leaves the inward ones. null when no spot is free: the caller keeps the default and yields to the colliding pill.
+ */
+export function pillShift(pill, obstacles, outward, gap = 4, bounds = null) {
+  const inside = (y) => !bounds || (y >= bounds.y && y + pill.h <= bounds.y + bounds.h);
+  if (bounds && (pill.y + pill.h <= bounds.y || pill.y >= bounds.y + bounds.h)) return 0; // its own row is wholly off-screen (a section taller than the pane): it stays on its boundary, off-screen too
+  const free = (dy) => inside(pill.y + dy) && obstacles.every((o) => clear({ ...pill, y: pill.y + dy }, o, gap));
+  if (free(0)) return 0;
+  const spots = obstacles.flatMap((o) => [o.y + o.h + gap - pill.y, o.y - gap - pill.h - pill.y]).filter(free);
+  const cost = (d) => Math.abs(d) + (Math.sign(d) === outward ? 0 : pill.h); // the nearest spot, the outward side favoured by a pill's height
+  return spots.sort((x, y) => cost(x) - cost(y))[0] ?? null;
+}
+
+/** Whether two rects touch or overlap. */
+export const overlaps = (a, b) => !clear(a, b, 0);

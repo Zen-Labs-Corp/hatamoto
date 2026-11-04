@@ -90,3 +90,15 @@ test("dismissAll ends the bar for that user (an insert made before the hint chun
   assert.equal(C.shouldShow(s, "u2"), true);
   assert.equal(JSON.parse(s.data["hm-builder-hints:u1"]).select, 1);
 });
+
+test("the hint bar is the sticky anchor (last child of the canvas); keys are kbd chips; Shift snaps to 8", () => {
+  const canvasEl = new El("div");
+  canvasEl.append(new El("div"));
+  C.mountCoachmarks({ canvasEl, user: "u", storage: store() });
+  assert.equal(canvasEl.kids.at(-1), bar(canvasEl), "appended after the page");
+  const parts = bar(canvasEl).walk();
+  assert.equal(parts.find((n) => n.attrs.class === "hm-bs-hint__box")?.kids.at(-1).tag, "button", "the dismiss button ends the box");
+  assert.deepEqual(parts.filter((n) => n.tag === "kbd").map((n) => n.textContent || n.attrs.text), ["Shift", "/", "Esc"]);
+  assert.ok(parts.some((n) => n.attrs.class === "hm-bs-hint__bar"));
+  assert.ok(parts.some((n) => /snaps to 8/.test(n.kids.filter((k) => typeof k === "string").join(""))));
+});

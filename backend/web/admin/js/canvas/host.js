@@ -343,6 +343,15 @@ export function createCanvas(root, handlers, opts = {}) {
     }
   }
 
+  // The frame reports a hover when the pointer moves over a node, but not when it leaves for the page around it: the page's own pointer events end it.
+  const onPageOver = (e) => {
+    if (hoverId === null || root.contains(e.target)) return;
+    hoverId = null;
+    handlers.onHover?.(null);
+    drawMarks();
+  };
+  document.addEventListener("mouseover", onPageOver);
+
   // The move handle lives in the toolbar (chrome.js), which is built once: the press is delegated on the stage.
   stage.addEventListener("pointerdown", (e) => {
     const grip = e.target.closest?.(".hm-pe__handle");
@@ -370,6 +379,12 @@ export function createCanvas(root, handlers, opts = {}) {
         outline.style.left = `${node.x * scale}px`;
         outline.style.width = `${node.w * scale}px`;
         outline.style.right = "auto";
+      }
+      // Corner squares and the element's mono name tag: stateless, so the redraw may rebuild them. Not while its text is typed (the formatting bar owns that space).
+      if (editingId !== (node ? node.id : sel.id)) {
+        outline.append(...["nw", "ne", "sw", "se"].map((c) => h("span", { class: "hm-pe__hdl", "data-corner": c })));
+        const name = (node ? handlers.nodeLabel?.(node.id, node.k, node.t) : handlers.sectionLabel?.(sel.id)) ?? "";
+        if (name) outline.append(h("span", { class: "hm-pe__tag hm-pe__tag--sel", text: name }));
       }
       marks.append(outline);
     }
@@ -474,18 +489,24 @@ export function createCanvas(root, handlers, opts = {}) {
       pane = paneWidth;
       scale = zoomScale(zoom, pane, viewport, opts.minScale?.());
       applySize();
+      chrome?.update(); // the stage bar's readout
+      opts.onZoom?.();
     },
     /** The pane resized: a Fit zoom follows it, an explicit zoom keeps its scale. */
     fit(paneWidth) {
       pane = paneWidth;
       scale = zoomScale(zoom, pane, viewport, opts.minScale?.());
       applySize();
+      chrome?.update(); // the stage bar's readout
+      opts.onZoom?.();
     },
     /** Sets the zoom ("fit", 100, 75 or 50); the scale never goes below the floor in layout.js. */
     setZoom(mode) {
       zoom = mode;
       scale = zoomScale(zoom, pane, viewport, opts.minScale?.());
       applySize();
+      chrome?.update(); // the stage bar's readout
+      opts.onZoom?.();
     },
     /** The device the strip's band shows ("base", "md" or "sm"). */
     setDevice(d) {
@@ -505,6 +526,10 @@ export function createCanvas(root, handlers, opts = {}) {
     },
     get device() {
       return device;
+    },
+    /** The page width the frame lays out at, in CSS px (the stage bar's readout). */
+    get viewport() {
+      return viewport;
     },
     get inset() {
       return inset;
@@ -594,6 +619,7 @@ export function createCanvas(root, handlers, opts = {}) {
       closePort(0);
       closePort(1);
       window.removeEventListener("message", onRequest);
+      document.removeEventListener("mouseover", onPageOver);
       stage.remove();
       chrome?.destroy?.();
     },

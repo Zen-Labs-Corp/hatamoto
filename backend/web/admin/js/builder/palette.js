@@ -19,7 +19,7 @@ export function itemsOf(kinds, sections, { slot = false } = {}) {
   const native = kinds
     .filter((k) => k.kind !== "component" && (!k.hidden || (slot && k.kind === "slot")))
     .map((k) => ({ key: k.kind, kind: k.kind, name: k.label || (k.kind === "slot" ? "Content slot" : kindName(k.kind)), hint: k.hint || (KIND_HINT[k.kind] ?? ""), group: k.group || (k.kind === "slot" ? "Layout" : "Elements") }));
-  const comps = sections.map((s) => ({ key: `component:${s.type}`, kind: "component", type: s.type, name: s.title || title(s.type), hint: "Theme section", group: "Patterns" }));
+  const comps = sections.map((s) => ({ key: `component:${s.type}`, kind: "component", type: s.type, name: s.title || title(s.type), hint: "Theme section", description: s.description || "", group: "Patterns" }));
   return [...native, ...comps];
 }
 
@@ -100,4 +100,4 @@ export function posValid(doc, pos) {
 }
 
 /** The history label of a layout added at pos: a section at the page level, else the element's own name. */
-export const addLabel = (pos, name) => (pos.parent ? `Add ${name}` : `Add section: ${name}`);
+export const addLabel = (pos, name) => (pos.parent ? `Insert ${name}` : `Insert section: ${name}`);

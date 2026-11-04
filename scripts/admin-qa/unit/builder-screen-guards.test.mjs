@@ -32,7 +32,7 @@ test("toolbar Delete, Duplicate and Hide act on the same node as Move: the colla
   assert.match(src, /const isHiddenAt = \(id\) => \{\s*const n = find\(st\.doc, hideTarget\(st\.doc, id, device\) \?\? id\)/);
 });
 
-test("Add after lives in the More menu: dispatch opens the picker at the selection's index + 1, and no dead onAddAfter handler is left", () => {
+test("Insert after lives in the More menu: dispatch opens the picker at the selection's index + 1, and no dead onAddAfter handler is left", () => {
   assert.doesNotMatch(src, /onAddAfter/);
   const i = src.indexOf('case "addafter"');
   assert.ok(i > 0, "no addafter case in dispatch");
@@ -52,4 +52,27 @@ test("a refused Alt+Up/Down in the Navigator still reaches moveSelected, which a
   assert.match(src, /!acts\(action\) && !\(inTree && \(action === "moveup" \|\| action === "movedown"\)\)/);
   assert.match(src, /perform\(action, false, tr\)/);
   assert.match(src, /if \(!op\) return announce\("It cannot move further that way"\)/);
+});
+
+test("the Fit menu drives the canvas zoom, the Shortcuts item closes ⋯ before the sheet opens, device buttons keep their icon", () => {
+  assert.match(src, /#bs-zoom \[data-zoom\]/);
+  assert.match(src, /canvas\.setZoom\(m === "fit" \? "fit" : Number\(m\)\)/);
+  assert.match(src, /\[data-hm-bs-keys\]"\)\?\.addEventListener\("click", \(e\) => \{\s*e\.currentTarget\.closest\("\[popover\]"\)\?\.hidePopover\?\.\(\);[^\n]*\n\s*dispatch\("sheet"\)/);
+  assert.match(src, /b\.append\(h\("span", \{ class: "hm-bs__dlong" \}/);
+  assert.doesNotMatch(src, /b\.replaceChildren\(h\("span", \{ class: "hm-bs__dlong"/);
+  assert.match(src, /nodeType === 3\)\.forEach\(\(n\) => n\.remove\(\)\)[^\n]*\n\s*b\.append\(h\("span", \{ class: "hm-bs__dlong"/); // the template's own label text goes: no doubled name
+});
+
+test('"/" opens the section popover with a selection and falls back to the Insert tab on a phone or with none', () => {
+  const i = src.indexOf("function openSlash()");
+  assert.match(src.slice(i, i + 200), /if \(dock\.stacked\(\) \|\| !selected\) return showAdd\(\);/);
+  assert.match(src, /case "slash":\s*return openSlash\(\);/);
+  assert.match(src, /case "palette":\s*return showAdd\(\);/);
+  assert.match(src, /onPick: \(item\) => insertFrom\(item, \{\}\)/); // a section item lands after the selected section (sectionPoint)
+});
+
+test("inserting says Insert in history labels and announcements (the Add section line, pill and footer keep their name)", () => {
+  assert.doesNotMatch(src, /label: "Add"|label: `Add |announce\(`Added |use Add after/);
+  assert.match(src, /label: "Insert"/);
+  assert.match(src, /label: `Insert \$\{item\.name\}`/);
 });

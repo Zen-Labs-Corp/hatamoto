@@ -9,6 +9,8 @@
   font: inherit; font-size: var(--text-sm); text-align: left; text-decoration: none; cursor: pointer;
 }
 .hm-menu [role="menuitem"] .hm-icon { color: var(--color-hai); }
+/* Radio items (a choice among a few, e.g. zoom): the applied one is semibold. */
+.hm-menu [aria-checked="true"] { font-weight: var(--weight-semibold); }
 .hm-menu [role="menuitem"]:hover, .hm-menu__item:hover { background: var(--color-kasumi); }
 .hm-menu [role="menuitem"]:focus-visible, .hm-menu__item:focus-visible { background: var(--color-kasumi); outline: 2px solid var(--focus); outline-offset: -2px; box-shadow: inset 3px 0 0 var(--color-sumi); }
 .hm-menu [data-tone="danger"], .hm-menu [data-tone="danger"] .hm-icon, .hm-menu__item--danger { color: var(--color-danger); }

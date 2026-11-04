@@ -33,12 +33,13 @@ export const dismiss = (storage, user) => mark(storage, user, ["bar"]);
 /** The bar, for good: the person inserted something before the hints had loaded. */
 export const dismissAll = (storage, user) => mark(storage, user, ["bar", ...LEGACY]);
 
+const kbd = (text) => h("kbd", { class: "hm-bs-key", text });
 const ITEMS = [
   () => h("span", { text: "Click to select" }),
   () => h("span", { text: "Double-click text to type" }),
-  () => h("span", {}, "Drag ", h("span", { class: "hm-bs-hint__bar", "aria-hidden": "true" }), " to resize spacing"),
-  () => h("span", {}, h("kbd", { text: "/" }), " to insert"),
-  () => h("span", {}, h("kbd", { text: "Esc" }), " for the parent"),
+  () => h("span", {}, "Drag ", h("span", { class: "hm-bs-hint__bar", "aria-hidden": "true" }), " to resize spacing, ", kbd("Shift"), " snaps to 8"),
+  () => h("span", {}, kbd("/"), " insert"),
+  () => h("span", {}, kbd("Esc"), " parent"),
 ];
 
 /** The server-rendered icon-only x button <template data-hm-bs-actx>; a plain button when the template is absent. */
@@ -54,9 +55,10 @@ function dismissButton(onclick) {
  */
 export function mountCoachmarks({ canvasEl, user = "", empty = false, storage = globalThis.localStorage }) {
   if (empty || !shouldShow(storage, user)) return { done() {} };
-  const note = h("div", { class: "hm-bs-hint", role: "note" }, ...ITEMS.map((f) => f()));
+  const box = h("div", { class: "hm-bs-hint__box" }, ...ITEMS.map((f) => f()));
+  const note = h("div", { class: "hm-bs-hint", role: "note" }, box);
   const close = () => (dismiss(storage, user), note.remove());
-  note.append(dismissButton(close));
-  canvasEl?.append(note);
+  box.append(dismissButton(close));
+  canvasEl?.append(note); // the last child of the scroller: the sticky anchor sits after the page
   return { done: close };
 }

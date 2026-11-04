@@ -604,10 +604,14 @@ any API/MCP/import write ([Write rules](#write-rules)) or in bulk through `hatam
 
 The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no-JS outline still works) driven by `screen.js`.
 
-* **Top bar**: back link, page name, labelled **Navigator** and **Inspector** toggles (`Ctrl/Cmd+Alt+[` and `]`),
-  Shortcuts, Undo, Redo, History, the device switch, one status chip (`role=status`: "Draft · Saved 14:02", "Saving…",
+* **Top bar**: back link, the page name (plain text until hovered or focused), labelled **Navigator** and
+  **Inspector** toggles (`Ctrl/Cmd+Alt+[` and `]`), Undo, Redo, History, the device switch (an icon per device,
+  the width limit muted, centred in the bar), the **Fit ▾** menu (Fit, 50, 75, 100; the trigger names the applied zoom),
+  **Preview** (a link to the public page in a new tab; icon only on a laptop width; absent or disabled when the page
+  has no address), one status chip (`role=status`: "Draft · Saved 14:02", "Saving…",
   "Not saved", "Changed somewhere else"), Save draft and Publish (draft) or Update page (published), and a **More**
-  menu: Versions, Page settings, Site styles (owners; `boot.canStyle`), Keyboard shortcuts, a separator and Delete page
+  menu: Versions, Page settings, Site styles (owners; `boot.canStyle`), Keyboard shortcuts (there is no separate
+  shortcuts button; Esc from the sheet returns focus to **More**), a separator and Delete page
   (Delete block or Delete part on those screens; always behind `data-hm-confirm`). On a phone Save draft, Undo, Redo
   and History also appear in More. The slug rule is the blog editor's; the slug and the address fields stay on the details page.
 * **SEO drawer** (pages only; blocks and parts have no SEO button): the **SEO** button in the top bar (also in More on a phone)
@@ -669,7 +673,8 @@ The shell is `web/admin/pages/entities/builder.html` (server-rendered, so the no
 * **Start panel** (lazy `startpanel.js`): on a page with no nodes, tiles for hero, features, call to action and FAQ
   first, then the theme's other sections, and "Start blank". It is removed on the first insert by any path.
 * **Hint bar** (lazy `coachmarks.js`): one note on the canvas, "Click to select", "Double-click text to type", "Drag to resize spacing",
-  "/ to insert" and "Esc for the parent", shown until **Dismiss hints** or the first insert, kept per user in `localStorage`
+  "/ insert" and "Esc parent", anchored to the bottom of the canvas pane (it stays in view while the page scrolls), shown until
+  **Dismiss hints** (one button, so the name is unique) or the first insert, kept per user in `localStorage`
   (`hm-builder-hints:<user>`, key `bar`); it does not take focus and honours reduced motion.
 * **Inspector** (right): tabs Content, Style and Advanced. Content shows the props of a native node as plain inputs, or
   the server-rendered form of a component. Style shows one control per StyleSpec key for the active breakpoint; a
@@ -834,7 +839,8 @@ Shortcut keys act on the page, never inside a text control (those keep their own
 | Enter | on the page or canvas: edit the selected element's own text (a text or heading), else select its first child; in the Navigator: open its settings in the inspector |
 | Ctrl/Cmd+K | command palette, also from the canvas frame (in a canvas text edit: insert link) |
 | Ctrl/Cmd+Alt+[ / Ctrl/Cmd+Alt+] | show or hide the Navigator / the Inspector |
-| `/`, `A` | open the Insert tab with its search focused (Shift+Enter in the search inserts and keeps it open) |
+| `/` | with a section selected: a popover of section cards at the selection (arrows rove, Enter inserts after the section, Esc closes; the selection and inspector stay); with nothing selected or on a phone: the Insert tab |
+| `A` | open the Insert tab with its search focused (Shift+Enter in the search inserts and keeps it open) |
 | `?` | shortcut sheet |
 | Escape | cancel a drag |
 
@@ -857,7 +863,7 @@ From inside the canvas frame Ctrl/Cmd+Z, Shift+Z, Y, D, C, X, V, G, Shift+G, K a
   none within 26 screen px of another, hidden while text is edited) open a popover of layouts: 1, 2, 3 and 4 columns
   (the `columns` widget), 33/67 and 67/33 and a 2×2 grid (a `container` in grid layout with a column template), and
   **Choose an element…** and **Insert a ready-made section…** for the Insert tab (at the same position). Each layout is one undo step ("Add section: 3 columns" at the page level, "Add 3 columns" nested).
-  The buttons are pointer only: the keyboard path is the toolbar's **Add after** (the same picker after the selection) or the Insert tab.
+  The buttons are pointer only: the keyboard path is the toolbar's **Insert after** (the same picker after the selection) or the Insert tab.
 * **Move handle.** The selected element's toolbar carries a handle; dragging it reorders with the same drop targets as the
   tree. A press before the lazy `drag` chunk has arrived starts the drag as soon as it does if the pointer is still
   down. A v1 section's handle moves the whole section (its top-level container), not the component inside it.
@@ -980,14 +986,15 @@ is stored.
 
 * **Canvas chrome** (lazy `canvas/chrome.js`, pure geometry in `canvas/points.js`, loaded after first paint, not in
   the canvas bridge). Built once and moved, never rebuilt by the marks redraw (the picker anchor survives). A sticky
-  strip: breadcrumbs from the layout parent ids (a crumb selects that ancestor, "Page" selects nothing), zoom
-  **Fit / 100 / 75 / 50** (an explicit zoom survives `fit()`; never below 0.5, except Fit in the phone shell), and a 4 px
-  Tablet or Phone **band** with its label. One outline layer: with a v2 parent the parent draws hover (dashed,
-  neutral) and selection; the frame's own outlines are v1-only, and the host ignores a v1 `hm:select` that would
+  stage bar: breadcrumbs from the layout parent ids (a crumb selects that ancestor, "Page" selects nothing) and a
+  readout of the page width and scale (`1440px · 75%`). The zoom choice (**Fit / 50 / 75 / 100**, in the top bar's Fit
+  menu; an explicit zoom survives `fit()`; never below 0.5, except Fit in the phone shell) is not on the strip. Below it a 4 px
+  Tablet or Phone **band** with its label. One outline layer: with a v2 parent the parent draws hover (1 px accent outline with a name tag)
+  and selection; the frame's own outlines are v1-only, and the host ignores a v1 `hm:select` that would
   replace a deeper v2 selection. The empty-node floor is 64 px.
-* **Toolbar.** A `role=toolbar` (roving tabindex) outside the selected element: handle, name, **Parent**,
+* **Toolbar.** A `role=toolbar` (roving tabindex) outside the selected element: handle, then the name chip ("Name ↑ Parent", one button that selects the parent),
   **Duplicate**, **Wrap** (accessible name "Wrap in container"), **Hide** ("Hide on this device" or "Show on this
-  device"), **Delete**, **More** ("More element actions", the element menu). It sits above, below at the top edge,
+  device"), **Delete**, **More** ("More element actions", the element menu). It sits above, inside at the top edge (below only while editing text),
   clamped, and shrinks while editing text so the format bar stays clear. The handle press is delegated on the stage.
 * **"+" handles.** From `canvas/points.js`: page level, the selection's container and its parent, the last hovered
   container, and always inside an empty container; a keyed pool of 32 px buttons with an insertion line on hover. The

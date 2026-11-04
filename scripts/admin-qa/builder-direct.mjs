@@ -52,6 +52,15 @@ async function open(name) {
   await p.waitForSelector(TREE, { timeout: 10000 });
   await p.waitForFunction(() => !!window.__hmBuilder, null, { timeout: 5000 });
   await settle(600);
+  // An unsaved copy left by the checks before (it follows the person, not the browser) floats a banner over the top of the canvas, where the page-top pill sits.
+  const discard = p.locator('[data-banner="recovery"] button:has-text("Discard them")');
+  if (await discard.count()) { await discard.click(); await settle(300); }
+}
+// The Fit menu in the top bar sets the zoom (the stage bar only reads it): "fit" or 50 / 75 / 100.
+async function setZoom(m) {
+  await p.locator("[data-hm-bs-zoomtrigger]").click();
+  await p.locator(`#bs-zoom [data-zoom="${m}"]`).click();
+  await settle(300);
 }
 const saved = () => p.waitForFunction(() => /\bSaved\b|\bDraft saved\b/.test(document.querySelector("[data-hm-bs-state]")?.textContent ?? ""), null, { timeout: 15000 }).catch(() => {});
 const sig = async () => JSON.stringify(await tops());
@@ -112,10 +121,11 @@ async function pick(re) {
 }
 // The page-level "Add section" pill (top: before the first section) takes the pointer only while it shows: hover the section next to it first.
 async function clickTopPill() {
+  await p.locator(".hm-pe__crumb", { hasText: "Page" }).click(); // nothing selected: the selected section's own handles take its edges, not the pill
   const line = p.locator('[data-hm-pe-gapline][aria-label="Add section at the top"]');
   await line.waitFor({ state: "attached", timeout: 5000 });
   const box = await line.boundingBox();
-  await p.mouse.move(box.x + box.width / 2, box.y + box.height + 40, { steps: 4 }); // inside the section below the line
+  await p.mouse.move(box.x + 8, box.y + box.height + 8, { steps: 4 }); // just inside the first section (it may be short), at its left edge, clear of its "+" buttons
   await line.locator(".hm-pe__pill").waitFor({ state: "visible", timeout: 3000 });
   await line.click();
 }
@@ -179,8 +189,8 @@ await check("a click at the centre of a heading inside a 2-column section select
   await p.mouse.move(at.x + 40, at.y + 20);
   await settle(300);
   if (!(await p.evaluate(() => window.__tb === document.querySelector("[data-hm-pe-toolbar]") && window.__tb.isConnected))) throw new Error("the toolbar was rebuilt by a hover redraw");
-  const acts = await p.locator("[data-hm-pe-toolbar] [data-act]").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label")));
-  if (acts.map((a) => a.replace(/^Select parent.*/, "Select parent")).join("|") !== "Select parent|Move up|Move down|Duplicate|Hide on this device|Delete|More element actions") throw new Error("toolbar buttons: " + acts.join("|"));
+  const acts = await p.locator("[data-hm-pe-toolbar] [data-act]").evaluateAll((bs) => bs.map((b) => (b.dataset.act === "parent" ? "Select parent" : b.getAttribute("aria-label"))));
+  if (acts.join("|") !== "Select parent|Move up|Move down|Duplicate|Hide on this device|Delete|More element actions") throw new Error("toolbar buttons: " + acts.join("|"));
   await p.locator('[data-hm-pe-toolbar] [data-act="duplicate"]').focus();
   await p.keyboard.press("ArrowRight");
   if ((await p.evaluate(() => document.activeElement?.dataset.act)) !== "togglehide") throw new Error("ArrowRight did not move to Hide");
@@ -205,12 +215,12 @@ await check("a click at the centre of a heading inside a 2-column section select
   if ((await crumbs()).length !== chain.length - 1) throw new Error("the strip did not follow the selection");
   // Zoom: 50% fixes the scale at the floor, and Fit comes back; the Tablet band is coloured (the context line, not the strip, names the width).
   const width = () => p.locator(".hm-pe__stage").evaluate((e) => e.getBoundingClientRect().width);
-  await p.locator('[data-hm-pe-strip] [data-zoom="100"]').click();
+  await setZoom(100);
   const w100 = await width();
-  await p.locator('[data-hm-pe-strip] [data-zoom="50"]').click();
+  await setZoom(50);
   const w50 = await width();
   if (Math.abs(w50 / w100 - 0.5) > 0.02) throw new Error(`zoom 50% gave ${w50}px next to ${w100}px at 100%`);
-  await p.locator('[data-hm-pe-strip] [data-zoom="fit"]').click();
+  await setZoom("fit");
   await p.locator('[data-hm-bs-device="md"]').click();
   await settle(300);
   if ((await p.locator(".hm-pe__bandlabel").count()) !== 0) throw new Error("a band label is drawn at Tablet");

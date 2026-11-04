@@ -46,9 +46,9 @@ test("placeToolbar: above the element, off its first line", () => {
   assert.deepEqual(r, { x: 40, y: 160, flip: false, inside: false });
 });
 
-test("placeToolbar: flips below at the top edge of the view", () => {
+test("placeToolbar: no room above goes inside the element, never below it", () => {
   const r = placeToolbar({ box: { x: 40, y: 10, w: 400, h: 80 }, bar, view });
-  assert.deepEqual(r, { x: 40, y: 98, flip: true, inside: false });
+  assert.deepEqual(r, { x: 48, y: 18, flip: false, inside: true });
 });
 
 test("placeToolbar: clamps into the view on both sides", () => {

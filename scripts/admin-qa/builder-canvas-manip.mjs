@@ -136,7 +136,7 @@ const redo = async () => { await p.evaluate(() => document.activeElement?.blur?.
 const key = async (combo) => { await p.evaluate(() => document.activeElement?.blur?.()); await p.locator(TREE).first().focus().catch(() => {}); await p.keyboard.press(combo); await settle(350); };
 // The padding-top the inspector shows (Style tab); null when its field is not on screen.
 const inspectorTop = async () => {
-  const f = p.locator('input[aria-label="Padding top"]').first();
+  const f = p.locator('.hm-bs-bm__p input[data-side="top"]').first(); // the box model's field (its aria-label carries the spoken value)
   return (await f.count()) && (await f.isVisible()) ? f.inputValue() : null;
 };
 const authored = async (id, bp, k) => (await find(id))?.s?.[bp]?.[k] ?? null;
@@ -193,11 +193,126 @@ await check("A1 select a section on the canvas: 4 padding handles with aria-labe
   if ((0.299 * r + 0.587 * g + 0.114 * bl) > 60) throw new Error("toolbar is not dark: " + bg);
   const chip = (await p.locator("[data-hm-pe-toolbar] .hm-pe__tname").textContent()).trim();
   if (!chip) throw new Error("the toolbar chip has no name");
+  // The selection: 4 corner squares, the accent W × H badge centred under it, a mono name tag, the toolbar above (or just inside) the outline, no "Add section" line on show.
+  const outline = p.locator(".hm-pe__outline").first();
+  if ((await outline.locator(".hm-pe__hdl").count()) !== 4) throw new Error("the selection has no 4 corner squares");
+  const ob = await outline.boundingBox();
+  const sb = await p.locator("[data-hm-pe-size]").first().boundingBox();
+  if (Math.abs(sb.x + sb.width / 2 - (ob.x + ob.width / 2)) > 4) throw new Error(`the size badge is not centred under the selection (${(sb.x + sb.width / 2).toFixed(0)} vs ${(ob.x + ob.width / 2).toFixed(0)})`);
+  const badgeBg = await p.locator("[data-hm-pe-size]").first().evaluate((e) => getComputedStyle(e).backgroundColor);
+  const accent = await p.evaluate(() => { const e = document.createElement("i"); e.style.color = "var(--color-accent)"; document.body.append(e); const c = getComputedStyle(e).color; e.remove(); return c; });
+  if (badgeBg !== accent) throw new Error(`the size badge is ${badgeBg}, not the accent ${accent}`);
+  const tagFont = await outline.locator(".hm-pe__tag").first().evaluate((e) => getComputedStyle(e).fontFamily);
+  if (!/mono|menlo|consolas|courier/i.test(tagFont)) throw new Error(`the selection name tag is not mono: ${tagFont}`);
+  const tbb = await tb.boundingBox();
+  if (tbb.y > ob.y + 40) throw new Error(`the toolbar is below the top of the selection (${tbb.y.toFixed(0)} vs ${ob.y.toFixed(0)})`);
+  const nav = await row(sec.id).boundingBox();
+  await p.mouse.move(nav.x + nav.width / 2, nav.y + nav.height / 2, { steps: 5 }); // off the canvas: the click that selected the section left the pointer on it
+  await settle(300);
+  if ((await p.locator("[data-hm-pe-gapline][data-show]").count())) throw new Error(`an Add section pill is shown at rest ${await p.locator("[data-hm-pe-gapline][data-show]").evaluateAll((e) => e.map((x) => x.dataset.show + "@" + x.style.top))}: it must not cover the padding handles or the size badge`);
   top0 = await padNow("top");
   await p.locator('[role="tab"][data-tab="style"]').first().click().catch(() => {}); // the inspector's padding fields
   await settle(400);
   await shot("section-selected.png");
   return `${labels.join(", ")}; badge "${size}"; toolbar ${bg}; chip "${chip}"`;
+});
+
+// The selected section's two edge pills while it is hovered, against everything else drawn on those edges.
+async function pillsClear(where) {
+  const pad0 = await padNow("bottom");
+  for (const [fx, fy] of [[0.5, 0.01], [0.5, 0.5], [0.3, 0.99], [0.4, 0.5]]) { // a few moves inside the section: the frame reports a hover only when the pointer changes node
+    const at = await pointOf(sec.id, fx, fy);
+    await p.mouse.move(at.x - 20, at.y, { steps: 3 });
+    await p.mouse.move(at.x, at.y, { steps: 3 });
+    await settle(400);
+    if (await p.locator("[data-hm-pe-gapline][data-show]").count()) break;
+  }
+  const line = p.locator("[data-hm-pe-gapline][data-sel][tabindex='0']").first(); // the boundary after the selected section
+  const pill = line.locator(".hm-pe__pill");
+  if (!(await pill.isVisible())) throw new Error(`${where}: no pill on the selected section's bottom boundary under hover`);
+  const hit = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+  const others = [...["top", "right", "bottom", "left"].map((s) => [`${s} padding handle`, padh(s)]), ["size badge", p.locator("[data-hm-pe-size]").first()], ["toolbar", p.locator("[data-hm-pe-toolbar]").first()]];
+  for (const [which, pl] of [["bottom", pill], ["top", p.locator("[data-hm-pe-gapline][data-sel]").first().locator(".hm-pe__pill")]]) {
+    if (!(await pl.isVisible())) continue;
+    const pb = await pl.boundingBox();
+    // on the stage, not under the sticky stage bar or off the scroller, and the topmost thing at its centre: nothing covers it
+    const seen = await pl.evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      const sc = e.closest("[data-hm-pe-gapline]").parentElement.parentElement.parentElement.getBoundingClientRect();
+      const bar = document.querySelector(".hm-pe__strip")?.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { r: { t: r.top, b: r.bottom }, sc: { t: bar ? Math.max(sc.top, bar.bottom) : sc.top, b: sc.bottom }, hit: !!top && e.contains(top) };
+    });
+    if (seen.r.t < seen.sc.t - 0.5 || seen.r.b > seen.sc.b + 0.5) throw new Error(`${where}: the ${which} pill [${seen.r.t.toFixed(0)},${seen.r.b.toFixed(0)}] is outside the visible stage [${seen.sc.t.toFixed(0)},${seen.sc.b.toFixed(0)}] (under the stage bar?)`);
+    if (!seen.hit) throw new Error(`${where}: something covers the ${which} pill (elementFromPoint at its centre is not the pill)`);
+    for (const [what, loc] of others) {
+      const o = (await loc.isVisible()) ? await loc.boundingBox() : null;
+      if (o && hit(pb, o)) throw new Error(`${where}: the ${which} pill ${JSON.stringify(pb)} overlaps the ${what} ${JSON.stringify(o)}`);
+    }
+  }
+  const pb = await pill.boundingBox();
+  await p.mouse.move(pb.x + pb.width / 2, pb.y + pb.height / 2, { steps: 4 });
+  await p.mouse.down();
+  await p.mouse.up();
+  const dlg = p.getByRole("dialog", { name: "Add a section" });
+  await dlg.waitFor({ timeout: 3000 }).catch(() => { throw new Error(`${where}: the click on the pill ${JSON.stringify(pb)} did not open the picker`); });
+  await p.keyboard.press("Escape");
+  await settle(300);
+  if ((await padNow("bottom")) !== pad0) throw new Error("the click on the pill changed the bottom padding");
+}
+// A section taller than the pane, its bottom boundary scrolled off-screen: the pill stays on that boundary, it is not moved into the visible part of the section. Skipped when the section fits the pane.
+async function tallSectionPill(where) {
+  const lines = p.locator("[data-hm-pe-gapline][data-sel]");
+  if ((await lines.count()) < 2) return null;
+  const m = await lines.first().evaluate((e) => {
+    const sc = e.parentElement.parentElement.parentElement;
+    const c = (l) => { const r = l.querySelector(".hm-pe__pill").getBoundingClientRect(); return r.top + r.height / 2; };
+    const [a, b] = [...document.querySelectorAll("[data-hm-pe-gapline][data-sel]")].map(c).sort((x, y) => x - y);
+    return { h: b - a, pane: sc.clientHeight - (document.querySelector(".hm-pe__strip")?.offsetHeight ?? 0) };
+  });
+  if (m.h <= m.pane + 60) return null;
+  const scrolled = await lines.first().evaluate((e) => {
+    const sc = e.parentElement.parentElement.parentElement;
+    const bottom = Math.max(...[...document.querySelectorAll("[data-hm-pe-gapline][data-sel] .hm-pe__pill")].map((x) => x.getBoundingClientRect().bottom));
+    sc.scrollTop += Math.max(0, bottom - sc.getBoundingClientRect().bottom + 80); // the section's bottom boundary below the view
+    return true;
+  });
+  await settle(300);
+  const hit = await p.evaluate(() => {
+    const sc = document.querySelector("[data-hm-pe-gapline]").parentElement.parentElement.parentElement.getBoundingClientRect();
+    const x = sc.left + sc.width / 2, y = sc.top + sc.height / 2;
+    return { x, y };
+  });
+  await p.mouse.move(hit.x - 20, hit.y, { steps: 3 });
+  await p.mouse.move(hit.x, hit.y, { steps: 3 });
+  await settle(400);
+  const over = await p.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest(".hm-pe__pill"), hit);
+  if (over) throw new Error(`${where}: an 'Add section' pill sits over the visible middle of a section taller than the pane (scrolled=${scrolled})`);
+  return `tall section (${m.h.toFixed(0)}px in a ${m.pane}px pane)`;
+}
+const zoomTo = async (z) => { await p.locator("[data-hm-bs-zoomtrigger]").click(); await p.locator(`#bs-zoom [data-zoom="${z}"]`).click(); await settle(500); };
+
+await check("A3 hover the selected section's edges: clickable 'Add section' pills clear of the padding handles, size badge and toolbar at Desktop, Phone 100% and Phone 50%; click opens the picker, not a padding drag", async () => {
+  await pillsClear("desktop");
+  const seen = ["desktop"];
+  try {
+    await p.locator('[data-hm-bs-device="sm"]').click();
+    await settle(600);
+    for (const z of ["100", "50"]) {
+      await zoomTo(z);
+      await selectOnCanvas(sec.id);
+      await pillsClear(`phone ${z}%`);
+      seen.push(`phone ${z}%`);
+      const tall = await tallSectionPill(`phone ${z}%`);
+      if (tall) seen.push(tall);
+    }
+  } finally {
+    await zoomTo("fit").catch(() => {});
+    await p.locator('[data-hm-bs-device="base"]').click();
+    await settle(500);
+    await selectOnCanvas(sec.id).catch(() => {});
+  }
+  return `pills shown on hover, clear of the handles, badge and toolbar, click opened the picker (${seen.join(", ")})`;
 });
 
 await check("A1 drag the top handle +40 px: value badge + hatch during the drag, ONE undo entry on pointerup, padding-top changed", async () => {
@@ -301,7 +416,7 @@ await check("A3 block selected: toolbar shows '↑ <section>' and a click select
   const up = p.locator('[data-hm-pe-toolbar] [data-act="parent"]');
   await up.waitFor({ state: "visible", timeout: 3000 });
   const text = (await up.textContent()).trim();
-  if (!/^↑\s*\S/.test(text)) throw new Error(`parent button reads "${text}"`);
+  if (!/\S\s*↑\s*\S/.test(text)) throw new Error(`parent button reads "${text}", not "Name ↑ Parent"`);
   if ((await p.locator("[data-hm-pe-padh]:not([hidden])").count()) !== 0) throw new Error("a block shows padding handles");
   await shot("block-selected.png");
   await up.click();
@@ -321,6 +436,9 @@ await check("A4 hover another element: outline + name tag", async () => {
   if (!(await tag.count())) throw new Error("no hover outline with a name tag");
   const text = (await tag.first().textContent()).trim();
   if (!text) throw new Error("the name tag is empty");
+  const ring = await p.locator("[data-hm-pe-hover]").first().evaluate((e) => { const c = getComputedStyle(e); return [c.borderTopStyle, c.borderTopWidth, c.borderTopColor]; });
+  const acc = await p.evaluate(() => { const e = document.createElement("i"); e.style.color = "var(--color-accent)"; document.body.append(e); const c = getComputedStyle(e).color; e.remove(); return c; });
+  if (ring[0] !== "solid" || ring[1] !== "1px" || ring[2] !== acc) throw new Error(`the hover outline is ${ring.join(" ")}, not 1px solid accent`);
   return `outline with tag "${text}"`;
 });
 

@@ -31,6 +31,15 @@ const RULES = [
 
 const kindOf = (type = "") => RULES.find(([rx]) => rx.test(String(type).toLowerCase()))?.[1];
 
+/** One-line descriptions of what a section type is, by kind (the Insert cards' second line). */
+export const BLURB = { hero: "Big headline + buttons", features: "Cards grid", faq: "Questions and answers", pricing: "Plans and prices", cta: "Call to action band", quote: "Customer quote", gallery: "Image grid", form: "Fields and a submit button", generic: "Theme section" };
+
+/** The BLURB line for a section type; "Theme section" when nothing matches. */
+export const blurbOf = (type = "") => BLURB[kindOf(type)] ?? BLURB.generic;
+
+/** Whether a section type is drawn on a dark band (the call-to-action kind). */
+export const isDark = (type = "") => kindOf(type) === "cta";
+
 /** The shape for a theme section type ("hero", "features_3", "faq"...): a generic one when nothing matches. */
 export const shapeOf = (type = "") => SHAPES[kindOf(type)] ?? SHAPES.generic;
 

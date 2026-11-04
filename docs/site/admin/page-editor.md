@@ -25,7 +25,7 @@ In this guide you open a page, add a block, change its text and publish the resu
 1. Find the three panes:
 
    - **Navigator** on the left lists every element of the page as a tree, with a **Filter** box, **Collapse all** and **Rename**. Drag a row to move it. Beside its tab is **Insert**, where you pick what to insert, as cards for elements and a grid of blocks.
-   - The preview of the page in the middle. Point at an element to see a dashed outline, click it to select it, and double-click text (or press Enter) to type in it. A small toolbar next to the selected element has **Parent**, **Duplicate**, **Wrap**, **Hide**, **Delete** and **More**. Above the page, a strip shows where the element sits in the page (click a name to select that parent) and has **Fit**, **100**, **75** and **50** zoom buttons.
+   - The preview of the page in the middle. Point at an element to see a dashed outline, click it to select it, and double-click text (or press Enter) to type in it. A small toolbar next to the selected element has **Parent**, **Duplicate**, **Wrap**, **Hide**, **Delete** and **More**. Above the page, a strip shows where the element sits in the page (click a name to select that parent) and has a **Fit** menu with **Fit**, **50**, **75** and **100** zoom.
    - The **Inspector** on the right, with three tabs: **Content**, **Style** and **Advanced**.
 
    The top bar has labelled **Navigator** and **Inspector** buttons that hide each pane, and one status chip that reads, for example, "Draft · Saved 14:02", "Saving…" or "Not saved".

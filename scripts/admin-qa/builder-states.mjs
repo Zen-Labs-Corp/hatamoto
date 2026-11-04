@@ -50,7 +50,7 @@ async function selectCardAndStyle() {
   // the palette is, and it lands selected.
   rows0 = await p.locator(TREE).count();
   await p.locator(TREE).first().click(); await settle();
-  await p.keyboard.press("/");
+  await p.keyboard.press("a");
   await p.keyboard.type("heading"); await settle();
   await press("ArrowDown"); await press("Enter"); await settle(500);
   await p.locator('[data-hm-bs-ltab="nav"]').click(); // the Insert tab hides the tree: back to the Navigator for the row clicks
@@ -129,7 +129,7 @@ await check("selection change and tab change clear the State and the force", asy
   await setState("hover");
   // Another canvas element: the section row is a v1 section, not a canvas node, so a second divider from the palette (it lands selected).
   await p.locator(TREE).first().click(); await settle(300);
-  await p.keyboard.press("/");
+  await p.keyboard.press("a");
   await p.keyboard.type("heading"); await settle();
   await press("ArrowDown"); await press("Enter"); await settle(500);
   await p.locator('[data-hm-bs-ltab="nav"]').click();

@@ -17,6 +17,7 @@ type Segmented struct {
 // not available yet: it renders disabled and aria-disabled, and no mode lets it be chosen.
 type SegmentedItem struct {
 	Label, Value string
+	Icon         string // optional icon name drawn before the label
 	CountID      string // radio mode: the id of the count span after the label, so a page can refresh it out of band
 	Count        string
 	Pressed      bool

@@ -28,6 +28,7 @@ class El {
   }
   setAttribute(k, v) { this.attrs[k] = String(v); }
   removeAttribute(k) { delete this.attrs[k]; }
+  hasAttribute(k) { return k in this.attrs; }
   getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
   append(...kids) { kids.forEach((k) => (k.parent = this)); this.children.push(...kids); }
   addEventListener(t, f) { (this.listeners[t] ??= []).push(f); }
@@ -55,6 +56,7 @@ globalThis.document = {
 const fireDoc = (type, e) => (docListeners[type] ?? []).slice().forEach((f) => f({ preventDefault() {}, stopPropagation() {}, ...e }));
 
 const { mountDirect } = await import(new URL("canvas/direct.js", root));
+const { overlaps, pillShift } = await import(new URL("canvas/chromemodel.js", root));
 const { validToBridge } = await import(new URL("canvas/protocol.js", root));
 const { padWrites } = await import(new URL("canvas/padding.js", root));
 const table = JSON.parse(readFileSync(new URL("../../../backend/testdata/stylespec/table.json", import.meta.url), "utf8"));
@@ -122,8 +124,9 @@ test("a section shows four slider handles with the live px; a block shows none",
   }
   assert.equal(r.handle("top").attrs["aria-label"], "Top padding, 112px");
   assert.equal(r.handle("left").attrs["aria-valuenow"], "24");
-  assert.equal(r.handle("top").style.top, "212px", "the inner edge of the top padding: (y 100 + 112)");
-  assert.equal(r.handle("right").style.left, "1240px");
+  assert.equal(r.handle("top").style.top, "144px", "the middle of the top band (y 100 + 112/2 = 156), the 24px box hanging 12px above it");
+  assert.equal(r.handle("right").style.left, "1260px", "the middle of the right band (1280 - 40/2)");
+  assert.equal(r.handle("left").style.left, "12px", "the middle of the left band (12), kept 12px inside the frame");
   const block = rig({ section: false });
   assert.ok(["top", "right", "bottom", "left"].every((s) => block.handle(s).hidden === true));
   const none = rig({ selected: null });
@@ -184,6 +187,21 @@ test("dragging previews with setVar (no commit), updates the label, hatch and ba
   assert.equal(r.badge.hidden, false);
   assert.equal(r.badge.textContent, "136");
   assert.equal(r.handle("top").captured.length, 1, "the pointer is captured");
+});
+
+test("the grabbed handle follows the pointer, not the band's middle (a lagging handle leaves the pointer over the frame, which swallows the release)", () => {
+  const r = rig();
+  const top0 = parseFloat(r.handle("top").style.top);
+  down(r, "top");
+  move(r, "top", 0, 24);
+  assert.equal(parseFloat(r.handle("top").style.top), top0 + 24, "the handle moved by the pointer's 24px, not by half the padding change");
+  move(r, "top", 0, 40);
+  assert.equal(parseFloat(r.handle("top").style.top), top0 + 40);
+  const left0 = parseFloat(r.handle("left").style.left);
+  r.handle("top").fire("pointerup", { pointerId: 7 });
+  down(r, "left");
+  move(r, "left", 16, 0);
+  assert.equal(parseFloat(r.handle("left").style.left), left0 + 16, "a side handle follows along x");
 });
 
 test("pointer-up commits exactly once with the final writes and the inspector's label", () => {
@@ -354,6 +372,29 @@ test("arrow keys stop at 0 without committing, and alt carries the opposite side
   assert.deepEqual(r.commits[0].writes.map((w) => w.key), ["pt", "pb"]);
 });
 
+test("hovering a handle shows its band's hatch and a value badge off to the side; leaving clears them", () => {
+  const r = rig();
+  r.handle("top").fire("pointerenter");
+  assert.equal(r.hatch("top").hidden, false);
+  assert.equal(r.badge.textContent, "112");
+  assert.equal(r.badge.style.left, "680px", "40px right of the band's middle (640)");
+  r.handle("left").fire("pointerenter");
+  assert.equal(r.badge.style.top, "278px", "30px above the left band's middle (100 + 112 + 192/2 = 308)");
+  r.handle("left").fire("pointerleave");
+  assert.equal(r.hatch("left").hidden, true);
+  assert.equal(r.badge.hidden, true);
+});
+
+test("a handle hover does not stick to the next section when the selection moves under a still pointer", () => {
+  const r = rig();
+  r.handle("top").fire("pointerenter");
+  assert.equal(r.hatch("top").hidden, false);
+  r.state.selected = "b"; // no pointerleave comes: the handles moved away from the pointer
+  r.direct.update();
+  assert.equal(r.hatch("top").hidden, true);
+  assert.equal(r.badge.hidden, true);
+});
+
 test("the inspector's hover event shows that side's hatch and value; null clears it", () => {
   const r = rig();
   fireDoc("hm-pad-hover", { detail: { side: "left" } });
@@ -391,14 +432,15 @@ test("a strip sits on every boundary, leading and trailing included, and a click
   assert.equal(r.adds[1][1], strips[1], "the picker anchors on the strip");
 });
 
-test("a pill takes the pointer only while it shows: after the selection (the one tab stop), around the hover, never otherwise", () => {
+test("a pill shows around the hover, alone on an empty page and on the selected section's edges only while it is hovered; the boundary after the selection is the one tab stop", () => {
   const shows = (r) => r.strips.children.map((s) => s.attrs["data-show"] ?? null);
   const r = rig({ nodes: sections() }); // a selected, nothing hovered
-  assert.deepEqual(shows(r), [null, "sel", null], "only the boundary after the selected section");
-  assert.deepEqual(r.strips.children.map((s) => s.attrs.tabindex), ["-1", "0", "-1"]);
+  assert.deepEqual(shows(r), [null, null, null], "at rest the selected section's edges show no pill: its handles and badge own them");
+  assert.deepEqual(r.strips.children.map((s) => s.attrs["data-sel"] ?? null), ["", "", null], "its edges are marked, so the pill is drawn clear of the centred handle and badge");
+  assert.deepEqual(r.strips.children.map((s) => s.attrs.tabindex), ["-1", "0", "-1"], "the boundary after it is the one tab stop");
   r.state.selected = "x"; // a block inside a: its section's boundary
   r.direct.update();
-  assert.deepEqual(shows(r), [null, "sel", null]);
+  assert.deepEqual(r.strips.children.map((s) => s.attrs.tabindex), ["-1", "0", "-1"]);
   r.state.selected = null;
   r.state.hover = "b";
   r.direct.update();
@@ -407,9 +449,11 @@ test("a pill takes the pointer only while it shows: after the selection (the one
   r.state.hover = null; // the pointer crossed onto the pill: the frame's hover ended, the pill stays
   r.direct.update();
   assert.deepEqual(shows(r), [null, "hover", "hover"]);
-  const own = rig({ nodes: sections(), hover: "a" }); // hovering the selected section adds no pill over its padding handles
-  assert.deepEqual(shows(own), [null, "sel", null]);
-  assert.equal(rig({ nodes: [], selected: null }).strips.children[0].attrs["data-show"], "sel", "an empty page's only pill shows");
+  const own = rig({ nodes: sections(), hover: "a" }); // hovering the selected section shows its two edge pills
+  assert.deepEqual(shows(own), ["sel", "sel", null]);
+  const next = rig({ nodes: sections(), hover: "b" }); // hovering the next section shows its edges, the selected section's bottom one included
+  assert.deepEqual(shows(next), [null, "hover", "hover"]);
+  assert.equal(rig({ nodes: [], selected: null }).strips.children[0].attrs["data-show"], "page", "an empty page's only pill shows");
 });
 
 test("strips follow layout changes in place and go while text is edited", () => {
@@ -440,13 +484,13 @@ test("a padding handle stacks above the boundary strips: a section edge with 0 p
   assert.ok(z(handle) > z(strip), `handle z-index ${z(handle)} must exceed the strip's ${z(strip)}`);
 });
 
-test("the pill is pill-sized and inert until shown; its focus ring is real: no invisible full-width strip", () => {
+test("the boundary row never takes the pointer itself; its pill does while shown; the focus ring is real", () => {
   const css = readFileSync(new URL("../../../backend/web/admin/css/pages/pageeditor.css", import.meta.url), "utf8");
   const line = /\.hm-pe__gapline \{([^}]*)\}/.exec(css)?.[1] ?? "";
   assert.match(line, /pointer-events:\s*none/);
-  assert.match(line, /translate\(-50%, 12px\)/, "hangs below the boundary, clear of the padding handles");
-  assert.doesNotMatch(line, /\bright:|width:\s*100%/);
-  assert.match(css, /\.hm-pe__gapline\[data-show\] \{ pointer-events: auto/);
+  assert.match(line, /translateY\(-50%\)/, "centred on the boundary");
+  assert.match(css, /\.hm-pe__gapline\[data-show\] \.hm-pe__pill \{[^}]*pointer-events: auto/, "only the shown pill takes the pointer, not the full-width row");
+  assert.match(css, /\.hm-pe__gapline:not\(\[data-show\]\):not\(\[tabindex="0"\]\) \{ visibility: hidden/, "an inert row is hidden; the tab stop stays focusable");
   assert.match(css, /\.hm-pe__gapline:focus-visible \.hm-pe__pill \{ outline/);
   assert.doesNotMatch(css, /\.hm-pe__pill:focus-visible/, "the pill is never the focused element");
 });
@@ -478,4 +522,72 @@ test("a short section: the top handle never lies over the bottom one (the 24px t
   const top = parseFloat(r.handle("top").style.top);
   const bottomStart = parseFloat(r.handle("bottom").style.top) - 12; // centred on the inner edge, 24px tall
   assert.ok(top + 24 <= bottomStart, `top handle ends at ${top + 24}, bottom starts at ${bottomStart}`);
+});
+
+test("a selected section's pill stays at the row's right end when it clears the handle and badge, and drops to its own row when it does not", () => {
+  const wide = { handle: { x: 598, y: 478, w: 44, h: 24 }, badge: { x: 584, y: 506, w: 72, h: 22 } }; // a 1240px stage: both centred, far left of the pill
+  const pill = (W) => ({ x: W - 16 - 88, y: 487, w: 88, h: 26 }); // the row's right end, centred on a boundary at y 500
+  assert.equal(pillShift(pill(1240), [wide.handle, wide.badge], 1), 0, "wide: stays at the right end");
+  // a phone at 50%: the stage is 195px, the handle [75,119] and badge [61,133] reach the pill [91,179]
+  const narrow = [{ x: 75, y: 480, w: 44, h: 24 }, { x: 61, y: 508, w: 72, h: 22 }];
+  const dy = pillShift(pill(195), narrow, 1);
+  assert.equal(dy, 508 + 22 + 4 - 487, "narrow: its own row under the badge");
+  const moved = { ...pill(195), y: 487 + dy };
+  assert.ok(narrow.every((o) => moved.y >= o.y + o.h + 4 || moved.x + moved.w + 4 <= o.x || o.x + o.w + 4 <= moved.x), "and clear of every obstacle");
+  // the top pill goes above the boundary
+  const top = [{ x: 75, y: 496, w: 44, h: 24 }, { x: 61, y: 466, w: 72, h: 22 }];
+  assert.ok(pillShift(pill(195), top, -1) < 0, "above for a top edge");
+  // a toolbar over the top pill's upper edge: above is no better, so it goes inward
+  assert.ok(pillShift(pill(390), [{ x: 100, y: 450, w: 290, h: 40 }], -1) > 0, "inward when above is blocked");
+});
+
+test("a pill never leaves the visible stage: the page-top pill on a phone at 50% goes inward, not under the sticky bar", () => {
+  // the stage starts at y 40 (below the bar); the top boundary is at y 40, the top handle [75,119] x [36,60], the toolbar inside at y 48
+  const bounds = { x: 0, y: 40, w: 195, h: 600 };
+  const pill = { x: 91, y: 27, w: 88, h: 26 };
+  const handle = { x: 75, y: 36, w: 44, h: 24 };
+  const dy = pillShift(pill, [handle], -1, 4, bounds);
+  assert.ok(pill.y + dy >= bounds.y, `the pill's top is at ${pill.y + dy}, above the bounds' ${bounds.y}`);
+  assert.ok(pill.y + dy >= handle.y + handle.h + 4, "inward: below the handle");
+  assert.equal(pillShift(pill, [handle], -1, 4, null), 36 - 4 - 26 - 27, "without bounds the old spot above the handle");
+  // nothing free: the caller keeps the default and yields the neighbour
+  assert.equal(pillShift(pill, [handle], -1, 4, { x: 0, y: 40, w: 195, h: 40 }), null);
+});
+
+test("a bottom pill does not land on the next boundary's pill when the next section is short (60px)", () => {
+  const sel = { x: 91, y: 487, w: 88, h: 26 }; // boundary at y 500
+  const handle = { x: 75, y: 480, w: 44, h: 24 };
+  const badge = { x: 61, y: 508, w: 72, h: 22 };
+  const next = { x: 53, y: 530, w: 88, h: 26 }; // the next boundary, 60px further down (centred)
+  const dy = pillShift(sel, [handle, badge, next], 1, 4, { x: 0, y: 40, w: 195, h: 900 });
+  assert.notEqual(dy, null);
+  const moved = { ...sel, y: sel.y + dy };
+  assert.ok([handle, badge, next].every((o) => !overlaps(moved, o)), `the moved pill ${JSON.stringify(moved)} touches an obstacle`);
+});
+
+test("pillShift: a pill whose own row is outside the bounds stays on it (a section taller than the pane)", () => {
+  const obstacle = { x: 0, y: 440, w: 300, h: 40 };
+  const pill = { x: 91, y: 900, w: 88, h: 26 };
+  assert.equal(pillShift(pill, [obstacle], 1, 4, { x: 0, y: 40, w: 195, h: 700 }), 0, "default row below the bounds");
+  assert.equal(pillShift({ ...pill, y: -60 }, [obstacle], -1, 4, { x: 0, y: 40, w: 195, h: 700 }), 0, "default row above the bounds");
+});
+
+test("a pill with no free spot yields the other pill, never the selected section's tab stop", () => {
+  const rect = { left: 0, top: 0, width: 88, height: 26, right: 88, bottom: 26 };
+  const box = (o) => ({ getBoundingClientRect: () => o, hidden: false });
+  const saved = ["getBoundingClientRect", "querySelectorAll", "parentElement"].map((k) => [k, Object.getOwnPropertyDescriptor(El.prototype, k)]);
+  Object.defineProperties(El.prototype, {
+    getBoundingClientRect: { configurable: true, value: () => rect },
+    querySelectorAll: { configurable: true, value: () => [box({ left: -50, top: -5000, width: 1000, height: 10000 })] }, // blocks the row, and bounds leave no other spot
+    parentElement: { configurable: true, get: () => ({ ...box({ left: 0, top: 0, width: 1000, height: 26 }), addEventListener() {}, removeEventListener() {} }) },
+  });
+  try {
+    const r = rig();
+    const pills = r.strips.children;
+    assert.ok(pills.length >= 2);
+    assert.ok(pills.some((q) => q.attrs["data-yield"] !== undefined), "the collision is real: something yielded");
+    for (const q of pills) if (q.attrs.tabindex === "0") assert.equal(q.attrs["data-yield"], undefined, "a tab stop is never data-yield");
+  } finally {
+    for (const [k, d] of saved) d ? Object.defineProperty(El.prototype, k, d) : delete El.prototype[k];
+  }
 });

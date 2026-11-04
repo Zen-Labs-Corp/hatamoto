@@ -210,7 +210,7 @@ document.addEventListener("htmx:afterSettle", () => paintSwatches(document));
 // move between menu items, Esc and light dismiss are native, and focus goes
 // back to the opener on close.
 // Items a keyboard can land on: disabled (Undo with nothing to undo) and hidden ones are skipped.
-const menuItems = (m) => [...m.querySelectorAll('[role="menuitem"]')].filter((i) => !i.disabled && i.getAttribute("aria-disabled") !== "true" && !i.hidden && !i.closest("[hidden]"));
+const menuItems = (m) => [...m.querySelectorAll('[role="menuitem"], [role="menuitemradio"]')].filter((i) => !i.disabled && i.getAttribute("aria-disabled") !== "true" && !i.hidden && !i.closest("[hidden]"));
 const openerOf = (m) => document.querySelector(`[popovertarget="${m.id}"]:not([popovertargetaction="hide"])`);
 document.addEventListener("toggle", (evt) => {
   const m = evt.target;

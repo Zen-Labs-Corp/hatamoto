@@ -1,4 +1,4 @@
-// The canvas strip: breadcrumbs of the selected element, and the zoom control. A lazy chunk of the canvas host (loaded after the first layout, never preloaded): the
+// The canvas strip: breadcrumbs of the selected element, and the page width and scale readout. A lazy chunk of the canvas host (loaded after the first layout, never preloaded): the
 // host keeps geometry and state, this builds the DOM once and repaints it on `update()`.
 // The strip is sticky over the scroller and takes no clicks itself; only its buttons do.
 import { sizeAnchor, sizeText, toolbarModel } from "@hm/canvas/chromemodel";
@@ -6,7 +6,6 @@ import { placeToolbar, withinFrame } from "@hm/canvas/layout";
 import { insertionPoints } from "@hm/canvas/points";
 
 const MIN_GAP = 26; // screen px: "+" buttons never sit closer than this
-const ORDER = ["fit", "100", "75", "50"]; // the buttons, left to right (keys of ZOOMS in layout.js)
 
 function h(tag, props = {}, ...kids) {
   const e = document.createElement(tag);
@@ -19,26 +18,15 @@ function h(tag, props = {}, ...kids) {
   return e;
 }
 
-const ZOOM_NAME = (m) => (m === "fit" ? "Fit" : `${m}%`);
-
 /**
  * mountStrip(canvas, handlers) -> {update, destroy}
- * canvas: the host (stage, zoom, device, selectedId, nodeChain, setZoom, setInset); handlers: {nodeLabel(id, k, t), sectionLabel(id), onCrumb(id|null, k), onZoom(mode)}.
+ * canvas: the host (stage, viewport, scale, device, selectedId, nodeChain, setInset); handlers: {nodeLabel(id, k, t), sectionLabel(id), onCrumb(id|null, k)}.
  */
 export function mountStrip(canvas, handlers) {
   const crumbs = h("ol", { class: "hm-pe__crumbs" });
   const nav = h("nav", { "aria-label": "Selected element path", class: "hm-pe__crumbnav" }, crumbs);
-  const zoomBtns = ORDER.map((m) => {
-    const b = h("button", { type: "button", class: "hm-segmented__btn", "data-zoom": m, "aria-label": m === "fit" ? "Zoom to fit" : `Zoom ${m}%`, text: ZOOM_NAME(m) });
-    b.addEventListener("click", () => {
-      canvas.setZoom(m === "fit" ? "fit" : Number(m));
-      handlers.onZoom?.(m === "fit" ? "fit" : Number(m));
-      update();
-    });
-    return b;
-  });
-  const zoomBox = h("div", { class: "hm-pe__zoom hm-segmented", role: "group", "aria-label": "Zoom" }, ...zoomBtns);
-  const strip = h("div", { class: "hm-pe__strip", "data-hm-pe-strip": "" }, nav, zoomBox);
+  const dims = h("span", { class: "hm-pe__dims", "data-hm-pe-dims": "" });
+  const strip = h("div", { class: "hm-pe__strip", "data-hm-pe-strip": "" }, nav, dims);
   canvas.stage.parentElement?.insertBefore(strip, canvas.stage);
 
   let shown = "";
@@ -59,7 +47,7 @@ export function mountStrip(canvas, handlers) {
         }),
       );
     }
-    zoomBtns.forEach((b) => b.setAttribute("aria-pressed", String(String(canvas.zoom) === b.dataset.zoom)));
+    dims.textContent = `${canvas.viewport}px \u00b7 ${Math.round(canvas.scale * 100)}%`;
     canvas.setInset(strip.offsetHeight);
   }
 
@@ -87,14 +75,15 @@ export function mountToolbar(canvas, handlers) {
   const handle = h("span", { class: "hm-pe__handle", "data-id": "", "aria-hidden": "true", title: "Drag to move", text: "\u283f" });
   const chipIcon = h("span", { "aria-hidden": "true" });
   const name = h("span", { class: "hm-pe__tname" });
-  const chip = h("span", { class: "hm-pe__tchip" }, chipIcon, name);
-  const up = h("button", { type: "button", class: "hm-pe__tup", "data-act": "parent", tabindex: "-1" });
+  const up = h("span", { class: "hm-pe__up" });
+  // one chip: the element's name, and its parent muted after it; pressing it selects the parent
+  const chip = h("button", { type: "button", class: "hm-pe__tchip", "data-act": "parent", tabindex: "-1" }, chipIcon, name, up);
   const sep = h("span", { class: "hm-pe__tsep", "aria-hidden": "true" });
   const acts = initial.buttons.map((m) => h("button", { type: "button", class: "hm-pe__tbtn", "data-act": m.act, tabindex: "-1" }, icon(m.icon)));
-  const buttons = [up, ...acts];
+  const buttons = [chip, ...acts];
   const actions = h("div", { class: "hm-pe__tactions" }, ...acts);
   const hint = h("span", { class: "hm-pe__thint" });
-  const bar = h("div", { class: "hm-pe__toolbar", role: "toolbar", "aria-label": "Element toolbar", "data-hm-pe-toolbar": "", hidden: true }, handle, chip, up, sep, actions, hint);
+  const bar = h("div", { class: "hm-pe__toolbar", role: "toolbar", "aria-label": "Element toolbar", "data-hm-pe-toolbar": "", hidden: true }, handle, chip, sep, actions, hint);
   const size = h("span", { class: "hm-pe__size", "data-hm-pe-size": "", "aria-hidden": "true", hidden: true });
   canvas.stage.append(bar, size);
 
@@ -160,11 +149,17 @@ export function mountToolbar(canvas, handlers) {
       handle.hidden = editing || !handlers.onHandleDown;
       handle.setAttribute("data-id", sel.id);
       upId = model.up?.id ?? null;
-      up.hidden = !model.up || editing;
-      sep.hidden = up.hidden;
-      if (model.up) {
+      const toParent = !!model.up && !editing;
+      chip.toggleAttribute("disabled", !toParent);
+      up.hidden = !toParent;
+      sep.hidden = editing;
+      if (toParent) {
         up.textContent = model.up.text;
-        up.setAttribute("aria-label", model.up.aria);
+        chip.setAttribute("aria-label", model.up.aria); // the visible text, so the name contains the label
+        chip.setAttribute("title", model.up.title);
+      } else {
+        chip.removeAttribute("aria-label");
+        chip.removeAttribute("title");
       }
       for (const m of model.buttons) {
         const b = acts.find((x) => x.getAttribute("data-act") === m.act);
@@ -195,10 +190,10 @@ export function mountToolbar(canvas, handlers) {
     let box = { x: sel.x * sc, y: sel.y * sc, w: sel.w * sc, h: sel.h * sc };
     const label = sizeText(sel); // CSS px, whatever the zoom
     if (size.textContent !== label) size.textContent = label;
-    const at = sizeAnchor(box, canvas.nodes?.find((n) => n.id === sel.id)?.p === ""); // a top-level element has the "Add section" pill under it
+    const tag = canvas.stage.querySelector(".hm-pe__tag--sel");
+    const at = sizeAnchor(box, tag?.offsetWidth ?? 0, size.offsetWidth);
     size.style.left = `${at.x}px`;
-    size.setAttribute("data-align", at.align);
-    size.style.top = `calc(${box.y + box.h}px + var(--space-1))`;
+    size.style.top = `calc(${box.y + box.h + (at.below ? tag.offsetHeight + 2 : 0)}px + var(--space-1))`; // under the name tag when they would overlap
     const fmt = editing ? canvas.stage.querySelector(".hm-pe__fmt:not([hidden])") : null;
     if (fmt && fmt.offsetTop >= box.y) box = { ...box, h: fmt.offsetTop + fmt.offsetHeight - box.y };
     if (fmt && fmt !== watched) grown?.observe((watched = fmt));

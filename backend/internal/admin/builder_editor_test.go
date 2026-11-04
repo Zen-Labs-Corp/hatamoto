@@ -87,13 +87,41 @@ func TestBuilderBarSaveStateAndMenu(t *testing.T) {
 	has(t, body, `data-hm-bs-state`, `class="hm-savestate" data-state="saved"`, `<span class="hm-savestate__text">Saved</span>`,
 		`popovertarget="bs-more"`, `data-hm-post="/admin/entities/`+r.ent.ID.String()+`/delete"`,
 		`aria-label="Undo"`,
-		`data-hm-bs-sitestyles`, `>Keyboard shortcuts</button>`, `data-hm-danger>Delete page</a>`, `data-hm-confirm="This page and its version history will be deleted. This cannot be undone."`, `data-hm-confirm-label="Delete page"`, `aria-label="Navigator"`, `aria-label="Inspector"`, `data-hm-bs-toggle="nav"`, `data-hm-bs-toggle="insp"`,
+		`data-hm-bs-sitestyles`, `data-hm-bs-keys aria-haspopup="dialog" aria-keyshortcuts="?">Keyboard shortcuts</button>`,
+		`data-hm-bs-zoomtrigger`, `id="bs-zoom"`, `class="hm-menu__item" role="menuitemradio" aria-checked="true" data-zoom="fit"`, `data-zoom="fit"`, `data-zoom="50"`, `data-zoom="75"`, `data-zoom="100"`, `data-hm-bs-preview`, `title="Publish to view"`, `data-hm-danger>Delete page</a>`, `data-hm-confirm="This page and its version history will be deleted. This cannot be undone."`, `data-hm-confirm-label="Delete page"`, `aria-label="Navigator"`, `aria-label="Inspector"`, `data-hm-bs-toggle="nav"`, `data-hm-bs-toggle="insp"`,
 		`data-flip=""`)
-	lacks(t, body, "Update page", "data-hm-bs-device-item")
+	lacks(t, body, "Update page", "data-hm-bs-device-item", `aria-label="Shortcuts"`, `data-hm-bs-proxy="[data-hm-bs-keys]"`)
+	if n := strings.Count(body, "data-hm-bs-keys"); n != 1 {
+		t.Errorf("data-hm-bs-keys appears %d times, want 1 (the More menu item)", n)
+	}
 	// Undo and Redo share one arrow icon: Undo alone is mirrored (css .hm-bs__tools [data-flip]), so the two differ.
 	if n := strings.Count(body, "data-flip"); n != 1 {
 		t.Errorf("data-flip appears %d times, want 1 (Undo)", n)
 	}
+}
+
+// Preview links to the view URL on a published page and is a disabled, explained button on a draft.
+func TestBuilderBarPreview(t *testing.T) {
+	t.Parallel()
+
+	r := newEditorRig(t)
+	r.a.deps.Content.PublicPath = func(_ context.Context, e *entity.Entity) string { return "/" + e.Slug }
+	r.ent.Status = entity.StatusPublished
+	r.ent.Attributes = json.RawMessage(builderOnlyDoc)
+	body := r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
+	has(t, body, `href="/`+r.ent.Slug+`" aria-label="Preview" data-hm-bs-preview="" rel="noopener" target="_blank" title="Preview the live page"`, `data-hm-bs-proxy="[data-hm-bs-preview]">Preview</button>`)
+	lacks(t, body, `title="Publish to view"`)
+
+	r.ent.Status = entity.StatusDraft
+	body = r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
+	has(t, body, `aria-label="Preview" aria-describedby="bs-preview-why" aria-disabled="true" data-hm-bs-preview="" title="Publish to view"`, `id="bs-preview-why">Publish to view</span>`)
+	lacks(t, body, `rel="noopener" target="_blank"`, `data-hm-bs-proxy="[data-hm-bs-preview]"`, `disabled="disabled" title="Publish to view"`)
+
+	// No Publish action (a reusable block) or no public address: Preview is absent, not a false promise.
+	r.ent.Status = entity.StatusPublished
+	r.a.deps.Content.PublicPath = func(context.Context, *entity.Entity) string { return "" }
+	body = r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
+	lacks(t, body, `data-hm-bs-preview`, `Publish to view`)
 }
 
 // A published page says "Update" in the bar and in the no-JS outline: one label for one action.

@@ -1,5 +1,6 @@
-// Builder chrome, driven like a user on a real page: the top bar, the hint bar, the Insert tab and the page shortcuts
-// (Esc, Alt+Up/Down, Ctrl/Cmd+D, Backspace, Delete, Up/Down, Enter, 1/2/3, /) with focus inside the canvas frame, plus
+// Builder chrome, driven like a user on a real page: the top bar (title, device switch, Fit menu, Preview, the Shortcuts
+// item in the ⋯ menu), the stage bar readout, the hint bar, the Insert tab, the "/" section popover and the page shortcuts
+// (Esc, Alt+Up/Down, Ctrl/Cmd+D, Backspace, Delete, Up/Down, Enter, 1/2/3, A, /) with focus inside the canvas frame, plus
 // in-place text edit, a padding drag and a device switch, each undone and redone.
 //
 // NEVER SAVES. Every POST to the save / autosave / recovery endpoints is aborted in the browser and counted (QA_ALLOW_REMOTE_SAVE
@@ -157,6 +158,7 @@ const navRow = async (id) => {
   await settle(200);
   await row(id).click();
 };
+const inspectorText = () => p.locator("[data-hm-bs-panel]").first().innerText().then((t) => t.trim());
 const card = (key) => p.locator(`[data-hm-bs-palette] [data-pal="${key}"]`).first();
 
 /** Press a key with focus in the frame; the change must be exactly one history step: undo once restores, redo reapplies. */
@@ -185,17 +187,60 @@ await check("setup: open the page, remember its document and status", async () =
   return `status "${startStatus}"`;
 });
 
-await check("A1: the device switch is centred in the bar; Navigator is an icon-only toggle with aria-expanded", async () => {
+await check("A1: the title is plain until pointed at, the device switch is centred with icons and limits, Fit menu and Preview work, Shortcuts live in ⋯, the stage bar reads W px · N%", async () => {
+  await p.mouse.move(800, 600);
   const bar = await p.locator(".hm-editor-bar").first().boundingBox();
   const dev = await p.locator(".hm-bs__devices").first().boundingBox();
   const d = Math.abs(dev.x + dev.width / 2 - (bar.x + bar.width / 2));
   if (d > 24) throw new Error(`the device switch centre is ${d.toFixed(1)}px off the bar centre`);
+  const title = p.locator("[data-hm-bs-title]");
+  const look = () => title.evaluate((e) => { const c = getComputedStyle(e); return { border: c.borderTopColor, bg: c.backgroundColor }; });
+  const clear = (c) => /^rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)$|^transparent$/.test(c);
+  const rest = await look();
+  if (!clear(rest.border) || !clear(rest.bg)) throw new Error(`the title shows a box at rest: ${JSON.stringify(rest)}`);
+  await title.hover();
+  const hov = await look();
+  if (clear(hov.border)) throw new Error("the title shows no field box on hover");
+  await p.mouse.move(800, 600);
+  const devs = await p.locator("[data-hm-bs-device]").evaluateAll((bs) => bs.map((x) => ({ icon: !!x.querySelector("svg"), text: x.innerText.replace(/\s+/g, " ").trim() })));
+  if (devs.length !== 3 || devs.some((x) => !x.icon)) throw new Error(`device buttons lack an icon: ${JSON.stringify(devs)}`);
+  if (!/^Tablet ≤1024$/.test(devs[1].text) || !/^Phone ≤640$/.test(devs[2].text) || devs[0].text !== "Desktop") throw new Error(`device texts ${JSON.stringify(devs.map((x) => x.text))}`);
   const nav = p.getByRole("button", { name: "Navigator" }).first();
   if ((await nav.innerText()).trim()) throw new Error(`Navigator shows text "${(await nav.innerText()).trim()}"`);
   const ex = await nav.getAttribute("aria-expanded");
   if (!["true", "false"].includes(ex)) throw new Error(`aria-expanded is ${ex}`);
+  // Fit menu: exactly Fit / 50 / 75 / 100; choosing one zooms and relabels the trigger; the stage bar reads it.
+  const trig = p.locator("[data-hm-bs-zoomtrigger]");
+  const zooms = await p.locator("#bs-zoom [data-zoom]").evaluateAll((es) => es.map((e) => e.dataset.zoom));
+  if (zooms.join() !== "fit,50,75,100") throw new Error(`Fit menu items ${zooms}`);
+  await trig.click();
+  await settle(200);
+  const first = await p.evaluate(() => document.activeElement?.dataset.zoom);
+  await p.keyboard.press("ArrowDown"); // the menu opens on its first item (Fit): ArrowDown moves to 50
+  const next = await p.evaluate(() => document.activeElement?.dataset.zoom);
+  if (first !== "fit" || next !== "50") throw new Error(`the Fit menu focuses "${first}" on open and "${next}" after ArrowDown, not fit then 50`);
+  await p.locator('#bs-zoom [data-zoom="75"]').click();
+  await settle(400);
+  const dims = p.locator("[data-hm-pe-dims]");
+  if (!/^\d+px · 75%$/.test((await dims.innerText()).trim())) throw new Error(`stage bar reads "${await dims.innerText()}" at 75%`);
+  if (!/75%/.test(await trig.innerText())) throw new Error(`the Fit trigger reads "${await trig.innerText()}" at 75%`);
+  await trig.click();
+  await p.locator('#bs-zoom [data-zoom="fit"]').click();
+  await settle(400);
+  const readout = (await dims.innerText()).trim();
+  if (!/^\d+px · \d+%$/.test(readout)) throw new Error(`stage bar reads "${readout}"`);
+  if (await p.locator("[data-hm-pe-strip] [data-zoom]").count()) throw new Error("the stage bar still has zoom buttons");
+  if (!(await p.locator('[data-hm-pe-strip] nav[aria-label="Selected element path"]').count())) throw new Error("the stage bar lost its breadcrumbs");
+  // Preview: a link to the page when published, otherwise disabled with a reason.
+  const pv = p.locator("[data-hm-bs-preview]").first();
+  const link = await pv.evaluate((e) => ({ href: e.getAttribute("href"), target: e.getAttribute("target"), rel: e.getAttribute("rel"), disabled: e.getAttribute("aria-disabled") === "true" && !e.hasAttribute("disabled"), title: e.getAttribute("title") }));
+  if (link.href) { if (link.target !== "_blank" || !/noopener/.test(link.rel || "")) throw new Error(`Preview link ${JSON.stringify(link)}`); }
+  else if (!link.disabled || link.title !== "Publish to view") throw new Error(`Preview on a draft ${JSON.stringify(link)}`);
+  // Shortcuts: the ⋯ menu item only, no separate bar icon.
+  const keys = await p.locator("[data-hm-bs-keys]").evaluateAll((es) => es.map((e) => !!e.closest("#bs-more")));
+  if (keys.length !== 1 || !keys[0]) throw new Error(`[data-hm-bs-keys] elements: ${JSON.stringify(keys)}`);
   await shot("chrome-topbar.png");
-  return `${d.toFixed(1)}px off centre, Navigator aria-expanded=${ex}`;
+  return `${d.toFixed(1)}px off centre, title plain at rest, Fit ${zooms}, readout "${readout}", Preview ${link.href ? "link" : "disabled"}, Shortcuts in ⋯`;
 });
 
 await check("A4: a fresh browser shows the hint bar; Dismiss hints removes it for good (stored as bar)", async () => {
@@ -203,8 +248,18 @@ await check("A4: a fresh browser shows the hint bar; Dismiss hints removes it fo
   try {
     await open(href, fresh.pg);
     const hint = fresh.pg.locator(".hm-bs-hint");
-    await hint.first().waitFor({ state: "visible", timeout: 5000 });
+    const box = fresh.pg.locator(".hm-bs-hint__box"); // the anchor itself has no height: the box is what a person sees
+    await box.first().waitFor({ state: "visible", timeout: 5000 });
     if (p === fresh.pg) throw new Error("not a fresh page");
+    if ((await fresh.pg.getByRole("button", { name: "Dismiss hints" }).count()) !== 1) throw new Error("not exactly one control named Dismiss hints");
+    const pane = fresh.pg.locator(".hm-bs__canvas");
+    const gap = async () => { const pb = await pane.boundingBox(), bb = await box.boundingBox(); return pb.y + pb.height - (bb.y + bb.height); };
+    const g0 = await gap();
+    await pane.evaluate((e) => { e.scrollTop = e.scrollHeight; });
+    await fresh.pg.waitForTimeout(200);
+    const g1 = await gap();
+    if (g0 < 0 || g0 > 80 || g1 < 0 || g1 > 80) throw new Error(`the hint bar is not at the bottom of the stage: ${g0.toFixed(0)}px from it at the top, ${g1.toFixed(0)}px scrolled`);
+    if (!/Shift snaps to 8/.test(await box.innerText())) throw new Error("the hint text lost \"Shift snaps to 8\"");
     await fresh.pg.screenshot({ path: SHOTS ? path.join(SHOTS, "chrome-hint.png") : undefined });
     await fresh.pg.getByRole("button", { name: "Dismiss hints" }).click();
     await fresh.pg.waitForTimeout(300);
@@ -214,7 +269,7 @@ await check("A4: a fresh browser shows the hint bar; Dismiss hints removes it fo
     if (await hint.count()) throw new Error("the hint bar is back after the reload");
     const kept = await fresh.pg.evaluate(() => Object.entries(localStorage).filter(([k]) => k.startsWith("hm-builder-hints:")).map(([k, v]) => v));
     if (!kept.some((v) => /"bar"/.test(v))) throw new Error(`localStorage hints: ${JSON.stringify(kept)}`);
-    return `hint shown, dismissed, gone after reload, stored ${kept[0]}`;
+    return `hint shown at the stage bottom (${g0.toFixed(0)}px / ${g1.toFixed(0)}px scrolled), dismissed, gone after reload, stored ${kept[0]}`;
   } finally {
     await fresh.ctx.close();
   }
@@ -222,19 +277,34 @@ await check("A4: a fresh browser shows the hint bar; Dismiss hints removes it fo
 
 let sec = null, head = null;
 
-await check('A5: "/" opens the Insert tab with the search focused; the tab is named Insert', async () => {
+await check('A5: "/" with a selection opens the section popover at it (the Insert tab stays closed), a pick inserts after it, Esc closes without selecting the parent; the tab is named Insert', async () => {
   await p.locator(TREE).first().click();
   await settle(300);
   await p.locator(TREE).first().focus();
+  const before = await sig();
+  const picked = await sel();
+  const pop = p.locator(".hm-bs-slashpop:popover-open");
   await p.keyboard.press("/");
-  await settle(400);
-  const tab = p.getByRole("tab", { name: "Insert", exact: true });
-  if ((await tab.getAttribute("aria-selected")) !== "true") throw new Error("the Insert tab is not selected after /");
-  const ok = await p.evaluate(() => document.activeElement?.id === "hm-bs-pal-q");
-  if (!ok) throw new Error("#hm-bs-pal-q is not focused");
+  await pop.waitFor({ timeout: 4000 });
+  if ((await p.getByRole("tab", { name: "Insert", exact: true }).getAttribute("aria-selected")) === "true") throw new Error("the Insert tab opened with /");
+  if (!(await pop.locator("[data-pal]").count())) throw new Error("the popover has no section cards");
   await shot("chrome-insert.png");
   await p.keyboard.press("Escape");
-  return "Insert tab open, #hm-bs-pal-q focused";
+  await settle(300);
+  if (await pop.count()) throw new Error("Esc did not close the popover");
+  if (JSON.stringify(await sel()) !== JSON.stringify(picked)) throw new Error(`Esc moved the selection ${picked} -> ${await sel()}`);
+  if ((await sig()) !== before) throw new Error("Esc changed the document");
+  const ids = (await tops()).map((n) => n.id);
+  await p.keyboard.press("/");
+  await pop.waitFor({ timeout: 4000 });
+  await p.keyboard.press("Enter"); // the first card has focus
+  await settle(900);
+  const after = (await tops()).map((n) => n.id);
+  const at = ids.indexOf(picked[0]);
+  if (after.length !== ids.length + 1 || after.slice(0, at + 1).join() !== ids.slice(0, at + 1).join() || after.slice(at + 2).join() !== ids.slice(at + 1).join()) throw new Error(`the pick did not insert one section right after ${picked[0]}: ${ids.length} -> ${after.length}`);
+  await undo();
+  if ((await sig()) !== before) throw new Error("one undo did not remove the picked section");
+  return `popover open on /, Insert tab closed, Esc kept ${picked}, a pick inserted after it and one undo removed it`;
 });
 
 await check("insert a scratch section after the selection from the Insert tab, and a heading inside it", async () => {
@@ -242,7 +312,11 @@ await check("insert a scratch section after the selection from the Insert tab, a
   await navRow(first.id);
   await settle(400);
   const known = new Set(flat(await tops()).map((n) => n.id));
+  const keptSel = JSON.stringify(await sel());
+  const keptInsp = await inspectorText();
   await insertTab();
+  if (JSON.stringify(await sel()) !== keptSel) throw new Error("opening the Insert tab changed the selection");
+  if ((await inspectorText()) !== keptInsp || /^Select an element/.test(keptInsp)) throw new Error("opening the Insert tab changed or emptied the inspector");
   await card("container").click();
   await settle(900);
   sec = (await tops()).find((n) => !known.has(n.id));
@@ -255,6 +329,8 @@ await check("insert a scratch section after the selection from the Insert tab, a
   head = flat([(await tops()).find((n) => n.id === sec.id)]).find((n) => n.t === "heading");
   if (!head) throw new Error("no heading inside the scratch section");
   await clickCanvas(sec.id);
+  await p.mouse.move(800, 20, { steps: 4 }); // off the canvas: the at-rest state, without the hover pills
+  await settle(300);
   await shot("chrome-section.png");
   return `section ${sec.id}, heading ${head.id}`;
 });
@@ -299,7 +375,7 @@ await check("edit text in place; undo and redo", async () => {
   const at = await pointOf(head.id);
   await p.mouse.dblclick(at.x, at.y);
   await settle(400);
-  if (!(await f.evaluate(() => !!document.querySelector("[contenteditable]")))) throw new Error("double-click did not start a text edit");
+  if (!(await f.evaluate(() => !!document.querySelector("[data-hm-prop][contenteditable]")))) throw new Error("double-click did not start a text edit");
   await p.keyboard.press("End");
   await p.keyboard.type(" QA");
   await settle(200);
@@ -386,7 +462,7 @@ await check("Up and Down step between sections on the page (no history step)", a
   return `section ${i} -> ${ids.indexOf(other)} -> ${i}`;
 });
 
-await check("1, 2, 3 switch the device and the pressed state; / opens Insert", async () => {
+await check("1, 2, 3 switch the device and the pressed state; A opens Insert with the search focused; / opens the section popover", async () => {
   await clickCanvas(sec.id);
   const seen = [];
   for (const [k, d] of [["2", "md"], ["3", "sm"], ["1", "base"]]) {
@@ -396,11 +472,17 @@ await check("1, 2, 3 switch the device and the pressed state; / opens Insert", a
     seen.push(d);
     await clickCanvas(sec.id);
   }
-  await p.keyboard.press("/");
+  await p.keyboard.press("a");
   await settle(400);
-  if (!(await p.evaluate(() => document.activeElement?.id === "hm-bs-pal-q"))) throw new Error('"/" in the canvas did not focus the Insert search');
+  if (!(await p.evaluate(() => document.activeElement?.id === "hm-bs-pal-q"))) throw new Error('"A" in the canvas did not focus the Insert search');
   await p.keyboard.press("Escape");
-  return `${seen.join(" ")}, then / focused the Insert search`;
+  await clickCanvas(sec.id);
+  await p.keyboard.press("/");
+  await p.locator(".hm-bs-slashpop:popover-open").waitFor({ timeout: 4000 });
+  await p.keyboard.press("Escape");
+  await settle(300);
+  if (await p.locator(".hm-bs-slashpop:popover-open").count()) throw new Error('Esc did not close the "/" popover opened from the canvas');
+  return `${seen.join(" ")}, A focused the Insert search, / from the canvas opened the popover`;
 });
 
 await check("padding drag on Phone lands on sm only; undo and redo; device switch by the bar", async () => {

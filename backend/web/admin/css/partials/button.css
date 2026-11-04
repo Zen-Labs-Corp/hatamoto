@@ -26,6 +26,7 @@
 .hm-btn--ghost { background: transparent; box-shadow: none; }
 .hm-btn--ghost:hover { background: var(--btn-ghost-hover); box-shadow: none; }
 .hm-btn--ghost:active { background: var(--btn-ghost-hover); box-shadow: none; }
+.hm-btn--ghost[aria-disabled="true"]:hover, .hm-btn--ghost[aria-disabled="true"]:active { background: transparent; }
 .hm-btn--danger { background: var(--color-danger); color: var(--color-paper); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); }
 .hm-btn--danger:hover { background: var(--color-danger); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); filter: brightness(0.92); }
 .hm-btn--danger:active { background: var(--color-danger); box-shadow: inset 0 -1px 0 var(--btn-edge-danger); }

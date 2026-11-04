@@ -53,6 +53,6 @@ export function note(banner, text) {
     if (to && !to.matches?.("a[href],button,input,select,textarea,[tabindex]")) to.setAttribute("tabindex", "-1");
     to?.focus?.();
   };
-  node.append(actButton("Dismiss", { onclick: dismiss }));
+  node.append(actButton("Dismiss note", { onclick: dismiss }));
   show(banner, "note", node);
 }

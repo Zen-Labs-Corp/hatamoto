@@ -141,3 +141,13 @@ test("insertSplit: patterns are sections, native groups blocks, plugin widgets a
   assert.deepEqual(keys(s.rest), ["chart", `blk:${BLK}`, "blk:22222222-2222-4222-8222-222222222222"].sort());
   assert.ok(P.isSectionItem({ kind: "template", group: "Patterns" }) && !P.isSectionItem({ kind: "block", group: "Blocks" }));
 });
+
+test("a theme section item keeps the Theme section hint and carries its own description", () => {
+  const [c] = P.itemsOf([], [{ type: "hero", title: "Hero", description: "Custom line" }]);
+  assert.deepEqual([c.hint, c.description], ["Theme section", "Custom line"]);
+});
+
+test("insert labels say Insert, never Add (history rows and the palette read them)", () => {
+  assert.equal(P.addLabel({ parent: "x", index: 0 }, "Heading"), "Insert Heading");
+  assert.equal(P.addLabel({ parent: "", index: 0 }, "Hero"), "Insert section: Hero");
+});

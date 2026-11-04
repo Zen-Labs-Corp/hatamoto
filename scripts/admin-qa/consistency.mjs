@@ -182,7 +182,7 @@ function check({ sticky, list, spec }) {
   // colour and file inputs, and the states that deliberately recolour a border.
   const CONTRACT_OK = {
     button: BTN_OK,
-    input: '[type="color"], [type="file"], [type="hidden"], :disabled, [aria-invalid="true"], :focus, .hm-input-affix *, .hm-field--invalid *',
+    input: '[type="color"], [type="file"], [type="hidden"], :disabled, [aria-invalid="true"], :focus, [data-hm-bs-title], .hm-input-affix *, .hm-field--invalid *', // [data-hm-bs-title]: the builder page title is plain text at rest (builder.css)
     card: ".hm-be__side .hm-card, .hm-tablecard, .hm-card[data-hm-inline]", // .hm-tablecard drops the card's border and radius (table.css); [data-hm-inline] dissolves it into a row of fields (card.css)
   };
   // The enhanced select trigger is a button that wears the select variant of the input contract (select.css).
@@ -287,7 +287,7 @@ function check({ sticky, list, spec }) {
   // UI-D11: inputs are calm at rest, the soft --border-field and not --border-control.
   const soft = probe("border-top-color", "var(--border-field)"), firm = probe("border-top-color", "var(--border-control)");
   for (const el of document.querySelectorAll(".hm-field__control")) {
-    if (!visible(el) || el.matches('[type="color"], [type="hidden"], :disabled, [aria-invalid="true"], :focus') || el.closest(".hm-input-affix, .hm-field--invalid")) continue;
+    if (!visible(el) || el.matches('[type="color"], [type="hidden"], :disabled, [aria-invalid="true"], :focus, [data-hm-bs-title]') || el.closest(".hm-input-affix, .hm-field--invalid")) continue;
     const cs = getComputedStyle(el);
     if (px(cs.borderTopWidth) === 0) continue;
     if (cs.borderTopColor !== soft || cs.borderTopColor === firm) out.push(["UI-D11", sel(el), "input border at rest is not --border-field", cs.borderTopColor]);
