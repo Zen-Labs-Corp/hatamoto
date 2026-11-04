@@ -154,6 +154,13 @@ func (h *assetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.serve(w, r, name, h.css, cacheImmutable)
 	case name == TrackScriptName:
 		h.serve(w, r, name, trackScript(trackEngagement()), cacheShort)
+	case name == ConsentScriptName:
+		cfg, ok := consentConfig(r.Context())
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		h.serve(w, r, name, consentScript(cfg), cacheShort)
 	case name == "hm.js" && len(h.js) > 0:
 		h.serve(w, r, name, h.js, cacheShort)
 	case strings.HasPrefix(name, IslandPrefix):
