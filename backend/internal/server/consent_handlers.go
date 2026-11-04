@@ -16,14 +16,21 @@ import (
 const consentBodyMax = 256
 
 // installConsentRender gives the page engine its cookie consent settings. The
-// hook fails closed: an unreadable store means no banner, not a broken page.
+// hook fails closed for the visitor: when the store cannot be read and nothing
+// is cached, it serves the default categories (all denied until chosen) rather
+// than letting the script 404 and every category read as granted.
 func (s *Server) installConsentRender() {
 	render.SetConsent(func(ctx context.Context) (render.ConsentConfig, bool) {
 		if s.consentStore == nil {
 			return render.ConsentConfig{}, false
 		}
 		set, err := s.consentStore.Get(ctx)
-		if err != nil || !set.Enabled {
+		if err != nil {
+			s.logger.Warn("consent settings unreadable, serving the default banner", "error", err)
+			set = consent.Defaults()
+			set.Enabled = true
+		}
+		if !set.Enabled {
 			return render.ConsentConfig{}, false
 		}
 		strs := make(map[string]string, len(consent.DefaultStrings))

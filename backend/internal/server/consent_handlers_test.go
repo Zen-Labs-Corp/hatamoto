@@ -178,3 +178,34 @@ func TestConsentRegionAnswersSandboxedPage(t *testing.T) {
 		t.Errorf("Allow-Origin %q, want null", got)
 	}
 }
+
+type failingConsentQuerier struct{ consentQuerier }
+
+func (failingConsentQuerier) QueryRow(context.Context, string, ...any) pgx.Row {
+	return errRow{}
+}
+
+type errRow struct{}
+
+func (errRow) Scan(...any) error { return io.ErrUnexpectedEOF }
+
+// An unreadable store must not turn the script into a 404: that would make
+// hm.consent undefined, which consumers read as every category granted.
+func TestConsentScriptServedWhenStoreFails(t *testing.T) {
+	q := &failingConsentQuerier{}
+	s := &Server{
+		logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		consentStore: consent.NewStore(q),
+	}
+	s.installConsentRender()
+	t.Cleanup(func() { render.SetConsent(nil) })
+	e, err := render.New(render.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	e.AssetHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, render.AssetPrefix+render.ConsentScriptName, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d, want 200", rec.Code)
+	}
+}
