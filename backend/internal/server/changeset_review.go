@@ -146,7 +146,9 @@ func (r *changesetReviewer) Review(ctx context.Context, id int64, page int) (adm
 	if err := r.runFinished(ctx, h); err != nil {
 		return admin.ReviewData{}, err
 	}
-	// Count the items themselves: the header's stored counter is only a cache.
+	// Count the items themselves, in one pass with the risk and drop counts. The
+	// header's item_count is kept in step with every insert and still feeds the
+	// quota, the lists and the run page.
 	items := counts.Low + counts.High + counts.Critical
 	d := admin.ReviewData{
 		ID: id, Plugin: h.Plugin, State: h.State, ExpiresAt: h.ExpiresAt, Items: items,

@@ -3,7 +3,7 @@
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v running=0 -f seed-changeset.sql
 -- running=1 also adds a run in the build phase (a plugin may have only one running run,
 -- so only the run screens ask for it). Risk and decision columns stay NULL: the review
--- page classifies lazily.
+-- page classifies lazily; item_count and payload_bytes are set to match the items.
 \if :running
 INSERT INTO hatamoto_runs (plugin, name, state, phase, hosts, progress, steps)
 VALUES ('frameplug', 'import', 'running', 'build', '{example.com}', '{"done":37,"total":60,"message":"Building pages"}', 12);
@@ -38,3 +38,9 @@ FROM cs, (VALUES
   ('{"title":"QA Imported Site"}'),
   ('{"tagline":"Second tagline","language":"fr"}')
 ) AS p(payload);
+
+-- The header's counters follow the items, as the engine keeps them when it stages.
+UPDATE hatamoto_changesets c SET item_count = t.n, payload_bytes = t.bytes
+FROM (SELECT changeset_id, count(*) AS n, sum(octet_length(payload::text)) AS bytes
+      FROM hatamoto_changeset_items GROUP BY changeset_id) t
+WHERE c.id = t.changeset_id AND c.plugin = 'frameplug' AND c.item_count = 0;
