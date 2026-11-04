@@ -21,6 +21,7 @@ import (
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/siteaccess"
 )
 
 // cacheTTL is the read-cache lifetime. Site config changes rarely; 60s is
@@ -118,6 +119,8 @@ type Config struct {
 	CompressResponses bool
 	// TwoFactorPolicy is TwoFactorOptional, TwoFactorOwners or TwoFactorEveryone.
 	TwoFactorPolicy string
+	// SiteAccess is the public gate (open, coming soon, maintenance, password).
+	SiteAccess siteaccess.Settings
 }
 
 // Two-factor sign-in policies: who must have a second factor.
@@ -639,6 +642,29 @@ func (s *Store) SetLocaleProfile(ctx context.Context, tag string, raw json.RawMe
 	return nil
 }
 
+// SetSiteAccess stores the site access gate settings in one statement, apart
+// from the positional Update SQL.
+func (s *Store) SetSiteAccess(ctx context.Context, a siteaccess.Settings) error {
+	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
+	if err != nil {
+		return fmt.Errorf("acquire db conn: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `
+		UPDATE hatamoto_site_config
+		SET site_access_mode = $1, site_access_retry_after = $2,
+		    site_access_password_hash = $3, site_access_epoch = $4,
+		    site_access_heading = $5, site_access_message = $6,
+		    updated_at = NOW()
+		WHERE id = TRUE`,
+		string(a.Mode), a.RetryAfter, a.PasswordHash, a.Epoch, a.Heading, a.Message); err != nil {
+		return fmt.Errorf("set site access: %w", err)
+	}
+	s.Invalidate()
+	return nil
+}
+
 // MarkMenusSeeded stamps the menu-seeding marker once and never clears it;
 // safe to call repeatedly.
 func (s *Store) MarkMenusSeeded(ctx context.Context) error {
@@ -696,7 +722,9 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       page_preload_mode, page_preload_after_changes,
 		       locales, prefix_all, x_default_locale,
 		       business_profile, locale_profiles, sitemap_naming, menus_seeded_at,
-		       compress_responses, two_factor_policy
+		       compress_responses, two_factor_policy,
+		       site_access_mode, site_access_retry_after, site_access_password_hash,
+		       site_access_epoch, site_access_heading, site_access_message
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -711,6 +739,8 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&locales, &cfg.PrefixAll, &cfg.XDefaultLocale,
 		&businessProfile, &localeProfiles, &cfg.SitemapNaming, &cfg.MenusSeededAt,
 		&cfg.CompressResponses, &cfg.TwoFactorPolicy,
+		&cfg.SiteAccess.Mode, &cfg.SiteAccess.RetryAfter, &cfg.SiteAccess.PasswordHash,
+		&cfg.SiteAccess.Epoch, &cfg.SiteAccess.Heading, &cfg.SiteAccess.Message,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured

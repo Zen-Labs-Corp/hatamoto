@@ -8,6 +8,7 @@ import (
 	"errors"
 	"testing"
 
+	"hatamoto.dev/core/internal/siteaccess"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -165,5 +166,27 @@ func TestTwoFactorPolicyDefaultAndUpdate(t *testing.T) {
 	}
 	if cfg, _ = s.Get(ctx); cfg.TwoFactorPolicy != owners {
 		t.Fatalf("invalid update changed the stored policy: %q", cfg.TwoFactorPolicy)
+	}
+}
+
+// The site access gate defaults to open, SetSiteAccess round-trips, and a
+// later Update leaves it alone.
+func TestSiteAccessDefaultAndSet(t *testing.T) {
+	ctx := context.Background()
+	s := scratchStore(t)
+	cfg, err := s.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SiteAccess.Mode != siteaccess.ModeOpen || cfg.SiteAccess.RetryAfter != 3600 || cfg.SiteAccess.Epoch != 0 {
+		t.Fatalf("defaults: %+v", cfg.SiteAccess)
+	}
+	want := siteaccess.Settings{Mode: siteaccess.ModePassword, RetryAfter: 900, PasswordHash: "h", Heading: "H", Message: "M", Epoch: 2}
+	if err := s.SetSiteAccess(ctx, want); err != nil {
+		t.Fatal(err)
+	}
+	tag := "x"
+	if cfg, err = s.Update(ctx, siteconfig.UpdateInput{Tagline: &tag}); err != nil || cfg.SiteAccess != want {
+		t.Fatalf("got %+v %v", cfg.SiteAccess, err)
 	}
 }
