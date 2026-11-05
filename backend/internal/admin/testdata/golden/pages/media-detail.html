@@ -131,10 +131,33 @@
 <label class="hm-field__label" for="credit">Credit</label>
 <input class="hm-field__control" type="text" id="credit" name="credit">
 </div>
+<div class="hm-field">
+<label class="hm-field__label" for="folder">Folder</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="folder" name="folder"><option value="/" selected>Uncategorised</option></select></div>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="new_folder">Or a new folder</label>
+<input class="hm-field__control" type="text" id="new_folder" name="new_folder" aria-describedby="new_folder-help" autocomplete="off" maxlength="60">
+<p class="hm-field__help" id="new_folder-help">Folders have one level. A name is up to 60 letters, digits, spaces, hyphens or underscores. Leave empty to use the folder above.</p>
+</div>
 </div><footer class="hm-card__foot">
 <span class="hm-card__foot-note"><a class="hm-btn hm-btn--danger-text" href="/admin/media/00000000-0000-0000-0000-000000000051/delete" data-hm-confirm="This file is used in 1 place: deleting it leaves broken images. It is deleted from the library and the server. This cannot be undone." data-hm-confirm-label="Delete file" data-hm-danger="" data-hm-post="/admin/media/00000000-0000-0000-0000-000000000051/delete"><span>Delete</span></a></span>
 <a class="hm-btn hm-btn--secondary" href="/media/x/file-51.png" download=""><span>Download</span></a>
 <button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button>
+</footer></section>
+</form>
+<form method="post" action="/admin/media/00000000-0000-0000-0000-000000000051/replace" enctype="multipart/form-data" class="hm-cardform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
+<section class="hm-card" id="replace" aria-labelledby="replace-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="replace-title">Replace file</h2></div>
+<div class="hm-card__body">
+<div class="hm-field">
+<label class="hm-field__label" for="replace-file">New file <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="file" id="replace-file" name="file" required aria-describedby="replace-file-help" accept=".png">
+<p class="hm-field__help" id="replace-file-help">The address stays the same, so pages and links keep working. Use the same kind of file. Browsers and a CDN in front of the site may show the old file for up to a day.</p>
+</div>
+</div><footer class="hm-card__foot">
+<button type="submit" class="hm-btn hm-btn--primary"><span>Replace file</span></button>
 </footer></section>
 </form>
 </div>
@@ -147,7 +170,7 @@
 <input class="hm-field__control" type="text" id="file-address" name="address" value="/media/x/file-51.png" readonly="">
 </div>
 <button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-copy-url="/media/x/file-51.png" hidden=""><span>Copy address</span></button>
-<dl class="hm-dl"><dt>Type</dt><dd><code>image/png</code></dd><dt>Size</dt><dd>2 KB</dd><dt>Dimensions</dt><dd>800 × 600 px</dd><dt>Uploaded</dt><dd>1 Mar 2026 09:00</dd></dl>
+<dl class="hm-dl"><dt>Type</dt><dd><code>image/png</code></dd><dt>Size</dt><dd>2 KB</dd><dt>Dimensions</dt><dd>800 × 600 px</dd><dt>Folder</dt><dd>Uncategorised</dd><dt>Uploaded</dt><dd>1 Mar 2026 09:00</dd></dl>
 <details class="hm-disclosure"><summary>Technical details</summary><div class="hm-disclosure__body"><dl class="hm-dl"><dt>Original name</dt><dd>team.png</dd><dt>Stored as</dt><dd>file-51.png</dd><dt>thumbnail version</dt><dd>150 × 150 px · <a href="/media/x/file-51_thumbnail.png">open</a></dd></dl></div></details>
 </div></section>
 <section class="hm-card" id="usage" aria-labelledby="usage-title">

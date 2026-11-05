@@ -42,7 +42,10 @@ const serviceSchema = `{"type":"object","properties":{
  "meta_title":{"type":"string","title":"Meta title","maxLength":70}
 },"required":["summary"]}`
 
-func newContentRig(t *testing.T) *contentRig {
+func newContentRig(t *testing.T) *contentRig { return newContentRigWith(t, nil) }
+
+// newContentRigWith is newContentRig with a hook that adjusts the deps (an audit sink, say).
+func newContentRigWith(t *testing.T, adjust func(*Deps)) *contentRig {
 	t.Helper()
 	c := &contentRig{ents: newFakeEntities(), terms: newFakeTerms(), media: newFakeMedia()}
 	c.authors = &fakeAuthors{list: []*person.Person{{ID: fid(41), Name: "Ada Writer", Slug: "ada-writer"}}, org: "Acme Site"}
@@ -68,6 +71,9 @@ func newContentRig(t *testing.T) *contentRig {
 		}
 		d.Content = ContentDeps{Entities: c.ents, Duplicator: &fakeDuplicator{ents: c.ents}, Terms: c.terms, Media: c.media, Authors: c.authors,
 			PublicPath: func(_ context.Context, e *entity.Entity) string { return "/services/" + e.Slug }}
+		if adjust != nil {
+			adjust(d)
+		}
 	})
 	return c
 }

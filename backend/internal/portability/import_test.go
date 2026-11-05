@@ -168,3 +168,28 @@ func TestMediaStageAcceptsAVIFCopies(t *testing.T) {
 		t.Errorf("an AVIF copy under another image extension is still an allowed image pair, got %q", warn)
 	}
 }
+
+func TestMediaStageSanitisesSVG(t *testing.T) {
+	root := t.TempDir()
+	st := &mediaStage{root: root}
+	defer st.cleanup()
+	dirty := `<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script><rect width="1" onclick="x()"/></svg>`
+	n, warn, err := st.add("ok.svg", strings.NewReader(dirty))
+	if err != nil || warn != "" || n != int64(len(dirty)) {
+		t.Fatalf("n=%d (want the original %d) warn=%q err=%v", n, len(dirty), warn, err)
+	}
+	b, err := os.ReadFile(filepath.Join(st.dir, "ok.svg"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "script") || strings.Contains(string(b), "onclick") || !strings.Contains(string(b), "<rect") {
+		t.Errorf("staged svg is not clean: %s", b)
+	}
+	bomb := `<!DOCTYPE svg [<!ENTITY a "aaaa">]><svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`
+	if n, warn, err := st.add("bomb.svg", strings.NewReader(bomb)); err != nil || warn == "" || n != int64(len(bomb)) {
+		t.Errorf("refused svg: n=%d warn=%q err=%v", n, warn, err)
+	}
+	if len(st.staged) != 1 {
+		t.Errorf("staged %v, want only ok.svg", st.staged)
+	}
+}

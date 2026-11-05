@@ -18,12 +18,18 @@ type Repository interface {
 	List(ctx context.Context, filter *ListMediaFilter, limit, offset int) (*PagedResult, error)
 	Update(ctx context.Context, m *Media) error
 	Delete(ctx context.Context, id uuid.UUID) error
+	// UpdateFile stores what a Replace changed: type, size, dimensions and
+	// variants, and moves updated_at. Everything else is left alone.
+	UpdateFile(ctx context.Context, m *Media) error
 	// ListImagesAfter returns up to limit JPEG, PNG and WebP records whose id
 	// is greater than after, ordered by id. The rebuild job walks the library
 	// with it.
 	ListImagesAfter(ctx context.Context, after uuid.UUID, limit int) ([]*Media, error)
 	// CountImages is the number of records ListImagesAfter walks.
 	CountImages(ctx context.Context) (int, error)
+	// Folders lists each folder in use with its number of files, ordered by
+	// name. Folders have no table: a folder exists while a file is in it.
+	Folders(ctx context.Context) ([]FolderCount, error)
 }
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -214,7 +220,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter *ListMediaFilter, 
 
 	if filter != nil {
 		if filter.Folder != "" {
-			filterClause := fmt.Sprintf(" AND folder = $%d", argIdx)
+			filterClause := fmt.Sprintf(" AND lower(ltrim(folder, '/')) = lower(ltrim($%d, '/'))", argIdx)
 			baseQuery += filterClause
 			countQuery += filterClause
 			args = append(args, filter.Folder)
@@ -331,6 +337,32 @@ func (r *PostgresRepository) Update(ctx context.Context, m *Media) error {
 	return nil
 }
 
+// UpdateFile implements Repository.
+func (r *PostgresRepository) UpdateFile(ctx context.Context, m *Media) error {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+	variants, err := m.MarshalVariants()
+	if err != nil {
+		return fmt.Errorf("failed to marshal variants: %w", err)
+	}
+	m.UpdatedAt = time.Now()
+	result, err := conn.Exec(ctx, `
+		UPDATE hatamoto_media
+		SET mime_type = $2, file_size = $3, width = $4, height = $5, variants = $6, updated_at = $7
+		WHERE id = $1`,
+		m.ID, m.MimeType, m.FileSize, m.Width, m.Height, variants, m.UpdatedAt)
+	if err != nil {
+		return fmt.Errorf("failed to update media file: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrMediaNotFound
+	}
+	return nil
+}
+
 // Delete removes a media record.
 func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	conn, err := r.db.GetConn(ctx)
@@ -349,4 +381,27 @@ func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+// Folders implements Repository.
+func (r *PostgresRepository) Folders(ctx context.Context) ([]FolderCount, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+	rows, err := conn.Query(ctx, `SELECT folder, COUNT(*) FROM hatamoto_media WHERE run_id IS NULL GROUP BY folder ORDER BY folder`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list folders: %w", err)
+	}
+	defer rows.Close()
+	var out []FolderCount
+	for rows.Next() {
+		var f FolderCount
+		if err := rows.Scan(&f.Name, &f.Count); err != nil {
+			return nil, fmt.Errorf("failed to scan folder: %w", err)
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
 }

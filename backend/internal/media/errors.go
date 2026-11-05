@@ -1,6 +1,9 @@
 package media
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // Error definitions for the media package.
 var (
@@ -16,3 +19,26 @@ var (
 	// configured cap (decompression-bomb guard).
 	ErrImageTooLarge = errors.New("image dimensions exceed the maximum allowed")
 )
+
+// ErrReplaceKind is returned when a Replace would change the kind of file.
+var ErrReplaceKind = errors.New("replace with the same kind of file")
+
+// ErrInvalidSVG is returned (wrapped in *SVGError) when an SVG cannot be made
+// safe and is refused.
+var ErrInvalidSVG = errors.New("invalid svg")
+
+// SVGError says why an SVG was refused and on which line.
+type SVGError struct {
+	Reason string
+	Line   int
+}
+
+func (e *SVGError) Error() string {
+	if e.Line > 0 {
+		return fmt.Sprintf("invalid svg: %s (line %d)", e.Reason, e.Line)
+	}
+	return "invalid svg: " + e.Reason
+}
+
+// Is makes errors.Is(err, ErrInvalidSVG) true for every *SVGError.
+func (e *SVGError) Is(target error) bool { return target == ErrInvalidSVG }

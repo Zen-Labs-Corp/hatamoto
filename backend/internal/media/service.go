@@ -15,7 +15,6 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -165,13 +164,22 @@ func (s *Service) Upload(ctx context.Context, userID *uuid.UUID, file io.Reader,
 	// sniffed from the bytes, and it must be an allowed type whose extension
 	// matches the name: stored HTML or script would be served from the site's
 	// origin. The caller's mimeType is advisory and ignored.
-	br := bufio.NewReaderSize(file, 512)
-	head, _ := br.Peek(512)
-	sniffed := http.DetectContentType(head)
+	br := bufio.NewReaderSize(file, SniffLen)
+	head, _ := br.Peek(SniffLen)
+	sniffed := SniffUpload(head)
 	if !ExtensionMatchesMIME(filepath.Ext(filename), sniffed) {
 		return nil, ErrInvalidMimeType
 	}
 	file, mimeType := io.Reader(br), sniffed
+	var cleaned []string
+	if sniffed == svgMIME {
+		// The stored bytes are the sanitised ones, never the upload.
+		clean, removed, err := readSVG(br)
+		if err != nil {
+			return nil, err
+		}
+		file, cleaned = bytes.NewReader(clean), removed
+	}
 
 	// Generate unique filename
 	ext := filepath.Ext(filename)
@@ -215,10 +223,11 @@ func (s *Service) Upload(ctx context.Context, userID *uuid.UUID, file io.Reader,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 		Variants:         []ImageVariant{},
+		Cleaned:          cleaned,
 	}
 
-	// Detect image dimensions
-	if m.IsImage() {
+	// Detect image dimensions (not for svg: there are no pixels)
+	if m.IsImage() && mimeType != svgMIME {
 		// Decompression-bomb guard: reject images whose pixel area exceeds the
 		// cap BEFORE any full decode/resize happens in createVariants. NOTE: for
 		// extended WebP the header dimensions can understate the real frame size,
@@ -279,6 +288,14 @@ func (s *Service) List(ctx context.Context, filter *ListMediaFilter, limit, offs
 	if offset < 0 {
 		offset = 0
 	}
+	if filter != nil && filter.Folder != "" {
+		// A stored value that breaks today's naming rules stays filterable:
+		// an invalid filter is matched as given.
+		if folder, err := NormalizeFolder(filter.Folder); err == nil {
+			f := *filter
+			f.Folder, filter = folder, &f
+		}
+	}
 	return s.repo.List(ctx, filter, limit, offset)
 }
 
@@ -299,7 +316,11 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input *UpdateMediaIn
 		m.Credit = input.Credit
 	}
 	if input.Folder != nil {
-		m.Folder = *input.Folder
+		folder, err := s.canonicalFolder(ctx, *input.Folder)
+		if err != nil {
+			return nil, err
+		}
+		m.Folder = folder
 	}
 
 	if err := s.repo.Update(ctx, m); err != nil {

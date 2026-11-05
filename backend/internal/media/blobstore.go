@@ -124,6 +124,24 @@ func (l *localStore) Get(_ context.Context, key string) (io.ReadCloser, error) {
 	return f, nil
 }
 
+// rename moves oldKey to newKey inside the root, replacing newKey. It is
+// atomic on one filesystem, which is how Replace swaps a file in without a
+// window where the address serves a partial file.
+func (l *localStore) rename(oldKey, newKey string) error {
+	if err := checkKey(oldKey); err != nil {
+		return err
+	}
+	if err := checkKey(newKey); err != nil {
+		return err
+	}
+	root, err := l.openRoot()
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	return root.Rename(oldKey, newKey)
+}
+
 func (l *localStore) Delete(_ context.Context, key string) error {
 	root, err := l.openRoot()
 	if err != nil {

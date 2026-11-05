@@ -103,7 +103,7 @@ Every call has a deadline of at most 15 seconds and never longer than the hook c
 | `entities.translations` | `{ "id" }` | `[ { "id", "locale", "status", "path"? } ]`, the entity's translation group ordered by locale, `[]` when it has none or is alone |
 | `terms.list` / `terms.get` | `{ "kind"?, "search"?, "limit"? }` / `{ "kind", "slug" }` | `{ "items", "total" }` / Term |
 | `menus.list` / `menus.get` | `{}` / `{ "slug" }` | menus / menu with items |
-| `media.get` / `media.list` | `{ "id" }` / `{ "search"?, "folder"?, "mime_type"?, "limit"?, "offset"? }` | media |
+| `media.get` / `media.list` | `{ "id" }` / `{ "search"?, "folder"?, "mime_type"?, "limit"?, "offset"? }` | media. Folders are one level (`/Name`, 1 to 60 letters, digits, spaces, hyphens or underscores); `folder` matches ignoring case and a leading slash, and a legacy name that no longer follows the rule can still be filtered on. |
 | `redirects.list` | `{ "search"?, "page"?, "per_page"? }` | `{ "items", "total" }` |
 | `forms.list` | `{}` | `{ "items": [ { id, name, slug, status, fields } ] }` |
 | `forms.submissions` | `{ "form_slug", "limit"?, "offset"? }` | `{ "items", "total" }`, never with IP or user agent |

@@ -32,6 +32,20 @@ When you upload a JPEG, PNG or WebP image, Hatamoto also makes WebP copies of it
 
 3. Images that cannot be processed are skipped and listed on the card, up to 20 of them.
 
+### SVG images
+
+You can upload SVG files (up to 512 KB). Hatamoto cleans every SVG before it stores it. It removes scripts, event handlers (such as `onload`), `foreignObject`, links to other sites, `javascript:` addresses and anything else that is not a plain drawing element. After an upload, the page lists what was removed. Hatamoto does not edit or turn an SVG into a bitmap, and it makes no resized copies.
+
+A file that cannot be made safe is refused with the reason and, where known, the line: a `DOCTYPE` or entity declaration, broken XML, a root element that is not `svg`, or a file that is empty once cleaned. Pages show an SVG only through an image tag, and the file is served with a policy that blocks scripts if someone opens its address directly.
+
+### Replace a file
+
+Open a file and use **Replace file** to put new bytes at the same address. The id, file name and address stay the same, so pages and links keep working, and resized copies are rebuilt. The new file must be the same kind and have the same extension (a PNG replaces a PNG). The size difference counts against your storage limit. Public pages are refreshed at once, but browsers and a CDN in front of the site may show the old file for up to a day, so purge the CDN if you need it sooner.
+
+### Folders
+
+Files can be grouped in folders, one level deep. A folder name is 1 to 60 letters, digits, spaces, hyphens or underscores, and names are not case sensitive. Tick files in the library, then choose a folder or type a new name next to **Move**. You can also set the folder on a file's own page. Files with no folder are **Uncategorised**. A folder exists while it holds files, so it disappears when its last file moves out. To rename a folder, move all its files to a new name. The library, the picker, the REST API (`folder` on the media list), plugins and the `media_upload` MCP tool all use the same folders.
+
 ### Build a menu
 
 1. Open **Theme > Menus** (`<admin>/theme/menus`) and press **New menu**. Give it a name, such as "Main", and a **Location**: Header, Footer, Sidebar or No location. Your theme decides which locations it shows.

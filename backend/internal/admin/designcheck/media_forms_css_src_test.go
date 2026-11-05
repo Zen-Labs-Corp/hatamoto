@@ -132,3 +132,19 @@ func TestTooltipInsideATableIsNotClipped(t *testing.T) {
 		}
 	}
 }
+
+// An svg with only a viewBox has no intrinsic size, so the detail preview needs a definite width
+// or it collapses to a sliver.
+func TestMediaDetailPreviewImageHasDefiniteWidth(t *testing.T) {
+	t.Parallel()
+
+	for _, line := range strings.Split(readAdminCSS(t, "media.css"), "\n") {
+		if strings.HasPrefix(line, ".hm-media-detail__preview img {") {
+			if !strings.Contains(line, "width: 100%") {
+				t.Errorf("preview img needs width: 100%%: %s", line)
+			}
+			return
+		}
+	}
+	t.Error("media.css lost the .hm-media-detail__preview img rule")
+}

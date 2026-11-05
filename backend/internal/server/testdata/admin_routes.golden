@@ -274,6 +274,7 @@ POST /admin/media/bulk -> admin.(*Admin).handleMediaBulk-fm
 POST /admin/media/upload -> admin.(*Admin).handleMediaUpload-fm
 POST /admin/media/{id} -> admin.(*Admin).handleMediaUpdate-fm
 POST /admin/media/{id}/delete -> admin.(*Admin).handleMediaDelete-fm
+POST /admin/media/{id}/replace -> admin.(*Admin).handleMediaReplace-fm
 POST /admin/people -> admin.(*Admin).handlePersonCreate-fm
 POST /admin/people/merge -> admin.(*Admin).handlePeopleMerge-fm
 POST /admin/plugins/check-updates -> admin.(*Admin).handleCheckUpdates-fm

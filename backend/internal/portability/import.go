@@ -3,6 +3,7 @@ package portability
 import (
 	"archive/tar"
 	"bufio"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/json"
@@ -615,10 +616,11 @@ func (m *mediaStage) add(rel string, r io.Reader) (n int64, warn string, err err
 	// with the extension, so an archive cannot plant .html or script that the
 	// site would serve from its own origin. Two allowed image types that do not
 	// pair (JPEG bytes named .webp, written by older versions) are accepted.
-	br := bufio.NewReaderSize(r, 512)
-	head, _ := br.Peek(512)
+	br := bufio.NewReaderSize(r, media.SniffLen)
+	head, _ := br.Peek(media.SniffLen)
 	ext := filepath.Ext(clean)
-	if sniffed := media.SniffContentType(head); !media.ExtensionMatchesMIME(ext, sniffed) && !media.ImageTypeAndExtensionAllowed(ext, sniffed) {
+	sniffed := media.SniffContentType(head)
+	if !media.ExtensionMatchesMIME(ext, sniffed) && !media.ImageTypeAndExtensionAllowed(ext, sniffed) {
 		n, err := io.Copy(io.Discard, br)
 		if err != nil {
 			return 0, "", err
@@ -626,6 +628,25 @@ func (m *mediaStage) add(rel string, r io.Reader) (n int64, warn string, err err
 		return n, fmt.Sprintf("skipped media file %q (%s): not an allowed media type", clean, sniffed), nil
 	}
 	r = br
+	// An svg is staged only in its sanitised form; the manifest still counts
+	// the bytes of the original.
+	originalSize := int64(-1)
+	if sniffed == "image/svg+xml" {
+		raw, err := io.ReadAll(io.LimitReader(br, media.MaxSVGBytes+1))
+		if err != nil {
+			return 0, "", err
+		}
+		rest, err := io.Copy(io.Discard, br)
+		if err != nil {
+			return 0, "", err
+		}
+		originalSize = int64(len(raw)) + rest
+		cleaned, _, serr := media.SanitizeSVG(raw)
+		if serr != nil {
+			return originalSize, fmt.Sprintf("skipped media file %q: %v", clean, serr), nil
+		}
+		r = bytes.NewReader(cleaned)
+	}
 	if _, err := os.Lstat(filepath.Join(m.root, filepath.FromSlash(clean))); err == nil {
 		return 0, "", fmt.Errorf("media file %q already exists in %s; import into an empty media directory", clean, m.root)
 	}
@@ -653,6 +674,9 @@ func (m *mediaStage) add(rel string, r io.Reader) (n int64, warn string, err err
 		return 0, "", cerr
 	}
 	m.staged = append(m.staged, clean)
+	if originalSize >= 0 {
+		n = originalSize
+	}
 	return n, "", nil
 }
 

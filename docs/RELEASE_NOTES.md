@@ -8,6 +8,18 @@ Settings > SEO has a new ads.txt tab (owners only). Write your `ads.txt` and `ap
 - **Site access.** Like the sitemap, both files answer a plain 404 (503 with `Retry-After` in maintenance mode) while coming soon, maintenance or password mode is on, never the themed page.
 - **Migration.** None. Rollback floor: unchanged. An older binary ignores the two new settings keys and `/ads.txt` returns the themed 404; an SEO save on the older binary drops them.
 
+## Unreleased: Media library plus
+
+The media library now accepts SVG, can replace a file in place, and groups files in folders.
+
+- **Safe SVG.** SVG uploads are cleaned by an allowlist before they are stored (scripts, event handlers, `foreignObject`, external links and DOCTYPE are removed or refused). The upload says what was removed and refusals give a reason and line. SVGs are served with a locked-down policy and shown only through an image tag. This applies to the admin, REST, MCP, plugins, changesets and site import.
+- **Replace file.** Replaces the bytes at the same id, file name and address, rebuilds the resized copies, refreshes the page cache and writes an audit row. Same kind and extension only; quota counts the size difference.
+- **Folders.** One level, 1 to 60 letters, digits, spaces, hyphens or underscores. Library filter, bulk move, picker filter, `folder` on the REST media list and plugin host, and `folder` on MCP `media_upload`. Only new folder names are checked: a folder value already stored, for example a nested path set earlier through the REST API or a plugin, stays listed, filterable and movable, and the REST and plugin `folder` filter still accepts it.
+- **Cache header change.** Media files are now served with `Cache-Control: public, max-age=86400, must-revalidate` and an ETag, so a replaced file shows within a day.
+- **No migration.** No new dependency, so docs/DEPENDENCIES.md is unchanged.
+
+**Rollback floor: unchanged.** An older release ignores folders it does not know and serves a stored SVG as a download instead of showing it, because it sniffs content differently.
+
 ## Unreleased: Off-site backups
 
 Settings > Backups has a new Off-site copy card. Point it at an S3-compatible bucket (Amazon S3, Cloudflare R2, Backblaze B2, MinIO or similar), pick a daily or weekly time in UTC, and each scheduled backup is uploaded (the provider checks each part's SHA-256 on receipt, and the size and recorded checksum are read back) and pruned to the number of copies you keep. "Back up and upload now" runs one on demand. The backups table gains an Off-site column and the dashboard health card an Off-site backup row.

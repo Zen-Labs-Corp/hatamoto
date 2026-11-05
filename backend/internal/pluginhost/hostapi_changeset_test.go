@@ -1,7 +1,9 @@
 package pluginhost
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -181,5 +183,14 @@ func TestMediaDTOCarriesCaptionAndCredit(t *testing.T) {
 	d := toMediaDTO(&media.Media{ID: uuid.New(), Caption: &c, Credit: &cr})
 	if d.Caption == nil || *d.Caption != c || d.Credit == nil || *d.Credit != cr {
 		t.Fatalf("dto = %+v", d)
+	}
+}
+
+// A stored legacy folder value must reach the service, not be refused here.
+func TestMediaListAcceptsLegacyFolder(t *testing.T) {
+	_, err := fnMediaList(context.Background(), &API{}, nil, json.RawMessage(`{"folder":"/2024/summer"}`))
+	var he *sdk.HostError
+	if errors.As(err, &he) && he.Code == sdk.ErrInvalidArgument {
+		t.Fatalf("folder was refused: %v", err)
 	}
 }

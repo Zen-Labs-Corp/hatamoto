@@ -103,6 +103,8 @@ type MediaStore interface {
 	List(ctx context.Context, f *media.ListMediaFilter, limit, offset int) (*media.PagedResult, error)
 	Update(ctx context.Context, id uuid.UUID, in *media.UpdateMediaInput) (*media.Media, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	Folders(ctx context.Context) ([]media.FolderCount, error)
+	Replace(ctx context.Context, id uuid.UUID, file io.Reader, filename string, size int64) (*media.Media, error)
 	Usage(ctx context.Context, m *media.Media) ([]media.Usage, error)
 	Config() media.Config
 }
