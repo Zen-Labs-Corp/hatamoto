@@ -54,7 +54,7 @@ hatamoto.dev {
     # Plain (not deferred) so Caddy's own error responses keep it; the app's copy
     # is removed at the proxy (header_down below).
     header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-    @static_hardening path /registry.json /packages/* /releases/* /.well-known/security.txt /install.sh /security /security/
+    @static_hardening path /registry.json /packages/* /releases/* /.well-known/security.txt /install.sh
     header @static_hardening {
         X-Content-Type-Options "nosniff"
         X-Frame-Options "SAMEORIGIN"
@@ -117,12 +117,6 @@ hatamoto.dev {
     @relnotes path_regexp relnotes ^/releases/(v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?)/?$
     handle @relnotes {
         redir * /changelog#{re.relnotes.1} 301
-    }
-    # /security is the human-readable security policy: the docs page published from
-    # docs/site/operate/security.md. security.txt points at it.
-    @security path /security /security/
-    handle @security {
-        redir * /docs/operate/security 301
     }
     handle /releases/channels/* {
         root * /opt/hatamoto/public

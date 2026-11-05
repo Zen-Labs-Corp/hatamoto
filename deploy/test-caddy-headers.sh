@@ -3,7 +3,7 @@
 # in front of a stub "app" that sets the same security headers the Go server
 # does, and asserts each response carries exactly one of every security
 # header, with the HSTS value from Caddy, that no response carries a Server or
-# Via header, that /security redirects to /docs/operate/security, and that security.txt is served.
+# Via header and that security.txt is served.
 # Rows cover proxied, static, go-get, Caddy-generated 404 and 502 (app stopped) responses.
 # CADDYFILE=path tests another version of the Caddy file. Run: deploy/test-caddy-headers.sh   (needs caddy and curl; REAL_CADDY overrides)
 set -euo pipefail
@@ -78,17 +78,12 @@ check /registry.json 200                 # static: Caddy's headers
 check /releases/channels/stable.json 200
 check /.well-known/security.txt 200
 check /install.sh 200                   # static installer script
-check /security 301                      # Caddy redirect to the docs page
-check /security/ 301
 check '/sdk?go-get=1' 200                # answered by Caddy (respond)
 check '/core/x?go-get=1' 200
 check /packages/missing.json 404         # Caddy-generated errors
 check /releases/v9.9.9/x.json 404
 check /releases/nope 404
 check /archive/nope 404
-loc=$(curl -s -D- -o /dev/null "http://127.0.0.1:$front/security" | tr -d '\r' | awk 'tolower($1)=="location:" {print $2}')
-[[ $loc == /docs/operate/security || $loc == */docs/operate/security ]] || fail "/security Location is '$loc', want /docs/operate/security"
-echo "ok /security redirects to $loc"
 kill "${pids[0]}"; wait "${pids[0]}" 2>/dev/null || true   # app down
 check / 502
 check /admin 502

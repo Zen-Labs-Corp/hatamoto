@@ -4,7 +4,7 @@ nav_title: Security policy
 description: How to report a vulnerability in Hatamoto privately, what happens after you report it, and which versions get security fixes.
 ---
 
-This page tells you how to report a security problem in Hatamoto, what happens after you report it and which versions receive fixes. It is the page behind `https://hatamoto.dev/security`. To protect your own instance, follow [Harden an instance](hardening.md).
+This page tells you how to report a security problem in Hatamoto, what happens after you report it and which versions receive fixes. It is published at `https://hatamoto.dev/docs/operate/security`. To protect your own instance, follow [Harden an instance](hardening.md).
 
 ## Overview
 
