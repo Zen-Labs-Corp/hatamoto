@@ -258,7 +258,10 @@ export function createContent(ctx) {
         el.setAttribute("autocomplete", "off");
         extra.push(h("datalist", { id: `${id}-l` }, ...opts.map((o) => h("option", { value: o }))));
       }
-      if (kind === "media") extra.push(actButton("Choose from library", { "data-hm-media-picker": id }));
+      if (kind === "media") {
+        const doc = p.accept === "document";
+        extra.push(actButton(doc ? "Choose PDF" : "Choose from library", { "data-hm-media-picker": id, ...(doc ? { "data-hm-media-type": "document" } : {}) }));
+      }
       if (kind === "lines") {
         el.setAttribute("aria-describedby", `${id}-e ${id}-h`);
         extra.push(h("span", { class: "hm-muted", id: `${id}-h`, text: "One item per line." }));
