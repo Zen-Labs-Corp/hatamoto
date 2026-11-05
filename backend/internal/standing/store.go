@@ -2,14 +2,13 @@ package standing
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Store reads and writes approvals.
@@ -33,10 +32,10 @@ func scanApproval(row pgx.Row) (Approval, error) {
 	if err := row.Scan(&a.ID, &a.Plugin, &a.Run, &policy, &fp, &a.ApprovedBy, &a.ApprovedAt); err != nil {
 		return a, err
 	}
-	if err := json.Unmarshal(policy, &a.Policy); err != nil {
+	if err := jsonx.Unmarshal(policy, &a.Policy, jsonx.StoredLoose); err != nil {
 		return a, fmt.Errorf("failed to decode approval policy: %w", err)
 	}
-	if err := json.Unmarshal(fp, &a.FP); err != nil {
+	if err := jsonx.Unmarshal(fp, &a.FP, jsonx.StoredLoose); err != nil {
 		return a, fmt.Errorf("failed to decode approval fingerprint: %w", err)
 	}
 	return a, nil
@@ -59,14 +58,11 @@ func (s *Store) Active(ctx context.Context, plugin, run string) (*Approval, erro
 // Approve records an approval and voids the run's previous active one in the
 // same transaction, so at most one is ever active.
 func (s *Store) Approve(ctx context.Context, plugin, run string, p Policy, fp Fingerprint, by string) (Approval, error) {
-	policy, err := json.Marshal(p)
+	policy, err := jsonx.Marshal(p)
 	if err != nil {
 		return Approval{}, fmt.Errorf("failed to encode policy: %w", err)
 	}
-	if fp.SchemaHashes == nil {
-		fp.SchemaHashes = map[string]string{}
-	}
-	fpJSON, err := json.Marshal(fp)
+	fpJSON, err := jsonx.Marshal(fp)
 	if err != nil {
 		return Approval{}, fmt.Errorf("failed to encode fingerprint: %w", err)
 	}
