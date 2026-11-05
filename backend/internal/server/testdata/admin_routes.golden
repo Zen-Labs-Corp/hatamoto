@@ -87,6 +87,7 @@ GET /admin/profile/security/passkeys/add -> admin.(*Admin).handlePasskeyAddPage-
 GET /admin/profile/security/totp -> admin.(*Admin).handleTOTPForm-fm
 GET /admin/reset -> admin.(*Admin).handleResetForm-fm
 GET /admin/settings -> admin.(*Admin).areaEntry.func1
+GET /admin/settings/admin-branding -> admin.(*Admin).handleBranding-fm
 GET /admin/settings/api-keys -> admin.(*Admin).handleAPIKeys-fm
 GET /admin/settings/api-keys/new -> admin.(*Admin).handleAPIKeyNew-fm
 GET /admin/settings/api-keys/secret -> admin.(*Admin).handleAPIKeySecret-fm
@@ -95,7 +96,6 @@ GET /admin/settings/backups -> admin.(*Admin).handleBackups-fm
 GET /admin/settings/backups/retention -> admin.(*Admin).handleRetentionPage-fm
 GET /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDeleteConfirm-fm
 GET /admin/settings/backups/{id}/download -> admin.(*Admin).handleBackupDownload-fm
-GET /admin/settings/branding -> admin.(*Admin).handleBranding-fm
 GET /admin/settings/changes -> admin.(*Admin).handleChanges-fm
 GET /admin/settings/contact-button -> admin.(*Admin).handleContactButton-fm
 GET /admin/settings/content-model -> admin.(*Admin).mountSettingsFrame.func1
@@ -322,6 +322,8 @@ POST /admin/profile/security/totp -> admin.(*Admin).handleTOTPConfirm-fm
 POST /admin/profile/security/totp/begin -> admin.(*Admin).handleTOTPBegin-fm
 POST /admin/profile/security/totp/remove -> admin.(*Admin).handleTOTPRemove-fm
 POST /admin/reset -> admin.(*Admin).handleReset-fm
+POST /admin/settings/admin-branding -> admin.(*Admin).handleBrandingSave-fm
+POST /admin/settings/admin-branding/reset -> admin.(*Admin).handleBrandingReset-fm
 POST /admin/settings/api-keys -> admin.(*Admin).handleAPIKeyCreate-fm
 POST /admin/settings/api-keys/{id}/delete -> admin.(*Admin).handleAPIKeyDelete-fm
 POST /admin/settings/api-keys/{id}/regenerate -> admin.(*Admin).handleAPIKeyRegenerate-fm
@@ -332,8 +334,6 @@ POST /admin/settings/backups/offsite/run -> admin.(*Admin).handleOffsiteRun-fm
 POST /admin/settings/backups/offsite/test -> admin.(*Admin).handleOffsiteTest-fm
 POST /admin/settings/backups/retention -> admin.(*Admin).handleRetentionSave-fm
 POST /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDelete-fm
-POST /admin/settings/branding -> admin.(*Admin).handleBrandingSave-fm
-POST /admin/settings/branding/reset -> admin.(*Admin).handleBrandingReset-fm
 POST /admin/settings/changes/{id}/undo -> admin.(*Admin).handleChangesUndo-fm
 POST /admin/settings/contact-button -> admin.(*Admin).handleContactButtonSave-fm
 POST /admin/settings/email -> admin.(*Admin).handleEmailSave-fm
