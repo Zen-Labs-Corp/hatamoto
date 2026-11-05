@@ -34,6 +34,7 @@ import (
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/emaillog"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/fonts"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/httpx"
@@ -51,6 +52,7 @@ import (
 	"hatamoto.dev/core/internal/previewlink"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/safefetch"
 	"hatamoto.dev/core/internal/sectiontemplate"
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/session"
@@ -131,8 +133,10 @@ type Server struct {
 	emailService           *email.Service
 	mailStore              smtpSettingsStore
 	emailLog               *emaillog.Store
-	applyMu                sync.Mutex // serialises applyEmail end to end
-	emailMu                sync.Mutex // guards emailRes and emailApplied
+	fonts                  *fonts.Store  // owner fonts; nil in tests that skip them
+	fontsGoogle            *fonts.Google // one-off Google Fonts downloads for the admin
+	applyMu                sync.Mutex    // serialises applyEmail end to end
+	emailMu                sync.Mutex    // guards emailRes and emailApplied
 	emailRes               emailResolution
 	emailApplied           bool // a configuration has been applied since boot
 	formConfirmationSender formConfirmationSender
@@ -484,6 +488,8 @@ func (s *Server) setupDependencies() {
 	// settings over the server's SMTP_* environment.
 	s.mailStore = mailsettings.NewStore(s.db.Pool())
 	s.emailLog = emaillog.NewStore(s.db.Pool())
+	s.fonts = fonts.NewStore(s.db.Pool())
+	s.fontsGoogle = fonts.NewGoogle(safefetch.NewClient(safefetch.ClientOptions{Timeout: 20 * time.Second}))
 	emailUsable := false
 	emailSvc, err := email.NewService(envEmailConfig(s.cfg.SMTP), s.logger)
 	if err != nil {

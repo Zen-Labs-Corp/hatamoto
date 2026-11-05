@@ -9,6 +9,7 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/fonts"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
@@ -62,9 +63,14 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 	capture := func(next http.Handler) http.Handler {
 		return s.agentCaptureMiddleware(s.aiReferralMiddleware(next))
 	}
+	var fontsHandler http.Handler
+	if s.fonts != nil {
+		fontsHandler = fonts.Handler(s.fonts)
+	}
 	mountRenderRoutes(r, renderRoutes{
 		pages:      h,
 		assets:     s.renderEngine.AssetHandler(),
+		fonts:      fontsHandler,
 		robots:     s.handleRobots,
 		sitemap:    s.handlePublicSitemap,
 		subSitemap: s.handlePublicSubSitemap,
