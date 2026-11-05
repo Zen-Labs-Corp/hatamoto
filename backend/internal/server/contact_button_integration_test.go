@@ -23,7 +23,7 @@ import (
 	"hatamoto.dev/core/internal/user"
 )
 
-// Settings > Contact button end to end on the real server wiring and a migrated
+// Theme > Contact button end to end on the real server wiring and a migrated
 // Postgres: the owner saves the floating button, an audit row is written, the
 // other theme settings keys survive, and a public page shows the link.
 //

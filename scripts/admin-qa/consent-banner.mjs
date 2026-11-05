@@ -1,4 +1,4 @@
-// Cookie consent banner: enable it in Settings > Privacy, then check the public site as a visitor.
+// Cookie consent banner: enable it in Settings > Privacy & tracking > Cookie consent, then check the public site as a visitor.
 // The script is first in <head>, Consent Mode defaults come first, Reject all writes the cookie and fires
 // hm:consent, a reload shows no banner, the preferences dialog is keyboard operable (trap, Esc, focus
 // return), [data-hm-consent-open] reopens it, and axe finds nothing on the banner or the dialog.

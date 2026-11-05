@@ -15,7 +15,7 @@ import (
 
 const trackingPath = "/settings/tracking"
 
-// TrackingService is the tag manager settings store behind Settings > Tracking.
+// TrackingService is the tag manager settings store behind Settings > Privacy & tracking > Tracking.
 type TrackingService interface {
 	Get(ctx context.Context) (tags.Settings, error)
 	Save(ctx context.Context, s tags.Settings) error

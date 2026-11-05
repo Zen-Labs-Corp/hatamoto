@@ -112,13 +112,13 @@ func TestPluginsPageLegacyWebhooksRow(t *testing.T) {
 		notWant []string
 	}{
 		{"first-party signed, import recorded", &PackageMeta{Signed: true, Signer: "adea8e00f5ac74ca", LegacyFirstParty: true, WebhooksImported: true},
-			[]string{"Webhooks are now built in under", `href="/admin/settings/webhooks">Settings &gt; Webhooks</a>`, "This old plugin is not needed any more. Until you remove it, both it and core may send each webhook."},
+			[]string{"Webhooks are now built in under", `href="/admin/settings/webhooks">Settings &gt; Integrations &gt; Webhooks</a>`, "This old plugin is not needed any more. Until you remove it, both it and core may send each webhook."},
 			[]string{"not moved over automatically", "were imported", "Until then both may send", "has not finished"}},
 		{"first-party signed, import not proven", &PackageMeta{Signed: true, Signer: "adea8e00f5ac74ca", LegacyFirstParty: true},
-			[]string{"has not finished. Restart the server to retry; remove the plugin only after its webhooks appear there.", `href="/admin/settings/webhooks">Settings &gt; Webhooks</a>`},
+			[]string{"has not finished. Restart the server to retry; remove the plugin only after its webhooks appear there.", `href="/admin/settings/webhooks">Settings &gt; Integrations &gt; Webhooks</a>`},
 			[]string{"not needed any more", "not moved over automatically", "Until then both may send", ">Remove<", `href="/admin/plugins/webhooks/uninstall"`}},
 		{"other package", &PackageMeta{Signed: true, Signer: "ffff0000ffff0000"},
-			[]string{"A plugin named webhooks is still installed", "this plugin was not moved over automatically", `href="/admin/settings/webhooks">Settings &gt; Webhooks</a>`, "Until then both may send."},
+			[]string{"A plugin named webhooks is still installed", "this plugin was not moved over automatically", `href="/admin/settings/webhooks">Settings &gt; Integrations &gt; Webhooks</a>`, "Until then both may send."},
 			[]string{"This old plugin is not needed any more", "were imported"}},
 		{"not a package", nil,
 			[]string{"this plugin was not moved over automatically"},

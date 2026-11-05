@@ -17,7 +17,7 @@ const privacyPath = "/settings/privacy"
 const privacyCountDays = 30
 
 // PrivacyService is the cookie consent settings store and the daily choice
-// counts behind Settings > Privacy.
+// counts behind Settings > Privacy & tracking > Cookie consent.
 type PrivacyService interface {
 	Get(ctx context.Context) (consent.Settings, error)
 	Save(ctx context.Context, s consent.Settings) error

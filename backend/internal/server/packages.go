@@ -94,7 +94,7 @@ func (s *Server) setupPackages() {
 	// The webhooks plugin moved into core: copy its subscriptions and uninstall
 	// it before anything loads it or the scheduler starts (no double sends).
 	s.retireWebhooksPlugin(ctx)
-	// The gtm and google-analytics plugins moved into Settings > Tracking.
+	// The gtm and google-analytics plugins moved into Settings > Privacy & tracking > Tracking.
 	s.retireTrackingPlugins(ctx)
 	s.packages.Reconcile(ctx)
 	if s.cfg.Plugins.Dir != "" {

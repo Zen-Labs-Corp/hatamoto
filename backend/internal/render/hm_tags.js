@@ -1,7 +1,7 @@
 /*
  * hm-tags.js: the core tag manager. Served by Hatamoto at
  * /theme/assets/hm-tags.js and linked from public pages when the owner turns
- * on at least one tag in Settings > Tracking; themes do not ship it. The
+ * on at least one tag in Settings > Privacy & tracking > Tracking; themes do not ship it. The
  * enabled vendors are substituted into CFG when the file is served.
  *
  * A vendor loads when hm.consent.allows(category) is true, or when hm.consent

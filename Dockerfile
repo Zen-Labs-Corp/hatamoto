@@ -35,7 +35,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -tags "nodynamic ${TAGS}" \
 # back a release that fails its health gate. Mount a volume on /data (secrets
 # live in /data/secrets). No shell or entrypoint script is needed.
 FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8
-# pg_dump for backups (Settings > Backups and the backup before each update).
+# pg_dump for backups (Settings > Backups & recovery > Backups and the backup before each update).
 # Bookworm's own client is 15, and pg_dump refuses a newer server, so the client
 # comes from the PostgreSQL apt repository (https://www.postgresql.org/download/linux/debian/).
 # Its major must match the database server's major: docker-compose.yml runs

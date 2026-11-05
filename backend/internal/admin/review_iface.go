@@ -113,7 +113,7 @@ type ReviewData struct {
 	Previewable                bool
 }
 
-// HistoryRow is one changeset in Settings > Changes.
+// HistoryRow is one changeset in Settings > Backups & recovery > Changes.
 type HistoryRow struct {
 	ID                        int64
 	Plugin, RunName, State    string

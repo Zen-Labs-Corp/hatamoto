@@ -27,7 +27,7 @@ func decisionFailed(f *addressForm, dec addrDecision) bool {
 type addrOrigin int
 
 const (
-	addrOriginSecurity addrOrigin = iota // Settings > Security: always a change
+	addrOriginSecurity addrOrigin = iota // Settings > Access & security > Admin address: always a change
 	addrOriginWizard                     // the setup wizard, which is only open while setup is unfinished
 )
 

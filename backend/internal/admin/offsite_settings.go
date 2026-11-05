@@ -77,7 +77,7 @@ type OffsiteInput struct {
 	Keep      int
 }
 
-// OffsiteService is the off-site backup target behind Settings > Backups.
+// OffsiteService is the off-site backup target behind Settings > Backups & recovery > Backups.
 type OffsiteService interface {
 	View(ctx context.Context) (OffsiteView, error)
 	// Save stores in. Field errors come back as the list and nothing is saved.

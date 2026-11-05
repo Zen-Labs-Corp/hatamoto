@@ -139,7 +139,7 @@ type PasswordChanger interface {
 	ChangePassword(ctx context.Context, userID uuid.UUID, current, newPassword string, keepSession *uuid.UUID) error
 }
 
-// WebhookStore is the webhook service as the Settings > Webhooks screens use
+// WebhookStore is the webhook service as the Settings > Integrations > Webhooks screens use
 // it. A list never carries a signing secret.
 type WebhookStore interface {
 	List(ctx context.Context) ([]webhook.ListedSubscription, error)
@@ -221,7 +221,7 @@ type Deps struct {
 	Manager      UserManager
 	Passwords    PasswordChanger
 	APIKeys      APIKeyStore
-	// Webhooks is the outgoing-webhook service behind Settings > Webhooks; nil
+	// Webhooks is the outgoing-webhook service behind Settings > Integrations > Webhooks; nil
 	// answers that section with 404. Set it only when non-nil: a typed nil
 	// would defeat the check.
 	Webhooks WebhookStore
@@ -253,14 +253,14 @@ type Deps struct {
 	// BuilderParts lists the layout slots (header, footer, single, archive) the
 	// live theme renders parts for (theme.json builder.parts); nil means none.
 	BuilderParts func() []string
-	// MediaFormats is the Image formats card on Settings > Media (owner
+	// MediaFormats is the Image formats card on Media (owner
 	// only); nil hides the card.
 	MediaFormats MediaFormatsService
 	// PageCache is the rendered-page cache behind Settings > Performance;
 	// nil answers that page with 503.
 	PageCache PageCacheService
 	// SiteAccess is the public site gate (open, coming soon, maintenance,
-	// password) behind Settings > Site access; nil answers that page with 503.
+	// password) behind Settings > Access & security > Site access; nil answers that page with 503.
 	SiteAccess SiteAccessService
 	// VersionRetention is the version history limit behind Settings > Content >
 	// Versions and the rule on the versions panel; nil answers that page with
@@ -275,7 +275,7 @@ type Deps struct {
 	// Privacy is the cookie consent settings and choice counts behind Settings >
 	// Privacy; nil answers that page with 503.
 	Privacy PrivacyService
-	// Tracking is the tag manager settings behind Settings > Tracking; nil
+	// Tracking is the tag manager settings behind Settings > Privacy & tracking > Tracking; nil
 	// answers that page with 503.
 	Tracking TrackingService
 	// LegacyTrackingPlugins names the retired gtm or google-analytics plugins
@@ -311,10 +311,10 @@ type Deps struct {
 	Stats StatsService
 	// UpdatesUnavailable is why Updates is nil, shown on the page.
 	UpdatesUnavailable string
-	// Backups is the backup service behind Settings > Backups; nil answers
+	// Backups is the backup service behind Settings > Backups & recovery > Backups; nil answers
 	// that page with 503. Set it only when non-nil.
 	Backups BackupsService
-	// Offsite is the off-site backup target on Settings > Backups; nil hides
+	// Offsite is the off-site backup target on Settings > Backups & recovery > Backups; nil hides
 	// the card. Set it only when non-nil and only with Backups.
 	Offsite OffsiteService
 	// Jobs is the scheduled-jobs overview on Settings > Jobs; nil answers that

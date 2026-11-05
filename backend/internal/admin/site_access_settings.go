@@ -15,7 +15,7 @@ import (
 
 const siteAccessPath = "/settings/site-access"
 
-// SiteAccessService is the site access gate as Settings > Site access uses
+// SiteAccessService is the site access gate as Settings > Access & security > Site access uses
 // it. The server implements it: Save stores the settings and clears the page
 // cache, so no visitor is served a page cached under the previous mode.
 type SiteAccessService interface {

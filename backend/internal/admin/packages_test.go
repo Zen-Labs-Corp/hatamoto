@@ -488,7 +488,7 @@ func TestTagPackUninstallPage(t *testing.T) {
 	}
 	body := g.do("GET", "/admin/plugins/ga-pack/uninstall", "owner-token", nil, nil).Body.String()
 	a11yOK(t, body)
-	for _, want := range []string{"Its saved IDs on Settings &gt; Tracking are removed. Installing it again starts with its tags off.", "hm-confirmcard"} {
+	for _, want := range []string{"Its saved IDs on Settings &gt; Privacy &amp; tracking &gt; Tracking are removed. Installing it again starts with its tags off.", "hm-confirmcard"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("tag pack uninstall page missing %q", want)
 		}

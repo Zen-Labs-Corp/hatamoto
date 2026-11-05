@@ -14,7 +14,7 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 )
 
-// backupsRel is Settings > Backups, relative to the admin prefix.
+// backupsRel is Settings > Backups & recovery > Backups, relative to the admin prefix.
 const backupsRel = "/settings/backups"
 
 // Backup states and kinds as the page sees them. They mirror the engine's

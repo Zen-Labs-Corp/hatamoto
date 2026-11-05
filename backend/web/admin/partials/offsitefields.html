@@ -1,4 +1,4 @@
-{{/* The off-site backup fields of Settings > Backups. Takes an offsiteFields. There is no secret key value: it only ever goes in. */}}
+{{/* The off-site backup fields of Settings > Backups & recovery > Backups. Takes an offsiteFields. There is no secret key value: it only ever goes in. */}}
 {{define "hm/offsitefields"}}{{template "hm/field" dict "ID" "offsite-enabled" "Name" "enabled" "Label" "Copy backups off this server" "Control" "switch" "Checked" .Enabled "Help" "When on, each scheduled backup is uploaded to the bucket below and checked there."}}
 {{template "hm/field" dict "ID" "offsite-service" "Name" "service" "Label" "Storage service" "Control" "select" "Options" .ServiceOptions "Help" "Only Amazon S3 builds the address from the region. For every other service enter the endpoint." "Error" (index .Errs "offsite-service")}}
 {{template "hm/field" dict "ID" "offsite-endpoint" "Name" "endpoint" "Label" "Endpoint" "Value" .Endpoint "Help" "For example https://s3.example.com. Needed for every service except Amazon S3. Plain http works only for a local or private address." "Error" (index .Errs "offsite-endpoint") "Attrs" (attrmap "autocomplete" "off")}}

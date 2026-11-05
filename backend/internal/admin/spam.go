@@ -13,7 +13,7 @@ import (
 const spamPath = "/forms/spam"
 
 // SpamService is the spam protection settings and the provider check behind
-// Settings > Forms > Spam protection. The captcha secret only ever goes in
+// Forms > Spam protection. The captcha secret only ever goes in
 // (SealSecret) and is checked against the provider (TestSecret); it never
 // comes back out.
 type SpamService interface {

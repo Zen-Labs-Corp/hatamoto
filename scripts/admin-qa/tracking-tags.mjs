@@ -1,8 +1,8 @@
-// Core tag manager: save GA4 and Meta in Settings > Tracking, then check the public site as a visitor.
+// Core tag manager: save GA4 and Meta in Settings > Privacy & tracking > Tracking, then check the public site as a visitor.
 // The tag script is linked, the page CSP names only the enabled vendors' hosts with no console CSP errors,
 // nothing is requested from a vendor host before consent (banner on) and requests follow Accept, one form
 // submit dispatches exactly one hm:conversion with the submission id, and axe finds nothing on the page.
-// Needs the cookie banner on (Settings > Privacy) so consent gates the tags. A form page is read from
+// Needs the cookie banner on (Settings > Privacy & tracking > Cookie consent) so consent gates the tags. A form page is read from
 // QA_FORM_PATH (default /contact); without a form there the conversion check is skipped.
 // Run: scripts/admin-qa/run-local.sh tracking-tags.mjs
 import fs from "node:fs";
@@ -33,7 +33,7 @@ ok((await p.inputValue("#tracking-ga4-id")) === "G-QA1234567", "the bad id was n
 // axe on the Tracking page.
 await p.addScriptTag({ content: axeSrc });
 const res = await p.evaluate(() => axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] } }));
-ok(res.violations.length === 0, `axe: Settings > Tracking has ${res.violations.length} violations ${res.violations.map((x) => x.id).join(",")}`);
+ok(res.violations.length === 0, `axe: Settings > Privacy & tracking > Tracking has ${res.violations.length} violations ${res.violations.map((x) => x.id).join(",")}`);
 
 // A visitor with the real CSP; vendor hosts are counted, not fetched.
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
@@ -56,7 +56,7 @@ if (await v.locator('[aria-label="Cookie notice"]').count()) {
   await v.waitForTimeout(800);
   ok(hits.some((u) => u.includes("googletagmanager.com")) && hits.some((u) => u.includes("facebook.net")), "vendor scripts are requested after Accept");
 } else {
-  ok(false, "turn the cookie banner on in Settings > Privacy for the consent check");
+  ok(false, "turn the cookie banner on in Settings > Privacy & tracking > Cookie consent for the consent check");
 }
 ok(errors.length === 0, `no console or page errors (${errors.join("; ")})`);
 

@@ -16,7 +16,7 @@ const (
 	changesPerPage = 25
 )
 
-// mountChangesSettings registers Settings > Changes: the list of plugin runs'
+// mountChangesSettings registers Settings > Backups & recovery > Changes: the list of plugin runs'
 // changesets and the undo of a published one.
 func (a *Admin) mountChangesSettings(g *httpx.Group) {
 	g.HandleFunc("GET "+changesRel, a.handleChanges)

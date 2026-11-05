@@ -29,7 +29,7 @@ var legacyTrackingPlugins = []struct {
 }
 
 // retireTrackingPlugins folds the former gtm and google-analytics plugins into
-// Settings > Tracking: the id is copied (unless the owner already configured the
+// Settings > Privacy & tracking > Tracking: the id is copied (unless the owner already configured the
 // vendor there) and the vendor turned on only when the plugin was really
 // emitting its tag (installed, enabled, usable and granted site.scripts, and
 // trusted with scripts); otherwise it is copied off. Then the plugin is uninstalled. It runs
