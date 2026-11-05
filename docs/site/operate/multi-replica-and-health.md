@@ -37,6 +37,7 @@ Each process runs an in-process scheduler for maintenance jobs unless you turn i
 - `webhook_deliver`, `webhook_prune`: outgoing webhook delivery and log retention. See [Webhooks](../admin/webhooks.md).
 - `changeset_sweep`: expires staged content changesets and removes the files they left behind. Safe on several replicas at once; publishing checks the expiry itself, so a replica with the worker off never publishes an expired changeset.
 - `standing_digest`: mails the owners once a day the runs that published themselves under a standing approval. Safe on several replicas at once; the day is claimed in the database, so only one mail goes out.
+- `user_access`: ends access for users whose end date has passed (sessions and API keys they created are revoked) and mails the owners a reminder three days ahead. Safe on several replicas at once; each user and reminder is claimed in the database. The sign-in check itself does not depend on this job.
 - `stats_ping`: the opt-in install stats ping. See [Install stats](install-stats.md).
 - `backup_offsite`: the off-site backup check, once a minute.
 - `agent_attribution_backfill`: attributes older crawler hits.

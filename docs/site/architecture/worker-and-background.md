@@ -29,6 +29,7 @@ Each job is a function the scheduler calls on a timer. Every run has a 10 minute
 | `webhook_deliver` | sends due outgoing webhook deliveries, up to 100 per run within 25 seconds, see [Webhooks](../admin/webhooks.md) | 5 seconds | every 10 seconds, give or take 2 seconds |
 | `webhook_prune` | deletes old webhook deliveries (30 days delivered, 90 days other, at most 1,000 per webhook) | 2 minutes | hourly, give or take 5 minutes |
 | `changeset_sweep` | closes staged content changesets past their 72 hour expiry (their items, buffer and staged files go), deletes finished runs and removes staged files nothing refers to (left over by a crash) | 3 minutes | hourly, give or take 5 minutes |
+| `user_access` | signs out and revokes the API keys of users whose access end date has passed, writes an audit entry, and mails the other owners three days before an end when mail is set up | 10 minutes | hourly |
 | `standing_digest` | mails the owners the runs that published themselves in the last day, once a day across replicas, only when mail is set up and something published | 10 minutes | daily, give or take 30 minutes |
 | `update_check` | the signed update check, see [How updates work](../updates/index.md); a run may take up to 45 minutes (fetch, download and switch), outside the 10 minute cap, and still stops on shutdown | 1 to 9 minutes (random) | every 6 hours, give or take 30 minutes |
 
@@ -55,7 +56,7 @@ Partitions for the crawler hits table are also ensured at boot, independently of
 | `WORKER_DISABLE_JOBS=publish,prune` | skip the named jobs; names are comma separated and case-insensitive |
 | `WORKER_DRAIN=true` | create the scheduler but start none of its loops (also accepts `1`, `yes`, `on`); meant for the moments you run a risky migration and want no background writes |
 
-The job names accepted by `WORKER_DISABLE_JOBS` are exactly `publish`, `retention_purge`, `prune`, `entity_versions`, `agent_hits_partition`, `agent_hits_maintenance`, `agent_ranges_refresh`, `agent_verify`, `update_check`, `webhook_deliver`, `webhook_prune`, `changeset_sweep` and `standing_digest`. The server logs which of them are disabled at start-up.
+The job names accepted by `WORKER_DISABLE_JOBS` are exactly `publish`, `retention_purge`, `prune`, `entity_versions`, `agent_hits_partition`, `agent_hits_maintenance`, `agent_ranges_refresh`, `agent_verify`, `update_check`, `webhook_deliver`, `webhook_prune`, `changeset_sweep` `standing_digest` and `user_access`. The server logs which of them are disabled at start-up.
 
 ```bash
 # a second replica that should serve traffic but not run maintenance

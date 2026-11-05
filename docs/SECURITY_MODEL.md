@@ -281,6 +281,7 @@ docs has the `docker network inspect` command.
 | An API key's secret is shown once | `internal/admin` | `TestAPIKeysSecretShownOnce` |
 | Key scopes are separate: `write:entities` does not imply the site-structure scopes, and each site-structure MCP write tool needs its own scope | `internal/auth`, `internal/mcpserver` | `TestSiteWriteScopes`, `TestSiteWriteScopesAreSeparate` |
 | The MCP endpoint refuses browser requests from origins that are not the site's or listed, and counts every request against the key's rate limit | `internal/mcpserver` | `TestOriginValidation`, `TestOriginWithoutPublicOriginRefusesBrowsers`, `TestRateLimitPerRequest` |
+| A user whose access end date has passed cannot sign in, and their live admin, bearer and API cookie sessions and the API keys they created are refused on the next request, without waiting for the hourly job | `internal/auth`, `internal/admin` | `TestAccessEndedRefusesEverySignIn`, `TestAccessEndedRefusesLiveSessions`, `TestAccessEndedAPIKeys`, `TestAccessEndedCookieRefused` |
 | An API key reaches only the routes its scopes allow, and a key whose creator lacks the editor role cannot write | `internal/middleware` | `TestAuthOrAPIKeyAllowlist`, `TestAuthOrAPIKeyRejectsCreatorWithoutEditRole` |
 
 ### Outbound connections of the server itself

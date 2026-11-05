@@ -180,6 +180,8 @@ There are two ways to add someone:
 - **Invite** (`<admin>/settings/users/invite`): enter an email address and a role (Editor is preselected). The invitation link is valid for 7 days. It is shown once in a banner on the users list and, when email works and a site address is set, also emailed. The person enters a name and chooses their own password at `<admin>/accept`. The **Pending invitations** table shows the expiry and offers **Send a new link** and **Revoke**.
 - **Create** (`<admin>/settings/users/new`, **Add with a password instead** in the invite form): set the password yourself. Passwords need at least 12 characters.
 
+The invite and the user form have an optional **Access ends on** date. See [Access that ends](users-and-api-keys.md#access-that-ends). The users list shows an **Access** column.
+
 On a user row you can **Edit** the name, email and role, send a password reset (**Reset password**, a one-time link valid for one hour, shown once and emailed when possible, at most three per user per hour) or **Delete** the user. Deleting asks for confirmation, and the user's content stays. The last owner cannot be deleted or demoted: the form tells you to make someone else an owner first.
 
 From a shell on the server you can create or reset a user without the admin:

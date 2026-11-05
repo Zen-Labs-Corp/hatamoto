@@ -34,6 +34,17 @@ In this guide you invite a colleague to the admin and create a key that lets a p
 
 Until they accept, the invitation appears under **Pending invitations**, with **Send a new link** and **Revoke**. To set a password for someone yourself instead, use **Add with a password instead** in the invitation form.
 
+### Access that ends
+
+For a contractor or a guest, set **Access ends on** in the invitation form or on the person's edit page. Their access stops at the end of that day in the site time zone. The date must be today or later.
+
+- From then on sign-in is refused with the usual neutral message, and anyone already signed in is signed out on their next request.
+- API keys that person created stop working, and the hourly job revokes them. The change is recorded in the audit log as `user.access_ended`.
+- Three days before the end, the other owners get an email, when the site can send email.
+- To restore access, choose a later date or tick **Clear date** on the edit page and save. Old sessions and revoked keys do not come back; the person signs in again and new keys are made.
+- An owner with an end date needs another owner without one. The form says so if that is not the case.
+- The JSON users endpoints take `access_ends_at` (an RFC 3339 time with a zone; `null` clears it), owners only.
+
 ### Change or remove a person
 
 1. Find the person in the users list. Each row has three actions. The last owner can never be deleted or made an editor: make someone else an owner first.

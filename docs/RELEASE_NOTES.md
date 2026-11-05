@@ -32,6 +32,13 @@ The backend, the admin, MCP and REST output and the plugin SDK now use the JSON 
 - **Privacy.** A custom admin address is never printed on public pages; only the legacy `/admin` is named.
 - **Migration.** None. Rollback floor: unchanged.
 
+## Unreleased: Expiring user access
+
+- **End date.** Invites and users take an optional **Access ends on** date (end of that day in the site time zone). Once it passes, sign-in is refused, live sessions are refused on the next request and the API keys the person created stop working. Extending or clearing the date restores sign-in, not old sessions or keys.
+- **Worker.** A new hourly job `user_access` revokes sessions and keys, writes a `user.access_ended` audit entry and mails the other owners three days before an end. It can be switched off with `WORKER_DISABLE_JOBS=user_access`; the request-time check does not depend on it.
+- **API.** The JSON users endpoints accept `access_ends_at`, owners only.
+- **Migration.** Two additive columns (`access_ends_at` on users and on user tokens, plus two bookkeeping columns on users). Rollback floor: unchanged; an older release ignores the columns, so users with an end date can sign in again.
+
 ## Unreleased: Popular content
 
 - **Template func.** `popular "post" 5 30` lists the published entities of a schema with the most pageviews over the last 7, 30 or 90 days (any other value or none means 30; limit 1 to 50), the newest filling any gap so the list is always full.
