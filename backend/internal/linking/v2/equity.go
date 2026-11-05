@@ -2,12 +2,12 @@ package v2
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // EquityTargetRow is one row in the equity dashboard — a single target
@@ -130,7 +130,7 @@ func ComputeEquity(ctx context.Context, db *database.DB) (*EquityReport, error) 
 			return nil, fmt.Errorf("equity scan: %w", err)
 		}
 		r.Tier = tierForPriority(maxPriority)
-		if err := json.Unmarshal(schemasJSON, &r.InboundBySourceSchema); err != nil {
+		if err := jsonx.Unmarshal(schemasJSON, &r.InboundBySourceSchema, jsonx.StoredLoose); err != nil {
 			r.InboundBySourceSchema = map[string]int{}
 		}
 		report.Targets = append(report.Targets, r)

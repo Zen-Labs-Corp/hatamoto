@@ -55,7 +55,7 @@ func TestWithContentEmptyAttrs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(out) != `{"content":"\u003cp\u003ex\u003c/p\u003e"}` {
+	if string(out) != `{"content":"<p>x</p>"}` {
 		t.Errorf("unexpected: %s", out)
 	}
 }

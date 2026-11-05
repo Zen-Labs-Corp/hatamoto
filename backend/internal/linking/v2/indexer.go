@@ -2,7 +2,6 @@ package v2
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 	"golang.org/x/net/html"
 
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // ParsedLink is a single occurrence of an <a data-entity-id="…"> tag inside
@@ -37,7 +37,7 @@ func ParseLinksFromAttributes(attrs []byte) ([]ParsedLink, error) {
 		return nil, nil
 	}
 	var root map[string]any
-	if err := json.Unmarshal(attrs, &root); err != nil {
+	if err := jsonx.Unmarshal(attrs, &root, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("unmarshal attributes: %w", err)
 	}
 	leaves := attributeLeaves(root)

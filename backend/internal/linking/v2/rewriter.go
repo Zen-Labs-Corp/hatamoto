@@ -2,7 +2,6 @@ package v2
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -10,6 +9,7 @@ import (
 	"golang.org/x/net/html"
 
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Reason values for the audit log. Keep this list in sync with the
@@ -490,7 +490,7 @@ func rewriteHrefsInAttributes(attrs []byte, targetID uuid.UUID, newCanonicalURL 
 		return attrs, nil, nil
 	}
 	var root map[string]any
-	if err := json.Unmarshal(attrs, &root); err != nil {
+	if err := jsonx.Unmarshal(attrs, &root, jsonx.StoredLoose); err != nil {
 		return attrs, nil, fmt.Errorf("unmarshal attributes: %w", err)
 	}
 
@@ -523,7 +523,7 @@ func rewriteHrefsInAttributes(attrs []byte, targetID uuid.UUID, newCanonicalURL 
 		return attrs, nil, nil
 	}
 
-	out, err := json.Marshal(root)
+	out, err := jsonx.Marshal(root)
 	if err != nil {
 		return attrs, nil, fmt.Errorf("re-marshal attributes: %w", err)
 	}
@@ -543,7 +543,7 @@ func rewriteSingleHrefInAttributes(attrs []byte, targetID uuid.UUID, occurrenceI
 		return attrs, nil, nil
 	}
 	var root map[string]any
-	if err := json.Unmarshal(attrs, &root); err != nil {
+	if err := jsonx.Unmarshal(attrs, &root, jsonx.StoredLoose); err != nil {
 		return attrs, nil, fmt.Errorf("unmarshal attributes: %w", err)
 	}
 
@@ -591,7 +591,7 @@ func rewriteSingleHrefInAttributes(attrs []byte, targetID uuid.UUID, occurrenceI
 		return attrs, nil, nil
 	}
 
-	out, err := json.Marshal(root)
+	out, err := jsonx.Marshal(root)
 	if err != nil {
 		return attrs, nil, fmt.Errorf("re-marshal attributes: %w", err)
 	}
