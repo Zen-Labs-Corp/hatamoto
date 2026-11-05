@@ -33,7 +33,7 @@ func TestCSPWithExtrasCaptchaOutputUnchanged(t *testing.T) {
 			t.Errorf("%s: %q", provider, got)
 		}
 		strict := cspWithExtras(renderCSPStrict, captchaExtras(provider))
-		if !strings.Contains(strict, "script-src 'self' "+origins+";") || strings.Contains(strings.SplitN(strict, "style-src", 2)[0], "unsafe-inline") {
+		if !strings.Contains(strict, "script-src 'self' 'inline-speculation-rules' "+origins+";") || strings.Contains(strings.SplitN(strict, "style-src", 2)[0], "unsafe-inline") {
 			t.Errorf("%s strict: %q", provider, strict)
 		}
 	}

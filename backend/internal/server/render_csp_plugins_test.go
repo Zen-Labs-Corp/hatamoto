@@ -58,7 +58,7 @@ func TestRenderCSPPluginHostsStrictTheme(t *testing.T) {
 	f.next = okPage("About")
 	f.h.pluginCSP = func() pluginhost.CSPSet { return pluginhost.CSPSet{Script: []string{"https://js.example.com"}} }
 	got := f.get("/about").Header().Get("Content-Security-Policy-Report-Only")
-	if !strings.Contains(got, "script-src 'self' https://js.example.com;") || strings.Contains(strings.SplitN(got, "style-src", 2)[0], "unsafe-inline") {
+	if !strings.Contains(got, "script-src 'self' 'inline-speculation-rules' https://js.example.com;") || strings.Contains(strings.SplitN(got, "style-src", 2)[0], "unsafe-inline") {
 		t.Errorf("strict theme CSP = %q", got)
 	}
 }

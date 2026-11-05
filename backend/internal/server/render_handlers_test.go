@@ -675,16 +675,16 @@ func TestRenderCSPStrictScripts(t *testing.T) {
 	if got != renderCSPStrict {
 		t.Errorf("default theme CSP = %q, want renderCSPStrict", got)
 	}
-	if !strings.Contains(got, "script-src 'self';") || strings.Contains(strings.SplitN(got, "style-src", 2)[0], "unsafe-inline") {
+	if !strings.Contains(got, "script-src 'self' 'inline-speculation-rules';") || strings.Contains(strings.SplitN(got, "style-src", 2)[0], "unsafe-inline") {
 		t.Errorf("script-src is not strict: %q", got)
 	}
-	if want := strings.Replace(renderCSP, "script-src 'self' 'unsafe-inline'", "script-src 'self'", 1); renderCSPStrict != want {
+	if want := strings.Replace(renderCSP, "script-src 'self' 'unsafe-inline'", "script-src 'self' 'inline-speculation-rules'", 1); renderCSPStrict != want {
 		t.Errorf("renderCSPStrict differs from renderCSP beyond script-src:\n%s\n%s", renderCSPStrict, want)
 	}
 
 	f.h.cspExtras = func(context.Context) cspExtras { return captchaExtras("turnstile") }
 	got = cspOf(f.get("/about"))
-	if !strings.Contains(got, "script-src 'self' https://challenges.cloudflare.com;") || strings.Contains(strings.SplitN(got, "style-src", 2)[0], "unsafe-inline") {
+	if !strings.Contains(got, "script-src 'self' 'inline-speculation-rules' https://challenges.cloudflare.com;") || strings.Contains(strings.SplitN(got, "style-src", 2)[0], "unsafe-inline") {
 		t.Errorf("strict + provider CSP = %q", got)
 	}
 }

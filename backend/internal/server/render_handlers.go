@@ -45,8 +45,10 @@ const (
 
 	// renderCSPStrict is renderCSP without 'unsafe-inline' in script-src, for
 	// themes that opt in (theme.json csp.strictScripts). No nonce: public HTML
-	// is cached and shared, so a per-request nonce would go stale.
-	renderCSPStrict = "default-src 'self'; script-src 'self'; " +
+	// is cached and shared, so a per-request nonce would go stale. The
+	// 'inline-speculation-rules' keyword allows only the speculationrules block
+	// of the link prefetch, never an executable script.
+	renderCSPStrict = "default-src 'self'; script-src 'self' 'inline-speculation-rules'; " +
 		"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; " +
 		"font-src 'self'; connect-src 'self'; frame-src 'self' https:; frame-ancestors 'self'; " +
 		"object-src 'none'; base-uri 'self'; form-action 'self'"
