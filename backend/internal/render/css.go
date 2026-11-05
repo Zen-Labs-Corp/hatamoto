@@ -69,10 +69,14 @@ func scanCSS(s string) (string, *CSSIssue) {
 	var out []byte
 	var lines []int // line of each byte of out
 	line := 1
+	// escaped marks the output bytes that came from an escape outside strings
+	// and url bodies.
+	var escaped []bool
 	emit := func(l int, bs ...byte) {
 		for _, c := range bs {
 			out = append(out, c)
 			lines = append(lines, l)
+			escaped = append(escaped, false)
 		}
 	}
 	// escape decodes the escape starting at s[i] == '\\'; it returns the next
@@ -121,12 +125,12 @@ func scanCSS(s string) (string, *CSSIssue) {
 		}
 		return i + 1, string(s[i])
 	}
-	// escEnd is len(out) after the last escape outside strings and url bodies.
-	escEnd := -1
 	// startsURL looks at the decoded output, so u\72l( is a url( like any
 	// other. Per CSS Syntax the token needs url to be the whole identifier: a
-	// preceding ident character, or an escape (\!url is one ident), makes it an
-	// ordinary function whose comments and strings browsers parse normally.
+	// preceding ident character, an escape (\!url is one ident), a hash (#url)
+	// or an at-keyword (@url) makes it an ordinary function or block whose
+	// comments and strings browsers parse normally. This is a best effort: the
+	// url body rule below is what keeps a wrong answer harmless.
 	startsURL := func() bool {
 		n := len(out)
 		if n < 3 || !strings.EqualFold(string(out[n-3:]), "url") {
@@ -135,11 +139,11 @@ func scanCSS(s string) (string, *CSSIssue) {
 		if n == 3 {
 			return true
 		}
-		if escEnd == n-3 {
+		if escaped[n-4] {
 			return false
 		}
 		p := out[n-4]
-		return !(p >= 'a' && p <= 'z' || p >= 'A' && p <= 'Z' || p >= '0' && p <= '9' || p == '_' || p == '-' || p >= 0x80)
+		return !(p >= 'a' && p <= 'z' || p >= 'A' && p <= 'Z' || p >= '0' && p <= '9' || p == '_' || p == '-' || p == '#' || p == '@' || p >= 0x80)
 	}
 	for i := 0; i < len(s); {
 		c := s[i]
@@ -236,7 +240,9 @@ func scanCSS(s string) (string, *CSSIssue) {
 			var dec string
 			i, dec = escape(i)
 			emit(l, []byte(dec)...)
-			escEnd = len(out)
+			for k := len(out) - len(dec); k < len(out); k++ {
+				escaped[k] = true
+			}
 		default:
 			if c == '\n' {
 				line++
