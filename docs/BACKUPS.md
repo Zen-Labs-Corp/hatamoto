@@ -35,16 +35,31 @@ Under `$HATAMOTO_DATA/backups`. The directory is mode 0700 and every file in it 
 runs `pg_dump`, so the `pg_dump` on the server's `PATH` must have the same major version as the
 database server; a mismatch fails the backup with that message.
 
-Retention keeps the newest finished backups of each kind and removes older ones:
+Retention keeps the newest finished backups of each kind and removes older ones. Each kind has its
+own count, from 1 to 50, resolved in this order:
+
+1. The environment variable, when it is set to a whole number from 1 to 50.
+2. `$HATAMOTO_DATA/backups/retention.json`, which the owner writes from Settings > Backups.
+3. The default.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `HATAMOTO_BACKUP_KEEP` | `5` | Manual backups kept. |
-| `HATAMOTO_BACKUP_KEEP_PRE_UPDATE` | `2` | Pre-update backups kept. |
-| `HATAMOTO_BACKUP_KEEP_SCHEDULED` | `3` | Scheduled backups kept (the ones the off-site schedule takes). |
+| `HATAMOTO_BACKUP_KEEP` | `10` | Manual backups kept. |
+| `HATAMOTO_BACKUP_KEEP_PRE_UPDATE` | `5` | Pre-update backups kept. |
+| `HATAMOTO_BACKUP_KEEP_SCHEDULED` | `7` | Scheduled backups kept (the ones the off-site schedule takes). |
 
-A value that is not a whole number of at least 1 is ignored and the default is used. Failed backups
-are not counted and are not pruned.
+A value that is not a whole number from 1 to 50 is ignored, in the environment and in the file, and
+the next source in the order is used. The file looks like
+`{"manual":10,"pre_update":5,"scheduled":7}`; a missing key means the default, and unknown keys are
+ignored. Failed and running backups are never counted and never pruned.
+
+Owners set the three counts on Settings > Backups. A count fixed by an environment variable shows as
+a read-only field that names the variable; change it in the server config. A save that would delete
+backups first asks you to confirm and says how many of each kind go (the oldest finished ones); a
+save that deletes nothing applies at once. Saving prunes straight away, and every finished backup
+prunes by the counts as they are at that moment, so a change needs no restart. `hatamoto backup
+create` prunes by the same counts and, like the file, works with the database down. The file is mode
+0600, replaced atomically, never part of a backup archive, and a restore never writes it.
 
 Before it starts, a backup checks free space: the dump parts and the finished archive sit side
 by side in the backups directory, so it needs twice the database size plus the media files, plus
@@ -100,7 +115,7 @@ server: the client is part of the binary.
 "Back up and upload now" are uploaded. Pre-update backups stay on the machine.
 
 **Schedule.** Off, every day at a chosen hour, or every week on a chosen day and hour. Times are UTC.
-Each run takes a local backup of kind `scheduled` (kept on disk per `HATAMOTO_BACKUP_KEEP_SCHEDULED`)
+Each run takes a local backup of kind `scheduled` (kept on disk per the scheduled count above: `HATAMOTO_BACKUP_KEEP_SCHEDULED`, `retention.json` or the Settings > Backups form)
 and then uploads it while it still holds the backup lock, so an upload never overlaps another backup
 or an update's backup. If another backup is running when a slot falls due, the run waits 10 minutes
 and tries again; that is not recorded as a failure. A slot is claimed in the database, so with several
@@ -290,7 +305,7 @@ CREATEDB or CREATEROLE). `<db>` is the new database. Run the Hatamoto commands a
 7. The database dump holds no media files. They are in `content.tar.gz` under `media/`; copy them
    back to `MEDIA_UPLOAD_DIR` if that directory is new, then start the service.
 
-The restored site keeps its users and passwords.
+The restored site keeps its users and passwords. Restoring leaves `backups/retention.json` as it is.
 
 ### Content only
 
