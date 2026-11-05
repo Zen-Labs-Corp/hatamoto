@@ -1,7 +1,6 @@
 package render
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 
 	"golang.org/x/net/html"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Cross-language golden for the canvas text walk. The browser walk
@@ -122,7 +122,7 @@ func TestCanvasTextGolden(t *testing.T) {
 
 			// (b) node list matches the golden.
 			gotG := buildTextGolden(t, body)
-			enc, err := json.MarshalIndent(gotG, "", "  ")
+			enc, err := jsonx.Indent(gotG)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -130,7 +130,7 @@ func TestCanvasTextGolden(t *testing.T) {
 			gpath := filepath.Join(canvasTextDir, name+".golden.json")
 			want := writeOrRead(t, gpath, enc)
 			var wantG textGolden
-			if err := json.Unmarshal(want, &wantG); err != nil {
+			if err := jsonx.Unmarshal(want, &wantG); err != nil {
 				t.Fatal(err)
 			}
 			nodes, _ := EditableTextNodes(body)

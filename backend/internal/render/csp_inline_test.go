@@ -2,13 +2,14 @@ package render
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"golang.org/x/net/html"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // inlineScriptIssues lists everything in page that would need script-src
@@ -98,7 +99,7 @@ func TestDefaultThemePublicPagesHaveNoInlineScript(t *testing.T) {
 		var buf bytes.Buffer
 		if name == "page-shell" {
 			var v PageView
-			if err := json.Unmarshal(raw, &v); err != nil {
+			if err := jsonx.Unmarshal(raw, &v, jsonx.StoredLoose); err != nil {
 				t.Fatal(err)
 			}
 			if err := e.RenderPage(&buf, &v); err != nil {
@@ -106,7 +107,7 @@ func TestDefaultThemePublicPagesHaveNoInlineScript(t *testing.T) {
 			}
 		} else {
 			var sf sectionFixture
-			if err := json.Unmarshal(raw, &sf); err != nil {
+			if err := jsonx.Unmarshal(raw, &sf); err != nil {
 				t.Fatal(err)
 			}
 			v := minimalView()

@@ -2,7 +2,6 @@ package render
 
 import (
 	"bytes"
-	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func nativeDoc() *builder.Doc {
@@ -62,7 +62,7 @@ func TestDocV1ShapedMatchesGoldens(t *testing.T) {
 				t.Fatal(err)
 			}
 			var sf sectionFixture
-			if err := json.Unmarshal(raw, &sf); err != nil {
+			if err := jsonx.Unmarshal(raw, &sf); err != nil {
 				t.Fatal(err)
 			}
 			v := minimalView()

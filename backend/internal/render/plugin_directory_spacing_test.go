@@ -2,7 +2,6 @@ package render
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -10,6 +9,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // builderDirectoryDoc is shaped like hatamoto.dev/plugins: a native container
@@ -78,7 +78,7 @@ func TestPluginDirectoryBuilderGolden(t *testing.T) {
 		t.Fatal(err)
 	}
 	var sf sectionFixture
-	if err := json.Unmarshal(raw, &sf); err != nil {
+	if err := jsonx.Unmarshal(raw, &sf); err != nil {
 		t.Fatal(err)
 	}
 	doc := builderDirectoryDoc()
@@ -128,7 +128,7 @@ func TestThemeDirectoryBuilderGolden(t *testing.T) {
 		t.Fatal(err)
 	}
 	var sf sectionFixture
-	if err := json.Unmarshal(raw, &sf); err != nil {
+	if err := jsonx.Unmarshal(raw, &sf); err != nil {
 		t.Fatal(err)
 	}
 	doc := builderDirectoryDoc()

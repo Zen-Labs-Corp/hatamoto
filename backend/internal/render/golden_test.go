@@ -2,13 +2,14 @@ package render
 
 import (
 	"bytes"
-	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // sectionFixture is a testdata/fixtures/<type>.json file: one section rendered
@@ -97,7 +98,7 @@ func TestGolden(t *testing.T) {
 			var buf bytes.Buffer
 			if name == "page-shell" {
 				var v PageView
-				if err := json.Unmarshal(raw, &v); err != nil {
+				if err := jsonx.Unmarshal(raw, &v, jsonx.StoredLoose); err != nil {
 					t.Fatal(err)
 				}
 				if err := e.RenderPage(&buf, &v); err != nil {
@@ -109,7 +110,7 @@ func TestGolden(t *testing.T) {
 				return
 			}
 			var sf sectionFixture
-			if err := json.Unmarshal(raw, &sf); err != nil {
+			if err := jsonx.Unmarshal(raw, &sf); err != nil {
 				t.Fatal(err)
 			}
 			v := minimalView()

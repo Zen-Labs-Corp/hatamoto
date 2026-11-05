@@ -3,13 +3,15 @@ package render
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"flag"
 	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // update rewrites testdata/golden files (shared by every golden test here).
@@ -22,7 +24,7 @@ func loadFixtureView(t *testing.T, name string) *PageView {
 		t.Fatal(err)
 	}
 	var v PageView
-	if err := json.Unmarshal(b, &v); err != nil {
+	if err := jsonx.Unmarshal(b, &v, jsonx.StoredLoose); err != nil {
 		t.Fatal(err)
 	}
 	return &v
@@ -152,7 +154,7 @@ func TestSEOJSONLD(t *testing.T) {
 	h := seoHead(&PageView{
 		Site:       SiteView{Name: "S", LogoURL: "/l.png", SocialLinks: []Link{{URL: "https://t.co/x"}, {URL: "javascript:1"}}},
 		BaseURL:    "https://x.io",
-		JSONLD:     []json.RawMessage{json.RawMessage(`{"name":"</script><script>alert(1)</script>"}`), json.RawMessage(`{broken`)},
+		JSONLD:     []jsontext.Value{jsontext.Value(`{"name":"</script><script>alert(1)</script>"}`), jsontext.Value(`{broken`)},
 		Breadcrumb: []Crumb{{Name: "Home", URL: "/"}, {Name: "Here"}},
 	}, false)
 	if len(h.Scripts) != 3 { // backend doc, breadcrumb, graph; invalid doc skipped
@@ -164,7 +166,7 @@ func TestSEOJSONLD(t *testing.T) {
 			t.Errorf("unescaped < in JSON-LD: %s", s)
 		}
 		var any map[string]any
-		if err := json.Unmarshal([]byte(body), &any); err != nil {
+		if err := jsonx.Unmarshal([]byte(body), &any); err != nil {
 			t.Errorf("invalid JSON-LD: %v: %s", err, body)
 		}
 	}

@@ -2,7 +2,6 @@ package render
 
 import (
 	"bytes"
-	"encoding/json"
 	"html/template"
 	"os"
 	"strings"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestFuncsMarkers(t *testing.T) {
@@ -327,7 +327,7 @@ func TestSafeURLAgreesWithAllowedInlineHref(t *testing.T) {
 		Href string `json:"href"`
 		OK   bool   `json:"ok"`
 	}
-	if err := json.Unmarshal(raw, &cases); err != nil {
+	if err := jsonx.Unmarshal(raw, &cases); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range cases {

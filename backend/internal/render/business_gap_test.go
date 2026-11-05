@@ -1,10 +1,11 @@
 package render
 
 import (
-	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // gapPage is a two-locale page: en-XX is the unprefixed default, fr-ZZ sits
@@ -177,7 +178,7 @@ func TestEmptyGapFieldsAddNoKeys(t *testing.T) {
 	v.Business = &BusinessView{ID: "zz"}
 	v.Site.Org.BusinessDetails = extendedDetails()
 	v.Business.BusinessDetails = extendedDetails()
-	b, err := json.Marshal(siteGraphLD(v))
+	b, err := jsonx.Marshal(siteGraphLD(v))
 	if err != nil {
 		t.Fatal(err)
 	}
