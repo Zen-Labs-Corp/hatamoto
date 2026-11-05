@@ -12,7 +12,12 @@
 .hm-pdf__row {
   order: 1;
   font-size: 0.875em;
-  color: var(--hm-muted-text, #555);
+}
+.hm-pdf__link {
+  color: var(--hm-text, inherit);
+}
+.hm-pdf__pre {
+  color: var(--hm-hai, #555);
 }
 .hm-pdf__ph {
   display: grid;
@@ -37,6 +42,5 @@
     padding: var(--hm-space-3, 0.75rem);
     border: 1px solid currentColor;
     border-radius: var(--hm-radius-md, 0.5rem);
-    color: var(--hm-text, inherit);
   }
 }
