@@ -62,16 +62,6 @@ func TestPickFontFacesNothingInstalled(t *testing.T) {
 	}
 }
 
-func TestFirstFamily(t *testing.T) {
-	for in, want := range map[string]string{
-		`"Brand Sans", sans-serif`: "Brand Sans", `'X'`: "X", ` Inter ,serif`: "Inter", "": "",
-	} {
-		if got := firstFamily(in); got != want {
-			t.Errorf("firstFamily(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestFontsNilStoreGivesNoFaces(t *testing.T) {
 	s := &Server{}
 	if faces, preload := s.fontFaces(t.Context(), siteconfig.ThemeConfig{}); faces != nil || preload != "" {

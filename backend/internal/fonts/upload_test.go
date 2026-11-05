@@ -50,3 +50,13 @@ func TestMaxSizeAccepted(t *testing.T) {
 		t.Errorf("exactly 2 MB: %v", err)
 	}
 }
+
+func TestFirstFamily(t *testing.T) {
+	for in, want := range map[string]string{
+		`"Brand Sans", sans-serif`: "Brand Sans", `'X'`: "X", ` Inter ,serif`: "Inter", "": "",
+	} {
+		if got := FirstFamily(in); got != want {
+			t.Errorf("FirstFamily(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

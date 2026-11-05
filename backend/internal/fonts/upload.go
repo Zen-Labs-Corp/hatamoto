@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 )
 
 // Limits. MaxUploads is how many files one owner may add by upload.
@@ -66,4 +67,11 @@ func ValidateUpload(family string, weight int, style string, r io.Reader) ([]byt
 func hashOf(b []byte) string {
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
+}
+
+// FirstFamily returns the first family of a font stack without its quotes:
+// `"Brand Sans", sans-serif` gives Brand Sans.
+func FirstFamily(stack string) string {
+	first, _, _ := strings.Cut(stack, ",")
+	return strings.TrimSpace(strings.Trim(strings.TrimSpace(first), `"'`))
 }

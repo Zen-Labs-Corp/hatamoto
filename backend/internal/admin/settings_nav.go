@@ -176,6 +176,7 @@ var themeRegistry = []settingsSectionDef{
 	}},
 	{ID: "colours", Label: "Colours and fonts", Icon: "sun", Desc: "Brand colours, fonts and corners, applied by the live theme to every page.", Tabs: []settingsTabDef{
 		{ID: "colours", Label: "Colours and fonts", Final: "/theme/colours", Roles: ownerOnly},
+		{ID: "fonts", Label: "Fonts", Final: "/theme/fonts", Roles: ownerOnly},
 	}},
 	{ID: "design-system", Label: "Design system", Icon: "layers", Desc: "Named colours, sizes and spacing that blocks use through their style settings.", Tabs: []settingsTabDef{
 		{ID: "design-system", Label: "Design system", Final: "/theme/design-system", Roles: ownerOnly},

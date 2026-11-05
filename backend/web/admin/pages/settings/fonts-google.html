@@ -1,0 +1,22 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<section class="hm-stack">
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/theme/fonts/google" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "google-card" "Title" "Download from Google Fonts" "Heading" "h2" "Description" "Type the name of a font as it appears on Google Fonts. Your server contacts Google once, now, and keeps its own copy. Visitors to your site never contact Google."}}
+<div class="hm-fieldgrid hm-fieldgrid--stack">
+{{template "hm/field" dict "ID" "google_family" "Name" "family" "Label" "Google font name" "Value" .Form.GoogleFamily "Required" true "Help" "For example: Open Sans. Letters, numbers and spaces." "Error" (index .Errs "google_family")}}
+<fieldset class="hm-field__group" id="google_weights"{{if index .Errs "google_weights"}} aria-describedby="google_weights-error"{{end}}><legend class="hm-field__label">Weights</legend>
+<div class="hm-field__chips">{{range .Weights}}{{template "hm/field" dict "ID" .ID "Control" "chip" "Name" "weights" "Value" .Value "Label" .Label "Checked" .Checked}}{{end}}</div>
+{{with index .Errs "google_weights"}}<p class="hm-field__error" id="google_weights-error">{{.}}</p>{{end}}</fieldset>
+{{template "hm/field" dict "ID" "google_italic" "Control" "switch" "Name" "italic" "Label" "Include italic versions" "Checked" .Form.GoogleItalic}}
+{{template "hm/field" dict "ID" "google_latin" "Control" "switch" "Name" "latin_only" "Label" "Latin only" "Checked" .Form.GoogleLatinOnly "Help" "Keeps the Latin and Latin extended letters, which cover most European languages, and leaves out the rest to keep pages fast."}}
+</div>
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Cancel" "Href" .Back}}
+{{template "hm/button" dict "Label" "Download font" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+</section>
+{{end}}{{end}}

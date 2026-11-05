@@ -1,0 +1,8 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<section class="hm-stack">
+{{template "hm/card-start" dict "ID" "fonts_list" "Title" "Your fonts" "Heading" "h2" "Description" (printf "%d of %d font files used. Pick them as the body or heading font under Colours and fonts. Pages use them from your own server, and visitors never contact Google." .Count .Max)}}
+{{template "hm/table" .Table}}{{template "hm/card-end"}}
+</section>
+{{end}}{{end}}

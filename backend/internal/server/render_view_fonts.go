@@ -29,7 +29,7 @@ func (s *Server) fontFaces(ctx context.Context, theme siteconfig.ThemeConfig) ([
 // or heading stack. The raw stacks are used, not the page tokens, which drop
 // a stack equal to the default: an uploaded "Inter" must still work.
 func pickFontFaces(list []fonts.Font, bodyStack, headingStack string) ([]render.FontFace, string) {
-	body, heading := firstFamily(bodyStack), firstFamily(headingStack)
+	body, heading := fonts.FirstFamily(bodyStack), fonts.FirstFamily(headingStack)
 	var faces []render.FontFace
 	var bodyFaces []fonts.Font
 	for _, f := range list {
@@ -77,10 +77,4 @@ func preloadHash(faces []fonts.Font) string {
 		return ""
 	}
 	return best.Hash
-}
-
-// firstFamily returns the first family of a font stack without quotes.
-func firstFamily(stack string) string {
-	first, _, _ := strings.Cut(stack, ",")
-	return strings.TrimSpace(strings.Trim(strings.TrimSpace(first), `"'`))
 }

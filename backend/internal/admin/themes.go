@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json/jsontext"
 	"errors"
 	"html/template"
@@ -25,6 +26,7 @@ func (a *Admin) mountThemes(authed *httpx.Group) {
 	owner.HandleFunc("POST /theme/themes/fetch", a.handleThemeFetch)
 	owner.HandleFunc("GET /theme/colours", a.handleDesignForm)
 	owner.HandleFunc("POST /theme/colours", a.handleDesignSave)
+	a.mountFonts(owner)
 	owner.HandleFunc("GET /theme/design-system", a.handleTokensForm)
 	owner.HandleFunc("POST /theme/design-system", a.handleTokensSave)
 	owner.HandleFunc("POST /theme/design-system/reset", a.handleTokensReset)
@@ -315,9 +317,14 @@ type designForm struct {
 }
 
 type designData struct {
-	Form    designForm
-	Errs    map[string]string
-	Summary []ui.FieldError
+	Form designForm
+	// Fonts is the installed font families; with none, the font pickers are hidden.
+	Fonts []fontPick
+	// BodyOptions and HeadingOptions are the picker options: each installed
+	// font, then Custom stack for the text field below the picker.
+	BodyOptions, HeadingOptions []ui.Option
+	Errs                        map[string]string
+	Summary                     []ui.FieldError
 }
 
 var (
@@ -372,8 +379,56 @@ var designLabels = []struct{ id, label string }{
 	{"font", "Body font"}, {"heading_font", "Heading font"}, {"radius_sm", "Small corners"}, {"radius_md", "Medium corners"}, {"radius_lg", "Large corners"},
 }
 
+// fontPick is one installed family as an option of the font pickers.
+type fontPick struct{ Family, Stack string }
+
+// fontStack is the stack stored when an installed family is chosen.
+func fontStack(family string) string { return `"` + family + `", sans-serif` }
+
+// installedFonts lists the installed families, sorted; nil with no font service.
+func (a *Admin) installedFonts(ctx context.Context) []fontPick {
+	if a.deps.Fonts == nil {
+		return nil
+	}
+	list, err := a.deps.Fonts.List(ctx)
+	if err != nil {
+		a.logger().Warn("list fonts for the pickers failed", "err", err)
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []fontPick
+	for _, f := range list {
+		if k := strings.ToLower(f.Family); !seen[k] {
+			seen[k] = true
+			out = append(out, fontPick{Family: f.Family, Stack: fontStack(f.Family)})
+		}
+	}
+	return out
+}
+
+// fontChoice is the select value for a stack: the installed family whose
+// stack it is exactly, else custom.
+func fontChoice(picks []fontPick, stack string) string {
+	for _, p := range picks {
+		if p.Stack == stack {
+			return p.Stack
+		}
+	}
+	return "custom"
+}
+
+func fontOptions(picks []fontPick, stack string) []ui.Option {
+	choice := fontChoice(picks, stack)
+	var out []ui.Option
+	for _, p := range picks {
+		out = append(out, ui.Option{Value: p.Stack, Label: p.Family, Selected: p.Stack == choice})
+	}
+	return append(out, ui.Option{Value: "custom", Label: "Custom stack", Selected: choice == "custom"})
+}
+
 func (a *Admin) renderDesign(w http.ResponseWriter, r *http.Request, status int, f designForm, errs map[string]string) {
-	d := designData{Form: f, Errs: errs}
+	d := designData{Form: f, Errs: errs, Fonts: a.installedFonts(r.Context())}
+	d.BodyOptions, d.HeadingOptions = fontOptions(d.Fonts, f.Font), fontOptions(d.Fonts, f.HeadingFont)
 	for _, k := range designLabels {
 		if m := errs[k.id]; m != "" {
 			d.Summary = append(d.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
@@ -401,6 +456,15 @@ func (a *Admin) handleDesignSave(w http.ResponseWriter, r *http.Request) {
 		Background: r.PostFormValue("background"), Text: r.PostFormValue("text"),
 		Font: r.PostFormValue("font"), HeadingFont: r.PostFormValue("heading_font"),
 		RadiusSm: r.PostFormValue("radius_sm"), RadiusMd: r.PostFormValue("radius_md"), RadiusLg: r.PostFormValue("radius_lg"),
+	}
+	if !fetchMode(r) {
+		// A picked installed font fills its stack; "custom" or no choice keeps the text field.
+		picks := a.installedFonts(r.Context())
+		for choice, p := range map[string]*string{"font_choice": &f.Font, "heading_font_choice": &f.HeadingFont} {
+			if c := r.PostFormValue(choice); c != "" && fontChoice(picks, c) != "custom" {
+				*p = c
+			}
+		}
 	}
 	if fetchMode(r) {
 		// A JS save posts only the fields it shows: the others keep their stored value (no lost update).
@@ -447,6 +511,9 @@ func (a *Admin) handleDesignSave(w http.ResponseWriter, r *http.Request) {
 		a.logger().Error("save design failed", "err", err)
 		a.fetchOrError(w, r, http.StatusInternalServerError, "The design could not be saved.")
 		return
+	}
+	if before := designFrom(cfg); before.Font != f.Font || before.HeadingFont != f.HeadingFont {
+		a.audit(r, "design.fonts", "typography", map[string]any{"body": f.Font, "heading": f.HeadingFont})
 	}
 	a.invalidate(r.Context())
 	if fetchMode(r) {

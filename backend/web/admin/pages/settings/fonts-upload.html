@@ -1,0 +1,20 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<section class="hm-stack">
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/theme/fonts/upload" enctype="multipart/form-data" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "upload-card" "Title" "Upload a font file" "Heading" "h2" "Description" "Upload one .woff2 file for each weight and style. You are responsible for the licence of the fonts you add."}}
+<div class="hm-fieldgrid hm-fieldgrid--stack">
+{{template "hm/field" dict "ID" "upload_file" "Name" "file" "Label" "Font file" "Type" "file" "Required" true "Help" "A .woff2 file, up to 2 MB." "Error" (index .Errs "upload_file") "Attrs" (attrmap "accept" ".woff2,font/woff2")}}
+{{template "hm/field" dict "ID" "upload_family" "Name" "family" "Label" "Family name" "Value" .Form.UploadFamily "Required" true "Help" "How the font is listed, for example: Brand Sans. Upload each weight under the same name." "Error" (index .Errs "upload_family")}}
+{{template "hm/field" dict "ID" "upload_weight" "Name" "weight" "Control" "select" "Label" "Weight" "Options" .WeightOptions "Required" true "Error" (index .Errs "upload_weight")}}
+{{template "hm/field" dict "ID" "upload_style" "Name" "style" "Control" "select" "Label" "Style" "Options" .StyleOptions "Required" true "Error" (index .Errs "upload_style")}}
+</div>
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Cancel" "Href" .Back}}
+{{template "hm/button" dict "Label" "Upload font" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+</section>
+{{end}}{{end}}
