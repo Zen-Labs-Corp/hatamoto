@@ -18,6 +18,7 @@ Settings holds everything about the site as a whole rather than one entity. Each
 | Email | `email` | owner |
 | Privacy | `privacy` | owner |
 | Tracking | `tracking` | owner |
+| Contact button | `contact-button` | owner |
 | Media | `media` | owner, editor |
 | Entity models | `types`, `taxonomies` | owner |
 | Forms | `forms`, `submissions` | owner, editor |
@@ -266,6 +267,23 @@ A visitor's choice is stored for 12 months in the `hm_consent` cookie, a necessa
 Under the form, a table shows how many visitors chose Accept all, Reject all or Custom each day for the last 30 days. Only these daily totals are stored. There is no IP address, user agent or visitor id, and no record of who chose what. Saving the page clears the page cache so the change shows at once.
 
 **Upgrade:** nothing changes until you turn the switch on. The migration adds two tables and nothing else.
+
+## Contact button: a floating link
+
+`<admin>/settings/contact-button` (the Contact button section of Settings, owners only) adds one link that stays in a corner of every public page. It opens WhatsApp, a phone call, a text message or an email. It is **off by default**: until you turn it on, your pages are exactly what they were before.
+
+| Field | Meaning |
+|---|---|
+| Show the floating button | The switch. Off by default. |
+| Opens | WhatsApp, Phone call, Text message or Email. |
+| Position | Bottom right or Bottom left. The button keeps clear of the phone's rounded corners and home bar. |
+| Button text | Up to 60 characters. Blank gives a plain English default: "Chat on WhatsApp", "Call us", "Send a text" or "Send an email". The text is the button's name for screen readers. |
+| Number or address | Blank uses the phone number (or email, for Email) from your business details, in the language of the page, so a French page can use the French number. Fill it in to use another number. A phone number has 6 to 15 digits; spaces, dashes, brackets and a leading + are fine. |
+| Message | Up to 500 characters, ready in the message box when the visitor taps the button. |
+
+The button is a plain link: no script runs and nothing is sent to anyone until a visitor taps it. It shows on every public page except the editor preview, the not-found and error pages and the coming soon, maintenance and password pages. It is hidden when a page is printed. If the button is on but there is no number or address (here or in your business details), the page says so and the button is not shown.
+
+Saving writes a "contact_button.settings" entry to the audit log that records whether the button is on, the channel, the position and whether a custom number is used, but not the number itself. Saving clears the page cache so the change shows at once. The settings live with the other theme settings; there is no migration. The `contactbutton` widget in the page builder (see [Node kinds](builder-reference.md#node-kinds)) is the same kind of link for one place on one page. A theme with its own base layout needs the `contact-float` partial to show the floating button, see the [builder contract](../themes/builder-contract.md#contact-button-classes-and-partial).
 
 ## Tracking: analytics, ad and chat tags
 

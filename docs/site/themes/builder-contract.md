@@ -58,6 +58,12 @@ A `loop` node renders `<div class="hm-n hm-loop hm-n-<id>">` holding one `<div c
 
 The `tabs` and `video` widgets have an optional `island.js` (a module with no globals and no `eval`). It is served from `/theme/assets/builder/<kind>.<hash8>.js` with an immutable cache, and a `<script type="module" src>` is added to the plugin body slot only for kinds present on a public page, never in the canvas and never inline. The public CSP (`script-src 'self'`) covers it. A page with no tabs and no video has no builder script, and the theme's own `hm.js` is unaffected. The server output works without JavaScript: tabs render every panel visible with its label as a paragraph, and a video renders as a link-first facade that makes no third-party request at load.
 
+## Contact button classes and partial
+
+The `contactbutton` widget renders one `<a class="hm-n hm-contactbtn hm-btn hm-n-<id>">` whose `href` is a `https://wa.me/...`, `tel:`, `sms:` or `mailto:` link. It reuses the theme's `.hm-btn` look and ships `.hm-contactbtn` (inline-block, hidden in print). It prints nothing publicly when the site has no number or address to link to.
+
+The floating button is the `contact-float` partial, called from the default `layouts/base.html` right after the footer: `{{template "contact-float" .}}`. It prints one `<a class="hm-contact-float hm-contact-float--bottom-right">` (or `--bottom-left`) with the owner's text as its name, and nothing when the button is off, has no target or the page is a preview. The 404, error and site access renders turn it off before the layout runs. Its styles are `assets/css/contact-float.css`: `position: fixed`, offsets that add `env(safe-area-inset-*)`, a 44 pixel minimum target, a visible `:focus-visible` outline, and `@media print { display: none }`. A theme with its own `base.html` shows the floating button by calling the partial (override the partial and the stylesheet to restyle it); it needs no script and no inline style.
+
 ## Design tokens (`builder.tokens`)
 
 `theme.json` may carry:

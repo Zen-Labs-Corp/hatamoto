@@ -52,6 +52,15 @@ REST, admin and MCP responses now say `[]` or `{}` where they used to say `null`
 
 **Rollback floor: unchanged.** The previous release reads `[]` and `{}` the same way.
 
+## Unreleased: Contact button
+
+A new **Contact button** widget in the page builder, and a floating contact button for the whole site (Settings > Contact button, off by default). Both are plain links that open WhatsApp, a phone call, a text message or an email. A blank number or address uses the phone or email from the business details of the page's language. No script runs and nothing is sent to a third party until a visitor taps the link.
+
+- **Floating button.** One fixed link on every public page except the preview, 404, error and site access pages. It respects the phone's safe areas and is hidden in print. A theme with its own base layout calls the `contact-float` partial to show it.
+- **No migration, no new dependency.** The settings live with the other theme settings.
+
+**Rollback floor: unchanged.** The previous release ignores the saved setting and shows no floating button; a page that holds a Contact button widget keeps its other content but the widget is not published until you upgrade again.
+
 ## Unreleased: Off-site backups
 
 Settings > Backups has a new Off-site copy card. Point it at an S3-compatible bucket (Amazon S3, Cloudflare R2, Backblaze B2, MinIO or similar), pick a daily or weekly time in UTC, and each scheduled backup is uploaded (the provider checks each part's SHA-256 on receipt, and the size and recorded checksum are read back) and pruned to the number of copies you keep. "Back up and upload now" runs one on demand. The backups table gains an Off-site column and the dashboard health card an Off-site backup row.

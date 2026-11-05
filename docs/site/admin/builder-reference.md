@@ -74,10 +74,12 @@ On top of these the builder ships widgets, grouped in the palette:
 | Group | Widgets |
 |---|---|
 | Layout | `columns` (2 to 6) |
-| Content | `stat`, `richtext`, `html`, `list`, `table`, `quote`, `buttons` |
+| Content | `stat`, `richtext`, `html`, `list`, `table`, `quote`, `buttons`, `contactbutton` |
 | Media | `icon`, `gallery`, `video`, `map` (plus the base `image`) |
 | Interactive | `accordion`, `tabs` (with panels) |
 | Data | `form`, `menu`, `breadcrumbs`, `loop` (query loop) |
+
+**Contact button** (`contactbutton`) is a button-looking link that opens WhatsApp, a phone call, a text message or an email. Pick the channel, then fill in the optional fields: **Number or address** (leave it blank to use the phone number or email from your business details, in the language of the page), **Message** (text that is ready in the message box) and **Button text** (blank gives a plain default such as "Chat on WhatsApp"). It is an ordinary link with no script and no third-party request until a visitor taps it. If there is no number or address anywhere, the button is not published and the editor shows it greyed out. It is hidden when the page is printed. To show one button on every page, use [Settings > Contact button](settings-users-email.md#contact-button-a-floating-link).
 
 Structural widgets are inserted with their seeded children as one undo step. Accordions and tabs work without JavaScript, and a small script enhances tabs and video only on pages that use them. A video renders as a link first and loads the player after a click, from YouTube no-cookie or Vimeo, so loading the page makes no third-party request.
 
