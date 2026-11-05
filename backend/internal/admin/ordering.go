@@ -2,6 +2,7 @@ package admin
 
 import (
 	"github.com/google/uuid"
+	"strings"
 )
 
 // orderNode is one row of a sibling-ordered tree: its parent, in display order.
@@ -97,13 +98,16 @@ func planMove(op string, all []orderNode, id uuid.UUID) (orderPlan, bool) {
 // moveOps are the buttons of the Order page, in the order they are drawn.
 // Label is the visible button text, Verb finishes its accessible name ("Move Beta up").
 var moveOps = []struct{ Op, Label, Verb string }{
-	{"up", "Up", "up"}, {"down", "Down", "down"}, {"indent", "Indent", "in under the entry above"}, {"outdent", "Outdent", "out to its parent's level"},
+	{"up", "Up", "up"}, {"down", "Down", "down"}, {"indent", "Indent", "in under the {noun} above"}, {"outdent", "Outdent", "out to its parent's level"},
 }
+
+// moveNoun fills the {noun} of a move label or reason: "entry" on the Order page, "term" on the term list.
+func moveNoun(s, noun string) string { return strings.ReplaceAll(s, "{noun}", noun) }
 
 // moveWhyNot says why a move button is disabled.
 var moveWhyNot = map[string]string{
 	"up":      "Already first among its siblings.",
 	"down":    "Already last among its siblings.",
-	"indent":  "There is no entry above at the same level to move under.",
+	"indent":  "There is no {noun} above at the same level to move under.",
 	"outdent": "Already at the top level.",
 }

@@ -147,10 +147,10 @@ func (a *Admin) handleEntityOrder(w http.ResponseWriter, r *http.Request) {
 			if !nested && (op.Op == "indent" || op.Op == "outdent") {
 				continue
 			}
-			btn := ui.Action{Label: op.Label, Button: true, AriaLabel: "Move " + row.Name + " " + op.Verb, Post: d.Action + row.ID + "/move",
+			btn := ui.Action{Label: op.Label, Button: true, AriaLabel: "Move " + row.Name + " " + moveNoun(op.Verb, "entry"), Post: d.Action + row.ID + "/move",
 				Fields: map[string]string{"op": op.Op, "back": self}}
 			if _, can := planMove(op.Op, nodes, id); !can {
-				btn.Disabled, btn.Reason = true, moveWhyNot[op.Op]
+				btn.Disabled, btn.Reason = true, moveNoun(moveWhyNot[op.Op], "entry")
 			} else if op.Op == "indent" && depth[id]+1+a.subtreeHeight(nodes, id) >= urlpattern.MaxPathDepth {
 				btn.Disabled, btn.Reason = true, fmt.Sprintf("Moving in would pass the depth limit of %d levels in the URL.", urlpattern.MaxPathDepth)
 			}
@@ -258,7 +258,8 @@ func (a *Admin) handleEntityMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg := fmt.Sprintf("%s moved to position %d of %d", e.Name, res.Position, res.Total)
-	if op := r.PostFormValue("op"); op == "indent" || op == "outdent" {
+	op := r.PostFormValue("op")
+	if op == "indent" || op == "outdent" {
 		msg += " at its new level"
 	}
 	msg += "."
@@ -266,10 +267,23 @@ func (a *Admin) handleEntityMove(w http.ResponseWriter, r *http.Request) {
 		msg += " " + a.tookOverNote(r, id)
 	}
 	a.SetFlash(w, r, "success", msg)
-	if r.PostFormValue("op") != "" {
-		back += "#row-" + id.String() // the page puts focus back on the moved row
+	if op != "" {
+		back = movedBack(back, op, id) // the page puts focus back on the moved row's button
 	}
 	Redirect(w, r, back)
+}
+
+// movedBack is back with the moved row as fragment and the pressed op as ?moved=, so the
+// page can focus the same button again.
+func movedBack(back, op string, id uuid.UUID) string {
+	u, err := url.Parse(back)
+	if err != nil {
+		return back + "#row-" + id.String()
+	}
+	q := u.Query()
+	q.Set("moved", op)
+	u.RawQuery, u.Fragment = q.Encode(), "row-"+id.String()
+	return u.String()
 }
 
 // termMoveAction is a visible Up/Down/Indent/Outdent button of the term table; it is
@@ -281,11 +295,11 @@ func (a *Admin) termMoveAction(op, id, name, kind string, order []orderNode) ui.
 			mo = m
 		}
 	}
-	act := ui.Action{Label: mo.Label, Button: true, AriaLabel: "Move " + name + " " + mo.Verb, Post: a.adminPath + "/settings/taxonomies/terms/" + id + "/move",
+	act := ui.Action{Label: mo.Label, Button: true, AriaLabel: "Move " + name + " " + moveNoun(mo.Verb, "term"), Post: a.adminPath + "/settings/taxonomies/terms/" + id + "/move",
 		Fields: map[string]string{"op": op, "back": a.adminPath + "/settings/taxonomies?kind=" + url.QueryEscape(kind)}}
 	if tid, err := uuid.Parse(id); err == nil {
 		if _, can := planMove(op, order, tid); !can {
-			act.Disabled, act.Reason = true, moveWhyNot[op]
+			act.Disabled, act.Reason = true, moveNoun(moveWhyNot[op], "term")
 		}
 	}
 	return act

@@ -1,5 +1,5 @@
 // Order page: drag a row by its "::" handle to a new place with SortableJS, and put focus back on
-// the moved row's first button after a button move. Every move is also a plain POST
+// the pressed button of the moved row after a button move. Every move is also a plain POST
 // form (the buttons), so nothing here is needed to reorder; the page without
 // this module works the same. Dragging is offered for flat lists only: a tree
 // is moved with the indent and outdent buttons.
@@ -14,12 +14,21 @@ function say(root, text) {
   if (live) live.textContent = text;
 }
 
-// After a button move the server redirects to the page with #row-<id>. Focus
-// goes to the row's first enabled button (a disabled one cannot take focus).
+// After a button move the server redirects to the page with #row-<id> and ?moved=<op>.
+// Focus goes back to the button that was pressed; if that one is now disabled (the row
+// became first or last), to the row's first enabled button. The ?moved= is then dropped
+// so a reload does not move focus again.
 function restoreFocus(root) {
   const row = ROW.test(location.hash.slice(1)) ? document.getElementById(location.hash.slice(1)) : null;
   if (!row || !root.contains(row)) return;
-  row.querySelector("button:not(:disabled)")?.focus();
+  const url = new URL(location.href);
+  const moved = url.searchParams.get("moved");
+  const enabled = [...row.querySelectorAll("button:not(:disabled)")];
+  (enabled.find((b) => b.form?.elements.op?.value === moved) ?? enabled[0])?.focus();
+  if (moved !== null) {
+    url.searchParams.delete("moved");
+    history.replaceState(null, "", url);
+  }
 }
 
 async function post(url, token, id, position) {
@@ -61,7 +70,9 @@ function init() {
   document.querySelectorAll("[data-hm-orderlist]").forEach((root) => {
     if (root.dataset.hmOrderReady) return;
     root.dataset.hmOrderReady = "1";
-    restoreFocus(root);
+    // The browser scrolls to the #row- fragment at load and drops focus doing so: focus after that.
+    if (document.readyState === "complete") restoreFocus(root);
+    else window.addEventListener("load", () => setTimeout(() => restoreFocus(root), 0), { once: true });
     drag(root);
   });
 }

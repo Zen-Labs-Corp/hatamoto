@@ -202,7 +202,7 @@ func TestOrderMoveAnswersScriptedRequestsWithoutRedirect(t *testing.T) {
 	}
 }
 
-// Focus after a button move goes to the row's first enabled button, and a drag
+// Focus after a button move goes to the pressed button (else the first enabled one), and a drag
 // starts only from the "::" handle.
 func TestOrderingScriptFocusesTheRowButton(t *testing.T) {
 	t.Parallel()
@@ -211,8 +211,14 @@ func TestOrderingScriptFocusesTheRowButton(t *testing.T) {
 		t.Fatal(err)
 	}
 	js := string(src)
-	if !strings.Contains(js, `querySelector("button:not(:disabled)")`) || strings.Contains(js, "aria-haspopup") {
-		t.Error("restoreFocus must focus the row's first enabled button")
+	if !strings.Contains(js, `querySelectorAll("button:not(:disabled)")`) || strings.Contains(js, "aria-haspopup") {
+		t.Error("restoreFocus must pick among the row's enabled buttons")
+	}
+	if !strings.Contains(js, `searchParams.get("moved")`) || !strings.Contains(js, "elements.op?.value === moved") || !strings.Contains(js, "?? enabled[0]") {
+		t.Error("restoreFocus must focus the pressed button, else the first enabled one")
+	}
+	if !strings.Contains(js, `addEventListener("load"`) {
+		t.Error("focus must be restored after load: the browser drops focus when it scrolls to the #row- fragment")
 	}
 	if !strings.Contains(js, `handle: ".hm-table__handle"`) {
 		t.Error("drag must start from the handle")
@@ -275,4 +281,25 @@ func TestEntityListSortSelectDrivesTheSort(t *testing.T) {
 	if got := c.ents.lastList.Sort; got != "manual" {
 		t.Errorf("list sort after choosing Manual order = %q, want manual (query %s)", got, vals.Encode())
 	}
+}
+
+// The redirect after a button move names the pressed op, so the page can focus the same button.
+func TestOrderMoveRedirectCarriesThePressedOp(t *testing.T) {
+	t.Parallel()
+	c := newContentRig(t)
+	c.ents.addEntity(60, c.service, "Alpha", "alpha", entity.StatusPublished, `{"summary":"x"}`, t0)
+	b := c.ents.addEntity(61, c.service, "Beta", "beta", entity.StatusPublished, `{"summary":"x"}`, t0.Add(time.Hour))
+	rec := c.post("/admin/entities/"+b.ID.String()+"/move", url.Values{"op": {"up"}, "back": {"/admin/entities/order?type=service"}})
+	if got, want := rec.Header().Get("Location"), "/admin/entities/order?moved=up&type=service#row-"+b.ID.String(); got != want {
+		t.Errorf("Location = %q, want %q", got, want)
+	}
+}
+
+// Term buttons call a term a term, in the accessible name and the disabled reason.
+func TestTermMoveButtonsSayTerm(t *testing.T) {
+	t.Parallel()
+	c := newContentRig(t)
+	body := c.get(t, "owner-token", "/admin/settings/taxonomies?kind=category", "")
+	has(t, body, `aria-label="Move Press in under the term above"`, `There is no term above at the same level to move under.`)
+	lacks(t, body, "the entry above", "There is no entry above")
 }
