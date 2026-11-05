@@ -30,11 +30,11 @@ const (
 	cachePrivate         = "private, no-cache, no-store"
 
 	// renderCSP replaces the global API policy on HTML responses: pages embed
-	// images and iframes from https origins and are framed by the admin
+	// images and iframes from https origins (and the site's own PDFs) and are framed by the admin
 	// preview (same origin) only.
 	renderCSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
 		"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; " +
-		"font-src 'self'; connect-src 'self'; frame-src https:; frame-ancestors 'self'; " +
+		"font-src 'self'; connect-src 'self'; frame-src 'self' https:; frame-ancestors 'self'; " +
 		"object-src 'none'; base-uri 'self'; form-action 'self'"
 
 	// sandboxCSP runs a page that carries community scripts in an opaque
@@ -48,7 +48,7 @@ const (
 	// is cached and shared, so a per-request nonce would go stale.
 	renderCSPStrict = "default-src 'self'; script-src 'self'; " +
 		"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; " +
-		"font-src 'self'; connect-src 'self'; frame-src https:; frame-ancestors 'self'; " +
+		"font-src 'self'; connect-src 'self'; frame-src 'self' https:; frame-ancestors 'self'; " +
 		"object-src 'none'; base-uri 'self'; form-action 'self'"
 )
 

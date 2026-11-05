@@ -254,6 +254,12 @@ func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
 		// shown only as an image, nothing in it can run or load.
 		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+	} else if contentType == "application/pdf" {
+		// Framed by the site's own pages (the pdf widget); other sites cannot
+		// frame it. No sandbox: it breaks the browser's built-in viewer.
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		w.Header().Set("Content-Security-Policy", "frame-ancestors 'self'")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 	}
 
 	// One day, then revalidate: a replaced file keeps its address, so the

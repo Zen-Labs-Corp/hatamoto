@@ -6,8 +6,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/media"
 )
 
@@ -78,5 +80,53 @@ func TestServeMedia_SVGHeadersAndRevalidatingCache(t *testing.T) {
 	}
 	if h.Get("Cache-Control") != "public, max-age=86400, must-revalidate" || h.Get("ETag") == "" {
 		t.Errorf("cache headers: %v", h)
+	}
+}
+
+// serveMediaThroughMiddleware runs the media handler inside the global
+// security-headers middleware, as the real router does.
+func serveMediaThroughMiddleware(t *testing.T, dir, path string, hdr map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+	svc := media.NewService(nil, media.Config{UploadDir: dir, MaxSizeMB: 1}, slog.Default())
+	s := &Server{mediaService: svc, cfg: &config.Config{}}
+	mux := http.NewServeMux()
+	mux.Handle("GET /media/{rest...}", s.securityHeadersMiddleware(http.HandlerFunc(s.handleServeMedia)))
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/media/"+path, nil)
+	for k, v := range hdr {
+		r.Header.Set(k, v)
+	}
+	mux.ServeHTTP(w, r)
+	return w
+}
+
+func TestServeMedia_PDFCanBeFramedBySameSiteOnly(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.pdf"), []byte("%PDF-1.4\n%abcdefghijklmnop"), 0o644)
+	os.WriteFile(filepath.Join(dir, "p.png"), []byte("\x89PNG\r\n\x1a\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "a.svg"), []byte(`<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`), 0o644)
+	os.WriteFile(filepath.Join(dir, "x.html"), []byte("<!doctype html>"), 0o644)
+
+	h := serveMediaThroughMiddleware(t, dir, "a.pdf", nil).Header()
+	if h.Get("Content-Type") != "application/pdf" || h.Get("X-Frame-Options") != "SAMEORIGIN" ||
+		h.Get("Content-Security-Policy") != "frame-ancestors 'self'" ||
+		h.Get("X-Content-Type-Options") != "nosniff" || h.Get("Content-Disposition") != "" ||
+		strings.Contains(h.Get("Content-Security-Policy"), "sandbox") {
+		t.Errorf("pdf headers: %v", h)
+	}
+
+	for _, name := range []string{"p.png", "a.svg", "x.html"} {
+		if got := serveMediaThroughMiddleware(t, dir, name, nil).Header().Get("X-Frame-Options"); got != "DENY" {
+			t.Errorf("%s: X-Frame-Options = %q, want DENY", name, got)
+		}
+	}
+}
+
+func TestServeMedia_PDFRangeRequest(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.pdf"), []byte("%PDF-1.4\n%abcdefghijklmnop"), 0o644)
+	w := serveMediaThroughMiddleware(t, dir, "a.pdf", map[string]string{"Range": "bytes=0-3"})
+	if w.Code != http.StatusPartialContent || w.Body.String() != "%PDF" {
+		t.Errorf("range: %d %q", w.Code, w.Body.String())
 	}
 }

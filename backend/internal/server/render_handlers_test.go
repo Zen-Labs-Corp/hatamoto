@@ -887,3 +887,11 @@ func TestPageFAQItemsHonoursSchemaToggle(t *testing.T) {
 		t.Errorf("FAQ off still yields %v", items)
 	}
 }
+
+func TestRenderCSPFrameSrcAllowsOwnPDFsOnly(t *testing.T) {
+	for _, csp := range []string{renderCSP, renderCSPStrict} {
+		if !strings.Contains(csp, "frame-src 'self' https:;") || !strings.Contains(csp, "object-src 'none'") {
+			t.Errorf("csp: %s", csp)
+		}
+	}
+}
