@@ -54,9 +54,9 @@ type shareData struct {
 }
 
 // shareHrefFor is the share page of an entity, "" when sharing is off for it
-// (no store, or the entity is published).
+// (no store, or the entity is published or archived).
 func (a *Admin) shareHrefFor(id, status string) string {
-	if a.deps.Content.PreviewLinks == nil || status == string(entity.StatusPublished) {
+	if a.deps.Content.PreviewLinks == nil || status == string(entity.StatusPublished) || status == string(entity.StatusArchived) {
 		return ""
 	}
 	return a.adminPath + "/entities/" + id + "/share"
@@ -135,7 +135,12 @@ func (a *Admin) loadSharable(w http.ResponseWriter, r *http.Request) (*entity.En
 		a.notFound(w, r, "Page", a.adminPath+"/entities", "Back to entities")
 		return nil, nil, false
 	}
-	return a.loadEntity(w, r)
+	e, schema, ok := a.loadEntity(w, r)
+	if ok && e.Status == entity.StatusArchived {
+		a.notFound(w, r, "Page", a.adminPath+"/entities", "Back to entities")
+		return nil, nil, false
+	}
+	return e, schema, ok
 }
 
 func (a *Admin) renderShare(w http.ResponseWriter, r *http.Request, status int, e *entity.Entity, pick, errMsg, newLink string) {

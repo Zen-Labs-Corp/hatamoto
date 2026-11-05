@@ -19,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/previewlink"
 )
 
@@ -255,5 +256,49 @@ func TestPreviewShareOtherKinds(t *testing.T) {
 		if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Preview of a draft") || !strings.Contains(rec.Body.String(), c.title) {
 			t.Errorf("%s: %d %.200s", name, rec.Code, rec.Body)
 		}
+	}
+}
+
+// Links are for reviewing a draft: publishing ends them for good, so a later
+// unpublish does not bring the page back to old holders.
+func TestPreviewLinksEndWhenTheEntityLeavesDraft(t *testing.T) {
+	r := newShareRig(t)
+	svc := r.srv.entityService
+
+	id := r.entity("pub-"+r.sfx, "draft")
+	tok, _ := r.link(id)
+	if rec := r.get("/preview/" + tok); rec.Code != 200 {
+		t.Fatalf("draft preview: %d", rec.Code)
+	}
+	if _, err := svc.UpdateEntityStatus(r.ctx, id, nil, entity.StatusPublished); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.UpdateEntityStatus(r.ctx, id, nil, entity.StatusDraft); err != nil {
+		t.Fatal(err)
+	}
+	if rec := r.get("/preview/" + tok); rec.Code != 404 {
+		t.Fatalf("link works again after publish and unpublish: %d", rec.Code)
+	}
+
+	aid := r.entity("arc-"+r.sfx, "draft")
+	atok, _ := r.link(aid)
+	if _, err := svc.UpdateEntityStatus(r.ctx, aid, nil, entity.StatusArchived); err != nil {
+		t.Fatal(err)
+	}
+	if rec := r.get("/preview/" + atok); rec.Code != 404 {
+		t.Fatalf("archived entity is shareable: %d", rec.Code)
+	}
+	if _, err := svc.UpdateEntityStatus(r.ctx, aid, nil, entity.StatusDraft); err != nil {
+		t.Fatal(err)
+	}
+	if rec := r.get("/preview/" + atok); rec.Code != 404 {
+		t.Fatalf("archive then restore revived the link: %d", rec.Code)
+	}
+
+	// Backstop: an archived row is refused even with a live link.
+	bid := r.entity("raw-"+r.sfx, "archived")
+	btok, _ := r.link(bid)
+	if rec := r.get("/preview/" + btok); rec.Code != 404 {
+		t.Fatalf("archived row served: %d", rec.Code)
 	}
 }

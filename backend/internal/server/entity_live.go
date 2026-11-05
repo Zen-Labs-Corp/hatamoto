@@ -15,6 +15,7 @@ import (
 // redirects are checked first. So it is retired: a live page always wins over
 // an auto-generated redirect. Redirects an owner created are left alone.
 func (s *Server) onEntitiesLive(ctx context.Context, ids []uuid.UUID) {
+	s.revokePreviewLinksOfPublished(ctx, ids)
 	if s.redirectService == nil {
 		return
 	}
@@ -59,4 +60,32 @@ func (w scheduledPublishSink) EntityPublished(ctx context.Context, id uuid.UUID,
 	w.s.invalidateRendered(ctx)
 	w.s.notifyIndexNowPublished(id)
 	w.next.EntityPublished(ctx, id, schemaSlug, slug, name, version)
+}
+
+// revokePreviewLinksOfPublished ends the draft preview links of the entities
+// that are now published: the draft is over, and an old link must not serve
+// the page again after a later unpublish.
+func (s *Server) revokePreviewLinksOfPublished(ctx context.Context, ids []uuid.UUID) {
+	if s.previewLinks == nil {
+		return
+	}
+	var live []uuid.UUID
+	for _, id := range ids {
+		if e, err := s.entityRepo.GetByID(ctx, id); err == nil && e.Status == entity.StatusPublished {
+			live = append(live, id)
+		}
+	}
+	if err := s.previewLinks.RevokeEntities(ctx, live); err != nil {
+		s.logger.Warn("revoke preview links", slog.String("error", err.Error()))
+	}
+}
+
+// revokePreviewLinks ends every preview link of the entities (archived).
+func (s *Server) revokePreviewLinks(ctx context.Context, ids []uuid.UUID) {
+	if s.previewLinks == nil {
+		return
+	}
+	if err := s.previewLinks.RevokeEntities(ctx, ids); err != nil {
+		s.logger.Warn("revoke preview links", slog.String("error", err.Error()))
+	}
 }

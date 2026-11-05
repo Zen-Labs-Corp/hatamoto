@@ -140,6 +140,21 @@ func (s *Store) Revoke(ctx context.Context, entityID, linkID uuid.UUID) (bool, e
 	return tag.RowsAffected() > 0, nil
 }
 
+// RevokeEntities ends every live link of the given entities. It is run when an
+// entity leaves the draft state: a link is for reviewing a draft, and must
+// not come back to life if the page is later unpublished or archived.
+func (s *Store) RevokeEntities(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	if _, err := s.db.Pool().Exec(ctx, `
+		UPDATE hatamoto_preview_links SET revoked_at = $2
+		 WHERE entity_id = ANY($1) AND revoked_at IS NULL`, ids, s.now().UTC()); err != nil {
+		return fmt.Errorf("previewlink: revoke entities: %w", err)
+	}
+	return nil
+}
+
 // CountActive counts the entity's live links.
 func (s *Store) CountActive(ctx context.Context, entityID uuid.UUID) (int, error) {
 	var n int

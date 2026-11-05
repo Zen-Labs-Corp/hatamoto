@@ -68,6 +68,7 @@ type Service struct {
 	live           LiveFunc
 	reuse          ReuseStatus
 	unpublish      *UnpublishStore
+	archived       LiveFunc
 }
 
 // NewService creates a new entity service.
@@ -714,6 +715,9 @@ func (s *Service) UpdateEntityStatus(ctx context.Context, id uuid.UUID, userID *
 
 	if status == StatusPublished {
 		s.fireLive(ctx, entity.ID)
+	}
+	if status == StatusArchived && s.archived != nil {
+		s.archived(ctx, []uuid.UUID{entity.ID})
 	}
 	if status == StatusPublished && prevStatus != StatusPublished {
 		s.emit(ctx, EventPublished, entity, schemaSlug, withPrevStatus(prevStatus))

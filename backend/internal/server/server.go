@@ -411,6 +411,7 @@ func (s *Server) setupDependencies() {
 	s.entityService.SetPathObserver(s.onEntityMoved)
 	s.entityService.SetSchemaPatternObserver(s.onSchemaPatternChanged)
 	s.entityService.SetLiveObserver(s.onEntitiesLive)
+	s.entityService.SetArchiveObserver(s.revokePreviewLinks)
 	s.entityService.SetUnpublishStore(entity.NewUnpublishStore(s.db))
 	s.previewLinks = previewlink.New(s.db)
 	// {year}/{month}/{day} URL tokens are read in the site time zone.
