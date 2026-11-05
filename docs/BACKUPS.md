@@ -137,6 +137,12 @@ the provider answer `RequestTimeTooSkewed`; fix the server's time.
 
 ### Restoring from the bucket on a clean machine
 
+`hatamoto backup restore` leaves the off-site card switched off on the restored install. A restored
+copy shares the original's bucket and prefix, and its first scheduled upload would add to, and then
+prune, the original's copies. Before you turn it on again in Settings > Backups, change the prefix
+or be sure the original is gone. A restore with the manual `pg_restore` steps does not do this:
+run `UPDATE hatamoto_offsite_settings SET enabled = false` before you start the server, or switch the card off as soon as it is up.
+
 The command line never reads the saved settings (the machine has no database), so name the target in
 the environment:
 

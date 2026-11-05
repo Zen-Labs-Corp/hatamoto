@@ -95,6 +95,8 @@ The dump Hatamoto takes before each update lives on the same disk and only exist
 
 4. Put `secrets.env` back in the secrets directory with mode 0600, or set `HATAMOTO_SECRET` to the original value. Without it, stored import credentials and the saved SMTP password cannot be decrypted, and preview links stop working.
 5. Restore the media files to `MEDIA_UPLOAD_DIR`, owned by the service user.
+
+   If you use off-site copies, a restored install shares the original's bucket and prefix, and its first scheduled upload would prune the original's copies. `hatamoto backup restore` switches the card off for you; after this manual restore, stop the first scheduled upload by switching the card off in Settings > Backups (or changing the prefix) as soon as Hatamoto is up, or run `UPDATE hatamoto_offsite_settings SET enabled = false` before you start it. This matters most when you restore onto a test machine while the original still runs.
 6. Start Hatamoto. It applies any **migrations**, the steps that update the database structure to match the program, that the restored database lacks. A database that a newer release migrated further does not stop an older program, which is what makes rolling back one release safe.
 
 Plugins that use their own database role need it created again after a restore into another Postgres cluster: reload or grant the plugin again. Details are under plugin database access in the [configuration reference](configuration-reference.md). For an update that went wrong, rolling back to the previous release is usually faster than a restore.

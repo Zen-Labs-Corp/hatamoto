@@ -102,6 +102,10 @@ func seedAndDestroyWith(t *testing.T, mutate func(ctx context.Context, pool *pgx
 		FROM hatamoto_entity_schemas WHERE slug = 'person' RETURNING id::text`).Scan(&d.entityID); err != nil {
 		t.Fatalf("seeding an entity: %v", err)
 	}
+	// Scheduled off-site backups are on at the source.
+	if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_offsite_settings (enabled, schedule) VALUES (true, 'daily')`); err != nil {
+		t.Fatalf("seeding off-site settings: %v", err)
+	}
 	// A media file with a public URL.
 	media := t.TempDir()
 	if err := os.MkdirAll(filepath.Dir(filepath.Join(media, mediaKey)), 0o755); err != nil {
@@ -234,6 +238,12 @@ func TestRestoreIntegrationRoundTrip(t *testing.T) {
 	}
 	if name != "Restored Person" || status != "published" {
 		t.Errorf("entity = %q %q", name, status)
+	}
+
+	// A restored copy must not upload into the original's bucket prefix.
+	var offsiteOn bool
+	if err := pool.QueryRow(ctx, `SELECT enabled FROM hatamoto_offsite_settings`).Scan(&offsiteOn); err != nil || offsiteOn {
+		t.Errorf("off-site backups enabled after restore = %v, %v", offsiteOn, err)
 	}
 
 	// ISC-13: media bytes, public_url and storage_path are identical.
