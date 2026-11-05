@@ -3,7 +3,7 @@ package pluginhost
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"log/slog"
 	"reflect"
 
@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -107,10 +108,10 @@ func BeforeSave(engine *hooks.Engine) entity.BeforeSaveFunc {
 // keepStoredSections undoes the derived page_sections the hook was shown when
 // it did not edit them: if out's page_sections equals shown's, the stored
 // value (or absence) comes back, so only a real hook edit reaches the seam.
-func keepStoredSections(stored, shown, out json.RawMessage) json.RawMessage {
-	var s, o map[string]json.RawMessage
-	var shownM map[string]json.RawMessage
-	if json.Unmarshal(stored, &s) != nil || json.Unmarshal(out, &o) != nil || json.Unmarshal(shown, &shownM) != nil {
+func keepStoredSections(stored, shown, out jsontext.Value) jsontext.Value {
+	var s, o map[string]jsontext.Value
+	var shownM map[string]jsontext.Value
+	if jsonx.Unmarshal(stored, &s, jsonx.StoredLoose) != nil || jsonx.Unmarshal(out, &o, jsonx.StoredLoose) != nil || jsonx.Unmarshal(shown, &shownM, jsonx.StoredLoose) != nil {
 		return out
 	}
 	if !jsonEqual(shownM["page_sections"], o["page_sections"]) {
@@ -121,17 +122,17 @@ func keepStoredSections(stored, shown, out json.RawMessage) json.RawMessage {
 	} else {
 		delete(o, "page_sections")
 	}
-	b, err := json.Marshal(o)
+	b, err := jsonx.Marshal(o)
 	if err != nil {
 		return out
 	}
 	return b
 }
 
-func jsonEqual(a, b json.RawMessage) bool {
+func jsonEqual(a, b jsontext.Value) bool {
 	if len(a) == 0 || len(b) == 0 {
 		return len(a) == len(b)
 	}
 	var x, y any
-	return json.Unmarshal(a, &x) == nil && json.Unmarshal(b, &y) == nil && reflect.DeepEqual(x, y)
+	return jsonx.Unmarshal(a, &x, jsonx.StoredLoose) == nil && jsonx.Unmarshal(b, &y, jsonx.StoredLoose) == nil && reflect.DeepEqual(x, y)
 }

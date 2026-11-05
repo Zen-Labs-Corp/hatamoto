@@ -8,6 +8,19 @@
 - **Picker.** The media picker takes a `type` parameter (`document` lists PDFs only; the default stays images), and a widget property can ask for it with `x-hm-accept`.
 - **Migration.** None. Rollback floor: unchanged; an older release does not know the `pdf` kind and would refuse a page that uses it, so remove the widget before you roll back.
 
+## Unreleased: Plugin host and SDK 0.19.0 on JSON v2
+
+The plugin host and the Go SDK read and write plugin data with the JSON v2 packages. Bytes between host and plugin are unchanged: plugins built for earlier SDKs (`^0.5` to `^0.18`) load and run as before.
+
+- **SDK needs Go 1.27.** `hatamoto.dev/sdk` 0.19.0 declares `go 1.27`; build plugins with Go 1.27 or newer.
+- **Source compatible types.** `json.RawMessage` is an alias of `jsontext.Value` in Go 1.27, so SDK types that now use `jsontext.Value` need no change in plugin code.
+- **Same bytes for your types.** The guest and the host marshal SDK types and the types you write (call arguments, results, run summaries) with the v1 behaviours pinned: `omitempty`, `time.Duration` as nanoseconds, byte arrays as number arrays, `MarshalJSON` and `MarshalText` methods, and repeated member names inside raw JSON. Your tags need no change. The guest reads your types back the same way (nanosecond durations, byte arrays, `,string`, names folded by case only, merging into a filled value); the host decodes only SDK types. The one difference left: a struct with two fields that share a JSON name now fails to marshal instead of dropping both.
+- **Changeset payloads.** A changeset payload that cannot be encoded now returns `invalid_argument` instead of staging `{}`.
+- **Lenient manifests.** A repeated member in a `plugin.json` list element loads, the last one wins.
+- **Stricter settings validation.** Plugin settings validation rejects invalid UTF-8 that v1 replaced.
+- **One manifest decoder.** Plugin manifest reads in the admin packages screen, the updater, the settings CLI and at boot use the same decoder as install.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: Version history limit
 
 - **Setting.** Settings > Versions (owners only) sets how many earlier versions of each item are kept, 10 to 500. The daily prune reads it on every run.

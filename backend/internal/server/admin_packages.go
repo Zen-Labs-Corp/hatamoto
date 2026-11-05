@@ -22,6 +22,7 @@ import (
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/plugmanifest"
 	"hatamoto.dev/sdk"
 )
 
@@ -547,7 +548,7 @@ func (p *packageAdmin) decoratePlugins(infos []admin.PluginInfo) []admin.PluginI
 			continue
 		}
 		var m sdk.Manifest
-		_ = jsonx.Unmarshal(r.Manifest, &m, jsonx.StoredLoose)
+		_ = plugmanifest.Decode(r.Manifest, &m)
 		meta := p.meta(ctx, r)
 		meta.WidgetOnly = p.mgr().WidgetCount(r.Name) > 0 // no runtime status: a pack without wasm
 		meta.TagPack = p.mgr().TagCount(r.Name) > 0
@@ -575,7 +576,7 @@ func firstPartyRow(r packages.Row) bool {
 
 func (p *packageAdmin) meta(ctx context.Context, r packages.Row) *admin.PackageMeta {
 	var man sdk.Manifest
-	_ = jsonx.Unmarshal(r.Manifest, &man, jsonx.StoredLoose)
+	_ = plugmanifest.Decode(r.Manifest, &man)
 	scripts := p.mgr().ScriptsBlocked(r.Name)
 	if !scripts && p.s.plugins != nil && p.s.plugins.ScriptsDropped(r.Name) {
 		scripts = !p.s.plugins.Grants().Has(r.Name, sdk.PermSiteScripts)

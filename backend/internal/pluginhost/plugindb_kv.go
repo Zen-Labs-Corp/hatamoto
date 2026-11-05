@@ -2,7 +2,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"time"
@@ -27,7 +27,7 @@ const (
 var ErrKVQuota = errors.New("plugin kv quota exceeded")
 
 // KVGet returns the value of key, if present and not expired.
-func (d *PluginDB) KVGet(ctx context.Context, plugin, key string) (json.RawMessage, bool, error) {
+func (d *PluginDB) KVGet(ctx context.Context, plugin, key string) (jsontext.Value, bool, error) {
 	var raw []byte
 	err := d.pool.QueryRow(ctx, `SELECT value FROM hatamoto_plugin_kv
 		WHERE plugin = $1 AND key = $2 AND (expires_at IS NULL OR expires_at > now())`, plugin, key).Scan(&raw)
@@ -39,7 +39,7 @@ func (d *PluginDB) KVGet(ctx context.Context, plugin, key string) (json.RawMessa
 
 // KVSet stores value under key; ttl > 0 expires it. A plugin holds at most
 // maxKVKeys live keys and maxKVTotalBytes of values.
-func (d *PluginDB) KVSet(ctx context.Context, plugin, key string, value json.RawMessage, ttl time.Duration) error {
+func (d *PluginDB) KVSet(ctx context.Context, plugin, key string, value jsontext.Value, ttl time.Duration) error {
 	var exp *time.Time
 	if ttl > 0 {
 		t := time.Now().Add(ttl)

@@ -6,26 +6,20 @@ import (
 )
 
 // Pinned option sets keep the historic wire bytes of plugin and webhook
-// payloads. They use v2 and jsontext options only (no v1 import).
+// payloads. They use v2 and jsontext options, plus the v1 legacy options kept
+// in v1opts.go (the single allow-listed encoding/json import).
 //
 // The marshal set reproduces v1 output for nil slices and maps (null), sorted
-// map keys, HTML and U+2028/2029 escaping, invalid UTF-8 and, by default,
-// []byte, time.Time and floats. Invalid UTF-8 becomes the raw replacement
-// character bytes EF BF BD, not the six-character escape \ufffd that
-// pre-go1.27 toolchains wrote.
+// map keys, HTML and U+2028/2029 escaping, invalid UTF-8, omitempty (v1
+// semantics: ints, bools and structs are never "empty" as in v2), time.Duration
+// (nanoseconds), [N]byte (number array), pointer-receiver MarshalJSON on
+// non-addressable values and, by default, []byte, time.Time and floats.
+// Duplicate names inside raw values (jsontext.Value) are accepted, as v1 did.
+// Invalid UTF-8 becomes the raw replacement character bytes EF BF BD, not the
+// six-character escape \ufffd that pre-go1.27 toolchains wrote.
 //
-// It does NOT reproduce these v1 behaviours; pinned types must avoid them
-// (each is a case of TestPinnedKnownDivergences, with its fix). Known as of
-// go1.27.3:
+// It does NOT reproduce this v1 behaviour (TestPinnedKnownDivergences):
 //
-//   - omitempty on int and bool: tag the field omitzero instead.
-//   - omitempty on a field that encodes as {}, "" or null (a struct whose
-//     fields are all omitted, a non-nil pointer to "", a MarshalJSON result
-//     of {}, "" or null): v2 omits it, v1 wrote it. Tag it omitzero, or drop
-//     omitempty.
-//   - pointer-receiver MarshalJSON on a non-addressable value: pass a pointer.
-//   - time.Duration: write it through a typed marshaler.
-//   - [N]byte: write it through a typed marshaler.
 //   - two fields of one struct with the same JSON name: v1 dropped both, v2
 //     returns an error. Rename one.
 //
@@ -40,9 +34,11 @@ var (
 		jsonv2.Deterministic(true),
 		jsontext.EscapeForHTML(true),
 		jsontext.EscapeForJS(true),
+		jsontext.AllowDuplicateNames(true),
 		jsontext.AllowInvalidUTF8(true),
 		jsonv2.FormatNilSliceAsNull(true),
 		jsonv2.FormatNilMapAsNull(true),
+		legacyMarshal,
 	)
 	PinnedUnmarshal = jsonv2.JoinOptions(
 		jsonv2.MatchCaseInsensitiveNames(true),

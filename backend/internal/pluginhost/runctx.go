@@ -2,7 +2,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"sync"
 	"sync/atomic"
 
@@ -39,18 +39,18 @@ type RunSignal struct {
 	mu      sync.Mutex
 	Finish  bool
 	Fail    string
-	Summary json.RawMessage
+	Summary jsontext.Value
 }
 
 // Set records the outcome of run.finish (fail == "") or run.fail.
-func (s *RunSignal) Set(finish bool, fail string, summary json.RawMessage) {
+func (s *RunSignal) Set(finish bool, fail string, summary jsontext.Value) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.Finish, s.Fail, s.Summary = finish, fail, summary
 }
 
 // Get returns the recorded outcome.
-func (s *RunSignal) Get() (finish bool, fail string, summary json.RawMessage) {
+func (s *RunSignal) Get() (finish bool, fail string, summary jsontext.Value) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.Finish, s.Fail, s.Summary

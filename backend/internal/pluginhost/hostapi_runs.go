@@ -3,13 +3,14 @@ package pluginhost
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"net/url"
 	"path"
 	"strings"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/plugrun"
 	"hatamoto.dev/sdk"
 )
@@ -72,7 +73,7 @@ func runErr(err error) error {
 	return err
 }
 
-func fnRunInfo(ctx context.Context, a *API, _ *callEnv, _ json.RawMessage) (any, error) {
+func fnRunInfo(ctx context.Context, a *API, _ *callEnv, _ jsontext.Value) (any, error) {
 	rc, runs, err := a.runStore(ctx)
 	if err != nil {
 		return nil, err
@@ -88,7 +89,7 @@ func fnRunInfo(ctx context.Context, a *API, _ *callEnv, _ json.RawMessage) (any,
 	return info, nil
 }
 
-func fnRunCheckpoint(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnRunCheckpoint(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	rc, runs, err := a.runStore(ctx)
 	if err != nil {
 		return nil, err
@@ -100,7 +101,7 @@ func fnRunCheckpoint(ctx context.Context, a *API, _ *callEnv, raw json.RawMessag
 	return struct{}{}, runErr(runs.Checkpoint(ctx, rc.RunID, args.Cursor))
 }
 
-func fnRunProgress(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnRunProgress(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	rc, runs, err := a.runStore(ctx)
 	if err != nil {
 		return nil, err
@@ -112,11 +113,11 @@ func fnRunProgress(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage)
 	if args.Done < 0 || args.Total < 0 || len(args.Message) > maxProgressMsg {
 		return nil, herr(sdk.ErrInvalidArgument, "progress: done and total must not be negative, message at most %d bytes", maxProgressMsg)
 	}
-	doc, _ := json.Marshal(args)
+	doc, _ := jsonx.MarshalPinned(args)
 	return struct{}{}, runErr(runs.Progress(ctx, rc.RunID, doc))
 }
 
-func fnRunFinish(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnRunFinish(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	rc, ok := RunFrom(ctx)
 	if !ok || rc.Signal == nil {
 		return nil, herr(sdk.ErrUnavailable, "run.finish is only available inside a run step")
@@ -132,7 +133,7 @@ func fnRunFinish(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (
 	return struct{}{}, nil
 }
 
-func fnRunFail(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnRunFail(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	rc, ok := RunFrom(ctx)
 	if !ok || rc.Signal == nil {
 		return nil, herr(sdk.ErrUnavailable, "run.fail is only available inside a run step")
@@ -149,7 +150,7 @@ func fnRunFail(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (an
 	return struct{}{}, nil
 }
 
-func fnUploadRead(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnUploadRead(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	rc, runs, err := a.runStore(ctx)
 	if err != nil {
 		return nil, err
@@ -192,7 +193,7 @@ func fnUploadRead(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) 
 	return sdk.UploadChunk{DataB64: base64.StdEncoding.EncodeToString(buf), Size: size, EOF: args.Offset+n >= size}, nil
 }
 
-func fnBufferPut(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnBufferPut(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	rc, runs, err := a.runStore(ctx)
 	if err != nil {
 		return nil, err
@@ -214,7 +215,7 @@ func fnBufferPut(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (
 	return struct{}{}, nil
 }
 
-func fnBufferGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnBufferGet(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	rc, runs, err := a.runStore(ctx)
 	if err != nil {
 		return nil, err
@@ -233,7 +234,7 @@ func fnBufferGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (
 	return sdk.BufferValue{Found: true, ValueB64: base64.StdEncoding.EncodeToString(val)}, nil
 }
 
-func fnBufferList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnBufferList(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	rc, runs, err := a.runStore(ctx)
 	if err != nil {
 		return nil, err
@@ -254,7 +255,7 @@ func fnBufferList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) 
 	return out, nil
 }
 
-func fnMediaImportURL(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnMediaImportURL(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	rc, ok := RunFrom(ctx)
 	if !ok {
 		return nil, herr(sdk.ErrPhaseDenied, "only available inside a run")
@@ -313,14 +314,14 @@ func importFilename(given, rawURL string) string {
 	return name
 }
 
-func fnSiteInfo(ctx context.Context, a *API, _ *callEnv, _ json.RawMessage) (any, error) {
+func fnSiteInfo(ctx context.Context, a *API, _ *callEnv, _ jsontext.Value) (any, error) {
 	if a.svc.Site == nil {
 		return nil, unavailable("site.info")
 	}
 	return a.svc.Site.Info(ctx)
 }
 
-func fnEntitiesSlugTaken(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnEntitiesSlugTaken(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[sdk.SlugTakenArgs](raw)
 	if err != nil {
 		return nil, err

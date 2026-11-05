@@ -6,7 +6,6 @@ package pluginhost
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
@@ -14,6 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/santhosh-tekuri/jsonschema/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // FieldError is one schema violation, addressed by JSON pointer.
@@ -71,7 +72,7 @@ func (s *SettingsStore) Put(ctx context.Context, plugin string, v jsontext.Value
 // Validate checks v against sch and returns the violations (nil when valid).
 func Validate(sch *jsonschema.Schema, v jsontext.Value) []FieldError {
 	var doc any
-	if err := json.Unmarshal(v, &doc); err != nil {
+	if err := jsonx.Unmarshal(v, &doc, jsonx.StoredLoose); err != nil {
 		return []FieldError{{Path: "/", Message: "invalid JSON: " + err.Error()}}
 	}
 	err := sch.Validate(doc)
@@ -110,14 +111,14 @@ type schemaProps struct {
 
 func parseProps(schema []byte) schemaProps {
 	var p schemaProps
-	_ = json.Unmarshal(schema, &p) // an unparsable schema has no defaults/masks
+	_ = jsonx.Unmarshal(schema, &p, jsonx.StoredLoose) // an unparsable schema has no defaults/masks
 	return p
 }
 
 func parseObject(raw jsontext.Value) map[string]jsontext.Value {
 	obj := map[string]jsontext.Value{}
 	if len(bytes.TrimSpace(raw)) > 0 {
-		_ = json.Unmarshal(raw, &obj)
+		_ = jsonx.Unmarshal(raw, &obj, jsonx.StoredLoose)
 	}
 	if obj == nil {
 		obj = map[string]jsontext.Value{}
@@ -126,7 +127,7 @@ func parseObject(raw jsontext.Value) map[string]jsontext.Value {
 }
 
 func mustMarshal(obj map[string]jsontext.Value) jsontext.Value {
-	b, _ := json.Marshal(obj) // map of RawMessage cannot fail
+	b, _ := jsonx.MarshalPinned(obj) // map of raw values cannot fail
 	return b
 }
 

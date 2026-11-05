@@ -3,7 +3,8 @@ package pluginhost
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -21,6 +22,7 @@ import (
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/plugrun"
@@ -165,7 +167,7 @@ type callEnv struct {
 
 type hostFn struct {
 	perm sdk.Permission // "" = always allowed
-	run  func(ctx context.Context, a *API, e *callEnv, args json.RawMessage) (any, error)
+	run  func(ctx context.Context, a *API, e *callEnv, args jsontext.Value) (any, error)
 }
 
 func herr(code, format string, v ...any) *sdk.HostError {
@@ -179,7 +181,7 @@ func (a *API) Call(ctx context.Context, plugin string, in []byte) []byte {
 	res, err := a.dispatch(ctx, plugin, in)
 	resp := sdk.CallResponse{OK: err == nil}
 	if err == nil {
-		b, merr := json.Marshal(res)
+		b, merr := jsonx.MarshalPinned(res)
 		switch {
 		case merr != nil:
 			err = herr(sdk.ErrInternal, "result not encodable")
@@ -193,7 +195,7 @@ func (a *API) Call(ctx context.Context, plugin string, in []byte) []byte {
 		resp.OK = false
 		resp.Error = a.toHostError(plugin, err)
 	}
-	out, _ := json.Marshal(resp)
+	out, _ := jsonx.MarshalPinned(resp)
 	return out
 }
 
@@ -268,7 +270,7 @@ func (a *API) dispatch(ctx context.Context, plugin string, in []byte) (any, erro
 		return nil, herr(sdk.ErrInvalidArgument, "request too large (over %d bytes)", maxRequestBytes)
 	}
 	var req sdk.CallRequest
-	if err := json.Unmarshal(in, &req); err != nil {
+	if err := jsonx.UnmarshalPinned(in, &req); err != nil {
 		return nil, herr(sdk.ErrInvalidArgument, "request is not a JSON {fn, args}")
 	}
 	// Run and changeset functions are new in 0.17 and bounded from the start;
@@ -302,14 +304,12 @@ func (a *API) dispatch(ctx context.Context, plugin string, in []byte) (any, erro
 
 // decodeArgs strictly decodes args into T (unknown fields are an error: a typo
 // should not silently do nothing).
-func decodeArgs[T any](raw json.RawMessage) (T, error) {
+func decodeArgs[T any](raw jsontext.Value) (T, error) {
 	var v T
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return v, nil
 	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&v); err != nil {
+	if err := jsonx.Unmarshal(raw, &v, jsonx.PinnedUnmarshal, jsonv2.RejectUnknownMembers(true)); err != nil {
 		return v, herr(sdk.ErrInvalidArgument, "bad arguments: %v", err)
 	}
 	return v, nil
@@ -376,7 +376,7 @@ var hostFns = map[string]hostFn{
 	sdk.FnFormsSubmissions:     {perm: sdk.PermFormsRead, run: fnFormsSubmissions},
 }
 
-func fnPermissions(_ context.Context, a *API, e *callEnv, _ json.RawMessage) (any, error) {
+func fnPermissions(_ context.Context, a *API, e *callEnv, _ jsontext.Value) (any, error) {
 	g := a.grants.Granted(e.plugin)
 	if g == nil {
 		g = []sdk.Permission{}
@@ -386,7 +386,7 @@ func fnPermissions(_ context.Context, a *API, e *callEnv, _ json.RawMessage) (an
 
 // --- log, settings, mail, fetch ----------------------------------------------
 
-func fnLog(_ context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnLog(_ context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct{ Level, Message string }](raw)
 	if err != nil {
 		return nil, err
@@ -410,7 +410,7 @@ func fnLog(_ context.Context, a *API, e *callEnv, raw json.RawMessage) (any, err
 	return map[string]any{}, nil
 }
 
-func fnSettingsGet(ctx context.Context, a *API, e *callEnv, _ json.RawMessage) (any, error) {
+func fnSettingsGet(ctx context.Context, a *API, e *callEnv, _ jsontext.Value) (any, error) {
 	if a.svc.Settings == nil {
 		return nil, unavailable("settings")
 	}
@@ -421,10 +421,10 @@ func fnSettingsGet(ctx context.Context, a *API, e *callEnv, _ json.RawMessage) (
 	if len(e.manifest.SettingsSchema) > 0 {
 		stored = MergeDefaults(e.manifest.SettingsSchema, stored)
 	}
-	return json.RawMessage(stored), nil
+	return jsontext.Value(stored), nil
 }
 
-func fnMailSend(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnMailSend(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct {
 		To      []string `json:"to"`
 		Subject string   `json:"subject"`
@@ -464,7 +464,7 @@ func fnMailSend(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (a
 	return map[string]any{"sent": len(args.To)}, nil
 }
 
-func fnHTTPFetch(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnHTTPFetch(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	req, err := decodeArgs[FetchRequest](raw)
 	if err != nil {
 		return nil, err
@@ -502,7 +502,7 @@ func checkKVKey(k string) error {
 	return nil
 }
 
-func fnKVGet(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnKVGet(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct{ Key string }](raw)
 	if err != nil {
 		return nil, err
@@ -521,14 +521,14 @@ func fnKVGet(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any,
 	if !found {
 		return map[string]any{"found": false}, nil
 	}
-	return map[string]any{"found": true, "value": json.RawMessage(v)}, nil
+	return map[string]any{"found": true, "value": jsontext.Value(v)}, nil
 }
 
-func fnKVSet(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnKVSet(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct {
-		Key        string          `json:"key"`
-		Value      json.RawMessage `json:"value"`
-		TTLSeconds int             `json:"ttl_seconds"`
+		Key        string         `json:"key"`
+		Value      jsontext.Value `json:"value"`
+		TTLSeconds int            `json:"ttl_seconds"`
 	}](raw)
 	if err != nil {
 		return nil, err
@@ -536,7 +536,7 @@ func fnKVSet(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any,
 	if err := checkKVKey(args.Key); err != nil {
 		return nil, err
 	}
-	if len(args.Value) == 0 || len(args.Value) > maxKVValueBytes || !json.Valid(args.Value) {
+	if len(args.Value) == 0 || len(args.Value) > maxKVValueBytes || !args.Value.IsValid(jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(true)) {
 		return nil, herr(sdk.ErrInvalidArgument, "value: JSON of at most %d bytes", maxKVValueBytes)
 	}
 	if args.TTLSeconds < 0 {
@@ -549,7 +549,7 @@ func fnKVSet(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any,
 	return map[string]any{}, db.KVSet(ctx, e.plugin, args.Key, args.Value, time.Duration(args.TTLSeconds)*time.Second)
 }
 
-func fnKVDelete(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnKVDelete(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct{ Key string }](raw)
 	if err != nil {
 		return nil, err
@@ -564,7 +564,7 @@ func fnKVDelete(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (a
 	return map[string]any{}, db.KVDelete(ctx, e.plugin, args.Key)
 }
 
-func fnKVList(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnKVList(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct {
 		Prefix string
 		Limit  int
@@ -584,11 +584,11 @@ func fnKVList(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any
 }
 
 type sqlArgs struct {
-	SQL  string          `json:"sql"`
-	Args json.RawMessage `json:"args"`
+	SQL  string         `json:"sql"`
+	Args jsontext.Value `json:"args"`
 }
 
-func fnDBQuery(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnDBQuery(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sqlArgs](raw)
 	if err != nil {
 		return nil, err
@@ -604,7 +604,7 @@ func fnDBQuery(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (an
 	return db.Query(ctx, e.plugin, in.SQL, args...)
 }
 
-func fnDBExec(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnDBExec(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sqlArgs](raw)
 	if err != nil {
 		return nil, err
@@ -638,12 +638,12 @@ type entityDTO struct {
 	// canonical public path and URL the same with the public origin in front
 	// (just the path while no origin is configured); both are absent when the
 	// host has no URL routing.
-	ParentID    string          `json:"parent_id,omitempty"`
-	Path        string          `json:"path,omitempty"`
-	URL         string          `json:"url,omitempty"`
-	Attributes  json.RawMessage `json:"attributes"`
-	PublishedAt *time.Time      `json:"published_at,omitempty"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	ParentID    string         `json:"parent_id,omitempty"`
+	Path        string         `json:"path,omitempty"`
+	URL         string         `json:"url,omitempty"`
+	Attributes  jsontext.Value `json:"attributes"`
+	PublishedAt *time.Time     `json:"published_at,omitempty"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 func (a *API) entityDTO(ctx context.Context, e *entity.Entity) entityDTO {
@@ -695,12 +695,12 @@ func (a *API) entityDTOGrouped(ctx context.Context, e *entity.Entity) (entityDTO
 // optionalID reads an optional entity id argument that may be explicitly null
 // (or empty), which means "no parent". set is false when the argument was not
 // sent at all.
-func optionalID(raw json.RawMessage) (id *uuid.UUID, set bool, err error) {
+func optionalID(raw jsontext.Value) (id *uuid.UUID, set bool, err error) {
 	if raw == nil {
 		return nil, false, nil
 	}
 	var s *string
-	if err := json.Unmarshal(raw, &s); err != nil {
+	if err := jsonx.UnmarshalPinned(raw, &s); err != nil {
 		return nil, true, herr(sdk.ErrInvalidArgument, "parent_id must be a string or null")
 	}
 	if s == nil || *s == "" {
@@ -713,12 +713,12 @@ func optionalID(raw json.RawMessage) (id *uuid.UUID, set bool, err error) {
 	return &u, true, nil
 }
 
-func fnEntitiesGet(ctx context.Context, a *API, env *callEnv, raw json.RawMessage) (any, error) {
+func fnEntitiesGet(ctx context.Context, a *API, env *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct {
-		ID       string          `json:"id"`
-		Slug     string          `json:"slug"`
-		Path     string          `json:"path"`
-		ParentID json.RawMessage `json:"parent_id"`
+		ID       string         `json:"id"`
+		Slug     string         `json:"slug"`
+		Path     string         `json:"path"`
+		ParentID jsontext.Value `json:"parent_id"`
 		// SchemaSlug narrows a {slug, parent_id} lookup to one schema.
 		SchemaSlug string `json:"schema_slug"`
 	}](raw)
@@ -819,7 +819,7 @@ func (a *API) publicEntities(ctx context.Context, ids []uuid.UUID) (map[uuid.UUI
 	return a.svc.PublicEntityIDs(ctx, ids)
 }
 
-func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct {
 		SchemaSlug string `json:"schema_slug"`
 		Status     string `json:"status"`
@@ -938,7 +938,7 @@ type translationDTO struct {
 // fnEntitiesTranslations lists the members of an entity's translation group
 // (the entity itself included), ordered by locale. It reads each member once
 // to place it, so a group costs one query per member.
-func fnEntitiesTranslations(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnEntitiesTranslations(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct {
 		ID string `json:"id"`
 	}](raw)
@@ -1002,7 +1002,7 @@ func fnEntitiesTranslations(ctx context.Context, a *API, _ *callEnv, raw json.Ra
 
 // --- terms ----------------------------------------------------------------------
 
-func fnTermsList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnTermsList(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct {
 		Kind, Search string
 		Limit        int
@@ -1020,7 +1020,7 @@ func fnTermsList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (
 	return map[string]any{"items": res.Items, "total": res.Total}, nil
 }
 
-func fnTermsGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnTermsGet(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct{ Kind, Slug string }](raw)
 	if err != nil {
 		return nil, err
@@ -1033,7 +1033,7 @@ func fnTermsGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (a
 
 // --- menus ----------------------------------------------------------------------
 
-func fnMenusList(ctx context.Context, a *API, _ *callEnv, _ json.RawMessage) (any, error) {
+func fnMenusList(ctx context.Context, a *API, _ *callEnv, _ jsontext.Value) (any, error) {
 	if a.svc.Menus == nil {
 		return nil, unavailable("menus")
 	}
@@ -1041,7 +1041,7 @@ func fnMenusList(ctx context.Context, a *API, _ *callEnv, _ json.RawMessage) (an
 	return map[string]any{"items": items}, err
 }
 
-func fnMenusGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnMenusGet(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct{ Slug string }](raw)
 	if err != nil {
 		return nil, err
@@ -1076,7 +1076,7 @@ func toMediaDTO(m *media.Media) mediaDTO {
 		PublicURL: m.PublicURL, Width: m.Width, Height: m.Height, AltText: m.AltText, Caption: m.Caption, Credit: m.Credit}
 }
 
-func fnMediaGet(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnMediaGet(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct{ ID string }](raw)
 	if err != nil {
 		return nil, err
@@ -1122,7 +1122,7 @@ func (a *API) publicMedia(ctx context.Context, items []*media.Media) ([]*media.M
 	return slices.DeleteFunc(items, func(m *media.Media) bool { return !vis[strings.TrimSuffix(m.Filename, path.Ext(m.Filename))] }), nil
 }
 
-func fnMediaList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnMediaList(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct {
 		Search, Folder string
 		MimeType       string `json:"mime_type"`
@@ -1153,7 +1153,7 @@ func fnMediaList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (
 
 // --- redirects ------------------------------------------------------------------
 
-func fnRedirectsList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnRedirectsList(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct {
 		Search  string
 		Page    int
@@ -1175,7 +1175,7 @@ func fnRedirectsList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessag
 
 // --- forms ----------------------------------------------------------------------
 
-func fnFormsList(ctx context.Context, a *API, _ *callEnv, _ json.RawMessage) (any, error) {
+func fnFormsList(ctx context.Context, a *API, _ *callEnv, _ jsontext.Value) (any, error) {
 	if a.svc.Forms == nil {
 		return nil, unavailable("forms")
 	}
@@ -1190,7 +1190,7 @@ func fnFormsList(ctx context.Context, a *API, _ *callEnv, _ json.RawMessage) (an
 	return map[string]any{"items": items}, nil
 }
 
-func fnFormsSubmissions(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnFormsSubmissions(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct {
 		FormSlug string `json:"form_slug"`
 		Limit    int

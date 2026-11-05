@@ -1,7 +1,7 @@
 package sdk
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -18,7 +18,7 @@ var NamePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{1,39}$`)
 type Limits struct {
 	// MemoryPages is the cap on each wasm linear memory, in 64 KiB pages.
 	// A standard Go guest needs at least MinMemoryPages.
-	MemoryPages uint32 `json:"memory_pages,omitempty"`
+	MemoryPages uint32 `json:"memory_pages,omitzero"`
 	// HookTimeoutsMS overrides the time one call of a hook may run, in
 	// milliseconds. Keys are hook names ("render.page"), or "http_handle",
 	// "on_cron_<job>" and "func_<name>" for the other exports. A hook not
@@ -27,10 +27,10 @@ type Limits struct {
 	// guest without a deadline cannot be stopped.
 	HookTimeoutsMS map[string]uint64 `json:"hook_timeouts_ms,omitempty"`
 	// MaxInstances caps concurrent calls (and so live instances) of the plugin.
-	MaxInstances int `json:"max_instances,omitempty"`
+	MaxInstances int `json:"max_instances,omitzero"`
 	// MaxOutputBytes caps what one call may return. Larger output fails the
 	// call (fail open); it never reaches the JSON decoder.
-	MaxOutputBytes uint32 `json:"max_output_bytes,omitempty"`
+	MaxOutputBytes uint32 `json:"max_output_bytes,omitzero"`
 }
 
 // Limit defaults and bounds enforced by Manifest.Validate.
@@ -91,10 +91,10 @@ type Manifest struct {
 	// CSP lists the https hosts the plugin needs added to the public pages'
 	// Content-Security-Policy. The owner sees them in the permission prompt;
 	// they apply only while the plugin is enabled. See CSP.
-	CSP *CSP `json:"csp,omitempty"`
+	CSP *CSP `json:"csp,omitzero"`
 
 	// RenderPage tunes the render.page filter (see PageOptions).
-	RenderPage *PageOptions `json:"render_page,omitempty"`
+	RenderPage *PageOptions `json:"render_page,omitzero"`
 
 	// Funcs are template functions: the theme calls plugin_<name>_<func>
 	// and the host calls the plugin's `func_<func>` export with JSON args.
@@ -104,7 +104,7 @@ type Manifest struct {
 	// directory. It runs in a sandboxed iframe and reaches the host only
 	// through a bridge limited to the plugin's own routes and granted host
 	// functions.
-	UI *AdminUI `json:"ui,omitempty"`
+	UI *AdminUI `json:"ui,omitzero"`
 
 	// BuilderSources declares the data sources the plugin answers through the
 	// builder.data filter (at most MaxBuilderSources). A source's id in the
@@ -116,11 +116,11 @@ type Manifest struct {
 	// permission.
 	Runs []Run `json:"runs,omitempty"`
 
-	Limits Limits `json:"limits,omitempty"`
+	Limits Limits `json:"limits"`
 
 	// SettingsSchema is an optional JSON Schema (draft 2020-12) object
 	// describing the plugin's settings.
-	SettingsSchema json.RawMessage `json:"settings_schema,omitempty"`
+	SettingsSchema jsontext.Value `json:"settings_schema,omitempty"`
 }
 
 // CSP is the set of hosts a plugin asks to have added to the public pages'
@@ -263,7 +263,7 @@ func (m Manifest) validateBuilderSources() error {
 type PageOptions struct {
 	// FullBlocks sends every block with its whole content (the pre-0.9
 	// payload). It is slower: the cost of a call grows with the page's size.
-	FullBlocks bool `json:"full_blocks,omitempty"`
+	FullBlocks bool `json:"full_blocks,omitzero"`
 }
 
 // slimPageSDK is the first SDK version whose render.page payload is slim.
@@ -297,7 +297,7 @@ type Route struct {
 	Method string `json:"method"`
 	Path   string `json:"path"`
 	// Public routes are mounted at /p/<name> and need no sign-in.
-	Public bool `json:"public,omitempty"`
+	Public bool `json:"public,omitzero"`
 	// Roles may call a non-public route; empty means owner only.
 	Roles []string `json:"roles,omitempty"`
 }

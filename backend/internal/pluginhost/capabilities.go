@@ -2,7 +2,6 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -15,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/wasmhost"
 	"hatamoto.dev/sdk"
@@ -265,7 +265,7 @@ func (r *Runtime) scheduleCron(m sdk.Manifest) {
 		every, _ := time.ParseDuration(c.Every) // validated by the manifest
 		name, job := m.Name, c.Name
 		err := r.caps.cron.Schedule(cronID(name, job), every, func(ctx context.Context) error {
-			in, _ := json.Marshal(sdk.CronEvent{Name: job, ScheduledAt: time.Now().UTC().Format(time.RFC3339)})
+			in, _ := jsonx.MarshalPinned(sdk.CronEvent{Name: job, ScheduledAt: time.Now().UTC().Format(time.RFC3339)})
 			_, err := r.host.Call(ctx, name, export, in)
 			return err
 		})
@@ -358,7 +358,7 @@ func (r *Runtime) templateFunc(plugin, fn, export string) func(args ...any) (str
 			r.log.Warn("plugin template func failed; output left empty", slog.String("plugin", plugin), slog.String("func", fn), slog.Any("error", err))
 			return "", nil
 		}
-		in, err := json.Marshal(args)
+		in, err := jsonx.MarshalPinned(args)
 		if err != nil {
 			return fail(err)
 		}
@@ -407,6 +407,6 @@ func (r *Runtime) registerTemplates(m sdk.Manifest, a Assets) {
 // permission check, and returns the sdk.CallResponse JSON. It is the path the
 // admin's plugin-UI bridge uses.
 func (r *Runtime) CallHost(ctx context.Context, plugin string, req sdk.CallRequest) []byte {
-	in, _ := json.Marshal(req)
+	in, _ := jsonx.MarshalPinned(req)
 	return r.caps.api.Call(ctx, plugin, in)
 }

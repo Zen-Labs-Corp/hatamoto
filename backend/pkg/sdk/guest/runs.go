@@ -2,7 +2,6 @@ package guest
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -21,14 +20,14 @@ type Caller func(fn string, args, out any) error
 func OnRunStep(fn func(sdk.RunStep) (sdk.RunStepResult, error)) {
 	register(sdk.RunStepExport, func(in []byte) ([]byte, error) {
 		var step sdk.RunStep
-		if err := json.Unmarshal(in, &step); err != nil {
+		if err := unmarshal(in, &step); err != nil {
 			return nil, fmt.Errorf("decode run step: %w", err)
 		}
 		res, err := fn(step)
 		if err != nil {
 			return nil, err
 		}
-		return json.Marshal(res)
+		return marshal(res)
 	})
 }
 
@@ -70,7 +69,7 @@ func RunProgress(call Caller, done, total int, message string) error {
 func RunFinish(call Caller, summary any) error {
 	args := sdk.RunFinishArgs{}
 	if summary != nil {
-		raw, err := json.Marshal(summary)
+		raw, err := marshal(summary)
 		if err != nil {
 			return err
 		}
@@ -197,7 +196,7 @@ func Delete(call Caller, kind, sourceKey string) (sdk.UpsertResult, error) {
 // Propose submits a change for the owner to sign off separately. kind must be
 // listed in the run's "proposes".
 func Propose(call Caller, kind string, payload any) error {
-	raw, err := json.Marshal(payload)
+	raw, err := marshal(payload)
 	if err != nil {
 		return err
 	}

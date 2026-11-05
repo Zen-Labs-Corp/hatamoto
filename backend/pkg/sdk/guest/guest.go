@@ -1,7 +1,7 @@
 package guest
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"sync"
@@ -32,7 +32,7 @@ func register(export string, h handler) {
 func OnAction[T any](a sdk.Action[T], fn func(T) error) {
 	register(a.Export(), func(in []byte) ([]byte, error) {
 		var v T
-		if err := json.Unmarshal(in, &v); err != nil {
+		if err := unmarshal(in, &v); err != nil {
 			return nil, fmt.Errorf("decode %s payload: %w", a.Name, err)
 		}
 		return nil, fn(v)
@@ -45,14 +45,14 @@ func OnAction[T any](a sdk.Action[T], fn func(T) error) {
 func OnFilter[T any](f sdk.Filter[T], fn func(T) (T, error)) {
 	register(f.Export(), func(in []byte) ([]byte, error) {
 		var v T
-		if err := json.Unmarshal(in, &v); err != nil {
+		if err := unmarshal(in, &v); err != nil {
 			return nil, fmt.Errorf("decode %s payload: %w", f.Name, err)
 		}
 		out, err := fn(v)
 		if err != nil {
 			return nil, err
 		}
-		return json.Marshal(out)
+		return marshal(out)
 	})
 }
 
@@ -81,14 +81,14 @@ const HTTPExport = "http_handle"
 func OnHTTP(fn func(sdk.HTTPRequest) (sdk.HTTPResponse, error)) {
 	register(HTTPExport, func(in []byte) ([]byte, error) {
 		var req sdk.HTTPRequest
-		if err := json.Unmarshal(in, &req); err != nil {
+		if err := unmarshal(in, &req); err != nil {
 			return nil, fmt.Errorf("decode http request: %w", err)
 		}
 		res, err := fn(req)
 		if err != nil {
 			return nil, err
 		}
-		return json.Marshal(res)
+		return marshal(res)
 	})
 }
 
@@ -99,7 +99,7 @@ func CronExport(name string) string { return "on_cron_" + name }
 func OnCron(name string, fn func(sdk.CronEvent) error) {
 	register(CronExport(name), func(in []byte) ([]byte, error) {
 		var ev sdk.CronEvent
-		if err := json.Unmarshal(in, &ev); err != nil {
+		if err := unmarshal(in, &ev); err != nil {
 			return nil, fmt.Errorf("decode cron event: %w", err)
 		}
 		return nil, fn(ev)
@@ -111,10 +111,10 @@ func FuncExport(name string) string { return "func_" + name }
 
 // OnFunc registers the template func called name. It receives the template's
 // arguments as JSON values and returns plain text (the theme escapes it).
-func OnFunc(name string, fn func(args []json.RawMessage) (string, error)) {
+func OnFunc(name string, fn func(args []jsontext.Value) (string, error)) {
 	register(FuncExport(name), func(in []byte) ([]byte, error) {
-		var args []json.RawMessage
-		if err := json.Unmarshal(in, &args); err != nil {
+		var args []jsontext.Value
+		if err := unmarshal(in, &args); err != nil {
 			return nil, fmt.Errorf("decode func args: %w", err)
 		}
 		text, err := fn(args)
@@ -141,11 +141,11 @@ func CapabilityDenied(err error) (capability string, denied bool) {
 // (nil to ignore it), through call: the host's hm_call. A failed call returns
 // *sdk.HostError. Call is the wasm implementation of call; tests pass a fake.
 func Invoke(call func([]byte) ([]byte, error), fn string, args, out any) error {
-	raw, err := json.Marshal(args)
+	raw, err := marshal(args)
 	if err != nil {
 		return err
 	}
-	req, err := json.Marshal(sdk.CallRequest{Fn: fn, Args: raw})
+	req, err := marshal(sdk.CallRequest{Fn: fn, Args: raw})
 	if err != nil {
 		return err
 	}
@@ -154,7 +154,7 @@ func Invoke(call func([]byte) ([]byte, error), fn string, args, out any) error {
 		return err
 	}
 	var r sdk.CallResponse
-	if err := json.Unmarshal(resp, &r); err != nil {
+	if err := unmarshal(resp, &r); err != nil {
 		return fmt.Errorf("decode host response: %w", err)
 	}
 	if !r.OK {
@@ -163,8 +163,8 @@ func Invoke(call func([]byte) ([]byte, error), fn string, args, out any) error {
 		}
 		return r.Error
 	}
-	if out != nil && len(r.Result) > 0 {
-		return json.Unmarshal(r.Result, out)
+	if out != nil && len(r.Result) > 0 && r.Result.Kind() != 'n' {
+		return unmarshal(r.Result, out)
 	}
 	return nil
 }

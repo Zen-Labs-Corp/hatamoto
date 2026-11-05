@@ -1,7 +1,7 @@
 # Hatamoto plugin template
 
 A minimal [Hatamoto](https://github.com/Zen-Labs-Corp/hatamoto) plugin: one action, one filter, a
-manifest, a Makefile and a CI workflow. It builds with the standard Go toolchain (Go 1.27 or newer with SDK v0.11.0, 1.26 with v0.12.0),
+manifest, a Makefile and a CI workflow. It builds with the standard Go toolchain (Go 1.27 or newer),
 no TinyGo.
 
 ## Use it

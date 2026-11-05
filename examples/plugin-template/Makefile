@@ -1,4 +1,4 @@
-# Build and pack the plugin. Needs Go 1.27 or newer (1.26 once you move to SDK v0.12.0) and, to pack, the hatamoto binary.
+# Build and pack the plugin. Needs Go 1.27 or newer and, to pack, the hatamoto binary.
 build:
 	rm -rf build
 	GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o build/plugin.wasm .

@@ -5,7 +5,8 @@
 package main
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"strings"
 
 	"hatamoto.dev/sdk"
@@ -14,16 +15,36 @@ import (
 
 func main() {}
 
+// The options the plugin wire is written and read with; this plugin only
+// needs the part that changes bytes here.
+var (
+	marshalOpts = jsonv2.JoinOptions(
+		jsonv2.Deterministic(true),
+		jsontext.EscapeForHTML(true),
+		jsontext.EscapeForJS(true),
+		jsonv2.FormatNilSliceAsNull(true),
+		jsonv2.FormatNilMapAsNull(true),
+	)
+	unmarshalOpts = jsonv2.JoinOptions(
+		jsonv2.MatchCaseInsensitiveNames(true),
+		jsontext.AllowDuplicateNames(true),
+		jsontext.AllowInvalidUTF8(true),
+	)
+)
+
+func marshal(v any) ([]byte, error)    { return jsonv2.Marshal(v, marshalOpts) }
+func unmarshal(in []byte, v any) error { return jsonv2.Unmarshal(in, v, unmarshalOpts) }
+
 // outcome is what call_host returns: the host's result or its typed error.
 type outcome struct {
-	Result json.RawMessage `json:"result,omitempty"`
-	Code   string          `json:"code,omitempty"`
-	Cap    string          `json:"capability,omitempty"`
-	Msg    string          `json:"message,omitempty"`
+	Result jsontext.Value `json:"result,omitzero"`
+	Code   string         `json:"code,omitempty"`
+	Cap    string         `json:"capability,omitempty"`
+	Msg    string         `json:"message,omitempty"`
 }
 
 func callHost(fn string, args any) outcome {
-	var res json.RawMessage
+	var res jsontext.Value
 	if err := guest.Call(fn, args, &res); err != nil {
 		if he, ok := err.(*sdk.HostError); ok {
 			return outcome{Code: he.Code, Cap: he.Capability, Msg: he.Message}
@@ -38,10 +59,10 @@ func init() {
 	guest.OnHTTP(func(req sdk.HTTPRequest) (sdk.HTTPResponse, error) {
 		switch {
 		case req.Path == "/echo":
-			b, _ := json.Marshal(req)
+			b, _ := marshal(req)
 			return sdk.HTTPResponse{Status: 201, Headers: map[string]string{"Content-Type": "application/json", "Set-Cookie": "x=1", "X-Evil": "1"}, Body: string(b)}, nil
 		case req.Path == "/ck": // reports the cookies it was given and sets those named in ?set=
-			b, _ := json.Marshal(req.Cookies)
+			b, _ := marshal(req.Cookies)
 			res := sdk.HTTPResponse{Body: string(b)}
 			for _, n := range req.Query["set"] {
 				res.SetCookies = append(res.SetCookies, sdk.SetCookie{Name: n, Value: "v-" + n, MaxAge: 60})
@@ -67,10 +88,10 @@ func init() {
 		return guest.Call(sdk.FnKVSet, map[string]any{"key": "cron:" + ev.Name, "value": ev.ScheduledAt}, nil)
 	})
 
-	guest.OnFunc("shout", func(args []json.RawMessage) (string, error) {
+	guest.OnFunc("shout", func(args []jsontext.Value) (string, error) {
 		var s string
 		if len(args) > 0 {
-			_ = json.Unmarshal(args[0], &s)
+			_ = unmarshal(args[0], &s)
 		}
 		return strings.ToUpper(s) + "<b>", nil
 	})
@@ -122,12 +143,12 @@ func filterRenderPage() int32 { return guest.Run(sdk.RenderPage.Export()) }
 func callHostExport() int32 {
 	var req sdk.CallRequest
 	in := guest.Input()
-	if err := json.Unmarshal(in, &req); err != nil {
+	if err := unmarshal(in, &req); err != nil {
 		return 1
 	}
 	var args any
 	if len(req.Args) > 0 {
-		_ = json.Unmarshal(req.Args, &args)
+		_ = unmarshal(req.Args, &args)
 	}
 	guest.OutputJSON(callHost(req.Fn, args))
 	return 0

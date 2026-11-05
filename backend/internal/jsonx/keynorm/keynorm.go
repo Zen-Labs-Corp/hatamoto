@@ -102,7 +102,7 @@ func walk(raw jsontext.Value, s *Shape, path string) (jsontext.Value, []Change, 
 }
 
 func walkArray(raw jsontext.Value, s *Shape, path string) (jsontext.Value, []Change, error) {
-	dec := jsontext.NewDecoder(bytes.NewReader(raw))
+	dec := jsontext.NewDecoder(bytes.NewReader(raw), jsontext.AllowDuplicateNames(true))
 	if _, err := dec.ReadToken(); err != nil { // '['
 		return nil, nil, err
 	}

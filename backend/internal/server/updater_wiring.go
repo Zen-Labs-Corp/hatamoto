@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
+	"hatamoto.dev/core/internal/plugmanifest"
 	"hatamoto.dev/core/internal/updater"
 	"hatamoto.dev/core/internal/worker"
 	"hatamoto.dev/sdk"
@@ -103,7 +104,7 @@ func (p pluginSource) EnabledSDKRanges(ctx context.Context) ([]updater.NamedRang
 			continue
 		}
 		var m sdk.Manifest
-		if err := jsonx.Unmarshal(r.Manifest, &m, jsonx.StoredLoose); err != nil {
+		if err := plugmanifest.Decode(r.Manifest, &m); err != nil {
 			return nil, fmt.Errorf("plugin %s manifest: %w", r.Name, err)
 		}
 		if m.SDK != "" {

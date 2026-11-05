@@ -16,6 +16,11 @@ var ExactNumbers = exactNumbers(Stored)
 // last value wins, as in jsonb), for sanitising entity attributes.
 var ExactNumbersLoose = exactNumbers(jsonv2.JoinOptions(Stored, jsontext.AllowDuplicateNames(true)))
 
+// ExactNumbersPinned is ExactNumbers over PinnedUnmarshal: case-insensitive
+// names, duplicate names and invalid UTF-8 are accepted, as the plugin wire
+// always did.
+var ExactNumbersPinned = exactNumbers(PinnedUnmarshal)
+
 func exactNumbers(base jsonv2.Options) jsonv2.Options {
 	var opts jsonv2.Options
 	opts = jsonv2.JoinOptions(base, jsonv2.WithUnmarshalers(jsonv2.UnmarshalFromFunc(func(dec *jsontext.Decoder, v *any) error {

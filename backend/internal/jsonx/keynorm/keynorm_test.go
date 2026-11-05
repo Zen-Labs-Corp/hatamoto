@@ -205,3 +205,12 @@ func TestShapeOf(t *testing.T) {
 }
 
 func hasKey(m map[string]*Shape, k string) bool { _, ok := m[k]; return ok }
+
+// v1 loaded a document with duplicate names inside array elements (last
+// value wins); keynorm must not refuse it.
+func TestDuplicateNamesInArrayElements(t *testing.T) {
+	got, _ := norm(t, `{"items":[{"nodeId":"a","nodeId":"b"},{"NODEID":"c"}]}`, themeShape)
+	if want := `{"items":[{"nodeId":"b"},{"nodeId":"c"}]}`; got != want {
+		t.Fatalf("got %s want %s", got, want)
+	}
+}

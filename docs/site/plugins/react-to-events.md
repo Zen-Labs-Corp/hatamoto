@@ -9,7 +9,7 @@ In this guide you write a small plugin called `notice` from scratch. It writes a
 
 ## Before you start
 
-- You have built and loaded the example plugin in [Build the hello plugin](hello-plugin.md), so Go 1.26 and a local server are ready.
+- You have built and loaded the example plugin in [Build the hello plugin](hello-plugin.md), so Go 1.27 and a local server are ready.
 - You know where your server's log appears (the terminal that runs `hatamoto serve`).
 
 A **hook** is a point where a plugin joins in. There are two kinds: an **action** runs when something happens and returns nothing, and a **filter** changes a value before the server uses it. This plugin uses one of each.

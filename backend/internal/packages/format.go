@@ -28,6 +28,7 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/jsonx/keynorm"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/plugmanifest"
 	"hatamoto.dev/sdk"
 )
 
@@ -142,46 +143,15 @@ func (p *Package) PluginManifest() (sdk.Manifest, error) {
 	return m, err
 }
 
-// manifestShape lists the canonical member names of plugin.json.
-var manifestShape = keynorm.ShapeOf(reflect.TypeOf(sdk.Manifest{}))
-
-// decodeManifest reads a plugin manifest the way the plugin host does (v1
-// rules): member names match by case only, the last of several names that
-// differ just by case wins, and names that match a field only after ignoring
-// "_" or "-" (allowedHosts for allowed_hosts) are ignored. The v2 folding of
-// those would give the package file and the host different manifests.
-func decodeManifest(raw []byte, m *sdk.Manifest) error {
-	norm, _, err := keynorm.Normalise(replaceInvalidUTF8(raw), manifestShape)
-	if err != nil {
-		return err
-	}
-	return jsonx.Unmarshal(norm, m, jsonx.Stored, jsontext.AllowDuplicateNames(true))
-}
-
-// replaceInvalidUTF8 turns every invalid byte into U+FFFD, as v1 did.
-func replaceInvalidUTF8(b []byte) []byte {
-	if utf8.Valid(b) {
-		return b
-	}
-	out := make([]byte, 0, len(b)+8)
-	for len(b) > 0 {
-		r, n := utf8.DecodeRune(b)
-		if r == utf8.RuneError && n == 1 {
-			out = append(out, "\ufffd"...)
-		} else {
-			out = append(out, b[:n]...)
-		}
-		b = b[n:]
-	}
-	return out
-}
+// decodeManifest reads a plugin manifest the way the plugin host does.
+func decodeManifest(raw []byte, m *sdk.Manifest) error { return plugmanifest.Decode(raw, m) }
 
 // checkManifestNames refuses a plugin manifest that is ambiguous: two members
 // that name one field, or a member that only the v2 folding (ignoring "_" and
 // "-") would bind to a field. Such a manifest reads differently in other
 // readers, so what the owner confirms could differ from what is enforced.
 func checkManifestNames(raw []byte) error {
-	_, changes, err := keynorm.Normalise(replaceInvalidUTF8(raw), manifestShape)
+	_, changes, err := keynorm.Normalise(plugmanifest.ReplaceInvalidUTF8(raw), plugmanifest.Shape())
 	if err != nil {
 		return err
 	}

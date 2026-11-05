@@ -2,7 +2,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"path"
 	"slices"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/redirect"
@@ -114,12 +115,17 @@ func text(field, v string, max int, required bool) error {
 
 func sourceKey(v string) error { return text("source_key", v, maxSourceKeyLen, true) }
 
-func payload(v any) json.RawMessage {
-	b, _ := json.Marshal(v)
-	return b
+// payload encodes a staged item's payload. A failure is returned, never
+// swallowed: an empty payload would stage as {} and lose the item's content.
+func payload(v any) (jsontext.Value, error) {
+	b, err := jsonx.MarshalPinned(v)
+	if err != nil {
+		return nil, invalid("payload is not encodable: %v", err)
+	}
+	return b, nil
 }
 
-func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.EntityUpsert](raw)
 	if err != nil {
 		return nil, err
@@ -182,14 +188,18 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw json.R
 		}
 	}
 	// An upsert is the whole document: attributes left out are empty.
-	p["attributes"] = json.RawMessage(`{}`)
+	p["attributes"] = jsontext.Value(`{}`)
 	if len(in.Attributes) > 0 {
 		p["attributes"] = in.Attributes
 	}
 	if in.SEO != nil {
 		p["seo"] = in.SEO
 	}
-	return s.stage(ctx, changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: in.SourceKey, Payload: payload(p)})
+	pl, err := payload(p)
+	if err != nil {
+		return nil, err
+	}
+	return s.stage(ctx, changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: in.SourceKey, Payload: pl})
 }
 
 func parseUUID(s string) (uuid.UUID, bool) {
@@ -197,12 +207,12 @@ func parseUUID(s string) (uuid.UUID, bool) {
 	return id, err == nil
 }
 
-func isJSONObject(raw json.RawMessage) bool {
-	var m map[string]json.RawMessage
-	return json.Unmarshal(raw, &m) == nil && m != nil
+func isJSONObject(raw jsontext.Value) bool {
+	var m map[string]jsontext.Value
+	return jsonx.UnmarshalPinned(raw, &m) == nil && m != nil
 }
 
-func fnChangesetTermUpsert(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetTermUpsert(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.TermUpsert](raw)
 	if err != nil {
 		return nil, err
@@ -224,14 +234,17 @@ func fnChangesetTermUpsert(ctx context.Context, a *API, e *callEnv, raw json.Raw
 	if err != nil {
 		return nil, err
 	}
-	return s.stage(ctx, changeset.Item{Kind: changeset.KindTerm, Op: changeset.OpUpsert, SourceKey: in.SourceKey,
-		Payload: payload(map[string]string{"kind": in.Kind, "slug": in.Slug, "name": in.Name, "description": in.Description})})
+	pl, err := payload(map[string]string{"kind": in.Kind, "slug": in.Slug, "name": in.Name, "description": in.Description})
+	if err != nil {
+		return nil, err
+	}
+	return s.stage(ctx, changeset.Item{Kind: changeset.KindTerm, Op: changeset.OpUpsert, SourceKey: in.SourceKey, Payload: pl})
 }
 
 // fnChangesetPersonUpsert would stage a byline. Bylines are not a term kind
 // in this core (they are person entities attached to content), and this
 // function never touches user accounts, so there is nothing safe to stage.
-func fnChangesetPersonUpsert(_ context.Context, _ *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetPersonUpsert(_ context.Context, _ *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.PersonUpsert](raw)
 	if err != nil {
 		return nil, err
@@ -242,7 +255,7 @@ func fnChangesetPersonUpsert(_ context.Context, _ *API, _ *callEnv, raw json.Raw
 	return nil, herr(sdk.ErrUnavailable, "changeset.person.upsert is not available yet: this core has no byline term kind")
 }
 
-func fnChangesetMediaAttach(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetMediaAttach(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.MediaAttach](raw)
 	if err != nil {
 		return nil, err
@@ -275,14 +288,18 @@ func fnChangesetMediaAttach(ctx context.Context, a *API, e *callEnv, raw json.Ra
 	if in.Credit != "" {
 		p["credit"] = in.Credit
 	}
+	pl, err := payload(p)
+	if err != nil {
+		return nil, err
+	}
 	return s.stage(ctx, changeset.Item{Kind: changeset.KindMedia, Op: changeset.OpUpsert, SourceKey: in.SourceKey,
-		BlobKeys: []string{in.Handle}, Payload: payload(p)})
+		BlobKeys: []string{in.Handle}, Payload: pl})
 }
 
 // fnChangesetMediaAlt stages a new alt text for an owner media item. It is a
 // reviewed change like any other item: the owner publishes it, a revert puts
 // the old text back. The engine refuses media the owner did not upload.
-func fnChangesetMediaAlt(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetMediaAlt(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.MediaAlt](raw)
 	if err != nil {
 		return nil, err
@@ -315,8 +332,12 @@ func fnChangesetMediaAlt(ctx context.Context, a *API, e *callEnv, raw json.RawMe
 	// The name and the old text are for the review screen, which shows every
 	// alt text change as "old -> new". No source key: the item changes an
 	// owner row, so it leaves no mapping.
+	pl, err := payload(map[string]string{"name": m.OriginalFilename, "old_alt": oldAlt, "alt_text": in.Alt})
+	if err != nil {
+		return nil, err
+	}
 	err = a.svc.Changesets.Stage(ctx, s.csID, changeset.Item{Kind: changeset.KindMedia, Op: changeset.OpUpsert,
-		TargetID: id.String(), Payload: payload(map[string]string{"name": m.OriginalFilename, "old_alt": oldAlt, "alt_text": in.Alt})})
+		TargetID: id.String(), Payload: pl})
 	if errors.Is(err, changeset.ErrNotOwned) {
 		return nil, herr(sdk.ErrNotOwned, "media %s was not uploaded by the owner", id)
 	}
@@ -326,7 +347,7 @@ func fnChangesetMediaAlt(ctx context.Context, a *API, e *callEnv, raw json.RawMe
 	return sdk.UpsertResult{SourceKey: "alt:" + id.String()}, nil
 }
 
-func fnChangesetMenuUpsert(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetMenuUpsert(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.MenuUpsert](raw)
 	if err != nil {
 		return nil, err
@@ -357,8 +378,11 @@ func fnChangesetMenuUpsert(ctx context.Context, a *API, e *callEnv, raw json.Raw
 	if items == nil {
 		items = []menu.ReplaceItem{}
 	}
-	return s.stage(ctx, changeset.Item{Kind: changeset.KindMenu, Op: changeset.OpUpsert, SourceKey: in.SourceKey,
-		Payload: payload(map[string]any{"slug": in.Slug, "name": in.Name, "items": items, "entity_keys": keys})})
+	pl, err := payload(map[string]any{"slug": in.Slug, "name": in.Name, "items": items, "entity_keys": keys})
+	if err != nil {
+		return nil, err
+	}
+	return s.stage(ctx, changeset.Item{Kind: changeset.KindMenu, Op: changeset.OpUpsert, SourceKey: in.SourceKey, Payload: pl})
 }
 
 // flattenMenu turns the item tree into the parent-index list the menu service
@@ -410,7 +434,7 @@ func flattenMenu(in []sdk.MenuItem, parent, depth int, out *[]menu.ReplaceItem, 
 	return nil
 }
 
-func fnChangesetRedirectUpsert(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetRedirectUpsert(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.RedirectUpsert](raw)
 	if err != nil {
 		return nil, err
@@ -439,14 +463,17 @@ func fnChangesetRedirectUpsert(ctx context.Context, a *API, e *callEnv, raw json
 	if a.svc.LivePath != nil && a.svc.LivePath(ctx, in.From) {
 		return nil, invalid("from %q is served by live content; a redirect may not shadow it", in.From)
 	}
-	return s.stage(ctx, changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, SourceKey: in.SourceKey,
-		Payload: payload(map[string]any{"source_path": in.From, "target": in.To, "status": status})})
+	pl, err := payload(map[string]any{"source_path": in.From, "target": in.To, "status": status})
+	if err != nil {
+		return nil, err
+	}
+	return s.stage(ctx, changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, SourceKey: in.SourceKey, Payload: pl})
 }
 
 // deletable are the kinds changeset.delete may remove; media is create-only.
 var deletable = []changeset.Kind{changeset.KindEntity, changeset.KindTerm, changeset.KindMenu, changeset.KindRedirect}
 
-func fnChangesetDelete(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetDelete(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.ChangesetDeleteArgs](raw)
 	if err != nil {
 		return nil, err
@@ -481,7 +508,7 @@ const (
 	maxSiteTaglineLen = 500
 )
 
-func fnChangesetPropose(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetPropose(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.Proposal](raw)
 	if err != nil {
 		return nil, err
@@ -514,7 +541,7 @@ func fnChangesetPropose(ctx context.Context, a *API, e *callEnv, raw json.RawMes
 // document to store. site_settings is limited to title, tagline, time zone and
 // language; the other kinds are stored as a JSON object and checked by the
 // owner at sign-off, which is also where a proposal is applied.
-func checkProposal(kind string, payload json.RawMessage) (json.RawMessage, error) {
+func checkProposal(kind string, payload jsontext.Value) (jsontext.Value, error) {
 	if !isJSONObject(payload) {
 		return nil, invalid("payload must be a JSON object")
 	}
@@ -548,5 +575,5 @@ func checkProposal(kind string, payload json.RawMessage) (json.RawMessage, error
 			return nil, err
 		}
 	}
-	return json.Marshal(m)
+	return jsonx.MarshalPinned(m)
 }

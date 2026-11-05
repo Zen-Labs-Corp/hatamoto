@@ -26,7 +26,7 @@ A plugin is a WebAssembly module built with the standard Go toolchain, plus a
 
 ### Prerequisites
 
-- Go 1.26 or newer.
+- Go 1.27 or newer.
 - The `hatamoto` binary, for `keys generate` and `plugin pack`.
 - A public GitHub repo for your plugin.
 
@@ -51,9 +51,9 @@ that toolchain (currently go1.27.3) fails to build. After `go mod tidy` it looks
 ```
 module github.com/acme/hatamoto-acme-seo
 
-go 1.26
+go 1.27
 
-require hatamoto.dev/sdk v0.12.0
+require hatamoto.dev/sdk v0.19.0
 
 require github.com/extism/go-pdk v1.1.3 // indirect
 ```

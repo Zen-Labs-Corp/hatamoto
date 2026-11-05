@@ -1,0 +1,10 @@
+{
+  "name": "legacy",
+  "version": "0.1.0",
+  "sdk": "^0.6",
+  "permissions": ["kv", "forms.read", "log"],
+  "cookies": ["unlock", "visited"],
+  "funcs": ["shout"],
+  "cron": [{"name": "tick", "every": "5m"}],
+  "routes": [{"method": "GET", "path": "/echo"}]
+}

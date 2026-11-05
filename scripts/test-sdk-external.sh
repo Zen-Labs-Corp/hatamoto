@@ -40,7 +40,7 @@ local)
 	export GOFLAGS="${GOFLAGS:+$GOFLAGS }-mod=mod" GOPROXY=off
 	;;
 proxy)
-	# SDK releases before 0.12.0 declare go 1.27, above the 1.26 of the examples.
+	# SDK releases before 0.12.0 declare go 1.27, above the go line of older examples.
 	[ "$(printf '%s\n0.12.0\n' "$version" | sort -V | head -n1)" = 0.12.0 ] || go mod edit -go=1.27
 	export GOFLAGS="${GOFLAGS:+$GOFLAGS }-mod=mod"
 	;;

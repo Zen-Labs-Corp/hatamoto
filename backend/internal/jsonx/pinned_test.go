@@ -112,109 +112,46 @@ func dupNames() any {
 	return reflect.New(t).Elem().Interface()
 }
 
-// TestPinnedKnownDivergences records where a v2-only Pinned set differs from
-// v1, as known as of go1.27.3. Each case carries the literal v1 bytes and the
-// fix a later part applies to the affected wire type; when one starts to
-// match v1, the assertion fails and the note can go.
-func TestPinnedKnownDivergences(t *testing.T) {
+// TestPinnedLegacyMatchesV1 pins the v1 behaviours PinnedMarshal reproduces
+// through the legacy options of v1opts.go. Each case carries the literal v1
+// bytes (v1 semantics, not a live encoder).
+func TestPinnedLegacyMatchesV1(t *testing.T) {
 	cases := []struct {
 		name string
 		v    any
-		fix  string
-		v1   string
-		v2   string
+		want string
 	}{
-		{
-			name: "omitempty int and bool",
-			v:    omitScalars{},
-			fix:  "tag the fields omitzero",
-			v1:   `{}`,
-			v2:   `{"n":0,"b":false}`,
-		},
-		{
-			name: "pointer receiver MarshalJSON, not addressable",
-			v:    holdsPtrMarshaler{},
-			fix:  "pass a pointer to the holder",
-			v1:   `{"v":{"A":0}}`,
-			v2:   `{"v":"custom"}`,
-		},
-		{
-			name: "time.Duration",
-			v:    map[string]time.Duration{"d": time.Second},
-			fix:  "use a typed marshaler writing nanoseconds",
-			v1:   `{"d":1000000000}`,
-			v2:   "", // v2 refuses to encode it
-		},
-		{
-			name: "[N]byte",
-			v:    [2]byte{1, 2},
-			fix:  "use a typed marshaler writing an array",
-			v1:   `[1,2]`,
-			v2:   `"AQI="`,
-		},
-		{
-			name: "omitempty struct field that encodes as {}",
-			v:    omitStruct{},
-			fix:  "tag the field omitzero, or drop omitempty to keep writing {}",
-			v1:   `{"meta":{}}`,
-			v2:   `{}`,
-		},
-		{
-			name: "omitempty non-nil pointer to an empty string",
-			v:    omitPtr{Notify: new(string)},
-			fix:  "drop omitempty (a nil pointer then writes null) or tag omitzero (keeps the empty string)",
-			v1:   `{"notify_email":""}`,
-			v2:   `{}`,
-		},
-		{
-			name: "omitempty MarshalJSON returning an empty string",
-			v:    omitMarshaler{V: `""`},
-			fix:  "tag the field omitzero, or drop omitempty",
-			v1:   `{"v":""}`,
-			v2:   `{}`,
-		},
-		{
-			name: "omitempty MarshalJSON returning {}",
-			v:    omitMarshaler{V: `{}`},
-			fix:  "tag the field omitzero, or drop omitempty",
-			v1:   `{"v":{}}`,
-			v2:   `{}`,
-		},
-		{
-			name: "omitempty MarshalJSON returning null",
-			v:    omitMarshaler{V: `null`},
-			fix:  "tag the field omitzero, or drop omitempty",
-			v1:   `{"v":null}`,
-			v2:   `{}`,
-		},
-		{
-			name: "two fields with one JSON name",
-			v:    dupNames(),
-			fix:  "rename or drop one of the fields; v1 silently omitted both",
-			v1:   `{}`,
-			v2:   "", // v2 returns a duplicate-name error
-		},
+		{"omitempty int and bool", omitScalars{}, `{}`},
+		{"pointer receiver MarshalJSON, not addressable", holdsPtrMarshaler{}, `{"v":{"A":0}}`},
+		{"time.Duration", map[string]time.Duration{"d": time.Second}, `{"d":1000000000}`},
+		{"[N]byte", [2]byte{1, 2}, `[1,2]`},
+		{"omitempty struct field that encodes as {}", omitStruct{}, `{"meta":{}}`},
+		{"omitempty non-nil pointer to an empty string", omitPtr{Notify: new(string)}, `{"notify_email":""}`},
+		{"omitempty nil pointer", omitPtr{}, `{}`},
+		{"omitempty MarshalJSON returning an empty string", omitMarshaler{V: `""`}, `{"v":""}`},
+		{"omitempty MarshalJSON returning {}", omitMarshaler{V: `{}`}, `{"v":{}}`},
+		{"omitempty MarshalJSON returning null", omitMarshaler{V: `null`}, `{"v":null}`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Log("later-part fix:", tc.fix)
 			got, err := MarshalPinned(tc.v)
-			if tc.v2 == "" {
-				if err == nil {
-					t.Fatalf("pinned encoded %s, expected an error (v1: %s)", got, tc.v1)
-				}
-				return
-			}
 			if err != nil {
 				t.Fatalf("pinned: %v", err)
 			}
-			if string(got) == tc.v1 {
-				t.Fatalf("pinned now matches v1 (%s): drop this divergence", got)
-			}
-			if string(got) != tc.v2 {
-				t.Fatalf("pinned = %s, want %s (v1: %s)", got, tc.v2, tc.v1)
+			if string(got) != tc.want {
+				t.Fatalf("pinned = %s, want v1 bytes %s", got, tc.want)
 			}
 		})
+	}
+}
+
+// TestPinnedKnownDivergences records the one place PinnedMarshal still differs
+// from v1, as known as of go1.27.3: v1 silently omitted both fields of a
+// struct that has two fields with one JSON name, v2 returns an error. Rename
+// one of the fields.
+func TestPinnedKnownDivergences(t *testing.T) {
+	if got, err := MarshalPinned(dupNames()); err == nil { // v1: {}
+		t.Fatalf("pinned encoded %s, expected a duplicate-name error", got)
 	}
 }
 
@@ -281,5 +218,17 @@ func TestUnmarshalPinned(t *testing.T) {
 	}
 	if err := UnmarshalPinned([]byte(`{"name":"a"}{"name":"b"}`), &v); err == nil {
 		t.Fatal("second value accepted")
+	}
+}
+
+// TestPinnedMarshalAcceptsDuplicateNamesInRaw: v1 compacted a RawMessage and
+// never checked it for duplicate names.
+func TestPinnedMarshalAcceptsDuplicateNamesInRaw(t *testing.T) {
+	got, err := MarshalPinned(rawHolder{Raw: jsontext.Value(`{"a":1,"a":2,"n":{"b":1,"b":2}}`)})
+	if err != nil {
+		t.Fatalf("pinned: %v", err)
+	}
+	if want := `{"raw":{"a":1,"a":2,"n":{"b":1,"b":2}}}`; string(got) != want {
+		t.Fatalf("pinned = %s, want %s", got, want)
 	}
 }

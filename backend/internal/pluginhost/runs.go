@@ -2,7 +2,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/plugrun"
 	"hatamoto.dev/core/internal/wasmhost"
 	"hatamoto.dev/sdk"
@@ -198,7 +199,7 @@ func (r *Runtime) failStale(ctx context.Context, plugin string) error {
 	return nil
 }
 
-func checkRunInputs(d sdk.Run, given map[string]string) (json.RawMessage, error) {
+func checkRunInputs(d sdk.Run, given map[string]string) (jsontext.Value, error) {
 	known := map[string]sdk.RunInput{}
 	for _, in := range d.Inputs {
 		known[in.Name] = in
@@ -247,7 +248,7 @@ func checkRunInputs(d sdk.Run, given map[string]string) (json.RawMessage, error)
 			out[in.Name] = v
 		}
 	}
-	return json.Marshal(out)
+	return jsonx.MarshalPinned(out)
 }
 
 // checkRunHosts validates the hosts the owner confirmed: bare host names
@@ -320,7 +321,7 @@ func (r *Runtime) drive(runID uuid.UUID) {
 		if i := slices.IndexFunc(m.Runs, func(d sdk.Run) bool { return d.Name == run.Name }); i >= 0 {
 			rc.Proposes = m.Runs[i].Proposes
 		}
-		in, _ := json.Marshal(sdk.RunStep{RunID: runID.String(), Phase: run.Phase, Cursor: run.Cursor})
+		in, _ := jsonx.MarshalPinned(sdk.RunStep{RunID: runID.String(), Phase: run.Phase, Cursor: run.Cursor})
 		if _, err := r.host.Call(wasmhost.WithFreshInstance(WithRun(stepCtx, rc)), run.Plugin, sdk.RunStepExport, in); err != nil {
 			reason := "step failed: " + err.Error()
 			if r.runCtx.Err() != nil {

@@ -1,7 +1,7 @@
 package sdk
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 )
 
@@ -13,15 +13,15 @@ const HostFunc = "hm_call"
 // CallRequest is the input of hm_call: the capability function and its
 // arguments (see docs/PLUGIN_API.md for each function's shape).
 type CallRequest struct {
-	Fn   string          `json:"fn"`
-	Args json.RawMessage `json:"args,omitempty"`
+	Fn   string         `json:"fn"`
+	Args jsontext.Value `json:"args,omitempty"`
 }
 
 // CallResponse is the output of hm_call. Exactly one of Result and Error is set.
 type CallResponse struct {
-	OK     bool            `json:"ok"`
-	Result json.RawMessage `json:"result,omitempty"`
-	Error  *HostError      `json:"error,omitempty"`
+	OK     bool           `json:"ok"`
+	Result jsontext.Value `json:"result,omitempty"`
+	Error  *HostError     `json:"error,omitzero"`
 }
 
 // Error codes of a failed host call.
@@ -129,7 +129,7 @@ type HTTPRequest struct {
 	Headers    map[string]string   `json:"headers,omitempty"` // allowlisted request headers, lower-case names
 	Body       string              `json:"body,omitempty"`
 	BodyB64    string              `json:"body_b64,omitempty"` // set instead of Body when the body is not UTF-8
-	User       *HTTPUser           `json:"user,omitempty"`     // nil on public routes
+	User       *HTTPUser           `json:"user,omitzero"`      // nil on public routes
 	// Cookies are the request cookies the manifest's `cookies` list declares,
 	// by their short names. Public routes only.
 	Cookies map[string]string `json:"cookies,omitempty"`
@@ -145,7 +145,7 @@ type HTTPUser struct {
 // (Content-Type, Cache-Control, Location, Content-Disposition, ETag) are
 // forwarded; Status defaults to 200.
 type HTTPResponse struct {
-	Status  int               `json:"status,omitempty"`
+	Status  int               `json:"status,omitzero"`
 	Headers map[string]string `json:"headers,omitempty"`
 	Body    string            `json:"body,omitempty"`
 	BodyB64 string            `json:"body_b64,omitempty"`
