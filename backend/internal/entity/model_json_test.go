@@ -27,3 +27,20 @@ func TestEntityJSONOmitsFalseBylineOrg(t *testing.T) {
 		t.Errorf("set value missing: %s", b)
 	}
 }
+
+// v2 omitempty drops "{}" and "null" raw values; only absent ones may go.
+func TestEntityJSONKeepsEmptyRawObjects(t *testing.T) {
+	b, err := jsonx.Marshal(Entity{Metadata: []byte(`{}`), Editorial: []byte(`{}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{`"metadata":{}`, `"editorial":{}`} {
+		if !strings.Contains(string(b), key) {
+			t.Errorf("%s missing: %s", key, b)
+		}
+	}
+	b, _ = jsonx.Marshal(Entity{})
+	if strings.Contains(string(b), "metadata") {
+		t.Errorf("nil metadata written: %s", b)
+	}
+}
