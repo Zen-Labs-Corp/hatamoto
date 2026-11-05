@@ -88,6 +88,38 @@ func (r *Reader) TrafficTop(ctx context.Context, dim Dim, from, to time.Time, li
 	return out, rows.Err()
 }
 
+// TopLanding returns the landing paths (k1 of the landing dimension) summed over
+// from..to (inclusive, UTC dates), most pageviews first, ties by key. The
+// "(other)" bucket is dropped. limit is clamped to 1..500; only Pageviews of the
+// result is filled besides K1.
+func (r *Reader) TopLanding(ctx context.Context, from, to time.Time, limit int) ([]TrafficTop, error) {
+	limit = min(max(limit, 1), 500)
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get connection: %w", err)
+	}
+	defer conn.Release()
+	rows, err := conn.Query(ctx, `SELECT k1, SUM(pageviews)::bigint
+		FROM hatamoto_traffic_daily
+		WHERE dim = $1 AND day BETWEEN $2 AND $3 AND k1 <> $4
+		GROUP BY k1
+		ORDER BY SUM(pageviews) DESC, k1
+		LIMIT $5`, string(DimLanding), from, to, KeyOther, limit)
+	if err != nil {
+		return nil, fmt.Errorf("top landing: %w", err)
+	}
+	defer rows.Close()
+	out := []TrafficTop{}
+	for rows.Next() {
+		var tt TrafficTop
+		if err := rows.Scan(&tt.K1, &tt.Pageviews); err != nil {
+			return nil, err
+		}
+		out = append(out, tt)
+	}
+	return out, rows.Err()
+}
+
 // TrafficTotals returns the counters of from..to summed over the channel
 // dimension, which every event feeds exactly once, so the totals are exact.
 func (r *Reader) TrafficTotals(ctx context.Context, from, to time.Time) (Counts, error) {
