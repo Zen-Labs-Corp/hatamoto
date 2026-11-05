@@ -326,7 +326,8 @@ not gated (the log says so).
 
 **Rolling back.** A failed gate, or three crashes within two minutes of a start of a release that
 is still unproven, puts the previous binary back and lists the failed version as bad: applying it
-again is refused, a newer version supersedes it. A proven release is never rolled back by crashes.
+again is refused, a newer version supersedes it, or you fix the cause and run
+`hatamoto update retry vX.Y.Z` (see below). A proven release is never rolled back by crashes.
 A rollback changes binaries only. It never touches the database, which is why the schema rules
 above exist. `hatamoto update rollback` goes back to the previous release by hand; it refuses a
 previous release that is on the bad list, or that was applied offline and never ran, unless you
@@ -385,7 +386,9 @@ there is one), else the previous release or the bootstrap build when the rollbac
 mode reports a rollback and never makes it. After a health-gate rollback `update status` says
 `rolled back vX: <reason>`. A release that needs a newer stepping stone (`min_from`) is reached in
 one hop per check. Before switching, the agent checks that enabled plugins and the active theme
-declare an SDK range the new release meets, that there are three times the binary's size free
+declare an SDK range the new release meets, that no enabled plugin still declares a permission the
+new release lists as removed (`Update blocked: vX removes permission "p", still used by plugin
+example-plugin (1.2.1)`; update the plugin first, or pass `--force`), that there are three times the binary's size free
 under the data dir, and that no content import is running; any miss is shown in `update status`
 and retried at the next check. Before switching it takes a backup with the same engine as Settings > Backups & recovery > Backups
 ([BACKUPS.md](BACKUPS.md)): the whole database, plugin schemas and content, kept as a `pre_update`
@@ -431,8 +434,11 @@ hatamoto update apply v2.0.0 [--force]
 
 `status`, `check`, `pin` and `unpin` need `DATABASE_URL`. `apply vX.Y.Z` fetches the named version
 from the channel, ignores ramp, window, defer and pin, still verifies everything, and refuses a
-yanked or bad-listed version; the plugin check runs only when `DATABASE_URL` is set, and `--force`
-skips it. Run them as the service user, as described above; `check`, `pin`, `unpin` and `apply vX.Y.Z`
+yanked or bad-listed version; the plugin check (SDK ranges and removed permissions) runs only when
+`DATABASE_URL` is set, and `--force` skips it. `retry vX.Y.Z` is for a version that failed its health
+check here: it takes the version off the bad list and installs it at once through the full gate again,
+with the same download, preflight and backup as `apply` (`--force` and `--no-backup` work the same).
+It refuses a version that is not on the bad list and one that failed verification. Run them as the service user, as described above; `check`, `pin`, `unpin` and `apply vX.Y.Z`
 refuse to run as anyone else. They report and decide against the release the supervisor runs, not the
 version of the binary you typed. A `serve` that runs without a supervisor stages a release once and
 says "staged vX; run under `hatamoto supervise` to apply".
@@ -480,8 +486,11 @@ Environment variables win over the stored settings; the full list is in
 ### If an update rolled back
 
 The admin shows a banner with the reason and `hatamoto update status` says
-`rolled back vX: <reason>`. That version is skipped on your box and never fetched again; you get the
-fix release automatically. Please open an issue and include the `hatamoto update status` output.
+`rolled back vX: <reason>`. The agent never fetches that version again by itself, and a newer fix release
+replaces it automatically. If you fixed the cause yourself (a plugin or theme), run
+`hatamoto update retry vX.Y.Z`, or press **Retry** on Settings > Updates as the owner after the
+password re-check; the health check then runs again. A version that failed verification cannot be
+retried. Please open an issue and include the `hatamoto update status` output.
 
 ### If the site will not start at all
 
