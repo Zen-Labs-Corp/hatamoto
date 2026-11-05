@@ -2,7 +2,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"path"
 	"slices"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/redirect"
@@ -114,12 +115,12 @@ func text(field, v string, max int, required bool) error {
 
 func sourceKey(v string) error { return text("source_key", v, maxSourceKeyLen, true) }
 
-func payload(v any) json.RawMessage {
-	b, _ := json.Marshal(v)
+func payload(v any) jsontext.Value {
+	b, _ := jsonx.MarshalPinned(v)
 	return b
 }
 
-func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.EntityUpsert](raw)
 	if err != nil {
 		return nil, err
@@ -182,7 +183,7 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw json.R
 		}
 	}
 	// An upsert is the whole document: attributes left out are empty.
-	p["attributes"] = json.RawMessage(`{}`)
+	p["attributes"] = jsontext.Value(`{}`)
 	if len(in.Attributes) > 0 {
 		p["attributes"] = in.Attributes
 	}
@@ -197,12 +198,12 @@ func parseUUID(s string) (uuid.UUID, bool) {
 	return id, err == nil
 }
 
-func isJSONObject(raw json.RawMessage) bool {
-	var m map[string]json.RawMessage
-	return json.Unmarshal(raw, &m) == nil && m != nil
+func isJSONObject(raw jsontext.Value) bool {
+	var m map[string]jsontext.Value
+	return jsonx.UnmarshalPinned(raw, &m) == nil && m != nil
 }
 
-func fnChangesetTermUpsert(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetTermUpsert(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.TermUpsert](raw)
 	if err != nil {
 		return nil, err
@@ -231,7 +232,7 @@ func fnChangesetTermUpsert(ctx context.Context, a *API, e *callEnv, raw json.Raw
 // fnChangesetPersonUpsert would stage a byline. Bylines are not a term kind
 // in this core (they are person entities attached to content), and this
 // function never touches user accounts, so there is nothing safe to stage.
-func fnChangesetPersonUpsert(_ context.Context, _ *API, _ *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetPersonUpsert(_ context.Context, _ *API, _ *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.PersonUpsert](raw)
 	if err != nil {
 		return nil, err
@@ -242,7 +243,7 @@ func fnChangesetPersonUpsert(_ context.Context, _ *API, _ *callEnv, raw json.Raw
 	return nil, herr(sdk.ErrUnavailable, "changeset.person.upsert is not available yet: this core has no byline term kind")
 }
 
-func fnChangesetMediaAttach(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetMediaAttach(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.MediaAttach](raw)
 	if err != nil {
 		return nil, err
@@ -282,7 +283,7 @@ func fnChangesetMediaAttach(ctx context.Context, a *API, e *callEnv, raw json.Ra
 // fnChangesetMediaAlt stages a new alt text for an owner media item. It is a
 // reviewed change like any other item: the owner publishes it, a revert puts
 // the old text back. The engine refuses media the owner did not upload.
-func fnChangesetMediaAlt(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetMediaAlt(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.MediaAlt](raw)
 	if err != nil {
 		return nil, err
@@ -326,7 +327,7 @@ func fnChangesetMediaAlt(ctx context.Context, a *API, e *callEnv, raw json.RawMe
 	return sdk.UpsertResult{SourceKey: "alt:" + id.String()}, nil
 }
 
-func fnChangesetMenuUpsert(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetMenuUpsert(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.MenuUpsert](raw)
 	if err != nil {
 		return nil, err
@@ -410,7 +411,7 @@ func flattenMenu(in []sdk.MenuItem, parent, depth int, out *[]menu.ReplaceItem, 
 	return nil
 }
 
-func fnChangesetRedirectUpsert(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetRedirectUpsert(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.RedirectUpsert](raw)
 	if err != nil {
 		return nil, err
@@ -446,7 +447,7 @@ func fnChangesetRedirectUpsert(ctx context.Context, a *API, e *callEnv, raw json
 // deletable are the kinds changeset.delete may remove; media is create-only.
 var deletable = []changeset.Kind{changeset.KindEntity, changeset.KindTerm, changeset.KindMenu, changeset.KindRedirect}
 
-func fnChangesetDelete(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetDelete(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.ChangesetDeleteArgs](raw)
 	if err != nil {
 		return nil, err
@@ -481,7 +482,7 @@ const (
 	maxSiteTaglineLen = 500
 )
 
-func fnChangesetPropose(ctx context.Context, a *API, e *callEnv, raw json.RawMessage) (any, error) {
+func fnChangesetPropose(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	in, err := decodeArgs[sdk.Proposal](raw)
 	if err != nil {
 		return nil, err
@@ -514,7 +515,7 @@ func fnChangesetPropose(ctx context.Context, a *API, e *callEnv, raw json.RawMes
 // document to store. site_settings is limited to title, tagline, time zone and
 // language; the other kinds are stored as a JSON object and checked by the
 // owner at sign-off, which is also where a proposal is applied.
-func checkProposal(kind string, payload json.RawMessage) (json.RawMessage, error) {
+func checkProposal(kind string, payload jsontext.Value) (jsontext.Value, error) {
 	if !isJSONObject(payload) {
 		return nil, invalid("payload must be a JSON object")
 	}
@@ -548,5 +549,5 @@ func checkProposal(kind string, payload json.RawMessage) (json.RawMessage, error
 			return nil, err
 		}
 	}
-	return json.Marshal(m)
+	return jsonx.MarshalPinned(m)
 }
