@@ -1,11 +1,13 @@
 package builder
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestBindSourcesAllValid(t *testing.T) {
@@ -128,14 +130,14 @@ func TestSetBindApplyUndo(t *testing.T) {
 	d := opsFixture(t)
 	before := string(mustJSON(t, d))
 
-	inv, err := d.Apply(Op{Op: "setBind", ID: "h1", Key: "text", Value: json.RawMessage(`"entity.name"`)})
+	inv, err := d.Apply(Op{Op: "setBind", ID: "h1", Key: "text", Value: jsontext.Value(`"entity.name"`)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if n, _ := d.Find("h1"); n.B["text"] != "entity.name" {
 		t.Fatalf("B = %v", n.B)
 	}
-	inv2, err := d.Apply(Op{Op: "setBind", ID: "h1", Key: "text", Value: json.RawMessage(`"entity.title"`)})
+	inv2, err := d.Apply(Op{Op: "setBind", ID: "h1", Key: "text", Value: jsontext.Value(`"entity.title"`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,12 +162,12 @@ func TestSetBindRejectedLeavesDoc(t *testing.T) {
 	d := opsFixture(t)
 	before := string(mustJSON(t, d))
 	for _, op := range []Op{
-		{Op: "setBind", ID: "h1", Key: "text", Value: json.RawMessage(`"entity.nope"`)},
-		{Op: "setBind", ID: "h1", Key: "level", Value: json.RawMessage(`"entity.name"`)},
-		{Op: "setBind", ID: "h1", Key: "text", Value: json.RawMessage(`"loop.item.title"`)},
-		{Op: "setBind", ID: "k", Key: "title", Value: json.RawMessage(`"entity.name"`)},
-		{Op: "setBind", ID: "h1", Key: "text", Value: json.RawMessage(`5`)},
-		{Op: "setBind", ID: "zz", Key: "text", Value: json.RawMessage(`"entity.name"`)},
+		{Op: "setBind", ID: "h1", Key: "text", Value: jsontext.Value(`"entity.nope"`)},
+		{Op: "setBind", ID: "h1", Key: "level", Value: jsontext.Value(`"entity.name"`)},
+		{Op: "setBind", ID: "h1", Key: "text", Value: jsontext.Value(`"loop.item.title"`)},
+		{Op: "setBind", ID: "k", Key: "title", Value: jsontext.Value(`"entity.name"`)},
+		{Op: "setBind", ID: "h1", Key: "text", Value: jsontext.Value(`5`)},
+		{Op: "setBind", ID: "zz", Key: "text", Value: jsontext.Value(`"entity.name"`)},
 	} {
 		if _, err := d.Apply(op); err == nil {
 			t.Errorf("%+v accepted", op)
@@ -175,7 +177,7 @@ func TestSetBindRejectedLeavesDoc(t *testing.T) {
 		}
 	}
 	// Unbinding a node with no binding is a no-op, not an error.
-	if _, err := d.Apply(Op{Op: "setBind", ID: "h1", Key: "text", Value: json.RawMessage(`null`)}); err != nil {
+	if _, err := d.Apply(Op{Op: "setBind", ID: "h1", Key: "text", Value: jsontext.Value(`null`)}); err != nil {
 		t.Errorf("unbind of nothing: %v", err)
 	}
 }
@@ -188,7 +190,7 @@ func TestBindParseExactRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := json.Marshal(d)
+	out, err := jsonx.Marshal(d)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,8 +200,8 @@ func TestBindParseExactRoundTrip(t *testing.T) {
 		}
 	}
 	var a, b any
-	json.Unmarshal([]byte(raw), &a)
-	json.Unmarshal(out, &b)
+	jsonx.Unmarshal([]byte(raw), &a)
+	jsonx.Unmarshal(out, &b)
 	if !reflect.DeepEqual(a, b) {
 		t.Errorf("round trip:\n%s\n%s", out, raw)
 	}
@@ -208,7 +210,7 @@ func TestBindParseExactRoundTrip(t *testing.T) {
 	}
 	// An empty b is omitted.
 	d.Nodes[0].B = nil
-	out, _ = json.Marshal(d)
+	out, _ = jsonx.Marshal(d)
 	if strings.Contains(string(out), `"b"`) && !strings.Contains(string(out), `"b":{"text"`) {
 		t.Errorf("empty b serialised: %s", out)
 	}

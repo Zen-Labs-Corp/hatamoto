@@ -1,7 +1,7 @@
 package builder
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strings"
@@ -139,17 +139,17 @@ func TestPackWidgetValidatesAndOrphans(t *testing.T) {
 		t.Fatalf("orphan rejected: %v", err)
 	}
 	for _, op := range []Op{
-		{Op: "setProp", ID: "a", Key: "title", Value: json.RawMessage(`"New"`)},
-		{Op: "setBind", ID: "a", Key: "title", Value: json.RawMessage(`"entity.title"`)},
+		{Op: "setProp", ID: "a", Key: "title", Value: jsontext.Value(`"New"`)},
+		{Op: "setBind", ID: "a", Key: "title", Value: jsontext.Value(`"entity.title"`)},
 	} {
 		if _, err := d.Apply(op); !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "widget not installed") {
 			t.Fatalf("%s on orphan: %v", op.Op, err)
 		}
 	}
-	if _, err := d.Apply(Op{Op: "setProp", ID: "b", Key: "text", Value: json.RawMessage(`"y"`)}); err != nil {
+	if _, err := d.Apply(Op{Op: "setProp", ID: "b", Key: "text", Value: jsontext.Value(`"y"`)}); err != nil {
 		t.Fatalf("child of orphan editable: %v", err)
 	}
-	if _, err := d.Apply(Op{Op: "setStyle", ID: "a", BP: "base", Key: "pt", Value: json.RawMessage(`"space-2"`)}); err != nil {
+	if _, err := d.Apply(Op{Op: "setStyle", ID: "a", BP: "base", Key: "pt", Value: jsontext.Value(`"space-2"`)}); err != nil {
 		t.Fatalf("style of orphan: %v", err)
 	}
 	if _, err := d.Apply(Op{Op: "move", ID: "b", Parent: "", Index: 0}); err != nil {

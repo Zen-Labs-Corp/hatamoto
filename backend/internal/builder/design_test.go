@@ -1,10 +1,12 @@
 package builder
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 var hostile = []string{"red;}", "url(x)", "</style>", "expression(1)", "1px;}body{x:y", "#fff;", "var(--x)", "", " 1rem"}
@@ -182,8 +184,8 @@ func TestMergeIntoKeepsOtherKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var top map[string]json.RawMessage
-	if err := json.Unmarshal(out, &top); err != nil {
+	var top map[string]jsontext.Value
+	if err := jsonx.Unmarshal(out, &top); err != nil {
 		t.Fatal(err)
 	}
 	if string(top["colors"]) != `{"primary":"#000"}` || string(top["socialLinks"]) != `[1,2]` {

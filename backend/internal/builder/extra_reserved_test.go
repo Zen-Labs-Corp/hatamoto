@@ -1,8 +1,9 @@
 package builder
 
 import (
-	"encoding/json"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // p.extra must not carry section keys: they would shadow the page_sections
@@ -30,7 +31,7 @@ func TestFromSectionsStripsReservedExtraKeys(t *testing.T) {
 	if len(extra) != 1 || extra["anchor"] != "top" {
 		t.Errorf("extra = %v, want only anchor", extra)
 	}
-	raw, _ := json.Marshal(d)
+	raw, _ := jsonx.Marshal(d)
 	if err := ValidateRaw(raw); err != nil {
 		t.Errorf("doc invalid: %v", err)
 	}

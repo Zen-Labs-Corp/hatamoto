@@ -2,10 +2,12 @@ package builder
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"flag"
 	"os"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The shared fixture backend/testdata/stylespec is read by the Go tests here
@@ -20,7 +22,7 @@ type specCase struct {
 	Value string `json:"value"`
 	OK    bool   `json:"ok"`
 	// CSS is the compiled value of the key's props when OK.
-	CSS string `json:"css,omitempty"`
+	CSS string `json:"css,omitzero"`
 }
 
 // specCases builds the case list: every accepted and refused value of the
@@ -61,17 +63,15 @@ func specCases() []specCase {
 
 func writeJSON(t *testing.T, path string, v any) {
 	t.Helper()
-	var b bytes.Buffer
-	enc := json.NewEncoder(&b)
-	enc.SetIndent("", " ")
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(v); err != nil {
+	b, err := jsonx.Marshal(v, jsontext.WithIndent(" "))
+	if err != nil {
 		t.Fatal(err)
 	}
+	b = append(b, '\n')
 	if err := os.MkdirAll(fixtureDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, b.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(path, b, 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -85,19 +85,19 @@ func TestStyleSpecFixtureTable(t *testing.T) {
 		t.Fatal(err)
 	}
 	var want, got any
-	if err := json.Unmarshal(raw, &want); err != nil {
+	if err := jsonx.Unmarshal(raw, &want); err != nil {
 		t.Fatal(err)
 	}
-	cur, _ := json.Marshal(StyleSpecTable())
-	_ = json.Unmarshal(cur, &got)
+	cur, _ := jsonx.Marshal(StyleSpecTable())
+	_ = jsonx.Unmarshal(cur, &got)
 	if !jsonEqual(want, got) {
 		t.Fatal("testdata/stylespec/table.json differs from StyleSpecTable(); run `go test ./internal/builder -run StyleSpecFixture -update` and review the diff")
 	}
 }
 
 func jsonEqual(a, b any) bool {
-	x, _ := json.Marshal(a)
-	y, _ := json.Marshal(b)
+	x, _ := jsonx.Marshal(a)
+	y, _ := jsonx.Marshal(b)
 	return bytes.Equal(x, y)
 }
 
@@ -110,7 +110,7 @@ func TestStyleSpecFixtureCases(t *testing.T) {
 		t.Fatal(err)
 	}
 	var cases []specCase
-	if err := json.Unmarshal(raw, &cases); err != nil {
+	if err := jsonx.Unmarshal(raw, &cases); err != nil {
 		t.Fatal(err)
 	}
 	perKey := map[string]int{}

@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func styled(bp, k, v string) *Doc {
@@ -138,12 +139,12 @@ func TestStyleSpecTable(t *testing.T) {
 			t.Fatal("not sorted by key")
 		}
 	}
-	raw, err := json.Marshal(tbl)
+	raw, err := jsonx.Marshal(tbl)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var back []StyleSpecEntry
-	if err := json.Unmarshal(raw, &back); err != nil || !reflect.DeepEqual(tbl, back) {
+	if err := jsonx.Unmarshal(raw, &back); err != nil || !reflect.DeepEqual(tbl, back) {
 		t.Fatalf("JSON round trip: %v", err)
 	}
 	// Every advertised token/enum value is accepted by the compiler.

@@ -1,10 +1,11 @@
 package builder
 
 import (
-	"encoding/json"
 	"os"
 	"strconv"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The "+" picker (web/admin/js/builder/picker.js) starts a section from these layouts. The node
@@ -19,7 +20,7 @@ func TestPickerLayoutsValidate(t *testing.T) {
 		ID   string `json:"id"`
 		Node *Node  `json:"node"`
 	}
-	if err := json.Unmarshal(raw, &layouts); err != nil {
+	if err := jsonx.Unmarshal(raw, &layouts); err != nil {
 		t.Fatal(err)
 	}
 	if len(layouts) != 7 {
@@ -37,7 +38,7 @@ func TestPickerLayoutsValidate(t *testing.T) {
 		}
 		name(l.Node)
 		doc := &Doc{V: 2, Nodes: []*Node{l.Node}}
-		out, err := json.Marshal(doc)
+		out, err := jsonx.Marshal(doc)
 		if err != nil {
 			t.Fatal(err)
 		}
