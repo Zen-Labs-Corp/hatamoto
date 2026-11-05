@@ -121,9 +121,25 @@ func scanCSS(s string) (string, *CSSIssue) {
 		}
 		return i + 1, string(s[i])
 	}
-	// startsURL looks at the decoded output, so u\72l( is a url( like any other.
+	// escEnd is len(out) after the last escape outside strings and url bodies.
+	escEnd := -1
+	// startsURL looks at the decoded output, so u\72l( is a url( like any
+	// other. Per CSS Syntax the token needs url to be the whole identifier: a
+	// preceding ident character, or an escape (\!url is one ident), makes it an
+	// ordinary function whose comments and strings browsers parse normally.
 	startsURL := func() bool {
-		return len(out) >= 3 && strings.EqualFold(string(out[len(out)-3:]), "url")
+		n := len(out)
+		if n < 3 || !strings.EqualFold(string(out[n-3:]), "url") {
+			return false
+		}
+		if n == 3 {
+			return true
+		}
+		if escEnd == n-3 {
+			return false
+		}
+		p := out[n-4]
+		return !(p >= 'a' && p <= 'z' || p >= 'A' && p <= 'Z' || p >= '0' && p <= '9' || p == '_' || p == '-' || p >= 0x80)
 	}
 	for i := 0; i < len(s); {
 		c := s[i]
@@ -211,10 +227,16 @@ func scanCSS(s string) (string, *CSSIssue) {
 				return "", &CSSIssue{Line: start, Message: "url( is not closed"}
 			}
 		case c == '\\':
+			if i+1 < len(s) && (s[i+1] == '\n' || s[i+1] == '\r' || s[i+1] == '\f') {
+				// Invalid CSS, and decoding it away would let the scanner
+				// see a different identifier than the browser (x\<LF>url().
+				return "", &CSSIssue{Line: line, Message: "a backslash before a line break is not allowed"}
+			}
 			l := line
 			var dec string
 			i, dec = escape(i)
 			emit(l, []byte(dec)...)
+			escEnd = len(out)
 		default:
 			if c == '\n' {
 				line++

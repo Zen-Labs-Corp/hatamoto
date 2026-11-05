@@ -190,6 +190,14 @@ func TestValidateCustomCSS(t *testing.T) {
 		{"escaped url hides import", "u\\72l(/*){}@import 'x';/**/", "line 1: @import is not allowed"},
 		{"escaped url hex start", "\\75rl(/*){}@import 'x';/**/", "line 1: @import is not allowed"},
 		{"escaped url char", "ur\\l(/*){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"review payload xurl", "xurl(/*)'*/'/*'){}@import url(//evil.example/x.css);/**/", "line 1: @import is not allowed"},
+		{"dash url function", "-url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"letter url function", "aurl(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"escaped prefix url function", "\\!url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"hex escaped prefix url function", "\\61 url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"digit prefix url function", "1url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"line continuation in ident", "u\\\nrl(/*)'*/'/*'){}@import 'x';/**/", "line 1: a backslash before a line break is not allowed"},
+		{"line continuation before url", "x\\\nurl(/*)'*/'/*'){}@import 'x';/**/", "line 1: a backslash before a line break is not allowed"},
 		{"hex escape", "a{background:url(\\6a avascript:alert(1))}", "line 1: javascript: URLs are not allowed"},
 		{"escape in string", "a{b:'\\6A avascript:x'}", "line 1: javascript: URLs are not allowed"},
 		{"escaped import", "\n\n@\\69mport 'x';", "line 3: @import is not allowed"},
@@ -208,6 +216,9 @@ func TestValidateCustomCSS(t *testing.T) {
 		"",
 		"@media (width < 600px){a>b{background:url(/x.png)}}",
 		"/* @import */ a{color:red}",
+		"a{background:url(x.png)}a{b:URL( /* not a comment */ )}",
+		"a{b:foo-url(1)}",
+		"a{b:'a\\\nb'}",         // line continuation inside a string
 		"a{b:java/**/script:x}", // a comment separates tokens: not javascript:
 	} {
 		if got := ValidateCustomCSS(ok); got != nil {
