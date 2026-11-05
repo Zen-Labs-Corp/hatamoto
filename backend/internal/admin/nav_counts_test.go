@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/form"
 )
 
 func syncRun(f func()) { f() }
@@ -226,5 +228,60 @@ func TestPluginsMarkerIsLabelled(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("no Plugins nav item")
+	}
+}
+
+// The Forms marker counts new submissions only (spam excluded), is worded for
+// screen readers, hidden at zero, and the same for every role.
+func TestFormsMarkerCountsNewSubmissions(t *testing.T) {
+	t.Parallel()
+
+	ff := newFakeForms()
+	fm := ff.addForm("Contact")
+	other := ff.addForm("Quote")
+	now := time.Now()
+	for range 2 {
+		ff.addSub(fm, form.SubmissionStatusNew, now, nil)
+	}
+	ff.addSub(other, form.SubmissionStatusNew, now, nil)
+	ff.addSub(other, form.SubmissionStatusSpam, now, nil)
+
+	a := &Admin{nav: defaultNav("/admin")}
+	a.deps.Growth.Forms = ff
+	a.wireNavCounts()
+	var item NavItem
+	for _, it := range a.nav.all() {
+		if it.ID == "forms" {
+			item = it
+		}
+	}
+	for _, role := range []string{"owner", "editor"} {
+		if got := item.Badge(role); got != "3" {
+			t.Errorf("%s: badge %q, want 3", role, got)
+		}
+	}
+	if got := item.BadgeLabel("owner", "3"); got != "3 new submissions" {
+		t.Errorf("label %q", got)
+	}
+	if got := item.BadgeLabel("owner", "1"); got != "1 new submission" {
+		t.Errorf("label %q", got)
+	}
+}
+
+func TestNewSubmissionsZeroAndNilStore(t *testing.T) {
+	t.Parallel()
+
+	a := &Admin{}
+	if n, err := a.newSubmissions(); n != 0 || err != nil {
+		t.Errorf("nil store: %d, %v", n, err)
+	}
+	ff := newFakeForms()
+	ff.addSub(ff.addForm("Contact"), form.SubmissionStatusSpam, time.Now(), nil)
+	a.deps.Growth.Forms = ff
+	if n, err := a.newSubmissions(); n != 0 || err != nil {
+		t.Errorf("spam only: %d, %v", n, err)
+	}
+	if got := countBadge(time.Minute, time.Now, syncRun, a.newSubmissions)(); got != "" {
+		t.Errorf("zero shows %q, want no badge", got)
 	}
 }
