@@ -1,7 +1,6 @@
 package guest
 
 import (
-	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -40,7 +39,7 @@ func TestInvoke(t *testing.T) {
 	var sent sdk.CallRequest
 	fake := func(resp string) func([]byte) ([]byte, error) {
 		return func(in []byte) ([]byte, error) {
-			if err := json.Unmarshal(in, &sent); err != nil {
+			if err := unmarshal(in, &sent); err != nil {
 				t.Fatal(err)
 			}
 			return []byte(resp), nil

@@ -1,7 +1,7 @@
 package sdk
 
 import (
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"reflect"
 	"strings"
 	"testing"
@@ -217,12 +217,12 @@ func TestBuilderDataRoundTrip(t *testing.T) {
 			Attrs: map[string]string{"k": "v"},
 		}}}},
 	}
-	b, err := json.Marshal(in)
+	b, err := jsonv2.Marshal(in)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var out BuilderDataRequest
-	if err := json.Unmarshal(b, &out); err != nil {
+	if err := jsonv2.Unmarshal(b, &out); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(in, out) {
