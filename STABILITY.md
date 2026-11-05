@@ -12,7 +12,7 @@ the name is given. Where it is project policy only, the text says so. Paths in c
 |---|---|---|
 | Product (the `hatamoto` binary) | `vX.Y.Z`, git tag `vX.Y.Z` | `v0.31.0` |
 | Go module for the product source | `hatamoto.dev/core`, git tag `backend/vX.Y.Z`, created by `scripts/tag-release.sh` | follows the product |
-| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.18.0` (`0.12.0` shipped with product `v0.31.0`) |
+| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.19.0` (`0.12.0` shipped with product `v0.31.0`) |
 | Plugin manifest | the `sdk` range in `plugin.json` | follows the SDK |
 | Theme contract | `data-hm-contract` on `<html>` | `1` |
 | HTTP API | `/api/v1` path prefix | `v1` |
@@ -60,6 +60,8 @@ The SDK is bumped to 0.13.0 for `locale`, to 0.14.0 for the form attribution and
 change under the same version (`scripts/publish-sdk.sh` refuses to retag a different tree) and 0.10 and
 0.11 set the precedent of shipping additive payload changes as a minor.
 
+The 0.19.0 bump raises the Go floor of the SDK module to 1.27 and moves it to the JSON v2 packages. Wire bytes are unchanged (also for plugin-author types the guest marshals; only a struct with two fields sharing a JSON name now fails), and `json.RawMessage` is an alias of `jsontext.Value` in Go 1.27, so the source change is compatible.
+
 The 0.18.0 bump is additive over 0.17 (eight items, listed in `version.go`).
 
 The 0.17.0 bump is not additive: it removes the direct content write permissions and functions in favour of runs and changesets, shipped with core 1.1.0 (see the one-time exception below).
@@ -98,11 +100,11 @@ The `sdk` range in `plugin.json` is the handshake between a plugin and a host. A
 SDK version (`sdk.Version`) and every version in `sdk.CompatibleWith`, and refuses a plugin whose range
 matches none of them.
 
-- Every 0.x SDK minor from 0.5 stays served until 1.0. Today `Version` is `0.18.0` and
-  `CompatibleWith` is `0.5.0` to `0.17.0`. Dropping an entry is a breaking change and is announced like
+- Every 0.x SDK minor from 0.5 stays served until 1.0. Today `Version` is `0.19.0` and
+  `CompatibleWith` is `0.5.0` to `0.18.0`. Dropping an entry is a breaking change and is announced like
   any other.
-- A newer host serves older ranges. An older host refuses a newer range: a host that serves 0.17 refuses
-  a plugin that declares `^0.18`. Declare the oldest range your plugin needs.
+- A newer host serves older ranges. An older host refuses a newer range: a host that serves 0.18 refuses
+  a plugin that declares `^0.19`. Declare the oldest range your plugin needs.
 - Three tests pin this in `backend/pkg/sdk`: `TestVersionPinned` (the version constant),
   `TestCompatibleWithPinned` (the exact list, sorted, without the current version) and
   `TestCompatibleWithOldHost` (a host that reports 0.12.0 refuses `^0.13` and accepts `^0.12`,

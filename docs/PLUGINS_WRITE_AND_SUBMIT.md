@@ -53,7 +53,7 @@ module github.com/acme/hatamoto-acme-seo
 
 go 1.27
 
-require hatamoto.dev/sdk v0.12.0
+require hatamoto.dev/sdk v0.19.0
 
 require github.com/extism/go-pdk v1.1.3 // indirect
 ```

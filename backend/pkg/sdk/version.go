@@ -66,9 +66,11 @@ package sdk
 // 0.19.0 moves the SDK to the JSON v2 packages and raises its Go floor to 1.27.
 // `json.RawMessage` is an alias of `jsontext.Value` in Go 1.27, so the public
 // types that now name `jsontext.Value` stay source compatible. The bytes
-// exchanged with the host are unchanged. Plugin-author types that the guest
-// marshals (call arguments and results) follow v2 semantics: `omitempty` no
-// longer omits zero ints, bools and structs, use `omitzero`.
+// exchanged with the host are unchanged, including those of plugin-author types
+// the guest marshals (call arguments, results, run summaries): the guest pins
+// the v1 behaviours (omitempty, Duration, byte arrays, method calls, repeated
+// member names in raw JSON). The one difference left is that a struct with two
+// fields sharing a JSON name fails to marshal.
 const Version = "0.19.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.

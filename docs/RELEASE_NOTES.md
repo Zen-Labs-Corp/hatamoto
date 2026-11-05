@@ -14,9 +14,11 @@ The plugin host and the Go SDK read and write plugin data with the JSON v2 packa
 
 - **SDK needs Go 1.27.** `hatamoto.dev/sdk` 0.19.0 declares `go 1.27`; build plugins with Go 1.27 or newer.
 - **Source compatible types.** `json.RawMessage` is an alias of `jsontext.Value` in Go 1.27, so SDK types that now use `jsontext.Value` need no change in plugin code.
-- **v2 tag semantics in plugin types.** Types you write that the guest SDK marshals (call arguments and results) follow JSON v2: `omitempty` no longer omits zero ints, bools and structs. Use `omitzero` where you relied on that.
+- **Same bytes for your types.** The guest and the host marshal SDK types and the types you write (call arguments, results, run summaries) with the v1 behaviours pinned: `omitempty`, `time.Duration` as nanoseconds, byte arrays as number arrays, `MarshalJSON` and `MarshalText` methods, and repeated member names inside raw JSON. Your tags need no change. The one difference left: a struct with two fields that share a JSON name now fails to marshal instead of dropping both.
+- **Changeset payloads.** A changeset payload that cannot be encoded now returns `invalid_argument` instead of staging `{}`.
+- **Lenient manifests.** A repeated member in a `plugin.json` list element loads, the last one wins.
 - **Stricter settings validation.** Plugin settings validation rejects invalid UTF-8 that v1 replaced.
-- **One manifest decoder.** Plugin manifest reads in the admin packages screen and the updater use the same decoder as install.
+- **One manifest decoder.** Plugin manifest reads in the admin packages screen, the updater, the settings CLI and at boot use the same decoder as install.
 - **Migration.** None. Rollback floor: unchanged.
 
 ## Unreleased: Version history limit
