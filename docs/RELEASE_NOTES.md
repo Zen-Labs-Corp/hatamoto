@@ -7,6 +7,11 @@ Settings > SEO has a new ads.txt tab (owners only). Write your `ads.txt` and `ap
 - **Caching.** Served with `Cache-Control: public, max-age=60, s-maxage=60`.
 - **Site access.** Like the sitemap, both files answer a plain 404 (503 with `Retry-After` in maintenance mode) while coming soon, maintenance or password mode is on, never the themed page.
 - **Migration.** None. Rollback floor: unchanged. An older binary ignores the two new settings keys and `/ads.txt` returns the themed 404; an SEO save on the older binary drops them.
+## Unreleased: Schedule an unpublish, share a draft
+
+- **Unpublish at.** Pages, posts and other entries can be set to go back to draft at a chosen time, with an optional redirect from the old address. Publishing again turns the redirect off.
+- **Share preview.** Make a private link to a draft that works for 1 hour to 30 days and can be revoked. Search engines are told not to list it.
+- **Migration.** Two new tables (expand-only). The previous release ignores them: scheduled unpublishes and preview links stop working until you upgrade again.
 
 ## Unreleased: Media library plus
 

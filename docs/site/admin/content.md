@@ -48,6 +48,22 @@ In this guide you create a piece of content, save it as a draft, publish it and 
 
 2. To publish later instead, set **Status** to **Scheduled** and fill in **Publish at**. The time is in the site's time zone, which an owner sets under **Settings > General**. Hatamoto publishes the item by itself when the time comes.
 
+### Unpublish at and redirect
+
+1. Open a published item. In the editor, fill in **Unpublish at**. The time is in the site's time zone, which an owner sets under **Settings > General**.
+
+2. Optionally fill in **When it unpublishes, send visitors to** with a path such as `/news`, or a full https address. Leave it blank and the page is simply gone.
+
+3. Save. At that time Hatamoto moves the item back to draft by itself. If you gave a destination, the old address then redirects there (a temporary 302 redirect, listed under redirects). Publishing the item again turns that redirect off. To cancel, tick **Remove the scheduled unpublish** and save. The list shows "Published, ends" with the date for items that have one.
+
+### Share a draft preview
+
+1. Open a draft or scheduled item, then choose **Share preview** under **More actions**.
+
+2. Pick how long the link works (1 hour, 1 day, 7 days or 30 days) and press **Create link**. Copy the link right away: it is shown once, and later you only see its last four characters.
+
+3. Send the link to anyone. They see the last saved draft as it will look live, without signing in. Search engines are told not to list it. An item can have up to 10 active links. Revoke a link in the table below and it stops working at once. Published items cannot be shared, and a link made earlier then leads to the public page. If the site is private (Site access), its own gate still applies to everyone who is not signed in.
+
 ### Find, restore and remove content
 
 1. Find your item again. Back in **Entities**, use the search box (it searches titles and addresses), the **Status** filter and the extra filters for author, term and date. The browser address keeps your filters, so you can bookmark the view.
