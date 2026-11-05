@@ -20,7 +20,7 @@ type pluginView struct {
 	SDK            string         `json:"sdk,omitempty"`
 	Description    string         `json:"description,omitempty"`
 	AllowedHosts   []string       `json:"allowed_hosts,omitempty"`
-	SettingsSchema jsontext.Value `json:"settings_schema,omitempty"`
+	SettingsSchema jsontext.Value `json:"settings_schema,omitzero"`
 	// Capabilities: what the manifest requests, what the owner granted, and
 	// what the plugin exposes.
 	Permissions []string      `json:"permissions"`
