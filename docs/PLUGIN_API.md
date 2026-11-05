@@ -486,7 +486,7 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 | `terms.list` | `{ "kind"?, "search"?, "limit"? }` | `{ "items", "total" }` |
 | `terms.get` | `{ "kind", "slug" }` | Term |
 | `menus.list` / `menus.get` | `{}` / `{ "slug" }` | menus / menu with items |
-| `media.get` / `media.list` | `{ "id" }` / `{ "search"?, "folder"?, "mime_type"?, "limit"?, "offset"? }` | media (id, filename, mime_type, file_size, public_url, width, height, alt_text) |
+| `media.get` / `media.list` | `{ "id" }` / `{ "search"?, "folder"?, "mime_type"?, "limit"?, "offset"? }` | media (id, filename, mime_type, file_size, public_url, width, height, alt_text). Folders are one level (`/Name`, 1 to 60 letters, digits, spaces, hyphens or underscores); `folder` matches ignoring case and a leading slash, and a legacy name that no longer follows the rule can still be filtered on. |
 | `redirects.list` | `{ "search"?, "page"?, "per_page"? }` | `{ "items", "total" }` |
 | `forms.list` | `{}` | `{ "items": [ { id, name, slug, status, fields } ] }` |
 | `forms.submissions` | `{ "form_slug", "limit"?, "offset"? }` | `{ "items": [ { id, status, data, created_at } ], "total" }`. IP address and user agent are never included |
