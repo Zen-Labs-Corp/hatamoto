@@ -221,7 +221,7 @@ func (a *Admin) handleRetentionSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if pruneFailed {
 		a.logger().Error("backup retention prune", "err", err)
-		detail["error"] = err.Error()
+		detail["error"] = "prune_failed"
 	}
 	if deferred {
 		detail["deferred"] = true

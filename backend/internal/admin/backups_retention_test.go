@@ -118,7 +118,7 @@ func TestRetentionPruneFailureAfterSaveIsAuditedAndFlashed(t *testing.T) {
 	if code != 303 || loc != backupsPath+"#retention" {
 		t.Fatalf("save = %d %s, want the redirect back with a flash", code, loc)
 	}
-	if len(g.events) != 1 || g.events[0].Action != "backups.retention" || g.events[0].Detail["error"] == nil || g.events[0].Detail["deleted"] != 1 {
+	if len(g.events) != 1 || g.events[0].Action != "backups.retention" || g.events[0].Detail["error"] != "prune_failed" || g.events[0].Detail["deleted"] != 1 {
 		t.Fatalf("audit = %+v", g.events)
 	}
 }
