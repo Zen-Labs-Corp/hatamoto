@@ -52,7 +52,7 @@ var settingsLive = map[string]bool{
 	"types": true, "taxonomies": true, "users": true,
 	"menus": true, "forms": true, "submissions": true,
 	"redirects": true, "linking": true, "templates": true,
-	"themes": true, "blocks": true, "colours": true, "design-system": true, "presets": true, "parts": true,
+	"themes": true, "blocks": true, "colours": true, "fonts": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
@@ -176,6 +176,7 @@ var themeRegistry = []settingsSectionDef{
 	}},
 	{ID: "colours", Label: "Colours and fonts", Icon: "sun", Desc: "Brand colours, fonts and corners, applied by the live theme to every page.", Tabs: []settingsTabDef{
 		{ID: "colours", Label: "Colours and fonts", Final: "/theme/colours", Roles: ownerOnly},
+		{ID: "fonts", Label: "Fonts", Final: "/theme/fonts", Roles: ownerOnly},
 	}},
 	{ID: "design-system", Label: "Design system", Icon: "layers", Desc: "Named colours, sizes and spacing that blocks use through their style settings.", Tabs: []settingsTabDef{
 		{ID: "design-system", Label: "Design system", Final: "/theme/design-system", Roles: ownerOnly},

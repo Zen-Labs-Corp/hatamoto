@@ -693,6 +693,9 @@ installed one.
   and reach templates as `.Settings` (see below).
 - **Colours and fonts** (primary colour, fonts, corner radii) are the site's
   design tokens, applied by whatever theme is live.
+- **Owner fonts.** Fonts the owner uploads or downloads (Theme > Colours and fonts > Fonts) are injected by core
+  into `<head>` as `@font-face` rules, whatever theme is live, and the body font is preloaded. A theme must not
+  define its own `@font-face` for owner fonts. `--hm-font` and `--hm-font-heading` carry the chosen stacks.
 - **Builder fonts.** The builder's Font style key (`ff`) is a closed choice that compiles to theme variables, so a
   theme controls the typefaces: `body` is `var(--hm-font,inherit)`, `heading` is
   `var(--hm-font-heading,var(--hm-font,inherit))` and `mono` is

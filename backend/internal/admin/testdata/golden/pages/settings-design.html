@@ -88,7 +88,10 @@
 
 <header class="hm-section-head">
 <div class="hm-section-head__titles"><h1>Colours and fonts</h1><p class="hm-muted">Brand colours, fonts and corners, applied by the live theme to every page.</p></div>
-
+<nav class="hm-tabs" aria-label="Colours and fonts"><ul class="hm-tabs__list" role="list">
+<li><a class="hm-tabs__tab" href="/admin/theme/colours" aria-current="page">Colours and fonts</a></li>
+<li><a class="hm-tabs__tab" href="/admin/theme/fonts">Fonts</a></li>
+</ul></nav>
 </header>
 
 <form method="post" action="/admin/theme/colours" class="hm-cardform" data-hm-preview-root>
@@ -117,13 +120,15 @@
 <input class="hm-field__control" type="color" id="text" name="text" value="#1e293b">
 </div><code class="hm-swatchrow__hex">#1e293b</code></div></div></div></section>
 <section class="hm-card" id="fonts-card" aria-labelledby="fonts-card-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="fonts-card-title">Fonts</h2><p class="hm-muted">Font stacks for body text and headings.</p></div>
+<div class="hm-card__head"><h2 class="hm-card__title" id="fonts-card-title">Fonts</h2><p class="hm-muted">Font stacks for body text and headings. Fonts a page uses are loaded from your own server, and the body font is preloaded. Add fonts on the Fonts tab.</p></div>
 <div class="hm-card__body"><div class="hm-fieldgrid hm-fieldgrid--stack">
+
 <div class="hm-field">
 <label class="hm-field__label" for="font">Body font <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
 <input class="hm-field__control" type="text" id="font" name="font" value="Inter, sans-serif" required aria-describedby="font-help" data-hm-preview="--hm-preview-font-body">
 <p class="hm-field__help" id="font-help">A font stack, for example: Inter, sans-serif.</p>
 </div>
+
 <div class="hm-field">
 <label class="hm-field__label" for="heading_font">Heading font <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
 <input class="hm-field__control" type="text" id="heading_font" name="heading_font" value="Inter, sans-serif" required data-hm-preview="--hm-preview-font-heading">

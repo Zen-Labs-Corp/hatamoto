@@ -154,6 +154,12 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.emailLog != nil {
 		d.EmailLog = s.emailLog
 	}
+	if s.fonts != nil {
+		d.Fonts = s.fonts
+		if s.fontsGoogle != nil {
+			d.FontsGoogle = s.fontsGoogle
+		}
+	}
 	d.Updates, d.UpdatesUnavailable = s.adminUpdatesDeps()
 	d.Content = s.contentDeps()
 	if s.entityService != nil && s.db != nil {

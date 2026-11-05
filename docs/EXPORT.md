@@ -26,6 +26,7 @@ Export and import are command line only. Admin → Settings → Import & export 
 | `data/hatamoto_redirects.jsonl` | redirects |
 | `data/hatamoto_forms.jsonl`, `..._form_submissions.jsonl` | forms and, unless `--no-submissions`, their submissions |
 | `data/hatamoto_media.jsonl`, `media/<path>` | media rows and the files (originals and image variants) |
+| `data/hatamoto_fonts.jsonl` | fonts the owner added (the font bytes are in the rows) |
 | `data/hatamoto_authors.jsonl` | legacy authors (name, bio, avatar); entities keep their `author_id` |
 | `data/hatamoto_user_people.jsonl` | which login owns which person; the people themselves are `person` entities in `hatamoto_entities` (with `byline_person_id` and `byline_org` on the entities they credit) |
 | `data/hatamoto_section_templates.jsonl`, `..._internal_link_rules.jsonl` | reusable sections, internal-link rules |

@@ -433,6 +433,12 @@ type SiteView struct {
 	// <link rel="alternate">. Empty when the site has none.
 	Feeds  []FeedLink
 	Tokens ThemeTokens
+	// Fonts are the installed font files the body and heading font use; the
+	// engine emits their @font-face rules in the head, whatever the theme.
+	// FontPreload is the hash of the one file to preload ("" none). Empty Fonts
+	// leaves the page untouched.
+	Fonts       []FontFace
+	FontPreload string
 	// Language is the BCP 47 site language (default "en" when unset).
 	Language string
 	// Phone, Hours and Address are the public contact details from the site

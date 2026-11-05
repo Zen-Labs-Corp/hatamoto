@@ -7,6 +7,15 @@
 - **Live versions are kept.** A version that was live in the last 30 days is never pruned and does not count against the limit. The versions panel states the rule and marks those versions Live.
 - **Migration.** Two expand-only changes (a `live_at` column on versions, one column on site config). Rollback floor: unchanged; an older binary ignores both and prunes to 20 again.
 
+## Unreleased: Custom and self-hosted fonts
+
+Owners can upload `.woff2` fonts or download a Google font once, then pick body and heading fonts under Theme > Colours and fonts. Public pages serve the fonts from the site with `font-display: swap` and preload the body font. Visitors never contact Google.
+
+- **Limits.** 2 MB per file, 20 uploads, 60 font files in total.
+- **Export and backup.** Fonts are stored in the database and travel with export, import and backup.
+- **Reserved address.** `/fonts/...` is now served by the site, like `/preview` and `/theme`: `/fonts` can no longer be the admin address, and an entry or schema URL under `/fonts/` stops resolving. Move such content to another path before you upgrade. Only `/fonts/<64 hex>.woff2` skips the site-access gate; any other `/fonts/...` page follows the mode.
+- **Migration.** One new table (expand-only). No new dependency, so docs/DEPENDENCIES.md is unchanged. Rollback floor: an older release ignores the table and the chosen family falls back to the system stack.
+
 ## Unreleased: ads.txt and app-ads.txt
 
 Settings > SEO has a new ads.txt tab (owners only). Write your `ads.txt` and `app-ads.txt` there and the site serves them at `/ads.txt` and `/app-ads.txt` as plain text. Every line is checked on save and a bad one is named ("Line 2: ..."). An empty file answers a plain 404, unless a Settings > Redirects rule has `/ads.txt` as its source: then the redirect applies. A saved file takes precedence over such a rule. The AdSense card in Settings > Tracking links to the tab and adds the AdSense line for the saved id.

@@ -211,6 +211,9 @@ GET /admin/theme/blocks -> admin.(*Admin).handleBlocksPage-fm
 GET /admin/theme/browse -> admin.(*Admin).handleThemeBrowse-fm
 GET /admin/theme/colours -> admin.(*Admin).handleDesignForm-fm
 GET /admin/theme/design-system -> admin.(*Admin).handleTokensForm-fm
+GET /admin/theme/fonts -> admin.(*Admin).handleFonts-fm
+GET /admin/theme/fonts/google -> admin.(*Admin).handleFontGoogleForm-fm
+GET /admin/theme/fonts/upload -> admin.(*Admin).handleFontUploadForm-fm
 GET /admin/theme/menus -> admin.(*Admin).handleMenus-fm
 GET /admin/theme/menus/new -> admin.(*Admin).handleMenuNew-fm
 GET /admin/theme/menus/{id} -> admin.(*Admin).handleMenuEdit-fm
@@ -452,6 +455,9 @@ POST /admin/theme -> admin.(*Admin).handleTheme-fm
 POST /admin/theme/colours -> admin.(*Admin).handleDesignSave-fm
 POST /admin/theme/design-system -> admin.(*Admin).handleTokensSave-fm
 POST /admin/theme/design-system/reset -> admin.(*Admin).handleTokensReset-fm
+POST /admin/theme/fonts/google -> admin.(*Admin).handleFontGoogle-fm
+POST /admin/theme/fonts/remove -> admin.(*Admin).handleFontRemove-fm
+POST /admin/theme/fonts/upload -> admin.(*Admin).handleFontUpload-fm
 POST /admin/theme/menus -> admin.(*Admin).handleMenuCreate-fm
 POST /admin/theme/menus/preview -> admin.(*Admin).handleMenuPreview-fm
 POST /admin/theme/menus/{id} -> admin.(*Admin).handleMenuSave-fm

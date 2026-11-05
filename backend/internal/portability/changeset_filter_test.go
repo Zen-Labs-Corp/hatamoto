@@ -233,3 +233,28 @@ func stripColumns(t *testing.T, archive []byte, cols ...string) []byte {
 	}
 	return out.Bytes()
 }
+
+// Fonts keep their bytes in the row and must survive export and import.
+func TestFontsRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	src := scratchPool(t)
+	data := append([]byte("wOF2"), 0, 1, 2, 254, 255)
+	if _, err := src.Exec(ctx, `INSERT INTO hatamoto_fonts (family, weight, style, source, subset, unicode_range, hash, data)
+		VALUES ('Brand Sans', 700, 'italic', 'google', 'latin', 'U+0000-00FF', $1, $2)`, strings.Repeat("a", 64), data); err != nil {
+		t.Fatal(err)
+	}
+	archive := exportArchive(t, src, t.TempDir())
+	dst := scratchPool(t)
+	if _, err := Import(ctx, dst, bytes.NewReader(archive), ImportOptions{MediaDir: t.TempDir()}); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	var fam, style, rng string
+	var weight int
+	var got []byte
+	if err := dst.QueryRow(ctx, `SELECT family, weight, style, unicode_range, data FROM hatamoto_fonts`).Scan(&fam, &weight, &style, &rng, &got); err != nil {
+		t.Fatal(err)
+	}
+	if fam != "Brand Sans" || weight != 700 || style != "italic" || rng != "U+0000-00FF" || !bytes.Equal(got, data) {
+		t.Errorf("font after import = %q %d %q %q % x", fam, weight, style, rng, got)
+	}
+}

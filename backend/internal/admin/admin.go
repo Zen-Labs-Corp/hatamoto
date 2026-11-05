@@ -290,6 +290,11 @@ type Deps struct {
 	// card on Settings > Email; nil answers the log pages with 503 and hides
 	// the card.
 	EmailLog EmailLogService
+	// Fonts and FontsGoogle are the owner fonts behind Colours and fonts >
+	// Fonts and the one-off Google Fonts download; nil answers the page with
+	// 503 and hides the font pickers. Set them only when non-nil.
+	Fonts       FontService
+	FontsGoogle GoogleFonts
 	// Updates is the automatic-update service behind Settings > Updates and
 	// the owner banner; nil renders that page as unavailable and no banner.
 	// Set it only when non-nil: a typed nil would defeat the check.

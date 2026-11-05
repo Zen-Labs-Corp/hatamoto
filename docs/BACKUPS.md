@@ -29,6 +29,8 @@ backup, and of the keys in `HATAMOTO_TRUSTED_KEYS`) and `config_path` (the absol
 Backups made before `trust`, `secrets.env` and `config.env` existed lack them; they still restore,
 with warnings.
 
+Fonts the owner added live in the database table `hatamoto_fonts`, so they travel with every backup, export and import.
+
 ## Where backups are kept
 
 Under `$HATAMOTO_DATA/backups`. The directory is mode 0700 and every file in it is 0600. A backup

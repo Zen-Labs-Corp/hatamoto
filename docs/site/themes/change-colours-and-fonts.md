@@ -88,6 +88,17 @@ Hatamoto styles pages with **design tokens**, named values such as a colour or a
 
 Settings are stored per theme and kept when you install a newer version. A setting with a `default` always has a value, even before the owner saves the form. Section templates read the same values as `{{.Settings.banner_colour}}`.
 
+## Your own fonts
+
+Owners can add fonts without touching a theme. Open **Theme > Colours and fonts > Fonts**.
+
+- **Upload.** Choose **Upload a font**, pick a `.woff2` file (up to 2 MB), give the family name, the weight and the style, then choose **Upload font**. Upload each weight and style as its own file under the same family name. You can upload up to 20 files. You are responsible for the licence of every font you add. Hatamoto does not check it.
+- **Download from Google Fonts.** Choose **Download from Google Fonts**, type the font name, tick the weights, and choose whether to include italics and whether to keep Latin letters only. Your server contacts Google once, now, and stores its own copy. Visitors to your site never contact Google.
+- **Choose it.** On **Colours and fonts**, pick the family as the body font or the heading font. Pages then load the font from your own site with `font-display: swap`, and the body font is preloaded.
+- **Remove.** Choose **Remove** next to a family. A family that is the body or heading font cannot be removed: choose another font first.
+
+At most 60 font files are kept in total.
+
 ## Check it worked
 
 - Your site's buttons and headings use your CSS values, until the owner picks other values on **Theme > Colours and fonts**.
