@@ -71,7 +71,7 @@ func TestSignIndexReproducesHeadEnvelope(t *testing.T) {
 // rawCase is false in the pin phase: at HEAD an index holding raw & < > U+2028
 // is signed over bytes that differ from the embedded ones (the encoder escapes
 // the embedded copy). The platform cutover fixes that and flips this to true.
-const rawCase = false
+const rawCase = true
 
 func TestSignIndexRawHTMLCharsVerify(t *testing.T) {
 	if !rawCase {

@@ -7,10 +7,12 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Algorithm is the only signature algorithm of packages and registry indexes.
@@ -150,44 +152,63 @@ func NewSignature(pub ed25519.PublicKey, rawSig []byte) Signature {
 // indexEnvelope is registry.json: the index and a signature over its compact
 // JSON form.
 type indexEnvelope struct {
-	Index     json.RawMessage `json:"index"`
-	Signer    string          `json:"signer"`
-	Algorithm string          `json:"algorithm,omitempty"`
-	Signature string          `json:"signature"`
+	Index     jsontext.Value `json:"index"`
+	Signer    string         `json:"signer"`
+	Algorithm string         `json:"algorithm,omitempty"`
+	Signature string         `json:"signature"`
 }
 
-// SignIndex wraps index (the JSON of an Index) in a signed envelope.
-func SignIndex(index []byte, k Key) ([]byte, error) {
-	var compact bytes.Buffer
-	if err := json.Compact(&compact, index); err != nil {
+// compactIndex strips the whitespace of an index document. With escape it
+// also writes <, >, & and U+2028/2029 as \u escapes, the form the envelope
+// is published in. It never rewrites numbers or other escapes (no
+// Canonicalize), so the result stays byte-stable; repeated names and invalid
+// UTF-8 pass through as they did.
+func compactIndex(index []byte, escape bool) ([]byte, error) {
+	v := jsontext.Value(bytes.Clone(index))
+	opts := []jsontext.Options{jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(true)}
+	if escape {
+		opts = append(opts, jsontext.EscapeForHTML(true), jsontext.EscapeForJS(true))
+	}
+	if err := v.Compact(opts...); err != nil {
 		return nil, err
 	}
-	s, err := SignBytes(k, compact.Bytes())
+	return v, nil
+}
+
+// SignIndex wraps index (the JSON of an Index) in a signed envelope. The index
+// is signed in its escaped compact form and embedded in exactly those bytes,
+// so VerifyIndex sees what was signed.
+func SignIndex(index []byte, k Key) ([]byte, error) {
+	compact, err := compactIndex(index, true)
 	if err != nil {
 		return nil, err
 	}
-	return json.MarshalIndent(indexEnvelope{
-		Index: compact.Bytes(), Signer: s.Signer, Algorithm: s.Algorithm, Signature: s.Signature,
-	}, "", "  ")
+	s, err := SignBytes(k, compact)
+	if err != nil {
+		return nil, err
+	}
+	return jsonx.Indent(indexEnvelope{
+		Index: compact, Signer: s.Signer, Algorithm: s.Algorithm, Signature: s.Signature,
+	}, jsonx.PinnedMarshal, jsontext.AllowDuplicateNames(true))
 }
 
 // VerifyIndex checks a registry.json envelope and returns the index JSON.
-func (t TrustSet) VerifyIndex(doc []byte) (json.RawMessage, error) {
+func (t TrustSet) VerifyIndex(doc []byte) (jsontext.Value, error) {
 	var env indexEnvelope
-	if err := json.Unmarshal(doc, &env); err != nil {
+	if err := jsonx.UnmarshalPinned(doc, &env); err != nil {
 		return nil, fmt.Errorf("registry index: %w", err)
 	}
-	var compact bytes.Buffer
-	if err := json.Compact(&compact, env.Index); err != nil || compact.Len() == 0 {
+	compact, err := compactIndex(env.Index, false)
+	if err != nil || len(compact) == 0 {
 		return nil, errors.New("registry index: missing index")
 	}
 	if env.Signature == "" {
 		return nil, fmt.Errorf("registry index: %w", ErrUnsigned)
 	}
-	if err := t.VerifyBytes(env.Signer, env.Algorithm, env.Signature, compact.Bytes()); err != nil {
+	if err := t.VerifyBytes(env.Signer, env.Algorithm, env.Signature, compact); err != nil {
 		return nil, fmt.Errorf("registry index: %w", err)
 	}
-	return compact.Bytes(), nil
+	return compact, nil
 }
 
-func marshalIndented(v any) ([]byte, error) { return json.MarshalIndent(v, "", "  ") }
+func marshalIndented(v any) ([]byte, error) { return jsonx.Indent(v, jsonx.PinnedMarshal) }

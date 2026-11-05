@@ -11,7 +11,7 @@ import (
 	"compress/flate"
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"hash/crc32"
@@ -24,6 +24,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/sdk"
 )
@@ -87,7 +88,7 @@ type Package struct {
 	Kind     Kind
 	Name     string
 	Version  string
-	Manifest json.RawMessage // plugin.json or theme.json, as shipped
+	Manifest jsontext.Value // plugin.json or theme.json, as shipped
 	// Digest is what the signature covers: a hash over every file name and
 	// content hash except signature.json, so it does not depend on how the
 	// zip was compressed.
@@ -135,20 +136,20 @@ func (p *Package) PluginManifest() (sdk.Manifest, error) {
 	if p.Kind != KindPlugin {
 		return m, errors.New("not a plugin package")
 	}
-	err := json.Unmarshal(p.Manifest, &m)
+	err := jsonx.UnmarshalPinned(p.Manifest, &m)
 	return m, err
 }
 
 // ThemeMeta is the part of theme.json the host reads.
 type ThemeMeta struct {
-	Name           string          `json:"name"`
-	Version        string          `json:"version"`
-	Description    string          `json:"description,omitempty"`
-	SettingsSchema json.RawMessage `json:"settings_schema,omitempty"`
+	Name           string         `json:"name"`
+	Version        string         `json:"version"`
+	Description    string         `json:"description,omitempty"`
+	SettingsSchema jsontext.Value `json:"settings_schema,omitzero"`
 	// Screenshot is an optional preview image under assets/, see ValidateScreenshot.
 	Screenshot string `json:"screenshot,omitempty"`
 	// Menus declares menu locations, see menu.ParseDecl.
-	Menus json.RawMessage `json:"menus,omitempty"`
+	Menus jsontext.Value `json:"menus,omitzero"`
 }
 
 // ThemeMeta decodes theme.json of a theme package.
@@ -157,7 +158,7 @@ func (p *Package) ThemeMeta() (ThemeMeta, error) {
 	if p.Kind != KindTheme {
 		return m, errors.New("not a theme package")
 	}
-	err := json.Unmarshal(p.Manifest, &m)
+	err := jsonx.UnmarshalPinned(p.Manifest, &m)
 	if p.ScreenshotErr != nil {
 		m.Screenshot = ""
 	}
@@ -452,7 +453,7 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 	copy(p.Digest[:], h.Sum(nil))
 	if sigRaw != nil {
 		var s Signature
-		if err := json.Unmarshal(sigRaw, &s); err != nil {
+		if err := jsonx.UnmarshalPinned(sigRaw, &s); err != nil {
 			return nil, refuse("%s: %v", SignatureFile, err)
 		}
 		p.Signature = &s

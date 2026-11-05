@@ -2,9 +2,10 @@ package packages
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Actor is who made a change: a signed-in admin user, or the CLI.
@@ -40,7 +41,7 @@ func (m *Manager) Audit(ctx context.Context, action, target string, detail map[s
 	if a.Name != "" {
 		detail["by"] = a.Name
 	}
-	raw, _ := json.Marshal(detail)
+	raw, _ := jsonx.Marshal(detail)
 	var actorID *uuid.UUID
 	if a.ID != uuid.Nil {
 		actorID = &a.ID

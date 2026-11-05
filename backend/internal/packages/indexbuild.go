@@ -1,9 +1,7 @@
 package packages
 
 import (
-	"bytes"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -14,6 +12,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // DefaultIndexValidity is how long a freshly built registry index is believed.
@@ -46,7 +46,7 @@ type Meta struct {
 	Features []string `json:"features,omitempty"`
 	// Category must be one of Categories; Featured pins the package on Browse.
 	Category string `json:"category,omitempty"`
-	Featured bool   `json:"featured,omitempty"`
+	Featured bool   `json:"featured,omitzero"`
 	// SiteType must be one of SiteTypes and Flags any of ThemeFlags; themes only.
 	SiteType string   `json:"site_type,omitempty"`
 	Flags    []string `json:"flags,omitempty"`
@@ -67,14 +67,9 @@ var (
 // ParseMeta reads a JSON object of package name to Meta. Unknown fields are
 // refused so a typo cannot silently drop a value.
 func ParseMeta(raw []byte) (map[string]Meta, error) {
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
 	var m map[string]Meta
-	if err := dec.Decode(&m); err != nil {
+	if err := jsonx.Unmarshal(raw, &m, jsonx.StrictNoUnknown); err != nil {
 		return nil, fmt.Errorf("meta: %w", err)
-	}
-	if dec.More() {
-		return nil, fmt.Errorf("meta: trailing data after the JSON object")
 	}
 	return m, nil
 }
@@ -287,7 +282,7 @@ func BuildIndexWith(dir, urlPrefix string, key Key, now time.Time, validity time
 		}
 	}
 	sort.Slice(idx.Packages, func(i, j int) bool { return idx.Packages[i].Name < idx.Packages[j].Name })
-	body, err := json.Marshal(idx)
+	body, err := jsonx.MarshalPinned(idx)
 	if err != nil {
 		return nil, err
 	}

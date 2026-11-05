@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"time"
@@ -30,7 +30,7 @@ type Row struct {
 	Kind        Kind
 	Name        string
 	Version     string
-	Manifest    json.RawMessage
+	Manifest    jsontext.Value
 	SHA256      string
 	SignerKeyID string // "" for an unsigned package
 	Source      Source
@@ -267,17 +267,17 @@ func (s *Store) SetActiveTheme(ctx context.Context, name string) error {
 }
 
 // ThemeSettings returns a theme's stored settings object ({} when none).
-func (s *Store) ThemeSettings(ctx context.Context, theme string) (json.RawMessage, error) {
+func (s *Store) ThemeSettings(ctx context.Context, theme string) (jsontext.Value, error) {
 	var raw []byte
 	err := s.pool.QueryRow(ctx, `SELECT settings FROM hatamoto_theme_settings WHERE theme = $1`, theme).Scan(&raw)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return json.RawMessage(`{}`), nil
+		return jsontext.Value(`{}`), nil
 	}
 	return raw, err
 }
 
 // PutThemeSettings stores a theme's settings object.
-func (s *Store) PutThemeSettings(ctx context.Context, theme string, v json.RawMessage) error {
+func (s *Store) PutThemeSettings(ctx context.Context, theme string, v jsontext.Value) error {
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO hatamoto_theme_settings (theme, settings) VALUES ($1, $2::jsonb)
 		ON CONFLICT (theme) DO UPDATE SET settings = EXCLUDED.settings, updated_at = now()`, theme, []byte(v))
