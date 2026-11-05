@@ -2,6 +2,7 @@ package jsonx
 
 import (
 	"encoding/json/jsontext"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -101,9 +102,14 @@ type omitMarshaler struct {
 	V emptyMarshaler `json:"v,omitempty"`
 }
 
-type dupNames struct {
-	A int `json:"x"`
-	B int `json:"x"`
+// dupNames has two fields with one JSON name. It is built with reflection
+// because go vet rejects such a struct literal.
+func dupNames() any {
+	t := reflect.StructOf([]reflect.StructField{
+		{Name: "A", Type: reflect.TypeFor[int](), Tag: `json:"x"`},
+		{Name: "B", Type: reflect.TypeFor[int](), Tag: `json:"x"`},
+	})
+	return reflect.New(t).Elem().Interface()
 }
 
 // TestPinnedKnownDivergences records where a v2-only Pinned set differs from
@@ -183,7 +189,7 @@ func TestPinnedKnownDivergences(t *testing.T) {
 		},
 		{
 			name: "two fields with one JSON name",
-			v:    dupNames{A: 1, B: 2},
+			v:    dupNames(),
 			fix:  "rename or drop one of the fields; v1 silently omitted both",
 			v1:   `{}`,
 			v2:   "", // v2 returns a duplicate-name error
