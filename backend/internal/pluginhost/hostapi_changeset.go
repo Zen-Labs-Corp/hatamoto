@@ -115,9 +115,14 @@ func text(field, v string, max int, required bool) error {
 
 func sourceKey(v string) error { return text("source_key", v, maxSourceKeyLen, true) }
 
-func payload(v any) jsontext.Value {
-	b, _ := jsonx.MarshalPinned(v)
-	return b
+// payload encodes a staged item's payload. A failure is returned, never
+// swallowed: an empty payload would stage as {} and lose the item's content.
+func payload(v any) (jsontext.Value, error) {
+	b, err := jsonx.MarshalPinned(v)
+	if err != nil {
+		return nil, invalid("payload is not encodable: %v", err)
+	}
+	return b, nil
 }
 
 func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
@@ -190,7 +195,11 @@ func fnChangesetEntityUpsert(ctx context.Context, a *API, e *callEnv, raw jsonte
 	if in.SEO != nil {
 		p["seo"] = in.SEO
 	}
-	return s.stage(ctx, changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: in.SourceKey, Payload: payload(p)})
+	pl, err := payload(p)
+	if err != nil {
+		return nil, err
+	}
+	return s.stage(ctx, changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: in.SourceKey, Payload: pl})
 }
 
 func parseUUID(s string) (uuid.UUID, bool) {
@@ -225,8 +234,11 @@ func fnChangesetTermUpsert(ctx context.Context, a *API, e *callEnv, raw jsontext
 	if err != nil {
 		return nil, err
 	}
-	return s.stage(ctx, changeset.Item{Kind: changeset.KindTerm, Op: changeset.OpUpsert, SourceKey: in.SourceKey,
-		Payload: payload(map[string]string{"kind": in.Kind, "slug": in.Slug, "name": in.Name, "description": in.Description})})
+	pl, err := payload(map[string]string{"kind": in.Kind, "slug": in.Slug, "name": in.Name, "description": in.Description})
+	if err != nil {
+		return nil, err
+	}
+	return s.stage(ctx, changeset.Item{Kind: changeset.KindTerm, Op: changeset.OpUpsert, SourceKey: in.SourceKey, Payload: pl})
 }
 
 // fnChangesetPersonUpsert would stage a byline. Bylines are not a term kind
@@ -276,8 +288,12 @@ func fnChangesetMediaAttach(ctx context.Context, a *API, e *callEnv, raw jsontex
 	if in.Credit != "" {
 		p["credit"] = in.Credit
 	}
+	pl, err := payload(p)
+	if err != nil {
+		return nil, err
+	}
 	return s.stage(ctx, changeset.Item{Kind: changeset.KindMedia, Op: changeset.OpUpsert, SourceKey: in.SourceKey,
-		BlobKeys: []string{in.Handle}, Payload: payload(p)})
+		BlobKeys: []string{in.Handle}, Payload: pl})
 }
 
 // fnChangesetMediaAlt stages a new alt text for an owner media item. It is a
@@ -316,8 +332,12 @@ func fnChangesetMediaAlt(ctx context.Context, a *API, e *callEnv, raw jsontext.V
 	// The name and the old text are for the review screen, which shows every
 	// alt text change as "old -> new". No source key: the item changes an
 	// owner row, so it leaves no mapping.
+	pl, err := payload(map[string]string{"name": m.OriginalFilename, "old_alt": oldAlt, "alt_text": in.Alt})
+	if err != nil {
+		return nil, err
+	}
 	err = a.svc.Changesets.Stage(ctx, s.csID, changeset.Item{Kind: changeset.KindMedia, Op: changeset.OpUpsert,
-		TargetID: id.String(), Payload: payload(map[string]string{"name": m.OriginalFilename, "old_alt": oldAlt, "alt_text": in.Alt})})
+		TargetID: id.String(), Payload: pl})
 	if errors.Is(err, changeset.ErrNotOwned) {
 		return nil, herr(sdk.ErrNotOwned, "media %s was not uploaded by the owner", id)
 	}
@@ -358,8 +378,11 @@ func fnChangesetMenuUpsert(ctx context.Context, a *API, e *callEnv, raw jsontext
 	if items == nil {
 		items = []menu.ReplaceItem{}
 	}
-	return s.stage(ctx, changeset.Item{Kind: changeset.KindMenu, Op: changeset.OpUpsert, SourceKey: in.SourceKey,
-		Payload: payload(map[string]any{"slug": in.Slug, "name": in.Name, "items": items, "entity_keys": keys})})
+	pl, err := payload(map[string]any{"slug": in.Slug, "name": in.Name, "items": items, "entity_keys": keys})
+	if err != nil {
+		return nil, err
+	}
+	return s.stage(ctx, changeset.Item{Kind: changeset.KindMenu, Op: changeset.OpUpsert, SourceKey: in.SourceKey, Payload: pl})
 }
 
 // flattenMenu turns the item tree into the parent-index list the menu service
@@ -440,8 +463,11 @@ func fnChangesetRedirectUpsert(ctx context.Context, a *API, e *callEnv, raw json
 	if a.svc.LivePath != nil && a.svc.LivePath(ctx, in.From) {
 		return nil, invalid("from %q is served by live content; a redirect may not shadow it", in.From)
 	}
-	return s.stage(ctx, changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, SourceKey: in.SourceKey,
-		Payload: payload(map[string]any{"source_path": in.From, "target": in.To, "status": status})})
+	pl, err := payload(map[string]any{"source_path": in.From, "target": in.To, "status": status})
+	if err != nil {
+		return nil, err
+	}
+	return s.stage(ctx, changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, SourceKey: in.SourceKey, Payload: pl})
 }
 
 // deletable are the kinds changeset.delete may remove; media is create-only.

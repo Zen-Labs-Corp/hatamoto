@@ -220,3 +220,15 @@ func TestUnmarshalPinned(t *testing.T) {
 		t.Fatal("second value accepted")
 	}
 }
+
+// TestPinnedMarshalAcceptsDuplicateNamesInRaw: v1 compacted a RawMessage and
+// never checked it for duplicate names.
+func TestPinnedMarshalAcceptsDuplicateNamesInRaw(t *testing.T) {
+	got, err := MarshalPinned(rawHolder{Raw: jsontext.Value(`{"a":1,"a":2,"n":{"b":1,"b":2}}`)})
+	if err != nil {
+		t.Fatalf("pinned: %v", err)
+	}
+	if want := `{"raw":{"a":1,"a":2,"n":{"b":1,"b":2}}}`; string(got) != want {
+		t.Fatalf("pinned = %s, want %s", got, want)
+	}
+}

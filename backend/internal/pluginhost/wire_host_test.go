@@ -3,6 +3,7 @@ package pluginhost
 import (
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"io"
 	"log/slog"
@@ -450,6 +451,18 @@ func TestWireDecodeOutput(t *testing.T) {
 			t.Errorf("output %q was accepted", out)
 		}
 	}
+	// v1 never checked raw values for duplicate names: a nested duplicate
+	// in a returned member must survive, last one included.
+	type rawDoc struct {
+		Path string         `json:"path"`
+		Meta jsontext.Value `json:"meta"`
+	}
+	raw, err := decodeOutput(rawDoc{}, []byte(`{"path":"/a","meta":{"x":1,"x":2}}`), []byte(`{"meta":{"k":{"a":1,"a":2},"k":3}}`))
+	if err != nil {
+		t.Errorf("nested duplicate names: %v", err)
+	} else if g := raw.(rawDoc); g.Path != "/a" || string(g.Meta) != `{"k":{"a":1,"a":2},"k":3}` {
+		t.Errorf("nested duplicate names: got %s %s", g.Path, g.Meta)
+	}
 	if err := defaultShape.check([]byte(`{"a":1,"a":"` + "\xff" + `"}`)); err != nil {
 		t.Errorf("shape check refused duplicate names or invalid UTF-8: %v", err)
 	}
@@ -551,5 +564,22 @@ func TestWireHostResultTypes(t *testing.T) {
 		if string(got) != c.want {
 			t.Errorf("%s:\n got  %s\n want %s", c.name, got, c.want)
 		}
+	}
+}
+
+// TestWirePayloadKeepsRawDuplicateNames: a changeset payload built from the
+// plugin's raw attributes must keep them, duplicate names included (v1 passed
+// raw values through), and an encoding failure must surface as an error
+// instead of an empty payload that stages as {}.
+func TestWirePayloadKeepsRawDuplicateNames(t *testing.T) {
+	got, err := payload(map[string]any{"schema": "post", "name": "N", "attributes": jsontext.Value(`{"title":"a","title":"b"}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `{"attributes":{"title":"a","title":"b"},"name":"N","schema":"post"}`; string(got) != want {
+		t.Errorf("payload = %s, want %s", got, want)
+	}
+	if got, err := payload(make(chan int)); err == nil {
+		t.Errorf("an unencodable payload returned %q without an error", got)
 	}
 }

@@ -14,6 +14,7 @@ import (
 // semantics: ints, bools and structs are never "empty" as in v2), time.Duration
 // (nanoseconds), [N]byte (number array), pointer-receiver MarshalJSON on
 // non-addressable values and, by default, []byte, time.Time and floats.
+// Duplicate names inside raw values (jsontext.Value) are accepted, as v1 did.
 // Invalid UTF-8 becomes the raw replacement character bytes EF BF BD, not the
 // six-character escape \ufffd that pre-go1.27 toolchains wrote.
 //
@@ -33,6 +34,7 @@ var (
 		jsonv2.Deterministic(true),
 		jsontext.EscapeForHTML(true),
 		jsontext.EscapeForJS(true),
+		jsontext.AllowDuplicateNames(true),
 		jsontext.AllowInvalidUTF8(true),
 		jsonv2.FormatNilSliceAsNull(true),
 		jsonv2.FormatNilMapAsNull(true),
