@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"net/http"
 	"slices"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -64,7 +64,7 @@ func (a *Admin) partsOf(r *http.Request) (map[string][]entity.Entity, error) {
 			var attrs struct {
 				Slot string `json:"slot"`
 			}
-			if json.Unmarshal(e.Attributes, &attrs) == nil && builder.ValidPartSlot(attrs.Slot) {
+			if jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored) == nil && builder.ValidPartSlot(attrs.Slot) {
 				out[attrs.Slot] = append(out[attrs.Slot], *e)
 			}
 		}
@@ -165,7 +165,7 @@ func (a *Admin) partProblem(r *http.Request, slot, id string) string {
 	var attrs struct {
 		Slot string `json:"slot"`
 	}
-	_ = json.Unmarshal(e.Attributes, &attrs)
+	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
 	if !entity.IsPartSchema(sc) || attrs.Slot != slot {
 		return "That is not a " + slot + " part."
 	}

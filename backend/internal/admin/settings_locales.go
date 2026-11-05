@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"html/template"
 	"maps"
 	"net/http"
@@ -13,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -229,9 +230,9 @@ func b2i(b bool) int {
 // again (the posted inherit checkboxes) and the keys of fields that now hold a
 // value of their own.
 func dropInherited(p *bizprofile.Profile, posted []string) {
-	raw, _ := json.Marshal(*p)
+	raw, _ := jsonx.Marshal(*p)
 	m := map[string]any{}
-	_ = json.Unmarshal(raw, &m)
+	_ = jsonx.Unmarshal(raw, &m, jsonx.Stored)
 	p.NoInherit = slices.DeleteFunc(p.NoInherit, func(k string) bool {
 		return slices.Contains(posted, k) || profileKeySet(m, k)
 	})
@@ -330,9 +331,9 @@ func (a *Admin) handleBusinessSave(w http.ResponseWriter, r *http.Request) {
 	if isDefault {
 		err = a.saveDefaultBusiness(r.Context(), p)
 	} else {
-		var raw json.RawMessage
+		var raw jsontext.Value
 		if !reflect.DeepEqual(p, bizprofile.Profile{}) {
-			raw, _ = json.Marshal(p)
+			raw, _ = jsonx.Marshal(p)
 		}
 		err = a.deps.Site.SetLocaleProfile(r.Context(), tag, raw)
 	}
@@ -354,7 +355,7 @@ func (a *Admin) handleBusinessSave(w http.ResponseWriter, r *http.Request) {
 // profile column.
 func (a *Admin) saveDefaultBusiness(ctx context.Context, p bizprofile.Profile) error {
 	stored, phone, hours, addr := bizprofile.SplitLegacy(p)
-	raw, _ := json.Marshal(stored)
+	raw, _ := jsonx.Marshal(stored)
 	_, err := a.deps.Site.Update(ctx, siteconfig.UpdateInput{Phone: &phone, BusinessHours: &hours, PostalAddress: addr, BusinessProfile: raw})
 	return err
 }
@@ -415,7 +416,7 @@ func (a *Admin) handleOrgAddressSave(w http.ResponseWriter, r *http.Request) {
 	// The legacy columns hold phone, hours note and the five address keys; the
 	// profile column holds everything else.
 	stored, _, _, _ := bizprofile.SplitLegacy(p)
-	raw, _ := json.Marshal(stored)
+	raw, _ := jsonx.Marshal(stored)
 	if _, err := a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{BusinessProfile: raw}); err != nil {
 		a.logger().Error("save organisation address failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The setting could not be saved.")

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -135,9 +135,9 @@ func siteProfile(c *siteconfig.Config) (bizprofile.Profile, error) {
 
 // profileValues is the form view of a profile.
 func profileValues(p bizprofile.Profile) map[string]any {
-	raw, _ := json.Marshal(p)
+	raw, _ := jsonx.Marshal(p)
 	m := map[string]any{}
-	_ = json.Unmarshal(raw, &m)
+	_ = jsonx.Unmarshal(raw, &m, jsonx.Stored)
 	triToForm(m)
 	return m
 }
@@ -146,7 +146,7 @@ func profileValues(p bizprofile.Profile) map[string]any {
 func valuesProfile(vals map[string]any) (bizprofile.Profile, error) {
 	vals = cloneJSON(vals)
 	triFromForm(vals)
-	raw, err := json.Marshal(vals)
+	raw, err := jsonx.Marshal(vals)
 	if err != nil {
 		return bizprofile.Profile{}, err
 	}

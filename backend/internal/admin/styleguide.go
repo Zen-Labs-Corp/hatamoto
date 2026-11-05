@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -9,6 +8,7 @@ import (
 	"sort"
 
 	"hatamoto.dev/core/internal/admin/ui"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The styleguide is a development page (HATAMOTO_DEV=1) that shows every
@@ -186,8 +186,11 @@ func (a *Admin) styleguideSections() ([]styleguideSection, error) {
 	if err != nil {
 		return nil, err
 	}
-	var spec map[string]struct{ Selector, Partial string }
-	if err := json.Unmarshal(raw, &spec); err != nil {
+	var spec map[string]struct {
+		Selector string `json:"selector"`
+		Partial  string `json:"partial"`
+	}
+	if err := jsonx.Unmarshal(raw, &spec, jsonx.Stored); err != nil {
 		return nil, fmt.Errorf("components.json: %w", err)
 	}
 	names := make([]string, 0, len(spec))

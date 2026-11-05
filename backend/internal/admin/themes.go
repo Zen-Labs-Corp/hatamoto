@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"html/template"
 	"net/http"
@@ -11,6 +11,7 @@ import (
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -327,7 +328,7 @@ var (
 func designFrom(cfg *siteconfig.Config) designForm {
 	t := siteconfig.DefaultThemeConfig()
 	if len(cfg.ThemeExtra) > 0 {
-		_ = json.Unmarshal(cfg.ThemeExtra, &t)
+		_ = jsonx.Unmarshal(cfg.ThemeExtra, &t, jsonx.Stored)
 	}
 	if hexColour.MatchString(cfg.PrimaryColor) {
 		t.Colors.Primary = cfg.PrimaryColor
@@ -432,16 +433,16 @@ func (a *Admin) handleDesignSave(w http.ResponseWriter, r *http.Request) {
 	// Merge into the stored theme object: keys this form does not own
 	// (header button, social links) are kept; the primary colour lives only in
 	// its own column.
-	merged := map[string]json.RawMessage{}
-	_ = json.Unmarshal(cfg.ThemeExtra, &merged)
+	merged := map[string]jsontext.Value{}
+	_ = jsonx.Unmarshal(cfg.ThemeExtra, &merged, jsonx.Stored)
 	set := func(key string, v any) {
-		b, _ := json.Marshal(v)
+		b, _ := jsonx.Marshal(v)
 		merged[key] = b
 	}
 	set("colors", map[string]string{"secondary": f.Secondary, "accent": f.Accent, "background": f.Background, "text": f.Text})
 	set("typography", map[string]string{"fontFamily": f.Font, "headingFamily": f.HeadingFont})
 	set("borderRadius", map[string]string{"sm": f.RadiusSm, "md": f.RadiusMd, "lg": f.RadiusLg})
-	raw, _ := json.Marshal(merged)
+	raw, _ := jsonx.Marshal(merged)
 	if _, err := a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{ThemeExtra: raw, PrimaryColor: &f.Primary}); err != nil {
 		a.logger().Error("save design failed", "err", err)
 		a.fetchOrError(w, r, http.StatusInternalServerError, "The design could not be saved.")

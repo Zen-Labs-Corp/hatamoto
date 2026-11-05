@@ -2,8 +2,7 @@ package admin
 
 import (
 	"encoding/base64"
-	"encoding/json"
-	"io"
+	"encoding/json/jsontext"
 	"io/fs"
 	"mime"
 	"net/http"
@@ -18,6 +17,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Plugin admin pages. A plugin that declares ui in its manifest ships a page in
@@ -210,13 +210,13 @@ func (a *Admin) handlePluginSDK(w http.ResponseWriter, r *http.Request) {
 }
 
 type bridgeRequest struct {
-	Op     string          `json:"op"`
-	Method string          `json:"method"`
-	Path   string          `json:"path"`
-	Query  map[string]any  `json:"query"`
-	Body   string          `json:"body"`
-	Fn     string          `json:"fn"`
-	Args   json.RawMessage `json:"args"`
+	Op     string         `json:"op"`
+	Method string         `json:"method"`
+	Path   string         `json:"path"`
+	Query  map[string]any `json:"query"`
+	Body   string         `json:"body"`
+	Fn     string         `json:"fn"`
+	Args   jsontext.Value `json:"args"`
 }
 
 type bridgeRouteReply struct {
@@ -239,10 +239,9 @@ func (a *Admin) handlePluginBridge(w http.ResponseWriter, r *http.Request) {
 		a.writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many requests"})
 		return
 	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBridgeBody))
 	var req bridgeRequest
-	if err != nil || json.Unmarshal(body, &req) != nil {
-		a.writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
+	if status, _ := jsonx.DecodeRequest(w, r, &req, maxBridgeBody); status != 0 {
+		a.writeJSON(w, status, map[string]string{"error": "bad request"})
 		return
 	}
 	switch req.Op {
@@ -290,7 +289,7 @@ func toString(v any) string {
 	case nil:
 		return ""
 	default:
-		b, _ := json.Marshal(x)
+		b, _ := jsonx.Marshal(x)
 		return string(b)
 	}
 }

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	linkingv2 "hatamoto.dev/core/internal/linking/v2"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/permtext"
@@ -294,13 +294,9 @@ func (a *Admin) unavailable(w http.ResponseWriter, r *http.Request, what string)
 // data). They are behind the session, so they are never cached.
 func (a *Admin) writeJSON(w http.ResponseWriter, status int, v any) {
 	h := w.Header()
-	h.Set("Content-Type", "application/json; charset=utf-8")
 	h.Set("Cache-Control", "no-store")
 	h.Set("X-Content-Type-Options", "nosniff")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		a.logger().Error("admin: write json failed", "err", err)
-	}
+	jsonx.WriteJSON(w, status, v)
 }
 
 // bulkDelete drives pages/bulkdelete: the confirmation shown before a bulk

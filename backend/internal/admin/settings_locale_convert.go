@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -15,6 +14,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/localeconv"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -283,7 +283,7 @@ func (a *Admin) handleConvertSuggest(w http.ResponseWriter, r *http.Request) {
 		a.renderConvert(w, r, http.StatusUnprocessableEntity, d)
 		return
 	}
-	text, err := json.MarshalIndent(plan, "", "  ")
+	text, err := jsonx.Indent(plan)
 	if err != nil {
 		a.logger().Error("locale conversion suggestion could not be shown", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The suggestion could not be shown.")
