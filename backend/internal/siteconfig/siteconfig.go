@@ -57,15 +57,17 @@ type Config struct {
 	// EntityVersionsKeep is how many earlier versions of each item the daily
 	// prune keeps (10 to 500).
 	EntityVersionsKeep int
-	CompanyName        string
-	LogoURL            string
-	CustomDomain       string
-	PrimaryColor       string
-	ThemeExtra         jsontext.Value // raw JSONB, callers parse if they need it
-	Tagline            string
-	Timezone           string
-	HomepageEntityID   uuid.UUID // uuid.Nil if unset
-	NotificationEmail  string
+	// AdminBrand is the admin name, logo, accent and managed-by line.
+	AdminBrand        AdminBrand
+	CompanyName       string
+	LogoURL           string
+	CustomDomain      string
+	PrimaryColor      string
+	ThemeExtra        jsontext.Value // raw JSONB, callers parse if they need it
+	Tagline           string
+	Timezone          string
+	HomepageEntityID  uuid.UUID // uuid.Nil if unset
+	NotificationEmail string
 	// Language is the BCP 47 site language ("en" by default): <html lang>,
 	// JSON-LD inLanguage and feed language.
 	Language string
@@ -772,7 +774,9 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       compress_responses, two_factor_policy,
 		       site_access_mode, site_access_retry_after, site_access_password_hash,
 		       site_access_epoch, site_access_heading, site_access_message,
-		       entity_versions_keep
+		       entity_versions_keep,
+		       admin_brand_name, admin_logo_url, admin_accent,
+		       admin_managed_by_text, admin_managed_by_url
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -790,6 +794,8 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.SiteAccess.Mode, &cfg.SiteAccess.RetryAfter, &cfg.SiteAccess.PasswordHash,
 		&cfg.SiteAccess.Epoch, &cfg.SiteAccess.Heading, &cfg.SiteAccess.Message,
 		&cfg.EntityVersionsKeep,
+		&cfg.AdminBrand.Name, &cfg.AdminBrand.LogoURL, &cfg.AdminBrand.Accent,
+		&cfg.AdminBrand.ManagedText, &cfg.AdminBrand.ManagedURL,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured
