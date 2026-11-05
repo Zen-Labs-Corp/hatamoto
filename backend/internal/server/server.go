@@ -629,15 +629,18 @@ func (s *Server) setupDependencies() {
 		// keep the newest N per entity (Settings > Content > Versions, read on
 		// every run) plus every version live in the last 30 days.
 		if s.entityRepo != nil && workerJobEnabled("entity_versions") {
-			keep := func(ctx context.Context) int {
+			keep := func(ctx context.Context) (int, error) {
 				if s.siteConfig == nil {
-					return 0
+					return 0, errors.New("site config unavailable")
 				}
 				c, err := s.siteConfig.Get(ctx)
-				if err != nil || c == nil {
-					return 0
+				if err != nil {
+					return 0, err
 				}
-				return c.EntityVersionsKeep
+				if c == nil {
+					return 0, errors.New("site config empty")
+				}
+				return c.EntityVersionsKeep, nil
 			}
 			s.scheduler.SetEntityVersionWorker(worker.NewEntityVersionWorker(s.entityRepo, keep, s.logger))
 			if s.demoOn() {

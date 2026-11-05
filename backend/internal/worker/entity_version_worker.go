@@ -13,33 +13,37 @@ import (
 // the newest N per entity (never a version live in the last 30 days), so hatamoto_entity_versions stays bounded.
 type EntityVersionWorker struct {
 	repo   entity.EntityRepository
-	keep   func(context.Context) int
+	keep   func(context.Context) (int, error)
 	logger *slog.Logger
 }
 
 // NewEntityVersionWorker prunes to the number keep returns on each run (the
-// owner setting). A nil keep, or a value outside the allowed range, means
+// owner setting), clamped to the allowed range. A keep error skips the run, so
+// an unreadable setting never deletes history. A nil keep means
 // entity.VersionKeepDefault.
-func NewEntityVersionWorker(repo entity.EntityRepository, keep func(context.Context) int, logger *slog.Logger) *EntityVersionWorker {
+func NewEntityVersionWorker(repo entity.EntityRepository, keep func(context.Context) (int, error), logger *slog.Logger) *EntityVersionWorker {
 	return &EntityVersionWorker{repo: repo, keep: keep, logger: logger}
 }
 
-func (w *EntityVersionWorker) keepNow(ctx context.Context) int {
+func (w *EntityVersionWorker) keepNow(ctx context.Context) (int, error) {
 	if w.keep == nil {
-		return entity.VersionKeepDefault
+		return entity.VersionKeepDefault, nil
 	}
-	n := w.keep(ctx)
-	if n < entity.VersionKeepMin || n > entity.VersionKeepMax {
-		return entity.VersionKeepDefault
+	n, err := w.keep(ctx)
+	if err != nil {
+		return 0, err
 	}
-	return n
+	return min(max(n, entity.VersionKeepMin), entity.VersionKeepMax), nil
 }
 
 func (w *EntityVersionWorker) Run(ctx context.Context) error {
 	if w.repo == nil {
 		return nil
 	}
-	keep := w.keepNow(ctx)
+	keep, err := w.keepNow(ctx)
+	if err != nil {
+		return fmt.Errorf("read version history limit: %w", err)
+	}
 	n, err := w.repo.PruneVersions(database.WithSuperadmin(ctx), keep)
 	if err != nil {
 		return fmt.Errorf("prune entity versions: %w", err)
