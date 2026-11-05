@@ -63,7 +63,9 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 	capture := func(next http.Handler) http.Handler {
 		return s.agentCaptureMiddleware(s.aiReferralMiddleware(next))
 	}
-	var fontsHandler http.Handler
+	// Always mounted, so the route (and its reserved /fonts prefix) exists
+	// even when no store is wired: it then answers 404.
+	fontsHandler := http.NotFoundHandler()
 	if s.fonts != nil {
 		fontsHandler = fonts.Handler(s.fonts)
 	}

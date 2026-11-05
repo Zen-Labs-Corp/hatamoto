@@ -120,3 +120,9 @@ func TestPluginUIReserved(t *testing.T) {
 		t.Errorf("/plugin-ui: %v, want reserved", got.Level)
 	}
 }
+
+func TestFontsIsReserved(t *testing.T) {
+	if got := Assess(context.Background(), "/fonts", nil); got.Level != LevelReserved {
+		t.Errorf("/fonts: %v, want reserved", got.Level)
+	}
+}

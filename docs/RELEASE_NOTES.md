@@ -13,6 +13,7 @@ Owners can upload `.woff2` fonts or download a Google font once, then pick body 
 
 - **Limits.** 2 MB per file, 20 uploads, 60 font files in total.
 - **Export and backup.** Fonts are stored in the database and travel with export, import and backup.
+- **Reserved address.** `/fonts/...` is now served by the site, like `/preview` and `/theme`: `/fonts` can no longer be the admin address, and an entry or schema URL under `/fonts/` stops resolving. Move such content to another path before you upgrade. Only `/fonts/<64 hex>.woff2` skips the site-access gate; any other `/fonts/...` page follows the mode.
 - **Migration.** One new table (expand-only). No new dependency, so docs/DEPENDENCIES.md is unchanged. Rollback floor: an older release ignores the table and the chosen family falls back to the system stack.
 
 ## Unreleased: ads.txt and app-ads.txt

@@ -11,7 +11,7 @@ import (
 // prefix appears here or is exempt. "admin" is deliberately absent: it is the
 // legacy default and may be chosen as a weak address.
 var ReservedPrefixes = []string{
-	"api", "p", "preview", "theme", "media", ".well-known", "sitemap.xml", "robots.txt", "health", "ready",
+	"api", "p", "preview", "theme", "fonts", "media", ".well-known", "sitemap.xml", "robots.txt", "health", "ready",
 	"llms.txt", "ads.txt", "app-ads.txt", "plugin-ui", "feed", "feed.xml", "atom.xml", "sitemap", "forms", "auth", "-", "favicon.ico",
 }
 

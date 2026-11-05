@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -72,10 +73,14 @@ const CookieName = "hatamoto_site_access"
 const CookieTTL = 30 * 24 * time.Hour
 
 var bypassPrefixes = []string{
-	"/p/", "/.well-known/", "/media/", "/theme/assets/", "/fonts/",
+	"/p/", "/.well-known/", "/media/", "/theme/assets/",
 	// Address-independent admin routes that the main mux forwards.
 	"/auth/", "/plugin-ui/",
 }
+
+// fontFileRe is exactly the owner font route, one segment: a page under
+// /fonts/ (or any other name there) follows the mode like every page.
+var fontFileRe = regexp.MustCompile(`^/fonts/[0-9a-f]{64}\.woff2$`)
 
 var bypassExact = map[string]bool{
 	"/health": true, "/ready": true, "/-/edit": true,
@@ -97,7 +102,7 @@ const publicAPI = "/api/v1/public"
 // /api/v1 only the authenticated JSON API passes; the anonymous public API
 // (/api/v1/public) serves published content and follows the mode.
 func Bypass(path string) bool {
-	if bypassExact[path] {
+	if bypassExact[path] || fontFileRe.MatchString(path) {
 		return true
 	}
 	if path == publicAPI || strings.HasPrefix(path, publicAPI+"/") {
