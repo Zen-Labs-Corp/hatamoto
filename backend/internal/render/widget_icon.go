@@ -1,10 +1,11 @@
 package render
 
 import (
-	"encoding/json"
 	"html"
 	"html/template"
 	"sync"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // svgAttrs is what every icon svg shares: 24-unit stroke glyphs that take the
@@ -21,7 +22,7 @@ func icons() map[string]string {
 	iconSetOnce.Do(func() {
 		raw, err := widgetFS.ReadFile("widgets/icon/icons.json")
 		if err == nil {
-			err = json.Unmarshal(raw, &iconSet)
+			err = jsonx.Unmarshal(raw, &iconSet, jsonx.Stored)
 		}
 		if err != nil {
 			panic("render: widgets/icon/icons.json: " + err.Error())

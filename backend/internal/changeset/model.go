@@ -6,7 +6,7 @@ package changeset
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"time"
 
@@ -95,7 +95,7 @@ type Item struct {
 	SourceKey string
 	TargetID  string
 	BaseToken string
-	Payload   json.RawMessage
+	Payload   jsontext.Value
 	BlobKeys  []string
 }
 
@@ -104,7 +104,7 @@ type StoredItem struct {
 	Item
 	ID           int64
 	Seq          int
-	Before       json.RawMessage
+	Before       jsontext.Value
 	AfterToken   string // live token when the publish ended; empty when none was recorded
 	BeforeToken  string // live token just before the publish applied the item; empty for a create
 	Result       string
@@ -117,7 +117,7 @@ type StoredItem struct {
 // runs if the transaction does not commit.
 type Outcome struct {
 	TargetID string
-	Before   json.RawMessage
+	Before   jsontext.Value
 	Created  bool
 	Deleted  bool
 	Conflict bool
@@ -134,7 +134,7 @@ type AppliedItem struct {
 	Created  bool
 	Deleted  bool
 	// Before is the pre-image of an update or delete (nil for a create).
-	Before json.RawMessage
+	Before jsontext.Value
 	// PathMoved: an entity update changed the slug or the parent.
 	PathMoved bool
 }

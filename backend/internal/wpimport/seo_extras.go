@@ -2,7 +2,7 @@ package wpimport
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"net/url"
@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -66,7 +67,7 @@ func sitemapExcludedTypes(file *SEOFile) []string {
 }
 
 // schemaSitemap reads the sitemap keys of a schema's settings.
-func schemaSitemap(settings json.RawMessage) (exclude bool, priority *float64, changeFreq string) {
+func schemaSitemap(settings jsontext.Value) (exclude bool, priority *float64, changeFreq string) {
 	var s struct {
 		Sitemap struct {
 			Exclude    bool     `json:"exclude"`
@@ -74,7 +75,7 @@ func schemaSitemap(settings json.RawMessage) (exclude bool, priority *float64, c
 			ChangeFreq string   `json:"changefreq"`
 		} `json:"sitemap"`
 	}
-	if json.Unmarshal(settings, &s) != nil {
+	if jsonx.Unmarshal(settings, &s, jsonx.StoredLoose) != nil {
 		return false, nil, ""
 	}
 	return s.Sitemap.Exclude, s.Sitemap.Priority, s.Sitemap.ChangeFreq
@@ -205,15 +206,15 @@ func isWebURL(s string) bool {
 // mergeSameAs adds the https links in add to the profile's "sameas" list and
 // returns the new profile JSON, the list before and the links that were new.
 // Every other key of the profile is kept as it is.
-func mergeSameAs(profile json.RawMessage, add []string) (merged json.RawMessage, before, added []string, err error) {
-	obj := map[string]json.RawMessage{}
+func mergeSameAs(profile jsontext.Value, add []string) (merged jsontext.Value, before, added []string, err error) {
+	obj := map[string]jsontext.Value{}
 	if t := strings.TrimSpace(string(profile)); t != "" && t != "null" {
-		if err := json.Unmarshal(profile, &obj); err != nil {
+		if err := jsonx.Unmarshal(profile, &obj, jsonx.StoredLoose); err != nil {
 			return nil, nil, nil, errors.New("the stored business profile is not readable")
 		}
 	}
 	if raw, ok := obj["sameas"]; ok {
-		_ = json.Unmarshal(raw, &before)
+		_ = jsonx.Unmarshal(raw, &before, jsonx.StoredLoose)
 	}
 	have := map[string]bool{}
 	for _, s := range before {
@@ -230,8 +231,8 @@ func mergeSameAs(profile json.RawMessage, add []string) (merged json.RawMessage,
 	if len(added) == 0 {
 		return profile, before, nil, nil
 	}
-	all, _ := json.Marshal(append(append([]string(nil), before...), added...))
+	all, _ := jsonx.Marshal(append(append([]string(nil), before...), added...))
 	obj["sameas"] = all
-	merged, err = json.Marshal(obj)
+	merged, err = jsonx.Marshal(obj)
 	return merged, before, added, err
 }

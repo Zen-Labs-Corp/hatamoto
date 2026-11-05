@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // ExportOptions control Export.
@@ -120,7 +121,7 @@ func Export(ctx context.Context, pool *pgxpool.Pool, w io.Writer, opts ExportOpt
 }
 
 func writeJSONEntry(tw *tar.Writer, name string, v any, mod time.Time) error {
-	b, err := json.MarshalIndent(v, "", "  ")
+	b, err := jsonx.Indent(v)
 	if err != nil {
 		return err
 	}
@@ -233,7 +234,7 @@ func mediaPathsOf(line string) ([]string, error) {
 			Path string `json:"path"`
 		} `json:"variants"`
 	}
-	if err := json.Unmarshal([]byte(line), &m); err != nil {
+	if err := jsonx.Unmarshal([]byte(line), &m, jsonx.StoredLoose); err != nil {
 		return nil, err
 	}
 	out := []string{m.StoragePath}

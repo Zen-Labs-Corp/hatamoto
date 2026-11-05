@@ -2,13 +2,14 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // MaxRefUsers caps the usage list of a block.
@@ -70,11 +71,11 @@ func (s *Service) RefUsers(ctx context.Context, blockID uuid.UUID, limit int) (u
 }
 
 // docRefsBlock reports whether the page_doc in attributes has a ref to block.
-func docRefsBlock(attrs json.RawMessage, block string) bool {
+func docRefsBlock(attrs jsontext.Value, block string) bool {
 	var a struct {
-		Doc json.RawMessage `json:"page_doc"`
+		Doc jsontext.Value `json:"page_doc"`
 	}
-	if json.Unmarshal(attrs, &a) != nil || len(a.Doc) == 0 {
+	if jsonx.Unmarshal(attrs, &a, jsonx.StoredLoose) != nil || len(a.Doc) == 0 {
 		return false
 	}
 	d, err := builder.Parse(a.Doc)

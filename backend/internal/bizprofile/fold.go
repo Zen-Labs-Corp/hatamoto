@@ -1,10 +1,12 @@
 package bizprofile
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"reflect"
 	"slices"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // fieldKind says how Fold treats one Profile field.
@@ -321,8 +323,8 @@ func jsonKey(f reflect.StructField) string {
 // SplitLegacy is the inverse of FromLegacy: it returns p without the values
 // the legacy columns hold (phone, hours note and the five address keys) and
 // those values as the column contents. addr is the postal_address JSON.
-func SplitLegacy(p Profile) (stored Profile, phone, hours string, addr json.RawMessage) {
-	addr, _ = json.Marshal(struct {
+func SplitLegacy(p Profile) (stored Profile, phone, hours string, addr jsontext.Value) {
+	addr, _ = jsonx.Marshal(struct {
 		Street     string `json:"street"`
 		City       string `json:"city"`
 		State      string `json:"state"`

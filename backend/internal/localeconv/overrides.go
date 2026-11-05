@@ -3,17 +3,19 @@ package localeconv
 import (
 	"bytes"
 	"cmp"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"slices"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // SchemaChange is a schema whose settings the conversion rewrites.
 type SchemaChange struct {
 	ID     string
 	Slug   string
-	Before json.RawMessage
-	After  json.RawMessage
+	Before jsontext.Value
+	After  jsontext.Value
 }
 
 // overrideMatchKeys are the override keys that say what the override matches.
@@ -28,22 +30,22 @@ func StripSitemapGroup(schemas []Schema, attribute string) (out []Schema, change
 	out = slices.Clone(schemas)
 	kept := map[string]bool{}
 	for i, s := range out {
-		var settings map[string]json.RawMessage
-		if len(bytes.TrimSpace(s.Settings)) == 0 || json.Unmarshal(s.Settings, &settings) != nil {
+		var settings map[string]jsontext.Value
+		if len(bytes.TrimSpace(s.Settings)) == 0 || jsonx.Unmarshal(s.Settings, &settings, jsonx.StoredLoose) != nil {
 			continue // settings the URL registry cannot read have no overrides to edit
 		}
 		rawOverrides, ok := settings["overrides"]
 		if !ok {
 			continue
 		}
-		var overrides []map[string]json.RawMessage
-		if err := json.Unmarshal(rawOverrides, &overrides); err != nil {
+		var overrides []map[string]jsontext.Value
+		if err := jsonx.Unmarshal(rawOverrides, &overrides, jsonx.StoredLoose); err != nil {
 			continue
 		}
 		edited := false
 		for _, o := range overrides {
 			var attr string
-			if json.Unmarshal(o["attribute"], &attr) != nil || attr != attribute {
+			if jsonx.Unmarshal(o["attribute"], &attr, jsonx.StoredLoose) != nil || attr != attribute {
 				continue
 			}
 			group, has := o["sitemap_group"]
@@ -51,8 +53,8 @@ func StripSitemapGroup(schemas []Schema, attribute string) (out []Schema, change
 				continue
 			}
 			var g, equals string
-			_ = json.Unmarshal(group, &g)
-			_ = json.Unmarshal(o["equals"], &equals)
+			_ = jsonx.Unmarshal(group, &g, jsonx.StoredLoose)
+			_ = jsonx.Unmarshal(o["equals"], &equals, jsonx.StoredLoose)
 			changed = append(changed, OverrideChange{Schema: s.Slug, Attribute: attr, Equals: equals, Group: g})
 			delete(o, "sitemap_group")
 			edited = true
@@ -65,10 +67,10 @@ func StripSitemapGroup(schemas []Schema, attribute string) (out []Schema, change
 		if !edited {
 			continue
 		}
-		if settings["overrides"], err = json.Marshal(overrides); err != nil {
+		if settings["overrides"], err = jsonx.Marshal(overrides); err != nil {
 			return nil, nil, nil, fmt.Errorf("encode overrides of %s: %w", s.Slug, err)
 		}
-		if out[i].Settings, err = json.Marshal(settings); err != nil {
+		if out[i].Settings, err = jsonx.Marshal(settings); err != nil {
 			return nil, nil, nil, fmt.Errorf("encode settings of %s: %w", s.Slug, err)
 		}
 	}
@@ -91,7 +93,7 @@ func stillMatchesAttribute(schemas []Schema, attribute string) bool {
 				Attribute string `json:"attribute"`
 			} `json:"overrides"`
 		}
-		if json.Unmarshal(s.Settings, &settings) != nil {
+		if jsonx.Unmarshal(s.Settings, &settings, jsonx.StoredLoose) != nil {
 			continue
 		}
 		if slices.ContainsFunc(settings.Overrides, func(o struct {

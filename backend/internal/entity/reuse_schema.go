@@ -2,13 +2,14 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The two built-in types of the builder's reuse feature. Both hold a page_doc
@@ -81,7 +82,7 @@ var reuseSchemas = []struct {
 func EnsureReuseSchemas(ctx context.Context, db SQLDB, log *slog.Logger) (ReuseStatus, error) {
 	var st ReuseStatus
 	for _, rs := range reuseSchemas {
-		if !json.Valid([]byte(rs.schema)) {
+		if !jsonx.Valid([]byte(rs.schema)) {
 			return st, fmt.Errorf("reuse schema %s: invalid json", rs.slug)
 		}
 		if _, err := db.Exec(ctx, `

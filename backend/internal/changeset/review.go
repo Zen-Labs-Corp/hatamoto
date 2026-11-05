@@ -2,13 +2,15 @@ package changeset
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The limits of one changeset, exported for the review page's limits card.
@@ -162,7 +164,7 @@ func (e *Engine) reviewItems(ctx context.Context, csID int64, risks []string, it
 	}
 	type row struct {
 		ReviewItem
-		payload json.RawMessage
+		payload jsontext.Value
 	}
 	var page []row
 	for rows.Next() {
@@ -178,7 +180,7 @@ func (e *Engine) reviewItems(ctx context.Context, csID int64, risks []string, it
 			rows.Close()
 			return nil, ErrNotClassified
 		}
-		r.Kind, r.Risk, r.payload = Kind(kind), *risk, json.RawMessage(payload)
+		r.Kind, r.Risk, r.payload = Kind(kind), *risk, jsontext.Value(payload)
 		page = append(page, r)
 	}
 	rows.Close()
@@ -206,17 +208,17 @@ func (e *Engine) reviewItems(ctx context.Context, csID int64, risks []string, it
 // displayChange picks the before and after strings a risky row shows.
 func displayChange(it Item, reason RiskReason, live *Live, label string) (oldS, newS string) {
 	var p struct {
-		Slug       string          `json:"slug"`
-		OldAlt     string          `json:"old_alt"`
-		AltText    string          `json:"alt_text"`
-		SourcePath string          `json:"source_path"`
-		Target     string          `json:"target"`
-		Attributes json.RawMessage `json:"attributes"`
+		Slug       string         `json:"slug"`
+		OldAlt     string         `json:"old_alt"`
+		AltText    string         `json:"alt_text"`
+		SourcePath string         `json:"source_path"`
+		Target     string         `json:"target"`
+		Attributes jsontext.Value `json:"attributes"`
 		Items      []struct {
 			URL *string `json:"url"`
 		} `json:"items"`
 	}
-	_ = json.Unmarshal(it.Payload, &p)
+	_ = jsonx.Unmarshal(it.Payload, &p, jsonx.StoredLoose)
 	switch reason {
 	case ReasonSlug:
 		if live != nil {
@@ -242,13 +244,13 @@ func displayChange(it Item, reason RiskReason, live *Live, label string) (oldS, 
 		}
 	case ReasonLinkHost, ReasonLinkQuery:
 		var attrs any
-		if json.Unmarshal(p.Attributes, &attrs) != nil {
+		if jsonx.Unmarshal(p.Attributes, &attrs, jsonx.StoredLoose) != nil {
 			return "", ""
 		}
 		var liveLinks linkSet
 		if live != nil {
 			var la any
-			if json.Unmarshal(live.Attributes, &la) == nil {
+			if jsonx.Unmarshal(live.Attributes, &la, jsonx.StoredLoose) == nil {
 				liveLinks = scanStrings(la).links
 			}
 		}

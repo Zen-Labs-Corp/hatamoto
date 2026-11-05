@@ -5,12 +5,14 @@ import (
 	"crypto/rand"
 	"embed"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"io/fs"
 	"maps"
 	"sort"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // widgetFS holds widgets/<kind>/schema.json. Each file is the JSON Schema of
@@ -149,7 +151,7 @@ func parseWidgetSpec(name string, raw []byte, pack bool) (kindSpec, error) {
 		return kindSpec{}, fmt.Errorf("bad kind name")
 	}
 	var ws widgetSchema
-	if err := json.Unmarshal(raw, &ws); err != nil {
+	if err := jsonx.Unmarshal(raw, &ws, jsonx.StoredLoose); err != nil {
 		return kindSpec{}, err
 	}
 	if ws.Meta == nil {
@@ -210,35 +212,32 @@ func parseWidgetSpec(name string, raw []byte, pack bool) (kindSpec, error) {
 // propertyOrder returns the keys of the top-level "properties" object in
 // document order (a Go map loses it).
 func propertyOrder(raw []byte) ([]string, error) {
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	tok, err := dec.Token() // {
-	if err != nil || tok != json.Delim('{') {
+	dec := jsontext.NewDecoder(bytes.NewReader(raw), jsontext.AllowDuplicateNames(true))
+	if tok, err := dec.ReadToken(); err != nil || tok.Kind() != '{' { // {
 		return nil, fmt.Errorf("schema is not an object")
 	}
-	for dec.More() {
-		k, err := dec.Token()
+	for dec.PeekKind() != '}' {
+		k, err := dec.ReadToken()
 		if err != nil {
 			return nil, err
 		}
-		if k != "properties" {
-			var skip json.RawMessage
-			if err := dec.Decode(&skip); err != nil {
+		if k.String() != "properties" {
+			if err := dec.SkipValue(); err != nil {
 				return nil, err
 			}
 			continue
 		}
-		if tok, err = dec.Token(); err != nil || tok != json.Delim('{') {
+		if tok, err := dec.ReadToken(); err != nil || tok.Kind() != '{' {
 			return nil, fmt.Errorf("properties is not an object")
 		}
 		var keys []string
-		for dec.More() {
-			pk, err := dec.Token()
+		for dec.PeekKind() != '}' {
+			pk, err := dec.ReadToken()
 			if err != nil {
 				return nil, err
 			}
-			keys = append(keys, pk.(string))
-			var skip json.RawMessage
-			if err := dec.Decode(&skip); err != nil {
+			keys = append(keys, pk.String())
+			if err := dec.SkipValue(); err != nil {
 				return nil, err
 			}
 		}
@@ -257,7 +256,7 @@ func mergeWidgets(native map[string]kindSpec) map[string]kindSpec {
 	all := make(map[string]kindSpec, len(native)+len(ws))
 	for k, v := range native {
 		var ws widgetSchema
-		if err := json.Unmarshal([]byte(v.schema), &ws); err != nil {
+		if err := jsonx.Unmarshal([]byte(v.schema), &ws, jsonx.Stored); err != nil {
 			panic(fmt.Sprintf("builder: schema for kind %q: %v", k, err))
 		}
 		b, err := bindProps(ws)

@@ -179,3 +179,18 @@ func TestSanitizeHTMLSectionBodyKeepsSectionAttributes(t *testing.T) {
 		}
 	}
 }
+
+func TestSanitizeAttributes_RepeatedKeysStillSanitized(t *testing.T) {
+	for _, in := range []string{
+		`{"content":"ok","content":"<script>x</script>"}`,
+		`{"a":{"content":"<script>x</script>","content":"<script>y</script>"}}`,
+	} {
+		out, err := sanitizeAttributes(json.RawMessage(in))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(out), "<script") {
+			t.Errorf("%s -> %s: unsanitised", in, out)
+		}
+	}
+}

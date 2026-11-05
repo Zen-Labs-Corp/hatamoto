@@ -2,7 +2,6 @@ package wpimport
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -14,6 +13,7 @@ import (
 
 	"hatamoto.dev/core/internal/author"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func (r *Runner) keyPrefix() string { return KeyPrefix(r.dump.Site.URL) }
@@ -175,7 +175,7 @@ func (r *Runner) buildItem(ctx context.Context, it *Item, withEntities bool) (en
 			attrs["tags"] = tags
 		}
 	}
-	rawAttrs, err := json.Marshal(attrs)
+	rawAttrs, err := jsonx.Marshal(attrs)
 	if err != nil {
 		return entity.ImportItem{}, st, err
 	}
@@ -183,7 +183,7 @@ func (r *Runner) buildItem(ctx context.Context, it *Item, withEntities bool) (en
 	if it.Lang != "" {
 		wp["lang"] = it.Lang
 	}
-	meta, _ := json.Marshal(map[string]any{"wordpress": wp})
+	meta, _ := jsonx.Marshal(map[string]any{"wordpress": wp})
 	site, err := r.siteLanguage(ctx)
 	if err != nil {
 		return entity.ImportItem{}, st, err
@@ -471,7 +471,7 @@ func (r *Runner) rewriteLinks(ctx context.Context) error {
 // attrOf reads a string attribute of an import item.
 func attrOf(ii entity.ImportItem, key string) string {
 	var m map[string]any
-	if json.Unmarshal(ii.Attributes, &m) != nil {
+	if jsonx.Unmarshal(ii.Attributes, &m, jsonx.StoredLoose) != nil {
 		return ""
 	}
 	s, _ := m[key].(string)

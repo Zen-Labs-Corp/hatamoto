@@ -2,13 +2,15 @@ package wpimport
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"net/url"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/person"
 )
 
@@ -59,7 +61,7 @@ func InspectSite(ctx context.Context, pool *pgxpool.Pool, keyPrefix string) (*Si
 	st := &SiteState{Mode: ModeEmpty}
 	for rows.Next() {
 		var slug string
-		var attrs json.RawMessage
+		var attrs jsontext.Value
 		if err := rows.Scan(&slug, &attrs); err != nil {
 			return nil, err
 		}
@@ -86,15 +88,15 @@ func escapeLike(s string) string {
 // behind: entities carrying "starter": true, and the untouched first-boot home
 // page, a single "welcome" section (legacy page_sections or the only component
 // of a page_doc).
-func isStarterContent(attrs json.RawMessage) bool {
+func isStarterContent(attrs jsontext.Value) bool {
 	var a struct {
 		Starter  bool `json:"starter"`
 		Sections []struct {
 			ID string `json:"id"`
 		} `json:"page_sections"`
-		Doc json.RawMessage `json:"page_doc"`
+		Doc jsontext.Value `json:"page_doc"`
 	}
-	if json.Unmarshal(attrs, &a) != nil {
+	if jsonx.Unmarshal(attrs, &a, jsonx.StoredLoose) != nil {
 		return false
 	}
 	if a.Starter {

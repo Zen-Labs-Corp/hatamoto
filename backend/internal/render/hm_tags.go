@@ -6,10 +6,11 @@ import (
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
-	"encoding/json"
 	"html"
 	"html/template"
 	"sync/atomic"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // TagsScriptName is the asset name of the tag manager script under AssetPrefix.
@@ -47,7 +48,7 @@ type TagsConfig struct {
 // cache-busting query of the tag, so cached pages and the script they load
 // always agree.
 func (c TagsConfig) hash() string {
-	b, _ := json.Marshal(c)
+	b, _ := jsonx.MarshalPinned(c)
 	sum := sha256.Sum256(append(b, []byte(c.Noscript)...))
 	return hex.EncodeToString(sum[:])[:12]
 }
@@ -83,7 +84,7 @@ func tagsMarkup(c TagsConfig) template.HTML {
 
 // tagsScript renders the script with the configuration substituted.
 func tagsScript(c TagsConfig) []byte {
-	b, err := json.Marshal(c)
+	b, err := jsonx.MarshalPinned(c)
 	if err != nil {
 		b = []byte(`{"vendors":[]}`)
 	}

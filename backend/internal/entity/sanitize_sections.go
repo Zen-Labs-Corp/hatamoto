@@ -2,13 +2,16 @@ package entity
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"errors"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // kv is one member of a JSON object, kept in document order.
 type kv struct {
 	key string
-	val json.RawMessage
+	val jsontext.Value
 }
 
 // orderedObject is a JSON object that round-trips with its key order intact
@@ -16,22 +19,27 @@ type kv struct {
 // touched is re-emitted byte-for-byte.
 type orderedObject []kv
 
-func (o *orderedObject) UnmarshalJSON(data []byte) error {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	if _, err := dec.Token(); err != nil { // '{'
+func (o *orderedObject) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if tok, err := dec.ReadToken(); err != nil { // '{'
 		return err
+	} else if tok.Kind() != '{' {
+		return errors.New("entity: not a JSON object")
 	}
 	var out orderedObject
-	for dec.More() {
-		k, err := dec.Token()
+	for dec.PeekKind() != '}' {
+		k, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		var v json.RawMessage
-		if err := dec.Decode(&v); err != nil {
+		key := k.String() // only valid until the next read
+		v, err := dec.ReadValue()
+		if err != nil {
 			return err
 		}
-		out = append(out, kv{k.(string), v})
+		out = append(out, kv{key, v.Clone()})
+	}
+	if _, err := dec.ReadToken(); err != nil { // '}'
+		return err
 	}
 	*o = out
 	return nil
@@ -66,13 +74,7 @@ func (o orderedObject) index(key string) int {
 }
 
 func marshalNoEscape(v any) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(v); err != nil {
-		return nil, err
-	}
-	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+	return jsonx.Marshal(v)
 }
 
 // SanitizeHTMLSections rewrites attributes.page_sections[type=html or an HTML_SECTION_TYPE_ALIASES type].content.body
@@ -82,23 +84,23 @@ func marshalNoEscape(v any) ([]byte, error) {
 // them) are re-marshalled, with key order preserved and every other value
 // byte-identical. (Postgres jsonb re-orders keys on storage regardless.)
 // Malformed or unexpected shapes are left alone.
-func SanitizeHTMLSections(raw json.RawMessage) (json.RawMessage, int, error) {
+func SanitizeHTMLSections(raw jsontext.Value) (jsontext.Value, int, error) {
 	var root orderedObject
-	if err := json.Unmarshal(raw, &root); err != nil {
+	if err := jsonx.Unmarshal(raw, &root, jsonx.StoredLoose); err != nil {
 		return raw, 0, nil
 	}
 	pi := root.index("page_sections")
 	if pi < 0 {
 		return raw, 0, nil
 	}
-	var sections []json.RawMessage
-	if err := json.Unmarshal(root[pi].val, &sections); err != nil {
+	var sections []jsontext.Value
+	if err := jsonx.Unmarshal(root[pi].val, &sections, jsonx.StoredLoose); err != nil {
 		return raw, 0, nil
 	}
 	changed := 0
 	for i, rawSec := range sections {
 		var sec orderedObject
-		if json.Unmarshal(rawSec, &sec) != nil {
+		if jsonx.Unmarshal(rawSec, &sec, jsonx.StoredLoose) != nil {
 			continue
 		}
 		ti, ci := sec.index("type"), sec.index("content")
@@ -106,11 +108,11 @@ func SanitizeHTMLSections(raw json.RawMessage) (json.RawMessage, int, error) {
 			continue
 		}
 		var typ string
-		if json.Unmarshal(sec[ti].val, &typ) != nil || !isHTMLSectionType(typ) {
+		if jsonx.Unmarshal(sec[ti].val, &typ, jsonx.StoredLoose) != nil || !isHTMLSectionType(typ) {
 			continue
 		}
 		var content orderedObject
-		if json.Unmarshal(sec[ci].val, &content) != nil {
+		if jsonx.Unmarshal(sec[ci].val, &content, jsonx.StoredLoose) != nil {
 			continue
 		}
 		bi := content.index("body")
@@ -118,7 +120,7 @@ func SanitizeHTMLSections(raw json.RawMessage) (json.RawMessage, int, error) {
 			continue
 		}
 		var body string
-		if json.Unmarshal(content[bi].val, &body) != nil {
+		if jsonx.Unmarshal(content[bi].val, &body, jsonx.StoredLoose) != nil {
 			continue
 		}
 		clean := sanitizeHTMLBody(body)
@@ -145,7 +147,7 @@ func SanitizeHTMLSections(raw json.RawMessage) (json.RawMessage, int, error) {
 	if changed == 0 {
 		return raw, 0, nil
 	}
-	// Join by hand: json.Marshal would compact and HTML-escape every element,
+	// Join by hand: a plain marshal would compact and HTML-escape every element,
 	// including the untouched ones.
 	arr := []byte{'['}
 	for i, s := range sections {

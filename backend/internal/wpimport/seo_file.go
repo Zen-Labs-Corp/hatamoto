@@ -3,11 +3,13 @@ package wpimport
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // MaxSEOFileBytes caps an uploaded SEO plugin settings file.
@@ -37,10 +39,8 @@ func ParseSEOFile(r io.Reader) (*SEOFile, error) {
 }
 
 func parseSEOJSON(data []byte) (*SEOFile, error) {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.UseNumber()
 	var root map[string]any
-	if err := dec.Decode(&root); err != nil {
+	if err := jsonx.Unmarshal(data, &root, jsonx.ExactNumbers); err != nil {
 		return nil, errSEOFormat
 	}
 	if wrapped, ok := root["autodescription-site-settings"].(map[string]any); ok {
@@ -97,8 +97,8 @@ func flattenSEO(in map[string]any) map[string]any {
 				switch s := e.(type) {
 				case string:
 					ss = append(ss, s)
-				case json.Number:
-					ss = append(ss, s.String())
+				case jsontext.Value:
+					ss = append(ss, string(s))
 				case bool:
 					ss = append(ss, fmt.Sprint(s))
 				default:

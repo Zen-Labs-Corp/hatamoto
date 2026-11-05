@@ -1,12 +1,13 @@
 package v2
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
 	"golang.org/x/net/html"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // wrapTargetFields is the allowlist of JSON field names whose string value the
@@ -71,7 +72,7 @@ func WrapAllJSONB(attrs []byte, specs []LinkSpec) (WrapResult, []byte, error) {
 	}
 
 	var root map[string]any
-	if err := json.Unmarshal(attrs, &root); err != nil {
+	if err := jsonx.Unmarshal(attrs, &root, jsonx.StoredLoose); err != nil {
 		return res, attrs, fmt.Errorf("unmarshal attributes: %w", err)
 	}
 
@@ -127,7 +128,7 @@ func WrapAllJSONB(attrs []byte, specs []LinkSpec) (WrapResult, []byte, error) {
 		return res, attrs, nil
 	}
 
-	out, err := json.Marshal(root)
+	out, err := jsonx.Marshal(root)
 	if err != nil {
 		return res, attrs, fmt.Errorf("re-marshal attributes: %w", err)
 	}

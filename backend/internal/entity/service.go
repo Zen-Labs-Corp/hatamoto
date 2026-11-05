@@ -3,7 +3,7 @@ package entity
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,6 +15,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/text/unicode/norm"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // EntityLinkSync is the v2 linking surface the entity service calls after a
@@ -417,7 +419,7 @@ func (s *Service) UpdateEntity(ctx context.Context, id uuid.UUID, userID *uuid.U
 	// The auto-conversion below fills Attributes when the caller sent none; that
 	// is a machine rewrite, so only caller-sent attributes can hand ownership
 	// over, and they are compared as sent (before sanitising and normalising).
-	var callerAttrs json.RawMessage
+	var callerAttrs jsontext.Value
 	if input.Attributes != nil {
 		callerAttrs = bytes.Clone(*input.Attributes)
 	}
@@ -633,7 +635,7 @@ func (s *Service) fireLinkRewrite(before, after *Entity, actor *uuid.UUID) {
 // template field, so there is nothing to detect for it. The attributes are
 // the caller's, before normalisation and hooks, so a round trip that the
 // service itself rewrites is not an edit.
-func structuralChange(ex *Entity, in *UpdateEntityInput, callerAttrs json.RawMessage) bool {
+func structuralChange(ex *Entity, in *UpdateEntityInput, callerAttrs jsontext.Value) bool {
 	if in.Slug != nil && *in.Slug != ex.Slug {
 		return true
 	}
@@ -650,7 +652,7 @@ func structuralChange(ex *Entity, in *UpdateEntityInput, callerAttrs json.RawMes
 // that left the doc out or sent the stored one, with derived sections: the
 // service carries them over, so they are not an edit. Any other blob is
 // returned as sent.
-func carryStoredDoc(ex *Entity, caller json.RawMessage) json.RawMessage {
+func carryStoredDoc(ex *Entity, caller jsontext.Value) jsontext.Value {
 	stored, ok := decodeObject(ex.Attributes)
 	if !ok {
 		return caller
@@ -941,14 +943,14 @@ func (s *Service) ComputeDiff(ctx context.Context, entityID uuid.UUID, fromVersi
 }
 
 // computeJSONDiff computes differences between two JSON objects.
-func computeJSONDiff(oldJSON, newJSON json.RawMessage) ([]VersionDiff, error) {
+func computeJSONDiff(oldJSON, newJSON jsontext.Value) ([]VersionDiff, error) {
 	var oldMap, newMap map[string]any
 
-	if err := json.Unmarshal(oldJSON, &oldMap); err != nil {
+	if err := jsonx.Unmarshal(oldJSON, &oldMap, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to parse old JSON: %w", err)
 	}
 
-	if err := json.Unmarshal(newJSON, &newMap); err != nil {
+	if err := jsonx.Unmarshal(newJSON, &newMap, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to parse new JSON: %w", err)
 	}
 
@@ -989,12 +991,12 @@ func computeJSONDiff(oldJSON, newJSON json.RawMessage) ([]VersionDiff, error) {
 
 // jsonEqual checks if two JSON values are equal.
 func jsonEqual(a, b any) bool {
-	aJSON, err := json.Marshal(a)
+	aJSON, err := jsonx.MarshalPinned(a)
 	if err != nil {
 		return false
 	}
 
-	bJSON, err := json.Marshal(b)
+	bJSON, err := jsonx.MarshalPinned(b)
 	if err != nil {
 		return false
 	}
@@ -1003,7 +1005,7 @@ func jsonEqual(a, b any) bool {
 }
 
 // ValidateEntityAttributes validates attributes against a schema without creating an entity.
-func (s *Service) ValidateEntityAttributes(ctx context.Context, schemaID uuid.UUID, attributes json.RawMessage) *ValidationResult {
+func (s *Service) ValidateEntityAttributes(ctx context.Context, schemaID uuid.UUID, attributes jsontext.Value) *ValidationResult {
 	schema, err := s.schemaRepo.GetByID(ctx, schemaID)
 	if err != nil {
 		return &ValidationResult{

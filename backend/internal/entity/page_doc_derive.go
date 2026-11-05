@@ -2,9 +2,10 @@ package entity
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // postEditorSlugs are the built-in entity types whose body is written in the
@@ -35,14 +36,14 @@ func EligibleForPageDoc(sc *EntitySchema) bool {
 // deterministic conversion a write applies, without touching anything. ok is
 // false when attrs has no page_sections array or it does not convert. The
 // caller decides whether a page_doc also exists.
-func LegacyPageDoc(attrs json.RawMessage) (*builder.Doc, bool) {
+func LegacyPageDoc(attrs jsontext.Value) (*builder.Doc, bool) {
 	doc, err := LegacyPageDocErr(attrs)
 	return doc, doc != nil && err == nil
 }
 
 // LegacyPageDocErr is LegacyPageDoc with the reason: (nil, nil) when attrs has
 // no page_sections array, the conversion error when it does not convert.
-func LegacyPageDocErr(attrs json.RawMessage) (*builder.Doc, error) {
+func LegacyPageDocErr(attrs jsontext.Value) (*builder.Doc, error) {
 	m, ok := decodeObject(attrs)
 	if !ok {
 		return nil, nil
@@ -58,9 +59,9 @@ func LegacyPageDocErr(attrs json.RawMessage) (*builder.Doc, error) {
 // the sections of page_doc as of now, never the frozen stored mirror. raw is
 // returned untouched when it has no page_doc; an invalid one drops page_sections (fail closed, as the renderer does); a builder-only doc (v1
 // cannot express it) has no page_sections, so the key is removed. Pure.
-func DerivedAttributes(raw json.RawMessage) json.RawMessage {
-	var top map[string]json.RawMessage // exact keys
-	if json.Unmarshal(raw, &top) != nil || len(top[keyDoc]) == 0 {
+func DerivedAttributes(raw jsontext.Value) jsontext.Value {
+	var top map[string]jsontext.Value // exact keys
+	if jsonx.Unmarshal(raw, &top, jsonx.StoredLoose) != nil || len(top[keyDoc]) == 0 {
 		return raw
 	}
 	doc, err := builder.ParseExact(top[keyDoc])
@@ -71,13 +72,13 @@ func DerivedAttributes(raw json.RawMessage) json.RawMessage {
 		// The renderer shows no body for an invalid doc; the frozen mirror must
 		// not resurface elsewhere.
 		delete(top, keySections)
-		if b, err := json.Marshal(top); err == nil {
+		if b, err := jsonx.Marshal(top, jsonx.HTMLSafe); err == nil {
 			return b
 		}
 		return raw
 	}
 	if ss, ok := builder.LegacySections(doc); ok {
-		b, err := json.Marshal(builder.SectionMaps(ss))
+		b, err := jsonx.Marshal(builder.SectionMaps(ss), jsonx.HTMLSafe)
 		if err != nil {
 			return raw
 		}
@@ -85,7 +86,7 @@ func DerivedAttributes(raw json.RawMessage) json.RawMessage {
 	} else {
 		delete(top, keySections)
 	}
-	b, err := json.Marshal(top)
+	b, err := jsonx.Marshal(top, jsonx.HTMLSafe)
 	if err != nil {
 		return raw
 	}
@@ -96,7 +97,7 @@ func DerivedAttributes(raw json.RawMessage) json.RawMessage {
 // attributes of its own (a rename, a status change): the stored page_sections
 // of an eligible page without a doc become its doc. changed is false for every
 // other entity, and for a page whose sections do not convert (it stays as it is).
-func convertUnconverted(e *Entity) (json.RawMessage, bool) {
+func convertUnconverted(e *Entity) (jsontext.Value, bool) {
 	if e == nil || !bytes.Contains(e.Attributes, []byte(keySections)) || hasDocKey(e.Attributes) {
 		return nil, false
 	}

@@ -1,11 +1,11 @@
 package builder
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // kindSpec describes one node kind. Adding a widget is one registry entry.
@@ -169,7 +169,7 @@ func universalFor(kind string, own map[string]bool) []string {
 // declares one is a bug and panics.
 func withUniversal(kind, schema string) string {
 	var m map[string]any
-	if err := json.Unmarshal([]byte(schema), &m); err != nil {
+	if err := jsonx.Unmarshal([]byte(schema), &m, jsonx.StoredLoose); err != nil {
 		panic(fmt.Sprintf("builder: schema for kind %q: %v", kind, err))
 	}
 	props, _ := m["properties"].(map[string]any)
@@ -200,7 +200,7 @@ func withUniversal(kind, schema string) string {
 			props["tip"] = map[string]any{"type": "string", "maxLength": 200, "pattern": `^[^\x00-\x1f\x7f]*$`}
 		}
 	}
-	out, err := json.Marshal(m)
+	out, err := jsonx.Marshal(m)
 	if err != nil {
 		panic(fmt.Sprintf("builder: schema for kind %q: %v", kind, err))
 	}

@@ -1,8 +1,10 @@
 package searchreplace
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"slices"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // byAlias is the property that lists k in its x-hm-alias.
@@ -21,9 +23,9 @@ func byAlias(props map[string]any, k string) map[string]any {
 // for a property with format richtext or x-hm-field richtext, "html" for
 // x-hm-field html, "" otherwise. Repeater items follow their item schema, so
 // array indices are not part of the path.
-func schemaKinds(raw json.RawMessage) func(path []string) string {
+func schemaKinds(raw jsontext.Value) func(path []string) string {
 	var root map[string]any
-	if json.Unmarshal(raw, &root) != nil {
+	if jsonx.Unmarshal(raw, &root, jsonx.StoredLoose) != nil {
 		return nil
 	}
 	return func(path []string) string {

@@ -2,7 +2,8 @@ package menu
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Limits of a theme's menu locations declaration (theme.json "menus").
@@ -43,20 +46,26 @@ type DeclLocation struct {
 // ParseDecl reads the "menus" object of theme.json strictly: any violation is
 // an error naming the offending field. An absent or empty value is (nil, nil).
 // The result is sorted by location name.
-func ParseDecl(raw json.RawMessage) ([]DeclLocation, error) {
+func ParseDecl(raw jsontext.Value) ([]DeclLocation, error) {
 	raw = bytes.TrimSpace(raw)
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil, nil
 	}
-	var locs map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &locs); err != nil {
+	var locs map[string]jsontext.Value
+	if err := jsonx.Unmarshal(raw, &locs, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("menus: must be an object of locations")
 	}
 	if len(locs) > MaxDeclLocations {
 		return nil, fmt.Errorf("menus: at most %d locations, got %d", MaxDeclLocations, len(locs))
 	}
+	names := make([]string, 0, len(locs))
+	for name := range locs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
 	var out []DeclLocation
-	for name, body := range locs {
+	for _, name := range names {
+		body := locs[name]
 		if !locationRe.MatchString(name) {
 			return nil, fmt.Errorf("menus: location %q must match %s", name, locationRe)
 		}
@@ -70,10 +79,10 @@ func ParseDecl(raw json.RawMessage) ([]DeclLocation, error) {
 	return out, nil
 }
 
-func parseDeclLocation(name string, body json.RawMessage) (DeclLocation, error) {
+func parseDeclLocation(name string, body jsontext.Value) (DeclLocation, error) {
 	path := "menus." + name
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(body, &fields); err != nil {
+	var fields map[string]jsontext.Value
+	if err := jsonx.Unmarshal(body, &fields, jsonx.StoredLoose); err != nil {
 		return DeclLocation{}, fmt.Errorf("%s: must be an object", path)
 	}
 	for k := range fields {
@@ -84,7 +93,7 @@ func parseDeclLocation(name string, body json.RawMessage) (DeclLocation, error) 
 	loc := DeclLocation{Name: name, Title: capitalise(name)}
 	if t, ok := fields["title"]; ok {
 		var title string
-		if err := json.Unmarshal(t, &title); err != nil {
+		if err := jsonx.Unmarshal(t, &title, jsonx.StoredLoose); err != nil {
 			return DeclLocation{}, fmt.Errorf("%s.title: must be a string", path)
 		}
 		if n := utf8.RuneCountInString(title); n < 1 || n > MaxDeclTitle || hasControl(title) {
@@ -93,8 +102,8 @@ func parseDeclLocation(name string, body json.RawMessage) (DeclLocation, error) 
 		loc.Title = title
 	}
 	if d, ok := fields["default"]; ok {
-		var items []json.RawMessage
-		if err := json.Unmarshal(d, &items); err != nil {
+		var items []jsontext.Value
+		if err := jsonx.Unmarshal(d, &items, jsonx.StoredLoose); err != nil {
 			return DeclLocation{}, fmt.Errorf("%s.default: must be an array", path)
 		}
 		if len(items) > MaxDeclItems {
@@ -111,15 +120,13 @@ func parseDeclLocation(name string, body json.RawMessage) (DeclLocation, error) 
 	return loc, nil
 }
 
-func parseDeclItem(path string, raw json.RawMessage) (DeclItem, error) {
+func parseDeclItem(path string, raw jsontext.Value) (DeclItem, error) {
 	var f struct {
 		Label   *string `json:"label"`
 		URL     *string `json:"url"`
 		Archive *string `json:"archive"`
 	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&f); err != nil {
+	if err := jsonx.Unmarshal(raw, &f, jsonv2.JoinOptions(jsonx.StrictNoUnknown, jsonv2.MatchCaseInsensitiveNames(true))); err != nil {
 		return DeclItem{}, fmt.Errorf("%s: %v (allowed keys: label, url, archive)", path, err)
 	}
 	var it DeclItem

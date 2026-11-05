@@ -1,23 +1,25 @@
 package builder
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"maps"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Op is one edit. The editor sends these verbs; Apply returns the inverse so
 // undo is just applying the inverse ops in reverse order.
 type Op struct {
-	Op     string          `json:"op"` // insert | move | remove | setProp | setStyle | setBind
-	ID     string          `json:"id,omitempty"`
-	Parent string          `json:"parent,omitempty"` // "" = top level
-	Index  int             `json:"index,omitzero"`
-	Node   *Node           `json:"node,omitempty"`
-	Key    string          `json:"key,omitempty"`
-	BP     string          `json:"bp,omitempty"`
-	Value  json.RawMessage `json:"value,omitzero"` // setProp: any JSON, null deletes; setStyle, setBind: string, null deletes
+	Op     string         `json:"op"` // insert | move | remove | setProp | setStyle | setBind
+	ID     string         `json:"id,omitempty"`
+	Parent string         `json:"parent,omitempty"` // "" = top level
+	Index  int            `json:"index,omitzero"`
+	Node   *Node          `json:"node,omitempty"`
+	Key    string         `json:"key,omitempty"`
+	BP     string         `json:"bp,omitempty"`
+	Value  jsontext.Value `json:"value,omitzero"` // setProp: any JSON, null deletes; setStyle, setBind: string, null deletes
 }
 
 // Apply applies op and returns its inverse. The doc must be valid before the
@@ -160,13 +162,13 @@ func (d *Doc) apply(op Op) (Op, error) {
 			return Op{}, errOrphanEdit
 		}
 		var v any
-		if err := json.Unmarshal(op.Value, &v); err != nil {
+		if err := jsonx.Unmarshal(op.Value, &v); err != nil {
 			return Op{}, opErr("bad value: %v", err)
 		}
 		old, had := n.P[op.Key]
-		inv := Op{Op: "setProp", ID: op.ID, Key: op.Key, Value: json.RawMessage("null")}
+		inv := Op{Op: "setProp", ID: op.ID, Key: op.Key, Value: jsontext.Value("null")}
 		if had {
-			raw, err := json.Marshal(old)
+			raw, err := jsonx.Marshal(old)
 			if err != nil {
 				return Op{}, opErr("bad existing value: %v", err)
 			}
@@ -193,12 +195,12 @@ func (d *Doc) apply(op Op) (Op, error) {
 			return Op{}, errOrphanEdit
 		}
 		var v *string
-		if err := json.Unmarshal(op.Value, &v); err != nil {
+		if err := jsonx.Unmarshal(op.Value, &v); err != nil {
 			return Op{}, opErr("bind source must be a string or null")
 		}
-		inv := Op{Op: "setBind", ID: op.ID, Key: op.Key, Value: json.RawMessage("null")}
+		inv := Op{Op: "setBind", ID: op.ID, Key: op.Key, Value: jsontext.Value("null")}
 		if old, ok := n.B[op.Key]; ok {
-			inv.Value, _ = json.Marshal(old)
+			inv.Value, _ = jsonx.Marshal(old)
 		}
 		if v == nil {
 			delete(n.B, op.Key)
@@ -221,7 +223,7 @@ func (d *Doc) apply(op Op) (Op, error) {
 			return Op{}, opErr("bad breakpoint %q", op.BP)
 		}
 		var v *string
-		if err := json.Unmarshal(op.Value, &v); err != nil {
+		if err := jsonx.Unmarshal(op.Value, &v); err != nil {
 			return Op{}, opErr("style value must be a string or null")
 		}
 		if v != nil {
@@ -229,9 +231,9 @@ func (d *Doc) apply(op Op) (Op, error) {
 				return Op{}, opErr("%v", err)
 			}
 		}
-		inv := Op{Op: "setStyle", ID: op.ID, BP: op.BP, Key: op.Key, Value: json.RawMessage("null")}
+		inv := Op{Op: "setStyle", ID: op.ID, BP: op.BP, Key: op.Key, Value: jsontext.Value("null")}
 		if old, ok := n.S[op.BP][op.Key]; ok {
-			inv.Value, _ = json.Marshal(old)
+			inv.Value, _ = jsonx.Marshal(old)
 		}
 		if v == nil {
 			delete(n.S[op.BP], op.Key)

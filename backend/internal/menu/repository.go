@@ -2,7 +2,6 @@ package menu
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Repository defines the interface for menu data operations.
@@ -830,7 +830,7 @@ func freeSlug(ctx context.Context, tx pgx.Tx, slug string) (string, error) {
 
 // encodeAttrs is the jsonb text stored in the attrs column.
 func encodeAttrs(a MenuItemAttrs) (string, error) {
-	b, err := json.Marshal(a)
+	b, err := jsonx.Marshal(a)
 	if err != nil {
 		return "", fmt.Errorf("encode menu item attrs: %w", err)
 	}
@@ -842,7 +842,7 @@ func encodeAttrs(a MenuItemAttrs) (string, error) {
 func decodeAttrs(raw []byte) MenuItemAttrs {
 	var a MenuItemAttrs
 	if len(raw) > 0 {
-		_ = json.Unmarshal(raw, &a)
+		_ = jsonx.Unmarshal(raw, &a, jsonx.StoredLoose)
 	}
 	return a
 }

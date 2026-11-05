@@ -2,7 +2,7 @@ package changeset
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strconv"
@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/redirect"
@@ -51,8 +52,8 @@ func parseTarget(target string) (*uuid.UUID, error) {
 	return &id, nil
 }
 
-func decodePayload(raw json.RawMessage, dst any) error {
-	if err := json.Unmarshal(raw, dst); err != nil {
+func decodePayload(raw jsontext.Value, dst any) error {
+	if err := jsonx.Unmarshal(raw, dst, jsonx.StoredLoose); err != nil {
 		return fmt.Errorf("%w: payload: %v", ErrInvalidItem, err)
 	}
 	return nil
@@ -98,12 +99,12 @@ func parseEntityToken(s string) (*int, *time.Time, error) {
 type EntityWriter struct{ Svc *entity.Service }
 
 type entityPayload struct {
-	Schema     string          `json:"schema"`
-	Name       string          `json:"name"`
-	Slug       string          `json:"slug"`
-	Locale     string          `json:"locale"`
-	Attributes json.RawMessage `json:"attributes"`
-	ParentID   *uuid.UUID      `json:"parent_id"`
+	Schema     string         `json:"schema"`
+	Name       string         `json:"name"`
+	Slug       string         `json:"slug"`
+	Locale     string         `json:"locale"`
+	Attributes jsontext.Value `json:"attributes"`
+	ParentID   *uuid.UUID     `json:"parent_id"`
 	// ParentKey names the parent by the source key an entity item of the same
 	// origin was staged under. It is resolved at publish, against the items
 	// applied earlier in the same transaction, so a parent must be staged
@@ -128,13 +129,13 @@ type EntitySEO struct {
 }
 
 // MergeSEO returns attrs with s merged in; empty fields leave the attribute alone.
-func MergeSEO(attrs json.RawMessage, s *EntitySEO) (json.RawMessage, error) {
+func MergeSEO(attrs jsontext.Value, s *EntitySEO) (jsontext.Value, error) {
 	if s == nil {
 		return attrs, nil
 	}
 	m := map[string]any{}
 	if len(attrs) > 0 && string(attrs) != "null" {
-		if err := json.Unmarshal(attrs, &m); err != nil {
+		if err := jsonx.Unmarshal(attrs, &m, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("%w: attributes must be an object to carry seo", ErrInvalidItem)
 		}
 	}
@@ -151,7 +152,7 @@ func MergeSEO(attrs json.RawMessage, s *EntitySEO) (json.RawMessage, error) {
 		sm["robots"] = s.Robots
 		m["seo"] = sm
 	}
-	return json.Marshal(m)
+	return jsonx.Marshal(m)
 }
 
 // liveEntityTarget returns the entity a source key maps to, or "" when the key
@@ -323,7 +324,7 @@ func (w EntityWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func(c
 }
 
 // moves reports whether restoring the pre-image puts the entity at another path than live.
-func moves(live entity.PathState, before json.RawMessage) bool {
+func moves(live entity.PathState, before jsontext.Value) bool {
 	to, err := entity.PathStateOf(before)
 	return err == nil && live.Moved(to)
 }
@@ -357,13 +358,13 @@ func (w EntityWriter) After(ctx context.Context, applied []AppliedItem) {
 type TermWriter struct{ Svc *taxonomy.Service }
 
 type termPayload struct {
-	Kind        string          `json:"kind"`
-	Slug        string          `json:"slug"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	ParentID    *uuid.UUID      `json:"parent_id"`
-	Locale      string          `json:"locale"`
-	SEO         json.RawMessage `json:"seo"`
+	Kind        string         `json:"kind"`
+	Slug        string         `json:"slug"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	ParentID    *uuid.UUID     `json:"parent_id"`
+	Locale      string         `json:"locale"`
+	SEO         jsontext.Value `json:"seo"`
 }
 
 func (w TermWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, target string) (Outcome, error) {
@@ -446,7 +447,7 @@ func (w RedirectWriter) Apply(ctx context.Context, tx Tx, origin string, it Item
 	}
 	out := Outcome{TargetID: res.ID.String(), Created: id == nil, Deleted: it.Op == OpDelete}
 	if res.Before != nil {
-		if out.Before, err = json.Marshal(res.Before); err != nil {
+		if out.Before, err = jsonx.Marshal(res.Before); err != nil {
 			return Outcome{}, err
 		}
 	}
@@ -466,7 +467,7 @@ func (w RedirectWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func
 		return nil, err
 	}
 	var pre redirect.Preimage
-	if err := json.Unmarshal(it.Before, &pre); err != nil {
+	if err := jsonx.Unmarshal(it.Before, &pre, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("redirect pre-image: %w", err)
 	}
 	// A page may have taken the path since: the restored redirect would shadow it.
@@ -612,7 +613,7 @@ func (w MediaWriter) applyAlt(ctx context.Context, tx Tx, target string, p media
 	if _, err := tx.Exec(ctx, `UPDATE hatamoto_media SET alt_text = NULLIF($2, ''), updated_at = now() WHERE id = $1`, id, alt); err != nil {
 		return Outcome{}, fmt.Errorf("failed to set alt text: %w", err)
 	}
-	before, _ := json.Marshal(map[string]*string{"alt_text": old})
+	before, _ := jsonx.Marshal(map[string]*string{"alt_text": old})
 	return Outcome{TargetID: id.String(), Before: before}, nil
 }
 
@@ -627,7 +628,7 @@ func (w MediaWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func(co
 		var b struct {
 			AltText *string `json:"alt_text"`
 		}
-		if err := json.Unmarshal(it.Before, &b); err != nil {
+		if err := jsonx.Unmarshal(it.Before, &b, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("invalid pre-image: %w", err)
 		}
 		if _, err := tx.Exec(ctx, `UPDATE hatamoto_media SET alt_text = $2, updated_at = now() WHERE id = $1`, id, b.AltText); err != nil {

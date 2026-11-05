@@ -1,9 +1,8 @@
 package analytics
 
 import (
-	"encoding/json"
-
 	"hatamoto.dev/core/internal/agents"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // maxAttributionRaw caps the hm_attr form field a browser sends.
@@ -47,7 +46,7 @@ func ParseAttribution(raw string, reg *agents.Registry, selfHost string) (Attrib
 		return Attribution{}, false
 	}
 	var in rawAttribution
-	if err := json.Unmarshal([]byte(raw), &in); err != nil {
+	if err := jsonx.Unmarshal([]byte(raw), &in, jsonx.StoredLoose); err != nil {
 		return Attribution{}, false
 	}
 	out := Attribution{First: classifyTouch(in.First, reg, selfHost), Last: classifyTouch(in.Last, reg, selfHost)}

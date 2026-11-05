@@ -4,7 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/safefetch"
 )
 
@@ -282,13 +284,18 @@ func backoff(try int, last error) time.Duration {
 	return min(d, 15*time.Second) + time.Duration(rand.Int64N(int64(250*time.Millisecond)))
 }
 
+// remoteOpts reads JSON from a site we do not control (WordPress REST, scraped
+// JSON-LD): names match case-insensitively, repeated names and invalid UTF-8
+// are tolerated, as encoding/json v1 did.
+var remoteOpts = jsonv2.JoinOptions(jsonx.StoredLoose, jsontext.AllowInvalidUTF8(true))
+
 // JSON GETs a REST route and decodes the answer.
 func (c *Client) JSON(ctx context.Context, route string, q url.Values, out any) (http.Header, error) {
 	body, hdr, err := c.Do(ctx, c.restURL(route, q), 64<<20)
 	if err != nil {
 		return nil, err
 	}
-	if err := json.Unmarshal(body, out); err != nil {
+	if err := jsonx.Unmarshal(body, out, remoteOpts); err != nil {
 		return nil, fmt.Errorf("GET %s: not JSON (%v): %.80q", route, err, body)
 	}
 	return hdr, nil
@@ -299,7 +306,7 @@ func (c *Client) JSON(ctx context.Context, route string, q url.Values, out any) 
 // max is the number of items allowed (never "unlimited"): an item past it is an
 // error. A collection that claims too many pages, or returns a page equal to
 // the one before (a cache that ignores ?page=), fails with ErrPagination.
-func (c *Client) Paged(ctx context.Context, route string, q url.Values, max int, fn func(json.RawMessage) error) error {
+func (c *Client) Paged(ctx context.Context, route string, q url.Values, max int, fn func(jsontext.Value) error) error {
 	q = cloneValues(q)
 	q.Set("per_page", "100")
 	max = maxInt(max, 0)
@@ -311,7 +318,7 @@ func (c *Client) Paged(ctx context.Context, route string, q url.Values, max int,
 			return fmt.Errorf("%w: %s has more than %d pages", ErrPagination, route, maxPages-1)
 		}
 		q.Set("page", strconv.Itoa(page))
-		var items []json.RawMessage
+		var items []jsontext.Value
 		hdr, err := c.JSON(ctx, route, q, &items)
 		if err != nil {
 			var he *HTTPError

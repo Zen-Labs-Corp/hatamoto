@@ -2,7 +2,7 @@ package changeset
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"time"
@@ -59,9 +59,9 @@ func loadItems(ctx context.Context, tx rowsQuerier, csID int64, reverse bool) ([
 			return nil, err
 		}
 		it.Kind = Kind(kind)
-		it.Payload = json.RawMessage(payload)
+		it.Payload = jsontext.Value(payload)
 		if before != nil {
-			it.Before = json.RawMessage(before)
+			it.Before = jsontext.Value(before)
 		}
 		out = append(out, it)
 	}

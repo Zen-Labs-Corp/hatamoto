@@ -3,7 +3,7 @@ package render
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"html/template"
@@ -818,18 +818,18 @@ func (e *Engine) RenderError(w io.Writer, v *PageView, status int) error {
 
 // SectionInfo describes one section type for the admin schema form.
 type SectionInfo struct {
-	Type        string          `json:"type"`
-	Title       string          `json:"title"`
-	Description string          `json:"description,omitempty"`
-	Schema      json.RawMessage `json:"schema,omitzero"`
+	Type        string         `json:"type"`
+	Title       string         `json:"title"`
+	Description string         `json:"description,omitempty"`
+	Schema      jsontext.Value `json:"schema,omitzero"`
 }
 
 // ThemeInfo is the GET /api/v1/render/theme payload.
 type ThemeInfo struct {
-	Name           string          `json:"name"`
-	Version        string          `json:"version"`
-	Sections       []SectionInfo   `json:"sections"`
-	SettingsSchema json.RawMessage `json:"settings_schema,omitzero"`
+	Name           string         `json:"name"`
+	Version        string         `json:"version"`
+	Sections       []SectionInfo  `json:"sections"`
+	SettingsSchema jsontext.Value `json:"settings_schema,omitzero"`
 }
 
 // ThemeInfo returns the theme name, content-hash version and the schema of

@@ -2,12 +2,14 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // CopyFrom says what a new copy starts from.
@@ -140,7 +142,7 @@ func (c *CopyService) copyOne(ctx context.Context, userID uuid.UUID, link, conte
 		in.Slug = o.Slug
 	}
 	if o.From == CopyFromEmpty {
-		in.Attributes = json.RawMessage(`{}`)
+		in.Attributes = jsontext.Value(`{}`)
 	} else {
 		attrs, err := withoutCanonical(content.Attributes)
 		if err != nil {
@@ -345,19 +347,19 @@ func membersHave(ms []Member, locale string) bool {
 
 // withoutCanonical returns attrs without the canonical_url key: a copy's
 // canonical address would point at the page it translates.
-func withoutCanonical(attrs json.RawMessage) (json.RawMessage, error) {
+func withoutCanonical(attrs jsontext.Value) (jsontext.Value, error) {
 	if len(attrs) == 0 {
-		return json.RawMessage(`{}`), nil
+		return jsontext.Value(`{}`), nil
 	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(attrs, &m); err != nil {
+	var m map[string]jsontext.Value
+	if err := jsonx.Unmarshal(attrs, &m, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("read attributes: %w", err)
 	}
 	if _, ok := m["canonical_url"]; !ok {
 		return attrs, nil
 	}
 	delete(m, "canonical_url")
-	out, err := json.Marshal(m)
+	out, err := jsonx.Marshal(m)
 	if err != nil {
 		return nil, fmt.Errorf("write attributes: %w", err)
 	}

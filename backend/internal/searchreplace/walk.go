@@ -1,8 +1,7 @@
 package searchreplace
 
 import (
-	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"slices"
 	"strconv"
@@ -10,6 +9,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Scope says which kind of attribute a string was found in. It is a bit set
@@ -102,14 +102,12 @@ const (
 //
 // page_sections (the legacy section list) is skipped: it converts to a page
 // doc on the next write. Map keys, numbers and booleans are never edited.
-func Walk(attrs json.RawMessage, o Options, scopes Scope, kinds *Kinds, pick func(path string, i int) bool) (out json.RawMessage, hits []FieldHit, replaced int, err error) {
+func Walk(attrs jsontext.Value, o Options, scopes Scope, kinds *Kinds, pick func(path string, i int) bool) (out jsontext.Value, hits []FieldHit, replaced int, err error) {
 	if o.Find == "" {
 		return attrs, nil, 0, nil
 	}
 	var root map[string]any
-	dec := json.NewDecoder(bytes.NewReader(attrs))
-	dec.UseNumber()
-	if err := dec.Decode(&root); err != nil || root == nil {
+	if err := jsonx.Unmarshal(attrs, &root, jsonx.ExactNumbers); err != nil || root == nil {
 		return attrs, nil, 0, nil // not an object: nothing to search
 	}
 	w := &walker{o: o, scopes: scopes, pick: pick, kinds: kinds}
@@ -128,13 +126,12 @@ func Walk(attrs json.RawMessage, o Options, scopes Scope, kinds *Kinds, pick fun
 	if w.n == 0 {
 		return attrs, w.hits, 0, nil
 	}
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(root); err != nil {
+	// v1 left <, > and & alone but still escaped U+2028 and U+2029.
+	buf, err := jsonx.Marshal(root, jsonx.Output, jsontext.EscapeForJS(true))
+	if err != nil {
 		return attrs, nil, 0, fmt.Errorf("searchreplace: encode attributes: %w", err)
 	}
-	return bytes.TrimRight(buf.Bytes(), "\n"), w.hits, w.n, nil
+	return buf, w.hits, w.n, nil
 }
 
 // classify maps a top-level attribute key to its scope; ok is false for keys

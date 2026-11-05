@@ -2,7 +2,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strconv"
@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/urlpattern"
 )
 
@@ -36,7 +37,7 @@ type TxOp struct {
 	Name       string
 	Slug       string // empty derives it from Name on create
 	Locale     string
-	Attributes json.RawMessage
+	Attributes jsontext.Value
 	ParentID   *uuid.UUID
 	Status     EntityStatus // empty keeps the stored status (draft on create)
 	Origin     string       // recorded on create; empty keeps the stored origin on update
@@ -53,7 +54,7 @@ type TxOp struct {
 type TxResult struct {
 	ID       uuid.UUID
 	Slug     string
-	Before   json.RawMessage
+	Before   jsontext.Value
 	Conflict bool
 	Created  bool
 	Deleted  bool
@@ -64,25 +65,25 @@ type TxResult struct {
 
 // entitySnapshot is the stored pre-image of an entity row.
 type entitySnapshot struct {
-	ID             uuid.UUID       `json:"id"`
-	SchemaID       uuid.UUID       `json:"schema_id"`
-	Name           string          `json:"name"`
-	Slug           string          `json:"slug"`
-	Locale         string          `json:"locale"`
-	Status         string          `json:"status"`
-	Attributes     json.RawMessage `json:"attributes"`
-	Metadata       json.RawMessage `json:"metadata"`
-	Version        int             `json:"version"`
-	CreatedBy      *uuid.UUID      `json:"created_by,omitempty"`
-	UpdatedBy      *uuid.UUID      `json:"updated_by,omitempty"`
-	CreatedAt      time.Time       `json:"created_at"`
-	PublishedAt    *time.Time      `json:"published_at,omitempty"`
-	ParentID       *uuid.UUID      `json:"parent_id,omitempty"`
-	AuthorID       *uuid.UUID      `json:"author_id,omitempty"`
-	BylinePersonID *uuid.UUID      `json:"byline_person_id,omitempty"`
-	BylineOrg      bool            `json:"byline_org"`
-	Origin         string          `json:"origin"`
-	UpdatedAt      time.Time       `json:"updated_at"`
+	ID             uuid.UUID      `json:"id"`
+	SchemaID       uuid.UUID      `json:"schema_id"`
+	Name           string         `json:"name"`
+	Slug           string         `json:"slug"`
+	Locale         string         `json:"locale"`
+	Status         string         `json:"status"`
+	Attributes     jsontext.Value `json:"attributes"`
+	Metadata       jsontext.Value `json:"metadata"`
+	Version        int            `json:"version"`
+	CreatedBy      *uuid.UUID     `json:"created_by,omitempty"`
+	UpdatedBy      *uuid.UUID     `json:"updated_by,omitempty"`
+	CreatedAt      time.Time      `json:"created_at"`
+	PublishedAt    *time.Time     `json:"published_at,omitempty"`
+	ParentID       *uuid.UUID     `json:"parent_id,omitempty"`
+	AuthorID       *uuid.UUID     `json:"author_id,omitempty"`
+	BylinePersonID *uuid.UUID     `json:"byline_person_id,omitempty"`
+	BylineOrg      bool           `json:"byline_org"`
+	Origin         string         `json:"origin"`
+	UpdatedAt      time.Time      `json:"updated_at"`
 
 	TranslationGroup    *uuid.UUID `json:"translation_group,omitempty"`
 	TranslationOriginal bool       `json:"translation_original"`
@@ -143,7 +144,7 @@ func (s *Service) ApplyChangesetTx(ctx context.Context, tx pgx.Tx, op TxOp) (res
 	if op.Delete {
 		return deleteTx(ctx, sp, cur)
 	}
-	before, err := json.Marshal(cur)
+	before, err := jsonx.Marshal(cur)
 	if err != nil {
 		return TxResult{}, err
 	}
@@ -166,7 +167,7 @@ func deleteTx(ctx context.Context, tx pgx.Tx, cur *entitySnapshot) (TxResult, er
 	if err != nil {
 		return TxResult{}, fmt.Errorf("failed to read term links: %w", err)
 	}
-	before, err := json.Marshal(cur)
+	before, err := jsonx.Marshal(cur)
 	if err != nil {
 		return TxResult{}, err
 	}
@@ -250,7 +251,7 @@ func (s *Service) createTx(ctx context.Context, tx pgx.Tx, op TxOp) (TxResult, e
 	return TxResult{}, ErrSlugAlreadyExists
 }
 
-func (s *Service) updateTx(ctx context.Context, tx pgx.Tx, op TxOp, cur *entitySnapshot, before json.RawMessage) (TxResult, error) {
+func (s *Service) updateTx(ctx context.Context, tx pgx.Tx, op TxOp, cur *entitySnapshot, before jsontext.Value) (TxResult, error) {
 	schema, err := getSchemaByID(ctx, tx, cur.SchemaID, "")
 	if err != nil {
 		return TxResult{}, err
@@ -346,7 +347,7 @@ func (s *Service) updateTx(ctx context.Context, tx pgx.Tx, op TxOp, cur *entityS
 // were added below it since (deleting would re-root them); otherwise the row
 // is re-created (with its term links and translation link) or overwritten
 // from the pre-image ApplyChangesetTx returned.
-func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, before json.RawMessage) (err error) {
+func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, before jsontext.Value) (err error) {
 	sp, err := tx.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to open savepoint: %w", err)
@@ -372,7 +373,7 @@ func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, id uuid.UUI
 		return nil
 	}
 	var snap entitySnapshot
-	if err := json.Unmarshal(before, &snap); err != nil {
+	if err := jsonx.Unmarshal(before, &snap, jsonx.StoredLoose); err != nil {
 		return fmt.Errorf("invalid pre-image: %w", err)
 	}
 	if snap.ID != id {
@@ -382,7 +383,7 @@ func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, id uuid.UUI
 	// unique row per version). When the attributes differ, the live ones are
 	// snapshotted and the version moves on.
 	var curVersion int
-	var curAttrs json.RawMessage
+	var curAttrs jsontext.Value
 	switch err := sp.QueryRow(ctx, `SELECT version, attributes FROM hatamoto_entities WHERE id = $1 FOR UPDATE`, id).Scan(&curVersion, &curAttrs); {
 	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
@@ -461,9 +462,9 @@ func (p PathState) Moved(to PathState) bool {
 }
 
 // PathStateOf reads the PathState out of the pre-image ApplyChangesetTx returned.
-func PathStateOf(before json.RawMessage) (PathState, error) {
+func PathStateOf(before jsontext.Value) (PathState, error) {
 	var snap entitySnapshot
-	if err := json.Unmarshal(before, &snap); err != nil {
+	if err := jsonx.Unmarshal(before, &snap, jsonx.StoredLoose); err != nil {
 		return PathState{}, fmt.Errorf("invalid pre-image: %w", err)
 	}
 	return PathState{ID: snap.ID, Slug: snap.Slug, ParentID: snap.ParentID, Locale: snap.Locale, Status: EntityStatus(snap.Status)}, nil
@@ -535,7 +536,7 @@ func schemaBySlugTx(ctx context.Context, tx pgx.Tx, slug string) (*EntitySchema,
 
 // txStatus is the status a changeset write stores: the schema's locked status,
 // else the requested one, else the fallback.
-func txStatus(sc *EntitySchema, attrs json.RawMessage, want, fallback EntityStatus) (EntityStatus, error) {
+func txStatus(sc *EntitySchema, attrs jsontext.Value, want, fallback EntityStatus) (EntityStatus, error) {
 	if st := lockedStatus(sc, attrs); st != nil {
 		return *st, nil
 	}
@@ -639,9 +640,9 @@ func freeSlugTx(ctx context.Context, tx pgx.Tx, schemaID uuid.UUID, parent, self
 // RestoreTranslationTx puts the translation group of the pre-image back on the
 // live row, undoing a link a changeset made to an entity that already existed.
 // RestoreChangesetTx leaves the group alone: a plain edit never touches it.
-func (s *Service) RestoreTranslationTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, before json.RawMessage) error {
+func (s *Service) RestoreTranslationTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, before jsontext.Value) error {
 	var snap entitySnapshot
-	if err := json.Unmarshal(before, &snap); err != nil {
+	if err := jsonx.Unmarshal(before, &snap, jsonx.StoredLoose); err != nil {
 		return fmt.Errorf("invalid pre-image: %w", err)
 	}
 	if snap.ID != id {

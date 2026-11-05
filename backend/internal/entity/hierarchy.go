@@ -2,12 +2,13 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/urlpattern"
 )
 
@@ -58,14 +59,14 @@ var errPersonStatus = fmt.Errorf("%w: a person's visibility follows their Public
 // knows only the status, so a hidden person must not be published or a
 // rollback would expose it. The service is the one write point (create,
 // update, restore, import); every other path gets here or is rejected.
-func personStatus(schemaSlug string, attrs json.RawMessage) *EntityStatus {
+func personStatus(schemaSlug string, attrs jsontext.Value) *EntityStatus {
 	if schemaSlug != personSchemaSlug {
 		return nil
 	}
 	var a struct {
 		Public bool `json:"public"`
 	}
-	_ = json.Unmarshal(attrs, &a)
+	_ = jsonx.Unmarshal(attrs, &a, jsonx.StoredLoose)
 	st := StatusDraft
 	if a.Public {
 		st = StatusPublished
@@ -80,7 +81,7 @@ var errReuseStatus = fmt.Errorf("%w: blocks and layout parts are never published
 // it is free: a person follows their Public setting, a block or theme part is
 // always a draft (every public query needs published, so neither can be
 // reached publicly). Every service write point applies it.
-func lockedStatus(sc *EntitySchema, attrs json.RawMessage) *EntityStatus {
+func lockedStatus(sc *EntitySchema, attrs jsontext.Value) *EntityStatus {
 	if IsReuseSchema(sc) {
 		st := StatusDraft
 		return &st
@@ -107,12 +108,12 @@ func (s *Service) SetSchemaPatternObserver(f SchemaPatternFunc) { s.patternChang
 
 // urlRouting is the part of a schema's settings that decides its entities'
 // paths: the pattern and the per-attribute overrides.
-func urlRouting(settings json.RawMessage) string {
+func urlRouting(settings jsontext.Value) string {
 	var st SchemaURLSettings
-	if len(settings) > 0 && json.Unmarshal(settings, &st) != nil {
+	if len(settings) > 0 && jsonx.Unmarshal(settings, &st, jsonx.StoredLoose) != nil {
 		st = SchemaURLSettings{}
 	}
-	overrides, _ := json.Marshal(st.Overrides)
+	overrides, _ := jsonx.Marshal(st.Overrides)
 	return st.URLPattern + "\x00" + string(overrides)
 }
 
@@ -199,9 +200,9 @@ func (s *Service) mirrorOf(ctx context.Context, id uuid.UUID) (*uuid.UUID, error
 }
 
 // bylineOf is the plain-text byline in attributes: author, else author_name.
-func bylineOf(attrs json.RawMessage) string {
+func bylineOf(attrs jsontext.Value) string {
 	var m map[string]any
-	if json.Unmarshal(attrs, &m) != nil {
+	if jsonx.Unmarshal(attrs, &m, jsonx.StoredLoose) != nil {
 		return ""
 	}
 	for _, k := range []string{"author", "author_name"} {
@@ -217,7 +218,7 @@ const maxBylineLen = 255
 
 // bylineFromText resolves the plain-text byline in attrs. ok is false when
 // there is nothing to resolve (no byline, or one longer than a name).
-func (s *Service) bylineFromText(ctx context.Context, attrs json.RawMessage) (b Byline, ok bool, err error) {
+func (s *Service) bylineFromText(ctx context.Context, attrs jsontext.Value) (b Byline, ok bool, err error) {
 	if s.bylines == nil {
 		return b, false, nil
 	}
@@ -280,14 +281,14 @@ func (s *Service) syncBylineText(ctx context.Context, existing *Entity, input *U
 	if input.Attributes != nil {
 		attrs = *input.Attributes
 	}
-	var m map[string]json.RawMessage
-	if json.Unmarshal(attrs, &m) != nil {
+	var m map[string]jsontext.Value
+	if jsonx.Unmarshal(attrs, &m, jsonx.StoredLoose) != nil {
 		return nil
 	}
 	var keys []string
 	for _, k := range []string{"author", "author_name"} {
 		var cur string
-		if raw, ok := m[k]; ok && json.Unmarshal(raw, &cur) == nil {
+		if raw, ok := m[k]; ok && jsonx.Unmarshal(raw, &cur, jsonx.StoredLoose) == nil {
 			keys = append(keys, k)
 		}
 	}
@@ -298,18 +299,18 @@ func (s *Service) syncBylineText(ctx context.Context, existing *Entity, input *U
 	if err != nil || name == "" {
 		return err
 	}
-	enc, err := json.Marshal(name)
+	enc, err := jsonx.Marshal(name)
 	if err != nil {
 		return err
 	}
 	for _, k := range keys {
 		m[k] = enc
 	}
-	out, err := json.Marshal(m)
+	out, err := jsonx.Marshal(m)
 	if err != nil {
 		return err
 	}
-	raw := json.RawMessage(out)
+	raw := jsontext.Value(out)
 	input.Attributes = &raw
 	return nil
 }

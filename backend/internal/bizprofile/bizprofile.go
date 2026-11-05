@@ -9,8 +9,10 @@ package bizprofile
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Address is a postal address plus the map references of one place.
@@ -213,7 +215,7 @@ func Parse(raw []byte) (Profile, error) {
 	if len(raw) == 0 || string(raw) == "null" {
 		return p, nil
 	}
-	if err := json.Unmarshal(raw, &p); err != nil {
+	if err := jsonx.Unmarshal(raw, &p, jsonx.StoredLoose); err != nil {
 		return Profile{}, fmt.Errorf("parse business profile: %w", err)
 	}
 	return p, nil
@@ -226,7 +228,7 @@ func ParseLocales(raw []byte) (map[string]Profile, error) {
 		return nil, nil
 	}
 	var m map[string]Profile
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err := jsonx.Unmarshal(raw, &m, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("parse locale profiles: %w", err)
 	}
 	return m, nil
@@ -235,7 +237,7 @@ func ParseLocales(raw []byte) (map[string]Profile, error) {
 // FromLegacy applies the three values kept in their own columns (phone, the
 // free-text hours and the five address keys) to p. The legacy values always
 // win, empty or not, so the columns stay the single source.
-func FromLegacy(p Profile, phone, hours string, addr json.RawMessage) Profile {
+func FromLegacy(p Profile, phone, hours string, addr jsontext.Value) Profile {
 	var a struct {
 		Street     string `json:"street"`
 		City       string `json:"city"`
@@ -244,7 +246,7 @@ func FromLegacy(p Profile, phone, hours string, addr json.RawMessage) Profile {
 		Country    string `json:"country"`
 	}
 	if len(bytes.TrimSpace(addr)) > 0 {
-		_ = json.Unmarshal(addr, &a)
+		_ = jsonx.Unmarshal(addr, &a, jsonx.StoredLoose)
 	}
 	p.Phone = phone
 	p.HoursNote = hours

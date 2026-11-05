@@ -2,13 +2,13 @@ package wpimport
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"html"
 	"net/url"
 	"regexp"
 	"strings"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -86,7 +86,7 @@ func parseHeadSettings(page []byte) headSettings {
 	}
 	for _, m := range ldJSONRe.FindAllStringSubmatch(s, -1) {
 		var v any
-		if json.Unmarshal([]byte(strings.TrimSpace(m[1])), &v) != nil {
+		if jsonx.Unmarshal([]byte(strings.TrimSpace(m[1])), &v, remoteOpts) != nil {
 			continue
 		}
 		findOrganization(v, &out)

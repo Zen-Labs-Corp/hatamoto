@@ -2,7 +2,6 @@ package v2
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -12,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // ErrNotImplemented remains for callers still wired against the Phase 1 stub
@@ -208,12 +208,12 @@ func SuggestWithContent(ctx context.Context, db *database.DB, urls URLBuilder, s
 func withContent(attrs []byte, content string) ([]byte, error) {
 	m := map[string]any{}
 	if len(attrs) > 0 {
-		if err := json.Unmarshal(attrs, &m); err != nil {
+		if err := jsonx.Unmarshal(attrs, &m, jsonx.StoredLoose); err != nil {
 			return nil, err
 		}
 	}
 	m["content"] = content
-	return json.Marshal(m)
+	return jsonx.Marshal(m)
 }
 
 type sourceForSuggest struct {

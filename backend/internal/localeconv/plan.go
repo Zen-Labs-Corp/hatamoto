@@ -1,8 +1,6 @@
 package localeconv
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -10,6 +8,7 @@ import (
 	"strings"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/taxonomy"
 )
 
@@ -121,17 +120,12 @@ func (p *Plan) StripsLocaleAttribute() bool {
 	return slices.Contains(p.StripAttributes, p.LocaleFrom.Attribute)
 }
 
-// ParsePlan reads a plan strictly (unknown fields and trailing data are
-// errors) and applies the defaults. It does not validate; call Validate.
+// ParsePlan reads a plan strictly (unknown fields, repeated names and trailing
+// data are errors) and applies the defaults. It does not validate; call Validate.
 func ParsePlan(r io.Reader) (*Plan, error) {
-	dec := json.NewDecoder(r)
-	dec.DisallowUnknownFields()
 	var p Plan
-	if err := dec.Decode(&p); err != nil {
+	if err := jsonx.UnmarshalRead(r, &p, jsonx.StrictNoUnknown); err != nil {
 		return nil, fmt.Errorf("parse plan: %w", err)
-	}
-	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
-		return nil, errors.New("parse plan: unexpected data after the plan")
 	}
 	p.applyDefaults()
 	return &p, nil

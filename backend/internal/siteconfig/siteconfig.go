@@ -9,7 +9,6 @@ package siteconfig
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
@@ -22,6 +21,7 @@ import (
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteaccess"
 )
 
@@ -58,7 +58,7 @@ type Config struct {
 	LogoURL           string
 	CustomDomain      string
 	PrimaryColor      string
-	ThemeExtra        json.RawMessage // raw JSONB, callers parse if they need it
+	ThemeExtra        jsontext.Value // raw JSONB, callers parse if they need it
 	Tagline           string
 	Timezone          string
 	HomepageEntityID  uuid.UUID // uuid.Nil if unset
@@ -82,13 +82,13 @@ type Config struct {
 	BusinessHours string
 	// PostalAddress is the business address, JSONB {street, city, state,
 	// postal_code, country}. Nil-or-empty means "unset".
-	PostalAddress json.RawMessage
+	PostalAddress jsontext.Value
 	// BusinessProfile is the site-wide business details (JSONB), holding only
 	// the fields that have no column of their own. Never nil after a load.
-	BusinessProfile json.RawMessage
+	BusinessProfile jsontext.Value
 	// LocaleProfiles is the per-locale business details (JSONB object keyed by
 	// BCP 47 tag). Never nil after a load.
-	LocaleProfiles json.RawMessage
+	LocaleProfiles jsontext.Value
 	// LegacyWPRedirects turns on the built-in WordPress URL redirects
 	// (dated permalinks, feeds, taxonomy archives, wp-* paths). Off by default.
 	LegacyWPRedirects bool
@@ -247,15 +247,15 @@ type UpdateInput struct {
 	LogoURL           *string
 	CustomDomain      *string
 	PrimaryColor      *string
-	ThemeExtra        json.RawMessage
+	ThemeExtra        jsontext.Value
 	Tagline           *string
 	Timezone          *string
 	HomepageEntityID  *uuid.UUID
 	NotificationEmail *string
-	PostalAddress     json.RawMessage
+	PostalAddress     jsontext.Value
 	// BusinessProfile replaces the site-wide profile when non-empty; pass
 	// {} to clear it. Empty leaves it unchanged.
-	BusinessProfile json.RawMessage
+	BusinessProfile jsontext.Value
 	Language        *string
 	// Locales replaces the whole list when non-nil (an empty slice clears it).
 	Locales           *[]LocaleEntry
@@ -374,10 +374,7 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 	}
 	if in.Locales != nil {
 		list := *in.Locales
-		if list == nil {
-			list = []LocaleEntry{}
-		}
-		raw, err := json.Marshal(list)
+		raw, err := jsonx.Marshal(list)
 		if err != nil {
 			return nil, fmt.Errorf("encode locales: %w", err)
 		}
@@ -596,7 +593,7 @@ func nullIfEmpty(v string, was sql.NullString) any {
 // not print its address). Otherwise it is "".
 func swappedDefault(oldTag string, errOld error, rawLocales []byte) (tag string, keep bool) {
 	var list []LocaleEntry
-	if errOld != nil || len(rawLocales) == 0 || json.Unmarshal(rawLocales, &list) != nil || len(list) < 2 {
+	if errOld != nil || len(rawLocales) == 0 || jsonx.Unmarshal(rawLocales, &list, jsonx.StoredLoose) != nil || len(list) < 2 {
 		return "", false
 	}
 	for _, e := range list {
@@ -611,11 +608,11 @@ func swappedDefault(oldTag string, errOld error, rawLocales []byte) (tag string,
 // rows can hold un-normalised tags such as en-UK). A key that is not a valid tag
 // stays as it is.
 func normaliseCardKeys(raw []byte) ([]byte, error) {
-	var in map[string]json.RawMessage
-	if len(raw) == 0 || json.Unmarshal(raw, &in) != nil {
+	var in map[string]jsontext.Value
+	if len(raw) == 0 || jsonx.Unmarshal(raw, &in, jsonx.StoredLoose) != nil {
 		return raw, nil
 	}
-	return json.Marshal(bizprofile.CanonicalKeys(in, entity.NormalizeLocale))
+	return jsonx.Marshal(bizprofile.CanonicalKeys(in, entity.NormalizeLocale))
 }
 
 // SetLocaleProfile stores the business details of one locale, keyed by its
@@ -674,7 +671,7 @@ func (s *Store) SetSiteAccess(ctx context.Context, a siteaccess.Settings) error 
 // and leaves every other key as it is. The merge happens in SQL, so a job that
 // saves its progress cannot overwrite a design save made meanwhile.
 func (s *Store) PatchThemeExtra(ctx context.Context, key string, raw jsontext.Value) error {
-	if key == "" || !json.Valid(raw) {
+	if key == "" || !jsonx.Valid(raw) {
 		return fmt.Errorf("%w: theme_extra key %q", ErrInvalidThemeExtra, key)
 	}
 	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
@@ -781,7 +778,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 	cfg.PageCacheTTLSeconds = effectivePageCacheTTL(ttlSecs, ttlLegacy)
 
 	if len(locales) > 0 {
-		if err := json.Unmarshal(locales, &cfg.Locales); err != nil {
+		if err := jsonx.Unmarshal(locales, &cfg.Locales, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("decode locales: %w", err)
 		}
 		if len(cfg.Locales) == 0 {
@@ -811,16 +808,16 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		cfg.HomepageEntityID = *homepageEntityID
 	}
 	if len(themeExtra) > 0 {
-		cfg.ThemeExtra = json.RawMessage(themeExtra)
+		cfg.ThemeExtra = jsontext.Value(themeExtra)
 	}
 	if len(postalAddress) > 0 {
-		cfg.PostalAddress = json.RawMessage(postalAddress)
+		cfg.PostalAddress = jsontext.Value(postalAddress)
 	}
 	if cfg.SitemapNaming != "legacy" {
 		cfg.SitemapNaming = "group"
 	}
-	cfg.BusinessProfile = json.RawMessage(businessProfile)
-	cfg.LocaleProfiles = json.RawMessage(localeProfiles)
+	cfg.BusinessProfile = jsontext.Value(businessProfile)
+	cfg.LocaleProfiles = jsontext.Value(localeProfiles)
 	if phone.Valid {
 		cfg.Phone = phone.String
 	}

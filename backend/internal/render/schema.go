@@ -1,8 +1,10 @@
 package render
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // bannedSchemaKeywords are JSON Schema features outside the supported subset;
@@ -23,28 +25,28 @@ type SectionMeta struct {
 
 // parsedSchema is the subset of a section schema the renderer reads itself.
 type parsedSchema struct {
-	Section    SectionMeta                `json:"x-hm-section"`
-	Properties map[string]json.RawMessage `json:"properties"`
+	Section    SectionMeta               `json:"x-hm-section"`
+	Properties map[string]jsontext.Value `json:"properties"`
 }
 
 // FieldKind returns the x-hm-field value of a (sub)schema node, or "".
-func FieldKind(node json.RawMessage) string {
+func FieldKind(node jsontext.Value) string {
 	var n struct {
 		Kind string `json:"x-hm-field"`
 	}
-	_ = json.Unmarshal(node, &n)
+	_ = jsonx.Unmarshal(node, &n, jsonx.StoredLoose)
 	return n.Kind
 }
 
 // parseSectionSchema validates raw against the supported subset and extracts
 // the x-hm-section metadata, the canonical-name -> alias map from top-level
 // properties and the x-hm-field kind of each top-level property.
-func parseSectionSchema(raw json.RawMessage) (SectionMeta, map[string][]string, map[string]string, error) {
+func parseSectionSchema(raw jsontext.Value) (SectionMeta, map[string][]string, map[string]string, error) {
 	if err := validateSchemaSubset(raw); err != nil {
 		return SectionMeta{}, nil, nil, err
 	}
 	var ps parsedSchema
-	if err := json.Unmarshal(raw, &ps); err != nil {
+	if err := jsonx.Unmarshal(raw, &ps, jsonx.StoredLoose); err != nil {
 		return SectionMeta{}, nil, nil, fmt.Errorf("parse schema: %w", err)
 	}
 	aliases := map[string][]string{}
@@ -53,7 +55,7 @@ func parseSectionSchema(raw json.RawMessage) (SectionMeta, map[string][]string, 
 		var p struct {
 			Alias []string `json:"x-hm-alias"`
 		}
-		if err := json.Unmarshal(prop, &p); err != nil {
+		if err := jsonx.Unmarshal(prop, &p, jsonx.StoredLoose); err != nil {
 			return SectionMeta{}, nil, nil, fmt.Errorf("property %q: %w", name, err)
 		}
 		if len(p.Alias) > 0 {
@@ -69,15 +71,15 @@ func parseSectionSchema(raw json.RawMessage) (SectionMeta, map[string][]string, 
 // validateSchemaSubset rejects schema features outside the supported subset
 // (see bannedSchemaKeywords) and unknown x-hm-field kinds, walking nested
 // properties and array items.
-func validateSchemaSubset(raw json.RawMessage) error {
-	var node map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &node); err != nil {
+func validateSchemaSubset(raw jsontext.Value) error {
+	var node map[string]jsontext.Value
+	if err := jsonx.Unmarshal(raw, &node, jsonx.StoredLoose); err != nil {
 		return fmt.Errorf("schema is not a JSON object: %w", err)
 	}
 	return validateNode(node, "$")
 }
 
-func validateNode(node map[string]json.RawMessage, at string) error {
+func validateNode(node map[string]jsontext.Value, at string) error {
 	for _, k := range bannedSchemaKeywords {
 		if _, ok := node[k]; ok {
 			return fmt.Errorf("schema %s: %q is not supported", at, k)
@@ -85,13 +87,13 @@ func validateNode(node map[string]json.RawMessage, at string) error {
 	}
 	if rawKind, ok := node["x-hm-field"]; ok {
 		var kind string
-		if err := json.Unmarshal(rawKind, &kind); err != nil || !allowedFieldKinds[kind] {
+		if err := jsonx.Unmarshal(rawKind, &kind, jsonx.StoredLoose); err != nil || !allowedFieldKinds[kind] {
 			return fmt.Errorf("schema %s: invalid x-hm-field %s", at, rawKind)
 		}
 	}
 	if props, ok := node["properties"]; ok {
-		var m map[string]map[string]json.RawMessage
-		if err := json.Unmarshal(props, &m); err != nil {
+		var m map[string]map[string]jsontext.Value
+		if err := jsonx.Unmarshal(props, &m, jsonx.StoredLoose); err != nil {
 			return fmt.Errorf("schema %s: properties: %w", at, err)
 		}
 		for name, child := range m {
@@ -101,8 +103,8 @@ func validateNode(node map[string]json.RawMessage, at string) error {
 		}
 	}
 	if items, ok := node["items"]; ok {
-		var child map[string]json.RawMessage
-		if err := json.Unmarshal(items, &child); err != nil {
+		var child map[string]jsontext.Value
+		if err := jsonx.Unmarshal(items, &child, jsonx.StoredLoose); err != nil {
 			return fmt.Errorf("schema %s: items: %w", at, err)
 		}
 		if err := validateNode(child, at+"[]"); err != nil {

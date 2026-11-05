@@ -1,7 +1,6 @@
 package taxonomy
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -10,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Handlers exposes the HTTP surface for the taxonomy package.
@@ -35,7 +36,7 @@ type termRequest struct {
 	Description *string    `json:"description,omitempty"`
 	ParentID    *uuid.UUID `json:"parent_id,omitempty"`
 	// ClearParent (update only) makes the term a root.
-	ClearParent bool `json:"clear_parent,omitempty"`
+	ClearParent bool `json:"clear_parent,omitzero"`
 }
 
 // writeTermError maps a service error to a response; false when err is not a
@@ -74,13 +75,13 @@ func (h *Handlers) ListTerms(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, "list_failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, res)
+	jsonx.WriteJSON(w, http.StatusOK, res)
 }
 
 // CreateTerm handles POST /api/v1/admin/terms.
 func (h *Handlers) CreateTerm(w http.ResponseWriter, r *http.Request) {
 	var body termRequest
-	if err := json.NewDecoder(io.LimitReader(r.Body, 8*1024)).Decode(&body); err != nil {
+	if err := jsonx.UnmarshalRead(io.LimitReader(r.Body, 8*1024), &body); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid_payload")
 		return
 	}
@@ -98,7 +99,7 @@ func (h *Handlers) CreateTerm(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusCreated, t)
+	jsonx.WriteJSON(w, http.StatusCreated, t)
 }
 
 // UpdateTerm handles PUT /api/v1/admin/terms/{id}.
@@ -109,7 +110,7 @@ func (h *Handlers) UpdateTerm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body termRequest
-	if err := json.NewDecoder(io.LimitReader(r.Body, 8*1024)).Decode(&body); err != nil {
+	if err := jsonx.UnmarshalRead(io.LimitReader(r.Body, 8*1024), &body); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid_payload")
 		return
 	}
@@ -128,7 +129,7 @@ func (h *Handlers) UpdateTerm(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, t)
+	jsonx.WriteJSON(w, http.StatusOK, t)
 }
 
 // DeleteTerm handles DELETE /api/v1/admin/terms/{id}. Idempotent — a
@@ -171,7 +172,7 @@ func (h *Handlers) GetEntityTerms(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, "list_failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, entityTermsResponse{Terms: terms})
+	jsonx.WriteJSON(w, http.StatusOK, entityTermsResponse{Terms: terms})
 }
 
 // ReplaceEntityTerms handles PUT /api/v1/admin/entities/{entity_id}/terms.
@@ -184,7 +185,7 @@ func (h *Handlers) ReplaceEntityTerms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body entityTermsRequest
-	if err := json.NewDecoder(io.LimitReader(r.Body, 32*1024)).Decode(&body); err != nil {
+	if err := jsonx.UnmarshalRead(io.LimitReader(r.Body, 32*1024), &body); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid_payload")
 		return
 	}
@@ -209,10 +210,10 @@ func (h *Handlers) ReplaceEntityTerms(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Warn("taxonomy: post-replace list failed", slog.String("error", err.Error()))
 		// Still 200 — the write succeeded.
-		writeJSON(w, http.StatusOK, entityTermsResponse{Terms: []*Term{}})
+		jsonx.WriteJSON(w, http.StatusOK, entityTermsResponse{Terms: []*Term{}})
 		return
 	}
-	writeJSON(w, http.StatusOK, entityTermsResponse{Terms: terms})
+	jsonx.WriteJSON(w, http.StatusOK, entityTermsResponse{Terms: terms})
 }
 
 // --- public: term archive ---
@@ -249,17 +250,11 @@ func (h *Handlers) PublicTermArchive(w http.ResponseWriter, r *http.Request) {
 	// browser/proxy TTL with a longer shared cache TTL is safe.
 	// Admin term-write endpoints are unaffected; they live under /admin.
 	w.Header().Set("Cache-Control", "public, max-age=60, s-maxage=300")
-	writeJSON(w, http.StatusOK, res)
+	jsonx.WriteJSON(w, http.StatusOK, res)
 }
 
-// --- response helpers (kept local to avoid a server-package import) ---
-
-func writeJSON(w http.ResponseWriter, status int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
-}
+// --- response helpers ---
 
 func writeJSONError(w http.ResponseWriter, status int, code string) {
-	writeJSON(w, status, map[string]string{"error": code})
+	jsonx.WriteJSON(w, status, map[string]string{"error": code})
 }

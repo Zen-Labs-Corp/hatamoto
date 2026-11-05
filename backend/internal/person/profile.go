@@ -2,7 +2,7 @@ package person
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"net/url"
@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/author"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Field limits of the profile form.
@@ -173,7 +174,7 @@ func (p *Profiles) create(ctx context.Context, by *uuid.UUID, name string) (*ent
 			try = fmt.Sprintf("%s-%d", slug, n)
 		}
 		created, err = p.entities.CreateEntity(ctx, by, &entity.CreateEntityInput{
-			SchemaID: schemaID, Name: name, Slug: try, Attributes: json.RawMessage(`{"public":false}`),
+			SchemaID: schemaID, Name: name, Slug: try, Attributes: jsontext.Value(`{"public":false}`),
 		})
 		if !errors.Is(err, entity.ErrSlugAlreadyExists) {
 			break
@@ -208,7 +209,7 @@ func (p *Profiles) update(ctx context.Context, personID uuid.UUID, by *uuid.UUID
 	}
 	attrs := map[string]any{}
 	if len(e.Attributes) > 0 {
-		if err := json.Unmarshal(e.Attributes, &attrs); err != nil {
+		if err := jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("read person attributes: %w", err)
 		}
 	}
@@ -224,11 +225,11 @@ func (p *Profiles) update(ctx context.Context, personID uuid.UUID, by *uuid.UUID
 	set("short_bio", in.ShortBio)
 	set("linkedin", in.LinkedIn)
 	attrs["public"] = in.Public
-	raw, err := json.Marshal(attrs)
+	raw, err := jsonx.Marshal(attrs)
 	if err != nil {
 		return nil, err
 	}
-	msg := json.RawMessage(raw)
+	msg := jsontext.Value(raw)
 	up := &entity.UpdateEntityInput{Name: &in.Name, Attributes: &msg}
 	if e.PublishedAt != nil {
 		// Has been public: the address stays, links to it may exist.

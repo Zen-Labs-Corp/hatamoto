@@ -10,9 +10,15 @@ import (
 // editor keeps digits a float64 would round, such as 9007199254740993.
 // Objects and arrays recurse through the same option; the other kinds decode
 // as usual.
-var ExactNumbers = func() jsonv2.Options {
+var ExactNumbers = exactNumbers(Stored)
+
+// ExactNumbersLoose is ExactNumbers that also accepts duplicate names (the
+// last value wins, as in jsonb), for sanitising entity attributes.
+var ExactNumbersLoose = exactNumbers(jsonv2.JoinOptions(Stored, jsontext.AllowDuplicateNames(true)))
+
+func exactNumbers(base jsonv2.Options) jsonv2.Options {
 	var opts jsonv2.Options
-	opts = jsonv2.JoinOptions(Stored, jsonv2.WithUnmarshalers(jsonv2.UnmarshalFromFunc(func(dec *jsontext.Decoder, v *any) error {
+	opts = jsonv2.JoinOptions(base, jsonv2.WithUnmarshalers(jsonv2.UnmarshalFromFunc(func(dec *jsontext.Decoder, v *any) error {
 		switch dec.PeekKind() {
 		case '0':
 			n, err := dec.ReadValue()
@@ -40,7 +46,7 @@ var ExactNumbers = func() jsonv2.Options {
 				return err
 			}
 			var x any
-			if err := jsonv2.Unmarshal(raw, &x, Stored); err != nil {
+			if err := jsonv2.Unmarshal(raw, &x, base); err != nil {
 				return err
 			}
 			*v = x
@@ -48,4 +54,4 @@ var ExactNumbers = func() jsonv2.Options {
 		return nil
 	})))
 	return opts
-}()
+}

@@ -1,10 +1,11 @@
 package siteconfig
 
 import (
-	"encoding/json"
 	"errors"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Theme types relocated from the deleted tenant package (Path B PR 3).
@@ -85,13 +86,13 @@ func (t *ThemeConfig) Scan(src any) error {
 			*t = DefaultThemeConfig()
 			return nil
 		}
-		return json.Unmarshal(v, t)
+		return jsonx.Unmarshal(v, t, jsonx.StoredLoose)
 	case string:
 		if v == "" {
 			*t = DefaultThemeConfig()
 			return nil
 		}
-		return json.Unmarshal([]byte(v), t)
+		return jsonx.Unmarshal([]byte(v), t, jsonx.StoredLoose)
 	default:
 		return errors.New("unsupported type for ThemeConfig")
 	}

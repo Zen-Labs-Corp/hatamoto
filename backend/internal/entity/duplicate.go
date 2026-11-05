@@ -2,13 +2,15 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // ErrDuplicateUnsupported is returned for a source that is never duplicated:
@@ -110,19 +112,19 @@ func (d *Duplicator) copyTerms(ctx context.Context, src, cp *Entity) {
 
 // withoutImportKey returns metadata without the importer's import_key: a
 // copy is not the imported item, and import_key is unique across entities.
-func withoutImportKey(meta json.RawMessage) (json.RawMessage, error) {
+func withoutImportKey(meta jsontext.Value) (jsontext.Value, error) {
 	if len(meta) == 0 {
 		return meta, nil
 	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(meta, &m); err != nil {
+	var m map[string]jsontext.Value
+	if err := jsonx.Unmarshal(meta, &m, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("read metadata: %w", err)
 	}
 	if _, ok := m["import_key"]; !ok {
 		return meta, nil
 	}
 	delete(m, "import_key")
-	out, err := json.Marshal(m)
+	out, err := jsonx.Marshal(m)
 	if err != nil {
 		return nil, fmt.Errorf("write metadata: %w", err)
 	}
@@ -132,17 +134,17 @@ func withoutImportKey(meta json.RawMessage) (json.RawMessage, error) {
 // retitle sets attributes.title to name when it mirrors the source's name, as
 // the admin keeps it for types that declare a title: public listings prefer it
 // over the name.
-func retitle(attrs json.RawMessage, from, name string) (json.RawMessage, error) {
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(attrs, &m); err != nil {
+func retitle(attrs jsontext.Value, from, name string) (jsontext.Value, error) {
+	var m map[string]jsontext.Value
+	if err := jsonx.Unmarshal(attrs, &m, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("read attributes: %w", err)
 	}
 	var title string
-	if json.Unmarshal(m["title"], &title) != nil || title != from {
+	if jsonx.Unmarshal(m["title"], &title, jsonx.StoredLoose) != nil || title != from {
 		return attrs, nil
 	}
-	m["title"], _ = json.Marshal(name)
-	out, err := json.Marshal(m)
+	m["title"], _ = jsonx.Marshal(name)
+	out, err := jsonx.Marshal(m)
 	if err != nil {
 		return nil, fmt.Errorf("write attributes: %w", err)
 	}

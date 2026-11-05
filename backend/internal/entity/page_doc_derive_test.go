@@ -56,6 +56,12 @@ func TestDerivedAttributes(t *testing.T) {
 			t.Errorf("got %s", got)
 		}
 	})
+	t.Run("invalid page_doc: output is HTML-safe like the valid path", func(t *testing.T) {
+		got := DerivedAttributes(json.RawMessage(`{"title":"a<b","page_sections":` + secsA + `,"page_doc":{"v":99}}`))
+		if strings.Contains(string(got), "<") || !strings.Contains(string(got), `\u003c`) {
+			t.Errorf("got %s", got)
+		}
+	})
 	t.Run("untouched without a valid doc", func(t *testing.T) {
 		for _, in := range []string{
 			`{"page_sections":` + secsA + `}`,

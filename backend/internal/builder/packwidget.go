@@ -1,7 +1,7 @@
 package builder
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"io"
 	"maps"
@@ -10,6 +10,7 @@ import (
 	"sort"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // PackGroup is the palette group of every plugin widget.
@@ -95,7 +96,7 @@ func ParsePackWidget(plugin, widget string, schema []byte, own map[string]bool) 
 	var top struct {
 		Additional *bool `json:"additionalProperties"`
 	}
-	if err := json.Unmarshal(schema, &top); err != nil {
+	if err := jsonx.Unmarshal(schema, &top, jsonx.StoredLoose); err != nil {
 		return PackWidgetSchema{}, fmt.Errorf("schema: %w", err)
 	}
 	if top.Additional == nil || *top.Additional {
@@ -106,9 +107,9 @@ func ParsePackWidget(plugin, widget string, schema []byte, own map[string]bool) 
 		return PackWidgetSchema{}, err
 	}
 	var props struct {
-		Properties map[string]json.RawMessage `json:"properties"`
+		Properties map[string]jsontext.Value `json:"properties"`
 	}
-	if err := json.Unmarshal(schema, &props); err != nil {
+	if err := jsonx.Unmarshal(schema, &props, jsonx.StoredLoose); err != nil {
 		return PackWidgetSchema{}, fmt.Errorf("schema: %w", err)
 	}
 	if len(props.Properties) > MaxPackProps {
@@ -214,7 +215,7 @@ func isOrphanIn(r *registry, n *Node) bool {
 // validateOrphan checks what can be checked of a node whose widget is not
 // installed: bounded props, and binding keys and sources by syntax only.
 func validateOrphan(x *Node) error {
-	raw, err := json.Marshal(x.P)
+	raw, err := jsonx.Marshal(x.P, jsonx.HTMLSafe) // escaped like v1, so the size cap is unchanged
 	if err != nil {
 		return fmt.Errorf("props: %w", err)
 	}

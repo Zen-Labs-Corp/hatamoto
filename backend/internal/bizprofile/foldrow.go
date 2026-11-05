@@ -1,8 +1,9 @@
 package bizprofile
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Row is the business data of the site settings row as stored: the two JSON
@@ -55,10 +56,10 @@ func FoldRow(r Row) (Row, bool, error) {
 	}
 	stored, phone, hours, addr := SplitLegacy(out.Business)
 	res := Row{Default: r.Default, Phone: phone, BusinessHours: hours, PostalAddress: addr}
-	if res.BusinessProfile, err = json.Marshal(stored); err != nil {
+	if res.BusinessProfile, err = jsonx.Marshal(stored); err != nil {
 		return r, false, fmt.Errorf("marshal business profile: %w", err)
 	}
-	if res.LocaleProfiles, err = json.Marshal(out.Cards); err != nil {
+	if res.LocaleProfiles, err = jsonx.Marshal(out.Cards); err != nil {
 		return r, false, fmt.Errorf("marshal locale profiles: %w", err)
 	}
 	return res, true, nil

@@ -2,12 +2,13 @@ package localeconv
 
 import (
 	"cmp"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"slices"
 	"strings"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // maxAncestorDepth bounds the parent walk, like maxAncestorDepthSQL does for
@@ -476,9 +477,9 @@ func (a *analysis) countLocales() {
 }
 
 func topLevelKeys(e *Ent) map[string]bool {
-	var m map[string]json.RawMessage
+	var m map[string]jsontext.Value
 	out := map[string]bool{}
-	if len(e.Attrs) == 0 || json.Unmarshal(e.Attrs, &m) != nil {
+	if len(e.Attrs) == 0 || jsonx.Unmarshal(e.Attrs, &m, jsonx.StoredLoose) != nil {
 		return out
 	}
 	for k := range m {

@@ -2,7 +2,7 @@ package wpimport
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"html"
@@ -14,6 +14,7 @@ import (
 
 	"hatamoto.dev/core/internal/author"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/person"
@@ -75,17 +76,17 @@ func (r *Runner) reportSettingDiffs(ctx context.Context) error {
 }
 
 // settingsPatch merges keys into a schema's settings object.
-func settingsPatch(cur json.RawMessage, set map[string]any) (json.RawMessage, error) {
+func settingsPatch(cur jsontext.Value, set map[string]any) (jsontext.Value, error) {
 	m := map[string]any{}
 	if len(cur) > 0 {
-		if err := json.Unmarshal(cur, &m); err != nil {
+		if err := jsonx.Unmarshal(cur, &m, jsonx.StoredLoose); err != nil {
 			return nil, err
 		}
 	}
 	for k, v := range set {
 		m[k] = v
 	}
-	return json.Marshal(m)
+	return jsonx.Marshal(m)
 }
 
 // prepareSchemas sets the URL patterns of the post and page schemas to the
@@ -234,7 +235,7 @@ func (r *Runner) customSchema(ctx context.Context, ct CustomType) (string, error
 			settings["archive_path"] = "/" + slug
 		}
 	}
-	rawSettings, _ := json.Marshal(settings)
+	rawSettings, _ := jsonx.Marshal(settings)
 	if existing, err := r.d.Entities.GetSchemaBySlug(ctx, slug); err == nil {
 		if existing.IsBuiltin || r.state.Mode == ModeExisting {
 			return slug, nil // never change the patterns of a schema that exists on a site with content
@@ -263,7 +264,7 @@ func (r *Runner) customSchema(ctx context.Context, ct CustomType) (string, error
 		"og_image":{"type":"string","title":"Social image"},
 		"no_index":{"type":"boolean","title":"Hide from search engines"}}}`
 	desc := "Imported from WordPress"
-	if _, err := r.d.Entities.CreateSchema(ctx, &entity.CreateSchemaInput{Name: name, Slug: slug, Description: &desc, Schema: json.RawMessage(body), Settings: rawSettings}); err != nil {
+	if _, err := r.d.Entities.CreateSchema(ctx, &entity.CreateSchemaInput{Name: name, Slug: slug, Description: &desc, Schema: jsontext.Value(body), Settings: rawSettings}); err != nil {
 		return "", err
 	}
 	return slug, nil
@@ -318,7 +319,7 @@ func (r *Runner) createPerson(ctx context.Context, a Author, slug string) (*pers
 			attrs["photo"] = *m.PublicURL
 		}
 	}
-	raw, err := json.Marshal(attrs)
+	raw, err := jsonx.Marshal(attrs)
 	if err != nil {
 		return nil, err
 	}

@@ -1,10 +1,12 @@
 package media
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The theme_extra keys that hold the modern-format switches and the state of
@@ -76,11 +78,11 @@ func (s State) Pct() int {
 
 // LoadState reads the settings and the job state out of theme_extra. It never
 // fails: missing or garbled data gives the defaults (both formats on, no job).
-func LoadState(themeExtra json.RawMessage) (Settings, State) {
+func LoadState(themeExtra jsontext.Value) (Settings, State) {
 	set := Settings{WebP: true, AVIF: true}
 	var state State
-	var top map[string]json.RawMessage
-	if json.Unmarshal(themeExtra, &top) != nil {
+	var top map[string]jsontext.Value
+	if jsonx.Unmarshal(themeExtra, &top, jsonx.StoredLoose) != nil {
 		return set, state
 	}
 	// Per field, so a stored key that names only one switch keeps the other on.
@@ -88,7 +90,7 @@ func LoadState(themeExtra json.RawMessage) (Settings, State) {
 		WebP *bool `json:"webp"`
 		AVIF *bool `json:"avif"`
 	}
-	if json.Unmarshal(top[SettingsKey], &f) == nil {
+	if jsonx.Unmarshal(top[SettingsKey], &f, jsonx.StoredLoose) == nil {
 		if f.WebP != nil {
 			set.WebP = *f.WebP
 		}
@@ -98,7 +100,7 @@ func LoadState(themeExtra json.RawMessage) (Settings, State) {
 	}
 	if raw := top[StateKey]; len(raw) > 0 {
 		var st State
-		if json.Unmarshal(raw, &st) == nil {
+		if jsonx.Unmarshal(raw, &st, jsonx.StoredLoose) == nil {
 			state = st
 		}
 	}
@@ -106,13 +108,13 @@ func LoadState(themeExtra json.RawMessage) (Settings, State) {
 }
 
 // SettingsRaw encodes the settings as the value of theme_extra[SettingsKey].
-func SettingsRaw(set Settings) json.RawMessage {
-	b, _ := json.Marshal(set)
+func SettingsRaw(set Settings) jsontext.Value {
+	b, _ := jsonx.Marshal(set)
 	return b
 }
 
 // StateRaw encodes the job state as the value of theme_extra[StateKey].
-func StateRaw(state State) json.RawMessage {
-	b, _ := json.Marshal(state)
+func StateRaw(state State) jsontext.Value {
+	b, _ := jsonx.Marshal(state)
 	return b
 }

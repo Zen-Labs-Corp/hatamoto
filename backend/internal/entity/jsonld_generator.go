@@ -4,9 +4,11 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"sort"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // SchemaProperty represents a parsed JSON Schema property with its semantic annotations.
@@ -42,7 +44,7 @@ func GenerateSchemaDrivernJSONLD(ent *Entity, baseURL string) map[string]any {
 
 	// Parse the schema definition
 	var schemaDef SchemaDefinition
-	if err := json.Unmarshal(ent.Schema.Schema, &schemaDef); err != nil {
+	if err := jsonx.Unmarshal(ent.Schema.Schema, &schemaDef, jsonx.StoredLoose); err != nil {
 		return nil
 	}
 
@@ -53,7 +55,7 @@ func GenerateSchemaDrivernJSONLD(ent *Entity, baseURL string) map[string]any {
 
 	// Parse entity attributes
 	var attrs map[string]any
-	if err := json.Unmarshal(ent.Attributes, &attrs); err != nil {
+	if err := jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.StoredLoose); err != nil {
 		attrs = make(map[string]any)
 	}
 
@@ -439,7 +441,7 @@ func extractStringArray(arr []any) []string {
 }
 
 // hasSchemaOrgAnnotations checks if a schema definition contains x-schema-org-type.
-func hasSchemaOrgAnnotations(schemaJSON json.RawMessage) bool {
+func hasSchemaOrgAnnotations(schemaJSON jsontext.Value) bool {
 	// Quick string check before full parse
 	return strings.Contains(string(schemaJSON), "x-schema-org-type")
 }
@@ -513,13 +515,13 @@ type EditorialProvenance struct {
 
 // EnrichJSONLDWithEditorial adds editorial provenance data to JSON-LD output.
 // It reads the entity's Editorial field and adds editor and citation properties.
-func EnrichJSONLDWithEditorial(jsonLD map[string]any, editorial json.RawMessage) {
+func EnrichJSONLDWithEditorial(jsonLD map[string]any, editorial jsontext.Value) {
 	if len(editorial) == 0 || string(editorial) == "{}" || string(editorial) == "null" {
 		return
 	}
 
 	var prov EditorialProvenance
-	if err := json.Unmarshal(editorial, &prov); err != nil {
+	if err := jsonx.Unmarshal(editorial, &prov, jsonx.StoredLoose); err != nil {
 		return
 	}
 

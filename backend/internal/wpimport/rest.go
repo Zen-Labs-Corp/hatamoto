@@ -3,7 +3,7 @@ package wpimport
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -17,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // RESTOptions configures a REST source.
@@ -304,9 +306,9 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 			Link        string `json:"link"`
 		}
 		var all []rt
-		err := s.c.Paged(ctx, "/wp/v2/"+taxBase[tax], url.Values{"hide_empty": {"false"}}, s.opts.MaxCollection, func(raw json.RawMessage) error {
+		err := s.c.Paged(ctx, "/wp/v2/"+taxBase[tax], url.Values{"hide_empty": {"false"}}, s.opts.MaxCollection, func(raw jsontext.Value) error {
 			var t rt
-			if err := json.Unmarshal(raw, &t); err != nil {
+			if err := jsonx.Unmarshal(raw, &t, remoteOpts); err != nil {
 				return err
 			}
 			all = append(all, t)
@@ -329,7 +331,7 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 
 	// Authors.
 	userSlug := map[int]string{}
-	err := s.c.Paged(ctx, "/wp/v2/users", nil, s.opts.MaxCollection, func(raw json.RawMessage) error {
+	err := s.c.Paged(ctx, "/wp/v2/users", nil, s.opts.MaxCollection, func(raw jsontext.Value) error {
 		var u struct {
 			ID          int               `json:"id"`
 			Name        string            `json:"name"`
@@ -338,7 +340,7 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 			Link        string            `json:"link"`
 			Avatars     map[string]string `json:"avatar_urls"`
 		}
-		if err := json.Unmarshal(raw, &u); err != nil {
+		if err := jsonx.Unmarshal(raw, &u, remoteOpts); err != nil {
 			return err
 		}
 		userSlug[u.ID] = u.Slug
@@ -351,7 +353,7 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 	say(fmt.Sprintf("read %d authors", len(d.Authors)))
 
 	// Media library.
-	err = s.c.Paged(ctx, "/wp/v2/media", nil, s.opts.MaxCollection, func(raw json.RawMessage) error {
+	err = s.c.Paged(ctx, "/wp/v2/media", nil, s.opts.MaxCollection, func(raw jsontext.Value) error {
 		var m struct {
 			ID      int      `json:"id"`
 			DateGMT string   `json:"date_gmt"`
@@ -366,7 +368,7 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 				} `json:"sizes"`
 			} `json:"media_details"`
 		}
-		if err := json.Unmarshal(raw, &m); err != nil {
+		if err := jsonx.Unmarshal(raw, &m, remoteOpts); err != nil {
 			return err
 		}
 		med := Media{ID: strconv.Itoa(m.ID), URL: m.Src, Mime: m.Mime, Alt: m.Alt, Title: html.UnescapeString(m.Title.Rendered),
@@ -401,9 +403,9 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 		}
 		for _, pt := range pts {
 			route := "/wp/v2/" + pt.base
-			err := s.c.Paged(ctx, route, q, s.opts.MaxItems-seen, func(raw json.RawMessage) error {
+			err := s.c.Paged(ctx, route, q, s.opts.MaxItems-seen, func(raw jsontext.Value) error {
 				var p restPost
-				if err := json.Unmarshal(raw, &p); err != nil {
+				if err := jsonx.Unmarshal(raw, &p, remoteOpts); err != nil {
 					return err
 				}
 				key := pt.slug + "/" + strconv.Itoa(p.ID)
@@ -411,8 +413,8 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 					return nil
 				}
 				got[key] = true
-				var extra map[string]json.RawMessage
-				_ = json.Unmarshal(raw, &extra)
+				var extra map[string]jsontext.Value
+				_ = jsonx.Unmarshal(raw, &extra, remoteOpts)
 				seen++
 				it := Item{
 					ID: strconv.Itoa(p.ID), Type: pt.slug, Status: p.Status, Slug: p.Slug,
@@ -654,7 +656,7 @@ func (s *RESTSource) loadMenus(ctx context.Context, d *Dump) {
 		if len(m.Locs) > 0 {
 			menu.Location = m.Locs[0]
 		}
-		err := s.c.Paged(ctx, "/wp/v2/menu-items", url.Values{"menus": {strconv.Itoa(m.ID)}, "orderby": {"menu_order"}, "order": {"asc"}}, s.opts.MaxCollection, func(raw json.RawMessage) error {
+		err := s.c.Paged(ctx, "/wp/v2/menu-items", url.Values{"menus": {strconv.Itoa(m.ID)}, "orderby": {"menu_order"}, "order": {"asc"}}, s.opts.MaxCollection, func(raw jsontext.Value) error {
 			var it struct {
 				ID       int      `json:"id"`
 				Title    rendered `json:"title"`
@@ -666,7 +668,7 @@ func (s *RESTSource) loadMenus(ctx context.Context, d *Dump) {
 				ObjectID int      `json:"object_id"`
 				Target   string   `json:"target"`
 			}
-			if err := json.Unmarshal(raw, &it); err != nil {
+			if err := jsonx.Unmarshal(raw, &it, remoteOpts); err != nil {
 				return err
 			}
 			mi := MenuItem{ID: strconv.Itoa(it.ID), Title: html.UnescapeString(it.Title.Rendered), URL: it.URL, Type: it.Type, Object: it.Object,
@@ -817,9 +819,9 @@ func ownAvatar(avatars map[string]string, site string) string {
 	return best
 }
 
-func intList(raw json.RawMessage) []int {
+func intList(raw jsontext.Value) []int {
 	var out []int
-	_ = json.Unmarshal(raw, &out)
+	_ = jsonx.Unmarshal(raw, &out, remoteOpts)
 	return out
 }
 

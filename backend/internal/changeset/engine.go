@@ -2,7 +2,7 @@ package changeset
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -110,7 +110,7 @@ func (e *Engine) Stage(ctx context.Context, csID int64, it Item) error {
 	}
 	payload := it.Payload
 	if len(payload) == 0 {
-		payload = json.RawMessage(`{}`)
+		payload = jsontext.Value(`{}`)
 	}
 	keys := it.BlobKeys
 	if keys == nil {

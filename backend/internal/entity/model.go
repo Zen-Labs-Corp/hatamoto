@@ -2,7 +2,7 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"time"
@@ -59,39 +59,39 @@ var (
 
 // EntitySchema represents a JSON Schema definition for entities.
 type EntitySchema struct {
-	ID          uuid.UUID       `json:"id"`
-	Name        string          `json:"name"`
-	Slug        string          `json:"slug"`
-	Description *string         `json:"description,omitempty"`
-	Schema      json.RawMessage `json:"schema"`
-	IsBuiltin   bool            `json:"is_builtin"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	ID          uuid.UUID      `json:"id"`
+	Name        string         `json:"name"`
+	Slug        string         `json:"slug"`
+	Description *string        `json:"description,omitempty"`
+	Schema      jsontext.Value `json:"schema"`
+	IsBuiltin   bool           `json:"is_builtin"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 	// Settings holds optional per-schema routing configuration (see
 	// SchemaURLSettings). An empty object means "use the built-in defaults".
-	Settings json.RawMessage `json:"settings"`
+	Settings jsontext.Value `json:"settings"`
 }
 
 // Entity represents a data entity following a schema.
 type Entity struct {
 	// TookOwnership is true on the row returned by an update that switched the
 	// origin from a plugin to 'owner'.
-	TookOwnership bool            `json:"-"`
-	ID            uuid.UUID       `json:"id"`
-	SchemaID      uuid.UUID       `json:"schema_id"`
-	Name          string          `json:"name"`
-	Slug          string          `json:"slug"`
-	Locale        string          `json:"locale"`
-	Status        EntityStatus    `json:"status"`
-	Attributes    json.RawMessage `json:"attributes"`
-	Metadata      json.RawMessage `json:"metadata,omitzero"`
-	Editorial     json.RawMessage `json:"editorial,omitzero"`
-	Version       int             `json:"version"`
-	CreatedBy     *uuid.UUID      `json:"created_by,omitempty"`
-	UpdatedBy     *uuid.UUID      `json:"updated_by,omitempty"`
-	CreatedAt     time.Time       `json:"created_at"`
-	UpdatedAt     time.Time       `json:"updated_at"`
-	PublishedAt   *time.Time      `json:"published_at,omitempty"`
+	TookOwnership bool           `json:"-"`
+	ID            uuid.UUID      `json:"id"`
+	SchemaID      uuid.UUID      `json:"schema_id"`
+	Name          string         `json:"name"`
+	Slug          string         `json:"slug"`
+	Locale        string         `json:"locale"`
+	Status        EntityStatus   `json:"status"`
+	Attributes    jsontext.Value `json:"attributes"`
+	Metadata      jsontext.Value `json:"metadata,omitzero"`
+	Editorial     jsontext.Value `json:"editorial,omitzero"`
+	Version       int            `json:"version"`
+	CreatedBy     *uuid.UUID     `json:"created_by,omitempty"`
+	UpdatedBy     *uuid.UUID     `json:"updated_by,omitempty"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	PublishedAt   *time.Time     `json:"published_at,omitempty"`
 
 	// Hierarchy and content classification fields
 	ParentID *uuid.UUID `json:"parent_id,omitempty"`
@@ -117,22 +117,22 @@ const AutosaveWindow = 5 * time.Minute
 
 // EntityVersion represents a historical version of an entity's attributes.
 type EntityVersion struct {
-	ID            uuid.UUID       `json:"id"`
-	EntityID      uuid.UUID       `json:"entity_id"`
-	Version       int             `json:"version"`
-	Attributes    json.RawMessage `json:"attributes"`
-	ChangedBy     *uuid.UUID      `json:"changed_by,omitempty"`
-	ChangeSummary *string         `json:"change_summary,omitempty"`
-	CreatedAt     time.Time       `json:"created_at"`
+	ID            uuid.UUID      `json:"id"`
+	EntityID      uuid.UUID      `json:"entity_id"`
+	Version       int            `json:"version"`
+	Attributes    jsontext.Value `json:"attributes"`
+	ChangedBy     *uuid.UUID     `json:"changed_by,omitempty"`
+	ChangeSummary *string        `json:"change_summary,omitempty"`
+	CreatedAt     time.Time      `json:"created_at"`
 }
 
 // CreateSchemaInput represents input for creating a new entity schema.
 type CreateSchemaInput struct {
-	Name        string          `json:"name"`
-	Slug        string          `json:"slug,omitempty"` // Auto-generated if empty
-	Description *string         `json:"description,omitempty"`
-	Schema      json.RawMessage `json:"schema"`
-	Settings    json.RawMessage `json:"settings,omitzero"`
+	Name        string         `json:"name"`
+	Slug        string         `json:"slug,omitempty"` // Auto-generated if empty
+	Description *string        `json:"description,omitempty"`
+	Schema      jsontext.Value `json:"schema"`
+	Settings    jsontext.Value `json:"settings,omitzero"`
 	// OriginPlugin names the plugin whose package installs the type ("" for an
 	// owner-created one). Only the package manager sets it.
 	OriginPlugin string `json:"-"`
@@ -140,22 +140,22 @@ type CreateSchemaInput struct {
 
 // UpdateSchemaInput represents input for updating an entity schema.
 type UpdateSchemaInput struct {
-	Name        *string          `json:"name,omitempty"`
-	Description *string          `json:"description,omitempty"`
-	Schema      *json.RawMessage `json:"schema,omitzero"`
-	Settings    *json.RawMessage `json:"settings,omitzero"`
+	Name        *string         `json:"name,omitempty"`
+	Description *string         `json:"description,omitempty"`
+	Schema      *jsontext.Value `json:"schema,omitzero"`
+	Settings    *jsontext.Value `json:"settings,omitzero"`
 }
 
 // CreateEntityInput represents input for creating a new entity.
 type CreateEntityInput struct {
-	SchemaID   uuid.UUID       `json:"schema_id"`
-	Name       string          `json:"name"`
-	Slug       string          `json:"slug,omitempty"`   // Auto-generated if empty
-	Locale     string          `json:"locale,omitempty"` // BCP 47; empty stores the site language, or und for a locale-neutral type
-	Attributes json.RawMessage `json:"attributes"`
-	Metadata   json.RawMessage `json:"metadata,omitzero"`
-	ParentID   *uuid.UUID      `json:"parent_id,omitempty"`
-	AuthorID   *uuid.UUID      `json:"author_id,omitempty"`
+	SchemaID   uuid.UUID      `json:"schema_id"`
+	Name       string         `json:"name"`
+	Slug       string         `json:"slug,omitempty"`   // Auto-generated if empty
+	Locale     string         `json:"locale,omitempty"` // BCP 47; empty stores the site language, or und for a locale-neutral type
+	Attributes jsontext.Value `json:"attributes"`
+	Metadata   jsontext.Value `json:"metadata,omitzero"`
+	ParentID   *uuid.UUID     `json:"parent_id,omitempty"`
+	AuthorID   *uuid.UUID     `json:"author_id,omitempty"`
 	// BylinePersonID and BylineOrg set the byline (see Entity).
 	BylinePersonID *uuid.UUID `json:"byline_person_id,omitempty"`
 	BylineOrg      bool       `json:"byline_org,omitzero"`
@@ -166,12 +166,12 @@ type CreateEntityInput struct {
 
 // UpdateEntityInput represents input for updating an entity.
 type UpdateEntityInput struct {
-	Name          *string          `json:"name,omitempty"`
-	Slug          *string          `json:"slug,omitempty"`
-	Locale        *string          `json:"locale,omitempty"` // re-tags the entity; nil leaves it as stored
-	Attributes    *json.RawMessage `json:"attributes,omitzero"`
-	Metadata      *json.RawMessage `json:"metadata,omitzero"`
-	ChangeSummary *string          `json:"change_summary,omitempty"`
+	Name          *string         `json:"name,omitempty"`
+	Slug          *string         `json:"slug,omitempty"`
+	Locale        *string         `json:"locale,omitempty"` // re-tags the entity; nil leaves it as stored
+	Attributes    *jsontext.Value `json:"attributes,omitzero"`
+	Metadata      *jsontext.Value `json:"metadata,omitzero"`
+	ChangeSummary *string         `json:"change_summary,omitempty"`
 	// Autosave marks a background save. It is recorded with AutosaveSummary,
 	// and a run of autosaves by one person within AutosaveWindow keeps a single
 	// version (the state before the run), so history holds checkpoints, not
@@ -193,15 +193,15 @@ type UpdateEntityInput struct {
 	// ParentID moves the entity under a parent; ClearParent makes it a root.
 	// Both unset leaves the parent alone. The same holds for AuthorID.
 	ParentID    *uuid.UUID `json:"parent_id,omitempty"`
-	ClearParent bool       `json:"clear_parent,omitempty"`
+	ClearParent bool       `json:"clear_parent,omitzero"`
 	AuthorID    *uuid.UUID `json:"author_id,omitempty"`
-	ClearAuthor bool       `json:"clear_author,omitempty"`
+	ClearAuthor bool       `json:"clear_author,omitzero"`
 	// BylinePersonID sets the credited person and ClearBylinePerson removes
 	// it; BylineOrg sets or clears the site-organisation byline. Both unset
 	// leaves the byline alone. The columns are independent: a caller that
 	// switches from a person to the organisation sets both.
 	BylinePersonID    *uuid.UUID `json:"byline_person_id,omitempty"`
-	ClearBylinePerson bool       `json:"clear_byline_person,omitempty"`
+	ClearBylinePerson bool       `json:"clear_byline_person,omitzero"`
 	BylineOrg         *bool      `json:"byline_org,omitempty"`
 	// Status is set by the service for a person or a block/part (see lockedStatus); unset
 	// leaves the status alone.
@@ -234,7 +234,7 @@ type ListEntitiesFilter struct {
 	// Sort is name | status | updated | created (default updated, newest
 	// first); Asc flips the direction. Only the offset listing honours it.
 	Sort string `json:"sort,omitempty"`
-	Asc  bool   `json:"asc,omitempty"`
+	Asc  bool   `json:"asc,omitzero"`
 }
 
 // KeysetPage represents keyset pagination parameters.

@@ -2,10 +2,12 @@ package entity
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"slices"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // MaxCustomJSONLDBytes caps the custom JSON-LD block of one entry.
@@ -25,7 +27,7 @@ func ValidateCustomJSONLD(s string) error {
 	return err
 }
 
-func parseCustomJSONLD(s string) ([]map[string]json.RawMessage, error) {
+func parseCustomJSONLD(s string) ([]map[string]jsontext.Value, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return nil, nil
@@ -33,20 +35,20 @@ func parseCustomJSONLD(s string) ([]map[string]json.RawMessage, error) {
 	if len(s) > MaxCustomJSONLDBytes {
 		return nil, fmt.Errorf("keep it to %d KB or less", MaxCustomJSONLDBytes>>10)
 	}
-	var raw json.RawMessage
-	if err := json.Unmarshal([]byte(s), &raw); err != nil {
+	var raw jsontext.Value
+	if err := jsonx.Unmarshal([]byte(s), &raw, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("enter valid JSON")
 	}
-	var docs []map[string]json.RawMessage
+	var docs []map[string]jsontext.Value
 	switch raw[0] {
 	case '{':
-		var one map[string]json.RawMessage
-		if err := json.Unmarshal(raw, &one); err != nil {
+		var one map[string]jsontext.Value
+		if err := jsonx.Unmarshal(raw, &one, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("enter valid JSON")
 		}
-		docs = []map[string]json.RawMessage{one}
+		docs = []map[string]jsontext.Value{one}
 	case '[':
-		if err := json.Unmarshal(raw, &docs); err != nil {
+		if err := jsonx.Unmarshal(raw, &docs, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("use one object or an array of objects")
 		}
 	default:
@@ -65,7 +67,7 @@ func parseCustomJSONLD(s string) ([]map[string]json.RawMessage, error) {
 	return docs, nil
 }
 
-func nonEmptyJSON(v json.RawMessage) bool {
+func nonEmptyJSON(v jsontext.Value) bool {
 	switch string(bytes.TrimSpace(v)) {
 	case "", "null", `""`, "[]", "{}":
 		return false
@@ -77,22 +79,22 @@ func nonEmptyJSON(v json.RawMessage) bool {
 // re-marshalled compactly. A missing or invalid block yields nil. The result
 // is meant for extra ld+json scripts next to the generated document and is
 // never merged into it.
-func CustomJSONLDDocs(attrs json.RawMessage) []json.RawMessage {
-	var m map[string]json.RawMessage
-	if json.Unmarshal(attrs, &m) != nil {
+func CustomJSONLDDocs(attrs jsontext.Value) []jsontext.Value {
+	var m map[string]jsontext.Value
+	if jsonx.Unmarshal(attrs, &m, jsonx.StoredLoose) != nil {
 		return nil
 	}
 	var text string
-	if json.Unmarshal(m[attrCustomJSONLD], &text) != nil {
+	if jsonx.Unmarshal(m[attrCustomJSONLD], &text, jsonx.StoredLoose) != nil {
 		return nil
 	}
 	docs, err := parseCustomJSONLD(text)
 	if err != nil {
 		return nil
 	}
-	out := make([]json.RawMessage, 0, len(docs))
+	out := make([]jsontext.Value, 0, len(docs))
 	for _, d := range docs {
-		b, err := json.Marshal(d)
+		b, err := jsonx.Marshal(d, jsonx.HTMLSafe)
 		if err != nil {
 			return nil
 		}
@@ -117,7 +119,7 @@ func applyTypeOverrides(doc map[string]any, e *Entity) {
 		}
 	}
 	var attrs map[string]any
-	if json.Unmarshal(e.Attributes, &attrs) != nil {
+	if jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose) != nil {
 		return
 	}
 	if t, _ := attrs[attrSchemaType].(string); IsAllowedSchemaOrgType(t) {

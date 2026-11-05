@@ -1,7 +1,6 @@
 package render
 
 import (
-	"encoding/json"
 	"html/template"
 	"net/url"
 	"regexp"
@@ -11,6 +10,7 @@ import (
 	"sync"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // preparedSection is a Section ready for its template: visibility and order
@@ -75,7 +75,7 @@ func treeFor(def *SectionDef) *schemaNode {
 		return v.(*schemaNode)
 	}
 	var n schemaNode
-	if err := json.Unmarshal(def.Schema, &n); err != nil {
+	if err := jsonx.Unmarshal(def.Schema, &n, jsonx.StoredLoose); err != nil {
 		return nil
 	}
 	schemaTrees.Store(def, &n)

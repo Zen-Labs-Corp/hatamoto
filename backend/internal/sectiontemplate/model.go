@@ -3,7 +3,7 @@
 package sectiontemplate
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"time"
 
@@ -17,25 +17,25 @@ var (
 
 // SectionTemplate represents a saved section configuration.
 type SectionTemplate struct {
-	ID          uuid.UUID       `json:"id"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	SectionType string          `json:"section_type"`
-	Content     json.RawMessage `json:"content"`
-	Tags        []string        `json:"tags"`
-	UsageCount  int             `json:"usage_count"`
-	CreatedBy   *uuid.UUID      `json:"created_by"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	ID          uuid.UUID      `json:"id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	SectionType string         `json:"section_type"`
+	Content     jsontext.Value `json:"content"`
+	Tags        []string       `json:"tags"`
+	UsageCount  int            `json:"usage_count"`
+	CreatedBy   *uuid.UUID     `json:"created_by"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 // CreateInput represents input for creating a new section template.
 type CreateInput struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	SectionType string          `json:"section_type"`
-	Content     json.RawMessage `json:"content"`
-	Tags        []string        `json:"tags"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	SectionType string         `json:"section_type"`
+	Content     jsontext.Value `json:"content"`
+	Tags        []string       `json:"tags"`
 }
 
 // UpdateInput represents the editable parts of a section template: its

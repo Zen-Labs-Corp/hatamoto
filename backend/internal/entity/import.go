@@ -2,7 +2,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // MaxImportBatch bounds the items of one Import call; bigger sources are sent
@@ -34,8 +36,8 @@ type ImportItem struct {
 	Slug       string // generated from Name when empty
 	Locale     string // BCP 47 tag; empty is the site language (und for a locale-neutral type) on insert and unchanged on update
 	Status     EntityStatus
-	Attributes json.RawMessage
-	Metadata   json.RawMessage
+	Attributes jsontext.Value
+	Metadata   jsontext.Value
 
 	// ParentKey names the parent by import key (a row of this batch or of an
 	// earlier one); ParentID by id. At most one is set.
@@ -265,7 +267,7 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 	}
 	attrs := it.Attributes
 	if len(attrs) == 0 {
-		attrs = json.RawMessage(`{}`)
+		attrs = jsontext.Value(`{}`)
 	}
 	if err := s.validator.ValidateAttributes(schema.Schema, attrs); err != nil {
 		return nil, false, err
@@ -291,7 +293,7 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		return nil, false, err
 	}
 
-	var stored json.RawMessage
+	var stored jsontext.Value
 	if existing != nil {
 		stored = existing.Attributes
 	} else {
@@ -407,7 +409,7 @@ func (r *importRun) parent(ctx context.Context, it *ImportItem, self *uuid.UUID)
 // credit resolves the item's byline: an explicit person or organisation, else
 // the byline text (an AuthorName, else attributes.author). name is the display
 // name to write into attributes.author when the item has none.
-func (r *importRun) credit(ctx context.Context, it *ImportItem, attrs json.RawMessage) (b Byline, authorID *uuid.UUID, name string, err error) {
+func (r *importRun) credit(ctx context.Context, it *ImportItem, attrs jsontext.Value) (b Byline, authorID *uuid.UUID, name string, err error) {
 	s := r.s
 	if s.bylines == nil {
 		return b, it.AuthorID, "", nil
@@ -459,10 +461,10 @@ func importDates(it *ImportItem, status EntityStatus, now time.Time) (created, u
 }
 
 // importMetadata returns metadata carrying the import key and source.
-func importMetadata(raw json.RawMessage, key, source string) (json.RawMessage, error) {
+func importMetadata(raw jsontext.Value, key, source string) (jsontext.Value, error) {
 	m := map[string]any{}
 	if len(raw) > 0 {
-		if err := json.Unmarshal(raw, &m); err != nil {
+		if err := jsonx.Unmarshal(raw, &m, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("metadata must be a JSON object: %w", err)
 		}
 	}
@@ -470,27 +472,27 @@ func importMetadata(raw json.RawMessage, key, source string) (json.RawMessage, e
 	if source != "" {
 		m["import_source"] = source
 	}
-	return json.Marshal(m)
+	return jsonx.Marshal(m)
 }
 
 // setAttribute sets one top-level attribute.
-func setAttribute(attrs json.RawMessage, key string, value any) (json.RawMessage, error) {
+func setAttribute(attrs jsontext.Value, key string, value any) (jsontext.Value, error) {
 	m := map[string]any{}
-	if err := json.Unmarshal(attrs, &m); err != nil {
+	if err := jsonx.Unmarshal(attrs, &m, jsonx.StoredLoose); err != nil {
 		return nil, err
 	}
 	m[key] = value
-	return json.Marshal(m)
+	return jsonx.Marshal(m)
 }
 
 // schemaAllowsProperty reports whether a JSON Schema document lets objects
 // carry the property: it is declared, or additionalProperties is not false.
-func schemaAllowsProperty(schema json.RawMessage, name string) bool {
+func schemaAllowsProperty(schema jsontext.Value, name string) bool {
 	var doc struct {
-		Properties           map[string]json.RawMessage `json:"properties"`
-		AdditionalProperties json.RawMessage            `json:"additionalProperties"`
+		Properties           map[string]jsontext.Value `json:"properties"`
+		AdditionalProperties jsontext.Value            `json:"additionalProperties"`
 	}
-	if json.Unmarshal(schema, &doc) != nil {
+	if jsonx.Unmarshal(schema, &doc, jsonx.StoredLoose) != nil {
 		return true
 	}
 	if _, ok := doc.Properties[name]; ok {

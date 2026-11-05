@@ -1,12 +1,12 @@
 package analytics
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
 
 	"hatamoto.dev/core/internal/agents"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 )
 
@@ -68,7 +68,7 @@ type trackRequest struct {
 // dropped (crawlers are recorded by the agent capture instead).
 func (h *Handlers) Track(w http.ResponseWriter, r *http.Request) {
 	var body trackRequest
-	if err := json.NewDecoder(io.LimitReader(r.Body, trackBodyMax)).Decode(&body); err != nil {
+	if err := jsonx.UnmarshalRead(io.LimitReader(r.Body, trackBodyMax), &body, jsonx.StoredLoose); err != nil {
 		http.Error(w, `{"error":"invalid_payload"}`, http.StatusBadRequest)
 		return
 	}

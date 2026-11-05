@@ -2,7 +2,7 @@ package localeconv
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -10,6 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // lockTimeout is how long apply and revert wait for editors' writes to finish.
@@ -147,7 +149,7 @@ func loadSite(ctx context.Context, q querier) (SiteState, error) {
 		return site, fmt.Errorf("load site settings: %w", err)
 	}
 	if len(locales) > 0 {
-		if err := json.Unmarshal(locales, &site.Locales); err != nil {
+		if err := jsonx.Unmarshal(locales, &site.Locales, jsonx.StoredLoose); err != nil {
 			return site, fmt.Errorf("decode locales: %w", err)
 		}
 	}
@@ -165,10 +167,10 @@ func loadSite(ctx context.Context, q querier) (SiteState, error) {
 
 // settingsJSON is the recorded form of the locale settings.
 type settingsJSON struct {
-	Language       string          `json:"language"`
-	Locales        json.RawMessage `json:"locales"`
-	PrefixAll      bool            `json:"prefix_all"`
-	XDefaultLocale string          `json:"x_default_locale"`
+	Language       string         `json:"language"`
+	Locales        jsontext.Value `json:"locales"`
+	PrefixAll      bool           `json:"prefix_all"`
+	XDefaultLocale string         `json:"x_default_locale"`
 	// HomepageEntityID is nil when no explicit homepage is set.
 	HomepageEntityID *string `json:"homepage_entity_id"`
 	// SitemapNaming is empty in records written before the setting existed;

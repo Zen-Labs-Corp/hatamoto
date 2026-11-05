@@ -3,7 +3,7 @@ package localeconv
 import (
 	"cmp"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"slices"
@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // ErrNoRegionTree is returned by Suggest when the data has no recognisable
@@ -270,13 +271,13 @@ func alternatesOrder(cands []*candidate, members []*Ent) []*candidate {
 		return -1
 	}
 	for _, m := range members {
-		var attrs map[string]json.RawMessage
-		if json.Unmarshal(m.Attrs, &attrs) != nil {
+		var attrs map[string]jsontext.Value
+		if jsonx.Unmarshal(m.Attrs, &attrs, jsonx.StoredLoose) != nil {
 			continue
 		}
 		for _, k := range sortedKeysOf(attrs) {
-			var list []json.RawMessage
-			if json.Unmarshal(attrs[k], &list) != nil {
+			var list []jsontext.Value
+			if jsonx.Unmarshal(attrs[k], &list, jsonx.StoredLoose) != nil {
 				continue
 			}
 			var out []*candidate
@@ -286,9 +287,9 @@ func alternatesOrder(cands []*candidate, members []*Ent) []*candidate {
 				var s string
 				var obj map[string]any
 				switch {
-				case json.Unmarshal(raw, &s) == nil:
+				case jsonx.Unmarshal(raw, &s, jsonx.StoredLoose) == nil:
 					i = match(s)
-				case json.Unmarshal(raw, &obj) == nil:
+				case jsonx.Unmarshal(raw, &obj, jsonx.StoredLoose) == nil:
 					for _, key := range alternatesKeys {
 						if v, ok := obj[key].(string); ok {
 							if i = match(v); i >= 0 {

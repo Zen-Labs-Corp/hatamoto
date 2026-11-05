@@ -1,12 +1,12 @@
 package builder
 
 import (
-	"encoding/json"
 	"html"
 	"sort"
 	"strings"
 
 	"github.com/microcosm-cc/bluemonday"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Limits of a diff report.
@@ -386,7 +386,7 @@ func renderValue(v any) string {
 	if s, ok := v.(string); ok {
 		return s
 	}
-	b, err := json.Marshal(v)
+	b, err := jsonx.Marshal(v, jsonx.HTMLSafe)
 	if err != nil {
 		return ""
 	}

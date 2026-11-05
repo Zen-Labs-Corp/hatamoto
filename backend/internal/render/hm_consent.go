@@ -6,11 +6,12 @@ import (
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
-	"encoding/json"
 	"html"
 	"html/template"
 	"regexp"
 	"sync/atomic"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // ConsentScriptName is the asset name of the consent banner script under AssetPrefix.
@@ -34,7 +35,7 @@ type ConsentConfig struct {
 // hash identifies the configuration; it is the cache-busting query of the tag,
 // so cached pages and the script they load always agree.
 func (c ConsentConfig) hash() string {
-	b, _ := json.Marshal(c)
+	b, _ := jsonx.MarshalPinned(c)
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])[:12]
 }
@@ -67,7 +68,7 @@ func consentTag(c ConsentConfig) template.HTML {
 // consentScript renders the script with the configuration substituted. The
 // JSON is escaped for HTML-safe embedding even though it is served as JS.
 func consentScript(c ConsentConfig) []byte {
-	b, err := json.Marshal(c)
+	b, err := jsonx.MarshalPinned(c)
 	if err != nil {
 		b = []byte("{}")
 	}

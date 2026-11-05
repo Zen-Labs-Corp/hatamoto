@@ -1,15 +1,16 @@
 // Package builder is the page_doc v2 model: a tree of layout nodes with a
 // validator, pure edit ops, a closed style vocabulary and v1 section
-// conversion. It is a leaf package (stdlib and jsonschema only) so render,
+// conversion. It is a leaf package (stdlib, jsonx and jsonschema only) so render,
 // entity and server can share one type without import cycles.
 package builder
 
 import (
-	"bytes"
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"regexp"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // ErrInvalid is wrapped by every validation failure.
@@ -80,7 +81,7 @@ func ValidateRaw(raw []byte) error {
 // Parse decodes and validates a doc. Unknown fields are rejected.
 func Parse(raw []byte) (*Doc, error) { return parse(raw, false) }
 
-// ParseExact is Parse with numbers kept as json.Number, so a doc that is
+// ParseExact is Parse with numbers kept as raw text (jsontext.Value), so a doc that is
 // stored again keeps every digit (12345678901234567890, 9.90). Renderers use
 // Parse, whose float64 values match what the v1 section reader produced.
 func ParseExact(raw []byte) (*Doc, error) { return parse(raw, true) }
@@ -90,16 +91,15 @@ func parse(raw []byte, exact bool) (*Doc, error) {
 		return nil, invalid("doc larger than %d bytes", MaxBytes)
 	}
 	var d Doc
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
+	// v1 matched member names case-insensitively on every path; keep that so
+	// stored docs with a wrong-case key still load. Unknown members, duplicate
+	// names and trailing data are rejected.
+	opts := jsonv2.JoinOptions(jsonx.StrictNoUnknown, jsonv2.MatchCaseInsensitiveNames(true))
 	if exact {
-		dec.UseNumber()
+		opts = jsonv2.JoinOptions(jsonx.ExactNumbers, jsonv2.RejectUnknownMembers(true), jsonv2.MatchCaseInsensitiveNames(true))
 	}
-	if err := dec.Decode(&d); err != nil {
+	if err := jsonx.Unmarshal(raw, &d, opts); err != nil {
 		return nil, invalid("%v", err)
-	}
-	if dec.More() {
-		return nil, invalid("trailing data after doc")
 	}
 	if err := d.Validate(); err != nil {
 		return nil, err
@@ -193,14 +193,14 @@ func (d *Doc) Validate() error {
 // round-tripped through JSON so Go-built docs (int, []string) validate like
 // decoded ones.
 func validateProps(r *registry, x *Node) error {
-	raw, err := json.Marshal(x.P)
+	raw, err := jsonx.Marshal(x.P)
 	if err != nil {
 		return fmt.Errorf("props: %w", err)
 	}
 	var v any
 	if x.P == nil {
 		v = map[string]any{}
-	} else if err := json.Unmarshal(raw, &v); err != nil {
+	} else if err := jsonx.Unmarshal(raw, &v, jsonx.Stored); err != nil {
 		return fmt.Errorf("props: %w", err)
 	}
 	s := r.schemas[x.T]

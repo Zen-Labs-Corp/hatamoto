@@ -1,17 +1,17 @@
 package tags
 
 import (
-	"bytes"
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"html"
-	"io"
 	"net/url"
 	"regexp"
 	"strings"
 	"sync/atomic"
 	"unicode"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Limits for a tag pack declaration. Every one is a refusal, not a clamp.
@@ -67,13 +67,8 @@ func ParseDecl(plugin, stem string, raw []byte) (Vendor, error) {
 		return Vendor{}, fmt.Errorf("file name %q must be lower-case letters, digits and dashes", stem)
 	}
 	var d Decl
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&d); err != nil {
+	if err := jsonx.Unmarshal(raw, &d, jsonv2.JoinOptions(jsonx.StrictNoUnknown, jsonv2.MatchCaseInsensitiveNames(true))); err != nil {
 		return Vendor{}, fmt.Errorf("invalid JSON: %v", err)
-	}
-	if _, err := dec.Token(); err != io.EOF {
-		return Vendor{}, errors.New("invalid JSON: unexpected data after the object")
 	}
 
 	if err := shortText("name", d.Name, maxNameLen); err != nil {
