@@ -2,7 +2,6 @@ package seo
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const cacheTTL = 30 * time.Second
@@ -99,7 +99,7 @@ func (s *Store) Save(ctx context.Context, set Settings) error {
 	if errs := set.Validate(); len(errs) > 0 {
 		return &ValidationError{Errors: errs}
 	}
-	raw, err := json.Marshal(set)
+	raw, err := jsonx.Marshal(set)
 	if err != nil {
 		return fmt.Errorf("encode seo settings: %w", err)
 	}
@@ -146,7 +146,7 @@ func (s *Store) Merge(ctx context.Context, fn func(*Settings)) error {
 // exists, locks it, applies fn to the locked value, validates and writes.
 // It does not touch the cache: call Invalidate after the transaction commits.
 func (s *Store) MergeTx(ctx context.Context, tx pgx.Tx, fn func(*Settings)) error {
-	seed, err := json.Marshal(Defaults())
+	seed, err := jsonx.Marshal(Defaults())
 	if err != nil {
 		return fmt.Errorf("encode seo settings: %w", err)
 	}
@@ -169,7 +169,7 @@ func (s *Store) MergeTx(ctx context.Context, tx pgx.Tx, fn func(*Settings)) erro
 	if errs := cur.Validate(); len(errs) > 0 {
 		return &ValidationError{Errors: errs}
 	}
-	out, err := json.Marshal(cur)
+	out, err := jsonx.Marshal(cur)
 	if err != nil {
 		return fmt.Errorf("encode seo settings: %w", err)
 	}

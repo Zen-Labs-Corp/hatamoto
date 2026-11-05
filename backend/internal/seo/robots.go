@@ -1,13 +1,15 @@
 package seo
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Limits on the robots and verification values.
@@ -173,24 +175,24 @@ func (s *Settings) NoIndexView(kind, schemaSlug, termKind string) bool {
 // metadata.no_index, attributes.no_index, or attributes.seo.robots containing
 // "noindex". Invalid JSON counts as not set. It is the Go twin of
 // entity.NoIndexSQL.
-func EntryNoIndex(metadata, attrs json.RawMessage) bool {
-	flag := func(raw json.RawMessage) bool {
+func EntryNoIndex(metadata, attrs jsontext.Value) bool {
+	flag := func(raw jsontext.Value) bool {
 		s := strings.TrimSpace(string(raw))
 		return s == "true" || s == `"true"`
 	}
 	var m struct {
-		NoIndex json.RawMessage `json:"no_index"`
+		NoIndex jsontext.Value `json:"no_index"`
 	}
-	if len(metadata) > 0 && json.Unmarshal(metadata, &m) == nil && flag(m.NoIndex) {
+	if len(metadata) > 0 && jsonx.Unmarshal(metadata, &m, jsonx.StoredLoose) == nil && flag(m.NoIndex) {
 		return true
 	}
 	var a struct {
-		NoIndex json.RawMessage `json:"no_index"`
+		NoIndex jsontext.Value `json:"no_index"`
 		SEO     struct {
 			Robots string `json:"robots"`
 		} `json:"seo"`
 	}
-	if len(attrs) == 0 || json.Unmarshal(attrs, &a) != nil {
+	if len(attrs) == 0 || jsonx.Unmarshal(attrs, &a, jsonx.StoredLoose) != nil {
 		return false
 	}
 	return flag(a.NoIndex) || strings.Contains(strings.ToLower(a.SEO.Robots), "noindex")

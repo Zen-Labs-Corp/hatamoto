@@ -2,7 +2,6 @@ package consent
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const cacheTTL = 30 * time.Second
@@ -99,7 +99,7 @@ func (s *Store) Save(ctx context.Context, set Settings) error {
 	if errs := set.Validate(); len(errs) > 0 {
 		return &ValidationError{Errors: errs}
 	}
-	raw, err := json.Marshal(set)
+	raw, err := jsonx.Marshal(set)
 	if err != nil {
 		return fmt.Errorf("encode consent settings: %w", err)
 	}

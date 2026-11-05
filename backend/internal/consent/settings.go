@@ -6,11 +6,12 @@ package consent
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Limits on the stored values.
@@ -68,7 +69,7 @@ func Decode(raw []byte) (Settings, error) {
 	if len(raw) == 0 {
 		return s, nil
 	}
-	if err := json.Unmarshal(raw, &s); err != nil {
+	if err := jsonx.Unmarshal(raw, &s, jsonx.StoredLoose); err != nil {
 		return Defaults(), fmt.Errorf("decode consent settings: %w", err)
 	}
 	return s, nil

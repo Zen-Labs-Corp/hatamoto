@@ -2,7 +2,6 @@ package tags
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const cacheTTL = 30 * time.Second
@@ -102,7 +102,7 @@ func (s *Store) Save(ctx context.Context, set Settings) error {
 	if errs := set.Validate(); len(errs) > 0 {
 		return &ValidationError{Errors: errs}
 	}
-	raw, err := json.Marshal(set)
+	raw, err := jsonx.Marshal(set)
 	if err != nil {
 		return fmt.Errorf("encode tracking settings: %w", err)
 	}
@@ -138,7 +138,7 @@ func (s *Store) DropPack(ctx context.Context, plugin string) ([]string, error) {
 		return nil, nil
 	}
 	sort.Strings(dropped)
-	raw, err := json.Marshal(set)
+	raw, err := jsonx.Marshal(set)
 	if err != nil {
 		return nil, fmt.Errorf("encode tracking settings: %w", err)
 	}

@@ -5,12 +5,13 @@
 package seo
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Limits on the stored values.
@@ -146,7 +147,7 @@ func Defaults() Settings {
 func Decode(raw []byte) (Settings, error) {
 	s := Defaults()
 	if len(raw) > 0 {
-		if err := json.Unmarshal(raw, &s); err != nil {
+		if err := jsonx.Unmarshal(raw, &s, jsonx.StoredLoose); err != nil {
 			return Defaults(), fmt.Errorf("decode seo settings: %w", err)
 		}
 	}

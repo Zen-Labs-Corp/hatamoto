@@ -57,8 +57,8 @@ func TestParseDeclNoWebsocketsNoNoscript(t *testing.T) {
 func TestParseDeclRefusals(t *testing.T) {
 	mod := func(old, repl string) string { return strings.Replace(goodDecl, old, repl, 1) }
 	cases := []struct{ name, raw, want string }{
-		{"unknown key", mod(`"websockets": true,`, `"websockets": true, "extra": 1,`), "unknown field"},
-		{"trailing data", goodDecl + " {}", "unexpected data"},
+		{"unknown key", mod(`"websockets": true,`, `"websockets": true, "extra": 1,`), "unknown object member"},
+		{"trailing data", goodDecl + " {}", "after top-level value"},
 		{"not json", `nope`, "invalid JSON"},
 		{"empty name", mod(`"Acme Stats"`, `""`), "name is required"},
 		{"long name", mod(`"Acme Stats"`, `"`+strings.Repeat("x", 61)+`"`), "name is longer"},

@@ -1,10 +1,11 @@
 package tags
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // VendorState is the owner's choice for one vendor.
@@ -48,7 +49,7 @@ func Decode(raw []byte) (Settings, error) {
 	if len(raw) == 0 {
 		return s, nil
 	}
-	if err := json.Unmarshal(raw, &s); err != nil {
+	if err := jsonx.Unmarshal(raw, &s, jsonx.StoredLoose); err != nil {
 		return Defaults(), fmt.Errorf("decode tracking settings: %w", err)
 	}
 	if s.Vendors == nil {

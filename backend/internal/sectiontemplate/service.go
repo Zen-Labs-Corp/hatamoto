@@ -2,13 +2,14 @@ package sectiontemplate
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"log/slog"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const maxNameLength = 255
@@ -41,9 +42,9 @@ func (s *Service) Create(ctx context.Context, userID *uuid.UUID, input *CreateIn
 		return nil, &ValidationError{Field: "section_type", Message: "section_type is required"}
 	}
 	if len(input.Content) == 0 {
-		input.Content = json.RawMessage(`{}`)
+		input.Content = jsontext.Value(`{}`)
 	}
-	if !json.Valid(input.Content) {
+	if !jsonx.Valid(input.Content) {
 		return nil, &ValidationError{Field: "content", Message: "content must be valid JSON"}
 	}
 	if len(input.Content) > maxContentSize {
