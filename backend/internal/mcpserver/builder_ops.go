@@ -1,8 +1,6 @@
 package mcpserver
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strconv"
@@ -10,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Limits of one builder_apply_ops call.
@@ -55,7 +54,7 @@ func checkOpLimits(ops []opIn) error {
 	if len(ops) > maxOps {
 		return codedErr(codeLimit, "at most %d ops per call, got %d", maxOps, len(ops))
 	}
-	b, err := json.Marshal(ops)
+	b, err := jsonx.Marshal(ops)
 	if err != nil {
 		return codedErr(codeInvalidPageDoc, "ops cannot be encoded: %v", err)
 	}
@@ -141,7 +140,7 @@ func expandOp(doc *builder.Doc, in opIn, gen func() string) ([]builder.Op, []gen
 				return nil, nil, err
 			}
 		}
-		v, err := json.Marshal(in.Value)
+		v, err := jsonx.Marshal(in.Value)
 		if err != nil {
 			return nil, nil, fmt.Errorf("value: %v", err)
 		}
@@ -214,14 +213,12 @@ func decodeNode(o object) (*builder.Node, error) {
 	if o == nil {
 		return nil, nil
 	}
-	raw, err := json.Marshal(o)
+	raw, err := jsonx.Marshal(o)
 	if err != nil {
 		return nil, fmt.Errorf("node: %v", err)
 	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
 	var n builder.Node
-	if err := dec.Decode(&n); err != nil {
+	if err := jsonx.Unmarshal(raw, &n, jsonx.StrictNoUnknown); err != nil {
 		return nil, fmt.Errorf("node: %v", err)
 	}
 	return &n, nil

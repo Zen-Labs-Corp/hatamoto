@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"math"
 	"regexp"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/analytics"
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 )
 
@@ -312,7 +312,7 @@ func (s *Server) pageJSONLD(ctx context.Context, e *entity.Entity) ([][]byte, st
 	if err != nil {
 		return nil, "", err
 	}
-	raw, err := json.Marshal(doc)
+	raw, err := jsonx.Marshal(doc)
 	if err != nil {
 		return nil, "", err
 	}
@@ -514,9 +514,6 @@ func conversionsSummary(ctx context.Context, r conversionsReader, rg agents.Rang
 		for _, t := range top {
 			rows = append(rows, row{Key: t.K1, Detail: t.K2, Leads: t.Leads})
 		}
-	}
-	if rows == nil {
-		rows = []row{}
 	}
 	total, unknown, err := r.LeadsTotals(ctx, tk, rg.From, rg.To)
 	if err != nil {

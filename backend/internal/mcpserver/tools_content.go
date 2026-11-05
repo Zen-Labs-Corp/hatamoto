@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -15,6 +15,7 @@ import (
 
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/redirect"
@@ -39,7 +40,7 @@ type entitySummary struct {
 	PublishedAt *time.Time `json:"published_at,omitempty"`
 	// BylinePersonID / BylineOrg are who the entity credits (see entities_update).
 	BylinePersonID *uuid.UUID `json:"byline_person_id,omitempty"`
-	BylineOrg      bool       `json:"byline_org,omitempty"`
+	BylineOrg      bool       `json:"byline_org,omitzero"`
 }
 
 func (s *Server) summary(ctx context.Context, e *entity.Entity, withURL bool) entitySummary {
@@ -66,11 +67,8 @@ func (s *Server) schemaIDBySlug(ctx context.Context, slug string) (uuid.UUID, er
 // input schema says "object".
 type object = map[string]any
 
-func rawObject(o object) json.RawMessage {
-	if o == nil {
-		o = object{}
-	}
-	b, _ := json.Marshal(o)
+func rawObject(o object) jsontext.Value {
+	b, _ := jsonx.Marshal(o)
 	return b
 }
 
@@ -235,7 +233,7 @@ func (s *Server) registerContent() {
 				up.Locale = &in.Locale
 			}
 			if in.Attributes != nil {
-				raw := json.RawMessage(rawObject(in.Attributes))
+				raw := jsontext.Value(rawObject(in.Attributes))
 				up.Attributes = &raw
 				stored, err := s.store().GetEntity(ctx, id)
 				if err != nil {

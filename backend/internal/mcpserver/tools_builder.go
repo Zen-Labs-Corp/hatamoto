@@ -44,10 +44,10 @@ type kindOut struct {
 	Hint        string             `json:"hint,omitempty"`
 	Group       string             `json:"group,omitempty"`
 	Seed        []builder.SeedNode `json:"seed,omitempty"`
-	Hidden      bool               `json:"hidden,omitempty"`
+	Hidden      bool               `json:"hidden,omitzero"`
 	Display     string             `json:"display,omitempty"`
 	Universal   []string           `json:"universal,omitempty"`
-	Interactive bool               `json:"interactive,omitempty"`
+	Interactive bool               `json:"interactive,omitzero"`
 	OnlyIn      string             `json:"onlyIn,omitempty"`
 }
 
@@ -92,9 +92,6 @@ func (s *Server) registerBuilder() {
 				if di, err = s.d.Design(ctx); err != nil {
 					return nil, err
 				}
-			}
-			if di.Presets == nil {
-				di.Presets = []DesignPreset{}
 			}
 			return object{
 				"tokens":  object{"color": sortedKeys(di.Colors), "space": spaceTokenNames(di.Space), "fs": sortedKeys(di.FS)},
