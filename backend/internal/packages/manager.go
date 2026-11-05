@@ -552,7 +552,7 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 // http.fetch.any, builder.island or site.scripts. An unreadable installed manifest counts as having nothing.
 func widenedAccess(installed jsontext.Value, p *Package) (hosts []string, fetchAny, island, scripts bool) {
 	var old sdk.Manifest
-	_ = jsonx.Unmarshal(installed, &old, jsonx.StoredLoose)
+	_ = decodeManifest(installed, &old)
 	next, err := p.PluginManifest()
 	if err != nil {
 		return nil, false, false, false
@@ -572,7 +572,7 @@ func widenedAccess(installed jsontext.Value, p *Package) (hosts []string, fetchA
 // that the installed manifest did not.
 func newRequestHeaders(installed jsontext.Value, p *Package) []string {
 	var old sdk.Manifest
-	_ = jsonx.Unmarshal(installed, &old, jsonx.StoredLoose)
+	_ = decodeManifest(installed, &old)
 	next, err := p.PluginManifest()
 	if err != nil {
 		return nil
@@ -594,7 +594,7 @@ func newRequestHeaders(installed jsontext.Value, p *Package) []string {
 // asks for that the installed manifest did not.
 func newCSPHosts(installed jsontext.Value, p *Package) []string {
 	var old sdk.Manifest
-	_ = jsonx.Unmarshal(installed, &old, jsonx.StoredLoose)
+	_ = decodeManifest(installed, &old)
 	next, err := p.PluginManifest()
 	if err != nil || next.CSP.Empty() {
 		return nil

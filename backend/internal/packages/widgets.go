@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"hatamoto.dev/core/internal/builder"
-	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/sdk"
 )
@@ -348,7 +347,7 @@ func (m *Manager) islandPlugins(rows []Row) bool {
 	}
 	for _, r := range rows {
 		var man sdk.Manifest
-		if jsonx.Unmarshal(r.Manifest, &man, jsonx.StoredLoose) == nil && slices.Contains(man.Permissions, sdk.PermBuilderIsland) {
+		if decodeManifest(r.Manifest, &man) == nil && slices.Contains(man.Permissions, sdk.PermBuilderIsland) {
 			return true
 		}
 	}
@@ -365,7 +364,7 @@ func (m *Manager) SetGrants(ctx context.Context, name string, perms []sdk.Permis
 		return ErrNotFound
 	}
 	var man sdk.Manifest
-	if err := jsonx.Unmarshal(row.Manifest, &man, jsonx.StoredLoose); err != nil {
+	if err := decodeManifest(row.Manifest, &man); err != nil {
 		return err
 	}
 	for _, p := range perms {

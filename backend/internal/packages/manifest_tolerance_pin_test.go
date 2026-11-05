@@ -5,11 +5,12 @@ import (
 )
 
 // External documents were read tolerantly: member names match without case,
+// (a plugin.json that repeats a name is refused, see TestPluginManifestAmbiguousNames),
 // repeated names are accepted, unknown members are ignored and a bad UTF-8 byte
 // becomes U+FFFD. Installing must keep working for packages built that way.
 func TestExternalManifestsTolerant(t *testing.T) {
 	t.Run("plugin.json", func(t *testing.T) {
-		manifest := "{\"NAME\":\"hello\",\"name\":\"hello\",\"version\":\"1.0.0\",\"sdk\":\"^0.7\",\"description\":\"caf\xe9\",\"bogus\":1}"
+		manifest := "{\"NAME\":\"hello\",\"version\":\"1.0.0\",\"sdk\":\"^0.7\",\"description\":\"caf\xe9\",\"bogus\":1}"
 		raw, err := PackFiles(map[string][]byte{PluginManifest: []byte(manifest), PluginWasm: []byte("\x00asm\x01\x00\x00\x00")}, nil)
 		if err != nil {
 			t.Fatal(err)
