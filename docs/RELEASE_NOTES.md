@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: Version history limit
+
+- **Setting.** Settings > Versions (owners only) sets how many earlier versions of each item are kept, 10 to 500. The daily prune reads it on every run.
+- **Default raised from 20 to 50.** More history is kept; nothing extra is deleted on upgrade.
+- **Live versions are kept.** A version that was live in the last 30 days is never pruned and does not count against the limit. The versions panel states the rule and marks those versions Live.
+- **Migration.** Two expand-only changes (a `live_at` column on versions, one column on site config). Rollback floor: unchanged; an older binary ignores both and prunes to 20 again.
+
 ## Unreleased: ads.txt and app-ads.txt
 
 Settings > SEO has a new ads.txt tab (owners only). Write your `ads.txt` and `app-ads.txt` there and the site serves them at `/ads.txt` and `/app-ads.txt` as plain text. Every line is checked on save and a bad one is named ("Line 2: ..."). An empty file answers a plain 404, unless a Settings > Redirects rule has `/ads.txt` as its source: then the redirect applies. A saved file takes precedence over such a rule. The AdSense card in Settings > Tracking links to the tab and adds the AdSense line for the saved id.

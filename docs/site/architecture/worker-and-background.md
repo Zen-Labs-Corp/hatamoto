@@ -25,7 +25,7 @@ Each job is a function the scheduler calls on a timer. Every run has a 10 minute
 | `agent_ranges_refresh` | downloads the published IP ranges of AI operators used to verify crawler hits | 90 seconds | daily |
 | `agent_verify` | verifies pending crawler hits against those ranges | 2 minutes | every 5 minutes |
 | `prune` | batch-deletes old rows: the 404 log after 90 days, the MCP audit after 90 days, the admin audit after 1 year | 8 minutes | daily |
-| `entity_versions` | merges identical consecutive versions and keeps the newest 20 per entity | 10 minutes | daily |
+| `entity_versions` | merges identical consecutive versions and keeps the newest N per entity (setting, default 50) and every version live in the last 30 days | 10 minutes | daily |
 | `webhook_deliver` | sends due outgoing webhook deliveries, up to 100 per run within 25 seconds, see [Webhooks](../admin/webhooks.md) | 5 seconds | every 10 seconds, give or take 2 seconds |
 | `webhook_prune` | deletes old webhook deliveries (30 days delivered, 90 days other, at most 1,000 per webhook) | 2 minutes | hourly, give or take 5 minutes |
 | `changeset_sweep` | closes staged content changesets past their 72 hour expiry (their items, buffer and staged files go), deletes finished runs and removes staged files nothing refers to (left over by a crash) | 3 minutes | hourly, give or take 5 minutes |
