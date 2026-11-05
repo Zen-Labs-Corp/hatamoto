@@ -13,10 +13,11 @@
 package person
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // SchemaSlug is the slug of the builtin person content type.
@@ -83,7 +84,7 @@ var linkKeys = []string{"website", "linkedin", "x", "github"}
 func fromAttributes(id uuid.UUID, slug, name string, raw []byte) *Person {
 	p := &Person{ID: id, Slug: slug, Name: name, Links: map[string]string{}}
 	var attrs map[string]any
-	_ = json.Unmarshal(raw, &attrs)
+	_ = jsonx.Unmarshal(raw, &attrs, jsonx.StoredLoose)
 	str := func(k string) string {
 		s, _ := attrs[k].(string)
 		return strings.TrimSpace(s)

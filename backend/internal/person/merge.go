@@ -2,13 +2,13 @@ package person
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/redirect"
 )
 
@@ -149,10 +149,10 @@ func fillProfile(ctx context.Context, tx pgx.Tx, keepID, dropID uuid.UUID) error
 		return err
 	}
 	keep, drop := map[string]any{}, map[string]any{}
-	if err := json.Unmarshal(keepRaw, &keep); err != nil {
+	if err := jsonx.Unmarshal(keepRaw, &keep, jsonx.StoredLoose); err != nil {
 		return err
 	}
-	if err := json.Unmarshal(dropRaw, &drop); err != nil {
+	if err := jsonx.Unmarshal(dropRaw, &drop, jsonx.StoredLoose); err != nil {
 		return err
 	}
 	if keep["public"] == true && drop["public"] != true {
@@ -168,7 +168,7 @@ func fillProfile(ctx context.Context, tx pgx.Tx, keepID, dropID uuid.UUID) error
 	if !changed {
 		return nil
 	}
-	out, err := json.Marshal(keep)
+	out, err := jsonx.Marshal(keep)
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,7 @@ package taxonomy
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strconv"
@@ -11,6 +11,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // ErrTermConflict is returned by ApplyChangesetTx when the live term moved
@@ -40,7 +42,7 @@ type TermOp struct {
 	Description   string
 	ParentID      *uuid.UUID
 	Locale        string
-	SEO           json.RawMessage
+	SEO           jsontext.Value
 	BaseUpdatedAt *time.Time
 	// Origin owns a created term; empty is "owner". Updates keep the stored origin.
 	Origin string
@@ -59,23 +61,23 @@ type TermResult struct {
 	UpdatedAt time.Time
 	// Before is the pre-image (JSON) of an updated or deleted term, nil for a
 	// create. RestoreChangesetTx takes it back.
-	Before json.RawMessage
+	Before jsontext.Value
 }
 
 // termSnapshot is the stored pre-image: every column a changeset can change.
 type termSnapshot struct {
-	ID               uuid.UUID       `json:"id"`
-	Kind             string          `json:"kind"`
-	Slug             string          `json:"slug"`
-	Name             string          `json:"name"`
-	Description      string          `json:"description"`
-	ParentID         *uuid.UUID      `json:"parent_id,omitempty"`
-	Locale           string          `json:"locale"`
-	TranslationGroup *uuid.UUID      `json:"translation_group,omitempty"`
-	SEO              json.RawMessage `json:"seo"`
-	Origin           string          `json:"origin"`
-	CreatedAt        time.Time       `json:"created_at"`
-	UpdatedAt        time.Time       `json:"updated_at"`
+	ID               uuid.UUID      `json:"id"`
+	Kind             string         `json:"kind"`
+	Slug             string         `json:"slug"`
+	Name             string         `json:"name"`
+	Description      string         `json:"description"`
+	ParentID         *uuid.UUID     `json:"parent_id,omitempty"`
+	Locale           string         `json:"locale"`
+	TranslationGroup *uuid.UUID     `json:"translation_group,omitempty"`
+	SEO              jsontext.Value `json:"seo"`
+	Origin           string         `json:"origin"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
 }
 
 const snapshotCols = `id, kind, slug, name, description, parent_id, locale, translation_group, seo, origin, created_at, updated_at`
@@ -122,7 +124,7 @@ func applyTerm(ctx context.Context, tx pgx.Tx, op TermOp) (TermResult, error) {
 	if op.BaseUpdatedAt != nil && !op.BaseUpdatedAt.Truncate(time.Microsecond).Equal(cur.UpdatedAt.Truncate(time.Microsecond)) {
 		return TermResult{ID: cur.ID, Slug: cur.Slug, Conflict: true}, ErrTermConflict
 	}
-	before, err := json.Marshal(cur)
+	before, err := jsonx.Marshal(cur)
 	if err != nil {
 		return TermResult{}, fmt.Errorf("term pre-image: %w", err)
 	}
@@ -212,7 +214,7 @@ func updateTermTx(ctx context.Context, tx pgx.Tx, cur termSnapshot, op TermOp) (
 	if op.SEO != nil {
 		var stored string
 		var old TermSEO
-		if json.Unmarshal(cur.SEO, &old) == nil {
+		if jsonx.Unmarshal(cur.SEO, &old, jsonx.StoredLoose) == nil {
 			stored = old.CanonicalURL
 		}
 		var err error
@@ -261,12 +263,12 @@ func updateTermTx(ctx context.Context, tx pgx.Tx, cur termSnapshot, op TermOp) (
 
 // txSEO validates a raw SEO document like Service.UpdateTerm does and returns
 // the jsonb text to store ("{}" when empty).
-func txSEO(raw json.RawMessage, stored string) ([]byte, error) {
+func txSEO(raw jsontext.Value, stored string) ([]byte, error) {
 	if raw == nil {
 		return []byte("{}"), nil
 	}
 	var in TermSEO
-	if err := json.Unmarshal(raw, &in); err != nil {
+	if err := jsonx.Unmarshal(raw, &in, jsonx.StoredLoose); err != nil {
 		return nil, ErrInvalidSEO
 	}
 	v, err := validateTermSEO(in, stored)
@@ -401,9 +403,9 @@ func subtreeHeightTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (int, error) 
 // returned: the row is rewritten when it still exists and re-inserted when it
 // was deleted. A parent that is gone by now becomes no parent. Children that a
 // delete orphaned are not re-attached. Reverting a create is a Delete op.
-func RestoreChangesetTx(ctx context.Context, tx pgx.Tx, before json.RawMessage) error {
+func RestoreChangesetTx(ctx context.Context, tx pgx.Tx, before jsontext.Value) error {
 	var s termSnapshot
-	if err := json.Unmarshal(before, &s); err != nil || s.ID == uuid.Nil {
+	if err := jsonx.Unmarshal(before, &s, jsonx.StoredLoose); err != nil || s.ID == uuid.Nil {
 		return fmt.Errorf("term pre-image: unreadable")
 	}
 	sp, err := tx.Begin(ctx)

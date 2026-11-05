@@ -2,7 +2,7 @@ package menu
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strconv"
@@ -13,6 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Limits of the menu and item columns.
@@ -53,7 +55,7 @@ type MenuOp struct {
 type MenuTxResult struct {
 	ID       uuid.UUID
 	Slug     string
-	Before   json.RawMessage
+	Before   jsontext.Value
 	Created  bool
 	Conflict bool
 }
@@ -233,7 +235,7 @@ func applyExistingTx(ctx context.Context, tx pgx.Tx, op MenuOp) (MenuTxResult, e
 	if err != nil {
 		return MenuTxResult{}, err
 	}
-	if res.Before, err = json.Marshal(before); err != nil {
+	if res.Before, err = jsonx.Marshal(before); err != nil {
 		return MenuTxResult{}, fmt.Errorf("encode menu pre-image: %w", err)
 	}
 	if op.Delete {
@@ -287,9 +289,9 @@ func loadImage(ctx context.Context, tx pgx.Tx, id uuid.UUID) (menuImage, error) 
 // RestoreChangesetTx puts a menu back to the pre-image an earlier
 // ApplyChangesetTx returned (revert of an update or delete). A menu created by
 // a changeset is reverted with a Delete op instead.
-func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, before json.RawMessage) error {
+func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, before jsontext.Value) error {
 	var m menuImage
-	if err := json.Unmarshal(before, &m); err != nil {
+	if err := jsonx.Unmarshal(before, &m, jsonx.StoredLoose); err != nil {
 		return fmt.Errorf("decode menu pre-image: %w", err)
 	}
 	// An update trigger stamps updated_at, so the restored row is "now"; created_at is kept.

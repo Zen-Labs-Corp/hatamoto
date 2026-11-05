@@ -2,7 +2,6 @@ package taxonomy
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -15,6 +14,7 @@ import (
 
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // ErrTermNotFound is returned when a lookup misses.
@@ -840,7 +840,7 @@ func decodeTermSEO(raw []byte) (*TermSEO, error) {
 		return nil, nil
 	}
 	var s TermSEO
-	if err := json.Unmarshal(raw, &s); err != nil {
+	if err := jsonx.Unmarshal(raw, &s, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("decode term seo: %w", err)
 	}
 	if s.IsZero() {
@@ -854,5 +854,5 @@ func encodeTermSEO(s *TermSEO) ([]byte, error) {
 	if s == nil {
 		return []byte("{}"), nil
 	}
-	return json.Marshal(s)
+	return jsonx.Marshal(s)
 }

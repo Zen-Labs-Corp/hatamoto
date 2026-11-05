@@ -3,11 +3,12 @@ package person
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // SQLDB is the slice of database/sql Backfill needs; *sql.Tx and *sql.DB
@@ -141,8 +142,8 @@ func createPeople(ctx context.Context, db SQLDB, schemaID, company string) error
 		if r.photo != "" {
 			attrs["photo"] = r.photo
 		}
-		attrJSON, _ := json.Marshal(attrs)
-		meta, _ := json.Marshal(map[string]string{"import_key": "author:" + r.id, "legacy_author_id": r.id})
+		attrJSON, _ := jsonx.Marshal(attrs)
+		meta, _ := jsonx.Marshal(map[string]string{"import_key": "author:" + r.id, "legacy_author_id": r.id})
 
 		slug := r.slug
 		for n := 2; ; n++ {
