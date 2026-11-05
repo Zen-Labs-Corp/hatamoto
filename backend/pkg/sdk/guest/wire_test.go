@@ -112,8 +112,8 @@ func TestWireGuestCallRequests(t *testing.T) {
 	}
 	type kv struct {
 		Key   string `json:"key"`
-		Value any    `json:"value,omitempty"`
-		TTL   int    `json:"ttl_seconds,omitempty"`
+		Value any    `json:"value,omitzero"`
+		TTL   int    `json:"ttl_seconds,omitzero"`
 	}
 	for _, c := range []struct {
 		name string
