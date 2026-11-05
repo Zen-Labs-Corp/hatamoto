@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/ui"
+	"hatamoto.dev/core/internal/csvx"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/httpx"
 )
@@ -1107,14 +1108,6 @@ func (a *Admin) handleSubmissions(w http.ResponseWriter, r *http.Request) {
 	a.Render(w, r, http.StatusOK, "forms/submissions", v)
 }
 
-// csvSafe stops a spreadsheet from running a cell as a formula.
-func csvSafe(s string) string {
-	if s != "" && strings.ContainsRune("=+-@\t\r", rune(s[0])) {
-		return "'" + s
-	}
-	return s
-}
-
 // handleSubmissionsExport streams every submission (of the chosen status) as
 // CSV, a page at a time, so a large form never sits in memory. Each field of the
 // form is a column; answers the form no longer has follow in one "other" column.
@@ -1131,7 +1124,7 @@ func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) 
 	header := []string{"Received (UTC)", "Status", "Submission ID"}
 	for _, ff := range f.Fields {
 		known[ff.Name] = true
-		header = append(header, csvSafe(ff.Label))
+		header = append(header, csvx.Safe(ff.Label))
 	}
 	header = append(header, "Other answers", "Page", "Referrer",
 		"First channel", "First source", "First landing", "Last channel", "Last source", "Last landing")
@@ -1142,7 +1135,7 @@ func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) 
 	h.Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
 	cw := csv.NewWriter(w)
-	_, _ = w.Write([]byte("\xef\xbb\xbf")) // BOM: spreadsheets read UTF-8 correctly
+	_, _ = w.Write([]byte(csvx.BOM)) // BOM: spreadsheets read UTF-8 correctly
 	_ = cw.Write(header)
 	rc := http.NewResponseController(w)
 	var after *form.SubmissionCursor
@@ -1163,7 +1156,7 @@ func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) 
 			written++
 			row := []string{s.CreatedAt.UTC().Format(time.RFC3339), s.Status, s.ID.String()}
 			for _, ff := range f.Fields {
-				row = append(row, csvSafe(formatAnswer(s.Data[ff.Name])))
+				row = append(row, csvx.Safe(formatAnswer(s.Data[ff.Name])))
 			}
 			var other []string
 			keys := make([]string, 0, len(s.Data))
@@ -1176,14 +1169,14 @@ func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) 
 			for _, k := range keys {
 				other = append(other, k+": "+formatAnswer(s.Data[k]))
 			}
-			row = append(row, csvSafe(strings.Join(other, "; ")), csvSafe(s.Metadata.PageURL), csvSafe(s.Metadata.Referrer))
+			row = append(row, csvx.Safe(strings.Join(other, "; ")), csvx.Safe(s.Metadata.PageURL), csvx.Safe(s.Metadata.Referrer))
 			at := s.Attribution
 			if at == nil {
 				at = &form.Attribution{}
 			}
 			for _, t := range []*form.Touch{at.First, at.Last} {
 				ch, src, landing := touchParts(t)
-				row = append(row, csvSafe(ch), csvSafe(src), csvSafe(landing))
+				row = append(row, csvx.Safe(ch), csvx.Safe(src), csvx.Safe(landing))
 			}
 			_ = cw.Write(row)
 		}
