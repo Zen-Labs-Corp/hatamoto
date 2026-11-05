@@ -229,9 +229,13 @@ func (s *Service) createTx(ctx context.Context, tx pgx.Tx, op TxOp) (TxResult, e
 		}
 		_, err = sp.Exec(ctx, `
 			INSERT INTO hatamoto_entities (id, schema_id, name, slug, locale, status, attributes, metadata, version,
-				parent_id, origin, published_at)
+				parent_id, origin, published_at, sort_order)
 			VALUES ($1, $2, $3, $4, COALESCE(NULLIF($5::text, ''), public.hatamoto_site_language()), $6::text, $7, '{}', 1,
-				$8, $9, CASE WHEN $6::text = 'published' THEN now() END)`,
+				$8, $9, CASE WHEN $6::text = 'published' THEN now() END,
+				(SELECT CASE WHEN COALESCE(MAX(o.sort_order), 0) > 0 THEN MAX(o.sort_order) + 1 ELSE 0 END
+			   FROM hatamoto_entities o
+			  WHERE o.schema_id = $2 AND o.parent_id IS NOT DISTINCT FROM $8::uuid
+			    AND o.locale = COALESCE(NULLIF($5::text, ''), public.hatamoto_site_language()) AND o.variant_key IS NULL))`,
 			id, schema.ID, op.Name, cand, locale, string(status), attrs, op.ParentID, origin)
 		if err == nil {
 			if err = sp.Commit(ctx); err != nil {
@@ -321,7 +325,12 @@ func (s *Service) updateTx(ctx context.Context, tx pgx.Tx, op TxOp, cur *entityS
 			UPDATE hatamoto_entities
 			SET name = $2, slug = $3, locale = $4, attributes = $5, parent_id = $6, status = $7::text, origin = $8,
 			    published_at = CASE WHEN $7::text = 'published' AND published_at IS NULL THEN now() ELSE published_at END,
-			    version = CASE WHEN $9 THEN version + 1 ELSE version END
+			    version = CASE WHEN $9 THEN version + 1 ELSE version END,
+			    -- a row that changes parent lands last among its new siblings
+			    sort_order = CASE WHEN parent_id IS NOT DISTINCT FROM $6::uuid OR variant_key IS NOT NULL THEN sort_order ELSE
+			        (SELECT COALESCE(MAX(o.sort_order), 0) + 1 FROM hatamoto_entities o
+			          WHERE o.schema_id = hatamoto_entities.schema_id AND o.parent_id IS NOT DISTINCT FROM $6::uuid
+			            AND o.locale = $4 AND o.variant_key IS NULL AND o.id <> $1) END
 			WHERE id = $1`,
 			cur.ID, name, cand, locale, attrs, parent, string(status), origin, changed)
 		if err == nil {
@@ -410,10 +419,15 @@ func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, id uuid.UUI
 	_, err = sp.Exec(ctx, `
 		INSERT INTO hatamoto_entities (id, schema_id, name, slug, locale, status, attributes, metadata, version,
 			created_by, updated_by, created_at, parent_id, author_id, byline_person_id, byline_org, published_at, origin,
-			translation_group, translation_original, variant_key)
+			translation_group, translation_original, variant_key, sort_order)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
 			-- the owner may have named another member the original since
-			$20::boolean AND NOT EXISTS (SELECT 1 FROM hatamoto_entities WHERE translation_group = $19::uuid AND translation_original), $21)`,
+			$20::boolean AND NOT EXISTS (SELECT 1 FROM hatamoto_entities WHERE translation_group = $19::uuid AND translation_original), $21,
+			CASE WHEN $21::text IS NOT NULL THEN 0 ELSE
+				(SELECT CASE WHEN COALESCE(MAX(o.sort_order), 0) > 0 THEN MAX(o.sort_order) + 1 ELSE 0 END
+			   FROM hatamoto_entities o
+			  WHERE o.schema_id = $2 AND o.parent_id IS NOT DISTINCT FROM $13::uuid
+			    AND o.locale = $5 AND o.variant_key IS NULL) END)`,
 		id, snap.SchemaID, snap.Name, snap.Slug, snap.Locale, snap.Status, snap.Attributes, snap.Metadata, snap.Version,
 		snap.CreatedBy, snap.UpdatedBy, snap.CreatedAt, snap.ParentID, snap.AuthorID, snap.BylinePersonID, snap.BylineOrg,
 		snap.PublishedAt, snap.Origin, snap.TranslationGroup, snap.TranslationOriginal, snap.VariantKey)

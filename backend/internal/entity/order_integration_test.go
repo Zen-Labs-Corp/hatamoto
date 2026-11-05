@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func (f *csFixture) orderEntity(name string, parent *uuid.UUID) *Entity {
@@ -291,5 +292,62 @@ func TestPublicListingManualOrder(t *testing.T) {
 		if got := names(order); !eq(got, want) {
 			t.Errorf("order %q = %v, want %v", order, got, want)
 		}
+	}
+}
+
+// Rows created or re-created by changesets and imports join an ordered set
+// last, like a normal create, instead of jumping to the top at 0.
+func TestChangesetImportAndRestoreRowsJoinAnOrderedSetLast(t *testing.T) {
+	f := newCSFixture(t)
+	f.orderEntity("A", nil)
+	b := f.orderEntity("B", nil)
+	if _, err := f.svc.MoveEntity(f.ctx, b.ID, nil, MoveInput{Position: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.order(nil); !eq(got, []string{"B", "A"}) {
+		t.Fatalf("setup = %v", got)
+	}
+	attrs := json.RawMessage(`{"content":"x"}`)
+
+	cs, err := f.apply(TxOp{Name: "CS", Slug: "cs-" + uuid.NewString()[:6], Attributes: attrs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := f.order(nil); !eq(got, []string{"B", "A", "CS"}) {
+		t.Errorf("after changeset insert = %v", got)
+	}
+
+	imp, _, err := f.repo.ImportUpsert(f.ctx, &ImportRecord{SchemaID: f.schema.ID, Name: "IMP", Slug: "imp-" + uuid.NewString()[:6],
+		Status: StatusDraft, Attributes: attrs, Metadata: json.RawMessage(`{}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := f.order(nil); !eq(got, []string{"B", "A", "CS", "IMP"}) {
+		t.Errorf("after import = %v", got)
+	}
+
+	del, err := f.apply(TxOp{ID: &imp.ID, Delete: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.inTx(func(tx pgx.Tx) error { return f.svc.RestoreChangesetTx(f.ctx, tx, imp.ID, del.Before) }); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.order(nil); !eq(got, []string{"B", "A", "CS", "IMP"}) {
+		t.Errorf("after restore = %v", got)
+	}
+
+	// A changeset re-parent lands last among its new siblings.
+	parent := f.orderEntity("P", nil)
+	f.orderEntity("K1", &parent.ID)
+	k2 := f.orderEntity("K2", &parent.ID)
+	if _, err := f.svc.MoveEntity(f.ctx, k2.ID, nil, MoveInput{Position: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.apply(TxOp{ID: &cs.ID, ParentID: &parent.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.order(&parent.ID); !eq(got, []string{"K2", "K1", "CS"}) {
+		t.Errorf("after changeset re-parent = %v", got)
 	}
 }

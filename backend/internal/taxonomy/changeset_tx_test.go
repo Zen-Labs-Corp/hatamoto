@@ -364,3 +364,61 @@ func TestNotifyChangedNilSafe(t *testing.T) {
 		t.Fatalf("calls %d", calls)
 	}
 }
+
+// A term inserted, re-parented or restored by a changeset joins an ordered
+// sibling set last instead of jumping to the top at 0.
+func TestChangesetTermsJoinAnOrderedSetLast(t *testing.T) {
+	e := newTxEnv(t)
+	tag := "cs-" + uuid.NewString()[:8]
+	parent := e.run(t, TermOp{Kind: "tag", Name: "P", Slug: tag + "-p"})[0]
+	other := e.run(t, TermOp{Kind: "tag", Name: "O", Slug: tag + "-o"})[0]
+	k1 := e.run(t, TermOp{Kind: "tag", Name: "K1", Slug: tag + "-1", ParentID: &parent.ID})[0]
+	k2 := e.run(t, TermOp{Kind: "tag", Name: "K2", Slug: tag + "-2", ParentID: &parent.ID})[0]
+	e.cleanup(t, k1.ID, k2.ID, parent.ID, other.ID)
+	if _, err := e.db.Pool().Exec(e.ctx, `UPDATE hatamoto_terms SET sort_order = CASE id WHEN $1 THEN 1 ELSE 2 END WHERE id = ANY($2)`,
+		k1.ID, []uuid.UUID{k1.ID, k2.ID}); err != nil {
+		t.Fatal(err)
+	}
+	order := func() string {
+		var out []string
+		rows, err := e.db.Pool().Query(e.ctx, `SELECT name FROM hatamoto_terms WHERE parent_id = $1 ORDER BY sort_order, name`, parent.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var n string
+			if err := rows.Scan(&n); err != nil {
+				t.Fatal(err)
+			}
+			out = append(out, n)
+		}
+		return strings.Join(out, ",")
+	}
+	k3 := e.run(t, TermOp{Kind: "tag", Name: "K3", Slug: tag + "-3", ParentID: &parent.ID})[0]
+	e.cleanup(t, k3.ID)
+	if got := order(); got != "K1,K2,K3" {
+		t.Errorf("after insert = %s", got)
+	}
+	// Re-parent another term under the set: last.
+	e.run(t, TermOp{ID: &other.ID, Name: "O", ParentID: &parent.ID})
+	if got := order(); got != "K1,K2,K3,O" {
+		t.Errorf("after re-parent = %s", got)
+	}
+	// Delete then restore: last.
+	del := e.run(t, TermOp{ID: &k1.ID, Delete: true})[0]
+	tx, err := e.db.Pool().Begin(e.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(e.ctx) //nolint:errcheck
+	if err := RestoreChangesetTx(e.ctx, tx, del.Before); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(e.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := order(); got != "K2,K3,O,K1" {
+		t.Errorf("after restore = %s", got)
+	}
+}
