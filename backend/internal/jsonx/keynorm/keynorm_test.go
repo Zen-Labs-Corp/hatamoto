@@ -148,16 +148,18 @@ func TestNilShapeAndShapeMismatch(t *testing.T) {
 type tagged struct {
 	Plain   string `json:"plain"`
 	NoTag   int
-	Omit    string            `json:"omit,omitempty"`
-	Skipped string            `json:"-"`
-	Dash    string            `json:"-,"`
-	When    time.Time         `json:"when"`
-	Kids    []child           `json:"kids"`
-	Dict    map[string]child  `json:"dict"`
-	Ptr     *child            `json:"ptr"`
-	Tags    []string          `json:"tags"`
-	Attrs   map[string]string `json:"attrs"`
-	hidden  int
+	Omit    string `json:"omit,omitempty"`
+	Skipped string `json:"-"`
+	//lint:ignore SA5008 the tag is deliberate: "-," names the field "-"
+	Dash  string            `json:"-,"`
+	When  time.Time         `json:"when"`
+	Kids  []child           `json:"kids"`
+	Dict  map[string]child  `json:"dict"`
+	Ptr   *child            `json:"ptr"`
+	Tags  []string          `json:"tags"`
+	Attrs map[string]string `json:"attrs"`
+	//lint:ignore U1000 unexported on purpose: ShapeOf must skip it
+	hidden int
 	Base
 }
 
