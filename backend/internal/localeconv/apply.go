@@ -2,7 +2,7 @@ package localeconv
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Apply steps, in order. ApplyOpts.failAfter names one of them.
@@ -198,7 +200,7 @@ func writeSettings(ctx context.Context, tx pgx.Tx, plan *Plan, naming string) er
 	if err != nil {
 		return err
 	}
-	raw, err := json.Marshal(list)
+	raw, err := jsonx.Marshal(list)
 	if err != nil {
 		return err
 	}
@@ -215,7 +217,7 @@ func writeSettings(ctx context.Context, tx pgx.Tx, plan *Plan, naming string) er
 func plannedSiteLocales(stored []byte, plan *Plan) ([]SiteLocale, error) {
 	var old []SiteLocale
 	if len(stored) > 0 {
-		if err := json.Unmarshal(stored, &old); err != nil {
+		if err := jsonx.Unmarshal(stored, &old, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("read stored locales: %w", err)
 		}
 	}
@@ -233,8 +235,8 @@ func plannedSiteLocales(stored []byte, plan *Plan) ([]SiteLocale, error) {
 
 // schemaRecord is one entry of schemas_before / schemas_after.
 type schemaRecord struct {
-	ID       string          `json:"id"`
-	Settings json.RawMessage `json:"settings"`
+	ID       string         `json:"id"`
+	Settings jsontext.Value `json:"settings"`
 }
 
 func insertRecord(ctx context.Context, tx pgx.Tx, plan *Plan, rep *Report, opts ApplyOpts, before settingsJSON, ch *Changes, rows []*Planned) (*Record, error) {
@@ -247,11 +249,11 @@ func insertRecord(ctx context.Context, tx pgx.Tx, plan *Plan, rep *Report, opts 
 		schemasBefore = append(schemasBefore, schemaRecord{ID: c.ID, Settings: c.Before})
 		schemasAfter = append(schemasAfter, schemaRecord{ID: c.ID, Settings: c.After})
 	}
-	planJSON, _ := json.Marshal(plan)
-	reportJSON, _ := json.Marshal(rep)
+	planJSON, _ := jsonx.Marshal(plan)
+	reportJSON, _ := jsonx.Marshal(rep)
 	args := make([][]byte, 0, 6)
 	for _, v := range []any{before, after, orEmptyList(schemasBefore), orEmptyList(schemasAfter)} {
-		raw, err := json.Marshal(v)
+		raw, err := jsonx.Marshal(v)
 		if err != nil {
 			return nil, err
 		}
@@ -339,14 +341,14 @@ func strippedAttrs(p *Planned) (string, error) {
 	if len(p.Strip) == 0 {
 		return "", nil
 	}
-	var all map[string]json.RawMessage
-	if err := json.Unmarshal(p.Ent.Attrs, &all); err != nil {
+	var all map[string]jsontext.Value
+	if err := jsonx.Unmarshal(p.Ent.Attrs, &all, jsonx.StoredLoose); err != nil {
 		return "", fmt.Errorf("attributes of %s: %w", p.Ent.ID, err)
 	}
-	kept := map[string]json.RawMessage{}
+	kept := map[string]jsontext.Value{}
 	for _, k := range p.Strip {
 		kept[k] = all[k]
 	}
-	raw, err := json.Marshal(kept)
+	raw, err := jsonx.Marshal(kept)
 	return string(raw), err
 }

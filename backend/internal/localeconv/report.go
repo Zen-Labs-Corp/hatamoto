@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"hash"
 	"slices"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // maxRedirectSample caps the listed redirect sources.
@@ -99,7 +100,7 @@ func (a *analysis) fingerprint() string {
 	for _, s := range a.ch.Schemas {
 		fmt.Fprintf(h, "schema %s %s\n", s.ID, s.Before)
 	}
-	site, _ := json.Marshal(a.snap.Site)
+	site, _ := jsonx.MarshalPinned(a.snap.Site)
 	fmt.Fprintf(h, "site %s\n", site)
 	return sum(h)
 }
@@ -107,7 +108,7 @@ func (a *analysis) fingerprint() string {
 // PlanSHA256 is the hash a report carries for its plan: the SHA-256 of the
 // plan's JSON form, "" when the plan cannot be encoded.
 func PlanSHA256(p *Plan) string {
-	raw, err := json.Marshal(p)
+	raw, err := jsonx.MarshalPinned(p)
 	if err != nil {
 		return ""
 	}

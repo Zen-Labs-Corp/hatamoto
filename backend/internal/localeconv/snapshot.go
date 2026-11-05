@@ -1,7 +1,7 @@
 package localeconv
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"time"
 
 	"hatamoto.dev/core/internal/entity"
@@ -29,7 +29,7 @@ type Ent struct {
 	Status      string
 	Group       string // current translation_group
 	Nested      bool   // slug is unique per parent (the nested unique index applies)
-	Attrs       json.RawMessage
+	Attrs       jsontext.Value
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	PublishedAt *time.Time
@@ -55,7 +55,7 @@ type Schema struct {
 	ID       string
 	Slug     string
 	Name     string
-	Settings json.RawMessage
+	Settings jsontext.Value
 }
 
 // SiteLocale is one stored public locale (the JSON shape of site_config.locales).

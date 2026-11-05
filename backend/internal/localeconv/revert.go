@@ -2,12 +2,13 @@ package localeconv
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // ErrConversionNotFound is returned by Revert for an unknown conversion id.
@@ -43,7 +44,7 @@ func loadConversion(ctx context.Context, q querier, id int64) (*conversionRecord
 		raw []byte
 		dst any
 	}{{plan, &c.plan}, {sBefore, &c.settingsBefore}, {sAfter, &c.settingsAfter}, {schBefore, &c.schemasBefore}, {schAfter, &c.schemasAfter}} {
-		if err := json.Unmarshal(d.raw, d.dst); err != nil {
+		if err := jsonx.Unmarshal(d.raw, d.dst, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("decode conversion %d: %w", id, err)
 		}
 	}
@@ -262,7 +263,7 @@ func (s *pgService) History(ctx context.Context) ([]HistoryItem, error) {
 			return nil, err
 		}
 		var p Plan
-		if err := json.Unmarshal(plan, &p); err != nil {
+		if err := jsonx.Unmarshal(plan, &p, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("decode plan of conversion %d: %w", h.ID, err)
 		}
 		h.Locales = []string{}
