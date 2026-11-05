@@ -60,7 +60,8 @@ func (d *renderData) topLanding(ctx context.Context, from, to time.Time, limit i
 // included. Landing paths are mapped to entities with the public resolver, so
 // a trailing slash, a locale prefix or a casing difference land on the same
 // entity and their views add up. The result is memoised for a minute per
-// (days, schema); errors are not.
+// (days, schema); errors are not, and neither is a ranking that skipped a path
+// or ran out of time (it is served, but marks the page uncacheable).
 func (d *renderData) rankedPopular(ctx context.Context, schema string, days int) ([]uuid.UUID, error) {
 	key := fmt.Sprintf("%d|%s", days, schema)
 	d.mu.Lock()
@@ -91,9 +92,14 @@ func (d *renderData) rankedPopular(ctx context.Context, schema string, days int)
 		list     []scored
 		at       = map[uuid.UUID]int{}
 		resolved int
+		failed   bool
 	)
 	for _, t := range top {
 		if resolved >= popularResolves {
+			break
+		}
+		if ctx.Err() != nil { // out of time: serve what is ranked, but not as healthy
+			failed = true
 			break
 		}
 		path := strings.ToLower(t.K1)
@@ -113,6 +119,7 @@ func (d *renderData) rankedPopular(ctx context.Context, schema string, days int)
 		resolved++
 		res, err := resolveEntity(sctx, repo, snap, rest)
 		if err != nil { // one bad path loses its views, not the whole ranking
+			failed = true
 			d.s.logger.Warn("render: popular path", "error", err, "path", rest)
 			continue
 		}
@@ -140,6 +147,10 @@ func (d *renderData) rankedPopular(ctx context.Context, schema string, days int)
 	ids := make([]uuid.UUID, len(list))
 	for i, s := range list {
 		ids[i] = s.id
+	}
+	if failed { // a partial ranking is served once: not memoised, page not cached
+		d.fail()
+		return ids, nil
 	}
 	d.mu.Lock()
 	if d.popular == nil || len(d.popular) >= popularMemoSize {

@@ -235,16 +235,33 @@ func TestRenderDataPopular_Integration(t *testing.T) {
 		}
 	}
 
-	// One failing path lookup loses that path only: no fallback, no failure.
+	// One failing path lookup loses that path only, but the page is marked
+	// uncacheable and the partial ranking is not memoised.
 	one := newData()
+	reads := 0
 	one.landingSource = func(context.Context, time.Time, time.Time, int) ([]analytics.TrafficTop, error) {
+		reads++
 		return []analytics.TrafficTop{
 			{K1: "/" + post + "/bad\x00", Pageviews: 50}, // NUL: the lookup errors
 			{K1: "/" + post + "/p5", Pageviews: 5},
 		}, nil
 	}
-	if got := names(one.Query(render.QuerySpec{Schema: post, Order: "popular_30", Limit: 2, Page: 1})); !slices.Equal(got, []string{"p5", "p1"}) || one.Failures() != 0 {
-		t.Errorf("bad path = %v, failures %d, want p5 first and 0", got, one.Failures())
+	spec := render.QuerySpec{Schema: post, Order: "popular_30", Limit: 2, Page: 1}
+	if got := names(one.Query(spec)); !slices.Equal(got, []string{"p5", "p1"}) || one.Failures() == 0 {
+		t.Errorf("bad path = %v, failures %d, want p5 first and failures > 0", got, one.Failures())
+	}
+	one.Query(spec)
+	if reads != 2 {
+		t.Errorf("rollup read %d times, want 2 (partial ranking not memoised)", calls)
+	}
+
+	// An expired context stops the resolving and is a failure too.
+	exp := newData()
+	exp.landingSource = one.landingSource
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if ids, err := exp.rankedPopular(ctx, post, 30); err != nil || len(ids) != 0 || exp.Failures() == 0 {
+		t.Errorf("cancelled = %v, %v, failures %d, want none, nil, > 0", ids, err, exp.Failures())
 	}
 
 	// A failing rollup falls back to the newest and marks the page uncacheable.
