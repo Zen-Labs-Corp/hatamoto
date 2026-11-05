@@ -19,7 +19,7 @@ var speculationExcluded = []string{
 	"/preview/*", "/*/preview*",
 	"/plugins/*/ui*", "/plugins/*/settings*", "/plugins/*/bridge*",
 	"/*/delete*", "/*/confirm*", "/settings/api-keys/secret*",
-	"/*/export.csv*",
+	"/*/export.csv*", "/settings/import/csv/*",
 	"/*/revoke*", "/*/regenerate*", "/*/resend*", "/*/activate*", "/*/status*",
 	"/*/toggle*", "/*/ignore*", "/*/restore*", "/*/email*", "/*/bulk*",
 	"/*/start*", "/*/resume*", "/*/cancel*", "/*/fetch*", "/*/upload*",

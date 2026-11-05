@@ -37,13 +37,14 @@ type Spool struct {
 
 // State is the wizard state of one upload.
 type State struct {
-	Type     string   `json:"type"`
-	FileName string   `json:"file_name"`
-	Header   []string `json:"header"`
-	Rows     int      `json:"rows"`
-	Mapping  *Mapping `json:"mapping,omitempty"`
-	Dry      *Report  `json:"dry,omitempty"`
-	Done     *Report  `json:"done,omitempty"`
+	Type     string     `json:"type"`
+	FileName string     `json:"file_name"`
+	Header   []string   `json:"header"`
+	Sample   [][]string `json:"sample,omitempty"`
+	Rows     int        `json:"rows"`
+	Mapping  *Mapping   `json:"mapping,omitempty"`
+	Dry      *Report    `json:"dry,omitempty"`
+	Done     *Report    `json:"done,omitempty"`
 }
 
 func (s *Spool) dir() string { return filepath.Join(s.Dir, "csv") }

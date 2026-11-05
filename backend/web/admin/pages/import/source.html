@@ -18,6 +18,7 @@
 {{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Scan the site" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
 </div>
 </form>
+<p class="hm-muted"><a href="{{adminPath}}/settings/import/csv">Import a CSV file instead</a></p>
 {{if .Recent}}{{template "hm/card-start" dict "Title" "Earlier imports" "ID" "runs" "Heading" "h2"}}{{template "hm/tracker" .Trend}}
 <div class="hm-table__scroll" role="region" aria-label="Earlier imports" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Earlier imports</caption>
 <thead><tr><th scope="col">Source</th><th scope="col">Started</th><th scope="col">State</th></tr></thead>

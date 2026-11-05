@@ -1,0 +1,17 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Dry run" "Description" (printf "%s from %s. Nothing has been stored yet." .Type .FileName) "CSRF" $.CSRF}}
+{{template "hm/steps" (dict "Items" .Steps "Label" "CSV import progress")}}
+<p><strong>{{.Summary}}</strong></p>
+{{if .Errors}}{{template "hm/card-start" dict "Title" "Rows with an error" "ID" "csv-errors" "Heading" "h2"}}
+<div class="hm-table__scroll" role="region" aria-label="Rows with an error" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Rows that cannot be imported, with the reason. The header is row 1.</caption>
+<thead><tr><th scope="col">Row</th><th scope="col">Column</th><th scope="col">What went wrong</th></tr></thead>
+<tbody>{{range .Errors}}<tr><th scope="row" class="hm-table__rowhead">{{.Row}}</th><td data-label="Column">{{.Column}}</td><td data-label="What went wrong">{{.Message}}</td></tr>
+{{end}}</tbody></table></div>{{if .More}}<p class="hm-muted">And {{.More}} more.</p>{{end}}
+{{template "hm/card-end"}}{{end}}
+<form method="post" action="{{.Run}}" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "Title" "Import" "ID" "csv-run" "Heading" "h2"}}
+<p class="hm-muted">{{if .Importable}}Rows with an error are skipped; the others are stored. Running the same file again updates them.{{else}}No row can be imported. Go back and change the mapping, or fix the file.{{end}}</p>
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Back to the mapping" "Href" .Back}}{{if .Importable}}{{template "hm/button" dict "Label" (printf "Import %d %s" .Importable (cond (eq .Importable 1) "row" "rows")) "Variant" "primary" "Type" "submit"}}{{else}}{{template "hm/button" dict "Label" "Import 0 rows" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "disabled" "disabled")}}{{end}}{{template "hm/card-foot-end"}}
+</form>
+{{end}}{{end}}

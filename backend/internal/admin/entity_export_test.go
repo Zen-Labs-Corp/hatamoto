@@ -111,3 +111,5 @@ func TestEntityExportRoles(t *testing.T) {
 		t.Error("the combined list offers an export")
 	}
 }
+
+func init() { areaPages["entityexport"] = []string{"entities/export"} }

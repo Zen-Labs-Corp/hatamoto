@@ -37,7 +37,7 @@ func TestShellCarriesNoncedSpeculationRules(t *testing.T) {
 	}
 	for _, want := range []string{
 		"/admin/login*", "/admin/setup*", "/admin/logout*", "/admin/theme", "/admin/*/delete*", "/admin/*/confirm*",
-		"/admin/*/export.csv*", "/admin/*/preview*", "/admin/preview/*", "/admin/plugins/*/ui*", "/admin/plugins/*/settings*", "/admin/*/bulk*",
+		"/admin/*/export.csv*", "/admin/settings/import/csv/*", "/admin/*/preview*", "/admin/preview/*", "/admin/plugins/*/ui*", "/admin/plugins/*/settings*", "/admin/*/bulk*",
 		"/admin/*/unsigned*", "/admin/*/check-updates*",
 		"/admin/forms/submissions/*", "/admin/entities/*/edit*", "/admin/entities/new*", "/admin/entities/drafts*",
 	} {
