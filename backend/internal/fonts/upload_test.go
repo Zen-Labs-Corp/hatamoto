@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/render"
 )
 
 func TestValidateUpload(t *testing.T) {
@@ -18,7 +20,7 @@ func TestValidateUpload(t *testing.T) {
 		want   error
 	}{
 		{"ok", "Brand Sans", 400, "normal", ok, nil},
-		{"italic 900", "Brand-Sans_2.0", 900, "italic", ok, nil},
+		{"italic 900", "Brand-Sans_2", 900, "italic", ok, nil},
 		{"not woff2", "Brand", 400, "normal", []byte("OTTO0000"), ErrNotWOFF2},
 		{"woff1", "Brand", 400, "normal", []byte("wOFF0000"), ErrNotWOFF2},
 		{"too big", "Brand", 400, "normal", append([]byte("wOF2"), make([]byte, MaxFileBytes)...), ErrTooBig},
@@ -58,5 +60,21 @@ func TestFirstFamily(t *testing.T) {
 		if got := FirstFamily(in); got != want {
 			t.Errorf("FirstFamily(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// A family the store accepts must survive as a theme font stack: render drops
+// a stack outside its own charset, which left the font loaded but unused.
+func TestValidFamilyFitsThemeFontStack(t *testing.T) {
+	for _, name := range []string{"Brand Sans", "Brand-Sans_2", "Brand Sans 2.0", "A.B", "Inter!", "Sans/Serif", "Név"} {
+		if !ValidFamily(name) {
+			continue
+		}
+		if stack := `"` + name + `", sans-serif`; !render.ValidFont(stack) {
+			t.Errorf("family %q is accepted but the stack %s is not a valid theme font", name, stack)
+		}
+	}
+	if ValidFamily("Brand Sans 2.0") {
+		t.Error("a dotted family name is accepted")
 	}
 }

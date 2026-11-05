@@ -19,7 +19,7 @@ type FontFace struct {
 }
 
 var (
-	fontFamilyRE = regexp.MustCompile(`^[A-Za-z0-9 ._-]{1,60}$`)
+	fontFamilyRE = regexp.MustCompile(`^[A-Za-z0-9 _-]{1,60}$`)
 	fontHashRE   = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	fontRangeRE  = regexp.MustCompile(`^[Uu+0-9A-Fa-f?, -]{1,300}$`)
 )
