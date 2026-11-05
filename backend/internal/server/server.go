@@ -409,6 +409,7 @@ func (s *Server) setupDependencies() {
 	s.entityService.SetPathObserver(s.onEntityMoved)
 	s.entityService.SetSchemaPatternObserver(s.onSchemaPatternChanged)
 	s.entityService.SetLiveObserver(s.onEntitiesLive)
+	s.entityService.SetUnpublishStore(entity.NewUnpublishStore(s.db))
 	// {year}/{month}/{day} URL tokens are read in the site time zone.
 	s.entityService.URLRegistry().SetTimezone(func(ctx context.Context) string {
 		if cfg, err := s.siteConfig.Get(ctx); err == nil {
@@ -565,6 +566,7 @@ func (s *Server) setupDependencies() {
 		publishWorker.SetEvents(scheduledPublishSink{s: s, next: s.entitySink})
 		if workerJobEnabled("publish") {
 			s.scheduler.SetPublishWorker(publishWorker)
+			s.scheduler.SetUnpublishWorker(worker.NewUnpublishWorker(s.db, s.logger, unpublishSink{s: s}))
 		}
 
 		// Daily retention purge: expired sessions (previously no scheduled caller).

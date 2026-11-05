@@ -24,7 +24,11 @@ func (s *Server) onEntitiesLive(ctx context.Context, ids []uuid.UUID) {
 	var paths []string
 	for _, id := range ids {
 		e, err := s.entityRepo.GetByID(ctx, id)
-		if err != nil || e.Status != entity.StatusPublished || e.Schema == nil || e.Locale != lang {
+		if err != nil || e.Status != entity.StatusPublished {
+			continue
+		}
+		s.retireUnpublishRedirect(ctx, id)
+		if e.Schema == nil || e.Locale != lang {
 			continue
 		}
 		if p := locateEntity(ctx, snap, repo, e).Path; p != "" && p != "/" {
