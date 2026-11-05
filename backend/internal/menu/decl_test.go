@@ -86,3 +86,13 @@ func TestParseDeclErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestParseDeclItemKeysCaseInsensitive(t *testing.T) {
+	locs, err := ParseDecl(json.RawMessage(`{"a":{"default":[{"Label":"Blog","URL":"/blog"}]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := locs[0].Default; len(d) != 1 || d[0].Label != "Blog" || d[0].URL != "/blog" {
+		t.Errorf("default = %+v", d)
+	}
+}

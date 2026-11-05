@@ -1,6 +1,7 @@
 package tags
 
 import (
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"html"
@@ -66,7 +67,7 @@ func ParseDecl(plugin, stem string, raw []byte) (Vendor, error) {
 		return Vendor{}, fmt.Errorf("file name %q must be lower-case letters, digits and dashes", stem)
 	}
 	var d Decl
-	if err := jsonx.Unmarshal(raw, &d, jsonx.StrictNoUnknown); err != nil {
+	if err := jsonx.Unmarshal(raw, &d, jsonv2.JoinOptions(jsonx.StrictNoUnknown, jsonv2.MatchCaseInsensitiveNames(true))); err != nil {
 		return Vendor{}, fmt.Errorf("invalid JSON: %v", err)
 	}
 

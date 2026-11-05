@@ -3,6 +3,7 @@ package menu
 import (
 	"bytes"
 	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -125,7 +126,7 @@ func parseDeclItem(path string, raw jsontext.Value) (DeclItem, error) {
 		URL     *string `json:"url"`
 		Archive *string `json:"archive"`
 	}
-	if err := jsonx.Unmarshal(raw, &f, jsonx.StrictNoUnknown); err != nil {
+	if err := jsonx.Unmarshal(raw, &f, jsonv2.JoinOptions(jsonx.StrictNoUnknown, jsonv2.MatchCaseInsensitiveNames(true))); err != nil {
 		return DeclItem{}, fmt.Errorf("%s: %v (allowed keys: label, url, archive)", path, err)
 	}
 	var it DeclItem

@@ -185,3 +185,10 @@ func TestIsPackKey(t *testing.T) {
 		}
 	}
 }
+
+func TestParseDeclKeysCaseInsensitive(t *testing.T) {
+	raw := strings.NewReplacer(`"name"`, `"Name"`, `"script"`, `"Script"`).Replace(goodDecl)
+	if _, err := ParseDecl("acme", "stats", []byte(raw)); err != nil {
+		t.Fatal(err)
+	}
+}
