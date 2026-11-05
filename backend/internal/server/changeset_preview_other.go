@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"html"
 	"net/url"
 	"path"
@@ -14,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/redirect"
 )
@@ -36,14 +36,14 @@ func (o *stagedChangeset) stageOthers(ctx context.Context, src stagedSource, ori
 				Target     string `json:"target"`
 				Status     int    `json:"status"`
 			}
-			if json.Unmarshal(it.Payload, &p) == nil && strings.HasPrefix(p.SourcePath, "/") {
+			if jsonx.Unmarshal(it.Payload, &p, jsonx.Stored) == nil && strings.HasPrefix(p.SourcePath, "/") {
 				o.redirects = append(o.redirects, &stagedRedirect{Seq: it.Seq, Source: p.SourcePath, Target: p.Target, Status: p.Status})
 			}
 		case changeset.KindMedia:
 			var p struct {
 				Filename string `json:"filename"`
 			}
-			if json.Unmarshal(it.Payload, &p) == nil && p.Filename != "" {
+			if jsonx.Unmarshal(it.Payload, &p, jsonx.Stored) == nil && p.Filename != "" {
 				o.media[p.Filename] = true
 			}
 		}
@@ -56,7 +56,7 @@ func (o *stagedChangeset) stageMenu(ctx context.Context, src stagedSource, origi
 		Items      []menu.ReplaceItem `json:"items"`
 		EntityKeys map[int]string     `json:"entity_keys"`
 	}
-	if json.Unmarshal(it.Payload, &p) != nil {
+	if jsonx.Unmarshal(it.Payload, &p, jsonx.Stored) != nil {
 		return
 	}
 	var id uuid.UUID

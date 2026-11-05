@@ -2,10 +2,10 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 )
 
@@ -32,7 +32,7 @@ func (s *Server) upgradeHeaderItems(ctx context.Context) ([]menu.ReplaceItem, er
 	if pages != nil {
 		for _, p := range pages.Items {
 			var attrs map[string]interface{}
-			if err := json.Unmarshal(p.Attributes, &attrs); err == nil {
+			if err := jsonx.Unmarshal(p.Attributes, &attrs, jsonx.Stored); err == nil {
 				if hidden, ok := attrs["hide_from_nav"].(bool); ok && hidden {
 					continue
 				}

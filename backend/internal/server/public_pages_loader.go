@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -9,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/seo"
@@ -120,7 +120,7 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 
 	// Parse attributes for meta
 	var attrs map[string]interface{}
-	if err := json.Unmarshal(ent.Attributes, &attrs); err != nil {
+	if err := jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.Stored); err != nil {
 		attrs = make(map[string]interface{})
 	}
 
@@ -224,7 +224,7 @@ func (s *Server) loadHomepage(r *http.Request) (*PublicPageResponse, pageOutcome
 
 	// Parse attributes for meta
 	var attrs map[string]interface{}
-	if err := json.Unmarshal(ent.Attributes, &attrs); err != nil {
+	if err := jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.Stored); err != nil {
 		attrs = make(map[string]interface{})
 	}
 
@@ -298,7 +298,7 @@ func pageFAQItems(ent *entity.Entity) []entity.FAQItem {
 	var body struct {
 		Content string `json:"content"`
 	}
-	if json.Unmarshal(ent.Attributes, &body) != nil {
+	if jsonx.Unmarshal(ent.Attributes, &body, jsonx.Stored) != nil {
 		return nil
 	}
 	return entity.ExtractFAQItems(body.Content)

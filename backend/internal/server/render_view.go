@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -20,6 +20,7 @@ import (
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
@@ -143,9 +144,9 @@ func pageViewFromRoute(rr *routeResult, baseURL, path string) *render.PageView {
 // (unmarshalling into a new map is a deep copy, so a template cannot touch the
 // stored value). page_sections and page_doc are dropped: they are already in
 // PageView.Sections / PageView.Doc.
-func attrsForView(raw json.RawMessage) map[string]any {
+func attrsForView(raw jsontext.Value) map[string]any {
 	var m map[string]any
-	if len(raw) == 0 || json.Unmarshal(raw, &m) != nil {
+	if len(raw) == 0 || jsonx.Unmarshal(raw, &m, jsonx.Stored) != nil {
 		return nil
 	}
 	delete(m, "page_sections")
@@ -160,7 +161,7 @@ func attrsForView(raw json.RawMessage) map[string]any {
 // stored doc that fails validation renders an empty body: the page_sections
 // mirror is frozen and could show removed content (entityID names the page in
 // the warning; empty for an unsaved preview).
-func contentFromAttributes(attrs json.RawMessage, entityID string) ([]render.Section, *builder.Doc) {
+func contentFromAttributes(attrs jsontext.Value, entityID string) ([]render.Section, *builder.Doc) {
 	if doc := docFromAttributes(attrs, entityID); doc != nil {
 		if secs, ok := builder.ToSections(doc); ok {
 			out := make([]render.Section, 0, len(secs))
@@ -178,9 +179,9 @@ func contentFromAttributes(attrs json.RawMessage, entityID string) ([]render.Sec
 }
 
 // hasPageDoc reports whether attrs carries a non-null page_doc key.
-func hasPageDoc(attrs json.RawMessage) bool {
-	var w map[string]json.RawMessage
-	if len(attrs) == 0 || json.Unmarshal(attrs, &w) != nil {
+func hasPageDoc(attrs jsontext.Value) bool {
+	var w map[string]jsontext.Value
+	if len(attrs) == 0 || jsonx.Unmarshal(attrs, &w, jsonx.Stored) != nil {
 		return false
 	}
 	raw := w["page_doc"]
@@ -189,10 +190,10 @@ func hasPageDoc(attrs json.RawMessage) bool {
 
 // docFromAttributes decodes and validates attributes.page_doc; nil when absent
 // or invalid.
-func docFromAttributes(attrs json.RawMessage, entityID string) *builder.Doc {
+func docFromAttributes(attrs jsontext.Value, entityID string) *builder.Doc {
 	// Exact key lookup: a struct tag would also match "Page_Doc".
-	var w map[string]json.RawMessage
-	if len(attrs) == 0 || json.Unmarshal(attrs, &w) != nil {
+	var w map[string]jsontext.Value
+	if len(attrs) == 0 || jsonx.Unmarshal(attrs, &w, jsonx.Stored) != nil {
 		return nil
 	}
 	raw := w["page_doc"]
@@ -317,7 +318,7 @@ func timeVal(t *time.Time) time.Time {
 // loader put in the meta: loadHomepage, unlike loadPublicPage, falls back to
 // the entity name and drops no_index. The JSON API is untouched; this only
 // shapes the rendered head.
-func applyAttributeMeta(m *render.PageMeta, attrs json.RawMessage, baseURL string) {
+func applyAttributeMeta(m *render.PageMeta, attrs jsontext.Value, baseURL string) {
 	var a struct {
 		MetaTitle    string `json:"meta_title"`
 		MetaDesc     string `json:"meta_description"`
@@ -328,7 +329,7 @@ func applyAttributeMeta(m *render.PageMeta, attrs json.RawMessage, baseURL strin
 			Robots string `json:"robots"`
 		} `json:"seo"`
 	}
-	if len(attrs) == 0 || json.Unmarshal(attrs, &a) != nil {
+	if len(attrs) == 0 || jsonx.Unmarshal(attrs, &a, jsonx.Stored) != nil {
 		return
 	}
 	if t := strings.TrimSpace(a.MetaTitle); t != "" {
@@ -381,21 +382,21 @@ func crumbs(in []BreadcrumbItem) []render.Crumb {
 	return out
 }
 
-func jsonLDDocs(doc map[string]interface{}) []json.RawMessage {
+func jsonLDDocs(doc map[string]interface{}) []jsontext.Value {
 	if len(doc) == 0 {
 		return nil
 	}
-	b, err := json.Marshal(doc)
+	b, err := jsonx.Marshal(doc)
 	if err != nil {
 		return nil
 	}
-	return []json.RawMessage{b}
+	return []jsontext.Value{b}
 }
 
 // sectionsFromAttributes reads attributes.page_sections. Ordering, visibility
 // and sanitising are the render pipeline's job; this only decodes, one item at
 // a time, so a malformed sibling costs that section and not the page.
-func sectionsFromAttributes(attrs json.RawMessage) []render.Section {
+func sectionsFromAttributes(attrs jsontext.Value) []render.Section {
 	secs := builder.SectionsFromJSON(attrs, false)
 	if secs == nil {
 		return nil
@@ -453,9 +454,9 @@ func (s *Server) buildSiteView(ctx context.Context) (render.SiteView, error) {
 
 // siteSettings decodes the theme_config blob (theme settings) for .Site.Settings.
 // Nil when unset or malformed.
-func siteSettings(raw json.RawMessage) map[string]any {
+func siteSettings(raw jsontext.Value) map[string]any {
 	var m map[string]any
-	if len(raw) == 0 || json.Unmarshal(raw, &m) != nil {
+	if len(raw) == 0 || jsonx.Unmarshal(raw, &m, jsonx.Stored) != nil {
 		return nil
 	}
 	return m
@@ -483,11 +484,11 @@ func themeTokens(t siteconfig.ThemeConfig) render.ThemeTokens {
 
 // socialLinks reads the optional theme_config "socialLinks" object
 // ({"twitter": "https://..."}) in name order.
-func socialLinks(raw json.RawMessage) []render.Link {
+func socialLinks(raw jsontext.Value) []render.Link {
 	var doc struct {
 		Links map[string]string `json:"socialLinks"`
 	}
-	if len(raw) == 0 || json.Unmarshal(raw, &doc) != nil {
+	if len(raw) == 0 || jsonx.Unmarshal(raw, &doc, jsonx.Stored) != nil {
 		return nil
 	}
 	names := make([]string, 0, len(doc.Links))
@@ -1103,9 +1104,9 @@ func newBusinessView(p bizprofile.Profile, seg, servicesCurrency string) *render
 
 // postalAddress decodes the site config's address JSON for the theme and the
 // Organization JSON-LD. Zero when unset or malformed.
-func postalAddress(raw json.RawMessage) render.Address {
+func postalAddress(raw jsontext.Value) render.Address {
 	var a render.Address
-	if len(raw) == 0 || json.Unmarshal(raw, &a) != nil {
+	if len(raw) == 0 || jsonx.Unmarshal(raw, &a, jsonx.Stored) != nil {
 		return render.Address{}
 	}
 	return a

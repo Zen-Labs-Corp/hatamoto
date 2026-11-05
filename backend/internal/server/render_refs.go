@@ -2,13 +2,14 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -49,10 +50,10 @@ func (d *renderData) partDoc(ctx context.Context, schema, slot, id string) (*bui
 		return nil, false
 	}
 	var a struct {
-		Slot string          `json:"slot"`
-		Doc  json.RawMessage `json:"page_doc"`
+		Slot string         `json:"slot"`
+		Doc  jsontext.Value `json:"page_doc"`
 	}
-	if json.Unmarshal(e.Attributes, &a) != nil || (slot != "" && a.Slot != slot) {
+	if jsonx.Unmarshal(e.Attributes, &a, jsonx.Stored) != nil || (slot != "" && a.Slot != slot) {
 		return nil, false
 	}
 	if len(a.Doc) == 0 || string(a.Doc) == "null" {

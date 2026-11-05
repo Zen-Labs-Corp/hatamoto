@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"encoding/xml"
 	"fmt"
 	"log/slog"
@@ -18,6 +18,7 @@ import (
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/seo"
@@ -31,10 +32,10 @@ type PublicPageResponse struct {
 	JSONLD     map[string]interface{} `json:"json_ld,omitempty"`
 	Meta       PageMeta               `json:"meta"`
 	Breadcrumb []BreadcrumbItem       `json:"breadcrumb"`
-	Editorial  json.RawMessage        `json:"editorial,omitempty"`
+	Editorial  jsontext.Value         `json:"editorial,omitzero"`
 	// ExtraJSONLD holds the entry's custom JSON-LD objects, rendered as extra
 	// ld+json scripts after JSONLD. HTML pages only.
-	ExtraJSONLD []json.RawMessage        `json:"-"`
+	ExtraJSONLD []jsontext.Value         `json:"-"`
 	Segments    []ContentSegmentResponse `json:"segments,omitempty"`
 	// AICrawlerComment is the HTML comment block embedded in the page for
 	// AI/LLM crawlers. Empty when the entity has been opted out via the
@@ -48,7 +49,7 @@ type PageMeta struct {
 	Description  string `json:"description,omitempty"`
 	OGImage      string `json:"og_image,omitempty"`
 	CanonicalURL string `json:"canonical_url,omitempty"`
-	NoIndex      bool   `json:"no_index,omitempty"`
+	NoIndex      bool   `json:"no_index,omitzero"`
 }
 
 // BreadcrumbItem represents a breadcrumb navigation item.
@@ -498,12 +499,12 @@ func (s *Server) tenantNameForComment(ctx context.Context) string {
 // into the siteconfig.ThemeConfig shape. Falls back to the default theme on
 // missing or malformed data so a partial migration never blanks the design
 // tokens.
-func decodeThemeExtra(raw json.RawMessage) siteconfig.ThemeConfig {
+func decodeThemeExtra(raw jsontext.Value) siteconfig.ThemeConfig {
 	if len(raw) == 0 {
 		return siteconfig.DefaultThemeConfig()
 	}
 	var t siteconfig.ThemeConfig
-	if err := json.Unmarshal(raw, &t); err != nil {
+	if err := jsonx.Unmarshal(raw, &t, jsonx.Stored); err != nil {
 		return siteconfig.DefaultThemeConfig()
 	}
 	return t

@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -13,6 +12,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/plugrun"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/sdk"
@@ -79,7 +79,7 @@ func suggestionValues(p plugrun.Proposal) (map[string]string, bool) {
 		return nil, false
 	}
 	var m map[string]string
-	if json.Unmarshal(p.Payload, &m) != nil || len(m) == 0 {
+	if jsonx.Unmarshal(p.Payload, &m, jsonx.Stored) != nil || len(m) == 0 {
 		return nil, false
 	}
 	for k := range m {
@@ -445,7 +445,7 @@ func (r *changesetReviewer) applyApproved(ctx context.Context, runID uuid.UUID) 
 			def, _ := settingByKey(k)
 			before[k] = def.get(cfg)
 		}
-		raw, err := json.Marshal(before)
+		raw, err := jsonx.Marshal(before)
 		if err != nil {
 			return err
 		}
@@ -594,7 +594,7 @@ func (r *changesetReviewer) Undo(ctx context.Context, id int64) (restored, keptE
 	}
 	for _, p := range applied {
 		var before map[string]string
-		if err := json.Unmarshal(p.Before, &before); err != nil {
+		if err := jsonx.Unmarshal(p.Before, &before, jsonx.Stored); err != nil {
 			return res.Applied, res.Skipped, fmt.Errorf("suggestion %d: unreadable pre-image: %w", p.ID, err)
 		}
 		if err := r.applySettings(ctx, before); err != nil {
