@@ -3,8 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/seo"
@@ -91,10 +91,10 @@ func (h *renderAdminHandlers) handleRenderTheme(w http.ResponseWriter, _ *http.R
 
 // previewRequest is the POST /api/v1/render/preview body.
 type previewRequest struct {
-	EntityID   string          `json:"entity_id"`
-	Schema     string          `json:"schema"`
-	Attributes json.RawMessage `json:"attributes"`
-	Path       string          `json:"path"`
+	EntityID   string         `json:"entity_id"`
+	Schema     string         `json:"schema"`
+	Attributes jsontext.Value `json:"attributes"`
+	Path       string         `json:"path"`
 	// Canvas injects the editor bridge script into the document.
 	Canvas bool `json:"canvas"`
 	// Name, PublishedAt and UpdatedAt are the draft's own, for builder
@@ -117,15 +117,13 @@ const previewSandboxCSP = "sandbox allow-scripts; script-src "
 // posted section content is sanitised exactly like stored content; nothing is
 // persisted or cached.
 func (h *renderAdminHandlers) handleRenderPreview(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxPreviewBodySize)
 	var req previewRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
-			writeError(w, http.StatusRequestEntityTooLarge, "preview body too large")
+	if st, err := jsonx.DecodeRequest(w, r, &req, maxPreviewBodySize); err != nil {
+		if st == http.StatusRequestEntityTooLarge {
+			writeError(w, st, "preview body too large")
 			return
 		}
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, st, "invalid request body")
 		return
 	}
 
@@ -204,7 +202,7 @@ func (h *renderAdminHandlers) attributesView(r *http.Request, req *previewReques
 		Description string `json:"meta_description"`
 		Name        string `json:"name"`
 	}
-	_ = json.Unmarshal(req.Attributes, &meta)
+	_ = jsonx.Unmarshal(req.Attributes, &meta, jsonx.Stored)
 
 	v := &render.PageView{
 		BaseURL:    h.baseURL(r),
@@ -306,7 +304,7 @@ func routeEntityID(rr *routeResult) uuid.UUID {
 // plain GET of path by an anonymous visitor (no cookies, credentials, Accept
 // or query), carrying the attribute override for entityID and serving the page
 // even when its locale is hidden.
-func previewRouteRequest(r *http.Request, path string, entityID uuid.UUID, attrs json.RawMessage) *http.Request {
+func previewRouteRequest(r *http.Request, path string, entityID uuid.UUID, attrs jsontext.Value) *http.Request {
 	pr := r.Clone(withHiddenLocalesServed(withPreviewAttributes(r.Context(), entityID, attrs)))
 	pr.Method = http.MethodGet
 	u := *r.URL

@@ -17,11 +17,6 @@ func (s *Server) handleListMenus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ensure empty array instead of null
-	if menus == nil {
-		menus = []*menu.Menu{}
-	}
-
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"menus": menus,
 		"total": len(menus),

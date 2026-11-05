@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -27,7 +27,7 @@ func entityIncludesInLLMsTxt(ent *entity.Entity) bool {
 			IncludeInLLMsTxt *bool `json:"include_in_llms_txt"`
 		} `json:"seo"`
 	}
-	if err := json.Unmarshal(ent.Attributes, &attrs); err != nil {
+	if err := jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.Stored); err != nil {
 		return true
 	}
 	if attrs.SEO.IncludeInLLMsTxt == nil {
@@ -122,10 +122,6 @@ func (s *Server) handleKnowledgeGraph(w http.ResponseWriter, r *http.Request) {
 				entities = append(entities, ent)
 			}
 		}
-	}
-
-	if entities == nil {
-		entities = []*entity.Entity{}
 	}
 
 	baseURL := s.publicBaseURL(r)

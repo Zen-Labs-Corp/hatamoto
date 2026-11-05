@@ -2,13 +2,13 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"time"
 
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/consent"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -61,7 +61,6 @@ func consentCountry(r *http.Request) string {
 // header, so it is never cached. A missing header or store shows the banner.
 func (s *Server) handleConsentRegion(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Type", "application/json")
 	w.Header().Add("Vary", "CF-IPCountry, CloudFront-Viewer-Country")
 	show := true
 	if s.consentStore != nil {
@@ -69,7 +68,7 @@ func (s *Server) handleConsentRegion(w http.ResponseWriter, r *http.Request) {
 			show = consent.RegionShow(set.Region, consentCountry(r))
 		}
 	}
-	_ = json.NewEncoder(w).Encode(map[string]bool{"show": show})
+	jsonx.WriteJSON(w, http.StatusOK, map[string]bool{"show": show})
 }
 
 // handleConsentLog counts one visitor choice for the day. Nothing about the
@@ -78,7 +77,7 @@ func (s *Server) handleConsentLog(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Choice string `json:"choice"`
 	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, consentBodyMax)).Decode(&body); err != nil || !consent.ValidChoice(body.Choice) {
+	if err := jsonx.UnmarshalRead(io.LimitReader(r.Body, consentBodyMax), &body); err != nil || !consent.ValidChoice(body.Choice) {
 		http.Error(w, `{"error":"invalid_payload"}`, http.StatusBadRequest)
 		return
 	}

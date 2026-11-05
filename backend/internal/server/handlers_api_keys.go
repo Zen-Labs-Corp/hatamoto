@@ -18,11 +18,6 @@ func (s *Server) handleListAPIKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ensure empty array instead of null
-	if keys == nil {
-		keys = []*auth.APIKey{}
-	}
-
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"api_keys": keys,
 		"total":    len(keys),

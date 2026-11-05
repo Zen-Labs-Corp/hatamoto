@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 
 	"github.com/google/uuid"
 )
@@ -13,12 +13,12 @@ import (
 // entity and before meta, JSON-LD and sections are derived.
 type previewOverride struct {
 	entityID uuid.UUID
-	attrs    json.RawMessage
+	attrs    jsontext.Value
 }
 
 type previewOverrideKey struct{}
 
-func withPreviewAttributes(ctx context.Context, entityID uuid.UUID, attrs json.RawMessage) context.Context {
+func withPreviewAttributes(ctx context.Context, entityID uuid.UUID, attrs jsontext.Value) context.Context {
 	return context.WithValue(ctx, previewOverrideKey{}, previewOverride{entityID: entityID, attrs: attrs})
 }
 
@@ -40,7 +40,7 @@ func hiddenLocalesServed(ctx context.Context) bool {
 // applyPreviewAttributes replaces *attrs with the preview override when the
 // context carries one for entityID. Any other entity is left untouched, so a
 // preview can never alter, nor expose, a different entity's data.
-func applyPreviewAttributes(ctx context.Context, entityID uuid.UUID, attrs *json.RawMessage) {
+func applyPreviewAttributes(ctx context.Context, entityID uuid.UUID, attrs *jsontext.Value) {
 	o, ok := ctx.Value(previewOverrideKey{}).(previewOverride)
 	if !ok || o.entityID != entityID || len(o.attrs) == 0 {
 		return
