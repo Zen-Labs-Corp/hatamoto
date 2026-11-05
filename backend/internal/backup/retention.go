@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -9,6 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Retention bounds: every count must be in MinKeep..MaxKeep.
@@ -110,7 +111,7 @@ func readRetentionFile(dir string) map[string]int {
 		return out
 	}
 	var raw map[string]any
-	if json.Unmarshal(data, &raw) != nil {
+	if jsonx.Unmarshal(data, &raw, jsonx.StoredLoose) != nil {
 		return out
 	}
 	for _, k := range retentionKinds {
@@ -168,7 +169,7 @@ func SaveRetention(dir string, set map[Kind]int) error {
 		}
 		cur[k.key] = n
 	}
-	data, err := json.MarshalIndent(cur, "", "  ")
+	data, err := jsonx.Indent(cur)
 	if err != nil {
 		return err
 	}

@@ -4,11 +4,12 @@ import (
 	"archive/tar"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -87,7 +88,7 @@ func writeArchive(s *Store, id, work string, parts []part, mf manifest) (int64, 
 		}
 		names = append(names, p.Name)
 	}
-	body, err := json.MarshalIndent(mf, "", "  ")
+	body, err := jsonx.Indent(mf)
 	if err != nil {
 		return 0, nil, err
 	}
