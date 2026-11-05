@@ -2,7 +2,6 @@ package twofactor
 
 import (
 	"context"
-	"encoding/json"
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
@@ -14,6 +13,8 @@ import (
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -123,7 +124,7 @@ func (p *Passkeys) user(ctx context.Context, uid uuid.UUID, name, display string
 	u := waUser{id: uid, name: name, displayName: display}
 	for _, k := range list {
 		var c webauthn.Credential
-		if err := json.Unmarshal(k.Credential, &c); err != nil {
+		if err := jsonx.UnmarshalPinned(k.Credential, &c); err != nil {
 			return waUser{}, err
 		}
 		u.creds = append(u.creds, c)
@@ -132,7 +133,7 @@ func (p *Passkeys) user(ctx context.Context, uid uuid.UUID, name, display string
 }
 
 func (p *Passkeys) store(ctx context.Context, uid *uuid.UUID, purpose string, s *webauthn.SessionData) (string, error) {
-	data, err := json.Marshal(s)
+	data, err := marshalStored(s)
 	if err != nil {
 		return "", err
 	}
@@ -157,7 +158,7 @@ func (p *Passkeys) take(ctx context.Context, ceremonyID, purpose string) (*Cerem
 	if err != nil {
 		return nil, s, err
 	}
-	if err := json.Unmarshal(c.Data, &s); err != nil {
+	if err := jsonx.UnmarshalPinned(c.Data, &s); err != nil {
 		return nil, s, ErrPasskeyFailed
 	}
 	if s.UserVerification != protocol.VerificationRequired {
@@ -193,7 +194,7 @@ func (p *Passkeys) BeginRegistration(ctx context.Context, uid uuid.UUID, name, d
 	if err != nil {
 		return nil, "", err
 	}
-	opts, err := json.Marshal(creation)
+	opts, err := jsonx.MarshalPinned(creation)
 	return opts, id, err
 }
 
@@ -219,7 +220,7 @@ func (p *Passkeys) FinishRegistration(ctx context.Context, ceremonyID string, ui
 	if err != nil || !cred.Flags.UserVerified {
 		return uuid.Nil, ErrPasskeyFailed
 	}
-	raw, err := json.Marshal(cred)
+	raw, err := marshalStored(cred)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -267,7 +268,7 @@ func (p *Passkeys) BeginLogin(ctx context.Context, uid *uuid.UUID) (jsontext.Val
 	if err != nil {
 		return nil, "", err
 	}
-	opts, err := json.Marshal(assertion)
+	opts, err := jsonx.MarshalPinned(assertion)
 	return opts, id, err
 }
 
@@ -349,7 +350,7 @@ func (p *Passkeys) finishLogin(ctx context.Context, ceremonyID string, uid *uuid
 	if err != nil || k.UserID != owner.id {
 		return uuid.Nil, ErrPasskeyFailed
 	}
-	raw, err := json.Marshal(cred)
+	raw, err := marshalStored(cred)
 	if err != nil {
 		return uuid.Nil, err
 	}

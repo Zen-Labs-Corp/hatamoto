@@ -2,7 +2,7 @@ package twofactor
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"time"
 
@@ -26,7 +26,7 @@ type Passkey struct {
 	ID           uuid.UUID
 	UserID       uuid.UUID
 	CredentialID []byte
-	Credential   json.RawMessage // go-webauthn Credential as JSON
+	Credential   jsontext.Value // go-webauthn Credential as JSON
 	Name         string
 	CreatedAt    time.Time
 	LastUsedAt   *time.Time
@@ -37,7 +37,7 @@ type Ceremony struct {
 	ID      uuid.UUID
 	UserID  *uuid.UUID
 	Purpose string
-	Data    json.RawMessage
+	Data    jsontext.Value
 	Expires time.Time
 }
 
@@ -78,7 +78,7 @@ type Repository interface {
 	AddPasskey(ctx context.Context, p Passkey) (uuid.UUID, error)
 	PasskeyByCredentialID(ctx context.Context, credID []byte) (*Passkey, error)
 	// UpdatePasskey stores the refreshed credential (sign counter, flags) and last use.
-	UpdatePasskey(ctx context.Context, id uuid.UUID, credential json.RawMessage, usedAt time.Time) error
+	UpdatePasskey(ctx context.Context, id uuid.UUID, credential jsontext.Value, usedAt time.Time) error
 	DeletePasskey(ctx context.Context, uid, id uuid.UUID) (bool, error)
 
 	PutCeremony(ctx context.Context, c Ceremony) error
@@ -222,7 +222,7 @@ func (s *Store) PasskeyByCredentialID(ctx context.Context, credID []byte) (*Pass
 	return &p, nil
 }
 
-func (s *Store) UpdatePasskey(ctx context.Context, id uuid.UUID, credential json.RawMessage, usedAt time.Time) error {
+func (s *Store) UpdatePasskey(ctx context.Context, id uuid.UUID, credential jsontext.Value, usedAt time.Time) error {
 	_, err := s.pool.Exec(ctx, `UPDATE hatamoto_user_passkeys SET credential = $2, last_used_at = $3 WHERE id = $1`, id, []byte(credential), usedAt)
 	return err
 }

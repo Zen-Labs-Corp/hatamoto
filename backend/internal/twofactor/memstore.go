@@ -3,7 +3,7 @@ package twofactor
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"sync"
 	"time"
 
@@ -159,12 +159,12 @@ func (m *MemoryStore) PasskeyByCredentialID(_ context.Context, credID []byte) (*
 	return nil, ErrNotFound
 }
 
-func (m *MemoryStore) UpdatePasskey(_ context.Context, id uuid.UUID, credential json.RawMessage, usedAt time.Time) error {
+func (m *MemoryStore) UpdatePasskey(_ context.Context, id uuid.UUID, credential jsontext.Value, usedAt time.Time) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for i := range m.passkeys {
 		if m.passkeys[i].ID == id {
-			m.passkeys[i].Credential = append(json.RawMessage(nil), credential...)
+			m.passkeys[i].Credential = append(jsontext.Value(nil), credential...)
 			m.passkeys[i].LastUsedAt = &usedAt
 		}
 	}

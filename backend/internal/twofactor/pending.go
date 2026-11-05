@@ -5,13 +5,13 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/secretbox"
 )
 
@@ -55,7 +55,7 @@ func (k PendingKey) sig(payload string) string {
 
 // Seal returns base64url(payload) "." base64url(HMAC-SHA256).
 func (k PendingKey) Seal(p Pending) string {
-	b, _ := json.Marshal(p)
+	b, _ := jsonx.MarshalPinned(p)
 	payload := base64.RawURLEncoding.EncodeToString(b)
 	return payload + "." + k.sig(payload)
 }
@@ -71,7 +71,7 @@ func (k PendingKey) Open(s string, now time.Time) (Pending, error) {
 		return p, ErrBadPending
 	}
 	raw, err := base64.RawURLEncoding.DecodeString(payload)
-	if err != nil || json.Unmarshal(raw, &p) != nil {
+	if err != nil || jsonx.Unmarshal(raw, &p, jsonx.StoredLoose) != nil {
 		return Pending{}, ErrBadPending
 	}
 	if p.UserID == uuid.Nil || !now.Before(p.Expires) {
