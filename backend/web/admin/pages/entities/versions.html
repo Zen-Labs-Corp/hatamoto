@@ -1,6 +1,7 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "CSRF" $.CSRF "Actions" .Actions}}
 {{template "hm/tabs" dict "Label" "Entity sections" "Items" .Tabs}}
+<p class="hm-muted" id="versions-rule">{{.Rule}}{{with .SettingsHref}} Change this in <a href="{{.}}">Settings &gt; Content</a>.{{end}}</p>
 {{if gt .Count 0}}{{template "hm/card-start" dict "ID" "versions-history" "Title" "History"}}{{template "hm/tracker" .History}}{{template "hm/card-end"}}
 <form class="hm-card hm-row hm-compare" method="get" action="{{adminPath}}/entities/{{.ID}}/versions/compare">
 {{template "hm/field" dict "ID" "cmp-from" "Name" "from" "Label" "Compare" "Control" "select" "Options" .Compare.Options}}
