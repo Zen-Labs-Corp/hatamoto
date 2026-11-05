@@ -139,6 +139,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.backups != nil {
 		d.Backups = s.backups
 	}
+	if s.offsiteAdm != nil {
+		d.Offsite = s.offsiteAdm
+	}
 	if s.mailStore != nil && s.emailService != nil {
 		d.EmailSettings = emailAdmin{
 			store:   s.mailStore,
@@ -271,6 +274,16 @@ func (h *adminHolder) SetBackups(svc admin.BackupsService) {
 	h.s.adminDeps.Backups = svc
 	if b := h.s.adminBundle.Load(); b != nil {
 		b.a.SetBackups(svc)
+	}
+}
+
+// SetOffsite sets the off-site backup service.
+func (h *adminHolder) SetOffsite(svc admin.OffsiteService) {
+	h.s.adminMu.Lock()
+	defer h.s.adminMu.Unlock()
+	h.s.adminDeps.Offsite = svc
+	if b := h.s.adminBundle.Load(); b != nil {
+		b.a.SetOffsite(svc)
 	}
 }
 

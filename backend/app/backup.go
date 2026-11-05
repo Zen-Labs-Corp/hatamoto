@@ -14,10 +14,11 @@ import (
 
 	"hatamoto.dev/core/internal/backup"
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/supervisor"
 )
 
-const backupUsageErr = "usage: hatamoto backup create [--config <path>] | list [--json] | delete <id> | restore <id|path.tar> --admin-url <DSN> [--dry-run] [--config-out <path>]"
+const backupUsageErr = "usage: hatamoto backup create [--config <path>] | list [--json] [--remote] | delete <id> | restore <id|path.tar> --admin-url <DSN> [--dry-run] [--config-out <path>]"
 
 // runBackup runs `hatamoto backup ...`. list and delete need only the data
 // directory, so they work with the database down; create opens it lazily.
@@ -28,10 +29,18 @@ func runBackup(ctx context.Context, args []string, out io.Writer) error {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	switch args[0] {
 	case "list":
-		var asJSON bool
-		pos, err := flagSet("backup list", args[1:], func(fs *flag.FlagSet) { fs.BoolVar(&asJSON, "json", false, "print JSON") })
+		var asJSON, remote bool
+		var of offsiteFlags
+		pos, err := flagSet("backup list", args[1:], func(fs *flag.FlagSet) {
+			fs.BoolVar(&asJSON, "json", false, "print JSON")
+			fs.BoolVar(&remote, "remote", false, "list the backups in the off-site bucket (target from HATAMOTO_OFFSITE_*)")
+			of.define(fs)
+		})
 		if err != nil || len(pos) != 0 {
-			return errors.New("usage: hatamoto backup list [--json]")
+			return errors.New("usage: hatamoto backup list [--json] [--remote] [--offsite-endpoint U] [--offsite-region R] [--offsite-bucket B] [--offsite-prefix P] [--offsite-access-key K]")
+		}
+		if remote {
+			return listRemote(ctx, of, asJSON, out)
 		}
 		rows, err := newBackupEngine(nil, "", "", logger).List()
 		if err != nil {
@@ -133,4 +142,43 @@ func humanBytes(n int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
+}
+
+// listRemote prints the backups in the off-site bucket. It needs no database.
+func listRemote(ctx context.Context, of offsiteFlags, asJSON bool, out io.Writer) error {
+	t, err := of.target()
+	if err != nil {
+		return err
+	}
+	client, err := t.Client(nil)
+	if err != nil {
+		return err
+	}
+	rows, err := offsite.ListRemote(ctx, client, t.Prefix)
+	if err != nil {
+		return err
+	}
+	if asJSON {
+		type row struct {
+			ID           string    `json:"id"`
+			Key          string    `json:"key"`
+			Size         int64     `json:"size"`
+			LastModified time.Time `json:"last_modified"`
+		}
+		list := make([]row, 0, len(rows))
+		for _, r := range rows {
+			list = append(list, row{r.ID, r.Key, r.Size, r.LastModified.UTC()})
+		}
+		return printJSON(out, list)
+	}
+	if len(rows) == 0 {
+		_, err = fmt.Fprintln(out, "no backups in the bucket")
+		return err
+	}
+	tw := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(tw, "ID\tSIZE\tUPLOADED")
+	for _, r := range rows {
+		fmt.Fprintf(tw, "%s\t%s\t%s\n", r.ID, humanBytes(r.Size), r.LastModified.UTC().Format(time.RFC3339))
+	}
+	return tw.Flush()
 }

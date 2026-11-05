@@ -1,5 +1,17 @@
 # Release notes
 
+## Unreleased: Off-site backups
+
+Settings > Backups has a new Off-site copy card. Point it at an S3-compatible bucket (Amazon S3, Cloudflare R2, Backblaze B2, MinIO or similar), pick a daily or weekly time in UTC, and each scheduled backup is uploaded (the provider checks each part's SHA-256 on receipt, and the size and recorded checksum are read back) and pruned to the number of copies you keep. "Back up and upload now" runs one on demand. The backups table gains an Off-site column and the dashboard health card an Off-site backup row.
+
+- **Scheduled backups.** The schedule takes a new backup kind, `scheduled`, kept on disk per `HATAMOTO_BACKUP_KEEP_SCHEDULED` (default 3). Uploads run inside the backup lock, so they never overlap another backup or an update's backup.
+- **Restore from the bucket.** `hatamoto backup list --remote` and `hatamoto backup restore --from-offsite <id>` work on a machine with no database; the target comes from `HATAMOTO_OFFSITE_*` (the secret key from the environment only).
+- **No new dependency.** The S3 client is part of the binary (see docs/DEPENDENCIES.md).
+- **Keep it private.** A backup holds the database and `secrets.env`: use a private bucket with server-side encryption.
+- **Migration.** One new table (expand-only).
+
+**Rollback floor: unchanged.** The previous release runs against the migrated data and ignores the new table; scheduled backups and uploads stop until you upgrade again.
+
 ## Unreleased: Site access
 
 - **Site access: coming soon, maintenance and password modes.** Settings > Site access holds the public site back with a themed page, a 503 with `Retry-After`, or one shared password, while signed-in admin users still see the real site. A banner reminds owners and editors on every admin page. New columns only (expand-only); the previous binary ignores them and shows the site as open.

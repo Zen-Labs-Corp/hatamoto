@@ -19,7 +19,7 @@ One backup is one tar file, `<id>.tar`, with these parts:
 | `config.env` | A verbatim copy of your environment file, when you name one with `--config` or `HATAMOTO_CONFIG_FILE` (see "Taking a backup"). Left out otherwise. |
 | `manifest.json` | What is in the archive and where it came from (below). |
 
-`manifest.json` fields: `format`, `version`, `created`, `kind` (`manual` or `pre_update`), `target`
+`manifest.json` fields: `format`, `version`, `created`, `kind` (`manual`, `pre_update` or `scheduled`), `target`
 (the release a pre-update backup was taken for), `hatamoto_version`, `server_major` (the PostgreSQL
 major version), `pg_dump` (the client version), `parts` (name, size and SHA-256 of each file),
 `plugins` (the plugin schemas that were dumped), `content_rows` (rows per table in the content
@@ -41,6 +41,7 @@ Retention keeps the newest finished backups of each kind and removes older ones:
 |---|---|---|
 | `HATAMOTO_BACKUP_KEEP` | `5` | Manual backups kept. |
 | `HATAMOTO_BACKUP_KEEP_PRE_UPDATE` | `2` | Pre-update backups kept. |
+| `HATAMOTO_BACKUP_KEEP_SCHEDULED` | `3` | Scheduled backups kept (the ones the off-site schedule takes). |
 
 A value that is not a whole number of at least 1 is ignored and the default is used. Failed backups
 are not counted and are not pruned.
@@ -63,7 +64,8 @@ are not listed, pruned or deleted. Delete them by hand when you no longer need t
 ## Taking a backup
 
 - **Admin:** Settings > Backups (owners only). "Back up now" starts one; the page shows progress,
-  lists the backups with their size, and offers a download.
+  lists the backups with their size, and offers a download. The Off-site copy card on the same page
+  sets up the upload described below.
 - **CLI:** `hatamoto backup create [--config <path>]` prints the media directory it reads, then the id, size and path,
   and names `secrets.env` and `config.env` when they went in. `hatamoto backup list [--json]`
   and `hatamoto backup delete <id>` work with the database down. Run them as the service user with
@@ -84,6 +86,90 @@ are not listed, pruned or deleted. Delete them by hand when you no longer need t
   does not load the file. A named file that cannot be read fails the backup, and with neither set
   there is no `config.env`. Pre-update backups take no flags, so they use `HATAMOTO_CONFIG_FILE` only.
 - **Before an update:** see [UPGRADES.md](UPGRADES.md#automatic-updates-self-hosters).
+
+## Off-site copy
+
+A backup on the same machine as the site does not survive losing the machine. Settings > Backups has
+an **Off-site copy** card that uploads each scheduled backup to an S3-compatible bucket (Amazon S3,
+Cloudflare R2, Backblaze B2, MinIO or any server that speaks the S3 API), proves the copy there, and
+removes the oldest copies beyond the number you keep. Owners only. It needs no extra software on the
+server: the client is part of the binary.
+
+**What is uploaded.** The same tar a local backup produces, byte for byte, under the key
+`<prefix><id>.tar` (for example `prod/20261105T030000Z-scheduled.tar`). Only scheduled backups and
+"Back up and upload now" are uploaded. Pre-update backups stay on the machine.
+
+**Schedule.** Off, every day at a chosen hour, or every week on a chosen day and hour. Times are UTC.
+Each run takes a local backup of kind `scheduled` (kept on disk per `HATAMOTO_BACKUP_KEEP_SCHEDULED`)
+and then uploads it while it still holds the backup lock, so an upload never overlaps another backup
+or an update's backup. If another backup is running when a slot falls due, the run waits 10 minutes
+and tries again; that is not recorded as a failure. A slot is claimed in the database, so with several
+replicas only one runs it, and a restart does not repeat it. The scheduler job is `backup_offsite`
+(`WORKER_DISABLE_JOBS` can switch it off).
+
+**Verification.** The upload sends the real SHA-256 of each request body, so the provider rejects bytes
+that do not match. The tar's own SHA-256 is stored on the object (`x-amz-meta-sha256`). After the
+upload hatamoto reads the object's size and that value back; a copy that does not match is deleted and
+the run is recorded as failed. This is a transfer check, not proof of authenticity: anyone with
+write access to the bucket can replace the tar and its recorded checksum together, so keep the write
+key private. The result (time, size, checksum or error) shows on the card, in the
+Off-site column of the backups table and in the dashboard health card. The health row is red when the
+last upload failed and amber when it is older than one and a half schedule periods (36 hours for daily,
+10 days for weekly).
+
+**Retention.** After an upload whose size and checksum read back correctly the bucket is pruned to the newest N copies (1 to 365). Only
+keys of the form `<prefix><backup id>.tar` count. Anything else under the prefix, such as other files
+or nested folders, is never listed for deletion.
+
+**Settings.** Service, endpoint (required except for Amazon S3, which derives it from the region),
+region (Cloudflare R2 uses `auto`), bucket, folder prefix, access key, secret key, schedule and copies
+to keep. The endpoint must use `https` unless it is a local or private address. Redirects are not
+followed. The secret key is stored sealed with the server secret, is never shown again, and never
+appears in the page, the audit log, the log or the backup sidecar; leave the field blank to keep the
+saved key. "Test connection" checks the bucket with the values in the form without saving them.
+Changing the server secret makes the saved key unreadable; enter it again.
+
+**Audit.** `backups.offsite.update` (names of the changed fields and whether the key changed, never
+values), `backups.offsite.run` ("Back up and upload now") and `backups.offsite.upload` (each result).
+
+**Security.** The tar holds your database and `secrets.env`. Use a private bucket with server-side
+encryption turned on, and an access key limited to that bucket (write, read, list and delete on the
+prefix). Hatamoto does not encrypt the tar itself. A clock that is more than a few minutes off makes
+the provider answer `RequestTimeTooSkewed`; fix the server's time.
+
+### Restoring from the bucket on a clean machine
+
+`hatamoto backup restore` leaves the off-site card switched off on the restored install. A restored
+copy shares the original's bucket and prefix, and its first scheduled upload would add to, and then
+prune, the original's copies. Before you turn it on again in Settings > Backups, change the prefix
+or be sure the original is gone. A restore with the manual `pg_restore` steps does not do this:
+run `UPDATE hatamoto_offsite_settings SET enabled = false` before you start the server, or switch the card off as soon as it is up.
+
+The command line never reads the saved settings (the machine has no database), so name the target in
+the environment:
+
+| Variable | Meaning |
+|---|---|
+| `HATAMOTO_OFFSITE_ENDPOINT` | Endpoint URL. Empty means Amazon S3 in the region. |
+| `HATAMOTO_OFFSITE_REGION` | Region (required). |
+| `HATAMOTO_OFFSITE_BUCKET` | Bucket (required). |
+| `HATAMOTO_OFFSITE_PREFIX` | Key prefix, as in the card. |
+| `HATAMOTO_OFFSITE_ACCESS_KEY` | Access key (required). |
+| `HATAMOTO_OFFSITE_SECRET_KEY` | Secret key (required). Environment only: there is no flag, so it stays out of process lists and shell history. |
+
+The flags `--offsite-endpoint`, `--offsite-region`, `--offsite-bucket`, `--offsite-prefix` and
+`--offsite-access-key` override their variables.
+
+```bash
+hatamoto backup list --remote
+hatamoto backup restore --from-offsite 20261105T030000Z-scheduled --dry-run --admin-url postgres://postgres@localhost/postgres
+hatamoto backup restore --from-offsite 20261105T030000Z-scheduled --admin-url postgres://postgres@localhost/postgres
+```
+
+`--from-offsite <id>` replaces the id or path argument. The tar is downloaded to
+`$HATAMOTO_DATA/backups/.tmp-<id>.tar`, its SHA-256 is compared with the one recorded on the object
+when it was uploaded, and then the normal restore checks and steps run on it. The temporary file is
+removed afterwards, also after `--dry-run` or a failure, which writes nothing else.
 
 ## Docker
 

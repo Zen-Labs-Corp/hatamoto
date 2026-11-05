@@ -34,7 +34,7 @@ func (b *adminBackups) List(context.Context) (admin.BackupsState, error) {
 		return admin.BackupsState{}, err
 	}
 	manual, preUpdate := backup.KeepFromEnv()
-	st := admin.BackupsState{FreeBytes: b.eng.FreeDisk(), KeepManual: manual, KeepPreUpdate: preUpdate}
+	st := admin.BackupsState{FreeBytes: b.eng.FreeDisk(), KeepManual: manual, KeepPreUpdate: preUpdate, KeepScheduled: backup.KeepScheduledFromEnv()}
 	for _, i := range infos { // the store lists newest first
 		if i.State == backup.StateRunning {
 			st.Running = true
@@ -111,6 +111,7 @@ func backupInfo(i backup.Info) admin.BackupInfo {
 	return admin.BackupInfo{
 		ID: i.ID, Kind: string(i.Kind), Target: i.Target, State: string(i.State), Percent: i.Percent,
 		Error: i.Error, Created: i.Created, Size: i.Size, Parts: i.Parts, Plugins: i.Plugins, MediaMissing: i.MediaMissing,
+		Offsite: i.Offsite, OffsiteError: i.OffsiteError,
 	}
 }
 
@@ -122,4 +123,5 @@ func (s *Server) SetBackups(eng *backup.Engine) {
 	if s.admin != nil {
 		s.admin.SetBackups(s.backups)
 	}
+	s.setupOffsite(eng)
 }

@@ -175,3 +175,24 @@ func TestOpenOnlyOK(t *testing.T) {
 		t.Fatalf("Open failed backup = %v", err)
 	}
 }
+
+func TestUpdateSidecar(t *testing.T) {
+	s, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := Info{ID: "20261104T030000Z-scheduled", Kind: KindScheduled, State: StateOK}
+	if err := s.Write(in); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Update(in.ID, func(i *Info) { i.Offsite, i.SHA256, i.ID = "uploaded", "abc", "x" }); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Get(in.ID)
+	if err != nil || got.Offsite != "uploaded" || got.SHA256 != "abc" || got.ID != in.ID || got.State != StateOK {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	if err := s.Update("20261104T030001Z-scheduled", func(*Info) {}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing: %v", err)
+	}
+}

@@ -37,7 +37,7 @@ A **rollback**, going back to the previous version, swaps program files only and
 
    Before each automatic install the **update agent**, the part of the server that checks for and downloads new releases, also saves `$HATAMOTO_DATA/backups/pre-<version>.dump`. That copy covers only the moment before its own update, lives next to the data it protects and is skipped when `pg_dump` is missing, so it does not replace yours. The official image does not include `pg_dump`.
 
-2. Copy three things off the server: the dump, the server secret directory (`HATAMOTO_SECRETS_DIR`, by default `/opt/hatamoto/data/secrets` with the shipped unit and `/data/secrets` in the image) and the uploads directory (`MEDIA_UPLOAD_DIR`, by default `/opt/hatamoto/uploads` with the shipped unit and `/app/uploads` in the image). Without the secret, a new one is generated and some links and stored credentials stop working. For a regular schedule, see [Backups](../operate/backups.md).
+2. Copy three things off the server: the dump, the server secret directory (`HATAMOTO_SECRETS_DIR`, by default `/opt/hatamoto/data/secrets` with the shipped unit and `/data/secrets` in the image) and the uploads directory (`MEDIA_UPLOAD_DIR`, by default `/opt/hatamoto/uploads` with the shipped unit and `/app/uploads` in the image). Without the secret, a new one is generated and some links and stored credentials stop working. For a regular schedule, and for an automatic checked copy in an S3-compatible bucket, see [Backups](../operate/backups.md).
 
 ### Roll back by hand
 

@@ -99,3 +99,26 @@ func TestBackupMutationsRefuseForeignOwner(t *testing.T) {
 		t.Error("backup removed despite owner check")
 	}
 }
+
+func TestBackupListRemote(t *testing.T) {
+	data := t.TempDir()
+	t.Setenv("HATAMOTO_DATA", data)
+	t.Setenv("DATABASE_URL", "")
+	id := "20260102T030405Z-scheduled"
+	srv := offsiteBucket(t, id, nil)
+	srv.Put("site/notes.txt", []byte("x"), nil)
+	var out bytes.Buffer
+	if err := runBackup(context.Background(), []string{"list", "--remote"}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), id) || strings.Contains(out.String(), "notes") {
+		t.Fatalf("list --remote: %q", out.String())
+	}
+	out.Reset()
+	if err := runBackup(context.Background(), []string{"list", "--remote", "--json"}, &out); err != nil || !strings.Contains(out.String(), `"id": "`+id+`"`) {
+		t.Fatalf("json: %v %q", err, out.String())
+	}
+	if left, _ := os.ReadDir(data); len(left) != 0 {
+		t.Fatalf("list --remote wrote %v", left)
+	}
+}

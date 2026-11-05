@@ -47,9 +47,9 @@ hatamoto update check [--dry-run]                                 # check the ch
 hatamoto update pin vX.Y | unpin                                  # stay on one minor line; security releases still apply
 hatamoto update apply vX.Y.Z [--force] [--no-backup]              # download, verify and install a named release, majors too; --no-backup skips the pre-update backup
 hatamoto backup create [--config P]                               # full backup to $HATAMOTO_DATA/backups (needs the database); --config stores your env file
-hatamoto backup list [--json]                                     # needs only the data dir
+hatamoto backup list [--json] [--remote]                           # needs only the data dir; --remote lists the off-site bucket (HATAMOTO_OFFSITE_*)
 hatamoto backup delete <id>
-hatamoto backup restore <id|path.tar> [--dry-run] --admin-url DSN [--config-out P]   # rebuild a clean machine from a backup; --dry-run checks and writes nothing
+hatamoto backup restore <id|path.tar> [--dry-run] --admin-url DSN [--config-out P]   # rebuild a clean machine from a backup; --dry-run checks and writes nothing; --from-offsite <id> replaces <id|path.tar> and downloads from the off-site bucket
 hatamoto registry index <dir> --key F [--meta F] [--out F] [--url-prefix P] [--valid-days N]   # N is 1 to 180, default 90
 hatamoto registry page <registry.json> [--out F] [--title T] [--intro T] [--write-url U] [--submit-url U] [--install-hint T] [--trusted-key K]   # static plugin directory page from a signed index, for operators without a CMS page (the Plugin directory section needs no CLI)
 ```

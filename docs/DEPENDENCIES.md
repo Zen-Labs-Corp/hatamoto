@@ -86,6 +86,24 @@ tests are the acceptance test for the runtime.
 | `github.com/tinylib/msgp` | v1.6.4 | MIT | go-webauthn/x |
 | `github.com/philhofer/fwd` | v1.2.0 | MIT | tinylib/msgp |
 
+## S3 client
+
+Off-site backups talk to S3-compatible storage with a small client in `backend/internal/s3`: AWS
+Signature Version 4 over `net/http`, path-style URLs, and five operations (put, with multipart above
+16 MiB, head, get, list, delete) plus a connection test. It adds **no module**.
+
+* **Why not an SDK.** The job is five requests and one signing scheme, the signing is covered by the
+  published SigV4 test vectors and by a test server that re-verifies every signature and payload
+  hash, and a module here would break the one-module-per-job rule for a few hundred lines. The
+  official SDK also adds integrity checksum headers by default that some S3-compatible providers
+  (R2, B2) have rejected; the hand-written client sends none and carries the SHA-256 in object
+  metadata instead.
+* **Alternatives considered.** `minio-go` (about 6 to 8 new modules) and `aws-sdk-go-v2` (about 10 to
+  12). Both are permissive-licence and would work.
+* **Fallback.** If a provider needs behaviour the client does not have (for example another
+  signing scheme or server-side encryption headers), switching to `minio-go` is the intended next
+  step; the callers only use the six methods of `s3.Client`.
+
 ## The final set against the roadmap
 
 ROADMAP §3 "Totals" lists: pgx, goose, bluemonday, jsonschema, uuid, Extism (wazero), the MCP

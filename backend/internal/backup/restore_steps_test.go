@@ -158,7 +158,7 @@ func TestRestoreStepsBootstrapFileIs0600AndRemoved(t *testing.T) {
 	run := r.d.run
 	r.d.run = func(ctx context.Context, env []string, name string, args ...string) ([]byte, error) {
 		if name == "psql" {
-			fi, err := os.Stat(args[len(args)-1])
+			fi, err := os.Stat(args[len(args)-3]) // the last -f file, before -c and its SQL
 			if err != nil {
 				t.Error(err)
 			} else {
@@ -172,6 +172,9 @@ func TestRestoreStepsBootstrapFileIs0600AndRemoved(t *testing.T) {
 	}
 	if mode != 0o600 {
 		t.Errorf("bootstrap file mode = %v", mode)
+	}
+	if got := r.calls[1]; got[len(got)-2] != "-c" || got[len(got)-1] != pauseOffsiteSQL {
+		t.Errorf("psql did not switch off-site backups off: %v", got)
 	}
 	if r.seen["psql -f"] != bootstrapSQL {
 		t.Error("psql did not get the embedded bootstrap SQL")

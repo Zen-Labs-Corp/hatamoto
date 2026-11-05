@@ -313,6 +313,9 @@ POST /admin/settings/api-keys/{id}/delete -> admin.(*Admin).handleAPIKeyDelete-f
 POST /admin/settings/api-keys/{id}/regenerate -> admin.(*Admin).handleAPIKeyRegenerate-fm
 POST /admin/settings/api-keys/{id}/revoke -> admin.(*Admin).handleAPIKeyRevoke-fm
 POST /admin/settings/backups -> admin.(*Admin).handleBackupStart-fm
+POST /admin/settings/backups/offsite -> admin.(*Admin).handleOffsiteSave-fm
+POST /admin/settings/backups/offsite/run -> admin.(*Admin).handleOffsiteRun-fm
+POST /admin/settings/backups/offsite/test -> admin.(*Admin).handleOffsiteTest-fm
 POST /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDelete-fm
 POST /admin/settings/changes/{id}/undo -> admin.(*Admin).handleChangesUndo-fm
 POST /admin/settings/email -> admin.(*Admin).handleEmailSave-fm

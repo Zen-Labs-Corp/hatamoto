@@ -299,6 +299,9 @@ type Deps struct {
 	// Backups is the backup service behind Settings > Backups; nil answers
 	// that page with 503. Set it only when non-nil.
 	Backups BackupsService
+	// Offsite is the off-site backup target on Settings > Backups; nil hides
+	// the card. Set it only when non-nil and only with Backups.
+	Offsite OffsiteService
 	// Audit records an owner action in the admin audit log; nil skips it.
 	Audit func(ctx context.Context, e AuditEvent)
 	// AuditLog reads the audit log back; nil leaves the Audit log page

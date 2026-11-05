@@ -133,6 +133,16 @@ func (x *dbRestorer) restoreCore(ctx context.Context, dump string) error {
 	return nil
 }
 
+// pauseOffsiteSQL switches scheduled off-site backups off on the restored
+// database. A restored copy shares the original's bucket prefix, and its first
+// upload would prune the original's copies; the owner turns the card on again
+// after checking the prefix. Backups made before the feature have no table.
+const pauseOffsiteSQL = `DO $$ BEGIN
+IF to_regclass('public.hatamoto_offsite_settings') IS NOT NULL THEN
+UPDATE public.hatamoto_offsite_settings SET enabled = false;
+END IF;
+END $$`
+
 // runBootstrap runs the embedded role-admin bootstrap as the superuser of
 // AdminURL against the target database, after a guard that refuses objects the
 // dump planted. It needs psql: the script uses psql
@@ -157,7 +167,8 @@ func (x *dbRestorer) runBootstrap(ctx context.Context, work string) error {
 	}
 	defer os.Remove(guard)
 	// One session: the guard runs first and ON_ERROR_STOP ends psql on its error.
-	out, err := x.run(ctx, env, "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-v", "app_role="+x.appRole, "-f", guard, "-f", file)
+	out, err := x.run(ctx, env, "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-v", "app_role="+x.appRole,
+		"-f", guard, "-f", file, "-c", pauseOffsiteSQL)
 	if err != nil {
 		return errors.New(restoreError(out, err))
 	}
