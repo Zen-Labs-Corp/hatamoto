@@ -2,13 +2,13 @@ package webhook
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"strings"
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -28,7 +28,7 @@ type fakeQueue struct {
 }
 
 func (q *fakeQueue) Enqueue(_ context.Context, event string, data any, _ time.Time) (int, error) {
-	b, _ := json.Marshal(data)
+	b, _ := jsonx.MarshalPinned(data)
 	q.events, q.data = append(q.events, event), append(q.data, string(b))
 	return 1, q.err
 }
@@ -78,7 +78,7 @@ func TestFormPayloadNeverCarriesFields(t *testing.T) {
 	if !ok {
 		t.Fatal("not mapped")
 	}
-	b, _ := json.Marshal(data)
+	b, _ := jsonx.MarshalPinned(data)
 	for _, bad := range []string{"email", "x@example.com", "fields", "source_path", "submitted_at"} {
 		if strings.Contains(string(b), bad) {
 			t.Fatalf("payload %s contains %q", b, bad)

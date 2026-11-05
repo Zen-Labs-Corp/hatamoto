@@ -3,12 +3,12 @@
 package release
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 )
 
@@ -36,7 +36,7 @@ func TestTrustDirReplacesEmbeddedKeys(t *testing.T) {
 	other, _ := genKey(t)
 	pub, _ := good.PublicKey()
 	dir := t.TempDir()
-	pubFile, _ := json.Marshal(packages.Key{ID: packages.KeyID(pub), Public: good.Public})
+	pubFile, _ := jsonx.MarshalPinned(packages.Key{ID: packages.KeyID(pub), Public: good.Public})
 	if err := os.WriteFile(filepath.Join(dir, "release-test.pub"), pubFile, 0o644); err != nil {
 		t.Fatal(err)
 	}
