@@ -42,6 +42,7 @@ const (
 	cmdBuilder  // builder convert (builder_convert.go)
 	cmdLocales  // locales convert (locales_convert.go)
 	cmdAdminURL // admin-url, admin-url set|random (admin_url.go)
+	cmdDoctor   // doctor json (doctor_json.go)
 	cmdHelp
 )
 
@@ -63,7 +64,7 @@ commands:
   routes                           list the core HTTP routes
   plugins list                     list the plugins in HATAMOTO_PLUGIN_DIR (the development override)
   sanitize-html-sections [--dry-run]
-` + opsUsage + "\n" + packagesUsage + "\n" + builderUsage + "\n" + localesUsage + `
+` + opsUsage + "\n" + packagesUsage + "\n" + builderUsage + "\n" + localesUsage + "\n" + doctorUsage + `
   supervise                        run serve as a child, switch to verified releases in $HATAMOTO_DATA/releases and roll back when one fails its health gate
   update apply --file F --record R [--sig S]
                                    verify a release binary against its signed record, stage it and switch to it (no download)
@@ -100,6 +101,10 @@ func parseArgs(args []string) (command, error) {
 	case "builder":
 		if len(args) >= 2 && args[1] == "convert" {
 			return cmdBuilder, nil
+		}
+	case "doctor":
+		if len(args) == 2 && args[1] == "json" {
+			return cmdDoctor, nil
 		}
 	case "locales":
 		if len(args) >= 2 && args[1] == "convert" {
@@ -226,6 +231,10 @@ func Main() {
 			os.Exit(ee.code)
 		}
 		logger.Error(err.Error())
+		var oe operationalError
+		if errors.As(err, &oe) {
+			os.Exit(2)
+		}
 		os.Exit(1)
 	}
 }
@@ -267,6 +276,8 @@ func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) e
 		return runPackages(ctx, args, logger, os.Stdout)
 	case cmdBuilder:
 		return runBuilderConvert(ctx, os.Getenv("DATABASE_URL"), args[2:], os.Stdout)
+	case cmdDoctor:
+		return runDoctorJSON(ctx, os.Getenv("DATABASE_URL"), os.Stdout)
 	case cmdLocales:
 		return runLocalesConvert(ctx, os.Getenv("DATABASE_URL"), args[2:], os.Stdout, os.Stderr)
 	}

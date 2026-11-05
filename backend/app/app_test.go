@@ -83,6 +83,10 @@ func TestParseArgs(t *testing.T) {
 		{[]string{"update", "apply", "v1.4.2", "--force"}, cmdUpdate, false},
 		{[]string{"update", "apply", "1.4.2"}, cmdHelp, true},
 		{[]string{"update", "apply", "v1.4"}, cmdHelp, true},
+		{[]string{"doctor", "json"}, cmdDoctor, false},
+		{[]string{"doctor"}, cmdHelp, true},
+		{[]string{"doctor", "x"}, cmdHelp, true},
+		{[]string{"doctor", "json", "--x"}, cmdHelp, true},
 		{[]string{"bogus"}, cmdHelp, true},
 	}
 	for _, c := range cases {

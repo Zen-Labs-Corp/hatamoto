@@ -38,6 +38,11 @@ if [ "$want_code" -eq 1 ] && ! out=$(bash "$REPO_ROOT/scripts/check-neutral.sh" 
   printf '%s\n' "$out" >&2
   rc=1
 fi
+# Warn-only: check-jsonv1 exits non-zero only under JSONV1_STRICT=1.
+if [ "$want_code" -eq 1 ] && ! out=$(bash "$REPO_ROOT/scripts/check-jsonv1.sh" 2>&1); then
+  printf '%s\n' "$out" >&2
+  rc=1
+fi
 if [ "$want_design" -eq 1 ] && ! out=$(make -s -C "$REPO_ROOT" design-check 2>&1); then
   printf '%s\n' "$out" >&2
   rc=1
