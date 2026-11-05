@@ -14,7 +14,7 @@ The media library now accepts SVG, can replace a file in place, and groups files
 
 - **Safe SVG.** SVG uploads are cleaned by an allowlist before they are stored (scripts, event handlers, `foreignObject`, external links and DOCTYPE are removed or refused). The upload says what was removed and refusals give a reason and line. SVGs are served with a locked-down policy and shown only through an image tag. This applies to the admin, REST, MCP, plugins, changesets and site import.
 - **Replace file.** Replaces the bytes at the same id, file name and address, rebuilds the resized copies, refreshes the page cache and writes an audit row. Same kind and extension only; quota counts the size difference.
-- **Folders.** One level, 1 to 60 letters, digits, spaces, hyphens or underscores. Library filter, bulk move, picker filter, `folder` on the REST media list and plugin host, and `folder` on MCP `media_upload`.
+- **Folders.** One level, 1 to 60 letters, digits, spaces, hyphens or underscores. Library filter, bulk move, picker filter, `folder` on the REST media list and plugin host, and `folder` on MCP `media_upload`. Only new folder names are checked: a folder value already stored, for example a nested path set earlier through the REST API or a plugin, stays listed, filterable and movable, and the REST and plugin `folder` filter still accepts it.
 - **Cache header change.** Media files are now served with `Cache-Control: public, max-age=86400, must-revalidate` and an ETag, so a replaced file shows within a day.
 - **No migration.** No new dependency, so docs/DEPENDENCIES.md is unchanged.
 

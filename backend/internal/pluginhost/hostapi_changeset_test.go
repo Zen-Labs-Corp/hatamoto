@@ -186,10 +186,11 @@ func TestMediaDTOCarriesCaptionAndCredit(t *testing.T) {
 	}
 }
 
-func TestMediaListRefusesNestedFolder(t *testing.T) {
-	_, err := fnMediaList(context.Background(), &API{}, nil, json.RawMessage(`{"folder":"a/b"}`))
+// A stored legacy folder value must reach the service, not be refused here.
+func TestMediaListAcceptsLegacyFolder(t *testing.T) {
+	_, err := fnMediaList(context.Background(), &API{}, nil, json.RawMessage(`{"folder":"/2024/summer"}`))
 	var he *sdk.HostError
-	if !errors.As(err, &he) || he.Code != sdk.ErrInvalidArgument {
-		t.Fatalf("err = %v, want invalid argument", err)
+	if errors.As(err, &he) && he.Code == sdk.ErrInvalidArgument {
+		t.Fatalf("folder was refused: %v", err)
 	}
 }

@@ -220,7 +220,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter *ListMediaFilter, 
 
 	if filter != nil {
 		if filter.Folder != "" {
-			filterClause := fmt.Sprintf(" AND lower(folder) = lower($%d)", argIdx)
+			filterClause := fmt.Sprintf(" AND lower(ltrim(folder, '/')) = lower(ltrim($%d, '/'))", argIdx)
 			baseQuery += filterClause
 			countQuery += filterClause
 			args = append(args, filter.Folder)

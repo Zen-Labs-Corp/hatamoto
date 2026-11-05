@@ -85,10 +85,6 @@ func (s *Server) handleMediaList(w http.ResponseWriter, r *http.Request) {
 		MimeType: r.URL.Query().Get("mime_type"),
 		Search:   r.URL.Query().Get("search"),
 	}
-	if _, err := media.NormalizeFolder(filter.Folder); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
 
 	limit := 50
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {

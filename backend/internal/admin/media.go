@@ -211,17 +211,17 @@ func (a *Admin) mediaFilter(r *http.Request) (f *media.ListMediaFilter, q, typ, 
 	return &media.ListMediaFilter{Search: q, MimeType: mimePrefix(typ), Folder: folder}, q, typ, folder
 }
 
-// folderParam is the folder query value in its stored form ("" when absent or invalid).
+// folderParam is the folder query value in its stored form ("" when absent).
+// A value that breaks the naming rules is a legacy stored folder and is kept as given.
 func folderParam(r *http.Request) string {
 	raw := strings.TrimSpace(r.URL.Query().Get("folder"))
 	if raw == "" {
 		return ""
 	}
-	f, err := media.NormalizeFolder(raw)
-	if err != nil {
-		return ""
+	if f, err := media.NormalizeFolder(raw); err == nil {
+		return f
 	}
-	return f
+	return raw
 }
 
 // folderLabel is how a stored folder reads in the admin.

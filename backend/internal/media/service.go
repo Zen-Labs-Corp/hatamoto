@@ -289,12 +289,12 @@ func (s *Service) List(ctx context.Context, filter *ListMediaFilter, limit, offs
 		offset = 0
 	}
 	if filter != nil && filter.Folder != "" {
-		f := *filter
-		folder, err := NormalizeFolder(f.Folder)
-		if err != nil {
-			return nil, err
+		// A stored value that breaks today's naming rules stays filterable:
+		// an invalid filter is matched as given.
+		if folder, err := NormalizeFolder(filter.Folder); err == nil {
+			f := *filter
+			f.Folder, filter = folder, &f
 		}
-		f.Folder, filter = folder, &f
 	}
 	return s.repo.List(ctx, filter, limit, offset)
 }

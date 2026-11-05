@@ -77,9 +77,30 @@ func TestUpdateFolderReusesExistingSpellingAndRefusesNesting(t *testing.T) {
 	}
 }
 
-func TestListRefusesAnInvalidFolderFilter(t *testing.T) {
+// Folder values stored before the naming rules existed stay usable.
+func TestLegacyFolderValuesStayUsable(t *testing.T) {
 	svc := newTestService(t, Config{})
-	if _, err := svc.List(context.Background(), &ListMediaFilter{Folder: "a/b"}, 10, 0); !errors.Is(err, ErrInvalidFolder) {
-		t.Fatalf("err = %v", err)
+	ctx := context.Background()
+	data := pngBytes(t, 8, 8)
+	m, err := svc.Upload(ctx, nil, bytes.NewReader(data), "a.png", "", int64(len(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := svc.repo.(*fakeRepo)
+	repo.items[m.ID].Folder = "/2024/summer"
+	if _, err := svc.List(ctx, &ListMediaFilter{Folder: "/2024/summer"}, 10, 0); err != nil {
+		t.Fatalf("filter on a legacy folder: %v", err)
+	}
+	same := "/2024/summer"
+	if got, err := svc.Update(ctx, m.ID, &UpdateMediaInput{Folder: &same}); err != nil || got.Folder != "/2024/summer" {
+		t.Fatalf("re-save: %+v %v", got, err)
+	}
+	if _, err := svc.Update(ctx, m.ID, &UpdateMediaInput{Folder: &[]string{"/2025/new"}[0]}); !errors.Is(err, ErrInvalidFolder) {
+		t.Fatalf("a new nested name must still be refused: %v", err)
+	}
+	repo.items[m.ID].Folder = "Logos"
+	logos := "/logos"
+	if got, err := svc.Update(ctx, m.ID, &UpdateMediaInput{Folder: &logos}); err != nil || got.Folder != "Logos" {
+		t.Fatalf("slashless legacy value must be reused, not duplicated: %+v %v", got, err)
 	}
 }

@@ -44,22 +44,25 @@ func NormalizeFolder(s string) (string, error) {
 }
 
 // canonicalFolder normalises name and, when a folder that differs only in
-// case already exists, returns that folder's spelling so names stay unique.
+// case (or in the leading slash) already exists, returns that folder's stored
+// spelling so names stay unique. A stored legacy value that breaks the naming
+// rules is accepted as it is; only a new name must follow the rules.
 func (s *Service) canonicalFolder(ctx context.Context, name string) (string, error) {
-	folder, err := NormalizeFolder(name)
-	if err != nil || folder == RootFolder {
-		return folder, err
+	folder, nerr := NormalizeFolder(name)
+	if nerr == nil && folder == RootFolder {
+		return folder, nil
 	}
 	existing, err := s.repo.Folders(ctx)
 	if err != nil {
 		return "", err
 	}
+	bare := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(name), "/"))
 	for _, f := range existing {
-		if strings.EqualFold(f.Name, folder) {
+		if f.Name != RootFolder && strings.EqualFold(strings.TrimPrefix(f.Name, "/"), bare) {
 			return f.Name, nil
 		}
 	}
-	return folder, nil
+	return folder, nerr
 }
 
 // Folders lists the folders in use with their file counts, the root folder

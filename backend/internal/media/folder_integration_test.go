@@ -46,3 +46,26 @@ func TestFoldersAndCaseInsensitiveFilter(t *testing.T) {
 		t.Errorf("uncategorised: %+v %v", res, err)
 	}
 }
+
+// Folder values stored before the naming rules stay filterable.
+func TestLegacyFolderValuesFilterable(t *testing.T) {
+	repo := scratchMediaRepo(t)
+	svc := NewService(repo, Config{UploadDir: t.TempDir(), BaseURL: "/media", MaxSizeMB: 20}, quiet())
+	bg := context.Background()
+	png := pngBytes(t, 8, 8)
+	for _, legacy := range []string{"/2024/summer", "Logos"} {
+		m, err := svc.Upload(bg, nil, bytes.NewReader(png), "a.png", "", int64(len(png)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		m.Folder = legacy
+		if err := repo.Update(bg, m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, q := range []string{"/2024/summer", "2024/summer", "Logos", "/logos"} {
+		if res, err := svc.List(bg, &ListMediaFilter{Folder: q}, 50, 0); err != nil || res.Total != 1 {
+			t.Errorf("filter %q: %+v %v", q, res, err)
+		}
+	}
+}
