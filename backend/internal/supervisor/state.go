@@ -1,12 +1,13 @@
 package supervisor
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // State is releases/state.json, shared by the supervisor and the CLI under
@@ -34,7 +35,7 @@ type State struct {
 	BaselineAt time.Time `json:"baseline_at,omitempty"`
 	// RenderBaseline is the render errors the last good run logged by its
 	// first smoke call; a later gate fails only on an increase.
-	RenderBaseline int `json:"render_baseline,omitempty"`
+	RenderBaseline int `json:"render_baseline,omitzero"`
 	// BootFaultBaseline is the boot fault identifiers (theme fallback and the
 	// like) the last good run reported; a later gate fails on any other.
 	BootFaultBaseline []string `json:"known_boot_faults,omitempty"`
@@ -121,7 +122,7 @@ func LoadState(path string) (*State, error) {
 		return nil, err
 	}
 	var s State
-	if err := json.Unmarshal(b, &s); err != nil {
+	if err := jsonx.Unmarshal(b, &s, jsonx.StoredLoose); err != nil {
 		return nil, &CorruptStateError{err}
 	}
 	if s.V == 0 {
@@ -136,7 +137,7 @@ func LoadState(path string) (*State, error) {
 // SaveState writes state.json atomically: temp file in the same directory,
 // fsync, rename, fsync the directory. Mode 0600.
 func SaveState(path string, s *State) error {
-	b, err := json.MarshalIndent(s, "", "  ")
+	b, err := jsonx.Indent(s)
 	if err != nil {
 		return err
 	}

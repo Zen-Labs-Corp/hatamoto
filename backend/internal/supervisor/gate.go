@@ -2,7 +2,6 @@ package supervisor
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // errChildExited is RunGate's error when the child died while being gated, as
@@ -197,7 +198,7 @@ func smokeOnce(ctx context.Context, c *http.Client, g GateConfig) (SmokeResult, 
 	if resp.StatusCode != http.StatusOK {
 		return res, fmt.Errorf("smoke: HTTP %d", resp.StatusCode)
 	}
-	if err := json.Unmarshal(body, &res); err != nil {
+	if err := jsonx.Unmarshal(body, &res, jsonx.StoredLoose); err != nil {
 		return res, fmt.Errorf("smoke: bad response: %w", err)
 	}
 	return res, nil

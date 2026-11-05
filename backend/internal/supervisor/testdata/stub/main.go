@@ -18,7 +18,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"net/http"
 	"os"
 	"os/signal"
@@ -27,6 +26,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const trailerMarker = "\n#hmstub-behavior\n"
@@ -99,7 +100,7 @@ func main() {
 				res["plugin_errors"] = []string{"stubplugin"}
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(res)
+			jsonx.Encode(w, res)
 		})
 		smokeSrv = &http.Server{Addr: addr, Handler: sm}
 		go smokeSrv.ListenAndServe()

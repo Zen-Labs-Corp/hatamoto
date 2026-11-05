@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/release"
 )
@@ -222,7 +222,7 @@ func storedFloor(l Layout, version string) string {
 	var r struct {
 		RollbackFloor string `json:"rollback_floor"`
 	}
-	if json.Unmarshal(b, &r) != nil {
+	if jsonx.Unmarshal(b, &r, jsonx.StoredLoose) != nil {
 		return ""
 	}
 	return r.RollbackFloor
