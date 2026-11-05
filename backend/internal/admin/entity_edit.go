@@ -745,6 +745,9 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 		f.Actions = append(f.Actions, ui.Button{Label: "Visual editor", Href: f.EditorURL})
 	}
 	f.Overflow = nil
+	if href := a.shareHrefFor(f.ID, f.Status); !f.New && href != "" {
+		f.Overflow = append(f.Overflow, ui.Action{Label: "Share preview", Hint: "Make a link to this draft", Href: href})
+	}
 	if href := a.duplicateHref(r, sc, f.ID); !f.New && href != "" {
 		f.Overflow = append(f.Overflow, ui.Action{Label: "Duplicate", Hint: "Copy into a new draft", Post: href})
 	}

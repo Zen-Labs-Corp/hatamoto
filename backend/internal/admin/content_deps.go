@@ -140,6 +140,9 @@ type ContentDeps struct {
 	// Unpublish stores the scheduled unpublish of an entity. Nil hides the
 	// Unpublish at fields.
 	Unpublish UnpublishStore
+	// PreviewLinks makes, lists and revokes shared draft preview links. Nil
+	// hides the Share preview page and its links.
+	PreviewLinks PreviewLinkStore
 	// Groups links the translated copies of an entry. Nil hides the
 	// Translations tab and page.
 	Groups GroupStore
