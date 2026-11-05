@@ -73,12 +73,16 @@ func (g *Google) Download(ctx context.Context, family string, weights []int, ita
 	}
 	var out []NewFont
 	byURL := map[string][]byte{}
+	kept := 0
 	for _, f := range faces {
 		if !strings.EqualFold(f.Family, family) {
 			return nil, sheetErr("family differs from the one asked for")
 		}
 		if latinOnly && f.Subset != "latin" && f.Subset != "latin-ext" {
 			continue
+		}
+		if kept++; kept > maxFaces {
+			return nil, fmt.Errorf("that selection needs more than %d font files; pick fewer weights or styles, or tick Latin only", maxFaces)
 		}
 		data, ok := byURL[f.URL]
 		if !ok {

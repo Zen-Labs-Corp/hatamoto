@@ -27,7 +27,8 @@ var (
 	weightRe    = regexp.MustCompile(`^(\d{3})(?:\s+(\d{3}))?$`)
 	stretchRe   = regexp.MustCompile(`^(normal|(?:condensed|expanded|(?:ultra|extra|semi)-(?:condensed|expanded))|\d{1,3}(?:\.\d+)?%(?:\s+\d{1,3}(?:\.\d+)?%)?)$`)
 	errSheet    = errors.New("Google Fonts answered with a stylesheet this server does not understand")
-	maxFaces    = 40
+	maxBlocks   = 200  // parser bound on @font-face blocks in one stylesheet
+	maxFaces    = 40   // font files one download may fetch, after the Latin filter
 	maxRangeLen = 4000 // Google sends lists past 1500 bytes
 	allowedKV   = map[string]bool{
 		"font-family": true, "font-style": true, "font-weight": true,
@@ -81,8 +82,8 @@ func ParseFaces(css string) ([]Face, error) {
 		f.Subset = subset
 		subset = ""
 		faces = append(faces, f)
-		if len(faces) > maxFaces {
-			return nil, fmt.Errorf("Google Fonts offered more than %d font files", maxFaces)
+		if len(faces) > maxBlocks {
+			return nil, sheetErr("too many font blocks")
 		}
 		s = s[end+1:]
 	}

@@ -271,3 +271,29 @@ func TestParseFacesRangeLength(t *testing.T) {
 		t.Fatal("oversized list accepted")
 	}
 }
+
+// Open Sans italic is 40 blocks per two weights; with Latin only ticked the
+// face cap must count what is downloaded, not what Google lists.
+func TestFaceCapAfterLatinFilter(t *testing.T) {
+	raw, err := os.ReadFile("testdata/opensans-italic.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheet := string(raw)
+	big := sheet + sheet + sheet // 120 blocks, 12 of them Latin
+	serve := func(base string) string {
+		return strings.ReplaceAll(big, "https://fonts.gstatic.com", base+"/f")
+	}
+	st := newStub(t, serve)
+	got, err := st.google().Download(context.Background(), "Open Sans", []int{400, 600, 700}, true, true)
+	if err != nil {
+		t.Fatalf("latin only: %v", err)
+	}
+	if len(got) == 0 || len(got) > maxFaces {
+		t.Fatalf("got %d faces", len(got))
+	}
+	_, err = st.google().Download(context.Background(), "Open Sans", []int{400, 600, 700}, true, false)
+	if err == nil || !strings.Contains(err.Error(), "fewer weights or styles, or tick Latin only") {
+		t.Fatalf("err = %v, want an actionable cap message", err)
+	}
+}
