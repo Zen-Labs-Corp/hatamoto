@@ -65,15 +65,18 @@ type retentionField struct {
 type retentionData struct {
 	Fields  []retentionField
 	Summary []ui.FieldError
+	// AllLocked is true when the environment fixes every count: nothing to save.
+	AllLocked bool
 }
 
 // retentionCard builds the form. form and errs are the posted values of a
 // rejected save; a locked kind always shows the effective value.
 func retentionCard(v RetentionView, form url.Values, errs []ui.FieldError) *retentionData {
-	d := &retentionData{Summary: errs}
+	d := &retentionData{Summary: errs, AllLocked: true}
 	for _, k := range retentionKinds {
 		f := retentionField{ID: k.id, Name: strings.ReplaceAll(k.id, "-", "_"), Label: k.label, Value: strconv.Itoa(v.count(k.kind)), Help: "1 to 50",
 			Attrs: map[string]string{"min": "1", "max": "50", "step": "1"}}
+		d.AllLocked = d.AllLocked && v.Locked[k.kind]
 		switch {
 		case v.Locked[k.kind]:
 			f.Attrs = map[string]string{"readonly": "readonly"}
@@ -156,7 +159,7 @@ func (a *Admin) renderRetentionPage(w http.ResponseWriter, r *http.Request, stat
 	v.Section, v.Tab, v.Width = "backups", "backups", "narrow"
 	v.Crumbs = a.areaCrumbs("backups", Crumb{Label: "Backups to keep"})
 	v.Data = retentionPage{retentionData: d, Cancel: a.adminPath + backupsRel}
-	a.Render(w, r, status, "settings/backups_retention", v)
+	a.Render(w, r, status, "settings/backups-retention", v)
 }
 
 func (a *Admin) handleRetentionPage(w http.ResponseWriter, r *http.Request) {

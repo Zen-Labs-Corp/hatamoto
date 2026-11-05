@@ -104,13 +104,17 @@
 <div class="hm-page" data-width="narrow">
 
 
-<header class="hm-pageheader">
-<div class="hm-pageheader__row"><div class="hm-pageheader__text"><div class="hm-pageheader__title"><h1>Backups to keep</h1></div><p class="hm-muted">How many finished backups of each kind stay on the server. The oldest are deleted first.</p></div>
-<div class="hm-row"></div></div>
+<header class="hm-section-head">
+<div class="hm-section-head__titles"><h1>Backups</h1><p class="hm-muted">Download a full copy of your site, database and files.</p></div>
+
 </header>
+<section class="hm-stack">
 
 <form id="retention-form" method="post" action="/admin/settings/backups/retention" class="hm-cardform">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
+<section class="hm-card" id="retention" aria-labelledby="retention-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="retention-title">Backups to keep</h2><p class="hm-muted">How many finished backups of each kind stay on the server. The oldest are deleted first.</p></div>
+<div class="hm-card__body">
 <div class="hm-field">
 <label class="hm-field__label" for="manual">Manual</label>
 <input class="hm-field__control" type="number" id="manual" name="manual" value="10" aria-describedby="manual-help" max="50" min="1" step="1">
@@ -126,8 +130,12 @@
 <input class="hm-field__control" type="number" id="scheduled" name="scheduled" value="9" aria-describedby="scheduled-help" readonly="readonly">
 <p class="hm-field__help" id="scheduled-help">Set by HATAMOTO_BACKUP_KEEP_SCHEDULED. Change it in the server config.</p>
 </div>
-<footer class="hm-card__foot hm-card__foot--plain"><a class="hm-btn hm-btn--secondary" href="/admin/settings/backups"><span>Cancel</span></a><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer>
+</div><footer class="hm-card__foot">
+<a class="hm-btn hm-btn--secondary" href="/admin/settings/backups"><span>Cancel</span></a>
+<button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button>
+</footer></section>
 </form>
+</section>
 
 </div>
 </div>

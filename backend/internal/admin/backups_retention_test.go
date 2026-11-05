@@ -2,11 +2,12 @@ package admin
 
 import (
 	"fmt"
-	"hatamoto.dev/core/internal/admin/a11y"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/admin/a11y"
 )
 
 // okBackups is n finished backups of one kind, newest first.
@@ -49,7 +50,7 @@ func TestRetentionCardShowsCounts(t *testing.T) {
 	t.Parallel()
 	g := newBackupsRig(t, baseBackups())
 	body := g.getRetention(t)
-	for _, w := range []string{`id="retention-form"`, `action="/admin/settings/backups/retention"`, "<h1>Backups to keep</h1>", `name="manual" value="10"`, `name="pre_update" value="5"`, `name="scheduled" value="7"`,
+	for _, w := range []string{`id="retention-form"`, `action="/admin/settings/backups/retention"`, "id=\"retention-title\">Backups to keep</h2>", `name="manual" value="10"`, `name="pre_update" value="5"`, `name="scheduled" value="7"`,
 		`type="submit"`, `href="/admin/settings/backups"`, "Cancel", `aria-label="Breadcrumb"`} {
 		if !strings.Contains(body, w) {
 			t.Errorf("page lacks %q", w)
@@ -217,7 +218,7 @@ func TestRetentionValidation422(t *testing.T) {
 			if code != 422 || !strings.Contains(body, "Choose a number from 1 to 50.") {
 				t.Fatalf("code = %d", code)
 			}
-			if !strings.Contains(body, "<h1>Backups to keep</h1>") || !strings.Contains(body, "Cancel") {
+			if !strings.Contains(body, "id=\"retention-title\">Backups to keep</h2>") || !strings.Contains(body, "Cancel") {
 				t.Error("the 422 is not the Backups to keep page")
 			}
 			if bad != "" && !strings.Contains(body, fmt.Sprintf(`name="pre_update" value=%q`, bad)) {
@@ -297,5 +298,26 @@ func TestRetentionFormNotOnBackupsPage(t *testing.T) {
 	rec := g.do("POST", backupsPath+"/offsite", "owner-token", offsiteForm(url.Values{"keep": {"0"}}), nil)
 	if rec.Code != 422 || strings.Contains(rec.Body.String(), `id="retention`) {
 		t.Errorf("offsite 422 = %d, has retention form = %v", rec.Code, strings.Contains(rec.Body.String(), `id="retention`))
+	}
+}
+
+func TestRetentionSaveHiddenWhenAllLocked(t *testing.T) {
+	t.Parallel()
+	all := map[string]bool{BackupManual: true, BackupPreUpdate: true, BackupScheduled: true}
+	env := map[string]string{BackupManual: "A", BackupPreUpdate: "B", BackupScheduled: "C"}
+	d := retentionCard(RetentionView{Manual: 1, PreUpdate: 1, Scheduled: 1, Locked: all, EnvVar: env}, nil, nil)
+	if !d.AllLocked {
+		t.Error("AllLocked = false with every kind locked")
+	}
+	delete(all, BackupScheduled)
+	if retentionCard(RetentionView{Locked: all, EnvVar: env}, nil, nil).AllLocked {
+		t.Error("AllLocked = true with one kind open")
+	}
+
+	f := baseBackups()
+	f.ret.Locked, f.ret.EnvVar = map[string]bool{BackupManual: true, BackupPreUpdate: true, BackupScheduled: true}, env
+	g := newBackupsRig(t, f)
+	if body := g.getRetention(t); strings.Contains(body, ">Save<") || !strings.Contains(body, "Cancel") {
+		t.Errorf("all locked: Save should be gone, Cancel kept:\n%s", body)
 	}
 }
