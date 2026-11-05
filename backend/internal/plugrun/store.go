@@ -6,7 +6,7 @@ package plugrun
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"time"
@@ -59,6 +59,13 @@ const (
 	TriggerCron  = "cron"
 )
 
+// validJSON reports whether b is one JSON value. A repeated member name is
+// accepted, as the jsonb column accepts it; invalid UTF-8 is refused, as the
+// database would refuse it.
+func validJSON(b []byte) bool {
+	return jsontext.Value(b).IsValid(jsontext.AllowDuplicateNames(true))
+}
+
 // Run is one row of hatamoto_runs.
 type Run struct {
 	ID          uuid.UUID
@@ -68,11 +75,11 @@ type Run struct {
 	Phase       string
 	Cursor      string
 	Reason      string
-	Params      json.RawMessage
+	Params      jsontext.Value
 	Hosts       []string
 	UploadID    *uuid.UUID
-	Progress    json.RawMessage
-	Summary     json.RawMessage // nil until finished
+	Progress    jsontext.Value
+	Summary     jsontext.Value // nil until finished
 	ChangesetID *int64
 	Steps       int
 	// Trigger is what started the run: "owner" (the default) or "cron".
@@ -125,7 +132,7 @@ func (s *Store) Create(ctx context.Context, r Run) (Run, error) {
 		r.ID = uuid.New()
 	}
 	if len(r.Params) == 0 {
-		r.Params = json.RawMessage(`{}`)
+		r.Params = jsontext.Value(`{}`)
 	}
 	if r.Hosts == nil {
 		r.Hosts = []string{}
@@ -226,8 +233,8 @@ func (s *Store) AdvancePhase(ctx context.Context, id uuid.UUID, to string) error
 }
 
 // Progress replaces the progress document (any JSON value).
-func (s *Store) Progress(ctx context.Context, id uuid.UUID, progress json.RawMessage) error {
-	if !json.Valid(progress) {
+func (s *Store) Progress(ctx context.Context, id uuid.UUID, progress jsontext.Value) error {
+	if !validJSON(progress) {
 		return fmt.Errorf("%w: progress is not JSON", ErrInvalid)
 	}
 	return s.update(ctx, id, `progress = $3`, []byte(progress))
@@ -249,10 +256,10 @@ func (s *Store) BumpSteps(ctx context.Context, id uuid.UUID) (int, error) {
 }
 
 // Finish ends a running run successfully. summary may be nil.
-func (s *Store) Finish(ctx context.Context, id uuid.UUID, summary json.RawMessage) error {
+func (s *Store) Finish(ctx context.Context, id uuid.UUID, summary jsontext.Value) error {
 	var sum any
 	if len(summary) > 0 {
-		if !json.Valid(summary) {
+		if !validJSON(summary) {
 			return fmt.Errorf("%w: summary is not JSON", ErrInvalid)
 		}
 		sum = []byte(summary)
@@ -272,13 +279,13 @@ func (s *Store) Fail(ctx context.Context, id uuid.UUID, reason string) error {
 type Proposal struct {
 	ID        int64
 	Kind      string
-	Payload   json.RawMessage
+	Payload   jsontext.Value
 	CreatedAt time.Time
 	// Decision is "" until the owner decides, then one of the Proposal*
 	// constants. Before is the pre-image stored when a proposal was approved
 	// (nil otherwise); DecidedAt is nil while undecided.
 	Decision  string
-	Before    json.RawMessage
+	Before    jsontext.Value
 	DecidedAt *time.Time
 }
 
@@ -293,8 +300,8 @@ const (
 var ErrProposalDecided = errors.New("proposal already decided")
 
 // AddProposal stores a proposal of a running run; ErrQuota past MaxProposals.
-func (s *Store) AddProposal(ctx context.Context, id uuid.UUID, kind string, payload json.RawMessage) error {
-	if kind == "" || len(payload) > MaxProposalLen || !json.Valid(payload) {
+func (s *Store) AddProposal(ctx context.Context, id uuid.UUID, kind string, payload jsontext.Value) error {
+	if kind == "" || len(payload) > MaxProposalLen || !validJSON(payload) {
 		return fmt.Errorf("%w: proposal", ErrInvalid)
 	}
 	return s.DB.WithTx(ctx, func(tx pgx.Tx) error {
@@ -345,13 +352,13 @@ func (s *Store) Proposals(ctx context.Context, id uuid.UUID) ([]Proposal, error)
 // ProposalRejected) on a proposal of run runID. before is the pre-image kept
 // for Undo; it is stored for approvals only. A proposal that already has a
 // decision yields ErrProposalDecided, a missing one ErrNotFound.
-func (s *Store) SetProposalDecision(ctx context.Context, runID uuid.UUID, id int64, decision string, before json.RawMessage) error {
+func (s *Store) SetProposalDecision(ctx context.Context, runID uuid.UUID, id int64, decision string, before jsontext.Value) error {
 	if decision != ProposalApproved && decision != ProposalRejected {
 		return fmt.Errorf("%w: decision", ErrInvalid)
 	}
 	var b []byte
 	if decision == ProposalApproved && len(before) > 0 {
-		if !json.Valid(before) {
+		if !validJSON(before) {
 			return fmt.Errorf("%w: before", ErrInvalid)
 		}
 		b = before
@@ -382,8 +389,8 @@ func (s *Store) proposalMissOrDecided(ctx context.Context, runID uuid.UUID, id i
 // SetProposalBefore stores the pre-image of an approved proposal at the moment
 // its change is applied, for Undo. It yields ErrNotFound unless the proposal is
 // approved and has no pre-image yet.
-func (s *Store) SetProposalBefore(ctx context.Context, runID uuid.UUID, id int64, before json.RawMessage) error {
-	if !json.Valid(before) {
+func (s *Store) SetProposalBefore(ctx context.Context, runID uuid.UUID, id int64, before jsontext.Value) error {
+	if !validJSON(before) {
 		return fmt.Errorf("%w: before", ErrInvalid)
 	}
 	tag, err := s.DB.Pool().Exec(ctx, `

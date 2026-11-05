@@ -1,6 +1,6 @@
 package installstats
 
-import "encoding/json"
+import "hatamoto.dev/core/internal/jsonx"
 
 // Payload is the whole request body. It has exactly these three fields; adding
 // one changes what an owner agreed to, so it needs a new consent text.
@@ -13,6 +13,6 @@ type Payload struct {
 // Pretty is the body indented for display; it decodes to the same JSON as the
 // wire body.
 func (p Payload) Pretty() string {
-	b, _ := json.MarshalIndent(p, "", "  ")
+	b, _ := jsonx.Indent(p, jsonx.PinnedMarshal)
 	return string(b)
 }

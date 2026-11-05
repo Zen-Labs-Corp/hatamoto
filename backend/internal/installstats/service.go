@@ -3,7 +3,6 @@ package installstats
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -13,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/release"
 	"hatamoto.dev/core/internal/safefetch"
 )
@@ -207,7 +207,7 @@ func (s *Service) payload(ctx context.Context, id string) Payload {
 
 // send posts the payload and returns the status text to store.
 func (s *Service) send(ctx context.Context, p Payload) string {
-	body, _ := json.Marshal(p)
+	body, _ := jsonx.MarshalPinned(p)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.url, bytes.NewReader(body))
 	if err != nil {
 		return "error: network"
