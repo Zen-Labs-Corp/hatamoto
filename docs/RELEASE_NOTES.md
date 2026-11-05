@@ -93,7 +93,11 @@ Webhooks, packages, releases, backups, the updater, the supervisor, two-factor, 
 - **Imports.** The stored import options leave out the types list when it means all types. An empty list still means none.
 - **Plugin runs.** A run progress or summary document with invalid UTF-8 is refused. A repeated key is still accepted.
 - **Package registries.** Signing a registry index now also covers a raw `&`, `<` or `>` correctly. Signed indexes made earlier still verify and published registries do not change.
-- **Package errors.** The error wording of package manifest and index parsing (including `ParseMeta`) changed. Plugin, theme and signature manifests are read as tolerantly as before.
+- **Package errors.** The error wording of package manifest and index parsing changed.
+- **Registry meta files and release keys.** `hatamoto registry build` now reads its meta file case-sensitively: a key in the wrong case (`Title` for `title`) is an unknown member, and a repeated key or invalid UTF-8 is refused. Release key files are refused the same way for a repeated member or invalid UTF-8. Fix the file and build again.
+- **Plugin manifests.** A plugin package whose `plugin.json` repeats a member name (also by case), or spells a field with a different `_` or `-` (`allowedHosts` for `allowed_hosts`, `request-headers`), is refused at upload, so the permissions shown and approved are the ones enforced. Installed manifests keep loading and are read as before. Theme and signature manifests are still read tolerantly.
+- **Uploaded backups.** A backup manifest with invalid UTF-8 in an uploaded archive is now refused.
+- **Agents endpoints.** The agents, errors and hits endpoints may return `[]` where they returned `null` for an empty list.
 - **Unchanged byte for byte.** Webhook bodies and their HMACs, release records, signed indexes and channel manifests, and passkey data.
 - **Migration.** None.
 
