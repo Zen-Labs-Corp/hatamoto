@@ -98,11 +98,8 @@ GET /admin/profile/security/passkeys/add -> admin.(*Admin).handlePasskeyAddPage-
 GET /admin/profile/security/totp -> admin.(*Admin).handleTOTPForm-fm
 GET /admin/reset -> admin.(*Admin).handleResetForm-fm
 GET /admin/settings -> admin.(*Admin).areaEntry.func1
-<<<<<<< HEAD
-GET /admin/settings/admin-branding -> admin.(*Admin).handleBranding-fm
-=======
 GET /admin/settings/access-security -> admin.(*Admin).mountSettingsFrame.func1
->>>>>>> 8e7d86cd9 (fix(admin): land old Settings section URLs on their own page and register the new section entry routes)
+GET /admin/settings/admin-branding -> admin.(*Admin).handleBranding-fm
 GET /admin/settings/api-keys -> admin.(*Admin).handleAPIKeys-fm
 GET /admin/settings/api-keys/new -> admin.(*Admin).handleAPIKeyNew-fm
 GET /admin/settings/api-keys/secret -> admin.(*Admin).handleAPIKeySecret-fm
@@ -129,11 +126,8 @@ GET /admin/settings/import/wordpress -> admin.(*Admin).handleImportSource-fm
 GET /admin/settings/import/wordpress/{id} -> admin.(*Admin).handleImportRun-fm
 GET /admin/settings/import/wordpress/{id}/cancel -> admin.(*Admin).handleImportCancelForm-fm
 GET /admin/settings/import/wordpress/{id}/options -> admin.(*Admin).handleImportOptions-fm
-<<<<<<< HEAD
-GET /admin/settings/jobs -> admin.(*Admin).handleJobs-fm
-=======
 GET /admin/settings/integrations -> admin.(*Admin).mountSettingsFrame.func1
->>>>>>> 8e7d86cd9 (fix(admin): land old Settings section URLs on their own page and register the new section entry routes)
+GET /admin/settings/jobs -> admin.(*Admin).handleJobs-fm
 GET /admin/settings/linking -> admin.(*Admin).handleRules-fm
 GET /admin/settings/linking/equity -> admin.(*Admin).handleEquity-fm
 GET /admin/settings/linking/equity/{id} -> admin.(*Admin).handleInbound-fm
