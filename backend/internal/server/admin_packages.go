@@ -400,7 +400,7 @@ func (p *packageAdmin) Themes(ctx context.Context) ([]admin.ThemeInfo, error) {
 			continue
 		}
 		var meta packages.ThemeMeta
-		_ = jsonx.Unmarshal(r.Manifest, &meta, jsonx.Stored)
+		_ = jsonx.Unmarshal(r.Manifest, &meta, jsonx.StoredLoose)
 		out = append(out, admin.ThemeInfo{
 			Name: r.Name, Version: r.Version, Description: meta.Description, Active: r.Name == active,
 			Signed: r.Signed(), Signer: r.SignerKeyID, Source: string(r.Source),
@@ -547,7 +547,7 @@ func (p *packageAdmin) decoratePlugins(infos []admin.PluginInfo) []admin.PluginI
 			continue
 		}
 		var m sdk.Manifest
-		_ = jsonx.Unmarshal(r.Manifest, &m, jsonx.Stored)
+		_ = jsonx.Unmarshal(r.Manifest, &m, jsonx.StoredLoose)
 		meta := p.meta(ctx, r)
 		meta.WidgetOnly = p.mgr().WidgetCount(r.Name) > 0 // no runtime status: a pack without wasm
 		meta.TagPack = p.mgr().TagCount(r.Name) > 0
@@ -575,7 +575,7 @@ func firstPartyRow(r packages.Row) bool {
 
 func (p *packageAdmin) meta(ctx context.Context, r packages.Row) *admin.PackageMeta {
 	var man sdk.Manifest
-	_ = jsonx.Unmarshal(r.Manifest, &man, jsonx.Stored)
+	_ = jsonx.Unmarshal(r.Manifest, &man, jsonx.StoredLoose)
 	scripts := p.mgr().ScriptsBlocked(r.Name)
 	if !scripts && p.s.plugins != nil && p.s.plugins.ScriptsDropped(r.Name) {
 		scripts = !p.s.plugins.Grants().Has(r.Name, sdk.PermSiteScripts)

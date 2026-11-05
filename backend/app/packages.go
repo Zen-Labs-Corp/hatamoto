@@ -319,7 +319,7 @@ func registerInstalledPluginTemplates(ctx context.Context, st *packages.Store, l
 			continue
 		}
 		var man sdk.Manifest
-		if err := jsonx.Unmarshal(row.Manifest, &man, jsonx.Stored); err != nil {
+		if err := jsonx.Unmarshal(row.Manifest, &man, jsonx.StoredLoose); err != nil {
 			continue
 		}
 		if ok, _ := man.Compatible(); !ok {

@@ -103,7 +103,7 @@ func (p pluginSource) EnabledSDKRanges(ctx context.Context) ([]updater.NamedRang
 			continue
 		}
 		var m sdk.Manifest
-		if err := jsonx.Unmarshal(r.Manifest, &m, jsonx.Stored); err != nil {
+		if err := jsonx.Unmarshal(r.Manifest, &m, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("plugin %s manifest: %w", r.Name, err)
 		}
 		if m.SDK != "" {
@@ -130,7 +130,7 @@ func (p pluginSource) EnabledSDKRanges(ctx context.Context) ([]updater.NamedRang
 	var t struct {
 		SDK string `json:"sdk"`
 	}
-	if jsonx.Unmarshal(row.Manifest, &t, jsonx.Stored) == nil && t.SDK != "" {
+	if jsonx.Unmarshal(row.Manifest, &t, jsonx.StoredLoose) == nil && t.SDK != "" {
 		out = append(out, updater.NamedRange{Kind: "theme", Name: row.Name, Range: t.SDK})
 	}
 	return out, nil

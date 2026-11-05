@@ -230,7 +230,7 @@ func runPluginSettingsSet(ctx context.Context, args []string, stdin io.Reader, o
 		return err
 	}
 	var man sdk.Manifest
-	if err := jsonx.Unmarshal(row.Manifest, &man, jsonx.Stored); err != nil {
+	if err := jsonx.Unmarshal(row.Manifest, &man, jsonx.StoredLoose); err != nil {
 		return err
 	}
 	if len(man.SettingsSchema) == 0 {
