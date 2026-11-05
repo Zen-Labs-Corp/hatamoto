@@ -25,6 +25,16 @@ type fakeSiteStore struct {
 
 func (f *fakeSiteStore) Get(context.Context) (*siteconfig.Config, error) { c := f.cfg; return &c, nil }
 
+// PatchThemeExtra sets one top-level theme_extra key like the SQL does.
+func (f *fakeSiteStore) PatchThemeExtra(_ context.Context, key string, raw json.RawMessage) error {
+
+	m := map[string]json.RawMessage{}
+	_ = json.Unmarshal(f.cfg.ThemeExtra, &m)
+	m[key] = raw
+	f.cfg.ThemeExtra, _ = json.Marshal(m)
+	return nil
+}
+
 func (f *fakeSiteStore) Update(_ context.Context, in siteconfig.UpdateInput) (*siteconfig.Config, error) {
 	if in.CompanyName != nil {
 		f.cfg.CompanyName = *in.CompanyName

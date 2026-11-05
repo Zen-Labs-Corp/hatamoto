@@ -58,6 +58,8 @@ type SiteStore interface {
 	// ResetAdminBranding clears them.
 	SetAdminBranding(ctx context.Context, b siteconfig.AdminBrand) error
 	ResetAdminBranding(ctx context.Context) error
+	// PatchThemeExtra sets one top-level key of theme_extra, leaving the rest.
+	PatchThemeExtra(ctx context.Context, key string, raw jsontext.Value) error
 }
 
 // OwnerCreator creates the first owner (auth.Bootstrap).

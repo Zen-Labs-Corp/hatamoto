@@ -1,0 +1,10 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/theme/additional-css" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "additional-css-card" "Title" "Additional CSS" "Heading" "h2" "Description" "Your own CSS. It loads as its own stylesheet after the theme's, so it wins over the theme. @import, expression(), javascript: URLs, behavior and -moz-binding are refused; to use another font, add it under Fonts."}}
+{{template "hm/field" dict "ID" "additional-css" "Name" "additional_css" "Label" "CSS" "Control" "textarea" "Rows" 18 "Value" .CSS "Help" (printf "%s. Leave it empty to remove your CSS." .Size) "Error" .Err "Attrs" (attrmap "spellcheck" "false" "autocomplete" "off" "autocapitalize" "off")}}
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+{{end}}{{end}}
