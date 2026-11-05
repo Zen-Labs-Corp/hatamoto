@@ -174,6 +174,26 @@ func TestDownloadRefusesRedirectOffHost(t *testing.T) {
 	}
 }
 
+func TestParseFacesFontStretch(t *testing.T) {
+	const tail = `src:url(https://fonts.gstatic.com/s/a.woff2) format('woff2');unicode-range:U+0000-00FF}`
+	for _, ok := range []string{"normal", "100%", "75% 100%", "87.5%", "semi-condensed", "ultra-expanded"} {
+		css := "@font-face{font-family:'Open Sans';font-style:normal;font-weight:400;font-stretch:" + ok + ";font-display:swap;" + tail
+		if _, err := ParseFaces(css); err != nil {
+			t.Errorf("font-stretch %q refused: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"url(x)", "100", "100%;x", "expression(1)", "1000%", "100% 100% 100%", ""} {
+		css := "@font-face{font-family:'Open Sans';font-style:normal;font-weight:400;font-stretch:" + bad + ";" + tail
+		if _, err := ParseFaces(css); err == nil {
+			t.Errorf("font-stretch %q accepted", bad)
+		}
+	}
+	// Two declarations of it are still refused.
+	if _, err := ParseFaces("@font-face{font-family:Inter;font-style:normal;font-weight:400;font-stretch:100%;font-stretch:100%;" + tail); err == nil {
+		t.Error("repeated font-stretch accepted")
+	}
+}
+
 func TestParseFacesWeightRangeAndSubset(t *testing.T) {
 	faces, err := ParseFaces(`/* latin */ @font-face{font-family:'Inter';font-style:italic;font-weight:100 900;src:url(https://fonts.gstatic.com/s/a.woff2) format('woff2');unicode-range:U+0000-00FF}
 @font-face{font-family:Inter;font-style:normal;font-weight:400;src:url(https://fonts.gstatic.com/s/b.woff2) format("woff2")}`)

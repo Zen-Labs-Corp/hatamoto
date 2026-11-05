@@ -25,11 +25,12 @@ var (
 	rangeRe   = regexp.MustCompile(`^[Uu+0-9A-Fa-f?, -]{1,300}$`)
 	subsetRe  = regexp.MustCompile(`^[A-Za-z0-9 _-]{1,40}$`)
 	weightRe  = regexp.MustCompile(`^(\d{3})(?:\s+(\d{3}))?$`)
+	stretchRe = regexp.MustCompile(`^(normal|(?:condensed|expanded|(?:ultra|extra|semi)-(?:condensed|expanded))|\d{1,3}(?:\.\d+)?%(?:\s+\d{1,3}(?:\.\d+)?%)?)$`)
 	errSheet  = errors.New("Google Fonts answered with a stylesheet this server does not understand")
 	maxFaces  = 40
 	allowedKV = map[string]bool{
 		"font-family": true, "font-style": true, "font-weight": true,
-		"font-display": true, "src": true, "unicode-range": true,
+		"font-display": true, "font-stretch": true, "src": true, "unicode-range": true,
 	}
 )
 
@@ -127,6 +128,12 @@ func parseBlock(body string) (Face, error) {
 			f.Variable = m[2] != ""
 			if !ValidWeight(f.Weight) {
 				return f, sheetErr("weight")
+			}
+		case "font-stretch":
+			// Google sends font-stretch: 100% for width-axis families (Open
+			// Sans, Roboto). Checked, then ignored like font-display.
+			if !stretchRe.MatchString(v) {
+				return f, sheetErr("stretch")
 			}
 		case "font-display":
 			// Accepted and ignored: the site always emits swap.
