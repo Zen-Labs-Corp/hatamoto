@@ -81,7 +81,10 @@ func TestImportFoldsDefaultBusiness_Integration(t *testing.T) {
 	if !p.Office || p.Name != "Example Co GB" || p.Description != "Default text." || p.TaxID != "TAX-0001" || got.phone != "+00 555 0200" {
 		t.Errorf("business not folded: %+v", got)
 	}
-	var addr struct{ Street, City string }
+	var addr struct {
+		Street string `json:"street"`
+		City   string `json:"city"`
+	}
 	if err := jsonx.Unmarshal([]byte(got.addr), &addr); err != nil || addr.Street != "2 Example Street" || addr.City != "Example Town" {
 		t.Errorf("address = %s (%v)", got.addr, err)
 	}
