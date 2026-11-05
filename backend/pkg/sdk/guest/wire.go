@@ -15,10 +15,11 @@ import (
 //
 // The marshal set writes nil slices and maps as null, sorts map keys, escapes
 // HTML and U+2028/2029, and writes invalid UTF-8 as the replacement
-// character. The unmarshal set accepts what v1 accepted from the other side:
-// case-insensitive names, duplicate names and invalid UTF-8. Wire types tag
-// int, bool, struct, pointer and raw JSON fields omitzero, not omitempty,
-// because v2 omitempty also drops values that encode as 0, false, {} or null.
+// character. legacyMarshal (v1opts.go) adds v1's omitempty, time.Duration,
+// byte-array and method-call behaviour, so plugin-author types marshal as they
+// did under v1 (an empty raw JSON field is omitted, as in v1). The unmarshal
+// set accepts what v1 accepted from the other side: case-insensitive names,
+// duplicate names and invalid UTF-8.
 var (
 	marshalOptions = jsonv2.JoinOptions(
 		jsonv2.Deterministic(true),
@@ -27,6 +28,7 @@ var (
 		jsontext.AllowInvalidUTF8(true),
 		jsonv2.FormatNilSliceAsNull(true),
 		jsonv2.FormatNilMapAsNull(true),
+		legacyMarshal,
 	)
 	unmarshalOptions = jsonv2.JoinOptions(
 		jsonv2.MatchCaseInsensitiveNames(true),

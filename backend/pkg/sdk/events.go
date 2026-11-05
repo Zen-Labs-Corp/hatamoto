@@ -84,7 +84,7 @@ type SiteGraph struct {
 type HeadTag struct {
 	Kind   string            `json:"kind"`
 	Attrs  map[string]string `json:"attrs,omitempty"`
-	JSONLD jsontext.Value    `json:"jsonld,omitzero"`
+	JSONLD jsontext.Value    `json:"jsonld,omitempty"`
 }
 
 // AgentHitEvent is the payload of agent.hit. It deliberately carries no IP

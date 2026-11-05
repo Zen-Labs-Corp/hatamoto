@@ -192,8 +192,8 @@ type RunInfo struct {
 	Name   string         `json:"name"`
 	Phase  string         `json:"phase"`
 	Cursor string         `json:"cursor"`
-	Params jsontext.Value `json:"params,omitzero"` // the owner's inputs, keyed by input name
-	Hosts  []string       `json:"hosts,omitempty"` // the hosts the owner confirmed for http.fetch and media.import_url
+	Params jsontext.Value `json:"params,omitempty"` // the owner's inputs, keyed by input name
+	Hosts  []string       `json:"hosts,omitempty"`  // the hosts the owner confirmed for http.fetch and media.import_url
 	// UploadID is the owner's uploaded file for upload.read, "" when none.
 	UploadID string `json:"upload_id,omitempty"`
 }
@@ -213,7 +213,7 @@ type RunProgressArgs struct {
 // RunFinishArgs are the arguments of run.finish. Summary is shown to the
 // owner with the changeset.
 type RunFinishArgs struct {
-	Summary jsontext.Value `json:"summary,omitzero"`
+	Summary jsontext.Value `json:"summary,omitempty"`
 }
 
 // RunFailArgs are the arguments of run.fail.
@@ -324,7 +324,7 @@ type EntityUpsert struct {
 	// TranslationOf links the entity into the translation group of another.
 	TranslationOf string         `json:"translation_of,omitempty"`
 	Name          string         `json:"name"`
-	Attributes    jsontext.Value `json:"attributes,omitzero"`
+	Attributes    jsontext.Value `json:"attributes,omitempty"`
 	SEO           *SEO           `json:"seo,omitzero"`
 }
 

@@ -2,8 +2,10 @@ package guest
 
 import (
 	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
+	"time"
 
 	"hatamoto.dev/sdk"
 )
@@ -112,8 +114,8 @@ func TestWireGuestCallRequests(t *testing.T) {
 	}
 	type kv struct {
 		Key   string `json:"key"`
-		Value any    `json:"value,omitzero"`
-		TTL   int    `json:"ttl_seconds,omitzero"`
+		Value any    `json:"value,omitempty"`
+		TTL   int    `json:"ttl_seconds,omitempty"`
 	}
 	for _, c := range []struct {
 		name string
@@ -206,4 +208,63 @@ func TestWireGuestRunArgs(t *testing.T) {
 	check("delete", err, sdk.FnChangesetDelete, `{"kind":"entity","source_key":"k"}`)
 	check("propose", Propose(call, "site_settings", map[string]string{"title": "<T>"}), sdk.FnChangesetPropose, `{"kind":"site_settings","payload":{"title":"\u003cT\u003e"}}`)
 	check("propose nil", Propose(call, "site_settings", nil), sdk.FnChangesetPropose, `{"kind":"site_settings","payload":null}`)
+}
+
+// Plugin-author types go through the guest encoder too (call arguments, run
+// summaries), so they must keep their v1 bytes: omitempty drops empty
+// containers, a time.Duration is its nanosecond count, a byte array is a
+// number array and a raw value may repeat member names.
+func TestWireGuestAuthorTypes(t *testing.T) {
+	type author struct {
+		N int               `json:"n,omitempty"`
+		B bool              `json:"b,omitempty"`
+		S string            `json:"s,omitempty"`
+		M map[string]int    `json:"m,omitempty"`
+		L []int             `json:"l,omitempty"`
+		D time.Duration     `json:"d"`
+		A [2]byte           `json:"a"`
+		V jsontext.Value    `json:"v,omitempty"`
+		P *struct{}         `json:"p,omitempty"`
+		X map[string]string `json:"x"`
+	}
+	for _, c := range []struct {
+		name string
+		v    any
+		want string
+	}{
+		{"zero values omitted", author{}, `{"d":0,"a":[0,0],"x":null}`},
+		{"empty containers omitted", author{M: map[string]int{}, L: []int{}, V: jsontext.Value{}}, `{"d":0,"a":[0,0],"x":null}`},
+		{"set values", author{N: 3, B: true, S: "s", M: map[string]int{"b": 1}, L: []int{1}, D: time.Second, A: [2]byte{1, 2}, P: &struct{}{}},
+			`{"n":3,"b":true,"s":"s","m":{"b":1},"l":[1],"d":1000000000,"a":[1,2],"p":{},"x":null}`},
+		{"duplicate names in a raw value", author{V: jsontext.Value(`{"a":1,"a":{"b":1,"b":2}}`)}, `{"d":0,"a":[0,0],"v":{"a":1,"a":{"b":1,"b":2}},"x":null}`},
+	} {
+		got, err := marshal(c.v)
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if string(got) != c.want {
+			t.Errorf("%s:\n got  %s\n want %s", c.name, got, c.want)
+		}
+	}
+
+	// A non-nil empty raw value in an SDK field was omitted by v1.
+	empty := jsontext.Value{}
+	for _, c := range []struct {
+		name string
+		v    any
+		want string
+	}{
+		{"entity attributes", sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", Attributes: empty}, `{"source_key":"k","schema":"post","name":"N"}`},
+		{"head tag jsonld", sdk.HeadTag{Kind: "jsonld", JSONLD: empty}, `{"kind":"jsonld"}`},
+		{"run finish summary", sdk.RunFinishArgs{Summary: empty}, `{}`},
+		{"call request args", sdk.CallRequest{Fn: "x", Args: empty}, `{"fn":"x"}`},
+	} {
+		got, err := marshal(c.v)
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if string(got) != c.want {
+			t.Errorf("%s:\n got  %s\n want %s", c.name, got, c.want)
+		}
+	}
 }

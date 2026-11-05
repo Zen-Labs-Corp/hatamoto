@@ -14,13 +14,13 @@ const HostFunc = "hm_call"
 // arguments (see docs/PLUGIN_API.md for each function's shape).
 type CallRequest struct {
 	Fn   string         `json:"fn"`
-	Args jsontext.Value `json:"args,omitzero"`
+	Args jsontext.Value `json:"args,omitempty"`
 }
 
 // CallResponse is the output of hm_call. Exactly one of Result and Error is set.
 type CallResponse struct {
 	OK     bool           `json:"ok"`
-	Result jsontext.Value `json:"result,omitzero"`
+	Result jsontext.Value `json:"result,omitempty"`
 	Error  *HostError     `json:"error,omitzero"`
 }
 

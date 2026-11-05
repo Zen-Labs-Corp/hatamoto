@@ -120,7 +120,7 @@ type Manifest struct {
 
 	// SettingsSchema is an optional JSON Schema (draft 2020-12) object
 	// describing the plugin's settings.
-	SettingsSchema jsontext.Value `json:"settings_schema,omitzero"`
+	SettingsSchema jsontext.Value `json:"settings_schema,omitempty"`
 }
 
 // CSP is the set of hosts a plugin asks to have added to the public pages'
