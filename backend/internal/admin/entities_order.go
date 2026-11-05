@@ -243,6 +243,9 @@ func (a *Admin) handleEntityMove(w http.ResponseWriter, r *http.Request) {
 		msg += " at its new level"
 	}
 	a.SetFlash(w, r, "success", msg+".")
+	if r.PostFormValue("op") != "" {
+		back += "#row-" + id.String() // the page puts focus back on the moved row
+	}
 	Redirect(w, r, back)
 }
 

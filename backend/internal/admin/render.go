@@ -219,6 +219,7 @@ var markupHooks = []struct {
 	{`data-hm-editor="tiptap"`, []string{"@hm/editors"}, nil},
 	{`data-hm-editor="html"`, []string{"@hm/editors"}, nil},
 	{`data-hm-sortable`, []string{"@hm/repeater"}, []string{"sortablejs"}},
+	{`data-hm-orderlist`, []string{"@hm/ordering"}, []string{"sortablejs"}},
 	{`data-hm-repeater`, []string{"@hm/repeater"}, nil},
 	{`data-hm-media-picker`, []string{"@hm/content"}, nil},
 	{`data-hm-pluginframe`, []string{"@hm/pluginframe"}, nil},
