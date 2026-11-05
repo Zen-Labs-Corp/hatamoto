@@ -1,14 +1,15 @@
 package builder
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // A v1 section is stored in a doc as an unstyled container(tag=section, v1=true)
@@ -283,8 +284,8 @@ func sortOrder(v any) int {
 	switch x := v.(type) {
 	case float64:
 		return int(x)
-	case json.Number:
-		if f, err := x.Float64(); err == nil {
+	case jsontext.Value:
+		if f, err := strconv.ParseFloat(string(x), 64); err == nil {
 			return int(f)
 		}
 	case string:
@@ -297,22 +298,22 @@ func sortOrder(v any) int {
 
 // SectionsFromJSON decodes attributes.page_sections one item at a time, so a
 // malformed sibling costs that section and not the page. exact keeps numbers
-// as json.Number (the write path); otherwise they are float64 (the render path).
-func SectionsFromJSON(attrs json.RawMessage, exact bool) []Section {
-	var top map[string]json.RawMessage // exact key: a struct tag matches "Page_Sections" too
-	if len(attrs) == 0 || json.Unmarshal(attrs, &top) != nil {
+// as raw text, jsontext.Value (the write path); otherwise they are float64 (the render path).
+func SectionsFromJSON(attrs jsontext.Value, exact bool) []Section {
+	var top map[string]jsontext.Value // exact key: a struct tag matches "Page_Sections" too
+	if len(attrs) == 0 || jsonx.Unmarshal(attrs, &top, jsonx.StoredLoose) != nil {
 		return nil
 	}
-	var rawSections []json.RawMessage
-	_ = json.Unmarshal(top["page_sections"], &rawSections)
+	var rawSections []jsontext.Value
+	_ = jsonx.Unmarshal(top["page_sections"], &rawSections, jsonx.StoredLoose)
+	opts := jsonx.Stored
+	if exact {
+		opts = jsonx.ExactNumbers
+	}
 	out := make([]Section, 0, len(rawSections))
 	for i, raw := range rawSections {
-		dec := json.NewDecoder(bytes.NewReader(raw))
-		if exact {
-			dec.UseNumber()
-		}
 		var m map[string]any
-		if dec.Decode(&m) != nil || m == nil {
+		if jsonx.Unmarshal(raw, &m, opts) != nil || m == nil {
 			continue // not an object (string, number, null, array)
 		}
 		out = append(out, SectionFromMap(i, m))

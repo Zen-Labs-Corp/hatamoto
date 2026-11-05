@@ -1,12 +1,13 @@
 package builder
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"slices"
 	"sort"
 	"strconv"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // PropInfo describes one prop of a node kind, derived from its compiled
@@ -290,7 +291,7 @@ func CoerceProp(kind, key, raw string) (any, error) {
 			}
 		case "object":
 			var m map[string]any
-			if err := json.Unmarshal([]byte(raw), &m); err != nil || m == nil {
+			if err := jsonx.Unmarshal([]byte(raw), &m); err != nil || m == nil {
 				return nil, fmt.Errorf("builder: %s: not a JSON object", key)
 			}
 			v = m

@@ -1,6 +1,8 @@
 package builder
 
-import "encoding/json"
+import (
+	"hatamoto.dev/core/internal/jsonx"
+)
 
 // BootKind is the JSON view of a KindInfo: what the admin builder boots from
 // and what the MCP builder_kinds tool returns.
@@ -79,7 +81,7 @@ func ReadableNodes(content []byte) []*Node {
 	var c struct {
 		Nodes []*Node `json:"nodes"`
 	}
-	if json.Unmarshal(content, &c) != nil {
+	if jsonx.Unmarshal(content, &c, jsonx.StoredLoose) != nil {
 		return nil
 	}
 	var out []*Node
@@ -87,7 +89,7 @@ func ReadableNodes(content []byte) []*Node {
 		if n == nil {
 			continue
 		}
-		raw, err := json.Marshal(&Doc{V: 2, Nodes: []*Node{n}})
+		raw, err := jsonx.Marshal(&Doc{V: 2, Nodes: []*Node{n}})
 		if err != nil {
 			continue
 		}

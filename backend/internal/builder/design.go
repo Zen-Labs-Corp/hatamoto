@@ -1,7 +1,7 @@
 package builder
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"regexp"
@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The site design system: a closed set of design tokens (values the owner
@@ -195,12 +197,12 @@ func ValidatePreset(name string, p Preset) error {
 // is an empty design with a nil error.
 func ParseDesign(themeExtra []byte) (Design, error) {
 	var d Design
-	var top map[string]json.RawMessage
-	if len(themeExtra) == 0 || json.Unmarshal(themeExtra, &top) != nil || len(top["builder"]) == 0 {
+	var top map[string]jsontext.Value
+	if len(themeExtra) == 0 || jsonx.Unmarshal(themeExtra, &top, jsonx.StoredLoose) != nil || len(top["builder"]) == 0 {
 		return d, nil
 	}
 	var raw map[string]any
-	if err := json.Unmarshal(top["builder"], &raw); err != nil {
+	if err := jsonx.Unmarshal(top["builder"], &raw, jsonx.StoredLoose); err != nil {
 		return d, fmt.Errorf("builder settings: %w", err)
 	}
 	var errs []error
@@ -318,7 +320,7 @@ func PresetCSS(name string, p Preset, o CSSOpts) string {
 // theme settings JSON, keeping every other key (and any other key inside
 // "builder"). Empty parts are removed.
 func (d Design) MergeInto(themeExtra []byte) ([]byte, error) {
-	return mergeBuilder(themeExtra, func(b map[string]json.RawMessage) error {
+	return mergeBuilder(themeExtra, func(b map[string]jsontext.Value) error {
 		if err := setPart(b, "tokens", d.Tokens, d.Tokens.empty()); err != nil {
 			return err
 		}
@@ -329,7 +331,7 @@ func (d Design) MergeInto(themeExtra []byte) ([]byte, error) {
 // MergeTokens replaces only builder.tokens, leaving presets (even ones that
 // would not parse) and every other key as stored. Empty tokens remove the key.
 func MergeTokens(themeExtra []byte, t Tokens) ([]byte, error) {
-	return mergeBuilder(themeExtra, func(b map[string]json.RawMessage) error {
+	return mergeBuilder(themeExtra, func(b map[string]jsontext.Value) error {
 		return setPart(b, "tokens", t, t.empty())
 	})
 }
@@ -346,10 +348,10 @@ func MergeParts(themeExtra []byte, parts map[string]string) ([]byte, error) {
 			return nil, fmt.Errorf("bad part id for slot %s", slot)
 		}
 	}
-	return mergeBuilder(themeExtra, func(b map[string]json.RawMessage) error {
+	return mergeBuilder(themeExtra, func(b map[string]jsontext.Value) error {
 		cur := map[string]string{}
 		if len(b["parts"]) > 0 {
-			if err := json.Unmarshal(b["parts"], &cur); err != nil {
+			if err := jsonx.Unmarshal(b["parts"], &cur, jsonx.StoredLoose); err != nil {
 				cur = map[string]string{} // unreadable assignment: start over
 			}
 		}
@@ -400,7 +402,7 @@ func AddPreset(themeExtra []byte, name string, p Preset) ([]byte, error) {
 	if err := ValidatePreset(name, p); err != nil {
 		return nil, err
 	}
-	return mergeBuilder(themeExtra, func(b map[string]json.RawMessage) error {
+	return mergeBuilder(themeExtra, func(b map[string]jsontext.Value) error {
 		presets, err := rawPresets(b)
 		if err != nil {
 			return err
@@ -426,7 +428,7 @@ func MergePresets(themeExtra []byte, updates map[string]*Preset) ([]byte, error)
 			}
 		}
 	}
-	return mergeBuilder(themeExtra, func(b map[string]json.RawMessage) error {
+	return mergeBuilder(themeExtra, func(b map[string]jsontext.Value) error {
 		presets, err := rawPresets(b)
 		if err != nil {
 			return err
@@ -435,23 +437,23 @@ func MergePresets(themeExtra []byte, updates map[string]*Preset) ([]byte, error)
 	})
 }
 
-func rawPresets(b map[string]json.RawMessage) (map[string]json.RawMessage, error) {
-	presets := map[string]json.RawMessage{}
+func rawPresets(b map[string]jsontext.Value) (map[string]jsontext.Value, error) {
+	presets := map[string]jsontext.Value{}
 	if len(b["presets"]) > 0 {
-		if err := json.Unmarshal(b["presets"], &presets); err != nil {
+		if err := jsonx.Unmarshal(b["presets"], &presets, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("builder presets: %w", err)
 		}
 	}
 	return presets, nil
 }
 
-func putPresets(b, presets map[string]json.RawMessage, updates map[string]*Preset) error {
+func putPresets(b, presets map[string]jsontext.Value, updates map[string]*Preset) error {
 	for name, p := range updates {
 		if p == nil {
 			delete(presets, name)
 			continue
 		}
-		raw, err := json.Marshal(p)
+		raw, err := jsonx.Marshal(p)
 		if err != nil {
 			return err
 		}
@@ -463,28 +465,28 @@ func putPresets(b, presets map[string]json.RawMessage, updates map[string]*Prese
 	return setPart(b, "presets", presets, len(presets) == 0)
 }
 
-func setPart(b map[string]json.RawMessage, key string, v any, empty bool) error {
+func setPart(b map[string]jsontext.Value, key string, v any, empty bool) error {
 	if empty {
 		delete(b, key)
 		return nil
 	}
-	raw, err := json.Marshal(v)
+	raw, err := jsonx.Marshal(v)
 	b[key] = raw
 	return err
 }
 
 // mergeBuilder applies edit to the "builder" object of the theme settings JSON
 // and returns the whole document; the builder key is dropped when it ends empty.
-func mergeBuilder(themeExtra []byte, edit func(b map[string]json.RawMessage) error) ([]byte, error) {
-	top := map[string]json.RawMessage{}
+func mergeBuilder(themeExtra []byte, edit func(b map[string]jsontext.Value) error) ([]byte, error) {
+	top := map[string]jsontext.Value{}
 	if len(themeExtra) > 0 && string(themeExtra) != "null" {
-		if err := json.Unmarshal(themeExtra, &top); err != nil {
+		if err := jsonx.Unmarshal(themeExtra, &top, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("theme settings: %w", err)
 		}
 	}
-	b := map[string]json.RawMessage{}
+	b := map[string]jsontext.Value{}
 	if len(top["builder"]) > 0 {
-		if err := json.Unmarshal(top["builder"], &b); err != nil {
+		if err := jsonx.Unmarshal(top["builder"], &b, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("builder settings: %w", err)
 		}
 	}
@@ -494,13 +496,13 @@ func mergeBuilder(themeExtra []byte, edit func(b map[string]json.RawMessage) err
 	if len(b) == 0 {
 		delete(top, "builder")
 	} else {
-		raw, err := json.Marshal(b)
+		raw, err := jsonx.Marshal(b)
 		if err != nil {
 			return nil, err
 		}
 		top["builder"] = raw
 	}
-	return json.Marshal(top)
+	return jsonx.Marshal(top)
 }
 
 func (t Tokens) empty() bool {
