@@ -164,6 +164,25 @@ func TestPreviewShareServesTheDraft(t *testing.T) {
 	}
 }
 
+// The shared draft is served sandboxed, so a PDF widget is a link, never a frame.
+func TestPreviewShareRendersPDFWidgetLinkOnly(t *testing.T) {
+	r := newShareRig(t)
+	slug := "pdf-" + r.sfx
+	id := uuid.New()
+	r.exec(`INSERT INTO hatamoto_entities (id,schema_id,name,slug,status,attributes)
+		VALUES ($1,$2,$3,$4,'draft',$5::jsonb)`, id, r.schema, "Draft "+slug, slug,
+		`{"page_doc":{"v":2,"nodes":[{"id":"p","t":"pdf","p":{"src":"/media/b.pdf"}}]}}`)
+	tok, _ := r.link(id)
+	rec := r.get("/preview/" + tok)
+	body := rec.Body.String()
+	if rec.Code != 200 || !strings.Contains(body, `href="/media/b.pdf"`) {
+		t.Fatalf("preview: %d, no pdf link: %.400s\n%s", rec.Code, body, r.logs)
+	}
+	if strings.Contains(body, "<iframe") || strings.Contains(body, " download") {
+		t.Error("the sandboxed preview frames the PDF or marks the link download")
+	}
+}
+
 func TestPreviewShareRefusals(t *testing.T) {
 	r := newShareRig(t)
 	slug := "gone-" + r.sfx

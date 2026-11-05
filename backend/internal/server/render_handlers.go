@@ -439,6 +439,8 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	}
 	var buf bytes.Buffer
 	v.Ctx = r.Context()
+	// Keep in sync with the sandboxCSP condition in writeHTML: a page served
+	// sandboxed must not carry frames (a sandboxed PDF viewer is blocked).
 	v.NoFrames = h.communityScripts != nil && h.communityScripts() // such pages get sandboxCSP
 	if err := h.engine.RenderPage(&buf, v); err != nil {
 		h.logger.ErrorContext(r.Context(), "render: page", "error", err, "path", path)
