@@ -3,11 +3,12 @@ package agents
 import (
 	"bufio"
 	"compress/gzip"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -100,9 +101,7 @@ func (h *LogHandlers) HandleIngest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "writer queue full", http.StatusServiceUnavailable)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusAccepted)
-	_ = json.NewEncoder(w).Encode(map[string]int{"accepted": len(hits) - dropped, "skipped": skipped, "dropped": dropped})
+	jsonx.WriteJSON(w, http.StatusAccepted, map[string]int{"accepted": len(hits) - dropped, "skipped": skipped, "dropped": dropped})
 }
 
 var errLogBodyTooLarge = errors.New("log body too large")

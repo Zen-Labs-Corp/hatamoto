@@ -1,13 +1,13 @@
 package agents
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -52,16 +52,6 @@ func NewAdminHandlers(store AdminStore, reg *Registry, stats func() WriterStats)
 	return &AdminHandlers{store: store, reg: reg, stats: stats, now: time.Now}
 }
 
-func writeAdminJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func writeAdminError(w http.ResponseWriter, status int, msg string) {
-	writeAdminJSON(w, status, map[string]string{"error": msg})
-}
-
 // parseRange reads ?from&to (YYYY-MM-DD, inclusive, UTC). Defaults to the last
 // 30 days ending today. A bad date, from > to, or a span over 366 days is 400.
 func (h *AdminHandlers) parseRange(w http.ResponseWriter, r *http.Request) (Range, bool) {
@@ -75,7 +65,7 @@ func (h *AdminHandlers) parseRange(w http.ResponseWriter, r *http.Request) (Rang
 		}
 		t, err := time.Parse(dayFmt, v)
 		if err != nil {
-			writeAdminError(w, http.StatusBadRequest, name+" must be YYYY-MM-DD")
+			jsonx.WriteError(w, http.StatusBadRequest, name+" must be YYYY-MM-DD")
 			return false
 		}
 		*dst = t
@@ -92,11 +82,11 @@ func (h *AdminHandlers) parseRange(w http.ResponseWriter, r *http.Request) (Rang
 		rg.To = rg.From
 	}
 	if rg.From.After(rg.To) {
-		writeAdminError(w, http.StatusBadRequest, "from must not be after to")
+		jsonx.WriteError(w, http.StatusBadRequest, "from must not be after to")
 		return rg, false
 	}
 	if rg.To.Sub(rg.From) > (maxRangeDays-1)*24*time.Hour {
-		writeAdminError(w, http.StatusBadRequest, "range must not exceed 366 days")
+		jsonx.WriteError(w, http.StatusBadRequest, "range must not exceed 366 days")
 		return rg, false
 	}
 	return rg, true
@@ -108,7 +98,7 @@ func parsePage(w http.ResponseWriter, r *http.Request) (page, perPage int, p Pag
 	page, perPage = 1, defaultPerPage
 	if v, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && v > 0 {
 		if v > maxPage {
-			writeAdminError(w, http.StatusBadRequest, "page must not exceed 10000")
+			jsonx.WriteError(w, http.StatusBadRequest, "page must not exceed 10000")
 			return 0, 0, Page{}, false
 		}
 		page = v
@@ -183,23 +173,23 @@ func (h *AdminHandlers) HandleOverview(w http.ResponseWriter, r *http.Request) {
 		group = "operator"
 	case "operator", "purpose":
 	default:
-		writeAdminError(w, http.StatusBadRequest, "group must be operator or purpose")
+		jsonx.WriteError(w, http.StatusBadRequest, "group must be operator or purpose")
 		return
 	}
 	ctx := r.Context()
 	totals, err := h.store.Overview(ctx, rg)
 	if err != nil {
-		writeAdminError(w, http.StatusInternalServerError, "failed to load overview")
+		jsonx.WriteError(w, http.StatusInternalServerError, "failed to load overview")
 		return
 	}
 	series, err := h.store.Series(ctx, rg, group)
 	if err != nil {
-		writeAdminError(w, http.StatusInternalServerError, "failed to load overview")
+		jsonx.WriteError(w, http.StatusInternalServerError, "failed to load overview")
 		return
 	}
 	top, err := h.store.TopAgents(ctx, rg, topAgentsLimit)
 	if err != nil {
-		writeAdminError(w, http.StatusInternalServerError, "failed to load overview")
+		jsonx.WriteError(w, http.StatusInternalServerError, "failed to load overview")
 		return
 	}
 	var resp overviewResponse
@@ -209,14 +199,11 @@ func (h *AdminHandlers) HandleOverview(w http.ResponseWriter, r *http.Request) {
 	resp.Totals.VerifiedPercent = verifiedPct(totals.Verified, totals.Spoofed, totals.Unverifiable)
 	resp.Totals.AIReferredVisits, resp.Totals.Pageviews = totals.AIVisits, totals.Pageviews
 	resp.Series = series
-	if resp.Series == nil {
-		resp.Series = []SeriesPoint{}
-	}
 	resp.TopAgents = h.agentRows(top)
 	if h.stats != nil {
 		resp.DroppedHits = h.stats().Dropped
 	}
-	writeAdminJSON(w, http.StatusOK, resp)
+	jsonx.WriteJSON(w, http.StatusOK, resp)
 }
 
 // HandlePages serves GET /pages?from&to&page&per_page: top fetched pages in
@@ -233,21 +220,15 @@ func (h *AdminHandlers) HandlePages(w http.ResponseWriter, r *http.Request) {
 	}
 	top, topTotal, err := h.store.TopPages(r.Context(), rg, p)
 	if err != nil {
-		writeAdminError(w, http.StatusInternalServerError, "failed to load pages")
+		jsonx.WriteError(w, http.StatusInternalServerError, "failed to load pages")
 		return
 	}
 	never, neverTotal, err := h.store.NeverFetched(r.Context(), p)
 	if err != nil {
-		writeAdminError(w, http.StatusInternalServerError, "failed to load pages")
+		jsonx.WriteError(w, http.StatusInternalServerError, "failed to load pages")
 		return
 	}
-	if top == nil {
-		top = []PageRow{}
-	}
-	if never == nil {
-		never = []NeverFetchedRow{}
-	}
-	writeAdminJSON(w, http.StatusOK, map[string]any{
+	jsonx.WriteJSON(w, http.StatusOK, map[string]any{
 		"from": rg.From.Format(dayFmt), "to": rg.To.Format(dayFmt),
 		"page": page, "per_page": perPage,
 		"top": top, "top_total": topTotal,
@@ -263,10 +244,10 @@ func (h *AdminHandlers) HandleAgents(w http.ResponseWriter, r *http.Request) {
 	}
 	list, err := h.store.Agents(r.Context(), rg)
 	if err != nil {
-		writeAdminError(w, http.StatusInternalServerError, "failed to load agents")
+		jsonx.WriteError(w, http.StatusInternalServerError, "failed to load agents")
 		return
 	}
-	writeAdminJSON(w, http.StatusOK, map[string]any{
+	jsonx.WriteJSON(w, http.StatusOK, map[string]any{
 		"from": rg.From.Format(dayFmt), "to": rg.To.Format(dayFmt),
 		"agents": h.agentRows(list),
 	})
@@ -302,12 +283,12 @@ func (h *AdminHandlers) HandleAgentDetail(w http.ResponseWriter, r *http.Request
 	id := r.PathValue("id")
 	d, err := h.store.AgentDetail(r.Context(), rg, id)
 	if err != nil {
-		writeAdminError(w, http.StatusInternalServerError, "failed to load agent")
+		jsonx.WriteError(w, http.StatusInternalServerError, "failed to load agent")
 		return
 	}
 	reg := h.reg.ByID(id)
 	if !d.Found && reg == nil {
-		writeAdminError(w, http.StatusNotFound, "agent not found")
+		jsonx.WriteError(w, http.StatusNotFound, "agent not found")
 		return
 	}
 	resp := agentDetailResponse{
@@ -322,16 +303,7 @@ func (h *AdminHandlers) HandleAgentDetail(w http.ResponseWriter, r *http.Request
 		resp.Operator, resp.Purpose = reg.Operator, string(reg.Purpose)
 		resp.RobotsToken, resp.IgnoresRobots = reg.RobotsToken, reg.IgnoresRobots
 	}
-	if resp.Series == nil {
-		resp.Series = []DayCount{}
-	}
-	if resp.TopPaths == nil {
-		resp.TopPaths = []PathCount{}
-	}
-	if resp.ByStatus == nil {
-		resp.ByStatus = []StatusCount{}
-	}
-	writeAdminJSON(w, http.StatusOK, resp)
+	jsonx.WriteJSON(w, http.StatusOK, resp)
 }
 
 type errorResponseRow struct {
@@ -352,7 +324,7 @@ func (h *AdminHandlers) HandleErrors(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, total, err := h.store.Errors(r.Context(), rg, p)
 	if err != nil {
-		writeAdminError(w, http.StatusInternalServerError, "failed to load errors")
+		jsonx.WriteError(w, http.StatusInternalServerError, "failed to load errors")
 		return
 	}
 	out := make([]errorResponseRow, 0, len(rows))
@@ -363,7 +335,7 @@ func (h *AdminHandlers) HandleErrors(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, errorResponseRow{ErrorRow: e, Agents: names})
 	}
-	writeAdminJSON(w, http.StatusOK, map[string]any{
+	jsonx.WriteJSON(w, http.StatusOK, map[string]any{
 		"from": rg.From.Format(dayFmt), "to": rg.To.Format(dayFmt),
 		"page": page, "per_page": perPage, "total": total, "errors": out,
 	})
@@ -387,14 +359,14 @@ func (h *AdminHandlers) HandleSpoofed(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, total, err := h.store.Spoofed(r.Context(), rg, p)
 	if err != nil {
-		writeAdminError(w, http.StatusInternalServerError, "failed to load spoofed hits")
+		jsonx.WriteError(w, http.StatusInternalServerError, "failed to load spoofed hits")
 		return
 	}
 	out := make([]spoofedResponseRow, 0, len(rows))
 	for _, s := range rows {
 		out = append(out, spoofedResponseRow{SpoofedRow: s, Name: h.agentName(s.AgentID)})
 	}
-	writeAdminJSON(w, http.StatusOK, map[string]any{
+	jsonx.WriteJSON(w, http.StatusOK, map[string]any{
 		"from": rg.From.Format(dayFmt), "to": rg.To.Format(dayFmt),
 		"page": page, "per_page": perPage, "total": total, "hits": out,
 	})
@@ -440,7 +412,7 @@ func (h *AdminHandlers) aiAgentsWithUA() []Agent {
 func (h *AdminHandlers) HandleEntityActivity(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		writeAdminError(w, http.StatusBadRequest, "invalid entity id")
+		jsonx.WriteError(w, http.StatusBadRequest, "invalid entity id")
 		return
 	}
 	agents := h.aiAgentsWithUA()
@@ -450,11 +422,11 @@ func (h *AdminHandlers) HandleEntityActivity(w http.ResponseWriter, r *http.Requ
 	}
 	d, err := h.store.EntityActivity(r.Context(), id, ids, h.now().UTC().Truncate(24*time.Hour))
 	if err != nil {
-		writeAdminError(w, http.StatusInternalServerError, "failed to load entity activity")
+		jsonx.WriteError(w, http.StatusInternalServerError, "failed to load entity activity")
 		return
 	}
 	if !d.Exists {
-		writeAdminError(w, http.StatusNotFound, "entity not found")
+		jsonx.WriteError(w, http.StatusNotFound, "entity not found")
 		return
 	}
 	resp := entityActivityResponse{UserFetch7d: d.UserFetch7d, UserFetch30d: d.UserFetch30d, Agents: make([]entityAgentRow, 0, len(agents))}
@@ -474,5 +446,5 @@ func (h *AdminHandlers) HandleEntityActivity(w http.ResponseWriter, r *http.Requ
 		}
 		resp.Agents = append(resp.Agents, row)
 	}
-	writeAdminJSON(w, http.StatusOK, resp)
+	jsonx.WriteJSON(w, http.StatusOK, resp)
 }

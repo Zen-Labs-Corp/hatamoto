@@ -2,12 +2,12 @@ package agents
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"slices"
 
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Robots policy. Only "deny" is ever stored or emitted: an agent-specific
@@ -149,10 +149,10 @@ func (h *AdminHandlers) robotsResponse(denied []Purpose) robotsPolicyResponse {
 func (h *AdminHandlers) HandleGetRobotsPolicy(w http.ResponseWriter, r *http.Request) {
 	denied, err := h.store.DeniedPurposes(r.Context())
 	if err != nil {
-		writeAdminError(w, http.StatusInternalServerError, "failed to load robots policy")
+		jsonx.WriteError(w, http.StatusInternalServerError, "failed to load robots policy")
 		return
 	}
-	writeAdminJSON(w, http.StatusOK, h.robotsResponse(denied))
+	jsonx.WriteJSON(w, http.StatusOK, h.robotsResponse(denied))
 }
 
 const maxRobotsBody = 16 << 10
@@ -168,19 +168,19 @@ func (h *AdminHandlers) HandlePutRobotsPolicy(w http.ResponseWriter, r *http.Req
 			Action  string `json:"action"`
 		} `json:"purposes"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxRobotsBody)).Decode(&body); err != nil {
-		writeAdminError(w, http.StatusBadRequest, "invalid body")
+	if status, err := jsonx.DecodeRequest(w, r, &body, maxRobotsBody); err != nil {
+		jsonx.WriteError(w, status, "invalid body")
 		return
 	}
 	seen := map[string]bool{}
 	denied := []Purpose{}
 	for _, row := range body.Purposes {
 		if !validPurposes[Purpose(row.Purpose)] {
-			writeAdminError(w, http.StatusBadRequest, "unknown purpose: "+row.Purpose)
+			jsonx.WriteError(w, http.StatusBadRequest, "unknown purpose: "+row.Purpose)
 			return
 		}
 		if seen[row.Purpose] {
-			writeAdminError(w, http.StatusBadRequest, "duplicate purpose: "+row.Purpose)
+			jsonx.WriteError(w, http.StatusBadRequest, "duplicate purpose: "+row.Purpose)
 			return
 		}
 		seen[row.Purpose] = true
@@ -189,13 +189,13 @@ func (h *AdminHandlers) HandlePutRobotsPolicy(w http.ResponseWriter, r *http.Req
 			denied = append(denied, Purpose(row.Purpose))
 		case RobotsAllow:
 		default:
-			writeAdminError(w, http.StatusBadRequest, "action must be allow or deny")
+			jsonx.WriteError(w, http.StatusBadRequest, "action must be allow or deny")
 			return
 		}
 	}
 	if err := h.store.SetDenied(r.Context(), denied); err != nil {
-		writeAdminError(w, http.StatusInternalServerError, "failed to save robots policy")
+		jsonx.WriteError(w, http.StatusInternalServerError, "failed to save robots policy")
 		return
 	}
-	writeAdminJSON(w, http.StatusOK, h.robotsResponse(denied))
+	jsonx.WriteJSON(w, http.StatusOK, h.robotsResponse(denied))
 }

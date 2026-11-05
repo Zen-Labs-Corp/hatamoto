@@ -2,7 +2,7 @@ package agents
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"maps"
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // RangePersister stores fetched range lists so they survive a restart.
@@ -91,17 +92,17 @@ func (s *RangeStore) Contains(keys []string, ip netip.Addr) (found, loaded bool)
 func ParsePrefixes(body []byte) ([]netip.Prefix, error) {
 	var raw []string
 
-	var list []json.RawMessage
+	var list []jsontext.Value
 	var doc struct {
 		Prefixes []struct {
 			IPv4 string `json:"ipv4Prefix"`
 			IPv6 string `json:"ipv6Prefix"`
 		} `json:"prefixes"`
-		IPs []json.RawMessage `json:"ips"`
+		IPs []jsontext.Value `json:"ips"`
 	}
-	if err := json.Unmarshal(body, &list); err == nil {
+	if err := jsonx.UnmarshalPinned(body, &list); err == nil {
 		raw = rangeStrings(list)
-	} else if err := json.Unmarshal(body, &doc); err != nil {
+	} else if err := jsonx.UnmarshalPinned(body, &doc); err != nil {
 		return nil, fmt.Errorf("agents: parse ranges: %w", err)
 	} else {
 		for _, p := range doc.Prefixes {
@@ -127,11 +128,11 @@ func ParsePrefixes(body []byte) ([]netip.Prefix, error) {
 }
 
 // rangeStrings extracts the address strings from string or {"ip_address"|"ip"|"prefix"} items.
-func rangeStrings(items []json.RawMessage) []string {
+func rangeStrings(items []jsontext.Value) []string {
 	var out []string
 	for _, it := range items {
 		var s string
-		if json.Unmarshal(it, &s) == nil {
+		if jsonx.UnmarshalPinned(it, &s) == nil {
 			out = append(out, s)
 			continue
 		}
@@ -140,7 +141,7 @@ func rangeStrings(items []json.RawMessage) []string {
 			IP        string `json:"ip"`
 			Prefix    string `json:"prefix"`
 		}
-		if json.Unmarshal(it, &obj) != nil {
+		if jsonx.UnmarshalPinned(it, &obj) != nil {
 			continue
 		}
 		for _, v := range []string{obj.IPAddress, obj.IP, obj.Prefix} {

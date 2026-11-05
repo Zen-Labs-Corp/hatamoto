@@ -2,12 +2,14 @@ package agents
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/netip"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // logEdge reports whether an address is a CDN edge. Unset (the default) keeps
@@ -60,21 +62,21 @@ func caddyClientIP(ip string, headers map[string][]string) string {
 
 // logpushLine is a Cloudflare Logpush http_requests record (the fields we use).
 type logpushLine struct {
-	ClientIP  string          `json:"ClientIP"`
-	URI       string          `json:"ClientRequestURI"`
-	Method    string          `json:"ClientRequestMethod"`
-	UserAgent string          `json:"ClientRequestUserAgent"`
-	Status    int             `json:"EdgeResponseStatus"`
-	Bytes     int64           `json:"EdgeResponseBytes"`
-	StartedAt json.RawMessage `json:"EdgeStartTimestamp"`
+	ClientIP  string         `json:"ClientIP"`
+	URI       string         `json:"ClientRequestURI"`
+	Method    string         `json:"ClientRequestMethod"`
+	UserAgent string         `json:"ClientRequestUserAgent"`
+	Status    int            `json:"EdgeResponseStatus"`
+	Bytes     int64          `json:"EdgeResponseBytes"`
+	StartedAt jsontext.Value `json:"EdgeStartTimestamp"`
 }
 
 // caddyLine is a Caddy JSON access-log record.
 type caddyLine struct {
-	TS       json.RawMessage `json:"ts"` // float seconds (default), or a string with time_format
-	Status   int             `json:"status"`
-	Size     int64           `json:"size"`
-	Duration float64         `json:"duration"` // seconds
+	TS       jsontext.Value `json:"ts"` // float seconds (default), or a string with time_format
+	Status   int            `json:"status"`
+	Size     int64          `json:"size"`
+	Duration float64        `json:"duration"` // seconds
 	Request  struct {
 		ClientIP string              `json:"client_ip"`
 		RemoteIP string              `json:"remote_ip"`
@@ -107,15 +109,15 @@ func parseLogLineAt(line []byte, now time.Time) (RawHit, bool) {
 	if len(line) == 0 || line[0] != '{' {
 		return RawHit{}, false
 	}
-	var probe map[string]json.RawMessage
-	if json.Unmarshal(line, &probe) != nil {
+	var probe map[string]jsontext.Value
+	if jsonx.UnmarshalPinned(line, &probe) != nil {
 		return RawHit{}, false
 	}
 	var hit RawHit
 	switch {
 	case probe["ClientRequestURI"] != nil:
 		var l logpushLine
-		if json.Unmarshal(line, &l) != nil {
+		if jsonx.UnmarshalPinned(line, &l) != nil {
 			return RawHit{}, false
 		}
 		hit = RawHit{
@@ -124,7 +126,7 @@ func parseLogLineAt(line []byte, now time.Time) (RawHit, bool) {
 		}
 	case probe["request"] != nil:
 		var l caddyLine
-		if json.Unmarshal(line, &l) != nil {
+		if jsonx.UnmarshalPinned(line, &l) != nil {
 			return RawHit{}, false
 		}
 		ip := l.Request.ClientIP
@@ -161,7 +163,7 @@ func parseLogLineAt(line []byte, now time.Time) (RawHit, bool) {
 
 // parseCaddyTime accepts Caddy's default float seconds, or a string ts
 // (RFC3339 or a numeric string, from a custom time_format). Zero means unknown.
-func parseCaddyTime(raw json.RawMessage) time.Time {
+func parseCaddyTime(raw jsontext.Value) time.Time {
 	s := strings.Trim(string(raw), `"`)
 	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
 		return t.UTC()
@@ -171,14 +173,14 @@ func parseCaddyTime(raw json.RawMessage) time.Time {
 		return time.Time{}
 	}
 	if f >= 1e11 { // ms/us/ns epoch, not seconds
-		return parseLogpushTime(json.RawMessage(strconv.FormatInt(int64(f), 10)))
+		return parseLogpushTime(jsontext.Value(strconv.FormatInt(int64(f), 10)))
 	}
 	return time.Unix(0, int64(f*float64(time.Second))).UTC()
 }
 
 // parseLogpushTime accepts RFC3339 strings or integer Unix timestamps (s, ms,
 // us or ns, told apart by magnitude). Zero time means "now" to the writer.
-func parseLogpushTime(raw json.RawMessage) time.Time {
+func parseLogpushTime(raw jsontext.Value) time.Time {
 	s := strings.Trim(string(raw), `"`)
 	if s == "" || s == "null" {
 		return time.Time{}
