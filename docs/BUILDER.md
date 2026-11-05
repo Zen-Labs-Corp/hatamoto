@@ -308,6 +308,15 @@ builder script.
   same-origin poster). No third-party request is made at load; no remote thumbnail is ever used. A click replaces
   the link by an `iframe` on the allowlisted embed host (`youtube-nocookie.com`, `player.vimeo.com`). A URL that is not
   one of those renders a plain link.
+* **PDF**: server output is a `div.hm-pdf` with a download link first in the DOM, then an `iframe.hm-pdf__frame`
+  (`title`, `height`, `loading="lazy"`). No JavaScript, no `<object>` or `<embed>`. Only a PDF of the media library
+  (`/media/...`, no query or fragment) is accepted: a remote URL, another scheme or any other path renders nothing.
+  Below 768px the frame is hidden by CSS and the link stays, so a phone gets the download link only. `height` is
+  200 to 2000 (default 600). A blank `linktext` reads "Download PDF" plus the file size when the library knows it; an
+  author's text is used as written. The canvas shows a static placeholder, never a frame. A PDF media response carries
+  `X-Frame-Options: SAMEORIGIN` and `Content-Security-Policy: frame-ancestors 'self'` so the site's own pages can frame
+  it (other sites cannot), and the page CSP allows `frame-src 'self'`. The schema hint `x-hm-accept: "document"` on a
+  media prop makes the inspector open the picker with `?type=document`, which lists PDFs only.
 
 ### Accessibility lint
 

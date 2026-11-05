@@ -1,5 +1,13 @@
 # Release notes
 
+## Unreleased: PDF widget
+
+- **Widget.** A new **PDF** widget (Media group) shows a PDF from the media library in the browser's viewer, with a download link and, when the library knows it, the file size. On a phone only the link shows. Height is 200 to 2000 pixels. No script runs on the page.
+- **Same-site framing.** A PDF served from `/media/` now allows framing by your own pages (`X-Frame-Options: SAMEORIGIN`, `frame-ancestors 'self'`); other sites still cannot frame it, and every other file keeps `DENY`.
+- **Page policy.** The public page's `frame-src` adds `'self'` next to `https:`, so the frame also works on a site served over plain http. `object-src` stays `'none'`.
+- **Picker.** The media picker takes a `type` parameter (`document` lists PDFs only; the default stays images), and a widget property can ask for it with `x-hm-accept`.
+- **Migration.** None. Rollback floor: unchanged; an older release does not know the `pdf` kind and would refuse a page that uses it, so remove the widget before you roll back.
+
 ## Unreleased: Version history limit
 
 - **Setting.** Settings > Versions (owners only) sets how many earlier versions of each item are kept, 10 to 500. The daily prune reads it on every run.
