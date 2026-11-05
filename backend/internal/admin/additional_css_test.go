@@ -60,7 +60,7 @@ func TestAdditionalCSSRefuses(t *testing.T) {
 		{"javascript", "a{background:url(javascript:x)}", "javascript: URLs are not allowed"},
 		{"behavior", "a{behavior:url(x.htc)}", "behavior is not allowed"},
 		{"binding", "a{-moz-binding:url(x)}", "-moz-binding is not allowed"},
-		{"escape", `a{background:url(\6a avascript:x)}`, "javascript: URLs are not allowed"},
+		{"escape", `a{background:url('\6a avascript:x')}`, "javascript: URLs are not allowed"},
 		{"too big", "/*" + strings.Repeat("x", render.MaxCustomCSS) + "*/", "over the 64 KB limit"},
 	} {
 		s, site := newAdditionalCSSRig(t)
