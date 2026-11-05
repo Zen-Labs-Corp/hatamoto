@@ -189,7 +189,7 @@ func SignIndex(index []byte, k Key) ([]byte, error) {
 	}
 	return jsonx.Indent(indexEnvelope{
 		Index: compact, Signer: s.Signer, Algorithm: s.Algorithm, Signature: s.Signature,
-	}, jsonx.PinnedMarshal, jsontext.AllowDuplicateNames(true))
+	}, jsonx.PinnedMarshal, jsontext.AllowDuplicateNames(true), jsontext.PreserveRawStrings(true))
 }
 
 // VerifyIndex checks a registry.json envelope and returns the index JSON.
