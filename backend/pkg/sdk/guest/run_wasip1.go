@@ -3,8 +3,6 @@
 package guest
 
 import (
-	"encoding/json"
-
 	"github.com/extism/go-pdk"
 )
 
@@ -72,7 +70,7 @@ func Input() []byte { return pdk.Input() }
 
 // OutputJSON writes v as the call's output.
 func OutputJSON(v any) {
-	b, err := json.Marshal(v)
+	b, err := marshal(v)
 	if err != nil {
 		pdk.SetError(err)
 		return
