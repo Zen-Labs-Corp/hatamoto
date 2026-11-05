@@ -50,12 +50,12 @@ var ownerOnly = []string{"owner"}
 // settingsLive is the set of tab IDs whose page already answers on Final.
 var settingsLive = map[string]bool{
 	"types": true, "taxonomies": true, "users": true,
-	"menus": true, "forms": true, "submissions": true,
+	"menus":     true,
 	"redirects": true, "linking": true, "templates": true,
 	"themes": true, "blocks": true, "colours": true, "fonts": true, "additional-css": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "media": true, "general": true, "branding": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
-	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "jobs": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
+	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "jobs": true, "backups": true, "changes": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"privacy": true, "tracking": true, "contact-button": true,
 	"user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
@@ -105,11 +105,6 @@ var settingsRegistry = []settingsSectionDef{
 	{ID: "entity-models", Label: "Entity models", Icon: "content-model", Desc: "The kinds of content your site holds and how it is grouped.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "types", Label: "Entity types", Final: "/settings/types", Roles: ownerOnly},
 		{ID: "taxonomies", Label: "Taxonomies", Final: "/settings/taxonomies", Roles: ownerOnly},
-	}},
-	{ID: "forms", Label: "Forms", Icon: "inbox", Desc: "Forms on your site and what visitors send through them.", Group: "Content", Tabs: []settingsTabDef{
-		{ID: "forms", Label: "Forms", Final: "/settings/forms"},
-		{ID: "submissions", Label: "Submissions", Final: "/settings/submissions"},
-		{ID: "spam", Label: "Spam protection", Final: "/settings/spam", Roles: ownerOnly},
 	}},
 	{ID: "seo", Label: "SEO", Icon: "seo", Desc: "Titles, descriptions and the variables they use.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "seo-general", Label: "General", Final: "/settings/seo/general", Roles: ownerOnly},
@@ -476,7 +471,8 @@ func (a *Admin) forbidden(w http.ResponseWriter, r *http.Request) {
 
 // areaEntry is the entry point of an area for every signed-in role: it goes
 // to the first section the role may reach, or the one chosen with the no-JS
-// select (?section=). A Settings section that moved to Theme lands there.
+// select (?section=). A Settings section that moved to Theme lands there;
+// Forms moved to the main menu.
 func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		role := userFrom(r.Context()).Role
@@ -488,6 +484,11 @@ func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 					return
 				}
 			}
+		}
+		if want == "forms" && ar == settingsArea {
+			// Forms moved to the main menu.
+			http.Redirect(w, r, a.adminPath+"/forms", http.StatusSeeOther)
+			return
 		}
 		if alias, ok := settingsSectionAliases[want]; ok && ar == settingsArea {
 			want = alias

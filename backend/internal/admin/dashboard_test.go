@@ -109,7 +109,7 @@ func TestDashboardSubmissions(t *testing.T) {
 	if res.Sec.State != dashOK || len(res.Sec.Rows) != dashRecent {
 		t.Fatalf("rows %d state %s, want %d", len(res.Sec.Rows), res.Sec.State, dashRecent)
 	}
-	if r := res.Sec.Rows[0]; r.Title != "Contact" || !strings.Contains(r.Summary, "Ada") || !strings.HasPrefix(r.Href, "/admin/settings/submissions/") {
+	if r := res.Sec.Rows[0]; r.Title != "Contact" || !strings.Contains(r.Summary, "Ada") || !strings.HasPrefix(r.Href, "/admin/forms/submissions/") {
 		t.Errorf("newest row %+v", r)
 	}
 	for _, r := range res.Sec.Rows {

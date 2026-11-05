@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/spam"
 )
@@ -192,8 +193,8 @@ func TestFormListNewAndDelete(t *testing.T) {
 	g, ff, _ := newFormRig(t)
 	fm := ff.addForm("Contact", contactFields...)
 	ff.addSub(fm, form.SubmissionStatusNew, time.Now(), map[string]any{"name": "Ada"})
-	body := g.do("GET", "/admin/settings/forms", "owner-token", nil, nil).Body.String()
-	if !strings.Contains(body, "Contact") || !strings.Contains(body, `href="/admin/settings/forms/new"`) {
+	body := g.do("GET", "/admin/forms", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, "Contact") || !strings.Contains(body, `href="/admin/forms/new"`) {
 		t.Fatalf("list: %s", body)
 	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
@@ -202,21 +203,21 @@ func TestFormListNewAndDelete(t *testing.T) {
 	if !strings.Contains(body, `hm-badge--info`) || !strings.Contains(body, "Last 14 days") {
 		t.Errorf("list lacks the New badge or the 14-day column")
 	}
-	newPage := g.do("GET", "/admin/settings/forms/new", "owner-token", nil, nil).Body.String()
+	newPage := g.do("GET", "/admin/forms/new", "owner-token", nil, nil).Body.String()
 	if issues := a11y.Check(newPage, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("new a11y: %v", issues)
 	}
-	if rec := g.do("POST", "/admin/settings/forms", "owner-token", url.Values{"name": {""}}, nil); rec.Code != 422 || !strings.Contains(rec.Body.String(), "Enter a name") {
+	if rec := g.do("POST", "/admin/forms", "owner-token", url.Values{"name": {""}}, nil); rec.Code != 422 || !strings.Contains(rec.Body.String(), "Enter a name") {
 		t.Errorf("blank name: %d", rec.Code)
 	}
-	rec := g.do("POST", "/admin/settings/forms", "owner-token", url.Values{"name": {"Newsletter"}}, nil)
-	if rec.Code != 303 || !strings.HasSuffix(rec.Header().Get("Location"), "/edit") {
+	rec := g.do("POST", "/admin/forms", "owner-token", url.Values{"name": {"Newsletter"}}, nil)
+	if rec.Code != 303 || !strings.Contains(rec.Header().Get("Location"), "/forms/edit/") {
 		t.Fatalf("create: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
-	if g.do("GET", "/admin/settings/forms/"+fm.ID.String()+"/delete", "owner-token", nil, nil).Code != 200 || len(ff.forms) != 2 {
+	if g.do("GET", "/admin/forms/delete/"+fm.ID.String(), "owner-token", nil, nil).Code != 200 || len(ff.forms) != 2 {
 		t.Fatal("the confirmation page must not delete")
 	}
-	if rec := g.do("POST", "/admin/settings/forms/"+fm.ID.String()+"/delete", "owner-token", url.Values{}, nil); rec.Code != 303 || len(ff.forms) != 1 {
+	if rec := g.do("POST", "/admin/forms/delete/"+fm.ID.String(), "owner-token", url.Values{}, nil); rec.Code != 303 || len(ff.forms) != 1 {
 		t.Fatalf("delete: %d", rec.Code)
 	}
 }
@@ -240,7 +241,7 @@ func TestFormEditUsesPublicAPIPrefix(t *testing.T) {
 	} {
 		g, ff, _ := newFormRig(t, func(d *Deps) { d.PublicAPIPrefix = tc.prefix })
 		fm := ff.addForm("Contact", contactFields...)
-		body := g.do("GET", "/admin/settings/forms/"+fm.ID.String()+"/edit", "owner-token", nil, nil).Body.String()
+		body := g.do("GET", "/admin/forms/edit/"+fm.ID.String(), "owner-token", nil, nil).Body.String()
 		// the endpoint field, the copy button and the embed code
 		if n := strings.Count(body, tc.want); n < 3 {
 			t.Errorf("prefix %q: %q appears %d times, want at least 3", tc.prefix, tc.want, n)
@@ -256,7 +257,7 @@ func TestFormBuilderSaveAndValidation(t *testing.T) {
 
 	g, ff, _ := newFormRig(t)
 	fm := ff.addForm("Contact", contactFields...)
-	edit := g.do("GET", "/admin/settings/forms/"+fm.ID.String()+"/edit", "owner-token", nil, nil)
+	edit := g.do("GET", "/admin/forms/edit/"+fm.ID.String(), "owner-token", nil, nil)
 	if edit.Code != 200 {
 		t.Fatal(edit.Code)
 	}
@@ -271,7 +272,7 @@ func TestFormBuilderSaveAndValidation(t *testing.T) {
 	f.Set("notify_email", "a@example.com, b@example.com")
 	f.Set("captcha", "1")
 	f.Set("redirect_url", "/thanks")
-	rec := g.do("POST", "/admin/settings/forms/"+fm.ID.String()+"/edit", "owner-token", f, nil)
+	rec := g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", f, nil)
 	if rec.Code != 303 {
 		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
 	}
@@ -298,7 +299,7 @@ func TestFormBuilderSaveAndValidation(t *testing.T) {
 		"bad number":     fieldForm(map[string]string{"type": "text", "label": "A", "minlen": "x"}),
 	} {
 		before := len(ff.forms[fm.ID].Fields)
-		rec := g.do("POST", "/admin/settings/forms/"+fm.ID.String()+"/edit", "owner-token", bad, nil)
+		rec := g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", bad, nil)
 		if rec.Code != 422 || len(ff.forms[fm.ID].Fields) != before {
 			t.Errorf("%s: want 422 and no save, got %d", name, rec.Code)
 		}
@@ -313,7 +314,7 @@ func TestFormBuilderSaveAndValidation(t *testing.T) {
 	} {
 		v := fieldForm()
 		mutate(v)
-		if rec := g.do("POST", "/admin/settings/forms/"+fm.ID.String()+"/edit", "owner-token", v, nil); rec.Code != 422 {
+		if rec := g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", v, nil); rec.Code != 422 {
 			t.Errorf("%s: %d", name, rec.Code)
 		}
 	}
@@ -330,20 +331,20 @@ func TestFormBuilderOpsWithoutJS(t *testing.T) {
 	pos := func(body, label string) int { return strings.Index(body, `value="`+label+`"`) }
 	f := base()
 	f.Set("_op", "down.0")
-	body := g.do("POST", "/admin/settings/forms/"+fm.ID.String()+"/edit", "owner-token", f, nil).Body.String()
+	body := g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", f, nil).Body.String()
 	if pos(body, "Two") > pos(body, "One") || !strings.Contains(body, "not saved yet") || len(ff.forms[fm.ID].Fields) != 0 {
 		t.Error("down should swap without saving")
 	}
 	f = base()
 	f.Set("_op", "remove.0")
-	body = g.do("POST", "/admin/settings/forms/"+fm.ID.String()+"/edit", "owner-token", f, nil).Body.String()
+	body = g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", f, nil).Body.String()
 	if pos(body, "One") >= 0 || pos(body, "Two") < 0 {
 		t.Error("remove should drop the first field")
 	}
 	f = base()
 	f.Set("_op", "add")
 	f.Set("add_type", "select")
-	body = g.do("POST", "/admin/settings/forms/"+fm.ID.String()+"/edit", "owner-token", f, nil).Body.String()
+	body = g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", f, nil).Body.String()
 	if !strings.Contains(body, `name="f.2.label"`) {
 		t.Error("add should append a third row")
 	}
@@ -362,7 +363,7 @@ func TestSubmissionListDetailAndStatus(t *testing.T) {
 	t.Parallel()
 
 	g, ff, _, fm, s := submissionRig(t)
-	base := "/admin/settings/submissions"
+	base := "/admin/forms/submissions"
 	listURL := base + "?form=" + fm.ID.String()
 	list := g.do("GET", listURL, "owner-token", nil, nil).Body.String()
 	if !strings.Contains(list, "Name: Ada") || !strings.Contains(list, "Export CSV") || strings.Contains(list, "<b>Lovelace") {
@@ -411,7 +412,7 @@ func TestSubmissionEmailForward(t *testing.T) {
 	t.Parallel()
 
 	g, _, mail, _, s := submissionRig(t)
-	url0 := "/admin/settings/submissions/" + s.ID.String() + "/email"
+	url0 := "/admin/forms/submissions/" + s.ID.String() + "/email"
 	if rec := g.do("POST", url0, "owner-token", url.Values{"to": {"nope"}}, nil); rec.Code != 422 || len(mail.sent) != 0 {
 		t.Fatalf("invalid recipient: %d", rec.Code)
 	}
@@ -436,7 +437,7 @@ func TestSubmissionBulkAndDeleteAskFirst(t *testing.T) {
 	s2 := ff.addSub(fm, form.SubmissionStatusNew, time.Now(), map[string]any{"name": "Bob"})
 	other := ff.addForm("Other")
 	foreign := ff.addSub(other, form.SubmissionStatusNew, time.Now(), nil)
-	base := "/admin/settings/submissions"
+	base := "/admin/forms/submissions"
 	bulk := base + "/bulk?form=" + fm.ID.String()
 	rec := g.do("POST", bulk, "owner-token", url.Values{"action": {"archive"}, "id": {s.ID.String(), s2.ID.String(), foreign.ID.String()}}, nil)
 	if rec.Code != 303 || ff.subs[s.ID].Status != "archived" || ff.subs[s2.ID].Status != "archived" || ff.subs[foreign.ID].Status != "new" {
@@ -475,7 +476,7 @@ func TestSubmissionsExportStreamsEveryPageAndNeutralisesFormulas(t *testing.T) {
 	}
 	ff.addSub(fm, form.SubmissionStatusSpam, base, map[string]any{"name": "spam"})
 	ff.listCalls = 0
-	rec := g.do("GET", "/admin/settings/submissions/export.csv?form="+fm.ID.String()+"&status=read", "owner-token", nil, nil)
+	rec := g.do("GET", "/admin/forms/submissions/export.csv?form="+fm.ID.String()+"&status=read", "owner-token", nil, nil)
 	if rec.Code != 200 || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/csv") || !strings.Contains(rec.Header().Get("Content-Disposition"), "attachment") {
 		t.Fatalf("headers: %d %v", rec.Code, rec.Header())
 	}
@@ -514,7 +515,7 @@ func TestSubmissionDetailShowsWhereItCameFrom(t *testing.T) {
 	t.Parallel()
 
 	g, _, _, _, s := submissionRig(t)
-	url := "/admin/settings/submissions/" + s.ID.String()
+	url := "/admin/forms/submissions/" + s.ID.String()
 	body := g.do("GET", url, "owner-token", nil, nil).Body.String()
 	if !strings.Contains(body, "sub-came-from") || !strings.Contains(body, "<dt>First touch</dt><dd>Unknown</dd>") || !strings.Contains(body, "<dt>Last touch</dt><dd>Unknown</dd>") {
 		t.Errorf("a submission without attribution reads Unknown on both touches: %s", body)
@@ -541,7 +542,7 @@ func TestSubmissionsExportCarriesAttributionColumns(t *testing.T) {
 		First: &form.Touch{Channel: "ai_assistants", Source: "chatgpt", Landing: "/post/a"},
 		Last:  &form.Touch{Channel: "email", Source: "=evil()", Landing: "/pricing"}}
 	ff.addSub(fm, form.SubmissionStatusRead, at, map[string]any{"name": "B"})
-	rec := g.do("GET", "/admin/settings/submissions/export.csv?form="+fm.ID.String(), "owner-token", nil, nil)
+	rec := g.do("GET", "/admin/forms/submissions/export.csv?form="+fm.ID.String(), "owner-token", nil, nil)
 	rows, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(rec.Body.String(), "\xef\xbb\xbf"))).ReadAll()
 	if err != nil || len(rows) != 3 {
 		t.Fatalf("rows %d, err %v", len(rows), err)
@@ -562,7 +563,7 @@ func TestSubmissionDeleteAsksFirst(t *testing.T) {
 	t.Parallel()
 
 	g, ff, _, _, s := submissionRig(t)
-	u := "/admin/settings/submissions/" + s.ID.String() + "/delete"
+	u := "/admin/forms/submissions/" + s.ID.String() + "/delete"
 	rec := g.do("GET", u, "owner-token", nil, nil)
 	if rec.Code != 200 || len(ff.subs) != 1 {
 		t.Fatalf("confirm page: %d", rec.Code)
@@ -591,7 +592,7 @@ func TestSubmissionPrefetchDoesNotMarkRead(t *testing.T) {
 	t.Parallel()
 
 	g, _, _, _, s := submissionRig(t)
-	u := "/admin/settings/submissions/" + s.ID.String()
+	u := "/admin/forms/submissions/" + s.ID.String()
 	if rec := g.do("GET", u, "owner-token", nil, map[string]string{"Sec-Purpose": "prefetch;prerender"}); rec.Code != 200 {
 		t.Fatalf("prerender GET: %d", rec.Code)
 	}
@@ -611,7 +612,7 @@ func TestFormEditCaptchaBanner(t *testing.T) {
 	on.Settings.EnableCaptcha = true
 	off := ff.addForm("Plain", contactFields...)
 	page := func(fm *form.Form, token string) string {
-		rec := g.do("GET", "/admin/settings/forms/"+fm.ID.String()+"/edit", token, nil, nil)
+		rec := g.do("GET", "/admin/forms/edit/"+fm.ID.String(), token, nil, nil)
 		if rec.Code != 200 {
 			t.Fatalf("edit = %d", rec.Code)
 		}
@@ -626,11 +627,11 @@ func TestFormEditCaptchaBanner(t *testing.T) {
 	svc := newFakeSpam()
 	g.a.deps.Spam = svc
 	owner := page(on, "owner-token")
-	if !strings.Contains(owner, warn) || !strings.Contains(owner, `href="/admin/settings/spam"`) {
+	if !strings.Contains(owner, warn) || !strings.Contains(owner, `href="/admin/forms/spam"`) {
 		t.Error("owner lacks the banner or its link with no keys")
 	}
 	editor := page(on, "editor-token")
-	if !strings.Contains(editor, warn) || strings.Contains(editor, "/admin/settings/spam") {
+	if !strings.Contains(editor, warn) || strings.Contains(editor, "/admin/forms/spam") {
 		t.Error("editor should see the banner without a link")
 	}
 	if strings.Contains(page(off, "owner-token"), warn) {
@@ -661,7 +662,7 @@ func TestFormBuilderRowsCollapseAndOpenOnError(t *testing.T) {
 	fm := ff.addForm("Contact")
 	f := fieldForm(map[string]string{"type": "text", "label": "One", "id": "keep"}, map[string]string{"type": "select", "label": "", "id": "keep2"})
 	f.Set("_op", "save")
-	rec := g.do("POST", "/admin/settings/forms/"+fm.ID.String()+"/edit", "owner-token", f, nil)
+	rec := g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", f, nil)
 	body := rec.Body.String()
 	if rec.Code != 422 || strings.Count(body, `<details class="hm-fieldlist__row" open>`) != 1 || strings.Count(body, `<details class="hm-fieldlist__row">`) != 1 {
 		t.Errorf("want one open (errored) and one closed row, status %d", rec.Code)
@@ -754,7 +755,7 @@ func TestSubmissionsOverviewShowsStatsTrackerAndFilters(t *testing.T) {
 	for i := 0; i < 4; i++ { // a spam burst must not count as activity
 		ff.addSub(fm, form.SubmissionStatusSpam, now.Add(-time.Duration(i+2)*time.Minute), nil)
 	}
-	body := g.do("GET", "/admin/settings/submissions?form="+fm.ID.String(), "owner-token", nil, nil).Body.String()
+	body := g.do("GET", "/admin/forms/submissions?form="+fm.ID.String(), "owner-token", nil, nil).Body.String()
 	for _, want := range []string{"hm-tracker", ">Total<", ">New<", ">Last 7 days<", "data-hm-autosubmit", "<noscript>", `: 1 submission, busiest"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("overview lacks %q", want)
@@ -781,5 +782,36 @@ func TestFormActivityCells(t *testing.T) {
 	total, last = formActivityCells(nil, 0, false, errors.New("db down"), now, time.UTC)
 	if total.Text != "—" || last.Text != "—" {
 		t.Errorf("failed scan must show dashes, not 0: total %+v last %+v", total, last)
+	}
+}
+
+func TestFormsTabs(t *testing.T) {
+	t.Parallel()
+
+	a := &Admin{adminPath: "/admin"}
+	labels := func(tabs []ui.Tab) (out []string, active string) {
+		for _, tb := range tabs {
+			out = append(out, tb.Label)
+			if tb.Active {
+				active += tb.Label
+			}
+		}
+		return out, active
+	}
+	for _, tc := range []struct {
+		role, active string
+		want         []string
+	}{
+		{"owner", "forms", []string{"Forms", "Submissions", "Spam"}},
+		{"owner", "spam", []string{"Forms", "Submissions", "Spam"}},
+		{"editor", "submissions", []string{"Forms", "Submissions"}},
+	} {
+		got, active := labels(a.formsTabs(tc.role, tc.active))
+		if strings.Join(got, ",") != strings.Join(tc.want, ",") {
+			t.Errorf("%s tabs %v, want %v", tc.role, got, tc.want)
+		}
+		if !strings.EqualFold(active, tc.active) {
+			t.Errorf("%s/%s: active tab %q", tc.role, tc.active, active)
+		}
 	}
 }

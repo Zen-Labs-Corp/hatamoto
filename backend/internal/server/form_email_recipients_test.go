@@ -84,7 +84,7 @@ func runNotifyPage(t *testing.T, repo user.Repository, notify, pageURL string, w
 }
 
 func hasLink(data string) bool {
-	return strings.Contains(data, "/hq-x7k/settings/submissions/")
+	return strings.Contains(data, "/hq-x7k/forms/submissions/")
 }
 
 func TestFormEmailAdminLinkOnlyForAccounts(t *testing.T) {

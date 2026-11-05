@@ -32,7 +32,7 @@ var demoPosts = []struct{ name, path string }{
 	{"webhooks", "/admin/settings/webhooks"},
 	{"smtp", "/admin/settings/email"},
 	{"send test email", "/admin/settings/email/test"},
-	{"captcha keys", "/admin/settings/spam"},
+	{"captcha keys", "/admin/forms/spam"},
 	{"wordpress import", "/admin/settings/import/wordpress"},
 	{"update check", "/admin/settings/updates/check"},
 	{"apply update", "/admin/settings/updates/apply"},

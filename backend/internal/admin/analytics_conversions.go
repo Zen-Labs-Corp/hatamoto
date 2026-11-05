@@ -335,7 +335,7 @@ func (a *Admin) buildConversions(ctx context.Context, q url.Values, rg agents.Ra
 		t := pickTouch(l, touch)
 		lead := ui.AiaCell{Text: "Hidden", Muted: true}
 		if canSee {
-			lead = ui.AiaCell{Text: l.Email, Href: a.adminPath + "/settings/submissions/" + l.ID.String()}
+			lead = ui.AiaCell{Text: l.Email, Href: a.adminPath + "/forms/submissions/" + l.ID.String()}
 			if l.Email == "" {
 				lead = ui.AiaCell{Text: "No email", Muted: true, Href: lead.Href}
 			}

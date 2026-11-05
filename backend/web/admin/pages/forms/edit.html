@@ -4,7 +4,7 @@
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" (or $.Title "Edit form") "CSRF" $.CSRF "Actions" .Actions}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 {{if .Notice}}{{template "hm/callout-start" (dict "Kind" "info")}}{{.Notice}}{{template "hm/callout-end"}}{{end}}
-<form method="post" action="{{adminPath}}/settings/forms/{{.ID}}/edit" class="hm-stack hm-formbuilder">
+<form method="post" action="{{adminPath}}/forms/edit/{{.ID}}" class="hm-stack hm-formbuilder">
 {{template "hm/csrf" $}}
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true" name="_op" value="save">Save form</button>
 {{template "hm/card-start" dict "ID" "form-details" "Title" "Details"}}
@@ -36,13 +36,13 @@
 {{template "hm/field" dict "ID" "confirmation_message" "Name" "confirmation_message" "Label" "Confirmation email text" "Control" "textarea" "Rows" 3 "Value" .ConfirmMsg "Help" "Used when the confirmation email is on. Empty uses the success message."}}
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "form-spam" "Title" "Spam protection"}}
-{{if .CaptchaUnconfigured}}{{template "hm/callout-start" (dict "Kind" "warning")}}Captcha is on for this form but no provider keys are set. Submissions are accepted unchecked.{{if .SpamLink}} <a href="{{adminPath}}/settings/spam">Set up spam protection</a>{{end}}{{template "hm/callout-end"}}
+{{if .CaptchaUnconfigured}}{{template "hm/callout-start" (dict "Kind" "warning")}}Captcha is on for this form but no provider keys are set. Submissions are accepted unchecked.{{if .SpamLink}} <a href="{{adminPath}}/forms/spam">Set up spam protection</a>{{end}}{{template "hm/callout-end"}}
 {{end}}{{template "hm/field" dict "ID" "captcha" "Name" "captcha" "Label" "Require the spam check (captcha)" "Control" "switch" "Value" "1" "Checked" .Captcha "Help" "Submissions without a passed check are refused."}}
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "form-embed" "Title" "Embed" "Description" "To build the form by hand in a template, post to the address above. Fields are sent by their name."}}{{template "hm/field" dict "ID" "embed-code" "Name" "embed_code" "Label" "Embed code" "Control" "textarea" "Rows" 5 "Value" .EmbedCode "Attrs" (attrmap "readonly" "")}}
 {{template "hm/button" dict "Label" "Copy embed code" "Attrs" (attrmap "data-hm-copy-field" "embed-code")}}{{template "hm/card-end"}}
 <div class="hm-savebar">
-<span class="hm-savebar__aside">{{template "hm/button" dict "Label" "Delete form" "Variant" "danger-text" "Href" (printf "%s/settings/forms/%s/delete" adminPath .ID)}}</span>
+<span class="hm-savebar__aside">{{template "hm/button" dict "Label" "Delete form" "Variant" "danger-text" "Href" (printf "%s/forms/delete/%s" adminPath .ID)}}</span>
 {{template "hm/button" dict "Label" "Save form" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "name" "_op" "value" "save")}}
 </div>
 </form>

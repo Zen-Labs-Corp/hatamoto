@@ -28,8 +28,8 @@ func normalizeAdminPath(p string) (string, error) {
 // AdminPath is the URL prefix this instance is mounted under.
 func (a *Admin) AdminPath() string { return a.adminPath }
 
-// url joins parts under the prefix: a.url("settings", "forms") is
-// "/admin/settings/forms" and a.url() is the prefix itself. Each part is
+// url joins parts under the prefix: a.url("settings", "general") is
+// "/admin/settings/general" and a.url() is the prefix itself. Each part is
 // trimmed of slashes and joined with one; a part that starts with "?" or "#"
 // is appended as is.
 func (a *Admin) url(parts ...string) string {

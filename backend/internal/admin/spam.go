@@ -10,7 +10,7 @@ import (
 	"hatamoto.dev/core/internal/spam"
 )
 
-const spamPath = "/settings/spam"
+const spamPath = "/forms/spam"
 
 // SpamService is the spam protection settings and the provider check behind
 // Settings > Forms > Spam protection. The captcha secret only ever goes in
@@ -48,12 +48,14 @@ type spamData struct {
 	// TestOK and TestMsg are the Test connection result, if one was run.
 	TestOK  bool
 	TestMsg string
+	// Tabs are the Forms tabs across the top.
+	Tabs []ui.Tab
 }
 
 func (a *Admin) mountSpamSettings(owner *httpx.Group) {
-	owner.HandleFunc("GET /settings/spam", a.handleSpam)
-	owner.HandleFunc("POST /settings/spam", a.handleSpamSave)
-	owner.HandleFunc("POST /settings/spam/test", a.handleSpamTest)
+	owner.HandleFunc("GET /forms/spam", a.handleSpam)
+	owner.HandleFunc("POST /forms/spam", a.handleSpamSave)
+	owner.HandleFunc("POST /forms/spam/test", a.handleSpamTest)
 }
 
 func (a *Admin) handleSpam(w http.ResponseWriter, r *http.Request) {
@@ -244,7 +246,7 @@ func (a *Admin) renderSpamPage(w http.ResponseWriter, r *http.Request, status in
 	d.Unconfigured = d.RequiredForms > 0 && (stored.Provider == spam.ProviderNone || !readable)
 
 	v := a.NewView(w, r, "Spam protection")
-	v.Section, v.Tab = "forms", "spam"
+	d.Tabs = a.formsTabsFor(v, "spam")
 	v.Width = "narrow"
 	v.Data = d
 	a.Render(w, r, status, "settings/spam", v)

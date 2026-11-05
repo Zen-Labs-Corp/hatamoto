@@ -51,7 +51,6 @@ func legacyRulesFor(prefix string) []legacyRule {
 		{From: "/schemas", To: "/settings/types"},
 		{From: "/taxonomies", To: "/settings/taxonomies"},
 		{From: "/menus", To: "/theme/menus"},
-		{From: "/forms", To: "/settings/forms"},
 		{From: "/redirects", To: "/settings/redirects"},
 		{From: "/linking", To: "/settings/linking"},
 		{From: "/sections", To: "/theme/templates"},
@@ -60,6 +59,14 @@ func legacyRulesFor(prefix string) []legacyRule {
 		{From: "/import", To: "/settings/import", Exact: true},
 		{From: "/import/wordpress", To: "/settings/import/wordpress"},
 		{From: "/media", To: "/settings/media", Exact: true},
+
+		// Forms left Settings for the main menu. A form's edit and delete pages
+		// are /forms/edit/{id} and /forms/delete/{id} (a /forms/{id}/edit route
+		// would clash with /forms/submissions/{id}).
+		{From: "/settings/forms", Rewrite: legacyFormPages(prefix)},
+		{From: "/settings/forms", To: "/forms"},
+		{From: "/settings/submissions", To: "/forms/submissions"},
+		{From: "/settings/spam", To: "/forms/spam"},
 
 		// /admin/forms/{id}/submissions...: the form id moves to the query, a
 		// submission id is enough on its own.
@@ -74,13 +81,24 @@ func legacyRulesFor(prefix string) []legacyRule {
 	return sortLegacyRules(rows)
 }
 
+// legacyFormPages rewrites {id}/edit and {id}/delete under <prefix>/settings/forms.
+func legacyFormPages(prefix string) func(rest string) (string, url.Values, bool) {
+	return func(rest string) (string, url.Values, bool) {
+		parts := strings.Split(strings.Trim(rest, "/"), "/")
+		if len(parts) != 2 || parts[0] == "" || (parts[1] != "edit" && parts[1] != "delete") {
+			return "", nil, false
+		}
+		return prefix + "/forms/" + parts[1] + "/" + parts[0], nil, true
+	}
+}
+
 // legacySubmissions rewrites {id}/submissions[/rest] under <prefix>/forms.
 func legacySubmissions(prefix, rest string) (string, url.Values, bool) {
 	parts := strings.Split(strings.Trim(rest, "/"), "/")
 	if len(parts) < 2 || parts[1] != "submissions" || parts[0] == "" {
 		return "", nil, false
 	}
-	base := prefix + "/settings/submissions"
+	base := prefix + "/forms/submissions"
 	form := url.Values{"form": {parts[0]}}
 	switch {
 	case len(parts) == 2:

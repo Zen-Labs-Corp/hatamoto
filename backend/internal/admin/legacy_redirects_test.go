@@ -61,37 +61,24 @@ var legacyMap = []struct{ old, to string }{
 	{"/admin/taxonomies/merge", "/admin/settings/taxonomies/merge"},
 	{"/admin/menus", "/admin/theme/menus"},
 	{"/admin/menus/2/items", "/admin/theme/menus/2/items"},
-	{"/admin/forms", "/admin/settings/forms"},
-	{"/admin/forms/new", "/admin/settings/forms/new"},
-	{"/admin/forms/7/edit", "/admin/settings/forms/7/edit"},
-	{"/admin/forms/7/delete", "/admin/settings/forms/7/delete"},
-	{"/admin/forms/7/submissions", "/admin/settings/submissions?form=7"},
-	{"/admin/forms/7/submissions/bulk", "/admin/settings/submissions/bulk?form=7"},
-	{"/admin/forms/7/submissions/export.csv", "/admin/settings/submissions/export.csv?form=7"},
-	{"/admin/forms/7/submissions/3", "/admin/settings/submissions/3"},
-	{"/admin/forms/7/submissions/3/status", "/admin/settings/submissions/3/status"},
-	{"/admin/forms/7/submissions/3/email", "/admin/settings/submissions/3/email"},
-	{"/admin/forms/7/submissions/3/delete", "/admin/settings/submissions/3/delete"},
-	{"/admin/redirects", "/admin/settings/redirects"},
-	{"/admin/redirects/new", "/admin/settings/redirects/new"},
-	{"/admin/redirects/bulk", "/admin/settings/redirects/bulk"},
-	{"/admin/redirects/5/toggle", "/admin/settings/redirects/5/toggle"},
-	{"/admin/redirects/404", "/admin/settings/redirects/404"},
-	{"/admin/redirects/404/5/ignore", "/admin/settings/redirects/404/5/ignore"},
-	{"/admin/redirects/explain", "/admin/settings/redirects/explain"},
-	{"/admin/linking", "/admin/settings/linking"},
-	{"/admin/linking/rules/bulk", "/admin/settings/linking/rules/bulk"},
-	{"/admin/linking/suggestions/insert", "/admin/settings/linking/suggestions/insert"},
-	{"/admin/linking/equity/9", "/admin/settings/linking/equity/9"},
-	{"/admin/sections", "/admin/theme/templates"},
-	{"/admin/sections/6/delete", "/admin/theme/templates/6/delete"},
-	{"/admin/users", "/admin/settings/users"},
-	{"/admin/users/invite", "/admin/settings/users/invite"},
-	{"/admin/users/invites/2/resend", "/admin/settings/users/invites/2/resend"},
-	{"/admin/users/8/delete", "/admin/settings/users/8/delete"},
-	{"/admin/import", "/admin/settings/import"},
-	{"/admin/import/wordpress", "/admin/settings/import/wordpress"},
-	{"/admin/import/wordpress/4/start", "/admin/settings/import/wordpress/4/start"},
+	{"/admin/settings/forms", "/admin/forms"},
+	{"/admin/settings/forms/new", "/admin/forms/new"},
+	{"/admin/settings/forms/7/edit", "/admin/forms/edit/7"},
+	{"/admin/settings/forms/7/delete", "/admin/forms/delete/7"},
+	{"/admin/settings/submissions", "/admin/forms/submissions"},
+	{"/admin/settings/submissions/export.csv", "/admin/forms/submissions/export.csv"},
+	{"/admin/settings/submissions/3", "/admin/forms/submissions/3"},
+	{"/admin/settings/submissions/3/status", "/admin/forms/submissions/3/status"},
+	{"/admin/settings/submissions/3/delete", "/admin/forms/submissions/3/delete"},
+	{"/admin/settings/spam", "/admin/forms/spam"},
+	{"/admin/settings/spam/test", "/admin/forms/spam/test"},
+	{"/admin/forms/7/submissions", "/admin/forms/submissions?form=7"},
+	{"/admin/forms/7/submissions/bulk", "/admin/forms/submissions/bulk?form=7"},
+	{"/admin/forms/7/submissions/export.csv", "/admin/forms/submissions/export.csv?form=7"},
+	{"/admin/forms/7/submissions/3", "/admin/forms/submissions/3"},
+	{"/admin/forms/7/submissions/3/status", "/admin/forms/submissions/3/status"},
+	{"/admin/forms/7/submissions/3/email", "/admin/forms/submissions/3/email"},
+	{"/admin/forms/7/submissions/3/delete", "/admin/forms/submissions/3/delete"},
 	{"/admin/media", "/admin/settings/media"},
 }
 
@@ -103,7 +90,8 @@ var legacyPass = []string{
 	"/admin/analytics/crawlers", "/admin/analytics/health", "/admin/analytics/content", "/admin/analytics/data/referrals.json",
 	"/admin/settings", "/admin/settings/general", "/admin/theme", "/admin/theme/themes", "/admin/theme/colours", "/admin/theme/design-system", "/admin/theme/blocks", "/admin/theme/menus",
 	"/admin/settings/api-keys", "/admin/settings/api-keys/secret", "/admin/settings/redirects",
-	"/admin/settings/submissions", "/admin/settings/media", "/admin/settings/import/wordpress",
+	"/admin/forms", "/admin/forms/new", "/admin/forms/edit/7", "/admin/forms/submissions", "/admin/forms/submissions/3", "/admin/forms/spam",
+	"/admin/settings/media", "/admin/settings/import/wordpress",
 	"/admin/plugins", "/admin/plugins/hreflang/ui", "/admin/plugins/hreflang/bridge",
 	"/admin/preview/theme/paper", "/admin/pick/entities", "/admin/pick/terms",
 	"/admin/media/picker", "/admin/media/upload", "/admin/media/3", "/admin/media/3/delete",
@@ -301,17 +289,19 @@ func TestMovedMenusAndFormsRoutes(t *testing.T) {
 	t.Parallel()
 
 	g, _, _, fm, s := submissionRig(t)
-	for _, p := range []string{"/admin/settings/forms", "/admin/settings/submissions", "/admin/theme/menus"} {
+	for _, p := range []string{"/admin/forms", "/admin/forms/submissions", "/admin/theme/menus"} {
 		if rec := g.do("GET", p, "editor-token", nil, nil); rec.Code == http.StatusForbidden || rec.Code == http.StatusMovedPermanently {
 			t.Errorf("editor %s: %d", p, rec.Code)
 		}
 	}
 	id := fm.ID.String()
 	for old, to := range map[string]string{
-		"/admin/forms":                                               "/admin/settings/forms",
-		"/admin/forms/" + id + "/submissions":                        "/admin/settings/submissions?form=" + id,
-		"/admin/forms/" + id + "/submissions/" + s.ID.String():       "/admin/settings/submissions/" + s.ID.String(),
-		"/admin/forms/" + id + "/submissions/export.csv?status=read": "/admin/settings/submissions/export.csv?form=" + id + "&status=read",
+		"/admin/settings/forms":                                      "/admin/forms",
+		"/admin/settings/forms/" + id + "/edit":                      "/admin/forms/edit/" + id,
+		"/admin/settings/submissions/" + s.ID.String():               "/admin/forms/submissions/" + s.ID.String(),
+		"/admin/forms/" + id + "/submissions":                        "/admin/forms/submissions?form=" + id,
+		"/admin/forms/" + id + "/submissions/" + s.ID.String():       "/admin/forms/submissions/" + s.ID.String(),
+		"/admin/forms/" + id + "/submissions/export.csv?status=read": "/admin/forms/submissions/export.csv?form=" + id + "&status=read",
 		"/admin/menus/" + id:                                         "/admin/theme/menus/" + id,
 	} {
 		rec := g.do("GET", old, "editor-token", nil, nil)

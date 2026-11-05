@@ -38,23 +38,45 @@ type FormMailer interface {
 }
 
 func (a *Admin) mountForms(authed *httpx.Group) {
-	authed.HandleFunc("GET /settings/forms", a.handleForms)
-	authed.HandleFunc("GET /settings/forms/new", a.handleFormNew)
-	authed.HandleFunc("POST /settings/forms", a.handleFormCreate)
-	authed.HandleFunc("GET /settings/forms/{id}/edit", a.handleFormEdit)
-	authed.HandleFunc("POST /settings/forms/{id}/edit", a.handleFormSave)
-	authed.HandleFunc("GET /settings/forms/{id}/delete", a.handleFormDeleteForm)
-	authed.HandleFunc("POST /settings/forms/{id}/delete", a.handleFormDelete)
+	authed.HandleFunc("GET /forms", a.handleForms)
+	authed.HandleFunc("GET /forms/new", a.handleFormNew)
+	authed.HandleFunc("POST /forms", a.handleFormCreate)
+	authed.HandleFunc("GET /forms/edit/{id}", a.handleFormEdit)
+	authed.HandleFunc("POST /forms/edit/{id}", a.handleFormSave)
+	authed.HandleFunc("GET /forms/delete/{id}", a.handleFormDeleteForm)
+	authed.HandleFunc("POST /forms/delete/{id}", a.handleFormDelete)
 	// The list, export and bulk routes take the form as ?form={id}; a single
 	// submission knows its form.
-	authed.HandleFunc("GET /settings/submissions", a.handleSubmissions)
-	authed.HandleFunc("GET /settings/submissions/export.csv", a.handleSubmissionsExport)
-	authed.HandleFunc("POST /settings/submissions/bulk", a.handleSubmissionsBulk)
-	authed.HandleFunc("GET /settings/submissions/{sid}", a.handleSubmission)
-	authed.HandleFunc("POST /settings/submissions/{sid}/status", a.handleSubmissionStatus)
-	authed.HandleFunc("POST /settings/submissions/{sid}/email", a.handleSubmissionEmail)
-	authed.HandleFunc("GET /settings/submissions/{sid}/delete", a.handleSubmissionDeleteForm)
-	authed.HandleFunc("POST /settings/submissions/{sid}/delete", a.handleSubmissionDelete)
+	authed.HandleFunc("GET /forms/submissions", a.handleSubmissions)
+	authed.HandleFunc("GET /forms/submissions/export.csv", a.handleSubmissionsExport)
+	authed.HandleFunc("POST /forms/submissions/bulk", a.handleSubmissionsBulk)
+	authed.HandleFunc("GET /forms/submissions/{sid}", a.handleSubmission)
+	authed.HandleFunc("POST /forms/submissions/{sid}/status", a.handleSubmissionStatus)
+	authed.HandleFunc("POST /forms/submissions/{sid}/email", a.handleSubmissionEmail)
+	authed.HandleFunc("GET /forms/submissions/{sid}/delete", a.handleSubmissionDeleteForm)
+	authed.HandleFunc("POST /forms/submissions/{sid}/delete", a.handleSubmissionDelete)
+}
+
+// formsTabs are the tabs across the top of the Forms pages. Spam is owner-only,
+// like its route. active is "forms", "submissions" or "spam".
+func (a *Admin) formsTabs(role, active string) []ui.Tab {
+	tabs := []ui.Tab{
+		{Label: "Forms", Href: a.adminPath + "/forms", Active: active == "forms"},
+		{Label: "Submissions", Href: a.adminPath + "/forms/submissions", Active: active == "submissions"},
+	}
+	if role == "owner" {
+		tabs = append(tabs, ui.Tab{Label: "Spam", Href: a.adminPath + "/forms/spam", Active: active == "spam"})
+	}
+	return tabs
+}
+
+// formsTabsFor is formsTabs for the signed-in user of v.
+func (a *Admin) formsTabsFor(v *View, active string) []ui.Tab {
+	role := ""
+	if v.User != nil {
+		role = v.User.Role
+	}
+	return a.formsTabs(role, active)
 }
 
 func (a *Admin) formStore(w http.ResponseWriter, r *http.Request) (FormStore, bool) {
@@ -91,7 +113,7 @@ func (a *Admin) loadFormID(w http.ResponseWriter, r *http.Request, raw string) (
 			return nil, false
 		}
 	}
-	a.ErrorBack(w, r, http.StatusNotFound, "Form not found", "That form does not exist.", a.adminPath+"/settings/forms", "Back to forms")
+	a.ErrorBack(w, r, http.StatusNotFound, "Form not found", "That form does not exist.", a.adminPath+"/forms", "Back to forms")
 	return nil, false
 }
 
@@ -156,9 +178,9 @@ func (a *Admin) handleForms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t := ui.Table{
-		ID: "forms", Caption: "Forms", BaseURL: a.adminPath + "/settings/forms", CSRF: csrfToken(r.Context()),
+		ID: "forms", Caption: "Forms", BaseURL: a.adminPath + "/forms", CSRF: csrfToken(r.Context()),
 		Columns: []ui.Col{{Key: "name", Label: "Name"}, {Key: "status", Label: "Status"}, {Key: "fields", Label: "Fields", Align: "right", WideOnly: true}, {Key: "new", Label: "New submissions", Align: "right"}, {Key: "total", Label: "All submissions", Align: "right", WideOnly: true}, {Key: "recent", Label: "Last 14 days"}},
-		Empty:   ui.Empty{Icon: "inbox", Title: "No forms yet", Body: "A form collects enquiries from your pages.", Actions: []ui.Button{{Label: "New form", Href: a.adminPath + "/settings/forms/new", Variant: "primary"}}},
+		Empty:   ui.Empty{Icon: "inbox", Title: "No forms yet", Body: "A form collects enquiries from your pages.", Actions: []ui.Button{{Label: "New form", Href: a.adminPath + "/forms/new", Variant: "primary"}}},
 	}
 	loc := a.siteLocation(r.Context())
 	now := time.Now().In(loc)
@@ -176,14 +198,14 @@ func (a *Admin) handleForms(w http.ResponseWriter, r *http.Request) {
 			a.logger().Error("form new count failed", "form", id, "err", err)
 		}
 		t.Rows = append(t.Rows, ui.Row{ID: id, Label: f.Name, Cells: []ui.Cell{
-			{Text: f.Name, Link: a.adminPath + "/settings/forms/" + id + "/edit"},
+			{Text: f.Name, Link: a.adminPath + "/forms/edit/" + id},
 			{Badge: formStatusBadge(f.Status)},
 			{Text: strconv.Itoa(len(f.Fields))}, newCountCell(fresh), totalCell,
 			recentCell,
 		}, Actions: []ui.Action{
-			{Label: "Submissions", Href: a.adminPath + "/settings/submissions?form=" + id},
-			{Label: "Edit", Href: a.adminPath + "/settings/forms/" + id + "/edit"},
-			{Label: "Delete", Href: a.adminPath + "/settings/forms/" + id + "/delete", Post: a.adminPath + "/settings/forms/" + id + "/delete", Danger: true, ConfirmLabel: "Delete form",
+			{Label: "Submissions", Href: a.adminPath + "/forms/submissions?form=" + id},
+			{Label: "Edit", Href: a.adminPath + "/forms/edit/" + id},
+			{Label: "Delete", Href: a.adminPath + "/forms/delete/" + id, Post: a.adminPath + "/forms/delete/" + id, Danger: true, ConfirmLabel: "Delete form",
 				Confirm: "The form " + f.Name + " and all of its submissions are deleted. Pages that embed it stop showing it."},
 		}})
 	}
@@ -191,7 +213,8 @@ func (a *Admin) handleForms(w http.ResponseWriter, r *http.Request) {
 	v.Data = struct {
 		Table   ui.Table
 		Actions []ui.Button
-	}{t, []ui.Button{{Label: "New form", Href: a.adminPath + "/settings/forms/new", Variant: "primary", Icon: "plus"}}}
+		Tabs    []ui.Tab
+	}{t, []ui.Button{{Label: "New form", Href: a.adminPath + "/forms/new", Variant: "primary", Icon: "plus"}}, a.formsTabsFor(v, "forms")}
 	a.Render(w, r, http.StatusOK, "forms/list", v)
 }
 
@@ -208,7 +231,7 @@ func (a *Admin) renderNewForm(w http.ResponseWriter, r *http.Request, status int
 		}
 	}
 	v := a.NewView(w, r, "New form")
-	v.Crumbs = a.areaCrumbs("forms", Crumb{Label: "New form"})
+	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: "New form"}}
 	v.Data = d
 	v.Width = "narrow"
 	a.Render(w, r, status, "forms/new", v)
@@ -259,7 +282,7 @@ func (a *Admin) handleFormCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	a.invalidate(r.Context())
 	a.SetFlash(w, r, "success", "Form created. Add its fields below.")
-	Redirect(w, r, a.adminPath+"/settings/forms/"+f.ID.String()+"/edit")
+	Redirect(w, r, a.adminPath+"/forms/edit/"+f.ID.String())
 }
 
 var slugRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
@@ -271,7 +294,7 @@ func (a *Admin) handleFormDeleteForm(w http.ResponseWriter, r *http.Request) {
 	}
 	a.renderConfirm(w, r, confirmData{
 		Title: "Delete the form " + f.Name + "?", Message: "The form and all of its submissions are deleted. Pages that embed it stop showing it.",
-		Post: a.adminPath + "/settings/forms/" + f.ID.String() + "/delete", Label: "Delete form", Back: a.adminPath + "/settings/forms", Danger: true,
+		Post: a.adminPath + "/forms/delete/" + f.ID.String(), Label: "Delete form", Back: a.adminPath + "/forms", Danger: true,
 	})
 }
 
@@ -287,7 +310,7 @@ func (a *Admin) handleFormDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	a.invalidate(r.Context())
 	a.SetFlash(w, r, "success", "Form deleted.")
-	Redirect(w, r, a.adminPath+"/settings/forms")
+	Redirect(w, r, a.adminPath+"/forms")
 }
 
 // ---- the builder ----
@@ -459,7 +482,7 @@ func (a *Admin) renderFormEdit(w http.ResponseWriter, r *http.Request, status in
 		e.CaptchaUnconfigured = a.captchaUnconfigured(r.Context())
 		e.SpamLink = userFrom(r.Context()).Role == "owner"
 	}
-	e.Actions = []ui.Button{{Label: "Submissions", Href: a.adminPath + "/settings/submissions?form=" + e.ID, Icon: "inbox"}}
+	e.Actions = []ui.Button{{Label: "Submissions", Href: a.adminPath + "/forms/submissions?form=" + e.ID, Icon: "inbox"}}
 	e.Endpoint = a.formEndpoint(e.Slug)
 	e.EmbedCode = fmt.Sprintf("<form action=\"%s\" method=\"POST\">\n  <!-- Add the fields here -->\n  <button type=\"submit\">%s</button>\n</form>", e.Endpoint, orDefault(e.SubmitText, "Submit"))
 	e.Summary = nil
@@ -476,7 +499,7 @@ func (a *Admin) renderFormEdit(w http.ResponseWriter, r *http.Request, status in
 		}
 	}
 	v := a.NewView(w, r, "Edit form: "+e.Name)
-	v.Crumbs = a.areaCrumbs("forms", Crumb{Label: e.Name})
+	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: e.Name}}
 	v.Data = e
 	v.Width = "narrow"
 	a.Render(w, r, status, "forms/edit", v)
@@ -776,7 +799,7 @@ func (a *Admin) handleFormSave(w http.ResponseWriter, r *http.Request) {
 	}
 	a.invalidate(r.Context())
 	a.SetFlash(w, r, "success", "Form saved.")
-	http.Redirect(w, r, a.adminPath+"/settings/forms/"+cur.ID.String()+"/edit", http.StatusSeeOther)
+	http.Redirect(w, r, a.adminPath+"/forms/edit/"+cur.ID.String(), http.StatusSeeOther)
 }
 
 // ---- submissions ----
@@ -868,6 +891,7 @@ type submissionsData struct {
 	Statuses []ui.Option // the status filter, shown beside the form switcher
 	Stats    []ui.Stat
 	Tracker  ui.Tracker
+	Tabs     []ui.Tab
 }
 
 const (
@@ -1008,12 +1032,12 @@ func (a *Admin) handleSubmissions(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	base := a.adminPath + "/settings/submissions"
+	base := a.adminPath + "/forms/submissions"
 	v := a.NewView(w, r, "Submissions")
 	if f == nil {
 		v.Data = submissionsData{Table: ui.Table{ID: "submissions", Caption: "Submissions", CSRF: csrfToken(r.Context()), BaseURL: base,
 			Empty: ui.Empty{Icon: "inbox", Title: "No forms yet", Body: "Submissions appear here once a form exists and visitors send it.",
-				Actions: []ui.Button{{Label: "New form", Href: a.adminPath + "/settings/forms/new", Variant: "primary"}}}}}
+				Actions: []ui.Button{{Label: "New form", Href: a.adminPath + "/forms/new", Variant: "primary"}}}}, Tabs: a.formsTabsFor(v, "submissions")}
 		a.Render(w, r, http.StatusOK, "forms/submissions", v)
 		return
 	}
@@ -1079,7 +1103,7 @@ func (a *Admin) handleSubmissions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v.Data = submissionsData{Form: f, Switch: sw, Table: t, Actions: []ui.Button{{Label: "Export CSV", Href: base + "/export.csv" + exportQ, Icon: "copy"}}, Total: total,
-		Statuses: opts, Stats: stats, Tracker: tracker}
+		Statuses: opts, Stats: stats, Tracker: tracker, Tabs: a.formsTabsFor(v, "submissions")}
 	a.Render(w, r, http.StatusOK, "forms/submissions", v)
 }
 
@@ -1197,7 +1221,7 @@ func (a *Admin) loadSubmission(w http.ResponseWriter, r *http.Request) (*form.Fo
 			return nil, nil, false
 		}
 	}
-	a.ErrorBack(w, r, http.StatusNotFound, "Submission not found", "That submission does not exist.", a.adminPath+"/settings/submissions", "Back to submissions")
+	a.ErrorBack(w, r, http.StatusNotFound, "Submission not found", "That submission does not exist.", a.adminPath+"/forms/submissions", "Back to submissions")
 	return nil, nil, false
 }
 
@@ -1208,7 +1232,7 @@ type submissionData struct {
 	Sub        *form.FormSubmission
 	Answers    []answerRow
 	Status     *ui.Badge
-	Base       string // /admin/settings/submissions
+	Base       string // /admin/forms/submissions
 	ListURL    string // the form's own list
 	Actions    []ui.Button
 	MailOn     bool
@@ -1259,7 +1283,7 @@ func cameFrom(at *form.Attribution) []answerRow {
 }
 
 func (a *Admin) submissionView(w http.ResponseWriter, r *http.Request, status int, f *form.Form, s *form.FormSubmission, mailTo, mailErr string) {
-	d := submissionData{Form: f, Sub: s, Status: submissionBadge(s.Status), Base: a.adminPath + "/settings/submissions", ListURL: a.adminPath + "/settings/submissions?form=" + f.ID.String(),
+	d := submissionData{Form: f, Sub: s, Status: submissionBadge(s.Status), Base: a.adminPath + "/forms/submissions", ListURL: a.adminPath + "/forms/submissions?form=" + f.ID.String(),
 		MailOn: a.deps.Growth.FormMail != nil && a.deps.Growth.FormMail.Configured(), MailTo: mailTo, MailErr: mailErr, Received: fmtDateTime(s.CreatedAt), CameFrom: cameFrom(s.Attribution)}
 	d.Actions = []ui.Button{{Label: "Back to submissions", Href: d.ListURL}, {Label: "Delete submission", Variant: "ghost", Href: d.Base + "/" + s.ID.String() + "/delete"}}
 	used := map[string]bool{}
@@ -1280,7 +1304,7 @@ func (a *Admin) submissionView(w http.ResponseWriter, r *http.Request, status in
 		d.Answers = append(d.Answers, answerRow{k, formatAnswer(s.Data[k])})
 	}
 	v := a.NewView(w, r, "Submission of "+fmtDateTime(s.CreatedAt))
-	v.Crumbs = a.areaCrumbs("forms", Crumb{Label: f.Name, Href: a.adminPath + "/settings/forms/" + f.ID.String() + "/edit"}, Crumb{Label: "Submissions", Href: d.ListURL}, Crumb{Label: "Submission"})
+	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: f.Name, Href: a.adminPath + "/forms/edit/" + f.ID.String()}, {Label: "Submissions", Href: d.ListURL}, {Label: "Submission"}}
 	v.Data = d
 	v.Width = "narrow"
 	a.Render(w, r, status, "forms/submission", v)
@@ -1322,7 +1346,7 @@ func (a *Admin) handleSubmissionStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.SetFlash(w, r, "success", "Marked as "+st+".")
-	Redirect(w, r, a.adminPath+"/settings/submissions/"+s.ID.String())
+	Redirect(w, r, a.adminPath+"/forms/submissions/"+s.ID.String())
 }
 
 func (a *Admin) handleSubmissionEmail(w http.ResponseWriter, r *http.Request) {
@@ -1333,7 +1357,7 @@ func (a *Admin) handleSubmissionEmail(w http.ResponseWriter, r *http.Request) {
 	m := a.deps.Growth.FormMail
 	if m == nil || !m.Configured() {
 		a.SetFlash(w, r, "error", "Email is not set up on this server, so nothing was sent.")
-		Redirect(w, r, a.adminPath+"/settings/submissions/"+s.ID.String())
+		Redirect(w, r, a.adminPath+"/forms/submissions/"+s.ID.String())
 		return
 	}
 	to := strings.TrimSpace(r.PostFormValue("to"))
@@ -1357,7 +1381,7 @@ func (a *Admin) handleSubmissionEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.SetFlash(w, r, "success", "Submission emailed to "+strings.Join(rcpt, ", ")+".")
-	Redirect(w, r, a.adminPath+"/settings/submissions/"+s.ID.String())
+	Redirect(w, r, a.adminPath+"/forms/submissions/"+s.ID.String())
 }
 
 func (a *Admin) handleSubmissionDeleteForm(w http.ResponseWriter, r *http.Request) {
@@ -1367,8 +1391,8 @@ func (a *Admin) handleSubmissionDeleteForm(w http.ResponseWriter, r *http.Reques
 	}
 	a.renderConfirm(w, r, confirmData{
 		Title: "Delete this submission?", Message: "The submission of " + fmtDateTime(s.CreatedAt) + " is deleted for good.",
-		Post: a.adminPath + "/settings/submissions/" + s.ID.String() + "/delete", Label: "Delete submission",
-		Back: a.adminPath + "/settings/submissions/" + s.ID.String(), Danger: true,
+		Post: a.adminPath + "/forms/submissions/" + s.ID.String() + "/delete", Label: "Delete submission",
+		Back: a.adminPath + "/forms/submissions/" + s.ID.String(), Danger: true,
 	})
 }
 
@@ -1383,7 +1407,7 @@ func (a *Admin) handleSubmissionDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.SetFlash(w, r, "success", "Submission deleted.")
-	Redirect(w, r, a.adminPath+"/settings/submissions?form="+f.ID.String())
+	Redirect(w, r, a.adminPath+"/forms/submissions?form="+f.ID.String())
 }
 
 // handleSubmissionsBulk applies one action to the ticked submissions. Delete
@@ -1394,7 +1418,7 @@ func (a *Admin) handleSubmissionsBulk(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	back := a.adminPath + "/settings/submissions?form=" + f.ID.String()
+	back := a.adminPath + "/forms/submissions?form=" + f.ID.String()
 	action := r.PostFormValue("action")
 	var ids []uuid.UUID
 	for _, s := range r.PostForm["id"] {
@@ -1455,7 +1479,7 @@ func (a *Admin) renderBulkDeleteConfirm(w http.ResponseWriter, r *http.Request, 
 		hidden = append(hidden, id.String())
 	}
 	v := a.NewView(w, r, "Delete submissions")
-	v.Data = bulkDelete{len(ids), a.adminPath + "/settings/submissions/bulk?form=" + f.ID.String(), a.adminPath + "/settings/submissions?form=" + f.ID.String(), hidden, "submission", "delete"}
+	v.Data = bulkDelete{len(ids), a.adminPath + "/forms/submissions/bulk?form=" + f.ID.String(), a.adminPath + "/forms/submissions?form=" + f.ID.String(), hidden, "submission", "delete"}
 	v.Width = "narrow"
 	a.Render(w, r, http.StatusOK, "bulkdelete", v)
 }

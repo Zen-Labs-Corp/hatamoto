@@ -77,7 +77,7 @@ func newSpamRig(t *testing.T, svc *fakeSpam) *spamRig {
 
 func (s *spamRig) get(t *testing.T) string {
 	t.Helper()
-	rec := s.do("GET", "/admin/settings/spam", "owner-token", nil, nil)
+	rec := s.do("GET", "/admin/forms/spam", "owner-token", nil, nil)
 	if rec.Code != 200 {
 		t.Fatalf("GET = %d", rec.Code)
 	}
@@ -139,8 +139,8 @@ func TestSpamPageDefaults(t *testing.T) {
 func TestSpamOwnerOnly(t *testing.T) {
 	s := newSpamRig(t, newFakeSpam())
 	for _, m := range []string{"GET", "POST"} {
-		for _, p := range []string{"/admin/settings/spam", "/admin/settings/spam/test"} {
-			if m == "GET" && p != "/admin/settings/spam" {
+		for _, p := range []string{"/admin/forms/spam", "/admin/forms/spam/test"} {
+			if m == "GET" && p != "/admin/forms/spam" {
 				continue
 			}
 			if rec := s.do(m, p, "editor-token", goodSpamForm(), nil); rec.Code != 403 {
@@ -152,7 +152,7 @@ func TestSpamOwnerOnly(t *testing.T) {
 		t.Error("editor save reached the service")
 	}
 	// The owner's Forms tabs include Spam protection; the editor's never do (nav test).
-	if body := s.do("GET", "/admin/settings/spam", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `href="/admin/settings/spam"`) {
+	if body := s.do("GET", "/admin/forms/spam", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `href="/admin/forms/spam"`) {
 		t.Error("owner lacks the Spam protection tab")
 	}
 }
@@ -161,15 +161,15 @@ func TestSpamUnavailable(t *testing.T) {
 	t.Parallel()
 
 	s := newSpamRig(t, nil)
-	if rec := s.do("GET", "/admin/settings/spam", "owner-token", nil, nil); rec.Code != 503 {
+	if rec := s.do("GET", "/admin/forms/spam", "owner-token", nil, nil); rec.Code != 503 {
 		t.Errorf("GET without service = %d, want 503", rec.Code)
 	}
 }
 
 func TestSpamSave(t *testing.T) {
 	s := newSpamRig(t, newFakeSpam())
-	rec := s.do("POST", "/admin/settings/spam", "owner-token", goodSpamForm(), nil)
-	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/spam" {
+	rec := s.do("POST", "/admin/forms/spam", "owner-token", goodSpamForm(), nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/forms/spam" {
 		t.Fatalf("save = %d %s", rec.Code, rec.Header().Get("Location"))
 	}
 	got := s.svc.set
@@ -203,7 +203,7 @@ func TestSpamBlankSecretKeepsStored(t *testing.T) {
 	form := goodSpamForm()
 	form.Set("secret_key", "")
 	form.Set("site_key", "new-key")
-	if rec := s.do("POST", "/admin/settings/spam", "owner-token", form, nil); rec.Code != 303 {
+	if rec := s.do("POST", "/admin/forms/spam", "owner-token", form, nil); rec.Code != 303 {
 		t.Fatalf("save = %d", rec.Code)
 	}
 	if string(svc.set.SecretSealed) != string(before) {
@@ -240,7 +240,7 @@ func TestSpamSaveValidation(t *testing.T) {
 			s := newSpamRig(t, c.stored)
 			form := goodSpamForm()
 			c.mutate(form)
-			rec := s.do("POST", "/admin/settings/spam", "owner-token", form, nil)
+			rec := s.do("POST", "/admin/forms/spam", "owner-token", form, nil)
 			if rec.Code != 422 {
 				t.Fatalf("save = %d, want 422", rec.Code)
 			}
@@ -264,7 +264,7 @@ func TestSpamProviderNoneNeedsNoKeys(t *testing.T) {
 	form.Set("provider", "none")
 	form.Set("site_key", "")
 	form.Set("secret_key", "")
-	if rec := s.do("POST", "/admin/settings/spam", "owner-token", form, nil); rec.Code != 303 {
+	if rec := s.do("POST", "/admin/forms/spam", "owner-token", form, nil); rec.Code != 303 {
 		t.Fatalf("save = %d", rec.Code)
 	}
 }
@@ -273,7 +273,7 @@ func TestSpamSaveFailureIs500AndLeaksNothing(t *testing.T) {
 	svc := newFakeSpam()
 	svc.saveErr = errors.New("db down")
 	s := newSpamRig(t, svc)
-	rec := s.do("POST", "/admin/settings/spam", "owner-token", goodSpamForm(), nil)
+	rec := s.do("POST", "/admin/forms/spam", "owner-token", goodSpamForm(), nil)
 	if rec.Code != 500 || strings.Contains(rec.Body.String(), spamTestSecret) || s.flushed != 0 {
 		t.Errorf("save failure = %d flushed=%d", rec.Code, s.flushed)
 	}
@@ -334,7 +334,7 @@ func TestSpamTestConnection(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			s := newSpamRig(t, c.svc)
-			rec := s.do("POST", "/admin/settings/spam/test", "owner-token", url.Values{}, nil)
+			rec := s.do("POST", "/admin/forms/spam/test", "owner-token", url.Values{}, nil)
 			if rec.Code != 200 {
 				t.Fatalf("test = %d", rec.Code)
 			}
@@ -359,7 +359,7 @@ func TestSpamTestConnectionUsesTypedKeys(t *testing.T) {
 		svc := newFakeSpam()
 		svc.testOK = true
 		s := newSpamRig(t, svc)
-		rec := s.do("POST", "/admin/settings/spam/test", "owner-token", typed, nil)
+		rec := s.do("POST", "/admin/forms/spam/test", "owner-token", typed, nil)
 		body := rec.Body.String()
 		if rec.Code != 200 || svc.tests != 1 || !strings.Contains(body, "Connection works.") {
 			t.Fatalf("code=%d tests=%d body lacks success", rec.Code, svc.tests)
@@ -386,7 +386,7 @@ func TestSpamTestConnectionUsesTypedKeys(t *testing.T) {
 			v[k] = vs
 		}
 		v.Set("secret_key", "")
-		s.do("POST", "/admin/settings/spam/test", "owner-token", v, nil)
+		s.do("POST", "/admin/forms/spam/test", "owner-token", v, nil)
 		if svc.tests != 1 || svc.tested.SiteKey != "typed-site" {
 			t.Fatalf("tests=%d site=%q", svc.tests, svc.tested.SiteKey)
 		}
@@ -399,7 +399,7 @@ func TestSpamTestConnectionUsesTypedKeys(t *testing.T) {
 			v[k] = vs
 		}
 		v.Set("secret_key", "")
-		rec := s.do("POST", "/admin/settings/spam/test", "owner-token", v, nil)
+		rec := s.do("POST", "/admin/forms/spam/test", "owner-token", v, nil)
 		if svc.tests != 0 || !strings.Contains(rec.Body.String(), "Enter the secret key to test.") {
 			t.Fatalf("tests=%d, want a prompt for the new provider's secret", svc.tests)
 		}

@@ -1,14 +1,15 @@
 {{template "layouts/shell" .}}
-{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Forms" "Description" "Captcha and spam checks for the forms on your site."}}
+{{template "hm/tabs" dict "Label" "Forms sections" "Items" .Tabs}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 {{if .Unconfigured}}{{template "hm/callout-start" (dict "Kind" "warning")}}Captcha is required on {{.RequiredForms}} {{if eq .RequiredForms 1}}form{{else}}forms{{end}} but no provider keys are set. Submissions are accepted unchecked.{{template "hm/callout-end"}}
-{{end}}<form method="post" action="{{adminPath}}/settings/spam" class="hm-cardform">
+{{end}}<form method="post" action="{{adminPath}}/forms/spam" class="hm-cardform">
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "ID" "captcha" "Title" "Captcha" "Heading" "h2" "Description" "Forms with the Require the spam check switch on show this provider's check above the submit button."}}
 {{template "hm/field" dict "ID" "provider" "Name" "provider" "Label" "Captcha provider" "Control" "select" "Options" .ProviderOptions "Error" (index .Errs "provider")}}
 {{template "hm/pair-start"}}{{template "hm/field" dict "ID" "site-key" "Name" "site_key" "Label" "Site key" "Value" .SiteKey "Error" (index .Errs "site-key") "Attrs" (attrmap "autocomplete" "off")}}
 {{template "hm/field" dict "ID" "secret-key" "Name" "secret_key" "Label" "Secret key" "Type" "password" "Placeholder" (or (and .SecretSaved "Saved") "") "Help" (or (and .SecretLost "The saved secret key can no longer be read. Enter it again.") (and .SecretSaved "Leave blank to keep the saved secret key.") "The secret key stays on the server and is never shown again.") "Error" (index .Errs "secret-key") "Attrs" (attrmap "autocomplete" "new-password")}}{{template "hm/pair-end"}}
-<div class="hm-row">{{template "hm/button" dict "Label" "Test connection" "Type" "button" "Attrs" (attrmap "hx-post" (adminPath "settings" "spam" "test") "hx-include" "closest form" "hx-target" "#spam-test-result" "hx-select" "#spam-test-result" "hx-swap" "outerHTML" "hx-push-url" "false" "hx-indicator" "this")}}<span class="hm-field__help">Checks the keys entered above with the provider. Nothing is saved until you click Save.</span></div>
+<div class="hm-row">{{template "hm/button" dict "Label" "Test connection" "Type" "button" "Attrs" (attrmap "hx-post" (adminPath "forms" "spam" "test") "hx-include" "closest form" "hx-target" "#spam-test-result" "hx-select" "#spam-test-result" "hx-swap" "outerHTML" "hx-push-url" "false" "hx-indicator" "this")}}<span class="hm-field__help">Checks the keys entered above with the provider. Nothing is saved until you click Save.</span></div>
 <div id="spam-test-result" aria-live="polite">{{with .TestMsg}}{{template "hm/flash" (dict "Kind" (or (and $.Data.TestOK "success") "error") "Message" . "Inline" true)}}{{end}}</div>
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "rules" "Title" "Rules" "Heading" "h2" "Description" "These checks run on every form, with or without the captcha."}}

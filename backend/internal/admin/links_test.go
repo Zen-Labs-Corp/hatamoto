@@ -15,7 +15,8 @@ import (
 // /admin/settings/users is not caught by /admin/users.
 var movedAdminPaths = []string{
 	"/admin/schemas", "/admin/taxonomies", "/admin/users", // content model and team
-	"/admin/menus", "/admin/forms", // menus and forms (submissions included)
+	"/admin/menus",                                                                 // menus
+	"/admin/settings/forms", "/admin/settings/submissions", "/admin/settings/spam", // forms moved to the main menu
 	"/admin/redirects", "/admin/linking", "/admin/sections", // SEO & URLs and section templates
 	"/admin/settings/theme", "/admin/settings/plugins", "/admin/import", // appearance, plugins, import
 	"/admin/settings/site", "/admin/settings/contact", "/admin/settings/homepage", "/admin/settings/api", // general
@@ -105,9 +106,9 @@ func TestRenderedFormsPagesLinkToNewPaths(t *testing.T) {
 	g, _, _, fm, s := submissionRig(t)
 	attr := regexp.MustCompile(`(?:href|action|formaction|hx-get|hx-post|data-hm-post)="([^"]*)"`)
 	for _, path := range []string{
-		"/admin/settings/forms", "/admin/settings/forms/new", "/admin/settings/forms/" + fm.ID.String() + "/edit",
-		"/admin/settings/submissions?form=" + fm.ID.String(), "/admin/settings/submissions/" + s.ID.String(),
-		"/admin/settings/submissions/" + s.ID.String() + "/delete",
+		"/admin/forms", "/admin/forms/new", "/admin/forms/edit/" + fm.ID.String(),
+		"/admin/forms/submissions?form=" + fm.ID.String(), "/admin/forms/submissions/" + s.ID.String(),
+		"/admin/forms/submissions/" + s.ID.String() + "/delete",
 	} {
 		rec := g.do("GET", path, "owner-token", nil, nil)
 		if rec.Code != 200 {

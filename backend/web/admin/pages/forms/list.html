@@ -1,4 +1,5 @@
 {{template "layouts/shell" .}}
-{{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Forms" "Description" "Forms on your site and what visitors send through them." "Actions" .Actions}}
+{{template "hm/tabs" dict "Label" "Forms sections" "Items" .Tabs}}
 {{template "hm/table" .Table}}
 {{end}}{{end}}

@@ -25,7 +25,7 @@ func TestSettingsForRoles(t *testing.T) {
 
 	owner := sectionTabs(SettingsFor("owner"))
 	for id, want := range map[string]string{
-		"general": "general", "privacy-tracking": "privacy tracking", "locales": "locales locale-addresses locale-business", "media": "media", "entity-models": "types taxonomies", "forms": "forms submissions spam",
+		"general": "general", "privacy-tracking": "privacy tracking", "locales": "locales locale-addresses locale-business", "media": "media", "entity-models": "types taxonomies",
 		"seo": "seo-general seo-titles seo-social seo-schema seo-kg seo-robots seo-ads-txt seo-verification seo-sitemap seo-breadcrumbs seo-indexnow seo-404", "redirects": "redirects", "linking": "linking", "users": "users user-sign-in", "integrations": "api subscriptions deliveries",
 		"tools": "import export search-replace", "performance": "performance", "updates": "updates", "backups-recovery": "backups versions changes", "access-security": "site-access admin-address",
 	} {
@@ -34,7 +34,7 @@ func TestSettingsForRoles(t *testing.T) {
 		}
 	}
 	editor := sectionTabs(SettingsFor("editor"))
-	for id, want := range map[string]string{"media": "media", "forms": "forms submissions", "redirects": "redirects", "linking": "linking"} {
+	for id, want := range map[string]string{"media": "media", "redirects": "redirects", "linking": "linking"} {
 		if got := strings.Join(editor[id], " "); got != want {
 			t.Errorf("editor %s tabs %q, want %q", id, got, want)
 		}
@@ -49,7 +49,7 @@ func TestSettingsForRoles(t *testing.T) {
 			t.Errorf("editor sees section %s", id)
 		}
 	}
-	if len(SettingsFor("nobody-role")) != 4 {
+	if len(SettingsFor("nobody-role")) != 3 {
 		// roles other than owner or editor still pass the ungated tabs today
 		t.Errorf("unknown role sections: %v", sectionTabs(SettingsFor("nobody-role")))
 	}
@@ -120,7 +120,7 @@ func TestSettingsEntryRedirects(t *testing.T) {
 		{"editor-token", "/admin/settings", 303, "/admin/settings/media"},
 		{"editor-token", "/admin/settings?section=seo", 303, "/admin/settings/media"},
 		{"editor-token", "/admin/settings?section=team", 303, "/admin/settings/media"},
-		{"editor-token", "/admin/settings?section=forms", 303, "/admin/settings/forms"},
+		{"editor-token", "/admin/settings?section=forms", 303, "/admin/forms"},
 		{"owner-token", "/admin/settings/entity-models", 302, "/admin/settings/types"},
 		{"owner-token", "/admin/settings/content-model", 302, "/admin/settings/types"},
 		{"editor-token", "/admin/settings/seo", 403, ""},
@@ -235,8 +235,7 @@ func TestSettingsPageCrumbsStartAtSettings(t *testing.T) {
 
 	// A sub-page sets its crumbs; the top bar renders the whole chain.
 	for name, crumbs := range map[string][]Crumb{
-		"types edit":  areaCrumbs("types", Crumb{Label: "Team"}),
-		"forms entry": areaCrumbs("forms", Crumb{Label: "Contact", Href: "/admin/settings/forms/x/edit"}, Crumb{Label: "Submission"}),
+		"types edit": areaCrumbs("types", Crumb{Label: "Team"}),
 	} {
 		rr := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", "/admin/profile", nil)
@@ -270,7 +269,7 @@ func TestSettingsNavGroups(t *testing.T) {
 	}
 	for g, want := range map[string]string{
 		"Site":    "general branding locales users access-security email privacy-tracking",
-		"Content": "media entity-models forms seo redirects linking",
+		"Content": "media entity-models seo redirects linking",
 		"System":  "integrations performance updates jobs backups-recovery tools",
 	} {
 		if got := strings.Join(members[g], " "); got != want {

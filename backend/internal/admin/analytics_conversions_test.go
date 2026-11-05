@@ -131,7 +131,7 @@ func TestConversionsPageSections(t *testing.T) {
 		"w-c-leads", "w-c-funnel", "w-c-givegets", "w-c-recent", `data-chart="leads"`, "conversions.json",
 		"Leads by first channel", "Viewed 2&#43; pages", "Saw a form", "Started the form", "Submitted", "of previous",
 		"OpenAI", "Other assistants", "takes only", "Block them per purpose on the Crawlers tab",
-		"2 of these leads have no attribution", "ada@example.com", "/settings/submissions/" + fakeLeadID.String(), "Export CSV", "conversions/export.csv"} {
+		"2 of these leads have no attribution", "ada@example.com", "/forms/submissions/" + fakeLeadID.String(), "Export CSV", "conversions/export.csv"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("conversions page missing %q", want)
 		}

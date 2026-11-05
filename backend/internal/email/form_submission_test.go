@@ -19,15 +19,15 @@ func TestFormSubmissionAdminLinkOnlyWhenSet(t *testing.T) {
 
 	html, text := render(base)
 	for name, out := range map[string]string{"html": html, "text": text} {
-		if strings.Contains(out, "View in Admin") || strings.Contains(out, "/settings/submissions") {
+		if strings.Contains(out, "View in Admin") || strings.Contains(out, "/forms/submissions") {
 			t.Errorf("%s has an admin link without AdminURL", name)
 		}
 	}
 
-	base.AdminURL = "/hq-x7k/settings/submissions/s1"
+	base.AdminURL = "/hq-x7k/forms/submissions/s1"
 	html, text = render(base)
 	for name, out := range map[string]string{"html": html, "text": text} {
-		if !strings.Contains(out, "/hq-x7k/settings/submissions/s1") {
+		if !strings.Contains(out, "/hq-x7k/forms/submissions/s1") {
 			t.Errorf("%s lacks the admin link when AdminURL is set", name)
 		}
 	}

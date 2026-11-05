@@ -201,7 +201,7 @@ func contains(ss []string, s string) bool {
 }
 
 // defaultNav registers the core sidebar under prefix: Overview, then Site
-// (Entities, Analytics) and Customize (Plugins, Theme, Settings). Theme and
+// (Entities, Forms, Analytics) and Customize (Plugins, Theme, Settings). Theme and
 // Settings carry a secondary sidebar of their own (see adminArea).
 func defaultNav(prefix string) *Nav {
 	n := &Nav{}
@@ -209,6 +209,7 @@ func defaultNav(prefix string) *Nav {
 	for i, it := range []NavItem{
 		{ID: "overview", Label: "Overview", Href: prefix, Icon: "home", Exact: true},
 		{ID: "entities", Label: "Entities", Group: "Site", Href: prefix + "/entities", Icon: "file-text", Prefixes: []string{prefix + "/entities", prefix + "/people"}},
+		{ID: "forms", Label: "Forms", Group: "Site", Href: prefix + "/forms", Icon: "inbox", Prefixes: []string{prefix + "/forms"}},
 		{ID: "analytics", Label: "Analytics", Group: "Site", Href: prefix + "/analytics", Icon: "analytics", Prefixes: []string{prefix + "/analytics"}},
 		{ID: pluginsID, Label: "Plugins", Group: "Customize", Href: prefix + "/plugins", Icon: "puzzle", Roles: owner, Prefixes: []string{prefix + "/plugins"}},
 		{ID: "theme", Label: "Theme", Group: "Customize", Href: prefix + "/theme", Icon: "palette", Visible: func(role string) bool { return len(themeFor(prefix, role)) > 0 }, Prefixes: []string{prefix + "/theme"}},
