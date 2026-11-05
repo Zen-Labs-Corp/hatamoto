@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/person"
 )
@@ -186,7 +187,7 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 			return nil, fmt.Errorf("unexpected entry %q after the manifest", h.Name)
 		case h.Name == manifestEntry:
 			man = &Manifest{}
-			if err := json.NewDecoder(io.LimitReader(tr, 1<<20)).Decode(man); err != nil {
+			if err := jsonx.UnmarshalRead(io.LimitReader(tr, 1<<20), man, jsonx.StoredLoose); err != nil {
 				return nil, fmt.Errorf("manifest: %w", err)
 			}
 		case strings.HasPrefix(h.Name, dataPrefix) && strings.HasSuffix(h.Name, dataSuffix):
@@ -301,7 +302,7 @@ func foldDefaultBusiness(ctx context.Context, tx pgx.Tx) error {
 	if err != nil {
 		return err
 	}
-	if locs, err = json.Marshal(bizprofile.CanonicalKeys(cards, entity.NormalizeLocale)); err != nil {
+	if locs, err = jsonx.Marshal(bizprofile.CanonicalKeys(cards, entity.NormalizeLocale)); err != nil {
 		return err
 	}
 	row := bizprofile.Row{Default: def, BusinessProfile: profile, LocaleProfiles: locs, PostalAddress: addr}
@@ -334,7 +335,7 @@ func readHeader(tr *tar.Reader) (*Header, error) {
 		return nil, errors.New("not a hatamoto export: format.json must be the first entry")
 	}
 	var hdr Header
-	if err := json.NewDecoder(io.LimitReader(tr, 1<<20)).Decode(&hdr); err != nil {
+	if err := jsonx.UnmarshalRead(io.LimitReader(tr, 1<<20), &hdr, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("format.json: %w", err)
 	}
 	if hdr.Format != FormatName {
@@ -472,8 +473,8 @@ func readLine(br *bufio.Reader) ([]byte, error) {
 // prepareRow applies the table's import rules to a row: the self-reference is
 // stashed and cleared, the forced values are merged.
 func prepareRow(t table, line []byte) (string, error) {
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(line, &m); err != nil {
+	var m map[string]jsontext.Value
+	if err := jsonx.Unmarshal(line, &m, jsonx.StoredLoose); err != nil {
 		return "", fmt.Errorf("bad row: %w", err)
 	}
 	if t.name == "hatamoto_media" {
@@ -482,8 +483,8 @@ func prepareRow(t table, line []byte) (string, error) {
 		}
 	}
 	if t.forced != "" {
-		var o map[string]json.RawMessage
-		_ = json.Unmarshal([]byte(t.forced), &o)
+		var o map[string]jsontext.Value
+		_ = jsonx.Unmarshal([]byte(t.forced), &o, jsonx.StoredLoose)
 		for k, v := range o {
 			m[k] = v
 		}
@@ -495,7 +496,7 @@ func prepareRow(t table, line []byte) (string, error) {
 		}
 		delete(m, t.selfRef)
 	}
-	b, err := json.Marshal(m)
+	b, err := jsonx.Marshal(m)
 	return string(b), err
 }
 
@@ -503,13 +504,13 @@ func prepareRow(t table, line []byte) (string, error) {
 // row (so an archive from an older version, with fewer columns, still loads
 // and the missing ones take their defaults).
 func insertQuery(ctx context.Context, tx pgx.Tx, t table, firstLine []byte) (string, error) {
-	var keys map[string]json.RawMessage
-	if err := json.Unmarshal(firstLine, &keys); err != nil {
+	var keys map[string]jsontext.Value
+	if err := jsonx.Unmarshal(firstLine, &keys, jsonx.StoredLoose); err != nil {
 		return "", fmt.Errorf("bad row: %w", err)
 	}
 	if t.forced != "" {
-		var o map[string]json.RawMessage
-		_ = json.Unmarshal([]byte(t.forced), &o)
+		var o map[string]jsontext.Value
+		_ = jsonx.Unmarshal([]byte(t.forced), &o, jsonx.StoredLoose)
 		for k, v := range o {
 			keys[k] = v
 		}
@@ -574,7 +575,7 @@ func checkMediaRow(line []byte) error {
 	var m struct {
 		Provider *string `json:"storage_provider"`
 	}
-	if err := json.Unmarshal(line, &m); err != nil {
+	if err := jsonx.Unmarshal(line, &m, jsonx.StoredLoose); err != nil {
 		return fmt.Errorf("bad media row: %w", err)
 	}
 	if m.Provider != nil && *m.Provider != "local" {

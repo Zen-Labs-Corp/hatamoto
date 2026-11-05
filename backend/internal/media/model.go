@@ -2,10 +2,11 @@
 package media
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Media represents a media file stored in the system.
@@ -98,10 +99,7 @@ type PagedResult struct {
 
 // MarshalVariants converts variants slice to JSON for database storage.
 func (m *Media) MarshalVariants() ([]byte, error) {
-	if m.Variants == nil {
-		return []byte("[]"), nil
-	}
-	return json.Marshal(m.Variants)
+	return jsonx.Marshal(m.Variants)
 }
 
 // UnmarshalVariants converts JSON from database to variants slice.
@@ -110,7 +108,7 @@ func (m *Media) UnmarshalVariants(data []byte) error {
 		m.Variants = []ImageVariant{}
 		return nil
 	}
-	return json.Unmarshal(data, &m.Variants)
+	return jsonx.Unmarshal(data, &m.Variants, jsonx.StoredLoose)
 }
 
 // IsImage returns true if the media is an image based on mime type.
