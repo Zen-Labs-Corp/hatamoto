@@ -1,5 +1,13 @@
 # Release notes
 
+## Unreleased: ads.txt and app-ads.txt
+
+Settings > SEO has a new ads.txt tab (owners only). Write your `ads.txt` and `app-ads.txt` there and the site serves them at `/ads.txt` and `/app-ads.txt` as plain text. Every line is checked on save and a bad one is named ("Line 2: ..."). An empty file answers a plain 404. The AdSense card in Settings > Tracking links to the tab and adds the AdSense line for the saved id.
+
+- **Caching.** Served with `Cache-Control: public, max-age=60, s-maxage=60`.
+- **Site access.** Like the sitemap, both files are refused while coming soon, maintenance or password mode is on.
+- **Migration.** None. Rollback floor: unchanged. An older binary ignores the two new settings keys and `/ads.txt` returns the themed 404.
+
 ## Unreleased: Off-site backups
 
 Settings > Backups has a new Off-site copy card. Point it at an S3-compatible bucket (Amazon S3, Cloudflare R2, Backblaze B2, MinIO or similar), pick a daily or weekly time in UTC, and each scheduled backup is uploaded (the provider checks each part's SHA-256 on receipt, and the size and recorded checksum are read back) and pruned to the number of copies you keep. "Back up and upload now" runs one on demand. The backups table gains an Off-site column and the dashboard health card an Off-site backup row.
