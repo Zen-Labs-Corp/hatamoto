@@ -66,9 +66,10 @@ func TestExtensionMatchesMIME(t *testing.T) {
 		{".jpeg", "image/jpeg", true},
 		{".JPG", "image/jpeg", true}, // case-insensitive
 		{".png", "image/png", true},
-		{".png", "image/jpeg", false},    // png name, jpeg bytes
-		{".php", "image/jpeg", false},    // renamed script
-		{".svg", "image/svg+xml", false}, // svg never allowed
+		{".png", "image/jpeg", false},   // png name, jpeg bytes
+		{".php", "image/jpeg", false},   // renamed script
+		{".svg", "image/svg+xml", true}, // svg is stored after sanitising
+		{".png", "image/svg+xml", false},
 		{".exe", "application/octet-stream", false},
 		{".pdf", "application/pdf", true},
 	}
@@ -233,7 +234,8 @@ func TestUpload_ValidatesContent(t *testing.T) {
 		{"html named html", "x.html", "text/html", []byte("<html><script>alert(1)</script></html>")},
 		{"html claiming png", "x.png", "image/png", []byte("<html><script>alert(1)</script></html>")},
 		{"html named png with png header lie", "x.html", "image/png", png},
-		{"svg", "x.svg", "image/svg+xml", []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`)},
+		{"html named svg", "x.svg", "image/svg+xml", []byte("<html><script>alert(1)</script></html>")},
+		{"svg bytes named png", "x.png", "image/png", []byte(`<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`)},
 		{"jpeg bytes named png", "x.png", "image/png", []byte("\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00")},
 		{"no extension", "x", "image/png", png},
 	}
@@ -290,6 +292,49 @@ func TestUpload_NoQuotaByDefault(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		if _, err := svc.Upload(context.Background(), nil, bytes.NewReader(data), "a.png", "image/png", int64(len(data))); err != nil {
 			t.Fatal(err)
+		}
+	}
+}
+
+func TestUpload_SVGIsStoredSanitised(t *testing.T) {
+	svc := newTestService(t, Config{MaxPixels: defaultMaxPixels})
+	in := []byte(`<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" onload="x()"><script>alert(1)</script><rect width="4" height="4"/></svg>`)
+	m, err := svc.Upload(context.Background(), nil, bytes.NewReader(in), "logo.svg", "text/html", int64(len(in)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.MimeType != "image/svg+xml" || len(m.Variants) != 0 || m.Width != nil {
+		t.Errorf("unexpected record: %+v", m)
+	}
+	if len(m.Cleaned) != 2 {
+		t.Errorf("Cleaned = %v, want the script and the onload", m.Cleaned)
+	}
+	stored, err := os.ReadFile(filepath.Join(svc.config.UploadDir, m.StoragePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(stored, []byte("script")) || bytes.Contains(stored, []byte("onload")) || !bytes.Contains(stored, []byte("<rect")) {
+		t.Errorf("stored bytes not sanitised: %s", stored)
+	}
+	if m.FileSize != int64(len(stored)) {
+		t.Errorf("FileSize %d != stored %d", m.FileSize, len(stored))
+	}
+
+	bad := []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`)
+	if _, err := svc.Upload(context.Background(), nil, bytes.NewReader(bad), "x.svg", "", int64(len(bad))); !errors.Is(err, ErrInvalidSVG) {
+		t.Errorf("empty-after-clean svg: %v", err)
+	}
+}
+
+func TestSniffUploadSVG(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{"<svg xmlns='x'/>", "image/svg+xml"},
+		{"\xef\xbb\xbf  <?xml version='1.0'?>\n<!-- c -->\n<svg>", "image/svg+xml"},
+		{"<svgfoo>", "text/html; charset=utf-8"},
+		{"<html><svg>", "text/html; charset=utf-8"},
+	} {
+		if got := SniffUpload([]byte(c.in)); got != c.want && !(c.want != "image/svg+xml" && got != "image/svg+xml") {
+			t.Errorf("SniffUpload(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
 }

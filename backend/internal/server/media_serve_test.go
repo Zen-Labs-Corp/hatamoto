@@ -65,3 +65,18 @@ func TestServeMedia_AVIFCopyIsInline(t *testing.T) {
 		t.Errorf("avif served wrong: %d %v", w.Code, h)
 	}
 }
+
+func TestServeMedia_SVGHeadersAndRevalidatingCache(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.svg"), []byte(`<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`), 0o644)
+	w := serveMediaFrom(t, dir, "a.svg")
+	h := w.Header()
+	if w.Code != 200 || h.Get("Content-Type") != "image/svg+xml" ||
+		h.Get("Content-Security-Policy") != "default-src 'none'; style-src 'unsafe-inline'; sandbox" ||
+		h.Get("X-Content-Type-Options") != "nosniff" || h.Get("Content-Disposition") != "" {
+		t.Errorf("svg served wrong: %d %v", w.Code, h)
+	}
+	if h.Get("Cache-Control") != "public, max-age=86400, must-revalidate" || h.Get("ETag") == "" {
+		t.Errorf("cache headers: %v", h)
+	}
+}

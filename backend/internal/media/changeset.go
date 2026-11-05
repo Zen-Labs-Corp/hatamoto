@@ -2,12 +2,12 @@ package media
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -61,15 +61,23 @@ type MediaOp struct {
 // only through AttachStagedTx.
 func (s *Service) StageBlob(ctx context.Context, runID uuid.UUID, r io.Reader, filename string) (string, error) {
 	maxBytes := int64(s.config.MaxSizeMB) * 1024 * 1024
-	br := bufio.NewReaderSize(r, 512)
-	head, _ := br.Peek(512)
-	if !ExtensionMatchesMIME(filepath.Ext(filename), http.DetectContentType(head)) {
+	br := bufio.NewReaderSize(r, SniffLen)
+	head, _ := br.Peek(SniffLen)
+	sniffed := SniffUpload(head)
+	if !ExtensionMatchesMIME(filepath.Ext(filename), sniffed) {
 		return "", ErrInvalidMimeType
 	}
 
 	src := io.Reader(br)
+	if sniffed == svgMIME {
+		clean, _, err := readSVG(br)
+		if err != nil {
+			return "", err
+		}
+		src = bytes.NewReader(clean)
+	}
 	if maxBytes > 0 {
-		src = io.LimitReader(br, maxBytes+1)
+		src = io.LimitReader(src, maxBytes+1)
 	}
 	key := path.Join(stagedPrefix(runID), s.generateFilename(filepath.Ext(filename)))
 	written, err := s.store.Put(ctx, key, src)
@@ -85,7 +93,7 @@ func (s *Service) StageBlob(ctx context.Context, runID uuid.UUID, r io.Reader, f
 		s.removeBlob(ctx, key)
 		return "", ErrQuotaExceeded
 	}
-	if strings.HasPrefix(http.DetectContentType(head), "image/") {
+	if strings.HasPrefix(sniffed, "image/") && sniffed != svgMIME {
 		if err := s.enforcePixelCap(s.local.localPath(key)); err != nil {
 			s.removeBlob(ctx, key)
 			return "", err
@@ -122,17 +130,25 @@ func (s *Service) prepareAttach(ctx context.Context, op MediaOp) (*Media, error)
 	}
 	defer rc.Close()
 
-	br := bufio.NewReaderSize(rc, 512)
-	head, _ := br.Peek(512)
-	mimeType := http.DetectContentType(head)
+	br := bufio.NewReaderSize(rc, SniffLen)
+	head, _ := br.Peek(SniffLen)
+	mimeType := SniffUpload(head)
 	ext := filepath.Ext(op.Filename)
 	if !ExtensionMatchesMIME(ext, mimeType) {
 		return nil, ErrInvalidMimeType
 	}
+	var body io.Reader = br
+	if mimeType == svgMIME { // staged bytes were sanitised; a file put there by hand is not trusted
+		clean, _, err := readSVG(br)
+		if err != nil {
+			return nil, err
+		}
+		body = bytes.NewReader(clean)
+	}
 
 	name := s.generateFilename(ext)
 	storagePath := filepath.Join(legacyMediaTenantDir, name)
-	written, err := s.store.Put(ctx, storagePath, br)
+	written, err := s.store.Put(ctx, storagePath, body)
 	if err != nil {
 		return nil, ErrStorageFailed
 	}
@@ -165,7 +181,7 @@ func (s *Service) prepareAttach(ctx context.Context, op MediaOp) (*Media, error)
 		UpdatedAt:        now,
 		Variants:         []ImageVariant{},
 	}
-	if m.IsImage() {
+	if m.IsImage() && mimeType != svgMIME {
 		fullPath := s.local.localPath(storagePath)
 		if w, h, err := s.getImageDimensions(fullPath); err == nil {
 			m.Width, m.Height = &w, &h

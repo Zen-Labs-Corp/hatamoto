@@ -37,49 +37,26 @@ func (s *Server) handleMediaUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Detect content type from file header
-	buffer := make([]byte, 512)
-	n, err := file.Read(buffer)
-	if err != nil && err != io.EOF {
-		writeError(w, http.StatusBadRequest, "failed to read file")
-		return
-	}
-	mimeType := http.DetectContentType(buffer[:n])
-
-	// Validate mime type
-	if !isAllowedMimeType(mimeType) {
-		writeError(w, http.StatusBadRequest, "unsupported file type")
-		return
-	}
-
-	// Cross-validate the declared extension against the SNIFFED MIME type, not
-	// just an independent allowlist: a .png containing JPEG bytes (or a .php
-	// renamed .jpg) must be rejected. Each allowed sniffed type maps to the
-	// extension(s) permitted for it. image/svg+xml is intentionally absent
-	// (SVG can carry script), so any .svg upload fails here.
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-	if !media.ExtensionMatchesMIME(ext, mimeType) {
-		writeError(w, http.StatusBadRequest, "file extension does not match its content")
-		return
-	}
-
-	// Reset file reader
-	if _, err := file.Seek(0, 0); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to process file")
-		return
-	}
-
 	// Upload file
 	m, err := s.mediaService.Upload(
 		r.Context(),
 		&claims.UserID,
 		file,
 		header.Filename,
-		mimeType,
+		"",
 		header.Size,
 	)
 
 	if err != nil {
+		var svgErr *media.SVGError
+		if errors.As(err, &svgErr) {
+			writeError(w, http.StatusBadRequest, "the SVG was refused: "+svgErr.Error())
+			return
+		}
+		if errors.Is(err, media.ErrInvalidMimeType) {
+			writeError(w, http.StatusBadRequest, "unsupported file type, or the file extension does not match its content")
+			return
+		}
 		if errors.Is(err, media.ErrFileTooLarge) {
 			writeError(w, http.StatusRequestEntityTooLarge, "file too large")
 			return
@@ -258,7 +235,7 @@ func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Detect content type
-	buffer := make([]byte, 512)
+	buffer := make([]byte, media.SniffLen)
 	n, _ := file.Read(buffer)
 	contentType := media.SniffContentType(buffer[:n])
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
@@ -273,30 +250,21 @@ func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
 		contentType = "application/octet-stream"
 		w.Header().Set("Content-Disposition", "attachment")
 		w.Header().Set("Content-Security-Policy", "sandbox")
+	} else if contentType == "image/svg+xml" {
+		// Stored svgs are sanitised on the way in; this is the second line:
+		// shown only as an image, nothing in it can run or load.
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 	}
 
-	// Set cache headers for static assets
+	// One day, then revalidate: a replaced file keeps its address, so the
+	// browser must be able to learn that the bytes changed (the ETag makes the
+	// check cheap).
 	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	w.Header().Set("Cache-Control", "public, max-age=86400, must-revalidate")
+	w.Header().Set("ETag", fmt.Sprintf(`"%x-%x"`, stat.Size(), stat.ModTime().UnixNano()))
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
 
 	// Serve file
 	http.ServeContent(w, r, stat.Name(), stat.ModTime(), file)
-}
-
-// isAllowedMimeType checks if the mime type is allowed for upload.
-func isAllowedMimeType(mimeType string) bool {
-	allowed := map[string]bool{
-		"image/jpeg":    true,
-		"image/png":     true,
-		"image/gif":     true,
-		"image/webp":    true,
-		"image/svg+xml": true,
-		// Documents
-		"application/pdf": true,
-		// Videos (optional, can be extended)
-		"video/mp4":  true,
-		"video/webm": true,
-	}
-	return allowed[mimeType]
 }

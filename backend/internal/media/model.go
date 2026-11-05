@@ -28,6 +28,9 @@ type Media struct {
 	UploadedBy       *uuid.UUID     `json:"uploaded_by,omitempty"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
+	// Cleaned lists what SanitizeSVG removed from an uploaded svg; it is set by
+	// Upload and never stored.
+	Cleaned []string `json:"-"`
 }
 
 // ImageVariant represents a resized version of an image.

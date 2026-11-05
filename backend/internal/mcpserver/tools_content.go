@@ -333,7 +333,7 @@ func (s *Server) registerContent() {
 
 func (s *Server) registerMedia() {
 	type uploadIn struct {
-		Filename   string `json:"filename" jsonschema:"original file name; the extension must match the content (jpg, png, gif, webp, pdf, mp4, webm)"`
+		Filename   string `json:"filename" jsonschema:"original file name; the extension must match the content (jpg, png, gif, webp, svg, pdf, mp4, webm; an svg is cleaned of script and remote references)"`
 		DataBase64 string `json:"data_base64" jsonschema:"file content, standard base64"`
 		AltText    string `json:"alt_text,omitempty"`
 		Caption    string `json:"caption,omitempty"`
