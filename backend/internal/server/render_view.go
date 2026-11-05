@@ -181,7 +181,7 @@ func contentFromAttributes(attrs jsontext.Value, entityID string) ([]render.Sect
 // hasPageDoc reports whether attrs carries a non-null page_doc key.
 func hasPageDoc(attrs jsontext.Value) bool {
 	var w map[string]jsontext.Value
-	if len(attrs) == 0 || jsonx.Unmarshal(attrs, &w, jsonx.Stored) != nil {
+	if len(attrs) == 0 || jsonx.Unmarshal(attrs, &w, jsonx.StoredLoose) != nil {
 		return false
 	}
 	raw := w["page_doc"]
@@ -193,7 +193,7 @@ func hasPageDoc(attrs jsontext.Value) bool {
 func docFromAttributes(attrs jsontext.Value, entityID string) *builder.Doc {
 	// Exact key lookup: a struct tag would also match "Page_Doc".
 	var w map[string]jsontext.Value
-	if len(attrs) == 0 || jsonx.Unmarshal(attrs, &w, jsonx.Stored) != nil {
+	if len(attrs) == 0 || jsonx.Unmarshal(attrs, &w, jsonx.StoredLoose) != nil {
 		return nil
 	}
 	raw := w["page_doc"]
@@ -329,7 +329,7 @@ func applyAttributeMeta(m *render.PageMeta, attrs jsontext.Value, baseURL string
 			Robots string `json:"robots"`
 		} `json:"seo"`
 	}
-	if len(attrs) == 0 || jsonx.Unmarshal(attrs, &a, jsonx.Stored) != nil {
+	if len(attrs) == 0 || jsonx.Unmarshal(attrs, &a, jsonx.StoredLoose) != nil {
 		return
 	}
 	if t := strings.TrimSpace(a.MetaTitle); t != "" {

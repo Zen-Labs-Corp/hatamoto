@@ -72,6 +72,6 @@ func publicPerson(e *entity.Entity) bool {
 	var attrs struct {
 		Public bool `json:"public"`
 	}
-	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
+	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 	return attrs.Public
 }

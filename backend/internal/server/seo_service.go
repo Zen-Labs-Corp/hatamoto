@@ -724,7 +724,7 @@ func (v *seoService) Analyze(ctx context.Context, id uuid.UUID) (seosvc.Panel, e
 	}
 	attrs := map[string]any{}
 	if len(e.Attributes) > 0 {
-		_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
+		_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 	}
 	f := seopanel.FromAttrs(attrs)
 	excerpt, _ := attrs["excerpt"].(string)

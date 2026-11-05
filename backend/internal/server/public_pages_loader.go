@@ -120,7 +120,7 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 
 	// Parse attributes for meta
 	var attrs map[string]interface{}
-	if err := jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.Stored); err != nil {
+	if err := jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.StoredLoose); err != nil {
 		attrs = make(map[string]interface{})
 	}
 
@@ -224,7 +224,7 @@ func (s *Server) loadHomepage(r *http.Request) (*PublicPageResponse, pageOutcome
 
 	// Parse attributes for meta
 	var attrs map[string]interface{}
-	if err := jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.Stored); err != nil {
+	if err := jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.StoredLoose); err != nil {
 		attrs = make(map[string]interface{})
 	}
 
@@ -298,7 +298,7 @@ func pageFAQItems(ent *entity.Entity) []entity.FAQItem {
 	var body struct {
 		Content string `json:"content"`
 	}
-	if jsonx.Unmarshal(ent.Attributes, &body, jsonx.Stored) != nil {
+	if jsonx.Unmarshal(ent.Attributes, &body, jsonx.StoredLoose) != nil {
 		return nil
 	}
 	return entity.ExtractFAQItems(body.Content)

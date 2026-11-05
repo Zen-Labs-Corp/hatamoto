@@ -64,7 +64,7 @@ func (a *Admin) partsOf(r *http.Request) (map[string][]entity.Entity, error) {
 			var attrs struct {
 				Slot string `json:"slot"`
 			}
-			if jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored) == nil && builder.ValidPartSlot(attrs.Slot) {
+			if jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose) == nil && builder.ValidPartSlot(attrs.Slot) {
 				out[attrs.Slot] = append(out[attrs.Slot], *e)
 			}
 		}
@@ -165,7 +165,7 @@ func (a *Admin) partProblem(r *http.Request, slot, id string) string {
 	var attrs struct {
 		Slot string `json:"slot"`
 	}
-	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
+	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 	if !entity.IsPartSchema(sc) || attrs.Slot != slot {
 		return "That is not a " + slot + " part."
 	}

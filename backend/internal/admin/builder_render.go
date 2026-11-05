@@ -43,7 +43,7 @@ func readBuilderBody(w http.ResponseWriter, r *http.Request) (*builderRenderBody
 // The entity is always the one in the URL.
 func (a *Admin) builderBase(r *http.Request, e *entity.Entity, sc *entity.EntitySchema, canvas bool) map[string]any {
 	attrs := map[string]jsontext.Value{}
-	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
+	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 	delete(attrs, "page_doc")
 	delete(attrs, "page_sections")
 	req := map[string]any{"entity_id": e.ID.String(), "schema": sc.Slug, "attributes": attrs, "canvas": canvas,

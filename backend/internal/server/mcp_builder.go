@@ -55,7 +55,7 @@ func (s *Server) mcpRenderPage(ctx context.Context, req mcpserver.RenderRequest)
 	}
 	e := req.Entity
 	attrs := map[string]jsontext.Value{}
-	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
+	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 	delete(attrs, "page_sections")
 	attrs["page_doc"] = req.Doc
 	body := map[string]any{"entity_id": e.ID.String(), "attributes": attrs, "name": e.Name, "updated_at": e.UpdatedAt}

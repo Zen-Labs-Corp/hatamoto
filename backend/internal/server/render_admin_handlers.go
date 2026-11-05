@@ -202,7 +202,7 @@ func (h *renderAdminHandlers) attributesView(r *http.Request, req *previewReques
 		Description string `json:"meta_description"`
 		Name        string `json:"name"`
 	}
-	_ = jsonx.Unmarshal(req.Attributes, &meta, jsonx.Stored)
+	_ = jsonx.Unmarshal(req.Attributes, &meta, jsonx.StoredLoose)
 
 	v := &render.PageView{
 		BaseURL:    h.baseURL(r),

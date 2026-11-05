@@ -90,7 +90,7 @@ func seriesView(slug string, rows []entity.SeriesRow, locate func(entity.SeriesR
 	sv := &render.SeriesView{Slug: slug, Parts: make([]render.SeriesPartView, 0, len(rows))}
 	for _, r := range rows {
 		var attrs map[string]any
-		if jsonx.Unmarshal(r.Attributes, &attrs, jsonx.Stored) != nil {
+		if jsonx.Unmarshal(r.Attributes, &attrs, jsonx.StoredLoose) != nil {
 			continue
 		}
 		part := attrInt(attrs, "series_part")

@@ -185,7 +185,7 @@ func isStarter(e *entity.Entity) bool {
 	var a struct {
 		Starter bool `json:"starter"`
 	}
-	return jsonx.Unmarshal(e.Attributes, &a, jsonx.Stored) == nil && a.Starter
+	return jsonx.Unmarshal(e.Attributes, &a, jsonx.StoredLoose) == nil && a.Starter
 }
 
 // isSeed reports the first-boot home page: a single "welcome" section, either
@@ -198,7 +198,7 @@ func isSeed(e *entity.Entity) bool {
 		Doc     jsontext.Value `json:"page_doc"`
 		Starter bool           `json:"starter"`
 	}
-	if jsonx.Unmarshal(e.Attributes, &a, jsonx.Stored) != nil || a.Starter {
+	if jsonx.Unmarshal(e.Attributes, &a, jsonx.StoredLoose) != nil || a.Starter {
 		return false
 	}
 	if len(a.Doc) > 0 {

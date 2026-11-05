@@ -90,7 +90,7 @@ func patchSEOAttrs(in *entity.UpdateEntityInput, s builderSEO) error {
 		return nil
 	}
 	attrs := map[string]jsontext.Value{}
-	if err := jsonx.Unmarshal(*in.Attributes, &attrs, jsonx.Stored); err != nil {
+	if err := jsonx.Unmarshal(*in.Attributes, &attrs, jsonx.StoredLoose); err != nil {
 		return err
 	}
 	if attrs == nil {
@@ -306,11 +306,11 @@ func lightboxNote(n int) string {
 // doc, so the sanitiser (or the service) changed it on the way in.
 func storedDocDiffers(e *entity.Entity, posted jsontext.Value) bool {
 	var m map[string]jsontext.Value
-	if jsonx.Unmarshal(e.Attributes, &m, jsonx.Stored) != nil {
+	if jsonx.Unmarshal(e.Attributes, &m, jsonx.StoredLoose) != nil {
 		return true
 	}
 	var a, b any
-	if jsonx.Unmarshal(m["page_doc"], &a, jsonx.Stored) != nil || jsonx.Unmarshal(posted, &b, jsonx.Stored) != nil {
+	if jsonx.Unmarshal(m["page_doc"], &a, jsonx.StoredLoose) != nil || jsonx.Unmarshal(posted, &b, jsonx.StoredLoose) != nil {
 		return true
 	}
 	return !reflect.DeepEqual(a, b)
@@ -371,7 +371,7 @@ func (a *Admin) handleBuilderSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if storedDocDiffers(saved.Entity, req.Doc) {
 		var m map[string]jsontext.Value
-		_ = jsonx.Unmarshal(saved.Entity.Attributes, &m, jsonx.Stored)
+		_ = jsonx.Unmarshal(saved.Entity.Attributes, &m, jsonx.StoredLoose)
 		rep.Doc = m["page_doc"]
 	}
 	reply(http.StatusOK, rep)

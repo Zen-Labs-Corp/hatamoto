@@ -53,7 +53,7 @@ func (d *renderData) partDoc(ctx context.Context, schema, slot, id string) (*bui
 		Slot string         `json:"slot"`
 		Doc  jsontext.Value `json:"page_doc"`
 	}
-	if jsonx.Unmarshal(e.Attributes, &a, jsonx.Stored) != nil || (slot != "" && a.Slot != slot) {
+	if jsonx.Unmarshal(e.Attributes, &a, jsonx.StoredLoose) != nil || (slot != "" && a.Slot != slot) {
 		return nil, false
 	}
 	if len(a.Doc) == 0 || string(a.Doc) == "null" {

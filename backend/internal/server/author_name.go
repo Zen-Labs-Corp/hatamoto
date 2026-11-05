@@ -109,7 +109,7 @@ func (s *Server) applyAuthorName(ctx context.Context, ent *entity.Entity) {
 		return
 	}
 	var attrs map[string]any
-	if jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.Stored) != nil || attrs == nil {
+	if jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.StoredLoose) != nil || attrs == nil {
 		return
 	}
 	for _, k := range []string{"author", "author_name"} {

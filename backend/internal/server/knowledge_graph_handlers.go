@@ -27,7 +27,7 @@ func entityIncludesInLLMsTxt(ent *entity.Entity) bool {
 			IncludeInLLMsTxt *bool `json:"include_in_llms_txt"`
 		} `json:"seo"`
 	}
-	if err := jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.Stored); err != nil {
+	if err := jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.StoredLoose); err != nil {
 		return true
 	}
 	if attrs.SEO.IncludeInLLMsTxt == nil {

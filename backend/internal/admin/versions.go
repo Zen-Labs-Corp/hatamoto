@@ -346,7 +346,7 @@ func (a *Admin) handleVersionView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var doc any
-	_ = jsonx.Unmarshal(attrs, &doc, jsonx.Stored)
+	_ = jsonx.Unmarshal(attrs, &doc, jsonx.StoredLoose)
 	flat := map[string]string{}
 	flatten("", doc, flat)
 	d := versionViewData{Name: e.Name, ID: id, Label: label, N: n, Tabs: a.entityTabsFor(r.Context(), e, "versions"), Actions: []ui.Button{

@@ -48,7 +48,7 @@ func hasSections(sc *entity.EntitySchema, e *entity.Entity) bool {
 		var attrs struct {
 			Sections []jsontext.Value `json:"page_sections"`
 		}
-		if jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored) == nil && len(attrs.Sections) > 0 {
+		if jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose) == nil && len(attrs.Sections) > 0 {
 			return true
 		}
 	}
@@ -192,7 +192,7 @@ func withLegacyDoc(e *entity.Entity, sc *entity.EntitySchema) {
 		return
 	}
 	attrs := map[string]jsontext.Value{}
-	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
+	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 	if attrs == nil {
 		attrs = map[string]jsontext.Value{}
 	}

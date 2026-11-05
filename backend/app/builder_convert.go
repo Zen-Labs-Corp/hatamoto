@@ -205,7 +205,7 @@ func convertPages(ctx context.Context, st convertStore, eng pageRenderer, o conv
 
 func convertOne(ctx context.Context, st convertStore, eng pageRenderer, o convertOpts, r convertRow, s *convertStats) string {
 	var raw map[string]jsontext.Value
-	if err := jsonx.Unmarshal(r.Attrs, &raw, jsonx.Stored); err != nil {
+	if err := jsonx.Unmarshal(r.Attrs, &raw, jsonx.StoredLoose); err != nil {
 		s.Failed++
 		return "error: attributes are not an object"
 	}
@@ -291,7 +291,7 @@ func normalizedConvert(stored jsontext.Value, raw map[string]jsontext.Value, sec
 		return nil, nil, err
 	}
 	var out map[string]jsontext.Value // exact key: a struct tag matches "Page_Doc" too
-	if err := jsonx.Unmarshal(attrs, &out, jsonx.Stored); err != nil {
+	if err := jsonx.Unmarshal(attrs, &out, jsonx.StoredLoose); err != nil {
 		return nil, nil, err
 	}
 	doc, err := builder.Parse(out["page_doc"])

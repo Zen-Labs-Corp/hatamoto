@@ -57,7 +57,7 @@ func (s *Server) loadTarget(ctx context.Context, idText string) (*builderTarget,
 	switch state {
 	case entity.DocOK:
 		var attrs map[string]jsontext.Value
-		_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
+		_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 		t.raw = attrs["page_doc"]
 	case entity.DocBroken:
 		return nil, codedErr(codeNotBuilder, "the stored page_doc does not parse; repair it in the admin builder")
@@ -97,7 +97,7 @@ func hasLegacySections(e *entity.Entity) bool {
 	var a struct {
 		Sections []jsontext.Value `json:"page_sections"`
 	}
-	return jsonx.Unmarshal(e.Attributes, &a, jsonx.Stored) == nil && len(a.Sections) > 0
+	return jsonx.Unmarshal(e.Attributes, &a, jsonx.StoredLoose) == nil && len(a.Sections) > 0
 }
 
 // copyDoc is a fresh parse of the stored layout, safe to edit.
@@ -135,11 +135,11 @@ func summarise(d *builder.Doc) docSummary {
 // the sanitiser or the service changed it on the way in.
 func storedDiffers(e *entity.Entity, posted jsontext.Value) bool {
 	var m map[string]jsontext.Value
-	if jsonx.Unmarshal(e.Attributes, &m, jsonx.Stored) != nil {
+	if jsonx.Unmarshal(e.Attributes, &m, jsonx.StoredLoose) != nil {
 		return true
 	}
 	var a, b any
-	if jsonx.Unmarshal(m["page_doc"], &a, jsonx.Stored) != nil || jsonx.Unmarshal(posted, &b, jsonx.Stored) != nil {
+	if jsonx.Unmarshal(m["page_doc"], &a, jsonx.StoredLoose) != nil || jsonx.Unmarshal(posted, &b, jsonx.StoredLoose) != nil {
 		return true
 	}
 	return !reflect.DeepEqual(a, b)
@@ -356,7 +356,7 @@ func (s *Server) checkPageDocRules(ctx context.Context, stored *entity.Entity, r
 // attribute objects.
 func docOrSlotChanged(stored, incoming jsontext.Value) bool {
 	var a, b map[string]any
-	if jsonx.Unmarshal(stored, &a, jsonx.Stored) != nil || jsonx.Unmarshal(incoming, &b, jsonx.Stored) != nil {
+	if jsonx.Unmarshal(stored, &a, jsonx.StoredLoose) != nil || jsonx.Unmarshal(incoming, &b, jsonx.StoredLoose) != nil {
 		return true
 	}
 	for _, k := range []string{"page_doc", "slot"} {

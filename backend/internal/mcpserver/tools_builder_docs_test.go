@@ -605,3 +605,12 @@ func TestBuilderApplyOpsAuditsTakeOver(t *testing.T) {
 		}
 	}
 }
+
+// Attributes written by an API client may spell keys in another case; v1
+// read them anyway, so a page must not look empty.
+func TestHasLegacySectionsIgnoresKeyCase(t *testing.T) {
+	e := &entity.Entity{Attributes: []byte(`{"Page_Sections":[{"id":"s1"}]}`)}
+	if !hasLegacySections(e) {
+		t.Fatal("miscased page_sections read as empty")
+	}
+}

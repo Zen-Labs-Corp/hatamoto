@@ -280,7 +280,7 @@ func (a *Admin) builderReuse(r *http.Request, e *entity.Entity, sc *entity.Entit
 		var attrs struct {
 			Slot string `json:"slot"`
 		}
-		_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
+		_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 		out["slot"] = attrs.Slot
 	}
 	if out["available"] == true {
