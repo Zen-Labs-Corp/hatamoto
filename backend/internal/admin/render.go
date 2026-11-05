@@ -17,6 +17,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/web"
 )
 
@@ -65,6 +66,9 @@ type View struct {
 	Title    string
 	Crumbs   []Crumb
 	SiteName string
+	// Brand is the admin branding (name, logo, accent, managed-by line); its
+	// Name is SiteName.
+	Brand brandView
 	// SiteURL is the public site the sidebar's "Open site" button opens.
 	SiteURL string
 	Lang    string
@@ -448,8 +452,10 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	if v.SiteName == "" {
 		v.SiteName = "Hatamoto"
 	}
+	var cfg *siteconfig.Config
 	if a.deps.Site != nil {
-		if cfg, err := a.deps.Site.Get(ctx); err == nil && cfg != nil {
+		if c, err := a.deps.Site.Get(ctx); err == nil && c != nil {
+			cfg = c
 			if cfg.CompanyName != "" {
 				v.SiteName = cfg.CompanyName
 			}
@@ -462,6 +468,8 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 			v.NoSiteAddress = cfg.SetupCompletedAt != nil && a.deps.BaseURL != nil && a.siteAddress(r) == ""
 		}
 	}
+	v.Brand = brandFrom(cfg, v.SiteName, string(as.Tokens))
+	v.SiteName = v.Brand.Name
 	v.SiteURL = "/"
 	if addr := a.siteAddress(r); addr != "" {
 		v.SiteURL = addr + "/"

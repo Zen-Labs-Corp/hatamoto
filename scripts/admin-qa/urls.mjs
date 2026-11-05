@@ -84,6 +84,7 @@ export const screens = [
   { name: "plugins-security", path: "/admin/plugins/security", mock: null, roles: O, expect: "#signers-card", states: [{ name: "unsigned-open", click: ".hm-pluginsecurity__advanced > summary" }] }, // the allow-unsigned form sits in a closed disclosure
   { name: "settings-plugins-upload", path: "/admin/plugins/upload", mock: null, roles: O },
   // Settings: General, API, Entity models
+  { name: "settings-branding", path: "/admin/settings/admin-branding", mock: null, roles: O },
   { name: "settings-general", path: "/admin/settings/general", legacy: "/admin/settings/site", mock: "settings-general", roles: O, primary: true, hover: true },
   // Settings > Locales. A single-locale seed shows the add-only state.
   { name: "settings-locales", path: "/admin/settings/locales", mock: "s1", roles: O, states: [{ name: "add-locale", click: '[data-hm-open="add-locale"]' }] },
@@ -130,7 +131,7 @@ export const screens = [
   { name: "settings-linking", path: "/admin/settings/linking", legacy: "/admin/linking", mock: "settings-linking", roles: OE },
   // Theme: Themes, Colours and fonts, Design system, Style presets, Layout parts, Blocks, Templates, Menus
   { name: "theme-themes", path: "/admin/theme/themes", legacy: "/admin/settings/theme", mock: "settings-themes", roles: O, primary: true, states: [newDialog] }, // not a list screen (UI-D10): the header offers Upload and Browse, and Browse is the primary
-  { name: "theme-colours", path: "/admin/theme/colours", legacy: "/admin/settings/branding", mock: null, roles: O },
+  { name: "theme-colours", path: "/admin/theme/colours", mock: null, roles: O },
   { name: "theme-fonts", path: "/admin/theme/fonts", legacy: null, mock: null, roles: O },
   { name: "theme-fonts-google", path: "/admin/theme/fonts/google", legacy: null, mock: null, roles: O },
   { name: "theme-fonts-upload", path: "/admin/theme/fonts/upload", legacy: null, mock: null, roles: O },

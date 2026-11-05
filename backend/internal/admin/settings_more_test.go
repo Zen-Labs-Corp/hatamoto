@@ -62,7 +62,7 @@ func TestOldSettingsPagesRedirectToTheirNewHome(t *testing.T) {
 	t.Parallel()
 
 	g := newRig(t)
-	for from, to := range map[string]string{"branding": "/admin/theme/colours", "site": "/admin/settings/general", "homepage": "/admin/settings/general",
+	for from, to := range map[string]string{"site": "/admin/settings/general", "homepage": "/admin/settings/general",
 		"contact": "/admin/settings/general", "notifications": "/admin/settings/general", "api": "/admin/settings/api-keys"} {
 		rec := g.do("GET", "/admin/settings/"+from, "owner-token", nil, nil)
 		if rec.Code != 301 || rec.Header().Get("Location") != to {

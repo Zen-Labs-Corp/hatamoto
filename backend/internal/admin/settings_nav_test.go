@@ -231,7 +231,7 @@ func TestSettingsNavGroups(t *testing.T) {
 		t.Fatalf("owner group order %q", got)
 	}
 	for g, want := range map[string]string{
-		"Site":    "general locales site-access email privacy tracking contact-button users",
+		"Site":    "general branding locales site-access email privacy tracking contact-button users",
 		"Content": "media versions entity-models forms seo redirects linking",
 		"System":  "api webhooks performance updates backups changes import-export security",
 		"Tools":   "search-replace",
@@ -322,5 +322,21 @@ func TestAreaNavAppendsTheCarry(t *testing.T) {
 		if strings.Contains(s.Href, "?") {
 			t.Errorf("settings link %s carries a query", s.Href)
 		}
+	}
+}
+
+func TestBrandingSectionIsOwnerOnly(t *testing.T) {
+	t.Parallel()
+
+	has := func(role string) bool {
+		for _, s := range SettingsFor(role) {
+			if s.ID == "branding" {
+				return true
+			}
+		}
+		return false
+	}
+	if !has("owner") || has("editor") {
+		t.Errorf("branding section: owner=%v editor=%v", has("owner"), has("editor"))
 	}
 }

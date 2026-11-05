@@ -34,6 +34,7 @@ func (a *Admin) mountSettings(authed *httpx.Group) {
 	a.mountSearchReplace(owner)
 	a.mountPerformanceSettings(owner)
 	a.mountSiteAccessSettings(owner)
+	a.mountBrandingSettings(owner)
 	a.mountVersionRetentionSettings(owner)
 	a.mountSpamSettings(owner)
 	a.mountSEOSettings(owner)

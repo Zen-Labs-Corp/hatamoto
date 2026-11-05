@@ -54,6 +54,10 @@ type SiteStore interface {
 	Update(ctx context.Context, in siteconfig.UpdateInput) (*siteconfig.Config, error)
 	// SetLocaleProfile stores one locale's business details; empty raw clears it.
 	SetLocaleProfile(ctx context.Context, tag string, raw jsontext.Value) error
+	// SetAdminBranding stores the admin name, logo, accent and managed-by line;
+	// ResetAdminBranding clears them.
+	SetAdminBranding(ctx context.Context, b siteconfig.AdminBrand) error
+	ResetAdminBranding(ctx context.Context) error
 }
 
 // OwnerCreator creates the first owner (auth.Bootstrap).

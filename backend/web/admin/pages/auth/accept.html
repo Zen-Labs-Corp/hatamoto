@@ -8,7 +8,7 @@
 {{template "hm/field" dict "ID" "password" "Name" "password" "Label" "Choose a password" "Type" "password" "Required" true "Help" "At least 12 characters." "Error" .Error "Attrs" (attrmap "autocomplete" "new-password" "minlength" "12")}}
 {{template "hm/field" dict "ID" "confirm" "Name" "confirm" "Label" "Repeat the password" "Type" "password" "Required" true "Error" .Match "Attrs" (attrmap "autocomplete" "new-password" "minlength" "12")}}
 {{template "hm/foot"}}
-{{template "hm/button" dict "Label" "Create account" "Variant" "primary" "Type" "submit"}}
+{{template "hm/button" dict "Label" "Create account" "Variant" (or (and $.Brand.Accent "accent") "primary") "Type" "submit"}}
 {{template "hm/foot-end"}}
 </form>{{else if .Exists}}{{template "hm/empty" (dict "Plain" true "Compact" true "H1" true "Title" "You already have an account" "Body" "An account with this email address already exists. Sign in to continue." "Actions" (list (dict "Dict" (dict "Label" "Sign in" "Variant" "primary" "Href" (adminPath "login")))))}}{{else}}{{template "hm/empty" (dict "Plain" true "Compact" true "H1" true "Title" "This invitation no longer works" "Body" "Invitations work once and expire after seven days. Ask an owner to send a new one." "Actions" (list (dict "Dict" (dict "Label" "Go to sign in" "Variant" "primary" "Href" (adminPath "login")))))}}{{end}}
 {{end}}{{end}}

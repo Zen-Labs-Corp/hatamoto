@@ -153,23 +153,26 @@ var DeclaredPairs = []Pair{
 // ContrastIssues checks every declared pair in both themes.
 func ContrastIssues(css string) []string {
 	light, dark := ParseTokens(css)
+	return append(pairIssues("light", light), pairIssues("dark", dark)...)
+}
+
+// pairIssues checks every declared pair against one theme's tokens.
+func pairIssues(name string, t Tokens) []string {
 	var out []string
-	for name, t := range map[string]Tokens{"light": light, "dark": dark} {
-		for _, p := range DeclaredPairs {
-			fg, ok1 := t.Resolve(p.FG)
-			bg, ok2 := t.Resolve(p.BG)
-			if !ok1 || !ok2 {
-				out = append(out, fmt.Sprintf("%s: %s or %s is not defined", name, p.FG, p.BG))
-				continue
-			}
-			r, err := Ratio(fg, bg)
-			if err != nil {
-				out = append(out, fmt.Sprintf("%s: %s: %v", name, p.What, err))
-				continue
-			}
-			if r < p.Min {
-				out = append(out, fmt.Sprintf("%s: %s: %s on %s is %.2f:1, need %.1f", name, p.What, p.FG, p.BG, r, p.Min))
-			}
+	for _, p := range DeclaredPairs {
+		fg, ok1 := t.Resolve(p.FG)
+		bg, ok2 := t.Resolve(p.BG)
+		if !ok1 || !ok2 {
+			out = append(out, fmt.Sprintf("%s: %s or %s is not defined", name, p.FG, p.BG))
+			continue
+		}
+		r, err := Ratio(fg, bg)
+		if err != nil {
+			out = append(out, fmt.Sprintf("%s: %s: %v", name, p.What, err))
+			continue
+		}
+		if r < p.Min {
+			out = append(out, fmt.Sprintf("%s: %s: %s on %s is %.2f:1, need %.1f", name, p.What, p.FG, p.BG, r, p.Min))
 		}
 	}
 	return out

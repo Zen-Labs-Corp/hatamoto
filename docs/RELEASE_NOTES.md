@@ -21,6 +21,14 @@ The plugin host and the Go SDK read and write plugin data with the JSON v2 packa
 - **One manifest decoder.** Plugin manifest reads in the admin packages screen, the updater, the settings CLI and at boot use the same decoder as install.
 - **Migration.** None. Rollback floor: unchanged.
 
+## Unreleased: Admin branding
+
+Settings > Branding: admin name, logo, accent colour and a Managed by line for the sign-in page and admin; colours that fail contrast are refused.
+
+- **Where it shows.** The sign-in page and the admin sidebar and footer. The public site, its logo and theme, and the emails are unchanged.
+- **Contrast.** The accent must reach 4.5:1 on both the white admin background and the tinted highlight. The dark theme gets a lighter shade of it, worked out so every pair still passes. Reset to default clears all of it.
+- **Migration.** Five expand-only text columns on site config. Rollback floor: unchanged; an older binary ignores them and shows the default look.
+
 ## Unreleased: Version history limit
 
 - **Setting.** Settings > Versions (owners only) sets how many earlier versions of each item are kept, 10 to 500. The daily prune reads it on every run.

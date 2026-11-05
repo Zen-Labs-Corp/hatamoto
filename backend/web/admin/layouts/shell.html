@@ -26,7 +26,7 @@
 </div>
 {{if .HasSubnav}}</div>
 {{end}}</main>
-<footer class="hm-colophon"><a href="https://hatamoto.dev" rel="noopener" target="_blank" title="Hatamoto {{.AppVersion}}">Hatamoto {{.AppVersion}} <span aria-hidden="true">&middot;</span> Stand close. Serve well.</a></footer>
+<footer class="hm-colophon">{{with .Brand.ManagedText}}<span class="hm-colophon__managed">{{if $.Brand.ManagedURL}}<a href="{{$.Brand.ManagedURL}}" rel="noopener noreferrer" target="_blank">{{.}}</a>{{else}}{{.}}{{end}}</span> <span class="hm-colophon__sep" aria-hidden="true">&middot;</span> {{end}}<a href="https://hatamoto.dev" rel="noopener" target="_blank" title="Hatamoto {{.AppVersion}}">Hatamoto {{.AppVersion}} <span aria-hidden="true">&middot;</span> Stand close. Serve well.</a></footer>
 </div>
 </div>
 {{template "layouts/toasts" .}}

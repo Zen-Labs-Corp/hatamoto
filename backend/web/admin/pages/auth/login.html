@@ -9,7 +9,7 @@
 {{template "hm/field" dict "ID" "email" "Name" "email" "Label" "Email" "Type" "email" "Value" .Email "Required" true "Attrs" (cond .HasStatus (attrmap "autocomplete" "username" "autofocus" "autofocus" "aria-describedby" "login-status") (attrmap "autocomplete" "username" "autofocus" "autofocus"))}}
 {{template "hm/field" dict "ID" "password" "Name" "password" "Label" "Password" "Type" "password" "Required" true "Attrs" (cond .HasStatus (attrmap "autocomplete" "current-password" "aria-describedby" "login-status") (attrmap "autocomplete" "current-password"))}}
 {{template "hm/foot"}}
-{{template "hm/button" dict "Label" "Sign in" "Variant" "primary" "Type" "submit"}}
+{{template "hm/button" dict "Label" "Sign in" "Variant" (or (and $.Brand.Accent "accent") "primary") "Type" "submit"}}
 {{template "hm/foot-end"}}
 </form>
 {{if .Passkeys}}<div class="hm-bare__alt">

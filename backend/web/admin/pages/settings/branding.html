@@ -1,0 +1,31 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+<form method="post" action="{{adminPath}}/settings/admin-branding" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "branding-card" "Title" "Admin identity" "Heading" "h2" "Description" "Shown on the sign-in page and in the admin. The public site and the emails keep the site name and logo from General."}}
+{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Admin name" "Value" .Form.Name "Help" "Empty uses the site name." "Error" (index .Errs "name") "Attrs" (attrmap "maxlength" "60" "autocomplete" "off")}}
+<div class="hm-field{{if index .Errs "logo"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="logo">Logo</label>
+<div class="hm-row"><input class="hm-field__control" type="text" id="logo" name="logo" value="{{.Form.LogoURL}}" maxlength="300" data-hm-image autocomplete="off" aria-describedby="logo-help{{if index .Errs "logo"}} logo-error{{end}}"{{if index .Errs "logo"}} aria-invalid="true"{{end}}>{{template "hm/button" (dict "Label" "Choose from library" "Size" "sm" "Attrs" (attrmap "data-hm-media-picker" "logo" "hidden" "hidden"))}}</div>
+<p class="hm-field__help" id="logo-help">PNG, JPEG or WebP from the media library. Empty shows the Hatamoto seal.</p>
+{{with index .Errs "logo"}}<p class="hm-field__error" id="logo-error">{{.}}</p>{{end}}</div>
+{{if .Form.LogoURL}}{{template "hm/field" dict "ID" "remove_logo" "Name" "remove_logo" "Label" "Remove the logo" "Control" "switch" "Value" "1"}}{{end}}
+{{template "hm/field" dict "ID" "accent" "Name" "accent" "Label" "Accent colour" "Value" .Form.Accent "Help" "A hex colour like #1f4e9a, used for links, focus rings and the sign-in button. It must be dark enough to read (4.5:1) on both the white admin background and the tinted highlight; the dark theme gets a lighter shade of it. Empty keeps the default." "Error" (index .Errs "accent") "Attrs" (attrmap "maxlength" "7" "autocomplete" "off" "spellcheck" "false")}}
+{{if .LightRatio}}<p class="hm-muted" id="accent-ratios">Light theme: {{.LightRatio}}:1 on white. Dark theme uses {{.DarkHex}}: {{.DarkRatio}}:1 on the dark background.</p>{{end}}
+{{template "hm/field" dict "ID" "managed_text" "Name" "managed_text" "Label" "Managed by text" "Value" .Form.ManagedText "Help" "A short line under the sign-in form and in the admin footer, for example Managed by Example Studio." "Error" (index .Errs "managed-text") "Attrs" (attrmap "maxlength" "80" "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "managed_url" "Name" "managed_url" "Label" "Managed by link" "Value" .Form.ManagedURL "Type" "url" "Help" "Optional. Makes the text a link (https:// or http://)." "Error" (index .Errs "managed-url") "Attrs" (attrmap "maxlength" "300" "autocomplete" "off")}}
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+{{template "hm/card-start" dict "ID" "branding-preview" "Title" "Sign-in preview" "Heading" "h2" "Description" "The saved branding as people see it when they sign in. Save to update it."}}
+<div class="hm-stack" role="img" aria-label="Preview of the sign-in page">
+<p class="hm-brand">{{if $.Brand.LogoURL}}<img class="hm-brand__logo" src="{{$.Brand.LogoURL}}" alt="" width="20" height="20">{{else}}<span class="hm-brand__seal" aria-hidden="true">{{icon "seal"}}</span>{{end}}<span>{{$.SiteName}}</span></p>
+{{template "hm/button" dict "Label" "Sign in" "Variant" (or (and $.Brand.Accent "accent") "primary") "Attrs" (attrmap "disabled" "disabled")}}
+{{with $.Brand.ManagedText}}<p class="hm-muted">{{.}}</p>{{end}}
+</div>
+{{template "hm/card-end"}}
+{{if .Customised}}<form method="post" action="{{adminPath}}/settings/admin-branding/reset" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "branding-reset" "Title" "Reset to default" "Heading" "h2" "Description" "Clears the admin name, logo, accent colour and managed-by line."}}
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Reset to default" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>{{end}}
+{{end}}{{end}}

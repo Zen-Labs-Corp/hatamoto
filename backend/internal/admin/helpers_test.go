@@ -74,8 +74,9 @@ func (f fakeUsers) GetByID(_ context.Context, id uuid.UUID) (*user.User, error) 
 }
 
 type fakeSite struct {
-	mu  sync.Mutex
-	cfg siteconfig.Config
+	mu          sync.Mutex
+	cfg         siteconfig.Config
+	brandWrites int // SetAdminBranding calls, so tests can prove a refusal stored nothing
 }
 
 func newFakeSite(name string) *fakeSite {
@@ -396,4 +397,17 @@ func (g *rig) do(method, target, token string, form url.Values, hdr map[string]s
 	rec := httptest.NewRecorder()
 	g.h.ServeHTTP(rec, req)
 	return rec
+}
+
+// SetAdminBranding and ResetAdminBranding store the branding like the SQL does.
+func (f *fakeSite) SetAdminBranding(_ context.Context, b siteconfig.AdminBrand) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.cfg.AdminBrand = b
+	f.brandWrites++
+	return nil
+}
+
+func (f *fakeSite) ResetAdminBranding(ctx context.Context) error {
+	return f.SetAdminBranding(ctx, siteconfig.AdminBrand{})
 }

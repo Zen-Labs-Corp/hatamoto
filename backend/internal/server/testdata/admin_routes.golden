@@ -87,6 +87,7 @@ GET /admin/profile/security/passkeys/add -> admin.(*Admin).handlePasskeyAddPage-
 GET /admin/profile/security/totp -> admin.(*Admin).handleTOTPForm-fm
 GET /admin/reset -> admin.(*Admin).handleResetForm-fm
 GET /admin/settings -> admin.(*Admin).areaEntry.func1
+GET /admin/settings/admin-branding -> admin.(*Admin).handleBranding-fm
 GET /admin/settings/api-keys -> admin.(*Admin).handleAPIKeys-fm
 GET /admin/settings/api-keys/new -> admin.(*Admin).handleAPIKeyNew-fm
 GET /admin/settings/api-keys/secret -> admin.(*Admin).handleAPIKeySecret-fm
@@ -321,6 +322,8 @@ POST /admin/profile/security/totp -> admin.(*Admin).handleTOTPConfirm-fm
 POST /admin/profile/security/totp/begin -> admin.(*Admin).handleTOTPBegin-fm
 POST /admin/profile/security/totp/remove -> admin.(*Admin).handleTOTPRemove-fm
 POST /admin/reset -> admin.(*Admin).handleReset-fm
+POST /admin/settings/admin-branding -> admin.(*Admin).handleBrandingSave-fm
+POST /admin/settings/admin-branding/reset -> admin.(*Admin).handleBrandingReset-fm
 POST /admin/settings/api-keys -> admin.(*Admin).handleAPIKeyCreate-fm
 POST /admin/settings/api-keys/{id}/delete -> admin.(*Admin).handleAPIKeyDelete-fm
 POST /admin/settings/api-keys/{id}/regenerate -> admin.(*Admin).handleAPIKeyRegenerate-fm

@@ -15,6 +15,7 @@ Settings holds everything about the site as a whole rather than one entity. Each
 | Section | Tab and address | Who |
 |---|---|---|
 | General | `general` | owner |
+| Branding | `branding` | owner |
 | Email | `email` | owner |
 | Privacy | `privacy` | owner |
 | Tracking | `tracking` | owner |
@@ -46,6 +47,19 @@ Entity types and taxonomies are described in [Entity types and taxonomies](entit
 The business details (phone, hours, address and the rest) are not on this page. They live per language under **Settings > Locales > Business details**, where the default locale's card is your organisation. See the locales section of the admin guide.
 
 A Hatamoto site serves one language. The Language setting declares it for markup and feeds; it does not create language-prefixed addresses. See [One site, one language](../getting-started/one-site-one-language.md).
+
+## Branding
+
+Owners open **Settings > Branding** to put their own name on the admin. It changes the sign-in page and the admin (sidebar and footer) only. The public site, its logo and its colours stay under General and Theme, and emails keep the site name.
+
+- **Admin name.** Up to 60 characters. Empty uses the site name.
+- **Logo.** Pick a PNG, JPEG or WebP file from the media library. SVG is not accepted, and neither is an address outside the library. Empty shows the Hatamoto seal. Tick "Remove the logo" and save to go back to it.
+- **Accent colour.** A hex colour such as `#1f4e9a`. It colours links, focus rings, the seal and the sign-in button. The admin refuses a colour that is too light to read: it must reach 4.5:1 against both the white admin background and the tinted highlight behind badges and checked rows. Danger, success and warning colours never change.
+- **Dark theme.** One colour cannot be readable text on both a white and a near-black page, so the colour you enter is the light-theme one. The admin works out a lighter shade for the dark theme and checks it against the same rules. The page shows both ratios and the shade it picked.
+- **Managed by.** A short line under the sign-in form and in the admin footer, with an optional link (https:// or http:// only).
+- **Reset to default.** Clears all five fields and returns the standard look.
+
+Saving and resetting are recorded in the audit log.
 
 ## Media
 

@@ -6,7 +6,8 @@
 <meta name="htmx-config" content="{{.HTMXConfig}}">
 <title>{{if .Title}}{{.Title}} · {{end}}Hatamoto</title>
 <link rel="stylesheet" href="{{.Assets.CSSURL}}">
-<script type="importmap" nonce="{{.Nonce}}">{{.Assets.Importmap}}</script>
+{{with .Brand.CSS}}<style nonce="{{$.Nonce}}">{{.}}</style>
+{{end}}<script type="importmap" nonce="{{.Nonce}}">{{.Assets.Importmap}}</script>
 {{range .Preloads}}<link rel="modulepreload" href="{{.URL}}" integrity="{{.Integrity}}">
 {{end}}{{range .Assets.Scripts .Scripts}}<script nonce="{{$.Nonce}}" defer src="{{.URL}}" integrity="{{.Integrity}}"></script>
 {{end}}<script type="module" nonce="{{.Nonce}}" src="{{.Assets.JSURL "admin"}}"></script>{{range .BootModules}}

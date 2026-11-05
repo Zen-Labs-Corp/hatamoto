@@ -314,3 +314,12 @@ func TestSiteSettings_LanguageAndContact(t *testing.T) {
 	}
 	testutil.Equal(t, "en-AU", store.cfg.Language, "rejected patches change nothing")
 }
+
+func (f *fakeSiteStore) SetAdminBranding(_ context.Context, b siteconfig.AdminBrand) error {
+	f.cfg.AdminBrand = b
+	return nil
+}
+
+func (f *fakeSiteStore) ResetAdminBranding(ctx context.Context) error {
+	return f.SetAdminBranding(ctx, siteconfig.AdminBrand{})
+}
