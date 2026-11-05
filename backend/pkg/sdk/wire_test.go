@@ -114,27 +114,6 @@ func wireFillValue(v reflect.Value, m wireFill, depth int) {
 	}
 }
 
-func wireHasRaw(t reflect.Type, seen map[reflect.Type]bool) bool {
-	if t == rawType {
-		return true
-	}
-	if seen[t] {
-		return false
-	}
-	seen[t] = true
-	switch t.Kind() {
-	case reflect.Struct:
-		for i := 0; i < t.NumField(); i++ {
-			if wireHasRaw(t.Field(i).Type, seen) {
-				return true
-			}
-		}
-	case reflect.Pointer, reflect.Slice, reflect.Map:
-		return wireHasRaw(t.Elem(), seen)
-	}
-	return false
-}
-
 func wireTypes() map[string]reflect.Type {
 	m := map[string]reflect.Type{}
 	for _, v := range []any{EntityRef{}, EntityEvent{}, ImportEvent{}, HeadContext{}, SiteGraph{}, HeadTag{}, AgentHitEvent{}, AgentFirstCrawlEvent{}, JSONLDDoc{}, Alternate{}, SitemapURL{}, SitemapURLs{}, EntityDraft{}, FormSubmittedEvent{}, FormTouch{}, FormAttribution{}, PageContext{}, EntitySummary{}, Block{}, SetCookie{}, BuilderDataRequest{}, BuilderDataQuery{}, BuilderDataResult{}, BuilderDataItem{},
