@@ -171,6 +171,21 @@ func (s *Store) Open(id string) (*os.File, Info, error) {
 	return f, in, nil
 }
 
+// CountPrunable is how many ok backups of kind Prune(kind, keep) would remove.
+func (s *Store) CountPrunable(kind Kind, keep int) int {
+	all, err := s.List()
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, in := range all {
+		if in.Kind == kind && in.State == StateOK {
+			n++
+		}
+	}
+	return max(0, n-keep)
+}
+
 // Prune removes ok backups of kind beyond the newest keep. Failed and running
 // ones stay for the owner to look at and delete.
 func (s *Store) Prune(kind Kind, keep int) error {

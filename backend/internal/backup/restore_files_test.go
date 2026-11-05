@@ -243,3 +243,24 @@ func TestRestoreStopsAtFailingDatabaseStepBeforeFiles(t *testing.T) {
 		t.Error("media written after a failed core restore")
 	}
 }
+
+func TestRestoreLeavesRetentionFile(t *testing.T) {
+	var log []string
+	r := execRig(t, &log, nil)
+	dir := filepath.Join(r.o.Data, "backups")
+	if err := SaveRetention(dir, map[Kind]int{KindManual: 4}); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, RetentionFile)
+	want, _ := os.ReadFile(path)
+	if _, err := realRun(t, r, buildArchive(t, noPlugins)); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != string(want) {
+		t.Fatalf("retention.json changed: %q, %v", got, err)
+	}
+	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+		t.Fatalf("mode = %v", fi.Mode().Perm())
+	}
+}

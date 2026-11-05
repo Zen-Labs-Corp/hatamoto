@@ -93,7 +93,7 @@ func newRig(t *testing.T, plugins ...string) *rig {
 	}
 	r.e = New(Options{
 		Data: r.data, MediaDir: filepath.Join(r.data, "uploads"), DatabaseURL: testURL,
-		Run: r.dump.run, Version: "v1.2.3", KeepManual: 2, KeepPreUpdate: 1,
+		Run: r.dump.run, Version: "v1.2.3", Retention: func() Retention { return Retention{Manual: 2, PreUpdate: 1, Scheduled: 3} },
 		Free: func(string) (uint64, error) { return 1 << 40, nil },
 		Now:  func() time.Time { r.now = r.now.Add(time.Minute); return r.now },
 		Log:  nil,
@@ -387,18 +387,6 @@ func TestCancelledContextFails(t *testing.T) {
 	}
 }
 
-func TestKeepFromEnv(t *testing.T) {
-	m, p := KeepFromEnv()
-	if m != 5 || p != 2 {
-		t.Fatalf("defaults = %d, %d", m, p)
-	}
-	t.Setenv(EnvKeep, "9")
-	t.Setenv(EnvKeepPreUpdate, "0")
-	if m, p = KeepFromEnv(); m != 9 || p != 2 {
-		t.Fatalf("env = %d, %d", m, p)
-	}
-}
-
 func TestFreeDisk(t *testing.T) {
 	r := newRig(t)
 	if got := r.e.FreeDisk(); got != 1<<40 {
@@ -473,7 +461,6 @@ func TestCreateOKWithoutMediaRowsAndNoDir(t *testing.T) {
 
 func TestScheduledBackupIDAndRetention(t *testing.T) {
 	r := newRig(t)
-	r.e.opts.KeepScheduled = 3
 	var ids []string
 	for range 5 {
 		info, err := r.e.Create(t.Context(), Request{Kind: KindScheduled})
@@ -498,20 +485,46 @@ func TestScheduledBackupIDAndRetention(t *testing.T) {
 	}
 }
 
-func TestKeepScheduledFromEnv(t *testing.T) {
-	if n := KeepScheduledFromEnv(); n != 3 {
-		t.Fatalf("default = %d", n)
+// The counts are read from retention.json each time a backup finishes.
+func TestRetentionReadEachBackup(t *testing.T) {
+	r := newRig(t)
+	r.e.opts.Retention = nil
+	dir := filepath.Join(r.data, "backups")
+	if err := SaveRetention(dir, map[Kind]int{KindManual: 3}); err != nil {
+		t.Fatal(err)
 	}
-	t.Setenv(EnvKeepScheduled, "7")
-	if n := KeepScheduledFromEnv(); n != 7 {
-		t.Fatalf("env = %d", n)
+	for range 5 {
+		if _, err := r.e.Create(t.Context(), Request{Kind: KindManual}); err != nil {
+			t.Fatal(err)
+		}
 	}
-	t.Setenv(EnvKeepScheduled, "x")
-	if n := KeepScheduledFromEnv(); n != 3 {
-		t.Fatalf("invalid = %d", n)
+	if list, _ := r.e.List(); len(list) != 3 {
+		t.Fatalf("with 3: %d kept", len(list))
 	}
-	if m, p := KeepFromEnv(); m != 5 || p != 2 {
-		t.Fatalf("KeepFromEnv changed: %d, %d", m, p)
+	if err := SaveRetention(dir, map[Kind]int{KindManual: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.e.Create(t.Context(), Request{Kind: KindManual}); err != nil {
+		t.Fatal(err)
+	}
+	if list, _ := r.e.List(); len(list) != 1 {
+		t.Fatalf("with 1: %d kept", len(list))
+	}
+}
+
+func TestArchiveExcludesRetentionFile(t *testing.T) {
+	r := newRig(t)
+	if err := SaveRetention(filepath.Join(r.data, "backups"), map[Kind]int{KindManual: 4}); err != nil {
+		t.Fatal(err)
+	}
+	info, err := r.e.Create(t.Context(), Request{Kind: KindManual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range tarNames(t, r.e.store.archive(info.ID)) {
+		if strings.Contains(n, "retention") {
+			t.Fatalf("archive contains %q", n)
+		}
 	}
 }
 

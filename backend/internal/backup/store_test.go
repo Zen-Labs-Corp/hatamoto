@@ -196,3 +196,24 @@ func TestUpdateSidecar(t *testing.T) {
 		t.Fatalf("missing: %v", err)
 	}
 }
+
+func TestCountPrunableMatchesPrune(t *testing.T) {
+	s := newStore(t)
+	base := time.Date(2026, 10, 19, 9, 0, 0, 0, time.UTC)
+	for i := range 4 {
+		put(t, s, base.Add(time.Duration(i)*time.Hour), KindManual, StateOK)
+	}
+	put(t, s, base.Add(-time.Hour), KindManual, StateFailed)
+	put(t, s, base, KindPreUpdate, StateOK)
+	for _, keep := range []int{10, 4, 2, 1} {
+		n := s.CountPrunable(KindManual, keep)
+		before, _ := s.List()
+		if err := s.Prune(KindManual, keep); err != nil {
+			t.Fatal(err)
+		}
+		after, _ := s.List()
+		if got := len(before) - len(after); got != n {
+			t.Fatalf("keep %d: CountPrunable %d, Prune removed %d", keep, n, got)
+		}
+	}
+}

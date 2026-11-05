@@ -33,8 +33,8 @@ func (b *adminBackups) List(context.Context) (admin.BackupsState, error) {
 	if err != nil {
 		return admin.BackupsState{}, err
 	}
-	manual, preUpdate := backup.KeepFromEnv()
-	st := admin.BackupsState{FreeBytes: b.eng.FreeDisk(), KeepManual: manual, KeepPreUpdate: preUpdate, KeepScheduled: backup.KeepScheduledFromEnv()}
+	keep := b.eng.Retention()
+	st := admin.BackupsState{FreeBytes: b.eng.FreeDisk(), KeepManual: keep.Manual, KeepPreUpdate: keep.PreUpdate, KeepScheduled: keep.Scheduled}
 	for _, i := range infos { // the store lists newest first
 		if i.State == backup.StateRunning {
 			st.Running = true

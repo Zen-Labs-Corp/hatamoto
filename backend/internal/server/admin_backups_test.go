@@ -19,7 +19,7 @@ import (
 func newTestBackups(t *testing.T, ctx context.Context) (*adminBackups, string) {
 	t.Helper()
 	data := t.TempDir()
-	eng := backup.New(backup.Options{Data: data, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), KeepManual: 5, KeepPreUpdate: 2})
+	eng := backup.New(backup.Options{Data: data, Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
 	return newAdminBackups(eng, nil, func() context.Context { return ctx }), data
 }
 

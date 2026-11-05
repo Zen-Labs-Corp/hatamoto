@@ -19,11 +19,9 @@ import (
 
 // newBackupEngine builds the backup engine over the data dir and database.
 func newBackupEngine(pool *pgxpool.Pool, mediaDir, version string, logger *slog.Logger) *backup.Engine {
-	manual, preUpdate := backup.KeepFromEnv()
 	return backup.New(backup.Options{
 		Data: config.ResolveDataDir(), MediaDir: mediaDirOr(mediaDir), DatabaseURL: os.Getenv("DATABASE_URL"),
 		Pool: pool, Run: backup.OSExec, Free: updater.FreeDisk, Log: logger, Version: version,
-		KeepManual: manual, KeepPreUpdate: preUpdate, KeepScheduled: backup.KeepScheduledFromEnv(),
 		SecretsDir: secretsDirFromEnv(), ConfigPath: os.Getenv("HATAMOTO_CONFIG_FILE"),
 		Trust: trustIDs(logger),
 	})

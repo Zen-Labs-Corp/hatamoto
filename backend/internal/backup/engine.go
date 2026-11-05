@@ -9,42 +9,12 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/portability"
 )
-
-// Environment variables that set how many ok backups of a kind are kept.
-const (
-	EnvKeep          = "HATAMOTO_BACKUP_KEEP"
-	EnvKeepPreUpdate = "HATAMOTO_BACKUP_KEEP_PRE_UPDATE"
-	// EnvKeepScheduled sets how many scheduled (off-site schedule) backups stay on disk.
-	EnvKeepScheduled = "HATAMOTO_BACKUP_KEEP_SCHEDULED"
-
-	defaultKeep          = 5
-	defaultKeepPreUpdate = 2
-	defaultKeepScheduled = 3
-)
-
-// KeepFromEnv reads the retention counts (manual, pre-update); a missing or
-// invalid value gives the default of 5 and 2.
-func KeepFromEnv() (manual, preUpdate int) {
-	return keepEnv(EnvKeep, defaultKeep), keepEnv(EnvKeepPreUpdate, defaultKeepPreUpdate)
-}
-
-// KeepScheduledFromEnv reads how many scheduled backups are kept; a missing or
-// invalid value gives 3.
-func KeepScheduledFromEnv() int { return keepEnv(EnvKeepScheduled, defaultKeepScheduled) }
-
-func keepEnv(name string, def int) int {
-	if n, err := strconv.Atoi(os.Getenv(name)); err == nil && n >= 1 {
-		return n
-	}
-	return def
-}
 
 // Options configure an Engine.
 type Options struct {
@@ -54,14 +24,13 @@ type Options struct {
 	Pool        *pgxpool.Pool // nil means the database is not reachable
 	Run         ExecFunc      // nil means OSExec
 	// Free reports the bytes writable under dir; nil skips the space check.
-	Free          func(dir string) (uint64, error)
-	Now           func() time.Time
-	Log           *slog.Logger
-	Version       string // hatamoto version, recorded in the manifest
-	KeepManual    int
-	KeepPreUpdate int
-	// KeepScheduled is how many ok scheduled backups stay; below 1 means 3.
-	KeepScheduled int
+	Free    func(dir string) (uint64, error)
+	Now     func() time.Time
+	Log     *slog.Logger
+	Version string // hatamoto version, recorded in the manifest
+	// Retention gives the counts a finished backup prunes by; nil resolves
+	// them from env and retention.json on every backup.
+	Retention func() Retention
 	// SecretsDir holds secrets.env; the file is added to a backup when present.
 	SecretsDir string
 	// ConfigPath is the operator's env file, stored verbatim; its path is
@@ -115,15 +84,6 @@ func New(o Options) *Engine {
 	}
 	if o.Trust == nil {
 		o.Trust = embeddedTrust
-	}
-	if o.KeepManual < 1 {
-		o.KeepManual = defaultKeep
-	}
-	if o.KeepPreUpdate < 1 {
-		o.KeepPreUpdate = defaultKeepPreUpdate
-	}
-	if o.KeepScheduled < 1 {
-		o.KeepScheduled = defaultKeepScheduled
 	}
 	e := &Engine{opts: o, run: o.Run, databaseURL: o.DatabaseURL}
 	e.store, e.storeErr = NewStore(o.Data)
@@ -285,9 +245,7 @@ func (e *Engine) run1(ctx context.Context, s *Store, info Info, req Request) (In
 	if err := s.Write(info); err != nil {
 		return info, err
 	}
-	keep := map[Kind]int{KindManual: e.opts.KeepManual, KindPreUpdate: e.opts.KeepPreUpdate,
-		KindScheduled: e.opts.KeepScheduled}[info.Kind]
-	if keep > 0 {
+	if keep := e.currentRetention().For(info.Kind); keep > 0 {
 		if err := s.Prune(info.Kind, keep); err != nil {
 			e.opts.Log.Warn("backup: retention failed", "error", err)
 		}
