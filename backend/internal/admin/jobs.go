@@ -82,6 +82,10 @@ func jobTook(d time.Duration) string {
 	return strconv.Itoa(s/3600) + " h " + strconv.Itoa(s%3600/60) + " min"
 }
 
+// jobClock is a run time to the second, so the last and next run of a job that
+// ticks every few seconds do not look alike.
+func jobClock(t time.Time) string { return t.UTC().Format("2 Jan 2006 15:04:05") }
+
 // jobResult is the Result cell: the text is the label, colour only supplements.
 func jobResult(row JobRow) ui.Cell {
 	badge := ui.Badge{Label: "OK", Kind: "success"}
@@ -111,12 +115,11 @@ func (a *Admin) jobsTable(r *http.Request, v JobsView) ui.Table {
 	for _, j := range v.Rows {
 		last, took, next := "Never", "-", "-"
 		if !j.Last.IsZero() {
-			last, took = fmtDateTime(j.Last.UTC()), jobTook(j.Took)
+			last, took = jobClock(j.Last), jobTook(j.Took)
 		}
 		if !j.Next.IsZero() && !j.Disabled {
-			next = fmtDateTime(j.Next.UTC())
-			if j.NextApprox {
-				next = "About " + next
+			if next = jobClock(j.Next); j.NextApprox {
+				next = "About " + fmtDateTime(j.Next.UTC())
 			}
 		}
 		row := ui.Row{ID: j.ID, Label: j.Name, Cells: []ui.Cell{
