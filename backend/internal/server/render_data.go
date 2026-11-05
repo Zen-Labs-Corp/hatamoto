@@ -47,6 +47,7 @@ type renderData struct {
 type cachedVariants struct {
 	list    []render.ImageVariant
 	w, h    int
+	size    int64 // stored file size in bytes, 0 when unknown
 	expires time.Time
 }
 
@@ -330,6 +331,13 @@ func (d *renderData) ImageSize(u string) (w, h int, ok bool) {
 	return c.w, c.h, c.w > 0 && c.h > 0
 }
 
+// FileSize returns the stored size of a media file (see render.FileSizer); ok
+// is false for a URL that is not stored media or whose size is unknown.
+func (d *renderData) FileSize(u string) (int64, bool) {
+	c, _ := d.media(u)
+	return c.size, c.size > 0
+}
+
 // media returns the cached lookup of u, reading it when missing or expired.
 // ok is false for a URL that cannot be media and when the lookup failed (then
 // nothing is remembered).
@@ -365,7 +373,7 @@ const maxPrefetchVariants = 48
 // (BitmapOr), which LIKE ANY(array) cannot use.
 func variantsQuery(patterns []string) (string, []any) {
 	var b strings.Builder
-	b.WriteString("SELECT public_url, variants, width, height FROM hatamoto_media WHERE ")
+	b.WriteString("SELECT public_url, variants, width, height, file_size FROM hatamoto_media WHERE ")
 	args := make([]any, len(patterns))
 	for i, p := range patterns {
 		if i > 0 {
@@ -422,11 +430,12 @@ func (d *renderData) PrefetchVariants(urls []string) {
 		variants []byte
 		width    *int
 		height   *int
+		size     int64
 	}
 	var found []mediaRow
 	for rows.Next() {
 		var m mediaRow
-		if rows.Scan(&m.url, &m.variants, &m.width, &m.height) != nil {
+		if rows.Scan(&m.url, &m.variants, &m.width, &m.height, &m.size) != nil {
 			return
 		}
 		found = append(found, m)
@@ -457,6 +466,7 @@ func (d *renderData) PrefetchVariants(urls []string) {
 			m := found[best]
 			c.list = imageVariants(m.variants, u, m.width)
 			c.w, c.h = dims(m.width, m.height)
+			c.size = m.size
 		}
 		d.variants[u] = c
 	}
@@ -483,14 +493,15 @@ func (d *renderData) lookupVariants(u string) (c cachedVariants, ok bool) {
 	defer conn.Release()
 	var variants []byte
 	var width, height *int
+	var size int64
 	// The stored URL equals u or ends with it (a root-relative u is stored with
 	// the CDN/base origin in front). The suffix test is a prefix range scan on
 	// the reverse(public_url) index; the exact match wins, newest otherwise.
 	err = conn.QueryRow(ctx, `
-		SELECT variants, width, height FROM hatamoto_media
+		SELECT variants, width, height, file_size FROM hatamoto_media
 		WHERE reverse(public_url) LIKE $2
 		ORDER BY (public_url = $1) DESC, created_at DESC
-		LIMIT 1`, u, likeEscaper.Replace(reverseString(u))+"%").Scan(&variants, &width, &height)
+		LIMIT 1`, u, likeEscaper.Replace(reverseString(u))+"%").Scan(&variants, &width, &height, &size)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return cachedVariants{}, true
 	}
@@ -500,6 +511,7 @@ func (d *renderData) lookupVariants(u string) (c cachedVariants, ok bool) {
 	}
 	c.list = imageVariants(variants, u, width)
 	c.w, c.h = dims(width, height)
+	c.size = size
 	return c, true
 }
 

@@ -165,6 +165,9 @@ func TestRenderQueryDataIntegration(t *testing.T) {
 		if w, h, ok := d.ImageSize(u); !ok || w != 2000 || h != 1500 {
 			t.Fatalf("ImageSize(%s) = %d, %d, %v after a prefetch", u, w, h, ok)
 		}
+		if n, ok := d.FileSize(u); !ok || n != 1 {
+			t.Fatalf("FileSize(%s) = %d, %v after a prefetch", u, n, ok)
+		}
 	}
 	if n := counter.Count() - before; n != 0 {
 		t.Errorf("12 ImageVariants and ImageSize calls after a prefetch ran %d statements, want 0", n)
@@ -174,6 +177,7 @@ func TestRenderQueryDataIntegration(t *testing.T) {
 	}
 	var _ render.VariantPrefetcher = d
 	var _ render.ImageSizer = d
+	var _ render.FileSizer = d
 
 	// ISC-31: a query's statements do not grow with its items. Besides count,
 	// list, ancestors, bylines and the prefetch, the card links cost a fixed

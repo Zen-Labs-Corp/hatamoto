@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"path"
 	"strings"
 	"unicode"
@@ -19,6 +20,22 @@ func pdfSrc(src string) string {
 	return p
 }
 
+// sizeSuffix is " (2.4 MB)" for a PDF the data source knows the size of, else "".
+func sizeSuffix(w *widgetCtx, src string) string {
+	s, ok := w.E.opts.Data.(FileSizer)
+	if !ok || src == "" {
+		return ""
+	}
+	n, ok := s.FileSize(src)
+	switch {
+	case !ok || n <= 0:
+		return ""
+	case n >= 1<<20:
+		return fmt.Sprintf(" (%.1f MB)", float64(n)/(1<<20))
+	}
+	return fmt.Sprintf(" (%d KB)", max(n/(1<<10), 1))
+}
+
 func init() {
 	registerWidget("pdf", func(w *widgetCtx) (any, error) {
 		w.Class = "hm-pdf"
@@ -34,7 +51,7 @@ func init() {
 			x.Name = path.Base(x.Src)
 		}
 		if x.Text == "" {
-			x.Text = "Download PDF"
+			x.Text = "Download PDF" + sizeSuffix(w, x.Src)
 		}
 		return x, nil
 	})
