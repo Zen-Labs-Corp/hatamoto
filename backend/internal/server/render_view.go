@@ -440,6 +440,7 @@ func (s *Server) buildSiteView(ctx context.Context) (render.SiteView, error) {
 	site.Fonts, site.FontPreload = s.fontFaces(ctx, theme)
 	site.Settings = siteSettings(cfg.ThemeExtra)
 	site.CustomCSSName = render.CustomCSSName(render.AdditionalCSS(cfg.ThemeExtra))
+	site.EmailPlain = !siteconfig.ParseProtectEmail(cfg.ThemeExtra)
 	var derr error
 	if site.Design, derr = builder.ParseDesign(cfg.ThemeExtra); derr != nil {
 		s.logger.Warn("render: invalid builder design settings dropped", "error", derr)
