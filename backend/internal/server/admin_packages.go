@@ -236,7 +236,7 @@ func refusal(err error) error {
 }
 
 func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageSummary, error) {
-	pkg, err := packages.Parse(data, packages.DefaultLimits)
+	pkg, err := packages.ParseNew(data, packages.DefaultLimits)
 	if err != nil {
 		return admin.PackageSummary{}, refusal(err)
 	}

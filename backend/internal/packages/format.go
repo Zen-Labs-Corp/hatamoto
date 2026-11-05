@@ -322,6 +322,23 @@ func checkEnvelope(raw []byte, lim Limits) error {
 	return nil
 }
 
+// ParseNew is Parse for a package that enters the system (upload, registry
+// download, index build, pack). It also refuses an ambiguous plugin.json, see
+// checkManifestNames. Parse alone reads a package that is already installed
+// and must keep loading it, so it stays tolerant.
+func ParseNew(raw []byte, lim Limits) (*Package, error) {
+	p, err := Parse(raw, lim)
+	if err != nil {
+		return nil, err
+	}
+	if p.Kind == KindPlugin {
+		if err := checkManifestNames(p.Manifest); err != nil {
+			return nil, refuse("%s: %v", PluginManifest, err)
+		}
+	}
+	return p, nil
+}
+
 func refuse(format string, a ...any) error { return &ParseError{Msg: fmt.Sprintf(format, a...)} }
 
 // Parse validates raw as a .hmp: zip safety (no traversal, links, odd names,
@@ -475,9 +492,6 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 		}
 		m, err := p.PluginManifest()
 		if err != nil {
-			return nil, refuse("%s: %v", PluginManifest, err)
-		}
-		if err := checkManifestNames(p.Manifest); err != nil {
 			return nil, refuse("%s: %v", PluginManifest, err)
 		}
 		if err := m.Validate(); err != nil {

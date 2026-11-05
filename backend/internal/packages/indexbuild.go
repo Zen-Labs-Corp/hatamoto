@@ -229,7 +229,7 @@ func BuildIndexWith(dir, urlPrefix string, key Key, now time.Time, validity time
 		if err != nil {
 			return nil, err
 		}
-		p, err := Parse(raw, DefaultLimits)
+		p, err := ParseNew(raw, DefaultLimits)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", f, err)
 		}

@@ -5,9 +5,10 @@ import (
 )
 
 // External documents were read tolerantly: member names match without case,
-// (a plugin.json that repeats a name is refused, see TestPluginManifestAmbiguousNames),
 // repeated names are accepted, unknown members are ignored and a bad UTF-8 byte
-// becomes U+FFFD. Installing must keep working for packages built that way.
+// becomes U+FFFD. A package built that way and already installed must keep
+// loading (Parse is the reload path). Only intake refuses a plugin.json that
+// repeats a name, see TestPluginManifestAmbiguousNames.
 func TestExternalManifestsTolerant(t *testing.T) {
 	t.Run("plugin.json", func(t *testing.T) {
 		manifest := "{\"NAME\":\"hello\",\"version\":\"1.0.0\",\"sdk\":\"^0.7\",\"description\":\"caf\xe9\",\"bogus\":1}"
@@ -22,6 +23,18 @@ func TestExternalManifestsTolerant(t *testing.T) {
 		}
 		if p.Name != "hello" || m.Version != "1.0.0" || m.Description != "caf\ufffd" {
 			t.Fatalf("name %q manifest %+v", p.Name, m)
+		}
+	})
+	t.Run("installed plugin.json repeating a name", func(t *testing.T) {
+		raw, err := PackFiles(map[string][]byte{PluginManifest: []byte(`{"NAME":"hello","name":"hello","version":"1.0.0","sdk":"^0.7"}`), PluginWasm: []byte("\x00asm\x01\x00\x00\x00")}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p := parse(t, raw); p.Name != "hello" || p.Version != "1.0.0" {
+			t.Fatalf("name %q version %q", p.Name, p.Version)
+		}
+		if _, err := ParseNew(raw, DefaultLimits); err == nil {
+			t.Fatal("ParseNew accepted a plugin.json that repeats a name")
 		}
 	})
 	t.Run("theme.json", func(t *testing.T) {

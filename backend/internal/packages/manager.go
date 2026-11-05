@@ -288,7 +288,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	default:
 		return nil, fmt.Errorf("%w %q", ErrUnknownSource, req.Source)
 	}
-	p, err := Parse(raw, DefaultLimits)
+	p, err := ParseNew(raw, DefaultLimits)
 	if err != nil {
 		return nil, err
 	}
@@ -667,7 +667,7 @@ func (m *Manager) FetchFromRegistry(ctx context.Context, kind Kind, name string)
 	if err != nil {
 		return nil, err
 	}
-	p, err := Parse(data, DefaultLimits)
+	p, err := ParseNew(data, DefaultLimits)
 	if err != nil {
 		return nil, err
 	}
