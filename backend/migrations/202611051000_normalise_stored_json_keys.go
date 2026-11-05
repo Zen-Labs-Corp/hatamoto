@@ -91,10 +91,13 @@ func nskFormSettings() *keynorm.Shape {
 // what the current decoders and the previous release already read (and the
 // previous release matches either spelling), so the rewrite is safe to roll
 // back over. When two keys of one object fold to the same name the last
-// one in jsonb text order wins, which is the value v1 read; hatamoto doctor
-// json shows what would change beforehand. A row that is already canonical is
-// not written, so a second run changes nothing. Other columns, including the
-// ones the passkey library owns, are never touched.
+// one in jsonb text order wins, which is the value v1 read. The migration
+// runs when the new binary starts, before anything else can; hatamoto doctor
+// json ships in that same binary, so it reports what was changed only after
+// the fact, or what would change when run against a copy of the database
+// (it lists each key that would be dropped with its value). A row that is
+// already canonical is not written, so a second run changes nothing. Other
+// columns, including the ones the passkey library owns, are never touched.
 func normaliseStoredJSONKeys(ctx context.Context, tx *sql.Tx) error {
 	for _, c := range storedKeyColumns() {
 		if _, err := normaliseColumnKeys(ctx, tx, c); err != nil {
