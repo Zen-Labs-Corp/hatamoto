@@ -2,10 +2,12 @@ package backup
 
 import (
 	"bytes"
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -120,6 +122,13 @@ func TestSaveRetention0600AtomicKeepsOtherKeys(t *testing.T) {
 	}
 }
 
+func TestEnginePruneReturnsStoreError(t *testing.T) {
+	e := &Engine{storeErr: errors.New("no dir")}
+	if _, err := e.Prune(Retention{1, 1, 1}); err == nil {
+		t.Fatal("a store error was swallowed")
+	}
+}
+
 func TestEnginePruneSkipsWhileBackupRuns(t *testing.T) {
 	r := newRig(t)
 	r.e.opts.Retention = func() Retention { return Retention{50, 50, 50} }
@@ -142,5 +151,23 @@ func TestEnginePruneSkipsWhileBackupRuns(t *testing.T) {
 	}
 	if deleted, err := r.e.Prune(Retention{1, 1, 1}); err != nil || deleted[KindManual] != 2 {
 		t.Fatalf("prune = %v %v", deleted, err)
+	}
+}
+
+func TestSaveRetentionConcurrentKeepsEveryKind(t *testing.T) {
+	dir := t.TempDir()
+	var wg sync.WaitGroup
+	for i, k := range []Kind{KindManual, KindPreUpdate, KindScheduled} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := SaveRetention(dir, map[Kind]int{k: 20 + i}); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	if st := ResolveRetention(dir); st.Retention != (Retention{20, 21, 22}) {
+		t.Fatalf("lost a save: %+v", st.Retention)
 	}
 }

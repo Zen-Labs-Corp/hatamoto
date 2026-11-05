@@ -161,7 +161,7 @@ func TestRetentionValidation422(t *testing.T) {
 func TestRetentionLockedIgnored(t *testing.T) {
 	t.Parallel()
 	f := baseBackups()
-	f.ret.Scheduled = 9
+	f.ret.Scheduled, f.state.KeepScheduled = 9, 9
 	f.ret.Locked = map[string]bool{BackupScheduled: true}
 	f.ret.EnvVar = map[string]string{BackupScheduled: "HATAMOTO_BACKUP_KEEP_SCHEDULED"}
 	f.state.Rows = okBackups(BackupScheduled, 9)

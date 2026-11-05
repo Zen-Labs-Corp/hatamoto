@@ -149,10 +149,14 @@ func ResolveRetention(dir string) RetentionState {
 	return st
 }
 
+var saveMu sync.Mutex
+
 // SaveRetention writes the given counts into dir/retention.json, keeping the
 // valid counts already there for other kinds. Every count must be 1 to 50. The
 // caller leaves env-locked kinds out. The file is replaced atomically, mode 0600.
 func SaveRetention(dir string, set map[Kind]int) error {
+	saveMu.Lock() // the read-merge-write must not interleave with another save
+	defer saveMu.Unlock()
 	cur := readRetentionFile(dir)
 	for _, k := range retentionKinds {
 		n, ok := set[k.kind]
@@ -214,7 +218,7 @@ func (e *Engine) Prune(r Retention) (map[Kind]int, error) {
 	deleted := map[Kind]int{}
 	s, err := e.st()
 	if err != nil {
-		return deleted, nil
+		return deleted, err
 	}
 	release, err := TryLock(s.Dir())
 	if errors.Is(err, ErrBusy) {
