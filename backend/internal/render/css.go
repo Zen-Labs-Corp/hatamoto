@@ -121,8 +121,9 @@ func scanCSS(s string) (string, *CSSIssue) {
 		}
 		return i + 1, string(s[i])
 	}
-	startsURL := func(i int) bool {
-		return i >= 3 && strings.EqualFold(s[i-3:i+1], "url(")
+	// startsURL looks at the decoded output, so u\72l( is a url( like any other.
+	startsURL := func() bool {
+		return len(out) >= 3 && strings.EqualFold(string(out[len(out)-3:]), "url")
 	}
 	for i := 0; i < len(s); {
 		c := s[i]
@@ -170,7 +171,7 @@ func scanCSS(s string) (string, *CSSIssue) {
 			if !closed {
 				return "", &CSSIssue{Line: start, Message: "string is not closed"}
 			}
-		case c == '(' && startsURL(i):
+		case c == '(' && startsURL():
 			emit(line, c)
 			i++
 			for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == '\f') {
