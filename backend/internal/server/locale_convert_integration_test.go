@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -21,6 +20,7 @@ import (
 
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/localeconv"
 )
 
@@ -92,13 +92,13 @@ func convSeed(t *testing.T, exec func(q string, args ...any), rows []convEnt) {
 	epoch := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	for i, e := range rows {
 		attrs := map[string]any{}
-		if err := json.Unmarshal([]byte(e.attrs), &attrs); err != nil {
+		if err := jsonx.Unmarshal([]byte(e.attrs), &attrs); err != nil {
 			t.Fatal(err)
 		}
 		attrs["page_sections"] = []map[string]any{{
 			"id": "s1", "type": "hero", "sort_order": 1, "content": map[string]any{"headline": convMarker(e.id)},
 		}}
-		raw, _ := json.Marshal(attrs)
+		raw, _ := jsonx.Marshal(attrs)
 		var parent *string
 		if e.parent != "" {
 			p := convID(e.parent)

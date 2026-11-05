@@ -5,7 +5,6 @@ package server
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,6 +20,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // bearer adds an API key to every request of an MCP client.
@@ -126,7 +126,7 @@ func TestMCPIntegration(t *testing.T) {
 			return nil, &toolErr{text}
 		}
 		var out map[string]any
-		if err := json.Unmarshal([]byte(text), &out); err != nil {
+		if err := jsonx.Unmarshal([]byte(text), &out); err != nil {
 			t.Fatalf("%s: %v\n%s", tool, err, text)
 		}
 		return out, nil
@@ -443,7 +443,7 @@ func containsPath(pages []any, path string) bool {
 
 func mustJSON(t *testing.T, v any) []byte {
 	t.Helper()
-	b, err := json.Marshal(v)
+	b, err := jsonx.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}

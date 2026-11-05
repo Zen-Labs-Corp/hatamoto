@@ -5,7 +5,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"net/http"
@@ -23,6 +23,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/user"
 )
@@ -138,9 +139,9 @@ func TestPageEditorIntegration(t *testing.T) {
 		srv.router.ServeHTTP(rec, req)
 		return rec
 	}
-	rawRow := func() (json.RawMessage, int) {
+	rawRow := func() (jsontext.Value, int) {
 		t.Helper()
-		var raw json.RawMessage
+		var raw jsontext.Value
 		var version int
 		if err := db.Pool().QueryRow(ctx, `SELECT attributes, version FROM hatamoto_entities WHERE id=$1`, pageID).Scan(&raw, &version); err != nil {
 			t.Fatal(err)
@@ -169,10 +170,10 @@ func TestPageEditorIntegration(t *testing.T) {
 		t.Fatal("no builder boot data")
 	}
 	var boot struct {
-		Doc     json.RawMessage `json:"doc"`
-		Version int             `json:"version"`
+		Doc     jsontext.Value `json:"doc"`
+		Version int            `json:"version"`
 	}
-	if err := json.Unmarshal([]byte(m[1]), &boot); err != nil {
+	if err := jsonx.Unmarshal([]byte(m[1]), &boot); err != nil {
 		t.Fatal(err)
 	}
 
@@ -185,8 +186,10 @@ func TestPageEditorIntegration(t *testing.T) {
 
 	// a staged preview of the unsaved doc renders through the real theme with the bridge
 	prev := postJSON(strings.TrimSuffix(edit, "/edit")+"/builder/stage", `{"doc":`+edited+`}`)
-	var staged struct{ URL string }
-	if prev.Code != 200 || json.Unmarshal(prev.Body.Bytes(), &staged) != nil || staged.URL == "" {
+	var staged struct {
+		URL string `json:"url"`
+	}
+	if prev.Code != 200 || jsonx.Unmarshal(prev.Body.Bytes(), &staged) != nil || staged.URL == "" {
 		t.Fatalf("stage preview: %d %s", prev.Code, prev.Body.String())
 	}
 	// the same-site parent navigates the frame with the session cookie; the ticket in the URL is bound to that session
@@ -213,15 +216,15 @@ func TestPageEditorIntegration(t *testing.T) {
 	if version != versionBefore+1 {
 		t.Errorf("version %d, want %d", version, versionBefore+1)
 	}
-	var stored map[string]json.RawMessage
-	if err := json.Unmarshal(rawAfter, &stored); err != nil {
+	var stored map[string]jsontext.Value
+	if err := jsonx.Unmarshal(rawAfter, &stored); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(stored["page_doc"]), "After the edit") {
 		t.Errorf("page_doc not stored: %s", stored["page_doc"])
 	}
-	var frozenBefore map[string]json.RawMessage
-	_ = json.Unmarshal(rawBefore, &frozenBefore)
+	var frozenBefore map[string]jsontext.Value
+	_ = jsonx.Unmarshal(rawBefore, &frozenBefore)
 	if !bytes.Equal(stored["page_sections"], frozenBefore["page_sections"]) || strings.Contains(string(stored["page_sections"]), "After the edit") {
 		t.Errorf("the page_sections mirror must stay frozen: %s", stored["page_sections"])
 	}

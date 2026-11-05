@@ -5,7 +5,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -29,6 +29,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/user"
 	"hatamoto.dev/core/internal/wpimport"
 	"hatamoto.dev/core/migrations"
@@ -266,13 +267,13 @@ func TestWordPressWizardImport_Integration(t *testing.T) {
 		return title(b) == "Import report"
 	})
 	t.Logf("saw the live progress page: %v", sawProgress)
-	var raw json.RawMessage
+	var raw jsontext.Value
 	var status string
 	if err := db.Pool().QueryRow(ctx, `SELECT status, report FROM hatamoto_import_runs WHERE id = $1`, id).Scan(&status, &raw); err != nil {
 		t.Fatal(err)
 	}
 	var res wpimport.Result
-	if err := json.Unmarshal(raw, &res); err != nil {
+	if err := jsonx.Unmarshal(raw, &res); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("run: status=%s created=%d failed=%d media=%d/%d redirects=%d audit=%+v", status, res.Created, res.Failed, res.MediaImported, res.MediaReused, res.Redirects, res.Audit)
@@ -335,9 +336,9 @@ func TestWordPressWizardImport_Integration(t *testing.T) {
 	do(srv, ownerTok, "POST", "/admin/settings/import/wordpress/"+id2+"/start", form)
 	wait(srv, id2, "the re-sync", func(b string) bool { return title(b) == "Import report" })
 	var res2 wpimport.Result
-	var r2 json.RawMessage
+	var r2 jsontext.Value
 	_ = db.Pool().QueryRow(ctx, `SELECT report FROM hatamoto_import_runs WHERE id = $1`, id2).Scan(&r2)
-	_ = json.Unmarshal(r2, &res2)
+	_ = jsonx.Unmarshal(r2, &res2)
 	if res2.Created != 0 || res2.Failed != 0 || res2.MediaImported != 0 || count(`SELECT count(*) FROM hatamoto_entities`) != before || count(`SELECT count(*) FROM hatamoto_import_map`) != mapRows {
 		t.Errorf("re-sync created=%d failed=%d media=%d entities %d -> %d", res2.Created, res2.Failed, res2.MediaImported, before, count(`SELECT count(*) FROM hatamoto_entities`))
 	}

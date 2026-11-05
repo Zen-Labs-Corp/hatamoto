@@ -1,13 +1,13 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http/httptest"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // An invalid page_doc is 422 invalid_page_doc and a page_sections write
@@ -33,7 +33,7 @@ func TestWriteEntityRefError_PageDoc(t *testing.T) {
 			continue
 		}
 		var body map[string]string
-		_ = json.Unmarshal(rec.Body.Bytes(), &body)
+		_ = jsonx.Unmarshal(rec.Body.Bytes(), &body)
 		if rec.Code != tc.status || body["code"] != tc.code || body["error"] != tc.err.Error() {
 			t.Errorf("%v -> %d %v", tc.err, rec.Code, body)
 		}

@@ -4,7 +4,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"testing"
@@ -14,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/pluginhost/plugintest"
 	"hatamoto.dev/sdk"
@@ -27,9 +28,9 @@ type hostCall struct {
 }
 
 type hostOutcome struct {
-	Result json.RawMessage `json:"result"`
-	Code   string          `json:"code"`
-	Msg    string          `json:"message"`
+	Result jsontext.Value `json:"result"`
+	Code   string         `json:"code"`
+	Msg    string         `json:"message"`
 }
 
 func newHostCall(t *testing.T, r *nestedRig, base string) *hostCall {
@@ -55,14 +56,14 @@ func newHostCall(t *testing.T, r *nestedRig, base string) *hostCall {
 
 func (h *hostCall) do(ctx context.Context, fn string, args any) hostOutcome {
 	h.t.Helper()
-	raw, _ := json.Marshal(args)
-	in, _ := json.Marshal(sdk.CallRequest{Fn: fn, Args: raw})
+	raw, _ := jsonx.Marshal(args)
+	in, _ := jsonx.Marshal(sdk.CallRequest{Fn: fn, Args: raw})
 	out, err := h.rt.Host().Call(ctx, "capa", "call_host", in)
 	if err != nil {
 		h.t.Fatalf("call_host %s: %v", fn, err)
 	}
 	var o hostOutcome
-	if err := json.Unmarshal(out, &o); err != nil {
+	if err := jsonx.Unmarshal(out, &o); err != nil {
 		h.t.Fatalf("outcome %q: %v", out, err)
 	}
 	return o
@@ -84,7 +85,7 @@ func (h *hostCall) ok(fn string, args any) dtoView {
 		h.t.Fatalf("%s %v: %s %s", fn, args, o.Code, o.Msg)
 	}
 	var d dtoView
-	if err := json.Unmarshal(o.Result, &d); err != nil {
+	if err := jsonx.Unmarshal(o.Result, &d); err != nil {
 		h.t.Fatal(err)
 	}
 	return d
@@ -101,7 +102,7 @@ func (h *hostCall) fails(fn string, args any, code string) {
 // content directly) and returns it as the plugin sees it.
 func (h *hostCall) create(r *nestedRig, schema uuid.UUID, slug string, parent *uuid.UUID, publish bool) dtoView {
 	h.t.Helper()
-	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: schema, Name: slug, Slug: slug, ParentID: parent, Attributes: json.RawMessage(`{}`)})
+	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: schema, Name: slug, Slug: slug, ParentID: parent, Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		h.t.Fatalf("create %s: %v", slug, err)
 	}

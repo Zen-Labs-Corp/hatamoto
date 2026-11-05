@@ -4,7 +4,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,6 +21,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/siteconfig"
@@ -113,7 +114,7 @@ func (r *nestedRig) exec(q string, args ...any) {
 // page creates and publishes a page under parent (nil for a root).
 func (r *nestedRig) page(slug string, parent *entity.Entity) *entity.Entity {
 	r.t.Helper()
-	in := &entity.CreateEntityInput{SchemaID: r.pageSch, Name: slug, Slug: slug, Attributes: json.RawMessage(`{}`)}
+	in := &entity.CreateEntityInput{SchemaID: r.pageSch, Name: slug, Slug: slug, Attributes: jsontext.Value(`{}`)}
 	if parent != nil {
 		in.ParentID = &parent.ID
 	}
@@ -209,7 +210,7 @@ func TestNestedParentGuards_Integration(t *testing.T) {
 	for i := 2; i <= 8; i++ {
 		cur = r.page("d"+string(rune('0'+i)), cur)
 	}
-	_, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: "d9", Slug: "d9", ParentID: &cur.ID, Attributes: json.RawMessage(`{}`)})
+	_, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: "d9", Slug: "d9", ParentID: &cur.ID, Attributes: jsontext.Value(`{}`)})
 	if err != entity.ErrParentTooDeep {
 		t.Errorf("ninth level: %v", err)
 	}
@@ -219,7 +220,7 @@ func TestNestedParentGuards_Integration(t *testing.T) {
 // read in the site time zone (UTC here).
 func TestDatedRouting_Integration(t *testing.T) {
 	r := newNestedRig(t)
-	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.postSch, Name: "Hello World", Slug: "hello-world", Attributes: json.RawMessage(`{}`)})
+	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.postSch, Name: "Hello World", Slug: "hello-world", Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +252,7 @@ func TestNestedDatedSitemap_Integration(t *testing.T) {
 	pt := r.page("pt", services)
 	r.page("local", seo)
 	r.page("local", pt)
-	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.postSch, Name: "Hello", Slug: "hello-world", Attributes: json.RawMessage(`{}`)})
+	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.postSch, Name: "Hello", Slug: "hello-world", Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +291,7 @@ func TestParentSlugChangeRedirects_Integration(t *testing.T) {
 	services := r.page("services", nil)
 	seo := r.page("seo", services)
 	local := r.page("local", seo)
-	draft, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: "wip", Slug: "wip", ParentID: &seo.ID, Attributes: json.RawMessage(`{}`)})
+	draft, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: "wip", Slug: "wip", ParentID: &seo.ID, Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -366,8 +367,8 @@ func TestImport_Integration(t *testing.T) {
 	created := time.Date(2018, 2, 3, 4, 5, 6, 0, time.UTC)
 	updated := time.Date(2019, 7, 8, 9, 10, 11, 0, time.UTC)
 	published := time.Date(2018, 2, 10, 12, 0, 0, 0, time.UTC)
-	attrs := func(title string) json.RawMessage {
-		b, _ := json.Marshal(map[string]any{"title": title, "content": "<p>Body</p><script>x()</script>"})
+	attrs := func(title string) jsontext.Value {
+		b, _ := jsonx.Marshal(map[string]any{"title": title, "content": "<p>Body</p><script>x()</script>"})
 		return b
 	}
 	batch := entity.ImportBatch{Source: "it", Items: []entity.ImportItem{
@@ -467,7 +468,7 @@ func TestAuthors_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: post.ID, Name: "Note", Slug: "note-authors-it",
-		Attributes: json.RawMessage(`{"author":"Jane Guest"}`)})
+		Attributes: jsontext.Value(`{"author":"Jane Guest"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -512,7 +513,7 @@ func TestAuthors_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	other, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: personSch.ID, Name: "Quiet Person", Slug: "quiet-person-it",
-		Attributes: json.RawMessage(`{"public":true}`)})
+		Attributes: jsontext.Value(`{"public":true}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -536,7 +537,7 @@ func TestAuthors_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	ld, _ := entity.GenerateJSONLD(ent, "http://example.test")
-	if got, _ := json.Marshal(ld["author"]); string(got) != `{"@type":"Person","name":"Jane Q. Guest"}` {
+	if got, _ := jsonx.Marshal(ld["author"]); string(got) != `{"@type":"Person","name":"Jane Q. Guest"}` {
 		t.Errorf("JSON-LD author = %s", got)
 	}
 
@@ -545,7 +546,7 @@ func TestAuthors_Integration(t *testing.T) {
 	ent, _ = pub.GetPublishedByID(r.ctx, e.ID)
 	r.srv.applyAuthorName(r.ctx, ent)
 	ld, _ = entity.GenerateJSONLD(ent, "http://example.test")
-	if got, _ := json.Marshal(ld["author"]); string(got) != `{"@type":"Person","name":"Jane Q. Guest"}` {
+	if got, _ := jsonx.Marshal(ld["author"]); string(got) != `{"@type":"Person","name":"Jane Q. Guest"}` {
 		t.Errorf("filled-in JSON-LD author = %s", got)
 	}
 
@@ -587,7 +588,7 @@ func TestTermArchives_Integration(t *testing.T) {
 	news := mk("category", "News", nil)
 	sub := mk("category", "Local News", news)
 
-	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.noteSch, Name: "N", Slug: "n", Attributes: json.RawMessage(`{}`)})
+	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.noteSch, Name: "N", Slug: "n", Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -636,7 +637,7 @@ func TestTermArchives_Integration(t *testing.T) {
 // localePage creates and publishes a page in locale, under no parent.
 func (r *nestedRig) localePage(slug, locale string) *entity.Entity {
 	r.t.Helper()
-	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: slug + locale, Slug: slug, Locale: locale, Attributes: json.RawMessage(`{}`)})
+	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: slug + locale, Slug: slug, Locale: locale, Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		r.t.Fatalf("create %s %s: %v", slug, locale, err)
 	}

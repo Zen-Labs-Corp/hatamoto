@@ -5,7 +5,6 @@ package server
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -20,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // docStep is one call of the example session in docs/MCP.md and what the
@@ -67,7 +67,7 @@ func mcpDocSteps(t *testing.T) []*docStep {
 				last := steps[len(steps)-1]
 				if kind == "mcp-error" {
 					last.errPrefix = text
-				} else if err := json.Unmarshal([]byte(text), &last.result); err != nil {
+				} else if err := jsonx.Unmarshal([]byte(text), &last.result); err != nil {
 					t.Fatalf("mcp-result: %v\n%s", err, text)
 				}
 			}
@@ -118,8 +118,8 @@ func subset(want, actual any, path string) string {
 		return ""
 	}
 	if want != actual {
-		b1, _ := json.Marshal(want)
-		b2, _ := json.Marshal(actual)
+		b1, _ := jsonx.Marshal(want)
+		b2, _ := jsonx.Marshal(actual)
 		return path + ": want " + string(b1) + ", got " + string(b2)
 	}
 	return ""
@@ -220,7 +220,7 @@ func TestMCPBuilderSession(t *testing.T) {
 			return nil, text
 		}
 		var out any
-		if err := json.Unmarshal([]byte(text), &out); err != nil {
+		if err := jsonx.Unmarshal([]byte(text), &out); err != nil {
 			t.Fatalf("%s: %v\n%s", tool, err, text)
 		}
 		return out, ""
@@ -252,7 +252,7 @@ func TestMCPBuilderSession(t *testing.T) {
 			Tool      string         `json:"tool"`
 			Arguments map[string]any `json:"arguments"`
 		}
-		if err := json.Unmarshal([]byte(args), &c); err != nil {
+		if err := jsonx.Unmarshal([]byte(args), &c); err != nil {
 			t.Fatalf("step %d: %v", i, err)
 		}
 		got, errText := call(rw, c.Tool, c.Arguments)
@@ -265,7 +265,7 @@ func TestMCPBuilderSession(t *testing.T) {
 			t.Fatalf("step %d (%s): %s", i, c.Tool, errText)
 		case st.result != nil:
 			if msg := subset(st.result, got, "result"); msg != "" {
-				b, _ := json.Marshal(got)
+				b, _ := jsonx.Marshal(got)
 				t.Fatalf("step %d (%s): %s\nactual: %.1500s", i, c.Tool, msg, b)
 			}
 		}
@@ -360,7 +360,7 @@ func TestMCPBuilderSession(t *testing.T) {
 
 func mustJSONString(t *testing.T, v any) string {
 	t.Helper()
-	b, err := json.Marshal(v)
+	b, err := jsonx.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}

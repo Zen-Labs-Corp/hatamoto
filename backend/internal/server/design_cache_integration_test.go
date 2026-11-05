@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http/httptest"
@@ -20,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -85,7 +85,7 @@ func TestDesignTokenCache_Integration(t *testing.T) {
 		map[string]any{"id": "box", "t": "container", "p": map[string]any{"tag": "section"},
 			"s": map[string]any{"base": map[string]any{"pt": "space-4", "fs": "lg", "shadow": "md"}},
 			"c": []any{map[string]any{"id": "hd", "t": "heading", "p": map[string]any{"text": "Tokens", "level": 2}}}}}}
-	attrs, _ := json.Marshal(map[string]any{"page_doc": doc})
+	attrs, _ := jsonx.Marshal(map[string]any{"page_doc": doc})
 	exec(`INSERT INTO hatamoto_entity_schemas (id,name,slug,schema,settings) VALUES ($1,$2,$2,'{"type":"object"}',$3)`, schemaID, "b5it-"+sfx, `{"url_pattern":"/{slug}"}`)
 	exec(`INSERT INTO hatamoto_entities (id,schema_id,name,slug,status,published_at,attributes) VALUES ($1,$2,'Tokens',$3,'published',now(),$4::jsonb)`, pageID, schemaID, slug, string(attrs))
 	hadSite := db.Pool().QueryRow(ctx, `SELECT 1 FROM hatamoto_site_config`).Scan(new(int)) == nil
@@ -122,7 +122,7 @@ func TestDesignTokenCache_Integration(t *testing.T) {
 	}
 	canvas := func() string {
 		t.Helper()
-		body, _ := json.Marshal(map[string]any{"entity_id": pageID.String(), "schema": "b5it-" + sfx, "canvas": true, "path": "/" + slug,
+		body, _ := jsonx.Marshal(map[string]any{"entity_id": pageID.String(), "schema": "b5it-" + sfx, "canvas": true, "path": "/" + slug,
 			"attributes": map[string]any{"page_doc": doc}})
 		req := httptest.NewRequest("POST", "/api/v1/render/preview", strings.NewReader(string(body)))
 		rec := httptest.NewRecorder()

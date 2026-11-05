@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"net/http"
@@ -15,6 +15,7 @@ import (
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/indexnow"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -48,7 +49,7 @@ func TestIndexNowItemRules(t *testing.T) {
 
 func TestIndexNowEligible(t *testing.T) {
 	page := func(mod func(*entity.Entity)) *entity.Entity {
-		e := &entity.Entity{Slug: "a", Schema: &entity.EntitySchema{Slug: "page"}, Attributes: json.RawMessage(`{}`)}
+		e := &entity.Entity{Slug: "a", Schema: &entity.EntitySchema{Slug: "page"}, Attributes: jsontext.Value(`{}`)}
 		if mod != nil {
 			mod(e)
 		}
@@ -62,17 +63,17 @@ func TestIndexNowEligible(t *testing.T) {
 	}{
 		"plain":             {&seo.Settings{}, page(nil), true},
 		"no schema":         {&seo.Settings{}, page(func(e *entity.Entity) { e.Schema = nil }), false},
-		"entry noindex":     {&seo.Settings{}, page(func(e *entity.Entity) { e.Attributes = json.RawMessage(`{"no_index":true}`) }), false},
-		"hidden in sitemap": {&seo.Settings{}, page(func(e *entity.Entity) { e.Attributes = json.RawMessage(`{"hide_from_sitemap":true}`) }), false},
+		"entry noindex":     {&seo.Settings{}, page(func(e *entity.Entity) { e.Attributes = jsontext.Value(`{"no_index":true}`) }), false},
+		"hidden in sitemap": {&seo.Settings{}, page(func(e *entity.Entity) { e.Attributes = jsontext.Value(`{"hide_from_sitemap":true}`) }), false},
 		"type noindex":      {noindexPages, page(nil), false},
 		"hidden person":     {&seo.Settings{}, page(func(e *entity.Entity) { e.Schema = &entity.EntitySchema{Slug: entity.PersonSchemaSlug} }), false},
 		"public person": {&seo.Settings{}, page(func(e *entity.Entity) {
 			e.Schema = &entity.EntitySchema{Slug: entity.PersonSchemaSlug}
-			e.Attributes = json.RawMessage(`{"public":true}`)
+			e.Attributes = jsontext.Value(`{"public":true}`)
 		}), true},
 		"no author pages": {&seo.Settings{Sitemap: seo.Sitemap{NoAuthor: true}}, page(func(e *entity.Entity) {
 			e.Schema = &entity.EntitySchema{Slug: entity.PersonSchemaSlug}
-			e.Attributes = json.RawMessage(`{"public":true}`)
+			e.Attributes = jsontext.Value(`{"public":true}`)
 		}), false},
 	} {
 		if got := indexNowEligible(c.set, c.e); got != c.want {
@@ -97,7 +98,7 @@ func newInRig(t *testing.T, set seo.IndexNow) *inRig {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, _ := io.ReadAll(r.Body)
 		var m map[string]any
-		_ = json.Unmarshal(b, &m)
+		_ = jsonx.Unmarshal(b, &m)
 		g.mu.Lock()
 		g.posted = append(g.posted, m)
 		g.mu.Unlock()
@@ -124,7 +125,7 @@ func newInRig(t *testing.T, set seo.IndexNow) *inRig {
 }
 
 func (g *inRig) page(slug string, st entity.EntityStatus) *entity.Entity {
-	e := &entity.Entity{ID: uuid.New(), Slug: slug, Status: st, Schema: &entity.EntitySchema{Slug: "page"}, Attributes: json.RawMessage(`{}`)}
+	e := &entity.Entity{ID: uuid.New(), Slug: slug, Status: st, Schema: &entity.EntitySchema{Slug: "page"}, Attributes: jsontext.Value(`{}`)}
 	g.ents[e.ID] = e
 	return e
 }
@@ -180,7 +181,7 @@ func TestIndexNowUnpublishAndDelete(t *testing.T) {
 	sink := indexNowSink{r: g.runner}
 	old := g.page("old", entity.StatusDraft) // now a draft, was published
 	sink.Emit(context.Background(), entity.Event{Kind: entity.EventUpdated, ID: old.ID, Status: "draft", PrevStatus: "published"})
-	gone := &entity.Entity{ID: uuid.New(), Slug: "gone", Status: entity.StatusPublished, Schema: &entity.EntitySchema{Slug: "page"}, Attributes: json.RawMessage(`{}`)}
+	gone := &entity.Entity{ID: uuid.New(), Slug: "gone", Status: entity.StatusPublished, Schema: &entity.EntitySchema{Slug: "page"}, Attributes: jsontext.Value(`{}`)}
 	sink.Emit(context.Background(), entity.Event{Kind: entity.EventDeleted, ID: gone.ID, Entity: gone})
 	got := g.urls(t)
 	if len(got) != 2 || got[0] != "https://example.com/old" || got[1] != "https://example.com/gone" {

@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -18,6 +17,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 )
 
@@ -99,7 +99,7 @@ func TestLogoutIntegration(t *testing.T) {
 			SessionToken string `json:"session_token"`
 			CSRFToken    string `json:"csrf_token"`
 		}
-		if err := json.Unmarshal(b, &out); err != nil || out.SessionToken == "" || out.CSRFToken == "" {
+		if err := jsonx.Unmarshal(b, &out); err != nil || out.SessionToken == "" || out.CSRFToken == "" {
 			t.Fatalf("login body %s: %v", b, err)
 		}
 		return out.SessionToken, out.CSRFToken, resp.Cookies()

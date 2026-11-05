@@ -5,7 +5,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
 	"io"
 	"log/slog"
@@ -22,6 +21,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -41,12 +41,16 @@ func normalizePublicJSON(t *testing.T, raw []byte) []byte {
 	raw = reUUID.ReplaceAll(raw, []byte("<uuid>"))
 	raw = reTime.ReplaceAll(raw, []byte("<time>"))
 	raw = reVerified.ReplaceAll(raw, []byte("LAST VERIFIED: <month>"))
-	var out bytes.Buffer
-	if err := json.Indent(&out, raw, "", "  "); err != nil {
+	out, err := jsonx.IndentValue(raw)
+	if err != nil {
 		t.Fatalf("response is not JSON: %v\n%s", err, raw)
 	}
-	out.WriteByte('\n')
-	return out.Bytes()
+	out = append(out, '\n')
+	// The old indenter kept the handler's own trailing newline.
+	if bytes.HasSuffix(raw, []byte("\n")) {
+		out = append(out, '\n')
+	}
+	return out
 }
 
 // Characterization of the page loaders behind the Go renderer (homepage, page),
@@ -107,7 +111,7 @@ func TestPublicPagesJSON_Integration(t *testing.T) {
 	}
 	marshal := func(t *testing.T, v any) []byte {
 		t.Helper()
-		raw, err := json.Marshal(v)
+		raw, err := jsonx.MarshalPinned(v)
 		if err != nil {
 			t.Fatal(err)
 		}

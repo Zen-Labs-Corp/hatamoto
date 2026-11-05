@@ -6,7 +6,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"encoding/json"
 	"html"
 	"io"
 	"log/slog"
@@ -25,6 +24,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/pluginhost/plugintest"
@@ -135,7 +135,7 @@ func TestPackagesIntegration(t *testing.T) {
 		Permissions: []string{sdk.PermKV, sdk.PermLog, sdk.PermSiteScripts},
 		Routes:      []sdk.Route{{Method: "GET", Path: "/echo"}, {Method: "GET", Path: "/who/{name}", Public: true}},
 		UI:          &sdk.AdminUI{Title: "Capa board"}}
-	mjson, _ := json.Marshal(manifest)
+	mjson, _ := jsonx.Marshal(manifest)
 	pluginPkg, err := packages.PackFiles(map[string][]byte{
 		packages.PluginManifest: mjson, packages.PluginWasm: plugintest.Build(t, "capa"),
 		"assets/plugin.css": []byte(".capa{color:red}"), "assets/plugin.js": []byte("window.capa=1"), "assets/secret.svg": []byte("<svg onload=alert(1)/>"),
@@ -233,7 +233,7 @@ func TestPackagesIntegration(t *testing.T) {
 			Status int    `json:"status"`
 			Body   string `json:"body"`
 		}
-		if err := json.Unmarshal(rec.Body.Bytes(), &rep); err != nil || rec.Code != 200 || rep.Status != 201 || !strings.Contains(rep.Body, `"owner"`) {
+		if err := jsonx.Unmarshal(rec.Body.Bytes(), &rep); err != nil || rec.Code != 200 || rep.Status != 201 || !strings.Contains(rep.Body, `"owner"`) {
 			t.Fatalf("route through the bridge ran as the signed-in user: %d %s", rec.Code, rec.Body.String())
 		}
 		rec = call(`{"op":"host","fn":"kv.set","args":{"key":"k","value":"v"}}`)

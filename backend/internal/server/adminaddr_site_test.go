@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 
@@ -105,7 +105,7 @@ func TestServesRedirectSource(t *testing.T) {
 func TestServesURLRegistryLiteral(t *testing.T) {
 	reg := entity.NewURLRegistry(schemaLister{{
 		Slug:     "journal",
-		Settings: json.RawMessage(`{"url_pattern":"/journal/{slug}","archive_path":"/stories"}`),
+		Settings: jsontext.Value(`{"url_pattern":"/journal/{slug}","archive_path":"/stories"}`),
 	}}, nil)
 	sr := &siteReserved{urls: reg}
 	for _, p := range []string{"/journal", "/stories"} {

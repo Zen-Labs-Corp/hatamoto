@@ -5,7 +5,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"image"
 	"image/png"
 	"io"
@@ -160,7 +160,7 @@ func TestPageCacheInvalidation_Integration(t *testing.T) {
 	var created *entity.Entity
 	expect("entity create (admin/API/MCP/plugin share the service)", func() {
 		created, err = svc.CreateEntity(ctx, nil, &entity.CreateEntityInput{
-			SchemaID: schemaID, Name: "New", Slug: "new-" + sfx, Attributes: json.RawMessage(`{}`)})
+			SchemaID: schemaID, Name: "New", Slug: "new-" + sfx, Attributes: jsontext.Value(`{}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -278,7 +278,7 @@ func TestPageCacheInvalidation_Integration(t *testing.T) {
 	})
 	expect("site settings", func() { srv.invalidateSiteSettings(ctx) })
 	expect("schema change", func() {
-		raw := json.RawMessage(`{"url_pattern":"/{slug}"}`)
+		raw := jsontext.Value(`{"url_pattern":"/{slug}"}`)
 		if _, err := svc.UpdateSchema(ctx, schemaID, &entity.UpdateSchemaInput{Settings: &raw}); err != nil {
 			t.Fatal(err)
 		}

@@ -1,13 +1,13 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Bad slugs, parents and authors are the caller's mistake: a 4xx with a stable
@@ -32,7 +32,7 @@ func TestWriteEntityRefError(t *testing.T) {
 			continue
 		}
 		var body map[string]string
-		_ = json.Unmarshal(rec.Body.Bytes(), &body)
+		_ = jsonx.Unmarshal(rec.Body.Bytes(), &body)
 		if rec.Code != tc.status || body["code"] != tc.code || body["error"] != tc.err.Error() {
 			t.Errorf("%v -> %d %v", tc.err, rec.Code, body)
 		}

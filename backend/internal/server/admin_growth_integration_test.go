@@ -5,7 +5,6 @@ package server
 import (
 	"context"
 	"encoding/csv"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,6 +20,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -418,7 +418,7 @@ func TestAdminGrowthIntegration(t *testing.T) {
 			t.Helper()
 			rec := admin("GET", path, nil)
 			var m map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &m); err != nil {
+			if err := jsonx.Unmarshal(rec.Body.Bytes(), &m); err != nil {
 				t.Fatalf("%s: not JSON: %v\n%s", path, err, rec.Body)
 			}
 			return rec.Code, m
