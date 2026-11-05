@@ -465,9 +465,11 @@ func (s *APIKeyService) ValidateKey(ctx context.Context, plainKey string) (*APIK
 
 	var apiKey APIKey
 	// The creator's current role rides in the same row ('' when the user is
-	// gone or created_by is NULL), so there is no second round-trip.
+	// gone, created_by is NULL or the creator's access has ended), so there is
+	// no second round-trip.
 	query := `SELECT ` + apiKeyColumns + `,
-		COALESCE((SELECT u.role FROM hatamoto_users u WHERE u.id = hatamoto_api_keys.created_by), '')
+		COALESCE((SELECT CASE WHEN u.access_ends_at <= NOW() THEN '' ELSE u.role END
+		          FROM hatamoto_users u WHERE u.id = hatamoto_api_keys.created_by), '')
 		FROM hatamoto_api_keys WHERE key_hash = $1`
 
 	if err := scanAPIKey(withExtraDest{conn.QueryRow(ctx, query, keyHash), &apiKey.CreatorRole}, &apiKey); err != nil {
@@ -496,6 +498,23 @@ func (s *APIKeyService) ValidateKey(ctx context.Context, plainKey string) (*APIK
 	}
 
 	return &apiKey, nil
+}
+
+// RevokeAllForCreator revokes every live key created by userID (keys made by
+// others are untouched) and returns how many it revoked.
+func (s *APIKeyService) RevokeAllForCreator(ctx context.Context, userID uuid.UUID) (int64, error) {
+	conn, err := s.db.GetConn(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get connection: %w", err)
+	}
+	defer conn.Release()
+	tag, err := conn.Exec(ctx, `UPDATE hatamoto_api_keys
+		SET is_active = false, revoked_at = NOW(), updated_at = NOW()
+		WHERE created_by = $1 AND revoked_at IS NULL`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to revoke keys: %w", err)
+	}
+	return tag.RowsAffected(), nil
 }
 
 // withExtraDest appends one more scan destination to a row's Scan.
