@@ -4,7 +4,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"log/slog"
@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost/plugintest"
 	"hatamoto.dev/core/migrations"
 	"hatamoto.dev/sdk"
@@ -330,14 +331,14 @@ func TestDBQueryExecAndLimits(t *testing.T) {
 	if err != nil || len(res.Rows) != 1 || res.Rows[0][1] != "a@example.com" {
 		t.Fatalf("query: %+v %v", res, err)
 	}
-	b, err := json.Marshal(res)
+	b, err := jsonx.MarshalPinned(res)
 	if err != nil {
 		t.Fatalf("a result must encode: %v", err)
 	}
 	if !strings.Contains(string(b), `"uid":`) && !strings.Contains(string(b), `,"`) {
 		t.Fatalf("result json: %s", b)
 	}
-	args, err := DecodeArgs(json.RawMessage(`[7, "x", 1.5, true, null, {"a":1}, [1,2]]`))
+	args, err := DecodeArgs(jsontext.Value(`[7, "x", 1.5, true, null, {"a":1}, [1,2]]`))
 	if err != nil || len(args) != 7 {
 		t.Fatalf("args: %v %v", args, err)
 	}
@@ -608,7 +609,7 @@ func TestWithoutCreateRole(t *testing.T) {
 	if err := db.Provision(ctx, "lowpriv"); err != nil {
 		t.Fatalf("the schema must be created without CREATEROLE: %v", err)
 	}
-	if err := db.KVSet(ctx, "lowpriv", "k", json.RawMessage(`1`), 0); err != nil {
+	if err := db.KVSet(ctx, "lowpriv", "k", jsontext.Value(`1`), 0); err != nil {
 		t.Fatalf("kv without CREATEROLE: %v", err)
 	}
 	err = db.RoleError("lowpriv")

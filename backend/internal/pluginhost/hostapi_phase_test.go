@@ -2,7 +2,6 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost/plugintest"
 	"hatamoto.dev/sdk"
 )
@@ -172,7 +172,7 @@ func callLog(t *testing.T, a *API, args string) sdk.CallResponse {
 	t.Helper()
 	in := []byte(`{"fn":"log","args":` + args + `}`)
 	var resp sdk.CallResponse
-	if err := json.Unmarshal(a.Call(context.Background(), "p", in), &resp); err != nil {
+	if err := jsonx.UnmarshalPinned(a.Call(context.Background(), "p", in), &resp); err != nil {
 		t.Fatal(err)
 	}
 	return resp
@@ -197,7 +197,7 @@ func TestRunFnArgsShape(t *testing.T) {
 	call := func(fn, args string) sdk.CallResponse {
 		in := []byte(`{"fn":"` + fn + `","args":` + args + `}`)
 		var resp sdk.CallResponse
-		if err := json.Unmarshal(a.Call(context.Background(), "p", in), &resp); err != nil {
+		if err := jsonx.UnmarshalPinned(a.Call(context.Background(), "p", in), &resp); err != nil {
 			t.Fatal(err)
 		}
 		return resp

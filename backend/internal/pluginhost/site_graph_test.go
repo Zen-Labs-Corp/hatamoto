@@ -2,13 +2,13 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/sdk"
 )
@@ -56,7 +56,7 @@ func TestSiteGraphShapeAndOversizedOutput(t *testing.T) {
 	if shapeOf(sdk.SiteGraph{}) != headShape {
 		t.Fatal("render.site_graph must use the head limits")
 	}
-	in, _ := json.Marshal(sdk.SiteGraph{Path: "/", Nodes: []map[string]any{{"@id": "o"}}})
+	in, _ := jsonx.MarshalPinned(sdk.SiteGraph{Path: "/", Nodes: []map[string]any{{"@id": "o"}}})
 	big := make([]string, 65)
 	for i := range big {
 		big[i] = fmt.Sprintf("%q", fmt.Sprint("https://example.test/", i))

@@ -1,16 +1,16 @@
 package pluginhost
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
 // sitemap.urls returns additions only, and at most sdk.MaxSitemapAdditions.
 func TestSitemapOutputIsBounded(t *testing.T) {
-	in, _ := json.Marshal(sdk.SitemapURLs{Group: "misc"})
+	in, _ := jsonx.MarshalPinned(sdk.SitemapURLs{Group: "misc"})
 	entries := func(n int) []byte {
 		return []byte(`{"add":[` + strings.TrimSuffix(strings.Repeat(`{"loc":"https://x.test/a"},`, n), ",") + `]}`)
 	}

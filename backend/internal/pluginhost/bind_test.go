@@ -2,7 +2,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"log/slog"
@@ -26,8 +26,8 @@ func bindRig(t *testing.T) *hooks.Engine {
 func bindEntity() *entity.Entity {
 	return &entity.Entity{
 		ID: uuid.New(), Name: "Hello", Slug: "hello", Locale: "fr", Status: entity.StatusPublished,
-		Attributes: json.RawMessage(`{}`),
-		Schema:     &entity.EntitySchema{Slug: "page", Schema: json.RawMessage(`{"type":"object"}`)},
+		Attributes: jsontext.Value(`{}`),
+		Schema:     &entity.EntitySchema{Slug: "page", Schema: jsontext.Value(`{"type":"object"}`)},
 	}
 }
 

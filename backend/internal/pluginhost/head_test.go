@@ -2,13 +2,13 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/sdk"
 )
@@ -102,7 +102,7 @@ func TestHeadFilterCarriesLocaleAndSegment(t *testing.T) {
 	if got.Locale != "en-XX" || got.Segment != "xx" {
 		t.Fatalf("locale/segment not passed: %+v", got)
 	}
-	raw, err := json.Marshal(sdk.HeadContext{Path: "/"})
+	raw, err := jsonx.MarshalPinned(sdk.HeadContext{Path: "/"})
 	if err != nil {
 		t.Fatal(err)
 	}

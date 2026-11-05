@@ -2,12 +2,13 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -23,9 +24,9 @@ func fetchAPI(t *testing.T, hosts []string, perMin int, grant ...sdk.Permission)
 
 func callFetch(t *testing.T, a *API, url string) sdk.CallResponse {
 	t.Helper()
-	in, _ := json.Marshal(sdk.CallRequest{Fn: sdk.FnHTTPFetch, Args: json.RawMessage(`{"url":"` + url + `"}`)})
+	in, _ := jsonx.MarshalPinned(sdk.CallRequest{Fn: sdk.FnHTTPFetch, Args: jsontext.Value(`{"url":"` + url + `"}`)})
 	var out sdk.CallResponse
-	if err := json.Unmarshal(a.Call(context.Background(), "p", in), &out); err != nil {
+	if err := jsonx.UnmarshalPinned(a.Call(context.Background(), "p", in), &out); err != nil {
 		t.Fatal(err)
 	}
 	return out

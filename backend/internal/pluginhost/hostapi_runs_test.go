@@ -3,7 +3,7 @@ package pluginhost
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"net"
 	"net/http"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -24,12 +25,12 @@ func runAPI(t *testing.T, svc Services) *API {
 }
 
 // callRun calls fn as plugin p from inside a run in phase.
-func callRun(t *testing.T, a *API, rc RunCtx, fn string, args any) (json.RawMessage, *sdk.HostError) {
+func callRun(t *testing.T, a *API, rc RunCtx, fn string, args any) (jsontext.Value, *sdk.HostError) {
 	t.Helper()
-	raw, _ := json.Marshal(args)
-	in, _ := json.Marshal(sdk.CallRequest{Fn: fn, Args: raw})
+	raw, _ := jsonx.MarshalPinned(args)
+	in, _ := jsonx.MarshalPinned(sdk.CallRequest{Fn: fn, Args: raw})
 	var resp sdk.CallResponse
-	if err := json.Unmarshal(a.Call(WithRun(context.Background(), rc), "p", in), &resp); err != nil {
+	if err := jsonx.UnmarshalPinned(a.Call(WithRun(context.Background(), rc), "p", in), &resp); err != nil {
 		t.Fatal(err)
 	}
 	if !resp.OK {
@@ -93,9 +94,9 @@ func TestRunFnsFinishAndFail(t *testing.T) {
 
 func TestRunFnsOutsideRunRefused(t *testing.T) {
 	a := runAPI(t, Services{Site: fakeSite{}})
-	in, _ := json.Marshal(sdk.CallRequest{Fn: sdk.FnSiteInfo, Args: json.RawMessage(`{}`)})
+	in, _ := jsonx.MarshalPinned(sdk.CallRequest{Fn: sdk.FnSiteInfo, Args: jsontext.Value(`{}`)})
 	var resp sdk.CallResponse
-	_ = json.Unmarshal(a.Call(context.Background(), "p", in), &resp)
+	_ = jsonx.UnmarshalPinned(a.Call(context.Background(), "p", in), &resp)
 	if resp.OK || resp.Error.Code != sdk.ErrPhaseDenied {
 		t.Fatalf("site.info outside a run: %+v", resp)
 	}
@@ -153,7 +154,7 @@ func TestRunFnsMediaImportURL(t *testing.T) {
 		t.Fatal(he)
 	}
 	var h sdk.MediaHandle
-	_ = json.Unmarshal(res, &h)
+	_ = jsonx.UnmarshalPinned(res, &h)
 	if blobs.runID != rc.RunID || blobs.name != "photo.jpg" || !bytes.Equal(blobs.data, payload) || !strings.HasSuffix(h.Handle, "/photo.jpg") {
 		t.Fatalf("staged %v %q %d bytes, handle %q", blobs.runID, blobs.name, len(blobs.data), h.Handle)
 	}

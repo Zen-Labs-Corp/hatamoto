@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +19,7 @@ import (
 
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/plugrun"
 	"hatamoto.dev/sdk"
 )
@@ -51,7 +52,7 @@ func runRig(t *testing.T, mutate func(*plugrun.Run, *Services)) (*API, RunCtx, *
 	}
 	t.Cleanup(db.Close)
 	store := &plugrun.Store{DB: db}
-	run := plugrun.Run{Plugin: "p" + uuid.NewString()[:8], Name: "import", Params: json.RawMessage(`{"site":"x"}`), Hosts: []string{"example.com"}}
+	run := plugrun.Run{Plugin: "p" + uuid.NewString()[:8], Name: "import", Params: jsontext.Value(`{"site":"x"}`), Hosts: []string{"example.com"}}
 	svc := Services{Runs: store}
 	if mutate != nil {
 		mutate(&run, &svc)
@@ -66,12 +67,12 @@ func runRig(t *testing.T, mutate func(*plugrun.Run, *Services)) (*API, RunCtx, *
 	return a, RunCtx{RunID: created.ID, Plugin: created.Plugin, Name: "import", Phase: sdk.RunPhaseFetch, Hosts: created.Hosts, Signal: &RunSignal{}}, store
 }
 
-func callAs(t *testing.T, a *API, rc RunCtx, fn string, args any) (json.RawMessage, *sdk.HostError) {
+func callAs(t *testing.T, a *API, rc RunCtx, fn string, args any) (jsontext.Value, *sdk.HostError) {
 	t.Helper()
-	raw, _ := json.Marshal(args)
-	in, _ := json.Marshal(sdk.CallRequest{Fn: fn, Args: raw})
+	raw, _ := jsonx.MarshalPinned(args)
+	in, _ := jsonx.MarshalPinned(sdk.CallRequest{Fn: fn, Args: raw})
 	var resp sdk.CallResponse
-	if err := json.Unmarshal(a.Call(WithRun(context.Background(), rc), rc.Plugin, in), &resp); err != nil {
+	if err := jsonx.UnmarshalPinned(a.Call(WithRun(context.Background(), rc), rc.Plugin, in), &resp); err != nil {
 		t.Fatal(err)
 	}
 	if !resp.OK {
@@ -84,7 +85,7 @@ func TestRunFnsStateFunctions(t *testing.T) {
 	a, rc, store := runRig(t, nil)
 	res, he := callAs(t, a, rc, sdk.FnRunInfo, map[string]any{})
 	var info sdk.RunInfo
-	if he != nil || json.Unmarshal(res, &info) != nil || info.RunID != rc.RunID.String() || info.Name != "import" ||
+	if he != nil || jsonx.UnmarshalPinned(res, &info) != nil || info.RunID != rc.RunID.String() || info.Name != "import" ||
 		info.Phase != sdk.RunPhaseFetch || !strings.Contains(string(info.Params), "site") || len(info.Hosts) != 1 || info.UploadID != "" {
 		t.Fatalf("run.info: %s %v", res, he)
 	}
@@ -140,7 +141,7 @@ func TestRunFnsBuffer(t *testing.T) {
 	tr.Phase = sdk.RunPhaseTransform
 	res, he := callAs(t, a, tr, sdk.FnBufferGet, sdk.BufferGetArgs{Key: "post/1"})
 	var v sdk.BufferValue
-	_ = json.Unmarshal(res, &v)
+	_ = jsonx.UnmarshalPinned(res, &v)
 	if he != nil || !v.Found || v.ValueB64 != base64.StdEncoding.EncodeToString([]byte("v1")) {
 		t.Fatalf("buffer.get: %s %v", res, he)
 	}
@@ -150,13 +151,13 @@ func TestRunFnsBuffer(t *testing.T) {
 	}
 	res, he = callAs(t, a, tr, sdk.FnBufferList, sdk.BufferListArgs{Prefix: "post/", Limit: 2})
 	var l sdk.BufferKeys
-	_ = json.Unmarshal(res, &l)
+	_ = jsonx.UnmarshalPinned(res, &l)
 	if he != nil || strings.Join(l.Keys, ",") != "post/0,post/1" || l.Next != "post/1" {
 		t.Fatalf("page 1: %s %v", res, he)
 	}
 	res, _ = callAs(t, a, tr, sdk.FnBufferList, sdk.BufferListArgs{Prefix: "post/", After: l.Next, Limit: 2})
 	l = sdk.BufferKeys{}
-	_ = json.Unmarshal(res, &l)
+	_ = jsonx.UnmarshalPinned(res, &l)
 	if strings.Join(l.Keys, ",") != "post/2" || l.Next != "" {
 		t.Fatalf("page 2: %s", res)
 	}
@@ -176,7 +177,7 @@ func TestRunFnsUploadRead(t *testing.T) {
 	read := func(off, n int64) (sdk.UploadChunk, *sdk.HostError) {
 		res, he := callAs(t, a, rc, sdk.FnUploadRead, sdk.UploadReadArgs{UploadID: up.id.String(), Offset: off, Len: n})
 		var c sdk.UploadChunk
-		_ = json.Unmarshal(res, &c)
+		_ = jsonx.UnmarshalPinned(res, &c)
 		return c, he
 	}
 	c, he := read(2, 4)

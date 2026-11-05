@@ -4,11 +4,13 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"os"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Run with:
@@ -40,10 +42,10 @@ func TestSettingsStoreRoundTrip(t *testing.T) {
 	if err != nil || string(got) != `{}` {
 		t.Fatalf("absent: %s, %v", got, err)
 	}
-	if err := store.Put(ctx, name, json.RawMessage(`{"retries":7}`)); err != nil {
+	if err := store.Put(ctx, name, jsontext.Value(`{"retries":7}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Put(ctx, name, json.RawMessage(`{"retries":8}`)); err != nil { // upsert
+	if err := store.Put(ctx, name, jsontext.Value(`{"retries":8}`)); err != nil { // upsert
 		t.Fatal(err)
 	}
 	stored, err := store.Get(ctx, name)
@@ -54,7 +56,7 @@ func TestSettingsStoreRoundTrip(t *testing.T) {
 		Greeting string `json:"greeting"`
 		Retries  int    `json:"retries"`
 	}
-	if err := json.Unmarshal(MergeDefaults([]byte(testSchema), stored), &cfg); err != nil {
+	if err := jsonx.UnmarshalPinned(MergeDefaults([]byte(testSchema), stored), &cfg); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.Retries != 8 || cfg.Greeting != "hi" {

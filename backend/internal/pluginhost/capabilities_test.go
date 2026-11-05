@@ -2,7 +2,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
@@ -20,6 +20,7 @@ import (
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost/plugintest"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/wasmhost"
@@ -134,7 +135,7 @@ func newCapaRig(t *testing.T) *capaRig {
 	t.Cleanup(func() { rt.Close(context.Background()) })
 
 	schema := &entity.EntitySchema{ID: uuid.New(), Slug: "post", Name: "Post",
-		Schema: json.RawMessage(`{"type":"object","properties":{"title":{"type":"string"}},"additionalProperties":false}`)}
+		Schema: jsontext.Value(`{"type":"object","properties":{"title":{"type":"string"}},"additionalProperties":false}`)}
 	ents := &memEntities{}
 	svc := entity.NewService(&memSchemas{schema: schema}, ents, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	svc.SetBeforeSave(BeforeSave(engine))
@@ -174,10 +175,10 @@ func (r *capaRig) load(t *testing.T, mutate func(*sdk.Manifest)) {
 }
 
 type outcome struct {
-	Result json.RawMessage `json:"result"`
-	Code   string          `json:"code"`
-	Cap    string          `json:"capability"`
-	Msg    string          `json:"message"`
+	Result jsontext.Value `json:"result"`
+	Code   string         `json:"code"`
+	Cap    string         `json:"capability"`
+	Msg    string         `json:"message"`
 }
 
 // do calls a host function from inside the plugin and returns its outcome.
@@ -188,14 +189,14 @@ func (r *capaRig) do(t *testing.T, fn string, args any) outcome {
 
 func (r *capaRig) doCtx(t *testing.T, ctx context.Context, fn string, args any) outcome {
 	t.Helper()
-	raw, _ := json.Marshal(args)
-	in, _ := json.Marshal(sdk.CallRequest{Fn: fn, Args: raw})
+	raw, _ := jsonx.MarshalPinned(args)
+	in, _ := jsonx.MarshalPinned(sdk.CallRequest{Fn: fn, Args: raw})
 	out, err := r.rt.Host().Call(ctx, "capa", "call_host", in)
 	if err != nil {
 		t.Fatalf("call_host %s: %v", fn, err)
 	}
 	var o outcome
-	if err := json.Unmarshal(out, &o); err != nil {
+	if err := jsonx.UnmarshalPinned(out, &o); err != nil {
 		t.Fatalf("outcome %q: %v", out, err)
 	}
 	return o
@@ -343,7 +344,7 @@ func TestRoutesAuthorisedPathIsTheDispatchedPath(t *testing.T) {
 	rec = httptest.NewRecorder()
 	admin.Serve(rec, httptest.NewRequest("GET", "/x/", nil), "capa", "echo", owner)
 	var echoed sdk.HTTPRequest
-	if err := json.Unmarshal(rec.Body.Bytes(), &echoed); err != nil || echoed.Pattern != "/echo" {
+	if err := jsonx.UnmarshalPinned(rec.Body.Bytes(), &echoed); err != nil || echoed.Pattern != "/echo" {
 		t.Fatalf("pattern = %q %v", echoed.Pattern, err)
 	}
 }
@@ -402,7 +403,7 @@ func TestRoutesServeAndSwap(t *testing.T) {
 		t.Fatalf("GET /echo = %d %s", rec.Code, rec.Body)
 	}
 	var echoed sdk.HTTPRequest
-	if err := json.Unmarshal(rec.Body.Bytes(), &echoed); err != nil {
+	if err := jsonx.UnmarshalPinned(rec.Body.Bytes(), &echoed); err != nil {
 		t.Fatal(err)
 	}
 	if echoed.Method != "GET" || echoed.Path != "/echo" || len(echoed.Query["a"]) != 2 || echoed.User == nil || echoed.User.Role != "owner" {

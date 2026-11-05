@@ -2,7 +2,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -195,7 +196,7 @@ type transRig struct {
 // locales (en-XX default, fr-XX under /xx); withGroups installs the fake store.
 func newTransRig(t *testing.T, multi, withGroups bool) *transRig {
 	t.Helper()
-	free := json.RawMessage(`{"type":"object"}`)
+	free := jsontext.Value(`{"type":"object"}`)
 	page := &entity.EntitySchema{ID: uuid.New(), Slug: "page", Name: "Page", Schema: free}
 	person := &entity.EntitySchema{ID: uuid.New(), Slug: "person", Name: "Person", Schema: free}
 	ents := &locEntities{}
@@ -216,9 +217,9 @@ func newTransRig(t *testing.T, multi, withGroups bool) *transRig {
 	return r
 }
 
-func (r *transRig) call(t *testing.T, fn func(context.Context, *API, *callEnv, json.RawMessage) (any, error), args any) (map[string]any, error) {
+func (r *transRig) call(t *testing.T, fn func(context.Context, *API, *callEnv, jsontext.Value) (any, error), args any) (map[string]any, error) {
 	t.Helper()
-	raw, _ := json.Marshal(args)
+	raw, _ := jsonx.MarshalPinned(args)
 	ctx := r.ctx
 	if ctx == nil {
 		ctx = context.Background()
@@ -227,9 +228,9 @@ func (r *transRig) call(t *testing.T, fn func(context.Context, *API, *callEnv, j
 	if err != nil {
 		return nil, err
 	}
-	b, _ := json.Marshal(res)
+	b, _ := jsonx.MarshalPinned(res)
 	var out map[string]any
-	if err := json.Unmarshal(b, &out); err != nil {
+	if err := jsonx.UnmarshalPinned(b, &out); err != nil {
 		t.Fatal(err)
 	}
 	return out, nil
@@ -248,7 +249,7 @@ func wantCode(t *testing.T, err error, code string) {
 
 func (r *transRig) seed(schema *entity.EntitySchema, locale string) *entity.Entity {
 	return r.ents.add(&entity.Entity{ID: uuid.New(), SchemaID: schema.ID, Name: "n-" + locale, Slug: "s-" + locale,
-		Locale: locale, Status: entity.StatusDraft, Attributes: json.RawMessage(`{}`), Version: 1})
+		Locale: locale, Status: entity.StatusDraft, Attributes: jsontext.Value(`{}`), Version: 1})
 }
 
 func TestEntitiesGroupInDTO(t *testing.T) {
@@ -301,14 +302,14 @@ func (*fakePaths) BaseURL(context.Context) string { return "" }
 
 func (r *transRig) translations(t *testing.T, id uuid.UUID) ([]map[string]any, error) {
 	t.Helper()
-	raw, _ := json.Marshal(map[string]any{"id": id.String()})
+	raw, _ := jsonx.MarshalPinned(map[string]any{"id": id.String()})
 	res, err := fnEntitiesTranslations(context.Background(), r.api, nil, raw)
 	if err != nil {
 		return nil, err
 	}
-	b, _ := json.Marshal(res)
+	b, _ := jsonx.MarshalPinned(res)
 	var out []map[string]any
-	if err := json.Unmarshal(b, &out); err != nil {
+	if err := jsonx.UnmarshalPinned(b, &out); err != nil {
 		t.Fatal(err)
 	}
 	return out, nil
@@ -354,7 +355,7 @@ func TestEntitiesTranslationsGuards(t *testing.T) {
 	_, err := r.translations(t, uuid.New())
 	wantCode(t, err, sdk.ErrUnavailable)
 	r = newTransRig(t, false, true)
-	raw, _ := json.Marshal(map[string]any{"id": "nope"})
+	raw, _ := jsonx.MarshalPinned(map[string]any{"id": "nope"})
 	_, err = fnEntitiesTranslations(context.Background(), r.api, nil, raw)
 	wantCode(t, err, sdk.ErrInvalidArgument)
 }
