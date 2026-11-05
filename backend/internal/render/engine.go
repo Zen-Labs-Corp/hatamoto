@@ -667,6 +667,9 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	if docCSS.pending() && !bytes.Contains(out, []byte(docCSS.marker())) {
 		out = spliceHead(out, docCSS.head()) // the theme never printed plugin-head
 	}
+	if fh := fontHead(v.Site.Fonts, v.Site.FontPreload); fh != "" {
+		out = spliceHead(out, fh) // owner fonts: core adds them, no theme template needed
+	}
 	if islands != "" && !bytes.Contains(out, []byte(islands)) {
 		out = spliceBody(out, islands) // the theme never printed plugin-body
 	}
