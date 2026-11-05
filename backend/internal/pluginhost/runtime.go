@@ -6,7 +6,6 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -20,6 +19,8 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/plugmanifest"
 	"hatamoto.dev/core/internal/wasmhost"
 	"hatamoto.dev/sdk"
 )
@@ -197,7 +198,7 @@ func ListDir(dir string) ([]Status, error) {
 			continue
 		}
 		st := Status{Name: e.Name()}
-		if err := json.Unmarshal(raw, &st.Manifest); err != nil {
+		if err := plugmanifest.Decode(raw, &st.Manifest); err != nil {
 			st.Error = err.Error()
 		} else if err := st.Manifest.Validate(); err != nil {
 			st.Error = err.Error()
@@ -228,7 +229,7 @@ func readPlugin(pdir string) (sdk.Manifest, []byte, error) {
 	if err != nil {
 		return m, nil, err
 	}
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err := plugmanifest.Decode(raw, &m); err != nil {
 		return m, nil, fmt.Errorf("parse %s: %w", ManifestFile, err)
 	}
 	f, err := os.Open(filepath.Join(pdir, WasmFile))
@@ -371,7 +372,7 @@ func (r *Runtime) action(m sdk.Manifest, hook, export string) func(context.Conte
 		if hook == sdk.FormSubmitted.Name && !r.caps.grants.Has(name, sdk.PermFormsRead) {
 			return // the payload carries submitted data: only plugins granted forms.read see it
 		}
-		in, err := json.Marshal(payload)
+		in, err := jsonx.MarshalPinned(payload)
 		if err == nil {
 			_, err = r.host.Call(ctx, name, export, in)
 		}
@@ -388,7 +389,7 @@ func (r *Runtime) action(m sdk.Manifest, hook, export string) func(context.Conte
 // becomes *sdk.Reject.
 func (r *Runtime) filter(name, export string) func(context.Context, any) (any, error) {
 	return func(ctx context.Context, v any) (any, error) {
-		in, err := json.Marshal(v)
+		in, err := jsonx.MarshalPinned(v)
 		if err != nil {
 			return v, err
 		}
