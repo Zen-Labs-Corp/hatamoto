@@ -251,7 +251,7 @@ func (a *Admin) fontUserError(err error) string {
 		return fmt.Sprintf("You can keep at most %d font files. Remove a font first.", fonts.MaxFonts)
 	case errors.Is(err, fonts.ErrNotWOFF2), errors.Is(err, fonts.ErrTooBig), errors.Is(err, fonts.ErrBadFamily),
 		errors.Is(err, fonts.ErrBadWeight), errors.Is(err, fonts.ErrBadStyle):
-		return err.Error()
+		return upperFirst(err.Error())
 	}
 	return ""
 }
@@ -267,7 +267,7 @@ func (a *Admin) handleFontUpload(w http.ResponseWriter, r *http.Request) {
 		var tooBig *http.MaxBytesError
 		msg := "The upload could not be read. Try again."
 		if errors.As(err, &tooBig) {
-			msg = fonts.ErrTooBig.Error()
+			msg = upperFirst(fonts.ErrTooBig.Error())
 		}
 		a.renderFonts(w, r, "upload", http.StatusUnprocessableEntity, f, map[string]string{"upload_file": msg})
 		return
@@ -360,7 +360,7 @@ func (a *Admin) handleFontGoogle(w http.ResponseWriter, r *http.Request) {
 		a.renderFonts(w, r, "google", http.StatusUnprocessableEntity, f, map[string]string{id: msg})
 	}
 	if !fonts.ValidFamily(f.GoogleFamily) {
-		fail("google_family", fonts.ErrBadFamily.Error())
+		fail("google_family", upperFirst(fonts.ErrBadFamily.Error()))
 		return
 	}
 	if len(weights) == 0 {

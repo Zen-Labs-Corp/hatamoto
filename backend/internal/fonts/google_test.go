@@ -158,8 +158,7 @@ func TestDownloadRefusals(t *testing.T) {
 }
 
 func TestDownloadRefusesRedirectOffHost(t *testing.T) {
-	var other *httptest.Server
-	other = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	other := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("the foreign host was contacted")
 	}))
 	defer other.Close()

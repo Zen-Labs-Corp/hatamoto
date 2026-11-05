@@ -20,7 +20,6 @@ import (
 type fakeFonts struct {
 	mu   sync.Mutex
 	rows []fonts.Font
-	data map[string][]byte
 }
 
 func (f *fakeFonts) List(context.Context) ([]fonts.Font, error) {

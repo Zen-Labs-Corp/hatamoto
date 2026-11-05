@@ -20,11 +20,11 @@ const (
 
 // Errors carry the wording shown to the owner.
 var (
-	ErrNotWOFF2  = errors.New("That file is not a .woff2 font")
-	ErrTooBig    = errors.New("Fonts can be at most 2 MB")
-	ErrBadFamily = errors.New("The family name can use letters, digits, spaces, dashes and underscores, up to 60 characters")
-	ErrBadWeight = errors.New("The weight must be 100, 200, up to 900")
-	ErrBadStyle  = errors.New("The style must be normal or italic")
+	ErrNotWOFF2  = errors.New("that file is not a .woff2 font")
+	ErrTooBig    = errors.New("fonts can be at most 2 MB")
+	ErrBadFamily = errors.New("the family name can use letters, digits, spaces, dashes and underscores, up to 60 characters")
+	ErrBadWeight = errors.New("the weight must be 100, 200, up to 900")
+	ErrBadStyle  = errors.New("the style must be normal or italic")
 )
 
 // familyRe is a family name as stored: no quotes and no commas, so it can be

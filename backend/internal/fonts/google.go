@@ -187,7 +187,7 @@ func cssQuery(family string, weights []int, italic bool) (string, error) {
 		}
 	}
 	if len(parts) == 0 {
-		return "", errors.New("Choose at least one weight")
+		return "", errors.New("choose at least one weight")
 	}
 	spec := "wght@" + strings.Join(parts, ";")
 	if italic {
