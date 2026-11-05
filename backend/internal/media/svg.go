@@ -142,6 +142,13 @@ func (s *svgSanitizer) run() error {
 				skip++
 				continue
 			}
+			if len(inStyle) > 0 && inStyle[len(inStyle)-1] {
+				// <style> holds text only; an element inside it would split
+				// the text that is vetted as one piece.
+				s.drop("<" + t.Name.Local + "> element inside style")
+				skip = 1
+				continue
+			}
 			if (t.Name.Space != "" && t.Name.Space != svgNS) || !svgElements[t.Name.Local] {
 				s.drop("<" + t.Name.Local + "> element")
 				skip = 1

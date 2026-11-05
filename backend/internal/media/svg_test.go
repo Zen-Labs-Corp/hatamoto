@@ -56,6 +56,9 @@ func TestSanitizeSVGRemoves(t *testing.T) {
 		{"style image-set", `<style>rect{background-image:image-set("https://evil.test/t.png" 1x)}</style><rect width="1"/>`, []string{"evil.test"}},
 		{"attr image-set", `<rect width="1" style="mask-image:image-set('https://evil.test/t.png' 1x)"/>`, []string{"evil.test"}},
 		{"mask image-set", `<rect width="1" mask="image-set('https://evil.test/t.png' 1x)"/>`, []string{"evil.test"}},
+		{"nested style", `<style>@im<style/>port "https:evil.test/x.css";</style><rect width="1"/>`, []string{"evil.test", "@im"}},
+		{"nested style deep", `<style>@im<g><style/></g>port "https:evil.test/x.css";</style><rect width="1"/>`, []string{"evil.test", "@im"}},
+		{"nested style text", `<style>@im<g>x<style>y</style></g>port "https:evil.test/x.css";</style><rect width="1"/>`, []string{"evil.test", "@im"}},
 		{"stylesheet pi", `<?xml-stylesheet href="http://evil.test/x.css"?><rect width="1"/>`, []string{"evil.test"}},
 	}
 	for _, c := range cases {
