@@ -91,6 +91,8 @@ func (a *Admin) mountSEOSettings(owner *httpx.Group) {
 	owner.HandleFunc("POST "+seoSocialPath+"/preview", a.handleSEOSocialPreview)
 	owner.HandleFunc("GET "+seoRobotsPath, a.handleSEORobots)
 	owner.HandleFunc("POST "+seoRobotsPath, a.handleSEORobotsSave)
+	owner.HandleFunc("GET "+seoAdsTxtPath, a.handleSEOAdsTxt)
+	owner.HandleFunc("POST "+seoAdsTxtPath, a.handleSEOAdsTxtSave)
 	owner.HandleFunc("GET "+seoVerificationPath, a.handleSEOVerification)
 	owner.HandleFunc("POST "+seoVerificationPath, a.handleSEOVerificationSave)
 	owner.HandleFunc("GET "+seoSchemaPath, a.handleSEOSchema)
