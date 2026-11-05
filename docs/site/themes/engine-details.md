@@ -70,6 +70,15 @@ The cache is per process, but page and menu writes (from the admin, the worker, 
 
 Output a plugin puts on a page, including template functions that read `kv` or `db` or fetch over `http.fetch`, is cached with the page for the TTL. A plugin cannot clear the page cache itself, so keep such data tolerant of a delay of one TTL. A page whose plugin function fails, times out or is skipped by its circuit breaker is served but never cached.
 
+## Email protection
+
+After a public page is rendered, the engine rewrites `mailto:` links and addresses in the page text to numeric character references (`&#104;&#105;...`). Browsers show and follow them as before, with scripts off too; a scraper that looks for the literal address or `mailto:` finds nothing. It is the last step before the page is written and the cache stores the result, so every source is covered: builder text, HTML sections, contact info, menus and `safeHref` links in your templates.
+
+- **Only the visible parts change.** Addresses in `script`, `style`, `textarea`, `title`, `code`, `pre`, `noscript`, comments and everything in `<head>` stay literal, as does every attribute except the `href` of a `mailto:` link. Form fields are untouched. Text that is not an address, such as `logo@2x.png`, is left alone.
+- **Not applied** in the editor preview and canvas, on access notices, and outside page HTML: feeds, JSON-LD, `llms.txt`, the API and the MCP server keep the plain address.
+- **Setting.** Settings > Privacy, "Protect email addresses", on by default. Turning it off gives the plain output again.
+- **Theme scripts.** A script that reads `a[href^="mailto:"]` from the HTML source sees the references, not the text; the browser's DOM still holds the decoded value, so scripts that run in the page keep working.
+
 ## Known gaps
 
 - **`related_articles` is not provided.** There is no such section in the default theme. Use `related` or `call .Related` in a layout instead (see [Template functions](template-funcs.md)).

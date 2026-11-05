@@ -20,6 +20,11 @@ The backend, the admin, MCP and REST output and the plugin SDK now use the JSON 
 - **Limits.** 32 MiB, 50 000 rows, 500 rows per batch. `order` is not imported. The `entity.before_save` hook runs in a dry run.
 - **Migration.** None. Rollback floor: none (imported rows carry `metadata.import_key` as for any import).
 
+## Unreleased: Email protection
+
+- **Encoded addresses.** Email addresses and `mailto:` links on public pages are now written as character references, so simple harvesters miss them while visitors still see and click them, with scripts off too. Code, scripts, comments, the head, feeds, structured data, `llms.txt`, the API and the editor preview keep the plain address. Turn it off under Settings > Privacy > Protect email addresses.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: Popular content
 
 - **Template func.** `popular "post" 5 30` lists the published entities of a schema with the most pageviews over the last 7, 30 or 90 days (any other value or none means 30; limit 1 to 50), the newest filling any gap so the list is always full.
