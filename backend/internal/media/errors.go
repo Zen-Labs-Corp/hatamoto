@@ -20,6 +20,9 @@ var (
 	ErrImageTooLarge = errors.New("image dimensions exceed the maximum allowed")
 )
 
+// ErrReplaceKind is returned when a Replace would change the kind of file.
+var ErrReplaceKind = errors.New("replace with the same kind of file")
+
 // ErrInvalidSVG is returned (wrapped in *SVGError) when an SVG cannot be made
 // safe and is refused.
 var ErrInvalidSVG = errors.New("invalid svg")

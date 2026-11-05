@@ -18,6 +18,9 @@ type Repository interface {
 	List(ctx context.Context, filter *ListMediaFilter, limit, offset int) (*PagedResult, error)
 	Update(ctx context.Context, m *Media) error
 	Delete(ctx context.Context, id uuid.UUID) error
+	// UpdateFile stores what a Replace changed: type, size, dimensions and
+	// variants, and moves updated_at. Everything else is left alone.
+	UpdateFile(ctx context.Context, m *Media) error
 	// ListImagesAfter returns up to limit JPEG, PNG and WebP records whose id
 	// is greater than after, ordered by id. The rebuild job walks the library
 	// with it.
@@ -331,6 +334,32 @@ func (r *PostgresRepository) Update(ctx context.Context, m *Media) error {
 		return ErrMediaNotFound
 	}
 
+	return nil
+}
+
+// UpdateFile implements Repository.
+func (r *PostgresRepository) UpdateFile(ctx context.Context, m *Media) error {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+	variants, err := m.MarshalVariants()
+	if err != nil {
+		return fmt.Errorf("failed to marshal variants: %w", err)
+	}
+	m.UpdatedAt = time.Now()
+	result, err := conn.Exec(ctx, `
+		UPDATE hatamoto_media
+		SET mime_type = $2, file_size = $3, width = $4, height = $5, variants = $6, updated_at = $7
+		WHERE id = $1`,
+		m.ID, m.MimeType, m.FileSize, m.Width, m.Height, variants, m.UpdatedAt)
+	if err != nil {
+		return fmt.Errorf("failed to update media file: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrMediaNotFound
+	}
 	return nil
 }
 

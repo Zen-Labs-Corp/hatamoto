@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -47,6 +48,16 @@ func (f *fakeRepo) List(context.Context, *ListMediaFilter, int, int) (*PagedResu
 func (f *fakeRepo) Update(_ context.Context, m *Media) error {
 	c := *m
 	f.items[m.ID] = &c
+	return nil
+}
+func (f *fakeRepo) UpdateFile(_ context.Context, m *Media) error {
+	old, ok := f.items[m.ID]
+	if !ok {
+		return ErrMediaNotFound
+	}
+	old.MimeType, old.FileSize, old.Width, old.Height, old.Variants = m.MimeType, m.FileSize, m.Width, m.Height, m.Variants
+	m.UpdatedAt = time.Now()
+	old.UpdatedAt = m.UpdatedAt
 	return nil
 }
 func (f *fakeRepo) Delete(context.Context, uuid.UUID) error { return nil }
