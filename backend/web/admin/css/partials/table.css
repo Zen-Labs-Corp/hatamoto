@@ -121,7 +121,7 @@ th[aria-sort="ascending"] .hm-table__sort .hm-icon, th[aria-sort="descending"] .
 .hm-cell-edit--save .hm-savestate { min-width: 0; overflow-wrap: normal; }
 .hm-cell-edit--save .hm-savestate__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hm-table__nowrap { white-space: nowrap; }
-/* a cell marked nowrap stays on one line inside the wrap variant too */
+/* nowrap cells stay on one line in the wrap variant */
 .hm-table--wrap td.hm-table__nowrap { white-space: nowrap; }
 .hm-table__clip { display: inline-block; max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 /* Rows of the inline SEO view: the name column stays narrow, every cell starts at the top, the switch hugs its column. */
