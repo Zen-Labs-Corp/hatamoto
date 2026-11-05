@@ -41,6 +41,8 @@ type BootProp struct {
 	MaxLength int    `json:"maxLength,omitzero"`
 	// Bind is the class of source the prop accepts (text, url, image), empty when it cannot be bound.
 	Bind string `json:"bind,omitempty"`
+	// Accept is what the media picker lists for the prop ("document"), empty for images.
+	Accept string `json:"accept,omitempty"`
 	// Pattern is the regular expression a string value must match.
 	Pattern string `json:"pattern,omitempty"`
 }
@@ -68,7 +70,7 @@ func BootKinds(withOnlyIn bool) []BootKind {
 			bk.OnlyIn = k.OnlyIn
 		}
 		for _, p := range k.Props {
-			bk.Props = append(bk.Props, BootProp{Key: p.Key, Type: p.Type, Enum: p.Enum, Min: p.Min, Max: p.Max, Required: p.Required, Widget: p.Widget, MaxLength: p.MaxLength, Bind: p.Bind})
+			bk.Props = append(bk.Props, BootProp{Key: p.Key, Type: p.Type, Enum: p.Enum, Min: p.Min, Max: p.Max, Required: p.Required, Widget: p.Widget, MaxLength: p.MaxLength, Bind: p.Bind, Accept: p.Accept})
 		}
 		out = append(out, bk)
 	}

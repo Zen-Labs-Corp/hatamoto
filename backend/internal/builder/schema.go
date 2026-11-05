@@ -17,6 +17,7 @@ type kindSpec struct {
 	meta    *widgetMeta       // x-hm palette metadata
 	order   []string          // prop keys in schema order
 	widgets map[string]string // prop key -> x-hm-widget hint
+	accepts map[string]string // prop key -> x-hm-accept hint (what a media picker lists, e.g. "document")
 	bind    map[string]string // bindable prop key -> class (x-hm-bind: text|url|image)
 	own     map[string]bool   // plugin kinds: the element settings (anchor, aria, tip) the schema declares itself; the core skips them for the kind
 }

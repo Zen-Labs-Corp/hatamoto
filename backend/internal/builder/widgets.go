@@ -95,6 +95,7 @@ type widgetSchema struct {
 		Type   any    `json:"type"`
 		Widget string `json:"x-hm-widget"`
 		Bind   string `json:"x-hm-bind"`
+		Accept string `json:"x-hm-accept"`
 	} `json:"properties"`
 }
 
@@ -183,6 +184,7 @@ func parseWidgetSpec(name string, raw []byte, pack bool) (kindSpec, error) {
 		return kindSpec{}, fmt.Errorf("bad x-hm.only_in")
 	}
 	widgets := map[string]string{}
+	var accepts map[string]string
 	bind, err := bindProps(ws)
 	if err != nil {
 		return kindSpec{}, err
@@ -201,12 +203,21 @@ func parseWidgetSpec(name string, raw []byte, pack bool) (kindSpec, error) {
 		if p.Widget != "" {
 			widgets[key] = p.Widget
 		}
+		if p.Accept != "" {
+			if p.Accept != "document" {
+				return kindSpec{}, fmt.Errorf("prop %q: x-hm-accept %q is not document", key, p.Accept)
+			}
+			if accepts == nil {
+				accepts = map[string]string{}
+			}
+			accepts[key] = p.Accept
+		}
 	}
 	order, err := propertyOrder(raw)
 	if err != nil {
 		return kindSpec{}, err
 	}
-	return kindSpec{children: m.Children, schema: string(raw), meta: &m, order: order, widgets: widgets, bind: bind}, nil
+	return kindSpec{children: m.Children, schema: string(raw), meta: &m, order: order, widgets: widgets, accepts: accepts, bind: bind}, nil
 }
 
 // propertyOrder returns the keys of the top-level "properties" object in

@@ -966,6 +966,7 @@ func (a *Admin) handleMediaBulk(w http.ResponseWriter, r *http.Request) {
 }
 
 type pickerData struct {
+	Type       string // "image" (default) or "document"
 	Q          string
 	Folders    []ui.Option // All folders, Uncategorised and each folder; the active one is selected
 	HasFolders bool
@@ -977,6 +978,15 @@ type pickerData struct {
 	Pages      int
 }
 
+// pickerType is what the picker lists: images, or PDF documents when a field
+// asks for them with ?type=document.
+func pickerType(r *http.Request) string {
+	if r.URL.Query().Get("type") == "document" {
+		return "document"
+	}
+	return "image"
+}
+
 func (a *Admin) handleMediaPicker(w http.ResponseWriter, r *http.Request) {
 	if a.deps.Content.Media == nil {
 		a.unavailable(w, r, "Media")
@@ -985,17 +995,18 @@ func (a *Admin) handleMediaPicker(w http.ResponseWriter, r *http.Request) {
 	a.renderPicker(w, r, strings.TrimSpace(r.URL.Query().Get("q")), folderParam(r), pageParam(r))
 }
 
-// renderPicker is the contents of the media picker dialog: images matching q
-// in folder ("" for every folder), one page at a time. Image fields open it (schemaform's data-hm-media-picker).
+// renderPicker is the contents of the media picker dialog: images (or PDFs for
+// type=document) matching q in folder ("" for every folder), one page at a time. Image fields open it (schemaform's data-hm-media-picker).
 func (a *Admin) renderPicker(w http.ResponseWriter, r *http.Request, q, folder string, page int) {
 	ms := a.deps.Content.Media
-	res, err := ms.List(r.Context(), &media.ListMediaFilter{Search: q, MimeType: "image/", Folder: folder}, pickerPerPage, (page-1)*pickerPerPage)
+	typ := pickerType(r)
+	res, err := ms.List(r.Context(), &media.ListMediaFilter{Search: q, MimeType: mimePrefix(typ), Folder: folder}, pickerPerPage, (page-1)*pickerPerPage)
 	if err != nil {
 		a.serverError(w, r, "The media library could not be loaded", err)
 		return
 	}
 	named, _, _ := a.mediaFolders(r.Context(), ms)
-	d := pickerData{Q: q, Folders: folderOptions(named, folder, "All folders"), HasFolders: len(named) > 0, Total: res.Total, MaxMB: ms.Config().MaxSizeMB, Page: page, Pages: max((res.Total+pickerPerPage-1)/pickerPerPage, 1)}
+	d := pickerData{Type: typ, Q: q, Folders: folderOptions(named, folder, "All folders"), HasFolders: len(named) > 0, Total: res.Total, MaxMB: ms.Config().MaxSizeMB, Page: page, Pages: max((res.Total+pickerPerPage-1)/pickerPerPage, 1)}
 	for _, m := range res.Items {
 		name := m.OriginalFilename
 		if name == "" {
@@ -1005,12 +1016,18 @@ func (a *Admin) renderPicker(w http.ResponseWriter, r *http.Request, q, folder s
 		if m.AltText != nil {
 			t.Alt = *m.AltText
 		}
+		if t.Thumb == "" && !m.IsImage() {
+			t.Ext = mediaExt(m) // a file without a preview shows its type
+		}
 		d.Tiles = append(d.Tiles, t)
 	}
 	link := func(p int) string {
 		nq := url.Values{"page": {strconv.Itoa(p)}}
 		if q != "" {
 			nq.Set("q", q)
+		}
+		if typ == "document" {
+			nq.Set("type", typ)
 		}
 		if folder != "" {
 			nq.Set("folder", folderParamValue(folder))
@@ -1023,7 +1040,11 @@ func (a *Admin) renderPicker(w http.ResponseWriter, r *http.Request, q, folder s
 	if page*pickerPerPage < res.Total {
 		d.Next = link(page + 1)
 	}
-	v := a.NewView(w, r, "Choose an image")
+	title := "Choose an image"
+	if typ == "document" {
+		title = "Choose a document"
+	}
+	v := a.NewView(w, r, title)
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "media/picker", v)
 }
