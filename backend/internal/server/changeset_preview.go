@@ -213,6 +213,7 @@ func (s *Server) renderStagedWith(ctx context.Context, o *stagedChangeset, se *s
 	}
 	sanitizeView(v)
 	v.Preview = true
+	v.NoFrames = true // every caller serves this sandboxed
 	v.Page.NoIndex = true
 	if opts.draftBanner {
 		v.DraftBanner = true

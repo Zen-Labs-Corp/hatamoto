@@ -30,11 +30,11 @@ const (
 	cachePrivate         = "private, no-cache, no-store"
 
 	// renderCSP replaces the global API policy on HTML responses: pages embed
-	// images and iframes from https origins and are framed by the admin
+	// images and iframes from https origins (and the site's own PDFs) and are framed by the admin
 	// preview (same origin) only.
 	renderCSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
 		"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; " +
-		"font-src 'self'; connect-src 'self'; frame-src https:; frame-ancestors 'self'; " +
+		"font-src 'self'; connect-src 'self'; frame-src 'self' https:; frame-ancestors 'self'; " +
 		"object-src 'none'; base-uri 'self'; form-action 'self'"
 
 	// sandboxCSP runs a page that carries community scripts in an opaque
@@ -48,7 +48,7 @@ const (
 	// is cached and shared, so a per-request nonce would go stale.
 	renderCSPStrict = "default-src 'self'; script-src 'self'; " +
 		"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; " +
-		"font-src 'self'; connect-src 'self'; frame-src https:; frame-ancestors 'self'; " +
+		"font-src 'self'; connect-src 'self'; frame-src 'self' https:; frame-ancestors 'self'; " +
 		"object-src 'none'; base-uri 'self'; form-action 'self'"
 )
 
@@ -439,6 +439,9 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	}
 	var buf bytes.Buffer
 	v.Ctx = r.Context()
+	// Keep in sync with the sandboxCSP condition in writeHTML: a page served
+	// sandboxed must not carry frames (a sandboxed PDF viewer is blocked).
+	v.NoFrames = h.communityScripts != nil && h.communityScripts() // such pages get sandboxCSP
 	if err := h.engine.RenderPage(&buf, v); err != nil {
 		h.logger.ErrorContext(r.Context(), "render: page", "error", err, "path", path)
 		h.writeError(w, r, http.StatusInternalServerError, v)

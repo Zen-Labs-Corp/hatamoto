@@ -185,10 +185,13 @@ async function openPicker(opener) {
   const dlg = pickerDialog();
   pickerTarget = document.getElementById(opener.dataset.hmMediaPicker);
   const body = dlg.querySelector("#hm-media-picker-body");
-  body.innerHTML = '<div class="hm-media-skeleton" role="status"><span class="hm-visually-hidden">Loading images…</span>' + "<i></i>".repeat(8) + "</div>";
+  const type = opener.dataset.hmMediaType || "";
+  const docs = type === "document";
+  dlg.querySelector("#hm-media-picker-title").textContent = docs ? "Choose a document" : "Choose an image";
+  body.innerHTML = '<div class="hm-media-skeleton" role="status"><span class="hm-visually-hidden">' + (docs ? "Loading documents…" : "Loading images…") + "</span>" + "<i></i>".repeat(8) + "</div>";
   dlg.showModal();
   try {
-    const res = await fetch(adminBase() + "/media/picker", { headers: { "HX-Request": "true", "HX-Target": "hm-media-picker-body" }, credentials: "same-origin" });
+    const res = await fetch(adminBase() + "/media/picker" + (type ? "?type=" + encodeURIComponent(type) : ""), { headers: { "HX-Request": "true", "HX-Target": "hm-media-picker-body" }, credentials: "same-origin" });
     if (!res.ok) throw new Error(String(res.status));
     body.innerHTML = await res.text();
     window.htmx?.process(body);

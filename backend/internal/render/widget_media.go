@@ -59,15 +59,18 @@ func youtubeRef(id string) videoRef {
 	return videoRef{Watch: "https://www.youtube.com/watch?v=" + id, Embed: "https://www.youtube-nocookie.com/embed/" + id}
 }
 
-// localImage returns u when it is a path on this site: widgets that must not
+// sitePath returns u when it is a path on this site: widgets that must not
 // cause a third-party request at load only take media of the site itself.
-func localImage(u string) string {
+func sitePath(u string) string {
 	u = strings.TrimSpace(u)
 	if !strings.HasPrefix(u, "/") || strings.HasPrefix(u, "//") || strings.HasPrefix(u, `/\`) {
 		return ""
 	}
-	return imgSrc(u)
+	return u
 }
+
+// localImage is sitePath for an image address.
+func localImage(u string) string { return imgSrc(sitePath(u)) }
 
 func init() {
 	registerWidget("video", func(w *widgetCtx) (any, error) {

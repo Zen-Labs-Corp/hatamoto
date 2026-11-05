@@ -7,7 +7,7 @@ import { bindOps, unbindOps, sourcesFor, chipText, inLoop } from "@hm/builder/bi
 import { seedNode } from "@hm/builder/palette";
 import { plainLabel } from "@hm/builder/inspector";
 
-export const PROP_NAMES = { text: "Text", level: "Level", href: "Link", src: "Image address", url: "Video address", poster: "Poster image", count: "Number of columns", slug: "Form", single: "Open one item at a time", ordered: "Numbered", alt: "Alt text", layout: "Layout", tag: "HTML tag", hidden: "Disabled (not rendered)", decorative: "Decorative (no alt text needed)" };
+export const PROP_NAMES = { text: "Text", level: "Level", href: "Link", src: "Image address", url: "Video address", poster: "Poster image", linktext: "Link text", count: "Number of columns", slug: "Form", single: "Open one item at a time", ordered: "Numbered", alt: "Alt text", layout: "Layout", tag: "HTML tag", hidden: "Disabled (not rendered)", decorative: "Decorative (no alt text needed)" };
 const title = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 export const propName = (k) => plainLabel(PROP_NAMES[k] ?? title(k));
 // Props edited on the Advanced tab, or not by a plain control at all.
@@ -142,7 +142,7 @@ export function createContent(ctx) {
     const id = `hm-bs-p${++uid}`;
     const cur = node.p?.[p.key];
     const contact = node.t === "contactbutton" ? CONTACT_FIELDS[p.key] : undefined;
-    const name = contact?.name ?? propName(p.key);
+    const name = contact?.name ?? (p.accept === "document" ? "Document" : propName(p.key));
     const err = h("span", { class: "hm-bs-err", id: `${id}-e`, hidden: true, text: "A value is required." });
     let el;
     const extra = [];
@@ -172,7 +172,7 @@ export function createContent(ctx) {
       else if (p.key === "tag" && node.t === "container" && (value === null || value === "div") && cur().aria && !cur().href && !find(api.getDoc(), node.id)?.b?.href) {
         // a plain div takes no accessible name: drop the one it had in the same step
         commit([{ op: "setProp", id: node.id, key: "tag", value }, { op: "setProp", id: node.id, key: "aria", value: null }], { label: "Change HTML tag", ...opts });
-      } else setProp(node.id, p.key, value, opts);
+      } else setProp(node.id, p.key, value, { label: `Change ${name}`, ...opts });
     };
     if (node.t === "columns" && p.key === "count") {
       // the count and the child containers change together (columnsops.js): empty ones are added or removed, never content
@@ -258,12 +258,16 @@ export function createContent(ctx) {
         el.setAttribute("autocomplete", "off");
         extra.push(h("datalist", { id: `${id}-l` }, ...opts.map((o) => h("option", { value: o }))));
       }
-      if (kind === "media") extra.push(actButton("Choose from library", { "data-hm-media-picker": id }));
+      if (kind === "media") {
+        const doc = p.accept === "document";
+        extra.push(actButton(doc ? "Choose PDF" : "Choose from library", { "data-hm-media-picker": id, ...(doc ? { "data-hm-media-type": "document" } : {}) }));
+      }
       if (kind === "lines") {
         el.setAttribute("aria-describedby", `${id}-e ${id}-h`);
         extra.push(h("span", { class: "hm-muted", id: `${id}-h`, text: "One item per line." }));
       }
       if (contact?.placeholder) el.setAttribute("placeholder", contact.placeholder);
+      if (node.t === "pdf" && p.key === "linktext") el.setAttribute("placeholder", "Download PDF: title (size)");
       if (contact?.help) {
         el.setAttribute("aria-describedby", `${id}-e ${id}-h`);
         extra.push(h("span", { class: "hm-muted", id: `${id}-h`, text: contact.help }));

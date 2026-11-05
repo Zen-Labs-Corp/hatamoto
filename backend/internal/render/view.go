@@ -148,6 +148,11 @@ type PageView struct {
 	// DraftBanner adds the "Preview of a draft" banner of a shared preview
 	// link (with Preview). It marks no changes.
 	DraftBanner bool
+	// NoFrames marks a document served in a CSP sandbox without
+	// allow-same-origin (editor preview, pages with community scripts): its
+	// opaque origin cannot frame a same-site PDF, so the pdf widget renders its
+	// link only.
+	NoFrames bool
 	// Canvas marks an admin canvas render: html-kind bodies carry data-hm-text
 	// editor markers (see canvas_text.go).
 	Canvas bool
@@ -348,6 +353,14 @@ type VariantPrefetcher interface {
 // has no size attributes.
 type ImageSizer interface {
 	ImageSize(url string) (w, h int, ok bool)
+}
+
+// FileSizer is an optional DataSource extension: FileSize returns the stored
+// size in bytes of a local media URL, which the pdf widget prints in its
+// default link text. ok is false for unknown or size-less files; the link
+// then has no size.
+type FileSizer interface {
+	FileSize(url string) (n int64, ok bool)
 }
 
 // Limits of the query func.

@@ -76,6 +76,7 @@ Rules, all checked at install (and again when the site loads the package):
 - No array props (the same rule as core widgets); at most 24 props; the file is at most 16 KiB.
 - `x-hm-bind` is `text`, `url` or `image`: the prop then offers the editor's "Bind" control for sources of that class.
 - `x-hm-widget` hints the inspector control (`textarea`, `datalist:<options>` and so on, as in core).
+- `x-hm-accept` on a prop that uses `x-hm-widget: media` tells the media picker what to list. The only allowed value is `document`: the inspector's picker then opens with PDF files only (`?type=document`). Without it the picker lists images. Any other value is refused at install.
 - `x-hm.children: true` lets the widget hold child nodes (`{{.Children}}`).
 - `x-hm.seed` and `x-hm.only_in` may name only this package's own widgets, native kinds or core widgets.
 - `$ref` to anything outside the file is refused.

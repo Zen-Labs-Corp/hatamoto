@@ -25,6 +25,9 @@ type PropInfo struct {
 	// Bind is the class of source the prop accepts (x-hm-bind: text, url or
 	// image), "" when the prop cannot be bound.
 	Bind string
+	// Accept is what the media picker lists for the prop (x-hm-accept:
+	// "document" for PDFs), "" for images.
+	Accept string
 }
 
 // KindInfo describes one node kind for the palette, inspector and outline.
@@ -60,7 +63,7 @@ type KindInfo struct {
 var naturalDisplay = map[string]string{
 	"container": "flex", "ref": "flex", "button": "inline-block", "icon": "inline-block", "contactbutton": "inline-block", "table": "table",
 	"columns": "grid", "gallery": "grid",
-	"buttons": "flex", "stat": "flex", "loop": "flex", "loopempty": "flex",
+	"buttons": "flex", "stat": "flex", "loop": "flex", "loopempty": "flex", "pdf": "flex",
 }
 
 // paletteOrder is the order Kinds reports. A kind added to the registry
@@ -165,7 +168,7 @@ func propInfosIn(r *registry, kind string) []PropInfo {
 		if slices.Contains(UniversalKeys, key) && !kinds[kind].own[key] {
 			continue // universal: edited by the style presets UI, the navigator rename and the Advanced tab; not prop fields
 		}
-		pi := PropInfo{Key: key, Required: required[key], Min: ratFloat(ps.Minimum), Max: ratFloat(ps.Maximum), Widget: kinds[kind].widgets[key], Bind: kinds[kind].bind[key]}
+		pi := PropInfo{Key: key, Required: required[key], Min: ratFloat(ps.Minimum), Max: ratFloat(ps.Maximum), Widget: kinds[kind].widgets[key], Bind: kinds[kind].bind[key], Accept: kinds[kind].accepts[key]}
 		if ps.MaxLength > 0 {
 			pi.MaxLength = ps.MaxLength
 		}

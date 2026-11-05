@@ -53,7 +53,7 @@ func TestCSPWithExtrasAllDirectives(t *testing.T) {
 		"connect-src 'self' https://b.example wss://b.example;",
 		"style-src 'self' 'unsafe-inline' https://c.example;",
 		"font-src 'self' https://d.example;",
-		"frame-src https:;", "img-src 'self' data: https:;",
+		"frame-src 'self' https:;", "img-src 'self' data: https:;",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %q", want, got)

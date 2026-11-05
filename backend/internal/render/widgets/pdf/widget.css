@@ -1,0 +1,43 @@
+/* pdf: the link comes first in the DOM; on desktop it is shown below the frame as a fallback line, on mobile the frame is hidden */
+.hm-pdf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hm-space-2, 0.5rem);
+}
+.hm-pdf__frame {
+  width: 100%;
+  border: 0;
+  background: var(--hm-surface, #f5f5f5);
+}
+.hm-pdf__row {
+  order: 1;
+  font-size: 0.875em;
+}
+.hm-pdf__pre {
+  color: color-mix(in srgb, currentColor 70%, transparent);
+}
+.hm-pdf__ph {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  border: 1px dashed currentColor;
+}
+@media (max-width: 767.98px) {
+  .hm-pdf__frame {
+    display: none;
+  }
+  .hm-pdf__row {
+    order: 0;
+    font-size: inherit;
+    text-align: center;
+  }
+  .hm-pdf__pre {
+    display: none;
+  }
+  .hm-pdf__link {
+    display: block;
+    padding: var(--hm-space-3, 0.75rem);
+    border: 1px solid currentColor;
+    border-radius: var(--hm-radius-md, 0.5rem);
+  }
+}

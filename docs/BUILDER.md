@@ -308,6 +308,15 @@ builder script.
   same-origin poster). No third-party request is made at load; no remote thumbnail is ever used. A click replaces
   the link by an `iframe` on the allowlisted embed host (`youtube-nocookie.com`, `player.vimeo.com`). A URL that is not
   one of those renders a plain link.
+* **PDF**: server output is a `div.hm-pdf` with a download link (a `download` attribute on a same-site file) first in the DOM, then an `iframe.hm-pdf__frame`
+  (`title`, `height`, `loading="lazy"`). No JavaScript, no `<object>` or `<embed>`. Only a PDF of the media library
+  (`/media/...`, no query or fragment) is accepted: an absolute `https:` address becomes a plain download link without a frame, and any other value (another scheme, any other path) renders nothing on the page. The canvas then says "Choose a PDF from the media library".
+  Below 768px the frame is hidden by CSS and the link stays, so a phone gets the download link only. `height` is
+  200 to 2000 (default 600). A blank `linktext` reads "Download PDF: <title>" (just "Download PDF" without a title) plus the file size when the library knows it; an
+  author's text is used as written. The canvas shows a static placeholder, never a frame. A PDF media response carries
+  `X-Frame-Options: SAMEORIGIN` and `Content-Security-Policy: frame-ancestors 'self'` so the site's own pages can frame
+  it (other sites cannot; pages in a CSP sandbox cannot either, see Known limits), and the page CSP allows `frame-src 'self'`. The schema hint `x-hm-accept: "document"` on a
+  media prop makes the inspector open the picker with `?type=document`, which lists PDFs only.
 
 ### Accessibility lint
 
@@ -320,6 +329,11 @@ render tests; it is not a production dependency.
 
 * The video poster and the map image only take root-relative paths (no third-party request before a click); with an
   absolute `MEDIA_BASE_URL` (a CDN) they are omitted, as the engine does not know the media base.
+* The PDF frame needs the page to be framed by its own origin. The editor preview and every public page served in a
+  CSP sandbox (any page of a site with a live community script) have an opaque origin, so there the PDF widget shows
+  its download link only. A sandbox never gets `allow-same-origin` for this.
+* The PDF widget only frames a root-relative `/media/...` file. With an absolute `MEDIA_BASE_URL` (a CDN) the picked
+  address is absolute, so the widget shows the download link only, without the frame or the size.
 * Images have no width and height (the picker returns a URL only), so layout can shift while they load.
 * `list` and `table` data are text props, less structured than a repeater.
 * `hide` cannot un-hide at a narrower width.
