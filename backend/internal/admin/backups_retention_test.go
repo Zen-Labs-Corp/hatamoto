@@ -76,15 +76,26 @@ func TestRetentionSaveConfirmFlow(t *testing.T) {
 	if len(f.retSaved) != 0 || len(g.events) != 0 {
 		t.Fatalf("nothing may be saved before the confirm: %v %v", f.retSaved, g.events)
 	}
-	for _, w := range []string{`name="confirm" value="1"`, `name="manual" value="2"`, `name="scheduled" value="7"`} {
+	for _, w := range []string{`name="confirm" value="1"`, `name="expect_manual" value="4"`, `name="manual" value="2"`, `name="scheduled" value="7"`} {
 		if !strings.Contains(body, w) {
 			t.Errorf("confirm lacks %q", w)
 		}
 	}
 	compareGolden(t, "pages/settings-backups-retention-confirm.html", normalizePage(body))
 
-	// The confirmed post saves and prunes; it recounts, so a stale count changes nothing it did not show.
-	code, _, loc := postRetention(g, retentionForm("2", "5", "7", "confirm", "1"))
+	// Rows change after the confirm page was shown: the confirmed post must not delete, it shows the new count.
+	f.state.Rows = append(okBackups(BackupManual, 8), okBackups(BackupScheduled, 2)...)
+	code, body, _ = postRetention(g, retentionForm("2", "5", "7", "confirm", "1", "expect_manual", "4"))
+	if code != 200 || !strings.Contains(body, "This deletes 6 manual backups (the oldest).") || !strings.Contains(body, `name="expect_manual" value="6"`) {
+		t.Fatalf("stale confirm = %d\n%s", code, body)
+	}
+	if len(f.retSaved) != 0 || len(g.events) != 0 {
+		t.Fatalf("a stale confirm saved: %v %v", f.retSaved, g.events)
+	}
+	f.state.Rows = append(okBackups(BackupManual, 6), okBackups(BackupScheduled, 2)...)
+
+	// The confirmed post, with the counts shown, saves and prunes.
+	code, _, loc := postRetention(g, retentionForm("2", "5", "7", "confirm", "1", "expect_manual", "4"))
 	if code != 303 || loc != backupsPath+"#retention" {
 		t.Fatalf("confirmed save = %d %s", code, loc)
 	}

@@ -113,6 +113,20 @@ func retentionDrops(rows []BackupInfo, keep map[string]int) map[string]int {
 	return drops
 }
 
+// expectPrefix names the hidden fields that carry the counts the confirm page showed.
+const expectPrefix = "expect_"
+
+// sameDrops reports whether the counts posted back from the confirm page equal drops.
+func sameDrops(drops map[string]int, form url.Values) bool {
+	for _, k := range retentionKinds {
+		shown, _ := strconv.Atoi(form.Get(expectPrefix + strings.ReplaceAll(k.id, "-", "_")))
+		if shown != drops[k.kind] {
+			return false
+		}
+	}
+	return true
+}
+
 // deletesSentence says what a save removes: "This deletes 4 manual backups
 // (the oldest)." with one clause per kind.
 func deletesSentence(drops map[string]int) string {
@@ -169,7 +183,9 @@ func (a *Admin) handleRetentionSave(w http.ResponseWriter, r *http.Request) {
 		a.renderBackupsWith(w, r, http.StatusUnprocessableEntity, st, of, retentionCard(view, r.PostForm, errs))
 		return
 	}
-	if drops := retentionDrops(st.Rows, keep); len(drops) > 0 && r.PostForm.Get("confirm") != "1" {
+	// A confirmed post only counts when what would be deleted now is what the
+	// confirm page showed; otherwise the page is shown again with the new numbers.
+	if drops := retentionDrops(st.Rows, keep); len(drops) > 0 && (r.PostForm.Get("confirm") != "1" || !sameDrops(drops, r.PostForm)) {
 		d := confirmData{
 			Title: "Keep fewer backups?", Label: "Delete and save", Danger: true,
 			Message: deletesSentence(drops),
@@ -177,6 +193,9 @@ func (a *Admin) handleRetentionSave(w http.ResponseWriter, r *http.Request) {
 			Hidden: []hiddenField{{Name: "confirm", Value: "1"}},
 		}
 		for _, k := range retentionKinds {
+			if n := drops[k.kind]; n > 0 {
+				d.Hidden = append(d.Hidden, hiddenField{Name: expectPrefix + strings.ReplaceAll(k.id, "-", "_"), Value: strconv.Itoa(n)})
+			}
 			if n, ok := set[k.kind]; ok {
 				d.Hidden = append(d.Hidden, hiddenField{Name: strings.ReplaceAll(k.id, "-", "_"), Value: strconv.Itoa(n)})
 			}
