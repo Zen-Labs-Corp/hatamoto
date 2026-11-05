@@ -12,6 +12,8 @@ stability        *                                                  cmp STABILIT
 t-snapshot       scripts/public-snapshot.sh,scripts/check-neutral.sh,.gitattributes,scripts/test-public-snapshot.sh   bash scripts/test-public-snapshot.sh
 t-neutral-priv   scripts/check-neutral.sh,scripts/test-check-neutral-private.sh   bash scripts/test-check-neutral-private.sh
 t-neutral        scripts/check-neutral.sh,scripts/test-check-neutral.sh   bash scripts/test-check-neutral.sh
+jsonv1           backend/**,scripts/check-jsonv1.sh                 bash scripts/check-jsonv1.sh
+t-jsonv1         scripts/check-jsonv1.sh,scripts/test-check-jsonv1.sh   bash scripts/test-check-jsonv1.sh
 t-dco            scripts/check-dco.sh,scripts/test-check-dco.sh     bash scripts/test-check-dco.sh
 t-hooks          .githooks/**,Makefile,.gitleaks.toml,scripts/test-hooks.sh,scripts/check-neutral.sh,scripts/check-dco.sh,scripts/go-test-flaky.sh,scripts/integration-gate.sh,scripts/known-flakes.txt,scripts/check-suites.sh,scripts/check-suites.txt,scripts/affected-readers.txt   bash scripts/test-hooks.sh
 migrations       *                                                  bash scripts/check-migrations.sh
