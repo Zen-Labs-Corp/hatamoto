@@ -191,7 +191,7 @@ func TestSchedulerEntityVersionInterval(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	repo := &pruneCounter{}
 	s := NewScheduler(nil, logger)
-	s.SetEntityVersionWorker(NewEntityVersionWorker(repo, 20, logger))
+	s.SetEntityVersionWorker(NewEntityVersionWorker(repo, nil, logger))
 	s.SetEntityVersionInterval(40 * time.Millisecond)
 	s.Start(t.Context())
 	defer s.Stop()
@@ -208,7 +208,7 @@ func TestSchedulerEntityVersionDailyByDefault(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	repo := &pruneCounter{}
 	s := NewScheduler(nil, logger)
-	s.SetEntityVersionWorker(NewEntityVersionWorker(repo, 20, logger))
+	s.SetEntityVersionWorker(NewEntityVersionWorker(repo, nil, logger))
 	s.Start(t.Context())
 	time.Sleep(100 * time.Millisecond)
 	s.Stop()

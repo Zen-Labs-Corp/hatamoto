@@ -118,6 +118,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 		s.pageCache = s.newPageCacheService()
 		d.PageCache = s.pageCache
 		d.SiteAccess = siteAccessAdmin{site: s.siteConfig, purge: s.purgeRendered}
+		d.VersionRetention = versionRetentionAdmin{site: s.siteConfig}
 	}
 	if s.spamStore != nil {
 		d.Spam = spamAdmin{store: s.spamStore, verifier: s.spamVerifier, key: s.spam.SecretKey}
@@ -368,6 +369,22 @@ func regionTreeCandidates(pool *pgxpool.Pool) func(context.Context) (bool, error
 // real file.
 func (s *Server) robotsPreview(r *http.Request, rs seo.Robots) string {
 	return render.RobotsForAdminLines(s.publicBaseURL(r), nil, rs.ExtraLines, s.robotsDenyTokens(r.Context()), s.adminPathValue())
+}
+
+// versionRetentionAdmin is the admin's view of the version history limit. The
+// history is not public, so a save does not touch the page cache.
+type versionRetentionAdmin struct{ site *siteconfig.Store }
+
+func (a versionRetentionAdmin) Keep(ctx context.Context) (int, error) {
+	c, err := a.site.Get(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return c.EntityVersionsKeep, nil
+}
+
+func (a versionRetentionAdmin) SetKeep(ctx context.Context, n int) error {
+	return a.site.SetEntityVersionsKeep(ctx, n)
 }
 
 // siteAccessAdmin is the admin's view of the site access gate. A save clears

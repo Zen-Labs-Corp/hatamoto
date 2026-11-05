@@ -54,15 +54,18 @@ func SitemapFileSegment(entries []LocaleEntry) string {
 
 // Config is the in-memory shape of the singleton row.
 type Config struct {
-	CompanyName       string
-	LogoURL           string
-	CustomDomain      string
-	PrimaryColor      string
-	ThemeExtra        jsontext.Value // raw JSONB, callers parse if they need it
-	Tagline           string
-	Timezone          string
-	HomepageEntityID  uuid.UUID // uuid.Nil if unset
-	NotificationEmail string
+	// EntityVersionsKeep is how many earlier versions of each item the daily
+	// prune keeps (10 to 500).
+	EntityVersionsKeep int
+	CompanyName        string
+	LogoURL            string
+	CustomDomain       string
+	PrimaryColor       string
+	ThemeExtra         jsontext.Value // raw JSONB, callers parse if they need it
+	Tagline            string
+	Timezone           string
+	HomepageEntityID   uuid.UUID // uuid.Nil if unset
+	NotificationEmail  string
 	// Language is the BCP 47 site language ("en" by default): <html lang>,
 	// JSON-LD inLanguage and feed language.
 	Language string
@@ -667,6 +670,24 @@ func (s *Store) SetSiteAccess(ctx context.Context, a siteaccess.Settings) error 
 	return nil
 }
 
+// SetEntityVersionsKeep stores how many earlier versions of each item the
+// daily prune keeps.
+func (s *Store) SetEntityVersionsKeep(ctx context.Context, n int) error {
+	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
+	if err != nil {
+		return fmt.Errorf("acquire db conn: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `
+		UPDATE hatamoto_site_config SET entity_versions_keep = $1, updated_at = NOW()
+		WHERE id = TRUE`, n); err != nil {
+		return fmt.Errorf("set entity versions keep: %w", err)
+	}
+	s.Invalidate()
+	return nil
+}
+
 // PatchThemeExtra sets one top-level key of theme_extra to raw (a JSON value)
 // and leaves every other key as it is. The merge happens in SQL, so a job that
 // saves its progress cannot overwrite a design save made meanwhile.
@@ -750,7 +771,8 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       business_profile, locale_profiles, sitemap_naming, menus_seeded_at,
 		       compress_responses, two_factor_policy,
 		       site_access_mode, site_access_retry_after, site_access_password_hash,
-		       site_access_epoch, site_access_heading, site_access_message
+		       site_access_epoch, site_access_heading, site_access_message,
+		       entity_versions_keep
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -767,6 +789,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.CompressResponses, &cfg.TwoFactorPolicy,
 		&cfg.SiteAccess.Mode, &cfg.SiteAccess.RetryAfter, &cfg.SiteAccess.PasswordHash,
 		&cfg.SiteAccess.Epoch, &cfg.SiteAccess.Heading, &cfg.SiteAccess.Message,
+		&cfg.EntityVersionsKeep,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured

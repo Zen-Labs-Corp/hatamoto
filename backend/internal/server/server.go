@@ -626,9 +626,20 @@ func (s *Server) setupDependencies() {
 		}
 
 		// Entity-version retention: coalesce identical-consecutive versions and
-		// keep the newest 20 per entity.
+		// keep the newest N per entity (Settings > Content > Versions, read on
+		// every run) plus every version live in the last 30 days.
 		if s.entityRepo != nil && workerJobEnabled("entity_versions") {
-			s.scheduler.SetEntityVersionWorker(worker.NewEntityVersionWorker(s.entityRepo, 20, s.logger))
+			keep := func(ctx context.Context) int {
+				if s.siteConfig == nil {
+					return 0
+				}
+				c, err := s.siteConfig.Get(ctx)
+				if err != nil || c == nil {
+					return 0
+				}
+				return c.EntityVersionsKeep
+			}
+			s.scheduler.SetEntityVersionWorker(worker.NewEntityVersionWorker(s.entityRepo, keep, s.logger))
 			if s.demoOn() {
 				s.scheduler.SetEntityVersionInterval(10 * time.Minute)
 			}
