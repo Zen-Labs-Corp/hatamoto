@@ -135,6 +135,7 @@ func (a *Admin) handleEntityOrder(w http.ResponseWriter, r *http.Request) {
 	t := ui.Table{ID: "order", Caption: "Order of " + typePluralFor(sc.Slug, sc.Name), BaseURL: d.Back, CSRF: csrfToken(r.Context()),
 		Columns: []ui.Col{{Key: "name", Label: "Name"}, {Key: "status", Label: "Status"}},
 		Empty:   ui.Empty{Icon: "file-text", Title: "Nothing to order yet", Body: "Create an entry first."}}
+	self := a.adminPath + "/entities/order?type=" + url.QueryEscape(sc.Slug)
 	for i, row := range list {
 		id := nodes[i].ID
 		act := ui.Row{ID: row.ID, Label: row.Name, Cells: []ui.Cell{{Text: row.Name, Depth: min(row.Depth, 7)}, {Text: row.Status}}}
@@ -149,7 +150,7 @@ func (a *Admin) handleEntityOrder(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			act.Actions = append(act.Actions, ui.Action{Label: op.Label, Post: d.Action + row.ID + "/move",
-				Fields: map[string]string{"op": op.Op, "back": d.Back}})
+				Fields: map[string]string{"op": op.Op, "back": self}})
 		}
 		t.Rows = append(t.Rows, act)
 	}
