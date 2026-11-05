@@ -13,7 +13,6 @@ import (
 var legacyMap = []struct{ old, to string }{
 	{"/admin/analytics/agents", "/admin/analytics/crawlers"},
 	{"/admin/settings/site", "/admin/settings/general"},
-	{"/admin/settings/branding", "/admin/theme/colours"},
 	{"/admin/settings/homepage", "/admin/settings/general"},
 	{"/admin/settings/contact", "/admin/settings/general"},
 	{"/admin/settings/notifications", "/admin/settings/general"},

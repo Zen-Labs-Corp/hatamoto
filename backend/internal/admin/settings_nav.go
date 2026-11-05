@@ -53,7 +53,7 @@ var settingsLive = map[string]bool{
 	"menus": true, "forms": true, "submissions": true,
 	"redirects": true, "linking": true, "templates": true,
 	"themes": true, "blocks": true, "colours": true, "fonts": true, "design-system": true, "presets": true, "parts": true,
-	"import": true, "media": true, "general": true, "export": true, "performance": true,
+	"import": true, "media": true, "general": true, "branding": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
@@ -74,6 +74,9 @@ type adminArea struct {
 var settingsRegistry = []settingsSectionDef{
 	{ID: "general", Label: "General", Icon: "general", Desc: "Site identity and homepage.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "general", Label: "General", Final: "/settings/general", Roles: ownerOnly},
+	}},
+	{ID: "branding", Label: "Branding", Icon: "palette", Desc: "Admin name, logo, accent colour and sign-in page.", Group: "Site", Tabs: []settingsTabDef{
+		{ID: "branding", Label: "Branding", Final: "/settings/branding", Roles: ownerOnly},
 	}},
 	{ID: "locales", Label: "Locales", Icon: "globe", Desc: "Languages, addresses, search engines and business details.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "locales", Label: "Locales", Final: "/settings/locales", Roles: ownerOnly},

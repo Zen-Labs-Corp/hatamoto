@@ -19,7 +19,7 @@ var movedAdminPaths = []string{
 	"/admin/redirects", "/admin/linking", "/admin/sections", // SEO & URLs and section templates
 	"/admin/settings/theme", "/admin/settings/plugins", "/admin/import", // appearance, plugins, import
 	"/admin/settings/site", "/admin/settings/contact", "/admin/settings/homepage", "/admin/settings/api", // general
-	"/admin/settings/themes", "/admin/settings/sections", "/admin/settings/menus", "/admin/settings/appearance", "/admin/settings/branding", // the Theme area
+	"/admin/settings/themes", "/admin/settings/sections", "/admin/settings/menus", "/admin/settings/appearance", // the Theme area
 }
 
 // TestNoOldAdminLinks guards the 301 policy from the inside: nothing the admin

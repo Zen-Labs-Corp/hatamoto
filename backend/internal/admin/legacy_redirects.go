@@ -27,7 +27,6 @@ func legacyRulesFor(prefix string) []legacyRule {
 		{From: "/analytics/agents", To: "/analytics/crawlers"},
 
 		{From: "/settings/site", To: "/settings/general", Exact: true},
-		{From: "/settings/branding", To: "/theme/colours", Exact: true},
 		{From: "/settings/homepage", To: "/settings/general", Exact: true},
 		{From: "/settings/contact", To: "/settings/general", Exact: true},
 		{From: "/settings/notifications", To: "/settings/general", Exact: true},
