@@ -2,7 +2,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"math"
 	"regexp"
@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // ListFilter narrows a public listing. Only published base rows (never
@@ -91,14 +93,14 @@ func attrContains(key, v string) []string {
 	forms := []any{v}
 	// NaN and Inf parse but are not JSON numbers: they stay plain strings.
 	if f, err := strconv.ParseFloat(v, 64); err == nil && !math.IsNaN(f) && !math.IsInf(f, 0) && strconv.FormatFloat(f, 'f', -1, 64) == v {
-		forms = append(forms, json.Number(v))
+		forms = append(forms, jsontext.Value(v))
 	}
 	if v == "true" || v == "false" {
 		forms = append(forms, v == "true")
 	}
 	out := make([]string, 0, len(forms))
 	for _, f := range forms {
-		if b, err := json.Marshal(map[string]any{key: f}); err == nil {
+		if b, err := jsonx.Marshal(map[string]any{key: f}); err == nil {
 			out = append(out, string(b))
 		}
 	}

@@ -2,12 +2,13 @@ package entity
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"slices"
 	"strings"
 	"unicode/utf8"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/urlpattern"
 )
 
@@ -103,7 +104,7 @@ type EditorSetting string
 // UnmarshalJSON implements json.Unmarshaler.
 func (e *EditorSetting) UnmarshalJSON(b []byte) error {
 	var s string
-	if json.Unmarshal(b, &s) != nil {
+	if jsonx.Unmarshal(b, &s, jsonx.StoredLoose) != nil {
 		s = ""
 	}
 	*e = EditorSetting(s)
@@ -157,7 +158,7 @@ func (s *EntitySchema) URLSettings() (SchemaURLSettings, error) {
 	if s == nil || len(s.Settings) == 0 {
 		return out, nil
 	}
-	if err := json.Unmarshal(s.Settings, &out); err != nil {
+	if err := jsonx.Unmarshal(s.Settings, &out, jsonx.StoredLoose); err != nil {
 		return SchemaURLSettings{}, fmt.Errorf("%w: settings: %v", ErrInvalidSchema, err)
 	}
 	return out, nil
@@ -166,16 +167,16 @@ func (s *EntitySchema) URLSettings() (SchemaURLSettings, error) {
 // ValidateSchemaSettings checks the structural rules for schema settings:
 // the value must be a JSON object, patterns must start with "/" and contain
 // {slug} (see urlpattern.Parse), and archive_path must start with "/".
-func ValidateSchemaSettings(raw json.RawMessage) error {
+func ValidateSchemaSettings(raw jsontext.Value) error {
 	if len(raw) == 0 {
 		return nil
 	}
-	var obj map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &obj); err != nil {
+	var obj map[string]jsontext.Value
+	if err := jsonx.Unmarshal(raw, &obj, jsonx.StoredLoose); err != nil {
 		return settingsErr("", "settings must be a JSON object")
 	}
 	var st SchemaURLSettings
-	if err := json.Unmarshal(raw, &st); err != nil {
+	if err := jsonx.Unmarshal(raw, &st, jsonx.StoredLoose); err != nil {
 		return settingsErr("", "settings: %v", err)
 	}
 	if st.URLPattern != "" {
@@ -216,7 +217,7 @@ func ValidateSchemaSettings(raw json.RawMessage) error {
 // and not on load: a stale or hand-edited value must only disable JSON-LD
 // typing (the generator re-checks the allowlist), never reset the schema's
 // URL routing. The same holds for editor, which is also checked only here.
-func ValidateSchemaSettingsForWrite(raw json.RawMessage) error {
+func ValidateSchemaSettingsForWrite(raw jsontext.Value) error {
 	if err := ValidateSchemaSettings(raw); err != nil {
 		return err
 	}
@@ -224,7 +225,7 @@ func ValidateSchemaSettingsForWrite(raw json.RawMessage) error {
 		return nil
 	}
 	var st SchemaURLSettings
-	if err := json.Unmarshal(raw, &st); err != nil {
+	if err := jsonx.Unmarshal(raw, &st, jsonx.StoredLoose); err != nil {
 		return settingsErr("", "settings: %v", err)
 	}
 	if st.SchemaOrgType != "" && !IsAllowedSchemaOrgType(st.SchemaOrgType) {
@@ -233,11 +234,11 @@ func ValidateSchemaSettingsForWrite(raw json.RawMessage) error {
 	if st.ArticleType != "" && !slices.Contains(AllowedArticleTypes, st.ArticleType) {
 		return settingsErr("article_type", "settings.article_type %q is not one of %s", st.ArticleType, strings.Join(AllowedArticleTypes, ", "))
 	}
-	var obj map[string]json.RawMessage
-	_ = json.Unmarshal(raw, &obj)
+	var obj map[string]jsontext.Value
+	_ = jsonx.Unmarshal(raw, &obj, jsonx.StoredLoose)
 	if v, ok := obj["editor"]; ok {
 		var ed string
-		if json.Unmarshal(v, &ed) != nil || (ed != "" && ed != EditorPost) {
+		if jsonx.Unmarshal(v, &ed, jsonx.StoredLoose) != nil || (ed != "" && ed != EditorPost) {
 			return settingsErr("editor", "settings.editor must be empty or %q", EditorPost)
 		}
 	}
@@ -252,9 +253,9 @@ func ValidateSchemaSettingsForWrite(raw json.RawMessage) error {
 // ValidateEditorSetting is the write-time check of settings.editor against the
 // schema it applies to: the post editor writes attributes.content as a string,
 // so the schema must declare one, and the person schema has its own form.
-func ValidateEditorSetting(slug string, schema, settings json.RawMessage) error {
+func ValidateEditorSetting(slug string, schema, settings jsontext.Value) error {
 	var st SchemaURLSettings
-	if len(settings) == 0 || json.Unmarshal(settings, &st) != nil || st.Editor != EditorPost {
+	if len(settings) == 0 || jsonx.Unmarshal(settings, &st, jsonx.StoredLoose) != nil || st.Editor != EditorPost {
 		return nil
 	}
 	if slug == PersonSchemaSlug {
@@ -265,7 +266,7 @@ func ValidateEditorSetting(slug string, schema, settings json.RawMessage) error 
 			Type any `json:"type"`
 		} `json:"properties"`
 	}
-	_ = json.Unmarshal(schema, &decl)
+	_ = jsonx.Unmarshal(schema, &decl, jsonx.StoredLoose)
 	if decl.Properties["content"].Type != "string" {
 		return settingsErr("editor", "settings.editor %q needs the schema to declare a string property named content", EditorPost)
 	}

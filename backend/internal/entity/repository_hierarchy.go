@@ -2,7 +2,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"time"
@@ -221,8 +221,8 @@ type ImportRecord struct {
 	SchemaID   uuid.UUID
 	Name, Slug string
 	Status     EntityStatus
-	Attributes json.RawMessage
-	Metadata   json.RawMessage
+	Attributes jsontext.Value
+	Metadata   jsontext.Value
 	ParentID   *uuid.UUID
 	AuthorID   *uuid.UUID
 	ActorID    *uuid.UUID
@@ -290,7 +290,7 @@ func (r *PostgresEntityRepository) ImportUpsert(ctx context.Context, rec *Import
 		).Scan(&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata, &e.Version, &e.CreatedBy, &e.UpdatedBy,
 			&e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg)
 	} else {
-		var cur json.RawMessage
+		var cur jsontext.Value
 		if err = tx.QueryRow(ctx, `SELECT attributes FROM hatamoto_entities WHERE id = $1 FOR UPDATE`, *rec.ID).Scan(&cur); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, false, ErrEntityNotFound

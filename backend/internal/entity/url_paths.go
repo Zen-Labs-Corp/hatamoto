@@ -2,12 +2,13 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/urlpattern"
 )
 
@@ -26,12 +27,12 @@ type EntityLocation struct {
 
 // FlattenAttributes returns the top-level scalar attributes as strings, the
 // form pattern overrides compare against.
-func FlattenAttributes(raw json.RawMessage) map[string]string {
+func FlattenAttributes(raw jsontext.Value) map[string]string {
 	if len(raw) == 0 {
 		return nil
 	}
 	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err := jsonx.Unmarshal(raw, &m, jsonx.StoredLoose); err != nil {
 		return nil
 	}
 	out := make(map[string]string, len(m))

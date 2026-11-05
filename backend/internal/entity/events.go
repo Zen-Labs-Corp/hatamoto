@@ -3,12 +3,14 @@ package entity
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // EventKind names an entity lifecycle event.
@@ -77,7 +79,7 @@ type BeforeSaveInput struct {
 	// Empty on create or import when the caller did not set one: the entity then
 	// takes the site language.
 	Locale     string
-	Attributes json.RawMessage
+	Attributes jsontext.Value
 }
 
 // BeforeSaveFunc runs before an entity is persisted. A returned error rejects
@@ -132,7 +134,7 @@ func withPrevStatus(st EntityStatus) func(*Event) {
 // and validated, an edit to page_sections of a page that has a doc is
 // discarded with a warning (the doc is the truth, and refusing would fail the
 // save of a hook that cannot know).
-func (s *Service) runBeforeSave(ctx context.Context, in *BeforeSaveInput, schema *EntitySchema) (json.RawMessage, error) {
+func (s *Service) runBeforeSave(ctx context.Context, in *BeforeSaveInput, schema *EntitySchema) (jsontext.Value, error) {
 	if s.beforeSave == nil {
 		return in.Attributes, nil
 	}
@@ -162,9 +164,9 @@ func (s *Service) runBeforeSave(ctx context.Context, in *BeforeSaveInput, schema
 
 // restoreSections puts the pre-hook page_sections (or none) back into a
 // hook-edited blob, warning when the hook had changed it.
-func restoreSections(orig, hooked json.RawMessage) json.RawMessage {
-	var before, after map[string]json.RawMessage
-	if json.Unmarshal(orig, &before) != nil || json.Unmarshal(hooked, &after) != nil {
+func restoreSections(orig, hooked jsontext.Value) jsontext.Value {
+	var before, after map[string]jsontext.Value
+	if jsonx.Unmarshal(orig, &before, jsonx.StoredLoose) != nil || jsonx.Unmarshal(hooked, &after, jsonx.StoredLoose) != nil {
 		return hooked
 	}
 	prev, had := before[keySections]
@@ -178,14 +180,14 @@ func restoreSections(orig, hooked json.RawMessage) json.RawMessage {
 	} else {
 		delete(after, keySections)
 	}
-	b, err := json.Marshal(after)
+	b, err := jsonx.Marshal(after)
 	if err != nil {
 		return hooked
 	}
 	return b
 }
 
-func sameRawJSON(a, b json.RawMessage) bool {
+func sameRawJSON(a, b jsontext.Value) bool {
 	var x, y any
-	return json.Unmarshal(a, &x) == nil && json.Unmarshal(b, &y) == nil && sameJSON(x, y)
+	return jsonx.Unmarshal(a, &x, jsonx.StoredLoose) == nil && jsonx.Unmarshal(b, &y, jsonx.StoredLoose) == nil && sameJSON(x, y)
 }

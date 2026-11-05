@@ -1,10 +1,9 @@
 package entity
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // SchemaRepository defines the interface for entity schema data operations.
@@ -51,7 +51,7 @@ type EntityRepository interface {
 	CountChildren(ctx context.Context, parentIDs []uuid.UUID) (map[uuid.UUID]int, error)
 
 	// Version operations
-	CreateVersion(ctx context.Context, entityID uuid.UUID, version int, attributes json.RawMessage, changedBy *uuid.UUID, changeSummary *string) (*EntityVersion, error)
+	CreateVersion(ctx context.Context, entityID uuid.UUID, version int, attributes jsontext.Value, changedBy *uuid.UUID, changeSummary *string) (*EntityVersion, error)
 	PruneVersions(ctx context.Context, keep int) (int64, error)
 	GetVersion(ctx context.Context, entityID uuid.UUID, version int) (*EntityVersion, error)
 	ListVersions(ctx context.Context, entityID uuid.UUID, limit int) ([]*EntityVersion, error)
@@ -87,7 +87,7 @@ func (r *PostgresSchemaRepository) Create(ctx context.Context, input *CreateSche
 
 	settings := input.Settings
 	if len(settings) == 0 {
-		settings = json.RawMessage(`{}`)
+		settings = jsontext.Value(`{}`)
 	}
 
 	var s EntitySchema
@@ -348,7 +348,7 @@ func (r *PostgresEntityRepository) Create(ctx context.Context, userID *uuid.UUID
 	// Default metadata to empty object if not provided
 	metadata := input.Metadata
 	if len(metadata) == 0 {
-		metadata = json.RawMessage(`{}`)
+		metadata = jsontext.Value(`{}`)
 	}
 
 	query := `
@@ -480,7 +480,7 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 
 	// Get current entity state with FOR UPDATE lock to prevent race conditions
 	var currentVersion int
-	var currentAttributes json.RawMessage
+	var currentAttributes jsontext.Value
 	var prevOrigin string
 	err = tx.QueryRow(ctx,
 		`SELECT version, attributes, origin FROM hatamoto_entities WHERE id = $1 FOR UPDATE`,
@@ -533,7 +533,7 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 	}
 	// Pass attributes to the UPDATE only when they really change so the version
 	// counter (bumped when $4 IS NOT NULL) doesn't advance on a no-op save.
-	var attrsArg *json.RawMessage
+	var attrsArg *jsontext.Value
 	if changingAttrs {
 		attrsArg = input.Attributes
 	}
@@ -739,7 +739,7 @@ func (r *PostgresEntityRepository) List(ctx context.Context, filter *ListEntitie
 				CreatedAt time.Time `json:"c"`
 				ID        uuid.UUID `json:"i"`
 			}
-			if json.Unmarshal(cursorData, &cursor) == nil {
+			if jsonx.Unmarshal(cursorData, &cursor, jsonx.StoredLoose) == nil {
 				if page.Direction == "prev" {
 					baseQuery += fmt.Sprintf(" AND (e.created_at, e.id) > ($%d, $%d)", argIdx, argIdx+1)
 				} else {
@@ -801,8 +801,8 @@ func (r *PostgresEntityRepository) List(ctx context.Context, filter *ListEntitie
 		first := result.Items[0]
 		last := result.Items[len(result.Items)-1]
 
-		prevCursor, _ := json.Marshal(map[string]any{"c": first.CreatedAt, "i": first.ID})
-		nextCursor, _ := json.Marshal(map[string]any{"c": last.CreatedAt, "i": last.ID})
+		prevCursor, _ := jsonx.Marshal(map[string]any{"c": first.CreatedAt, "i": first.ID})
+		nextCursor, _ := jsonx.Marshal(map[string]any{"c": last.CreatedAt, "i": last.ID})
 
 		prevStr := base64.StdEncoding.EncodeToString(prevCursor)
 		nextStr := base64.StdEncoding.EncodeToString(nextCursor)
@@ -1125,21 +1125,14 @@ func listOrder(filter *ListEntitiesFilter) string {
 }
 
 // jsonRawEqual reports whether two JSON blobs are semantically equal (key order
-// and insignificant whitespace ignored), by canonicalizing both via json.Number.
-func jsonRawEqual(a, b json.RawMessage) bool {
+// and insignificant whitespace ignored), by canonicalizing both with exact numbers.
+func jsonRawEqual(a, b jsontext.Value) bool {
 	var av, bv any
-	da := json.NewDecoder(bytes.NewReader(a))
-	da.UseNumber()
-	db := json.NewDecoder(bytes.NewReader(b))
-	db.UseNumber()
-	if err := da.Decode(&av); err != nil {
+	if jsonx.Unmarshal(a, &av, jsonx.ExactNumbers) != nil || jsonx.Unmarshal(b, &bv, jsonx.ExactNumbers) != nil {
 		return false
 	}
-	if err := db.Decode(&bv); err != nil {
-		return false
-	}
-	ca, err1 := json.Marshal(av)
-	cb, err2 := json.Marshal(bv)
+	ca, err1 := jsonx.Marshal(av)
+	cb, err2 := jsonx.Marshal(bv)
 	if err1 != nil || err2 != nil {
 		return false
 	}
@@ -1198,7 +1191,7 @@ func (r *PostgresEntityRepository) PruneVersions(ctx context.Context, keep int) 
 //
 // The tenantID parameter is retained for API compatibility but no longer
 // participates in the SQL (Path B Migration 079 dropped the column).
-func (r *PostgresEntityRepository) CreateVersion(ctx context.Context, entityID uuid.UUID, version int, attributes json.RawMessage, changedBy *uuid.UUID, changeSummary *string) (*EntityVersion, error) {
+func (r *PostgresEntityRepository) CreateVersion(ctx context.Context, entityID uuid.UUID, version int, attributes jsontext.Value, changedBy *uuid.UUID, changeSummary *string) (*EntityVersion, error) {
 	conn, err := r.db.GetConn(ctx)
 	if err != nil {
 		return nil, err

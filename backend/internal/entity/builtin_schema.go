@@ -1,9 +1,11 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"slices"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // PersonSchemaSlug is the slug of the built-in person type, the one built-in
@@ -49,12 +51,12 @@ func checkBuiltinUpdate(existing *EntitySchema, in *UpdateSchemaInput) error {
 
 // checkPersonProperties refuses a new person schema that drops or retypes a core
 // property of the stored one.
-func checkPersonProperties(oldRaw, newRaw json.RawMessage) error {
-	props := func(raw json.RawMessage) map[string]map[string]any {
+func checkPersonProperties(oldRaw, newRaw jsontext.Value) error {
+	props := func(raw jsontext.Value) map[string]map[string]any {
 		var doc struct {
 			Properties map[string]map[string]any `json:"properties"`
 		}
-		_ = json.Unmarshal(raw, &doc)
+		_ = jsonx.Unmarshal(raw, &doc, jsonx.StoredLoose)
 		return doc.Properties
 	}
 	oldProps, newProps := props(oldRaw), props(newRaw)
@@ -68,8 +70,8 @@ func checkPersonProperties(oldRaw, newRaw json.RawMessage) error {
 			return fmt.Errorf("%w: %q is a core person field and cannot be removed", ErrCannotModifyBuiltin, name)
 		}
 		for _, k := range coreFieldKeys {
-			b, _ := json.Marshal(before[k])
-			a, _ := json.Marshal(after[k])
+			b, _ := jsonx.Marshal(before[k])
+			a, _ := jsonx.Marshal(after[k])
 			if !slices.Equal(a, b) {
 				return fmt.Errorf("%w: %q is a core person field and cannot change its type", ErrCannotModifyBuiltin, name)
 			}

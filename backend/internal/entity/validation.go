@@ -1,12 +1,14 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Validator validates entity attributes against JSON schemas.
@@ -91,14 +93,14 @@ func installLenientFormats(c *jsonschema.Compiler) {
 // Any failure returns ErrInvalidSchema wrapped with a path-prefixed
 // reason so the admin UI can surface "properties.foo.type missing"
 // rather than a generic compile error.
-func (v *Validator) ValidateSchema(schemaJSON json.RawMessage) error {
+func (v *Validator) ValidateSchema(schemaJSON jsontext.Value) error {
 	if len(schemaJSON) == 0 {
 		return fmt.Errorf("%w: empty schema", ErrInvalidSchema)
 	}
 
 	// Parse the schema to check it's valid JSON
 	var schemaMap map[string]any
-	if err := json.Unmarshal(schemaJSON, &schemaMap); err != nil {
+	if err := jsonx.Unmarshal(schemaJSON, &schemaMap, jsonx.StoredLoose); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidSchema, err)
 	}
 
@@ -200,7 +202,7 @@ const maxSchemaBytes = 64 * 1024
 // Errors are wrapped with ErrInvalidSchema and include a dotted path
 // (e.g. `properties.faq.items.type missing`) so the admin builder can
 // highlight the offending field.
-func ValidateSchemaShape(raw json.RawMessage) error {
+func ValidateSchemaShape(raw jsontext.Value) error {
 	if len(raw) == 0 {
 		return fmt.Errorf("%w: empty schema", ErrInvalidSchema)
 	}
@@ -208,7 +210,7 @@ func ValidateSchemaShape(raw json.RawMessage) error {
 		return fmt.Errorf("%w: schema too large: %d bytes exceeds %d-byte limit", ErrInvalidSchema, len(raw), maxSchemaBytes)
 	}
 	var root map[string]any
-	if err := json.Unmarshal(raw, &root); err != nil {
+	if err := jsonx.Unmarshal(raw, &root, jsonx.StoredLoose); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidSchema, err)
 	}
 	return validateShapeNode(root, "")
@@ -345,14 +347,14 @@ func joinPath(parent, child string) string {
 }
 
 // ValidateAttributes validates entity attributes against a schema.
-func (v *Validator) ValidateAttributes(schemaJSON, attributesJSON json.RawMessage) error {
+func (v *Validator) ValidateAttributes(schemaJSON, attributesJSON jsontext.Value) error {
 	if len(schemaJSON) == 0 {
 		return fmt.Errorf("%w: empty schema", ErrValidationFailed)
 	}
 
 	if len(attributesJSON) == 0 {
 		// Empty attributes - treat as empty object
-		attributesJSON = json.RawMessage(`{}`)
+		attributesJSON = jsontext.Value(`{}`)
 	}
 
 	// Compile the schema
@@ -371,7 +373,7 @@ func (v *Validator) ValidateAttributes(schemaJSON, attributesJSON json.RawMessag
 
 	// Parse attributes
 	var attributes any
-	if err := json.Unmarshal(attributesJSON, &attributes); err != nil {
+	if err := jsonx.Unmarshal(attributesJSON, &attributes, jsonx.StoredLoose); err != nil {
 		return fmt.Errorf("%w: invalid JSON in attributes: %v", ErrValidationFailed, err)
 	}
 
@@ -437,7 +439,7 @@ type ValidationError struct {
 }
 
 // ValidateWithDetails validates attributes and returns detailed results.
-func (v *Validator) ValidateWithDetails(schemaJSON, attributesJSON json.RawMessage) *ValidationResult {
+func (v *Validator) ValidateWithDetails(schemaJSON, attributesJSON jsontext.Value) *ValidationResult {
 	result := &ValidationResult{Valid: true}
 
 	if len(schemaJSON) == 0 {
@@ -450,7 +452,7 @@ func (v *Validator) ValidateWithDetails(schemaJSON, attributesJSON json.RawMessa
 	}
 
 	if len(attributesJSON) == 0 {
-		attributesJSON = json.RawMessage(`{}`)
+		attributesJSON = jsontext.Value(`{}`)
 	}
 
 	compiler := jsonschema.NewCompiler()
@@ -477,7 +479,7 @@ func (v *Validator) ValidateWithDetails(schemaJSON, attributesJSON json.RawMessa
 	}
 
 	var attributes any
-	if err := json.Unmarshal(attributesJSON, &attributes); err != nil {
+	if err := jsonx.Unmarshal(attributesJSON, &attributes, jsonx.StoredLoose); err != nil {
 		result.Valid = false
 		result.Errors = append(result.Errors, ValidationError{
 			Path:    "",

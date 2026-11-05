@@ -1,10 +1,12 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"strings"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // AICommentSource is the minimal entity-shaped data the comment generator
@@ -13,7 +15,7 @@ type AICommentSource struct {
 	Name       string
 	Slug       string
 	SchemaSlug string
-	Attributes json.RawMessage
+	Attributes jsontext.Value
 	UpdatedAt  time.Time
 }
 
@@ -54,7 +56,7 @@ func GenerateAICrawlerComment(src AICommentSource, tenantName, baseURL string) s
 
 	var attrs map[string]any
 	if len(src.Attributes) > 0 {
-		if err := json.Unmarshal(src.Attributes, &attrs); err != nil {
+		if err := jsonx.Unmarshal(src.Attributes, &attrs, jsonx.StoredLoose); err != nil {
 			attrs = nil
 		}
 	}

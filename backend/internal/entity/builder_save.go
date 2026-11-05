@@ -2,13 +2,14 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The save rules of the page builder that do not depend on who saves: the
@@ -47,8 +48,8 @@ const (
 
 // BuilderDoc reads the page_doc stored on e.
 func BuilderDoc(e *Entity) (*builder.Doc, DocState) {
-	var m map[string]json.RawMessage
-	if json.Unmarshal(e.Attributes, &m) != nil {
+	var m map[string]jsontext.Value
+	if jsonx.Unmarshal(e.Attributes, &m, jsonx.StoredLoose) != nil {
 		return nil, DocNone
 	}
 	raw, ok := m["page_doc"]
@@ -129,7 +130,7 @@ func CheckReuseDoc(role string, e *Entity, d *builder.Doc, lookup func(id string
 		var attrs struct {
 			Slot string `json:"slot"`
 		}
-		_ = json.Unmarshal(e.Attributes, &attrs)
+		_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 		if attrs.Slot != builder.SlotArchive && builder.SlotReplaces(d) {
 			return &DocProblem{http.StatusUnprocessableEntity, "part_slot", "Replace is only for archive parts."}
 		}
@@ -155,7 +156,7 @@ func CheckReuseDoc(role string, e *Entity, d *builder.Doc, lookup func(id string
 
 // ParseDoc parses doc and checks its settings: the first rules every stored
 // page_doc meets.
-func ParseDoc(doc json.RawMessage) (*builder.Doc, *DocProblem) {
+func ParseDoc(doc jsontext.Value) (*builder.Doc, *DocProblem) {
 	parsed, err := builder.Parse(doc)
 	if err == nil {
 		err = parsed.CheckSettings()
@@ -169,7 +170,7 @@ func ParseDoc(doc json.RawMessage) (*builder.Doc, *DocProblem) {
 // CheckDocFor parses doc and runs every rule a stored page_doc of e must meet
 // before the entity service sees it: structure, settings, slot and reference
 // rules. It returns the parsed doc.
-func CheckDocFor(ctx context.Context, st BuilderStore, e *Entity, doc json.RawMessage) (*builder.Doc, string, *DocProblem) {
+func CheckDocFor(ctx context.Context, st BuilderStore, e *Entity, doc jsontext.Value) (*builder.Doc, string, *DocProblem) {
 	parsed, p := ParseDoc(doc)
 	if p != nil {
 		return nil, "", p
@@ -225,7 +226,7 @@ type SavedDoc struct {
 // optionally the publish status change. The version is checked by the store
 // when opts.ExpectedVersion is set. A refusal of the document is a
 // *DocProblem; other errors come from the store.
-func SaveBuilderDoc(ctx context.Context, st BuilderStore, actor *uuid.UUID, e *Entity, doc json.RawMessage, opts SaveOpts) (*SavedDoc, *DocProblem, error) {
+func SaveBuilderDoc(ctx context.Context, st BuilderStore, actor *uuid.UUID, e *Entity, doc jsontext.Value, opts SaveOpts) (*SavedDoc, *DocProblem, error) {
 	parsed, p := ParseDoc(doc)
 	if p != nil {
 		return nil, p, nil
@@ -236,13 +237,13 @@ func SaveBuilderDoc(ctx context.Context, st BuilderStore, actor *uuid.UUID, e *E
 			return nil, p, nil
 		}
 	}
-	attrs := map[string]json.RawMessage{}
-	_ = json.Unmarshal(e.Attributes, &attrs)
+	attrs := map[string]jsontext.Value{}
+	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 	if attrs == nil {
-		attrs = map[string]json.RawMessage{}
+		attrs = map[string]jsontext.Value{}
 	}
 	attrs["page_doc"] = doc
-	raw, err := json.Marshal(attrs)
+	raw, err := jsonx.Marshal(attrs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -261,7 +262,7 @@ func SaveBuilderDoc(ctx context.Context, st BuilderStore, actor *uuid.UUID, e *E
 	if opts.ChangeSummary != "" {
 		summary = opts.ChangeSummary
 	}
-	in := &UpdateEntityInput{Attributes: (*json.RawMessage)(&raw), ChangeSummary: &summary, ExpectedVersion: opts.ExpectedVersion}
+	in := &UpdateEntityInput{Attributes: (*jsontext.Value)(&raw), ChangeSummary: &summary, ExpectedVersion: opts.ExpectedVersion}
 	if opts.Autosave {
 		summary = AutosaveSummary
 		in.Autosave = true

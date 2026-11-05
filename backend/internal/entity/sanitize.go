@@ -2,7 +2,7 @@ package entity
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"log/slog"
 	"os"
 	"regexp"
@@ -12,6 +12,8 @@ import (
 
 	"github.com/microcosm-cc/bluemonday"
 	"golang.org/x/net/html"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // EmbedHostsEnv names the environment variable that lists the hosts an iframe
@@ -331,13 +333,13 @@ const maxSanitizeDepth = 64
 
 // sanitizeAttributes sanitizes every rich-text `content` string inside an
 // attributes blob (create path: all input is new). See sanitizeAttributesAgainst.
-func sanitizeAttributes(raw json.RawMessage) (json.RawMessage, error) {
+func sanitizeAttributes(raw jsontext.Value) (jsontext.Value, error) {
 	return sanitizeAttributesAgainst(raw, nil)
 }
 
 // SanitizeAttributesAgainst is the exported form of sanitizeAttributesAgainst
 // for write paths outside this package (the render tests use it).
-func SanitizeAttributesAgainst(raw, stored json.RawMessage) (json.RawMessage, error) {
+func SanitizeAttributesAgainst(raw, stored jsontext.Value) (jsontext.Value, error) {
 	return sanitizeAttributesAgainst(raw, stored)
 }
 
@@ -351,8 +353,8 @@ func SanitizeAttributesAgainst(raw, stored json.RawMessage) (json.RawMessage, er
 // It decodes once, mutates in place (O(size), not O(depth*size)), and
 // re-marshals only if something changed, so an unchanged blob returns
 // byte-identical (no spurious entity version diff). Numbers are preserved
-// exactly via json.Number.
-func sanitizeAttributesAgainst(raw, stored json.RawMessage) (json.RawMessage, error) {
+// exactly (jsonx.ExactNumbers).
+func sanitizeAttributesAgainst(raw, stored jsontext.Value) (jsontext.Value, error) {
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return raw, nil
 	}
@@ -379,7 +381,7 @@ func sanitizeAttributesAgainst(raw, stored json.RawMessage) (json.RawMessage, er
 	if !changed {
 		return raw, nil
 	}
-	out, err := json.Marshal(v)
+	out, err := jsonx.Marshal(v, jsonx.HTMLSafe) // v1 escaped < > & here; kept so stored bytes do not change
 	if err != nil {
 		return raw, nil
 	}
@@ -387,10 +389,8 @@ func sanitizeAttributesAgainst(raw, stored json.RawMessage) (json.RawMessage, er
 }
 
 func decodeJSON(raw []byte) (any, bool) {
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.UseNumber()
 	var v any
-	if err := dec.Decode(&v); err != nil {
+	if err := jsonx.Unmarshal(raw, &v, jsonx.ExactNumbers); err != nil {
 		return nil, false
 	}
 	return v, true

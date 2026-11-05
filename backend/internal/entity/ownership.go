@@ -1,10 +1,11 @@
 package entity
 
 import (
-	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"reflect"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // structuralKeys are the attributes a plugin owns the shape of: the body and
@@ -41,16 +42,14 @@ func containsString(list []string, s string) bool {
 // between two blobs once both are put in the shape the admin forms write:
 // absent, "", false and an empty object are the same, strings are trimmed with CRLF read as LF (browsers post textareas that way),
 // and a schema's x-hm-alias keys stand in for an empty canonical key.
-func structuralAttrsChanged(schema *EntitySchema, a, b json.RawMessage) bool {
+func structuralAttrsChanged(schema *EntitySchema, a, b jsontext.Value) bool {
 	am, bm := structuralView(schema, a), structuralView(schema, b)
 	return !reflect.DeepEqual(am, bm)
 }
 
-func structuralView(schema *EntitySchema, raw json.RawMessage) map[string]any {
+func structuralView(schema *EntitySchema, raw jsontext.Value) map[string]any {
 	var attrs map[string]any
-	d := json.NewDecoder(bytes.NewReader(raw))
-	d.UseNumber()
-	if d.Decode(&attrs) != nil {
+	if jsonx.Unmarshal(raw, &attrs, jsonx.ExactNumbers) != nil {
 		return map[string]any{"_raw": string(raw)}
 	}
 	aliases := schemaAliases(schema)
@@ -88,7 +87,7 @@ func schemaAliases(schema *EntitySchema) map[string][]string {
 			Alias []string `json:"x-hm-alias"`
 		} `json:"properties"`
 	}
-	if json.Unmarshal(schema.Schema, &s) != nil {
+	if jsonx.Unmarshal(schema.Schema, &s, jsonx.StoredLoose) != nil {
 		return nil
 	}
 	out := map[string][]string{}

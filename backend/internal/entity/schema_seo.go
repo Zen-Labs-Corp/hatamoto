@@ -2,12 +2,14 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"slices"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // SchemaSitemapPatch replaces the three sitemap keys a type owns: exclude,
@@ -74,10 +76,10 @@ func (s *Service) PatchSchemaSEOTx(ctx context.Context, tx pgx.Tx, id uuid.UUID,
 func (s *Service) SchemaChanged() { s.schemaChanged() }
 
 // patchSchemaSEOSettings applies p to raw, keeping every key it does not own.
-func patchSchemaSEOSettings(raw json.RawMessage, p SchemaSEOPatch) (json.RawMessage, error) {
-	obj := map[string]json.RawMessage{}
+func patchSchemaSEOSettings(raw jsontext.Value, p SchemaSEOPatch) (jsontext.Value, error) {
+	obj := map[string]jsontext.Value{}
 	if t := strings.TrimSpace(string(raw)); t != "" && t != "null" {
-		if err := json.Unmarshal(raw, &obj); err != nil {
+		if err := jsonx.Unmarshal(raw, &obj, jsonx.StoredLoose); err != nil {
 			return nil, settingsErr("", "settings must be a JSON object")
 		}
 	}
@@ -90,7 +92,7 @@ func patchSchemaSEOSettings(raw json.RawMessage, p SchemaSEOPatch) (json.RawMess
 			delete(obj, key)
 			return nil
 		}
-		b, err := json.Marshal(val)
+		b, err := jsonx.Marshal(val)
 		if err != nil {
 			return err
 		}
@@ -113,7 +115,7 @@ func patchSchemaSEOSettings(raw json.RawMessage, p SchemaSEOPatch) (json.RawMess
 		if *p.FAQFromContent {
 			delete(obj, "faq_from_content")
 		} else {
-			obj["faq_from_content"] = json.RawMessage("false")
+			obj["faq_from_content"] = jsontext.Value("false")
 		}
 	}
 	if p.Sitemap != nil {
@@ -121,31 +123,31 @@ func patchSchemaSEOSettings(raw json.RawMessage, p SchemaSEOPatch) (json.RawMess
 			return nil, err
 		}
 	}
-	return json.Marshal(obj)
+	return jsonx.Marshal(obj)
 }
 
 // patchSitemapObject sets or removes the owned keys of obj["sitemap"] and
 // drops the object when nothing is left.
-func patchSitemapObject(obj map[string]json.RawMessage, sp SchemaSitemapPatch) error {
+func patchSitemapObject(obj map[string]jsontext.Value, sp SchemaSitemapPatch) error {
 	if pr := sp.Priority; pr != nil && (*pr < 0 || *pr > 1) {
 		return settingsErr("sitemap[priority]", "priority must be between 0 and 1")
 	}
 	if sp.ChangeFreq != "" && !slices.Contains(sitemapChangeFreqs, sp.ChangeFreq) {
 		return settingsErr("sitemap[changefreq]", "changefreq must be one of %s", strings.Join(sitemapChangeFreqs, ", "))
 	}
-	sm := map[string]json.RawMessage{}
+	sm := map[string]jsontext.Value{}
 	if raw, ok := obj["sitemap"]; ok {
-		if err := json.Unmarshal(raw, &sm); err != nil || sm == nil {
-			sm = map[string]json.RawMessage{}
+		if err := jsonx.Unmarshal(raw, &sm, jsonx.StoredLoose); err != nil || sm == nil {
+			sm = map[string]jsontext.Value{}
 		}
 	}
 	if sp.Exclude {
-		sm["exclude"] = json.RawMessage("true")
+		sm["exclude"] = jsontext.Value("true")
 	} else {
 		delete(sm, "exclude")
 	}
 	if sp.Priority != nil {
-		b, err := json.Marshal(*sp.Priority)
+		b, err := jsonx.Marshal(*sp.Priority)
 		if err != nil {
 			return err
 		}
@@ -154,7 +156,7 @@ func patchSitemapObject(obj map[string]json.RawMessage, sp SchemaSitemapPatch) e
 		delete(sm, "priority")
 	}
 	if sp.ChangeFreq != "" {
-		b, err := json.Marshal(sp.ChangeFreq)
+		b, err := jsonx.Marshal(sp.ChangeFreq)
 		if err != nil {
 			return err
 		}
@@ -166,7 +168,7 @@ func patchSitemapObject(obj map[string]json.RawMessage, sp SchemaSitemapPatch) e
 		delete(obj, "sitemap")
 		return nil
 	}
-	b, err := json.Marshal(sm)
+	b, err := jsonx.Marshal(sm)
 	if err != nil {
 		return err
 	}

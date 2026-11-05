@@ -3,7 +3,6 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -14,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/urlpattern"
 )
 
@@ -959,7 +959,7 @@ func generateBaseJSONLD(entity *Entity, baseURL string) (map[string]any, error) 
 func generateLegacyJSONLD(entity *Entity, baseURL string) (map[string]any, error) {
 	// Parse attributes
 	var attrs map[string]any
-	if err := json.Unmarshal(entity.Attributes, &attrs); err != nil {
+	if err := jsonx.Unmarshal(entity.Attributes, &attrs, jsonx.StoredLoose); err != nil {
 		attrs = make(map[string]any)
 	}
 
@@ -1692,7 +1692,7 @@ func buildAggregateRating(attrs map[string]any) map[string]any {
 // settings.schema_org_type names the @type.
 func buildSettingsTypedJSONLD(ent *Entity, typ, baseURL string) map[string]any {
 	var attrs map[string]any
-	if err := json.Unmarshal(ent.Attributes, &attrs); err != nil {
+	if err := jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.StoredLoose); err != nil {
 		attrs = map[string]any{}
 	}
 	entityURL := BuildEntityURLForJSONLD(ent, baseURL)

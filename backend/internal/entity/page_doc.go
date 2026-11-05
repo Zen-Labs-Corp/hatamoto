@@ -2,7 +2,7 @@ package entity
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"log/slog"
 	"reflect"
@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // docMode selects the page_doc write rules.
@@ -35,7 +36,7 @@ const (
 // byte-identical when nothing changes, so a no-op save stays a no-op version.
 // eligible is false for entities whose page_sections is ordinary data (see
 // EligibleForPageDoc): they are never converted and never refused.
-func normalizeDocRaw(mode docMode, stored, in json.RawMessage, eligible bool) (json.RawMessage, error) {
+func normalizeDocRaw(mode docMode, stored, in jsontext.Value, eligible bool) (jsontext.Value, error) {
 	if err := rejectCaseVariantKeys(in); err != nil {
 		return nil, err
 	}
@@ -54,7 +55,7 @@ func normalizeDocRaw(mode docMode, stored, in json.RawMessage, eligible bool) (j
 	if reflect.DeepEqual(out, inMap) {
 		return in, nil
 	}
-	b, err := json.Marshal(out)
+	b, err := jsonx.Marshal(out)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidDoc, err)
 	}
@@ -71,12 +72,12 @@ func sameJSON(a, b any) bool {
 }
 
 func floatCanon(v any) any {
-	raw, err := json.Marshal(v)
+	raw, err := jsonx.Marshal(v)
 	if err != nil {
 		return v
 	}
 	var out any
-	if json.Unmarshal(raw, &out) != nil {
+	if jsonx.Unmarshal(raw, &out, jsonx.StoredLoose) != nil {
 		return v
 	}
 	return out
@@ -85,8 +86,8 @@ func floatCanon(v any) any {
 // hasDocKey reports whether raw is an object with a page_doc key, decided on
 // the decoded key: JSON may spell it "page\u005fdoc".
 func hasDocKey(raw []byte) bool {
-	var m map[string]json.RawMessage
-	if json.Unmarshal(raw, &m) != nil {
+	var m map[string]jsontext.Value
+	if jsonx.Unmarshal(raw, &m, jsonx.StoredLoose) != nil {
 		return false
 	}
 	_, ok := m[keyDoc]
@@ -97,8 +98,8 @@ func hasDocKey(raw []byte) bool {
 // or page_sections without being it: lenient readers would treat it as the
 // real key while the seam ignored it.
 func rejectCaseVariantKeys(raw []byte) error {
-	var m map[string]json.RawMessage
-	if json.Unmarshal(raw, &m) != nil {
+	var m map[string]jsontext.Value
+	if jsonx.Unmarshal(raw, &m, jsonx.StoredLoose) != nil {
 		return nil
 	}
 	for k := range m {
@@ -317,7 +318,7 @@ func finishDoc(out map[string]any, doc *builder.Doc, olds ...*builder.Doc) error
 
 // parseDoc validates a decoded page_doc value.
 func parseDoc(v any) (*builder.Doc, error) {
-	raw, err := json.Marshal(v)
+	raw, err := jsonx.Marshal(v)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidDoc, err)
 	}
@@ -330,7 +331,7 @@ func parseDoc(v any) (*builder.Doc, error) {
 
 // canonDoc round-trips a doc through the validator.
 func canonDoc(d *builder.Doc) (*builder.Doc, error) {
-	raw, err := json.Marshal(d)
+	raw, err := jsonx.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidDoc, err)
 	}
@@ -341,9 +342,9 @@ func canonDoc(d *builder.Doc) (*builder.Doc, error) {
 	return out, nil
 }
 
-// toAny converts a value to its decoded JSON form (numbers as json.Number).
+// toAny converts a value to its decoded JSON form (numbers as their raw text).
 func toAny(v any) (any, error) {
-	raw, err := json.Marshal(v)
+	raw, err := jsonx.Marshal(v)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidDoc, err)
 	}
@@ -521,13 +522,13 @@ func CheckSanitisedLength(doc *builder.Doc) error {
 // the component content of page_doc. A changed doc counts as one in the
 // returned total. The frozen page_sections mirror is only cleaned in place
 // (never created, never re-derived from the doc). Nothing changed returns the input verbatim. Malformed shapes are left alone.
-func SanitizeStoredAttributes(raw json.RawMessage) (json.RawMessage, int, error) {
+func SanitizeStoredAttributes(raw jsontext.Value) (jsontext.Value, int, error) {
 	out, n, err := SanitizeHTMLSections(raw)
 	if err != nil {
 		return raw, 0, err
 	}
 	var root map[string]any
-	if json.Unmarshal(out, &root) != nil {
+	if jsonx.Unmarshal(out, &root, jsonx.StoredLoose) != nil {
 		return out, n, nil
 	}
 	docVal, ok := root[keyDoc].(map[string]any)
@@ -541,7 +542,7 @@ func SanitizeStoredAttributes(raw json.RawMessage) (json.RawMessage, int, error)
 	if root[keyDoc], err = toAny(doc); err != nil {
 		return raw, 0, err
 	}
-	b, err := json.Marshal(root)
+	b, err := jsonx.Marshal(root)
 	if err != nil {
 		return raw, 0, err
 	}
@@ -551,15 +552,15 @@ func SanitizeStoredAttributes(raw json.RawMessage) (json.RawMessage, int, error)
 // NormalizeAttributes is the page_doc write seam as a pure function: the
 // attributes UpdateEntity would store for in against the stored ones. `builder
 // convert` verifies the render of exactly this result and writes it verbatim.
-func NormalizeAttributes(stored, in json.RawMessage) (json.RawMessage, error) {
+func NormalizeAttributes(stored, in jsontext.Value) (jsontext.Value, error) {
 	return normalizeDocRaw(docWrite, stored, in, true)
 }
 
 // SectionsFromAttributes decodes attributes.page_sections with the shared
 // reader, numbers kept exact (used by `builder convert`).
-func SectionsFromAttributes(raw json.RawMessage) ([]builder.Section, error) {
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &m); err != nil {
+func SectionsFromAttributes(raw jsontext.Value) ([]builder.Section, error) {
+	var m map[string]jsontext.Value
+	if err := jsonx.Unmarshal(raw, &m, jsonx.StoredLoose); err != nil {
 		return nil, err
 	}
 	if _, ok := m[keySections]; !ok {
