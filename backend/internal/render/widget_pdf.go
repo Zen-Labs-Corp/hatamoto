@@ -42,6 +42,7 @@ func init() {
 		x := struct {
 			Src, Title, Text, Name string
 			Height                 int
+			Frame                  bool
 		}{Title: str(w.P, "title"), Text: str(w.P, "linktext"), Src: pdfSrc(str(w.P, "src"))}
 		if x.Title == "" {
 			x.Title = "PDF document"
@@ -49,6 +50,7 @@ func init() {
 		x.Height = min(max(intProp(w.P, "height", 600, -1<<30, 1<<30), 200), 2000)
 		if x.Src != "" {
 			x.Name = path.Base(x.Src)
+			x.Frame = !w.View.NoFrames // link only in a sandboxed document
 		}
 		if x.Text == "" {
 			x.Text = "Download PDF" + sizeSuffix(w, x.Src)

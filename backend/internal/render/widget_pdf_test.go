@@ -124,3 +124,20 @@ func TestPDFWidgetCanvasHasNoFrame(t *testing.T) {
 		t.Errorf("canvas: %s", out)
 	}
 }
+
+func TestPDFWidgetSandboxedDocumentHasLinkOnly(t *testing.T) {
+	e, err := New(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := minimalView()
+	v.Doc, v.NoFrames = &builder.Doc{V: 2, Nodes: []*builder.Node{{ID: "p", T: "pdf", P: map[string]any{"src": "/media/b.pdf"}}}}, true
+	var b strings.Builder
+	if err := e.RenderPage(&b, v); err != nil {
+		t.Fatal(err)
+	}
+	out := mainInner(t, b.String())
+	if strings.Contains(out, "<iframe") || !strings.Contains(out, `href="/media/b.pdf"`) {
+		t.Errorf("sandboxed: %s", out)
+	}
+}

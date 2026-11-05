@@ -135,6 +135,7 @@ func (h *renderAdminHandlers) handleRenderPreview(w http.ResponseWriter, r *http
 	}
 	v.Preview = true
 	v.Canvas = req.Canvas
+	v.NoFrames = true // previewSandboxCSP: an opaque origin cannot frame a PDF
 	v.Page.NoIndex = true
 
 	var buf bytes.Buffer

@@ -459,3 +459,17 @@ func TestRenderPreviewInlineScriptBlockedByCSP(t *testing.T) {
 		}
 	}
 }
+
+// A preview is served under previewSandboxCSP (an opaque origin that cannot
+// frame a PDF), so the pdf widget there is a link only.
+func TestRenderPreviewPDFWidgetIsLinkOnly(t *testing.T) {
+	h := newPreviewHandlers(t)
+	w := preview(t, h, `{"schema":"page","attributes":{"page_doc":{"v":2,"nodes":[{"id":"p","t":"pdf","p":{"src":"/media/b.pdf"}}]}}}`)
+	body := w.Body.String()
+	if w.Code != 200 || !strings.Contains(body, `href="/media/b.pdf"`) {
+		t.Fatalf("status %d, no pdf link: %.600s", w.Code, body)
+	}
+	if strings.Contains(body, "<iframe") {
+		t.Error("the sandboxed preview frames the PDF")
+	}
+}

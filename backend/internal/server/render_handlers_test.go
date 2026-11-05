@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/entity"
@@ -892,6 +893,33 @@ func TestRenderCSPFrameSrcAllowsOwnPDFsOnly(t *testing.T) {
 	for _, csp := range []string{renderCSP, renderCSPStrict} {
 		if !strings.Contains(csp, "frame-src 'self' https:;") || !strings.Contains(csp, "object-src 'none'") {
 			t.Errorf("csp: %s", csp)
+		}
+	}
+}
+
+// Pages served under sandboxCSP (a live community script) cannot frame a PDF,
+// so the pdf widget there is a link only; other pages keep the frame.
+func TestPDFWidgetFrameFollowsSandbox(t *testing.T) {
+	for _, live := range []bool{false, true} {
+		engine, err := render.New(render.Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		f := newRenderFixture(t)
+		f.h.engine = engine
+		f.h.communityScripts = func() bool { return live }
+		f.next = okPage("Doc")
+		build := f.h.buildView
+		f.h.buildView = func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error) {
+			v, err := build(ctx, r, rr)
+			if v != nil {
+				v.Doc = &builder.Doc{V: 2, Nodes: []*builder.Node{{ID: "p", T: "pdf", P: map[string]any{"src": "/media/b.pdf"}}}}
+			}
+			return v, err
+		}
+		body := f.get("/p").Body.String()
+		if !strings.Contains(body, `href="/media/b.pdf"`) || strings.Contains(body, "<iframe") == live {
+			t.Errorf("live=%v: iframe=%v link=%v", live, strings.Contains(body, "<iframe"), strings.Contains(body, "href=\"/media/b.pdf\""))
 		}
 	}
 }

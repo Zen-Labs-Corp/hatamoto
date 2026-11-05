@@ -315,7 +315,7 @@ builder script.
   200 to 2000 (default 600). A blank `linktext` reads "Download PDF" plus the file size when the library knows it; an
   author's text is used as written. The canvas shows a static placeholder, never a frame. A PDF media response carries
   `X-Frame-Options: SAMEORIGIN` and `Content-Security-Policy: frame-ancestors 'self'` so the site's own pages can frame
-  it (other sites cannot), and the page CSP allows `frame-src 'self'`. The schema hint `x-hm-accept: "document"` on a
+  it (other sites cannot; pages in a CSP sandbox cannot either, see Known limits), and the page CSP allows `frame-src 'self'`. The schema hint `x-hm-accept: "document"` on a
   media prop makes the inspector open the picker with `?type=document`, which lists PDFs only.
 
 ### Accessibility lint
@@ -329,6 +329,9 @@ render tests; it is not a production dependency.
 
 * The video poster and the map image only take root-relative paths (no third-party request before a click); with an
   absolute `MEDIA_BASE_URL` (a CDN) they are omitted, as the engine does not know the media base.
+* The PDF frame needs the page to be framed by its own origin. The editor preview and every public page served in a
+  CSP sandbox (any page of a site with a live community script) have an opaque origin, so there the PDF widget shows
+  its download link only. A sandbox never gets `allow-same-origin` for this.
 * Images have no width and height (the picker returns a URL only), so layout can shift while they load.
 * `list` and `table` data are text props, less structured than a repeater.
 * `hide` cannot un-hide at a narrower width.

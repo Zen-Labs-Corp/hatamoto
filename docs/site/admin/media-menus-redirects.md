@@ -46,7 +46,7 @@ Open a file and use **Replace file** to put new bytes at the same address. The i
 
 Files can be grouped in folders, one level deep. A folder name is 1 to 60 letters, digits, spaces, hyphens or underscores, and names are not case sensitive. Tick files in the library, then choose a folder or type a new name next to **Move**. You can also set the folder on a file's own page. Files with no folder are **Uncategorised**. A folder exists while it holds files, so it disappears when its last file moves out. To rename a folder, move all its files to a new name. The library, the picker, the REST API (`folder` on the media list), plugins and the `media_upload` MCP tool all use the same folders.
 
-The picker inside a PDF widget lists PDF files only. A PDF can be shown in a frame by your own pages but not by other sites.
+The picker inside a PDF widget lists PDF files only. A PDF can be shown in a frame by your own pages but not by other sites, and not by a page served in a CSP sandbox (the editor preview, sites with a community script); those show a link.
 
 ### Build a menu
 

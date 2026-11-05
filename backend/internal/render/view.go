@@ -148,6 +148,11 @@ type PageView struct {
 	// DraftBanner adds the "Preview of a draft" banner of a shared preview
 	// link (with Preview). It marks no changes.
 	DraftBanner bool
+	// NoFrames marks a document served in a CSP sandbox without
+	// allow-same-origin (editor preview, pages with community scripts): its
+	// opaque origin cannot frame a same-site PDF, so the pdf widget renders its
+	// link only.
+	NoFrames bool
 	// Canvas marks an admin canvas render: html-kind bodies carry data-hm-text
 	// editor markers (see canvas_text.go).
 	Canvas bool
