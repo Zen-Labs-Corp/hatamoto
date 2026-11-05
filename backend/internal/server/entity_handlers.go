@@ -4,6 +4,7 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"net/http"
+	"reflect"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -360,41 +361,77 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input entity.UpdateEntityInput
-	if err := parseJSON(r, &input); err != nil {
+	// position (1-based among the siblings) puts the entity in the manual order;
+	// alone, or with parent_id/clear_parent, it is a move, not an edit.
+	var body struct {
+		entity.UpdateEntityInput
+		Position *int `json:"position"`
+	}
+	if err := parseJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	input := body.UpdateEntityInput
+	// decided before the API-key summary below, which would make every key request look like an edit
+	moveOnly := body.Position != nil && isMoveOnly(input)
 
 	if k, ok := middleware.GetAPIKey(r.Context()); ok {
 		input.ChangeSummary = apiKeySummary(k.Name, input.ChangeSummary)
 	}
 	s.logAPIKeyWrite(r, "update", idStr)
 
-	ent, err := s.entityService.UpdateEntity(r.Context(), id, &claims.UserID, &input)
-	if err != nil {
-		if errors.Is(err, entity.ErrEntityNotFound) {
-			writeError(w, http.StatusNotFound, "entity not found")
+	var ent *entity.Entity
+	if moveOnly {
+		res, err := s.entityService.MoveEntity(r.Context(), id, &claims.UserID, entity.MoveInput{
+			ParentID: input.ParentID, ClearParent: input.ClearParent, Position: *body.Position,
+		})
+		if err != nil {
+			s.writeEntityUpdateError(w, err)
 			return
 		}
-		if errors.Is(err, entity.ErrValidationFailed) {
-			writeError(w, http.StatusBadRequest, err.Error())
+		ent = res.Entity
+	} else {
+		ent, err = s.entityService.UpdateEntity(r.Context(), id, &claims.UserID, &input)
+		if err != nil {
+			s.writeEntityUpdateError(w, err)
 			return
 		}
-		if writeEntityRefError(w, err) {
-			return
+		if body.Position != nil {
+			took := ent.TookOwnership
+			res, err := s.entityService.MoveEntity(r.Context(), id, &claims.UserID, entity.MoveInput{Position: *body.Position})
+			if err != nil {
+				s.writeEntityUpdateError(w, err)
+				return
+			}
+			ent = res.Entity
+			ent.TookOwnership = took
 		}
-		if errors.Is(err, entity.ErrRejectedByPlugin) {
-			writeError(w, http.StatusUnprocessableEntity, err.Error())
-			return
-		}
-		s.logger.Error("failed to update entity", "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to update entity")
-		return
 	}
 	s.logTookOwnership(r, "update", ent, claims.UserID)
 
 	writeJSON(w, http.StatusOK, ent)
+}
+
+// isMoveOnly reports whether in sets nothing but a parent change.
+func isMoveOnly(in entity.UpdateEntityInput) bool {
+	in.ParentID, in.ClearParent, in.ChangeSummary = nil, false, nil
+	return reflect.DeepEqual(in, entity.UpdateEntityInput{})
+}
+
+// writeEntityUpdateError answers a failed update or move.
+func (s *Server) writeEntityUpdateError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, entity.ErrEntityNotFound):
+		writeError(w, http.StatusNotFound, "entity not found")
+	case errors.Is(err, entity.ErrValidationFailed):
+		writeError(w, http.StatusBadRequest, err.Error())
+	case writeEntityRefError(w, err):
+	case errors.Is(err, entity.ErrRejectedByPlugin):
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+	default:
+		s.logger.Error("failed to update entity", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to update entity")
+	}
 }
 
 // handleUpdateEntityStatus changes an entity's status.

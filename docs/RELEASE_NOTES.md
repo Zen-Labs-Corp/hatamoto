@@ -16,6 +16,13 @@ Owners can upload `.woff2` fonts or download a Google font once, then pick body 
 - **Reserved address.** `/fonts/...` is now served by the site, like `/preview` and `/theme`: `/fonts` can no longer be the admin address, and an entry or schema URL under `/fonts/` stops resolving. Move such content to another path before you upgrade. Only `/fonts/<64 hex>.woff2` skips the site-access gate; any other `/fonts/...` page follows the mode.
 - **Migration.** One new table (expand-only). No new dependency, so docs/DEPENDENCIES.md is unchanged. Rollback floor: an older release ignores the table and the chosen family falls back to the system stack.
 
+## Unreleased: Manual order and page tree
+
+Pages, posts and terms can be put in a chosen order. Entities get a **Reorder** page (Move up, Move down, Indent, Outdent as plain forms); terms get the same buttons in Settings > Taxonomies. Agents use `entities_reorder` and `terms_reorder`, and `PATCH /entities/{id}` accepts `position`. Themes opt in with `order: "manual"` in a loop or `query`, and `terms "kind" 10 "manual"`.
+
+- **Behaviour.** Reordering saves no version and keeps `updated_at`; a plugin's page stays the plugin's. Moving to another parent redirects the old address.
+- **Migration.** Two additive columns (`sort_order`, default 0). Rollback floor: unchanged. An older binary ignores them.
+
 ## Unreleased: ads.txt and app-ads.txt
 
 Settings > SEO has a new ads.txt tab (owners only). Write your `ads.txt` and `app-ads.txt` there and the site serves them at `/ads.txt` and `/app-ads.txt` as plain text. Every line is checked on save and a bad one is named ("Line 2: ..."). An empty file answers a plain 404, unless a Settings > Redirects rule has `/ads.txt` as its source: then the redirect applies. A saved file takes precedence over such a rule. The AdSense card in Settings > Tracking links to the tab and adds the AdSense line for the saved id.

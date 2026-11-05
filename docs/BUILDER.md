@@ -503,7 +503,7 @@ every direct child except a `loopempty`). Markup: `<div class="hm-n hm-loop hm-n
 | `context` | boolean: use the page's own schema | off |
 | `term` | `<kind>:<slug>` | none |
 | `author` | person slug | none |
-| `order` | `newest`, `oldest`, `updated`, `name`, `name_desc` | `newest` |
+| `order` | `newest`, `oldest`, `updated`, `name`, `name_desc`, `manual` | `newest` |
 | `limit` | 1 to 48 | 12 |
 | `offset` | 0 to 1000 | 0 |
 | `paging` | `none`, `pages` | `none` |

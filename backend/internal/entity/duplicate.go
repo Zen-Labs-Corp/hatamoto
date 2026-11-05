@@ -93,8 +93,21 @@ func (d *Duplicator) Duplicate(ctx context.Context, userID, srcID uuid.UUID) (*E
 	if err != nil {
 		return nil, err
 	}
+	d.placeAfter(ctx, src, cp)
 	d.copyTerms(ctx, src, cp)
 	return cp, nil
+}
+
+// placeAfter puts the copy right after its source when the source's siblings
+// are manually ordered; otherwise the copy keeps the default place.
+func (d *Duplicator) placeAfter(ctx context.Context, src, cp *Entity) {
+	os, ok := d.svc.entityRepo.(OrderStore)
+	if !ok || src.SortOrder < 1 {
+		return
+	}
+	if _, _, err := os.SetPosition(ctx, cp.ID, src.SortOrder+1); err != nil {
+		d.svc.logger.Warn("duplicate: copy not placed after the source", slog.String("entity_id", cp.ID.String()), slog.String("error", err.Error()))
+	}
 }
 
 func (d *Duplicator) copyTerms(ctx context.Context, src, cp *Entity) {

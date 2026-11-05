@@ -69,7 +69,7 @@ func TestPublicTermsExcludeHiddenPeople(t *testing.T) {
 		t.Errorf("archive lists %d total, items %+v; want only the public person", res.Total, res.Items)
 	}
 
-	terms, err := repo.ListPublicTerms(ctx, "tag", 1000)
+	terms, err := repo.ListPublicTerms(ctx, "tag", 1000, false)
 	if err != nil {
 		t.Fatal(err)
 	}

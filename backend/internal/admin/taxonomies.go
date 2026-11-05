@@ -24,6 +24,7 @@ func (a *Admin) mountTaxonomies(authed *httpx.Group) {
 	owner.HandleFunc("GET /settings/taxonomies/terms/{id}", a.handleTermEdit)
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}", a.handleTermSave)
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/seo", a.handleTermSEOInline)
+	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/move", a.handleTermMove)
 	owner.HandleFunc("GET /settings/taxonomies/terms/{id}/merge", a.handleTermMergeForm)
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/merge", a.handleTermMerge)
 	owner.HandleFunc("GET /settings/taxonomies/terms/{id}/delete", a.handleTermDeleteConfirm)
@@ -167,6 +168,16 @@ func (a *Admin) renderTaxonomies(w http.ResponseWriter, r *http.Request, kind st
 		Empty: ui.Empty{Icon: "tag", Title: "No " + kind + " terms yet", Body: "Add the first one.",
 			Actions: []ui.Button{{Label: "New term", Href: a.adminPath + "/settings/taxonomies/new?kind=" + url.QueryEscape(kind), Variant: "primary", Attrs: map[string]string{"data-hm-open": "new-term"}}}},
 	}
+	var order []orderNode // this kind's terms in tree order, for the move buttons
+	for _, n := range nodes {
+		if n.Kind == kind {
+			p := n.ParentID
+			if n.Depth == 0 {
+				p = nil
+			}
+			order = append(order, orderNode{ID: n.ID, Parent: p})
+		}
+	}
 	for _, n := range nodes {
 		if n.Kind != kind {
 			continue
@@ -179,6 +190,8 @@ func (a *Admin) renderTaxonomies(w http.ResponseWriter, r *http.Request, kind st
 		t.Rows = append(t.Rows, ui.Row{ID: id, Label: label, Cells: []ui.Cell{
 			{Text: n.Name, Depth: min(n.Depth, 8), Link: a.adminPath + "/settings/taxonomies/terms/" + id}, {Text: n.Slug, Mono: true}, {Text: strconv.Itoa(n.Count)},
 		}, Actions: []ui.Action{
+			a.termMoveAction("up", id, n.Name, kind, order), a.termMoveAction("down", id, n.Name, kind, order),
+			a.termMoveAction("indent", id, n.Name, kind, order), a.termMoveAction("outdent", id, n.Name, kind, order),
 			{Label: "Edit", Href: a.adminPath + "/settings/taxonomies/terms/" + id},
 			{Label: "Merge", Href: a.adminPath + "/settings/taxonomies/terms/" + id + "/merge"},
 			{Label: "Delete", Href: a.adminPath + "/settings/taxonomies/terms/" + id + "/delete", Post: a.adminPath + "/settings/taxonomies/terms/" + id + "/delete", Danger: true, ConfirmLabel: "Delete term",

@@ -12,6 +12,7 @@
   "updated_by": "<uuid>",
   "created_at": "<time>",
   "updated_at": "<time>",
+  "sort_order": 0,
   "schema": {
     "id": "<uuid>",
     "name": "ERG Note",

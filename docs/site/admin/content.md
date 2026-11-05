@@ -64,6 +64,16 @@ In this guide you create a piece of content, save it as a draft, publish it and 
 
 3. Send the link to anyone. They see the last saved draft as it will look live, without signing in. Search engines are told not to list it. An item can have up to 10 active links. Revoke a link in the table below and it stops working at once. Published items cannot be shared. A link stops working, and answers "not found", once the item is published, archived or deleted. If the site is private (Site access), its own gate still applies to everyone who is not signed in.
 
+### Reorder pages and posts
+
+1. Open a type's list and choose **Reorder**.
+
+2. Use **Move up**, **Move down**, **Indent** and **Outdent** on a row's actions. Each is a plain button, so it works without JavaScript. Indent puts the entry under the one above it; Outdent moves it back up a level. A type without nested addresses only has Move up and Move down.
+
+3. Nesting stops at 8 levels in the address, and Indent is not offered past that. A published page that changes parent keeps its old address as a redirect.
+
+Moving up or down does not edit the entry: no version is saved, and a page a plugin supplies stays the plugin's. Indent and Outdent change the parent, so they count as an edit: the address changes and a page a plugin supplies becomes yours, with a note on the page and a line in the audit log. Themes show the order with `order: "manual"` in a loop; nothing changes until a theme asks for it.
+
 ### Find, restore and remove content
 
 1. Find your item again. Back in **Entities**, use the search box (it searches titles and addresses), the **Status** filter and the extra filters for author, term and date. The browser address keeps your filters, so you can bookmark the view.

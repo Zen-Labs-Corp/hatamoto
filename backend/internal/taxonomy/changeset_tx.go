@@ -180,8 +180,10 @@ func createTermTx(ctx context.Context, tx pgx.Tx, op TermOp) (TermResult, error)
 	var updated time.Time
 	got, err := withFreeSlug(ctx, tx, kind, slug, uuid.Nil, func(tx pgx.Tx, candidate string) error {
 		return tx.QueryRow(ctx, `
-            INSERT INTO hatamoto_terms (id, kind, slug, name, description, parent_id, locale, seo, origin, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now())
+            INSERT INTO hatamoto_terms (id, kind, slug, name, description, parent_id, locale, seo, origin, created_at, updated_at, sort_order)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now(),
+                (SELECT CASE WHEN COALESCE(MAX(o.sort_order), 0) > 0 THEN MAX(o.sort_order) + 1 ELSE 0 END
+                   FROM hatamoto_terms o WHERE o.kind = $2::varchar(16) AND o.parent_id IS NOT DISTINCT FROM $6::uuid))
             RETURNING updated_at`,
 			id, kind, candidate, name, desc, op.ParentID, locale, seo, origin).Scan(&updated)
 	})
@@ -243,7 +245,10 @@ func updateTermTx(ctx context.Context, tx pgx.Tx, cur termSnapshot, op TermOp) (
 	write := func(tx pgx.Tx, candidate string) error {
 		return tx.QueryRow(ctx, `
             UPDATE hatamoto_terms
-               SET slug = $2, name = $3, description = $4, parent_id = $5, seo = $6, updated_at = now()
+               SET slug = $2, name = $3, description = $4, parent_id = $5, seo = $6, updated_at = now(),
+                   sort_order = CASE WHEN parent_id IS NOT DISTINCT FROM $5::uuid THEN sort_order ELSE
+                       (SELECT COALESCE(MAX(o.sort_order), 0) + 1 FROM hatamoto_terms o
+                         WHERE o.kind = hatamoto_terms.kind AND o.parent_id IS NOT DISTINCT FROM $5::uuid AND o.id <> $1) END
              WHERE id = $1
          RETURNING updated_at`,
 			cur.ID, candidate, name, desc, op.ParentID, seo).Scan(&updated)
@@ -423,8 +428,10 @@ func RestoreChangesetTx(ctx context.Context, tx pgx.Tx, before jsontext.Value) e
 		}
 	}
 	_, err = sp.Exec(ctx, `
-        INSERT INTO hatamoto_terms (id, kind, slug, name, description, parent_id, locale, translation_group, seo, origin, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+        INSERT INTO hatamoto_terms (id, kind, slug, name, description, parent_id, locale, translation_group, seo, origin, created_at, updated_at, sort_order)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(),
+            (SELECT CASE WHEN COALESCE(MAX(o.sort_order), 0) > 0 THEN MAX(o.sort_order) + 1 ELSE 0 END
+               FROM hatamoto_terms o WHERE o.kind = $2::varchar(16) AND o.parent_id IS NOT DISTINCT FROM $6::uuid))
         ON CONFLICT (id) DO UPDATE SET
             slug = EXCLUDED.slug, name = EXCLUDED.name, description = EXCLUDED.description,
             parent_id = EXCLUDED.parent_id, seo = EXCLUDED.seo, updated_at = now()`,

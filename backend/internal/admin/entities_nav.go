@@ -57,11 +57,16 @@ func typePluralFor(slug, name string) string {
 }
 
 // typePlural derives a type's plural title from its name; the schema has no
-// plural field. It covers s, x, ch, sh and consonant+y; irregular names
-// ("Person") come out regular.
+// plural field. A name already ending in a single "s" ("Docs", "News") is
+// plural as it stands; a "u" before it ("Bus", "Status") is singular and gets "es". It
+// also covers ss, x, ch, sh and consonant+y; irregular names ("Person") come
+// out regular.
 func typePlural(name string) string {
 	lower := strings.ToLower(name)
+	pluralS := strings.HasSuffix(lower, "s") && len(lower) > 1 && !strings.ContainsRune("su", rune(lower[len(lower)-2]))
 	switch {
+	case pluralS:
+		return name
 	case strings.HasSuffix(lower, "s"), strings.HasSuffix(lower, "x"), strings.HasSuffix(lower, "ch"), strings.HasSuffix(lower, "sh"):
 		return name + "es"
 	case len(name) > 1 && strings.HasSuffix(lower, "y") && !strings.ContainsRune("aeiou", rune(lower[len(lower)-2])):

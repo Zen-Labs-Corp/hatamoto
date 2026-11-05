@@ -96,27 +96,20 @@ func TestListToolbarIsOneSizedRow(t *testing.T) {
 	}
 }
 
-// At 1440 the segment, search, type select and Filters share one row: above the breakpoint the
-// row does not wrap (the search shrinks instead) and the end group stays right-aligned. table.css
-// sets flex-wrap on .hm-table__filters later in the cascade, so the rule must out-rank it.
-func TestListToolbarStaysOneRowWhenWide(t *testing.T) {
+// A list toolbar wraps instead of overflowing when a tree type adds the Parent select (at 1440 the
+// one-row layout spilled past the viewport and cut the Filters button), and the search keeps room for
+// its placeholder without stretching across a wide row: no nowrap row, a wrapping right-aligned end group,
+// a 13rem search floor and an 18rem cap.
+func TestListToolbarWrapsAndKeepsSearchRoom(t *testing.T) {
 	t.Parallel()
 
 	css := adminAsset(t, "css", "partials", "listbar.css")
-	i := strings.Index(css, "@media (min-width: 1360px)")
-	if i < 0 {
-		t.Fatal("listbar.css: no wide breakpoint for the one-row toolbar")
+	if strings.Contains(css, "nowrap") {
+		t.Error("listbar.css: the row must wrap, not overflow (no flex-wrap: nowrap)")
 	}
-	block := css[i:]
-	if j := strings.Index(block, "\n}"); j >= 0 {
-		block = block[:j]
-	}
-	for _, want := range []string{".hm-listbar.hm-table__filters { flex-wrap: nowrap; }", ".hm-listbar__end { flex: 0 1 auto; }"} {
-		if !strings.Contains(block, want) {
-			t.Errorf("listbar.css wide block lacks %q", want)
-		}
-	}
-	for _, want := range []string{".hm-listbar__end { margin-inline-start: auto; }", ".hm-listbar .hm-table__search { flex: 0 1 260px; }", ".hm-listbar .hm-input-affix > .hm-field__control { min-width: 0; }"} {
+	for _, want := range []string{".hm-listbar__end { flex: 1 1 auto; margin-inline-start: auto; flex-wrap: wrap; justify-content: flex-end; }",
+		".hm-listbar .hm-table__search { flex: 1 1 14rem; min-width: 13rem; max-width: 18rem; }", ".hm-listbar .hm-input-affix > .hm-field__control { min-width: 0; }",
+		".hm-listbar.hm-table__filters .hm-select { flex: 0 1 9rem; min-width: 7rem; }"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("listbar.css lacks %q", want)
 		}

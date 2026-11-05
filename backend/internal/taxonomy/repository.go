@@ -139,8 +139,10 @@ func (r *PostgresRepository) CreateTerm(ctx context.Context, t *Term) error {
 	defer conn.Release()
 	now := time.Now()
 	if _, err := conn.Exec(ctx, `
-        INSERT INTO hatamoto_terms (id, kind, slug, name, description, parent_id, seo, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+        INSERT INTO hatamoto_terms (id, kind, slug, name, description, parent_id, seo, created_at, updated_at, sort_order)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8,
+                (SELECT CASE WHEN COALESCE(MAX(o.sort_order), 0) > 0 THEN MAX(o.sort_order) + 1 ELSE 0 END
+                   FROM hatamoto_terms o WHERE o.kind = $2::varchar(16) AND o.parent_id IS NOT DISTINCT FROM $6::uuid))
     `, t.ID, t.Kind, t.Slug, t.Name, t.Description, t.ParentID, seoJSON, now); err != nil {
 		if uniqueViolation(err) {
 			return ErrTermSlugConflict
@@ -178,7 +180,10 @@ func (r *PostgresRepository) UpdateTerm(ctx context.Context, t *Term) error {
 	defer conn.Release()
 	tag, err := conn.Exec(ctx, `
         UPDATE hatamoto_terms
-           SET slug = $2, name = $3, description = $4, parent_id = $5, seo = $6, updated_at = NOW()
+           SET slug = $2, name = $3, description = $4, parent_id = $5, seo = $6, updated_at = NOW(),
+               sort_order = CASE WHEN parent_id IS NOT DISTINCT FROM $5::uuid THEN sort_order ELSE
+                   (SELECT COALESCE(MAX(o.sort_order), 0) + 1 FROM hatamoto_terms o
+                     WHERE o.kind = hatamoto_terms.kind AND o.parent_id IS NOT DISTINCT FROM $5::uuid AND o.id <> $1) END
          WHERE id = $1
     `, t.ID, t.Slug, t.Name, t.Description, t.ParentID, seoJSON)
 	if err != nil {
@@ -312,7 +317,7 @@ func (r *PostgresRepository) ListTerms(ctx context.Context, kind, search string,
                GROUP BY term_id
           ) c ON c.term_id = t.id
          WHERE %s
-         ORDER BY t.kind, t.name
+         ORDER BY t.kind, t.sort_order, t.name
          LIMIT $%d OFFSET $%d
     `, whereSQL, len(args)-1, len(args))
 
@@ -384,7 +389,7 @@ func (r *PostgresRepository) ListTermsForEntity(ctx context.Context, entityID uu
           FROM hatamoto_terms t
           JOIN hatamoto_entity_terms et ON et.term_id = t.id
          WHERE et.entity_id = $1
-         ORDER BY t.kind, t.name
+         ORDER BY t.kind, t.sort_order, t.name
     `, entityID)
 	if err != nil {
 		return nil, err
@@ -586,13 +591,18 @@ func (r *PostgresRepository) ListEntitiesForTerm(ctx context.Context, termID uui
 }
 
 // ListPublicTerms returns the terms of a kind that have at least one published
-// entity, most used first (name breaks ties), with the published count.
-func (r *PostgresRepository) ListPublicTerms(ctx context.Context, kind string, limit int) ([]*TermWithCount, error) {
+// entity, most used first (name breaks ties) or, with manual, in the owner's
+// order (name breaks ties), with the published count.
+func (r *PostgresRepository) ListPublicTerms(ctx context.Context, kind string, limit int, manual bool) ([]*TermWithCount, error) {
 	conn, err := r.db.GetConn(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Release()
+	order := "COUNT(e.id) DESC, t.name"
+	if manual {
+		order = "t.sort_order, t.name"
+	}
 	rows, err := conn.Query(ctx, `
         SELECT `+termColsT+`, COUNT(e.id)
           FROM hatamoto_terms t
@@ -602,7 +612,7 @@ func (r *PostgresRepository) ListPublicTerms(ctx context.Context, kind string, l
           JOIN hatamoto_entity_schemas s ON s.id = e.schema_id AND `+entity.HiddenPersonFor("$3")+`
          WHERE t.kind = $1
          GROUP BY t.id
-         ORDER BY COUNT(e.id) DESC, t.name
+         ORDER BY `+order+`
          LIMIT $2
     `, kind, limit, entity.VisibleLocales(ctx))
 	if err != nil {
@@ -639,7 +649,7 @@ func (r *PostgresRepository) ListSitemapTerms(ctx context.Context, limit int) ([
 	}
 	defer conn.Release()
 	rows, err := conn.Query(ctx, `
-        SELECT id, kind, slug, name, description, parent_id, created_at, updated_at, seo, last_mod FROM (
+        SELECT id, kind, slug, name, description, parent_id, created_at, updated_at, sort_order, seo, last_mod FROM (
             SELECT `+termColsT+`, GREATEST(t.updated_at, MAX(e.updated_at)) AS last_mod,
                    ROW_NUMBER() OVER (PARTITION BY t.kind ORDER BY t.slug, t.id) AS rn
               FROM hatamoto_terms t
@@ -809,15 +819,15 @@ func FillPaths(ctx context.Context, r Repository, terms ...*Term) error {
 }
 
 // termCols lists the hatamoto_terms columns scanTerm reads, in order.
-const termCols = `id, kind, slug, name, description, parent_id, created_at, updated_at, seo`
+const termCols = `id, kind, slug, name, description, parent_id, created_at, updated_at, sort_order, seo`
 
 // termColsT is termCols for queries that alias the table as t.
-const termColsT = `t.id, t.kind, t.slug, t.name, t.description, t.parent_id, t.created_at, t.updated_at, t.seo`
+const termColsT = `t.id, t.kind, t.slug, t.name, t.description, t.parent_id, t.created_at, t.updated_at, t.sort_order, t.seo`
 
 // termDest returns the Scan destinations matching termCols; the seo jsonb
 // lands in raw and is decoded by decodeTermSEO.
 func termDest(t *Term, raw *[]byte) []any {
-	return []any{&t.ID, &t.Kind, &t.Slug, &t.Name, &t.Description, &t.ParentID, &t.CreatedAt, &t.UpdatedAt, raw}
+	return []any{&t.ID, &t.Kind, &t.Slug, &t.Name, &t.Description, &t.ParentID, &t.CreatedAt, &t.UpdatedAt, &t.SortOrder, raw}
 }
 
 type rowScanner interface{ Scan(dest ...any) error }

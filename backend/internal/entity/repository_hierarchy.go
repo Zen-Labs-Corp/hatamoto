@@ -280,8 +280,12 @@ func (r *PostgresEntityRepository) ImportUpsert(ctx context.Context, rec *Import
 	if created {
 		err = tx.QueryRow(ctx, `
 			INSERT INTO hatamoto_entities (schema_id, name, slug, locale, status, attributes, metadata, version,
-				created_by, updated_by, created_at, updated_at, published_at, author_id, parent_id, byline_person_id, byline_org)
-			VALUES ($1, $2, $3, COALESCE(NULLIF($15::text, ''), public.hatamoto_site_language()), $4, $5, $6, 1, $7, $7, $8, $9, $10, $11, $12, $13, $14)
+				created_by, updated_by, created_at, updated_at, published_at, author_id, parent_id, byline_person_id, byline_org, sort_order)
+			VALUES ($1, $2, $3, COALESCE(NULLIF($15::text, ''), public.hatamoto_site_language()), $4, $5, $6, 1, $7, $7, $8, $9, $10, $11, $12, $13, $14,
+				(SELECT CASE WHEN COALESCE(MAX(o.sort_order), 0) > 0 THEN MAX(o.sort_order) + 1 ELSE 0 END
+			   FROM hatamoto_entities o
+			  WHERE o.schema_id = $1 AND o.parent_id IS NOT DISTINCT FROM $12::uuid
+			    AND o.locale = COALESCE(NULLIF($15::text, ''), public.hatamoto_site_language()) AND o.variant_key IS NULL))
 			RETURNING id, schema_id, name, slug, locale, status, attributes, metadata, version, created_by, updated_by,
 			          created_at, updated_at, published_at, parent_id, author_id, byline_person_id, byline_org`,
 			rec.SchemaID, rec.Name, rec.Slug, rec.Status, rec.Attributes, rec.Metadata,

@@ -355,11 +355,16 @@ func (r *PostgresEntityRepository) Create(ctx context.Context, userID *uuid.UUID
 		INSERT INTO hatamoto_entities (
 			id, schema_id, name, slug, locale, status, attributes, metadata,
 			version, created_by, updated_by, created_at, updated_at, parent_id, author_id,
-			byline_person_id, byline_org, published_at
+			byline_person_id, byline_org, published_at, sort_order
 		) VALUES ($1, $2, $3, $4, COALESCE(NULLIF($15::text, ''), public.hatamoto_site_language()), COALESCE($14::text, 'draft'), $5, $6, 1, $7, $7, $8, $9, $10, $11, $12, $13,
-			CASE WHEN $14::text = 'published' THEN now() END)
+			CASE WHEN $14::text = 'published' THEN now() END,
+			(SELECT CASE WHEN COALESCE(MAX(o.sort_order), 0) > 0 THEN MAX(o.sort_order) + 1 ELSE 0 END
+			   FROM hatamoto_entities o
+			  WHERE o.schema_id = $2 AND o.parent_id IS NOT DISTINCT FROM $10::uuid
+			    AND o.locale = COALESCE(NULLIF($15::text, ''), public.hatamoto_site_language())
+			    AND o.variant_key IS NULL))
 		RETURNING id, schema_id, name, slug, locale, status, attributes, metadata,
-		          version, created_by, updated_by, created_at, updated_at, published_at, parent_id, author_id, byline_person_id, byline_org
+		          version, created_by, updated_by, created_at, updated_at, published_at, parent_id, author_id, byline_person_id, byline_org, sort_order
 	`
 
 	var e Entity
@@ -369,7 +374,7 @@ func (r *PostgresEntityRepository) Create(ctx context.Context, userID *uuid.UUID
 		input.BylinePersonID, input.BylineOrg, statusArg(input.Status), input.Locale,
 	).Scan(
 		&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata,
-		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg,
+		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg, &e.SortOrder,
 	)
 
 	if err != nil {
@@ -396,7 +401,7 @@ func (r *PostgresEntityRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 	query := `
 		SELECT
 			e.id, e.schema_id, e.name, e.slug, e.locale, e.status, e.attributes, e.metadata,
-			e.version, e.created_by, e.updated_by, e.created_at, e.updated_at, e.published_at, e.parent_id, e.author_id, e.byline_person_id, e.byline_org,
+			e.version, e.created_by, e.updated_by, e.created_at, e.updated_at, e.published_at, e.parent_id, e.author_id, e.byline_person_id, e.byline_org, e.sort_order,
 			s.id, s.name, s.slug, s.description, s.schema, s.is_builtin, s.created_at, s.updated_at, s.settings
 		FROM hatamoto_entities e
 		JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
@@ -408,7 +413,7 @@ func (r *PostgresEntityRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 
 	err = conn.QueryRow(ctx, query, id).Scan(
 		&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata,
-		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg,
+		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg, &e.SortOrder,
 		&s.ID, &s.Name, &s.Slug, &s.Description, &s.Schema, &s.IsBuiltin, &s.CreatedAt, &s.UpdatedAt, &s.Settings,
 	)
 
@@ -482,10 +487,11 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 	var currentVersion int
 	var currentAttributes jsontext.Value
 	var prevOrigin, prevStatus string
+	var prevParent *uuid.UUID
 	err = tx.QueryRow(ctx,
-		`SELECT version, attributes, origin, status FROM hatamoto_entities WHERE id = $1 FOR UPDATE`,
+		`SELECT version, attributes, origin, status, parent_id FROM hatamoto_entities WHERE id = $1 FOR UPDATE`,
 		id,
-	).Scan(&currentVersion, &currentAttributes, &prevOrigin, &prevStatus)
+	).Scan(&currentVersion, &currentAttributes, &prevOrigin, &prevStatus, &prevParent)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -566,7 +572,7 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 		    origin = CASE WHEN $17 THEN 'owner' ELSE origin END
 		WHERE id = $1
 		RETURNING id, schema_id, name, slug, locale, status, attributes, metadata,
-		          version, created_by, updated_by, created_at, updated_at, published_at, parent_id, author_id, byline_person_id, byline_org
+		          version, created_by, updated_by, created_at, updated_at, published_at, parent_id, author_id, byline_person_id, byline_org, sort_order
 	`
 
 	var e Entity
@@ -574,7 +580,7 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 		input.ClearParent, input.ParentID, input.ClearAuthor, input.AuthorID,
 		input.ClearBylinePerson, input.BylinePersonID, input.BylineOrg, statusArg(input.Status), input.KeepUpdatedAt, input.Locale, input.TakeOwnership).Scan(
 		&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata,
-		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg,
+		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg, &e.SortOrder,
 	)
 
 	if err != nil {
@@ -588,6 +594,20 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 			return nil, fkViolation(err)
 		}
 		return nil, fmt.Errorf("failed to update entity: %w", err)
+	}
+
+	// A row that moved to another parent lands last among its new siblings.
+	if !sameUUIDPtr(prevParent, e.ParentID) {
+		err = tx.QueryRow(ctx, `
+			UPDATE hatamoto_entities SET sort_order = (
+				SELECT COALESCE(MAX(o.sort_order), 0) + 1 FROM hatamoto_entities o
+				WHERE o.schema_id = $2 AND o.parent_id IS NOT DISTINCT FROM $3::uuid
+				  AND o.locale = $4 AND o.variant_key IS NULL AND o.id <> $1)
+			WHERE id = $1 AND variant_key IS NULL
+			RETURNING sort_order`, id, e.SchemaID, e.ParentID, e.Locale).Scan(&e.SortOrder)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("failed to place the entity among its new siblings: %w", err)
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -970,7 +990,7 @@ func (r *PostgresEntityRepository) CountByParent(ctx context.Context, limit int)
 		var n int
 		if err := rows.Scan(
 			&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata,
-			&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg, &n,
+			&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg, &e.SortOrder, &n,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan parent count: %w", err)
 		}
@@ -1011,13 +1031,13 @@ func (r *PostgresEntityRepository) CountChildren(ctx context.Context, parentIDs 
 
 // listEntityColumns is the admin list projection (scanListEntity order).
 const listEntityColumns = `e.id, e.schema_id, e.name, e.slug, e.locale, e.status, e.attributes, e.metadata,
-		       e.version, e.created_by, e.updated_by, e.created_at, e.updated_at, e.published_at, e.parent_id, e.author_id, e.byline_person_id, e.byline_org`
+		       e.version, e.created_by, e.updated_by, e.created_at, e.updated_at, e.published_at, e.parent_id, e.author_id, e.byline_person_id, e.byline_org, e.sort_order`
 
 func scanListEntity(rows pgx.Rows) (*Entity, error) {
 	var e Entity
 	if err := rows.Scan(
 		&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata,
-		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg,
+		&e.Version, &e.CreatedBy, &e.UpdatedBy, &e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg, &e.SortOrder,
 	); err != nil {
 		return nil, fmt.Errorf("failed to scan entity: %w", err)
 	}
@@ -1112,6 +1132,10 @@ func listOrder(filter *ListEntitiesFilter) string {
 			col = "e.status"
 		case "created":
 			col = "e.created_at"
+		case "manual":
+			// Read-only view of the stored order, siblings grouped under their
+			// parent; the direction toggle does not apply.
+			return "ORDER BY e.parent_id NULLS FIRST, e.sort_order, e.created_at, e.id"
 		case "", "updated":
 		default:
 			asc = false
@@ -1385,4 +1409,12 @@ func (r *PostgresEntityRepository) ScanMentioning(ctx context.Context, id uuid.U
 		}
 	}
 	return rows.Err()
+}
+
+// sameUUIDPtr reports whether two optional ids are equal (both nil counts).
+func sameUUIDPtr(a, b *uuid.UUID) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }

@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 66978,
+      "value": 68025,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -135,6 +135,10 @@
     {
       "reason": "builder chrome review fixes (Fit menu radio items, Add section pill placement, Preview states): editor_js_total_gzip 290019 -> 292701 (+2682 B), editor_js_first_gzip 107862 -> 108180 (+318 B), measured; caps move by the same amount",
       "date": "2026-11-04"
+    },
+    {
+      "reason": "Order page drag handle and visible row-button styles: admin_css_gzip 66978 -> 68025 (+1047 B), measured",
+      "date": "2026-11-05"
     }
   ]
 }

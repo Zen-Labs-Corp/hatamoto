@@ -204,6 +204,36 @@ func (s *Server) registerContent() {
 			return s.summary(ctx, e, false), nil
 		})
 
+	type reorderIn struct {
+		ID          string  `json:"id" jsonschema:"entity id (UUID)"`
+		Position    int     `json:"position" jsonschema:"1-based place among the siblings (same type, parent and language); 0 or less means last"`
+		ParentID    *string `json:"parent_id,omitempty" jsonschema:"move under this parent first (nesting types only); the entity lands last, then at position"`
+		ClearParent bool    `json:"clear_parent,omitempty" jsonschema:"make the entity a top-level one"`
+	}
+	register(s, toolSpec{name: "entities_reorder", description: "Set where a page or post sits among its siblings (same type, parent and language), optionally under another parent. A pure reorder is not an edit: no version is stored, updated_at stays and a plugin's entity stays the plugin's. Moving to another parent changes the address (the old one redirects) and counts as an edit. Loops show this order with order \"manual\".", scope: writeScope, write: true},
+		func(ctx context.Context, key *hmauth.APIKey, in reorderIn) (any, error) {
+			id, err := parseID("id", in.ID)
+			if err != nil {
+				return nil, err
+			}
+			mv := entity.MoveInput{ClearParent: in.ClearParent, Position: in.Position}
+			if in.ParentID != nil {
+				pid, err := parseID("parent_id", *in.ParentID)
+				if err != nil {
+					return nil, err
+				}
+				mv.ParentID = &pid
+			}
+			res, err := s.d.Entities.MoveEntity(ctx, id, key.CreatedBy, mv)
+			if err != nil {
+				return nil, err
+			}
+			if res.Entity.TookOwnership {
+				s.d.Audit.Record(ctx, AuditEntry{KeyID: key.ID, KeyName: key.Name, Tool: "entities_take_over", Args: auditArgs(map[string]string{"id": in.ID})})
+			}
+			return s.summary(ctx, res.Entity, false), nil
+		})
+
 	type updateIn struct {
 		ID            string `json:"id"`
 		Name          string `json:"name,omitempty"`
@@ -409,6 +439,34 @@ func (s *Server) registerTerms() {
 			}
 			s.d.Changed(ctx)
 			return t, nil
+		})
+
+	type termReorderIn struct {
+		ID          string  `json:"id" jsonschema:"term id (UUID)"`
+		Position    int     `json:"position" jsonschema:"1-based place among the terms of the same kind and parent; 0 or less means last"`
+		ParentID    *string `json:"parent_id,omitempty" jsonschema:"move under this parent term (same kind)"`
+		ClearParent bool    `json:"clear_parent,omitempty" jsonschema:"make the term a top-level one"`
+	}
+	register(s, toolSpec{name: "terms_reorder", description: "Set where a tag or category sits among the terms of its kind and parent, optionally under another parent term. Lists that ask for the manual order show it.", scope: hmauth.ScopeWriteTerms, write: true},
+		func(ctx context.Context, _ *hmauth.APIKey, in termReorderIn) (any, error) {
+			id, err := parseID("id", in.ID)
+			if err != nil {
+				return nil, err
+			}
+			mv := taxonomy.MoveInput{ClearParent: in.ClearParent, Position: in.Position}
+			if in.ParentID != nil {
+				pid, err := parseID("parent_id", *in.ParentID)
+				if err != nil {
+					return nil, err
+				}
+				mv.ParentID = &pid
+			}
+			res, err := s.d.Taxonomy.MoveTerm(ctx, id, mv)
+			if err != nil {
+				return nil, termError(err)
+			}
+			s.d.Changed(ctx)
+			return res.Term, nil
 		})
 }
 

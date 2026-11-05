@@ -78,6 +78,10 @@ type Term struct {
 	ParentID    *uuid.UUID `json:"parent_id,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+	// SortOrder is the stored manual order among the term's siblings (same
+	// kind and parent); 0 until an owner orders the set, which leaves the
+	// alphabetical order.
+	SortOrder int `json:"sort_order"`
 
 	// Path is the slash-joined slugs from the root term down to this one
 	// ("tutorials/go"); set by Repository.FillPaths, empty otherwise.

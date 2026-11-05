@@ -235,13 +235,13 @@ func (d *renderData) AttrValues(schema, attr string, limit int) []render.AttrCou
 }
 
 // Terms lists the terms of a kind that have published entities.
-func (d *renderData) Terms(kind string, limit int) []render.TermView {
+func (d *renderData) Terms(kind string, limit int, manual bool) []render.TermView {
 	if !taxonomy.ValidKind(kind) {
 		return nil
 	}
 	ctx, cancel := d.ctx()
 	defer cancel()
-	terms, err := taxonomy.NewPostgresRepository(d.s.db).ListPublicTerms(ctx, kind, limit)
+	terms, err := taxonomy.NewPostgresRepository(d.s.db).ListPublicTerms(ctx, kind, limit, manual)
 	if err != nil {
 		d.fail()
 		d.s.logger.Warn("render: terms", "error", err, "kind", kind)

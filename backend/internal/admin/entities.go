@@ -47,6 +47,9 @@ func (a *Admin) mountEntities(authed *httpx.Group) {
 	authed.HandleFunc("POST /entities/bulk", a.handleEntitiesBulk)
 	authed.HandleFunc("GET /entities/new", a.handleEntityNew)
 	authed.Group("", a.RequireRole("owner", "editor")).HandleFunc("POST /entities/drafts", a.handleEntityDraft)
+	ord := authed.Group("", a.RequireRole("owner", "editor"))
+	ord.HandleFunc("GET /entities/order", a.handleEntityOrder)
+	ord.HandleFunc("POST /entities/{id}/move", a.handleEntityMove)
 	authed.HandleFunc("GET /entities/parent-options", a.handleParentOptions)
 	authed.HandleFunc("POST /entities", a.handleEntityCreate)
 	authed.HandleFunc("GET /entities/{id}", a.handleEntityEdit)
@@ -88,6 +91,7 @@ type entitiesData struct {
 	Description string
 	Menu        *ui.ButtonMenu
 	Primary     *ui.Action
+	Actions     []ui.Button
 	Table       ui.Table
 	// Results is Table without its filter bar: the page renders the bar itself (outside the
 	// swapped results) so a live update keeps an open popover.
@@ -140,7 +144,7 @@ func readListParams(r *http.Request) listParams {
 		p.page = 1
 	}
 	switch p.sortKey {
-	case "name", "status", "updated":
+	case "name", "status", "updated", "manual":
 	default:
 		p.sortKey = "updated"
 		if p.dir == "" {
@@ -172,6 +176,13 @@ func (p listParams) query() url.Values {
 		v.Set("dir", p.dir)
 	}
 	return v
+}
+
+// manualSortable reports whether the list can show this type in its stored
+// manual order: one type is chosen and its entries are not a tree. A tree's
+// stored order is per parent, so a flat list of it would not match the Reorder page.
+func manualSortable(sc *entity.EntitySchema) bool {
+	return sc != nil && !entity.IsReuseSchema(sc) && !schemaIsNested(sc)
 }
 
 // hrefWithout is the list URL with the given params dropped (and paging reset).
@@ -241,7 +252,7 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 
 	f := &entity.ListEntitiesFilter{Search: p.q, Asc: p.dir == "asc", ExcludeSchemaIDs: reuseSchemaIDs(schemas)}
 	switch p.sortKey {
-	case "name", "status":
+	case "name", "status", "manual":
 		f.Sort = p.sortKey
 	default:
 		f.Sort = "updated"
@@ -257,6 +268,9 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	}
 	if s, ok := bySlug[p.typ]; ok {
 		f.SchemaID, resolved = &s.ID, s
+	}
+	if p.sortKey == "manual" && !manualSortable(resolved) {
+		p.sortKey, p.dir, f.Sort, f.Asc = "updated", "desc", "updated", false
 	}
 	if id, err := uuid.Parse(p.author); err == nil {
 		f.PersonID = &id
@@ -323,6 +337,20 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	}
 	if parentOpts := a.parentFilterOptions(ctx, byID, p.under); len(parentOpts) > 1 {
 		primary = append(primary, ui.Filter{Name: "under", Label: "Parent", Options: parentOpts})
+	}
+	if manualSortable(resolved) {
+		// A flat type's entries can be listed in their stored manual order (the Reorder page sets it).
+		sortOpts := []ui.Option{
+			{Value: "updated", Label: "Updated", Selected: p.sortKey == "updated"},
+			{Value: "manual", Label: "Manual order", Selected: p.sortKey == "manual"},
+		}
+		switch p.sortKey {
+		case "name":
+			sortOpts = append(sortOpts, ui.Option{Value: "name", Label: "Title", Selected: true})
+		case "status":
+			sortOpts = append(sortOpts, ui.Option{Value: "status", Label: "Status", Selected: true})
+		}
+		primary = append(primary, ui.Filter{Name: "sort", Label: "Sort", Options: sortOpts})
 	}
 	popover := []ui.Filter{
 		{Name: "from", Label: "Updated from", Input: "date", Value: p.from},
@@ -530,6 +558,9 @@ func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listPar
 		act := a.newTypeAction("New "+strings.ToLower(resolved.Name), resolved.Slug, draftType(resolved))
 		act.Icon = "plus"
 		d.Primary = &act
+		if !entity.IsReuseSchema(resolved) {
+			d.Actions = []ui.Button{{Label: "Reorder", Href: a.adminPath + "/entities/order?type=" + url.QueryEscape(resolved.Slug), Icon: "arrow-up"}}
+		}
 	} else {
 		create := ui.ButtonMenu{ID: "create-menu", Label: "Create", Icon: "plus"}
 		for _, ty := range types {

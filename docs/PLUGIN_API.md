@@ -209,6 +209,8 @@ different repository.
 > site language, e.g. `en-AU`). Plugins built for `^0.5`/`^0.6` still load but see
 > an empty `locale`; rename the field and rebuild against `^0.7`.
 
+Entity reads also carry `sort_order` (the stored manual order among siblings, `0` until an owner orders them). It is additive and not filled by every read path.
+
 ## Calling convention
 
 - The module is a WASI **reactor** (no `_start`; `_initialize` is run once per instance). For Go:

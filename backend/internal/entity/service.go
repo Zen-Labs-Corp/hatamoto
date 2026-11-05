@@ -71,6 +71,7 @@ type Service struct {
 	reuse          ReuseStatus
 	unpublish      *UnpublishStore
 	archived       LiveFunc
+	orderChanged   OrderFunc
 }
 
 // NewService creates a new entity service.

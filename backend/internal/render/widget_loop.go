@@ -50,7 +50,7 @@ func (e *Engine) pagedHead(v *PageView, lp *loopPaged) headView {
 
 var loopOrders = map[string]string{
 	"newest": "-published_at", "oldest": "published_at", "updated": "-updated_at",
-	"name": "name", "name_desc": "-name",
+	"name": "name", "name_desc": "-name", "manual": "manual",
 }
 
 // loopPaged is what the first paged loop of a page reports for the head step

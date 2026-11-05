@@ -43,7 +43,8 @@ type ListFilter struct {
 	// the published ones. Drafts and archived entities never appear.
 	IncludeScheduled bool
 	// Order is "" (newest first), "-published_at", "published_at", "name",
-	// "-name", "updated_at", "-updated_at", "attr:<key>" or "-attr:<key>" (numeric values sort as numbers,
+	// "-name", "updated_at", "-updated_at", "manual" (the stored order, ties by
+	// created_at then id), "-manual", "attr:<key>" or "-attr:<key>" (numeric values sort as numbers,
 	// before the rest; entities lacking the attribute last). Anything else
 	// gives the default order.
 	Order string
@@ -80,6 +81,8 @@ func orderSQL(spec string, arg func(any) string) string {
 		return "e.updated_at " + dir + ", e.id"
 	case spec == "name":
 		return "e.name " + dir + ", e.id"
+	case spec == "manual":
+		return "e.sort_order " + dir + ", e.created_at " + dir + ", e.id " + dir
 	case strings.HasPrefix(spec, "attr:") && ValidAttrKey(spec[5:]):
 		k := arg(spec[5:])
 		return "CASE WHEN e.attributes->>" + k + "::text ~ '" + attrNumberRE + "' THEN (e.attributes->>" + k + "::text)::numeric END " +
