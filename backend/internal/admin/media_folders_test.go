@@ -172,3 +172,29 @@ func TestMediaUploadReportsWhatWasRemovedFromAnSVG(t *testing.T) {
 		t.Errorf("refusal not explained in %q", body)
 	}
 }
+
+// The picker filters by folder with a labelled select that works as a plain GET.
+func TestMediaPickerFiltersByFolder(t *testing.T) {
+	t.Parallel()
+	c, _ := newMediaRig(t)
+	pick := func(path string) string {
+		return c.do("GET", path, "owner-token", nil, map[string]string{"HX-Request": "true", "HX-Target": "hm-picker"}).Body.String()
+	}
+	if body := pick("/admin/media/picker"); strings.Contains(body, `name="folder"`) {
+		t.Error("the folder select shows when no folder exists")
+	}
+	c.post("/admin/media/bulk", url.Values{"action": {"move"}, "new_folder": {"Team"}, "id": {fid(51).String()}})
+
+	body := pick("/admin/media/picker")
+	has(t, body, `<label class="hm-visually-hidden" for="picker-folder">Folder</label>`, `name="folder"`, `<option value="" selected>All folders</option>`, `<option value="Team">Team</option>`, "team.png", "logo.png")
+	body = pick("/admin/media/picker?folder=Team")
+	has(t, body, `<option value="Team" selected>Team</option>`, "team.png")
+	if strings.Contains(body, "logo.png") {
+		t.Error("the picker shows an image outside the folder")
+	}
+	body = pick("/admin/media/picker?folder=%2F")
+	has(t, body, "logo.png")
+	if strings.Contains(body, "team.png") {
+		t.Error("Uncategorised shows an image in a folder")
+	}
+}

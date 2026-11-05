@@ -562,7 +562,7 @@ func (a *Admin) handleMediaUpload(w http.ResponseWriter, r *http.Request) {
 		if len(problems) > 0 {
 			w.Header().Set("HX-Trigger", `{"hm:toast":{"kind":"error","message":`+jsonString(strings.Join(problems, " "))+`}}`)
 		}
-		a.renderPicker(w, r, "", 1)
+		a.renderPicker(w, r, "", "", 1)
 		return
 	}
 	dest := a.adminPath + "/settings/media"
@@ -961,6 +961,8 @@ func (a *Admin) handleMediaBulk(w http.ResponseWriter, r *http.Request) {
 
 type pickerData struct {
 	Q          string
+	Folders    []ui.Option // All folders, Uncategorised and each folder; the active one is selected
+	HasFolders bool
 	Tiles      []mediaTileView
 	Prev, Next string
 	Total      int
@@ -974,19 +976,20 @@ func (a *Admin) handleMediaPicker(w http.ResponseWriter, r *http.Request) {
 		a.unavailable(w, r, "Media")
 		return
 	}
-	a.renderPicker(w, r, strings.TrimSpace(r.URL.Query().Get("q")), pageParam(r))
+	a.renderPicker(w, r, strings.TrimSpace(r.URL.Query().Get("q")), folderParam(r), pageParam(r))
 }
 
-// renderPicker is the contents of the media picker dialog: images matching q,
-// one page at a time. Image fields open it (schemaform's data-hm-media-picker).
-func (a *Admin) renderPicker(w http.ResponseWriter, r *http.Request, q string, page int) {
+// renderPicker is the contents of the media picker dialog: images matching q
+// in folder ("" for every folder), one page at a time. Image fields open it (schemaform's data-hm-media-picker).
+func (a *Admin) renderPicker(w http.ResponseWriter, r *http.Request, q, folder string, page int) {
 	ms := a.deps.Content.Media
-	res, err := ms.List(r.Context(), &media.ListMediaFilter{Search: q, MimeType: "image/"}, pickerPerPage, (page-1)*pickerPerPage)
+	res, err := ms.List(r.Context(), &media.ListMediaFilter{Search: q, MimeType: "image/", Folder: folder}, pickerPerPage, (page-1)*pickerPerPage)
 	if err != nil {
 		a.serverError(w, r, "The media library could not be loaded", err)
 		return
 	}
-	d := pickerData{Q: q, Total: res.Total, MaxMB: ms.Config().MaxSizeMB, Page: page, Pages: max((res.Total+pickerPerPage-1)/pickerPerPage, 1)}
+	named, _, _ := a.mediaFolders(r.Context(), ms)
+	d := pickerData{Q: q, Folders: folderOptions(named, folder, "All folders"), HasFolders: len(named) > 0, Total: res.Total, MaxMB: ms.Config().MaxSizeMB, Page: page, Pages: max((res.Total+pickerPerPage-1)/pickerPerPage, 1)}
 	for _, m := range res.Items {
 		name := m.OriginalFilename
 		if name == "" {
@@ -1002,6 +1005,9 @@ func (a *Admin) renderPicker(w http.ResponseWriter, r *http.Request, q string, p
 		nq := url.Values{"page": {strconv.Itoa(p)}}
 		if q != "" {
 			nq.Set("q", q)
+		}
+		if folder != "" {
+			nq.Set("folder", folderParamValue(folder))
 		}
 		return a.adminPath + "/media/picker?" + nq.Encode()
 	}
