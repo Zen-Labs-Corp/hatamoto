@@ -81,6 +81,24 @@ Content, taxonomy, changeset and settings data, the page builder, imports and JS
 
 **Rollback floor: unchanged.** The previous release reads the new rows the same way.
 
+## Unreleased: Platform JSON on the new encoder
+
+Webhooks, packages, releases, backups, the updater, the supervisor, two-factor, forms, plugin runs and imports now use the same JSON reader and writer as the API. Everything that is signed, verified or sent to a receiver keeps its exact bytes.
+
+- **Agents analytics.** The admin responses for series, top, never fetched, top paths and by status say `[]` or `{}` where they said `null` for an empty list or map.
+- **Author create and update.** The body is read strictly. An unknown field, a field name in the wrong case, a repeated key or data after the JSON value gets 400 with `invalid JSON body`.
+- **Robots policy.** The PUT body is read strictly in the same way, and a body over the size limit gets 413 where it got 400.
+- **Forms.** Form fields, settings, submission data and metadata are stored as `[]` or `{}` instead of `null`. The previous release reads them fine.
+- **Backups and supervisor.** The backup manifest and its sidecar file, and the supervisor `state.json`, write `[]` and `{}` for empty lists and maps. The previous release reads them fine.
+- **Imports.** The stored import options leave out the types list when it means all types. An empty list still means none.
+- **Plugin runs.** A run progress or summary document with invalid UTF-8 is refused. A repeated key is still accepted.
+- **Package registries.** Signing a registry index now also covers a raw `&`, `<` or `>` correctly. Signed indexes made earlier still verify and published registries do not change.
+- **Package errors.** The error wording of package manifest and index parsing (including `ParseMeta`) changed. Plugin, theme and signature manifests are read as tolerantly as before.
+- **Unchanged byte for byte.** Webhook bodies and their HMACs, release records, signed indexes and channel manifests, and passkey data.
+- **Migration.** None.
+
+**Rollback floor: unchanged.** The previous release reads the stored `[]` and `{}` values the same way.
+
 ## Unreleased: Contact button
 
 A new **Contact button** widget in the page builder, and a floating contact button for the whole site (Settings > Contact button, off by default). Both are plain links that open WhatsApp, a phone call, a text message or an email. A blank number or address uses the phone or email from the business details of the page's language. No script runs and nothing is sent to a third party until a visitor taps the link.
