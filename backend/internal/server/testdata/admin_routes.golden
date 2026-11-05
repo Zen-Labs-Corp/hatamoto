@@ -400,6 +400,7 @@ POST /admin/settings/performance -> admin.(*Admin).handlePerformanceSave-fm
 POST /admin/settings/performance/clear -> admin.(*Admin).handlePerformanceClear-fm
 POST /admin/settings/performance/preload -> admin.(*Admin).handlePerformancePreload-fm
 POST /admin/settings/privacy -> admin.(*Admin).handlePrivacySave-fm
+POST /admin/settings/privacy/email-protection -> admin.(*Admin).handleEmailProtectionSave-fm
 POST /admin/settings/redirects -> admin.(*Admin).handleRedirectCreate-fm
 POST /admin/settings/redirects/404/{id}/delete -> admin.(*Admin).handle404Delete-fm
 POST /admin/settings/redirects/404/{id}/ignore -> admin.(*Admin).handle404Ignore-fm
