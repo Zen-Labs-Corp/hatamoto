@@ -372,6 +372,8 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	input := body.UpdateEntityInput
+	// decided before the API-key summary below, which would make every key request look like an edit
+	moveOnly := body.Position != nil && isMoveOnly(input)
 
 	if k, ok := middleware.GetAPIKey(r.Context()); ok {
 		input.ChangeSummary = apiKeySummary(k.Name, input.ChangeSummary)
@@ -379,7 +381,7 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 	s.logAPIKeyWrite(r, "update", idStr)
 
 	var ent *entity.Entity
-	if body.Position != nil && isMoveOnly(input) {
+	if moveOnly {
 		res, err := s.entityService.MoveEntity(r.Context(), id, &claims.UserID, entity.MoveInput{
 			ParentID: input.ParentID, ClearParent: input.ClearParent, Position: *body.Position,
 		})
@@ -412,7 +414,7 @@ func (s *Server) handleUpdateEntity(w http.ResponseWriter, r *http.Request) {
 
 // isMoveOnly reports whether in sets nothing but a parent change.
 func isMoveOnly(in entity.UpdateEntityInput) bool {
-	in.ParentID, in.ClearParent = nil, false
+	in.ParentID, in.ClearParent, in.ChangeSummary = nil, false, nil
 	return reflect.DeepEqual(in, entity.UpdateEntityInput{})
 }
 
