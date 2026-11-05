@@ -44,6 +44,10 @@ REST, admin and MCP responses now say `[]` or `{}` where they used to say `null`
 - **Stricter requests.** A request body with a repeated key, data after the JSON value or invalid UTF-8 gets 400, and field names must match their case exactly.
 - **Plugin bridge limit.** A plugin bridge body over the size limit now gets 413.
 - **MCP text.** `<`, `>` and `&` are no longer escaped in MCP tool output text.
+- **Command-line JSON.** `hatamoto ... --json` output prints `[]` and `{}` for empty lists and maps, where it printed `null`, and no longer escapes `<`, `>` and `&`. A script that tests for `null` needs updating.
+- **Command-line attributes.** `hatamoto entity create --attrs` rejects a JSON object with a repeated key or invalid UTF-8.
+- **JSON-LD checks.** The JSON-LD check (`ValidateJSONLD`, and JSON-LD sent through MCP) rejects a repeated key and data after the JSON value, and reports the block as invalid JSON.
+- **Plugin bridge.** The admin plugin bridge rejects a repeated key, a field name in the wrong case, and data after the JSON value with 400.
 - **Migration.** None.
 
 **Rollback floor: unchanged.** The previous release reads `[]` and `{}` the same way.
