@@ -1,7 +1,7 @@
 package sdk
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"time"
 )
 
@@ -84,7 +84,7 @@ type SiteGraph struct {
 type HeadTag struct {
 	Kind   string            `json:"kind"`
 	Attrs  map[string]string `json:"attrs,omitempty"`
-	JSONLD json.RawMessage   `json:"jsonld,omitempty"`
+	JSONLD jsontext.Value    `json:"jsonld,omitzero"`
 }
 
 // AgentHitEvent is the payload of agent.hit. It deliberately carries no IP
@@ -189,8 +189,8 @@ type EntityDraft struct {
 	Name       string `json:"name"`
 	Slug       string `json:"slug"`
 	// Locale is the entity's BCP 47 tag; the host does not read it back.
-	Locale     string          `json:"locale,omitempty"`
-	Attributes json.RawMessage `json:"attributes"`
+	Locale     string         `json:"locale,omitempty"`
+	Attributes jsontext.Value `json:"attributes"`
 }
 
 // FormSubmittedEvent is the payload of form.submitted. It carries the
@@ -205,7 +205,7 @@ type FormSubmittedEvent struct {
 	SubmittedAt  time.Time      `json:"submitted_at"`
 	// Attribution is where the submitter came from (first and last touch of
 	// the browser tab). Absent when none was recorded. Since SDK 0.14.
-	Attribution *FormAttribution `json:"attribution,omitempty"`
+	Attribution *FormAttribution `json:"attribution,omitzero"`
 }
 
 // FormTouch is one classified visit source of a submission: channel, source,
@@ -220,8 +220,8 @@ type FormTouch struct {
 
 // FormAttribution is the first and last touch carried by FormSubmittedEvent.
 type FormAttribution struct {
-	First *FormTouch `json:"first,omitempty"`
-	Last  *FormTouch `json:"last,omitempty"`
+	First *FormTouch `json:"first,omitzero"`
+	Last  *FormTouch `json:"last,omitzero"`
 }
 
 // PageContext is the value filtered by render.page for one public page view.
@@ -235,7 +235,7 @@ type FormAttribution struct {
 type PageContext struct {
 	Path       string            `json:"path"`
 	Cookies    map[string]string `json:"cookies"`
-	Entity     *EntitySummary    `json:"entity,omitempty"`
+	Entity     *EntitySummary    `json:"entity,omitzero"`
 	Blocks     []Block           `json:"blocks"`
 	Hide       []string          `json:"hide,omitempty"`
 	SetCookies []SetCookie       `json:"set_cookies,omitempty"`
@@ -270,7 +270,7 @@ type Block struct {
 	Title   string         `json:"title,omitempty"`
 	Fields  map[string]any `json:"fields,omitempty"`
 	Content map[string]any `json:"content,omitempty"`
-	Hidden  bool           `json:"hidden,omitempty"`
+	Hidden  bool           `json:"hidden,omitzero"`
 }
 
 // SetCookie is a cookie a render.page filter asks the host to set. The host
@@ -279,7 +279,7 @@ type Block struct {
 type SetCookie struct {
 	Name   string `json:"name"`
 	Value  string `json:"value"`
-	MaxAge int    `json:"max_age,omitempty"`
+	MaxAge int    `json:"max_age,omitzero"`
 	Path   string `json:"path,omitempty"`
 }
 
@@ -310,7 +310,7 @@ type BuilderDataRequest struct {
 type BuilderDataQuery struct {
 	ID     string `json:"id"`
 	Source string `json:"source"`
-	Limit  int    `json:"limit,omitempty"`
+	Limit  int    `json:"limit,omitzero"`
 }
 
 // BuilderDataResult answers one query: Value for a value source, Items for an

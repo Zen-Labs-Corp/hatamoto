@@ -1,7 +1,7 @@
 package sdk
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"slices"
 )
@@ -65,7 +65,7 @@ type Run struct {
 	Cron string `json:"cron,omitempty"`
 	// StandingApproval is the rule the owner may approve once so a cron
 	// started run publishes by itself when everything it staged is inside it.
-	StandingApproval *StandingApproval `json:"standing_approval,omitempty"`
+	StandingApproval *StandingApproval `json:"standing_approval,omitzero"`
 }
 
 // StandingApproval is the policy a run declares for automatic publishing. It
@@ -77,7 +77,7 @@ type StandingApproval struct {
 	Schemas []string `json:"schemas"`
 	// MaxPerHour caps the changes published an hour; 0 means
 	// DefaultStandingPerHour, and the value may not exceed it.
-	MaxPerHour int `json:"max_per_hour,omitempty"`
+	MaxPerHour int `json:"max_per_hour,omitzero"`
 }
 
 func (m Manifest) validateStanding(r Run) error {
@@ -116,7 +116,7 @@ type RunInput struct {
 	Name     string   `json:"name"`
 	Label    string   `json:"label"`
 	Type     string   `json:"type,omitempty"` // text (default), url, number, bool or select
-	Required bool     `json:"required,omitempty"`
+	Required bool     `json:"required,omitzero"`
 	Options  []string `json:"options,omitempty"` // the choices of a select
 }
 
@@ -188,12 +188,12 @@ type RunStepResult struct{}
 
 // RunInfo is the result of run.info.
 type RunInfo struct {
-	RunID  string          `json:"run_id"`
-	Name   string          `json:"name"`
-	Phase  string          `json:"phase"`
-	Cursor string          `json:"cursor"`
-	Params json.RawMessage `json:"params,omitempty"` // the owner's inputs, keyed by input name
-	Hosts  []string        `json:"hosts,omitempty"`  // the hosts the owner confirmed for http.fetch and media.import_url
+	RunID  string         `json:"run_id"`
+	Name   string         `json:"name"`
+	Phase  string         `json:"phase"`
+	Cursor string         `json:"cursor"`
+	Params jsontext.Value `json:"params,omitzero"` // the owner's inputs, keyed by input name
+	Hosts  []string       `json:"hosts,omitempty"` // the hosts the owner confirmed for http.fetch and media.import_url
 	// UploadID is the owner's uploaded file for upload.read, "" when none.
 	UploadID string `json:"upload_id,omitempty"`
 }
@@ -206,14 +206,14 @@ type RunCheckpointArgs struct {
 // RunProgressArgs are the arguments of run.progress.
 type RunProgressArgs struct {
 	Done    int    `json:"done"`
-	Total   int    `json:"total,omitempty"`
+	Total   int    `json:"total,omitzero"`
 	Message string `json:"message,omitempty"`
 }
 
 // RunFinishArgs are the arguments of run.finish. Summary is shown to the
 // owner with the changeset.
 type RunFinishArgs struct {
-	Summary json.RawMessage `json:"summary,omitempty"`
+	Summary jsontext.Value `json:"summary,omitzero"`
 }
 
 // RunFailArgs are the arguments of run.fail.
@@ -256,7 +256,7 @@ type BufferValue struct {
 type BufferListArgs struct {
 	Prefix string `json:"prefix,omitempty"`
 	After  string `json:"after,omitempty"`
-	Limit  int    `json:"limit,omitempty"`
+	Limit  int    `json:"limit,omitzero"`
 }
 
 // BufferKeys is the result of buffer.list; Next is the After value of the
@@ -322,10 +322,10 @@ type EntityUpsert struct {
 	ParentKey string `json:"parent_key,omitempty"`
 	Locale    string `json:"locale,omitempty"`
 	// TranslationOf links the entity into the translation group of another.
-	TranslationOf string          `json:"translation_of,omitempty"`
-	Name          string          `json:"name"`
-	Attributes    json.RawMessage `json:"attributes,omitempty"`
-	SEO           *SEO            `json:"seo,omitempty"`
+	TranslationOf string         `json:"translation_of,omitempty"`
+	Name          string         `json:"name"`
+	Attributes    jsontext.Value `json:"attributes,omitzero"`
+	SEO           *SEO           `json:"seo,omitzero"`
 }
 
 // TermUpsert stages a category, tag or other term.
@@ -385,7 +385,7 @@ type RedirectUpsert struct {
 	SourceKey  string `json:"source_key"`
 	From       string `json:"from"`
 	To         string `json:"to"`
-	StatusCode int    `json:"status_code,omitempty"`
+	StatusCode int    `json:"status_code,omitzero"`
 }
 
 // ChangesetDeleteArgs are the arguments of changeset.delete.
@@ -404,8 +404,8 @@ type UpsertResult struct {
 // Proposal is the argument of changeset.propose: a change to a site setting
 // the owner signs off separately. Kind must be listed in the run's proposes.
 type Proposal struct {
-	Kind    string          `json:"kind"`
-	Payload json.RawMessage `json:"payload"`
+	Kind    string         `json:"kind"`
+	Payload jsontext.Value `json:"payload"`
 }
 
 func boolInt(b bool) int {
