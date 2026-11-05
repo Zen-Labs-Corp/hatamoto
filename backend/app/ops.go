@@ -44,9 +44,10 @@ const opsUsage = `  entity list [--schema S] [--status S] [--search Q] [--limit 
   import wordpress (--url URL --user U --app-password P | --wxr FILE) [--scan-only] [--resume RUN] [--audit-url URL]
                                             import a WordPress site (docs/IMPORT-WORDPRESS.md)
   backup create [--config P]                full backup into $HATAMOTO_DATA/backups (needs DATABASE_URL and pg_dump); holds secrets
-  backup list [--json]                      backups on disk (no database needed)
+  backup list [--json] [--remote]           backups on disk, or in the off-site bucket with --remote (no database needed)
   backup delete <id>                        remove one backup
-  backup restore <id|path.tar> [--dry-run] --admin-url DSN [--config-out P]   rebuild a clean machine from a backup`
+  backup restore <id|path.tar> [--dry-run] --admin-url DSN [--config-out P]   rebuild a clean machine from a backup
+  backup restore --from-offsite <id> ...    same, downloading the backup from the off-site bucket (target in HATAMOTO_OFFSITE_*)`
 
 // runOps runs the entity, redirect, analytics, export and import commands
 // against DATABASE_URL, over the same services the API and MCP server use.
