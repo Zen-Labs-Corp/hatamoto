@@ -224,3 +224,16 @@ func TestRunNowManualOnlyRefusesWithoutManualVariant(t *testing.T) {
 		t.Fatalf("%d runs recorded, want none", n)
 	}
 }
+
+func TestJobsNextIsNeverInThePast(t *testing.T) {
+	s, _ := startedScheduler(t)
+	scheduleFar(t, s, "publish", func(context.Context) error { return nil })
+	s.setNext("publish", time.Now().Add(-150*time.Minute))
+	jobs := s.Jobs()
+	if len(jobs) != 1 {
+		t.Fatalf("jobs = %v", jobs)
+	}
+	if d := time.Until(jobs[0].Next); d <= 0 || d > time.Hour {
+		t.Fatalf("next in %v, want within the next hour", d)
+	}
+}

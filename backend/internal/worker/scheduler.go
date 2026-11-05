@@ -422,11 +422,18 @@ func (s *Scheduler) Jobs() []JobInfo {
 	s.jobsMu.Lock()
 	defer s.jobsMu.Unlock()
 	out := make([]JobInfo, 0, len(s.jobs))
+	now := time.Now()
 	for id, st := range s.jobs {
 		if st.fn == nil {
 			continue
 		}
-		out = append(out, JobInfo{ID: id, Every: st.every, Jitter: st.jitter, Next: st.next, Running: st.running.Load()})
+		next := st.next
+		// The loop sets next before a run starts, so while a run is under way
+		// (or queued behind Run now) it is already past: show the tick after.
+		if !next.IsZero() && st.every > 0 && !next.After(now) {
+			next = next.Add((now.Sub(next)/st.every + 1) * st.every)
+		}
+		out = append(out, JobInfo{ID: id, Every: st.every, Jitter: st.jitter, Next: next, Running: st.running.Load()})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
