@@ -3,7 +3,6 @@ package pluginhost
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -16,6 +15,7 @@ import (
 	"sync/atomic"
 	"unicode/utf8"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/wasmhost"
 	"hatamoto.dev/sdk"
 )
@@ -126,7 +126,7 @@ func (g *RouteRegistry) Plugins() []string {
 func writeJSONError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	_ = jsonx.Encode(w, map[string]string{"error": msg})
 }
 
 // Serve handles the request for plugin; rest is the path below the mount
@@ -194,7 +194,7 @@ func (g *RouteRegistry) Serve(w http.ResponseWriter, r *http.Request, plugin, re
 	} else {
 		req.BodyB64 = base64.StdEncoding.EncodeToString(body)
 	}
-	in, _ := json.Marshal(req)
+	in, _ := jsonx.MarshalPinned(req)
 	out, err := g.call(r.Context(), plugin, routeExport, in)
 	if err != nil {
 		status := http.StatusBadGateway
@@ -206,7 +206,7 @@ func (g *RouteRegistry) Serve(w http.ResponseWriter, r *http.Request, plugin, re
 		return
 	}
 	var res sdk.HTTPResponse
-	if err := json.Unmarshal(out, &res); err != nil {
+	if err := jsonx.UnmarshalPinned(out, &res); err != nil {
 		g.log.Warn("plugin route: bad response", slog.String("plugin", plugin), slog.Any("error", err))
 		writeJSONError(w, http.StatusBadGateway, "plugin error")
 		return

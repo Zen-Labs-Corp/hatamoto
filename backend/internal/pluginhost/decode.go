@@ -2,12 +2,13 @@ package pluginhost
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
 	"reflect"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -48,11 +49,11 @@ func shapeOf(v any) shape {
 // check scans raw and fails as soon as it exceeds a limit, so memory use is
 // bounded by the limits rather than by the document.
 func (s shape) check(raw []byte) error {
-	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec := jsontext.NewDecoder(bytes.NewReader(raw), jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(true))
 	var counts []int // per open container: array element count, -1 for objects
 	tokens := 0
 	for {
-		tok, err := dec.Token()
+		tok, err := dec.ReadToken()
 		if errors.Is(err, io.EOF) {
 			if len(counts) > 0 {
 				return io.ErrUnexpectedEOF
@@ -65,8 +66,9 @@ func (s shape) check(raw []byte) error {
 		if tokens++; tokens > s.maxTokens {
 			return fmt.Errorf("more than %d JSON tokens", s.maxTokens)
 		}
-		d, isDelim := tok.(json.Delim)
-		if isDelim && (d == ']' || d == '}') {
+		k := tok.Kind()
+		isDelim := k == '{' || k == '['
+		if k == '}' || k == ']' {
 			counts = counts[:len(counts)-1]
 			continue
 		}
@@ -79,7 +81,7 @@ func (s shape) check(raw []byte) error {
 			if len(counts) >= s.maxDepth {
 				return fmt.Errorf("nesting deeper than %d", s.maxDepth)
 			}
-			if d == '[' {
+			if k == '[' {
 				counts = append(counts, 0)
 			} else {
 				counts = append(counts, -1)
@@ -96,22 +98,22 @@ func decodeOutput(v any, in, out []byte) (any, error) {
 	if err := shapeOf(v).check(out); err != nil {
 		return nil, err
 	}
-	var base, over map[string]json.RawMessage
-	if err := json.Unmarshal(in, &base); err != nil {
+	var base, over map[string]jsontext.Value
+	if err := jsonx.UnmarshalPinned(in, &base); err != nil {
 		return nil, err
 	}
-	if err := json.Unmarshal(out, &over); err != nil {
+	if err := jsonx.UnmarshalPinned(out, &over); err != nil {
 		return nil, err
 	}
 	for k, val := range over {
 		base[k] = val
 	}
-	merged, err := json.Marshal(base)
+	merged, err := jsonx.MarshalPinned(base)
 	if err != nil {
 		return nil, err
 	}
 	res := reflect.New(reflect.TypeOf(v))
-	if err := json.Unmarshal(merged, res.Interface()); err != nil {
+	if err := jsonx.UnmarshalPinned(merged, res.Interface()); err != nil {
 		return nil, err
 	}
 	return res.Elem().Interface(), nil
