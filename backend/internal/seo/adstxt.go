@@ -61,7 +61,8 @@ func adsLineError(raw string) string {
 	if line == "" {
 		return ""
 	}
-	if name, value, ok := strings.Cut(line, "="); ok {
+	name, value, isVar := strings.Cut(line, "=")
+	if isVar && !strings.Contains(name, ",") {
 		if !adsVariable[strings.ToLower(strings.TrimSpace(name))] {
 			return "use CONTACT, SUBDOMAIN, INVENTORYPARTNERDOMAIN, OWNERDOMAIN, MANAGERDOMAIN or a record."
 		}
@@ -70,7 +71,12 @@ func adsLineError(raw string) string {
 		}
 		return ""
 	}
+	// Extension data follows a ";" and is not part of the record.
+	line, _, _ = strings.Cut(line, ";")
 	f := strings.Split(line, ",")
+	if len(f) == 4 && strings.TrimSpace(f[3]) == "" {
+		f = f[:3] // an empty optional certification id
+	}
 	if len(f) < 3 || len(f) > 4 {
 		return "a record needs a domain, an account id, DIRECT or RESELLER, and an optional certification id."
 	}

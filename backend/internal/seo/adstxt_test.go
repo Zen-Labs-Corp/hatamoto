@@ -12,6 +12,11 @@ func TestValidateAdsTxt(t *testing.T) {
 		"google.com, pub-1, reseller\r\nad-sys.example.co.uk, a.b-c, RESELLER, abc-1 # note\n",
 		"CONTACT=ads@example.com\nsubdomain=news.example.com\nINVENTORYPARTNERDOMAIN=x.com\nOWNERDOMAIN=a.com\nMANAGERDOMAIN=b.com\n",
 		"\tgoogle.com,\tpub-1,\tDIRECT\n",
+		"google.com, pub-1, DIRECT, f08c47fec0942fa0;extension\n",
+		"google.com, pub-1, DIRECT, f08c47fec0942fa0;key=value;x\n",
+		"google.com, pub-1, RESELLER;a=b\n",
+		"google.com, pub-1, DIRECT,\n",
+		"google.com, pub-1, DIRECT, # note\n",
 	}
 	for _, s := range ok {
 		if errs := ValidateAdsTxt("f", s); len(errs) != 0 {
@@ -24,6 +29,8 @@ func TestValidateAdsTxt(t *testing.T) {
 		"google.com, pub 1, DIRECT\n":           "Line 1: the account id",
 		"google.com, pub-1\n":                   "Line 1: a record needs",
 		"google.com, pub-1, DIRECT, a b\n":      "Line 1: the certification id",
+		"google.com, pub-1, DIRECT, a b;ext\n":  "Line 1: the certification id",
+		"google.com, pub-1, DIRECT, a, b\n":     "Line 1: a record needs",
 		"FOO=bar\n":                             "Line 1: use CONTACT",
 		"CONTACT=\n":                            "Line 1: CONTACT needs a value.",
 		"google.com, pub-1, DIRECT\x01\n":       "Line 1: remove the control character.",
