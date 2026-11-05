@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json/jsontext"
 	"html/template"
+	"strings"
 	"sync/atomic"
 
 	"hatamoto.dev/core/internal/jsonx"
@@ -53,6 +54,25 @@ func CustomCSSName(css string) string {
 	}
 	sum := sha256.Sum256([]byte(body))
 	return "custom." + hex.EncodeToString(sum[:])[:12] + ".css"
+}
+
+// isCustomCSSName reports whether name has the exact shape CustomCSSName
+// produces, so other files such as a theme's custom.css are not claimed.
+func isCustomCSSName(name string) bool {
+	h, ok := strings.CutPrefix(name, "custom.")
+	if !ok {
+		return false
+	}
+	h, ok = strings.CutSuffix(h, ".css")
+	if !ok || len(h) != 12 {
+		return false
+	}
+	for i := 0; i < len(h); i++ {
+		if c := h[i]; (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 // customCSS returns the current stylesheet and its file name; ok is false when

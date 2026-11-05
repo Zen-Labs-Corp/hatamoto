@@ -2,10 +2,12 @@ package render
 
 import (
 	"context"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
 
 const testCustomCSS = "a{color:red}\n"
@@ -77,5 +79,22 @@ func TestAssetHandlerCustomCSS(t *testing.T) {
 	css = "@import 'x';" // refused at serve time too
 	if w := get(CustomCSSName("@import 'x';")); w.Code != http.StatusNotFound || CustomCSSName(css) != "" {
 		t.Errorf("refused CSS served: %d", w.Code)
+	}
+}
+
+func TestAssetHandlerThemeCustomCSSNotShadowed(t *testing.T) {
+	layer := fstest.MapFS{
+		"assets/custom.css":      mapFile(".t{}"),
+		"assets/custom.blog.css": mapFile(".b{}"),
+	}
+	h := newTestEngine(t, Options{Layers: []fs.FS{layer}}).AssetHandler()
+	t.Cleanup(func() { SetCustomCSS(nil) })
+	SetCustomCSS(func(context.Context) string { return testCustomCSS })
+	for name, want := range map[string]string{"custom.css": ".t{}", "custom.blog.css": ".b{}"} {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, AssetPrefix+name, nil))
+		if w.Code != http.StatusOK || w.Body.String() != want {
+			t.Errorf("%s: %d %q, want 200 %q", name, w.Code, w.Body.String(), want)
+		}
 	}
 }

@@ -168,7 +168,7 @@ func (h *assetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.serve(w, r, name, tagsScript(cfg), cacheShort)
-	case strings.HasPrefix(name, "custom.") && strings.HasSuffix(name, ".css"):
+	case isCustomCSSName(name):
 		body, cur, ok := customCSS(r.Context())
 		if !ok || name != cur {
 			http.NotFound(w, r)
