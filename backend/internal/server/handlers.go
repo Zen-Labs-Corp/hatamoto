@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
@@ -275,10 +277,22 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 		Name     string `json:"name"`
 		Role     string `json:"role"`
+		// AccessEndsAt is an RFC 3339 instant with a zone; owners only.
+		AccessEndsAt *time.Time `json:"access_ends_at"`
 	}
 	if err := parseJSON(r, &input); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
+	}
+	if input.AccessEndsAt != nil {
+		if claims.Role != string(user.RoleOwner) {
+			writeError(w, http.StatusForbidden, "only owners can set an access end date")
+			return
+		}
+		if user.ValidateAccessEnd(*input.AccessEndsAt, time.Now()) != nil {
+			writeError(w, http.StatusBadRequest, "access_ends_at must be in the future")
+			return
+		}
 	}
 
 	role, err := user.ParseRole(input.Role)
@@ -305,15 +319,24 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Password: input.Password,
 		Role:     role,
 		Name:     input.Name,
+
+		AccessEndsAt: input.AccessEndsAt,
 	}, passwordHash)
 	if err != nil {
 		if errors.Is(err, user.ErrEmailAlreadyExists) {
 			writeError(w, http.StatusConflict, "email already exists")
 			return
 		}
+		if errors.Is(err, user.ErrLastOwner) {
+			writeError(w, http.StatusConflict, "another owner without an end date is needed first")
+			return
+		}
 		s.logger.Error("failed to create user", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create user")
 		return
+	}
+	if input.AccessEndsAt != nil {
+		s.auditAccessChange(r, claims, u.Email, nil, input.AccessEndsAt, "created")
 	}
 
 	writeJSON(w, http.StatusCreated, u)
@@ -366,18 +389,77 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The end date is owner only, and a changed value must be in the future.
+	var before *user.User
+	if input.AccessEndsAt.Set {
+		if claims.Role != string(user.RoleOwner) {
+			writeError(w, http.StatusForbidden, "only owners can set an access end date")
+			return
+		}
+		if t := input.AccessEndsAt.At; t != nil && user.ValidateAccessEnd(*t, time.Now()) != nil {
+			writeError(w, http.StatusBadRequest, "access_ends_at must be in the future")
+			return
+		}
+		if before, err = s.userRepo.GetByID(r.Context(), id); err != nil {
+			if errors.Is(err, user.ErrUserNotFound) {
+				writeError(w, http.StatusNotFound, "user not found")
+				return
+			}
+			s.logger.Error("failed to get user", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to update user")
+			return
+		}
+	}
+
 	u, err := s.userRepo.Update(r.Context(), id, &input)
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
 			writeError(w, http.StatusNotFound, "user not found")
 			return
 		}
+		if errors.Is(err, user.ErrLastOwner) {
+			msg := "cannot remove or demote the last owner"
+			if input.AccessEndsAt.Set && input.AccessEndsAt.At != nil {
+				msg = "another owner without an end date is needed first"
+			}
+			writeError(w, http.StatusConflict, msg)
+			return
+		}
 		s.logger.Error("failed to update user", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update user")
 		return
 	}
+	if before != nil && !sameAccessEnd(before.AccessEndsAt, u.AccessEndsAt) {
+		s.auditAccessChange(r, claims, u.Email, before.AccessEndsAt, u.AccessEndsAt, "")
+	}
 
 	writeJSON(w, http.StatusOK, u)
+}
+
+func sameAccessEnd(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Equal(*b)
+}
+
+// auditAccessChange records a set, change or clear of a user's access end, in
+// the same shape as the admin screens. how is "created" for a new user.
+func (s *Server) auditAccessChange(r *http.Request, claims *auth.Claims, target string, from, to *time.Time, how string) {
+	text := func(t *time.Time) any {
+		if t == nil {
+			return nil
+		}
+		return t.UTC().Format(time.RFC3339)
+	}
+	detail := map[string]any{"from": text(from), "to": text(to)}
+	if how != "" {
+		detail[how] = true
+	}
+	s.adminAudit(r.Context(), admin.AuditEvent{
+		ActorID: claims.UserID.String(), Actor: claims.Email,
+		Action: "user.access_changed", Target: target, Detail: detail,
+	})
 }
 
 // handleDeleteUser deletes a specific user.
