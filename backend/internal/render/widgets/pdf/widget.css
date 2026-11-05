@@ -1,0 +1,32 @@
+/* pdf: the download link comes first in the DOM; the frame is desktop only */
+.hm-pdf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hm-space-2, 0.5rem);
+}
+.hm-pdf__frame {
+  width: 100%;
+  border: 0;
+  background: var(--hm-surface, #f5f5f5);
+}
+.hm-pdf__link {
+  align-self: flex-start;
+}
+.hm-pdf__ph {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  border: 1px dashed currentColor;
+}
+@media (max-width: 767.98px) {
+  .hm-pdf__frame {
+    display: none;
+  }
+  .hm-pdf__link {
+    align-self: stretch;
+    text-align: center;
+    padding: var(--hm-space-3, 0.75rem);
+    border: 1px solid currentColor;
+    border-radius: var(--hm-radius-md, 0.5rem);
+  }
+}

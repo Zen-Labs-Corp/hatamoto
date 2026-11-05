@@ -146,7 +146,7 @@ var noElementProps = map[string]bool{"component": true, "ref": true, "slot": tru
 var noAriaKinds = map[string]bool{
 	"text": true, "icon": true, "menu": true, "breadcrumbs": true, "tabpanel": true,
 	"gallery": true, "columns": true, "buttons": true, "stat": true, "accordion": true, "tabs": true,
-	"loop": true, "loopempty": true, "html": true, "richtext": true, "form": true, "video": true,
+	"loop": true, "loopempty": true, "html": true, "richtext": true, "form": true, "video": true, "pdf": true,
 }
 
 // universalFor lists the universal keys a kind schema gets.

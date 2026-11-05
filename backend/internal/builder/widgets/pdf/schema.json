@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "PDF",
+    "hint": "A PDF from the media library shown in the browser's viewer",
+    "group": "Media",
+    "order": 60,
+    "default": {"title": "PDF document", "height": 600}
+  },
+  "properties": {
+    "src": {"type": "string", "maxLength": 2048, "x-hm-widget": "media", "x-hm-accept": "document"},
+    "title": {"x-hm-bind": "text", "type": "string", "maxLength": 200},
+    "height": {"type": "integer", "minimum": 200, "maximum": 2000},
+    "linktext": {"type": "string", "maxLength": 200},
+    "hidden": {"type": "boolean"}
+  }
+}

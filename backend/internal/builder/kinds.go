@@ -63,7 +63,7 @@ type KindInfo struct {
 var naturalDisplay = map[string]string{
 	"container": "flex", "ref": "flex", "button": "inline-block", "icon": "inline-block", "contactbutton": "inline-block", "table": "table",
 	"columns": "grid", "gallery": "grid",
-	"buttons": "flex", "stat": "flex", "loop": "flex", "loopempty": "flex",
+	"buttons": "flex", "stat": "flex", "loop": "flex", "loopempty": "flex", "pdf": "flex",
 }
 
 // paletteOrder is the order Kinds reports. A kind added to the registry
