@@ -81,6 +81,8 @@ func TestContactButtonValidate(t *testing.T) {
 		{Channel: "email", Position: "bottom-left", To: "a@example.com\nbcc: x"},
 		{Channel: "email", Position: "bottom-left", To: "Bob <a@example.com>"},
 		{Channel: "email", Position: "bottom-left", To: "nope"},
+		{Channel: "email", Position: "bottom-left", To: "a%2Cevil@example.com"},
+		{Channel: "email", Position: "bottom-left", To: "a#b@example.com"},
 	}
 	for _, c := range bad {
 		if e := c.Validate(); len(e) != 1 || e[0].Field != "to" {

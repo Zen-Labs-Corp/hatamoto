@@ -41,7 +41,7 @@ func Tel(digits string, international bool) string {
 // headers or query parameters to a mailto: link, or that mail clients decode
 // inside the address part ("%", "#"), are refused.
 func ValidMailbox(s string) bool {
-	if s == "" || strings.ContainsAny(s, "?&,;\r\n<> ") {
+	if s == "" || strings.ContainsAny(s, "?&,;%#\r\n<> ") {
 		return false
 	}
 	a, err := mail.ParseAddress(s)

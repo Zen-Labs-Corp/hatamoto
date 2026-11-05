@@ -24,6 +24,8 @@ func TestContactLink(t *testing.T) {
 		{"too long", "call", "1234567890123456", "", ""},
 		{"header injection", "email", "a@example.com?bcc=x@y.z", "", ""},
 		{"newline", "email", "a@example.com\nbcc:x@y.z", "", ""},
+		{"percent-encoded recipient", "email", "a%2Cevil@example.com", "", ""},
+		{"fragment", "email", "a#b@example.com", "x", ""},
 		{"list", "email", "a@example.com,b@example.com", "", ""},
 		{"unknown channel", "fax", "0791234567", "", ""},
 	}

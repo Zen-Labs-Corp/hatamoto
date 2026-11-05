@@ -24,3 +24,19 @@ func TestPhone(t *testing.T) {
 		}
 	}
 }
+
+func TestValidMailbox(t *testing.T) {
+	for in, want := range map[string]bool{
+		"a@example.com":           true,
+		"a%2Cevil@example.com":    false,
+		"a%3Fbcc=x@example.com":   false,
+		"a#b@example.com":         false,
+		"a@example.com?bcc=x@y.z": false,
+		"a@example.com,b@c.d":     false,
+		"":                        false,
+	} {
+		if got := ValidMailbox(in); got != want {
+			t.Errorf("ValidMailbox(%q) = %v, want %v", in, got, want)
+		}
+	}
+}
