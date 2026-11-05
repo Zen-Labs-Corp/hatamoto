@@ -1,7 +1,8 @@
 package main
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -75,7 +76,8 @@ func (f *fakeSite) serve(w http.ResponseWriter, r *http.Request) {
 	reply := func(code int, v any) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(code)
-		_ = json.NewEncoder(w).Encode(v)
+		_ = jsonv2.MarshalWrite(w, v, jsonv2.Deterministic(true))
+		_, _ = w.Write([]byte("\n"))
 	}
 	find := func(id string) *Entity {
 		for _, e := range f.ents {
@@ -114,12 +116,12 @@ func (f *fakeSite) serve(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodPost && path == "":
 		var in struct {
 			SchemaID, Name, Slug, ParentID string
-			Attributes                     json.RawMessage
+			Attributes                     jsontext.Value
 		}
-		var raw map[string]json.RawMessage
-		_ = json.NewDecoder(r.Body).Decode(&raw)
+		var raw map[string]jsontext.Value
+		_ = jsonv2.UnmarshalRead(r.Body, &raw, ciNames)
 		for k, dst := range map[string]*string{"schema_id": &in.SchemaID, "name": &in.Name, "slug": &in.Slug, "parent_id": &in.ParentID} {
-			_ = json.Unmarshal(raw[k], dst)
+			_ = jsonv2.Unmarshal(raw[k], dst, ciNames)
 		}
 		in.Attributes = raw["attributes"]
 		if in.ParentID != "" && find(in.ParentID) == nil {
@@ -143,7 +145,7 @@ func (f *fakeSite) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var in struct{ Status string }
-		_ = json.NewDecoder(r.Body).Decode(&in)
+		_ = jsonv2.UnmarshalRead(r.Body, &in, ciNames)
 		e.Status = in.Status
 		reply(200, e)
 	case r.Method == http.MethodPatch:
@@ -154,9 +156,9 @@ func (f *fakeSite) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		var in struct {
 			Name       string
-			Attributes json.RawMessage
+			Attributes jsontext.Value
 		}
-		_ = json.NewDecoder(r.Body).Decode(&in)
+		_ = jsonv2.UnmarshalRead(r.Body, &in, ciNames)
 		e.Name, e.Attributes = in.Name, in.Attributes
 		reply(200, e)
 	default:

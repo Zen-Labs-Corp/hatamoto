@@ -3,7 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -198,17 +199,17 @@ func (s *stack) route(w http.ResponseWriter, r *http.Request) {
 	}
 	body, _ := io.ReadAll(r.Body)
 	var req struct {
-		ID     *int            `json:"id"`
-		Method string          `json:"method"`
-		Params json.RawMessage `json:"params"`
+		ID     *int           `json:"id"`
+		Method string         `json:"method"`
+		Params jsontext.Value `json:"params"`
 	}
-	_ = json.Unmarshal(body, &req)
+	_ = jsonv2.Unmarshal(body, &req, ciNames)
 	if req.Method != "initialize" && r.Header.Get("Mcp-Session-Id") != "sess-1" {
 		http.Error(w, "no session", http.StatusBadRequest)
 		return
 	}
 	reply := func(result any) {
-		b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
+		b, _ := jsonv2.Marshal(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result}, jsonv2.Deterministic(true))
 		if s.sse {
 			w.Header().Set("Content-Type", "text/event-stream")
 			fmt.Fprintf(w, "event: message\ndata: %s\n\n", b)
@@ -218,7 +219,7 @@ func (s *stack) route(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(b)
 	}
 	text := func(v any, isErr bool) {
-		b, _ := json.Marshal(v)
+		b, _ := jsonv2.Marshal(v, jsonv2.Deterministic(true))
 		reply(map[string]any{"isError": isErr, "content": []map[string]string{{"type": "text", "text": string(b)}}})
 	}
 	switch req.Method {
@@ -229,10 +230,10 @@ func (s *stack) route(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 	case "tools/call":
 		var p struct {
-			Name      string          `json:"name"`
-			Arguments json.RawMessage `json:"arguments"`
+			Name      string         `json:"name"`
+			Arguments jsontext.Value `json:"arguments"`
 		}
-		_ = json.Unmarshal(req.Params, &p)
+		_ = jsonv2.Unmarshal(req.Params, &p, ciNames)
 		s.log("MCP " + p.Name)
 		switch p.Name {
 		case "menus_get":
@@ -248,7 +249,7 @@ func (s *stack) route(w http.ResponseWriter, r *http.Request) {
 				ID    string     `json:"id"`
 				Items []MenuItem `json:"items"`
 			}
-			_ = json.Unmarshal(p.Arguments, &a)
+			_ = jsonv2.Unmarshal(p.Arguments, &a, ciNames)
 			if a.ID != s.menuID {
 				text("menu not found", true)
 				return
@@ -261,7 +262,7 @@ func (s *stack) route(w http.ResponseWriter, r *http.Request) {
 				Page    int    `json:"page"`
 				PerPage int    `json:"per_page"`
 			}
-			_ = json.Unmarshal(p.Arguments, &a)
+			_ = jsonv2.Unmarshal(p.Arguments, &a, ciNames)
 			all := []redirectRow{}
 			for _, r := range s.redirects {
 				if !s.hideRedirects && strings.Contains(r.SourcePath, a.Search) {
@@ -286,7 +287,7 @@ func (s *stack) route(w http.ResponseWriter, r *http.Request) {
 				TargetURL  string `json:"target_url"`
 				StatusCode int    `json:"status_code"`
 			}
-			_ = json.Unmarshal(p.Arguments, &a)
+			_ = jsonv2.Unmarshal(p.Arguments, &a, ciNames)
 			for _, r := range s.redirects {
 				if r.SourcePath == a.SourcePath {
 					text("redirect with this source path already exists", true)
@@ -370,7 +371,7 @@ func TestPublishApplyOrder(t *testing.T) {
 			t.Fatalf("landing entity: %+v", land)
 		}
 		var attrs map[string]any
-		_ = json.Unmarshal(land.Attributes, &attrs)
+		_ = jsonv2.Unmarshal(land.Attributes, &attrs, ciNames)
 		if attrs["source_hash"] == nil {
 			t.Fatalf("landing attributes: %v", attrs)
 		}
@@ -582,7 +583,7 @@ func TestPublishWarnsAboutOrphansWithoutDeleting(t *testing.T) {
 	t.Parallel()
 	_, pages, m := docsDir(t)
 	s := newStack(t)
-	s.ents = append(s.ents, &Entity{ID: "old", SchemaID: fakeSchema, Name: "Old", Slug: "removed", Status: "published", Attributes: json.RawMessage(`{}`)})
+	s.ents = append(s.ents, &Entity{ID: "old", SchemaID: fakeSchema, Name: "Old", Slug: "removed", Status: "published", Attributes: jsontext.Value(`{}`)})
 	for _, apply := range []bool{false, true} {
 		c, mc := s.clients()
 		var out bytes.Buffer

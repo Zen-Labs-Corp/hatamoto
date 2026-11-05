@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"os"
@@ -85,12 +85,12 @@ type PageRef struct {
 // UnmarshalJSON accepts both entry shapes.
 func (p *PageRef) UnmarshalJSON(b []byte) error {
 	var s string
-	if json.Unmarshal(b, &s) == nil {
+	if jsonv2.Unmarshal(b, &s) == nil {
 		p.Slug = s
 		return nil
 	}
 	var o struct{ Slug, Title string }
-	if err := json.Unmarshal(b, &o); err != nil {
+	if err := jsonv2.Unmarshal(b, &o, ciNames); err != nil {
 		return fmt.Errorf("page entry must be a string or an object: %w", err)
 	}
 	p.Slug, p.Title = o.Slug, o.Title
@@ -108,7 +108,7 @@ func LoadSite(root string) ([]Page, Manifest, error) {
 	if err != nil {
 		return nil, m, err
 	}
-	if err := json.Unmarshal(b, &m); err != nil {
+	if err := jsonv2.Unmarshal(b, &m, ciNames); err != nil {
 		return nil, m, fmt.Errorf("manifest.json: %w", err)
 	}
 
