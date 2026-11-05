@@ -54,7 +54,7 @@ Owners open **Settings > Branding** to put their own name on the admin. It chang
 
 - **Admin name.** Up to 60 characters. Empty uses the site name.
 - **Logo.** Pick a PNG, JPEG or WebP file from the media library. SVG is not accepted, and neither is an address outside the library. Empty shows the Hatamoto seal. Tick "Remove the logo" and save to go back to it.
-- **Accent colour.** A hex colour such as `#1f4e9a`. It colours links, focus rings, the seal and the sign-in button. The admin refuses a colour that is too light to read: it must reach 4.5:1 against the light admin background. Danger, success and warning colours never change.
+- **Accent colour.** A hex colour such as `#1f4e9a`. It colours links, focus rings, the seal and the sign-in button. The admin refuses a colour that is too light to read: it must reach 4.5:1 against both the white admin background and the tinted highlight behind badges and checked rows. Danger, success and warning colours never change.
 - **Dark theme.** One colour cannot be readable text on both a white and a near-black page, so the colour you enter is the light-theme one. The admin works out a lighter shade for the dark theme and checks it against the same rules. The page shows both ratios and the shade it picked.
 - **Managed by.** A short line under the sign-in form and in the admin footer, with an optional link (https:// or http:// only).
 - **Reset to default.** Clears all five fields and returns the standard look.

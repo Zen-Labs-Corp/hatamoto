@@ -54,8 +54,8 @@ func validateBranding(form url.Values, tokensCSS string) (b siteconfig.AdminBran
 		fail("accent", "Accent colour", "Enter a colour like #1f4e9a.")
 	default:
 		if _, issues := a11y.CheckAccent(tokensCSS, b.Accent); len(issues) > 0 {
-			light, _ := a11y.Ratios(tokensCSS, b.Accent)
-			fail("accent", "Accent colour", fmt.Sprintf("That colour is too light to read. Needs 4.5:1 on the admin background, this measures %.1f:1. Try a darker shade.", light))
+			surface, tinted := a11y.LightBackgrounds(tokensCSS, b.Accent)
+			fail("accent", "Accent colour", fmt.Sprintf("That colour is too light to read. Needs 4.5:1 on both the admin background and the tinted highlight, this measures %.1f:1 and %.1f:1. Try a darker shade.", surface, tinted))
 		}
 	}
 

@@ -75,3 +75,19 @@ func mix(a, b string, f float64) string {
 	m := func(x, y float64) int { return int(x + (y-x)*f + 0.5) }
 	return fmt.Sprintf("#%02x%02x%02x", m(r1, r2), m(g1, g2), m(b1, b2))
 }
+
+// LightBackgrounds are the accent's contrast ratios on the two light admin
+// backgrounds it is read on: the plain surface and the tinted highlight
+// (accent-soft). Both must reach 4.5:1. Zero when hex is invalid.
+func LightBackgrounds(tokensCSS, hex string) (surface, tinted float64) {
+	lt, _ := ParseTokens(tokensCSS)
+	p, _ := CheckAccent(tokensCSS, hex)
+	if p.Light.Accent == "" {
+		return 0, 0
+	}
+	paper, _ := lt.Resolve("--color-paper")
+	soft, _ := lt.Resolve("--color-accent-soft")
+	surface, _ = Ratio(p.Light.Accent, paper)
+	tinted, _ = Ratio(p.Light.Accent, soft)
+	return surface, tinted
+}
