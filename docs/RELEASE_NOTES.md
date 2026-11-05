@@ -8,6 +8,17 @@
 - **Picker.** The media picker takes a `type` parameter (`document` lists PDFs only; the default stays images), and a widget property can ask for it with `x-hm-accept`.
 - **Migration.** None. Rollback floor: unchanged; an older release does not know the `pdf` kind and would refuse a page that uses it, so remove the widget before you roll back.
 
+## Unreleased: Plugin host and SDK 0.19.0 on JSON v2
+
+The plugin host and the Go SDK read and write plugin data with the JSON v2 packages. Bytes between host and plugin are unchanged: plugins built for earlier SDKs (`^0.5` to `^0.18`) load and run as before.
+
+- **SDK needs Go 1.27.** `hatamoto.dev/sdk` 0.19.0 declares `go 1.27`; build plugins with Go 1.27 or newer.
+- **Source compatible types.** `json.RawMessage` is an alias of `jsontext.Value` in Go 1.27, so SDK types that now use `jsontext.Value` need no change in plugin code.
+- **v2 tag semantics in plugin types.** Types you write that the guest SDK marshals (call arguments and results) follow JSON v2: `omitempty` no longer omits zero ints, bools and structs. Use `omitzero` where you relied on that.
+- **Stricter settings validation.** Plugin settings validation rejects invalid UTF-8 that v1 replaced.
+- **One manifest decoder.** Plugin manifest reads in the admin packages screen and the updater use the same decoder as install.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: Version history limit
 
 - **Setting.** Settings > Versions (owners only) sets how many earlier versions of each item are kept, 10 to 500. The daily prune reads it on every run.

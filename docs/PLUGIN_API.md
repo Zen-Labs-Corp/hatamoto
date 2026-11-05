@@ -1,7 +1,9 @@
-# Plugin API (SDK 0.18)
+# Plugin API (SDK 0.19)
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
+> **0.19 changes.** The SDK needs Go 1.27 or newer (`hatamoto.dev/sdk` declares `go 1.27`). It uses the JSON v2 packages: `json.RawMessage` is an alias of `jsontext.Value` in Go 1.27, so SDK types that now name `jsontext.Value` (for example the `args` of `guest.OnFunc`) are source compatible, and the bytes exchanged with the host are unchanged. Types you write and the guest marshals (call arguments and results) follow v2 semantics: `omitempty` no longer omits a zero int, bool or struct, use `omitzero` for that. On the host, plugin settings validation now rejects invalid UTF-8 that v1 replaced, and plugin manifest reads in the admin packages screen and the updater use the same decoder as install. No ABI, host function or manifest field changed; `^0.18` plugins keep loading.
+>
 > **0.18 needs `^0.18`.** A plugin that uses `csp`, `request_headers`, `translation_of`, `changeset.media.alt` or shipped content types must declare `"sdk": "^0.18"`: an older host ignores those fields without an error and the plugin would run without them.
 >
 > **0.18 changes (additive over 0.17).** `request_headers` and `csp` in `plugin.json`; `cookies` reach public routes (`HTTPRequest.Cookies`, `HTTPResponse.SetCookies`); `translation_of` on `changeset.entity.upsert`; `caption` and `credit` on `changeset.media.attach`; `changeset.media.alt` (proposal kind `media_alt`); public content reads (`entities.get`, `entities.list`, `entities.translations`, `media.get`, `media.list`) in the run fetch phase, limited to what an anonymous visitor sees (the same visibility rule as public pages; media only when a public page uses the file); and content types shipped as `schemas/<name>.json` without a section template, created when the plugin is enabled.
@@ -125,13 +127,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.18.0`; plugins built for `^0.5` to `^0.17` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.19.0`; plugins built for `^0.5` to `^0.18` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.18.0
+go get hatamoto.dev/sdk@v0.19.0
 ```
 
 SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -141,7 +143,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.18.0` is the git tag `v0.18.0`. The core repository stays
+plain release tags: version `0.19.0` is the git tag `v0.19.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -158,7 +160,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.18 is current.
+> SDK 0.19 is current.
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -215,7 +217,7 @@ Entity reads also carry `sort_order` (the stored manual order among siblings, `0
 
 - The module is a WASI **reactor** (no `_start`; `_initialize` is run once per instance). For Go:
   `GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o plugin.wasm .`
-  with the standard toolchain (Go 1.26+; no TinyGo needed). `make plugin-hello` does this for the reference plugin.
+  with the standard toolchain (Go 1.27+; no TinyGo needed). `make plugin-hello` does this for the reference plugin.
 - A hook is handled by **exporting a function** named after it. The host registers a handler for every hook whose export exists and ignores the rest.
 - Input and output are **JSON** through the Extism input and output buffers (`pdk.Input()`, `pdk.Output()`).
 - The export returns `0` on success. On failure it sets the Extism error message and returns non-zero.

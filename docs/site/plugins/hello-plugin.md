@@ -10,7 +10,7 @@ In this guide you build `hello`, the example plugin in the Hatamoto repository, 
 ## Before you start
 
 - A checkout of the Hatamoto repository.
-- A Go toolchain that satisfies the `go` line in `backend/pkg/sdk/go.mod` (Go 1.26 or newer).
+- A Go toolchain that satisfies the `go` line in `backend/pkg/sdk/go.mod` (Go 1.27 or newer).
 - A Hatamoto server you can start on your machine, with `DATABASE_URL` set and the `hatamoto` program on your `PATH`. See [Getting started](../getting-started/index.md).
 - An idea of what a plugin is. [Understand how plugins work](overview.md) explains it in a few minutes.
 
