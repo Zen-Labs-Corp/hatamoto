@@ -72,6 +72,11 @@ func scheduleUpdater(sch *worker.Scheduler, u *updater.Updater, log *slog.Logger
 		log.Warn("update check not scheduled", "error", err)
 		return false
 	}
+	// Run now only checks; installing stays with the schedule and its policy.
+	sch.SetManual(updateJob, func(ctx context.Context) error {
+		_, err := u.Run(ctx, updater.RunOpts{CheckOnly: true})
+		return err
+	})
 	return true
 }
 

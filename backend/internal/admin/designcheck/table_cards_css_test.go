@@ -48,7 +48,7 @@ func TestPhoneTableCardsAreOptIn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(b), `<table class="hm-table hm-table--cards">`) {
+	if !strings.Contains(string(b), `<table class="hm-table hm-table--cards{{if .Wrap}} hm-table--wrap{{end}}">`) {
 		t.Error("hm/table must render class hm-table--cards")
 	}
 }

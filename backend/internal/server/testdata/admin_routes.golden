@@ -118,6 +118,7 @@ GET /admin/settings/import/wordpress -> admin.(*Admin).handleImportSource-fm
 GET /admin/settings/import/wordpress/{id} -> admin.(*Admin).handleImportRun-fm
 GET /admin/settings/import/wordpress/{id}/cancel -> admin.(*Admin).handleImportCancelForm-fm
 GET /admin/settings/import/wordpress/{id}/options -> admin.(*Admin).handleImportOptions-fm
+GET /admin/settings/jobs -> admin.(*Admin).handleJobs-fm
 GET /admin/settings/linking -> admin.(*Admin).handleRules-fm
 GET /admin/settings/linking/equity -> admin.(*Admin).handleEquity-fm
 GET /admin/settings/linking/equity/{id} -> admin.(*Admin).handleInbound-fm
@@ -356,6 +357,7 @@ POST /admin/settings/import/wordpress -> admin.(*Admin).handleImportBegin-fm
 POST /admin/settings/import/wordpress/{id}/cancel -> admin.(*Admin).handleImportCancel-fm
 POST /admin/settings/import/wordpress/{id}/resume -> admin.(*Admin).handleImportResume-fm
 POST /admin/settings/import/wordpress/{id}/start -> admin.(*Admin).handleImportStart-fm
+POST /admin/settings/jobs/{id}/run -> admin.(*Admin).handleJobRun-fm
 POST /admin/settings/linking/import -> admin.(*Admin).handleImport-fm
 POST /admin/settings/linking/rules -> admin.(*Admin).handleRuleSave-fm
 POST /admin/settings/linking/rules/bulk -> admin.(*Admin).handleRulesBulk-fm

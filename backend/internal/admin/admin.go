@@ -317,6 +317,9 @@ type Deps struct {
 	// Offsite is the off-site backup target on Settings > Backups; nil hides
 	// the card. Set it only when non-nil and only with Backups.
 	Offsite OffsiteService
+	// Jobs is the scheduled-jobs overview on Settings > Jobs; nil answers that
+	// page with 503.
+	Jobs JobsService
 	// Audit records an owner action in the admin audit log; nil skips it.
 	Audit func(ctx context.Context, e AuditEvent)
 	// AuditLog reads the audit log back; nil leaves the Audit log page

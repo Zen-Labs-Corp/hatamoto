@@ -35,6 +35,14 @@ Settings > Branding: admin name, logo, accent colour and a Managed by line for t
 - **WordPress import.** The old site's custom CSS comes across into the setting; refused parts are kept as a comment and listed in the report.
 - **Migration.** None: the CSS is stored in the existing site config. No new dependency.
 
+## Unreleased: Jobs screen
+
+Settings > Jobs (owners only) lists every scheduled job, core and plugin, with its schedule, last run, duration, result, last error and next run, and has a Run now button for the safe core jobs (never for jobs that send data out or for plugin jobs).
+
+- **Stored last run.** Each job's last run is kept in the database, so a replica without the worker shows it too. No history, one row per job.
+- **Job ids.** The fixed jobs now log under the same names `WORKER_DISABLE_JOBS` uses (`retention_purge`, `agent_verify` and so on, not the hyphenated forms).
+- **Migration.** One new table `hatamoto_job_status` (expand-only). No new dependency. Rollback floor: an older release ignores the table.
+
 ## Unreleased: Version history limit
 
 - **Setting.** Settings > Versions (owners only) sets how many earlier versions of each item are kept, 10 to 500. The daily prune reads it on every run.

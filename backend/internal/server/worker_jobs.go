@@ -3,6 +3,8 @@ package server
 import (
 	"os"
 	"strings"
+
+	"hatamoto.dev/core/internal/worker"
 )
 
 // workerJobEnabled reports whether a background job may be scheduled when
@@ -31,8 +33,9 @@ func workerJobEnabled(name string) bool {
 // rollup (analytics.PostgresRepository.PruneTraffic).
 const trafficPruneJob = "traffic_prune"
 
-// knownWorkerJobs are the names workerJobEnabled is called with.
-var knownWorkerJobs = []string{"publish", "retention_purge", "prune", "entity_versions", "agent_hits_partition", "agent_hits_maintenance", "agent_ranges_refresh", "agent_verify", attributionBackfillJob, updateJob, webhookDeliverJob, webhookPruneJob, changesetSweepJob, standingDigestJob, trafficPruneJob, statsJob, offsiteJob}
+// knownWorkerJobs are the names workerJobEnabled is called with: the switchable
+// jobs of the catalogue in internal/worker.
+var knownWorkerJobs = worker.SwitchJobs()
 
 // disabledWorkerJobs lists the known jobs WORKER_DISABLE_JOBS turns off, for a
 // startup log line so operators can see the effect.
