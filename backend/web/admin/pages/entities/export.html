@@ -1,0 +1,12 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "Description" .Description "CSRF" $.CSRF}}
+<form method="get" action="{{.Action}}" class="hm-cardform">
+<input type="hidden" name="type" value="{{.Type}}">
+{{template "hm/card-start" dict "ID" "export-columns" "Title" "Columns" "Heading" "h2" "Description" "A column named attr:name is an attribute of the entry. Lists are joined with a vertical bar."}}
+<fieldset class="hm-field__group" id="export-cols"><legend class="hm-field__label">Columns to include</legend>
+<div class="hm-field__chips">{{range $i, $c := .Columns}}{{template "hm/field" dict "ID" (printf "export-col-%d" $i) "Name" "col" "Control" "chip" "Value" $c.ID "Label" $c.Label "Checked" $c.Default}}
+{{end}}</div></fieldset>
+{{template "hm/field" dict "ID" "export-status" "Name" "status" "Label" "Which entries" "Control" "radio" "Options" .Statuses}}
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Back to the list" "Href" .Back}}{{template "hm/button" dict "Label" "Download CSV" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
+</form>
+{{end}}{{end}}
