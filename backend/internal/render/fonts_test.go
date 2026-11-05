@@ -80,14 +80,14 @@ func TestFontHeadEmpty(t *testing.T) {
 func TestRenderFontsInHead(t *testing.T) {
 	t.Parallel()
 	e := newTestEngine(t, Options{})
-	plain := renderToString(t, e, minimalView())
+	plain := withoutSpeculation(renderToString(t, e, minimalView()))
 	if strings.Contains(plain, "@font-face") || strings.Contains(plain, "/fonts/") || strings.Contains(plain, "googleapis") || strings.Contains(plain, "gstatic") {
 		t.Fatal("a page without installed fonts carries font markup")
 	}
 	v := minimalView()
 	v.Site.Fonts = []FontFace{{Family: "Brand Sans", Weight: 400, Style: "normal", Hash: hashA}}
 	v.Site.FontPreload = hashA
-	out := renderToString(t, e, v)
+	out := withoutSpeculation(renderToString(t, e, v))
 	markup := string(fontHead(v.Site.Fonts, hashA))
 	if strings.Replace(out, markup, "", 1) != plain {
 		t.Error("fonts changed more than the head markup")

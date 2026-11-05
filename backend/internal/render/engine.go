@@ -687,7 +687,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		out = spliceHeadStart(out, consent) // first in <head>: the Consent Mode defaults precede every other script
 	}
 	if !editor && !c.theme.NoPrefetch && !bytes.Contains(out, []byte(`type="speculationrules"`)) {
-		out = spliceHead(out, speculationRules(adminPrefix()))
+		out = spliceHead(out, speculationRules())
 	}
 	out = markPreviewChanges(out, v)
 	out = markDraftBanner(out, v)

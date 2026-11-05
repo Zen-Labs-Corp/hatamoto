@@ -3,6 +3,7 @@ package render
 import (
 	"encoding/json"
 	"io/fs"
+	"regexp"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -45,19 +46,17 @@ func parseRules(t *testing.T, tag string) (rulesEntry, []string) {
 }
 
 func TestSpeculationRulesJSON(t *testing.T) {
-	for _, prefix := range []string{"/admin", "/ctl-x9"} {
-		e, excl := parseRules(t, string(speculationRules(prefix)))
-		if e.Eagerness != "moderate" || e.Where.And[0].HrefMatches != "/*" {
-			t.Errorf("%s: %+v", prefix, e)
-		}
-		have := map[string]bool{}
-		for _, p := range excl {
-			have[p] = true
-		}
-		for _, want := range []string{prefix + "/*", "/p/*", "/api/*", "/plugin-ui/*", "/forms/*", "/auth/*", "/preview/*", "/media/*", "/theme/*", "/*logout*", "/*\\?*", "/*.xml", "/*.pdf", "/*.zip"} {
-			if !have[want] {
-				t.Errorf("%s: %q not excluded", prefix, want)
-			}
+	e, excl := parseRules(t, string(speculationRules()))
+	if e.Eagerness != "moderate" || e.Where.And[0].HrefMatches != "/*" {
+		t.Errorf("%+v", e)
+	}
+	have := map[string]bool{}
+	for _, p := range excl {
+		have[p] = true
+	}
+	for _, want := range []string{"/admin/*", "/p/*", "/api/*", "/plugin-ui/*", "/forms/*", "/auth/*", "/preview/*", "/media/*", "/theme/*", "/*logout*", "/*\\?*", "/*.xml", "/*.pdf", "/*.zip"} {
+		if !have[want] {
+			t.Errorf("%q not excluded", want)
 		}
 	}
 }
@@ -85,7 +84,7 @@ func globMatch(pat, s string) bool {
 }
 
 func TestSpeculationRulesExcludeReservedPrefixes(t *testing.T) {
-	_, excl := parseRules(t, string(speculationRules("/admin")))
+	_, excl := parseRules(t, string(speculationRules()))
 	excluded := func(path string) bool {
 		for _, p := range excl {
 			if globMatch(p, path) {
@@ -111,17 +110,6 @@ func TestSpeculationRulesExcludeReservedPrefixes(t *testing.T) {
 	}
 }
 
-func TestSpeculationAdminPrefixHook(t *testing.T) {
-	if adminPrefix() != "/admin" {
-		t.Fatal("default prefix")
-	}
-	SetAdminPrefix(func() string { return "/ctl-x9" })
-	defer SetAdminPrefix(nil)
-	if adminPrefix() != "/ctl-x9" {
-		t.Fatal("hook ignored")
-	}
-}
-
 func renderSpeculation(t *testing.T, manifest string, v *PageView) string {
 	t.Helper()
 	var layers []fs.FS
@@ -140,14 +128,12 @@ func renderSpeculation(t *testing.T, manifest string, v *PageView) string {
 }
 
 func TestSpeculationRenderedOnPublicPage(t *testing.T) {
-	SetAdminPrefix(func() string { return "/ctl-x9" })
-	defer SetAdminPrefix(nil)
 	out := renderSpeculation(t, "", &PageView{Path: "/", BaseURL: "https://x.io"})
 	if n := strings.Count(out, `type="speculationrules"`); n != 1 {
 		t.Fatalf("want one block, got %d", n)
 	}
-	if !strings.Contains(out, `"/ctl-x9/*"`) || strings.Index(out, "speculationrules") > strings.Index(out, "</head>") {
-		t.Error("block missing the custom admin prefix or not in head")
+	if strings.Index(out, "speculationrules") > strings.Index(out, "</head>") {
+		t.Error("block not in head")
 	}
 }
 
@@ -194,7 +180,15 @@ func TestLoadThemePrefetchFlag(t *testing.T) {
 }
 
 func TestSpeculationSpliceNoHead(t *testing.T) {
-	if got := string(spliceHead([]byte("<p>x</p>"), speculationRules("/admin"))); got != "<p>x</p>" {
+	if got := string(spliceHead([]byte("<p>x</p>"), speculationRules())); got != "<p>x</p>" {
 		t.Errorf("headless output changed: %s", got)
 	}
 }
+
+// withoutSpeculation drops the prefetch block, whose exclusion patterns name
+// routes such as /fonts/ and /plugin-ui/, from a page a test greps for markup.
+func withoutSpeculation(page string) string {
+	return speculationBlockRe.ReplaceAllString(page, "")
+}
+
+var speculationBlockRe = regexp.MustCompile(`<script type="speculationrules">.*?</script>`)

@@ -235,7 +235,8 @@ func normalizePreview(html string) string {
 
 func dropThemeScript(html string) string {
 	html = strings.Replace(html, `<script src="`+render.AssetPrefix+`hm.js" defer></script>`+"\n", "", 1)
-	return strings.Replace(html, `<script src="`+render.AssetPrefix+`hm-track.js" defer></script>`+"\n", "", 1)
+	html = strings.Replace(html, `<script src="`+render.AssetPrefix+`hm-track.js" defer></script>`+"\n", "", 1)
+	return speculationRulesRe.ReplaceAllString(html, "") // editor frames carry no prefetch block
 }
 
 var robotsMetaRe = regexp.MustCompile(`\s*<meta name="robots" content="noindex,follow">`)

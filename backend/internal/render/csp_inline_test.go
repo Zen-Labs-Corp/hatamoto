@@ -51,7 +51,7 @@ func inlineScriptIssues(page string) []string {
 			continue
 		}
 		switch attrs["type"] {
-		case "application/ld+json", "application/json":
+		case "application/ld+json", "application/json", "speculationrules": // data; the strict policy allows it by keyword
 		default:
 			issues = append(issues, "inline executable <script> (type="+attrs["type"]+")")
 		}
@@ -60,7 +60,7 @@ func inlineScriptIssues(page string) []string {
 
 func TestInlineScriptIssuesDetects(t *testing.T) {
 	bad := `<a href=" JavaScript:x()">a</a><p onclick="x()">b</p><script>x()</script>` +
-		`<script type="application/ld+json">{}</script><script src="/a.js"></script>`
+		`<script type="application/ld+json">{}</script><script type="speculationrules">{}</script><script src="/a.js"></script>`
 	if got := inlineScriptIssues(bad); len(got) != 3 {
 		t.Errorf("issues = %v, want 3", got)
 	}

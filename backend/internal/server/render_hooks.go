@@ -24,7 +24,6 @@ func (s *Server) setupRender() {
 	// hm.js is bundled when the engine is built, so the prefix must be set first.
 	render.SetPublicAPIPrefix(s.cfg.PublicSite.APIPrefix)
 	render.SetTrackEngagement(func() bool { return s.analyticsService == nil || s.analyticsService.EngagementEnabled() })
-	render.SetAdminPrefix(s.adminPathValue)
 	s.installConsentRender()
 	s.installCustomCSS()
 	s.installTagsRender()

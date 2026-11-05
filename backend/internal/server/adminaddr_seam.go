@@ -305,9 +305,6 @@ func (a *serverAddress) Apply(ctx context.Context, req admin.ApplyRequest) (admi
 		s.rememberOldPrefix(old, path)
 	}
 	s.refreshAddressState(ctx)
-	if nb != nil {
-		s.purgeRendered(ctx) // cached pages carry the old address in their prefetch rules
-	}
 	return admin.ApplyResult{Path: path}, nil
 }
 
