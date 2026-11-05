@@ -116,7 +116,9 @@ func TestListToolbarStaysOneRowWhenWide(t *testing.T) {
 			t.Errorf("listbar.css wide block lacks %q", want)
 		}
 	}
-	for _, want := range []string{".hm-listbar__end { margin-inline-start: auto; }", ".hm-listbar .hm-table__search { flex: 0 1 260px; }", ".hm-listbar .hm-input-affix > .hm-field__control { min-width: 0; }"} {
+	for _, want := range []string{".hm-listbar__end { margin-inline-start: auto; }", ".hm-listbar .hm-table__search { flex: 0 1 260px; }", ".hm-listbar .hm-input-affix > .hm-field__control { min-width: 0; }",
+		// the search keeps a readable width beside the Type, Parent and Sort selects
+		".hm-listbar .hm-table__search { min-width: 9.5rem; }", ".hm-listbar.hm-table__filters .hm-select { flex: 0 1 9rem; min-width: 7rem; }"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("listbar.css lacks %q", want)
 		}

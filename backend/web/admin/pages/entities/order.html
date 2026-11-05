@@ -1,7 +1,7 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "Description" .Description "CSRF" $.CSRF "Actions" .Actions}}
 <section class="hm-stack" data-hm-orderlist data-hm-order-url="{{.Action}}"{{if not .Nested}} data-hm-drag{{end}}>
-{{if .DepthNote}}<p class="hm-muted">{{.DepthNote}}. Indent is disabled where it would pass the limit.</p>{{end}}
+{{if .DepthNote}}<p class="hm-muted">{{.DepthNote}}. Indent is disabled where it would pass the limit.</p>{{end}}{{if .RedirectNote}}<p class="hm-muted">{{.RedirectNote}}</p>{{end}}
 <p class="hm-visually-hidden" role="status" aria-live="polite" data-hm-orderlive></p>
 {{template "hm/table" .Table}}
 </section>

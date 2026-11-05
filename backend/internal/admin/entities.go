@@ -144,7 +144,7 @@ func readListParams(r *http.Request) listParams {
 		p.page = 1
 	}
 	switch p.sortKey {
-	case "name", "status", "updated":
+	case "name", "status", "updated", "manual":
 	default:
 		p.sortKey = "updated"
 		if p.dir == "" {
@@ -245,7 +245,7 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 
 	f := &entity.ListEntitiesFilter{Search: p.q, Asc: p.dir == "asc", ExcludeSchemaIDs: reuseSchemaIDs(schemas)}
 	switch p.sortKey {
-	case "name", "status":
+	case "name", "status", "manual":
 		f.Sort = p.sortKey
 	default:
 		f.Sort = "updated"
@@ -327,6 +327,20 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	}
 	if parentOpts := a.parentFilterOptions(ctx, byID, p.under); len(parentOpts) > 1 {
 		primary = append(primary, ui.Filter{Name: "under", Label: "Parent", Options: parentOpts})
+	}
+	if resolved != nil && !entity.IsReuseSchema(resolved) {
+		// A type's entries can be listed in their stored manual order (the Reorder page sets it).
+		sortOpts := []ui.Option{
+			{Value: "updated", Label: "Updated", Selected: p.sortKey == "updated"},
+			{Value: "manual", Label: "Manual order", Selected: p.sortKey == "manual"},
+		}
+		switch p.sortKey {
+		case "name":
+			sortOpts = append(sortOpts, ui.Option{Value: "name", Label: "Title", Selected: true})
+		case "status":
+			sortOpts = append(sortOpts, ui.Option{Value: "status", Label: "Status", Selected: true})
+		}
+		primary = append(primary, ui.Filter{Name: "sort", Label: "Sort", Options: sortOpts})
 	}
 	popover := []ui.Filter{
 		{Name: "from", Label: "Updated from", Input: "date", Value: p.from},

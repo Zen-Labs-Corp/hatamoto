@@ -22,6 +22,7 @@ type orderData struct {
 	Table              ui.Table
 	Locale             string
 	DepthNote          string
+	RedirectNote       string
 	Actions            []ui.Button
 }
 
@@ -70,6 +71,16 @@ func orderTree(rows []*entity.Entity) ([]orderNode, map[uuid.UUID]*entity.Entity
 		walk(e, 0)
 	}
 	return nodes, by, out, depth
+}
+
+// orderPlural names the type's entries in the Order page title. The schema has
+// no plural label, so it is derived; a name that already ends in a single "s"
+// ("Docs", "News") is plural as it stands and gets no second one.
+func orderPlural(slug, name string) string {
+	if l := strings.ToLower(name); strings.HasSuffix(l, "s") && !strings.HasSuffix(l, "ss") {
+		return name
+	}
+	return typePluralFor(slug, name)
 }
 
 func (a *Admin) orderLocale(r *http.Request, sc *entity.EntitySchema) string {
@@ -122,8 +133,9 @@ func (a *Admin) handleEntityOrder(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	nodes, _, list, depth := orderTree(rows)
+	plural := orderPlural(sc.Slug, sc.Name)
 	d := orderData{
-		Title: "Reorder " + typePluralFor(sc.Slug, sc.Name), Type: sc.Slug, Nested: nested, Locale: locale,
+		Title: "Reorder " + plural, Type: sc.Slug, Nested: nested, Locale: locale,
 		Back:   a.adminPath + "/entities?type=" + url.QueryEscape(sc.Slug),
 		Action: a.adminPath + "/entities/",
 	}
@@ -132,8 +144,9 @@ func (a *Admin) handleEntityOrder(w http.ResponseWriter, r *http.Request) {
 	if nested {
 		d.Description = "Use the buttons to move an entry up, down, in under the one above or out to its parent's level."
 		d.DepthNote = fmt.Sprintf("Depth limit: %d levels in the URL", urlpattern.MaxPathDepth)
+		d.RedirectNote = "Moving a published entry to another parent (Indent or Outdent) changes its URL; a redirect from the old address is added, as when an editor saves the change."
 	}
-	t := ui.Table{ID: "order", Caption: "Order of " + typePluralFor(sc.Slug, sc.Name), BaseURL: d.Back, CSRF: csrfToken(r.Context()),
+	t := ui.Table{ID: "order", Caption: "Order of " + plural, BaseURL: d.Back, CSRF: csrfToken(r.Context()),
 		Columns: []ui.Col{{Key: "name", Label: "Name"}, {Key: "status", Label: "Status"}},
 		Empty:   ui.Empty{Icon: "file-text", Title: "Nothing to order yet", Body: "Create an entry first."}}
 	self := a.adminPath + "/entities/order?type=" + url.QueryEscape(sc.Slug)

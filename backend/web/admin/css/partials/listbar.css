@@ -11,6 +11,8 @@
   .hm-listbar__end { flex: 0 1 auto; }
 }
 .hm-listbar .hm-table__search { flex: 0 1 260px; }
+.hm-listbar .hm-table__search { min-width: 9.5rem; }
+.hm-listbar.hm-table__filters .hm-select { flex: 0 1 9rem; min-width: 7rem; }
 .hm-listbar .hm-input-affix > .hm-field__control { min-width: 0; }
 /* The hidden busy indicator is out of flow, not a third item. */
 .hm-listbar > .hm-indicator { position: absolute; inset-inline-end: var(--space-4); inset-block-start: calc(100% + var(--space-1)); }
