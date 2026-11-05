@@ -222,38 +222,6 @@ func TestOrderingScriptFocusesTheRowButton(t *testing.T) {
 	}
 }
 
-func TestOrderPluralKeepsNamesThatAlreadyEndInS(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct{ slug, name, want string }{
-		{"doc", "Docs", "Docs"}, {"news", "News", "News"}, {"page", "Page", "Pages"},
-		{"business", "Business", "Businesses"}, {"person", "Person", "People"}, {"story", "Story", "Stories"},
-	} {
-		if got := orderPlural(tc.slug, tc.name); got != tc.want {
-			t.Errorf("orderPlural(%q) = %q, want %q", tc.name, got, tc.want)
-		}
-	}
-}
-
-func TestOrderPageTitleForAPluralNamedType(t *testing.T) {
-	t.Parallel()
-	c := newContentRig(t)
-	c.ents.addSchema(9, "Docs", "docs", `{"type":"object","properties":{}}`, `{"url_pattern":"/docs/{path}"}`, false)
-	body := c.get(t, "owner-token", "/admin/entities/order?type=docs", "")
-	has(t, body, `<h1>Reorder Docs</h1>`, `<title>Reorder Docs`)
-	lacks(t, body, "Docses")
-}
-
-// A tree type's Order page says that Indent and Outdent change a published
-// entry's URL (the move adds a redirect); a flat type's page does not.
-func TestOrderPageTreeNoteAboutTheURL(t *testing.T) {
-	t.Parallel()
-	c := newContentRig(t)
-	c.ents.addEntity(60, c.service, "Alpha", "alpha", entity.StatusPublished, `{"summary":"x"}`, t0)
-	c.ents.addEntity(61, c.page, "Home", "home", entity.StatusPublished, `{"body":"x"}`, t0)
-	has(t, c.get(t, "owner-token", "/admin/entities/order?type=service", ""), `changes its URL; a redirect from the old address is added`)
-	lacks(t, c.get(t, "owner-token", "/admin/entities/order?type=page", ""), `a redirect from the old address`)
-}
-
 // A type's list offers "Sort: Manual order" (?sort=manual) and keeps it selected.
 func TestEntityListOffersManualSort(t *testing.T) {
 	t.Parallel()

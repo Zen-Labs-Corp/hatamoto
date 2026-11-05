@@ -279,12 +279,23 @@ func TestEntitiesSubnavCountFailureAndNoTypes(t *testing.T) {
 	has(t, body, "Choose a type")
 }
 
+func TestTypePluralFor(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ slug, name, want string }{
+		{"doc", "Docs", "Docs"}, {"person", "Person", "People"}, {"page", "Page", "Pages"},
+	} {
+		if got := typePluralFor(tc.slug, tc.name); got != tc.want {
+			t.Errorf("typePluralFor(%q) = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestTypePlural(t *testing.T) {
 	t.Parallel()
 
 	for in, want := range map[string]string{
 		"Post": "Posts", "Page": "Pages", "Service": "Services", "Box": "Boxes", "Church": "Churches",
-		"Dish": "Dishes", "Bus": "Buses", "Category": "Categories", "Day": "Days", "Boy": "Boys", "Y": "Ys", "News": "Newses",
+		"Dish": "Dishes", "Bus": "Buses", "Category": "Categories", "Day": "Days", "Boy": "Boys", "Y": "Ys", "News": "News", "Docs": "Docs", "Business": "Businesses", "Status": "Statuses",
 	} {
 		if got := typePlural(in); got != want {
 			t.Errorf("typePlural(%q) = %q, want %q", in, got, want)

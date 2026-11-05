@@ -73,16 +73,6 @@ func orderTree(rows []*entity.Entity) ([]orderNode, map[uuid.UUID]*entity.Entity
 	return nodes, by, out, depth
 }
 
-// orderPlural names the type's entries in the Order page title. The schema has
-// no plural label, so it is derived; a name that already ends in a single "s"
-// ("Docs", "News") is plural as it stands and gets no second one.
-func orderPlural(slug, name string) string {
-	if l := strings.ToLower(name); strings.HasSuffix(l, "s") && !strings.HasSuffix(l, "ss") {
-		return name
-	}
-	return typePluralFor(slug, name)
-}
-
 func (a *Admin) orderLocale(r *http.Request, sc *entity.EntitySchema) string {
 	if l := r.FormValue("locale"); l != "" {
 		return l
@@ -133,7 +123,7 @@ func (a *Admin) handleEntityOrder(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	nodes, _, list, depth := orderTree(rows)
-	plural := orderPlural(sc.Slug, sc.Name)
+	plural := typePluralFor(sc.Slug, sc.Name)
 	d := orderData{
 		Title: "Reorder " + plural, Type: sc.Slug, Nested: nested, Locale: locale,
 		Back:   a.adminPath + "/entities?type=" + url.QueryEscape(sc.Slug),
