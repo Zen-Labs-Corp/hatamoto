@@ -52,6 +52,18 @@ REST, admin and MCP responses now say `[]` or `{}` where they used to say `null`
 
 **Rollback floor: unchanged.** The previous release reads `[]` and `{}` the same way.
 
+## Unreleased: Content packages use the new JSON reader
+
+Content, taxonomy, changeset and settings data, the page builder, imports and JSON-LD now use the same stricter JSON reading and writing as the API.
+
+- **Empty lists and maps.** Empty lists and maps in entity, taxonomy, changeset and settings output, and in the rows saved from now on, are `[]` and `{}` instead of `null`. The previous release reads them fine.
+- **Stricter files and requests.** A repeated key, a field name in the wrong case or data after the JSON value is now rejected in builder documents, tag and menu declarations, locale-conversion plans, taxonomy admin request bodies, the analytics tracking beacon (400 on trailing data), reusable schemas (repeated keys), the WordPress SEO settings upload and the archive import manifest and header.
+- **JSON-LD.** Custom and plugin JSON-LD with a repeated name or invalid UTF-8 is dropped. If a plugin's site graph has invalid UTF-8, the page falls back to the core graph. JSON-LD still escapes `<` and U+2028.
+- **Stored values.** No stored hash or fingerprint changes.
+- **Migration.** None.
+
+**Rollback floor: unchanged.** The previous release reads the new rows the same way.
+
 ## Unreleased: Contact button
 
 A new **Contact button** widget in the page builder, and a floating contact button for the whole site (Settings > Contact button, off by default). Both are plain links that open WhatsApp, a phone call, a text message or an email. A blank number or address uses the phone or email from the business details of the page's language. No script runs and nothing is sent to a third party until a visitor taps the link.
