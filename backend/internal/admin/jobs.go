@@ -109,7 +109,7 @@ func jobResult(row JobRow) ui.Cell {
 func (a *Admin) jobsTable(r *http.Request, v JobsView) ui.Table {
 	t := ui.Table{
 		ID: "jobs", Wrap: true, Caption: "Scheduled jobs", BaseURL: a.adminPath + jobsPath, CSRF: csrfToken(r.Context()),
-		Columns: []ui.Col{{Key: "job", Label: "Job", Role: "plain"}, {Key: "schedule", Label: "Schedule"}, {Key: "last", Label: "Last run"},
+		Columns: []ui.Col{{Key: "job", Label: "Job", Role: "title"}, {Key: "schedule", Label: "Schedule"}, {Key: "last", Label: "Last run"},
 			{Key: "took", Label: "Took"}, {Key: "result", Label: "Result", Role: "plain"}, {Key: "next", Label: "Next run"}},
 		Empty: ui.Empty{Icon: "refresh", Title: "No jobs", Body: "Scheduled jobs appear here."},
 	}
