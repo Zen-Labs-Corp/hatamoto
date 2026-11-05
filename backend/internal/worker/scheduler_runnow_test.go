@@ -217,8 +217,8 @@ func TestFixedJobsUseCanonicalIDs(t *testing.T) {
 func TestRunNowManualOnlyRefusesWithoutManualVariant(t *testing.T) {
 	s, rec := startedScheduler(t)
 	scheduleFar(t, s, "update_check", func(context.Context) error { t.Error("scheduled fn must not run"); return nil })
-	if _, err := s.RunNow(context.Background(), "update_check"); !errors.Is(err, ErrNotRunning) {
-		t.Fatalf("err = %v, want ErrNotRunning", err)
+	if _, err := s.RunNow(context.Background(), "update_check"); !errors.Is(err, ErrNoManualRun) {
+		t.Fatalf("err = %v, want ErrNoManualRun", err)
 	}
 	if n := len(rec.all()); n != 0 {
 		t.Fatalf("%d runs recorded, want none", n)
@@ -226,14 +226,16 @@ func TestRunNowManualOnlyRefusesWithoutManualVariant(t *testing.T) {
 }
 
 func TestJobsNextIsNeverInThePast(t *testing.T) {
-	s, _ := startedScheduler(t)
-	scheduleFar(t, s, "publish", func(context.Context) error { return nil })
+	// An unstarted scheduler has no loop that could overwrite the value.
+	s := NewScheduler(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	s.register("publish", time.Hour, 0, func(context.Context) error { return nil })
 	s.setNext("publish", time.Now().Add(-150*time.Minute))
 	jobs := s.Jobs()
 	if len(jobs) != 1 {
 		t.Fatalf("jobs = %v", jobs)
 	}
-	if d := time.Until(jobs[0].Next); d <= 0 || d > time.Hour {
-		t.Fatalf("next in %v, want within the next hour", d)
+	// 150 min ago with a 1 h period rolls forward to 30 min from now.
+	if d := time.Until(jobs[0].Next); d < 29*time.Minute || d > 31*time.Minute {
+		t.Fatalf("next in %v, want about 30m", d)
 	}
 }
