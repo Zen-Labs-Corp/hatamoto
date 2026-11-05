@@ -69,7 +69,8 @@ package sdk
 // exchanged with the host are unchanged, including those of plugin-author types
 // the guest marshals (call arguments, results, run summaries): the guest pins
 // the v1 behaviours (omitempty, Duration, byte arrays, method calls, repeated
-// member names in raw JSON). The one difference left is that a struct with two
+// member names in raw JSON) and reads them back with the v1 behaviours
+// (Duration, byte arrays, `,string`, case-only name folding, merging). The one difference left is that a struct with two
 // fields sharing a JSON name fails to marshal.
 const Version = "0.19.0"
 

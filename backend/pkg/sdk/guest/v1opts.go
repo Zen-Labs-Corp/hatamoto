@@ -15,5 +15,20 @@ var legacyMarshal = jsonv2.JoinOptions(
 	json.FormatDurationAsNano(true),
 	json.FormatByteArrayAsArray(true),
 	json.CallMethodsWithLegacySemantics(true),
+	json.StringifyWithLegacySemantics(true),
 	jsontext.AllowDuplicateNames(true),
+)
+
+// legacyUnmarshal is the read-side counterpart: author types stored or sent
+// as v1 wrote them (a time.Duration as nanoseconds, a [N]byte as a number
+// array, a ",string" field as a quoted scalar) decode again, names fold case
+// only (not "_" or "-") and a populated destination is merged into, as in v1.
+var legacyUnmarshal = jsonv2.JoinOptions(
+	json.FormatDurationAsNano(true),
+	json.FormatByteArrayAsArray(true),
+	json.StringifyWithLegacySemantics(true),
+	json.CallMethodsWithLegacySemantics(true),
+	json.UnmarshalArrayFromAnyLength(true),
+	json.MatchCaseSensitiveDelimiter(true),
+	json.MergeWithLegacySemantics(true),
 )

@@ -268,3 +268,28 @@ func TestWireGuestAuthorTypes(t *testing.T) {
 		}
 	}
 }
+
+// TestWireGuestReadsAuthorTypes decodes the bytes v1 wrote for author types.
+func TestWireGuestReadsAuthorTypes(t *testing.T) {
+	type author struct {
+		D time.Duration `json:"d"`
+		A [2]byte       `json:"a"`
+		F bool          `json:"f,string"`
+		U int           `json:"user_id"`
+	}
+	var got author
+	if err := unmarshal([]byte(`{"d":1500000000,"a":[1,2],"f":"true","USER_ID":7}`), &got); err != nil {
+		t.Fatal(err)
+	}
+	if want := (author{D: 1500 * time.Millisecond, A: [2]byte{1, 2}, F: true, U: 7}); got != want {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+	var d struct{ D time.Duration }
+	if err := unmarshal([]byte(`{"D":1000000000}`), &d); err != nil || d.D != time.Second {
+		t.Errorf("duration: %v %v", d, err)
+	}
+	var a struct{ A [2]byte }
+	if err := unmarshal([]byte(`{"A":[9,8]}`), &a); err != nil || a.A != [2]byte{9, 8} {
+		t.Errorf("array: %v %v", a, err)
+	}
+}

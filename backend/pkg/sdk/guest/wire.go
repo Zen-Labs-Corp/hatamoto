@@ -34,6 +34,7 @@ var (
 		jsonv2.MatchCaseInsensitiveNames(true),
 		jsontext.AllowDuplicateNames(true),
 		jsontext.AllowInvalidUTF8(true),
+		legacyUnmarshal,
 	)
 )
 
