@@ -52,7 +52,7 @@ type License struct {
 	URL     string `json:"url"`
 	File    string `json:"file"` // under licenses/
 	SHA256  string `json:"sha256,omitempty"`
-	Bytes   int    `json:"bytes,omitempty"`
+	Bytes   int    `json:"bytes,omitzero"`
 }
 
 // Asset is one pinned dependency. Kind "script" is one classic script file;
@@ -68,7 +68,7 @@ type Asset struct {
 	URL    string `json:"url,omitempty"`
 	File   string `json:"file,omitempty"`
 	SHA256 string `json:"sha256,omitempty"`
-	Bytes  int    `json:"bytes,omitempty"`
+	Bytes  int    `json:"bytes,omitzero"`
 
 	// module-graph
 	Dir        string            `json:"dir,omitempty"`

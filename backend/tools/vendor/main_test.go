@@ -167,3 +167,42 @@ func TestNoticeIsGeneratedFromTheManifestAndVerifyCatchesDrift(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A zero Bytes is left out (omitzero), so a module-graph asset has no "bytes" key.
+func TestWriteManifestOmitsZeroBytes(t *testing.T) {
+	dir := t.TempDir()
+	m := Manifest{Schema: 1, Assets: []Asset{{Name: "g", Version: "1", License: "MIT", Kind: "module-graph", Dir: "g"}}}
+	if err := writeManifest(dir, &m); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "vendor.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), `"bytes"`) {
+		t.Errorf("zero bytes written:\n%s", b)
+	}
+}
+
+// Re-writing the committed manifest must reproduce it byte for byte.
+func TestWriteManifestReproducesCommittedFile(t *testing.T) {
+	want, err := os.ReadFile("../../web/vendor/vendor.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := readManifest("../../web/vendor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := writeManifest(dir, m); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "vendor.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("rewritten manifest differs from web/vendor/vendor.json")
+	}
+}
