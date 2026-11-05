@@ -470,3 +470,94 @@ func TestCreateOKWithoutMediaRowsAndNoDir(t *testing.T) {
 		t.Fatalf("info = %+v err = %v", info, err)
 	}
 }
+
+func TestScheduledBackupIDAndRetention(t *testing.T) {
+	r := newRig(t)
+	r.e.opts.KeepScheduled = 3
+	var ids []string
+	for range 5 {
+		info, err := r.e.Create(t.Context(), Request{Kind: KindScheduled})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ValidID(info.ID) || !strings.HasSuffix(info.ID, "Z-scheduled") || info.Kind != KindScheduled {
+			t.Fatalf("info = %+v", info)
+		}
+		ids = append(ids, info.ID)
+	}
+	list, _ := r.e.List()
+	if len(list) != 3 || list[0].ID != ids[4] || list[2].ID != ids[2] {
+		t.Fatalf("list = %+v", list)
+	}
+	// Manual backups have their own count and do not evict scheduled ones.
+	if _, err := r.e.Create(t.Context(), Request{Kind: KindManual}); err != nil {
+		t.Fatal(err)
+	}
+	if list, _ = r.e.List(); len(list) != 4 {
+		t.Fatalf("list after manual = %d", len(list))
+	}
+}
+
+func TestKeepScheduledFromEnv(t *testing.T) {
+	if n := KeepScheduledFromEnv(); n != 3 {
+		t.Fatalf("default = %d", n)
+	}
+	t.Setenv(EnvKeepScheduled, "7")
+	if n := KeepScheduledFromEnv(); n != 7 {
+		t.Fatalf("env = %d", n)
+	}
+	t.Setenv(EnvKeepScheduled, "x")
+	if n := KeepScheduledFromEnv(); n != 3 {
+		t.Fatalf("invalid = %d", n)
+	}
+	if m, p := KeepFromEnv(); m != 5 || p != 2 {
+		t.Fatalf("KeepFromEnv changed: %d, %d", m, p)
+	}
+}
+
+func TestOnDoneRunsUnderTheLock(t *testing.T) {
+	r := newRig(t)
+	var got Info
+	var archive string
+	var busy error
+	_, err := r.e.Create(t.Context(), Request{Kind: KindScheduled, OnDone: func(_ context.Context, info Info, path string) {
+		got, archive = info, path
+		_, _, busy = r.e.Begin(t.Context(), Request{Kind: KindManual})
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("archive missing inside OnDone: %v", err)
+		}
+		if rec, _ := r.e.Get(info.ID); rec.State != StateOK {
+			t.Errorf("sidecar inside OnDone = %+v", rec)
+		}
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !errors.Is(busy, ErrBusy) {
+		t.Fatalf("Begin inside OnDone = %v, want ErrBusy", busy)
+	}
+	if got.State != StateOK || archive != filepath.Join(r.data, "backups", got.ID+".tar") {
+		t.Fatalf("got %+v, %s", got, archive)
+	}
+	if _, err := os.Stat(archive); err != nil {
+		t.Fatal("archive removed after OnDone")
+	}
+	if p, err := r.e.ArchivePath(got.ID); err != nil || p != archive {
+		t.Fatalf("ArchivePath = %s, %v", p, err)
+	}
+	if _, err := r.e.Create(t.Context(), Request{Kind: KindManual}); err != nil {
+		t.Fatalf("lock not released after OnDone: %v", err)
+	}
+}
+
+func TestOnDoneSkippedOnFailure(t *testing.T) {
+	r := newRig(t)
+	r.e.exportFn = func(context.Context, io.Writer, portability.ExportOptions) (*portability.Manifest, error) {
+		return nil, errors.New("boom")
+	}
+	called := false
+	_, err := r.e.Create(t.Context(), Request{Kind: KindScheduled, OnDone: func(context.Context, Info, string) { called = true }})
+	if err == nil || called {
+		t.Fatalf("err = %v, called = %v", err, called)
+	}
+}

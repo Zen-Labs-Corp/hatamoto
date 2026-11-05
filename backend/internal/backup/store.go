@@ -65,6 +65,18 @@ func (s *Store) Write(in Info) error {
 	return os.Rename(tmp, s.sidecar(in.ID))
 }
 
+// Update reads the sidecar of id, applies f and writes it back. The ID cannot
+// be changed.
+func (s *Store) Update(id string, f func(*Info)) error {
+	in, err := s.Get(id)
+	if err != nil {
+		return err
+	}
+	f(&in)
+	in.ID = id
+	return s.Write(in)
+}
+
 // Get returns one record. A sidecar that says running while nobody holds the
 // lock is reported (and rewritten) as failed: the process died.
 func (s *Store) Get(id string) (Info, error) {

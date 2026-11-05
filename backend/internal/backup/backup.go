@@ -15,7 +15,7 @@ type Kind string
 const (
 	KindManual    Kind = "manual"
 	KindPreUpdate Kind = "pre_update"
-	// KindScheduled is reserved; nothing creates it yet.
+	// KindScheduled is a backup the off-site schedule started.
 	KindScheduled Kind = "scheduled"
 )
 
@@ -44,6 +44,12 @@ type Info struct {
 	// MediaMissing counts media files the database references that were not
 	// on disk; the backup is still OK, it just lacks them.
 	MediaMissing int `json:"media_missing,omitempty"`
+	// SHA256 is the hex digest of the archive, set when it was uploaded
+	// off-site. Offsite is "uploaded" or "failed" once an upload was tried and
+	// OffsiteError says why a failed one failed; all empty for local-only backups.
+	SHA256       string `json:"sha256,omitempty"`
+	Offsite      string `json:"offsite,omitempty"`
+	OffsiteError string `json:"offsite_error,omitempty"`
 }
 
 var idPattern = regexp.MustCompile(`^[0-9]{8}T[0-9]{6}Z-(manual|pre_update|scheduled)$`)
