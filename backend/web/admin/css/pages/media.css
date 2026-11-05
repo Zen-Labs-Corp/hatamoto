@@ -21,7 +21,7 @@
 .hm-media-detail > .hm-stack { min-width: 0; }
 .hm-media-detail__preview { padding: var(--space-4); display: flex; align-items: center; justify-content: center; align-self: start; }
 .hm-media-detail__preview { min-height: 16rem; background-color: var(--surface-hover); background-image: conic-gradient(var(--border) 25%, transparent 0 50%, var(--border) 0 75%, transparent 0); background-size: var(--space-4) var(--space-4); }
-.hm-media-detail__preview img { max-height: 70vh; max-width: 100%; object-fit: contain; }
+.hm-media-detail__preview img { width: 100%; height: auto; max-height: 70vh; object-fit: contain; } /* a viewBox-only svg has no intrinsic size: give it the column width */
 .hm-media-detail__file { align-items: center; text-align: center; }
 .hm-media-detail__file .hm-icon { width: 48px; height: 48px; color: var(--text-muted); }
 /* The view toggle sits at the right end of the toolbar; on a phone the search takes a row and the type filter and the toggle share the next. */
