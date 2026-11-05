@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"io/fs"
 	"net/url"
@@ -17,6 +16,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 var restoreTrust = TrustIDs{Release: []string{"r1", "r2"}, Manifest: []string{"m1"}, Env: []string{"e1"}}
@@ -117,7 +118,7 @@ func buildArchive(t *testing.T, mut func(*archSpec)) string {
 	for _, n := range s.Parts {
 		write(n, s.Bodies[n])
 	}
-	mfb, _ := json.Marshal(s.Mf)
+	mfb, _ := jsonx.Marshal(s.Mf)
 	write(manifestName, mfb)
 	if err := tw.Close(); err != nil {
 		t.Fatal(err)

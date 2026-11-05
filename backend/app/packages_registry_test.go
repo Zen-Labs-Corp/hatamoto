@@ -1,7 +1,6 @@
 package app
 
 import (
-	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -9,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 )
 
@@ -41,7 +41,7 @@ func TestRegistryIndexMetaEndToEnd(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(pkgs, "hello.hmp"), hmp, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	keyJSON, _ := json.Marshal(key)
+	keyJSON, _ := jsonx.Marshal(key)
 	keyFile := filepath.Join(dir, "k.key")
 	if err := os.WriteFile(keyFile, keyJSON, 0o600); err != nil {
 		t.Fatal(err)

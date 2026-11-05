@@ -1,10 +1,12 @@
 package menu
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestValidLocation(t *testing.T) {
@@ -24,7 +26,7 @@ func TestValidLocation(t *testing.T) {
 
 func TestParseDeclValid(t *testing.T) {
 	raw := `{"follow":{"title":"Follow us","default":[{"label":"Blog","archive":"post"},{"label":"Mastodon","url":"https://example.org/@x"},{"label":"Contact","url":"/contact"}]},"header":{}}`
-	locs, err := ParseDecl(json.RawMessage(raw))
+	locs, err := ParseDecl(jsontext.Value(raw))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +40,7 @@ func TestParseDeclValid(t *testing.T) {
 	if len(d) != 3 || d[0].Archive != "post" || d[1].URL != "https://example.org/@x" || d[2].URL != "/contact" {
 		t.Errorf("default = %+v", d)
 	}
-	for _, empty := range []json.RawMessage{nil, json.RawMessage(""), json.RawMessage("null"), json.RawMessage("{}")} {
+	for _, empty := range []jsontext.Value{nil, jsontext.Value(""), jsontext.Value("null"), jsontext.Value("{}")} {
 		if l, err := ParseDecl(empty); l != nil || err != nil {
 			t.Errorf("ParseDecl(%q) = %v, %v", empty, l, err)
 		}
@@ -54,7 +56,7 @@ func TestParseDeclErrors(t *testing.T) {
 	for i := range manyItems {
 		manyItems[i] = map[string]string{"label": "x", "url": "/x"}
 	}
-	enc := func(v any) string { b, _ := json.Marshal(v); return string(b) }
+	enc := func(v any) string { b, _ := jsonx.Marshal(v); return string(b) }
 	item := func(it string) string { return `{"a":{"default":[{"label":"ok","url":"/ok"},` + it + `]}}` }
 	cases := []struct{ name, raw, want string }{
 		{"not object", `[]`, "menus"},
@@ -79,7 +81,7 @@ func TestParseDeclErrors(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			_, err := ParseDecl(json.RawMessage(c.raw))
+			_, err := ParseDecl(jsontext.Value(c.raw))
 			if err == nil || !strings.Contains(err.Error(), c.want) {
 				t.Fatalf("err = %v, want containing %q", err, c.want)
 			}
@@ -88,7 +90,7 @@ func TestParseDeclErrors(t *testing.T) {
 }
 
 func TestParseDeclItemKeysCaseInsensitive(t *testing.T) {
-	locs, err := ParseDecl(json.RawMessage(`{"a":{"default":[{"Label":"Blog","URL":"/blog"}]}}`))
+	locs, err := ParseDecl(jsontext.Value(`{"a":{"default":[{"Label":"Blog","URL":"/blog"}]}}`))
 	if err != nil {
 		t.Fatal(err)
 	}

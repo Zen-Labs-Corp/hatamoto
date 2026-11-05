@@ -3,7 +3,7 @@
 package changeset
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"sync"
 	"testing"
@@ -33,7 +33,7 @@ func newStandingFixture(t *testing.T) *standingFixture {
 	}
 	slug := "pr-" + f.tag
 	sc, err := entity.NewPostgresSchemaRepository(f.db).Create(f.ctx, &entity.CreateSchemaInput{Name: "pr " + f.tag, Slug: slug,
-		Schema: json.RawMessage(`{"type":"object","properties":{
+		Schema: jsontext.Value(`{"type":"object","properties":{
 			"price":{"type":"number"},"stock":{"type":"integer"},"active":{"type":"boolean"},
 			"on":{"type":"string","format":"date"},"tier":{"type":"string","enum":["a","b"]},
 			"title":{"type":"string"},"nested":{"type":"object"}}}`)})
@@ -61,7 +61,7 @@ func (s *standingFixture) attrs() map[string]any {
 	return map[string]any{"price": 10.5, "stock": 3, "active": true, "on": "2030-01-01", "tier": "a", "title": "Hello", "nested": map[string]any{"x": 1}}
 }
 
-func (s *standingFixture) payload(slug string, attrs map[string]any) json.RawMessage {
+func (s *standingFixture) payload(slug string, attrs map[string]any) jsontext.Value {
 	return raw(map[string]any{"schema": s.slug, "name": "N", "slug": slug, "attributes": attrs})
 }
 

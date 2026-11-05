@@ -2,10 +2,11 @@ package localeconv
 
 import (
 	"bytes"
-	"encoding/json"
 	"slices"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestPathCheckFixtureHasNoChanges(t *testing.T) {
@@ -81,10 +82,10 @@ func TestStripSitemapGroupKeepsEverythingElse(t *testing.T) {
 		t.Errorf("kept = %v", kept)
 	}
 	var st struct {
-		URLPattern string `json:"url_pattern"`
-		Overrides  []map[string]any
+		URLPattern string           `json:"url_pattern"`
+		Overrides  []map[string]any `json:"overrides"`
 	}
-	if err := json.Unmarshal(out[0].Settings, &st); err != nil {
+	if err := jsonx.Unmarshal(out[0].Settings, &st); err != nil {
 		t.Fatal(err)
 	}
 	if st.URLPattern != "/{slug}" || len(st.Overrides) != 3 {

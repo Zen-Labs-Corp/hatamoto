@@ -5,7 +5,7 @@ package changeset
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"image"
 	"image/color"
@@ -24,6 +24,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/redirect"
@@ -79,7 +80,7 @@ func newFixture(t *testing.T) *fixture {
 	schemas := entity.NewPostgresSchemaRepository(db)
 	tag := uuid.NewString()[:8]
 	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: "cs " + tag, Slug: "cs-" + tag,
-		Schema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`)})
+		Schema: jsontext.Value(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,8 +122,8 @@ func newFixture(t *testing.T) *fixture {
 	return f
 }
 
-func raw(v any) json.RawMessage {
-	b, err := json.Marshal(v)
+func raw(v any) jsontext.Value {
+	b, err := jsonx.Marshal(v)
 	if err != nil {
 		panic(err)
 	}
@@ -1132,7 +1133,7 @@ func (f *fixture) idOfSlug(slug string) string {
 func (f *fixture) localizedItem(key, slug, locale string, extra map[string]any) Item {
 	it := f.entityItem(key, slug, "c")
 	p := map[string]any{"locale": locale}
-	_ = json.Unmarshal(it.Payload, &p)
+	_ = jsonx.Unmarshal(it.Payload, &p)
 	p["locale"] = locale
 	for k, v := range extra {
 		p[k] = v

@@ -5,11 +5,12 @@ package app
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // A6: `builder convert` against a scratch, migrated database:
@@ -114,12 +115,12 @@ func TestBuilderConvert_Integration(t *testing.T) {
 		t.Errorf("versions = %d, want exactly one per page", versionCount())
 	}
 	// the mirror is kept and a doc is v1-shaped
-	var attrs map[string]json.RawMessage
+	var attrs map[string]jsontext.Value
 	var raw []byte
 	if err := pool.QueryRow(ctx, `SELECT attributes FROM hatamoto_entities WHERE id = $1`, ids["ooo"]).Scan(&raw); err != nil {
 		t.Fatal(err)
 	}
-	_ = json.Unmarshal(raw, &attrs)
+	_ = jsonx.Unmarshal(raw, &attrs)
 	if attrs["page_sections"] == nil || attrs["page_doc"] == nil {
 		t.Fatalf("attrs = %s", raw)
 	}

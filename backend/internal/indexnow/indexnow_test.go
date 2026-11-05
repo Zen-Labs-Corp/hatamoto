@@ -2,7 +2,6 @@ package indexnow
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type fakeRes struct {
@@ -35,7 +35,7 @@ type capture struct {
 func (c *capture) handler(w http.ResponseWriter, r *http.Request) {
 	b, _ := io.ReadAll(r.Body)
 	var p payload
-	_ = json.Unmarshal(b, &p)
+	_ = jsonx.Unmarshal(b, &p)
 	c.mu.Lock()
 	c.reqs = append(c.reqs, p)
 	c.mu.Unlock()

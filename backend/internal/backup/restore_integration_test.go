@@ -6,7 +6,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/url"
@@ -22,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 )
 
@@ -309,7 +309,7 @@ func archiveTrust(t *testing.T, archive string) *TrustIDs {
 			continue
 		}
 		var mf manifest
-		if err := json.NewDecoder(tr).Decode(&mf); err != nil {
+		if err := jsonx.UnmarshalRead(tr, &mf); err != nil {
 			t.Fatal(err)
 		}
 		return mf.Trust

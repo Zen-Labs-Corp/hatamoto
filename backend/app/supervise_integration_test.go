@@ -3,7 +3,6 @@
 package app
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -16,6 +15,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type superviseRun struct {
@@ -126,7 +127,7 @@ func TestSupervise_ServeReachesReadyAndSmoke_Integration(t *testing.T) {
 	var st struct {
 		SmokeToken string `json:"smoke_token"`
 	}
-	if err := json.Unmarshal(raw, &st); err != nil || st.SmokeToken == "" {
+	if err := jsonx.Unmarshal(raw, &st); err != nil || st.SmokeToken == "" {
 		t.Fatalf("state.json: %v %s", err, raw)
 	}
 
@@ -144,7 +145,7 @@ func TestSupervise_ServeReachesReadyAndSmoke_Integration(t *testing.T) {
 			Status int    `json:"status"`
 		} `json:"checks"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+	if err := jsonx.UnmarshalRead(resp.Body, &res); err != nil {
 		t.Fatal(err)
 	}
 	if resp.StatusCode != 200 || !res.Pass || len(res.Checks) == 0 {
@@ -164,7 +165,7 @@ func TestSupervise_ServeReachesReadyAndSmoke_Integration(t *testing.T) {
 		var s struct {
 			Baseline map[string]int `json:"smoke_baseline"`
 		}
-		_ = json.Unmarshal(raw, &s)
+		_ = jsonx.Unmarshal(raw, &s)
 		if s.Baseline["GET /"] == 200 {
 			break
 		}

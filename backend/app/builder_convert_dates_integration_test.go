@@ -5,7 +5,7 @@ package app
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 	"time"
 
@@ -73,7 +73,7 @@ func TestBuilderConvert_KeepsUpdatedAt_Integration(t *testing.T) {
 	defer db.Close()
 	svc := entity.NewService(entity.NewPostgresSchemaRepository(db), entity.NewPostgresEntityRepository(db), quietLogger())
 	attrs := []byte(`{"page_doc":{"v":2,"nodes":[{"id":"a-c","t":"container","p":{"tag":"section","v1":true},"c":[{"id":"a","t":"component","p":{"type":"content","content":{"body":"<p>edited</p>"}}}]}]}}`)
-	raw := json.RawMessage(attrs)
+	raw := jsontext.Value(attrs)
 	e, err := svc.UpdateEntity(ctx, id, nil, &entity.UpdateEntityInput{Attributes: &raw})
 	if err != nil {
 		t.Fatal(err)

@@ -3,7 +3,7 @@
 package changeset
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"testing"
 	"time"
@@ -36,7 +36,7 @@ func (f *fixture) ownership(svc *OwnershipService, id uuid.UUID) *Ownership {
 
 func (f *fixture) takeOver(id uuid.UUID, content string) {
 	f.t.Helper()
-	attrs := json.RawMessage(`{"content":"` + content + `"}`)
+	attrs := jsontext.Value(`{"content":"` + content + `"}`)
 	if _, err := f.ent.UpdateEntity(f.ctx, id, nil, &entity.UpdateEntityInput{Attributes: &attrs}); err != nil {
 		f.t.Fatal(err)
 	}

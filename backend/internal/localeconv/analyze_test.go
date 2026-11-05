@@ -1,12 +1,14 @@
 package localeconv
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 var fixtureEpoch = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -22,7 +24,7 @@ func ent(id, schema, slug, parent, status, attrs string) Ent {
 	pub := fixtureEpoch
 	return Ent{
 		ID: id, Schema: schema, Slug: slug, ParentID: parent, Locale: "en", Status: status,
-		Nested: schema == "page", Attrs: json.RawMessage(attrs),
+		Nested: schema == "page", Attrs: jsontext.Value(attrs),
 		CreatedAt: fixtureEpoch.Add(time.Duration(fixtureSeq) * time.Minute), UpdatedAt: fixtureEpoch, PublishedAt: &pub,
 	}
 }
@@ -46,8 +48,8 @@ func fixtureSnap() *Snapshot {
 	fixtureSeq = 0
 	return &Snapshot{
 		Schemas: []Schema{
-			{ID: "s-page", Slug: "page", Name: "Page", Settings: json.RawMessage(pageSettings)},
-			{ID: "s-post", Slug: "post", Name: "Post", Settings: json.RawMessage(`{}`)},
+			{ID: "s-page", Slug: "page", Name: "Page", Settings: jsontext.Value(pageSettings)},
+			{ID: "s-post", Slug: "post", Name: "Post", Settings: jsontext.Value(`{}`)},
 		},
 		Site: SiteState{Language: "en"},
 		Entities: []Ent{
@@ -289,8 +291,8 @@ func TestAnalyzeIsDeterministic(t *testing.T) {
 	slices.Reverse(snap.Entities)
 	a, ra := Analyze(snap, fixturePlan(t))
 	b, rb := Analyze(fixtureSnap(), fixturePlan(t))
-	ja, _ := json.Marshal(ra)
-	jb, _ := json.Marshal(rb)
+	ja, _ := jsonx.Marshal(ra)
+	jb, _ := jsonx.Marshal(rb)
 	if string(ja) != string(jb) {
 		t.Errorf("reports differ with input order:\n%s\n%s", ja, jb)
 	}

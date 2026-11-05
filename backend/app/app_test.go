@@ -2,12 +2,12 @@ package app
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/migrations"
 	"hatamoto.dev/sdk"
 )
@@ -144,7 +144,7 @@ func TestPrintVersionJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	var info versionInfo
-	if err := json.Unmarshal(b.Bytes(), &info); err != nil {
+	if err := jsonx.Unmarshal(b.Bytes(), &info); err != nil {
 		t.Fatal(err)
 	}
 	head, err := migrations.Head()
@@ -155,7 +155,7 @@ func TestPrintVersionJSON(t *testing.T) {
 		t.Fatalf("got %+v", info)
 	}
 	var loose map[string]any
-	if err := json.Unmarshal(b.Bytes(), &loose); err != nil || len(loose) != 5 {
+	if err := jsonx.Unmarshal(b.Bytes(), &loose); err != nil || len(loose) != 5 {
 		t.Fatalf("want exactly 5 fields, got %v (%v)", loose, err)
 	}
 	if len(info.SDKCompatibleWith) != len(sdk.CompatibleWith) {

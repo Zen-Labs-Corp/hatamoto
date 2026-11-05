@@ -1,11 +1,13 @@
 package app
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestParseArgsRoutesInstallOps(t *testing.T) {
@@ -24,14 +26,14 @@ const testSettingsSchema = `{"type":"object","required":["site"],"properties":{
  "tags":{"type":"array"},"token":{"type":"string","writeOnly":true},"free":{}}}`
 
 func TestApplySettingPairs(t *testing.T) {
-	old := json.RawMessage(`{"site":"a","token":"secret","keep":1}`)
+	old := jsontext.Value(`{"site":"a","token":"secret","keep":1}`)
 	got, keys, err := applySettingPairs([]byte(testSettingsSchema), old,
 		[]string{"site=123", "limit=5", "on=true", `tags=["x","y"]`, "free=hello", "token="})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var m map[string]any
-	if err := json.Unmarshal(got, &m); err != nil {
+	if err := jsonx.Unmarshal(got, &m); err != nil {
 		t.Fatal(err)
 	}
 	// string stays text, typed values are JSON, an empty write-only value keeps the stored secret.
