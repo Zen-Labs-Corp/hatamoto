@@ -2,6 +2,7 @@ package admin
 
 import (
 	"html/template"
+	"mime"
 	"net/http"
 	"strconv"
 	"strings"
@@ -116,8 +117,18 @@ func (a *Admin) handleBrandingSave(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The branding settings could not be loaded.")
 		return
 	}
-	if err := r.ParseForm(); err != nil {
-		// An unreadable body must not pass as an empty form, which would wipe the branding.
+	// The CSRF guard may already have parsed the body (and dropped its error), so
+	// judge the request by its content type and the fields the form always sends.
+	ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	formType := ct == "application/x-www-form-urlencoded" || ct == "multipart/form-data"
+	var perr error
+	if ct == "multipart/form-data" {
+		perr = r.ParseMultipartForm(1 << 20)
+	} else {
+		perr = r.ParseForm()
+	}
+	if perr != nil || !formType || !r.PostForm.Has("accent") {
+		// An unreadable or foreign body must not pass as an empty form, which would wipe the branding.
 		a.Error(w, r, http.StatusBadRequest, "Bad request", "The form could not be read. Nothing was saved.")
 		return
 	}
