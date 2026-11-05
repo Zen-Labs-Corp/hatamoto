@@ -62,6 +62,13 @@ func init() {
 		if x.Src == "" && x.Href == "" && !w.Canvas {
 			return nil, errWidgetEmpty // nothing to show: no empty styled box
 		}
+		if x.Text == "" {
+			x.Text = "Download PDF"
+			if x.Title != "" {
+				x.Text += ": " + x.Title // told apart from the other PDFs on the page
+			}
+			x.Text += sizeSuffix(w, x.Src)
+		}
 		if x.Title == "" {
 			x.Title = "PDF document"
 		}
@@ -70,9 +77,6 @@ func init() {
 			x.Name = path.Base(x.Src)
 			x.Href = x.Src
 			x.Frame = !w.View.NoFrames // link only in a sandboxed document
-		}
-		if x.Text == "" {
-			x.Text = "Download PDF" + sizeSuffix(w, x.Src)
 		}
 		return x, nil
 	})

@@ -61,7 +61,7 @@ func TestPDFWidgetMarkup(t *testing.T) {
 	if link < 0 || frame < link {
 		t.Errorf("the link must come before the frame: %s", out)
 	}
-	for _, want := range []string{`title="Brochure"`, `loading="lazy"`, `height="600"`, `>Download PDF</a>`} {
+	for _, want := range []string{`title="Brochure"`, `loading="lazy"`, `height="600"`, `>Download PDF: Brochure</a>`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %s in %s", want, out)
 		}
@@ -131,6 +131,10 @@ func TestPDFWidgetLinkText(t *testing.T) {
 		if out := renderPDF(t, ds, p, false); !strings.Contains(out, c.want) {
 			t.Errorf("%s/%q: want %s in %s", c.src, c.text, c.want, out)
 		}
+	}
+	// A title tells the PDFs apart in the default text.
+	if out := renderPDF(t, ds, map[string]any{"src": "/media/big.pdf", "title": "Annual report"}, false); !strings.Contains(out, ">Download PDF: Annual report (2.4 MB)</a>") {
+		t.Errorf("titled: %s", out)
 	}
 	// A DataSource without FileSizer adds no size.
 	if out := renderPDF(t, &sizerData{}, map[string]any{"src": "/media/big.pdf"}, false); !strings.Contains(out, ">Download PDF</a>") {
