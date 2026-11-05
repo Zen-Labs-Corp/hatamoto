@@ -195,3 +195,42 @@ func TestScheduledUnpublishKeepsOwnerRedirectAndSkipsDrafts(t *testing.T) {
 		t.Error("redirect created for a draft")
 	}
 }
+
+// A fired unpublish must not leave a pending schedule behind: republishing
+// from the editor re-posts nothing, and the next tick must not take the page
+// down again.
+func TestFiredUnpublishLeavesNoPendingSchedule(t *testing.T) {
+	r := newUnpublishRig(t)
+	e := r.published("unpub-e")
+	r.due(e.ID, "/elsewhere")
+	if n := r.run(); n != 1 {
+		t.Fatalf("handled %d", n)
+	}
+	if u, _ := r.srv.entityService.UnpublishFor(r.ctx, e.ID); u != nil {
+		t.Fatalf("fired schedule still visible: %+v", u)
+	}
+	if m, _ := r.srv.entityService.UnpublishMap(r.ctx, []uuid.UUID{e.ID}); len(m) != 0 {
+		t.Fatalf("fired schedule in Map: %+v", m)
+	}
+
+	// Setting a new date on the draft is a normal pending schedule, and the
+	// next publish does not swallow it silently.
+	if err := r.srv.entityService.SetUnpublish(r.ctx, e.ID, time.Now().Add(time.Hour), ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.srv.entityService.ClearUnpublish(r.ctx, e.ID); err != nil {
+		t.Fatal(err)
+	}
+	if u, _ := r.srv.entityService.UnpublishFor(r.ctx, e.ID); u != nil {
+		t.Fatal("Clear did nothing")
+	}
+
+	// Republish, then a tick: the page stays published.
+	if _, err := r.srv.entityService.UpdateEntityStatus(r.ctx, e.ID, nil, entity.StatusPublished); err != nil {
+		t.Fatal(err)
+	}
+	r.run()
+	if r.status(e.ID) != entity.StatusPublished {
+		t.Fatal("page was unpublished again after republish")
+	}
+}

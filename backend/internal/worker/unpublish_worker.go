@@ -34,17 +34,13 @@ func NewUnpublishWorker(db *database.DB, logger *slog.Logger, sink UnpublishSink
 
 // Run executes one tick and returns how many entities it handled. A failing
 // entity is logged and left due, to be retried on the next tick.
-//
-// A schedule row whose sink call left no redirect behind is deleted. A row
-// that holds the created redirect's id stays (it no longer counts as due) so
-// republishing can switch that redirect off.
 func (w *UnpublishWorker) Run(ctx context.Context) (int, error) {
 	adminCtx := database.WithSuperadmin(ctx)
 	pool := w.db.Pool()
 
 	rows, err := pool.Query(adminCtx, `
 		SELECT entity_id FROM hatamoto_entity_schedule
-		 WHERE unpublish_at <= NOW() AND redirect_id IS NULL
+		 WHERE unpublish_at <= NOW()
 		 ORDER BY unpublish_at
 		 LIMIT 200`)
 	if err != nil {
@@ -71,7 +67,7 @@ func (w *UnpublishWorker) Run(ctx context.Context) (int, error) {
 			continue
 		}
 		if _, err := pool.Exec(adminCtx,
-			`DELETE FROM hatamoto_entity_schedule WHERE entity_id = $1 AND redirect_id IS NULL`, id); err != nil {
+			`DELETE FROM hatamoto_entity_schedule WHERE entity_id = $1`, id); err != nil {
 			return done, fmt.Errorf("drop finished unpublish: %w", err)
 		}
 		done++

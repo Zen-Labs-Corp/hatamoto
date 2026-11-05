@@ -46,13 +46,19 @@ func TestUnpublishStore(t *testing.T) {
 		t.Fatalf("Clear left %+v", u)
 	}
 
-	// A row that created a redirect survives Clear and is taken once.
+	// The created redirect is tracked apart from the schedule: a fired
+	// schedule is not a pending one, and Clear / Get never see the redirect.
 	_ = st.Set(ctx, e.ID, at, "/new")
 	rid := uuid.New()
 	if err := st.SetRedirect(ctx, e.ID, rid); err != nil {
 		t.Fatal(err)
 	}
-	_ = st.Clear(ctx, e.ID)
+	if err := st.Clear(ctx, e.ID); err != nil {
+		t.Fatal(err)
+	}
+	if u, _ := st.Get(ctx, e.ID); u != nil {
+		t.Fatalf("Clear left %+v", u)
+	}
 	got, err := st.TakeRedirect(ctx, e.ID)
 	if err != nil || got == nil || *got != rid {
 		t.Fatalf("TakeRedirect = %v, %v", got, err)
