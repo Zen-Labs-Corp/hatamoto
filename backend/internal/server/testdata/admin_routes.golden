@@ -98,12 +98,17 @@ GET /admin/profile/security/passkeys/add -> admin.(*Admin).handlePasskeyAddPage-
 GET /admin/profile/security/totp -> admin.(*Admin).handleTOTPForm-fm
 GET /admin/reset -> admin.(*Admin).handleResetForm-fm
 GET /admin/settings -> admin.(*Admin).areaEntry.func1
+<<<<<<< HEAD
 GET /admin/settings/admin-branding -> admin.(*Admin).handleBranding-fm
+=======
+GET /admin/settings/access-security -> admin.(*Admin).mountSettingsFrame.func1
+>>>>>>> 8e7d86cd9 (fix(admin): land old Settings section URLs on their own page and register the new section entry routes)
 GET /admin/settings/api-keys -> admin.(*Admin).handleAPIKeys-fm
 GET /admin/settings/api-keys/new -> admin.(*Admin).handleAPIKeyNew-fm
 GET /admin/settings/api-keys/secret -> admin.(*Admin).handleAPIKeySecret-fm
 GET /admin/settings/api-keys/{id}/{action} -> admin.(*Admin).handleAPIKeyConfirm-fm
 GET /admin/settings/backups -> admin.(*Admin).handleBackups-fm
+GET /admin/settings/backups-recovery -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/backups/retention -> admin.(*Admin).handleRetentionPage-fm
 GET /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDeleteConfirm-fm
 GET /admin/settings/backups/{id}/download -> admin.(*Admin).handleBackupDownload-fm
@@ -124,7 +129,11 @@ GET /admin/settings/import/wordpress -> admin.(*Admin).handleImportSource-fm
 GET /admin/settings/import/wordpress/{id} -> admin.(*Admin).handleImportRun-fm
 GET /admin/settings/import/wordpress/{id}/cancel -> admin.(*Admin).handleImportCancelForm-fm
 GET /admin/settings/import/wordpress/{id}/options -> admin.(*Admin).handleImportOptions-fm
+<<<<<<< HEAD
 GET /admin/settings/jobs -> admin.(*Admin).handleJobs-fm
+=======
+GET /admin/settings/integrations -> admin.(*Admin).mountSettingsFrame.func1
+>>>>>>> 8e7d86cd9 (fix(admin): land old Settings section URLs on their own page and register the new section entry routes)
 GET /admin/settings/linking -> admin.(*Admin).handleRules-fm
 GET /admin/settings/linking/equity -> admin.(*Admin).handleEquity-fm
 GET /admin/settings/linking/equity/{id} -> admin.(*Admin).handleInbound-fm
@@ -142,6 +151,7 @@ GET /admin/settings/locales/new -> admin.(*Admin).handleLocaleNew-fm
 GET /admin/settings/locales/remove/{tag} -> admin.(*Admin).handleLocaleRemoveConfirm-fm
 GET /admin/settings/performance -> admin.(*Admin).handlePerformance-fm
 GET /admin/settings/privacy -> admin.(*Admin).handlePrivacy-fm
+GET /admin/settings/privacy-tracking -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/redirects -> admin.(*Admin).handleRedirects-fm
 GET /admin/settings/redirects/404 -> admin.(*Admin).handleNotFoundLog-fm
 GET /admin/settings/redirects/404/{id}/delete -> admin.(*Admin).handle404DeleteForm-fm
@@ -178,6 +188,7 @@ GET /admin/settings/taxonomies/terms/{id}/delete -> admin.(*Admin).handleTermDel
 GET /admin/settings/taxonomies/terms/{id}/merge -> admin.(*Admin).handleTermMergeForm-fm
 GET /admin/settings/taxonomies/terms/{id}/unlink -> admin.(*Admin).handleTermUnlinkConfirm-fm
 GET /admin/settings/team -> admin.(*Admin).mountSettingsFrame.func1
+GET /admin/settings/tools -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/tracking -> admin.(*Admin).handleTracking-fm
 GET /admin/settings/types -> admin.(*Admin).handleSchemas-fm
 GET /admin/settings/types/new -> admin.(*Admin).handleSchemaNew-fm

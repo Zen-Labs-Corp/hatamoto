@@ -263,6 +263,33 @@ var settingsSectionAliases = map[string]string{
 	"backups": "backups-recovery", "versions": "backups-recovery", "changes": "backups-recovery",
 }
 
+// settingsOldPages are the old section IDs that were a single page and are now
+// a tab of a merged section: their entry URL and ?section= land on that tab, not
+// on the first tab of the section that absorbed them.
+var settingsOldPages = map[string]string{
+	"security": "admin-address", "import-export": "import", "search-replace": "search-replace",
+	"api": "api", "webhooks": "subscriptions", "site-access": "site-access",
+	"privacy": "privacy", "tracking": "tracking",
+	"backups": "backups", "versions": "versions", "changes": "changes",
+}
+
+// settingsMovedOut are the old Settings section IDs that became main-menu pages.
+var settingsMovedOut = map[string]string{
+	"forms": "/forms", "media": "/media", "spam": "/forms/spam", "submissions": "/forms/submissions",
+}
+
+// settingsTabHref is the URL of tab for role, or "" when role cannot open it.
+func settingsTabHref(prefix, role, tab string) string {
+	for _, s := range settingsFor(prefix, role) {
+		for _, t := range s.Tabs {
+			if t.ID == tab {
+				return t.Href
+			}
+		}
+	}
+	return ""
+}
+
 func settingsFor(prefix, role string) []SettingsSection { return settingsArea.forPrefix(prefix, role) }
 
 // forPrefix is the area's sidebar for role under prefix: only the tabs the
@@ -477,10 +504,15 @@ func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 				}
 			}
 		}
-		if want == "forms" && ar == settingsArea {
-			// Forms moved to the main menu.
-			http.Redirect(w, r, a.adminPath+"/forms", http.StatusSeeOther)
+		if to, ok := settingsMovedOut[want]; ok && ar == settingsArea {
+			http.Redirect(w, r, a.adminPath+to, http.StatusSeeOther)
 			return
+		}
+		if tab, ok := settingsOldPages[want]; ok && ar == settingsArea {
+			if href := settingsTabHref(a.adminPath, role, tab); href != "" {
+				http.Redirect(w, r, href, http.StatusSeeOther)
+				return
+			}
 		}
 		if alias, ok := settingsSectionAliases[want]; ok && ar == settingsArea {
 			want = alias
@@ -500,13 +532,23 @@ func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 func (a *Admin) mountSettingsFrame(authed *httpx.Group) {
 	authed.HandleFunc("GET /settings", a.areaEntry(settingsArea))
 	// Multi-tab sections whose ID is not already a tab URL, plus the old IDs.
-	for _, id := range []string{"entity-models", "import-export", "security", "content-model", "seo", "team"} {
+	for _, id := range []string{
+		"entity-models", "import-export", "security", "content-model", "seo", "team",
+		"integrations", "access-security", "privacy-tracking", "backups-recovery", "tools",
+	} {
 		target := id
 		if alias, ok := settingsSectionAliases[id]; ok {
 			target = alias
 		}
 		authed.HandleFunc("GET /settings/"+id, func(w http.ResponseWriter, r *http.Request) {
-			for _, s := range settingsFor(a.adminPath, userFrom(r.Context()).Role) {
+			role := userFrom(r.Context()).Role
+			if tab, ok := settingsOldPages[id]; ok {
+				if href := settingsTabHref(a.adminPath, role, tab); href != "" {
+					http.Redirect(w, r, href, http.StatusFound)
+					return
+				}
+			}
+			for _, s := range settingsFor(a.adminPath, role) {
 				if s.ID == target {
 					http.Redirect(w, r, s.Href, http.StatusFound)
 					return
