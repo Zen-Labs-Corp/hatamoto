@@ -586,13 +586,18 @@ func (r *PostgresRepository) ListEntitiesForTerm(ctx context.Context, termID uui
 }
 
 // ListPublicTerms returns the terms of a kind that have at least one published
-// entity, most used first (name breaks ties), with the published count.
-func (r *PostgresRepository) ListPublicTerms(ctx context.Context, kind string, limit int) ([]*TermWithCount, error) {
+// entity, most used first (name breaks ties) or, with manual, in the owner's
+// order (name breaks ties), with the published count.
+func (r *PostgresRepository) ListPublicTerms(ctx context.Context, kind string, limit int, manual bool) ([]*TermWithCount, error) {
 	conn, err := r.db.GetConn(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Release()
+	order := "COUNT(e.id) DESC, t.name"
+	if manual {
+		order = "t.sort_order, t.name"
+	}
 	rows, err := conn.Query(ctx, `
         SELECT `+termColsT+`, COUNT(e.id)
           FROM hatamoto_terms t
@@ -602,7 +607,7 @@ func (r *PostgresRepository) ListPublicTerms(ctx context.Context, kind string, l
           JOIN hatamoto_entity_schemas s ON s.id = e.schema_id AND `+entity.HiddenPersonFor("$3")+`
          WHERE t.kind = $1
          GROUP BY t.id
-         ORDER BY COUNT(e.id) DESC, t.name
+         ORDER BY `+order+`
          LIMIT $2
     `, kind, limit, entity.VisibleLocales(ctx))
 	if err != nil {

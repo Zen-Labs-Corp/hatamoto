@@ -29,12 +29,13 @@ func dataFuncs(ds DataSource) template.FuncMap {
 			}
 			return ds.Recent(schema, clampLimit(limit))
 		},
-		// terms "category" 10: the site's terms of a kind with entity counts.
-		"terms": func(kind string, limit int) []TermView {
+		// terms "category" 10: the site's terms of a kind with entity counts,
+		// most used first; a third argument "manual" gives the owner's order.
+		"terms": func(kind string, limit int, order ...string) []TermView {
 			if ds == nil {
 				return nil
 			}
-			return ds.Terms(kind, clampLimit(limit))
+			return ds.Terms(kind, clampLimit(limit), len(order) > 0 && order[0] == "manual")
 		},
 		// menu "header": the items of the menu at a location.
 		"menu": func(location string) []NavItem {

@@ -13,9 +13,9 @@ import (
 // pagedData is a DataSource with 3 pages of 2 posts.
 type pagedData struct{}
 
-func (pagedData) Recent(string, int) []render.RelatedItem { return nil }
-func (pagedData) Terms(string, int) []render.TermView     { return nil }
-func (pagedData) Menu(string) []render.NavItem            { return nil }
+func (pagedData) Recent(string, int) []render.RelatedItem   { return nil }
+func (pagedData) Terms(string, int, bool) []render.TermView { return nil }
+func (pagedData) Menu(string) []render.NavItem              { return nil }
 func (pagedData) ImageVariants(string) []render.ImageVariant {
 	return nil
 }

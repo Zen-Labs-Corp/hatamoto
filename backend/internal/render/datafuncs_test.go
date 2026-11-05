@@ -183,3 +183,42 @@ func TestToStrLargeFloatsAreNotExponent(t *testing.T) {
 		}
 	}
 }
+
+func TestQueryFuncPassesManualOrderOnlyWhenAsked(t *testing.T) {
+	spy := &spyData{}
+	execFuncs(t, spy, `{{query (dict "schema" "page" "order" "manual")}}`, nil)
+	if spy.q.Order != "manual" {
+		t.Errorf("order = %q, want manual", spy.q.Order)
+	}
+	execFuncs(t, spy, `{{query (dict "schema" "page")}}`, nil)
+	if spy.q.Order != "" {
+		t.Errorf("default order = %q, want empty (newest first)", spy.q.Order)
+	}
+}
+
+// termsSpy records the arguments of the terms func.
+type termsSpy struct {
+	fakeData
+	manual bool
+}
+
+func (s *termsSpy) Terms(kind string, limit int, manual bool) []TermView {
+	s.manual = manual
+	return nil
+}
+
+func TestTermsFuncManualArgument(t *testing.T) {
+	spy := &termsSpy{}
+	execFuncs(t, spy, `{{terms "category" 10 "manual"}}`, nil)
+	if !spy.manual {
+		t.Error("terms with a third argument manual did not ask for the manual order")
+	}
+	execFuncs(t, spy, `{{terms "category" 10}}`, nil)
+	if spy.manual {
+		t.Error("terms without a third argument asked for the manual order")
+	}
+	execFuncs(t, spy, `{{terms "category" 10 "other"}}`, nil)
+	if spy.manual {
+		t.Error("an unknown third argument asked for the manual order")
+	}
+}

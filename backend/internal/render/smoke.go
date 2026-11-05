@@ -11,7 +11,7 @@ import (
 type smokeData struct{}
 
 func (smokeData) Recent(string, int) []RelatedItem { return smokeItems }
-func (smokeData) Terms(kind string, _ int) []TermView {
+func (smokeData) Terms(kind string, _ int, _ bool) []TermView {
 	return []TermView{{Kind: kind, Slug: "news", Name: "News", URL: "/category/news", Count: 2}}
 }
 func (smokeData) Menu(string) []NavItem               { return smokeNav }

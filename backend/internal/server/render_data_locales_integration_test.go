@@ -131,7 +131,7 @@ func TestRenderDataLocales_Integration(t *testing.T) {
 			check("Query", names)
 
 			var terms []render.TermView
-			for _, tv := range d.Terms("tag", 500) {
+			for _, tv := range d.Terms("tag", 500, false) {
 				if tv.Slug == termSlug {
 					terms = append(terms, tv)
 				}

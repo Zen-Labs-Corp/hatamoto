@@ -23,7 +23,7 @@ var fakeItems = []RelatedItem{
 }
 
 func (fakeData) Recent(schema string, limit int) []RelatedItem { return fakeItems[:1] }
-func (fakeData) Terms(kind string, limit int) []TermView {
+func (fakeData) Terms(kind string, limit int, manual bool) []TermView {
 	return []TermView{{Kind: kind, Slug: "news", Name: "News", URL: "/category/news", Count: 2}}
 }
 func (fakeData) Menu(location string) []NavItem {

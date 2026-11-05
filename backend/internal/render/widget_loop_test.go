@@ -403,3 +403,17 @@ func TestLoopInListingPartDoesNotOwnPaging(t *testing.T) {
 		t.Errorf("a loop on a listing route took ?page=: %+v page=%d", v.loopPaged, ds.specs[0].Page)
 	}
 }
+
+func TestLoopManualOrderIsOptIn(t *testing.T) {
+	for order, want := range map[string]string{"manual": "manual", "": "-published_at", "newest": "-published_at"} {
+		ds := &loopData{n: 1}
+		props := map[string]any{"schema": "page"}
+		if order != "" {
+			props["order"] = order
+		}
+		renderLoop(t, ds, minimalView(), loopNode(props, itemKids()...), false)
+		if len(ds.specs) != 1 || ds.specs[0].Order != want {
+			t.Errorf("order prop %q: specs %+v, want order %q", order, ds.specs, want)
+		}
+	}
+}

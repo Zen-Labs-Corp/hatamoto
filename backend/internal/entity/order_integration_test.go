@@ -249,3 +249,47 @@ func TestDuplicateLandsAfterItsSourceInAnOrderedSet(t *testing.T) {
 		t.Errorf("order = %v", got)
 	}
 }
+
+// The public listing sorts by the stored order only when asked: the default
+// order is the newest first, as before.
+func TestPublicListingManualOrder(t *testing.T) {
+	f := newCSFixture(t)
+	var ids []uuid.UUID
+	for _, n := range []string{"A", "B", "C"} {
+		e := f.orderEntity(n, nil)
+		if _, err := f.svc.UpdateEntityStatus(f.ctx, e.ID, nil, StatusPublished); err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, e.ID)
+	}
+	// Spread the publish dates so "newest" is C, B, A.
+	for i, id := range ids {
+		if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_entities SET published_at = now() - make_interval(hours => $2) WHERE id = $1`, id, 10-i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := f.svc.MoveEntity(f.ctx, ids[2], nil, MoveInput{Position: 1}); err != nil { // C A B
+		t.Fatal(err)
+	}
+	repo := NewPostgresPublicRepository(f.db)
+	names := func(order string) []string {
+		items, _, err := repo.ListPublishedFiltered(f.ctx, ListFilter{SchemaSlugs: []string{f.schema.Slug}, Order: order}, 1, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, e := range items {
+			out = append(out, e.Name)
+		}
+		return out
+	}
+	for order, want := range map[string][]string{
+		"manual":  {"C", "A", "B"},
+		"-manual": {"B", "A", "C"},
+		"":        {"C", "B", "A"},
+	} {
+		if got := names(order); !eq(got, want) {
+			t.Errorf("order %q = %v, want %v", order, got, want)
+		}
+	}
+}

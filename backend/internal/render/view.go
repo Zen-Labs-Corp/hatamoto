@@ -320,7 +320,9 @@ type Pagination struct {
 // (an error yields no items). A nil DataSource yields no data.
 type DataSource interface {
 	Recent(schema string, limit int) []RelatedItem
-	Terms(kind string, limit int) []TermView
+	// Terms lists the terms of a kind, most used first, or in the owner's manual
+	// order when manual is set.
+	Terms(kind string, limit int, manual bool) []TermView
 	Menu(location string) []NavItem
 	// ImageVariants returns the resized copies of a local media URL, widest last.
 	ImageVariants(url string) []ImageVariant
@@ -374,6 +376,7 @@ type QuerySpec struct {
 	// that names nothing gives no items.
 	Author, Term string
 	// Order is "-published_at" (default), "published_at", "name", "-name",
+	// "manual" (the owner's manual order, ties by creation date), "-manual",
 	// "attr:<key>" or "-attr:<key>".
 	Order string
 	// Limit is 1..MaxQueryLimit and Page 1..MaxQueryPage.

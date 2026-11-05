@@ -413,6 +413,7 @@ func (s *Server) setupDependencies() {
 	})
 	s.entityService.SetLinkSync(&entityLinkSyncAdapter{db: s.db, urls: s.entityService.URLRegistry(), changed: s.invalidateRendered})
 	s.entityService.SetPathObserver(s.onEntityMoved)
+	s.entityService.SetOrderObserver(s.invalidateRendered)
 	s.entityService.SetSchemaPatternObserver(s.onSchemaPatternChanged)
 	s.entityService.SetLiveObserver(s.onEntitiesLive)
 	s.entityService.SetArchiveObserver(s.revokePreviewLinks)
