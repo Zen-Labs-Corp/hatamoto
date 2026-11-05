@@ -26,7 +26,7 @@ type storedKeyColumn struct {
 // storedKeyColumns lists the only columns this migration touches. The shapes
 // are frozen copies of the key layout at the time of writing, not the live
 // types, so a later change of a type cannot change what this migration does.
-// A test compares their field names with the current types so drift is seen.
+// A test pins them to a literal snapshot of the key names.
 func storedKeyColumns() []storedKeyColumn {
 	return []storedKeyColumn{
 		{"hatamoto_site_config", "theme_extra", nskThemeExtra()},

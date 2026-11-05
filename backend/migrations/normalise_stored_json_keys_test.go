@@ -1,87 +1,79 @@
 package migrations
 
 import (
-	"reflect"
 	"slices"
 	"sort"
 	"testing"
 
-	"hatamoto.dev/core/internal/entity"
-	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/jsonx/keynorm"
-	"hatamoto.dev/core/internal/siteconfig"
 )
 
-// shapeDrift lists where the frozen shape and the shape of the current type
-// disagree on key names. A key the current type has and the frozen shape lacks
-// is always drift (a variant of it would stay unnormalised). A frozen key the
-// type lacks is allowed unless strict (theme_extra also holds extras that are
-// not part of the typed theme).
-func shapeDrift(path string, frozen, current *keynorm.Shape, strict bool) []string {
-	if current == nil {
-		return nil // opaque or free-form now: nothing to compare
-	}
-	if frozen == nil {
-		return []string{path + ": the type now has a nested shape the migration treats as opaque"}
+// shapePaths flattens a shape into sorted key paths: "/a" is a key, "[]" an
+// array element, "{}" the values of a free-form object.
+func shapePaths(prefix string, s *keynorm.Shape) []string {
+	if s == nil {
+		return nil
 	}
 	var out []string
-	names := func(s *keynorm.Shape) []string {
-		var n []string
-		for k := range s.Fields {
-			n = append(n, k)
-		}
-		sort.Strings(n)
-		return n
+	if s.Open {
+		out = append(out, prefix+"{}")
 	}
-	for _, k := range names(current) {
-		child, ok := frozen.Fields[k]
-		if !ok {
-			out = append(out, path+"/"+k+": missing from the frozen shape")
-			continue
-		}
-		out = append(out, shapeDrift(path+"/"+k, child, current.Fields[k], strict)...)
+	for k, child := range s.Fields {
+		out = append(out, prefix+"/"+k)
+		out = append(out, shapePaths(prefix+"/"+k, child)...)
 	}
-	if strict {
-		for _, k := range names(frozen) {
-			if _, ok := current.Fields[k]; !ok {
-				out = append(out, path+"/"+k+": frozen key the type no longer has")
-			}
-		}
+	if s.Elem != nil && !s.Open {
+		out = append(out, prefix+"[]")
+		out = append(out, shapePaths(prefix+"[]", s.Elem)...)
 	}
-	if current.Elem != nil || frozen.Elem != nil {
-		out = append(out, shapeDrift(path+"[]", frozen.Elem, current.Elem, strict)...)
-	}
+	sort.Strings(out)
 	return out
 }
 
-func TestNormaliseStoredJSONKeysShapesMatchTypes(t *testing.T) {
-	cases := []struct {
-		table, column string
-		typ           reflect.Type
-		strict        bool
-	}{
-		{"hatamoto_site_config", "theme_extra", reflect.TypeFor[siteconfig.ThemeConfig](), false},
-		{"hatamoto_entity_schemas", "settings", reflect.TypeFor[entity.SchemaURLSettings](), true},
-		{"hatamoto_forms", "fields", reflect.TypeFor[[]form.FormField](), true},
-		{"hatamoto_forms", "settings", reflect.TypeFor[form.FormSettings](), true},
+// The migration is unshipped-then-applied history: what it normalises is the
+// key layout of 2026-11-05, frozen here as literals. The test compares against
+// that snapshot, not against the live types, so adding a field to a type later
+// never fails it (new keys are written canonically by the v2 encoders).
+func TestNormaliseStoredJSONKeysShapesAreFrozen(t *testing.T) {
+	want := map[string][]string{
+		"hatamoto_site_config.theme_extra": {
+			"/borderRadius", "/borderRadius/lg", "/borderRadius/md", "/borderRadius/sm",
+			"/builder", "/colors", "/colors/accent", "/colors/background", "/colors/primary",
+			"/colors/secondary", "/colors/text", "/headerCta", "/headerCta/text", "/headerCta/url",
+			"/media_formats", "/media_formats/avif", "/media_formats/webp", "/media_rebuild",
+			"/socialLinks", "/socialLinks{}", "/typography", "/typography/fontFamily", "/typography/headingFamily",
+		},
+		"hatamoto_entity_schemas.settings": {
+			"/aliases", "/archive_crumb_label", "/archive_description", "/archive_path", "/archive_title",
+			"/article_type", "/editor", "/faq_from_content", "/locale_neutral", "/overrides",
+			"/overrides[]", "/overrides[]/attribute", "/overrides[]/equals", "/overrides[]/sitemap_group",
+			"/overrides[]/url_pattern", "/schema_org_type", "/section_pages", "/sitemap",
+			"/sitemap/changefreq", "/sitemap/exclude", "/sitemap/priority", "/sitemap_group", "/url_pattern",
+		},
+		"hatamoto_forms.fields": {
+			"[]", "[]/attributes", "[]/attributes{}", "[]/default_value", "[]/help_text", "[]/id", "[]/label",
+			"[]/name", "[]/options", "[]/options[]", "[]/options[]/label", "[]/options[]/value",
+			"[]/placeholder", "[]/position", "[]/required", "[]/type", "[]/validation",
+			"[]/validation/max", "[]/validation/max_length", "[]/validation/message",
+			"[]/validation/min", "[]/validation/min_length", "[]/validation/pattern", "[]/width",
+		},
+		"hatamoto_forms.settings": {
+			"/confirmation_email", "/confirmation_message", "/enable_captcha", "/notify_email",
+			"/store_submissions", "/submit_button_text", "/success_message", "/success_redirect_url",
+		},
 	}
-	frozen := map[string]*keynorm.Shape{}
+	got := map[string][]string{}
 	for _, c := range storedKeyColumns() {
-		frozen[c.table+"."+c.column] = c.shape
+		got[c.table+"."+c.column] = shapePaths("", c.shape)
 	}
-	if len(frozen) != len(cases) {
-		t.Fatalf("migration covers %d columns, test knows %d", len(frozen), len(cases))
+	for key, w := range want {
+		slices.Sort(w)
+		if !slices.Equal(got[key], w) {
+			t.Errorf("%s key layout changed (an applied migration must not be edited):\n got %v\nwant %v", key, got[key], w)
+		}
 	}
-	for _, c := range cases {
-		key := c.table + "." + c.column
-		f, ok := frozen[key]
-		if !ok {
-			t.Errorf("%s is not a migration column", key)
-			continue
-		}
-		if drift := shapeDrift(key, f, keynorm.ShapeOf(c.typ), c.strict); len(drift) > 0 {
-			t.Errorf("frozen shape of %s drifted from its type (add a new migration for new keys, do not edit this one):\n%v", key, drift)
-		}
+	if len(got) != len(want) {
+		t.Errorf("migration covers %d columns, snapshot has %d", len(got), len(want))
 	}
 }
 
