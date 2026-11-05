@@ -38,7 +38,7 @@ if [ "$want_code" -eq 1 ] && ! out=$(bash "$REPO_ROOT/scripts/check-neutral.sh" 
   printf '%s\n' "$out" >&2
   rc=1
 fi
-# Warn-only: check-jsonv1 exits non-zero only under JSONV1_STRICT=1.
+# Fails on any encoding/json (v1) import outside backend/migrations/ (see scripts/check-jsonv1.sh).
 if [ "$want_code" -eq 1 ] && ! out=$(bash "$REPO_ROOT/scripts/check-jsonv1.sh" 2>&1); then
   printf '%s\n' "$out" >&2
   rc=1

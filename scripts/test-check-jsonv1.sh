@@ -5,7 +5,7 @@ ROOT=$(git rev-parse --show-toplevel)
 fail() { echo "FAIL: $*" >&2; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 R="$T/repo"
-mkdir -p "$R/scripts" "$R/backend/app" "$R/backend/migrations" "$R/backend/internal/jsonx"
+mkdir -p "$R/scripts" "$R/backend/app" "$R/backend/migrations" "$R/backend/internal/jsonx" "$R/backend/pkg/sdk/guest" "$R/backend/internal/pluginhost/testdata/legacy"
 git -C "$R" init -q
 cp "$ROOT/scripts/check-jsonv1.sh" "$R/scripts/check-jsonv1.sh"
 gr() { git -C "$R" -c user.name=t -c user.email=t@example.org "$@"; }
@@ -21,30 +21,27 @@ o=$(chk) || fail "clean tree failed: $o"
 grep -q '^check-jsonv1: OK$' <<<"$o" || fail "clean tree not plain OK: $o"
 echo "ok   clean: v2 and jsontext are not counted"
 
-# migrations and the single allow-listed file are ignored
+# migrations and the three allow-listed files are ignored
 plant backend/migrations/old.go '"encoding/json"'
 plant backend/internal/jsonx/v1opts.go '"encoding/json"'
+plant backend/pkg/sdk/guest/v1opts.go '"encoding/json"'
+plant backend/internal/pluginhost/testdata/legacy/main.go '"encoding/json"'
 commit ignored
-o=$(JSONV1_STRICT=1 chk) || fail "exempt paths counted: $o"
-echo "ok   exempt: backend/migrations/ and v1opts.go"
+o=$(chk) || fail "exempt paths counted: $o"
+grep -q '^check-jsonv1: OK$' <<<"$o" || fail "exempt tree not plain OK: $o"
+echo "ok   exempt: backend/migrations/ and the three allow-listed files"
 
-# warn-only: counts, exit 0, aliased import counted, tests counted separately
+# default (no env): fails, names the file, catches alias, tests and near-miss paths
 plant backend/app/a.go '"encoding/json"'
 plant backend/app/b.go 'stdjson "encoding/json"'
 printf 'package x\n\nimport "encoding/json"\n' > "$R/backend/app/c_test.go"
 plant backend/internal/jsonx/other.go '"encoding/json"'
 commit hits
-o=$(chk) || fail "warn-only mode exited non-zero: $o"
-grep -q 'WARN 3 non-test files and 1 test files' <<<"$o" || fail "wrong counts: $o"
-grep -q 'warn-only' <<<"$o" || fail "no warn-only note: $o"
-if grep -q 'app/a.go' <<<"$o"; then fail "file list printed without JSONV1_VERBOSE"; fi
-o=$(JSONV1_VERBOSE=1 chk) || fail "verbose failed"
-grep -q '^backend/app/b.go:4$' <<<"$o" || fail "verbose did not name backend/app/b.go:4: $o"
-if grep -qE '^backend/(migrations|internal/jsonx/v1opts)' <<<"$o"; then fail "exempt file listed: $o"; fi
-echo "ok   warn-only: counts, alias, test split, verbose list"
-
-# strict: fails
-if o=$(JSONV1_STRICT=1 chk); then fail "strict mode passed with hits"; fi
-grep -q 'FAIL' <<<"$o" || fail "strict mode printed no FAIL: $o"
-echo "ok   strict: exit 1"
+if o=$(chk); then fail "default mode passed with hits: $o"; fi
+for f in a.go b.go c_test.go; do
+  grep -qxF "check-jsonv1: FAIL backend/app/$f imports encoding/json (v1); use internal/jsonx or encoding/json/v2" <<<"$o" || fail "no FAIL line for $f: $o"
+done
+grep -qF 'FAIL backend/internal/jsonx/other.go imports' <<<"$o" || fail "allow-list is not by exact path: $o"
+if grep -qE 'FAIL backend/(migrations|internal/jsonx/v1opts|pkg/sdk/guest/v1opts|internal/pluginhost/testdata/legacy)' <<<"$o"; then fail "exempt path listed: $o"; fi
+echo "ok   default: exit 1, names files, alias, _test.go, exact allow-list"
 echo "check-jsonv1 tests ok"
