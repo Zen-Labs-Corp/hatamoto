@@ -228,6 +228,9 @@ func (s *Server) registerContent() {
 			if err != nil {
 				return nil, err
 			}
+			if res.Entity.TookOwnership {
+				s.d.Audit.Record(ctx, AuditEntry{KeyID: key.ID, KeyName: key.Name, Tool: "entities_take_over", Args: auditArgs(map[string]string{"id": in.ID})})
+			}
 			return s.summary(ctx, res.Entity, false), nil
 		})
 

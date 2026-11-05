@@ -237,13 +237,20 @@ func (a *Admin) handleEntityMove(w http.ResponseWriter, r *http.Request) {
 	if res.Entity.ParentID != nil {
 		detail["parent"] = res.Entity.ParentID.String()
 	}
+	if res.Entity.TookOwnership {
+		detail["took_ownership"] = true
+	}
 	a.auditEntity(r, auditEntityReorder, id, res.Entity, detail)
 	a.invalidate(r.Context())
 	msg := fmt.Sprintf("%s moved to position %d of %d", e.Name, res.Position, res.Total)
 	if op := r.PostFormValue("op"); op == "indent" || op == "outdent" {
 		msg += " at its new level"
 	}
-	a.SetFlash(w, r, "success", msg+".")
+	msg += "."
+	if res.Entity.TookOwnership {
+		msg += " " + a.tookOverNote(r, id)
+	}
+	a.SetFlash(w, r, "success", msg)
 	if r.PostFormValue("op") != "" {
 		back += "#row-" + id.String() // the page puts focus back on the moved row
 	}

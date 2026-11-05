@@ -138,3 +138,27 @@ func TestOrderRoutesNeedAnEditorOrOwner(t *testing.T) {
 		t.Error("signed-out visitor saw the order page")
 	}
 }
+
+// An Indent or Outdent that takes a plugin's page over is audited and says so.
+func TestOrderMoveSaysWhenItTookAPageOver(t *testing.T) {
+	t.Parallel()
+	for _, took := range []bool{true, false} {
+		c, _ := ownershipRig(t)
+		c.ents.tookOwnership = took
+		rows := c.record()
+		c.ents.addEntity(60, c.service, "Alpha", "alpha", entity.StatusPublished, `{"summary":"x"}`, t0)
+		b := c.ents.addEntity(61, c.service, "Beta", "beta", entity.StatusPublished, `{"summary":"x"}`, t0.Add(time.Hour))
+		rec := c.post("/admin/entities/"+b.ID.String()+"/move", url.Values{"op": {"indent"}})
+		if rec.Code != 303 {
+			t.Fatalf("indent = %d", rec.Code)
+		}
+		wantAudit(t, rows(), "entity.reorder")
+		if got := rows()[0].Detail["took_ownership"] == true; got != took {
+			t.Errorf("took_ownership = %v, want %v", got, took)
+		}
+		page := c.next(rec, rec.Header().Get("Location"))
+		if got := strings.Contains(page, "This page is yours now"); got != took {
+			t.Errorf("took = %v, flash note shown = %v", took, got)
+		}
+	}
+}

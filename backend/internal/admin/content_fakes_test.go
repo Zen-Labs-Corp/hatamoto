@@ -1062,6 +1062,7 @@ func (f *fakeEntities) MoveEntity(_ context.Context, id uuid.UUID, _ *uuid.UUID,
 		e.ParentID = in.ParentID
 	}
 	e.SortOrder = in.Position
+	e.TookOwnership = f.tookOwnership && (in.ClearParent || in.ParentID != nil)
 	return &entity.MoveResult{Entity: e, Position: max(in.Position, 1), Total: len(f.ents)}, nil
 }
 

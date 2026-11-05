@@ -72,7 +72,7 @@ In this guide you create a piece of content, save it as a draft, publish it and 
 
 3. Nesting stops at 8 levels in the address, and Indent is not offered past that. A published page that changes parent keeps its old address as a redirect.
 
-Reordering does not edit the entry: no version is saved, and a page a plugin supplies stays the plugin's. Themes show the order with `order: "manual"` in a loop; nothing changes until a theme asks for it.
+Moving up or down does not edit the entry: no version is saved, and a page a plugin supplies stays the plugin's. Indent and Outdent change the parent, so they count as an edit: the address changes and a page a plugin supplies becomes yours, with a note on the page and a line in the audit log. Themes show the order with `order: "manual"` in a loop; nothing changes until a theme asks for it.
 
 ### Find, restore and remove content
 

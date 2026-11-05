@@ -115,3 +115,46 @@ func TestTermsReorderSucceedsAuditsOnceAndPurges(t *testing.T) {
 		t.Errorf("audit = %+v, want one terms_reorder row", audit.entries)
 	}
 }
+
+// reparentRepo answers the update a re-parent makes, reporting the hand-over.
+type reparentRepo struct {
+	reorderRepo
+	took bool
+}
+
+func (r *reparentRepo) Update(_ context.Context, id uuid.UUID, _ *uuid.UUID, _ *entity.UpdateEntityInput) (*entity.Entity, error) {
+	e, err := r.st.GetEntity(context.Background(), id)
+	if err != nil {
+		return nil, err
+	}
+	c := *e
+	c.TookOwnership = r.took
+	return &c, nil
+}
+
+// A re-parent is an edit: when it takes a plugin's page over, the audit says so
+// like entities_update does; a pure reorder never does.
+func TestEntitiesReorderReparentAuditsTakeOver(t *testing.T) {
+	for _, took := range []bool{true, false} {
+		st := newMemStore()
+		sch := st.schema("page", true, `{}`)
+		parent := st.add(sch, entity.StatusDraft, `{}`)
+		page := st.add(sch, entity.StatusDraft, `{}`)
+		page.Schema = st.schemas[page.SchemaID]
+		repo := &reparentRepo{reorderRepo: reorderRepo{memRepo: memRepo{st: st}}, took: took}
+		svc := entity.NewService(nil, repo, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		audit := &recAudit{}
+		sess := session(t, newTestServer(t, []hmauth.APIKeyScope{hmauth.ScopeWriteEntities}, Deps{Entities: svc, BuilderEntities: st, Audit: audit}))
+		text, isErr := call(t, sess, "entities_reorder", map[string]any{"id": page.ID.String(), "parent_id": parent.ID.String(), "position": 1})
+		if isErr {
+			t.Fatalf("entities_reorder: %s", text)
+		}
+		var tools []string
+		for _, e := range audit.entries {
+			tools = append(tools, e.Tool)
+		}
+		if got := strings.Contains(strings.Join(tools, ","), "entities_take_over"); got != took {
+			t.Errorf("took = %v, audit tools = %v", took, tools)
+		}
+	}
+}
