@@ -221,3 +221,33 @@ func TestEnginePruneCountsDeletionsBeforeAFailure(t *testing.T) {
 		t.Fatalf("deleted = %v, err = %v; want 2 and an error", deleted, err)
 	}
 }
+
+func TestEnginePruneContinuesPastAFailingKind(t *testing.T) {
+	r := newRig(t)
+	r.e.opts.Retention = func() Retention { return Retention{50, 50, 50} }
+	var manual []string
+	for range 3 {
+		in, err := r.e.Create(t.Context(), Request{Kind: KindManual})
+		if err != nil {
+			t.Fatal(err)
+		}
+		manual = append(manual, in.ID)
+	}
+	for range 3 {
+		if _, err := r.e.Create(t.Context(), Request{Kind: KindScheduled}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, _ := r.e.st()
+	arc := s.archive(manual[0])
+	if err := os.Remove(arc); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(arc, "x"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := r.e.Prune(Retention{1, 50, 1})
+	if err == nil || deleted[KindManual] != 1 || deleted[KindScheduled] != 2 {
+		t.Fatalf("deleted = %v, err = %v; want manual 1, scheduled 2 and an error", deleted, err)
+	}
+}

@@ -235,9 +235,11 @@ func (e *Engine) Prune(r Retention) (map[Kind]int, error) {
 	return s.pruneKinds(r)
 }
 
-// pruneKinds prunes every kind by r. The caller holds the backup lock.
+// pruneKinds prunes every kind by r, continuing past a kind that fails and
+// returning the errors joined. The caller holds the backup lock.
 func (s *Store) pruneKinds(r Retention) (map[Kind]int, error) {
 	deleted := map[Kind]int{}
+	var errs []error
 	for _, k := range retentionKinds {
 		keep := r.For(k.kind)
 		if keep < MinKeep {
@@ -245,9 +247,7 @@ func (s *Store) pruneKinds(r Retention) (map[Kind]int, error) {
 		}
 		n, err := s.Prune(k.kind, keep)
 		deleted[k.kind] = n
-		if err != nil {
-			return deleted, err
-		}
+		errs = append(errs, err)
 	}
-	return deleted, nil
+	return deleted, errors.Join(errs...)
 }
