@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/twofactor"
 )
 
@@ -21,14 +22,14 @@ type fakePasskeys struct {
 	begun    []*uuid.UUID
 }
 
-func (f *fakePasskeys) BeginLogin(_ context.Context, uid *uuid.UUID) (json.RawMessage, string, error) {
+func (f *fakePasskeys) BeginLogin(_ context.Context, uid *uuid.UUID) (jsontext.Value, string, error) {
 	id := uuid.NewString()
 	if f.ceremony == nil {
 		f.ceremony = map[string]*uuid.UUID{}
 	}
 	f.ceremony[id] = uid
 	f.begun = append(f.begun, uid)
-	return json.RawMessage(`{"publicKey":{"challenge":"AAAA"}}`), id, nil
+	return jsontext.Value(`{"publicKey":{"challenge":"AAAA"}}`), id, nil
 }
 
 func (f *fakePasskeys) FinishLogin(_ context.Context, id string, uid *uuid.UUID, r *http.Request) (uuid.UUID, error) {
@@ -38,7 +39,7 @@ func (f *fakePasskeys) FinishLogin(_ context.Context, id string, uid *uuid.UUID,
 		return uuid.Nil, twofactor.ErrPasskeyFailed
 	}
 	var body struct{ ID string }
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	_ = jsonx.UnmarshalRead(r.Body, &body, jsonx.StoredLoose)
 	if body.ID != "ok" {
 		return uuid.Nil, twofactor.ErrPasskeyFailed
 	}
@@ -69,7 +70,7 @@ func (g *twoStepRig) postJSONPending(path, pending, body string) *httptest.Respo
 func (g *twoStepRig) passkeySignIn(pending, assertion string) *httptest.ResponseRecorder {
 	rec := g.postJSONPending("/admin/login/passkey/begin", pending, "{}")
 	var r passkeyBeginReply
-	if err := json.Unmarshal(rec.Body.Bytes(), &r); err != nil || r.Ceremony == "" {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &r); err != nil || r.Ceremony == "" {
 		g.t.Fatalf("begin: %d %s", rec.Code, rec.Body)
 	}
 	return g.postJSONPending("/admin/login/passkey/finish?c="+r.Ceremony, pending, assertion)
@@ -125,7 +126,7 @@ func TestPasskeyAsSecondFactorNeedsThePendingCookie(t *testing.T) {
 	// A ceremony begun with the pending cookie cannot be finished without it.
 	var r passkeyBeginReply
 	p = g.password(t)
-	_ = json.Unmarshal(g.postJSONPending("/admin/login/passkey/begin", p, "{}").Body.Bytes(), &r)
+	_ = jsonx.Unmarshal(g.postJSONPending("/admin/login/passkey/begin", p, "{}").Body.Bytes(), &r)
 	if rec := g.postJSONPending("/admin/login/passkey/finish?c="+r.Ceremony, "", `{"id":"ok"}`); rec.Code != 401 {
 		t.Fatalf("finish without pending: %d", rec.Code)
 	}
@@ -161,13 +162,13 @@ func TestPasskeyButtonsGolden(t *testing.T) {
 	compareGolden(t, "pages/auth-two-step-passkey.html", normalizePage(two))
 }
 
-func (f *fakePasskeys) BeginRegistration(_ context.Context, uid uuid.UUID, _, _ string) (json.RawMessage, string, error) {
+func (f *fakePasskeys) BeginRegistration(_ context.Context, uid uuid.UUID, _, _ string) (jsontext.Value, string, error) {
 	id := uuid.NewString()
 	if f.ceremony == nil {
 		f.ceremony = map[string]*uuid.UUID{}
 	}
 	f.ceremony[id] = &uid
-	return json.RawMessage(`{"publicKey":{"challenge":"AAAA"}}`), id, nil
+	return jsontext.Value(`{"publicKey":{"challenge":"AAAA"}}`), id, nil
 }
 
 func (f *fakePasskeys) FinishRegistration(_ context.Context, id string, uid uuid.UUID, _ string, _ *http.Request) (uuid.UUID, error) {

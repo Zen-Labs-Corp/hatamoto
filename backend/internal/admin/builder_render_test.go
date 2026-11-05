@@ -1,13 +1,14 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"regexp"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const stageDoc = `{"v":2,"nodes":[{"id":"c1","t":"container","c":[{"id":"h1","t":"heading","p":{"text":"Hi","level":2}}]}]}`
@@ -39,17 +40,17 @@ func TestBuilderRenderForwardsTheDoc(t *testing.T) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body)
 	}
 	var got struct {
-		EntityID   string                     `json:"entity_id"`
-		Schema     string                     `json:"schema"`
-		Canvas     bool                       `json:"canvas"`
-		Doc        json.RawMessage            `json:"doc"`
-		Ops        json.RawMessage            `json:"ops"`
-		Render     []string                   `json:"render"`
-		CSS        []string                   `json:"css"`
-		Seq        int                        `json:"seq"`
-		Attributes map[string]json.RawMessage `json:"attributes"`
+		EntityID   string                    `json:"entity_id"`
+		Schema     string                    `json:"schema"`
+		Canvas     bool                      `json:"canvas"`
+		Doc        jsontext.Value            `json:"doc"`
+		Ops        jsontext.Value            `json:"ops"`
+		Render     []string                  `json:"render"`
+		CSS        []string                  `json:"css"`
+		Seq        int                       `json:"seq"`
+		Attributes map[string]jsontext.Value `json:"attributes"`
 	}
-	if err := json.Unmarshal(r.asked, &got); err != nil {
+	if err := jsonx.Unmarshal(r.asked, &got); err != nil {
 		t.Fatalf("%v: %s", err, r.asked)
 	}
 	if got.EntityID != r.page.ID.String() || got.Schema != "page" || !got.Canvas || got.Seq != 7 ||
@@ -116,7 +117,7 @@ func TestBuilderStage(t *testing.T) {
 	var out struct {
 		URL string `json:"url"`
 	}
-	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &out) != nil || !strings.HasPrefix(out.URL, r.url(r.page, "/edit/preview/")) {
+	if rec.Code != 200 || jsonx.Unmarshal(rec.Body.Bytes(), &out) != nil || !strings.HasPrefix(out.URL, r.url(r.page, "/edit/preview/")) {
 		t.Fatalf("stage: %d %s", rec.Code, rec.Body)
 	}
 
@@ -132,10 +133,10 @@ func TestBuilderStage(t *testing.T) {
 		t.Errorf("a ticket loaded twice: %d", rec.Code)
 	}
 	var got struct {
-		Canvas     bool                       `json:"canvas"`
-		Attributes map[string]json.RawMessage `json:"attributes"`
+		Canvas     bool                      `json:"canvas"`
+		Attributes map[string]jsontext.Value `json:"attributes"`
 	}
-	if err := json.Unmarshal(r.lastBody, &got); err != nil || !got.Canvas {
+	if err := jsonx.Unmarshal(r.lastBody, &got); err != nil || !got.Canvas {
 		t.Fatalf("preview request: %v %s", err, r.lastBody)
 	}
 	if !strings.Contains(string(got.Attributes["page_doc"]), `"h1"`) || got.Attributes["page_sections"] != nil {
@@ -144,7 +145,7 @@ func TestBuilderStage(t *testing.T) {
 
 	// The ticket belongs to its entity.
 	rec = r.postJSON(path, "owner-token", `{"doc":`+stageDoc+`}`, nil)
-	if json.Unmarshal(rec.Body.Bytes(), &out) != nil {
+	if jsonx.Unmarshal(rec.Body.Bytes(), &out) != nil {
 		t.Fatalf("stage: %d %s", rec.Code, rec.Body)
 	}
 	other := strings.Replace(out.URL, r.page.ID.String(), r.ent.ID.String(), 1)

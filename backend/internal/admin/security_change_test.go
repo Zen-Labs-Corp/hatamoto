@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/twofactor"
@@ -16,6 +15,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/adminpath"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -261,7 +261,7 @@ func TestSecurityChangeAuditHasNoAddress(t *testing.T) {
 	if len(g.events) != 1 {
 		t.Fatalf("events %+v", g.events)
 	}
-	b, _ := json.Marshal(g.events[0])
+	b, _ := jsonx.Marshal(g.events[0])
 	if strings.Contains(string(b), "my-place") || strings.Contains(string(b), "k7qm") {
 		t.Errorf("the audit event carries an address: %s", b)
 	}

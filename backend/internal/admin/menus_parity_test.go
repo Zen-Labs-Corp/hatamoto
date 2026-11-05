@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"hatamoto.dev/core/internal/jsonx"
 	"os"
 	"reflect"
 	"testing"
@@ -27,7 +27,7 @@ func TestMenuOpsParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	var cases []menuOpsParityCase
-	if err := json.Unmarshal(raw, &cases); err != nil {
+	if err := jsonx.Unmarshal(raw, &cases); err != nil {
 		t.Fatal(err)
 	}
 	if len(cases) == 0 {

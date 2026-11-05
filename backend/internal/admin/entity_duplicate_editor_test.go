@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"testing"
 )
@@ -30,7 +30,7 @@ func TestVisualEditorsOfferDuplicate(t *testing.T) {
 	form := func(id string) string { return `<form method="post" action="/admin/entities/` + id + `/duplicate">` }
 
 	page := newEditorRig(t)
-	page.ent.Attributes = json.RawMessage(builderOnlyDoc)
+	page.ent.Attributes = jsontext.Value(builderOnlyDoc)
 	pageURL := page.path()
 	has(t, page.do("GET", pageURL, "owner-token", nil, nil).Body.String(), form(page.ent.ID.String()), `role="menuitem">Duplicate</button>`)
 	page.a.deps.Content.Duplicator = nil

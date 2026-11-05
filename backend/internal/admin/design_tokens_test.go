@@ -2,19 +2,20 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func tokensRig(t *testing.T, optedIn bool) (*rig, themeSite, *int) {
 	t.Helper()
 	_, pk, fp := newPackageRig(t)
 	site := themeSite{newFakeSite("Acme Site")}
-	site.cfg.ThemeExtra = json.RawMessage(`{"colors":{"accent":"#778899"},"socialLinks":{"github":"https://g.example"},"builder":{"presets":{"card":{"label":"Card","s":{"base":{"pt":"space-4"}}}}}}`)
+	site.cfg.ThemeExtra = jsontext.Value(`{"colors":{"accent":"#778899"},"socialLinks":{"github":"https://g.example"},"builder":{"presets":{"card":{"label":"Card","s":{"base":{"pt":"space-4"}}}}}}`)
 	flushed := new(int)
 	g := newRig(t, func(d *Deps) {
 		d.Site = site
@@ -47,8 +48,8 @@ func TestTokensSaveMergesPurgesAndKeepsOtherKeys(t *testing.T) {
 	if *flushed != 1 {
 		t.Errorf("rendered cache purged %d times, want 1", *flushed)
 	}
-	var got map[string]json.RawMessage
-	_ = json.Unmarshal(site.cfg.ThemeExtra, &got)
+	var got map[string]jsontext.Value
+	_ = jsonx.Unmarshal(site.cfg.ThemeExtra, &got)
 	for _, key := range []string{"colors", "socialLinks", "builder"} {
 		if _, ok := got[key]; !ok {
 			t.Errorf("lost %q: %s", key, site.cfg.ThemeExtra)

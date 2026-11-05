@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"regexp"
 	"strings"
@@ -96,7 +96,7 @@ func TestSearchReplaceApplyWritesAuditsAndRestores(t *testing.T) {
 func TestSearchReplaceSkipsItemEditedSincePreview(t *testing.T) {
 	c := newContentRig(t)
 	body := c.get(t, "owner-token", srPreviewPath, "")
-	raw := json.RawMessage(`{"summary":"The first, edited meanwhile","featured":true}`)
+	raw := jsontext.Value(`{"summary":"The first, edited meanwhile","featured":true}`)
 	if _, err := c.ents.UpdateEntity(context.Background(), fid(11), nil, updateAttrs(&raw)); err != nil {
 		t.Fatal(err)
 	}
@@ -176,6 +176,6 @@ func firstMenu(f *fakeMenus) uuid.UUID {
 	return uuid.Nil
 }
 
-func updateAttrs(a *json.RawMessage) *entity.UpdateEntityInput {
+func updateAttrs(a *jsontext.Value) *entity.UpdateEntityInput {
 	return &entity.UpdateEntityInput{Attributes: a}
 }

@@ -2,8 +2,8 @@ package admin
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/jsonx"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -68,7 +68,7 @@ func updateFlash(t *testing.T, rec *httptest.ResponseRecorder) Flash {
 			t.Fatal(err)
 		}
 		var f Flash
-		if err := json.Unmarshal(raw, &f); err != nil {
+		if err := jsonx.Unmarshal(raw, &f); err != nil {
 			t.Fatal(err)
 		}
 		return f

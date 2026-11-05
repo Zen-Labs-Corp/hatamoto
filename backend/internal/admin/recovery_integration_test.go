@@ -4,7 +4,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // recoveryRows counts the copies of an entity per user.
@@ -88,7 +88,7 @@ func TestBlogRecoveryAgainstPostgres(t *testing.T) {
 	}
 	m := regexp.MustCompile(`(?s)id="hm-be-recovery">(.*?)</script>`).FindStringSubmatch(ob)
 	var got map[string]any
-	if m == nil || json.Unmarshal([]byte(m[1]), &got) != nil || got["name"] != "Owner title" || got["version"] != float64(e.Version) || got["featured_image"] != "/m/a.jpg" {
+	if m == nil || jsonx.Unmarshal([]byte(m[1]), &got) != nil || got["name"] != "Owner title" || got["version"] != float64(e.Version) || got["featured_image"] != "/m/a.jpg" {
 		t.Errorf("owner copy in the document = %v (%v)", got, m != nil)
 	}
 
@@ -152,8 +152,8 @@ func TestBuilderRecoveryAgainstPostgres(t *testing.T) {
 		return e.Version
 	}
 	copyBody := func(text string) string {
-		doc, _ := json.Marshal(map[string]any{"v": 2, "nodes": []any{}})
-		b, _ := json.Marshal(map[string]any{"content": string(doc), "version": version(), "name": text})
+		doc, _ := jsonx.Marshal(map[string]any{"v": 2, "nodes": []any{}})
+		b, _ := jsonx.Marshal(map[string]any{"content": string(doc), "version": version(), "name": text})
 		return string(b)
 	}
 	save := func(op string) int {
@@ -176,7 +176,7 @@ func TestBuilderRecoveryAgainstPostgres(t *testing.T) {
 		if rec.Code != 200 || sub == nil {
 			t.Fatalf("builder as %s: %d", token, rec.Code)
 		}
-		if err := json.Unmarshal([]byte(sub[1]), &m); err != nil {
+		if err := jsonx.Unmarshal([]byte(sub[1]), &m); err != nil {
 			t.Fatal(err)
 		}
 		return m

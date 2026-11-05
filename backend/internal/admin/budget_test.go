@@ -3,12 +3,12 @@ package admin
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"io/fs"
 	"regexp"
 	"testing"
 
 	"hatamoto.dev/core/internal/budgetfile"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/web"
 )
 
@@ -63,7 +63,7 @@ func TestBudgetVendoredJS(t *testing.T) {
 			} `json:"files"`
 		} `json:"assets"`
 	}
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err := jsonx.Unmarshal(raw, &m); err != nil {
 		t.Fatal(err)
 	}
 	var total int64

@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"html"
 	"net/url"
 	"reflect"
@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestBusinessSchemasParseAndDifferByCard(t *testing.T) {
@@ -109,7 +110,7 @@ func TestBusinessFormRoundTripsRepeaterRows(t *testing.T) {
 	if len(errs) > 0 {
 		t.Fatalf("decode errors: %v", errs)
 	}
-	raw, _ := json.Marshal(out)
+	raw, _ := jsonx.Marshal(out)
 	got, err := bizprofile.Parse(raw)
 	if err != nil {
 		t.Fatal(err)
@@ -198,12 +199,12 @@ func TestLocaleDisplayName(t *testing.T) {
 // profileMap is the form's view of a profile.
 func profileMap(t *testing.T, p bizprofile.Profile) map[string]any {
 	t.Helper()
-	raw, err := json.Marshal(p)
+	raw, err := jsonx.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 	m := map[string]any{}
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err := jsonx.Unmarshal(raw, &m); err != nil {
 		t.Fatal(err)
 	}
 	triToForm(m)
@@ -279,8 +280,8 @@ func TestBusinessFormRoundTripsExtendedFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(got, want) {
-		g, _ := json.Marshal(got)
-		w, _ := json.Marshal(want)
+		g, _ := jsonx.Marshal(got)
+		w, _ := jsonx.Marshal(want)
 		t.Errorf("round trip\n got %s\nwant %s", g, w)
 	}
 }
@@ -298,7 +299,7 @@ func TestBusinessFormUntouchedSwitchesStayUnset(t *testing.T) {
 	}
 	got.Name = ""
 	if !reflect.DeepEqual(got, bizprofile.Profile{}) {
-		raw, _ := json.Marshal(got)
+		raw, _ := jsonx.Marshal(got)
 		t.Errorf("untouched form left %s", raw)
 	}
 }
@@ -339,7 +340,7 @@ func TestBusinessExtendedValidationPathsLandOnFieldIDs(t *testing.T) {
 		t.Fatalf("only %d errors: %v", len(msgs), msgs)
 	}
 	site := defaultSchema()
-	for name, schema := range map[string]json.RawMessage{"site": site, "locale": businessSchema()} {
+	for name, schema := range map[string]jsontext.Value{"site": site, "locale": businessSchema()} {
 		out, err := schemaform.Render(schema, profileMap(t, p), schemaform.Options{Prefix: "biz.", Errors: errs})
 		if err != nil {
 			t.Fatal(err)
@@ -354,7 +355,7 @@ func TestBusinessExtendedValidationPathsLandOnFieldIDs(t *testing.T) {
 
 func TestBusinessSchemasLabelTheLegalName(t *testing.T) {
 	site := defaultSchema()
-	for name, schema := range map[string]json.RawMessage{"site": site, "locale": businessSchema()} {
+	for name, schema := range map[string]jsontext.Value{"site": site, "locale": businessSchema()} {
 		out, err := schemaform.Render(schema, nil, schemaform.Options{Prefix: "biz."})
 		if err != nil {
 			t.Fatal(err)
@@ -432,7 +433,7 @@ func TestBusinessFormTriStateReturnsToUnset(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got.AcceptsReservations != nil || got.PublicAccess != nil || got.AmenityPresets.Wifi != nil {
-		raw, _ := json.Marshal(got)
+		raw, _ := jsonx.Marshal(got)
 		t.Errorf("Not stated left %s", raw)
 	}
 	if !strings.Contains(string(out), `<option value="">Not stated</option>`) {
@@ -549,7 +550,7 @@ func gapForm(prefix, provider string) url.Values {
 
 func TestBusinessFormRoundTripsGapFields(t *testing.T) {
 	site := defaultSchema()
-	for name, schema := range map[string]json.RawMessage{"site": site, "card": businessSchema()} {
+	for name, schema := range map[string]jsontext.Value{"site": site, "card": businessSchema()} {
 		for provider, want := range map[string]bool{"yes": true, "no": false} {
 			vals, errs := schemaform.Decode(schema, gapForm("biz.", provider), nil, schemaform.Options{Prefix: "biz."})
 			if len(errs) != 0 {

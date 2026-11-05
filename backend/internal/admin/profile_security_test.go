@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"net/url"
 	"strings"
 	"sync"
@@ -12,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/twofactor"
 )
@@ -248,7 +248,7 @@ func TestSecurityFirstPasskeyGetsRecoveryCodes(t *testing.T) {
 	var begun struct {
 		Ceremony string `json:"ceremony"`
 	}
-	if err := json.Unmarshal(g.postJSON("/admin/profile/security/passkeys/begin", "owner-token", "{}", nil).Body.Bytes(), &begun); err != nil {
+	if err := jsonx.Unmarshal(g.postJSON("/admin/profile/security/passkeys/begin", "owner-token", "{}", nil).Body.Bytes(), &begun); err != nil {
 		t.Fatal(err)
 	}
 	rec := g.postJSON("/admin/profile/security/passkeys/finish?c="+begun.Ceremony+"&name=Key", "owner-token", "{}", nil)
@@ -259,7 +259,7 @@ func TestSecurityFirstPasskeyGetsRecoveryCodes(t *testing.T) {
 	g2 := newTwoFactorSecRig(t)
 	g2.grant()
 	g2.tf.left = 4
-	_ = json.Unmarshal(g2.postJSON("/admin/profile/security/passkeys/begin", "owner-token", "{}", nil).Body.Bytes(), &begun)
+	_ = jsonx.Unmarshal(g2.postJSON("/admin/profile/security/passkeys/begin", "owner-token", "{}", nil).Body.Bytes(), &begun)
 	rec = g2.postJSON("/admin/profile/security/passkeys/finish?c="+begun.Ceremony, "owner-token", "{}", nil)
 	if strings.Contains(rec.Body.String(), "codes?id=") || g2.tf.left != 4 {
 		t.Fatalf("existing codes were replaced: %s left=%d", rec.Body, g2.tf.left)

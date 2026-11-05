@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +14,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type fakeChangesets struct {
@@ -36,7 +36,7 @@ func (f *fakeChangesets) ItemPage(_ context.Context, _ int64, limit, offset int)
 	for i := offset; i < len(f.items) && i < offset+limit; i++ {
 		it := f.items[i]
 		var p struct{ Name string }
-		_ = json.Unmarshal(it.Payload, &p)
+		_ = jsonx.Unmarshal(it.Payload, &p, jsonx.StoredLoose)
 		out = append(out, changeset.ItemSummary{Seq: it.Seq, Kind: it.Kind, Op: it.Op, SourceKey: it.SourceKey, TargetID: it.TargetID, Label: p.Name})
 	}
 	return out, nil
@@ -81,7 +81,7 @@ func (l liveSessions) LiveAdminUser(context.Context, uuid.UUID) (uuid.UUID, bool
 }
 
 func csItem(seq int, kind changeset.Kind, op, name string) changeset.StoredItem {
-	p, _ := json.Marshal(map[string]string{"name": name})
+	p, _ := jsonx.Marshal(map[string]string{"name": name})
 	return changeset.StoredItem{Seq: seq, Item: changeset.Item{Kind: kind, Op: op, SourceKey: "k" + name, Payload: p}}
 }
 

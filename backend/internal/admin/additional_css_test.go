@@ -90,3 +90,18 @@ func TestAdditionalCSSOwnerOnly(t *testing.T) {
 		}
 	}
 }
+
+// The CSS lands in a theme setting that is rendered into HTML, so the stored
+// JSON must escape <, > and & like the v1 encoder did.
+func TestAdditionalCSSStoredBytesAreHTMLSafe(t *testing.T) {
+	s, site := newAdditionalCSSRig(t)
+	css := "a::after{content:\"</style>&\"}"
+	rec := s.do("POST", "/admin/theme/additional-css", "owner-token", url.Values{"additional_css": {css}}, nil)
+	if rec.Code != 303 {
+		t.Fatalf("save = %d: %s", rec.Code, rec.Body)
+	}
+	const want = `{"additional_css":"a::after{content:\"\u003c/style\u003e\u0026\"}"}`
+	if got := string(site.cfg.ThemeExtra); got != want {
+		t.Errorf("stored %s, want %s", got, want)
+	}
+}

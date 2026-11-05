@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"net/http"
 	"net/url"
@@ -9,6 +9,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // renderRig is the editor rig with a RenderNodes dep that records the JSON it
@@ -40,8 +41,8 @@ func convertedAttrs(t *testing.T, secs []map[string]any) string {
 	for i, s := range secs {
 		in[i] = builder.Section{ID: s["id"].(string), Type: s["type"].(string), Content: s["content"].(map[string]any), SortOrder: i}
 	}
-	doc, _ := json.Marshal(builder.FromSections(in))
-	b, _ := json.Marshal(map[string]any{"page_sections": secs, "page_doc": json.RawMessage(doc)})
+	doc, _ := jsonx.Marshal(builder.FromSections(in))
+	b, _ := jsonx.Marshal(map[string]any{"page_sections": secs, "page_doc": jsontext.Value(doc)})
 	return string(b)
 }
 
@@ -113,7 +114,7 @@ func TestStyleSpecEndpoint(t *testing.T) {
 		t.Fatalf("status %d headers %v", rec.Code, rec.Header())
 	}
 	var table []builder.StyleSpecEntry
-	if err := json.Unmarshal(rec.Body.Bytes(), &table); err != nil || len(table) != len(builder.StyleSpecTable()) {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &table); err != nil || len(table) != len(builder.StyleSpecTable()) {
 		t.Fatalf("table: %v (%d entries)", err, len(table))
 	}
 	keys := map[string]bool{}

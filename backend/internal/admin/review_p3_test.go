@@ -2,7 +2,7 @@ package admin
 
 import (
 	"encoding/base64"
-	"encoding/json"
+	"hatamoto.dev/core/internal/jsonx"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -23,7 +23,7 @@ func flashText(t *testing.T, rec *httptest.ResponseRecorder) string {
 			t.Fatal(err)
 		}
 		var f Flash
-		if err := json.Unmarshal(b, &f); err != nil {
+		if err := jsonx.Unmarshal(b, &f); err != nil {
 			t.Fatal(err)
 		}
 		return f.Message

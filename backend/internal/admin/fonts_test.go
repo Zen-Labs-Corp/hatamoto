@@ -3,7 +3,6 @@ package admin
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"mime/multipart"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/fonts"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // fakeFonts is an in-memory FontService.
@@ -109,7 +109,7 @@ func (g *fontsRig) install(family string, weight int, source string) {
 }
 
 func (g *fontsRig) useFonts(body, heading string) {
-	raw, _ := json.Marshal(map[string]any{"typography": map[string]string{"fontFamily": body, "headingFamily": heading}})
+	raw, _ := jsonx.Marshal(map[string]any{"typography": map[string]string{"fontFamily": body, "headingFamily": heading}})
 	g.site.cfg.ThemeExtra = raw
 }
 
@@ -393,7 +393,7 @@ func TestDesignSaveWithFontChoice(t *testing.T) {
 	}
 	typography := func() map[string]string {
 		var got struct{ Typography map[string]string }
-		_ = json.Unmarshal(g.site.cfg.ThemeExtra, &got)
+		_ = jsonx.Unmarshal(g.site.cfg.ThemeExtra, &got, jsonx.StoredLoose)
 		return got.Typography
 	}
 

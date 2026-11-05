@@ -1,13 +1,14 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/sectiontemplate"
 )
 
@@ -26,7 +27,7 @@ func (r *reuseRig) saveTemplate(t *testing.T, token, body string) (int, tplOut) 
 	t.Helper()
 	rec := r.postJSON(r.url(r.page, "/builder/template"), token, body, nil)
 	var out tplOut
-	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	_ = jsonx.Unmarshal(rec.Body.Bytes(), &out)
 	return rec.Code, out
 }
 
@@ -128,12 +129,12 @@ func TestInsertingATemplateGivesFreshIDs(t *testing.T) {
 	}
 	// A node this build cannot read is skipped, the rest inserts.
 	future := sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Future", SectionType: treeTemplateType,
-		Content: json.RawMessage(`{"v":1,"nodes":[{"id":"a","t":"hologram"},{"id":"b","t":"container"}]}`)}
+		Content: jsontext.Value(`{"v":1,"nodes":[{"id":"a","t":"hologram"},{"id":"b","t":"container"}]}`)}
 	r.tpls.items = append(r.tpls.items, future)
 	if code, out := r.fetchTemplate(t, future.ID.String()); code != 200 || len(out.Nodes) != 1 || out.Nodes[0].T != "container" {
 		t.Errorf("unknown kind: %d %+v", code, out)
 	}
-	none := sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "None", SectionType: treeTemplateType, Content: json.RawMessage(`{"v":1,"nodes":[{"id":"a","t":"hologram"}]}`)}
+	none := sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "None", SectionType: treeTemplateType, Content: jsontext.Value(`{"v":1,"nodes":[{"id":"a","t":"hologram"}]}`)}
 	r.tpls.items = append(r.tpls.items, none)
 	if code, _ := r.fetchTemplate(t, none.ID.String()); code != 422 {
 		t.Errorf("nothing readable: %d", code)
@@ -147,8 +148,8 @@ func TestLegacySectionTemplateInsertsAsAComponent(t *testing.T) {
 	t.Parallel()
 
 	r := newReuseRig(t)
-	legacy := sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Old hero", SectionType: "hero", Content: json.RawMessage(`{"heading":"Hello"}`)}
-	odd := sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Gone", SectionType: "not_in_theme", Content: json.RawMessage(`{}`)}
+	legacy := sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Old hero", SectionType: "hero", Content: jsontext.Value(`{"heading":"Hello"}`)}
+	odd := sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Gone", SectionType: "not_in_theme", Content: jsontext.Value(`{}`)}
 	r.tpls.items = append(r.tpls.items, legacy, odd)
 	code, out := r.fetchTemplate(t, legacy.ID.String())
 	if code != 200 || out.Kind != "section" || len(out.Nodes) != 1 || out.Nodes[0].T != "component" || out.Nodes[0].P["type"] != "hero" {
@@ -168,8 +169,8 @@ func TestBootListsTemplatesOfBothKinds(t *testing.T) {
 	r := newReuseRig(t)
 	r.saveTemplate(t, "owner-token", `{"name":"Hero tree","page":true,"doc":`+tplDoc+`}`)
 	r.tpls.items = append(r.tpls.items,
-		sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Old hero", SectionType: "hero", Content: json.RawMessage(`{}`)},
-		sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Gone", SectionType: "not_in_theme", Content: json.RawMessage(`{}`)})
+		sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Old hero", SectionType: "hero", Content: jsontext.Value(`{}`)},
+		sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Gone", SectionType: "not_in_theme", Content: jsontext.Value(`{}`)})
 	body := r.get(t, "owner-token", r.url(r.page, "/edit"), "")
 	has(t, body, `"name":"Hero tree"`, `"kind":"tree"`, `"name":"Old hero"`, `"kind":"section"`, `"saveTemplate":"/admin/entities/`)
 	lacks(t, body, `"name":"Gone"`)

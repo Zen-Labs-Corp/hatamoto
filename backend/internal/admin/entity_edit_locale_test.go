@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"strings"
 	"testing"
@@ -155,7 +155,7 @@ func (s *createSpy) CreateEntity(ctx context.Context, by *uuid.UUID, in *entity.
 func neutralRig(t *testing.T, tags ...string) (*contentRig, *createSpy) {
 	t.Helper()
 	c, _ := translationsRig(t, tags...)
-	c.recipe.Settings = json.RawMessage(`{"locale_neutral":true}`)
+	c.recipe.Settings = jsontext.Value(`{"locale_neutral":true}`)
 	spy := &createSpy{EntityStore: c.a.deps.Content.Entities, ents: c.ents}
 	c.a.deps.Content.Entities = spy
 	return c, spy

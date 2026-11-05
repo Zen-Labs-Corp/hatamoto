@@ -1,7 +1,6 @@
 package designcheck
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/web"
 )
 
@@ -391,7 +391,7 @@ func loadComponents(fsys fs.FS) (map[string]componentSpec, error) {
 		return nil, err
 	}
 	var spec map[string]componentSpec
-	if err := json.Unmarshal(b, &spec); err != nil {
+	if err := jsonx.Unmarshal(b, &spec); err != nil {
 		return nil, fmt.Errorf("components.json: %w", err)
 	}
 	for _, name := range sortedNames(spec) {

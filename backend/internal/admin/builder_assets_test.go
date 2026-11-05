@@ -1,7 +1,8 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"hatamoto.dev/core/internal/jsonx"
 	"regexp"
 	"slices"
 	"strings"
@@ -13,7 +14,7 @@ var bootRx = regexp.MustCompile(`(?s)<script type="application/json" id="hm-buil
 // builderPage is the builder shell of the rig's page with doc as its layout.
 func builderPage(t *testing.T, r *editorRig, attrs string) string {
 	t.Helper()
-	r.ent.Attributes = json.RawMessage(attrs)
+	r.ent.Attributes = jsontext.Value(attrs)
 	rec := r.do("GET", r.path(), "owner-token", nil, nil)
 	if rec.Code != 200 {
 		t.Fatalf("builder page: %d", rec.Code)
@@ -33,10 +34,10 @@ func TestBuilderBootJSON(t *testing.T) {
 		t.Fatal("no boot block")
 	}
 	var boot struct {
-		Doc     json.RawMessage `json:"doc"`
-		Version int             `json:"version"`
-		Status  string          `json:"status"`
-		Name    string          `json:"name"`
+		Doc     jsontext.Value `json:"doc"`
+		Version int            `json:"version"`
+		Status  string         `json:"status"`
+		Name    string         `json:"name"`
 		Kinds   []struct {
 			Kind  string
 			Props []struct{ Key, Bind string }
@@ -49,14 +50,14 @@ func TestBuilderBootJSON(t *testing.T) {
 			Current                           bool
 		} `json:"pageList"`
 	}
-	if err := json.Unmarshal([]byte(m[1]), &boot); err != nil {
+	if err := jsonx.Unmarshal([]byte(m[1]), &boot, jsonx.StoredLoose); err != nil {
 		t.Fatalf("boot is not JSON: %v", err)
 	}
-	var want map[string]json.RawMessage
-	_ = json.Unmarshal([]byte(builderOnlyDoc), &want)
+	var want map[string]jsontext.Value
+	_ = jsonx.Unmarshal([]byte(builderOnlyDoc), &want, jsonx.StoredLoose)
 	var a, b any
-	_ = json.Unmarshal(boot.Doc, &a)
-	_ = json.Unmarshal(want["page_doc"], &b)
+	_ = jsonx.Unmarshal(boot.Doc, &a, jsonx.StoredLoose)
+	_ = jsonx.Unmarshal(want["page_doc"], &b, jsonx.StoredLoose)
 	if !jsonEqual(a, b) {
 		t.Errorf("boot doc = %s, want the stored page_doc", boot.Doc)
 	}
@@ -106,8 +107,8 @@ func TestBuilderBootJSON(t *testing.T) {
 }
 
 func jsonEqual(a, b any) bool {
-	x, _ := json.Marshal(a)
-	y, _ := json.Marshal(b)
+	x, _ := jsonx.Marshal(a)
+	y, _ := jsonx.Marshal(b)
 	return string(x) == string(y)
 }
 

@@ -1,14 +1,14 @@
 package schemaform
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 )
 
 func renderGroups(t *testing.T, schema string) string {
 	t.Helper()
-	out, err := Render(json.RawMessage(schema), nil, Options{})
+	out, err := Render(jsontext.Value(schema), nil, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ const twoGroups = `{"type":"object","x-hm-order":["a","b","c"],"properties":{
 	"c":{"type":"string","x-hm-group":"Links"}}}`
 
 func TestGroupsWrapInOneSectionEachWhenOptedIn(t *testing.T) {
-	out, err := Render(json.RawMessage(twoGroups), nil, Options{Sections: true})
+	out, err := Render(jsontext.Value(twoGroups), nil, Options{Sections: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestRepeaterItemLabelNamesTheAddButton(t *testing.T) {
 }
 
 func TestAddIconOnlyWhenGiven(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","properties":{"points":{"type":"array","x-hm-item-label":"point","items":{"type":"object","properties":{"n":{"type":"string"}}}}}}`)
+	schema := jsontext.Value(`{"type":"object","properties":{"points":{"type":"array","x-hm-item-label":"point","items":{"type":"object","properties":{"n":{"type":"string"}}}}}}`)
 	plain, err := Render(schema, nil, Options{})
 	if err != nil {
 		t.Fatal(err)

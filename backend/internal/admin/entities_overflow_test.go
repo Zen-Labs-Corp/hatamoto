@@ -1,13 +1,13 @@
 package admin
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	linkingv2 "hatamoto.dev/core/internal/linking/v2"
 )
 
@@ -126,7 +126,7 @@ func TestBlogEditorLinkSuggestions(t *testing.T) {
 	var got struct {
 		Suggestions []linkSuggestionJSON `json:"suggestions"`
 	}
-	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &got) != nil {
+	if rec.Code != 200 || jsonx.Unmarshal(rec.Body.Bytes(), &got) != nil {
 		t.Fatalf("suggest: %d %s", rec.Code, rec.Body.String())
 	}
 	if len(fl.liveIn) != 1 || fl.liveIn[0] != "<p>Go is live</p>" {
@@ -143,14 +143,14 @@ func TestBlogEditorLinkSuggestions(t *testing.T) {
 		HTML     string `json:"html"`
 		Reason   string `json:"reason"`
 	}
-	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &ins) != nil || !ins.Inserted || !strings.Contains(ins.HTML, `data-entity-id="`+target.String()+`">Go</a>`) {
+	if rec.Code != 200 || jsonx.Unmarshal(rec.Body.Bytes(), &ins) != nil || !ins.Inserted || !strings.Contains(ins.HTML, `data-entity-id="`+target.String()+`">Go</a>`) {
 		t.Fatalf("insert: %d %s", rec.Code, rec.Body.String())
 	}
 	if r.attrs()["content"] != stored {
 		t.Error("insert wrote the stored post; it must only change the editor")
 	}
 	rec = r.post(r.path()+"/links/insert", url.Values{"content": {"<p>nothing here</p>"}, "target": {target.String()}, "anchor": {"Go"}})
-	if json.Unmarshal(rec.Body.Bytes(), &ins) != nil || ins.Inserted || ins.Reason != "Phrase not found" {
+	if jsonx.Unmarshal(rec.Body.Bytes(), &ins) != nil || ins.Inserted || ins.Reason != "Phrase not found" {
 		t.Errorf("no match: %s", rec.Body.String())
 	}
 	if rec = r.post(r.path()+"/links/insert", url.Values{"content": {"x"}, "target": {"nope"}}); rec.Code != 400 {

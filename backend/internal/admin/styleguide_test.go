@@ -1,12 +1,12 @@
 package admin
 
 import (
-	"encoding/json"
 	"os"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/admin/ui"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestStyleguideServedOnlyInDev(t *testing.T) {
@@ -50,7 +50,7 @@ func TestStyleguideCoversTheSpec(t *testing.T) {
 		Variants map[string]string
 		Props    map[string]string
 	}
-	if err := json.Unmarshal(raw, &spec); err != nil {
+	if err := jsonx.Unmarshal(raw, &spec, jsonx.StoredLoose); err != nil {
 		t.Fatal(err)
 	}
 	for name, c := range spec {

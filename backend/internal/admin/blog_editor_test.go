@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const postSchema = `{"type":"object","properties":{"content":{"type":"string"},"excerpt":{"type":"string","maxLength":300},"featured_image":{"type":"string"},"meta_title":{"type":"string","maxLength":70}}}`
@@ -103,7 +103,7 @@ func TestBlogEditorCanonicalStrict(t *testing.T) {
 	e := r.ents.ents[r.ent.ID]
 	m := attrsMap(e.Attributes)
 	m["canonical_url"] = "/a b"
-	e.Attributes, _ = json.Marshal(m)
+	e.Attributes, _ = jsonx.Marshal(m)
 	save := func(canonical string) *httptest.ResponseRecorder {
 		f := r.form(t)
 		f.Set("seo_canonical", canonical)
@@ -240,7 +240,7 @@ func TestBlogAutosave(t *testing.T) {
 	auto := func(f url.Values) (int, autosaveReply) {
 		rec := r.post(r.path()+"/autosave", f)
 		var out autosaveReply
-		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		if err := jsonx.Unmarshal(rec.Body.Bytes(), &out, jsonx.StoredLoose); err != nil {
 			t.Fatalf("%d %s", rec.Code, rec.Body.String())
 		}
 		return rec.Code, out
@@ -403,7 +403,7 @@ func TestBlogPreviewStagesTheDraftForTheFrame(t *testing.T) {
 		Attributes map[string]any
 		Canvas     bool
 	}
-	if err := json.Unmarshal(r.preview, &sent); err != nil || sent.Schema != "post" || sent.Attributes["content"] != "<p>Unsaved</p>" /* the sanitiser dropped the script */ || sent.Attributes["name"] != "Unsaved title" || sent.Canvas {
+	if err := jsonx.Unmarshal(r.preview, &sent, jsonx.StoredLoose); err != nil || sent.Schema != "post" || sent.Attributes["content"] != "<p>Unsaved</p>" /* the sanitiser dropped the script */ || sent.Attributes["name"] != "Unsaved title" || sent.Canvas {
 		t.Errorf("preview request: %s", r.preview)
 	}
 	if strings.Contains(string(r.preview), "<script") || r.attrs()["content"] == "<p>Unsaved</p>" {
@@ -434,11 +434,11 @@ func TestMediaUploadAnswersJSONForTheWritingView(t *testing.T) {
 		Files  []uploadedFile
 		Errors []string
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || rec.Code != 200 || len(out.Files) != 1 || out.Files[0].URL == "" || out.Files[0].Name != "pasted.png" || len(out.Errors) != 0 || len(r.media.files) != n+1 {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &out, jsonx.StoredLoose); err != nil || rec.Code != 200 || len(out.Files) != 1 || out.Files[0].URL == "" || out.Files[0].Name != "pasted.png" || len(out.Errors) != 0 || len(r.media.files) != n+1 {
 		t.Fatalf("json upload: %d %s", rec.Code, rec.Body.String())
 	}
 	rec = r.upload(t, "/admin/media/upload?json=1", map[string][]byte{"evil.png": []byte("<script>alert(1)</script>")}, false)
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || rec.Code != 422 || len(out.Errors) != 1 || !strings.Contains(out.Errors[0], "not allowed") {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &out, jsonx.StoredLoose); err != nil || rec.Code != 422 || len(out.Errors) != 1 || !strings.Contains(out.Errors[0], "not allowed") {
 		t.Errorf("rejected json upload: %d %s", rec.Code, rec.Body.String())
 	}
 	if rec = r.upload(t, "/admin/media/upload?json=1", nil, false); rec.Code != 422 || !strings.Contains(rec.Body.String(), "Choose at least one file") {

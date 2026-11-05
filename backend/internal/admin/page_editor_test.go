@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"html"
 	"io"
 	"net/http"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/sectiontemplate"
 )
 
@@ -77,8 +78,8 @@ func newEditorRig(t *testing.T) *editorRig {
 	 {"id":"odd_1","type":"plugin_only","content":{"x":1},"sort_order":2}]}`, t0)
 	c.a.deps.Content.Theme = func() []ThemeSection {
 		return []ThemeSection{
-			{Type: "hero", Title: "Hero", Description: "A big opening", Schema: json.RawMessage(heroSchema)},
-			{Type: "html", Title: "HTML", Schema: json.RawMessage(htmlSchema)},
+			{Type: "hero", Title: "Hero", Description: "A big opening", Schema: jsontext.Value(heroSchema)},
+			{Type: "html", Title: "HTML", Schema: jsontext.Value(htmlSchema)},
 		}
 	}
 	c.a.deps.Content.Templates = r.tpls
@@ -133,7 +134,7 @@ func parseForm(t *testing.T, body string) url.Values {
 func previewURL(t *testing.T, rec *httptest.ResponseRecorder) string {
 	t.Helper()
 	var out struct{ URL string }
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out.URL == "" {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &out, jsonx.StoredLoose); err != nil || out.URL == "" {
 		t.Fatalf("preview response: %v %s", err, rec.Body.String())
 	}
 	return out.URL
@@ -229,10 +230,10 @@ func TestPageEditorForPersonAndOthers(t *testing.T) {
 	t.Parallel()
 
 	schema := func(slug, props string) *entity.EntitySchema {
-		return &entity.EntitySchema{Slug: slug, Schema: json.RawMessage(`{"type":"object","properties":{` + props + `}}`)}
+		return &entity.EntitySchema{Slug: slug, Schema: jsontext.Value(`{"type":"object","properties":{` + props + `}}`)}
 	}
-	withSections := &entity.Entity{Attributes: json.RawMessage(`{"page_sections":[{"id":"a","type":"hero"}]}`)}
-	none := &entity.Entity{Attributes: json.RawMessage(`{}`)}
+	withSections := &entity.Entity{Attributes: jsontext.Value(`{"page_sections":[{"id":"a","type":"hero"}]}`)}
+	none := &entity.Entity{Attributes: jsontext.Value(`{}`)}
 	for _, tc := range []struct {
 		name string
 		sc   *entity.EntitySchema

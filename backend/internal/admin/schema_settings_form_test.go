@@ -1,7 +1,8 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"hatamoto.dev/core/internal/jsonx"
 	"strings"
 	"testing"
 )
@@ -15,7 +16,7 @@ func TestSchemaSettingsFormKeepsTheCrumbLabel(t *testing.T) {
 		t.Fatalf("errors: %v", errs)
 	}
 	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil || m["archive_crumb_label"] != "Team" {
+	if err := jsonx.Unmarshal(raw, &m); err != nil || m["archive_crumb_label"] != "Team" {
 		t.Fatalf("settings = %s (%v)", raw, err)
 	}
 	if got := settingsFormFrom(raw).ArchiveCrumbLabel; got != "Team" {
@@ -25,7 +26,7 @@ func TestSchemaSettingsFormKeepsTheCrumbLabel(t *testing.T) {
 	f.ArchiveCrumbLabel = ""
 	raw, _ = f.settingsJSON(raw)
 	m = nil
-	_ = json.Unmarshal(raw, &m)
+	_ = jsonx.Unmarshal(raw, &m)
 	if _, has := m["archive_crumb_label"]; has {
 		t.Errorf("an empty label stays in the settings: %s", raw)
 	}
@@ -34,13 +35,13 @@ func TestSchemaSettingsFormKeepsTheCrumbLabel(t *testing.T) {
 func TestSchemaSettingsFormEditorRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	base := json.RawMessage(`{"overrides":[{"attribute":"format","equals":"report","url_pattern":"/r/{slug}"}]}`)
+	base := jsontext.Value(`{"overrides":[{"attribute":"format","equals":"report","url_pattern":"/r/{slug}"}]}`)
 	raw, errs := schemaSettingsForm{Editor: "post"}.settingsJSON(base)
 	if len(errs) != 0 {
 		t.Fatalf("errors: %v", errs)
 	}
 	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil || m["editor"] != "post" || m["overrides"] == nil {
+	if err := jsonx.Unmarshal(raw, &m); err != nil || m["editor"] != "post" || m["overrides"] == nil {
 		t.Fatalf("settings = %s (%v)", raw, err)
 	}
 	if got := settingsFormFrom(raw).Editor; got != "post" {
@@ -52,7 +53,7 @@ func TestSchemaSettingsFormEditorRoundTrip(t *testing.T) {
 		t.Fatalf("errors: %v", errs)
 	}
 	m = nil
-	_ = json.Unmarshal(raw, &m)
+	_ = jsonx.Unmarshal(raw, &m)
 	if _, has := m["editor"]; has || m["overrides"] == nil {
 		t.Errorf("settings after Form = %s", raw)
 	}
@@ -74,13 +75,13 @@ func TestSchemaEditBuiltinPostTypeShowsItsEditor(t *testing.T) {
 func TestSchemaSettingsFormLocaleNeutralRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	base := json.RawMessage(`{"x_custom":1}`)
+	base := jsontext.Value(`{"x_custom":1}`)
 	raw, errs := schemaSettingsForm{LocaleNeutral: true}.settingsJSON(base)
 	if len(errs) != 0 {
 		t.Fatalf("errors: %v", errs)
 	}
 	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil || m["locale_neutral"] != true || m["x_custom"] != float64(1) {
+	if err := jsonx.Unmarshal(raw, &m); err != nil || m["locale_neutral"] != true || m["x_custom"] != float64(1) {
 		t.Fatalf("settings = %s (%v)", raw, err)
 	}
 	if !settingsFormFrom(raw).LocaleNeutral {
@@ -91,7 +92,7 @@ func TestSchemaSettingsFormLocaleNeutralRoundTrip(t *testing.T) {
 		t.Fatalf("errors: %v", errs)
 	}
 	m = nil
-	_ = json.Unmarshal(raw, &m)
+	_ = jsonx.Unmarshal(raw, &m)
 	if _, has := m["locale_neutral"]; has || m["x_custom"] != float64(1) {
 		t.Errorf("settings after uncheck = %s", raw)
 	}

@@ -5,7 +5,7 @@ package admin
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"image"
 	"image/color"
 	"image/png"
@@ -23,6 +23,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/recovery"
@@ -271,7 +272,7 @@ func TestContentScreensAgainstPostgres(t *testing.T) {
 	zebra, apple, mango := ids[0], ids[1], ids[2]
 	e, _ := p.ents.GetEntity(ctx, apple)
 	var attrs map[string]any
-	_ = json.Unmarshal(e.Attributes, &attrs)
+	_ = jsonx.Unmarshal(e.Attributes, &attrs)
 	if attrs["meta_title"] != "Apple | Itest" || attrs["cover"] != *m.PublicURL || e.BylinePersonID == nil || *e.BylinePersonID != au.ID || e.AuthorID == nil {
 		t.Errorf("created entity: %s byline=%v author_id=%v", e.Attributes, e.BylinePersonID, e.AuthorID)
 	}
@@ -368,7 +369,7 @@ func TestContentScreensAgainstPostgres(t *testing.T) {
 	}
 	e, _ = p.ents.GetEntity(ctx, apple)
 	attrs = nil
-	_ = json.Unmarshal(e.Attributes, &attrs)
+	_ = jsonx.Unmarshal(e.Attributes, &attrs)
 	if attrs["summary"] != "About Apple" || e.Version != 4 {
 		t.Errorf("after restore: %v v%d", attrs, e.Version)
 	}
@@ -532,13 +533,13 @@ func TestEntitySEOInlineKeepsConcurrentBodyEdit(t *testing.T) {
 	p := newPGRig(t)
 	ctx := context.Background()
 	sc, err := p.ents.CreateSchema(ctx, &entity.CreateSchemaInput{Name: "Seo " + p.suffix, Slug: "seo" + p.suffix,
-		Schema:   json.RawMessage(`{"type":"object","properties":{"summary":{"type":"string"},"body":{"type":"string"}}}`),
-		Settings: json.RawMessage(`{"url_pattern":"/it-` + p.suffix + `/{path}"}`)})
+		Schema:   jsontext.Value(`{"type":"object","properties":{"summary":{"type":"string"},"body":{"type":"string"}}}`),
+		Settings: jsontext.Value(`{"url_pattern":"/it-` + p.suffix + `/{path}"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	p.cleanups = append(p.cleanups, func() { _ = p.ents.DeleteSchema(ctx, sc.ID) })
-	e, err := p.ents.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: sc.ID, Name: "Row " + p.suffix, Slug: "row-" + p.suffix, Attributes: json.RawMessage(`{"summary":"S","body":"one","meta_description":"Old description","canonical_url":"/keep"}`)})
+	e, err := p.ents.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: sc.ID, Name: "Row " + p.suffix, Slug: "row-" + p.suffix, Attributes: jsontext.Value(`{"summary":"S","body":"one","meta_description":"Old description","canonical_url":"/keep"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -546,7 +547,7 @@ func TestEntitySEOInlineKeepsConcurrentBodyEdit(t *testing.T) {
 	p.rig.a.deps.Content.Entities = p.ents
 
 	// User B saves the body: version 2, and a new description.
-	theirs := json.RawMessage(`{"summary":"S","body":"two","meta_description":"Their description","canonical_url":"/keep"}`)
+	theirs := jsontext.Value(`{"summary":"S","body":"two","meta_description":"Their description","canonical_url":"/keep"}`)
 	if _, err := p.ents.UpdateEntity(ctx, e.ID, nil, &entity.UpdateEntityInput{Attributes: &theirs}); err != nil {
 		t.Fatal(err)
 	}
@@ -556,7 +557,7 @@ func TestEntitySEOInlineKeepsConcurrentBodyEdit(t *testing.T) {
 		"description": {"My description"}, "orig_description": {"Old description"},
 	}, map[string]string{"Accept": "application/json"})
 	var reply seoInlineReply
-	if err := json.Unmarshal(rec.Body.Bytes(), &reply); err != nil || rec.Code != 409 {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &reply); err != nil || rec.Code != 409 {
 		t.Fatalf("save = %d %v\n%s", rec.Code, err, rec.Body)
 	}
 	if reply.Status != "conflict" || reply.Conflicts["description"] != "Their description" || reply.Values.Title != "Row title" {

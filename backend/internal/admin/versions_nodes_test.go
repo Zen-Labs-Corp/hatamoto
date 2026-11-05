@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"regexp"
 	"strings"
@@ -10,6 +10,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -48,7 +49,7 @@ func newVersionsRig(t *testing.T) *versionsRig {
 
 func (r *versionsRig) setDoc(t *testing.T, doc string) {
 	t.Helper()
-	attrs := json.RawMessage(`{"title":"T","page_doc":` + doc + `,"page_sections":[]}`)
+	attrs := jsontext.Value(`{"title":"T","page_doc":` + doc + `,"page_sections":[]}`)
 	sum := "set"
 	if _, err := r.ents.UpdateEntity(context.Background(), r.page.ID, nil, &entity.UpdateEntityInput{Attributes: &attrs, ChangeSummary: &sum}); err != nil {
 		t.Fatal(err)
@@ -112,7 +113,7 @@ func TestCompareLegacyVersionsKeepTheFlatScreen(t *testing.T) {
 	t.Parallel()
 
 	r := newVersionsRig(t) // r.ent is a classic section page
-	attrs := json.RawMessage(`{"body":"changed"}`)
+	attrs := jsontext.Value(`{"body":"changed"}`)
 	if _, err := r.ents.UpdateEntity(context.Background(), r.ent.ID, nil, &entity.UpdateEntityInput{Attributes: &attrs}); err != nil {
 		t.Fatal(err)
 	}
@@ -330,14 +331,14 @@ func TestRestoreNodeRefusalLeavesTheDocAlone(t *testing.T) {
 
 	old := parseDoc(t, `{"v":2,"nodes":[{"id":"p","t":"container","c":[{"id":"x","t":"text"},{"id":"y","t":"text"}]}]}`)
 	cur := parseDoc(t, `{"v":2,"nodes":[{"id":"y","t":"text"}]}`)
-	before, _ := json.Marshal(cur)
+	before, _ := jsonx.Marshal(cur)
 	if _, err := restoreNode(cur, old, "p"); err == nil {
 		t.Fatal("collision accepted")
 	}
 	if _, err := restoreNode(cur, old, "missing"); err == nil {
 		t.Fatal("missing node accepted")
 	}
-	after, _ := json.Marshal(cur)
+	after, _ := jsonx.Marshal(cur)
 	if string(before) != string(after) {
 		t.Errorf("doc changed: %s", after)
 	}

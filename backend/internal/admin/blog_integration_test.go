@@ -4,7 +4,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"net/url"
 	"strconv"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // TestBlogEditorWritesSchedulesPublishesAndRestores is the writing checklist of
@@ -76,7 +76,7 @@ func TestBlogEditorWritesSchedulesPublishesAndRestores(t *testing.T) {
 	// autosave the draft, version-checked
 	rec = p.post(edit+"/autosave", url.Values{"version": {itoa(e.Version)}, "name": {e.Name}, "content": {"<p>Second draft</p>"}, "excerpt": {"Short"}})
 	var out autosaveReply
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || rec.Code != 200 || !out.OK || out.Version != v1+1 {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &out); err != nil || rec.Code != 200 || !out.OK || out.Version != v1+1 {
 		t.Fatalf("autosave: %d %s", rec.Code, rec.Body.String())
 	}
 	rec = p.post(edit+"/autosave", url.Values{"version": {itoa(v1)}, "name": {e.Name}, "content": {"<p>From an old tab</p>"}})
@@ -217,7 +217,7 @@ func TestBlogAutosaveCoalescesVersions(t *testing.T) {
 		}
 		rec := p.post(edit+"/autosave", v)
 		var out autosaveReply
-		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || rec.Code != 200 || !out.OK {
+		if err := jsonx.Unmarshal(rec.Body.Bytes(), &out); err != nil || rec.Code != 200 || !out.OK {
 			t.Fatalf("autosave: %d %s", rec.Code, rec.Body.String())
 		}
 		return out

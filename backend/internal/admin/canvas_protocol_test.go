@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"hatamoto.dev/core/internal/jsonx"
 	"math"
 	"os"
 	"reflect"
@@ -33,7 +33,7 @@ func loadProtocolCases(t *testing.T) []protocolCase {
 	var f struct {
 		Cases []protocolCase `json:"cases"`
 	}
-	if err := json.Unmarshal(raw, &f); err != nil {
+	if err := jsonx.Unmarshal(raw, &f); err != nil {
 		t.Fatal(err)
 	}
 	for i := range f.Cases {
@@ -69,9 +69,9 @@ func expandFixture(v any) any {
 }
 
 func refClone(v any) any {
-	b, _ := json.Marshal(v)
+	b, _ := jsonx.Marshal(v)
 	var out any
-	_ = json.Unmarshal(b, &out)
+	_ = jsonx.Unmarshal(b, &out)
 	return out
 }
 

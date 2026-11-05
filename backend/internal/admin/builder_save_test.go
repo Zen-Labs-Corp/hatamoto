@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"strings"
 	"testing"
@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // recordingEntities records every update and runs the page_doc dual write the
@@ -54,36 +55,36 @@ const (
 )
 
 func saveBody(version int, doc, op string, extra string) string {
-	b, _ := json.Marshal(version)
+	b, _ := jsonx.Marshal(version)
 	return `{"version":` + string(b) + `,"doc":` + doc + `,"op":"` + op + `"` + extra + `}`
 }
 
 type saveOut struct {
-	OK       bool            `json:"ok"`
-	Version  int             `json:"version"`
-	SavedAt  string          `json:"savedAt"`
-	Status   string          `json:"status"`
-	Conflict bool            `json:"conflict"`
-	Code     string          `json:"code"`
-	Error    string          `json:"error"`
-	Note     string          `json:"note"`
-	Doc      json.RawMessage `json:"doc"`
+	OK       bool           `json:"ok"`
+	Version  int            `json:"version"`
+	SavedAt  string         `json:"savedAt"`
+	Status   string         `json:"status"`
+	Conflict bool           `json:"conflict"`
+	Code     string         `json:"code"`
+	Error    string         `json:"error"`
+	Note     string         `json:"note"`
+	Doc      jsontext.Value `json:"doc"`
 }
 
 func (r *saveRig) save(t *testing.T, e *entity.Entity, body string) (int, saveOut) {
 	t.Helper()
 	rec := r.postJSON(r.url(e, saveAction), "owner-token", body, nil)
 	var out saveOut
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatalf("status %d body %q", rec.Code, rec.Body)
 	}
 	return rec.Code, out
 }
 
-func storedDoc(t *testing.T, e *entity.Entity) (doc json.RawMessage, hasSections bool) {
+func storedDoc(t *testing.T, e *entity.Entity) (doc jsontext.Value, hasSections bool) {
 	t.Helper()
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(e.Attributes, &m); err != nil {
+	var m map[string]jsontext.Value
+	if err := jsonx.Unmarshal(e.Attributes, &m); err != nil {
 		t.Fatal(err)
 	}
 	_, hasSections = m["page_sections"]
@@ -120,8 +121,8 @@ func TestBuilderSaveLeavesTheMirrorAlone(t *testing.T) {
 		if code, out := r.save(t, r.page, saveBody(i+1, doc, "save", "")); code != 200 || !out.OK {
 			t.Fatalf("%d %+v", code, out)
 		}
-		var m map[string]json.RawMessage
-		if err := json.Unmarshal(r.ents.ents[r.page.ID].Attributes, &m); err != nil {
+		var m map[string]jsontext.Value
+		if err := jsonx.Unmarshal(r.ents.ents[r.page.ID].Attributes, &m); err != nil {
 			t.Fatal(err)
 		}
 		if string(m["page_sections"]) != "[]" { // the rig stores an empty mirror
@@ -283,7 +284,7 @@ func TestBuilderSaveAdoptsSanitisedDoc(t *testing.T) {
 // differ and the client does not adopt; a value that grows past the limit once cleaned is refused, not stored.
 func TestBuilderSaveInlineHTML(t *testing.T) {
 	doc := func(html string) string {
-		b, _ := json.Marshal(map[string]any{"v": 2, "nodes": []any{map[string]any{"id": "h", "t": "heading", "p": map[string]any{"text": "x", "html": html}}}})
+		b, _ := jsonx.Marshal(map[string]any{"v": 2, "nodes": []any{map[string]any{"id": "h", "t": "heading", "p": map[string]any{"text": "x", "html": html}}}})
 		return string(b)
 	}
 	r := newSaveRig(t)
@@ -322,10 +323,10 @@ func TestBuilderSaveNotesUnnamedLightboxImages(t *testing.T) {
 
 const seoStored = `{"title":"T","meta_title":"Old","meta_description":"Old d","no_index":true,"seo":{"robots":"noindex, follow","x":1.50},"page_doc":{"v":2,"nodes":[]},"page_sections":[]}`
 
-func attrsOf(t *testing.T, raw json.RawMessage) map[string]json.RawMessage {
+func attrsOf(t *testing.T, raw jsontext.Value) map[string]jsontext.Value {
 	t.Helper()
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &m); err != nil {
+	var m map[string]jsontext.Value
+	if err := jsonx.Unmarshal(raw, &m); err != nil {
 		t.Fatal(err)
 	}
 	return m
@@ -335,7 +336,7 @@ func TestBuilderSaveSEOWritesInOneUpdate(t *testing.T) {
 	t.Parallel()
 
 	r := newSaveRig(t)
-	r.page.Attributes = json.RawMessage(`{"title":"T","price":1.50,"page_doc":{"v":2,"nodes":[]},"page_sections":[]}`)
+	r.page.Attributes = jsontext.Value(`{"title":"T","price":1.50,"page_doc":{"v":2,"nodes":[]},"page_sections":[]}`)
 	seo := `,"seo":{"title":" Hello ","description":"D","canonical":"/c","og_image":"/i.png","no_index":true}`
 	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", seo)); code != 200 || !out.OK || out.Version != 2 {
 		t.Fatalf("save: %d %+v", code, out)
@@ -356,7 +357,7 @@ func TestBuilderSaveWithoutSEOLeavesStoredValues(t *testing.T) {
 
 	for _, op := range []string{"autosave", "save"} {
 		r := newSaveRig(t)
-		r.page.Attributes = json.RawMessage(seoStored)
+		r.page.Attributes = jsontext.Value(seoStored)
 		if code, out := r.save(t, r.page, saveBody(1, saveDoc, op, "")); code != 200 || !out.OK {
 			t.Fatalf("%s: %d %+v", op, code, out)
 		}
@@ -371,7 +372,7 @@ func TestBuilderSaveSEOEmptyDeletesAndNoIndexOff(t *testing.T) {
 	t.Parallel()
 
 	r := newSaveRig(t)
-	r.page.Attributes = json.RawMessage(seoStored)
+	r.page.Attributes = jsontext.Value(seoStored)
 	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", `,"seo":{"title":"","description":" ","canonical":"","og_image":"","no_index":false}`)); code != 200 || !out.OK {
 		t.Fatalf("save: %d %+v", code, out)
 	}
@@ -393,7 +394,7 @@ func TestBuilderSaveSEOStaleVersionWritesNothing(t *testing.T) {
 	t.Parallel()
 
 	r := newSaveRig(t)
-	r.page.Attributes = json.RawMessage(seoStored)
+	r.page.Attributes = jsontext.Value(seoStored)
 	before := string(r.page.Attributes)
 	code, out := r.save(t, r.page, saveBody(7, saveDoc, "save", `,"seo":{"title":"New"}`))
 	if code != http.StatusConflict || !out.Conflict {
@@ -425,12 +426,12 @@ func TestBuilderSaveSEOStoredCanonicalPasses(t *testing.T) {
 
 	r := newSaveRig(t)
 	e := r.ents.ents[r.page.ID]
-	m := map[string]json.RawMessage{}
-	if err := json.Unmarshal(e.Attributes, &m); err != nil {
+	m := map[string]jsontext.Value{}
+	if err := jsonx.Unmarshal(e.Attributes, &m); err != nil {
 		t.Fatal(err)
 	}
-	m["canonical_url"] = json.RawMessage(`"/a b"`)
-	e.Attributes, _ = json.Marshal(m)
+	m["canonical_url"] = jsontext.Value(`"/a b"`)
+	e.Attributes, _ = jsonx.Marshal(m)
 
 	code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", `,"seo":{"title":"New","canonical":"/a b"}`))
 	if code != 200 || !out.OK {
@@ -479,7 +480,7 @@ func TestBuilderSaveSEOSocialText(t *testing.T) {
 	t.Parallel()
 
 	r := newSaveRig(t)
-	r.page.Attributes = json.RawMessage(`{"title":"T","og_title":"Old","og_description":"Old d","page_doc":{"v":2,"nodes":[]},"page_sections":[]}`)
+	r.page.Attributes = jsontext.Value(`{"title":"T","og_title":"Old","og_description":"Old d","page_doc":{"v":2,"nodes":[]},"page_sections":[]}`)
 	body := saveBody(1, saveDoc, "save", `,"seo":{"og_title":" Share me ","og_description":"Short"}`)
 	if code, out := r.save(t, r.page, body); code != 200 || !out.OK {
 		t.Fatalf("save: %d %+v", code, out)
@@ -490,7 +491,7 @@ func TestBuilderSaveSEOSocialText(t *testing.T) {
 	}
 
 	r = newSaveRig(t)
-	r.page.Attributes = json.RawMessage(`{"title":"T","og_title":"Old","og_description":"Old d","page_doc":{"v":2,"nodes":[]},"page_sections":[]}`)
+	r.page.Attributes = jsontext.Value(`{"title":"T","og_title":"Old","og_description":"Old d","page_doc":{"v":2,"nodes":[]},"page_sections":[]}`)
 	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", `,"seo":{"og_title":"","og_description":" "}`)); code != 200 || !out.OK {
 		t.Fatalf("save: %d %+v", code, out)
 	}
@@ -512,7 +513,7 @@ func TestBuilderSaveSEOKeepsTheSchemaTabKeys(t *testing.T) {
 	t.Parallel()
 
 	r := newSaveRig(t)
-	r.page.Attributes = json.RawMessage(`{"title":"T","schema_type":"Course","custom_jsonld":"{\"@context\":\"https://schema.org\",\"@type\":\"Thing\"}","page_doc":{"v":2,"nodes":[]},"page_sections":[]}`)
+	r.page.Attributes = jsontext.Value(`{"title":"T","schema_type":"Course","custom_jsonld":"{\"@context\":\"https://schema.org\",\"@type\":\"Thing\"}","page_doc":{"v":2,"nodes":[]},"page_sections":[]}`)
 	seo := `,"seo":{"title":"Hello"}`
 	if code, out := r.save(t, r.page, saveBody(1, saveDoc, "save", seo)); code != 200 || !out.OK {
 		t.Fatalf("save: %d %+v", code, out)

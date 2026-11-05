@@ -3,7 +3,7 @@ package admin
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"mime/multipart"
 	"net/http"
@@ -17,6 +17,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/admin/schemaform"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -216,9 +217,9 @@ func (f *fakePackages) CallRoute(_ context.Context, plugin, method, path string,
 	f.routeCall = append(f.routeCall, plugin+" "+method+" "+path+"?"+q.Encode()+" body="+string(body)+" as="+u.Role)
 	return RouteResult{Status: 200, ContentType: "application/json", Body: []byte(`{"echo":true}`)}
 }
-func (f *fakePackages) CallHost(_ context.Context, plugin, fn string, _ json.RawMessage) json.RawMessage {
+func (f *fakePackages) CallHost(_ context.Context, plugin, fn string, _ jsontext.Value) jsontext.Value {
 	f.hostCall = append(f.hostCall, plugin+" "+fn)
-	return json.RawMessage(`{"ok":true,"result":{}}`)
+	return jsontext.Value(`{"ok":true,"result":{}}`)
 }
 
 func newPackageRig(t *testing.T) (*rig, *fakePackages, *fakePlugins) {
@@ -730,7 +731,7 @@ func TestDesignFormMergesIntoThemeExtra(t *testing.T) {
 	_, pk, fp := newPackageRig(t)
 	site := newFakeSite("Acme Site")
 	g := newRig(t, func(d *Deps) { d.Site = themeSite{site}; d.Growth.Plugins, d.Growth.Packages = fp, pk })
-	site.cfg.ThemeExtra = json.RawMessage(`{"headerCta":{"text":"Hi","url":"/x"},"socialLinks":{"github":"https://g.example"}}`)
+	site.cfg.ThemeExtra = jsontext.Value(`{"headerCta":{"text":"Hi","url":"/x"},"socialLinks":{"github":"https://g.example"}}`)
 	rec := g.do("GET", "/admin/theme/colours", "owner-token", nil, nil)
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Brand colour") {
 		t.Fatalf("form: %d", rec.Code)
@@ -745,8 +746,8 @@ func TestDesignFormMergesIntoThemeExtra(t *testing.T) {
 	if site.cfg.PrimaryColor != "#112233" {
 		t.Errorf("primary colour = %q", site.cfg.PrimaryColor)
 	}
-	var got map[string]json.RawMessage
-	_ = json.Unmarshal(site.cfg.ThemeExtra, &got)
+	var got map[string]jsontext.Value
+	_ = jsonx.Unmarshal(site.cfg.ThemeExtra, &got)
 	for _, key := range []string{"headerCta", "socialLinks", "colors", "typography", "borderRadius"} {
 		if _, ok := got[key]; !ok {
 			t.Errorf("theme object lost or missed %q: %s", key, site.cfg.ThemeExtra)
@@ -852,7 +853,7 @@ func TestPluginUIFilesAreServedUnderAStrictCSP(t *testing.T) {
 }
 
 func bridge(g *rig, plugin, token string, req map[string]any) *httptest.ResponseRecorder {
-	b, _ := json.Marshal(req)
+	b, _ := jsonx.Marshal(req)
 	r := httptest.NewRequest("POST", "/admin/plugins/"+plugin+"/bridge", bytes.NewReader(b))
 	r.Header.Set("Content-Type", "application/json")
 	r.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: token})
@@ -869,7 +870,7 @@ func TestBridgeCarriesOnlyGrantedCapabilities(t *testing.T) {
 
 	rec := bridge(g, "hello", "owner-token", map[string]any{"op": "route", "method": "POST", "path": "/leads/7", "query": map[string]any{"q": "a b"}, "body": `{"x":1}`})
 	var rep bridgeRouteReply
-	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &rep) != nil || rep.Status != 200 || rep.Body != `{"echo":true}` {
+	if rec.Code != 200 || jsonx.Unmarshal(rec.Body.Bytes(), &rep) != nil || rep.Status != 200 || rep.Body != `{"echo":true}` {
 		t.Fatalf("route: %d %s", rec.Code, rec.Body.String())
 	}
 	if len(pk.routeCall) != 1 || pk.routeCall[0] != `hello POST leads/7?q=a+b body={"x":1} as=owner` {
@@ -975,7 +976,7 @@ func TestThemeCardPaletteStripNeutralWithoutColours(t *testing.T) {
 	if p := themePalette(live, nil); p[0].Hex != "" {
 		t.Errorf("no site config gives colours: %+v", p)
 	}
-	cfg := &siteconfig.Config{PrimaryColor: "#112233", ThemeExtra: json.RawMessage(`{"colors":{"secondary":"nonsense"}}`)}
+	cfg := &siteconfig.Config{PrimaryColor: "#112233", ThemeExtra: jsontext.Value(`{"colors":{"secondary":"nonsense"}}`)}
 	if p := themePalette(live, cfg); p[0].Hex != "" {
 		t.Errorf("a broken colour must leave the strip neutral: %+v", p)
 	}

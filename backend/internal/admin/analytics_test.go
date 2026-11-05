@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"html"
 	"net/url"
@@ -17,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type fakeAgentStats struct {
@@ -345,7 +345,7 @@ func jsonOf(t *testing.T, g *rig, u string) (int, map[string]any) {
 		t.Errorf("%s must be no-store", u)
 	}
 	var m map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &m); err != nil {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &m, jsonx.StoredLoose); err != nil {
 		t.Fatalf("%s: %v: %s", u, err, rec.Body.String())
 	}
 	return rec.Code, m
@@ -546,7 +546,7 @@ func TestRobotsJSON(t *testing.T) {
 				Ignores                []string `json:"ignores_robots_agents"`
 			}
 		}
-		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		if err := jsonx.Unmarshal(rec.Body.Bytes(), &body, jsonx.StoredLoose); err != nil {
 			t.Fatal(err)
 		}
 		if body.Owner != tc.owner || len(body.Purposes) != 8 {
