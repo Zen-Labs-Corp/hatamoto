@@ -56,6 +56,8 @@ type Server struct {
 	PageSize int
 	// FailPart, when >0, answers that part number with a 500.
 	FailPart int
+	// FlakyPart, when >0, answers that part number once with a 503 SlowDown.
+	FlakyPart int
 	// Tamper, when set, may change an object right after it was stored, to
 	// model a provider that keeps something other than what it was sent.
 	Tamper func(key string, o *Object)
@@ -254,6 +256,11 @@ func (s *Server) part(w http.ResponseWriter, q map[string][]string, body []byte)
 	}
 	if s.FailPart > 0 && n == s.FailPart {
 		fail(w, http.StatusInternalServerError, "InternalError")
+		return
+	}
+	if s.FlakyPart > 0 && n == s.FlakyPart {
+		s.FlakyPart = 0
+		fail(w, http.StatusServiceUnavailable, "SlowDown")
 		return
 	}
 	u.parts[n] = body

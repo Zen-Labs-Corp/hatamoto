@@ -55,7 +55,9 @@ func Upload(ctx context.Context, c *s3.Client, prefix, id, path string, keep int
 		return fail(fmt.Errorf("verify upload: %w", err))
 	}
 	if head.Size != size || head.Meta["sha256"] != res.SHA256 {
-		_ = c.Delete(context.WithoutCancel(ctx), key)
+		dctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		_ = c.Delete(dctx, key)
+		cancel()
 		return fail(fmt.Errorf("%w: expected %d bytes, found %d", ErrVerify, size, head.Size))
 	}
 	res.OK = true

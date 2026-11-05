@@ -121,7 +121,11 @@ func New(c Config) (*Client, error) {
 	if c.Region == "" || c.Bucket == "" || c.AccessKey == "" || c.SecretKey == "" {
 		return nil, errors.New("region, bucket, access key and secret key are required")
 	}
-	hc := &http.Client{}
+	// A provider that accepts a request and never answers must not hold a
+	// backup (and its lock) forever.
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.ResponseHeaderTimeout = responseHeaderTimeout
+	hc := &http.Client{Transport: tr}
 	if c.HTTP != nil {
 		cp := *c.HTTP
 		hc = &cp
@@ -145,6 +149,43 @@ type request struct {
 	body    io.Reader
 	size    int64
 	payload string // hex SHA-256 of the body
+}
+
+const responseHeaderTimeout = 60 * time.Second
+
+// Retry policy for calls that are safe to repeat. Variables so tests can run fast.
+var (
+	maxAttempts = 4
+	retryBase   = 500 * time.Millisecond
+)
+
+// retryable reports whether err is a transient provider or network failure.
+func retryable(ctx context.Context, err error) bool {
+	if err == nil || ctx.Err() != nil {
+		return false
+	}
+	var e *Error
+	if errors.As(err, &e) {
+		return e.Status >= 500 || e.Status == http.StatusRequestTimeout ||
+			e.Code == "RequestTimeout" || e.Code == "SlowDown"
+	}
+	return true // the request never got an answer
+}
+
+// doRetry sends the request build returns, again after a transient failure
+// with a growing pause. build is called per attempt so a body is fresh each time.
+func (c *Client) doRetry(ctx context.Context, build func() request) (*http.Response, error) {
+	for attempt := 1; ; attempt++ {
+		resp, err := c.do(ctx, build())
+		if err == nil || attempt >= maxAttempts || !retryable(ctx, err) {
+			return resp, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, err
+		case <-time.After(retryBase << (attempt - 1)):
+		}
+	}
 }
 
 const emptySHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -235,8 +276,10 @@ func (c *Client) Put(ctx context.Context, key string, r io.ReaderAt, size int64,
 		if err != nil {
 			return fmt.Errorf("s3 put: read source: %w", err)
 		}
-		resp, err := c.do(ctx, request{op: "put", method: http.MethodPut, key: key,
-			header: metaHeader(meta), body: io.NewSectionReader(r, 0, size), size: size, payload: sum})
+		resp, err := c.doRetry(ctx, func() request {
+			return request{op: "put", method: http.MethodPut, key: key,
+				header: metaHeader(meta), body: io.NewSectionReader(r, 0, size), size: size, payload: sum}
+		})
 		if err != nil {
 			return err
 		}
@@ -248,7 +291,7 @@ func (c *Client) Put(ctx context.Context, key string, r io.ReaderAt, size int64,
 
 // Head returns the size, ETag and metadata of key.
 func (c *Client) Head(ctx context.Context, key string) (Object, error) {
-	resp, err := c.do(ctx, request{op: "head", method: http.MethodHead, key: key})
+	resp, err := c.doRetry(ctx, func() request { return request{op: "head", method: http.MethodHead, key: key} })
 	if err != nil {
 		return Object{}, err
 	}
@@ -270,7 +313,7 @@ func objectFromHeaders(key string, resp *http.Response) Object {
 
 // Get opens key for reading; the caller closes the body.
 func (c *Client) Get(ctx context.Context, key string) (io.ReadCloser, Object, error) {
-	resp, err := c.do(ctx, request{op: "get", method: http.MethodGet, key: key})
+	resp, err := c.doRetry(ctx, func() request { return request{op: "get", method: http.MethodGet, key: key} })
 	if err != nil {
 		return nil, Object{}, err
 	}
@@ -279,7 +322,7 @@ func (c *Client) Get(ctx context.Context, key string) (io.ReadCloser, Object, er
 
 // Delete removes key; a missing key is not an error.
 func (c *Client) Delete(ctx context.Context, key string) error {
-	resp, err := c.do(ctx, request{op: "delete", method: http.MethodDelete, key: key})
+	resp, err := c.doRetry(ctx, func() request { return request{op: "delete", method: http.MethodDelete, key: key} })
 	if err != nil {
 		if NotFound(err) {
 			return nil
@@ -312,7 +355,7 @@ func (c *Client) listPage(ctx context.Context, prefix, token string, maxKeys int
 	if maxKeys > 0 {
 		q.Set("max-keys", strconv.Itoa(maxKeys))
 	}
-	resp, err := c.do(ctx, request{op: "list", method: http.MethodGet, query: q})
+	resp, err := c.doRetry(ctx, func() request { return request{op: "list", method: http.MethodGet, query: q} })
 	if err != nil {
 		return listResult{}, err
 	}

@@ -27,6 +27,13 @@ func newTestClient(t *testing.T, srv *s3test.Server) *Client {
 	return c
 }
 
+func fastRetries(t *testing.T) {
+	t.Helper()
+	old := retryBase
+	retryBase = time.Millisecond
+	t.Cleanup(func() { retryBase = old })
+}
+
 func smallParts(t *testing.T, n int64) {
 	t.Helper()
 	old := partSize
@@ -83,8 +90,24 @@ func TestPutMultipart(t *testing.T) {
 	}
 }
 
+func TestPutMultipartRetriesATransientPartFailure(t *testing.T) {
+	smallParts(t, 100)
+	fastRetries(t)
+	srv := s3test.NewServer(t)
+	srv.FlakyPart = 3
+	c := newTestClient(t, srv)
+	data := randBytes(1050)
+	if err := c.Put(context.Background(), "big.tar", bytes.NewReader(data), 1050, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(srv.Objects()["big.tar"].Data, data) || srv.OpenUploads() != 0 {
+		t.Fatal("object differs or upload left open")
+	}
+}
+
 func TestPutMultipartAbortsOnFailure(t *testing.T) {
 	smallParts(t, 100)
+	fastRetries(t)
 	srv := s3test.NewServer(t)
 	srv.FailPart = 3
 	c := newTestClient(t, srv)

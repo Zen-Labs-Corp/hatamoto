@@ -52,9 +52,11 @@ func (c *Client) putMultipart(ctx context.Context, key string, r io.ReaderAt, si
 		if herr != nil {
 			return fmt.Errorf("s3 multipart: read source: %w", herr)
 		}
-		presp, perr := c.do(ctx, request{op: "multipart part", method: http.MethodPut, key: key,
-			query: url.Values{"partNumber": {strconv.Itoa(n)}, "uploadId": {init.UploadID}},
-			body:  io.NewSectionReader(r, off, length), size: length, payload: sum})
+		presp, perr := c.doRetry(ctx, func() request {
+			return request{op: "multipart part", method: http.MethodPut, key: key,
+				query: url.Values{"partNumber": {strconv.Itoa(n)}, "uploadId": {init.UploadID}},
+				body:  io.NewSectionReader(r, off, length), size: length, payload: sum}
+		})
 		if perr != nil {
 			return perr
 		}
