@@ -201,7 +201,7 @@ func TestDestructiveAnnotations(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]bool{"redirects_delete": true, "menus_update": true, "entities_update": true, "entities_unpublish": true,
-		"entities_create": false, "entities_duplicate": false, "entities_publish": false, "media_upload": false, "terms_create": false, "redirects_create": false,
+		"entities_create": false, "entities_duplicate": false, "entities_reorder": false, "terms_reorder": false, "entities_publish": false, "media_upload": false, "terms_create": false, "redirects_create": false,
 		"seo_update": false, "seo_get": false}
 	for _, tool := range list.Tools {
 		if w, ok := want[tool.Name]; ok {
