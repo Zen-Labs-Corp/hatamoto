@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/jsonx"
 	linkingv2 "hatamoto.dev/core/internal/linking/v2"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/permtext"
@@ -391,7 +391,7 @@ func (p pluginAdmin) Plugins() []admin.PluginInfo {
 		for _, c := range v.Cron {
 			info.Cron = append(info.Cron, c.Name+" every "+c.Every)
 		}
-		if json.Valid(v.SettingsSchema) {
+		if jsonx.Valid(v.SettingsSchema) {
 			info.SettingsSchema = v.SettingsSchema
 		}
 		out = append(out, info)
@@ -474,7 +474,7 @@ func (p pluginAdmin) Settings(ctx context.Context, name string) (map[string]any,
 		return nil, err
 	}
 	var out map[string]any
-	if err := json.Unmarshal(pluginSettingsView(schema, stored), &out); err != nil {
+	if err := jsonx.Unmarshal(pluginSettingsView(schema, stored), &out, jsonx.Stored); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -499,7 +499,7 @@ func (p pluginAdmin) SaveSettings(ctx context.Context, name string, values map[s
 	if p.s.pluginSettingsStore == nil || len(schema) == 0 {
 		return nil, errors.New("plugin has no settings")
 	}
-	body, err := json.Marshal(values)
+	body, err := jsonx.Marshal(values)
 	if err != nil {
 		return nil, err
 	}

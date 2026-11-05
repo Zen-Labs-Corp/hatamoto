@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 	"net/url"
@@ -13,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/mcpserver"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -53,8 +54,8 @@ func (s *Server) mcpRenderPage(ctx context.Context, req mcpserver.RenderRequest)
 		return mcpserver.RenderResult{}, mcpserver.ErrRenderUnavailable
 	}
 	e := req.Entity
-	attrs := map[string]json.RawMessage{}
-	_ = json.Unmarshal(e.Attributes, &attrs)
+	attrs := map[string]jsontext.Value{}
+	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
 	delete(attrs, "page_sections")
 	attrs["page_doc"] = req.Doc
 	body := map[string]any{"entity_id": e.ID.String(), "attributes": attrs, "name": e.Name, "updated_at": e.UpdatedAt}
@@ -79,7 +80,7 @@ func (s *Server) mcpRenderPage(ctx context.Context, req mcpserver.RenderRequest)
 		page := rec.body.String()
 		return mcpserver.RenderResult{HTML: page, CSS: builderStylesheet(page)}, nil
 	}
-	body["doc"] = json.RawMessage(req.Doc)
+	body["doc"] = jsontext.Value(req.Doc)
 	body["render"] = req.IDs
 	body["css"] = req.IDs
 	rec, err := s.serveRender(ctx, h.handleRenderNodes, body)
@@ -87,7 +88,7 @@ func (s *Server) mcpRenderPage(ctx context.Context, req mcpserver.RenderRequest)
 		return mcpserver.RenderResult{}, err
 	}
 	var out renderNodesResponse
-	if err := json.Unmarshal(rec.body.Bytes(), &out); err != nil {
+	if err := jsonx.Unmarshal(rec.body.Bytes(), &out, jsonx.Stored); err != nil {
 		return mcpserver.RenderResult{}, errors.New("render failed")
 	}
 	var html strings.Builder
@@ -103,7 +104,7 @@ func (s *Server) mcpRenderPage(ctx context.Context, req mcpserver.RenderRequest)
 
 // serveRender posts body to a render handler in process and returns the 200 answer.
 func (s *Server) serveRender(ctx context.Context, h http.HandlerFunc, body map[string]any) (*memResponse, error) {
-	raw, err := json.Marshal(body)
+	raw, err := jsonx.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +126,7 @@ func (s *Server) serveRender(ctx context.Context, h http.HandlerFunc, body map[s
 		var e struct {
 			Error string `json:"error"`
 		}
-		_ = json.Unmarshal(rec.body.Bytes(), &e)
+		_ = jsonx.Unmarshal(rec.body.Bytes(), &e, jsonx.Stored)
 		if e.Error == "" {
 			e.Error = strings.TrimSpace(rec.body.String())
 		}

@@ -2,22 +2,24 @@ package server
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"reflect"
 	"sort"
+	"strings"
 
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
 // profileWrite is a validated business-profile part of a settings PATCH.
 type profileWrite struct {
 	// site is the new site-wide profile ("{}" clears); nil leaves it unchanged.
-	site json.RawMessage
+	site jsontext.Value
 	// cards maps a locale tag to its new card; a nil value deletes the card.
-	cards map[string]json.RawMessage
+	cards map[string]jsontext.Value
 }
 
 // sortedTags returns the card tags in write order.
@@ -33,22 +35,28 @@ func (w *profileWrite) sortedTags() []string {
 // decodeProfileStrict decodes one profile, rejecting unknown keys so a typo
 // cannot be dropped silently. The returned path is the offending field when
 // the JSON names one.
-func decodeProfileStrict(raw json.RawMessage) (p bizprofile.Profile, path string, err error) {
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
-	if err = dec.Decode(&p); err != nil {
-		var typeErr *json.UnmarshalTypeError
-		if errors.As(err, &typeErr) {
-			path = typeErr.Field
+func decodeProfileStrict(raw jsontext.Value) (p bizprofile.Profile, path string, err error) {
+	if err = jsonx.Unmarshal(raw, &p, jsonx.StrictNoUnknown); err != nil {
+		if !jsonx.IsUnknownMember(err) {
+			path = dottedPath(jsonx.ErrorPointer(err))
 		}
 		return bizprofile.Profile{}, path, err
 	}
 	return p, "", nil
 }
 
+// dottedPath turns a JSON Pointer (/a/b/0) into the dotted field path a.b.0.
+func dottedPath(ptr string) string {
+	parts := strings.Split(strings.TrimPrefix(ptr, "/"), "/")
+	for i, p := range parts {
+		parts[i] = strings.ReplaceAll(strings.ReplaceAll(p, "~1", "/"), "~0", "~")
+	}
+	return strings.Join(parts, ".")
+}
+
 // addProfileErrors validates one decoded profile with validate and records its
 // failures under prefix.
-func addProfileErrors(fields map[string]string, prefix string, raw json.RawMessage, validate func(bizprofile.Profile) map[string]string) (bizprofile.Profile, bool) {
+func addProfileErrors(fields map[string]string, prefix string, raw jsontext.Value, validate func(bizprofile.Profile) map[string]string) (bizprofile.Profile, bool) {
 	p, path, err := decodeProfileStrict(raw)
 	if err != nil {
 		key := prefix
@@ -109,7 +117,7 @@ func prepareProfiles(in *siteSettingsPatch, def string, locales []siteconfig.Loc
 		if !ok {
 			continue
 		}
-		var card json.RawMessage
+		var card jsontext.Value
 		if !reflect.DeepEqual(p, bizprofile.Profile{}) {
 			card = profileJSON(p)
 		}
@@ -121,9 +129,9 @@ func prepareProfiles(in *siteSettingsPatch, def string, locales []siteconfig.Loc
 	return w, nil, ""
 }
 
-func addCard(w *profileWrite, tag string, card json.RawMessage) {
+func addCard(w *profileWrite, tag string, card jsontext.Value) {
 	if w.cards == nil {
-		w.cards = map[string]json.RawMessage{}
+		w.cards = map[string]jsontext.Value{}
 	}
 	w.cards[tag] = card
 }
@@ -163,13 +171,13 @@ func profilesFrom(cfg *siteconfig.Config) (bizprofile.Profile, map[string]bizpro
 
 // profileJSON marshals a profile; an empty one is "{}" (the nested address and
 // rating structs would otherwise print as empty objects).
-func profileJSON(p bizprofile.Profile) json.RawMessage {
+func profileJSON(p bizprofile.Profile) jsontext.Value {
 	if reflect.DeepEqual(p, bizprofile.Profile{}) {
-		return json.RawMessage("{}")
+		return jsontext.Value("{}")
 	}
-	raw, err := json.Marshal(p)
+	raw, err := jsonx.Marshal(p)
 	if err != nil {
-		return json.RawMessage("{}")
+		return jsontext.Value("{}")
 	}
 	return raw
 }

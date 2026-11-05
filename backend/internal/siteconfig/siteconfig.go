@@ -35,8 +35,8 @@ const cacheTTL = 60 * time.Second
 type LocaleEntry struct {
 	Tag     string `json:"tag"`
 	Segment string `json:"segment"`
-	Name    string `json:"name,omitempty"`   // shown to visitors, at most 80 runes
-	Hidden  bool   `json:"hidden,omitempty"` // not public: prefix 404s, left out of sitemaps and hreflang
+	Name    string `json:"name,omitempty"`  // shown to visitors, at most 80 runes
+	Hidden  bool   `json:"hidden,omitzero"` // not public: prefix 404s, left out of sitemaps and hreflang
 }
 
 // SitemapFileSegment returns the first locale segment that is also the name of

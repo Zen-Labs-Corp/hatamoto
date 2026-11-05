@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -56,7 +56,7 @@ func (h *seoSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusServiceUnavailable, "seo settings are not available")
 		return
 	}
-	var patch map[string]json.RawMessage
+	var patch map[string]jsontext.Value
 	if err := parseJSON(r, &patch); err != nil || patch == nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return

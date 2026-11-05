@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,6 +17,7 @@ import (
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/seopanel"
@@ -95,9 +96,9 @@ type seoTypeSettings struct {
 // seoTypeSitemap is the sitemap part of seoTypeSettings. Priority stays raw so
 // a patch can tell null (remove) from absent (keep).
 type seoTypeSitemap struct {
-	Exclude    *bool           `json:"exclude,omitempty"`
-	Priority   json.RawMessage `json:"priority,omitempty"`
-	ChangeFreq *string         `json:"change_freq,omitempty"`
+	Exclude    *bool          `json:"exclude,omitempty"`
+	Priority   jsontext.Value `json:"priority,omitzero"`
+	ChangeFreq *string        `json:"change_freq,omitempty"`
 }
 
 type seoAICrawlers struct {
@@ -140,12 +141,12 @@ func (v *seoService) Get(ctx context.Context) (seosvc.Doc, error) {
 // seoDoc renders the document. Sections keep their stored polarity (the JSON
 // of seo.Settings); the IndexNow key is left out.
 func seoDoc(set seo.Settings, types []*entity.EntitySchema, denied []agents.Purpose) (seosvc.Doc, error) {
-	raw, err := json.Marshal(set)
+	raw, err := jsonx.Marshal(set)
 	if err != nil {
 		return nil, err
 	}
 	doc := seosvc.Doc{}
-	if err := json.Unmarshal(raw, &doc); err != nil {
+	if err := jsonx.Unmarshal(raw, &doc, jsonx.Stored); err != nil {
 		return nil, err
 	}
 	for _, name := range seoSections {
@@ -194,24 +195,16 @@ func (f seoFieldErrors) add(field, msg string) {
 }
 
 // decodeStrict decodes raw into dst and refuses keys dst has no field for.
-func decodeStrict(raw json.RawMessage, dst any) error {
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(dst); err != nil {
-		return err
-	}
-	if dec.More() {
-		return errors.New("unexpected data after the value")
-	}
-	return nil
+func decodeStrict(raw jsontext.Value, dst any) error {
+	return jsonx.Unmarshal(raw, dst, jsonx.StrictNoUnknown)
 }
 
 // mergeMap merges a JSON object into m: a null value deletes the key, any other
 // value is decoded over the current entry, so a patch of one field of an entry
 // keeps its siblings.
-func mergeMap[V any](m map[string]V, raw json.RawMessage) error {
-	var p map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &p); err != nil || p == nil {
+func mergeMap[V any](m map[string]V, raw jsontext.Value) error {
+	var p map[string]jsontext.Value
+	if err := jsonx.Unmarshal(raw, &p, jsonx.Stored); err != nil || p == nil {
 		return errors.New("must be an object")
 	}
 	for k, v := range p {
@@ -230,25 +223,25 @@ func mergeMap[V any](m map[string]V, raw json.RawMessage) error {
 
 // splitMaps removes the named keys of the object raw and returns them, plus the
 // object without them. A struct decode would replace a map, not merge it.
-func splitMaps(raw json.RawMessage, keys ...string) (rest json.RawMessage, maps map[string]json.RawMessage, err error) {
-	var obj map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &obj); err != nil || obj == nil {
+func splitMaps(raw jsontext.Value, keys ...string) (rest jsontext.Value, maps map[string]jsontext.Value, err error) {
+	var obj map[string]jsontext.Value
+	if err := jsonx.Unmarshal(raw, &obj, jsonx.Stored); err != nil || obj == nil {
 		return nil, nil, errors.New("must be an object")
 	}
-	maps = map[string]json.RawMessage{}
+	maps = map[string]jsontext.Value{}
 	for _, k := range keys {
 		if v, ok := obj[k]; ok {
 			maps[k] = v
 			delete(obj, k)
 		}
 	}
-	rest, err = json.Marshal(obj)
+	rest, err = jsonx.Marshal(obj)
 	return rest, maps, err
 }
 
 // seoApplySection applies one section of a patch onto set. It never touches
 // the IndexNow key.
-func seoApplySection(set *seo.Settings, name string, raw json.RawMessage) error {
+func seoApplySection(set *seo.Settings, name string, raw jsontext.Value) error {
 	switch name {
 	case "separator":
 		return decodeStrict(raw, &set.Separator)
@@ -394,7 +387,7 @@ type seoPlan struct {
 
 // seoPlanPatch validates a patch against the stored state without writing
 // anything: every refusal is reported before the first write.
-func (v *seoService) seoPlanPatch(ctx context.Context, patch map[string]json.RawMessage) (*seoPlan, *seosvc.ValidationError, error) {
+func (v *seoService) seoPlanPatch(ctx context.Context, patch map[string]jsontext.Value) (*seoPlan, *seosvc.ValidationError, error) {
 	cur, err := v.backend.Get(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("load seo settings: %w", err)
@@ -437,9 +430,9 @@ func (v *seoService) seoPlanPatch(ctx context.Context, patch map[string]json.Raw
 }
 
 // planTypes resolves type_settings: slugs to schemas, values to schema patches.
-func (v *seoService) planTypes(ctx context.Context, plan *seoPlan, fe seoFieldErrors, raw json.RawMessage) error {
-	var byslug map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &byslug); err != nil || byslug == nil {
+func (v *seoService) planTypes(ctx context.Context, plan *seoPlan, fe seoFieldErrors, raw jsontext.Value) error {
+	var byslug map[string]jsontext.Value
+	if err := jsonx.Unmarshal(raw, &byslug, jsonx.Stored); err != nil || byslug == nil {
 		fe.add(seoTypeSettingsKey, "must be an object keyed by content type")
 		return nil
 	}
@@ -521,7 +514,7 @@ func seoSchemaPatch(sc *entity.EntitySchema, p seoTypeSettings, field string, fe
 			sp.Priority = nil
 			if string(raw) != "null" {
 				var f float64
-				if err := json.Unmarshal(raw, &f); err != nil {
+				if err := jsonx.Unmarshal(raw, &f, jsonx.Stored); err != nil {
 					fe.add(field+"[sitemap][priority]", "must be a number from 0 to 1, or null")
 					ok = false
 				} else {
@@ -535,7 +528,7 @@ func seoSchemaPatch(sc *entity.EntitySchema, p seoTypeSettings, field string, fe
 }
 
 // planAICrawlers validates the crawler policy: the full list of denied purposes.
-func planAICrawlers(plan *seoPlan, fe seoFieldErrors, raw json.RawMessage) {
+func planAICrawlers(plan *seoPlan, fe seoFieldErrors, raw jsontext.Value) {
 	var p seoAICrawlers
 	if err := decodeStrict(raw, &p); err != nil {
 		fe.add(seoAICrawlersKey, err.Error())
@@ -560,7 +553,7 @@ func planAICrawlers(plan *seoPlan, fe seoFieldErrors, raw json.RawMessage) {
 // Update implements seosvc.Service. Every check runs before the first write;
 // the settings and the per-type rows are then written in one transaction, and
 // the crawler policy (a separate store) after it commits.
-func (v *seoService) Update(ctx context.Context, actor seosvc.Actor, patch map[string]json.RawMessage) (seosvc.Doc, error) {
+func (v *seoService) Update(ctx context.Context, actor seosvc.Actor, patch map[string]jsontext.Value) (seosvc.Doc, error) {
 	plan, verr, err := v.seoPlanPatch(ctx, patch)
 	if err != nil {
 		return nil, err
@@ -731,7 +724,7 @@ func (v *seoService) Analyze(ctx context.Context, id uuid.UUID) (seosvc.Panel, e
 	}
 	attrs := map[string]any{}
 	if len(e.Attributes) > 0 {
-		_ = json.Unmarshal(e.Attributes, &attrs)
+		_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
 	}
 	f := seopanel.FromAttrs(attrs)
 	excerpt, _ := attrs["excerpt"].(string)

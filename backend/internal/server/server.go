@@ -7,7 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -1236,7 +1236,7 @@ func (s *Server) voidStandingForSchemas(ctx context.Context) {
 		return
 	}
 	store := &standing.Store{DB: s.db}
-	_, err := store.VoidChangedSchemas(ctx, func(ctx context.Context, slug string) (json.RawMessage, bool, error) {
+	_, err := store.VoidChangedSchemas(ctx, func(ctx context.Context, slug string) (jsontext.Value, bool, error) {
 		sc, err := s.entityService.GetSchemaBySlug(ctx, slug)
 		if errors.Is(err, entity.ErrSchemaNotFound) {
 			return nil, false, nil

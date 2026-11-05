@@ -2,13 +2,13 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/updater"
 	"hatamoto.dev/core/internal/worker"
@@ -103,7 +103,7 @@ func (p pluginSource) EnabledSDKRanges(ctx context.Context) ([]updater.NamedRang
 			continue
 		}
 		var m sdk.Manifest
-		if err := json.Unmarshal(r.Manifest, &m); err != nil {
+		if err := jsonx.Unmarshal(r.Manifest, &m, jsonx.Stored); err != nil {
 			return nil, fmt.Errorf("plugin %s manifest: %w", r.Name, err)
 		}
 		if m.SDK != "" {
@@ -130,7 +130,7 @@ func (p pluginSource) EnabledSDKRanges(ctx context.Context) ([]updater.NamedRang
 	var t struct {
 		SDK string `json:"sdk"`
 	}
-	if json.Unmarshal(row.Manifest, &t) == nil && t.SDK != "" {
+	if jsonx.Unmarshal(row.Manifest, &t, jsonx.Stored) == nil && t.SDK != "" {
 		out = append(out, updater.NamedRange{Kind: "theme", Name: row.Name, Range: t.SDK})
 	}
 	return out, nil
