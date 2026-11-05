@@ -73,7 +73,9 @@ func TestSanitizeInlineHTMLBalanced(t *testing.T) {
 }
 
 type inlineCase struct {
-	Name, In, Canonical string
+	Name      string `json:"name"`
+	In        string `json:"in"`
+	Canonical string `json:"canonical"`
 }
 
 func readInlineCases(t *testing.T) []inlineCase {
@@ -85,6 +87,14 @@ func readInlineCases(t *testing.T) []inlineCase {
 	var cases []inlineCase
 	if err := jsonx.Unmarshal(raw, &cases); err != nil {
 		t.Fatal(err)
+	}
+	if len(cases) == 0 {
+		t.Fatal("canonical.json has no cases")
+	}
+	for i, c := range cases {
+		if c.Name == "" || c.In == "" || c.Canonical == "" {
+			t.Fatalf("case %d is missing name, in or canonical: %+v", i, c)
+		}
 	}
 	return cases
 }
