@@ -36,6 +36,11 @@ type Dump struct {
 	// RawBodies is true when item bodies are as typed (WXR): block comments,
 	// unexpanded shortcodes, paragraphs not yet wrapped.
 	RawBodies bool
+	// CustomCSS is the newest published custom_css item of the old site
+	// (Additional CSS in the WordPress Customizer); "" when none was read.
+	CustomCSS string
+	// CustomCSSNote says why none was read, when the source cannot tell.
+	CustomCSSNote string
 	// Warnings are non-fatal problems met while reading.
 	Warnings []string
 }

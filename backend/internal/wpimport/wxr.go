@@ -349,6 +349,7 @@ func buildFromWXR(d *Dump, raw []wxrItem, termByID map[string]TermRef, navNames 
 	var menuOrder []string
 	seen := map[string]bool{}
 	polylangItems := false
+	cssModified := ""
 	for _, w := range raw {
 		f := w.fields
 		typ, status := f["post_type"], f["status"]
@@ -383,6 +384,12 @@ func buildFromWXR(d *Dump, raw []wxrItem, termByID map[string]TermRef, navNames 
 				}
 			}
 			m.Items = append(m.Items, mi)
+			continue
+		case typ == "custom_css":
+			// One item per theme; the newest published one is the live CSS.
+			if m := f["post_modified_gmt"]; status == wpPublish && m >= cssModified {
+				cssModified, d.CustomCSS = m, f["content"]
+			}
 			continue
 		case typ == "" || skipType(typ):
 			continue

@@ -251,6 +251,7 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 	}
 	type typeRef struct{ slug, base string }
 	var pts []typeRef
+	customCSSListed := false
 	if _, err := s.c.JSON(ctx, "/wp/v2/types", nil, &types); err != nil {
 		d.Warnings = append(d.Warnings, "could not list content types, importing posts and pages only: "+err.Error())
 		pts = []typeRef{{"post", "posts"}, {"page", "pages"}}
@@ -262,6 +263,10 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 		sort.Strings(names)
 		for _, n := range names {
 			t := types[n]
+			if n == "custom_css" && t.RESTBase != "" {
+				customCSSListed = true
+				d.CustomCSS = s.customCSS(ctx, t.RESTBase)
+			}
 			if skipType(n) || t.RESTBase == "" {
 				continue
 			}
@@ -270,6 +275,10 @@ func (s *RESTSource) Load(ctx context.Context) (*Dump, error) {
 				d.Detect.CustomTypes = append(d.Detect.CustomTypes, CustomType{Slug: n, Name: t.Name, RESTBase: t.RESTBase, Hierarchical: t.Hierarchical, HasArchive: t.HasArchive == true})
 			}
 		}
+	}
+
+	if d.CustomCSS == "" && !customCSSListed {
+		d.CustomCSSNote = "not available through the REST API; import a WXR export to bring it across"
 	}
 
 	// Taxonomies and terms.

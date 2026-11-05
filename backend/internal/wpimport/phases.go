@@ -19,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/redirect"
+	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/taxonomy"
 )
@@ -50,6 +51,7 @@ func (r *Runner) importSettings(ctx context.Context) error {
 		// A site setting must not stop the content import.
 		r.res.Warnings = append(r.res.Warnings, "site settings not fully imported: "+err.Error())
 	}
+	r.importCustomCSS(ctx)
 	return nil
 }
 
@@ -64,6 +66,14 @@ func (r *Runner) reportSettingDiffs(ctx context.Context) error {
 		return nil // no site row yet: nothing to differ from
 	}
 	s := r.dump.Site
+	if css := r.dump.CustomCSS; strings.TrimSpace(css) != "" {
+		note := "not imported: this site has content, so its settings are kept"
+		if render.AdditionalCSS(cur.ThemeExtra) != "" {
+			note = "not imported: existing Additional CSS kept"
+		}
+		r.setCustomCSSStatus(note)
+		r.res.Warnings = append(r.res.Warnings, fmt.Sprintf("site settings kept: WordPress has custom CSS (%s), %s", cssSize(css), note))
+	}
 	for _, d := range []struct{ name, wp, have string }{
 		{"site title", s.Title, cur.CompanyName}, {"tagline", s.Tagline, cur.Tagline},
 		{"time zone", s.Timezone, cur.Timezone}, {"language", s.Language, cur.Language},
