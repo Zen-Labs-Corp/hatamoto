@@ -51,6 +51,15 @@ func (f *fakeManager) owners(except uuid.UUID) int {
 	}
 	return n
 }
+func (f *fakeManager) openOwners(except uuid.UUID) int {
+	n := 0
+	for id, u := range f.users {
+		if id != except && u.Role == user.RoleOwner && u.AccessEndsAt == nil {
+			n++
+		}
+	}
+	return n
+}
 func (f *fakeManager) Create(_ context.Context, in *user.CreateUserInput, hash string) (*user.User, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -60,7 +69,10 @@ func (f *fakeManager) Create(_ context.Context, in *user.CreateUserInput, hash s
 		}
 	}
 	n := in.Name
-	u := &user.User{ID: uuid.New(), Email: in.Email, Role: in.Role, Name: &n}
+	if in.Role == user.RoleOwner && in.AccessEndsAt != nil && f.openOwners(uuid.Nil) == 0 {
+		return nil, user.ErrLastOwner
+	}
+	u := &user.User{ID: uuid.New(), Email: in.Email, Role: in.Role, Name: &n, AccessEndsAt: in.AccessEndsAt}
 	f.users[u.ID] = u
 	f.created = append(f.created, hash)
 	return u, nil
@@ -75,11 +87,21 @@ func (f *fakeManager) Update(_ context.Context, id uuid.UUID, in *user.UpdateUse
 	if in.Role != nil && *in.Role != user.RoleOwner && u.Role == user.RoleOwner && f.owners(id) == 0 {
 		return nil, user.ErrLastOwner
 	}
+	eff := u.Role
+	if in.Role != nil {
+		eff = *in.Role
+	}
+	if in.AccessEndsAt.Set && in.AccessEndsAt.At != nil && eff == user.RoleOwner && f.openOwners(id) == 0 {
+		return nil, user.ErrLastOwner
+	}
 	if in.Name != nil {
 		u.Name = in.Name
 	}
 	if in.Role != nil {
 		u.Role = *in.Role
+	}
+	if in.AccessEndsAt.Set {
+		u.AccessEndsAt = in.AccessEndsAt.At
 	}
 	c := *u
 	return &c, nil

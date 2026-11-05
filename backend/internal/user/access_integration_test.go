@@ -115,6 +115,12 @@ func TestAccessOwnerGuard(t *testing.T) {
 	if err := r.Delete(ctx, b.ID); !errors.Is(err, ErrLastOwner) {
 		t.Fatalf("delete: %v", err)
 	}
+	// Creating an owner with an end date needs an open-ended owner too.
+	made, err := r.Create(ctx, &CreateUserInput{Email: "dated-" + uuid.NewString()[:8] + "@example.test", Role: RoleOwner, AccessEndsAt: &end}, "x")
+	if err != nil {
+		t.Fatalf("create dated owner with an open owner: %v", err)
+	}
+	t.Cleanup(func() { _, _ = r.db.Pool().Exec(ctx, `DELETE FROM hatamoto_users WHERE id = $1`, made.ID) })
 	// The dated owner can still be deleted.
 	if err := r.Delete(ctx, a.ID); err != nil {
 		t.Fatalf("delete dated owner: %v", err)

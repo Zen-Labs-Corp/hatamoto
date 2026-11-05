@@ -65,20 +65,38 @@ func (r *PostgresRepository) Create(ctx context.Context, input *CreateUserInput,
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, email, role, name, access_ends_at, created_at, updated_at
 	`
-
-	var u User
-	err = conn.QueryRow(ctx, query,
-		id, input.Email, passwordHash, input.Role, input.Name, input.AccessEndsAt, now, now,
-	).Scan(&u.ID, &u.Email, &u.Role, &u.Name, &u.AccessEndsAt, &u.CreatedAt, &u.UpdatedAt)
-
-	if err != nil {
-		if isPgUniqueViolation(err) {
-			return nil, ErrEmailAlreadyExists
+	insert := func(q Queryer) (*User, error) {
+		var u User
+		err := q.QueryRow(ctx, query,
+			id, input.Email, passwordHash, input.Role, input.Name, input.AccessEndsAt, now, now,
+		).Scan(&u.ID, &u.Email, &u.Role, &u.Name, &u.AccessEndsAt, &u.CreatedAt, &u.UpdatedAt)
+		if err != nil {
+			if isPgUniqueViolation(err) {
+				return nil, ErrEmailAlreadyExists
+			}
+			return nil, fmt.Errorf("failed to create user: %w", err)
 		}
-		return nil, fmt.Errorf("failed to create user: %w", err)
+		return &u, nil
 	}
 
-	return &u, nil
+	// An owner who starts with an end date needs another owner without one.
+	// The check and the insert share one transaction under the owner lock.
+	if input.Role != RoleOwner || input.AccessEndsAt == nil {
+		return insert(conn)
+	}
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := EnsureOpenOwner(ctx, tx, uuid.Nil); err != nil {
+		return nil, err
+	}
+	u, err := insert(tx)
+	if err != nil {
+		return nil, err
+	}
+	return u, tx.Commit(ctx)
 }
 
 // GetByID retrieves a user by ID.

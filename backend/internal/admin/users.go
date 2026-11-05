@@ -29,6 +29,8 @@ type usersData struct {
 	InviteCount int
 	InviteForm  struct {
 		Email, Role, Error string
+		// AccessEnds is the chosen last day (YYYY-MM-DD) and AccessEndsErr its message.
+		AccessEnds, AccessEndsErr string
 	}
 	Roles  []ui.Option
 	Secret *ui.Secret
@@ -60,6 +62,59 @@ type userForm struct {
 	Roles                           []ui.Option
 	// Created and LastSignIn are the muted meta line of an existing user.
 	Created, LastSignIn string
+	// AccessEnds is the last day of access (YYYY-MM-DD, site time zone); empty for none.
+	AccessEnds string
+	// AccessNote says in words that access has ended (shown with the date).
+	AccessNote string
+}
+
+// readAccessEnd reads a "last day" date field in the site time zone. Empty
+// means no end. A date that is not in the future is refused unless it is the
+// value the user already has, so other fields stay editable after an end.
+func (a *Admin) readAccessEnd(r *http.Request, field string, current *time.Time) (*time.Time, string) {
+	v := strings.TrimSpace(r.PostFormValue(field))
+	if v == "" {
+		return nil, ""
+	}
+	end, err := user.AccessEndFromDate(v, a.siteLocation(r.Context()))
+	if err != nil {
+		return nil, "Enter a date as year-month-day."
+	}
+	if user.ValidateAccessEnd(end, time.Now()) != nil && (current == nil || !current.Equal(end)) {
+		return nil, "Choose a date from today on."
+	}
+	return &end, ""
+}
+
+// accessDay is the date shown for a stored end: the last day of access.
+func (a *Admin) accessDay(ctx context.Context, t time.Time) time.Time {
+	return t.Add(-time.Second).In(a.siteLocation(ctx))
+}
+
+// accessCell is the "Access" cell of a user row: words, with a badge once ended.
+func (a *Admin) accessCell(ctx context.Context, u *user.User, now time.Time) ui.Cell {
+	switch {
+	case u.AccessEndsAt == nil:
+		return ui.Cell{Suffix: "No end date"}
+	case u.AccessEnded(now):
+		return ui.Cell{Text: "Ended " + fmtDate(a.accessDay(ctx, *u.AccessEndsAt)), Nowrap: true, Tag: &ui.Badge{Label: "Blocked", Kind: "danger"}}
+	}
+	return ui.Cell{Text: "Ends " + fmtDate(a.accessDay(ctx, *u.AccessEndsAt)), Nowrap: true}
+}
+
+// auditTime is a stored instant as the audit log keeps it: UTC RFC 3339 or null.
+func auditTime(t *time.Time) any {
+	if t == nil {
+		return nil
+	}
+	return t.UTC().Format(time.RFC3339)
+}
+
+func sameInstant(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Equal(*b)
 }
 
 func (a *Admin) mountUsers(authed *httpx.Group) {
@@ -215,7 +270,7 @@ func (a *Admin) usersTable(r *http.Request, all []*user.User, self string, facto
 	}
 	t := ui.Table{
 		ID: "users", Caption: "Users", BaseURL: a.adminPath + "/settings/users", CSRF: csrfToken(r.Context()),
-		Columns: []ui.Col{{Key: "name", Label: "Name", Sortable: true}, {Key: "email", Label: "Email", Sortable: true}, {Key: "role", Label: "Role", Sortable: true}, {Key: "last", Label: "Last sign-in", Sortable: true}},
+		Columns: []ui.Col{{Key: "name", Label: "Name", Sortable: true}, {Key: "email", Label: "Email", Sortable: true}, {Key: "role", Label: "Role", Sortable: true}, {Key: "last", Label: "Last sign-in", Sortable: true}, {Key: "access", Label: "Access"}},
 		SortKey: sortKey, SortDir: dir, Query: q, SearchLabel: "Search users",
 		Filters: []ui.Filter{{Name: "role", Label: "Role", Options: []ui.Option{
 			{Value: "", Label: "All roles", Selected: roleFilter == ""},
@@ -228,6 +283,7 @@ func (a *Admin) usersTable(r *http.Request, all []*user.User, self string, facto
 	if showFactors {
 		t.Columns = append(t.Columns, ui.Col{Key: "twostep", Label: "2-step"})
 	}
+	now := time.Now()
 	for _, u := range rows[start:end] {
 		you := ""
 		if u.ID.String() == self {
@@ -238,10 +294,14 @@ func (a *Admin) usersTable(r *http.Request, all []*user.User, self string, facto
 			{Text: u.Email, Mono: true},
 			{Badge: &ui.Badge{Label: strings.ToUpper(string(u.Role)[:1]) + string(u.Role)[1:], Kind: roleBadgeKind(string(u.Role))}},
 			lastSignInCell(u),
+			a.accessCell(r.Context(), u, now),
 		}, Actions: []ui.Action{
 			{Label: "Edit", Href: a.adminPath + "/settings/users/" + u.ID.String()},
 			{Label: "Reset password", Post: a.adminPath + "/settings/users/" + u.ID.String() + "/reset"},
 		}}
+		if u.AccessEnded(now) {
+			row.Actions = append([]ui.Action{{Label: "Extend", Href: a.adminPath + "/settings/users/" + u.ID.String()}}, row.Actions...)
+		}
 		if showFactors {
 			f := factors[u.ID]
 			row.Cells = append(row.Cells, ui.Cell{Badge: factorBadge(f.TOTP || f.Passkeys > 0)})
@@ -262,7 +322,7 @@ func (a *Admin) usersTable(r *http.Request, all []*user.User, self string, facto
 func (a *Admin) invitesTable(r *http.Request) (ui.Table, bool) {
 	t := ui.Table{
 		ID: "invites", Caption: "Pending invitations", BaseURL: a.adminPath + "/settings/users", CSRF: csrfToken(r.Context()),
-		Columns: []ui.Col{{Key: "email", Label: "Email"}, {Key: "role", Label: "Role"}, {Key: "expires", Label: "Expires"}},
+		Columns: []ui.Col{{Key: "email", Label: "Email"}, {Key: "role", Label: "Role"}, {Key: "access", Label: "Access ends"}, {Key: "expires", Label: "Expires"}},
 	}
 	if a.deps.Tokens == nil {
 		return t, false
@@ -276,7 +336,7 @@ func (a *Admin) invitesTable(r *http.Request) (ui.Table, bool) {
 	for _, inv := range invs {
 		id := inv.ID.String()
 		t.Rows = append(t.Rows, ui.Row{ID: id, Label: inv.Email, Cells: []ui.Cell{
-			{Text: inv.Email}, {Text: string(inv.Role)}, {Text: fmtDate(inv.ExpiresAt)},
+			{Text: inv.Email}, {Text: string(inv.Role)}, a.inviteAccessCell(r.Context(), inv), {Text: fmtDate(inv.ExpiresAt)},
 		}, Actions: []ui.Action{
 			{Label: "Send a new link", Post: a.adminPath + "/settings/users/invites/" + id + "/resend"},
 			{Label: "Revoke", Href: a.adminPath + "/settings/users/invites/" + id + "/revoke", Post: a.adminPath + "/settings/users/invites/" + id + "/revoke", Danger: true, ConfirmLabel: "Revoke invitation",
@@ -286,6 +346,13 @@ func (a *Admin) invitesTable(r *http.Request) (ui.Table, bool) {
 	t.CreatedID = createdID(r)
 	t.Rows = pinFirst(t.Rows, t.CreatedID)
 	return t, len(invs) > 0 || t.Error != ""
+}
+
+func (a *Admin) inviteAccessCell(ctx context.Context, inv auth.Invite) ui.Cell {
+	if inv.AccessEndsAt == nil {
+		return ui.Cell{Suffix: "None"}
+	}
+	return ui.Cell{Text: fmtDate(a.accessDay(ctx, *inv.AccessEndsAt)), Nowrap: true}
 }
 
 func (a *Admin) renderUsers(w http.ResponseWriter, r *http.Request, status int, d usersData) {
@@ -357,29 +424,36 @@ func (a *Admin) shownLink(r *http.Request, path, token string) string {
 // issueInvite creates the invite, emails it when email works, parks the link
 // in the secret store (essential when SMTP is not configured) and redirects to
 // the users list, which shows it once in a banner. flash is the success message.
-func (a *Admin) issueInvite(w http.ResponseWriter, r *http.Request, addr string, role user.Role, accessEnds *time.Time, flash string) {
+func (a *Admin) issueInvite(w http.ResponseWriter, r *http.Request, addr string, role user.Role, accessEnds *time.Time, flash string) *auth.Invite {
 	self := userFrom(r.Context())
 	selfID, _ := uuid.Parse(self.ID)
 	token, inv, err := a.deps.Tokens.IssueInvite(r.Context(), addr, role, selfID, accessEnds)
 	d := usersData{}
 	d.InviteForm.Email, d.InviteForm.Role = addr, string(role)
+	if accessEnds != nil {
+		d.InviteForm.AccessEnds = user.AccessEndDay(*accessEnds, a.siteLocation(r.Context()))
+	}
 	switch {
+	case errors.Is(err, user.ErrLastOwner):
+		d.InviteForm.AccessEndsErr = "Another owner without an end date is needed first."
+		a.renderInvite(w, r, http.StatusUnprocessableEntity, d)
+		return nil
 	case errors.Is(err, user.ErrEmailAlreadyExists):
 		d.InviteForm.Error = "Someone with that email already has an account."
 		a.renderInvite(w, r, http.StatusUnprocessableEntity, d)
-		return
+		return nil
 	case errors.Is(err, auth.ErrInvalidEmail):
 		d.InviteForm.Error = "Enter a valid email address."
 		a.renderInvite(w, r, http.StatusUnprocessableEntity, d)
-		return
+		return nil
 	case errors.Is(err, user.ErrInvalidRole):
 		d.InviteForm.Error = "Choose a role."
 		a.renderInvite(w, r, http.StatusUnprocessableEntity, d)
-		return
+		return nil
 	case err != nil:
 		a.logger().Error("issue invite failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The invitation could not be created.")
-		return
+		return nil
 	}
 	link := a.shownLink(r, a.adminPath+"/accept", token)
 	emailed, noAddress := false, false
@@ -388,9 +462,13 @@ func (a *Admin) issueInvite(w http.ResponseWriter, r *http.Request, addr string,
 		a.logger().Warn("invitation not emailed: no site address configured (set PUBLIC_BASE_URL or Settings > Site)")
 	} else if a.mailConfigured() {
 		inviter := self.Name
-		if err := a.deps.Mailer.SendInvite(r.Context(), inv.Email, email.InviteMailData{
+		mail := email.InviteMailData{
 			SiteName: a.siteName(r.Context()), InviterName: inviter, Role: string(inv.Role), URL: link, ExpiresIn: "7 days",
-		}); err != nil {
+		}
+		if accessEnds != nil {
+			mail.AccessEnds = fmtDate(a.accessDay(r.Context(), *accessEnds))
+		}
+		if err := a.deps.Mailer.SendInvite(r.Context(), inv.Email, mail); err != nil {
 			a.logger().Error("send invite failed", "err", err)
 		} else {
 			emailed = true
@@ -408,6 +486,7 @@ func (a *Admin) issueInvite(w http.ResponseWriter, r *http.Request, addr string,
 	secret := a.secrets.putEntry(secretEntry{user: self.ID, name: "Invitation link for " + inv.Email, key: link, kind: "invite", note: note})
 	a.SetFlash(w, r, "success", flash)
 	Redirect(w, r, createdRedirect(a.adminPath+"/settings/users", inv.ID.String())+"&secret="+secret)
+	return inv
 }
 
 func (a *Admin) renderLink(w http.ResponseWriter, r *http.Request, l *linkData) {
@@ -425,7 +504,17 @@ func (a *Admin) handleInvite(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusServiceUnavailable, "Invitations unavailable", "The server is not ready.")
 		return
 	}
-	a.issueInvite(w, r, r.PostFormValue("email"), role, nil, "Invite created")
+	end, msg := a.readAccessEnd(r, "access_ends", nil)
+	if msg != "" {
+		d := usersData{}
+		d.InviteForm.Email, d.InviteForm.Role = r.PostFormValue("email"), string(role)
+		d.InviteForm.AccessEnds, d.InviteForm.AccessEndsErr = strings.TrimSpace(r.PostFormValue("access_ends")), msg
+		a.renderInvite(w, r, http.StatusUnprocessableEntity, d)
+		return
+	}
+	if inv := a.issueInvite(w, r, r.PostFormValue("email"), role, end, "Invite created"); inv != nil && end != nil {
+		a.audit(r, "user.access_changed", inv.Email, map[string]any{"from": nil, "to": auditTime(end), "invite": true})
+	}
 }
 
 // handleInviteRevokeConfirm is the no-JS page behind the revoke dialog.
@@ -495,7 +584,7 @@ func (a *Admin) renderUserForm(w http.ResponseWriter, r *http.Request, status in
 	}
 	f.Roles = roleOptions(f.Role)
 	f.Summary = nil
-	for _, k := range []struct{ id, label string }{{"email", "Email"}, {"name", "Name"}, {"role", "Role"}, {"password", "Password"}} {
+	for _, k := range []struct{ id, label string }{{"email", "Email"}, {"name", "Name"}, {"role", "Role"}, {"password", "Password"}, {"access-ends", "Access ends on"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
@@ -528,14 +617,21 @@ func (a *Admin) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 	if len(pw) < auth.MinPasswordLen {
 		f.Errors["password"] = sentence(auth.ErrPasswordShort.Error())
 	}
+	f.AccessEnds = strings.TrimSpace(r.PostFormValue("access_ends"))
+	end, msg := a.readAccessEnd(r, "access_ends", nil)
+	if msg != "" {
+		f.Errors["access-ends"] = msg
+	}
 	if len(f.Errors) == 0 && a.deps.Manager != nil {
 		hash, herr := auth.HashPasswordContext(r.Context(), pw)
 		if herr != nil {
 			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The user could not be created.")
 			return
 		}
-		_, cerr := a.deps.Manager.Create(r.Context(), &user.CreateUserInput{Email: f.Email, Role: role, Name: f.Name}, hash)
+		created, cerr := a.deps.Manager.Create(r.Context(), &user.CreateUserInput{Email: f.Email, Role: role, Name: f.Name, AccessEndsAt: end}, hash)
 		switch {
+		case errors.Is(cerr, user.ErrLastOwner):
+			f.Errors["access-ends"] = "Another owner without an end date is needed first."
 		case errors.Is(cerr, user.ErrEmailAlreadyExists):
 			f.Errors["email"] = "Someone with that email already has an account"
 		case cerr != nil:
@@ -543,6 +639,9 @@ func (a *Admin) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The user could not be created.")
 			return
 		default:
+			if end != nil {
+				a.audit(r, "user.access_changed", created.Email, map[string]any{"from": nil, "to": auditTime(end), "created": true})
+			}
 			a.SetFlash(w, r, "success", "User added.")
 			http.Redirect(w, r, a.adminPath+"/settings/users", http.StatusSeeOther)
 			return
@@ -571,7 +670,14 @@ func (a *Admin) handleUserEdit(w http.ResponseWriter, r *http.Request) {
 	if u.Name != nil {
 		name = *u.Name
 	}
-	a.renderUserForm(w, r, http.StatusOK, userForm{ID: u.ID.String(), Email: u.Email, Name: name, Role: string(u.Role), Created: fmtDate(u.CreatedAt), LastSignIn: lastSignIn(u)})
+	f := userForm{ID: u.ID.String(), Email: u.Email, Name: name, Role: string(u.Role), Created: fmtDate(u.CreatedAt), LastSignIn: lastSignIn(u)}
+	if u.AccessEndsAt != nil {
+		f.AccessEnds = user.AccessEndDay(*u.AccessEndsAt, a.siteLocation(r.Context()))
+		if u.AccessEnded(time.Now()) {
+			f.AccessNote = "Access ended on " + fmtDate(a.accessDay(r.Context(), *u.AccessEndsAt)) + ". Choose a later date, or clear it, to let them sign in again."
+		}
+	}
+	a.renderUserForm(w, r, http.StatusOK, f)
 }
 
 func (a *Admin) handleUserUpdate(w http.ResponseWriter, r *http.Request) {
@@ -586,8 +692,27 @@ func (a *Admin) handleUserUpdate(w http.ResponseWriter, r *http.Request) {
 		a.renderUserForm(w, r, http.StatusUnprocessableEntity, f)
 		return
 	}
-	_, uerr := a.deps.Manager.Update(r.Context(), u.ID, &user.UpdateUserInput{Name: &f.Name, Role: &role})
+	f.AccessEnds = strings.TrimSpace(r.PostFormValue("access_ends"))
+	end, msg := a.readAccessEnd(r, "access_ends", u.AccessEndsAt)
+	if r.PostFormValue("clear_access") == "1" {
+		end, msg, f.AccessEnds = nil, "", ""
+	}
+	if msg != "" {
+		f.Errors["access-ends"] = msg
+		a.renderUserForm(w, r, http.StatusUnprocessableEntity, f)
+		return
+	}
+	in := &user.UpdateUserInput{Name: &f.Name, Role: &role}
+	changed := !sameInstant(u.AccessEndsAt, end)
+	if changed {
+		in.AccessEndsAt = user.AccessEnd{Set: true, At: end}
+	}
+	_, uerr := a.deps.Manager.Update(r.Context(), u.ID, in)
 	switch {
+	case errors.Is(uerr, user.ErrLastOwner) && changed && end != nil && role == user.RoleOwner:
+		f.Errors["access-ends"] = "Another owner without an end date is needed first."
+		a.renderUserForm(w, r, http.StatusUnprocessableEntity, f)
+		return
 	case errors.Is(uerr, user.ErrLastOwner):
 		f.Errors["role"] = "There must be at least one owner. Make someone else an owner first."
 		a.renderUserForm(w, r, http.StatusUnprocessableEntity, f)
@@ -596,6 +721,9 @@ func (a *Admin) handleUserUpdate(w http.ResponseWriter, r *http.Request) {
 		a.logger().Error("update user failed", "err", uerr)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The user could not be saved.")
 		return
+	}
+	if changed {
+		a.audit(r, "user.access_changed", u.Email, map[string]any{"from": auditTime(u.AccessEndsAt), "to": auditTime(end)})
 	}
 	// A changed role takes effect on the next request (sessions look the user up),
 	// so there is nothing to revoke here.
