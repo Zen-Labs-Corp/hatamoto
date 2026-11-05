@@ -25,6 +25,7 @@ import (
 
 type contentRig struct {
 	*rig
+	unpub   *fakeUnpublish
 	ents    *fakeEntities
 	terms   *fakeTerms
 	media   *fakeMedia
@@ -47,7 +48,7 @@ func newContentRig(t *testing.T) *contentRig { return newContentRigWith(t, nil) 
 // newContentRigWith is newContentRig with a hook that adjusts the deps (an audit sink, say).
 func newContentRigWith(t *testing.T, adjust func(*Deps)) *contentRig {
 	t.Helper()
-	c := &contentRig{ents: newFakeEntities(), terms: newFakeTerms(), media: newFakeMedia()}
+	c := &contentRig{unpub: newFakeUnpublish(), ents: newFakeEntities(), terms: newFakeTerms(), media: newFakeMedia()}
 	c.authors = &fakeAuthors{list: []*person.Person{{ID: fid(41), Name: "Ada Writer", Slug: "ada-writer"}}, org: "Acme Site"}
 	c.service = c.ents.addSchema(1, "Service", "service", serviceSchema, `{"url_pattern":"/services/{path}"}`, false)
 	c.page = c.ents.addSchema(2, "Page", "page", `{"type":"object","properties":{"body":{"type":"string","format":"richtext"}}}`, `{}`, true)
@@ -69,7 +70,7 @@ func newContentRigWith(t *testing.T, adjust func(*Deps)) *contentRig {
 		if os.Getenv("DUMP") != "" {
 			d.Logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 		}
-		d.Content = ContentDeps{Entities: c.ents, Duplicator: &fakeDuplicator{ents: c.ents}, Terms: c.terms, Media: c.media, Authors: c.authors,
+		d.Content = ContentDeps{Entities: c.ents, Unpublish: c.unpub, Duplicator: &fakeDuplicator{ents: c.ents}, Terms: c.terms, Media: c.media, Authors: c.authors,
 			PublicPath: func(_ context.Context, e *entity.Entity) string { return "/services/" + e.Slug }}
 		if adjust != nil {
 			adjust(d)

@@ -383,6 +383,19 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	}
 	cols = append(cols, ui.Col{Key: "updated", Label: "Updated", Sortable: true})
 
+	var ends map[uuid.UUID]entity.Unpublish
+	if c.Unpublish != nil {
+		ids := make([]uuid.UUID, 0, len(res.Items))
+		for _, e := range res.Items {
+			if e.Status == entity.StatusPublished {
+				ids = append(ids, e.ID)
+			}
+		}
+		if m, err := c.Unpublish.UnpublishMap(ctx, ids); err == nil {
+			ends = m
+		}
+	}
+
 	back := r.URL.RequestURI()
 	t := ui.Table{
 		ID: "entities", Caption: caption, BaseURL: a.adminPath + "/entities", CSRF: csrfToken(ctx),
@@ -436,7 +449,11 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 			cells = append(cells, cell)
 		}
 		if e.Status == entity.StatusPublished {
-			cells = append(cells, ui.Cell{Text: "Published", Dot: true})
+			text := "Published"
+			if u, ok := ends[e.ID]; ok {
+				text = unpublishCell(u, loc)
+			}
+			cells = append(cells, ui.Cell{Text: text, Dot: true})
 		} else {
 			cells = append(cells, ui.Cell{Badge: statusBadge(e.Status)})
 		}

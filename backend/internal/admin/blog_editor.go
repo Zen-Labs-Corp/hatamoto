@@ -296,6 +296,7 @@ func (a *Admin) readBlogForm(r *http.Request, prev map[string]any) (*posted, blo
 		Schedule: strings.TrimSpace(r.PostFormValue("schedule")), SEO: seoFromForm(r), NewAuthor: strings.TrimSpace(r.PostFormValue("new_author")),
 		NewTermName: strings.TrimSpace(r.PostFormValue("new_term_name")), NewTermKind: r.PostFormValue("new_term_kind"), NewTerms: newTermsFrom(r), Errors: map[string]string{},
 	}}
+	readUnpublish(r, p.f)
 	p.authorID = r.PostFormValue("author")
 	p.termsSet = r.PostFormValue("_terms") == "1"
 	for _, id := range r.PostForm["term"] {

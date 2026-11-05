@@ -1,0 +1,4 @@
+{{/* The scheduled-unpublish fields of the entity editors' Publishing card. Takes an entityForm. */}}
+{{define "hm/unpublishfields"}}{{if .ShowUnpublish}}{{template "hm/field" dict "ID" "unpublish_at" "Name" "unpublish_at" "Label" "Unpublish at" "Type" "datetime-local" "Value" .UnpublishAt "Help" (printf "The page goes back to draft then. Times are in %s." .Zone) "Error" (index .Errors "unpublish_at")}}
+{{template "hm/field" dict "ID" "unpublish_redirect" "Name" "unpublish_redirect" "Label" "When it unpublishes, send visitors to" "Value" .UnpublishRedirect "Help" "A path such as /news, or a full https address. Leave blank: the page is gone." "Error" (index .Errors "unpublish_redirect") "Attrs" (attrmap "autocomplete" "off")}}
+{{if .UnpublishAt}}{{template "hm/field" dict "ID" "unpublish_clear" "Name" "unpublish_clear" "Label" "Remove the scheduled unpublish" "Control" "checkbox"}}{{end}}{{end}}{{end}}

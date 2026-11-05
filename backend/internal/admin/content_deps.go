@@ -137,6 +137,9 @@ type TemplateStore interface {
 // screens. Any may be nil only in route-table builds.
 type ContentDeps struct {
 	Entities EntityStore
+	// Unpublish stores the scheduled unpublish of an entity. Nil hides the
+	// Unpublish at fields.
+	Unpublish UnpublishStore
 	// Groups links the translated copies of an entry. Nil hides the
 	// Translations tab and page.
 	Groups GroupStore

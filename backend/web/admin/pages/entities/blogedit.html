@@ -81,6 +81,7 @@
 <footer>{{template "hm/button" (dict "Label" "Cancel" "Attrs" (attrmap "popovertarget" "be-sched-pop" "popovertargetaction" "hide"))}}{{template "hm/button" (dict "Label" "Apply" "Variant" "primary" "Attrs" (attrmap "data-hm-be-sched-apply" ""))}}</footer>
 </div>
 </div>
+{{template "hm/unpublishfields" .}}
 {{template "hm/field" dict "ID" "slug" "Name" "slug" "Label" "Slug" "Value" .Slug "Help" (or (and .SlugAuto "Follows the title until you change it.") "The address of this post. Changing it after publishing breaks links.") "Error" (index .Errors "slug") "Attrs" (attrmap "autocomplete" "off" "data-hm-slug-from" "name" "data-hm-slug-auto" (or (and .SlugAuto "1") "0"))}}
 </div>
 {{template "hm/card-end"}}
