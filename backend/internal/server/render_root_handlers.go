@@ -34,6 +34,11 @@ func (s *Server) handleAdsTxt(app bool) http.HandlerFunc {
 			}
 		}
 		if strings.TrimSpace(body) == "" {
+			// No saved file: a redirect rule on this path (a hosted ads.txt) still applies.
+			if rd := s.matchRedirect(r.Context(), r.URL.Path); rd != nil {
+				writeRenderRedirect(w, r, &redirectHit{Target: rd.TargetURL, Status: rd.StatusCode, KeepQuery: rd.Expanded})
+				return
+			}
 			http.Error(w, "404 page not found", http.StatusNotFound)
 			return
 		}

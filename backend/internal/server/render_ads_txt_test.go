@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -64,5 +65,25 @@ func TestAdsTxtRoutesAreMounted(t *testing.T) {
 	}
 	if w := getPath(h, "/app-ads.txt"); w.Code != 404 || w.Body.String() != "404 page not found\n" {
 		t.Fatalf("/app-ads.txt: %d %q", w.Code, w.Body)
+	}
+}
+
+func TestAdsTxtEmptyHonoursRedirectRule(t *testing.T) {
+	s := newRedirectTestServer(t,
+		&redirect.Redirect{SourcePath: "/ads.txt", TargetURL: "https://hosted.example.com/ads.txt"},
+	)
+	s.seoStore = seo.NewStore(&seoQuerier{row: seoRow{raw: []byte(`{}`)}})
+	w := serveAds(s, false, http.MethodGet)
+	if w.Code != 301 || w.Header().Get("Location") != "https://hosted.example.com/ads.txt" {
+		t.Fatalf("empty file with a redirect rule: %d %v", w.Code, w.Header())
+	}
+	app := httptest.NewRecorder()
+	s.handleAdsTxt(true)(app, httptest.NewRequest(http.MethodGet, "http://example.test/app-ads.txt", nil))
+	if app.Code != 404 {
+		t.Fatalf("app-ads has no rule, got %d", app.Code)
+	}
+	s.seoStore = seo.NewStore(&seoQuerier{row: seoRow{raw: []byte(`{"ads_txt":"a.com, 1, DIRECT\n"}`)}})
+	if w := serveAds(s, false, http.MethodGet); w.Code != 200 {
+		t.Fatalf("a saved file must win over the rule, got %d", w.Code)
 	}
 }
