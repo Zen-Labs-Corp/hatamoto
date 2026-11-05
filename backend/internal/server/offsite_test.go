@@ -18,6 +18,7 @@ import (
 	"hatamoto.dev/core/internal/backup"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/s3/s3test"
+	"hatamoto.dev/core/internal/worker"
 )
 
 // memOffsiteStore keeps the settings row in memory with the same atomic claim
@@ -78,6 +79,9 @@ func (f *fakeOffsiteEngine) Begin(_ context.Context, req backup.Request) (backup
 	n := f.begun.Add(1)
 	info := backup.Info{ID: backup.NewID(f.clock().Add(time.Duration(n)*time.Second), req.Kind), Kind: req.Kind, State: backup.StateOK}
 	return info, func(ctx context.Context) (backup.Info, error) {
+		if err := ctx.Err(); err != nil {
+			return info, err
+		}
 		path := filepath.Join(f.dir, info.ID+".tar")
 		if err := os.WriteFile(path, bytes.Repeat([]byte("tar"), 500), 0o600); err != nil {
 			return info, err
@@ -174,6 +178,23 @@ func TestOffsiteTickDailyTakesOneBackupPerDay(t *testing.T) {
 	}
 	if n := len(r.store.results); n != 2 || !r.store.results[1].OK {
 		t.Fatalf("results = %+v", r.store.results)
+	}
+}
+
+// The scheduler caps a job at 10 minutes; the backup and upload must not be
+// cut off by that cap.
+func TestOffsiteTickRunsPastTheJobCap(t *testing.T) {
+	r := newOffsiteRig(t, at(1, 3, 5))
+	r.store.set.NextDueAt = at(1, 3, 0)
+	life := t.Context()
+	capped, cancel := context.WithTimeout(worker.WithJobParent(life, life), time.Nanosecond)
+	defer cancel()
+	<-capped.Done()
+	if err := r.svc.tick(capped); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.srv.Objects()) != 1 || len(r.store.results) != 1 || !r.store.results[0].OK {
+		t.Fatalf("objects %d, results %+v", len(r.srv.Objects()), r.store.results)
 	}
 }
 

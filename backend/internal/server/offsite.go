@@ -11,6 +11,7 @@ import (
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/backup"
 	"hatamoto.dev/core/internal/offsite"
+	"hatamoto.dev/core/internal/worker"
 )
 
 // offsiteJob is the scheduler job (and WORKER_DISABLE_JOBS name) that takes
@@ -83,7 +84,9 @@ func (o *offsiteService) tick(ctx context.Context) error {
 	if ok, err := o.store.Claim(ctx, now, next); err != nil || !ok {
 		return err
 	}
-	o.run(ctx, set, backup.KindScheduled, "system", true)
+	// The backup and its upload outlive the scheduler's 10 minute job cap but
+	// still stop on shutdown.
+	o.run(worker.JobParent(ctx), set, backup.KindScheduled, "system", true)
 	return nil
 }
 
