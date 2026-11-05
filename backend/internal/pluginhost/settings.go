@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 
@@ -42,20 +43,20 @@ func CompileSchema(schema []byte) (*jsonschema.Schema, error) {
 }
 
 // Get returns the stored settings object, or {} when none were saved.
-func (s *SettingsStore) Get(ctx context.Context, plugin string) (json.RawMessage, error) {
+func (s *SettingsStore) Get(ctx context.Context, plugin string) (jsontext.Value, error) {
 	var raw []byte
 	err := s.pool.QueryRow(ctx, `SELECT settings FROM hatamoto_plugin_settings WHERE plugin = $1`, plugin).Scan(&raw)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return json.RawMessage(`{}`), nil
+		return jsontext.Value(`{}`), nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("pluginhost: load settings for %q: %w", plugin, err)
 	}
-	return json.RawMessage(raw), nil
+	return jsontext.Value(raw), nil
 }
 
 // Put upserts the full settings object.
-func (s *SettingsStore) Put(ctx context.Context, plugin string, v json.RawMessage) error {
+func (s *SettingsStore) Put(ctx context.Context, plugin string, v jsontext.Value) error {
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO hatamoto_plugin_settings (plugin, settings, updated_at)
 		VALUES ($1, $2::jsonb, now())
@@ -68,7 +69,7 @@ func (s *SettingsStore) Put(ctx context.Context, plugin string, v json.RawMessag
 }
 
 // Validate checks v against sch and returns the violations (nil when valid).
-func Validate(sch *jsonschema.Schema, v json.RawMessage) []FieldError {
+func Validate(sch *jsonschema.Schema, v jsontext.Value) []FieldError {
 	var doc any
 	if err := json.Unmarshal(v, &doc); err != nil {
 		return []FieldError{{Path: "/", Message: "invalid JSON: " + err.Error()}}
@@ -102,8 +103,8 @@ func collectLeaves(ve *jsonschema.ValidationError, out *[]FieldError) {
 
 type schemaProps struct {
 	Properties map[string]struct {
-		Default   json.RawMessage `json:"default"`
-		WriteOnly bool            `json:"writeOnly"`
+		Default   jsontext.Value `json:"default"`
+		WriteOnly bool           `json:"writeOnly"`
 	} `json:"properties"`
 }
 
@@ -113,25 +114,25 @@ func parseProps(schema []byte) schemaProps {
 	return p
 }
 
-func parseObject(raw json.RawMessage) map[string]json.RawMessage {
-	obj := map[string]json.RawMessage{}
+func parseObject(raw jsontext.Value) map[string]jsontext.Value {
+	obj := map[string]jsontext.Value{}
 	if len(bytes.TrimSpace(raw)) > 0 {
 		_ = json.Unmarshal(raw, &obj)
 	}
 	if obj == nil {
-		obj = map[string]json.RawMessage{}
+		obj = map[string]jsontext.Value{}
 	}
 	return obj
 }
 
-func mustMarshal(obj map[string]json.RawMessage) json.RawMessage {
+func mustMarshal(obj map[string]jsontext.Value) jsontext.Value {
 	b, _ := json.Marshal(obj) // map of RawMessage cannot fail
 	return b
 }
 
 // MergeDefaults fills top-level properties missing from stored with the
 // schema's `default` values.
-func MergeDefaults(schema []byte, stored json.RawMessage) json.RawMessage {
+func MergeDefaults(schema []byte, stored jsontext.Value) jsontext.Value {
 	obj := parseObject(stored)
 	for name, p := range parseProps(schema).Properties {
 		if _, ok := obj[name]; !ok && len(p.Default) > 0 {
@@ -143,11 +144,11 @@ func MergeDefaults(schema []byte, stored json.RawMessage) json.RawMessage {
 
 // MaskWriteOnly blanks top-level `writeOnly` properties so secrets are never
 // returned by the API.
-func MaskWriteOnly(schema []byte, v json.RawMessage) json.RawMessage {
+func MaskWriteOnly(schema []byte, v jsontext.Value) jsontext.Value {
 	obj := parseObject(v)
 	for name, p := range parseProps(schema).Properties {
 		if _, ok := obj[name]; ok && p.WriteOnly {
-			obj[name] = json.RawMessage(`""`)
+			obj[name] = jsontext.Value(`""`)
 		}
 	}
 	return mustMarshal(obj)
@@ -155,7 +156,7 @@ func MaskWriteOnly(schema []byte, v json.RawMessage) json.RawMessage {
 
 // WriteOnlySet names the top-level `writeOnly` properties that hold a
 // non-empty stored value, so a form can say "stored" without showing it.
-func WriteOnlySet(schema []byte, stored json.RawMessage) map[string]bool {
+func WriteOnlySet(schema []byte, stored jsontext.Value) map[string]bool {
 	obj := parseObject(stored)
 	set := map[string]bool{}
 	for name, p := range parseProps(schema).Properties {
@@ -170,7 +171,7 @@ func WriteOnlySet(schema []byte, stored json.RawMessage) map[string]bool {
 // PreserveWriteOnly keeps the stored value of a top-level `writeOnly`
 // property when the incoming object omits it or sends an empty string. An
 // explicit null clears the stored value.
-func PreserveWriteOnly(schema []byte, old, in json.RawMessage) json.RawMessage {
+func PreserveWriteOnly(schema []byte, old, in jsontext.Value) jsontext.Value {
 	oldObj, inObj := parseObject(old), parseObject(in)
 	for name, p := range parseProps(schema).Properties {
 		if !p.WriteOnly {

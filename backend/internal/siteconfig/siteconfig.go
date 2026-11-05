@@ -10,6 +10,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -621,7 +622,7 @@ func normaliseCardKeys(raw []byte) ([]byte, error) {
 // BCP 47 tag, and leaves every other locale as it is. The merge happens in SQL,
 // so two saves of different locales cannot overwrite each other. Empty raw
 // removes the locale's entry.
-func (s *Store) SetLocaleProfile(ctx context.Context, tag string, raw json.RawMessage) error {
+func (s *Store) SetLocaleProfile(ctx context.Context, tag string, raw jsontext.Value) error {
 	conn, err := s.db.GetConn(database.WithSuperadmin(ctx))
 	if err != nil {
 		return fmt.Errorf("acquire db conn: %w", err)
@@ -672,7 +673,7 @@ func (s *Store) SetSiteAccess(ctx context.Context, a siteaccess.Settings) error 
 // PatchThemeExtra sets one top-level key of theme_extra to raw (a JSON value)
 // and leaves every other key as it is. The merge happens in SQL, so a job that
 // saves its progress cannot overwrite a design save made meanwhile.
-func (s *Store) PatchThemeExtra(ctx context.Context, key string, raw json.RawMessage) error {
+func (s *Store) PatchThemeExtra(ctx context.Context, key string, raw jsontext.Value) error {
 	if key == "" || !json.Valid(raw) {
 		return fmt.Errorf("%w: theme_extra key %q", ErrInvalidThemeExtra, key)
 	}

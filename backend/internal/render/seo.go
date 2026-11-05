@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
 	"html/template"
 	"slices"
 	"strings"
@@ -458,7 +459,7 @@ func appendUnique(dst []string, vals ...string) []string {
 }
 
 // jsonLDScript wraps an already-built JSON-LD document.
-func jsonLDScript(raw json.RawMessage) (template.HTML, bool) {
+func jsonLDScript(raw jsontext.Value) (template.HTML, bool) {
 	if !json.Valid(raw) {
 		return "", false
 	}

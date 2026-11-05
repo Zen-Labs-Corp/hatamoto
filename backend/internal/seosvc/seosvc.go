@@ -6,7 +6,7 @@ package seosvc
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"sort"
 	"strings"
@@ -76,7 +76,7 @@ type Service interface {
 	// Update applies a partial patch (top-level section name -> JSON) and
 	// returns the new document. A refused patch returns *ValidationError and
 	// changes nothing.
-	Update(ctx context.Context, actor Actor, patch map[string]json.RawMessage) (Doc, error)
+	Update(ctx context.Context, actor Actor, patch map[string]jsontext.Value) (Doc, error)
 	// Preview returns the title, description, canonical, robots and social tags
 	// the public page of a published entry carries.
 	Preview(ctx context.Context, entityID uuid.UUID) (Preview, error)
