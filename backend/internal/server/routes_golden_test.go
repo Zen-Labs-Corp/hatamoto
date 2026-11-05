@@ -83,6 +83,8 @@ func allowedExtraPattern(pattern string, expected map[string]bool) bool {
 	switch path {
 	case "/feed.xml", "/atom.xml": // v1-07 post feeds, root only
 		return method == "GET"
+	case "/ads.txt", "/app-ads.txt": // ads.txt: owner-edited ad seller lists
+		return method == "GET"
 	case "/favicon.ico", "/favicon-16.png", "/favicon-32.png", "/apple-icon.png", "/icon-192.png", "/icon-512.png":
 		return method == "GET" // v1-08 site icons, served from the theme
 	case "/plugin-ui/_sdk/bridge.js", "/plugin-ui/{plugin}/{file...}": // v1-18 plugin admin pages (sandboxed iframe)

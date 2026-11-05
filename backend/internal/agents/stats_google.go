@@ -17,7 +17,7 @@ import (
 const googlebotID = "googlebot"
 
 // googleNotFilePath excludes the crawler-facing files that are not pages (see IsFilePath).
-const googleNotFilePath = `d.path NOT IN ('/robots.txt', '/llms.txt', '/llms-full.txt', '/sitemap.xml')
+const googleNotFilePath = `d.path NOT IN ('/robots.txt', '/llms.txt', '/llms-full.txt', '/sitemap.xml', '/ads.txt', '/app-ads.txt')
 	AND d.path NOT LIKE '/sitemap-%.xml'`
 
 // aiAndSearchPurposes are the purposes shown next to the AI ones in the hero chart.

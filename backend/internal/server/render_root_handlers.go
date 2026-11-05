@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/render"
@@ -18,6 +19,29 @@ func (s *Server) handleRobots(w http.ResponseWriter, r *http.Request) {
 		lines = set.Robots.ExtraLines
 	}
 	_, _ = w.Write([]byte(render.RobotsForAdminLines(s.publicBaseURL(r), nil, lines, s.robotsDenyTokens(r.Context()), s.adminPathValue())))
+}
+
+// handleAdsTxt serves /ads.txt (or /app-ads.txt when app is set) exactly as
+// saved. An empty file answers a plain 404, not the themed page, so ad
+// systems see "no file" rather than an HTML document.
+func (s *Server) handleAdsTxt(app bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body string
+		if set := s.seoSettings(r.Context()); set != nil {
+			body = set.AdsTxt
+			if app {
+				body = set.AppAdsTxt
+			}
+		}
+		if strings.TrimSpace(body) == "" {
+			http.Error(w, "404 page not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Cache-Control", "public, max-age=60, s-maxage=60")
+		_, _ = w.Write([]byte(body))
+	}
 }
 
 // handleSitemapXSL serves /sitemap.xsl, referenced by the sitemap processing

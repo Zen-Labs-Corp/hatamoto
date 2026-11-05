@@ -12,7 +12,7 @@ import (
 // legacy default and may be chosen as a weak address.
 var ReservedPrefixes = []string{
 	"api", "p", "theme", "media", ".well-known", "sitemap.xml", "robots.txt", "health", "ready",
-	"llms.txt", "plugin-ui", "feed", "feed.xml", "atom.xml", "sitemap", "forms", "auth", "-", "favicon.ico",
+	"llms.txt", "ads.txt", "app-ads.txt", "plugin-ui", "feed", "feed.xml", "atom.xml", "sitemap", "forms", "auth", "-", "favicon.ico",
 }
 
 const (
