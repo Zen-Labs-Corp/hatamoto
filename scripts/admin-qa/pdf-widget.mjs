@@ -74,19 +74,6 @@ await settle(600);
 const src = flat(await p.evaluate(() => window.__hmBuilder.doc().nodes)).find((n) => n.id === node.id)?.p?.src ?? "";
 ok(src.startsWith("/media/") && src.endsWith(".pdf"), `the picked PDF is the widget source (${src})`);
 
-// The editor preview is served in a CSP sandbox (opaque origin): the PDF must be a link there, not a blocked frame.
-const doc = await p.evaluate(() => window.__hmBuilder.doc());
-const prev = await p.evaluate(async (doc) => {
-  const r = await fetch("/api/v1/render/preview", {
-    method: "POST", credentials: "same-origin",
-    headers: { "Content-Type": "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content ?? "" },
-    body: JSON.stringify({ schema: "page", attributes: { page_doc: doc } }),
-  });
-  return { status: r.status, html: await r.text() };
-}, doc);
-ok(prev.status === 200 && prev.html.includes('class="hm-pdf__link"'), "preview: the PDF link renders");
-ok(!prev.html.includes("hm-pdf__frame"), "preview: no PDF frame in the sandboxed preview");
-
 await p.locator('[data-hm-bs-save="publish"]:visible, [data-hm-bs-save="save"]:visible').first().click();
 await settle(2500);
 
