@@ -57,7 +57,7 @@ type KindInfo struct {
 // naturalDisplay lists the kinds whose root is not display:block. A test in
 // render checks each against the CSS; every other kind is block.
 var naturalDisplay = map[string]string{
-	"container": "flex", "ref": "flex", "button": "inline-block", "icon": "inline-block", "table": "table",
+	"container": "flex", "ref": "flex", "button": "inline-block", "icon": "inline-block", "contactbutton": "inline-block", "table": "table",
 	"columns": "grid", "gallery": "grid",
 	"buttons": "flex", "stat": "flex", "loop": "flex", "loopempty": "flex",
 }

@@ -200,6 +200,9 @@ func TestBoundEveryBindableKind(t *testing.T) {
 			if k.Kind == "video" {
 				node.P = map[string]any{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
 			}
+			if k.Kind == "contactbutton" { // renders nothing without a number
+				node.P = map[string]any{"to": "+41791234567"}
+			}
 			got := renderBound(t, v, e, node, false)
 			if !strings.Contains(got, "ZEDVALUE") {
 				t.Errorf("%s.%s: bound value missing in %q", k.Kind, p.Key, got)

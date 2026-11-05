@@ -90,7 +90,7 @@ func AriaAllowed(n *Node) bool {
 // Plugin widget kinds count as interactive too (their output is unknown).
 // A test checks every core widget template against this list.
 var interactiveKinds = map[string]bool{
-	"button": true, "buttons": true, "menu": true, "breadcrumbs": true, "map": true, "video": true,
+	"button": true, "buttons": true, "contactbutton": true, "menu": true, "breadcrumbs": true, "map": true, "video": true,
 	"accordion": true, "accorditem": true, "tabs": true, "tabpanel": true, "form": true,
 	"html": true, "richtext": true, "loop": true, "loopempty": true,
 	"component": true, "ref": true, "slot": true,

@@ -1,0 +1,3 @@
+/* contactbutton: a button-looking link to WhatsApp, a call, a text or an email */
+.hm-contactbtn { display: inline-block; }
+@media print { .hm-contactbtn { display: none; } }

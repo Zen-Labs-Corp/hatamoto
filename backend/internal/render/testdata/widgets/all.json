@@ -783,6 +783,15 @@
        "fs": "sm"
       }
      }
+    },
+    {
+     "id": "ncb",
+     "t": "contactbutton",
+     "p": {
+      "channel": "whatsapp",
+      "to": "+41 79 123 45 67",
+      "message": "Hello"
+     }
     }
    ]
   },

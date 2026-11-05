@@ -10,7 +10,7 @@ func TestKindsOrderAndCoverage(t *testing.T) {
 	for _, k := range Kinds() {
 		got = append(got, k.Kind)
 	}
-	want := []string{"container", "heading", "text", "button", "image", "spacer", "divider", "component", "ref", "slot", "columns", "richtext", "buttons", "quote", "list", "stat", "table", "html", "gallery", "icon", "video", "map", "tabs", "tabpanel", "accordion", "accorditem", "form", "loop", "loopempty", "menu", "breadcrumbs"}
+	want := []string{"container", "heading", "text", "button", "image", "spacer", "divider", "component", "ref", "slot", "columns", "richtext", "buttons", "contactbutton", "quote", "list", "stat", "table", "html", "gallery", "icon", "video", "map", "tabs", "tabpanel", "accordion", "accorditem", "form", "loop", "loopempty", "menu", "breadcrumbs"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("order = %v, want %v", got, want)
 	}

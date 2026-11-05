@@ -59,6 +59,9 @@ type PageView struct {
 	// a LocalBusiness node in the site graph. Nil on shared pages, on one-locale
 	// sites and for locales without an office of their own.
 	Business *BusinessView
+	// Contact is the phone and email of the page's locale business profile,
+	// the default of contact links. Empty when the profile has none.
+	Contact ContactView
 	// GeoRegion is the region of the page's locale, printed as a geo.region
 	// meta tag. It is set whether or not the locale has an office, and empty
 	// on shared pages and one-locale sites.
