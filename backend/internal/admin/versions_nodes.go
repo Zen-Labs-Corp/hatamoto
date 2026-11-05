@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // layoutNote is shown when a version holds a layout the diff cannot read.
@@ -36,7 +37,7 @@ type layoutRow struct {
 // layoutView builds the node diff of two versions' attributes. It is nil for
 // a comparison that is not between two builder layouts (the flat table stays
 // as it was) and carries only a note when a layout cannot be read.
-func (a *Admin) layoutView(r *http.Request, e *entity.Entity, la, ra json.RawMessage, from, to int) *layoutView {
+func (a *Admin) layoutView(r *http.Request, e *entity.Entity, la, ra jsontext.Value, from, to int) *layoutView {
 	ld, ls := builderDoc(&entity.Entity{Attributes: la})
 	rd, rs := builderDoc(&entity.Entity{Attributes: ra})
 	if ls == docNone || rs == docNone || ls == docLegacy || rs == docLegacy {
@@ -268,11 +269,11 @@ func placeNode(work *builder.Doc, n *builder.Node, parentID string, oldSibs []*b
 }
 
 func copyViaJSON(from, to any) error {
-	raw, err := json.Marshal(from)
+	raw, err := jsonx.Marshal(from)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(raw, to)
+	return jsonx.Unmarshal(raw, to, jsonx.Stored)
 }
 
 // placeIndex is where in list a node goes that had position oldIndex among
@@ -415,7 +416,7 @@ func (a *Admin) handleVersionRestoreNode(w http.ResponseWriter, r *http.Request)
 		a.serverError(w, r, "The node could not be restored", err)
 		return
 	}
-	raw, err := json.Marshal(cur)
+	raw, err := jsonx.Marshal(cur)
 	if err != nil {
 		a.serverError(w, r, "The node could not be restored", err)
 		return

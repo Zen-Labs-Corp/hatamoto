@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 	"strings"
@@ -10,6 +10,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/sectiontemplate"
 )
 
@@ -31,11 +32,11 @@ func (a *Admin) mountBuilderTemplates(w *httpx.Group) {
 }
 
 type saveTemplateRequest struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	NodeID      string          `json:"nodeId"`
-	Page        bool            `json:"page"`
-	Doc         json.RawMessage `json:"doc"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	NodeID      string         `json:"nodeId"`
+	Page        bool           `json:"page"`
+	Doc         jsontext.Value `json:"doc"`
 }
 
 func (a *Admin) templateProblem(w http.ResponseWriter, status int, code, msg string) {
@@ -54,10 +55,9 @@ func (a *Admin) handleSaveTemplate(w http.ResponseWriter, r *http.Request) {
 		a.templateProblem(w, http.StatusNotFound, "unavailable", "Templates are not available on this site.")
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, builderSaveMaxBody)
 	var req saveTemplateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		a.templateProblem(w, http.StatusBadRequest, "bad_request", "Invalid request body.")
+	if status, _ := jsonx.DecodeRequest(w, r, &req, builderSaveMaxBody); status != 0 {
+		a.templateProblem(w, status, "bad_request", "Invalid request body.")
 		return
 	}
 	name := strings.TrimSpace(req.Name)
@@ -92,7 +92,7 @@ func (a *Admin) handleSaveTemplate(w http.ResponseWriter, r *http.Request) {
 		a.templateProblem(w, http.StatusUnprocessableEntity, "empty", "There is nothing to save as a template yet.")
 		return
 	}
-	if raw, err := json.Marshal(&builder.Doc{V: 2, Nodes: src}); err != nil {
+	if raw, err := jsonx.Marshal(&builder.Doc{V: 2, Nodes: src}); err != nil {
 		a.serverError(w, r, "The template could not be built", err)
 		return
 	} else if _, err := builder.Parse(raw); err != nil {
@@ -103,7 +103,7 @@ func (a *Admin) handleSaveTemplate(w http.ResponseWriter, r *http.Request) {
 		a.templateProblem(w, http.StatusUnprocessableEntity, "part_slot", "A template cannot hold the Content slot of a layout part.")
 		return
 	}
-	content, err := json.Marshal(map[string]any{"v": 1, "nodes": src})
+	content, err := jsonx.Marshal(map[string]any{"v": 1, "nodes": src})
 	if err != nil {
 		a.serverError(w, r, "The template could not be built", err)
 		return
@@ -164,11 +164,11 @@ func (a *Admin) handleTemplateNodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var content map[string]any
-		if json.Unmarshal(t.Content, &content) != nil || content == nil {
+		if jsonx.Unmarshal(t.Content, &content, jsonx.Stored) != nil {
 			content = map[string]any{}
 		}
 		nodes = []*builder.Node{{ID: newNodeID(), T: "component", P: map[string]any{"type": t.SectionType, "content": content}}}
-		if raw, err := json.Marshal(&builder.Doc{V: 2, Nodes: nodes}); err != nil {
+		if raw, err := jsonx.Marshal(&builder.Doc{V: 2, Nodes: nodes}); err != nil {
 			a.serverError(w, r, "The template could not be built", err)
 			return
 		} else if _, err := builder.Parse(raw); err != nil {

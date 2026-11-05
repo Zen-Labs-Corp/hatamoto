@@ -2,7 +2,7 @@ package admin
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,6 +11,7 @@ import (
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The page editor is the builder (builder_editor.go): every entity that carries
@@ -45,17 +46,17 @@ const personSchemaSlug = "person"
 func hasSections(sc *entity.EntitySchema, e *entity.Entity) bool {
 	if e != nil {
 		var attrs struct {
-			Sections []json.RawMessage `json:"page_sections"`
+			Sections []jsontext.Value `json:"page_sections"`
 		}
-		if json.Unmarshal(e.Attributes, &attrs) == nil && len(attrs.Sections) > 0 {
+		if jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored) == nil && len(attrs.Sections) > 0 {
 			return true
 		}
 	}
 	if sc != nil {
 		var s struct {
-			Properties map[string]json.RawMessage `json:"properties"`
+			Properties map[string]jsontext.Value `json:"properties"`
 		}
-		if json.Unmarshal(sc.Schema, &s) == nil {
+		if jsonx.Unmarshal(sc.Schema, &s, jsonx.Stored) == nil {
 			_, ok := s.Properties["page_sections"]
 			return ok
 		}
@@ -94,7 +95,7 @@ func (a *Admin) themeTypes() (map[string]ThemeSection, []ThemeSection) {
 	}
 	for i, t := range list {
 		if len(t.Schema) == 0 {
-			list[i].Schema = json.RawMessage(`{"type":"object"}`) // a type without a schema has no fields to edit
+			list[i].Schema = jsontext.Value(`{"type":"object"}`) // a type without a schema has no fields to edit
 		}
 		byType[t.Type] = list[i]
 	}
@@ -186,17 +187,17 @@ func withLegacyDoc(e *entity.Entity, sc *entity.EntitySchema) {
 	if !ok {
 		doc = builder.FromSections(nil) // no sections: an empty page
 	}
-	raw, err := json.Marshal(doc)
+	raw, err := jsonx.Marshal(doc)
 	if err != nil {
 		return
 	}
-	attrs := map[string]json.RawMessage{}
-	_ = json.Unmarshal(e.Attributes, &attrs)
+	attrs := map[string]jsontext.Value{}
+	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
 	if attrs == nil {
-		attrs = map[string]json.RawMessage{}
+		attrs = map[string]jsontext.Value{}
 	}
 	attrs["page_doc"] = raw
-	if out, err := json.Marshal(attrs); err == nil {
+	if out, err := jsonx.Marshal(attrs); err == nil {
 		e.Attributes = out
 	}
 }
@@ -300,8 +301,7 @@ func (a *Admin) handlePreviewPost(w http.ResponseWriter, r *http.Request) {
 		a.refuse(w, r)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"url": a.adminPath + "/entities/" + e.ID.String() + "/edit/preview/" + url.PathEscape(tok)})
+	jsonx.WriteJSON(w, http.StatusOK, map[string]string{"url": a.adminPath + "/entities/" + e.ID.String() + "/edit/preview/" + url.PathEscape(tok)})
 }
 
 // handlePageRender applies the builder's ops to its posted doc and answers node
@@ -322,8 +322,8 @@ func cloneJSON(m map[string]any) map[string]any {
 	if m == nil {
 		return nil
 	}
-	b, _ := json.Marshal(m)
+	b, _ := jsonx.Marshal(m)
 	var out map[string]any
-	_ = json.Unmarshal(b, &out)
+	_ = jsonx.Unmarshal(b, &out, jsonx.Stored)
 	return out
 }

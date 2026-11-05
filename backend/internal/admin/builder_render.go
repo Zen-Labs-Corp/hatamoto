@@ -1,58 +1,49 @@
 package admin
 
 import (
-	"encoding/json"
-	"errors"
+	"encoding/json/jsontext"
 	"net/http"
 	"net/url"
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // builderRenderBody is what the builder client posts to render: the doc as the
 // browser holds it, plus the optional canvas patch inputs.
 type builderRenderBody struct {
-	Doc    json.RawMessage `json:"doc"`
-	Ops    json.RawMessage `json:"ops"`
-	Render json.RawMessage `json:"render"`
-	CSS    json.RawMessage `json:"css"`
-	Seq    json.RawMessage `json:"seq"`
+	Doc    jsontext.Value `json:"doc"`
+	Ops    jsontext.Value `json:"ops"`
+	Render jsontext.Value `json:"render"`
+	CSS    jsontext.Value `json:"css"`
+	Seq    jsontext.Value `json:"seq"`
 }
 
 // readBuilderBody reads a JSON body of at most previewMaxBody and checks that its
 // doc parses. It answers the error itself and reports false.
 func readBuilderBody(w http.ResponseWriter, r *http.Request) (*builderRenderBody, bool) {
-	r.Body = http.MaxBytesReader(w, r.Body, previewMaxBody)
 	var b builderRenderBody
-	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
-			writeBuilderJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "This page is too large to render."})
-			return nil, false
-		}
-		writeBuilderJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body."})
+	if status, _ := jsonx.DecodeRequest(w, r, &b, previewMaxBody); status == http.StatusRequestEntityTooLarge {
+		jsonx.WriteError(w, status, "This page is too large to render.")
+		return nil, false
+	} else if status != 0 {
+		jsonx.WriteError(w, status, "Invalid request body.")
 		return nil, false
 	}
 	if _, err := builder.Parse(b.Doc); err != nil {
-		writeBuilderJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error(), "code": "invalid_page_doc"})
+		jsonx.WriteJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error(), "code": "invalid_page_doc"})
 		return nil, false
 	}
 	return &b, true
-}
-
-func writeBuilderJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
 }
 
 // builderBase is the render request for e without its layout: the stored
 // attributes minus page_doc and page_sections (chrome and meta input only).
 // The entity is always the one in the URL.
 func (a *Admin) builderBase(r *http.Request, e *entity.Entity, sc *entity.EntitySchema, canvas bool) map[string]any {
-	attrs := map[string]json.RawMessage{}
-	_ = json.Unmarshal(e.Attributes, &attrs)
+	attrs := map[string]jsontext.Value{}
+	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.Stored)
 	delete(attrs, "page_doc")
 	delete(attrs, "page_sections")
 	req := map[string]any{"entity_id": e.ID.String(), "schema": sc.Slug, "attributes": attrs, "canvas": canvas,
@@ -114,12 +105,12 @@ func (a *Admin) handleBuilderRender(w http.ResponseWriter, r *http.Request, e *e
 	}
 	req := a.builderBase(r, e, sc, true)
 	req["doc"] = b.Doc
-	for k, v := range map[string]json.RawMessage{"ops": b.Ops, "render": b.Render, "css": b.CSS, "seq": b.Seq} {
+	for k, v := range map[string]jsontext.Value{"ops": b.Ops, "render": b.Render, "css": b.CSS, "seq": b.Seq} {
 		if len(v) > 0 {
 			req[k] = v
 		}
 	}
-	body, err := json.Marshal(req)
+	body, err := jsonx.Marshal(req)
 	if err != nil {
 		a.serverError(w, r, "The render request could not be built", err)
 		return
@@ -143,14 +134,14 @@ func (a *Admin) handleBuilderStage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req := a.builderBase(r, e, sc, true)
-	req["attributes"].(map[string]json.RawMessage)["page_doc"] = b.Doc
-	body, err := json.Marshal(req)
+	req["attributes"].(map[string]jsontext.Value)["page_doc"] = b.Doc
+	body, err := jsonx.Marshal(req)
 	if err != nil {
 		a.serverError(w, r, "The preview could not be built", err)
 		return
 	}
 	if len(body) > previewMaxBody {
-		writeBuilderJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "This page is too large to preview."})
+		jsonx.WriteJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "This page is too large to preview."})
 		return
 	}
 	tok, ok := a.mintPreview(r, e.ID, body)
@@ -158,5 +149,5 @@ func (a *Admin) handleBuilderStage(w http.ResponseWriter, r *http.Request) {
 		a.refuse(w, r)
 		return
 	}
-	writeBuilderJSON(w, http.StatusOK, map[string]string{"url": a.adminPath + "/entities/" + e.ID.String() + "/edit/preview/" + url.PathEscape(tok)})
+	jsonx.WriteJSON(w, http.StatusOK, map[string]string{"url": a.adminPath + "/entities/" + e.ID.String() + "/edit/preview/" + url.PathEscape(tok)})
 }

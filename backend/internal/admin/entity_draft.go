@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"strings"
 
@@ -9,6 +9,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // draftType reports whether New for this type skips the form: posts and pages
@@ -63,12 +64,12 @@ func (a *Admin) handleEntityDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// A new page starts as an empty builder layout; posts have no layout.
-	attrs := json.RawMessage(`{}`)
+	attrs := jsontext.Value(`{}`)
 	switch {
 	case isPart:
 		attrs = partDraftAttrs(slot)
 	case sc.Slug == "page" || entity.IsBlockSchema(sc):
-		attrs = json.RawMessage(`{"page_doc":{"v":2,"nodes":[]}}`)
+		attrs = jsontext.Value(`{"page_doc":{"v":2,"nodes":[]}}`)
 	}
 	if sc.Slug != "page" && !entity.IsBlockSchema(sc) && !isPart {
 		attrs = seedRequired(sc, name)
@@ -100,7 +101,7 @@ type schemaDecl struct {
 func declOf(sc *entity.EntitySchema) schemaDecl {
 	var d schemaDecl
 	if sc != nil {
-		_ = json.Unmarshal(sc.Schema, &d)
+		_ = jsonx.Unmarshal(sc.Schema, &d, jsonx.Stored)
 	}
 	return d
 }
@@ -114,7 +115,7 @@ func (d schemaDecl) declaresString(prop string) bool {
 // seedRequired is the attributes of a new draft: every required property gets
 // a zero value of its type (the title is the draft name), so the draft passes
 // the schema's validation before anything is typed.
-func seedRequired(sc *entity.EntitySchema, name string) json.RawMessage {
+func seedRequired(sc *entity.EntitySchema, name string) jsontext.Value {
 	d := declOf(sc)
 	attrs := map[string]any{}
 	for _, k := range d.Required {
@@ -133,7 +134,7 @@ func seedRequired(sc *entity.EntitySchema, name string) json.RawMessage {
 			attrs[k] = map[string]any{}
 		}
 	}
-	raw, _ := json.Marshal(attrs)
+	raw, _ := jsonx.Marshal(attrs)
 	return raw
 }
 

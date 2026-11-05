@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"errors"
 	"html/template"
 	"mime"
@@ -10,6 +9,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // componentPrefix is the form-field prefix of the content of component node id.
@@ -30,7 +30,7 @@ func (a *Admin) decodeComponent(def ThemeSection, form url.Values, prefix string
 	if structural {
 		return content, nil, true
 	}
-	if raw, err := json.Marshal(content); err == nil {
+	if raw, err := jsonx.Marshal(content); err == nil {
 		if verrs := schemaform.Validate(def.Schema, raw); len(verrs) > 0 {
 			if errs == nil {
 				errs = schemaform.Errors{}
@@ -58,7 +58,7 @@ type componentReply struct {
 	HTML       string              `json:"html,omitempty"`
 	Content    *map[string]any     `json:"content,omitempty"`
 	Errors     map[string][]string `json:"errors,omitempty"`
-	Structural bool                `json:"structural,omitempty"`
+	Structural bool                `json:"structural,omitzero"`
 }
 
 // handleBuilderComponent renders a component node's form (mode=form) or decodes
@@ -77,27 +77,27 @@ func (a *Admin) handleBuilderComponent(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var tooBig *http.MaxBytesError
 		if errors.As(err, &tooBig) {
-			writeBuilderJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "The form is too large."})
+			jsonx.WriteJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "The form is too large."})
 			return
 		}
-		writeBuilderJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body."})
+		jsonx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body."})
 		return
 	}
 	byType, _ := a.themeTypes()
 	def, known := byType[r.PostFormValue("type")]
 	if !known {
-		writeBuilderJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "This section type is not in the theme.", "code": "unknown_type"})
+		jsonx.WriteJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "This section type is not in the theme.", "code": "unknown_type"})
 		return
 	}
 	node := r.PostFormValue("node")
 	if !builder.ValidID(node) {
-		writeBuilderJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "Invalid node id.", "code": "invalid_node"})
+		jsonx.WriteJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "Invalid node id.", "code": "invalid_node"})
 		return
 	}
 	prev := map[string]any{}
 	if raw := r.PostFormValue("prev"); raw != "" {
-		if json.Unmarshal([]byte(raw), &prev) != nil || prev == nil {
-			writeBuilderJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "The current content is not a JSON object.", "code": "invalid_content"})
+		if jsonx.Unmarshal([]byte(raw), &prev, jsonx.Stored) != nil || prev == nil {
+			jsonx.WriteJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "The current content is not a JSON object.", "code": "invalid_content"})
 			return
 		}
 	}
@@ -124,8 +124,8 @@ func (a *Admin) handleBuilderComponent(w http.ResponseWriter, r *http.Request) {
 			reply.HTML = string(html)
 		}
 	default:
-		writeBuilderJSON(w, http.StatusBadRequest, map[string]string{"error": "Unknown mode."})
+		jsonx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Unknown mode."})
 		return
 	}
-	writeBuilderJSON(w, http.StatusOK, reply)
+	jsonx.WriteJSON(w, http.StatusOK, reply)
 }

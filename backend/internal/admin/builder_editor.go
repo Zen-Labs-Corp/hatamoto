@@ -2,7 +2,6 @@ package admin
 
 import (
 	"cmp"
-	"encoding/json"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -12,6 +11,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // docState is what a page's stored page_doc is to the editor choice.
@@ -52,7 +52,7 @@ type builderShell struct {
 	StatusBadge                                                                        *ui.Badge
 	// Boot is the whole <script type="application/json"> element the screen
 	// module starts from. html/template would JS-escape a value placed in a
-	// script element, so the element is built here: json.Marshal escapes <, > and
+	// script element, so the element is built here: jsonx.HTMLSafe escapes <, > and
 	// &, so the data cannot close it. It is data, not script: the CSP does not apply.
 	Boot template.HTML
 	// Role is "block" or "part" when the builder edits one (empty for a page):
@@ -144,11 +144,11 @@ func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.E
 	if siteStyles != nil {
 		bootMap["siteStyles"] = siteStyles
 	}
-	boot, err := json.Marshal(bootMap)
+	boot, err := jsonx.Marshal(bootMap, jsonx.HTMLSafe)
 	if err != nil {
 		return nil, err
 	}
-	sh.Boot = template.HTML(`<script type="application/json" id="hm-builder-boot">` + string(boot) + `</script>`) //nolint:gosec // json.Marshal output, <>& escaped
+	sh.Boot = template.HTML(`<script type="application/json" id="hm-builder-boot">` + string(boot) + `</script>`) //nolint:gosec // jsonx.HTMLSafe output: <, >, & and U+2028/9 are escaped
 	return sh, nil
 }
 
@@ -292,7 +292,7 @@ type bootPage struct {
 	Path     string `json:"path"`
 	EditHref string `json:"editHref"`
 	Status   string `json:"status"`
-	Current  bool   `json:"current,omitempty"`
+	Current  bool   `json:"current,omitzero"`
 }
 
 // builderPageList lists the routable, non-archived entities the builder edits
