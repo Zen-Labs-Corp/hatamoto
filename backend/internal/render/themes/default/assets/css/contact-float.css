@@ -2,7 +2,7 @@
 .hm-contact-float {
   position: fixed;
   bottom: calc(1rem + env(safe-area-inset-bottom));
-  z-index: 30;
+  z-index: 15; /* under the sticky header (20), so an open menu and its scrim cover it */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -20,6 +20,11 @@
 }
 .hm-contact-float--bottom-right { right: calc(1rem + env(safe-area-inset-right)); }
 .hm-contact-float--bottom-left { left: calc(1rem + env(safe-area-inset-left)); }
+/* The consent "Cookie settings" button owns the bottom-left corner: stack above it. */
+body:has(.hm-consent-reopen) .hm-contact-float--bottom-left { bottom: calc(4rem + env(safe-area-inset-bottom)); }
+/* Reserve room so the link never covers the last content or a focused control. */
+html:has(.hm-contact-float) { scroll-padding-bottom: 5rem; }
+body:has(.hm-contact-float) { padding-bottom: 5rem; }
 .hm-contact-float:hover { filter: brightness(0.88); }
 .hm-contact-float:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; box-shadow: 0 0 0 3px var(--hm-primary), 0 0 0 6px #fff; }
 @media print { .hm-contact-float { display: none; } }

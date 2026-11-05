@@ -2,7 +2,9 @@ package render
 
 import (
 	"bytes"
+	"io/fs"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -127,5 +129,31 @@ func TestContactFloatCSSInBundle(t *testing.T) {
 	i := strings.Index(s, ".hm-contact-float")
 	if i < 0 || !strings.Contains(s[i:], "@media print{.hm-contact-float{display:none") && !strings.Contains(s[i:], "@media print { .hm-contact-float { display: none") {
 		t.Error("print rule for the floating link missing")
+	}
+}
+
+// The link must not sit over the consent reopen button, over the open mobile
+// menu (header is z-index 20) or over the last content of the page.
+func TestContactFloatCSSClearsOtherFixedUI(t *testing.T) {
+	raw, err := fs.ReadFile(DefaultFS(), "assets/css/contact-float.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(raw)
+	m := regexp.MustCompile(`z-index:\s*(\d+)`).FindStringSubmatch(s)
+	if m == nil {
+		t.Fatal("no z-index on the floating link")
+	}
+	if z, _ := strconv.Atoi(m[1]); z >= 20 {
+		t.Errorf("z-index %d is not below the sticky header (20)", z)
+	}
+	for _, want := range []string{
+		"body:has(.hm-consent-reopen) .hm-contact-float--bottom-left",
+		"scroll-padding-bottom",
+		"body:has(.hm-contact-float) { padding-bottom",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("contact-float.css lacks %q", want)
+		}
 	}
 }
