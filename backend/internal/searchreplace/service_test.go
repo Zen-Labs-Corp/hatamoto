@@ -2,7 +2,7 @@ package searchreplace
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"strings"
 	"testing"
@@ -18,7 +18,7 @@ type fakeEnts struct {
 	list    []*entity.Entity
 	updates []*entity.UpdateEntityInput
 	failOn  uuid.UUID
-	schema  json.RawMessage
+	schema  jsontext.Value
 }
 
 func (f *fakeEnts) ListEntitiesWithOffset(_ context.Context, _ *entity.ListEntitiesFilter, p *entity.OffsetPage) (*entity.OffsetPagedResult[*entity.Entity], error) {
@@ -95,7 +95,7 @@ func (f fakeOwners) Get(_ context.Context, id uuid.UUID) (*changeset.Ownership, 
 }
 
 func ent(name, attrs string) *entity.Entity {
-	return &entity.Entity{ID: uuid.New(), Name: name, Locale: "en", Version: 3, Attributes: json.RawMessage(attrs)}
+	return &entity.Entity{ID: uuid.New(), Name: name, Locale: "en", Version: 3, Attributes: jsontext.Value(attrs)}
 }
 
 func tokens(p *Preview) []string {
@@ -241,7 +241,7 @@ func TestParseSelection(t *testing.T) {
 
 func TestPreviewAndApplyUseTheSchemaKinds(t *testing.T) {
 	a := ent("A", `{"intro":"<p>Joe&#39;s &amp; Co</p>"}`)
-	ents := &fakeEnts{list: []*entity.Entity{a}, schema: json.RawMessage(richSchema)}
+	ents := &fakeEnts{list: []*entity.Entity{a}, schema: jsontext.Value(richSchema)}
 	s := &Service{Ents: ents}
 	o := Options{Find: "Joe's & Co", Replace: "Max"}
 	p, err := s.Preview(context.Background(), o, ScopeOther)

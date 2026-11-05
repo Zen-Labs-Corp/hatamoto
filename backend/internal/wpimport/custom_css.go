@@ -2,11 +2,11 @@ package wpimport
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -32,6 +32,14 @@ func planCustomCSS(css string) (store, status string) {
 	return commented, "refused: " + issue.Error() + "; kept as a comment in Theme > Additional CSS"
 }
 
+// customCSSValue is the JSON string stored under render.AdditionalCSSKey. It
+// escapes <, > and & (like the v1 encoder) so a stored "</style>" can never
+// close a style element if the value reaches HTML.
+func customCSSValue(store string) []byte {
+	raw, _ := jsonx.Marshal(store, jsonx.HTMLSafe)
+	return raw
+}
+
 func (r *Runner) setCustomCSSStatus(s string) {
 	if r.res.Report != nil {
 		r.res.Report.CustomCSS = s
@@ -47,8 +55,7 @@ func (r *Runner) importCustomCSS(ctx context.Context) {
 	}
 	store, status := planCustomCSS(css)
 	if store != "" {
-		raw, _ := json.Marshal(store)
-		if err := r.d.Site.PatchThemeExtra(ctx, render.AdditionalCSSKey, raw); err != nil {
+		if err := r.d.Site.PatchThemeExtra(ctx, render.AdditionalCSSKey, customCSSValue(store)); err != nil {
 			r.res.Warnings = append(r.res.Warnings, "custom CSS not imported: "+err.Error())
 			status = "not imported: " + err.Error()
 		}

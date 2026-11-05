@@ -5,12 +5,12 @@ package app
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/portability"
 )
 
@@ -81,8 +81,11 @@ func TestImportFoldsDefaultBusiness_Integration(t *testing.T) {
 	if !p.Office || p.Name != "Example Co GB" || p.Description != "Default text." || p.TaxID != "TAX-0001" || got.phone != "+00 555 0200" {
 		t.Errorf("business not folded: %+v", got)
 	}
-	var addr struct{ Street, City string }
-	if err := json.Unmarshal([]byte(got.addr), &addr); err != nil || addr.Street != "2 Example Street" || addr.City != "Example Town" {
+	var addr struct {
+		Street string `json:"street"`
+		City   string `json:"city"`
+	}
+	if err := jsonx.Unmarshal([]byte(got.addr), &addr); err != nil || addr.Street != "2 Example Street" || addr.City != "Example Town" {
 		t.Errorf("address = %s (%v)", got.addr, err)
 	}
 	cards, err := bizprofile.ParseLocales([]byte(got.cards))

@@ -2,7 +2,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 	"strings"
@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func parseTestDoc(t *testing.T, s string) *builder.Doc {
@@ -39,7 +40,7 @@ func TestCheckReuseDoc(t *testing.T) {
 		}
 	})
 	t.Run("single part needs one slot", func(t *testing.T) {
-		e := &Entity{ID: uuid.New(), Attributes: json.RawMessage(`{"slot":"single"}`)}
+		e := &Entity{ID: uuid.New(), Attributes: jsontext.Value(`{"slot":"single"}`)}
 		if p := CheckReuseDoc(RolePart, e, plain, noLookup); p == nil || !strings.Contains(p.Msg, "exactly one") {
 			t.Fatalf("got %+v", p)
 		}
@@ -48,7 +49,7 @@ func TestCheckReuseDoc(t *testing.T) {
 		}
 	})
 	t.Run("header part has no slot", func(t *testing.T) {
-		e := &Entity{ID: uuid.New(), Attributes: json.RawMessage(`{"slot":"header"}`)}
+		e := &Entity{ID: uuid.New(), Attributes: jsontext.Value(`{"slot":"header"}`)}
 		if p := CheckReuseDoc(RolePart, e, slotDoc, noLookup); p == nil || !strings.Contains(p.Msg, "no Content slot") {
 			t.Fatalf("got %+v", p)
 		}
@@ -108,17 +109,17 @@ func (f *fakeBuilderStore) UpdateEntityStatus(_ context.Context, id uuid.UUID, _
 
 func TestSaveBuilderDoc(t *testing.T) {
 	pageSchema := &EntitySchema{ID: uuid.New(), Slug: "page"}
-	page := &Entity{ID: uuid.New(), SchemaID: pageSchema.ID, Status: StatusDraft, Attributes: json.RawMessage(`{"keep":"me"}`)}
+	page := &Entity{ID: uuid.New(), SchemaID: pageSchema.ID, Status: StatusDraft, Attributes: jsontext.Value(`{"keep":"me"}`)}
 	st := &fakeBuilderStore{ents: map[uuid.UUID]*Entity{page.ID: page}, schemas: map[uuid.UUID]*EntitySchema{pageSchema.ID: pageSchema}}
 	ctx := context.Background()
 
-	good := json.RawMessage(`{"v":2,"nodes":[{"id":"h1","t":"heading","p":{"text":"Hi"}}]}`)
+	good := jsontext.Value(`{"v":2,"nodes":[{"id":"h1","t":"heading","p":{"text":"Hi"}}]}`)
 	saved, p, err := SaveBuilderDoc(ctx, st, nil, page, good, SaveOpts{ChangeSummary: "by test", Publish: true})
 	if err != nil || p != nil {
 		t.Fatalf("p=%+v err=%v", p, err)
 	}
-	var attrs map[string]json.RawMessage
-	_ = json.Unmarshal(saved.Entity.Attributes, &attrs)
+	var attrs map[string]jsontext.Value
+	_ = jsonx.Unmarshal(saved.Entity.Attributes, &attrs)
 	if string(attrs["keep"]) != `"me"` || len(attrs["page_doc"]) == 0 {
 		t.Errorf("attributes not merged: %s", saved.Entity.Attributes)
 	}
@@ -127,11 +128,11 @@ func TestSaveBuilderDoc(t *testing.T) {
 	}
 
 	st.updated = nil
-	_, p, _ = SaveBuilderDoc(ctx, st, nil, page, json.RawMessage(`{"v":2,"nodes":[{"id":"s1","t":"slot"}]}`), SaveOpts{})
+	_, p, _ = SaveBuilderDoc(ctx, st, nil, page, jsontext.Value(`{"v":2,"nodes":[{"id":"s1","t":"slot"}]}`), SaveOpts{})
 	if p == nil || p.Code != "part_slot" || st.updated != nil {
 		t.Fatalf("slot on page: %+v, wrote %v", p, st.updated != nil)
 	}
-	_, p, _ = SaveBuilderDoc(ctx, st, nil, page, json.RawMessage(`{"v":2,"nodes":[{"id":"x","t":"nope"}]}`), SaveOpts{})
+	_, p, _ = SaveBuilderDoc(ctx, st, nil, page, jsontext.Value(`{"v":2,"nodes":[{"id":"x","t":"nope"}]}`), SaveOpts{})
 	if p == nil || p.Code != "invalid_page_doc" {
 		t.Fatalf("invalid doc: %+v", p)
 	}
@@ -140,12 +141,12 @@ func TestSaveBuilderDoc(t *testing.T) {
 func TestSaveBuilderDocHooksAndOutcomes(t *testing.T) {
 	pageSchema := &EntitySchema{ID: uuid.New(), Slug: "page"}
 	newStore := func() (*fakeBuilderStore, *Entity) {
-		page := &Entity{ID: uuid.New(), SchemaID: pageSchema.ID, Status: StatusDraft, Version: 4, Attributes: json.RawMessage(`{}`)}
+		page := &Entity{ID: uuid.New(), SchemaID: pageSchema.ID, Status: StatusDraft, Version: 4, Attributes: jsontext.Value(`{}`)}
 		return &fakeBuilderStore{ents: map[uuid.UUID]*Entity{page.ID: page}, schemas: map[uuid.UUID]*EntitySchema{pageSchema.ID: pageSchema}}, page
 	}
 	ctx := context.Background()
-	good := json.RawMessage(`{"v":2,"nodes":[{"id":"h1","t":"heading","p":{"text":"Hi"}}]}`)
-	slotted := json.RawMessage(`{"v":2,"nodes":[{"id":"s1","t":"slot"}]}`)
+	good := jsontext.Value(`{"v":2,"nodes":[{"id":"h1","t":"heading","p":{"text":"Hi"}}]}`)
+	slotted := jsontext.Value(`{"v":2,"nodes":[{"id":"s1","t":"slot"}]}`)
 	refuse := func(code string) func(...string) *DocProblem {
 		return func(...string) *DocProblem { return &DocProblem{Code: code} }
 	}

@@ -4,7 +4,7 @@ package standing
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"os"
 	"testing"
@@ -127,22 +127,22 @@ func TestVoidTxIsIdempotent(t *testing.T) {
 }
 
 func TestManifestHashIgnoresKeyOrder(t *testing.T) {
-	a, err := ManifestHash(json.RawMessage(`{"name":"x","runs":[{"b":1,"a":2}],"version":"1.0.0"}`))
+	a, err := ManifestHash(jsontext.Value(`{"name":"x","runs":[{"b":1,"a":2}],"version":"1.0.0"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := ManifestHash(json.RawMessage(`{ "version": "1.0.0", "runs": [ {"a": 2, "b": 1} ], "name": "x" }`))
+	b, err := ManifestHash(jsontext.Value(`{ "version": "1.0.0", "runs": [ {"a": 2, "b": 1} ], "name": "x" }`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if a != b {
 		t.Fatalf("hash changed with key order: %s vs %s", a, b)
 	}
-	c, _ := ManifestHash(json.RawMessage(`{"name":"x","runs":[{"b":1,"a":3}],"version":"1.0.0"}`))
+	c, _ := ManifestHash(jsontext.Value(`{"name":"x","runs":[{"b":1,"a":3}],"version":"1.0.0"}`))
 	if a == c {
 		t.Fatal("hash ignored a value change")
 	}
-	if _, err := ManifestHash(json.RawMessage(`{`)); err == nil {
+	if _, err := ManifestHash(jsontext.Value(`{`)); err == nil {
 		t.Fatal("invalid JSON hashed")
 	}
 }

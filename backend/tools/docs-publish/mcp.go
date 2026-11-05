@@ -4,7 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -46,12 +47,12 @@ type rpcRequest struct {
 	JSONRPC string `json:"jsonrpc"`
 	ID      *int   `json:"id,omitempty"`
 	Method  string `json:"method"`
-	Params  any    `json:"params,omitempty"`
+	Params  any    `json:"params,omitzero"`
 }
 
 type rpcResponse struct {
-	ID     *int            `json:"id"`
-	Result json.RawMessage `json:"result"`
+	ID     *int           `json:"id"`
+	Result jsontext.Value `json:"result"`
 	Error  *struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
@@ -74,7 +75,7 @@ func (m *MCP) Call(ctx context.Context, tool string, args any, out any) error {
 			Text string `json:"text"`
 		} `json:"content"`
 	}
-	if err := json.Unmarshal(raw, &res); err != nil {
+	if err := jsonv2.Unmarshal(raw, &res, ciNames); err != nil {
 		return fmt.Errorf("mcp tool %s: unreadable result: %w", tool, err)
 	}
 	var text string
@@ -87,7 +88,7 @@ func (m *MCP) Call(ctx context.Context, tool string, args any, out any) error {
 	if out == nil {
 		return nil
 	}
-	if err := json.Unmarshal([]byte(text), out); err != nil {
+	if err := jsonv2.Unmarshal([]byte(text), out, ciNames); err != nil {
 		return fmt.Errorf("mcp tool %s: result is not JSON: %w", tool, err)
 	}
 	return nil
@@ -127,7 +128,7 @@ func (m *MCP) handshake(ctx context.Context) error {
 	return nil
 }
 
-func (m *MCP) request(ctx context.Context, method string, params any) (json.RawMessage, error) {
+func (m *MCP) request(ctx context.Context, method string, params any) (jsontext.Value, error) {
 	m.nextID++
 	id := m.nextID
 	resp, err := m.send(ctx, rpcRequest{JSONRPC: "2.0", ID: &id, Method: method, Params: params})
@@ -152,7 +153,7 @@ func (m *MCP) headers(req *http.Request) {
 // send posts one message and, for a request, reads its response from either
 // a JSON body or a text/event-stream body.
 func (m *MCP) send(ctx context.Context, msg rpcRequest) (rpcResponse, error) {
-	payload, err := json.Marshal(msg)
+	payload, err := jsonv2.Marshal(msg, jsonv2.Deterministic(true))
 	if err != nil {
 		return rpcResponse{}, err
 	}
@@ -212,14 +213,14 @@ func decodeRPC(contentType string, body []byte, id int) (rpcResponse, error) {
 				continue
 			}
 			var r rpcResponse
-			if json.Unmarshal([]byte(strings.TrimSpace(data)), &r) == nil && r.ID != nil && *r.ID == id {
+			if jsonv2.Unmarshal([]byte(strings.TrimSpace(data)), &r, ciNames) == nil && r.ID != nil && *r.ID == id {
 				return r, nil
 			}
 		}
 		return rpcResponse{}, errors.New("mcp: no response for the request in the event stream")
 	}
 	var r rpcResponse
-	if err := json.Unmarshal(body, &r); err != nil {
+	if err := jsonv2.Unmarshal(body, &r, ciNames); err != nil {
 		return r, fmt.Errorf("mcp: unreadable response: %w", err)
 	}
 	return r, nil

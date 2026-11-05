@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/httpx"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/testutil"
 )
@@ -26,12 +27,12 @@ type fakeSiteStore struct {
 func (f *fakeSiteStore) Get(context.Context) (*siteconfig.Config, error) { c := f.cfg; return &c, nil }
 
 // PatchThemeExtra sets one top-level theme_extra key like the SQL does.
-func (f *fakeSiteStore) PatchThemeExtra(_ context.Context, key string, raw json.RawMessage) error {
+func (f *fakeSiteStore) PatchThemeExtra(_ context.Context, key string, raw jsontext.Value) error {
 
-	m := map[string]json.RawMessage{}
-	_ = json.Unmarshal(f.cfg.ThemeExtra, &m)
+	m := map[string]jsontext.Value{}
+	_ = jsonx.Unmarshal(f.cfg.ThemeExtra, &m)
 	m[key] = raw
-	f.cfg.ThemeExtra, _ = json.Marshal(m)
+	f.cfg.ThemeExtra, _ = jsonx.Marshal(m)
 	return nil
 }
 
@@ -77,16 +78,16 @@ func (f *fakeSiteStore) Update(_ context.Context, in siteconfig.UpdateInput) (*s
 
 // SetLocaleProfile merges one locale card into the stored map like the SQL
 // does; empty raw deletes it.
-func (f *fakeSiteStore) SetLocaleProfile(_ context.Context, tag string, raw json.RawMessage) error {
+func (f *fakeSiteStore) SetLocaleProfile(_ context.Context, tag string, raw jsontext.Value) error {
 	f.cardWrites = append(f.cardWrites, tag)
-	m := map[string]json.RawMessage{}
-	_ = json.Unmarshal(f.cfg.LocaleProfiles, &m)
+	m := map[string]jsontext.Value{}
+	_ = jsonx.Unmarshal(f.cfg.LocaleProfiles, &m)
 	if len(raw) == 0 {
 		delete(m, tag)
 	} else {
 		m[tag] = raw
 	}
-	f.cfg.LocaleProfiles, _ = json.Marshal(m)
+	f.cfg.LocaleProfiles, _ = jsonx.Marshal(m)
 	return nil
 }
 
@@ -304,14 +305,14 @@ func TestSiteSettings_LanguageAndContact(t *testing.T) {
 	var got siteSettingsResponse
 	rec := doSite(h, http.MethodGet, "/settings/site/", "")
 	testutil.Equal(t, http.StatusOK, rec.Code)
-	testutil.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	testutil.NoError(t, jsonx.Unmarshal(rec.Body.Bytes(), &got))
 	testutil.Equal(t, "en", got.Language)
 	testutil.Equal(t, false, got.LegacyWPRedirects)
 
 	rec = doSite(h, http.MethodPatch, "/settings/site/", `{"language":"en-au","phone":"+61 2 5550 0100","business_hours":"Mon-Fri",
 		"address":{"street":"1 Example St","city":"Sydney","country":"AU"},"legacy_wp_redirects":true}`)
 	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	testutil.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	testutil.NoError(t, jsonx.Unmarshal(rec.Body.Bytes(), &got))
 	testutil.Equal(t, "en-AU", got.Language) // canonical case
 	testutil.Equal(t, "+61 2 5550 0100", got.Phone)
 	testutil.Equal(t, "Sydney", got.Address.City)

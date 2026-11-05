@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"reflect"
 	"testing"
 
@@ -16,8 +16,8 @@ const gapSiteProfile = `{"catalog_name":"Offers","service_provider":true,
 
 func gapConfig(cards string) *siteconfig.Config {
 	return &siteconfig.Config{
-		BusinessProfile: json.RawMessage(gapSiteProfile),
-		LocaleProfiles:  json.RawMessage(cards),
+		BusinessProfile: jsontext.Value(gapSiteProfile),
+		LocaleProfiles:  jsontext.Value(cards),
 	}
 }
 
@@ -37,7 +37,7 @@ func TestOrgViewGapFields(t *testing.T) {
 	if !reflect.DeepEqual(org.AdditionalProperties, wantProps) {
 		t.Errorf("properties = %+v", org.AdditionalProperties)
 	}
-	empty, err := orgView(&siteconfig.Config{BusinessProfile: json.RawMessage(`{"service_provider":false}`)})
+	empty, err := orgView(&siteconfig.Config{BusinessProfile: jsontext.Value(`{"service_provider":false}`)})
 	if err != nil || empty.ServiceProvider || empty.CatalogName != "" || empty.AdditionalProperties != nil {
 		t.Errorf("empty profile = %+v, %v", empty, err)
 	}

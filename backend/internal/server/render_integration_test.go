@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"html"
 	"io"
 	"log/slog"
@@ -24,6 +23,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/user"
 )
@@ -205,7 +205,7 @@ func TestRenderIntegration(t *testing.T) {
 			Type string `json:"type"`
 		} `json:"sections"`
 	}
-	if err := json.Unmarshal(theme.Body.Bytes(), &info); err != nil || theme.Code != 200 || info.Name == "" || len(info.Sections) == 0 {
+	if err := jsonx.Unmarshal(theme.Body.Bytes(), &info); err != nil || theme.Code != 200 || info.Name == "" || len(info.Sections) == 0 {
 		t.Errorf("theme: %d %v %s", theme.Code, err, theme.Body)
 	}
 

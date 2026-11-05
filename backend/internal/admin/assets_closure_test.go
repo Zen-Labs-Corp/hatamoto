@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"path"
 	"slices"
 	"sort"
@@ -9,6 +8,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/web"
 )
 
@@ -40,7 +40,7 @@ func TestImportmapIntegrityCoversEveryModule(t *testing.T) {
 		Imports   map[string]string `json:"imports"`
 		Integrity map[string]string `json:"integrity"`
 	}
-	if err := json.Unmarshal([]byte(as.Importmap), &im); err != nil {
+	if err := jsonx.Unmarshal([]byte(as.Importmap), &im); err != nil {
 		t.Fatal(err)
 	}
 	if len(as.mods) < 80 {

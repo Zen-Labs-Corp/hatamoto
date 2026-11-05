@@ -3,7 +3,7 @@ package packages
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"log/slog"
 	"os"
@@ -304,7 +304,7 @@ func TestReconcileWidgetsIslandFollowsGrant(t *testing.T) {
 	m := &Manager{Logger: slog.Default(), Grants: grants}
 	m.widgets.cache = map[string]widgetEntry{"promo": {sha: "h1", schemas: schemas, views: views}}
 	rows := []Row{{Kind: KindPlugin, Name: "promo", SHA256: "h1", Enabled: true, State: StateInstalled,
-		Manifest: json.RawMessage(`{"name":"promo","version":"1.0.0","permissions":["builder.island"]}`)}}
+		Manifest: jsontext.Value(`{"name":"promo","version":"1.0.0","permissions":["builder.island"]}`)}}
 
 	step := func(granted, wantChange, wantIsland bool) {
 		t.Helper()
@@ -338,7 +338,7 @@ func TestReconcileWidgetsDropsCommunityIsland(t *testing.T) {
 	m.widgets.cache = map[string]widgetEntry{"promo": {sha: "h1", schemas: schemas, views: views}}
 	rows := []Row{{Kind: KindPlugin, Name: "promo", SHA256: "h1", Enabled: true, State: StateInstalled,
 		SignerKeyID: "adea8e00f5ac74ca",
-		Manifest:    json.RawMessage(`{"name":"promo","version":"1.0.0","permissions":["builder.island"]}`)}}
+		Manifest:    jsontext.Value(`{"name":"promo","version":"1.0.0","permissions":["builder.island"]}`)}}
 	m.refreshOrigins(rows)
 	if m.originOf("promo") != OriginCommunity {
 		t.Fatal("fixture is not a community package")
@@ -391,7 +391,7 @@ func TestPackOwningAnElementSettingStaysUsableButIsNotInstalled(t *testing.T) {
 	m := &Manager{Logger: slog.New(slog.NewTextHandler(&logs, nil)), Grants: fakeGrants{}}
 	m.widgets.cache = map[string]widgetEntry{"promo": {sha: "h1", schemas: schemas, views: views}}
 	rows := []Row{{Kind: KindPlugin, Name: "promo", SHA256: "h1", Enabled: true, State: StateInstalled,
-		Manifest: json.RawMessage(`{"name":"promo","version":"1.0.0"}`)}}
+		Manifest: jsontext.Value(`{"name":"promo","version":"1.0.0"}`)}}
 	if !m.reconcileWidgets(context.Background(), rows) || len(m.widgets.schemas) != 1 {
 		t.Fatalf("the widget was dropped: %d schemas", len(m.widgets.schemas))
 	}

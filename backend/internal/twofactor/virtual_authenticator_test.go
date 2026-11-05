@@ -8,12 +8,13 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/fxamacker/cbor/v2"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // virtualAuthenticator is a test-only software authenticator: ES256 keys,
@@ -103,7 +104,7 @@ type requestOptions struct {
 }
 
 func clientData(typ, challenge, origin string) []byte {
-	b, _ := json.Marshal(map[string]any{"type": typ, "challenge": challenge, "origin": origin, "crossOrigin": false})
+	b, _ := jsonx.MarshalPinned(map[string]any{"type": typ, "challenge": challenge, "origin": origin, "crossOrigin": false})
 	return b
 }
 
@@ -111,7 +112,7 @@ func clientData(typ, challenge, origin string) []byte {
 func (v *virtualAuthenticator) register(optionsJSON []byte, origin string) *http.Request {
 	v.t.Helper()
 	var o creationOptions
-	if err := json.Unmarshal(optionsJSON, &o); err != nil {
+	if err := jsonx.UnmarshalPinned(optionsJSON, &o); err != nil {
 		v.t.Fatal(err)
 	}
 	v.userID, _ = b64.DecodeString(o.PublicKey.User.ID)
@@ -125,7 +126,7 @@ func (v *virtualAuthenticator) register(optionsJSON []byte, origin string) *http
 	if err != nil {
 		v.t.Fatal(err)
 	}
-	body, _ := json.Marshal(map[string]any{
+	body, _ := jsonx.MarshalPinned(map[string]any{
 		"id": b64.EncodeToString(v.credID), "rawId": b64.EncodeToString(v.credID), "type": "public-key",
 		"response": map[string]any{
 			"clientDataJSON":    b64.EncodeToString(clientData("webauthn.create", o.PublicKey.Challenge, origin)),
@@ -146,7 +147,7 @@ type assertOptions struct {
 func (v *virtualAuthenticator) assert(optionsJSON []byte, o assertOptions) *http.Request {
 	v.t.Helper()
 	var ro requestOptions
-	if err := json.Unmarshal(optionsJSON, &ro); err != nil {
+	if err := jsonx.UnmarshalPinned(optionsJSON, &ro); err != nil {
 		v.t.Fatal(err)
 	}
 	if o.SetCounter != nil {
@@ -171,7 +172,7 @@ func (v *virtualAuthenticator) assert(optionsJSON []byte, o assertOptions) *http
 	if o.UserHandle {
 		resp["userHandle"] = b64.EncodeToString(v.userID)
 	}
-	body, _ := json.Marshal(map[string]any{
+	body, _ := jsonx.MarshalPinned(map[string]any{
 		"id": b64.EncodeToString(v.credID), "rawId": b64.EncodeToString(v.credID), "type": "public-key", "response": resp,
 	})
 	return httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))

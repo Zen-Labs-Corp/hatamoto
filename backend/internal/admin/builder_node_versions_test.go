@@ -1,8 +1,8 @@
 package admin
 
 import (
-	"encoding/json"
 	"fmt"
+	"hatamoto.dev/core/internal/jsonx"
 	"net/http"
 	"os"
 	"strings"
@@ -32,7 +32,7 @@ func (r *versionsRig) nodeVersions(t *testing.T, token, query string) (int, []no
 	t.Helper()
 	rec := r.do("GET", r.url(r.page, "/builder/node-versions"+query), token, nil, nil)
 	var out []nodeVersionOut
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatalf("%d %q", rec.Code, rec.Body)
 	}
 	return rec.Code, out
@@ -147,7 +147,7 @@ func TestNodeVersionsShapeGolden(t *testing.T) {
 	row := nodeVersionRow{Version: 12, Saved: time.Date(2026, 10, 26, 16, 2, 0, 0, time.UTC), By: "Ana", Summary: "Saved",
 		Node:   nodeVersionContent{T: "heading", P: map[string]any{"level": 2, "text": "Welcome"}, S: map[string]map[string]string{"base": {"fs": "xl"}}, B: map[string]string{"text": "page.title"}},
 		Parent: "hero", Index: 1}
-	got, err := json.MarshalIndent([]nodeVersionRow{row}, "", "  ")
+	got, err := jsonx.Indent([]nodeVersionRow{row})
 	if err != nil {
 		t.Fatal(err)
 	}

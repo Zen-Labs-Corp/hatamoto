@@ -1,7 +1,8 @@
 package schemaform
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"hatamoto.dev/core/internal/jsonx"
 	"reflect"
 	"testing"
 )
@@ -24,7 +25,7 @@ func TestTopFields(t *testing.T) {
 	 "ctas":{"type":"array","items":{"type":"object"}},
 	 "strip":{"type":"array","x-hm-field":"lines","items":{"type":"string"}},
 	 "panel":{"type":"object","properties":{"title":{"type":"string"}}}}}`
-	got := TopFields(json.RawMessage(schema))
+	got := TopFields(jsontext.Value(schema))
 	byKey := map[string]TopField{}
 	var keys []string
 	for _, f := range got {
@@ -51,11 +52,11 @@ func TestTopFields(t *testing.T) {
 func TestTopFieldsAlias(t *testing.T) {
 	t.Parallel()
 
-	got := TopFields(json.RawMessage(`{"type":"object","properties":{"title":{"type":"string","x-hm-alias":["heading","h1"]},"sub":{"type":"string"}}}`))
+	got := TopFields(jsontext.Value(`{"type":"object","properties":{"title":{"type":"string","x-hm-alias":["heading","h1"]},"sub":{"type":"string"}}}`))
 	if len(got) != 2 || !reflect.DeepEqual(got[0].Alias, []string{"heading", "h1"}) || got[1].Alias != nil {
 		t.Fatalf("aliases = %+v, want title [heading h1], sub none", got)
 	}
-	b, _ := json.Marshal(got[1])
+	b, _ := jsonx.Marshal(got[1])
 	if string(b) != `{"key":"sub","label":"Sub","kind":"text"}` {
 		t.Errorf("no alias must be omitted: %s", b)
 	}
@@ -65,7 +66,7 @@ func TestTopFieldsNone(t *testing.T) {
 	t.Parallel()
 
 	for _, raw := range []string{`not json`, `{"type":"object"}`, ``} {
-		if got := TopFields(json.RawMessage(raw)); got != nil {
+		if got := TopFields(jsontext.Value(raw)); got != nil {
 			t.Errorf("TopFields(%q) = %v, want nil", raw, got)
 		}
 	}
@@ -88,7 +89,7 @@ func TestTopFieldsSetting(t *testing.T) {
 	 "code":{"type":"string","x-hm-field":"code"},
 	 "eyebrow":{"type":"string"}}}`
 	want := map[string]bool{"layout": true, "flag": true, "count": true, "ratio": true, "href": true}
-	for _, f := range TopFields(json.RawMessage(schema)) {
+	for _, f := range TopFields(jsontext.Value(schema)) {
 		if f.Setting != want[f.Key] {
 			t.Errorf("%s Setting = %v, want %v", f.Key, f.Setting, want[f.Key])
 		}

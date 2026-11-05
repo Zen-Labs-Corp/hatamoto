@@ -22,13 +22,20 @@ import (
 //
 //   - two fields of one struct with the same JSON name: v1 dropped both, v2
 //     returns an error. Rename one.
+//   - `,string` on a bool field: v1 wrote "true", v2 returns an error in both
+//     directions. Drop the option; it still works on ints.
+//   - legacy options not covered: `,string` on non-scalar fields, named byte
+//     types and error reporting with legacy semantics follow v2.
 //
 // The unmarshal set accepts what v1 accepted from untrusted senders:
 // case-insensitive names, duplicate names and invalid UTF-8. It differs in
-// two ways. v2 name folding also ignores "_" and "-", so {"user_id":1,
+// three ways. v2 name folding also ignores "_" and "-", so {"user_id":1,
 // "userid":2} sets user_id to 2 where v1 set 1 (rename the field or keep such
-// pairs out of pinned input types). And v1 merged into an already populated
-// destination; decode into a zero value.
+// pairs out of pinned input types). v1 left scalars and structs untouched on
+// JSON null, v2 zeroes them. And a JSON array longer than a fixed-size Go
+// array is an error in v2, v1 dropped the extra elements (and [N]byte only
+// decodes from a base64 string, not from the number array it encodes to). Decode into a zero
+// value.
 var (
 	PinnedMarshal = jsonv2.JoinOptions(
 		jsonv2.Deterministic(true),

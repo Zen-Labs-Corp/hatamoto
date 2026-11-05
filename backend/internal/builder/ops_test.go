@@ -2,16 +2,18 @@ package builder
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"math/rand/v2"
 	"strconv"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func mustJSON(t testing.TB, d *Doc) []byte {
 	t.Helper()
-	b, err := json.Marshal(d)
+	b, err := jsonx.Marshal(d)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,14 +44,14 @@ func TestApplyInverse(t *testing.T) {
 		{Op: "move", ID: "t1", Parent: "col2", Index: 0},
 		{Op: "move", ID: "sp", Parent: "", Index: 0},
 		{Op: "move", ID: "h1", Parent: "col1", Index: 1},
-		{Op: "setProp", ID: "h1", Key: "text", Value: json.RawMessage(`"World"`)},
-		{Op: "setProp", ID: "h1", Key: "level", Value: json.RawMessage(`null`)},
-		{Op: "setProp", ID: "sp", Key: "hidden", Value: json.RawMessage(`true`)},
-		{Op: "setProp", ID: "t1", Key: "text", Value: json.RawMessage(`null`)},
-		{Op: "setStyle", ID: "hero", BP: "base", Key: "pt", Value: json.RawMessage(`null`)},
-		{Op: "setStyle", ID: "hero", BP: "md", Key: "pt", Value: json.RawMessage(`"space-1"`)},
-		{Op: "setStyle", ID: "hero", BP: "base", Key: "cols", Value: json.RawMessage(`null`)},
-		{Op: "setStyle", ID: "hero", BP: "base", Key: "pt", Value: json.RawMessage(`null`)},
+		{Op: "setProp", ID: "h1", Key: "text", Value: jsontext.Value(`"World"`)},
+		{Op: "setProp", ID: "h1", Key: "level", Value: jsontext.Value(`null`)},
+		{Op: "setProp", ID: "sp", Key: "hidden", Value: jsontext.Value(`true`)},
+		{Op: "setProp", ID: "t1", Key: "text", Value: jsontext.Value(`null`)},
+		{Op: "setStyle", ID: "hero", BP: "base", Key: "pt", Value: jsontext.Value(`null`)},
+		{Op: "setStyle", ID: "hero", BP: "md", Key: "pt", Value: jsontext.Value(`"space-1"`)},
+		{Op: "setStyle", ID: "hero", BP: "base", Key: "cols", Value: jsontext.Value(`null`)},
+		{Op: "setStyle", ID: "hero", BP: "base", Key: "pt", Value: jsontext.Value(`null`)},
 		{Op: "remove", ID: "col1"},
 		{Op: "remove", ID: "sp"},
 	}
@@ -114,17 +116,17 @@ func TestApplyErrorsLeaveDocUnchanged(t *testing.T) {
 		"move into own id":     {Op: "move", ID: "hero", Parent: "hero"},
 		"move bad index":       {Op: "move", ID: "t1", Parent: "col2", Index: 50},
 		"move to widget":       {Op: "move", ID: "t1", Parent: "h1"},
-		"setProp missing":      {Op: "setProp", ID: "nope", Key: "text", Value: json.RawMessage(`"x"`)},
-		"setProp bad json":     {Op: "setProp", ID: "t1", Key: "text", Value: json.RawMessage(`{`)},
+		"setProp missing":      {Op: "setProp", ID: "nope", Key: "text", Value: jsontext.Value(`"x"`)},
+		"setProp bad json":     {Op: "setProp", ID: "t1", Key: "text", Value: jsontext.Value(`{`)},
 		"setProp empty value":  {Op: "setProp", ID: "t1", Key: "text"},
-		"setProp unknown key":  {Op: "setProp", ID: "t1", Key: "onclick", Value: json.RawMessage(`"x"`)},
-		"setProp wrong type":   {Op: "setProp", ID: "h1", Key: "level", Value: json.RawMessage(`"1"`)},
-		"setProp comp no type": {Op: "setProp", ID: "k", Key: "type", Value: json.RawMessage(`null`)},
-		"setStyle missing":     {Op: "setStyle", ID: "nope", BP: "base", Key: "pt", Value: json.RawMessage(`"space-1"`)},
-		"setStyle bad bp":      {Op: "setStyle", ID: "h1", BP: "xl", Key: "pt", Value: json.RawMessage(`"space-1"`)},
-		"setStyle bad key":     {Op: "setStyle", ID: "h1", BP: "base", Key: "zzz", Value: json.RawMessage(`"space-1"`)},
-		"setStyle bad value":   {Op: "setStyle", ID: "h1", BP: "base", Key: "bg", Value: json.RawMessage(`"red;}"`)},
-		"setStyle not string":  {Op: "setStyle", ID: "h1", BP: "base", Key: "pt", Value: json.RawMessage(`5`)},
+		"setProp unknown key":  {Op: "setProp", ID: "t1", Key: "onclick", Value: jsontext.Value(`"x"`)},
+		"setProp wrong type":   {Op: "setProp", ID: "h1", Key: "level", Value: jsontext.Value(`"1"`)},
+		"setProp comp no type": {Op: "setProp", ID: "k", Key: "type", Value: jsontext.Value(`null`)},
+		"setStyle missing":     {Op: "setStyle", ID: "nope", BP: "base", Key: "pt", Value: jsontext.Value(`"space-1"`)},
+		"setStyle bad bp":      {Op: "setStyle", ID: "h1", BP: "xl", Key: "pt", Value: jsontext.Value(`"space-1"`)},
+		"setStyle bad key":     {Op: "setStyle", ID: "h1", BP: "base", Key: "zzz", Value: jsontext.Value(`"space-1"`)},
+		"setStyle bad value":   {Op: "setStyle", ID: "h1", BP: "base", Key: "bg", Value: jsontext.Value(`"red;}"`)},
+		"setStyle not string":  {Op: "setStyle", ID: "h1", BP: "base", Key: "pt", Value: jsontext.Value(`5`)},
 	}
 	for name, op := range bad {
 		d := opsFixture(t)
@@ -251,9 +253,9 @@ func randomOp(rng *rand.Rand, d *Doc, next *int) Op {
 		return Op{Op: "move", ID: pickID(), Parent: parent, Index: rng.IntN(n + 1)}
 	case 4:
 		vals := []string{`"y"`, `null`, `5`}
-		return Op{Op: "setProp", ID: pickID(), Key: "text", Value: json.RawMessage(vals[rng.IntN(3)])}
+		return Op{Op: "setProp", ID: pickID(), Key: "text", Value: jsontext.Value(vals[rng.IntN(3)])}
 	default:
 		vals := []string{`"space-3"`, `null`, `"12px"`, `"bad;}"`}
-		return Op{Op: "setStyle", ID: pickID(), BP: []string{"base", "md", "sm"}[rng.IntN(3)], Key: "pt", Value: json.RawMessage(vals[rng.IntN(4)])}
+		return Op{Op: "setStyle", ID: pickID(), BP: []string{"base", "md", "sm"}[rng.IntN(3)], Key: "pt", Value: jsontext.Value(vals[rng.IntN(4)])}
 	}
 }

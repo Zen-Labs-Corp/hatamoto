@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -18,6 +17,7 @@ import (
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/session"
 )
 
@@ -113,8 +113,11 @@ func (f *settingsSaveFixture) assertSaved(t *testing.T, wantLocale string) {
 	if err := f.srv.db.Pool().QueryRow(f.ctx, `SELECT language, x_default_locale, locales FROM hatamoto_site_config`).Scan(&lang, &xdef, &locales); err != nil {
 		t.Fatal(err)
 	}
-	var list []struct{ Tag, Segment string }
-	if err := json.Unmarshal(locales, &list); err != nil {
+	var list []struct {
+		Tag     string `json:"tag"`
+		Segment string `json:"segment"`
+	}
+	if err := jsonx.Unmarshal(locales, &list); err != nil {
 		t.Fatal(err)
 	}
 	if lang != "en-XX" || xdef != "en-XY" || len(list) != 2 || list[0].Tag != "en-XX" || list[1].Tag != "en-XY" || list[1].Segment != "yy" {

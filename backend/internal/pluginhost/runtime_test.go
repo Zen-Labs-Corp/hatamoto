@@ -3,7 +3,7 @@ package pluginhost
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"log/slog"
 	"os"
@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -220,7 +221,7 @@ func TestLoadDirIsolatesBadPlugins(t *testing.T) {
 			os.WriteFile(filepath.Join(d, WasmFile), wasm, 0o644)
 		}
 	}
-	good, _ := json.Marshal(sdk.Manifest{Name: "good", Version: "1.0.0", SDK: "^0.5"})
+	good, _ := jsonx.MarshalPinned(sdk.Manifest{Name: "good", Version: "1.0.0", SDK: "^0.5"})
 	mk("good", string(good), hostileWasm)
 	mk("badjson", `{nope`, hostileWasm)
 	mk("nowasm", `{"name":"nowasm","version":"1.0.0","sdk":"^0.5"}`, nil)
@@ -345,8 +346,8 @@ func TestShapeLimits(t *testing.T) {
 // A guest that returns only what it changed must not wipe the other fields.
 func TestPartialOutputKeepsOtherFields(t *testing.T) {
 	draft := sdk.EntityDraft{Operation: "update", SchemaSlug: "post", Name: "Old", Slug: "old",
-		Attributes: json.RawMessage(`{"body":"keep me"}`)}
-	in, _ := json.Marshal(draft)
+		Attributes: jsontext.Value(`{"body":"keep me"}`)}
+	in, _ := jsonx.MarshalPinned(draft)
 	got, err := decodeOutput(draft, in, []byte(`{"name":"New title"}`))
 	if err != nil {
 		t.Fatal(err)
@@ -373,7 +374,7 @@ func TestReloadDoesNotDuplicateHooks(t *testing.T) {
 	// A failed re-load keeps the old module running and says so.
 	bad, _ := os.ReadFile(filepath.Join(helloDir, ManifestFile))
 	var m sdk.Manifest
-	_ = json.Unmarshal(bad, &m)
+	_ = jsonx.UnmarshalPinned(bad, &m)
 	st := rt.Load(context.Background(), m, []byte("not wasm"))
 	if !st.Loaded || !strings.Contains(st.Error, "reload failed") {
 		t.Fatalf("failed reload status: %+v", st)

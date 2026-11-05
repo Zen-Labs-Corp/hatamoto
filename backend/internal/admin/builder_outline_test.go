@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,6 +13,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const outlineDoc = `{"v":2,"nodes":[
@@ -35,7 +36,7 @@ func newOutlineRig(t *testing.T) *outlineRig {
 }
 
 func (r *outlineRig) setDoc(doc string) {
-	r.ents.ents[r.page.ID].Attributes = json.RawMessage(`{"title":"T","page_doc":` + doc + `}`)
+	r.ents.ents[r.page.ID].Attributes = jsontext.Value(`{"title":"T","page_doc":` + doc + `}`)
 }
 
 func (r *outlineRig) entity() *entity.Entity { return r.ents.ents[r.page.ID] }
@@ -173,8 +174,8 @@ func TestOutlineRoundTrip(t *testing.T) {
 		}
 		d := r.doc(t)
 		want, _ := builder.Parse([]byte(outlineDoc))
-		a, _ := json.Marshal(d)
-		b, _ := json.Marshal(want)
+		a, _ := jsonx.Marshal(d)
+		b, _ := jsonx.Marshal(want)
 		if string(a) != string(b) {
 			t.Errorf("doc changed:\n%s\n%s\nbefore %s", a, b, before)
 		}
@@ -277,7 +278,7 @@ func TestOutlineRoundTrip(t *testing.T) {
 			got += len(p.C)
 		}
 		if got != 1 {
-			t.Errorf("want 1 divider inside the panels, got %d: %s", got, func() string { b, _ := json.Marshal(tabs); return string(b) }())
+			t.Errorf("want 1 divider inside the panels, got %d: %s", got, func() string { b, _ := jsonx.Marshal(tabs); return string(b) }())
 		}
 		if err := d.Validate(); err != nil {
 			t.Error(err)
@@ -320,23 +321,23 @@ func TestOutlineMatchesJSONPath(t *testing.T) {
 	cf.Set("prev", prev)
 	_, dec := b.component(t, cf)
 	doc := b.doc(t)
-	content, _ := json.Marshal(dec.Content)
+	content, _ := jsonx.Marshal(dec.Content)
 	for _, op := range []builder.Op{
-		{Op: "setProp", ID: "h1", Key: "text", Value: json.RawMessage(`"Same edit"`)},
-		{Op: "setProp", ID: "h1", Key: "level", Value: json.RawMessage(`4`)},
+		{Op: "setProp", ID: "h1", Key: "text", Value: jsontext.Value(`"Same edit"`)},
+		{Op: "setProp", ID: "h1", Key: "level", Value: jsontext.Value(`4`)},
 		{Op: "setProp", ID: "s1", Key: "content", Value: content},
 	} {
 		if _, err := doc.Apply(op); err != nil {
 			t.Fatal(err)
 		}
 	}
-	raw, _ := json.Marshal(doc)
+	raw, _ := jsonx.Marshal(doc)
 	if code, out := b.save(t, b.page, saveBody(1, string(raw), "save", "")); code != 200 || !out.OK {
 		t.Fatalf("json save: %d %+v", code, out)
 	}
 
-	got, _ := json.Marshal(a.doc(t))
-	want, _ := json.Marshal(b.doc(t))
+	got, _ := jsonx.Marshal(a.doc(t))
+	want, _ := jsonx.Marshal(b.doc(t))
 	if string(got) != string(want) {
 		t.Errorf("outline and JSON paths differ:\n%s\n%s", got, want)
 	}

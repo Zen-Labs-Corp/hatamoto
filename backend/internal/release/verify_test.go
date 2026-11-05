@@ -2,13 +2,13 @@ package release
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"io"
 	"strings"
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 )
 
@@ -166,7 +166,7 @@ func TestVerifyArtifactOverCap(t *testing.T) {
 func TestVerifyRecordVersionMismatch(t *testing.T) {
 	f := newFixture(t)
 	var rec Record
-	if err := json.Unmarshal(f.record, &rec); err != nil {
+	if err := jsonx.UnmarshalPinned(f.record, &rec); err != nil {
 		t.Fatal(err)
 	}
 	rec.Version = "v9.9.9"
@@ -324,7 +324,7 @@ func TestVerifyRefusesNonCanonicalVersions(t *testing.T) {
 	}
 	// A signed record whose floor is not canonical.
 	var rec Record
-	if err := json.Unmarshal(f.record, &rec); err != nil {
+	if err := jsonx.UnmarshalPinned(f.record, &rec); err != nil {
 		t.Fatal(err)
 	}
 	for _, edit := range []func(*Record){
@@ -353,12 +353,12 @@ func TestRecordSDKCompatibleWithIsAdditive(t *testing.T) {
 	rec.SDKCompatibleWith = []string{"0.9.0"}
 	with, _ := MarshalRecord(rec)
 	var got Record
-	if err := json.Unmarshal(with, &got); err != nil || len(got.SDKCompatibleWith) != 1 {
+	if err := jsonx.UnmarshalPinned(with, &got); err != nil || len(got.SDKCompatibleWith) != 1 {
 		t.Fatalf("round trip: %+v, %v", got, err)
 	}
 	// An older binary's view of the record (no such field) still decodes it.
 	var old struct{ Version, SDK string }
-	if err := json.Unmarshal(with, &old); err != nil || old.SDK != "0.10.0" {
+	if err := jsonx.UnmarshalPinned(with, &old); err != nil || old.SDK != "0.10.0" {
 		t.Fatalf("older reader: %+v, %v", old, err)
 	}
 }

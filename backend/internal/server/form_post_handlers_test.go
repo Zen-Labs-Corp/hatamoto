@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // fakeFormRepo implements only what public submissions touch; the embedded
@@ -156,7 +156,7 @@ func TestFormSubmit_JSONUnchanged(t *testing.T) {
 	}
 	rec := do("contact", `{"name":"Ada"}`)
 	var body map[string]any
-	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	_ = jsonx.Unmarshal(rec.Body.Bytes(), &body)
 	if rec.Code != http.StatusCreated || body["success"] != true || body["message"] != "Thanks" ||
 		body["redirect_url"] != "/thanks" || body["submission_id"] == "" || len(repo.subs) != 1 {
 		t.Fatalf("success: %d %s", rec.Code, rec.Body.String())
@@ -214,7 +214,7 @@ func TestFormSubmit_ValidationBothContentTypes(t *testing.T) {
 			var body struct {
 				Fields map[string]string `json:"fields"`
 			}
-			_ = json.Unmarshal(rec.Body.Bytes(), &body)
+			_ = jsonx.Unmarshal(rec.Body.Bytes(), &body)
 			if body.Fields[c.field] == "" {
 				t.Errorf("%s: no error for %s in %s", name, c.field, rec.Body.String())
 			}
@@ -261,7 +261,7 @@ func TestFormSubmit_HoneypotBothContentTypes(t *testing.T) {
 	} {
 		rec := do("contact", c.ct, c.body)
 		var body map[string]any
-		_ = json.Unmarshal(rec.Body.Bytes(), &body)
+		_ = jsonx.Unmarshal(rec.Body.Bytes(), &body)
 		if rec.Code != http.StatusCreated || body["success"] != true || body["message"] != "Thanks" ||
 			body["redirect_url"] != "/thanks" || body["submission_id"] == "" {
 			t.Errorf("%s: %d %s", name, rec.Code, rec.Body.String())

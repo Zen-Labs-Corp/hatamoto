@@ -2,7 +2,7 @@ package wpimport
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/safefetch"
 )
 
@@ -114,15 +115,15 @@ func TestPagedFollowsTotalPages(t *testing.T) {
 		for i := range items {
 			items[i] = map[string]any{"id": pn*1000 + i}
 		}
-		_ = json.NewEncoder(w).Encode(items)
+		_ = jsonx.Encode(w, items)
 	}))
 	defer srv.Close()
 	c, _ := NewClient(ClientOptions{URL: srv.URL, AllowPrivate: true, RatePerSec: 1000})
 	n := 0
-	if err := c.Paged(context.Background(), "/wp/v2/posts", nil, 1000, func(json.RawMessage) error { n++; return nil }); err != nil || n != 205 {
+	if err := c.Paged(context.Background(), "/wp/v2/posts", nil, 1000, func(jsontext.Value) error { n++; return nil }); err != nil || n != 205 {
 		t.Errorf("n=%d err=%v", n, err)
 	}
-	if err := c.Paged(context.Background(), "/wp/v2/posts", nil, 150, func(json.RawMessage) error { return nil }); err == nil {
+	if err := c.Paged(context.Background(), "/wp/v2/posts", nil, 150, func(jsontext.Value) error { return nil }); err == nil {
 		t.Error("item cap not enforced")
 	}
 }
@@ -173,7 +174,7 @@ func pagedServer(t *testing.T, totalPages string, hits *atomic.Int32, vary bool)
 		for i := range items {
 			items[i] = map[string]int{"id": base + i}
 		}
-		_ = json.NewEncoder(w).Encode(items)
+		_ = jsonx.Encode(w, items)
 	}))
 	t.Cleanup(srv.Close)
 	return srv
@@ -192,7 +193,7 @@ func TestPagedStopsWhenSiteIgnoresPageParameter(t *testing.T) {
 	var hits atomic.Int32
 	srv := pagedServer(t, "", &hits, false)
 	var got int
-	err := pagedClient(t, srv.URL).Paged(context.Background(), "/wp/v2/media", nil, 100000, func(json.RawMessage) error { got++; return nil })
+	err := pagedClient(t, srv.URL).Paged(context.Background(), "/wp/v2/media", nil, 100000, func(jsontext.Value) error { got++; return nil })
 	if !errors.Is(err, ErrPagination) {
 		t.Fatalf("err = %v, want ErrPagination", err)
 	}
@@ -204,14 +205,14 @@ func TestPagedStopsWhenSiteIgnoresPageParameter(t *testing.T) {
 func TestPagedPageCeilingAndInflatedHeader(t *testing.T) {
 	var hits atomic.Int32
 	srv := pagedServer(t, "", &hits, true) // endless, distinct pages, no total header
-	err := pagedClient(t, srv.URL).Paged(context.Background(), "/x", nil, 100000, func(json.RawMessage) error { return nil })
+	err := pagedClient(t, srv.URL).Paged(context.Background(), "/x", nil, 100000, func(jsontext.Value) error { return nil })
 	if !errors.Is(err, ErrPagination) || hits.Load() != 50 {
 		t.Fatalf("err=%v hits=%d, want ErrPagination after 50 pages", err, hits.Load())
 	}
 
 	hits.Store(0)
 	srv2 := pagedServer(t, "9999999", &hits, true)
-	err = pagedClient(t, srv2.URL).Paged(context.Background(), "/x", nil, 100000, func(json.RawMessage) error { return nil })
+	err = pagedClient(t, srv2.URL).Paged(context.Background(), "/x", nil, 100000, func(jsontext.Value) error { return nil })
 	if !errors.Is(err, ErrPagination) || hits.Load() != 1 {
 		t.Fatalf("inflated header: err=%v hits=%d, want failure on the first page", err, hits.Load())
 	}
@@ -222,13 +223,13 @@ func TestPagedItemCapIsNeverUnlimited(t *testing.T) {
 	srv := pagedServer(t, "", &hits, true)
 	c := pagedClient(t, srv.URL)
 	got := 0
-	err := c.Paged(context.Background(), "/x", nil, 250, func(json.RawMessage) error { got++; return nil })
+	err := c.Paged(context.Background(), "/x", nil, 250, func(jsontext.Value) error { got++; return nil })
 	if err == nil || got != 250 {
 		t.Fatalf("err=%v items=%d, want an error after exactly 250", err, got)
 	}
 	// A cap of zero (the budget is used up) allows no item at all.
 	got = 0
-	if err := c.Paged(context.Background(), "/x", nil, 0, func(json.RawMessage) error { got++; return nil }); err == nil || got != 0 {
+	if err := c.Paged(context.Background(), "/x", nil, 0, func(jsontext.Value) error { got++; return nil }); err == nil || got != 0 {
 		t.Fatalf("zero cap: err=%v items=%d", err, got)
 	}
 }

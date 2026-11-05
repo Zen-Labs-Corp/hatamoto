@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/url"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // fakeTraffic serves fixed rollups; prevFail makes every read of an earlier period fail.
@@ -175,7 +175,7 @@ func TestTrafficJSONShape(t *testing.T) {
 	if status != 200 || msg != "" {
 		t.Fatalf("status %d %q", status, msg)
 	}
-	b, err := json.Marshal(v)
+	b, err := jsonx.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +189,7 @@ func TestTrafficJSONShape(t *testing.T) {
 			Previous *struct{ Datasets []struct{ Label string } }
 		}
 	}
-	if err := json.Unmarshal(b, &got); err != nil {
+	if err := jsonx.Unmarshal(b, &got, jsonx.StoredLoose); err != nil {
 		t.Fatal(err)
 	}
 	c, ok := got.Charts["channels"]

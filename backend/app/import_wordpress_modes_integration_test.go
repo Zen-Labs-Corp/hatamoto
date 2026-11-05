@@ -4,7 +4,7 @@ package app
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"strings"
 	"testing"
@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/server"
 	"hatamoto.dev/core/internal/wpimport"
@@ -49,7 +50,7 @@ func (r *wpRig) publish(schema, slug, name string, attrs map[string]any) {
 	if err != nil {
 		r.t.Fatal(err)
 	}
-	raw, _ := json.Marshal(attrs)
+	raw, _ := jsonx.Marshal(attrs)
 	e, err := r.deps.Entities.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: sc.ID, Name: name, Slug: slug, Attributes: raw})
 	if err != nil {
 		r.t.Fatal(err)
@@ -76,7 +77,7 @@ func TestWordPressImportEmptySite_Integration(t *testing.T) {
 	if sc, err := r.deps.Entities.GetSchemaBySlug(r.ctx, "person"); err != nil {
 		t.Fatal(err)
 	} else if e, err := r.deps.Entities.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: sc.ID, Name: "Site Owner", Slug: "site-owner",
-		Attributes: json.RawMessage(`{"public": true, "photo": "/media/owner.jpg"}`)}); err != nil {
+		Attributes: jsontext.Value(`{"public": true, "photo": "/media/owner.jpg"}`)}); err != nil {
 		t.Fatal(err)
 	} else if e.Status != entity.StatusPublished {
 		t.Fatalf("a public person is %s, want published", e.Status)

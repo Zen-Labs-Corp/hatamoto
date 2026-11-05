@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"os"
@@ -21,6 +20,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/render"
 )
@@ -102,7 +102,7 @@ func TestMenuSeedIntegration(t *testing.T) {
 		var out []render.NavItem
 		for _, p := range pages.Items {
 			var attrs map[string]any
-			_ = json.Unmarshal(p.Attributes, &attrs)
+			_ = jsonx.Unmarshal(p.Attributes, &attrs)
 			if attrs["hide_from_nav"] == true {
 				continue
 			}

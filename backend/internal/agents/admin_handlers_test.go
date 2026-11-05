@@ -2,7 +2,6 @@ package agents
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // fakeAdminStore returns nil slices on purpose: handlers must still emit [].
@@ -122,7 +122,7 @@ func TestAdminArraysNeverNull(t *testing.T) {
 			t.Errorf("%s: contains null: %s", u, rr.Body)
 		}
 		var m map[string]any
-		if err := json.Unmarshal(rr.Body.Bytes(), &m); err != nil {
+		if err := jsonx.Unmarshal(rr.Body.Bytes(), &m); err != nil {
 			t.Fatal(err)
 		}
 		for k, v := range m {
@@ -133,14 +133,14 @@ func TestAdminArraysNeverNull(t *testing.T) {
 	}
 	// overview/detail legitimately carry null scalars (verified_percent); arrays must be [].
 	var ov map[string]any
-	_ = json.Unmarshal(get(t, h, "/overview").Body.Bytes(), &ov)
+	_ = jsonx.Unmarshal(get(t, h, "/overview").Body.Bytes(), &ov)
 	for _, k := range []string{"series", "top_agents"} {
 		if _, ok := ov[k].([]any); !ok {
 			t.Errorf("overview %s = %v, want []", k, ov[k])
 		}
 	}
 	var det map[string]any
-	_ = json.Unmarshal(get(t, h, "/agents/gptbot").Body.Bytes(), &det)
+	_ = jsonx.Unmarshal(get(t, h, "/agents/gptbot").Body.Bytes(), &det)
 	for _, k := range []string{"series", "top_paths", "by_status"} {
 		if _, ok := det[k].([]any); !ok {
 			t.Errorf("detail %s = %v, want []", k, det[k])
@@ -163,7 +163,7 @@ func TestAdminOverviewShape(t *testing.T) {
 		} `json:"totals"`
 		Dropped uint64 `json:"dropped_hits"`
 	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+	if err := jsonx.Unmarshal(rr.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
 	if got.Group != "purpose" || f.gotGroup != "purpose" {
@@ -315,7 +315,7 @@ func TestAdminEntityActivity(t *testing.T) {
 			Status *int       `json:"last_status"`
 		} `json:"agents"`
 	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+	if err := jsonx.Unmarshal(rr.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
 	if got.Latency == nil || *got.Latency != 3*3600 || got.D7 != 12 || got.D30 != 41 {

@@ -2,13 +2,13 @@ package wpimport
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -113,7 +113,7 @@ func TestSEOPhaseIsSourceUpload(t *testing.T) {
 }
 
 func TestSEORowJSONShape(t *testing.T) {
-	b, err := json.Marshal(SEORow{Key: "k", Label: "L", Value: "v"})
+	b, err := jsonx.Marshal(SEORow{Key: "k", Label: "L", Value: "v"})
 	if err != nil || string(b) != `{"key":"k","label":"L","value":"v"}` {
 		t.Errorf("%s %v", b, err)
 	}
@@ -147,5 +147,13 @@ func TestSEOPhaseDroppingAdminLinesAlsoDropsEmptyUserAgentGroup(t *testing.T) {
 	s := applyPlan(t, plan)
 	if got := strings.Join(s.Robots.ExtraLines, "|"); got != "User-agent: *|Disallow: /private/" {
 		t.Errorf("robots = %q", got)
+	}
+}
+
+func TestCustomCSSValueEscapesHTML(t *testing.T) {
+	got := string(customCSSValue("a>b{content:\"</style>&\"}"))
+	want := `"a\u003eb{content:\"\u003c/style\u003e\u0026\"}"`
+	if got != want {
+		t.Errorf("customCSSValue = %s, want %s", got, want)
 	}
 }

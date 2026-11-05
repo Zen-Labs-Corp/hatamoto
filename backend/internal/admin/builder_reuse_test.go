@@ -1,13 +1,14 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -39,7 +40,7 @@ func (r *reuseRig) getJSON(t *testing.T, token, path string, into any) int {
 	t.Helper()
 	rec := r.do("GET", path, token, nil, nil)
 	if into != nil && rec.Body.Len() > 0 {
-		if err := json.Unmarshal(rec.Body.Bytes(), into); err != nil {
+		if err := jsonx.Unmarshal(rec.Body.Bytes(), into); err != nil {
 			t.Fatalf("%s: %v: %q", path, err, rec.Body)
 		}
 	}
@@ -117,7 +118,7 @@ func TestBlockShellListsUsage(t *testing.T) {
 	t.Parallel()
 
 	r := newReuseRig(t)
-	r.page.Attributes = json.RawMessage(`{"page_doc":` + refDoc(r.block.ID.String()) + `}`)
+	r.page.Attributes = jsontext.Value(`{"page_doc":` + refDoc(r.block.ID.String()) + `}`)
 	body := r.get(t, "owner-token", r.url(r.block, "/edit"), "")
 	has(t, body, "Used on 1 page", `<a href="/admin/entities/`+r.page.ID.String()+`/edit">Builder only</a>`, "Missing block")
 }
@@ -202,7 +203,7 @@ func TestMakeBlock(t *testing.T) {
 	post := func(token, body string) (int, map[string]string) {
 		rec := r.postJSON(r.url(r.page, "/builder/block"), token, body, nil)
 		var m map[string]string
-		_ = json.Unmarshal(rec.Body.Bytes(), &m)
+		_ = jsonx.Unmarshal(rec.Body.Bytes(), &m)
 		return rec.Code, m
 	}
 	before := string(r.page.Attributes)
@@ -282,7 +283,7 @@ func TestBlockListNodesAndUsage(t *testing.T) {
 		t.Errorf("bad id: %d", code)
 	}
 
-	r.page.Attributes = json.RawMessage(`{"page_doc":` + refDoc(r.block.ID.String()) + `}`)
+	r.page.Attributes = jsontext.Value(`{"page_doc":` + refDoc(r.block.ID.String()) + `}`)
 	r.ents.addEntity(85, r.ents.schemaOf(fid(2)), "Text only", "text-only", entity.StatusDraft, `{"body":"`+r.block.ID.String()+`"}`, t0)
 	var use struct {
 		Users  []usageItem `json:"users"`

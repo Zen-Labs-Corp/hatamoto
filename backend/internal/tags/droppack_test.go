@@ -2,11 +2,11 @@ package tags
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type fakeRow struct{ raw []byte }
@@ -24,7 +24,7 @@ func (f *fakeDB) Exec(_ context.Context, _ string, args ...any) (pgconn.CommandT
 }
 
 func TestDropPackRemovesOnlyThatPluginsKeys(t *testing.T) {
-	raw, _ := json.Marshal(Settings{Vendors: map[string]VendorState{
+	raw, _ := jsonx.Marshal(Settings{Vendors: map[string]VendorState{
 		"acme.stats":  {Enabled: true, ID: "123456"},
 		"acme.pixel":  {ID: "999999"},
 		"acmex.stats": {Enabled: true, ID: "111111"},

@@ -2,7 +2,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"log/slog"
@@ -56,7 +56,7 @@ func newSinkRig(t *testing.T) (*entity.Service, *hooks.Engine, *sinkSchemaRepo) 
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	engine := hooks.New(log)
-	schema := &entity.EntitySchema{ID: uuid.New(), Slug: "post", Name: "Post", Schema: json.RawMessage(`{"type":"object"}`)}
+	schema := &entity.EntitySchema{ID: uuid.New(), Slug: "post", Name: "Post", Schema: jsontext.Value(`{"type":"object"}`)}
 	sr := &sinkSchemaRepo{schema: schema}
 	svc := entity.NewService(sr, &sinkEntityRepo{}, log)
 	svc.SetEvents(NewEntitySink(engine, log))
@@ -77,7 +77,7 @@ func TestPublishFiresActionOnce(t *testing.T) {
 		got = append(got, ev)
 	})
 
-	ent, err := svc.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: sr.schema.ID, Name: "Hello", Attributes: json.RawMessage(`{}`)})
+	ent, err := svc.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: sr.schema.ID, Name: "Hello", Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestCreateAndDeleteFireActions(t *testing.T) {
 	}
 	hooks.OnAction(engine.For("test"), sdk.EntityCreated, 10, rec("created"))
 	hooks.OnAction(engine.For("test"), sdk.EntityDeleted, 10, rec("deleted"))
-	ent, err := svc.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: sr.schema.ID, Name: "A", Attributes: json.RawMessage(`{}`)})
+	ent, err := svc.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: sr.schema.ID, Name: "A", Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestBeforeSaveFilterRewritesAndRejects(t *testing.T) {
 	svc, engine, sr := newSinkRig(t)
 	ctx := context.Background()
 	in := func() *entity.CreateEntityInput {
-		return &entity.CreateEntityInput{SchemaID: sr.schema.ID, Name: "Orig", Attributes: json.RawMessage(`{}`)}
+		return &entity.CreateEntityInput{SchemaID: sr.schema.ID, Name: "Orig", Attributes: jsontext.Value(`{}`)}
 	}
 
 	hooks.OnFilter(engine.For("rewrite"), sdk.EntityBeforeSave, 10, func(_ context.Context, d sdk.EntityDraft) (sdk.EntityDraft, error) {
@@ -156,7 +156,7 @@ func TestBeforeSaveNonRejectErrorFailsOpen(t *testing.T) {
 		return d, errors.New("backend down")
 	})
 	ent, err := svc.CreateEntity(context.Background(), nil,
-		&entity.CreateEntityInput{SchemaID: sr.schema.ID, Name: "Orig", Attributes: json.RawMessage(`{}`)})
+		&entity.CreateEntityInput{SchemaID: sr.schema.ID, Name: "Orig", Attributes: jsontext.Value(`{}`)})
 	if err != nil || ent.Name != "Orig" {
 		t.Fatalf("want save to proceed unchanged, ent=%+v err=%v", ent, err)
 	}
@@ -178,7 +178,7 @@ func TestBeforeSaveSeesDerivedSections(t *testing.T) {
 		d.Name = "Renamed" // an edit elsewhere must not drag the derived sections in
 		return d, nil
 	})
-	in := &entity.BeforeSaveInput{Operation: "update", SchemaSlug: "page", Name: "N", Attributes: json.RawMessage(sinkStored)}
+	in := &entity.BeforeSaveInput{Operation: "update", SchemaSlug: "page", Name: "N", Attributes: jsontext.Value(sinkStored)}
 	if err := BeforeSave(engine)(context.Background(), in); err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func TestBeforeSaveSeesDerivedSections(t *testing.T) {
 	if containsAll(string(seen.Attributes), `"stale"`) {
 		t.Fatalf("hook saw the frozen mirror: %s", seen.Attributes)
 	}
-	if !jsonEqual(in.Attributes, json.RawMessage(sinkStored)) || in.Name != "Renamed" {
+	if !jsonEqual(in.Attributes, jsontext.Value(sinkStored)) || in.Name != "Renamed" {
 		t.Fatalf("untouched sections must come back as stored: %s", in.Attributes)
 	}
 }
@@ -205,9 +205,9 @@ func containsAll(s string, subs ...string) bool {
 // A hook that edits page_sections keeps its edit in the output (the service
 // seam then discards it); the helper only undoes the unedited derived view.
 func TestKeepStoredSectionsKeepsRealEdit(t *testing.T) {
-	stored := json.RawMessage(sinkStored)
+	stored := jsontext.Value(sinkStored)
 	shown := entity.DerivedAttributes(stored)
-	edited := json.RawMessage(`{"page_doc":` + sinkDoc + `,"page_sections":[]}`)
+	edited := jsontext.Value(`{"page_doc":` + sinkDoc + `,"page_sections":[]}`)
 	if out := keepStoredSections(stored, shown, edited); !jsonEqual(out, edited) {
 		t.Fatalf("a real edit was undone: %s", out)
 	}
@@ -218,12 +218,12 @@ func TestKeepStoredSectionsKeepsRealEdit(t *testing.T) {
 func TestEntityDTODerivesSections(t *testing.T) {
 	a := &API{}
 	sc := &entity.EntitySchema{Slug: "page"}
-	dto := a.entityDTO(context.Background(), &entity.Entity{ID: uuid.New(), Schema: sc, Attributes: json.RawMessage(sinkStored)})
+	dto := a.entityDTO(context.Background(), &entity.Entity{ID: uuid.New(), Schema: sc, Attributes: jsontext.Value(sinkStored)})
 	if !containsAll(string(dto.Attributes), `"fresh"`) || containsAll(string(dto.Attributes), `"stale"`) {
 		t.Errorf("v1 doc: attributes = %s", dto.Attributes)
 	}
 	builderOnly := `{"page_doc":{"v":2,"nodes":[{"id":"r","t":"container","p":{"tag":"div"}}]},"page_sections":` + sinkStale + `}`
-	dto = a.entityDTO(context.Background(), &entity.Entity{ID: uuid.New(), Schema: sc, Attributes: json.RawMessage(builderOnly)})
+	dto = a.entityDTO(context.Background(), &entity.Entity{ID: uuid.New(), Schema: sc, Attributes: jsontext.Value(builderOnly)})
 	if containsAll(string(dto.Attributes), "page_sections") || !containsAll(string(dto.Attributes), "page_doc") {
 		t.Errorf("builder-only: attributes = %s", dto.Attributes)
 	}
@@ -282,7 +282,7 @@ func TestBeforeSaveDraftCarriesLocale(t *testing.T) {
 		return d, nil
 	})
 	if _, err := svc.CreateEntity(context.Background(), nil,
-		&entity.CreateEntityInput{SchemaID: sr.schema.ID, Name: "Orig", Locale: "FR", Attributes: json.RawMessage(`{}`)}); err != nil {
+		&entity.CreateEntityInput{SchemaID: sr.schema.ID, Name: "Orig", Locale: "FR", Attributes: jsontext.Value(`{}`)}); err != nil {
 		t.Fatal(err)
 	}
 	if len(seen) != 1 || seen[0] != "fr" {

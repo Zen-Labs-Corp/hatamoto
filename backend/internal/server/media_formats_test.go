@@ -2,23 +2,24 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
-type fakeThemeExtra struct{ extra map[string]json.RawMessage }
+type fakeThemeExtra struct{ extra map[string]jsontext.Value }
 
 func (f *fakeThemeExtra) Get(context.Context) (*siteconfig.Config, error) {
-	raw, _ := json.Marshal(f.extra)
+	raw, _ := jsonx.Marshal(f.extra)
 	return &siteconfig.Config{ThemeExtra: raw}, nil
 }
 
-func (f *fakeThemeExtra) PatchThemeExtra(_ context.Context, key string, raw json.RawMessage) error {
+func (f *fakeThemeExtra) PatchThemeExtra(_ context.Context, key string, raw jsontext.Value) error {
 	if f.extra == nil {
-		f.extra = map[string]json.RawMessage{}
+		f.extra = map[string]jsontext.Value{}
 	}
 	f.extra[key] = raw
 	return nil
@@ -26,7 +27,7 @@ func (f *fakeThemeExtra) PatchThemeExtra(_ context.Context, key string, raw json
 
 func TestMediaFormatStoreKeepsSettingsAndStateApart(t *testing.T) {
 	ctx := context.Background()
-	f := &fakeThemeExtra{extra: map[string]json.RawMessage{"builder": json.RawMessage(`{"x":1}`)}}
+	f := &fakeThemeExtra{extra: map[string]jsontext.Value{"builder": jsontext.Value(`{"x":1}`)}}
 	st := mediaFormatStore{site: f}
 
 	set, state, err := st.Load(ctx)

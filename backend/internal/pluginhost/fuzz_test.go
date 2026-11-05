@@ -2,9 +2,9 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -38,7 +38,7 @@ func FuzzHostCall(f *testing.F) {
 	f.Add([]byte(``))
 	f.Fuzz(func(t *testing.T, in []byte) {
 		var resp sdk.CallResponse
-		if err := json.Unmarshal(a.Call(context.Background(), "p", in), &resp); err != nil {
+		if err := jsonx.UnmarshalPinned(a.Call(context.Background(), "p", in), &resp); err != nil {
 			t.Fatalf("the answer is not a CallResponse: %v", err)
 		}
 		if resp.OK == (resp.Error != nil) {

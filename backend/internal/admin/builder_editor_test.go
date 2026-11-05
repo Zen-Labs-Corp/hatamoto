@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -42,7 +43,7 @@ func TestBuilderDocStates(t *testing.T) {
 		{`{"page_sections":[{"id":"a","type":"html","content":{}}]}`, docNone},
 	}
 	for _, c := range cases {
-		if _, got := builderDoc(&entity.Entity{Attributes: json.RawMessage(c.attrs)}); got != c.want {
+		if _, got := builderDoc(&entity.Entity{Attributes: jsontext.Value(c.attrs)}); got != c.want {
 			t.Errorf("builderDoc(%s) = %d, want %d", c.attrs, got, c.want)
 		}
 	}
@@ -53,7 +54,7 @@ func TestEditorChoiceByPageDoc(t *testing.T) {
 
 	r := newEditorRig(t)
 	get := func(attrs string) (int, string) {
-		r.ent.Attributes = json.RawMessage(attrs)
+		r.ent.Attributes = jsontext.Value(attrs)
 		rec := r.do("GET", r.path(), "owner-token", nil, nil)
 		return rec.Code, rec.Body.String()
 	}
@@ -82,7 +83,7 @@ func TestBuilderBarSaveStateAndMenu(t *testing.T) {
 	t.Parallel()
 
 	r := newEditorRig(t)
-	r.ent.Attributes = json.RawMessage(builderOnlyDoc)
+	r.ent.Attributes = jsontext.Value(builderOnlyDoc)
 	body := r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
 	has(t, body, `data-hm-bs-state`, `class="hm-savestate" data-state="saved"`, `<span class="hm-savestate__text">Saved</span>`,
 		`popovertarget="bs-more"`, `data-hm-post="/admin/entities/`+r.ent.ID.String()+`/delete"`,
@@ -107,7 +108,7 @@ func TestBuilderBarPreview(t *testing.T) {
 	r := newEditorRig(t)
 	r.a.deps.Content.PublicPath = func(_ context.Context, e *entity.Entity) string { return "/" + e.Slug }
 	r.ent.Status = entity.StatusPublished
-	r.ent.Attributes = json.RawMessage(builderOnlyDoc)
+	r.ent.Attributes = jsontext.Value(builderOnlyDoc)
 	body := r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
 	has(t, body, `href="/`+r.ent.Slug+`" aria-label="Preview" data-hm-bs-preview="" rel="noopener" target="_blank" title="Preview the live page"`, `data-hm-bs-proxy="[data-hm-bs-preview]">Preview</button>`)
 	lacks(t, body, `title="Publish to view"`)
@@ -131,7 +132,7 @@ func TestBuilderUpdateLabelMatchesBarAndOutline(t *testing.T) {
 
 	r := newEditorRig(t)
 	r.ent.Status = entity.StatusPublished
-	r.ent.Attributes = json.RawMessage(builderOnlyDoc)
+	r.ent.Attributes = jsontext.Value(builderOnlyDoc)
 	body := r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
 	if n := strings.Count(body, "<span>Update</span>"); n != 2 {
 		t.Errorf("%d Update buttons, want 2 (bar and outline)", n)
@@ -143,7 +144,7 @@ func TestPostForDocPageReachesBuilderHandler(t *testing.T) {
 	t.Parallel()
 
 	r := newEditorRig(t)
-	r.ent.Attributes = json.RawMessage(builderOnlyDoc)
+	r.ent.Attributes = jsontext.Value(builderOnlyDoc)
 	rec := r.post(r.path(), url.Values{"version": {"1"}, "_op": {"save"}})
 	if rec.Code != http.StatusFound && rec.Code != http.StatusSeeOther {
 		t.Fatalf("doc page POST = %d, want the builder handler to save and redirect", rec.Code)
@@ -153,7 +154,7 @@ func TestPostForDocPageReachesBuilderHandler(t *testing.T) {
 	}
 
 	// A page with only sections is saved by the same handler, on its conversion.
-	r.ent.Attributes = json.RawMessage(`{"page_sections":[{"id":"a","type":"html","content":{"html":"<p>x</p>"},"sort_order":0}]}`)
+	r.ent.Attributes = jsontext.Value(`{"page_sections":[{"id":"a","type":"html","content":{"html":"<p>x</p>"},"sort_order":0}]}`)
 	if rec := r.post(r.path(), url.Values{"version": {"1"}, "_op": {"save"}}); rec.Code != http.StatusFound && rec.Code != http.StatusSeeOther {
 		t.Fatalf("sections-only page POST = %d, want the builder handler to save and redirect", rec.Code)
 	}
@@ -168,7 +169,7 @@ func TestNewDraftAttributes(t *testing.T) {
 		if rec.Code != http.StatusSeeOther {
 			t.Fatalf("%s draft: %d", typ, rec.Code)
 		}
-		var got json.RawMessage
+		var got jsontext.Value
 		for _, e := range r.ents.ents {
 			if strings.HasPrefix(e.Name, "Untitled "+typ) {
 				got = e.Attributes
@@ -180,13 +181,13 @@ func TestNewDraftAttributes(t *testing.T) {
 	}
 
 	// The first save of the empty doc keeps the page_sections mirror empty.
-	stored := json.RawMessage(`{"page_doc":{"v":2,"nodes":[]}}`)
+	stored := jsontext.Value(`{"page_doc":{"v":2,"nodes":[]}}`)
 	out, err := entity.NormalizeAttributes(stored, stored)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(out, &m); err != nil {
+	var m map[string]jsontext.Value
+	if err := jsonx.Unmarshal(out, &m, jsonx.StoredLoose); err != nil {
 		t.Fatal(err)
 	}
 	if s := strings.TrimSpace(string(m["page_sections"])); s != "" && s != "[]" && s != "null" {
@@ -194,14 +195,14 @@ func TestNewDraftAttributes(t *testing.T) {
 	}
 }
 
-// The boot JSON sits in a <script> element as template.HTML: json.Marshal's HTML
+// The boot JSON sits in a <script> element as template.HTML: jsonx.HTMLSafe's HTML
 // escaping is what keeps a title or text from closing it.
 func TestBuilderBootJSONCannotCloseItsScript(t *testing.T) {
 	t.Parallel()
 
 	const evil = `</script><script>alert(1)</script><!--`
 	r := newEditorRig(t)
-	doc, _ := json.Marshal(map[string]any{"page_doc": map[string]any{"v": 2, "nodes": []any{
+	doc, _ := jsonx.Marshal(map[string]any{"page_doc": map[string]any{"v": 2, "nodes": []any{
 		map[string]any{"id": "c1", "t": "container", "c": []any{
 			map[string]any{"id": "h1", "t": "heading", "p": map[string]any{"text": evil, "level": 2}},
 		}},
@@ -237,7 +238,7 @@ func TestBuilderBootJSONCannotCloseItsScript(t *testing.T) {
 			} `json:"nodes"`
 		} `json:"doc"`
 	}
-	if err := json.Unmarshal([]byte(payload), &got); err != nil {
+	if err := jsonx.Unmarshal([]byte(payload), &got, jsonx.StoredLoose); err != nil {
 		t.Fatalf("boot JSON: %v", err)
 	}
 	if got.Name != evil || got.Doc.Nodes[0].C[0].P["text"] != evil {
@@ -254,7 +255,7 @@ func TestBuilderBootOptionsListSchemasAndTerms(t *testing.T) {
 	r := newEditorRig(t)
 	r.terms.add(601, "category", "News", "news", nil)
 	r.terms.add(602, "tag", "Go", "go", nil)
-	r.ent.Attributes = json.RawMessage(builderOnlyDoc)
+	r.ent.Attributes = jsontext.Value(builderOnlyDoc)
 	rec := r.do("GET", r.path(), "owner-token", nil, nil)
 	body := rec.Body.String()
 	const open = `id="hm-builder-boot">`
@@ -266,7 +267,7 @@ func TestBuilderBootOptionsListSchemasAndTerms(t *testing.T) {
 	var boot struct {
 		Options map[string][]string `json:"options"`
 	}
-	if err := json.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &boot); err != nil {
+	if err := jsonx.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &boot, jsonx.StoredLoose); err != nil {
 		t.Fatal(err)
 	}
 	for kind, want := range map[string][]string{"terms": {"category:news", "tag:go"}, "schemas": {"service", "page", "recipe"}} {
@@ -296,7 +297,7 @@ func TestBuilderBootCarriesUniversalKeysAndPages(t *testing.T) {
 	r.ents.addEntity(73, r.recipe, "Newer recipe", "newer", entity.StatusPublished, `{}`, t0.Add(time.Hour))
 	r.ents.addEntity(72, r.page, "Secret", "secret", entity.StatusDraft, `{"body":"x"}`, t0)
 	r.a.deps.Content.PublicPath = func(_ context.Context, e *entity.Entity) string { return "/" + e.Slug }
-	r.ent.Attributes = json.RawMessage(builderOnlyDoc)
+	r.ent.Attributes = jsontext.Value(builderOnlyDoc)
 	body := r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
 	const open = `id="hm-builder-boot">`
 	i := strings.Index(body, open)
@@ -312,7 +313,7 @@ func TestBuilderBootCarriesUniversalKeysAndPages(t *testing.T) {
 			IA   bool     `json:"ia"`
 		} `json:"kinds"`
 	}
-	if err := json.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &boot); err != nil {
+	if err := jsonx.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &boot, jsonx.StoredLoose); err != nil {
 		t.Fatal(err)
 	}
 	got := boot.Options["pages"]
@@ -353,7 +354,7 @@ func TestUnconvertibleLegacyPageIsRefused(t *testing.T) {
 
 	r := newBuilderRenderRig(t)
 	const legacy = `{"page_sections":[{"id":"a","type":"html","content":{"html":"<p>x</p>"},"sort_order":0},{"id":"a","type":"html","content":{"html":"<p>y</p>"},"sort_order":1}]}`
-	r.page.Attributes = json.RawMessage(legacy)
+	r.page.Attributes = jsontext.Value(legacy)
 	version := r.page.Version
 
 	code, body := func() (int, string) {
@@ -419,7 +420,7 @@ func TestBuilderPagesAreResolvedInBatches(t *testing.T) {
 		}
 		return out, true
 	}
-	r.ent.Attributes = json.RawMessage(builderOnlyDoc)
+	r.ent.Attributes = jsontext.Value(builderOnlyDoc)
 	before := r.ents.lists
 	got := r.a.builderPages(httptest.NewRequest("GET", "/", nil))
 	if singles != 0 || batches != len(asked) || slices.Contains(asked, r.recipe.Slug) || !slices.Contains(asked, r.page.Slug) {
@@ -439,7 +440,7 @@ func TestBuilderBootSectionsCarryFields(t *testing.T) {
 	t.Parallel()
 
 	r := newEditorRig(t)
-	r.ent.Attributes = json.RawMessage(builderOnlyDoc)
+	r.ent.Attributes = jsontext.Value(builderOnlyDoc)
 	rec := r.do("GET", r.path(), "owner-token", nil, nil)
 	body := rec.Body.String()
 	const open = `id="hm-builder-boot">`
@@ -454,7 +455,7 @@ func TestBuilderBootSectionsCarryFields(t *testing.T) {
 			Fields []struct{ Key, Label, Kind string } `json:"fields"`
 		} `json:"sections"`
 	}
-	if err := json.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &got); err != nil {
+	if err := jsonx.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &got, jsonx.StoredLoose); err != nil {
 		t.Fatalf("boot JSON: %v", err)
 	}
 	type f struct{ Key, Label, Kind string }

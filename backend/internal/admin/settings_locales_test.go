@@ -1,13 +1,13 @@
 package admin
 
 import (
-	"encoding/json"
 	"net/url"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -544,11 +544,11 @@ func TestDefaultBusinessSaveWritesLegacyColumns(t *testing.T) {
 		t.Errorf("columns = %q %q", site.cfg.Phone, site.cfg.BusinessHours)
 	}
 	var addr map[string]string
-	if err := json.Unmarshal(site.cfg.PostalAddress, &addr); err != nil || addr["street"] != "1 Example Street" || addr["city"] != "Exampleton" || addr["postal_code"] != "1000" || addr["country"] != "XX" {
+	if err := jsonx.Unmarshal(site.cfg.PostalAddress, &addr); err != nil || addr["street"] != "1 Example Street" || addr["city"] != "Exampleton" || addr["postal_code"] != "1000" || addr["country"] != "XX" {
 		t.Errorf("postal address = %s", site.cfg.PostalAddress)
 	}
 	var stored map[string]any
-	if err := json.Unmarshal(site.cfg.BusinessProfile, &stored); err != nil {
+	if err := jsonx.Unmarshal(site.cfg.BusinessProfile, &stored); err != nil {
 		t.Fatal(err)
 	}
 	for _, k := range []string{"phone", "hours_note"} {

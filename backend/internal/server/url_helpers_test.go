@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
@@ -11,7 +11,7 @@ import (
 func schemaFixture(slug, settings string) *entity.EntitySchema {
 	s := &entity.EntitySchema{Slug: slug, Name: slug}
 	if settings != "" {
-		s.Settings = json.RawMessage(settings)
+		s.Settings = jsontext.Value(settings)
 	}
 	return s
 }

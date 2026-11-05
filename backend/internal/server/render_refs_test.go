@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"log/slog"
@@ -36,7 +36,7 @@ func (r refRepo) GetByID(_ context.Context, id uuid.UUID) (*entity.Entity, error
 }
 
 func refEntity(schema, attrs string) *entity.Entity {
-	return &entity.Entity{ID: uuid.New(), Schema: &entity.EntitySchema{Slug: schema, IsBuiltin: true}, Status: entity.StatusDraft, Attributes: json.RawMessage(attrs)}
+	return &entity.Entity{ID: uuid.New(), Schema: &entity.EntitySchema{Slug: schema, IsBuiltin: true}, Status: entity.StatusDraft, Attributes: jsontext.Value(attrs)}
 }
 
 const refTestDoc = `{"v":2,"nodes":[{"id":"t","t":"text","p":{"text":"synced words"}}]}`

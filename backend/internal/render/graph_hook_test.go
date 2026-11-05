@@ -2,12 +2,13 @@ package render
 
 import (
 	"context"
-	"encoding/json"
 	"html/template"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // graphPage is a page with an Organization, a LocalBusiness and a WebSite node.
@@ -25,7 +26,7 @@ func scriptGraph(t *testing.T, scripts []template.HTML) []map[string]any {
 		var doc struct {
 			Graph []map[string]any `json:"@graph"`
 		}
-		if json.Unmarshal([]byte(body), &doc) == nil && doc.Graph != nil {
+		if jsonx.Unmarshal([]byte(body), &doc) == nil && doc.Graph != nil {
 			return doc.Graph
 		}
 	}
@@ -244,12 +245,12 @@ func TestSiteGraphMatchesHead(t *testing.T) {
 		v := graphPage()
 		want := graphScript(t, v, f)
 		doc := SiteGraph(context.Background(), f, v)
-		b, err := json.Marshal(doc["@graph"])
+		b, err := jsonx.Marshal(doc["@graph"])
 		if err != nil {
 			t.Fatal(err)
 		}
 		var got []map[string]any
-		if err := json.Unmarshal(b, &got); err != nil {
+		if err := jsonx.Unmarshal(b, &got); err != nil {
 			t.Fatal(err)
 		}
 		if !reflect.DeepEqual(got, want) {

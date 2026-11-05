@@ -2,7 +2,6 @@ package render
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/tags"
 )
 
@@ -213,7 +213,7 @@ func runTagsDOM(t *testing.T, cfg TagsConfig, env ...string) tagsRun {
 	if err := os.WriteFile(harness, []byte(tagsDOMHarness), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := json.Marshal(cfg)
+	raw, err := jsonx.Marshal(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ func runTagsDOM(t *testing.T, cfg TagsConfig, env ...string) tagsRun {
 		t.Fatalf("node: %v\n%s", err, out)
 	}
 	var r tagsRun
-	if err := json.Unmarshal(out, &r); err != nil {
+	if err := jsonx.Unmarshal(out, &r, jsonx.StoredLoose); err != nil {
 		t.Fatalf("bad harness output %s: %v", out, err)
 	}
 	return r

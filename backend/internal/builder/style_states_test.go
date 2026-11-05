@@ -1,7 +1,7 @@
 package builder
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 )
@@ -134,7 +134,7 @@ func TestOrphanStylesAreChecked(t *testing.T) {
 func TestSetStyleStates(t *testing.T) {
 	d := opsFixture(t)
 	set := func(id, bp, k, v string) error {
-		_, err := d.Apply(Op{Op: "setStyle", ID: id, BP: bp, Key: k, Value: json.RawMessage(v)})
+		_, err := d.Apply(Op{Op: "setStyle", ID: id, BP: bp, Key: k, Value: jsontext.Value(v)})
 		return err
 	}
 	if err := set("col1", "base:hover", "bg", `"accent"`); err != nil {
@@ -143,7 +143,7 @@ func TestSetStyleStates(t *testing.T) {
 	if err := set("col1", "md:parent-hover", "color", `"accent"`); err != nil {
 		t.Fatal(err)
 	}
-	inv, err := d.Apply(Op{Op: "setStyle", ID: "col1", BP: "base:hover", Key: "bg", Value: json.RawMessage(`"primary"`)})
+	inv, err := d.Apply(Op{Op: "setStyle", ID: "col1", BP: "base:hover", Key: "bg", Value: jsontext.Value(`"primary"`)})
 	if err != nil || string(inv.Value) != `"accent"` {
 		t.Fatalf("inverse = %s, %v", inv.Value, err)
 	}
@@ -173,7 +173,7 @@ func TestSetStyleStates(t *testing.T) {
 // post-op validation of Apply (accepted limitation, documented).
 func TestMoveParentHoverToTopLevelRefused(t *testing.T) {
 	d := opsFixture(t)
-	if _, err := d.Apply(Op{Op: "setStyle", ID: "col1", BP: "base:parent-hover", Key: "bg", Value: json.RawMessage(`"accent"`)}); err != nil {
+	if _, err := d.Apply(Op{Op: "setStyle", ID: "col1", BP: "base:parent-hover", Key: "bg", Value: jsontext.Value(`"accent"`)}); err != nil {
 		t.Fatal(err)
 	}
 	if err := d.Validate(); err != nil {

@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 
@@ -19,12 +19,12 @@ func stagedOthersFixture(t *testing.T) (*stagedChangeset, uuid.UUID) {
 	src.menuBySlug = func(_ context.Context, slug string) (uuid.UUID, bool) { return menuID, slug == "main" }
 	items := []changeset.StoredItem{
 		item(1, changeset.OpUpsert, "", "pricing", `{"schema":"page","name":"Pricing","slug":"pricing"}`),
-		{Seq: 2, Item: changeset.Item{Kind: changeset.KindMenu, Op: changeset.OpUpsert, Payload: json.RawMessage(
+		{Seq: 2, Item: changeset.Item{Kind: changeset.KindMenu, Op: changeset.OpUpsert, Payload: jsontext.Value(
 			`{"slug":"main","items":[{"Label":"Plans","LinkType":"entity","Parent":-1},{"Label":"Docs","LinkType":"external","URL":"https://example.com/d","Parent":0}],"entity_keys":{"0":"pricing"}}`)}},
-		{Seq: 3, Item: changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, Payload: json.RawMessage(
+		{Seq: 3, Item: changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, Payload: jsontext.Value(
 			`{"source_path":"/old","target":"/new","status":301}`)}},
-		{Seq: 4, Item: changeset.Item{Kind: changeset.KindMedia, Op: changeset.OpUpsert, Payload: json.RawMessage(`{"filename":"hero.jpg"}`)}},
-		{Seq: 5, Item: changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpDelete, Payload: json.RawMessage(`{"source_path":"/gone"}`)}},
+		{Seq: 4, Item: changeset.Item{Kind: changeset.KindMedia, Op: changeset.OpUpsert, Payload: jsontext.Value(`{"filename":"hero.jpg"}`)}},
+		{Seq: 5, Item: changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpDelete, Payload: jsontext.Value(`{"source_path":"/gone"}`)}},
 	}
 	return newStagedChangeset(context.Background(), changeset.Header{ID: 9, RunID: testRunID}, items, src), menuID
 }
@@ -88,7 +88,7 @@ func TestChangesetPreviewMenuLinksEarlierRunEntity(t *testing.T) {
 	src := testSource(map[uuid.UUID]*entity.Entity{pageID: liveEntity(pageID, "About", "about")}, map[string]uuid.UUID{"about": pageID})
 	src.menuBySlug = func(_ context.Context, slug string) (uuid.UUID, bool) { return menuID, slug == "main" }
 	o := newStagedChangeset(context.Background(), changeset.Header{ID: 9, RunID: testRunID}, []changeset.StoredItem{
-		{Seq: 1, Item: changeset.Item{Kind: changeset.KindMenu, Op: changeset.OpUpsert, Payload: json.RawMessage(
+		{Seq: 1, Item: changeset.Item{Kind: changeset.KindMenu, Op: changeset.OpUpsert, Payload: jsontext.Value(
 			`{"slug":"main","items":[{"Label":"About","LinkType":"entity","Parent":-1}],"entity_keys":{"0":"about"}}`)}},
 	}, src)
 	tree, ok := o.menuItems(context.Background(), &navLinks{snap: entity.DefaultURLSnapshot()}, menuID)

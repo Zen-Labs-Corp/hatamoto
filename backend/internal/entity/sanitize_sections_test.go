@@ -1,12 +1,12 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 )
 
 func TestSanitizeHTMLSections_PreservesOrderAndUntouched(t *testing.T) {
-	in := json.RawMessage(`{"z":1.50,"page_sections":[` +
+	in := jsontext.Value(`{"z":1.50,"page_sections":[` +
 		`{"type":"content","content":{"body":"<script>x</script>"}},` +
 		`{"id":"b","type":"html","content":{"note":"<b onclick=1>n</b>","body":"<p onclick=\"y()\">hi</p><script>x</script>","a":[1, 2]}}],"a":{"k":true}}`)
 	out, n, err := SanitizeHTMLSections(in)
@@ -27,7 +27,7 @@ func TestSanitizeHTMLSections_PreservesOrderAndUntouched(t *testing.T) {
 
 func TestSanitizeHTMLSections_CleanAndMalformedUnchanged(t *testing.T) {
 	for _, s := range []string{`{"page_sections":[{"type":"html","content":{"body":"<p>ok</p>"}}]}`, `{"x":1}`, `not json`, `{"page_sections":"x"}`, `{}`} {
-		out, n, err := SanitizeHTMLSections(json.RawMessage(s))
+		out, n, err := SanitizeHTMLSections(jsontext.Value(s))
 		if err != nil || n != 0 || string(out) != s {
 			t.Errorf("%s -> %s n=%d err=%v", s, out, n, err)
 		}

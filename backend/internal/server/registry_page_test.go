@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"strings"
 	"testing"
@@ -34,7 +34,7 @@ func hostPage(sectionType string) *routeResult {
 		attrs = `{"page_sections":[{"id":"s1","type":"` + sectionType + `","content":{}}]}`
 	}
 	return &routeResult{Kind: resolveKindEntity, Page: &PublicPageResponse{
-		Entity: &entity.Entity{ID: uuid.New(), Name: "Host", Attributes: json.RawMessage(attrs)},
+		Entity: &entity.Entity{ID: uuid.New(), Name: "Host", Attributes: jsontext.Value(attrs)},
 		Meta:   PageMeta{Title: "Host"},
 	}}
 }
@@ -59,7 +59,7 @@ func newRegistryRig(t *testing.T, entries ...packages.Entry) *registryRig {
 			}
 			rr := hostPage(sec)
 			if g.hidden {
-				rr.Page.Entity.Attributes = json.RawMessage(`{"page_sections":[{"id":"s1","type":"` + sec + `","isVisible":false,"content":{}}]}`)
+				rr.Page.Entity.Attributes = jsontext.Value(`{"page_sections":[{"id":"s1","type":"` + sec + `","isVisible":false,"content":{}}]}`)
 			}
 			return rr, pageOutcome{Status: 200}, nil
 		})

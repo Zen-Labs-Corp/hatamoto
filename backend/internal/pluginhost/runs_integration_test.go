@@ -4,7 +4,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"log/slog"
@@ -58,7 +58,7 @@ func newDriverRig(t *testing.T) *driverRig {
 
 	schemas := entity.NewPostgresSchemaRepository(db)
 	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: "run " + r.tag, Slug: "run-" + r.tag,
-		Schema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}}}`)})
+		Schema: jsontext.Value(`{"type":"object","properties":{"content":{"type":"string"}}}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -495,7 +495,7 @@ func TestRunDriverRetriesFirstRead(t *testing.T) {
 	t.Cleanup(short.Close)
 
 	run, err := r.runs.Create(ctx, plugrun.Run{Plugin: runnerPlugin, Name: "import",
-		Params: json.RawMessage(`{"schema":"` + r.schema + `","tag":"` + r.tag + `"}`)})
+		Params: jsontext.Value(`{"schema":"` + r.schema + `","tag":"` + r.tag + `"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}

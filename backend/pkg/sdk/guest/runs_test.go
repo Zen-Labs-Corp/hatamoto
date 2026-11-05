@@ -2,7 +2,7 @@ package guest
 
 import (
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 
@@ -13,7 +13,7 @@ import (
 // through the same Invoke path the wasm guest uses.
 type fakeRunHost struct {
 	fn      string
-	args    json.RawMessage
+	args    jsontext.Value
 	results map[string]string // fn -> result JSON
 	errs    map[string]*sdk.HostError
 }
@@ -22,18 +22,18 @@ func (f *fakeRunHost) caller() Caller {
 	return func(fn string, args, out any) error {
 		return Invoke(func(req []byte) ([]byte, error) {
 			var r sdk.CallRequest
-			if err := json.Unmarshal(req, &r); err != nil {
+			if err := unmarshal(req, &r); err != nil {
 				return nil, err
 			}
 			f.fn, f.args = r.Fn, r.Args
 			if he := f.errs[r.Fn]; he != nil {
-				return json.Marshal(sdk.CallResponse{Error: he})
+				return marshal(sdk.CallResponse{Error: he})
 			}
 			res := f.results[r.Fn]
 			if res == "" {
 				res = "{}"
 			}
-			return json.Marshal(sdk.CallResponse{OK: true, Result: json.RawMessage(res)})
+			return marshal(sdk.CallResponse{OK: true, Result: jsontext.Value(res)})
 		}, fn, args, out)
 	}
 }

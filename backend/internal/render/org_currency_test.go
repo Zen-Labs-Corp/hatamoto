@@ -1,9 +1,10 @@
 package render
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // currencyPage is a three-locale page: en-XX is the default, en-YY carries
@@ -79,7 +80,7 @@ func TestOrgCatalogue_NoSiteCurrencyNoKey(t *testing.T) {
 	if n := orgOf(t, v); n["hasOfferCatalog"] == nil {
 		t.Fatal("no catalogue printed")
 	}
-	raw, err := json.Marshal(graphNodes(t, v))
+	raw, err := jsonx.Marshal(graphNodes(t, v))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,11 +1,11 @@
 package mcpserver
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func ip(i int) *int { return &i }
@@ -200,7 +200,7 @@ func TestCheckOpLimits(t *testing.T) {
 
 func TestOpInDecodes(t *testing.T) {
 	var ops []opIn
-	if err := json.Unmarshal([]byte(`[{"op":"insert","parent":"c","index":0,"node":{"t":"text"}},{"op":"setProp","id":"a","key":"n","value":3}]`), &ops); err != nil {
+	if err := jsonx.Unmarshal([]byte(`[{"op":"insert","parent":"c","index":0,"node":{"t":"text"}},{"op":"setProp","id":"a","key":"n","value":3}]`), &ops); err != nil {
 		t.Fatal(err)
 	}
 	if *ops[0].Index != 0 || ops[1].Value != float64(3) {

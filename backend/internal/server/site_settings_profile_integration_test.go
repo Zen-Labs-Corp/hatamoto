@@ -3,7 +3,6 @@
 package server
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -142,7 +142,7 @@ func TestSettingsSave_RESTDefaultLocaleFold_Integration(t *testing.T) {
 		BusinessProfile map[string]any            `json:"business_profile"`
 		LocaleProfiles  map[string]map[string]any `json:"locale_profiles"`
 	}
-	if err := json.Unmarshal(do(http.MethodGet, "").Body.Bytes(), &got); err != nil {
+	if err := jsonx.Unmarshal(do(http.MethodGet, "").Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
 	if got.BusinessProfile["tax_id"] != "T2" || got.BusinessProfile["catalog_name"] != "Plans" || got.BusinessProfile["office"] != true {

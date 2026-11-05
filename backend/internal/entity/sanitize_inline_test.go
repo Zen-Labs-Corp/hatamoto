@@ -1,9 +1,10 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 	"os"
 	"strconv"
 	"strings"
@@ -19,7 +20,7 @@ func TestAllowedInlineHrefFixture(t *testing.T) {
 		Href string `json:"href"`
 		OK   bool   `json:"ok"`
 	}
-	if err := json.Unmarshal(raw, &cases); err != nil {
+	if err := jsonx.Unmarshal(raw, &cases); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range cases {
@@ -72,7 +73,9 @@ func TestSanitizeInlineHTMLBalanced(t *testing.T) {
 }
 
 type inlineCase struct {
-	Name, In, Canonical string
+	Name      string `json:"name"`
+	In        string `json:"in"`
+	Canonical string `json:"canonical"`
 }
 
 func readInlineCases(t *testing.T) []inlineCase {
@@ -82,8 +85,16 @@ func readInlineCases(t *testing.T) []inlineCase {
 		t.Fatal(err)
 	}
 	var cases []inlineCase
-	if err := json.Unmarshal(raw, &cases); err != nil {
+	if err := jsonx.Unmarshal(raw, &cases); err != nil {
 		t.Fatal(err)
+	}
+	if len(cases) == 0 {
+		t.Fatal("canonical.json has no cases")
+	}
+	for i, c := range cases {
+		if c.Name == "" || c.In == "" || c.Canonical == "" {
+			t.Fatalf("case %d is missing name, in or canonical: %+v", i, c)
+		}
 	}
 	return cases
 }
@@ -125,7 +136,7 @@ func TestCheckSanitisedLength(t *testing.T) {
 func TestLongRichTextSavesAndOverLimitFails(t *testing.T) {
 	long := "<p>" + strings.Repeat("word ", 5000) + "</p>" // 25,007 characters
 	in := `{"v":2,"nodes":[{"id":"r","t":"richtext","p":{"html":` + strconv.Quote(long) + `}}]}`
-	out, err := NormalizeAttributes(nil, json.RawMessage(`{"page_doc":`+in+`}`))
+	out, err := NormalizeAttributes(nil, jsontext.Value(`{"page_doc":`+in+`}`))
 	if err != nil || !strings.Contains(string(out), "word word") {
 		t.Fatalf("25k richtext: %v", err)
 	}

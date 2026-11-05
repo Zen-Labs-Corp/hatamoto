@@ -1,10 +1,12 @@
 package bizprofile
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"reflect"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestParse_EmptyAndObject(t *testing.T) {
@@ -49,7 +51,7 @@ func TestFromLegacy_LegacyWins(t *testing.T) {
 		Address:   Address{Street: "stale", POBox: "Box 1", Lat: "1.5"},
 		TaxID:     "T1",
 	}
-	addr := json.RawMessage(`{"street":"Example Street 1","city":"Sample City","state":"S","postal_code":"1000","country":"EX"}`)
+	addr := jsontext.Value(`{"street":"Example Street 1","city":"Sample City","state":"S","postal_code":"1000","country":"EX"}`)
 	got := FromLegacy(stored, "555 0100", "Weekdays", addr)
 	want := Address{Street: "Example Street 1", City: "Sample City", State: "S", PostalCode: "1000", Country: "EX", POBox: "Box 1", Lat: "1.5"}
 	if got.Phone != "555 0100" || got.HoursNote != "Weekdays" || got.Address != want || got.TaxID != "T1" {
@@ -251,7 +253,7 @@ func TestResolveContact_NoOfficeStillResolves(t *testing.T) {
 }
 
 func TestProfile_EmptyMarshalsUnchanged(t *testing.T) {
-	b, err := json.Marshal(Profile{})
+	b, err := jsonx.Marshal(Profile{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +270,7 @@ func TestProfile_NewFieldsRoundTrip(t *testing.T) {
 		ContactPoints: []ContactPoint{{Type: "sales", Name: "Sales", AreaServed: "XX", AvailableLanguage: "English"}},
 		Rating:        Rating{Value: "4", Best: "5", Worst: "1", Count: "9", CountType: "reviews"},
 	}
-	b, err := json.Marshal(in)
+	b, err := jsonx.Marshal(in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,10 +289,10 @@ func TestProfile_NewFieldsRoundTrip(t *testing.T) {
 	}
 	// The admin form decodes numbers as float64: 10 marshals as 10 and parses back as an int.
 	var m map[string]any
-	if err := json.Unmarshal([]byte(`{"employees_min":10,"employees_max":50}`), &m); err != nil {
+	if err := jsonx.Unmarshal([]byte(`{"employees_min":10,"employees_max":50}`), &m); err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := json.Marshal(m)
+	raw, _ := jsonx.Marshal(m)
 	p, err := Parse(raw)
 	if err != nil || p.EmployeesMin != 10 || p.EmployeesMax != 50 {
 		t.Errorf("float64 round trip: %+v, %v", p, err)
@@ -323,7 +325,7 @@ func filledExtended() Profile {
 
 func TestExtendedFields_RoundTrip(t *testing.T) {
 	in := filledExtended()
-	b, err := json.Marshal(in)
+	b, err := jsonx.Marshal(in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -433,7 +435,7 @@ func TestMergeCardOverridesGapFields(t *testing.T) {
 }
 
 func TestGapFieldsOmittedWhenEmpty(t *testing.T) {
-	b, err := json.Marshal(Profile{Services: []Service{{Name: "SEO"}}})
+	b, err := jsonx.Marshal(Profile{Services: []Service{{Name: "SEO"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -460,7 +462,7 @@ func TestParseKeepsGapFields(t *testing.T) {
 	if !reflect.DeepEqual(p, want) {
 		t.Errorf("Parse = %+v, want %+v", p, want)
 	}
-	b, _ := json.Marshal(p)
+	b, _ := jsonx.Marshal(p)
 	back, err := Parse(b)
 	if err != nil || !reflect.DeepEqual(back, want) {
 		t.Errorf("round trip = %s (%v)", b, err)

@@ -4,7 +4,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"strings"
@@ -14,6 +14,7 @@ import (
 
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/plugrun"
 	"hatamoto.dev/core/internal/redirect"
@@ -43,7 +44,7 @@ func newCSRig(t *testing.T) *csRig {
 		log := slog.New(slog.NewTextHandler(io.Discard, nil))
 		schemas := entity.NewPostgresSchemaRepository(db)
 		sc, err := schemas.Create(context.Background(), &entity.CreateSchemaInput{Name: "csg " + r.tag, Slug: "csg-" + r.tag,
-			Schema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}}}`)})
+			Schema: jsontext.Value(`{"type":"object","properties":{"content":{"type":"string"}}}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -88,12 +89,12 @@ func (r *csRig) newChangeset() {
 	r.cs = cs
 }
 
-func (r *csRig) call(fn string, args any) (json.RawMessage, *sdk.HostError) {
+func (r *csRig) call(fn string, args any) (jsontext.Value, *sdk.HostError) {
 	r.t.Helper()
 	return callAs(r.t, r.a, r.rc, fn, args)
 }
 
-func (r *csRig) mustCall(fn string, args any) json.RawMessage {
+func (r *csRig) mustCall(fn string, args any) jsontext.Value {
 	r.t.Helper()
 	res, he := r.call(fn, args)
 	if he != nil {
@@ -130,9 +131,9 @@ func (r *csRig) publish() changeset.Result {
 func TestChangesetFnsStageAndPublish(t *testing.T) {
 	r := newCSRig(t)
 	res := r.mustCall(sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: r.key("p"), Schema: r.schema, Slug: r.key("p"), Name: "Parent",
-		Attributes: json.RawMessage(`{"content":"x"}`), SEO: &sdk.SEO{MetaTitle: "T"}})
+		Attributes: jsontext.Value(`{"content":"x"}`), SEO: &sdk.SEO{MetaTitle: "T"}})
 	var up sdk.UpsertResult
-	_ = json.Unmarshal(res, &up)
+	_ = jsonx.UnmarshalPinned(res, &up)
 	if up.SourceKey != r.key("p") || !up.Created {
 		t.Fatalf("upsert result %+v", up)
 	}
@@ -180,7 +181,7 @@ func TestChangesetFnsStageAndPublish(t *testing.T) {
 	// The key now maps to nothing, so the next upsert creates again.
 	r.newChangeset()
 	var again sdk.UpsertResult
-	_ = json.Unmarshal(r.mustCall(sdk.FnChangesetTermUpsert, sdk.TermUpsert{SourceKey: r.key("t"), Kind: "tag", Slug: r.key("t"), Name: "Tag"}), &again)
+	_ = jsonx.UnmarshalPinned(r.mustCall(sdk.FnChangesetTermUpsert, sdk.TermUpsert{SourceKey: r.key("t"), Kind: "tag", Slug: r.key("t"), Name: "Tag"}), &again)
 	if !again.Created {
 		t.Fatalf("upsert after delete: %+v", again)
 	}
@@ -211,7 +212,7 @@ func TestChangesetFnsNotOwned(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := r.eng.Stage(ctx, ownerCS, changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert,
-		Payload: json.RawMessage(`{"schema":"` + r.schema + `","name":"Mine","slug":"` + r.key("mine") + `","attributes":{}}`)}); err != nil {
+		Payload: jsontext.Value(`{"schema":"` + r.schema + `","name":"Mine","slug":"` + r.key("mine") + `","attributes":{}}`)}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := r.eng.Publish(ctx, ownerCS); err != nil {
@@ -248,7 +249,7 @@ func TestChangesetFnsRedirectRefusesLivePath(t *testing.T) {
 
 func TestChangesetFnsPropose(t *testing.T) {
 	r := newCSRig(t)
-	r.mustCall(sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeSiteSettings, Payload: json.RawMessage(`{"title":"New","time_zone":"Europe/Berlin"}`)})
+	r.mustCall(sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeSiteSettings, Payload: jsontext.Value(`{"title":"New","time_zone":"Europe/Berlin"}`)})
 	got, err := r.runs.Proposals(context.Background(), r.rc.RunID)
 	if err != nil || len(got) != 1 || got[0].Kind != sdk.ProposeSiteSettings || !strings.Contains(string(got[0].Payload), "New") {
 		t.Fatalf("stored proposals: %+v %v", got, err)
@@ -257,7 +258,7 @@ func TestChangesetFnsPropose(t *testing.T) {
 	if n := r.count(`SELECT count(*) FROM hatamoto_changeset_items WHERE changeset_id = $1`, r.cs); n != 0 {
 		t.Fatalf("a proposal became a changeset item (%d)", n)
 	}
-	if _, he := r.call(sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeURLPatterns, Payload: json.RawMessage(`{}`)}); he == nil || he.Code != sdk.ErrInvalidArgument {
+	if _, he := r.call(sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeURLPatterns, Payload: jsontext.Value(`{}`)}); he == nil || he.Code != sdk.ErrInvalidArgument {
 		t.Fatalf("undeclared kind: %v", he)
 	}
 }
@@ -294,7 +295,7 @@ func TestRunEntityReadsPublishedOnly(t *testing.T) {
 	var list struct {
 		Items []struct{ ID string } `json:"items"`
 	}
-	if err := json.Unmarshal(r.mustCall(sdk.FnEntitiesList, map[string]string{"schema_slug": r.schema}), &list); err != nil {
+	if err := jsonx.UnmarshalPinned(r.mustCall(sdk.FnEntitiesList, map[string]string{"schema_slug": r.schema}), &list); err != nil {
 		t.Fatal(err)
 	}
 	if len(list.Items) != 1 || list.Items[0].ID != pubID {

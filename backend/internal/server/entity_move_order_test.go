@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,6 +14,7 @@ import (
 
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 )
 
@@ -64,7 +64,7 @@ func TestPatchEntityPosition(t *testing.T) {
 		t.Fatalf("patch: %d %s", rec.Code, rec.Body)
 	}
 	var got entity.Entity
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
 	if got.ID != b.ID || got.SortOrder != 1 || got.Version != b.Version {

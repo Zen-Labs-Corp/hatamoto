@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 
 	"github.com/google/uuid"
@@ -38,7 +38,7 @@ func fixtureEntity(schema, slug string, attrs string) *entity.Entity {
 		Schema: &entity.EntitySchema{Slug: schema},
 	}
 	if attrs != "" {
-		e.Attributes = json.RawMessage(attrs)
+		e.Attributes = jsontext.Value(attrs)
 	}
 	return e
 }
@@ -49,7 +49,7 @@ func fixtureSnapshot(t *testing.T, defs map[string]string) *entity.URLSnapshot {
 	for slug, settings := range defs {
 		s := &entity.EntitySchema{ID: uuid.New(), Name: slug, Slug: slug}
 		if settings != "" {
-			s.Settings = json.RawMessage(settings)
+			s.Settings = jsontext.Value(settings)
 		}
 		schemas = append(schemas, s)
 	}

@@ -4,12 +4,13 @@ package webhook
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func mkSub(t *testing.T, svc *Service, events ...string) Subscription {
@@ -68,7 +69,7 @@ func TestEnqueueFansOutToMatchingActiveSubscriptions(t *testing.T) {
 		if err := svc.repo.db.Pool().QueryRow(ctx, `SELECT payload FROM hatamoto_webhook_deliveries WHERE id=$1`, r.ID).Scan(&payload); err != nil {
 			t.Fatal(err)
 		}
-		if err := json.Unmarshal([]byte(payload), &env); err != nil || env.ID != r.ID {
+		if err := jsonx.UnmarshalPinned([]byte(payload), &env); err != nil || env.ID != r.ID {
 			t.Fatalf("envelope id %q != delivery id %q (%v)", env.ID, r.ID, err)
 		}
 	}

@@ -1,11 +1,11 @@
 package admin
 
 import (
-	"encoding/json"
 	"io/fs"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/web"
 )
 
@@ -24,7 +24,7 @@ func TestHTMXConfig(t *testing.T) {
 			Error *bool  `json:"error"`
 		} `json:"responseHandling"`
 	}
-	if err := json.Unmarshal([]byte((&View{Nonce: "n"}).HTMXConfig()), &cfg); err != nil {
+	if err := jsonx.Unmarshal([]byte((&View{Nonce: "n"}).HTMXConfig()), &cfg); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.AllowEval || cfg.AllowScriptTags || cfg.IncludeIndicatorStyles {

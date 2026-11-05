@@ -1,11 +1,11 @@
 package v2
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Section-shaped fixture mirroring real production page_sections rows
@@ -90,7 +90,7 @@ func TestWrapAllJSONB_WrapsInsideSectionBodyAndFAQ(t *testing.T) {
 	// page_sections[2].content.body contains "SEO services" before
 	// page_sections[3] items, so it wins.
 	var got map[string]any
-	if err := json.Unmarshal(out, &got); err != nil {
+	if err := jsonx.Unmarshal(out, &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	body := drill(t, got, "page_sections", 2, "content", "body").(string)
@@ -150,7 +150,7 @@ func TestWrapAllJSONB_WrapsTopLevelFullDescription(t *testing.T) {
 	}
 
 	var got map[string]any
-	if err := json.Unmarshal(out, &got); err != nil {
+	if err := jsonx.Unmarshal(out, &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	fd := got["full_description"].(string)
@@ -231,7 +231,7 @@ func TestWrapAllJSONB_MultipleSpecsDistributeAcrossLeaves(t *testing.T) {
 	}
 
 	var got map[string]any
-	if err := json.Unmarshal(out, &got); err != nil {
+	if err := jsonx.Unmarshal(out, &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	body := drill(t, got, "page_sections", 2, "content", "body").(string)

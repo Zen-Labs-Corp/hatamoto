@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"testing"
 
@@ -29,7 +29,7 @@ func TestRefUsers(t *testing.T) {
 	tag := uuid.NewString()[:8]
 	mk := func(sc *EntitySchema, name, attrs string) *Entity {
 		t.Helper()
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: sc.ID, Name: name, Slug: fmt.Sprintf("ru-%s-%s", tag, name), Attributes: json.RawMessage(attrs)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: sc.ID, Name: name, Slug: fmt.Sprintf("ru-%s-%s", tag, name), Attributes: jsontext.Value(attrs)})
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -49,7 +49,7 @@ func TestRefUsers(t *testing.T) {
 	mk(page, "other", docWith("aaaaaaaa-2222-3333-4444-555555555555"))
 	// A block that points at itself is not its own user.
 	self := mk(block, "self", `{"page_doc":{"v":2,"nodes":[]}}`)
-	selfDoc := json.RawMessage(docWith(self.ID.String()))
+	selfDoc := jsontext.Value(docWith(self.ID.String()))
 	if _, err := svc.UpdateEntity(ctx, self.ID, nil, &UpdateEntityInput{Attributes: &selfDoc}); err != nil {
 		t.Fatal(err)
 	}

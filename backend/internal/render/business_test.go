@@ -2,24 +2,25 @@ package render
 
 import (
 	"context"
-	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // graphNodes marshals the site graph the way the head does and returns the
 // nodes of its @graph.
 func graphNodes(t *testing.T, v *PageView) []map[string]any {
 	t.Helper()
-	b, err := json.Marshal(siteGraphLD(v))
+	b, err := jsonx.Marshal(siteGraphLD(v))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var doc struct {
 		Graph []map[string]any `json:"@graph"`
 	}
-	if err := json.Unmarshal(b, &doc); err != nil {
+	if err := jsonx.Unmarshal(b, &doc); err != nil {
 		t.Fatal(err)
 	}
 	return doc.Graph
@@ -142,7 +143,7 @@ func TestSiteGraph_LocalBusinessTypeAndNameOverride(t *testing.T) {
 func TestSiteGraph_LocalBusinessNeverReadsSiteContact(t *testing.T) {
 	v := businessPage(&BusinessView{ID: "xx", Address: Address{City: "Sample City"}})
 	lb := graphNodes(t, v)[1]
-	raw, _ := json.Marshal(lb)
+	raw, _ := jsonx.Marshal(lb)
 	for _, leak := range []string{"Site Street", "Site City", "site-phone", "site hours"} {
 		if strings.Contains(string(raw), leak) {
 			t.Errorf("LocalBusiness carries site-wide %q: %s", leak, raw)
@@ -394,7 +395,7 @@ func TestRatingLD(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("reviews = %v", got)
 	}
-	if b, _ := json.Marshal(got["reviewCount"]); string(b) != "12" {
+	if b, _ := jsonx.Marshal(got["reviewCount"]); string(b) != "12" {
 		t.Errorf("reviewCount JSON = %s, want 12", b)
 	}
 	if got := ratingLD(Rating{Value: "4", Count: "0x10", CountType: "reviews"}); got["reviewCount"] != nil || got["ratingCount"] != nil {

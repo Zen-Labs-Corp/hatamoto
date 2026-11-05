@@ -2,12 +2,13 @@ package render
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // corePage mirrors the top level of testdata/homepage_core.json (the hatamoto.dev
@@ -31,7 +32,7 @@ func loadCorePage(t *testing.T) corePage {
 		t.Fatal(err)
 	}
 	var p corePage
-	if err := json.Unmarshal(raw, &p); err != nil {
+	if err := jsonx.Unmarshal(raw, &p); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -107,7 +108,7 @@ func TestCoreHomepageRenders(t *testing.T) {
 		}
 		var schema map[string]any
 		if len(def.Schema) > 0 {
-			if err := json.Unmarshal(def.Schema, &schema); err != nil {
+			if err := jsonx.Unmarshal(def.Schema, &schema); err != nil {
 				t.Fatalf("schema %s: %v", s.Type, err)
 			}
 		}

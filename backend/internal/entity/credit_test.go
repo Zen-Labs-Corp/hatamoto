@@ -2,7 +2,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 
@@ -21,7 +21,7 @@ func TestCreditUpdate_CreditedEntityIgnoresAuthorText(t *testing.T) {
 	_, _ = f.Resolve(ctx, "Jane Doe")
 	bob, _ := f.Resolve(ctx, "Bob")
 	jane := f.people["Jane Doe"]
-	oldCopy := json.RawMessage(`{"author":"Jane Doe","author_name":"Jane Doe","content":"x"}`)
+	oldCopy := jsontext.Value(`{"author":"Jane Doe","author_name":"Jane Doe","content":"x"}`)
 	existing := &Entity{Attributes: oldCopy, BylinePersonID: &jane}
 
 	// 1. credit Bob explicitly; 2. an update carries the older copy.
@@ -29,7 +29,7 @@ func TestCreditUpdate_CreditedEntityIgnoresAuthorText(t *testing.T) {
 	testutil.RequireNoError(t, s.creditUpdate(ctx, existing, step))
 	existing = &Entity{Attributes: *step.Attributes, BylinePersonID: bob.PersonID}
 
-	raw := json.RawMessage(`{"author":"Jane Doe","author_name":"Jane Doe","content":"edited"}`)
+	raw := jsontext.Value(`{"author":"Jane Doe","author_name":"Jane Doe","content":"edited"}`)
 	in := &UpdateEntityInput{Attributes: &raw}
 	testutil.RequireNoError(t, s.creditUpdate(ctx, existing, in))
 	testutil.Nil(t, in.BylinePersonID)
@@ -39,7 +39,7 @@ func TestCreditUpdate_CreditedEntityIgnoresAuthorText(t *testing.T) {
 	testutil.True(t, strings.Contains(string(*in.Attributes), `"content":"edited"`), "%s", *in.Attributes)
 
 	// An edited name does not move the credit either.
-	raw = json.RawMessage(`{"author":"Carol"}`)
+	raw = jsontext.Value(`{"author":"Carol"}`)
 	in = &UpdateEntityInput{Attributes: &raw}
 	testutil.RequireNoError(t, s.creditUpdate(ctx, existing, in))
 	testutil.Nil(t, in.BylinePersonID)
@@ -47,7 +47,7 @@ func TestCreditUpdate_CreditedEntityIgnoresAuthorText(t *testing.T) {
 
 	// Organisation credit: the older copy becomes the organisation name.
 	org := &Entity{Attributes: oldCopy, BylineOrg: true}
-	raw = json.RawMessage(`{"author":"Jane Doe"}`)
+	raw = jsontext.Value(`{"author":"Jane Doe"}`)
 	in = &UpdateEntityInput{Attributes: &raw}
 	testutil.RequireNoError(t, s.creditUpdate(ctx, org, in))
 	testutil.Nil(t, in.BylinePersonID)
@@ -65,8 +65,8 @@ func TestCreditUpdate_UncreditedTextCredits(t *testing.T) {
 	ctx := context.Background()
 	f := &fakeBylines{}
 	s := &Service{bylines: f}
-	existing := &Entity{Attributes: json.RawMessage(`{"content":"x"}`)}
-	raw := json.RawMessage(`{"author":"Carol"}`)
+	existing := &Entity{Attributes: jsontext.Value(`{"content":"x"}`)}
+	raw := jsontext.Value(`{"author":"Carol"}`)
 	in := &UpdateEntityInput{Attributes: &raw}
 	testutil.RequireNoError(t, s.creditUpdate(ctx, existing, in))
 	testutil.RequireNotNil(t, in.BylinePersonID)
@@ -79,7 +79,7 @@ func TestSyncBylineText_Guards(t *testing.T) {
 	ctx := context.Background()
 	f := &fakeBylines{}
 	bob, _ := f.Resolve(ctx, "Bob")
-	raw := json.RawMessage(`{"author":{"x":1},"author_name":"Old"}`)
+	raw := jsontext.Value(`{"author":{"x":1},"author_name":"Old"}`)
 	in := &UpdateEntityInput{Attributes: &raw}
 	testutil.RequireNoError(t, (&Service{bylines: f}).syncBylineText(ctx, &Entity{}, in, bob.PersonID))
 	testutil.True(t, strings.Contains(string(*in.Attributes), `"author":{"x":1}`), "%s", *in.Attributes)
@@ -97,7 +97,7 @@ func TestCreditUpdate_ExplicitBylineRewritesText(t *testing.T) {
 	s := &Service{bylines: f}
 	_, _ = f.Resolve(ctx, "Jane Doe")
 	bob, _ := f.Resolve(ctx, "Bob")
-	existing := &Entity{Attributes: json.RawMessage(`{"author":"Jane Doe","content":"x"}`)}
+	existing := &Entity{Attributes: jsontext.Value(`{"author":"Jane Doe","content":"x"}`)}
 
 	in := &UpdateEntityInput{BylinePersonID: bob.PersonID}
 	testutil.RequireNoError(t, s.creditUpdate(ctx, existing, in))
@@ -120,7 +120,7 @@ func TestCreditUpdate_OrganisationClearsAuthorMirror(t *testing.T) {
 	s := &Service{bylines: f}
 	bob, _ := f.Resolve(ctx, "Bob")
 	mirror, _ := f.Mirror(ctx, *bob.PersonID)
-	existing := &Entity{Attributes: json.RawMessage(`{"author":"Bob"}`), BylinePersonID: bob.PersonID, AuthorID: mirror}
+	existing := &Entity{Attributes: jsontext.Value(`{"author":"Bob"}`), BylinePersonID: bob.PersonID, AuthorID: mirror}
 
 	on := true
 	in := &UpdateEntityInput{BylineOrg: &on}
@@ -129,7 +129,7 @@ func TestCreditUpdate_OrganisationClearsAuthorMirror(t *testing.T) {
 	testutil.True(t, in.ClearBylinePerson, "person cleared")
 
 	// The same through the byline text of an uncredited entity ("Acme" is the organisation).
-	raw := json.RawMessage(`{"author":"Acme"}`)
+	raw := jsontext.Value(`{"author":"Acme"}`)
 	in = &UpdateEntityInput{Attributes: &raw}
 	testutil.RequireNoError(t, s.creditUpdate(ctx, &Entity{}, in))
 	testutil.True(t, in.ClearAuthor && in.ClearBylinePerson, "text switch to the organisation clears the mirror: %+v", in)
@@ -154,7 +154,7 @@ func TestService_UpdateEntity_CreditedAuthorTextIsOutput(t *testing.T) {
 	existing := seedEntity(t, er, schema)
 	existing.BylinePersonID = bob.PersonID
 
-	attrs := json.RawMessage(`{"title":"Hello","body":"Edited","author":"Jane Doe"}`)
+	attrs := jsontext.Value(`{"title":"Hello","body":"Edited","author":"Jane Doe"}`)
 	got, err := svc.UpdateEntity(ctx, existing.ID, &testUserID, &UpdateEntityInput{Attributes: &attrs})
 	testutil.RequireNoError(t, err)
 	testutil.True(t, strings.Contains(string(got.Attributes), `"author":"Bob"`), "%s", got.Attributes)

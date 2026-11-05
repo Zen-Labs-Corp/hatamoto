@@ -4,7 +4,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +21,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/plugrun"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/siteconfig"
@@ -47,7 +48,7 @@ func TestChangesetReviewIntegration(t *testing.T) {
 	tag := uuid.NewString()[:8]
 	schemas := entity.NewPostgresSchemaRepository(db)
 	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: "rv " + tag, Slug: "rv-" + tag,
-		Schema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`)})
+		Schema: jsontext.Value(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,10 +88,10 @@ func TestChangesetReviewIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	item := func(key, slug string) changeset.Item {
-		p, _ := json.Marshal(map[string]any{"schema": sc.Slug, "name": "N " + slug, "slug": slug, "attributes": map[string]any{"content": "x"}})
+		p, _ := jsonx.Marshal(map[string]any{"schema": sc.Slug, "name": "N " + slug, "slug": slug, "attributes": map[string]any{"content": "x"}})
 		return changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: key, Payload: p}
 	}
-	redirect, _ := json.Marshal(map[string]any{"source_path": "/" + tag + "-old", "target": "/elsewhere"})
+	redirect, _ := jsonx.Marshal(map[string]any{"source_path": "/" + tag + "-old", "target": "/elsewhere"})
 	for _, it := range []changeset.Item{
 		item("a-"+tag, "rv-a-"+tag), item("b-"+tag, "rv-b-"+tag),
 		{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, SourceKey: "r-" + tag, Payload: redirect},
@@ -100,10 +101,10 @@ func TestChangesetReviewIntegration(t *testing.T) {
 		}
 	}
 	newTagline := "Reviewed " + tag
-	if err := runs.AddProposal(ctx, run.ID, "site_settings", json.RawMessage(`{"tagline":"`+newTagline+`"}`)); err != nil {
+	if err := runs.AddProposal(ctx, run.ID, "site_settings", jsontext.Value(`{"tagline":"`+newTagline+`"}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err := runs.AddProposal(ctx, run.ID, "url_patterns", json.RawMessage(`{"x":"/{slug}"}`)); err != nil {
+	if err := runs.AddProposal(ctx, run.ID, "url_patterns", jsontext.Value(`{"x":"/{slug}"}`)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -120,7 +121,7 @@ func TestChangesetReviewIntegration(t *testing.T) {
 	if h, err := rev.History(ctx, 5, 0); err != nil || len(h) == 0 || h[0].ID != cs || !h[0].Building {
 		t.Fatalf("history of a running run = %+v, %v", h, err)
 	}
-	if err := runs.Finish(ctx, run.ID, json.RawMessage(`{}`)); err != nil {
+	if err := runs.Finish(ctx, run.ID, jsontext.Value(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -272,10 +273,10 @@ func TestChangesetReviewDiscardKeepsApprovedSettingsOut(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runs.AddProposal(ctx, run.ID, "site_settings", json.RawMessage(`{"tagline":"Discarded tagline"}`)); err != nil {
+	if err := runs.AddProposal(ctx, run.ID, "site_settings", jsontext.Value(`{"tagline":"Discarded tagline"}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err := runs.Finish(ctx, run.ID, json.RawMessage(`{}`)); err != nil {
+	if err := runs.Finish(ctx, run.ID, jsontext.Value(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 	props, err := runs.Proposals(ctx, run.ID)
@@ -329,12 +330,12 @@ func TestChangesetReviewPagesRiskyItems(t *testing.T) {
 	}
 	total := reviewRiskyLimit + 50
 	for i := range total {
-		p, _ := json.Marshal(map[string]any{"source_path": fmt.Sprintf("/%s-%d", tag, i), "target": "/elsewhere"})
+		p, _ := jsonx.Marshal(map[string]any{"source_path": fmt.Sprintf("/%s-%d", tag, i), "target": "/elsewhere"})
 		if err := eng.Stage(ctx, cs, changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, SourceKey: fmt.Sprintf("r-%s-%d", tag, i), Payload: p}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := runs.Finish(ctx, run.ID, json.RawMessage(`{}`)); err != nil {
+	if err := runs.Finish(ctx, run.ID, jsontext.Value(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 	var seen []int
@@ -382,7 +383,7 @@ func TestChangesetReviewCountsRedirectsDroppedWithPage(t *testing.T) {
 	tag := uuid.NewString()[:8]
 	schemas := entity.NewPostgresSchemaRepository(db)
 	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: "rg " + tag, Slug: "rg-" + tag,
-		Schema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`)})
+		Schema: jsontext.Value(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -410,11 +411,11 @@ func TestChangesetReviewCountsRedirectsDroppedWithPage(t *testing.T) {
 		t.Fatal(err)
 	}
 	page := func(slug, content string) changeset.Item {
-		p, _ := json.Marshal(map[string]any{"schema": sc.Slug, "name": "N " + slug, "slug": slug, "attributes": map[string]any{"content": content}})
+		p, _ := jsonx.Marshal(map[string]any{"schema": sc.Slug, "name": "N " + slug, "slug": slug, "attributes": map[string]any{"content": content}})
 		return changeset.Item{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: slug, Payload: p}
 	}
 	redir := func(from, to string) changeset.Item {
-		p, _ := json.Marshal(map[string]any{"source_path": "/" + tag + from, "target": "/" + to})
+		p, _ := jsonx.Marshal(map[string]any{"source_path": "/" + tag + from, "target": "/" + to})
 		return changeset.Item{Kind: changeset.KindRedirect, Op: changeset.OpUpsert, SourceKey: tag + from, Payload: p}
 	}
 	embed, plain := "rg-embed-"+tag, "rg-plain-"+tag
@@ -427,7 +428,7 @@ func TestChangesetReviewCountsRedirectsDroppedWithPage(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := runs.Finish(ctx, run.ID, json.RawMessage(`{}`)); err != nil {
+	if err := runs.Finish(ctx, run.ID, jsontext.Value(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := rev.Review(ctx, cs, 1); err != nil {

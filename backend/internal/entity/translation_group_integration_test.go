@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"sync"
@@ -20,7 +20,7 @@ func TestGroupStore(t *testing.T) {
 	gs := NewGroupStore(db.Pool())
 	mk := func(slug, locale, status string) uuid.UUID {
 		t.Helper()
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: slug, Slug: slug, Locale: locale, Attributes: json.RawMessage(`{}`)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: slug, Slug: slug, Locale: locale, Attributes: jsontext.Value(`{}`)})
 		if err != nil {
 			t.Fatalf("create %s/%s: %v", slug, locale, err)
 		}
@@ -96,7 +96,7 @@ func TestGroupStoreOneMemberGroup(t *testing.T) {
 	gs := NewGroupStore(db.Pool())
 	mk := func(locale string) uuid.UUID {
 		t.Helper()
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "a", Slug: "a", Locale: locale, Attributes: json.RawMessage(`{}`)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "a", Slug: "a", Locale: locale, Attributes: jsontext.Value(`{}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -129,7 +129,7 @@ func TestGroupStoreVariantRowsDoNotCount(t *testing.T) {
 	gs := NewGroupStore(db.Pool())
 	mk := func(locale string) uuid.UUID {
 		t.Helper()
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "a", Slug: "a", Locale: locale, Attributes: json.RawMessage(`{}`)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "a", Slug: "a", Locale: locale, Attributes: jsontext.Value(`{}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -165,7 +165,7 @@ func TestGroupStoreLinkRace(t *testing.T) {
 	gs := NewGroupStore(db.Pool())
 	mk := func(slug, locale string) uuid.UUID {
 		t.Helper()
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: slug, Slug: slug, Locale: locale, Attributes: json.RawMessage(`{}`)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: slug, Slug: slug, Locale: locale, Attributes: jsontext.Value(`{}`)})
 		if err != nil {
 			t.Fatalf("create %s/%s: %v", slug, locale, err)
 		}
@@ -222,7 +222,7 @@ func groupWriteFixture(t *testing.T, locales ...string) (*GroupStore, func(id uu
 	ids := make([]uuid.UUID, len(locales))
 	slug := "gw-" + uuid.NewString()[:8]
 	for i, l := range locales {
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: slug + l, Slug: fmt.Sprintf("%s-%d", slug, i), Locale: l, Attributes: json.RawMessage(`{}`)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: slug + l, Slug: fmt.Sprintf("%s-%d", slug, i), Locale: l, Attributes: jsontext.Value(`{}`)})
 		if err != nil {
 			t.Fatalf("create %s: %v", l, err)
 		}

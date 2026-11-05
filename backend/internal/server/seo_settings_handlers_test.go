@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"log/slog"
@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/seosvc"
 	"hatamoto.dev/core/internal/testutil"
@@ -30,7 +31,7 @@ type fakeSEOService struct {
 
 func (f *fakeSEOService) Get(context.Context) (seosvc.Doc, error) { return f.doc, nil }
 
-func (f *fakeSEOService) Update(_ context.Context, a seosvc.Actor, p map[string]json.RawMessage) (seosvc.Doc, error) {
+func (f *fakeSEOService) Update(_ context.Context, a seosvc.Actor, p map[string]jsontext.Value) (seosvc.Doc, error) {
 	if _, bad := p["bad"]; bad {
 		return nil, &seosvc.ValidationError{Fields: map[string]string{"type[doc][title]": "too long"}}
 	}
@@ -139,7 +140,7 @@ func TestSEOSettings_Validation422(t *testing.T) {
 		Error  string            `json:"error"`
 		Fields map[string]string `json:"fields"`
 	}
-	testutil.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	testutil.NoError(t, jsonx.Unmarshal(rec.Body.Bytes(), &got))
 	testutil.Equal(t, "validation failed", got.Error)
 	testutil.Equal(t, "too long", got.Fields["type[doc][title]"])
 	testutil.Equal(t, 0, svc.updates, "nothing changed after 422")

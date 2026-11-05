@@ -1,8 +1,9 @@
 package v2
 
 import (
-	"encoding/json"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestPrefilterSafe(t *testing.T) {
@@ -35,7 +36,7 @@ func TestWithContentReplacesOnlyContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	var m map[string]any
-	if err := json.Unmarshal(out, &m); err != nil {
+	if err := jsonx.Unmarshal(out, &m); err != nil {
 		t.Fatal(err)
 	}
 	if m["content"] != "<p>new</p>" {

@@ -1,7 +1,6 @@
 package render
 
 import (
-	"encoding/json"
 	"os"
 	"reflect"
 	"sort"
@@ -9,6 +8,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The icon enum of both schemas lists exactly the names of icons.json.
@@ -28,7 +28,7 @@ func TestIconEnumMatchesGlyphs(t *testing.T) {
 				Enum []string `json:"enum"`
 			} `json:"properties"`
 		}
-		if err := json.Unmarshal(raw, &s); err != nil {
+		if err := jsonx.Unmarshal(raw, &s); err != nil {
 			t.Fatal(err)
 		}
 		key := "name"

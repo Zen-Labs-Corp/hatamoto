@@ -5,7 +5,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -20,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // localeNeutralEnv is a running server with one locale-neutral and one plain
@@ -128,7 +128,7 @@ func TestRESTCreate_LocaleNeutral(t *testing.T) {
 		if locale != "" {
 			body["locale"] = locale
 		}
-		raw, _ := json.Marshal(body)
+		raw, _ := jsonx.Marshal(body)
 		req, _ := http.NewRequest(http.MethodPost, e.ts.URL+"/api/v1/entities", bytes.NewReader(raw))
 		req.Header.Set("X-API-Key", e.key)
 		req.Header.Set("Content-Type", "application/json")
@@ -141,7 +141,7 @@ func TestRESTCreate_LocaleNeutral(t *testing.T) {
 			ID uuid.UUID `json:"id"`
 		}
 		b, _ := io.ReadAll(resp.Body)
-		_ = json.Unmarshal(b, &out)
+		_ = jsonx.Unmarshal(b, &out)
 		if resp.StatusCode != http.StatusCreated {
 			return resp.StatusCode, ""
 		}
@@ -195,7 +195,7 @@ func TestMCPCreate_LocaleNeutral(t *testing.T) {
 		var out struct {
 			Locale string `json:"locale"`
 		}
-		if err := json.Unmarshal([]byte(text), &out); err != nil {
+		if err := jsonx.Unmarshal([]byte(text), &out); err != nil {
 			t.Fatalf("%v\n%s", err, text)
 		}
 		return out.Locale
@@ -212,7 +212,7 @@ func TestMCPCreate_LocaleNeutral(t *testing.T) {
 // a flagged type must store the site language, never an invisible und.
 func TestRESTCreate_LocaleNeutralSingleLanguageSite(t *testing.T) {
 	e := newLocaleNeutralEnv(t, singleLocales)
-	raw, _ := json.Marshal(map[string]any{"schema_id": e.flaggedID, "name": "N " + uuid.NewString()[:6], "attributes": map[string]any{}})
+	raw, _ := jsonx.Marshal(map[string]any{"schema_id": e.flaggedID, "name": "N " + uuid.NewString()[:6], "attributes": map[string]any{}})
 	req, _ := http.NewRequest(http.MethodPost, e.ts.URL+"/api/v1/entities", bytes.NewReader(raw))
 	req.Header.Set("X-API-Key", e.key)
 	req.Header.Set("Content-Type", "application/json")
@@ -225,7 +225,7 @@ func TestRESTCreate_LocaleNeutralSingleLanguageSite(t *testing.T) {
 		ID uuid.UUID `json:"id"`
 	}
 	b, _ := io.ReadAll(resp.Body)
-	_ = json.Unmarshal(b, &out)
+	_ = jsonx.Unmarshal(b, &out)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("status %d: %s", resp.StatusCode, b)
 	}

@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"net/http/httptest"
 	"net/url"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // parentRig is a content rig with a child whose parent is a recipe (another
@@ -100,16 +101,14 @@ func TestFieldBuilderRoundTripsWhatItDoesNotEdit(t *testing.T) {
 		"numbers":        `{"type":"object","properties":{"big":{"type":"integer","maximum":9007199254740993,"minimum":0},"x":{"type":"number","multipleOf":0.5}},"additionalProperties":false,"x-hm-extra":1}`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			rows := fieldRows(json.RawMessage(schema))
-			got, ok := buildSchema(json.RawMessage(schema), rows)
+			rows := fieldRows(jsontext.Value(schema))
+			got, ok := buildSchema(jsontext.Value(schema), rows)
 			if !ok {
 				t.Fatalf("rows rejected: %+v", rows)
 			}
 			var want, have map[string]any
 			dec := func(s string, into *map[string]any) {
-				d := json.NewDecoder(strings.NewReader(s))
-				d.UseNumber()
-				if err := d.Decode(into); err != nil {
+				if err := jsonx.Unmarshal([]byte(s), into, jsonx.ExactNumbers); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -127,15 +126,15 @@ func TestFieldBuilderEditsMergeIntoTheProperty(t *testing.T) {
 	t.Parallel()
 
 	schema := `{"type":"object","properties":{"mail":{"type":"string","format":"email","maxLength":80,"title":"Mail"},"lvl":{"type":"string","enum":["a","b"],"x-hm-field":"pill"}}}`
-	rows := fieldRows(json.RawMessage(schema))
+	rows := fieldRows(jsontext.Value(schema))
 	rows[0].Title, rows[0].Help = "E-mail", "Where we write"
 	rows[1].Options = "a\nb\nc"
-	out, ok := buildSchema(json.RawMessage(schema), rows)
+	out, ok := buildSchema(jsontext.Value(schema), rows)
 	if !ok {
 		t.Fatal("rejected")
 	}
 	var s struct{ Properties map[string]map[string]any }
-	_ = json.Unmarshal(out, &s)
+	_ = jsonx.Unmarshal(out, &s, jsonx.StoredLoose)
 	mail := s.Properties["mail"]
 	if mail["title"] != "E-mail" || mail["description"] != "Where we write" || mail["format"] != "email" || mail["maxLength"] != float64(80) {
 		t.Errorf("mail: %v", mail)
@@ -144,10 +143,11 @@ func TestFieldBuilderEditsMergeIntoTheProperty(t *testing.T) {
 		t.Errorf("lvl: %v", lvl)
 	}
 	// changing the kind does drop what no longer applies
-	rows = fieldRows(json.RawMessage(schema))
+	rows = fieldRows(jsontext.Value(schema))
 	rows[0].Kind = "boolean"
-	out, _ = buildSchema(json.RawMessage(schema), rows)
-	_ = json.Unmarshal(out, &s)
+	out, _ = buildSchema(jsontext.Value(schema), rows)
+	s = struct{ Properties map[string]map[string]any }{} // v2 merges into existing maps, v1 replaced the entries
+	_ = jsonx.Unmarshal(out, &s, jsonx.StoredLoose)
 	if m := s.Properties["mail"]; m["type"] != "boolean" || m["format"] != nil || m["maxLength"] != nil {
 		t.Errorf("kind change kept stale keys: %v", m)
 	}
@@ -190,7 +190,7 @@ func TestSEONoindexReadsAndWritesRobots(t *testing.T) {
 		t.Fatalf("%d", rec.Code)
 	}
 	var attrs map[string]any
-	_ = json.Unmarshal(c.ents.ents[e.ID].Attributes, &attrs)
+	_ = jsonx.Unmarshal(c.ents.ents[e.ID].Attributes, &attrs)
 	seo, _ := attrs["seo"].(map[string]any)
 	if seo["robots"] != "follow" || seo["keep"] != "me" || attrs["no_index"] != nil {
 		t.Errorf("attrs after untick: %v", attrs)
@@ -201,7 +201,7 @@ func TestSEONoindexReadsAndWritesRobots(t *testing.T) {
 	// ticking writes no_index
 	form.Set("seo_noindex", "true")
 	c.post("/admin/entities/"+id, form)
-	_ = json.Unmarshal(c.ents.ents[e.ID].Attributes, &attrs)
+	_ = jsonx.Unmarshal(c.ents.ents[e.ID].Attributes, &attrs)
 	if attrs["no_index"] != true {
 		t.Errorf("not ticked: %v", attrs)
 	}

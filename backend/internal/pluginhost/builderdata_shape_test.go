@@ -1,9 +1,10 @@
 package pluginhost
 
 import (
-	"encoding/json"
 	"fmt"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The largest answer the builder.data contract allows (16 requests of 48
@@ -24,7 +25,7 @@ func TestBuilderDataShapeFitsAFullBatch(t *testing.T) {
 		requests = append(requests, map[string]any{"id": id, "source": "ext.p.s", "limit": 48})
 		results = append(results, map[string]any{"id": id, "ok": true, "items": items})
 	}
-	raw, _ := json.Marshal(map[string]any{"requests": requests, "results": results})
+	raw, _ := jsonx.MarshalPinned(map[string]any{"requests": requests, "results": results})
 	if err := builderDataShape.check(raw); err != nil {
 		t.Fatalf("a full batch is refused: %v", err)
 	}

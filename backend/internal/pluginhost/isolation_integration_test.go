@@ -4,7 +4,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"os"
 	"strings"
@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/migrations"
 )
 
@@ -120,7 +121,7 @@ func TestPluginEscapesHoldWithoutTheGuard(t *testing.T) {
 		for name, sql := range escapePayloads(app) {
 			res, err := r.db.Query(ctx, "capa", sql)
 			if err == nil {
-				b, _ := json.Marshal(res)
+				b, _ := jsonx.MarshalPinned(res)
 				if strings.Contains(string(b), "secret@example.com") || strings.Contains(string(b), app) {
 					t.Errorf("%s leaked: %s", name, b)
 				}
@@ -151,7 +152,7 @@ func TestEscapePayloadsThroughTheGuard(t *testing.T) {
 	}
 	for name, sql := range escapePayloads(app) {
 		if res, err := r.db.Query(ctx, "capa", sql); err == nil {
-			b, _ := json.Marshal(res)
+			b, _ := jsonx.MarshalPinned(res)
 			t.Errorf("%s was not refused: %s", name, b)
 		}
 	}
@@ -430,7 +431,7 @@ func TestPluginPoolFailureIsUnavailable(t *testing.T) {
 		t.Fatalf("a pool that cannot log in: %v", err)
 	}
 	// kv is core's and keeps working.
-	if err := r.db.KVSet(ctx, "capa", "k", json.RawMessage(`1`), 0); err != nil {
+	if err := r.db.KVSet(ctx, "capa", "k", jsontext.Value(`1`), 0); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -499,13 +500,13 @@ func TestKVQuota(t *testing.T) {
 	if _, err := r.pool.Exec(ctx, `INSERT INTO hatamoto_plugin_kv (plugin, key, value) SELECT 'capa', 'k' || g, '1' FROM generate_series(1, $1) g`, maxKVKeys); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.db.KVSet(ctx, "capa", "one-too-many", json.RawMessage(`1`), 0); !errors.Is(err, ErrKVQuota) {
+	if err := r.db.KVSet(ctx, "capa", "one-too-many", jsontext.Value(`1`), 0); !errors.Is(err, ErrKVQuota) {
 		t.Fatalf("a full store accepted a new key: %v", err)
 	}
-	if err := r.db.KVSet(ctx, "capa", "k1", json.RawMessage(`2`), 0); err != nil {
+	if err := r.db.KVSet(ctx, "capa", "k1", jsontext.Value(`2`), 0); err != nil {
 		t.Fatalf("overwriting a key in a full store: %v", err)
 	}
-	if err := r.db.KVSet(ctx, "other", "k", json.RawMessage(`2`), 0); err != nil {
+	if err := r.db.KVSet(ctx, "other", "k", jsontext.Value(`2`), 0); err != nil {
 		t.Fatalf("the quota is per plugin: %v", err)
 	}
 }

@@ -4,13 +4,14 @@ import (
 	"archive/tar"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // readTar returns the entries of a backup tar in order, with their bodies.
@@ -43,7 +44,7 @@ func readTar(t *testing.T, path string) (names []string, body map[string][]byte)
 func readManifest(t *testing.T, body map[string][]byte) manifest {
 	t.Helper()
 	var mf manifest
-	if err := json.Unmarshal(body[manifestName], &mf); err != nil {
+	if err := jsonx.Unmarshal(body[manifestName], &mf); err != nil {
 		t.Fatal(err)
 	}
 	return mf

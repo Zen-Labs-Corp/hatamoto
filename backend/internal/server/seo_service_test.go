@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"reflect"
 	"strings"
@@ -13,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/seosvc"
 )
@@ -74,7 +75,7 @@ type seoRig struct {
 func newSEORig(t *testing.T) *seoRig {
 	t.Helper()
 	r := &seoRig{back: &fakeSEOBackend{set: seo.Defaults()}, robots: &fakeRobots{}}
-	r.docType = &entity.EntitySchema{ID: uuid.New(), Slug: "doc", Name: "Docs", Settings: json.RawMessage(`{"archive_title":"All docs","sitemap":{"priority":0.4,"changefreq":"weekly"}}`)}
+	r.docType = &entity.EntitySchema{ID: uuid.New(), Slug: "doc", Name: "Docs", Settings: jsontext.Value(`{"archive_title":"All docs","sitemap":{"priority":0.4,"changefreq":"weekly"}}`)}
 	block := &entity.EntitySchema{ID: uuid.New(), Slug: entity.BlockSchemaSlug}
 	post := &entity.EntitySchema{ID: uuid.New(), Slug: "post", IsBuiltin: true}
 	r.svc = &seoService{
@@ -86,10 +87,10 @@ func newSEORig(t *testing.T) *seoRig {
 	return r
 }
 
-func patchOf(t *testing.T, s string) map[string]json.RawMessage {
+func patchOf(t *testing.T, s string) map[string]jsontext.Value {
 	t.Helper()
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(s), &m); err != nil {
+	var m map[string]jsontext.Value
+	if err := jsonx.Unmarshal([]byte(s), &m); err != nil {
 		t.Fatal(err)
 	}
 	return m
@@ -116,7 +117,7 @@ func TestSEOServiceGetShapeAndRedaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := json.Marshal(doc)
+	raw, _ := jsonx.Marshal(doc)
 	if strings.Contains(string(raw), "SECRETKEY123") {
 		t.Fatalf("the IndexNow key is in the document: %s", raw)
 	}
@@ -206,7 +207,7 @@ func TestSEOServiceRefusesAndChangesNothing(t *testing.T) {
 			r := newSEORig(t)
 			// A valid change next to the bad one must not be written either.
 			patch := patchOf(t, c.patch)
-			patch["separator"] = json.RawMessage(`"|"`)
+			patch["separator"] = jsontext.Value(`"|"`)
 			before := r.back.set.Clone()
 			_, err := r.svc.Update(context.Background(), keyActor, patch)
 			if _, ok := fieldsOf(t, err)[c.field]; !ok {
@@ -265,7 +266,7 @@ func TestSEOServiceIndexNowKeyIsNeverSetByThePatch(t *testing.T) {
 	if r.back.set.IndexNow.Key == "" {
 		t.Error("no key generated on enable")
 	}
-	raw, _ := json.Marshal(doc)
+	raw, _ := jsonx.Marshal(doc)
 	if strings.Contains(string(raw), r.back.set.IndexNow.Key) {
 		t.Error("the generated key is in the response")
 	}
@@ -289,7 +290,7 @@ func TestSEOServiceAuditNamesKeyAndSectionsOnly(t *testing.T) {
 	if e.Detail["key"] != "deploy" || e.Detail["via"] != "api" || !reflect.DeepEqual(e.Detail["sections"], []string{"home", "indexnow", "monitor404"}) {
 		t.Errorf("detail = %v", e.Detail)
 	}
-	raw, _ := json.Marshal(e)
+	raw, _ := jsonx.Marshal(e)
 	if strings.Contains(string(raw), "secret-path") || strings.Contains(string(raw), r.back.set.IndexNow.Key) {
 		t.Errorf("audit leaks a value: %s", raw)
 	}
@@ -312,7 +313,7 @@ func TestSEOServiceEmptyPatchWritesNothing(t *testing.T) {
 	t.Parallel()
 
 	r := newSEORig(t)
-	if _, err := r.svc.Update(context.Background(), keyActor, map[string]json.RawMessage{}); err != nil {
+	if _, err := r.svc.Update(context.Background(), keyActor, map[string]jsontext.Value{}); err != nil {
 		t.Fatal(err)
 	}
 	if r.back.saves != 0 || len(r.audits) != 0 || r.purged != 0 {
@@ -362,7 +363,7 @@ func TestSEOServiceGetUpdateRoundTrip(t *testing.T) {
 
 	r := newSEORig(t)
 	r.svc.schemas = append(r.svc.schemas.(fakeSEOSchemas),
-		&entity.EntitySchema{ID: uuid.New(), Slug: entity.PersonSchemaSlug, IsBuiltin: true, Settings: json.RawMessage(`{"schema_org_type":"Person"}`)})
+		&entity.EntitySchema{ID: uuid.New(), Slug: entity.PersonSchemaSlug, IsBuiltin: true, Settings: jsontext.Value(`{"schema_org_type":"Person"}`)})
 	r.back.set.AdsTxt = "google.com, pub-1, DIRECT, f08c47fec0942fa0\n"
 	r.back.set.AppAdsTxt = "example.com, 42, RESELLER\n"
 	ctx := context.Background()
@@ -370,9 +371,9 @@ func TestSEOServiceGetUpdateRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := json.Marshal(doc)
-	var full map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &full); err != nil {
+	raw, _ := jsonx.Marshal(doc)
+	var full map[string]jsontext.Value
+	if err := jsonx.Unmarshal(raw, &full); err != nil {
 		t.Fatal(err)
 	}
 
@@ -399,11 +400,11 @@ func TestSEOServiceGetUpdateRoundTrip(t *testing.T) {
 	checkFixed()
 
 	var ts map[string]map[string]any
-	if err := json.Unmarshal(full[seoTypeSettingsKey], &ts); err != nil {
+	if err := jsonx.Unmarshal(full[seoTypeSettingsKey], &ts); err != nil {
 		t.Fatal(err)
 	}
 	ts["doc"]["archive_title"] = "Every doc"
-	full[seoTypeSettingsKey], _ = json.Marshal(ts)
+	full[seoTypeSettingsKey], _ = jsonx.Marshal(ts)
 	r.back.patches = nil
 	if _, err := r.svc.Update(ctx, keyActor, full); err != nil {
 		t.Fatalf("the edited document was refused: %v", err)
@@ -421,7 +422,7 @@ func TestSEOServiceGetUpdateRoundTrip(t *testing.T) {
 
 	// A real change to a forbidden field is still refused.
 	ts["post"]["archive_title"] = "changed"
-	full[seoTypeSettingsKey], _ = json.Marshal(ts)
+	full[seoTypeSettingsKey], _ = jsonx.Marshal(ts)
 	if f := fieldsOf(t, func() error { _, err := r.svc.Update(ctx, keyActor, full); return err }()); f["type_settings[post][archive_title]"] == "" {
 		t.Errorf("fields = %v", f)
 	}

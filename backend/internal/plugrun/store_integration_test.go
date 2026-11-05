@@ -4,7 +4,7 @@ package plugrun
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"os"
 	"strings"
@@ -43,7 +43,7 @@ func TestRunLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := s.Create(ctx, Run{Plugin: p, Name: "import", Params: json.RawMessage(`{"a":1}`), Hosts: []string{"example.com"}, UploadID: &up})
+	r, err := s.Create(ctx, Run{Plugin: p, Name: "import", Params: jsontext.Value(`{"a":1}`), Hosts: []string{"example.com"}, UploadID: &up})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestRunLifecycle(t *testing.T) {
 	if n, err := s.BumpSteps(ctx, r.ID); err != nil || n != 1 {
 		t.Fatalf("BumpSteps = %d %v", n, err)
 	}
-	if err := s.Progress(ctx, r.ID, json.RawMessage(`{"done":5}`)); err != nil {
+	if err := s.Progress(ctx, r.ID, jsontext.Value(`{"done":5}`)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.AdvancePhase(ctx, r.ID, PhaseTransform); err != nil {
@@ -82,7 +82,7 @@ func TestRunLifecycle(t *testing.T) {
 	if err := s.AdvancePhase(ctx, r.ID, PhaseTransform); !errors.Is(err, ErrNotRunning) {
 		t.Fatalf("second advance = %v", err)
 	}
-	if err := s.Finish(ctx, r.ID, json.RawMessage(`{"ok":true}`)); err != nil {
+	if err := s.Finish(ctx, r.ID, jsontext.Value(`{"ok":true}`)); err != nil {
 		t.Fatal(err)
 	}
 	got, _ = s.Get(ctx, r.ID)
@@ -226,18 +226,18 @@ func TestBufferQuotaAndCascade(t *testing.T) {
 	}
 
 	// Proposals: stored, ordered, capped.
-	if err := s.AddProposal(ctx, r.ID, "site_settings", json.RawMessage(`{"title":"x"}`)); err != nil {
+	if err := s.AddProposal(ctx, r.ID, "site_settings", jsontext.Value(`{"title":"x"}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AddProposal(ctx, r.ID, "x", json.RawMessage(`not json`)); !errors.Is(err, ErrInvalid) {
+	if err := s.AddProposal(ctx, r.ID, "x", jsontext.Value(`not json`)); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("bad payload = %v", err)
 	}
 	for i := 1; i < MaxProposals; i++ {
-		if err := s.AddProposal(ctx, r.ID, "home_page", json.RawMessage(`{}`)); err != nil {
+		if err := s.AddProposal(ctx, r.ID, "home_page", jsontext.Value(`{}`)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := s.AddProposal(ctx, r.ID, "home_page", json.RawMessage(`{}`)); !errors.Is(err, ErrQuota) {
+	if err := s.AddProposal(ctx, r.ID, "home_page", jsontext.Value(`{}`)); !errors.Is(err, ErrQuota) {
 		t.Fatalf("proposal cap = %v", err)
 	}
 	props, err := s.Proposals(ctx, r.ID)

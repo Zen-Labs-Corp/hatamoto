@@ -2,13 +2,13 @@ package admin
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -94,7 +94,7 @@ func startFlash(t *testing.T, rec *httptest.ResponseRecorder) (kind, msg string)
 		raw, _, _ := strings.Cut(ck.Value, ".")
 		b, err := base64.RawURLEncoding.DecodeString(raw)
 		var f Flash
-		if err != nil || json.Unmarshal(b, &f) != nil {
+		if err != nil || jsonx.Unmarshal(b, &f) != nil {
 			t.Fatalf("bad flash cookie %q", ck.Value)
 		}
 		return f.Kind, f.Message

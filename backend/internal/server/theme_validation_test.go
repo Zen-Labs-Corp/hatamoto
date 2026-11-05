@@ -1,8 +1,10 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestValidateThemePayloadBuilderKey(t *testing.T) {
@@ -16,8 +18,8 @@ func TestValidateThemePayloadBuilderKey(t *testing.T) {
 		`{"builder":{"presets":{"card":{"s":{"base":{"bg":"url(x)"}}}}}}`:      false,
 		`{"builder":"x"}`: false,
 	} {
-		var sent map[string]json.RawMessage
-		if err := json.Unmarshal([]byte(body), &sent); err != nil {
+		var sent map[string]jsontext.Value
+		if err := jsonx.Unmarshal([]byte(body), &sent); err != nil {
 			t.Fatal(err)
 		}
 		if err := validateThemePayload(sent); (err == nil) != ok {

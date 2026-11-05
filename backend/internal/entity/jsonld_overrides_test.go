@@ -1,15 +1,17 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"reflect"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func overrideEntity(slug, settings, schemaJSON, attrs string) *Entity {
 	e := settingsTypedEntity(slug, settings, schemaJSON)
-	e.Attributes = json.RawMessage(attrs)
+	e.Attributes = jsontext.Value(attrs)
 	return e
 }
 
@@ -109,20 +111,20 @@ func TestValidateCustomJSONLDSizeCap(t *testing.T) {
 func TestCustomJSONLDDocs(t *testing.T) {
 	t.Parallel()
 	payload := `{"@context":"https://schema.org", "@type":"Thing", "name":"</script><b>"}`
-	attrs, _ := json.Marshal(map[string]string{"custom_jsonld": payload})
+	attrs, _ := jsonx.Marshal(map[string]string{"custom_jsonld": payload})
 	docs := CustomJSONLDDocs(attrs)
 	if len(docs) != 1 {
 		t.Fatalf("docs = %v", docs)
 	}
 	var got map[string]any
-	if err := json.Unmarshal(docs[0], &got); err != nil || got["name"] != "</script><b>" {
+	if err := jsonx.Unmarshal(docs[0], &got); err != nil || got["name"] != "</script><b>" {
 		t.Fatalf("doc = %s, %v", docs[0], err)
 	}
 	if strings.Contains(string(docs[0]), ": ") {
 		t.Errorf("not compact: %s", docs[0])
 	}
 	for _, a := range []string{``, `{}`, `{"custom_jsonld":5}`, `{"custom_jsonld":"{"}`} {
-		if CustomJSONLDDocs(json.RawMessage(a)) != nil {
+		if CustomJSONLDDocs(jsontext.Value(a)) != nil {
 			t.Errorf("%q yielded docs", a)
 		}
 	}

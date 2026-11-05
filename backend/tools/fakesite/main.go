@@ -9,7 +9,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -20,6 +19,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type logLine struct {
@@ -49,7 +50,7 @@ func newHandler(dir string, out io.Writer) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 		serveExact(sw, r, dir)
-		line, err := json.Marshal(logLine{
+		line, err := jsonx.Marshal(logLine{
 			Time:    time.Now().UTC().Format(time.RFC3339Nano),
 			Remote:  r.RemoteAddr,
 			Method:  r.Method,
@@ -58,7 +59,7 @@ func newHandler(dir string, out io.Writer) http.Handler {
 			Host:    r.Host,
 			Status:  sw.status,
 			Headers: r.Header,
-		})
+		}, jsonx.HTMLSafe)
 		if err != nil {
 			return
 		}

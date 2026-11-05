@@ -2,10 +2,11 @@ package release
 
 import (
 	"bytes"
-	"encoding/json"
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestEmbeddedTrust(t *testing.T) {
@@ -75,7 +76,7 @@ func TestLoadTrustManyManifestKeys(t *testing.T) {
 	mk := func(t *testing.T) []byte {
 		k, _ := genKey(t)
 		k.Private = ""
-		b, err := json.Marshal(k)
+		b, err := jsonx.MarshalPinned(k)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 )
 
@@ -12,7 +12,7 @@ func TestSchemaRepoSettingsRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	repo := NewPostgresSchemaRepository(newIntegrationDB(t))
 
-	body := json.RawMessage(`{"type":"object","properties":{}}`)
+	body := jsontext.Value(`{"type":"object","properties":{}}`)
 	created, err := repo.Create(ctx, &CreateSchemaInput{Name: "Settings Doc", Slug: "settings-doc-it", Schema: body})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -22,7 +22,7 @@ func TestSchemaRepoSettingsRoundTrip(t *testing.T) {
 		t.Fatalf("default settings = %s, want {}", created.Settings)
 	}
 
-	newSettings := json.RawMessage(`{"url_pattern":"/docs/{slug}","archive_path":"/docs"}`)
+	newSettings := jsontext.Value(`{"url_pattern":"/docs/{slug}","archive_path":"/docs"}`)
 	updated, err := repo.Update(ctx, created.ID, &UpdateSchemaInput{Settings: &newSettings})
 	if err != nil {
 		t.Fatalf("update: %v", err)

@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"log/slog"
@@ -77,7 +77,7 @@ func (f *fakeStandingEngine) PublishUnderPolicy(_ context.Context, _ int64, p ch
 }
 
 // standingHash is what the tab posts back: the hash of the manifest it showed.
-var standingHash, _ = standing.ManifestHash(json.RawMessage(standingManifest))
+var standingHash, _ = standing.ManifestHash(jsontext.Value(standingManifest))
 
 const standingManifest = `{"name":"pricer","version":"1.0.0","runs":[{"name":"prices","title":"Prices","cron":"daily",
 	"standing_approval":{"fields":["price"],"schemas":["product"],"max_per_hour":50}}],"cron":[{"name":"daily","every":"24h"}]}`
@@ -86,22 +86,22 @@ type standingRig struct {
 	svc      *standingService
 	store    *fakeStandingStore
 	eng      *fakeStandingEngine
-	manifest *json.RawMessage
+	manifest *jsontext.Value
 	version  *string
 	schema   *string
 	audits   *[]string
 }
 
 func newStandingRig() standingRig {
-	manifest, version, schema := json.RawMessage(standingManifest), "1.0.0", `{"type":"object"}`
+	manifest, version, schema := jsontext.Value(standingManifest), "1.0.0", `{"type":"object"}`
 	var audits []string
 	r := standingRig{store: &fakeStandingStore{}, eng: &fakeStandingEngine{verdict: changeset.PolicyVerdict{OK: true}},
 		manifest: &manifest, version: &version, schema: &schema, audits: &audits}
 	r.svc = &standingService{
 		store: r.store, eng: r.eng, log: slog.New(slog.NewTextHandler(io.Discard, nil)),
-		plugin: func(string) (string, json.RawMessage, bool) { return version, manifest, true },
-		schemas: func(context.Context, string) (json.RawMessage, bool, error) {
-			return json.RawMessage(schema), true, nil
+		plugin: func(string) (string, jsontext.Value, bool) { return version, manifest, true },
+		schemas: func(context.Context, string) (jsontext.Value, bool, error) {
+			return jsontext.Value(schema), true, nil
 		},
 		audit: func(_ context.Context, action, _ string, _ map[string]any) { audits = append(audits, action) },
 	}
@@ -140,7 +140,7 @@ func TestApproveRefusesARunWithoutARule(t *testing.T) {
 	if err := r.svc.Approve(context.Background(), "pricer", "other", "owner", "1.0.0", standingHash); !errors.Is(err, ErrNoStandingRule) {
 		t.Fatalf("Approve of an undeclared run = %v, want ErrNoStandingRule", err)
 	}
-	*r.manifest = json.RawMessage(`{"name":"pricer","version":"1.0.0"}`)
+	*r.manifest = jsontext.Value(`{"name":"pricer","version":"1.0.0"}`)
 	if err := r.svc.Approve(context.Background(), "pricer", "prices", "owner", "1.0.0", standingHash); !errors.Is(err, ErrNoStandingRule) {
 		t.Fatalf("Approve without a rule = %v, want ErrNoStandingRule", err)
 	}
@@ -173,7 +173,7 @@ func TestAutoPublishWaitsWhenStaleOrOutsidePolicy(t *testing.T) {
 	for name, mutate := range map[string]func(r standingRig){
 		"version changed": func(r standingRig) { *r.version = "1.1.0" },
 		"manifest changed": func(r standingRig) {
-			*r.manifest = json.RawMessage(strings.Replace(standingManifest, "Prices", "Rates", 1))
+			*r.manifest = jsontext.Value(strings.Replace(standingManifest, "Prices", "Rates", 1))
 		},
 		"schema changed": func(r standingRig) { *r.schema = `{"type":"object","properties":{"x":{}}}` },
 		"outside policy": func(r standingRig) { r.eng.verdict = changeset.PolicyVerdict{Reasons: []string{"Change 1: text"}} },

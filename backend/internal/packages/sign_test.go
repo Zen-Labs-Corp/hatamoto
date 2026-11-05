@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func newKey(t testing.TB) Key {
@@ -204,7 +204,7 @@ func TestBuildIndexValidityRange(t *testing.T) {
 			t.Fatal(err)
 		}
 		var idx Index
-		if err := json.Unmarshal(raw, &idx); err != nil {
+		if err := jsonx.Unmarshal(raw, &idx); err != nil {
 			t.Fatal(err)
 		}
 		if err := (&Registry{Now: func() time.Time { return now }}).checkFresh(&idx); err != nil {

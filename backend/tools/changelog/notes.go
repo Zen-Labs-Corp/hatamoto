@@ -3,10 +3,11 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Notes is the generated body of a changelog entry. The JSON names are the
@@ -63,7 +64,7 @@ func (n Notes) Hash() string {
 			*l = []string{}
 		}
 	}
-	b, _ := json.Marshal(n)
+	b, _ := jsonx.Marshal(n, jsonx.HTMLSafe)
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
 }

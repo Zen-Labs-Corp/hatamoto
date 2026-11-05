@@ -4,7 +4,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"net/http/httptest"
@@ -18,6 +18,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/user"
 )
@@ -143,8 +144,8 @@ func TestContactButtonIntegration(t *testing.T) {
 	if got != want {
 		t.Errorf("stored = %+v", got)
 	}
-	var top map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &top); err != nil || len(top["socialLinks"]) == 0 {
+	var top map[string]jsontext.Value
+	if err := jsonx.Unmarshal(raw, &top); err != nil || len(top["socialLinks"]) == 0 {
 		t.Errorf("other theme keys lost: %s", raw)
 	}
 

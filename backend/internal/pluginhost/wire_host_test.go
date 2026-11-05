@@ -2,7 +2,6 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
 	"encoding/json/jsontext"
 	"fmt"
 	"io"
@@ -253,7 +252,7 @@ func TestWireHostToGuestPayloads(t *testing.T) {
 
 // The host writes some payloads the guest never echoes (a run step, the
 // progress and changeset documents). They are pinned here by value, under the
-// encoder the host uses now and the pinned set it moves to.
+// pinned set.
 func TestWireHostPayloadsByValue(t *testing.T) {
 	cases := []struct {
 		name string
@@ -265,16 +264,12 @@ func TestWireHostPayloadsByValue(t *testing.T) {
 		{"call error", sdk.CallResponse{Error: &sdk.HostError{Code: "x", Message: "m"}}, `{"ok":false,"error":{"code":"x","message":"m"}}`},
 	}
 	for _, c := range cases {
-		v1, err := json.Marshal(c.v)
-		if err != nil {
-			t.Fatal(err)
-		}
 		pinned, err := jsonx.MarshalPinned(c.v)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if string(v1) != c.want || string(pinned) != c.want {
-			t.Errorf("%s:\n v1     %s\n pinned %s\n want   %s", c.name, v1, pinned, c.want)
+		if string(pinned) != c.want {
+			t.Errorf("%s:\n pinned %s\n want   %s", c.name, pinned, c.want)
 		}
 	}
 }
@@ -282,8 +277,8 @@ func TestWireHostPayloadsByValue(t *testing.T) {
 // wire.result and wire.args are test-only host functions.
 func withWireFns(t *testing.T, result func() any) {
 	t.Helper()
-	hostFns["wire.result"] = hostFn{run: func(context.Context, *API, *callEnv, json.RawMessage) (any, error) { return result(), nil }}
-	hostFns["wire.args"] = hostFn{run: func(_ context.Context, _ *API, _ *callEnv, raw json.RawMessage) (any, error) {
+	hostFns["wire.result"] = hostFn{run: func(context.Context, *API, *callEnv, jsontext.Value) (any, error) { return result(), nil }}
+	hostFns["wire.args"] = hostFn{run: func(_ context.Context, _ *API, _ *callEnv, raw jsontext.Value) (any, error) {
 		args, err := decodeArgs[wireArgs](raw)
 		if err != nil {
 			return nil, err
@@ -319,7 +314,7 @@ func TestWireCallResponses(t *testing.T) {
 		result any
 		want   string
 	}{
-		{"raw result is compacted and escaped", json.RawMessage("{\n \"b\": 1,\n \"a\" : \"<x>\" }"), `{"ok":true,"result":{"b":1,"a":"\u003cx\u003e"}}`},
+		{"raw result is compacted and escaped", jsontext.Value("{\n \"b\": 1,\n \"a\" : \"<x>\" }"), `{"ok":true,"result":{"b":1,"a":"\u003cx\u003e"}}`},
 		{"nil slice", []string(nil), `{"ok":true,"result":null}`},
 		{"nil map", map[string]int(nil), `{"ok":true,"result":null}`},
 		{"empty slice", []string{}, `{"ok":true,"result":[]}`},
@@ -353,7 +348,7 @@ func TestWireHostReadsGuestBytes(t *testing.T) {
 	a := wireAPI(t)
 	call := func(in string) sdk.CallResponse {
 		var resp sdk.CallResponse
-		if err := json.Unmarshal(a.Call(context.Background(), "p", []byte(in)), &resp); err != nil {
+		if err := jsonx.UnmarshalPinned(a.Call(context.Background(), "p", []byte(in)), &resp); err != nil {
 			t.Fatalf("%s: %v", in, err)
 		}
 		return resp
@@ -394,7 +389,7 @@ func TestWireKVSetValue(t *testing.T) {
 	a := wireAPI(t)
 	call := func(in string) sdk.CallResponse {
 		var resp sdk.CallResponse
-		if err := json.Unmarshal(a.Call(context.Background(), "p", []byte(in)), &resp); err != nil {
+		if err := jsonx.UnmarshalPinned(a.Call(context.Background(), "p", []byte(in)), &resp); err != nil {
 			t.Fatal(err)
 		}
 		return resp
@@ -442,7 +437,7 @@ func TestWireDecodeOutput(t *testing.T) {
 			t.Errorf("%s: %v", c.name, err)
 			continue
 		}
-		if g, _ := json.Marshal(got); string(g) != mustJSON(c.want) {
+		if g, _ := jsonx.MarshalPinned(got); string(g) != mustJSON(c.want) {
 			t.Errorf("%s:\n got  %s\n want %s", c.name, g, mustJSON(c.want))
 		}
 	}
@@ -469,12 +464,12 @@ func TestWireDecodeOutput(t *testing.T) {
 }
 
 func mustJSON(v any) string {
-	b, _ := json.Marshal(v)
+	b, _ := jsonx.MarshalPinned(v)
 	return string(b)
 }
 
 func TestWireDecodeQueryArgs(t *testing.T) {
-	got, err := DecodeArgs(json.RawMessage(`[1, -0, 2.0, 1e2, 9007199254740993, 12345678901234567890, -9223372036854775808, "s", true, null, {"b":[2,"x",null],"a":1}, []]`))
+	got, err := DecodeArgs(jsontext.Value(`[1, -0, 2.0, 1e2, 9007199254740993, 12345678901234567890, -9223372036854775808, "s", true, null, {"b":[2,"x",null],"a":1}, []]`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -489,12 +484,12 @@ func TestWireDecodeQueryArgs(t *testing.T) {
 		}
 	}
 	for in, n := range map[string]int{``: 0, `  `: 0, `[]`: 0, `null`: 0} {
-		if got, err := DecodeArgs(json.RawMessage(in)); err != nil || len(got) != n {
+		if got, err := DecodeArgs(jsontext.Value(in)); err != nil || len(got) != n {
 			t.Errorf("DecodeArgs(%q) = %v, %v", in, got, err)
 		}
 	}
 	for _, in := range []string{`{"a":1}`, `"x"`, `1`, `[1,`} {
-		if _, err := DecodeArgs(json.RawMessage(in)); err == nil {
+		if _, err := DecodeArgs(jsontext.Value(in)); err == nil {
 			t.Errorf("DecodeArgs(%q) succeeded", in)
 		}
 	}

@@ -3,7 +3,6 @@ package media
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	xwebp "golang.org/x/image/webp"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media/modern"
 )
 
@@ -231,7 +231,7 @@ func TestFormatPolicyOffMakesNoModernCopies(t *testing.T) {
 
 func TestVariantJSONWithoutFormatMeansOriginal(t *testing.T) {
 	var v ImageVariant
-	if err := json.Unmarshal([]byte(`{"size":"medium","path":"a_medium.jpg","url":"/media/a","width":300,"height":200}`), &v); err != nil {
+	if err := jsonx.Unmarshal([]byte(`{"size":"medium","path":"a_medium.jpg","url":"/media/a","width":300,"height":200}`), &v); err != nil {
 		t.Fatal(err)
 	}
 	if v.Format != "" || v.MIME("image/jpeg") != "image/jpeg" {
@@ -241,7 +241,7 @@ func TestVariantJSONWithoutFormatMeansOriginal(t *testing.T) {
 	if v.MIME("image/jpeg") != "image/webp" {
 		t.Fatal("format wins")
 	}
-	b, _ := json.Marshal(ImageVariant{Size: "m"})
+	b, _ := jsonx.Marshal(ImageVariant{Size: "m"})
 	if strings.Contains(string(b), "format") {
 		t.Errorf("empty format must be omitted: %s", b)
 	}

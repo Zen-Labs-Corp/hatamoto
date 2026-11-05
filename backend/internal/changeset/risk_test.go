@@ -1,8 +1,10 @@
 package changeset
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func riskEntity(slug string, attrs map[string]any) Item {
@@ -13,8 +15,8 @@ func seoEntity(slug string, seo *EntitySEO) Item {
 	return Item{Kind: KindEntity, Op: OpUpsert, Payload: rawJSON(map[string]any{"name": "N", "slug": slug, "attributes": map[string]any{"content": "t"}, "seo": seo})}
 }
 
-func rawJSON(v any) json.RawMessage {
-	b, err := json.Marshal(v)
+func rawJSON(v any) jsontext.Value {
+	b, err := jsonx.Marshal(v)
 	if err != nil {
 		panic(err)
 	}
@@ -75,8 +77,8 @@ func TestRiskClassify(t *testing.T) {
 		{"slug of a create is not a change", riskEntity("new", body("t")), nil, Verdict{Risk: RiskLow}},
 		{"delete entity", Item{Kind: KindEntity, Op: OpDelete, TargetID: "x"}, nil, Verdict{RiskHigh, ReasonDelete, 0}},
 		{"delete term", Item{Kind: KindTerm, Op: OpDelete, TargetID: "x"}, nil, Verdict{RiskHigh, ReasonDelete, 0}},
-		{"attributes not an object", Item{Kind: KindEntity, Op: OpUpsert, Payload: json.RawMessage(`{"slug":"a","attributes":"<b>"}`)}, nil, Verdict{RiskHigh, ReasonUnparseable, 0}},
-		{"payload not json", Item{Kind: KindEntity, Op: OpUpsert, Payload: json.RawMessage(`[1]`)}, nil, Verdict{RiskHigh, ReasonUnparseable, 0}},
+		{"attributes not an object", Item{Kind: KindEntity, Op: OpUpsert, Payload: jsontext.Value(`{"slug":"a","attributes":"<b>"}`)}, nil, Verdict{RiskHigh, ReasonUnparseable, 0}},
+		{"payload not json", Item{Kind: KindEntity, Op: OpUpsert, Payload: jsontext.Value(`[1]`)}, nil, Verdict{RiskHigh, ReasonUnparseable, 0}},
 		{"term", Item{Kind: KindTerm, Op: OpUpsert, Payload: rawJSON(map[string]any{"slug": "t", "name": "T"})}, nil, Verdict{Risk: RiskLow}},
 		{"media alt change", Item{Kind: KindMedia, Op: OpUpsert, TargetID: "7f0c0b9e-1111-4222-8333-444455556666", Payload: rawJSON(map[string]any{"alt_text": "cat"})}, nil, Verdict{Risk: RiskHigh, Reason: ReasonAltText}},
 		{"media", Item{Kind: KindMedia, Op: OpUpsert, Payload: rawJSON(map[string]any{"filename": "a.png", "alt_text": "cat"})}, nil, Verdict{Risk: RiskLow}},

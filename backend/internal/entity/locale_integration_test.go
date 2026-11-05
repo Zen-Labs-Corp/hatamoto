@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"strings"
 	"testing"
@@ -41,7 +41,7 @@ func TestCreateEntity_SameSlugTwoLocales(t *testing.T) {
 	ctx := context.Background()
 	svc, schemaID, site := localeFixture(t, `{}`)
 	mk := func(slug, locale string) (*Entity, error) {
-		return svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: slug, Slug: slug, Locale: locale, Attributes: json.RawMessage(`{}`)})
+		return svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: slug, Slug: slug, Locale: locale, Attributes: jsontext.Value(`{}`)})
 	}
 	en, err := mk("about", "en")
 	if err != nil || en.Locale != "en" {
@@ -66,7 +66,7 @@ func TestCreateEntity_SameSlugTwoLocales(t *testing.T) {
 	if err != nil || def.Locale != site {
 		t.Fatalf("default locale = %+v, %v; want %q", def, err, site)
 	}
-	if got, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "tagged", Slug: "tagged", Locale: "en_au", Attributes: json.RawMessage(`{}`)}); err != nil || got.Locale != "en-AU" {
+	if got, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "tagged", Slug: "tagged", Locale: "en_au", Attributes: jsontext.Value(`{}`)}); err != nil || got.Locale != "en-AU" {
 		t.Errorf("en_au -> %+v, %v; want en-AU", got, err)
 	}
 
@@ -101,7 +101,7 @@ func TestPatternConflict_IgnoresOtherLocales(t *testing.T) {
 	svc, schemaID, _ := localeFixture(t, `{"url_pattern":"/{path}"}`)
 	mk := func(slug, locale string, parent *uuid.UUID) *Entity {
 		t.Helper()
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: slug, Slug: slug, Locale: locale, ParentID: parent, Attributes: json.RawMessage(`{}`)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: slug, Slug: slug, Locale: locale, ParentID: parent, Attributes: jsontext.Value(`{}`)})
 		if err != nil {
 			t.Fatalf("create %s/%s: %v", slug, locale, err)
 		}
@@ -113,7 +113,7 @@ func TestPatternConflict_IgnoresOtherLocales(t *testing.T) {
 	mk("kid", "en", &p1.ID)
 	mk("kid", "en", &p2.ID)
 
-	flat := json.RawMessage(`{"url_pattern":"/notes/{slug}"}`)
+	flat := jsontext.Value(`{"url_pattern":"/notes/{slug}"}`)
 	_, err := svc.UpdateSchema(ctx, schemaID, &UpdateSchemaInput{Settings: &flat})
 	if err == nil {
 		t.Fatal("a flat pattern with kid under two parents must fail")
@@ -141,7 +141,7 @@ func TestCreateEntity_LocaleNeutral(t *testing.T) {
 			if !c.single {
 				useLocales(t, svc, "en", "fr")
 			}
-			got, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "x", Slug: "x", Locale: c.locale, Attributes: json.RawMessage(`{}`)})
+			got, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "x", Slug: "x", Locale: c.locale, Attributes: jsontext.Value(`{}`)})
 			if c.want == "!" {
 				if err == nil {
 					t.Fatalf("explicit und accepted: %+v", got)
@@ -161,7 +161,7 @@ func TestCreateEntity_LocaleNeutral(t *testing.T) {
 	t.Run("update keeps locale", func(t *testing.T) {
 		svc, schemaID, _ := localeFixture(t, `{"locale_neutral":true}`)
 		useLocales(t, svc, "en", "fr")
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "x", Slug: "x", Attributes: json.RawMessage(`{}`)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "x", Slug: "x", Attributes: jsontext.Value(`{}`)})
 		if err != nil {
 			t.Fatal(err)
 		}

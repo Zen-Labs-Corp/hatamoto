@@ -5,7 +5,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"log/slog"
@@ -44,8 +44,8 @@ func TestSEOTitlesSaveRollsBackAcrossSchemasAndSettings(t *testing.T) {
 	for _, slug := range []string{"seo-tx-a", "seo-tx-b"} {
 		sc, err := repo.Create(ctx, &entity.CreateSchemaInput{
 			Name: slug, Slug: slug,
-			Schema:   json.RawMessage(`{"type":"object","properties":{}}`),
-			Settings: json.RawMessage(`{"url_pattern":"/` + slug + `/{slug}"}`),
+			Schema:   jsontext.Value(`{"type":"object","properties":{}}`),
+			Settings: jsontext.Value(`{"url_pattern":"/` + slug + `/{slug}"}`),
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -135,8 +135,8 @@ func TestSEOSchemaSaveRollsBackAndKeepsUnknownKeys(t *testing.T) {
 	for _, slug := range []string{"seo-sc-a", "seo-sc-b"} {
 		sc, err := repo.Create(ctx, &entity.CreateSchemaInput{
 			Name: slug, Slug: slug,
-			Schema:   json.RawMessage(`{"type":"object","properties":{}}`),
-			Settings: json.RawMessage(`{"url_pattern":"/` + slug + `/{slug}","custom_key":"keep"}`),
+			Schema:   jsontext.Value(`{"type":"object","properties":{}}`),
+			Settings: jsontext.Value(`{"url_pattern":"/` + slug + `/{slug}","custom_key":"keep"}`),
 		})
 		if err != nil {
 			t.Fatal(err)

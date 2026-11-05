@@ -1,11 +1,12 @@
 package localeconv
 
 import (
-	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const validPlan = `{
@@ -151,7 +152,7 @@ func TestSitemapNamingValuesValidate(t *testing.T) {
 
 func TestSitemapNamingStaysOutOfThePlanJSONWhenUnset(t *testing.T) {
 	p := mustParse(t, validPlan)
-	raw, err := json.Marshal(p)
+	raw, err := jsonx.Marshal(p)
 	if err != nil || strings.Contains(string(raw), "sitemap_naming") {
 		t.Fatalf("plan json = %s (%v)", raw, err)
 	}

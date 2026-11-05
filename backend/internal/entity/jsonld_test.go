@@ -1,11 +1,12 @@
 package entity
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestGenerateJSONLD_WebPage(t *testing.T) {
@@ -18,7 +19,7 @@ func TestGenerateJSONLD_WebPage(t *testing.T) {
 	attrs := map[string]any{
 		"description": "Test page description",
 	}
-	attrsJSON, _ := json.Marshal(attrs)
+	attrsJSON, _ := jsonx.Marshal(attrs)
 
 	entity := &Entity{
 		ID:         uuid.New(),
@@ -64,7 +65,7 @@ func TestGenerateJSONLD_Article(t *testing.T) {
 		"featured_image": "https://example.com/image.jpg",
 		"tags":           []any{"tech", "news"},
 	}
-	attrsJSON, _ := json.Marshal(attrs)
+	attrsJSON, _ := jsonx.Marshal(attrs)
 
 	entity := &Entity{
 		ID:          uuid.New(),
@@ -131,7 +132,7 @@ func TestGenerateJSONLD_Article_AuthorNameFallback(t *testing.T) {
 		"excerpt":     "This is the excerpt",
 		"author_name": "Jane Roe",
 	}
-	attrsJSON, _ := json.Marshal(attrs)
+	attrsJSON, _ := jsonx.Marshal(attrs)
 
 	entity := &Entity{
 		ID:         uuid.New(),
@@ -175,7 +176,7 @@ func TestGenerateJSONLD_Person(t *testing.T) {
 		"company":   "Example Corp",
 		"skills":    []any{"Go", "TypeScript", "PostgreSQL"},
 	}
-	attrsJSON, _ := json.Marshal(attrs)
+	attrsJSON, _ := jsonx.Marshal(attrs)
 
 	entity := &Entity{
 		ID:         uuid.New(),
@@ -274,7 +275,7 @@ func TestGenerateJSONLD_ValidatesJSONSyntax(t *testing.T) {
 		},
 		"phone": "+61 3 1234 5678",
 	}
-	attrsJSON, _ := json.Marshal(attrs)
+	attrsJSON, _ := jsonx.Marshal(attrs)
 
 	entity := &Entity{
 		ID:         uuid.New(),
@@ -290,13 +291,13 @@ func TestGenerateJSONLD_ValidatesJSONSyntax(t *testing.T) {
 	}
 
 	// Marshal to JSON and back to verify syntax
-	jsonBytes, err := json.Marshal(jsonLD)
+	jsonBytes, err := jsonx.Marshal(jsonLD)
 	if err != nil {
 		t.Fatalf("Failed to marshal JSON-LD to JSON: %v", err)
 	}
 
 	var parsed map[string]any
-	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
+	if err := jsonx.Unmarshal(jsonBytes, &parsed); err != nil {
 		t.Fatalf("Generated JSON-LD is not valid JSON: %v", err)
 	}
 

@@ -1,12 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // channelOrder is the promotion order: a release shows the furthest channel it
@@ -124,7 +125,7 @@ func fetchManifest(hc *http.Client, u string) (manifestIndex, bool, error) {
 		return manifestIndex{}, false, err
 	}
 	var f manifestFile
-	if err := json.Unmarshal(b, &f); err != nil {
+	if err := jsonx.Unmarshal(b, &f, jsonx.Stored); err != nil {
 		return manifestIndex{}, false, fmt.Errorf("GET %s: %w", u, err)
 	}
 	if f.Index != nil {

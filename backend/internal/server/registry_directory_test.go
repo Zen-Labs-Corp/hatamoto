@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/render"
@@ -76,7 +76,7 @@ func (r *dirRig) publish(life time.Duration, entries ...packages.Entry) {
 		entries[i].SHA256 = strings.Repeat("a", 64)
 	}
 	idx := packages.Index{Version: 1, IssuedAt: r.clock.Add(-time.Minute).Format(time.RFC3339), ExpiresAt: r.clock.Add(life).Format(time.RFC3339), Packages: entries}
-	raw, err := json.Marshal(idx)
+	raw, err := jsonx.Marshal(idx)
 	if err != nil {
 		r.t.Fatal(err)
 	}

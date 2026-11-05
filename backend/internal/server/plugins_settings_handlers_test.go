@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,18 +13,19 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/pluginhost"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
-type memSettings struct{ data map[string]json.RawMessage }
+type memSettings struct{ data map[string]jsontext.Value }
 
-func (m *memSettings) Get(_ context.Context, p string) (json.RawMessage, error) {
+func (m *memSettings) Get(_ context.Context, p string) (jsontext.Value, error) {
 	if v, ok := m.data[p]; ok {
 		return v, nil
 	}
-	return json.RawMessage(`{}`), nil
+	return jsontext.Value(`{}`), nil
 }
-func (m *memSettings) Put(_ context.Context, p string, v json.RawMessage) error {
+func (m *memSettings) Put(_ context.Context, p string, v jsontext.Value) error {
 	m.data[p] = v
 	return nil
 }
@@ -34,7 +35,7 @@ const testPluginSchema = `{"type":"object","required":["greeting"],"additionalPr
 "api_key":{"type":"string","writeOnly":true}}}`
 
 func pluginTestServer() (*Server, *memSettings, http.Handler) {
-	store := &memSettings{data: map[string]json.RawMessage{}}
+	store := &memSettings{data: map[string]jsontext.Value{}}
 	s := &Server{
 		logger:              slog.New(slog.NewTextHandler(io.Discard, nil)),
 		pluginSettingsStore: store,
@@ -70,7 +71,7 @@ func TestPluginList(t *testing.T) {
 	var out struct {
 		Plugins []map[string]any `json:"plugins"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || len(out.Plugins) != 2 {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &out); err != nil || len(out.Plugins) != 2 {
 		t.Fatalf("bad body %s (%v)", rec.Body, err)
 	}
 	p := out.Plugins[0]
@@ -110,9 +111,12 @@ func TestPluginSettingsPutValidation(t *testing.T) {
 	}
 	var body struct {
 		Error  string `json:"error"`
-		Fields []struct{ Path, Message string }
+		Fields []struct {
+			Path    string `json:"path"`
+			Message string `json:"message"`
+		} `json:"fields"`
 	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	_ = jsonx.Unmarshal(rec.Body.Bytes(), &body)
 	if body.Error != "validation failed" || len(body.Fields) == 0 || body.Fields[0].Path != "/greeting" {
 		t.Fatalf("bad error shape: %s", rec.Body)
 	}

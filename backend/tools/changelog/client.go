@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Client talks to the entities REST API with an API key. The key is only ever
@@ -33,7 +34,7 @@ type Entity struct {
 func (c *Client) do(method, path string, body, out any) error {
 	var rd io.Reader
 	if body != nil {
-		b, err := json.Marshal(body)
+		b, err := jsonx.Marshal(body)
 		if err != nil {
 			return err
 		}
@@ -77,7 +78,7 @@ func (c *Client) do(method, path string, body, out any) error {
 		return c.scrub(fmt.Errorf("%s %s: HTTP %d: %s", method, strings.SplitN(path, "?", 2)[0], resp.StatusCode, msg))
 	}
 	if out != nil {
-		if err := json.Unmarshal(data, out); err != nil {
+		if err := jsonx.Unmarshal(data, out, jsonx.Stored); err != nil {
 			return fmt.Errorf("%s %s: decode response: %w", method, strings.SplitN(path, "?", 2)[0], err)
 		}
 	}

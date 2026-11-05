@@ -1,16 +1,18 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/microcosm-cc/bluemonday"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestSanitizeAttributes_StripsXSS(t *testing.T) {
-	in := json.RawMessage(`{"content":"<p>ok</p><script>alert(1)</script><img src=x onerror=alert(1)>","title":"keep"}`)
+	in := jsontext.Value(`{"content":"<p>ok</p><script>alert(1)</script><img src=x onerror=alert(1)>","title":"keep"}`)
 	out, err := sanitizeAttributes(in)
 	if err != nil {
 		t.Fatal(err)
@@ -23,8 +25,8 @@ func TestSanitizeAttributes_StripsXSS(t *testing.T) {
 		t.Errorf("event handler survived: %s", s)
 	}
 	// Non-content keys must be preserved untouched.
-	var obj map[string]json.RawMessage
-	if err := json.Unmarshal(out, &obj); err != nil {
+	var obj map[string]jsontext.Value
+	if err := jsonx.Unmarshal(out, &obj); err != nil {
 		t.Fatal(err)
 	}
 	if string(obj["title"]) != `"keep"` {
@@ -33,7 +35,7 @@ func TestSanitizeAttributes_StripsXSS(t *testing.T) {
 }
 
 func TestSanitizeAttributes_DropsStyleAndJSHref(t *testing.T) {
-	in := json.RawMessage(`{"content":"<p style=\"color:red\">x</p><a href=\"javascript:alert(1)\">y</a>"}`)
+	in := jsontext.Value(`{"content":"<p style=\"color:red\">x</p><a href=\"javascript:alert(1)\">y</a>"}`)
 	out, _ := sanitizeAttributes(in)
 	s := string(out)
 	if strings.Contains(s, "style=") {
@@ -45,7 +47,7 @@ func TestSanitizeAttributes_DropsStyleAndJSHref(t *testing.T) {
 }
 
 func TestSanitizeAttributes_IframeAllowlist(t *testing.T) {
-	in := json.RawMessage(`{"content":"<iframe src=\"https://www.youtube.com/embed/abc\"></iframe><iframe src=\"https://evil.com/x\"></iframe>"}`)
+	in := jsontext.Value(`{"content":"<iframe src=\"https://www.youtube.com/embed/abc\"></iframe><iframe src=\"https://evil.com/x\"></iframe>"}`)
 	out, _ := sanitizeAttributes(in)
 	s := string(out)
 	if !strings.Contains(s, "youtube.com/embed/abc") {
@@ -59,14 +61,14 @@ func TestSanitizeAttributes_IframeAllowlist(t *testing.T) {
 func TestSanitizeAttributes_PreservesLinkerBridgeAndRoundTripsCleanContent(t *testing.T) {
 	// Clean editor content, incl. the v2 linker bridge attributes, must survive.
 	content := `<h2>Title</h2><p>Some <strong>bold</strong> and <a href="/blog/seo" data-entity-id="abc-123" class="entity-link">a link</a>.</p><ul><li>one</li></ul>`
-	raw, _ := json.Marshal(map[string]string{"content": content})
+	raw, _ := jsonx.Marshal(map[string]string{"content": content})
 	out, err := sanitizeAttributes(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Decode the content field back to HTML (raw JSON escapes '<' to \u003c).
 	var obj map[string]string
-	if err := json.Unmarshal(out, &obj); err != nil {
+	if err := jsonx.Unmarshal(out, &obj); err != nil {
 		t.Fatal(err)
 	}
 	s := obj["content"]
@@ -79,7 +81,7 @@ func TestSanitizeAttributes_PreservesLinkerBridgeAndRoundTripsCleanContent(t *te
 
 func TestSanitizeAttributes_NestedSectionContentSanitized(t *testing.T) {
 	// Section HTML nested inside arrays/objects must also be sanitized.
-	in := json.RawMessage(`{"sections":[{"type":"text","content":"<p>ok</p><script>alert(1)</script>"}],"count":3}`)
+	in := jsontext.Value(`{"sections":[{"type":"text","content":"<p>ok</p><script>alert(1)</script>"}],"count":3}`)
 	out, err := sanitizeAttributes(in)
 	if err != nil {
 		t.Fatal(err)
@@ -94,7 +96,7 @@ func TestSanitizeAttributes_NestedSectionContentSanitized(t *testing.T) {
 }
 
 func TestSanitizeAttributes_KeepsTelLinks(t *testing.T) {
-	in := json.RawMessage(`{"content":"<a href=\"tel:+15551234\">call</a>"}`)
+	in := jsontext.Value(`{"content":"<a href=\"tel:+15551234\">call</a>"}`)
 	out, _ := sanitizeAttributes(in)
 	if !strings.Contains(string(out), "tel:+15551234") {
 		t.Errorf("tel link should survive: %s", out)
@@ -102,7 +104,7 @@ func TestSanitizeAttributes_KeepsTelLinks(t *testing.T) {
 }
 
 func TestSanitizeAttributes_NoContentKeyUnchanged(t *testing.T) {
-	in := json.RawMessage(`{"title":"hi","count":3}`)
+	in := jsontext.Value(`{"title":"hi","count":3}`)
 	out, err := sanitizeAttributes(in)
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +187,7 @@ func TestSanitizeAttributes_RepeatedKeysStillSanitized(t *testing.T) {
 		`{"content":"ok","content":"<script>x</script>"}`,
 		`{"a":{"content":"<script>x</script>","content":"<script>y</script>"}}`,
 	} {
-		out, err := sanitizeAttributes(json.RawMessage(in))
+		out, err := sanitizeAttributes(jsontext.Value(in))
 		if err != nil {
 			t.Fatal(err)
 		}

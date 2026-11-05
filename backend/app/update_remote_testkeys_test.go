@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/release"
 )
@@ -47,7 +47,7 @@ func TestUpdateApplyNamedVersionFetchesVerifiesAndStages(t *testing.T) {
 	}
 	sig, _ := packages.SignBytes(relKey, rec)
 	now := time.Now().UTC()
-	manifest, _ := json.Marshal(release.ChannelManifest{Channel: "stable", IssuedAt: now.Add(-time.Hour).Format(time.RFC3339),
+	manifest, _ := jsonx.Marshal(release.ChannelManifest{Channel: "stable", IssuedAt: now.Add(-time.Hour).Format(time.RFC3339),
 		ExpiresAt: now.Add(24 * time.Hour).Format(time.RFC3339), Releases: []release.Entry{{Version: "v2.0.0"}}, Yanked: []release.Yank{}})
 	doc, err := packages.SignIndex(manifest, manKey)
 	if err != nil {

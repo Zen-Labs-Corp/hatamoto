@@ -2,7 +2,7 @@ package taxonomy
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"os"
 	"strings"
@@ -99,7 +99,7 @@ func (e *txEnv) cleanup(t *testing.T, ids ...uuid.UUID) {
 func TestApplyChangesetTxCreate(t *testing.T) {
 	e := newTxEnv(t)
 	slug := "cs-" + uuid.NewString()[:8]
-	r := e.run(t, TermOp{Kind: "tag", Name: " Hello ", Slug: slug, Description: "d", Origin: "plug", SEO: json.RawMessage(`{"meta_title":"T"}`)})[0]
+	r := e.run(t, TermOp{Kind: "tag", Name: " Hello ", Slug: slug, Description: "d", Origin: "plug", SEO: jsontext.Value(`{"meta_title":"T"}`)})[0]
 	e.cleanup(t, r.ID)
 	if !r.Created || r.Slug != slug || r.Before != nil {
 		t.Fatalf("result %+v", r)
@@ -131,7 +131,7 @@ func TestApplyChangesetTxValidation(t *testing.T) {
 		"name":        {TermOp{Kind: "tag", Name: " "}, ErrInvalidName},
 		"slug":        {TermOp{Kind: "tag", Name: "x", Slug: "Not Valid!"}, ErrInvalidSlug},
 		"description": {TermOp{Kind: "tag", Name: "x", Description: strings.Repeat("d", MaxDescriptionLen+1)}, ErrInvalidDescription},
-		"seo":         {TermOp{Kind: "tag", Name: "x", SEO: json.RawMessage(`{"meta_title":"` + strings.Repeat("t", 500) + `"}`)}, nil},
+		"seo":         {TermOp{Kind: "tag", Name: "x", SEO: jsontext.Value(`{"meta_title":"` + strings.Repeat("t", 500) + `"}`)}, nil},
 		"parent":      {TermOp{Kind: "tag", Name: "x", ParentID: ptr(uuid.New())}, ErrTermParentNotFound},
 		"locale":      {TermOp{Kind: "tag", Name: "x", Locale: "und"}, ErrTermGroupInvalid},
 	} {
@@ -285,7 +285,7 @@ func TestApplyChangesetTxDeleteAndRestore(t *testing.T) {
 	slug := "cs-" + uuid.NewString()[:8]
 	parent := e.run(t, TermOp{Kind: "category", Name: "P", Slug: slug + "-p"})[0]
 	r := e.run(t, TermOp{Kind: "category", Name: "Gone", Slug: slug, Description: "keep me", ParentID: &parent.ID,
-		Origin: "plug", SEO: json.RawMessage(`{"meta_title":"T","no_index":true}`)})[0]
+		Origin: "plug", SEO: jsontext.Value(`{"meta_title":"T","no_index":true}`)})[0]
 	e.cleanup(t, r.ID, parent.ID)
 	_, err := e.db.Pool().Exec(e.ctx, `UPDATE hatamoto_terms SET locale = 'xx' WHERE id = $1`, r.ID)
 	if err != nil {
@@ -317,7 +317,7 @@ func TestApplyChangesetTxDeleteAndRestore(t *testing.T) {
 	}
 }
 
-func restore(t *testing.T, e *txEnv, before json.RawMessage) {
+func restore(t *testing.T, e *txEnv, before jsontext.Value) {
 	t.Helper()
 	tx, err := e.db.Pool().Begin(e.ctx)
 	if err != nil {
@@ -348,7 +348,7 @@ func TestRestoreChangesetTxRejectsGarbage(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tx.Rollback(e.ctx) //nolint:errcheck
-	if err := RestoreChangesetTx(e.ctx, tx, json.RawMessage(`{}`)); err == nil {
+	if err := RestoreChangesetTx(e.ctx, tx, jsontext.Value(`{}`)); err == nil {
 		t.Fatal("empty pre-image accepted")
 	}
 }

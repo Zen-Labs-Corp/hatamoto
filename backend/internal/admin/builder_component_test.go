@@ -2,7 +2,7 @@ package admin
 
 import (
 	"bytes"
-	"encoding/json"
+	"hatamoto.dev/core/internal/jsonx"
 	"html"
 	"mime/multipart"
 	"net/http"
@@ -53,7 +53,7 @@ func (r *builderRenderRig) component(t *testing.T, form url.Values) (int, compon
 	t.Helper()
 	rec := r.do("POST", r.url(r.page, "/builder/component"), "owner-token", form, nil)
 	var out componentOut
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatalf("status %d, body %s", rec.Code, rec.Body)
 	}
 	return rec.Code, out
@@ -61,7 +61,7 @@ func (r *builderRenderRig) component(t *testing.T, form url.Values) (int, compon
 
 func rawJSON(t *testing.T, v any) string {
 	t.Helper()
-	b, err := json.Marshal(v)
+	b, err := jsonx.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestComponentMultipartPost(t *testing.T) {
 	rec := httptest.NewRecorder()
 	r.h.ServeHTTP(rec, req)
 	var got componentOut
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != 200 || got.Content["heading"] != "Multi" {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != 200 || got.Content["heading"] != "Multi" {
 		t.Fatalf("multipart: %d %s", rec.Code, rec.Body)
 	}
 }

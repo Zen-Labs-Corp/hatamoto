@@ -1,7 +1,7 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 )
 
@@ -126,7 +126,7 @@ func TestValidator_ValidateSchema(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := v.ValidateSchema(json.RawMessage(tt.schema))
+			err := v.ValidateSchema(jsontext.Value(tt.schema))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateSchema() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -148,7 +148,7 @@ func TestValidateSchemaShape_SizeCap(t *testing.T) {
 	}
 	oversized := []byte(`{"type":"object","description":"` + string(padding) + `","properties":{"name":{"type":"string"}}}`)
 
-	if err := ValidateSchemaShape(json.RawMessage(oversized)); err == nil {
+	if err := ValidateSchemaShape(jsontext.Value(oversized)); err == nil {
 		t.Errorf("ValidateSchemaShape() with %d-byte payload: want error, got nil", len(oversized))
 	}
 }
@@ -156,7 +156,7 @@ func TestValidateSchemaShape_SizeCap(t *testing.T) {
 func TestValidator_ValidateAttributes(t *testing.T) {
 	v := NewValidator()
 
-	productSchema := json.RawMessage(`{
+	productSchema := jsontext.Value(`{
 		"type": "object",
 		"required": ["name", "price"],
 		"properties": {
@@ -168,7 +168,7 @@ func TestValidator_ValidateAttributes(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		schema     json.RawMessage
+		schema     jsontext.Value
 		attributes string
 		wantErr    bool
 	}{
@@ -218,7 +218,7 @@ func TestValidator_ValidateAttributes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := v.ValidateAttributes(tt.schema, json.RawMessage(tt.attributes))
+			err := v.ValidateAttributes(tt.schema, jsontext.Value(tt.attributes))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateAttributes() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -229,7 +229,7 @@ func TestValidator_ValidateAttributes(t *testing.T) {
 func TestValidator_ValidateWithDetails(t *testing.T) {
 	v := NewValidator()
 
-	schema := json.RawMessage(`{
+	schema := jsontext.Value(`{
 		"type": "object",
 		"required": ["email"],
 		"properties": {
@@ -239,7 +239,7 @@ func TestValidator_ValidateWithDetails(t *testing.T) {
 	}`)
 
 	t.Run("valid attributes returns no errors", func(t *testing.T) {
-		attrs := json.RawMessage(`{"email": "test@example.com", "age": 25}`)
+		attrs := jsontext.Value(`{"email": "test@example.com", "age": 25}`)
 		result := v.ValidateWithDetails(schema, attrs)
 		if !result.Valid {
 			t.Errorf("expected valid, got errors: %v", result.Errors)
@@ -247,7 +247,7 @@ func TestValidator_ValidateWithDetails(t *testing.T) {
 	})
 
 	t.Run("invalid attributes returns detailed errors", func(t *testing.T) {
-		attrs := json.RawMessage(`{"age": -5}`)
+		attrs := jsontext.Value(`{"age": -5}`)
 		result := v.ValidateWithDetails(schema, attrs)
 		if result.Valid {
 			t.Error("expected invalid")

@@ -5,7 +5,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -20,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The byline is writable through REST PATCH and MCP entities_update, so
@@ -140,7 +140,7 @@ func TestBylineAPIs_Integration(t *testing.T) {
 			return nil, text
 		}
 		var out map[string]any
-		if err := json.Unmarshal([]byte(text), &out); err != nil {
+		if err := jsonx.Unmarshal([]byte(text), &out); err != nil {
 			t.Fatalf("%v\n%s", err, text)
 		}
 		return out, ""

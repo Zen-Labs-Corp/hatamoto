@@ -1,11 +1,12 @@
 package app
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestSanitizeStoredAttributesDoc(t *testing.T) {
@@ -20,7 +21,7 @@ func TestSanitizeStoredAttributesDoc(t *testing.T) {
 	}
 
 	t.Run("v1-expressible doc is sanitised, no mirror created", func(t *testing.T) {
-		out, n, err := entity.SanitizeStoredAttributes(json.RawMessage(mk("section", true)))
+		out, n, err := entity.SanitizeStoredAttributes(jsontext.Value(mk("section", true)))
 		if err != nil || n != 1 {
 			t.Fatalf("n=%d err=%v", n, err)
 		}
@@ -30,7 +31,7 @@ func TestSanitizeStoredAttributesDoc(t *testing.T) {
 		}
 	})
 	t.Run("builder-only doc is sanitised, no mirror", func(t *testing.T) {
-		out, n, err := entity.SanitizeStoredAttributes(json.RawMessage(mk("div", false)))
+		out, n, err := entity.SanitizeStoredAttributes(jsontext.Value(mk("div", false)))
 		if err != nil || n != 1 {
 			t.Fatalf("n=%d err=%v", n, err)
 		}
@@ -39,7 +40,7 @@ func TestSanitizeStoredAttributesDoc(t *testing.T) {
 		}
 	})
 	t.Run("clean doc is returned verbatim", func(t *testing.T) {
-		in := json.RawMessage(strings.Replace(mk("div", false), dirty, "<p>hi</p>", 1))
+		in := jsontext.Value(strings.Replace(mk("div", false), dirty, "<p>hi</p>", 1))
 		out, n, err := entity.SanitizeStoredAttributes(in)
 		if err != nil || n != 0 || string(out) != string(in) {
 			t.Fatalf("n=%d err=%v out=%s", n, err, out)
@@ -50,18 +51,18 @@ func TestSanitizeStoredAttributesDoc(t *testing.T) {
 func TestSanitizeStoredAttributesKeepsMirrorStructure(t *testing.T) {
 	const dirty = `<p>hi</p><script>x</script>`
 	in := `{"page_doc":{"v":2,"nodes":[{"id":"s","t":"container","p":{"tag":"section","v1":true},"c":[{"id":"k","t":"component","p":{"type":"html","content":{"body":"` + dirty + `"}}}]}]},"page_sections":[{"id":"k","type":"html","sort_order":0,"content":{"body":"` + dirty + `"}}]}`
-	out, _, err := entity.SanitizeStoredAttributes(json.RawMessage(in))
+	out, _, err := entity.SanitizeStoredAttributes(jsontext.Value(in))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var m struct {
 		Sections []struct {
-			ID      string
-			Type    string
-			Content map[string]string
+			ID      string            `json:"id"`
+			Type    string            `json:"type"`
+			Content map[string]string `json:"content"`
 		} `json:"page_sections"`
 	}
-	if err := json.Unmarshal(out, &m); err != nil {
+	if err := jsonx.Unmarshal(out, &m); err != nil {
 		t.Fatal(err)
 	}
 	if len(m.Sections) != 1 || m.Sections[0].ID != "k" || m.Sections[0].Type != "html" || strings.Contains(m.Sections[0].Content["body"], "script") {

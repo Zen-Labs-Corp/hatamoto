@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 
 	"github.com/google/uuid"
@@ -10,8 +10,8 @@ import (
 
 func TestApplyPreviewAttributes(t *testing.T) {
 	id := uuid.New()
-	stored := json.RawMessage(`{"a":1}`)
-	ctx := withPreviewAttributes(context.Background(), id, json.RawMessage(`{"a":2}`))
+	stored := jsontext.Value(`{"a":1}`)
+	ctx := withPreviewAttributes(context.Background(), id, jsontext.Value(`{"a":2}`))
 
 	got := stored
 	applyPreviewAttributes(ctx, id, &got)

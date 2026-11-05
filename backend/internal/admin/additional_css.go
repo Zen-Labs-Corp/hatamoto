@@ -1,12 +1,12 @@
 package admin
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"hatamoto.dev/core/internal/admin/ui"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -43,7 +43,12 @@ func (a *Admin) handleAdditionalCSSSave(w http.ResponseWriter, r *http.Request) 
 	if strings.TrimSpace(css) == "" {
 		css = ""
 	}
-	raw, _ := json.Marshal(css)
+	raw, err := jsonx.Marshal(css, jsonx.HTMLSafe)
+	if err != nil {
+		a.logger().Error("encode additional css failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The CSS could not be saved.")
+		return
+	}
 	if err := a.deps.Site.PatchThemeExtra(r.Context(), render.AdditionalCSSKey, raw); err != nil {
 		a.logger().Error("save additional css failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The CSS could not be saved.")

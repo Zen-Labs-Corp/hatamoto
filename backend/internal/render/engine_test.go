@@ -2,7 +2,6 @@ package render
 
 import (
 	"bytes"
-	"encoding/json"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -282,9 +282,9 @@ func TestEngineThemeInfoVersionAndAssets(t *testing.T) {
 	e := newTestEngine(t, Options{Layers: []fs.FS{os.DirFS(dir)}})
 
 	info := e.ThemeInfo()
-	b, _ := json.Marshal(info)
+	b, _ := jsonx.Marshal(info)
 	var got map[string]any
-	if err := json.Unmarshal(b, &got); err != nil {
+	if err := jsonx.Unmarshal(b, &got); err != nil {
 		t.Fatal(err)
 	}
 	for _, k := range []string{"name", "version", "sections", "settings_schema"} {

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const installDir = "../../../deploy/install"
@@ -75,7 +76,7 @@ func TestInstallerKeys(t *testing.T) {
 			KeyID  string `json:"key_id"`
 			Public string `json:"public"`
 		}
-		if err := json.Unmarshal(raw, &k); err != nil {
+		if err := jsonx.UnmarshalPinned(raw, &k); err != nil {
 			t.Fatalf("%s: %v", f, err)
 		}
 		pub, err := base64.StdEncoding.DecodeString(k.Public)

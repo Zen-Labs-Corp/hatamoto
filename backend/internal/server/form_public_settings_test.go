@@ -1,11 +1,11 @@
 package server
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestPublicFormSettingsOmitsInternalFields(t *testing.T) {
@@ -19,7 +19,7 @@ func TestPublicFormSettingsOmitsInternalFields(t *testing.T) {
 		ConfirmationMessage: "internal body",
 		StoreSubmissions:    true,
 	})
-	raw, _ := json.Marshal(got)
+	raw, _ := jsonx.Marshal(got)
 	for _, banned := range []string{"notify_email", "rep@example.test", "confirmation_message", "store_submissions", "confirmation_email"} {
 		if strings.Contains(string(raw), banned) {
 			t.Fatalf("public settings leak %q: %s", banned, raw)

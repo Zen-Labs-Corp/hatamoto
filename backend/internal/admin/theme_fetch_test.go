@@ -1,13 +1,14 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func hasFlash(rec *httptest.ResponseRecorder) bool {
@@ -47,7 +48,7 @@ func TestThemeColoursFetchMode(t *testing.T) {
 	bad.Set("radius_md", "huge")
 	rec = g.do("POST", "/admin/theme/colours", "owner-token", bad, fetchHdr)
 	var got struct{ Errors map[string]string }
-	if rec.Code != 422 || json.Unmarshal(rec.Body.Bytes(), &got) != nil || got.Errors["primary"] == "" || got.Errors["radius_md"] == "" || len(got.Errors) != 2 {
+	if rec.Code != 422 || jsonx.Unmarshal(rec.Body.Bytes(), &got, jsonx.StoredLoose) != nil || got.Errors["primary"] == "" || got.Errors["radius_md"] == "" || len(got.Errors) != 2 {
 		t.Fatalf("invalid fetch save: %d %s", rec.Code, rec.Body.String())
 	}
 
@@ -76,7 +77,7 @@ func TestThemeTokensFetchMode(t *testing.T) {
 	before := string(site.cfg.ThemeExtra)
 	rec = g.do("POST", "/admin/theme/design-system", "owner-token", url.Values{"color_accent": {"nope"}}, fetchHdr)
 	var got struct{ Errors map[string]string }
-	if rec.Code != 422 || json.Unmarshal(rec.Body.Bytes(), &got) != nil || got.Errors["color_accent"] == "" {
+	if rec.Code != 422 || jsonx.Unmarshal(rec.Body.Bytes(), &got, jsonx.StoredLoose) != nil || got.Errors["color_accent"] == "" {
 		t.Fatalf("invalid fetch save: %d %s", rec.Code, rec.Body.String())
 	}
 	if string(site.cfg.ThemeExtra) != before || *flushed != 1 {
@@ -94,9 +95,9 @@ func TestThemeTokensFetchMode(t *testing.T) {
 func TestBuilderBootCanStyleOwnerOnly(t *testing.T) {
 	t.Parallel()
 
-	boot := func(token string) map[string]json.RawMessage {
+	boot := func(token string) map[string]jsontext.Value {
 		r := newEditorRig(t)
-		r.ent.Attributes = json.RawMessage(builderOnlyDoc)
+		r.ent.Attributes = jsontext.Value(builderOnlyDoc)
 		rec := r.do("GET", r.path(), token, nil, nil)
 		if rec.Code != 200 {
 			t.Fatalf("%s: builder page %d", token, rec.Code)
@@ -105,8 +106,8 @@ func TestBuilderBootCanStyleOwnerOnly(t *testing.T) {
 		if m == nil {
 			t.Fatalf("%s: no boot block", token)
 		}
-		var out map[string]json.RawMessage
-		if err := json.Unmarshal([]byte(m[1]), &out); err != nil {
+		var out map[string]jsontext.Value
+		if err := jsonx.Unmarshal([]byte(m[1]), &out, jsonx.StoredLoose); err != nil {
 			t.Fatal(err)
 		}
 		return out
@@ -116,7 +117,7 @@ func TestBuilderBootCanStyleOwnerOnly(t *testing.T) {
 		t.Fatalf("owner canStyle = %s", owner["canStyle"])
 	}
 	var ss struct{ Theme, Tokens map[string]string }
-	if err := json.Unmarshal(owner["siteStyles"], &ss); err != nil {
+	if err := jsonx.Unmarshal(owner["siteStyles"], &ss, jsonx.StoredLoose); err != nil {
 		t.Fatal(err)
 	}
 	for _, k := range []string{"primary", "secondary", "accent", "background", "text", "font", "heading_font", "radius_sm", "radius_md", "radius_lg"} {
@@ -130,7 +131,7 @@ func TestBuilderBootCanStyleOwnerOnly(t *testing.T) {
 		}
 	}
 	var urls map[string]string
-	_ = json.Unmarshal(owner["urls"], &urls)
+	_ = jsonx.Unmarshal(owner["urls"], &urls, jsonx.StoredLoose)
 	if !strings.HasSuffix(urls["theme"], "/theme/colours") {
 		t.Errorf("urls.theme = %q", urls["theme"])
 	}
@@ -245,7 +246,7 @@ func TestThemeFetchModeNeedsCSRF(t *testing.T) {
 	} {
 		rec := g.do("POST", path, "owner-token", form, noToken)
 		var got struct{ Code, Error string }
-		if rec.Code != 403 || json.Unmarshal(rec.Body.Bytes(), &got) != nil || got.Code != "forbidden" || got.Error == "" {
+		if rec.Code != 403 || jsonx.Unmarshal(rec.Body.Bytes(), &got, jsonx.StoredLoose) != nil || got.Code != "forbidden" || got.Error == "" {
 			t.Errorf("%s: %d %s, want 403 {code,error}", path, rec.Code, rec.Body.String())
 		}
 	}

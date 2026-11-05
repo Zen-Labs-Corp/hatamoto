@@ -4,10 +4,10 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -21,7 +21,7 @@ func TestAdditionalCSSSaveThenServe(t *testing.T) {
 
 	save := func(css string) string {
 		t.Helper()
-		raw, _ := json.Marshal(css)
+		raw, _ := jsonx.Marshal(css)
 		if err := s.siteConfig.PatchThemeExtra(ctx, render.AdditionalCSSKey, raw); err != nil {
 			t.Fatal(err)
 		}

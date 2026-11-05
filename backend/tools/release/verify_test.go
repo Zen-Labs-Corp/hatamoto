@@ -1,13 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/release"
 )
@@ -39,7 +39,7 @@ func newSignedRelease(t *testing.T) signedRelease {
 		Releases:  []release.Entry{{Version: "v1.2.3", RecordSig: string(sigText[:len(sigText)-1]), Ramp: []release.RampStep{{At: testNow.Format(time.RFC3339), Pct: 100}}}},
 		Yanked:    []release.Yank{},
 	}
-	body, _ := json.Marshal(m)
+	body, _ := jsonx.Marshal(m)
 	doc, err := packages.SignIndex(body, s.manifestKey.key)
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +79,7 @@ func TestVerifyCommandCanaryChannel(t *testing.T) {
 		Releases:  []release.Entry{{Version: "v1.2.3", RecordSig: strings.TrimSpace(string(sigText)), Ramp: []release.RampStep{{At: testNow.Format(time.RFC3339), Pct: 100}}}},
 		Yanked:    []release.Yank{},
 	}
-	body, _ := json.Marshal(m)
+	body, _ := jsonx.Marshal(m)
 	doc, err := packages.SignIndex(body, s.manifestKey.key)
 	if err != nil {
 		t.Fatal(err)

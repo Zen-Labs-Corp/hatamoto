@@ -4,11 +4,13 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"log/slog"
 	"slices"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The person type is the one built-in a site may extend (ISC-31, 32): fields can
@@ -29,9 +31,9 @@ func TestPersonSchemaExtension_Integration(t *testing.T) {
 
 	// CoreFields is the seeded property set.
 	var doc struct {
-		Properties map[string]json.RawMessage `json:"properties"`
+		Properties map[string]jsontext.Value `json:"properties"`
 	}
-	if err := json.Unmarshal(person.Schema, &doc); err != nil {
+	if err := jsonx.Unmarshal(person.Schema, &doc); err != nil {
 		t.Fatal(err)
 	}
 	var seeded []string
@@ -45,11 +47,11 @@ func TestPersonSchemaExtension_Integration(t *testing.T) {
 		t.Fatalf("PersonCoreFields %v differ from the seeded schema %v", core, seeded)
 	}
 
-	edit := func(f func(props map[string]any)) json.RawMessage {
+	edit := func(f func(props map[string]any)) jsontext.Value {
 		var m map[string]any
-		_ = json.Unmarshal(person.Schema, &m)
+		_ = jsonx.Unmarshal(person.Schema, &m)
 		f(m["properties"].(map[string]any))
-		b, _ := json.Marshal(m)
+		b, _ := jsonx.Marshal(m)
 		return b
 	}
 	update := func(in *UpdateSchemaInput) error { _, err := svc.UpdateSchema(ctx, person.ID, in); return err }
@@ -60,7 +62,7 @@ func TestPersonSchemaExtension_Integration(t *testing.T) {
 	if err := update(&UpdateSchemaInput{Schema: &add}); err != nil {
 		t.Fatalf("adding a field: %v", err)
 	}
-	pattern := json.RawMessage(`{"url_pattern":"/team/{slug}","archive_title":"Our team","archive_crumb_label":"Team"}`)
+	pattern := jsontext.Value(`{"url_pattern":"/team/{slug}","archive_title":"Our team","archive_crumb_label":"Team"}`)
 	if err := update(&UpdateSchemaInput{Settings: &pattern}); err != nil {
 		t.Fatalf("editing settings: %v", err)
 	}
@@ -91,7 +93,7 @@ func TestPersonSchemaExtension_Integration(t *testing.T) {
 	}
 }
 
-func update2(ctx context.Context, svc *Service, s *EntitySchema, settings *json.RawMessage) error {
+func update2(ctx context.Context, svc *Service, s *EntitySchema, settings *jsontext.Value) error {
 	_, err := svc.UpdateSchema(ctx, s.ID, &UpdateSchemaInput{Settings: settings})
 	return err
 }

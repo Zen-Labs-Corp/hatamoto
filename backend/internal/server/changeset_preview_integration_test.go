@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // A staged update and a staged create are previewed from a real database: the
@@ -44,8 +44,8 @@ func TestChangesetPreviewWritesNothing_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	upd, _ := json.Marshal(map[string]any{"name": "About us", "attributes": map[string]any{"meta_title": "Staged title"}})
-	cre, _ := json.Marshal(map[string]any{"schema": schemaSlug, "name": "Pricing", "slug": "pricing-" + sfx, "attributes": map[string]any{"meta_title": "Staged new page"}})
+	upd, _ := jsonx.Marshal(map[string]any{"name": "About us", "attributes": map[string]any{"meta_title": "Staged title"}})
+	cre, _ := jsonx.Marshal(map[string]any{"schema": schemaSlug, "name": "Pricing", "slug": "pricing-" + sfx, "attributes": map[string]any{"meta_title": "Staged new page"}})
 	for _, it := range []changeset.Item{
 		{Kind: changeset.KindEntity, Op: changeset.OpUpsert, TargetID: pageID.String(), Payload: upd},
 		{Kind: changeset.KindEntity, Op: changeset.OpUpsert, SourceKey: "new-" + sfx, Payload: cre},

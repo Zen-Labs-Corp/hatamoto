@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"net/http"
@@ -188,7 +188,7 @@ func TestSetupRenderWiresSaveTimeRichTextSanitising(t *testing.T) {
 	if s.renderEngine == nil {
 		t.Fatal("render engine not built")
 	}
-	in := json.RawMessage(`{"page_sections":[{"id":"s","type":"split","content":{"heading":"H","lede":"<p>ok</p><script>alert(1)</script>"}}]}`)
+	in := jsontext.Value(`{"page_sections":[{"id":"s","type":"split","content":{"heading":"H","lede":"<p>ok</p><script>alert(1)</script>"}}]}`)
 	out, err := entity.SanitizeAttributesAgainst(in, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -208,7 +208,7 @@ func TestSetupRenderSaveTimeSanitisingCoversWrongShapes(t *testing.T) {
 	if s.renderEngine == nil {
 		t.Fatal("render engine not built")
 	}
-	in := json.RawMessage(`{"page_sections":[
+	in := jsontext.Value(`{"page_sections":[
 	 {"id":"a","type":"split","content":{"lede":["<p>a</p><img src=x onerror=alert(1)>"],"footnote":{"k":"<img src=x onerror=alert(2)>"}}},
 	 {"id":"b","type":"faq","content":{"items":{"answer":"<img src=x onerror=alert(3)>"}}}]}`)
 	out, err := entity.SanitizeAttributesAgainst(in, nil)

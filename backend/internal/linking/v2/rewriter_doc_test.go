@@ -1,11 +1,12 @@
 package v2
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func docAttrs(target uuid.UUID, withMirror bool) string {
@@ -23,8 +24,8 @@ func docAttrs(target uuid.UUID, withMirror bool) string {
 // mirror is left exactly as stored (never re-mirrored).
 func assertDocRewrittenMirrorFrozen(t *testing.T, out []byte) {
 	t.Helper()
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(out, &m); err != nil {
+	var m map[string]jsontext.Value
+	if err := jsonx.Unmarshal(out, &m); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(m["page_doc"]), `href=\"/new\"`) || strings.Contains(string(m["page_doc"]), "/old") {

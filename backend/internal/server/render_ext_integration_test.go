@@ -3,7 +3,6 @@
 package server
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/sdk"
 )
@@ -46,7 +46,7 @@ func TestRenderExt_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	var m sdk.Manifest
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err := jsonx.Unmarshal(raw, &m); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { rt.Unload(r.ctx, m.Name) })

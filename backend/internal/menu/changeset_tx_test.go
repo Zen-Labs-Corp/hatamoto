@@ -4,7 +4,7 @@ package menu
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"log/slog"
 	"os"
@@ -160,7 +160,7 @@ func TestChangesetTxRevertFromPreImage(t *testing.T) {
 	if len(upd.Before) == 0 {
 		t.Fatal("update returned no pre-image")
 	}
-	restore := func(before json.RawMessage) {
+	restore := func(before jsontext.Value) {
 		t.Helper()
 		if err := f.db.WithTx(ctx, func(tx pgx.Tx) error { return f.svc.RestoreChangesetTx(ctx, tx, before) }); err != nil {
 			t.Fatal(err)

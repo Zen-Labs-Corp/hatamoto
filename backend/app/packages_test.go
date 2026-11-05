@@ -2,12 +2,12 @@ package app
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 )
 
@@ -71,7 +71,7 @@ func TestKeysGenerateThenPackSignedTheme(t *testing.T) {
 	}
 	pubJSON, _ := os.ReadFile(filepath.Join(keys, "me.pub"))
 	var k packages.Key
-	if err := json.Unmarshal(pubJSON, &k); err != nil {
+	if err := jsonx.Unmarshal(pubJSON, &k); err != nil {
 		t.Fatal(err)
 	}
 	pub, _ := k.PublicKey()

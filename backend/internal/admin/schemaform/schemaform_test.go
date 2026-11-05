@@ -1,7 +1,7 @@
 package schemaform
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"flag"
 	"fmt"
 	"net/url"
@@ -15,6 +15,7 @@ import (
 	"golang.org/x/net/html"
 
 	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")
@@ -40,13 +41,13 @@ func golden(t *testing.T, name, got string) {
 	}
 }
 
-func themeSchemas(t *testing.T) map[string]json.RawMessage {
+func themeSchemas(t *testing.T) map[string]jsontext.Value {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join("..", "..", "render", "themes", "default", "schemas", "*.json"))
 	if err != nil || len(files) != 25 {
 		t.Fatalf("expected the 25 default-theme section schemas, found %d (%v)", len(files), err)
 	}
-	out := map[string]json.RawMessage{}
+	out := map[string]jsontext.Value{}
 	for _, f := range files {
 		b, err := os.ReadFile(f)
 		if err != nil {
@@ -210,7 +211,7 @@ func formFromHTML(t *testing.T, doc string) url.Values {
 
 func mustJSON(t *testing.T, v any) string {
 	t.Helper()
-	b, err := json.Marshal(v)
+	b, err := jsonx.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,7 +352,7 @@ func TestFieldKindPrecedence(t *testing.T) {
 
 // Field-level HTML details of the port: attributes, counters, options, tags.
 func TestRenderedControls(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","required":["email"],"properties":{
+	schema := jsontext.Value(`{"type":"object","required":["email"],"properties":{
 		"email":{"type":"string","format":"email","title":"Email","minLength":3,"maxLength":80,"pattern":"^.+@.+$"},
 		"kind":{"type":"string","enum":["blog_post","news"]},
 		"age":{"type":"integer","minimum":1,"maximum":99},
@@ -379,7 +380,7 @@ func TestRenderedControls(t *testing.T) {
 }
 
 func TestRichTextAndHTMLHooks(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","properties":{"body":{"type":"string"},"markup":{"type":"string","x-hm-field":"html"}}}`)
+	schema := jsontext.Value(`{"type":"object","properties":{"body":{"type":"string"},"markup":{"type":"string","x-hm-field":"html"}}}`)
 	out, _ := Render(schema, map[string]any{"body": "<script>alert(1)</script>"}, Options{})
 	s := string(out)
 	if !strings.Contains(s, `data-hm-editor="tiptap"`) || !strings.Contains(s, `data-hm-editor="html"`) {
@@ -391,7 +392,7 @@ func TestRichTextAndHTMLHooks(t *testing.T) {
 }
 
 func TestRepeaterBehaviour(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","properties":{"faqs":{"type":"array","title":"Questions","items":{"type":"object","properties":{"question":{"type":"string"},"answer":{"type":"string","x-hm-field":"richtext"}}}}}}`)
+	schema := jsontext.Value(`{"type":"object","properties":{"faqs":{"type":"array","title":"Questions","items":{"type":"object","properties":{"question":{"type":"string"},"answer":{"type":"string","x-hm-field":"richtext"}}}}}}`)
 	vals := map[string]any{"faqs": []any{
 		map[string]any{"question": "One?", "answer": "A"},
 		map[string]any{"question": "Two?", "answer": "B"},
@@ -424,7 +425,7 @@ func TestRepeaterBehaviour(t *testing.T) {
 }
 
 func TestStructuralButtons(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","properties":{"faqs":{"type":"array","items":{"type":"object","properties":{"question":{"type":"string"}}}}}}`)
+	schema := jsontext.Value(`{"type":"object","properties":{"faqs":{"type":"array","items":{"type":"object","properties":{"question":{"type":"string"}}}}}}`)
 	base := func() url.Values {
 		return url.Values{"_present.faqs": {"1"}, "faqs.0.question": {"A"}, "faqs.1.question": {"B"}, "faqs.2.question": {"C"}}
 	}
@@ -459,7 +460,7 @@ func TestStructuralButtons(t *testing.T) {
 }
 
 func TestDecodeMalformedInput(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","properties":{
+	schema := jsontext.Value(`{"type":"object","properties":{
 		"n":{"type":"integer"},"f":{"type":"number"},"k":{"type":"string","enum":["a","b"]},
 		"refs":{"type":"array","x-entity-schema":"post","items":{"type":"string"}},
 		"one":{"type":"array","x-entity-schema":"post","x-multiple":false,"items":{"type":"string"}},
@@ -530,7 +531,7 @@ func tagBomb(n int) url.Values {
 // Saving must never destroy content the schema does not list, and editing a
 // canonical property drops the legacy alias that would shadow it.
 func TestUnknownKeysAndAliases(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","properties":{"heading":{"type":"string","x-hm-alias":["headline"]},"faqs":{"type":"array","x-hm-alias":["items"],"items":{"type":"object","properties":{"q":{"type":"string"}}}}}}`)
+	schema := jsontext.Value(`{"type":"object","properties":{"heading":{"type":"string","x-hm-alias":["headline"]},"faqs":{"type":"array","x-hm-alias":["items"],"items":{"type":"object","properties":{"q":{"type":"string"}}}}}}`)
 	prev := map[string]any{"headline": "Old", "wp_author": map[string]any{"id": 4}, "items": []any{map[string]any{"q": "old?"}}}
 	// Render reads the alias value.
 	out, _ := Render(schema, prev, Options{})
@@ -552,7 +553,7 @@ func TestUnknownKeysAndAliases(t *testing.T) {
 
 // A string property holding an object (WordPress import) is editable.
 func TestObjectValueInStringProperty(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","properties":{"author":{"type":"string"}}}`)
+	schema := jsontext.Value(`{"type":"object","properties":{"author":{"type":"string"}}}`)
 	out, _ := Render(schema, map[string]any{"author": map[string]any{"display_name": "Jo", "id": "4"}}, Options{})
 	if !strings.Contains(string(out), `name="author.display_name"`) || !strings.Contains(string(out), "Display name") {
 		t.Errorf("synthetic object not rendered:\n%s", out)
@@ -560,7 +561,7 @@ func TestObjectValueInStringProperty(t *testing.T) {
 }
 
 func TestRenderEscapesEverything(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","properties":{"t":{"type":"string","title":"<i>T</i>","description":"\"><script>x</script>"}}}`)
+	schema := jsontext.Value(`{"type":"object","properties":{"t":{"type":"string","title":"<i>T</i>","description":"\"><script>x</script>"}}}`)
 	out, _ := Render(schema, map[string]any{"t": `"><img src=x onerror=alert(1)>`}, Options{Errors: Errors{"t": {"<b>bad</b>"}}})
 	for _, bad := range []string{"<script>", "<img", "<i>T", "<b>bad"} {
 		if strings.Contains(string(out), bad) {
@@ -586,7 +587,7 @@ func TestOnlyOneTrustedHTMLConversion(t *testing.T) {
 }
 
 func TestValidateMessages(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","required":["title","contact"],"properties":{
+	schema := jsontext.Value(`{"type":"object","required":["title","contact"],"properties":{
 		"title":{"type":"string","title":"Title","minLength":3,"maxLength":5},
 		"slug":{"type":"string","pattern":"^[a-z]+$"},
 		"email":{"type":"string","format":"email"},
@@ -596,7 +597,7 @@ func TestValidateMessages(t *testing.T) {
 		"tags":{"type":"array","minItems":2,"maxItems":3,"items":{"type":"string"}},
 		"contact":{"type":"object","required":["phone"],"properties":{"phone":{"type":"string","title":"Phone number"}}},
 		"faqs":{"type":"array","items":{"type":"object","required":["q"],"properties":{"q":{"type":"string","title":"Question"}}}}}}`)
-	attrs := json.RawMessage(`{"title":"ab","slug":"NOPE","email":"x","age":10,"kind":"z","n":"str","tags":["a"],"contact":{},"faqs":[{"q":"ok"},{}]}`)
+	attrs := jsontext.Value(`{"title":"ab","slug":"NOPE","email":"x","age":10,"kind":"z","n":"str","tags":["a"],"contact":{},"faqs":[{"q":"ok"},{}]}`)
 	errs := Validate(schema, attrs)
 	want := map[string]string{
 		"title":         "Use at least 3 characters",
@@ -614,13 +615,13 @@ func TestValidateMessages(t *testing.T) {
 			t.Errorf("%s: got %v, want %q", path, errs[path], msg)
 		}
 	}
-	if errs2 := Validate(schema, json.RawMessage(`{"contact":{"phone":"1"},"title":"abcd"}`)); len(errs2) != 0 {
+	if errs2 := Validate(schema, jsontext.Value(`{"contact":{"phone":"1"},"title":"abcd"}`)); len(errs2) != 0 {
 		t.Errorf("valid document reported errors: %v", errs2)
 	}
-	if e := Validate(schema, json.RawMessage(`{"title":"toolong!","contact":{"phone":"1"}}`)); len(e["title"]) == 0 || e["title"][0] != "Use at most 5 characters" {
+	if e := Validate(schema, jsontext.Value(`{"title":"toolong!","contact":{"phone":"1"}}`)); len(e["title"]) == 0 || e["title"][0] != "Use at most 5 characters" {
 		t.Errorf("maxLength: %v", e)
 	}
-	if e := Validate(schema, json.RawMessage(`{"title":"abcd","contact":{"phone":"1"},"tags":["a","b","c","d"]}`)); len(e["tags"]) == 0 || e["tags"][0] != "Add at most 3" {
+	if e := Validate(schema, jsontext.Value(`{"title":"abcd","contact":{"phone":"1"},"tags":["a","b","c","d"]}`)); len(e["tags"]) == 0 || e["tags"][0] != "Add at most 3" {
 		t.Errorf("maxItems: %v", e)
 	}
 }
@@ -628,11 +629,11 @@ func TestValidateMessages(t *testing.T) {
 // roundTrip renders values, "submits" the rendered form unchanged, and decodes it.
 func roundTrip(t *testing.T, schema string, values map[string]any, opt Options) map[string]any {
 	t.Helper()
-	doc, err := Render(json.RawMessage(schema), values, opt)
+	doc, err := Render(jsontext.Value(schema), values, opt)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, errs := Decode(json.RawMessage(schema), formFromHTML(t, string(doc)), values, opt)
+	got, errs := Decode(jsontext.Value(schema), formFromHTML(t, string(doc)), values, opt)
 	if len(errs) > 0 {
 		t.Fatalf("decode errors: %v", errs)
 	}
@@ -649,11 +650,11 @@ func TestObjectInStringPropertyIsEditable(t *testing.T) {
 		t.Fatalf("round trip changed values\nwant %s\n got %s", mustJSON(t, values), mustJSON(t, got))
 	}
 	// Edit the object's sub-fields (top level, and inside the repeater item).
-	doc, _ := Render(json.RawMessage(schema), values, Options{})
+	doc, _ := Render(jsontext.Value(schema), values, Options{})
 	form := formFromHTML(t, string(doc))
 	form.Set("author.display_name", "Joanna")
 	form.Set("faqs.0.by.display_name", "Alan")
-	got, errs := Decode(json.RawMessage(schema), form, values, Options{})
+	got, errs := Decode(jsontext.Value(schema), form, values, Options{})
 	if len(errs) > 0 {
 		t.Fatal(errs)
 	}
@@ -663,7 +664,7 @@ func TestObjectInStringPropertyIsEditable(t *testing.T) {
 	}
 	// Emptying one sub-field removes just that key.
 	form.Set("author.display_name", "")
-	got, _ = Decode(json.RawMessage(schema), form, values, Options{})
+	got, _ = Decode(jsontext.Value(schema), form, values, Options{})
 	if a, _ := got["author"].(map[string]any); a["display_name"] != nil || a["id"] != float64(4) {
 		t.Errorf("author after clearing: %v", got["author"])
 	}
@@ -680,17 +681,17 @@ func TestUnknownKeysSurviveInRepeatersAndNestedObjects(t *testing.T) {
 	}
 	// Moving item 0 down keeps each item's own unknown keys with it, even
 	// though the handler's prev would line up by the old index.
-	doc, _ := Render(json.RawMessage(schema), values, Options{})
+	doc, _ := Render(jsontext.Value(schema), values, Options{})
 	form := formFromHTML(t, string(doc))
 	form.Set("_move.faqs", "0:down")
-	got, _ := Decode(json.RawMessage(schema), form, values, Options{})
+	got, _ := Decode(jsontext.Value(schema), form, values, Options{})
 	items := got["faqs"].([]any)
 	if items[0].(map[string]any)["q"] != "two" || items[0].(map[string]any)["legacy"] == nil || items[1].(map[string]any)["id"] != "wp-1" {
 		t.Errorf("unknown keys did not follow their items: %s", mustJSON(t, got))
 	}
 	// A structural re-render followed by a save keeps them too.
-	re, _ := Render(json.RawMessage(schema), got, Options{})
-	got2, _ := Decode(json.RawMessage(schema), formFromHTML(t, string(re)), values, Options{})
+	re, _ := Render(jsontext.Value(schema), got, Options{})
+	got2, _ := Decode(jsontext.Value(schema), formFromHTML(t, string(re)), values, Options{})
 	if mustJSON(t, got2) != mustJSON(t, got) {
 		t.Errorf("second round differs\n%s\n%s", mustJSON(t, got), mustJSON(t, got2))
 	}
@@ -699,18 +700,18 @@ func TestUnknownKeysSurviveInRepeatersAndNestedObjects(t *testing.T) {
 func TestBooleanDefaultsAndAbsentVersusUnchecked(t *testing.T) {
 	schema := `{"type":"object","properties":{"show_map":{"type":"boolean","default":true},"plain":{"type":"boolean"},"rows":{"type":"array","items":{"type":"object","properties":{"included":{"type":"boolean","default":true},"text":{"type":"string"}}}}}}`
 	// Absent + default true: the box shows checked, and saving untouched keeps the key absent.
-	doc, _ := Render(json.RawMessage(schema), map[string]any{}, Options{})
+	doc, _ := Render(jsontext.Value(schema), map[string]any{}, Options{})
 	if !strings.Contains(string(doc), `id="sf-show_map" name="show_map" value="true" checked`) {
 		t.Errorf("default true not shown checked:\n%s", doc)
 	}
-	got, _ := Decode(json.RawMessage(schema), formFromHTML(t, string(doc)), map[string]any{}, Options{})
+	got, _ := Decode(jsontext.Value(schema), formFromHTML(t, string(doc)), map[string]any{}, Options{})
 	if _, ok := got["show_map"]; ok {
 		t.Errorf("an untouched default was written: %v", got)
 	}
 	// Unchecking writes an explicit false (unchecked is not absent)...
 	form := formFromHTML(t, string(doc))
 	form.Del("show_map")
-	got, _ = Decode(json.RawMessage(schema), form, map[string]any{}, Options{})
+	got, _ = Decode(jsontext.Value(schema), form, map[string]any{}, Options{})
 	if got["show_map"] != false {
 		t.Errorf("unchecked default-true box: %v", got)
 	}
@@ -722,7 +723,7 @@ func TestBooleanDefaultsAndAbsentVersusUnchecked(t *testing.T) {
 	// Checking a default-false box writes true.
 	form = formFromHTML(t, string(doc))
 	form.Set("plain", "true")
-	got, _ = Decode(json.RawMessage(schema), form, map[string]any{}, Options{})
+	got, _ = Decode(jsontext.Value(schema), form, map[string]any{}, Options{})
 	if got["plain"] != true {
 		t.Errorf("checked: %v", got)
 	}
@@ -731,11 +732,11 @@ func TestBooleanDefaultsAndAbsentVersusUnchecked(t *testing.T) {
 func TestAddedRepeaterItemStartsWithSchemaDefaults(t *testing.T) {
 	schema := `{"type":"object","properties":{"rows":{"type":"array","items":{"type":"object","properties":{"included":{"type":"boolean","default":true},"text":{"type":"string"},"tier":{"type":"string","default":"free"}}}}}}`
 	form := url.Values{"_present.rows": {"1"}, "_add.rows": {"1"}}
-	got, _ := Decode(json.RawMessage(schema), form, nil, Options{})
+	got, _ := Decode(jsontext.Value(schema), form, nil, Options{})
 	if mustJSON(t, got) != `{"rows":[{"included":true,"tier":"free"}]}` {
 		t.Errorf("new item: %s", mustJSON(t, got))
 	}
-	doc, _ := Render(json.RawMessage(schema), got, Options{})
+	doc, _ := Render(jsontext.Value(schema), got, Options{})
 	if !strings.Contains(string(doc), `name="rows.0.included" value="true" checked`) || !strings.Contains(string(doc), `value="free"`) {
 		t.Errorf("defaults not shown in the new item:\n%s", doc)
 	}
@@ -744,14 +745,14 @@ func TestAddedRepeaterItemStartsWithSchemaDefaults(t *testing.T) {
 func TestDisabledFormPostsNothingThatCouldClearValues(t *testing.T) {
 	schema := `{"type":"object","properties":{"flag":{"type":"boolean"},"tags":{"type":"array","items":{"type":"string"}},"refs":{"type":"array","x-entity-schema":"post","items":{"type":"string"}},"rows":{"type":"array","items":{"type":"object","properties":{"q":{"type":"string"},"extra":{"type":"string"}}}},"author":{"type":"string"}}}`
 	values := map[string]any{"flag": true, "tags": []any{"a", "b"}, "refs": []any{"11111111-1111-1111-1111-111111111111"}, "rows": []any{map[string]any{"q": "x", "id": 1}}, "author": map[string]any{"display_name": "Jo"}}
-	doc, _ := Render(json.RawMessage(schema), values, Options{Disabled: true})
+	doc, _ := Render(jsontext.Value(schema), values, Options{Disabled: true})
 	form := formFromHTML(t, string(doc)) // like a browser: disabled controls do not post
 	for k := range form {
 		if strings.HasPrefix(k, "_present.") || strings.HasPrefix(k, "_keep.") {
 			t.Errorf("disabled form still posts %s", k)
 		}
 	}
-	got, errs := Decode(json.RawMessage(schema), form, values, Options{Disabled: true})
+	got, errs := Decode(jsontext.Value(schema), form, values, Options{Disabled: true})
 	if len(errs) > 0 || mustJSON(t, got) != mustJSON(t, values) {
 		t.Errorf("saving a disabled form changed values: %s %v", mustJSON(t, got), errs)
 	}
@@ -759,7 +760,7 @@ func TestDisabledFormPostsNothingThatCouldClearValues(t *testing.T) {
 
 // x-hm-field "lines" keeps commas inside an item; plain tag fields still split on them.
 func TestLinesFieldKeepsCommas(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","properties":{
+	schema := jsontext.Value(`{"type":"object","properties":{
 		"strip":{"type":"array","x-hm-field":"lines","items":{"type":"string"}},
 		"tags":{"type":"array","items":{"type":"string"}}}}`)
 	vals := map[string]any{"strip": []any{"One Go binary", "htmx admin, no Node"}, "tags": []any{"a", "b"}}
@@ -794,7 +795,7 @@ func TestLinesFieldKeepsCommas(t *testing.T) {
 }
 
 func TestPlaceholdersOverrideTextAndTextareaOnly(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","properties":{
+	schema := jsontext.Value(`{"type":"object","properties":{
 		"phone":{"type":"string"},
 		"note":{"type":"string","format":"textarea"},
 		"kind":{"type":"string","enum":["a","b"]},
@@ -829,8 +830,8 @@ func TestPlaceholdersOverrideTextAndTextareaOnly(t *testing.T) {
 func TestNumberDefaultsRenderPlain(t *testing.T) {
 	schema := `{"type":"object","properties":{"rows":{"type":"array","items":{"type":"object","properties":{"big":{"type":"number","default":12345678},"half":{"type":"number","default":0.5}}}}}}`
 	// The add button appends an item holding the defaults; render it back.
-	added, _ := Decode(json.RawMessage(schema), url.Values{"_present.rows": {"1"}, "_add.rows": {"1"}}, map[string]any{}, Options{})
-	doc, err := Render(json.RawMessage(schema), added, Options{})
+	added, _ := Decode(jsontext.Value(schema), url.Values{"_present.rows": {"1"}, "_add.rows": {"1"}}, map[string]any{}, Options{})
+	doc, err := Render(jsontext.Value(schema), added, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

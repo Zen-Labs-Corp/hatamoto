@@ -2,7 +2,6 @@ package taxonomy
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // fakeRepo is an in-memory Repository for service-level unit tests.
@@ -691,11 +691,11 @@ func TestServiceUpdateTerm_SEOCapsCountCharacters(t *testing.T) {
 }
 
 func TestTermJSONOmitsEmptySEO(t *testing.T) {
-	b, _ := json.Marshal(Term{Name: "x"})
+	b, _ := jsonx.Marshal(Term{Name: "x"})
 	if strings.Contains(string(b), "seo") {
 		t.Errorf("empty SEO leaked into JSON: %s", b)
 	}
-	b, _ = json.Marshal(Term{SEO: &TermSEO{MetaTitle: "t"}})
+	b, _ = jsonx.Marshal(Term{SEO: &TermSEO{MetaTitle: "t"}})
 	if !strings.Contains(string(b), `"seo":{"meta_title":"t"}`) {
 		t.Errorf("SEO missing: %s", b)
 	}

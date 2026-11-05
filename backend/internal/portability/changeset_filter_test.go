@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"os"
 	"path/filepath"
@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/migrations"
 )
 
@@ -202,14 +203,14 @@ func stripColumns(t *testing.T, archive []byte, cols ...string) []byte {
 				if len(l) == 0 {
 					continue
 				}
-				var m map[string]json.RawMessage
-				if err := json.Unmarshal(l, &m); err != nil {
+				var m map[string]jsontext.Value
+				if err := jsonx.Unmarshal(l, &m); err != nil {
 					t.Fatal(err)
 				}
 				for _, c := range cols {
 					delete(m, c)
 				}
-				nl, _ := json.Marshal(m)
+				nl, _ := jsonx.Marshal(m)
 				lines = append(lines, nl)
 			}
 			b = append(bytes.Join(lines, []byte("\n")), '\n')

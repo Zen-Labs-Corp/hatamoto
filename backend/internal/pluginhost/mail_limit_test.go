@@ -2,10 +2,10 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -35,10 +35,10 @@ func callMail(t *testing.T, a *API, plugin string, recipients int) sdk.CallRespo
 	for i := range to {
 		to[i] = "person" + string(rune('a'+i)) + "@example.test"
 	}
-	args, _ := json.Marshal(map[string]any{"to": to, "subject": "hello", "text": "body"})
-	in, _ := json.Marshal(sdk.CallRequest{Fn: sdk.FnMailSend, Args: args})
+	args, _ := jsonx.MarshalPinned(map[string]any{"to": to, "subject": "hello", "text": "body"})
+	in, _ := jsonx.MarshalPinned(sdk.CallRequest{Fn: sdk.FnMailSend, Args: args})
 	var out sdk.CallResponse
-	if err := json.Unmarshal(a.Call(context.Background(), plugin, in), &out); err != nil {
+	if err := jsonx.UnmarshalPinned(a.Call(context.Background(), plugin, in), &out); err != nil {
 		t.Fatal(err)
 	}
 	return out

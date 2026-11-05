@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"strings"
 	"testing"
@@ -24,7 +24,7 @@ func init() { areaPages["layoutparts"] = []string{"settings/layoutparts"} }
 func newPartsRig(t *testing.T, supported ...string) *partsRig {
 	r := &partsRig{reuseRig: newReuseRig(t), flushed: new(int)}
 	r.site = themeSite{newFakeSite("Acme Site")}
-	r.site.cfg.ThemeExtra = json.RawMessage(`{"colors":{"accent":"#778899"},"builder":{"tokens":{"space":{"4":"1.25rem"}},"presets":{"card":{"label":"Card","s":{"base":{"pt":"space-4"}}}}}}`)
+	r.site.cfg.ThemeExtra = jsontext.Value(`{"colors":{"accent":"#778899"},"builder":{"tokens":{"space":{"4":"1.25rem"}},"presets":{"card":{"label":"Card","s":{"base":{"pt":"space-4"}}}}}}`)
 	r.a.deps.Site = r.site
 	r.a.deps.Invalidate = func(context.Context) { *r.flushed++ }
 	r.a.deps.BuilderParts = func() []string { return supported }

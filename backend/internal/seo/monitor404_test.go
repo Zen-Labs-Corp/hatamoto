@@ -1,9 +1,10 @@
 package seo
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestMonitor404LegacyDecode(t *testing.T) {
@@ -25,7 +26,7 @@ func TestMonitor404DaysAndOmitZero(t *testing.T) {
 			t.Errorf("Days(%d)=%d want %d", in, got, want)
 		}
 	}
-	b, err := json.Marshal(Settings{})
+	b, err := jsonx.Marshal(Settings{})
 	if err != nil || strings.Contains(string(b), "monitor404") {
 		t.Fatalf("zero value must be omitted: %s %v", b, err)
 	}

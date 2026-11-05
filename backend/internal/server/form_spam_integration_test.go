@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,6 +20,7 @@ import (
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/spam"
 	"hatamoto.dev/core/internal/user"
 )
@@ -162,7 +162,7 @@ func TestFormSpamIntegration(t *testing.T) {
 		return rec.Header().Get("Content-Security-Policy-Report-Only") + rec.Header().Get("Content-Security-Policy")
 	}
 	submit := func(fields map[string]any) *httptest.ResponseRecorder {
-		b, _ := json.Marshal(fields)
+		b, _ := jsonx.Marshal(fields)
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/public/forms/"+formSlug+"/submit", strings.NewReader(string(b)))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()

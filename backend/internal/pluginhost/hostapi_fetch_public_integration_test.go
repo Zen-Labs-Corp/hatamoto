@@ -4,7 +4,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"testing"
@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/plugrun"
 	"hatamoto.dev/sdk"
@@ -30,7 +31,7 @@ func TestFetchPhaseReadsOnlyWhatVisitorsSee(t *testing.T) {
 		schemas := entity.NewPostgresSchemaRepository(db)
 		tag := uuid.NewString()[:8]
 		sc, err := schemas.Create(context.Background(), &entity.CreateSchemaInput{Name: "fp " + tag, Slug: "fp-" + tag,
-			Schema: json.RawMessage(`{"type":"object","properties":{}}`)})
+			Schema: jsontext.Value(`{"type":"object","properties":{}}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -97,7 +98,7 @@ func TestFetchPhaseReadsOnlyWhatVisitorsSee(t *testing.T) {
 		t.Fatal(he)
 	}
 	var list struct{ Items []struct{ ID string } }
-	if err := json.Unmarshal(raw, &list); err != nil {
+	if err := jsonx.UnmarshalPinned(raw, &list); err != nil {
 		t.Fatal(err)
 	}
 	for _, it := range list.Items {
@@ -119,7 +120,7 @@ func TestFetchPhaseReadsOnlyWhatVisitorsSee(t *testing.T) {
 		t.Fatal(he)
 	}
 	var ml struct{ Items []struct{ ID string } }
-	_ = json.Unmarshal(raw, &ml)
+	_ = jsonx.UnmarshalPinned(raw, &ml)
 	for _, it := range ml.Items {
 		if it.ID == mediaIDs["unused"] {
 			t.Error("fetch media.list returned an unused file")

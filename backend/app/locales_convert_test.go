@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/localeconv"
 )
 
@@ -133,7 +133,7 @@ func TestLocalesSuggestPrintsPlanAndWarnings(t *testing.T) {
 		t.Fatal(err)
 	}
 	var p localeconv.Plan
-	if err := json.Unmarshal([]byte(out), &p); err != nil || p.Default != "en-XX" {
+	if err := jsonx.Unmarshal([]byte(out), &p); err != nil || p.Default != "en-XX" {
 		t.Fatalf("stdout is not the plan: %v %q", err, out)
 	}
 	if !strings.Contains(errOut, "no_tag") {
@@ -202,7 +202,7 @@ func TestLocalesApply(t *testing.T) {
 		Record *localeconv.Record `json:"record"`
 		Note   string             `json:"note"`
 	}
-	if err != nil || json.Unmarshal([]byte(out), &got) != nil || got.Record == nil || got.Record.ID != 7 || got.Note == "" {
+	if err != nil || jsonx.Unmarshal([]byte(out), &got) != nil || got.Record == nil || got.Record.ID != 7 || got.Note == "" {
 		t.Fatalf("json apply: err=%v out=%s", err, out)
 	}
 }

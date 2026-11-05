@@ -5,7 +5,7 @@ package twofactor
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"os"
 	"strings"
@@ -165,18 +165,18 @@ func TestStoreRecoveryCodesSpendOnce(t *testing.T) {
 func TestStorePasskeysCeremoniesAndReset(t *testing.T) {
 	ctx := context.Background()
 	s, uid, _ := scratchStore(t)
-	id, err := s.AddPasskey(ctx, Passkey{UserID: uid, CredentialID: []byte("cred"), Credential: json.RawMessage(`{"a":1}`), Name: "Laptop"})
+	id, err := s.AddPasskey(ctx, Passkey{UserID: uid, CredentialID: []byte("cred"), Credential: jsontext.Value(`{"a":1}`), Name: "Laptop"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AddPasskey(ctx, Passkey{UserID: uid, CredentialID: []byte("cred"), Credential: json.RawMessage(`{}`), Name: "Dup"}); err == nil {
+	if _, err := s.AddPasskey(ctx, Passkey{UserID: uid, CredentialID: []byte("cred"), Credential: jsontext.Value(`{}`), Name: "Dup"}); err == nil {
 		t.Fatal("duplicate credential id accepted")
 	}
 	p, err := s.PasskeyByCredentialID(ctx, []byte("cred"))
 	if err != nil || p.ID != id || p.Name != "Laptop" {
 		t.Fatalf("lookup %+v %v", p, err)
 	}
-	if err := s.UpdatePasskey(ctx, id, json.RawMessage(`{"a":2}`), time.Now()); err != nil {
+	if err := s.UpdatePasskey(ctx, id, jsontext.Value(`{"a":2}`), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	list, _ := s.ListPasskeys(ctx, uid)
@@ -185,7 +185,7 @@ func TestStorePasskeysCeremoniesAndReset(t *testing.T) {
 	}
 
 	cid := uuid.New()
-	c := Ceremony{ID: cid, UserID: &uid, Purpose: "login", Data: json.RawMessage(`{}`), Expires: time.Now().Add(time.Minute)}
+	c := Ceremony{ID: cid, UserID: &uid, Purpose: "login", Data: jsontext.Value(`{}`), Expires: time.Now().Add(time.Minute)}
 	if err := s.PutCeremony(ctx, c); err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestStorePasskeysCeremoniesAndReset(t *testing.T) {
 	if _, err := s.TakeCeremony(ctx, cid, "login", time.Now()); err != ErrNotFound {
 		t.Fatalf("second take = %v", err)
 	}
-	old := Ceremony{ID: uuid.New(), Purpose: "login", Data: json.RawMessage(`{}`), Expires: time.Now().Add(-time.Minute)}
+	old := Ceremony{ID: uuid.New(), Purpose: "login", Data: jsontext.Value(`{}`), Expires: time.Now().Add(-time.Minute)}
 	_ = s.PutCeremony(ctx, old)
 	if _, err := s.TakeCeremony(ctx, old.ID, "login", time.Now()); err != ErrNotFound {
 		t.Fatalf("expired = %v", err)

@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"strings"
 	"testing"
@@ -29,7 +29,7 @@ func (f fakePackages) Get(context.Context, packages.Kind, string) (packages.Row,
 func TestUpdatePreflightThemeReadFailuresBlock(t *testing.T) {
 	ctx := context.Background()
 	active := packages.Config{ActiveTheme: "fancy"}
-	themeRow := packages.Row{Name: "fancy", Manifest: json.RawMessage(`{"sdk":"^0.10"}`)}
+	themeRow := packages.Row{Name: "fancy", Manifest: jsontext.Value(`{"sdk":"^0.10"}`)}
 
 	// Fine: nothing chosen, no config row, or the theme is not installed.
 	for name, f := range map[string]fakePackages{

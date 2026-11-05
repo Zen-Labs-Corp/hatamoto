@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"testing"
@@ -28,7 +28,7 @@ func TestPersonStatusFollowsPublic(t *testing.T) {
 	slug := "ps-" + uuid.NewString()[:8]
 	mk := func(suffix, attrs string) *Entity {
 		t.Helper()
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: person.ID, Name: suffix, Slug: slug + "-" + suffix, Attributes: json.RawMessage(attrs)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: person.ID, Name: suffix, Slug: slug + "-" + suffix, Attributes: jsontext.Value(attrs)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -53,7 +53,7 @@ func TestPersonStatusFollowsPublic(t *testing.T) {
 
 	set := func(id uuid.UUID, attrs string) {
 		t.Helper()
-		raw := json.RawMessage(attrs)
+		raw := jsontext.Value(attrs)
 		if _, err := svc.UpdateEntity(ctx, id, nil, &UpdateEntityInput{Attributes: &raw}); err != nil {
 			t.Fatal(err)
 		}
@@ -79,7 +79,7 @@ func TestPersonStatusFollowsPublic(t *testing.T) {
 
 	// Import follows Public whatever status the source asks for.
 	res, err := svc.Import(ctx, nil, ImportBatch{Source: "ps-test", Items: []ImportItem{
-		{Key: fmt.Sprintf("%s-i", slug), SchemaSlug: "person", Name: "Imported", Slug: slug + "-i", Status: StatusPublished, Attributes: json.RawMessage(`{"public":false}`)},
+		{Key: fmt.Sprintf("%s-i", slug), SchemaSlug: "person", Name: "Imported", Slug: slug + "-i", Status: StatusPublished, Attributes: jsontext.Value(`{"public":false}`)},
 	}})
 	if err != nil || res.Items[0].Err != nil {
 		t.Fatalf("import = %v, %v", res, err)

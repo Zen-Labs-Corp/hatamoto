@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -19,6 +18,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // A7: a page created over the API with a 2-column page_doc renders both
@@ -101,7 +101,7 @@ func TestPageDocIntegration(t *testing.T) {
 		text := res.Content[0].(*mcp.TextContent).Text
 		var out map[string]any
 		if !res.IsError {
-			if err := json.Unmarshal([]byte(text), &out); err != nil {
+			if err := jsonx.Unmarshal([]byte(text), &out); err != nil {
 				t.Fatalf("%s: %v\n%s", tool, err, text)
 			}
 		}
@@ -166,7 +166,7 @@ func TestPageDocIntegration(t *testing.T) {
 	if !isErr || !strings.Contains(text, "page_doc") || strings.Contains(strings.ToLower(text), "internal error") {
 		t.Errorf("MCP invalid doc: isErr=%v text=%q", isErr, text)
 	}
-	body422, _ := json.Marshal(map[string]any{"schema_id": schemaID, "name": "Bad2 " + sfx, "attributes": map[string]any{"page_doc": bad}})
+	body422, _ := jsonx.Marshal(map[string]any{"schema_id": schemaID, "name": "Bad2 " + sfx, "attributes": map[string]any{"page_doc": bad}})
 	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/entities", strings.NewReader(string(body422)))
 	req.Header.Set("X-API-Key", key.PlainKey)
 	req.Header.Set("Content-Type", "application/json")
@@ -185,7 +185,7 @@ func TestPageDocIntegration(t *testing.T) {
 	sections := []any{map[string]any{"id": "s1", "type": "content", "sort_order": 0, "content": map[string]any{"body": "<p>x</p>"}}}
 	put := func(attrs map[string]any) (int, string) {
 		t.Helper()
-		b, _ := json.Marshal(map[string]any{"attributes": attrs})
+		b, _ := jsonx.Marshal(map[string]any{"attributes": attrs})
 		rq, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/v1/entities/"+id, strings.NewReader(string(b)))
 		rq.Header.Set("X-API-Key", key.PlainKey)
 		rq.Header.Set("Content-Type", "application/json")

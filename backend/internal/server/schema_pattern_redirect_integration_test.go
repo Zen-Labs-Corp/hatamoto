@@ -3,7 +3,7 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"testing"
 
@@ -20,7 +20,7 @@ func TestSchemaPatternChangeRedirects_Integration(t *testing.T) {
 	r.svc.SetSchemaPatternObserver(r.srv.onSchemaPatternChanged)
 	mk := func(slug string, publish bool) *entity.Entity {
 		t.Helper()
-		e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.noteSch, Name: slug, Slug: slug, Attributes: json.RawMessage(`{}`)})
+		e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.noteSch, Name: slug, Slug: slug, Attributes: jsontext.Value(`{}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -38,8 +38,8 @@ func TestSchemaPatternChangeRedirects_Integration(t *testing.T) {
 	r.exec(`INSERT INTO hatamoto_redirects (source_path, target_url, status_code, source_tag) VALUES ('/notes/two', '/archive', 301, 'review-it')`)
 	r.srv.redirectService.InvalidateCache()
 
-	settings := func(pattern string) *json.RawMessage {
-		raw := json.RawMessage(`{"url_pattern":"` + pattern + `","archive_path":"/notes"}`)
+	settings := func(pattern string) *jsontext.Value {
+		raw := jsontext.Value(`{"url_pattern":"` + pattern + `","archive_path":"/notes"}`)
 		return &raw
 	}
 	// The same pattern again: nothing is written.
@@ -94,7 +94,7 @@ func TestPersonPatternChangeRedirects_Integration(t *testing.T) {
 	}
 	mk := func(public bool) string {
 		slug := "pp-" + uuid.NewString()[:8]
-		p, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: before.ID, Name: slug, Slug: slug, Attributes: json.RawMessage(fmt.Sprintf(`{"public":%t}`, public))})
+		p, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: before.ID, Name: slug, Slug: slug, Attributes: jsontext.Value(fmt.Sprintf(`{"public":%t}`, public))})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -106,13 +106,13 @@ func TestPersonPatternChangeRedirects_Integration(t *testing.T) {
 	r.exec(`INSERT INTO hatamoto_redirects (source_path, target_url, status_code, source_tag) VALUES ('/author/chintan', '/blog', 301, 'review-it')`)
 	t.Cleanup(func() {
 		_, _ = r.db.Pool().Exec(r.ctx, `DELETE FROM hatamoto_redirects WHERE source_path = ANY($1)`, []string{"/author/" + slug, "/author/" + hidden, "/author/chintan"})
-		raw := json.RawMessage(`{"url_pattern":"/author/{slug}"}`)
+		raw := jsontext.Value(`{"url_pattern":"/author/{slug}"}`)
 		_, _ = r.svc.UpdateSchema(r.ctx, before.ID, &entity.UpdateSchemaInput{Settings: &raw})
 		_, _ = r.db.Pool().Exec(r.ctx, `DELETE FROM hatamoto_redirects WHERE source_path = ANY($1)`, []string{"/team/" + slug})
 	})
 	r.srv.redirectService.InvalidateCache()
 
-	settings := json.RawMessage(`{"url_pattern":"/team/{slug}"}`)
+	settings := jsontext.Value(`{"url_pattern":"/team/{slug}"}`)
 	if _, err := r.svc.UpdateSchema(r.ctx, before.ID, &entity.UpdateSchemaInput{Settings: &settings}); err != nil {
 		t.Fatal(err)
 	}

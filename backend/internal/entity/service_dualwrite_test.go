@@ -2,13 +2,14 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/testutil"
 )
 
@@ -16,8 +17,8 @@ func rawSecs(body string) string {
 	return `[{"id":"a","type":"content","content":{"body":"<p>` + body + `</p>"},"sort_order":0}]`
 }
 
-func attrsWith(parts ...string) json.RawMessage {
-	return json.RawMessage(`{"title":"T"` + strings.Join(append([]string{""}, parts...), ",") + `}`)
+func attrsWith(parts ...string) jsontext.Value {
+	return jsontext.Value(`{"title":"T"` + strings.Join(append([]string{""}, parts...), ",") + `}`)
 }
 
 // v1Doc is the doc a v1 page with one section "body" converts to.
@@ -26,10 +27,10 @@ func v1Doc(t *testing.T, body string) string {
 	return fromSecs(t, rawSecs(body))
 }
 
-func hasKey(t *testing.T, raw json.RawMessage, key string) bool {
+func hasKey(t *testing.T, raw jsontext.Value, key string) bool {
 	t.Helper()
-	var m map[string]json.RawMessage
-	testutil.RequireNoError(t, json.Unmarshal(raw, &m))
+	var m map[string]jsontext.Value
+	testutil.RequireNoError(t, jsonx.Unmarshal(raw, &m))
 	_, ok := m[key]
 	return ok
 }
@@ -110,8 +111,8 @@ func TestService_PageDoc_Update(t *testing.T) {
 		testutil.RequireNoError(t, err)
 		s := string(got.Attributes)
 		testutil.True(t, strings.Contains(s, "two") && strings.Contains(s, "one"), "attrs=%s", s) // new doc + frozen mirror
-		var m map[string]json.RawMessage
-		testutil.RequireNoError(t, json.Unmarshal(got.Attributes, &m))
+		var m map[string]jsontext.Value
+		testutil.RequireNoError(t, jsonx.Unmarshal(got.Attributes, &m))
 		testutil.True(t, strings.Contains(string(m["page_sections"]), "one") && !strings.Contains(string(m["page_sections"]), "two"), "mirror=%s", m["page_sections"])
 	})
 
@@ -126,8 +127,8 @@ func TestService_PageDoc_Update(t *testing.T) {
 	t.Run("no-op save is jsonb-equal to stored (no version)", func(t *testing.T) {
 		t.Parallel()
 		svc, e := seedConverted(t)
-		stored := append(json.RawMessage(nil), e.Attributes...)
-		in := append(json.RawMessage(nil), e.Attributes...)
+		stored := append(jsontext.Value(nil), e.Attributes...)
+		in := append(jsontext.Value(nil), e.Attributes...)
 		got, err := svc.UpdateEntity(ctx, e.ID, &testUserID, &UpdateEntityInput{Attributes: &in})
 		testutil.RequireNoError(t, err)
 		testutil.True(t, jsonRawEqual(got.Attributes, stored), "attrs changed: %s", got.Attributes)
@@ -162,8 +163,8 @@ func TestService_PageDoc_Update(t *testing.T) {
 		in := attrsWith(`"page_sections":` + rawSecs("two"))
 		got, err := svc.UpdateEntity(ctx, e.ID, &testUserID, &UpdateEntityInput{Attributes: &in})
 		testutil.RequireNoError(t, err)
-		var m map[string]json.RawMessage
-		testutil.RequireNoError(t, json.Unmarshal(got.Attributes, &m))
+		var m map[string]jsontext.Value
+		testutil.RequireNoError(t, jsonx.Unmarshal(got.Attributes, &m))
 		testutil.True(t, strings.Contains(string(m["page_doc"]), "two") && strings.Contains(string(m["page_sections"]), "one"), "attrs=%s", got.Attributes)
 	})
 }
@@ -196,7 +197,7 @@ func TestImport_PageDoc(t *testing.T) {
 	ctx := context.Background()
 	svc, repo, _, _ := importFixture(t)
 	batch := func(key, attrs string) ImportBatch {
-		return ImportBatch{Source: "t", Items: []ImportItem{{Key: key, SchemaSlug: "page", Name: "N", Attributes: json.RawMessage(attrs)}}}
+		return ImportBatch{Source: "t", Items: []ImportItem{{Key: key, SchemaSlug: "page", Name: "N", Attributes: jsontext.Value(attrs)}}}
 	}
 
 	// a new export carries both: the doc wins, no mirror is stored
@@ -233,10 +234,10 @@ func TestService_PageDoc_NameOnlyUpdateConverts(t *testing.T) {
 	name := "Renamed"
 	got, err := svc.UpdateEntity(ctx, e.ID, &testUserID, &UpdateEntityInput{Name: &name})
 	testutil.RequireNoError(t, err)
-	var m map[string]json.RawMessage
-	testutil.RequireNoError(t, json.Unmarshal(got.Attributes, &m))
+	var m map[string]jsontext.Value
+	testutil.RequireNoError(t, jsonx.Unmarshal(got.Attributes, &m))
 	testutil.True(t, strings.Contains(string(m["page_doc"]), "one"), "attrs=%s", got.Attributes)
-	testutil.True(t, jsonRawEqual(m["page_sections"], json.RawMessage(rawSecs("one"))), "mirror not frozen: %s", m["page_sections"])
+	testutil.True(t, jsonRawEqual(m["page_sections"], jsontext.Value(rawSecs("one"))), "mirror not frozen: %s", m["page_sections"])
 
 	// a page whose sections do not convert is written as it is
 	bad := seedEntity(t, er, schema, func(e *Entity) {
@@ -262,15 +263,15 @@ func TestService_PageDoc_HookEdits(t *testing.T) {
 	edit := func(f func(m map[string]any)) BeforeSaveFunc {
 		return func(_ context.Context, in *BeforeSaveInput) error {
 			var m map[string]any
-			testutil.RequireNoError(t, json.Unmarshal(in.Attributes, &m))
+			testutil.RequireNoError(t, jsonx.Unmarshal(in.Attributes, &m))
 			f(m)
-			b, err := json.Marshal(m)
+			b, err := jsonx.Marshal(m)
 			in.Attributes = b
 			return err
 		}
 	}
 	save := func(svc *Service, e *Entity) (*Entity, error) {
-		in := append(json.RawMessage(nil), e.Attributes...)
+		in := append(jsontext.Value(nil), e.Attributes...)
 		return svc.UpdateEntity(ctx, e.ID, &testUserID, &UpdateEntityInput{Attributes: &in})
 	}
 
@@ -290,7 +291,7 @@ func TestService_PageDoc_HookEdits(t *testing.T) {
 		t.Parallel()
 		svc, e := seed(t)
 		var doc map[string]any
-		testutil.RequireNoError(t, json.Unmarshal([]byte(twoCol), &doc))
+		testutil.RequireNoError(t, jsonx.Unmarshal([]byte(twoCol), &doc))
 		svc.SetBeforeSave(edit(func(m map[string]any) { m["page_doc"] = doc }))
 		got, err := save(svc, e)
 		testutil.RequireNoError(t, err)

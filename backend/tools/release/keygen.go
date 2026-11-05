@@ -1,13 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 )
 
@@ -44,8 +44,8 @@ func cmdKeygen(args []string, stdout, stderr io.Writer, _ env) error {
 		return err
 	}
 	priv, pub := filepath.Join(dir, kind+".key"), filepath.Join(dir, kind+".pub")
-	secret, _ := json.MarshalIndent(k, "", "  ")
-	public, _ := json.MarshalIndent(packages.Key{ID: k.ID, Public: k.Public}, "", "  ")
+	secret, _ := jsonx.Indent(k, jsonx.HTMLSafe)
+	public, _ := jsonx.Indent(packages.Key{ID: k.ID, Public: k.Public}, jsonx.HTMLSafe)
 	if err := createNew(priv, append(secret, '\n'), 0o600); err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func loadKeyFile(path string) (packages.Key, error) {
 	if err != nil {
 		return k, err
 	}
-	if err := json.Unmarshal(b, &k); err != nil {
+	if err := jsonx.Unmarshal(b, &k, jsonx.Stored); err != nil {
 		return k, fmt.Errorf("%s: %w", path, err)
 	}
 	if _, err := k.PrivateKey(); err != nil {

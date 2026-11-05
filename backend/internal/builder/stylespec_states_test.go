@@ -1,9 +1,10 @@
 package builder
 
 import (
-	"encoding/json"
 	"os"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // statesCase is one compiled state case of the shared fixture
@@ -13,7 +14,7 @@ import (
 type statesCase struct {
 	Name   string                       `json:"name"`
 	S      map[string]map[string]string `json:"s"`
-	Parent bool                         `json:"parent,omitempty"`
+	Parent bool                         `json:"parent,omitzero"`
 	CSS    string                       `json:"css"`
 }
 
@@ -48,7 +49,7 @@ func TestStyleSpecFixtureStates(t *testing.T) {
 		t.Fatal(err)
 	}
 	var got []statesCase
-	if err := json.Unmarshal(raw, &got); err != nil {
+	if err := jsonx.Unmarshal(raw, &got); err != nil {
 		t.Fatal(err)
 	}
 	want := statesCases()

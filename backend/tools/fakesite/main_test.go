@@ -2,13 +2,14 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func logLines(t *testing.T, b *bytes.Buffer) []logLine {
@@ -19,7 +20,7 @@ func logLines(t *testing.T, b *bytes.Buffer) []logLine {
 			continue
 		}
 		var ll logLine
-		if err := json.Unmarshal([]byte(l), &ll); err != nil {
+		if err := jsonx.Unmarshal([]byte(l), &ll, jsonx.Stored); err != nil {
 			t.Fatalf("bad log line %q: %v", l, err)
 		}
 		res = append(res, ll)

@@ -1,7 +1,6 @@
 package packages
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -9,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // metaDir writes one hello plugin as hello.hmp and one theme as sunrise.hmp.
@@ -55,7 +56,7 @@ func TestBuildIndexWithMetaWritesFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	var idx Index
-	if err := json.Unmarshal(raw, &idx); err != nil {
+	if err := jsonx.Unmarshal(raw, &idx); err != nil {
 		t.Fatal(err)
 	}
 	e, ok := idx.Find(KindPlugin, "hello")
@@ -140,7 +141,7 @@ func TestBuildIndexAllowsAThemeAndPluginWithOneName(t *testing.T) {
 		t.Fatalf("theme and plugin named hello refused: %v", err)
 	}
 	var idx Index
-	if err := json.Unmarshal(raw, &idx); err != nil {
+	if err := jsonx.Unmarshal(raw, &idx); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := idx.Find(KindPlugin, "hello"); !ok {
@@ -188,7 +189,7 @@ func TestBuildIndexScreenshotMeta(t *testing.T) {
 		t.Fatal(err)
 	}
 	var idx Index
-	if err := json.Unmarshal(raw, &idx); err != nil {
+	if err := jsonx.Unmarshal(raw, &idx); err != nil {
 		t.Fatal(err)
 	}
 	if e, _ := idx.Find(KindTheme, "sunrise"); e.Screenshot != "screenshots/sunrise.webp" {
@@ -255,7 +256,7 @@ func TestMetaAboutAndFeatures(t *testing.T) {
 		t.Fatal(err)
 	}
 	var idx Index
-	if err := json.Unmarshal(raw, &idx); err != nil {
+	if err := jsonx.Unmarshal(raw, &idx); err != nil {
 		t.Fatal(err)
 	}
 	if e, _ := idx.Find(KindPlugin, "hello"); e.About != m.About || len(e.Features) != 8 || e.Features[1] != "b" {
@@ -286,7 +287,7 @@ func TestMetaCategoryAndFeatured(t *testing.T) {
 		t.Fatal(err)
 	}
 	var idx Index
-	if err := json.Unmarshal(raw, &idx); err != nil {
+	if err := jsonx.Unmarshal(raw, &idx); err != nil {
 		t.Fatal(err)
 	}
 	if e, _ := idx.Find(KindPlugin, "hello"); e.Category != "Forms" || !e.Featured {
@@ -323,7 +324,7 @@ func TestMetaSiteTypeAndFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 	var idx Index
-	if err := json.Unmarshal(raw, &idx); err != nil {
+	if err := jsonx.Unmarshal(raw, &idx); err != nil {
 		t.Fatal(err)
 	}
 	e, _ := idx.Find(KindTheme, "sunrise")
@@ -390,7 +391,7 @@ func TestBuildIndexListsTagPackSummary(t *testing.T) {
 		t.Fatal(err)
 	}
 	var idx Index
-	if err := json.Unmarshal(raw, &idx); err != nil {
+	if err := jsonx.Unmarshal(raw, &idx); err != nil {
 		t.Fatal(err)
 	}
 	e, ok := idx.Find(KindPlugin, "acme")

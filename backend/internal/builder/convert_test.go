@@ -2,10 +2,12 @@ package builder
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"reflect"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func ptrBool(b bool) *bool { return &b }
@@ -62,9 +64,9 @@ func TestRoundTripUpToRenumbering(t *testing.T) {
 func TestFromSectionsDeterministic(t *testing.T) {
 	in := sampleSections()
 	in = append(in, Section{ID: "bad id!", Type: "x", SortOrder: 1}, Section{Type: "y", SortOrder: 1})
-	a, _ := json.Marshal(FromSections(in))
+	a, _ := jsonx.Marshal(FromSections(in))
 	for i := 0; i < 10; i++ {
-		b, _ := json.Marshal(FromSections(in))
+		b, _ := jsonx.Marshal(FromSections(in))
 		if !bytes.Equal(a, b) {
 			t.Fatal("FromSections is not deterministic")
 		}
@@ -165,13 +167,13 @@ func TestNotExpressible(t *testing.T) {
 
 func TestExpressibleAfterOps(t *testing.T) {
 	d := FromSections(sampleSections())
-	if _, err := d.Apply(Op{Op: "setStyle", ID: "c-s-a", BP: "base", Key: "pt", Value: json.RawMessage(`"space-2"`)}); err != nil {
+	if _, err := d.Apply(Op{Op: "setStyle", ID: "c-s-a", BP: "base", Key: "pt", Value: jsontext.Value(`"space-2"`)}); err != nil {
 		t.Fatal(err)
 	}
 	if V1Expressible(d) {
 		t.Fatal("styled section still expressible")
 	}
-	if _, err := d.Apply(Op{Op: "setStyle", ID: "c-s-a", BP: "base", Key: "pt", Value: json.RawMessage(`null`)}); err != nil {
+	if _, err := d.Apply(Op{Op: "setStyle", ID: "c-s-a", BP: "base", Key: "pt", Value: jsontext.Value(`null`)}); err != nil {
 		t.Fatal(err)
 	}
 	if !V1Expressible(d) {
@@ -217,7 +219,7 @@ func TestSections_UnknownKeysRoundTrip(t *testing.T) {
 		t.Fatalf("ok=%v back=%+v", ok, back)
 	}
 	m := SectionMaps(back)[0].(map[string]any)
-	b, _ := json.Marshal(m)
+	b, _ := jsonx.Marshal(m)
 	if !strings.Contains(string(b), `"anchor":"top"`) || !strings.Contains(string(b), `"meta":{"n":9.90}`) {
 		t.Errorf("unknown keys lost: %s", b)
 	}

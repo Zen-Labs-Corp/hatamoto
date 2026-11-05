@@ -4,7 +4,7 @@ package searchreplace
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"os"
@@ -50,7 +50,7 @@ func TestSearchReplaceIntegration(t *testing.T) {
 	svc, schemaID := integrationService(t)
 	tag := "zq" + strings.ReplaceAll(uuid.NewString()[:8], "-", "")
 	mk := func(slug, attrs string) *entity.Entity {
-		e, err := svc.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: schemaID, Name: slug, Slug: slug, Locale: "en", Attributes: json.RawMessage(attrs)})
+		e, err := svc.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: schemaID, Name: slug, Slug: slug, Locale: "en", Attributes: jsontext.Value(attrs)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -130,4 +130,4 @@ func TestSearchReplaceIntegration(t *testing.T) {
 	}
 }
 
-func rawp(s string) *json.RawMessage { r := json.RawMessage(s); return &r }
+func rawp(s string) *jsontext.Value { r := jsontext.Value(s); return &r }

@@ -2,7 +2,7 @@ package server
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"reflect"
 	"slices"
 	"sort"
@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -164,9 +165,9 @@ func pageGraphs(t *testing.T, cfg *siteconfig.Config, set *entity.LocaleSet, leg
 		}
 		for _, m := range ldRE.FindAllSubmatch(out.Bytes(), -1) {
 			var doc struct {
-				Graph json.RawMessage `json:"@graph"`
+				Graph jsontext.Value `json:"@graph"`
 			}
-			if json.Unmarshal(m[1], &doc) == nil && doc.Graph != nil {
+			if jsonx.Unmarshal(m[1], &doc) == nil && doc.Graph != nil {
 				pages[name] = string(doc.Graph)
 			}
 		}
@@ -206,7 +207,7 @@ func foldConfig(t *testing.T, cfg *siteconfig.Config) *siteconfig.Config {
 func nodes(t *testing.T, graph string) map[string]map[string]any {
 	t.Helper()
 	var list []map[string]any
-	if err := json.Unmarshal([]byte(graph), &list); err != nil {
+	if err := jsonx.Unmarshal([]byte(graph), &list); err != nil {
 		t.Fatal(err)
 	}
 	out := map[string]map[string]any{}
@@ -260,9 +261,9 @@ type foldCase struct {
 func (c foldCase) config() *siteconfig.Config {
 	return &siteconfig.Config{
 		Language: foldDefault, Phone: c.phone, BusinessHours: c.hours,
-		PostalAddress:   json.RawMessage(c.address),
-		BusinessProfile: json.RawMessage(c.profile),
-		LocaleProfiles:  json.RawMessage(c.cards),
+		PostalAddress:   jsontext.Value(c.address),
+		BusinessProfile: jsontext.Value(c.profile),
+		LocaleProfiles:  jsontext.Value(c.cards),
 	}
 }
 
@@ -314,7 +315,7 @@ func TestFoldGraph_UnchangedShapes(t *testing.T) {
 // A single-language site with an empty profile prints the same graph (A6).
 func TestFoldGraph_SingleLanguageEmptyProfile(t *testing.T) {
 	t.Parallel()
-	cfg := (&siteconfig.Config{Language: foldDefault, BusinessProfile: json.RawMessage(`{}`), LocaleProfiles: json.RawMessage(`{}`)})
+	cfg := (&siteconfig.Config{Language: foldDefault, BusinessProfile: jsontext.Value(`{}`), LocaleProfiles: jsontext.Value(`{}`)})
 	set := foldSet(t, false)
 	before := pageGraphs(t, cfg, set, true)
 	after := pageGraphs(t, foldConfig(t, cfg), set, false)

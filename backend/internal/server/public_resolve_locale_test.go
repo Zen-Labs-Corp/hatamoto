@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -195,7 +195,7 @@ func TestHiddenLocaleServedToThePreviewOnly(t *testing.T) {
 	t.Parallel()
 	entries := []entity.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Hidden: true}}
 	req := httptest.NewRequest("GET", "/admin/render/preview", nil)
-	preview := previewRouteRequest(req, "/fr/about", uuid.New(), json.RawMessage(`{}`))
+	preview := previewRouteRequest(req, "/fr/about", uuid.New(), jsontext.Value(`{}`))
 
 	f := newLocaleRouteFixture(t, false, entries...)
 	res, _, err := newRouteTestServer().resolveRouteWith(preview.Context(), f.deps, "/fr/about", preview)

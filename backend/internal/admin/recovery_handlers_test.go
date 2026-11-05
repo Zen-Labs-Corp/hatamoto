@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"regexp"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type recKey struct{ user, entity uuid.UUID }
@@ -292,7 +292,7 @@ func TestBlogEditorDeliversTheCallersCopyOnly(t *testing.T) {
 		t.Fatal("no recovery block for the owner's copy")
 	}
 	var got map[string]any
-	if err := json.Unmarshal([]byte(m[1]), &got); err != nil {
+	if err := jsonx.Unmarshal([]byte(m[1]), &got); err != nil {
 		t.Fatalf("recovery block is not JSON: %v", err)
 	}
 	if got["content"] != `</script><b>MINE</b>` || got["version"] != float64(3) || got["name"] != "N" ||
@@ -329,7 +329,7 @@ func TestBuilderBootCarriesTheCallersCopy(t *testing.T) {
 		URLs     map[string]string `json:"urls"`
 	}) {
 		body := builderPage(t, r, builderOnlyDoc)
-		if err := json.Unmarshal([]byte(bootRx.FindStringSubmatch(body)[1]), &m); err != nil {
+		if err := jsonx.Unmarshal([]byte(bootRx.FindStringSubmatch(body)[1]), &m); err != nil {
 			t.Fatal(err)
 		}
 		return m

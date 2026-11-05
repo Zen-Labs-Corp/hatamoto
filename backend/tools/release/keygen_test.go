@@ -1,11 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 )
 
@@ -24,7 +24,7 @@ func TestKeygenWritesPair(t *testing.T) {
 	}
 	var pub packages.Key
 	b, _ := os.ReadFile(filepath.Join(dir, "release.pub"))
-	if err := json.Unmarshal(b, &pub); err != nil {
+	if err := jsonx.Unmarshal(b, &pub, jsonx.Stored); err != nil {
 		t.Fatal(err)
 	}
 	pk, err := pub.PublicKey()

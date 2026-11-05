@@ -1,10 +1,10 @@
 package pluginhost
 
 import (
-	"encoding/json"
 	"net/http/httptest"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -22,7 +22,7 @@ func TestRouteRequestHeaders(t *testing.T) {
 		rec := httptest.NewRecorder()
 		g.Serve(rec, req, "capa", rest, user)
 		var echoed sdk.HTTPRequest
-		if err := json.Unmarshal(rec.Body.Bytes(), &echoed); err != nil {
+		if err := jsonx.UnmarshalPinned(rec.Body.Bytes(), &echoed); err != nil {
 			t.Fatalf("%s: %d %s", rest, rec.Code, rec.Body)
 		}
 		return echoed.Headers

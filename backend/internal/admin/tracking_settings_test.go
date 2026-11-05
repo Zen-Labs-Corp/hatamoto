@@ -2,11 +2,11 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"net/url"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/tags"
 )
 
@@ -84,7 +84,7 @@ func TestTrackingSaveAuditsIdsOnlyAndClearsCache(t *testing.T) {
 	if len(s.events) != 1 || s.events[0].Action != "tracking.settings" || s.events[0].Target != "tracking" {
 		t.Fatalf("audit = %+v", s.events)
 	}
-	raw, _ := json.Marshal(s.events[0].Detail)
+	raw, _ := jsonx.Marshal(s.events[0].Detail)
 	if got := string(raw); got != `{"changed":["gtm"],"disabled":[],"enabled":["ga4"],"exclude_signed_in":false}` {
 		t.Errorf("audit detail = %s", got)
 	}

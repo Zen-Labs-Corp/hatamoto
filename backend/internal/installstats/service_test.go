@@ -2,7 +2,6 @@ package installstats
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -11,6 +10,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // memStore mirrors the Store's rules in memory.
@@ -195,7 +196,7 @@ func TestRunSendsOnceWithTheExactBody(t *testing.T) {
 		t.Errorf("headers = %v", req.Header)
 	}
 	var got map[string]string
-	if err := json.Unmarshal([]byte(r.bodies[0]), &got); err != nil {
+	if err := jsonx.Unmarshal([]byte(r.bodies[0]), &got); err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 3 || got["install"] != id || got["version"] != "v1.2.3" || got["channel"] != "stable" {

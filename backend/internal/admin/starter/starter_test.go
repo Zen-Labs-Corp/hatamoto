@@ -2,13 +2,14 @@ package starter
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -119,7 +120,7 @@ func (m *mem) installer() *Installer {
 
 func seedHome(m *mem) uuid.UUID {
 	e := &entity.Entity{ID: uuid.New(), SchemaID: m.schemas["page"], Name: "My site", Slug: "home", Status: entity.StatusPublished,
-		Attributes: json.RawMessage(`{"page_sections":[{"id":"welcome","type":"hero","sort_order":1,"content":{"headline":"My site"}}],"content":"<p>x</p>"}`)}
+		Attributes: jsontext.Value(`{"page_sections":[{"id":"welcome","type":"hero","sort_order":1,"content":{"headline":"My site"}}],"content":"<p>x</p>"}`)}
 	m.entities["home"] = e
 	return e.ID
 }
@@ -153,7 +154,7 @@ func TestInstallCreatesEverythingOnceAndReusesTheSeedHome(t *testing.T) {
 	var post struct {
 		Content string `json:"content"`
 	}
-	_ = json.Unmarshal(m.entities["hello-world"].Attributes, &post)
+	_ = jsonx.Unmarshal(m.entities["hello-world"].Attributes, &post)
 	if !contains(post.Content, "Acme &lt;Co&gt;") || contains(post.Content, "<Co>") {
 		t.Errorf("site name not escaped in post html: %s", post.Content)
 	}
@@ -195,9 +196,9 @@ func TestInstallCreatesEverythingOnceAndReusesTheSeedHome(t *testing.T) {
 func TestInstallNeverTouchesEditedHomeOrExistingPages(t *testing.T) {
 	m := newMem()
 	e := &entity.Entity{ID: uuid.New(), SchemaID: m.schemas["page"], Slug: "home", Name: "Mine",
-		Attributes: json.RawMessage(`{"page_sections":[{"id":"mine","type":"hero","sort_order":1}]}`)}
+		Attributes: jsontext.Value(`{"page_sections":[{"id":"mine","type":"hero","sort_order":1}]}`)}
 	m.entities["home"] = e
-	m.entities["about"] = &entity.Entity{ID: uuid.New(), Slug: "about", Attributes: json.RawMessage(`{"content":"mine"}`)}
+	m.entities["about"] = &entity.Entity{ID: uuid.New(), Slug: "about", Attributes: jsontext.Value(`{"content":"mine"}`)}
 	if _, err := m.installer().Install(context.Background(), Options{SiteName: "X"}); err != nil {
 		t.Fatal(err)
 	}
@@ -332,8 +333,8 @@ func TestRerunLeavesAnEditedMenuAlone(t *testing.T) {
 }
 
 func TestIsSeedBothShapes(t *testing.T) {
-	doc, _ := json.Marshal(builder.FromSections([]builder.Section{{ID: "welcome", Type: "hero", Content: map[string]any{}}}))
-	other, _ := json.Marshal(builder.FromSections([]builder.Section{{ID: "mine", Type: "hero", Content: map[string]any{}}}))
+	doc, _ := jsonx.Marshal(builder.FromSections([]builder.Section{{ID: "welcome", Type: "hero", Content: map[string]any{}}}))
+	other, _ := jsonx.Marshal(builder.FromSections([]builder.Section{{ID: "mine", Type: "hero", Content: map[string]any{}}}))
 	for attrs, want := range map[string]bool{
 		`{"page_sections":[{"id":"welcome"}]}`:            true,
 		`{"page_doc":` + string(doc) + `}`:                true,
@@ -341,7 +342,7 @@ func TestIsSeedBothShapes(t *testing.T) {
 		`{"starter":true,"page_doc":` + string(doc) + `}`: false,
 		`{"content":"x"}`:                                 false,
 	} {
-		if got := isSeed(&entity.Entity{Attributes: json.RawMessage(attrs)}); got != want {
+		if got := isSeed(&entity.Entity{Attributes: jsontext.Value(attrs)}); got != want {
 			t.Errorf("isSeed(%s) = %v, want %v", attrs, got, want)
 		}
 	}

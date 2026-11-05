@@ -1,13 +1,14 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"slices"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const packTestSchema = `{
@@ -63,7 +64,7 @@ func bootOf(t *testing.T, body string) bootDoc {
 	}
 	rest := body[i+len(open):]
 	var b bootDoc
-	if err := json.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &b); err != nil {
+	if err := jsonx.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &b, jsonx.StoredLoose); err != nil {
 		t.Fatal(err)
 	}
 	return b
@@ -73,7 +74,7 @@ func TestBuilderBootCarriesPackKindsAndSources(t *testing.T) {
 	registerPack(t)
 	registerSources(t)
 	r := newEditorRig(t)
-	r.ent.Attributes = json.RawMessage(`{"page_doc":` + packNodeDoc + `}`)
+	r.ent.Attributes = jsontext.Value(`{"page_doc":` + packNodeDoc + `}`)
 	rec := r.do("GET", r.path(), "owner-token", nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("builder screen: %d", rec.Code)

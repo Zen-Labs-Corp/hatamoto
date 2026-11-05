@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"io"
 	"strings"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/portability"
 )
@@ -57,7 +57,7 @@ func dropPeople(t *testing.T, raw []byte) []byte {
 			continue
 		case "format.json":
 			var hdr map[string]any
-			_ = json.Unmarshal(b, &hdr)
+			_ = jsonx.Unmarshal(b, &hdr)
 			var tables []any
 			for _, n := range hdr["tables"].([]any) {
 				if n != "hatamoto_user_people" {
@@ -65,12 +65,12 @@ func dropPeople(t *testing.T, raw []byte) []byte {
 				}
 			}
 			hdr["tables"] = tables
-			b, _ = json.Marshal(hdr)
+			b, _ = jsonx.Marshal(hdr)
 		case "manifest.json":
 			var m map[string]any
-			_ = json.Unmarshal(b, &m)
+			_ = jsonx.Unmarshal(b, &m)
 			delete(m["rows"].(map[string]any), "hatamoto_user_people")
-			b, _ = json.Marshal(m)
+			b, _ = jsonx.Marshal(m)
 		case "data/hatamoto_entity_schemas.jsonl":
 			var keep []string
 			for _, l := range strings.Split(strings.TrimSpace(string(b)), "\n") {

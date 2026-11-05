@@ -1,11 +1,12 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/testutil"
 )
@@ -32,7 +33,7 @@ type profileResp struct {
 func decodeProfileResp(t *testing.T, body string) profileResp {
 	t.Helper()
 	var r profileResp
-	testutil.NoError(t, json.Unmarshal([]byte(body), &r))
+	testutil.NoError(t, jsonx.Unmarshal([]byte(body), &r))
 	return r
 }
 
@@ -120,7 +121,7 @@ func TestSiteSettings_ProfileDefaultTagRule(t *testing.T) {
 		}
 	}
 
-	store.cfg.LocaleProfiles = json.RawMessage(`{"en":{"catalog_name":"Orphan"},"fr-CA":{"catalog_name":"Offres"}}`)
+	store.cfg.LocaleProfiles = jsontext.Value(`{"en":{"catalog_name":"Orphan"},"fr-CA":{"catalog_name":"Offres"}}`)
 	rec := doSite(h, http.MethodGet, profilePath, "")
 	testutil.Equal(t, http.StatusOK, rec.Code)
 	got := decodeProfileResp(t, rec.Body.String())
@@ -301,7 +302,7 @@ func TestSiteSettings_ProfileRejectedWritesNothing(t *testing.T) {
 
 func TestSiteSettings_ProfileStaleCardCanBeDeleted(t *testing.T) {
 	store := twoLocaleStore()
-	store.cfg.LocaleProfiles = json.RawMessage(`{"es":{"catalog_name":"Ofertas"},"fr-CA":{"catalog_name":"Offres"}}`)
+	store.cfg.LocaleProfiles = jsontext.Value(`{"es":{"catalog_name":"Ofertas"},"fr-CA":{"catalog_name":"Offres"}}`)
 	h := localeRouter(store, nil)
 	// Writing a card for a tag that is not listed is still refused.
 	rec := doSite(h, http.MethodPatch, profilePath, `{"locale_profiles":{"es":{"catalog_name":"x"}}}`)

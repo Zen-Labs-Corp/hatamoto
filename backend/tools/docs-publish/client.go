@@ -3,7 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,10 @@ import (
 	"strconv"
 	"time"
 )
+
+// ciNames makes JSON object names match case-insensitively, as the v1 decoder
+// did: untagged fields (Error, Slug, SchemaID, ...) read lower-case names.
+var ciNames = jsonv2.MatchCaseInsensitiveNames(true)
 
 // Findings from the server handlers (backend/internal/server/entity_handlers.go),
 // confirmed 2026-10-19 and the reason the lookup below is "list everything":
@@ -86,13 +91,13 @@ func (e *APIError) Error() string {
 
 // Entity is the part of the entity JSON this tool reads.
 type Entity struct {
-	ID         string          `json:"id"`
-	SchemaID   string          `json:"schema_id"`
-	Name       string          `json:"name"`
-	Slug       string          `json:"slug"`
-	Status     string          `json:"status"`
-	ParentID   string          `json:"parent_id,omitempty"`
-	Attributes json.RawMessage `json:"attributes"`
+	ID         string         `json:"id"`
+	SchemaID   string         `json:"schema_id"`
+	Name       string         `json:"name"`
+	Slug       string         `json:"slug"`
+	Status     string         `json:"status"`
+	ParentID   string         `json:"parent_id,omitempty"`
+	Attributes jsontext.Value `json:"attributes"`
 }
 
 // SourceHash reads attributes.source_hash.
@@ -100,7 +105,7 @@ func (e Entity) SourceHash() string {
 	var a struct {
 		SourceHash string `json:"source_hash"`
 	}
-	_ = json.Unmarshal(e.Attributes, &a)
+	_ = jsonv2.Unmarshal(e.Attributes, &a, ciNames)
 	return a.SourceHash
 }
 
@@ -180,7 +185,7 @@ func (c *Client) do(ctx context.Context, method, path string, in, out any) error
 	var payload []byte
 	if in != nil {
 		var err error
-		if payload, err = json.Marshal(in); err != nil {
+		if payload, err = jsonv2.Marshal(in, jsonv2.Deterministic(true)); err != nil {
 			return err
 		}
 	}
@@ -224,7 +229,7 @@ func (c *Client) do(ctx context.Context, method, path string, in, out any) error
 		if out == nil {
 			return nil
 		}
-		if err := json.Unmarshal(body, out); err != nil {
+		if err := jsonv2.Unmarshal(body, out, ciNames); err != nil {
 			return fmt.Errorf("%s %s: unreadable answer: %w", method, path, err)
 		}
 		return nil
@@ -246,7 +251,7 @@ func (c *Client) sleep(ctx context.Context, d time.Duration) error {
 
 func apiError(status int, body []byte) error {
 	var e struct{ Error, Code string }
-	if json.Unmarshal(body, &e) != nil || e.Error == "" {
+	if jsonv2.Unmarshal(body, &e, ciNames) != nil || e.Error == "" {
 		e.Error = string(bytes.TrimSpace(body))
 		if len(e.Error) > 200 {
 			e.Error = e.Error[:200]

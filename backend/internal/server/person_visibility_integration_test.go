@@ -3,10 +3,11 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -100,7 +101,7 @@ func TestArticleAuthorJSONLD_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: post.ID, Name: "Credited", Slug: "jsonld-author-it",
-		Attributes: json.RawMessage(`{"author":"Ada Byline"}`)})
+		Attributes: jsontext.Value(`{"author":"Ada Byline"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestArticleAuthorJSONLD_Integration(t *testing.T) {
 		r.srv.applyAuthorName(r.ctx, ent)
 		doc, _ := entity.GenerateJSONLD(ent, "http://example.test")
 		r.srv.bylinesOf(r.ctx, e.ID).applyJSONLD(r.ctx, e.ID, "http://example.test", doc)
-		b, _ := json.Marshal(doc["author"])
+		b, _ := jsonx.Marshal(doc["author"])
 		return string(b)
 	}
 	if got := author(); got != `{"@type":"Person","name":"Ada Byline"}` {
@@ -146,7 +147,7 @@ func TestPersonGoingPublicRetiresAutoRedirect_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: sch.ID, Name: "Live X", Slug: "live-x-it",
-		Attributes: json.RawMessage(`{"public":false}`)})
+		Attributes: jsontext.Value(`{"public":false}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +156,7 @@ func TestPersonGoingPublicRetiresAutoRedirect_Integration(t *testing.T) {
 	r.srv.redirectService.InvalidateCache()
 	r.expect("/author/live-x-it", 301)
 
-	public := json.RawMessage(`{"public":true}`)
+	public := jsontext.Value(`{"public":true}`)
 	if _, err := r.svc.UpdateEntity(r.ctx, p.ID, nil, &entity.UpdateEntityInput{Attributes: &public}); err != nil {
 		t.Fatal(err)
 	}
@@ -171,12 +172,12 @@ func TestPersonFirstPublicSaveLeavesNoRedirect_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: sch.ID, Name: "First Y", Slug: "first-y-draft-it",
-		Attributes: json.RawMessage(`{"public":false}`)})
+		Attributes: jsontext.Value(`{"public":false}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { r.exec(`DELETE FROM hatamoto_entities WHERE id = $1`, p.ID) })
-	slug, public := "first-y-it", json.RawMessage(`{"public":true}`)
+	slug, public := "first-y-it", jsontext.Value(`{"public":true}`)
 	if _, err := r.svc.UpdateEntity(r.ctx, p.ID, nil, &entity.UpdateEntityInput{Slug: &slug, Attributes: &public}); err != nil {
 		t.Fatal(err)
 	}

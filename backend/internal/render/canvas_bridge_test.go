@@ -1,11 +1,12 @@
 package render
 
 import (
-	"encoding/json"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The bridge is one script serving protocol v1 and (once negotiated) v2. There
@@ -49,7 +50,7 @@ func TestBridgeV2PostsOnlyFixtureTypes(t *testing.T) {
 			Msg   any    `json:"msg"`
 		} `json:"cases"`
 	}
-	if err := json.Unmarshal(raw, &f); err != nil {
+	if err := jsonx.Unmarshal(raw, &f); err != nil {
 		t.Fatal(err)
 	}
 	inbound := map[string]bool{}

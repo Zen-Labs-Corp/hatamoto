@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -23,7 +23,7 @@ func twelveSectionBody(tb testing.TB) string {
 			Content: map[string]any{"body": fmt.Sprintf("<h2>Section %d</h2><p>Some body text for section %d.</p>", i, i)}}
 	}
 	return nodesBody(tb, builder.FromSections(secs), map[string]any{
-		"ops":    []json.RawMessage{json.RawMessage(`{"op":"move","id":"c-s11","index":0}`)},
+		"ops":    []jsontext.Value{jsontext.Value(`{"op":"move","id":"c-s11","index":0}`)},
 		"render": []string{"s11"},
 	})
 }

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"net/url"
 	"strings"
 	"sync"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/previewlink"
 )
 
@@ -89,7 +89,7 @@ func TestSharePreviewFlow(t *testing.T) {
 	if len(audits) != 1 || audits[0].Action != auditPreviewLinkCreate {
 		t.Fatalf("audits = %+v", audits)
 	}
-	if b, _ := json.Marshal(audits[0].Detail); strings.Contains(string(b), "SECRETTOKEN") {
+	if b, _ := jsonx.Marshal(audits[0].Detail); strings.Contains(string(b), "SECRETTOKEN") {
 		t.Error("token in audit")
 	}
 

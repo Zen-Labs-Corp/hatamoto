@@ -1,13 +1,14 @@
 package importjob
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestOptionsSEOLiveReadDefaultsOn(t *testing.T) {
-	raw, err := json.Marshal(Options{})
+	raw, err := jsonx.Marshal(Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -15,7 +16,7 @@ func TestOptionsSEOLiveReadDefaultsOn(t *testing.T) {
 		t.Fatalf("options JSON = %s", raw)
 	}
 	var legacy Options
-	if err := json.Unmarshal([]byte(`{"types":null,"drafts":true,"media":true,"menus":true,"keep_patterns":false,"keep_edited":false}`), &legacy); err != nil {
+	if err := jsonx.Unmarshal([]byte(`{"types":null,"drafts":true,"media":true,"menus":true,"keep_patterns":false,"keep_edited":false}`), &legacy); err != nil {
 		t.Fatal(err)
 	}
 	if legacy.NoSEOLive {
@@ -27,7 +28,7 @@ func TestOptionsSEOLiveReadDefaultsOn(t *testing.T) {
 }
 
 func TestOptionsCarryNoSEOFile(t *testing.T) {
-	raw, _ := json.Marshal(DefaultOptions())
+	raw, _ := jsonx.Marshal(DefaultOptions())
 	for _, bad := range []string{"seo_file", "Values", "SEOFile"} {
 		if strings.Contains(string(raw), bad) {
 			t.Fatalf("options JSON %s must not carry the settings file (%s)", raw, bad)

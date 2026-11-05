@@ -4,13 +4,14 @@ import (
 	"context"
 	"net/http/httptest"
 
-	"encoding/json"
+	"encoding/json/jsontext"
 	"github.com/google/uuid"
 	"net/url"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // racingEntities answers conditional writes the way the store does and lets a
@@ -38,7 +39,7 @@ func (r *racingEntities) UpdateEntity(ctx context.Context, id uuid.UUID, actor *
 }
 
 func (c *contentRig) seedAttrs(n int, attrs string) {
-	c.ents.ents[fid(n)].Attributes = json.RawMessage(attrs)
+	c.ents.ents[fid(n)].Attributes = jsontext.Value(attrs)
 }
 
 func (c *contentRig) seoPost(n int, token string, form url.Values, json bool) *httptest.ResponseRecorder {
@@ -52,7 +53,7 @@ func (c *contentRig) seoPost(n int, token string, form url.Values, json bool) *h
 func decodeSEOReply(t *testing.T, rec *httptest.ResponseRecorder) seoInlineReply {
 	t.Helper()
 	var out seoInlineReply
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatalf("reply %d is not JSON: %v\n%s", rec.Code, err, rec.Body)
 	}
 	return out

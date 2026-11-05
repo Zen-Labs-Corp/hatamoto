@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"net/http"
@@ -12,6 +12,7 @@ import (
 
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/pluginhost/plugintest"
 	"hatamoto.dev/sdk"
@@ -139,7 +140,7 @@ func TestPluginGrantAPI(t *testing.T) {
 		var body struct {
 			Plugins []map[string]any `json:"plugins"`
 		}
-		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || len(body.Plugins) != 1 {
+		if err := jsonx.Unmarshal(rec.Body.Bytes(), &body); err != nil || len(body.Plugins) != 1 {
 			t.Fatalf("list = %d %s", rec.Code, rec.Body)
 		}
 		return body.Plugins[0]
@@ -192,7 +193,7 @@ func TestRenderPagePlugin(t *testing.T) {
 	}
 	f.next = func() (*routeResult, pageOutcome, error) {
 		p := pageResponse("Members")
-		p.Entity.Attributes = json.RawMessage(`{"page_sections":[
+		p.Entity.Attributes = jsontext.Value(`{"page_sections":[
 			{"id":"intro","type":"content","title":"Intro","content":{"headline":"INTRO-VISIBLE","body":"<p>hi</p>"}},
 			{"id":"secret","type":"content","title":"Secret","content":{"headline":"SECRET-BLOCK","body":"<p>members only</p>"}}]}`)
 		return &routeResult{Page: p, Kind: resolveKindEntity}, pageOutcome{Status: 200}, nil
@@ -303,14 +304,14 @@ func TestFormAttributionEvent(t *testing.T) {
 	got := formAttributionEvent(&form.Attribution{
 		First: &form.Touch{Channel: "ai_assistants", Source: "perplexity", Landing: "/pricing"},
 	})
-	b, err := json.Marshal(sdk.FormSubmittedEvent{Attribution: got})
+	b, err := jsonx.Marshal(sdk.FormSubmittedEvent{Attribution: got})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(b), `"attribution":{"first":{"channel":"ai_assistants","source":"perplexity","landing":"/pricing"}}`) {
 		t.Errorf("payload = %s", b)
 	}
-	b, _ = json.Marshal(sdk.FormSubmittedEvent{})
+	b, _ = jsonx.Marshal(sdk.FormSubmittedEvent{})
 	if strings.Contains(string(b), "attribution") {
 		t.Errorf("empty event carries attribution: %s", b)
 	}

@@ -1,7 +1,7 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 
 	"github.com/google/uuid"
@@ -10,8 +10,8 @@ import (
 func enrichTestEntity() *Entity {
 	return &Entity{
 		ID: uuid.New(), Name: "Hello", Slug: "hello", Status: StatusPublished,
-		Attributes: json.RawMessage(`{"title":"Hello"}`),
-		Schema:     &EntitySchema{Slug: "page", Schema: json.RawMessage(`{"type":"object"}`)},
+		Attributes: jsontext.Value(`{"title":"Hello"}`),
+		Schema:     &EntitySchema{Slug: "page", Schema: jsontext.Value(`{"type":"object"}`)},
 	}
 }
 

@@ -1,9 +1,10 @@
 package bizprofile
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestFoldRow(t *testing.T) {
@@ -24,7 +25,7 @@ func TestFoldRow(t *testing.T) {
 		t.Errorf("columns = %q %q", out.Phone, out.BusinessHours)
 	}
 	var addr map[string]string
-	if err := json.Unmarshal(out.PostalAddress, &addr); err != nil || addr["street"] != "2 Card St" || addr["city"] != "Cardtown" {
+	if err := jsonx.Unmarshal(out.PostalAddress, &addr); err != nil || addr["street"] != "2 Card St" || addr["city"] != "Cardtown" {
 		t.Errorf("PostalAddress = %s, %v", out.PostalAddress, err)
 	}
 	p, err := Parse(out.BusinessProfile)

@@ -1,14 +1,14 @@
 package schemaform
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"strings"
 	"testing"
 )
 
 func TestWithoutPropertiesKeepsOrderAndRequired(t *testing.T) {
-	in := json.RawMessage(`{"type":"object","title":"T","properties":{"z":{"type":"string"},"meta_title":{"type":"string"},"a":{"type":"string"}},"required":["meta_title","a"]}`)
+	in := jsontext.Value(`{"type":"object","title":"T","properties":{"z":{"type":"string"},"meta_title":{"type":"string"},"a":{"type":"string"}},"required":["meta_title","a"]}`)
 	out, err := WithoutProperties(in, "meta_title", "og_image")
 	if err != nil {
 		t.Fatal(err)
@@ -21,18 +21,18 @@ func TestWithoutPropertiesKeepsOrderAndRequired(t *testing.T) {
 		t.Errorf("props %+v", root.Props)
 	}
 	// nothing left required: the key goes away
-	out, _ = WithoutProperties(json.RawMessage(`{"type":"object","properties":{"a":{"type":"string"}},"required":["a"]}`), "a")
+	out, _ = WithoutProperties(jsontext.Value(`{"type":"object","properties":{"a":{"type":"string"}},"required":["a"]}`), "a")
 	if strings.Contains(string(out), "required") {
 		t.Errorf("empty required kept: %s", out)
 	}
 	// no properties at all is fine
-	if _, err := WithoutProperties(json.RawMessage(`{"type":"object"}`), "a"); err != nil {
+	if _, err := WithoutProperties(jsontext.Value(`{"type":"object"}`), "a"); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestXHmOrderSetsFieldOrder(t *testing.T) {
-	schema := json.RawMessage(`{"type":"object","x-hm-order":["c","a","gone"],"properties":{"a":{"type":"string"},"b":{"type":"string"},"c":{"type":"string"}}}`)
+	schema := jsontext.Value(`{"type":"object","x-hm-order":["c","a","gone"],"properties":{"a":{"type":"string"},"b":{"type":"string"},"c":{"type":"string"}}}`)
 	root, err := ParseSchema(schema)
 	if err != nil {
 		t.Fatal(err)

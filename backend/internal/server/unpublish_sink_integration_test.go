@@ -4,7 +4,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"os"
@@ -71,7 +71,7 @@ func newUnpublishRig(t *testing.T) *unpublishRig {
 func (r *unpublishRig) published(slug string) *entity.Entity {
 	r.t.Helper()
 	e, err := r.srv.entityService.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{
-		SchemaID: r.schema, Name: slug, Slug: slug, Locale: r.srv.siteLanguage(r.ctx), Attributes: json.RawMessage(`{}`)})
+		SchemaID: r.schema, Name: slug, Slug: slug, Locale: r.srv.siteLanguage(r.ctx), Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		r.t.Fatal(err)
 	}
@@ -206,7 +206,7 @@ func TestScheduledUnpublishKeepsOwnerRedirectAndSkipsDrafts(t *testing.T) {
 
 	// A draft with a due schedule is not touched: the row is just dropped.
 	d, err := r.srv.entityService.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{
-		SchemaID: r.schema, Name: "d", Slug: "unpub-d", Locale: r.srv.siteLanguage(r.ctx), Attributes: json.RawMessage(`{}`)})
+		SchemaID: r.schema, Name: "d", Slug: "unpub-d", Locale: r.srv.siteLanguage(r.ctx), Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		t.Fatal(err)
 	}

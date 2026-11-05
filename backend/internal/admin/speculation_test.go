@@ -1,7 +1,8 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"hatamoto.dev/core/internal/jsonx"
 	"regexp"
 	"strings"
 	"testing"
@@ -23,12 +24,12 @@ func TestShellCarriesNoncedSpeculationRules(t *testing.T) {
 	var rules struct {
 		Prerender []struct {
 			Where struct {
-				And []map[string]json.RawMessage `json:"and"`
+				And []map[string]jsontext.Value `json:"and"`
 			} `json:"where"`
 			Eagerness string `json:"eagerness"`
 		} `json:"prerender"`
 	}
-	if err := json.Unmarshal([]byte(m[2]), &rules); err != nil || len(rules.Prerender) != 1 {
+	if err := jsonx.Unmarshal([]byte(m[2]), &rules); err != nil || len(rules.Prerender) != 1 {
 		t.Fatalf("rules JSON: %v %q", err, m[2])
 	}
 	if rules.Prerender[0].Eagerness != "moderate" || !strings.Contains(m[2], `"/admin/*"`) {

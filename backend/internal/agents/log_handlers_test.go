@@ -3,11 +3,12 @@ package agents
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -73,7 +74,7 @@ func TestLogIngestCountsAndSource(t *testing.T) {
 		t.Fatalf("code %d: %s", rr.Code, rr.Body)
 	}
 	var got map[string]int
-	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil || got["accepted"] != 1 || got["skipped"] != 2 {
+	if err := jsonx.Unmarshal(rr.Body.Bytes(), &got); err != nil || got["accepted"] != 1 || got["skipped"] != 2 {
 		t.Fatalf("counts %v err %v", got, err)
 	}
 	if len(rec.hits) != 1 || rec.hits[0].Source != SourceLog || rec.hits[0].Path != "/media/a.png" || rec.hits[0].Status != 200 {
@@ -138,7 +139,7 @@ func TestLogIngestReportsWriterRefusals(t *testing.T) {
 	rec = &fakeRecorder{capped: true, capacity: 2}
 	rr = postLogs(NewLogHandlers(rec, "s"), "s", body, false)
 	var got map[string]int
-	if rr.Code != http.StatusAccepted || json.Unmarshal(rr.Body.Bytes(), &got) != nil ||
+	if rr.Code != http.StatusAccepted || jsonx.Unmarshal(rr.Body.Bytes(), &got) != nil ||
 		got["accepted"] != 2 || got["dropped"] != 1 {
 		t.Fatalf("partial: %d %s", rr.Code, rr.Body)
 	}

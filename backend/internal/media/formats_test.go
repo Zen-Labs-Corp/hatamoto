@@ -1,7 +1,7 @@
 package media
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 
@@ -16,7 +16,7 @@ func TestLoadStateDefaults(t *testing.T) {
 		"not json":    `{{{`,
 		"empty media": `{"media_formats":{},"media_rebuild":{}}`,
 	} {
-		set, st := LoadState(json.RawMessage(raw))
+		set, st := LoadState(jsontext.Value(raw))
 		if !set.WebP || !set.AVIF || st.Running || st.Total != 0 {
 			t.Errorf("%s: %+v %+v", name, set, st)
 		}
@@ -27,7 +27,7 @@ func TestLoadStateRoundTrip(t *testing.T) {
 	id := uuid.New()
 	in := State{Running: true, RunID: "r1", Total: 10, Done: 4, Cursor: id}
 	in.AddSkipped(Skipped{ID: id, Name: "a.jpg", Reason: "decode"})
-	wrapped := json.RawMessage(`{"builder":{"x":1},"media_formats":` + string(SettingsRaw(Settings{WebP: true})) +
+	wrapped := jsontext.Value(`{"builder":{"x":1},"media_formats":` + string(SettingsRaw(Settings{WebP: true})) +
 		`,"media_rebuild":` + string(StateRaw(in)) + `}`)
 	set, st := LoadState(wrapped)
 	if !set.WebP || set.AVIF {
@@ -40,7 +40,7 @@ func TestLoadStateRoundTrip(t *testing.T) {
 
 func TestSettingsMissingSwitchMeansOn(t *testing.T) {
 	// Only the state was saved: the switches stay at their default.
-	set, _ := LoadState(json.RawMessage(`{"media_formats":{"avif":true},"media_rebuild":{"running":false,"total":3}}`))
+	set, _ := LoadState(jsontext.Value(`{"media_formats":{"avif":true},"media_rebuild":{"running":false,"total":3}}`))
 	if !set.WebP || !set.AVIF {
 		t.Errorf("%+v", set)
 	}

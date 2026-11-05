@@ -2,7 +2,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"reflect"
 	"testing"
 	"time"
@@ -14,7 +14,7 @@ import (
 func schemaWith(slug, settings string) *EntitySchema {
 	s := &EntitySchema{ID: uuid.New(), Name: slug, Slug: slug}
 	if settings != "" {
-		s.Settings = json.RawMessage(settings)
+		s.Settings = jsontext.Value(settings)
 	}
 	return s
 }
@@ -265,7 +265,7 @@ func TestService_SchemaChangesInvalidateURLRegistry(t *testing.T) {
 
 	created, err := svc.CreateSchema(ctx, &CreateSchemaInput{
 		Name: "Doc", Slug: "doc", Schema: validSchemaJSON,
-		Settings: json.RawMessage(`{"url_pattern":"/docs/{slug}"}`),
+		Settings: jsontext.Value(`{"url_pattern":"/docs/{slug}"}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -274,7 +274,7 @@ func TestService_SchemaChangesInvalidateURLRegistry(t *testing.T) {
 		t.Fatalf("after create: %q %v", u, ok)
 	}
 
-	upd := json.RawMessage(`{"url_pattern":"/papers/{slug}"}`)
+	upd := jsontext.Value(`{"url_pattern":"/papers/{slug}"}`)
 	if _, err := svc.UpdateSchema(ctx, created.ID, &UpdateSchemaInput{Settings: &upd}); err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +294,7 @@ func TestService_RejectsInvalidSettings(t *testing.T) {
 	t.Parallel()
 	svc, _, _ := newTestService()
 	_, err := svc.CreateSchema(context.Background(), &CreateSchemaInput{
-		Name: "Doc", Slug: "doc", Schema: validSchemaJSON, Settings: json.RawMessage(`{"url_pattern":"/x"}`),
+		Name: "Doc", Slug: "doc", Schema: validSchemaJSON, Settings: jsontext.Value(`{"url_pattern":"/x"}`),
 	})
 	if err == nil {
 		t.Fatal("expected validation error")
@@ -312,7 +312,7 @@ func TestService_SchemaChangeCallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	upd := json.RawMessage(`{"archive_path":"/docs","url_pattern":"/docs/{slug}"}`)
+	upd := jsontext.Value(`{"archive_path":"/docs","url_pattern":"/docs/{slug}"}`)
 	if _, err := svc.UpdateSchema(ctx, created.ID, &UpdateSchemaInput{Settings: &upd}); err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +323,7 @@ func TestService_SchemaChangeCallback(t *testing.T) {
 		t.Fatalf("callback ran %d times, want 3 (create, update, delete)", calls)
 	}
 	// A failed change must not purge anything.
-	if _, err := svc.CreateSchema(ctx, &CreateSchemaInput{Name: "Bad", Slug: "bad", Schema: validSchemaJSON, Settings: json.RawMessage(`{"url_pattern":"/x"}`)}); err == nil {
+	if _, err := svc.CreateSchema(ctx, &CreateSchemaInput{Name: "Bad", Slug: "bad", Schema: validSchemaJSON, Settings: jsontext.Value(`{"url_pattern":"/x"}`)}); err == nil {
 		t.Fatal("expected validation error")
 	}
 	if calls != 3 {

@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -9,6 +8,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type pasteOut struct {
@@ -22,7 +22,7 @@ func (r *reuseRig) paste(t *testing.T, token, body string) (*httptest.ResponseRe
 	t.Helper()
 	rec := r.postJSON(r.url(r.page, "/builder/paste"), token, body, nil)
 	var out pasteOut
-	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	_ = jsonx.Unmarshal(rec.Body.Bytes(), &out)
 	return rec, out
 }
 
@@ -152,7 +152,7 @@ func TestBuilderBootCarriesPasteURL(t *testing.T) {
 	var boot struct {
 		URLs map[string]string `json:"urls"`
 	}
-	if err := json.Unmarshal([]byte(m[1]), &boot); err != nil {
+	if err := jsonx.Unmarshal([]byte(m[1]), &boot); err != nil {
 		t.Fatal(err)
 	}
 	if !regexp.MustCompile(`^/admin/entities/[^/]+/builder/paste$`).MatchString(boot.URLs["paste"]) {
@@ -184,7 +184,7 @@ func TestPasteRefusesRefCycleInBlock(t *testing.T) {
 	self := `[{"id":"r1","t":"ref","p":{"block":"` + r.block.ID.String() + `"}}]`
 	rec := r.postJSON(r.url(r.block, "/builder/paste"), "owner-token", envelope(self), nil)
 	var out pasteOut
-	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	_ = jsonx.Unmarshal(rec.Body.Bytes(), &out)
 	if rec.Code != http.StatusUnprocessableEntity || out.Code != "ref_cycle" {
 		t.Fatalf("self ref in a block: %d %s", rec.Code, rec.Body)
 	}
@@ -195,7 +195,7 @@ func TestPasteRefusesRefCycleInBlock(t *testing.T) {
 
 func TestPasteLongRichText(t *testing.T) {
 	r := newReuseRig(t)
-	html, _ := json.Marshal("<p>" + strings.Repeat("word ", 5000) + "</p>")
+	html, _ := jsonx.Marshal("<p>" + strings.Repeat("word ", 5000) + "</p>")
 	rec, _ := r.paste(t, "owner-token", envelope(`[{"id":"r1","t":"richtext","p":{"html":`+string(html)+`}}]`))
 	if rec.Code != 200 {
 		t.Fatalf("25k richtext paste: %d %s", rec.Code, rec.Body)

@@ -4,7 +4,7 @@ package standing
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"testing"
@@ -28,7 +28,7 @@ func TestStandingApprovalVoid(t *testing.T) {
 	s, ctx := newStore(t)
 	svc := entity.NewService(entity.NewPostgresSchemaRepository(s.DB), entity.NewPostgresEntityRepository(s.DB),
 		slog.New(slog.NewTextHandler(io.Discard, nil)))
-	lookup := func(ctx context.Context, slug string) (json.RawMessage, bool, error) {
+	lookup := func(ctx context.Context, slug string) (jsontext.Value, bool, error) {
 		sc, err := svc.GetSchemaBySlug(ctx, slug)
 		if err != nil {
 			return nil, false, nil
@@ -43,7 +43,7 @@ func TestStandingApprovalVoid(t *testing.T) {
 
 	mk := func(slug string) *entity.EntitySchema {
 		sc, err := svc.CreateSchema(ctx, &entity.CreateSchemaInput{Name: slug, Slug: slug,
-			Schema: json.RawMessage(`{"type":"object","properties":{"price":{"type":"number"}}}`)})
+			Schema: jsontext.Value(`{"type":"object","properties":{"price":{"type":"number"}}}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -66,7 +66,7 @@ func TestStandingApprovalVoid(t *testing.T) {
 	approve(pa, named.Slug, named)
 	approve(pb, other.Slug, other)
 
-	changed := json.RawMessage(`{"type":"object","properties":{"price":{"type":"string"}}}`)
+	changed := jsontext.Value(`{"type":"object","properties":{"price":{"type":"string"}}}`)
 	if _, err := svc.UpdateSchema(ctx, named.ID, &entity.UpdateSchemaInput{Schema: &changed}); err != nil {
 		t.Fatal(err)
 	}

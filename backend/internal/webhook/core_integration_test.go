@@ -7,7 +7,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -21,6 +20,7 @@ import (
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/worker"
 	"hatamoto.dev/sdk"
@@ -158,7 +158,7 @@ func TestWebhooksCoreDeliversSignedPayloadsAndRetries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b, _ := json.Marshal(list); strings.Contains(string(b), "whsec_") {
+	if b, _ := jsonx.MarshalPinned(list); strings.Contains(string(b), "whsec_") {
 		t.Fatalf("secrets leaked into the list: %s", b)
 	}
 
@@ -197,7 +197,7 @@ func TestWebhooksCoreDeliversSignedPayloadsAndRetries(t *testing.T) {
 		ID, Event, Timestamp string
 		Data                 map[string]any
 	}
-	if err := json.Unmarshal([]byte(got.body), &env); err != nil {
+	if err := jsonx.UnmarshalPinned([]byte(got.body), &env); err != nil {
 		t.Fatal(err)
 	}
 	if env.Event != "entity.published" || env.Data["entity_id"] != id.String() || env.Data["entity_name"] != "Hello" || env.ID == "" {
@@ -435,7 +435,7 @@ func TestWebhooksCoreFormSubmittedCarriesNoFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	var env struct{ Data map[string]any }
-	if err := json.Unmarshal([]byte(payload), &env); err != nil {
+	if err := jsonx.UnmarshalPinned([]byte(payload), &env); err != nil {
 		t.Fatal(err)
 	}
 	if len(env.Data) != 3 || env.Data["form_id"] != "f1" || env.Data["form_slug"] != "contact" || env.Data["submission_id"] != "s1" {

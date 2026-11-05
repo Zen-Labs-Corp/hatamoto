@@ -2,7 +2,7 @@ package render
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // B10 conversion identity: a page converted lazily (entity.LegacyPageDoc, the
@@ -28,7 +29,7 @@ func sectionsCorpus(t *testing.T) []string {
 	add := func(s string) {
 		for _, cand := range []string{s, strings.NewReplacer(`\"`, `"`, `\\`, `\`).Replace(s)} {
 			var arr []any
-			if json.Unmarshal([]byte(cand), &arr) != nil || seen[cand] {
+			if jsonx.Unmarshal([]byte(cand), &arr) != nil || seen[cand] {
 				continue
 			}
 			seen[cand] = true
@@ -126,7 +127,7 @@ func TestPageSectionsConversionIdentity(t *testing.T) {
 	refused := 0
 	all := append(append([]string{}, oddSections...), corpus...)
 	for i, secs := range all {
-		attrs := json.RawMessage(`{"page_sections":` + secs + `}`)
+		attrs := jsontext.Value(`{"page_sections":` + secs + `}`)
 		doc, ok := entity.LegacyPageDoc(attrs)
 		if !ok {
 			if !conversionRefusalExplained(builder.SectionsFromJSON(attrs, true)) {
@@ -136,7 +137,7 @@ func TestPageSectionsConversionIdentity(t *testing.T) {
 			continue
 		}
 		// What the renderer reads: the stored doc via builder.Parse.
-		raw, _ := json.Marshal(doc)
+		raw, _ := jsonx.Marshal(doc)
 		rdoc, err := builder.Parse(raw)
 		if err != nil {
 			t.Errorf("#%d converted doc does not parse: %v\n%s", i, err, secs)

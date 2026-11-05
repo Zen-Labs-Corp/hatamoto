@@ -4,7 +4,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -18,6 +17,7 @@ import (
 
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 var graphLDRE = regexp.MustCompile(`(?s)<script type="application/ld\+json">(.*?)</script>`)
@@ -105,7 +105,7 @@ func TestRenderGraph_Integration(t *testing.T) {
 			"contact_points": []map[string]string{{"type": "sales", "phone": "+00 101", "name": "Sales"}},
 			"opening_hours":  []map[string]any{{"days": []string{"Monday"}, "opens": "09:00", "closes": "17:00"}},
 		}
-		bizJSON, _ := json.Marshal(biz)
+		bizJSON, _ := jsonx.Marshal(biz)
 		exec(`INSERT INTO hatamoto_site_config (company_name, language, locales, prefix_all, business_profile, locale_profiles, postal_address, phone)
 			VALUES ('Example Co', 'en', $1::jsonb, false, $2::jsonb, $3::jsonb, $4::jsonb, '+00 100')
 			ON CONFLICT (id) DO UPDATE SET language='en', locales=EXCLUDED.locales, prefix_all=false, homepage_entity_id=NULL,
@@ -127,7 +127,7 @@ func TestRenderGraph_Integration(t *testing.T) {
 			var doc struct {
 				Graph []map[string]any `json:"@graph"`
 			}
-			if json.Unmarshal(m[1], &doc) == nil && doc.Graph != nil {
+			if jsonx.Unmarshal(m[1], &doc) == nil && doc.Graph != nil {
 				return doc.Graph
 			}
 		}

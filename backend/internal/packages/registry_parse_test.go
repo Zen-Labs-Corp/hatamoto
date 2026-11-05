@@ -1,13 +1,14 @@
 package packages
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func signedIndex(t testing.TB, key Key, mutate func(*Index)) []byte {
@@ -26,7 +27,7 @@ func signedIndex(t testing.TB, key Key, mutate func(*Index)) []byte {
 	if mutate != nil {
 		mutate(&idx)
 	}
-	body, err := json.Marshal(idx)
+	body, err := jsonx.Marshal(idx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +114,7 @@ func TestNewIndexReadableByOldEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 	var old oldIndex
-	if err := json.Unmarshal(raw, &old); err != nil {
+	if err := jsonx.Unmarshal(raw, &old); err != nil {
 		t.Fatal(err)
 	}
 	if old.Version != 1 || len(old.Packages) != 3 || old.Packages[0].Name != "alpha" {
@@ -326,11 +327,11 @@ func TestParseIndexSanitisesTags(t *testing.T) {
 
 func TestParseIndexToleratesWrongTagsType(t *testing.T) {
 	key := newKey(t)
-	raw, err := json.Marshal(Index{Version: 1, IssuedAt: time.Now().Add(-time.Minute).UTC().Format(time.RFC3339), ExpiresAt: time.Now().Add(time.Hour).UTC().Format(time.RFC3339)})
+	raw, err := jsonx.Marshal(Index{Version: 1, IssuedAt: time.Now().Add(-time.Minute).UTC().Format(time.RFC3339), ExpiresAt: time.Now().Add(time.Hour).UTC().Format(time.RFC3339)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw = []byte(strings.Replace(string(raw), `"packages":null`, `"packages":[{"kind":"plugin","name":"alpha","version":"1.0.0","url":"p/a.hmp","sha256":"`+strings.Repeat("a", 64)+`","tags":"nope"},{"kind":"plugin","name":"beta","version":"1.0.0","url":"p/b.hmp","sha256":"`+strings.Repeat("b", 64)+`","tags":[{"name":5}]}]`, 1))
+	raw = []byte(strings.Replace(string(raw), `"packages":[]`, `"packages":[{"kind":"plugin","name":"alpha","version":"1.0.0","url":"p/a.hmp","sha256":"`+strings.Repeat("a", 64)+`","tags":"nope"},{"kind":"plugin","name":"beta","version":"1.0.0","url":"p/b.hmp","sha256":"`+strings.Repeat("b", 64)+`","tags":[{"name":5}]}]`, 1))
 	signed, err := SignIndex(raw, key)
 	if err != nil {
 		t.Fatal(err)

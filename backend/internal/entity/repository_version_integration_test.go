@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
@@ -33,12 +33,12 @@ func TestUpdateExpectedVersionIntegration(t *testing.T) {
 		_, _ = db.Pool().Exec(c, `DELETE FROM hatamoto_entity_schemas WHERE id = $1`, schemaID)
 	})
 	svc := NewService(NewPostgresSchemaRepository(db), NewPostgresEntityRepository(db), slog.New(slog.NewTextHandler(io.Discard, nil)))
-	e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "v", Attributes: json.RawMessage(`{"n":0}`)})
+	e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "v", Attributes: jsontext.Value(`{"n":0}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	update := func(version int, attrs string) error {
-		a := json.RawMessage(attrs)
+		a := jsontext.Value(attrs)
 		_, err := svc.UpdateEntity(ctx, e.ID, nil, &UpdateEntityInput{Attributes: &a, ExpectedVersion: &version})
 		return err
 	}

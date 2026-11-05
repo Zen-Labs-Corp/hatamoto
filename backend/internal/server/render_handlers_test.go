@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"log/slog"
@@ -19,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/spam"
@@ -100,7 +101,7 @@ func newRenderFixture(t *testing.T) *renderFixture {
 
 func pageResponse(name string) *PublicPageResponse {
 	return &PublicPageResponse{
-		Entity: &entity.Entity{ID: uuid.New(), Name: name, Attributes: json.RawMessage(`{"page_sections":[]}`)},
+		Entity: &entity.Entity{ID: uuid.New(), Name: name, Attributes: jsontext.Value(`{"page_sections":[]}`)},
 		Meta:   PageMeta{Title: name},
 	}
 }
@@ -273,7 +274,7 @@ func TestRenderNilCacheWorks(t *testing.T) {
 }
 
 func TestSectionsFromAttributes(t *testing.T) {
-	got := sectionsFromAttributes(json.RawMessage(
+	got := sectionsFromAttributes(jsontext.Value(
 		`{"page_sections":[{"id":"a","type":"hero","content":{"headline":"H"},"sort_order":2},{"type":"faq","isVisible":false}]}`))
 	if len(got) != 2 || got[0].ID != "a" || got[0].Content["headline"] != "H" || got[0].SortOrder != 2 {
 		t.Fatalf("%+v", got)
@@ -281,7 +282,7 @@ func TestSectionsFromAttributes(t *testing.T) {
 	if got[1].ID != "s1" || got[1].IsVisible == nil || *got[1].IsVisible {
 		t.Errorf("%+v", got[1])
 	}
-	if sectionsFromAttributes(json.RawMessage(`not json`)) != nil {
+	if sectionsFromAttributes(jsontext.Value(`not json`)) != nil {
 		t.Error("bad json must yield nil")
 	}
 }
@@ -370,7 +371,7 @@ func TestRenderDegradedPageIsServedButNotCached(t *testing.T) {
 	f := newRenderFixture(t)
 	f.next = func() (*routeResult, pageOutcome, error) {
 		p := pageResponse("Degraded")
-		p.Entity.Attributes = json.RawMessage(`{"page_sections":[
+		p.Entity.Attributes = jsontext.Value(`{"page_sections":[
 			{"id":"g","type":"content","content":{"body":"<p>still here</p>"}},
 			{"id":"b","type":"faq","content":{"faqs":"not a list"}}]}`)
 		return &routeResult{Page: p, Kind: resolveKindEntity}, pageOutcome{Status: 200}, nil
@@ -857,7 +858,7 @@ func TestRenderHomeLocaleScope(t *testing.T) {
 
 func TestPageViewFromRouteAppendsExtraJSONLD(t *testing.T) {
 	t.Parallel()
-	custom := []json.RawMessage{json.RawMessage(`{"@context":"https://schema.org","@type":"Thing"}`)}
+	custom := []jsontext.Value{jsontext.Value(`{"@context":"https://schema.org","@type":"Thing"}`)}
 	rr := &routeResult{Page: &PublicPageResponse{
 		JSONLD:      map[string]interface{}{"@type": "Article"},
 		ExtraJSONLD: custom,
@@ -875,9 +876,9 @@ func TestPageViewFromRouteAppendsExtraJSONLD(t *testing.T) {
 func TestPageFAQItemsHonoursSchemaToggle(t *testing.T) {
 	t.Parallel()
 	content := `<div class="faq"><div class="faq-item"><h3 class="faq-q">Q?</h3><div class="faq-a"><p>A.</p></div></div></div>`
-	attrs, _ := json.Marshal(map[string]string{"content": content})
+	attrs, _ := jsonx.Marshal(map[string]string{"content": content})
 	mk := func(settings string) *entity.Entity {
-		return &entity.Entity{Attributes: attrs, Schema: &entity.EntitySchema{Slug: "post", Settings: json.RawMessage(settings)}}
+		return &entity.Entity{Attributes: attrs, Schema: &entity.EntitySchema{Slug: "post", Settings: jsontext.Value(settings)}}
 	}
 	for _, s := range []string{``, `{}`, `{"faq_from_content":true}`} {
 		if len(pageFAQItems(mk(s))) == 0 {

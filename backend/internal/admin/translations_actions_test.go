@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -12,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const trBase = "/admin/entities/00000000-0000-0000-0000-000000000011/translations"
@@ -179,7 +179,7 @@ func TestTranslationCandidatesJSON(t *testing.T) {
 		t.Fatalf("candidates: %d", rec.Code)
 	}
 	var got []pickJSON
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got) != 1 || got[0].Value != fid(12).String() || got[0].Label != "Beta service" {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got) != 1 || got[0].Value != fid(12).String() || got[0].Label != "Beta service" {
 		t.Errorf("candidates = %+v, %v", got, err)
 	}
 	if g.lastQuery != "bet" {

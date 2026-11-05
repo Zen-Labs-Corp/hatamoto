@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
@@ -12,8 +12,8 @@ import (
 func TestLocaleContact(t *testing.T) {
 	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"}, entity.LocaleEntry{Tag: "it", Segment: "it"})
 	cfg := &siteconfig.Config{
-		BusinessProfile: json.RawMessage(`{"email":"site@example.test"}`),
-		LocaleProfiles:  json.RawMessage(`{"fr":{"phone":"+33 1 23 45 67 89","email":"fr@example.test"}}`),
+		BusinessProfile: jsontext.Value(`{"email":"site@example.test"}`),
+		LocaleProfiles:  jsontext.Value(`{"fr":{"phone":"+33 1 23 45 67 89","email":"fr@example.test"}}`),
 	}
 	cases := []struct {
 		name string
@@ -37,7 +37,7 @@ func TestLocaleContact(t *testing.T) {
 		t.Errorf("one locale: %+v", got)
 	}
 	// An unreadable profile is an empty contact, not an error.
-	bad := &siteconfig.Config{BusinessProfile: json.RawMessage(`{`)}
+	bad := &siteconfig.Config{BusinessProfile: jsontext.Value(`{`)}
 	if got := localeContact(bad, one, "en"); got != (render.ContactView{}) {
 		t.Errorf("bad profile: %+v", got)
 	}
@@ -45,14 +45,14 @@ func TestLocaleContact(t *testing.T) {
 
 func TestContactFloatSettings(t *testing.T) {
 	on := `{"contactButton":{"enabled":true,"channel":"call","position":"bottom-left","label":"Ring","to":"0791234567"}}`
-	got := contactFloat(&siteconfig.Config{ThemeExtra: json.RawMessage(on)})
+	got := contactFloat(&siteconfig.Config{ThemeExtra: jsontext.Value(on)})
 	want := render.ContactFloat{Enabled: true, Channel: "call", Position: "bottom-left", Label: "Ring", To: "0791234567"}
 	if got != want {
 		t.Errorf("enabled: %+v", got)
 	}
 	for _, in := range []string{``, `{}`, `{"contactButton":{"enabled":false,"channel":"call","position":"bottom-left"}}`,
 		`{"contactButton":{"enabled":true,"channel":"fax","position":"bottom-left"}}`} {
-		if g := contactFloat(&siteconfig.Config{ThemeExtra: json.RawMessage(in)}); g.Enabled {
+		if g := contactFloat(&siteconfig.Config{ThemeExtra: jsontext.Value(in)}); g.Enabled {
 			t.Errorf("%q must be disabled: %+v", in, g)
 		}
 	}

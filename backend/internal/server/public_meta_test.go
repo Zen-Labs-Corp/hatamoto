@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 
 	"hatamoto.dev/core/internal/render"
@@ -25,7 +25,7 @@ func TestAttrsNoIndex(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := attrsNoIndex(json.RawMessage(tc.attrs)); got != tc.want {
+			if got := attrsNoIndex(jsontext.Value(tc.attrs)); got != tc.want {
 				t.Fatalf("attrsNoIndex(%q) = %v, want %v", tc.attrs, got, tc.want)
 			}
 		})
@@ -41,7 +41,7 @@ func TestApplyAttributeMetaCanonical(t *testing.T) {
 		{`{}`, "https://site.test/own"},
 	} {
 		m := render.PageMeta{CanonicalURL: "https://site.test/own"}
-		applyAttributeMeta(&m, json.RawMessage(tc.attrs), "https://site.test/")
+		applyAttributeMeta(&m, jsontext.Value(tc.attrs), "https://site.test/")
 		if m.CanonicalURL != tc.want {
 			t.Errorf("%s: canonical %q, want %q", tc.attrs, m.CanonicalURL, tc.want)
 		}

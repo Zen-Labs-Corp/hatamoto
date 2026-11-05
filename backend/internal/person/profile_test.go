@@ -2,7 +2,7 @@ package person
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"strings"
 	"testing"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestComplete(t *testing.T) {
@@ -137,8 +138,10 @@ func (w *fakeWorld) UpdateEntity(_ context.Context, id uuid.UUID, _ *uuid.UUID, 
 	if in.Attributes != nil {
 		e.Attributes = *in.Attributes
 		// The entity service derives the status from public.
-		var a struct{ Public bool }
-		_ = json.Unmarshal(e.Attributes, &a)
+		var a struct {
+			Public bool `json:"public"`
+		}
+		_ = jsonx.Unmarshal(e.Attributes, &a)
 		e.Status = entity.StatusDraft
 		if a.Public {
 			e.Status = entity.StatusPublished
@@ -233,7 +236,7 @@ func TestSaveWritesProfileAndKeepsOtherAttributes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.ents[cur.ID].Attributes = json.RawMessage(`{"public":false,"bio":"<p>Long</p>","github":"https://g.example/ada"}`)
+	w.ents[cur.ID].Attributes = jsontext.Value(`{"public":false,"bio":"<p>Long</p>","github":"https://g.example/ada"}`)
 
 	if _, err := p.Save(ctx, user, ProfileInput{Name: "Ada L", Photo: ""}); err == nil {
 		t.Fatal("missing photo saved")

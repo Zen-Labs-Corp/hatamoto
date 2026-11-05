@@ -1,11 +1,12 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -14,7 +15,7 @@ func newContactButtonRig(t *testing.T) (*seoRig, *fakeSite) {
 	s := newSEORig(t, newFakeSEO())
 	site := newFakeSite("Acme Site")
 	site.cfg.Phone = "+41 79 123 45 67"
-	site.cfg.ThemeExtra = json.RawMessage(`{"builder":{"tokens":{}},"socialLinks":{"github":"https://g.example"}}`)
+	site.cfg.ThemeExtra = jsontext.Value(`{"builder":{"tokens":{}},"socialLinks":{"github":"https://g.example"}}`)
 	s.a.deps.Site = themeSite{site}
 	return s, site
 }
@@ -33,7 +34,7 @@ func TestContactButtonPageGolden(t *testing.T) {
 func TestContactButtonWarnsWithoutNumber(t *testing.T) {
 	s, site := newContactButtonRig(t)
 	site.cfg.Phone = ""
-	site.cfg.ThemeExtra = json.RawMessage(`{"contactButton":{"enabled":true,"channel":"whatsapp","position":"bottom-right"}}`)
+	site.cfg.ThemeExtra = jsontext.Value(`{"contactButton":{"enabled":true,"channel":"whatsapp","position":"bottom-right"}}`)
 	if body := s.get(t, "/admin/settings/contact-button"); !strings.Contains(body, "No phone number is set") {
 		t.Error("no warning for an enabled button without a number")
 	}
@@ -42,7 +43,7 @@ func TestContactButtonWarnsWithoutNumber(t *testing.T) {
 func TestContactButtonWarnsWhatsAppNumberWithoutCountryCode(t *testing.T) {
 	s, site := newContactButtonRig(t)
 	site.cfg.Phone = "044 668 18 00"
-	site.cfg.ThemeExtra = json.RawMessage(`{"contactButton":{"enabled":true,"channel":"whatsapp","position":"bottom-right"}}`)
+	site.cfg.ThemeExtra = jsontext.Value(`{"contactButton":{"enabled":true,"channel":"whatsapp","position":"bottom-right"}}`)
 	if body := s.get(t, "/admin/settings/contact-button"); !strings.Contains(body, "has no country code") {
 		t.Error("no warning for a WhatsApp button on a national-format number")
 	}
@@ -79,7 +80,7 @@ func TestContactButtonSaveAuditsAndKeepsOtherKeys(t *testing.T) {
 
 func toJSON(t *testing.T, v any) string {
 	t.Helper()
-	b, err := json.Marshal(v)
+	b, err := jsonx.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}

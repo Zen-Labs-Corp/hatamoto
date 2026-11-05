@@ -5,7 +5,6 @@ package backup
 import (
 	"archive/tar"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -24,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/migrations"
 )
@@ -252,7 +252,7 @@ func backsUpNoInheritPlugin(t *testing.T, mode roleMode) {
 	}
 	var mf manifest
 	raw, _ := os.ReadFile(filepath.Join(dir, "manifest.json"))
-	if err := json.Unmarshal(raw, &mf); err != nil || mf.Format != "hatamoto-backup" || len(mf.Plugins) != 1 || mf.Plugins[0] != "webhooks" {
+	if err := jsonx.Unmarshal(raw, &mf); err != nil || mf.Format != "hatamoto-backup" || len(mf.Plugins) != 1 || mf.Plugins[0] != "webhooks" {
 		t.Errorf("manifest = %+v, %v", mf, err)
 	}
 

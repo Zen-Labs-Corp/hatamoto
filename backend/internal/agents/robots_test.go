@@ -1,13 +1,14 @@
 package agents
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"slices"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestDenyTokens(t *testing.T) {
@@ -55,7 +56,7 @@ func TestRobotsPolicyPut(t *testing.T) {
 		t.Fatalf("deny training: %d %s denied=%v", rr.Code, rr.Body, f.setDenied)
 	}
 	var resp robotsPolicyResponse
-	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+	if err := jsonx.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatal(err)
 	}
 	if len(resp.Purposes) != len(allPurposes) || resp.Purposes[0].Purpose != "training" || resp.Purposes[0].Action != "deny" {
@@ -104,7 +105,7 @@ func TestRobotsPolicyPutValidation(t *testing.T) {
 func TestRobotsPolicyGetDefaultsToAllow(t *testing.T) {
 	rr := get(t, adminRouter(newTestAdmin(&fakeAdminStore{})), "/robots-policy")
 	var resp robotsPolicyResponse
-	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+	if err := jsonx.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range resp.Purposes {

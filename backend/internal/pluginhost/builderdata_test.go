@@ -2,7 +2,6 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/sdk"
 )
@@ -44,7 +44,7 @@ func dsBuild(t *testing.T) ([]byte, sdk.Manifest) {
 			dsErr = err
 			return
 		}
-		dsErr = json.Unmarshal(raw, &dsMan)
+		dsErr = jsonx.UnmarshalPinned(raw, &dsMan)
 	})
 	if dsErr != nil {
 		t.Fatal(dsErr)

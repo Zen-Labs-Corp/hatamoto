@@ -1,13 +1,14 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -26,18 +27,18 @@ func nodesDoc() *builder.Doc {
 
 func nodesBody(t testing.TB, d *builder.Doc, extra map[string]any) string {
 	t.Helper()
-	raw, err := json.Marshal(d)
+	raw, err := jsonx.Marshal(d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	req := map[string]any{
 		"schema":     "page",
-		"attributes": map[string]any{"page_doc": json.RawMessage(raw)},
+		"attributes": map[string]any{"page_doc": jsontext.Value(raw)},
 	}
 	for k, v := range extra {
 		req[k] = v
 	}
-	b, _ := json.Marshal(req)
+	b, _ := jsonx.Marshal(req)
 	return string(b)
 }
 
@@ -54,12 +55,12 @@ func postNodes(t *testing.T, body string) (*httptest.ResponseRecorder, nodesRepl
 	w := httptest.NewRecorder()
 	newPreviewHandlers(t).handleRenderNodes(w, httptest.NewRequest(http.MethodPost, "/edit/render", strings.NewReader(body)))
 	var out nodesReply
-	_ = json.Unmarshal(w.Body.Bytes(), &out)
+	_ = jsonx.Unmarshal(w.Body.Bytes(), &out)
 	return w, out
 }
 
 func TestRenderNodes(t *testing.T) {
-	op := func(s string) json.RawMessage { return json.RawMessage(s) }
+	op := func(s string) jsontext.Value { return jsontext.Value(s) }
 	tests := []struct {
 		name   string
 		extra  map[string]any
@@ -92,7 +93,7 @@ func TestRenderNodes(t *testing.T) {
 			}
 		}},
 		{"move reflected in order", map[string]any{
-			"ops":    []json.RawMessage{op(`{"op":"move","id":"c-c","index":0}`)},
+			"ops":    []jsontext.Value{op(`{"op":"move","id":"c-c","index":0}`)},
 			"render": []string{"c"},
 		}, 200, func(t *testing.T, r nodesReply) {
 			if got := strings.Join(r.Order, ","); got != "c,a,b,row" {
@@ -103,30 +104,30 @@ func TestRenderNodes(t *testing.T) {
 			}
 		}},
 		{"setStyle and css", map[string]any{
-			"ops": []json.RawMessage{op(`{"op":"setStyle","id":"row","bp":"base","key":"pt","value":"space-2"}`)},
+			"ops": []jsontext.Value{op(`{"op":"setStyle","id":"row","bp":"base","key":"pt","value":"space-2"}`)},
 			"css": []string{"row"},
 		}, 200, func(t *testing.T, r nodesReply) {
 			if !strings.Contains(r.CSS["row"], "padding-top") {
 				t.Errorf("css = %v", r.CSS)
 			}
 		}},
-		{"remove op", map[string]any{"ops": []json.RawMessage{op(`{"op":"remove","id":"c-a"}`)}}, 200, func(t *testing.T, r nodesReply) {
+		{"remove op", map[string]any{"ops": []jsontext.Value{op(`{"op":"remove","id":"c-a"}`)}}, 200, func(t *testing.T, r nodesReply) {
 			if got := strings.Join(r.Order, ","); got != "b,c,row" {
 				t.Errorf("order = %s", got)
 			}
 		}},
-		{"unknown node", map[string]any{"ops": []json.RawMessage{op(`{"op":"remove","id":"ghost"}`)}}, 422, nil},
-		{"bad index", map[string]any{"ops": []json.RawMessage{op(`{"op":"move","id":"c-a","index":99}`)}}, 422, nil},
-		{"bad style value", map[string]any{"ops": []json.RawMessage{op(`{"op":"setStyle","id":"row","bp":"base","key":"pt","value":"red;}"}`)}}, 422, nil},
-		{"duplicate id breaks validation", map[string]any{"ops": []json.RawMessage{op(`{"op":"insert","index":0,"node":{"id":"row","t":"divider"}}`)}}, 422, nil},
-		{"too many ops", map[string]any{"ops": make([]json.RawMessage, 101)}, 400, nil},
+		{"unknown node", map[string]any{"ops": []jsontext.Value{op(`{"op":"remove","id":"ghost"}`)}}, 422, nil},
+		{"bad index", map[string]any{"ops": []jsontext.Value{op(`{"op":"move","id":"c-a","index":99}`)}}, 422, nil},
+		{"bad style value", map[string]any{"ops": []jsontext.Value{op(`{"op":"setStyle","id":"row","bp":"base","key":"pt","value":"red;}"}`)}}, 422, nil},
+		{"duplicate id breaks validation", map[string]any{"ops": []jsontext.Value{op(`{"op":"insert","index":0,"node":{"id":"row","t":"divider"}}`)}}, 422, nil},
+		{"too many ops", map[string]any{"ops": make([]jsontext.Value, 101)}, 400, nil},
 		{"too many ids", map[string]any{"render": make([]string, 51)}, 400, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if ops, ok := tt.extra["ops"].([]json.RawMessage); ok && len(ops) == 101 {
+			if ops, ok := tt.extra["ops"].([]jsontext.Value); ok && len(ops) == 101 {
 				for i := range ops {
-					ops[i] = json.RawMessage(`{"op":"remove","id":"x"}`)
+					ops[i] = jsontext.Value(`{"op":"remove","id":"x"}`)
 				}
 			}
 			w, r := postNodes(t, nodesBody(t, nodesDoc(), tt.extra))
@@ -215,15 +216,15 @@ func TestRenderNodesFragmentIsPageSlice(t *testing.T) {
 // docBody is a request in doc mode: the doc travels beside the attributes.
 func docBody(t testing.TB, d *builder.Doc, attrs map[string]any, extra map[string]any) string {
 	t.Helper()
-	raw, err := json.Marshal(d)
+	raw, err := jsonx.Marshal(d)
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := map[string]any{"schema": "page", "doc": json.RawMessage(raw), "attributes": attrs}
+	req := map[string]any{"schema": "page", "doc": jsontext.Value(raw), "attributes": attrs}
 	for k, v := range extra {
 		req[k] = v
 	}
-	b, _ := json.Marshal(req)
+	b, _ := jsonx.Marshal(req)
 	return string(b)
 }
 
@@ -250,15 +251,18 @@ func TestRenderNodesDocMode(t *testing.T) {
 	})
 	t.Run("invalid doc", func(t *testing.T) {
 		w, _ := postNodes(t, `{"schema":"page","doc":{"v":2,"nodes":[{"id":"bad id","t":"divider"}]}}`)
-		var out struct{ Error, Code string }
-		_ = json.Unmarshal(w.Body.Bytes(), &out)
+		var out struct {
+			Error string `json:"error"`
+			Code  string `json:"code"`
+		}
+		_ = jsonx.Unmarshal(w.Body.Bytes(), &out)
 		if w.Code != http.StatusUnprocessableEntity || out.Code != "invalid_page_doc" || out.Error == "" {
 			t.Errorf("%d %s", w.Code, w.Body)
 		}
 	})
 	t.Run("ops apply to the doc", func(t *testing.T) {
 		body := docBody(t, nodesDoc(), nil, map[string]any{
-			"ops":    []json.RawMessage{json.RawMessage(`{"op":"move","id":"c-c","index":0}`)},
+			"ops":    []jsontext.Value{jsontext.Value(`{"op":"move","id":"c-c","index":0}`)},
 			"render": []string{"c"},
 		})
 		w, r := postNodes(t, body)
@@ -267,8 +271,8 @@ func TestRenderNodesDocMode(t *testing.T) {
 		}
 	})
 	t.Run("doc wins over attributes.page_doc", func(t *testing.T) {
-		raw, _ := json.Marshal(nodesDoc())
-		w, r := postNodes(t, docBody(t, builderOnly, map[string]any{"page_doc": json.RawMessage(raw)}, nil))
+		raw, _ := jsonx.Marshal(nodesDoc())
+		w, r := postNodes(t, docBody(t, builderOnly, map[string]any{"page_doc": jsontext.Value(raw)}, nil))
 		if w.Code != 200 || strings.Join(r.Order, ",") != "box" {
 			t.Errorf("%d order=%v", w.Code, r.Order)
 		}
@@ -328,8 +332,8 @@ func TestRenderNodesNestedLoopCountsOnceAtTheCap(t *testing.T) {
 // its text and a component is accepted (a made-up text "" blanked the one and was a 422 for the other).
 func TestRenderNodesRepatchKeepsTheNode(t *testing.T) {
 	op := func(id, key string, v any) map[string]any {
-		raw, _ := json.Marshal(v)
-		return map[string]any{"op": "setProp", "id": id, "key": key, "value": json.RawMessage(raw)}
+		raw, _ := jsonx.Marshal(v)
+		return map[string]any{"op": "setProp", "id": id, "key": key, "value": jsontext.Value(raw)}
 	}
 	w, r := postNodes(t, nodesBody(t, nodesDoc(), map[string]any{"render": []string{"row"}, "ops": []any{op("h", "text", "Hi")}}))
 	if w.Code != 200 || len(r.Fragments) != 1 || !strings.Contains(r.Fragments[0].HTML, ">Hi</h2>") {

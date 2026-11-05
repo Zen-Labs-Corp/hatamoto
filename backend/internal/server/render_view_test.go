@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"log/slog"
 	"strings"
 	"testing"
@@ -19,7 +19,7 @@ func TestHomepageRenderTitleAndNoIndexFromAttributes(t *testing.T) {
 	// loadHomepage puts the entity name in meta.title and drops no_index.
 	rr := &routeResult{Kind: resolveKindHome, Page: &PublicPageResponse{
 		Entity: &entity.Entity{ID: uuid.New(), Name: "Hatamoto CMS",
-			Attributes: json.RawMessage(`{"meta_title":"Hatamoto · The entity-first CMS","no_index":true}`)},
+			Attributes: jsontext.Value(`{"meta_title":"Hatamoto · The entity-first CMS","no_index":true}`)},
 		Meta: PageMeta{Title: "Hatamoto CMS"},
 	}}
 	v := pageViewFromRoute(rr, "https://x.io", "/")
@@ -36,7 +36,7 @@ func TestHomepageRenderTitleAndNoIndexFromAttributes(t *testing.T) {
 
 func TestHomepageRenderTitleFallsBackToMeta(t *testing.T) {
 	rr := &routeResult{Page: &PublicPageResponse{
-		Entity: &entity.Entity{ID: uuid.New(), Name: "Home", Attributes: json.RawMessage(`{}`)},
+		Entity: &entity.Entity{ID: uuid.New(), Name: "Home", Attributes: jsontext.Value(`{}`)},
 		Meta:   PageMeta{Title: "Home"},
 	}}
 	if v := pageViewFromRoute(rr, "https://x.io", "/"); v.Page.Title != "Home" || v.Page.NoIndex {
@@ -47,7 +47,7 @@ func TestHomepageRenderTitleFallsBackToMeta(t *testing.T) {
 func TestPageNavHrefUsesRegistry(t *testing.T) {
 	snap := entity.DefaultURLSnapshot() // page: /{slug}
 	home := &entity.Entity{ID: uuid.New(), Slug: "home"}
-	about := &entity.Entity{ID: uuid.New(), Slug: "platform", Attributes: json.RawMessage(`{}`)}
+	about := &entity.Entity{ID: uuid.New(), Slug: "platform", Attributes: jsontext.Value(`{}`)}
 
 	if h, ok := pageNavHref(context.Background(), snap, nil, home.ID, home); !ok || h != "/" {
 		t.Errorf("home = %q %v", h, ok)
@@ -112,13 +112,13 @@ func TestSectionsFromAttributesToleratesMalformedSiblings(t *testing.T) {
 		"null":             `null`,
 		"visible not bool": `{"type":"content","isVisible":"no"}`,
 	} {
-		attrs := json.RawMessage(`{"page_sections":[` + good + `,` + bad + `]}`)
+		attrs := jsontext.Value(`{"page_sections":[` + good + `,` + bad + `]}`)
 		secs := sectionsFromAttributes(attrs)
 		if len(secs) == 0 || secs[0].ID != "g" || secs[0].Title != "Good" || secs[0].Content["body"] != "x" {
 			t.Errorf("%s: good section lost: %+v", name, secs)
 		}
 	}
-	secs := sectionsFromAttributes(json.RawMessage(`{"page_sections":[{"type":"content","sort_order":"2"},{"type":"content","sort_order":1.5}]}`))
+	secs := sectionsFromAttributes(jsontext.Value(`{"page_sections":[{"type":"content","sort_order":"2"},{"type":"content","sort_order":1.5}]}`))
 	if len(secs) != 2 || secs[0].SortOrder != 2 || secs[1].SortOrder != 1 {
 		t.Errorf("sort_order coercion: %+v", secs)
 	}
@@ -129,7 +129,7 @@ func TestPageViewAttrsAndDates(t *testing.T) {
 	upd := pub.Add(48 * time.Hour)
 	// A gated entity arrives with attributes already truncated by the loader;
 	// the view must carry exactly that, never anything fuller.
-	attrs := json.RawMessage(`{"content":"<p>teaser</p>","words":3,"page_sections":[{"id":"a","type":"hero"}]}`)
+	attrs := jsontext.Value(`{"content":"<p>teaser</p>","words":3,"page_sections":[{"id":"a","type":"hero"}]}`)
 
 	cases := map[string]*routeResult{
 		"page": {Page: &PublicPageResponse{Entity: &entity.Entity{
@@ -163,7 +163,7 @@ func TestPageViewAttrsAndDates(t *testing.T) {
 	}
 
 	// Unpublished / bad attributes give zero time and nil Attrs, no panic.
-	rr := &routeResult{Page: &PublicPageResponse{Entity: &entity.Entity{ID: uuid.New(), Attributes: json.RawMessage(`not json`)}}}
+	rr := &routeResult{Page: &PublicPageResponse{Entity: &entity.Entity{ID: uuid.New(), Attributes: jsontext.Value(`not json`)}}}
 	if v := pageViewFromRoute(rr, "", "/"); v.Attrs != nil || !v.PublishedAt.IsZero() {
 		t.Errorf("got %v %v", v.Attrs, v.PublishedAt)
 	}
@@ -175,7 +175,7 @@ func TestContentFromAttributes_InvalidDocWarnsAndRendersEmpty(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
 	t.Cleanup(func() { slog.SetDefault(prev) })
 
-	attrs := json.RawMessage(`{"page_doc":{"v":3,"nodes":[]},"page_sections":[{"id":"a","type":"content","content":{}}]}`)
+	attrs := jsontext.Value(`{"page_doc":{"v":3,"nodes":[]},"page_sections":[{"id":"a","type":"content","content":{}}]}`)
 	secs, doc := contentFromAttributes(attrs, "11111111-2222-3333-4444-555555555555")
 	if doc != nil || len(secs) != 0 {
 		t.Errorf("an invalid doc must render empty, not the frozen mirror: secs=%v doc=%v", secs, doc)
@@ -188,13 +188,13 @@ func TestContentFromAttributes_InvalidDocWarnsAndRendersEmpty(t *testing.T) {
 func TestContentFromAttributes_CaseVariantDocKeyIgnored(t *testing.T) {
 	doc := `{"v":2,"nodes":[{"id":"r","t":"container","p":{"tag":"div"}}]}`
 	for _, key := range []string{"Page_Doc", "PAGE_DOC"} {
-		attrs := json.RawMessage(`{"page_sections":[{"id":"a","type":"content","content":{}}],"` + key + `":` + doc + `}`)
+		attrs := jsontext.Value(`{"page_sections":[{"id":"a","type":"content","content":{}}],"` + key + `":` + doc + `}`)
 		secs, d := contentFromAttributes(attrs, "")
 		if d != nil || len(secs) != 1 || secs[0].ID != "a" {
 			t.Errorf("%s rendered as the doc: secs=%v doc=%v", key, secs, d)
 		}
 	}
-	secs, d := contentFromAttributes(json.RawMessage(`{"Page_Sections":[{"id":"a","type":"content","content":{}}]}`), "")
+	secs, d := contentFromAttributes(jsontext.Value(`{"Page_Sections":[{"id":"a","type":"content","content":{}}]}`), "")
 	if d != nil || len(secs) != 0 {
 		t.Errorf("Page_Sections read as sections: %v", secs)
 	}

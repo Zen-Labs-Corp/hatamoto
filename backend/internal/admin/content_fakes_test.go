@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"io"
 	"slices"
@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/author"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/taxonomy"
@@ -49,13 +50,13 @@ func newFakeEntities() *fakeEntities {
 }
 
 func (f *fakeEntities) addSchema(n int, name, slug, schema, settings string, builtin bool) *entity.EntitySchema {
-	s := &entity.EntitySchema{ID: fid(n), Name: name, Slug: slug, Schema: json.RawMessage(schema), Settings: json.RawMessage(settings), IsBuiltin: builtin, CreatedAt: t0, UpdatedAt: t0}
+	s := &entity.EntitySchema{ID: fid(n), Name: name, Slug: slug, Schema: jsontext.Value(schema), Settings: jsontext.Value(settings), IsBuiltin: builtin, CreatedAt: t0, UpdatedAt: t0}
 	f.schemas = append(f.schemas, s)
 	return s
 }
 
 func (f *fakeEntities) addEntity(n int, schema *entity.EntitySchema, name, slug string, status entity.EntityStatus, attrs string, at time.Time) *entity.Entity {
-	e := &entity.Entity{ID: fid(n), SchemaID: schema.ID, Name: name, Slug: slug, Status: status, Attributes: json.RawMessage(attrs), Version: 1, CreatedAt: at, UpdatedAt: at}
+	e := &entity.Entity{ID: fid(n), SchemaID: schema.ID, Name: name, Slug: slug, Status: status, Attributes: jsontext.Value(attrs), Version: 1, CreatedAt: at, UpdatedAt: at}
 	f.ents[e.ID] = e
 	return e
 }
@@ -236,8 +237,8 @@ func (f *fakeEntities) UpdateEntity(_ context.Context, id uuid.UUID, _ *uuid.UUI
 	}
 	if in.Attributes != nil {
 		var a, b any
-		_ = json.Unmarshal(e.Attributes, &a)
-		_ = json.Unmarshal(*in.Attributes, &b)
+		_ = jsonx.Unmarshal(e.Attributes, &a)
+		_ = jsonx.Unmarshal(*in.Attributes, &b)
 		if fmt.Sprint(a) != fmt.Sprint(b) {
 			f.versions[id] = append(f.versions[id], &entity.EntityVersion{ID: uuid.New(), EntityID: id, Version: e.Version, Attributes: e.Attributes, ChangeSummary: in.ChangeSummary, CreatedAt: t0.Add(time.Duration(e.Version) * time.Hour)})
 			e.Attributes = *in.Attributes

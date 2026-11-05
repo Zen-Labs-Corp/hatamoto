@@ -1,10 +1,12 @@
 package searchreplace
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"os"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const sample = `{
@@ -34,7 +36,7 @@ func TestWalkCollectsByScope(t *testing.T) {
 		{ScopeOther, []string{"/title"}},
 	}
 	for _, c := range cases {
-		_, hits, n, err := Walk(json.RawMessage(sample), o, c.scopes, nil, nil)
+		_, hits, n, err := Walk(jsontext.Value(sample), o, c.scopes, nil, nil)
 		if err != nil || n != 0 {
 			t.Fatalf("scopes %d: err=%v n=%d", c.scopes, err, n)
 		}
@@ -53,11 +55,11 @@ func TestWalkCollectsByScope(t *testing.T) {
 
 func TestWalkReplaceKeepsEverythingElse(t *testing.T) {
 	o := Options{Find: "old", Replace: "new"}
-	out, _, n, err := Walk(json.RawMessage(sample), o, ScopeContent|ScopeSEO|ScopeOther, nil, func(string, int) bool { return true })
+	out, _, n, err := Walk(jsontext.Value(sample), o, ScopeContent|ScopeSEO|ScopeOther, nil, func(string, int) bool { return true })
 	if err != nil || n != 7 {
 		t.Fatalf("err=%v n=%d", err, n)
 	}
-	if !json.Valid(out) {
+	if !jsonx.Valid(out) {
 		t.Fatalf("invalid json: %s", out)
 	}
 	if !strings.Contains(string(out), `"price":9.90`) {
@@ -76,14 +78,14 @@ func TestWalkReplaceKeepsEverythingElse(t *testing.T) {
 
 func TestWalkPickOne(t *testing.T) {
 	o := Options{Find: "old", Replace: "new"}
-	out, _, n, _ := Walk(json.RawMessage(sample), o, ScopeSEO, nil, func(path string, i int) bool { return path == "/og_title" })
+	out, _, n, _ := Walk(jsontext.Value(sample), o, ScopeSEO, nil, func(path string, i int) bool { return path == "/og_title" })
 	if n != 1 || !strings.Contains(string(out), `"og_title":"new shop og"`) || !strings.Contains(string(out), `"meta_title":"Old shop deals"`) {
 		t.Fatalf("n=%d %s", n, out)
 	}
 }
 
 func TestWalkNoReplaceKeepsInputBytes(t *testing.T) {
-	in := json.RawMessage(`{"title":  "none",   "n": 1.0}`)
+	in := jsontext.Value(`{"title":  "none",   "n": 1.0}`)
 	out, hits, n, _ := Walk(in, Options{Find: "zzz", Replace: "x"}, ScopeOther, nil, func(string, int) bool { return true })
 	if string(out) != string(in) || len(hits) != 0 || n != 0 {
 		t.Fatalf("%s %v %d", out, hits, n)
@@ -97,7 +99,7 @@ func TestComparePath(t *testing.T) {
 }
 
 func TestWalkPlainPropWithLessThan(t *testing.T) {
-	attrs := json.RawMessage(`{"meta_description":"Compare old.example plans if a<b","page_doc":{"v":2,"nodes":[{"id":"a","t":"heading","p":{"text":"Kids <12 eat free at Joe's old.example & co"}}]}}`)
+	attrs := jsontext.Value(`{"meta_description":"Compare old.example plans if a<b","page_doc":{"v":2,"nodes":[{"id":"a","t":"heading","p":{"text":"Kids <12 eat free at Joe's old.example & co"}}]}}`)
 	out, _, n, err := Walk(attrs, Options{Find: "old.example", Replace: "new.example"}, ScopeContent|ScopeSEO, nil, func(string, int) bool { return true })
 	if err != nil || n != 2 {
 		t.Fatalf("err=%v n=%d", err, n)
@@ -110,7 +112,7 @@ func TestWalkPlainPropWithLessThan(t *testing.T) {
 }
 
 func TestWalkOnlyEditsVisibleNodeText(t *testing.T) {
-	attrs := json.RawMessage(`{"page_doc":{"v":2,"nodes":[
+	attrs := jsontext.Value(`{"page_doc":{"v":2,"nodes":[
 	 {"id":"hero","t":"component","p":{"type":"hero","title":"hero title","preset":"hero-dark","anchor":"hero","content":{"body":"the hero"}}},
 	 {"id":"c","t":"container","p":{"tag":"section","rel":"hero","layout":"hero"},"c":[
 	  {"id":"r","t":"ref","p":{"block":"hero"}},
@@ -124,7 +126,7 @@ func TestWalkOnlyEditsVisibleNodeText(t *testing.T) {
 			Nodes []map[string]any `json:"nodes"`
 		} `json:"page_doc"`
 	}
-	if err := json.Unmarshal(out, &doc); err != nil {
+	if err := jsonx.Unmarshal(out, &doc); err != nil {
 		t.Fatal(err)
 	}
 	comp := doc.PageDoc.Nodes[0]["p"].(map[string]any)
@@ -152,8 +154,8 @@ const richSchema = `{"type":"object","properties":{
  "faqs":{"type":"array","items":{"type":"object","properties":{"a":{"type":"string","format":"richtext"}}}}}}`
 
 func TestWalkSchemaRichTextAttribute(t *testing.T) {
-	kinds := &Kinds{Attr: schemaKinds(json.RawMessage(richSchema))}
-	attrs := json.RawMessage(`{"intro":"<p>Joe&#39;s &amp; Co</p>","note":"Joe&#39;s &amp; Co","faqs":[{"a":"<strong>Strong</strong> a<b"}]}`)
+	kinds := &Kinds{Attr: schemaKinds(jsontext.Value(richSchema))}
+	attrs := jsontext.Value(`{"intro":"<p>Joe&#39;s &amp; Co</p>","note":"Joe&#39;s &amp; Co","faqs":[{"a":"<strong>Strong</strong> a<b"}]}`)
 	all := func(string, int) bool { return true }
 
 	_, hits, _, _ := Walk(attrs, Options{Find: "Joe's & Co", Replace: "X"}, ScopeOther, kinds, nil)
@@ -183,7 +185,7 @@ func TestWalkThemeRichTextComponentContent(t *testing.T) {
 		}
 		return faq(path)
 	}}
-	attrs := json.RawMessage(`{"page_doc":{"v":2,"nodes":[{"id":"f","t":"component","p":{"type":"faq","content":{"items":[{"question":"Joe&#39;s?","answer":"<p><strong>Joe&#39;s &amp; Co</strong></p>"}]}}}]}}`)
+	attrs := jsontext.Value(`{"page_doc":{"v":2,"nodes":[{"id":"f","t":"component","p":{"type":"faq","content":{"items":[{"question":"Joe&#39;s?","answer":"<p><strong>Joe&#39;s &amp; Co</strong></p>"}]}}}]}}`)
 	out, _, n, err := Walk(attrs, Options{Find: "Joe's & Co", Replace: "Max"}, ScopeContent, kinds, func(string, int) bool { return true })
 	if err != nil || n != 1 || !strings.Contains(string(out), `<p><strong>Max</strong></p>`) || !strings.Contains(string(out), `Joe&#39;s?`) {
 		t.Fatalf("err=%v n=%d out=%s", err, n, out)

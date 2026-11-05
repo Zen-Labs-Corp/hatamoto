@@ -2,7 +2,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"sync"
 	"testing"
@@ -43,7 +43,7 @@ func TestService_Events(t *testing.T) {
 		svc.SetEvents(sink)
 
 		ent, err := svc.CreateEntity(ctx, &testUserID, &CreateEntityInput{
-			SchemaID: schema.ID, Name: "Hi", Attributes: json.RawMessage(`{"title":"Hi"}`),
+			SchemaID: schema.ID, Name: "Hi", Attributes: jsontext.Value(`{"title":"Hi"}`),
 		})
 		testutil.RequireNoError(t, err)
 		testutil.RequireEqual(t, []EventKind{EventCreated}, sink.kinds())
@@ -124,12 +124,12 @@ func TestService_BeforeSave(t *testing.T) {
 			testutil.Equal(t, "create", in.Operation)
 			testutil.Nil(t, in.ID)
 			in.Name = "Rewritten"
-			in.Attributes = json.RawMessage(`{"title":"Plugin"}`)
+			in.Attributes = jsontext.Value(`{"title":"Plugin"}`)
 			return nil
 		})
 
 		ent, err := svc.CreateEntity(ctx, &testUserID, &CreateEntityInput{
-			SchemaID: schema.ID, Name: "Orig", Attributes: json.RawMessage(`{"title":"Orig"}`),
+			SchemaID: schema.ID, Name: "Orig", Attributes: jsontext.Value(`{"title":"Orig"}`),
 		})
 		testutil.RequireNoError(t, err)
 		testutil.Equal(t, "Rewritten", ent.Name)
@@ -145,7 +145,7 @@ func TestService_BeforeSave(t *testing.T) {
 		svc.SetBeforeSave(func(context.Context, *BeforeSaveInput) error { return errors.New("nope") })
 
 		_, err := svc.CreateEntity(ctx, &testUserID, &CreateEntityInput{
-			SchemaID: schema.ID, Name: "X", Attributes: json.RawMessage(`{"title":"X"}`),
+			SchemaID: schema.ID, Name: "X", Attributes: jsontext.Value(`{"title":"X"}`),
 		})
 		testutil.RequireErrorIs(t, err, ErrRejectedByPlugin)
 		testutil.Contains(t, err.Error(), "nope")
@@ -158,7 +158,7 @@ func TestService_BeforeSave(t *testing.T) {
 		svc, sr, er := newTestService()
 		existing := seedEntity(t, er, seedSchema(t, sr))
 		svc.SetBeforeSave(func(_ context.Context, in *BeforeSaveInput) error {
-			in.Attributes = json.RawMessage(`{"title": 123}`) // schema wants a string
+			in.Attributes = jsontext.Value(`{"title": 123}`) // schema wants a string
 			return nil
 		})
 
@@ -172,7 +172,7 @@ func TestService_BeforeSave(t *testing.T) {
 		svc, sr, er := newTestService()
 		existing := seedEntity(t, er, seedSchema(t, sr))
 		svc.SetBeforeSave(func(_ context.Context, in *BeforeSaveInput) error {
-			in.Attributes = json.RawMessage(`{"title":"t","content":"<p>ok</p><script>alert(1)</script>"}`)
+			in.Attributes = jsontext.Value(`{"title":"t","content":"<p>ok</p><script>alert(1)</script>"}`)
 			return nil
 		})
 

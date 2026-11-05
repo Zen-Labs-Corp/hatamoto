@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/release"
 )
@@ -34,7 +34,7 @@ func newKeyPair(t *testing.T, dir, name string) keyPair {
 	set := packages.TrustSet{}
 	set.Add(pub)
 	file := filepath.Join(dir, name+".key")
-	b, err := json.MarshalIndent(k, "", "  ")
+	b, err := jsonx.Indent(k, jsonx.HTMLSafe)
 	if err != nil {
 		t.Fatal(err)
 	}

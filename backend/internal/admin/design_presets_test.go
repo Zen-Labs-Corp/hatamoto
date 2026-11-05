@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -21,7 +22,7 @@ func presetsRig(t *testing.T) (*rig, themeSite, *int) {
 	t.Helper()
 	_, pk, fp := newPackageRig(t)
 	site := themeSite{newFakeSite("Acme Site")}
-	site.cfg.ThemeExtra = json.RawMessage(storedBlob)
+	site.cfg.ThemeExtra = jsontext.Value(storedBlob)
 	flushed := new(int)
 	g := newRig(t, func(d *Deps) {
 		d.Site = site
@@ -183,7 +184,7 @@ func TestEditorCreatesPresetOnly(t *testing.T) {
 			t.Fatalf("%s create: %d %s", token, rec.Code, rec.Body.String())
 		}
 		var got presetReply
-		_ = json.Unmarshal(rec.Body.Bytes(), &got)
+		_ = jsonx.Unmarshal(rec.Body.Bytes(), &got)
 		if got.Name != name || got.Label != "Promo" || got.S["base"]["bg"] != "accent" {
 			t.Fatalf("reply: %+v", got)
 		}
@@ -247,10 +248,10 @@ func TestBuilderBootCarriesDesign(t *testing.T) {
 
 	r := newEditorRig(t)
 	site := themeSite{newFakeSite("Acme")}
-	site.cfg.ThemeExtra = json.RawMessage(storedBlob)
+	site.cfg.ThemeExtra = jsontext.Value(storedBlob)
 	r.a.deps.Site = site
 	r.a.deps.BuilderTokens = func() bool { return true }
-	r.ent.Attributes = json.RawMessage(builderOnlyDoc)
+	r.ent.Attributes = jsontext.Value(builderOnlyDoc)
 	rec := r.do("GET", r.path(), "owner-token", nil, nil)
 	body := rec.Body.String()
 	const open = `id="hm-builder-boot">`
@@ -263,7 +264,7 @@ func TestBuilderBootCarriesDesign(t *testing.T) {
 		Design bootDesign        `json:"design"`
 		URLs   map[string]string `json:"urls"`
 	}
-	if err := json.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &boot); err != nil {
+	if err := jsonx.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &boot); err != nil {
 		t.Fatal(err)
 	}
 	d := boot.Design
@@ -319,7 +320,7 @@ func TestPresetsPageNotesStatesAndKeepsThem(t *testing.T) {
 	t.Parallel()
 
 	g, site, _ := presetsRig(t)
-	site.cfg.ThemeExtra = json.RawMessage(`{"builder":{"presets":{"card":{"label":"Card","s":{` +
+	site.cfg.ThemeExtra = jsontext.Value(`{"builder":{"presets":{"card":{"label":"Card","s":{` +
 		`"base":{"pt":"space-4"},"base:hover":{"ty":"-4px","shadow":"lg","bg":"accent"},"sm:focus":{"bc":"accent"}}}}}}`)
 	if p := design(t, site).Presets["card"]; p.S["base:hover"]["ty"] != "-4px" {
 		t.Fatalf("setup: %+v", p)
@@ -374,7 +375,7 @@ func TestBuilderPaletteCoversTheTableTokens(t *testing.T) {
 	t.Parallel()
 
 	site := newFakeSite("Acme")
-	site.cfg.ThemeExtra = json.RawMessage(`{"colors":{"primary":"#112233","background":"#fafafa"},"builder":{"tokens":{"color":{"surface":"#010203"},"space":{"4":"2rem"},"fs":{"xl":"1.5rem"}}}}`)
+	site.cfg.ThemeExtra = jsontext.Value(`{"colors":{"primary":"#112233","background":"#fafafa"},"builder":{"tokens":{"color":{"surface":"#010203"},"space":{"4":"2rem"},"fs":{"xl":"1.5rem"}}}}`)
 	p := builderPalette(&site.cfg)
 	for k, want := range map[string]string{"primary": "#112233", "bg": "#fafafa", "surface": "#010203", "muted": "#eef0f4", "accent": "#c8102e"} {
 		if p.Colors[k] != want {
@@ -416,7 +417,7 @@ func TestBuilderPaletteCoversTheTableTokens(t *testing.T) {
 
 func TestBuilderPaletteSkipsInvalidThemeColours(t *testing.T) {
 	site := newFakeSite("Acme")
-	site.cfg.ThemeExtra = json.RawMessage(`{"colors":{"primary":"","background":"red;x","text":"#abc123"}}`)
+	site.cfg.ThemeExtra = jsontext.Value(`{"colors":{"primary":"","background":"red;x","text":"#abc123"}}`)
 	p := builderPalette(&site.cfg)
 	d := siteconfig.DefaultThemeConfig().Colors
 	if p.Colors["bg"] != d.Background || p.Colors["text"] != "#abc123" || p.Colors["primary"] == "" {

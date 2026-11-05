@@ -2,18 +2,19 @@ package render
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // graphJSON is the site graph of v as indented JSON, the way the goldens store it.
 func graphJSON(t *testing.T, v *PageView) []byte {
 	t.Helper()
-	b, err := json.MarshalIndent(siteGraphLD(v), "", "  ")
+	b, err := jsonx.Indent(siteGraphLD(v))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +49,7 @@ func TestSiteGraphGolden(t *testing.T) {
 		t.Fatal(err)
 	}
 	var pages map[string]*PageView
-	if err := json.Unmarshal(raw, &pages); err != nil {
+	if err := jsonx.Unmarshal(raw, &pages, jsonx.StoredLoose); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"xx", "yy", "shared"} {
@@ -79,14 +80,14 @@ func TestSiteGraphSingleMatchesHeadGolden(t *testing.T) {
 		t.Fatal("no site graph script in head.html")
 	}
 	var fromHead, fromGolden any
-	if err := json.Unmarshal(m[1], &fromHead); err != nil {
+	if err := jsonx.Unmarshal(m[1], &fromHead); err != nil {
 		t.Fatal(err)
 	}
 	g, err := os.ReadFile(filepath.Join("testdata", "golden", "site-graph-single.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal(g, &fromGolden); err != nil {
+	if err := jsonx.Unmarshal(g, &fromGolden); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(fromHead, fromGolden) {

@@ -1,12 +1,12 @@
 package pluginhost
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -29,7 +29,7 @@ func TestPublicRouteCookies(t *testing.T) {
 	rec := serve("/p/capa/ck", &http.Cookie{Name: "hmp_capa_unlock", Value: "1"}, &http.Cookie{Name: "hmp_capa_other", Value: "x"},
 		&http.Cookie{Name: "hmp_capa_visited", Value: "y"}, &http.Cookie{Name: "hatamoto_session", Value: "secret"}, &http.Cookie{Name: "unlock", Value: "raw"})
 	var got map[string]string
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got) != 2 || got["unlock"] != "1" || got["visited"] != "y" {
+	if err := jsonx.UnmarshalPinned(rec.Body.Bytes(), &got); err != nil || len(got) != 2 || got["unlock"] != "1" || got["visited"] != "y" {
 		t.Fatalf("cookies seen by the plugin: %v (%v) %s", got, err, rec.Body)
 	}
 

@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"slices"
 	"testing"
@@ -47,7 +47,7 @@ func TestListPublishedFiltered_AttrOrderAndValues(t *testing.T) {
 	db := newIntegrationDB(t)
 	schemas := NewPostgresSchemaRepository(db)
 	sch := fmt.Sprintf("tdf-%s", uuid.NewString()[:8])
-	schema, err := schemas.Create(ctx, &CreateSchemaInput{Name: sch, Slug: sch, Schema: json.RawMessage(`{"type":"object","properties":{}}`)})
+	schema, err := schemas.Create(ctx, &CreateSchemaInput{Name: sch, Slug: sch, Schema: jsontext.Value(`{"type":"object","properties":{}}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestListPublishedFiltered_ExcludeOffsetUpdatedAt(t *testing.T) {
 	db := newIntegrationDB(t)
 	schemas := NewPostgresSchemaRepository(db)
 	sch := fmt.Sprintf("tdo-%s", uuid.NewString()[:8])
-	schema, err := schemas.Create(ctx, &CreateSchemaInput{Name: sch, Slug: sch, Schema: json.RawMessage(`{"type":"object","properties":{}}`)})
+	schema, err := schemas.Create(ctx, &CreateSchemaInput{Name: sch, Slug: sch, Schema: jsontext.Value(`{"type":"object","properties":{}}`)})
 	if err != nil {
 		t.Fatal(err)
 	}

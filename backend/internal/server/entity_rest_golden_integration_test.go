@@ -5,7 +5,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -20,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Characterization of the REST entity payload (the shape clients and plugins
@@ -98,7 +98,7 @@ func TestEntityRESTPayloadGolden(t *testing.T) {
 		if locale != "" {
 			body["locale"] = locale
 		}
-		b, _ := json.Marshal(body)
+		b, _ := jsonx.Marshal(body)
 		return do(http.MethodPost, "/api/v1/entities", string(b))
 	}
 
@@ -116,7 +116,7 @@ func TestEntityRESTPayloadGolden(t *testing.T) {
 	var apiErr struct {
 		Code string `json:"code"`
 	}
-	if err := json.Unmarshal(raw, &apiErr); err != nil || apiErr.Code != "slug_exists" {
+	if err := jsonx.Unmarshal(raw, &apiErr); err != nil || apiErr.Code != "slug_exists" {
 		t.Errorf("conflict body = %s, want code slug_exists", raw)
 	}
 	if code, raw := create("bad", "x"); code != http.StatusBadRequest {
@@ -129,7 +129,7 @@ func TestEntityRESTPayloadGolden(t *testing.T) {
 	var created struct {
 		ID uuid.UUID `json:"id"`
 	}
-	if err := json.Unmarshal(en, &created); err != nil {
+	if err := jsonx.Unmarshal(en, &created); err != nil {
 		t.Fatalf("decode create: %v\n%s", err, en)
 	}
 	code, body := do(http.MethodGet, "/api/v1/entities/"+created.ID.String(), "")

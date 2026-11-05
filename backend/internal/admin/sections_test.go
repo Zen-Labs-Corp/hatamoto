@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"sort"
 	"strings"
@@ -61,7 +61,7 @@ func TestSectionTemplates(t *testing.T) {
 	t.Parallel()
 
 	fs := &fakeSections{m: map[uuid.UUID]*sectiontemplate.SectionTemplate{}}
-	tmpl := &sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Hero with CTA", SectionType: "hero", Content: json.RawMessage(`{"heading":"<b>Hi</b>"}`), Tags: []string{"landing"}, UsageCount: 3, UpdatedAt: time.Now()}
+	tmpl := &sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Hero with CTA", SectionType: "hero", Content: jsontext.Value(`{"heading":"<b>Hi</b>"}`), Tags: []string{"landing"}, UsageCount: 3, UpdatedAt: time.Now()}
 	fs.m[tmpl.ID] = tmpl
 	g := newRig(t, func(d *Deps) { d.Growth.Sections = fs })
 	list := g.do("GET", "/admin/theme/templates", "owner-token", nil, nil).Body.String()
@@ -75,7 +75,7 @@ func TestSectionTemplates(t *testing.T) {
 		t.Error("type filter")
 	}
 	// A builder template is listed as a Layout and says so on its page.
-	tree := &sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Pricing row", SectionType: treeTemplateType, Content: json.RawMessage(`{"v":1,"nodes":[]}`), UpdatedAt: time.Now()}
+	tree := &sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Pricing row", SectionType: treeTemplateType, Content: jsontext.Value(`{"v":1,"nodes":[]}`), UpdatedAt: time.Now()}
 	fs.m[tree.ID] = tree
 	if body := g.do("GET", "/admin/theme/templates", "owner-token", nil, nil).Body.String(); !strings.Contains(body, "Pricing row") || !strings.Contains(body, "Layout") {
 		t.Errorf("tree template row: %s", body)

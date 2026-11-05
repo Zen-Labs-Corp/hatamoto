@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http/httptest"
 	"reflect"
 	"regexp"
@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -28,9 +29,9 @@ func businessConfig(locales string) *siteconfig.Config {
 	return &siteconfig.Config{
 		Phone:           "site-phone",
 		BusinessHours:   "site hours",
-		PostalAddress:   json.RawMessage(`{"street":"Site Street","city":"Site City","country":"SC"}`),
-		BusinessProfile: json.RawMessage(`{"name":"Example Legal","tax_id":"T1","email":"site@example.test","sameas":["https://example.test/site"],"rating":{"value":"4","count":"9"}}`),
-		LocaleProfiles:  json.RawMessage(locales),
+		PostalAddress:   jsontext.Value(`{"street":"Site Street","city":"Site City","country":"SC"}`),
+		BusinessProfile: jsontext.Value(`{"name":"Example Legal","tax_id":"T1","email":"site@example.test","sameas":["https://example.test/site"],"rating":{"value":"4","count":"9"}}`),
+		LocaleProfiles:  jsontext.Value(locales),
 	}
 }
 
@@ -82,7 +83,7 @@ func TestLocaleBusiness_IDOfDefaultLocaleWithoutSegment(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := businessConfig(`{}`)
-	cfg.BusinessProfile = json.RawMessage(`{"office":true}`)
+	cfg.BusinessProfile = jsontext.Value(`{"office":true}`)
 	b, err := localeBusiness(cfg, set, "en-GB")
 	if err != nil || b == nil || b.ID != "en-gb" {
 		t.Fatalf("got %+v, %v; want id en-gb (the default locale has no segment)", b, err)
@@ -103,7 +104,7 @@ func TestLocaleBusiness_SingleLocaleAndBadData(t *testing.T) {
 		t.Errorf("bad locale map: %+v, %v; want an error", b, err)
 	}
 	bad := businessConfig(cards)
-	bad.BusinessProfile = json.RawMessage(`{"name":`)
+	bad.BusinessProfile = jsontext.Value(`{"name":`)
 	if b, err := localeBusiness(bad, two, "en"); err == nil || b != nil {
 		t.Errorf("bad site profile: %+v, %v; want an error", b, err)
 	}
@@ -179,10 +180,10 @@ func TestOrgView(t *testing.T) {
 		t.Errorf("orgView of an empty config = %+v, %v; want the zero value", empty, err)
 	}
 	bad := businessConfig(`{}`)
-	bad.BusinessProfile = json.RawMessage(`{"name":`)
+	bad.BusinessProfile = jsontext.Value(`{"name":`)
 	withExtras := func(profile string) render.OrgView {
 		cfg := businessConfig(`{}`)
-		cfg.BusinessProfile = json.RawMessage(profile)
+		cfg.BusinessProfile = jsontext.Value(profile)
 		got, err := orgView(cfg)
 		if err != nil {
 			t.Fatal(err)
@@ -206,7 +207,7 @@ func TestOrgView(t *testing.T) {
 
 func TestOrgView_NewFields(t *testing.T) {
 	cfg := businessConfig(`{}`)
-	cfg.BusinessProfile = json.RawMessage(`{"description":"About us","alternate_name":"Example","slogan":"Be sample","founding_date":"2009-05","employees_min":10,"employees_max":50,"vat_id":"V1","logo_object":true,"rating":{"value":"4.5","count":"7","best":"5","worst":"1","count_type":"reviews"}}`)
+	cfg.BusinessProfile = jsontext.Value(`{"description":"About us","alternate_name":"Example","slogan":"Be sample","founding_date":"2009-05","employees_min":10,"employees_max":50,"vat_id":"V1","logo_object":true,"rating":{"value":"4.5","count":"7","best":"5","worst":"1","count_type":"reviews"}}`)
 	got, err := orgView(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -219,11 +220,11 @@ func TestOrgView_NewFields(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("orgView = %+v, want %+v", got, want)
 	}
-	cfg.BusinessProfile = json.RawMessage(`{"org_address":"locale_or_site"}`)
+	cfg.BusinessProfile = jsontext.Value(`{"org_address":"locale_or_site"}`)
 	if got := orgAddressMode(cfg); got != "locale_or_site" {
 		t.Errorf("orgAddressMode = %q", got)
 	}
-	cfg.BusinessProfile = json.RawMessage(`{"name":`)
+	cfg.BusinessProfile = jsontext.Value(`{"name":`)
 	if got := orgAddressMode(cfg); got != "" {
 		t.Errorf("orgAddressMode of a bad profile = %q, want empty", got)
 	}
@@ -262,7 +263,7 @@ func TestLocaleNodeIDs(t *testing.T) {
 		t.Errorf("colliding ids = %v", got)
 	}
 	cfg := businessConfig(`{"en-XX":{"address":{"city":"B"}}}`)
-	cfg.BusinessProfile = json.RawMessage(`{"office":true}`)
+	cfg.BusinessProfile = jsontext.Value(`{"office":true}`)
 	a, _ := localeBusiness(cfg, clash, "en")
 	b, _ := localeBusiness(cfg, clash, "en-XX")
 	if a == nil || b == nil || a.ID == b.ID {
@@ -318,7 +319,7 @@ func graphTypes(t *testing.T, b *render.BusinessView) (types []string, lb map[st
 		var doc struct {
 			Graph []map[string]any `json:"@graph"`
 		}
-		if json.Unmarshal(m[1], &doc) != nil || doc.Graph == nil {
+		if jsonx.Unmarshal(m[1], &doc) != nil || doc.Graph == nil {
 			continue
 		}
 		for _, n := range doc.Graph {
@@ -377,7 +378,7 @@ const extendedSiteProfile = `{"name":"Example Legal","naics":"541511","isic":"62
 
 func TestOrgView_ExtendedDetails(t *testing.T) {
 	cfg := businessConfig(`{}`)
-	cfg.BusinessProfile = json.RawMessage(extendedSiteProfile)
+	cfg.BusinessProfile = jsontext.Value(extendedSiteProfile)
 	got, err := orgView(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -399,7 +400,7 @@ func TestOrgView_ExtendedDetails(t *testing.T) {
 func TestLocaleBusiness_ExtendedDetails(t *testing.T) {
 	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"})
 	cfg := businessConfig(`{"fr":{"address":{"city":"Sample City"},"naics":"11","brands":["Own"],"accepts_reservations":false,"amenity_presets":{"wifi":false},"amenities":[{"name":"Pool","value":true}]}}`)
-	cfg.BusinessProfile = json.RawMessage(extendedSiteProfile)
+	cfg.BusinessProfile = jsontext.Value(extendedSiteProfile)
 	b, err := localeBusiness(cfg, set, "fr")
 	if err != nil || b == nil {
 		t.Fatalf("%+v, %v", b, err)
@@ -435,7 +436,7 @@ func TestLocaleBusiness_ExtendedDetails(t *testing.T) {
 func TestLocaleBusiness_InheritedServicesKeepSiteCurrency(t *testing.T) {
 	set := businessSet(t, false, entity.LocaleEntry{Tag: "en"}, entity.LocaleEntry{Tag: "fr", Segment: "fr"}, entity.LocaleEntry{Tag: "nl", Segment: "nl"})
 	cfg := businessConfig(`{"fr":{"address":{"city":"Sample City"},"currency":"EUR"},"nl":{"address":{"city":"Sample City"},"currency":"EUR","services":[{"name":"Own","price":"1"}]}}`)
-	cfg.BusinessProfile = json.RawMessage(`{"currency":"AUD","services":[{"name":"Repair","price":"100"}]}`)
+	cfg.BusinessProfile = jsontext.Value(`{"currency":"AUD","services":[{"name":"Repair","price":"100"}]}`)
 	for loc, want := range map[string]string{"fr": "AUD", "nl": "EUR"} {
 		b, _ := localeBusiness(cfg, set, loc)
 		if b == nil {
@@ -451,7 +452,7 @@ func TestLocaleBusiness_InheritedServicesKeepSiteCurrency(t *testing.T) {
 // given profile JSON; the legacy columns hold the site address.
 func defaultBusinessConfig(profile, cards string) *siteconfig.Config {
 	cfg := businessConfig(cards)
-	cfg.BusinessProfile = json.RawMessage(profile)
+	cfg.BusinessProfile = jsontext.Value(profile)
 	return cfg
 }
 
@@ -470,7 +471,7 @@ func TestLocaleBusiness_DefaultFollowsOfficeSwitch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		cfg := defaultBusinessConfig(tt.profile, `{}`)
-		cfg.PostalAddress = json.RawMessage(tt.address)
+		cfg.PostalAddress = jsontext.Value(tt.address)
 		b, err := localeBusiness(cfg, set, "en")
 		if err != nil || (b != nil) != tt.want {
 			t.Errorf("%s: got %+v, %v; want a business: %v", tt.name, b, err, tt.want)
@@ -526,7 +527,7 @@ func TestLocaleSummaries_DefaultIsTheDefaultBusiness(t *testing.T) {
 	if fr.Phone != "fr-phone" || fr.CountryName != "" {
 		t.Errorf("fr summary = %+v", fr)
 	}
-	cfg.BusinessProfile = json.RawMessage(`{"country_name":"Exampleland"}`)
+	cfg.BusinessProfile = jsontext.Value(`{"country_name":"Exampleland"}`)
 	if got, _ := localeSummaries(cfg, set); got[0].HasOffice {
 		t.Errorf("default summary has an office without the switch: %+v", got[0])
 	}

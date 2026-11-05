@@ -1,14 +1,15 @@
 package siteconfig
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestThemeConfigHeaderCTAOmittedWhenUnset(t *testing.T) {
 	t.Parallel()
-	b, err := json.Marshal(DefaultThemeConfig())
+	b, err := jsonx.Marshal(DefaultThemeConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +28,7 @@ func TestThemeConfigHeaderCTARoundTrip(t *testing.T) {
 	t.Parallel()
 	in := DefaultThemeConfig()
 	in.HeaderCTA = &ThemeCTA{Text: "Get started", URL: "/start"}
-	b, err := json.Marshal(in)
+	b, err := jsonx.Marshal(in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +36,7 @@ func TestThemeConfigHeaderCTARoundTrip(t *testing.T) {
 		t.Fatalf("headerCta missing: %s", b)
 	}
 	var out ThemeConfig
-	if err := json.Unmarshal(b, &out); err != nil {
+	if err := jsonx.Unmarshal(b, &out); err != nil {
 		t.Fatal(err)
 	}
 	if out.HeaderCTA == nil || *out.HeaderCTA != *in.HeaderCTA {

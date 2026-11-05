@@ -3,10 +3,10 @@ package release
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 )
 
@@ -87,7 +87,7 @@ func (f *fixture) manifestBody(issued time.Time, life time.Duration) ChannelMani
 
 func (f *fixture) signManifest(t testing.TB, k packages.Key, m ChannelManifest) []byte {
 	t.Helper()
-	body, err := json.Marshal(m)
+	body, err := jsonx.MarshalPinned(m)
 	if err != nil {
 		t.Fatal(err)
 	}

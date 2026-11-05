@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"strings"
 	"testing"
@@ -21,7 +21,7 @@ var (
 
 func liveEntity(id uuid.UUID, name, slug string) *entity.Entity {
 	return &entity.Entity{ID: id, SchemaID: testPageSchema.ID, Schema: testPageSchema, Name: name, Slug: slug,
-		Status: entity.StatusPublished, Attributes: json.RawMessage(`{"meta_title":"Old"}`)}
+		Status: entity.StatusPublished, Attributes: jsontext.Value(`{"meta_title":"Old"}`)}
 }
 
 func testSource(live map[uuid.UUID]*entity.Entity, mapped map[string]uuid.UUID) stagedSource {
@@ -48,7 +48,7 @@ func testSource(live map[uuid.UUID]*entity.Entity, mapped map[string]uuid.UUID) 
 }
 
 func item(seq int, op, target, key, payload string) changeset.StoredItem {
-	return changeset.StoredItem{Seq: seq, Item: changeset.Item{Kind: changeset.KindEntity, Op: op, TargetID: target, SourceKey: key, Payload: json.RawMessage(payload)}}
+	return changeset.StoredItem{Seq: seq, Item: changeset.Item{Kind: changeset.KindEntity, Op: op, TargetID: target, SourceKey: key, Payload: jsontext.Value(payload)}}
 }
 
 func TestChangesetPreviewStagedBuild(t *testing.T) {
@@ -59,7 +59,7 @@ func TestChangesetPreviewStagedBuild(t *testing.T) {
 		item(1, changeset.OpUpsert, liveID.String(), "", `{"name":"About us","attributes":{"meta_title":"New"}}`),
 		item(2, changeset.OpUpsert, "", "new-1", `{"schema":"page","name":"Pricing","slug":"pricing","attributes":{}}`),
 		item(3, changeset.OpDelete, goneID.String(), "", `{}`),
-		{Seq: 4, Item: changeset.Item{Kind: changeset.KindTerm, Op: changeset.OpUpsert, Payload: json.RawMessage(`{}`)}},
+		{Seq: 4, Item: changeset.Item{Kind: changeset.KindTerm, Op: changeset.OpUpsert, Payload: jsontext.Value(`{}`)}},
 		item(5, changeset.OpUpsert, "", "bad", `{"schema":"nope","name":"X"}`),
 	}, testSource(live, nil))
 
@@ -190,8 +190,8 @@ func TestChangesetPreviewLoaderSeamsAreInertWithoutStaged(t *testing.T) {
 }
 
 func TestChangesetPreviewChanges(t *testing.T) {
-	withDoc := func(nodes string) json.RawMessage {
-		return json.RawMessage(`{"page_doc":{"v":2,"nodes":[` + nodes + `]}}`)
+	withDoc := func(nodes string) jsontext.Value {
+		return jsontext.Value(`{"page_doc":{"v":2,"nodes":[` + nodes + `]}}`)
 	}
 	node := func(id, text string) string {
 		return `{"id":"` + id + `","t":"text","p":{"text":"` + text + `"}}`

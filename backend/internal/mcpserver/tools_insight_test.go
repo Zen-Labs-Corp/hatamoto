@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -10,6 +9,7 @@ import (
 
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 )
 
@@ -90,7 +90,7 @@ func TestGoogleSummary(t *testing.T) {
 	if m, _ := out["median_first_crawl_seconds"].(*float64); m == nil || *m != 5400 {
 		t.Errorf("median = %v", out["median_first_crawl_seconds"])
 	}
-	b, _ := json.Marshal(out["items"])
+	b, _ := jsonx.Marshal(out["items"])
 	if want := `[{"entity_id":null,"path":"/a","name":"","crawls":5,"last_crawl_day":"2026-10-28","last_status":200,"stale":true},{"entity_id":null,"path":"/b","name":"","crawls":0,"last_crawl_day":null,"last_status":0,"stale":false}]`; string(b) != want {
 		t.Errorf("items = %s", b)
 	}
@@ -122,7 +122,7 @@ func TestTrafficSummary(t *testing.T) {
 	if f.dim != analytics.DimLanding || out["by"] != "page" || out["from"] != "2026-01-01" || out["to"] != "2026-01-07" {
 		t.Errorf("unexpected result %v (dim %s)", out, f.dim)
 	}
-	raw, _ := json.Marshal(out["rows"])
+	raw, _ := jsonx.Marshal(out["rows"])
 	want := `[{"key":"google.com","detail":"organic search","visits":8,"pageviews":12,"engaged_pct":37.5},{"key":"(other)","visits":0,"pageviews":0,"engaged_pct":0}]`
 	if string(raw) != want {
 		t.Errorf("rows = %s", raw)
@@ -138,7 +138,7 @@ func TestTrafficSummary(t *testing.T) {
 // The traffic rows carry counts and keys only: no field may name a visitor, IP or user agent.
 func TestTrafficRowsHaveNoVisitorFields(t *testing.T) {
 	out, _ := trafficSummary(context.Background(), &fakeTraffic{rows: []analytics.TrafficTop{{K1: "x"}}}, agents.Range{}, "channel", 5)
-	raw, _ := json.Marshal(out)
+	raw, _ := jsonx.Marshal(out)
 	for _, bad := range []string{"ip", "user_agent", "ua", "visitor", "referrer"} {
 		if strings.Contains(string(raw), `"`+bad+`"`) {
 			t.Errorf("result has a %q field: %s", bad, raw)
@@ -176,7 +176,7 @@ func TestConversionsSummary(t *testing.T) {
 	if f.touch != analytics.TouchFirst || f.dim != analytics.DimChannel || out["touch"] != "first" || out["by"] != "channel" {
 		t.Errorf("defaults: %v touch=%s dim=%s", out, f.touch, f.dim)
 	}
-	raw, _ := json.Marshal(out["rows"])
+	raw, _ := jsonx.Marshal(out["rows"])
 	if want := `[{"key":"ai_assistants","leads":3},{"key":"unknown","leads":1}]`; string(raw) != want || out["total_leads"] != int64(4) || out["unattributed_leads"] != int64(1) {
 		t.Errorf("result = %v", out)
 	}
@@ -196,7 +196,7 @@ func TestConversionsSummary(t *testing.T) {
 // The result names counts and keys only: no submitter email or field values.
 func TestConversionsHaveNoSubmitterFields(t *testing.T) {
 	out, _ := conversionsSummary(context.Background(), &fakeConversions{}, agents.Range{}, "", "channel", 5)
-	raw, _ := json.Marshal(out)
+	raw, _ := jsonx.Marshal(out)
 	for _, bad := range []string{"email", "data", "ip", "user_agent", "visitor"} {
 		if strings.Contains(string(raw), `"`+bad+`"`) {
 			t.Errorf("result has a %q field: %s", bad, raw)

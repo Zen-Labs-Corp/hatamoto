@@ -2,7 +2,7 @@ package pluginhost
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/sdk"
@@ -39,7 +40,7 @@ func TestChangesetArgsUnknownFieldNewFns(t *testing.T) {
 	}
 	for fn, args := range calls {
 		var m map[string]any
-		_ = json.Unmarshal([]byte(args), &m)
+		_ = jsonx.UnmarshalPinned([]byte(args), &m)
 		m["origin"] = "owner" // a plugin may not pick the origin
 		if _, he := callRun(t, a, rc, fn, m); he == nil || he.Code != sdk.ErrInvalidArgument {
 			t.Errorf("%s with an unknown field: %v", fn, he)
@@ -48,7 +49,7 @@ func TestChangesetArgsUnknownFieldNewFns(t *testing.T) {
 	// And a good call without the services is unavailable, never a crash.
 	for fn, args := range changesetCalls {
 		var m map[string]any
-		_ = json.Unmarshal([]byte(args), &m)
+		_ = jsonx.UnmarshalPinned([]byte(args), &m)
 		_, he := callRun(t, a, rc, fn, m)
 		if fn == sdk.FnChangesetMediaAttach || fn == sdk.FnChangesetPersonUpsert {
 			continue
@@ -73,7 +74,7 @@ func TestChangesetProposeKinds(t *testing.T) {
 	a := runAPI(t, Services{})
 	rc := newRun(sdk.RunPhaseTransform)
 	rc.Proposes = []string{sdk.ProposeSiteSettings}
-	_, he := callRun(t, a, rc, sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeHomePage, Payload: json.RawMessage(`{}`)})
+	_, he := callRun(t, a, rc, sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeHomePage, Payload: jsontext.Value(`{}`)})
 	if he == nil || he.Code != sdk.ErrInvalidArgument || he.Message != `run "import" did not declare it proposes "home_page"` {
 		t.Fatalf("undeclared kind: %v", he)
 	}
@@ -87,12 +88,12 @@ func TestChangesetProposeKinds(t *testing.T) {
 		"blank title":  `{"title":" "}`,
 		"newline lang": `{"language":"e\nn"}`,
 	} {
-		if _, he := callRun(t, a, rc, sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeSiteSettings, Payload: json.RawMessage(payload)}); he == nil || he.Code != sdk.ErrInvalidArgument {
+		if _, he := callRun(t, a, rc, sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeSiteSettings, Payload: jsontext.Value(payload)}); he == nil || he.Code != sdk.ErrInvalidArgument {
 			t.Errorf("%s: %v", name, he)
 		}
 	}
 	// A valid one passes validation and only then needs the run store.
-	if _, he := callRun(t, a, rc, sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeSiteSettings, Payload: json.RawMessage(`{"title":"T","time_zone":"Europe/Berlin"}`)}); he == nil || he.Code != sdk.ErrUnavailable {
+	if _, he := callRun(t, a, rc, sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeSiteSettings, Payload: jsontext.Value(`{"title":"T","time_zone":"Europe/Berlin"}`)}); he == nil || he.Code != sdk.ErrUnavailable {
 		t.Fatalf("valid proposal without a run store: %v", he)
 	}
 }
@@ -108,12 +109,12 @@ func TestChangesetArgsValidation(t *testing.T) {
 		"entity no key":                     {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{Schema: "post", Name: "N"}},
 		"entity long key":                   {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: long, Schema: "post", Name: "N"}},
 		"entity no schema":                  {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Name: "N"}},
-		"entity attrs array":                {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", Attributes: json.RawMessage(`[1]`)}},
+		"entity attrs array":                {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", Attributes: jsontext.Value(`[1]`)}},
 		"entity self parent":                {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", ParentKey: "k"}},
 		"entity translation without locale": {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", TranslationOf: "src"}},
 		"entity translation of itself":      {sdk.FnChangesetEntityUpsert, sdk.EntityUpsert{SourceKey: "k", Schema: "post", Name: "N", Locale: "es", TranslationOf: "k"}},
 		"media alt bad id":                  {sdk.FnChangesetMediaAlt, sdk.MediaAlt{MediaID: "x", Alt: "a"}},
-		"propose media_alt":                 {sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeMediaAlt, Payload: json.RawMessage(`{}`)}},
+		"propose media_alt":                 {sdk.FnChangesetPropose, sdk.Proposal{Kind: sdk.ProposeMediaAlt, Payload: jsontext.Value(`{}`)}},
 		"term bad kind":                     {sdk.FnChangesetTermUpsert, sdk.TermUpsert{SourceKey: "k", Kind: "Bad Kind", Slug: "s", Name: "N"}},
 		"menu both":                         {sdk.FnChangesetMenuUpsert, sdk.MenuUpsert{SourceKey: "k", Slug: "s", Name: "N", Items: []sdk.MenuItem{{Label: "L", URL: "/a", EntityKey: "e"}}}},
 		"menu js url":                       {sdk.FnChangesetMenuUpsert, sdk.MenuUpsert{SourceKey: "k", Slug: "s", Name: "N", Items: []sdk.MenuItem{{Label: "L", URL: "javascript:alert(1)"}}}},
@@ -188,7 +189,7 @@ func TestMediaDTOCarriesCaptionAndCredit(t *testing.T) {
 
 // A stored legacy folder value must reach the service, not be refused here.
 func TestMediaListAcceptsLegacyFolder(t *testing.T) {
-	_, err := fnMediaList(context.Background(), &API{}, nil, json.RawMessage(`{"folder":"/2024/summer"}`))
+	_, err := fnMediaList(context.Background(), &API{}, nil, jsontext.Value(`{"folder":"/2024/summer"}`))
 	var he *sdk.HostError
 	if errors.As(err, &he) && he.Code == sdk.ErrInvalidArgument {
 		t.Fatalf("folder was refused: %v", err)

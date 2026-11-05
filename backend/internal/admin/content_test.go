@@ -3,7 +3,7 @@ package admin
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"log/slog"
 	"mime/multipart"
@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/person"
 )
@@ -337,7 +338,7 @@ func TestEntityEditGoldenSaveAndSEO(t *testing.T) {
 		t.Errorf("entity after save: %+v", e)
 	}
 	var attrs map[string]any
-	_ = json.Unmarshal(e.Attributes, &attrs)
+	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 	if attrs["summary"] != "New summary" || attrs["meta_title"] != "Alpha | Acme" || attrs["meta_description"] != "About alpha" ||
 		attrs["canonical_url"] != "https://acme.example/alpha" || attrs["og_image"] != "/media/x/file-51.png" || attrs["no_index"] != true {
 		t.Errorf("attributes: %v", attrs)
@@ -366,7 +367,7 @@ func TestEntityEditGoldenSaveAndSEO(t *testing.T) {
 		t.Fatalf("second save: %d\n%s", rec.Code, rec.Body.String())
 	}
 	attrs = nil
-	_ = json.Unmarshal(c.ents.ents[fid(11)].Attributes, &attrs)
+	_ = jsonx.Unmarshal(c.ents.ents[fid(11)].Attributes, &attrs, jsonx.StoredLoose)
 	if _, has := attrs["meta_title"]; has || attrs["no_index"] != nil {
 		t.Errorf("SEO not cleared: %v", attrs)
 	}
@@ -392,7 +393,7 @@ func TestEntityFormCanonicalStrict(t *testing.T) {
 	e := c.ents.ents[fid(11)]
 	m := attrsMap(e.Attributes)
 	m["canonical_url"] = "/a b"
-	e.Attributes, _ = json.Marshal(m)
+	e.Attributes, _ = jsonx.Marshal(m)
 	if rec := post(c, fid(11), "/a b"); strings.Contains(rec.Body.String(), refused) {
 		t.Errorf("unchanged stored canonical refused: %d", rec.Code)
 	}
@@ -576,7 +577,7 @@ func TestVersionsCompareAndRestore(t *testing.T) {
 		t.Fatalf("restore: %d", rec.Code)
 	}
 	var attrs map[string]any
-	_ = json.Unmarshal(c.ents.ents[fid(11)].Attributes, &attrs)
+	_ = jsonx.Unmarshal(c.ents.ents[fid(11)].Attributes, &attrs, jsonx.StoredLoose)
 	if attrs["summary"] != "The first" || c.ents.ents[fid(11)].Version != 4 {
 		t.Errorf("after restore: %v v%d", attrs, c.ents.ents[fid(11)].Version)
 	}
@@ -588,7 +589,7 @@ func TestVersionsCompareAndRestore(t *testing.T) {
 func TestDiffAttributes(t *testing.T) {
 	t.Parallel()
 
-	rows, same := diffAttributes(json.RawMessage(`{"a":"1","b":{"c":[1,2]},"gone":"x"}`), json.RawMessage(`{"a":"1","b":{"c":[1,3,4]},"new":true}`))
+	rows, same := diffAttributes(jsontext.Value(`{"a":"1","b":{"c":[1,2]},"gone":"x"}`), jsontext.Value(`{"a":"1","b":{"c":[1,3,4]},"new":true}`))
 	got := map[string]string{}
 	for _, r := range rows {
 		got[r.Path] = r.Kind
@@ -690,7 +691,7 @@ func TestSchemaEditAddReorderAndSave(t *testing.T) {
 		Required   []string
 		Properties map[string]map[string]any
 	}
-	_ = json.Unmarshal(c.service.Schema, &schema)
+	_ = jsonx.Unmarshal(c.service.Schema, &schema, jsonx.StoredLoose)
 	if len(schema.Required) != 2 {
 		t.Errorf("required: %v", schema.Required)
 	}
@@ -698,7 +699,7 @@ func TestSchemaEditAddReorderAndSave(t *testing.T) {
 		t.Errorf("unknown keys lost: %v", schema.Properties)
 	}
 	var st entity.SchemaURLSettings
-	_ = json.Unmarshal(c.service.Settings, &st)
+	_ = jsonx.Unmarshal(c.service.Settings, &st, jsonx.StoredLoose)
 	if st.URLPattern != "/{year}/{month}/{slug}" || st.SchemaOrgType != "Service" || st.ArchivePath != "/services" {
 		t.Errorf("settings: %s", c.service.Settings)
 	}
@@ -711,21 +712,21 @@ func TestSchemaSaveKeepsSitemapSettings(t *testing.T) {
 
 	c := newContentRig(t)
 	seeded := `{"exclude":true,"priority":0.3,"changefreq":"monthly","unknown":{"k":1}}`
-	c.service.Settings = json.RawMessage(`{"url_pattern":"/services/{path}","sitemap":` + seeded + `}`)
+	c.service.Settings = jsontext.Value(`{"url_pattern":"/services/{path}","sitemap":` + seeded + `}`)
 	rec := c.post("/admin/settings/types/"+fid(1).String(), schemaPost(c, func(f url.Values) { f.Set("sitemap_group", "svc") }))
 	if rec.Code != 303 {
 		t.Fatalf("save: %d\n%s", rec.Code, rec.Body.String())
 	}
 	var got struct {
-		Sitemap *json.RawMessage `json:"sitemap"`
-		Group   string           `json:"sitemap_group"`
+		Sitemap *jsontext.Value `json:"sitemap"`
+		Group   string          `json:"sitemap_group"`
 	}
-	if err := json.Unmarshal(c.service.Settings, &got); err != nil || got.Sitemap == nil {
+	if err := jsonx.Unmarshal(c.service.Settings, &got, jsonx.StoredLoose); err != nil || got.Sitemap == nil {
 		t.Fatalf("sitemap lost: %s", c.service.Settings)
 	}
 	var want, have any
-	_ = json.Unmarshal([]byte(seeded), &want)
-	_ = json.Unmarshal(*got.Sitemap, &have)
+	_ = jsonx.Unmarshal([]byte(seeded), &want, jsonx.StoredLoose)
+	_ = jsonx.Unmarshal(*got.Sitemap, &have, jsonx.StoredLoose)
 	if !reflect.DeepEqual(want, have) || got.Group != "svc" {
 		t.Errorf("settings after save: %s", c.service.Settings)
 	}
@@ -842,7 +843,7 @@ func TestClassifyFieldKinds(t *testing.T) {
 	}
 	for raw, want := range cases {
 		var p map[string]any
-		_ = json.Unmarshal([]byte(raw), &p)
+		_ = jsonx.Unmarshal([]byte(raw), &p, jsonx.StoredLoose)
 		if got := classify(p); got != want {
 			t.Errorf("%s = %s, want %s", raw, got, want)
 		}
@@ -850,7 +851,7 @@ func TestClassifyFieldKinds(t *testing.T) {
 		if want != "custom" {
 			prop, msg := buildProperty(schemaField{Name: "f", Kind: want, Options: "a", Ref: "post", Item: "number"})
 			var back map[string]any
-			_ = json.Unmarshal(prop, &back)
+			_ = jsonx.Unmarshal(prop, &back, jsonx.StoredLoose)
 			if msg != "" || classify(back) != want {
 				t.Errorf("build %s: %s -> %s %s", want, prop, classify(back), msg)
 			}

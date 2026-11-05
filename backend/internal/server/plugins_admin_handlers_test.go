@@ -1,11 +1,12 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/testutil"
 	"hatamoto.dev/sdk"
@@ -24,11 +25,11 @@ func TestListPlugins_InvalidSettingsSchemaDoesNotBreakList(t *testing.T) {
 	testutil.RequireEqual(t, http.StatusOK, rec.Code)
 	var body struct {
 		Plugins []struct {
-			Name           string          `json:"name"`
-			SettingsSchema json.RawMessage `json:"settings_schema"`
+			Name           string         `json:"name"`
+			SettingsSchema jsontext.Value `json:"settings_schema"`
 		} `json:"plugins"`
 	}
-	testutil.RequireNoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	testutil.RequireNoError(t, jsonx.Unmarshal(rec.Body.Bytes(), &body))
 	testutil.RequireLen(t, body.Plugins, 2)
 	testutil.Empty(t, body.Plugins[0].SettingsSchema)
 	testutil.JSONEqual(t, `{"type":"object"}`, string(body.Plugins[1].SettingsSchema))

@@ -3,7 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"strings"
 	"testing"
@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -71,7 +72,7 @@ const convertSections = `{"page_sections":[
  {"id":"c","type":"content","isVisible":false,"sort_order":3,"content":{"body":"<p>hidden</p>"}}]}`
 
 func rowWith(attrs string) convertRow {
-	return convertRow{ID: uuid.New(), Name: "P", Slug: "p", Attrs: json.RawMessage(attrs)}
+	return convertRow{ID: uuid.New(), Name: "P", Slug: "p", Attrs: jsontext.Value(attrs)}
 }
 
 func TestConvertPagesWritesDocThroughService(t *testing.T) {
@@ -87,7 +88,7 @@ func TestConvertPagesWritesDocThroughService(t *testing.T) {
 		t.Error("convert must keep updated_at")
 	}
 	var attrs map[string]any
-	if err := json.Unmarshal(*st.updates[0].Attributes, &attrs); err != nil {
+	if err := jsonx.Unmarshal(*st.updates[0].Attributes, &attrs); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := attrs["page_doc"].(map[string]any); !ok || attrs["page_sections"] == nil {
@@ -155,13 +156,11 @@ func TestConvertPagesKeepsLegacyContentByteIdentical(t *testing.T) {
 		t.Fatalf("updates = %d\n%s", len(st.updates), out.String())
 	}
 	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
 	var decoded any
-	if err := json.Unmarshal(*st.updates[0].Attributes, &decoded); err != nil {
+	if err := jsonx.Unmarshal(*st.updates[0].Attributes, &decoded); err != nil {
 		t.Fatal(err)
 	}
-	_ = enc.Encode(decoded)
+	_ = jsonx.Encode(&buf, decoded, jsontext.EscapeForHTML(false))
 	got := buf.String()
 	if n := strings.Count(got, body); n != 2 {
 		t.Errorf("unsanitised body present %d times, want 2 (doc + mirror): %s", n, got)
@@ -197,7 +196,7 @@ func TestConvertPagesSectionParityAndExactValues(t *testing.T) {
 			} `json:"nodes"`
 		} `json:"page_doc"`
 	}
-	if err := json.Unmarshal([]byte(got), &m); err != nil || len(m.Doc.Nodes) != 2 || m.Doc.Nodes[0].C[0].ID != "b" {
+	if err := jsonx.Unmarshal([]byte(got), &m); err != nil || len(m.Doc.Nodes) != 2 || m.Doc.Nodes[0].C[0].ID != "b" {
 		t.Errorf("the doc must follow the string sort_order (b first): %s", got)
 	}
 }

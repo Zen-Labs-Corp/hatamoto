@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 
 	"github.com/google/uuid"
@@ -17,11 +17,11 @@ func TestArchiveHeadingPrecedence(t *testing.T) {
 		wantName string
 		wantDesc string
 	}{
-		{"settings title wins", entity.EntitySchema{Name: "Team Member", Slug: "team_member", Settings: json.RawMessage(`{"archive_title":"  Meet the team ","archive_description":" Our people "}`)}, "Meet the team", "Our people"},
-		{"schema name next", entity.EntitySchema{Name: "Team Member", Slug: "team_member", Settings: json.RawMessage(`{"archive_path":"/team"}`)}, "Team Member", ""},
-		{"whitespace title falls through", entity.EntitySchema{Name: "Team Member", Slug: "team_member", Settings: json.RawMessage(`{"archive_title":"   "}`)}, "Team Member", ""},
+		{"settings title wins", entity.EntitySchema{Name: "Team Member", Slug: "team_member", Settings: jsontext.Value(`{"archive_title":"  Meet the team ","archive_description":" Our people "}`)}, "Meet the team", "Our people"},
+		{"schema name next", entity.EntitySchema{Name: "Team Member", Slug: "team_member", Settings: jsontext.Value(`{"archive_path":"/team"}`)}, "Team Member", ""},
+		{"whitespace title falls through", entity.EntitySchema{Name: "Team Member", Slug: "team_member", Settings: jsontext.Value(`{"archive_title":"   "}`)}, "Team Member", ""},
 		{"humanised slug last", entity.EntitySchema{Name: "", Slug: "team_member"}, "Team member", ""},
-		{"description without title", entity.EntitySchema{Name: "Post", Slug: "post", Settings: json.RawMessage(`{"archive_description":"News"}`)}, "Post", "News"},
+		{"description without title", entity.EntitySchema{Name: "Post", Slug: "post", Settings: jsontext.Value(`{"archive_description":"News"}`)}, "Post", "News"},
 	}
 	for _, tt := range tests {
 		tt := tt

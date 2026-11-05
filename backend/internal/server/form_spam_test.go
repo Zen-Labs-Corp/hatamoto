@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -15,6 +14,7 @@ import (
 
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/spam"
 )
@@ -69,7 +69,7 @@ func captchaSettings() spam.Settings {
 func requireCaptcha(repo *fakeFormRepo) { repo.forms["contact"].Settings.EnableCaptcha = true }
 
 func postJSON(srv *Server, body map[string]any) *httptest.ResponseRecorder {
-	b, _ := json.Marshal(body)
+	b, _ := jsonx.Marshal(body)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/public/forms/contact/submit", strings.NewReader(string(b)))
 	req.Header.Set("Content-Type", "application/json")
 	req.SetPathValue("slug", "contact")
@@ -286,8 +286,10 @@ func TestFormTokenEndpoint(t *testing.T) {
 		return rec
 	}
 	rec := get("contact")
-	var out struct{ Token string }
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || rec.Code != 200 {
+	var out struct {
+		Token string `json:"token"`
+	}
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &out); err != nil || rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
 	}
 	if rec.Header().Get("Cache-Control") != "no-store" {
@@ -343,7 +345,7 @@ func TestSpamRemoteIPIgnoresSpoofedForwardedFor(t *testing.T) {
 	v := &fakeVerifier{res: spam.Result{OK: true}}
 	srv, repo := newSpamServer(t, captchaSettings(), v)
 	requireCaptcha(repo)
-	b, _ := json.Marshal(map[string]any{"name": "Ada", "hm_captcha": "tok"})
+	b, _ := jsonx.Marshal(map[string]any{"name": "Ada", "hm_captcha": "tok"})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/public/forms/contact/submit", strings.NewReader(string(b)))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Forwarded-For", "203.0.113.99")
@@ -369,7 +371,7 @@ func TestSpamSubmissionResponseHasNoSubmissionID(t *testing.T) {
 		t.Fatalf("fast submit: %d %v", rec.Code, repo.subs)
 	}
 	var body map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
 	if _, has := body["submission_id"]; has || body["success"] != true {
