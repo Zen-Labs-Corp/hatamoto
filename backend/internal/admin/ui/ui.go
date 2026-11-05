@@ -123,12 +123,17 @@ type Action struct {
 	// names it when the row is not clear from the label alone.
 	Button    bool
 	AriaLabel string
+	// Disabled shows a Post button action greyed out instead of leaving it out;
+	// Reason says why (its title and a visually hidden description).
+	Disabled bool
+	Reason   string
 }
 
 // Row is one table row.
 type Row struct {
 	ID      string
 	Label   string // accessible name of the row (checkbox label)
+	Handle  bool   // a decorative "::" drag handle before the first cell (the row can be dragged)
 	Cells   []Cell
 	Actions []Action
 }

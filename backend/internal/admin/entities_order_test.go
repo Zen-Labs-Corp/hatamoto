@@ -80,6 +80,18 @@ func TestOrderPageGoldenFlat(t *testing.T) {
 	c.ents.addEntity(61, c.page, "Beta", "beta", entity.StatusDraft, `{"body":"x"}`, t0.Add(time.Hour))
 	body := c.get(t, "owner-token", "/admin/entities/order?type=page", "entities-order")
 	has(t, body, `aria-live="polite"`, `data-hm-orderlist`, `data-hm-drag`)
+	// Every flat row has a visible drag handle and inline Up / Down buttons, no "…" menu.
+	if n := strings.Count(body, `class="hm-table__handle" aria-hidden="true">::</span>`); n != 3 {
+		t.Errorf("drag handles = %d, want 3", n)
+	}
+	lacks(t, body, `aria-haspopup="menu"`, `value="indent"`, `value="outdent"`)
+	first := body[strings.Index(body, `id="row-`+fid(14).String()+`"`):] // the seeded page leads the order
+	first = first[:strings.Index(first, "</tr>")]
+	has(t, first, `aria-label="Move About us up"`, `title="Already first among its siblings."`, `aria-describedby="why-`+fid(14).String()+`-Up"`, `disabled="disabled"`)
+	has(t, first, `<button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" aria-label="Move About us down"><span>Down</span>`)
+	last := body[strings.Index(body, `id="row-`+fid(61).String()+`"`):]
+	last = last[:strings.Index(last, "</tr>")]
+	has(t, last, `title="Already last among its siblings."`)
 }
 
 func TestOrderPageGoldenTreeWithDepthLimit(t *testing.T) {
@@ -102,8 +114,14 @@ func TestOrderPageGoldenTreeWithDepthLimit(t *testing.T) {
 	lacks(t, body, `data-hm-drag`)
 	row := body[strings.Index(body, `id="row-`+fid(80).String()+`"`):]
 	row = row[:strings.Index(row, "</tr>")]
-	has(t, row, `value="up"`, `value="outdent"`)
-	lacks(t, row, `value="indent"`)
+	has(t, row, `value="up"`, `value="outdent"`, `<span>Down</span>`)
+	lacks(t, row, `value="indent"`, `value="down"`) // disabled buttons carry no form fields
+	// Indent is shown, disabled, with the reason, at the depth limit.
+	ind := row[strings.Index(row, `<span>Indent</span>`)-200:]
+	ind = ind[:strings.Index(ind, "</form>")]
+	has(t, ind, ` disabled`, `title="Moving in would pass the depth limit of 8 levels in the URL."`, `aria-describedby="why-`+fid(80).String()+`-Indent"`)
+	has(t, row, `id="why-`+fid(80).String()+`-Indent"`)
+	lacks(t, body, `data-hm-drag`, `class="hm-table__handle"`, `aria-haspopup="menu"`)
 }
 
 func TestOrderMoveAuditsOnceAndExplainsRefusals(t *testing.T) {
@@ -183,17 +201,20 @@ func TestOrderMoveAnswersScriptedRequestsWithoutRedirect(t *testing.T) {
 	}
 }
 
-// Focus after a button move goes to the row's menu trigger: the move buttons
-// sit in a closed popover, where focus() is a no-op.
-func TestOrderingScriptFocusesTheRowMenuTrigger(t *testing.T) {
+// Focus after a button move goes to the row's first enabled button, and a drag
+// starts only from the "::" handle.
+func TestOrderingScriptFocusesTheRowButton(t *testing.T) {
 	t.Parallel()
 	src, err := os.ReadFile("../../web/admin/js/ordering.js")
 	if err != nil {
 		t.Fatal(err)
 	}
 	js := string(src)
-	if !strings.Contains(js, `button[aria-haspopup="menu"]`) || strings.Contains(js, "hm-order-button") {
-		t.Error("restoreFocus must focus the row's menu trigger, not a button inside the closed menu")
+	if !strings.Contains(js, `querySelector("button:not(:disabled)")`) || strings.Contains(js, "aria-haspopup") {
+		t.Error("restoreFocus must focus the row's first enabled button")
+	}
+	if !strings.Contains(js, `handle: ".hm-table__handle"`) {
+		t.Error("drag must start from the handle")
 	}
 	if !strings.Contains(js, `redirect: "manual"`) || strings.Contains(js, "location.reload") {
 		t.Error("drag requests must not follow the redirect nor reload over the live region")

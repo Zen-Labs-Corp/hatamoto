@@ -95,6 +95,15 @@ func planMove(op string, all []orderNode, id uuid.UUID) (orderPlan, bool) {
 }
 
 // moveOps are the buttons of the Order page, in the order they are drawn.
-var moveOps = []struct{ Op, Label string }{
-	{"up", "Move up"}, {"down", "Move down"}, {"indent", "Indent"}, {"outdent", "Outdent"},
+// Label is the visible button text, Verb finishes its accessible name ("Move Beta up").
+var moveOps = []struct{ Op, Label, Verb string }{
+	{"up", "Up", "up"}, {"down", "Down", "down"}, {"indent", "Indent", "in under the entry above"}, {"outdent", "Outdent", "out to its parent's level"},
+}
+
+// moveWhyNot says why a move button is disabled.
+var moveWhyNot = map[string]string{
+	"up":      "Already first among its siblings.",
+	"down":    "Already last among its siblings.",
+	"indent":  "There is no entry above at the same level to move under.",
+	"outdent": "Already at the top level.",
 }

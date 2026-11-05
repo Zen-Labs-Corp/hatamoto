@@ -12,6 +12,9 @@ func TestTermOrderGoldenAndMove(t *testing.T) {
 	rows := c.record()
 	body := c.get(t, "owner-token", "/admin/settings/taxonomies?kind=category", "terms-order")
 	has(t, body, `/admin/settings/taxonomies/terms/`+fid(32).String()+`/move`, `name="op" value="outdent"`)
+	// The moves are visible buttons, disabled with a reason where they do nothing; terms have no drag handle.
+	has(t, body, `<span>Up</span>`, `<span>Indent</span>`, `title="Already first among its siblings."`, `title="Already at the top level."`)
+	lacks(t, body, `hm-table__handle`)
 	rec := c.post("/admin/settings/taxonomies/terms/"+fid(32).String()+"/move", url.Values{"op": {"outdent"}})
 	if rec.Code != 303 {
 		t.Fatalf("outdent = %d", rec.Code)

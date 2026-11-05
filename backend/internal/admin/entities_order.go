@@ -139,19 +139,19 @@ func (a *Admin) handleEntityOrder(w http.ResponseWriter, r *http.Request) {
 	self := a.adminPath + "/entities/order?type=" + url.QueryEscape(sc.Slug)
 	for i, row := range list {
 		id := nodes[i].ID
-		act := ui.Row{ID: row.ID, Label: row.Name, Cells: []ui.Cell{{Text: row.Name, Depth: min(row.Depth, 7)}, {Text: row.Status}}}
+		act := ui.Row{ID: row.ID, Label: row.Name, Handle: !nested, Cells: []ui.Cell{{Text: row.Name, Depth: min(row.Depth, 7)}, {Text: row.Status}}}
 		for _, op := range moveOps {
 			if !nested && (op.Op == "indent" || op.Op == "outdent") {
 				continue
 			}
+			btn := ui.Action{Label: op.Label, Button: true, AriaLabel: "Move " + row.Name + " " + op.Verb, Post: d.Action + row.ID + "/move",
+				Fields: map[string]string{"op": op.Op, "back": self}}
 			if _, can := planMove(op.Op, nodes, id); !can {
-				continue
+				btn.Disabled, btn.Reason = true, moveWhyNot[op.Op]
+			} else if op.Op == "indent" && depth[id]+1+a.subtreeHeight(nodes, id) >= urlpattern.MaxPathDepth {
+				btn.Disabled, btn.Reason = true, fmt.Sprintf("Moving in would pass the depth limit of %d levels in the URL.", urlpattern.MaxPathDepth)
 			}
-			if op.Op == "indent" && depth[id]+1+a.subtreeHeight(nodes, id) >= urlpattern.MaxPathDepth {
-				continue
-			}
-			act.Actions = append(act.Actions, ui.Action{Label: op.Label, Post: d.Action + row.ID + "/move",
-				Fields: map[string]string{"op": op.Op, "back": self}})
+			act.Actions = append(act.Actions, btn)
 		}
 		t.Rows = append(t.Rows, act)
 	}
@@ -269,8 +269,21 @@ func (a *Admin) handleEntityMove(w http.ResponseWriter, r *http.Request) {
 	Redirect(w, r, back)
 }
 
-// termMoveAction is a Move up/down, Indent or Outdent row action of the term table.
-func (a *Admin) termMoveAction(label, op, id, kind string) ui.Action {
-	return ui.Action{Label: label, Post: a.adminPath + "/settings/taxonomies/terms/" + id + "/move",
+// termMoveAction is a visible Up/Down/Indent/Outdent button of the term table; it is
+// shown disabled, with the reason, when the move does nothing.
+func (a *Admin) termMoveAction(op, id, name, kind string, order []orderNode) ui.Action {
+	var mo struct{ Op, Label, Verb string }
+	for _, m := range moveOps {
+		if m.Op == op {
+			mo = m
+		}
+	}
+	act := ui.Action{Label: mo.Label, Button: true, AriaLabel: "Move " + name + " " + mo.Verb, Post: a.adminPath + "/settings/taxonomies/terms/" + id + "/move",
 		Fields: map[string]string{"op": op, "back": a.adminPath + "/settings/taxonomies?kind=" + url.QueryEscape(kind)}}
+	if tid, err := uuid.Parse(id); err == nil {
+		if _, can := planMove(op, order, tid); !can {
+			act.Disabled, act.Reason = true, moveWhyNot[op]
+		}
+	}
+	return act
 }

@@ -1,5 +1,5 @@
-// Order page: drag a row to a new place with SortableJS, and put focus back on
-// the moved row's menu button after a button move. Every move is also a plain POST
+// Order page: drag a row by its "::" handle to a new place with SortableJS, and put focus back on
+// the moved row's first button after a button move. Every move is also a plain POST
 // form (the buttons), so nothing here is needed to reorder; the page without
 // this module works the same. Dragging is offered for flat lists only: a tree
 // is moved with the indent and outdent buttons.
@@ -14,13 +14,12 @@ function say(root, text) {
   if (live) live.textContent = text;
 }
 
-// After a button move the server redirects to the page with #row-<id>. The
-// buttons live in the row's closed menu, where focus() does nothing, so focus
-// goes to the row's menu trigger, which is always focusable.
+// After a button move the server redirects to the page with #row-<id>. Focus
+// goes to the row's first enabled button (a disabled one cannot take focus).
 function restoreFocus(root) {
   const row = ROW.test(location.hash.slice(1)) ? document.getElementById(location.hash.slice(1)) : null;
   if (!row || !root.contains(row)) return;
-  row.querySelector('button[aria-haspopup="menu"]')?.focus();
+  row.querySelector("button:not(:disabled)")?.focus();
 }
 
 async function post(url, token, id, position) {
@@ -43,13 +42,14 @@ function drag(root) {
   const token = document.querySelector('meta[name="csrf-token"]')?.content ?? "";
   window.Sortable.create(body, {
     draggable: "tr",
+    handle: ".hm-table__handle",
     filter: "button, a, input, select, textarea",
     preventOnFilter: false,
     animation: 120,
     onEnd: async (evt) => {
       if (evt.oldIndex === evt.newIndex) return;
       const tr = evt.item;
-      const name = tr.querySelector("th, td")?.textContent.trim() ?? "";
+      const name = (tr.querySelector("th, td")?.textContent ?? "").replace(/^\s*::/, "").trim();
       const all = rows(body);
       const err = await post(root.dataset.hmOrderUrl, token, tr.id.replace(ROW, ""), all.indexOf(tr) + 1);
       say(root, err ? `${name} was not moved. ${err} Reload the page to see the saved order.` : `${name} moved to position ${all.indexOf(tr) + 1} of ${all.length}.`);
