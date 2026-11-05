@@ -83,7 +83,7 @@ Every save creates a version.
 | `<admin>/entities/{id}/versions/compare` | Shows the difference between two versions |
 | `<admin>/entities/{id}/versions/{version}/restore` | Asks for confirmation, then restores that state as a new version |
 
-Restoring never deletes history. A nightly job merges identical consecutive versions and prunes old ones, keeping the most recent 20 per entity and dropping automatic autosave versions before explicit ones.
+Restoring never deletes history. A nightly job merges identical consecutive versions and prunes old ones, keeping the newest N per entity (a Settings > Versions value, 50 by default) and dropping automatic autosave versions before explicit ones. A version that was live in the last 30 days is never pruned. The versions panel states the rule and shows a Live badge on those versions.
 
 ## Deleting and archiving
 

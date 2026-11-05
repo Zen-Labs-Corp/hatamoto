@@ -124,7 +124,19 @@ type EntityVersion struct {
 	ChangedBy     *uuid.UUID     `json:"changed_by,omitempty"`
 	ChangeSummary *string        `json:"change_summary,omitempty"`
 	CreatedAt     time.Time      `json:"created_at"`
+	// LiveAt is set when the entity was published at the time this earlier
+	// state was snapshotted: it was live until then.
+	LiveAt *time.Time `json:"live_at,omitempty"`
 }
+
+// Version history retention. The daily prune keeps the newest versions per
+// entity (an owner setting) and every version that was live recently.
+const (
+	VersionKeepDefault = 50
+	VersionKeepMin     = 10
+	VersionKeepMax     = 500
+	VersionLiveWindow  = 30 * 24 * time.Hour
+)
 
 // CreateSchemaInput represents input for creating a new entity schema.
 type CreateSchemaInput struct {

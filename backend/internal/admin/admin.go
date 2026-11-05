@@ -256,6 +256,10 @@ type Deps struct {
 	// SiteAccess is the public site gate (open, coming soon, maintenance,
 	// password) behind Settings > Site access; nil answers that page with 503.
 	SiteAccess SiteAccessService
+	// VersionRetention is the version history limit behind Settings > Content >
+	// Versions and the rule on the versions panel; nil answers that page with
+	// 503 and the panel states the default.
+	VersionRetention VersionRetentionService
 	// Spam is the spam protection settings behind Settings > Forms > Spam
 	// protection; nil answers that page with 503.
 	Spam SpamService

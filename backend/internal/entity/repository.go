@@ -481,11 +481,11 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 	// Get current entity state with FOR UPDATE lock to prevent race conditions
 	var currentVersion int
 	var currentAttributes jsontext.Value
-	var prevOrigin string
+	var prevOrigin, prevStatus string
 	err = tx.QueryRow(ctx,
-		`SELECT version, attributes, origin FROM hatamoto_entities WHERE id = $1 FOR UPDATE`,
+		`SELECT version, attributes, origin, status FROM hatamoto_entities WHERE id = $1 FOR UPDATE`,
 		id,
-	).Scan(&currentVersion, &currentAttributes, &prevOrigin)
+	).Scan(&currentVersion, &currentAttributes, &prevOrigin, &prevStatus)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -522,9 +522,9 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 		}
 		if !join {
 			_, err = tx.Exec(ctx,
-				`INSERT INTO hatamoto_entity_versions (entity_id, version, attributes, changed_by, change_summary)
-				 VALUES ($1, $2, $3, $4, $5)`,
-				id, currentVersion, currentAttributes, userID, input.ChangeSummary,
+				`INSERT INTO hatamoto_entity_versions (entity_id, version, attributes, changed_by, change_summary, live_at)
+				 VALUES ($1, $2, $3, $4, $5, `+liveAtExprFor("$6")+`)`,
+				id, currentVersion, currentAttributes, userID, input.ChangeSummary, prevStatus,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create version snapshot: %w", err)
@@ -1139,17 +1139,29 @@ func jsonRawEqual(a, b jsontext.Value) bool {
 	return string(ca) == string(cb)
 }
 
+// liveAtExprFor is the live_at value of a version snapshot, given the entity's
+// status ($n, a text parameter) at snapshot time: a published entity's earlier
+// state was live until now. Every snapshot writer uses it.
+func liveAtExprFor(param string) string {
+	return "CASE WHEN " + param + " = 'published' THEN now() END"
+}
+
 // PruneVersions coalesces identical-consecutive versions and then keeps only the
-// newest `keep` versions per entity. Returns the number of rows deleted.
+// newest `keep` versions per entity. A version that was live within
+// VersionLiveWindow is never removed and does not count against `keep`.
+// Returns the number of rows deleted.
 func (r *PostgresEntityRepository) PruneVersions(ctx context.Context, keep int) (int64, error) {
 	if keep <= 0 {
-		keep = 20
+		keep = VersionKeepDefault
 	}
 	conn, err := r.db.GetConn(ctx)
 	if err != nil {
 		return 0, err
 	}
 	defer conn.Release()
+
+	const protected = `(live_at IS NOT NULL AND live_at > now() - make_interval(secs => $1))`
+	window := VersionLiveWindow.Seconds()
 
 	var total int64
 	// 1. Coalesce: within a run of identical-consecutive versions keep the
@@ -1162,7 +1174,7 @@ func (r *PostgresEntityRepository) PruneVersions(ctx context.Context, keep int) 
 			SELECT id, (attributes = LEAD(attributes) OVER (PARTITION BY entity_id ORDER BY version)) AS dup
 			FROM hatamoto_entity_versions
 		) d
-		WHERE v.id = d.id AND d.dup`)
+		WHERE v.id = d.id AND d.dup AND NOT `+protected, window)
 	if err != nil {
 		return total, fmt.Errorf("coalesce versions: %w", err)
 	}
@@ -1172,14 +1184,15 @@ func (r *PostgresEntityRepository) PruneVersions(ctx context.Context, keep int) 
 	//    autosaves, so a writing session never pushes out the real history.
 	tag, err = conn.Exec(ctx, `
 		DELETE FROM hatamoto_entity_versions
-		WHERE id IN (
+		WHERE NOT `+protected+` AND id IN (
 			SELECT id FROM (
 				SELECT id, ROW_NUMBER() OVER (
 					PARTITION BY entity_id
-					ORDER BY (change_summary IS NOT DISTINCT FROM $2) ASC, version DESC) AS rn
+					ORDER BY (change_summary IS NOT DISTINCT FROM $3) ASC, version DESC) AS rn
 				FROM hatamoto_entity_versions
-			) t WHERE t.rn > $1
-		)`, keep, AutosaveSummary)
+				WHERE NOT `+protected+`
+			) t WHERE t.rn > $2
+		)`, window, keep, AutosaveSummary)
 	if err != nil {
 		return total, fmt.Errorf("prune versions: %w", err)
 	}
@@ -1203,12 +1216,12 @@ func (r *PostgresEntityRepository) CreateVersion(ctx context.Context, entityID u
 	query := `
 		INSERT INTO hatamoto_entity_versions (id, entity_id, version, attributes, changed_by, change_summary)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, entity_id, version, attributes, changed_by, change_summary, created_at
+		RETURNING id, entity_id, version, attributes, changed_by, change_summary, created_at, live_at
 	`
 
 	var v EntityVersion
 	err = conn.QueryRow(ctx, query, id, entityID, version, attributes, changedBy, changeSummary).Scan(
-		&v.ID, &v.EntityID, &v.Version, &v.Attributes, &v.ChangedBy, &v.ChangeSummary, &v.CreatedAt,
+		&v.ID, &v.EntityID, &v.Version, &v.Attributes, &v.ChangedBy, &v.ChangeSummary, &v.CreatedAt, &v.LiveAt,
 	)
 
 	if err != nil {
@@ -1227,14 +1240,14 @@ func (r *PostgresEntityRepository) GetVersion(ctx context.Context, entityID uuid
 	defer conn.Release()
 
 	query := `
-		SELECT id, entity_id, version, attributes, changed_by, change_summary, created_at
+		SELECT id, entity_id, version, attributes, changed_by, change_summary, created_at, live_at
 		FROM hatamoto_entity_versions
 		WHERE entity_id = $1 AND version = $2
 	`
 
 	var v EntityVersion
 	err = conn.QueryRow(ctx, query, entityID, version).Scan(
-		&v.ID, &v.EntityID, &v.Version, &v.Attributes, &v.ChangedBy, &v.ChangeSummary, &v.CreatedAt,
+		&v.ID, &v.EntityID, &v.Version, &v.Attributes, &v.ChangedBy, &v.ChangeSummary, &v.CreatedAt, &v.LiveAt,
 	)
 
 	if err != nil {
@@ -1260,7 +1273,7 @@ func (r *PostgresEntityRepository) ListVersions(ctx context.Context, entityID uu
 	}
 
 	query := `
-		SELECT id, entity_id, version, attributes, changed_by, change_summary, created_at
+		SELECT id, entity_id, version, attributes, changed_by, change_summary, created_at, live_at
 		FROM hatamoto_entity_versions
 		WHERE entity_id = $1
 		ORDER BY version DESC
@@ -1277,7 +1290,7 @@ func (r *PostgresEntityRepository) ListVersions(ctx context.Context, entityID uu
 	for rows.Next() {
 		var v EntityVersion
 		if err := rows.Scan(
-			&v.ID, &v.EntityID, &v.Version, &v.Attributes, &v.ChangedBy, &v.ChangeSummary, &v.CreatedAt,
+			&v.ID, &v.EntityID, &v.Version, &v.Attributes, &v.ChangedBy, &v.ChangeSummary, &v.CreatedAt, &v.LiveAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan entity version: %w", err)
 		}

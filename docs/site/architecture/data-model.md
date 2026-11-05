@@ -66,7 +66,7 @@ Pages built with the visual editor store a document tree in `attributes.page_doc
 
 ## Versions
 
-`hatamoto_entity_versions` keeps a history of `attributes` per entity with the editor, a change summary and a timestamp. Restoring a version validates it against the type's current schema first, and fails if it no longer fits. A background job coalesces identical consecutive versions and keeps the newest 20 per entity. Background autosaves from the blog editor share one version within a five minute window and are pruned before explicit versions.
+`hatamoto_entity_versions` keeps a history of `attributes` per entity with the editor, a change summary and a timestamp. Restoring a version validates it against the type's current schema first, and fails if it no longer fits. A background job coalesces identical consecutive versions and keeps the newest N per entity (site setting, default 50) and every version with `live_at` set in the last 30 days. `live_at` is stamped when a version is snapshotted while its entity is published. Background autosaves from the blog editor share one version within a five minute window and are pruned before explicit versions.
 
 ## Terms
 

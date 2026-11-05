@@ -55,7 +55,7 @@ var settingsLive = map[string]bool{
 	"themes": true, "blocks": true, "colours": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
-	"admin-address": true, "site-access": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
+	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"privacy": true, "tracking": true, "contact-button": true,
 	"user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
@@ -102,6 +102,9 @@ var settingsRegistry = []settingsSectionDef{
 	}},
 	{ID: "media", Label: "Media", Icon: "image", Desc: "Upload, browse and describe the files on your site.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "media", Label: "Media", Final: "/settings/media"},
+	}},
+	{ID: "versions", Label: "Versions", Icon: "list", Desc: "How many earlier versions of each item are kept.", Group: "Content", Tabs: []settingsTabDef{
+		{ID: "versions", Label: "Versions", Final: "/settings/versions", Roles: ownerOnly},
 	}},
 	{ID: "entity-models", Label: "Entity models", Icon: "content-model", Desc: "The kinds of content your site holds and how it is grouped.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "types", Label: "Entity types", Final: "/settings/types", Roles: ownerOnly},

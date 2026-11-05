@@ -299,8 +299,8 @@ func (r *PostgresEntityRepository) ImportUpsert(ctx context.Context, rec *Import
 		}
 		changing := !jsonRawEqual(rec.Attributes, cur)
 		if changing {
-			if _, err = tx.Exec(ctx, `INSERT INTO hatamoto_entity_versions (entity_id, version, attributes, changed_by, change_summary)
-				SELECT id, version, attributes, $2, 'import re-run' FROM hatamoto_entities WHERE id = $1`, *rec.ID, rec.ActorID); err != nil {
+			if _, err = tx.Exec(ctx, `INSERT INTO hatamoto_entity_versions (entity_id, version, attributes, changed_by, change_summary, live_at)
+				SELECT id, version, attributes, $2, 'import re-run', `+liveAtExprFor("status::text")+` FROM hatamoto_entities WHERE id = $1`, *rec.ID, rec.ActorID); err != nil {
 				return nil, false, fmt.Errorf("failed to create version snapshot: %w", err)
 			}
 		}

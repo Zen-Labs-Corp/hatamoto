@@ -26,6 +26,9 @@ type versionsData struct {
 		Options2 []ui.Option
 	}
 	Count int
+	// Rule states what the daily prune keeps; SettingsHref is set for owners,
+	// who can change it.
+	Rule, SettingsHref string
 }
 
 const versionLimit = 100
@@ -43,6 +46,12 @@ func (a *Admin) handleVersions(w http.ResponseWriter, r *http.Request) {
 	}
 	loc := a.siteLocation(r.Context())
 	id := e.ID.String()
+	keep := entity.VersionKeepDefault
+	if a.deps.VersionRetention != nil {
+		if n, err := a.deps.VersionRetention.Keep(r.Context()); err == nil {
+			keep = n
+		}
+	}
 	names := map[uuid.UUID]string{}
 	who := func(u *uuid.UUID) string {
 		if u == nil {
@@ -64,7 +73,11 @@ func (a *Admin) handleVersions(w http.ResponseWriter, r *http.Request) {
 	if usesVisualEditor(sc, e) {
 		back = ui.Button{Label: "Back to editor", Href: a.adminPath + "/entities/" + id + "/edit"}
 	}
-	d := versionsData{Name: e.Name, ID: id, Tabs: a.entityTabsFor(r.Context(), e, "versions"), Count: len(vs), Actions: []ui.Button{back}}
+	d := versionsData{Name: e.Name, ID: id, Tabs: a.entityTabsFor(r.Context(), e, "versions"), Count: len(vs), Actions: []ui.Button{back},
+		Rule: fmt.Sprintf("Keeps the last %d versions of each item, and every version that was live in the last 30 days. Older ones are removed daily.", keep)}
+	if u := userFrom(r.Context()); u != nil && u.Role == "owner" && a.deps.VersionRetention != nil {
+		d.SettingsHref = a.adminPath + versionRetentionPath
+	}
 	t := ui.Table{
 		ID: "versions", Caption: "Versions of " + e.Name, BaseURL: a.adminPath + "/entities/" + id + "/versions", CSRF: csrfToken(r.Context()),
 		Columns: []ui.Col{{Key: "version", Label: "Version"}, {Key: "saved", Label: "Saved"}, {Key: "by", Label: "By"}, {Key: "summary", Label: "Summary"}},
@@ -84,8 +97,12 @@ func (a *Admin) handleVersions(w http.ResponseWriter, r *http.Request) {
 		if v.Version == 1 {
 			summary = "Created" // the snapshot of the content as first saved
 		}
+		tag := &ui.Badge{Label: "Earlier", Kind: "neutral"}
+		if v.LiveAt != nil && time.Since(*v.LiveAt) < entity.VersionLiveWindow {
+			tag = &ui.Badge{Label: "Live", Kind: "success"}
+		}
 		t.Rows = append(t.Rows, ui.Row{ID: "v" + vn, Label: "version " + vn, Cells: []ui.Cell{
-			{Text: "v" + vn, Tag: &ui.Badge{Label: "Earlier", Kind: "neutral"}}, {Text: fmtDateTime(v.CreatedAt.In(loc))}, {Text: who(v.ChangedBy)}, {Text: summary},
+			{Text: "v" + vn, Tag: tag}, {Text: fmtDateTime(v.CreatedAt.In(loc))}, {Text: who(v.ChangedBy)}, {Text: summary},
 		}, Actions: []ui.Action{
 			{Label: "View", Href: a.adminPath + "/entities/" + id + "/versions/" + vn},
 			{Label: "Compare with current", Href: a.adminPath + "/entities/" + id + "/versions/compare?from=" + vn + "&to=0"},

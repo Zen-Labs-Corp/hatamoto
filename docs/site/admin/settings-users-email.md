@@ -61,6 +61,10 @@ The library is at `<admin>/settings/media`, with Grid and List views, a search b
 | Detail page | `<admin>/media/{id}` edits the alt text and caption, offers **Download** and **Copy address**, and deletes the file after a confirmation page. The page builder and the blog editor both warn about images without alt text. |
 | Picker | Image fields, the social image and the editors open `<admin>/media/picker` as a dialog, with search and an upload option. |
 
+## Versions
+
+`<admin>/settings/versions` (owners only) sets how many earlier versions of each item are kept. The value is a whole number from 10 to 500 and the default is 50. A daily job removes older versions above the limit, dropping automatic autosave versions before explicit ones. A version that was live (its item was published when the version was saved) in the last 30 days is always kept and does not count against the limit. Saving takes effect on the next daily run, without a restart. A change is recorded in the audit log as `entity-versions.limit` with the old and new value, and a value outside the range is refused with a field error. The versions panel of each item shows the rule.
+
 ## Forms and submissions
 
 Forms are at `<admin>/settings/forms`, and the messages visitors send are at `<admin>/settings/submissions`.
