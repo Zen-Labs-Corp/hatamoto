@@ -75,7 +75,13 @@ func (k unpublishSink) Unpublish(ctx context.Context, id uuid.UUID) error {
 			switch {
 			case err == nil:
 				if err := s.entityService.UnpublishStore().SetRedirect(ctx, id, rd.ID); err != nil {
+					// Without the owner record republishing could not remove
+					// the redirect, and it would hide the live page: undo it.
 					s.logger.Warn("record unpublish redirect", slog.String("entity_id", id.String()), slog.String("error", err.Error()))
+					if err := s.redirectService.DeleteRedirect(ctx, rd.ID); err != nil {
+						s.logger.Warn("undo unpublish redirect", slog.String("entity_id", id.String()), slog.String("error", err.Error()))
+					}
+					detail["redirect_skipped"] = "the redirect could not be recorded"
 				}
 			case errors.Is(err, redirect.ErrDuplicateSourcePath):
 				// An owner's rule already owns this path: leave it alone.
@@ -90,9 +96,10 @@ func (k unpublishSink) Unpublish(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// retireUnpublishRedirect switches off the redirect a scheduled unpublish left
-// behind for id, now that the entity is published again. The redirect stays
-// as a record (inactive), so it is neither lost nor served.
+// retireUnpublishRedirect removes the redirect a scheduled unpublish left
+// behind for id, now that the entity is published again. It is deleted, not
+// deactivated: an inactive row would keep the unique source path and block the
+// redirect of the page's next scheduled unpublish.
 func (s *Server) retireUnpublishRedirect(ctx context.Context, id uuid.UUID) {
 	st := s.entityService.UnpublishStore()
 	if st == nil || s.redirectService == nil {
@@ -106,8 +113,11 @@ func (s *Server) retireUnpublishRedirect(ctx context.Context, id uuid.UUID) {
 	if rid == nil {
 		return
 	}
-	off := false
-	if _, err := s.redirectService.UpdateRedirect(ctx, *rid, &redirect.UpdateRedirectInput{IsActive: &off}); err != nil {
-		s.logger.Warn("deactivate unpublish redirect", slog.String("entity_id", id.String()), slog.String("error", err.Error()))
+	if err := s.redirectService.DeleteRedirect(ctx, *rid); err != nil && !errors.Is(err, redirect.ErrRedirectNotFound) {
+		s.logger.Warn("delete unpublish redirect", slog.String("entity_id", id.String()), slog.String("error", err.Error()))
+		// Keep the record so the next publish retries.
+		if err := st.SetRedirect(ctx, id, *rid); err != nil {
+			s.logger.Warn("restore unpublish redirect record", slog.String("entity_id", id.String()), slog.String("error", err.Error()))
+		}
 	}
 }

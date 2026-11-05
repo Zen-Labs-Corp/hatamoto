@@ -141,12 +141,32 @@ func TestScheduledUnpublishWithRedirect(t *testing.T) {
 		t.Errorf("second tick handled %d", n)
 	}
 
-	// Publishing again switches the redirect off.
+	// Publishing again removes the redirect.
 	if _, err := r.srv.entityService.UpdateEntityStatus(r.ctx, e.ID, nil, entity.StatusPublished); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, active, found := r.redirectRow("/unpub-a"); !found || active {
-		t.Errorf("after republish: found=%v active=%v, want inactive", found, active)
+	if _, _, _, found := r.redirectRow("/unpub-a"); found {
+		t.Error("redirect still present after republish")
+	}
+}
+
+// The same page unpublished a second time (a seasonal page) gets its
+// redirect again: the first cycle's redirect must not block the path.
+func TestSecondUnpublishCycleGetsItsRedirect(t *testing.T) {
+	r := newUnpublishRig(t)
+	e := r.published("unpub-f")
+	for cycle, target := range []string{"/first", "/second"} {
+		r.due(e.ID, target)
+		if n := r.run(); n != 1 {
+			t.Fatalf("cycle %d: handled %d", cycle, n)
+		}
+		got, code, active, found := r.redirectRow("/unpub-f")
+		if !found || got != target || code != 302 || !active {
+			t.Fatalf("cycle %d: redirect = %q %d active=%v found=%v", cycle, got, code, active, found)
+		}
+		if _, err := r.srv.entityService.UpdateEntityStatus(r.ctx, e.ID, nil, entity.StatusPublished); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
