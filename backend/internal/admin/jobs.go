@@ -120,8 +120,8 @@ func (a *Admin) jobsTable(r *http.Request, v JobsView) ui.Table {
 		}
 		if !j.Next.IsZero() && !j.Disabled {
 			next = jobClock(j.Next)
-			if j.NextApprox { // jitter: seconds would claim a precision it does not have
-				next = "About " + j.Next.UTC().Format("2\u00a0Jan\u00a02006 15:04")
+			if j.NextApprox {
+				next = "About " + next
 			}
 		}
 		row := ui.Row{ID: j.ID, Label: j.Name, Cells: []ui.Cell{
