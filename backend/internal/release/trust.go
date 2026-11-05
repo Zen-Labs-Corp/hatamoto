@@ -2,12 +2,12 @@ package release
 
 import (
 	"embed"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"strings"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 )
 
@@ -16,7 +16,7 @@ var keyFS embed.FS
 
 func parseKey(b []byte) (packages.Key, error) {
 	var k packages.Key
-	if err := json.Unmarshal(b, &k); err != nil {
+	if err := jsonx.Unmarshal(b, &k); err != nil {
 		return k, err
 	}
 	if k.Private != "" {
