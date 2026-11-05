@@ -104,8 +104,8 @@ func jobResult(row JobRow) ui.Cell {
 func (a *Admin) jobsTable(r *http.Request, v JobsView) ui.Table {
 	t := ui.Table{
 		ID: "jobs", Caption: "Scheduled jobs", BaseURL: a.adminPath + jobsPath, CSRF: csrfToken(r.Context()),
-		Columns: []ui.Col{{Key: "job", Label: "Job", Role: "title"}, {Key: "schedule", Label: "Schedule"}, {Key: "last", Label: "Last run"},
-			{Key: "took", Label: "Took"}, {Key: "result", Label: "Result"}, {Key: "next", Label: "Next run"}},
+		Columns: []ui.Col{{Key: "job", Label: "Job", Role: "title"}, {Key: "schedule", Label: "Schedule", Role: "plain"}, {Key: "last", Label: "Last run"},
+			{Key: "took", Label: "Took", Role: "plain"}, {Key: "result", Label: "Result"}, {Key: "next", Label: "Next run"}},
 		Empty: ui.Empty{Icon: "refresh", Title: "No jobs", Body: "Scheduled jobs appear here."},
 	}
 	for _, j := range v.Rows {
@@ -120,7 +120,7 @@ func (a *Admin) jobsTable(r *http.Request, v JobsView) ui.Table {
 			}
 		}
 		row := ui.Row{ID: j.ID, Label: j.Name, Cells: []ui.Cell{
-			{Text: j.Name, Sub: j.ID}, {Text: j.Schedule}, {Text: last, Nowrap: true}, {Text: took, Nowrap: true}, jobResult(j), {Text: next, Nowrap: true},
+			{Text: j.Name, Sub: j.ID}, {Text: j.Schedule}, {Text: last, Nowrap: true}, {Text: took}, jobResult(j), {Text: next, Nowrap: true},
 		}}
 		if j.CanRun {
 			row.Actions = []ui.Action{{Label: "Run now", Post: a.adminPath + jobsPath + "/" + j.ID + "/run", Button: true, AriaLabel: "Run " + j.Name + " now"}}
