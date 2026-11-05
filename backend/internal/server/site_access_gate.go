@@ -166,10 +166,10 @@ func (g *siteAccessGate) machinePath(p string) bool {
 	return feedPath(p) || g.publicAPI(p) || p == "/api" || strings.HasPrefix(p, "/api/")
 }
 
-// feedPath reports the sitemaps, feeds and llms.txt at the site root.
+// feedPath reports the sitemaps, feeds, llms.txt and the ads.txt files at the site root.
 func feedPath(p string) bool {
 	switch p {
-	case "/sitemap.xml", "/sitemap.xsl", "/feed.xml", "/atom.xml", "/llms.txt":
+	case "/sitemap.xml", "/sitemap.xsl", "/feed.xml", "/atom.xml", "/llms.txt", "/ads.txt", "/app-ads.txt":
 		return true
 	}
 	return strings.HasPrefix(p, "/sitemap-")

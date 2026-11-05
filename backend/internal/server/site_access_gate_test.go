@@ -118,7 +118,7 @@ func TestSiteAccessGateModes(t *testing.T) {
 
 func TestSiteAccessGateMachineFilesAndRobots(t *testing.T) {
 	x := newGateFixture(t)
-	paths := []string{"/sitemap.xml", "/sitemap-posts.xml", "/sitemap.xsl", "/feed.xml", "/atom.xml", "/llms.txt"}
+	paths := []string{"/sitemap.xml", "/sitemap-posts.xml", "/sitemap.xsl", "/feed.xml", "/atom.xml", "/llms.txt", "/ads.txt", "/app-ads.txt"}
 	for mode, want := range map[siteaccess.Mode]int{siteaccess.ModeComingSoon: 404, siteaccess.ModePassword: 404, siteaccess.ModeMaintenance: 503} {
 		x.set.Mode = mode
 		for _, p := range paths {

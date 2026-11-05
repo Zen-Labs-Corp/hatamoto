@@ -2,11 +2,11 @@
 
 ## Unreleased: ads.txt and app-ads.txt
 
-Settings > SEO has a new ads.txt tab (owners only). Write your `ads.txt` and `app-ads.txt` there and the site serves them at `/ads.txt` and `/app-ads.txt` as plain text. Every line is checked on save and a bad one is named ("Line 2: ..."). An empty file answers a plain 404. The AdSense card in Settings > Tracking links to the tab and adds the AdSense line for the saved id.
+Settings > SEO has a new ads.txt tab (owners only). Write your `ads.txt` and `app-ads.txt` there and the site serves them at `/ads.txt` and `/app-ads.txt` as plain text. Every line is checked on save and a bad one is named ("Line 2: ..."). An empty file answers a plain 404, unless a Settings > Redirects rule has `/ads.txt` as its source: then the redirect applies. A saved file takes precedence over such a rule. The AdSense card in Settings > Tracking links to the tab and adds the AdSense line for the saved id.
 
 - **Caching.** Served with `Cache-Control: public, max-age=60, s-maxage=60`.
-- **Site access.** Like the sitemap, both files are refused while coming soon, maintenance or password mode is on.
-- **Migration.** None. Rollback floor: unchanged. An older binary ignores the two new settings keys and `/ads.txt` returns the themed 404.
+- **Site access.** Like the sitemap, both files answer a plain 404 (503 with `Retry-After` in maintenance mode) while coming soon, maintenance or password mode is on, never the themed page.
+- **Migration.** None. Rollback floor: unchanged. An older binary ignores the two new settings keys and `/ads.txt` returns the themed 404; an SEO save on the older binary drops them.
 
 ## Unreleased: Off-site backups
 
