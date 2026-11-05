@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 
 	"hatamoto.dev/core/internal/render"
@@ -22,7 +22,7 @@ func TestApplyAttributeMetaSocialText(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var m render.PageMeta
-			applyAttributeMeta(&m, json.RawMessage(tc.attrs), "https://site.test/")
+			applyAttributeMeta(&m, jsontext.Value(tc.attrs), "https://site.test/")
 			if m.OGTitle != tc.wantTitle || m.OGDescription != tc.wantDesc {
 				t.Fatalf("got %q / %q, want %q / %q", m.OGTitle, m.OGDescription, tc.wantTitle, tc.wantDesc)
 			}

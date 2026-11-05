@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"strings"
 	"testing"
@@ -17,7 +17,7 @@ import (
 func relEntity(slug string, status entity.EntityStatus, attrs string) *entity.Entity {
 	pub := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	return &entity.Entity{ID: uuid.New(), Name: "Name " + slug, Slug: slug, Status: status,
-		Attributes: json.RawMessage(attrs), PublishedAt: &pub}
+		Attributes: jsontext.Value(attrs), PublishedAt: &pub}
 }
 
 func TestRelatedItems(t *testing.T) {

@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"net"
@@ -16,6 +15,7 @@ import (
 
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
 )
@@ -59,7 +59,7 @@ func getSmoke(t *testing.T, addr, token string) (*http.Response, smokeResult) {
 	defer resp.Body.Close()
 	var res smokeResult
 	if resp.StatusCode == http.StatusOK {
-		if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		if err := jsonx.UnmarshalRead(resp.Body, &res); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"io"
 	"log/slog"
@@ -31,7 +31,7 @@ const (
 )
 
 func docRoute(attrs string) *routeResult {
-	return &routeResult{Page: &PublicPageResponse{Entity: &entity.Entity{ID: uuid.New(), Name: "P", Attributes: json.RawMessage(attrs)}}}
+	return &routeResult{Page: &PublicPageResponse{Entity: &entity.Entity{ID: uuid.New(), Name: "P", Attributes: jsontext.Value(attrs)}}}
 }
 
 func TestPageViewPrefersBuilderDoc(t *testing.T) {
@@ -72,7 +72,7 @@ func TestPageViewInvalidDocRendersEmpty(t *testing.T) {
 }
 
 func TestAttrsForViewDropsDoc(t *testing.T) {
-	m := attrsForView(json.RawMessage(`{"page_doc":{},"page_sections":[],"k":1}`))
+	m := attrsForView(jsontext.Value(`{"page_doc":{},"page_sections":[],"k":1}`))
 	if len(m) != 1 || m["k"] == nil {
 		t.Errorf("attrs = %v", m)
 	}
@@ -93,7 +93,7 @@ func TestPreviewAttributesViewUsesDoc(t *testing.T) {
 		}
 		return render.SiteView{}, nil, nil
 	}, baseURL: func(*http.Request) string { return "" }}
-	req := &previewRequest{Attributes: json.RawMessage(fmt.Sprintf(builderOnlyAttrs, uuid.New().String())), Path: "/p"}
+	req := &previewRequest{Attributes: jsontext.Value(fmt.Sprintf(builderOnlyAttrs, uuid.New().String())), Path: "/p"}
 	v, err := h.attributesView(httptest.NewRequest("POST", "/", nil), req)
 	if err != nil || v.Doc == nil || len(v.Sections) != 0 {
 		t.Fatalf("v=%+v err=%v", v, err)

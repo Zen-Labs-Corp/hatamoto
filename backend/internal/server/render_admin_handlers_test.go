@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -128,7 +129,7 @@ func TestRenderThemeInfo(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.handleRenderTheme(w, httptest.NewRequest(http.MethodGet, "/api/v1/render/theme", nil))
 	var got render.ThemeInfo
-	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil || got.Name == "" || len(got.Sections) == 0 || got.Version == "" {
+	if err := jsonx.Unmarshal(w.Body.Bytes(), &got); err != nil || got.Name == "" || len(got.Sections) == 0 || got.Version == "" {
 		t.Fatalf("bad theme info: %v %s", err, w.Body)
 	}
 }
@@ -149,8 +150,8 @@ const storedAttrs = `{"meta_title":"Stored title","meta_description":"stored des
 func newRouteWorld() *routeWorld {
 	schema := &entity.EntitySchema{Slug: "page"}
 	return &routeWorld{
-		own:   &entity.Entity{ID: uuid.New(), Name: "Own", Slug: "own", Schema: schema, Attributes: json.RawMessage(storedAttrs)},
-		other: &entity.Entity{ID: uuid.New(), Name: "Other", Slug: "other", Schema: schema, Attributes: json.RawMessage(`{"meta_title":"Foreign secret","page_sections":[{"id":"x","type":"html","sort_order":1,"content":{"body":"<p>FOREIGN-DATA</p>"}}]}`)},
+		own:   &entity.Entity{ID: uuid.New(), Name: "Own", Slug: "own", Schema: schema, Attributes: jsontext.Value(storedAttrs)},
+		other: &entity.Entity{ID: uuid.New(), Name: "Other", Slug: "other", Schema: schema, Attributes: jsontext.Value(`{"meta_title":"Foreign secret","page_sections":[{"id":"x","type":"html","sort_order":1,"content":{"body":"<p>FOREIGN-DATA</p>"}}]}`)},
 	}
 }
 
@@ -170,7 +171,7 @@ func (w *routeWorld) resolve(ctx context.Context, path string, _ *http.Request) 
 		Title string `json:"meta_title"`
 		Desc  string `json:"meta_description"`
 	}
-	_ = json.Unmarshal(ent.Attributes, &a)
+	_ = jsonx.Unmarshal(ent.Attributes, &a)
 	jsonLD, _ := entity.GenerateJSONLD(&ent, "https://x.io")
 	canonical := "https://x.io" + path
 	return &routeResult{
@@ -324,7 +325,7 @@ func TestRenderPreviewRouteRequestIsAnonymous(t *testing.T) {
 	r.Header.Set("Cookie", "sid=abc")
 	r.Header.Set("Authorization", "Bearer k")
 	r.Header.Set("Accept", "application/ld+json")
-	pr := previewRouteRequest(r, "/own", uuid.New(), json.RawMessage(`{}`))
+	pr := previewRouteRequest(r, "/own", uuid.New(), jsontext.Value(`{}`))
 	if pr.Method != http.MethodGet || pr.URL.Path != "/own" || pr.URL.RawQuery != "" ||
 		pr.Header.Get("Cookie") != "" || pr.Header.Get("Authorization") != "" || pr.Header.Get("Accept") != "" {
 		t.Errorf("not an anonymous GET: %+v %v", pr.URL, pr.Header)

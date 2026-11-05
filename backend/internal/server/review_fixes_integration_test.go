@@ -4,7 +4,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"strings"
 	"testing"
@@ -25,13 +25,13 @@ func (r *nestedRig) update(id uuid.UUID, in entity.UpdateEntityInput) error {
 
 // settings replaces a rig schema's settings through the service.
 func (r *nestedRig) setSettings(schema uuid.UUID, settings string) error {
-	raw := json.RawMessage(settings)
+	raw := jsontext.Value(settings)
 	_, err := r.svc.UpdateSchema(r.ctx, schema, &entity.UpdateSchemaInput{Settings: &raw})
 	return err
 }
 
 func (r *nestedRig) note(slug string, parent *entity.Entity) (*entity.Entity, error) {
-	in := &entity.CreateEntityInput{SchemaID: r.noteSch, Name: slug, Slug: slug, Attributes: json.RawMessage(`{}`)}
+	in := &entity.CreateEntityInput{SchemaID: r.noteSch, Name: slug, Slug: slug, Attributes: jsontext.Value(`{}`)}
 	if parent != nil {
 		in.ParentID = &parent.ID
 	}
@@ -75,7 +75,7 @@ func TestSlugScopeFollowsPattern_Integration(t *testing.T) {
 	a, b := r.page("a", nil), r.page("b", nil)
 	r.page("dup", a)
 	r.page("dup", b)
-	_, err = r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: "x", Slug: "dup", ParentID: &a.ID, Attributes: json.RawMessage(`{}`)})
+	_, err = r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: "x", Slug: "dup", ParentID: &a.ID, Attributes: jsontext.Value(`{}`)})
 	if !errors.Is(err, entity.ErrSlugAlreadyExists) || !strings.Contains(err.Error(), "same parent") {
 		t.Errorf("sibling duplicate: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestSlugScopeFollowsPattern_Integration(t *testing.T) {
 	if err := r.setSettings(r.pageSch, `{"url_pattern":"/pages/{slug}"}`); err != nil {
 		t.Fatalf("pattern change without conflicts: %v", err)
 	}
-	_, err = r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: "x", Slug: "dup", ParentID: &b.ID, Attributes: json.RawMessage(`{}`)})
+	_, err = r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: "x", Slug: "dup", ParentID: &b.ID, Attributes: jsontext.Value(`{}`)})
 	if !errors.Is(err, entity.ErrSlugAlreadyExists) || !strings.Contains(err.Error(), "across the whole schema") {
 		t.Errorf("flat rule after the switch: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestSlugScopeFollowsPattern_Integration(t *testing.T) {
 func TestNonASCIIBylines_Integration(t *testing.T) {
 	r := newNestedRig(t)
 	for _, name := range []string{"李明", "Ελένη"} {
-		attrs := json.RawMessage(`{"author":"` + name + `"}`)
+		attrs := jsontext.Value(`{"author":"` + name + `"}`)
 		e, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.noteSch, Name: "n-" + name, Slug: "byline-" + uuid.NewString()[:8], Attributes: attrs})
 		if err != nil {
 			t.Fatalf("create with byline %q: %v", name, err)
@@ -127,7 +127,7 @@ func TestNonASCIIBylines_Integration(t *testing.T) {
 		}
 		res, err := r.svc.Import(r.ctx, nil, entity.ImportBatch{Source: "it", Items: []entity.ImportItem{{
 			Key: "byline-" + name, SchemaSlug: "note", Name: "I", Slug: "imp-" + uuid.NewString()[:8], Status: entity.StatusPublished,
-			Attributes: json.RawMessage(`{}`), AuthorName: name,
+			Attributes: jsontext.Value(`{}`), AuthorName: name,
 		}}})
 		if err != nil || res.Failed != 0 {
 			t.Fatalf("import with author %q: %v %+v", name, err, res)
@@ -176,7 +176,7 @@ func TestAutoRedirectYieldsToNewPage_Integration(t *testing.T) {
 	if err := r.update(old.ID, entity.UpdateEntityInput{Slug: ptr("older")}); err != nil {
 		t.Fatal(err)
 	}
-	fresh, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: "old", Slug: "old", Attributes: json.RawMessage(`{}`)})
+	fresh, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: "old", Slug: "old", Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func (noopPublished) EntityPublished(context.Context, uuid.UUID, string, string,
 // Renaming a draft parent re-paths its published children, with redirects.
 func TestDraftParentRenameRedirects_Integration(t *testing.T) {
 	r := newNestedRig(t)
-	au, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: "north", Slug: "north", Attributes: json.RawMessage(`{}`)})
+	au, err := r.svc.CreateEntity(r.ctx, nil, &entity.CreateEntityInput{SchemaID: r.pageSch, Name: "north", Slug: "north", Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		t.Fatal(err)
 	}

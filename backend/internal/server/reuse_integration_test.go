@@ -4,7 +4,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -25,6 +25,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/sectiontemplate"
 	"hatamoto.dev/core/internal/user"
 )
@@ -139,7 +140,7 @@ func (r *reuseIT) exec(q string, args ...any) {
 // mk creates an entity through the service (so the real rules apply) and removes it afterwards.
 func (r *reuseIT) mk(sc *entity.EntitySchema, name string, attrs any) *entity.Entity {
 	r.t.Helper()
-	raw, err := json.Marshal(attrs)
+	raw, err := jsonx.Marshal(attrs)
 	if err != nil {
 		r.t.Fatal(err)
 	}
@@ -169,10 +170,10 @@ func (r *reuseIT) setDoc(e *entity.Entity, doc any) {
 		r.t.Fatal(err)
 	}
 	attrs := map[string]any{}
-	_ = json.Unmarshal(cur.Attributes, &attrs)
+	_ = jsonx.Unmarshal(cur.Attributes, &attrs)
 	attrs["page_doc"] = doc
-	raw, _ := json.Marshal(attrs)
-	rm := json.RawMessage(raw)
+	raw, _ := jsonx.Marshal(attrs)
+	rm := jsontext.Value(raw)
 	if _, err := r.srv.entityService.UpdateEntity(r.ctx, e.ID, &r.owner.ID, &entity.UpdateEntityInput{Attributes: &rm}); err != nil {
 		r.t.Fatalf("update %s: %v", e.Name, err)
 	}
@@ -188,7 +189,7 @@ func (r *reuseIT) do(role, method, path string, body any) *httptest.ResponseReco
 		rd, ct = strings.NewReader(b.Encode()), "application/x-www-form-urlencoded"
 	case nil:
 	default:
-		raw, err := json.Marshal(b)
+		raw, err := jsonx.Marshal(b)
 		if err != nil {
 			r.t.Fatal(err)
 		}
@@ -237,7 +238,7 @@ func (r *reuseIT) cached(path string) bool {
 // canvas renders the page as the builder canvas does, from the doc it holds.
 func (r *reuseIT) canvas(e *entity.Entity, doc any) string {
 	r.t.Helper()
-	body, _ := json.Marshal(map[string]any{"entity_id": e.ID.String(), "schema": "page", "canvas": true, "path": "/" + e.Slug,
+	body, _ := jsonx.Marshal(map[string]any{"entity_id": e.ID.String(), "schema": "page", "canvas": true, "path": "/" + e.Slug,
 		"attributes": map[string]any{"page_doc": doc}})
 	req := httptest.NewRequest("POST", "/api/v1/render/preview", strings.NewReader(string(body)))
 	rec := httptest.NewRecorder()
@@ -308,8 +309,10 @@ func TestReuseBlockSaveReachesCachedPage_Integration(t *testing.T) {
 
 	// A save that would loop is refused and changes nothing.
 	loop := r.do("owner", "POST", "/admin/entities/"+block.ID.String()+"/builder/save", map[string]any{"version": 2, "doc": refDoc(block.ID), "op": "save"})
-	var out struct{ Code string }
-	_ = json.Unmarshal(loop.Body.Bytes(), &out)
+	var out struct {
+		Code string `json:"code"`
+	}
+	_ = jsonx.Unmarshal(loop.Body.Bytes(), &out)
 	if loop.Code != 422 || out.Code != "ref_cycle" {
 		t.Fatalf("self reference: %d %s", loop.Code, loop.Body.String())
 	}
@@ -328,7 +331,7 @@ func TestReuseBlocksAreNeverPublic_Integration(t *testing.T) {
 		if sc == r.partSc {
 			attrs["slot"] = "header"
 		}
-		raw, _ := json.Marshal(attrs)
+		raw, _ := jsonx.Marshal(attrs)
 		slug := "b6-secret-" + sc.Slug + "-" + r.sfx
 		e, err := r.srv.entityService.CreateEntity(r.ctx, &r.owner.ID, &entity.CreateEntityInput{SchemaID: sc.ID, Name: "Secret " + sc.Slug, Slug: slug, Attributes: raw, Status: &published})
 		if err != nil {
@@ -399,7 +402,9 @@ func TestReuseStoredCyclesRenderAndFinish_Integration(t *testing.T) {
 
 type usageOut struct {
 	Users []struct {
-		ID, Name, Type string
+		ID   string `json:"id"`
+		Name string `json:"name"`
+		Type string `json:"type"`
 	} `json:"users"`
 	Capped bool `json:"capped"`
 }
@@ -411,7 +416,7 @@ func (r *reuseIT) usage(block *entity.Entity) map[string]bool {
 		r.t.Fatalf("usage: %d %s", rec.Code, rec.Body.String())
 	}
 	var u usageOut
-	if err := json.Unmarshal(rec.Body.Bytes(), &u); err != nil {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &u); err != nil {
 		r.t.Fatal(err)
 	}
 	set := map[string]bool{}
@@ -456,8 +461,10 @@ func TestReuseUsageAndDetach_Integration(t *testing.T) {
 	before := r.get("/" + p1.Slug).Body.String()
 	fetch := func() []any {
 		rec := r.do("editor", "GET", "/admin/builder/blocks/"+block.ID.String(), nil)
-		var out struct{ Nodes []any }
-		if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &out) != nil || len(out.Nodes) != 1 {
+		var out struct {
+			Nodes []any `json:"nodes"`
+		}
+		if rec.Code != 200 || jsonx.Unmarshal(rec.Body.Bytes(), &out) != nil || len(out.Nodes) != 1 {
 			t.Fatalf("block nodes: %d %s", rec.Code, rec.Body.String())
 		}
 		return out.Nodes
@@ -500,8 +507,10 @@ func TestReuseTemplates_Integration(t *testing.T) {
 		map[string]any{"id": "t1", "t": "text", "p": map[string]any{"text": "One"}},
 		map[string]any{"id": "t2", "t": "text", "p": map[string]any{"text": "Two"}}}}}}
 	rec := r.do("editor", "POST", "/admin/entities/"+page.ID.String()+"/builder/template", map[string]any{"name": "Two texts B6 " + r.sfx, "nodeId": "box", "doc": doc})
-	var saved struct{ ID string }
-	if rec.Code != 201 || json.Unmarshal(rec.Body.Bytes(), &saved) != nil || saved.ID == "" {
+	var saved struct {
+		ID string `json:"id"`
+	}
+	if rec.Code != 201 || jsonx.Unmarshal(rec.Body.Bytes(), &saved) != nil || saved.ID == "" {
 		t.Fatalf("save template: %d %s", rec.Code, rec.Body.String())
 	}
 	tid := saved.ID
@@ -515,13 +524,15 @@ func TestReuseTemplates_Integration(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		rec := r.do("editor", "GET", "/admin/builder/templates/"+tid, nil)
 		var out struct {
-			Kind  string
+			Kind  string `json:"kind"`
 			Nodes []struct {
-				ID string
-				C  []struct{ ID string }
-			}
+				ID string `json:"id"`
+				C  []struct {
+					ID string `json:"id"`
+				} `json:"c"`
+			} `json:"nodes"`
 		}
-		if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &out) != nil || out.Kind != "tree" || len(out.Nodes) != 1 || len(out.Nodes[0].C) != 2 {
+		if rec.Code != 200 || jsonx.Unmarshal(rec.Body.Bytes(), &out) != nil || out.Kind != "tree" || len(out.Nodes) != 1 || len(out.Nodes[0].C) != 2 {
 			t.Fatalf("fetch: %d %s", rec.Code, rec.Body.String())
 		}
 		ids[out.Nodes[0].ID]++
@@ -534,7 +545,7 @@ func TestReuseTemplates_Integration(t *testing.T) {
 	}
 
 	// An older section template of a type the theme has.
-	legacy, err := r.srv.sectionTemplateService.Create(r.ctx, &r.owner.ID, &sectiontemplate.CreateInput{Name: "Old hero B6 " + r.sfx, SectionType: "hero", Content: json.RawMessage(`{"heading":"Hello"}`)})
+	legacy, err := r.srv.sectionTemplateService.Create(r.ctx, &r.owner.ID, &sectiontemplate.CreateInput{Name: "Old hero B6 " + r.sfx, SectionType: "hero", Content: jsontext.Value(`{"heading":"Hello"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -542,13 +553,13 @@ func TestReuseTemplates_Integration(t *testing.T) {
 	t.Cleanup(func() { r.exec(`DELETE FROM hatamoto_section_templates WHERE id=$1`, lid) })
 	rec = r.do("editor", "GET", "/admin/builder/templates/"+lid.String(), nil)
 	var old struct {
-		Kind  string
+		Kind  string `json:"kind"`
 		Nodes []struct {
-			T string
-			P map[string]any
-		}
+			T string         `json:"t"`
+			P map[string]any `json:"p"`
+		} `json:"nodes"`
 	}
-	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &old) != nil || old.Kind != "section" || len(old.Nodes) != 1 || old.Nodes[0].T != "component" || old.Nodes[0].P["type"] != "hero" {
+	if rec.Code != 200 || jsonx.Unmarshal(rec.Body.Bytes(), &old) != nil || old.Kind != "section" || len(old.Nodes) != 1 || old.Nodes[0].T != "component" || old.Nodes[0].P["type"] != "hero" {
 		t.Fatalf("legacy insert: %d %s", rec.Code, rec.Body.String())
 	}
 }

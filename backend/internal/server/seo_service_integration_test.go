@@ -4,7 +4,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"html"
 	"regexp"
 	"strings"
@@ -14,6 +14,7 @@ import (
 
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/seosvc"
 )
 
@@ -55,9 +56,9 @@ func TestSEOServiceIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	actor := seosvc.Actor{Via: "api", KeyName: "ci", KeyID: uuid.NewString()}
-	patch := func(s string) map[string]json.RawMessage {
-		var m map[string]json.RawMessage
-		if err := json.Unmarshal([]byte(s), &m); err != nil {
+	patch := func(s string) map[string]jsontext.Value {
+		var m map[string]jsontext.Value
+		if err := jsonx.Unmarshal([]byte(s), &m); err != nil {
 			t.Fatal(err)
 		}
 		return m
@@ -89,16 +90,17 @@ func TestSEOServiceIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	var d struct {
-		Via, Key string
-		Sections []string
+		Via      string   `json:"via"`
+		Key      string   `json:"key"`
+		Sections []string `json:"sections"`
 	}
-	if err := json.Unmarshal([]byte(auditDetail), &d); err != nil || d.Via != "api" || d.Key != "ci" || len(d.Sections) != 4 {
+	if err := jsonx.Unmarshal([]byte(auditDetail), &d); err != nil || d.Via != "api" || d.Key != "ci" || len(d.Sections) != 4 {
 		t.Errorf("audit detail = %s (%v)", auditDetail, err)
 	}
 	if strings.Contains(auditDetail, key) {
 		t.Errorf("the IndexNow key is in the audit detail: %s", auditDetail)
 	}
-	if raw, _ := json.Marshal(doc); strings.Contains(string(raw), key) {
+	if raw, _ := jsonx.Marshal(doc); strings.Contains(string(raw), key) {
 		t.Error("the IndexNow key is in the response")
 	}
 
@@ -149,7 +151,7 @@ func TestSEOServicePreviewMatchesPublicHeadIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	actor := seosvc.Actor{Via: "api", KeyName: "ci"}
-	if _, err := svc.Update(ctx, actor, map[string]json.RawMessage{"types": json.RawMessage(`{"` + slug + `":{"title":"Guide: %title% %sep% %sitename%"}}`)}); err != nil {
+	if _, err := svc.Update(ctx, actor, map[string]jsontext.Value{"types": jsontext.Value(`{"` + slug + `":{"title":"Guide: %title% %sep% %sitename%"}}`)}); err != nil {
 		t.Fatal(err)
 	}
 

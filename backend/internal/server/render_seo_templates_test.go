@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"strings"
@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/seo"
 )
@@ -53,7 +54,7 @@ func seoPreviewHandlers(t *testing.T, stored string) *renderAdminHandlers {
 
 func seoPreviewBody(t *testing.T, attrs map[string]any) string {
 	t.Helper()
-	b, err := json.Marshal(map[string]any{"schema": "doc", "name": "Install", "attributes": attrs})
+	b, err := jsonx.Marshal(map[string]any{"schema": "doc", "name": "Install", "attributes": attrs})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +103,7 @@ func TestApplyAttributeMetaFlagsWrittenValues(t *testing.T) {
 		{`{}`, false, false, "Name"},
 	} {
 		m := render.PageMeta{Title: "Name"}
-		applyAttributeMeta(&m, json.RawMessage(tc.attrs), "https://site.test/")
+		applyAttributeMeta(&m, jsontext.Value(tc.attrs), "https://site.test/")
 		if m.TitleSet != tc.title || m.DescriptionSet != tc.desc || m.Title != tc.wantTitleSetting {
 			t.Errorf("%s: got %+v", tc.attrs, m)
 		}
