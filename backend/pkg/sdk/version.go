@@ -62,9 +62,16 @@ package sdk
 // the changeset.media.alt proposal, public content reads in the run fetch phase
 // (entities.get, entities.list, entities.translations, media.get, media.list),
 // and content types shipped as schemas/<name>.json in a plugin package.
-const Version = "0.18.0"
+//
+// 0.19.0 moves the SDK to the JSON v2 packages and raises its Go floor to 1.27.
+// `json.RawMessage` is an alias of `jsontext.Value` in Go 1.27, so the public
+// types that now name `jsontext.Value` stay source compatible. The bytes
+// exchanged with the host are unchanged. Plugin-author types that the guest
+// marshals (call arguments and results) follow v2 semantics: `omitempty` no
+// longer omits zero ints, bools and structs, use `omitzero`.
+const Version = "0.19.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
 // lists its predecessors here. 0.4 plugins were native Go.
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0"}
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0"}
