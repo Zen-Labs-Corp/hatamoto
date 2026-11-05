@@ -330,7 +330,7 @@ everything `go:embed`ed. English-only admin. Every screen is keyboard-usable and
 - **Do:** confirm the final set in section 3; update everything to latest; remove anything unused; `docs/DEPENDENCIES.md` (purpose, version, licence, update command for every Go module and vendored file); `govulncheck` and `make vendor-verify` in `make check`; licence scan (all Apache-2.0 compatible).
 
 #### v1-23a-admin-ia-design-and-feel (both, L)
-- **Do:** implement the approved admin mockups: four primary items plus a Settings secondary sidebar, one icon set, AA tokens, ⋯ row menus, three page widths, real page loads with cross-document View Transitions and Speculation Rules instead of `hx-boost`, 301s from every old admin URL, and a local browser harness (`scripts/admin-qa/`) for axe, keyboard, performance and screenshots.
+- **Do:** implement the approved admin mockups: four primary items plus a Settings secondary sidebar, one icon set, AA tokens, ⋯ row menus, three page widths, real page loads with cross-document View Transitions and Speculation Rules instead of `hx-boost` (the public site prefetches same-site page links on hover too, switchable per theme with `"prefetch": false`), 301s from every old admin URL, and a local browser harness (`scripts/admin-qa/`) for axe, keyboard, performance and screenshots.
 - **Done when:** every screen matches its mockup at 1440 and 390 in light and dark, axe reports 0 violations, CLS < 0.05, INP < 200 ms and navigation < 300 ms on every primary screen, and `docs/QA.md` records the results.
 
 #### v1-24-oss-release (both, L)
