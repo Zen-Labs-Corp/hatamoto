@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"sync"
@@ -42,6 +43,56 @@ func (b *adminBackups) List(context.Context) (admin.BackupsState, error) {
 		st.Rows = append(st.Rows, backupInfo(i))
 	}
 	return st, nil
+}
+
+var _ admin.RetentionService = (*adminBackups)(nil)
+
+// retentionKeys maps the admin's kind keys to the engine's kinds.
+var retentionKeys = map[string]backup.Kind{
+	admin.BackupManual:    backup.KindManual,
+	admin.BackupPreUpdate: backup.KindPreUpdate,
+	admin.BackupScheduled: backup.KindScheduled,
+}
+
+// Retention reports the counts the engine resolves and which env vars lock them.
+func (b *adminBackups) Retention() admin.RetentionView {
+	st := b.eng.Retention()
+	v := admin.RetentionView{Manual: st.Manual, PreUpdate: st.PreUpdate, Scheduled: st.Scheduled,
+		Locked: map[string]bool{}, EnvVar: map[string]string{}}
+	for key, kind := range retentionKeys {
+		if st.Locked[kind] {
+			v.Locked[key] = true
+			v.EnvVar[key] = st.EnvVar[kind]
+		}
+	}
+	return v
+}
+
+// SaveRetention writes the counts to retention.json, then prunes by the
+// resolved counts and returns how many backups it deleted per kind. An
+// env-locked kind is refused.
+func (b *adminBackups) SaveRetention(_ context.Context, set map[string]int) (map[string]int, error) {
+	locked := b.eng.Retention().Locked
+	kinds := make(map[backup.Kind]int, len(set))
+	for key, n := range set {
+		kind, ok := retentionKeys[key]
+		if !ok {
+			return nil, fmt.Errorf("unknown backup kind %q", key)
+		}
+		if locked[kind] {
+			return nil, fmt.Errorf("%s retention is set by an environment variable", key)
+		}
+		kinds[kind] = n
+	}
+	if err := b.eng.SaveRetention(kinds); err != nil {
+		return nil, err
+	}
+	pruned, err := b.eng.Prune(b.eng.Retention().Retention)
+	deleted := map[string]int{}
+	for key, kind := range retentionKeys {
+		deleted[key] = pruned[kind]
+	}
+	return deleted, err
 }
 
 // Start takes the lock and writes the running record before it returns (so a

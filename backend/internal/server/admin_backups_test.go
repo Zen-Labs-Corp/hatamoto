@@ -78,3 +78,80 @@ func TestAdminBackupsNotFoundAndList(t *testing.T) {
 		t.Fatalf("List with the database down = %+v, %v", st, err)
 	}
 }
+
+func seedOK(t *testing.T, data string, kind backup.Kind, n int) {
+	t.Helper()
+	st, err := backup.NewStore(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := range n {
+		at := base.Add(time.Duration(i) * time.Hour)
+		if err := st.Write(backup.Info{ID: backup.NewID(at, kind), Kind: kind, State: backup.StateOK, Created: at, Size: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func clearRetentionEnv(t *testing.T) {
+	t.Helper()
+	for _, e := range []string{backup.EnvKeep, backup.EnvKeepPreUpdate, backup.EnvKeepScheduled} {
+		t.Setenv(e, "")
+	}
+}
+
+func TestAdminBackupsRetentionRoundTrip(t *testing.T) {
+	clearRetentionEnv(t)
+	b, data := newTestBackups(t, context.Background())
+	var svc admin.RetentionService = b // the real adapter is what the admin finds by type assertion
+	ctx := context.Background()
+	seedOK(t, data, backup.KindManual, 5)
+	seedOK(t, data, backup.KindScheduled, 3)
+
+	if v := svc.Retention(); v.Manual != 10 || v.PreUpdate != 5 || v.Scheduled != 7 || len(v.Locked) != 0 {
+		t.Fatalf("defaults = %+v", v)
+	}
+	deleted, err := svc.SaveRetention(ctx, map[string]int{admin.BackupManual: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleted[admin.BackupManual] != 3 || deleted[admin.BackupScheduled] != 0 {
+		t.Fatalf("deleted = %v", deleted)
+	}
+	st, _ := b.List(ctx)
+	if len(st.Rows) != 5 || st.KeepManual != 2 { // 2 manual + 3 scheduled
+		t.Fatalf("after save: %d rows, KeepManual %d", len(st.Rows), st.KeepManual)
+	}
+	if _, err := os.Stat(filepath.Join(data, "backups", backup.RetentionFile)); err != nil {
+		t.Fatal("retention.json not written:", err)
+	}
+
+	t.Setenv(backup.EnvKeepScheduled, "4")
+	v := svc.Retention()
+	if v.Scheduled != 4 || !v.Locked[admin.BackupScheduled] || v.EnvVar[admin.BackupScheduled] != backup.EnvKeepScheduled || v.Locked[admin.BackupManual] {
+		t.Fatalf("locked view = %+v", v)
+	}
+	if _, err := svc.SaveRetention(ctx, map[string]int{admin.BackupScheduled: 1}); err == nil {
+		t.Fatal("a locked kind was saved")
+	}
+	if st, _ := b.List(ctx); len(st.Rows) != 5 {
+		t.Fatalf("rejected save pruned: %d rows", len(st.Rows))
+	}
+	if _, err := svc.SaveRetention(ctx, map[string]int{admin.BackupManual: 0}); err == nil {
+		t.Fatal("0 accepted")
+	}
+}
+
+func TestAdminBackupsKeepingFromResolver(t *testing.T) {
+	clearRetentionEnv(t)
+	t.Setenv(backup.EnvKeepPreUpdate, "9")
+	b, data := newTestBackups(t, context.Background())
+	if err := backup.SaveRetention(filepath.Join(data, "backups"), map[backup.Kind]int{backup.KindManual: 6}); err != nil {
+		t.Fatal(err)
+	}
+	st, err := b.List(context.Background())
+	if err != nil || st.KeepManual != 6 || st.KeepPreUpdate != 9 || st.KeepScheduled != 7 {
+		t.Fatalf("List keeps = %d/%d/%d, %v", st.KeepManual, st.KeepPreUpdate, st.KeepScheduled, err)
+	}
+}
