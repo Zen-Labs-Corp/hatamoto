@@ -90,7 +90,7 @@ func (c *Client) putMultipart(ctx context.Context, key string, r io.ReaderAt, si
 			Code string `xml:"Code"`
 		}
 		_ = xml.Unmarshal(b, &x)
-		return &Error{Op: "multipart complete", Status: cresp.StatusCode, Code: x.Code}
+		return &Error{Op: "multipart complete", Status: cresp.StatusCode, Code: cleanCode(x.Code)}
 	}
 	return nil
 }

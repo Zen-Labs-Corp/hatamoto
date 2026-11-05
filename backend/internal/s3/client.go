@@ -47,6 +47,24 @@ type Error struct {
 	Code   string
 }
 
+// maxCode caps the provider's error code; a hostile endpoint could send 64 KiB
+// that would land in the database, audit log and sidecars every run.
+const maxCode = 128
+
+// cleanCode shortens a provider code and drops control characters.
+func cleanCode(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if r < ' ' || r == 0x7f {
+			return -1
+		}
+		return r
+	}, strings.TrimSpace(s))
+	if len(s) > maxCode {
+		s = strings.ToValidUTF8(s[:maxCode], "") + "..."
+	}
+	return s
+}
+
 func (e *Error) Error() string {
 	s := fmt.Sprintf("s3 %s: status %d", e.Op, e.Status)
 	if e.Code != "" {
@@ -237,7 +255,7 @@ func (c *Client) do(ctx context.Context, r request) (*http.Response, error) {
 		}
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 		if xml.Unmarshal(b, &x) == nil {
-			e.Code = x.Code
+			e.Code = cleanCode(x.Code)
 		}
 		return nil, e
 	}

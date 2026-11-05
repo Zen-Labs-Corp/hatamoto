@@ -242,3 +242,21 @@ func TestValidateEndpoint(t *testing.T) {
 		}
 	}
 }
+
+func TestErrorCodeIsCapped(t *testing.T) {
+	huge := strings.Repeat("A", 60000)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = io.WriteString(w, "<Error><Code>"+huge+"\n</Code></Error>")
+	}))
+	defer srv.Close()
+	c, err := New(Config{Endpoint: srv.URL, Region: "r", Bucket: "b", AccessKey: "a", SecretKey: "s"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = c.Head(context.Background(), "k")
+	var e *Error
+	if !errors.As(err, &e) || len(e.Code) > maxCode+3 || strings.ContainsAny(e.Code, "\n") || len(err.Error()) > 300 {
+		t.Fatalf("err = %.200v", err)
+	}
+}
