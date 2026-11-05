@@ -48,7 +48,7 @@ Fetch limits: the manifest is capped at 1 MiB with a 30 second timeout, a record
 The agent evaluates the manifest in this order:
 
 1. If the version you run was **yanked** (withdrawn), move to its named replacement, or to a newer normal release if the yank names none. Otherwise roll back to the previous release (or the bootstrap build) when the rollback floor allows it. `notify` mode only reports a rollback and never makes it.
-2. Consider releases newer than the one you run, in the same major, that are not yanked, not **halted** (paused by the maintainers), and not on this box's bad list.
+2. Consider releases newer than the one you run, in the same major, that are not yanked, not **halted** (paused by the maintainers), and not on this box's bad list. The agent never retries a bad-listed version; an operator does that on purpose with `hatamoto update retry` (see [The update CLI](manual-update-cli.md)).
 3. Keep those whose rollout bucket for that version is below the current ramp percentage.
 4. Apply the pin, then the defer days and the maintenance window. Security releases skip all three, as long as they stay inside the same major.
 

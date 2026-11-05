@@ -15,6 +15,7 @@ hatamoto update pin vMAJOR.MINOR
 hatamoto update unpin
 hatamoto update apply vMAJOR.MINOR.PATCH [--force]
 hatamoto update apply --file F --record R [--sig S]
+hatamoto update retry vMAJOR.MINOR.PATCH [--force] [--no-backup]
 hatamoto update rollback [--force]
 ```
 
@@ -27,6 +28,7 @@ hatamoto update rollback [--force]
 | `pin`, `unpin` | yes | no | yes |
 | `apply vX.Y.Z` | only for the plugin and theme check | yes | yes |
 | `apply --file` | no | no | yes |
+| `retry vX.Y.Z` | only for the plugin and theme check | yes | yes |
 | `rollback` | no | no | yes |
 
 ## Running it correctly
@@ -106,13 +108,17 @@ It refuses a version that:
 
 - is not on your channel (`vX is not on channel stable`);
 - was withdrawn (`vX was withdrawn (<reason>)`);
-- is on this box's bad list (`vX is on this box's bad list (it failed health gating before)`);
+- is on this box's bad list (`vX is on this box's bad list (it failed health gating before)`; use `retry` once the cause is fixed);
 - is already running;
 - needs a newer starting point first (`vX needs at least vY first (running vZ)`);
 - is below the running release's rollback floor;
 - has no build for your platform.
 
-The preflight checks the SDK range of the enabled plugins and the active theme (only when `DATABASE_URL` is set) and the free disk space. `--force` skips both. When another check is running the command stops with `not installing vX now: <reason>`.
+The preflight checks the SDK range of the enabled plugins and the active theme, whether the target release removed a permission that an enabled plugin still declares (both only when `DATABASE_URL` is set), and the free disk space. `--force` skips all of them. A removed permission reads:
+
+```text
+Update blocked: v1.4.2 removes permission "entities.write", still used by plugin example-plugin (1.2.1). Update the plugin first, or run `hatamoto update apply v1.4.2 --force`.
+``` When another check is running the command stops with `not installing vX now: <reason>`.
 
 Unlike a scheduled install and the admin's **Update now**, this route takes no pre-update database dump, and it does not touch the stored status.
 
@@ -153,6 +159,32 @@ docker compose cp release.json.sig hatamoto:/tmp/
 docker compose exec hatamoto hatamoto update apply --file /tmp/hatamoto-linux-amd64 --record /tmp/release.json
 ```
 
+## retry vX.Y.Z
+
+```bash
+hatamoto update retry v1.4.2
+```
+
+```text
+v1.4.2 removed from the bad list (was: smoke: new boot faults ...: theme-not-applied:example-theme)
+staged v1.4.2; supervisor notified (health-gated switch in progress; see logs)
+```
+
+For a version that failed its health check here and was put on the bad list. Once you have fixed the cause, `retry` removes the version from the bad list and installs it right away, like `apply`: it downloads and verifies the release, runs the preflight, takes the pre-update database dump and hands the release to the supervisor. The release goes through the full health check again, and if it fails again it is bad-listed again and rolled back.
+
+It refuses a version that:
+
+- is not on the bad list (`v1.4.0 is not on this box's bad list`);
+- failed signature or hash verification, which is never retried;
+- would be refused by `apply` for any other reason (withdrawn, already running, below the rollback floor, no build for your platform), or while another switch is in progress.
+
+| Flag | Meaning |
+|---|---|
+| `--force` | Skip the plugin and theme preflight, as for `apply`. |
+| `--no-backup` | Skip the pre-update database dump. |
+
+The admin's **Retry** button on **Settings > Updates** does the same for the owner. See [Check for and apply an update](check-and-apply-an-update.md).
+
 ## rollback
 
 ```bash
@@ -167,7 +199,7 @@ Goes back to the `previous` release by hand, with the same health-gated switch. 
 - the previous release is the bootstrap build and its version is unknown, so it cannot be compared with the floor;
 - another switch is still in progress.
 
-A manual rollback bad-lists the release you rolled back from, so the agent will not reinstall it, and is logged as `manual_rollback`. An offline rollback away from the bootstrap is logged as `rolled-back-offline`. The database is not changed. For the whole procedure, see [Back up and roll back an update](backups-and-rollback.md).
+A manual rollback bad-lists the release you rolled back from, so the agent will not reinstall it (`retry` takes it off the list again), and is logged as `manual_rollback`. An offline rollback away from the bootstrap is logged as `rolled-back-offline`. The database is not changed. For the whole procedure, see [Back up and roll back an update](backups-and-rollback.md).
 
 ## Usage errors
 

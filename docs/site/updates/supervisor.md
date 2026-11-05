@@ -63,7 +63,7 @@ A release you switched to is *unproven* until it has both passed the gate and ru
 
 ## Automatic rollback
 
-A failed gate, or three crashes within two minutes of the start of an unproven release, puts the previous binary back and lists the failed version as **bad**. Applying a bad version is refused (a newer version supersedes it), and the update agent never fetches it again. A proven release is never rolled back by crashes.
+A failed gate, or three crashes within two minutes of the start of an unproven release, puts the previous binary back and lists the failed version as **bad**. Applying a bad version is refused (a newer version supersedes it), and the update agent never fetches it again. Nothing retries it automatically. An operator who has fixed the cause removes the entry by hand with `hatamoto update retry vX.Y.Z` (or the owner's **Retry** button), which runs the full gate again; a version that failed verification cannot be retried. A proven release is never rolled back by crashes.
 
 A rollback changes binaries only. It never touches the database. The outcome is appended to `events.jsonl` and a running server imports it into the `hatamoto_updates` table within a minute. The event phases are `success`, `rolled_back`, `failed`, `manual_rollback`, `staged-offline` and `rolled-back-offline`.
 

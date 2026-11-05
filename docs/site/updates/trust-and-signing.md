@@ -10,7 +10,7 @@ A self-updating program is only as trustworthy as its verification. Hatamoto sep
 
 | Key | Signs | Held by | Embedded in the binary as |
 |---|---|---|---|
-| Release key | Each release **record**: the version, kind, rollback floor, minimum starting version, SDK range, schema head and the SHA-256 and size of every binary | Offline, used only when a release is cut | `release-primary.pub`, `release-backup.pub` |
+| Release key | Each release **record**: the version, kind, rollback floor, minimum starting version, SDK range, removed permissions, schema head and the SHA-256 and size of every binary | Offline, used only when a release is cut | `release-primary.pub`, `release-backup.pub` |
 | Manifest key | The short **channel manifest** that says which releases a channel offers, at what rollout, and which are halted or yanked | The maintainer's signing machine (never CI) | `manifest.pub` |
 
 Their fingerprints are on [Signing keys and fingerprints](keys.md). The public keys live in `backend/internal/release/keys/` and are embedded with `go:embed`. The loader refuses any embedded key that carries private material or whose id does not match its public key. Release keys are matched by the `<key_id>:<base64 signature>` prefix in each channel entry, so a second release key can be added for rotation without breaking older binaries.
@@ -30,6 +30,7 @@ A release record is a small JSON document:
   "schema_head": 202610231010,
   "rollback_floor": "v1.4.0",
   "min_from": "v1.0.0",
+  "removed_permissions": ["entities.write"],
   "notes_url": "https://example.com/notes",
   "artifacts": {
     "linux-amd64": { "sha256": "<64 hex characters>", "size": 31457280 }
@@ -48,7 +49,7 @@ For an install from the channel, the checks run in this order and the first fail
 3. Freshness: `issued_at` and `expires_at` must be present and the manifest must not have expired. The lifetime may not exceed 15 days.
 4. The version appears in the manifest and is in canonical `vMAJOR.MINOR.PATCH[-prerelease]` form (no build metadata, no missing `v`).
 5. The record signature, against the release keys, over the exact bytes of the record.
-6. The record's version equals the channel entry's version, and its `rollback_floor` and `min_from` are valid versions.
+6. The record's version equals the channel entry's version, and its `rollback_floor` and `min_from` are valid versions, and `removed_permissions` (the permissions this release no longer accepts) is a list of names. The preflight uses it to hold back an update while an enabled plugin still declares one.
 7. The binary for your platform exists in the record, is within the size cap (256 MiB) and matches both the recorded size and SHA-256.
 
 A binary that does not match its signed record is rejected before it is staged. The supervisor verifies the stored record again before it runs a staged release, so a file tampered with on disk after staging is caught too.
