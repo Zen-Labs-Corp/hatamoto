@@ -1,5 +1,17 @@
 # Release notes
 
+## Unreleased: encoding/json v1 is banned; JSON v2 across the backend
+
+The backend, the admin, MCP and REST output and the plugin SDK now use the JSON v2 packages (`encoding/json/v2`). The sections below on empty lists, the plugin host and the platform encoder give the detail.
+
+- **Empty lists.** Nil slices and maps are written as `[]` and `{}` in REST, admin and MCP output; they were `null`. Clients that tested for `null` should test for an empty list.
+- **Stricter requests.** Request bodies with a repeated member name, invalid UTF-8 or data after the JSON value are rejected, and member names match case-exactly.
+- **Webhooks and plugins.** Webhook bodies and their HMACs, and the bytes between host and plugin, are unchanged byte for byte.
+- **SDK.** `hatamoto.dev/sdk` 0.19.0 needs Go 1.27 to build a plugin; plugins built for earlier SDKs still load.
+- **Stored JSON.** The upgrade step normalises known mixed-case keys in stored JSON. `hatamoto doctor json` (read-only) reports any stored row that would fail strict reading or still has a case-variant key; it exits 1 if a row fails and 2 if it cannot connect. A row that still fails strict reading errors loudly instead of being half read.
+- **Contributors.** The build fails on a new `encoding/json` (v1) import outside `backend/migrations/`.
+- **Migration.** The upgrade step `202611051000_normalise_stored_json_keys` rewrites the keys. Rollback floor: unchanged; the previous release reads what this one writes (`[]` where it wrote `null`).
+
 ## Unreleased: Popular content
 
 - **Template func.** `popular "post" 5 30` lists the published entities of a schema with the most pageviews over the last 7, 30 or 90 days (any other value or none means 30; limit 1 to 50), the newest filling any gap so the list is always full.
