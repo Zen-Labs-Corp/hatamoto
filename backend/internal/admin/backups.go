@@ -26,6 +26,7 @@ const (
 
 	BackupManual    = "manual"
 	BackupPreUpdate = "pre_update"
+	BackupScheduled = "scheduled"
 )
 
 var (
@@ -38,7 +39,7 @@ var (
 // BackupInfo is one backup as the page shows it.
 type BackupInfo struct {
 	ID           string
-	Kind         string // BackupManual or BackupPreUpdate
+	Kind         string // BackupManual, BackupPreUpdate or BackupScheduled
 	Target       string // the version a pre-update backup was taken for
 	State        string // BackupRunning, BackupOK or BackupFailed
 	Percent      int
@@ -47,7 +48,9 @@ type BackupInfo struct {
 	Size         int64
 	Parts        []string // archive members, e.g. core.dump, content.tar.gz
 	Plugins      []string
-	MediaMissing int // referenced media files that were not on disk
+	MediaMissing int    // referenced media files that were not on disk
+	Offsite      string // OffsiteUploaded, OffsiteFailed or "" (not copied)
+	OffsiteError string
 }
 
 // BackupsState is everything the page needs in one read.
@@ -80,6 +83,7 @@ type backupsData struct {
 	Running  bool
 	Progress ui.Progress // the running backup, shown while Running
 	PollURL  string
+	Offsite  *offsiteData // nil when off-site backups are not wired
 }
 
 // validBackupID is the shape of a backup id (a UTC time and the kind). Every
@@ -96,6 +100,7 @@ func (a *Admin) mountBackupsSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET /settings/backups/{id}/download", a.handleBackupDownload)
 	owner.HandleFunc("GET /settings/backups/{id}/delete", a.handleBackupDeleteConfirm)
 	owner.HandleFunc("POST /settings/backups/{id}/delete", a.handleBackupDelete)
+	a.mountOffsite(owner)
 }
 
 func (a *Admin) handleBackupStart(w http.ResponseWriter, r *http.Request) {
@@ -250,7 +255,17 @@ func (a *Admin) handleBackups(w http.ResponseWriter, r *http.Request) {
 		Redirect(w, r, a.adminPath+backupsRel)
 		return
 	}
-	a.renderBackups(w, r, st)
+	var of *offsiteData
+	if a.deps.Offsite != nil {
+		v, err := a.deps.Offsite.View(r.Context())
+		if err != nil {
+			a.logger().Error("offsite settings", "err", err)
+			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The off-site settings could not be loaded.")
+			return
+		}
+		of = a.offsiteCard(a.siteLocation(r.Context()), v, nil, nil, "", "")
+	}
+	a.renderBackups(w, r, http.StatusOK, st, of)
 }
 
 func backupPollState(st BackupsState) string {
@@ -260,12 +275,13 @@ func backupPollState(st BackupsState) string {
 	return "idle"
 }
 
-func (a *Admin) renderBackups(w http.ResponseWriter, r *http.Request, st BackupsState) {
+func (a *Admin) renderBackups(w http.ResponseWriter, r *http.Request, status int, st BackupsState, of *offsiteData) {
 	loc := a.siteLocation(r.Context())
 	d := backupsData{
 		Zone:    loc.String(),
 		Keeping: fmt.Sprintf("Keeping the last %d manual and %d pre-update backups.", st.KeepManual, st.KeepPreUpdate),
 		Table:   a.backupsTable(st.Rows, loc),
+		Offsite: of,
 	}
 	if st.FreeBytes > 0 {
 		d.FreeDisk = "Free disk: " + backupSize(int64(st.FreeBytes)) + "."
@@ -285,7 +301,7 @@ func (a *Admin) renderBackups(w http.ResponseWriter, r *http.Request, st Backups
 	v.Section, v.Tab = "backups", "backups"
 	v.Width = "wide"
 	v.Data = d
-	a.Render(w, r, http.StatusOK, "settings/backups", v)
+	a.Render(w, r, status, "settings/backups", v)
 }
 
 // backupSize is a byte count in the largest whole unit, one decimal under 10.
@@ -306,6 +322,9 @@ func backupSize(n int64) string {
 }
 
 func backupKind(b BackupInfo) string {
+	if b.Kind == BackupScheduled {
+		return "Scheduled"
+	}
 	if b.Kind == BackupPreUpdate {
 		if b.Target != "" {
 			return "Before update to " + b.Target
@@ -348,10 +367,17 @@ func backupPluginCount(b BackupInfo) string {
 }
 
 // backupSub is the note under the kind (the one wrapping column, so a long
-// reason never widens the table): the error of a failed backup,
-// or the media gap of one that finished without every file.
+// reason never widens the table): the error of a failed backup, a failed
+// off-site copy, or the media gap of one that finished without every file.
 func backupSub(b BackupInfo) string {
-	if b.State == BackupOK && b.MediaMissing > 0 {
+	switch {
+	case b.State == BackupOK && b.Offsite == OffsiteFailed:
+		note := "Off-site copy failed"
+		if e := strings.TrimSpace(b.OffsiteError); e != "" {
+			note += ": " + e
+		}
+		return note
+	case b.State == BackupOK && b.MediaMissing > 0:
 		return fmt.Sprintf("%d media files missing", b.MediaMissing)
 	}
 	return strings.TrimSpace(b.Error)
@@ -373,7 +399,7 @@ func (a *Admin) backupsTable(rows []BackupInfo, loc *time.Location) ui.Table {
 		Columns: []ui.Col{
 			{Key: "date", Label: "Date"}, {Key: "kind", Label: "Kind", Role: "title"},
 			{Key: "contains", Label: "Contains", WideOnly: true}, {Key: "size", Label: "Size", Role: "num"},
-			{Key: "status", Label: "Status"},
+			{Key: "offsite", Label: "Off-site"}, {Key: "status", Label: "Status"},
 		},
 		Empty: ui.Empty{Icon: "database", Title: "No backups yet.", Body: "Back up now takes one."},
 	}
@@ -388,6 +414,7 @@ func (a *Admin) backupsTable(rows []BackupInfo, loc *time.Location) ui.Table {
 			{Text: backupKind(b), Sub: backupSub(b)},
 			{Text: backupContains(b), Sub: backupPluginCount(b)},
 			{Text: size, Nowrap: true},
+			backupOffsiteCell(b),
 			{Badge: &badge},
 		}}
 		if b.State == BackupOK {
@@ -400,4 +427,15 @@ func (a *Admin) backupsTable(rows []BackupInfo, loc *time.Location) ui.Table {
 		t.Rows = append(t.Rows, row)
 	}
 	return t
+}
+
+// backupOffsiteCell says whether the backup was copied off the server.
+func backupOffsiteCell(b BackupInfo) ui.Cell {
+	switch b.Offsite {
+	case OffsiteUploaded:
+		return ui.Cell{Badge: &ui.Badge{Label: "Uploaded", Kind: "success"}}
+	case OffsiteFailed:
+		return ui.Cell{Badge: &ui.Badge{Label: "Failed", Kind: "danger"}}
+	}
+	return ui.Cell{Text: "-"}
 }

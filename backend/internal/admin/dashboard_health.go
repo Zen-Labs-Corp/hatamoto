@@ -70,7 +70,11 @@ type healthCheckFn func(ctx context.Context) (*healthCheck, error)
 func (a *Admin) healthChecks() []healthCheckFn {
 	var fns []healthCheckFn
 	if a.deps.Backups != nil {
-		fns = append(fns, a.healthBackup, a.healthDisk)
+		fns = append(fns, a.healthBackup)
+		if a.deps.Offsite != nil {
+			fns = append(fns, a.healthOffsite)
+		}
+		fns = append(fns, a.healthDisk)
 	}
 	if a.deps.Webhooks != nil {
 		fns = append(fns, a.healthWebhooks)
@@ -133,6 +137,45 @@ func backupCheck(c *healthCheck, b BackupInfo, age time.Duration) *healthCheck {
 	case age > healthBackupAmber:
 		c.Value, c.Level = agoText(age), healthBad
 	case age > healthBackupOK:
+		c.Value, c.Level = agoText(age), healthWarn
+	default:
+		c.Value, c.Level = agoText(age), healthOK
+	}
+	return c
+}
+
+// Off-site uploads are late after one and a half schedule periods.
+const (
+	healthOffsiteDaily  = 36 * time.Hour
+	healthOffsiteWeekly = 10 * 24 * time.Hour
+)
+
+func (a *Admin) healthOffsite(ctx context.Context) (*healthCheck, error) {
+	v, err := a.deps.Offsite.View(ctx)
+	if err != nil {
+		return nil, err
+	}
+	c := &healthCheck{Group: healthData, Label: "Off-site backup", Href: a.adminPath + "/settings/backups#offsite"}
+	return offsiteCheck(c, v, analyticsNow()), nil
+}
+
+// offsiteCheck grades the off-site copy: nil when it is not switched on, bad
+// when the last upload failed, warn when none has happened yet or the last
+// one is older than one and a half schedule periods.
+func offsiteCheck(c *healthCheck, v OffsiteView, now time.Time) *healthCheck {
+	if !v.Enabled {
+		return nil
+	}
+	if v.LastAt.IsZero() {
+		c.Value, c.Level = "Nothing uploaded yet", healthWarn
+		return c
+	}
+	age := now.Sub(v.LastAt)
+	late := map[string]time.Duration{OffsiteDaily: healthOffsiteDaily, OffsiteWeekly: healthOffsiteWeekly}[v.Schedule]
+	switch {
+	case !v.LastOK:
+		c.Value, c.Level = "Failed", healthBad
+	case late > 0 && age > late:
 		c.Value, c.Level = agoText(age), healthWarn
 	default:
 		c.Value, c.Level = agoText(age), healthOK

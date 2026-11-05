@@ -111,6 +111,7 @@ func backupInfo(i backup.Info) admin.BackupInfo {
 	return admin.BackupInfo{
 		ID: i.ID, Kind: string(i.Kind), Target: i.Target, State: string(i.State), Percent: i.Percent,
 		Error: i.Error, Created: i.Created, Size: i.Size, Parts: i.Parts, Plugins: i.Plugins, MediaMissing: i.MediaMissing,
+		Offsite: i.Offsite, OffsiteError: i.OffsiteError,
 	}
 }
 

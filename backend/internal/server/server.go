@@ -186,7 +186,8 @@ type Server struct {
 	// backups is the admin's backup service; Shutdown waits for its runs.
 	backups *adminBackups
 	// offsite takes the scheduled off-site backups (set with the backups).
-	offsite *offsiteService
+	offsite    *offsiteService
+	offsiteAdm *offsiteAdmin
 	// admin hands late services (updates, backups) to the live admin and to the
 	// retained deps (nil in a route-table build that failed). See admin_mount.go.
 	admin *adminHolder

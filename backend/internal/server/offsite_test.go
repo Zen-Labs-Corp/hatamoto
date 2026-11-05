@@ -3,6 +3,8 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -285,5 +287,112 @@ func TestOffsiteRunNowUploadsOnTheLifecycleContext(t *testing.T) {
 	r.eng.busy.Store(true)
 	if _, err := r.svc.RunNow(context.Background(), "owner@example.com"); err == nil {
 		t.Fatal("RunNow succeeded while the lock was held")
+	}
+}
+
+func (m *memOffsiteStore) Save(_ context.Context, set offsite.Settings) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err := set.Validate(); err != nil {
+		return err
+	}
+	m.set = set
+	return nil
+}
+
+func newOffsiteAdmin(t *testing.T) (*offsiteAdmin, *memOffsiteStore, *s3test.Server) {
+	t.Helper()
+	srv := s3test.NewServer(t)
+	store := &memOffsiteStore{}
+	now := at(1, 12, 0)
+	key := offsite.SecretKey("server-secret")
+	return &offsiteAdmin{store: store, key: key, now: func() time.Time { return now },
+		svc: &offsiteService{store: store, key: key}}, store, srv
+}
+
+func offsiteInput(srv *s3test.Server) admin.OffsiteInput {
+	return admin.OffsiteInput{
+		Enabled: true, Service: offsite.ServiceCustom, Endpoint: srv.URL, Region: s3test.Region, Bucket: s3test.Bucket,
+		Prefix: "site/", AccessKey: s3test.AccessKey, SecretKey: s3test.SecretKey,
+		Schedule: offsite.ScheduleDaily, Hour: 3, Keep: 5,
+	}
+}
+
+func TestOffsiteAdminSavesTheKeySealedAndNeverShowsIt(t *testing.T) {
+	o, store, srv := newOffsiteAdmin(t)
+	if errs, err := o.Save(t.Context(), offsiteInput(srv)); err != nil || len(errs) != 0 {
+		t.Fatalf("Save = %v, %v", errs, err)
+	}
+	if bytes.Contains(store.set.SecretSealed, []byte(s3test.SecretKey)) || len(store.set.SecretSealed) == 0 {
+		t.Fatal("the key is stored in the clear or not at all")
+	}
+	if !store.set.NextDueAt.Equal(at(2, 3, 0)) {
+		t.Fatalf("next due = %v, want tomorrow 03:00 (saved after today's slot)", store.set.NextDueAt)
+	}
+	v, err := o.View(t.Context())
+	if err != nil || !v.SecretSaved || v.SecretLost || !v.NextRun.Equal(at(2, 3, 0)) {
+		t.Fatalf("View = %+v, %v", v, err)
+	}
+	if strings.Contains(fmt.Sprintf("%+v", v), s3test.SecretKey) {
+		t.Fatal("the view carries the key")
+	}
+	// A blank key keeps the saved one; an unchanged schedule keeps its slot.
+	store.set.NextDueAt = at(1, 20, 0)
+	in := offsiteInput(srv)
+	in.SecretKey, in.Keep = "", 9
+	if errs, err := o.Save(t.Context(), in); err != nil || len(errs) != 0 {
+		t.Fatalf("Save blank key = %v, %v", errs, err)
+	}
+	if _, ok := store.set.Secret(o.key); !ok || store.set.Keep != 9 || !store.set.NextDueAt.Equal(at(1, 20, 0)) {
+		t.Fatalf("saved = %+v", store.set)
+	}
+}
+
+func TestOffsiteAdminSaveReportsFieldErrors(t *testing.T) {
+	o, _, srv := newOffsiteAdmin(t)
+	for name, tc := range map[string]struct {
+		mut func(*admin.OffsiteInput)
+		id  string
+	}{
+		"bucket":     {func(in *admin.OffsiteInput) { in.Bucket = "X" }, "offsite-bucket"},
+		"endpoint":   {func(in *admin.OffsiteInput) { in.Endpoint = "ftp://x" }, "offsite-endpoint"},
+		"prefix":     {func(in *admin.OffsiteInput) { in.Prefix = "../x" }, "offsite-prefix"},
+		"secret key": {func(in *admin.OffsiteInput) { in.SecretKey = "" }, "offsite-secret-key"},
+	} {
+		in := offsiteInput(srv)
+		tc.mut(&in)
+		errs, err := o.Save(t.Context(), in)
+		if err != nil || len(errs) != 1 || errs[0].ID != tc.id || errs[0].Message == "" {
+			t.Errorf("%s: %v, %v", name, errs, err)
+		}
+	}
+}
+
+func TestOffsiteAdminTestUsesTheSavedKeyAndShowsNothingSecret(t *testing.T) {
+	o, _, srv := newOffsiteAdmin(t)
+	if err := o.Test(t.Context(), offsiteInput(srv)); err != nil {
+		t.Fatalf("Test with a typed key: %v", err)
+	}
+	if _, err := o.Save(t.Context(), offsiteInput(srv)); err != nil {
+		t.Fatal(err)
+	}
+	in := offsiteInput(srv)
+	in.SecretKey = ""
+	if err := o.Test(t.Context(), in); err != nil {
+		t.Fatalf("Test with the saved key: %v", err)
+	}
+	in.SecretKey = "wrong-" + s3test.SecretKey
+	err := o.Test(t.Context(), in)
+	if err == nil || strings.Contains(err.Error(), in.SecretKey) {
+		t.Fatalf("wrong key: %v", err)
+	}
+}
+
+func TestOffsiteAdminRunNowMapsBusy(t *testing.T) {
+	r := newOffsiteRig(t, at(1, 12, 0))
+	o := &offsiteAdmin{store: r.store, svc: r.svc, key: r.svc.key}
+	r.eng.busy.Store(true)
+	if _, err := o.RunNow(t.Context(), "owner@example.com"); !errors.Is(err, admin.ErrBackupRunning) {
+		t.Fatalf("err = %v", err)
 	}
 }

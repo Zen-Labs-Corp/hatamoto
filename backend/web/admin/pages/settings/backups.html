@@ -10,5 +10,24 @@
 {{end}}{{template "hm/table" .Table}}
 </div>
 <p class="hm-muted">Dates are in the site time zone: {{.Zone}}.</p>
-{{if not .Running}}<form id="backup-form" method="post" action="{{adminPath}}/settings/backups">{{template "hm/csrf" $}}</form>{{end}}
+{{with .Offsite}}{{template "hm/formerrors" dict "Errors" .Summary}}
+{{if .Notice}}{{template "hm/flash" (dict "Kind" .NoticeKind "Message" .Notice "Inline" true)}}
+{{end}}<form id="offsite-form" method="post" action="{{adminPath}}/settings/backups/offsite" class="hm-cardform">
+{{template "hm/csrf" $}}
+<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
+{{template "hm/card-start" dict "ID" "offsite" "Title" "Off-site copy" "Heading" "h2" "Description" "Keep a second, checked copy of each scheduled backup in an S3-compatible bucket."}}
+<div class="hm-setlist"><div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">Status</p>
+<div role="status"><p class="hm-field__help">{{.StatusText}}{{if .NextRun}} {{.NextRun}}{{end}}</p></div></div>
+<div class="hm-setrow__control">{{template "hm/badge" .Status}}</div>
+</div></div>
+{{template "hm/callout" (dict "Kind" "info" "ID" "offsite-private" "Body" "A backup holds secrets.env and your database. Use a private bucket with server-side encryption turned on, and a key that can only write to this bucket.")}}
+{{template "hm/offsitefields" .Form}}
+{{template "hm/card-foot"}}{{if .CanRun}}{{template "hm/button" dict "Label" "Back up and upload now" "Type" "submit" "Attrs" (attrmap "form" "offsite-run-form")}}{{end}}
+{{template "hm/button" dict "Label" "Test connection" "Type" "submit" "Attrs" (attrmap "formaction" (adminPath "settings" "backups" "offsite" "test"))}}
+{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+<form id="offsite-run-form" method="post" action="{{adminPath}}/settings/backups/offsite/run">{{template "hm/csrf" $}}</form>
+{{end}}{{if not .Running}}<form id="backup-form" method="post" action="{{adminPath}}/settings/backups">{{template "hm/csrf" $}}</form>{{end}}
 {{end}}{{end}}

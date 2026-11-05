@@ -214,6 +214,10 @@ func (s *Server) setupOffsite(eng *backup.Engine) {
 		audit:  s.adminAudit,
 		logger: s.logger, wg: &s.backups.wg,
 	}
+	s.offsiteAdm = &offsiteAdmin{store: offsite.NewStore(s.db.Pool()), svc: s.offsite, key: s.offsite.key}
+	if s.admin != nil {
+		s.admin.SetOffsite(s.offsiteAdm)
+	}
 	if s.scheduler != nil && workerJobEnabled(offsiteJob) {
 		if err := s.scheduler.Schedule(offsiteJob, time.Minute, s.offsite.tick); err != nil {
 			s.logger.Error("off-site backup job not scheduled", "error", err)
