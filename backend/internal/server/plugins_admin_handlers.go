@@ -25,14 +25,24 @@ type pluginView struct {
 	// what the plugin exposes.
 	Permissions []string      `json:"permissions"`
 	Granted     []string      `json:"granted"`
-	Routes      []sdk.Route   `json:"routes,omitempty"`
+	Routes      []routeView   `json:"routes,omitempty"`
 	Cron        []sdk.CronJob `json:"cron,omitempty"`
 	Cookies     []string      `json:"cookies,omitempty"`
 	// RequestHeaders are the extra request headers its routes receive.
 	RequestHeaders []string `json:"request_headers,omitempty"`
-	CSP            *sdk.CSP `json:"csp,omitempty"`
-	Funcs          []string `json:"funcs,omitempty"`
-	DataError      string   `json:"data_error,omitempty"`
+	// omitzero: a declared empty "csp":{} is still listed, as before.
+	CSP       *sdk.CSP `json:"csp,omitzero"`
+	Funcs     []string `json:"funcs,omitempty"`
+	DataError string   `json:"data_error,omitempty"`
+}
+
+// routeView is sdk.Route as listed: omitzero keeps "public" absent on a
+// non-public route (omitempty would write false).
+type routeView struct {
+	Method string   `json:"method"`
+	Path   string   `json:"path"`
+	Public bool     `json:"public,omitzero"`
+	Roles  []string `json:"roles,omitempty"`
 }
 
 // pluginStatuses returns the load results of the plugin runtime (none before
@@ -54,8 +64,11 @@ func (s *Server) pluginViews() []pluginView {
 		v := pluginView{
 			Name: st.Name, Loaded: st.Loaded, Error: st.Error, Hooks: st.Hooks,
 			Version: m.Version, SDK: m.SDK, Description: m.Description, AllowedHosts: m.AllowedHosts,
-			Permissions: m.Permissions, Routes: m.Routes, Cron: m.Cron,
+			Permissions: m.Permissions, Cron: m.Cron,
 			Cookies: m.Cookies, RequestHeaders: m.RequestHeaders, CSP: m.CSP, Funcs: m.Funcs, DataError: st.DataError,
+		}
+		for _, r := range m.Routes {
+			v.Routes = append(v.Routes, routeView(r))
 		}
 		if s.plugins != nil {
 			v.Granted = s.plugins.Grants().Granted(st.Name)
