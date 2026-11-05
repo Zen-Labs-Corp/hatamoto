@@ -117,7 +117,7 @@
       "date": "2026-11-05"
     },
     {
-      "reason": "admin branding: accent button, logo and managed-by line styles",
+      "reason": "admin branding: accent button, logo and managed-by line styles: admin_css_gzip 68025 -> 68139 (+114 B), measured",
       "date": "2026-11-05"
     }
   ]
