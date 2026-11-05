@@ -326,8 +326,8 @@ func (s *sup) choose() (Choice, error) {
 		}
 		// The staged binary is not the one that was signed. Never run it.
 		s.log.Error("staged release failed verification, not running it", "event", "verify", "version", c.Name, "err", verr)
-		st.AddBad(c.Name, "failed verification: "+verr.Error())
-		st.LastError = "failed verification: " + verr.Error()
+		st.AddBad(c.Name, ReasonVerify+verr.Error())
+		st.LastError = ReasonVerify + verr.Error()
 		c = s.fallbackFrom(st, c.Name, in.Current)
 		return nil
 	})
