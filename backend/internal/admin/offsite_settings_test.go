@@ -94,7 +94,7 @@ func TestOffsiteCardStates(t *testing.T) {
 			v := enabledOffsiteView()
 			v.LastAt, v.LastOK, v.LastSize = at, true, 30<<20
 			return v
-		}(), []string{"Last upload", "30 MB", "checked in the bucket", ">OK<", "Next run:", "Back up and upload now", "Saved. Leave blank to keep the saved key.", `placeholder="Saved"`, `value="site-backups"`}, nil},
+		}(), []string{"Last upload", "30 MB", "size and checksum read back", ">OK<", "Next run:", "Back up and upload now", "Saved. Leave blank to keep the saved key.", `placeholder="Saved"`, `value="site-backups"`}, nil},
 		{"last failed", func() OffsiteView {
 			v := enabledOffsiteView()
 			v.LastAt, v.LastError = at, "the bucket refused the upload (AccessDenied)"

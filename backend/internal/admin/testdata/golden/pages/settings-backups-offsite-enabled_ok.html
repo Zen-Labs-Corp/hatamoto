@@ -108,7 +108,7 @@
 
 </header>
 <div class="hm-callout hm-callout--warning" id="backups-secrets" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">A backup holds secrets: password hashes, API keys and plugin credentials. Store downloads somewhere safe.</div></div></div>
-<p class="hm-muted">Keeping the last 5 manual and 2 pre-update backups. Free disk: 50 GB.</p>
+<p class="hm-muted">Keeping the last 5 manual, 2 pre-update and 3 scheduled backups. Free disk: 50 GB.</p>
 
 <div id="backups-live">
 <div class="hm-card hm-tablecard" id="backups">
@@ -128,7 +128,7 @@
 <div class="hm-card__body">
 <div class="hm-setlist"><div class="hm-setrow">
 <div class="hm-setrow__text"><p class="hm-setrow__name">Status</p>
-<div role="status"><p class="hm-field__help">Last upload 19 Oct 2026 14:00, 30 MB, checked in the bucket. Next run: 20 Oct 2026 03:00 UTC.</p></div></div>
+<div role="status"><p class="hm-field__help">Last upload 19 Oct 2026 14:00, 30 MB, size and checksum read back. Next run: 20 Oct 2026 03:00 UTC.</p></div></div>
 <div class="hm-setrow__control"><span class="hm-badge hm-badge--success"><span class="hm-badge__dot" aria-hidden="true"></span>OK</span></div>
 </div></div>
 <div class="hm-callout hm-callout--info" id="offsite-private" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">A backup holds secrets.env and your database. Use a private bucket with server-side encryption turned on, and a key that can only write to this bucket.</div></div></div>
@@ -190,7 +190,7 @@
 <div class="hm-field">
 <label class="hm-field__label" for="offsite-keep">Copies to keep in the bucket</label>
 <input class="hm-field__control" type="number" id="offsite-keep" name="keep" value="7" aria-describedby="offsite-keep-help" max="365" min="1" step="1">
-<p class="hm-field__help" id="offsite-keep-help">Older copies are deleted after a new one is checked. Files in the bucket that hatamoto did not upload are never touched.</p>
+<p class="hm-field__help" id="offsite-keep-help">Older copies are deleted after a new one is uploaded. Files in the bucket that hatamoto did not upload are never touched.</p>
 </div>
 </div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--secondary" form="offsite-run-form"><span>Back up and upload now</span></button>
 <button type="submit" class="hm-btn hm-btn--secondary" formaction="/admin/settings/backups/offsite/test"><span>Test connection</span></button>

@@ -2,7 +2,7 @@
 
 ## Unreleased: Off-site backups
 
-Settings > Backups has a new Off-site copy card. Point it at an S3-compatible bucket (Amazon S3, Cloudflare R2, Backblaze B2, MinIO or similar), pick a daily or weekly time in UTC, and each scheduled backup is uploaded, checked in the bucket by size and SHA-256, and pruned to the number of copies you keep. "Back up and upload now" runs one on demand. The backups table gains an Off-site column and the dashboard health card an Off-site backup row.
+Settings > Backups has a new Off-site copy card. Point it at an S3-compatible bucket (Amazon S3, Cloudflare R2, Backblaze B2, MinIO or similar), pick a daily or weekly time in UTC, and each scheduled backup is uploaded (the provider checks each part's SHA-256 on receipt, and the size and recorded checksum are read back) and pruned to the number of copies you keep. "Back up and upload now" runs one on demand. The backups table gains an Off-site column and the dashboard health card an Off-site backup row.
 
 - **Scheduled backups.** The schedule takes a new backup kind, `scheduled`, kept on disk per `HATAMOTO_BACKUP_KEEP_SCHEDULED` (default 3). Uploads run inside the backup lock, so they never overlap another backup or an update's backup.
 - **Restore from the bucket.** `hatamoto backup list --remote` and `hatamoto backup restore --from-offsite <id>` work on a machine with no database; the target comes from `HATAMOTO_OFFSITE_*` (the secret key from the environment only).

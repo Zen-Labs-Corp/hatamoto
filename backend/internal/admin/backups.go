@@ -60,6 +60,7 @@ type BackupsState struct {
 	FreeBytes     uint64 // free space where backups are written; 0 when unknown
 	KeepManual    int
 	KeepPreUpdate int
+	KeepScheduled int // 0 when the page should not mention scheduled backups
 }
 
 // BackupsService is the backup engine as the admin uses it. The server
@@ -73,6 +74,14 @@ type BackupsService interface {
 	Open(ctx context.Context, id string) (io.ReadSeekCloser, BackupInfo, error)
 	// Delete removes a finished backup; ErrBackupNotFound for an unknown id.
 	Delete(ctx context.Context, id string) error
+}
+
+// keepingLine says how many backups of each kind stay on disk.
+func keepingLine(st BackupsState) string {
+	if st.KeepScheduled < 1 {
+		return fmt.Sprintf("Keeping the last %d manual and %d pre-update backups.", st.KeepManual, st.KeepPreUpdate)
+	}
+	return fmt.Sprintf("Keeping the last %d manual, %d pre-update and %d scheduled backups.", st.KeepManual, st.KeepPreUpdate, st.KeepScheduled)
 }
 
 type backupsData struct {
@@ -279,7 +288,7 @@ func (a *Admin) renderBackups(w http.ResponseWriter, r *http.Request, status int
 	loc := a.siteLocation(r.Context())
 	d := backupsData{
 		Zone:    loc.String(),
-		Keeping: fmt.Sprintf("Keeping the last %d manual and %d pre-update backups.", st.KeepManual, st.KeepPreUpdate),
+		Keeping: keepingLine(st),
 		Table:   a.backupsTable(st.Rows, loc),
 		Offsite: of,
 	}

@@ -226,7 +226,7 @@ func offsiteStatus(v OffsiteView, loc *time.Location) (ui.Badge, string, string)
 		}
 		return ui.Badge{Label: "Failed", Kind: "danger"}, msg, next
 	}
-	return ui.Badge{Label: "OK", Kind: "success"}, "Last upload " + fmtDateTime(v.LastAt.In(loc)) + ", " + backupSize(v.LastSize) + ", checked in the bucket.", next
+	return ui.Badge{Label: "OK", Kind: "success"}, "Last upload " + fmtDateTime(v.LastAt.In(loc)) + ", " + backupSize(v.LastSize) + ", size and checksum read back.", next
 }
 
 // offsiteCard builds the card data. form is the posted form to show again (nil

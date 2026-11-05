@@ -51,7 +51,7 @@ func (f *fakeBackups) Delete(_ context.Context, id string) error {
 }
 
 func baseBackups() *fakeBackups {
-	return &fakeBackups{state: BackupsState{KeepManual: 5, KeepPreUpdate: 2, FreeBytes: 50 << 30}, startID: "20261019T091200Z-manual", archive: "TARDATA"}
+	return &fakeBackups{state: BackupsState{KeepManual: 5, KeepPreUpdate: 2, KeepScheduled: 3, FreeBytes: 50 << 30}, startID: "20261019T091200Z-manual", archive: "TARDATA"}
 }
 
 var (
@@ -110,7 +110,7 @@ func TestBackupsPageStates(t *testing.T) {
 	}{
 		{"empty", func(f *fakeBackups) {}, []string{
 			"No backups yet.", "A backup holds secrets: password hashes, API keys and plugin credentials.",
-			"Keeping the last 5 manual and 2 pre-update backups.", "Free disk: 50 GB.", "Australia/Sydney",
+			"Keeping the last 5 manual, 2 pre-update and 3 scheduled backups.", "Free disk: 50 GB.", "Australia/Sydney",
 		}, []string{"/download\"", "Delete backup"}},
 		{"list", func(f *fakeBackups) { f.state.Rows = backupRows()[1:] }, []string{
 			"18 Oct 2026 14:19", "17 Oct 2026 08:00", "Manual", "Before update to v0.26.99",

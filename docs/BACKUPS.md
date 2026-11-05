@@ -110,12 +110,14 @@ replicas only one runs it, and a restart does not repeat it. The scheduler job i
 **Verification.** The upload sends the real SHA-256 of each request body, so the provider rejects bytes
 that do not match. The tar's own SHA-256 is stored on the object (`x-amz-meta-sha256`). After the
 upload hatamoto reads the object's size and that value back; a copy that does not match is deleted and
-the run is recorded as failed. The result (time, size, checksum or error) shows on the card, in the
+the run is recorded as failed. This is a transfer check, not proof of authenticity: anyone with
+write access to the bucket can replace the tar and its recorded checksum together, so keep the write
+key private. The result (time, size, checksum or error) shows on the card, in the
 Off-site column of the backups table and in the dashboard health card. The health row is red when the
 last upload failed and amber when it is older than one and a half schedule periods (36 hours for daily,
 10 days for weekly).
 
-**Retention.** After a verified upload the bucket is pruned to the newest N copies (1 to 365). Only
+**Retention.** After an upload whose size and checksum read back correctly the bucket is pruned to the newest N copies (1 to 365). Only
 keys of the form `<prefix><backup id>.tar` count. Anything else under the prefix, such as other files
 or nested folders, is never listed for deletion.
 

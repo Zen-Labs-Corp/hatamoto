@@ -101,6 +101,9 @@ func (o *offsiteService) RunNow(ctx context.Context, actor string) (string, erro
 	if !found || !set.HasSecret() {
 		return "", errors.New("off-site backup is not set up")
 	}
+	if !set.Enabled {
+		return "", errors.New("off-site backup is switched off")
+	}
 	parent := o.lifecycle()
 	info, work, err := o.begin(parent, set, backup.KindManual, actor)
 	if err != nil {

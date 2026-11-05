@@ -34,7 +34,7 @@ func (b *adminBackups) List(context.Context) (admin.BackupsState, error) {
 		return admin.BackupsState{}, err
 	}
 	manual, preUpdate := backup.KeepFromEnv()
-	st := admin.BackupsState{FreeBytes: b.eng.FreeDisk(), KeepManual: manual, KeepPreUpdate: preUpdate}
+	st := admin.BackupsState{FreeBytes: b.eng.FreeDisk(), KeepManual: manual, KeepPreUpdate: preUpdate, KeepScheduled: backup.KeepScheduledFromEnv()}
 	for _, i := range infos { // the store lists newest first
 		if i.State == backup.StateRunning {
 			st.Running = true

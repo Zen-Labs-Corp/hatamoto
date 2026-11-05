@@ -417,3 +417,14 @@ func TestOffsiteAdminRunNowMapsBusy(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestOffsiteRunNowRefusesWhenSwitchedOff(t *testing.T) {
+	r := newOffsiteRig(t, at(1, 3, 5))
+	r.store.set.Enabled = false
+	if _, err := r.svc.RunNow(t.Context(), "owner@example.com"); err == nil {
+		t.Fatal("RunNow uploaded while off-site backups are switched off")
+	}
+	if r.eng.begun.Load() != 0 {
+		t.Fatal("a backup was started")
+	}
+}
