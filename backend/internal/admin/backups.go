@@ -93,6 +93,8 @@ type backupsData struct {
 	Progress ui.Progress // the running backup, shown while Running
 	PollURL  string
 	Offsite  *offsiteData // nil when off-site backups are not wired
+	// Retention is the counts form; nil when the engine cannot change them.
+	Retention *retentionData
 }
 
 // validBackupID is the shape of a backup id (a UTC time and the kind). Every
@@ -109,6 +111,7 @@ func (a *Admin) mountBackupsSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET /settings/backups/{id}/download", a.handleBackupDownload)
 	owner.HandleFunc("GET /settings/backups/{id}/delete", a.handleBackupDeleteConfirm)
 	owner.HandleFunc("POST /settings/backups/{id}/delete", a.handleBackupDelete)
+	owner.HandleFunc("POST /settings/backups/retention", a.handleRetentionSave)
 	a.mountOffsite(owner)
 }
 
@@ -264,15 +267,9 @@ func (a *Admin) handleBackups(w http.ResponseWriter, r *http.Request) {
 		Redirect(w, r, a.adminPath+backupsRel)
 		return
 	}
-	var of *offsiteData
-	if a.deps.Offsite != nil {
-		v, err := a.deps.Offsite.View(r.Context())
-		if err != nil {
-			a.logger().Error("offsite settings", "err", err)
-			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The off-site settings could not be loaded.")
-			return
-		}
-		of = a.offsiteCard(a.siteLocation(r.Context()), v, nil, nil, "", "")
+	of, ok := a.offsiteCardOrError(w, r)
+	if !ok {
+		return
 	}
 	a.renderBackups(w, r, http.StatusOK, st, of)
 }
@@ -284,13 +281,38 @@ func backupPollState(st BackupsState) string {
 	return "idle"
 }
 
+// offsiteCardOrError builds the off-site card from the stored settings, or
+// answers the request itself when they cannot be read.
+func (a *Admin) offsiteCardOrError(w http.ResponseWriter, r *http.Request) (*offsiteData, bool) {
+	if a.deps.Offsite == nil {
+		return nil, true
+	}
+	v, err := a.deps.Offsite.View(r.Context())
+	if err != nil {
+		a.logger().Error("offsite settings", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The off-site settings could not be loaded.")
+		return nil, false
+	}
+	return a.offsiteCard(a.siteLocation(r.Context()), v, nil, nil, "", ""), true
+}
+
 func (a *Admin) renderBackups(w http.ResponseWriter, r *http.Request, status int, st BackupsState, of *offsiteData) {
+	var ret *retentionData
+	if rs := a.retentionService(); rs != nil {
+		ret = retentionCard(rs.Retention(), nil, nil)
+	}
+	a.renderBackupsWith(w, r, status, st, of, ret)
+}
+
+// renderBackupsWith is renderBackups with the retention card already built, so
+// a rejected save can show the posted values.
+func (a *Admin) renderBackupsWith(w http.ResponseWriter, r *http.Request, status int, st BackupsState, of *offsiteData, ret *retentionData) {
 	loc := a.siteLocation(r.Context())
 	d := backupsData{
 		Zone:    loc.String(),
 		Keeping: keepingLine(st),
 		Table:   a.backupsTable(st.Rows, loc),
-		Offsite: of,
+		Offsite: of, Retention: ret,
 	}
 	if st.FreeBytes > 0 {
 		d.FreeDisk = "Free disk: " + backupSize(int64(st.FreeBytes)) + "."

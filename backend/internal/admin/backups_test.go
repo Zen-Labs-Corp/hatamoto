@@ -25,6 +25,11 @@ type fakeBackups struct {
 	opened    []string
 	deleted   []string
 	deleteErr error
+
+	// The optional RetentionService, so the fake serves the counts form.
+	ret        RetentionView
+	retSaved   []map[string]int
+	retDeleted map[string]int
 }
 
 type nopSeekCloser struct{ io.ReadSeeker }
@@ -50,8 +55,25 @@ func (f *fakeBackups) Delete(_ context.Context, id string) error {
 	return f.deleteErr
 }
 
+func (f *fakeBackups) Retention() RetentionView { return f.ret }
+func (f *fakeBackups) SaveRetention(_ context.Context, set map[string]int) (map[string]int, error) {
+	f.retSaved = append(f.retSaved, set)
+	for k, n := range set {
+		switch k {
+		case BackupManual:
+			f.ret.Manual = n
+		case BackupPreUpdate:
+			f.ret.PreUpdate = n
+		case BackupScheduled:
+			f.ret.Scheduled = n
+		}
+	}
+	return f.retDeleted, nil
+}
+
 func baseBackups() *fakeBackups {
-	return &fakeBackups{state: BackupsState{KeepManual: 5, KeepPreUpdate: 2, KeepScheduled: 3, FreeBytes: 50 << 30}, startID: "20261019T091200Z-manual", archive: "TARDATA"}
+	return &fakeBackups{ret: RetentionView{Manual: 10, PreUpdate: 5, Scheduled: 7},
+		state: BackupsState{KeepManual: 10, KeepPreUpdate: 5, KeepScheduled: 7, FreeBytes: 50 << 30}, startID: "20261019T091200Z-manual", archive: "TARDATA"}
 }
 
 var (
@@ -110,7 +132,7 @@ func TestBackupsPageStates(t *testing.T) {
 	}{
 		{"empty", func(f *fakeBackups) {}, []string{
 			"No backups yet.", "A backup holds secrets: password hashes, API keys and plugin credentials.",
-			"Keeping the last 5 manual, 2 pre-update and 3 scheduled backups.", "Free disk: 50 GB.", "Australia/Sydney",
+			"Keeping the last 10 manual, 5 pre-update and 7 scheduled backups.", "Free disk: 50 GB.", "Australia/Sydney",
 		}, []string{"/download\"", "Delete backup"}},
 		{"list", func(f *fakeBackups) { f.state.Rows = backupRows()[1:] }, []string{
 			"18 Oct 2026 14:19", "17 Oct 2026 08:00", "Manual", "Before update to v0.26.99",

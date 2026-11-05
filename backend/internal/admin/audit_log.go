@@ -31,6 +31,7 @@ var auditLabels = map[string]string{
 	"backups.create":               "Started a backup",
 	"backups.download":             "Downloaded a backup",
 	"backups.delete":               "Deleted a backup",
+	"backups.retention":            "Changed backup retention",
 	"email.settings":               "Changed email settings",
 	"email.settings.reset":         "Reset email settings",
 	"cache.settings":               "Changed cache settings",
