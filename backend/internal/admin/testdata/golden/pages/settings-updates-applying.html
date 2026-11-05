@@ -22,7 +22,7 @@
 <script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
 <script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/settings/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
-
+<noscript><meta http-equiv="refresh" content="3"></noscript>
 </head>
 <body>
 <a class="hm-skip" href="#hm-main">Skip to content</a>
@@ -107,11 +107,14 @@
 
 </header>
 
-<div class="hm-statgrid"><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Version · stable channel</dt><dd class="hm-statcard__value">v1.4.1</dd>
-</dl><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Status</dt><dd class="hm-statcard__status"><span class="hm-badge hm-badge--info"><span class="hm-badge__dot" aria-hidden="true"></span>Scheduled in rollout: v1.4.2</span></dd>
-</dl><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Last check</dt><dd class="hm-statcard__value">12 minutes ago · ok</dd>
+<div class="hm-statgrid"><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Version · stable channel</dt><dd class="hm-statcard__value hm-statcard__value--sm">v1.4.1</dd>
+</dl><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Status</dt><dd class="hm-statcard__value hm-statcard__value--sm hm-statcard__value--tone"><span class="hm-statcard__dot hm-statcard__dot--info" aria-hidden="true"></span><span>Updating: v1.4.2</span></dd>
+</dl><dl class="hm-statcard hm-statcard--ticker"><dt class="hm-statcard__label">Last check</dt><dd class="hm-statcard__value hm-statcard__value--sm">12 minutes ago · ok</dd>
 </dl></div>
-<div class="hm-callout hm-callout--info" id="updates-status" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body"><span id="updates-status-note">Releases reach sites gradually, and this site&#39;s turn has not come yet. You can install it now instead.</span> <span>An update is running. Reload this page to see the result.</span> </div></div></div>
+
+<div id="updates-live" class="hm-stack hm-stack--tight" hx-get="/admin/settings/updates?poll=running" hx-trigger="every 3s" hx-target="this" hx-select="#updates-live" hx-swap="outerHTML" hx-indicator="#updates-busy">
+<div class="hm-row"><span class="hm-indicator hm-indicator--on" id="updates-busy" role="status" data-hm-busy-text=""><span class="hm-visually-hidden" data-hm-busy-label></span></span><p role="status">Installing the update to v1.4.2. The site restarts briefly; this page shows the result when it is done.</p></div>
+</div>
 
 <form method="post" action="/admin/settings/updates" class="hm-cardform">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">

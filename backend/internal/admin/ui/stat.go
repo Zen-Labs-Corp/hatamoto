@@ -26,6 +26,10 @@ type Stat struct {
 	Muted bool
 	// Small shows Value one step smaller than a metric, for a secondary figure such as a timestamp.
 	Small bool
+	// Tone shows Value as a status: small text that wraps, after a dot in a badge
+	// colour (success, warning, danger, info or neutral). Use it instead of Badge
+	// when the status can be long ("Waiting for the maintenance window: v1.0.8").
+	Tone string
 }
 
 // StatChange is the change against the previous period. Dir is "up", "down" or

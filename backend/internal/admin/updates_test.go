@@ -143,7 +143,7 @@ func TestUpdatesPageStates(t *testing.T) {
 		{"blocked", func(f *fakeUpdates) {
 			f.state.Status.Decision, f.state.Status.Target = "blocked", "v1.5.0"
 			f.state.Status.Reason = "plugin hello needs SDK ^0.8 (v1.5.0 has 0.10.0)"
-		}, []string{`hm-statcard__status"><span class="hm-badge hm-badge--warning"><span class="hm-badge__dot" aria-hidden="true"></span>Blocked</span></dd>`, `<span id="updates-status-note">plugin hello needs SDK ^0.8 (v1.5.0 has 0.10.0)</span>`}, []string{"Update now", "Blocked: plugin"}},
+		}, []string{`<span class="hm-statcard__dot hm-statcard__dot--warning" aria-hidden="true"></span><span>Blocked</span></dd>`, `<span id="updates-status-note">plugin hello needs SDK ^0.8 (v1.5.0 has 0.10.0)</span>`}, []string{"Update now", "Blocked: plugin"}},
 		{"major_available", func(f *fakeUpdates) {
 			f.state.Status.Decision, f.state.Status.AvailableMajor = "available_major", "v2.0.0"
 		}, []string{"Major v2.0.0 available", "Update now to v2.0.0"}, nil},
@@ -200,7 +200,7 @@ func TestUpdatesPageStates(t *testing.T) {
 		{"applying", func(f *fakeUpdates) {
 			f.state.Applying = true
 			f.state.Status.Decision, f.state.Status.Target = "scheduled", "v1.4.2"
-		}, []string{"An update is running."}, []string{"Update now"}},
+		}, []string{`id="updates-live"`, "Installing the update to v1.4.2.", "Updating: v1.4.2"}, []string{"Update now", "Reload this page"}},
 		{"history_empty", func(f *fakeUpdates) {}, []string{"No updates yet."}, nil},
 		{"history_filled", func(f *fakeUpdates) { f.state.History = history }, []string{"5 Nov 2026 14:12", "Updated", "v1.4.0 → v1.4.1", "v1.3.9 → v1.4.0", ">smoke failed: GET / returned 500<", ">disk full<"}, []string{"No updates yet.", "Rolled back: smoke", "Failed: disk"}},
 	} {
@@ -887,5 +887,88 @@ func TestUpdatesStatusStripAndTracker(t *testing.T) {
 	body := newUpdatesRig(t, baseUpdates()).get(t)
 	if !strings.Contains(body, `id="updates-history"`) || strings.Contains(body, "hm-tracker") || !strings.Contains(body, "No updates yet.") {
 		t.Error("empty history is not an empty state inside its card")
+	}
+}
+
+// The update in progress shows on the page and polls, so the owner does not
+// reload: the pre-update backup with its progress, then the install.
+func TestUpdatesLivePanel(t *testing.T) {
+	running := BackupInfo{ID: "20261016T115800Z-pre_update", Kind: BackupPreUpdate, Target: "v1.4.2", State: BackupRunning, Percent: 37, Created: updatesClock}
+	for _, c := range []struct {
+		name           string
+		applying       bool
+		backup         bool
+		wants, absents []string
+	}{
+		{"backing_up", true, true, []string{
+			`id="updates-live"`, `hx-get="/admin/settings/updates?poll=running"`, `hm-indicator hm-indicator--on`,
+			"Backing up the site before the update to v1.4.2. You can leave this page; the update carries on.",
+			`Backup progress</span><span class="hm-meter__value">37%</span>`, "Updating: v1.4.2", `<meta http-equiv="refresh" content="3">`,
+		}, []string{"Update now", "Reload this page", "Waiting for the maintenance window"}},
+		{"installing", true, false, []string{
+			`id="updates-live"`, "Installing the update to v1.4.2. The site restarts briefly; this page shows the result when it is done.", "Updating: v1.4.2",
+		}, []string{"Backup progress", "Update now", "Reload this page"}},
+		{"scheduled_backup", false, true, []string{
+			`id="updates-live"`, "Backing up the site before the update to v1.4.2.", "Updating: v1.4.2",
+		}, []string{"Update now"}},
+		{"idle", false, false, []string{"Waiting for the maintenance window: v1.4.2", "Update now to v1.4.2"}, []string{`id="updates-live"`, `http-equiv="refresh"`}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := baseUpdates()
+			f.state.Applying = c.applying
+			f.state.Status.Decision, f.state.Status.Target = "waiting_window", "v1.4.2"
+			u := newUpdatesRig(t, f)
+			b := baseBackups()
+			if c.backup {
+				b.state.Running, b.state.Rows = true, []BackupInfo{running}
+			}
+			u.a.deps.Backups = b
+			body := u.get(t)
+			for _, w := range c.wants {
+				if !strings.Contains(body, w) {
+					t.Errorf("page lacks %q", w)
+				}
+			}
+			for _, a := range c.absents {
+				if strings.Contains(body, a) {
+					t.Errorf("page has %q", a)
+				}
+			}
+		})
+	}
+}
+
+// A poll that finds the update finished (or the server restarted on the new
+// release) reloads the page; while it runs the panel swaps itself.
+func TestUpdatesPollMovesThePageOn(t *testing.T) {
+	f := baseUpdates()
+	f.state.Applying = true
+	f.state.Status.Decision, f.state.Status.Target = "scheduled", "v1.4.2"
+	u := newUpdatesRig(t, f)
+	htmx := map[string]string{"HX-Request": "true"}
+	if rec := u.do("GET", "/admin/settings/updates?poll=running", "owner-token", nil, htmx); rec.Code != 200 || !strings.Contains(rec.Body.String(), `id="updates-live"`) {
+		t.Errorf("poll while running = %d", rec.Code)
+	}
+	f.state.Applying = false
+	rec := u.do("GET", "/admin/settings/updates?poll=running", "owner-token", nil, htmx)
+	if rec.Code != 204 || rec.Header().Get("HX-Redirect") != "/admin/settings/updates" {
+		t.Errorf("poll after finish = %d, HX-Redirect %q", rec.Code, rec.Header().Get("HX-Redirect"))
+	}
+	if rec := u.do("GET", "/admin/settings/updates?poll=running", "owner-token", nil, nil); rec.Code != 200 {
+		t.Errorf("plain GET with poll = %d", rec.Code)
+	}
+}
+
+// A long status wraps inside its card: it is text after a dot, not a nowrap pill.
+func TestUpdatesStatusStatWraps(t *testing.T) {
+	f := baseUpdates()
+	f.state.Status.Decision, f.state.Status.Target = "waiting_window", "v1.4.2"
+	body := newUpdatesRig(t, f).get(t)
+	want := `<dd class="hm-statcard__value hm-statcard__value--sm hm-statcard__value--tone"><span class="hm-statcard__dot hm-statcard__dot--info" aria-hidden="true"></span><span>Waiting for the maintenance window: v1.4.2</span></dd>`
+	if !strings.Contains(body, want) {
+		t.Errorf("status stat lacks %q", want)
+	}
+	if strings.Contains(body, `hm-statcard__status`) {
+		t.Error("status stat is still a pill")
 	}
 }

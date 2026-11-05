@@ -404,6 +404,7 @@ type updatesData struct {
 	ApplyTarget              string
 	NoBackupTarget           string // set in the backup_failed state: the version "Update without a backup" installs
 	Applying                 bool
+	Live                     updatesLive // the update in progress, shown and polled while Live.On
 	Zone                     string
 	ModeCards                []ui.RadioCardItem
 	ModeValue, ModeLockNote  string // set when the environment locks the mode: the value, and who set it
@@ -721,7 +722,72 @@ func (a *Admin) handleUpdates(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The update settings could not be loaded.")
 		return
 	}
+	// A poll that finds the update finished (or the site restarted on the new
+	// release) reloads the whole page, which then shows the result.
+	if poll := r.URL.Query().Get("poll"); poll != "" && IsHTMX(r) && poll != a.updatesLiveFor(r.Context(), st).pollState() {
+		Redirect(w, r, a.adminPath+updatesPath)
+		return
+	}
 	a.renderUpdates(w, r, http.StatusOK, &st, nil, nil)
+}
+
+// updatesLive is the update in progress: an Update now run, or the backup
+// taken before an update (also a scheduled one). The page polls while On so
+// the owner sees it move instead of reloading.
+type updatesLive struct {
+	On       bool
+	Target   string // the version being installed; "" when unknown
+	Text     string
+	Progress *ui.Progress // the pre-update backup, while it runs
+	PollURL  string
+}
+
+func (l updatesLive) pollState() string {
+	if l.On {
+		return "running"
+	}
+	return "idle"
+}
+
+// updatesLiveFor reads what is running now. A backup list that fails only
+// loses the progress bar; an Update now run still shows.
+func (a *Admin) updatesLiveFor(ctx context.Context, st UpdatesState) updatesLive {
+	var bk *BackupInfo
+	if a.deps.Backups != nil {
+		if bs, err := a.deps.Backups.List(ctx); err != nil {
+			a.logger().Warn("updates: backups list", "err", err)
+		} else {
+			for i, b := range bs.Rows {
+				if b.State == BackupRunning && b.Kind == BackupPreUpdate {
+					bk = &bs.Rows[i]
+					break
+				}
+			}
+		}
+	}
+	if !st.Applying && bk == nil {
+		return updatesLive{}
+	}
+	target := st.Status.ApplyTarget(st.Running)
+	if bk != nil && bk.Target != "" {
+		target = bk.Target
+	}
+	l := updatesLive{On: true, Target: target, PollURL: a.adminPath + updatesPath + "?poll=running"}
+	if bk != nil {
+		l.Text = withVersionTo("Backing up the site before the update", target) + ". You can leave this page; the update carries on."
+		l.Progress = &ui.Progress{Label: "Backup progress", Value: fmt.Sprintf("%d%%", bk.Percent), Pct: float64(bk.Percent)}
+	} else {
+		l.Text = withVersionTo("Installing the update", target) + ". The site restarts briefly; this page shows the result when it is done."
+	}
+	return l
+}
+
+// withVersionTo is "label to vX.Y.Z", or the label alone without a version.
+func withVersionTo(label, version string) string {
+	if version == "" {
+		return label
+	}
+	return label + " to " + version
 }
 
 // renderUpdates draws the page. st is nil when the updater is unavailable; in
@@ -739,7 +805,7 @@ func (a *Admin) renderUpdates(w http.ResponseWriter, r *http.Request, status int
 			d.Unavailable = "the updater did not start, see the server log"
 		}
 	} else {
-		a.fillUpdates(&d, *st, in, loc)
+		a.fillUpdates(&d, *st, in, loc, a.updatesLiveFor(ctx, *st))
 	}
 	if a.deps.Stats != nil && !a.deps.Demo.Enabled {
 		if sv, err := a.deps.Stats.View(ctx); err != nil {
@@ -754,11 +820,14 @@ func (a *Admin) renderUpdates(w http.ResponseWriter, r *http.Request, status int
 	v := a.NewView(w, r, "Updates")
 	v.Section, v.Tab = "updates", "updates"
 	v.Width = "compact"
+	if d.Live.On {
+		v.Refresh = pollSeconds
+	}
 	v.Data = d
 	a.Render(w, r, status, "settings/updates", v)
 }
 
-func (a *Admin) fillUpdates(d *updatesData, st UpdatesState, in *updatesInput, loc *time.Location) {
+func (a *Admin) fillUpdates(d *updatesData, st UpdatesState, in *updatesInput, loc *time.Location, live updatesLive) {
 	now := updatesNow()
 	cur := st.Current()
 	d.Version = st.Running
@@ -802,14 +871,23 @@ func (a *Admin) fillUpdates(d *updatesData, st UpdatesState, in *updatesInput, l
 	}
 	d.History = updatesHistoryTableFor(a.adminPath, st.History, loc)
 	d.HistoryTracker = updatesHistoryTracker(st.History, loc)
+	d.Live = live
+	if live.On {
+		// The stored check result is stale while an update runs ("Waiting for the
+		// maintenance window"): the row says Updating and the live panel replaces the note.
+		d.Status = ui.Badge{Label: withVersion("Updating", live.Target), Kind: "info"}
+		d.StatusNote, d.ApplyTarget, d.NoBackupTarget = "", "", ""
+	}
 	d.StatusKind = "info"
 	if k := d.Status.Kind; k == "warning" || k == "danger" {
 		d.StatusKind = k
 	}
+	// One value size across the row; the status is text after a coloured dot,
+	// so a long one ("Waiting for the maintenance window: v1.0.8") wraps inside its card.
 	d.Stats = []ui.Stat{
-		{Label: "Version · " + st.Channel + " channel", Value: d.Version},
-		{Label: "Status", Badge: &d.Status},
-		{Label: "Last check", Value: d.LastCheck},
+		{Label: "Version · " + st.Channel + " channel", Value: d.Version, Small: true},
+		{Label: "Status", Value: d.Status.Label, Tone: d.Status.Kind},
+		{Label: "Last check", Value: d.LastCheck, Small: true},
 	}
 }
 
