@@ -127,8 +127,54 @@ func TestDoctorJSONSourceErrorIsReturned(t *testing.T) {
 }
 
 func TestDoctorJSONNeedsDSN(t *testing.T) {
-	if err := runDoctorJSON(context.Background(), "", &bytes.Buffer{}); err == nil {
-		t.Fatal("empty DSN accepted")
+	err := runDoctorJSON(context.Background(), "", &bytes.Buffer{})
+	var oe operationalError
+	if !errors.As(err, &oe) {
+		t.Fatalf("empty DSN: err = %v, want an operationalError (exit 2)", err)
+	}
+}
+
+func TestDoctorJSONUnreachableDatabaseIsOperational(t *testing.T) {
+	err := runDoctorJSON(context.Background(), "postgres://u@127.0.0.1:1/x?connect_timeout=1", &bytes.Buffer{})
+	var oe operationalError
+	var ee exitError
+	if !errors.As(err, &oe) || errors.As(err, &ee) {
+		t.Fatalf("err = %v, want operationalError and not exitError{1}", err)
+	}
+}
+
+func TestDoctorJSONStoredTypedColumns(t *testing.T) {
+	for _, key := range []string{
+		"hatamoto_seo_settings.settings", "hatamoto_privacy_settings.settings", "hatamoto_tracking_settings.settings",
+		"hatamoto_site_config.business_profile", "hatamoto_site_config.postal_address",
+		"hatamoto_site_config.locale_profiles", "hatamoto_form_submissions.metadata",
+	} {
+		if doctorRegistry[key].decode == nil {
+			t.Errorf("%s is typed but has no decoder", key)
+		}
+	}
+	for _, key := range []string{"hatamoto_site_config.locales", "hatamoto_media.variants"} {
+		if doctorRegistry[key].shape == nil {
+			t.Errorf("%s has no shape, case variants go unreported", key)
+		}
+	}
+	// A wrongly typed value fails the decode instead of printing ok.
+	c := jsonColumn{Table: "hatamoto_form_submissions", Column: "metadata", HasID: true}
+	rep, err := checkStoredJSON(context.Background(), fakeJSONSource{
+		cols: []jsonColumn{c},
+		rows: map[string][]fakeRow{c.key(): {{"1", `{"ip_address":5}`}}},
+	})
+	if err != nil || rep.DecodeFails != 1 {
+		t.Fatalf("decode fails = %v, err %v", rep, err)
+	}
+	// And a case variant in locales is reported.
+	c = jsonColumn{Table: "hatamoto_site_config", Column: "locales", HasID: true}
+	rep, err = checkStoredJSON(context.Background(), fakeJSONSource{
+		cols: []jsonColumn{c},
+		rows: map[string][]fakeRow{c.key(): {{"1", `[{"Tag":"en","segment":"en"}]`}}},
+	})
+	if err != nil || rep.VariantKeys != 1 {
+		t.Fatalf("variant keys = %+v, err %v", rep, err)
 	}
 }
 

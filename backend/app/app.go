@@ -231,6 +231,10 @@ func Main() {
 			os.Exit(ee.code)
 		}
 		logger.Error(err.Error())
+		var oe operationalError
+		if errors.As(err, &oe) {
+			os.Exit(2)
+		}
 		os.Exit(1)
 	}
 }
