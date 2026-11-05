@@ -15,7 +15,6 @@ package wasmhost
 import (
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -30,6 +29,7 @@ import (
 	extism "github.com/extism/go-sdk"
 	"github.com/tetratelabs/wazero"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -336,7 +336,7 @@ const maxHostCallBytes = 1 << 20
 // hostFunction builds the hm_call import of one plugin.
 func (h *Host) hostFunction(name string, log *slog.Logger) extism.HostFunction {
 	fail := func(code, msg string) []byte {
-		b, _ := json.Marshal(sdk.CallResponse{Error: &sdk.HostError{Code: code, Message: msg}})
+		b, _ := jsonx.MarshalPinned(sdk.CallResponse{Error: &sdk.HostError{Code: code, Message: msg}})
 		return b
 	}
 	call := h.hostCall

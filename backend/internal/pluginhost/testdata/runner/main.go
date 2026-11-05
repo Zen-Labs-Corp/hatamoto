@@ -9,7 +9,7 @@
 package main
 
 import (
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 
@@ -38,7 +38,7 @@ func init() {
 			panic(err)
 		}
 		var p params
-		_ = json.Unmarshal(info.Params, &p)
+		_ = jsonv2.Unmarshal(info.Params, &p, jsonv2.MatchCaseInsensitiveNames(true))
 		switch p.Mode {
 		case "leak":
 			marked = true
