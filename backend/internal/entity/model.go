@@ -92,6 +92,10 @@ type Entity struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	PublishedAt   *time.Time     `json:"published_at,omitempty"`
+	// SortOrder is the stored manual order among siblings (same schema, parent
+	// and locale); 0 until an owner orders the set. Only GetByID, the admin
+	// lists and Update load it; other reads leave it 0.
+	SortOrder int `json:"sort_order"`
 
 	// Hierarchy and content classification fields
 	ParentID *uuid.UUID `json:"parent_id,omitempty"`
