@@ -252,7 +252,7 @@ func TestRenderDataPopular_Integration(t *testing.T) {
 	}
 	one.Query(spec)
 	if reads != 2 {
-		t.Errorf("rollup read %d times, want 2 (partial ranking not memoised)", calls)
+		t.Errorf("rollup read %d times, want 2 (partial ranking not memoised)", reads)
 	}
 
 	// An expired context stops the resolving and is a failure too.
