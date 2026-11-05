@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/entity"
@@ -41,7 +42,11 @@ func (k unpublishSink) Unpublish(ctx context.Context, id uuid.UUID) (err error) 
 	}
 	defer func() {
 		if err != nil {
-			if rerr := st.Requeue(ctx, *sched); rerr != nil {
+			// The tick context may be what failed (deadline, shutdown), and the
+			// row is already claimed: put it back on a context that survives.
+			rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+			defer cancel()
+			if rerr := st.Requeue(rctx, *sched); rerr != nil {
 				s.logger.Warn("requeue unpublish", slog.String("entity_id", id.String()), slog.String("error", rerr.Error()))
 			}
 		}

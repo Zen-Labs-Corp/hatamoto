@@ -298,3 +298,31 @@ func TestPostponedUnpublishIsNotCarriedOut(t *testing.T) {
 		t.Error("the new schedule was deleted")
 	}
 }
+
+// cancelOnGet cancels the tick context as soon as the sink reads the entity,
+// which is after the claim and before the status write.
+type cancelOnGet struct {
+	entity.EntityRepository
+	cancel context.CancelFunc
+}
+
+func (c cancelOnGet) GetByID(ctx context.Context, id uuid.UUID) (*entity.Entity, error) {
+	c.cancel()
+	return c.EntityRepository.GetByID(ctx, id)
+}
+
+// A tick that ends right after the claim must not lose the schedule.
+func TestCancelledTickRestoresClaimedSchedule(t *testing.T) {
+	r := newUnpublishRig(t)
+	e := r.published("unpub-i")
+	r.due(e.ID, "/elsewhere")
+	ctx, cancel := context.WithCancel(r.ctx)
+	defer cancel()
+	r.srv.entityRepo = cancelOnGet{EntityRepository: r.srv.entityRepo, cancel: cancel}
+	if err := (unpublishSink{s: r.srv}).Unpublish(ctx, e.ID); err == nil {
+		t.Fatal("expected the cancelled tick to fail")
+	}
+	if u, _ := r.srv.entityService.UnpublishFor(r.ctx, e.ID); u == nil {
+		t.Fatal("claimed schedule was lost")
+	}
+}
