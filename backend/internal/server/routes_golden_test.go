@@ -85,6 +85,8 @@ func allowedExtraPattern(pattern string, expected map[string]bool) bool {
 		return method == "GET"
 	case "/ads.txt", "/app-ads.txt": // ads.txt: owner-edited ad seller lists
 		return method == "GET"
+	case "/fonts/{file}": // owner fonts, content-addressed
+		return method == "GET"
 	case "/preview/{token}": // shared draft preview links
 		return method == "GET"
 	case "/favicon.ico", "/favicon-16.png", "/favicon-32.png", "/apple-icon.png", "/icon-192.png", "/icon-512.png":

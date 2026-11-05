@@ -83,8 +83,10 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 // renderRoutes are the handlers mountRenderRoutes wires; split from Server so
 // the routing is testable without a database.
 type renderRoutes struct {
-	pages      *renderHandlers
-	assets     http.Handler
+	pages  *renderHandlers
+	assets http.Handler
+	// fonts (optional) serves GET /fonts/<sha256>.woff2 from the font store.
+	fonts      http.Handler
 	robots     http.HandlerFunc
 	sitemap    http.HandlerFunc
 	subSitemap http.HandlerFunc
@@ -133,6 +135,10 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 	// GET only: an any-method pattern would conflict with the "GET /{rest...}"
 	// catch-all below.
 	r.Handle("GET /theme/assets/{rest...}", rt.assets)
+	// Owner fonts: content-addressed files, not pages, so outside capture.
+	if rt.fonts != nil {
+		r.Handle("GET /fonts/{file}", rt.fonts)
+	}
 
 	// Own limiter: the public API form route has its own bucket, and the two
 	// must not share a budget.

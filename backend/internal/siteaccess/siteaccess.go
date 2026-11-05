@@ -72,7 +72,7 @@ const CookieName = "hatamoto_site_access"
 const CookieTTL = 30 * 24 * time.Hour
 
 var bypassPrefixes = []string{
-	"/p/", "/.well-known/", "/media/", "/theme/assets/",
+	"/p/", "/.well-known/", "/media/", "/theme/assets/", "/fonts/",
 	// Address-independent admin routes that the main mux forwards.
 	"/auth/", "/plugin-ui/",
 }
