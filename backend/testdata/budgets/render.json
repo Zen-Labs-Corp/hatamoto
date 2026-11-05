@@ -25,25 +25,25 @@
       "tol_abs": 64
     },
     "alloc_RenderPage72_allocs": {
-      "value": 563,
+      "value": 596,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderPage72_bytes": {
-      "value": 72163,
+      "value": 85213,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
     },
     "alloc_RenderPageStat72_allocs": {
-      "value": 2178,
+      "value": 2213,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderPageStat72_bytes": {
-      "value": 178032,
+      "value": 195142,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
@@ -61,7 +61,7 @@
       "tol_abs": 64
     },
     "canvas_bridge_gzip": {
-      "value": 16411,
+      "value": 16847,
       "unit": "bytes",
       "tol_abs": 512
     },
@@ -86,7 +86,7 @@
       "tol_pct": 5
     },
     "golden_page-shell_bytes": {
-      "value": 4100,
+      "value": 4488,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -111,42 +111,42 @@
       "tol_pct": 5
     },
     "page_allwidgets_html_bytes": {
-      "value": 37335,
+      "value": 39274,
       "unit": "bytes",
       "tol_pct": 5
     },
     "page_css_allstylekeys_gzip": {
-      "value": 1861,
+      "value": 1872,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 8192
     },
     "page_css_allwidgets_gzip": {
-      "value": 2394,
+      "value": 2621,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 8192
     },
     "page_css_parts_blocks_gzip": {
-      "value": 2441,
+      "value": 2670,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 8192
     },
     "page_css_states_gzip": {
-      "value": 885,
+      "value": 897,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 8192
     },
     "page_css_tokens_presets_gzip": {
-      "value": 2693,
+      "value": 2926,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 8192
     },
     "page_settings_html_bytes": {
-      "value": 7061,
+      "value": 7474,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -155,21 +155,17 @@
       "unit": "count"
     },
     "theme_default_css_gzip": {
-      "value": 14501,
+      "value": 14929,
       "unit": "bytes",
       "tol_abs": 1024
     },
     "theme_default_js_gzip": {
-      "value": 5040,
+      "value": 5143,
       "unit": "bytes",
       "tol_abs": 512
     }
   },
   "history": [
-    {
-      "reason": "builder-e2-states: page_css_states_gzip, the hover-lift states page",
-      "date": "2026-10-24"
-    },
     {
       "reason": "builder-e2-states: states, transform/filter/transition keys, force preview",
       "date": "2026-10-24"
@@ -235,7 +231,7 @@
       "date": "2026-10-29"
     },
     {
-      "reason": "canvas bridge forwards the builder shortcut set: canvas_bridge_gzip 15879 -\u003e 16376 (+497 B)",
+      "reason": "canvas bridge forwards the builder shortcut set: canvas_bridge_gzip 15879 -> 16376 (+497 B)",
       "date": "2026-11-01"
     },
     {
@@ -245,6 +241,10 @@
     {
       "reason": "social SEO settings and share card",
       "date": "2026-11-01"
+    },
+    {
+      "reason": "speculation rules block in public head",
+      "date": "2026-11-05"
     }
   ]
 }
