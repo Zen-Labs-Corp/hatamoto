@@ -32,6 +32,7 @@ Settings holds everything about the site as a whole rather than one entity. Each
 | Site access | `site-access` | owner |
 | Performance | `performance` | owner |
 | Updates | `updates` | owner |
+| Jobs | `jobs` | owner |
 | Import & export | `import`, `export` | owner |
 
 Entity types and taxonomies are described in [Entity types and taxonomies](entity-types-and-taxonomies.md). How the site looks lives in the separate Theme area, see [Theme](#theme). Editors have their own profile at `<admin>/profile`.
@@ -363,6 +364,12 @@ Passwords are never exported, so set one for each person who needs to sign in on
 ## Updates
 
 `<admin>/settings/updates` shows the running version and the automatic update policy: the **mode** (Automatic, Notify only or Off), the release **channel**, a **maintenance window** in the site time zone, and a **defer** setting that holds releases back for 0 to 14 days (security fixes still install). You can check now, apply a staged update or remove a pin. A setting that is fixed by an environment variable is shown locked with the name of the variable. The mechanics are described in [How updates work](../updates/index.md).
+
+## Jobs
+
+`<admin>/settings/jobs` (owners only) lists the scheduled background jobs of the site: what each one does, its schedule, when it last ran, how long it took, whether it worked and the last error, and when it runs next. Plugin cron jobs are listed too, as "Plugin: name > job". A job that has not run yet reads "Never run", and a job the server operator turned off reads "Turned off by server settings". The next run of a job with a random offset is marked "About".
+
+**Run now** starts a job once, straight away. It is offered only for jobs that tidy local data and for the update check (which only checks, it never installs): scheduled publishing, session and token purge, table prune, entity version cleanup, agent hit IP truncation, change set sweep, traffic rollup prune, webhook log prune and the update check. A job that is already running answers "Already running". Jobs that send data out, send mail or call a plugin have no button. Each run is written to the audit log as `jobs.run`. The schedules and the on and off switches are not editable here; the server operator sets them (see [the worker](../operate/multi-replica-and-health.md#the-worker)).
 
 ## Theme
 

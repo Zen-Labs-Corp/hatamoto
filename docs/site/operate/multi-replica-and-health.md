@@ -38,7 +38,12 @@ Each process runs an in-process scheduler for maintenance jobs unless you turn i
 - `changeset_sweep`: expires staged content changesets and removes the files they left behind. Safe on several replicas at once; publishing checks the expiry itself, so a replica with the worker off never publishes an expired changeset.
 - `standing_digest`: mails the owners once a day the runs that published themselves under a standing approval. Safe on several replicas at once; the day is claimed in the database, so only one mail goes out.
 - `stats_ping`: the opt-in install stats ping. See [Install stats](install-stats.md).
+- `backup_offsite`: the off-site backup check, once a minute.
+- `agent_attribution_backfill`: attributes older crawler hits.
+- `traffic_prune`: the nightly retention of the traffic rollup.
 - Plugin cron jobs run on the same scheduler.
+
+Settings > Jobs (owners only) lists every one of these and each plugin cron job with its schedule, last run, how long it took, the result, the last error and the next run. The last run of each job is stored in the database (table `hatamoto_job_status`, one row per job, overwritten by the next run, no history), so a replica with `HATAMOTO_WORKER=off` still shows what the replica with the worker did; it shows no next run. Run now is offered for these jobs only: `publish`, `retention_purge`, `prune`, `entity_versions`, `agent_hits_maintenance`, `changeset_sweep`, `traffic_prune`, `webhook_prune` and `update_check`. Run now on `update_check` only checks, it never installs an update. It never overlaps the schedule: a job that is running answers "Already running". Jobs that send data out, send mail or call a plugin, and every plugin cron job, have no button, and Run now is refused in drain mode and on a process without the worker. A job turned off by `WORKER_DISABLE_JOBS` reads "Turned off by server settings".
 
 Three switches control it:
 
