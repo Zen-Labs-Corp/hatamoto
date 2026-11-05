@@ -1,11 +1,13 @@
 package render
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Limits of a theme's menu declaration. Anything past them is dropped.
@@ -69,7 +71,7 @@ func (d MenuDecl) ClassFor(kind, id string) string {
 
 // parseMenuDecl reads the "menu" object of theme.json. It never fails: a
 // malformed value or entry is dropped, so a theme with a typo still loads.
-func parseMenuDecl(raw json.RawMessage) MenuDecl {
+func parseMenuDecl(raw jsontext.Value) MenuDecl {
 	var m struct {
 		Styles  []MenuPreset `json:"styles"`
 		Colors  []MenuPreset `json:"colors"`
@@ -77,7 +79,7 @@ func parseMenuDecl(raw json.RawMessage) MenuDecl {
 		Icons   []MenuPreset `json:"icons"`
 		Classes []string     `json:"classes"`
 	}
-	if len(raw) == 0 || json.Unmarshal(raw, &m) != nil {
+	if len(raw) == 0 || jsonx.Unmarshal(raw, &m, jsonx.StoredLoose) != nil {
 		return MenuDecl{}
 	}
 	return MenuDecl{

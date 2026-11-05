@@ -1,13 +1,15 @@
 package render
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"html/template"
 	"math"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // maxFromJSON bounds the input of fromJSON; larger documents decode to nil.
@@ -69,8 +71,8 @@ func toStr(v any) string {
 		return t
 	case template.HTML:
 		return string(t)
-	case json.Number:
-		return t.String()
+	case jsontext.Value:
+		return string(t)
 	}
 	switch rv := reflect.ValueOf(v); rv.Kind() {
 	case reflect.Float32, reflect.Float64:
@@ -90,8 +92,8 @@ func toInt(v any) int {
 		return atoiString(t)
 	case template.HTML:
 		return atoiString(string(t))
-	case json.Number:
-		return atoiString(t.String())
+	case jsontext.Value:
+		return atoiString(string(t))
 	}
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() {
@@ -138,7 +140,7 @@ func fromJSON(v any) any {
 		return nil
 	}
 	var out any
-	if err := json.Unmarshal([]byte(s), &out); err != nil {
+	if err := jsonx.Unmarshal([]byte(s), &out, jsonx.StoredLoose); err != nil {
 		return nil
 	}
 	return out

@@ -3,7 +3,7 @@ package render
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 )
 
@@ -20,7 +21,7 @@ type SectionDef struct {
 	// Template is the html/template source of sections/<type>.html.
 	Template string
 	// Schema is the raw JSON Schema of schemas/<type>.json (nil if absent).
-	Schema json.RawMessage
+	Schema jsontext.Value
 	// Meta is the schema's x-hm-section extension.
 	Meta SectionMeta
 	// Aliases maps a canonical top-level field to its legacy names (x-hm-alias).
@@ -34,7 +35,7 @@ type Theme struct {
 	Name    string
 	Version string
 	// Settings is the raw settings_schema from theme.json (may be nil).
-	Settings json.RawMessage
+	Settings jsontext.Value
 	// Sections is keyed by section type, discovered from the file layout.
 	Sections map[string]*SectionDef
 
@@ -62,9 +63,9 @@ type Theme struct {
 }
 
 type themeManifest struct {
-	Name           string          `json:"name"`
-	Version        string          `json:"version"`
-	SettingsSchema json.RawMessage `json:"settings_schema"`
+	Name           string         `json:"name"`
+	Version        string         `json:"version"`
+	SettingsSchema jsontext.Value `json:"settings_schema"`
 	Builder        struct {
 		Tokens bool     `json:"tokens"`
 		Parts  []string `json:"parts"`
@@ -72,8 +73,8 @@ type themeManifest struct {
 	CSP struct {
 		StrictScripts bool `json:"strictScripts"`
 	} `json:"csp"`
-	Menu  json.RawMessage `json:"menu"`
-	Menus json.RawMessage `json:"menus"`
+	Menu  jsontext.Value `json:"menu"`
+	Menus jsontext.Value `json:"menus"`
 }
 
 // LoadTheme resolves theme.json (highest-precedence copy) and discovers section
@@ -84,7 +85,7 @@ func LoadTheme(c Chain) (*Theme, error) {
 
 	if b, err := c.ReadFile("theme.json"); err == nil {
 		var m themeManifest
-		if err := json.Unmarshal(b, &m); err != nil {
+		if err := jsonx.Unmarshal(b, &m, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("theme.json: %w", err)
 		}
 		t.Name, t.Version, t.Settings = m.Name, m.Version, m.SettingsSchema

@@ -2,13 +2,13 @@ package render
 
 import (
 	"context"
-	"encoding/json"
 	"encoding/json/jsontext"
 	"html/template"
 	"slices"
 	"strings"
 
 	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -201,7 +201,7 @@ func SiteGraph(ctx context.Context, sg SiteGraphFilter, v *PageView) map[string]
 	core := siteGraphLD(v)
 	doc := extendSiteGraph(ctx, sg, v, core)
 	if sg != nil {
-		if _, err := json.Marshal(doc); err != nil {
+		if _, err := jsonx.Marshal(doc, jsonx.HTMLSafe); err != nil {
 			return core
 		}
 	}
@@ -460,25 +460,25 @@ func appendUnique(dst []string, vals ...string) []string {
 
 // jsonLDScript wraps an already-built JSON-LD document.
 func jsonLDScript(raw jsontext.Value) (template.HTML, bool) {
-	if !json.Valid(raw) {
+	if !jsonx.Valid(raw) {
 		return "", false
 	}
 	return ldScriptFromBytes(raw)
 }
 
 func marshalLDScript(doc any) (template.HTML, bool) {
-	b, err := json.Marshal(doc)
+	b, err := jsonx.Marshal(doc, jsonx.HTMLSafe)
 	if err != nil {
 		return "", false
 	}
 	return ldScriptFromBytes(b)
 }
 
-// ldScriptFromBytes re-encodes raw through encoding/json (which escapes <, >,
+// ldScriptFromBytes re-encodes raw with jsonx.HTMLSafe (which escapes <, >,
 // & and U+2028/9) and additionally rewrites "</" so the payload can never
 // close the script element.
 func ldScriptFromBytes(raw []byte) (template.HTML, bool) {
-	b, err := json.Marshal(json.RawMessage(raw))
+	b, err := jsonx.Marshal(jsontext.Value(raw), jsonx.HTMLSafe)
 	if err != nil {
 		return "", false
 	}
