@@ -161,15 +161,19 @@ func (c *Client) do(ctx context.Context, r request) (*http.Response, error) {
 	if r.payload == "" {
 		r.payload = emptySHA256
 	}
-	body := r.body
-	if body == nil {
-		body = http.NoBody
+	// No body must stay http.NoBody (or nil): net/http sends any other body of
+	// unknown length chunked, which providers answer with 411 or 501.
+	var body io.Reader = http.NoBody
+	if r.body != nil {
+		body = io.NopCloser(r.body)
 	}
-	req, err := http.NewRequestWithContext(ctx, r.method, u.String(), io.NopCloser(body))
+	req, err := http.NewRequestWithContext(ctx, r.method, u.String(), body)
 	if err != nil {
 		return nil, fmt.Errorf("s3 %s: %w", r.op, err)
 	}
-	req.ContentLength = r.size
+	if r.body != nil {
+		req.ContentLength = r.size
+	}
 	for k, vs := range r.header {
 		req.Header[k] = vs
 	}

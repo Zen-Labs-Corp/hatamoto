@@ -147,6 +147,11 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusForbidden, code)
 		return
 	}
+	// Real providers refuse a chunked request body (411 or 501).
+	if len(r.TransferEncoding) > 0 || r.ContentLength < 0 {
+		fail(w, http.StatusLengthRequired, "MissingContentLength")
+		return
+	}
 	for k := range r.Header {
 		if strings.HasPrefix(strings.ToLower(k), "x-amz-checksum-") {
 			fail(w, http.StatusBadRequest, "InvalidRequest")
