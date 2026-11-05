@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"net/url"
 	"path"
 	"strings"
 	"unicode"
@@ -13,8 +14,11 @@ import (
 // handler sends the headers that let the site's own pages frame a PDF.
 func pdfSrc(src string) string {
 	p := sitePath(src)
-	if !strings.HasPrefix(p, "/media/") || strings.Contains(p, "..") ||
-		strings.ContainsFunc(p, func(r rune) bool { return unicode.IsControl(r) || strings.ContainsRune(`\"'<>?# `, r) }) {
+	bad := func(r rune) bool { return unicode.IsControl(r) || strings.ContainsRune(`\"'<>?# `, r) }
+	// The decoded path is checked too: %2e%2e is '..' and %5c a backslash downstream.
+	d, err := url.PathUnescape(p)
+	if err != nil || !strings.HasPrefix(p, "/media/") || strings.Contains(d, "..") ||
+		strings.ContainsFunc(p, bad) || strings.ContainsFunc(d, func(r rune) bool { return bad(r) && r != ' ' }) {
 		return ""
 	}
 	return p

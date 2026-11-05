@@ -24,6 +24,14 @@ func TestPDFSrc(t *testing.T) {
 		"media/x.pdf":               "",
 		`/media/x".pdf`:             "",
 		"/media/x pdf":              "",
+		"/media/%2e%2e/x.pdf":       "", // encoded traversal
+		"/media/%2E%2E/x.pdf":       "",
+		"/media/.%2e/x.pdf":         "",
+		"/media/a%5c..%5cx.pdf":     "",
+		"/media/a%5cb.pdf":          "",
+		"/media/a%3fb.pdf":          "",
+		"/media/a%00b.pdf":          "",
+		"/media/a%zz.pdf":           "",
 		"":                          "",
 	} {
 		if got := pdfSrc(src); got != want {
