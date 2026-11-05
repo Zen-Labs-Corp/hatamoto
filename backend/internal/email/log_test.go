@@ -66,6 +66,9 @@ func TestEveryKindLeavesOneRow(t *testing.T) {
 		{KindRunDigest, func() error {
 			return svc.SendRunDigest(ctx, "a@example.com", RunDigestData{SiteName: "S", HistoryURL: "/x"})
 		}},
+		{KindAccessEnding, func() error {
+			return svc.SendAccessEnding(ctx, "a@example.com", AccessEndingData{SiteName: "S", Name: "Ann", Email: "ann@example.com", Role: "editor", EndsOn: "31 Dec 2026", UsersURL: "/x"})
+		}},
 		{KindPlugin, func() error { return svc.SendPlugin(ctx, "acme", []string{"a@example.com"}, "Hi", "<p>x</p>", "x") }},
 		{KindOther, func() error { return svc.Send(ctx, []string{"a@example.com"}, "Hi", "<p>x</p>", "x") }},
 	}
@@ -88,7 +91,7 @@ func TestEveryKindLeavesOneRow(t *testing.T) {
 			t.Errorf("%s: link stored in the log", st.kind)
 		}
 	}
-	if got := rec.entries[9].Plugin; got != "acme" {
+	if got := rec.entries[10].Plugin; got != "acme" {
 		t.Errorf("plugin = %q, want acme", got)
 	}
 	if rec.entries[0].BodyText == "" || rec.entries[0].BodyHTML == "" {

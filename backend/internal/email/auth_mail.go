@@ -20,6 +20,20 @@ type InviteMailData struct {
 	Role        string
 	URL         string
 	ExpiresIn   string // "7 days"
+	// AccessEnds is the day the invited user's access ends, already formatted
+	// ("31 Dec 2026"); empty when there is no end.
+	AccessEnds string
+}
+
+// AccessEndingData drives access_ending.html. EndsOn is already formatted in the
+// site time zone ("31 Dec 2026").
+type AccessEndingData struct {
+	SiteName string
+	Name     string
+	Email    string
+	Role     string
+	EndsOn   string
+	UsersURL string
 }
 
 // AdminAddressChangedData drives admin_address_changed.html. Address is the
@@ -71,7 +85,26 @@ func (s *Service) SendInvite(ctx context.Context, to string, data InviteMailData
 	}
 	text := fmt.Sprintf("%s to help run %s as %s.\n\nAccept the invitation to choose your password (the link works once and expires in %s):\n\n%s\n",
 		who, data.SiteName, data.Role, data.ExpiresIn, data.URL)
+	if data.AccessEnds != "" {
+		text += "\nYour access ends on " + data.AccessEnds + ".\n"
+	}
 	return s.sendAuth(ctx, KindInvite, to, data.SiteName, "Join "+data.SiteName, html, text)
+}
+
+// SendAccessEnding reminds an owner that a user's access ends soon. The mail
+// carries no link secret, so the log may keep its body.
+func (s *Service) SendAccessEnding(ctx context.Context, to string, data AccessEndingData) error {
+	html, err := s.render("access_ending.html", data)
+	if err != nil {
+		return err
+	}
+	who := data.Name
+	if who == "" {
+		who = data.Email
+	}
+	text := fmt.Sprintf("%s (%s, %s) loses access to %s in 3 days.\nChange the date or let it end: Settings > Users.\n%s\n",
+		who, data.Email, data.Role, data.SiteName, data.UsersURL)
+	return s.sendAuth(ctx, KindAccessEnding, to, data.SiteName, "Access for "+who+" ends on "+data.EndsOn, html, text)
 }
 
 // SendAdminAddressChanged tells an owner the admin address changed.
