@@ -9,8 +9,10 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func versionPruneFixture(t *testing.T) (context.Context, *Service, *PostgresEntityRepository, uuid.UUID, func(string) uuid.UUID) {
@@ -163,5 +165,85 @@ func TestUpdateStampsLiveAtIntegration(t *testing.T) {
 		if (vs[0].LiveAt != nil) != tc.live {
 			t.Errorf("%s: live_at = %v, want set=%v", tc.status, vs[0].LiveAt, tc.live)
 		}
+	}
+}
+
+// TestSnapshotWritersStampLiveAtIntegration covers the writers besides
+// UpdateEntity: each must stamp the snapshot of a published entity as live and
+// leave a draft's unstamped, by the status the row had before the write.
+func TestSnapshotWritersStampLiveAtIntegration(t *testing.T) {
+	liveCount := func(t *testing.T, f *csFixture, id uuid.UUID) (total, live int) {
+		t.Helper()
+		if err := f.db.Pool().QueryRow(f.ctx,
+			`SELECT count(*), count(live_at) FROM hatamoto_entity_versions WHERE entity_id = $1`, id).Scan(&total, &live); err != nil {
+			t.Fatal(err)
+		}
+		return total, live
+	}
+	newEntity := func(t *testing.T, f *csFixture, status string) uuid.UUID {
+		t.Helper()
+		e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "w-" + uuid.NewString()[:8], Attributes: json.RawMessage(`{"content":"a"}`)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_entities SET status = $2 WHERE id = $1`, e.ID, status); err != nil {
+			t.Fatal(err)
+		}
+		return e.ID
+	}
+	for _, tc := range []struct {
+		status string
+		live   bool
+	}{{"published", true}, {"draft", false}} {
+		t.Run("apply "+tc.status, func(t *testing.T) {
+			f := newCSFixture(t)
+			id := newEntity(t, f, tc.status)
+			if _, err := f.apply(TxOp{ID: &id, Attributes: json.RawMessage(`{"content":"b"}`)}); err != nil {
+				t.Fatal(err)
+			}
+			total, live := liveCount(t, f, id)
+			if total != 1 || (live == 1) != tc.live {
+				t.Errorf("versions = %d, live = %d, want 1 version, live=%v", total, live, tc.live)
+			}
+		})
+		t.Run("restore "+tc.status, func(t *testing.T) {
+			f := newCSFixture(t)
+			id := newEntity(t, f, tc.status)
+			// The pre-image carries the version-1 attributes; the row has
+			// moved on, so the restore snapshots the current ones. Delete the
+			// apply's own snapshot to isolate the restore's.
+			res, err := f.apply(TxOp{ID: &id, Attributes: json.RawMessage(`{"content":"b"}`)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.db.Pool().Exec(f.ctx, `DELETE FROM hatamoto_entity_versions WHERE entity_id = $1`, id); err != nil {
+				t.Fatal(err)
+			}
+			if err := f.inTx(func(tx pgx.Tx) error { return f.svc.RestoreChangesetTx(f.ctx, tx, id, res.Before) }); err != nil {
+				t.Fatal(err)
+			}
+			total, live := liveCount(t, f, id)
+			if total != 1 || (live == 1) != tc.live {
+				t.Errorf("versions = %d, live = %d, want 1 version, live=%v", total, live, tc.live)
+			}
+		})
+		t.Run("import "+tc.status, func(t *testing.T) {
+			f := newCSFixture(t)
+			id := newEntity(t, f, tc.status)
+			now := time.Now()
+			// The record's own status (draft) must not decide the stamp.
+			_, _, err := f.repo.ImportUpsert(f.ctx, &ImportRecord{
+				ID: &id, SchemaID: f.schema.ID, Name: "imp", Slug: "imp-" + uuid.NewString()[:8], Status: "draft",
+				Attributes: json.RawMessage(`{"content":"c"}`), Metadata: json.RawMessage(`{}`),
+				CreatedAt: now, UpdatedAt: now,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			total, live := liveCount(t, f, id)
+			if total != 1 || (live == 1) != tc.live {
+				t.Errorf("versions = %d, live = %d, want 1 version, live=%v", total, live, tc.live)
+			}
+		})
 	}
 }
