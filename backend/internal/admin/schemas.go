@@ -2,7 +2,7 @@ package admin
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"html"
@@ -18,6 +18,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/urlpattern"
 )
 
@@ -130,27 +131,16 @@ func isKind(list []kindDef, v string) bool {
 }
 
 // orderedProps decodes an object preserving key order.
-func orderedProps(raw json.RawMessage) ([]string, map[string]json.RawMessage) {
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	if t, err := dec.Token(); err != nil || t != json.Delim('{') {
+func orderedProps(raw jsontext.Value) ([]string, map[string]jsontext.Value) {
+	entries, err := jsonx.ObjectEntries(raw)
+	if err != nil {
 		return nil, nil
 	}
-	var keys []string
-	m := map[string]json.RawMessage{}
-	for dec.More() {
-		kt, err := dec.Token()
-		if err != nil {
-			break
-		}
-		k, _ := kt.(string)
-		var v json.RawMessage
-		if dec.Decode(&v) != nil {
-			break
-		}
-		if _, dup := m[k]; !dup {
-			keys = append(keys, k)
-		}
-		m[k] = v
+	keys := make([]string, 0, len(entries))
+	m := make(map[string]jsontext.Value, len(entries))
+	for _, e := range entries {
+		keys = append(keys, e.Key)
+		m[e.Key] = e.Value
 	}
 	return keys, m
 }
@@ -207,23 +197,23 @@ func classify(p map[string]any) string {
 }
 
 // fieldRows reads the properties of a schema into editor rows.
-func fieldRows(schema json.RawMessage) []schemaField {
+func fieldRows(schema jsontext.Value) []schemaField {
 	keys, m := orderedProps(schema)
 	var required []string
 	if raw, ok := m["required"]; ok {
-		_ = json.Unmarshal(raw, &required)
+		_ = jsonx.Unmarshal(raw, &required, jsonx.Stored)
 	}
 	var out []schemaField
 	if rawProps, ok := m["properties"]; ok {
 		pk, pm := orderedProps(rawProps)
 		var order []string
 		if raw, ok := m["x-hm-order"]; ok {
-			_ = json.Unmarshal(raw, &order)
+			_ = jsonx.Unmarshal(raw, &order, jsonx.Stored)
 		}
 		pk = schemaform.SortNames(pk, order)
 		for i, k := range pk {
 			var p map[string]any
-			_ = json.Unmarshal(pm[k], &p)
+			_ = jsonx.Unmarshal(pm[k], &p, jsonx.Stored)
 			f := schemaField{Key: "r" + strconv.Itoa(i), Name: k, Kind: classify(p), Raw: string(pm[k]), Required: slices.Contains(required, k)}
 			f.Title, _ = p["title"].(string)
 			f.Help, _ = p["description"].(string)
@@ -320,15 +310,13 @@ var (
 	constraintKeys = []string{"default", "const", "minLength", "maxLength", "pattern", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minItems", "maxItems", "uniqueItems"}
 )
 
-// decodeProperty reads a property keeping numbers exact.
+// decodeProperty reads a property.
 func decodeProperty(raw string) map[string]any {
 	base := map[string]any{}
 	if raw == "" {
 		return base
 	}
-	dec := json.NewDecoder(strings.NewReader(raw))
-	dec.UseNumber()
-	if err := dec.Decode(&base); err != nil || base == nil {
+	if err := jsonx.Unmarshal([]byte(raw), &base, jsonx.Stored); err != nil || base == nil {
 		return map[string]any{}
 	}
 	return base
@@ -339,6 +327,10 @@ func optionLines(p map[string]any) string {
 	enum, _ := p["enum"].([]any)
 	lines := make([]string, 0, len(enum))
 	for _, e := range enum {
+		if n, ok := e.(float64); ok {
+			lines = append(lines, strconv.FormatFloat(n, 'f', -1, 64))
+			continue
+		}
 		lines = append(lines, fmt.Sprint(e))
 	}
 	return strings.Join(lines, "\n")
@@ -371,16 +363,16 @@ func scalarInto(kind string, into map[string]any) {
 // buildProperty merges the edits of one row into the property it had, so every
 // keyword the editor does not show (format, items.*, maxLength, pattern, enum
 // values, x-*) survives a save. Only a changed kind rewrites the type keys.
-func buildProperty(f schemaField) (json.RawMessage, string) {
+func buildProperty(f schemaField) (jsontext.Value, string) {
 	base := decodeProperty(f.Raw)
 	origKind := ""
 	if f.Raw != "" {
 		origKind = classify(base)
 	}
-	marshal := func() (json.RawMessage, string) {
+	marshal := func() (jsontext.Value, string) {
 		setText(base, "title", f.Title)
 		setText(base, "description", f.Help)
-		b, _ := json.Marshal(base)
+		b, _ := jsonx.Marshal(base)
 		return b, ""
 	}
 	if f.Kind == "custom" {
@@ -454,7 +446,7 @@ func setText(m map[string]any, k, v string) {
 
 // buildSchema writes the rows over base (the schema being edited), keeping its
 // other top-level keys. Row errors are set on the rows.
-func buildSchema(base json.RawMessage, rows []schemaField) (json.RawMessage, bool) {
+func buildSchema(base jsontext.Value, rows []schemaField) (jsontext.Value, bool) {
 	ok := true
 	seen := map[string]bool{}
 	var props bytes.Buffer
@@ -469,7 +461,7 @@ func buildSchema(base json.RawMessage, rows []schemaField) (json.RawMessage, boo
 		case seen[f.Name]:
 			f.Err = "Two fields cannot share a name"
 		}
-		var prop json.RawMessage
+		var prop jsontext.Value
 		if f.Err == "" {
 			var msg string
 			if prop, msg = buildProperty(*f); msg != "" {
@@ -484,7 +476,7 @@ func buildSchema(base json.RawMessage, rows []schemaField) (json.RawMessage, boo
 		if props.Len() > 1 {
 			props.WriteByte(',')
 		}
-		kb, _ := json.Marshal(f.Name)
+		kb, _ := jsonx.Marshal(f.Name)
 		props.Write(kb)
 		props.WriteByte(':')
 		props.Write(prop)
@@ -498,17 +490,17 @@ func buildSchema(base json.RawMessage, rows []schemaField) (json.RawMessage, boo
 	}
 	keys, m := orderedProps(base)
 	if m == nil {
-		keys, m = nil, map[string]json.RawMessage{}
+		keys, m = nil, map[string]jsontext.Value{}
 	}
-	m["type"] = json.RawMessage(`"object"`)
+	m["type"] = jsontext.Value(`"object"`)
 	m["properties"] = props.Bytes()
 	names := make([]string, 0, len(rows))
 	for _, f := range rows {
 		names = append(names, f.Name)
 	}
-	m["x-hm-order"], _ = json.Marshal(names)
+	m["x-hm-order"], _ = jsonx.Marshal(names)
 	if len(required) > 0 {
-		m["required"], _ = json.Marshal(required)
+		m["required"], _ = jsonx.Marshal(required)
 	} else {
 		delete(m, "required")
 	}
@@ -529,7 +521,7 @@ func buildSchema(base json.RawMessage, rows []schemaField) (json.RawMessage, boo
 			out.WriteByte(',')
 		}
 		first = false
-		kb, _ := json.Marshal(k)
+		kb, _ := jsonx.Marshal(k)
 		out.Write(kb)
 		out.WriteByte(':')
 		out.Write(v)
@@ -545,9 +537,9 @@ type schemaSettingsForm struct {
 	SectionPages, LocaleNeutral                                                                                                bool
 }
 
-func settingsFormFrom(raw json.RawMessage) schemaSettingsForm {
+func settingsFormFrom(raw jsontext.Value) schemaSettingsForm {
 	var st entity.SchemaURLSettings
-	_ = json.Unmarshal(raw, &st)
+	_ = jsonx.Unmarshal(raw, &st, jsonx.Stored)
 	f := schemaSettingsForm{
 		URLPattern: st.URLPattern, ArchivePath: st.ArchivePath, SitemapGroup: st.SitemapGroup, Aliases: strings.Join(st.Aliases, ", "),
 		ArchiveTitle: st.ArchiveTitle, ArchiveCrumbLabel: st.ArchiveCrumbLabel, ArchiveDescription: st.ArchiveDescription, SchemaOrgType: st.SchemaOrgType, Editor: string(st.Editor),
@@ -567,20 +559,20 @@ func settingsFormFromPost(r *http.Request) schemaSettingsForm {
 
 // settingsJSON writes the form over the existing settings (keeping keys the
 // form does not edit, such as overrides) and checks it.
-func (s schemaSettingsForm) settingsJSON(base json.RawMessage) (json.RawMessage, map[string]string) {
+func (s schemaSettingsForm) settingsJSON(base jsontext.Value) (jsontext.Value, map[string]string) {
 	errs := map[string]string{}
-	m := map[string]json.RawMessage{}
+	m := map[string]jsontext.Value{}
 	if len(base) > 0 {
-		_ = json.Unmarshal(base, &m)
+		_ = jsonx.Unmarshal(base, &m, jsonx.Stored)
 		if m == nil {
-			m = map[string]json.RawMessage{}
+			m = map[string]jsontext.Value{}
 		}
 	}
 	setStr := func(k, v string) {
 		if v == "" {
 			delete(m, k)
 		} else {
-			m[k], _ = json.Marshal(v)
+			m[k], _ = jsonx.Marshal(v)
 		}
 	}
 	setStr("url_pattern", s.URLPattern)
@@ -598,17 +590,17 @@ func (s schemaSettingsForm) settingsJSON(base json.RawMessage) (json.RawMessage,
 		}
 	}
 	if len(aliases) > 0 {
-		m["aliases"], _ = json.Marshal(aliases)
+		m["aliases"], _ = jsonx.Marshal(aliases)
 	} else {
 		delete(m, "aliases")
 	}
 	if s.SectionPages {
-		m["section_pages"] = json.RawMessage("true")
+		m["section_pages"] = jsontext.Value("true")
 	} else {
 		delete(m, "section_pages")
 	}
 	if s.LocaleNeutral {
-		m["locale_neutral"] = json.RawMessage("true")
+		m["locale_neutral"] = jsontext.Value("true")
 	} else {
 		delete(m, "locale_neutral")
 	}
@@ -626,7 +618,7 @@ func (s schemaSettingsForm) settingsJSON(base json.RawMessage) (json.RawMessage,
 	if s.Editor != "" && s.Editor != entity.EditorPost {
 		errs["editor"] = "Choose Form or Post editor"
 	}
-	out, _ := json.Marshal(m)
+	out, _ := jsonx.Marshal(m)
 	if len(errs) == 0 {
 		if err := entity.ValidateSchemaSettingsForWrite(out); err != nil {
 			msg := sentence(strings.TrimPrefix(err.Error(), entity.ErrInvalidSchema.Error()+": "))
@@ -742,9 +734,6 @@ func (a *Admin) renderSchemaForm(w http.ResponseWriter, r *http.Request, status 
 			f.Refs = append(f.Refs, s.Slug)
 		}
 	}
-	if f.Errors == nil {
-		f.Errors = map[string]string{}
-	}
 	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"url_pattern", "Address pattern"}, {"archive_path", "Archive address"}, {"aliases", "Other slugs"}, {"schema_org_type", "Structured data type"}, {"editor", "Editor"}, {"archive_title", "Archive title"}, {"archive_crumb_label", "Breadcrumb label"}, {"archive_description", "Archive description"}, {"schema_json", "JSON schema"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
@@ -800,12 +789,12 @@ func (a *Admin) loadSchema(w http.ResponseWriter, r *http.Request) (*entity.Enti
 	return s, true
 }
 
-func prettyJSON(raw json.RawMessage) string {
-	var b bytes.Buffer
-	if json.Indent(&b, raw, "", "  ") != nil {
+func prettyJSON(raw jsontext.Value) string {
+	b, err := jsonx.IndentValue(raw)
+	if err != nil {
 		return string(raw)
 	}
-	return b.String()
+	return string(b)
 }
 
 func (a *Admin) handleSchemaEdit(w http.ResponseWriter, r *http.Request) {
@@ -917,7 +906,7 @@ func (a *Admin) handleSchemaSave(w http.ResponseWriter, r *http.Request) {
 // JSON when useJSON.
 func (a *Admin) saveSchema(w http.ResponseWriter, r *http.Request, f *schemaForm, existing *entity.EntitySchema, useJSON bool) {
 	c := a.deps.Content
-	var baseSchema, baseSettings json.RawMessage
+	var baseSchema, baseSettings jsontext.Value
 	if existing != nil {
 		baseSchema, baseSettings = existing.Schema, existing.Settings
 	}
@@ -925,10 +914,10 @@ func (a *Admin) saveSchema(w http.ResponseWriter, r *http.Request, f *schemaForm
 	for k, v := range serrs {
 		f.Errors[k] = v
 	}
-	var schema json.RawMessage
+	var schema jsontext.Value
 	if useJSON {
-		schema = json.RawMessage(strings.TrimSpace(f.JSON))
-		if !json.Valid(schema) {
+		schema = jsontext.Value(strings.TrimSpace(f.JSON))
+		if !jsonx.Valid(schema) {
 			f.Errors["schema_json"] = "This is not valid JSON"
 			f.JSONErr = f.Errors["schema_json"]
 		}

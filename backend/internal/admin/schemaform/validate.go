@@ -1,7 +1,7 @@
 package schemaform
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -17,7 +17,7 @@ var quoted = regexp.MustCompile(`'([^']+)'|"([^"]+)"`)
 // Validate checks attrs against schema with the same validator the API uses
 // and returns friendly messages keyed by dotted path. A schema or document
 // failure that cannot be tied to a field lands under the "" key.
-func Validate(schema, attrs json.RawMessage) Errors {
+func Validate(schema, attrs jsontext.Value) Errors {
 	res := validator.ValidateWithDetails(schema, attrs)
 	if res.Valid {
 		return nil

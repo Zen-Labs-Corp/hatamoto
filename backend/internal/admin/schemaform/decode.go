@@ -1,7 +1,7 @@
 package schemaform
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"net/url"
 	"sort"
@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type outcome int
@@ -43,7 +44,7 @@ func (d *decoder) errorf(path, msg string) {
 //
 // Add/move/remove buttons (_add./_move./_remove.) are applied here; check
 // Structural(form) to re-render instead of saving.
-func Decode(schema json.RawMessage, form url.Values, prev map[string]any, opt Options) (map[string]any, Errors) {
+func Decode(schema jsontext.Value, form url.Values, prev map[string]any, opt Options) (map[string]any, Errors) {
 	root, err := ParseSchema(schema)
 	if err != nil {
 		return prev, Errors{"": {err.Error()}}
@@ -238,7 +239,7 @@ func (d *decoder) keep(path string) map[string]any {
 		return nil
 	}
 	var m map[string]any
-	if json.Unmarshal([]byte(raw), &m) != nil {
+	if jsonx.Unmarshal([]byte(raw), &m, jsonx.Stored) != nil {
 		return nil
 	}
 	return m

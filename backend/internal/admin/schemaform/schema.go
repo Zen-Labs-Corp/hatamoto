@@ -6,9 +6,11 @@ package schemaform
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Node is the subset of JSON Schema the admin forms understand. Properties keep
@@ -62,44 +64,29 @@ func (n *Node) isRequired(name string) bool {
 }
 
 // objectEntries decodes a JSON object preserving key order.
-func objectEntries(raw json.RawMessage) ([]string, map[string]json.RawMessage, error) {
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	tok, err := dec.Token()
+func objectEntries(raw jsontext.Value) ([]string, map[string]jsontext.Value, error) {
+	entries, err := jsonx.ObjectEntries(raw)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("expected an object: %w", err)
 	}
-	if d, ok := tok.(json.Delim); !ok || d != '{' {
-		return nil, nil, fmt.Errorf("expected an object")
-	}
-	var keys []string
-	m := map[string]json.RawMessage{}
-	for dec.More() {
-		kt, err := dec.Token()
-		if err != nil {
-			return nil, nil, err
-		}
-		k, _ := kt.(string)
-		var v json.RawMessage
-		if err := dec.Decode(&v); err != nil {
-			return nil, nil, err
-		}
-		if _, dup := m[k]; !dup {
-			keys = append(keys, k)
-		}
-		m[k] = v
+	keys := make([]string, 0, len(entries))
+	m := make(map[string]jsontext.Value, len(entries))
+	for _, e := range entries {
+		keys = append(keys, e.Key)
+		m[e.Key] = e.Value
 	}
 	return keys, m, nil
 }
 
 // ParseSchema parses a JSON Schema document.
-func ParseSchema(raw json.RawMessage) (*Node, error) {
+func ParseSchema(raw jsontext.Value) (*Node, error) {
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return &Node{Type: "object"}, nil
 	}
 	return parseNode(raw)
 }
 
-func parseNode(raw json.RawMessage) (*Node, error) {
+func parseNode(raw jsontext.Value) (*Node, error) {
 	_, m, err := objectEntries(raw)
 	if err != nil {
 		return nil, fmt.Errorf("schema: %w", err)
@@ -107,7 +94,7 @@ func parseNode(raw json.RawMessage) (*Node, error) {
 	n := &Node{}
 	str := func(key string, dst *string) {
 		if v, ok := m[key]; ok {
-			_ = json.Unmarshal(v, dst)
+			_ = jsonx.Unmarshal(v, dst, jsonx.Stored)
 		}
 	}
 	str("type", &n.Type)
@@ -121,38 +108,38 @@ func parseNode(raw json.RawMessage) (*Node, error) {
 	str("x-hm-group", &n.Group)
 	str("x-hm-item-label", &n.ItemLabel)
 	if v, ok := m["writeOnly"]; ok {
-		_ = json.Unmarshal(v, &n.WriteOnly)
+		_ = jsonx.Unmarshal(v, &n.WriteOnly, jsonx.Stored)
 	}
 	if v, ok := m["x-media"]; ok {
-		_ = json.Unmarshal(v, &n.XMedia)
+		_ = jsonx.Unmarshal(v, &n.XMedia, jsonx.Stored)
 	}
 	if v, ok := m["x-multiple"]; ok {
 		var b bool
-		if json.Unmarshal(v, &b) == nil {
+		if jsonx.Unmarshal(v, &b, jsonx.Stored) == nil {
 			n.XMultiple = &b
 		}
 	}
 	if v, ok := m["x-hm-alias"]; ok {
-		_ = json.Unmarshal(v, &n.Alias)
+		_ = jsonx.Unmarshal(v, &n.Alias, jsonx.Stored)
 	}
 	if v, ok := m["enum"]; ok {
 		var anyEnum []any
-		if json.Unmarshal(v, &anyEnum) == nil {
+		if jsonx.Unmarshal(v, &anyEnum, jsonx.Stored) == nil {
 			for _, e := range anyEnum {
 				n.Enum = append(n.Enum, fmt.Sprint(e))
 			}
 		}
 	}
 	if v, ok := m["default"]; ok {
-		_ = json.Unmarshal(v, &n.Default)
+		_ = jsonx.Unmarshal(v, &n.Default, jsonx.Stored)
 	}
 	if v, ok := m["required"]; ok {
-		_ = json.Unmarshal(v, &n.Required)
+		_ = jsonx.Unmarshal(v, &n.Required, jsonx.Stored)
 	}
 	intp := func(key string) *int {
 		if v, ok := m[key]; ok {
 			var f float64
-			if json.Unmarshal(v, &f) == nil {
+			if jsonx.Unmarshal(v, &f, jsonx.Stored) == nil {
 				i := int(f)
 				return &i
 			}
@@ -163,7 +150,7 @@ func parseNode(raw json.RawMessage) (*Node, error) {
 	fl := func(key string) *float64 {
 		if v, ok := m[key]; ok {
 			var f float64
-			if json.Unmarshal(v, &f) == nil {
+			if jsonx.Unmarshal(v, &f, jsonx.Stored) == nil {
 				return &f
 			}
 		}
@@ -193,7 +180,7 @@ func parseNode(raw json.RawMessage) (*Node, error) {
 	}
 	if v, ok := m["x-hm-order"]; ok {
 		var order []string
-		if json.Unmarshal(v, &order) == nil {
+		if jsonx.Unmarshal(v, &order, jsonx.Stored) == nil {
 			names := make([]string, len(n.Props))
 			byName := make(map[string]*Node, len(n.Props))
 			for i, p := range n.Props {
