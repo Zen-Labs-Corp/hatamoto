@@ -214,11 +214,12 @@ func scanCSS(s string) (string, *CSSIssue) {
 					emit(line, d)
 					i++
 					closed = true
-				case d == '\\':
-					l := line
-					var dec string
-					i, dec = escape(i)
-					emit(l, []byte(dec)...)
+				case d == '/' && i+1 < len(s) && s[i+1] == '*', d == '\'', d == '"', d == '(', d == '\\':
+					// Per CSS Syntax these make the token a bad-url. Refusing
+					// them means that whether or not the scanner agrees with
+					// the browser that this is a url token, both end the body
+					// at the same ")" and no comment can hide in it.
+					return "", &CSSIssue{Line: line, Message: "url( may not contain a comment, quote, parenthesis or backslash unless quoted"}
 				default:
 					if d == '\n' {
 						line++

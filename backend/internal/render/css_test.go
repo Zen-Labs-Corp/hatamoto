@@ -174,6 +174,8 @@ func TestSafeCSSSVGJoinedTrailingLT(t *testing.T) {
 	}
 }
 
+const urlBodyMsg = "line 1: url( may not contain a comment, quote, parenthesis or backslash unless quoted"
+
 func TestValidateCustomCSS(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -183,13 +185,14 @@ func TestValidateCustomCSS(t *testing.T) {
 		{"import upper", "@IMPORT 'x';", "line 1: @import is not allowed"},
 		{"expression", "a{\n\nwidth:expression(1)}", "line 3: expression() is not allowed"},
 		{"javascript", "a{background:url( \"javascript:alert(1)\" )}", "line 1: javascript: URLs are not allowed"},
-		{"javascript unquoted", "a{background:url(javascript:alert(1))}", "line 1: javascript: URLs are not allowed"},
+		{"javascript unquoted", "a{background:url(javascript:alert)}", "line 1: javascript: URLs are not allowed"},
+		{"javascript unquoted call", "a{background:url(javascript:alert(1))}", urlBodyMsg},
 		{"vbscript", "a{background:url(vbscript:x)}", "line 1: vbscript: URLs are not allowed"},
 		{"behavior", "a{behavior:url(x.htc)}", "line 1: behavior is not allowed"},
 		{"moz-binding", "a{-moz-binding:url(x)}", "line 1: -moz-binding is not allowed"},
-		{"escaped url hides import", "u\\72l(/*){}@import 'x';/**/", "line 1: @import is not allowed"},
-		{"escaped url hex start", "\\75rl(/*){}@import 'x';/**/", "line 1: @import is not allowed"},
-		{"escaped url char", "ur\\l(/*){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"escaped url hides import", "u\\72l(/*){}@import 'x';/**/", urlBodyMsg},
+		{"escaped url hex start", "\\75rl(/*){}@import 'x';/**/", urlBodyMsg},
+		{"escaped url char", "ur\\l(/*){}@import 'x';/**/", urlBodyMsg},
 		{"review payload xurl", "xurl(/*)'*/'/*'){}@import url(//evil.example/x.css);/**/", "line 1: @import is not allowed"},
 		{"dash url function", "-url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
 		{"letter url function", "aurl(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
@@ -198,13 +201,19 @@ func TestValidateCustomCSS(t *testing.T) {
 		{"digit prefix url function", "1url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
 		{"line continuation in ident", "u\\\nrl(/*)'*/'/*'){}@import 'x';/**/", "line 1: a backslash before a line break is not allowed"},
 		{"line continuation before url", "x\\\nurl(/*)'*/'/*'){}@import 'x';/**/", "line 1: a backslash before a line break is not allowed"},
-		{"hex escape", "a{background:url(\\6a avascript:alert(1))}", "line 1: javascript: URLs are not allowed"},
+		{"hex escape", "a{background:url(\\6a avascript:alert(1))}", "line 1: url( may not contain a comment, quote, parenthesis or backslash unless quoted"},
+		{"hex escape quoted", "a{background:url('\\6a avascript:alert(1)')}", "line 1: javascript: URLs are not allowed"},
 		{"review payload hash url", "#url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
 		{"review payload at url", "@url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
 		{"review payload two escapes", "\\21\\75rl(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
 		{"escape then letter escape", "\\!\\75rl(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
 		{"escapes with spaces", "\\21 \\55 RL(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
 		{"escape inside url", "\\21u\\72l(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"comment in url body", "a{b:url(/*)'*/'/*'){}@import 'x';/**/", urlBodyMsg},
+		{"comment in url body after space", "a{b:url( /* x */ )}", urlBodyMsg},
+		{"quote in url body", "a{b:url(a'b)}", urlBodyMsg},
+		{"double quote in url body", "a{b:url(a\"b)}", urlBodyMsg},
+		{"paren in url body", "a{b:url(a(b)}", urlBodyMsg},
 		{"escape in string", "a{b:'\\6A avascript:x'}", "line 1: javascript: URLs are not allowed"},
 		{"escaped import", "\n\n@\\69mport 'x';", "line 3: @import is not allowed"},
 		{"import after comment", "/* a\nb */\n@import 'x';", "line 3: @import is not allowed"},
