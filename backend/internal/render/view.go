@@ -455,6 +455,9 @@ type SiteView struct {
 	// leaves the page untouched.
 	Fonts       []FontFace
 	FontPreload string
+	// CustomCSSName is the file name of the owner's additional stylesheet
+	// (custom.<hash>.css, see CustomCSSName); "" when none is set.
+	CustomCSSName string
 	// Language is the BCP 47 site language (default "en" when unset).
 	Language string
 	// Phone, Hours and Address are the public contact details from the site
