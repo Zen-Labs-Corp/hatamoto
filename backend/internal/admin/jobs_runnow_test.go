@@ -94,6 +94,7 @@ func TestJobsRunNowRefusals(t *testing.T) {
 		{worker.ErrNotSafe, 403},
 		{worker.ErrUnknownJob, 404},
 		{worker.ErrNotRunning, 409},
+		{worker.ErrNoManualRun, 409},
 		{errors.New("db down"), 500},
 	} {
 		g, f, events := newJobsRig(t)

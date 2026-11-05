@@ -452,6 +452,8 @@ var (
 	ErrNotSafe        = errors.New("scheduler: job cannot be run by hand")
 	ErrAlreadyRunning = errors.New("scheduler: job is already running")
 	ErrNotRunning     = errors.New("scheduler: this process does not run the job")
+	// ErrNoManualRun: a ManualOnly job has no by-hand variant on this process.
+	ErrNoManualRun = errors.New("scheduler: job has no by-hand variant here")
 	// ErrStillRunning: ctx ended while the run goes on in the background.
 	ErrStillRunning = errors.New("scheduler: job still running")
 )
@@ -488,7 +490,10 @@ func (s *Scheduler) RunNow(ctx context.Context, id string) (Run, error) {
 	s.jobsMu.Unlock()
 	if fn == nil || !st.run.TryLock() {
 		s.dynMu.Unlock()
-		if fn == nil {
+		switch {
+		case fn == nil && st != nil && def.ManualOnly:
+			return Run{}, ErrNoManualRun
+		case fn == nil:
 			return Run{}, ErrNotRunning
 		}
 		return Run{}, ErrAlreadyRunning

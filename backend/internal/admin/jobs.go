@@ -17,7 +17,7 @@ type JobsService interface {
 	// Snapshot lists every job with its last run and next run.
 	Snapshot(ctx context.Context) (JobsView, error)
 	// RunNow runs a safe job once. It returns worker.ErrAlreadyRunning,
-	// ErrNotSafe, ErrUnknownJob or ErrNotRunning when it refuses.
+	// ErrNotSafe, ErrUnknownJob, ErrNoManualRun or ErrNotRunning when it refuses.
 	RunNow(ctx context.Context, id string) (JobRunResult, error)
 }
 
@@ -171,6 +171,9 @@ func (a *Admin) handleJobRun(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.Is(err, worker.ErrUnknownJob):
 		a.ErrorBack(w, r, http.StatusNotFound, "Job not found", "There is no such job.", back, backLabel)
+		return
+	case errors.Is(err, worker.ErrNoManualRun):
+		a.ErrorBack(w, r, http.StatusConflict, "Check not available", "The check for this job is not available on this server right now.", back, backLabel)
 		return
 	case errors.Is(err, worker.ErrNotRunning):
 		a.ErrorBack(w, r, http.StatusConflict, "Worker is not running", "This server process does not run the worker, so it cannot run jobs.", back, backLabel)
