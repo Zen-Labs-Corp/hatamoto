@@ -98,7 +98,8 @@ func TestListToolbarIsOneSizedRow(t *testing.T) {
 
 // A list toolbar wraps instead of overflowing when a tree type adds the Parent select (at 1440 the
 // one-row layout spilled past the viewport and cut the Filters button), and the search keeps room for
-// its placeholder: no nowrap row, a wrapping right-aligned end group, a 13rem search floor.
+// its placeholder without stretching across a wide row: no nowrap row, a wrapping right-aligned end group,
+// a 13rem search floor and an 18rem cap.
 func TestListToolbarWrapsAndKeepsSearchRoom(t *testing.T) {
 	t.Parallel()
 
@@ -107,7 +108,7 @@ func TestListToolbarWrapsAndKeepsSearchRoom(t *testing.T) {
 		t.Error("listbar.css: the row must wrap, not overflow (no flex-wrap: nowrap)")
 	}
 	for _, want := range []string{".hm-listbar__end { flex: 1 1 auto; margin-inline-start: auto; flex-wrap: wrap; justify-content: flex-end; }",
-		".hm-listbar .hm-table__search { flex: 1 1 14rem; min-width: 13rem; }", ".hm-listbar .hm-input-affix > .hm-field__control { min-width: 0; }",
+		".hm-listbar .hm-table__search { flex: 1 1 14rem; min-width: 13rem; max-width: 18rem; }", ".hm-listbar .hm-input-affix > .hm-field__control { min-width: 0; }",
 		".hm-listbar.hm-table__filters .hm-select { flex: 0 1 9rem; min-width: 7rem; }"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("listbar.css lacks %q", want)

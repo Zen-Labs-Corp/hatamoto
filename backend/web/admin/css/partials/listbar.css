@@ -6,7 +6,7 @@
 /* The row wraps rather than overflows: when segment and controls do not fit one line (a tree type adds the Parent select), the end group drops to its own line, right-aligned, and wraps itself too. */
 .hm-listbar__end { flex: 1 1 auto; margin-inline-start: auto; flex-wrap: wrap; justify-content: flex-end; }
 .hm-listbar__start { flex: 0 0 auto; }
-.hm-listbar .hm-table__search { flex: 1 1 14rem; min-width: 13rem; }
+.hm-listbar .hm-table__search { flex: 1 1 14rem; min-width: 13rem; max-width: 18rem; }
 .hm-listbar.hm-table__filters .hm-select { flex: 0 1 9rem; min-width: 7rem; }
 .hm-listbar .hm-input-affix > .hm-field__control { min-width: 0; }
 /* The hidden busy indicator is out of flow, not a third item. */
