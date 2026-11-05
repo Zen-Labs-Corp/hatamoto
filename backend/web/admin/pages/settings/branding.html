@@ -19,7 +19,7 @@
 {{template "hm/card-start" dict "ID" "branding-preview" "Title" "Sign-in preview" "Heading" "h2" "Description" "The saved branding as people see it when they sign in. Save to update it."}}
 <div class="hm-stack" role="img" aria-label="Preview of the sign-in page">
 <p class="hm-brand">{{if $.Brand.LogoURL}}<img class="hm-brand__logo" src="{{$.Brand.LogoURL}}" alt="" width="20" height="20">{{else}}<span class="hm-brand__seal" aria-hidden="true">{{icon "seal"}}</span>{{end}}<span>{{$.SiteName}}</span></p>
-{{template "hm/button" dict "Label" "Sign in" "Variant" (or (and $.Brand.Accent "accent") "primary") "Attrs" (attrmap "disabled" "disabled" "tabindex" "-1")}}
+{{template "hm/button" dict "Label" "Sign in" "Variant" (or (and $.Brand.Accent "accent") "primary") "Attrs" (attrmap "disabled" "disabled")}}
 {{with $.Brand.ManagedText}}<p class="hm-muted">{{.}}</p>{{end}}
 </div>
 {{template "hm/card-end"}}

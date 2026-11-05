@@ -95,6 +95,7 @@ GET /admin/settings/backups -> admin.(*Admin).handleBackups-fm
 GET /admin/settings/backups/retention -> admin.(*Admin).handleRetentionPage-fm
 GET /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDeleteConfirm-fm
 GET /admin/settings/backups/{id}/download -> admin.(*Admin).handleBackupDownload-fm
+GET /admin/settings/branding -> admin.(*Admin).handleBranding-fm
 GET /admin/settings/changes -> admin.(*Admin).handleChanges-fm
 GET /admin/settings/contact-button -> admin.(*Admin).handleContactButton-fm
 GET /admin/settings/content-model -> admin.(*Admin).mountSettingsFrame.func1
@@ -331,6 +332,8 @@ POST /admin/settings/backups/offsite/run -> admin.(*Admin).handleOffsiteRun-fm
 POST /admin/settings/backups/offsite/test -> admin.(*Admin).handleOffsiteTest-fm
 POST /admin/settings/backups/retention -> admin.(*Admin).handleRetentionSave-fm
 POST /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDelete-fm
+POST /admin/settings/branding -> admin.(*Admin).handleBrandingSave-fm
+POST /admin/settings/branding/reset -> admin.(*Admin).handleBrandingReset-fm
 POST /admin/settings/changes/{id}/undo -> admin.(*Admin).handleChangesUndo-fm
 POST /admin/settings/contact-button -> admin.(*Admin).handleContactButtonSave-fm
 POST /admin/settings/email -> admin.(*Admin).handleEmailSave-fm

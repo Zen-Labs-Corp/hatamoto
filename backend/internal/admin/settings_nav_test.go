@@ -324,3 +324,19 @@ func TestAreaNavAppendsTheCarry(t *testing.T) {
 		}
 	}
 }
+
+func TestBrandingSectionIsOwnerOnly(t *testing.T) {
+	t.Parallel()
+
+	has := func(role string) bool {
+		for _, s := range SettingsFor(role) {
+			if s.ID == "branding" {
+				return true
+			}
+		}
+		return false
+	}
+	if !has("owner") || has("editor") {
+		t.Errorf("branding section: owner=%v editor=%v", has("owner"), has("editor"))
+	}
+}
