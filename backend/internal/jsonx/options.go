@@ -10,6 +10,11 @@
 //   - StrictNoUnknown: Strict plus RejectUnknownMembers.
 //   - Stored: reads of stored documents. Case-sensitive, unknown members are
 //     ignored.
+//   - StoredLoose: Stored that also matches names case-insensitively and
+//     accepts duplicate names (case variants of one field included; the last
+//     value wins). For documents whose author spells keys freely (plugin
+//     manifests, entity attributes written by API clients).
+//   - ExactNumbers (exact.go): Stored with numbers inside `any` kept as raw text.
 //   - Output: API responses. Map keys are sorted, nil slices and maps are
 //     written as [] and {}.
 //   - HTMLSafe: Output plus escaping of <, > and & for JSON embedded in HTML.
@@ -31,6 +36,10 @@ var (
 	StrictNoUnknown = jsonv2.JoinOptions(Strict, jsonv2.RejectUnknownMembers(true))
 	// Stored reads persisted documents: case-sensitive, unknown members ignored.
 	Stored = jsonv2.DefaultOptionsV2()
+	// StoredLoose is Stored with case-insensitive name matching and duplicate
+	// names allowed (the last value wins), so documents that were read
+	// leniently before (plugin manifests, entity attributes) still load.
+	StoredLoose = jsonv2.JoinOptions(Stored, jsonv2.MatchCaseInsensitiveNames(true), jsontext.AllowDuplicateNames(true))
 	// Output writes deterministic (sorted) maps; nil slices and maps become
 	// [] and {}.
 	Output = jsonv2.JoinOptions(jsonv2.Deterministic(true))

@@ -4,10 +4,11 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const flashCookie = "hm_flash"
@@ -37,7 +38,7 @@ func (a *Admin) SetFlash(w http.ResponseWriter, r *http.Request, kind, message s
 // never send it there.
 func (a *Admin) setFlashAt(w http.ResponseWriter, r *http.Request, path, kind, message string) {
 	message = truncateFlash(message)
-	b, _ := json.Marshal(Flash{Kind: kind, Message: message, Expires: time.Now().Add(time.Minute).Unix()})
+	b, _ := jsonx.Marshal(Flash{Kind: kind, Message: message, Expires: time.Now().Add(time.Minute).Unix()})
 	p := base64.RawURLEncoding.EncodeToString(b)
 	http.SetCookie(w, &http.Cookie{
 		Name: flashCookie, Value: p + "." + a.flashSig(p), Path: path, MaxAge: 60,
@@ -61,7 +62,7 @@ func (a *Admin) takeFlash(w http.ResponseWriter, r *http.Request) *Flash {
 		return nil
 	}
 	var f Flash
-	if json.Unmarshal(raw, &f) != nil || f.Expires < time.Now().Unix() || f.Message == "" {
+	if jsonx.Unmarshal(raw, &f, jsonx.Stored) != nil || f.Expires < time.Now().Unix() || f.Message == "" {
 		return nil
 	}
 	switch f.Kind {

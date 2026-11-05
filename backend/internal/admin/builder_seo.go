@@ -3,7 +3,7 @@ package admin
 import (
 	"bytes"
 	"cmp"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +13,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // seoGate is builderGate for pages only: a reuse block or theme part has no
@@ -85,8 +86,8 @@ func (a *Admin) handleBuilderAnalyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req := a.builderBase(r, e, sc, false)
-	req["attributes"].(map[string]json.RawMessage)["page_doc"] = doc
-	body, err := json.Marshal(req)
+	req["attributes"].(map[string]jsontext.Value)["page_doc"] = doc
+	body, err := jsonx.Marshal(req)
 	if err != nil {
 		a.serverError(w, r, "The page could not be analysed", err)
 		return

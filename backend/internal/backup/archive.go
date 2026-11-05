@@ -41,7 +41,7 @@ type manifest struct {
 	ContentRows     map[string]int64 `json:"content_rows"`
 	MediaFiles      int              `json:"media_files"`
 	MediaBytes      int64            `json:"media_bytes"`
-	MediaMissing    int              `json:"media_missing,omitempty"`
+	MediaMissing    int              `json:"media_missing,omitzero"`
 	Trust           *TrustIDs        `json:"trust,omitempty"`
 	ConfigPath      string           `json:"config_path,omitempty"`
 }

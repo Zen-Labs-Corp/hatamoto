@@ -245,7 +245,7 @@ func (a *Admin) dateRangeFor(base string, rg agents.Range, hidden map[string]str
 type chartSpec struct {
 	Kind       string        `json:"kind"` // bar | line | doughnut
 	Stacked    bool          `json:"stacked"`
-	Horizontal bool          `json:"horizontal,omitempty"`
+	Horizontal bool          `json:"horizontal,omitzero"`
 	Bucket     string        `json:"bucket,omitempty"` // "week" when Labels are week starts
 	Center     string        `json:"center,omitempty"` // doughnut: the noun under the total in the hole
 	Format     string        `json:"format,omitempty"` // number | compact | percent: how values print on axes and tooltips

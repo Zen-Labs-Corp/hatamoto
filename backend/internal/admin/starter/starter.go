@@ -8,7 +8,7 @@ package starter
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 
@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -148,8 +149,8 @@ func (in *Installer) ensure(ctx context.Context, o Options, schemaID uuid.UUID, 
 	switch {
 	case err == nil:
 		if e.replaceSeed && isSeed(existing) {
-			b, _ := json.Marshal(e.attrs)
-			raw := json.RawMessage(b)
+			b, _ := jsonx.Marshal(e.attrs)
+			raw := jsontext.Value(b)
 			if _, err := in.Entities.UpdateEntity(ctx, existing.ID, o.UserID, &entity.UpdateEntityInput{Attributes: &raw}); err != nil {
 				return uuid.Nil, false, err
 			}
@@ -165,7 +166,7 @@ func (in *Installer) ensure(ctx context.Context, o Options, schemaID uuid.UUID, 
 	case !errors.Is(err, entity.ErrEntityNotFound):
 		return uuid.Nil, false, err
 	}
-	attrs, err := json.Marshal(e.attrs)
+	attrs, err := jsonx.Marshal(e.attrs)
 	if err != nil {
 		return uuid.Nil, false, err
 	}
@@ -184,7 +185,7 @@ func isStarter(e *entity.Entity) bool {
 	var a struct {
 		Starter bool `json:"starter"`
 	}
-	return json.Unmarshal(e.Attributes, &a) == nil && a.Starter
+	return jsonx.Unmarshal(e.Attributes, &a, jsonx.StoredLoose) == nil && a.Starter
 }
 
 // isSeed reports the first-boot home page: a single "welcome" section, either
@@ -194,10 +195,10 @@ func isSeed(e *entity.Entity) bool {
 		Sections []struct {
 			ID string `json:"id"`
 		} `json:"page_sections"`
-		Doc     json.RawMessage `json:"page_doc"`
-		Starter bool            `json:"starter"`
+		Doc     jsontext.Value `json:"page_doc"`
+		Starter bool           `json:"starter"`
 	}
-	if json.Unmarshal(e.Attributes, &a) != nil || a.Starter {
+	if jsonx.Unmarshal(e.Attributes, &a, jsonx.StoredLoose) != nil || a.Starter {
 		return false
 	}
 	if len(a.Doc) > 0 {

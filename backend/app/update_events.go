@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/supervisor"
 )
 
@@ -121,7 +121,7 @@ func readUpdateEvents(path string, log *slog.Logger) ([]supervisor.Event, error)
 			continue
 		}
 		var e supervisor.Event
-		if err := json.Unmarshal(line, &e); err != nil || e.ID == "" || e.Phase == "" {
+		if err := jsonx.Unmarshal(line, &e, jsonx.Stored); err != nil || e.ID == "" || e.Phase == "" {
 			log.Warn("skipping malformed update event line", "path", path)
 			continue
 		}

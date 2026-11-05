@@ -2,7 +2,7 @@ package render
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"strings"
 	"time"
@@ -80,7 +80,7 @@ type PageView struct {
 	Path       string
 	Breadcrumb []Crumb
 	// JSONLD holds backend-built JSON-LD documents, emitted verbatim (escaped).
-	JSONLD []json.RawMessage
+	JSONLD []jsontext.Value
 	// AICrawlerComment is an optional HTML comment body for AI crawlers.
 	AICrawlerComment string
 	EntityID         string

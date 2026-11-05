@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"html/template"
@@ -17,6 +17,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The no-JS outline: the page's node tree as one nested form. Like the classic
@@ -192,7 +193,7 @@ func lastValue(form url.Values, name string) (string, bool) {
 
 // setNodeProp applies one setProp through Doc.Apply. A nil value deletes.
 func setNodeProp(doc *builder.Doc, id, key string, v any) error {
-	raw, err := json.Marshal(v)
+	raw, err := jsonx.Marshal(v)
 	if err != nil {
 		return err
 	}
@@ -291,9 +292,9 @@ func (a *Admin) applyOutlineBind(doc *builder.Doc, n *builder.Node, p builder.Pr
 	if src == n.B[p.Key] {
 		return src != ""
 	}
-	var val json.RawMessage = json.RawMessage("null")
+	var val jsontext.Value = jsontext.Value("null")
 	if src != "" {
-		val, _ = json.Marshal(src)
+		val, _ = jsonx.Marshal(src)
 	}
 	if _, err := doc.Apply(builder.Op{Op: "setBind", ID: n.ID, Key: p.Key, Value: val}); err != nil {
 		st.raw[n.ID+"\x00b."+p.Key] = sel
@@ -487,7 +488,7 @@ func outlineProperty(n *builder.Node, p builder.PropInfo, nodeLabel string, st *
 
 // outlineData assembles the template data for e with the working doc.
 func (a *Admin) outlineData(e *entity.Entity, doc *builder.Doc, st *outlineState, plain bool, name string) (*outlineData, error) {
-	raw, err := json.Marshal(doc)
+	raw, err := jsonx.Marshal(doc)
 	if err != nil {
 		return nil, err
 	}
@@ -670,7 +671,7 @@ func (a *Admin) handleBuilderPost(w http.ResponseWriter, r *http.Request, e *ent
 		rerender(http.StatusConflict, true)
 		return
 	}
-	raw, err := json.Marshal(doc)
+	raw, err := jsonx.Marshal(doc)
 	if err != nil {
 		a.serverError(w, r, "The page could not be saved", err)
 		return

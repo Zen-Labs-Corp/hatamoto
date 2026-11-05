@@ -28,9 +28,6 @@ func (s *Server) handleList404Entries(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to list 404 entries")
 		return
 	}
-	if entries == nil {
-		entries = []*redirect.NotFoundEntry{}
-	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"entries": entries,
 		"total":   total,
@@ -93,9 +90,6 @@ func (s *Server) handleListRedirects(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("failed to list redirects", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list redirects")
 		return
-	}
-	if redirects == nil {
-		redirects = []*redirect.Redirect{}
 	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"redirects": redirects,

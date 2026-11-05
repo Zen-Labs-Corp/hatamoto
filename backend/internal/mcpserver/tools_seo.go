@@ -2,11 +2,12 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 
 	hmauth "hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/seopanel"
 	"hatamoto.dev/core/internal/seosvc"
@@ -73,9 +74,9 @@ func (s *Server) registerSEO() {
 			if err != nil {
 				return nil, err
 			}
-			patch := make(map[string]json.RawMessage, len(in.Patch))
+			patch := make(map[string]jsontext.Value, len(in.Patch))
 			for k, v := range in.Patch {
-				raw, err := json.Marshal(v)
+				raw, err := jsonx.Marshal(v)
 				if err != nil {
 					return nil, userErr("patch.%s is not valid JSON", k)
 				}
@@ -152,9 +153,6 @@ func (s *Server) registerSEO() {
 				Search: in.Search, Visitor: in.Visitor, Page: page, PerPage: clampLimit(in.PerPage, 20)})
 			if err != nil {
 				return nil, fmt.Errorf("list 404: %w", err)
-			}
-			if items == nil {
-				items = []*redirect.NotFoundEntry{}
 			}
 			return object{"items": items, "total": total}, nil
 		})

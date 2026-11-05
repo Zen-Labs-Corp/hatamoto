@@ -16,6 +16,7 @@ import (
 
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 )
@@ -235,6 +236,33 @@ func TestEntitySummaryCarriesLocale(t *testing.T) {
 	}
 	if !strings.Contains(string(raw), `"locale":"fr"`) {
 		t.Errorf("summary JSON = %s, want locale fr", raw)
+	}
+}
+
+func TestEntitySummaryOmitsFalseBylineOrg(t *testing.T) {
+	e := &entity.Entity{ID: uuid.New(), Name: "About", Slug: "about", Status: entity.StatusDraft}
+	raw, err := jsonx.Marshal((&Server{}).summary(context.Background(), e, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "byline_org") {
+		t.Errorf("summary JSON = %s, want no byline_org when false", raw)
+	}
+	e.BylineOrg = true
+	raw, _ = jsonx.Marshal((&Server{}).summary(context.Background(), e, false))
+	if !strings.Contains(string(raw), `"byline_org":true`) {
+		t.Errorf("summary JSON = %s, want byline_org true", raw)
+	}
+}
+
+func TestEmptyListOutputIsArray(t *testing.T) {
+	var items []string
+	raw, err := jsonx.Marshal(object{"items": items})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != `{"items":[]}` {
+		t.Errorf("output = %s, want an empty array", raw)
 	}
 }
 

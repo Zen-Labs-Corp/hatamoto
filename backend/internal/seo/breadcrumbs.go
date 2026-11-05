@@ -16,11 +16,11 @@ var CrumbSeparators = []string{"/", "›", "»", ">", "•", "·", "-"}
 // Breadcrumbs holds the site-wide breadcrumb options. The zero value
 // reproduces the historic output.
 type Breadcrumbs struct {
-	HomeLabel   string `json:"home_label,omitempty"`   // "" => "Home"
-	Separator   string `json:"separator,omitempty"`    // "" => theme default
-	HideHome    bool   `json:"hide_home,omitempty"`    // visible trail only
-	HideCurrent bool   `json:"hide_current,omitempty"` // visible trail only
-	ShowTerm    bool   `json:"show_term,omitempty"`    // add the primary term crumb
+	HomeLabel   string `json:"home_label,omitempty"`  // "" => "Home"
+	Separator   string `json:"separator,omitempty"`   // "" => theme default
+	HideHome    bool   `json:"hide_home,omitzero"`    // visible trail only
+	HideCurrent bool   `json:"hide_current,omitzero"` // visible trail only
+	ShowTerm    bool   `json:"show_term,omitzero"`    // add the primary term crumb
 }
 
 // IsZero reports whether no breadcrumb setting is saved.

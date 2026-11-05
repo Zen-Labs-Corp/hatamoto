@@ -3,7 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"flag"
 	"fmt"
@@ -18,6 +18,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -38,7 +39,7 @@ type convertRow struct {
 	ID      uuid.UUID
 	Name    string
 	Slug    string
-	Attrs   json.RawMessage
+	Attrs   jsontext.Value
 	Version int
 	// UpdatedAt is read with the row: raw-SQL writers (link rewrites) change
 	// the attributes and updated_at but not version.
@@ -203,8 +204,8 @@ func convertPages(ctx context.Context, st convertStore, eng pageRenderer, o conv
 }
 
 func convertOne(ctx context.Context, st convertStore, eng pageRenderer, o convertOpts, r convertRow, s *convertStats) string {
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(r.Attrs, &raw); err != nil {
+	var raw map[string]jsontext.Value
+	if err := jsonx.Unmarshal(r.Attrs, &raw, jsonx.StoredLoose); err != nil {
 		s.Failed++
 		return "error: attributes are not an object"
 	}
@@ -212,7 +213,7 @@ func convertOne(ctx context.Context, st convertStore, eng pageRenderer, o conver
 
 	var sections []builder.Section
 	var doc *builder.Doc
-	var attrs json.RawMessage // convert: the attributes to write
+	var attrs jsontext.Value // convert: the attributes to write
 	var err error
 	if hasDoc {
 		s.Skipped++
@@ -271,17 +272,17 @@ func convertOne(ctx context.Context, st convertStore, eng pageRenderer, o conver
 
 // normalizedConvert adds the converted doc to the page's attributes and runs the
 // write seam over them, returning the attributes to write and the doc inside.
-func normalizedConvert(stored json.RawMessage, raw map[string]json.RawMessage, sections []builder.Section) (json.RawMessage, *builder.Doc, error) {
-	docJSON, err := json.Marshal(builder.FromSections(sections))
+func normalizedConvert(stored jsontext.Value, raw map[string]jsontext.Value, sections []builder.Section) (jsontext.Value, *builder.Doc, error) {
+	docJSON, err := jsonx.Marshal(builder.FromSections(sections))
 	if err != nil {
 		return nil, nil, err
 	}
-	next := make(map[string]json.RawMessage, len(raw)+1)
+	next := make(map[string]jsontext.Value, len(raw)+1)
 	for k, v := range raw {
 		next[k] = v
 	}
 	next["page_doc"] = docJSON
-	b, err := json.Marshal(next)
+	b, err := jsonx.Marshal(next)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -289,8 +290,8 @@ func normalizedConvert(stored json.RawMessage, raw map[string]json.RawMessage, s
 	if err != nil {
 		return nil, nil, err
 	}
-	var out map[string]json.RawMessage // exact key: a struct tag matches "Page_Doc" too
-	if err := json.Unmarshal(attrs, &out); err != nil {
+	var out map[string]jsontext.Value // exact key: a struct tag matches "Page_Doc" too
+	if err := jsonx.Unmarshal(attrs, &out, jsonx.StoredLoose); err != nil {
 		return nil, nil, err
 	}
 	doc, err := builder.Parse(out["page_doc"])

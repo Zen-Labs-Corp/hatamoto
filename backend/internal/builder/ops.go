@@ -13,11 +13,11 @@ type Op struct {
 	Op     string          `json:"op"` // insert | move | remove | setProp | setStyle | setBind
 	ID     string          `json:"id,omitempty"`
 	Parent string          `json:"parent,omitempty"` // "" = top level
-	Index  int             `json:"index,omitempty"`
+	Index  int             `json:"index,omitzero"`
 	Node   *Node           `json:"node,omitempty"`
 	Key    string          `json:"key,omitempty"`
 	BP     string          `json:"bp,omitempty"`
-	Value  json.RawMessage `json:"value,omitempty"` // setProp: any JSON, null deletes; setStyle, setBind: string, null deletes
+	Value  json.RawMessage `json:"value,omitzero"` // setProp: any JSON, null deletes; setStyle, setBind: string, null deletes
 }
 
 // Apply applies op and returns its inverse. The doc must be valid before the

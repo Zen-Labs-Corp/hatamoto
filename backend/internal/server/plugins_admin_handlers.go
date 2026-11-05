@@ -1,9 +1,10 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/sdk"
 )
@@ -11,27 +12,37 @@ import (
 // pluginView is one item of GET /api/v1/plugins: the load status plus
 // manifest metadata the admin UI needs.
 type pluginView struct {
-	Name           string          `json:"name"`
-	Loaded         bool            `json:"loaded"`
-	Error          string          `json:"error,omitempty"`
-	Hooks          []string        `json:"hooks"`
-	Version        string          `json:"version,omitempty"`
-	SDK            string          `json:"sdk,omitempty"`
-	Description    string          `json:"description,omitempty"`
-	AllowedHosts   []string        `json:"allowed_hosts,omitempty"`
-	SettingsSchema json.RawMessage `json:"settings_schema,omitempty"`
+	Name           string         `json:"name"`
+	Loaded         bool           `json:"loaded"`
+	Error          string         `json:"error,omitempty"`
+	Hooks          []string       `json:"hooks"`
+	Version        string         `json:"version,omitempty"`
+	SDK            string         `json:"sdk,omitempty"`
+	Description    string         `json:"description,omitempty"`
+	AllowedHosts   []string       `json:"allowed_hosts,omitempty"`
+	SettingsSchema jsontext.Value `json:"settings_schema,omitzero"`
 	// Capabilities: what the manifest requests, what the owner granted, and
 	// what the plugin exposes.
 	Permissions []string      `json:"permissions"`
 	Granted     []string      `json:"granted"`
-	Routes      []sdk.Route   `json:"routes,omitempty"`
+	Routes      []routeView   `json:"routes,omitempty"`
 	Cron        []sdk.CronJob `json:"cron,omitempty"`
 	Cookies     []string      `json:"cookies,omitempty"`
 	// RequestHeaders are the extra request headers its routes receive.
 	RequestHeaders []string `json:"request_headers,omitempty"`
-	CSP            *sdk.CSP `json:"csp,omitempty"`
-	Funcs          []string `json:"funcs,omitempty"`
-	DataError      string   `json:"data_error,omitempty"`
+	// omitzero: a declared empty "csp":{} is still listed, as before.
+	CSP       *sdk.CSP `json:"csp,omitzero"`
+	Funcs     []string `json:"funcs,omitempty"`
+	DataError string   `json:"data_error,omitempty"`
+}
+
+// routeView is sdk.Route as listed: omitzero keeps "public" absent on a
+// non-public route (omitempty would write false).
+type routeView struct {
+	Method string   `json:"method"`
+	Path   string   `json:"path"`
+	Public bool     `json:"public,omitzero"`
+	Roles  []string `json:"roles,omitempty"`
 }
 
 // pluginStatuses returns the load results of the plugin runtime (none before
@@ -46,31 +57,24 @@ func (s *Server) pluginStatuses() []pluginhost.Status {
 	return nil
 }
 
-func orEmpty(v []string) []string {
-	if v == nil {
-		return []string{}
-	}
-	return v
-}
-
 func (s *Server) pluginViews() []pluginView {
-	views := []pluginView{}
+	var views []pluginView
 	for _, st := range s.pluginStatuses() {
 		m := st.Manifest
 		v := pluginView{
 			Name: st.Name, Loaded: st.Loaded, Error: st.Error, Hooks: st.Hooks,
 			Version: m.Version, SDK: m.SDK, Description: m.Description, AllowedHosts: m.AllowedHosts,
-			Permissions: orEmpty(m.Permissions), Granted: []string{}, Routes: m.Routes, Cron: m.Cron,
+			Permissions: m.Permissions, Cron: m.Cron,
 			Cookies: m.Cookies, RequestHeaders: m.RequestHeaders, CSP: m.CSP, Funcs: m.Funcs, DataError: st.DataError,
 		}
-		if s.plugins != nil {
-			v.Granted = orEmpty(s.plugins.Grants().Granted(st.Name))
+		for _, r := range m.Routes {
+			v.Routes = append(v.Routes, routeView(r))
 		}
-		if v.Hooks == nil {
-			v.Hooks = []string{}
+		if s.plugins != nil {
+			v.Granted = s.plugins.Grants().Granted(st.Name)
 		}
 		// Invalid JSON would make the whole list response fail to encode.
-		if json.Valid(m.SettingsSchema) {
+		if jsonx.Valid(m.SettingsSchema) {
 			v.SettingsSchema = m.SettingsSchema
 		}
 		views = append(views, v)

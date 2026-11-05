@@ -84,8 +84,8 @@ type Entity struct {
 	Locale        string          `json:"locale"`
 	Status        EntityStatus    `json:"status"`
 	Attributes    json.RawMessage `json:"attributes"`
-	Metadata      json.RawMessage `json:"metadata,omitempty"`
-	Editorial     json.RawMessage `json:"editorial,omitempty"`
+	Metadata      json.RawMessage `json:"metadata,omitzero"`
+	Editorial     json.RawMessage `json:"editorial,omitzero"`
 	Version       int             `json:"version"`
 	CreatedBy     *uuid.UUID      `json:"created_by,omitempty"`
 	UpdatedBy     *uuid.UUID      `json:"updated_by,omitempty"`
@@ -102,7 +102,7 @@ type Entity struct {
 	// source of bylines; AuthorID is only dual-written so a rollback still
 	// renders them. BylinePersonID has no foreign key: integrity is kept in code.
 	BylinePersonID *uuid.UUID `json:"byline_person_id,omitempty"`
-	BylineOrg      bool       `json:"byline_org,omitempty"`
+	BylineOrg      bool       `json:"byline_org,omitzero"`
 
 	// Joined fields (not stored in DB)
 	Schema *EntitySchema `json:"schema,omitempty"`
@@ -132,7 +132,7 @@ type CreateSchemaInput struct {
 	Slug        string          `json:"slug,omitempty"` // Auto-generated if empty
 	Description *string         `json:"description,omitempty"`
 	Schema      json.RawMessage `json:"schema"`
-	Settings    json.RawMessage `json:"settings,omitempty"`
+	Settings    json.RawMessage `json:"settings,omitzero"`
 	// OriginPlugin names the plugin whose package installs the type ("" for an
 	// owner-created one). Only the package manager sets it.
 	OriginPlugin string `json:"-"`
@@ -142,8 +142,8 @@ type CreateSchemaInput struct {
 type UpdateSchemaInput struct {
 	Name        *string          `json:"name,omitempty"`
 	Description *string          `json:"description,omitempty"`
-	Schema      *json.RawMessage `json:"schema,omitempty"`
-	Settings    *json.RawMessage `json:"settings,omitempty"`
+	Schema      *json.RawMessage `json:"schema,omitzero"`
+	Settings    *json.RawMessage `json:"settings,omitzero"`
 }
 
 // CreateEntityInput represents input for creating a new entity.
@@ -153,12 +153,12 @@ type CreateEntityInput struct {
 	Slug       string          `json:"slug,omitempty"`   // Auto-generated if empty
 	Locale     string          `json:"locale,omitempty"` // BCP 47; empty stores the site language, or und for a locale-neutral type
 	Attributes json.RawMessage `json:"attributes"`
-	Metadata   json.RawMessage `json:"metadata,omitempty"`
+	Metadata   json.RawMessage `json:"metadata,omitzero"`
 	ParentID   *uuid.UUID      `json:"parent_id,omitempty"`
 	AuthorID   *uuid.UUID      `json:"author_id,omitempty"`
 	// BylinePersonID and BylineOrg set the byline (see Entity).
 	BylinePersonID *uuid.UUID `json:"byline_person_id,omitempty"`
-	BylineOrg      bool       `json:"byline_org,omitempty"`
+	BylineOrg      bool       `json:"byline_org,omitzero"`
 	// Status is set by the service for a person or a block or part (see lockedStatus); a caller
 	// cannot choose it. Unset stores a draft.
 	Status *EntityStatus `json:"-"`
@@ -169,8 +169,8 @@ type UpdateEntityInput struct {
 	Name          *string          `json:"name,omitempty"`
 	Slug          *string          `json:"slug,omitempty"`
 	Locale        *string          `json:"locale,omitempty"` // re-tags the entity; nil leaves it as stored
-	Attributes    *json.RawMessage `json:"attributes,omitempty"`
-	Metadata      *json.RawMessage `json:"metadata,omitempty"`
+	Attributes    *json.RawMessage `json:"attributes,omitzero"`
+	Metadata      *json.RawMessage `json:"metadata,omitzero"`
 	ChangeSummary *string          `json:"change_summary,omitempty"`
 	// Autosave marks a background save. It is recorded with AutosaveSummary,
 	// and a run of autosaves by one person within AutosaveWindow keeps a single

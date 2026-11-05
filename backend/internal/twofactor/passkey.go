@@ -3,6 +3,7 @@ package twofactor
 import (
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"net/http"
@@ -175,7 +176,7 @@ func descriptors(u waUser) []protocol.CredentialDescriptor {
 
 // BeginRegistration starts adding a passkey for uid. It returns the options
 // for navigator.credentials.create and the id of the single-use ceremony.
-func (p *Passkeys) BeginRegistration(ctx context.Context, uid uuid.UUID, name, displayName string) (json.RawMessage, string, error) {
+func (p *Passkeys) BeginRegistration(ctx context.Context, uid uuid.UUID, name, displayName string) (jsontext.Value, string, error) {
 	wa, err := p.webauthn(ctx)
 	if err != nil {
 		return nil, "", err
@@ -239,7 +240,7 @@ func CleanPasskeyName(s string) string {
 
 // BeginLogin starts a passkey sign-in. With a uid it is the second factor for
 // that user (allow list); with nil it is a discoverable-credential sign-in.
-func (p *Passkeys) BeginLogin(ctx context.Context, uid *uuid.UUID) (json.RawMessage, string, error) {
+func (p *Passkeys) BeginLogin(ctx context.Context, uid *uuid.UUID) (jsontext.Value, string, error) {
 	wa, err := p.webauthn(ctx)
 	if err != nil {
 		return nil, "", err

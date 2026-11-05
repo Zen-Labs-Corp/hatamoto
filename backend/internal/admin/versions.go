@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type versionsData struct {
@@ -176,17 +177,17 @@ func flatten(prefix string, v any, out map[string]string) {
 	case nil:
 		out[prefix] = "null"
 	default:
-		b, _ := json.Marshal(x)
+		b, _ := jsonx.Marshal(x)
 		out[prefix] = string(b)
 	}
 }
 
 // diffAttributes compares two attribute documents leaf by leaf; changed rows
 // are returned in path order, same counts the untouched leaves.
-func diffAttributes(left, right json.RawMessage) (rows []diffRow, same int) {
+func diffAttributes(left, right jsontext.Value) (rows []diffRow, same int) {
 	var l, r any
-	_ = json.Unmarshal(left, &l)
-	_ = json.Unmarshal(right, &r)
+	_ = jsonx.Unmarshal(left, &l, jsonx.Stored)
+	_ = jsonx.Unmarshal(right, &r, jsonx.Stored)
 	lf, rf := map[string]string{}, map[string]string{}
 	flatten("", l, lf)
 	flatten("", r, rf)
@@ -228,7 +229,7 @@ func clipValue(s string) string {
 }
 
 // versionAttrs returns the attributes of version n (0 is the current one).
-func (a *Admin) versionAttrs(r *http.Request, e *entity.Entity, n int) (json.RawMessage, string, bool) {
+func (a *Admin) versionAttrs(r *http.Request, e *entity.Entity, n int) (jsontext.Value, string, bool) {
 	if n == 0 || n == e.Version {
 		return e.Attributes, fmt.Sprintf("v%d (current)", e.Version), true
 	}
@@ -345,7 +346,7 @@ func (a *Admin) handleVersionView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var doc any
-	_ = json.Unmarshal(attrs, &doc)
+	_ = jsonx.Unmarshal(attrs, &doc, jsonx.StoredLoose)
 	flat := map[string]string{}
 	flatten("", doc, flat)
 	d := versionViewData{Name: e.Name, ID: id, Label: label, N: n, Tabs: a.entityTabsFor(r.Context(), e, "versions"), Actions: []ui.Button{

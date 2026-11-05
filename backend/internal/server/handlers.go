@@ -2,45 +2,31 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
-	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/user"
 )
 
 // writeJSON sends a JSON response.
-func writeJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if data != nil {
-		if err := json.NewEncoder(w).Encode(data); err != nil {
-			slog.Error("writeJSON: failed to encode response", slog.String("error", err.Error()))
-		}
-	}
-}
+func writeJSON(w http.ResponseWriter, status int, data interface{}) { jsonx.WriteJSON(w, status, data) }
 
 // writeError sends an error response.
 func writeError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]string{"error": message})
+	jsonx.WriteError(w, status, message)
 }
 
-// maxRequestBodySize is the maximum allowed request body size (1 MB).
-const maxRequestBodySize = 1 << 20
-
-// parseJSON parses JSON request body with a size limit to prevent OOM attacks.
+// parseJSON strictly decodes the JSON request body (size limited, duplicate
+// names and trailing data rejected).
 func parseJSON(r *http.Request, v interface{}) error {
-	if r.Body == nil {
-		return errors.New("missing request body")
-	}
-	r.Body = http.MaxBytesReader(nil, r.Body, maxRequestBodySize)
-	return json.NewDecoder(r.Body).Decode(v)
+	_, err := jsonx.DecodeRequest(nil, r, v, jsonx.DefaultMaxBody)
+	return err
 }
 
 // softAuthed reports whether the request carries a valid admin session cookie,

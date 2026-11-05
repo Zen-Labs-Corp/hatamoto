@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 	"strconv"
@@ -20,11 +20,6 @@ func (s *Server) handleListSchemas(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("failed to list schemas", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list schemas")
 		return
-	}
-
-	// Ensure empty array instead of null
-	if schemas == nil {
-		schemas = []*entity.EntitySchema{}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
@@ -585,8 +580,8 @@ func (s *Server) handleRestoreEntityVersion(w http.ResponseWriter, r *http.Reque
 // handleValidateEntityAttributes validates attributes against a schema.
 func (s *Server) handleValidateEntityAttributes(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		SchemaID   uuid.UUID       `json:"schema_id"`
-		Attributes json.RawMessage `json:"attributes"`
+		SchemaID   uuid.UUID      `json:"schema_id"`
+		Attributes jsontext.Value `json:"attributes"`
 	}
 
 	if err := parseJSON(r, &input); err != nil {

@@ -49,11 +49,6 @@ func (s *Server) handleListForms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ensure empty array instead of null
-	if forms == nil {
-		forms = []*form.Form{}
-	}
-
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"forms": forms,
 		"total": len(forms),
@@ -216,11 +211,6 @@ func (s *Server) handleListFormSubmissions(w http.ResponseWriter, r *http.Reques
 		s.logger.Error("failed to list submissions", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list submissions")
 		return
-	}
-
-	// Ensure empty array instead of null
-	if submissions == nil {
-		submissions = []*form.FormSubmission{}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{

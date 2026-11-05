@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 	"net/url"
@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -463,7 +464,7 @@ func (a *Admin) writePresets(w http.ResponseWriter, r *http.Request, cfg *siteco
 
 // storePresets writes the theme settings JSON, purges the rendered pages and redirects.
 func (a *Admin) storePresets(w http.ResponseWriter, r *http.Request, raw []byte, flash string) {
-	if _, err := a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{ThemeExtra: json.RawMessage(raw)}); err != nil {
+	if _, err := a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{ThemeExtra: jsontext.Value(raw)}); err != nil {
 		a.logger().Error("save presets failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The presets could not be saved.")
 		return
@@ -488,14 +489,13 @@ const presetBodyMax = 16 << 10
 // preset". Create only; an existing name is a 409, updates and deletes are the
 // owner's, in Settings.
 func (a *Admin) handlePresetCreate(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, presetBodyMax)
 	var req struct {
 		Name  string                       `json:"name"`
 		Label string                       `json:"label"`
 		S     map[string]map[string]string `json:"s"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		a.writeJSON(w, http.StatusBadRequest, presetReply{Code: "bad_request", Error: "Invalid request body."})
+	if status, _ := jsonx.DecodeRequest(w, r, &req, presetBodyMax); status != 0 {
+		a.writeJSON(w, status, presetReply{Code: "bad_request", Error: "Invalid request body."})
 		return
 	}
 	p := builder.Preset{Label: strings.TrimSpace(req.Label), S: req.S}
@@ -516,7 +516,7 @@ func (a *Admin) handlePresetCreate(w http.ResponseWriter, r *http.Request) {
 		a.writeJSON(w, http.StatusUnprocessableEntity, presetReply{Code: "invalid", Error: err.Error()})
 		return
 	}
-	if _, err := a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{ThemeExtra: json.RawMessage(raw)}); err != nil {
+	if _, err := a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{ThemeExtra: jsontext.Value(raw)}); err != nil {
 		a.logger().Error("create preset failed", "err", err)
 		a.writeJSON(w, http.StatusInternalServerError, presetReply{Code: "server_error", Error: "The preset could not be saved."})
 		return
@@ -532,7 +532,7 @@ type bootDesign struct {
 	CanCreate bool         `json:"canCreate"`
 	// Palette is what the Style tab's colour and length controls show: values resolved from the
 	// site settings (the theme may paint differently), never read from the canvas.
-	Palette *bootPalette `json:"palette,omitempty"`
+	Palette *bootPalette `json:"palette,omitzero"`
 }
 
 // bootPalette holds the resolved token values: colours by name (primary bg text surface muted accent),

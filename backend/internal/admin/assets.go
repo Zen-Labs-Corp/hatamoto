@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -16,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // vendorManifest is the part of web/vendor/vendor.json the admin needs.
@@ -175,7 +176,7 @@ func buildAssets(adminFS, vendorFS fs.FS, prefix string) (*Assets, error) {
 		return nil, fmt.Errorf("vendor manifest: %w", err)
 	}
 	var m vendorManifest
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err := jsonx.Unmarshal(raw, &m, jsonx.Stored); err != nil {
 		return nil, fmt.Errorf("vendor manifest: %w", err)
 	}
 	for _, v := range m.Assets {
@@ -225,12 +226,12 @@ func buildAssets(adminFS, vendorFS fs.FS, prefix string) (*Assets, error) {
 		integrity[u] = sri
 		a.mods[u] = module{integrity: sri, deps: staticImports(u, b, imports)}
 	}
-	im, err := json.Marshal(map[string]any{"imports": imports, "integrity": integrity})
+	im, err := jsonx.Marshal(map[string]any{"imports": imports, "integrity": integrity}, jsonx.HTMLSafe)
 	if err != nil {
 		return nil, err
 	}
 	// An importmap script is not JS to html/template, so it is emitted as trusted
-	// HTML: json.Marshal escapes <, > and & so the value cannot close the element.
+	// HTML: jsonx.HTMLSafe escapes <, > and & so the value cannot close the element.
 	a.Importmap = template.HTML(im) //nolint:gosec
 	return a, nil
 }

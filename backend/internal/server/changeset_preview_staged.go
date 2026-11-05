@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"time"
 
@@ -10,6 +10,7 @@ import (
 
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 )
 
@@ -99,7 +100,7 @@ type stagedEntityPayload struct {
 	Name       string               `json:"name"`
 	Slug       string               `json:"slug"`
 	Locale     string               `json:"locale"`
-	Attributes json.RawMessage      `json:"attributes"`
+	Attributes jsontext.Value       `json:"attributes"`
 	ParentID   *uuid.UUID           `json:"parent_id"`
 	ParentKey  string               `json:"parent_key"`
 	SEO        *changeset.EntitySEO `json:"seo"`
@@ -135,7 +136,7 @@ func newStagedChangeset(ctx context.Context, h changeset.Header, items []changes
 			continue
 		}
 		var p stagedEntityPayload
-		if json.Unmarshal(it.Payload, &p) != nil {
+		if jsonx.Unmarshal(it.Payload, &p, jsonx.Stored) != nil {
 			continue
 		}
 		ent, ok := o.merge(ctx, src, origin, live, id, p, keys)
@@ -375,7 +376,7 @@ func prefetchMapped(ctx context.Context, src stagedSource, origin string, items 
 			var p struct {
 				ParentKey string `json:"parent_key"`
 			}
-			if json.Unmarshal(it.Payload, &p) == nil {
+			if jsonx.Unmarshal(it.Payload, &p, jsonx.Stored) == nil {
 				add(changeset.KindEntity, p.ParentKey)
 			}
 		case changeset.KindMenu:
@@ -385,7 +386,7 @@ func prefetchMapped(ctx context.Context, src stagedSource, origin string, items 
 			var p struct {
 				EntityKeys map[int]string `json:"entity_keys"`
 			}
-			if json.Unmarshal(it.Payload, &p) == nil {
+			if jsonx.Unmarshal(it.Payload, &p, jsonx.Stored) == nil {
 				for _, k := range p.EntityKeys {
 					add(changeset.KindEntity, k)
 				}

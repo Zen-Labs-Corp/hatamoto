@@ -2,12 +2,12 @@ package server
 
 import (
 	"bytes"
-	"encoding/json"
-	"errors"
+	"encoding/json/jsontext"
 	"net/http"
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -24,11 +24,11 @@ type renderNodesRequest struct {
 	previewRequest
 	// Doc, when set, is the draft doc itself and replaces attributes.page_doc;
 	// attributes then only feed the site chrome and meta.
-	Doc    json.RawMessage `json:"doc"`
-	Ops    []builder.Op    `json:"ops"`
-	Render []string        `json:"render"`
-	CSS    []string        `json:"css"`
-	Seq    int             `json:"seq"`
+	Doc    jsontext.Value `json:"doc"`
+	Ops    []builder.Op   `json:"ops"`
+	Render []string       `json:"render"`
+	CSS    []string       `json:"css"`
+	Seq    int            `json:"seq"`
 }
 
 // renderNodesResponse carries the node fragments of a canvas patch. Order is
@@ -45,15 +45,13 @@ type renderNodesResponse struct {
 // asked nodes as fragments. Stateless: the draft lives and dies with the
 // request, and no full page is ever rendered.
 func (h *renderAdminHandlers) handleRenderNodes(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxPreviewBodySize)
 	var req renderNodesRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
-			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
+	if st, err := jsonx.DecodeRequest(w, r, &req, maxPreviewBodySize); err != nil {
+		if st == http.StatusRequestEntityTooLarge {
+			writeError(w, st, "request body too large")
 			return
 		}
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, st, "invalid request body")
 		return
 	}
 	if len(req.Ops) > maxRenderOps || len(req.Render) > maxRenderIDs || len(req.CSS) > maxRenderIDs {

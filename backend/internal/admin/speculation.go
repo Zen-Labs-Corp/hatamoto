@@ -1,8 +1,9 @@
 package admin
 
 import (
-	"encoding/json"
 	"html/template"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // speculationExcluded lists the admin paths the browser must never prerender:
@@ -35,13 +36,13 @@ func speculationRulesFor(prefix string) template.HTML {
 	for i, p := range speculationExcluded {
 		excluded[i] = prefix + p
 	}
-	b, err := json.Marshal(map[string]any{"prerender": []any{map[string]any{
+	b, err := jsonx.Marshal(map[string]any{"prerender": []any{map[string]any{
 		"where": map[string]any{"and": []any{
 			map[string]any{"href_matches": prefix + "/*"},
 			map[string]any{"not": map[string]any{"href_matches": excluded}},
 		}},
 		"eagerness": "moderate",
-	}}})
+	}}}, jsonx.HTMLSafe) // lands in template.HTML inside a script element
 	if err != nil {
 		return "{}"
 	}

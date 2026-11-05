@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +13,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/plugrun"
 	"hatamoto.dev/sdk"
@@ -169,7 +169,7 @@ func runView(run plugrun.Run) admin.RunView {
 		Done, Total int
 		Message     string
 	}
-	if json.Unmarshal(run.Progress, &p) == nil {
+	if jsonx.Unmarshal(run.Progress, &p, jsonx.Stored) == nil {
 		v.Done, v.Total, v.Message = p.Done, p.Total, p.Message
 	}
 	if run.ChangesetID != nil {

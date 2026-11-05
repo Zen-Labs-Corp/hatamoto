@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"sort"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // mountContent registers the entity, schema, taxonomy and media screens.
@@ -89,6 +89,6 @@ func crumbList(parts ...string) []ui.Crumb {
 
 // jsonString quotes s as a JSON string (for HX-Trigger payloads).
 func jsonString(s string) string {
-	b, _ := json.Marshal(s)
+	b, _ := jsonx.Marshal(s)
 	return string(b)
 }

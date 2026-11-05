@@ -320,9 +320,9 @@ type StyleSpecEntry struct {
 	Tpl string `json:"tpl,omitempty"`
 	// Settle marks a key the client does not preview on its own: the server
 	// css message settles it.
-	Settle bool `json:"settle,omitempty"`
+	Settle bool `json:"settle,omitzero"`
 	// States marks a key that may be set inside a state (hover, focus, ...).
-	States bool `json:"states,omitempty"`
+	States bool `json:"states,omitzero"`
 }
 
 // StyleSpecTable returns the vocabulary as JSON-serialisable data, sorted by key.

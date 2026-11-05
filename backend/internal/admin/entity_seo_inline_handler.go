@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"maps"
@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // seoSaveTries is how often the inline save re-reads and re-applies after another
@@ -122,8 +123,8 @@ func (a *Admin) handleEntitySEOInline(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if len(res.Changed) > 0 {
-			b, _ := json.Marshal(res.Attrs)
-			raw := json.RawMessage(b)
+			b, _ := jsonx.Marshal(res.Attrs)
+			raw := jsontext.Value(b)
 			summary := "Updated SEO in the list"
 			updated, err := c.Entities.UpdateEntity(r.Context(), e.ID, actorID(r), &entity.UpdateEntityInput{Attributes: &raw, ChangeSummary: &summary, ExpectedVersion: &e.Version})
 			if errors.Is(err, entity.ErrVersionConflict) {

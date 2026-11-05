@@ -20,7 +20,7 @@ type Settings struct {
 	Vendors         map[string]VendorState `json:"vendors"`
 	// MovedFrom lists the plugins whose settings were folded into this page.
 	MovedFrom       []string `json:"moved_from,omitempty"`
-	NoticeDismissed bool     `json:"notice_dismissed,omitempty"`
+	NoticeDismissed bool     `json:"notice_dismissed,omitzero"`
 }
 
 // FieldError names a field ("<vendor>" or "<vendor>.aux") and what is wrong.

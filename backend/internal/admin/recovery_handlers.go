@@ -65,13 +65,13 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
+	"encoding/json/jsontext"
 	"html/template"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // recoveryRequest is the body of a recovery write (see the contract above).
@@ -127,11 +127,11 @@ func (a *Admin) blogRecoveryScript(r *http.Request, entityID uuid.UUID) template
 	if c == nil {
 		return ""
 	}
-	b, err := json.Marshal(recoveryView(c, false))
+	b, err := jsonx.Marshal(recoveryView(c, false), jsonx.HTMLSafe)
 	if err != nil {
 		return ""
 	}
-	return template.HTML(`<script type="application/json" id="hm-be-recovery">` + string(b) + `</script>`) //nolint:gosec // json.Marshal output, <>& escaped
+	return template.HTML(`<script type="application/json" id="hm-be-recovery">` + string(b) + `</script>`) //nolint:gosec // jsonx.HTMLSafe output: <, >, & and U+2028/9 are escaped
 }
 
 // recoveryUser is the signed-in user; a recovery copy is never addressed by a
@@ -191,15 +191,12 @@ func (a *Admin) recoveryPut(w http.ResponseWriter, r *http.Request, entityID uui
 		a.recoveryReply(w, http.StatusUnauthorized, "Sign in again.")
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 	var req recoveryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
-			a.recoveryReply(w, http.StatusRequestEntityTooLarge, "This is too large to keep.")
-			return
-		}
-		a.recoveryReply(w, http.StatusBadRequest, "Invalid request body.")
+	if status, _ := jsonx.DecodeRequest(w, r, &req, maxBody); status == http.StatusRequestEntityTooLarge {
+		a.recoveryReply(w, status, "This is too large to keep.")
+		return
+	} else if status != 0 {
+		a.recoveryReply(w, status, "Invalid request body.")
 		return
 	}
 	if store == nil {
@@ -211,8 +208,8 @@ func (a *Admin) recoveryPut(w http.ResponseWriter, r *http.Request, entityID uui
 		return
 	}
 	if builder {
-		var obj map[string]json.RawMessage
-		if json.Unmarshal([]byte(req.Content), &obj) != nil || obj == nil {
+		var obj map[string]jsontext.Value
+		if jsonx.Unmarshal([]byte(req.Content), &obj, jsonx.Stored) != nil || obj == nil {
 			a.recoveryReply(w, http.StatusUnprocessableEntity, "The page document is not valid.")
 			return
 		}

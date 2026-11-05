@@ -2,7 +2,7 @@ package schemaform
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/web"
 )
 
@@ -132,7 +133,7 @@ func templates() (*template.Template, error) {
 // put it inside their own <form>. Submit buttons for repeaters (add, move,
 // remove) are named _add./_move./_remove.; put a hidden default submit first in
 // the form so Enter in a text field saves instead of moving an item.
-func Render(schema json.RawMessage, values map[string]any, opt Options) (template.HTML, error) {
+func Render(schema jsontext.Value, values map[string]any, opt Options) (template.HTML, error) {
 	root, err := ParseSchema(schema)
 	if err != nil {
 		return "", err
@@ -210,8 +211,6 @@ func asString(v any) string {
 		return x
 	case float64:
 		return strconv.FormatFloat(x, 'f', -1, 64)
-	case json.Number:
-		return x.String()
 	case int:
 		return strconv.Itoa(x)
 	case int64:
@@ -483,7 +482,7 @@ func (b *builder) keep(m map[string]any, pick func(key string, val any) bool) st
 	if len(out) == 0 {
 		return ""
 	}
-	raw, err := json.Marshal(out)
+	raw, err := jsonx.Marshal(out)
 	if err != nil {
 		return ""
 	}

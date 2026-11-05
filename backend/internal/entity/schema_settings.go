@@ -24,7 +24,7 @@ type SchemaURLOverride struct {
 type SchemaSitemapSettings struct {
 	Priority   *float64 `json:"priority,omitempty"`
 	ChangeFreq string   `json:"changefreq,omitempty"`
-	Exclude    bool     `json:"exclude,omitempty"`
+	Exclude    bool     `json:"exclude,omitzero"`
 }
 
 // SchemaURLSettings is the typed view of EntitySchema.Settings. All keys are
@@ -36,7 +36,7 @@ type SchemaURLSettings struct {
 	Aliases      []string              `json:"aliases,omitempty"`
 	Overrides    []SchemaURLOverride   `json:"overrides,omitempty"`
 	Sitemap      SchemaSitemapSettings `json:"sitemap"`
-	SectionPages bool                  `json:"section_pages,omitempty"`
+	SectionPages bool                  `json:"section_pages,omitzero"`
 	// ArchiveTitle and ArchiveDescription override the archive page heading
 	// and meta description (see MaxArchiveTitleLen / MaxArchiveDescriptionLen).
 	ArchiveTitle       string `json:"archive_title,omitempty"`
@@ -63,7 +63,7 @@ type SchemaURLSettings struct {
 	// LocaleNeutral makes new entries of the type default to the shared locale
 	// (und) when the create call names none. Anything but JSON true reads as
 	// false (checked on write only).
-	LocaleNeutral LocaleNeutralSetting `json:"locale_neutral,omitempty"`
+	LocaleNeutral LocaleNeutralSetting `json:"locale_neutral,omitzero"`
 }
 
 // LocaleNeutralSetting is settings.locale_neutral as stored. It decodes

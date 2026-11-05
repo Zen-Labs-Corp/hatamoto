@@ -82,9 +82,9 @@ type Social struct {
 	TwitterSite string                `json:"twitter_site,omitempty"` // "@name"
 	Card        string                `json:"card,omitempty"`         // see SocialCards
 	FBAppID     string                `json:"fb_app_id,omitempty"`
-	FBPage      string                `json:"fb_page,omitempty"`   // article:publisher
-	SiteTags    bool                  `json:"site_tags,omitempty"` // og:site_name + og:locale
-	Articles    bool                  `json:"articles,omitempty"`  // article:* on posts
+	FBPage      string                `json:"fb_page,omitempty"`  // article:publisher
+	SiteTags    bool                  `json:"site_tags,omitzero"` // og:site_name + og:locale
+	Articles    bool                  `json:"articles,omitzero"`  // article:* on posts
 	Types       map[string]SocialType `json:"types,omitempty"`
 	Taxonomy    map[string]string     `json:"taxonomy,omitempty"` // title templates only
 }

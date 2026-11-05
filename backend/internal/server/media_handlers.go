@@ -107,11 +107,6 @@ func (s *Server) handleMediaList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ensure empty array instead of null
-	if result.Items == nil {
-		result.Items = []*media.Media{}
-	}
-
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"media":  result.Items,
 		"total":  result.Total,

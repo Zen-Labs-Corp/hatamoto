@@ -1,13 +1,14 @@
 package server
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -50,7 +51,7 @@ func validSiteURL(v string) bool {
 // validateThemePayload checks the known theme keys of a PUT body. Unknown
 // keys pass through untouched (they are merged, not rendered as CSS), except
 // socialLinks whose values are URLs.
-func validateThemePayload(sent map[string]json.RawMessage) error {
+func validateThemePayload(sent map[string]jsontext.Value) error {
 	var t siteconfig.ThemeConfig
 	for _, key := range []string{"colors", "typography", "borderRadius", "headerCta"} {
 		raw, ok := sent[key]
@@ -68,13 +69,13 @@ func validateThemePayload(sent map[string]json.RawMessage) error {
 		default:
 			dst = &t.HeaderCTA
 		}
-		if err := json.Unmarshal(raw, dst); err != nil {
+		if err := jsonx.Unmarshal(raw, dst, jsonx.Stored); err != nil {
 			return fmt.Errorf("invalid %s", key)
 		}
 	}
 	if raw, ok := sent["builder"]; ok && string(raw) != "null" {
 		// The design system is read back at render time; refuse what would be dropped.
-		blob, _ := json.Marshal(map[string]json.RawMessage{"builder": raw})
+		blob, _ := jsonx.Marshal(map[string]jsontext.Value{"builder": raw})
 		if _, err := builder.ParseDesign(blob); err != nil {
 			return fmt.Errorf("invalid builder")
 		}
@@ -106,7 +107,7 @@ func validateThemePayload(sent map[string]json.RawMessage) error {
 	}
 	if raw, ok := sent["socialLinks"]; ok {
 		var links map[string]string
-		if err := json.Unmarshal(raw, &links); err != nil {
+		if err := jsonx.Unmarshal(raw, &links, jsonx.Stored); err != nil {
 			return errors.New("invalid socialLinks")
 		}
 		for name, u := range links {

@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,6 +11,7 @@ import (
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/standing"
 	"hatamoto.dev/sdk"
 )
@@ -34,10 +35,10 @@ type standingStore interface {
 
 // installedPlugin is the plugin as installed right now: its version and the
 // manifest as shipped.
-type installedPlugin func(name string) (version string, manifest json.RawMessage, ok bool)
+type installedPlugin func(name string) (version string, manifest jsontext.Value, ok bool)
 
 // schemaReader returns the current JSON Schema of an entity schema slug.
-type schemaReader func(ctx context.Context, slug string) (raw json.RawMessage, ok bool, err error)
+type schemaReader func(ctx context.Context, slug string) (raw jsontext.Value, ok bool, err error)
 
 // standingService decides whether a finished cron started run publishes
 // itself (pluginhost.StandingGate) and serves the owner's approval screens.
@@ -63,7 +64,7 @@ func (s *Server) standingServiceFor() *standingService {
 	}
 	return &standingService{
 		store: &standing.Store{DB: s.db}, eng: s.changesets, audit: s.changesetAudit, log: s.logger,
-		plugin: func(name string) (string, json.RawMessage, bool) {
+		plugin: func(name string) (string, jsontext.Value, bool) {
 			if s.packages == nil {
 				return "", nil, false
 			}
@@ -73,7 +74,7 @@ func (s *Server) standingServiceFor() *standingService {
 			}
 			return p.Version, p.Manifest, true
 		},
-		schemas: func(ctx context.Context, slug string) (json.RawMessage, bool, error) {
+		schemas: func(ctx context.Context, slug string) (jsontext.Value, bool, error) {
 			sc, err := s.entityService.GetSchemaBySlug(ctx, slug)
 			if errors.Is(err, entity.ErrSchemaNotFound) {
 				return nil, false, nil
@@ -104,7 +105,7 @@ func (g *standingService) Policy(plugin string) (standingRule, bool) {
 		return standingRule{}, false
 	}
 	var m sdk.Manifest
-	if json.Unmarshal(raw, &m) != nil {
+	if jsonx.Unmarshal(raw, &m, jsonx.Stored) != nil {
 		return standingRule{}, false
 	}
 	i := slices.IndexFunc(m.Runs, func(r sdk.Run) bool { return r.Cron != "" && r.StandingApproval != nil })

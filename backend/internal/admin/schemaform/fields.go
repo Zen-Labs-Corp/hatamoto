@@ -1,6 +1,6 @@
 package schemaform
 
-import "encoding/json"
+import "encoding/json/jsontext"
 
 // TopField describes one top-level property of a section schema for the
 // builder Navigator: the content key, the label the Inspector form shows and a
@@ -13,13 +13,13 @@ type TopField struct {
 	Alias []string `json:"alias,omitempty"`
 	// Setting marks a configuration field (enum, boolean, number, url): the
 	// Navigator shows no row for it, the Content tab still edits it.
-	Setting bool `json:"setting,omitempty"`
+	Setting bool `json:"setting,omitzero"`
 }
 
 // TopFields lists the top-level properties of a schema in the order the
 // Inspector form shows them (ungrouped first, then each group). It returns nil
 // when the schema cannot be parsed or has no properties.
-func TopFields(raw json.RawMessage) []TopField {
+func TopFields(raw jsontext.Value) []TopField {
 	n, err := ParseSchema(raw)
 	if err != nil || n == nil {
 		return nil

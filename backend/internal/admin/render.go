@@ -2,7 +2,6 @@ package admin
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -17,6 +16,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/web"
 )
 
@@ -249,7 +249,7 @@ func (v *View) addMarkupNeeds(body string) bool {
 // HTMXConfig is the content of <meta name="htmx-config">: nonces for what htmx
 // injects, no eval, no script tags, no history snapshots (stale CSRF / secrets).
 func (v *View) HTMXConfig() string {
-	b, _ := json.Marshal(map[string]any{
+	b, _ := jsonx.Marshal(map[string]any{
 		"includeIndicatorStyles": false,
 		"inlineScriptNonce":      v.Nonce,
 		"inlineStyleNonce":       v.Nonce,

@@ -6,7 +6,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -22,6 +21,7 @@ import (
 	"hatamoto.dev/core/internal/analytics"
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/redirect"
@@ -243,7 +243,7 @@ func register[In any](s *Server, spec toolSpec, h func(ctx context.Context, key 
 		if err != nil {
 			return nil, nil, publicError(s.d.Logger, spec.name, err)
 		}
-		body, merr := json.Marshal(out)
+		body, merr := jsonx.Marshal(out)
 		if merr != nil {
 			return nil, nil, errors.New("internal error")
 		}

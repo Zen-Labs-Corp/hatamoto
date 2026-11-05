@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/media"
@@ -13,7 +13,7 @@ import (
 // themeExtraStore is the part of siteconfig.Store the format settings use.
 type themeExtraStore interface {
 	Get(ctx context.Context) (*siteconfig.Config, error)
-	PatchThemeExtra(ctx context.Context, key string, raw json.RawMessage) error
+	PatchThemeExtra(ctx context.Context, key string, raw jsontext.Value) error
 }
 
 // mediaFormatStore keeps the modern-format switches and the rebuild state in

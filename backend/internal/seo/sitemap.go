@@ -18,11 +18,11 @@ var SitemapChangeFreqs = []string{"", "always", "hourly", "daily", "weekly", "mo
 // Sitemap holds the site-wide sitemap controls. The zero value reproduces the
 // historic output, so default-on options are stored inverted.
 type Sitemap struct {
-	NoAuthor          bool     `json:"no_author,omitempty"` // leave author pages out
-	Taxonomy          bool     `json:"taxonomy,omitempty"`  // add taxonomy sitemaps
-	Images            bool     `json:"images,omitempty"`    // add image entries
-	MaxURLs           int      `json:"max_urls,omitempty"`  // 0: MaxSitemapURLs
-	NoStats           bool     `json:"no_stats,omitempty"`  // omit priority and changefreq
+	NoAuthor          bool     `json:"no_author,omitzero"` // leave author pages out
+	Taxonomy          bool     `json:"taxonomy,omitzero"`  // add taxonomy sitemaps
+	Images            bool     `json:"images,omitzero"`    // add image entries
+	MaxURLs           int      `json:"max_urls,omitzero"`  // 0: MaxSitemapURLs
+	NoStats           bool     `json:"no_stats,omitzero"`  // omit priority and changefreq
 	DefaultPriority   *float64 `json:"default_priority,omitempty"`
 	DefaultChangeFreq string   `json:"default_changefreq,omitempty"`
 	ExcludePaths      []string `json:"exclude_paths,omitempty"`

@@ -3,12 +3,13 @@
 package server
 
 import (
-	"encoding/json"
 	"html"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // This file is the browser acceptance seam for the opaque-origin sandbox
@@ -52,8 +53,7 @@ func (s *Server) qaWrap(h http.Handler) http.Handler {
 		case r.URL.Path == "/__qa/seen":
 			mu.Lock()
 			defer mu.Unlock()
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(seen)
+			jsonx.WriteJSON(w, http.StatusOK, seen)
 		default:
 			if strings.HasPrefix(r.URL.Path, "/admin") || r.URL.Path == "/api/v1/track" {
 				mu.Lock()

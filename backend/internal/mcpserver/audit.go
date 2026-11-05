@@ -2,7 +2,7 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"log/slog"
 	"time"
@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // maxAuditArgs caps the stored arguments of one call, so a base64 upload or a
@@ -21,7 +22,7 @@ type AuditEntry struct {
 	KeyID   uuid.UUID
 	KeyName string
 	Tool    string
-	Args    json.RawMessage
+	Args    jsontext.Value
 	Err     error
 }
 
@@ -66,18 +67,18 @@ func (a *PostgresAuditor) Record(ctx context.Context, e AuditEntry) {
 
 // auditArgs is the JSON of the call's input, with long strings shortened and
 // the whole capped at maxAuditArgs (then replaced by a note).
-func auditArgs(in any) json.RawMessage {
-	raw, err := json.Marshal(in)
+func auditArgs(in any) jsontext.Value {
+	raw, err := jsonx.Marshal(in)
 	if err != nil {
-		return json.RawMessage(`{}`)
+		return jsontext.Value(`{}`)
 	}
 	var v any
-	if json.Unmarshal(raw, &v) != nil {
-		return json.RawMessage(`{}`)
+	if jsonx.Unmarshal(raw, &v, jsonx.Stored) != nil {
+		return jsontext.Value(`{}`)
 	}
-	raw, _ = json.Marshal(shorten(v))
+	raw, _ = jsonx.Marshal(shorten(v))
 	if len(raw) > maxAuditArgs {
-		return json.RawMessage(fmt.Sprintf(`{"truncated":true,"bytes":%d}`, len(raw)))
+		return jsontext.Value(fmt.Sprintf(`{"truncated":true,"bytes":%d}`, len(raw)))
 	}
 	return raw
 }

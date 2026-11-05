@@ -2,13 +2,13 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"slices"
 	"strings"
 
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/render"
 )
@@ -109,7 +109,7 @@ func (s *Server) applyAuthorName(ctx context.Context, ent *entity.Entity) {
 		return
 	}
 	var attrs map[string]any
-	if json.Unmarshal(ent.Attributes, &attrs) != nil || attrs == nil {
+	if jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.StoredLoose) != nil || attrs == nil {
 		return
 	}
 	for _, k := range []string{"author", "author_name"} {
@@ -122,7 +122,7 @@ func (s *Server) applyAuthorName(ctx context.Context, ent *entity.Entity) {
 		return
 	}
 	attrs["author"] = v.Name
-	if b, err := json.Marshal(attrs); err == nil {
+	if b, err := jsonx.Marshal(attrs); err == nil {
 		ent.Attributes = b
 	}
 }

@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -20,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/portability"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/siteconfig"
@@ -85,9 +85,12 @@ func runOps(ctx context.Context, args []string, _ *slog.Logger, out io.Writer) e
 }
 
 func printJSON(out io.Writer, v any) error {
-	enc := json.NewEncoder(out)
-	enc.SetIndent("", "  ")
-	return enc.Encode(v)
+	b, err := jsonx.Indent(v)
+	if err != nil {
+		return err
+	}
+	_, err = out.Write(append(b, '\n'))
+	return err
 }
 
 // flagSet parses args and returns the positional ones (flags may follow them).
@@ -217,14 +220,14 @@ func runEntity(ctx context.Context, db *database.DB, args []string, out io.Write
 		if strings.TrimSpace(attrs) == "" {
 			attrs = "{}"
 		}
-		if !json.Valid([]byte(attrs)) {
-			return errors.New("attributes are not valid JSON")
+		if !jsonx.Valid([]byte(attrs)) {
+			return errors.New("attributes are not valid JSON (duplicate keys are rejected)")
 		}
 		sc, err := svc.GetSchemaBySlug(ctx, schema)
 		if err != nil {
 			return err
 		}
-		e, err := svc.CreateEntity(ctx, actor, &entity.CreateEntityInput{SchemaID: sc.ID, Name: name, Slug: slug, Attributes: json.RawMessage(attrs)})
+		e, err := svc.CreateEntity(ctx, actor, &entity.CreateEntityInput{SchemaID: sc.ID, Name: name, Slug: slug, Attributes: []byte(attrs)})
 		if err != nil {
 			return err
 		}

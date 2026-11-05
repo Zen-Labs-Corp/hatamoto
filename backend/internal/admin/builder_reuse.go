@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 	"net/url"
@@ -14,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Reuse in the builder: blocks (entities of the block type, embedded by a ref
@@ -53,14 +54,14 @@ func (a *Admin) mountBuilderReuse(authed *httpx.Group) {
 
 // partDraftAttrs is the first document of a new part: a single or archive part
 // starts with its one Content slot.
-func partDraftAttrs(slot string) json.RawMessage {
+func partDraftAttrs(slot string) jsontext.Value {
 	nodes := `[]`
 	if slot == builder.SlotSingle || slot == builder.SlotArchive {
 		nodes = `[{"id":"slot0","t":"slot"}]`
 	}
-	b, _ := json.Marshal(map[string]any{
+	b, _ := jsonx.Marshal(map[string]any{
 		"slot":     slot,
-		"page_doc": json.RawMessage(`{"v":2,"nodes":` + nodes + `}`),
+		"page_doc": jsontext.Value(`{"v":2,"nodes":` + nodes + `}`),
 	})
 	return b
 }
@@ -76,9 +77,9 @@ func (a *Admin) entityRole(ctx context.Context, e *entity.Entity) string {
 }
 
 type makeBlockRequest struct {
-	Name   string          `json:"name"`
-	NodeID string          `json:"nodeId"`
-	Doc    json.RawMessage `json:"doc"`
+	Name   string         `json:"name"`
+	NodeID string         `json:"nodeId"`
+	Doc    jsontext.Value `json:"doc"`
 }
 
 // handleMakeBlock creates a block from a subtree (nodeId) or the whole page of
@@ -96,10 +97,9 @@ func (a *Admin) handleMakeBlock(w http.ResponseWriter, r *http.Request) {
 		problem(http.StatusNotFound, "unavailable", "Blocks are not available on this site.")
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, builderSaveMaxBody)
 	var req makeBlockRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		problem(http.StatusBadRequest, "bad_request", "Invalid request body.")
+	if status, _ := jsonx.DecodeRequest(w, r, &req, builderSaveMaxBody); status != 0 {
+		problem(status, "bad_request", "Invalid request body.")
 		return
 	}
 	name := strings.TrimSpace(req.Name)
@@ -131,7 +131,7 @@ func (a *Admin) handleMakeBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	copyDoc := &builder.Doc{V: 2, Nodes: builder.FreshIDs(src, newNodeID)}
-	raw, err := json.Marshal(copyDoc)
+	raw, err := jsonx.Marshal(copyDoc)
 	if err != nil {
 		a.serverError(w, r, "The block could not be built", err)
 		return
@@ -150,7 +150,7 @@ func (a *Admin) handleMakeBlock(w http.ResponseWriter, r *http.Request) {
 		problem(http.StatusUnprocessableEntity, "ref_cycle", sentence(err.Error()))
 		return
 	}
-	attrs, _ := json.Marshal(map[string]json.RawMessage{"page_doc": raw})
+	attrs, _ := jsonx.Marshal(map[string]jsontext.Value{"page_doc": raw})
 	in := &entity.CreateEntityInput{SchemaID: bs.ID, Name: name, Slug: "block-" + uuid.NewString()[:8], Attributes: attrs}
 	created, err := a.deps.Content.Entities.CreateEntity(r.Context(), actorID(r), in)
 	if err != nil {
@@ -280,7 +280,7 @@ func (a *Admin) builderReuse(r *http.Request, e *entity.Entity, sc *entity.Entit
 		var attrs struct {
 			Slot string `json:"slot"`
 		}
-		_ = json.Unmarshal(e.Attributes, &attrs)
+		_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 		out["slot"] = attrs.Slot
 	}
 	if out["available"] == true {

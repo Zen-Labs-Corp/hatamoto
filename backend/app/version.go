@@ -1,11 +1,11 @@
 package app
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"runtime/debug"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/migrations"
 	"hatamoto.dev/sdk"
 )
@@ -66,5 +66,5 @@ func printVersionJSON(w io.Writer) error {
 		return err
 	}
 	v, c := buildInfo()
-	return json.NewEncoder(w).Encode(versionInfo{Version: v, Commit: c, SDK: sdk.Version, SchemaHead: head, SDKCompatibleWith: sdk.CompatibleWith})
+	return jsonx.Encode(w, versionInfo{Version: v, Commit: c, SDK: sdk.Version, SchemaHead: head, SDKCompatibleWith: sdk.CompatibleWith}, jsonx.Output)
 }

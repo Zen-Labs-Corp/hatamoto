@@ -47,7 +47,7 @@ type Manifest struct {
 	MediaBytes int64            `json:"media_bytes"`
 	// MediaMissing counts referenced files the export did not find on disk. It
 	// is informational; an import ignores it.
-	MediaMissing int `json:"media_missing,omitempty"`
+	MediaMissing int `json:"media_missing,omitzero"`
 }
 
 // table describes one exported table.

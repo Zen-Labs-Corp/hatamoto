@@ -2,10 +2,10 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/redirect"
 )
 
@@ -72,6 +72,6 @@ func publicPerson(e *entity.Entity) bool {
 	var attrs struct {
 		Public bool `json:"public"`
 	}
-	_ = json.Unmarshal(e.Attributes, &attrs)
+	_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 	return attrs.Public
 }

@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,17 +9,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // adminAudit writes one hatamoto_admin_audit row (and a log line) for an
 // owner action. The write outlives a cancelled request; it is skipped when
 // there is no database (route-table builds, tests).
 func (s *Server) adminAudit(ctx context.Context, e admin.AuditEvent) {
-	detail := e.Detail
-	if detail == nil {
-		detail = map[string]any{}
-	}
-	raw, _ := json.Marshal(detail)
+	raw, _ := jsonx.Marshal(e.Detail)
 	if s.db != nil {
 		var actorID *uuid.UUID
 		if id, err := uuid.Parse(e.ActorID); err == nil {
@@ -73,7 +69,7 @@ func (l adminAuditLog) list(ctx context.Context, limit, offset int) ([]admin.Aud
 			return nil, fmt.Errorf("scan audit row: %w", err)
 		}
 		r.At = at
-		_ = json.Unmarshal(raw, &r.Detail) // a malformed detail shows as empty
+		_ = jsonx.Unmarshal(raw, &r.Detail, jsonx.Stored) // a malformed detail shows as empty
 		out = append(out, r)
 	}
 	return out, rows.Err()

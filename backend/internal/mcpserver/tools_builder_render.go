@@ -2,13 +2,13 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"sort"
 	"strings"
 
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/sectiontemplate"
 )
 
@@ -64,7 +64,7 @@ func (s *Server) registerBuilderRender() {
 					return nil, codedErr(codeInvalidPageDoc, "no such node %q", id)
 				}
 			}
-			raw, err := json.Marshal(d)
+			raw, err := jsonx.Marshal(d)
 			if err != nil {
 				return nil, err
 			}

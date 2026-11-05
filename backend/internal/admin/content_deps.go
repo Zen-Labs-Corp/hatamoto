@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"net/http"
 	"time"
@@ -121,7 +121,7 @@ type AuthorStore interface {
 // offers in "Add section" and builds the section form from.
 type ThemeSection struct {
 	Type, Title, Description string
-	Schema                   json.RawMessage
+	Schema                   jsontext.Value
 }
 
 // TemplateStore is sectiontemplate.Service as the page editor uses it: saving a

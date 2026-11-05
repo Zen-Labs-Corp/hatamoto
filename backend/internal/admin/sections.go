@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -14,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/sectiontemplate"
 )
 
@@ -135,11 +134,11 @@ func (a *Admin) loadSection(w http.ResponseWriter, r *http.Request) (*sectiontem
 }
 
 func sectionFormFrom(s *sectiontemplate.SectionTemplate) sectionForm {
-	var pretty bytes.Buffer
-	if json.Indent(&pretty, s.Content, "", "  ") != nil {
-		pretty.Write(s.Content)
+	pretty, err := jsonx.IndentValue(s.Content)
+	if err != nil {
+		pretty = s.Content
 	}
-	return sectionForm{ID: s.ID.String(), Name: s.Name, Description: s.Description, Tags: strings.Join(s.Tags, ", "), Type: s.SectionType, Layout: s.SectionType == treeTemplateType, Content: pretty.String(), Used: s.UsageCount}
+	return sectionForm{ID: s.ID.String(), Name: s.Name, Description: s.Description, Tags: strings.Join(s.Tags, ", "), Type: s.SectionType, Layout: s.SectionType == treeTemplateType, Content: string(pretty), Used: s.UsageCount}
 }
 
 func (a *Admin) renderSectionForm(w http.ResponseWriter, r *http.Request, status int, f sectionForm) {

@@ -2,8 +2,10 @@ package schemaform
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"slices"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // WithoutProperties returns schema with the named top-level properties (and
@@ -11,7 +13,7 @@ import (
 // that renders such a property elsewhere (the SEO panel) uses it so the field
 // is not shown twice; values of removed properties still round-trip through
 // Decode's prev map.
-func WithoutProperties(schema json.RawMessage, names ...string) (json.RawMessage, error) {
+func WithoutProperties(schema jsontext.Value, names ...string) (jsontext.Value, error) {
 	if len(bytes.TrimSpace(schema)) == 0 {
 		return schema, nil
 	}
@@ -35,7 +37,7 @@ func WithoutProperties(schema json.RawMessage, names ...string) (json.RawMessage
 				b.WriteByte(',')
 			}
 			first = false
-			kb, _ := json.Marshal(k)
+			kb, _ := jsonx.Marshal(k)
 			b.Write(kb)
 			b.WriteByte(':')
 			b.Write(pm[k])
@@ -45,12 +47,12 @@ func WithoutProperties(schema json.RawMessage, names ...string) (json.RawMessage
 	}
 	if raw, ok := m["required"]; ok {
 		var req []string
-		if json.Unmarshal(raw, &req) == nil {
+		if jsonx.Unmarshal(raw, &req, jsonx.Stored) == nil {
 			req = slices.DeleteFunc(req, func(s string) bool { return slices.Contains(names, s) })
 			if len(req) == 0 {
 				delete(m, "required")
 			} else {
-				m["required"], _ = json.Marshal(req)
+				m["required"], _ = jsonx.Marshal(req)
 			}
 		}
 	}
@@ -66,7 +68,7 @@ func WithoutProperties(schema json.RawMessage, names ...string) (json.RawMessage
 			b.WriteByte(',')
 		}
 		first = false
-		kb, _ := json.Marshal(k)
+		kb, _ := jsonx.Marshal(k)
 		b.Write(kb)
 		b.WriteByte(':')
 		b.Write(v)

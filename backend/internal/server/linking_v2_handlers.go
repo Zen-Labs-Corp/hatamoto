@@ -315,9 +315,6 @@ func (s *Server) handleLinkingV2Suggest(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if suggestions == nil {
-		suggestions = []linkingv2.Suggestion{}
-	}
 	writeJSON(w, http.StatusOK, map[string]any{"suggestions": suggestions})
 }
 
@@ -353,9 +350,6 @@ func (s *Server) handleLinkingV2InboundLinks(w http.ResponseWriter, r *http.Requ
 		s.logger.Error("linking v2 inbound list", "error", err, "target", id)
 		writeError(w, http.StatusInternalServerError, "failed to list inbound links")
 		return
-	}
-	if rows == nil {
-		rows = []linkingv2.EquityDetailRow{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"inbound": rows})
 }

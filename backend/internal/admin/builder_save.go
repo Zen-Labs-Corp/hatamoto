@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 	"reflect"
@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -28,10 +29,10 @@ const (
 )
 
 type builderSaveRequest struct {
-	Version int             `json:"version"`
-	Doc     json.RawMessage `json:"doc"`
-	Op      string          `json:"op"`
-	Name    *string         `json:"name"`
+	Version int            `json:"version"`
+	Doc     jsontext.Value `json:"doc"`
+	Op      string         `json:"op"`
+	Name    *string        `json:"name"`
 	// SEO is the SEO drawer's values; nil leaves the stored ones alone.
 	SEO *builderSEO `json:"seo"`
 }
@@ -88,19 +89,19 @@ func patchSEOAttrs(in *entity.UpdateEntityInput, s builderSEO) error {
 	if in.Attributes == nil {
 		return nil
 	}
-	attrs := map[string]json.RawMessage{}
-	if err := json.Unmarshal(*in.Attributes, &attrs); err != nil {
+	attrs := map[string]jsontext.Value{}
+	if err := jsonx.Unmarshal(*in.Attributes, &attrs, jsonx.StoredLoose); err != nil {
 		return err
 	}
 	if attrs == nil {
-		attrs = map[string]json.RawMessage{}
+		attrs = map[string]jsontext.Value{}
 	}
 	touched := append([]string{"seo"}, seoKeys...)
 	work := map[string]any{}
 	for _, k := range touched {
 		if raw, ok := attrs[k]; ok {
 			var v any
-			if err := json.Unmarshal(raw, &v); err != nil {
+			if err := jsonx.Unmarshal(raw, &v, jsonx.Stored); err != nil {
 				return err
 			}
 			work[k] = v
@@ -114,31 +115,31 @@ func patchSEOAttrs(in *entity.UpdateEntityInput, s builderSEO) error {
 			delete(attrs, k)
 			continue
 		}
-		raw, err := json.Marshal(v)
+		raw, err := jsonx.Marshal(v)
 		if err != nil {
 			return err
 		}
 		attrs[k] = raw
 	}
-	out, err := json.Marshal(attrs)
+	out, err := jsonx.Marshal(attrs)
 	if err != nil {
 		return err
 	}
-	raw := json.RawMessage(out)
+	raw := jsontext.Value(out)
 	in.Attributes = &raw
 	return nil
 }
 
 type builderSaveReply struct {
-	OK       bool            `json:"ok"`
-	Version  int             `json:"version,omitempty"`
-	SavedAt  string          `json:"savedAt,omitempty"`
-	Status   string          `json:"status,omitempty"`
-	Conflict bool            `json:"conflict,omitempty"`
-	Code     string          `json:"code,omitempty"`
-	Error    string          `json:"error,omitempty"`
-	Note     string          `json:"note,omitempty"`
-	Doc      json.RawMessage `json:"doc,omitempty"`
+	OK       bool           `json:"ok"`
+	Version  int            `json:"version,omitzero"`
+	SavedAt  string         `json:"savedAt,omitempty"`
+	Status   string         `json:"status,omitempty"`
+	Conflict bool           `json:"conflict,omitzero"`
+	Code     string         `json:"code,omitempty"`
+	Error    string         `json:"error,omitempty"`
+	Note     string         `json:"note,omitempty"`
+	Doc      jsontext.Value `json:"doc,omitzero"`
 }
 
 // saveProblem is a save the builder refuses, with the HTTP status it maps to.
@@ -178,19 +179,19 @@ type savedPage struct {
 // and, for publish, flips the page live. The caller has checked the version.
 // It never writes page_sections: the entity service leaves the
 // frozen mirror alone. A refusal is a *saveProblem.
-func (a *Admin) saveBuilderDoc(ctx context.Context, actor *uuid.UUID, e *entity.Entity, doc json.RawMessage, op string, name *string) (*savedPage, error) {
+func (a *Admin) saveBuilderDoc(ctx context.Context, actor *uuid.UUID, e *entity.Entity, doc jsontext.Value, op string, name *string) (*savedPage, error) {
 	return a.saveBuilderDocAs(ctx, actor, e, doc, op, name, "")
 }
 
 // saveBuilderDocAs is saveBuilderDoc with the version's change summary named
 // by the caller ("" keeps "Updated in the builder"; autosaves keep theirs).
-func (a *Admin) saveBuilderDocAs(ctx context.Context, actor *uuid.UUID, e *entity.Entity, doc json.RawMessage, op string, name *string, changeSummary string) (*savedPage, error) {
+func (a *Admin) saveBuilderDocAs(ctx context.Context, actor *uuid.UUID, e *entity.Entity, doc jsontext.Value, op string, name *string, changeSummary string) (*savedPage, error) {
 	return a.saveBuilderDocSEO(ctx, actor, e, doc, op, name, changeSummary, nil)
 }
 
 // saveBuilderDocSEO is saveBuilderDocAs that also stores the SEO drawer's
 // values (page role only) in the same single update; nil leaves them alone.
-func (a *Admin) saveBuilderDocSEO(ctx context.Context, actor *uuid.UUID, e *entity.Entity, doc json.RawMessage, op string, name *string, changeSummary string, seo *builderSEO) (*savedPage, error) {
+func (a *Admin) saveBuilderDocSEO(ctx context.Context, actor *uuid.UUID, e *entity.Entity, doc jsontext.Value, op string, name *string, changeSummary string, seo *builderSEO) (*savedPage, error) {
 	c := a.deps.Content
 	if op != opAutosave && op != opSave && op != opPublish {
 		return nil, &saveProblem{http.StatusBadRequest, "invalid_op", "Unknown save operation.", 0}
@@ -303,13 +304,13 @@ func lightboxNote(n int) string {
 
 // storedDocDiffers reports whether the page_doc stored on e is not the posted
 // doc, so the sanitiser (or the service) changed it on the way in.
-func storedDocDiffers(e *entity.Entity, posted json.RawMessage) bool {
-	var m map[string]json.RawMessage
-	if json.Unmarshal(e.Attributes, &m) != nil {
+func storedDocDiffers(e *entity.Entity, posted jsontext.Value) bool {
+	var m map[string]jsontext.Value
+	if jsonx.Unmarshal(e.Attributes, &m, jsonx.StoredLoose) != nil {
 		return true
 	}
 	var a, b any
-	if json.Unmarshal(m["page_doc"], &a) != nil || json.Unmarshal(posted, &b) != nil {
+	if jsonx.Unmarshal(m["page_doc"], &a, jsonx.StoredLoose) != nil || jsonx.Unmarshal(posted, &b, jsonx.StoredLoose) != nil {
 		return true
 	}
 	return !reflect.DeepEqual(a, b)
@@ -324,15 +325,12 @@ func (a *Admin) handleBuilderSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply := func(status int, v builderSaveReply) { a.writeJSON(w, status, v) }
-	r.Body = http.MaxBytesReader(w, r.Body, builderSaveMaxBody)
 	var req builderSaveRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
-			reply(http.StatusRequestEntityTooLarge, builderSaveReply{Code: "too_large", Error: "This page is too large to save."})
-			return
-		}
-		reply(http.StatusBadRequest, builderSaveReply{Code: "bad_request", Error: "Invalid request body."})
+	if status, _ := jsonx.DecodeRequest(w, r, &req, builderSaveMaxBody); status == http.StatusRequestEntityTooLarge {
+		reply(status, builderSaveReply{Code: "too_large", Error: "This page is too large to save."})
+		return
+	} else if status != 0 {
+		reply(status, builderSaveReply{Code: "bad_request", Error: "Invalid request body."})
 		return
 	}
 	// A missing version is stale: only the version the page was opened at
@@ -372,8 +370,8 @@ func (a *Admin) handleBuilderSave(w http.ResponseWriter, r *http.Request) {
 		Note:    saved.Note,
 	}
 	if storedDocDiffers(saved.Entity, req.Doc) {
-		var m map[string]json.RawMessage
-		_ = json.Unmarshal(saved.Entity.Attributes, &m)
+		var m map[string]jsontext.Value
+		_ = jsonx.Unmarshal(saved.Entity.Attributes, &m, jsonx.StoredLoose)
 		rep.Doc = m["page_doc"]
 	}
 	reply(http.StatusOK, rep)

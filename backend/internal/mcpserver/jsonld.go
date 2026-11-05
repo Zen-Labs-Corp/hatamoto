@@ -2,10 +2,11 @@ package mcpserver
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // JSONLDReport is the result of checking a page's JSON-LD.
@@ -65,8 +66,7 @@ func ValidateJSONLD(blocks [][]byte) JSONLDReport {
 	}
 	for i, b := range blocks {
 		var doc any
-		dec := json.NewDecoder(bytes.NewReader(bytes.TrimSpace(b)))
-		if err := dec.Decode(&doc); err != nil {
+		if err := jsonx.Unmarshal(bytes.TrimSpace(b), &doc); err != nil {
 			rep.Errors = append(rep.Errors, fmt.Sprintf("block %d: invalid JSON: %v", i, err))
 			continue
 		}

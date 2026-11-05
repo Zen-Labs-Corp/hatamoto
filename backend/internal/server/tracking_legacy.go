@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"slices"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/tags"
 	"hatamoto.dev/sdk"
@@ -127,7 +127,7 @@ func (s *Server) legacyPluginID(ctx context.Context, plugin, key string) (string
 		return "", err
 	}
 	var m map[string]any
-	if json.Unmarshal(raw, &m) != nil {
+	if jsonx.Unmarshal(raw, &m, jsonx.Stored) != nil {
 		return "", nil
 	}
 	v, _ := m[key].(string)

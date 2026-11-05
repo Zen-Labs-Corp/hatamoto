@@ -121,3 +121,28 @@ func TestHTMLSafe(t *testing.T) {
 		t.Fatalf("HTMLSafe: %s %v", safe, err)
 	}
 }
+
+func TestStoredLooseMatchesNamesCaseInsensitively(t *testing.T) {
+	type doc struct {
+		PageSections []int `json:"page_sections"`
+	}
+	in := []byte(`{"Page_Sections":[1,2]}`)
+	var strict, loose doc
+	if err := Unmarshal(in, &strict, Stored); err != nil || len(strict.PageSections) != 0 {
+		t.Fatalf("Stored should ignore a wrong-case name: %+v %v", strict, err)
+	}
+	if err := Unmarshal(in, &loose, StoredLoose); err != nil || len(loose.PageSections) != 2 {
+		t.Fatalf("StoredLoose: %+v %v", loose, err)
+	}
+}
+
+func TestStoredLooseLastCaseVariantWins(t *testing.T) {
+	type doc struct {
+		Hosts []string `json:"allowed_hosts"`
+	}
+	var d doc
+	in := []byte(`{"allowed_hosts":["a"],"Allowed_Hosts":["b"]}`)
+	if err := Unmarshal(in, &d, StoredLoose); err != nil || len(d.Hosts) != 1 || d.Hosts[0] != "b" {
+		t.Fatalf("StoredLoose: %+v %v", d, err)
+	}
+}

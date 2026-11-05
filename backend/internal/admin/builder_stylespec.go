@@ -3,11 +3,11 @@ package admin
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"net/http"
 	"sync"
 
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 // once: the table is fixed for the life of the process.
 func styleSpecJSON() ([]byte, string) {
 	styleSpecOnce.Do(func() {
-		styleSpecBody, _ = json.Marshal(builder.StyleSpecTable())
+		styleSpecBody, _ = jsonx.Marshal(builder.StyleSpecTable())
 		sum := sha256.Sum256(styleSpecBody)
 		styleSpecTag = `W/"` + hex.EncodeToString(sum[:8]) + `"`
 	})

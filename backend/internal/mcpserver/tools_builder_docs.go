@@ -2,7 +2,7 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"reflect"
@@ -12,6 +12,7 @@ import (
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // emptyDoc is the layout of a page that has none yet.
@@ -22,7 +23,7 @@ const emptyDoc = `{"v":2,"nodes":[]}`
 type builderTarget struct {
 	e    *entity.Entity
 	role string
-	raw  json.RawMessage // the stored page_doc, or emptyDoc
+	raw  jsontext.Value // the stored page_doc, or emptyDoc
 	doc  *builder.Doc
 }
 
@@ -55,8 +56,8 @@ func (s *Server) loadTarget(ctx context.Context, idText string) (*builderTarget,
 	t := &builderTarget{e: e, role: entity.ReuseRole(sc), doc: d}
 	switch state {
 	case entity.DocOK:
-		var attrs map[string]json.RawMessage
-		_ = json.Unmarshal(e.Attributes, &attrs)
+		var attrs map[string]jsontext.Value
+		_ = jsonx.Unmarshal(e.Attributes, &attrs, jsonx.StoredLoose)
 		t.raw = attrs["page_doc"]
 	case entity.DocBroken:
 		return nil, codedErr(codeNotBuilder, "the stored page_doc does not parse; repair it in the admin builder")
@@ -66,7 +67,7 @@ func (s *Server) loadTarget(ctx context.Context, idText string) (*builderTarget,
 		if hasLegacySections(e) {
 			return nil, codedErr(codeNotBuilder, "legacy layout (page_sections); open it once in the admin builder")
 		}
-		t.raw = json.RawMessage(emptyDoc)
+		t.raw = jsontext.Value(emptyDoc)
 		t.doc, _ = builder.Parse(t.raw)
 	}
 	return t, nil
@@ -82,9 +83,9 @@ func editableByBuilder(sc *entity.EntitySchema, e *entity.Entity) bool {
 		return true
 	}
 	var s struct {
-		Properties map[string]json.RawMessage `json:"properties"`
+		Properties map[string]jsontext.Value `json:"properties"`
 	}
-	if json.Unmarshal(sc.Schema, &s) == nil {
+	if jsonx.Unmarshal(sc.Schema, &s, jsonx.Stored) == nil {
 		if _, ok := s.Properties["page_sections"]; ok {
 			return true
 		}
@@ -94,9 +95,9 @@ func editableByBuilder(sc *entity.EntitySchema, e *entity.Entity) bool {
 
 func hasLegacySections(e *entity.Entity) bool {
 	var a struct {
-		Sections []json.RawMessage `json:"page_sections"`
+		Sections []jsontext.Value `json:"page_sections"`
 	}
-	return json.Unmarshal(e.Attributes, &a) == nil && len(a.Sections) > 0
+	return jsonx.Unmarshal(e.Attributes, &a, jsonx.StoredLoose) == nil && len(a.Sections) > 0
 }
 
 // copyDoc is a fresh parse of the stored layout, safe to edit.
@@ -132,13 +133,13 @@ func summarise(d *builder.Doc) docSummary {
 
 // storedDiffers reports whether the page_doc stored on e is not the posted one:
 // the sanitiser or the service changed it on the way in.
-func storedDiffers(e *entity.Entity, posted json.RawMessage) bool {
-	var m map[string]json.RawMessage
-	if json.Unmarshal(e.Attributes, &m) != nil {
+func storedDiffers(e *entity.Entity, posted jsontext.Value) bool {
+	var m map[string]jsontext.Value
+	if jsonx.Unmarshal(e.Attributes, &m, jsonx.StoredLoose) != nil {
 		return true
 	}
 	var a, b any
-	if json.Unmarshal(m["page_doc"], &a) != nil || json.Unmarshal(posted, &b) != nil {
+	if jsonx.Unmarshal(m["page_doc"], &a, jsonx.StoredLoose) != nil || jsonx.Unmarshal(posted, &b, jsonx.StoredLoose) != nil {
 		return true
 	}
 	return !reflect.DeepEqual(a, b)
@@ -197,7 +198,7 @@ func (s *Server) registerBuilderDocs() {
 				}
 			}
 			ids := []genID{}
-			var raw json.RawMessage
+			var raw jsontext.Value
 			switch {
 			case in.Doc != nil:
 				raw = rawObject(in.Doc)
@@ -217,10 +218,7 @@ func (s *Server) registerBuilderDocs() {
 				if ids, err = applyOps(d, in.Ops); err != nil {
 					return fail(&entity.DocProblem{Code: "invalid_page_doc", Msg: err.Error()})
 				}
-				if ids == nil {
-					ids = []genID{}
-				}
-				if raw, err = json.Marshal(d); err != nil {
+				if raw, err = jsonx.Marshal(d); err != nil {
 					return nil, err
 				}
 			}
@@ -275,7 +273,7 @@ func (s *Server) registerBuilderDocs() {
 			if err != nil {
 				return nil, codedErr(codeInvalidPageDoc, "%v", err)
 			}
-			raw, err := json.Marshal(d)
+			raw, err := jsonx.Marshal(d)
 			if err != nil {
 				return nil, err
 			}
@@ -299,9 +297,6 @@ func (s *Server) registerBuilderDocs() {
 			saved := res.Entity
 			if fresh, err := s.store().GetEntity(ctx, t.e.ID); err == nil {
 				saved = fresh
-			}
-			if ids == nil {
-				ids = []genID{}
 			}
 			out := object{
 				"entity_id": saved.ID, "version": saved.Version, "changed": saved.Version != t.e.Version, "status": saved.Status,
@@ -334,7 +329,7 @@ func (s *Server) checkPageDocRules(ctx context.Context, stored *entity.Entity, r
 	if stored != nil && !docOrSlotChanged(stored.Attributes, incoming) {
 		return nil
 	}
-	raw, err := json.Marshal(pd)
+	raw, err := jsonx.Marshal(pd)
 	if err != nil {
 		return nil
 	}
@@ -359,9 +354,9 @@ func (s *Server) checkPageDocRules(ctx context.Context, stored *entity.Entity, r
 
 // docOrSlotChanged reports whether page_doc or slot differ between two
 // attribute objects.
-func docOrSlotChanged(stored, incoming json.RawMessage) bool {
+func docOrSlotChanged(stored, incoming jsontext.Value) bool {
 	var a, b map[string]any
-	if json.Unmarshal(stored, &a) != nil || json.Unmarshal(incoming, &b) != nil {
+	if jsonx.Unmarshal(stored, &a, jsonx.StoredLoose) != nil || jsonx.Unmarshal(incoming, &b, jsonx.StoredLoose) != nil {
 		return true
 	}
 	for _, k := range []string{"page_doc", "slot"} {

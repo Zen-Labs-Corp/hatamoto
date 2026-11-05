@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"flag"
 	"fmt"
@@ -19,6 +19,7 @@ import (
 
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/sdk"
@@ -89,7 +90,7 @@ func runThemeActivate(ctx context.Context, args []string, logger *slog.Logger, o
 // auditCLI writes one hatamoto_admin_audit row for a change made from the
 // CLI. The detail must never hold a secret.
 func auditCLI(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger, action, target string, detail map[string]any) {
-	raw, _ := json.Marshal(detail)
+	raw, _ := jsonx.Marshal(detail)
 	if _, err := pool.Exec(context.WithoutCancel(ctx),
 		`INSERT INTO hatamoto_admin_audit (actor_id, actor, action, target, detail) VALUES (NULL, 'cli', $1, $2, $3)`,
 		action, target, raw); err != nil {
@@ -229,7 +230,7 @@ func runPluginSettingsSet(ctx context.Context, args []string, stdin io.Reader, o
 		return err
 	}
 	var man sdk.Manifest
-	if err := json.Unmarshal(row.Manifest, &man); err != nil {
+	if err := jsonx.Unmarshal(row.Manifest, &man, jsonx.StoredLoose); err != nil {
 		return err
 	}
 	if len(man.SettingsSchema) == 0 {
@@ -269,17 +270,17 @@ func runPluginSettingsSet(ctx context.Context, args []string, stdin io.Reader, o
 // boolean, array and object are JSON); a property without a type is JSON when
 // it parses, text otherwise. Write-only values the pairs do not mention are
 // kept, as the admin does. It returns the new object and the keys it set.
-func applySettingPairs(schema []byte, old json.RawMessage, pairs []string) (json.RawMessage, []string, error) {
+func applySettingPairs(schema []byte, old jsontext.Value, pairs []string) (jsontext.Value, []string, error) {
 	var props struct {
 		Properties map[string]struct {
 			Type any `json:"type"`
 		} `json:"properties"`
 	}
-	_ = json.Unmarshal(schema, &props)
-	obj := map[string]json.RawMessage{}
+	_ = jsonx.Unmarshal(schema, &props, jsonx.Stored)
+	obj := map[string]jsontext.Value{}
 	if len(old) > 0 {
-		if err := json.Unmarshal(old, &obj); err != nil || obj == nil {
-			obj = map[string]json.RawMessage{}
+		if err := jsonx.Unmarshal(old, &obj, jsonx.Stored); err != nil || obj == nil {
+			obj = map[string]jsontext.Value{}
 		}
 	}
 	var keys []string
@@ -299,7 +300,7 @@ func applySettingPairs(schema []byte, old json.RawMessage, pairs []string) (json
 		obj[k] = raw
 		keys = append(keys, k)
 	}
-	body, _ := json.Marshal(obj)
+	body, _ := jsonx.Marshal(obj)
 	return pluginhost.PreserveWriteOnly(schema, old, body), keys, nil
 }
 
@@ -363,11 +364,11 @@ func knownKeys[T any](m map[string]T) string {
 
 // settingValue reads v as JSON of the schema type typ ("string", "integer",
 // ...; a list of types or none counts as untyped).
-func settingValue(typ any, v string) (json.RawMessage, error) {
+func settingValue(typ any, v string) (jsontext.Value, error) {
 	t, _ := typ.(string)
 	switch t {
 	case "string":
-		b, _ := json.Marshal(v)
+		b, _ := jsonx.Marshal(v)
 		return b, nil
 	case "integer":
 		if _, err := strconv.ParseInt(v, 10, 64); err != nil {
@@ -382,16 +383,16 @@ func settingValue(typ any, v string) (json.RawMessage, error) {
 			return nil, fmt.Errorf("%q is not true or false", v)
 		}
 	case "array", "object":
-		if !json.Valid([]byte(v)) {
+		if !jsonx.Valid([]byte(v)) {
 			return nil, fmt.Errorf("%q is not valid JSON", v)
 		}
 	default:
-		if !json.Valid([]byte(v)) {
-			b, _ := json.Marshal(v)
+		if !jsonx.Valid([]byte(v)) {
+			b, _ := jsonx.Marshal(v)
 			return b, nil
 		}
 	}
-	return json.RawMessage(v), nil
+	return jsontext.Value(v), nil
 }
 
 func runPackageList(ctx context.Context, args []string, out io.Writer) error {
@@ -422,7 +423,7 @@ func runPackageList(ctx context.Context, args []string, out io.Writer) error {
 		Name      string    `json:"name"`
 		Version   string    `json:"version"`
 		Enabled   bool      `json:"enabled"`
-		Active    bool      `json:"active,omitempty"`
+		Active    bool      `json:"active,omitzero"`
 		Signed    bool      `json:"signed"`
 		Signer    string    `json:"signer,omitempty"`
 		Source    string    `json:"source"`

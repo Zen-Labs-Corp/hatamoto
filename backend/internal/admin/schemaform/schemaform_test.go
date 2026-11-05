@@ -824,3 +824,22 @@ func TestPlaceholdersOverrideTextAndTextareaOnly(t *testing.T) {
 		t.Errorf("without an override the default placeholder stays:\n%s", plain)
 	}
 }
+
+// Number defaults render as plain decimals, never in exponent form.
+func TestNumberDefaultsRenderPlain(t *testing.T) {
+	schema := `{"type":"object","properties":{"rows":{"type":"array","items":{"type":"object","properties":{"big":{"type":"number","default":12345678},"half":{"type":"number","default":0.5}}}}}}`
+	// The add button appends an item holding the defaults; render it back.
+	added, _ := Decode(json.RawMessage(schema), url.Values{"_present.rows": {"1"}, "_add.rows": {"1"}}, map[string]any{}, Options{})
+	doc, err := Render(json.RawMessage(schema), added, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`value="12345678"`, `value="0.5"`} {
+		if !strings.Contains(string(doc), want) {
+			t.Errorf("rendered form lacks %s:\n%s", want, doc)
+		}
+	}
+	if strings.Contains(string(doc), "e+") {
+		t.Errorf("a default was rendered in exponent form:\n%s", doc)
+	}
+}

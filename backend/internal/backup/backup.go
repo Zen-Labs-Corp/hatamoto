@@ -38,12 +38,12 @@ type Info struct {
 	Percent int       `json:"percent"`
 	Error   string    `json:"error,omitempty"`
 	Created time.Time `json:"created"`
-	Size    int64     `json:"size,omitempty"`
+	Size    int64     `json:"size,omitzero"`
 	Parts   []string  `json:"parts,omitempty"`
 	Plugins []string  `json:"plugins,omitempty"`
 	// MediaMissing counts media files the database references that were not
 	// on disk; the backup is still OK, it just lacks them.
-	MediaMissing int `json:"media_missing,omitempty"`
+	MediaMissing int `json:"media_missing,omitzero"`
 	// SHA256 is the hex digest of the archive, set when it was uploaded
 	// off-site. Offsite is "uploaded" or "failed" once an upload was tried and
 	// OffsiteError says why a failed one failed; all empty for local-only backups.

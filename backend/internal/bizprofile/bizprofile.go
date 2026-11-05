@@ -51,7 +51,7 @@ type Hours struct {
 type SpecialHours struct {
 	From   string `json:"from,omitempty"`
 	To     string `json:"to,omitempty"`
-	Closed bool   `json:"closed,omitempty"`
+	Closed bool   `json:"closed,omitzero"`
 	Opens  string `json:"opens,omitempty"`
 	Closes string `json:"closes,omitempty"`
 }
@@ -130,10 +130,10 @@ type Profile struct {
 	TaxID        string `json:"tax_id,omitempty"`
 	BusinessType string `json:"business_type,omitempty"`
 	// NoOffice marks a locale without an office: it prints no local business.
-	NoOffice bool `json:"no_office,omitempty"`
+	NoOffice bool `json:"no_office,omitzero"`
 	// Office is set on the default business only: the default locale prints a
 	// local business when it is on and the address has a street or a city.
-	Office        bool           `json:"office,omitempty"`
+	Office        bool           `json:"office,omitzero"`
 	Address       Address        `json:"address"`
 	Phone         string         `json:"phone,omitempty"`
 	Fax           string         `json:"fax,omitempty"`
@@ -160,15 +160,15 @@ type Profile struct {
 	Slogan        string `json:"slogan,omitempty"`
 	// FoundingDate is YYYY, YYYY-MM or YYYY-MM-DD.
 	FoundingDate string `json:"founding_date,omitempty"`
-	EmployeesMin int    `json:"employees_min,omitempty"`
-	EmployeesMax int    `json:"employees_max,omitempty"`
+	EmployeesMin int    `json:"employees_min,omitzero"`
+	EmployeesMax int    `json:"employees_max,omitzero"`
 	VATID        string `json:"vat_id,omitempty"`
 	// CountryName is the country as a locale card names it.
 	CountryName string `json:"country_name,omitempty"`
 	// Image is the media URL of a locale's local business image.
 	Image string `json:"image,omitempty"`
 	// LogoObject prints the logo as an ImageObject with its width and height.
-	LogoObject bool `json:"logo_object,omitempty"`
+	LogoObject bool `json:"logo_object,omitzero"`
 	// OrgAddress is "", OrgAddressLocale or OrgAddressLocaleOrSite.
 	OrgAddress string `json:"org_address,omitempty"`
 

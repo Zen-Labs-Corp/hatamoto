@@ -2,14 +2,14 @@ package standing
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 )
 
 // SchemaLookup returns the current JSON Schema of an entity schema slug, or
 // ok=false when the schema no longer exists.
-type SchemaLookup func(ctx context.Context, slug string) (raw json.RawMessage, ok bool, err error)
+type SchemaLookup func(ctx context.Context, slug string) (raw jsontext.Value, ok bool, err error)
 
 // VoidChangedSchemas ends every active approval that names a schema whose
 // current hash differs from the one approved, or that no longer exists, and

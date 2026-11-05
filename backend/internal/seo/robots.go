@@ -35,9 +35,9 @@ var (
 type Index struct {
 	NoIndexTypes    map[string]bool `json:"noindex_types,omitempty"`    // schema slug
 	NoIndexTaxonomy map[string]bool `json:"noindex_taxonomy,omitempty"` // taxonomy kind
-	NoIndexAuthor   bool            `json:"noindex_author,omitempty"`
-	NoIndexArchive  bool            `json:"noindex_archive,omitempty"` // schema archives
-	IndexSearch     bool            `json:"index_search,omitempty"`    // false: search results stay noindex
+	NoIndexAuthor   bool            `json:"noindex_author,omitzero"`
+	NoIndexArchive  bool            `json:"noindex_archive,omitzero"` // schema archives
+	IndexSearch     bool            `json:"index_search,omitzero"`    // false: search results stay noindex
 }
 
 // IsZero reports whether no index switch is saved.
@@ -50,8 +50,8 @@ func (i Index) IsZero() bool {
 type Robots struct {
 	MaxSnippet      *int     `json:"max_snippet,omitempty"`
 	MaxImagePreview string   `json:"max_image_preview,omitempty"` // see MaxImagePreviews
-	NoArchive       bool     `json:"noarchive,omitempty"`
-	NoSnippet       bool     `json:"nosnippet,omitempty"`
+	NoArchive       bool     `json:"noarchive,omitzero"`
+	NoSnippet       bool     `json:"nosnippet,omitzero"`
 	ExtraLines      []string `json:"extra_lines,omitempty"`
 }
 

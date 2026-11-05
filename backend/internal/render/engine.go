@@ -818,7 +818,7 @@ type SectionInfo struct {
 	Type        string          `json:"type"`
 	Title       string          `json:"title"`
 	Description string          `json:"description,omitempty"`
-	Schema      json.RawMessage `json:"schema,omitempty"`
+	Schema      json.RawMessage `json:"schema,omitzero"`
 }
 
 // ThemeInfo is the GET /api/v1/render/theme payload.
@@ -826,7 +826,7 @@ type ThemeInfo struct {
 	Name           string          `json:"name"`
 	Version        string          `json:"version"`
 	Sections       []SectionInfo   `json:"sections"`
-	SettingsSchema json.RawMessage `json:"settings_schema,omitempty"`
+	SettingsSchema json.RawMessage `json:"settings_schema,omitzero"`
 }
 
 // ThemeInfo returns the theme name, content-hash version and the schema of

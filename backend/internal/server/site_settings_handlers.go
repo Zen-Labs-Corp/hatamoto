@@ -3,7 +3,7 @@ package server
 import (
 	"cmp"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/bizprofile"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -23,7 +24,7 @@ import (
 type siteSettingsStore interface {
 	Get(ctx context.Context) (*siteconfig.Config, error)
 	Update(ctx context.Context, in siteconfig.UpdateInput) (*siteconfig.Config, error)
-	SetLocaleProfile(ctx context.Context, tag string, raw json.RawMessage) error
+	SetLocaleProfile(ctx context.Context, tag string, raw jsontext.Value) error
 }
 
 // siteSettingsHandlers serves the owner-only site settings admin API: site
@@ -65,8 +66,8 @@ type siteSettingsResponse struct {
 	UpdatedAt         time.Time              `json:"updated_at"`
 	// BusinessProfile is the default locale's business details and LocaleProfiles the
 	// other locales' cards keyed by tag; both are objects, empty when unset.
-	BusinessProfile json.RawMessage            `json:"business_profile"`
-	LocaleProfiles  map[string]json.RawMessage `json:"locale_profiles"`
+	BusinessProfile jsontext.Value            `json:"business_profile"`
+	LocaleProfiles  map[string]jsontext.Value `json:"locale_profiles"`
 }
 
 // siteSettingsPatch is the PATCH body; omitted (null) fields are unchanged.
@@ -89,8 +90,8 @@ type siteSettingsPatch struct {
 	HomepageEntityID  *uuid.UUID                `json:"homepage_entity_id"`
 	// BusinessProfile replaces the default locale's business; LocaleProfiles
 	// replaces (object) or deletes (null) the cards of the other locales. Raw so null is visible.
-	BusinessProfile json.RawMessage            `json:"business_profile"`
-	LocaleProfiles  map[string]json.RawMessage `json:"locale_profiles"`
+	BusinessProfile jsontext.Value            `json:"business_profile"`
+	LocaleProfiles  map[string]jsontext.Value `json:"locale_profiles"`
 }
 
 // siteAddress is the business postal address (stored as JSON in
@@ -167,7 +168,7 @@ func (h *siteSettingsHandlers) responseFrom(cfg *siteconfig.Config) siteSettings
 		h.logger.Error("site settings: parse business profile", "error", err)
 	}
 	resp.BusinessProfile = profileJSON(site)
-	resp.LocaleProfiles = make(map[string]json.RawMessage, len(cards))
+	resp.LocaleProfiles = make(map[string]jsontext.Value, len(cards))
 	def := normalisedTag(siteLanguage(cfg))
 	for tag, card := range cards {
 		if normalisedTag(tag) == def {
@@ -285,7 +286,7 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 			writeError(w, http.StatusBadRequest, "address field too long")
 			return
 		}
-		raw, err := json.Marshal(in.Address)
+		raw, err := jsonx.Marshal(in.Address)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid address")
 			return
@@ -375,7 +376,7 @@ func (h *siteSettingsHandlers) handleGetTheme(w http.ResponseWriter, r *http.Req
 // theme_extra object. Keys that are not sent (headerCta, socialLinks and any
 // other extras) are preserved.
 func (h *siteSettingsHandlers) handlePutTheme(w http.ResponseWriter, r *http.Request) {
-	var sent map[string]json.RawMessage
+	var sent map[string]jsontext.Value
 	if err := parseJSON(r, &sent); err != nil || sent == nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -390,9 +391,9 @@ func (h *siteSettingsHandlers) handlePutTheme(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusInternalServerError, "failed to update theme")
 		return
 	}
-	merged := map[string]json.RawMessage{}
+	merged := map[string]jsontext.Value{}
 	if len(cfg.ThemeExtra) > 0 {
-		_ = json.Unmarshal(cfg.ThemeExtra, &merged)
+		_ = jsonx.Unmarshal(cfg.ThemeExtra, &merged, jsonx.Stored)
 	}
 	for k, v := range sent {
 		merged[k] = v
@@ -400,7 +401,7 @@ func (h *siteSettingsHandlers) handlePutTheme(w http.ResponseWriter, r *http.Req
 	// colors.primary lives only in the primary_color column (the Branding
 	// field), never in the blob, so there is a single source of truth.
 	primary := extractPrimary(merged)
-	raw, err := json.Marshal(merged)
+	raw, err := jsonx.Marshal(merged)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid theme config")
 		return
@@ -419,24 +420,24 @@ func (h *siteSettingsHandlers) handlePutTheme(w http.ResponseWriter, r *http.Req
 // for the primary_color column. A primary sent in this request replaces the
 // stored colors object; a legacy primary left in the blob is migrated. Nil when
 // there is none.
-func extractPrimary(merged map[string]json.RawMessage) *string {
+func extractPrimary(merged map[string]jsontext.Value) *string {
 	raw, ok := merged["colors"]
 	if !ok {
 		return nil
 	}
-	var colors map[string]json.RawMessage
-	if json.Unmarshal(raw, &colors) != nil || colors == nil {
+	var colors map[string]jsontext.Value
+	if jsonx.Unmarshal(raw, &colors, jsonx.Stored) != nil || colors == nil {
 		return nil
 	}
 	var primary *string
 	if p, ok := colors["primary"]; ok {
 		var v string
-		if json.Unmarshal(p, &v) == nil && v != "" {
+		if jsonx.Unmarshal(p, &v, jsonx.Stored) == nil && v != "" {
 			primary = &v
 		}
 		delete(colors, "primary")
 	}
-	if b, err := json.Marshal(colors); err == nil {
+	if b, err := jsonx.Marshal(colors); err == nil {
 		merged["colors"] = b
 	}
 	return primary

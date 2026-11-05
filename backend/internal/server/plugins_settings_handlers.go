@@ -2,20 +2,21 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 
 	"hatamoto.dev/core/internal/cache"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 )
 
 // pluginSettingsStore is the persistence the settings handlers need.
 type pluginSettingsStore interface {
-	Get(ctx context.Context, plugin string) (json.RawMessage, error)
-	Put(ctx context.Context, plugin string, v json.RawMessage) error
+	Get(ctx context.Context, plugin string) (jsontext.Value, error)
+	Put(ctx context.Context, plugin string, v jsontext.Value) error
 }
 
 const maxPluginSettingsBody = 256 << 10
@@ -36,7 +37,7 @@ func (s *Server) pluginSettingsTarget(w http.ResponseWriter, r *http.Request) (n
 }
 
 // view is what the API returns: schema defaults merged, secrets masked.
-func pluginSettingsView(schema []byte, stored json.RawMessage) json.RawMessage {
+func pluginSettingsView(schema []byte, stored jsontext.Value) jsontext.Value {
 	return pluginhost.MaskWriteOnly(schema, pluginhost.MergeDefaults(schema, stored))
 }
 
@@ -68,8 +69,8 @@ func (s *Server) handlePutPluginSettings(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	var obj map[string]json.RawMessage
-	if err := json.Unmarshal(body, &obj); err != nil || obj == nil {
+	var obj map[string]jsontext.Value
+	if err := jsonx.Unmarshal(body, &obj); err != nil || obj == nil {
 		writeJSON(w, http.StatusBadRequest, validationFailed([]pluginhost.FieldError{{Path: "/", Message: "settings must be a JSON object"}}))
 		return
 	}

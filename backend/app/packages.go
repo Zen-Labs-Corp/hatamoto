@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -19,6 +18,7 @@ import (
 
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
@@ -84,8 +84,8 @@ func runKeysGenerate(args []string, out io.Writer) error {
 		return err
 	}
 	priv, pub := filepath.Join(dir, name+".key"), filepath.Join(dir, name+".pub")
-	secret, _ := json.MarshalIndent(k, "", "  ")
-	public, _ := json.MarshalIndent(packages.Key{ID: k.ID, Public: k.Public}, "", "  ")
+	secret, _ := jsonx.Indent(k)
+	public, _ := jsonx.Indent(packages.Key{ID: k.ID, Public: k.Public})
 	if err := createNew(priv, append(secret, '\n'), 0o600); err != nil {
 		return err
 	}
@@ -164,7 +164,7 @@ func loadKey(path string) (*packages.Key, error) {
 		return nil, err
 	}
 	var k packages.Key
-	if err := json.Unmarshal(b, &k); err != nil {
+	if err := jsonx.Unmarshal(b, &k, jsonx.Stored); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	if _, err := k.PrivateKey(); err != nil {
@@ -319,7 +319,7 @@ func registerInstalledPluginTemplates(ctx context.Context, st *packages.Store, l
 			continue
 		}
 		var man sdk.Manifest
-		if err := json.Unmarshal(row.Manifest, &man); err != nil {
+		if err := jsonx.Unmarshal(row.Manifest, &man, jsonx.StoredLoose); err != nil {
 			continue
 		}
 		if ok, _ := man.Compatible(); !ok {

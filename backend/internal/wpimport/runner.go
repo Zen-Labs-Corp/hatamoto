@@ -99,7 +99,7 @@ type Result struct {
 	// page or a redirect of the owner already answers there.
 	URLConflicts []URLConflict `json:"url_conflicts,omitempty"`
 	// RedirectsRemoved counts redirects of an earlier run that are no longer needed.
-	RedirectsRemoved int `json:"redirects_removed,omitempty"`
+	RedirectsRemoved int `json:"redirects_removed,omitzero"`
 	// OverwrittenEdits and KeptEdits list entities edited in Hatamoto since the
 	// last import, which a re-run overwrote or (with KeepEdited) left alone.
 	OverwrittenEdits []string `json:"overwritten_edits,omitempty"`

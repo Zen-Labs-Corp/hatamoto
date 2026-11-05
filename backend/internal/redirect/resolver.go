@@ -36,7 +36,7 @@ type Stage struct {
 	Priority int    `json:"priority"`
 	Matched  bool   `json:"matched"`
 	Target   string `json:"target,omitempty"`
-	Status   int    `json:"status,omitempty"`
+	Status   int    `json:"status,omitzero"`
 	Rule     string `json:"rule,omitempty"`
 	// Variant names which form of the path matched: "exact" or
 	// "slash-toggled". Empty when the provider did not match.
