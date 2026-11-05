@@ -122,3 +122,39 @@ func TestBackupListRemote(t *testing.T) {
 		t.Fatalf("list --remote wrote %v", left)
 	}
 }
+
+// The CLI engine has no retention override, so `backup create` prunes by what
+// is on disk (the engine reads it after every backup; see the backup package's
+// TestRetentionReadEachBackup) and works without the database.
+func TestBackupCLIEngineResolvesRetentionFile(t *testing.T) {
+	data := t.TempDir()
+	t.Setenv("HATAMOTO_DATA", data)
+	t.Setenv("DATABASE_URL", "")
+	for _, e := range []string{backup.EnvKeep, backup.EnvKeepPreUpdate, backup.EnvKeepScheduled} {
+		t.Setenv(e, "")
+	}
+	st, err := backup.NewStore(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range 4 {
+		at := time.Date(2026, 1, 1, i, 0, 0, 0, time.UTC)
+		if err := st.Write(backup.Info{ID: backup.NewID(at, backup.KindManual), Kind: backup.KindManual, State: backup.StateOK, Created: at, Size: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := backup.SaveRetention(filepath.Join(data, "backups"), map[backup.Kind]int{backup.KindManual: 2}); err != nil {
+		t.Fatal(err)
+	}
+	eng := newBackupEngine(nil, "", "", nil)
+	if got := eng.Retention().Manual; got != 2 {
+		t.Fatalf("Retention().Manual = %d, want 2 from retention.json", got)
+	}
+	deleted, err := eng.Prune(eng.Retention().Retention)
+	if err != nil || deleted[backup.KindManual] != 2 {
+		t.Fatalf("Prune = %v, %v", deleted, err)
+	}
+	if rows, _ := eng.List(); len(rows) != 2 {
+		t.Fatalf("%d backups kept, want 2", len(rows))
+	}
+}

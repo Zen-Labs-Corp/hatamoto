@@ -25,11 +25,22 @@ The media library now accepts SVG, can replace a file in place, and groups files
 
 **Rollback floor: unchanged.** An older release ignores folders it does not know and serves a stored SVG as a download instead of showing it, because it sniffs content differently.
 
+## Unreleased: Backup retention
+
+Settings > Backups has a new "Backups to keep" card. Owners choose how many finished backups of each kind (manual, pre-update, scheduled) stay on disk, from 1 to 50. Lowering a count asks for confirmation first and says how many backups it deletes.
+
+- **Higher defaults.** Without any setting the server now keeps 10 manual, 5 pre-update and 7 scheduled backups (it kept 5, 2 and 3). Backups take more disk space: check your free space before upgrading.
+- **Environment variables still win.** `HATAMOTO_BACKUP_KEEP`, `HATAMOTO_BACKUP_KEEP_PRE_UPDATE` and `HATAMOTO_BACKUP_KEEP_SCHEDULED` override the form, and the page shows which one fixes a count. A value above 50 is treated as 50 and logged as a warning; zero, a negative number or text is ignored and logged.
+- **Upgrade warning: values above 50.** An environment value above 50 is now treated as 50. If you have more than 50 backups of a kind, the first backup after updating (of any kind, including a scheduled one) deletes all but the newest 50 of that kind. Copy the older ones elsewhere first, or lower the value yourself before you update.
+- **Where it is stored.** The counts live in `backups/retention.json` in the data directory. It is not part of a backup archive and a restore leaves it alone.
+
+**Rollback note.** An older release ignores `retention.json` and keeps only 5 manual, 2 pre-update and 3 scheduled backups (or what its environment variables say). Its next backup removes the older ones, so a higher count you set here is lost on downgrade. Copy backups you want to keep elsewhere first.
+
 ## Unreleased: Off-site backups
 
 Settings > Backups has a new Off-site copy card. Point it at an S3-compatible bucket (Amazon S3, Cloudflare R2, Backblaze B2, MinIO or similar), pick a daily or weekly time in UTC, and each scheduled backup is uploaded (the provider checks each part's SHA-256 on receipt, and the size and recorded checksum are read back) and pruned to the number of copies you keep. "Back up and upload now" runs one on demand. The backups table gains an Off-site column and the dashboard health card an Off-site backup row.
 
-- **Scheduled backups.** The schedule takes a new backup kind, `scheduled`, kept on disk per `HATAMOTO_BACKUP_KEEP_SCHEDULED` (default 3). Uploads run inside the backup lock, so they never overlap another backup or an update's backup.
+- **Scheduled backups.** The schedule takes a new backup kind, `scheduled`, kept on disk per `HATAMOTO_BACKUP_KEEP_SCHEDULED` (default 7). Uploads run inside the backup lock, so they never overlap another backup or an update's backup.
 - **Restore from the bucket.** `hatamoto backup list --remote` and `hatamoto backup restore --from-offsite <id>` work on a machine with no database; the target comes from `HATAMOTO_OFFSITE_*` (the secret key from the environment only).
 - **No new dependency.** The S3 client is part of the binary (see docs/DEPENDENCIES.md).
 - **Keep it private.** A backup holds the database and `secrets.env`: use a private bucket with server-side encryption.

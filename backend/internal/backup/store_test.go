@@ -101,7 +101,7 @@ func TestPruneKeepsNewestOKOnly(t *testing.T) {
 	if err := os.WriteFile(legacy, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Prune(KindManual, 2); err != nil {
+	if _, err := s.Prune(KindManual, 2); err != nil {
 		t.Fatal(err)
 	}
 	for i, in := range oks {
@@ -194,5 +194,27 @@ func TestUpdateSidecar(t *testing.T) {
 	}
 	if err := s.Update("20261104T030001Z-scheduled", func(*Info) {}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing: %v", err)
+	}
+}
+
+func TestCountPrunableMatchesPrune(t *testing.T) {
+	s := newStore(t)
+	base := time.Date(2026, 10, 19, 9, 0, 0, 0, time.UTC)
+	for i := range 4 {
+		put(t, s, base.Add(time.Duration(i)*time.Hour), KindManual, StateOK)
+	}
+	put(t, s, base.Add(-time.Hour), KindManual, StateFailed)
+	put(t, s, base, KindPreUpdate, StateOK)
+	for _, keep := range []int{10, 4, 2, 1} {
+		n := s.CountPrunable(KindManual, keep)
+		before, _ := s.List()
+		pruned, err := s.Prune(KindManual, keep)
+		if err != nil {
+			t.Fatal(err)
+		}
+		after, _ := s.List()
+		if got := len(before) - len(after); got != n || pruned != n {
+			t.Fatalf("keep %d: CountPrunable %d, Prune removed %d", keep, n, got)
+		}
 	}
 }
