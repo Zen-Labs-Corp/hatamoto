@@ -206,7 +206,8 @@ func (a *Admin) handleRetentionSave(w http.ResponseWriter, r *http.Request) {
 	}
 	deleted, err := rs.SaveRetention(r.Context(), set)
 	pruneFailed := errors.Is(err, ErrRetentionPrune)
-	if err != nil && !pruneFailed {
+	deferred := errors.Is(err, ErrRetentionDeferred)
+	if err != nil && !pruneFailed && !deferred {
 		a.logger().Error("backup retention save", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The backup counts could not be saved.")
 		return
@@ -222,10 +223,16 @@ func (a *Admin) handleRetentionSave(w http.ResponseWriter, r *http.Request) {
 		a.logger().Error("backup retention prune", "err", err)
 		detail["error"] = err.Error()
 	}
+	if deferred {
+		detail["deferred"] = true
+	}
 	a.audit(r, "backups.retention", "backups", detail)
-	if pruneFailed {
+	switch {
+	case deferred:
+		a.SetFlash(w, r, "warning", "Backup retention saved. A backup is running, so older backups were not deleted yet. Save again once it finishes.")
+	case pruneFailed:
 		a.SetFlash(w, r, "error", "The backup counts were saved, but removing the older backups failed. Check the server log.")
-	} else {
+	default:
 		a.SetFlash(w, r, "success", "Backup retention saved.")
 	}
 	http.Redirect(w, r, a.adminPath+backupsRel+"#retention", http.StatusSeeOther)

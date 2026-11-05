@@ -209,25 +209,35 @@ func (e *Engine) SaveRetention(set map[Kind]int) error {
 	return SaveRetention(e.retentionDir(), set)
 }
 
+// ErrPruneDeferred is returned by Prune when a backup is running: nothing was
+// deleted, and the counts only apply the next time a backup finishes.
+var ErrPruneDeferred = errors.New("backup running, prune deferred")
+
 // Prune removes ok backups beyond the newest r.<kind> of each kind and returns
 // how many it deleted per kind. It stops at the first error. It holds the
-// backup lock so it cannot race the prune of a backup that is finishing; when a
-// backup is running it deletes nothing, because that backup prunes by the
-// current counts when it ends.
+// backup lock so it cannot race the prune of a backup that is finishing. When a
+// backup is running it deletes nothing and returns ErrPruneDeferred: the
+// running backup prunes every kind by the current counts when it finishes, but
+// not if it fails, and an off-site upload after it may still be holding the lock.
 func (e *Engine) Prune(r Retention) (map[Kind]int, error) {
-	deleted := map[Kind]int{}
 	s, err := e.st()
 	if err != nil {
-		return deleted, err
+		return map[Kind]int{}, err
 	}
 	release, err := TryLock(s.Dir())
 	if errors.Is(err, ErrBusy) {
-		return deleted, nil
+		return map[Kind]int{}, ErrPruneDeferred
 	}
 	if err != nil {
-		return deleted, err
+		return map[Kind]int{}, err
 	}
 	defer release()
+	return s.pruneKinds(r)
+}
+
+// pruneKinds prunes every kind by r. The caller holds the backup lock.
+func (s *Store) pruneKinds(r Retention) (map[Kind]int, error) {
+	deleted := map[Kind]int{}
 	for _, k := range retentionKinds {
 		keep := r.For(k.kind)
 		if keep < MinKeep {

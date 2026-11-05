@@ -245,10 +245,8 @@ func (e *Engine) run1(ctx context.Context, s *Store, info Info, req Request) (In
 	if err := s.Write(info); err != nil {
 		return info, err
 	}
-	if keep := e.currentRetention().For(info.Kind); keep > 0 {
-		if err := s.Prune(info.Kind, keep); err != nil {
-			e.opts.Log.Warn("backup: retention failed", "error", err)
-		}
+	if _, err := s.pruneKinds(e.currentRetention()); err != nil {
+		e.opts.Log.Warn("backup: retention failed", "error", err)
 	}
 	if req.OnDone != nil {
 		req.OnDone(ctx, info, s.archive(info.ID))

@@ -35,6 +35,9 @@ var (
 	// ErrRetentionPrune is wrapped by SaveRetention when the new counts were
 	// saved but removing the surplus backups failed.
 	ErrRetentionPrune = errors.New("backups beyond the new counts could not be removed")
+	// ErrRetentionDeferred is returned by SaveRetention when the counts were
+	// saved but a backup is running, so nothing was deleted yet.
+	ErrRetentionDeferred = errors.New("a backup is running, older backups were not deleted yet")
 	// ErrBackupNotFound is returned for an id that is not a backup.
 	ErrBackupNotFound = errors.New("backup not found")
 )

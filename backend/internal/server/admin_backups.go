@@ -92,6 +92,9 @@ func (b *adminBackups) SaveRetention(_ context.Context, set map[string]int) (map
 	for key, kind := range retentionKeys {
 		deleted[key] = pruned[kind]
 	}
+	if errors.Is(err, backup.ErrPruneDeferred) {
+		return deleted, admin.ErrRetentionDeferred
+	}
 	if err != nil {
 		err = fmt.Errorf("%w: %v", admin.ErrRetentionPrune, err)
 	}

@@ -143,7 +143,7 @@ func TestEnginePruneSkipsWhileBackupRuns(t *testing.T) {
 	}
 	deleted, err := r.e.Prune(Retention{1, 1, 1})
 	release()
-	if err != nil || deleted[KindManual] != 0 {
+	if !errors.Is(err, ErrPruneDeferred) || deleted[KindManual] != 0 {
 		t.Fatalf("pruned under a held lock: %v %v", deleted, err)
 	}
 	if list, _ := r.e.List(); len(list) != 3 {
@@ -169,5 +169,29 @@ func TestSaveRetentionConcurrentKeepsEveryKind(t *testing.T) {
 	wg.Wait()
 	if st := ResolveRetention(dir); st.Retention != (Retention{20, 21, 22}) {
 		t.Fatalf("lost a save: %+v", st.Retention)
+	}
+}
+
+func TestFinishingBackupPrunesEveryKind(t *testing.T) {
+	r := newRig(t)
+	r.e.opts.Retention = func() Retention { return Retention{50, 50, 50} }
+	for range 3 {
+		if _, err := r.e.Create(t.Context(), Request{Kind: KindManual}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r.e.opts.Retention = func() Retention { return Retention{1, 50, 50} }
+	if _, err := r.e.Create(t.Context(), Request{Kind: KindPreUpdate}); err != nil {
+		t.Fatal(err)
+	}
+	manual := 0
+	list, _ := r.e.List()
+	for _, in := range list {
+		if in.Kind == KindManual {
+			manual++
+		}
+	}
+	if manual != 1 {
+		t.Fatalf("%d manual backups left after a pre-update backup, want 1", manual)
 	}
 }

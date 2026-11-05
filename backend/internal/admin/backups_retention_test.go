@@ -123,6 +123,26 @@ func TestRetentionPruneFailureAfterSaveIsAuditedAndFlashed(t *testing.T) {
 	}
 }
 
+func TestRetentionDeferredWhileBackupRunsIsAuditedAndWarned(t *testing.T) {
+	t.Parallel()
+	f := baseBackups()
+	f.state.Rows = okBackups(BackupManual, 3)
+	f.retDeleted = map[string]int{}
+	f.retErr = ErrRetentionDeferred
+	g := newBackupsRig(t, f)
+	code, _, loc := postRetention(g, retentionForm("2", "5", "7", "confirm", "1", "expect_manual", "1"))
+	if code != 303 || loc != backupsPath+"#retention" {
+		t.Fatalf("save = %d %s", code, loc)
+	}
+	if len(f.retSaved) != 1 {
+		t.Fatalf("saved = %v", f.retSaved)
+	}
+	d := g.events[0].Detail
+	if len(g.events) != 1 || d["deferred"] != true || d["deleted"] != 0 || d["error"] != nil {
+		t.Fatalf("audit = %+v", g.events)
+	}
+}
+
 func TestRetentionConfirmCountsEachKindAndIgnoresFailed(t *testing.T) {
 	t.Parallel()
 	f := baseBackups()
