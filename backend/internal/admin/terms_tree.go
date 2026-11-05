@@ -18,6 +18,7 @@ type termNode struct {
 	Slug        string
 	Description string
 	Depth       int
+	SortOrder   int
 	Count       int
 	HasChildren bool
 	SEO         *taxonomy.TermSEO
@@ -27,7 +28,7 @@ type termNode struct {
 const maxTermPages = 25
 
 // termNodes loads every term and orders them kind by kind, each term followed
-// by its children (alphabetical).
+// by its children (manual order, then alphabetical).
 func (a *Admin) termNodes(ctx context.Context) ([]termNode, error) {
 	return a.termNodesOf(ctx, "")
 }
@@ -44,7 +45,7 @@ func (a *Admin) termNodesOf(ctx context.Context, kind string) ([]termNode, error
 			return nil, err
 		}
 		for _, t := range res.Items {
-			all = append(all, termNode{ID: t.ID, ParentID: t.ParentID, Kind: t.Kind, Name: t.Name, Slug: t.Slug, Description: t.Description, Count: t.EntityCount, SEO: t.SEO})
+			all = append(all, termNode{ID: t.ID, ParentID: t.ParentID, Kind: t.Kind, Name: t.Name, Slug: t.Slug, Description: t.Description, Count: t.EntityCount, SortOrder: t.SortOrder, SEO: t.SEO})
 		}
 		if len(res.Items) == 0 || page*200 >= res.Total {
 			break
@@ -76,6 +77,9 @@ func orderTerms(all []termNode) []termNode {
 			a, b := all[s[x]], all[s[y]]
 			if a.Kind != b.Kind {
 				return a.Kind < b.Kind
+			}
+			if a.SortOrder != b.SortOrder {
+				return a.SortOrder < b.SortOrder
 			}
 			return strings.ToLower(a.Name) < strings.ToLower(b.Name)
 		})

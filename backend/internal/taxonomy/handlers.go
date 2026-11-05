@@ -37,6 +37,8 @@ type termRequest struct {
 	ParentID    *uuid.UUID `json:"parent_id,omitempty"`
 	// ClearParent (update only) makes the term a root.
 	ClearParent bool `json:"clear_parent,omitzero"`
+	// Position (update only) is the 1-based place among the term's siblings.
+	Position *int `json:"position,omitempty"`
 }
 
 // writeTermError maps a service error to a response; false when err is not a
@@ -114,10 +116,28 @@ func (h *Handlers) UpdateTerm(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "invalid_payload")
 		return
 	}
-	t, err := h.svc.UpdateTerm(r.Context(), UpdateTermInput{
-		ID: id, Name: body.Name, Slug: body.Slug,
-		Description: body.Description, ParentID: body.ParentID, ClearParent: body.ClearParent,
-	})
+	var t *Term
+	switch {
+	case body.Position != nil && body.Name == "" && body.Slug == "" && body.Description == nil:
+		// Only a place (and maybe a parent): a move, not an edit. An edit with an
+		// empty name would re-derive the slug.
+		var res *MoveResult
+		res, err = h.svc.MoveTerm(r.Context(), id, MoveInput{ParentID: body.ParentID, ClearParent: body.ClearParent, Position: *body.Position})
+		if res != nil {
+			t = res.Term
+		}
+	default:
+		t, err = h.svc.UpdateTerm(r.Context(), UpdateTermInput{
+			ID: id, Name: body.Name, Slug: body.Slug,
+			Description: body.Description, ParentID: body.ParentID, ClearParent: body.ClearParent,
+		})
+		if err == nil && body.Position != nil {
+			var res *MoveResult
+			if res, err = h.svc.MoveTerm(r.Context(), id, MoveInput{Position: *body.Position}); res != nil {
+				t = res.Term
+			}
+		}
+	}
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrTermNotFound):
