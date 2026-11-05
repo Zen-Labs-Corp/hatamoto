@@ -390,7 +390,8 @@ type QuerySpec struct {
 	Author, Term string
 	// Order is "-published_at" (default), "published_at", "name", "-name",
 	// "manual" (the owner's manual order, ties by creation date), "-manual",
-	// "attr:<key>" or "-attr:<key>".
+	// "attr:<key>" or "-attr:<key>", or "popular_7", "popular_30", "popular_90"
+	// (most pageviews over that many days, the newest filling the gap).
 	Order string
 	// Limit is 1..MaxQueryLimit and Page 1..MaxQueryPage.
 	Limit, Page int

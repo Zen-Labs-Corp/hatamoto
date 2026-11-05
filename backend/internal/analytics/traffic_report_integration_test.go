@@ -65,3 +65,43 @@ func TestTrafficReader(t *testing.T) {
 		t.Error("unknown dim accepted")
 	}
 }
+
+func TestTopLanding(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.UTC) }
+	rows := []TrafficRow{
+		{Day: day(1), Dim: DimLanding, K1: "/post/a", Counts: Counts{Visits: 9, Pageviews: 2}},
+		{Day: day(3), Dim: DimLanding, K1: "/post/a", Counts: Counts{Visits: 9, Pageviews: 2}},
+		{Day: day(2), Dim: DimLanding, K1: "/post/b", Counts: Counts{Visits: 1, Pageviews: 5}},
+		{Day: day(2), Dim: DimLanding, K1: "/post/c", Counts: Counts{Visits: 1, Pageviews: 5}},
+		{Day: day(2), Dim: DimLanding, K1: KeyOther, Counts: Counts{Visits: 99, Pageviews: 99}},
+		{Day: day(4), Dim: DimLanding, K1: "/post/out", Counts: Counts{Visits: 99, Pageviews: 99}}, // after the window
+		{Day: day(2), Dim: DimSource, K1: "/post/x", Counts: Counts{Visits: 99, Pageviews: 99}},    // other dimension
+	}
+	if err := NewPostgresTrafficRepository(db).AddTraffic(ctx, rows); err != nil {
+		t.Fatal(err)
+	}
+	rd := NewReader(db)
+	top, err := rd.TopLanding(ctx, day(1), day(3), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// a: 4 pageviews over two edge days but 18 visits; b and c: 5 pageviews, tie by key.
+	var got []string
+	for _, tt := range top {
+		got = append(got, tt.K1)
+	}
+	if want := []string{"/post/b", "/post/c", "/post/a"}; len(got) != 3 || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
+		t.Errorf("top = %v, want %v ((other), later days and other dimensions dropped; pageviews not visits)", got, want)
+	}
+	if top[2].Pageviews != 4 {
+		t.Errorf("a pageviews = %d, want 4 (both window edges inclusive)", top[2].Pageviews)
+	}
+	if one, _ := rd.TopLanding(ctx, day(1), day(3), 1); len(one) != 1 || one[0].K1 != "/post/b" {
+		t.Errorf("limit 1 = %+v", one)
+	}
+	if clamped, err := rd.TopLanding(ctx, day(1), day(3), 0); err != nil || len(clamped) != 1 {
+		t.Errorf("limit 0 clamps to 1: %+v, %v", clamped, err)
+	}
+}

@@ -405,7 +405,8 @@ func TestLoopInListingPartDoesNotOwnPaging(t *testing.T) {
 }
 
 func TestLoopManualOrderIsOptIn(t *testing.T) {
-	for order, want := range map[string]string{"manual": "manual", "": "-published_at", "newest": "-published_at"} {
+	for order, want := range map[string]string{"manual": "manual", "": "-published_at", "newest": "-published_at",
+		"popular_7": "popular_7", "popular_30": "popular_30", "popular_90": "popular_90", "random": "-published_at"} {
 		ds := &loopData{n: 1}
 		props := map[string]any{"schema": "page"}
 		if order != "" {
@@ -415,5 +416,29 @@ func TestLoopManualOrderIsOptIn(t *testing.T) {
 		if len(ds.specs) != 1 || ds.specs[0].Order != want {
 			t.Errorf("order prop %q: specs %+v, want order %q", order, ds.specs, want)
 		}
+	}
+}
+
+// A popular loop renders its items with no view count anywhere, canvas and public.
+func TestLoopPopularOrderGolden(t *testing.T) {
+	doc := &builder.Doc{V: 2, Nodes: []*builder.Node{loopNode(map[string]any{"schema": "post", "order": "popular_30", "limit": float64(3)},
+		&builder.Node{ID: "lh", T: "heading", B: map[string]string{"text": "loop.item.title"}})}}
+	for _, variant := range []string{"public", "canvas"} {
+		ds := &loopData{n: 3}
+		e := newTestEngine(t, Options{Data: ds})
+		v := minimalView()
+		v.Doc, v.Canvas = doc, variant == "canvas"
+		var b bytes.Buffer
+		if err := e.RenderPage(&b, v); err != nil {
+			t.Fatal(err)
+		}
+		if len(ds.specs) != 1 || ds.specs[0].Order != "popular_30" {
+			t.Fatalf("%s: specs = %+v", variant, ds.specs)
+		}
+		got := b.String()
+		if low := strings.ToLower(got); strings.Contains(low, "views") || strings.Contains(low, "pageviews") || strings.Contains(low, "popular") {
+			t.Errorf("%s: markup exposes the ranking: %s", variant, got)
+		}
+		compareWidgetGolden(t, "looppopular", variant, mainInner(t, got))
 	}
 }

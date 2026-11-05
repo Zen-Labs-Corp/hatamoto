@@ -19,6 +19,11 @@ const plainEnum = (v) => title(String(v).replaceAll("-", " ")); // icon ids as n
 
 // The Contact button's own wording: the channel as labelled choices, the number/address field with its hint.
 const CONTACT_CHANNELS = { whatsapp: "WhatsApp", call: "Phone", sms: "SMS", email: "Email" };
+// The Loop's Order choices as the client reads them (an unknown value shows as itself).
+const LOOP_ORDERS = {
+  newest: "Newest", oldest: "Oldest", updated: "Recently updated", name: "Name", name_desc: "Name, Z to A", manual: "Manual order",
+  popular_7: "Most viewed, last 7 days", popular_30: "Most viewed, last 30 days", popular_90: "Most viewed, last 90 days",
+};
 const CONTACT_FIELDS = {
   to: { name: "Number / address", placeholder: "Blank = business profile", help: "A phone number or an email address. Leave it blank to use the business profile." },
   message: { name: "Prefilled message", placeholder: "Hello, I have a question", help: "" },
@@ -237,7 +242,7 @@ export function createContent(ctx) {
       el = h("select", { id, class: "hm-field__control", "aria-describedby": `${id}-e` });
       if (!p.required) el.append(h("option", { value: "", text: "Not set" }));
       const plain = p.key === "icon" || (node.t === "icon" && p.key === "name");
-      for (const v of p.enum) el.append(h("option", { value: String(v), text: plain ? plainEnum(v) : String(v) }));
+      for (const v of p.enum) el.append(h("option", { value: String(v), text: plain ? plainEnum(v) : node.t === "loop" && p.key === "order" ? (LOOP_ORDERS[v] ?? String(v)) : String(v) }));
       el.value = cur === undefined ? (p.required ? String(p.enum[0]) : "") : String(cur);
       el.addEventListener("change", () => apply(el.value));
     } else if (kind === "number") {

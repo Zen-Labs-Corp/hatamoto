@@ -517,7 +517,7 @@ every direct child except a `loopempty`). Markup: `<div class="hm-n hm-loop hm-n
 | `context` | boolean: use the page's own schema | off |
 | `term` | `<kind>:<slug>` | none |
 | `author` | person slug | none |
-| `order` | `newest`, `oldest`, `updated`, `name`, `name_desc`, `manual` | `newest` |
+| `order` | `newest`, `oldest`, `updated`, `name`, `name_desc`, `manual`, `popular_7`, `popular_30`, `popular_90` (most pageviews over the last 7, 30 or 90 days, the newest filling the gap; counts are never shown) | `newest` |
 | `limit` | 1 to 48 | 12 |
 | `offset` | 0 to 1000 | 0 |
 | `paging` | `none`, `pages` | `none` |

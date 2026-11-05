@@ -112,9 +112,10 @@ The walk is depth-first, parents before children, and the path is matched after 
 
 ## Content queries
 
-All of these are fail-open: an error or timeout gives no items and the page still renders. Limits for `recent`, `related` and `terms` are clamped to 1 to 50.
+All of these are fail-open: an error or timeout gives no items and the page still renders. Limits for `recent`, `popular`, `related` and `terms` are clamped to 1 to 50.
 
 - `recent "post" 5` returns the newest published entities of a schema.
+- `popular "post" 5 30` returns the published entities of a schema with the most pageviews over the last 7, 30 or 90 days (default and fallback 30), the newest filling any gap. Views are the pageview beacons of the daily traffic rollup (visitors without script and bots are not counted), summed per entity over UTC days including today; only the 100 busiest pages of each day are kept, so a small page on a busy site can have no views. A landing path counts for the entity it serves: a trailing slash, a locale prefix and upper case add up (stored paths are lower case, so a slug with capitals or non-ASCII letters is never ranked). Entities without views follow, newest first, so the list is always full. The ranking refreshes about once a minute, and no count is ever shown.
 - `related . 3` is the same as `call .Related 3`; pass `$` inside a `range`.
 - `terms "category" 10` returns terms of a kind with published entities, most used first (`.Name`, `.URL`, `.Count`, `.Description`, `.Parent`).
 

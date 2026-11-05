@@ -222,3 +222,29 @@ func TestTermsFuncManualArgument(t *testing.T) {
 		t.Error("an unknown third argument asked for the manual order")
 	}
 }
+
+func TestPopularFuncBuildsPopularQuery(t *testing.T) {
+	for _, tt := range []struct {
+		call, order string
+		limit       int
+	}{
+		{`popular "post" 5 7`, "popular_7", 5},
+		{`popular "post" 5 30`, "popular_30", 5},
+		{`popular "post" 5 90`, "popular_90", 5},
+		{`popular "post" 5 14`, "popular_30", 5}, // not a window: 30
+		{`popular "post" 5 "7"`, "popular_7", 5},
+		{`popular "post" 5`, "popular_30", 5},
+		{`popular "post" 500`, "popular_30", maxListFunc},
+		{`popular "post" 0 90`, "popular_90", 1},
+	} {
+		spy := &spyData{result: QueryResult{Items: fakeItems}}
+		got := execFuncs(t, spy, `{{len (`+tt.call+`)}}`, nil)
+		want := QuerySpec{Schema: "post", Order: tt.order, Limit: tt.limit, Page: 1}
+		if spy.q != want || got != "2" {
+			t.Errorf("%s: spec = %+v items %s, want %+v", tt.call, spy.q, got, want)
+		}
+	}
+	if got := execFuncs(t, nil, `{{len (popular "post" 3 7)}}`, nil); got != "0" {
+		t.Errorf("nil data source = %q, want no items", got)
+	}
+}

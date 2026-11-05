@@ -24,7 +24,7 @@
     "context": {"type": "boolean"},
     "term": {"type": "string", "maxLength": 100, "pattern": "^[a-z][a-z0-9_-]{0,31}:[a-z0-9-]+$", "x-hm-widget": "datalist:terms"},
     "author": {"type": "string", "maxLength": 100, "pattern": "^[a-z0-9-]+$"},
-    "order": {"enum": ["newest", "oldest", "updated", "name", "name_desc", "manual"]},
+    "order": {"enum": ["newest", "oldest", "updated", "name", "name_desc", "manual", "popular_7", "popular_30", "popular_90"]},
     "limit": {"type": "integer", "minimum": 1, "maximum": 48},
     "offset": {"type": "integer", "minimum": 0, "maximum": 1000},
     "paging": {"enum": ["none", "pages"]},

@@ -1,5 +1,13 @@
 # Release notes
 
+## Unreleased: Popular content
+
+- **Template func.** `popular "post" 5 30` lists the published entities of a schema with the most pageviews over the last 7, 30 or 90 days (any other value or none means 30; limit 1 to 50), the newest filling any gap so the list is always full.
+- **Loop order.** The Loop widget's Order accepts `popular_7`, `popular_30` and `popular_90` (Most viewed). It lists the same entities as the func and works with the term, author and attribute filters and with paging (the first 100 rows are served).
+- **Data.** Views are the pageview beacons in the daily traffic rollup, summed per entity over UTC days including today. Visitors without script and bots are not counted; only the 100 busiest pages of each day are kept, so a small page on a busy site can have no views. A trailing slash, a locale prefix and upper case count for the same entity; a slug with capitals or non-ASCII letters is never ranked. The list refreshes about once a minute, and no view count is shown on pages or in structured data.
+- **Failures.** If the rollup cannot be read the list falls back to the newest entities and the page is served but not cached.
+- **Migration.** None. Rollback floor: remove popular loop orders first, an older release refuses them.
+
 ## Unreleased: PDF widget
 
 - **Widget.** A new **PDF** widget (Media group) shows a PDF from the media library in the browser's viewer, with a download link (the editor preview and sites with a live community script show the link only, as those pages cannot frame a file) and, when the library knows it, the file size. On a phone only the link shows. Height is 200 to 2000 pixels. No script runs on the page.

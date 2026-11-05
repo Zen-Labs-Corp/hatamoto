@@ -50,6 +50,9 @@ type ListFilter struct {
 	Order string
 	// ExcludeID leaves this entity out (e.id <> ExcludeID) when set.
 	ExcludeID uuid.UUID
+	// IDs restricts to these ids when non-nil; an empty non-nil slice matches
+	// nothing.
+	IDs []uuid.UUID
 	// Offset skips this many more rows on top of (page-1)*perPage; clamped to
 	// 0..MaxListOffset. The returned total stays the raw match count.
 	Offset int
@@ -169,6 +172,9 @@ func (r *PostgresPublicRepository) ListPublishedFiltered(ctx context.Context, f 
 	}
 	if f.ExcludeID != uuid.Nil {
 		where = append(where, "e.id <> "+arg(f.ExcludeID))
+	}
+	if f.IDs != nil {
+		where = append(where, "e.id = ANY("+arg(f.IDs)+")")
 	}
 	if q := strings.TrimSpace(f.Search); q != "" {
 		p := arg(q)

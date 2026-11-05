@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"hatamoto.dev/core/internal/analytics"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/media/modern"
@@ -35,6 +36,12 @@ type renderData struct {
 
 	mu       sync.Mutex
 	variants map[string]cachedVariants
+	popular  map[string]popularRank // rankings of the popular orders, see rankedPopular
+
+	// now replaces the clock of the popular window (tests); nil is time.Now.
+	now func() time.Time
+	// landingSource replaces the rollup read of the popular ranking (tests).
+	landingSource func(ctx context.Context, from, to time.Time, limit int) ([]analytics.TrafficTop, error)
 
 	// formats is the cached modern-format policy (a settings read), so a loop
 	// of ImageVariants calls costs no statement; fmtsExpire is when it is read again.
@@ -142,12 +149,26 @@ func (d *renderData) Query(q render.QuerySpec) render.QueryResult {
 		f.TermID = id
 	}
 	repo := entity.NewPostgresPublicRepository(d.s.db)
-	rows, total, err := repo.ListPublishedFiltered(ctx, f, page, limit)
+	list := func(page int) ([]*entity.Entity, int, error) { return repo.ListPublishedFiltered(ctx, f, page, limit) }
+	if days, ok := popularDays(q.Order); ok {
+		f.IncludeScheduled = false
+		list = func(page int) ([]*entity.Entity, int, error) {
+			rows, total, err := d.popularRows(ctx, repo, f, q.Schema, days, page, limit)
+			if err != nil { // fail open: the newest entities, and the page is not cached
+				d.fail()
+				d.s.logger.Warn("render: popular", "error", err, "schema", q.Schema)
+				f.Order = ""
+				return repo.ListPublishedFiltered(ctx, f, page, limit)
+			}
+			return rows, total, nil
+		}
+	}
+	rows, total, err := list(page)
 	if err == nil {
 		if pages := queryPages(total, f.Offset, limit); page > pages {
 			page = pages
 			if total > f.Offset { // past the end: show the last page, not nothing
-				rows, total, err = repo.ListPublishedFiltered(ctx, f, page, limit)
+				rows, total, err = list(page)
 			}
 		}
 	}
