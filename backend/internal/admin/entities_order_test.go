@@ -234,6 +234,24 @@ func TestEntityListOffersManualSort(t *testing.T) {
 	lacks(t, c.get(t, "owner-token", "/admin/entities", ""), "Manual order")
 }
 
+// A tree type (nested URL pattern) and the All list have no manual sort: the
+// option is hidden and ?sort=manual falls back to the default order.
+func TestEntityListManualSortOnlyForFlatTypes(t *testing.T) {
+	t.Parallel()
+	c := newContentRig(t)
+	for _, path := range []string{"/admin/entities?type=service&sort=manual", "/admin/entities?sort=manual"} {
+		body := c.get(t, "owner-token", path, "")
+		lacks(t, body, "Manual order", `value="manual"`)
+		if got := c.ents.lastList.Sort; got != "updated" {
+			t.Errorf("%s: list sort = %q, want updated", path, got)
+		}
+	}
+	c.get(t, "owner-token", "/admin/entities?type=page&sort=manual", "")
+	if got := c.ents.lastList.Sort; got != "manual" {
+		t.Errorf("flat type: list sort = %q, want manual", got)
+	}
+}
+
 // The filter form carries exactly one sort control, so choosing "Manual order"
 // submits sort=manual alone and the list sorts by it.
 func TestEntityListSortSelectDrivesTheSort(t *testing.T) {
@@ -251,6 +269,7 @@ func TestEntityListSortSelectDrivesTheSort(t *testing.T) {
 	for _, m := range regexp.MustCompile(`<input type="hidden" name="([^"]+)" value="([^"]*)">`).FindAllStringSubmatch(form, -1) {
 		vals.Add(m[1], m[2])
 	}
+	vals.Add("type", "page") // the Type select
 	vals.Add("sort", "manual")
 	c.get(t, "owner-token", "/admin/entities?"+vals.Encode(), "")
 	if got := c.ents.lastList.Sort; got != "manual" {

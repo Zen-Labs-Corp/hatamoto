@@ -178,6 +178,13 @@ func (p listParams) query() url.Values {
 	return v
 }
 
+// manualSortable reports whether the list can show this type in its stored
+// manual order: one type is chosen and its entries are not a tree. A tree's
+// stored order is per parent, so a flat list of it would not match the Reorder page.
+func manualSortable(sc *entity.EntitySchema) bool {
+	return sc != nil && !entity.IsReuseSchema(sc) && !schemaIsNested(sc)
+}
+
 // hrefWithout is the list URL with the given params dropped (and paging reset).
 func (p listParams) hrefWithout(prefix string, keys ...string) string {
 	q := p.query()
@@ -262,6 +269,9 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	if s, ok := bySlug[p.typ]; ok {
 		f.SchemaID, resolved = &s.ID, s
 	}
+	if p.sortKey == "manual" && !manualSortable(resolved) {
+		p.sortKey, p.dir, f.Sort, f.Asc = "updated", "desc", "updated", false
+	}
 	if id, err := uuid.Parse(p.author); err == nil {
 		f.PersonID = &id
 	}
@@ -328,8 +338,8 @@ func (a *Admin) handleEntities(w http.ResponseWriter, r *http.Request) {
 	if parentOpts := a.parentFilterOptions(ctx, byID, p.under); len(parentOpts) > 1 {
 		primary = append(primary, ui.Filter{Name: "under", Label: "Parent", Options: parentOpts})
 	}
-	if resolved != nil && !entity.IsReuseSchema(resolved) {
-		// A type's entries can be listed in their stored manual order (the Reorder page sets it).
+	if manualSortable(resolved) {
+		// A flat type's entries can be listed in their stored manual order (the Reorder page sets it).
 		sortOpts := []ui.Option{
 			{Value: "updated", Label: "Updated", Selected: p.sortKey == "updated"},
 			{Value: "manual", Label: "Manual order", Selected: p.sortKey == "manual"},
