@@ -5,6 +5,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -67,9 +68,9 @@ func TestRenderDataPopular_Integration(t *testing.T) {
 		`[{"tag":"en","segment":""},{"tag":"fr","segment":"fr"}]`)
 
 	sfx := "x" + uuid.NewString()[:5]
-	post, other, empty := "pp-"+sfx, "oo-"+sfx, "ee-"+sfx
+	post, other, empty, bound, bulk := "pp-"+sfx, "oo-"+sfx, "ee-"+sfx, "bb-"+sfx, "kk-"+sfx
 	var schemaIDs []uuid.UUID
-	for _, s := range []string{post, other, empty} {
+	for _, s := range []string{post, other, empty, bound, bulk} {
 		id := uuid.New()
 		schemaIDs = append(schemaIDs, id)
 		exec(`INSERT INTO hatamoto_entity_schemas (id,name,slug,schema,settings) VALUES ($1,$2,$2,'{"type":"object"}',$3)`,
@@ -106,24 +107,39 @@ func TestRenderDataPopular_Integration(t *testing.T) {
 	seed(schemaIDs[2], "e1", "published", 1)
 	seed(schemaIDs[2], "e2", "published", 2)
 
-	today := time.Now().UTC().Truncate(24 * time.Hour)
+	// One clock for the seeded rows and the code under test (newData injects it),
+	// so a UTC midnight in between cannot move the window.
+	clock := time.Now().UTC()
+	today := clock.Truncate(24 * time.Hour)
 	day := func(ago int) time.Time { return today.AddDate(0, 0, -ago) }
 	row := func(ago int, k string, pv int64) analytics.TrafficRow {
 		return analytics.TrafficRow{Day: day(ago), Dim: analytics.DimLanding, K1: k, Counts: analytics.Counts{Visits: 1, Pageviews: pv}}
 	}
+	// Window edges: a row `days` ago is out, `days-1` ago is in.
+	var edge []analytics.TrafficRow
+	for _, age := range []int{6, 7, 29, 30, 89, 90} {
+		slug := fmt.Sprintf("b%d", age)
+		seed(schemaIDs[3], slug, "published", 1)
+		edge = append(edge, row(age, "/"+bound+"/"+slug, 4))
+	}
+	// 120 entities: more than the 100 rows a popular listing serves.
+	exec(`INSERT INTO hatamoto_entities (id,schema_id,name,slug,locale,status,published_at)
+		SELECT gen_random_uuid(), $1, 'k'||g, 'k'||g, 'und', 'published', now() - make_interval(days => g) FROM generate_series(1,120) g`, schemaIDs[4])
 	p := "/" + post + "/"
-	if err := analytics.NewPostgresTrafficRepository(db).AddTraffic(ctx, []analytics.TrafficRow{
+	if err := analytics.NewPostgresTrafficRepository(db).AddTraffic(ctx, append(edge, []analytics.TrafficRow{
 		row(0, p+"p1", 5), row(1, p+"p1/", 3), row(1, "/fr"+p+"p1", 2), // slash and locale variants of one entity: 10
 		row(6, p+"p2", 6), row(6, p+"p5", 6), // tie: p2 is newer
 		row(20, p+"p3", 7), row(60, p+"p4", 9), // only in the 30 and 90 day windows
 		row(0, p+"draft", 100), row(0, "/"+other+"/o1", 100), row(0, analytics.KeyOther, 100), row(0, "/", 100),
-	}); err != nil {
+	}...)); err != nil {
 		t.Fatal(err)
 	}
 
 	newData := func() *renderData {
 		// A fresh server per case: the URL registry caches the locale set.
-		return newRenderData(New(cfg, db, slog.New(slog.NewTextHandler(io.Discard, nil))))
+		d := newRenderData(New(cfg, db, slog.New(slog.NewTextHandler(io.Discard, nil))))
+		d.now = func() time.Time { return clock }
+		return d
 	}
 	names := func(res render.QueryResult) []string {
 		var out []string
@@ -173,6 +189,62 @@ func TestRenderDataPopular_Integration(t *testing.T) {
 	}
 	if d.Failures() != 0 {
 		t.Errorf("failures = %d", d.Failures())
+	}
+
+	for _, tt := range []struct {
+		days int
+		want []string
+	}{
+		{7, []string{"b6"}},
+		{30, []string{"b29", "b6", "b7"}},
+		{90, []string{"b29", "b30", "b6", "b7", "b89"}},
+	} {
+		bd := newData()
+		got, err := bd.rankedPopular(ctx, bound, tt.days)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var have []string
+		for _, id := range got {
+			for n, v := range ids {
+				if v == id {
+					have = append(have, n)
+				}
+			}
+		}
+		slices.Sort(have)
+		if !slices.Equal(have, tt.want) {
+			t.Errorf("window %d = %v, want %v (days ago is out, days-1 is in)", tt.days, have, tt.want)
+		}
+	}
+
+	// Paging stops at the 100 rows served: no pages past them, whatever the offset.
+	for _, tt := range []struct {
+		limit, page, offset int
+		total, pages, page2 int
+		items               int
+	}{
+		{12, 1, 0, 100, 9, 1, 12},
+		{12, 25, 0, 100, 9, 9, 4}, // past the end shows the last page
+		{12, 1, 50, 100, 5, 1, 12},
+		{12, 1, 100, 100, 1, 1, 0}, // offset at the cap: nothing, one page
+	} {
+		got := newData().Query(render.QuerySpec{Schema: bulk, Order: "popular_30", Limit: tt.limit, Page: tt.page, Offset: tt.offset})
+		if got.Total != tt.total || got.Pages != tt.pages || got.Page != tt.page2 || len(got.Items) != tt.items {
+			t.Errorf("bulk %+v = total %d pages %d page %d items %d", tt, got.Total, got.Pages, got.Page, len(got.Items))
+		}
+	}
+
+	// One failing path lookup loses that path only: no fallback, no failure.
+	one := newData()
+	one.landingSource = func(context.Context, time.Time, time.Time, int) ([]analytics.TrafficTop, error) {
+		return []analytics.TrafficTop{
+			{K1: "/" + post + "/bad\x00", Pageviews: 50}, // NUL: the lookup errors
+			{K1: "/" + post + "/p5", Pageviews: 5},
+		}, nil
+	}
+	if got := names(one.Query(render.QuerySpec{Schema: post, Order: "popular_30", Limit: 2, Page: 1})); !slices.Equal(got, []string{"p5", "p1"}) || one.Failures() != 0 {
+		t.Errorf("bad path = %v, failures %d, want p5 first and 0", got, one.Failures())
 	}
 
 	// A failing rollup falls back to the newest and marks the page uncacheable.

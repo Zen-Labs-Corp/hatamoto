@@ -22,6 +22,9 @@ const (
 	popularResolves = 100
 	// popularMemoSize bounds the memoised rankings (one per days and schema).
 	popularMemoSize = 64
+	// popularServed is how many rows of a popular listing are served (and
+	// counted by its pager): the ranked head and the newest fill read 100 each.
+	popularServed = 100
 )
 
 // popularDays is the window in days of a "popular_7|30|90" order.
@@ -67,7 +70,11 @@ func (d *renderData) rankedPopular(ctx context.Context, schema string, days int)
 	}
 	d.mu.Unlock()
 
-	today := time.Now().UTC().Truncate(24 * time.Hour)
+	clock := time.Now
+	if d.now != nil {
+		clock = d.now
+	}
+	today := clock().UTC().Truncate(24 * time.Hour)
 	top, err := d.topLanding(ctx, today.AddDate(0, 0, -(days-1)), today, popularKeys)
 	if err != nil {
 		return nil, err
@@ -105,8 +112,9 @@ func (d *renderData) rankedPopular(ctx context.Context, schema string, days int)
 		}
 		resolved++
 		res, err := resolveEntity(sctx, repo, snap, rest)
-		if err != nil {
-			return nil, err
+		if err != nil { // one bad path loses its views, not the whole ranking
+			d.s.logger.Warn("render: popular path", "error", err, "path", rest)
+			continue
 		}
 		if res == nil || res.Entity == nil || res.Entity.Schema == nil || !slices.Contains(slugs, res.Entity.Schema.Slug) {
 			continue
@@ -156,8 +164,8 @@ func servesSchema(snap *entity.URLSnapshot, path string, slugs []string) bool {
 
 // popularRows is one page of a popular listing: the entities of f (the filter
 // without IDs) that have views, most viewed first, then the newest ones to fill
-// the page. The total is the raw match count of f, so paging stays stable. Only
-// the first 100 rows (offset included) of the combined list are served.
+// the page. The total is the match count of f capped at popularServed, so a pager
+// never offers pages past the rows served (offset included).
 func (d *renderData) popularRows(ctx context.Context, repo *entity.PostgresPublicRepository, f entity.ListFilter, schema string, days, page, limit int) ([]*entity.Entity, int, error) {
 	ranked, err := d.rankedPopular(ctx, schema, days)
 	if err != nil {
@@ -203,6 +211,7 @@ func (d *renderData) popularRows(ctx context.Context, repo *entity.PostgresPubli
 			}
 		}
 	}
+	total = min(total, popularServed) // paging never advertises rows past the cap
 	if skip >= len(all) {
 		return nil, total, nil
 	}

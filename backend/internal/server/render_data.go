@@ -38,6 +38,8 @@ type renderData struct {
 	variants map[string]cachedVariants
 	popular  map[string]popularRank // rankings of the popular orders, see rankedPopular
 
+	// now replaces the clock of the popular window (tests); nil is time.Now.
+	now func() time.Time
 	// landingSource replaces the rollup read of the popular ranking (tests).
 	landingSource func(ctx context.Context, from, to time.Time, limit int) ([]analytics.TrafficTop, error)
 
