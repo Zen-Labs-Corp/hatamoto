@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -196,7 +197,14 @@ func (a *Admin) handleEntityMove(w http.ResponseWriter, r *http.Request) {
 	}
 	fallback := a.adminPath + "/entities/order?type=" + url.QueryEscape(e.Schema.Slug)
 	back := backTo(r, a.adminPath+"/entities", fallback)
+	// The drag enhancement asks for a plain answer: it must not follow a redirect
+	// that would hide whether the move worked.
+	scripted := strings.Contains(r.Header.Get("Accept"), "application/json")
 	fail := func(msg string) {
+		if scripted {
+			http.Error(w, msg, http.StatusUnprocessableEntity)
+			return
+		}
 		a.SetFlash(w, r, "error", msg)
 		Redirect(w, r, back)
 	}
@@ -242,6 +250,10 @@ func (a *Admin) handleEntityMove(w http.ResponseWriter, r *http.Request) {
 	}
 	a.auditEntity(r, auditEntityReorder, id, res.Entity, detail)
 	a.invalidate(r.Context())
+	if scripted {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	msg := fmt.Sprintf("%s moved to position %d of %d", e.Name, res.Position, res.Total)
 	if op := r.PostFormValue("op"); op == "indent" || op == "outdent" {
 		msg += " at its new level"

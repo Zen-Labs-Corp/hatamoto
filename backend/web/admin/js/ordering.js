@@ -28,10 +28,13 @@ async function post(url, token, id, position) {
   const res = await fetch(`${url}${id}/move`, {
     method: "POST",
     credentials: "same-origin",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF-Token": token, Accept: "text/html" },
+    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF-Token": token, Accept: "application/json" },
     body,
+    redirect: "manual",
   });
-  return res.ok;
+  // The server answers 204 when the move worked and an error status with the
+  // reason otherwise; a redirect (opaque, status 0) is never a success.
+  return res.ok ? "" : (await res.text().catch(() => "")).trim() || "Reload the page and try again.";
 }
 
 function drag(root) {
@@ -48,9 +51,8 @@ function drag(root) {
       const tr = evt.item;
       const name = tr.querySelector("th, td")?.textContent.trim() ?? "";
       const all = rows(body);
-      const ok = await post(root.dataset.hmOrderUrl, token, tr.id.replace(ROW, ""), all.indexOf(tr) + 1);
-      say(root, ok ? `${name} moved to position ${all.indexOf(tr) + 1} of ${all.length}.` : `${name} was not moved. Reload the page and try again.`);
-      if (ok) location.reload();
+      const err = await post(root.dataset.hmOrderUrl, token, tr.id.replace(ROW, ""), all.indexOf(tr) + 1);
+      say(root, err ? `${name} was not moved. ${err} Reload the page to see the saved order.` : `${name} moved to position ${all.indexOf(tr) + 1} of ${all.length}.`);
     },
   });
 }

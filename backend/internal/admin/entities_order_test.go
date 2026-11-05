@@ -164,6 +164,25 @@ func TestOrderMoveSaysWhenItTookAPageOver(t *testing.T) {
 	}
 }
 
+// The drag enhancement asks for JSON and must get a plain 204 or an error
+// status, never a redirect that hides the outcome.
+func TestOrderMoveAnswersScriptedRequestsWithoutRedirect(t *testing.T) {
+	t.Parallel()
+	c := newContentRig(t)
+	c.ents.addEntity(60, c.service, "Alpha", "alpha", entity.StatusPublished, `{"summary":"x"}`, t0)
+	b := c.ents.addEntity(61, c.service, "Beta", "beta", entity.StatusPublished, `{"summary":"x"}`, t0)
+	path := "/admin/entities/" + b.ID.String() + "/move"
+	hdr := map[string]string{"Accept": "application/json"}
+	if rec := c.do("POST", path, "owner-token", url.Values{"position": {"1"}}, hdr); rec.Code != 204 || rec.Header().Get("Location") != "" {
+		t.Errorf("success = %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	c.ents.moveErr = entity.ErrParentTooDeep
+	rec := c.do("POST", path, "owner-token", url.Values{"position": {"1"}}, hdr)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "nesting would be too deep") {
+		t.Errorf("failure = %d %q", rec.Code, rec.Body)
+	}
+}
+
 // Focus after a button move goes to the row's menu trigger: the move buttons
 // sit in a closed popover, where focus() is a no-op.
 func TestOrderingScriptFocusesTheRowMenuTrigger(t *testing.T) {
@@ -175,5 +194,8 @@ func TestOrderingScriptFocusesTheRowMenuTrigger(t *testing.T) {
 	js := string(src)
 	if !strings.Contains(js, `button[aria-haspopup="menu"]`) || strings.Contains(js, "hm-order-button") {
 		t.Error("restoreFocus must focus the row's menu trigger, not a button inside the closed menu")
+	}
+	if !strings.Contains(js, `redirect: "manual"`) || strings.Contains(js, "location.reload") {
+		t.Error("drag requests must not follow the redirect nor reload over the live region")
 	}
 }
