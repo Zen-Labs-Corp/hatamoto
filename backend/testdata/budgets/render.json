@@ -25,25 +25,25 @@
       "tol_abs": 64
     },
     "alloc_RenderPage72_allocs": {
-      "value": 596,
+      "value": 619,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderPage72_bytes": {
-      "value": 85213,
+      "value": 85997,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
     },
     "alloc_RenderPageStat72_allocs": {
-      "value": 2213,
+      "value": 2235,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderPageStat72_bytes": {
-      "value": 195142,
+      "value": 195929,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
@@ -86,7 +86,7 @@
       "tol_pct": 5
     },
     "golden_page-shell_bytes": {
-      "value": 4488,
+      "value": 4513,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -111,7 +111,7 @@
       "tol_pct": 5
     },
     "page_allwidgets_html_bytes": {
-      "value": 39274,
+      "value": 39299,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -146,7 +146,7 @@
       "cap": 8192
     },
     "page_settings_html_bytes": {
-      "value": 7474,
+      "value": 7499,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -166,10 +166,6 @@
     }
   },
   "history": [
-    {
-      "reason": "builder-e2-states: states, transform/filter/transition keys, force preview",
-      "date": "2026-10-24"
-    },
     {
       "reason": "builder-e4-direct-manipulation: bridge posts contextmenu and select.ctrl, forwards clipboard/wrap keys",
       "date": "2026-10-24"
@@ -241,6 +237,10 @@
     {
       "reason": "social SEO settings and share card",
       "date": "2026-11-01"
+    },
+    {
+      "reason": "speculation rules block in public head",
+      "date": "2026-11-05"
     },
     {
       "reason": "speculation rules block in public head",

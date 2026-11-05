@@ -19,18 +19,28 @@ var speculationExcluded = []string{
 	defaultAdminPrefix + "/*", "/p/*", "/api/*", "/plugin-ui/*", "/forms/*", "/auth/*", "/preview/*",
 	"/media/*", "/theme/*", "/fonts/*", "/.well-known/*", "/-/*",
 	"/health*", "/ready*", "/sitemap*",
-	"/*logout*", "/*\\?*",
+	"/*logout*",
 	"/*.xml", "/*.pdf", "/*.zip", "/*.txt", "/*.ico", "/feed*",
 }
+
+// speculationQuery excludes URLs with a query string. It is the object form
+// because the pathname-only string patterns never see the search part; the
+// pathname is spelled out since an object inherits it from the document.
+var speculationQuery = map[string]any{"pathname": "/*", "search": "(.+)"}
 
 // speculationRules is the inline speculationrules script for public pages:
 // same-site page links are prefetched on hover (moderate eagerness). Prefetch
 // only, never prerender: public pages run scripts and analytics.
 func speculationRules() template.HTML {
+	excluded := make([]any, 0, len(speculationExcluded)+1)
+	for _, p := range speculationExcluded {
+		excluded = append(excluded, p)
+	}
+	excluded = append(excluded, speculationQuery)
 	b, err := jsonx.Marshal(map[string]any{"prefetch": []any{map[string]any{
 		"where": map[string]any{"and": []any{
 			map[string]any{"href_matches": "/*"},
-			map[string]any{"not": map[string]any{"href_matches": speculationExcluded}},
+			map[string]any{"not": map[string]any{"href_matches": excluded}},
 		}},
 		"eagerness": "moderate",
 	}}}, jsonx.HTMLSafe) // lands in template.HTML inside a script element

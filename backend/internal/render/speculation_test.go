@@ -21,14 +21,14 @@ type rulesEntry struct {
 		And []struct {
 			HrefMatches any `json:"href_matches"`
 			Not         *struct {
-				HrefMatches []string `json:"href_matches"`
+				HrefMatches []any `json:"href_matches"`
 			} `json:"not"`
 		} `json:"and"`
 	} `json:"where"`
 	Eagerness string `json:"eagerness"`
 }
 
-func parseRules(t *testing.T, tag string) (rulesEntry, []string) {
+func parseRules(t *testing.T, tag string) (rulesEntry, []any) {
 	t.Helper()
 	const open, closing = `<script type="speculationrules">`, `</script>`
 	if !strings.HasPrefix(tag, open) || !strings.HasSuffix(tag, closing) || strings.Count(tag, "</script>") != 1 {
@@ -52,19 +52,21 @@ func TestSpeculationRulesJSON(t *testing.T) {
 	}
 	have := map[string]bool{}
 	for _, p := range excl {
-		have[p] = true
+		if str, ok := p.(string); ok {
+			have[str] = true
+		} else if m, _ := p.(map[string]any); m["pathname"] == "/*" && m["search"] == "(.+)" {
+			have["query"] = true
+		}
 	}
-	for _, want := range []string{"/admin/*", "/p/*", "/api/*", "/plugin-ui/*", "/forms/*", "/auth/*", "/preview/*", "/media/*", "/theme/*", "/*logout*", "/*\\?*", "/*.xml", "/*.pdf", "/*.zip"} {
+	for _, want := range []string{"/admin/*", "/p/*", "/api/*", "/plugin-ui/*", "/forms/*", "/auth/*", "/preview/*", "/media/*", "/theme/*", "/*logout*", "query", "/*.xml", "/*.pdf", "/*.zip"} {
 		if !have[want] {
 			t.Errorf("%q not excluded", want)
 		}
 	}
 }
 
-// globMatch is the subset of URLPattern the exclusions use: "*" matches any
-// run, "\?" a literal question mark.
+// globMatch is the subset of URLPattern the string exclusions use: "*" matches any run.
 func globMatch(pat, s string) bool {
-	pat = strings.ReplaceAll(pat, `\?`, "?")
 	if !strings.Contains(pat, "*") {
 		return pat == s
 	}
@@ -87,7 +89,7 @@ func TestSpeculationRulesExcludeReservedPrefixes(t *testing.T) {
 	_, excl := parseRules(t, string(speculationRules()))
 	excluded := func(path string) bool {
 		for _, p := range excl {
-			if globMatch(p, path) {
+			if str, ok := p.(string); ok && globMatch(str, path) {
 				return true
 			}
 		}
@@ -103,7 +105,7 @@ func TestSpeculationRulesExcludeReservedPrefixes(t *testing.T) {
 			t.Errorf("page %q must stay prefetchable", page)
 		}
 	}
-	for _, bad := range []string{"/about?x=1", "/logout", "/admin/entities", "/a/b.pdf"} {
+	for _, bad := range []string{"/logout", "/admin/entities", "/a/b.pdf"} {
 		if !excluded(bad) {
 			t.Errorf("%q must be excluded", bad)
 		}
