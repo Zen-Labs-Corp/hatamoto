@@ -285,7 +285,7 @@ Only `schema` is required:
 | `attr` + `eq` | `attributes[attr]` equals `eq`: a string, or a number or boolean spelled the same (`"eq" "3"` matches `3`). `attr` without an `eq` key requires the attribute to exist. With an `eq` key the test is always equality: `"eq" ""` matches the empty string only, `"eq" true` the JSON boolean, and a nil `eq` (for example `.Attrs.missing`) matches nothing, so guard optional values with `{{with}}`. Keys are `[A-Za-z0-9_-]`, at most 64 |
 | `author` | person slug (a `person` entity; see Authors). A person who is not public matches nothing |
 | `term` | `"<kind>:<slug>"`, e.g. `"category:news"` |
-| `order` | `-published_at` (default), `published_at`, `name`, `-name`, `attr:<key>`, `-attr:<key>`. Attribute order sorts numeric values as numbers (so part 2 precedes part 10), then other text; entities without the attribute come last |
+| `order` | `-published_at` (default), `published_at`, `name`, `-name`, `attr:<key>`, `-attr:<key>`, `manual` (the order set on the Reorder page: parents first, then position, ties by creation date then id; opt-in, the default is unchanged). Attribute order sorts numeric values as numbers (so part 2 precedes part 10), then other text; entities without the attribute come last |
 | `limit` | 1..100, default 12 |
 | `status` | `published` (default) or `published+scheduled`: scheduled items are listed for a "Publishing <date>" row and carry only `Name`, `Title`, `Schema`, `PublishedAt` and, in `Attrs`, just the `attr` filter key and the `attr:<key>` order key (so a series part number is available). `URL`, `Excerpt`, `Image`, `Category`, `Author`, `AuthorURL`, `WordCount`, `ReadingTime` and every other attribute are empty, so embargoed content never leaks. Drafts and archived items never appear; any other value means `published` |
 | `page` | 1..1000 and at most `Pages`: a page past the end returns the last page |
@@ -524,6 +524,8 @@ gives no items and the page still renders.
   `call .Related 3`; pass `$` inside a `range`). Limits are clamped to 1..50.
 - `terms "category" 10`: terms of a kind (any kind) with published entities,
   most used first (`.Name`, `.URL`, `.Count`, `.Description`, `.Parent`).
+  A third argument `"manual"` (`terms "category" 10 "manual"`) lists them in the
+  order set under Settings > Taxonomies instead, then by name.
 - `menu "header"`: the items of the menu at a location, like `.Site.Nav`.
 - `paginate .Pagination`: page links `{N, URL, Current, Gap}` for the first,
   last and current-±2 pages, with gaps.
