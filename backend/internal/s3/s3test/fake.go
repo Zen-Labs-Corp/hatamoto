@@ -56,6 +56,9 @@ type Server struct {
 	PageSize int
 	// FailPart, when >0, answers that part number with a 500.
 	FailPart int
+	// Tamper, when set, may change an object right after it was stored, to
+	// model a provider that keeps something other than what it was sent.
+	Tamper func(key string, o *Object)
 
 	mu      sync.Mutex
 	objects map[string]Object
@@ -173,7 +176,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		delete(s.uploads, q.Get("uploadId"))
 		w.WriteHeader(http.StatusNoContent)
 	case r.Method == http.MethodPut:
-		s.objects[key] = Object{Data: body, Meta: metaOf(r)}
+		s.store(key, Object{Data: body, Meta: metaOf(r)})
 		w.Header().Set("ETag", etag(body))
 	case r.Method == http.MethodDelete:
 		delete(s.objects, key)
@@ -278,9 +281,16 @@ func (s *Server) complete(w http.ResponseWriter, q map[string][]string, key stri
 		}
 		data = append(data, part...)
 	}
-	s.objects[key] = Object{Data: data, Meta: u.meta}
+	s.store(key, Object{Data: data, Meta: u.meta})
 	delete(s.uploads, id)
 	_, _ = io.WriteString(w, "<CompleteMultipartUploadResult><Key>"+key+"</Key></CompleteMultipartUploadResult>")
+}
+
+func (s *Server) store(key string, o Object) {
+	if s.Tamper != nil {
+		s.Tamper(key, &o)
+	}
+	s.objects[key] = o
 }
 
 func metaOf(r *http.Request) map[string]string {

@@ -97,25 +97,11 @@ func (s Settings) Validate() error {
 	if !contains(Services, s.Service) {
 		return fmt.Errorf("unknown service %q", s.Service)
 	}
-	if !regionPattern.MatchString(s.Region) {
-		return errors.New("region is required (lower-case letters, digits and dashes)")
+	if s.Service != ServiceAWS && len(s.Endpoint) > MaxEndpoint {
+		return errors.New("endpoint is too long")
 	}
-	if s.Service != ServiceAWS {
-		if len(s.Endpoint) > MaxEndpoint {
-			return errors.New("endpoint is too long")
-		}
-	}
-	if _, err := s3.ValidateEndpoint(s.EffectiveEndpoint()); err != nil {
+	if err := validateTarget(s.EffectiveEndpoint(), s.Region, s.Bucket, s.Prefix, s.AccessKey); err != nil {
 		return err
-	}
-	if !bucketPattern.MatchString(s.Bucket) || strings.Contains(s.Bucket, "..") {
-		return errors.New("bucket must be 3 to 63 characters: lower-case letters, digits, dots and dashes")
-	}
-	if err := validatePrefix(s.Prefix); err != nil {
-		return err
-	}
-	if s.AccessKey == "" || len(s.AccessKey) > MaxAccessKey || strings.ContainsAny(s.AccessKey, " \t\r\n") {
-		return errors.New("access key is required")
 	}
 	if s.Enabled && !s.HasSecret() {
 		return errors.New("secret key is required")
@@ -125,6 +111,26 @@ func (s Settings) Validate() error {
 	}
 	if s.Keep < MinKeep || s.Keep > MaxKeep {
 		return fmt.Errorf("keep must be between %d and %d", MinKeep, MaxKeep)
+	}
+	return nil
+}
+
+// validateTarget checks the fields that locate and open a bucket.
+func validateTarget(endpoint, region, bucket, prefix, accessKey string) error {
+	if !regionPattern.MatchString(region) {
+		return errors.New("region is required (lower-case letters, digits and dashes)")
+	}
+	if _, err := s3.ValidateEndpoint(endpoint); err != nil {
+		return err
+	}
+	if !bucketPattern.MatchString(bucket) || strings.Contains(bucket, "..") {
+		return errors.New("bucket must be 3 to 63 characters: lower-case letters, digits, dots and dashes")
+	}
+	if err := validatePrefix(prefix); err != nil {
+		return err
+	}
+	if accessKey == "" || len(accessKey) > MaxAccessKey || strings.ContainsAny(accessKey, " \t\r\n") {
+		return errors.New("access key is required")
 	}
 	return nil
 }
