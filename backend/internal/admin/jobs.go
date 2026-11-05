@@ -2,12 +2,14 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/worker"
 )
 
 // JobsService is the scheduled-jobs overview behind Settings > Jobs.
@@ -54,6 +56,7 @@ const jobsPath = "/settings/jobs"
 
 func (a *Admin) mountJobs(owner *httpx.Group) {
 	owner.HandleFunc("GET "+jobsPath, a.handleJobs)
+	owner.HandleFunc("POST "+jobsPath+"/{id}/run", a.handleJobRun)
 }
 
 func (a *Admin) jobsService(w http.ResponseWriter, r *http.Request) (JobsService, bool) {
@@ -119,6 +122,9 @@ func (a *Admin) jobsTable(r *http.Request, v JobsView) ui.Table {
 		row := ui.Row{ID: j.ID, Label: j.Name, Cells: []ui.Cell{
 			{Text: j.Name, Sub: j.ID}, {Text: j.Schedule}, {Text: last, Nowrap: true}, {Text: took, Nowrap: true}, jobResult(j), {Text: next, Nowrap: true},
 		}}
+		if j.CanRun {
+			row.Actions = []ui.Action{{Label: "Run now", Post: a.adminPath + jobsPath + "/" + j.ID + "/run", Button: true, AriaLabel: "Run " + j.Name + " now"}}
+		}
 		t.Rows = append(t.Rows, row)
 	}
 	return t
@@ -143,4 +149,48 @@ func (a *Admin) handleJobs(w http.ResponseWriter, r *http.Request) {
 		Drain      bool
 	}{a.jobsTable(r, snap), snap.WorkerHere, snap.Drain}
 	a.Render(w, r, http.StatusOK, "settings/jobs", v)
+}
+
+func (a *Admin) handleJobRun(w http.ResponseWriter, r *http.Request) {
+	svc, ok := a.jobsService(w, r)
+	if !ok {
+		return
+	}
+	id := r.PathValue("id")
+	back, backLabel := a.adminPath+jobsPath, "Back to Jobs"
+	res, err := svc.RunNow(r.Context(), id)
+	switch {
+	case errors.Is(err, worker.ErrAlreadyRunning):
+		a.ErrorBack(w, r, http.StatusConflict, "Already running", "This job is running right now. Wait for it to finish.", back, backLabel)
+		return
+	case errors.Is(err, worker.ErrNotSafe):
+		a.ErrorBack(w, r, http.StatusForbidden, "Cannot run this job", "This job cannot be run by hand.", back, backLabel)
+		return
+	case errors.Is(err, worker.ErrUnknownJob):
+		a.ErrorBack(w, r, http.StatusNotFound, "Job not found", "There is no such job.", back, backLabel)
+		return
+	case errors.Is(err, worker.ErrNotRunning):
+		a.ErrorBack(w, r, http.StatusConflict, "Worker is not running", "This server process does not run the worker, so it cannot run jobs.", back, backLabel)
+		return
+	case err != nil:
+		a.logger().Error("run job now failed", "job", id, "err", err)
+		a.ErrorBack(w, r, http.StatusInternalServerError, "Something went wrong", "The job could not be started.", back, backLabel)
+		return
+	}
+	switch {
+	case res.Started:
+		a.audit(r, "jobs.run", id, map[string]any{"started": true})
+		a.SetFlash(w, r, "info", "Job \""+res.Name+"\" started and is still running. The result appears here when it is done.")
+	case res.OK:
+		a.audit(r, "jobs.run", id, map[string]any{"ok": true, "duration_ms": res.Took.Milliseconds()})
+		a.SetFlash(w, r, "success", "Job \""+res.Name+"\" ran: OK in "+jobTook(res.Took)+".")
+	default:
+		a.audit(r, "jobs.run", id, map[string]any{"ok": false, "duration_ms": res.Took.Milliseconds()})
+		msg := "Job \"" + res.Name + "\" ran: Failed in " + jobTook(res.Took)
+		if res.Error != "" {
+			msg += ": " + res.Error
+		}
+		a.SetFlash(w, r, "error", fullStop(msg))
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }
