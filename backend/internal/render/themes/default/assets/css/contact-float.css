@@ -1,0 +1,25 @@
+/* Floating contact link: one fixed link, text is its name. */
+.hm-contact-float {
+  position: fixed;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border-radius: 999px;
+  background: var(--hm-primary);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+.hm-contact-float--bottom-right { right: calc(1rem + env(safe-area-inset-right)); }
+.hm-contact-float--bottom-left { left: calc(1rem + env(safe-area-inset-left)); }
+.hm-contact-float:hover { filter: brightness(0.88); }
+.hm-contact-float:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; box-shadow: 0 0 0 3px var(--hm-primary), 0 0 0 6px #fff; }
+@media print { .hm-contact-float { display: none; } }

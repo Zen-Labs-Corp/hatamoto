@@ -139,3 +139,33 @@ func validMailbox(s string) bool {
 	a, err := mail.ParseAddress(s)
 	return err == nil && a.Address == s
 }
+
+// floatLink is what the contact-float partial prints.
+type floatLink struct {
+	Href            template.URL
+	Label, Position string
+}
+
+// contactFloatLink is the floating contact link of a page, nil when there is
+// none to print: disabled, no number or address to link to, or a render that
+// is not a public page (editor preview, canvas). The 404, error and access
+// renders clear the setting before they get here.
+func contactFloatLink(d *pageData) *floatLink {
+	if d == nil {
+		return nil
+	}
+	v := &d.PageView
+	if !v.Site.ContactFloat.Enabled || v.Preview || v.Canvas {
+		return nil
+	}
+	f := v.Site.ContactFloat
+	href, ok := contactLink(f.Channel, f.To, f.Message, contactDefaultsOf(v))
+	if !ok {
+		return nil
+	}
+	pos := "bottom-right"
+	if f.Position == "bottom-left" {
+		pos = "bottom-left"
+	}
+	return &floatLink{Href: href, Label: contactLabel(f.Channel, f.Label), Position: pos}
+}
