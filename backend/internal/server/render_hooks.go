@@ -76,6 +76,7 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		formPost:   s.handlePublicFormPost,
 		keyFile:    s.indexNowKeyFile,
 		capture:    capture,
+		preview:    s.handlePreviewShare,
 	})
 }
 
@@ -97,6 +98,9 @@ type renderRoutes struct {
 	keyFile func(ctx context.Context, name string) (key string, ok bool)
 	// capture (optional) records AI-agent hits on every crawler-visible route.
 	capture func(http.Handler) http.Handler
+	// preview (optional) serves a shared draft preview link. It is mounted
+	// outside capture and the page cache.
+	preview http.HandlerFunc
 }
 
 func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
@@ -134,6 +138,14 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 	// must not share a budget.
 	formLimiter := middleware.NewRateLimiter(0.1, 5)
 	handleCORS(r, http.MethodPost, "/forms/{slug}/submit", rt.formPost, formLimiter.Middleware)
+
+	if rt.preview != nil {
+		// Own limiter: the token is a bearer secret, so guessing is throttled
+		// per client. The route is not in capture: nothing about it is logged
+		// as page traffic.
+		previewLimiter := middleware.NewRateLimiter(1, 20)
+		r.HandleFunc("GET "+previewPathPrefix+"{token}", previewLimiter.Middleware(http.HandlerFunc(rt.preview)).ServeHTTP)
+	}
 
 	r.Group("", capture).HandleFunc("GET /", rt.pages.handleRenderHome)
 	page := capture(http.HandlerFunc(rt.pages.handleRenderCatchAll))

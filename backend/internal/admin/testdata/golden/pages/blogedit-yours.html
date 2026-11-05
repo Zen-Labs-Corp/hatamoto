@@ -205,6 +205,17 @@
 </div>
 </div>
 <div class="hm-field">
+<label class="hm-field__label" for="unpublish_at">Unpublish at</label>
+<input class="hm-field__control" type="datetime-local" id="unpublish_at" name="unpublish_at" aria-describedby="unpublish_at-help">
+<p class="hm-field__help" id="unpublish_at-help">The page goes back to draft then. Times are in UTC.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="unpublish_redirect">When it unpublishes, send visitors to</label>
+<input class="hm-field__control" type="text" id="unpublish_redirect" name="unpublish_redirect" aria-describedby="unpublish_redirect-help" autocomplete="off">
+<p class="hm-field__help" id="unpublish_redirect-help">A path such as /news, or a full https address. Leave blank: the page is gone.</p>
+</div>
+
+<div class="hm-field">
 <label class="hm-field__label" for="slug">Slug</label>
 <input class="hm-field__control" type="text" id="slug" name="slug" value="go-servers" aria-describedby="slug-help" autocomplete="off" data-hm-slug-auto="1" data-hm-slug-from="name">
 <p class="hm-field__help" id="slug-help">Follows the title until you change it.</p>

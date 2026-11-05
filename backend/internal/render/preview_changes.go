@@ -100,3 +100,26 @@ func spliceAt(out []byte, at int, ins []byte) []byte {
 	res = append(res, ins...)
 	return append(res, out[at:]...)
 }
+
+// draftBannerStyle styles the banner of a shared draft preview. Inline, no
+// script, no reference to admin CSS.
+const draftBannerStyle = `<style data-hm-preview-style>` +
+	`.hm-preview-banner{margin:0;padding:.6rem 1rem;background:#8a5a14;color:#fff;font:14px/1.4 system-ui,sans-serif;text-align:center}` +
+	`.hm-preview-banner strong{font-weight:700}` +
+	`</style>`
+
+// markDraftBanner adds the banner of a shared draft preview. Other renders
+// pass through untouched.
+func markDraftBanner(out []byte, v *PageView) []byte {
+	if v == nil || !v.Preview || !v.DraftBanner {
+		return out
+	}
+	if i := bytes.Index(out, []byte("</head>")); i >= 0 {
+		out = spliceAt(out, i, []byte(draftBannerStyle))
+	}
+	banner := `<p class="hm-preview-banner" role="note"><strong>Preview of a draft.</strong> Not public.</p>`
+	if loc := bodyOpenRe.FindIndex(out); loc != nil {
+		out = spliceAt(out, loc[1], []byte(banner))
+	}
+	return out
+}

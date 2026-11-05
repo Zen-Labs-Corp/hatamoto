@@ -125,6 +125,10 @@ type LiveFunc func(ctx context.Context, ids []uuid.UUID)
 // published or imported; nil disables it.
 func (s *Service) SetLiveObserver(f LiveFunc) { s.live = f }
 
+// SetArchiveObserver installs the callback run after an entity was archived;
+// nil disables it. The server wires it to revoke the entity's preview links.
+func (s *Service) SetArchiveObserver(f LiveFunc) { s.archived = f }
+
 func (s *Service) fireLive(ctx context.Context, ids ...uuid.UUID) {
 	if s.live != nil && len(ids) > 0 {
 		s.live(ctx, ids)

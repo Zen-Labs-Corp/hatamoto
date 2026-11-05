@@ -48,8 +48,8 @@ func (a *Admin) handleBuilderScreen(w http.ResponseWriter, r *http.Request, e *e
 
 // builderShell is what the shell's markup needs beyond the outline's data.
 type builderShell struct {
-	SchemaName, ListHref, VersionsHref, ViewHref, DeleteHref, DuplicateHref string
-	StatusBadge                                                             *ui.Badge
+	SchemaName, ListHref, VersionsHref, ViewHref, DeleteHref, DuplicateHref, ShareHref string
+	StatusBadge                                                                        *ui.Badge
 	// Boot is the whole <script type="application/json"> element the screen
 	// module starts from. html/template would JS-escape a value placed in a
 	// script element, so the element is built here: json.Marshal escapes <, > and
@@ -95,6 +95,7 @@ func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.E
 	sh := &builderShell{
 		SchemaName: sc.Name + "s", ListHref: a.adminPath + "/entities?type=" + url.QueryEscape(sc.Slug),
 		VersionsHref: a.adminPath + "/entities/" + id + "/versions", DeleteHref: a.adminPath + "/entities/" + id + "/delete", DuplicateHref: a.duplicateHref(r, sc, id), StatusBadge: statusBadge(e.Status),
+		ShareHref: a.shareHrefFor(id, string(e.Status)),
 	}
 	if c := a.deps.Content; c.PublicPath != nil && e.Status == entity.StatusPublished {
 		e.Schema = sc

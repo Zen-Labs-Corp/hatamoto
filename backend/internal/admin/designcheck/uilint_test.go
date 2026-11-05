@@ -149,6 +149,8 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-10", File: "pages/settings/backups.html", Needle: `id="offsite-run-form"`, Reason: "Back up and upload now, a card action that starts a background job and takes no input"},
 	{Rule: "UI-10", File: "pages/settings/backups.html", Needle: `id="backup-form"`, Reason: "Back up now, a header action that starts a background job and takes no input, so there is nothing to put in a dialog"},
 
+	{Rule: "UI-10", File: "pages/entities/share.html", Needle: `action="{{.Action}}"`, Reason: "the lifetime picker of the share page: its result (a link shown once) has to appear on the page, and the table below lists the active links"},
+
 	// UI-02: selectors that name the class, not markup that uses it.
 	{Rule: "UI-02", File: "css/base.css", Needle: "html:has(.hm-savebar)", Reason: "reserves scroll space when a sticky footer exists"},
 

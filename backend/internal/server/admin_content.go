@@ -25,6 +25,10 @@ func (s *Server) contentDeps() admin.ContentDeps {
 	var d admin.ContentDeps
 	if s.entityService != nil {
 		d.Entities = s.entityService
+		d.Unpublish = s.entityService
+		if s.previewLinks != nil {
+			d.PreviewLinks = s.previewLinks
+		}
 		if s.db != nil {
 			repo := entity.NewPostgresPublicRepository(s.db)
 			d.PublicPath = func(ctx context.Context, e *entity.Entity) string {

@@ -17,7 +17,7 @@
 {{else}}{{template "hm/button" (dict "Label" "Save draft" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "save"))}}
 {{template "hm/button" (dict "Label" "Publish" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "hm-be" "name" "_op" "value" "publish"))}}{{end}}
 {{template "hm/button" (dict "Label" "More actions" "AriaLabel" "More actions" "IconOnly" true "Icon" "more" "Variant" "ghost" "Attrs" (attrmap "aria-haspopup" "menu" "aria-expanded" "false" "popovertarget" "be-more"))}}
-<div class="hm-menu" id="be-more" popover role="menu" aria-label="More actions"><a role="menuitem" href="{{.VersionsHref}}">Versions</a><a role="menuitem" href="{{.DetailsHref}}">Details</a>{{with .ViewHref}}<a role="menuitem" href="{{.}}">View on site</a>{{end}}
+<div class="hm-menu" id="be-more" popover role="menu" aria-label="More actions"><a role="menuitem" href="{{.VersionsHref}}">Versions</a><a role="menuitem" href="{{.DetailsHref}}">Details</a>{{with .ShareHref}}<a role="menuitem" href="{{.}}">Share preview</a>{{end}}{{with .ViewHref}}<a role="menuitem" href="{{.}}">View on site</a>{{end}}
 <button type="button" role="menuitem" class="hm-be__menu-drawer" hidden data-hm-be-settings>Settings</button>
 <button type="button" role="menuitem" class="hm-be__menu-narrow" hidden data-hm-be-proxy="focus">Focus mode</button>
 <button type="button" role="menuitem" class="hm-be__menu-narrow" hidden data-hm-be-proxy="toolbar">Formatting toolbar</button>
@@ -81,6 +81,7 @@
 <footer>{{template "hm/button" (dict "Label" "Cancel" "Attrs" (attrmap "popovertarget" "be-sched-pop" "popovertargetaction" "hide"))}}{{template "hm/button" (dict "Label" "Apply" "Variant" "primary" "Attrs" (attrmap "data-hm-be-sched-apply" ""))}}</footer>
 </div>
 </div>
+{{template "hm/unpublishfields" .}}
 {{template "hm/field" dict "ID" "slug" "Name" "slug" "Label" "Slug" "Value" .Slug "Help" (or (and .SlugAuto "Follows the title until you change it.") "The address of this post. Changing it after publishing breaks links.") "Error" (index .Errors "slug") "Attrs" (attrmap "autocomplete" "off" "data-hm-slug-from" "name" "data-hm-slug-auto" (or (and .SlugAuto "1") "0"))}}
 </div>
 {{template "hm/card-end"}}

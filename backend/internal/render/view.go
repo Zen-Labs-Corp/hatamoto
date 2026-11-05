@@ -142,6 +142,9 @@ type PageView struct {
 	// Changes marks the new and changed parts of a changeset preview. Only the
 	// changeset preview sets it; nil renders exactly as before.
 	Changes *PageChanges
+	// DraftBanner adds the "Preview of a draft" banner of a shared preview
+	// link (with Preview). It marks no changes.
+	DraftBanner bool
 	// Canvas marks an admin canvas render: html-kind bodies carry data-hm-text
 	// editor markers (see canvas_text.go).
 	Canvas bool

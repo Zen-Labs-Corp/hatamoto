@@ -116,6 +116,11 @@ type entityForm struct {
 	IsPerson       bool // a person's visibility is its Public switch: no status or schedule
 	StatusOptions  []ui.Option
 	Schedule, Zone string
+	// UnpublishAt, UnpublishRedirect are the scheduled unpublish (site time, form layout);
+	// UnpublishPosted is true when the form carried the fields.
+	UnpublishAt, UnpublishRedirect string
+	UnpublishPosted                bool
+	ShowUnpublish                  bool
 	// Locale is the entry's locale; LocaleOptions are the site's locales. ShowLocale
 	// is false on a single-locale site and for a shared entry, which gets SharedNote.
 	Locale               string
@@ -541,6 +546,10 @@ func (a *Admin) fill(r *http.Request, f *entityForm, sc *entity.EntitySchema, se
 	f.StatusOptions = entityStatusOptions(f.Status)
 	f.SchemaSlug, f.SchemaName = sc.Slug, sc.Name
 	f.IsPerson = sc.Slug == person.SchemaSlug
+	f.ShowUnpublish = !f.IsPerson && c.Unpublish != nil
+	if f.ShowUnpublish && self != nil && !f.New {
+		a.fillUnpublish(ctx, f, self)
+	}
 	if self != nil && !f.New {
 		a.fillLocale(ctx, f, self)
 	}
@@ -736,6 +745,9 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 		f.Actions = append(f.Actions, ui.Button{Label: "Visual editor", Href: f.EditorURL})
 	}
 	f.Overflow = nil
+	if href := a.shareHrefFor(f.ID, f.Status); !f.New && href != "" {
+		f.Overflow = append(f.Overflow, ui.Action{Label: "Share preview", Hint: "Make a link to this draft", Href: href})
+	}
 	if href := a.duplicateHref(r, sc, f.ID); !f.New && href != "" {
 		f.Overflow = append(f.Overflow, ui.Action{Label: "Duplicate", Hint: "Copy into a new draft", Post: href})
 	}
@@ -961,6 +973,7 @@ func (a *Admin) readEntityForm(r *http.Request, sc *entity.EntitySchema, prev ma
 		Schedule: strings.TrimSpace(r.PostFormValue("schedule")), SEO: seoFromForm(r), NewAuthor: strings.TrimSpace(r.PostFormValue("new_author")),
 		NewTermName: strings.TrimSpace(r.PostFormValue("new_term_name")), NewTermKind: r.PostFormValue("new_term_kind"), NewTerms: newTermsFrom(r), Errors: map[string]string{},
 	}}
+	readUnpublish(r, p.f)
 	if p.f.Status == "" {
 		p.f.Status = "draft" // a form that omits it (the API client of a script) keeps drafts as drafts
 	}
@@ -1008,6 +1021,7 @@ func (a *Admin) validateEntityForm(r *http.Request, p *posted, sc *entity.Entity
 			f.Errors["schedule"] = msg
 		}
 	}
+	a.unpublishErrors(r, f, current)
 	var storedCanonical string
 	if current != nil {
 		storedCanonical = seoFrom(attrsMap(current.Attributes)).Canonical
@@ -1261,6 +1275,11 @@ func (a *Admin) afterSave(r *http.Request, p *posted, e *entity.Entity, sc *enti
 			notes = append(notes, "The status could not be set: "+entityErrorText(err))
 		} else {
 			a.auditEntity(r, auditStatusAction(want), e.ID, e, map[string]any{"schema": sc.Slug, "from": string(before), "to": string(want)})
+		}
+	}
+	if sc.Slug != person.SchemaSlug {
+		if note := a.saveUnpublish(r, p, e, sc.Slug); note != "" {
+			notes = append(notes, note)
 		}
 	}
 	if c.Terms != nil && p.termsSet {

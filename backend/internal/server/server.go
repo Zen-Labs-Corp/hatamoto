@@ -48,6 +48,7 @@ import (
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/previewlink"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/sectiontemplate"
@@ -112,6 +113,7 @@ type Server struct {
 	apiCSRFKeyOnce         sync.Once
 	apiCSRFKeyVal          []byte
 	entityService          *entity.Service
+	previewLinks           *previewlink.Store // shared draft preview links; nil without a database
 	mediaService           *media.Service
 	logoSizes              logoSizeCache // logo pixel sizes by URL; see render_logo.go
 	menuService            *menu.Service
@@ -409,6 +411,9 @@ func (s *Server) setupDependencies() {
 	s.entityService.SetPathObserver(s.onEntityMoved)
 	s.entityService.SetSchemaPatternObserver(s.onSchemaPatternChanged)
 	s.entityService.SetLiveObserver(s.onEntitiesLive)
+	s.entityService.SetArchiveObserver(s.revokePreviewLinks)
+	s.entityService.SetUnpublishStore(entity.NewUnpublishStore(s.db))
+	s.previewLinks = previewlink.New(s.db)
 	// {year}/{month}/{day} URL tokens are read in the site time zone.
 	s.entityService.URLRegistry().SetTimezone(func(ctx context.Context) string {
 		if cfg, err := s.siteConfig.Get(ctx); err == nil {
@@ -565,6 +570,7 @@ func (s *Server) setupDependencies() {
 		publishWorker.SetEvents(scheduledPublishSink{s: s, next: s.entitySink})
 		if workerJobEnabled("publish") {
 			s.scheduler.SetPublishWorker(publishWorker)
+			s.scheduler.SetUnpublishWorker(worker.NewUnpublishWorker(s.db, s.logger, unpublishSink{s: s}))
 		}
 
 		// Daily retention purge: expired sessions (previously no scheduled caller).
@@ -682,8 +688,8 @@ func (s *Server) buildHandler() http.Handler {
 		// Security headers — applied first so every response includes them.
 		s.securityHeadersMiddleware,
 		// Logging and recovery
-		middleware.RecoveryLogger(s.logger, s.redactAdminPath),
-		middleware.RequestLogger(s.logger, s.redactAdminPath),
+		middleware.RecoveryLogger(s.logger, s.redactLogPath),
+		middleware.RequestLogger(s.logger, s.redactLogPath),
 		requestIDMiddleware,
 		expireLegacyCookies(legacy, s.logger),
 		// Outside the intercept and the demo banner (which needs plain bytes), inside

@@ -137,6 +137,17 @@
 <input class="hm-field__control" type="datetime-local" id="schedule" name="schedule" aria-describedby="schedule-help">
 <p class="hm-field__help" id="schedule-help">Used when the status is Scheduled. Times are in UTC.</p>
 </div>
+<div class="hm-field">
+<label class="hm-field__label" for="unpublish_at">Unpublish at</label>
+<input class="hm-field__control" type="datetime-local" id="unpublish_at" name="unpublish_at" aria-describedby="unpublish_at-help">
+<p class="hm-field__help" id="unpublish_at-help">The page goes back to draft then. Times are in UTC.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="unpublish_redirect">When it unpublishes, send visitors to</label>
+<input class="hm-field__control" type="text" id="unpublish_redirect" name="unpublish_redirect" aria-describedby="unpublish_redirect-help" autocomplete="off">
+<p class="hm-field__help" id="unpublish_redirect-help">A path such as /news, or a full https address. Leave blank: the page is gone.</p>
+</div>
+
 <div class="hm-field" id="parent-picker">
 <label class="hm-field__label" for="parent">Parent</label>
 <input type="hidden" name="parent_orig" value="">

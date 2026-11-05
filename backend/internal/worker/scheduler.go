@@ -40,6 +40,7 @@ func DrainMode() bool {
 type Scheduler struct {
 	db                         *database.DB
 	publishWorker              *PublishWorker
+	unpublishWorker            *UnpublishWorker
 	retentionWorker            *RetentionPurgeWorker
 	agentHitsPartitionWorker   *PartitionWorker
 	agentHitsMaintenanceWorker *AgentHitsMaintenanceWorker
@@ -98,6 +99,12 @@ func NewScheduler(db *database.DB, logger *slog.Logger) *Scheduler {
 // set, the scheduler promotes due `scheduled` entities once a minute.
 func (s *Scheduler) SetPublishWorker(worker *PublishWorker) {
 	s.publishWorker = worker
+}
+
+// SetUnpublishWorker registers the scheduled-unpublish worker (optional). It
+// runs on the publish tick, so it only runs when the publish worker is set.
+func (s *Scheduler) SetUnpublishWorker(worker *UnpublishWorker) {
+	s.unpublishWorker = worker
 }
 
 // SetRetentionPurgeWorker registers the daily session + remember-token purge.
@@ -437,5 +444,10 @@ func (s *Scheduler) processScheduledPublishes(ctx context.Context) {
 	defer cancel()
 	if _, err := s.publishWorker.Run(jobCtx); err != nil {
 		s.logger.Error("scheduled publish failed", slog.Any("error", err))
+	}
+	if s.unpublishWorker != nil {
+		if _, err := s.unpublishWorker.Run(jobCtx); err != nil {
+			s.logger.Error("scheduled unpublish failed", slog.Any("error", err))
+		}
 	}
 }

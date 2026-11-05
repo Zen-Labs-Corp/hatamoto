@@ -67,6 +67,8 @@ type Service struct {
 	patternChanged SchemaPatternFunc
 	live           LiveFunc
 	reuse          ReuseStatus
+	unpublish      *UnpublishStore
+	archived       LiveFunc
 }
 
 // NewService creates a new entity service.
@@ -714,6 +716,9 @@ func (s *Service) UpdateEntityStatus(ctx context.Context, id uuid.UUID, userID *
 	if status == StatusPublished {
 		s.fireLive(ctx, entity.ID)
 	}
+	if status == StatusArchived && s.archived != nil {
+		s.archived(ctx, []uuid.UUID{entity.ID})
+	}
 	if status == StatusPublished && prevStatus != StatusPublished {
 		s.emit(ctx, EventPublished, entity, schemaSlug, withPrevStatus(prevStatus))
 	} else {
@@ -1084,4 +1089,44 @@ func (s *Service) personChanged(ctx context.Context, e *Entity) {
 		s.logger.Error("failed to sync the author mirror of a person",
 			slog.String("entity_id", e.ID.String()), slog.String("error", err.Error()))
 	}
+}
+
+// SetUnpublishStore installs the store behind SetUnpublish and friends; nil
+// disables scheduled unpublish.
+func (s *Service) SetUnpublishStore(st *UnpublishStore) { s.unpublish = st }
+
+// UnpublishStore returns the store, or nil when none is installed.
+func (s *Service) UnpublishStore() *UnpublishStore { return s.unpublish }
+
+// SetUnpublish schedules the entity to leave the site at at, optionally
+// leaving a redirect to target behind.
+func (s *Service) SetUnpublish(ctx context.Context, id uuid.UUID, at time.Time, target string) error {
+	if s.unpublish == nil {
+		return errors.New("scheduled unpublish is not available")
+	}
+	return s.unpublish.Set(ctx, id, at, target)
+}
+
+// ClearUnpublish removes a pending scheduled unpublish.
+func (s *Service) ClearUnpublish(ctx context.Context, id uuid.UUID) error {
+	if s.unpublish == nil {
+		return nil
+	}
+	return s.unpublish.Clear(ctx, id)
+}
+
+// UnpublishFor returns the pending scheduled unpublish, or nil.
+func (s *Service) UnpublishFor(ctx context.Context, id uuid.UUID) (*Unpublish, error) {
+	if s.unpublish == nil {
+		return nil, nil
+	}
+	return s.unpublish.Get(ctx, id)
+}
+
+// UnpublishMap returns the pending scheduled unpublishes of ids.
+func (s *Service) UnpublishMap(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Unpublish, error) {
+	if s.unpublish == nil {
+		return map[uuid.UUID]Unpublish{}, nil
+	}
+	return s.unpublish.Map(ctx, ids)
 }
