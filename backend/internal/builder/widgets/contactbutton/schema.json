@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-hm": {
+    "label": "Contact button",
+    "hint": "A link that opens WhatsApp, a call, a text or an email",
+    "group": "Content",
+    "order": 25,
+    "default": {"channel": "whatsapp"}
+  },
+  "properties": {
+    "channel": {"enum": ["whatsapp", "call", "sms", "email"]},
+    "to": {"type": "string", "maxLength": 120},
+    "message": {"type": "string", "maxLength": 500},
+    "label": {"x-hm-bind": "text", "type": "string", "maxLength": 120},
+    "hidden": {"type": "boolean"}
+  }
+}

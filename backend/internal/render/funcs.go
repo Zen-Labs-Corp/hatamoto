@@ -29,6 +29,7 @@ func baseFuncs() template.FuncMap {
 		"safeurl":              safeHref,
 		"safeHref":             safeHref,
 		"telHref":              telHref,
+		"contactFloat":         contactFloatLink,
 		"embedAllowed":         embedAllowed,
 		"imgsrc":               imgSrc,
 		"dict":                 dict,

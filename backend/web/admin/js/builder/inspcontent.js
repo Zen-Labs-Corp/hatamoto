@@ -17,6 +17,14 @@ const INLINE = new Set(["heading", "text"]); // edited with the inline editor
 const ITEMS = new Set(["tabs", "accordion", "gallery", "list"]); // the Items panel (items.js) edits their entries
 const plainEnum = (v) => title(String(v).replaceAll("-", " ")); // icon ids as names: "alert-circle" -> "Alert circle" (no preview: the client has no icon set)
 
+// The Contact button's own wording: the channel as labelled choices, the number/address field with its hint.
+const CONTACT_CHANNELS = { whatsapp: "WhatsApp", call: "Phone", sms: "SMS", email: "Email" };
+const CONTACT_FIELDS = {
+  to: { name: "Number / address", placeholder: "Blank = business profile", help: "A phone number or an email address. Leave it blank to use the business profile." },
+  message: { name: "Prefilled message", placeholder: "Hello, I have a question", help: "" },
+  label: { name: "Label", placeholder: "Chat on WhatsApp", help: "" },
+};
+
 // The order the Content tab lists a kind's props in: the first ones in this order, any other after them (as the server lists them).
 const ORDER = { heading: ["text", "level"], button: ["text", "href"], image: ["src", "alt", "caption", "href", "lightbox"] };
 export const orderProps = (node, props) => {
@@ -133,7 +141,8 @@ export function createContent(ctx) {
   function baseField(node, p) {
     const id = `hm-bs-p${++uid}`;
     const cur = node.p?.[p.key];
-    const name = propName(p.key);
+    const contact = node.t === "contactbutton" ? CONTACT_FIELDS[p.key] : undefined;
+    const name = contact?.name ?? propName(p.key);
     const err = h("span", { class: "hm-bs-err", id: `${id}-e`, hidden: true, text: "A value is required." });
     let el;
     const extra = [];
@@ -209,6 +218,21 @@ export function createContent(ctx) {
       el = h("div", { class: "hm-bs-opts", role: "group", "aria-labelledby": lid }, ...btns);
       return h("div", { class: "hm-field hm-bs-field" }, h("span", { class: "hm-field__label", id: lid, text: name }), el, err);
     }
+    if (node.t === "contactbutton" && p.key === "channel") {
+      // the channel as labelled choices (one click each, the current one pressed), not the raw ids
+      const lid = `${id}-l`;
+      const cur2 = String(cur ?? p.enum[0]);
+      const btns = p.enum.map((v) => {
+        const b = h("button", { type: "button", class: "hm-bs-opt", "aria-pressed": String(String(v) === cur2), text: CONTACT_CHANNELS[v] ?? plainEnum(v) });
+        b.addEventListener("click", () => {
+          for (const o of btns) o.setAttribute("aria-pressed", String(o === b));
+          apply(String(v));
+        });
+        return b;
+      });
+      el = h("div", { class: "hm-bs-opts", role: "group", "aria-labelledby": lid }, ...btns);
+      return h("div", { class: "hm-field hm-bs-field" }, h("span", { class: "hm-field__label", id: lid, text: name }), el, err);
+    }
     if (kind === "select") {
       el = h("select", { id, class: "hm-field__control", "aria-describedby": `${id}-e` });
       if (!p.required) el.append(h("option", { value: "", text: "Not set" }));
@@ -238,6 +262,11 @@ export function createContent(ctx) {
       if (kind === "lines") {
         el.setAttribute("aria-describedby", `${id}-e ${id}-h`);
         extra.push(h("span", { class: "hm-muted", id: `${id}-h`, text: "One item per line." }));
+      }
+      if (contact?.placeholder) el.setAttribute("placeholder", contact.placeholder);
+      if (contact?.help) {
+        el.setAttribute("aria-describedby", `${id}-e ${id}-h`);
+        extra.push(h("span", { class: "hm-muted", id: `${id}-h`, text: contact.help }));
       }
       el.value = cur ?? "";
       el.addEventListener("input", () => apply(el.value, { coalesce: true, label: `Change ${name}` }));

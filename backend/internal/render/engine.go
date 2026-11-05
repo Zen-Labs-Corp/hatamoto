@@ -773,6 +773,7 @@ func (e *Engine) RenderNotFound(w io.Writer, v *PageView) error {
 	nv := *v
 	nv.Sections, nv.Doc = nil, nil
 	nv.Kind = KindNotFound
+	nv.Site.ContactFloat = ContactFloat{}
 	nv.Page.NoIndex, nv.Page.RobotsRaw = true, ""
 	if nv.Page.Title == "" {
 		nv.Page.Title = "Page not found"
@@ -791,6 +792,7 @@ func (e *Engine) RenderAccess(w io.Writer, v *PageView, status int) error {
 	// The notice stands in for a site the visitor may not see: no menus, header
 	// button, social links, feeds or theme parts that could list its content.
 	nv.NoParts = true
+	nv.Site.ContactFloat = ContactFloat{}
 	nv.Site.Nav, nv.Site.FooterNav, nv.Site.SocialLinks = nil, nil, nil
 	nv.Site.HeaderCTA, nv.Site.Feeds = nil, nil
 	if nv.Access == nil {
@@ -806,6 +808,7 @@ func (e *Engine) RenderAccess(w io.Writer, v *PageView, status int) error {
 func (e *Engine) RenderError(w io.Writer, v *PageView, status int) error {
 	nv := *v
 	nv.Sections, nv.Doc = nil, nil // a failing component must not render again on the error page
+	nv.Site.ContactFloat = ContactFloat{}
 	nv.Page.NoIndex, nv.Page.RobotsRaw = true, ""
 	if nv.Page.Title == "" {
 		nv.Page.Title = http.StatusText(status)

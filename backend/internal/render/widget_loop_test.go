@@ -65,6 +65,9 @@ func widgetFixtureView(name string) *PageView {
 		v.Path = "/blog"
 		v.Pagination = NewPagination("/blog", nil, 2, 3, 7)
 	}
+	if name == "contactbutton" {
+		v.Contact = ContactView{Phone: "+41 79 123 45 67"}
+	}
 	return v
 }
 

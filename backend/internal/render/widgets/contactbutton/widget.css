@@ -1,0 +1,5 @@
+/* contactbutton: a button-looking link to WhatsApp, a call, a text or an email.
+   Natural width in a column container, label centred (inline-block, so the line box
+   is the button height); the colours come from .hm-btn. */
+.hm-contactbtn { display: inline-block; align-self: flex-start; width: auto; text-align: center; line-height: calc(2.5rem - 2px); }
+@media print { .hm-contactbtn { display: none; } }

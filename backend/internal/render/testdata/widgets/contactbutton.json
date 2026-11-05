@@ -1,0 +1,7 @@
+{"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
+  {"id":"wa","t":"contactbutton","p":{"channel":"whatsapp","to":"+41 79 123 45 67","message":"Hello & welcome"}},
+  {"id":"ph","t":"contactbutton","p":{"channel":"call","label":"Call the shop"}},
+  {"id":"sm","t":"contactbutton","p":{"channel":"sms","to":"079 123 45 67","message":"Hi there"}},
+  {"id":"em","t":"contactbutton","p":{"channel":"email","to":"hi@example.org","message":"Question"}},
+  {"id":"no","t":"contactbutton","p":{"channel":"email"}}
+]}]}

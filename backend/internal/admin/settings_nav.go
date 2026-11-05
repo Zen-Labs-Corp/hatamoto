@@ -57,7 +57,7 @@ var settingsLive = map[string]bool{
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "site-access": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
-	"privacy": true, "tracking": true,
+	"privacy": true, "tracking": true, "contact-button": true,
 	"user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
 }
 
@@ -92,6 +92,9 @@ var settingsRegistry = []settingsSectionDef{
 	}},
 	{ID: "tracking", Label: "Tracking", Icon: "tag", Desc: "Analytics, ad and chat tags.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "tracking", Label: "Tracking", Final: "/settings/tracking", Roles: ownerOnly},
+	}},
+	{ID: "contact-button", Label: "Contact button", Icon: "send", Desc: "A floating button that opens WhatsApp, a call, a text or an email.", Group: "Site", Tabs: []settingsTabDef{
+		{ID: "contact-button", Label: "Contact button", Final: "/settings/contact-button", Roles: ownerOnly},
 	}},
 	{ID: "users", Label: "Users", Icon: "users", Desc: "Who can sign in and what they can do.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "users", Label: "Users", Final: "/settings/users", Roles: ownerOnly},
