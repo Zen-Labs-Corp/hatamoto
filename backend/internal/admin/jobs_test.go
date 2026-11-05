@@ -60,7 +60,7 @@ func TestJobsPage(t *testing.T) {
 	for _, want := range []string{
 		`>Job</th>`, `<th scope="row"`, "This server process runs the worker.",
 		"Table prune", "1.3 s", "under 0.1 s", "Failed", "Last error: database is locked",
-		"Never run", "Turned off by server settings", "About 4 Nov 2026 08:00", "4 Nov 2026 03:00:00", "Plugin: seo &gt; rebuild",
+		"Never run", "Turned off by server settings", "About 4\u00a0Nov\u00a02026 08:00", "4\u00a0Nov\u00a02026 03:00:00", "Plugin: seo &gt; rebuild",
 		"have no Run now button", "hm-table--wrap",
 	} {
 		if !strings.Contains(body, want) {

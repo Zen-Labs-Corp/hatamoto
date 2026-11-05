@@ -83,8 +83,9 @@ func jobTook(d time.Duration) string {
 }
 
 // jobClock is a run time to the second, so the last and next run of a job that
-// ticks every few seconds do not look alike.
-func jobClock(t time.Time) string { return t.UTC().Format("2 Jan 2006 15:04:05") }
+// ticks every few seconds do not look alike. The date stays in one piece; the
+// cell wraps between date and time when the table is tight.
+func jobClock(t time.Time) string { return t.UTC().Format("2\u00a0Jan\u00a02006 15:04:05") }
 
 // jobResult is the Result cell: the text is the label, colour only supplements.
 func jobResult(row JobRow) ui.Cell {
@@ -108,8 +109,8 @@ func jobResult(row JobRow) ui.Cell {
 func (a *Admin) jobsTable(r *http.Request, v JobsView) ui.Table {
 	t := ui.Table{
 		ID: "jobs", Wrap: true, Caption: "Scheduled jobs", BaseURL: a.adminPath + jobsPath, CSRF: csrfToken(r.Context()),
-		Columns: []ui.Col{{Key: "job", Label: "Job", Role: "title"}, {Key: "schedule", Label: "Schedule"}, {Key: "last", Label: "Last run"},
-			{Key: "took", Label: "Took"}, {Key: "result", Label: "Result"}, {Key: "next", Label: "Next run"}},
+		Columns: []ui.Col{{Key: "job", Label: "Job", Role: "plain"}, {Key: "schedule", Label: "Schedule"}, {Key: "last", Label: "Last run"},
+			{Key: "took", Label: "Took"}, {Key: "result", Label: "Result", Role: "plain"}, {Key: "next", Label: "Next run"}},
 		Empty: ui.Empty{Icon: "refresh", Title: "No jobs", Body: "Scheduled jobs appear here."},
 	}
 	for _, j := range v.Rows {
@@ -118,12 +119,13 @@ func (a *Admin) jobsTable(r *http.Request, v JobsView) ui.Table {
 			last, took = jobClock(j.Last), jobTook(j.Took)
 		}
 		if !j.Next.IsZero() && !j.Disabled {
-			if next = jobClock(j.Next); j.NextApprox {
-				next = "About " + fmtDateTime(j.Next.UTC())
+			next = jobClock(j.Next)
+			if j.NextApprox { // jitter: seconds would claim a precision it does not have
+				next = "About " + j.Next.UTC().Format("2\u00a0Jan\u00a02006 15:04")
 			}
 		}
 		row := ui.Row{ID: j.ID, Label: j.Name, Cells: []ui.Cell{
-			{Text: j.Name, Sub: j.ID}, {Text: j.Schedule, Nowrap: true}, {Text: last, Nowrap: true}, {Text: took, Nowrap: true}, jobResult(j), {Text: next, Nowrap: true},
+			{Text: j.Name, Sub: j.ID}, {Text: j.Schedule}, {Text: last}, {Text: took, Nowrap: true}, jobResult(j), {Text: next},
 		}}
 		if j.CanRun {
 			row.Actions = []ui.Action{{Label: "Run now", Post: a.adminPath + jobsPath + "/" + j.ID + "/run", Button: true, AriaLabel: "Run " + j.Name + " now"}}
