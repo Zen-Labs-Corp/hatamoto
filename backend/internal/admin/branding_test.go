@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -240,25 +241,59 @@ func readAdminTokens(t *testing.T) string {
 	return string(b)
 }
 
-func TestBrandingSaveUnreadableBody(t *testing.T) {
+func TestBrandingSaveRefusesForeignBody(t *testing.T) {
 	t.Parallel()
 
-	p := newPerfRig(t, nil)
-	site := p.a.deps.Site.(*fakeSite)
-	site.cfg.AdminBrand = goodBrand
-	req := httptest.NewRequest("POST", brandingURL, strings.NewReader("name=%zz&accent=%"))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
-	p.addFetchMeta(req, "owner-token", nil)
-	rec := httptest.NewRecorder()
-	p.h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", rec.Code)
+	cases := []struct {
+		name, ctype, body string
+		header            bool // the CSRF token travels in the header, else in the body
+	}{
+		{"unreadable body, header token", "application/x-www-form-urlencoded", "name=%zz&accent=%", true},
+		{"malformed accent, body token", "application/x-www-form-urlencoded", "name=Acme&accent=%zz", false},
+		{"json body, header token", "application/json", `{"accent":"#123456"}`, true},
+		{"missing accent, header token", "application/x-www-form-urlencoded", "name=Acme", true},
+		{"missing accent, body token", "application/x-www-form-urlencoded", "name=Acme", false},
 	}
-	if site.cfg.AdminBrand != goodBrand || site.brandWrites != 0 {
-		t.Errorf("brand = %+v after %d writes", site.cfg.AdminBrand, site.brandWrites)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			p := newPerfRig(t, nil)
+			site := p.a.deps.Site.(*fakeSite)
+			site.cfg.AdminBrand = goodBrand
+			body := tc.body
+			req := httptest.NewRequest("POST", brandingURL, nil)
+			req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+			p.addFetchMeta(req, "owner-token", nil)
+			if !tc.header {
+				tok := req.Header.Get("X-CSRF-Token")
+				req.Header.Del("X-CSRF-Token")
+				body = "_csrf=" + url.QueryEscape(tok) + "&" + body
+			}
+			req.Body = io.NopCloser(strings.NewReader(body))
+			req.ContentLength = int64(len(body))
+			req.Header.Set("Content-Type", tc.ctype)
+			rec := httptest.NewRecorder()
+			p.h.ServeHTTP(rec, req)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", rec.Code)
+			}
+			if site.cfg.AdminBrand != goodBrand || site.brandWrites != 0 {
+				t.Errorf("brand = %+v after %d writes", site.cfg.AdminBrand, site.brandWrites)
+			}
+			if len(p.events) != 0 {
+				t.Errorf("audit = %+v", p.events)
+			}
+		})
 	}
-	if len(p.events) != 0 {
-		t.Errorf("audit = %+v", p.events)
+}
+
+func TestRatioText(t *testing.T) {
+	t.Parallel()
+
+	for in, want := range map[float64]string{4.49: "4.4", 4.5: "4.5", 5.07: "5.1", 4.3: "4.3"} {
+		if got := ratioText(in); got != want {
+			t.Errorf("ratioText(%v) = %q, want %q", in, got, want)
+		}
 	}
 }
