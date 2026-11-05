@@ -34,8 +34,9 @@ var (
 	// Output writes deterministic (sorted) maps; nil slices and maps become
 	// [] and {}.
 	Output = jsonv2.JoinOptions(jsonv2.Deterministic(true))
-	// HTMLSafe is Output with <, > and & escaped.
-	HTMLSafe = jsonv2.JoinOptions(Output, jsontext.EscapeForHTML(true))
+	// HTMLSafe is Output with <, > and & escaped, and U+2028 and U+2029 too,
+	// like the v1 encoders.
+	HTMLSafe = jsonv2.JoinOptions(Output, jsontext.EscapeForHTML(true), jsontext.EscapeForJS(true))
 )
 
 // Unmarshal decodes in into v. Without options it uses Strict. Trailing data

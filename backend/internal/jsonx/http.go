@@ -10,10 +10,14 @@ import (
 // DefaultMaxBody is the request body limit most JSON endpoints use (1 MiB).
 const DefaultMaxBody int64 = 1 << 20
 
+const encodeFailureBody = `{"error":"internal error"}` + "\n"
+
 // WriteJSON sends v as a JSON response with the given status. The body is
 // HTMLSafe encoded and ends in a newline, like the encoders it replaces. A nil
 // v writes the status and headers only. Callers that need more headers (cache
-// control, nosniff) set them before the call.
+// control, nosniff) set them before the call. If v cannot be encoded the
+// response is a 500 with a generic JSON error body, whatever status was asked
+// for; the cause is logged.
 func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	var body []byte
@@ -22,7 +26,8 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 		body, err = Marshal(v, HTMLSafe)
 		if err != nil {
 			slog.Error("jsonx: failed to encode response", slog.String("error", err.Error()))
-			w.WriteHeader(status)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(encodeFailureBody))
 			return
 		}
 		body = append(body, '\n')
@@ -42,7 +47,8 @@ func WriteError(w http.ResponseWriter, status int, msg string) {
 // bytes (DefaultMaxBody when max <= 0). Without options it uses Strict, so
 // trailing data is rejected. It returns the status to answer with on failure
 // and 0 on success: 400 for a missing or malformed body, 413 when the body is
-// over the limit.
+// over the limit. The error is for logs, not for the response: it can name Go
+// types and JSON pointers. Answer with a fixed message (WriteError).
 func DecodeRequest(w http.ResponseWriter, r *http.Request, v any, max int64, o ...jsonv2.Options) (status int, err error) {
 	if r.Body == nil {
 		return http.StatusBadRequest, errors.New("missing request body")

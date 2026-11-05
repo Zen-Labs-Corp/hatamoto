@@ -29,11 +29,14 @@ func TestWriteJSONNilWritesNoBody(t *testing.T) {
 	}
 }
 
-func TestWriteJSONEncodeErrorKeepsStatus(t *testing.T) {
+func TestWriteJSONEncodeErrorIs500(t *testing.T) {
 	rec := httptest.NewRecorder()
 	WriteJSON(rec, http.StatusOK, make(chan int))
-	if rec.Code != http.StatusOK || rec.Body.Len() != 0 {
+	if rec.Code != http.StatusInternalServerError || rec.Body.String() != `{"error":"internal error"}`+"\n" {
 		t.Fatalf("code %d body %q", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("content type %q", ct)
 	}
 }
 

@@ -104,6 +104,13 @@ func TestOutputNilAndOrder(t *testing.T) {
 	}
 }
 
+func TestHTMLSafeEscapesLineSeparators(t *testing.T) {
+	got, err := Marshal("a\u2028b\u2029c", HTMLSafe)
+	if err != nil || string(got) != `"a\u2028b\u2029c"` {
+		t.Fatalf("HTMLSafe: %s %v", got, err)
+	}
+}
+
 func TestHTMLSafe(t *testing.T) {
 	plain, err := Marshal("<a>&")
 	if err != nil || string(plain) != `"<a>&"` {
