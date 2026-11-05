@@ -75,11 +75,11 @@ bash scripts/admin-qa/run-local.sh consistency.mjs      # Chrome + Postgres, see
 - Never import `encoding/json` (v1) in `backend/` (only `backend/migrations/` is exempt):
   `scripts/check-jsonv1.sh` runs in `make check`, the push gate and CI and fails on it. Use
   `hatamoto.dev/core/internal/jsonx` or `encoding/json/v2` and `jsontext`. Pick the option set by use:
-  - `Strict` for request input (`DecodeRequest`, and the default of `jsonx.Unmarshal`).
+  - `Strict` for request input (`DecodeRequest`, and the default of `jsonx.Unmarshal`). It ignores unknown or wrong-case members; use `StrictNoUnknown` to reject them.
   - `Stored` or `StoredLoose` for reading persisted JSON.
-  - `Output` for responses (the default of `jsonx.Marshal` and `WriteJSON`: nil slice or map becomes `[]` or `{}`, keys sorted).
+  - `Output` for responses (the default of `jsonx.Marshal`: nil slice or map becomes `[]` or `{}`, keys sorted). `WriteJSON` uses `HTMLSafe`, which also does this.
   - `HTMLSafe` for JSON placed inside HTML.
-  - `Pinned` only for plugin, webhook and signed wire bytes, which must never change.
+  - `PinnedMarshal` / `PinnedUnmarshal` (or `MarshalPinned` / `UnmarshalPinned`) only for plugin, webhook and signed wire bytes, which must never change.
 
   Use `omitzero` rather than `omitempty` for numbers, bools, structs and time.
 - New dependencies need a reason (they must remove more code than they add)
