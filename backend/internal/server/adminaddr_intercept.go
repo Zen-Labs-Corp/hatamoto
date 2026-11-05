@@ -281,6 +281,10 @@ func alwaysAllowed(r *http.Request, rel string) bool {
 		// The bare address redirects to the login page, so the URL the CLI
 		// prints works; it reveals nothing beyond <address>/login answering.
 		return true
+	case "/login/2fa", "/login/passkey/begin", "/login/passkey/finish":
+		// The second sign-in step and the passkey ceremony happen before there
+		// is a session; they reveal nothing beyond <address>/login answering.
+		return true
 	}
 	if isPreviewFramePath(rel) {
 		return r.Method == http.MethodGet || r.Method == http.MethodHead
