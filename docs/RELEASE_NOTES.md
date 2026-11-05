@@ -26,7 +26,7 @@ Settings > Backups has a new "Backups to keep" card. Owners choose how many fini
 
 - **Higher defaults.** Without any setting the server now keeps 10 manual, 5 pre-update and 7 scheduled backups (it kept 5, 2 and 3). Backups take more disk space: check your free space before upgrading.
 - **Environment variables still win.** `HATAMOTO_BACKUP_KEEP`, `HATAMOTO_BACKUP_KEEP_PRE_UPDATE` and `HATAMOTO_BACKUP_KEEP_SCHEDULED` override the form, and the page shows which one fixes a count. A value above 50 is treated as 50 and logged as a warning; zero, a negative number or text is ignored and logged.
-- **Upgrade warning: values above 50.** An environment value above 50 is now treated as 50. If you have more than 50 backups of a kind, your first backup of that kind after updating deletes all but the newest 50. Copy the older ones elsewhere first, or lower the value yourself before you update.
+- **Upgrade warning: values above 50.** An environment value above 50 is now treated as 50. If you have more than 50 backups of a kind, the first backup after updating (of any kind, including a scheduled one) deletes all but the newest 50 of that kind. Copy the older ones elsewhere first, or lower the value yourself before you update.
 - **Where it is stored.** The counts live in `backups/retention.json` in the data directory. It is not part of a backup archive and a restore leaves it alone.
 
 **Rollback note.** An older release ignores `retention.json` and keeps only 5 manual, 2 pre-update and 3 scheduled backups (or what its environment variables say). Its next backup removes the older ones, so a higher count you set here is lost on downgrade. Copy backups you want to keep elsewhere first.
