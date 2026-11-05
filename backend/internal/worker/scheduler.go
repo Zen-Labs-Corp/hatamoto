@@ -246,6 +246,11 @@ func (s *Scheduler) Unschedule(prefix string) {
 func (s *Scheduler) startDynLocked(id string, j *dynJob) {
 	ctx, cancel := context.WithCancel(s.runCtx)
 	j.cancel = cancel
+	first := j.every
+	if j.timed {
+		first = j.first
+	}
+	s.setNext(id, time.Now().Add(first)) // visible at once, before the loop runs
 	s.wg.Add(1)
 	if j.timed {
 		go s.runJittered(ctx, j, id)
@@ -602,6 +607,7 @@ func (s *Scheduler) publishAndUnpublish(ctx context.Context) error {
 // startFixed registers a core job under its canonical id and starts its loop.
 func (s *Scheduler) startFixed(ctx context.Context, id string, first, every time.Duration, fn func(context.Context) error) {
 	s.register(id, every, 0, fn)
+	s.setNext(id, time.Now().Add(first))
 	s.wg.Add(1)
 	go s.runEvery(ctx, first, every, id, fn)
 }

@@ -563,6 +563,7 @@ func (s *Server) setupDependencies() {
 	// the plugin via the plugin.Starter contract.
 	if s.cfg.Server.EnableWorker {
 		s.scheduler = worker.NewScheduler(s.db, s.logger)
+		s.scheduler.SetRecorder(worker.NewStatusStore(s.db))
 		if d := disabledWorkerJobs(); len(d) > 0 {
 			s.logger.Info("worker jobs disabled by WORKER_DISABLE_JOBS", "jobs", d)
 		}
