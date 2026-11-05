@@ -232,3 +232,69 @@ func TestPinnedMarshalAcceptsDuplicateNamesInRaw(t *testing.T) {
 		t.Fatalf("pinned = %s, want %s", got, want)
 	}
 }
+
+// TestPinnedStringOptionScalars pins the `,string` option. Int fields match
+// v1 bytes; bool fields diverge: v1 wrote "true", v2 rejects the option on
+// bool in both directions.
+func TestPinnedStringOptionScalars(t *testing.T) {
+	type num struct {
+		N int `json:"n,string"`
+	}
+	got, err := MarshalPinned(num{N: 7})
+	if want := `{"n":"7"}`; err != nil || string(got) != want {
+		t.Fatalf("pinned %s %v, v1 %s", got, err, want)
+	}
+	var back num
+	if err := UnmarshalPinned([]byte(`{"n":"7"}`), &back); err != nil || back.N != 7 {
+		t.Fatalf("round trip = %+v %v", back, err)
+	}
+
+	type flag struct {
+		B bool `json:"b,string"`
+	}
+	if got, err := MarshalPinned(flag{B: true}); err == nil { // v1: {"b":"true"}
+		t.Fatalf("pinned encoded %s, expected a `string` option error on bool", got)
+	}
+	var fb flag
+	if err := UnmarshalPinned([]byte(`{"b":"true"}`), &fb); err == nil { // v1: B=true
+		t.Fatalf("pinned decoded %+v, expected a `string` option error on bool", fb)
+	}
+}
+
+// TestPinnedUnmarshalNullIntoPrefilled pins what null does to a populated
+// destination. Pointers, slices and maps are reset as in v1; scalars and
+// structs are also zeroed, where v1 left them untouched.
+func TestPinnedUnmarshalNullIntoPrefilled(t *testing.T) {
+	type dst struct {
+		N  int
+		S  string
+		P  *int
+		L  []int
+		M  map[string]int
+		In struct{ X int }
+	}
+	one := 1
+	d := dst{N: 1, S: "s", P: &one, L: []int{1}, M: map[string]int{"a": 1}}
+	d.In.X = 2
+	in := `{"N":null,"S":null,"P":null,"L":null,"M":null,"In":null}`
+	if err := UnmarshalPinned([]byte(in), &d); err != nil {
+		t.Fatal(err)
+	}
+	if d.P != nil || d.L != nil || d.M != nil {
+		t.Fatalf("pointer, slice or map not reset: %+v", d)
+	}
+	if d.N != 0 || d.S != "" || d.In.X != 0 { // v1 kept 1, "s", 2
+		t.Fatalf("scalars and struct after null: %+v, want zeroed (v1 kept them)", d)
+	}
+}
+
+// TestPinnedUnmarshalArrayLength pins a JSON array longer than the Go array:
+// v1 dropped the extra elements ([1 2]), v2 returns an error and zeroes it.
+// (v2 also refuses any number array for [N]byte on decode, it wants a base64
+// string, so PinnedUnmarshal does not read back what PinnedMarshal wrote.)
+func TestPinnedUnmarshalArrayLength(t *testing.T) {
+	var got [2]byte
+	if err := UnmarshalPinned([]byte(`[1,2,3]`), &got); err == nil { // v1: [1 2]
+		t.Fatalf("decoded %v, expected a length error", got)
+	}
+}
