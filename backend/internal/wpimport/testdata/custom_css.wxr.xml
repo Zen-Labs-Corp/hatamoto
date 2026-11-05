@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/"
+ xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+<channel>
+ <title>Old Site</title><link>https://old.example</link><description>Tagline</description><language>en-US</language>
+ <wp:base_site_url>https://old.example</wp:base_site_url>
+ <item><title>oldtheme</title><wp:post_id>30</wp:post_id><wp:post_date_gmt>2023-01-01 00:00:00</wp:post_date_gmt><wp:post_modified_gmt>2023-01-02 00:00:00</wp:post_modified_gmt>
+  <wp:post_name>oldtheme</wp:post_name><wp:status>publish</wp:status><wp:post_type>custom_css</wp:post_type><content:encoded><![CDATA[.old { color: blue; }]]></content:encoded></item>
+ <item><title>newtheme</title><wp:post_id>31</wp:post_id><wp:post_date_gmt>2024-01-01 00:00:00</wp:post_date_gmt><wp:post_modified_gmt>2024-03-02 00:00:00</wp:post_modified_gmt>
+  <wp:post_name>newtheme</wp:post_name><wp:status>publish</wp:status><wp:post_type>custom_css</wp:post_type><content:encoded><![CDATA[.hero > a { color: red; }
+@media (width < 600px) { .hero { margin: 0; } }]]></content:encoded></item>
+ <item><title>draft</title><wp:post_id>32</wp:post_id><wp:post_date_gmt>2025-01-01 00:00:00</wp:post_date_gmt><wp:post_modified_gmt>2025-01-02 00:00:00</wp:post_modified_gmt>
+  <wp:post_name>draft</wp:post_name><wp:status>draft</wp:status><wp:post_type>custom_css</wp:post_type><content:encoded><![CDATA[.draft {}]]></content:encoded></item>
+ <item><title>Services</title><link>https://old.example/services/</link><wp:post_id>12</wp:post_id><wp:post_name>services</wp:post_name><wp:status>publish</wp:status><wp:post_type>page</wp:post_type><content:encoded>Plain text page</content:encoded></item>
+ <item><title>Changeset</title><wp:post_id>40</wp:post_id><wp:status>publish</wp:status><wp:post_type>customize_changeset</wp:post_type><content:encoded>{}</content:encoded></item>
+</channel>
+</rss>

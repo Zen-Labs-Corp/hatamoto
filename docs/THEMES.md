@@ -739,6 +739,8 @@ is a read-only `map[string]any`; strings are escaped by `html/template` like any
 other value. (`.Site.Settings` is something else: the extras of the site's
 design tokens object.)
 
+The owner's Additional CSS is served as `/theme/assets/custom.<hash>.css` and linked last in `<head>`, after the theme bundle; a theme does not link it.
+
 CSS is bundled: `assets/css/base.css`, the other `assets/css/*.css` files
 (such as `blog.css` and `docs.css`, sorted) plus `assets/css/sections/*.css`
 (sorted) become one fingerprinted file `/theme/assets/theme.<hash>.css`

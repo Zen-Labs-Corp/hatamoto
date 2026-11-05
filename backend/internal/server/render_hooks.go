@@ -25,6 +25,7 @@ func (s *Server) setupRender() {
 	render.SetPublicAPIPrefix(s.cfg.PublicSite.APIPrefix)
 	render.SetTrackEngagement(func() bool { return s.analyticsService == nil || s.analyticsService.EngagementEnabled() })
 	s.installConsentRender()
+	s.installCustomCSS()
 	s.installTagsRender()
 	engine, err := render.New(render.Options{
 		HeadFilter:      pluginhost.HeadFilter(s.hooks),

@@ -106,6 +106,17 @@ func (f *fakeSite) SetLocaleProfile(_ context.Context, tag string, raw json.RawM
 	return nil
 }
 
+// PatchThemeExtra sets one top-level theme_extra key like the SQL does.
+func (f *fakeSite) PatchThemeExtra(_ context.Context, key string, raw json.RawMessage) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	m := map[string]json.RawMessage{}
+	_ = json.Unmarshal(f.cfg.ThemeExtra, &m)
+	m[key] = raw
+	f.cfg.ThemeExtra, _ = json.Marshal(m)
+	return nil
+}
+
 func (f *fakeSite) Update(_ context.Context, in siteconfig.UpdateInput) (*siteconfig.Config, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

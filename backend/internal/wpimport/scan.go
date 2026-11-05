@@ -64,6 +64,9 @@ type Report struct {
 	Embeds      int        `json:"embeds"`
 	Fidelity    Fidelity   `json:"fidelity"`
 	Warnings    []string   `json:"warnings,omitempty"`
+	// CustomCSS says what happens to the old site's custom CSS: found, then
+	// imported or refused once the run has applied it.
+	CustomCSS string `json:"custom_css,omitempty"`
 }
 
 // mapped namespaces are handled (or reported) by name; they are not "unsupported".
@@ -83,6 +86,11 @@ func Scan(d *Dump, source string) *Report {
 		Languages:    languageCounts(d.Items, d.Site.Language),
 		PageBuilders: append([]string(nil), d.Detect.PageBuilders...), Shortcodes: map[string]int{},
 		Warnings: append([]string(nil), d.Warnings...), CustomTypes: map[string]int{}}
+	if strings.TrimSpace(d.CustomCSS) != "" {
+		r.CustomCSS = "found (" + cssSize(d.CustomCSS) + ")"
+	} else {
+		r.CustomCSS = d.CustomCSSNote
+	}
 	if p, ok := PatternFromPermalink(d.Site.Permalink); ok {
 		r.PermalinkPattern, r.PermalinkKept = p, true
 	}
@@ -236,6 +244,9 @@ func (r *Report) Summary() string {
 		list("Shortcodes (removed)", parts)
 	}
 	fmt.Fprintf(&b, "Embeds kept: %d\n", r.Embeds)
+	if r.CustomCSS != "" {
+		fmt.Fprintf(&b, "Custom CSS: %s\n", r.CustomCSS)
+	}
 	fmt.Fprintf(&b, "Expected fidelity: %d%% of items import without loss (%d high, %d medium, %d low)\n", r.Fidelity.Percent, r.Fidelity.High, r.Fidelity.Medium, r.Fidelity.Low)
 	for _, n := range r.LowFidelity {
 		fmt.Fprintf(&b, "  - %s %q: %s\n", n.Type, n.Title, n.Reason)

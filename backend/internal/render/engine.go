@@ -670,6 +670,9 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	if fh := fontHead(v.Site.Fonts, v.Site.FontPreload); fh != "" {
 		out = spliceHead(out, fh) // owner fonts: core adds them, no theme template needed
 	}
+	if v.Site.CustomCSSName != "" {
+		out = spliceHead(out, customLink(v.Site.CustomCSSName)) // last in <head>, so after the theme's stylesheet
+	}
 	if islands != "" && !bytes.Contains(out, []byte(islands)) {
 		out = spliceBody(out, islands) // the theme never printed plugin-body
 	}

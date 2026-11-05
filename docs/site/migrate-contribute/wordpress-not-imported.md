@@ -16,7 +16,7 @@ This page lists what the WordPress importer does not bring over, so you can plan
 | Forms (Contact Form 7, Gravity Forms, WPForms, Ninja Forms, Formidable) | The form markup and shortcode are removed and reported. | Recreate the form with Hatamoto forms. |
 | Other shortcodes | Removed from the text and listed in the report. | Replace each with a block, a plugin or plain content. |
 | User accounts and passwords | Not imported. Authors become people (author pages), not sign-in accounts, and are not public until you switch Public profile on. | Invite your editors from Settings > Users. |
-| Theme and customizer settings | Not imported. Custom CSS is skipped. | Pick or build a [theme](../themes/index.md). |
+| Theme and customizer settings | Not imported, except Additional CSS: the live custom CSS comes across into Theme > Additional CSS. Parts that are refused, such as `@import`, are kept there as a comment and listed in the report. | Pick or build a [theme](../themes/index.md). Add fonts under Theme > Colours and fonts > Fonts. |
 | Plugins and their data | Not imported. They are listed as unsupported. | Look for a Hatamoto [plugin](../plugins/index.md), or do without. |
 | Widgets and sidebars | Not imported. | Add the same content to your layout parts or sections. |
 | Revisions | Not imported; the importer skips revision posts. | Keep a WordPress export as your archive. |

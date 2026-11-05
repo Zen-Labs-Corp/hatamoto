@@ -173,3 +173,91 @@ func TestSafeCSSSVGJoinedTrailingLT(t *testing.T) {
 		t.Errorf("svg style produced a tag: %q", sb.String())
 	}
 }
+
+const urlBodyMsg = "line 1: url( may not contain a comment, quote, parenthesis or backslash unless quoted"
+
+func TestValidateCustomCSS(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, css, want string
+	}{
+		{"import", "a{}\n@import url(x.css);", "line 2: @import is not allowed"},
+		{"import upper", "@IMPORT 'x';", "line 1: @import is not allowed"},
+		{"expression", "a{\n\nwidth:expression(1)}", "line 3: expression() is not allowed"},
+		{"javascript", "a{background:url( \"javascript:alert(1)\" )}", "line 1: javascript: URLs are not allowed"},
+		{"javascript unquoted", "a{background:url(javascript:alert)}", "line 1: javascript: URLs are not allowed"},
+		{"javascript unquoted call", "a{background:url(javascript:alert(1))}", urlBodyMsg},
+		{"vbscript", "a{background:url(vbscript:x)}", "line 1: vbscript: URLs are not allowed"},
+		{"behavior", "a{behavior:url(x.htc)}", "line 1: behavior is not allowed"},
+		{"moz-binding", "a{-moz-binding:url(x)}", "line 1: -moz-binding is not allowed"},
+		{"escaped url hides import", "u\\72l(/*){}@import 'x';/**/", urlBodyMsg},
+		{"escaped url hex start", "\\75rl(/*){}@import 'x';/**/", urlBodyMsg},
+		{"escaped url char", "ur\\l(/*){}@import 'x';/**/", urlBodyMsg},
+		{"review payload xurl", "xurl(/*)'*/'/*'){}@import url(//evil.example/x.css);/**/", "line 1: @import is not allowed"},
+		{"dash url function", "-url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"letter url function", "aurl(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"escaped prefix url function", "\\!url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"hex escaped prefix url function", "\\61 url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"digit prefix url function", "1url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"line continuation in ident", "u\\\nrl(/*)'*/'/*'){}@import 'x';/**/", "line 1: a backslash before a line break is not allowed"},
+		{"line continuation before url", "x\\\nurl(/*)'*/'/*'){}@import 'x';/**/", "line 1: a backslash before a line break is not allowed"},
+		{"hex escape", "a{background:url(\\6a avascript:alert(1))}", "line 1: url( may not contain a comment, quote, parenthesis or backslash unless quoted"},
+		{"hex escape quoted", "a{background:url('\\6a avascript:alert(1)')}", "line 1: javascript: URLs are not allowed"},
+		{"review payload hash url", "#url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"review payload at url", "@url(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"review payload two escapes", "\\21\\75rl(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"escape then letter escape", "\\!\\75rl(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"escapes with spaces", "\\21 \\55 RL(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"escape inside url", "\\21u\\72l(/*)'*/'/*'){}@import 'x';/**/", "line 1: @import is not allowed"},
+		{"comment in url body", "a{b:url(/*)'*/'/*'){}@import 'x';/**/", urlBodyMsg},
+		{"comment in url body after space", "a{b:url( /* x */ )}", urlBodyMsg},
+		{"quote in url body", "a{b:url(a'b)}", urlBodyMsg},
+		{"double quote in url body", "a{b:url(a\"b)}", urlBodyMsg},
+		{"paren in url body", "a{b:url(a(b)}", urlBodyMsg},
+		{"escape in string", "a{b:'\\6A avascript:x'}", "line 1: javascript: URLs are not allowed"},
+		{"escaped import", "\n\n@\\69mport 'x';", "line 3: @import is not allowed"},
+		{"import after comment", "/* a\nb */\n@import 'x';", "line 3: @import is not allowed"},
+		{"unclosed comment", "a{}\n/* x", "line 2: comment is not closed"},
+		{"unclosed string", "a{b:'x\n}", "line 1: string is not closed"},
+		{"unclosed url", "a{b:url(x", "line 1: url( is not closed"},
+		{"nul", "a{}\x00", "line 1: NUL bytes are not allowed"},
+	} {
+		got := ValidateCustomCSS(tc.css)
+		if got == nil || got.Error() != tc.want {
+			t.Errorf("%s: got %v, want %q", tc.name, got, tc.want)
+		}
+	}
+	for _, ok := range []string{
+		"",
+		"@media (width < 600px){a>b{background:url(/x.png)}}",
+		"/* @import */ a{color:red}",
+		"a{background:url(x.png)}",
+		`a{background:url("a.png")}`,
+		"a{background:url(a.png)}",
+		"a{background:url( a.png )}",
+		"a{background:url('a.png')}",
+		"a{background:URL(a.png)}",
+		"a{b:foo-url(1)}",
+		"a{b:'a\\\nb'}",         // line continuation inside a string
+		"a{b:java/**/script:x}", // a comment separates tokens: not javascript:
+	} {
+		if got := ValidateCustomCSS(ok); got != nil {
+			t.Errorf("ValidateCustomCSS(%q) = %v, want nil", ok, got)
+		}
+	}
+}
+
+func TestValidateCustomCSSLimit(t *testing.T) {
+	t.Parallel()
+	pad := func(n int) string { return "/*" + strings.Repeat("x", n-4) + "*/" }
+	if got := ValidateCustomCSS(pad(MaxCustomCSS)); got != nil {
+		t.Errorf("64 KB: %v, want nil", got)
+	}
+	got := ValidateCustomCSS(pad(MaxCustomCSS + 1))
+	if got == nil || !strings.Contains(got.Error(), "64 KB") {
+		t.Errorf("64 KB + 1: %v, want limit error", got)
+	}
+	if _, ok := SanitizeCustomCSS("  \n"); ok {
+		t.Error("blank CSS should not sanitise")
+	}
+}

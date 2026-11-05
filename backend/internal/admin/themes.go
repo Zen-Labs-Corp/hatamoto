@@ -27,6 +27,8 @@ func (a *Admin) mountThemes(authed *httpx.Group) {
 	owner.HandleFunc("GET /theme/colours", a.handleDesignForm)
 	owner.HandleFunc("POST /theme/colours", a.handleDesignSave)
 	a.mountFonts(owner)
+	owner.HandleFunc("GET "+additionalCSSPath, a.handleAdditionalCSS)
+	owner.HandleFunc("POST "+additionalCSSPath, a.handleAdditionalCSSSave)
 	owner.HandleFunc("GET /theme/design-system", a.handleTokensForm)
 	owner.HandleFunc("POST /theme/design-system", a.handleTokensSave)
 	owner.HandleFunc("POST /theme/design-system/reset", a.handleTokensReset)
