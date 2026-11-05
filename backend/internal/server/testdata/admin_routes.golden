@@ -148,6 +148,7 @@ GET /admin/settings/security/admin-address/keep -> admin.(*Admin).handleAddressK
 GET /admin/settings/seo -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/seo/404-monitor -> admin.(*Admin).handleSEO404-fm
 GET /admin/settings/seo/404-monitor/delete-all -> admin.(*Admin).handleSEO404Delete-fm
+GET /admin/settings/seo/ads-txt -> admin.(*Admin).handleSEOAdsTxt-fm
 GET /admin/settings/seo/breadcrumbs -> admin.(*Admin).handleSEOBreadcrumbs-fm
 GET /admin/settings/seo/general -> admin.(*Admin).handleSEOGeneral-fm
 GET /admin/settings/seo/indexnow -> admin.(*Admin).handleSEOIndexNow-fm
@@ -372,6 +373,7 @@ POST /admin/settings/security/admin-address/change/regenerate -> admin.(*Admin).
 POST /admin/settings/security/admin-address/keep -> admin.(*Admin).handleAddressKeepSave-fm
 POST /admin/settings/seo/404-monitor -> admin.(*Admin).handleSEO404Save-fm
 POST /admin/settings/seo/404-monitor/delete-all -> admin.(*Admin).handleSEO404DeleteSave-fm
+POST /admin/settings/seo/ads-txt -> admin.(*Admin).handleSEOAdsTxtSave-fm
 POST /admin/settings/seo/breadcrumbs -> admin.(*Admin).handleSEOBreadcrumbsSave-fm
 POST /admin/settings/seo/general -> admin.(*Admin).handleSEOGeneralSave-fm
 POST /admin/settings/seo/indexnow -> admin.(*Admin).handleSEOIndexNowSave-fm

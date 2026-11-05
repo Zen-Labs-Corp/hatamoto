@@ -159,10 +159,14 @@ func TestTrackingOwnerOnlyAndUnavailable(t *testing.T) {
 	}
 }
 
-func TestTrackingAdSenseLinksAdsTxtOnlyWhenTheTabExists(t *testing.T) {
-	s, _ := newTrackingRig(t)
-	if body := s.get(t, "/admin/settings/tracking"); strings.Contains(body, "ads.txt") {
-		t.Error("ads.txt link shown without the tab")
+func TestTrackingAdSenseLinksToTheAdsTxtTab(t *testing.T) {
+	s, f := newTrackingRig(t)
+	if body := s.get(t, "/admin/settings/tracking"); !strings.Contains(body, `href="/admin/settings/seo/ads-txt"`) {
+		t.Error("no plain ads.txt link without a saved AdSense id")
+	}
+	f.set.Vendors["adsense"] = tags.VendorState{Enabled: true, ID: "ca-pub-1234567890"}
+	if body := s.get(t, "/admin/settings/tracking"); !strings.Contains(body, `href="/admin/settings/seo/ads-txt?add=pub-1234567890"`) {
+		t.Error("the ads.txt link does not carry the publisher id")
 	}
 }
 

@@ -22,7 +22,7 @@ func PublicPath(p string) (string, bool) {
 func IsFilePath(p string) bool {
 	p = strings.TrimPrefix(p, "/api/v1/public")
 	switch {
-	case p == "/robots.txt", p == "/llms.txt", p == "/llms-full.txt", p == "/sitemap.xml",
+	case p == "/robots.txt", p == "/llms.txt", p == "/llms-full.txt", p == "/sitemap.xml", p == "/ads.txt", p == "/app-ads.txt",
 		strings.HasPrefix(p, "/sitemap-") && strings.HasSuffix(p, ".xml"):
 		return true
 	}

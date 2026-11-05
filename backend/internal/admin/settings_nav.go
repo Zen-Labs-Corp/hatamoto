@@ -56,7 +56,7 @@ var settingsLive = map[string]bool{
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "site-access": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
-	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
+	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"privacy": true, "tracking": true,
 	"user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
 }
@@ -116,6 +116,7 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "seo-schema", Label: "Schema", Final: "/settings/seo/schema", Roles: ownerOnly},
 		{ID: "seo-kg", Label: "Knowledge graph", Final: "/settings/seo/knowledge-graph", Roles: ownerOnly},
 		{ID: "seo-robots", Label: "Robots", Final: "/settings/seo/robots", Roles: ownerOnly},
+		{ID: "seo-ads-txt", Label: "ads.txt", Final: "/settings/seo/ads-txt", Roles: ownerOnly},
 		{ID: "seo-verification", Label: "Verification", Final: "/settings/seo/verification", Roles: ownerOnly},
 		{ID: "seo-sitemap", Label: "Sitemap", Final: "/settings/seo/sitemap", Roles: ownerOnly},
 		{ID: "seo-breadcrumbs", Label: "Breadcrumbs", Final: "/settings/seo/breadcrumbs", Roles: ownerOnly},

@@ -113,6 +113,10 @@ type Settings struct {
 	Breadcrumbs  Breadcrumbs  `json:"breadcrumbs,omitzero"`
 	IndexNow     IndexNow     `json:"indexnow,omitzero"`
 	Monitor404   Monitor404   `json:"monitor404,omitzero"`
+
+	// AdsTxt and AppAdsTxt are the served /ads.txt and /app-ads.txt bodies.
+	AdsTxt    string `json:"ads_txt,omitzero"`
+	AppAdsTxt string `json:"app_ads_txt,omitzero"`
 }
 
 // FieldError names a setting and what is wrong with it.
@@ -260,6 +264,8 @@ func (s Settings) Validate() []FieldError {
 	errs = append(errs, validateBreadcrumbs(s.Breadcrumbs)...)
 	errs = append(errs, validateIndexNow(s.IndexNow)...)
 	errs = append(errs, validateMonitor404(s.Monitor404)...)
+	errs = append(errs, ValidateAdsTxt("ads_txt", s.AdsTxt)...)
+	errs = append(errs, ValidateAdsTxt("app_ads_txt", s.AppAdsTxt)...)
 	return errs
 }
 

@@ -69,6 +69,8 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		sitemap:    s.handlePublicSitemap,
 		subSitemap: s.handlePublicSubSitemap,
 		llms:       s.handleLLMsTxt,
+		adsTxt:     s.handleAdsTxt(false),
+		appAdsTxt:  s.handleAdsTxt(true),
 		feed:       s.handleFeed,
 		xsl:        s.handleSitemapXSL,
 		formPost:   s.handlePublicFormPost,
@@ -86,9 +88,11 @@ type renderRoutes struct {
 	sitemap    http.HandlerFunc
 	subSitemap http.HandlerFunc
 	llms       http.HandlerFunc
-	feed       http.HandlerFunc
-	xsl        http.HandlerFunc
-	formPost   http.HandlerFunc
+	// adsTxt and appAdsTxt (optional) serve /ads.txt and /app-ads.txt.
+	adsTxt, appAdsTxt http.HandlerFunc
+	feed              http.HandlerFunc
+	xsl               http.HandlerFunc
+	formPost          http.HandlerFunc
 	// keyFile (optional) answers GET /<name> with the IndexNow key while it is on.
 	keyFile func(ctx context.Context, name string) (key string, ok bool)
 	// capture (optional) records AI-agent hits on every crawler-visible route.
@@ -108,6 +112,12 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 	captured.HandleFunc("GET /robots.txt", rt.robots)
 	captured.HandleFunc("GET /sitemap.xml", rt.sitemap)
 	captured.HandleFunc("GET /llms.txt", rt.llms)
+	if rt.adsTxt != nil {
+		captured.HandleFunc("GET /ads.txt", rt.adsTxt)
+	}
+	if rt.appAdsTxt != nil {
+		captured.HandleFunc("GET /app-ads.txt", rt.appAdsTxt)
+	}
 	if rt.feed != nil {
 		captured.HandleFunc("GET /feed.xml", rt.feed)
 		captured.HandleFunc("GET /atom.xml", rt.feed)

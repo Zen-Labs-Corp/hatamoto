@@ -135,6 +135,24 @@ Both answer with one row per purpose: `purpose`, `action` (`allow` or `deny`), `
 
 `robots.txt` is advisory. A well-behaved crawler obeys it, and a rude one does not. Agents flagged `ignores_robots` in the registry, mostly assistants that fetch a page because a user asked, are listed under "May ignore robots.txt", and denying their purpose does not stop them. To see who is actually fetching, read [Crawler analytics](crawler-analytics.md). Verified and spoofed hits are labelled separately, so you can tell a real crawler from a forged user agent.
 
+## ads.txt and app-ads.txt
+
+Ad networks such as Google AdSense read `/ads.txt` to see who may sell your ad space. `/app-ads.txt` does the same for mobile apps. You write both by hand in Settings > SEO > ads.txt (owners only). One file serves the whole site, for every language.
+
+Put one record on each line: the ad system's domain, your account id, `DIRECT` or `RESELLER`, and an optional certification id. Comments start with `#`. The lines `CONTACT=`, `SUBDOMAIN=`, `INVENTORYPARTNERDOMAIN=`, `OWNERDOMAIN=` and `MANAGERDOMAIN=` are also allowed.
+
+```text
+# Our AdSense account
+google.com, pub-1234567890123456, DIRECT, f08c47fec0942fa0
+CONTACT=ads@example.com
+```
+
+- **Errors.** Hatamoto checks every line when you save and names the first bad one, for example "Line 2: the account type must be DIRECT or RESELLER." Nothing is saved until the text is valid. A file can have up to 5,000 lines and 256 KiB.
+- **Empty means 404.** While a file is empty, its address answers a plain 404, not your themed 404 page.
+- **Changes take up to a minute** to reach visitors, because the file may be cached for 60 seconds.
+- **Check it.** Run `curl -i https://example.com/ads.txt` and look for `200` and `text/plain`.
+- **AdSense shortcut.** After you save an AdSense id in Settings > Tracking, the "Add the ads.txt line" link opens this page with the AdSense line added to the box. Press Save to keep it.
+
 ## Per-page controls
 
 | Control | Stored as | Default | Effect |
