@@ -3,11 +3,13 @@ package admin
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/tags"
 )
 
@@ -251,6 +253,11 @@ func (a *Admin) renderTracking(w http.ResponseWriter, r *http.Request, status in
 		}
 		if v.ID == "adsense" {
 			row.AdsTxtURL = adsTxt
+			if adsTxt != "" {
+				if pub := seo.AdSensePubID(st.ID); pub != "" {
+					row.AdsTxtURL += "?add=" + url.QueryEscape(pub)
+				}
+			}
 		}
 		if never != nil && st.Enabled && never(v.Category) {
 			d.NeverLoad = append(d.NeverLoad, v.Label)
