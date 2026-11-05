@@ -28,7 +28,6 @@ const (
 	loopCanvasItems = 3
 )
 
-// loopOrders maps the loop's order prop onto QuerySpec.Order.
 // pagedHead rebuilds the head of a page whose paged loop is on page N: a self
 // canonical for N >= 2 and rel prev/next from the loop. It also reports the
 // loop to the server (PagedLoop, LoopOutOfRange). The view itself, and so the
@@ -48,9 +47,11 @@ func (e *Engine) pagedHead(v *PageView, lp *loopPaged) headView {
 	return e.headView(&hv)
 }
 
+// loopOrders maps the loop's order prop onto QuerySpec.Order.
 var loopOrders = map[string]string{
 	"newest": "-published_at", "oldest": "published_at", "updated": "-updated_at",
 	"name": "name", "name_desc": "-name", "manual": "manual",
+	"popular_7": "popular_7", "popular_30": "popular_30", "popular_90": "popular_90",
 }
 
 // loopPaged is what the first paged loop of a page reports for the head step

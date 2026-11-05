@@ -29,6 +29,22 @@ func dataFuncs(ds DataSource) template.FuncMap {
 			}
 			return ds.Recent(schema, clampLimit(limit))
 		},
+		// popular "post" 5 30: the published entities of a schema with the most
+		// pageviews over the last 7, 30 or 90 days (default 30; any other value
+		// is 30), the newest filling any gap. Sugar over query's popular orders.
+		"popular": func(schema string, limit int, days ...any) []RelatedItem {
+			if ds == nil {
+				return nil
+			}
+			n := 30
+			if len(days) > 0 {
+				if d := toInt(days[0]); d == 7 || d == 90 {
+					n = d
+				}
+			}
+			return ds.Query(QuerySpec{Schema: strings.TrimSpace(schema), Order: fmt.Sprintf("popular_%d", n),
+				Limit: clampLimit(limit), Page: 1}).Items
+		},
 		// terms "category" 10: the site's terms of a kind with entity counts,
 		// most used first; a third argument "manual" gives the owner's order.
 		"terms": func(kind string, limit int, order ...string) []TermView {
