@@ -29,7 +29,8 @@ var t0 = time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC)
 // (validation by the real validator, versions on attribute change, parents).
 type fakeEntities struct {
 	mu            sync.Mutex
-	tookOwnership bool // UpdateEntity reports a hand-over, as the service does for a plugin-owned entity
+	moveErr       error // MoveEntity fails with it
+	tookOwnership bool  // UpdateEntity reports a hand-over, as the service does for a plugin-owned entity
 	schemas       []*entity.EntitySchema
 	ents          map[uuid.UUID]*entity.Entity
 	versions      map[uuid.UUID][]*entity.EntityVersion
@@ -1051,6 +1052,9 @@ func (f *fakeEntities) MoveEntity(_ context.Context, id uuid.UUID, _ *uuid.UUID,
 	e, ok := f.ents[id]
 	if !ok {
 		return nil, entity.ErrEntityNotFound
+	}
+	if f.moveErr != nil {
+		return nil, f.moveErr
 	}
 	if in.ClearParent {
 		e.ParentID = nil

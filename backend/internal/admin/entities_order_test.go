@@ -1,9 +1,11 @@
 package admin
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/entity"
 )
@@ -67,5 +69,72 @@ func TestPlanMove(t *testing.T) {
 	}
 	if _, ok := planMove("outdent", nested, fid(1)); ok {
 		t.Error("top-level outdent allowed")
+	}
+}
+
+func TestOrderPageGoldenFlat(t *testing.T) {
+	t.Parallel()
+	c := newContentRig(t)
+	c.ents.addEntity(60, c.page, "Alpha", "alpha", entity.StatusPublished, `{"body":"x"}`, t0)
+	c.ents.addEntity(61, c.page, "Beta", "beta", entity.StatusDraft, `{"body":"x"}`, t0.Add(time.Hour))
+	body := c.get(t, "owner-token", "/admin/entities/order?type=page", "entities-order")
+	has(t, body, `aria-live="polite"`, `data-hm-orderlist`, `data-hm-drag`)
+}
+
+func TestOrderPageGoldenTreeWithDepthLimit(t *testing.T) {
+	t.Parallel()
+	c := newContentRig(t)
+	// A chain of eight entries reaches the depth limit; a second child of the
+	// seventh may not be indented under the eighth.
+	var parent *entity.Entity
+	for i := 0; i < 8; i++ {
+		e := c.ents.addEntity(70+i, c.service, fmt.Sprintf("Level %d", i+1), fmt.Sprintf("level-%d", i+1), entity.StatusPublished, `{"summary":"x"}`, t0.Add(time.Duration(i)*time.Minute))
+		if parent != nil {
+			e.ParentID = &parent.ID
+		}
+		parent = e
+	}
+	zeta := c.ents.addEntity(80, c.service, "Zeta sibling", "zeta-sibling", entity.StatusPublished, `{"summary":"x"}`, t0.Add(time.Hour))
+	zeta.ParentID = &c.ents.ents[fid(76)].ID
+	body := c.get(t, "owner-token", "/admin/entities/order?type=service", "entities-order-tree")
+	has(t, body, `Depth limit: 8 levels in the URL`)
+	lacks(t, body, `data-hm-drag`)
+	row := body[strings.Index(body, `id="row-`+fid(80).String()+`"`):]
+	row = row[:strings.Index(row, "</tr>")]
+	has(t, row, `value="up"`, `value="outdent"`)
+	lacks(t, row, `value="indent"`)
+}
+
+func TestOrderMoveAuditsOnceAndExplainsRefusals(t *testing.T) {
+	t.Parallel()
+	c := newContentRig(t)
+	rows := c.record()
+	c.ents.addEntity(60, c.service, "Alpha", "alpha", entity.StatusPublished, `{"summary":"x"}`, t0)
+	b := c.ents.addEntity(61, c.service, "Beta", "beta", entity.StatusPublished, `{"summary":"x"}`, t0.Add(time.Hour))
+	rec := c.post("/admin/entities/"+b.ID.String()+"/move", url.Values{"op": {"up"}})
+	if rec.Code != 303 || !strings.Contains(rec.Header().Get("Location"), "#row-"+b.ID.String()) {
+		t.Fatalf("up = %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	wantAudit(t, rows(), "entity.reorder")
+	// A refused move writes no audit row and says why.
+	c.ents.moveErr = entity.ErrParentTooDeep
+	rec = c.post("/admin/entities/"+b.ID.String()+"/move", url.Values{"op": {"indent"}})
+	if rec.Code != 303 {
+		t.Fatalf("refused = %d", rec.Code)
+	}
+	if page := c.next(rec, rec.Header().Get("Location")); !strings.Contains(page, "nesting would be too deep") {
+		t.Errorf("refusal flash missing")
+	}
+	wantAudit(t, rows(), "entity.reorder")
+}
+
+func TestOrderRoutesNeedAnEditorOrOwner(t *testing.T) {
+	t.Parallel()
+	c := newContentRig(t)
+	if rec := c.do("GET", "/admin/entities/order?type=service", "editor-token", nil, nil); rec.Code != 200 {
+		t.Errorf("editor order page = %d", rec.Code)
+	}
+	if rec := c.do("GET", "/admin/entities/order?type=service", "", nil, nil); rec.Code == 200 {
+		t.Error("signed-out visitor saw the order page")
 	}
 }
