@@ -66,7 +66,8 @@ type table struct {
 	optional bool
 }
 
-// tables lists what is exported, parents before children. Not exported, on
+// tables lists what is exported, parents before children. Fonts are included
+// (bytes in the row). Not exported, on
 // purpose: API keys and sessions (secrets), agent hits, analytics
 // and 404 logs (history, not content), the link index (rebuilt on save),
 // installed packages (plugins and themes: reinstall them, see docs/EXPORT.md),
@@ -76,6 +77,8 @@ var tables = []table{
 	{name: "hatamoto_users", drop: []string{"password_hash", "failed_login_attempts", "locked_until"},
 		forced: `{"password_hash":"` + resetRequiredHash + `"}`},
 	{name: "hatamoto_site_config"},
+	// Fonts keep their bytes in the row, so they are not media files.
+	{name: "hatamoto_fonts", optional: true},
 	// Media and authors come before entities: authors point at an avatar and
 	// entities at an author.
 	{name: "hatamoto_media"},
