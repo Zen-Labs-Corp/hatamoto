@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"slices"
 	"sort"
 	"strings"
@@ -719,7 +718,6 @@ func fileExt(n string) string {
 	}
 	return ""
 }
-func sniff(b []byte) string { return httpDetect(b) }
 func (f *fakeMedia) Get(_ context.Context, id uuid.UUID) (*media.Media, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -854,8 +852,6 @@ func (f *fakeAuthors) Resolve(_ context.Context, name string) (entity.Byline, er
 	f.list = append(f.list, a)
 	return entity.Byline{PersonID: &a.ID, Name: name}, nil
 }
-
-func httpDetect(b []byte) string { return http.DetectContentType(b) }
 
 // fakeGroups is GroupStore in memory: it returns canned members and
 // candidates, records the writes and returns the errors set on it.
