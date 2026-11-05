@@ -4,11 +4,13 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"testing"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // fakeCopyTerms maps every term to a fixed copy and records what it was asked.
@@ -54,7 +56,7 @@ func newCopyFixture(t *testing.T, settings string) *copyFixture {
 func (f *copyFixture) page(t *testing.T, slug, locale, attrs string, parent *uuid.UUID) *Entity {
 	t.Helper()
 	e, err := f.svc.CreateEntity(context.Background(), nil, &CreateEntityInput{
-		SchemaID: f.schemaID, Name: slug, Slug: slug, Locale: locale, Attributes: json.RawMessage(attrs), ParentID: parent,
+		SchemaID: f.schemaID, Name: slug, Slug: slug, Locale: locale, Attributes: jsontext.Value(attrs), ParentID: parent,
 	})
 	if err != nil {
 		t.Fatalf("create %s/%s: %v", slug, locale, err)
@@ -76,8 +78,8 @@ func TestCopyServiceCreateCopy(t *testing.T) {
 
 	src, err := f.svc.CreateEntity(ctx, nil, &CreateEntityInput{
 		SchemaID: f.schemaID, Name: "Pricing", Slug: "pricing", Locale: "en",
-		Attributes: json.RawMessage(`{"featured_image":"media-1","canonical_url":"/pricing","meta_title":"T"}`),
-		Metadata:   json.RawMessage(`{"k":"v"}`),
+		Attributes: jsontext.Value(`{"featured_image":"media-1","canonical_url":"/pricing","meta_title":"T"}`),
+		Metadata:   jsontext.Value(`{"k":"v"}`),
 		AuthorID:   &author,
 	})
 	if err != nil {
@@ -98,7 +100,7 @@ func TestCopyServiceCreateCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 	var attrs map[string]any
-	if err := json.Unmarshal(got.Attributes, &attrs); err != nil {
+	if err := jsonx.Unmarshal(got.Attributes, &attrs); err != nil {
 		t.Fatal(err)
 	}
 	if attrs["featured_image"] != "media-1" || attrs["meta_title"] != "T" {
@@ -111,7 +113,7 @@ func TestCopyServiceCreateCopy(t *testing.T) {
 		t.Errorf("author = %v, want %v", got.AuthorID, author)
 	}
 	var meta map[string]any
-	_ = json.Unmarshal(got.Metadata, &meta)
+	_ = jsonx.Unmarshal(got.Metadata, &meta)
 	if meta["k"] != "v" {
 		t.Errorf("metadata = %s", got.Metadata)
 	}
@@ -151,7 +153,7 @@ func TestCopyServiceFrom(t *testing.T) {
 	}
 	title := func(e *Entity) string {
 		var a map[string]any
-		_ = json.Unmarshal(e.Attributes, &a)
+		_ = jsonx.Unmarshal(e.Attributes, &a)
 		s, _ := a["meta_title"].(string)
 		return s
 	}

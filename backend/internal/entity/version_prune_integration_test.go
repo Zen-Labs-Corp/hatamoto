@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"io"
 	"log/slog"
@@ -35,7 +35,7 @@ func versionPruneFixture(t *testing.T) (context.Context, *Service, *PostgresEnti
 	svc := NewService(NewPostgresSchemaRepository(db), repo, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	// newEntity creates an entity with the given status.
 	newEntity := func(status string) uuid.UUID {
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "v-" + uuid.NewString()[:8], Attributes: json.RawMessage(`{"n":0}`)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "v-" + uuid.NewString()[:8], Attributes: jsontext.Value(`{"n":0}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -154,7 +154,7 @@ func TestUpdateStampsLiveAtIntegration(t *testing.T) {
 		live   bool
 	}{{"published", true}, {"draft", false}} {
 		id := newEntity(tc.status)
-		attrs := json.RawMessage(`{"n":1}`)
+		attrs := jsontext.Value(`{"n":1}`)
 		if _, err := svc.UpdateEntity(ctx, id, nil, &UpdateEntityInput{Attributes: &attrs}); err != nil {
 			t.Fatal(err)
 		}
@@ -182,7 +182,7 @@ func TestSnapshotWritersStampLiveAtIntegration(t *testing.T) {
 	}
 	newEntity := func(t *testing.T, f *csFixture, status string) uuid.UUID {
 		t.Helper()
-		e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "w-" + uuid.NewString()[:8], Attributes: json.RawMessage(`{"content":"a"}`)})
+		e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "w-" + uuid.NewString()[:8], Attributes: jsontext.Value(`{"content":"a"}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -198,7 +198,7 @@ func TestSnapshotWritersStampLiveAtIntegration(t *testing.T) {
 		t.Run("apply "+tc.status, func(t *testing.T) {
 			f := newCSFixture(t)
 			id := newEntity(t, f, tc.status)
-			if _, err := f.apply(TxOp{ID: &id, Attributes: json.RawMessage(`{"content":"b"}`)}); err != nil {
+			if _, err := f.apply(TxOp{ID: &id, Attributes: jsontext.Value(`{"content":"b"}`)}); err != nil {
 				t.Fatal(err)
 			}
 			total, live := liveCount(t, f, id)
@@ -212,7 +212,7 @@ func TestSnapshotWritersStampLiveAtIntegration(t *testing.T) {
 			// The pre-image carries the version-1 attributes; the row has
 			// moved on, so the restore snapshots the current ones. Delete the
 			// apply's own snapshot to isolate the restore's.
-			res, err := f.apply(TxOp{ID: &id, Attributes: json.RawMessage(`{"content":"b"}`)})
+			res, err := f.apply(TxOp{ID: &id, Attributes: jsontext.Value(`{"content":"b"}`)})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -234,7 +234,7 @@ func TestSnapshotWritersStampLiveAtIntegration(t *testing.T) {
 			// The record's own status (draft) must not decide the stamp.
 			_, _, err := f.repo.ImportUpsert(f.ctx, &ImportRecord{
 				ID: &id, SchemaID: f.schema.ID, Name: "imp", Slug: "imp-" + uuid.NewString()[:8], Status: "draft",
-				Attributes: json.RawMessage(`{"content":"c"}`), Metadata: json.RawMessage(`{}`),
+				Attributes: jsontext.Value(`{"content":"c"}`), Metadata: jsontext.Value(`{}`),
 				CreatedAt: now, UpdatedAt: now,
 			})
 			if err != nil {

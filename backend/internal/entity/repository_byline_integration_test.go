@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"testing"
 
@@ -20,7 +20,7 @@ func TestBylineColumnsRoundTrip(t *testing.T) {
 	repo := NewPostgresEntityRepository(db)
 	pub := NewPostgresPublicRepository(db)
 	slug := fmt.Sprintf("byl-%s", uuid.NewString()[:8])
-	schema, err := schemas.Create(ctx, &CreateSchemaInput{Name: slug, Slug: slug, Schema: json.RawMessage(`{"type":"object","properties":{}}`)})
+	schema, err := schemas.Create(ctx, &CreateSchemaInput{Name: slug, Slug: slug, Schema: jsontext.Value(`{"type":"object","properties":{}}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestBylineColumnsRoundTrip(t *testing.T) {
 
 	mk := func(name string, in CreateEntityInput) *Entity {
 		t.Helper()
-		in.SchemaID, in.Name, in.Slug, in.Attributes = schema.ID, name, name, json.RawMessage(`{}`)
+		in.SchemaID, in.Name, in.Slug, in.Attributes = schema.ID, name, name, jsontext.Value(`{}`)
 		e, err := repo.Create(ctx, nil, &in)
 		if err != nil {
 			t.Fatalf("create %s: %v", name, err)
@@ -90,7 +90,7 @@ func TestBylineColumnsRoundTrip(t *testing.T) {
 
 	// import upsert insert and update
 	rec := &ImportRecord{SchemaID: schema.ID, Name: "imp", Slug: "imp-" + slug, Status: StatusPublished,
-		Attributes: json.RawMessage(`{}`), Metadata: json.RawMessage(`{"import_key":"` + slug + `"}`), BylinePersonID: &personID}
+		Attributes: jsontext.Value(`{}`), Metadata: jsontext.Value(`{"import_key":"` + slug + `"}`), BylinePersonID: &personID}
 	ie, created, err := repo.ImportUpsert(ctx, rec)
 	if err != nil || !created || ie.BylinePersonID == nil || *ie.BylinePersonID != personID {
 		t.Fatalf("import insert: %+v, %v, %v", ie, created, err)

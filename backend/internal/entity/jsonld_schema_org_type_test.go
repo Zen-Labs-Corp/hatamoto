@@ -1,7 +1,7 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 	"time"
 )
@@ -11,9 +11,9 @@ func settingsTypedEntity(slug, settings, schemaJSON string) *Entity {
 	return &Entity{
 		Name: "Glossary term", Slug: "term", PublishedAt: &pub,
 		UpdatedAt:  time.Date(2025, 6, 7, 8, 9, 10, 0, time.UTC),
-		Attributes: json.RawMessage(`{"description":"Def","image":"/a.png"}`),
+		Attributes: jsontext.Value(`{"description":"Def","image":"/a.png"}`),
 		Schema: &EntitySchema{Slug: slug, Name: slug,
-			Schema: json.RawMessage(schemaJSON), Settings: json.RawMessage(settings)},
+			Schema: jsontext.Value(schemaJSON), Settings: jsontext.Value(settings)},
 	}
 }
 

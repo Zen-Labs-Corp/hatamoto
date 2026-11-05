@@ -3,7 +3,7 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"sync"
 	"testing"
@@ -17,7 +17,7 @@ func (f *csFixture) orderEntity(name string, parent *uuid.UUID) *Entity {
 	f.t.Helper()
 	e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{
 		SchemaID: f.schema.ID, Name: name, Slug: name + "-" + uuid.NewString()[:6], ParentID: parent,
-		Attributes: json.RawMessage(`{"content":"x"}`),
+		Attributes: jsontext.Value(`{"content":"x"}`),
 	})
 	if err != nil {
 		f.t.Fatal(err)
@@ -143,7 +143,7 @@ func TestMoveEntityLeavesPluginOwnedEntityAlone(t *testing.T) {
 }
 
 func TestMoveEntityReparent(t *testing.T) {
-	f := newCSFixtureSettings(t, json.RawMessage(`{"url_pattern":"/{path}"}`))
+	f := newCSFixtureSettings(t, jsontext.Value(`{"url_pattern":"/{path}"}`))
 	root := f.orderEntity("Root", nil)
 	k1 := f.orderEntity("K1", &root.ID)
 	f.orderEntity("K2", &root.ID)
@@ -307,7 +307,7 @@ func TestChangesetImportAndRestoreRowsJoinAnOrderedSetLast(t *testing.T) {
 	if got := f.order(nil); !eq(got, []string{"B", "A"}) {
 		t.Fatalf("setup = %v", got)
 	}
-	attrs := json.RawMessage(`{"content":"x"}`)
+	attrs := jsontext.Value(`{"content":"x"}`)
 
 	cs, err := f.apply(TxOp{Name: "CS", Slug: "cs-" + uuid.NewString()[:6], Attributes: attrs})
 	if err != nil {
@@ -318,7 +318,7 @@ func TestChangesetImportAndRestoreRowsJoinAnOrderedSetLast(t *testing.T) {
 	}
 
 	imp, _, err := f.repo.ImportUpsert(f.ctx, &ImportRecord{SchemaID: f.schema.ID, Name: "IMP", Slug: "imp-" + uuid.NewString()[:6],
-		Status: StatusDraft, Attributes: attrs, Metadata: json.RawMessage(`{}`)})
+		Status: StatusDraft, Attributes: attrs, Metadata: jsontext.Value(`{}`)})
 	if err != nil {
 		t.Fatal(err)
 	}

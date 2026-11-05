@@ -1,13 +1,15 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"os"
 	"strings"
 	"testing"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type richSample struct {
@@ -22,7 +24,7 @@ func loadRichSamples(t *testing.T) []richSample {
 		t.Fatal(err)
 	}
 	var samples []richSample
-	if err := json.Unmarshal(raw, &samples); err != nil {
+	if err := jsonx.Unmarshal(raw, &samples); err != nil {
 		t.Fatal(err)
 	}
 	return samples
@@ -109,7 +111,7 @@ func TestHTMLSectionPolicy_StripsUnsafe(t *testing.T) {
 }
 
 func TestSanitizeAttributes_HTMLSectionBodyIsTypeAware(t *testing.T) {
-	in := json.RawMessage(`{"page_sections":[` +
+	in := jsontext.Value(`{"page_sections":[` +
 		`{"id":"a","type":"html","content":{"body":"<section id=\"x\"><script>alert(1)</script><p onclick=\"y()\">hi</p></section>","note":"<b onclick=1>keep</b>"}},` +
 		`{"id":"b","type":"content","content":{"body":"<section>stays</section>"}}]}`)
 	out, err := sanitizeAttributes(in)
@@ -121,7 +123,7 @@ func TestSanitizeAttributes_HTMLSectionBodyIsTypeAware(t *testing.T) {
 			Content map[string]string `json:"content"`
 		} `json:"page_sections"`
 	}
-	if err := json.Unmarshal(out, &v); err != nil {
+	if err := jsonx.Unmarshal(out, &v); err != nil {
 		t.Fatal(err)
 	}
 	if got := v.Sections[0].Content["body"]; got != `<section id="x"><p>hi</p></section>` {
@@ -136,7 +138,7 @@ func TestSanitizeAttributes_HTMLSectionBodyIsTypeAware(t *testing.T) {
 }
 
 func TestSanitizeAttributes_HTMLSectionCleanBodyIsByteIdentical(t *testing.T) {
-	in := json.RawMessage(`{"page_sections":[{"type":"html","content":{"body":"<section class=\"a\"><p>hi</p></section>"}}]}`)
+	in := jsontext.Value(`{"page_sections":[{"type":"html","content":{"body":"<section class=\"a\"><p>hi</p></section>"}}]}`)
 	out, _ := sanitizeAttributes(in)
 	if string(out) != string(in) {
 		t.Errorf("clean body re-marshalled: %s", out)
@@ -152,7 +154,7 @@ func TestStyleAllowed_SharedCases(t *testing.T) {
 		Style string `json:"style"`
 		OK    bool   `json:"ok"`
 	}
-	if err := json.Unmarshal(raw, &cases); err != nil {
+	if err := jsonx.Unmarshal(raw, &cases); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range cases {
@@ -174,7 +176,7 @@ func TestSanitizeHTMLBody_CorpusStylesSurvive(t *testing.T) {
 		t.Fatal(err)
 	}
 	var samples []string
-	if err := json.Unmarshal(raw, &samples); err != nil {
+	if err := jsonx.Unmarshal(raw, &samples); err != nil {
 		t.Fatal(err)
 	}
 	if len(samples) != 60 {
@@ -219,7 +221,7 @@ func styleAttrs(t *testing.T, src string) []string {
 
 func TestHTMLSectionTypeAliases(t *testing.T) {
 	t.Setenv("HTML_SECTION_TYPE_ALIASES", " legacy_a , legacy_b")
-	in := json.RawMessage(`{"page_sections":[` +
+	in := jsontext.Value(`{"page_sections":[` +
 		`{"type":"legacy_a","content":{"body":"<p onclick=\"x()\">a</p>"}},` +
 		`{"type":"legacy_b","content":{"body":"<script>1</script><p>b</p>"}},` +
 		`{"type":"other","content":{"body":"<p onclick=\"x()\">c</p>"}}]}`)
@@ -243,7 +245,7 @@ func TestHTMLSectionTypeAliases(t *testing.T) {
 
 func TestHTMLSectionTypeAliases_DefaultEmpty(t *testing.T) {
 	t.Setenv("HTML_SECTION_TYPE_ALIASES", "")
-	in := json.RawMessage(`{"page_sections":[{"type":"legacy_a","content":{"body":"<p onclick=\"x()\">a</p>"}}]}`)
+	in := jsontext.Value(`{"page_sections":[{"type":"legacy_a","content":{"body":"<p onclick=\"x()\">a</p>"}}]}`)
 	if _, n, _ := SanitizeHTMLSections(in); n != 0 {
 		t.Errorf("no aliases configured, nothing should change; n=%d", n)
 	}

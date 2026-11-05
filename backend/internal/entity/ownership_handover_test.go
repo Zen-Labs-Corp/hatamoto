@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"testing"
 
@@ -26,7 +26,7 @@ func (f *csFixture) origin(id uuid.UUID) string {
 // demoEntity creates a plugin-owned entity the way a changeset import does.
 func (f *csFixture) demoEntity(slug string) *Entity {
 	f.t.Helper()
-	res, err := f.apply(TxOp{Name: "Imported " + slug, Slug: slug, Attributes: json.RawMessage(`{"content":"one"}`), Origin: demoOrigin})
+	res, err := f.apply(TxOp{Name: "Imported " + slug, Slug: slug, Attributes: jsontext.Value(`{"content":"one"}`), Origin: demoOrigin})
 	if err != nil {
 		f.t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestOwnershipHandOver(t *testing.T) {
 	for name, attrs := range attrCases {
 		t.Run("attrs/"+name, func(t *testing.T) {
 			e := f.demoEntity("a-" + uuid.NewString()[:8])
-			out, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(json.RawMessage(attrs))})
+			out, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(jsontext.Value(attrs))})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -69,7 +69,7 @@ func TestOwnershipHandOver(t *testing.T) {
 				t.Error("TookOwnership not set")
 			}
 			// A second structural edit is not a new hand-over.
-			again, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(json.RawMessage(`{"content":"three"}`))})
+			again, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(jsontext.Value(`{"content":"three"}`))})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -112,7 +112,7 @@ func TestOwnershipHandOver(t *testing.T) {
 
 	t.Run("restore version with a changed body", func(t *testing.T) {
 		e := f.demoEntity("rv-" + uuid.NewString()[:8])
-		if _, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(json.RawMessage(`{"content":"two"}`))}); err != nil {
+		if _, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(jsontext.Value(`{"content":"two"}`))}); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := f.db.Pool().Exec(f.ctx, `UPDATE hatamoto_entities SET origin=$2 WHERE id=$1`, e.ID, demoOrigin); err != nil {
@@ -130,11 +130,11 @@ func TestOwnershipHandOver(t *testing.T) {
 	// the caller sent: a hook that stamps an SEO key is not an edit.
 	t.Run("restore of an unchanged body with a stamping hook", func(t *testing.T) {
 		e := f.demoEntity("rh-" + uuid.NewString()[:8])
-		if _, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(json.RawMessage(`{"content":"one","excerpt":"short"}`))}); err != nil {
+		if _, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(jsontext.Value(`{"content":"one","excerpt":"short"}`))}); err != nil {
 			t.Fatal(err)
 		}
 		f.svc.SetBeforeSave(func(_ context.Context, in *BeforeSaveInput) error {
-			in.Attributes = json.RawMessage(`{"content":"one","meta_description":"stamped"}`)
+			in.Attributes = jsontext.Value(`{"content":"one","meta_description":"stamped"}`)
 			return nil
 		})
 		t.Cleanup(func() { f.svc.SetBeforeSave(nil) })
@@ -153,7 +153,7 @@ func TestOwnershipHandOver(t *testing.T) {
 			Name:       ptr(e.Name),
 			Slug:       ptr(e.Slug),
 			Locale:     ptr(e.Locale),
-			Attributes: ptr(json.RawMessage(e.Attributes)),
+			Attributes: ptr(jsontext.Value(e.Attributes)),
 		}
 		out, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, in)
 		if err != nil {
@@ -176,7 +176,7 @@ func TestOwnershipHandOver(t *testing.T) {
 	for name, attrs := range notStructural {
 		t.Run("not structural/"+name, func(t *testing.T) {
 			e := f.demoEntity("ns-" + uuid.NewString()[:8])
-			out, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(json.RawMessage(attrs))})
+			out, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(jsontext.Value(attrs))})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -192,7 +192,7 @@ func TestOwnershipHandOver(t *testing.T) {
 			`{"content":"one ","excerpt":"","meta_description":"","no_index":false,"seo":{"focus_keyword":"","include_in_llms_txt":false}}`); err != nil {
 			t.Fatal(err)
 		}
-		out, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(json.RawMessage(`{"content":"one","seo":{"include_in_llms_txt":false}}`))})
+		out, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: ptr(jsontext.Value(`{"content":"one","seo":{"include_in_llms_txt":false}}`))})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -224,7 +224,7 @@ func TestOwnershipHandOver(t *testing.T) {
 	t.Run("machine write keeps origin", func(t *testing.T) {
 		e := f.demoEntity("keep-" + uuid.NewString()[:8])
 		if _, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{
-			Attributes: ptr(json.RawMessage(`{"content":"converted"}`)), Slug: ptr("keep-moved-" + uuid.NewString()[:8]), KeepUpdatedAt: true,
+			Attributes: ptr(jsontext.Value(`{"content":"converted"}`)), Slug: ptr("keep-moved-" + uuid.NewString()[:8]), KeepUpdatedAt: true,
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -251,7 +251,7 @@ func TestOwnershipHandOver(t *testing.T) {
 			for i := 0; i < 500; i++ {
 				res, err := f.svc.ApplyChangesetTx(f.ctx, tx, TxOp{
 					Schema: f.schema.Slug, Name: fmt.Sprintf("Bulk %d", i), Slug: fmt.Sprintf("bulk-%d-%s", i, uuid.NewString()[:6]),
-					Attributes: json.RawMessage(`{"content":"b"}`), Origin: demoOrigin,
+					Attributes: jsontext.Value(`{"content":"b"}`), Origin: demoOrigin,
 				})
 				if err != nil {
 					return err
@@ -281,7 +281,7 @@ func TestOwnershipHandOver(t *testing.T) {
 	// go through UpdateEntity.
 	t.Run("changeset apply and restore", func(t *testing.T) {
 		e := f.demoEntity("cs-" + uuid.NewString()[:8])
-		up, err := f.apply(TxOp{ID: &e.ID, Name: "Changed", Slug: "cs-moved-" + uuid.NewString()[:8], Attributes: json.RawMessage(`{"content":"by plugin"}`), Origin: demoOrigin})
+		up, err := f.apply(TxOp{ID: &e.ID, Name: "Changed", Slug: "cs-moved-" + uuid.NewString()[:8], Attributes: jsontext.Value(`{"content":"by plugin"}`), Origin: demoOrigin})
 		if err != nil {
 			t.Fatal(err)
 		}

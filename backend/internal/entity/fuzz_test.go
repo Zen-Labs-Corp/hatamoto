@@ -1,12 +1,13 @@
 package entity
 
 import (
-	"encoding/json"
 	"os"
 	"strings"
 	"testing"
 
 	"golang.org/x/net/html"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // unsafeMarkup reports what no sanitiser policy may let through: a script or
@@ -51,7 +52,7 @@ func FuzzSanitizeHTML(f *testing.F) {
 	var samples []struct {
 		HTML string `json:"html"`
 	}
-	if err := json.Unmarshal(raw, &samples); err != nil {
+	if err := jsonx.Unmarshal(raw, &samples); err != nil {
 		f.Fatal(err)
 	}
 	for _, s := range samples {
@@ -143,7 +144,7 @@ func FuzzSanitizeInline(f *testing.F) {
 	var samples []struct {
 		HTML string `json:"html"`
 	}
-	if err := json.Unmarshal(raw, &samples); err != nil {
+	if err := jsonx.Unmarshal(raw, &samples); err != nil {
 		f.Fatal(err)
 	}
 	for _, s := range samples {

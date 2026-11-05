@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 	"time"
 
@@ -22,7 +22,7 @@ func membersFixture(t *testing.T) (*Service, *GroupStore, func(slug, name, local
 	db := newIntegrationDB(t)
 	mk := func(slug, name, locale, status string) uuid.UUID {
 		t.Helper()
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: name, Slug: slug, Locale: locale, Attributes: json.RawMessage(`{}`)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: name, Slug: slug, Locale: locale, Attributes: jsontext.Value(`{}`)})
 		if err != nil {
 			t.Fatalf("create %s/%s: %v", slug, locale, err)
 		}
@@ -141,7 +141,7 @@ func TestContentChangedAtFollowsAttributeEdits(t *testing.T) {
 	}
 	before := changed()
 	time.Sleep(20 * time.Millisecond)
-	attrs := json.RawMessage(`{"title":"changed"}`)
+	attrs := jsontext.Value(`{"title":"changed"}`)
 	if _, err := svc.UpdateEntity(ctx, en, nil, &UpdateEntityInput{Attributes: &attrs}); err != nil {
 		t.Fatal(err)
 	}

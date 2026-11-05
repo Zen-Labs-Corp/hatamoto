@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
 	"log/slog"
 	"sync"
@@ -13,6 +13,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func newSEOIntegrationService(t *testing.T) (*Service, *EntitySchema) {
@@ -23,8 +25,8 @@ func newSEOIntegrationService(t *testing.T) (*Service, *EntitySchema) {
 	svc := NewService(repo, NewPostgresEntityRepository(db), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	created, err := repo.Create(ctx, &CreateSchemaInput{
 		Name: "Lock Doc", Slug: "lock-doc-it",
-		Schema:   json.RawMessage(`{"type":"object","properties":{}}`),
-		Settings: json.RawMessage(`{"url_pattern":"/lock/{slug}"}`),
+		Schema:   jsontext.Value(`{"type":"object","properties":{}}`),
+		Settings: jsontext.Value(`{"url_pattern":"/lock/{slug}"}`),
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -33,14 +35,14 @@ func newSEOIntegrationService(t *testing.T) (*Service, *EntitySchema) {
 	return svc, created
 }
 
-func settingsOf(t *testing.T, svc *Service, id uuid.UUID) map[string]json.RawMessage {
+func settingsOf(t *testing.T, svc *Service, id uuid.UUID) map[string]jsontext.Value {
 	t.Helper()
 	got, err := svc.GetSchema(context.Background(), id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(got.Settings, &m); err != nil {
+	var m map[string]jsontext.Value
+	if err := jsonx.Unmarshal(got.Settings, &m); err != nil {
 		t.Fatal(err)
 	}
 	return m
@@ -171,7 +173,7 @@ func TestUpdateSchemaTakesTheSchemaRowLock(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		settings := json.RawMessage(`{"url_pattern":"/lock/{slug}","sitemap":{"priority":0.7}}`)
+		settings := jsontext.Value(`{"url_pattern":"/lock/{slug}","sitemap":{"priority":0.7}}`)
 		_, err := svc.UpdateSchema(ctx, sc.ID, &UpdateSchemaInput{Settings: &settings})
 		errs <- err
 	}()
@@ -210,7 +212,7 @@ func TestSchemaRowLockDoesNotBlockEntityInsert(t *testing.T) {
 	insertCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	created, err := svc.entityRepo.Create(insertCtx, nil, &CreateEntityInput{
-		SchemaID: sc.ID, Name: "Lock probe", Attributes: json.RawMessage(`{}`),
+		SchemaID: sc.ID, Name: "Lock probe", Attributes: jsontext.Value(`{}`),
 	})
 	if herr := release(); herr != nil {
 		t.Fatal(herr)

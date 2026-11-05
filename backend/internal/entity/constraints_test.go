@@ -1,7 +1,7 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strings"
@@ -46,7 +46,7 @@ func TestSchemaAllowsProperty(t *testing.T) {
 		`{"type":"object","additionalProperties":false,"properties":{"author":{"type":"string"}}}`: true,
 		`not json`: true,
 	} {
-		if got := schemaAllowsProperty(json.RawMessage(schema), "author"); got != want {
+		if got := schemaAllowsProperty(jsontext.Value(schema), "author"); got != want {
 			t.Errorf("%s -> %v, want %v", schema, got, want)
 		}
 	}

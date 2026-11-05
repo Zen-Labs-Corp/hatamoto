@@ -2,7 +2,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"reflect"
 	"testing"
@@ -13,12 +13,12 @@ import (
 
 func TestFlattenAttributes(t *testing.T) {
 	t.Parallel()
-	got := FlattenAttributes(json.RawMessage(`{"a":"x","b":true,"c":2,"d":{"n":1},"e":null}`))
+	got := FlattenAttributes(jsontext.Value(`{"a":"x","b":true,"c":2,"d":{"n":1},"e":null}`))
 	want := map[string]string{"a": "x", "b": "true", "c": "2"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v", got)
 	}
-	if FlattenAttributes(nil) != nil || FlattenAttributes(json.RawMessage(`[`)) != nil {
+	if FlattenAttributes(nil) != nil || FlattenAttributes(jsontext.Value(`[`)) != nil {
 		t.Fatal("empty/invalid should be nil")
 	}
 }

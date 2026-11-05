@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 	"time"
 
@@ -15,7 +15,7 @@ func TestUnpublishStore(t *testing.T) {
 	ctx := context.Background()
 	svc, schemaID, _ := localeFixture(t, `{}`)
 	db := newIntegrationDB(t)
-	e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "p", Slug: "p", Locale: "en", Attributes: json.RawMessage(`{}`)})
+	e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "p", Slug: "p", Locale: "en", Attributes: jsontext.Value(`{}`)})
 	if err != nil {
 		t.Fatal(err)
 	}

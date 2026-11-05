@@ -4,12 +4,14 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func newDuplicateFixture(t *testing.T, settings string) (*Duplicator, *copyFixture) {
@@ -31,8 +33,8 @@ func TestDuplicateCopiesContentIntoADraft(t *testing.T) {
 	})
 	src, err := f.svc.CreateEntity(ctx, nil, &CreateEntityInput{
 		SchemaID: f.schemaID, Name: "Pricing", Slug: "pricing", Locale: "en",
-		Attributes: json.RawMessage(`{"featured_image":"media-1","canonical_url":"/pricing","meta_title":"T","meta_description":"D"}`),
-		Metadata:   json.RawMessage(`{"k":"v"}`),
+		Attributes: jsontext.Value(`{"featured_image":"media-1","canonical_url":"/pricing","meta_title":"T","meta_description":"D"}`),
+		Metadata:   jsontext.Value(`{"k":"v"}`),
 		AuthorID:   &author,
 	})
 	if err != nil {
@@ -53,7 +55,7 @@ func TestDuplicateCopiesContentIntoADraft(t *testing.T) {
 		t.Fatal(err)
 	}
 	var attrs map[string]any
-	if err := json.Unmarshal(got.Attributes, &attrs); err != nil {
+	if err := jsonx.Unmarshal(got.Attributes, &attrs); err != nil {
 		t.Fatal(err)
 	}
 	if attrs["featured_image"] != "media-1" || attrs["meta_title"] != "T" || attrs["meta_description"] != "D" {
@@ -66,7 +68,7 @@ func TestDuplicateCopiesContentIntoADraft(t *testing.T) {
 		t.Errorf("author = %v", got.AuthorID)
 	}
 	var meta map[string]any
-	_ = json.Unmarshal(got.Metadata, &meta)
+	_ = jsonx.Unmarshal(got.Metadata, &meta)
 	if meta["k"] != "v" {
 		t.Errorf("metadata = %s", got.Metadata)
 	}
@@ -153,7 +155,7 @@ func TestDuplicateRefusesPeopleAndReuseBlocks(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s schema: %v", slug, err)
 		}
-		src, err := f.svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "x " + slug, Slug: "dup-" + uuid.NewString()[:8], Attributes: json.RawMessage(`{}`)})
+		src, err := f.svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: "x " + slug, Slug: "dup-" + uuid.NewString()[:8], Attributes: jsontext.Value(`{}`)})
 		if err != nil {
 			t.Fatalf("create %s: %v", slug, err)
 		}
@@ -201,8 +203,8 @@ func TestDuplicateOfImportedEntryDropsImportKey(t *testing.T) {
 	d, f := newDuplicateFixture(t, `{}`)
 	src, err := f.svc.CreateEntity(ctx, nil, &CreateEntityInput{
 		SchemaID: f.schemaID, Name: "Imported", Slug: "imported", Locale: "en",
-		Attributes: json.RawMessage(`{}`),
-		Metadata:   json.RawMessage(`{"k":"v","import_key":"wp:` + uuid.NewString() + `"}`),
+		Attributes: jsontext.Value(`{}`),
+		Metadata:   jsontext.Value(`{"k":"v","import_key":"wp:` + uuid.NewString() + `"}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -216,7 +218,7 @@ func TestDuplicateOfImportedEntryDropsImportKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	var meta map[string]any
-	_ = json.Unmarshal(got.Metadata, &meta)
+	_ = jsonx.Unmarshal(got.Metadata, &meta)
 	if _, has := meta["import_key"]; has || meta["k"] != "v" {
 		t.Errorf("metadata = %s", got.Metadata)
 	}
@@ -247,7 +249,7 @@ func TestDuplicateRetitlesAMirroredTitle(t *testing.T) {
 			t.Fatal(err)
 		}
 		var a map[string]any
-		_ = json.Unmarshal(cp.Attributes, &a)
+		_ = jsonx.Unmarshal(cp.Attributes, &a)
 		s, _ := a["title"].(string)
 		return s
 	}

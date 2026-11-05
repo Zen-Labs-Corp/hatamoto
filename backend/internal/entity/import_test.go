@@ -2,13 +2,14 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/testutil"
 )
 
@@ -34,7 +35,7 @@ func (r *importRepo) GetByImportKey(_ context.Context, key string) (*Entity, err
 func (r *importRepo) ImportUpsert(_ context.Context, rec *ImportRecord) (*Entity, bool, error) {
 	r.recs = append(r.recs, rec)
 	var meta map[string]any
-	_ = json.Unmarshal(rec.Metadata, &meta)
+	_ = jsonx.Unmarshal(rec.Metadata, &meta)
 	key, _ := meta["import_key"].(string)
 	e := &Entity{
 		SchemaID: rec.SchemaID, Name: rec.Name, Slug: rec.Slug, Status: rec.Status, Attributes: rec.Attributes,
@@ -120,7 +121,7 @@ func importFixture(t *testing.T) (*Service, *importRepo, *EntitySchema, *recordi
 	svc.SetEvents(sink)
 	schema := seedSchema(t, sr, func(s *EntitySchema) {
 		s.Slug = "page"
-		s.Schema = json.RawMessage(`{"type":"object","required":["title"],"properties":{"title":{"type":"string"},"content":{"type":"string"}}}`)
+		s.Schema = jsontext.Value(`{"type":"object","required":["title"],"properties":{"title":{"type":"string"},"content":{"type":"string"}}}`)
 	})
 	return svc, repo, schema, sink
 }
@@ -138,11 +139,11 @@ func TestImport_ParentsDatesIdempotencyAndOneEvent(t *testing.T) {
 	batch := ImportBatch{Source: "test", Items: []ImportItem{
 		// The child comes before its parent and the parent before the grandparent.
 		{Key: "c", SchemaSlug: "page", Name: "Local", Status: StatusPublished, ParentKey: "b",
-			Attributes: json.RawMessage(`{"title":"Local","content":"<p>ok</p><script>alert(1)</script>"}`),
+			Attributes: jsontext.Value(`{"title":"Local","content":"<p>ok</p><script>alert(1)</script>"}`),
 			CreatedAt:  created, UpdatedAt: updated, PublishedAt: published, AuthorName: "Jane Guest"},
-		{Key: "b", SchemaSlug: "page", Name: "SEO", ParentKey: "a", Attributes: json.RawMessage(`{"title":"SEO"}`)},
-		{Key: "a", SchemaSlug: "page", Name: "Services", Status: StatusPublished, Attributes: json.RawMessage(`{"title":"Services"}`)},
-		{Key: "bad", SchemaSlug: "page", Name: "Bad", Attributes: json.RawMessage(`{"nothing":1}`)}, // title missing
+		{Key: "b", SchemaSlug: "page", Name: "SEO", ParentKey: "a", Attributes: jsontext.Value(`{"title":"SEO"}`)},
+		{Key: "a", SchemaSlug: "page", Name: "Services", Status: StatusPublished, Attributes: jsontext.Value(`{"title":"Services"}`)},
+		{Key: "bad", SchemaSlug: "page", Name: "Bad", Attributes: jsontext.Value(`{"nothing":1}`)}, // title missing
 	}}
 
 	res, err := svc.Import(ctx, &testUserID, batch)
@@ -201,7 +202,7 @@ func TestImport_ParentsDatesIdempotencyAndOneEvent(t *testing.T) {
 func TestImport_LocaleNeutral(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	attrs := json.RawMessage(`{"title":"T"}`)
+	attrs := jsontext.Value(`{"title":"T"}`)
 	run := func(settings, locale string, multi bool) *ImportRecord {
 		t.Helper()
 		sr := newMockSchemaRepository()
@@ -212,8 +213,8 @@ func TestImport_LocaleNeutral(t *testing.T) {
 		}
 		seedSchema(t, sr, func(s *EntitySchema) {
 			s.Slug = "page"
-			s.Settings = json.RawMessage(settings)
-			s.Schema = json.RawMessage(`{"type":"object","properties":{"title":{"type":"string"}}}`)
+			s.Settings = jsontext.Value(settings)
+			s.Schema = jsontext.Value(`{"type":"object","properties":{"title":{"type":"string"}}}`)
 		})
 		res, err := svc.Import(ctx, &testUserID, ImportBatch{Source: "test", Items: []ImportItem{
 			{Key: "k", SchemaSlug: "page", Name: "T", Locale: locale, Attributes: attrs},
@@ -241,7 +242,7 @@ func TestImport_ParentErrors(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	svc, repo, _, _ := importFixture(t)
-	attrs := json.RawMessage(`{"title":"x"}`)
+	attrs := jsontext.Value(`{"title":"x"}`)
 	res, err := svc.Import(ctx, nil, ImportBatch{Items: []ImportItem{
 		{Key: "x", SchemaSlug: "page", Name: "X", ParentKey: "y", Attributes: attrs},
 		{Key: "y", SchemaSlug: "page", Name: "Y", ParentKey: "x", Attributes: attrs},

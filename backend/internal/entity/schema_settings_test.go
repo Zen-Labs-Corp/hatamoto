@@ -1,10 +1,12 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestValidateSchemaSettings(t *testing.T) {
@@ -39,7 +41,7 @@ func TestValidateSchemaSettings(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			err := ValidateSchemaSettings(json.RawMessage(tc.in))
+			err := ValidateSchemaSettings(jsontext.Value(tc.in))
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("err=%v wantErr=%v", err, tc.wantErr)
 			}
@@ -56,7 +58,7 @@ func TestURLSettings(t *testing.T) {
 	if st, err := nilSchema.URLSettings(); err != nil || st.URLPattern != "" {
 		t.Fatalf("nil schema: %+v %v", st, err)
 	}
-	s := &EntitySchema{Settings: json.RawMessage(`{"url_pattern":"/x/{slug}","aliases":["y"],"sitemap":{"exclude":true}}`)}
+	s := &EntitySchema{Settings: jsontext.Value(`{"url_pattern":"/x/{slug}","aliases":["y"],"sitemap":{"exclude":true}}`)}
 	st, err := s.URLSettings()
 	if err != nil || st.URLPattern != "/x/{slug}" || len(st.Aliases) != 1 || !st.Sitemap.Exclude {
 		t.Fatalf("got %+v %v", st, err)
@@ -82,7 +84,7 @@ func TestValidateSchemaSettingsForWrite_SchemaOrgType(t *testing.T) {
 func TestBuildURLSnapshot_UnknownSchemaOrgTypeKeepsURLConfig(t *testing.T) {
 	schemas := []*EntitySchema{{
 		Slug:     "glossary",
-		Settings: json.RawMessage(`{"url_pattern":"/glossary/{slug}","schema_org_type":"Spaceship"}`),
+		Settings: jsontext.Value(`{"url_pattern":"/glossary/{slug}","schema_org_type":"Spaceship"}`),
 	}}
 	snap, err := BuildURLSnapshot(schemas, nil)
 	if err != nil {
@@ -93,7 +95,7 @@ func TestBuildURLSnapshot_UnknownSchemaOrgTypeKeepsURLConfig(t *testing.T) {
 		t.Errorf("path = %q, want /glossary/x", got)
 	}
 	// And JSON-LD ignores the unknown type.
-	ent := &Entity{Name: "X", Slug: "x", Schema: schemas[0], Attributes: json.RawMessage(`{}`)}
+	ent := &Entity{Name: "X", Slug: "x", Schema: schemas[0], Attributes: jsontext.Value(`{}`)}
 	doc, err := GenerateJSONLD(ent, "https://e.com")
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +130,7 @@ func TestBuildURLSnapshot_BadEditorKeepsURLConfig(t *testing.T) {
 	for _, ed := range []string{`"Post"`, `"tiptap"`, `true`} {
 		schemas := []*EntitySchema{{
 			Slug:     "guide",
-			Settings: json.RawMessage(`{"url_pattern":"/guides/{slug}","editor":` + ed + `}`),
+			Settings: jsontext.Value(`{"url_pattern":"/guides/{slug}","editor":` + ed + `}`),
 		}}
 		snap, err := BuildURLSnapshot(schemas, nil)
 		if err != nil {
@@ -142,20 +144,20 @@ func TestBuildURLSnapshot_BadEditorKeepsURLConfig(t *testing.T) {
 
 func TestValidateEditorSetting(t *testing.T) {
 	t.Parallel()
-	withContent := json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}}}`)
+	withContent := jsontext.Value(`{"type":"object","properties":{"content":{"type":"string"}}}`)
 	cases := []struct {
 		name, slug, settings string
-		schema               json.RawMessage
+		schema               jsontext.Value
 		ok                   bool
 	}{
 		{"post on a schema with content", "guide", `{"editor":"post"}`, withContent, true},
-		{"no editor setting", "person", `{}`, json.RawMessage(`{}`), true},
+		{"no editor setting", "person", `{}`, jsontext.Value(`{}`), true},
 		{"person is refused", "person", `{"editor":"post"}`, withContent, false},
-		{"no content property", "guide", `{"editor":"post"}`, json.RawMessage(`{"properties":{"body":{"type":"string"}}}`), false},
-		{"content is not a string", "guide", `{"editor":"post"}`, json.RawMessage(`{"properties":{"content":{"type":"array"}}}`), false},
+		{"no content property", "guide", `{"editor":"post"}`, jsontext.Value(`{"properties":{"body":{"type":"string"}}}`), false},
+		{"content is not a string", "guide", `{"editor":"post"}`, jsontext.Value(`{"properties":{"content":{"type":"array"}}}`), false},
 	}
 	for _, c := range cases {
-		err := ValidateEditorSetting(c.slug, c.schema, json.RawMessage(c.settings))
+		err := ValidateEditorSetting(c.slug, c.schema, jsontext.Value(c.settings))
 		var se *SettingsError
 		switch {
 		case c.ok && err != nil:
@@ -172,7 +174,7 @@ func TestFAQEnabledDefaultsOn(t *testing.T) {
 	if !st.FAQEnabled() {
 		t.Error("absent key must read as on")
 	}
-	if err := json.Unmarshal([]byte(`{"faq_from_content":false}`), &st); err != nil || st.FAQEnabled() {
+	if err := jsonx.Unmarshal([]byte(`{"faq_from_content":false}`), &st, jsonx.StoredLoose); err != nil || st.FAQEnabled() {
 		t.Errorf("false must read as off: %v", err)
 	}
 }
@@ -186,7 +188,7 @@ func TestURLSettings_LocaleNeutral(t *testing.T) {
 		`{"locale_neutral":"yes"}`: false,
 		`{"locale_neutral":1}`:     false,
 	} {
-		st, err := (&EntitySchema{Settings: json.RawMessage(in)}).URLSettings()
+		st, err := (&EntitySchema{Settings: jsontext.Value(in)}).URLSettings()
 		if err != nil {
 			t.Fatalf("%s: %v", in, err)
 		}
@@ -206,7 +208,7 @@ func TestValidateSchemaSettingsForWrite_LocaleNeutral(t *testing.T) {
 		`{"locale_neutral":false}`:             true,
 		`{"locale_neutral":true,"x_custom":1}`: true,
 	} {
-		err := ValidateSchemaSettingsForWrite(json.RawMessage(in))
+		err := ValidateSchemaSettingsForWrite(jsontext.Value(in))
 		if (err == nil) != ok {
 			t.Errorf("%s: err = %v, want ok=%v", in, err, ok)
 		}
@@ -217,7 +219,7 @@ func TestBuildURLSnapshot_BadLocaleNeutralKeepsURLConfig(t *testing.T) {
 	for _, v := range []string{`"yes"`, `1`, `null`, `[true]`} {
 		schemas := []*EntitySchema{{
 			Slug:     "guide",
-			Settings: json.RawMessage(`{"url_pattern":"/guides/{slug}","locale_neutral":` + v + `}`),
+			Settings: jsontext.Value(`{"url_pattern":"/guides/{slug}","locale_neutral":` + v + `}`),
 		}}
 		snap, err := BuildURLSnapshot(schemas, nil)
 		if err != nil {
@@ -232,13 +234,13 @@ func TestBuildURLSnapshot_BadLocaleNeutralKeepsURLConfig(t *testing.T) {
 func TestDefaultLocaleSkipsMultiUnlessFlagged(t *testing.T) {
 	t.Parallel()
 	multi := func() bool { t.Error("multi evaluated"); return true }
-	flagged := &EntitySchema{Settings: json.RawMessage(`{"locale_neutral":true}`)}
+	flagged := &EntitySchema{Settings: jsontext.Value(`{"locale_neutral":true}`)}
 	for _, c := range []struct {
 		name     string
 		s        *EntitySchema
 		explicit string
 	}{
-		{"unflagged", &EntitySchema{Settings: json.RawMessage(`{"locale_neutral":false}`)}, ""},
+		{"unflagged", &EntitySchema{Settings: jsontext.Value(`{"locale_neutral":false}`)}, ""},
 		{"empty settings", &EntitySchema{}, ""},
 		{"nil schema", nil, ""},
 		{"flagged explicit", flagged, "en-AU"},
@@ -249,7 +251,7 @@ func TestDefaultLocaleSkipsMultiUnlessFlagged(t *testing.T) {
 
 func TestDefaultLocale(t *testing.T) {
 	t.Parallel()
-	flagged := &EntitySchema{Settings: json.RawMessage(`{"locale_neutral":true}`)}
+	flagged := &EntitySchema{Settings: jsontext.Value(`{"locale_neutral":true}`)}
 	for _, c := range []struct {
 		name     string
 		s        *EntitySchema
@@ -261,7 +263,7 @@ func TestDefaultLocale(t *testing.T) {
 		{"flagged omitted single-language", flagged, "", false, ""},
 		{"flagged explicit kept", flagged, "en-AU", true, "en-AU"},
 		{"flagged explicit kept single-language", flagged, "en-AU", false, "en-AU"},
-		{"unflagged omitted", &EntitySchema{Settings: json.RawMessage(`{"locale_neutral":false}`)}, "", true, ""},
+		{"unflagged omitted", &EntitySchema{Settings: jsontext.Value(`{"locale_neutral":false}`)}, "", true, ""},
 		{"empty settings", &EntitySchema{}, "", true, ""},
 		{"nil schema", nil, "", true, ""},
 	} {

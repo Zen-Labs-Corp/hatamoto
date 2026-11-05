@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"testing"
 	"time"
@@ -81,7 +81,7 @@ func TestReuseEntitiesStayDraft(t *testing.T) {
 		}
 		attrs := `{"slot":"header","page_doc":{"v":2,"nodes":[]}}`
 		suffix := slug + "-" + uuid.NewString()[:8]
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: sc.ID, Name: suffix, Slug: suffix, Status: &published, Attributes: json.RawMessage(attrs)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: sc.ID, Name: suffix, Slug: suffix, Status: &published, Attributes: jsontext.Value(attrs)})
 		if err != nil {
 			t.Fatalf("%s create: %v", slug, err)
 		}
@@ -95,7 +95,7 @@ func TestReuseEntitiesStayDraft(t *testing.T) {
 		}
 		want("create with published")
 
-		next := json.RawMessage(`{"slot":"header","description":"v2","page_doc":{"v":2,"nodes":[]}}`)
+		next := jsontext.Value(`{"slot":"header","description":"v2","page_doc":{"v":2,"nodes":[]}}`)
 		if _, err := svc.UpdateEntity(ctx, e.ID, nil, &UpdateEntityInput{Attributes: &next, Status: &published}); err != nil {
 			t.Fatalf("%s update: %v", slug, err)
 		}
@@ -122,7 +122,7 @@ func TestReuseEntitiesStayDraft(t *testing.T) {
 		want("restore")
 
 		res, err := svc.Import(ctx, nil, ImportBatch{Source: "reuse-test", Items: []ImportItem{
-			{Key: suffix + "-i", SchemaSlug: slug, Name: "imp", Slug: suffix + "-i", Status: StatusPublished, Attributes: json.RawMessage(attrs)},
+			{Key: suffix + "-i", SchemaSlug: slug, Name: "imp", Slug: suffix + "-i", Status: StatusPublished, Attributes: jsontext.Value(attrs)},
 		}})
 		if err != nil || res.Items[0].Err != nil {
 			t.Fatalf("%s import = %v, %v", slug, res, err)
@@ -153,7 +153,7 @@ func TestReuseRowsPublishedElsewhereAreHiddenAndReset(t *testing.T) {
 			t.Fatal(err)
 		}
 		name := slug + "-" + uuid.NewString()[:8]
-		e, err := NewService(schemas, repo, testLogger()).CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: sc.ID, Name: name, Slug: name, Attributes: json.RawMessage(`{"slot":"header"}`)})
+		e, err := NewService(schemas, repo, testLogger()).CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: sc.ID, Name: name, Slug: name, Attributes: jsontext.Value(`{"slot":"header"}`)})
 		if err != nil {
 			t.Fatal(err)
 		}

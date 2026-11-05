@@ -2,11 +2,13 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"testing"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func strp(s string) *string { return &s }
@@ -15,7 +17,7 @@ func TestUpdateSchemaSEOSettingsKeepsUnknownKeys(t *testing.T) {
 	t.Parallel()
 	svc, sr, _ := newTestService()
 	existing := seedSchema(t, sr, func(s *EntitySchema) {
-		s.Settings = json.RawMessage(`{"url_pattern":"/docs/{slug}","future_key":{"a":[1,2]},"archive_title":"Old"}`)
+		s.Settings = jsontext.Value(`{"url_pattern":"/docs/{slug}","future_key":{"a":[1,2]},"archive_title":"Old"}`)
 	})
 
 	err := svc.UpdateSchemaSEOSettings(context.Background(), existing.ID, SchemaSEOPatch{
@@ -24,8 +26,8 @@ func TestUpdateSchemaSEOSettingsKeepsUnknownKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var got map[string]json.RawMessage
-	if err := json.Unmarshal(sr.schemas[existing.ID].Settings, &got); err != nil {
+	var got map[string]jsontext.Value
+	if err := jsonx.Unmarshal(sr.schemas[existing.ID].Settings, &got); err != nil {
 		t.Fatal(err)
 	}
 	want := map[string]string{
@@ -43,7 +45,7 @@ func TestUpdateSchemaSEOSettingsNilUntouchedEmptyDeletes(t *testing.T) {
 	t.Parallel()
 	svc, sr, _ := newTestService()
 	existing := seedSchema(t, sr, func(s *EntitySchema) {
-		s.Settings = json.RawMessage(`{"archive_title":"T","archive_description":"D"}`)
+		s.Settings = jsontext.Value(`{"archive_title":"T","archive_description":"D"}`)
 	})
 	if err := svc.UpdateSchemaSEOSettings(context.Background(), existing.ID, SchemaSEOPatch{ArchiveTitle: strp("")}); err != nil {
 		t.Fatal(err)
@@ -95,7 +97,7 @@ func TestUpdateSchemaSEOSettingsBuiltinRefused(t *testing.T) {
 
 func TestUpdateSchemaSEOSettingsRejectsNonObject(t *testing.T) {
 	t.Parallel()
-	if _, err := patchSchemaSEOSettings(json.RawMessage(`[1]`), SchemaSEOPatch{ArchiveTitle: strp("X")}); err == nil {
+	if _, err := patchSchemaSEOSettings(jsontext.Value(`[1]`), SchemaSEOPatch{ArchiveTitle: strp("X")}); err == nil {
 		t.Fatal("want error")
 	}
 }
@@ -138,7 +140,7 @@ func TestUpdateSchemaSEOSettingsTypeKeys(t *testing.T) {
 	t.Parallel()
 	svc, sr, _ := newTestService()
 	existing := seedSchema(t, sr, func(s *EntitySchema) {
-		s.Settings = json.RawMessage(`{"future_key":1}`)
+		s.Settings = jsontext.Value(`{"future_key":1}`)
 	})
 	off := false
 	err := svc.UpdateSchemaSEOSettings(context.Background(), existing.ID, SchemaSEOPatch{
@@ -147,8 +149,8 @@ func TestUpdateSchemaSEOSettingsTypeKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var got map[string]json.RawMessage
-	if err := json.Unmarshal(sr.schemas[existing.ID].Settings, &got); err != nil {
+	var got map[string]jsontext.Value
+	if err := jsonx.Unmarshal(sr.schemas[existing.ID].Settings, &got); err != nil {
 		t.Fatal(err)
 	}
 	want := map[string]string{
@@ -216,7 +218,7 @@ func TestUpdateSchemaSEOSettingsSitemapPatch(t *testing.T) {
 	svc, sr, _ := newTestService()
 	ctx := context.Background()
 	existing := seedSchema(t, sr, func(s *EntitySchema) {
-		s.Settings = json.RawMessage(`{"url_pattern":"/docs/{slug}","sitemap":{"exclude":true,"priority":0.2,"future":"keep"}}`)
+		s.Settings = jsontext.Value(`{"url_pattern":"/docs/{slug}","sitemap":{"exclude":true,"priority":0.2,"future":"keep"}}`)
 	})
 	pri := 0.9
 	if err := svc.UpdateSchemaSEOSettings(ctx, existing.ID, SchemaSEOPatch{Sitemap: &SchemaSitemapPatch{Priority: &pri, ChangeFreq: "daily"}}); err != nil {
@@ -226,8 +228,8 @@ func TestUpdateSchemaSEOSettingsSitemapPatch(t *testing.T) {
 	if st.Sitemap.Exclude || st.Sitemap.Priority == nil || *st.Sitemap.Priority != 0.9 || st.Sitemap.ChangeFreq != "daily" || st.URLPattern != "/docs/{slug}" {
 		t.Fatalf("settings = %s", sr.schemas[existing.ID].Settings)
 	}
-	var m map[string]map[string]json.RawMessage
-	_ = json.Unmarshal(sr.schemas[existing.ID].Settings, &m)
+	var m map[string]map[string]jsontext.Value
+	_ = jsonx.Unmarshal(sr.schemas[existing.ID].Settings, &m)
 	if string(m["sitemap"]["future"]) != `"keep"` {
 		t.Fatalf("unknown sub-key lost: %s", sr.schemas[existing.ID].Settings)
 	}
@@ -243,13 +245,13 @@ func TestUpdateSchemaSEOSettingsSitemapPatch(t *testing.T) {
 
 func TestPatchSchemaSEOSettingsSitemapEmptyDropsKey(t *testing.T) {
 	t.Parallel()
-	raw := json.RawMessage(`{"url_pattern":"/x","sitemap":{"exclude":true,"changefreq":"daily"}}`)
+	raw := jsontext.Value(`{"url_pattern":"/x","sitemap":{"exclude":true,"changefreq":"daily"}}`)
 	out, err := patchSchemaSEOSettings(raw, SchemaSEOPatch{Sitemap: &SchemaSitemapPatch{}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var m map[string]json.RawMessage
-	_ = json.Unmarshal(out, &m)
+	var m map[string]jsontext.Value
+	_ = jsonx.Unmarshal(out, &m)
 	if _, ok := m["sitemap"]; ok || string(m["url_pattern"]) != `"/x"` {
 		t.Fatalf("out = %s", out)
 	}

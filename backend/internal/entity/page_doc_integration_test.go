@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"io"
 	"log/slog"
@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // A5: the page_doc dual-write against a migrated Postgres:
@@ -36,24 +38,24 @@ func TestPageDocIntegration(t *testing.T) {
 
 	create := func(name, attrs string) *Entity {
 		t.Helper()
-		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: name, Attributes: json.RawMessage(attrs)})
+		e, err := svc.CreateEntity(ctx, nil, &CreateEntityInput{SchemaID: schemaID, Name: name, Attributes: jsontext.Value(attrs)})
 		if err != nil {
 			t.Fatalf("create %s: %v", name, err)
 		}
 		return e
 	}
 	update := func(id uuid.UUID, attrs, summary string) (*Entity, error) {
-		a := json.RawMessage(attrs)
+		a := jsontext.Value(attrs)
 		return svc.UpdateEntity(ctx, id, nil, &UpdateEntityInput{Attributes: &a, ChangeSummary: &summary})
 	}
-	load := func(id uuid.UUID) map[string]json.RawMessage {
+	load := func(id uuid.UUID) map[string]jsontext.Value {
 		t.Helper()
 		e, err := svc.GetEntity(ctx, id)
 		if err != nil {
 			t.Fatal(err)
 		}
-		var m map[string]json.RawMessage
-		if err := json.Unmarshal(e.Attributes, &m); err != nil {
+		var m map[string]jsontext.Value
+		if err := jsonx.Unmarshal(e.Attributes, &m); err != nil {
 			t.Fatal(err)
 		}
 		return m
@@ -148,8 +150,8 @@ func TestPageDocIntegration(t *testing.T) {
 	// Restoring a pre-doc blob (sections only) is accepted and becomes a doc.
 	var preDoc int
 	for _, v := range versions(p.ID) {
-		var a map[string]json.RawMessage
-		_ = json.Unmarshal(v.Attributes, &a)
+		var a map[string]jsontext.Value
+		_ = jsonx.Unmarshal(v.Attributes, &a)
 		if a["page_doc"] == nil && (preDoc == 0 || v.Version < preDoc) {
 			preDoc = v.Version
 		}
@@ -166,13 +168,13 @@ func TestPageDocIntegration(t *testing.T) {
 	}
 }
 
-func jsonContains(raw json.RawMessage, s string) bool {
+func jsonContains(raw jsontext.Value, s string) bool {
 	return len(raw) > 0 && strings.Contains(string(raw), s)
 }
 
 func mustMarshal(t *testing.T, v any) []byte {
 	t.Helper()
-	b, err := json.Marshal(v)
+	b, err := jsonx.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}

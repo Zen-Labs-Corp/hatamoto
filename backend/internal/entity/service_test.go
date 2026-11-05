@@ -2,7 +2,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -197,7 +197,7 @@ func (m *mockEntityRepository) Create(_ context.Context, userID *uuid.UUID, inpu
 	now := time.Now()
 	metadata := input.Metadata
 	if len(metadata) == 0 {
-		metadata = json.RawMessage(`{}`)
+		metadata = jsontext.Value(`{}`)
 	}
 	e := &Entity{
 		ID:         id,
@@ -395,7 +395,7 @@ func (m *mockEntityRepository) PruneVersions(_ context.Context, _ int) (int64, e
 	return 0, nil
 }
 
-func (m *mockEntityRepository) CreateVersion(_ context.Context, entityID uuid.UUID, version int, attributes json.RawMessage, changedBy *uuid.UUID, changeSummary *string) (*EntityVersion, error) {
+func (m *mockEntityRepository) CreateVersion(_ context.Context, entityID uuid.UUID, version int, attributes jsontext.Value, changedBy *uuid.UUID, changeSummary *string) (*EntityVersion, error) {
 	v := &EntityVersion{
 		ID:            uuid.New(),
 		EntityID:      entityID,
@@ -446,7 +446,7 @@ var (
 	testUserID = uuid.MustParse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
 
 	// A minimal valid JSON Schema for testing.
-	validSchemaJSON = json.RawMessage(`{
+	validSchemaJSON = jsontext.Value(`{
 		"type": "object",
 		"properties": {
 			"title": {"type": "string"},
@@ -455,7 +455,7 @@ var (
 	}`)
 
 	// A schema with required fields for stricter validation tests.
-	strictSchemaJSON = json.RawMessage(`{
+	strictSchemaJSON = jsontext.Value(`{
 		"type": "object",
 		"required": ["title"],
 		"properties": {
@@ -506,8 +506,8 @@ func seedEntity(t *testing.T, er *mockEntityRepository, schema *EntitySchema, op
 		Name:       "Test Entity",
 		Slug:       fmt.Sprintf("test-entity-%s", uuid.New().String()[:8]),
 		Status:     StatusDraft,
-		Attributes: json.RawMessage(`{"title":"Hello","body":"World"}`),
-		Metadata:   json.RawMessage(`{}`),
+		Attributes: jsontext.Value(`{"title":"Hello","body":"World"}`),
+		Metadata:   jsontext.Value(`{}`),
 		Version:    1,
 		CreatedBy:  &testUserID,
 		UpdatedBy:  &testUserID,
@@ -537,7 +537,7 @@ func TestService_CreateEntity(t *testing.T) {
 		input := &CreateEntityInput{
 			SchemaID:   schema.ID,
 			Name:       "My First Post",
-			Attributes: json.RawMessage(`{"title":"My First Post","body":"Content here"}`),
+			Attributes: jsontext.Value(`{"title":"My First Post","body":"Content here"}`),
 		}
 
 		entity, err := svc.CreateEntity(context.Background(), &testUserID, input)
@@ -557,7 +557,7 @@ func TestService_CreateEntity(t *testing.T) {
 		input := &CreateEntityInput{
 			SchemaID:   schema.ID,
 			Name:       "Hello World Post",
-			Attributes: json.RawMessage(`{"title":"Hello"}`),
+			Attributes: jsontext.Value(`{"title":"Hello"}`),
 		}
 
 		entity, err := svc.CreateEntity(context.Background(), &testUserID, input)
@@ -574,7 +574,7 @@ func TestService_CreateEntity(t *testing.T) {
 			SchemaID:   schema.ID,
 			Name:       "My Post",
 			Slug:       "  Custom--SLUG!!  ",
-			Attributes: json.RawMessage(`{"title":"My Post"}`),
+			Attributes: jsontext.Value(`{"title":"My Post"}`),
 		}
 
 		entity, err := svc.CreateEntity(context.Background(), &testUserID, input)
@@ -590,7 +590,7 @@ func TestService_CreateEntity(t *testing.T) {
 		input := &CreateEntityInput{
 			SchemaID:   schema.ID,
 			Name:       "Cafe au Lait",
-			Attributes: json.RawMessage(`{"title":"Cafe au Lait"}`),
+			Attributes: jsontext.Value(`{"title":"Cafe au Lait"}`),
 		}
 
 		entity, err := svc.CreateEntity(context.Background(), &testUserID, input)
@@ -605,7 +605,7 @@ func TestService_CreateEntity(t *testing.T) {
 		input := &CreateEntityInput{
 			SchemaID:   uuid.New(),
 			Name:       "Orphan Entity",
-			Attributes: json.RawMessage(`{"title":"Orphan"}`),
+			Attributes: jsontext.Value(`{"title":"Orphan"}`),
 		}
 
 		entity, err := svc.CreateEntity(context.Background(), &testUserID, input)
@@ -623,7 +623,7 @@ func TestService_CreateEntity(t *testing.T) {
 		input := &CreateEntityInput{
 			SchemaID:   schema.ID,
 			Name:       "Invalid Entity",
-			Attributes: json.RawMessage(`{"body":"missing required title"}`),
+			Attributes: jsontext.Value(`{"body":"missing required title"}`),
 		}
 
 		entity, err := svc.CreateEntity(context.Background(), &testUserID, input)
@@ -641,7 +641,7 @@ func TestService_CreateEntity(t *testing.T) {
 		input := &CreateEntityInput{
 			SchemaID:   schema.ID,
 			Name:       "Bad Types",
-			Attributes: json.RawMessage(`{"title": 12345}`),
+			Attributes: jsontext.Value(`{"title": 12345}`),
 		}
 
 		entity, err := svc.CreateEntity(context.Background(), &testUserID, input)
@@ -659,7 +659,7 @@ func TestService_CreateEntity(t *testing.T) {
 		input := &CreateEntityInput{
 			SchemaID:   schema.ID,
 			Name:       "Will Fail",
-			Attributes: json.RawMessage(`{"title":"Will Fail"}`),
+			Attributes: jsontext.Value(`{"title":"Will Fail"}`),
 		}
 
 		entity, err := svc.CreateEntity(context.Background(), &testUserID, input)
@@ -676,7 +676,7 @@ func TestService_CreateEntity(t *testing.T) {
 			SchemaID:   schema.ID,
 			Name:       "First Post",
 			Slug:       "unique-slug",
-			Attributes: json.RawMessage(`{"title":"First"}`),
+			Attributes: jsontext.Value(`{"title":"First"}`),
 		}
 
 		_, err := svc.CreateEntity(context.Background(), &testUserID, input)
@@ -687,7 +687,7 @@ func TestService_CreateEntity(t *testing.T) {
 			SchemaID:   schema.ID,
 			Name:       "Second Post",
 			Slug:       "unique-slug",
-			Attributes: json.RawMessage(`{"title":"Second"}`),
+			Attributes: jsontext.Value(`{"title":"Second"}`),
 		}
 
 		entity, err := svc.CreateEntity(context.Background(), &testUserID, input2)
@@ -703,7 +703,7 @@ func TestService_CreateEntity(t *testing.T) {
 		input := &CreateEntityInput{
 			SchemaID:   schema.ID,
 			Name:       "System Entity",
-			Attributes: json.RawMessage(`{"title":"System"}`),
+			Attributes: jsontext.Value(`{"title":"System"}`),
 		}
 
 		entity, err := svc.CreateEntity(context.Background(), nil, input)
@@ -719,7 +719,7 @@ func TestService_CreateEntity(t *testing.T) {
 		input := &CreateEntityInput{
 			SchemaID:   schema.ID,
 			Name:       "Empty Attrs",
-			Attributes: json.RawMessage(`{}`),
+			Attributes: jsontext.Value(`{}`),
 		}
 
 		entity, err := svc.CreateEntity(context.Background(), &testUserID, input)
@@ -760,7 +760,7 @@ func TestService_UpdateEntity(t *testing.T) {
 		existing := seedEntity(t, er, schema)
 		originalVersion := existing.Version
 
-		newAttrs := json.RawMessage(`{"title":"Updated Title","body":"Updated Body"}`)
+		newAttrs := jsontext.Value(`{"title":"Updated Title","body":"Updated Body"}`)
 		input := &UpdateEntityInput{
 			Attributes: &newAttrs,
 		}
@@ -827,7 +827,7 @@ func TestService_UpdateEntity(t *testing.T) {
 		})
 		existing := seedEntity(t, er, schema)
 
-		badAttrs := json.RawMessage(`{"body":"no title field"}`)
+		badAttrs := jsontext.Value(`{"body":"no title field"}`)
 		input := &UpdateEntityInput{
 			Attributes: &badAttrs,
 		}
@@ -862,7 +862,7 @@ func TestService_UpdateEntity(t *testing.T) {
 		existing := seedEntity(t, er, schema)
 		originalVersion := existing.Version
 
-		newMeta := json.RawMessage(`{"seo_title":"Custom SEO Title"}`)
+		newMeta := jsontext.Value(`{"seo_title":"Custom SEO Title"}`)
 		input := &UpdateEntityInput{
 			Metadata: &newMeta,
 		}
@@ -1276,7 +1276,7 @@ func TestService_CreateSchema(t *testing.T) {
 
 		input := &CreateSchemaInput{
 			Name:   "Bad Schema",
-			Schema: json.RawMessage(`{"not_a_schema": true}`),
+			Schema: jsontext.Value(`{"not_a_schema": true}`),
 		}
 
 		schema, err := svc.CreateSchema(context.Background(), input)
@@ -1290,7 +1290,7 @@ func TestService_CreateSchema(t *testing.T) {
 
 		input := &CreateSchemaInput{
 			Name:   "Empty",
-			Schema: json.RawMessage(``),
+			Schema: jsontext.Value(``),
 		}
 
 		schema, err := svc.CreateSchema(context.Background(), input)
@@ -1335,7 +1335,7 @@ func TestService_UpdateSchema(t *testing.T) {
 		svc, sr, _ := newTestService()
 		existing := seedSchema(t, sr)
 
-		badSchema := json.RawMessage(`{"no_type_field": true}`)
+		badSchema := jsontext.Value(`{"no_type_field": true}`)
 		updated, err := svc.UpdateSchema(context.Background(), existing.ID, &UpdateSchemaInput{
 			Schema: &badSchema,
 		})
@@ -1417,8 +1417,8 @@ func TestService_ListVersions(t *testing.T) {
 
 		// Seed two version records
 		er.versions[existing.ID] = []*EntityVersion{
-			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: json.RawMessage(`{"title":"v1"}`)},
-			{ID: uuid.New(), EntityID: existing.ID, Version: 2, Attributes: json.RawMessage(`{"title":"v2"}`)},
+			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: jsontext.Value(`{"title":"v1"}`)},
+			{ID: uuid.New(), EntityID: existing.ID, Version: 2, Attributes: jsontext.Value(`{"title":"v2"}`)},
 		}
 
 		versions, err := svc.ListVersions(context.Background(), existing.ID, 50)
@@ -1446,7 +1446,7 @@ func TestService_GetVersion(t *testing.T) {
 		existing := seedEntity(t, er, schema)
 
 		er.versions[existing.ID] = []*EntityVersion{
-			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: json.RawMessage(`{"title":"v1"}`)},
+			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: jsontext.Value(`{"title":"v1"}`)},
 		}
 
 		ver, err := svc.GetVersion(context.Background(), existing.ID, 1)
@@ -1475,12 +1475,12 @@ func TestService_RestoreVersion(t *testing.T) {
 		svc, sr, er := newTestService()
 		schema := seedSchema(t, sr)
 		existing := seedEntity(t, er, schema, func(e *Entity) {
-			e.Attributes = json.RawMessage(`{"title":"Current","body":"current body"}`)
+			e.Attributes = jsontext.Value(`{"title":"Current","body":"current body"}`)
 			e.Version = 3
 		})
 
 		// Seed an older version snapshot
-		oldAttrs := json.RawMessage(`{"title":"Old Title","body":"old body"}`)
+		oldAttrs := jsontext.Value(`{"title":"Old Title","body":"old body"}`)
 		er.versions[existing.ID] = []*EntityVersion{
 			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: oldAttrs},
 		}
@@ -1502,7 +1502,7 @@ func TestService_RestoreVersion(t *testing.T) {
 
 		// Old version has no "title" — will fail validation against current schema
 		er.versions[existing.ID] = []*EntityVersion{
-			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: json.RawMessage(`{"body":"no title"}`)},
+			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: jsontext.Value(`{"body":"no title"}`)},
 		}
 
 		restored, err := svc.RestoreVersion(context.Background(), existing.ID, &testUserID, 1)
@@ -1531,7 +1531,7 @@ func TestService_RestoreVersion(t *testing.T) {
 		// Seed a version for a non-existent entity — GetVersion will find it but
 		// GetByID will fail.
 		er.versions[fakeID] = []*EntityVersion{
-			{ID: uuid.New(), EntityID: fakeID, Version: 1, Attributes: json.RawMessage(`{}`)},
+			{ID: uuid.New(), EntityID: fakeID, Version: 1, Attributes: jsontext.Value(`{}`)},
 		}
 
 		restored, err := svc.RestoreVersion(context.Background(), fakeID, &testUserID, 1)
@@ -1554,8 +1554,8 @@ func TestService_ComputeDiff(t *testing.T) {
 		existing := seedEntity(t, er, schema)
 
 		er.versions[existing.ID] = []*EntityVersion{
-			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: json.RawMessage(`{"title":"Old","body":"Same"}`)},
-			{ID: uuid.New(), EntityID: existing.ID, Version: 2, Attributes: json.RawMessage(`{"title":"New","body":"Same"}`)},
+			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: jsontext.Value(`{"title":"Old","body":"Same"}`)},
+			{ID: uuid.New(), EntityID: existing.ID, Version: 2, Attributes: jsontext.Value(`{"title":"New","body":"Same"}`)},
 		}
 
 		diffs, err := svc.ComputeDiff(context.Background(), existing.ID, 1, 2)
@@ -1571,8 +1571,8 @@ func TestService_ComputeDiff(t *testing.T) {
 		existing := seedEntity(t, er, schema)
 
 		er.versions[existing.ID] = []*EntityVersion{
-			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: json.RawMessage(`{"title":"A"}`)},
-			{ID: uuid.New(), EntityID: existing.ID, Version: 2, Attributes: json.RawMessage(`{"title":"A","body":"New field"}`)},
+			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: jsontext.Value(`{"title":"A"}`)},
+			{ID: uuid.New(), EntityID: existing.ID, Version: 2, Attributes: jsontext.Value(`{"title":"A","body":"New field"}`)},
 		}
 
 		diffs, err := svc.ComputeDiff(context.Background(), existing.ID, 1, 2)
@@ -1596,8 +1596,8 @@ func TestService_ComputeDiff(t *testing.T) {
 		existing := seedEntity(t, er, schema)
 
 		er.versions[existing.ID] = []*EntityVersion{
-			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: json.RawMessage(`{"title":"A","body":"Remove me"}`)},
-			{ID: uuid.New(), EntityID: existing.ID, Version: 2, Attributes: json.RawMessage(`{"title":"A"}`)},
+			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: jsontext.Value(`{"title":"A","body":"Remove me"}`)},
+			{ID: uuid.New(), EntityID: existing.ID, Version: 2, Attributes: jsontext.Value(`{"title":"A"}`)},
 		}
 
 		diffs, err := svc.ComputeDiff(context.Background(), existing.ID, 1, 2)
@@ -1621,8 +1621,8 @@ func TestService_ComputeDiff(t *testing.T) {
 		existing := seedEntity(t, er, schema)
 
 		er.versions[existing.ID] = []*EntityVersion{
-			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: json.RawMessage(`{"title":"Same"}`)},
-			{ID: uuid.New(), EntityID: existing.ID, Version: 2, Attributes: json.RawMessage(`{"title":"Same"}`)},
+			{ID: uuid.New(), EntityID: existing.ID, Version: 1, Attributes: jsontext.Value(`{"title":"Same"}`)},
+			{ID: uuid.New(), EntityID: existing.ID, Version: 2, Attributes: jsontext.Value(`{"title":"Same"}`)},
 		}
 
 		diffs, err := svc.ComputeDiff(context.Background(), existing.ID, 1, 2)
@@ -1660,7 +1660,7 @@ func TestService_ValidateEntityAttributes(t *testing.T) {
 		result := svc.ValidateEntityAttributes(
 			context.Background(),
 			schema.ID,
-			json.RawMessage(`{"title":"Good"}`),
+			jsontext.Value(`{"title":"Good"}`),
 		)
 		testutil.True(t, result.Valid)
 		testutil.Empty(t, result.Errors)
@@ -1676,7 +1676,7 @@ func TestService_ValidateEntityAttributes(t *testing.T) {
 		result := svc.ValidateEntityAttributes(
 			context.Background(),
 			schema.ID,
-			json.RawMessage(`{"body":"missing title"}`),
+			jsontext.Value(`{"body":"missing title"}`),
 		)
 		testutil.False(t, result.Valid)
 		testutil.NotEmpty(t, result.Errors)
@@ -1689,7 +1689,7 @@ func TestService_ValidateEntityAttributes(t *testing.T) {
 		result := svc.ValidateEntityAttributes(
 			context.Background(),
 			uuid.New(),
-			json.RawMessage(`{}`),
+			jsontext.Value(`{}`),
 		)
 		testutil.False(t, result.Valid)
 		testutil.NotEmpty(t, result.Errors)
@@ -1798,21 +1798,21 @@ func TestComputeJSONDiff(t *testing.T) {
 
 	t.Run("returns error for invalid old JSON", func(t *testing.T) {
 		t.Parallel()
-		_, err := computeJSONDiff(json.RawMessage(`{invalid`), json.RawMessage(`{}`))
+		_, err := computeJSONDiff(jsontext.Value(`{invalid`), jsontext.Value(`{}`))
 		testutil.Error(t, err)
 		testutil.Contains(t, err.Error(), "failed to parse old JSON")
 	})
 
 	t.Run("returns error for invalid new JSON", func(t *testing.T) {
 		t.Parallel()
-		_, err := computeJSONDiff(json.RawMessage(`{}`), json.RawMessage(`{invalid`))
+		_, err := computeJSONDiff(jsontext.Value(`{}`), jsontext.Value(`{invalid`))
 		testutil.Error(t, err)
 		testutil.Contains(t, err.Error(), "failed to parse new JSON")
 	})
 
 	t.Run("empty objects produce no diffs", func(t *testing.T) {
 		t.Parallel()
-		diffs, err := computeJSONDiff(json.RawMessage(`{}`), json.RawMessage(`{}`))
+		diffs, err := computeJSONDiff(jsontext.Value(`{}`), jsontext.Value(`{}`))
 		testutil.RequireNoError(t, err)
 		testutil.Empty(t, diffs)
 	})

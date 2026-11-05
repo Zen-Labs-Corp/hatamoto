@@ -1,13 +1,13 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 )
 
 func TestStructuralAttrsChanged(t *testing.T) {
 	t.Parallel()
-	schema := &EntitySchema{Schema: json.RawMessage(`{"properties":{"body":{"type":"string","x-hm-alias":["post_content"]}}}`)}
+	schema := &EntitySchema{Schema: jsontext.Value(`{"properties":{"body":{"type":"string","x-hm-alias":["post_content"]}}}`)}
 	cases := []struct {
 		name string
 		a, b string
@@ -28,7 +28,7 @@ func TestStructuralAttrsChanged(t *testing.T) {
 		{"alias body differs", `{"body":"y"}`, `{"post_content":"x"}`, true},
 	}
 	for _, c := range cases {
-		if got := structuralAttrsChanged(schema, json.RawMessage(c.a), json.RawMessage(c.b)); got != c.want {
+		if got := structuralAttrsChanged(schema, jsontext.Value(c.a), jsontext.Value(c.b)); got != c.want {
 			t.Errorf("%s: changed = %v, want %v", c.name, got, c.want)
 		}
 	}
@@ -39,8 +39,8 @@ func TestStructuralAttrsChanged(t *testing.T) {
 func TestStructuralChangeCarriesStoredDoc(t *testing.T) {
 	t.Parallel()
 	stored := `{"page_sections":` + secsA + `,"page_doc":` + fromSecs(t, secsA) + `,"content":"x"}`
-	ex := &Entity{Schema: &EntitySchema{Slug: "page", Schema: json.RawMessage(`{}`)}, Attributes: json.RawMessage(stored)}
-	docOnly := &Entity{Schema: ex.Schema, Attributes: json.RawMessage(`{"page_doc":` + twoCol + `,"content":"x"}`)}
+	ex := &Entity{Schema: &EntitySchema{Slug: "page", Schema: jsontext.Value(`{}`)}, Attributes: jsontext.Value(stored)}
+	docOnly := &Entity{Schema: ex.Schema, Attributes: jsontext.Value(`{"page_doc":` + twoCol + `,"content":"x"}`)}
 	cases := []struct {
 		name   string
 		ex     *Entity
@@ -54,7 +54,7 @@ func TestStructuralChangeCarriesStoredDoc(t *testing.T) {
 		{"doc edited", ex, `{"content":"x","page_doc":` + twoCol + `}`, true},
 	}
 	for _, c := range cases {
-		if got := structuralChange(c.ex, &UpdateEntityInput{}, json.RawMessage(c.caller)); got != c.want {
+		if got := structuralChange(c.ex, &UpdateEntityInput{}, jsontext.Value(c.caller)); got != c.want {
 			t.Errorf("%s: changed = %v, want %v", c.name, got, c.want)
 		}
 	}

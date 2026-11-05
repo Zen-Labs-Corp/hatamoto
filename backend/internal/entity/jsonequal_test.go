@@ -1,7 +1,7 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 )
 
@@ -18,7 +18,7 @@ func TestJSONRawEqual(t *testing.T) {
 		{`{"n":1000000}`, `{"n":1000000}`, true}, // big int exact
 	}
 	for _, c := range cases {
-		got := jsonRawEqual(json.RawMessage(c.a), json.RawMessage(c.b))
+		got := jsonRawEqual(jsontext.Value(c.a), jsontext.Value(c.b))
 		if got != c.want {
 			t.Errorf("jsonRawEqual(%s,%s)=%v want %v", c.a, c.b, got, c.want)
 		}

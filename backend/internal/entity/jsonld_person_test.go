@@ -1,9 +1,11 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The seeded person schema (it carries x-schema-org-type) must still use the
@@ -12,8 +14,8 @@ const personSchemaJSON = `{"type":"object","x-schema-org-type":"Person","propert
 
 func personLD(t *testing.T, attrs string) map[string]any {
 	t.Helper()
-	e := &Entity{Name: "Ada Lovelace", Slug: "ada", Attributes: json.RawMessage(attrs),
-		Schema: &EntitySchema{Slug: "person", Schema: json.RawMessage(personSchemaJSON), Settings: json.RawMessage(`{"url_pattern":"/author/{slug}"}`)}}
+	e := &Entity{Name: "Ada Lovelace", Slug: "ada", Attributes: jsontext.Value(attrs),
+		Schema: &EntitySchema{Slug: "person", Schema: jsontext.Value(personSchemaJSON), Settings: jsontext.Value(`{"url_pattern":"/author/{slug}"}`)}}
 	doc, err := GenerateJSONLD(e, "https://x.test")
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +51,7 @@ func TestPersonJSONLDNeverPublishesTheAccountEmail(t *testing.T) {
 	if _, has := doc["email"]; has {
 		t.Errorf("email = %v without a public_email", doc["email"])
 	}
-	b, _ := json.Marshal(doc)
+	b, _ := jsonx.Marshal(doc)
 	if strings.Contains(string(b), "private@example.com") {
 		t.Errorf("the email leaked: %s", b)
 	}

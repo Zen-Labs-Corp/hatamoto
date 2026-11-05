@@ -23,7 +23,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"os"
 	"testing"
@@ -94,8 +94,8 @@ func TestUpdate_NoOptimisticConcurrencyGate(t *testing.T) {
 	// increments to 3. If a `WHERE version = $X` clause is introduced,
 	// writer B should fail or no-op, which would break this assertion —
 	// at which point the rewriter strategy must also be reconsidered.
-	attrsA := json.RawMessage(`{"content":"vA"}`)
-	attrsB := json.RawMessage(`{"content":"vB"}`)
+	attrsA := jsontext.Value(`{"content":"vA"}`)
+	attrsB := jsontext.Value(`{"content":"vB"}`)
 
 	if _, err := repo.Update(adminCtx, id, nil, &UpdateEntityInput{Attributes: &attrsA}); err != nil {
 		t.Fatalf("writer A update: %v", err)

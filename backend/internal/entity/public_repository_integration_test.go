@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 
 	"github.com/google/uuid"
@@ -46,7 +46,7 @@ func TestPublicRepo_BaseRowsOnlyAndSchemaAliases(t *testing.T) {
 	pub := NewPostgresPublicRepository(db)
 
 	mk := func(slug string) *EntitySchema {
-		s, err := schemas.Create(ctx, &CreateSchemaInput{Name: slug, Slug: slug, Schema: json.RawMessage(`{"type":"object","properties":{}}`)})
+		s, err := schemas.Create(ctx, &CreateSchemaInput{Name: slug, Slug: slug, Schema: jsontext.Value(`{"type":"object","properties":{}}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -118,7 +118,7 @@ func TestPublicRepo_SitemapHiddenFlag(t *testing.T) {
 	schemas := NewPostgresSchemaRepository(db)
 	pub := NewPostgresPublicRepository(db)
 
-	sc, err := schemas.Create(ctx, &CreateSchemaInput{Name: "it-hide", Slug: "it-hide", Schema: json.RawMessage(`{"type":"object","properties":{}}`)})
+	sc, err := schemas.Create(ctx, &CreateSchemaInput{Name: "it-hide", Slug: "it-hide", Schema: jsontext.Value(`{"type":"object","properties":{}}`)})
 	if err != nil {
 		t.Fatal(err)
 	}

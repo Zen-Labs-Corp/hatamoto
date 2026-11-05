@@ -2,9 +2,10 @@ package entity
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 	"reflect"
 	"strings"
 	"testing"
@@ -83,7 +84,7 @@ func TestNormalizeDoc_DocWrite(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, _ := json.Marshal(out["page_doc"])
+		b, _ := jsonx.Marshal(out["page_doc"])
 		if strings.Contains(string(b), "script") || strings.Contains(string(b), "onclick") {
 			t.Errorf("not sanitised: %s", b)
 		}
@@ -219,7 +220,7 @@ func TestNormalizeDoc_ConvertOnce(t *testing.T) {
 				t.Errorf("%s: out=%v err=%v", in, out, err)
 			}
 		}
-		if _, changed := convertUnconverted(&Entity{Attributes: json.RawMessage(stored)}); changed {
+		if _, changed := convertUnconverted(&Entity{Attributes: jsontext.Value(stored)}); changed {
 			t.Error("lazy conversion of an unconvertible page changed it")
 		}
 	})
@@ -243,13 +244,13 @@ func TestNormalizeDoc_ConvertOnce(t *testing.T) {
 
 func TestNormalizeDocRaw_NoOpIsByteIdentical(t *testing.T) {
 	doc := fromSecs(t, secsA)
-	stored := json.RawMessage(`{"title":"t","page_sections":` + secsA + `,"page_doc":` + doc + `}`)
+	stored := jsontext.Value(`{"title":"t","page_sections":` + secsA + `,"page_doc":` + doc + `}`)
 	got, err := normalizeDocRaw(docWrite, stored, stored, true)
 	if err != nil || string(got) != string(stored) {
 		t.Fatalf("got %s err=%v", got, err)
 	}
 	// without the mirror in the input, the stored one is carried: same value
-	got, err = normalizeDocRaw(docWrite, stored, json.RawMessage(`{"title":"t","page_doc":`+doc+`}`), true)
+	got, err = normalizeDocRaw(docWrite, stored, jsontext.Value(`{"title":"t","page_doc":`+doc+`}`), true)
 	if err != nil || !jsonRawEqual(got, stored) {
 		t.Errorf("got %s err=%v", got, err)
 	}
@@ -275,13 +276,13 @@ func TestNormalizeDoc_Idempotent(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			b, _ := json.Marshal(one)
+			b, _ := jsonx.Marshal(one)
 			two, err := normalizeDoc(docWrite, stored, obj(t, string(b)), true)
 			if err != nil {
 				t.Fatal(err)
 			}
-			b1, _ := json.Marshal(one)
-			b2, _ := json.Marshal(two)
+			b1, _ := jsonx.Marshal(one)
+			b2, _ := jsonx.Marshal(two)
 			if string(b1) != string(b2) {
 				t.Errorf("not idempotent:\n%s\n%s", b1, b2)
 			}
@@ -380,9 +381,7 @@ func TestNormalizeDoc_UnchangedLegacyContentByteIdentical(t *testing.T) {
 func plainJSON(t *testing.T, v any) string {
 	t.Helper()
 	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(v); err != nil {
+	if err := jsonx.Encode(&buf, v, jsontext.EscapeForHTML(false)); err != nil {
 		t.Fatal(err)
 	}
 	return buf.String()
@@ -392,7 +391,7 @@ func plainJSON(t *testing.T, v any) string {
 func TestNormalizeDocRaw_ExactNumbersAndExtraKeys(t *testing.T) {
 	in := `{"page_doc":{"v":2,"nodes":[{"id":"c-a","t":"container","p":{"tag":"section","v1":true},"c":[` +
 		`{"id":"a","t":"component","p":{"type":"x","extra":{"anchor":"top"},"content":{"big":12345678901234567890,"price":9.90}}}]}]}}`
-	out, err := normalizeDocRaw(docWrite, nil, json.RawMessage(in), true)
+	out, err := normalizeDocRaw(docWrite, nil, jsontext.Value(in), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -440,17 +439,17 @@ func TestNormalizeDoc_SchemaFieldsSanitised(t *testing.T) {
 // numbers, and an edit made through page_sections is refused, not half-applied.
 func TestNormalizeDocRaw_Float64ClientRoundTrip(t *testing.T) {
 	secs := `[{"id":"a","type":"x","sort_order":0,"content":{"body":"OLD","rating":4.0,"price":9.90,"big":12345678901234567890}}]`
-	stored, err := normalizeDocRaw(docWrite, nil, json.RawMessage(`{"page_doc":`+fromSecs(t, secs)+`}`), true)
+	stored, err := normalizeDocRaw(docWrite, nil, jsontext.Value(`{"page_doc":`+fromSecs(t, secs)+`}`), true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	stored = json.RawMessage(strings.Replace(string(stored), `{"page_doc"`, `{"page_sections":`+secs+`,"page_doc"`, 1))
+	stored = jsontext.Value(strings.Replace(string(stored), `{"page_doc"`, `{"page_sections":`+secs+`,"page_doc"`, 1))
 
 	var m map[string]any
-	if err := json.Unmarshal(stored, &m); err != nil { // float64 numbers
+	if err := jsonx.Unmarshal(stored, &m); err != nil { // float64 numbers
 		t.Fatal(err)
 	}
-	in, _ := json.Marshal(m)
+	in, _ := jsonx.Marshal(m)
 	out, err := normalizeDocRaw(docWrite, stored, in, true)
 	if err != nil {
 		t.Fatal(err)
@@ -460,7 +459,7 @@ func TestNormalizeDocRaw_Float64ClientRoundTrip(t *testing.T) {
 	}
 
 	m["page_sections"].([]any)[0].(map[string]any)["content"].(map[string]any)["body"] = "NEW"
-	in, _ = json.Marshal(m)
+	in, _ = jsonx.Marshal(m)
 	if _, err := normalizeDocRaw(docWrite, stored, in, true); !errors.Is(err, ErrPageSectionsRemoved) {
 		t.Errorf("edit through page_sections: err=%v", err)
 	}
@@ -470,13 +469,13 @@ func TestNormalizeDocRaw_Float64ClientRoundTrip(t *testing.T) {
 // validated and sanitised.
 func TestNormalizeDocRaw_EscapedDocKey(t *testing.T) {
 	bad := `{"page_sections":[],"page\u005fdoc":{"v":99,"nodes":"junk"}}`
-	if _, err := normalizeDocRaw(docWrite, nil, json.RawMessage(bad), true); !errors.Is(err, ErrInvalidDoc) {
+	if _, err := normalizeDocRaw(docWrite, nil, jsontext.Value(bad), true); !errors.Is(err, ErrInvalidDoc) {
 		t.Errorf("invalid doc under escaped key: err=%v, want ErrInvalidDoc", err)
 	}
 
 	evil := `{"page\u005fdoc":{"v":2,"nodes":[{"id":"r","t":"container","p":{"tag":"div"},"c":[` +
 		`{"id":"a","t":"component","p":{"type":"html","content":{"body":"<script>x()</script><p>ok</p>","content":"<img src=x onerror=alert(1)>"}}}]}]}}`
-	out, err := normalizeDocRaw(docWrite, nil, json.RawMessage(evil), true)
+	out, err := normalizeDocRaw(docWrite, nil, jsontext.Value(evil), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -489,12 +488,12 @@ func TestNormalizeDocRaw_CaseVariantKeysRejected(t *testing.T) {
 	for _, key := range []string{"Page_Doc", "PAGE_DOC", "page_DOC", "Page_Sections", `page\u005fDoc`} {
 		in := `{"page_sections":[],"` + key + `":{"v":2,"nodes":[]}}`
 		for _, mode := range []docMode{docWrite, docRestore} {
-			if _, err := normalizeDocRaw(mode, nil, json.RawMessage(in), true); !errors.Is(err, ErrInvalidDoc) {
+			if _, err := normalizeDocRaw(mode, nil, jsontext.Value(in), true); !errors.Is(err, ErrInvalidDoc) {
 				t.Errorf("key %s mode %v: err=%v, want ErrInvalidDoc", key, mode, err)
 			}
 		}
 	}
-	if _, err := normalizeDocRaw(docWrite, nil, json.RawMessage(`{"page_sections":[]}`), true); err != nil {
+	if _, err := normalizeDocRaw(docWrite, nil, jsontext.Value(`{"page_sections":[]}`), true); err != nil {
 		t.Errorf("exact keys rejected: %v", err)
 	}
 }

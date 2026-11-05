@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"strings"
 	"sync"
@@ -46,7 +46,7 @@ func (r *csRecorder) count() int {
 func newCSFixture(t *testing.T) *csFixture { return newCSFixtureSettings(t, nil) }
 
 // newCSFixtureSettings is newCSFixture with the schema's settings JSON set.
-func newCSFixtureSettings(t *testing.T, settings json.RawMessage) *csFixture {
+func newCSFixtureSettings(t *testing.T, settings jsontext.Value) *csFixture {
 	t.Helper()
 	ctx := context.Background()
 	db := newIntegrationDB(t)
@@ -57,7 +57,7 @@ func newCSFixtureSettings(t *testing.T, settings json.RawMessage) *csFixture {
 	svc.SetEvents(rec)
 	sc, err := schemas.Create(ctx, &CreateSchemaInput{
 		Name: "cs " + uuid.NewString()[:8], Slug: "cs-" + uuid.NewString()[:8],
-		Schema:   json.RawMessage(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`),
+		Schema:   jsontext.Value(`{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}`),
 		Settings: settings,
 	})
 	if err != nil {
@@ -102,11 +102,11 @@ const dirty = `{"content":"<p>hi</p><script>alert(1)</script>"}`
 
 func TestChangesetTxParityWithCreateEntity(t *testing.T) {
 	f := newCSFixture(t)
-	normal, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "A", Slug: "parity-a", Attributes: json.RawMessage(dirty)})
+	normal, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "A", Slug: "parity-a", Attributes: jsontext.Value(dirty)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := f.apply(TxOp{Name: "A", Slug: "parity-b", Attributes: json.RawMessage(dirty)})
+	res, err := f.apply(TxOp{Name: "A", Slug: "parity-b", Attributes: jsontext.Value(dirty)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestChangesetTxParityWithCreateEntity(t *testing.T) {
 	}
 
 	// The same invalid input is refused by both with the same error class.
-	bad := json.RawMessage(`{"nope":1}`)
+	bad := jsontext.Value(`{"nope":1}`)
 	_, e1 := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "B", Slug: "parity-c", Attributes: bad})
 	_, e2 := f.apply(TxOp{Name: "B", Slug: "parity-d", Attributes: bad})
 	if e1 == nil || e2 == nil || !errors.Is(e1, ErrValidationFailed) || !errors.Is(e2, ErrValidationFailed) {
@@ -145,11 +145,11 @@ func TestChangesetTxLocaleNeutral(t *testing.T) {
 		{"flagged explicit und refused", `{"locale_neutral":true}`, "und", "!", false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			f := newCSFixtureSettings(t, json.RawMessage(c.settings))
+			f := newCSFixtureSettings(t, jsontext.Value(c.settings))
 			if !c.single {
 				useLocales(t, f.svc, "en", "fr")
 			}
-			res, err := f.apply(TxOp{Name: "L", Slug: "loc", Locale: c.locale, Attributes: json.RawMessage(`{"content":"x"}`)})
+			res, err := f.apply(TxOp{Name: "L", Slug: "loc", Locale: c.locale, Attributes: jsontext.Value(`{"content":"x"}`)})
 			if c.want == "!" {
 				if err == nil {
 					t.Fatal("explicit und accepted")
@@ -174,9 +174,9 @@ func TestChangesetTxLocaleNeutral(t *testing.T) {
 }
 
 func TestChangesetTxParityWithCreateEntityLocaleNeutral(t *testing.T) {
-	f := newCSFixtureSettings(t, json.RawMessage(`{"locale_neutral":true}`))
+	f := newCSFixtureSettings(t, jsontext.Value(`{"locale_neutral":true}`))
 	useLocales(t, f.svc, "en", "fr")
-	attrs := json.RawMessage(`{"content":"x"}`)
+	attrs := jsontext.Value(`{"content":"x"}`)
 	normal, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "A", Slug: "parity-a", Attributes: attrs})
 	if err != nil {
 		t.Fatal(err)
@@ -196,15 +196,15 @@ func TestChangesetTxParityWithCreateEntityLocaleNeutral(t *testing.T) {
 
 func TestChangesetTxOriginAndSlugSuffix(t *testing.T) {
 	f := newCSFixture(t)
-	draft, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "T", Slug: "taken", Attributes: json.RawMessage(`{"content":"x"}`)})
+	draft, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "T", Slug: "taken", Attributes: jsontext.Value(`{"content":"x"}`)})
 	if err != nil || draft.Status != StatusDraft {
 		t.Fatalf("draft: %v %v", draft, err)
 	}
-	r1, err := f.apply(TxOp{Name: "T", Slug: "taken", Origin: "import-x", Attributes: json.RawMessage(`{"content":"y"}`)})
+	r1, err := f.apply(TxOp{Name: "T", Slug: "taken", Origin: "import-x", Attributes: jsontext.Value(`{"content":"y"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	r2, err := f.apply(TxOp{Name: "T", Slug: "taken", Attributes: json.RawMessage(`{"content":"z"}`)})
+	r2, err := f.apply(TxOp{Name: "T", Slug: "taken", Attributes: jsontext.Value(`{"content":"z"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ func TestChangesetTxOriginAndSlugSuffix(t *testing.T) {
 func TestChangesetTxSlugSuffixStaysWithinColumn(t *testing.T) {
 	f := newCSFixture(t)
 	long := strings.Repeat("a", 255)
-	attrs := json.RawMessage(`{"content":"x"}`)
+	attrs := jsontext.Value(`{"content":"x"}`)
 	r1, err := f.apply(TxOp{Name: "L", Slug: long, Attributes: attrs})
 	if err != nil {
 		t.Fatal(err)
@@ -238,11 +238,11 @@ func TestChangesetTxSlugSuffixStaysWithinColumn(t *testing.T) {
 
 func TestChangesetTxConflict(t *testing.T) {
 	f := newCSFixture(t)
-	e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "C", Slug: "conf", Attributes: json.RawMessage(`{"content":"x"}`)})
+	e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "C", Slug: "conf", Attributes: jsontext.Value(`{"content":"x"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	attrs := json.RawMessage(`{"content":"changeset"}`)
+	attrs := jsontext.Value(`{"content":"changeset"}`)
 
 	// A matching token applies.
 	v, ts := e.Version, e.UpdatedAt
@@ -250,7 +250,7 @@ func TestChangesetTxConflict(t *testing.T) {
 		t.Fatalf("matching token: %v", err)
 	}
 	// The row moved (version 2 now): the stale token is a conflict and writes nothing.
-	res, err := f.apply(TxOp{ID: &e.ID, Attributes: json.RawMessage(`{"content":"stale"}`), BaseVersion: &v})
+	res, err := f.apply(TxOp{ID: &e.ID, Attributes: jsontext.Value(`{"content":"stale"}`), BaseVersion: &v})
 	if !errors.Is(err, ErrConflict) || !res.Conflict {
 		t.Fatalf("stale version: res %+v err %v", res, err)
 	}
@@ -271,7 +271,7 @@ func TestChangesetTxConflict(t *testing.T) {
 
 func TestChangesetTxDeleteWithChildrenFailsAndTxSurvives(t *testing.T) {
 	f := newCSFixture(t)
-	attrs := json.RawMessage(`{"content":"x"}`)
+	attrs := jsontext.Value(`{"content":"x"}`)
 	parent, err := f.apply(TxOp{Name: "P", Slug: "par", Attributes: attrs})
 	if err != nil {
 		t.Fatal(err)
@@ -294,12 +294,12 @@ func TestChangesetTxDeleteWithChildrenFailsAndTxSurvives(t *testing.T) {
 
 func TestChangesetTxRestore(t *testing.T) {
 	f := newCSFixture(t)
-	e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "R", Slug: "rest", Attributes: json.RawMessage(`{"content":"one"}`)})
+	e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "R", Slug: "rest", Attributes: jsontext.Value(`{"content":"one"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Update, then restore.
-	up, err := f.apply(TxOp{ID: &e.ID, Name: "R2", Attributes: json.RawMessage(`{"content":"two"}`), Origin: "import-x"})
+	up, err := f.apply(TxOp{ID: &e.ID, Name: "R2", Attributes: jsontext.Value(`{"content":"two"}`), Origin: "import-x"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,7 +311,7 @@ func TestChangesetTxRestore(t *testing.T) {
 		t.Errorf("after restore: %s %s v%d", got.Name, got.Attributes, got.Version)
 	}
 	// The version never rewinds: a normal save after the revert must work.
-	three, four := json.RawMessage(`{"content":"three"}`), json.RawMessage(`{"content":"four"}`)
+	three, four := jsontext.Value(`{"content":"three"}`), jsontext.Value(`{"content":"four"}`)
 	if _, err := f.svc.UpdateEntity(f.ctx, e.ID, nil, &UpdateEntityInput{Attributes: &three}); err != nil {
 		t.Fatalf("save after restore: %v", err)
 	}
@@ -343,7 +343,7 @@ func TestChangesetTxRestore(t *testing.T) {
 	}
 
 	// A created row is reverted by an empty pre-image.
-	cr, err := f.apply(TxOp{Name: "C", Slug: "created", Attributes: json.RawMessage(`{"content":"x"}`)})
+	cr, err := f.apply(TxOp{Name: "C", Slug: "created", Attributes: jsontext.Value(`{"content":"x"}`)})
 	if err != nil || cr.Before != nil {
 		t.Fatalf("create: %+v %v", cr, err)
 	}
@@ -357,7 +357,7 @@ func TestChangesetTxRestore(t *testing.T) {
 
 func TestChangesetTxRollbackLeavesNothing(t *testing.T) {
 	f := newCSFixture(t)
-	attrs := json.RawMessage(`{"content":"x"}`)
+	attrs := jsontext.Value(`{"content":"x"}`)
 	boom := errors.New("boom")
 	err := f.inTx(func(tx pgx.Tx) error {
 		if _, err := f.svc.ApplyChangesetTx(f.ctx, tx, TxOp{Schema: f.schema.Slug, Name: "A", Slug: "gone", Attributes: attrs}); err != nil {
@@ -379,7 +379,7 @@ func TestChangesetTxNoEventBeforeAfterChangeset(t *testing.T) {
 	f := newCSFixture(t)
 	var lived []uuid.UUID
 	f.svc.SetLiveObserver(func(_ context.Context, ids []uuid.UUID) { lived = append(lived, ids...) })
-	created, err := f.apply(TxOp{Name: "E", Slug: "ev", Attributes: json.RawMessage(`{"content":"x"}`)})
+	created, err := f.apply(TxOp{Name: "E", Slug: "ev", Attributes: jsontext.Value(`{"content":"x"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -397,7 +397,7 @@ func TestChangesetTxNoEventBeforeAfterChangeset(t *testing.T) {
 
 func TestChangesetTxRestoreDeleteKeepsLinks(t *testing.T) {
 	f := newCSFixture(t)
-	e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "L", Slug: "links", Attributes: json.RawMessage(`{"content":"x"}`)})
+	e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "L", Slug: "links", Attributes: jsontext.Value(`{"content":"x"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -433,11 +433,11 @@ func TestChangesetTxRestoreDeleteKeepsLinks(t *testing.T) {
 
 func TestChangesetTxRestoreCreateRefusesWithChildren(t *testing.T) {
 	f := newCSFixture(t)
-	cr, err := f.apply(TxOp{Schema: f.schema.Slug, Name: "P", Slug: "parent", Attributes: json.RawMessage(`{"content":"x"}`)})
+	cr, err := f.apply(TxOp{Schema: f.schema.Slug, Name: "P", Slug: "parent", Attributes: jsontext.Value(`{"content":"x"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	child, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "K", Slug: "kid", ParentID: &cr.ID, Attributes: json.RawMessage(`{"content":"x"}`)})
+	child, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "K", Slug: "kid", ParentID: &cr.ID, Attributes: jsontext.Value(`{"content":"x"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,7 +454,7 @@ func TestChangesetTxRestoreCreateRefusesWithChildren(t *testing.T) {
 func TestChangesetTxRestoreDeleteLeavesOriginalMarkWithTheOtherMember(t *testing.T) {
 	f := newCSFixture(t)
 	mk := func(slug, locale string) *Entity {
-		e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: slug, Slug: slug, Locale: locale, Attributes: json.RawMessage(`{"content":"x"}`)})
+		e, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: slug, Slug: slug, Locale: locale, Attributes: jsontext.Value(`{"content":"x"}`)})
 		if err != nil {
 			t.Fatal(err)
 		}

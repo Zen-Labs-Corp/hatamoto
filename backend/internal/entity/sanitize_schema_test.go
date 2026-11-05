@@ -1,7 +1,7 @@
 package entity
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 )
@@ -23,7 +23,7 @@ func fakeKinds(t *testing.T) {
 
 func TestSanitizeAttributes_SchemaMarkedFields(t *testing.T) {
 	fakeKinds(t)
-	in := json.RawMessage(`{"page_sections":[
+	in := jsontext.Value(`{"page_sections":[
 	 {"id":"a","type":"split","content":{"lede":"<p>hi</p><script>x()</script>","heading":"<b>keep</b>","rows":[{"note":"<img src=x onerror=y()>ok"}]}},
 	 {"id":"b","type":"widget","content":{"raw":"<p>z</p><script>q()</script>"}}]}`)
 	out, err := sanitizeAttributes(in)
@@ -43,8 +43,8 @@ func TestSanitizeAttributes_SchemaMarkedFields(t *testing.T) {
 
 func TestSanitizeAttributesAgainst_SchemaFieldsUnchangedByteIdentical(t *testing.T) {
 	fakeKinds(t)
-	legacy := json.RawMessage(`{"page_sections":[{"id":"a","type":"split","content":{"lede":"<p>x</p><script>1</script>"}}]}`)
-	out, err := sanitizeAttributesAgainst(append(json.RawMessage(nil), legacy...), legacy)
+	legacy := jsontext.Value(`{"page_sections":[{"id":"a","type":"split","content":{"lede":"<p>x</p><script>1</script>"}}]}`)
+	out, err := sanitizeAttributesAgainst(append(jsontext.Value(nil), legacy...), legacy)
 	if err != nil {
 		t.Fatal(err)
 	}

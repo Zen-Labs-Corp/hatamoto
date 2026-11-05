@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"testing"
 
@@ -21,12 +21,12 @@ func TestListExcludesSchemaIDs(t *testing.T) {
 	var made []*EntitySchema
 	for _, n := range []string{"keep", "drop"} {
 		slug := fmt.Sprintf("%s-%s", n, uuid.NewString()[:8])
-		sc, err := schemas.Create(ctx, &CreateSchemaInput{Name: slug, Slug: slug, Schema: json.RawMessage(`{"type":"object","properties":{}}`)})
+		sc, err := schemas.Create(ctx, &CreateSchemaInput{Name: slug, Slug: slug, Schema: jsontext.Value(`{"type":"object","properties":{}}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = schemas.Delete(ctx, sc.ID) })
-		e, err := repo.Create(ctx, nil, &CreateEntityInput{SchemaID: sc.ID, Name: slug, Slug: slug, Attributes: json.RawMessage(`{}`)})
+		e, err := repo.Create(ctx, nil, &CreateEntityInput{SchemaID: sc.ID, Name: slug, Slug: slug, Attributes: jsontext.Value(`{}`)})
 		if err != nil {
 			t.Fatal(err)
 		}
