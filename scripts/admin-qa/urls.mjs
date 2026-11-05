@@ -131,6 +131,9 @@ export const screens = [
   // Theme: Themes, Colours and fonts, Design system, Style presets, Layout parts, Blocks, Templates, Menus
   { name: "theme-themes", path: "/admin/theme/themes", legacy: "/admin/settings/theme", mock: "settings-themes", roles: O, primary: true, states: [newDialog] }, // not a list screen (UI-D10): the header offers Upload and Browse, and Browse is the primary
   { name: "theme-colours", path: "/admin/theme/colours", legacy: "/admin/settings/branding", mock: null, roles: O },
+  { name: "theme-fonts", path: "/admin/theme/fonts", legacy: null, mock: null, roles: O },
+  { name: "theme-fonts-google", path: "/admin/theme/fonts/google", legacy: null, mock: null, roles: O },
+  { name: "theme-fonts-upload", path: "/admin/theme/fonts/upload", legacy: null, mock: null, roles: O },
   { name: "theme-design-system", path: "/admin/theme/design-system", legacy: null, mock: null, roles: O },
   { name: "theme-presets", path: "/admin/theme/presets", legacy: null, mock: null, roles: O },
   { name: "theme-parts", path: "/admin/theme/parts", legacy: null, mock: null, roles: O },

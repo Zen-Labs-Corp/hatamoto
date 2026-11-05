@@ -52,7 +52,7 @@ var settingsLive = map[string]bool{
 	"types": true, "taxonomies": true, "users": true,
 	"menus": true, "forms": true, "submissions": true,
 	"redirects": true, "linking": true, "templates": true,
-	"themes": true, "blocks": true, "colours": true, "design-system": true, "presets": true, "parts": true,
+	"themes": true, "blocks": true, "colours": true, "fonts": true, "design-system": true, "presets": true, "parts": true,
 	"import": true, "media": true, "general": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,

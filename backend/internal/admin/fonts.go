@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -150,6 +151,8 @@ func (a *Admin) renderFonts(w http.ResponseWriter, r *http.Request, page string,
 	a.Render(w, r, status, tmpl, v)
 }
 
+var fontRowSlug = regexp.MustCompile(`[^a-z0-9]+`)
+
 // fontFamilyRow is one family with its faces summed up.
 type fontFamilyRow struct {
 	name    string
@@ -209,7 +212,7 @@ func (a *Admin) fontsTable(r *http.Request, list []fonts.Font, body, heading str
 		if usedText == "" {
 			usedText = "Not used"
 		}
-		t.Rows = append(t.Rows, ui.Row{ID: "font-" + k, Label: row.name, Cells: []ui.Cell{
+		t.Rows = append(t.Rows, ui.Row{ID: "font-" + fontRowSlug.ReplaceAllString(k, "-"), Label: row.name, Cells: []ui.Cell{
 			{Text: row.name}, {Text: faces}, {Text: strings.Join(src, " and ")}, {Text: usedText},
 		}, Actions: []ui.Action{{
 			Label: "Remove", Post: a.adminPath + fontsPath + "/remove", Fields: map[string]string{"family": row.name},
