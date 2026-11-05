@@ -78,65 +78,149 @@ type omitScalars struct {
 	B bool `json:"b,omitempty"`
 }
 
+type omitStruct struct {
+	Meta struct {
+		A int `json:"a,omitzero"`
+	} `json:"meta,omitempty"`
+}
+
+type omitPtr struct {
+	Notify *string `json:"notify_email,omitempty"`
+}
+
+type emptyMarshaler string
+
+func (e emptyMarshaler) MarshalJSON() ([]byte, error) { return []byte(e), nil }
+
+type omitMarshaler struct {
+	V emptyMarshaler `json:"v,omitempty"`
+}
+
+type dupNames struct {
+	A int `json:"x"`
+	B int `json:"x"`
+}
+
 // TestPinnedKnownDivergences records where a v2-only Pinned set differs from
-// v1. Each case names the fix a later part applies to the affected wire type;
-// when one starts to match v1, the assertion fails and the note can go.
+// v1, as known as of go1.27.3. Each case carries the literal v1 bytes and the
+// fix a later part applies to the affected wire type; when one starts to
+// match v1, the assertion fails and the note can go.
 func TestPinnedKnownDivergences(t *testing.T) {
 	cases := []struct {
 		name string
 		v    any
 		fix  string
+		v1   string
 		v2   string
 	}{
 		{
 			name: "omitempty int and bool",
 			v:    omitScalars{},
 			fix:  "tag the fields omitzero",
+			v1:   `{}`,
 			v2:   `{"n":0,"b":false}`,
 		},
 		{
 			name: "pointer receiver MarshalJSON, not addressable",
 			v:    holdsPtrMarshaler{},
 			fix:  "pass a pointer to the holder",
+			v1:   `{"v":{"A":0}}`,
 			v2:   `{"v":"custom"}`,
 		},
 		{
 			name: "time.Duration",
 			v:    map[string]time.Duration{"d": time.Second},
 			fix:  "use a typed marshaler writing nanoseconds",
+			v1:   `{"d":1000000000}`,
 			v2:   "", // v2 refuses to encode it
 		},
 		{
 			name: "[N]byte",
 			v:    [2]byte{1, 2},
 			fix:  "use a typed marshaler writing an array",
+			v1:   `[1,2]`,
 			v2:   `"AQI="`,
+		},
+		{
+			name: "omitempty struct field that encodes as {}",
+			v:    omitStruct{},
+			fix:  "tag the field omitzero, or drop omitempty to keep writing {}",
+			v1:   `{"meta":{}}`,
+			v2:   `{}`,
+		},
+		{
+			name: "omitempty non-nil pointer to an empty string",
+			v:    omitPtr{Notify: new(string)},
+			fix:  "drop omitempty (a nil pointer then writes null) or tag omitzero (keeps the empty string)",
+			v1:   `{"notify_email":""}`,
+			v2:   `{}`,
+		},
+		{
+			name: "omitempty MarshalJSON returning an empty string",
+			v:    omitMarshaler{V: `""`},
+			fix:  "tag the field omitzero, or drop omitempty",
+			v1:   `{"v":""}`,
+			v2:   `{}`,
+		},
+		{
+			name: "omitempty MarshalJSON returning {}",
+			v:    omitMarshaler{V: `{}`},
+			fix:  "tag the field omitzero, or drop omitempty",
+			v1:   `{"v":{}}`,
+			v2:   `{}`,
+		},
+		{
+			name: "omitempty MarshalJSON returning null",
+			v:    omitMarshaler{V: `null`},
+			fix:  "tag the field omitzero, or drop omitempty",
+			v1:   `{"v":null}`,
+			v2:   `{}`,
+		},
+		{
+			name: "two fields with one JSON name",
+			v:    dupNames{A: 1, B: 2},
+			fix:  "rename or drop one of the fields; v1 silently omitted both",
+			v1:   `{}`,
+			v2:   "", // v2 returns a duplicate-name error
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Log("later-part fix:", tc.fix)
-			want, err := json.Marshal(tc.v)
-			if err != nil {
-				t.Fatalf("v1: %v", err)
-			}
 			got, err := MarshalPinned(tc.v)
 			if tc.v2 == "" {
 				if err == nil {
-					t.Fatalf("pinned encoded %s, expected an error (v1: %s)", got, want)
+					t.Fatalf("pinned encoded %s, expected an error (v1: %s)", got, tc.v1)
 				}
 				return
 			}
 			if err != nil {
 				t.Fatalf("pinned: %v", err)
 			}
-			if string(got) == string(want) {
+			if string(got) == tc.v1 {
 				t.Fatalf("pinned now matches v1 (%s): drop this divergence", got)
 			}
 			if string(got) != tc.v2 {
-				t.Fatalf("pinned = %s, want %s (v1: %s)", got, tc.v2, want)
+				t.Fatalf("pinned = %s, want %s (v1: %s)", got, tc.v2, tc.v1)
 			}
 		})
+	}
+}
+
+// TestPinnedUnmarshalFoldsDelimiters pins a divergence of PinnedUnmarshal: v2
+// case-insensitive matching also ignores "_" and "-" in names, v1 did not. So
+// {"user_id":1,"userid":2} decodes to 2 here and to 1 under v1.
+// Fix for a later part: do not give a pinned input type fields whose names
+// differ only by case and delimiters, or rename the stray field.
+func TestPinnedUnmarshalFoldsDelimiters(t *testing.T) {
+	var got struct {
+		UserID int `json:"user_id"`
+	}
+	if err := UnmarshalPinned([]byte(`{"user_id":1,"userid":2}`), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.UserID != 2 { // v1: 1
+		t.Fatalf("UserID = %d, want 2 (v1: 1)", got.UserID)
 	}
 }
 
