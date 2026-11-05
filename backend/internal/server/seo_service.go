@@ -33,7 +33,7 @@ const (
 // names. A patch may name any of them plus the two keys above.
 var seoSections = []string{
 	"separator", "home", "types", "taxonomy", "archives", "variables", "social",
-	"index", "robots", "verification", "sitemap", "breadcrumbs", "indexnow", "monitor404",
+	"index", "robots", "verification", "sitemap", "breadcrumbs", "indexnow", "monitor404", "ads_txt", "app_ads_txt",
 }
 
 // seoBackend is the settings store and the one transaction that writes schema
@@ -153,6 +153,8 @@ func seoDoc(set seo.Settings, types []*entity.EntitySchema, denied []agents.Purp
 			doc[name] = map[string]any{}
 		}
 	}
+	// The two ads files are plain text, always present so the document keeps one shape.
+	doc["ads_txt"], doc["app_ads_txt"] = set.AdsTxt, set.AppAdsTxt
 	doc["indexnow"] = map[string]any{"enabled": set.IndexNow.Enabled, "endpoint": set.IndexNow.Endpoint}
 
 	// The document has the shape of a patch, so Get then Update with an edited
@@ -332,6 +334,10 @@ func seoApplySection(set *seo.Settings, name string, raw json.RawMessage) error 
 			}
 		}
 		seo.NormalizeIndex(&set.Index)
+	case "ads_txt":
+		return seoApplyAdsText(raw, &set.AdsTxt)
+	case "app_ads_txt":
+		return seoApplyAdsText(raw, &set.AppAdsTxt)
 	case "robots":
 		return decodeStrict(raw, &set.Robots)
 	case "verification":
@@ -363,6 +369,16 @@ func seoApplySection(set *seo.Settings, name string, raw json.RawMessage) error 
 			set.IndexNow.Key = seo.NewIndexNowKey()
 		}
 	}
+	return nil
+}
+
+// seoApplyAdsText sets an ads.txt body from a JSON string, normalised like the admin save.
+func seoApplyAdsText(raw json.RawMessage, dst *string) error {
+	var text string
+	if err := decodeStrict(raw, &text); err != nil {
+		return err
+	}
+	*dst = seo.NormalizeAdsTxt(text)
 	return nil
 }
 

@@ -363,6 +363,8 @@ func TestSEOServiceGetUpdateRoundTrip(t *testing.T) {
 	r := newSEORig(t)
 	r.svc.schemas = append(r.svc.schemas.(fakeSEOSchemas),
 		&entity.EntitySchema{ID: uuid.New(), Slug: entity.PersonSchemaSlug, IsBuiltin: true, Settings: json.RawMessage(`{"schema_org_type":"Person"}`)})
+	r.back.set.AdsTxt = "google.com, pub-1, DIRECT, f08c47fec0942fa0\n"
+	r.back.set.AppAdsTxt = "example.com, 42, RESELLER\n"
 	ctx := context.Background()
 	doc, err := r.svc.Get(ctx)
 	if err != nil {
@@ -376,6 +378,9 @@ func TestSEOServiceGetUpdateRoundTrip(t *testing.T) {
 
 	if _, err := r.svc.Update(ctx, keyActor, full); err != nil {
 		t.Fatalf("the unchanged document was refused: %v", err)
+	}
+	if got := r.back.set; got.AdsTxt != "google.com, pub-1, DIRECT, f08c47fec0942fa0\n" || got.AppAdsTxt != "example.com, 42, RESELLER\n" {
+		t.Errorf("ads text after the round trip = %q, %q", got.AdsTxt, got.AppAdsTxt)
 	}
 	fixed := map[uuid.UUID]*entity.EntitySchema{}
 	for _, sc := range r.svc.schemas.(fakeSEOSchemas) {
