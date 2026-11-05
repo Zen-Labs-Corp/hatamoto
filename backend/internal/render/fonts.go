@@ -21,13 +21,13 @@ type FontFace struct {
 var (
 	fontFamilyRE = regexp.MustCompile(`^[A-Za-z0-9 _-]{1,60}$`)
 	fontHashRE   = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	fontRangeRE  = regexp.MustCompile(`^[Uu+0-9A-Fa-f?, -]{1,300}$`)
+	fontRangeRE  = regexp.MustCompile(`^[Uu+0-9A-Fa-f?, -]+$`)
 )
 
 func (f FontFace) valid() bool {
 	return fontFamilyRE.MatchString(f.Family) && fontHashRE.MatchString(f.Hash) &&
 		f.Weight >= 100 && f.Weight <= 900 && f.Weight%100 == 0 && (f.Style == "normal" || f.Style == "italic") &&
-		(f.UnicodeRange == "" || fontRangeRE.MatchString(f.UnicodeRange))
+		(f.UnicodeRange == "" || len(f.UnicodeRange) <= 4000 && fontRangeRE.MatchString(f.UnicodeRange))
 }
 
 // fontHead returns the head markup for the faces a page uses: one @font-face

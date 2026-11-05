@@ -21,14 +21,15 @@ type Face struct {
 }
 
 var (
-	srcRe     = regexp.MustCompile(`^url\(\s*(https://[A-Za-z0-9._~%/:@+=&?-]{1,500})\s*\)\s*format\(\s*['"]?woff2['"]?\s*\)$`)
-	rangeRe   = regexp.MustCompile(`^[Uu+0-9A-Fa-f?, -]{1,300}$`)
-	subsetRe  = regexp.MustCompile(`^[A-Za-z0-9 _-]{1,40}$`)
-	weightRe  = regexp.MustCompile(`^(\d{3})(?:\s+(\d{3}))?$`)
-	stretchRe = regexp.MustCompile(`^(normal|(?:condensed|expanded|(?:ultra|extra|semi)-(?:condensed|expanded))|\d{1,3}(?:\.\d+)?%(?:\s+\d{1,3}(?:\.\d+)?%)?)$`)
-	errSheet  = errors.New("Google Fonts answered with a stylesheet this server does not understand")
-	maxFaces  = 40
-	allowedKV = map[string]bool{
+	srcRe       = regexp.MustCompile(`^url\(\s*(https://[A-Za-z0-9._~%/:@+=&?-]{1,500})\s*\)\s*format\(\s*['"]?woff2['"]?\s*\)$`)
+	rangeRe     = regexp.MustCompile(`^[Uu+0-9A-Fa-f?, -]+$`)
+	subsetRe    = regexp.MustCompile(`^[A-Za-z0-9 _-]{1,40}$`)
+	weightRe    = regexp.MustCompile(`^(\d{3})(?:\s+(\d{3}))?$`)
+	stretchRe   = regexp.MustCompile(`^(normal|(?:condensed|expanded|(?:ultra|extra|semi)-(?:condensed|expanded))|\d{1,3}(?:\.\d+)?%(?:\s+\d{1,3}(?:\.\d+)?%)?)$`)
+	errSheet    = errors.New("Google Fonts answered with a stylesheet this server does not understand")
+	maxFaces    = 40
+	maxRangeLen = 4000 // Google sends lists past 1500 bytes
+	allowedKV   = map[string]bool{
 		"font-family": true, "font-style": true, "font-weight": true,
 		"font-display": true, "font-stretch": true, "src": true, "unicode-range": true,
 	}
@@ -144,7 +145,7 @@ func parseBlock(body string) (Face, error) {
 			}
 			f.URL = m[1]
 		case "unicode-range":
-			if !rangeRe.MatchString(v) {
+			if len(v) > maxRangeLen || !rangeRe.MatchString(v) {
 				return f, sheetErr("unicode-range")
 			}
 			f.UnicodeRange = v

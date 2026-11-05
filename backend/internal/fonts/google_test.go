@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -217,5 +218,56 @@ func TestParseFacesWeightRangeAndSubset(t *testing.T) {
 		if _, err := ParseFaces(bad); err == nil {
 			t.Errorf("ParseFaces(%q) accepted", bad)
 		}
+	}
+}
+
+// The saved stylesheets are what Google really answers for the downloader's
+// request (Chrome user agent, css2, display=swap). Their unicode-range lists
+// run past 1500 bytes, which an earlier length cap refused.
+func TestRealStylesheets(t *testing.T) {
+	for _, tc := range []struct {
+		file, family string
+		italic       bool
+	}{
+		{"opensans.css", "Open Sans", false},
+		{"opensans-italic.css", "Open Sans", true},
+		{"roboto.css", "Roboto", false},
+	} {
+		t.Run(tc.file, func(t *testing.T) {
+			raw, err := os.ReadFile("testdata/" + tc.file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			faces, err := ParseFaces(string(raw))
+			if err != nil {
+				t.Fatalf("ParseFaces: %v", err)
+			}
+			if len(faces) < 10 {
+				t.Fatalf("got %d faces", len(faces))
+			}
+			st := newStub(t, func(base string) string {
+				return strings.ReplaceAll(string(raw), "https://fonts.gstatic.com", base+"/f")
+			})
+			// Font URLs become <base>/f/s/...; the stub keys files by the rest of the path.
+			got, err := st.google().Download(context.Background(), tc.family, []int{400, 700}, tc.italic, false)
+			if err != nil {
+				t.Fatalf("Download: %v", err)
+			}
+			if len(got) != len(faces) {
+				t.Fatalf("downloaded %d faces, parsed %d", len(got), len(faces))
+			}
+		})
+	}
+}
+
+func TestParseFacesRangeLength(t *testing.T) {
+	block := func(r string) string {
+		return "@font-face{font-family:Inter;font-style:normal;font-weight:400;src:url(https://a/b.woff2) format('woff2');unicode-range:" + r + "}"
+	}
+	if _, err := ParseFaces(block(strings.Repeat("U+0041, ", 190) + "U+0042")); err != nil {
+		t.Fatalf("long list refused: %v", err)
+	}
+	if _, err := ParseFaces(block(strings.Repeat("U+0041, ", 600) + "U+0042")); err == nil {
+		t.Fatal("oversized list accepted")
 	}
 }
