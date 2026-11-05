@@ -285,7 +285,7 @@ Only `schema` is required:
 | `attr` + `eq` | `attributes[attr]` equals `eq`: a string, or a number or boolean spelled the same (`"eq" "3"` matches `3`). `attr` without an `eq` key requires the attribute to exist. With an `eq` key the test is always equality: `"eq" ""` matches the empty string only, `"eq" true` the JSON boolean, and a nil `eq` (for example `.Attrs.missing`) matches nothing, so guard optional values with `{{with}}`. Keys are `[A-Za-z0-9_-]`, at most 64 |
 | `author` | person slug (a `person` entity; see Authors). A person who is not public matches nothing |
 | `term` | `"<kind>:<slug>"`, e.g. `"category:news"` |
-| `order` | `-published_at` (default), `published_at`, `name`, `-name`, `attr:<key>`, `-attr:<key>`, `manual` (the position set on the Reorder page, ties by creation date then id; opt-in, the default is unchanged). Positions count among siblings of one type, parent and language, so `manual` is only meaningful within one of those sets: combine it with a `parent` or term filter, since a mixed list interleaves the sets. Attribute order sorts numeric values as numbers (so part 2 precedes part 10), then other text; entities without the attribute come last |
+| `order` | `-published_at` (default), `published_at`, `name`, `-name`, `attr:<key>`, `-attr:<key>`, `popular_7`, `popular_30`, `popular_90` (most pageviews over that many UTC days, today included, the newest filling the gap; see `popular` below; only the first 100 rows of the list are served; a failed lookup gives the newest and the page is not cached), `manual` (the position set on the Reorder page, ties by creation date then id; opt-in, the default is unchanged). Positions count among siblings of one type, parent and language, so `manual` is only meaningful within one of those sets: combine it with a `parent` or term filter, since a mixed list interleaves the sets. Attribute order sorts numeric values as numbers (so part 2 precedes part 10), then other text; entities without the attribute come last |
 | `limit` | 1..100, default 12 |
 | `status` | `published` (default) or `published+scheduled`: scheduled items are listed for a "Publishing <date>" row and carry only `Name`, `Title`, `Schema`, `PublishedAt` and, in `Attrs`, just the `attr` filter key and the `attr:<key>` order key (so a series part number is available). `URL`, `Excerpt`, `Image`, `Category`, `Author`, `AuthorURL`, `WordCount`, `ReadingTime` and every other attribute are empty, so embargoed content never leaks. Drafts and archived items never appear; any other value means `published` |
 | `page` | 1..1000 and at most `Pages`: a page past the end returns the last page |
@@ -520,6 +520,10 @@ serves. A theme sees `.Term.Kind`, so `taxonomy-genre.html` styles one kind.
 gives no items and the page still renders.
 
 - `recent "post" 5`: newest published entities of a schema (and its aliases).
+- `popular "post" 5 30`: the published entities of a schema (and its aliases)
+  with the most pageviews over the last 7, 30 or 90 days (any other value, or
+  none, means 30; limit 1..50). It is `query` with the `popular_<days>` order.
+  Views are the pageview beacons of the daily traffic rollup (visitors without script and bots are not counted), summed per entity over UTC days including today; only the 100 busiest pages of each day are kept, so a small page on a busy site can have no views. A landing path counts for the entity it serves: a trailing slash, a locale prefix and upper case add up (stored paths are lower case, so a slug with capitals or non-ASCII letters is never ranked). Entities without views follow, newest first, so the list is always full. The ranking refreshes about once a minute, and no count is ever shown.
 - `related . 3`: other published entities of the page's schema (same as
   `call .Related 3`; pass `$` inside a `range`). Limits are clamped to 1..50.
 - `terms "category" 10`: terms of a kind (any kind) with published entities,
@@ -561,7 +565,7 @@ client. Results are `noindex` and exclude every entity the sitemap excludes
 `noindex`). An archive without `archive_title` is headed by its menu label
 (the menu item linking to the archive), else the schema name pluralised.
 Archives are cached like pages; taxonomy, author and search views are never
-cached. A page rendered while a `recent`, `terms`, `menu`, `srcset`, `query` or `attrValues` lookup
+cached. A page rendered while a `recent`, `popular`, `terms`, `menu`, `srcset`, `query` or `attrValues` lookup
 failed, or while a plugin template func or render-time plugin filter failed, timed out or was
 skipped by its circuit breaker, is served but not cached. Cached single pages embed term and author
 names and `terms` widgets; term changes clear the page cache like any other

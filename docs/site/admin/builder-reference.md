@@ -216,7 +216,7 @@ The `loop` widget lists published entities and repeats its children once per ite
 | From | `query` (default) or `archive`, the items and pager of the archive being shown |
 | Schema, or the page's own type | the entity type to list |
 | Term, Author | filter by a `<kind>:<slug>` term or a person slug |
-| Order | `newest` (default), `oldest`, `updated`, `name`, `name_desc`, `manual` |
+| Order | `newest` (default), `oldest`, `updated`, `name`, `name_desc`, `manual`, `popular_7`, `popular_30`, `popular_90` (Most viewed over the last 7, 30 or 90 days; the newest fill the gap; no counts are shown) |
 | Limit | 1 to 48 (12) |
 | Offset | 0 to 1000 (0) |
 | Paging | `none` (default) or `pages` |
