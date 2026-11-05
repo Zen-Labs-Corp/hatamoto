@@ -210,6 +210,7 @@ GET /admin/setup/stats -> admin.(*Admin).handleSetupStatsForm-fm
 GET /admin/setup/theme -> admin.(*Admin).handleSetupThemeForm-fm
 GET /admin/sudo -> admin.(*Admin).handleSudoPage-fm
 GET /admin/theme -> admin.(*Admin).areaEntry.func1
+GET /admin/theme/additional-css -> admin.(*Admin).handleAdditionalCSS-fm
 GET /admin/theme/blocks -> admin.(*Admin).handleBlocksPage-fm
 GET /admin/theme/browse -> admin.(*Admin).handleThemeBrowse-fm
 GET /admin/theme/colours -> admin.(*Admin).handleDesignForm-fm
@@ -459,6 +460,7 @@ POST /admin/setup/stats -> admin.(*Admin).handleSetupStats-fm
 POST /admin/setup/theme -> admin.(*Admin).handleSetupTheme-fm
 POST /admin/sudo -> admin.(*Admin).handleSudo-fm
 POST /admin/theme -> admin.(*Admin).handleTheme-fm
+POST /admin/theme/additional-css -> admin.(*Admin).handleAdditionalCSSSave-fm
 POST /admin/theme/colours -> admin.(*Admin).handleDesignSave-fm
 POST /admin/theme/design-system -> admin.(*Admin).handleTokensSave-fm
 POST /admin/theme/design-system/reset -> admin.(*Admin).handleTokensReset-fm
