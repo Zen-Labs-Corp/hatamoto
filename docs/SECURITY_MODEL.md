@@ -292,7 +292,7 @@ A preview link lets anyone who holds it read one draft without signing in, so th
 | Guarantee | Where | Check |
 |---|---|---|
 | The token is 32 random bytes; only its SHA-256 is stored, so a database leak yields no usable link. The full link is shown once and never written to audit or logs (the request log redacts the path) | `internal/previewlink`, `internal/server` | `TestPreviewShareServesTheDraft`, store tests in `internal/previewlink` |
-| Expired, revoked, unknown, malformed and deleted-entity links all answer the same plain 404; a published entity redirects to its public page and never shows draft content | `internal/server` | `TestPreviewShareRefusals`, `TestPreviewSharePublishedRedirectsToThePublicPage` |
+| Expired, revoked, unknown, malformed and deleted-entity links all answer the same plain 404; publishing, archiving or deleting the entity revokes its links, so a published entity never shows draft content | `internal/server` | `TestPreviewShareRefusals`, `TestPreviewSharePublishedAnswersNotFound` |
 | The response is `no-store`, `no-referrer`, `noindex`, `X-Frame-Options: DENY` and carries a sandbox policy with `script-src 'none'`; it never enters the page cache, sitemap, feeds or llms.txt | `internal/server` | `TestPreviewShareServesTheDraft` |
 | Guessing is throttled per client by a rate limit; lifetime is 1 hour to 30 days and at most 10 links are active per entity | `internal/server`, `internal/previewlink` | route and store tests |
 | Creating and revoking links is owner and editor only and audit-logged; `/preview` is a reserved first path segment | `internal/admin`, `internal/adminpath` | `TestSharePreviewFlow` |

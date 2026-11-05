@@ -62,7 +62,7 @@ In this guide you create a piece of content, save it as a draft, publish it and 
 
 2. Pick how long the link works (1 hour, 1 day, 7 days or 30 days) and press **Create link**. Copy the link right away: it is shown once, and later you only see its last four characters.
 
-3. Send the link to anyone. They see the last saved draft as it will look live, without signing in. Search engines are told not to list it. An item can have up to 10 active links. Revoke a link in the table below and it stops working at once. Published items cannot be shared, and a link made earlier then leads to the public page. If the site is private (Site access), its own gate still applies to everyone who is not signed in.
+3. Send the link to anyone. They see the last saved draft as it will look live, without signing in. Search engines are told not to list it. An item can have up to 10 active links. Revoke a link in the table below and it stops working at once. Published items cannot be shared. A link stops working, and answers "not found", once the item is published, archived or deleted. If the site is private (Site access), its own gate still applies to everyone who is not signed in.
 
 ### Find, restore and remove content
 

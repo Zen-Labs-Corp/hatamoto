@@ -195,14 +195,14 @@ func TestPreviewShareRefusals(t *testing.T) {
 	assert404("deleted entity", "/preview/"+tok3)
 }
 
-func TestPreviewSharePublishedRedirectsToThePublicPage(t *testing.T) {
+func TestPreviewSharePublishedAnswersNotFound(t *testing.T) {
 	r := newShareRig(t)
 	slug := "live-" + r.sfx
 	id := r.entity(slug, "draft")
 	tok, _ := r.link(id)
 	r.exec(`UPDATE hatamoto_entities SET status='published', published_at=now() WHERE id=$1`, id)
 	rec := r.get("/preview/" + tok)
-	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/"+slug {
+	if rec.Code != http.StatusNotFound || rec.Header().Get("Location") != "" {
 		t.Fatalf("published: %d Location=%q", rec.Code, rec.Header().Get("Location"))
 	}
 	if strings.Contains(rec.Body.String(), "Preview of a draft") {

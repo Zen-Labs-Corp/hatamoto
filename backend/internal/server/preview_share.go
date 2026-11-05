@@ -54,17 +54,9 @@ func (s *Server) handlePreviewShare(w http.ResponseWriter, r *http.Request) {
 	path := locateEntity(ctx, s.urlSnapshot(ctx), entity.NewPostgresPublicRepository(s.db), e).Path
 	switch e.Status {
 	case entity.StatusDraft, entity.StatusScheduled:
-	case entity.StatusPublished:
-		// Publishing ends the draft: the link now leads to the public page,
-		// never to anything else.
-		if path == "" {
-			http.NotFound(w, r)
-			return
-		}
-		http.Redirect(w, r, path, http.StatusFound)
-		return
 	default:
-		// Archived content is not shareable.
+		// Published and archived content is not shareable: publishing revokes
+		// the links, and this answer covers one that outlived the revoke.
 		http.NotFound(w, r)
 		return
 	}
