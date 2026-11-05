@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
@@ -522,5 +523,33 @@ func TestWireHostCallReplies(t *testing.T) {
 	}
 	if got := call(`{"fn":"x"}`); got != `{"ok":false,"error":{"code":"internal","message":"host call failed"}}` {
 		t.Errorf("panicking handler: %s", got)
+	}
+}
+
+// TestWireHostResultTypes pins the bytes of host-defined result types. The
+// expectations are the v1 bytes: omitempty never dropped a non-nil pointer to
+// an empty value, and dropped a false bool.
+func TestWireHostResultTypes(t *testing.T) {
+	empty := ""
+	cases := []struct {
+		name string
+		v    any
+		want string
+	}{
+		{"db.query", &QueryResult{Columns: []string{"id"}, Rows: [][]any{{1}}}, `{"columns":["id"],"rows":[[1]]}`},
+		{"db.query truncated", &QueryResult{Columns: []string{"id"}, Rows: [][]any{}, Truncated: true}, `{"columns":["id"],"rows":[],"truncated":true}`},
+		{"http.fetch", &FetchResponse{Status: 200, Headers: map[string]string{"a": "b"}, Body: "ok"}, `{"status":200,"headers":{"a":"b"},"body":"ok"}`},
+		{"media.get cleared alt text", mediaDTO{ID: "m1", Filename: "a.png", MimeType: "image/png", FileSize: 3, AltText: &empty}, `{"id":"m1","filename":"a.png","mime_type":"image/png","file_size":3,"alt_text":""}`},
+		{"forms.list empty validation", map[string]any{"fields": []form.FormField{{ID: "f1", Type: "text", Label: "L", Name: "n", Validation: &form.FieldValidation{}}}},
+			`{"fields":[{"id":"f1","type":"text","label":"L","name":"n","required":false,"validation":{},"position":0}]}`},
+	}
+	for _, c := range cases {
+		got, err := jsonx.MarshalPinned(c.v)
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if string(got) != c.want {
+			t.Errorf("%s:\n got  %s\n want %s", c.name, got, c.want)
+		}
 	}
 }
