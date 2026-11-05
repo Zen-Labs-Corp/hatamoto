@@ -1,7 +1,7 @@
 package wpimport
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"html"
 	"regexp"
@@ -535,8 +535,8 @@ func valStr(v any) string {
 	switch t := v.(type) {
 	case string:
 		return strings.TrimSpace(t)
-	case json.Number:
-		return t.String()
+	case jsontext.Value:
+		return string(t)
 	}
 	return ""
 }
@@ -564,8 +564,8 @@ func truthy(v any) bool {
 		case "1", "on", "true", "yes":
 			return true
 		}
-	case json.Number:
-		return t.String() != "0"
+	case jsontext.Value:
+		return string(t) != "0"
 	case float64:
 		return t != 0
 	}

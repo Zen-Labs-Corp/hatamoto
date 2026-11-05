@@ -2,7 +2,7 @@ package wpimport
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Kinds of the id map.
@@ -38,8 +40,8 @@ type Run struct {
 	SourceRef string
 	Status    string
 	Phase     string
-	Options   json.RawMessage
-	Report    json.RawMessage
+	Options   jsontext.Value
+	Report    jsontext.Value
 	Error     string
 }
 
@@ -60,7 +62,7 @@ func (s *Store) Ref() string { return s.ref }
 
 // StartRun records a new run.
 func (s *Store) StartRun(ctx context.Context, status string, options any) (*Run, error) {
-	opts, err := json.Marshal(options)
+	opts, err := jsonx.Marshal(options)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +97,7 @@ func (s *Store) SetPhase(ctx context.Context, id uuid.UUID, phase string) error 
 
 // FinishRun stores the outcome of a run.
 func (s *Store) FinishRun(ctx context.Context, id uuid.UUID, status string, report any, runErr error) error {
-	rep, err := json.Marshal(report)
+	rep, err := jsonx.Marshal(report)
 	if err != nil {
 		return err
 	}
