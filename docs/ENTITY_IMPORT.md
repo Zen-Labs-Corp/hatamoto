@@ -68,3 +68,6 @@ res, err := svc.Import(ctx, actor, entity.ImportBatch{
   same dry run does not exist, so it is not checked as a parent and the dry
   record keeps no parent (the parent row itself was validated). Two rows of one
   dry run with the same schema, locale and slug are reported as a slug conflict.
+* **CSV source.** The admin CSV import (Settings, Import) sends its rows through
+  this service with `Source: "csv"` and keys `csv:<type>:<value>`, in batches of
+  500, first as a dry run and then for real. See the site page on export and import.

@@ -12,6 +12,14 @@ The backend, the admin, MCP and REST output and the plugin SDK now use the JSON 
 - **Contributors.** The build fails on a new `encoding/json` (v1) import outside `backend/migrations/`.
 - **Migration.** The upgrade step `202611051000_normalise_stored_json_keys` rewrites the keys. Rollback floor: unchanged; the previous release reads what this one writes (`[]` where it wrote `null`).
 
+## Unreleased: CSV import and export
+
+- **Export.** **Export CSV** on a content type's list downloads its entries as CSV with the columns you pick: fixed columns plus one `attr:<path>` column per attribute. Cells that could run as a spreadsheet formula are prefixed with `'`.
+- **Import.** **Settings, Import, Import a CSV file instead** loads a CSV file into one content type in three steps: upload, map the columns, dry run and import. The Key column makes a second import update instead of add. New entries are drafts unless the file gives a status.
+- **Dry run.** `entity.Service.Import` takes `DryRun`: the whole path runs in a transaction that is rolled back, with no event, cache purge or stored row.
+- **Limits.** 32 MiB, 50 000 rows, 500 rows per batch. `order` is not imported. The `entity.before_save` hook runs in a dry run.
+- **Migration.** None. Rollback floor: none (imported rows carry `metadata.import_key` as for any import).
+
 ## Unreleased: Popular content
 
 - **Template func.** `popular "post" 5 30` lists the published entities of a schema with the most pageviews over the last 7, 30 or 90 days (any other value or none means 30; limit 1 to 50), the newest filling any gap so the list is always full.
