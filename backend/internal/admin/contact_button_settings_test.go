@@ -39,6 +39,15 @@ func TestContactButtonWarnsWithoutNumber(t *testing.T) {
 	}
 }
 
+func TestContactButtonWarnsWhatsAppNumberWithoutCountryCode(t *testing.T) {
+	s, site := newContactButtonRig(t)
+	site.cfg.Phone = "044 668 18 00"
+	site.cfg.ThemeExtra = json.RawMessage(`{"contactButton":{"enabled":true,"channel":"whatsapp","position":"bottom-right"}}`)
+	if body := s.get(t, "/admin/settings/contact-button"); !strings.Contains(body, "has no country code") {
+		t.Error("no warning for a WhatsApp button on a national-format number")
+	}
+}
+
 func TestContactButtonSaveAuditsAndKeepsOtherKeys(t *testing.T) {
 	s, site := newContactButtonRig(t)
 	form := url.Values{

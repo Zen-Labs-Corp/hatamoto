@@ -9,7 +9,12 @@ func TestContactLink(t *testing.T) {
 		want                   string
 	}{
 		{"whatsapp default", "whatsapp", "", "", "https://wa.me/41791234567"},
-		{"whatsapp text", "whatsapp", "(079) 123-45-67", "Hi & bye é", "https://wa.me/0791234567?text=Hi%20%26%20bye%20%C3%A9"},
+		{"whatsapp text", "whatsapp", "+41 79 123 45 67", "Hi & bye é", "https://wa.me/41791234567?text=Hi%20%26%20bye%20%C3%A9"},
+		{"whatsapp national number", "whatsapp", "(079) 123-45-67", "", ""},
+		{"whatsapp trunk zero", "whatsapp", "+41 (0)79 123 45 67", "", "https://wa.me/41791234567"},
+		{"whatsapp 00 prefix", "whatsapp", "0041 79 123 45 67", "", "https://wa.me/41791234567"},
+		{"call trunk zero", "call", "+41 (0)79 123 45 67", "", "tel:+41791234567"},
+		{"call 00 prefix", "call", "0041 79 123 45 67", "", "tel:+41791234567"},
 		{"call keeps plus", "call", "+41 79 123 45 67", "", "tel:+41791234567"},
 		{"call default", "call", "", "", "tel:+41791234567"},
 		{"sms body", "sms", "0791234567", "Hello there", "sms:0791234567?body=Hello%20there"},

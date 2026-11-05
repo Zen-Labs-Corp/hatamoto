@@ -3,9 +3,10 @@ package siteconfig
 import (
 	"encoding/json"
 	"fmt"
-	"net/mail"
 	"strings"
 	"unicode/utf8"
+
+	"hatamoto.dev/core/internal/contactlink"
 )
 
 // contactButtonKey is the theme settings key that holds the floating contact
@@ -85,12 +86,16 @@ func (c ContactButton) Validate() []FieldError {
 		case utf8.RuneCountInString(to) > contactToMax:
 			add("to", fmt.Sprintf("Use at most %d characters.", contactToMax))
 		case c.Channel == ContactEmail:
-			if !validContactEmail(to) {
+			if !contactlink.ValidMailbox(to) {
 				add("to", "Enter a valid email address.")
 			}
 		case c.Channel == ContactWhatsApp || c.Channel == ContactCall || c.Channel == ContactSMS:
-			if n := len(contactDigits(to)); n < 6 || n > 15 || !validPhoneChars(to) {
+			_, intl, ok := contactlink.Phone(to)
+			switch {
+			case !ok || !validPhoneChars(to):
 				add("to", "Enter a phone number with 6 to 15 digits.")
+			case c.Channel == ContactWhatsApp && !intl:
+				add("to", "Include the country code, for example +41 79 123 45 67.")
 			}
 		}
 	}
@@ -113,16 +118,6 @@ func MergeContactButton(themeExtra []byte, c ContactButton) ([]byte, error) {
 	return json.Marshal(top)
 }
 
-func contactDigits(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		if r >= '0' && r <= '9' {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
-
 // validPhoneChars allows digits plus the separators people type.
 func validPhoneChars(s string) bool {
 	for i, r := range s {
@@ -134,14 +129,4 @@ func validPhoneChars(s string) bool {
 		}
 	}
 	return true
-}
-
-// validContactEmail is a bare address; characters that could add headers or
-// query parameters to a mailto: link are refused.
-func validContactEmail(s string) bool {
-	if strings.ContainsAny(s, "?&,;\r\n<> ") {
-		return false
-	}
-	a, err := mail.ParseAddress(s)
-	return err == nil && a.Address == s
 }

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"hatamoto.dev/core/internal/contactlink"
 	"net/http"
 	"strings"
 
@@ -165,6 +166,11 @@ func (a *Admin) renderContactButton(w http.ResponseWriter, r *http.Request, stat
 	}
 	if cb.Enabled && cb.To == "" && target == "" {
 		d.Warning = fallback + " The button is not shown until you set one here or in your business details."
+	}
+	if cb.Enabled && cb.Channel == siteconfig.ContactWhatsApp && cb.To == "" && phone != "" {
+		if _, intl, _ := contactlink.Phone(phone); !intl {
+			d.Warning = "The phone number in your business details has no country code, so WhatsApp cannot open it. The button is not shown until you add one, for example +41 79 123 45 67, here or in your business details."
+		}
 	}
 	view := a.NewView(w, r, "Contact button")
 	view.Section, view.Tab = "contact-button", "contact-button"

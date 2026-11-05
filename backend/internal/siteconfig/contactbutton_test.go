@@ -63,6 +63,8 @@ func TestContactButtonValidate(t *testing.T) {
 		{Channel: "whatsapp", Position: "bottom-left", To: "+41 (79) 123-45-67"},
 		{Channel: "email", Position: "bottom-left", To: "a@example.com"},
 		{Channel: "sms", Position: "bottom-left", To: "0791234567"},
+		{Channel: "whatsapp", Position: "bottom-left", To: "0041 79 123 45 67"},
+		{Channel: "whatsapp", Position: "bottom-left", To: "+41 (0)79 123 45 67"},
 		{Channel: "call", Position: "bottom-left", Label: strings.Repeat("é", 60)},
 	}
 	for _, c := range good {
@@ -73,6 +75,7 @@ func TestContactButtonValidate(t *testing.T) {
 	bad := []ContactButton{
 		{Channel: "whatsapp", Position: "bottom-left", To: "1234567890123456"},
 		{Channel: "call", Position: "bottom-left", To: "079abc1234"},
+		{Channel: "whatsapp", Position: "bottom-left", To: "079 123 45 67"},
 		{Channel: "email", Position: "bottom-left", To: "a@example.com?bcc=x@y.z"},
 		{Channel: "email", Position: "bottom-left", To: "a@example.com,b@example.com"},
 		{Channel: "email", Position: "bottom-left", To: "a@example.com\nbcc: x"},

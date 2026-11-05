@@ -2,9 +2,10 @@ package render
 
 import (
 	"html/template"
-	"net/mail"
 	"net/url"
 	"strings"
+
+	"hatamoto.dev/core/internal/contactlink"
 )
 
 // ContactView is the phone and email a contact link falls back to when its
@@ -49,7 +50,7 @@ func contactLink(channel, to, msg string, d contactDefaults) (template.URL, bool
 		if to == "" {
 			to = strings.TrimSpace(d.Email)
 		}
-		if !validMailbox(to) {
+		if !contactlink.ValidMailbox(to) {
 			return "", false
 		}
 		raw = "mailto:" + to + queryBody(msg)
@@ -57,20 +58,24 @@ func contactLink(channel, to, msg string, d contactDefaults) (template.URL, bool
 		if to == "" {
 			to = strings.TrimSpace(d.Phone)
 		}
-		digits := phoneDigits(to)
-		if len(digits) < 6 || len(digits) > 15 {
+		digits, intl, ok := contactlink.Phone(to)
+		if !ok {
 			return "", false
 		}
 		switch channel {
 		case "whatsapp":
+			// wa.me only takes a full international number.
+			if !intl {
+				return "", false
+			}
 			raw = "https://wa.me/" + digits
 			if msg != "" {
 				raw += "?text=" + queryEscape(msg)
 			}
 		case "call":
-			raw = "tel:" + phoneWithPlus(to)
+			raw = "tel:" + contactlink.Tel(digits, intl)
 		default:
-			raw = "sms:" + phoneWithPlus(to) + queryBody(msg)
+			raw = "sms:" + contactlink.Tel(digits, intl) + queryBody(msg)
 		}
 	default:
 		return "", false
@@ -109,35 +114,6 @@ func queryBody(msg string) string {
 // target app reads, unlike "+".
 func queryEscape(s string) string {
 	return strings.ReplaceAll(url.QueryEscape(s), "+", "%20")
-}
-
-func phoneDigits(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		if r >= '0' && r <= '9' {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
-
-// phoneWithPlus keeps the digits and a leading "+".
-func phoneWithPlus(s string) string {
-	s = strings.TrimSpace(s)
-	if strings.HasPrefix(s, "+") {
-		return "+" + phoneDigits(s)
-	}
-	return phoneDigits(s)
-}
-
-// validMailbox accepts a bare address; characters that would add headers or
-// query parameters to a mailto: link are refused.
-func validMailbox(s string) bool {
-	if s == "" || strings.ContainsAny(s, "?&,;\r\n<> ") {
-		return false
-	}
-	a, err := mail.ParseAddress(s)
-	return err == nil && a.Address == s
 }
 
 // floatLink is what the contact-float partial prints.
