@@ -390,7 +390,9 @@ func sanitizeAttributesAgainst(raw, stored jsontext.Value) (jsontext.Value, erro
 
 func decodeJSON(raw []byte) (any, bool) {
 	var v any
-	if err := jsonx.Unmarshal(raw, &v, jsonx.ExactNumbers); err != nil {
+	// Duplicate names are accepted (last wins, as in jsonb): a decode failure
+	// here would return the attributes unsanitised.
+	if err := jsonx.Unmarshal(raw, &v, jsonx.ExactNumbersLoose); err != nil {
 		return nil, false
 	}
 	return v, true
