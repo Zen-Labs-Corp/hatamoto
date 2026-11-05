@@ -1,12 +1,13 @@
 package siteconfig
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"strings"
 	"unicode/utf8"
 
 	"hatamoto.dev/core/internal/contactlink"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // contactButtonKey is the theme settings key that holds the floating contact
@@ -50,12 +51,12 @@ type FieldError struct {
 // ParseContactButton reads the contactButton key of the theme settings JSON.
 // Missing or malformed data is the zero value (disabled).
 func ParseContactButton(themeExtra []byte) ContactButton {
-	var top map[string]json.RawMessage
-	if json.Unmarshal(themeExtra, &top) != nil || len(top[contactButtonKey]) == 0 {
+	var top map[string]jsontext.Value
+	if jsonx.Unmarshal(themeExtra, &top, jsonx.StoredLoose) != nil || len(top[contactButtonKey]) == 0 {
 		return ContactButton{}
 	}
 	var c ContactButton
-	if json.Unmarshal(top[contactButtonKey], &c) != nil {
+	if jsonx.Unmarshal(top[contactButtonKey], &c, jsonx.StoredLoose) != nil {
 		return ContactButton{}
 	}
 	return c
@@ -104,18 +105,18 @@ func (c ContactButton) Validate() []FieldError {
 
 // MergeContactButton sets the contactButton key and keeps every other key.
 func MergeContactButton(themeExtra []byte, c ContactButton) ([]byte, error) {
-	top := map[string]json.RawMessage{}
+	top := map[string]jsontext.Value{}
 	if len(themeExtra) > 0 && string(themeExtra) != "null" {
-		if err := json.Unmarshal(themeExtra, &top); err != nil {
+		if err := jsonx.Unmarshal(themeExtra, &top, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("theme settings: %w", err)
 		}
 	}
-	raw, err := json.Marshal(c)
+	raw, err := jsonx.Marshal(c)
 	if err != nil {
 		return nil, err
 	}
 	top[contactButtonKey] = raw
-	return json.Marshal(top)
+	return jsonx.Marshal(top)
 }
 
 // validPhoneChars allows digits plus the separators people type.
