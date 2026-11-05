@@ -26,7 +26,8 @@ type facts struct {
 	SDK        string `json:"sdk"`
 	SchemaHead int64  `json:"schema_head"`
 
-	SDKCompatibleWith []string `json:"sdk_compatible_with,omitempty"`
+	SDKCompatibleWith  []string `json:"sdk_compatible_with,omitempty"`
+	RemovedPermissions []string `json:"removed_permissions,omitempty"`
 }
 
 var sha256Hex = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -155,7 +156,7 @@ func buildRecord(version, kind string, security bool, factsFile, floor, minFrom,
 		return rec, errors.New("the binary reports no commit; build with COMMIT set")
 	}
 	rec = release.Record{
-		Version: version, Kind: kind, Security: security, SDK: f.SDK, SDKCompatibleWith: f.SDKCompatibleWith, SchemaHead: f.SchemaHead,
+		Version: version, Kind: kind, Security: security, SDK: f.SDK, SDKCompatibleWith: f.SDKCompatibleWith, RemovedPermissions: f.RemovedPermissions, SchemaHead: f.SchemaHead,
 		RollbackFloor: floor, MinFrom: minFrom, NotesURL: notes,
 		Artifacts: map[string]release.Artifact{},
 	}
@@ -195,6 +196,14 @@ func recordProblems(rec release.Record, allowSame bool) []string {
 	for _, c := range rec.SDKCompatibleWith {
 		if !packages.ValidSemver(c) {
 			add("sdk_compatible_with entry %q is not a valid version", c)
+		}
+	}
+	for i, r := range rec.RemovedPermissions {
+		switch {
+		case r == "":
+			add("removed_permissions entry %d is empty", i)
+		case i > 0 && r <= rec.RemovedPermissions[i-1]:
+			add("removed_permissions must be sorted and unique (%q after %q)", r, rec.RemovedPermissions[i-1])
 		}
 	}
 	if rec.SchemaHead <= 0 {
@@ -283,6 +292,9 @@ func checkRecord(path, dir string, allowSame bool, stdout io.Writer) error {
 	fmt.Fprintf(stdout, "version        %s (%s%s)\nsdk            %s\nschema_head    %d\nrollback_floor %s\nmin_from       %s\nnotes_url      %s\n",
 		rec.Version, rec.Kind, map[bool]string{true: ", security", false: ""}[rec.Security],
 		rec.SDK, rec.SchemaHead, rec.RollbackFloor, rec.MinFrom, rec.NotesURL)
+	if len(rec.RemovedPermissions) > 0 {
+		fmt.Fprintf(stdout, "removed_perms  %s\n", strings.Join(rec.RemovedPermissions, ", "))
+	}
 	for _, plat := range release.Platforms {
 		if a, ok := rec.Artifacts[plat]; ok {
 			fmt.Fprintf(stdout, "%-14s %s %d\n", plat, a.SHA256, a.Size)
