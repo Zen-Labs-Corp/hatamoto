@@ -1,0 +1,21 @@
+{
+  "index": {
+    "version": 1,
+    "issued_at": "2030-01-01T00:00:00Z",
+    "expires_at": "2030-02-01T00:00:00Z",
+    "packages": [
+      {
+        "kind": "plugin",
+        "name": "hello",
+        "version": "1.0.0",
+        "url": "p/hello.hmp",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000007",
+        "description": "a \u0026 b \u003c c \u003e d \u2028 e  f",
+        "size": 1e3
+      }
+    ]
+  },
+  "signer": "6ca1d872077e600c",
+  "algorithm": "ed25519",
+  "signature": "cNK5Ri1/NibYeXL8YRaR0dFoqWTg+aEsZ9N1ofG7h3s/nPjucwahXVpl9j1eWl3SFvj/xCAvtcZTNbAkN6KNCg=="
+}
