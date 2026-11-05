@@ -99,6 +99,17 @@ Owners can add fonts without touching a theme. Open **Theme > Colours and fonts 
 
 At most 60 font files are kept in total.
 
+## Additional CSS
+
+Owners can add their own CSS without touching a theme. Open **Theme > Additional CSS**, paste the CSS and choose **Save**.
+
+- **It loads after the theme.** Your CSS is its own stylesheet, linked after the theme's, so it wins when both set the same thing. It has its own address with a fingerprint, so browsers cache it and a change is picked up at once.
+- **What is refused.** `@import`, `expression()`, `javascript:` URLs, `behavior` and `-moz-binding`, also when hidden with comments or escapes. The page names the line. Nothing is saved until the CSS passes.
+- **Size.** Up to 64 KB. The page shows how much you use.
+- **Fonts.** Do not `@import` a font. Add it under **Fonts**, which keeps visitors from contacting another site.
+
+The WordPress import brings the old site's custom CSS into this page. See [What is not imported](../migrate-contribute/wordpress-not-imported.md).
+
 ## Check it worked
 
 - Your site's buttons and headings use your CSS values, until the owner picks other values on **Theme > Colours and fonts**.

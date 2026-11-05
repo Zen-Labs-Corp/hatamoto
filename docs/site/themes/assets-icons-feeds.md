@@ -20,6 +20,8 @@ The result is one fingerprinted file, `/theme/assets/theme.<hash>.css`, where th
 <link rel="stylesheet" href="{{.CSSHref}}">
 ```
 
+The owner's own CSS (**Theme > Additional CSS**) is a second file, `/theme/assets/custom.<hash>.css`. The engine links it just before `</head>`, so it always comes after the theme's stylesheet, and only when the owner saved some.
+
 Because the **lookup chain** (your theme first, then the built-in default theme) applies to every file, a theme that ships only `assets/css/base.css` replaces the default's base styles, while the default's `blog.css`, `changelog.css`, `docs.css`, `wp-compat.css` and section stylesheets are still bundled after it, since they are different files. If you do not want them, ship an empty file of the same name.
 
 The default theme's `blog.css` styles cards, articles and pagination. `wp-compat.css` styles core block classes in rich-text bodies that were imported from WordPress: `alignwide` and `alignfull`, image captions, quotes, tables, columns, buttons, responsive embeds, and colour and size classes. It also follows `prefers-color-scheme` for dark mode: the inline token style carries only values the owner changed from the stock defaults, so an untouched site follows the operating system setting, while colours the owner set win. Navigation is accessible by default, with a skip link, a labelled `nav`, `aria-current` on the current link and `:focus-visible` outlines.

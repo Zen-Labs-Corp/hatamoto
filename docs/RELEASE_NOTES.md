@@ -29,6 +29,12 @@ Settings > Branding: admin name, logo, accent colour and a Managed by line for t
 - **Contrast.** The accent must reach 4.5:1 on both the white admin background and the tinted highlight. The dark theme gets a lighter shade of it, worked out so every pair still passes. Reset to default clears all of it.
 - **Migration.** Five expand-only text columns on site config. Rollback floor: unchanged; an older binary ignores them and shows the default look.
 
+## Unreleased: Additional CSS
+
+- **Setting.** Theme > Additional CSS (owners only) takes the site's own CSS, up to 64 KB. It is checked on save (`@import`, `expression()`, `javascript:` URLs, `behavior` and `-moz-binding` are refused, with the line named) and served as its own fingerprinted stylesheet, linked after the theme's.
+- **WordPress import.** The old site's custom CSS comes across into the setting; refused parts are kept as a comment and listed in the report.
+- **Migration.** None: the CSS is stored in the existing site config. No new dependency.
+
 ## Unreleased: Version history limit
 
 - **Setting.** Settings > Versions (owners only) sets how many earlier versions of each item are kept, 10 to 500. The daily prune reads it on every run.
