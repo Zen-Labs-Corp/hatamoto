@@ -38,7 +38,7 @@ database server; a mismatch fails the backup with that message.
 Retention keeps the newest finished backups of each kind and removes older ones. Each kind has its
 own count, from 1 to 50, resolved in this order:
 
-1. The environment variable, when it is set to a whole number from 1 to 50.
+1. The environment variable, when it is set to a whole number of 1 or more. A number above 50 counts as 50 (the page shows 50 and a warning is logged once).
 2. `$HATAMOTO_DATA/backups/retention.json`, which the owner writes from Settings > Backups.
 3. The default.
 
@@ -48,8 +48,7 @@ own count, from 1 to 50, resolved in this order:
 | `HATAMOTO_BACKUP_KEEP_PRE_UPDATE` | `5` | Pre-update backups kept. |
 | `HATAMOTO_BACKUP_KEEP_SCHEDULED` | `7` | Scheduled backups kept (the ones the off-site schedule takes). |
 
-A value that is not a whole number from 1 to 50 is ignored, in the environment and in the file, and
-the next source in the order is used. The file looks like
+An environment value that is zero, negative or not a whole number is ignored (with a warning in the log), and so is a file value that is not a whole number from 1 to 50; the next source in the order is used. The file looks like
 `{"manual":10,"pre_update":5,"scheduled":7}`; a missing key means the default, and unknown keys are
 ignored. Failed and running backups are never counted and never pruned.
 

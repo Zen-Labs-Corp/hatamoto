@@ -1,8 +1,11 @@
 package backup
 
 import (
+	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,8 +40,32 @@ func TestResolveRetentionOrder(t *testing.T) {
 	}
 }
 
+func TestResolveRetentionClampsHighEnv(t *testing.T) {
+	var logs bytes.Buffer
+	old := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(old) })
+	warnedEnv.Clear()
+	t.Setenv(EnvKeep, "100")
+	dir := t.TempDir()
+	writeRetention(t, dir, `{"manual":12}`)
+	for i := 0; i < 3; i++ {
+		st := ResolveRetention(dir)
+		if st.Manual != MaxKeep || !st.Locked[KindManual] || st.EnvVar[KindManual] != EnvKeep {
+			t.Fatalf("state = %+v", st)
+		}
+	}
+	if n := strings.Count(logs.String(), EnvKeep); n != 1 {
+		t.Errorf("warned %d times, want once:\n%s", n, logs.String())
+	}
+	t.Setenv(EnvKeepPreUpdate, "0")
+	if st := ResolveRetention(dir); st.Locked[KindPreUpdate] || !strings.Contains(logs.String(), EnvKeepPreUpdate) {
+		t.Errorf("a zero env value must be ignored with a warning: %+v\n%s", st, logs.String())
+	}
+}
+
 func TestResolveRetentionIgnoresInvalid(t *testing.T) {
-	for _, env := range []string{"0", "51", "x", "-3", "1.5"} {
+	for _, env := range []string{"0", "x", "-3", "1.5"} {
 		t.Setenv(EnvKeep, env)
 		dir := t.TempDir()
 		writeRetention(t, dir, `{"manual":12}`)

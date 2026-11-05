@@ -3,9 +3,11 @@ package backup
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 )
 
 // Retention bounds: every count must be in MinKeep..MaxKeep.
@@ -68,6 +70,35 @@ var retentionKinds = []struct {
 
 func validKeep(n int) bool { return n >= MinKeep && n <= MaxKeep }
 
+// warnedEnv remembers the env var values already warned about, so a bad value
+// is logged once per process and not on every backup.
+var warnedEnv sync.Map
+
+func warnEnvOnce(env, raw, msg string) {
+	if _, dup := warnedEnv.LoadOrStore(env+"="+raw, true); !dup {
+		slog.Warn(msg, "env", env, "value", raw)
+	}
+}
+
+// envKeep reads a retention env var. A whole number above MaxKeep is clamped
+// to MaxKeep; zero, a negative or a non-number is ignored. Both log a warning.
+func envKeep(env string) (n int, ok bool) {
+	raw := os.Getenv(env)
+	if raw == "" {
+		return 0, false
+	}
+	v, err := strconv.Atoi(raw)
+	switch {
+	case err != nil || v < MinKeep:
+		warnEnvOnce(env, raw, "backup retention: ignoring env value, it must be a whole number from 1 to 50")
+		return 0, false
+	case v > MaxKeep:
+		warnEnvOnce(env, raw, "backup retention: env value is above 50, keeping 50")
+		return MaxKeep, true
+	}
+	return v, true
+}
+
 // readRetentionFile returns the valid counts in dir/retention.json by JSON
 // key. A missing or unreadable file, bad JSON, unknown keys and out-of-range
 // values give no entry.
@@ -90,8 +121,8 @@ func readRetentionFile(dir string) map[string]int {
 	return out
 }
 
-// ResolveRetention gives the counts for the backups dir: per kind a valid env
-// var (1 to 50) beats a valid value in retention.json, which beats the
+// ResolveRetention gives the counts for the backups dir: per kind an env
+// var (1 to 50; a larger number counts as 50) beats a valid value in retention.json, which beats the
 // default. It never fails and does not need the database.
 func ResolveRetention(dir string) RetentionState {
 	file := readRetentionFile(dir)
@@ -101,7 +132,7 @@ func ResolveRetention(dir string) RetentionState {
 		if v, ok := file[k.key]; ok {
 			n = v
 		}
-		if v, err := strconv.Atoi(os.Getenv(k.env)); err == nil && validKeep(v) {
+		if v, ok := envKeep(k.env); ok {
 			n = v
 			st.Locked[k.kind], st.EnvVar[k.kind] = true, k.env
 		}
