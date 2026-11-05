@@ -1,7 +1,7 @@
 package jsonx
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 	"time"
 )
@@ -22,44 +22,49 @@ type goldenStruct struct {
 }
 
 type rawHolder struct {
-	Raw json.RawMessage `json:"raw"`
+	Raw jsontext.Value `json:"raw"`
 }
 
-func TestPinnedMatchesV1(t *testing.T) {
+// TestPinnedGolden compares MarshalPinned with literal bytes frozen from v1
+// (and checked against it by hand), not with a live encoder: under go1.27
+// encoding/json is itself backed by v2, so it is no oracle. Invalid UTF-8
+// becomes the raw U+FFFD bytes EF BF BD, which pre-go1.27 toolchains wrote as
+// the escape \ufffd.
+func TestPinnedGolden(t *testing.T) {
 	ts := time.Date(2026, 11, 5, 10, 30, 15, 123456789, time.UTC)
-	cases := map[string]any{
-		"nil fields":        goldenStruct{},
-		"empty fields":      goldenStruct{S: []string{}, M: map[string]string{}, Inner: goldenInner{List: []int{}}},
-		"nil map":           map[string]int(nil),
-		"nil slice":         []int(nil),
-		"map key order":     map[string]int{"b": 1, "a": 2, "c": 3, "B": 4, "": 5, "_": 6},
-		"html":              "<script>alert(1) & 2</script>",
-		"line separators":   "a\u2028b\u2029c",
-		"bytes":             []byte("hello\x00\xff"),
-		"nil bytes":         []byte(nil),
-		"time":              ts,
-		"time zone":         ts.In(time.FixedZone("x", 3600)),
-		"floats":            []float64{1e21, 1e-7, 100, 0.1, 1, 1e20, 123456789.125, -0.0000001},
-		"float32":           []float32{0.1, 1e21, 3.4028235e38},
-		"invalid utf8":      "a\xffb",
-		"invalid utf8 key":  map[string]int{"k\xff": 1},
-		"raw message":       rawHolder{Raw: json.RawMessage(`{ "a" : [1, 2] }`)},
-		"nested nil":        map[string]any{"a": []string(nil), "b": map[string]int(nil), "c": (*int)(nil)},
-		"any values":        []any{1, "x", nil, true, 2.5, map[string]any{"z": 1, "y": 2}},
-		"embedded pointers": &goldenStruct{P: &goldenInner{}},
+	cases := []struct {
+		name string
+		v    any
+		want string
+	}{
+		{"nil fields", goldenStruct{}, `{"s":null,"m":null,"p":null,"inner":{"list":null,"dict":null}}`},
+		{"empty fields", goldenStruct{S: []string{}, M: map[string]string{}, Inner: goldenInner{List: []int{}}}, `{"s":[],"m":{},"p":null,"inner":{"list":[],"dict":null}}`},
+		{"nil map", map[string]int(nil), `null`},
+		{"nil slice", []int(nil), `null`},
+		{"map key order", map[string]int{"b": 1, "a": 2, "c": 3, "B": 4, "": 5, "_": 6}, `{"":5,"B":4,"_":6,"a":2,"b":1,"c":3}`},
+		{"html", "<script>alert(1) & 2</script>", `"\u003cscript\u003ealert(1) \u0026 2\u003c/script\u003e"`},
+		{"line separators", "a\u2028b\u2029c", `"a\u2028b\u2029c"`},
+		{"bytes", []byte("hello\x00\xff"), `"aGVsbG8A/w=="`},
+		{"nil bytes", []byte(nil), `null`},
+		{"time", ts, `"2026-11-05T10:30:15.123456789Z"`},
+		{"time zone", ts.In(time.FixedZone("x", 3600)), `"2026-11-05T11:30:15.123456789+01:00"`},
+		{"floats", []float64{1e21, 1e-7, 100, 0.1, 1, 1e20, 123456789.125, -0.0000001}, `[1e+21,1e-7,100,0.1,1,100000000000000000000,123456789.125,-1e-7]`},
+		{"float32", []float32{0.1, 1e21, 3.4028235e38}, `[0.1,1e+21,3.4028235e+38]`},
+		{"invalid utf8", "a\xffb", "\"a\xef\xbf\xbdb\""},
+		{"invalid utf8 key", map[string]int{"k\xff": 1}, "{\"k\xef\xbf\xbd\":1}"},
+		{"raw message", rawHolder{Raw: jsontext.Value(`{ "a" : [1, 2] }`)}, `{"raw":{"a":[1,2]}}`},
+		{"nested nil", map[string]any{"a": []string(nil), "b": map[string]int(nil), "c": (*int)(nil)}, `{"a":null,"b":null,"c":null}`},
+		{"any values", []any{1, "x", nil, true, 2.5, map[string]any{"z": 1, "y": 2}}, `[1,"x",null,true,2.5,{"y":2,"z":1}]`},
+		{"embedded pointers", &goldenStruct{P: &goldenInner{}}, `{"s":null,"m":null,"p":{"list":null,"dict":null},"inner":{"list":null,"dict":null}}`},
 	}
-	for name, v := range cases {
-		t.Run(name, func(t *testing.T) {
-			want, err := json.Marshal(v)
-			if err != nil {
-				t.Fatalf("v1: %v", err)
-			}
-			got, err := MarshalPinned(v)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := MarshalPinned(tc.v)
 			if err != nil {
 				t.Fatalf("pinned: %v", err)
 			}
-			if string(got) != string(want) {
-				t.Fatalf("pinned bytes differ\n got: %s\nwant: %s", got, want)
+			if string(got) != tc.want {
+				t.Fatalf("pinned bytes differ\n got: %q\nwant: %q", got, tc.want)
 			}
 		})
 	}
@@ -227,9 +232,8 @@ func TestPinnedUnmarshalFoldsDelimiters(t *testing.T) {
 func TestPinnedAddressableMatchesV1(t *testing.T) {
 	// The documented fix for the pointer-receiver divergence.
 	v := &holdsPtrMarshaler{}
-	want, _ := json.Marshal(v)
 	got, err := MarshalPinned(v)
-	if err != nil || string(got) != string(want) {
+	if want := `{"v":"custom"}`; err != nil || string(got) != want {
 		t.Fatalf("pinned %s %v, v1 %s", got, err, want)
 	}
 	// And omitzero keeps the omission of zero scalars.
@@ -248,6 +252,7 @@ func TestUnmarshalPinned(t *testing.T) {
 		Name string `json:"name"`
 		N    int    `json:"n"`
 	}
+	// Each input decodes to {Name: "a", N: 1} under v1.
 	for name, raw := range map[string]string{
 		"exact":        `{"name":"a","n":1}`,
 		"case":         `{"NAME":"a","N":1}`,
@@ -255,15 +260,12 @@ func TestUnmarshalPinned(t *testing.T) {
 		"invalid utf8": "{\"name\":\"a\",\"n\":1,\"extra\":\"\xff\"}",
 	} {
 		t.Run(name, func(t *testing.T) {
-			var got, want in
+			var got in
 			if err := UnmarshalPinned([]byte(raw), &got); err != nil {
 				t.Fatalf("pinned: %v", err)
 			}
-			if err := json.Unmarshal([]byte(raw), &want); err != nil {
-				t.Fatalf("v1: %v", err)
-			}
-			if got != want || got.Name != "a" {
-				t.Fatalf("pinned %+v, v1 %+v", got, want)
+			if got != (in{Name: "a", N: 1}) {
+				t.Fatalf("pinned %+v", got)
 			}
 		})
 	}
