@@ -1043,3 +1043,51 @@ func (f *fakeTermGroups) CreateTermCopy(_ context.Context, srcID uuid.UUID, loca
 	f.copies = append(f.copies, fakeTermCopy{srcID, locale, name, slug})
 	return &taxonomy.Term{ID: fid(800 + len(f.copies)), Name: name, Slug: slug}, nil
 }
+
+// MoveEntity and OrderRows: the Order page's calls, kept in memory.
+func (f *fakeEntities) MoveEntity(_ context.Context, id uuid.UUID, _ *uuid.UUID, in entity.MoveInput) (*entity.MoveResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	e, ok := f.ents[id]
+	if !ok {
+		return nil, entity.ErrEntityNotFound
+	}
+	if in.ClearParent {
+		e.ParentID = nil
+	} else if in.ParentID != nil {
+		e.ParentID = in.ParentID
+	}
+	e.SortOrder = in.Position
+	return &entity.MoveResult{Entity: e, Position: max(in.Position, 1), Total: len(f.ents)}, nil
+}
+
+func (f *fakeEntities) OrderRows(_ context.Context, schemaID uuid.UUID, locale string) ([]*entity.Entity, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []*entity.Entity
+	for _, e := range f.ents {
+		if e.SchemaID == schemaID {
+			c := *e
+			out = append(out, &c)
+		}
+	}
+	slices.SortFunc(out, func(a, b *entity.Entity) int { return strings.Compare(a.Name, b.Name) })
+	return out, nil
+}
+
+func (f *fakeTerms) MoveTerm(_ context.Context, id uuid.UUID, in taxonomy.MoveInput) (*taxonomy.MoveResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, t := range f.terms {
+		if t.ID == id {
+			if in.ClearParent {
+				t.ParentID = nil
+			} else if in.ParentID != nil {
+				t.ParentID = in.ParentID
+			}
+			t.SortOrder = in.Position
+			return &taxonomy.MoveResult{Term: t, Position: max(in.Position, 1), Total: len(f.terms)}, nil
+		}
+	}
+	return nil, taxonomy.ErrTermNotFound
+}

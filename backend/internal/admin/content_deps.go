@@ -33,6 +33,9 @@ type EntityStore interface {
 	UpdateEntityStatus(ctx context.Context, id uuid.UUID, userID *uuid.UUID, status entity.EntityStatus) (*entity.Entity, error)
 	ScheduleEntity(ctx context.Context, id uuid.UUID, userID *uuid.UUID, at time.Time) (*entity.Entity, error)
 	DeleteEntity(ctx context.Context, id uuid.UUID) error
+	// MoveEntity and OrderRows serve the Order page.
+	MoveEntity(ctx context.Context, id uuid.UUID, userID *uuid.UUID, in entity.MoveInput) (*entity.MoveResult, error)
+	OrderRows(ctx context.Context, schemaID uuid.UUID, locale string) ([]*entity.Entity, error)
 	ListEntitiesWithOffset(ctx context.Context, f *entity.ListEntitiesFilter, p *entity.OffsetPage) (*entity.OffsetPagedResult[*entity.Entity], error)
 	CountEntitiesBySchemaStatus(ctx context.Context) ([]entity.SchemaStatusCount, error)
 	CountEntitiesByParent(ctx context.Context, limit int) ([]entity.ParentCount, error)
@@ -92,6 +95,7 @@ type TermStore interface {
 	UpdateTerm(ctx context.Context, in taxonomy.UpdateTermInput) (*taxonomy.Term, error)
 	DeleteTerm(ctx context.Context, id uuid.UUID) error
 	MergeTerms(ctx context.Context, from, into uuid.UUID) error
+	MoveTerm(ctx context.Context, id uuid.UUID, in taxonomy.MoveInput) (*taxonomy.MoveResult, error)
 	ListTermsForEntity(ctx context.Context, entityID uuid.UUID) ([]*taxonomy.Term, error)
 	ReplaceEntityTerms(ctx context.Context, entityID uuid.UUID, termIDs []uuid.UUID) error
 }

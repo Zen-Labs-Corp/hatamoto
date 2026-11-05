@@ -47,6 +47,9 @@ func (a *Admin) mountEntities(authed *httpx.Group) {
 	authed.HandleFunc("POST /entities/bulk", a.handleEntitiesBulk)
 	authed.HandleFunc("GET /entities/new", a.handleEntityNew)
 	authed.Group("", a.RequireRole("owner", "editor")).HandleFunc("POST /entities/drafts", a.handleEntityDraft)
+	ord := authed.Group("", a.RequireRole("owner", "editor"))
+	ord.HandleFunc("GET /entities/order", a.handleEntityOrder)
+	ord.HandleFunc("POST /entities/{id}/move", a.handleEntityMove)
 	authed.HandleFunc("GET /entities/parent-options", a.handleParentOptions)
 	authed.HandleFunc("POST /entities", a.handleEntityCreate)
 	authed.HandleFunc("GET /entities/{id}", a.handleEntityEdit)
@@ -88,6 +91,7 @@ type entitiesData struct {
 	Description string
 	Menu        *ui.ButtonMenu
 	Primary     *ui.Action
+	Actions     []ui.Button
 	Table       ui.Table
 	// Results is Table without its filter bar: the page renders the bar itself (outside the
 	// swapped results) so a live update keeps an open popover.
@@ -530,6 +534,9 @@ func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listPar
 		act := a.newTypeAction("New "+strings.ToLower(resolved.Name), resolved.Slug, draftType(resolved))
 		act.Icon = "plus"
 		d.Primary = &act
+		if !entity.IsReuseSchema(resolved) {
+			d.Actions = []ui.Button{{Label: "Reorder", Href: a.adminPath + "/entities/order?type=" + url.QueryEscape(resolved.Slug), Icon: "arrow-up"}}
+		}
 	} else {
 		create := ui.ButtonMenu{ID: "create-menu", Label: "Create", Icon: "plus"}
 		for _, ty := range types {

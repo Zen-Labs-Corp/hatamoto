@@ -24,6 +24,7 @@ func (a *Admin) mountTaxonomies(authed *httpx.Group) {
 	owner.HandleFunc("GET /settings/taxonomies/terms/{id}", a.handleTermEdit)
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}", a.handleTermSave)
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/seo", a.handleTermSEOInline)
+	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/move", a.handleTermMove)
 	owner.HandleFunc("GET /settings/taxonomies/terms/{id}/merge", a.handleTermMergeForm)
 	owner.HandleFunc("POST /settings/taxonomies/terms/{id}/merge", a.handleTermMerge)
 	owner.HandleFunc("GET /settings/taxonomies/terms/{id}/delete", a.handleTermDeleteConfirm)
@@ -180,6 +181,8 @@ func (a *Admin) renderTaxonomies(w http.ResponseWriter, r *http.Request, kind st
 			{Text: n.Name, Depth: min(n.Depth, 8), Link: a.adminPath + "/settings/taxonomies/terms/" + id}, {Text: n.Slug, Mono: true}, {Text: strconv.Itoa(n.Count)},
 		}, Actions: []ui.Action{
 			{Label: "Edit", Href: a.adminPath + "/settings/taxonomies/terms/" + id},
+			a.termMoveAction("Move up", "up", id, kind), a.termMoveAction("Move down", "down", id, kind),
+			a.termMoveAction("Indent", "indent", id, kind), a.termMoveAction("Outdent", "outdent", id, kind),
 			{Label: "Merge", Href: a.adminPath + "/settings/taxonomies/terms/" + id + "/merge"},
 			{Label: "Delete", Href: a.adminPath + "/settings/taxonomies/terms/" + id + "/delete", Post: a.adminPath + "/settings/taxonomies/terms/" + id + "/delete", Danger: true, ConfirmLabel: "Delete term",
 				Confirm: deleteTermWarning(n)},

@@ -1,0 +1,7 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" $.Title "Description" .Description "CSRF" $.CSRF "Actions" .Actions}}
+<section class="hm-stack">
+{{if .DepthNote}}<p class="hm-muted">{{.DepthNote}}. Indent is not offered where it would pass the limit.</p>{{end}}
+{{template "hm/table" .Table}}
+</section>
+{{end}}{{end}}

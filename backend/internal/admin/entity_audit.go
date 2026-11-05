@@ -27,6 +27,7 @@ const (
 	auditEntityDuplicate      = "entity.duplicate"
 	auditEntityHandBack       = "entity.hand_back"
 	auditEntityTakeOver       = "entity.take_over"
+	auditEntityReorder        = "entity.reorder"
 )
 
 // auditStatusAction names the audit action of a move to st: published is a
