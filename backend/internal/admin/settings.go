@@ -38,6 +38,7 @@ func (a *Admin) mountSettings(authed *httpx.Group) {
 	a.mountSEOSettings(owner)
 	a.mountPrivacySettings(owner)
 	a.mountTrackingSettings(owner)
+	a.mountContactButtonSettings(owner)
 	a.mountEmailSettings(owner)
 	a.mountUpdatesSettings(owner)
 	a.mountBackupsSettings(owner)

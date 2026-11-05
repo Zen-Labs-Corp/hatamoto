@@ -231,7 +231,7 @@ func TestSettingsNavGroups(t *testing.T) {
 		t.Fatalf("owner group order %q", got)
 	}
 	for g, want := range map[string]string{
-		"Site":    "general locales site-access email privacy tracking users",
+		"Site":    "general locales site-access email privacy tracking contact-button users",
 		"Content": "media entity-models forms seo redirects linking",
 		"System":  "api webhooks performance updates backups changes import-export security",
 		"Tools":   "search-replace",
