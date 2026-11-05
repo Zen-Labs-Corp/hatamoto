@@ -2,7 +2,6 @@ package updater
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Querier is the part of a pgx pool the Store needs.
@@ -50,7 +51,7 @@ func (s *Store) Load(ctx context.Context) (Settings, Status, error) {
 	set.Mode, set.Channel, set.Pin = deref(mode), deref(channel), deref(pin)
 	set.WindowStart, set.WindowEnd = hour(wStart), hour(wEnd)
 	set.DeferDays = int(deferDays)
-	if err := json.Unmarshal(firstSeen, &st.FirstSeen); err != nil {
+	if err := jsonx.Unmarshal(firstSeen, &st.FirstSeen, jsonx.StoredLoose); err != nil {
 		return Settings{}, Status{}, fmt.Errorf("decode first_seen: %w", err)
 	}
 	return set, st, nil
@@ -137,7 +138,7 @@ func (s *Store) SaveStatus(ctx context.Context, st Status) error {
 	for k, v := range st.FirstSeen {
 		seen[k] = v
 	}
-	firstSeen, err := json.Marshal(seen)
+	firstSeen, err := jsonx.Marshal(seen)
 	if err != nil {
 		return fmt.Errorf("encode first_seen: %w", err)
 	}
