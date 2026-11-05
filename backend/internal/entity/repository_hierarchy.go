@@ -235,6 +235,9 @@ type ImportRecord struct {
 	Locale string
 
 	CreatedAt, UpdatedAt, PublishedAt time.Time
+
+	// DryRun does the whole write and rolls it back instead of committing.
+	DryRun bool
 }
 
 // GetByImportKey implements ImportStore.
@@ -331,6 +334,9 @@ func (r *PostgresEntityRepository) ImportUpsert(ctx context.Context, rec *Import
 			return nil, false, fkViolation(err)
 		}
 		return nil, false, fmt.Errorf("failed to store imported entity: %w", err)
+	}
+	if rec.DryRun {
+		return &e, created, nil // the deferred Rollback discards the row
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, false, fmt.Errorf("failed to commit import row: %w", err)

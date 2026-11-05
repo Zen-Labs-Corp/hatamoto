@@ -64,6 +64,12 @@ type ImportBatch struct {
 	// entity metadata and sent in import.completed.
 	Source string
 	Items  []ImportItem
+	// DryRun runs every check and the database write of each item, then rolls
+	// the write back: nothing is stored, no event fires, no link is reindexed.
+	// The results are those a real run would give, with one gap: a parent that
+	// is created earlier in the same dry run does not exist, so it is not
+	// checked as a parent and the dry record keeps no parent.
+	DryRun bool
 }
 
 // ImportItemResult is the outcome of one item.
@@ -111,7 +117,8 @@ func (s *Service) Import(ctx context.Context, actor *uuid.UUID, batch ImportBatc
 	for i, it := range batch.Items {
 		res.Items[i].Key = it.Key
 	}
-	run := &importRun{s: s, store: store, actor: actor, source: batch.Source, ids: map[string]uuid.UUID{}, schemas: map[string]*EntitySchema{}}
+	run := &importRun{s: s, store: store, actor: actor, source: batch.Source, ids: map[string]uuid.UUID{}, schemas: map[string]*EntitySchema{},
+		dry: batch.DryRun, dryIDs: map[uuid.UUID]bool{}, seen: map[string]bool{}}
 	var stored []uuid.UUID
 	for _, i := range orderByParent(batch.Items, res.Items) {
 		r := &res.Items[i]
@@ -124,6 +131,9 @@ func (s *Service) Import(ctx context.Context, actor *uuid.UUID, batch ImportBatc
 			continue
 		}
 		r.ID, r.Created = e.ID, created
+		if run.dry && created {
+			run.dryIDs[e.ID] = true
+		}
 		run.ids[batch.Items[i].Key] = e.ID
 		stored = append(stored, e.ID)
 	}
@@ -138,6 +148,12 @@ func (s *Service) Import(ctx context.Context, actor *uuid.UUID, batch ImportBatc
 		}
 	}
 
+	if batch.DryRun {
+		s.logger.Info("dry run of an entity import",
+			slog.String("source", batch.Source), slog.Int("created", res.Created),
+			slog.Int("updated", res.Updated), slog.Int("failed", res.Failed))
+		return res, nil
+	}
 	s.logger.Info("imported entities",
 		slog.String("source", batch.Source), slog.Int("created", res.Created),
 		slog.Int("updated", res.Updated), slog.Int("failed", res.Failed))
@@ -225,6 +241,10 @@ type importRun struct {
 	source  string
 	ids     map[string]uuid.UUID // key -> entity id, for parents inside the batch
 	schemas map[string]*EntitySchema
+
+	dry    bool
+	dryIDs map[uuid.UUID]bool // rows a dry run "created"; they are rolled back, so they are no real parents
+	seen   map[string]bool    // schema|locale|slug of the rows a dry run created, to catch duplicates inside the batch
 }
 
 func (r *importRun) schema(ctx context.Context, slug string) (*EntitySchema, error) {
@@ -351,8 +371,15 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 	if err != nil {
 		return nil, false, err
 	}
+	if r.dry && existing == nil {
+		k := schema.Slug + "|" + locale + "|" + slug
+		if r.seen[k] {
+			return nil, false, fmt.Errorf("%w: another row of this file has this slug", ErrSlugAlreadyExists)
+		}
+		r.seen[k] = true
+	}
 	rec := &ImportRecord{
-		SchemaID: schema.ID, Name: name, Slug: slug, Locale: locale, Status: status, Attributes: attrs, Metadata: meta,
+		DryRun: r.dry, SchemaID: schema.ID, Name: name, Slug: slug, Locale: locale, Status: status, Attributes: attrs, Metadata: meta,
 		ParentID: parent, AuthorID: authorID, ActorID: r.actor,
 		BylinePersonID: byline.PersonID, BylineOrg: byline.Org,
 	}
@@ -398,6 +425,9 @@ func (r *importRun) parent(ctx context.Context, it *ImportItem, self *uuid.UUID)
 		}
 		id = p.ID
 	default:
+		return nil, nil
+	}
+	if r.dryIDs[id] {
 		return nil, nil
 	}
 	if err := r.s.checkParent(ctx, self, id); err != nil {
