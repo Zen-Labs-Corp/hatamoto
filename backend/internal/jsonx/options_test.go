@@ -135,3 +135,14 @@ func TestStoredLooseMatchesNamesCaseInsensitively(t *testing.T) {
 		t.Fatalf("StoredLoose: %+v %v", loose, err)
 	}
 }
+
+func TestStoredLooseLastCaseVariantWins(t *testing.T) {
+	type doc struct {
+		Hosts []string `json:"allowed_hosts"`
+	}
+	var d doc
+	in := []byte(`{"allowed_hosts":["a"],"Allowed_Hosts":["b"]}`)
+	if err := Unmarshal(in, &d, StoredLoose); err != nil || len(d.Hosts) != 1 || d.Hosts[0] != "b" {
+		t.Fatalf("StoredLoose: %+v %v", d, err)
+	}
+}
