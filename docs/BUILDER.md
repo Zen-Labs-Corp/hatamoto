@@ -308,7 +308,7 @@ builder script.
   same-origin poster). No third-party request is made at load; no remote thumbnail is ever used. A click replaces
   the link by an `iframe` on the allowlisted embed host (`youtube-nocookie.com`, `player.vimeo.com`). A URL that is not
   one of those renders a plain link.
-* **PDF**: server output is a `div.hm-pdf` with a download link first in the DOM, then an `iframe.hm-pdf__frame`
+* **PDF**: server output is a `div.hm-pdf` with a download link (a `download` attribute on a same-site file) first in the DOM, then an `iframe.hm-pdf__frame`
   (`title`, `height`, `loading="lazy"`). No JavaScript, no `<object>` or `<embed>`. Only a PDF of the media library
   (`/media/...`, no query or fragment) is accepted: an absolute `https:` address becomes a plain download link without a frame, and any other value (another scheme, any other path) renders nothing on the page. The canvas then says "Choose a PDF from the media library".
   Below 768px the frame is hidden by CSS and the link stays, so a phone gets the download link only. `height` is

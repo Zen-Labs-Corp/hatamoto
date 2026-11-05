@@ -74,6 +74,9 @@ func TestPDFWidgetMarkup(t *testing.T) {
 			t.Errorf("missing %s in %s", want, out)
 		}
 	}
+	if !strings.Contains(out, `href="/media/b.pdf" download>`) {
+		t.Errorf("a same-origin link carries download: %s", out)
+	}
 	for _, bad := range []string{"<object", "<embed", " style=", "onload", "sandbox"} {
 		if strings.Contains(out, bad) {
 			t.Errorf("%q in %s", bad, out)
@@ -93,7 +96,7 @@ func TestPDFWidgetRefusesForeignSources(t *testing.T) {
 // An absolute https address (a CDN media base URL) is a plain link, never a frame.
 func TestPDFWidgetRemoteHTTPSIsLinkOnly(t *testing.T) {
 	out := renderPDF(t, nil, map[string]any{"src": "https://cdn.example.org/media/a.pdf"}, false)
-	if strings.Contains(out, "<iframe") || !strings.Contains(out, `href="https://cdn.example.org/media/a.pdf"`) {
+	if strings.Contains(out, "<iframe") || strings.Contains(out, "download") || !strings.Contains(out, `href="https://cdn.example.org/media/a.pdf"`) {
 		t.Errorf("remote: %s", out)
 	}
 }
