@@ -107,6 +107,22 @@ func TestRetentionSaveConfirmFlow(t *testing.T) {
 	}
 }
 
+func TestRetentionPruneFailureAfterSaveIsAuditedAndFlashed(t *testing.T) {
+	t.Parallel()
+	f := baseBackups()
+	f.state.Rows = okBackups(BackupManual, 3)
+	f.retDeleted = map[string]int{BackupManual: 1}
+	f.retErr = fmt.Errorf("%w: disk error", ErrRetentionPrune)
+	g := newBackupsRig(t, f)
+	code, _, loc := postRetention(g, retentionForm("2", "5", "7", "confirm", "1", "expect_manual", "1"))
+	if code != 303 || loc != backupsPath+"#retention" {
+		t.Fatalf("save = %d %s, want the redirect back with a flash", code, loc)
+	}
+	if len(g.events) != 1 || g.events[0].Action != "backups.retention" || g.events[0].Detail["error"] == nil || g.events[0].Detail["deleted"] != 1 {
+		t.Fatalf("audit = %+v", g.events)
+	}
+}
+
 func TestRetentionConfirmCountsEachKindAndIgnoresFailed(t *testing.T) {
 	t.Parallel()
 	f := baseBackups()

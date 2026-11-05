@@ -119,3 +119,28 @@ func TestSaveRetention0600AtomicKeepsOtherKeys(t *testing.T) {
 		t.Fatalf("rejected save changed the file: %+v", st)
 	}
 }
+
+func TestEnginePruneSkipsWhileBackupRuns(t *testing.T) {
+	r := newRig(t)
+	r.e.opts.Retention = func() Retention { return Retention{50, 50, 50} }
+	for range 3 {
+		if _, err := r.e.Create(t.Context(), Request{Kind: KindManual}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	release, err := TryLock(filepath.Join(r.data, "backups"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := r.e.Prune(Retention{1, 1, 1})
+	release()
+	if err != nil || deleted[KindManual] != 0 {
+		t.Fatalf("pruned under a held lock: %v %v", deleted, err)
+	}
+	if list, _ := r.e.List(); len(list) != 3 {
+		t.Fatalf("%d backups left, want 3", len(list))
+	}
+	if deleted, err := r.e.Prune(Retention{1, 1, 1}); err != nil || deleted[KindManual] != 2 {
+		t.Fatalf("prune = %v %v", deleted, err)
+	}
+}

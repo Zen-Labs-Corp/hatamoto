@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -204,7 +205,8 @@ func (a *Admin) handleRetentionSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	deleted, err := rs.SaveRetention(r.Context(), set)
-	if err != nil {
+	pruneFailed := errors.Is(err, ErrRetentionPrune)
+	if err != nil && !pruneFailed {
 		a.logger().Error("backup retention save", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The backup counts could not be saved.")
 		return
@@ -213,9 +215,18 @@ func (a *Admin) handleRetentionSave(w http.ResponseWriter, r *http.Request) {
 	for _, n := range deleted {
 		total += n
 	}
-	a.audit(r, "backups.retention", "backups", map[string]any{
+	detail := map[string]any{
 		"manual": keep[BackupManual], "pre_update": keep[BackupPreUpdate], "scheduled": keep[BackupScheduled], "deleted": total,
-	})
-	a.SetFlash(w, r, "success", "Backup retention saved.")
+	}
+	if pruneFailed {
+		a.logger().Error("backup retention prune", "err", err)
+		detail["error"] = err.Error()
+	}
+	a.audit(r, "backups.retention", "backups", detail)
+	if pruneFailed {
+		a.SetFlash(w, r, "error", "The backup counts were saved, but removing the older backups failed. Check the server log.")
+	} else {
+		a.SetFlash(w, r, "success", "Backup retention saved.")
+	}
 	http.Redirect(w, r, a.adminPath+backupsRel+"#retention", http.StatusSeeOther)
 }

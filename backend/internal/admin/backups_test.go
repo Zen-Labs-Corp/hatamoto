@@ -30,6 +30,7 @@ type fakeBackups struct {
 	ret        RetentionView
 	retSaved   []map[string]int
 	retDeleted map[string]int
+	retErr     error
 }
 
 type nopSeekCloser struct{ io.ReadSeeker }
@@ -68,7 +69,7 @@ func (f *fakeBackups) SaveRetention(_ context.Context, set map[string]int) (map[
 			f.ret.Scheduled = n
 		}
 	}
-	return f.retDeleted, nil
+	return f.retDeleted, f.retErr
 }
 
 func baseBackups() *fakeBackups {

@@ -2,6 +2,7 @@ package backup
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -205,13 +206,24 @@ func (e *Engine) SaveRetention(set map[Kind]int) error {
 }
 
 // Prune removes ok backups beyond the newest r.<kind> of each kind and returns
-// how many it deleted per kind. It stops at the first error.
+// how many it deleted per kind. It stops at the first error. It holds the
+// backup lock so it cannot race the prune of a backup that is finishing; when a
+// backup is running it deletes nothing, because that backup prunes by the
+// current counts when it ends.
 func (e *Engine) Prune(r Retention) (map[Kind]int, error) {
 	deleted := map[Kind]int{}
 	s, err := e.st()
 	if err != nil {
 		return deleted, nil
 	}
+	release, err := TryLock(s.Dir())
+	if errors.Is(err, ErrBusy) {
+		return deleted, nil
+	}
+	if err != nil {
+		return deleted, err
+	}
+	defer release()
 	for _, k := range retentionKinds {
 		keep := r.For(k.kind)
 		if keep < MinKeep {

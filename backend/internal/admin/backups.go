@@ -32,6 +32,9 @@ const (
 var (
 	// ErrBackupRunning is returned by Start when a backup is already running.
 	ErrBackupRunning = errors.New("a backup is already running")
+	// ErrRetentionPrune is wrapped by SaveRetention when the new counts were
+	// saved but removing the surplus backups failed.
+	ErrRetentionPrune = errors.New("backups beyond the new counts could not be removed")
 	// ErrBackupNotFound is returned for an id that is not a backup.
 	ErrBackupNotFound = errors.New("backup not found")
 )
