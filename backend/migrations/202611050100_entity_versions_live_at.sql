@@ -4,10 +4,11 @@
 -- Expand-only: the previous binary ignores the column.
 ALTER TABLE hatamoto_entity_versions ADD COLUMN IF NOT EXISTS live_at timestamptz;
 
+-- hatamoto:backfill idempotent
 -- Errs toward keeping: recent versions of currently published entities count as live.
 UPDATE hatamoto_entity_versions v SET live_at = v.created_at
   FROM hatamoto_entities e
- WHERE e.id = v.entity_id AND e.status = 'published'
+ WHERE v.live_at IS NULL AND e.id = v.entity_id AND e.status = 'published'
    AND v.created_at > now() - interval '30 days';
 
 CREATE INDEX IF NOT EXISTS hatamoto_entity_versions_live_idx
