@@ -45,7 +45,7 @@ var svgAttrs = setOf(
 var (
 	svgDataHref  = regexp.MustCompile(`^data:image/(png|jpeg);base64,[A-Za-z0-9+/=\s]*$`)
 	svgURLRef    = regexp.MustCompile(`(?i)url\(\s*['"]?\s*([^)]*)`)
-	svgBadStyles = []string{"@import", "expression", "javascript:", "vbscript:", "behavior", "-moz-binding", "\\", "<"}
+	svgBadStyles = []string{"@import", "image-set", "src(", "//", "expression", "javascript:", "vbscript:", "behavior", "-moz-binding", "\\", "<"}
 )
 
 func setOf(items ...string) map[string]bool {
@@ -74,10 +74,11 @@ func SanitizeSVG(in []byte) (clean []byte, removed []string, err error) {
 }
 
 type svgSanitizer struct {
-	dec     *xml.Decoder
-	out     bytes.Buffer
-	removed []string
-	seen    map[string]bool
+	dec       *xml.Decoder
+	out       bytes.Buffer
+	styleText bytes.Buffer
+	removed   []string
+	seen      map[string]bool
 }
 
 func (s *svgSanitizer) fail(reason string) error {
@@ -157,6 +158,14 @@ func (s *svgSanitizer) run() error {
 				skip--
 				continue
 			}
+			if inStyle[len(inStyle)-1] {
+				if text := s.styleText.String(); safeCSS(text) {
+					_ = xml.EscapeText(&s.out, []byte(text))
+				} else {
+					s.drop("style rule with an external or script reference")
+				}
+				s.styleText.Reset()
+			}
 			s.out.WriteString("</" + t.Name.Local + ">")
 			inStyle = inStyle[:len(inStyle)-1]
 			if depth == 0 {
@@ -172,8 +181,10 @@ func (s *svgSanitizer) run() error {
 			if skip > 0 {
 				continue
 			}
-			if inStyle[len(inStyle)-1] && !safeCSS(string(t)) {
-				s.drop("style rule with an external or script reference")
+			if inStyle[len(inStyle)-1] {
+				// Vetted whole at the end tag: comments and CDATA split the
+				// text into several tokens.
+				s.styleText.Write(t)
 				continue
 			}
 			_ = xml.EscapeText(&s.out, t)
@@ -252,7 +263,8 @@ func shortRef(v string) string {
 func safeValue(v string) bool {
 	l := strings.ToLower(v)
 	if strings.Contains(l, "javascript:") || strings.Contains(l, "vbscript:") ||
-		strings.Contains(l, "expression(") || strings.Contains(l, "<") {
+		strings.Contains(l, "expression(") || strings.Contains(l, "<") ||
+		strings.Contains(l, "image-set") || strings.Contains(l, "src(") || strings.Contains(l, "//") {
 		return false
 	}
 	return onlyLocalURLs(l)

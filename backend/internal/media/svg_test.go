@@ -50,6 +50,12 @@ func TestSanitizeSVGRemoves(t *testing.T) {
 		{"prefixed script", `<svg:script xmlns:svg="http://www.w3.org/2000/svg">alert(1)</svg:script><rect width="1"/>`, []string{"script", "alert"}},
 		{"xhtml script", `<a xmlns="http://www.w3.org/1999/xhtml"><script>alert(1)</script></a><rect width="1"/>`, []string{"script", "alert"}},
 		{"css escape", `<style>rect{fill:u\72l(http://evil.test)}</style><rect width="1"/>`, []string{"evil.test"}},
+		{"comment split import", `<style>@im<!---->port "https://evil.test/x.css";</style><rect width="1"/>`, []string{"evil.test", "@im"}},
+		{"cdata split import", `<style>@im<![CDATA[port]]> "https://evil.test/x.css";</style><rect width="1"/>`, []string{"evil.test"}},
+		{"comment split url", `<style>rect{fill:u<!---->rl(https://evil.test/p)}</style><rect width="1"/>`, []string{"evil.test"}},
+		{"style image-set", `<style>rect{background-image:image-set("https://evil.test/t.png" 1x)}</style><rect width="1"/>`, []string{"evil.test"}},
+		{"attr image-set", `<rect width="1" style="mask-image:image-set('https://evil.test/t.png' 1x)"/>`, []string{"evil.test"}},
+		{"mask image-set", `<rect width="1" mask="image-set('https://evil.test/t.png' 1x)"/>`, []string{"evil.test"}},
 		{"stylesheet pi", `<?xml-stylesheet href="http://evil.test/x.css"?><rect width="1"/>`, []string{"evil.test"}},
 	}
 	for _, c := range cases {
