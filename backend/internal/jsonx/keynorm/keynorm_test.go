@@ -2,6 +2,7 @@ package keynorm
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -54,21 +55,41 @@ func TestRenameNestedAndArrays(t *testing.T) {
 }
 
 func TestCollision(t *testing.T) {
-	// Canonical spelling wins, wherever it sits.
+	// The last fold-matching member wins, as v1 read it, whatever its spelling.
 	got, ch := norm(t, `{"fontfamily":"a","fontFamily":"b","FONTFAMILY":"c"}`, themeShape)
-	if want := `{"fontFamily":"b"}`; got != want {
+	if want := `{"fontFamily":"c"}`; got != want {
 		t.Fatalf("got %s want %s", got, want)
 	}
-	if len(ch) != 2 || !ch[0].Dropped || !ch[1].Dropped {
+	if len(ch) != 3 || ch[0].Dropped || !ch[1].Dropped || !ch[2].Dropped {
 		t.Fatalf("changes = %+v", ch)
 	}
-	// Without the canonical spelling the smallest variant wins and is renamed.
+	if ch[1].Value != `"a"` || ch[2].Value != `"b"` {
+		t.Fatalf("dropped values not reported: %+v", ch)
+	}
+	// A canonical spelling that is not last loses.
+	got, _ = norm(t, `{"fontFamily":"b","fontfamily":"a"}`, themeShape)
+	if want := `{"fontFamily":"a"}`; got != want {
+		t.Fatalf("got %s want %s", got, want)
+	}
 	got, ch = norm(t, `{"fontfamily":"a","FONTFAMILY":"c","FontFamily":"d"}`, themeShape)
-	if want := `{"fontFamily":"c"}`; got != want {
+	if want := `{"fontFamily":"d"}`; got != want {
 		t.Fatalf("got %s want %s", got, want)
 	}
 	if len(ch) != 3 {
 		t.Fatalf("changes = %+v", ch)
+	}
+	if s := ch[1].String(); !strings.Contains(s, `value "a"`) {
+		t.Fatalf("String() lacks the dropped value: %s", s)
+	}
+}
+
+func TestFoldEqualCanonicalNamesAreDeterministic(t *testing.T) {
+	shape := &Shape{Fields: map[string]*Shape{"id": nil, "ID": nil, "Id": nil}}
+	for range 50 {
+		got, _ := norm(t, `{"iD":1}`, shape)
+		if want := `{"ID":1}`; got != want {
+			t.Fatalf("got %s want %s", got, want)
+		}
 	}
 }
 

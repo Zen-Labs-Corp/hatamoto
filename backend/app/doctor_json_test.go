@@ -84,6 +84,23 @@ func TestDoctorJSONReport(t *testing.T) {
 	}
 }
 
+func TestDoctorJSONReportsDroppedValues(t *testing.T) {
+	forms := jsonColumn{Table: "hatamoto_forms", Column: "settings", HasID: true}
+	src := fakeJSONSource{
+		cols: []jsonColumn{forms},
+		rows: map[string][]fakeRow{forms.key(): {{"f1", `{"Submit_Button_Text":"old","submit_button_text":"new"}`}}},
+	}
+	rep, err := checkStoredJSON(context.Background(), src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	rep.render(&out)
+	if want := `/Submit_Button_Text dropped (collides with submit_button_text, value "old")`; !strings.Contains(out.String(), want) {
+		t.Errorf("report lacks %q:\n%s", want, out.String())
+	}
+}
+
 func TestDoctorJSONCleanIsOK(t *testing.T) {
 	c := jsonColumn{Table: "hatamoto_forms", Column: "fields", HasID: true}
 	rep, err := checkStoredJSON(context.Background(), fakeJSONSource{

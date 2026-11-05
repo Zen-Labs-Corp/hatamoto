@@ -41,19 +41,27 @@ type Change struct {
 	// that won the collision and From was removed.
 	To      string
 	Dropped bool
+	// Value is the raw JSON of the removed member when Dropped is set.
+	Value string
 }
 
 func (c Change) String() string {
 	if c.Dropped {
-		return fmt.Sprintf("%s/%s dropped (collides with %s)", c.Path, escape(c.From), c.To)
+		v := c.Value
+		if len(v) > 200 {
+			v = v[:200] + "..."
+		}
+		return fmt.Sprintf("%s/%s dropped (collides with %s, value %s)", c.Path, escape(c.From), c.To, v)
 	}
 	return fmt.Sprintf("%s/%s -> %s", c.Path, escape(c.From), c.To)
 }
 
 // Normalise rewrites case-variant keys of raw to the canonical names of s. If
-// several keys of one object fold to the same canonical name, the canonical
-// spelling wins, else the lexicographically smallest variant; the others are
-// dropped and reported with Dropped. When nothing changes the input slice is
+// several keys of one object fold to the same canonical name, the last of them
+// in input order wins and is renamed; the others are dropped and reported with
+// Dropped, with their value. That is the value version 1 read, which decoded
+// members in order and let a later case-insensitive match overwrite an earlier
+// one (callers read jsonb as text, whose key order is length, then bytes). When nothing changes the input slice is
 // returned as is, so a second run is a no-op.
 func Normalise(raw []byte, s *Shape) (out []byte, changes []Change, err error) {
 	if s == nil {
@@ -196,11 +204,18 @@ func walkObject(raw jsontext.Value, s *Shape, path string) (jsontext.Value, []Ch
 // canonicalise renames case variants to their canonical key and removes the
 // collision losers. Member order is kept; a renamed winner stays in place.
 func canonicalise(members []member, s *Shape, path string) ([]member, []Change) {
+	// Sorted so that two fold-equal canonical names resolve the same way on
+	// every run: an exact match first, else the smallest canonical name.
+	fieldNames := make([]string, 0, len(s.Fields))
+	for c := range s.Fields {
+		fieldNames = append(fieldNames, c)
+	}
+	sort.Strings(fieldNames)
 	canon := func(name string) (string, bool) {
 		if _, ok := s.Fields[name]; ok {
 			return name, true
 		}
-		for c := range s.Fields {
+		for _, c := range fieldNames {
 			if strings.EqualFold(c, name) {
 				return c, true
 			}
@@ -225,26 +240,15 @@ func canonicalise(members []member, s *Shape, path string) ([]member, []Change) 
 	sort.Strings(names)
 	for _, c := range names {
 		idx := groups[c]
-		win := -1
-		for _, i := range idx { // exact spelling wins (last one, as v1 did)
-			if members[i].name == c {
-				win = i
-			}
-		}
-		if win < 0 {
-			win = idx[0]
-			for _, i := range idx[1:] {
-				if members[i].name < members[win].name {
-					win = i
-				}
-			}
+		win := idx[len(idx)-1] // last member wins, as v1 read it
+		if members[win].name != c {
 			rename[win] = c
 			changes = append(changes, Change{Path: path, From: members[win].name, To: c})
 		}
 		for _, i := range idx {
 			if i != win {
 				drop[i] = true
-				changes = append(changes, Change{Path: path, From: members[i].name, To: c, Dropped: true})
+				changes = append(changes, Change{Path: path, From: members[i].name, To: c, Dropped: true, Value: string(members[i].val)})
 			}
 		}
 	}

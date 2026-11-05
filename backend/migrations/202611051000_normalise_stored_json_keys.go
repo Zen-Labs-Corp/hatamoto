@@ -90,8 +90,8 @@ func nskFormSettings() *keynorm.Shape {
 // would stop being read once a decoder moves over. The canonical spelling is
 // what the current decoders and the previous release already read (and the
 // previous release matches either spelling), so the rewrite is safe to roll
-// back over. When two keys of one object fold to the same name the canonical
-// spelling wins, else the lexicographically smallest variant; hatamoto doctor
+// back over. When two keys of one object fold to the same name the last
+// one in jsonb text order wins, which is the value v1 read; hatamoto doctor
 // json shows what would change beforehand. A row that is already canonical is
 // not written, so a second run changes nothing. Other columns, including the
 // ones the passkey library owns, are never touched.

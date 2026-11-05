@@ -79,9 +79,10 @@ func TestNormaliseStoredJSONKeys(t *testing.T) {
 
 	jsonIs(t, db, `SELECT settings FROM hatamoto_entity_schemas WHERE slug = 'variant'`,
 		`{"url_pattern":"/x/{slug}","sitemap":{"changefreq":"daily"},"overrides":[{"url_pattern":"/y","attribute":"a"}],"aliases":["Keep"],"custom":{"Keep":1}}`)
-	// The canonical spelling wins a collision, else the smallest variant.
+	// The value v1 reads wins a collision: the last member of jsonb's text
+	// order (length, then bytes), so Archive_Path ("/p") beats ARCHIVE_PATH.
 	jsonIs(t, db, `SELECT settings FROM hatamoto_entity_schemas WHERE slug = 'collide'`,
-		`{"url_pattern":"/a","archive_path":"/q"}`)
+		`{"url_pattern":"/a","archive_path":"/p"}`)
 
 	jsonIs(t, db, `SELECT fields FROM hatamoto_forms WHERE slug = 'variant'`,
 		`[{"id":"a","default_value":"x","options":[{"label":"L","value":"v"}],"attributes":{"Data-X":"1"}}]`)
