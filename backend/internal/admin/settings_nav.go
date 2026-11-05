@@ -99,9 +99,6 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "privacy", Label: "Cookie consent", Final: "/settings/privacy", Roles: ownerOnly},
 		{ID: "tracking", Label: "Tracking", Final: "/settings/tracking", Roles: ownerOnly},
 	}},
-	{ID: "contact-button", Label: "Contact button", Icon: "send", Desc: "A floating button that opens WhatsApp, a call, a text or an email.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "contact-button", Label: "Contact button", Final: "/settings/contact-button", Roles: ownerOnly},
-	}},
 	{ID: "media", Label: "Media", Icon: "image", Desc: "Upload, browse and describe the files on your site.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "media", Label: "Media", Final: "/settings/media"},
 	}},
@@ -192,6 +189,9 @@ var themeRegistry = []settingsSectionDef{
 	}},
 	{ID: "menus", Label: "Menus", Icon: "menu", Desc: "The navigation menus of your site.", Tabs: []settingsTabDef{
 		{ID: "menus", Label: "Menus", Final: "/theme/menus"},
+	}},
+	{ID: "contact-button", Label: "Contact button", Icon: "send", Desc: "A floating button that opens WhatsApp, a call, a text or an email.", Tabs: []settingsTabDef{
+		{ID: "contact-button", Label: "Contact button", Final: "/theme/contact-button", Roles: ownerOnly},
 	}},
 }
 
@@ -453,7 +453,7 @@ func (v *View) SectionTabs() []ui.Tab {
 // themeMoved maps the Settings sections that moved to Theme to the Theme
 // section that replaces them, so <prefix>/settings?section=appearance (and the
 // no-JS select of an old page) still lands.
-var themeMoved = map[string]string{"appearance": "themes", "menus": "menus", "menus-forms": "menus"}
+var themeMoved = map[string]string{"appearance": "themes", "menus": "menus", "menus-forms": "menus", "contact-button": "contact-button"}
 
 // areaHref is the URL of the section of area ar that role opens, or "" when
 // the role has no section in it. first is used when want is not visible.

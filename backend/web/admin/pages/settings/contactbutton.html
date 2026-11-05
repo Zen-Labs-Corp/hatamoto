@@ -2,7 +2,7 @@
 {{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 {{if .Warning}}{{template "hm/callout" dict "Kind" "warning" "ID" "contact-button-warning" "Title" "The button has nothing to link to" "Body" .Warning}}{{end}}
-<form method="post" action="{{adminPath}}/settings/contact-button" class="hm-cardform">
+<form method="post" action="{{adminPath}}/theme/contact-button" class="hm-cardform">
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "ID" "contact-button" "Title" "Floating contact button" "Heading" "h2" "Description" "One link that stays in a corner of every page of your site. It is a plain link: no script runs and nothing is sent to a third party until a visitor taps it. Off by default."}}
 {{template "hm/field" dict "ID" "contact-button-enabled" "Name" "enabled" "Label" "Show the floating button" "Control" "switch" "Value" "true" "OffValue" "false" "Checked" .State.Enabled}}

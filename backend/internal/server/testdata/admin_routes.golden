@@ -97,7 +97,6 @@ GET /admin/settings/backups/retention -> admin.(*Admin).handleRetentionPage-fm
 GET /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDeleteConfirm-fm
 GET /admin/settings/backups/{id}/download -> admin.(*Admin).handleBackupDownload-fm
 GET /admin/settings/changes -> admin.(*Admin).handleChanges-fm
-GET /admin/settings/contact-button -> admin.(*Admin).handleContactButton-fm
 GET /admin/settings/content-model -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/email -> admin.(*Admin).handleEmail-fm
 GET /admin/settings/email/log -> admin.(*Admin).handleEmailLog-fm
@@ -215,6 +214,7 @@ GET /admin/theme/additional-css -> admin.(*Admin).handleAdditionalCSS-fm
 GET /admin/theme/blocks -> admin.(*Admin).handleBlocksPage-fm
 GET /admin/theme/browse -> admin.(*Admin).handleThemeBrowse-fm
 GET /admin/theme/colours -> admin.(*Admin).handleDesignForm-fm
+GET /admin/theme/contact-button -> admin.(*Admin).handleContactButton-fm
 GET /admin/theme/design-system -> admin.(*Admin).handleTokensForm-fm
 GET /admin/theme/fonts -> admin.(*Admin).handleFonts-fm
 GET /admin/theme/fonts/google -> admin.(*Admin).handleFontGoogleForm-fm
@@ -337,7 +337,6 @@ POST /admin/settings/backups/offsite/test -> admin.(*Admin).handleOffsiteTest-fm
 POST /admin/settings/backups/retention -> admin.(*Admin).handleRetentionSave-fm
 POST /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDelete-fm
 POST /admin/settings/changes/{id}/undo -> admin.(*Admin).handleChangesUndo-fm
-POST /admin/settings/contact-button -> admin.(*Admin).handleContactButtonSave-fm
 POST /admin/settings/email -> admin.(*Admin).handleEmailSave-fm
 POST /admin/settings/email/log/{id}/resend -> admin.(*Admin).handleEmailLogResend-fm
 POST /admin/settings/email/reset -> admin.(*Admin).handleEmailReset-fm
@@ -464,6 +463,7 @@ POST /admin/sudo -> admin.(*Admin).handleSudo-fm
 POST /admin/theme -> admin.(*Admin).handleTheme-fm
 POST /admin/theme/additional-css -> admin.(*Admin).handleAdditionalCSSSave-fm
 POST /admin/theme/colours -> admin.(*Admin).handleDesignSave-fm
+POST /admin/theme/contact-button -> admin.(*Admin).handleContactButtonSave-fm
 POST /admin/theme/design-system -> admin.(*Admin).handleTokensSave-fm
 POST /admin/theme/design-system/reset -> admin.(*Admin).handleTokensReset-fm
 POST /admin/theme/fonts/google -> admin.(*Admin).handleFontGoogle-fm

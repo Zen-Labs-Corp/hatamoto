@@ -44,6 +44,7 @@ func legacyRulesFor(prefix string) []legacyRule {
 		{From: "/settings/themes/parts", To: "/theme/parts"},
 		{From: "/settings/sections", To: "/theme/templates"},
 		{From: "/settings/menus", To: "/theme/menus"},
+		{From: "/settings/contact-button", To: "/theme/contact-button"},
 		{From: "/settings/appearance", To: "/theme", Exact: true},
 		{From: "/settings/menus-forms", To: "/theme/menus", Exact: true},
 

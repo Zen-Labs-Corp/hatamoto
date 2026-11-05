@@ -12,7 +12,7 @@ import (
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
-const contactButtonPath = "/settings/contact-button"
+const contactButtonPath = "/theme/contact-button"
 
 func (a *Admin) mountContactButtonSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET "+contactButtonPath, a.handleContactButton)

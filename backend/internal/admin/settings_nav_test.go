@@ -55,6 +55,31 @@ func TestSettingsForRoles(t *testing.T) {
 	}
 }
 
+func TestContactButtonLivesInTheme(t *testing.T) {
+	t.Parallel()
+
+	if got := len(ThemeFor("owner")); got != 9 {
+		t.Errorf("owner theme sections = %d, want 9", got)
+	}
+	var last SettingsSection
+	for _, s := range ThemeFor("owner") {
+		last = s
+	}
+	if last.ID != "contact-button" || last.Group != "" || len(last.Tabs) != 1 || !strings.HasSuffix(last.Tabs[0].Href, "/theme/contact-button") {
+		t.Errorf("last theme section %+v, want an ungrouped contact-button", last)
+	}
+	for _, s := range ThemeFor("editor") {
+		if s.ID == "contact-button" {
+			t.Error("editor sees the Contact button in Theme")
+		}
+	}
+	for _, s := range SettingsFor("owner") {
+		if s.ID == "contact-button" {
+			t.Error("Settings still has the Contact button section")
+		}
+	}
+}
+
 func TestSettingsLiveTabsUseTheNewHref(t *testing.T) {
 	t.Parallel()
 
@@ -102,6 +127,7 @@ func TestSettingsEntryRedirects(t *testing.T) {
 		{"owner-token", "/admin/settings/seo", 302, "/admin/settings/seo/general"},
 		{"owner-token", "/admin/settings?section=appearance", 303, "/admin/theme/themes"},
 		{"owner-token", "/admin/settings?section=menus", 303, "/admin/theme/menus"},
+		{"owner-token", "/admin/settings?section=contact-button", 303, "/admin/theme/contact-button"},
 		{"owner-token", "/admin/settings?section=menus-forms", 303, "/admin/theme/menus"},
 		{"editor-token", "/admin/settings?section=appearance", 303, "/admin/theme/blocks"},
 		{"editor-token", "/admin/settings?section=menus", 303, "/admin/theme/menus"},
@@ -243,7 +269,7 @@ func TestSettingsNavGroups(t *testing.T) {
 		t.Fatalf("owner group order %q", got)
 	}
 	for g, want := range map[string]string{
-		"Site":    "general branding locales users access-security email privacy-tracking contact-button",
+		"Site":    "general branding locales users access-security email privacy-tracking",
 		"Content": "media entity-models forms seo redirects linking",
 		"System":  "integrations performance updates jobs backups-recovery tools",
 	} {
