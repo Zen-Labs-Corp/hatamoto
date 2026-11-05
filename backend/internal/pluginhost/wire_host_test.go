@@ -433,7 +433,7 @@ func TestWireDecodeOutput(t *testing.T) {
 		{"null member zeroes the field", `{"title":null,"tags":null}`, doc{Path: "/a", Meta: map[string]string{"k": "v"}}},
 		{"duplicate names: the last one wins", `{"title":"U","title":"V"}`, doc{Path: "/a", Title: "V", Tags: []string{"x"}, Meta: map[string]string{"k": "v"}}},
 		{"case variants sort before the input's lower-case key, which wins", `{"Title":"U","TITLE":"V"}`, base},
-		{"a case variant of an input key overrides it", `{"PATH":"/b"}`, doc{Path: "/a", Title: "T", Tags: []string{"x"}, Meta: map[string]string{"k": "v"}}},
+		{"a case variant of an input key loses to it", `{"PATH":"/b"}`, doc{Path: "/a", Title: "T", Tags: []string{"x"}, Meta: map[string]string{"k": "v"}}},
 		{"invalid UTF-8", `{"title":"a` + "\xff" + `b"}`, doc{Path: "/a", Title: "a\ufffdb", Tags: []string{"x"}, Meta: map[string]string{"k": "v"}}},
 		{"unknown members are ignored", `{"zzz":1}`, base},
 	} {
