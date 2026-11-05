@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -252,5 +253,48 @@ func TestFiredUnpublishLeavesNoPendingSchedule(t *testing.T) {
 	r.run()
 	if r.status(e.ID) != entity.StatusPublished {
 		t.Fatal("page was unpublished again after republish")
+	}
+}
+
+// Two ticks racing for one due row act once: one status write, one audit row.
+func TestConcurrentUnpublishTicksActOnce(t *testing.T) {
+	r := newUnpublishRig(t)
+	e := r.published("unpub-g")
+	r.due(e.ID, "/elsewhere")
+	var wg sync.WaitGroup
+	for range 6 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := (unpublishSink{s: r.srv}).Unpublish(r.ctx, e.ID); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	var n int
+	if err := r.db.Pool().QueryRow(r.ctx, `SELECT count(*) FROM hatamoto_admin_audit
+		WHERE actor = $1 AND action = $2 AND target = $3`,
+		schedulerActor, auditEntityUnpublishScheduled, e.ID.String()).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("audit rows = %d, %v", n, err)
+	}
+}
+
+// An owner who pushes the date back after the worker selected the row wins:
+// the sink re-checks the due time and leaves the page and the new date alone.
+func TestPostponedUnpublishIsNotCarriedOut(t *testing.T) {
+	r := newUnpublishRig(t)
+	e := r.published("unpub-h")
+	if err := r.srv.entityService.SetUnpublish(r.ctx, e.ID, time.Now().Add(time.Hour), "/x"); err != nil {
+		t.Fatal(err)
+	}
+	if err := (unpublishSink{s: r.srv}).Unpublish(r.ctx, e.ID); err != nil {
+		t.Fatal(err)
+	}
+	if r.status(e.ID) != entity.StatusPublished {
+		t.Error("a postponed page was unpublished")
+	}
+	if u, _ := r.srv.entityService.UnpublishFor(r.ctx, e.ID); u == nil {
+		t.Error("the new schedule was deleted")
 	}
 }

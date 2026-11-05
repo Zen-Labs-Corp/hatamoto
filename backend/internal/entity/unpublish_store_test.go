@@ -66,4 +66,25 @@ func TestUnpublishStore(t *testing.T) {
 	if got, _ := st.TakeRedirect(ctx, e.ID); got != nil {
 		t.Fatalf("second TakeRedirect = %v", got)
 	}
+
+	// Claim takes a due row once and leaves a postponed one alone.
+	_ = st.Set(ctx, e.ID, time.Now().Add(time.Hour), "")
+	if c, err := st.Claim(ctx, e.ID); err != nil || c != nil {
+		t.Fatalf("Claim of a future row = %v, %v", c, err)
+	}
+	past := time.Now().Add(-time.Minute).UTC().Truncate(time.Microsecond)
+	_ = st.Set(ctx, e.ID, past, "/t")
+	c, err := st.Claim(ctx, e.ID)
+	if err != nil || c == nil || !c.At.Equal(past) || c.RedirectTarget != "/t" {
+		t.Fatalf("Claim = %+v, %v", c, err)
+	}
+	if again, _ := st.Claim(ctx, e.ID); again != nil {
+		t.Fatalf("second Claim = %+v", again)
+	}
+	_ = st.Requeue(ctx, *c)
+	_ = st.Set(ctx, e.ID, at, "/newer")
+	_ = st.Requeue(ctx, *c) // does not overwrite a newer schedule
+	if u, _ := st.Get(ctx, e.ID); u == nil || u.RedirectTarget != "/newer" {
+		t.Fatalf("Requeue overwrote: %+v", u)
+	}
 }

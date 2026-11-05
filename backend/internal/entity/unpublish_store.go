@@ -54,6 +54,37 @@ func (s *UnpublishStore) Clear(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// Claim atomically takes the schedule of id if it is due now, deleting it so
+// no other tick or replica can act on it. It returns nil when there is no
+// schedule or it was postponed past now. A caller that fails afterwards must
+// Requeue it.
+func (s *UnpublishStore) Claim(ctx context.Context, id uuid.UUID) (*Unpublish, error) {
+	u := Unpublish{EntityID: id}
+	err := s.db.Pool().QueryRow(ctx, `
+		DELETE FROM hatamoto_entity_schedule WHERE entity_id = $1 AND unpublish_at <= NOW()
+		RETURNING unpublish_at, redirect_target`, id).Scan(&u.At, &u.RedirectTarget)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("claim unpublish: %w", err)
+	}
+	return &u, nil
+}
+
+// Requeue puts a claimed schedule back so the next tick retries it. A newer
+// schedule the owner set meanwhile wins.
+func (s *UnpublishStore) Requeue(ctx context.Context, u Unpublish) error {
+	_, err := s.db.Pool().Exec(ctx, `
+		INSERT INTO hatamoto_entity_schedule (entity_id, unpublish_at, redirect_target)
+		VALUES ($1, $2, $3) ON CONFLICT (entity_id) DO NOTHING`,
+		u.EntityID, u.At.UTC(), u.RedirectTarget)
+	if err != nil {
+		return fmt.Errorf("requeue unpublish: %w", err)
+	}
+	return nil
+}
+
 // Get returns the schedule, or nil when none is set.
 func (s *UnpublishStore) Get(ctx context.Context, id uuid.UUID) (*Unpublish, error) {
 	m, err := s.Map(ctx, []uuid.UUID{id})

@@ -20,9 +20,9 @@ type UnpublishWorker struct {
 	sink   UnpublishSink
 }
 
-// UnpublishSink performs one unpublish. It must be idempotent: an entity that
-// is no longer published is skipped without error, so a second replica or a
-// retried tick does nothing.
+// UnpublishSink performs one unpublish. It claims the schedule row itself
+// (atomically, only while still due), so a second replica, an overlapping
+// tick or an owner's postponement does nothing; a failure leaves it due.
 type UnpublishSink interface {
 	Unpublish(ctx context.Context, id uuid.UUID) error
 }
@@ -65,10 +65,6 @@ func (w *UnpublishWorker) Run(ctx context.Context) (int, error) {
 		if err := w.sink.Unpublish(ctx, id); err != nil {
 			w.logger.Error("scheduled unpublish failed", slog.String("entity_id", id.String()), slog.Any("error", err))
 			continue
-		}
-		if _, err := pool.Exec(adminCtx,
-			`DELETE FROM hatamoto_entity_schedule WHERE entity_id = $1`, id); err != nil {
-			return done, fmt.Errorf("drop finished unpublish: %w", err)
 		}
 		done++
 	}

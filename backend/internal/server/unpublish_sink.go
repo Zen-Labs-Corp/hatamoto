@@ -27,8 +27,25 @@ type unpublishSink struct{ s *Server }
 // link sync and caches behave as for an owner's Unpublish), then leaves a 302
 // from its old public path to the owner's chosen target. It skips an entity
 // that is no longer published, which makes a repeated tick harmless.
-func (k unpublishSink) Unpublish(ctx context.Context, id uuid.UUID) error {
+func (k unpublishSink) Unpublish(ctx context.Context, id uuid.UUID) (err error) {
 	s := k.s
+	st := s.entityService.UnpublishStore()
+	if st == nil {
+		return nil
+	}
+	// The claim removes the row atomically and only while it is due, so a
+	// concurrent tick, or an owner who just postponed it, wins cleanly.
+	sched, err := st.Claim(ctx, id)
+	if err != nil || sched == nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			if rerr := st.Requeue(ctx, *sched); rerr != nil {
+				s.logger.Warn("requeue unpublish", slog.String("entity_id", id.String()), slog.String("error", rerr.Error()))
+			}
+		}
+	}()
 	e, err := s.entityRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, entity.ErrEntityNotFound) {
@@ -37,13 +54,6 @@ func (k unpublishSink) Unpublish(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 	if e.Status != entity.StatusPublished {
-		return nil
-	}
-	sched, err := s.entityService.UnpublishFor(ctx, id)
-	if err != nil {
-		return err
-	}
-	if sched == nil {
 		return nil
 	}
 
@@ -74,7 +84,7 @@ func (k unpublishSink) Unpublish(ctx context.Context, id uuid.UUID) error {
 			})
 			switch {
 			case err == nil:
-				if err := s.entityService.UnpublishStore().SetRedirect(ctx, id, rd.ID); err != nil {
+				if err := st.SetRedirect(ctx, id, rd.ID); err != nil {
 					// Without the owner record republishing could not remove
 					// the redirect, and it would hide the live page: undo it.
 					s.logger.Warn("record unpublish redirect", slog.String("entity_id", id.String()), slog.String("error", err.Error()))
