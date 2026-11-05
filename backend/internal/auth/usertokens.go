@@ -47,6 +47,8 @@ type Invite struct {
 	InvitedBy *uuid.UUID
 	ExpiresAt time.Time
 	CreatedAt time.Time
+	// AccessEndsAt is the end of access the invited user gets (nil: none).
+	AccessEndsAt *time.Time
 }
 
 // UserTokens issues and consumes password-reset and invite tokens. Consuming a
@@ -175,8 +177,10 @@ func (t *UserTokens) ConsumeReset(ctx context.Context, token, newPassword string
 
 // IssueInvite creates an invite (valid InviteTokenTTL) for email with role. An
 // address that already has an account is rejected with user.ErrEmailAlreadyExists;
-// an earlier pending invite for the same address is replaced.
-func (t *UserTokens) IssueInvite(ctx context.Context, email string, role user.Role, invitedBy uuid.UUID) (string, *Invite, error) {
+// an earlier pending invite for the same address is replaced. accessEnds, when
+// set, becomes the new user's access end; an owner invite with one needs another
+// owner without an end date (user.ErrLastOwner).
+func (t *UserTokens) IssueInvite(ctx context.Context, email string, role user.Role, invitedBy uuid.UUID, accessEnds *time.Time) (string, *Invite, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 	if email == "" || !strings.Contains(email, "@") {
 		return "", nil, ErrInvalidEmail
@@ -189,7 +193,7 @@ func (t *UserTokens) IssueInvite(ctx context.Context, email string, role user.Ro
 		return "", nil, err
 	}
 	now := t.now()
-	inv := &Invite{Email: email, Role: role, InvitedBy: &invitedBy, ExpiresAt: now.Add(InviteTokenTTL), CreatedAt: now}
+	inv := &Invite{Email: email, Role: role, InvitedBy: &invitedBy, ExpiresAt: now.Add(InviteTokenTTL), CreatedAt: now, AccessEndsAt: accessEnds}
 	err = t.tx(ctx, func(tx pgx.Tx) error {
 		var exists bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_users WHERE lower(email) = $1)`, email).Scan(&exists); err != nil {
@@ -201,8 +205,13 @@ func (t *UserTokens) IssueInvite(ctx context.Context, email string, role user.Ro
 		if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_user_tokens WHERE kind = $1 AND email = $2 AND used_at IS NULL`, tokenKindInvite, email); err != nil {
 			return err
 		}
-		return tx.QueryRow(ctx, `INSERT INTO hatamoto_user_tokens (kind, token_hash, email, role, invited_by, expires_at, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-			tokenKindInvite, hash, email, string(role), invitedBy, inv.ExpiresAt, now).Scan(&inv.ID)
+		if role == user.RoleOwner && accessEnds != nil {
+			if err := user.EnsureOpenOwner(ctx, tx, uuid.Nil); err != nil {
+				return err
+			}
+		}
+		return tx.QueryRow(ctx, `INSERT INTO hatamoto_user_tokens (kind, token_hash, email, role, invited_by, expires_at, created_at, access_ends_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+			tokenKindInvite, hash, email, string(role), invitedBy, inv.ExpiresAt, now, accessEnds).Scan(&inv.ID)
 	})
 	if err != nil {
 		return "", nil, err
@@ -220,8 +229,8 @@ func (t *UserTokens) PeekInvite(ctx context.Context, token string) (*Invite, err
 	defer conn.Release()
 	var inv Invite
 	var role string
-	err = conn.QueryRow(ctx, `SELECT id, email, role, invited_by, expires_at, created_at FROM hatamoto_user_tokens WHERE token_hash = $1 AND kind = $2 AND used_at IS NULL AND expires_at > $3`,
-		hashToken(token), tokenKindInvite, t.now()).Scan(&inv.ID, &inv.Email, &role, &inv.InvitedBy, &inv.ExpiresAt, &inv.CreatedAt)
+	err = conn.QueryRow(ctx, `SELECT id, email, role, invited_by, expires_at, created_at, access_ends_at FROM hatamoto_user_tokens WHERE token_hash = $1 AND kind = $2 AND used_at IS NULL AND expires_at > $3 AND (access_ends_at IS NULL OR access_ends_at > $3)`,
+		hashToken(token), tokenKindInvite, t.now()).Scan(&inv.ID, &inv.Email, &role, &inv.InvitedBy, &inv.ExpiresAt, &inv.CreatedAt, &inv.AccessEndsAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTokenInvalid
 	}
@@ -250,8 +259,9 @@ func (t *UserTokens) ConsumeInvite(ctx context.Context, token, name, password st
 	var u user.User
 	err = t.tx(ctx, func(tx pgx.Tx) error {
 		var email, role string
-		err := tx.QueryRow(ctx, `UPDATE hatamoto_user_tokens SET used_at = $3 WHERE token_hash = $1 AND kind = $2 AND used_at IS NULL AND expires_at > $3 RETURNING email, role`,
-			hashToken(token), tokenKindInvite, t.now()).Scan(&email, &role)
+		var accessEnds *time.Time
+		err := tx.QueryRow(ctx, `UPDATE hatamoto_user_tokens SET used_at = $3 WHERE token_hash = $1 AND kind = $2 AND used_at IS NULL AND expires_at > $3 AND (access_ends_at IS NULL OR access_ends_at > $3) RETURNING email, role, access_ends_at`,
+			hashToken(token), tokenKindInvite, t.now()).Scan(&email, &role, &accessEnds)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrTokenInvalid
 		}
@@ -262,8 +272,13 @@ func (t *UserTokens) ConsumeInvite(ctx context.Context, token, name, password st
 		if name != "" {
 			namePtr = &name
 		}
-		err = tx.QueryRow(ctx, `INSERT INTO hatamoto_users (id, email, password_hash, role, name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id, email, role, name`,
-			uuid.New(), email, hash, role, namePtr).Scan(&u.ID, &u.Email, &u.Role, &u.Name)
+		if role == string(user.RoleOwner) && accessEnds != nil {
+			if err := user.EnsureOpenOwner(ctx, tx, uuid.Nil); err != nil {
+				return err
+			}
+		}
+		err = tx.QueryRow(ctx, `INSERT INTO hatamoto_users (id, email, password_hash, role, name, access_ends_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING id, email, role, name, access_ends_at`,
+			uuid.New(), email, hash, role, namePtr, accessEnds).Scan(&u.ID, &u.Email, &u.Role, &u.Name, &u.AccessEndsAt)
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
@@ -286,7 +301,7 @@ func (t *UserTokens) ListInvites(ctx context.Context) ([]Invite, error) {
 		return nil, err
 	}
 	defer conn.Release()
-	rows, err := conn.Query(ctx, `SELECT id, email, role, invited_by, expires_at, created_at FROM hatamoto_user_tokens WHERE kind = $1 AND used_at IS NULL AND expires_at > $2 ORDER BY created_at DESC`,
+	rows, err := conn.Query(ctx, `SELECT id, email, role, invited_by, expires_at, created_at, access_ends_at FROM hatamoto_user_tokens WHERE kind = $1 AND used_at IS NULL AND expires_at > $2 ORDER BY created_at DESC`,
 		tokenKindInvite, t.now())
 	if err != nil {
 		return nil, err
@@ -296,7 +311,7 @@ func (t *UserTokens) ListInvites(ctx context.Context) ([]Invite, error) {
 	for rows.Next() {
 		var inv Invite
 		var role string
-		if err := rows.Scan(&inv.ID, &inv.Email, &role, &inv.InvitedBy, &inv.ExpiresAt, &inv.CreatedAt); err != nil {
+		if err := rows.Scan(&inv.ID, &inv.Email, &role, &inv.InvitedBy, &inv.ExpiresAt, &inv.CreatedAt, &inv.AccessEndsAt); err != nil {
 			return nil, err
 		}
 		inv.Role = user.Role(role)

@@ -177,17 +177,17 @@ func TestInviteFlow(t *testing.T) {
 		}
 	})
 
-	if _, _, err := r.tok.IssueInvite(ctx, owner.Email, user.RoleEditor, owner.ID); !errors.Is(err, user.ErrEmailAlreadyExists) {
+	if _, _, err := r.tok.IssueInvite(ctx, owner.Email, user.RoleEditor, owner.ID, nil); !errors.Is(err, user.ErrEmailAlreadyExists) {
 		t.Fatalf("existing email: %v", err)
 	}
-	if _, _, err := r.tok.IssueInvite(ctx, email, "admin", owner.ID); !errors.Is(err, user.ErrInvalidRole) {
+	if _, _, err := r.tok.IssueInvite(ctx, email, "admin", owner.ID, nil); !errors.Is(err, user.ErrInvalidRole) {
 		t.Fatalf("bad role: %v", err)
 	}
-	old, _, err := r.tok.IssueInvite(ctx, strings.ToUpper(email), user.RoleEditor, owner.ID)
+	old, _, err := r.tok.IssueInvite(ctx, strings.ToUpper(email), user.RoleEditor, owner.ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	token, inv, err := r.tok.IssueInvite(ctx, email, user.RoleEditor, owner.ID)
+	token, inv, err := r.tok.IssueInvite(ctx, email, user.RoleEditor, owner.ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +230,7 @@ func TestInviteFlow(t *testing.T) {
 	}
 
 	// Revoke
-	t2, inv2, err := r.tok.IssueInvite(ctx, "x"+email, user.RoleOwner, owner.ID)
+	t2, inv2, err := r.tok.IssueInvite(ctx, "x"+email, user.RoleOwner, owner.ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -581,4 +581,89 @@ func TestAPISessionsRevokedOnCredentialChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	gone("RevokeAllForUser", tok)
+}
+
+func TestInviteCarriesAccessEnd(t *testing.T) {
+	r := newTokRig(t)
+	ctx := context.Background()
+	owner := r.newUser(t, user.RoleOwner)
+	email := "dated-" + strings.ReplaceAll(uuid.NewString(), "-", "")[:10] + "@example.test"
+	t.Cleanup(func() {
+		c := database.WithSuperadmin(ctx)
+		if u, err := r.users.GetByEmail(c, email); err == nil {
+			_ = r.users.Delete(c, u.ID)
+		}
+	})
+	end := time.Now().Add(48 * time.Hour).UTC().Truncate(time.Microsecond)
+
+	token, inv, err := r.tok.IssueInvite(ctx, email, user.RoleEditor, owner.ID, &end)
+	if err != nil || inv.AccessEndsAt == nil {
+		t.Fatalf("issue: %+v %v", inv, err)
+	}
+	peek, err := r.tok.PeekInvite(ctx, token)
+	if err != nil || peek.AccessEndsAt == nil || !peek.AccessEndsAt.Equal(end) {
+		t.Fatalf("peek: %+v %v", peek, err)
+	}
+	list, _ := r.tok.ListInvites(ctx)
+	listed := false
+	for _, i := range list {
+		if i.ID == inv.ID && i.AccessEndsAt != nil && i.AccessEndsAt.Equal(end) {
+			listed = true
+		}
+	}
+	if !listed {
+		t.Fatal("end missing from ListInvites")
+	}
+
+	// A past end at accept time leaves the token unusable and creates no user.
+	late := *r.tok
+	late.now = func() time.Time { return end.Add(time.Minute) }
+	if _, err := late.ConsumeInvite(ctx, token, "Eve", "invited-password-123"); !errors.Is(err, ErrTokenInvalid) {
+		t.Fatalf("past end: %v", err)
+	}
+	if _, err := r.users.GetByEmail(database.WithSuperadmin(ctx), email); !errors.Is(err, user.ErrUserNotFound) {
+		t.Fatalf("user created: %v", err)
+	}
+
+	// On time: the user gets the same end.
+	u, err := r.tok.ConsumeInvite(ctx, token, "Eve", "invited-password-123")
+	if err != nil || u.AccessEndsAt == nil || !u.AccessEndsAt.Equal(end) {
+		t.Fatalf("consume: %+v %v", u, err)
+	}
+	got, _ := r.users.GetByEmail(database.WithSuperadmin(ctx), email)
+	if got.AccessEndsAt == nil || !got.AccessEndsAt.Equal(end) {
+		t.Fatalf("stored end: %+v", got)
+	}
+}
+
+func TestInviteOwnerWithAccessEndNeedsOpenOwner(t *testing.T) {
+	r := newTokRig(t)
+	ctx := context.Background()
+	// Park every existing owner as an editor so the guard sees a known set.
+	rows, err := r.db.Pool().Query(ctx, `SELECT id FROM hatamoto_users WHERE role = 'owner'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parked []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		_ = rows.Scan(&id)
+		parked = append(parked, id)
+	}
+	rows.Close()
+	_, _ = r.db.Pool().Exec(ctx, `UPDATE hatamoto_users SET role = 'editor' WHERE id = ANY($1)`, parked)
+	t.Cleanup(func() {
+		_, _ = r.db.Pool().Exec(ctx, `UPDATE hatamoto_users SET role = 'owner' WHERE id = ANY($1)`, parked)
+	})
+
+	inviter := r.newUser(t, user.RoleEditor)
+	end := time.Now().Add(48 * time.Hour)
+	email := "dated-owner-" + strings.ReplaceAll(uuid.NewString(), "-", "")[:8] + "@example.test"
+	if _, _, err := r.tok.IssueInvite(ctx, email, user.RoleOwner, inviter.ID, &end); !errors.Is(err, user.ErrLastOwner) {
+		t.Fatalf("no open owner: %v", err)
+	}
+	r.newUser(t, user.RoleOwner)
+	if _, _, err := r.tok.IssueInvite(ctx, email, user.RoleOwner, inviter.ID, &end); err != nil {
+		t.Fatalf("with an open owner: %v", err)
+	}
 }

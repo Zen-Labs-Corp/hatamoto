@@ -357,10 +357,10 @@ func (a *Admin) shownLink(r *http.Request, path, token string) string {
 // issueInvite creates the invite, emails it when email works, parks the link
 // in the secret store (essential when SMTP is not configured) and redirects to
 // the users list, which shows it once in a banner. flash is the success message.
-func (a *Admin) issueInvite(w http.ResponseWriter, r *http.Request, addr string, role user.Role, flash string) {
+func (a *Admin) issueInvite(w http.ResponseWriter, r *http.Request, addr string, role user.Role, accessEnds *time.Time, flash string) {
 	self := userFrom(r.Context())
 	selfID, _ := uuid.Parse(self.ID)
-	token, inv, err := a.deps.Tokens.IssueInvite(r.Context(), addr, role, selfID)
+	token, inv, err := a.deps.Tokens.IssueInvite(r.Context(), addr, role, selfID, accessEnds)
 	d := usersData{}
 	d.InviteForm.Email, d.InviteForm.Role = addr, string(role)
 	switch {
@@ -425,7 +425,7 @@ func (a *Admin) handleInvite(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusServiceUnavailable, "Invitations unavailable", "The server is not ready.")
 		return
 	}
-	a.issueInvite(w, r, r.PostFormValue("email"), role, "Invite created")
+	a.issueInvite(w, r, r.PostFormValue("email"), role, nil, "Invite created")
 }
 
 // handleInviteRevokeConfirm is the no-JS page behind the revoke dialog.
@@ -481,7 +481,7 @@ func (a *Admin) handleInviteResend(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, inv := range invs {
 		if inv.ID == id {
-			a.issueInvite(w, r, inv.Email, inv.Role, "Invite sent again")
+			a.issueInvite(w, r, inv.Email, inv.Role, inv.AccessEndsAt, "Invite sent again")
 			return
 		}
 	}

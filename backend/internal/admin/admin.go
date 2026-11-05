@@ -120,7 +120,7 @@ type TokenService interface {
 	ConsumeReset(ctx context.Context, token, newPassword string) (*user.User, error)
 	PeekInvite(ctx context.Context, token string) (*auth.Invite, error)
 	ConsumeInvite(ctx context.Context, token, name, password string) (*user.User, error)
-	IssueInvite(ctx context.Context, email string, role user.Role, invitedBy uuid.UUID) (string, *auth.Invite, error)
+	IssueInvite(ctx context.Context, email string, role user.Role, invitedBy uuid.UUID, accessEnds *time.Time) (string, *auth.Invite, error)
 	ListInvites(ctx context.Context) ([]auth.Invite, error)
 	RevokeInvite(ctx context.Context, id uuid.UUID) error
 }

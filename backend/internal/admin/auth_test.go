@@ -89,7 +89,7 @@ func (f *fakeTokens) ConsumeReset(_ context.Context, t, pw string) (*user.User, 
 	delete(f.resets, t)
 	return u, nil
 }
-func (f *fakeTokens) IssueInvite(_ context.Context, addr string, role user.Role, by uuid.UUID) (string, *auth.Invite, error) {
+func (f *fakeTokens) IssueInvite(_ context.Context, addr string, role user.Role, by uuid.UUID, accessEnds *time.Time) (string, *auth.Invite, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if strings.EqualFold(addr, f.user.Email) {
@@ -103,7 +103,7 @@ func (f *fakeTokens) IssueInvite(_ context.Context, addr string, role user.Role,
 			delete(f.invites, t)
 		}
 	}
-	inv := &auth.Invite{ID: uuid.New(), Email: strings.ToLower(addr), Role: role, InvitedBy: &by, ExpiresAt: time.Now().Add(7 * 24 * time.Hour)}
+	inv := &auth.Invite{ID: uuid.New(), Email: strings.ToLower(addr), Role: role, InvitedBy: &by, ExpiresAt: time.Now().Add(7 * 24 * time.Hour), AccessEndsAt: accessEnds}
 	tok := "invite-token-" + uuid.NewString()
 	f.invites[tok] = inv
 	return tok, inv, nil
