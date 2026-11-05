@@ -310,7 +310,7 @@ builder script.
   one of those renders a plain link.
 * **PDF**: server output is a `div.hm-pdf` with a download link first in the DOM, then an `iframe.hm-pdf__frame`
   (`title`, `height`, `loading="lazy"`). No JavaScript, no `<object>` or `<embed>`. Only a PDF of the media library
-  (`/media/...`, no query or fragment) is accepted: a remote URL, another scheme or any other path renders nothing.
+  (`/media/...`, no query or fragment) is accepted: an absolute `https:` address becomes a plain download link without a frame, and any other value (another scheme, any other path) renders nothing on the page. The canvas then says "Choose a PDF from the media library".
   Below 768px the frame is hidden by CSS and the link stays, so a phone gets the download link only. `height` is
   200 to 2000 (default 600). A blank `linktext` reads "Download PDF" plus the file size when the library knows it; an
   author's text is used as written. The canvas shows a static placeholder, never a frame. A PDF media response carries
@@ -332,6 +332,8 @@ render tests; it is not a production dependency.
 * The PDF frame needs the page to be framed by its own origin. The editor preview and every public page served in a
   CSP sandbox (any page of a site with a live community script) have an opaque origin, so there the PDF widget shows
   its download link only. A sandbox never gets `allow-same-origin` for this.
+* The PDF widget only frames a root-relative `/media/...` file. With an absolute `MEDIA_BASE_URL` (a CDN) the picked
+  address is absolute, so the widget shows the download link only, without the frame or the size.
 * Images have no width and height (the picker returns a URL only), so layout can shift while they load.
 * `list` and `table` data are text props, less structured than a repeater.
 * `hide` cannot un-hide at a narrower width.

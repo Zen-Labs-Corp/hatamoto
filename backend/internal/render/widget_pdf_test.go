@@ -74,11 +74,31 @@ func TestPDFWidgetMarkup(t *testing.T) {
 }
 
 func TestPDFWidgetRefusesForeignSources(t *testing.T) {
-	for _, src := range []string{"https://example.org/a.pdf", "javascript:alert(1)", "//evil.example/a.pdf", "", "/other/a.pdf"} {
+	for _, src := range []string{"javascript:alert(1)", "//evil.example/a.pdf", "", "/other/a.pdf", "http://example.org/a.pdf", "/media/x.pdf?v=2"} {
 		out := renderPDF(t, nil, map[string]any{"src": src}, false)
-		if strings.Contains(out, "<iframe") || strings.Contains(out, "<a ") {
+		if strings.Contains(out, "<iframe") || strings.Contains(out, "<a ") || strings.Contains(out, "hm-pdf") {
 			t.Errorf("src %q rendered %s", src, out)
 		}
+	}
+}
+
+// An absolute https address (a CDN media base URL) is a plain link, never a frame.
+func TestPDFWidgetRemoteHTTPSIsLinkOnly(t *testing.T) {
+	out := renderPDF(t, nil, map[string]any{"src": "https://cdn.example.org/media/a.pdf"}, false)
+	if strings.Contains(out, "<iframe") || !strings.Contains(out, `href="https://cdn.example.org/media/a.pdf"`) {
+		t.Errorf("remote: %s", out)
+	}
+}
+
+func TestPDFWidgetCanvasHintWithoutLibrarySource(t *testing.T) {
+	for _, src := range []string{"", "http://example.org/a.pdf", "/media/a.pdf?v=2"} {
+		out := renderPDF(t, nil, map[string]any{"src": src}, true)
+		if !strings.Contains(out, "Choose a PDF from the media library") {
+			t.Errorf("src %q: %s", src, out)
+		}
+	}
+	if out := renderPDF(t, nil, map[string]any{"src": "/media/a.pdf"}, true); strings.Contains(out, "Choose a PDF") {
+		t.Errorf("hint with a library source: %s", out)
 	}
 }
 

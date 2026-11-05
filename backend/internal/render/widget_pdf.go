@@ -20,6 +20,17 @@ func pdfSrc(src string) string {
 	return p
 }
 
+// pdfRemoteHref is raw when it is an absolute https address, else "": such a
+// PDF (a CDN media base URL) gets a plain link, never a frame.
+func pdfRemoteHref(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if len(raw) < 9 || !strings.EqualFold(raw[:8], "https://") || safeURL(raw) == "#" ||
+		strings.ContainsFunc(raw, func(r rune) bool { return unicode.IsControl(r) || r == ' ' }) {
+		return ""
+	}
+	return raw
+}
+
 // sizeSuffix is " (2.4 MB)" for a PDF the data source knows the size of, else "".
 func sizeSuffix(w *widgetCtx, src string) string {
 	s, ok := w.E.opts.Data.(FileSizer)
@@ -39,17 +50,25 @@ func sizeSuffix(w *widgetCtx, src string) string {
 func init() {
 	registerWidget("pdf", func(w *widgetCtx) (any, error) {
 		w.Class = "hm-pdf"
+		raw := str(w.P, "src")
 		x := struct {
-			Src, Title, Text, Name string
-			Height                 int
-			Frame                  bool
-		}{Title: str(w.P, "title"), Text: str(w.P, "linktext"), Src: pdfSrc(str(w.P, "src"))}
+			Src, Href, Title, Text, Name string
+			Height                       int
+			Frame                        bool
+		}{Title: str(w.P, "title"), Text: str(w.P, "linktext"), Src: pdfSrc(raw)}
+		if x.Src == "" {
+			x.Href = pdfRemoteHref(raw)
+		}
+		if x.Src == "" && x.Href == "" && !w.Canvas {
+			return nil, errWidgetEmpty // nothing to show: no empty styled box
+		}
 		if x.Title == "" {
 			x.Title = "PDF document"
 		}
 		x.Height = min(max(intProp(w.P, "height", 600, -1<<30, 1<<30), 200), 2000)
 		if x.Src != "" {
 			x.Name = path.Base(x.Src)
+			x.Href = x.Src
 			x.Frame = !w.View.NoFrames // link only in a sandboxed document
 		}
 		if x.Text == "" {

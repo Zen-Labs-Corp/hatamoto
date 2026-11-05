@@ -1,6 +1,6 @@
 {"v":2,"nodes":[{"id":"root","t":"container","p":{"tag":"section"},"c":[
   {"id":"p1","t":"pdf","p":{"src":"/media/brochure.pdf","title":"Product <brochure>","height":600}},
-  {"id":"p2","t":"pdf","p":{"src":"https://example.org/a.pdf","title":"Remote"}},
+  {"id":"p2","t":"pdf","p":{"src":"https://cdn.example.org/media/a.pdf","title":"Remote"}},
   {"id":"p3","t":"pdf","p":{"src":"javascript:alert(1)","title":"Script"}},
   {"id":"p4","t":"pdf","p":{"src":"//evil.example/a.pdf","title":"Protocol relative"}},
   {"id":"p5","t":"pdf","p":{"src":"/media/tall.pdf","title":"Tall","height":2000,"linktext":"Open the tall one"}},
