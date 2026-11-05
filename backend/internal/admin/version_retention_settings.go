@@ -88,7 +88,7 @@ func (a *Admin) renderVersionRetention(w http.ResponseWriter, r *http.Request, s
 		d.Summary = []ui.FieldError{{ID: "keep", Label: "Versions to keep per item", Message: errMsg}}
 	}
 	v := a.NewView(w, r, "Versions")
-	v.Section, v.Tab = "versions", "versions"
+	v.Section, v.Tab = "backups-recovery", "versions"
 	v.Width = "compact"
 	v.Data = d
 	a.Render(w, r, status, "settings/versions", v)

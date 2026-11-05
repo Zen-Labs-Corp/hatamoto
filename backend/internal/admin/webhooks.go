@@ -169,7 +169,7 @@ func (a *Admin) handleWebhooks(w http.ResponseWriter, r *http.Request) {
 	}
 	d.Actions = []ui.Button{{Label: "New webhook", Variant: "primary", Icon: "plus", Href: a.adminPath + webhooksList + "/new", Attrs: map[string]string{"data-hm-open": "new-webhook"}}}
 	v := a.NewView(w, r, "Webhooks")
-	v.Section, v.Tab = "webhooks", "subscriptions"
+	v.Section, v.Tab = "integrations", "subscriptions"
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "settings/webhooks", v)
 }
@@ -177,7 +177,7 @@ func (a *Admin) handleWebhooks(w http.ResponseWriter, r *http.Request) {
 func (a *Admin) renderWebhookForm(w http.ResponseWriter, r *http.Request, status int, p webhookFormPage, crumb string) {
 	v := a.NewView(w, r, crumb)
 	v.Width = "narrow"
-	v.Section, v.Tab = "webhooks", "subscriptions"
+	v.Section, v.Tab = "integrations", "subscriptions"
 	v.Crumbs = a.areaCrumbs("subscriptions", Crumb{Label: crumb})
 	v.Data = p
 	a.Render(w, r, status, "settings/webhooknew", v)
@@ -544,7 +544,7 @@ func (a *Admin) handleWebhookDeliveries(w http.ResponseWriter, r *http.Request) 
 		q.Set("subscription", sub)
 	}
 	v := a.NewView(w, r, "Delivery log")
-	v.Section, v.Tab = "webhooks", "deliveries"
+	v.Section, v.Tab = "integrations", "deliveries"
 	v.Data = webhooksData{Table: a.deliveriesTable(r, rows, page, total, q), DeliveryOff: !a.deps.WebhookDeliveryOn}
 	a.Render(w, r, http.StatusOK, "settings/webhookdeliveries", v)
 }

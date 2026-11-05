@@ -5,28 +5,33 @@ import (
 	"testing"
 )
 
-func TestSettingsNavHasChangesUnderSystem(t *testing.T) {
+func TestSettingsNavHasChangesUnderBackupsRecovery(t *testing.T) {
 	t.Parallel()
 
 	var found bool
 	for _, s := range SettingsFor("owner") {
-		if s.ID != "changes" {
+		if s.ID != "backups-recovery" {
 			continue
 		}
-		found = true
 		if s.Group != "System" {
-			t.Errorf("Changes group %q, want System", s.Group)
+			t.Errorf("Backups & recovery group %q, want System", s.Group)
 		}
-		if len(s.Tabs) != 1 || !settingsLive["changes"] || !strings.HasSuffix(s.Tabs[0].Href, "/settings/changes") || len(s.Tabs[0].Roles) != 1 || s.Tabs[0].Roles[0] != "owner" {
-			t.Errorf("Changes tabs %+v, want one live tab at /settings/changes", s.Tabs)
+		for _, tab := range s.Tabs {
+			if tab.ID != "changes" {
+				continue
+			}
+			found = true
+			if !settingsLive["changes"] || !strings.HasSuffix(tab.Href, "/settings/changes") || len(tab.Roles) != 1 || tab.Roles[0] != "owner" {
+				t.Errorf("Changes tab %+v, want a live owner-only tab at /settings/changes", tab)
+			}
 		}
 	}
 	if !found {
-		t.Fatal("owner Settings has no Changes section")
+		t.Fatal("owner Backups & recovery has no Changes tab")
 	}
 	for _, s := range SettingsFor("editor") {
-		if s.ID == "changes" {
-			t.Error("editor sees Changes")
+		if s.ID == "backups-recovery" {
+			t.Error("editor sees Backups & recovery")
 		}
 	}
 }

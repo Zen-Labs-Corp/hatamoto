@@ -330,7 +330,7 @@ func (a *Admin) renderBackups(w http.ResponseWriter, r *http.Request, status int
 	if d.Running {
 		v.Refresh = pollSeconds
 	}
-	v.Section, v.Tab = "backups", "backups"
+	v.Section, v.Tab = "backups-recovery", "backups"
 	v.Width = "wide"
 	v.Data = d
 	a.Render(w, r, status, "settings/backups", v)

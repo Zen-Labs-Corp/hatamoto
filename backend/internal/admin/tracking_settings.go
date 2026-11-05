@@ -271,7 +271,7 @@ func (a *Admin) renderTracking(w http.ResponseWriter, r *http.Request, status in
 		d.Legacy = a.deps.LegacyTrackingPlugins(r.Context())
 	}
 	view := a.NewView(w, r, "Tracking")
-	view.Section, view.Tab = "tracking", "tracking"
+	view.Section, view.Tab = "privacy-tracking", "tracking"
 	view.Width = "narrow"
 	view.Data = d
 	a.Render(w, r, status, "settings/tracking", view)

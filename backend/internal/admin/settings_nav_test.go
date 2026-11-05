@@ -25,9 +25,9 @@ func TestSettingsForRoles(t *testing.T) {
 
 	owner := sectionTabs(SettingsFor("owner"))
 	for id, want := range map[string]string{
-		"general": "general", "privacy": "privacy", "tracking": "tracking", "locales": "locales locale-addresses locale-business", "media": "media", "entity-models": "types taxonomies", "forms": "forms submissions spam",
-		"seo": "seo-general seo-titles seo-social seo-schema seo-kg seo-robots seo-ads-txt seo-verification seo-sitemap seo-breadcrumbs seo-indexnow seo-404", "redirects": "redirects", "linking": "linking", "users": "users user-sign-in", "api": "api",
-		"import-export": "import export", "performance": "performance", "updates": "updates", "backups": "backups", "security": "admin-address",
+		"general": "general", "privacy-tracking": "privacy tracking", "locales": "locales locale-addresses locale-business", "media": "media", "entity-models": "types taxonomies", "forms": "forms submissions spam",
+		"seo": "seo-general seo-titles seo-social seo-schema seo-kg seo-robots seo-ads-txt seo-verification seo-sitemap seo-breadcrumbs seo-indexnow seo-404", "redirects": "redirects", "linking": "linking", "users": "users user-sign-in", "integrations": "api subscriptions deliveries",
+		"tools": "import export search-replace", "performance": "performance", "updates": "updates", "backups-recovery": "backups versions changes", "access-security": "site-access admin-address",
 	} {
 		if got := strings.Join(owner[id], " "); got != want {
 			t.Errorf("owner %s tabs %q, want %q", id, got, want)
@@ -44,7 +44,7 @@ func TestSettingsForRoles(t *testing.T) {
 			t.Errorf("Settings still has the section %s, which moved to Theme", id)
 		}
 	}
-	for _, id := range []string{"general", "locales", "seo", "entity-models", "users", "api", "import-export", "performance", "updates", "backups", "security"} {
+	for _, id := range []string{"general", "locales", "seo", "entity-models", "users", "integrations", "tools", "performance", "updates", "backups-recovery", "access-security", "privacy-tracking"} {
 		if _, ok := editor[id]; ok {
 			t.Errorf("editor sees section %s", id)
 		}
@@ -108,6 +108,18 @@ func TestSettingsEntryRedirects(t *testing.T) {
 		{"owner-token", "/admin/settings/team", 302, "/admin/settings/users"},
 		{"editor-token", "/admin/settings/team", 403, ""},
 		{"editor-token", "/admin/settings/import-export", 403, ""},
+		{"owner-token", "/admin/settings/import-export", 302, "/admin/settings/import"},
+		{"owner-token", "/admin/settings/security", 302, "/admin/settings/site-access"},
+		{"editor-token", "/admin/settings/security", 403, ""},
+		{"owner-token", "/admin/settings?section=api", 303, "/admin/settings/api-keys"},
+		{"owner-token", "/admin/settings?section=webhooks", 303, "/admin/settings/api-keys"},
+		{"owner-token", "/admin/settings?section=site-access", 303, "/admin/settings/site-access"},
+		{"owner-token", "/admin/settings?section=privacy", 303, "/admin/settings/privacy"},
+		{"owner-token", "/admin/settings?section=tracking", 303, "/admin/settings/privacy"},
+		{"owner-token", "/admin/settings?section=backups", 303, "/admin/settings/backups"},
+		{"owner-token", "/admin/settings?section=versions", 303, "/admin/settings/backups"},
+		{"owner-token", "/admin/settings?section=changes", 303, "/admin/settings/backups"},
+		{"owner-token", "/admin/settings?section=search-replace", 303, "/admin/settings/import"},
 	} {
 		rec := g.do("GET", tc.path, tc.token, nil, nil)
 		if rec.Code != tc.code || rec.Header().Get("Location") != tc.to {
@@ -227,14 +239,13 @@ func TestSettingsNavGroups(t *testing.T) {
 	t.Parallel()
 
 	order, members := groupsOf(SettingsFor("owner"))
-	if got := strings.Join(order, ","); got != "Site,Content,System,Tools" {
+	if got := strings.Join(order, ","); got != "Site,Content,System" {
 		t.Fatalf("owner group order %q", got)
 	}
 	for g, want := range map[string]string{
-		"Site":    "general branding locales site-access email privacy tracking contact-button users",
-		"Content": "media versions entity-models forms seo redirects linking",
-		"System":  "api webhooks performance updates jobs backups changes import-export security",
-		"Tools":   "search-replace",
+		"Site":    "general branding locales users access-security email privacy-tracking contact-button",
+		"Content": "media entity-models forms seo redirects linking",
+		"System":  "integrations performance updates jobs backups-recovery tools",
 	} {
 		if got := strings.Join(members[g], " "); got != want {
 			t.Errorf("owner %s sections %q, want %q", g, got, want)

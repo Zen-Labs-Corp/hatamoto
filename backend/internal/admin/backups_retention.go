@@ -156,7 +156,7 @@ type retentionPage struct {
 
 func (a *Admin) renderRetentionPage(w http.ResponseWriter, r *http.Request, status int, d *retentionData) {
 	v := a.NewView(w, r, "Backups to keep")
-	v.Section, v.Tab, v.Width = "backups", "backups", "narrow"
+	v.Section, v.Tab, v.Width = "backups-recovery", "backups", "narrow"
 	v.Crumbs = a.areaCrumbs("backups", Crumb{Label: "Backups to keep"})
 	v.Data = retentionPage{retentionData: d, Cancel: a.adminPath + backupsRel}
 	a.Render(w, r, status, "settings/backups-retention", v)

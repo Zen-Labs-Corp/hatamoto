@@ -170,7 +170,7 @@ func (a *Admin) renderSearchReplace(w http.ResponseWriter, r *http.Request, stat
 		{"menus", "Menus: item labels and links", q.Menus},
 	}
 	v := a.NewView(w, r, "Search and replace")
-	v.Section, v.Tab = "search-replace", "search-replace"
+	v.Section, v.Tab = "tools", "search-replace"
 	v.Width = "narrow"
 	v.Data = d
 	a.Render(w, r, status, "settings/search-replace", v)

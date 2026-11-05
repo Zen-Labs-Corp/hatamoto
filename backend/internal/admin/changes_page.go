@@ -133,7 +133,7 @@ func (a *Admin) handleChanges(w http.ResponseWriter, r *http.Request) {
 	}
 	d.Table.Page = ui.Pagination{Page: page, PerPage: changesPerPage, Total: total, BaseURL: a.adminPath + changesRel}
 	v := a.NewView(w, r, "Changes")
-	v.Section, v.Tab = "changes", "changes"
+	v.Section, v.Tab = "backups-recovery", "changes"
 	v.Width = "wide"
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "settings/changes", v)

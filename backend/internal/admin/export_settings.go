@@ -18,7 +18,7 @@ func (a *Admin) mountExportSettings(owner *httpx.Group) {
 
 func (a *Admin) handleExportInfo(w http.ResponseWriter, r *http.Request) {
 	v := a.NewView(w, r, "Site export & import")
-	v.Section, v.Tab = "import-export", "export"
+	v.Section, v.Tab = "tools", "export"
 	v.Width = "narrow"
 	v.Data = exportData{
 		ExportCmd:              "hatamoto export site.tar.gz",

@@ -161,7 +161,7 @@ func (a *Admin) renderPrivacy(w http.ResponseWriter, r *http.Request, status int
 	}
 	d.Counts = a.privacyCounts(r)
 	view := a.NewView(w, r, "Privacy")
-	view.Section, view.Tab = "privacy", "privacy"
+	view.Section, view.Tab = "privacy-tracking", "privacy"
 	view.Width = "narrow"
 	view.Data = d
 	a.Render(w, r, status, "settings/privacy", view)
