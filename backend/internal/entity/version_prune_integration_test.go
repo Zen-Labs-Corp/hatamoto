@@ -92,6 +92,34 @@ func TestPruneVersionsKeepsLiveIntegration(t *testing.T) {
 	}
 }
 
+func TestPruneVersionsLiveDoNotUseKeepSlotsIntegration(t *testing.T) {
+	ctx, _, repo, _, newEntity := versionPruneFixture(t)
+	pool := repo.db.Pool()
+	id := newEntity("draft")
+	// The newest 5 are all live; the older 10 are not. keep=5 must still
+	// retain 5 unprotected versions on top of the live ones.
+	for v := 1; v <= 15; v++ {
+		live := "NULL"
+		if v > 10 {
+			live = "now()"
+		}
+		if _, err := pool.Exec(ctx, fmt.Sprintf(
+			`INSERT INTO hatamoto_entity_versions (entity_id, version, attributes, live_at) VALUES ($1, $2, $3, %s)`, live),
+			id, v, fmt.Sprintf(`{"n":%d}`, v+100)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := repo.PruneVersions(ctx, 5); err != nil {
+		t.Fatal(err)
+	}
+	got := versionNumbers(t, ctx, repo, id)
+	for v := 1; v <= 15; v++ {
+		if want := v > 5; got[v] != want {
+			t.Errorf("version %d kept=%v, want %v", v, got[v], want)
+		}
+	}
+}
+
 func TestPruneVersionsCoalesceSparesLiveIntegration(t *testing.T) {
 	ctx, _, repo, _, newEntity := versionPruneFixture(t)
 	pool := repo.db.Pool()

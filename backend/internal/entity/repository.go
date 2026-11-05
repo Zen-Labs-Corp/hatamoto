@@ -1190,6 +1190,7 @@ func (r *PostgresEntityRepository) PruneVersions(ctx context.Context, keep int) 
 					PARTITION BY entity_id
 					ORDER BY (change_summary IS NOT DISTINCT FROM $3) ASC, version DESC) AS rn
 				FROM hatamoto_entity_versions
+				WHERE NOT `+protected+`
 			) t WHERE t.rn > $2
 		)`, window, keep, AutosaveSummary)
 	if err != nil {
