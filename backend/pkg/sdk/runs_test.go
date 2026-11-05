@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -138,6 +139,18 @@ func TestRemovedPermissionIsOnlyTheFiveRemoved(t *testing.T) {
 	for _, p := range []Permission{"entities.writ", "kv", ""} {
 		if RemovedPermission(p) {
 			t.Errorf("%q reported as removed", p)
+		}
+	}
+}
+
+func TestRemovedPermissionsListsTheFiveSorted(t *testing.T) {
+	want := []Permission{"entities.write", "media.write", "menus.write", "redirects.write", "terms.write"}
+	if got := RemovedPermissions(); !slices.Equal(got, want) {
+		t.Fatalf("RemovedPermissions() = %v, want %v", got, want)
+	}
+	for _, p := range RemovedPermissions() {
+		if !RemovedPermission(p) || ValidPermission(p) {
+			t.Errorf("%q: removed=%v valid=%v", p, RemovedPermission(p), ValidPermission(p))
 		}
 	}
 }

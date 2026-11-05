@@ -33,12 +33,16 @@ type Record struct {
 	SDK      string `json:"sdk"`
 	// SDKCompatibleWith lists earlier SDK versions this build still serves;
 	// omitted when empty, so older records stay byte-identical.
-	SDKCompatibleWith []string            `json:"sdk_compatible_with,omitempty"`
-	SchemaHead        int64               `json:"schema_head"`
-	RollbackFloor     string              `json:"rollback_floor"`
-	MinFrom           string              `json:"min_from"`
-	NotesURL          string              `json:"notes_url"`
-	Artifacts         map[string]Artifact `json:"artifacts"` // by platform, e.g. "linux-amd64"
+	SDKCompatibleWith []string `json:"sdk_compatible_with,omitempty"`
+	// RemovedPermissions lists the plugin permissions this build refuses, so an
+	// older install can tell which removals an update adds; omitted when
+	// empty, so older records stay byte-identical.
+	RemovedPermissions []string            `json:"removed_permissions,omitempty"`
+	SchemaHead         int64               `json:"schema_head"`
+	RollbackFloor      string              `json:"rollback_floor"`
+	MinFrom            string              `json:"min_from"`
+	NotesURL           string              `json:"notes_url"`
+	Artifacts          map[string]Artifact `json:"artifacts"` // by platform, e.g. "linux-amd64"
 }
 
 // Channels lists the channel names a manifest may carry.
