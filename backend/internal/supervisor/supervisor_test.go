@@ -1185,3 +1185,30 @@ func TestStartupGateReportsOfflineRollbackOutcome(t *testing.T) {
 		t.Fatalf("outcome not logged:\n%s", h.logs.String())
 	}
 }
+
+// A retried release whose gate fails again is listed again with the new
+// reason: the retry removed the old entry, so AddBad is not a no-op.
+func TestRetriedApplyGateFailureListsTheNewReason(t *testing.T) {
+	h := newHarness(t)
+	h.release("v1.0.0")
+	h.release("v1.0.1")
+	h.gateFail["v1.0.1"] = "smoke failed: GET /new (502)"
+	st := &State{Run: RunRelease, CurrentSeen: "v1.0.0", Pending: pendingApply("v1.0.1", "v1.0.0")}
+	st.AddBad("v1.0.1", "smoke failed: GET / (500)")
+	if _, err := RetryRefusal(&State{Bad: st.Bad}, "v1.0.1", "v1.0.0"); err != nil {
+		t.Fatal(err)
+	}
+	st.RemoveBad("v1.0.1") // what Apply's locked block does with the pending switch
+	h.seed(st, "v1.0.0", "")
+	h.build()
+	h.run()
+	eventually(t, "idle", idleWith(h))
+	eventually(t, "restored child", func() bool { return h.lastStart() == "v1.0.0" })
+	got := h.state()
+	if len(got.Bad) != 1 || got.Bad[0].Version != "v1.0.1" || !strings.Contains(got.Bad[0].Reason, "GET /new (502)") {
+		t.Errorf("bad = %+v, want v1.0.1 with the new reason", got.Bad)
+	}
+	if !strings.Contains(got.LastError, "GET /new (502)") {
+		t.Errorf("last_error = %q", got.LastError)
+	}
+}
