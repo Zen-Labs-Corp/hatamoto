@@ -6,7 +6,6 @@ package testutil
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -15,6 +14,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // failf reports a failure, stopping the test when fatal is set.
@@ -172,11 +173,11 @@ func containsImpl(t testing.TB, fatal bool, container, elem any, want bool, msg 
 func jsonEqualImpl(t testing.TB, fatal bool, want, got string, msg []any) {
 	t.Helper()
 	var w, g any
-	if err := json.Unmarshal([]byte(want), &w); err != nil {
+	if err := jsonx.Unmarshal([]byte(want), &w, jsonx.StoredLoose); err != nil {
 		failf(t, fatal, msg, "expected value is not JSON: %v", err)
 		return
 	}
-	if err := json.Unmarshal([]byte(got), &g); err != nil {
+	if err := jsonx.Unmarshal([]byte(got), &g, jsonx.StoredLoose); err != nil {
 		failf(t, fatal, msg, "actual value is not JSON: %v", err)
 		return
 	}

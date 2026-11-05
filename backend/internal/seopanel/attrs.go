@@ -1,11 +1,11 @@
 package seopanel
 
 import (
-	"encoding/json"
 	"strconv"
 	"strings"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/seo"
 )
 
@@ -50,7 +50,7 @@ func BodyProperty(sc *entity.EntitySchema) string {
 			Type string `json:"type"`
 		} `json:"properties"`
 	}
-	if json.Unmarshal(sc.Schema, &s) != nil {
+	if jsonx.Unmarshal(sc.Schema, &s, jsonx.StoredLoose) != nil {
 		return ""
 	}
 	for _, name := range []string{"content", "body"} {

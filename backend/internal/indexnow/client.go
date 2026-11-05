@@ -3,7 +3,6 @@ package indexnow
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +10,7 @@ import (
 	"net/url"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/safefetch"
 )
 
@@ -54,7 +54,7 @@ type payload struct {
 // URL of the key file. It returns the HTTP status; the key is never put in an
 // error.
 func submit(ctx context.Context, c *http.Client, endpoint, host, key, keyLocation string, urls []string) (int, error) {
-	body, err := json.Marshal(payload{Host: host, Key: key, KeyLocation: keyLocation, URLList: urls})
+	body, err := jsonx.MarshalPinned(payload{Host: host, Key: key, KeyLocation: keyLocation, URLList: urls})
 	if err != nil {
 		return 0, err
 	}

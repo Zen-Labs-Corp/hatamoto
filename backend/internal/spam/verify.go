@@ -2,7 +2,6 @@ package spam
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/safefetch"
 )
 
@@ -109,7 +109,7 @@ func (v *HTTPVerifier) Verify(ctx context.Context, provider, secret, siteKey, to
 		return Result{}, fmt.Errorf("captcha provider returned HTTP %d", resp.StatusCode)
 	}
 	var reply siteverifyReply
-	if err := json.NewDecoder(io.LimitReader(resp.Body, maxVerifyBody)).Decode(&reply); err != nil {
+	if err := jsonx.UnmarshalRead(io.LimitReader(resp.Body, maxVerifyBody), &reply, jsonx.Stored); err != nil {
 		return Result{}, errors.New("captcha provider reply unreadable")
 	}
 	res := Result{OK: reply.Success, Codes: reply.ErrorCodes, Score: reply.Score}

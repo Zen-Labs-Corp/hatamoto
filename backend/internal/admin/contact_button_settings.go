@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"hatamoto.dev/core/internal/contactlink"
 	"net/http"
 	"strings"
@@ -76,7 +76,7 @@ func (a *Admin) handleContactButtonSave(w http.ResponseWriter, r *http.Request) 
 	}
 	raw, err := siteconfig.MergeContactButton(cfg.ThemeExtra, next)
 	if err == nil {
-		_, err = a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{ThemeExtra: json.RawMessage(raw)})
+		_, err = a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{ThemeExtra: jsontext.Value(raw)})
 	}
 	if err != nil {
 		a.logger().Error("contact button settings save", "err", err)
