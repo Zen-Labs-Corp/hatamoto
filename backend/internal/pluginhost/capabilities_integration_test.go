@@ -593,7 +593,7 @@ func TestWithoutCreateRole(t *testing.T) {
 	if _, err := pool.Exec(ctx, `GRANT CREATE ON DATABASE `+name+` TO hm_plain`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `GRANT ALL ON hatamoto_plugin_kv, hatamoto_plugin_credentials TO hm_plain`); err != nil {
+	if _, err := pool.Exec(ctx, `GRANT ALL ON hatamoto_plugin_kv, hatamoto_plugin_credentials, hatamoto_instance TO hm_plain`); err != nil {
 		t.Fatal(err)
 	}
 	cfg := pool.Config().Copy()
@@ -617,6 +617,15 @@ func TestWithoutCreateRole(t *testing.T) {
 	}
 	if _, err := db.Query(ctx, "lowpriv", `SELECT 1`); !errors.Is(err, ErrRoleUnavailable) {
 		t.Fatalf("db.query without a role = %v", err)
+	}
+	// Uninstall must work too: Postgres 16 refuses DROP ROLE IF EXISTS without
+	// CREATEROLE even when there is no role to drop.
+	if err := db.Drop(ctx, "lowpriv"); err != nil {
+		t.Fatalf("drop without CREATEROLE and without a role: %v", err)
+	}
+	var left int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM hatamoto_plugin_kv WHERE plugin = 'lowpriv'`).Scan(&left); err != nil || left != 0 {
+		t.Fatalf("kv rows left after drop = %d, %v", left, err)
 	}
 }
 

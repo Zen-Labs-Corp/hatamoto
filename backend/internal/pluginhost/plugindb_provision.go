@@ -448,8 +448,8 @@ func (d *PluginDB) Drop(ctx context.Context, plugin string) error {
 		return err
 	}
 	role := roleNameFor(dbID, plugin)
+	var exists bool
 	err = pgx.BeginFunc(ctx, d.pool, func(tx pgx.Tx) error {
-		var exists bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)`, role).Scan(&exists); err != nil {
 			return err
 		}
@@ -473,6 +473,12 @@ func (d *PluginDB) Drop(ctx context.Context, plugin string) error {
 	})
 	if err != nil {
 		return err
+	}
+	// No role, nothing more to drop. Postgres 16 refuses even DROP ROLE IF EXISTS
+	// to a user without CREATEROLE before it looks the role up, so a plugin whose
+	// role was never created (kv only, or no role privileges) could not be uninstalled.
+	if !exists {
+		return nil
 	}
 	// The CONNECT grant made at provisioning (a dependency of the role).
 	_, _ = d.pool.Exec(ctx, `REVOKE CONNECT ON DATABASE `+ident(d.dbName())+` FROM `+ident(role))

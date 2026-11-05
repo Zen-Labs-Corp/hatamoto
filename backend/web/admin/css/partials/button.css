@@ -55,10 +55,10 @@
 }
 .hm-btn.htmx-request::after, .hm-btn[aria-busy="true"]::after { flex: none; width: 14px; height: 14px; box-sizing: border-box; }
 .hm-btn--primary.htmx-request::after, .hm-btn--primary[aria-busy="true"]::after { border-color: var(--color-paper); border-top-color: transparent; }
-.hm-btn.htmx-request::after, .hm-btn[aria-busy="true"]::after, .hm-indicator.htmx-request::after { animation: hm-spin 0.7s linear infinite; }
+.hm-btn.htmx-request::after, .hm-btn[aria-busy="true"]::after, .hm-indicator.htmx-request::after, .hm-indicator--on::after { animation: hm-spin 0.7s linear infinite; }
 /* hm/indicator: a spinner that always takes its 16px box (opacity only, no layout shift). */
 .hm-indicator { display: inline-block; flex: none; position: relative; width: 16px; height: 16px; opacity: 0; transition: opacity 120ms var(--ease); }
 .hm-indicator::after { position: absolute; inset: 1px; }
-.hm-indicator.htmx-request { opacity: 1; }
+.hm-indicator.htmx-request, .hm-indicator--on { opacity: 1; }
 @keyframes hm-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .hm-indicator.htmx-request::after, .hm-btn.htmx-request::after, .hm-btn[aria-busy="true"]::after { animation-duration: 2.4s; } }
+@media (prefers-reduced-motion: reduce) { .hm-indicator.htmx-request::after, .hm-indicator--on::after, .hm-btn.htmx-request::after, .hm-btn[aria-busy="true"]::after { animation-duration: 2.4s; } }

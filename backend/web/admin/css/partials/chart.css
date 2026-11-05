@@ -83,6 +83,13 @@ button.hm-daterange__preset { width: 100%; border: 0; background: none; font: in
 .hm-statcard__value { margin: 0; color: var(--color-sumi); font-size: var(--text-metric); line-height: var(--leading-8); font-weight: var(--weight-medium); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
 .hm-statcard .hm-statcard__value--sm { font-size: var(--text-lg); line-height: var(--leading-6); }
 .hm-statcard__value--muted { color: var(--text-muted); }
+/* A status as the value (Stat.Tone): small text that wraps, after a dot in the badge colour of its kind. */
+.hm-statcard__value--tone { display: flex; align-items: flex-start; gap: var(--space-2); }
+.hm-statcard__dot { width: 8px; height: 8px; margin-top: var(--space-2); /* centred on the first 24px line */ border-radius: 50%; flex: none; background: var(--color-hai); }
+.hm-statcard__dot--success { background: var(--color-success); }
+.hm-statcard__dot--warning { background: var(--color-warning); }
+.hm-statcard__dot--danger { background: var(--color-danger); }
+.hm-statcard__dot--info { background: var(--accent-link); }
 .hm-statcard__value { overflow-wrap: anywhere; }
 .hm-statcard__status { margin: 0 0 var(--space-1); min-height: var(--leading-8); display: flex; align-items: center; min-width: 0; }
 .hm-statcard--ring .hm-statcard__value { font-size: var(--text-xl); line-height: var(--leading-7); }

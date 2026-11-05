@@ -110,9 +110,9 @@
 <div class="hm-callout hm-callout--warning" id="backups-secrets" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">A backup holds secrets: password hashes, API keys and plugin credentials. Store downloads somewhere safe.</div></div></div>
 <p class="hm-muted">Keeping the last 5 manual and 2 pre-update backups. Free disk: 50 GB.</p>
 
-<div id="backups-live" hx-get="/admin/settings/backups?poll=running" hx-trigger="every 3s" hx-target="this" hx-select="#backups-live" hx-swap="outerHTML" hx-indicator="#backups-busy">
-<span class="hm-indicator" id="backups-busy" role="status" data-hm-busy-text=""><span class="hm-visually-hidden" data-hm-busy-label></span></span>
-<div role="status"><p>A backup is running. You can leave this page; it carries on.</p>
+<div id="backups-live" class="hm-stack hm-stack--loose" hx-get="/admin/settings/backups?poll=running" hx-trigger="every 3s" hx-target="this" hx-select="#backups-live" hx-swap="outerHTML" hx-indicator="#backups-busy">
+<div class="hm-stack hm-stack--tight">
+<div class="hm-row"><span class="hm-indicator hm-indicator--on" id="backups-busy" role="status" data-hm-busy-text=""><span class="hm-visually-hidden" data-hm-busy-label></span></span><p role="status">A backup is running. You can leave this page; it carries on.</p></div>
 <div class="hm-meter" role="progressbar" aria-valuenow="62" aria-valuemin="0" aria-valuemax="100" aria-valuetext="62%" aria-label="Backup progress"><p class="hm-meter__head"><span>Backup progress</span><span class="hm-meter__value">62%</span></p><svg class="hm-meter__bar" aria-hidden="true" focusable="false"><rect class="hm-meter__track" width="100%" height="100%" rx="4"/><rect class="hm-meter__fill hm-viz--info" width="62%" height="100%" rx="4"/></svg></div></div>
 <div class="hm-card hm-tablecard" id="backups">
 <div class="hm-table__scroll" role="region" aria-label="Backups" tabindex="0"><table class="hm-table hm-table--cards"><caption class="hm-visually-hidden">Backups</caption>
