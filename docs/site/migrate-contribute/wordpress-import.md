@@ -21,7 +21,7 @@ In this guide you copy a WordPress site into Hatamoto with the import wizard in 
 
 > Your admin address is private to your install, for example `/k7qm-x2rf-9tdc`. Print it on the server with `hatamoto admin-url`. This page writes it as `<admin>`.
 
-1. In the Hatamoto admin, open **Settings > Import & export > WordPress import** (`<admin>/settings/import/wordpress`).
+1. In the Hatamoto admin, open **Settings > Tools > WordPress import** (`<admin>/settings/import/wordpress`).
 2. Under **From the site's address**, fill in **Site address**, **WordPress username** and **Application password**. Or, under **From an export file**, choose your file.
 3. Select **Scan the site**. The scan reads the old site and writes nothing to your content.
 4. Read the **Scan report**. It shows:

@@ -48,30 +48,47 @@ route. A user whose person has no name or no photo is sent to `<admin>/profile/c
 `theme` (that exact path only: it is the colour-scheme switch, and the Theme pages under
 `<admin>/theme/...` are gated). "Complete" is derived from the person (`person.Complete`), nothing is stored.
 
+The main menu lists Overview, then Site (Entities, Media, Forms, Analytics) and Customize
+(Plugins, Theme, Settings). Forms and Media are main-menu items at `<admin>/forms` and
+`<admin>/media`, not Settings sections. The Forms item carries a badge with the number of
+new submissions (hidden at zero, the same for every role that sees Forms; spam is not
+counted). The Forms page has three tabs: Forms (`<admin>/forms`), Submissions
+(`<admin>/forms/submissions`) and Spam (`<admin>/forms/spam`, owner only). Media is one plain
+page with no secondary sidebar.
+
 Settings and Theme each have a secondary sidebar, built by one component (`settings_nav.go`:
 an `adminArea` with `For(role)`; `SettingsFor` and `ThemeFor` are the two areas). A section
-URL (`<admin>/settings/{entity-models,import-export}`) answers 302 to the first tab
+URL (`<admin>/settings/{entity-models,backups-recovery,tools}`) answers 302 to the first tab
 the role can reach (the pre-v1-26 IDs `content-model`, `seo` and `team` still
 answer, as does `?section=` with them), and `GET <admin>/settings` redirects to the first
 reachable section. `GET <admin>/theme` does the same for Theme (`?section=` picks one). The old
 `appearance`, `menus` and `menus-forms` sections moved to Theme: `<admin>/settings?section=` with
 them lands on the Theme section that replaced them. Each tab is its own URL:
 
-| Section | Tabs (path under `<admin>/settings/`) | Who |
+There are 15 sections in three groups (paths under `<admin>/settings/`):
+
+| Section | Tabs | Who |
 | --- | --- | --- |
+| **Site** | | |
 | General | `general` (identity, homepage, language, contact, email badge on one page) | owner |
-| Email | `email` (SMTP settings, test, reset) | owner |
-| Media | `media` (the library) | owner, editor |
+| Locales | `locales`, `locales/addresses`, `locales/business` | owner |
+| Users | `users`, `users/sign-in` | owner |
+| Access & security | `site-access`, `security/admin-address` | owner |
+| Email | `email` (SMTP settings, test, reset), `email/log` | owner |
+| Privacy & tracking | `privacy` (Cookie consent), `tracking` | owner |
+| **Content** | | |
 | Entity models | `types`, `taxonomies` | owner |
-| Forms | `forms`, `submissions` | owner, editor |
+| SEO | `seo/general`, `seo/titles`, and the other SEO tabs | owner |
 | Redirects | `redirects` | owner, editor |
 | Internal linking | `linking` | owner, editor |
-| Users | `users` | owner |
-| API | `api-keys` | owner |
-| Import & export | `import` (WordPress), `export` (informational, see EXPORT.md) | owner |
+| **System** | | |
+| Integrations | `api-keys`, `webhooks`, `webhooks/deliveries` (Delivery log) | owner |
 | Performance | `performance` (page cache: on/off, lifetime, size limit, clear, preload) | owner |
+| Updates | `updates` | owner |
+| Backups & recovery | `backups`, `versions`, `changes` | owner |
+| Tools | `import` (WordPress import), `export` (informational, see EXPORT.md), `search-replace` | owner |
 
-Theme has eight sections, one tab each (paths under `<admin>/theme/`):
+Theme has nine sections, one tab each (paths under `<admin>/theme/`):
 
 | Section | Path | Who |
 | --- | --- | --- |
@@ -83,6 +100,7 @@ Theme has eight sections, one tab each (paths under `<admin>/theme/`):
 | Blocks | `blocks` (B6 list: name, used by, edit, delete, **New block**) | owner, editor |
 | Templates | `templates` | owner, editor |
 | Menus | `menus` | owner, editor |
+| Contact button | `contact-button` (the floating contact link on public pages) | owner |
 
 Entities does not list the built-in `block` and `theme_part` types (rows, counts, type tabs,
 Create menu, New chooser, parent and link pickers); they are managed under Theme, and their
@@ -105,7 +123,7 @@ sidebar).
 | --- | --- |
 | `<admin>/login`, `logout`, `forgot`, `reset`, `accept`, `setup/*`, `profile` | Go (v1-10) |
 | `<admin>/entities*`, `media/{upload,picker,{id}}`, `pick/{entities,terms}` | Go (v1-11, v1-14) |
-| `<admin>/theme/*`: `themes*` (activate, settings, uninstall, install), `colours`, `design-system*`, `presets*`, `parts`, `blocks`, `templates*`, `menus*` (including `POST menus/preview`, the editor's live preview) | Go (the Theme area; the screens date from v1-10 to B6) |
+| `<admin>/theme/*`: `themes*` (activate, settings, uninstall, install), `colours`, `design-system*`, `presets*`, `parts`, `blocks`, `templates*`, `menus*` (including `POST menus/preview`, the editor's live preview), `contact-button` | Go (the Theme area; the screens date from v1-10 to B6) |
 | `<admin>/settings/*`: `general` and `api-keys*`, `media`, `types*` (the type editor has a **Shared across languages** switch, `locale_neutral`, which only takes effect on a site with several languages, read-only on built-in types; the New form of a type with several languages offers **All languages (shared)**), `taxonomies*`, `forms*`, `submissions*` (list, `{sid}`, bulk, CSV export), `redirects*` (rules, 404 log, explain), `linking*` (rules, suggestions, equity, import), `users*`, `import*` (WordPress wizard, `docs/IMPORT-WORDPRESS.md`), `export`, `performance*` (page cache) | Go (v1-23a; the screens date from v1-10 to v1-22b) |
 | `<admin>/analytics` (Overview), `/crawlers`, `/content`, `/referrals`, `/health`, `/agents/{id}`; `POST /crawlers/robots`; `data/{overview,agents,agent,pages,first-crawls,referrals,errors,robots}.json` (all take `from`, `to` and `compare=1`) | Go (v1-14, v1-23a, AI analytics redesign) |
 | `<admin>/plugins*` (list, install, update, enable, uninstall, upload), `plugins/{name}/settings` and `/permissions` (plugin pages), `/plugin-ui/*` (their sandboxed documents), `preview/theme/{name}` | Go (v1-18) |
@@ -210,7 +228,7 @@ handler tests run on in-memory fakes; the real services are exercised by
   A term's edit page carries a **Search appearance** card, the shared SEO panel
   without body checks (`seo_panel.go`, meta-only mode); the values live in the term's
   `seo` column and shape the public archive head (see the user guide's taxonomies section).
-* **Media**: the library is `<admin>/settings/media`; the detail page, upload and picker stay under `<admin>/media/`. Uploads are `multipart/form-data` to `POST <admin>/media/upload`.
+* **Media**: the library is `<admin>/media` (a main-menu item); the detail page, upload and picker are under `<admin>/media/` too. Uploads are `multipart/form-data` to `POST <admin>/media/upload`.
   The CSRF check never parses a whole multipart body (it runs before the
   session check), so an upload carries the token in the `X-CSRF-Token` header
   (htmx, fetch) or as the form's FIRST field, a hidden `_csrf` input placed
@@ -218,7 +236,7 @@ handler tests run on in-memory fakes; the real services are exercised by
   peek of the body). The token is never accepted from the query string. The
   WordPress import's multipart forms do the same; `TestUILintMultipartFormsPutCSRFFirst`
   fails when a form puts `_csrf` anywhere else. The picker
-  (`<admin>/media/picker`, a fragment, unchanged by the move) is opened by `content.js` for every
+  (`<admin>/media/picker`, a fragment) is opened by `content.js` for every
   `[data-hm-media-picker]` button, which schemaform's image field and the
   SEO social image render hidden until the script runs.
 * **Roles**: entities and media are for owners and editors; schemas and

@@ -1,7 +1,7 @@
 # Spam protection
 
 Every public form submission passes one spam pipeline on the server, whether it comes from the
-JavaScript form or a plain browser post. Configure it once at **Settings > Forms > Spam protection**
+JavaScript form or a plain browser post. Configure it once at **Forms > Spam protection**
 (owners only). Each form then chooses whether it also needs the captcha.
 
 ## What runs, in order

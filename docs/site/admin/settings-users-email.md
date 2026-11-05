@@ -14,26 +14,28 @@ Settings holds everything about the site as a whole rather than one entity. Each
 
 | Section | Tab and address | Who |
 |---|---|---|
+| **Site** | | |
 | General | `general` | owner |
 | Branding | `branding` | owner |
-| Email | `email` | owner |
-| Privacy | `privacy` | owner |
-| Tracking | `tracking` | owner |
-| Contact button | `contact-button` | owner |
-| Media | `media` | owner, editor |
+| Locales | `locales`, `locales/addresses`, `locales/business` | owner |
+| Users | `users`, `users/sign-in` | owner |
+| Access & security | `site-access`, `security/admin-address` | owner |
+| Email | `email`, `email/log` | owner |
+| Privacy & tracking | `privacy` (Cookie consent), `tracking` | owner |
+| **Content** | | |
 | Entity models | `types`, `taxonomies` | owner |
-| Forms | `forms`, `submissions` | owner, editor |
-| Forms | `spam` (Spam protection) | owner |
+| SEO | `seo/...` | owner |
 | Redirects | `redirects` | owner, editor |
 | Internal linking | `linking` | owner, editor |
-| Users | `users` | owner |
-| API | `api-keys` | owner |
-| Webhooks | `webhooks`, `webhooks/deliveries` | owner |
-| Site access | `site-access` | owner |
+| **System** | | |
+| Integrations | `api-keys`, `webhooks`, `webhooks/deliveries` (Delivery log) | owner |
 | Performance | `performance` | owner |
 | Updates | `updates` | owner |
 | Jobs | `jobs` | owner |
-| Import & export | `import`, `export` | owner |
+| Backups & recovery | `backups`, `versions`, `changes` | owner |
+| Tools | `import` (WordPress import), `export`, `search-replace` | owner |
+
+Forms and Media are not in Settings: they are items of the main menu. Media is at `<admin>/media`. Forms is at `<admin>/forms`, with the tabs Forms, Submissions (`<admin>/forms/submissions`) and Spam (`<admin>/forms/spam`, owner only). The Forms item shows a badge with the number of new submissions, and no badge when there are none. The Contact button is in the Theme area (`<admin>/theme/contact-button`).
 
 Entity types and taxonomies are described in [Entity types and taxonomies](entity-types-and-taxonomies.md). How the site looks lives in the separate Theme area, see [Theme](#theme). Editors have their own profile at `<admin>/profile`.
 
@@ -64,11 +66,11 @@ Saving and resetting are recorded in the audit log.
 
 ## Media
 
-The library is at `<admin>/settings/media`, with Grid and List views, a search box and a type filter (All files, Images, Videos, Documents). The list shows each file's name, type, size, alt text and upload date. A "Missing" badge flags images without alt text.
+The library is at `<admin>/media`, with Grid and List views, a search box and a type filter (All files, Images, Videos, Documents). The list shows each file's name, type, size, alt text and upload date. A "Missing" badge flags images without alt text.
 
 | Item | Detail |
 |---|---|
-| Upload | The **Upload** button opens a dialog, or `<admin>/settings/media/new` without JavaScript. Up to 20 files at once. |
+| Upload | The **Upload** button opens a dialog, or `<admin>/media/new` without JavaScript. Up to 20 files at once. |
 | File size | Each file is limited by `MEDIA_MAX_SIZE_MB` (default `10`). |
 | Storage | Files are stored under `MEDIA_UPLOAD_DIR` (default `./uploads`) and served from `MEDIA_BASE_URL` (default `/media`). |
 | Variants | For JPEG, PNG and WebP images Hatamoto creates thumbnail and medium variants; GIF and SVG are stored as they are. |
@@ -82,7 +84,7 @@ The library is at `<admin>/settings/media`, with Grid and List views, a search b
 
 ## Forms and submissions
 
-Forms are at `<admin>/settings/forms`, and the messages visitors send are at `<admin>/settings/submissions`.
+Forms are at `<admin>/forms` (the **Forms** item of the main menu), and the messages visitors send are at `<admin>/forms/submissions`.
 
 A form has a name, an **Identifier** (used in the form's address; made from the name when left empty), a **Status** (Active accepts submissions; Inactive shows nothing and accepts nothing; Archived), a description shown only in the admin, and an ordered list of fields.
 
@@ -109,11 +111,11 @@ Form-level settings:
 
 The **Embed** card shows the address a hand-built form in a template posts to; fields are sent by their name. Place a form on a page with the builder's `form` widget or a contact-form section. Notification mail needs outgoing email, see [Email](#email).
 
-The submissions list filters by form and by status (New, Read, Archived, Spam). Messages caught by the spam rules are stored as Spam, send no email and can be moved to another status if they were a false alarm. Bulk actions mark rows as read, archive them, mark them as spam or delete them (twice confirmed). Open a submission at `<admin>/settings/submissions/{sid}` to read it, change its status or email it on. **Export CSV** (`<admin>/settings/submissions/export.csv`) streams 500 rows at a time with a byte-order mark, and prefixes cells that begin with `=`, `+`, `-` or `@` so a spreadsheet will not run them as formulas.
+The submissions list filters by form and by status (New, Read, Archived, Spam). Messages caught by the spam rules are stored as Spam, send no email and can be moved to another status if they were a false alarm. Bulk actions mark rows as read, archive them, mark them as spam or delete them (twice confirmed). Open a submission at `<admin>/forms/submissions/{sid}` to read it, change its status or email it on. **Export CSV** (`<admin>/forms/submissions/export.csv`) streams 500 rows at a time with a byte-order mark, and prefixes cells that begin with `=`, `+`, `-` or `@` so a spreadsheet will not run them as formulas.
 
 ## Spam protection
 
-`<admin>/settings/spam` (Forms, Spam protection tab, owners only) sets up one spam pipeline that every public form shares, whether the visitor posts with JavaScript or with a plain browser post. The page has two cards.
+`<admin>/forms/spam` (Forms, Spam tab, owners only) sets up one spam pipeline that every public form shares, whether the visitor posts with JavaScript or with a plain browser post. The page has two cards.
 
 **Captcha.** Choose a provider: Cloudflare Turnstile, Google reCAPTCHA v3 or hCaptcha. Create a site in the provider's dashboard, then paste the **site key** and **secret key** here. The site key is public and ends up in the page. The secret key is encrypted in the database with a key derived from `HATAMOTO_SECRET`, is never shown again, never goes to the browser and is left out of the audit log. Leave the field blank when saving to keep the stored key. **Test connection** asks the provider whether the saved secret is valid, so save first. reCAPTCHA v3 is invisible and fails scores below 0.5 (version 2 checkbox keys are not supported). Turnstile and hCaptcha show a widget above the submit button.
 
@@ -193,7 +195,7 @@ Flags are `--email` (required), `--password` or `--password-stdin` (prefer the l
 
 To create a key step by step, follow [Invite people and create API keys](users-and-api-keys.md).
 
-`<admin>/settings/api-keys` (**Settings > API**) creates keys for scripts, integrations and the CLI. Each key has a **Name**, an **Expires** choice (Never, In 30 days, In 90 days or In a year) and **Access**, the scopes that limit what it may do. At least one scope is required.
+`<admin>/settings/api-keys` (**Settings > Integrations > API keys**) creates keys for scripts, integrations and the CLI. Each key has a **Name**, an **Expires** choice (Never, In 30 days, In 90 days or In a year) and **Access**, the scopes that limit what it may do. At least one scope is required.
 
 | Scope | Label | Allows |
 |---|---|---|
@@ -217,7 +219,7 @@ Keys can also be created on the server with `hatamoto apikey create --name <name
 
 ## Webhooks
 
-`<admin>/settings/webhooks` sends a signed `POST` to an address you choose when content changes, and keeps a delivery log at `<admin>/settings/webhooks/deliveries`. Owners only. See [Webhooks](webhooks.md).
+`<admin>/settings/webhooks` (Settings > Integrations > Webhooks) sends a signed `POST` to an address you choose when content changes, and keeps a delivery log at `<admin>/settings/webhooks/deliveries`. Owners only. See [Webhooks](webhooks.md).
 
 ## Site access
 
@@ -272,7 +274,7 @@ Links in emails use the configured site address (`PUBLIC_BASE_URL`, else the sit
 
 ## Privacy: cookie consent
 
-`<admin>/settings/privacy` (the Privacy section of Settings, owners only) turns on a cookie banner for your visitors and announces their choice to the scripts on your pages. It is **off by default**: until you turn it on, your public pages are exactly what they were before.
+`<admin>/settings/privacy` (Settings > Privacy & tracking > Cookie consent, owners only) turns on a cookie banner for your visitors and announces their choice to the scripts on your pages. It is **off by default**: until you turn it on, your public pages are exactly what they were before.
 
 | Field | Meaning |
 |---|---|
@@ -289,7 +291,7 @@ Under the form, a table shows how many visitors chose Accept all, Reject all or 
 
 ## Contact button: a floating link
 
-`<admin>/settings/contact-button` (the Contact button section of Settings, owners only) adds one link that stays in a corner of every public page. It opens WhatsApp, a phone call, a text message or an email. It is **off by default**: until you turn it on, your pages are exactly what they were before.
+`<admin>/theme/contact-button` (the Contact button section of Theme, owners only) adds one link that stays in a corner of every public page. It opens WhatsApp, a phone call, a text message or an email. It is **off by default**: until you turn it on, your pages are exactly what they were before.
 
 | Field | Meaning |
 |---|---|
@@ -306,7 +308,7 @@ Saving writes a "contact_button.settings" entry to the audit log that records wh
 
 ## Tracking: analytics, ad and chat tags
 
-`<admin>/settings/tracking` (the Tracking section of Settings, owners only) loads third-party tags on your public pages from one place. It is **off by default**: until you turn a tag on, your page HTML and its Content-Security-Policy header are byte-identical to before.
+`<admin>/settings/tracking` (Settings > Privacy & tracking > Tracking, owners only) loads third-party tags on your public pages from one place. It is **off by default**: until you turn a tag on, your page HTML and its Content-Security-Policy header are byte-identical to before.
 
 Each of the 13 tags has a switch and an ID field: Google Analytics 4, Google Tag Manager, Google Ads, Meta Pixel, Microsoft Clarity, Microsoft UET, LinkedIn Insight, TikTok Pixel, Pinterest Tag, Tawk.to, Crisp, HubSpot and Google AdSense. The page shows the format of each ID, the consent category of the tag and the hosts it adds to the page policy. An ID that does not match the format shows an error next to the field, linked from the summary at the top, and nothing is saved. A tag that is on needs an ID.
 
@@ -317,7 +319,7 @@ Each of the 13 tags has a switch and an ID field: Google Analytics 4, Google Tag
 
 How it works:
 
-- One script, `/theme/assets/hm-tags.<hash>.js`, is added to public pages. It loads the tags that are on, and each one waits for the visitor's choice in Settings > Privacy when the banner is on. Nothing is loaded in the editor or in previews.
+- One script, `/theme/assets/hm-tags.<hash>.js`, is added to public pages. It loads the tags that are on, and each one waits for the visitor's choice in Settings > Privacy & tracking > Cookie consent when the banner is on. Nothing is loaded in the editor or in previews.
 - The page policy allows only the hosts of the tags that are on.
 - Google Tag Manager also adds a `noscript` frame, only when the consent banner is off (with the banner on, a category it does not ask is never allowed).
 - After a form is sent, the page dispatches one `hm:conversion` event on `document` with the submission id in `detail.id`. Google Analytics 4 receives `generate_lead` and Meta Pixel `Lead`, with the submission id as the event ID.
@@ -385,6 +387,7 @@ The **Theme** item in the sidebar (`<admin>/theme`) has one section per page:
 | Blocks | `<admin>/theme/blocks` | owner, editor |
 | Templates | `<admin>/theme/templates` | owner, editor |
 | Menus | `<admin>/theme/menus` | owner, editor |
+| Contact button | `<admin>/theme/contact-button` | owner |
 
 Owners switch and configure **Themes** (activate, per-theme settings, uninstall), set the brand colours, fonts and corners under **Colours and fonts**, and shape the builder under Design system, Layout parts and Style presets, described in the [Editor reference](builder-reference.md). **Templates** lists the layout templates saved from the builder and older section templates. Activating a theme shows a confirmation page that lists any section types the new theme lacks. Themes install inactive; owners can preview one at `<admin>/preview/theme/{name}` before activating it.
 

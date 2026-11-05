@@ -141,7 +141,7 @@ The post archive and post addresses come from the `post` content type's URL sett
 
 ## Old admin addresses
 
-The admin was reorganised so that the main navigation has five primary items and Settings and Theme have their own sections. Every old admin URL answers **301** for `GET` and `HEAD`, and **308** for every other method, so a form posted to an old address keeps its method and body. The query string is kept. A table in `backend/internal/admin/legacy_redirects.go` drives it and matches whole path segments; the most specific entry wins. It runs only when no real admin route matches, and before the session and security checks, so a signed-out visitor to an old bookmark gets the redirect rather than a login page pointing at the old path. The table lists each old path as it was written under the old fixed address `/admin`; on your install the same old paths answer after your own admin address, so `<admin>/redirects...` goes to `<admin>/settings/redirects...`.
+The admin was reorganised so that Forms and Media are main-menu items and Settings and Theme have their own sections. Every old admin URL answers **301** for `GET` and `HEAD`, and **308** for every other method, so a form posted to an old address keeps its method and body. The query string is kept. A table in `backend/internal/admin/legacy_redirects.go` drives it and matches whole path segments; the most specific entry wins. It runs only when no real admin route matches, and before the session and security checks, so a signed-out visitor to an old bookmark gets the redirect rather than a login page pointing at the old path. The table lists each old path as it was written under the old fixed address `/admin`; on your install the same old paths answer after your own admin address, so `<admin>/redirects...` goes to `<admin>/settings/redirects...`.
 
 | Old | New |
 |---|---|
@@ -150,14 +150,17 @@ The admin was reorganised so that the main navigation has five primary items and
 | `/admin/schemas...` | `<admin>/settings/types...` |
 | `/admin/taxonomies...` | `<admin>/settings/taxonomies...` |
 | `/admin/users...` | `<admin>/settings/users...` |
-| `/admin/forms...` | `<admin>/settings/forms...` (`<admin>/forms/<id>/submissions...` goes to `<admin>/settings/submissions...?form=<id>`) |
+| `/admin/settings/forms...`, `/admin/settings/submissions...`, `/admin/settings/spam` | `<admin>/forms...`, `<admin>/forms/submissions...`, `<admin>/forms/spam` (`<admin>/settings/forms/<id>/edit` goes to `<admin>/forms/edit/<id>`) |
+| `/admin/forms/<id>/submissions...` | `<admin>/forms/submissions...?form=<id>` |
+| `/admin/settings/media...` | `<admin>/media...` |
+| `/admin/settings/contact-button` | `<admin>/theme/contact-button` |
 | `/admin/linking...` | `<admin>/settings/linking...` |
 | `/admin/sections...`, `/admin/settings/sections...` | `<admin>/theme/templates...` |
 | `/admin/settings/themes...`, `/admin/settings/theme...` | `<admin>/theme/themes...` (design to `colours`, tokens to `design-system`, presets and parts keep their names) |
 | `/admin/settings/plugins...` | `<admin>/plugins...` |
 | `/admin/settings/api...` | `<admin>/settings/api-keys...` |
 | `/admin/import/wordpress...` | `<admin>/settings/import/wordpress...` |
-| `/admin/import`, `/admin/media` | `<admin>/settings/import`, `<admin>/settings/media` |
+| `/admin/import` | `<admin>/settings/import` |
 | `/admin/settings/site`, `homepage`, `contact`, `notifications`, `email` | `<admin>/settings/general` |
 | `/admin/settings/branding` | `<admin>/theme/colours` |
 | `/admin/settings/appearance` | `<admin>/theme` |

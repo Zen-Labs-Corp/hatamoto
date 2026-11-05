@@ -761,7 +761,7 @@ and the interface may change until a plugin surface is designed for it.
 
 ## Visitor consent
 
-When the owner turns on the cookie banner (Settings > Privacy), scripts a plugin adds to public pages can read the visitor's choice from `window.hm.consent`: `get()` returns `{necessary, analytics, marketing, functional, decided}`, `allows(category)` returns a boolean, and the `hm:consent` event on `document` fires on every change. If `hm.consent` is undefined the banner is off and every category is granted. Do not set cookies for analytics or marketing before `allows` says yes. The full contract is in the Settings reference under "Visitor consent API".
+When the owner turns on the cookie banner (Settings > Privacy & tracking > Cookie consent), scripts a plugin adds to public pages can read the visitor's choice from `window.hm.consent`: `get()` returns `{necessary, analytics, marketing, functional, decided}`, `allows(category)` returns a boolean, and the `hm:consent` event on `document` fires on every change. If `hm.consent` is undefined the banner is off and every category is granted. Do not set cookies for analytics or marketing before `allows` says yes. The full contract is in the Settings reference under "Visitor consent API".
 
 ## Sandbox and limits
 

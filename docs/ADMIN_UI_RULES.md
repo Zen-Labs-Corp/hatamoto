@@ -690,7 +690,7 @@ No create form sits above or below the list.
 | Menus | small | dialog, `/theme/menus/new` |
 | Taxonomy terms | small | dialog, `/settings/taxonomies/new?kind=`; a new kind and the description sit behind "More options" |
 | Redirects | small | dialog, `/settings/redirects/new` (the 404 log links there with a prefill) |
-| Media upload | small | dialog with the dropzone, `/settings/media/new` |
+| Media upload | small | dialog with the dropzone, `/media/new` |
 | Plugin and theme upload | small | dialog, `/plugins/upload`; the permission review that follows stays its own page |
 | Entities | big | page, then the editor |
 | Entity types | big | page with the field builder, then the editor |

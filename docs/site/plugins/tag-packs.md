@@ -1,10 +1,10 @@
 ---
 title: Tag packs
 nav_title: Tag packs
-description: Add a tracking tag to Settings > Tracking with a package that holds only a small JSON file and runs no code.
+description: Add a tracking tag to Settings > Privacy & tracking > Tracking with a package that holds only a small JSON file and runs no code.
 ---
 
-A **tag pack** is a plugin package that adds one to four tracking tags to [Settings > Tracking](../admin/settings-users-email.md). It holds no code: each tag is a JSON file, and the server loads the tag's script itself, after the visitor's cookie consent, the same way it loads the built-in tags. Use it for a vendor the built-in list does not cover. To pack and sign a package, see [Package and install a plugin](package-and-install.md).
+A **tag pack** is a plugin package that adds one to four tracking tags to [Settings > Privacy & tracking > Tracking](../admin/settings-users-email.md). It holds no code: each tag is a JSON file, and the server loads the tag's script itself, after the visitor's cookie consent, the same way it loads the built-in tags. Use it for a vendor the built-in list does not cover. To pack and sign a package, see [Package and install a plugin](package-and-install.md).
 
 ## The package layout
 
@@ -45,9 +45,9 @@ Unknown fields are refused. A broken file refuses the whole package with a messa
 
 ## What the owner sees
 
-The install prompt shows each tag's hosts, its consent category and the ID it needs, instead of a permission list, because a tag pack asks for no permissions. After install, each tag appears in Settings > Tracking labelled "Tag pack v1.0.0", off until the owner turns it on and enters an ID. The page policy allows a pack's hosts only while the package is installed, on and not blocked, and the tag's switch is on.
+The install prompt shows each tag's hosts, its consent category and the ID it needs, instead of a permission list, because a tag pack asks for no permissions. After install, each tag appears in Settings > Privacy & tracking > Tracking labelled "Tag pack v1.0.0", off until the owner turns it on and enters an ID. The page policy allows a pack's hosts only while the package is installed, on and not blocked, and the tag's switch is on.
 
-An update that adds a host or changes a tag's category needs the owner to confirm again, like any update that widens access. Uninstalling or turning off the plugin removes the tag from the page at once; its saved ID is kept until the next save of Settings > Tracking, which drops it.
+An update that adds a host or changes a tag's category needs the owner to confirm again, like any update that widens access. Uninstalling or turning off the plugin removes the tag from the page at once; its saved ID is kept until the next save of Settings > Privacy & tracking > Tracking, which drops it.
 
 ## Registries
 

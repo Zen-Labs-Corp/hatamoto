@@ -27,7 +27,7 @@ The server's instructions to the agent read: "Hatamoto CMS. Create drafts with e
 
 An API key is a secret string a program uses to act on your site. You create one in three ways:
 
-- In the admin at **Settings > API** (`<admin>/settings/api-keys`), owner only, with **New API key**. The form has a name, the **Access** checkboxes (one per scope) and **Expires**: never, in 30 days, in 90 days or in a year. The key is shown once after **Create key**.
+- In the admin at **Settings > Integrations > API keys** (`<admin>/settings/api-keys`), owner only, with **New API key**. The form has a name, the **Access** checkboxes (one per scope) and **Expires**: never, in 30 days, in 90 days or in a year. The key is shown once after **Create key**.
 - With `POST /api/v1/api-keys` as an owner. The same owner-only group has `GET /` (list), `GET /scopes`, `GET /{id}`, `PATCH /{id}` (name, description, scopes, rate limit, active), `POST /{id}/revoke`, `POST /{id}/regenerate` and `DELETE /{id}`. The admin cannot change a key's scopes; the API can.
 - With the command line, which needs `DATABASE_URL`:
 

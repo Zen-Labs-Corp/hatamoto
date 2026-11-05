@@ -18,7 +18,7 @@ In this guide you do four everyday jobs that affect the whole site: upload an im
 
 > Your admin address is private to your install, for example `/k7qm-x2rf-9tdc`. Print it on the server with `hatamoto admin-url`. This page writes it as `<admin>`.
 
-1. Open **Settings > Media** (`<admin>/settings/media`) and press **Upload**. Choose up to 20 files at once. Each file may be up to 10 MB unless the server's administrator changed that limit.
+1. Open **Media** (`<admin>/media`) and press **Upload**. Choose up to 20 files at once. Each file may be up to 10 MB unless the server's administrator changed that limit.
 
 2. Open the image you uploaded. Fill in its **Alt text**, a short description for people who cannot see the picture, and a **Caption** if you want one, then save. The library shows a **Missing** badge on every image that still has no alt text. You rarely need the library to insert a picture later: image fields and both editors open it as a picker, with search and an upload button.
 
@@ -26,7 +26,7 @@ In this guide you do four everyday jobs that affect the whole site: upload an im
 
 When you upload a JPEG, PNG or WebP image, Hatamoto also makes WebP copies of its medium and large sizes, and AVIF copies where they are smaller. A copy is kept only when it is smaller than the copy in the original format. Pages send these copies in a `<picture>` element, so browsers that support them use them and all others get the original format. The copies of a WebP upload are real `.webp` files.
 
-1. Open **Settings > Media**. The **Image formats** card (owners only) has a switch for WebP copies and one for AVIF copies. Save after you change them.
+1. Open **Media**. The **Image formats** card (owners only) has a switch for WebP copies and one for AVIF copies. Save after you change them.
 
 2. Press **Rebuild copies** to apply the settings to images you uploaded earlier. The rebuild replaces the existing resized copies of every image. It runs in the background, so you can leave the page; reload the page to see progress. If the server restarts, the rebuild continues where it stopped.
 
@@ -64,7 +64,7 @@ The picker inside a PDF widget lists PDF files only. A PDF can be shown in a fra
 
 ### Add a contact form
 
-1. Open **Settings > Forms** (`<admin>/settings/forms`) and press **New form**. Give it a name, such as "Contact", and press **Create form**.
+1. Open **Forms** (`<admin>/forms`) and press **New form**. Give it a name, such as "Contact", and press **Create form**.
 
 2. Press **Add field** for each question. For a contact form, add a name (single-line text), an email address and a message (multi-line text), and tick **Required** where an answer is needed.
 
@@ -72,7 +72,7 @@ The picker inside a PDF widget lists PDF files only. A PDF can be shown in a fra
 
 4. Put the form on a page. In the page builder, add the **form** element and choose your form, or add a contact-form section if your theme has one.
 
-5. Read what visitors send under **Settings > Forms > Submissions** (`<admin>/settings/submissions`). Messages that the spam rules catch are kept with the status Spam; move one back if it was a mistake.
+5. Read what visitors send under **Forms > Submissions** (`<admin>/forms/submissions`). Messages that the spam rules catch are kept with the status Spam; move one back if it was a mistake.
 
 ### Forward an old address
 

@@ -444,10 +444,10 @@ owner and an editor), then run the commands under "Harness".
   signed in, the login page signed out.
   `go test ./internal/admin -run Legacy` covers the table; spot check with
   `curl -sI http://localhost:8090/admin/forms/7/submissions/3` (301 to
-  `/admin/settings/submissions/3`) and `curl -sI -X POST http://localhost:8090/admin/users/new`.
+  `/admin/forms/submissions/3`) and `curl -sI -X POST http://localhost:8090/admin/users/new`.
 * **Segment boundaries**: `/admin/settings/theme` redirects and `/admin/theme/themes`
-  does not; `/admin/media` redirects and `/admin/media/picker`, `/admin/media/upload` and
-  `/admin/media/{id}` do not.
+  does not; `/admin/settings/media` redirects to `/admin/media` and `/admin/media/picker`,
+  `/admin/media/upload` and `/admin/media/{id}` do not redirect.
 * **Entry points are not redirects**: `/admin/settings` answers **303** to the first section
   the role can reach (`?section=` picks one); each multi-tab section URL answers 302. Only
   `/admin/analytics` (a real route: GET answers 303, other methods 301) and
@@ -459,7 +459,7 @@ owner and an editor), then run the commands under "Harness".
   admin's Go source, templates and scripts (not tests) for a moved path; click through
   one page per section and confirm the address bar never shows a 301 on the way (the only
   allowed 301 is one you typed or bookmarked). The form-submission notification email links
-  to `/admin/settings/submissions/{sid}`.
+  to `/admin/forms/submissions/{sid}`.
 * **Accepted limit (POST)**: a form opened on an old URL before the upgrade and submitted
   after it arrives as a GET (a 301 never keeps the method) and saves nothing. Reload and
   submit again.
