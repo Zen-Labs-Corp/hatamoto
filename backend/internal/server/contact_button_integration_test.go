@@ -107,7 +107,7 @@ func TestContactButtonIntegration(t *testing.T) {
 	csrf := adminToken(t, srv.router, token)
 	post := func(form url.Values) *httptest.ResponseRecorder {
 		t.Helper()
-		req := httptest.NewRequest("POST", "/admin/settings/contact-button", strings.NewReader(form.Encode()))
+		req := httptest.NewRequest("POST", "/admin/theme/contact-button", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		adminReq(req, token, csrf)
 		rec := httptest.NewRecorder()

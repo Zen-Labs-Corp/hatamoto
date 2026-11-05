@@ -32,7 +32,7 @@ async function resolveUrl(page, url) {
     entity: [`/admin/entities?q=${encodeURIComponent(arg1 || "")}`, /\/admin\/entities\/([0-9a-f-]{36})/],
     type: ["/admin/settings/types", /\/admin\/settings\/types\/([0-9a-f-]{36})/],
     menu: ["/admin/theme/menus", /menus\/([0-9a-f-]{36})/],
-    form: ["/admin/settings/forms", /forms\/([0-9a-f-]{36})/],
+    form: ["/admin/forms", /forms\/edit\/([0-9a-f-]{36})/],
   };
   const [list, re] = lists[kind];
   await page.goto(base + list);
