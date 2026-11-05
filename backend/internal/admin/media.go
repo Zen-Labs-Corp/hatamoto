@@ -240,9 +240,9 @@ func folderParamValue(f string) string {
 	return strings.TrimPrefix(f, "/")
 }
 
-// mediaFolders lists the folders in use whose names follow the rules (a legacy
-// name that does not stays reachable under All files), named folders first by
-// name, and the number of files with no folder.
+// mediaFolders lists the folders in use (legacy names that break the naming
+// rules included, so they stay filterable and selectable), named folders first
+// by name, and the number of files with no folder.
 func (a *Admin) mediaFolders(ctx context.Context, ms MediaStore) (named []media.FolderCount, root, total int) {
 	all, err := ms.Folders(ctx)
 	if err != nil {
@@ -253,7 +253,7 @@ func (a *Admin) mediaFolders(ctx context.Context, ms MediaStore) (named []media.
 		total += f.Count
 		if f.Name == media.RootFolder {
 			root = f.Count
-		} else if _, err := media.NormalizeFolder(f.Name); err == nil {
+		} else {
 			named = append(named, f)
 		}
 	}
@@ -275,6 +275,12 @@ func folderOptions(named []media.FolderCount, selected string, placeholder strin
 		out = append(out, ui.Option{Value: folderParamValue(f.Name), Label: folderLabel(f.Name), Selected: strings.EqualFold(f.Name, selected)})
 	}
 	return out
+}
+
+// sameFolder reports whether two folder values name the same folder, ignoring
+// case and the leading slash.
+func sameFolder(a, b string) bool {
+	return strings.EqualFold(strings.TrimPrefix(strings.TrimSpace(a), "/"), strings.TrimPrefix(strings.TrimSpace(b), "/"))
 }
 
 // chosenFolder is the folder a move form asks for: the typed new name wins
@@ -715,19 +721,15 @@ func (a *Admin) handleMediaUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in := &media.UpdateMediaInput{AltText: &alt, Caption: &caption, Credit: &credit}
-	moved := ""
 	if want, ok := chosenFolder(r); ok {
-		folder, err := media.NormalizeFolder(want)
-		if err != nil {
-			a.renderMediaDetail(w, r, http.StatusUnprocessableEntity, m, alt, caption, credit, "", err.Error())
-			return
-		}
-		in.Folder = &folder
-		if !strings.EqualFold(folder, m.Folder) {
-			moved = folder
+		// Posting the file's own folder back is no move, even when the stored
+		// value is a legacy one that would not pass today's naming rules.
+		if !sameFolder(want, m.Folder) {
+			in.Folder = &want
 		}
 	}
-	if _, err := a.deps.Content.Media.Update(r.Context(), m.ID, in); err != nil {
+	updated, err := a.deps.Content.Media.Update(r.Context(), m.ID, in)
+	if err != nil {
 		if errors.Is(err, media.ErrInvalidFolder) {
 			a.renderMediaDetail(w, r, http.StatusUnprocessableEntity, m, alt, caption, credit, "", err.Error())
 			return
@@ -735,8 +737,8 @@ func (a *Admin) handleMediaUpdate(w http.ResponseWriter, r *http.Request) {
 		a.serverError(w, r, "The file could not be saved", err)
 		return
 	}
-	if moved != "" {
-		a.audit(r, "media.move", "media", map[string]any{"count": 1, "folder": moved})
+	if in.Folder != nil && updated != nil && !sameFolder(updated.Folder, m.Folder) {
+		a.audit(r, "media.move", "media", map[string]any{"count": 1, "folder": updated.Folder})
 	}
 	a.SetFlash(w, r, "success", "Saved.")
 	Redirect(w, r, a.adminPath+"/media/"+m.ID.String())
@@ -865,17 +867,21 @@ func (a *Admin) bulkMove(w http.ResponseWriter, r *http.Request, ms MediaStore, 
 		Redirect(w, r, back)
 		return
 	}
-	folder, err := media.NormalizeFolder(want)
-	if err != nil {
-		a.SetFlash(w, r, "error", err.Error())
-		Redirect(w, r, back)
-		return
-	}
+	// The service checks the name; a stored legacy folder is accepted as it is.
+	folder := want
 	done, failed := 0, 0
 	for _, raw := range ids {
 		id, err := uuid.Parse(raw)
 		if err == nil {
-			_, err = ms.Update(r.Context(), id, &media.UpdateMediaInput{Folder: &folder})
+			var m *media.Media
+			if m, err = ms.Update(r.Context(), id, &media.UpdateMediaInput{Folder: &want}); err == nil && m != nil {
+				folder = m.Folder
+			}
+		}
+		if errors.Is(err, media.ErrInvalidFolder) {
+			a.SetFlash(w, r, "error", err.Error())
+			Redirect(w, r, back)
+			return
 		}
 		if err != nil {
 			failed++

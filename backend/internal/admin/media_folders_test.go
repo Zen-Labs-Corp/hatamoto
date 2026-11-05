@@ -198,3 +198,20 @@ func TestMediaPickerFiltersByFolder(t *testing.T) {
 		t.Error("Uncategorised shows an image in a folder")
 	}
 }
+
+// Saving the detail page of a file in a legacy folder (a stored value that
+// breaks today's naming rules) keeps it there and writes no move.
+func TestMediaDetailSaveKeepsALegacyFolder(t *testing.T) {
+	t.Parallel()
+	c, log := newMediaRig(t)
+	c.media.files[0].Folder = "/2024/summer"
+	page := c.get(t, "owner-token", "/admin/media/"+fid(51).String(), "")
+	has(t, page, `<option value="2024/summer" selected>2024/summer</option>`)
+	rec := c.post("/admin/media/"+fid(51).String(), url.Values{"alt_text": {"New alt"}, "folder": {"2024/summer"}})
+	if rec.Code != 303 || c.media.files[0].Folder != "/2024/summer" {
+		t.Fatalf("save: %d folder %q", rec.Code, c.media.files[0].Folder)
+	}
+	if log.find("media.move") != nil {
+		t.Error("a save without a folder change wrote a media.move row")
+	}
+}
