@@ -10,6 +10,10 @@ type JobDef struct {
 	// Safe marks a job the owner may run from the admin: it only maintains
 	// local data (or checks for updates) and sends nothing out.
 	Safe bool
+	// ManualOnly marks a job whose scheduled function may do more than Run
+	// now may (the update check also installs): Run now needs the variant set
+	// with SetManual and refuses without it.
+	ManualOnly bool
 	// Switch marks an id WORKER_DISABLE_JOBS can turn off.
 	Switch bool
 }
@@ -30,7 +34,7 @@ var Catalog = []JobDef{
 	{ID: "traffic_prune", Name: "Traffic rollup prune", Schedule: "daily", Safe: true, Switch: true},
 	{ID: "webhook_deliver", Name: "Webhook delivery", Schedule: "every 10 seconds", Switch: true},
 	{ID: "webhook_prune", Name: "Webhook log prune", Schedule: "hourly", Safe: true, Switch: true},
-	{ID: "update_check", Name: "Update check", Schedule: "every 6 hours", Safe: true, Switch: true},
+	{ID: "update_check", Name: "Update check", Schedule: "every 6 hours", Safe: true, ManualOnly: true, Switch: true},
 	{ID: "standing_digest", Name: "Standing digest mail", Schedule: "daily", Switch: true},
 	{ID: "stats_ping", Name: "Install statistics", Schedule: "daily", Switch: true},
 	{ID: "backup_offsite", Name: "Off-site backup", Schedule: "checked every minute", Switch: true},

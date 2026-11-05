@@ -213,3 +213,14 @@ func TestFixedJobsUseCanonicalIDs(t *testing.T) {
 		t.Fatalf("ids = %v, want %v", ids, want)
 	}
 }
+
+func TestRunNowManualOnlyRefusesWithoutManualVariant(t *testing.T) {
+	s, rec := startedScheduler(t)
+	scheduleFar(t, s, "update_check", func(context.Context) error { t.Error("scheduled fn must not run"); return nil })
+	if _, err := s.RunNow(context.Background(), "update_check"); !errors.Is(err, ErrNotRunning) {
+		t.Fatalf("err = %v, want ErrNotRunning", err)
+	}
+	if n := len(rec.all()); n != 0 {
+		t.Fatalf("%d runs recorded, want none", n)
+	}
+}

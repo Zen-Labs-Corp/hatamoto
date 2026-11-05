@@ -474,7 +474,7 @@ func (s *Scheduler) RunNow(ctx context.Context, id string) (Run, error) {
 	st := s.jobs[id]
 	var fn func(context.Context) error
 	if st != nil {
-		if fn = st.manual; fn == nil {
+		if fn = st.manual; fn == nil && !def.ManualOnly {
 			fn = st.fn
 		}
 	}
