@@ -1,9 +1,11 @@
 package siteconfig
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestContactButtonMergeKeepsOtherKeys(t *testing.T) {
@@ -13,8 +15,8 @@ func TestContactButtonMergeKeepsOtherKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var top map[string]json.RawMessage
-	if err := json.Unmarshal(out, &top); err != nil {
+	var top map[string]jsontext.Value
+	if err := jsonx.Unmarshal(out, &top); err != nil {
 		t.Fatal(err)
 	}
 	if string(top["builder"]) != `{"tokens":{"a":"b"}}` || string(top["socialLinks"]) != `[{"u":"x"}]` {

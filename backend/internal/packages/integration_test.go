@@ -5,7 +5,6 @@ package packages
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"io"
 	"io/fs"
@@ -25,6 +24,7 @@ import (
 	"github.com/pressly/goose/v3"
 
 	"hatamoto.dev/core/internal/hooks"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/pluginhost/plugintest"
 	"hatamoto.dev/core/internal/render"
@@ -134,7 +134,7 @@ func coreChecksum(t *testing.T, pool *pgxpool.Pool) map[string]string {
 	return out
 }
 
-func itoa(n int) string { b, _ := json.Marshal(n); return string(b) }
+func itoa(n int) string { b, _ := jsonx.Marshal(n); return string(b) }
 
 type rig struct {
 	t      *testing.T
@@ -193,7 +193,7 @@ func newRig(t *testing.T) *rig {
 	return r
 }
 
-func mustJSON(v any) []byte { b, _ := json.Marshal(v); return b }
+func mustJSON(v any) []byte { b, _ := jsonx.Marshal(v); return b }
 
 // publish packs files, signs them with key (nil: unsigned) and lists the
 // package in the registry.
@@ -613,7 +613,7 @@ func (r *rig) pageWithSections(types ...string) string {
 func (r *rig) installPlugin(files map[string][]byte, perms []string, req InstallRequest) error {
 	r.t.Helper()
 	var man sdk.Manifest
-	_ = json.Unmarshal(files[PluginManifest], &man)
+	_ = jsonx.Unmarshal(files[PluginManifest], &man)
 	man.Permissions = perms
 	files[PluginManifest] = mustJSON(man)
 	raw, err := PackFiles(files, &r.key)

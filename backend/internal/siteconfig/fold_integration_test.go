@@ -4,11 +4,12 @@ package siteconfig_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"reflect"
 	"testing"
 
 	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -20,7 +21,7 @@ func seedFoldSite(t *testing.T, s *siteconfig.Store) {
 	def := "en-XX"
 	if _, err := s.Update(ctx, siteconfig.UpdateInput{
 		Language: &def, Phone: &phone, Locales: &locales,
-		BusinessProfile: json.RawMessage(`{"tax_id":"T1"}`),
+		BusinessProfile: jsontext.Value(`{"tax_id":"T1"}`),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +29,7 @@ func seedFoldSite(t *testing.T, s *siteconfig.Store) {
 		"fr-CA": `{"tax_id":"T2","phone":"555 0200","address":{"city":"Sample City"}}`,
 		"de-XX": `{"name":"Example DE"}`,
 	} {
-		if err := s.SetLocaleProfile(ctx, tag, json.RawMessage(card)); err != nil {
+		if err := s.SetLocaleProfile(ctx, tag, jsontext.Value(card)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -51,14 +52,14 @@ func TestUpdateLanguageFoldsNewDefaultCard(t *testing.T) {
 	}
 	jsonEq(t, "PostalAddress", cfg.PostalAddress, `{"street":"","city":"Sample City","state":"","postal_code":"","country":""}`)
 	var bp map[string]any
-	if err := json.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
+	if err := jsonx.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
 		t.Fatal(err)
 	}
 	if bp["tax_id"] != "T2" || bp["office"] != true {
 		t.Errorf("business_profile = %s, want tax_id T2 and office", cfg.BusinessProfile)
 	}
 	var cards map[string]map[string]any
-	if err := json.Unmarshal(cfg.LocaleProfiles, &cards); err != nil {
+	if err := jsonx.Unmarshal(cfg.LocaleProfiles, &cards); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := cards["fr-CA"]; ok {
@@ -93,7 +94,7 @@ func TestUpdateLanguageSameLanguageAndNoCard(t *testing.T) {
 
 	// An orphan card under the current language is not folded while the
 	// language stays.
-	if err := s.SetLocaleProfile(ctx, "en-XX", json.RawMessage(`{"tax_id":"T9"}`)); err != nil {
+	if err := s.SetLocaleProfile(ctx, "en-XX", jsontext.Value(`{"tax_id":"T9"}`)); err != nil {
 		t.Fatal(err)
 	}
 	if cfg, err = s.Update(ctx, siteconfig.UpdateInput{Language: &same}); err != nil {
@@ -121,18 +122,18 @@ func TestUpdateLanguageFoldsProfileSentTogether(t *testing.T) {
 	s := scratchStore(t)
 	seedFoldSite(t, s)
 	lang := "fr-CA"
-	cfg, err := s.Update(ctx, siteconfig.UpdateInput{Language: &lang, BusinessProfile: json.RawMessage(`{"tax_id":"T3"}`)})
+	cfg, err := s.Update(ctx, siteconfig.UpdateInput{Language: &lang, BusinessProfile: jsontext.Value(`{"tax_id":"T3"}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var bp map[string]any
-	if err := json.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
+	if err := jsonx.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
 		t.Fatal(err)
 	}
 	if bp["tax_id"] != "T3" {
 		t.Errorf("tax_id = %v, want the request's value on the new default", bp["tax_id"])
 	}
-	if err := s.SetLocaleProfile(ctx, "de-XX", json.RawMessage(`{"name":"Renamed"}`)); err != nil {
+	if err := s.SetLocaleProfile(ctx, "de-XX", jsontext.Value(`{"name":"Renamed"}`)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -168,10 +169,10 @@ func TestUpdateLanguageRoundTripKeepsBothBusinesses(t *testing.T) {
 	phone, hours := "555 0100", "Weekdays 9 to 5"
 	locales := []siteconfig.LocaleEntry{{Tag: "en-XX", Segment: "en"}, {Tag: "fr-CA", Segment: "fr"}, {Tag: "de-XX", Segment: "dx"}}
 	def := "en-XX"
-	addr := json.RawMessage(`{"street":"1 Example St","city":"Sample City","country":"XX"}`)
+	addr := jsontext.Value(`{"street":"1 Example St","city":"Sample City","country":"XX"}`)
 	if _, err := s.Update(ctx, siteconfig.UpdateInput{
 		Language: &def, Phone: &phone, BusinessHours: &hours, Locales: &locales, PostalAddress: addr,
-		BusinessProfile: json.RawMessage(`{"name":"Example Legal","tax_id":"T1","email":"a@example.test","country_name":"Exampleland","office":true}`),
+		BusinessProfile: jsontext.Value(`{"name":"Example Legal","tax_id":"T1","email":"a@example.test","country_name":"Exampleland","office":true}`),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +180,7 @@ func TestUpdateLanguageRoundTripKeepsBothBusinesses(t *testing.T) {
 		"fr-CA": `{"name":"Example FR","phone":"555 0200","email":"b@example.test","currency":"CAD","country_name":"Otherland","address":{"street":"2 Example St","city":"Other City"}}`,
 		"de-XX": `{"no_office":true,"country_name":"Thirdland"}`,
 	} {
-		if err := s.SetLocaleProfile(ctx, tag, json.RawMessage(card)); err != nil {
+		if err := s.SetLocaleProfile(ctx, tag, jsontext.Value(card)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -226,8 +227,8 @@ func TestUpdateLanguageNewDefaultWithoutCardHasNoOffice(t *testing.T) {
 	locales := []siteconfig.LocaleEntry{{Tag: "en-XX", Segment: "en"}, {Tag: "fr-CA", Segment: "fr"}}
 	def := "en-XX"
 	if _, err := s.Update(ctx, siteconfig.UpdateInput{
-		Language: &def, Locales: &locales, PostalAddress: json.RawMessage(`{"street":"1 Example St","city":"Sample City"}`),
-		BusinessProfile: json.RawMessage(`{"office":true}`),
+		Language: &def, Locales: &locales, PostalAddress: jsontext.Value(`{"street":"1 Example St","city":"Sample City"}`),
+		BusinessProfile: jsontext.Value(`{"office":true}`),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -255,8 +256,8 @@ func TestUpdateLanguageSingleLocaleKeepsBusiness(t *testing.T) {
 	s := scratchStore(t)
 	def := "en-XX"
 	if _, err := s.Update(ctx, siteconfig.UpdateInput{
-		Language: &def, PostalAddress: json.RawMessage(`{"street":"1 Example St","city":"Sample City"}`),
-		BusinessProfile: json.RawMessage(`{"office":true}`),
+		Language: &def, PostalAddress: jsontext.Value(`{"street":"1 Example St","city":"Sample City"}`),
+		BusinessProfile: jsontext.Value(`{"office":true}`),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -307,8 +308,8 @@ func TestUpdateLanguageWithBusinessFieldsLandsOnNewDefault(t *testing.T) {
 	old := "en-XX"
 	if _, err := s.Update(ctx, siteconfig.UpdateInput{
 		Language:        &old,
-		PostalAddress:   json.RawMessage(`{"street":"1 Example St"}`),
-		BusinessProfile: json.RawMessage(`{"tax_id":"T1","office":true,"country_name":"Exampleland"}`),
+		PostalAddress:   jsontext.Value(`{"street":"1 Example St"}`),
+		BusinessProfile: jsontext.Value(`{"tax_id":"T1","office":true,"country_name":"Exampleland"}`),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -319,14 +320,14 @@ func TestUpdateLanguageWithBusinessFieldsLandsOnNewDefault(t *testing.T) {
 	lang, phone := "fr-CA", "555 0300"
 	cfg, err := s.Update(ctx, siteconfig.UpdateInput{
 		Language: &lang, Phone: &phone,
-		PostalAddress:   json.RawMessage(`{"street":"2 Sample Ave"}`),
-		BusinessProfile: json.RawMessage(`{"tax_id":"T3","office":true,"country_name":"Sampleland"}`),
+		PostalAddress:   jsontext.Value(`{"street":"2 Sample Ave"}`),
+		BusinessProfile: jsontext.Value(`{"tax_id":"T3","office":true,"country_name":"Sampleland"}`),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var bp map[string]any
-	if err := json.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
+	if err := jsonx.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
 		t.Fatal(err)
 	}
 	if bp["country_name"] != "Sampleland" || bp["office"] != true {
@@ -336,11 +337,11 @@ func TestUpdateLanguageWithBusinessFieldsLandsOnNewDefault(t *testing.T) {
 		t.Errorf("Phone = %q, want the request's", cfg.Phone)
 	}
 	var addr map[string]string
-	if err := json.Unmarshal(cfg.PostalAddress, &addr); err != nil || addr["street"] != "2 Sample Ave" {
+	if err := jsonx.Unmarshal(cfg.PostalAddress, &addr); err != nil || addr["street"] != "2 Sample Ave" {
 		t.Errorf("PostalAddress = %s, want the request's", cfg.PostalAddress)
 	}
 	var cards map[string]map[string]any
-	if err := json.Unmarshal(cfg.LocaleProfiles, &cards); err != nil {
+	if err := jsonx.Unmarshal(cfg.LocaleProfiles, &cards); err != nil {
 		t.Fatal(err)
 	}
 	old1, _ := cards["en-XX"]["address"].(map[string]any)
@@ -362,8 +363,8 @@ func TestUpdateLanguageRemovingOldDefaultStripsItsAddress(t *testing.T) {
 	old := "en-XX"
 	if _, err := s.Update(ctx, siteconfig.UpdateInput{
 		Language:        &old,
-		PostalAddress:   json.RawMessage(`{"street":"1 Example St"}`),
-		BusinessProfile: json.RawMessage(`{"tax_id":"T1","office":true,"country_name":"Exampleland"}`),
+		PostalAddress:   jsontext.Value(`{"street":"1 Example St"}`),
+		BusinessProfile: jsontext.Value(`{"tax_id":"T1","office":true,"country_name":"Exampleland"}`),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -375,18 +376,18 @@ func TestUpdateLanguageRemovingOldDefaultStripsItsAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	var bp map[string]any
-	if err := json.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
+	if err := jsonx.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
 		t.Fatal(err)
 	}
 	if bp["office"] == true || bp["country_name"] != nil {
 		t.Errorf("new default business = %v, want no office and no country name", bp)
 	}
 	var addr map[string]string
-	if err := json.Unmarshal(cfg.PostalAddress, &addr); err != nil || addr["street"] != "" {
+	if err := jsonx.Unmarshal(cfg.PostalAddress, &addr); err != nil || addr["street"] != "" {
 		t.Errorf("PostalAddress = %s, want the old address gone", cfg.PostalAddress)
 	}
-	var cards map[string]json.RawMessage
-	if err := json.Unmarshal(cfg.LocaleProfiles, &cards); err != nil {
+	var cards map[string]jsontext.Value
+	if err := jsonx.Unmarshal(cfg.LocaleProfiles, &cards); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := cards["en-XX"]; ok {
@@ -408,8 +409,8 @@ func TestUpdateLanguageOnSingleLanguageSiteKeepsBusiness(t *testing.T) {
 			old := "en-XX"
 			if _, err := s.Update(ctx, siteconfig.UpdateInput{
 				Language: &old, Locales: &before,
-				PostalAddress:   json.RawMessage(`{"street":"1 Example St"}`),
-				BusinessProfile: json.RawMessage(`{"office":true,"country_name":"Exampleland","image":"/img/x.png","business_type":"Store"}`),
+				PostalAddress:   jsontext.Value(`{"street":"1 Example St"}`),
+				BusinessProfile: jsontext.Value(`{"office":true,"country_name":"Exampleland","image":"/img/x.png","business_type":"Store"}`),
 			}); err != nil {
 				t.Fatal(err)
 			}
@@ -420,14 +421,14 @@ func TestUpdateLanguageOnSingleLanguageSiteKeepsBusiness(t *testing.T) {
 				t.Fatal(err)
 			}
 			var bp map[string]any
-			if err := json.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
+			if err := jsonx.Unmarshal(cfg.BusinessProfile, &bp); err != nil {
 				t.Fatal(err)
 			}
 			if bp["office"] != true || bp["country_name"] != "Exampleland" || bp["image"] != "/img/x.png" || bp["business_type"] != "Store" {
 				t.Errorf("business = %v, want it kept", bp)
 			}
 			var addr map[string]string
-			if err := json.Unmarshal(cfg.PostalAddress, &addr); err != nil || addr["street"] != "1 Example St" {
+			if err := jsonx.Unmarshal(cfg.PostalAddress, &addr); err != nil || addr["street"] != "1 Example St" {
 				t.Errorf("PostalAddress = %s, want it kept", cfg.PostalAddress)
 			}
 		})

@@ -4,7 +4,6 @@ package packages
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/sdk"
 )
@@ -271,7 +271,7 @@ func mustPack(t *testing.T, files map[string][]byte) []byte {
 func withManifest(t *testing.T, files map[string][]byte, edit func(*sdk.Manifest)) map[string][]byte {
 	t.Helper()
 	var m sdk.Manifest
-	if err := json.Unmarshal(files[PluginManifest], &m); err != nil {
+	if err := jsonx.Unmarshal(files[PluginManifest], &m); err != nil {
 		t.Fatal(err)
 	}
 	edit(&m)

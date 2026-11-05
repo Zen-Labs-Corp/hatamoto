@@ -2,13 +2,14 @@ package supervisor
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type fakeChild struct {
@@ -41,7 +42,7 @@ func newFakeChild(t *testing.T) *fakeChild {
 			w.WriteHeader(code)
 			return
 		}
-		json.NewEncoder(w).Encode(res)
+		jsonx.Encode(w, res)
 	}))
 	t.Cleanup(func() { f.ready.Close(); f.sm.Close() })
 	return f

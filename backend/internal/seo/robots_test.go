@@ -1,7 +1,7 @@
 package seo
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 )
@@ -67,7 +67,7 @@ func TestEntryNoIndex(t *testing.T) {
 		{"invalid attrs", `{}`, `{`, false},
 	}
 	for _, c := range cases {
-		if got := EntryNoIndex(json.RawMessage(c.meta), json.RawMessage(c.attrs)); got != c.want {
+		if got := EntryNoIndex(jsontext.Value(c.meta), jsontext.Value(c.attrs)); got != c.want {
 			t.Errorf("%s: got %v", c.name, got)
 		}
 	}

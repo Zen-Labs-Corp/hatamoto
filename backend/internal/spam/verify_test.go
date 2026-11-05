@@ -2,13 +2,13 @@ package spam
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/safefetch"
 )
 
@@ -23,7 +23,7 @@ func testVerifier(t *testing.T, h http.HandlerFunc, timeout time.Duration) *HTTP
 }
 
 func reply(v any) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) { json.NewEncoder(w).Encode(v) }
+	return func(w http.ResponseWriter, _ *http.Request) { jsonx.Encode(w, v) }
 }
 
 func TestVerifySendsFormAndAccepts(t *testing.T) {

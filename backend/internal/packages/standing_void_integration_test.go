@@ -4,9 +4,9 @@ package packages
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
 )
 
@@ -51,7 +51,7 @@ func TestStandingApprovalVoid(t *testing.T) {
 	t.Run("manifest", func(t *testing.T) {
 		files := r.plugin("1.0.0")
 		var man sdk.Manifest
-		if err := json.Unmarshal(files[PluginManifest], &man); err != nil {
+		if err := jsonx.Unmarshal(files[PluginManifest], &man); err != nil {
 			t.Fatal(err)
 		}
 		man.UI = &sdk.AdminUI{Title: "Capa renamed"}

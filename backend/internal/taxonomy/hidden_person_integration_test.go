@@ -4,7 +4,6 @@ package taxonomy
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,6 +14,7 @@ import (
 
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // A published person who is not public must not show in the public term API or
@@ -62,7 +62,7 @@ func TestPublicTermsExcludeHiddenPeople(t *testing.T) {
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/v1/public/terms/tag/"+slug+"/entities", nil))
 	var res TermArchiveResult
-	if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil || rec.Code != 200 {
+	if err := jsonx.Unmarshal(rec.Body.Bytes(), &res); err != nil || rec.Code != 200 {
 		t.Fatalf("archive = %d %s (%v)", rec.Code, rec.Body, err)
 	}
 	if res.Total != 1 || len(res.Items) != 1 || res.Items[0].Slug != slug+"-shown" {

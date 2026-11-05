@@ -4,25 +4,26 @@ package siteconfig_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteaccess"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
-func jsonEq(t *testing.T, name string, got json.RawMessage, want string) {
+func jsonEq(t *testing.T, name string, got jsontext.Value, want string) {
 	t.Helper()
 	var g, w any
-	if err := json.Unmarshal(got, &g); err != nil {
+	if err := jsonx.Unmarshal(got, &g); err != nil {
 		t.Fatalf("%s: %v (%s)", name, err, got)
 	}
-	if err := json.Unmarshal([]byte(want), &w); err != nil {
+	if err := jsonx.Unmarshal([]byte(want), &w); err != nil {
 		t.Fatal(err)
 	}
-	gb, _ := json.Marshal(g)
-	wb, _ := json.Marshal(w)
+	gb, _ := jsonx.Marshal(g)
+	wb, _ := jsonx.Marshal(w)
 	if string(gb) != string(wb) {
 		t.Errorf("%s = %s, want %s", name, gb, wb)
 	}
@@ -45,8 +46,8 @@ func TestBusinessProfileUpdateRoundTrip(t *testing.T) {
 	phone, hours, notify, company := "555 0100", "Weekdays 9 to 5", "ops@example.test", "Renamed"
 	cfg, err := s.Update(ctx, siteconfig.UpdateInput{
 		Phone: &phone, BusinessHours: &hours, NotificationEmail: &notify, CompanyName: &company,
-		PostalAddress:   json.RawMessage(`{"street":"Example Street","city":"Sample City"}`),
-		BusinessProfile: json.RawMessage(`{"tax_id":"T1","sameas":["https://example.test/a"]}`),
+		PostalAddress:   jsontext.Value(`{"street":"Example Street","city":"Sample City"}`),
+		BusinessProfile: jsontext.Value(`{"tax_id":"T1","sameas":["https://example.test/a"]}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +68,7 @@ func TestBusinessProfileUpdateRoundTrip(t *testing.T) {
 		t.Fatalf("nil patch changed legacy fields: %q %q", cfg.Phone, cfg.BusinessHours)
 	}
 
-	cfg, err = s.Update(ctx, siteconfig.UpdateInput{BusinessProfile: json.RawMessage(`{}`)})
+	cfg, err = s.Update(ctx, siteconfig.UpdateInput{BusinessProfile: jsontext.Value(`{}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,10 +81,10 @@ func TestBusinessProfileUpdateRoundTrip(t *testing.T) {
 func TestSetLocaleProfileMergesAndClears(t *testing.T) {
 	ctx := context.Background()
 	s := scratchStore(t)
-	if err := s.SetLocaleProfile(ctx, "xx-a", json.RawMessage(`{"phone":"1"}`)); err != nil {
+	if err := s.SetLocaleProfile(ctx, "xx-a", jsontext.Value(`{"phone":"1"}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SetLocaleProfile(ctx, "xx-b", json.RawMessage(`{"phone":"2"}`)); err != nil {
+	if err := s.SetLocaleProfile(ctx, "xx-b", jsontext.Value(`{"phone":"2"}`)); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := s.Get(ctx)
@@ -93,7 +94,7 @@ func TestSetLocaleProfileMergesAndClears(t *testing.T) {
 	jsonEq(t, "LocaleProfiles", cfg.LocaleProfiles, `{"xx-a":{"phone":"1"},"xx-b":{"phone":"2"}}`)
 
 	// Saving one tag again replaces only that tag.
-	if err := s.SetLocaleProfile(ctx, "xx-a", json.RawMessage(`{"phone":"3"}`)); err != nil {
+	if err := s.SetLocaleProfile(ctx, "xx-a", jsontext.Value(`{"phone":"3"}`)); err != nil {
 		t.Fatal(err)
 	}
 	cfg, _ = s.Get(ctx)
@@ -196,13 +197,13 @@ func TestSiteAccessDefaultAndSet(t *testing.T) {
 func TestPatchThemeExtraKeepsOtherKeys(t *testing.T) {
 	ctx := context.Background()
 	s := scratchStore(t)
-	if _, err := s.Update(ctx, siteconfig.UpdateInput{ThemeExtra: json.RawMessage(`{"builder":{"x":1}}`)}); err != nil {
+	if _, err := s.Update(ctx, siteconfig.UpdateInput{ThemeExtra: jsontext.Value(`{"builder":{"x":1}}`)}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.PatchThemeExtra(ctx, "media_rebuild", json.RawMessage(`{"running":true,"done":1}`)); err != nil {
+	if err := s.PatchThemeExtra(ctx, "media_rebuild", jsontext.Value(`{"running":true,"done":1}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.PatchThemeExtra(ctx, "media_rebuild", json.RawMessage(`{"running":true,"done":2}`)); err != nil {
+	if err := s.PatchThemeExtra(ctx, "media_rebuild", jsontext.Value(`{"running":true,"done":2}`)); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := s.Get(ctx)
@@ -210,10 +211,10 @@ func TestPatchThemeExtraKeepsOtherKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	jsonEq(t, "ThemeExtra", cfg.ThemeExtra, `{"builder":{"x":1},"media_rebuild":{"running":true,"done":2}}`)
-	if err := s.PatchThemeExtra(ctx, "", json.RawMessage(`1`)); err == nil {
+	if err := s.PatchThemeExtra(ctx, "", jsontext.Value(`1`)); err == nil {
 		t.Error("an empty key must be refused")
 	}
-	if err := s.PatchThemeExtra(ctx, "k", json.RawMessage(`{nope`)); err == nil {
+	if err := s.PatchThemeExtra(ctx, "k", jsontext.Value(`{nope`)); err == nil {
 		t.Error("invalid JSON must be refused")
 	}
 }

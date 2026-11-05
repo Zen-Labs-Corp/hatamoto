@@ -1,10 +1,11 @@
 package seo
 
 import (
-	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestDefaultsAreValid(t *testing.T) {
@@ -203,7 +204,7 @@ func TestSocialIsZero(t *testing.T) {
 }
 
 func TestZeroSettingsEmitNoNewKeys(t *testing.T) {
-	raw, err := json.Marshal(Defaults())
+	raw, err := jsonx.Marshal(Defaults())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +227,7 @@ func TestIndexRobotsVerificationRoundTripAndClone(t *testing.T) {
 	s.Index = Index{NoIndexTypes: map[string]bool{"release": true}, NoIndexTaxonomy: map[string]bool{"tag": true}, IndexSearch: true}
 	s.Robots = Robots{MaxSnippet: intp(50), ExtraLines: []string{"Disallow: /x"}}
 	s.Verification = Verification{Google: "g", Custom: []MetaTag{{"a", "b"}}}
-	raw, err := json.Marshal(s)
+	raw, err := jsonx.Marshal(s)
 	if err != nil {
 		t.Fatal(err)
 	}

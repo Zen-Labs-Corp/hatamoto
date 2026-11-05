@@ -1,13 +1,14 @@
 package seo
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestSitemapZeroKeepsStoredShape(t *testing.T) {
-	raw, err := json.Marshal(Defaults())
+	raw, err := jsonx.Marshal(Defaults())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +25,7 @@ func TestSitemapRoundTripAndClone(t *testing.T) {
 	s := Defaults()
 	s.Sitemap = Sitemap{NoAuthor: true, Taxonomy: true, Images: true, MaxURLs: 10, NoStats: true,
 		DefaultPriority: &pri, DefaultChangeFreq: "daily", ExcludePaths: []string{"/legal/*", "/x"}}
-	raw, err := json.Marshal(s)
+	raw, err := jsonx.Marshal(s)
 	if err != nil {
 		t.Fatal(err)
 	}

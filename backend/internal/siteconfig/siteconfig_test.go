@@ -1,12 +1,13 @@
 package siteconfig
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestConfig_Fields(t *testing.T) {
@@ -17,7 +18,7 @@ func TestConfig_Fields(t *testing.T) {
 		LogoURL:           "/media/logo.png",
 		CustomDomain:      "example.com",
 		PrimaryColor:      "#DC2626",
-		ThemeExtra:        json.RawMessage(`{"borderRadius":"4px"}`),
+		ThemeExtra:        jsontext.Value(`{"borderRadius":"4px"}`),
 		Tagline:           "tagline",
 		Timezone:          "UTC",
 		HomepageEntityID:  uuid.New(),
@@ -124,9 +125,9 @@ func TestConfig_ContactFieldsKeepTheirShape(t *testing.T) {
 	c := Config{
 		Phone:           "555 0100",
 		BusinessHours:   "Weekdays",
-		PostalAddress:   json.RawMessage(`{"street":"Example Street"}`),
-		BusinessProfile: json.RawMessage(`{}`),
-		LocaleProfiles:  json.RawMessage(`{}`),
+		PostalAddress:   jsontext.Value(`{"street":"Example Street"}`),
+		BusinessProfile: jsontext.Value(`{}`),
+		LocaleProfiles:  jsontext.Value(`{}`),
 	}
 	if c.Phone == "" || c.BusinessHours == "" || len(c.PostalAddress) == 0 || len(c.BusinessProfile) == 0 || len(c.LocaleProfiles) == 0 {
 		t.Fatalf("config = %+v", c)
@@ -135,13 +136,13 @@ func TestConfig_ContactFieldsKeepTheirShape(t *testing.T) {
 
 func TestLocaleEntryLegacyJSONIsPublic(t *testing.T) {
 	var got []LocaleEntry
-	if err := json.Unmarshal([]byte(`[{"tag":"en","segment":""}]`), &got); err != nil {
+	if err := jsonx.Unmarshal([]byte(`[{"tag":"en","segment":""}]`), &got); err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 1 || got[0].Hidden || got[0].Name != "" {
 		t.Fatalf("legacy entry = %+v", got)
 	}
-	out, _ := json.Marshal(got)
+	out, _ := jsonx.Marshal(got)
 	if string(out) != `[{"tag":"en","segment":""}]` {
 		t.Fatalf("zero values must not be written: %s", out)
 	}

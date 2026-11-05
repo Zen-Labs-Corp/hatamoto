@@ -2,7 +2,6 @@ package supervisor
 
 import (
 	"bufio"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -10,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestAppendEventLinesParse(t *testing.T) {
@@ -79,7 +80,7 @@ func readEvents(t *testing.T, path string) []Event {
 	sc.Buffer(make([]byte, 1<<20), 1<<20)
 	for sc.Scan() {
 		var e Event
-		if err := json.Unmarshal(sc.Bytes(), &e); err != nil {
+		if err := jsonx.Unmarshal(sc.Bytes(), &e); err != nil {
 			t.Fatalf("unparseable line %.80q: %v", sc.Text(), err)
 		}
 		out = append(out, e)

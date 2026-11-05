@@ -1,13 +1,14 @@
 package seo
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestBreadcrumbsZeroOmittedAndRoundTrip(t *testing.T) {
-	raw, err := json.Marshal(Settings{})
+	raw, err := jsonx.Marshal(Settings{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -17,9 +18,9 @@ func TestBreadcrumbsZeroOmittedAndRoundTrip(t *testing.T) {
 		}
 	}
 	in := Settings{Breadcrumbs: Breadcrumbs{HomeLabel: "Start", Separator: "›", HideHome: true, HideCurrent: true, ShowTerm: true}}
-	raw, _ = json.Marshal(in)
+	raw, _ = jsonx.Marshal(in)
 	var out Settings
-	if err := json.Unmarshal(raw, &out); err != nil {
+	if err := jsonx.Unmarshal(raw, &out); err != nil {
 		t.Fatal(err)
 	}
 	if out.Breadcrumbs != in.Breadcrumbs || out.Clone().Breadcrumbs != in.Breadcrumbs {

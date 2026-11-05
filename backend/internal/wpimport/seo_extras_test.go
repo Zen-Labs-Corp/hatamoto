@@ -1,9 +1,11 @@
 package wpimport
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"reflect"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestSEOExtrasSitemapExcludedTypes(t *testing.T) {
@@ -23,11 +25,11 @@ func TestSEOExtrasSitemapExcludedTypes(t *testing.T) {
 }
 
 func TestSEOExtrasSchemaSitemapKeepsPriority(t *testing.T) {
-	ex, prio, freq := schemaSitemap(json.RawMessage(`{"url_pattern":"/x","sitemap":{"priority":0.4,"changefreq":"weekly"}}`))
+	ex, prio, freq := schemaSitemap(jsontext.Value(`{"url_pattern":"/x","sitemap":{"priority":0.4,"changefreq":"weekly"}}`))
 	if ex || prio == nil || *prio != 0.4 || freq != "weekly" {
 		t.Errorf("got %v %v %q", ex, prio, freq)
 	}
-	if ex, _, _ := schemaSitemap(json.RawMessage(`{"sitemap":{"exclude":true}}`)); !ex {
+	if ex, _, _ := schemaSitemap(jsontext.Value(`{"sitemap":{"exclude":true}}`)); !ex {
 		t.Error("exclude not read")
 	}
 	if ex, p, f := schemaSitemap(nil); ex || p != nil || f != "" {
@@ -36,7 +38,7 @@ func TestSEOExtrasSchemaSitemapKeepsPriority(t *testing.T) {
 }
 
 func TestSEOExtrasMergeSameAsUnionsAndKeepsProfile(t *testing.T) {
-	profile := json.RawMessage(`{"name":"Acme","phone":"123","sameas":["https://social.example.com/acme"],"custom_future_key":{"a":1}}`)
+	profile := jsontext.Value(`{"name":"Acme","phone":"123","sameas":["https://social.example.com/acme"],"custom_future_key":{"a":1}}`)
 	merged, before, added, err := mergeSameAs(profile, []string{
 		"https://social.example.com/acme/", // same as an existing one
 		"http://insecure.example.com/acme", // not https
@@ -51,7 +53,7 @@ func TestSEOExtrasMergeSameAsUnionsAndKeepsProfile(t *testing.T) {
 		t.Errorf("before %v added %v", before, added)
 	}
 	var obj map[string]any
-	if err := json.Unmarshal(merged, &obj); err != nil {
+	if err := jsonx.Unmarshal(merged, &obj); err != nil {
 		t.Fatal(err)
 	}
 	if obj["name"] != "Acme" || obj["phone"] != "123" || obj["custom_future_key"] == nil {
@@ -67,11 +69,11 @@ func TestSEOExtrasMergeSameAsEmptyProfileAndNothingNew(t *testing.T) {
 	if err != nil || len(added) != 1 || string(merged) != `{"sameas":["https://a.example.com/x"]}` {
 		t.Errorf("merged %s added %v err %v", merged, added, err)
 	}
-	same := json.RawMessage(`{"sameas":["https://a.example.com/x"]}`)
+	same := jsontext.Value(`{"sameas":["https://a.example.com/x"]}`)
 	if m, _, added, _ := mergeSameAs(same, []string{"https://a.example.com/x"}); len(added) != 0 || string(m) != string(same) {
 		t.Errorf("nothing new must return the profile as is: %s %v", m, added)
 	}
-	if _, _, _, err := mergeSameAs(json.RawMessage(`[1]`), []string{"https://a.example.com/x"}); err == nil {
+	if _, _, _, err := mergeSameAs(jsontext.Value(`[1]`), []string{"https://a.example.com/x"}); err == nil {
 		t.Error("an unreadable profile must not be overwritten")
 	}
 }

@@ -2,7 +2,7 @@ package sectiontemplate
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"log/slog"
 	"os"
@@ -167,7 +167,7 @@ func TestService_Create(t *testing.T) {
 		input := &CreateInput{
 			Name:        "",
 			SectionType: "hero",
-			Content:     json.RawMessage(`{"heading": "test"}`),
+			Content:     jsontext.Value(`{"heading": "test"}`),
 		}
 
 		_, err := svc.Create(context.Background(), nil, input)
@@ -193,7 +193,7 @@ func TestService_Create(t *testing.T) {
 		input := &CreateInput{
 			Name:        longName,
 			SectionType: "hero",
-			Content:     json.RawMessage(`{}`),
+			Content:     jsontext.Value(`{}`),
 		}
 
 		_, err := svc.Create(context.Background(), nil, input)
@@ -219,7 +219,7 @@ func TestService_Create(t *testing.T) {
 		input := &CreateInput{
 			Name:        exactName,
 			SectionType: "hero",
-			Content:     json.RawMessage(`{}`),
+			Content:     jsontext.Value(`{}`),
 		}
 
 		tmpl, err := svc.Create(context.Background(), nil, input)
@@ -239,7 +239,7 @@ func TestService_Create(t *testing.T) {
 		input := &CreateInput{
 			Name:        "My Template",
 			SectionType: "",
-			Content:     json.RawMessage(`{}`),
+			Content:     jsontext.Value(`{}`),
 		}
 
 		_, err := svc.Create(context.Background(), nil, input)
@@ -264,7 +264,7 @@ func TestService_Create(t *testing.T) {
 		input := &CreateInput{
 			Name:        "My Template",
 			SectionType: "hero",
-			Content:     json.RawMessage(`{not valid json`),
+			Content:     jsontext.Value(`{not valid json`),
 		}
 
 		_, err := svc.Create(context.Background(), nil, input)
@@ -290,7 +290,7 @@ func TestService_Create(t *testing.T) {
 		// A JSON string of the form: {"k":"<large payload>"}
 		payloadSize := maxContentSize + 1
 		largeValue := strings.Repeat("x", payloadSize)
-		largeJSON := json.RawMessage(`{"k":"` + largeValue + `"}`)
+		largeJSON := jsontext.Value(`{"k":"` + largeValue + `"}`)
 
 		input := &CreateInput{
 			Name:        "My Template",
@@ -343,7 +343,7 @@ func TestService_Create(t *testing.T) {
 			Name:        "Hero Banner",
 			Description: "A large hero section",
 			SectionType: "hero",
-			Content:     json.RawMessage(`{"heading":"Welcome","subheading":"Hello world"}`),
+			Content:     jsontext.Value(`{"heading":"Welcome","subheading":"Hello world"}`),
 			Tags:        []string{"landing", "homepage"},
 		}
 
@@ -375,7 +375,7 @@ func TestService_Create(t *testing.T) {
 		input := &CreateInput{
 			Name:        "Valid Template",
 			SectionType: "hero",
-			Content:     json.RawMessage(`{}`),
+			Content:     jsontext.Value(`{}`),
 		}
 
 		_, err := svc.Create(context.Background(), nil, input)
@@ -420,7 +420,7 @@ func TestService_List(t *testing.T) {
 			repo.addTemplate(&SectionTemplate{
 				Name:        "Template",
 				SectionType: "hero",
-				Content:     json.RawMessage(`{}`),
+				Content:     jsontext.Value(`{}`),
 			})
 		}
 
@@ -486,12 +486,12 @@ func TestService_List(t *testing.T) {
 		repo.addTemplate(&SectionTemplate{
 			Name:        "Hero Template",
 			SectionType: "hero",
-			Content:     json.RawMessage(`{}`),
+			Content:     jsontext.Value(`{}`),
 		})
 		repo.addTemplate(&SectionTemplate{
 			Name:        "Features Template",
 			SectionType: "features",
-			Content:     json.RawMessage(`{}`),
+			Content:     jsontext.Value(`{}`),
 		})
 
 		filter := &ListFilter{SectionType: "hero"}
@@ -535,7 +535,7 @@ func TestService_Delete(t *testing.T) {
 		tmpl := &SectionTemplate{
 			Name:        "To Delete",
 			SectionType: "hero",
-			Content:     json.RawMessage(`{}`),
+			Content:     jsontext.Value(`{}`),
 		}
 		repo.addTemplate(tmpl)
 
@@ -593,7 +593,7 @@ func TestService_RecordUsage(t *testing.T) {
 		tmpl := &SectionTemplate{
 			Name:        "Popular Template",
 			SectionType: "hero",
-			Content:     json.RawMessage(`{}`),
+			Content:     jsontext.Value(`{}`),
 			UsageCount:  5,
 		}
 		repo.addTemplate(tmpl)

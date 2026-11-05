@@ -3,12 +3,13 @@
 package plugrun
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestProposalDecisions(t *testing.T) {
@@ -19,7 +20,7 @@ func TestProposalDecisions(t *testing.T) {
 	}
 	t.Cleanup(func() { s.DB.Pool().Exec(ctx, `DELETE FROM hatamoto_runs WHERE id = $1`, r.ID) })
 	for _, k := range []string{"site_settings", "menu"} {
-		if err := s.AddProposal(ctx, r.ID, k, json.RawMessage(`{"a":1}`)); err != nil {
+		if err := s.AddProposal(ctx, r.ID, k, jsontext.Value(`{"a":1}`)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -30,7 +31,7 @@ func TestProposalDecisions(t *testing.T) {
 	if n, _ := s.UndecidedProposals(ctx, r.ID); n != 2 {
 		t.Fatalf("undecided = %d", n)
 	}
-	if err := s.SetProposalDecision(ctx, r.ID, ps[0].ID, ProposalApproved, json.RawMessage(`{"title":"old"}`)); err != nil {
+	if err := s.SetProposalDecision(ctx, r.ID, ps[0].ID, ProposalApproved, jsontext.Value(`{"title":"old"}`)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.SetProposalDecision(ctx, r.ID, ps[0].ID, ProposalRejected, nil); !errors.Is(err, ErrProposalDecided) {
@@ -42,12 +43,12 @@ func TestProposalDecisions(t *testing.T) {
 	if err := s.SetProposalDecision(ctx, r.ID, ps[1].ID, "maybe", nil); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("bad decision: %v", err)
 	}
-	if err := s.SetProposalDecision(ctx, r.ID, ps[1].ID, ProposalRejected, json.RawMessage(`{"x":1}`)); err != nil {
+	if err := s.SetProposalDecision(ctx, r.ID, ps[1].ID, ProposalRejected, jsontext.Value(`{"x":1}`)); err != nil {
 		t.Fatal(err)
 	}
 	ps, _ = s.Proposals(ctx, r.ID)
 	var before map[string]string
-	if ps[0].Decision != ProposalApproved || ps[0].DecidedAt == nil || json.Unmarshal(ps[0].Before, &before) != nil || before["title"] != "old" {
+	if ps[0].Decision != ProposalApproved || ps[0].DecidedAt == nil || jsonx.Unmarshal(ps[0].Before, &before) != nil || before["title"] != "old" {
 		t.Fatalf("approved: %+v", ps[0])
 	}
 	if ps[1].Decision != ProposalRejected || ps[1].Before != nil {

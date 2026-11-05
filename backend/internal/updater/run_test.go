@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/release"
 	"hatamoto.dev/core/internal/supervisor"
@@ -152,7 +152,7 @@ func (b *runBox) publish(entries []release.Entry, yanked []release.Yank) {
 			m.Releases[i].RecordSig = strings.TrimSpace(string(sig))
 		}
 	}
-	body, _ := json.Marshal(m)
+	body, _ := jsonx.Marshal(m)
 	doc, err := packages.SignIndex(body, b.man)
 	if err != nil {
 		b.t.Fatal(err)
