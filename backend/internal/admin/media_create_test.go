@@ -12,16 +12,16 @@ func TestMediaUploadPageAndCreatedRedirect(t *testing.T) {
 	t.Parallel()
 
 	c := newContentRig(t)
-	if page := c.get(t, "owner-token", "/admin/settings/media/new", ""); !strings.Contains(page, `type="file"`) {
+	if page := c.get(t, "owner-token", "/admin/media/new", ""); !strings.Contains(page, `type="file"`) {
 		t.Fatalf("new page has no file input")
 	}
-	list := c.get(t, "owner-token", "/admin/settings/media", "")
-	if !strings.Contains(list, `data-hm-open="upload"`) || !strings.Contains(list, `href="/admin/settings/media/new"`) {
+	list := c.get(t, "owner-token", "/admin/media", "")
+	if !strings.Contains(list, `data-hm-open="upload"`) || !strings.Contains(list, `href="/admin/media/new"`) {
 		t.Errorf("header Upload link missing")
 	}
 	rec := c.upload(t, "/admin/media/upload", map[string][]byte{"new.png": png1x1}, true)
 	loc := rec.Header().Get("Location")
-	if rec.Code != 303 || !strings.HasPrefix(loc, "/admin/settings/media?created=") {
+	if rec.Code != 303 || !strings.HasPrefix(loc, "/admin/media?created=") {
 		t.Fatalf("upload: %d %q", rec.Code, loc)
 	}
 }
@@ -34,10 +34,10 @@ func TestMediaUploadHighlightsInGridAndKeepsView(t *testing.T) {
 	c := newContentRig(t)
 	rec := c.upload(t, "/admin/media/upload", map[string][]byte{"fresh.png": png1x1}, true)
 	loc := rec.Header().Get("Location")
-	if !strings.HasPrefix(loc, "/admin/settings/media?created=") {
+	if !strings.HasPrefix(loc, "/admin/media?created=") {
 		t.Fatalf("grid upload location %q", loc)
 	}
-	id := strings.TrimPrefix(loc, "/admin/settings/media?created=")
+	id := strings.TrimPrefix(loc, "/admin/media?created=")
 	grid := c.get(t, "owner-token", loc, "")
 	if !strings.Contains(grid, `class="hm-mediatile hm-mediatile--new" id="media-`+id+`"`) && !strings.Contains(grid, `hm-mediatile--new" id="media-`+id+`"`) {
 		t.Errorf("grid tile for the new file is not marked new")
@@ -51,7 +51,7 @@ func TestMediaUploadHighlightsInGridAndKeepsView(t *testing.T) {
 
 	rec = c.upload(t, "/admin/media/upload?view=list", map[string][]byte{"second.png": png1x1}, true)
 	loc = rec.Header().Get("Location")
-	if !strings.HasPrefix(loc, "/admin/settings/media?view=list&created=") {
+	if !strings.HasPrefix(loc, "/admin/media?view=list&created=") {
 		t.Fatalf("list upload lost the view: %q", loc)
 	}
 	if list := c.get(t, "owner-token", loc, ""); !strings.Contains(list, `class="hm-row--new"`) {
@@ -85,7 +85,7 @@ func TestMediaBulkDeleteConfirmsThenDeletes(t *testing.T) {
 
 	c := newContentRig(t)
 	loc := c.upload(t, "/admin/media/upload", map[string][]byte{"a.png": png1x1}, true).Header().Get("Location")
-	id := strings.TrimPrefix(loc, "/admin/settings/media?created=")
+	id := strings.TrimPrefix(loc, "/admin/media?created=")
 	grid := c.get(t, "owner-token", loc, "")
 	for _, want := range []string{`action="/admin/media/bulk"`, `formaction="/admin/media/bulk"`, `data-hm-row-select`, `hm-media-storage`, `>New<`} {
 		if !strings.Contains(grid, want) {
@@ -115,12 +115,12 @@ func TestMediaDetailAndToolbarPolish(t *testing.T) {
 
 	c := newContentRig(t)
 	loc := c.upload(t, "/admin/media/upload", map[string][]byte{"p.png": png1x1}, true).Header().Get("Location")
-	id := strings.TrimPrefix(loc, "/admin/settings/media?created=")
+	id := strings.TrimPrefix(loc, "/admin/media?created=")
 	detail := c.get(t, "owner-token", "/admin/media/"+id, "")
 	if i := strings.Index(detail, "Technical details"); i < 0 || strings.Index(detail, "Stored as") < i {
 		t.Errorf("Stored as is not inside Technical details")
 	}
-	list := c.get(t, "owner-token", "/admin/settings/media", "")
+	list := c.get(t, "owner-token", "/admin/media", "")
 	for _, want := range []string{`hx-trigger="input changed delay:300ms from:#media-q, change"`, `>Filter<`} {
 		if !strings.Contains(list, want) {
 			t.Errorf("toolbar lacks %s", want)
@@ -135,16 +135,16 @@ func TestMediaStorageBarOnlyOnUnfilteredFullLoad(t *testing.T) {
 
 	c := newContentRig(t)
 	c.upload(t, "/admin/media/upload", map[string][]byte{"s.png": png1x1}, true)
-	full := c.get(t, "owner-token", "/admin/settings/media", "")
+	full := c.get(t, "owner-token", "/admin/media", "")
 	bar, results := strings.Index(full, `class="hm-media-storage"`), strings.Index(full, `id="media-results"`)
 	if bar < 0 || results < 0 || bar > results {
 		t.Fatalf("storage bar missing or inside #media-results (bar %d, results %d)", bar, results)
 	}
-	hx := c.do("GET", "/admin/settings/media?q=s", "owner-token", nil, map[string]string{"HX-Request": "true"})
+	hx := c.do("GET", "/admin/media?q=s", "owner-token", nil, map[string]string{"HX-Request": "true"})
 	if strings.Contains(hx.Body.String(), "hm-media-storage") {
 		t.Errorf("htmx search swap recomputed the storage bar")
 	}
-	if filtered := c.get(t, "owner-token", "/admin/settings/media?q=s", ""); strings.Contains(filtered, "hm-media-storage") {
+	if filtered := c.get(t, "owner-token", "/admin/media?q=s", ""); strings.Contains(filtered, "hm-media-storage") {
 		t.Errorf("a filtered load scanned the library")
 	}
 }
@@ -155,11 +155,11 @@ func TestMediaViewTabsKeepTheSearch(t *testing.T) {
 	t.Parallel()
 
 	c := newContentRig(t)
-	full := c.get(t, "owner-token", "/admin/settings/media", "")
+	full := c.get(t, "owner-token", "/admin/media", "")
 	if !strings.Contains(full, `hx-select-oob="#media-tabs"`) || !strings.Contains(full, `id="media-tabs"`) {
 		t.Fatalf("search form does not swap the view tabs")
 	}
-	hx := c.do("GET", "/admin/settings/media?q=logo", "owner-token", nil, map[string]string{"HX-Request": "true"}).Body.String()
+	hx := c.do("GET", "/admin/media?q=logo", "owner-token", nil, map[string]string{"HX-Request": "true"}).Body.String()
 	i := strings.Index(hx, `id="media-tabs"`)
 	if i < 0 || !strings.Contains(hx[i:], "q=logo") {
 		t.Errorf("view tabs in the swap do not carry the query")
@@ -172,7 +172,7 @@ func TestMediaBulkDeleteWarnsAndRejectsBadInput(t *testing.T) {
 	t.Parallel()
 
 	c := newContentRig(t)
-	grid := c.get(t, "owner-token", "/admin/settings/media", "")
+	grid := c.get(t, "owner-token", "/admin/media", "")
 	if strings.Contains(grid, "data-hm-bulk-confirm") {
 		t.Error("bulk delete must use the server confirm page so the in-use warning shows")
 	}
@@ -195,7 +195,7 @@ func TestMediaBulkDeleteWarnsAndRejectsBadInput(t *testing.T) {
 		"other action": {"action": {"archive"}, "confirmed": {"1"}, "id": {free}},
 	} {
 		rec := c.do("POST", "/admin/media/bulk", "owner-token", form, nil)
-		if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), "/admin/settings/media") {
+		if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), "/admin/media") {
 			t.Errorf("%s: %d %q", name, rec.Code, rec.Header().Get("Location"))
 		}
 		if got := c.do("GET", "/admin/media/"+free, "owner-token", nil, nil); got.Code != 200 {
@@ -203,7 +203,7 @@ func TestMediaBulkDeleteWarnsAndRejectsBadInput(t *testing.T) {
 		}
 	}
 	rec = c.do("POST", "/admin/media/bulk", "owner-token", url.Values{"action": {"delete"}, "confirmed": {"1"}, "id": {"not-a-uuid", free}, "back": {"//evil.example"}}, nil)
-	if loc := rec.Header().Get("Location"); rec.Code != 303 || !strings.HasPrefix(loc, "/admin/settings/media") {
+	if loc := rec.Header().Get("Location"); rec.Code != 303 || !strings.HasPrefix(loc, "/admin/media") {
 		t.Errorf("foreign back followed: %d %q", rec.Code, loc)
 	}
 	if got := c.do("GET", "/admin/media/"+free, "owner-token", nil, nil); got.Code != 404 {
@@ -217,7 +217,7 @@ func TestMediaListWrapsBarAndResults(t *testing.T) {
 	t.Parallel()
 
 	c := newContentRig(t)
-	body := c.get(t, "owner-token", "/admin/settings/media", "")
+	body := c.get(t, "owner-token", "/admin/media", "")
 	if !strings.Contains(body, `<div id="media-main">`) {
 		t.Error("bar and results are not wrapped")
 	}

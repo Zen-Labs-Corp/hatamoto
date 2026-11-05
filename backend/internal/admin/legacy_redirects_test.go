@@ -79,7 +79,9 @@ var legacyMap = []struct{ old, to string }{
 	{"/admin/forms/7/submissions/3/status", "/admin/forms/submissions/3/status"},
 	{"/admin/forms/7/submissions/3/email", "/admin/forms/submissions/3/email"},
 	{"/admin/forms/7/submissions/3/delete", "/admin/forms/submissions/3/delete"},
-	{"/admin/media", "/admin/settings/media"},
+	{"/admin/settings/media", "/admin/media"},
+	{"/admin/settings/media/new", "/admin/media/new"},
+	{"/admin/settings/media/formats", "/admin/media/formats"},
 }
 
 // legacyPass are paths that must never be redirected: pass rows of the map,
@@ -91,7 +93,7 @@ var legacyPass = []string{
 	"/admin/settings", "/admin/settings/general", "/admin/theme", "/admin/theme/themes", "/admin/theme/colours", "/admin/theme/design-system", "/admin/theme/blocks", "/admin/theme/menus",
 	"/admin/settings/api-keys", "/admin/settings/api-keys/secret", "/admin/settings/redirects",
 	"/admin/forms", "/admin/forms/new", "/admin/forms/edit/7", "/admin/forms/submissions", "/admin/forms/submissions/3", "/admin/forms/spam",
-	"/admin/settings/media", "/admin/settings/import/wordpress",
+	"/admin/media", "/admin/media/new", "/admin/settings/import/wordpress",
 	"/admin/plugins", "/admin/plugins/hreflang/ui", "/admin/plugins/hreflang/bridge",
 	"/admin/preview/theme/paper", "/admin/pick/entities", "/admin/pick/terms",
 	"/admin/media/picker", "/admin/media/upload", "/admin/media/3", "/admin/media/3/delete",

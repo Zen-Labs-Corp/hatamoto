@@ -181,7 +181,7 @@ func TestAdminPathPrefix(t *testing.T) {
 	t.Run("pages", func(t *testing.T) {
 		for _, p := range []string{
 			"", "/entities", "/entities/" + fid(14).String() + "/edit",
-			"/settings/general", "/forms", "/theme/themes", "/settings/users", "/settings/media",
+			"/settings/general", "/forms", "/theme/themes", "/settings/users", "/media",
 		} {
 			rec := g.do("GET", "/x-test"+p, "owner-token", nil, nil)
 			if rec.Code != http.StatusOK {

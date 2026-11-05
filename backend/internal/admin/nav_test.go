@@ -55,10 +55,10 @@ func TestNavOwnerSeesSevenPrimaryItems(t *testing.T) {
 	t.Parallel()
 
 	got := editorPluginNav("hreflang").For("owner", "/admin/entities")
-	if want := []string{"Overview", "Entities", "Forms", "Analytics", "Plugins", "Theme", "Settings"}; !eq(labels(got), want) {
+	if want := []string{"Overview", "Entities", "Media", "Forms", "Analytics", "Plugins", "Theme", "Settings"}; !eq(labels(got), want) {
 		t.Fatalf("owner nav %v, want %v", labels(got), want)
 	}
-	if got[4].Href != "/admin/plugins" {
+	if got[5].Href != "/admin/plugins" {
 		t.Fatalf("owner Plugins href %q", got[4].Href)
 	}
 }
@@ -67,17 +67,17 @@ func TestNavEditor(t *testing.T) {
 	t.Parallel()
 
 	// No plugin page for the editor: Plugins is hidden. Settings shows because
-	// the editor reaches Media and more.
+	// the editor reaches Redirects and more.
 	for _, n := range []*Nav{DefaultNav(), editorPluginNav("")} {
-		if got := n.For("editor", "/admin/entities"); !eq(labels(got), []string{"Overview", "Entities", "Forms", "Analytics", "Theme", "Settings"}) {
+		if got := n.For("editor", "/admin/entities"); !eq(labels(got), []string{"Overview", "Entities", "Media", "Forms", "Analytics", "Theme", "Settings"}) {
 			t.Fatalf("editor nav %v", labels(got))
 		}
 	}
 	got := editorPluginNav("hreflang").For("editor", "/admin/entities")
-	if want := []string{"Overview", "Entities", "Forms", "Analytics", "Plugins", "Theme", "Settings"}; !eq(labels(got), want) {
+	if want := []string{"Overview", "Entities", "Media", "Forms", "Analytics", "Plugins", "Theme", "Settings"}; !eq(labels(got), want) {
 		t.Fatalf("editor nav with a plugin page %v, want %v", labels(got), want)
 	}
-	if pl := got[4]; pl.Href != "/admin/plugins/hreflang/settings" {
+	if pl := got[5]; pl.Href != "/admin/plugins/hreflang/settings" {
 		t.Fatalf("editor Plugins entry must link its first reachable plugin: %+v", pl)
 	}
 }
@@ -108,8 +108,9 @@ func TestNavActive(t *testing.T) {
 		{"/admin/theme/menus/3", "Theme", "page"},
 		{"/admin/theme/blocks", "Theme", "page"},
 		{"/admin/settings/api", "Settings", "page"},
-		{"/admin/settings/media", "Settings", "page"},
-		{"/admin/media/3", "Settings", "page"},
+		{"/admin/media", "Media", "page"},
+		{"/admin/media/3", "Media", "page"},
+		{"/admin/settings/redirects", "Settings", "page"},
 		{"/admin/people", "Entities", "page"},
 		{"/admin/people/new", "Entities", "page"},
 		{"/admin/people/duplicates", "Entities", "page"},
@@ -192,8 +193,8 @@ func TestGroupNav(t *testing.T) {
 		role string
 		want string
 	}{
-		{"owner", editorPluginNav("hreflang"), "owner", ":Overview|Site:Entities,Forms,Analytics|Customize:Plugins,Theme,Settings"},
-		{"editor", DefaultNav(), "editor", ":Overview|Site:Entities,Forms,Analytics|Customize:Theme,Settings"},
+		{"owner", editorPluginNav("hreflang"), "owner", ":Overview|Site:Entities,Media,Forms,Analytics|Customize:Plugins,Theme,Settings"},
+		{"editor", DefaultNav(), "editor", ":Overview|Site:Entities,Media,Forms,Analytics|Customize:Theme,Settings"},
 	} {
 		if got := shape(GroupNav(tc.nav.For(tc.role, "/admin"))); got != tc.want {
 			t.Errorf("%s groups %q, want %q", tc.name, got, tc.want)
@@ -203,6 +204,7 @@ func TestGroupNav(t *testing.T) {
 	n := DefaultNav()
 	n.update("analytics", func(it *NavItem) { it.Visible = func(string) bool { return false } })
 	n.update("entities", func(it *NavItem) { it.Visible = func(string) bool { return false } })
+	n.update("media", func(it *NavItem) { it.Visible = func(string) bool { return false } })
 	n.update("forms", func(it *NavItem) { it.Visible = func(string) bool { return false } })
 	if got := shape(GroupNav(n.For("owner", "/admin"))); got != ":Overview|Customize:Plugins,Theme,Settings" {
 		t.Errorf("hidden group still listed: %q", got)

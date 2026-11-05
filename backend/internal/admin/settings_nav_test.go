@@ -25,7 +25,7 @@ func TestSettingsForRoles(t *testing.T) {
 
 	owner := sectionTabs(SettingsFor("owner"))
 	for id, want := range map[string]string{
-		"general": "general", "privacy-tracking": "privacy tracking", "locales": "locales locale-addresses locale-business", "media": "media", "entity-models": "types taxonomies",
+		"general": "general", "privacy-tracking": "privacy tracking", "locales": "locales locale-addresses locale-business", "entity-models": "types taxonomies",
 		"seo": "seo-general seo-titles seo-social seo-schema seo-kg seo-robots seo-ads-txt seo-verification seo-sitemap seo-breadcrumbs seo-indexnow seo-404", "redirects": "redirects", "linking": "linking", "users": "users user-sign-in", "integrations": "api subscriptions deliveries",
 		"tools": "import export search-replace", "performance": "performance", "updates": "updates", "backups-recovery": "backups versions changes", "access-security": "site-access admin-address",
 	} {
@@ -34,7 +34,7 @@ func TestSettingsForRoles(t *testing.T) {
 		}
 	}
 	editor := sectionTabs(SettingsFor("editor"))
-	for id, want := range map[string]string{"media": "media", "redirects": "redirects", "linking": "linking"} {
+	for id, want := range map[string]string{"redirects": "redirects", "linking": "linking"} {
 		if got := strings.Join(editor[id], " "); got != want {
 			t.Errorf("editor %s tabs %q, want %q", id, got, want)
 		}
@@ -49,7 +49,7 @@ func TestSettingsForRoles(t *testing.T) {
 			t.Errorf("editor sees section %s", id)
 		}
 	}
-	if len(SettingsFor("nobody-role")) != 3 {
+	if len(SettingsFor("nobody-role")) != 2 {
 		// roles other than owner or editor still pass the ungated tabs today
 		t.Errorf("unknown role sections: %v", sectionTabs(SettingsFor("nobody-role")))
 	}
@@ -117,9 +117,9 @@ func TestSettingsEntryRedirects(t *testing.T) {
 		to          string
 	}{
 		{"owner-token", "/admin/settings", 303, "/admin/settings/general"},
-		{"editor-token", "/admin/settings", 303, "/admin/settings/media"},
-		{"editor-token", "/admin/settings?section=seo", 303, "/admin/settings/media"},
-		{"editor-token", "/admin/settings?section=team", 303, "/admin/settings/media"},
+		{"editor-token", "/admin/settings", 303, "/admin/settings/redirects"},
+		{"editor-token", "/admin/settings?section=seo", 303, "/admin/settings/redirects"},
+		{"editor-token", "/admin/settings?section=team", 303, "/admin/settings/redirects"},
 		{"editor-token", "/admin/settings?section=forms", 303, "/admin/forms"},
 		{"owner-token", "/admin/settings/entity-models", 302, "/admin/settings/types"},
 		{"owner-token", "/admin/settings/content-model", 302, "/admin/settings/types"},
@@ -190,7 +190,7 @@ func TestSettingsCrumbsChain(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("crumbs = %v, want %v", got, want)
 	}
-	if got := areaCrumbs("media", Crumb{Label: "a.png"}); len(got) != 3 || got[1].Label != "Media" {
+	if got := areaCrumbs("redirects", Crumb{Label: "a"}); len(got) != 3 || got[1].Label != "Redirects" {
 		t.Fatalf("a section named like its tab should appear once: %v", got)
 	}
 }
@@ -269,7 +269,7 @@ func TestSettingsNavGroups(t *testing.T) {
 	}
 	for g, want := range map[string]string{
 		"Site":    "general branding locales users access-security email privacy-tracking",
-		"Content": "media entity-models seo redirects linking",
+		"Content": "entity-models seo redirects linking",
 		"System":  "integrations performance updates jobs backups-recovery tools",
 	} {
 		if got := strings.Join(members[g], " "); got != want {
@@ -374,5 +374,15 @@ func TestBrandingSectionIsOwnerOnly(t *testing.T) {
 	}
 	if !has("owner") || has("editor") {
 		t.Errorf("branding section: owner=%v editor=%v", has("owner"), has("editor"))
+	}
+}
+
+// Media lives in the main menu, so Settings keeps 17 sections (the 15 of the
+// regrouping plus Branding and Jobs).
+func TestSettingsSectionCount(t *testing.T) {
+	t.Parallel()
+
+	if got := len(settingsFor("/admin", "owner")); got != 17 {
+		t.Errorf("owner Settings sections = %d, want 17", got)
 	}
 }

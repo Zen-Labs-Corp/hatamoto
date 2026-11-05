@@ -215,10 +215,10 @@ func TestWebhooksOwnerOnly(t *testing.T) {
 	if rec := g.do("GET", p, "", nil, nil); rec.Code != 303 {
 		t.Errorf("anonymous GET = %d, want redirect to login", rec.Code)
 	}
-	if body := g.do("GET", "/admin/settings/media", "editor-token", nil, nil).Body.String(); strings.Contains(body, "/admin/settings/webhooks") {
+	if body := g.do("GET", "/admin/settings/redirects", "editor-token", nil, nil).Body.String(); strings.Contains(body, "/admin/settings/webhooks") {
 		t.Error("editor sidebar links to Webhooks")
 	}
-	if body := g.do("GET", "/admin/settings/media", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `href="/admin/settings/api-keys"`) {
+	if body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `href="/admin/settings/api-keys"`) {
 		t.Error("owner sidebar lacks Integrations")
 	}
 }

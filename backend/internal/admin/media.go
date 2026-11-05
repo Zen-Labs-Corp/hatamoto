@@ -26,13 +26,13 @@ const (
 )
 
 func (a *Admin) mountMedia(authed *httpx.Group) {
-	// Only the library list moved; the detail, delete, upload and picker
-	// endpoints keep their paths so the editor picker is unchanged.
+	// /media/new, /media/formats and /media/rebuild are literals, so they win
+	// over /media/{id}.
 	owner := authed.Group("", a.RequireRole("owner"))
-	owner.HandleFunc("POST /settings/media/formats", a.handleMediaFormatsSave)
-	owner.HandleFunc("POST /settings/media/rebuild", a.handleMediaRebuild)
-	authed.HandleFunc("GET /settings/media", a.handleMedia)
-	authed.HandleFunc("GET /settings/media/new", a.handleMediaNew)
+	owner.HandleFunc("POST /media/formats", a.handleMediaFormatsSave)
+	owner.HandleFunc("POST /media/rebuild", a.handleMediaRebuild)
+	authed.HandleFunc("GET /media", a.handleMedia)
+	authed.HandleFunc("GET /media/new", a.handleMediaNew)
 	authed.HandleFunc("POST /media/upload", a.handleMediaUpload)
 	authed.HandleFunc("GET /media/picker", a.handleMediaPicker)
 	authed.HandleFunc("POST /media/bulk", a.handleMediaBulk)
@@ -352,7 +352,7 @@ func (a *Admin) handleMedia(w http.ResponseWriter, r *http.Request) {
 		if view == "list" {
 			fq.Set("view", "list")
 		}
-		return ui.Tab{Label: label, Href: a.adminPath + "/settings/media?" + fq.Encode(), Count: count, Active: active}
+		return ui.Tab{Label: label, Href: a.adminPath + "/media?" + fq.Encode(), Count: count, Active: active}
 	}
 	if len(named) > 0 || folder != "" {
 		d0 := []ui.Tab{folderTab("All files", "", allFiles, folder == "")}
@@ -369,7 +369,7 @@ func (a *Admin) handleMedia(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	created := createdID(r)
-	d := mediaListData{Actions: []ui.Button{{Label: "Upload", Icon: "upload", Variant: "primary", Href: a.adminPath + "/settings/media/new", Attrs: map[string]string{"data-hm-open": "upload"}}}, View: view, Q: q, Type: typ, Types: mediaTypeOptions(typ), Total: res.Total, MaxMB: ms.Config().MaxSizeMB,
+	d := mediaListData{Actions: []ui.Button{{Label: "Upload", Icon: "upload", Variant: "primary", Href: a.adminPath + "/media/new", Attrs: map[string]string{"data-hm-open": "upload"}}}, View: view, Q: q, Type: typ, Types: mediaTypeOptions(typ), Total: res.Total, MaxMB: ms.Config().MaxSizeMB,
 		Upload: a.adminPath + "/media/upload"}
 	d.FolderTabs, d.Folder, d.Folders = folderTabs, folderParamValue(folder), folderOptions(named, "", "Move to")
 	if view == "list" {
@@ -381,7 +381,7 @@ func (a *Admin) handleMedia(w http.ResponseWriter, r *http.Request) {
 			kq[k] = vs
 		}
 		kq.Set("view", v)
-		d.Tabs = append(d.Tabs, ui.Tab{Label: map[string]string{"grid": "Grid", "list": "List"}[v], Href: a.adminPath + "/settings/media?" + kq.Encode(), Active: v == view})
+		d.Tabs = append(d.Tabs, ui.Tab{Label: map[string]string{"grid": "Grid", "list": "List"}[v], Href: a.adminPath + "/media?" + kq.Encode(), Active: v == view})
 	}
 	pq := url.Values{}
 	for k, vs := range keep {
@@ -390,7 +390,7 @@ func (a *Admin) handleMedia(w http.ResponseWriter, r *http.Request) {
 	if view == "list" {
 		pq.Set("view", "list")
 	}
-	d.Back = a.adminPath + "/settings/media?" + pq.Encode()
+	d.Back = a.adminPath + "/media?" + pq.Encode()
 	// The bar sits outside the swapped results, so search keystrokes and filters never rescan the library.
 	if r.Header.Get("HX-Request") != "true" && page == 1 && q == "" && typ == "" && folder == "" {
 		d.Storage, d.StorageNote, d.StorageSize = a.mediaStorage(ctx, ms)
@@ -398,10 +398,10 @@ func (a *Admin) handleMedia(w http.ResponseWriter, r *http.Request) {
 	if u := userFrom(ctx); u != nil && u.Role == "owner" {
 		d.Formats = a.mediaFormatsView(ctx)
 	}
-	d.Page = ui.Pagination{Page: page, PerPage: per, Total: res.Total, BaseURL: a.adminPath + "/settings/media", Query: pq}
+	d.Page = ui.Pagination{Page: page, PerPage: per, Total: res.Total, BaseURL: a.adminPath + "/media", Query: pq}
 	loc := a.siteLocation(ctx)
 	t := ui.Table{
-		ID: "media", Caption: "Media files", BaseURL: a.adminPath + "/settings/media", CSRF: csrfToken(ctx),
+		ID: "media", Caption: "Media files", BaseURL: a.adminPath + "/media", CSRF: csrfToken(ctx),
 		Columns: []ui.Col{{Key: "name", Label: "File"}, {Key: "type", Label: "Type"}, {Key: "size", Label: "Size", Align: "right"}, {Key: "alt", Label: "Alt text"}, {Key: "uploaded", Label: "Uploaded", Align: "right"}},
 		Page:    d.Page,
 		Empty:   ui.Empty{Icon: "image", Title: "No files match", Body: "Upload a file, or try another search."},
@@ -571,7 +571,7 @@ func (a *Admin) handleMediaUpload(w http.ResponseWriter, r *http.Request) {
 		a.renderPicker(w, r, "", "", 1)
 		return
 	}
-	dest := a.adminPath + "/settings/media"
+	dest := a.adminPath + "/media"
 	if r.FormValue("view") == "list" {
 		dest += "?view=list" // the user stays in the view they uploaded from
 	}
@@ -607,7 +607,7 @@ func (a *Admin) fail(w http.ResponseWriter, r *http.Request, status int, msg str
 		return
 	}
 	a.SetFlash(w, r, "error", msg)
-	Redirect(w, r, a.adminPath+"/settings/media")
+	Redirect(w, r, a.adminPath+"/media")
 }
 
 type mediaDetailData struct {
@@ -653,13 +653,13 @@ func (a *Admin) loadMedia(w http.ResponseWriter, r *http.Request) (*media.Media,
 	ms := a.deps.Content.Media
 	id, ok := uuidParam(r, "id")
 	if !ok || ms == nil {
-		a.notFound(w, r, "File", a.adminPath+"/settings/media", "Back to the library")
+		a.notFound(w, r, "File", a.adminPath+"/media", "Back to the library")
 		return nil, false
 	}
 	m, err := ms.Get(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, media.ErrMediaNotFound) {
-			a.notFound(w, r, "File", a.adminPath+"/settings/media", "Back to the library")
+			a.notFound(w, r, "File", a.adminPath+"/media", "Back to the library")
 		} else {
 			a.serverError(w, r, "The file could not be loaded", err)
 		}
@@ -675,7 +675,7 @@ func (a *Admin) renderMediaDetail(w http.ResponseWriter, r *http.Request, status
 	}
 	d := mediaDetailData{ID: m.ID.String(), Name: name, URL: mediaURL(m), Filename: m.Filename, Mime: m.MimeType, Size: humanSize(m.FileSize),
 		IsImage: m.IsImage(), Alt: alt, Caption: caption, Credit: credit, Variants: m.Variants, Error: errMsg,
-		Uploaded: fmtDateTime(m.CreatedAt.In(a.siteLocation(r.Context()))), Crumbs: a.areaCrumbs("media", Crumb{Label: name}),
+		Uploaded: fmtDateTime(m.CreatedAt.In(a.siteLocation(r.Context()))), Crumbs: []Crumb{{Label: "Media", Href: a.adminPath + "/media"}, {Label: name}},
 		Folder: folderLabel(m.Folder), FolderError: folderErr, Replace: a.adminPath + "/media/" + m.ID.String() + "/replace",
 		ReplaceAccept: replaceAccept(m)}
 	if ms := a.deps.Content.Media; ms != nil {
@@ -836,7 +836,7 @@ func (a *Admin) handleMediaDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.SetFlash(w, r, "success", "File deleted.")
-	Redirect(w, r, a.adminPath+"/settings/media")
+	Redirect(w, r, a.adminPath+"/media")
 }
 
 // mediaInUse counts how many of the files are used somewhere. A file that cannot be read or
@@ -910,7 +910,7 @@ func (a *Admin) handleMediaBulk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = r.ParseForm()
-	back := backTo(r, a.adminPath+"/settings/media", a.adminPath+"/settings/media")
+	back := backTo(r, a.adminPath+"/media", a.adminPath+"/media")
 	ids := r.PostForm["id"]
 	switch {
 	case len(ids) == 0:

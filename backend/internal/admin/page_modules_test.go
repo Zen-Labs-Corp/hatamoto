@@ -39,7 +39,7 @@ func TestPagesLoadOnlyTheirModules(t *testing.T) {
 	}{
 		{"entities list", func() string { return c.do("GET", "/admin/entities", "owner-token", nil, nil).Body.String() },
 			[]string{"content"}, []string{"admin", "components", "recovery", "content"}, []string{"editors", "blogeditor", "editor/", "canvas/", "repeater", "menutree", "charts"}},
-		{"media list", func() string { return c.do("GET", "/admin/settings/media", "owner-token", nil, nil).Body.String() },
+		{"media list", func() string { return c.do("GET", "/admin/media", "owner-token", nil, nil).Body.String() },
 			[]string{"content"}, []string{"content"}, []string{"editors", "blogeditor", "editor/", "canvas/"}},
 		{"blog editor", func() string { return blog.do("GET", blog.path(), "owner-token", nil, nil).Body.String() },
 			[]string{"blogeditor", "repeater", "content"}, []string{"editor/autosave", "editor/slash", "editor/kit"}, []string{"editors", "canvas/"}},

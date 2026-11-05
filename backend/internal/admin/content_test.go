@@ -976,17 +976,17 @@ func TestMediaLibraryGridListAndFilters(t *testing.T) {
 	t.Parallel()
 
 	c := newContentRig(t)
-	body := c.get(t, "owner-token", "/admin/settings/media", "media-grid")
+	body := c.get(t, "owner-token", "/admin/media", "media-grid")
 	has(t, body, `class="hm-media-grid"`, "team.png", "brochure.pdf", `data-hm-dropzone`, `enctype="multipart/form-data"`, `multiple`, "up to 10 MB", `href="/admin/media/`+fid(51).String()+`"`)
-	body = c.get(t, "owner-token", "/admin/settings/media?view=list", "media-list")
+	body = c.get(t, "owner-token", "/admin/media?view=list", "media-list")
 	has(t, body, "<table", "Missing", "The team", "brochure.pdf")
-	body = c.get(t, "owner-token", "/admin/settings/media?type=document", "")
+	body = c.get(t, "owner-token", "/admin/media?type=document", "")
 	has(t, body, "brochure.pdf")
 	lacks(t, body, "team.png")
-	body = c.get(t, "owner-token", "/admin/settings/media?q=logo", "")
+	body = c.get(t, "owner-token", "/admin/media?q=logo", "")
 	has(t, body, "logo.png")
 	lacks(t, body, "team.png")
-	has(t, c.get(t, "owner-token", "/admin/settings/media?q=nothing-matches", ""), "No files match")
+	has(t, c.get(t, "owner-token", "/admin/media?q=nothing-matches", ""), "No files match")
 }
 
 func multipartBody(t *testing.T, files map[string][]byte, withToken bool) (*bytes.Buffer, string) {
@@ -1047,7 +1047,7 @@ func TestMediaUpload(t *testing.T) {
 	if rec.Code != 303 || len(c.media.files) != n+2 {
 		t.Errorf("bad file stored: %d files", len(c.media.files))
 	}
-	if body := c.next(rec, "/admin/settings/media"); !strings.Contains(body, "evil.png") || !strings.Contains(body, "not allowed") {
+	if body := c.next(rec, "/admin/media"); !strings.Contains(body, "evil.png") || !strings.Contains(body, "not allowed") {
 		t.Errorf("rejection not explained")
 	}
 	// no token anywhere: blocked before the body is read
@@ -1153,7 +1153,7 @@ func TestContentAccessControl(t *testing.T) {
 		}
 	}
 	// editors work on content and media
-	for _, p := range []string{"/admin/entities", "/admin/entities/" + id, "/admin/entities/" + id + "/versions", "/admin/settings/media", "/admin/media/picker", "/admin/media/" + fid(51).String()} {
+	for _, p := range []string{"/admin/entities", "/admin/entities/" + id, "/admin/entities/" + id + "/versions", "/admin/media", "/admin/media/picker", "/admin/media/" + fid(51).String()} {
 		if rec := c.do("GET", p, "editor-token", nil, nil); rec.Code != 200 {
 			t.Errorf("editor GET %s = %d", p, rec.Code)
 		}

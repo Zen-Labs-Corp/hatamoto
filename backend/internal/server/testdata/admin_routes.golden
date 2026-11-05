@@ -63,6 +63,8 @@ GET /admin/forms/submissions/{sid} -> admin.(*Admin).handleSubmission-fm
 GET /admin/forms/submissions/{sid}/delete -> admin.(*Admin).handleSubmissionDeleteForm-fm
 GET /admin/login -> admin.(*Admin).handleLoginForm-fm
 GET /admin/login/2fa -> admin.(*Admin).handleTwoStepForm-fm
+GET /admin/media -> admin.(*Admin).handleMedia-fm
+GET /admin/media/new -> admin.(*Admin).handleMediaNew-fm
 GET /admin/media/picker -> admin.(*Admin).handleMediaPicker-fm
 GET /admin/media/{id} -> admin.(*Admin).handleMediaDetail-fm
 GET /admin/media/{id}/delete -> admin.(*Admin).handleMediaDeleteConfirm-fm
@@ -138,8 +140,6 @@ GET /admin/settings/locales/business -> admin.(*Admin).handleBusiness-fm
 GET /admin/settings/locales/edit/{tag} -> admin.(*Admin).handleLocaleEdit-fm
 GET /admin/settings/locales/new -> admin.(*Admin).handleLocaleNew-fm
 GET /admin/settings/locales/remove/{tag} -> admin.(*Admin).handleLocaleRemoveConfirm-fm
-GET /admin/settings/media -> admin.(*Admin).handleMedia-fm
-GET /admin/settings/media/new -> admin.(*Admin).handleMediaNew-fm
 GET /admin/settings/performance -> admin.(*Admin).handlePerformance-fm
 GET /admin/settings/privacy -> admin.(*Admin).handlePrivacy-fm
 GET /admin/settings/redirects -> admin.(*Admin).handleRedirects-fm
@@ -294,6 +294,8 @@ POST /admin/login/passkey/begin -> admin.(*Admin).handlePasskeyBegin-fm
 POST /admin/login/passkey/finish -> admin.(*Admin).handlePasskeyFinish-fm
 POST /admin/logout -> admin.(*Admin).handleLogout-fm
 POST /admin/media/bulk -> admin.(*Admin).handleMediaBulk-fm
+POST /admin/media/formats -> admin.(*Admin).handleMediaFormatsSave-fm
+POST /admin/media/rebuild -> admin.(*Admin).handleMediaRebuild-fm
 POST /admin/media/upload -> admin.(*Admin).handleMediaUpload-fm
 POST /admin/media/{id} -> admin.(*Admin).handleMediaUpdate-fm
 POST /admin/media/{id}/delete -> admin.(*Admin).handleMediaDelete-fm
@@ -379,8 +381,6 @@ POST /admin/settings/locales/order -> admin.(*Admin).handleLocaleOrder-fm
 POST /admin/settings/locales/organisation -> admin.(*Admin).handleOrgAddressSave-fm
 POST /admin/settings/locales/remove/{tag} -> admin.(*Admin).handleLocaleRemove-fm
 POST /admin/settings/locales/update/{tag} -> admin.(*Admin).handleLocaleUpdate-fm
-POST /admin/settings/media/formats -> admin.(*Admin).handleMediaFormatsSave-fm
-POST /admin/settings/media/rebuild -> admin.(*Admin).handleMediaRebuild-fm
 POST /admin/settings/performance -> admin.(*Admin).handlePerformanceSave-fm
 POST /admin/settings/performance/clear -> admin.(*Admin).handlePerformanceClear-fm
 POST /admin/settings/performance/preload -> admin.(*Admin).handlePerformancePreload-fm

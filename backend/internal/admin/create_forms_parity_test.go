@@ -65,7 +65,7 @@ func TestCreateDialogAndNewPageHaveTheSameFields(t *testing.T) {
 		{"people", "new-person", "/admin/people", "/admin/people/new", func(p string) string { return people.do("GET", p, "owner-token", nil, nil).Body.String() }},
 		{"redirects", "new-redirect", "/admin/settings/redirects", "/admin/settings/redirects/new", func(p string) string { return reds.do("GET", p, "owner-token", nil, nil).Body.String() }},
 		{"terms", "new-term", "/admin/settings/taxonomies?kind=category", "/admin/settings/taxonomies/new?kind=category", func(p string) string { return content.get(t, "owner-token", p, "") }},
-		{"media", "upload", "/admin/settings/media", "/admin/settings/media/new", func(p string) string { return content.get(t, "owner-token", p, "") }},
+		{"media", "upload", "/admin/media", "/admin/media/new", func(p string) string { return content.get(t, "owner-token", p, "") }},
 		{"plugins", "upload-pkg", "/admin/plugins", "/admin/plugins/upload", func(p string) string { return pkgs.do("GET", p, "owner-token", nil, nil).Body.String() }},
 		{"themes", "upload-pkg", "/admin/theme/themes", "/admin/plugins/upload?for=theme", func(p string) string { return pkgs.do("GET", p, "owner-token", nil, nil).Body.String() }},
 	}

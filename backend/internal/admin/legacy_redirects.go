@@ -58,7 +58,6 @@ func legacyRulesFor(prefix string) []legacyRule {
 
 		{From: "/import", To: "/settings/import", Exact: true},
 		{From: "/import/wordpress", To: "/settings/import/wordpress"},
-		{From: "/media", To: "/settings/media", Exact: true},
 
 		// Forms left Settings for the main menu. A form's edit and delete pages
 		// are /forms/edit/{id} and /forms/delete/{id} (a /forms/{id}/edit route
@@ -67,6 +66,7 @@ func legacyRulesFor(prefix string) []legacyRule {
 		{From: "/settings/forms", To: "/forms"},
 		{From: "/settings/submissions", To: "/forms/submissions"},
 		{From: "/settings/spam", To: "/forms/spam"},
+		{From: "/settings/media", To: "/media"},
 
 		// /admin/forms/{id}/submissions...: the form id moves to the query, a
 		// submission id is enough on its own.

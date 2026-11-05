@@ -53,7 +53,7 @@ var settingsLive = map[string]bool{
 	"menus":     true,
 	"redirects": true, "linking": true, "templates": true,
 	"themes": true, "blocks": true, "colours": true, "fonts": true, "additional-css": true, "design-system": true, "presets": true, "parts": true,
-	"import": true, "media": true, "general": true, "branding": true, "export": true, "performance": true,
+	"import": true, "general": true, "branding": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "jobs": true, "backups": true, "changes": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
@@ -98,9 +98,6 @@ var settingsRegistry = []settingsSectionDef{
 	{ID: "privacy-tracking", Label: "Privacy & tracking", Icon: "shield", Desc: "Cookie consent for your visitors, and analytics, ad and chat tags.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "privacy", Label: "Cookie consent", Final: "/settings/privacy", Roles: ownerOnly},
 		{ID: "tracking", Label: "Tracking", Final: "/settings/tracking", Roles: ownerOnly},
-	}},
-	{ID: "media", Label: "Media", Icon: "image", Desc: "Upload, browse and describe the files on your site.", Group: "Content", Tabs: []settingsTabDef{
-		{ID: "media", Label: "Media", Final: "/settings/media"},
 	}},
 	{ID: "entity-models", Label: "Entity models", Icon: "content-model", Desc: "The kinds of content your site holds and how it is grouped.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "types", Label: "Entity types", Final: "/settings/types", Roles: ownerOnly},
@@ -308,11 +305,6 @@ func areaLocateIn(prefix, full string) (section, tab string) {
 	// An agent page is a Crawlers sub-page with no tab path of its own.
 	if settingsLive["ai-crawlers"] && strings.HasPrefix(path, "/analytics/agents/") {
 		return "ai-crawlers", "ai-crawlers"
-	}
-	// The media detail and delete pages keep their <prefix>/media/{id} paths but
-	// belong to the Settings library; the picker and upload are fragments.
-	if settingsLive["media"] && strings.HasPrefix(path, "/media/") && path != "/media/picker" && path != "/media/upload" {
-		return "media", "media"
 	}
 	// The longest Final wins, so a tab that lives below another tab's path
 	// is not taken for a sub-page of it.
