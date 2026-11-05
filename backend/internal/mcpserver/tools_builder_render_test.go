@@ -2,7 +2,7 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"strings"
 	"testing"
 
@@ -36,8 +36,8 @@ func (f fakeTemplates) Get(_ context.Context, id uuid.UUID) (*sectiontemplate.Se
 
 func TestBuilderTemplates(t *testing.T) {
 	tree := sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Hero", Description: "A hero", SectionType: treeTemplateType,
-		Content: json.RawMessage(`{"v":1,"nodes":[{"id":"t1","t":"heading","p":{"text":"Big"}},{"id":"bad","t":"nope"}]}`)}
-	legacy := sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Old", SectionType: "hero", Content: json.RawMessage(`{}`)}
+		Content: jsontext.Value(`{"v":1,"nodes":[{"id":"t1","t":"heading","p":{"text":"Big"}},{"id":"bad","t":"nope"}]}`)}
+	legacy := sectiontemplate.SectionTemplate{ID: uuid.New(), Name: "Old", SectionType: "hero", Content: jsontext.Value(`{}`)}
 	r := newRig(t)
 	st := r.st
 	sess := session(t, newTestServer(t, readOnly(), Deps{BuilderEntities: st, Templates: fakeTemplates{[]sectiontemplate.SectionTemplate{tree, legacy}}}))

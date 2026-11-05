@@ -2,7 +2,7 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,6 +17,7 @@ import (
 
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // memStore is an in-memory entity.BuilderStore: UpdateEntity bumps the version
@@ -36,13 +37,13 @@ func newMemStore() *memStore {
 }
 
 func (m *memStore) schema(slug string, builtin bool, schemaJSON string) *entity.EntitySchema {
-	sc := &entity.EntitySchema{ID: uuid.New(), Slug: slug, Name: slug, IsBuiltin: builtin, Schema: json.RawMessage(schemaJSON)}
+	sc := &entity.EntitySchema{ID: uuid.New(), Slug: slug, Name: slug, IsBuiltin: builtin, Schema: jsontext.Value(schemaJSON)}
 	m.schemas[sc.ID] = sc
 	return sc
 }
 
 func (m *memStore) add(sc *entity.EntitySchema, status entity.EntityStatus, attrs string) *entity.Entity {
-	e := &entity.Entity{ID: uuid.New(), SchemaID: sc.ID, Name: "E", Slug: "e-" + uuid.NewString()[:6], Status: status, Version: 3, Attributes: json.RawMessage(attrs)}
+	e := &entity.Entity{ID: uuid.New(), SchemaID: sc.ID, Name: "E", Slug: "e-" + uuid.NewString()[:6], Status: status, Version: 3, Attributes: jsontext.Value(attrs)}
 	m.ents[e.ID] = e
 	return e
 }
@@ -74,8 +75,8 @@ func (m *memStore) UpdateEntity(_ context.Context, id uuid.UUID, _ *uuid.UUID, i
 		return nil, &entity.VersionConflictError{Current: e.Version}
 	}
 	var a, b any
-	_ = json.Unmarshal(e.Attributes, &a)
-	_ = json.Unmarshal(*in.Attributes, &b)
+	_ = jsonx.Unmarshal(e.Attributes, &a)
+	_ = jsonx.Unmarshal(*in.Attributes, &b)
 	if !reflect.DeepEqual(a, b) {
 		e.Attributes = *in.Attributes
 		e.Version++
@@ -143,7 +144,7 @@ func (r *rig) apply(t *testing.T, version int, ops ...map[string]any) (string, b
 func decode(t *testing.T, text string) map[string]any {
 	t.Helper()
 	var m map[string]any
-	if err := json.Unmarshal([]byte(text), &m); err != nil {
+	if err := jsonx.Unmarshal([]byte(text), &m); err != nil {
 		t.Fatalf("%v in %q", err, text)
 	}
 	return m
@@ -428,18 +429,18 @@ func TestBuilderApplyOpsSchema(t *testing.T) {
 		if tool.Name != "builder_apply_ops" {
 			continue
 		}
-		raw, _ := json.Marshal(tool.InputSchema)
+		raw, _ := jsonx.Marshal(tool.InputSchema)
 		var sc struct {
 			Required   []string `json:"required"`
 			Properties map[string]struct {
 				Type  any `json:"type"` // ["null","array"]: a nil slice is allowed
 				Items struct {
-					Type       string                     `json:"type"`
-					Properties map[string]json.RawMessage `json:"properties"`
+					Type       string                    `json:"type"`
+					Properties map[string]jsontext.Value `json:"properties"`
 				} `json:"items"`
 			} `json:"properties"`
 		}
-		if err := json.Unmarshal(raw, &sc); err != nil {
+		if err := jsonx.Unmarshal(raw, &sc); err != nil {
 			t.Fatal(err)
 		}
 		ops := sc.Properties["ops"]
@@ -501,7 +502,7 @@ func TestEntitiesUpdateAuditsTakeOver(t *testing.T) {
 		audit := &recAudit{}
 		svc := entity.NewService(nil, memRepo{st: st}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 		sess := session(t, newTestServer(t, []hmauth.APIKeyScope{hmauth.ScopeReadEntities, hmauth.ScopeWriteEntities}, Deps{Entities: svc, BuilderEntities: st, Audit: audit}))
-		text, isErr := call(t, sess, "entities_update", map[string]any{"id": page.ID.String(), "attributes": map[string]any{"page_doc": json.RawMessage(heroDoc), "meta_title": "T"}})
+		text, isErr := call(t, sess, "entities_update", map[string]any{"id": page.ID.String(), "attributes": map[string]any{"page_doc": jsontext.Value(heroDoc), "meta_title": "T"}})
 		if isErr {
 			t.Fatalf("update: %s", text)
 		}
@@ -525,7 +526,7 @@ func TestCheckPageDocRulesReadsIncomingSlot(t *testing.T) {
 	check := func(stored *entity.Entity, attrs map[string]any) error {
 		return s.checkPageDocRules(context.Background(), stored, entity.EntityRole(context.Background(), r.st, stored), attrs)
 	}
-	asJSON := func(v any) string { b, _ := json.Marshal(v); return string(b) }
+	asJSON := func(v any) string { b, _ := jsonx.Marshal(v); return string(b) }
 
 	single := r.st.add(partSc, entity.StatusDraft, `{"slot":"single","page_doc":`+asJSON(slotDoc)+`}`)
 	if err := check(single, map[string]any{"slot": "header", "page_doc": slotDoc}); err == nil || !strings.Contains(err.Error(), "no Content slot") {

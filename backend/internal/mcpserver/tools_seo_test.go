@@ -2,7 +2,7 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/http"
 	"strings"
 	"testing"
@@ -11,13 +11,14 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	hmauth "hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/seosvc"
 )
 
 type fakeSEO struct {
 	actor   seosvc.Actor
-	patch   map[string]json.RawMessage
+	patch   map[string]jsontext.Value
 	updErr  error
 	doc     seosvc.Doc
 	prevErr error
@@ -25,7 +26,7 @@ type fakeSEO struct {
 }
 
 func (f *fakeSEO) Get(context.Context) (seosvc.Doc, error) { return f.doc, nil }
-func (f *fakeSEO) Update(_ context.Context, a seosvc.Actor, p map[string]json.RawMessage) (seosvc.Doc, error) {
+func (f *fakeSEO) Update(_ context.Context, a seosvc.Actor, p map[string]jsontext.Value) (seosvc.Doc, error) {
 	f.actor, f.patch = a, p
 	return f.doc, f.updErr
 }
@@ -137,7 +138,7 @@ func TestSEO404List(t *testing.T) {
 			Items []redirect.NotFoundEntry `json:"items"`
 			Total int                      `json:"total"`
 		}
-		if err := json.Unmarshal([]byte(text), &out); err != nil || out.Total != total || len(out.Items) != len(items) || out.Items[0].Path != items[0].Path {
+		if err := jsonx.Unmarshal([]byte(text), &out, jsonx.StoredLoose); err != nil || out.Total != total || len(out.Items) != len(items) || out.Items[0].Path != items[0].Path {
 			t.Errorf("visitor %q: output %q", v, text)
 		}
 	}
@@ -161,7 +162,7 @@ func TestSEOAnalyzeListsLengthChecks(t *testing.T) {
 	var out struct {
 		Checks []struct{ ID, Status, Message string } `json:"seo_checks"`
 	}
-	if err := json.Unmarshal([]byte(text), &out); err != nil {
+	if err := jsonx.Unmarshal([]byte(text), &out, jsonx.StoredLoose); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.Checks) != 2 || out.Checks[0].ID != "title_length" || out.Checks[0].Status != "warn" || !strings.Contains(out.Checks[0].Message, "cut off") || out.Checks[1].ID != "description_length" {

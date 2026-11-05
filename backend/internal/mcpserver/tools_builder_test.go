@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	hmauth "hatamoto.dev/core/internal/auth"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // session opens an MCP client session against ts with the "good" key.
@@ -60,7 +60,7 @@ func TestBuilderKinds(t *testing.T) {
 		} `json:"kinds"`
 		BindSources []map[string]string `json:"bindSources"`
 	}
-	if err := json.Unmarshal([]byte(text), &out); err != nil {
+	if err := jsonx.Unmarshal([]byte(text), &out); err != nil {
 		t.Fatal(err)
 	}
 	by := map[string]int{}
@@ -90,7 +90,7 @@ func TestBuilderKinds(t *testing.T) {
 			Pattern   string `json:"pattern"`
 		} `json:"universalProps"`
 	}
-	if err := json.Unmarshal([]byte(text), &lim); err != nil {
+	if err := jsonx.Unmarshal([]byte(text), &lim); err != nil {
 		t.Fatal(err)
 	}
 	limits := map[string]int{}
@@ -129,7 +129,7 @@ func TestBuilderStyleSpec(t *testing.T) {
 		Breakpoints []string                     `json:"breakpoints"`
 		States      []string                     `json:"states"`
 	}
-	if err := json.Unmarshal([]byte(text), &out); err != nil {
+	if err := jsonx.Unmarshal([]byte(text), &out); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.Keys) < 10 || strings.Join(out.Breakpoints, ",") != "base,md,sm" || len(out.States) != 4 {
@@ -150,7 +150,7 @@ func TestBuilderDesign(t *testing.T) {
 			t.Fatal(text)
 		}
 		out.Presets = nil
-		if err := json.Unmarshal([]byte(text), &out); err != nil {
+		if err := jsonx.Unmarshal([]byte(text), &out); err != nil {
 			t.Fatal(err)
 		}
 	}

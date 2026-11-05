@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -10,6 +9,7 @@ import (
 
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type fakeDuplicator struct {
@@ -33,7 +33,7 @@ func TestEntitiesDuplicateReturnsTheDraft(t *testing.T) {
 		t.Fatalf("entities_duplicate = %v %q (src %v)", isErr, text, f.src)
 	}
 	var out map[string]any
-	if err := json.Unmarshal([]byte(text), &out); err != nil {
+	if err := jsonx.Unmarshal([]byte(text), &out); err != nil {
 		t.Fatal(err)
 	}
 	if out["name"] != "Copy of About" || out["slug"] != "about-copy" || out["status"] != "draft" || out["id"] == "" {

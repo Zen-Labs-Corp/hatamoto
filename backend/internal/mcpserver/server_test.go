@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -230,7 +229,7 @@ func TestPublicError_PageDocErrorsKeepTheirText(t *testing.T) {
 
 func TestEntitySummaryCarriesLocale(t *testing.T) {
 	e := &entity.Entity{ID: uuid.New(), Name: "About", Slug: "about", Locale: "fr", Status: entity.StatusDraft}
-	raw, err := json.Marshal((&Server{}).summary(context.Background(), e, false))
+	raw, err := jsonx.Marshal((&Server{}).summary(context.Background(), e, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,12 +342,12 @@ func TestPlanMenuItemsWarnings(t *testing.T) {
 }
 
 func TestMenuUpdateOutIsFlat(t *testing.T) {
-	b, err := json.Marshal(menuUpdateOut{Menu: &menu.Menu{Name: "Main"}, Warnings: []string{}})
+	b, err := jsonx.Marshal(menuUpdateOut{Menu: &menu.Menu{Name: "Main"}, Warnings: []string{}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
+	if err := jsonx.Unmarshal(b, &m); err != nil {
 		t.Fatal(err)
 	}
 	if m["name"] != "Main" || m["warnings"] == nil {
