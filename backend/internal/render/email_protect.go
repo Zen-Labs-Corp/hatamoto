@@ -18,9 +18,16 @@ var assetName = regexp.MustCompile(`(?i)@\d+x\.(png|jpe?g|gif|webp|avif|svg)$`)
 
 // emailSkipTags hold text that is not shown as prose: code stays literal so a
 // documented address can be copied, and raw-text elements are not markup.
-var emailSkipTags = map[string]bool{
-	"script": true, "style": true, "textarea": true, "title": true,
-	"code": true, "pre": true, "noscript": true,
+var emailSkipTags = [...]string{"script", "style", "textarea", "title", "code", "pre", "noscript"}
+
+// skipIndex is the index of name in emailSkipTags, or -1.
+func skipIndex(name []byte) int {
+	for i, t := range emailSkipTags {
+		if string(name) == t {
+			return i
+		}
+	}
+	return -1
 }
 
 // protectEmails rewrites mailto: hrefs and addresses in page text to numeric
@@ -31,12 +38,12 @@ var emailSkipTags = map[string]bool{
 // pre, comments and everything in <head> stay literal, and only the href of a
 // mailto link is touched among attributes.
 func protectEmails(in []byte) []byte {
-	if !bytes.Contains(in, []byte("@")) && !containsFold(in, "mailto") {
+	if !emailAddr.Match(in) && !containsFold(in, "mailto") {
 		return in
 	}
 	z := html.NewTokenizer(bytes.NewReader(in))
 	out := make([]byte, 0, len(in)+len(in)/8)
-	skip := map[string]int{}
+	var skip [len(emailSkipTags)]int
 	skipping := 0
 	inHead := false
 	for {
@@ -47,31 +54,33 @@ func protectEmails(in []byte) []byte {
 			return append(out, raw...) // an unterminated tag at the end
 		case html.StartTagToken, html.SelfClosingTagToken:
 			name, _ := z.TagName()
-			n := string(name)
-			if n == "head" && tt == html.StartTagToken {
+			if string(name) == "head" && tt == html.StartTagToken {
 				inHead = true
 			}
-			if emailSkipTags[n] && tt == html.StartTagToken {
-				skip[n]++
+			if i := skipIndex(name); i >= 0 && tt == html.StartTagToken {
+				skip[i]++
 				skipping++
 			}
-			if skipping == 0 && !inHead && n == "a" {
+			if skipping == 0 && !inHead && string(name) == "a" {
 				raw = rewriteMailtoHref(raw)
 			}
 			out = append(out, raw...)
 		case html.EndTagToken:
 			name, _ := z.TagName()
-			n := string(name)
-			if n == "head" {
+			if string(name) == "head" {
 				inHead = false
 			}
-			if skip[n] > 0 {
-				skip[n]--
+			if i := skipIndex(name); i >= 0 && skip[i] > 0 {
+				skip[i]--
 				skipping--
 			}
 			out = append(out, raw...)
 		case html.TextToken:
 			if skipping > 0 || inHead {
+				out = append(out, raw...)
+				continue
+			}
+			if bytes.IndexByte(raw, '@') < 0 {
 				out = append(out, raw...)
 				continue
 			}
@@ -194,7 +203,13 @@ func isTagSpace(c byte) bool {
 	return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f'
 }
 
-// containsFold reports whether b holds sub, ignoring ASCII case.
+// containsFold reports whether b holds the lower-case sub, ignoring ASCII
+// case, without copying b.
 func containsFold(b []byte, sub string) bool {
-	return bytes.Contains(bytes.ToLower(b), []byte(sub))
+	for i := 0; i+len(sub) <= len(b); i++ {
+		if b[i]|0x20 == sub[0] && strings.EqualFold(string(b[i:i+len(sub)]), sub) {
+			return true
+		}
+	}
+	return false
 }

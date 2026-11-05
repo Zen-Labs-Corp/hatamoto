@@ -320,6 +320,7 @@ func TestEngineContactInfoLinksAndMap(t *testing.T) {
 	e := newTestEngine(t, Options{})
 	render := func(mapURL string) string {
 		v := minimalView()
+		v.Site.EmailPlain = true // this test reads the literal hrefs
 		v.Sections = []Section{{ID: "c", Type: "contact_info", Content: map[string]any{
 			"phone": "+1 555 0100", "email": "a@b.test", "showMap": true, "mapEmbedUrl": mapURL,
 		}}}

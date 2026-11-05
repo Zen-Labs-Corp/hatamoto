@@ -687,6 +687,9 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	}
 	out = markPreviewChanges(out, v)
 	out = markDraftBanner(out, v)
+	if !editor && !v.Site.EmailPlain {
+		out = protectEmails(out) // last: later steps must not add literal addresses
+	}
 	_, err := w.Write(out)
 	return err
 }
