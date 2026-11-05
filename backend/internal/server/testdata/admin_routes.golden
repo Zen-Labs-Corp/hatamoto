@@ -190,6 +190,7 @@ GET /admin/settings/users/new -> admin.(*Admin).handleUserNew-fm
 GET /admin/settings/users/sign-in -> admin.(*Admin).handleSignIn-fm
 GET /admin/settings/users/{id} -> admin.(*Admin).handleUserEdit-fm
 GET /admin/settings/users/{id}/delete -> admin.(*Admin).handleUserDeleteForm-fm
+GET /admin/settings/versions -> admin.(*Admin).handleVersionRetention-fm
 GET /admin/settings/webhooks -> admin.(*Admin).handleWebhooks-fm
 GET /admin/settings/webhooks/deliveries -> admin.(*Admin).handleWebhookDeliveries-fm
 GET /admin/settings/webhooks/new -> admin.(*Admin).handleWebhookNew-fm
@@ -429,6 +430,7 @@ POST /admin/settings/users/two-factor -> admin.(*Admin).handleTwoFactorPolicy-fm
 POST /admin/settings/users/{id} -> admin.(*Admin).handleUserUpdate-fm
 POST /admin/settings/users/{id}/delete -> admin.(*Admin).handleUserDelete-fm
 POST /admin/settings/users/{id}/reset -> admin.(*Admin).handleUserReset-fm
+POST /admin/settings/versions -> admin.(*Admin).handleVersionRetentionSave-fm
 POST /admin/settings/webhooks -> admin.(*Admin).handleWebhookCreate-fm
 POST /admin/settings/webhooks/deliveries/{id}/retry -> admin.(*Admin).handleWebhookRetry-fm
 POST /admin/settings/webhooks/{id} -> admin.(*Admin).handleWebhookUpdate-fm
