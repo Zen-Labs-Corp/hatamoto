@@ -121,6 +121,7 @@ The admin was reorganised in v1-23a (Settings with its own sections) and again w
 | `/admin/settings/spam` | `<admin>/forms/spam` |
 | `/admin/settings/media...` | `<admin>/media...` |
 | `/admin/settings/contact-button` | `<admin>/theme/contact-button` |
+| `/admin/forms/{id}/edit`, `.../delete` (before v1-23a) | `<admin>/forms/edit/{id}`, `<admin>/forms/delete/{id}` |
 | `/admin/forms/{id}/submissions` | `<admin>/forms/submissions?form={id}` |
 | `/admin/forms/{id}/submissions/{sid}`, and its `status`, `email`, `delete` | `<admin>/forms/submissions/{sid}`, and the same suffixes |
 | `/admin/forms/{id}/submissions/bulk`, `.../export.csv` | `<admin>/forms/submissions/bulk?form={id}`, `<admin>/forms/submissions/export.csv?form={id}` |

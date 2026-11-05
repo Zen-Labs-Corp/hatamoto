@@ -92,9 +92,13 @@ func legacyFormPages(prefix string) func(rest string) (string, url.Values, bool)
 	}
 }
 
-// legacySubmissions rewrites {id}/submissions[/rest] under <prefix>/forms.
+// legacySubmissions rewrites {id}/submissions[/rest] under <prefix>/forms, and
+// the pre-settings {id}/edit and {id}/delete to the form pages.
 func legacySubmissions(prefix, rest string) (string, url.Values, bool) {
 	parts := strings.Split(strings.Trim(rest, "/"), "/")
+	if len(parts) == 2 && (parts[1] == "edit" || parts[1] == "delete") && parts[0] != "" {
+		return prefix + "/forms/" + parts[1] + "/" + parts[0], nil, true
+	}
 	if len(parts) < 2 || parts[1] != "submissions" || parts[0] == "" {
 		return "", nil, false
 	}
