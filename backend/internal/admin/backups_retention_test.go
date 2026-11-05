@@ -2,6 +2,7 @@ package admin
 
 import (
 	"fmt"
+	"hatamoto.dev/core/internal/admin/a11y"
 	"net/url"
 	"strings"
 	"testing"
@@ -31,13 +32,61 @@ func postRetention(g *backupsRig, f url.Values) (code int, body string, loc stri
 	return rec.Code, rec.Body.String(), rec.Header().Get("Location")
 }
 
+func (g *backupsRig) getRetention(t *testing.T) string {
+	t.Helper()
+	rec := g.do("GET", backupsPath+"/retention", "owner-token", nil, nil)
+	if rec.Code != 200 {
+		t.Fatalf("GET retention = %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+	return body
+}
+
 func TestRetentionCardShowsCounts(t *testing.T) {
 	t.Parallel()
-	body := newBackupsRig(t, baseBackups()).get(t)
-	for _, w := range []string{`id="retention"`, `action="/admin/settings/backups/retention"`, "Backups to keep", `name="manual" value="10"`, `name="pre_update" value="5"`, `name="scheduled" value="7"`} {
+	g := newBackupsRig(t, baseBackups())
+	body := g.getRetention(t)
+	for _, w := range []string{`id="retention-form"`, `action="/admin/settings/backups/retention"`, "<h1>Backups to keep</h1>", `name="manual" value="10"`, `name="pre_update" value="5"`, `name="scheduled" value="7"`,
+		`type="submit"`, `href="/admin/settings/backups"`, "Cancel", `aria-label="Breadcrumb"`} {
 		if !strings.Contains(body, w) {
 			t.Errorf("page lacks %q", w)
 		}
+	}
+	// the trail leads back to Settings > Backups and ends on this page
+	if i, j := strings.Index(body, `>Backups</a>`), strings.LastIndex(body, "Backups to keep"); i < 0 || i > j {
+		t.Errorf("breadcrumb does not lead through Backups (%d, %d)", i, j)
+	}
+	compareGolden(t, "pages/settings-backups-retention.html", normalizePage(body))
+
+	list := g.get(t)
+	for _, w := range []string{`href="/admin/settings/backups/retention"`, `<span class="hm-menu__hint">How many of each kind stay</span>`, "Backups to keep"} {
+		if !strings.Contains(list, w) {
+			t.Errorf("Backups page lacks %q", w)
+		}
+	}
+	for _, x := range []string{`id="retention"`, `id="retention-form"`} {
+		if strings.Contains(list, x) {
+			t.Errorf("Backups page has %q", x)
+		}
+	}
+	if !strings.Contains(list, "Keeping the last 10 manual, 5 pre-update and 7 scheduled backups.") {
+		t.Error("the Keeping line changed")
+	}
+}
+
+func TestRetentionPageOwnerOnly(t *testing.T) {
+	t.Parallel()
+	g := newBackupsRig(t, baseBackups())
+	for _, m := range []string{"GET", "POST"} {
+		if rec := g.do(m, backupsPath+"/retention", "editor-token", retentionForm("10", "5", "7"), nil); rec.Code != 403 {
+			t.Errorf("editor %s = %d, want 403", m, rec.Code)
+		}
+	}
+	if rec := g.do("GET", backupsPath+"/retention", "", nil, nil); rec.Code != 303 {
+		t.Errorf("anonymous = %d, want 303", rec.Code)
 	}
 }
 
@@ -48,7 +97,7 @@ func TestRetentionSaveNoDeleteSavesDirect(t *testing.T) {
 	f.retDeleted = map[string]int{}
 	g := newBackupsRig(t, f)
 	code, _, loc := postRetention(g, retentionForm("12", "5", "7"))
-	if code != 303 || loc != backupsPath+"#retention" {
+	if code != 303 || loc != backupsPath {
 		t.Fatalf("save = %d %s", code, loc)
 	}
 	if len(f.retSaved) != 1 || f.retSaved[0][BackupManual] != 12 || len(f.retSaved[0]) != 3 {
@@ -81,6 +130,9 @@ func TestRetentionSaveConfirmFlow(t *testing.T) {
 			t.Errorf("confirm lacks %q", w)
 		}
 	}
+	if !strings.Contains(body, `href="/admin/settings/backups/retention"`) {
+		t.Error("confirm Back does not lead to the retention page")
+	}
 	compareGolden(t, "pages/settings-backups-retention-confirm.html", normalizePage(body))
 
 	// Rows change after the confirm page was shown: the confirmed post must not delete, it shows the new count.
@@ -96,7 +148,7 @@ func TestRetentionSaveConfirmFlow(t *testing.T) {
 
 	// The confirmed post, with the counts shown, saves and prunes.
 	code, _, loc := postRetention(g, retentionForm("2", "5", "7", "confirm", "1", "expect_manual", "4"))
-	if code != 303 || loc != backupsPath+"#retention" {
+	if code != 303 || loc != backupsPath {
 		t.Fatalf("confirmed save = %d %s", code, loc)
 	}
 	if len(f.retSaved) != 1 || f.retSaved[0][BackupManual] != 2 {
@@ -115,7 +167,7 @@ func TestRetentionPruneFailureAfterSaveIsAuditedAndFlashed(t *testing.T) {
 	f.retErr = fmt.Errorf("%w: disk error", ErrRetentionPrune)
 	g := newBackupsRig(t, f)
 	code, _, loc := postRetention(g, retentionForm("2", "5", "7", "confirm", "1", "expect_manual", "1"))
-	if code != 303 || loc != backupsPath+"#retention" {
+	if code != 303 || loc != backupsPath {
 		t.Fatalf("save = %d %s, want the redirect back with a flash", code, loc)
 	}
 	if len(g.events) != 1 || g.events[0].Action != "backups.retention" || g.events[0].Detail["error"] != "prune_failed" || g.events[0].Detail["deleted"] != 1 {
@@ -131,7 +183,7 @@ func TestRetentionDeferredWhileBackupRunsIsAuditedAndWarned(t *testing.T) {
 	f.retErr = ErrRetentionDeferred
 	g := newBackupsRig(t, f)
 	code, _, loc := postRetention(g, retentionForm("2", "5", "7", "confirm", "1", "expect_manual", "1"))
-	if code != 303 || loc != backupsPath+"#retention" {
+	if code != 303 || loc != backupsPath {
 		t.Fatalf("save = %d %s", code, loc)
 	}
 	if len(f.retSaved) != 1 {
@@ -165,6 +217,9 @@ func TestRetentionValidation422(t *testing.T) {
 			if code != 422 || !strings.Contains(body, "Choose a number from 1 to 50.") {
 				t.Fatalf("code = %d", code)
 			}
+			if !strings.Contains(body, "<h1>Backups to keep</h1>") || !strings.Contains(body, "Cancel") {
+				t.Error("the 422 is not the Backups to keep page")
+			}
 			if bad != "" && !strings.Contains(body, fmt.Sprintf(`name="pre_update" value=%q`, bad)) {
 				t.Errorf("input not echoed")
 			}
@@ -187,7 +242,7 @@ func TestRetentionLockedIgnored(t *testing.T) {
 	f.state.Rows = okBackups(BackupScheduled, 9)
 	g := newBackupsRig(t, f)
 
-	body := g.get(t)
+	body := g.getRetention(t)
 	for _, w := range []string{"Set by HATAMOTO_BACKUP_KEEP_SCHEDULED. Change it in the server config.", `readonly`, `name="scheduled" value="9"`} {
 		if !strings.Contains(body, w) {
 			t.Errorf("page lacks %q", w)
@@ -217,37 +272,30 @@ func TestRetentionNonServiceHidesForm(t *testing.T) {
 	g := newBackupsRig(t, f)
 	g.a.deps.Backups = struct{ BackupsService }{f}
 	body := g.get(t)
-	if strings.Contains(body, "Backups to keep") || strings.Contains(body, `id="retention"`) {
-		t.Error("the form shows without a RetentionService")
+	if strings.Contains(body, "Backups to keep") || strings.Contains(body, `id="retention`) || strings.Contains(body, "hm-overflow") {
+		t.Error("the retention form or menu item shows without a RetentionService")
 	}
 	if !strings.Contains(body, "Keeping the last 10 manual") {
 		t.Error("the Keeping line is gone")
+	}
+	if rec := g.do("GET", backupsPath+"/retention", "owner-token", nil, nil); rec.Code != 503 || !strings.Contains(rec.Body.String(), "Backup retention is not available") {
+		t.Errorf("GET retention = %d", rec.Code)
 	}
 	if code, _, _ := postRetention(g, retentionForm("10", "5", "7")); code == 303 {
 		t.Error("a save succeeded without a service")
 	}
 }
 
-func TestRetentionFormOutsideLive(t *testing.T) {
+func TestRetentionFormNotOnBackupsPage(t *testing.T) {
 	t.Parallel()
 	f := baseBackups()
 	f.state.Rows, f.state.Running = backupRows(), true
-	body := newBackupsRig(t, f).get(t)
-	form, live := strings.Index(body, `id="retention"`), strings.Index(body, `id="backups-live"`)
-	end := strings.Index(body[live:], `<p class="hm-muted">Dates are in`)
-	if form < 0 || live < 0 || end < 0 {
-		t.Fatalf("markers missing: %d %d %d", form, live, end)
+	if body := newBackupsRig(t, f).get(t); strings.Contains(body, `id="retention`) {
+		t.Error("the Backups page, whose live panel polls, has the retention form")
 	}
-	if form > live && form < live+end {
-		t.Error("the retention form is inside #backups-live, so polling would replace it")
-	}
-}
-
-func TestRetentionOffsite422KeepsCard(t *testing.T) {
-	t.Parallel()
 	g := newOffsiteRig(t, &fakeOffsite{view: defaultOffsiteView()})
 	rec := g.do("POST", backupsPath+"/offsite", "owner-token", offsiteForm(url.Values{"keep": {"0"}}), nil)
-	if rec.Code != 422 || !strings.Contains(rec.Body.String(), `id="retention"`) {
-		t.Errorf("offsite 422 = %d, retention card kept = %v", rec.Code, strings.Contains(rec.Body.String(), `id="retention"`))
+	if rec.Code != 422 || strings.Contains(rec.Body.String(), `id="retention`) {
+		t.Errorf("offsite 422 = %d, has retention form = %v", rec.Code, strings.Contains(rec.Body.String(), `id="retention`))
 	}
 }

@@ -145,7 +145,6 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-10", File: "pages/profile/security.html", Needle: `profile/security/codes">`, Reason: "Get new codes, a row action of the recovery codes card and not a create form"},
 	{Rule: "UI-10", File: "pages/media/list.html", Needle: `id="image-formats-form"`, Reason: "the Image formats settings card above the library, a settings form and not a create form; the files table is a separate card"},
 	{Rule: "UI-10", File: "pages/media/list.html", Needle: `id="rebuild-form"`, Reason: "Rebuild copies, a card action that starts a background job and takes no input, so there is nothing to put in a dialog"},
-	{Rule: "UI-10", File: "pages/settings/backups.html", Needle: `id="retention-form"`, Reason: "the Backups to keep settings card beside the backups list, a settings form and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/backups.html", Needle: `id="offsite-form"`, Reason: "the Off-site copy settings card beside the backups list, a settings form and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/backups.html", Needle: `id="offsite-run-form"`, Reason: "Back up and upload now, a card action that starts a background job and takes no input"},
 	{Rule: "UI-10", File: "pages/settings/backups.html", Needle: `id="backup-form"`, Reason: "Back up now, a header action that starts a background job and takes no input, so there is nothing to put in a dialog"},

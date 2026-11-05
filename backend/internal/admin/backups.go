@@ -99,8 +99,9 @@ type backupsData struct {
 	Progress ui.Progress // the running backup, shown while Running
 	PollURL  string
 	Offsite  *offsiteData // nil when off-site backups are not wired
-	// Retention is the counts form; nil when the engine cannot change them.
-	Retention *retentionData
+	// Overflow is the header's more menu: the Backups to keep link, only when
+	// the engine can change the counts.
+	Overflow []ui.Action
 }
 
 // validBackupID is the shape of a backup id (a UTC time and the kind). Every
@@ -117,6 +118,7 @@ func (a *Admin) mountBackupsSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET /settings/backups/{id}/download", a.handleBackupDownload)
 	owner.HandleFunc("GET /settings/backups/{id}/delete", a.handleBackupDeleteConfirm)
 	owner.HandleFunc("POST /settings/backups/{id}/delete", a.handleBackupDelete)
+	owner.HandleFunc("GET /settings/backups/retention", a.handleRetentionPage)
 	owner.HandleFunc("POST /settings/backups/retention", a.handleRetentionSave)
 	a.mountOffsite(owner)
 }
@@ -303,22 +305,15 @@ func (a *Admin) offsiteCardOrError(w http.ResponseWriter, r *http.Request) (*off
 }
 
 func (a *Admin) renderBackups(w http.ResponseWriter, r *http.Request, status int, st BackupsState, of *offsiteData) {
-	var ret *retentionData
-	if rs := a.retentionService(); rs != nil {
-		ret = retentionCard(rs.Retention(), nil, nil)
-	}
-	a.renderBackupsWith(w, r, status, st, of, ret)
-}
-
-// renderBackupsWith is renderBackups with the retention card already built, so
-// a rejected save can show the posted values.
-func (a *Admin) renderBackupsWith(w http.ResponseWriter, r *http.Request, status int, st BackupsState, of *offsiteData, ret *retentionData) {
 	loc := a.siteLocation(r.Context())
 	d := backupsData{
 		Zone:    loc.String(),
 		Keeping: keepingLine(st),
 		Table:   a.backupsTable(st.Rows, loc),
-		Offsite: of, Retention: ret,
+		Offsite: of,
+	}
+	if a.retentionService() != nil {
+		d.Overflow = []ui.Action{{Label: "Backups to keep", Hint: "How many of each kind stay", Href: a.adminPath + backupsRel + "/retention"}}
 	}
 	if st.FreeBytes > 0 {
 		d.FreeDisk = "Free disk: " + backupSize(int64(st.FreeBytes)) + "."

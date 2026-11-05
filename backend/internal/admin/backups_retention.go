@@ -144,6 +144,34 @@ func deletesSentence(drops map[string]int) string {
 	return "This deletes " + strings.Join(parts, ", ") + " (the oldest). They cannot be recovered."
 }
 
+// retentionPage is the data of the Backups to keep page: the form and where
+// Cancel goes.
+type retentionPage struct {
+	*retentionData
+	Cancel string
+}
+
+func (a *Admin) renderRetentionPage(w http.ResponseWriter, r *http.Request, status int, d *retentionData) {
+	v := a.NewView(w, r, "Backups to keep")
+	v.Section, v.Tab, v.Width = "backups", "backups", "narrow"
+	v.Crumbs = a.areaCrumbs("backups", Crumb{Label: "Backups to keep"})
+	v.Data = retentionPage{retentionData: d, Cancel: a.adminPath + backupsRel}
+	a.Render(w, r, status, "settings/backups_retention", v)
+}
+
+func (a *Admin) handleRetentionPage(w http.ResponseWriter, r *http.Request) {
+	if a.deps.Backups == nil {
+		a.unavailable(w, r, "Backups")
+		return
+	}
+	rs := a.retentionService()
+	if rs == nil {
+		a.unavailable(w, r, "Backup retention")
+		return
+	}
+	a.renderRetentionPage(w, r, http.StatusOK, retentionCard(rs.Retention(), nil, nil))
+}
+
 func (a *Admin) handleRetentionSave(w http.ResponseWriter, r *http.Request) {
 	if a.deps.Backups == nil {
 		a.unavailable(w, r, "Backups")
@@ -177,11 +205,7 @@ func (a *Admin) handleRetentionSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(errs) > 0 {
-		of, ok := a.offsiteCardOrError(w, r)
-		if !ok {
-			return
-		}
-		a.renderBackupsWith(w, r, http.StatusUnprocessableEntity, st, of, retentionCard(view, r.PostForm, errs))
+		a.renderRetentionPage(w, r, http.StatusUnprocessableEntity, retentionCard(view, r.PostForm, errs))
 		return
 	}
 	// A confirmed post only counts when what would be deleted now is what the
@@ -190,7 +214,7 @@ func (a *Admin) handleRetentionSave(w http.ResponseWriter, r *http.Request) {
 		d := confirmData{
 			Title: "Keep fewer backups?", Label: "Delete and save", Danger: true,
 			Message: deletesSentence(drops),
-			Post:    a.adminPath + backupsRel + "/retention", Back: a.adminPath + backupsRel + "#retention",
+			Post:    a.adminPath + backupsRel + "/retention", Back: a.adminPath + backupsRel + "/retention",
 			Hidden: []hiddenField{{Name: "confirm", Value: "1"}},
 		}
 		for _, k := range retentionKinds {
@@ -235,5 +259,5 @@ func (a *Admin) handleRetentionSave(w http.ResponseWriter, r *http.Request) {
 	default:
 		a.SetFlash(w, r, "success", "Backup retention saved.")
 	}
-	http.Redirect(w, r, a.adminPath+backupsRel+"#retention", http.StatusSeeOther)
+	http.Redirect(w, r, a.adminPath+backupsRel, http.StatusSeeOther)
 }
