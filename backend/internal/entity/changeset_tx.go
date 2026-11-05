@@ -301,8 +301,8 @@ func (s *Service) updateTx(ctx context.Context, tx pgx.Tx, op TxOp, cur *entityS
 	}
 
 	if changed {
-		if _, err := tx.Exec(ctx, `INSERT INTO hatamoto_entity_versions (entity_id, version, attributes) VALUES ($1, $2, $3)`,
-			cur.ID, cur.Version, cur.Attributes); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO hatamoto_entity_versions (entity_id, version, attributes, live_at) VALUES ($1, $2, $3, `+liveAtExprFor("$4")+`)`,
+			cur.ID, cur.Version, cur.Attributes, cur.Status); err != nil {
 			return TxResult{}, fmt.Errorf("failed to create version snapshot: %w", err)
 		}
 	}
@@ -384,15 +384,16 @@ func (s *Service) RestoreChangesetTx(ctx context.Context, tx pgx.Tx, id uuid.UUI
 	// snapshotted and the version moves on.
 	var curVersion int
 	var curAttrs jsontext.Value
-	switch err := sp.QueryRow(ctx, `SELECT version, attributes FROM hatamoto_entities WHERE id = $1 FOR UPDATE`, id).Scan(&curVersion, &curAttrs); {
+	var curStatus string
+	switch err := sp.QueryRow(ctx, `SELECT version, attributes, status FROM hatamoto_entities WHERE id = $1 FOR UPDATE`, id).Scan(&curVersion, &curAttrs, &curStatus); {
 	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
 		return fmt.Errorf("failed to read entity: %w", err)
 	default:
 		changed := !jsonRawEqual(curAttrs, snap.Attributes)
 		if changed {
-			if _, err := sp.Exec(ctx, `INSERT INTO hatamoto_entity_versions (entity_id, version, attributes) VALUES ($1, $2, $3)`,
-				id, curVersion, curAttrs); err != nil {
+			if _, err := sp.Exec(ctx, `INSERT INTO hatamoto_entity_versions (entity_id, version, attributes, live_at) VALUES ($1, $2, $3, `+liveAtExprFor("$4")+`)`,
+				id, curVersion, curAttrs, curStatus); err != nil {
 				return fmt.Errorf("failed to create version snapshot: %w", err)
 			}
 		}
