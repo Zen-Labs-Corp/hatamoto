@@ -176,3 +176,29 @@ func TestReplaceUnknownID(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// failingUpdateFile makes the row update of a Replace fail.
+type failingUpdateFile struct{ Repository }
+
+func (failingUpdateFile) UpdateFile(context.Context, *Media) error { return errors.New("db down") }
+
+func TestReplaceRowFailureRestoresTheOldCopies(t *testing.T) {
+	svc := newTestService(t, Config{MaxPixels: defaultMaxPixels})
+	m := uploadTest(t, svc, "a.png", pngBytes(t, 1200, 800))
+	if len(m.Variants) == 0 {
+		t.Fatal("no variants to protect")
+	}
+	before := map[string][]byte{}
+	for _, v := range m.Variants {
+		before[v.Path] = readStored(t, svc, v.Path)
+	}
+	svc.repo = failingUpdateFile{svc.repo}
+	if _, err := replaceTest(svc, m, "a.png", pngBytes(t, 1300, 900)); err == nil {
+		t.Fatal("want the row failure")
+	}
+	for p, want := range before {
+		if got, err := os.ReadFile(filepath.Join(svc.config.UploadDir, p)); err != nil || !bytes.Equal(got, want) {
+			t.Errorf("%s was not restored: %v", p, err)
+		}
+	}
+}

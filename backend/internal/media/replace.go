@@ -19,10 +19,10 @@ import (
 // links and embeds keep working. The new content must be the same kind of file
 // (its sniffed type has to fit the stored file name's extension), an svg is
 // sanitised, quota is checked on the size difference, and the variants are
-// rebuilt. The old copies are removed only after the row names the new ones
-// and the change observer (which purges cached pages) has run. Browsers and a
-// CDN may keep the old bytes until the one-day cache revalidates; the render
-// layer's variant lookup cache has a one-minute TTL, which is accepted.
+// rebuilt. The old copies are set aside while the new ones are written and put
+// back if the swap fails; they are removed only after the row names the new
+// ones. Browsers and a CDN may keep the old bytes until the one-day cache
+// revalidates.
 func (s *Service) Replace(ctx context.Context, id uuid.UUID, file io.Reader, filename string, size int64) (*Media, error) {
 	maxBytes := int64(s.config.MaxSizeMB) * 1024 * 1024
 	if size > maxBytes {
@@ -84,6 +84,21 @@ func (s *Service) Replace(ctx context.Context, id uuid.UUID, file io.Reader, fil
 		return nil, ErrFileTooLarge
 	}
 
+	// The live copies are moved aside while the new ones are written (they
+	// share their names), and put back unless the swap completes.
+	asideTag := "." + uuid.NewString() + ".old"
+	var aside []string
+	swapped := false
+	defer func() {
+		if swapped {
+			return
+		}
+		for _, p := range aside {
+			s.removeBlob(ctx, p)
+			_ = s.local.rename(p+asideTag, p)
+		}
+	}()
+
 	nm := *m
 	nm.MimeType, nm.FileSize = sniffed, written
 	nm.Width, nm.Height, nm.Variants, nm.Cleaned = nil, nil, []ImageVariant{}, cleaned
@@ -96,6 +111,11 @@ func (s *Service) Replace(ctx context.Context, id uuid.UUID, file io.Reader, fil
 			nm.Width, nm.Height = &w, &h
 		}
 		if nm.SupportsVariants() {
+			for _, v := range m.Variants {
+				if err := s.local.rename(v.Path, v.Path+asideTag); err == nil {
+					aside = append(aside, v.Path)
+				}
+			}
 			variants, err := s.createVariants(ctx, &nm, tmpPath)
 			if errors.Is(err, ErrImageTooLarge) {
 				return nil, err
@@ -132,8 +152,12 @@ func (s *Service) Replace(ctx context.Context, id uuid.UUID, file io.Reader, fil
 		}
 		return nil, err
 	}
+	swapped = true
 	if hadOld {
 		s.removeBlob(ctx, backupKey)
+	}
+	for _, p := range aside {
+		s.removeBlob(ctx, p+asideTag)
 	}
 
 	// Copies the new list no longer names are dropped after cached pages have
