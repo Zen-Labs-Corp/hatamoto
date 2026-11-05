@@ -17,17 +17,17 @@ const second = path.join(dir, "qa-mark-2.svg");
 fs.writeFileSync(first, svg("red"));
 fs.writeFileSync(second, svg("blue"));
 
-await p.goto(`${base}${admin}/settings/media/new`);
+await p.goto(`${base}${admin}/media/new`);
 await p.setInputFiles('input[type=file][name=file]', first);
 await Promise.all([p.waitForNavigation(), p.locator('form[action$="/media/upload"] button[type=submit]').first().click()]);
 ok((await p.textContent("body")).includes("was cleaned"), "the upload says what was removed");
 
-await p.goto(`${base}${admin}/settings/media?q=qa-mark`);
+await p.goto(`${base}${admin}/media?q=qa-mark`);
 await p.locator('a[href*="/media/"]').filter({ hasText: /qa-mark/ }).first().click();
 const detail = p.url();
 await p.fill("#new_folder", "QA Folder");
 await Promise.all([p.waitForNavigation(), p.locator('button[type=submit]', { hasText: /^Save/ }).first().click()]);
-await p.goto(`${base}${admin}/settings/media?folder=QA+Folder`);
+await p.goto(`${base}${admin}/media?folder=QA+Folder`);
 ok((await p.textContent("body")).includes("qa-mark"), "the folder filter lists the file");
 
 await p.goto(detail);
