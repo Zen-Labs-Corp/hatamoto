@@ -2,7 +2,7 @@ package changeset
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"reflect"
@@ -11,6 +11,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // MaxStandingPerHour is the ceiling of the hourly cap of a standing policy, and
@@ -241,7 +243,7 @@ func checkStandingItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it Stor
 		return "its type is not covered by the rule."
 	}
 	var pl entityPayload
-	if json.Unmarshal(it.Payload, &pl) != nil {
+	if jsonx.Unmarshal(it.Payload, &pl, jsonx.StoredLoose) != nil {
 		return "it could not be read."
 	}
 	liveParent := ""
@@ -280,9 +282,9 @@ func checkStandingAttributes(p StandingPolicy, schemaDoc, liveRaw, newRaw []byte
 		return "its values could not be read."
 	}
 	var props struct {
-		Properties map[string]json.RawMessage `json:"properties"`
+		Properties map[string]jsontext.Value `json:"properties"`
 	}
-	if json.Unmarshal(schemaDoc, &props) != nil {
+	if jsonx.Unmarshal(schemaDoc, &props, jsonx.StoredLoose) != nil {
 		return "its type could not be read."
 	}
 	keys := map[string]bool{}
@@ -320,7 +322,7 @@ func decodeObject(raw []byte) (map[string]any, bool) {
 		return nil, false
 	}
 	var m map[string]any
-	if json.Unmarshal(raw, &m) != nil {
+	if jsonx.Unmarshal(raw, &m, jsonx.StoredLoose) != nil {
 		return nil, false
 	}
 	return m, true
@@ -329,13 +331,13 @@ func decodeObject(raw []byte) (map[string]any, bool) {
 // safeScalar reports whether v is a value of a property the policy may touch:
 // the schema declares one plain type, and v is that type (and, for a fixed
 // choice, one of the choices).
-func safeScalar(def json.RawMessage, v any) bool {
+func safeScalar(def jsontext.Value, v any) bool {
 	var d struct {
 		Type   string `json:"type"`
 		Format string `json:"format"`
 		Enum   []any  `json:"enum"`
 	}
-	if json.Unmarshal(def, &d) != nil {
+	if jsonx.Unmarshal(def, &d, jsonx.StoredLoose) != nil {
 		return false
 	}
 	if len(d.Enum) > 0 {

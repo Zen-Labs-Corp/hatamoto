@@ -2,12 +2,14 @@ package changeset
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -96,7 +98,7 @@ func loadUnclassified(ctx context.Context, tx pgx.Tx, csID int64, afterSeq int) 
 		if err := rows.Scan(&it.ID, &it.Seq, &kind, &it.Op, &it.SourceKey, &it.TargetID, &payload); err != nil {
 			return nil, err
 		}
-		it.Kind, it.Payload = Kind(kind), json.RawMessage(payload)
+		it.Kind, it.Payload = Kind(kind), jsontext.Value(payload)
 		out = append(out, it)
 	}
 	return out, rows.Err()
@@ -132,7 +134,7 @@ func loadLive(ctx context.Context, tx rowQuerier, origin string, it StoredItem) 
 	if parent != nil {
 		l.ParentID = *parent
 	}
-	l.Attributes = json.RawMessage(attrs)
+	l.Attributes = jsontext.Value(attrs)
 	return &l, nil
 }
 
@@ -151,7 +153,7 @@ func loadEnv(ctx context.Context, tx pgx.Tx, csID int64) (Env, error) {
 			return env, err
 		}
 		var v any
-		if json.Unmarshal(attrs, &v) != nil {
+		if jsonx.Unmarshal(attrs, &v, jsonx.StoredLoose) != nil {
 			continue
 		}
 		for _, l := range scanStrings(v).links {

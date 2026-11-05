@@ -1,12 +1,14 @@
 package changeset
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"regexp"
 	"strings"
 
 	"golang.org/x/net/html"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Risk is how closely a person must look at an item before it publishes.
@@ -41,7 +43,7 @@ const (
 type Live struct {
 	Slug       string
 	ParentID   string
-	Attributes json.RawMessage
+	Attributes jsontext.Value
 }
 
 // Env is the site context an item is judged in: the hosts the site already
@@ -75,7 +77,7 @@ func Classify(it Item, live *Live, env Env) Verdict {
 	switch it.Kind {
 	case KindRedirect:
 		var p redirectPayload
-		if json.Unmarshal(it.Payload, &p) != nil {
+		if jsonx.Unmarshal(it.Payload, &p, jsonx.StoredLoose) != nil {
 			return high(ReasonUnparseable)
 		}
 		return Verdict{Risk: RiskHigh, Reason: ReasonRedirect, Ref: env.StagedPaths[p.Target]}
@@ -92,7 +94,7 @@ func Classify(it Item, live *Live, env Env) Verdict {
 				URL *string `json:"url"`
 			} `json:"items"`
 		}
-		if json.Unmarshal(it.Payload, &p) != nil {
+		if jsonx.Unmarshal(it.Payload, &p, jsonx.StoredLoose) != nil {
 			return high(ReasonUnparseable)
 		}
 		for _, mi := range p.Items {
@@ -111,19 +113,19 @@ func Classify(it Item, live *Live, env Env) Verdict {
 func classifyEntity(it Item, live *Live, env Env) Verdict {
 	high := func(r RiskReason) Verdict { return Verdict{Risk: RiskHigh, Reason: r} }
 	var p struct {
-		Name       string          `json:"name"`
-		Slug       string          `json:"slug"`
-		ParentID   string          `json:"parent_id"`
-		ParentKey  string          `json:"parent_key"`
-		Attributes json.RawMessage `json:"attributes"`
-		SEO        *EntitySEO      `json:"seo"`
+		Name       string         `json:"name"`
+		Slug       string         `json:"slug"`
+		ParentID   string         `json:"parent_id"`
+		ParentKey  string         `json:"parent_key"`
+		Attributes jsontext.Value `json:"attributes"`
+		SEO        *EntitySEO     `json:"seo"`
 	}
-	if json.Unmarshal(it.Payload, &p) != nil {
+	if jsonx.Unmarshal(it.Payload, &p, jsonx.StoredLoose) != nil {
 		return high(ReasonUnparseable)
 	}
 	var attrs any
 	if len(p.Attributes) > 0 && string(p.Attributes) != "null" {
-		if !isJSONObject(p.Attributes) || json.Unmarshal(p.Attributes, &attrs) != nil {
+		if !isJSONObject(p.Attributes) || jsonx.Unmarshal(p.Attributes, &attrs, jsonx.StoredLoose) != nil {
 			return high(ReasonUnparseable)
 		}
 	}
@@ -133,7 +135,7 @@ func classifyEntity(it Item, live *Live, env Env) Verdict {
 			return high(ReasonSlug)
 		}
 		var la any
-		if len(live.Attributes) > 0 && json.Unmarshal(live.Attributes, &la) == nil {
+		if len(live.Attributes) > 0 && jsonx.Unmarshal(live.Attributes, &la, jsonx.StoredLoose) == nil {
 			liveLinks = scanStrings(la).links
 		}
 	}
