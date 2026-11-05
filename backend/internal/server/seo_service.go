@@ -366,7 +366,7 @@ func seoApplySection(set *seo.Settings, name string, raw jsontext.Value) error {
 }
 
 // seoApplyAdsText sets an ads.txt body from a JSON string, normalised like the admin save.
-func seoApplyAdsText(raw json.RawMessage, dst *string) error {
+func seoApplyAdsText(raw jsontext.Value, dst *string) error {
 	var text string
 	if err := decodeStrict(raw, &text); err != nil {
 		return err
