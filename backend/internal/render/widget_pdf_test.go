@@ -96,7 +96,7 @@ func TestPDFWidgetRefusesForeignSources(t *testing.T) {
 // An absolute https address (a CDN media base URL) is a plain link, never a frame.
 func TestPDFWidgetRemoteHTTPSIsLinkOnly(t *testing.T) {
 	out := renderPDF(t, nil, map[string]any{"src": "https://cdn.example.org/media/a.pdf"}, false)
-	if strings.Contains(out, "<iframe") || strings.Contains(out, "download") || strings.Contains(out, "Can't see it") || strings.Contains(out, "Opens in the viewer") || !strings.Contains(out, `href="https://cdn.example.org/media/a.pdf"`) {
+	if strings.Contains(out, "<iframe") || strings.Contains(out, "download") || strings.Contains(out, "Can't see it") || !strings.Contains(out, `href="https://cdn.example.org/media/a.pdf"`) {
 		t.Errorf("remote: %s", out)
 	}
 }
@@ -173,7 +173,7 @@ func TestPDFWidgetSandboxedDocumentHasLinkOnly(t *testing.T) {
 	}
 	out := mainInner(t, b.String())
 	// a sandboxed document has no allow-downloads: download would kill the link
-	if strings.Contains(out, "<iframe") || strings.Contains(out, "download") || strings.Contains(out, "Can't see it") || strings.Contains(out, "Opens in the viewer") || !strings.Contains(out, `href="/media/b.pdf"`) {
+	if strings.Contains(out, "<iframe") || strings.Contains(out, "download") || strings.Contains(out, "Can't see it") || !strings.Contains(out, `href="/media/b.pdf"`) {
 		t.Errorf("sandboxed: %s", out)
 	}
 }

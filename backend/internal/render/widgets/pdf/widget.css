@@ -14,9 +14,6 @@
   font-size: 0.875em;
   color: var(--hm-muted-text, #555);
 }
-.hm-pdf__hint {
-  display: none;
-}
 .hm-pdf__ph {
   display: grid;
   place-items: center;
@@ -34,12 +31,6 @@
   }
   .hm-pdf__pre {
     display: none;
-  }
-  .hm-pdf__hint {
-    display: block;
-    margin-top: var(--hm-space-2, 0.5rem);
-    font-size: 0.875em;
-    color: var(--hm-muted-text, #555);
   }
   .hm-pdf__link {
     display: block;
