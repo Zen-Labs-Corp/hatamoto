@@ -15,13 +15,13 @@ type BootKind struct {
 	Group string     `json:"group,omitempty"`
 	Seed  []SeedNode `json:"seed,omitempty"`
 	// Hidden kinds (ref, slot) are not offered by the stock palette.
-	Hidden bool `json:"hidden,omitempty"`
+	Hidden bool `json:"hidden,omitzero"`
 	// Display is the kind's default CSS display (see KindInfo.Display).
 	Display string `json:"display,omitempty"`
 	// Universal lists the element-setting props (anchor, aria, tip, ...) the kind takes.
 	Universal []string `json:"u,omitempty"`
 	// Interactive kinds may not sit inside a linked container (the editor checks it before saving).
-	Interactive bool `json:"ia,omitempty"`
+	Interactive bool `json:"ia,omitzero"`
 	// OnlyIn is the one parent kind the kind may sit under; set by BootKinds(true) only.
 	OnlyIn string `json:"onlyIn,omitempty"`
 }
@@ -33,10 +33,10 @@ type BootProp struct {
 	Enum     []any    `json:"enum,omitempty"`
 	Min      *float64 `json:"min,omitempty"`
 	Max      *float64 `json:"max,omitempty"`
-	Required bool     `json:"required,omitempty"`
+	Required bool     `json:"required,omitzero"`
 	// Widget is the inspector control hint, MaxLength the string limit.
 	Widget    string `json:"widget,omitempty"`
-	MaxLength int    `json:"maxLength,omitempty"`
+	MaxLength int    `json:"maxLength,omitzero"`
 	// Bind is the class of source the prop accepts (text, url, image), empty when it cannot be bound.
 	Bind string `json:"bind,omitempty"`
 	// Pattern is the regular expression a string value must match.

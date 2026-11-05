@@ -51,7 +51,7 @@ type State struct {
 	Total     int       `json:"total"`
 	Done      int       `json:"done"`
 	// SkippedCount counts every skipped image; Skipped lists the first few.
-	SkippedCount int       `json:"skipped_count,omitempty"`
+	SkippedCount int       `json:"skipped_count,omitzero"`
 	Skipped      []Skipped `json:"skipped,omitempty"`
 	// Cursor is the id of the last image handled; the run continues after it.
 	Cursor uuid.UUID `json:"cursor"`

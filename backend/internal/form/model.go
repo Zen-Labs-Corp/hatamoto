@@ -182,8 +182,8 @@ type UpdateSubmissionInput struct {
 // ListSubmissionsParams represents parameters for listing submissions.
 type ListSubmissionsParams struct {
 	Status string `json:"status,omitempty"`
-	Limit  int    `json:"limit,omitempty"`
-	Offset int    `json:"offset,omitempty"`
+	Limit  int    `json:"limit,omitzero"`
+	Offset int    `json:"offset,omitzero"`
 	// After continues a listing after this submission (keyset paging, newest
 	// first): rows are neither repeated nor skipped when new ones arrive. It
 	// replaces Offset and skips the total count.

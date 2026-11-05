@@ -22,8 +22,8 @@ var Retention404Options = []int{30, 90, 180, 365}
 // behaviour: logging on, 90 days, nothing ignored. Logging is stored as an
 // inverse flag so documents saved before this key existed keep logging.
 type Monitor404 struct {
-	Disabled       bool     `json:"disabled,omitempty"`
-	RetentionDays  int      `json:"retention_days,omitempty"` // 0 => DefaultRetention404
+	Disabled       bool     `json:"disabled,omitzero"`
+	RetentionDays  int      `json:"retention_days,omitzero"` // 0 => DefaultRetention404
 	IgnorePatterns []string `json:"ignore_patterns,omitempty"`
 }
 

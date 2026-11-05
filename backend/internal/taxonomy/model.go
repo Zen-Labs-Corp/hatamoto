@@ -94,7 +94,7 @@ type TermSEO struct {
 	MetaDescription string `json:"meta_description,omitempty"`
 	CanonicalURL    string `json:"canonical_url,omitempty"`
 	OGImage         string `json:"og_image,omitempty"`
-	NoIndex         bool   `json:"no_index,omitempty"`
+	NoIndex         bool   `json:"no_index,omitzero"`
 }
 
 // IsZero reports whether no value is set (a nil receiver counts as empty).

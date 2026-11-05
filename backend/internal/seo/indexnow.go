@@ -16,7 +16,7 @@ var indexNowKeyRE = regexp.MustCompile(`^[a-zA-Z0-9-]{8,128}$`)
 
 // IndexNow holds the opt-in IndexNow ping settings. The zero value is off.
 type IndexNow struct {
-	Enabled  bool   `json:"enabled,omitempty"`
+	Enabled  bool   `json:"enabled,omitzero"`
 	Key      string `json:"key,omitempty"`
 	Endpoint string `json:"endpoint,omitempty"` // bare host; "" => DefaultIndexNowHost
 }

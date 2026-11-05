@@ -102,7 +102,7 @@ type Entity struct {
 	// source of bylines; AuthorID is only dual-written so a rollback still
 	// renders them. BylinePersonID has no foreign key: integrity is kept in code.
 	BylinePersonID *uuid.UUID `json:"byline_person_id,omitempty"`
-	BylineOrg      bool       `json:"byline_org,omitempty"`
+	BylineOrg      bool       `json:"byline_org,omitzero"`
 
 	// Joined fields (not stored in DB)
 	Schema *EntitySchema `json:"schema,omitempty"`
@@ -158,7 +158,7 @@ type CreateEntityInput struct {
 	AuthorID   *uuid.UUID      `json:"author_id,omitempty"`
 	// BylinePersonID and BylineOrg set the byline (see Entity).
 	BylinePersonID *uuid.UUID `json:"byline_person_id,omitempty"`
-	BylineOrg      bool       `json:"byline_org,omitempty"`
+	BylineOrg      bool       `json:"byline_org,omitzero"`
 	// Status is set by the service for a person or a block or part (see lockedStatus); a caller
 	// cannot choose it. Unset stores a draft.
 	Status *EntityStatus `json:"-"`

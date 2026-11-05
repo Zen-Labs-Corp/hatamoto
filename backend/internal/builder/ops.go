@@ -13,7 +13,7 @@ type Op struct {
 	Op     string          `json:"op"` // insert | move | remove | setProp | setStyle | setBind
 	ID     string          `json:"id,omitempty"`
 	Parent string          `json:"parent,omitempty"` // "" = top level
-	Index  int             `json:"index,omitempty"`
+	Index  int             `json:"index,omitzero"`
 	Node   *Node           `json:"node,omitempty"`
 	Key    string          `json:"key,omitempty"`
 	BP     string          `json:"bp,omitempty"`

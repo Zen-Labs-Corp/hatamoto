@@ -433,7 +433,7 @@ type menuItemIn struct {
 	EntityID     string `json:"entity_id,omitempty" jsonschema:"for link_type entity; an item without a target renders as plain text"`
 	URL          string `json:"url,omitempty" jsonschema:"for external and custom links"`
 	SchemaSlug   string `json:"schema_slug,omitempty" jsonschema:"for archive links"`
-	OpenInNewTab bool   `json:"open_in_new_tab,omitempty"`
+	OpenInNewTab bool   `json:"open_in_new_tab,omitzero"`
 	CSSClasses   string `json:"css_classes,omitempty" jsonschema:"space separated CSS classes for the item, at most 10"`
 	// Attrs holds preset ids the theme declares (style, color, badge, icon),
 	// show_on (all, desktop or mobile) and the HTML id, title, aria_label and rel.

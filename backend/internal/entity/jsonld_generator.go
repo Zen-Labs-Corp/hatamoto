@@ -506,7 +506,7 @@ func GenerateJSONLDWithFAQ(ent *Entity, baseURL string, faqItems []FAQItem) (map
 type EditorialProvenance struct {
 	ReviewedBy     string   `json:"reviewed_by,omitempty"`
 	ReviewedAt     string   `json:"reviewed_at,omitempty"`
-	FactChecked    bool     `json:"fact_checked,omitempty"`
+	FactChecked    bool     `json:"fact_checked,omitzero"`
 	Sources        []string `json:"sources,omitempty"`
 	LastVerifiedAt string   `json:"last_verified_at,omitempty"`
 }

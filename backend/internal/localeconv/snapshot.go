@@ -62,7 +62,7 @@ type Schema struct {
 type SiteLocale struct {
 	Tag     string `json:"tag"`
 	Segment string `json:"segment"`
-	Hidden  bool   `json:"hidden,omitempty"`
+	Hidden  bool   `json:"hidden,omitzero"`
 	Name    string `json:"name,omitempty"`
 }
 

@@ -41,7 +41,7 @@ type Report struct {
 
 	// SiteMode is "empty" or "existing" (see InspectSite); set by ApplySiteState.
 	SiteMode        SiteMode `json:"site_mode,omitempty"`
-	ExistingContent int      `json:"existing_content,omitempty"`
+	ExistingContent int      `json:"existing_content,omitzero"`
 	ModeNote        string   `json:"mode_note,omitempty"`
 
 	Permalink        string `json:"permalink"`
