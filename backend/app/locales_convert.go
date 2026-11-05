@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/localeconv"
 )
 
@@ -247,9 +247,12 @@ func printReport(out io.Writer, rep *localeconv.Report, o *localesOpts) error {
 }
 
 func writeJSON(out io.Writer, v any) error {
-	enc := json.NewEncoder(out)
-	enc.SetIndent("", "  ")
-	return enc.Encode(v)
+	b, err := jsonx.Indent(v)
+	if err != nil {
+		return err
+	}
+	_, err = out.Write(append(b, '\n'))
+	return err
 }
 
 func printReportText(out io.Writer, r *localeconv.Report) {

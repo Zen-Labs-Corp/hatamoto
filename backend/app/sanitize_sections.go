@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -85,7 +84,7 @@ func sanitizeHTMLSectionsTx(ctx context.Context, tx pgx.Tx, tg sanitizeTarget) (
 	var stats sanitizeStats
 	type update struct {
 		id    string
-		attrs json.RawMessage
+		attrs []byte
 	}
 	var updates []update
 

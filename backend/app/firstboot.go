@@ -2,12 +2,12 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"hatamoto.dev/core/internal/builder"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // firstBoot makes a brand-new database render a site. Every step is idempotent
@@ -22,7 +22,7 @@ func firstBoot(ctx context.Context, pool *pgxpool.Pool, siteName string, logger 
 	if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_site_config (company_name) VALUES ($1) ON CONFLICT (id) DO NOTHING`, siteName); err != nil {
 		return fmt.Errorf("seed site config: %w", err)
 	}
-	doc, err := json.Marshal(builder.FromSections([]builder.Section{{
+	doc, err := jsonx.Marshal(builder.FromSections([]builder.Section{{
 		ID: "welcome", Type: "hero", SortOrder: 1,
 		Content: map[string]any{"headline": siteName, "subheadline": "Your site is running. Sign in to the admin to edit this page."},
 	}}))

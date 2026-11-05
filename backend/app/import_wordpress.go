@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -18,6 +17,7 @@ import (
 
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/safefetch"
 	"hatamoto.dev/core/internal/wpimport"
 )
@@ -96,12 +96,11 @@ func importWordPress(ctx context.Context, deps *wpimport.Deps, f *wpFlags, out i
 			return fmt.Errorf("--resume: %q is not a run id", f.resume)
 		}
 		resume = id
-		var stored struct{ URL, User string }
-		var raw json.RawMessage
+		var raw []byte
 		if err := deps.DB.Pool().QueryRow(ctx, `SELECT options FROM hatamoto_import_runs WHERE id = $1`, id).Scan(&raw); err != nil {
 			return fmt.Errorf("--resume: run %s not found", id)
 		}
-		_ = json.Unmarshal(raw, &stored)
+		stored := readStoredImport(raw)
 		if f.url == "" && f.wxr == "" {
 			f.url = stored.URL
 		}
@@ -195,6 +194,20 @@ func importWordPress(ctx context.Context, deps *wpimport.Deps, f *wpFlags, out i
 		return fmt.Errorf("import finished with %d problems (run %s): see the report above", problems, res.RunID)
 	}
 	return nil
+}
+
+// storedImport is the part of a run's stored options that --resume reuses.
+type storedImport struct {
+	URL  string `json:"url"`
+	User string `json:"user"`
+}
+
+// readStoredImport reads the options storedOptions wrote; an unreadable
+// document yields empty values, so --resume then asks for the flags again.
+func readStoredImport(raw []byte) storedImport {
+	var s storedImport
+	_ = jsonx.Unmarshal(raw, &s, jsonx.Stored)
+	return s
 }
 
 func storedOptions(f *wpFlags) map[string]any {
