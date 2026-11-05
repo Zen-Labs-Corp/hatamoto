@@ -55,7 +55,7 @@ func validateBranding(form url.Values, tokensCSS string) (b siteconfig.AdminBran
 	default:
 		if _, issues := a11y.CheckAccent(tokensCSS, b.Accent); len(issues) > 0 {
 			surface, tinted := a11y.LightBackgrounds(tokensCSS, b.Accent)
-			fail("accent", "Accent colour", fmt.Sprintf("That colour is too light to read. Needs 4.5:1 on both the admin background and the tinted highlight, this measures %.1f:1 and %.1f:1. Try a darker shade.", surface, tinted))
+			fail("accent", "Accent colour", fmt.Sprintf("That colour is too light to read. Needs 4.5:1 on both the admin background and the tinted highlight, this measures %s:1 and %s:1. Try a darker shade.", ratioText(surface), ratioText(tinted)))
 		}
 	}
 
@@ -76,4 +76,14 @@ func validateBranding(form url.Values, tokensCSS string) (b siteconfig.AdminBran
 		}
 	}
 	return b, errs
+}
+
+// ratioText prints a contrast ratio to one decimal. A ratio below the 4.5
+// minimum that would round up to it is truncated instead, so a failing ratio
+// never reads as the minimum itself.
+func ratioText(r float64) string {
+	if r < 4.5 && r >= 4.45 {
+		r = 4.4
+	}
+	return fmt.Sprintf("%.1f", r)
 }
