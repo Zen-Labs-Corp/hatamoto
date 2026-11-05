@@ -159,9 +159,10 @@ func (s *Service) prepareAttach(ctx context.Context, op MediaOp) (*Media, error)
 
 	now := time.Now()
 	publicURL := s.store.URL(storagePath)
-	folder := op.Folder
-	if folder == "" {
-		folder = "/"
+	folder, err := s.canonicalFolder(ctx, op.Folder)
+	if err != nil {
+		s.removeBlob(ctx, storagePath)
+		return nil, err
 	}
 	m := &Media{
 		ID:               uuid.New(),

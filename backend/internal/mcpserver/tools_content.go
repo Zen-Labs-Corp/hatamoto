@@ -337,6 +337,7 @@ func (s *Server) registerMedia() {
 		DataBase64 string `json:"data_base64" jsonschema:"file content, standard base64"`
 		AltText    string `json:"alt_text,omitempty"`
 		Caption    string `json:"caption,omitempty"`
+		Folder     string `json:"folder,omitempty" jsonschema:"one-level folder name (letters, digits, spaces, - and _; up to 60 characters); omit for none"`
 	}
 	register(s, toolSpec{name: "media_upload", description: "Upload a file to the media library. The type is sniffed from the bytes (not the name) and must be allowed; size is capped like the API's upload.", scope: hmauth.ScopeWriteMedia, write: true},
 		func(ctx context.Context, key *hmauth.APIKey, in uploadIn) (any, error) {
@@ -356,9 +357,19 @@ func (s *Server) registerMedia() {
 			if name == "." || name == "/" || name == "" {
 				return nil, userErr("filename is required")
 			}
+			if _, err := media.NormalizeFolder(in.Folder); err != nil {
+				return nil, err // before the upload, so a bad name leaves no file behind
+			}
 			m, err := s.d.Media.Upload(ctx, key.CreatedBy, bytes.NewReader(data), name, "", int64(len(data)))
 			if err != nil {
 				return nil, err
+			}
+			if in.Folder != "" {
+				m2, err := s.d.Media.Update(ctx, m.ID, &mediaUpdate{Folder: &in.Folder})
+				if err != nil {
+					return nil, err
+				}
+				m = m2
 			}
 			if in.AltText != "" || in.Caption != "" {
 				up := &mediaUpdate{}

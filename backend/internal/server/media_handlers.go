@@ -85,6 +85,10 @@ func (s *Server) handleMediaList(w http.ResponseWriter, r *http.Request) {
 		MimeType: r.URL.Query().Get("mime_type"),
 		Search:   r.URL.Query().Get("search"),
 	}
+	if _, err := media.NormalizeFolder(filter.Folder); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	limit := 50
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
@@ -160,6 +164,10 @@ func (s *Server) handleMediaUpdate(w http.ResponseWriter, r *http.Request) {
 
 	m, err := s.mediaService.Update(r.Context(), id, &input)
 	if err != nil {
+		if errors.Is(err, media.ErrInvalidFolder) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		if errors.Is(err, media.ErrMediaNotFound) {
 			writeError(w, http.StatusNotFound, "media not found")
 			return

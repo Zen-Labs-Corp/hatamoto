@@ -583,6 +583,9 @@ func (w MediaWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, t
 	}
 	m, err := w.Svc.AttachStagedTx(ctx, tx, media.MediaOp{StagedKey: it.BlobKeys[0], Filename: p.Filename,
 		Origin: origin, AltText: p.AltText, Caption: p.Caption, Credit: p.Credit, Folder: p.Folder})
+	if errors.Is(err, media.ErrInvalidFolder) {
+		return Outcome{}, fmt.Errorf("%w: %v", ErrInvalidItem, err)
+	}
 	if err != nil {
 		return Outcome{}, err
 	}

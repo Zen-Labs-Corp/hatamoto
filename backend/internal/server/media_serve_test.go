@@ -80,3 +80,12 @@ func TestServeMedia_SVGHeadersAndRevalidatingCache(t *testing.T) {
 		t.Errorf("cache headers: %v", h)
 	}
 }
+
+func TestMediaListAndUpdateRefuseNestedFolders(t *testing.T) {
+	s := &Server{mediaService: media.NewService(nil, media.Config{UploadDir: t.TempDir(), MaxSizeMB: 1}, slog.Default())}
+	w := httptest.NewRecorder()
+	s.handleMediaList(w, httptest.NewRequest(http.MethodGet, "/api/v1/media?folder=a%2Fb", nil))
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("list with a nested folder: %d %s", w.Code, w.Body)
+	}
+}

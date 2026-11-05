@@ -1,7 +1,9 @@
 package pluginhost
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -181,5 +183,13 @@ func TestMediaDTOCarriesCaptionAndCredit(t *testing.T) {
 	d := toMediaDTO(&media.Media{ID: uuid.New(), Caption: &c, Credit: &cr})
 	if d.Caption == nil || *d.Caption != c || d.Credit == nil || *d.Credit != cr {
 		t.Fatalf("dto = %+v", d)
+	}
+}
+
+func TestMediaListRefusesNestedFolder(t *testing.T) {
+	_, err := fnMediaList(context.Background(), &API{}, nil, json.RawMessage(`{"folder":"a/b"}`))
+	var he *sdk.HostError
+	if !errors.As(err, &he) || he.Code != sdk.ErrInvalidArgument {
+		t.Fatalf("err = %v, want invalid argument", err)
 	}
 }

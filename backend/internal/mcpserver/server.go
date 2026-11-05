@@ -275,6 +275,7 @@ func publicError(l *slog.Logger, tool string, err error) error {
 		errors.Is(err, redirect.ErrRedirectNotFound), errors.Is(err, redirect.ErrDuplicateSourcePath),
 		errors.Is(err, redirect.ErrInvalidStatusCode), errors.Is(err, redirect.ErrInvalidPattern), errors.Is(err, redirect.ErrUnsafePattern),
 		errors.Is(err, media.ErrFileTooLarge), errors.Is(err, media.ErrImageTooLarge), errors.Is(err, media.ErrInvalidMimeType),
+		errors.Is(err, media.ErrInvalidSVG), errors.Is(err, media.ErrInvalidFolder),
 		errors.Is(err, taxonomy.ErrTermSlugConflict):
 		return err
 	}

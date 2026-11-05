@@ -11,26 +11,61 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/google/uuid"
 )
 
-type fakeRepo struct{ created *Media }
+// fakeRepo keeps records in memory so service behaviour (folders, replace) can
+// be tested without a database.
+type fakeRepo struct {
+	created *Media
+	items   map[uuid.UUID]*Media
+}
 
-func (f *fakeRepo) Create(_ context.Context, m *Media) error { f.created = m; return nil }
-func (f *fakeRepo) GetByID(context.Context, uuid.UUID) (*Media, error) {
-	return nil, ErrMediaNotFound
+func (f *fakeRepo) Create(_ context.Context, m *Media) error {
+	f.created = m
+	if f.items == nil {
+		f.items = map[uuid.UUID]*Media{}
+	}
+	c := *m
+	f.items[m.ID] = &c
+	return nil
+}
+func (f *fakeRepo) GetByID(_ context.Context, id uuid.UUID) (*Media, error) {
+	m, ok := f.items[id]
+	if !ok {
+		return nil, ErrMediaNotFound
+	}
+	c := *m
+	return &c, nil
 }
 func (f *fakeRepo) List(context.Context, *ListMediaFilter, int, int) (*PagedResult, error) {
 	return nil, nil
 }
-func (f *fakeRepo) Update(context.Context, *Media) error    { return nil }
+func (f *fakeRepo) Update(_ context.Context, m *Media) error {
+	c := *m
+	f.items[m.ID] = &c
+	return nil
+}
 func (f *fakeRepo) Delete(context.Context, uuid.UUID) error { return nil }
 func (f *fakeRepo) ListImagesAfter(context.Context, uuid.UUID, int) ([]*Media, error) {
 	return nil, nil
 }
 func (f *fakeRepo) CountImages(context.Context) (int, error) { return 0, nil }
+func (f *fakeRepo) Folders(context.Context) ([]FolderCount, error) {
+	counts := map[string]int{}
+	for _, m := range f.items {
+		counts[m.Folder]++
+	}
+	var out []FolderCount
+	for name, n := range counts {
+		out = append(out, FolderCount{Name: name, Count: n})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
 
 func newTestService(t *testing.T, cfg Config) *Service {
 	t.Helper()

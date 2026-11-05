@@ -288,6 +288,14 @@ func (s *Service) List(ctx context.Context, filter *ListMediaFilter, limit, offs
 	if offset < 0 {
 		offset = 0
 	}
+	if filter != nil && filter.Folder != "" {
+		f := *filter
+		folder, err := NormalizeFolder(f.Folder)
+		if err != nil {
+			return nil, err
+		}
+		f.Folder, filter = folder, &f
+	}
 	return s.repo.List(ctx, filter, limit, offset)
 }
 
@@ -308,7 +316,11 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input *UpdateMediaIn
 		m.Credit = input.Credit
 	}
 	if input.Folder != nil {
-		m.Folder = *input.Folder
+		folder, err := s.canonicalFolder(ctx, *input.Folder)
+		if err != nil {
+			return nil, err
+		}
+		m.Folder = folder
 	}
 
 	if err := s.repo.Update(ctx, m); err != nil {

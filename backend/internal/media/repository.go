@@ -24,6 +24,9 @@ type Repository interface {
 	ListImagesAfter(ctx context.Context, after uuid.UUID, limit int) ([]*Media, error)
 	// CountImages is the number of records ListImagesAfter walks.
 	CountImages(ctx context.Context) (int, error)
+	// Folders lists each folder in use with its number of files, ordered by
+	// name. Folders have no table: a folder exists while a file is in it.
+	Folders(ctx context.Context) ([]FolderCount, error)
 }
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -214,7 +217,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter *ListMediaFilter, 
 
 	if filter != nil {
 		if filter.Folder != "" {
-			filterClause := fmt.Sprintf(" AND folder = $%d", argIdx)
+			filterClause := fmt.Sprintf(" AND lower(folder) = lower($%d)", argIdx)
 			baseQuery += filterClause
 			countQuery += filterClause
 			args = append(args, filter.Folder)
@@ -349,4 +352,27 @@ func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+// Folders implements Repository.
+func (r *PostgresRepository) Folders(ctx context.Context) ([]FolderCount, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+	rows, err := conn.Query(ctx, `SELECT folder, COUNT(*) FROM hatamoto_media WHERE run_id IS NULL GROUP BY folder ORDER BY folder`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list folders: %w", err)
+	}
+	defer rows.Close()
+	var out []FolderCount
+	for rows.Next() {
+		var f FolderCount
+		if err := rows.Scan(&f.Name, &f.Count); err != nil {
+			return nil, fmt.Errorf("failed to scan folder: %w", err)
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
 }

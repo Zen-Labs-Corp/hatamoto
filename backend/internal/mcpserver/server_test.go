@@ -16,6 +16,7 @@ import (
 
 	hmauth "hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
 )
 
@@ -324,5 +325,13 @@ func TestMenuUpdateOutIsFlat(t *testing.T) {
 	}
 	if m["name"] != "Main" || m["warnings"] == nil {
 		t.Errorf("shape not flat: %s", b)
+	}
+}
+
+func TestPublicErrorKeepsMediaRefusalReasons(t *testing.T) {
+	for _, err := range []error{&media.SVGError{Reason: "it is nested too deeply", Line: 4}, media.ErrInvalidFolder} {
+		if got := publicError(nil, "media_upload", err); got.Error() != err.Error() {
+			t.Errorf("publicError(%v) = %q", err, got)
+		}
 	}
 }

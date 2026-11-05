@@ -1131,6 +1131,11 @@ func fnMediaList(ctx context.Context, a *API, _ *callEnv, raw json.RawMessage) (
 	if err != nil {
 		return nil, err
 	}
+	if args.Folder != "" {
+		if _, err := media.NormalizeFolder(args.Folder); err != nil {
+			return nil, herr(sdk.ErrInvalidArgument, "%v", err)
+		}
+	}
 	if a.svc.Media == nil {
 		return nil, unavailable("media")
 	}
