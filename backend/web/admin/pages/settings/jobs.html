@@ -1,0 +1,11 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<section class="hm-stack">
+{{if .Drain}}{{template "hm/callout-start" (dict "Kind" "warning")}}This server is in drain mode, so no job runs and none can be run by hand.{{template "hm/callout-end"}}
+{{else if .WorkerHere}}<p class="hm-field__help">This server process runs the worker.</p>
+{{else}}{{template "hm/callout-start" (dict "Kind" "info")}}This server process does not run the worker (HATAMOTO_WORKER is off). The last runs below were recorded by processes that do, and there is no next run to show here.{{template "hm/callout-end"}}
+{{end}}
+{{template "hm/table" .Table}}
+<p class="hm-field__help">Jobs that send data out, send mail or call a plugin have no Run now button.</p>
+</section>
+{{end}}{{end}}
