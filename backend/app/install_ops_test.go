@@ -81,3 +81,19 @@ func TestResolveSettingSources(t *testing.T) {
 		t.Error("a missing file must be an error")
 	}
 }
+
+// A stored manifest is read like the plugin host reads it: a name that only
+// matches after ignoring "_" or "-" is not the field (v1 behaviour).
+func TestStoredManifestMatchesHostReader(t *testing.T) {
+	m, err := storedManifest([]byte(`{"name":"p","settingsSchema":{"type":"object"},"settings_schema":{"type":"string"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(m.SettingsSchema); got != `{"type":"string"}` {
+		t.Fatalf("SettingsSchema = %s, want the settings_schema member", got)
+	}
+	m, err = storedManifest([]byte(`{"name":"p","settingsSchema":{"type":"object"}}`))
+	if err != nil || len(m.SettingsSchema) != 0 {
+		t.Fatalf("settingsSchema alone was bound: %s %v", m.SettingsSchema, err)
+	}
+}

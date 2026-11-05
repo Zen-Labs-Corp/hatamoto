@@ -23,7 +23,6 @@ import (
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
-	"hatamoto.dev/sdk"
 )
 
 // packageCommands are the first words routed to runPackages.
@@ -318,8 +317,8 @@ func registerInstalledPluginTemplates(ctx context.Context, st *packages.Store, l
 		if row.Kind != packages.KindPlugin || !row.Enabled || row.State != packages.StateInstalled {
 			continue
 		}
-		var man sdk.Manifest
-		if err := jsonx.Unmarshal(row.Manifest, &man, jsonx.StoredLoose); err != nil {
+		man, err := storedManifest(row.Manifest)
+		if err != nil {
 			continue
 		}
 		if ok, _ := man.Compatible(); !ok {

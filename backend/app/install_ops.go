@@ -22,6 +22,7 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/plugmanifest"
 	"hatamoto.dev/sdk"
 )
 
@@ -229,8 +230,8 @@ func runPluginSettingsSet(ctx context.Context, args []string, stdin io.Reader, o
 		}
 		return err
 	}
-	var man sdk.Manifest
-	if err := jsonx.Unmarshal(row.Manifest, &man, jsonx.StoredLoose); err != nil {
+	man, err := storedManifest(row.Manifest)
+	if err != nil {
 		return err
 	}
 	if len(man.SettingsSchema) == 0 {
@@ -461,4 +462,12 @@ func runPackageList(ctx context.Context, args []string, out io.Writer) error {
 		fmt.Fprintln(out, "no packages installed")
 	}
 	return nil
+}
+
+// storedManifest reads a stored plugin manifest the way the plugin host does,
+// so the CLI and the server agree on what a row declares.
+func storedManifest(raw []byte) (sdk.Manifest, error) {
+	var man sdk.Manifest
+	err := plugmanifest.Decode(raw, &man)
+	return man, err
 }
