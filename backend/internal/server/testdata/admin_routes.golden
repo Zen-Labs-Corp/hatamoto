@@ -91,6 +91,7 @@ GET /admin/settings/api-keys/new -> admin.(*Admin).handleAPIKeyNew-fm
 GET /admin/settings/api-keys/secret -> admin.(*Admin).handleAPIKeySecret-fm
 GET /admin/settings/api-keys/{id}/{action} -> admin.(*Admin).handleAPIKeyConfirm-fm
 GET /admin/settings/backups -> admin.(*Admin).handleBackups-fm
+GET /admin/settings/backups/retention -> admin.(*Admin).handleRetentionPage-fm
 GET /admin/settings/backups/{id}/delete -> admin.(*Admin).handleBackupDeleteConfirm-fm
 GET /admin/settings/backups/{id}/download -> admin.(*Admin).handleBackupDownload-fm
 GET /admin/settings/changes -> admin.(*Admin).handleChanges-fm

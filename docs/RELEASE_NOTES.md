@@ -43,7 +43,7 @@ The media library now accepts SVG, can replace a file in place, and groups files
 
 ## Unreleased: Backup retention
 
-Settings > Backups has a new "Backups to keep" card. Owners choose how many finished backups of each kind (manual, pre-update, scheduled) stay on disk, from 1 to 50. Lowering a count asks for confirmation first and says how many backups it deletes.
+Settings > Backups has a new "Backups to keep" page, opened from the ⋯ menu next to "Back up now". Owners choose how many finished backups of each kind (manual, pre-update, scheduled) stay on disk, from 1 to 50. Lowering a count asks for confirmation first and says how many backups it deletes.
 
 - **Higher defaults.** Without any setting the server now keeps 10 manual, 5 pre-update and 7 scheduled backups (it kept 5, 2 and 3). Backups take more disk space: check your free space before upgrading.
 - **Environment variables still win.** `HATAMOTO_BACKUP_KEEP`, `HATAMOTO_BACKUP_KEEP_PRE_UPDATE` and `HATAMOTO_BACKUP_KEEP_SCHEDULED` override the form, and the page shows which one fixes a count. A value above 50 is treated as 50 and logged as a warning; zero, a negative number or text is ignored and logged.

@@ -41,7 +41,7 @@ Retention keeps the newest finished backups of each kind and removes older ones.
 own count, from 1 to 50, resolved in this order:
 
 1. The environment variable, when it is set to a whole number of 1 or more. A number above 50 counts as 50 (the page shows 50 and a warning is logged once).
-2. `$HATAMOTO_DATA/backups/retention.json`, which the owner writes from Settings > Backups.
+2. `$HATAMOTO_DATA/backups/retention.json`, which the owner writes from Settings > Backups > Backups to keep (the ⋯ menu on the Backups page).
 3. The default.
 
 | Variable | Default | Meaning |
@@ -116,7 +116,7 @@ server: the client is part of the binary.
 "Back up and upload now" are uploaded. Pre-update backups stay on the machine.
 
 **Schedule.** Off, every day at a chosen hour, or every week on a chosen day and hour. Times are UTC.
-Each run takes a local backup of kind `scheduled` (kept on disk per the scheduled count above: `HATAMOTO_BACKUP_KEEP_SCHEDULED`, `retention.json` or the Settings > Backups form)
+Each run takes a local backup of kind `scheduled` (kept on disk per the scheduled count above: `HATAMOTO_BACKUP_KEEP_SCHEDULED`, `retention.json` or the Settings > Backups > Backups to keep form (the ⋯ menu on the Backups page))
 and then uploads it while it still holds the backup lock, so an upload never overlaps another backup
 or an update's backup. If another backup is running when a slot falls due, the run waits 10 minutes
 and tries again; that is not recorded as a failure. A slot is claimed in the database, so with several
