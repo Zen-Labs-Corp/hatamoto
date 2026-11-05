@@ -23,8 +23,8 @@
 .hm-select__list[hidden] { display: none; }
 .hm-select__list--up { top: auto; bottom: 100%; margin: 0 0 var(--space-1); }
 .hm-select__option { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); cursor: pointer; }
-.hm-select__option:hover, .hm-select__option[data-active] { background: var(--color-accent-soft); color: var(--color-sumi); }
-.hm-select__option[aria-selected="true"] { font-weight: var(--weight-semibold); box-shadow: inset 3px 0 0 var(--color-sumi); }
+.hm-select__option:hover, .hm-select__option[data-active] { background: var(--surface-hover); color: var(--color-sumi); }
+.hm-select__option[aria-selected="true"] { font-weight: var(--weight-medium); }
 .hm-select__option[aria-disabled="true"] { color: var(--text-muted); cursor: not-allowed; background: transparent; }
 .hm-select__option[data-placeholder] { color: var(--text-muted); }
 .hm-select__group { padding: var(--space-2) var(--space-3) var(--space-1); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); }
