@@ -3,15 +3,18 @@ package pluginhost
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Limits of one db.* call.
@@ -132,7 +135,7 @@ func (d *PluginDB) Query(ctx context.Context, plugin, sql string, args ...any) (
 			for i, v := range vals {
 				row[i] = jsonValue(v)
 			}
-			b, _ := json.Marshal(row)
+			b, _ := jsonx.MarshalPinned(row)
 			if size += len(b); len(res.Rows) >= maxDBRows || size > maxDBResultBytes {
 				res.Truncated = true
 				return nil
@@ -203,7 +206,7 @@ func jsonValue(v any) any {
 		return x // base64 in JSON, as bytea should be
 	case fmt.Stringer:
 		if _, isTime := v.(time.Time); !isTime {
-			if _, isJSON := v.(json.Marshaler); !isJSON {
+			if _, isJSON := v.(interface{ MarshalJSON() ([]byte, error) }); !isJSON {
 				return x.String()
 			}
 		}
@@ -211,31 +214,35 @@ func jsonValue(v any) any {
 	return v
 }
 
-// convertArg maps a decoded JSON value to a query argument.
-func convertArg(v any) (any, error) {
-	switch x := v.(type) {
-	case json.Number:
-		if i, err := x.Int64(); err == nil {
+// convertArg maps one JSON array element to a query argument: integers that
+// fit int64, other numbers float64, objects and arrays their JSON text.
+func convertArg(raw jsontext.Value) (any, error) {
+	switch raw.Kind() {
+	case '0':
+		if i, err := strconv.ParseInt(string(raw), 10, 64); err == nil {
 			return i, nil
 		}
-		f, err := x.Float64()
-		return f, err
-	case map[string]any, []any:
-		b, err := json.Marshal(x)
+		return strconv.ParseFloat(string(raw), 64)
+	case '{', '[':
+		var x any
+		if err := jsonx.Unmarshal(raw, &x, jsonx.ExactNumbersPinned); err != nil {
+			return nil, err
+		}
+		b, err := jsonx.MarshalPinned(x)
 		return string(b), err
 	}
-	return v, nil
+	var x any
+	err := jsonx.UnmarshalPinned(raw, &x)
+	return x, err
 }
 
 // DecodeArgs decodes a JSON array of query arguments.
-func DecodeArgs(raw json.RawMessage) ([]any, error) {
+func DecodeArgs(raw jsontext.Value) ([]any, error) {
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return nil, nil
 	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.UseNumber()
-	var in []any
-	if err := dec.Decode(&in); err != nil {
+	var in []jsontext.Value
+	if err := jsonx.UnmarshalPinned(raw, &in); err != nil {
 		return nil, fmt.Errorf("args must be a JSON array: %w", err)
 	}
 	if len(in) > maxDBArgs {
