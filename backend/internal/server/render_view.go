@@ -51,6 +51,7 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 		return nil, err
 	}
 	s.applyLocale(ctx, rr, v, v.BaseURL)
+	v.Contact = s.pageContact(ctx, v.Locale)
 	v.Forms = s.formsForSections(ctx, formSections(v.Sections, v.Doc))
 	v.EntityLinks = s.entityLinkTargets(ctx, v)
 	v.Uncacheable = new(bool)
@@ -417,18 +418,19 @@ func (s *Server) buildSiteView(ctx context.Context) (render.SiteView, error) {
 	theme := effectiveTheme(cfg)
 	links := s.newNavLinks(ctx)
 	site := render.SiteView{
-		Name:        cfg.CompanyName,
-		Tagline:     cfg.Tagline,
-		LogoURL:     cfg.LogoURL,
-		Tokens:      themeTokens(theme),
-		SocialLinks: socialLinks(cfg.ThemeExtra),
-		Nav:         s.headerNav(ctx, links),
-		FooterNav:   s.menuNav(ctx, "footer", links),
-		Language:    siteLanguage(cfg),
-		Phone:       cfg.Phone,
-		Hours:       cfg.BusinessHours,
-		Address:     postalAddress(cfg.PostalAddress),
-		OrgAddress:  orgAddressMode(cfg),
+		Name:         cfg.CompanyName,
+		Tagline:      cfg.Tagline,
+		LogoURL:      cfg.LogoURL,
+		Tokens:       themeTokens(theme),
+		SocialLinks:  socialLinks(cfg.ThemeExtra),
+		Nav:          s.headerNav(ctx, links),
+		FooterNav:    s.menuNav(ctx, "footer", links),
+		Language:     siteLanguage(cfg),
+		Phone:        cfg.Phone,
+		Hours:        cfg.BusinessHours,
+		ContactFloat: contactFloat(cfg),
+		Address:      postalAddress(cfg.PostalAddress),
+		OrgAddress:   orgAddressMode(cfg),
 	}
 	var oerr error
 	if site.Org, oerr = orgView(cfg); oerr != nil {
@@ -1070,6 +1072,54 @@ func localeBusiness(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) (
 		servicesCurrency = site.Currency
 	}
 	return newBusinessView(res.Profile, seg, servicesCurrency), nil
+}
+
+// pageContact is the contact of the page's locale, empty when the profile
+// cannot be read: contact links then fall back to the site phone and email.
+func (s *Server) pageContact(ctx context.Context, loc string) render.ContactView {
+	if s.siteConfig == nil {
+		return render.ContactView{}
+	}
+	cfg, err := s.siteConfig.Get(ctx)
+	if err != nil {
+		return render.ContactView{}
+	}
+	return localeContact(cfg, s.urlSnapshot(ctx).Locales(), loc)
+}
+
+// localeContact resolves the phone and email of locale loc: the default
+// locale and one-locale sites use the site-wide profile (with the legacy
+// phone merged in), every other locale its card over that profile. An
+// unreadable profile gives an empty contact.
+func localeContact(cfg *siteconfig.Config, set *entity.LocaleSet, loc string) render.ContactView {
+	site, err := bizprofile.Parse(cfg.BusinessProfile)
+	if err != nil {
+		return render.ContactView{}
+	}
+	site = bizprofile.FromLegacy(site, cfg.Phone, cfg.BusinessHours, cfg.PostalAddress)
+	if set == nil || !set.Multi() || loc == "" || loc == set.Default() {
+		return render.ContactView{Phone: site.Phone, Email: site.Email}
+	}
+	cards, err := bizprofile.ParseLocales(cfg.LocaleProfiles)
+	if err != nil {
+		return render.ContactView{}
+	}
+	var card *bizprofile.Profile
+	if c, ok := cards[loc]; ok {
+		card = &c
+	}
+	p := bizprofile.ResolveContact(site, card).Profile
+	return render.ContactView{Phone: p.Phone, Email: p.Email}
+}
+
+// contactFloat reads the floating contact link settings; settings that fail
+// validation count as disabled.
+func contactFloat(cfg *siteconfig.Config) render.ContactFloat {
+	cb := siteconfig.ParseContactButton(cfg.ThemeExtra)
+	if !cb.Enabled || len(cb.Validate()) > 0 {
+		return render.ContactFloat{}
+	}
+	return render.ContactFloat{Enabled: true, Channel: cb.Channel, Position: cb.Position, Label: cb.Label, To: cb.To, Message: cb.Message}
 }
 
 // newBusinessView maps a resolved business profile to the local business view

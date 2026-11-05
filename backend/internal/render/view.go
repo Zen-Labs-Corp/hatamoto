@@ -439,6 +439,8 @@ type SiteView struct {
 	// settings; empty when unset. They also feed the Organization JSON-LD.
 	Phone, Hours string
 	Address      Address
+	// ContactFloat is the floating contact link settings (disabled by default).
+	ContactFloat ContactFloat
 	// LogoWidth and LogoHeight are the logo's pixel size, set only when the
 	// owner asked for an ImageObject logo and the size is known; zero otherwise.
 	LogoWidth, LogoHeight int

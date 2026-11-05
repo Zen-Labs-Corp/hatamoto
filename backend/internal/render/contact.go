@@ -11,6 +11,13 @@ import (
 // owner set none: the business profile of the page's locale.
 type ContactView struct{ Phone, Email string }
 
+// ContactFloat is the site-wide floating contact link as the owner saved it;
+// the zero value is disabled.
+type ContactFloat struct {
+	Enabled                               bool
+	Channel, Position, Label, To, Message string
+}
+
 // contactDefaults are the profile values a link uses when its own number or
 // address is blank.
 type contactDefaults struct{ Phone, Email string }
