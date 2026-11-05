@@ -69,6 +69,20 @@ func hasSVGRoot(head []byte) bool {
 				return false
 			}
 			b = b[i+3:]
+		case len(b) >= 9 && bytes.EqualFold(b[:9], []byte("<!DOCTYPE")):
+			// Skipped only so the sanitiser, which refuses it, can say why.
+			end := bytes.IndexByte(b, '>')
+			if i := bytes.IndexByte(b, '['); i >= 0 && i < end {
+				j := bytes.Index(b, []byte("]>"))
+				if j < 0 {
+					return false
+				}
+				end = j + 1
+			}
+			if end < 0 {
+				return false
+			}
+			b = b[end+1:]
 		default:
 			if len(b) < 5 || !bytes.EqualFold(b[:4], []byte("<svg")) {
 				return false

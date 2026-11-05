@@ -22,9 +22,7 @@ import (
 //   - sentence(...), fullStop(...) and plain variables or calls (built elsewhere) are skipped.
 
 // flashAllow lists deliberate exceptions. Each needs a reason.
-var flashAllow = []uiAllowEntry{
-	{Rule: "FLASH", File: "media.go", Needle: `"Uploaded %d. %s"`, Reason: "the second sentence is the joined per-file problems, each already a sentence"},
-}
+var flashAllow = []uiAllowEntry{}
 
 func lintFlashes(t *testing.T, name string, src []byte) []uiViolation {
 	t.Helper()

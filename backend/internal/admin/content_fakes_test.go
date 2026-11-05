@@ -671,6 +671,8 @@ type fakeMedia struct {
 	files  []*media.Media
 	usage  map[uuid.UUID][]media.Usage
 	nextID int
+	// replaced lists the ids Replace was called for.
+	replaced []uuid.UUID
 }
 
 func newFakeMedia() *fakeMedia { return &fakeMedia{usage: map[uuid.UUID][]media.Usage{}, nextID: 700} }
@@ -688,17 +690,26 @@ func (f *fakeMedia) add(n int, original, mime string, alt string) *media.Media {
 func (f *fakeMedia) Upload(_ context.Context, _ *uuid.UUID, file io.Reader, name, _ string, size int64) (*media.Media, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	head := make([]byte, 512)
-	n, _ := file.Read(head)
-	if !media.ExtensionMatchesMIME(fileExt(name), sniff(head[:n])) {
+	body, _ := io.ReadAll(file)
+	head := body[:min(len(body), media.SniffLen)]
+	mime := media.SniffUpload(head)
+	if !media.ExtensionMatchesMIME(fileExt(name), mime) {
 		return nil, media.ErrInvalidMimeType
 	}
 	if size > 10<<20 {
 		return nil, media.ErrFileTooLarge
 	}
+	var cleaned []string
+	if mime == "image/svg+xml" {
+		_, removed, err := media.SanitizeSVG(body)
+		if err != nil {
+			return nil, err
+		}
+		cleaned = removed
+	}
 	f.nextID++
 	u := fmt.Sprintf("/media/x/up-%d.png", f.nextID)
-	m := &media.Media{ID: fid(f.nextID), Filename: fmt.Sprintf("up-%d.png", f.nextID), OriginalFilename: name, MimeType: "image/png", FileSize: size, PublicURL: &u, Folder: "/", CreatedAt: t0.Add(time.Hour)}
+	m := &media.Media{ID: fid(f.nextID), Filename: fmt.Sprintf("up-%d.png", f.nextID), OriginalFilename: name, MimeType: mime, FileSize: size, PublicURL: &u, Folder: "/", CreatedAt: t0.Add(time.Hour), Cleaned: cleaned}
 	f.files = append([]*media.Media{m}, f.files...)
 	return m, nil
 }
@@ -728,6 +739,9 @@ func (f *fakeMedia) List(_ context.Context, fl *media.ListMediaFilter, limit, of
 		if fl.MimeType != "" && !strings.HasPrefix(m.MimeType, fl.MimeType) {
 			continue
 		}
+		if fl.Folder != "" && !strings.EqualFold(m.Folder, fl.Folder) {
+			continue
+		}
 		if fl.Search != "" && !strings.Contains(strings.ToLower(m.OriginalFilename), strings.ToLower(fl.Search)) {
 			continue
 		}
@@ -743,6 +757,18 @@ func (f *fakeMedia) Update(_ context.Context, id uuid.UUID, in *media.UpdateMedi
 	defer f.mu.Unlock()
 	for _, m := range f.files {
 		if m.ID == id {
+			if in.Folder != nil {
+				folder, err := media.NormalizeFolder(*in.Folder)
+				if err != nil {
+					return nil, err
+				}
+				for _, o := range f.files {
+					if strings.EqualFold(o.Folder, folder) {
+						folder = o.Folder
+					}
+				}
+				m.Folder = folder
+			}
 			if in.AltText != nil {
 				m.AltText = in.AltText
 			}
@@ -755,6 +781,44 @@ func (f *fakeMedia) Update(_ context.Context, id uuid.UUID, in *media.UpdateMedi
 			c := *m
 			return &c, nil
 		}
+	}
+	return nil, media.ErrMediaNotFound
+}
+func (f *fakeMedia) Folders(context.Context) ([]media.FolderCount, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	counts := map[string]int{}
+	for _, m := range f.files {
+		counts[m.Folder]++
+	}
+	var out []media.FolderCount
+	for n, c := range counts {
+		out = append(out, media.FolderCount{Name: n, Count: c})
+	}
+	slices.SortFunc(out, func(a, b media.FolderCount) int { return strings.Compare(a.Name, b.Name) })
+	return out, nil
+}
+
+// Replace keeps the record and swaps its size and type, like the service.
+func (f *fakeMedia) Replace(_ context.Context, id uuid.UUID, file io.Reader, name string, size int64) (*media.Media, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	body, _ := io.ReadAll(file)
+	mime := media.SniffUpload(body[:min(len(body), media.SniffLen)])
+	for _, m := range f.files {
+		if m.ID != id {
+			continue
+		}
+		if !media.ExtensionMatchesMIME(fileExt(name), mime) {
+			return nil, media.ErrInvalidMimeType
+		}
+		if !media.ExtensionMatchesMIME(fileExt(m.Filename), mime) {
+			return nil, media.ErrReplaceKind
+		}
+		m.FileSize, m.MimeType = size, mime
+		f.replaced = append(f.replaced, id)
+		c := *m
+		return &c, nil
 	}
 	return nil, media.ErrMediaNotFound
 }

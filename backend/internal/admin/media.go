@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -37,6 +38,7 @@ func (a *Admin) mountMedia(authed *httpx.Group) {
 	authed.HandleFunc("POST /media/bulk", a.handleMediaBulk)
 	authed.HandleFunc("GET /media/{id}", a.handleMediaDetail)
 	authed.HandleFunc("POST /media/{id}", a.handleMediaUpdate)
+	authed.HandleFunc("POST /media/{id}/replace", a.handleMediaReplace)
 	authed.HandleFunc("GET /media/{id}/delete", a.handleMediaDeleteConfirm)
 	authed.HandleFunc("POST /media/{id}/delete", a.handleMediaDelete)
 }
@@ -173,20 +175,26 @@ type mediaTileView struct {
 }
 
 type mediaListData struct {
-	Actions  []ui.Button
-	Tabs     []ui.Tab
-	View     string
-	Q, Type  string
-	Types    []ui.Option
-	Tiles    []mediaTileView
-	Table    ui.Table
-	Page     ui.Pagination
-	Total    int
-	MaxMB    int
-	Upload   string // action of the upload form
-	UpView   string // the view the upload form hands back so the redirect keeps it
-	CSRFPath string
-	Back     string // where the bulk delete returns to
+	Actions []ui.Button
+	Tabs    []ui.Tab
+	// FolderTabs is the folder pill row (empty when there are no folders and no
+	// folder filter); Folder is the active filter as the URL carries it, and
+	// Folders feeds the bulk move select.
+	FolderTabs []ui.Tab
+	Folder     string
+	Folders    []ui.Option
+	View       string
+	Q, Type    string
+	Types      []ui.Option
+	Tiles      []mediaTileView
+	Table      ui.Table
+	Page       ui.Pagination
+	Total      int
+	MaxMB      int
+	Upload     string // action of the upload form
+	UpView     string // the view the upload form hands back so the redirect keeps it
+	CSRFPath   string
+	Back       string // where the bulk delete returns to
 	// Storage is the share of space per file type; StorageNote says when only the first files were counted.
 	Storage     *ui.CategoryBar
 	StorageNote string
@@ -194,10 +202,91 @@ type mediaListData struct {
 	Formats     *mediaFormatsView
 }
 
-func (a *Admin) mediaFilter(r *http.Request) (*media.ListMediaFilter, string, string) {
-	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	typ := r.URL.Query().Get("type")
-	return &media.ListMediaFilter{Search: q, MimeType: mimePrefix(typ)}, q, typ
+// mediaFilter reads the library filter. folder is "" for all files, "/" for
+// Uncategorised, else a folder name; a name that breaks the rules is ignored.
+func (a *Admin) mediaFilter(r *http.Request) (f *media.ListMediaFilter, q, typ, folder string) {
+	q = strings.TrimSpace(r.URL.Query().Get("q"))
+	typ = r.URL.Query().Get("type")
+	folder = folderParam(r)
+	return &media.ListMediaFilter{Search: q, MimeType: mimePrefix(typ), Folder: folder}, q, typ, folder
+}
+
+// folderParam is the folder query value in its stored form ("" when absent or invalid).
+func folderParam(r *http.Request) string {
+	raw := strings.TrimSpace(r.URL.Query().Get("folder"))
+	if raw == "" {
+		return ""
+	}
+	f, err := media.NormalizeFolder(raw)
+	if err != nil {
+		return ""
+	}
+	return f
+}
+
+// folderLabel is how a stored folder reads in the admin.
+func folderLabel(f string) string {
+	if f == media.RootFolder || f == "" {
+		return "Uncategorised"
+	}
+	return strings.TrimPrefix(f, "/")
+}
+
+// folderParamValue is the folder in the URL: the name without its slash, "/" for none.
+func folderParamValue(f string) string {
+	if f == media.RootFolder {
+		return f
+	}
+	return strings.TrimPrefix(f, "/")
+}
+
+// mediaFolders lists the folders in use whose names follow the rules (a legacy
+// name that does not stays reachable under All files), named folders first by
+// name, and the number of files with no folder.
+func (a *Admin) mediaFolders(ctx context.Context, ms MediaStore) (named []media.FolderCount, root, total int) {
+	all, err := ms.Folders(ctx)
+	if err != nil {
+		a.logger().Error("media folders failed", "err", err)
+		return nil, 0, 0
+	}
+	for _, f := range all {
+		total += f.Count
+		if f.Name == media.RootFolder {
+			root = f.Count
+		} else if _, err := media.NormalizeFolder(f.Name); err == nil {
+			named = append(named, f)
+		}
+	}
+	slices.SortFunc(named, func(x, y media.FolderCount) int {
+		return strings.Compare(strings.ToLower(x.Name), strings.ToLower(y.Name))
+	})
+	return named, root, total
+}
+
+// folderOptions are the options of a folder select: Uncategorised, then every
+// folder; selected is a stored folder ("" selects nothing).
+func folderOptions(named []media.FolderCount, selected string, placeholder string) []ui.Option {
+	var out []ui.Option
+	if placeholder != "" {
+		out = append(out, ui.Option{Value: "", Label: placeholder, Selected: selected == ""})
+	}
+	out = append(out, ui.Option{Value: media.RootFolder, Label: "Uncategorised", Selected: selected == media.RootFolder})
+	for _, f := range named {
+		out = append(out, ui.Option{Value: folderParamValue(f.Name), Label: folderLabel(f.Name), Selected: strings.EqualFold(f.Name, selected)})
+	}
+	return out
+}
+
+// chosenFolder is the folder a move form asks for: the typed new name wins
+// over the select. ok is false when neither was given.
+func chosenFolder(r *http.Request) (name string, ok bool) {
+	if n := strings.TrimSpace(r.PostFormValue("new_folder")); n != "" {
+		return n, true
+	}
+	if f := strings.TrimSpace(r.PostFormValue("folder")); f != "" {
+		return f, true
+	}
+	return "", false
 }
 
 func mediaTypeOptions(selected string) []ui.Option {
@@ -215,11 +304,12 @@ func (a *Admin) handleMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	filter, q, typ := a.mediaFilter(r)
+	filter, q, typ, folder := a.mediaFilter(r)
 	view := r.URL.Query().Get("view")
 	if view != "list" {
 		view = "grid"
 	}
+	var folderTabs []ui.Tab
 	per := mediaPerPage
 	if view == "list" {
 		per = 25
@@ -244,9 +334,38 @@ func (a *Admin) handleMedia(w http.ResponseWriter, r *http.Request) {
 	if typ != "" {
 		keep.Set("type", typ)
 	}
+	named, root, allFiles := a.mediaFolders(ctx, ms)
+	folderTab := func(label, value string, count int, active bool) ui.Tab {
+		fq := url.Values{}
+		for k, vs := range keep {
+			fq[k] = vs
+		}
+		if value != "" {
+			fq.Set("folder", value)
+		}
+		if view == "list" {
+			fq.Set("view", "list")
+		}
+		return ui.Tab{Label: label, Href: a.adminPath + "/settings/media?" + fq.Encode(), Count: count, Active: active}
+	}
+	if len(named) > 0 || folder != "" {
+		d0 := []ui.Tab{folderTab("All files", "", allFiles, folder == "")}
+		for _, f := range named {
+			d0 = append(d0, folderTab(folderLabel(f.Name), folderParamValue(f.Name), f.Count, strings.EqualFold(f.Name, folder)))
+		}
+		d0 = append(d0, folderTab("Uncategorised", media.RootFolder, root, folder == media.RootFolder))
+		folderTabs = d0
+	}
+	if folder != "" {
+		keep.Set("folder", folder)
+		if folder != media.RootFolder {
+			keep.Set("folder", folderParamValue(folder))
+		}
+	}
 	created := createdID(r)
 	d := mediaListData{Actions: []ui.Button{{Label: "Upload", Icon: "upload", Variant: "primary", Href: a.adminPath + "/settings/media/new", Attrs: map[string]string{"data-hm-open": "upload"}}}, View: view, Q: q, Type: typ, Types: mediaTypeOptions(typ), Total: res.Total, MaxMB: ms.Config().MaxSizeMB,
 		Upload: a.adminPath + "/media/upload"}
+	d.FolderTabs, d.Folder, d.Folders = folderTabs, folderParamValue(folder), folderOptions(named, "", "Move to")
 	if view == "list" {
 		d.UpView = view
 	}
@@ -267,7 +386,7 @@ func (a *Admin) handleMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	d.Back = a.adminPath + "/settings/media?" + pq.Encode()
 	// The bar sits outside the swapped results, so search keystrokes and filters never rescan the library.
-	if r.Header.Get("HX-Request") != "true" && page == 1 && q == "" && typ == "" {
+	if r.Header.Get("HX-Request") != "true" && page == 1 && q == "" && typ == "" && folder == "" {
 		d.Storage, d.StorageNote, d.StorageSize = a.mediaStorage(ctx, ms)
 	}
 	if u := userFrom(ctx); u != nil && u.Role == "owner" {
@@ -345,8 +464,27 @@ func uploadErrorText(name string, err error, maxMB int) string {
 		return name + ": the image has too many pixels."
 	case errors.Is(err, media.ErrInvalidMimeType):
 		return name + ": this file type is not allowed, or the extension does not match the content."
+	case errors.Is(err, media.ErrReplaceKind):
+		return name + ": replace with the same kind of file."
+	case errors.Is(err, media.ErrInvalidFolder):
+		return media.ErrInvalidFolder.Error()
+	}
+	var svgErr *media.SVGError
+	if errors.As(err, &svgErr) {
+		line := ""
+		if svgErr.Line > 0 {
+			line = fmt.Sprintf(" (line %d)", svgErr.Line)
+		}
+		return fmt.Sprintf("%s was not uploaded: %s%s. Remove it and try again.", name, svgErr.Reason, line)
 	}
 	return name + ": the upload failed."
+}
+
+// expectedUploadError is a refusal the user caused and can fix; it is not logged as a failure.
+func expectedUploadError(err error) bool {
+	var svgErr *media.SVGError
+	return errors.Is(err, media.ErrFileTooLarge) || errors.Is(err, media.ErrQuotaExceeded) || errors.Is(err, media.ErrImageTooLarge) ||
+		errors.Is(err, media.ErrInvalidMimeType) || errors.Is(err, media.ErrReplaceKind) || errors.Is(err, media.ErrInvalidFolder) || errors.As(err, &svgErr)
 }
 
 // uploadedFile is one file of a JSON upload answer.
@@ -383,6 +521,7 @@ func (a *Admin) handleMediaUpload(w http.ResponseWriter, r *http.Request) {
 	done := 0
 	var problems []string
 	var uploaded []uploadedFile
+	var cleanedNotes []string
 	for _, h := range files {
 		f, err := h.Open()
 		if err != nil {
@@ -392,7 +531,7 @@ func (a *Admin) handleMediaUpload(w http.ResponseWriter, r *http.Request) {
 		m, err := ms.Upload(r.Context(), actorID(r), f, h.Filename, "", h.Size)
 		f.Close()
 		if err != nil {
-			if !errors.Is(err, media.ErrFileTooLarge) && !errors.Is(err, media.ErrQuotaExceeded) && !errors.Is(err, media.ErrImageTooLarge) && !errors.Is(err, media.ErrInvalidMimeType) {
+			if !expectedUploadError(err) {
 				a.logger().Error("media upload failed", "err", err)
 			}
 			problems = append(problems, uploadErrorText(h.Filename, err, ms.Config().MaxSizeMB))
@@ -400,6 +539,10 @@ func (a *Admin) handleMediaUpload(w http.ResponseWriter, r *http.Request) {
 		}
 		done++
 		uploaded = append(uploaded, uploadedFile{ID: m.ID.String(), URL: mediaURL(m), Name: h.Filename})
+		if len(m.Cleaned) > 0 {
+			cleanedNotes = append(cleanedNotes, fmt.Sprintf("%s was cleaned: removed %s.", h.Filename, strings.Join(m.Cleaned, ", ")))
+			a.audit(r, "media.svg.upload", m.ID.String(), map[string]any{"name": h.Filename, "removed": m.Cleaned})
+		}
 	}
 	if r.URL.Query().Get("json") == "1" {
 		// The writing view's paste and drop upload: it shows its own progress
@@ -435,11 +578,11 @@ func (a *Admin) handleMediaUpload(w http.ResponseWriter, r *http.Request) {
 		if done != 1 {
 			noun = "files"
 		}
-		a.SetFlash(w, r, "success", fmt.Sprintf("Uploaded %d %s.", done, noun))
+		a.SetFlash(w, r, "success", strings.TrimSpace(fmt.Sprintf("Uploaded %d %s. %s", done, noun, strings.Join(cleanedNotes, " "))))
 	case done == 0:
 		a.SetFlash(w, r, "error", strings.Join(problems, " "))
 	default:
-		a.SetFlash(w, r, "error", fmt.Sprintf("Uploaded %d. %s", done, strings.Join(problems, " ")))
+		a.SetFlash(w, r, "error", strings.TrimSpace(fmt.Sprintf("Uploaded %d. %s %s", done, strings.Join(cleanedNotes, " "), strings.Join(problems, " "))))
 	}
 	Redirect(w, r, dest)
 }
@@ -470,6 +613,13 @@ type mediaDetailData struct {
 	UsageErr                                            bool
 	Error                                               string
 	Crumbs                                              []ui.Crumb
+	// Folder is the folder as shown; FolderOptions feeds its select and
+	// FolderError is shown under the folder fields.
+	Folder        string
+	FolderOptions []ui.Option
+	FolderError   string
+	Replace       string // action of the Replace form
+	ReplaceAccept string
 }
 
 type usageView struct{ Kind, Name, Href, Type string }
@@ -512,14 +662,20 @@ func (a *Admin) loadMedia(w http.ResponseWriter, r *http.Request) (*media.Media,
 	return m, true
 }
 
-func (a *Admin) renderMediaDetail(w http.ResponseWriter, r *http.Request, status int, m *media.Media, alt, caption, credit, errMsg string) {
+func (a *Admin) renderMediaDetail(w http.ResponseWriter, r *http.Request, status int, m *media.Media, alt, caption, credit, errMsg, folderErr string) {
 	name := m.OriginalFilename
 	if name == "" {
 		name = m.Filename
 	}
 	d := mediaDetailData{ID: m.ID.String(), Name: name, URL: mediaURL(m), Filename: m.Filename, Mime: m.MimeType, Size: humanSize(m.FileSize),
 		IsImage: m.IsImage(), Alt: alt, Caption: caption, Credit: credit, Variants: m.Variants, Error: errMsg,
-		Uploaded: fmtDateTime(m.CreatedAt.In(a.siteLocation(r.Context()))), Crumbs: a.areaCrumbs("media", Crumb{Label: name})}
+		Uploaded: fmtDateTime(m.CreatedAt.In(a.siteLocation(r.Context()))), Crumbs: a.areaCrumbs("media", Crumb{Label: name}),
+		Folder: folderLabel(m.Folder), FolderError: folderErr, Replace: a.adminPath + "/media/" + m.ID.String() + "/replace",
+		ReplaceAccept: replaceAccept(m)}
+	if ms := a.deps.Content.Media; ms != nil {
+		named, _, _ := a.mediaFolders(r.Context(), ms)
+		d.FolderOptions = folderOptions(named, m.Folder, "")
+	}
 	if m.Width != nil && m.Height != nil {
 		d.Dims = fmt.Sprintf("%d × %d px", *m.Width, *m.Height)
 	}
@@ -545,7 +701,7 @@ func (a *Admin) handleMediaDetail(w http.ResponseWriter, r *http.Request) {
 	if m.Credit != nil {
 		credit = *m.Credit
 	}
-	a.renderMediaDetail(w, r, http.StatusOK, m, alt, caption, credit, "")
+	a.renderMediaDetail(w, r, http.StatusOK, m, alt, caption, credit, "", "")
 }
 
 func (a *Admin) handleMediaUpdate(w http.ResponseWriter, r *http.Request) {
@@ -555,15 +711,92 @@ func (a *Admin) handleMediaUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	alt, caption, credit := strings.TrimSpace(r.PostFormValue("alt_text")), strings.TrimSpace(r.PostFormValue("caption")), strings.TrimSpace(r.PostFormValue("credit"))
 	if len([]rune(alt)) > 500 || len([]rune(caption)) > 2000 || len([]rune(credit)) > 500 {
-		a.renderMediaDetail(w, r, http.StatusUnprocessableEntity, m, alt, caption, credit, "Alt text can be up to 500 characters, the caption up to 2000 and the credit up to 500.")
+		a.renderMediaDetail(w, r, http.StatusUnprocessableEntity, m, alt, caption, credit, "Alt text can be up to 500 characters, the caption up to 2000 and the credit up to 500.", "")
 		return
 	}
-	if _, err := a.deps.Content.Media.Update(r.Context(), m.ID, &media.UpdateMediaInput{AltText: &alt, Caption: &caption, Credit: &credit}); err != nil {
+	in := &media.UpdateMediaInput{AltText: &alt, Caption: &caption, Credit: &credit}
+	moved := ""
+	if want, ok := chosenFolder(r); ok {
+		folder, err := media.NormalizeFolder(want)
+		if err != nil {
+			a.renderMediaDetail(w, r, http.StatusUnprocessableEntity, m, alt, caption, credit, "", err.Error())
+			return
+		}
+		in.Folder = &folder
+		if !strings.EqualFold(folder, m.Folder) {
+			moved = folder
+		}
+	}
+	if _, err := a.deps.Content.Media.Update(r.Context(), m.ID, in); err != nil {
+		if errors.Is(err, media.ErrInvalidFolder) {
+			a.renderMediaDetail(w, r, http.StatusUnprocessableEntity, m, alt, caption, credit, "", err.Error())
+			return
+		}
 		a.serverError(w, r, "The file could not be saved", err)
 		return
 	}
+	if moved != "" {
+		a.audit(r, "media.move", "media", map[string]any{"count": 1, "folder": moved})
+	}
 	a.SetFlash(w, r, "success", "Saved.")
 	Redirect(w, r, a.adminPath+"/media/"+m.ID.String())
+}
+
+// replaceAccept is the file types the Replace form offers: the kind of the stored file.
+func replaceAccept(m *media.Media) string {
+	if exts, ok := media.AllowedExtensionsForMIME(m.MimeType); ok {
+		return strings.Join(exts, ",")
+	}
+	return ""
+}
+
+// handleMediaReplace swaps the bytes of a file and keeps its address.
+func (a *Admin) handleMediaReplace(w http.ResponseWriter, r *http.Request) {
+	m, ok := a.loadMedia(w, r)
+	if !ok {
+		return
+	}
+	ms := a.deps.Content.Media
+	maxBytes := int64(ms.Config().MaxSizeMB) << 20
+	back := a.adminPath + "/media/" + m.ID.String()
+	r.Body = http.MaxBytesReader(w, r.Body, maxBytes+(1<<20))
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		a.SetFlash(w, r, "error", "That upload is too large or was cut off. Try a smaller file.")
+		Redirect(w, r, back)
+		return
+	}
+	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+	files := r.MultipartForm.File["file"]
+	if len(files) != 1 {
+		a.SetFlash(w, r, "error", "Choose one file to replace it with.")
+		Redirect(w, r, back)
+		return
+	}
+	h := files[0]
+	f, err := h.Open()
+	if err != nil {
+		a.SetFlash(w, r, "error", h.Filename+": the file could not be read.")
+		Redirect(w, r, back)
+		return
+	}
+	defer f.Close()
+	nm, err := ms.Replace(r.Context(), m.ID, f, h.Filename, h.Size)
+	if err != nil {
+		if !expectedUploadError(err) {
+			a.logger().Error("media replace failed", "err", err)
+		}
+		a.SetFlash(w, r, "error", uploadErrorText(h.Filename, err, ms.Config().MaxSizeMB))
+		Redirect(w, r, back)
+		return
+	}
+	a.audit(r, "media.replace", m.ID.String(), map[string]any{"id": m.ID.String(), "from": m.FileSize, "to": nm.FileSize})
+	msg := "Replaced. The address stays the same."
+	if len(nm.Cleaned) > 0 {
+		msg += fmt.Sprintf(" %s was cleaned: removed %s.", h.Filename, strings.Join(nm.Cleaned, ", "))
+		a.audit(r, "media.svg.upload", m.ID.String(), map[string]any{"name": h.Filename, "removed": nm.Cleaned})
+	}
+	a.SetFlash(w, r, "success", msg)
+	Redirect(w, r, back)
 }
 
 func (a *Admin) handleMediaDeleteConfirm(w http.ResponseWriter, r *http.Request) {
@@ -624,7 +857,45 @@ func (a *Admin) mediaInUse(r *http.Request, ms MediaStore, ids []string) int {
 	return used
 }
 
-// handleMediaBulk deletes the ticked files. The first request answers a
+// bulkMove puts the ticked files in one folder: the typed new name, else the chosen one.
+func (a *Admin) bulkMove(w http.ResponseWriter, r *http.Request, ms MediaStore, ids []string, back string) {
+	want, ok := chosenFolder(r)
+	if !ok {
+		a.SetFlash(w, r, "error", "Choose a folder, or type a new folder name.")
+		Redirect(w, r, back)
+		return
+	}
+	folder, err := media.NormalizeFolder(want)
+	if err != nil {
+		a.SetFlash(w, r, "error", err.Error())
+		Redirect(w, r, back)
+		return
+	}
+	done, failed := 0, 0
+	for _, raw := range ids {
+		id, err := uuid.Parse(raw)
+		if err == nil {
+			_, err = ms.Update(r.Context(), id, &media.UpdateMediaInput{Folder: &folder})
+		}
+		if err != nil {
+			failed++
+			continue
+		}
+		done++
+	}
+	if done > 0 {
+		a.audit(r, "media.move", "media", map[string]any{"count": done, "folder": folder})
+	}
+	msg := fmt.Sprintf("Moved %d %s to %s.", done, plural(done, "file", "files"), folderLabel(folder))
+	if failed > 0 {
+		a.SetFlash(w, r, "error", fmt.Sprintf("%s %d could not be moved.", msg, failed))
+	} else {
+		a.SetFlash(w, r, "success", msg)
+	}
+	Redirect(w, r, back)
+}
+
+// handleMediaBulk deletes or moves the ticked files. The first request answers a
 // confirmation page; the confirmed one deletes.
 func (a *Admin) handleMediaBulk(w http.ResponseWriter, r *http.Request) {
 	ms := a.deps.Content.Media
@@ -643,6 +914,9 @@ func (a *Admin) handleMediaBulk(w http.ResponseWriter, r *http.Request) {
 	case len(ids) > 100:
 		a.SetFlash(w, r, "error", "Select at most 100 files at a time.")
 		Redirect(w, r, back)
+		return
+	case r.PostFormValue("action") == "move":
+		a.bulkMove(w, r, ms, ids, back)
 		return
 	case r.PostFormValue("action") != "delete":
 		a.SetFlash(w, r, "error", "Choose an action for the selected files.")

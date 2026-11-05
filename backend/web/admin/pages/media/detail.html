@@ -11,10 +11,20 @@
 {{template "hm/field" dict "ID" "alt_text" "Name" "alt_text" "Label" "Alt text" "Value" .Alt "Help" "Describes the image for people who cannot see it. Leave empty for a purely decorative image." "Error" .Error "Attrs" (attrmap "autocomplete" "off")}}
 {{template "hm/field" dict "ID" "caption" "Name" "caption" "Label" "Caption" "Control" "textarea" "Rows" 3 "Value" .Caption}}
 {{template "hm/field" dict "ID" "credit" "Name" "credit" "Label" "Credit" "Value" .Credit}}
+{{template "hm/field" dict "ID" "folder" "Name" "folder" "Label" "Folder" "Control" "select" "Options" .FolderOptions "Error" .FolderError}}
+{{template "hm/field" dict "ID" "new_folder" "Name" "new_folder" "Label" "Or a new folder" "Help" "Folders have one level. A name is up to 60 letters, digits, spaces, hyphens or underscores. Leave empty to use the folder above." "Attrs" (attrmap "maxlength" "60" "autocomplete" "off")}}
 {{template "hm/card-foot"}}
 <span class="hm-card__foot-note">{{template "hm/button" dict "Label" "Delete" "Variant" "danger-text" "Href" (printf "%s/media/%s/delete" adminPath .ID) "Attrs" (attrmap "data-hm-confirm" $confirm "data-hm-confirm-label" "Delete file" "data-hm-post" (printf "%s/media/%s/delete" adminPath .ID) "data-hm-danger" "")}}</span>
 {{template "hm/button" (dict "Label" "Download" "Href" .URL "Attrs" (attrmap "download" ""))}}
 {{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}
+{{template "hm/card-foot-end"}}
+</form>
+<form method="post" action="{{.Replace}}" enctype="multipart/form-data" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "replace" "Title" "Replace file"}}
+{{template "hm/field" dict "ID" "replace-file" "Name" "file" "Label" "New file" "Type" "file" "Required" true "Help" "The address stays the same, so pages and links keep working. Use the same kind of file. Browsers and a CDN in front of the site may show the old file for up to a day." "Attrs" (attrmap "accept" .ReplaceAccept)}}
+{{template "hm/card-foot"}}
+{{template "hm/button" dict "Label" "Replace file" "Variant" "primary" "Type" "submit"}}
 {{template "hm/card-foot-end"}}
 </form>
 </div>
@@ -22,7 +32,7 @@
 {{template "hm/card-start" dict "ID" "info" "Title" "File"}}
 {{template "hm/field" dict "ID" "file-address" "Name" "address" "Label" "Address" "Value" .URL "Attrs" (attrmap "readonly" "")}}
 {{template "hm/button" (dict "Size" "sm" "Label" "Copy address" "Attrs" (attrmap "data-hm-copy-url" .URL "hidden" ""))}}
-<dl class="hm-dl"><dt>Type</dt><dd><code>{{.Mime}}</code></dd><dt>Size</dt><dd>{{.Size}}</dd>{{if .Dims}}<dt>Dimensions</dt><dd>{{.Dims}}</dd>{{end}}<dt>Uploaded</dt><dd>{{.Uploaded}}</dd></dl>
+<dl class="hm-dl"><dt>Type</dt><dd><code>{{.Mime}}</code></dd><dt>Size</dt><dd>{{.Size}}</dd>{{if .Dims}}<dt>Dimensions</dt><dd>{{.Dims}}</dd>{{end}}<dt>Folder</dt><dd>{{.Folder}}</dd><dt>Uploaded</dt><dd>{{.Uploaded}}</dd></dl>
 <details class="hm-disclosure"><summary>Technical details</summary><div class="hm-disclosure__body"><dl class="hm-dl"><dt>Original name</dt><dd>{{.Name}}</dd><dt>Stored as</dt><dd>{{.Filename}}</dd>{{range .Variants}}<dt>{{.Size}} version</dt><dd>{{.Width}} × {{.Height}} px · <a href="{{.URL}}">open</a></dd>{{end}}</dl></div></details>
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "usage" "Title" "Where it is used"}}

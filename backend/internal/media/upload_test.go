@@ -376,6 +376,7 @@ func TestSniffUploadSVG(t *testing.T) {
 	for _, c := range []struct{ in, want string }{
 		{"<svg xmlns='x'/>", "image/svg+xml"},
 		{"\xef\xbb\xbf  <?xml version='1.0'?>\n<!-- c -->\n<svg>", "image/svg+xml"},
+		{"<!DOCTYPE svg [<!ENTITY a \"b\">]><svg>", "image/svg+xml"},
 		{"<svgfoo>", "text/html; charset=utf-8"},
 		{"<html><svg>", "text/html; charset=utf-8"},
 	} {
