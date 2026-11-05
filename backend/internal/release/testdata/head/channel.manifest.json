@@ -1,0 +1,37 @@
+{
+  "index": {
+    "channel": "stable",
+    "issued_at": "2026-11-01T11:00:00Z",
+    "expires_at": "2026-11-15T11:00:00Z",
+    "releases": [
+      {
+        "version": "v1.2.3",
+        "record_sig": "8325d48e6982a6ea:iq9fxdICIi+bs7DPuKJVcyw+Z2OGS67fyZ9YuAkhuqyIGokW1BY23O+mH90fKwP9fC6fkGMK7YV38WJyX4pbCQ==",
+        "ramp": [
+          {
+            "from": "2026-11-01T12:00:00Z",
+            "pct": 100
+          }
+        ],
+        "halted": false
+      },
+      {
+        "version": "v1.1.0",
+        "record_sig": "k:sig",
+        "ramp": [],
+        "halted": true,
+        "halt_reason": "bad \u0026 \u003cbroken\u003e"
+      }
+    ],
+    "yanked": [
+      {
+        "version": "v1.0.0",
+        "reason": "crash \u0026 burn\u2028é",
+        "to": "v1.1.0"
+      }
+    ]
+  },
+  "signer": "8325d48e6982a6ea",
+  "algorithm": "ed25519",
+  "signature": "7ETD3gPgx4a/NO4Khk7DoFWHw/OsWPiMd+wYaqOlYNR6VoELhYPIHXULCddJZG0wkAPQQjmMYVX9gOR/qx9hCA=="
+}

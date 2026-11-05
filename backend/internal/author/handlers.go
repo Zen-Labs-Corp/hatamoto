@@ -1,13 +1,13 @@
 package author
 
 import (
-	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Handlers is the admin API of authors (/api/v1/authors).
@@ -30,23 +30,17 @@ func NewHandlers(store *Store, logger *slog.Logger) *Handlers {
 	return &Handlers{store: store, logger: logger}
 }
 
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
 func (h *Handlers) fail(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "author not found"})
+		jsonx.WriteJSON(w, http.StatusNotFound, map[string]string{"error": "author not found"})
 	case errors.Is(err, ErrSlugConflict):
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "author slug already exists"})
+		jsonx.WriteJSON(w, http.StatusConflict, map[string]string{"error": "author slug already exists"})
 	case errors.Is(err, ErrInvalid):
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		jsonx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 	default:
 		h.logger.Error("authors: request failed", slog.String("error", err.Error()))
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		jsonx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 	}
 }
 
@@ -56,12 +50,11 @@ func (h *Handlers) changed(r *http.Request) {
 	}
 }
 
-func decode(r *http.Request) (Input, error) {
+func (h *Handlers) decode(w http.ResponseWriter, r *http.Request) (Input, error) {
 	var in Input
-	dec := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&in); err != nil {
-		return in, errors.Join(ErrInvalid, err)
+	if _, err := jsonx.DecodeRequest(w, r, &in, 1<<20, jsonx.StrictNoUnknown); err != nil {
+		h.logger.Debug("authors: invalid request body", slog.String("error", err.Error()))
+		return in, errors.Join(ErrInvalid, errors.New("invalid JSON body"))
 	}
 	return in, nil
 }
@@ -73,7 +66,7 @@ func (h *Handlers) List(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": list})
+	jsonx.WriteJSON(w, http.StatusOK, map[string]any{"items": list})
 }
 
 // Get handles GET /authors/{id}.
@@ -88,12 +81,12 @@ func (h *Handlers) Get(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, a)
+	jsonx.WriteJSON(w, http.StatusOK, a)
 }
 
 // Create handles POST /authors.
 func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
-	in, err := decode(r)
+	in, err := h.decode(w, r)
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -104,7 +97,7 @@ func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.changed(r)
-	writeJSON(w, http.StatusCreated, a)
+	jsonx.WriteJSON(w, http.StatusCreated, a)
 }
 
 // Update handles PUT /authors/{id}.
@@ -114,7 +107,7 @@ func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, ErrNotFound)
 		return
 	}
-	in, err := decode(r)
+	in, err := h.decode(w, r)
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -125,7 +118,7 @@ func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.changed(r)
-	writeJSON(w, http.StatusOK, a)
+	jsonx.WriteJSON(w, http.StatusOK, a)
 }
 
 // Delete handles DELETE /authors/{id}.

@@ -7,22 +7,23 @@
 package budgetfile
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Metric is one baseline entry.
 type Metric struct {
 	Value  int64   `json:"value"`
 	Unit   string  `json:"unit"` // bytes | allocs
-	TolPct float64 `json:"tol_pct,omitempty"`
-	TolAbs int64   `json:"tol_abs,omitempty"`
-	Cap    int64   `json:"cap,omitempty"` // absolute hard limit, 0 = none
+	TolPct float64 `json:"tol_pct,omitzero"`
+	TolAbs int64   `json:"tol_abs,omitzero"`
+	Cap    int64   `json:"cap,omitzero"` // absolute hard limit, 0 = none
 }
 
 // Entry is one line of a file's update history.
@@ -139,7 +140,7 @@ func load(path string) (*fileData, error) {
 		return nil, err
 	}
 	var fd fileData
-	if err := json.Unmarshal(b, &fd); err != nil {
+	if err := jsonx.Unmarshal(b, &fd, jsonx.Stored); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	if fd.Metrics == nil {
@@ -154,7 +155,7 @@ func load(path string) (*fileData, error) {
 // save writes sorted keys (encoding/json sorts map keys), 2-space indent and a
 // trailing newline.
 func save(path string, fd *fileData) error {
-	b, err := json.MarshalIndent(fd, "", "  ")
+	b, err := jsonx.Indent(fd)
 	if err != nil {
 		return err
 	}

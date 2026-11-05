@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +20,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -72,7 +73,7 @@ func scanArchive(file string) (*scanned, error) {
 			if err != nil {
 				return nil, err
 			}
-			if err := json.Unmarshal(body, &s.mf); err != nil {
+			if err := jsonx.Unmarshal(body, &s.mf, jsonx.StoredLoose); err != nil {
 				return nil, fmt.Errorf("manifest.json is not valid: %w", err)
 			}
 			haveManifest = true

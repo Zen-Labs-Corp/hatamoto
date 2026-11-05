@@ -5,8 +5,9 @@
 package release
 
 import (
-	"encoding/json"
 	"regexp"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 var canonicalVersion = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?$`)
@@ -79,9 +80,9 @@ type ChannelManifest struct {
 }
 
 // MarshalRecord renders rec as the bytes that are signed and published:
-// indented JSON (map keys sorted by encoding/json) and a trailing newline.
+// indented JSON (map keys sorted) and a trailing newline.
 func MarshalRecord(rec Record) ([]byte, error) {
-	b, err := json.MarshalIndent(rec, "", "  ")
+	b, err := jsonx.Indent(rec, jsonx.PinnedMarshal)
 	if err != nil {
 		return nil, err
 	}

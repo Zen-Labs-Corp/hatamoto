@@ -2,7 +2,7 @@ package importjob
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"os"
 	"time"
@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/wpimport"
 )
 
@@ -20,7 +21,7 @@ type record struct {
 	status    string
 	phase     string
 	st        stored
-	report    json.RawMessage
+	report    jsontext.Value
 	errText   string
 	started   time.Time
 	finished  *time.Time
@@ -28,7 +29,7 @@ type record struct {
 
 func (m *Manager) record(ctx context.Context, id uuid.UUID) (*record, error) {
 	r := &record{id: id}
-	var opts json.RawMessage
+	var opts jsontext.Value
 	err := m.cfg.Pool.QueryRow(ctx, `SELECT source_ref, status, phase, options, report, error, started_at, finished_at FROM hatamoto_import_runs WHERE id = $1 AND source = 'wordpress'`, id).
 		Scan(&r.sourceRef, &r.status, &r.phase, &opts, &r.report, &r.errText, &r.started, &r.finished)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -37,7 +38,7 @@ func (m *Manager) record(ctx context.Context, id uuid.UUID) (*record, error) {
 	if err != nil {
 		return nil, err
 	}
-	_ = json.Unmarshal(opts, &r.st)
+	_ = jsonx.Unmarshal(opts, &r.st, jsonx.StoredLoose)
 	if r.st.Kind == "" { // a run of the CLI
 		r.st.Kind = KindREST
 		if r.st.URL == "" {
@@ -103,11 +104,11 @@ func (m *Manager) Get(ctx context.Context, id uuid.UUID) (*Run, error) {
 	run := m.view(rec, j)
 	if rec.hasReport() {
 		var res wpimport.Result
-		if json.Unmarshal(rec.report, &res) == nil && res.RunID != uuid.Nil {
+		if jsonx.Unmarshal(rec.report, &res, jsonx.StoredLoose) == nil && res.RunID != uuid.Nil {
 			run.Result, run.Report = &res, res.Report
 		} else {
 			var rep wpimport.Report
-			if json.Unmarshal(rec.report, &rep) == nil && rep.Source != "" {
+			if jsonx.Unmarshal(rec.report, &rep, jsonx.StoredLoose) == nil && rep.Source != "" {
 				run.Report = &rep
 			}
 		}

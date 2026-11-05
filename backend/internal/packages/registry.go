@@ -5,7 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +19,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/tags"
 )
 
@@ -32,7 +33,7 @@ type Entry struct {
 	URL string `json:"url"`
 	// SHA256 is the hex hash of the .hmp (checked after the download).
 	SHA256      string   `json:"sha256"`
-	Size        int64    `json:"size,omitempty"`
+	Size        int64    `json:"size,omitzero"`
 	Permissions []string `json:"permissions,omitempty"`
 	Homepage    string   `json:"homepage,omitempty"`
 	// Author, Source (repository URL), Commit (the pinned source revision) and
@@ -54,7 +55,7 @@ type Entry struct {
 	// Category (one of Categories) and Featured feed the admin Browse page.
 	// Both are optional: servers that predate them ignore the keys.
 	Category string `json:"category,omitempty"`
-	Featured bool   `json:"featured,omitempty"`
+	Featured bool   `json:"featured,omitzero"`
 	// SiteType (one of SiteTypes) and Flags (any of ThemeFlags) feed the admin
 	// theme Browse page. Both are optional: unknown values are dropped.
 	SiteType string   `json:"site_type,omitempty"`
@@ -108,20 +109,20 @@ func (e *Entry) UnmarshalJSON(data []byte) error {
 	type plain Entry
 	aux := struct {
 		*plain
-		SiteType json.RawMessage `json:"site_type"`
-		Flags    json.RawMessage `json:"flags"`
-		Tags     json.RawMessage `json:"tags"`
+		SiteType jsontext.Value `json:"site_type"`
+		Flags    jsontext.Value `json:"flags"`
+		Tags     jsontext.Value `json:"tags"`
 	}{plain: (*plain)(e)}
-	if err := json.Unmarshal(data, &aux); err != nil {
+	if err := jsonx.UnmarshalPinned(data, &aux); err != nil {
 		return err
 	}
 	e.SiteType, e.Flags = "", nil
-	_ = json.Unmarshal(aux.SiteType, &e.SiteType)
-	if json.Unmarshal(aux.Flags, &e.Flags) != nil {
+	_ = jsonx.UnmarshalPinned(aux.SiteType, &e.SiteType)
+	if jsonx.UnmarshalPinned(aux.Flags, &e.Flags) != nil {
 		e.Flags = nil
 	}
 	e.Tags = nil
-	if json.Unmarshal(aux.Tags, &e.Tags) != nil {
+	if jsonx.UnmarshalPinned(aux.Tags, &e.Tags) != nil {
 		e.Tags = nil
 	}
 	return nil
@@ -344,7 +345,7 @@ func ParseIndex(doc []byte, trust TrustSet, now time.Time) (*Index, error) {
 		return nil, err
 	}
 	var idx Index
-	if err := json.Unmarshal(raw, &idx); err != nil {
+	if err := jsonx.UnmarshalPinned(raw, &idx); err != nil {
 		return nil, fmt.Errorf("registry index: %w", err)
 	}
 	if idx.Version != 1 {

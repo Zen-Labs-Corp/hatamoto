@@ -3,7 +3,7 @@ package packages
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -22,6 +22,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/pluginhost"
@@ -287,7 +288,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	default:
 		return nil, fmt.Errorf("%w %q", ErrUnknownSource, req.Source)
 	}
-	p, err := Parse(raw, DefaultLimits)
+	p, err := ParseNew(raw, DefaultLimits)
 	if err != nil {
 		return nil, err
 	}
@@ -549,9 +550,9 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 // widenedAccess compares the installed plugin manifest with the update's: the
 // allowed_hosts entries the update adds and whether it newly asks for
 // http.fetch.any, builder.island or site.scripts. An unreadable installed manifest counts as having nothing.
-func widenedAccess(installed json.RawMessage, p *Package) (hosts []string, fetchAny, island, scripts bool) {
+func widenedAccess(installed jsontext.Value, p *Package) (hosts []string, fetchAny, island, scripts bool) {
 	var old sdk.Manifest
-	_ = json.Unmarshal(installed, &old)
+	_ = decodeManifest(installed, &old)
 	next, err := p.PluginManifest()
 	if err != nil {
 		return nil, false, false, false
@@ -569,9 +570,9 @@ func widenedAccess(installed json.RawMessage, p *Package) (hosts []string, fetch
 
 // newRequestHeaders lists the request_headers (lower case) the update declares
 // that the installed manifest did not.
-func newRequestHeaders(installed json.RawMessage, p *Package) []string {
+func newRequestHeaders(installed jsontext.Value, p *Package) []string {
 	var old sdk.Manifest
-	_ = json.Unmarshal(installed, &old)
+	_ = decodeManifest(installed, &old)
 	next, err := p.PluginManifest()
 	if err != nil {
 		return nil
@@ -591,9 +592,9 @@ func newRequestHeaders(installed json.RawMessage, p *Package) []string {
 
 // newCSPHosts lists the csp hosts (per directive, "directive host") the update
 // asks for that the installed manifest did not.
-func newCSPHosts(installed json.RawMessage, p *Package) []string {
+func newCSPHosts(installed jsontext.Value, p *Package) []string {
 	var old sdk.Manifest
-	_ = json.Unmarshal(installed, &old)
+	_ = decodeManifest(installed, &old)
 	next, err := p.PluginManifest()
 	if err != nil || next.CSP.Empty() {
 		return nil
@@ -666,7 +667,7 @@ func (m *Manager) FetchFromRegistry(ctx context.Context, kind Kind, name string)
 	if err != nil {
 		return nil, err
 	}
-	p, err := Parse(data, DefaultLimits)
+	p, err := ParseNew(data, DefaultLimits)
 	if err != nil {
 		return nil, err
 	}
@@ -975,11 +976,11 @@ func (m *Manager) Activate(ctx context.Context, name string, force bool) error {
 
 // declLocations reads the menu locations a theme.json declares; an invalid
 // block is logged and ignored, it never fails an install or activation.
-func (m *Manager) declLocations(theme string, manifest json.RawMessage) []menu.DeclLocation {
+func (m *Manager) declLocations(theme string, manifest jsontext.Value) []menu.DeclLocation {
 	var meta struct {
-		Menus json.RawMessage `json:"menus"`
+		Menus jsontext.Value `json:"menus"`
 	}
-	if err := json.Unmarshal(manifest, &meta); err != nil {
+	if err := jsonx.Unmarshal(manifest, &meta, jsonx.StoredLoose); err != nil {
 		return nil
 	}
 	locs, err := menu.ParseDecl(meta.Menus)
@@ -1124,7 +1125,7 @@ func (m *Manager) SetAllowUnsigned(ctx context.Context, on bool, until *time.Tim
 // --- theme settings -----------------------------------------------------------
 
 // ThemeSettingsSchema is the settings_schema of an installed theme (nil: none).
-func (m *Manager) ThemeSettingsSchema(ctx context.Context, name string) (json.RawMessage, error) {
+func (m *Manager) ThemeSettingsSchema(ctx context.Context, name string) (jsontext.Value, error) {
 	if name == "" || name == DefaultTheme {
 		return nil, nil
 	}
@@ -1133,7 +1134,7 @@ func (m *Manager) ThemeSettingsSchema(ctx context.Context, name string) (json.Ra
 		return nil, err
 	}
 	var meta ThemeMeta
-	if err := json.Unmarshal(row.Manifest, &meta); err != nil {
+	if err := jsonx.Unmarshal(row.Manifest, &meta, jsonx.StoredLoose); err != nil {
 		return nil, err
 	}
 	if len(meta.SettingsSchema) == 0 || string(meta.SettingsSchema) == "null" {
@@ -1153,7 +1154,7 @@ func (m *Manager) ThemeSettings(ctx context.Context, name string) (map[string]an
 		return nil, err
 	}
 	out := map[string]any{}
-	_ = json.Unmarshal(pluginhost.MergeDefaults(schema, stored), &out)
+	_ = jsonx.Unmarshal(pluginhost.MergeDefaults(schema, stored), &out, jsonx.StoredLoose)
 	return out, nil
 }
 
@@ -1165,7 +1166,7 @@ func (m *Manager) SaveThemeSettings(ctx context.Context, name string, values map
 	if err != nil || len(schema) == 0 {
 		return nil, errors.Join(err, errors.New("the theme has no settings"))
 	}
-	body, err := json.Marshal(values)
+	body, err := jsonx.Marshal(values)
 	if err != nil {
 		return nil, err
 	}

@@ -2,7 +2,7 @@ package packages
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // A plugin package may ship entity types: schemas/<slug>.json, a JSON Schema
@@ -40,7 +41,7 @@ type SchemaStore interface {
 // ContentType is an entity type a package installs.
 type ContentType struct {
 	Slug, Name, Description string
-	Schema                  json.RawMessage
+	Schema                  jsontext.Value
 }
 
 // EntitySchemas returns the content types of p: the schemas/<slug>.json files
@@ -70,7 +71,7 @@ func (p *Package) EntitySchemas() ([]ContentType, error) {
 			Title       string `json:"title"`
 			Description string `json:"description"`
 		}
-		if err := json.Unmarshal(raw, &doc); err != nil {
+		if err := jsonx.UnmarshalPinned(raw, &doc); err != nil {
 			return nil, refuse("%s: %v", f, err)
 		}
 		ct := ContentType{Slug: slug, Name: doc.Title, Description: doc.Description, Schema: raw}

@@ -3,11 +3,12 @@ package supervisor
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Event phases.
@@ -50,7 +51,7 @@ func AppendEvent(path string, e Event) error {
 	if e.ID == "" {
 		e.ID = NewEventID()
 	}
-	b, err := json.Marshal(e)
+	b, err := jsonx.Marshal(e)
 	if err != nil {
 		return err
 	}

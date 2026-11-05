@@ -216,7 +216,7 @@ func runPack(kind packages.Kind, args []string, out io.Writer) error {
 	} else if raw, err = packages.PackDir(pos[0], key); err != nil {
 		return err
 	}
-	p, err := packages.Parse(raw, packages.DefaultLimits)
+	p, err := packages.ParseNew(raw, packages.DefaultLimits)
 	if err != nil {
 		return err
 	}
@@ -386,7 +386,7 @@ func runPackageInstall(ctx context.Context, args []string, logger *slog.Logger, 
 			return err
 		}
 	}
-	p, err := packages.Parse(data, packages.DefaultLimits)
+	p, err := packages.ParseNew(data, packages.DefaultLimits)
 	if err != nil {
 		return err
 	}

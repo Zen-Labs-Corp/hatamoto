@@ -2,7 +2,6 @@ package form
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Repository defines the interface for form data operations.
@@ -53,12 +53,12 @@ func (r *PostgresRepository) CreateForm(ctx context.Context, input *CreateFormIn
 	id := uuid.New()
 	now := time.Now()
 
-	fieldsJSON, err := json.Marshal(input.Fields)
+	fieldsJSON, err := jsonx.Marshal(input.Fields)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal fields: %w", err)
 	}
 
-	settingsJSON, err := json.Marshal(input.Settings)
+	settingsJSON, err := jsonx.Marshal(input.Settings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal settings: %w", err)
 	}
@@ -83,11 +83,11 @@ func (r *PostgresRepository) CreateForm(ctx context.Context, input *CreateFormIn
 		return nil, fmt.Errorf("failed to create form: %w", err)
 	}
 
-	if err := json.Unmarshal(fieldsData, &f.Fields); err != nil {
+	if err := jsonx.Unmarshal(fieldsData, &f.Fields, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal fields: %w", err)
 	}
 
-	if err := json.Unmarshal(settingsData, &f.Settings); err != nil {
+	if err := jsonx.Unmarshal(settingsData, &f.Settings, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal settings: %w", err)
 	}
 
@@ -122,11 +122,11 @@ func (r *PostgresRepository) GetFormByID(ctx context.Context, id uuid.UUID) (*Fo
 		return nil, fmt.Errorf("failed to get form: %w", err)
 	}
 
-	if err := json.Unmarshal(fieldsData, &f.Fields); err != nil {
+	if err := jsonx.Unmarshal(fieldsData, &f.Fields, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal fields: %w", err)
 	}
 
-	if err := json.Unmarshal(settingsData, &f.Settings); err != nil {
+	if err := jsonx.Unmarshal(settingsData, &f.Settings, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal settings: %w", err)
 	}
 
@@ -161,11 +161,11 @@ func (r *PostgresRepository) GetFormBySlug(ctx context.Context, slug string) (*F
 		return nil, fmt.Errorf("failed to get form by slug: %w", err)
 	}
 
-	if err := json.Unmarshal(fieldsData, &f.Fields); err != nil {
+	if err := jsonx.Unmarshal(fieldsData, &f.Fields, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal fields: %w", err)
 	}
 
-	if err := json.Unmarshal(settingsData, &f.Settings); err != nil {
+	if err := jsonx.Unmarshal(settingsData, &f.Settings, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal settings: %w", err)
 	}
 
@@ -210,11 +210,11 @@ func (r *PostgresRepository) ListForms(ctx context.Context, status string) ([]*F
 			return nil, fmt.Errorf("failed to scan form: %w", err)
 		}
 
-		if err := json.Unmarshal(fieldsData, &f.Fields); err != nil {
+		if err := jsonx.Unmarshal(fieldsData, &f.Fields, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal fields: %w", err)
 		}
 
-		if err := json.Unmarshal(settingsData, &f.Settings); err != nil {
+		if err := jsonx.Unmarshal(settingsData, &f.Settings, jsonx.StoredLoose); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal settings: %w", err)
 		}
 
@@ -264,12 +264,12 @@ func (r *PostgresRepository) UpdateForm(ctx context.Context, id uuid.UUID, input
 		status = *input.Status
 	}
 
-	fieldsJSON, err := json.Marshal(fields)
+	fieldsJSON, err := jsonx.Marshal(fields)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal fields: %w", err)
 	}
 
-	settingsJSON, err := json.Marshal(settings)
+	settingsJSON, err := jsonx.Marshal(settings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal settings: %w", err)
 	}
@@ -295,11 +295,11 @@ func (r *PostgresRepository) UpdateForm(ctx context.Context, id uuid.UUID, input
 		return nil, fmt.Errorf("failed to update form: %w", err)
 	}
 
-	if err := json.Unmarshal(fieldsData, &f.Fields); err != nil {
+	if err := jsonx.Unmarshal(fieldsData, &f.Fields, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal fields: %w", err)
 	}
 
-	if err := json.Unmarshal(settingsData, &f.Settings); err != nil {
+	if err := jsonx.Unmarshal(settingsData, &f.Settings, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal settings: %w", err)
 	}
 
@@ -337,12 +337,12 @@ func (r *PostgresRepository) CreateSubmission(ctx context.Context, formID uuid.U
 	id := uuid.New()
 	now := time.Now()
 
-	dataJSON, err := json.Marshal(input.Data)
+	dataJSON, err := jsonx.Marshal(input.Data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal data: %w", err)
 	}
 
-	metadataJSON, err := json.Marshal(input.Metadata)
+	metadataJSON, err := jsonx.Marshal(input.Metadata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal metadata: %w", err)
 	}
@@ -367,11 +367,11 @@ func (r *PostgresRepository) CreateSubmission(ctx context.Context, formID uuid.U
 		return nil, fmt.Errorf("failed to create submission: %w", err)
 	}
 
-	if err := json.Unmarshal(dataData, &s.Data); err != nil {
+	if err := jsonx.Unmarshal(dataData, &s.Data, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
 	}
 
-	if err := json.Unmarshal(metadataData, &s.Metadata); err != nil {
+	if err := jsonx.Unmarshal(metadataData, &s.Metadata, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
 	s.Attribution = attr.attribution()
@@ -479,11 +479,11 @@ func (r *PostgresRepository) GetSubmissionByID(ctx context.Context, id uuid.UUID
 		return nil, fmt.Errorf("failed to get submission: %w", err)
 	}
 
-	if err := json.Unmarshal(dataData, &s.Data); err != nil {
+	if err := jsonx.Unmarshal(dataData, &s.Data, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
 	}
 
-	if err := json.Unmarshal(metadataData, &s.Metadata); err != nil {
+	if err := jsonx.Unmarshal(metadataData, &s.Metadata, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
 	s.Attribution = attr.attribution()
@@ -574,11 +574,11 @@ func (r *PostgresRepository) ListSubmissions(ctx context.Context, formID uuid.UU
 			return nil, 0, fmt.Errorf("failed to scan submission: %w", err)
 		}
 
-		if err := json.Unmarshal(dataData, &s.Data); err != nil {
+		if err := jsonx.Unmarshal(dataData, &s.Data, jsonx.StoredLoose); err != nil {
 			return nil, 0, fmt.Errorf("failed to unmarshal data: %w", err)
 		}
 
-		if err := json.Unmarshal(metadataData, &s.Metadata); err != nil {
+		if err := jsonx.Unmarshal(metadataData, &s.Metadata, jsonx.StoredLoose); err != nil {
 			return nil, 0, fmt.Errorf("failed to unmarshal metadata: %w", err)
 		}
 		s.Attribution = attr.attribution()
@@ -623,11 +623,11 @@ func (r *PostgresRepository) UpdateSubmission(ctx context.Context, id uuid.UUID,
 		return nil, fmt.Errorf("failed to update submission: %w", err)
 	}
 
-	if err := json.Unmarshal(dataData, &s.Data); err != nil {
+	if err := jsonx.Unmarshal(dataData, &s.Data, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
 	}
 
-	if err := json.Unmarshal(metadataData, &s.Metadata); err != nil {
+	if err := jsonx.Unmarshal(metadataData, &s.Metadata, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
 	s.Attribution = attr.attribution()

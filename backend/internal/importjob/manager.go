@@ -10,7 +10,6 @@ package importjob
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +26,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/wpimport"
 )
 
@@ -75,7 +75,7 @@ type Source struct {
 // Options are the choices of the options step.
 type Options struct {
 	// Types are the post types to import; nil imports all of them.
-	Types  []string `json:"types"`
+	Types  []string `json:"types,omitzero"`
 	Drafts bool     `json:"drafts"`
 	Media  bool     `json:"media"`
 	Menus  bool     `json:"menus"`
@@ -267,7 +267,7 @@ func (m *Manager) Begin(ctx context.Context, actor Actor, src Source) (uuid.UUID
 	default:
 		return uuid.Nil, &ValidationError{"kind", "Choose where to import from."}
 	}
-	opts, _ := json.Marshal(st)
+	opts, _ := jsonx.Marshal(st)
 	var id uuid.UUID
 	if err := m.cfg.Pool.QueryRow(ctx, `INSERT INTO hatamoto_import_runs (source, source_ref, status, options) VALUES ($1, $2, $3, $4) RETURNING id`,
 		wpimport.SourceName, wpimport.SourceName+":"+ref, StatusScanning, opts).Scan(&id); err != nil {
@@ -359,7 +359,7 @@ type secret struct {
 }
 
 func (m *Manager) putSecret(ctx context.Context, id uuid.UUID, password string) error {
-	plain, _ := json.Marshal(secret{Password: password})
+	plain, _ := jsonx.Marshal(secret{Password: password})
 	sealed, err := seal(m.cfg.Key, id, plain)
 	if err != nil {
 		return err
@@ -383,7 +383,7 @@ func (m *Manager) getSecret(ctx context.Context, id uuid.UUID) (string, bool, er
 		return "", false, err
 	}
 	var s secret
-	if err := json.Unmarshal(plain, &s); err != nil {
+	if err := jsonx.Unmarshal(plain, &s, jsonx.Stored); err != nil {
 		return "", false, err
 	}
 	return s.Password, true, nil
@@ -546,7 +546,7 @@ func (m *Manager) scanJob(ctx context.Context, id uuid.UUID, j *job) {
 		if state, err = wpimport.InspectSite(ctx, m.cfg.Pool, wpimport.KeyPrefix(dump.Site.URL)); err == nil {
 			report.ApplySiteState(state)
 			var raw []byte
-			raw, _ = json.Marshal(report)
+			raw, _ = jsonx.Marshal(report)
 			_, err = m.cfg.Pool.Exec(ctx, `UPDATE hatamoto_import_runs SET status = 'scanned', phase = 'scanned', source_ref = $2, report = $3, error = '', finished_at = now() WHERE id = $1`,
 				id, store.Ref(), raw)
 			if err == nil {
@@ -623,7 +623,7 @@ func (m *Manager) startRun(ctx context.Context, id uuid.UUID, actor Actor, host 
 		o = &d
 	}
 	rec.st.Options, rec.st.StartedBy = o, actor.Email
-	raw, _ := json.Marshal(rec.st)
+	raw, _ := jsonx.Marshal(rec.st)
 	// Without a scan report there is nothing to import from yet: scan again.
 	scanOnly := !rec.hasReport()
 	status := StatusRunning
@@ -766,7 +766,7 @@ func (m *Manager) audit(ctx context.Context, actor Actor, action string, run uui
 	if msg, ok := detail["error"].(string); ok && len(msg) > maxAuditError {
 		detail["error"] = strings.ToValidUTF8(msg[:maxAuditError], "") + "…"
 	}
-	raw, _ := json.Marshal(detail)
+	raw, _ := jsonx.Marshal(detail)
 	var actorID *uuid.UUID
 	if actor.ID != uuid.Nil {
 		actorID = &actor.ID

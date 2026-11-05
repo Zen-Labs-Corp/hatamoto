@@ -11,7 +11,7 @@ import (
 	"compress/flate"
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"hash/crc32"
@@ -19,11 +19,14 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
 	"unicode/utf8"
 
+	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/jsonx/keynorm"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/sdk"
 )
@@ -87,7 +90,7 @@ type Package struct {
 	Kind     Kind
 	Name     string
 	Version  string
-	Manifest json.RawMessage // plugin.json or theme.json, as shipped
+	Manifest jsontext.Value // plugin.json or theme.json, as shipped
 	// Digest is what the signature covers: a hash over every file name and
 	// content hash except signature.json, so it does not depend on how the
 	// zip was compressed.
@@ -135,20 +138,81 @@ func (p *Package) PluginManifest() (sdk.Manifest, error) {
 	if p.Kind != KindPlugin {
 		return m, errors.New("not a plugin package")
 	}
-	err := json.Unmarshal(p.Manifest, &m)
+	err := decodeManifest(p.Manifest, &m)
 	return m, err
+}
+
+// manifestShape lists the canonical member names of plugin.json.
+var manifestShape = keynorm.ShapeOf(reflect.TypeOf(sdk.Manifest{}))
+
+// decodeManifest reads a plugin manifest the way the plugin host does (v1
+// rules): member names match by case only, the last of several names that
+// differ just by case wins, and names that match a field only after ignoring
+// "_" or "-" (allowedHosts for allowed_hosts) are ignored. The v2 folding of
+// those would give the package file and the host different manifests.
+func decodeManifest(raw []byte, m *sdk.Manifest) error {
+	norm, _, err := keynorm.Normalise(replaceInvalidUTF8(raw), manifestShape)
+	if err != nil {
+		return err
+	}
+	return jsonx.Unmarshal(norm, m, jsonx.Stored, jsontext.AllowDuplicateNames(true))
+}
+
+// replaceInvalidUTF8 turns every invalid byte into U+FFFD, as v1 did.
+func replaceInvalidUTF8(b []byte) []byte {
+	if utf8.Valid(b) {
+		return b
+	}
+	out := make([]byte, 0, len(b)+8)
+	for len(b) > 0 {
+		r, n := utf8.DecodeRune(b)
+		if r == utf8.RuneError && n == 1 {
+			out = append(out, "\ufffd"...)
+		} else {
+			out = append(out, b[:n]...)
+		}
+		b = b[n:]
+	}
+	return out
+}
+
+// checkManifestNames refuses a plugin manifest that is ambiguous: two members
+// that name one field, or a member that only the v2 folding (ignoring "_" and
+// "-") would bind to a field. Such a manifest reads differently in other
+// readers, so what the owner confirms could differ from what is enforced.
+func checkManifestNames(raw []byte) error {
+	_, changes, err := keynorm.Normalise(replaceInvalidUTF8(raw), manifestShape)
+	if err != nil {
+		return err
+	}
+	for _, c := range changes {
+		if c.Dropped {
+			return fmt.Errorf("member %q repeats %q", c.From, c.To)
+		}
+	}
+	var strict, folded sdk.Manifest
+	if err := decodeManifest(raw, &strict); err != nil {
+		return err
+	}
+	if err := jsonx.UnmarshalPinned(raw, &folded); err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(strict, folded) {
+		return errors.New(`a member name differs from its field only by "_" or "-"`)
+	}
+	return nil
 }
 
 // ThemeMeta is the part of theme.json the host reads.
 type ThemeMeta struct {
-	Name           string          `json:"name"`
-	Version        string          `json:"version"`
-	Description    string          `json:"description,omitempty"`
-	SettingsSchema json.RawMessage `json:"settings_schema,omitempty"`
+	Name           string         `json:"name"`
+	Version        string         `json:"version"`
+	Description    string         `json:"description,omitempty"`
+	SettingsSchema jsontext.Value `json:"settings_schema,omitzero"`
 	// Screenshot is an optional preview image under assets/, see ValidateScreenshot.
 	Screenshot string `json:"screenshot,omitempty"`
 	// Menus declares menu locations, see menu.ParseDecl.
-	Menus json.RawMessage `json:"menus,omitempty"`
+	Menus jsontext.Value `json:"menus,omitzero"`
 }
 
 // ThemeMeta decodes theme.json of a theme package.
@@ -157,7 +221,7 @@ func (p *Package) ThemeMeta() (ThemeMeta, error) {
 	if p.Kind != KindTheme {
 		return m, errors.New("not a theme package")
 	}
-	err := json.Unmarshal(p.Manifest, &m)
+	err := jsonx.UnmarshalPinned(p.Manifest, &m)
 	if p.ScreenshotErr != nil {
 		m.Screenshot = ""
 	}
@@ -256,6 +320,23 @@ func checkEnvelope(raw []byte, lim Limits) error {
 		return refuse("more than %d entries", lim.Entries)
 	}
 	return nil
+}
+
+// ParseNew is Parse for a package that enters the system (upload, registry
+// download, index build, pack). It also refuses an ambiguous plugin.json, see
+// checkManifestNames. Parse alone reads a package that is already installed
+// and must keep loading it, so it stays tolerant.
+func ParseNew(raw []byte, lim Limits) (*Package, error) {
+	p, err := Parse(raw, lim)
+	if err != nil {
+		return nil, err
+	}
+	if p.Kind == KindPlugin {
+		if err := checkManifestNames(p.Manifest); err != nil {
+			return nil, refuse("%s: %v", PluginManifest, err)
+		}
+	}
+	return p, nil
 }
 
 func refuse(format string, a ...any) error { return &ParseError{Msg: fmt.Sprintf(format, a...)} }
@@ -452,7 +533,7 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 	copy(p.Digest[:], h.Sum(nil))
 	if sigRaw != nil {
 		var s Signature
-		if err := json.Unmarshal(sigRaw, &s); err != nil {
+		if err := jsonx.UnmarshalPinned(sigRaw, &s); err != nil {
 			return nil, refuse("%s: %v", SignatureFile, err)
 		}
 		p.Signature = &s

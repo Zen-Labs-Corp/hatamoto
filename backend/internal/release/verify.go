@@ -3,7 +3,6 @@ package release
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 )
 
@@ -79,7 +79,7 @@ func VerifyManifest(manifestDoc []byte, o Options) (*ChannelManifest, error) {
 		return nil, fmt.Errorf("%w: %w", ErrManifest, err)
 	}
 	var m ChannelManifest
-	if err := json.Unmarshal(payload, &m); err != nil {
+	if err := jsonx.Unmarshal(payload, &m, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrManifest, err)
 	}
 	if !slices.Contains(Channels, o.Channel) {
@@ -175,7 +175,7 @@ func VerifyRecord(recordBytes []byte, recordSig string, o Options) (*Record, err
 		return nil, err
 	}
 	var rec Record
-	if err := json.Unmarshal(recordBytes, &rec); err != nil {
+	if err := jsonx.Unmarshal(recordBytes, &rec, jsonx.StoredLoose); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRecordMismatch, err)
 	}
 	for name, v := range map[string]string{"version": rec.Version, "rollback_floor": rec.RollbackFloor, "min_from": rec.MinFrom} {

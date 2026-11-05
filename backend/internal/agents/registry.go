@@ -6,12 +6,13 @@ package agents
 
 import (
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
 	"strings"
 	"sync"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 //go:embed registry.json
@@ -110,7 +111,7 @@ var idPattern = regexp.MustCompile(`^[a-z0-9-]+$`)
 // Parse decodes and validates registry JSON.
 func Parse(data []byte) (*Registry, error) {
 	var r Registry
-	if err := json.Unmarshal(data, &r); err != nil {
+	if err := jsonx.Unmarshal(data, &r, jsonx.Stored); err != nil {
 		return nil, fmt.Errorf("agents: parse registry: %w", err)
 	}
 	for _, ref := range r.AIReferrers {

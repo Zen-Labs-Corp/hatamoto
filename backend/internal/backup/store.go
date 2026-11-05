@@ -1,13 +1,14 @@
 package backup
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // ErrNotFound is returned for an unknown or invalid id, and for a download of
@@ -42,7 +43,7 @@ func (s *Store) Write(in Info) error {
 	if !ValidID(in.ID) {
 		return fmt.Errorf("invalid backup id %q", in.ID)
 	}
-	b, err := json.MarshalIndent(in, "", "  ")
+	b, err := jsonx.Indent(in)
 	if err != nil {
 		return err
 	}
@@ -91,7 +92,7 @@ func (s *Store) Get(id string) (Info, error) {
 		return Info{}, err
 	}
 	var in Info
-	if err := json.Unmarshal(b, &in); err != nil {
+	if err := jsonx.Unmarshal(b, &in, jsonx.StoredLoose); err != nil {
 		return Info{}, fmt.Errorf("read backup %s: %w", id, err)
 	}
 	if in.State == StateRunning {

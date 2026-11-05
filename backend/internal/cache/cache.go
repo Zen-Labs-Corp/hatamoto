@@ -4,7 +4,6 @@ package cache
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,6 +14,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // legacyKeyNamespace is a fixed segment embedded in every key. It has no
@@ -101,7 +102,7 @@ func (c *Cache) GetJSON(ctx context.Context, key string, dest any) error {
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(data, dest)
+	return jsonx.Unmarshal(data, dest, jsonx.Stored)
 }
 
 // Set stores a value with the given TTL. Expired entries are swept every
@@ -268,7 +269,7 @@ func (c *Cache) Evictions() uint64 {
 
 // SetJSON marshals and stores a JSON value in the cache.
 func (c *Cache) SetJSON(ctx context.Context, key string, value any, ttl time.Duration) error {
-	data, err := json.Marshal(value)
+	data, err := jsonx.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("failed to marshal cache value: %w", err)
 	}
