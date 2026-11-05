@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -9,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const testKey = "hmk_secret_test_key"
@@ -51,14 +52,14 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer f.mu.Unlock()
 	rec := recorded{Method: r.Method, Path: r.URL.RequestURI(), Key: r.Header.Get("X-API-Key")}
 	var body map[string]any
-	json.NewDecoder(r.Body).Decode(&body)
+	jsonx.UnmarshalRead(r.Body, &body, jsonx.Stored)
 	rec.Body = body
 	f.reqs = append(f.reqs, rec)
 	if f.failAt != "" && f.failAt == r.Method+" "+r.URL.Path {
 		http.Error(w, "boom", 500)
 		return
 	}
-	out := func(v any) { json.NewEncoder(w).Encode(v) }
+	out := func(v any) { jsonx.Encode(w, v) }
 	p := r.URL.Path
 	switch {
 	case r.Method == "GET" && p == "/api/v1/entities":
@@ -288,7 +289,7 @@ func TestListStopsAtPageCap(t *testing.T) {
 		for i := range items {
 			items[i] = map[string]any{"id": "x", "attributes": map[string]any{}}
 		}
-		json.NewEncoder(w).Encode(map[string]any{"items": items})
+		jsonx.Encode(w, map[string]any{"items": items})
 	}))
 	defer srv.Close()
 	c := &Client{Base: srv.URL, Key: testKey, SchemaID: "s"}

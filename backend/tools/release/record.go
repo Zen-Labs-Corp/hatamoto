@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -15,6 +14,7 @@ import (
 
 	"golang.org/x/crypto/ssh/agent"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/release"
 )
@@ -115,7 +115,7 @@ func readRecord(path string) (release.Record, error) {
 	if err != nil {
 		return rec, err
 	}
-	if err := json.Unmarshal(b, &rec); err != nil {
+	if err := jsonx.Unmarshal(b, &rec, jsonx.Stored); err != nil {
 		return rec, fmt.Errorf("%s: %w", path, err)
 	}
 	return rec, nil
@@ -145,7 +145,7 @@ func buildRecord(version, kind string, security bool, factsFile, floor, minFrom,
 		return rec, err
 	}
 	var f facts
-	if err := json.Unmarshal(b, &f); err != nil {
+	if err := jsonx.Unmarshal(b, &f, jsonx.Stored); err != nil {
 		return rec, fmt.Errorf("%s: %w", factsFile, err)
 	}
 	if f.Version != version {
@@ -319,7 +319,7 @@ func cmdSignRecord(args []string, stdout, stderr io.Writer, e env) error {
 		return err
 	}
 	var rec release.Record
-	if err := json.Unmarshal(recordBytes, &rec); err != nil {
+	if err := jsonx.Unmarshal(recordBytes, &rec, jsonx.Stored); err != nil {
 		return fmt.Errorf("%s: %w", pos[0], err)
 	}
 	if problems := recordProblems(rec, allowSame); len(problems) > 0 {

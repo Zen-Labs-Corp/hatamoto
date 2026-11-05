@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/release"
 )
@@ -128,13 +128,8 @@ func loadChannel(path, name string) (release.ChannelManifest, error) {
 	if err != nil {
 		return m, err
 	}
-	dec := json.NewDecoder(bytes.NewReader(b))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&m); err != nil {
+	if err := jsonx.Unmarshal(b, &m, jsonx.StrictNoUnknown); err != nil {
 		return m, fmt.Errorf("%s: %w", path, err)
-	}
-	if _, err := dec.Token(); err != io.EOF {
-		return m, fmt.Errorf("%s: unexpected data after the JSON document", path)
 	}
 	if err := validateChannel(m, name); err != nil {
 		return m, fmt.Errorf("%s: %w", path, err)
@@ -220,7 +215,7 @@ func marshalChannel(m release.ChannelManifest) ([]byte, error) {
 			m.Releases[i].Ramp = []release.RampStep{}
 		}
 	}
-	b, err := json.MarshalIndent(m, "", "  ")
+	b, err := jsonx.Indent(m, jsonx.HTMLSafe)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +265,7 @@ func addRelease(m *release.ChannelManifest, version, recordFile, sigFile, rampSp
 		return fmt.Errorf("%s: %w", sigFile, err)
 	}
 	var rec release.Record
-	if err := json.Unmarshal(recordBytes, &rec); err != nil {
+	if err := jsonx.Unmarshal(recordBytes, &rec, jsonx.Stored); err != nil {
 		return fmt.Errorf("%s: %w", recordFile, err)
 	}
 	if rec.Version != version {

@@ -1,10 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // firstReleaseSummary is the placeholder summary of a release with no previous
@@ -214,10 +215,10 @@ func notesFromAttrs(a map[string]any) Notes {
 func attrsEqual(cur, want map[string]any) bool {
 	for k := range want {
 		var a, b any
-		ca, _ := json.Marshal(cur[k])
-		cb, _ := json.Marshal(want[k])
-		json.Unmarshal(ca, &a)
-		json.Unmarshal(cb, &b)
+		ca, _ := jsonx.Marshal(cur[k])
+		cb, _ := jsonx.Marshal(want[k])
+		jsonx.Unmarshal(ca, &a, jsonx.Stored)
+		jsonx.Unmarshal(cb, &b, jsonx.Stored)
 		if _, ok := cur[k]; !ok || !reflect.DeepEqual(a, b) {
 			return false
 		}

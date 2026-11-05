@@ -11,7 +11,6 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +23,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const (
@@ -117,7 +118,7 @@ func readManifest(dir string) (*Manifest, error) {
 		return nil, err
 	}
 	var m Manifest
-	if err := json.Unmarshal(b, &m); err != nil {
+	if err := jsonx.Unmarshal(b, &m, jsonx.Stored); err != nil {
 		return nil, fmt.Errorf("vendor.json: %w", err)
 	}
 	if m.Schema != 1 {
@@ -127,7 +128,7 @@ func readManifest(dir string) (*Manifest, error) {
 }
 
 func writeManifest(dir string, m *Manifest) error {
-	b, err := json.MarshalIndent(m, "", "  ")
+	b, err := jsonx.Indent(m, jsonx.HTMLSafe)
 	if err != nil {
 		return err
 	}

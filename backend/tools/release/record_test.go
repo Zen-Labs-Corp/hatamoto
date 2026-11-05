@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/release"
 )
 
@@ -16,7 +16,7 @@ func TestRecordBuildsFromFacts(t *testing.T) {
 	path := buildRecordFile(t, dir)
 	b, _ := os.ReadFile(path)
 	var rec release.Record
-	if err := json.Unmarshal(b, &rec); err != nil {
+	if err := jsonx.Unmarshal(b, &rec, jsonx.Stored); err != nil {
 		t.Fatal(err)
 	}
 	if rec.Version != "v1.2.3" || rec.SDK != "0.10.0" || rec.SchemaHead != 202610201100 || len(rec.Artifacts) != 4 {
@@ -200,7 +200,43 @@ func TestRecordCopiesSDKCompatibleWith(t *testing.T) {
 		"--dir", dir, "--out", out)
 	b, _ := os.ReadFile(out)
 	var rec release.Record
-	if err := json.Unmarshal(b, &rec); err != nil || len(rec.SDKCompatibleWith) != 2 {
+	if err := jsonx.Unmarshal(b, &rec, jsonx.Stored); err != nil || len(rec.SDKCompatibleWith) != 2 {
 		t.Fatalf("got %+v, %v", rec, err)
+	}
+}
+
+// TestLoadChannelRejectsBadJSON pins the strict reader of channel sources:
+// trailing data, unknown, wrong-case and duplicate members are refused and the
+// plain document is accepted.
+func TestLoadChannelRejectsBadJSON(t *testing.T) {
+	good := emptyChannel("edge")
+	trimmed := strings.TrimSpace(good)
+	cases := map[string]string{
+		"trailing object": trimmed + "{}",
+		"trailing text":   trimmed + " x",
+		"unknown field":   strings.Replace(good, `"yanked": []`, `"yanked": [], "extra": 1`, 1),
+		"wrong-case key":  strings.Replace(good, `"channel"`, `"Channel"`, 1),
+		"duplicate key":   strings.Replace(good, `"yanked": []`, `"yanked": [], "yanked": []`, 1),
+		"not an object":   `[]`,
+		"empty document":  ``,
+	}
+	dir := t.TempDir()
+	for name, src := range cases {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(dir, "edge.json")
+			if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := loadChannel(path, "edge"); err == nil {
+				t.Fatal("loadChannel accepted it")
+			}
+		})
+	}
+	path := filepath.Join(dir, "ok.json")
+	if err := os.WriteFile(path, []byte(good+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadChannel(path, "edge"); err != nil {
+		t.Fatalf("valid document refused: %v", err)
 	}
 }

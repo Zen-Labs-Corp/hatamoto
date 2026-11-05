@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/release"
 )
 
@@ -66,7 +66,7 @@ func cmdVerify(args []string, stdout, stderr io.Writer, e env) error {
 		return err
 	}
 	var rec release.Record
-	if err := json.Unmarshal(recordBytes, &rec); err != nil {
+	if err := jsonx.Unmarshal(recordBytes, &rec, jsonx.Stored); err != nil {
 		return fmt.Errorf("%s: %w", record, err)
 	}
 	opts := e.options(chanName)
