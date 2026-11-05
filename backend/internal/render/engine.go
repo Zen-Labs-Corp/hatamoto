@@ -680,6 +680,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		out = spliceHeadStart(out, consent) // first in <head>: the Consent Mode defaults precede every other script
 	}
 	out = markPreviewChanges(out, v)
+	out = markDraftBanner(out, v)
 	_, err := w.Write(out)
 	return err
 }

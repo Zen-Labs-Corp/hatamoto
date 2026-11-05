@@ -40,6 +40,11 @@ func (s *Server) adminPathValue() string {
 	return defaultAdminPrefix
 }
 
+// redactLogPath is the path as logged: the admin prefix and any preview token are hidden.
+func (s *Server) redactLogPath(p string) string {
+	return redactPreviewToken(s.redactAdminPath(p))
+}
+
 // redactAdminPath hides the live admin address in a logged request path:
 // <admin> replaces the prefix and the rest is kept. The cleaned form is tested
 // too, because the mux redirects //pre/x or /a/../pre/x to the admin. As a

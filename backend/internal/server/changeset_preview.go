@@ -152,8 +152,21 @@ func (s *Server) stagedSource(ctx context.Context) stagedSource {
 	}
 }
 
+// stagedRenderOpts varies renderStagedWith. The zero value is a changeset
+// preview.
+type stagedRenderOpts struct {
+	// draftBanner renders a shared draft preview: the "Preview of a draft"
+	// banner and no change marks.
+	draftBanner bool
+}
+
 // renderStaged renders se through the public route, with the staged set on ctx.
 func (s *Server) renderStaged(ctx context.Context, o *stagedChangeset, se *stagedEntity) ([]byte, error) {
+	return s.renderStagedWith(ctx, o, se, stagedRenderOpts{})
+}
+
+// renderStagedWith is renderStaged with options.
+func (s *Server) renderStagedWith(ctx context.Context, o *stagedChangeset, se *stagedEntity, opts stagedRenderOpts) ([]byte, error) {
 	if se.Path == "" {
 		return nil, errors.New("the schema has no public route")
 	}
@@ -190,7 +203,11 @@ func (s *Server) renderStaged(ctx context.Context, o *stagedChangeset, se *stage
 	sanitizeView(v)
 	v.Preview = true
 	v.Page.NoIndex = true
-	v.Changes = o.changesFor(se)
+	if opts.draftBanner {
+		v.DraftBanner = true
+	} else {
+		v.Changes = o.changesFor(se)
+	}
 	var buf bytes.Buffer
 	if err := s.renderEngine.RenderPage(&buf, v); err != nil {
 		return nil, err
