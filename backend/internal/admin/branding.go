@@ -116,7 +116,11 @@ func (a *Admin) handleBrandingSave(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The branding settings could not be loaded.")
 		return
 	}
-	_ = r.ParseForm() // a malformed body leaves the form empty and fails validation
+	if err := r.ParseForm(); err != nil {
+		// An unreadable body must not pass as an empty form, which would wipe the branding.
+		a.Error(w, r, http.StatusBadRequest, "Bad request", "The form could not be read. Nothing was saved.")
+		return
+	}
 	as, _ := a.state()
 	next, errs := validateBranding(r.PostForm, string(as.Tokens))
 	if len(errs) > 0 {

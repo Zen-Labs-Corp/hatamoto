@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -152,7 +154,13 @@ func TestBrandingContrastMessage(t *testing.T) {
 	if !strings.Contains(body, "That colour is too light to read") || !strings.Contains(body, "4.5:1") {
 		t.Errorf("no contrast message in %q", body)
 	}
-	if !strings.Contains(body, `value="#f5e642"`) {
+	// #2f6fbf is 5.1:1 on white but 4.3:1 on the tinted highlight: the message must say so.
+	f.Set("accent", "#2f6fbf")
+	body = p.do("POST", brandingURL, "owner-token", f, nil).Body.String()
+	if !strings.Contains(body, "That colour is too light to read") || !strings.Contains(body, "5.1:1 and 4.3:1") {
+		t.Errorf("no per-background ratios in %q", body)
+	}
+	if !strings.Contains(body, `value="#2f6fbf"`) {
 		t.Error("the refused colour is not shown again")
 	}
 }
@@ -230,4 +238,27 @@ func readAdminTokens(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+func TestBrandingSaveUnreadableBody(t *testing.T) {
+	t.Parallel()
+
+	p := newPerfRig(t, nil)
+	site := p.a.deps.Site.(*fakeSite)
+	site.cfg.AdminBrand = goodBrand
+	req := httptest.NewRequest("POST", brandingURL, strings.NewReader("name=%zz&accent=%"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+	p.addFetchMeta(req, "owner-token", nil)
+	rec := httptest.NewRecorder()
+	p.h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if site.cfg.AdminBrand != goodBrand || site.brandWrites != 0 {
+		t.Errorf("brand = %+v after %d writes", site.cfg.AdminBrand, site.brandWrites)
+	}
+	if len(p.events) != 0 {
+		t.Errorf("audit = %+v", p.events)
+	}
 }
