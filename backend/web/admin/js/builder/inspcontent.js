@@ -172,7 +172,7 @@ export function createContent(ctx) {
       else if (p.key === "tag" && node.t === "container" && (value === null || value === "div") && cur().aria && !cur().href && !find(api.getDoc(), node.id)?.b?.href) {
         // a plain div takes no accessible name: drop the one it had in the same step
         commit([{ op: "setProp", id: node.id, key: "tag", value }, { op: "setProp", id: node.id, key: "aria", value: null }], { label: "Change HTML tag", ...opts });
-      } else setProp(node.id, p.key, value, opts);
+      } else setProp(node.id, p.key, value, { label: `Change ${name}`, ...opts });
     };
     if (node.t === "columns" && p.key === "count") {
       // the count and the child containers change together (columnsops.js): empty ones are added or removed, never content
