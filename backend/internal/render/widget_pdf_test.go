@@ -172,7 +172,8 @@ func TestPDFWidgetSandboxedDocumentHasLinkOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := mainInner(t, b.String())
-	if strings.Contains(out, "<iframe") || !strings.Contains(out, `href="/media/b.pdf"`) {
+	// a sandboxed document has no allow-downloads: download would kill the link
+	if strings.Contains(out, "<iframe") || strings.Contains(out, "download") || !strings.Contains(out, `href="/media/b.pdf"`) {
 		t.Errorf("sandboxed: %s", out)
 	}
 }
