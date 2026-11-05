@@ -191,8 +191,17 @@ func TestInterceptSignedOutAllowList(t *testing.T) {
 			t.Errorf("%s = %d %q, want pass-through", p, code, body)
 		}
 	}
+	// The sign-in steps after the password run signed out too.
+	for _, c := range []struct{ method, path string }{
+		{"GET", "/login/2fa"}, {"POST", "/login/2fa"},
+		{"POST", "/login/passkey/begin"}, {"POST", "/login/passkey/finish"},
+	} {
+		if code, body, _ := h.do(c.method, testPrefix+c.path, "198.51.100.1"); code != 200 || body != bodyNext {
+			t.Errorf("%s %s = %d %q, want pass-through", c.method, c.path, code, body)
+		}
+	}
 	for _, p := range []string{"/settings", "/entities", "/entities/x", "/setup", "/accept", "/login/", "/login/x",
-		"/_", "/_styleguide"} {
+		"/login/2fa/", "/login/passkey", "/login/passkey/x", "/_", "/_styleguide"} {
 		if code, body := h.get(testPrefix + p); code != 404 || body != bodyRefused {
 			t.Errorf("%q = %d %q, want refused", p, code, body)
 		}
@@ -559,7 +568,7 @@ func TestInterceptSkipsSessionLookupForAllowedPaths(t *testing.T) {
 	h.handler = interceptMiddleware(h.deps)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, bodyNext)
 	}))
-	for _, p := range []string{"", "/", "/login", "/forgot", "/reset", "/_/admin.css"} {
+	for _, p := range []string{"", "/", "/login", "/login/2fa", "/forgot", "/reset", "/_/admin.css"} {
 		if code, body := h.get(testPrefix + p); code != 200 || body != bodyNext {
 			t.Errorf("%q = %d %q", p, code, body)
 		}
