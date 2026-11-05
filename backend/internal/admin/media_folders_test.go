@@ -42,14 +42,14 @@ func TestMediaBulkMoveCreatesAFolderAndFiltersByIt(t *testing.T) {
 	t.Parallel()
 	c, log := newMediaRig(t)
 
-	list := c.get(t, "owner-token", "/admin/settings/media", "")
+	list := c.get(t, "owner-token", "/admin/media", "")
 	has(t, list, `name="new_folder"`, `value="move"`, `Move to folder`)
 
-	rec := c.post("/admin/media/bulk", url.Values{"action": {"move"}, "new_folder": {"Team"}, "id": {fid(51).String(), fid(52).String()}, "back": {"/admin/settings/media"}})
+	rec := c.post("/admin/media/bulk", url.Values{"action": {"move"}, "new_folder": {"Team"}, "id": {fid(51).String(), fid(52).String()}, "back": {"/admin/media"}})
 	if rec.Code != 303 {
 		t.Fatalf("move: %d", rec.Code)
 	}
-	if body := c.next(rec, "/admin/settings/media"); !strings.Contains(body, "Moved 2 files to Team.") {
+	if body := c.next(rec, "/admin/media"); !strings.Contains(body, "Moved 2 files to Team.") {
 		t.Errorf("no confirmation in %q", body)
 	}
 	ev := log.find("media.move")
@@ -58,14 +58,14 @@ func TestMediaBulkMoveCreatesAFolderAndFiltersByIt(t *testing.T) {
 	}
 
 	// The pill row lists the folder and the files outside any folder; the filter is a plain link.
-	all := c.get(t, "owner-token", "/admin/settings/media", "")
-	has(t, all, `aria-label="Folders"`, `href="/admin/settings/media?folder=Team"`, `href="/admin/settings/media?folder=%2F"`, "All files", "Uncategorised")
-	in := c.get(t, "owner-token", "/admin/settings/media?folder=team", "")
+	all := c.get(t, "owner-token", "/admin/media", "")
+	has(t, all, `aria-label="Folders"`, `href="/admin/media?folder=Team"`, `href="/admin/media?folder=%2F"`, "All files", "Uncategorised")
+	in := c.get(t, "owner-token", "/admin/media?folder=team", "")
 	has(t, in, "team.png", "logo.png")
 	if strings.Contains(in, "brochure.pdf") {
 		t.Error("the folder filter shows a file outside the folder")
 	}
-	out := c.get(t, "owner-token", "/admin/settings/media?folder=%2F", "")
+	out := c.get(t, "owner-token", "/admin/media?folder=%2F", "")
 	has(t, out, "brochure.pdf")
 	if strings.Contains(out, "team.png") {
 		t.Error("Uncategorised shows a file in a folder")
@@ -90,7 +90,7 @@ func TestMediaBulkMoveRefusesASecondLevelAndAnEmptyChoice(t *testing.T) {
 		if rec.Code != 303 {
 			t.Fatalf("%v: %d", form, rec.Code)
 		}
-		body := c.next(rec, "/admin/settings/media")
+		body := c.next(rec, "/admin/media")
 		if !strings.Contains(body, "folders cannot be nested") && !strings.Contains(body, "Choose a folder") {
 			t.Errorf("%v: no reason shown", form)
 		}
@@ -155,7 +155,7 @@ func TestMediaUploadReportsWhatWasRemovedFromAnSVG(t *testing.T) {
 	dirty := []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script><rect width="1"/></svg>`)
 	rec := c.upload(t, "/admin/media/upload", map[string][]byte{"logo.svg": dirty}, true)
 	loc := rec.Header().Get("Location")
-	if rec.Code != 303 || !strings.HasPrefix(loc, "/admin/settings/media?created=") {
+	if rec.Code != 303 || !strings.HasPrefix(loc, "/admin/media?created=") {
 		t.Fatalf("svg upload: %d %q", rec.Code, loc)
 	}
 	body := c.next(rec, loc)
@@ -168,7 +168,7 @@ func TestMediaUploadReportsWhatWasRemovedFromAnSVG(t *testing.T) {
 
 	bomb := []byte(`<!DOCTYPE svg [<!ENTITY a "b">]><svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`)
 	rec = c.upload(t, "/admin/media/upload", map[string][]byte{"bomb.svg": bomb}, true)
-	if body := c.next(rec, "/admin/settings/media"); !strings.Contains(body, "bomb.svg was not uploaded: ") || !strings.Contains(body, "Remove it and try again.") {
+	if body := c.next(rec, "/admin/media"); !strings.Contains(body, "bomb.svg was not uploaded: ") || !strings.Contains(body, "Remove it and try again.") {
 		t.Errorf("refusal not explained in %q", body)
 	}
 }

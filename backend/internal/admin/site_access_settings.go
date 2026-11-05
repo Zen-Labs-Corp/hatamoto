@@ -15,7 +15,7 @@ import (
 
 const siteAccessPath = "/settings/site-access"
 
-// SiteAccessService is the site access gate as Settings > Site access uses
+// SiteAccessService is the site access gate as Settings > Access & security > Site access uses
 // it. The server implements it: Save stores the settings and clears the page
 // cache, so no visitor is served a page cached under the previous mode.
 type SiteAccessService interface {
@@ -167,7 +167,7 @@ func (a *Admin) renderSiteAccess(w http.ResponseWriter, r *http.Request, status 
 		d.Errs[e.ID] = e.Message
 	}
 	v := a.NewView(w, r, "Site access")
-	v.Section, v.Tab = "site-access", "site-access"
+	v.Section, v.Tab = "access-security", "site-access"
 	v.Width = "compact"
 	v.Data = d
 	a.Render(w, r, status, "settings/site-access", v)

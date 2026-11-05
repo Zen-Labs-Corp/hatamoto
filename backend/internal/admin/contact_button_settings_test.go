@@ -22,7 +22,7 @@ func newContactButtonRig(t *testing.T) (*seoRig, *fakeSite) {
 
 func TestContactButtonPageGolden(t *testing.T) {
 	s, _ := newContactButtonRig(t)
-	body := s.get(t, "/admin/settings/contact-button")
+	body := s.get(t, "/admin/theme/contact-button")
 	for _, want := range []string{"Show the floating button", "from your business details: &#43;41 79 123 45 67."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
@@ -35,7 +35,7 @@ func TestContactButtonWarnsWithoutNumber(t *testing.T) {
 	s, site := newContactButtonRig(t)
 	site.cfg.Phone = ""
 	site.cfg.ThemeExtra = jsontext.Value(`{"contactButton":{"enabled":true,"channel":"whatsapp","position":"bottom-right"}}`)
-	if body := s.get(t, "/admin/settings/contact-button"); !strings.Contains(body, "No phone number is set") {
+	if body := s.get(t, "/admin/theme/contact-button"); !strings.Contains(body, "No phone number is set") {
 		t.Error("no warning for an enabled button without a number")
 	}
 }
@@ -44,7 +44,7 @@ func TestContactButtonWarnsWhatsAppNumberWithoutCountryCode(t *testing.T) {
 	s, site := newContactButtonRig(t)
 	site.cfg.Phone = "044 668 18 00"
 	site.cfg.ThemeExtra = jsontext.Value(`{"contactButton":{"enabled":true,"channel":"whatsapp","position":"bottom-right"}}`)
-	if body := s.get(t, "/admin/settings/contact-button"); !strings.Contains(body, "has no country code") {
+	if body := s.get(t, "/admin/theme/contact-button"); !strings.Contains(body, "has no country code") {
 		t.Error("no warning for a WhatsApp button on a national-format number")
 	}
 }
@@ -55,7 +55,7 @@ func TestContactButtonSaveAuditsAndKeepsOtherKeys(t *testing.T) {
 		"enabled": {"true"}, "channel": {"call"}, "position": {"bottom-left"},
 		"label": {" Ring us "}, "to": {"+41 79 000 00 00"}, "message": {""},
 	}
-	rec := s.do("POST", "/admin/settings/contact-button", "owner-token", form, nil)
+	rec := s.do("POST", "/admin/theme/contact-button", "owner-token", form, nil)
 	if rec.Code != 303 {
 		t.Fatalf("save = %d: %s", rec.Code, rec.Body.String())
 	}
@@ -90,7 +90,7 @@ func toJSON(t *testing.T, v any) string {
 func TestContactButtonSaveRejectsInvalid(t *testing.T) {
 	s, site := newContactButtonRig(t)
 	before := string(site.cfg.ThemeExtra)
-	rec := s.do("POST", "/admin/settings/contact-button", "owner-token", url.Values{
+	rec := s.do("POST", "/admin/theme/contact-button", "owner-token", url.Values{
 		"channel": {"fax"}, "position": {"top"}, "to": {"12"}, "label": {strings.Repeat("a", 61)},
 	}, nil)
 	if rec.Code != 422 {
@@ -109,11 +109,11 @@ func TestContactButtonSaveRejectsInvalid(t *testing.T) {
 
 func TestContactButtonOwnerOnlyAndUnavailable(t *testing.T) {
 	s, _ := newContactButtonRig(t)
-	if rec := s.do("GET", "/admin/settings/contact-button", "editor-token", nil, nil); rec.Code == 200 {
+	if rec := s.do("GET", "/admin/theme/contact-button", "editor-token", nil, nil); rec.Code == 200 {
 		t.Error("an editor can open the page")
 	}
 	s.a.deps.Site = nil
-	if rec := s.do("GET", "/admin/settings/contact-button", "owner-token", nil, nil); rec.Code != 503 {
+	if rec := s.do("GET", "/admin/theme/contact-button", "owner-token", nil, nil); rec.Code != 503 {
 		t.Errorf("no site store: status %d, want 503", rec.Code)
 	}
 }

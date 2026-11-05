@@ -44,7 +44,7 @@ Until they accept, the invitation appears under **Pending invitations**, with **
 
 ### Create an API key
 
-1. An **API key** is a secret string that a program sends with each request to act on your site. Its **scope** limits what it may do. Open **Settings > API** (`<admin>/settings/api-keys`) and press **New API key**.
+1. An **API key** is a secret string that a program sends with each request to act on your site. Its **scope** limits what it may do. Open **Settings > Integrations > API keys** (`<admin>/settings/api-keys`) and press **New API key**.
 
 2. Fill in the form, then press **Create key**:
 

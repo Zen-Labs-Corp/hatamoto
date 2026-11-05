@@ -73,7 +73,7 @@ printf 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/
 # name and photo to "Complete your profile" and would hide every other screen.
 signin "$EMAIL"
 post /admin/media/upload -F "file=@$png;filename=demo-pixel.png;type=image/png" >/dev/null
-photo=$(curl -s "${NAV[@]}" -b "$jar" "$BASE/admin/settings/media" | grep -oE '(src|href)="[^"]*demo-pixel[^"]*"' | head -1 | cut -d'"' -f2)
+photo=$(curl -s "${NAV[@]}" -b "$jar" "$BASE/admin/media" | grep -oE '(src|href)="[^"]*demo-pixel[^"]*"' | head -1 | cut -d'"' -f2)
 code=$(curl -s -o /dev/null -w '%{http_code}' -c "$jar" -b "$jar" "${NAV[@]}" -H "Origin: $BASE" --data-urlencode "_csrf=$(csrf)" \
   --data-urlencode "name=Demo Owner" --data-urlencode "photo=${photo:-/media/demo-pixel.png}" --data-urlencode "public=false" "$BASE/admin/profile/complete")
 [ "$code" = 303 ] || die "completing the profile failed ($code): is HATAMOTO_DEMO_LOGIN_* the owner just created?"

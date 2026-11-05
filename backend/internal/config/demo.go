@@ -119,7 +119,7 @@ var demoRules = []demoRule{
 	rule("PATCH", `/api/v1/me`, msgPassword),
 	rule("POST", `/admin/settings/api-keys|/admin/settings/api-keys/.+/regenerate`, msgKeys),
 	rule("POST PATCH", `/api/v1/api-keys(/.*)?`, msgKeys),
-	rule("POST", `/admin/settings/(webhooks|email|spam)(/.*)?|/admin/setup/email|/admin/settings/import/.*`, msgOutbound),
+	rule("POST", `/admin/settings/(webhooks|email)(/.*)?|/admin/forms/spam(/.*)?|/admin/setup/email|/admin/settings/import/.*`, msgOutbound),
 	rule("POST", `/admin/settings/updates(/.*)?`, msgUpdates),
 	rule("POST", `/admin/settings/backups(/.*)?`, msgBackups),
 	rule("GET", `/admin/settings/backups/.+/download`, msgBackups),

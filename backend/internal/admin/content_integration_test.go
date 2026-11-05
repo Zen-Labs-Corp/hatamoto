@@ -218,7 +218,7 @@ func TestContentScreensAgainstPostgres(t *testing.T) {
 	}
 	files, err := p.media.List(ctx, &media.ListMediaFilter{Search: "cover.png"}, 10, 0)
 	if err != nil || len(files.Items) == 0 {
-		t.Fatalf("uploaded file not listed: %v\n%s", err, regexp.MustCompile(`(?s)data-hm-flash.*?</div>`).FindString(up.next(rec, "/admin/settings/media")))
+		t.Fatalf("uploaded file not listed: %v\n%s", err, regexp.MustCompile(`(?s)data-hm-flash.*?</div>`).FindString(up.next(rec, "/admin/media")))
 	}
 	m := files.Items[0]
 	p.cleanups = append(p.cleanups, func() { _ = p.media.Delete(ctx, m.ID) })
@@ -228,7 +228,7 @@ func TestContentScreensAgainstPostgres(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(p.uploads, m.StoragePath)); err != nil {
 		t.Errorf("file not on disk: %v", err)
 	}
-	for _, view := range []string{"/admin/settings/media", "/admin/settings/media?view=list", "/admin/media/" + m.ID.String()} {
+	for _, view := range []string{"/admin/media", "/admin/media?view=list", "/admin/media/" + m.ID.String()} {
 		if b := p.get(view); !strings.Contains(b, "cover.png") {
 			t.Errorf("%s does not show the file", view)
 		}
@@ -245,7 +245,7 @@ func TestContentScreensAgainstPostgres(t *testing.T) {
 	}
 	// a script renamed .png is refused by the real service
 	rec = up.upload(t, "/admin/media/upload", map[string][]byte{"evil.png": []byte("<script>alert(1)</script>")}, true)
-	if !strings.Contains(up.next(rec, "/admin/settings/media"), "not allowed") {
+	if !strings.Contains(up.next(rec, "/admin/media"), "not allowed") {
 		t.Error("hostile upload not refused")
 	}
 

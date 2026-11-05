@@ -9,7 +9,7 @@ In this guide you move a Hatamoto site to a new server. You save the whole site'
 
 ## Before you start
 
-- A shell on the old server and on the new one, as the user that runs Hatamoto. Export and import run only on the command line; the admin page **Settings > Import & export > Site export & import** shows these commands but has no button.
+- A shell on the old server and on the new one, as the user that runs Hatamoto. Export and import run only on the command line; the admin page **Settings > Tools > Export** shows these commands but has no button.
 - The **database address**, the `DATABASE_URL` setting that tells Hatamoto where its Postgres database is, for each server. Postgres is the database Hatamoto stores everything in. Load the service's settings into your shell so the variable is set.
 - On the new server: Hatamoto installed, an **empty** database, and the settings from [Requirements and secrets](../getting-started/requirements-and-secrets.md). The import refuses a database that already has content.
 - The same or a newer Hatamoto version on the new server. A new server refuses an archive from a newer version.

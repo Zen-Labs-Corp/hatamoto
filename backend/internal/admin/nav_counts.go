@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"hatamoto.dev/core/internal/form"
 )
 
 // navCountTTL is how long a sidebar count is reused: NavItem.Badge runs on
@@ -72,8 +74,8 @@ func countLabel(n, one, many string) string {
 	return n + " " + many
 }
 
-// wireNavCounts gives the sidebar's Entities and Plugins items their markers:
-// the drafts waiting for review and the installed plugins. The Plugins count is the
+// wireNavCounts gives the sidebar's Entities, Forms and Plugins items their markers:
+// the drafts waiting for review, the new form submissions and the installed plugins. The Plugins count is the
 // owner's: an editor admitted by a plugin UI does not see the installed total.
 func (a *Admin) wireNavCounts() {
 	entities := countBadge(navCountTTL, time.Now, navRefreshRun, a.entityDrafts)
@@ -81,6 +83,11 @@ func (a *Admin) wireNavCounts() {
 	a.nav.update("entities", func(it *NavItem) {
 		it.Badge = func(string) string { return entities() }
 		it.BadgeLabel = func(_, b string) string { return countLabel(b, "draft to review", "drafts to review") }
+	})
+	forms := countBadge(navCountTTL, time.Now, navRefreshRun, a.newSubmissions)
+	a.nav.update("forms", func(it *NavItem) {
+		it.Badge = func(string) string { return forms() }
+		it.BadgeLabel = func(_, b string) string { return countLabel(b, "new submission", "new submissions") }
 	})
 	a.nav.update(pluginsID, func(it *NavItem) {
 		it.Badge = func(role string) string {
@@ -107,6 +114,31 @@ func (a *Admin) entityDrafts() (int, error) {
 		return 0, err
 	}
 	return a.entityCounts(ctx, schemas, nil).byStatus["draft"], nil
+}
+
+// newSubmissions counts the submissions still marked new across all forms
+// (spam is a separate status and not counted), as the Forms list's own New
+// column does. Every role that sees Forms sees the count.
+func (a *Admin) newSubmissions() (int, error) {
+	fs := a.deps.Growth.Forms
+	if fs == nil {
+		return 0, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	forms, err := fs.ListForms(ctx, "")
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, f := range forms {
+		_, total, err := fs.ListSubmissions(ctx, f.ID, &form.ListSubmissionsParams{Status: form.SubmissionStatusNew, Limit: 1})
+		if err != nil {
+			return 0, err
+		}
+		n += total
+	}
+	return n, nil
 }
 
 // pluginTotal counts the installed plugins.

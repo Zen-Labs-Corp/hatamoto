@@ -231,7 +231,7 @@ frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'
 
 Other responses, such as the JSON API, send a stricter variant: `img-src 'self' data:`, no `frame-src`, and `frame-ancestors 'none'`.
 
-When a captcha provider is set up under **Settings > Spam protection** and its secret key is readable, its addresses are added to `script-src` and `connect-src` of the public policy:
+When a captcha provider is set up under **Forms > Spam** and its secret key is readable, its addresses are added to `script-src` and `connect-src` of the public policy:
 
 | Provider | Added origins |
 |---|---|

@@ -25,7 +25,7 @@ func TestProfileGateBouncesIncompleteUser(t *testing.T) {
 	t.Parallel()
 
 	g, _ := gateRig(t)
-	for _, path := range []string{"/admin/entities", "/admin/", "/admin/settings/general", "/admin/settings/media", "/admin/missing"} {
+	for _, path := range []string{"/admin/entities", "/admin/", "/admin/settings/general", "/admin/media", "/admin/missing"} {
 		rec := g.do("GET", path, "editor-token", nil, nil)
 		want := ""
 		if next := SafeNext(path); next != "" && path != "/admin/" && path != "/admin/missing" {

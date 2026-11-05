@@ -6,7 +6,7 @@ failures and keeps a delivery log. Webhooks are built into core
 (`backend/internal/webhook`). They used to be a first-party plugin; see
 [What changed](#what-changed) and [Upgrading](#upgrading).
 
-Configure them in the admin under **Settings > Webhooks** (owner only): add,
+Configure them in the admin under **Settings > Integrations > Webhooks** (owner only): add,
 edit, pause, send a test, replace the secret, delete, and read the delivery log,
 where a failed delivery can be retried by hand. There is no REST API for
 webhooks.
@@ -177,7 +177,7 @@ hour before the migration ran, which means the same upgrade also ran the v1-19
 step (a direct jump from the core that still sent webhooks itself, so they were
 live a moment ago). Older rows waited for a plugin that never imported them,
 nothing has delivered them, and they are imported paused.
-Resume paused ones in Settings > Webhooks.
+Resume paused ones in Settings > Integrations > Webhooks.
 
 Only the first-party plugin is moved: a package named `webhooks` signed by one
 of the first-party keys (the current one, or the one retired on 2026-10-16, see
@@ -186,7 +186,7 @@ uninstalled, one warning in the log. That includes an unsigned one, a third-part
 one, and the real plugin when you sign your own registry (for example with
 `HATAMOTO_TRUST_FIRST_PARTY=false`), because the signer then is you. Settings >
 Webhooks shows a notice while such a plugin is installed. To move: recreate the
-subscriptions in Settings > Webhooks (new ids and secrets, so receivers need the
+subscriptions in Settings > Integrations > Webhooks (new ids and secrets, so receivers need the
 new secret), then uninstall the plugin from Plugins. Installing or updating a
 plugin named `webhooks` is refused (the name is reserved), but uninstalling one
 works. Until you do, the plugin and core would both send.

@@ -266,7 +266,7 @@ func TestUILintNoAdminLiteralMatcher(t *testing.T) {
 		{".go", []string{`const flashDomain = "hatamoto/admin/flash"`}},
 		{".go", []string{`// scripts/admin-qa drives this`}},
 		{".go", []string{`/* the "/admin" default */`}},
-		{".go", []string{`Base string // /admin/settings/submissions`}},
+		{".go", []string{`Base string // /admin/forms/submissions`}},
 		{".go", []string{`u := "http://localhost:8080/x" // not an admin literal`}},
 		{".go", []string{`/*`, ` * the "/admin" default`, ` */`}},
 		{".go", []string{`"/*/delete*", "/*/export.csv*",`}},

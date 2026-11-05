@@ -1,4 +1,4 @@
-// Package tags holds the vendor tag table behind Settings > Tracking: which
+// Package tags holds the vendor tag table behind Settings > Privacy & tracking > Tracking: which
 // third-party tags the core script can load, how their ids look, which
 // consent category they belong to and which hosts the page CSP must allow.
 // It is a leaf package: render, server, admin and packages import it, it

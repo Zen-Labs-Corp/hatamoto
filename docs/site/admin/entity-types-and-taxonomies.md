@@ -16,7 +16,7 @@ Hatamoto stores every piece of content as an **entity**: a page, a blog post, a 
 |---|---|---|---|
 | Entity list, edit form, versions | `<admin>/entities` | yes | yes |
 | People | `<admin>/people` | yes | yes |
-| Media library | `<admin>/settings/media` | yes | yes |
+| Media library | `<admin>/media` | yes | yes |
 | Entity types | `<admin>/settings/types` | yes | no |
 | Taxonomies | `<admin>/settings/taxonomies` | yes | no |
 
@@ -83,7 +83,7 @@ Every save creates a version.
 | `<admin>/entities/{id}/versions/compare` | Shows the difference between two versions |
 | `<admin>/entities/{id}/versions/{version}/restore` | Asks for confirmation, then restores that state as a new version |
 
-Restoring never deletes history. A nightly job merges identical consecutive versions and prunes old ones, keeping the newest N per entity (a Settings > Versions value, 50 by default) and dropping automatic autosave versions before explicit ones. A version that was live in the last 30 days is never pruned. The versions panel states the rule and shows a Live badge on those versions.
+Restoring never deletes history. A nightly job merges identical consecutive versions and prunes old ones, keeping the newest N per entity (a Settings > Backups & recovery > Versions value, 50 by default) and dropping automatic autosave versions before explicit ones. A version that was live in the last 30 days is never pruned. The versions panel states the rule and shows a Live badge on those versions.
 
 ## Deleting and archiving
 

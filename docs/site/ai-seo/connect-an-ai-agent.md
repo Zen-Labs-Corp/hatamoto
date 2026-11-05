@@ -17,7 +17,7 @@ In this guide you connect an AI agent, such as an AI assistant on your computer,
 
 > Your admin address is private to your install, for example `/k7qm-x2rf-9tdc`. Print it on the server with `hatamoto admin-url`. This page writes it as `<admin>`.
 
-1. In the admin, open **Settings > API** (`<admin>/settings/api-keys`) and select **New API key**.
+1. In the admin, open **Settings > Integrations > API keys** (`<admin>/settings/api-keys`) and select **New API key**.
 
 2. Fill in the form:
 
@@ -70,7 +70,7 @@ In this guide you connect an AI agent, such as an AI assistant on your computer,
 
 ## Check it worked
 
-Back in **Settings > API**, the **Last used** column of `research agent` shows today's date, and its status is **Active**.
+Back in **Settings > Integrations > API keys**, the **Last used** column of `research agent` shows today's date, and its status is **Active**.
 
 If the agent or `curl` gets `401`, the key is missing, mistyped, revoked or expired. Copy it again from where you saved it, or create a new one. A key that is lost cannot be shown again; select **New secret** on its row to get a new one (the old one stops working at once).
 

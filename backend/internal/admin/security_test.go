@@ -137,7 +137,7 @@ func TestSecurityAddressOwnerOnly(t *testing.T) {
 	if rec := g.do("GET", securityPath, "", nil, nil); rec.Code != 303 {
 		t.Errorf("anonymous: %d", rec.Code)
 	}
-	if rec := g.do("GET", "/admin/settings/security", "owner-token", nil, nil); rec.Code != 302 || rec.Header().Get("Location") != securityPath {
+	if rec := g.do("GET", "/admin/settings/security", "owner-token", nil, nil); rec.Code != 302 || rec.Header().Get("Location") != "/admin/settings/security/admin-address" {
 		t.Errorf("section entry: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
 	if rec := g.do("GET", "/admin/settings/security", "editor-token", nil, nil); rec.Code != 403 {

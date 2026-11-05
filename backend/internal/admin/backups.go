@@ -14,7 +14,7 @@ import (
 	"hatamoto.dev/core/internal/httpx"
 )
 
-// backupsRel is Settings > Backups, relative to the admin prefix.
+// backupsRel is Settings > Backups & recovery > Backups, relative to the admin prefix.
 const backupsRel = "/settings/backups"
 
 // Backup states and kinds as the page sees them. They mirror the engine's
@@ -330,7 +330,7 @@ func (a *Admin) renderBackups(w http.ResponseWriter, r *http.Request, status int
 	if d.Running {
 		v.Refresh = pollSeconds
 	}
-	v.Section, v.Tab = "backups", "backups"
+	v.Section, v.Tab = "backups-recovery", "backups"
 	v.Width = "wide"
 	v.Data = d
 	a.Render(w, r, status, "settings/backups", v)

@@ -53,7 +53,7 @@ func (a *Admin) addressChangeAllowed(w http.ResponseWriter, r *http.Request) boo
 func (a *Admin) renderAddressChange(w http.ResponseWriter, r *http.Request, status int, f *addressForm) {
 	f.StrengthHTML = a.renderStrength(f.Strength)
 	v := a.NewView(w, r, "Change admin address")
-	v.Section, v.Tab = "security", "admin-address"
+	v.Section, v.Tab = "access-security", "admin-address"
 	v.Width = "compact"
 	v.Crumbs = a.areaCrumbs("admin-address", Crumb{Label: "Change"})
 	v.Data = securityChangeData{

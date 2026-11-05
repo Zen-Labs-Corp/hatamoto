@@ -99,7 +99,7 @@ The admin was reorganised in v1-23a (Settings with its own sections) and again w
 | `POST /admin/analytics/agents/robots` | `<admin>/analytics/crawlers/robots` |
 | `/admin/settings/site`, `homepage`, `contact`, `notifications` | `<admin>/settings/general` |
 | `/admin/settings/branding` | `<admin>/theme/colours` (Theme → Colours and fonts) |
-| `/admin/settings/api` | `<admin>/settings/api-keys` (Settings → API, since v1-26) |
+| `/admin/settings/api` | `<admin>/settings/api-keys` (Settings → Integrations → API keys) |
 | `/admin/settings/api/secret`, `/admin/settings/api/{id}/...` | `<admin>/settings/api-keys/secret`, `<admin>/settings/api-keys/{id}/...` |
 | `/admin/settings/plugins...` (including `POST fetch`, `upload`, `install`, `unsigned`, and `{name}/grant`, `settings`, `enable`, `disable`, `uninstall`) | `<admin>/plugins...` (same suffixes) |
 | `/admin/settings/theme...` (including `POST theme/install`) | `<admin>/theme/themes...` (same suffixes); `/admin/settings/theme/design` goes to `<admin>/theme/colours` |
@@ -114,21 +114,27 @@ The admin was reorganised in v1-23a (Settings with its own sections) and again w
 | `/admin/settings/menus-forms` (exact) | `<admin>/theme/menus` |
 | `/admin/schemas...` | `<admin>/settings/types...` |
 | `/admin/taxonomies...` | `<admin>/settings/taxonomies...` |
-| `/admin/forms...` (builder) | `<admin>/settings/forms...` |
-| `/admin/forms/{id}/submissions` | `<admin>/settings/submissions?form={id}` |
-| `/admin/forms/{id}/submissions/{sid}`, and its `status`, `email`, `delete` | `<admin>/settings/submissions/{sid}`, and the same suffixes |
-| `/admin/forms/{id}/submissions/bulk`, `.../export.csv` | `<admin>/settings/submissions/bulk?form={id}`, `<admin>/settings/submissions/export.csv?form={id}` |
+| `/admin/settings/forms` (exact) | `<admin>/forms` |
+| `/admin/settings/forms/new` | `<admin>/forms/new` |
+| `/admin/settings/forms/{id}/edit`, `.../delete` | `<admin>/forms/edit/{id}`, `<admin>/forms/delete/{id}` |
+| `/admin/settings/submissions...` | `<admin>/forms/submissions...` (same suffixes: `{sid}`, `status`, `email`, `delete`, `bulk`, `export.csv`) |
+| `/admin/settings/spam` | `<admin>/forms/spam` |
+| `/admin/settings/media...` | `<admin>/media...` |
+| `/admin/settings/contact-button` | `<admin>/theme/contact-button` |
+| `/admin/forms/{id}/edit`, `.../delete` (before v1-23a) | `<admin>/forms/edit/{id}`, `<admin>/forms/delete/{id}` |
+| `/admin/forms/{id}/submissions` | `<admin>/forms/submissions?form={id}` |
+| `/admin/forms/{id}/submissions/{sid}`, and its `status`, `email`, `delete` | `<admin>/forms/submissions/{sid}`, and the same suffixes |
+| `/admin/forms/{id}/submissions/bulk`, `.../export.csv` | `<admin>/forms/submissions/bulk?form={id}`, `<admin>/forms/submissions/export.csv?form={id}` |
 | `/admin/redirects...` (rules, 404 log, explain) | `<admin>/settings/redirects...` (same suffixes) |
 | `/admin/linking...` | `<admin>/settings/linking...` |
 | `/admin/users...` | `<admin>/settings/users...` |
 | `/admin/import` | `<admin>/settings/import` |
 | `/admin/import/wordpress...` | `<admin>/settings/import/wordpress...` |
-| `/admin/media` (that exact path only) | `<admin>/settings/media` |
 
 `<admin>/settings` itself is not in the table: it is a real route that answers **303** to the first Settings section the role can reach (and `?section=appearance`, `menus` or `menus-forms`, which moved, answer 303 to the Theme section that replaced them), `<admin>/theme` does the same for Theme, and the section URLs (`<admin>/settings/content-model` and the others) answer 302 to their first tab. `GET <admin>/analytics` is likewise a real route: signed in it answers **303** to `<admin>/analytics/crawlers`, signed out it goes to the login page with `next=<admin>/analytics`. Only the other methods reach the table row (308).
 
 Two plugin addresses are real handlers, not rows of the table above (so they need no legacy rule): `GET <admin>/plugins/{name}` answers 302 to `<admin>/plugins/{name}/settings`, and `GET <admin>/plugins/{name}/ui` (the plugin page before it moved onto the Settings tab) answers 301 to `<admin>/plugins/{name}/settings`, for owner and editor alike. Only GET is redirected; other methods on `/ui` fall through to the 404 page.
 
-These do not move: `<admin>/entities...`, `<admin>/analytics/referrals`, `<admin>/analytics/data/*.json`, `<admin>/media/upload`, `<admin>/media/picker`, `<admin>/media/{id}` (and its delete page), `<admin>/pick/*`, `<admin>/preview/theme/{name}`, `POST <admin>/plugins/{name}/bridge`, `<admin>/profile`, `POST <admin>/theme`, `POST <admin>/logout`, login, forgot, reset, accept, `<admin>/setup/*` and `<admin>/assets/*`. `<admin>` and `<admin>/` still answer 303 to the landing page, `<admin>/entities`.
+These do not move: `<admin>/entities...`, `<admin>/analytics/referrals`, `<admin>/analytics/data/*.json`, `<admin>/forms`, `<admin>/forms/new`, `<admin>/forms/edit/{id}`, `<admin>/media...` (library, upload, picker, detail and delete pages), `<admin>/pick/*`, `<admin>/preview/theme/{name}`, `POST <admin>/plugins/{name}/bridge`, `<admin>/profile`, `POST <admin>/theme`, `POST <admin>/logout`, login, forgot, reset, accept, `<admin>/setup/*` and `<admin>/assets/*`. `<admin>` and `<admin>/` still answer 303 to the landing page, `<admin>/entities`.
 
-**Accepted caveat.** A 301 makes a browser repeat a POST as a GET, so a form that was open on an old URL before the upgrade and is then submitted lands on the new page and does nothing. Nothing is saved and nothing is lost; reload the page and submit again. Bookmarks, emailed links (a new submission email now links to `<admin>/settings/submissions/{sid}`) and plugin links to old paths keep working.
+**Accepted caveat.** A 301 makes a browser repeat a POST as a GET, so a form that was open on an old URL before the upgrade and is then submitted lands on the new page and does nothing. Nothing is saved and nothing is lost; reload the page and submit again. Bookmarks, emailed links (a new submission email links to `<admin>/forms/submissions/{sid}`) and plugin links to old paths keep working.

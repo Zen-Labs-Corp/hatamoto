@@ -83,7 +83,7 @@ func TestDemoRefusals(t *testing.T) {
 		{"POST", "/admin/settings/email", true},
 		{"POST", "/admin/settings/email/test", true},
 		{"POST", "/admin/setup/email", true},
-		{"POST", "/admin/settings/spam", true},
+		{"POST", "/admin/forms/spam", true},
 		{"POST", "/admin/settings/import/wordpress", true},
 		{"POST", "/admin/settings/updates", true},
 		{"POST", "/admin/settings/updates/apply", true},

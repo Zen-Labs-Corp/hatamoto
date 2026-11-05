@@ -114,11 +114,11 @@ export const screens = [
   { name: "settings-taxonomies-seo", path: "/admin/settings/taxonomies?kind=category&view=seo", mock: null, roles: O, list: true, expect: "[data-hm-cell-edit]" },
   { name: "settings-taxonomies-new", path: "/admin/settings/taxonomies/new", mock: null, roles: O },
   // Forms
-  { name: "settings-forms", path: "/admin/settings/forms", legacy: "/admin/forms", mock: "settings-forms", roles: OE, primary: true },
-  { name: "settings-forms-new", path: "/admin/settings/forms/new", legacy: "/admin/forms/new", mock: null, roles: OE },
-  { name: "settings-forms-edit", path: "/admin/settings/forms/{form}/edit", legacy: "/admin/forms/{form}/edit", mock: null, roles: OE },
-  { name: "settings-submissions", path: "/admin/settings/submissions?form={form}", legacy: "/admin/forms/{form}/submissions", mock: "settings-submissions", roles: OE },
-  { name: "settings-submissions-all", path: "/admin/settings/submissions", mock: null, roles: OE }, // no form filter
+  { name: "forms", path: "/admin/forms", legacy: "/admin/settings/forms", mock: "settings-forms", roles: OE, primary: true },
+  { name: "forms-new", path: "/admin/forms/new", legacy: "/admin/settings/forms/new", mock: null, roles: OE },
+  { name: "forms-edit", path: "/admin/forms/edit/{form}", legacy: "/admin/settings/forms/{form}/edit", mock: null, roles: OE },
+  { name: "submissions", path: "/admin/forms/submissions?form={form}", legacy: "/admin/settings/submissions?form={form}", mock: "settings-submissions", roles: OE },
+  { name: "submissions-all", path: "/admin/forms/submissions", legacy: "/admin/settings/submissions", mock: null, roles: OE }, // no form filter
   // SEO and URLs
   { name: "settings-redirects", path: "/admin/settings/redirects", legacy: "/admin/redirects", mock: "settings-redirects", roles: OE, list: true, states: [newDialog] },
   { name: "settings-redirects-new", path: "/admin/settings/redirects/new", legacy: "/admin/redirects/new", mock: null, roles: OE },
@@ -144,16 +144,17 @@ export const screens = [
   { name: "theme-menus", path: "/admin/theme/menus", legacy: "/admin/menus", mock: "settings-menus", roles: OE, list: true, states: [newDialog] },
   { name: "theme-menus-new", path: "/admin/theme/menus/new", mock: null, roles: OE },
   { name: "theme-menus-edit", path: "/admin/theme/menus/{menu}", legacy: "/admin/menus/{menu}", mock: "settings-menus", roles: OE },
+  { name: "theme-contact-button", path: "/admin/theme/contact-button", legacy: "/admin/settings/contact-button", mock: null, roles: O },
   // Team, media, import and export
   { name: "settings-users", path: "/admin/settings/users", legacy: "/admin/users", mock: "settings-users", roles: O, list: true, states: [newDialog] },
   { name: "settings-users-new", path: "/admin/settings/users/new", legacy: "/admin/users/new", mock: null, roles: O },
   { name: "settings-users-invite", path: "/admin/settings/users/invite", mock: null, roles: O },
   { name: "settings-users-sign-in", path: "/admin/settings/users/sign-in", mock: null, roles: O },
-  { name: "settings-media", path: "/admin/settings/media", legacy: "/admin/media", mock: "media", roles: OE, primary: true, list: true, states: [newDialog] },
-  { name: "settings-media-new", path: "/admin/settings/media/new", mock: null, roles: OE },
+  { name: "media", path: "/admin/media", legacy: "/admin/settings/media", mock: "media", roles: OE, primary: true, list: true, states: [newDialog] },
+  { name: "media-new", path: "/admin/media/new", legacy: "/admin/settings/media/new", mock: null, roles: OE },
   { name: "media-detail", path: "/admin/media/{media}", mock: null, roles: OE, optional: true },
   { name: "settings-email", path: "/admin/settings/email", mock: null, roles: O },
-  { name: "settings-spam", path: "/admin/settings/spam", mock: null, roles: O },
+  { name: "spam", path: "/admin/forms/spam", legacy: "/admin/settings/spam", mock: null, roles: O },
   { name: "settings-seo-general", path: "/admin/settings/seo/general", mock: null, roles: O },
   { name: "settings-seo-titles", path: "/admin/settings/seo/titles", mock: null, roles: O },
   { name: "settings-seo-social", path: "/admin/settings/seo/social", mock: null, roles: O },
@@ -175,8 +176,8 @@ export const screens = [
   { name: "login", path: "/admin/login", mock: null, roles: OE, auth: false },
   { name: "forgot", path: "/admin/forgot", mock: null, roles: OE, auth: false },
   // PR-E admin-media-forms: the media table view and the status-filtered submissions page.
-  { name: "settings-media-list", path: "/admin/settings/media?view=list", mock: null, roles: OE },
-  { name: "settings-submissions-new", path: "/admin/settings/submissions?form={form}&status=new", mock: null, roles: OE },
+  { name: "media-list", path: "/admin/media?view=list", legacy: "/admin/settings/media?view=list", mock: null, roles: OE },
+  { name: "submissions-new", path: "/admin/forms/submissions?form={form}&status=new", legacy: "/admin/settings/submissions?form={form}&status=new", mock: null, roles: OE },
 ];
 
 // Not inventoried because the QA seed cannot reach them without external input:

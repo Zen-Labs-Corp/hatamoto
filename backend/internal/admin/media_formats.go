@@ -84,7 +84,7 @@ func (a *Admin) handleMediaFormatsSave(w http.ResponseWriter, r *http.Request) {
 		"old": map[string]any{"webp": old.WebP, "avif": old.AVIF}, "new": map[string]any{"webp": next.WebP, "avif": next.AVIF},
 	})
 	a.SetFlash(w, r, "success", "Image format settings saved. New uploads follow them; rebuild to apply them to existing images.")
-	http.Redirect(w, r, a.adminPath+"/settings/media", http.StatusSeeOther)
+	http.Redirect(w, r, a.adminPath+"/media", http.StatusSeeOther)
 }
 
 func (a *Admin) handleMediaRebuild(w http.ResponseWriter, r *http.Request) {
@@ -106,5 +106,5 @@ func (a *Admin) handleMediaRebuild(w http.ResponseWriter, r *http.Request) {
 		a.logger().Error("image rebuild", "err", err)
 		a.SetFlash(w, r, "error", "The rebuild did not start.")
 	}
-	http.Redirect(w, r, a.adminPath+"/settings/media", http.StatusSeeOther)
+	http.Redirect(w, r, a.adminPath+"/media", http.StatusSeeOther)
 }

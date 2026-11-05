@@ -183,7 +183,7 @@ func (a *Admin) renderKeys(w http.ResponseWriter, r *http.Request, status int, d
 	}
 	d.Actions = []ui.Button{{Label: "New API key", Variant: "primary", Icon: "plus", Href: list + "/new", Attrs: map[string]string{"data-hm-open": "new-key"}}}
 	v := a.NewView(w, r, "API")
-	v.Section, v.Tab = "api", "api"
+	v.Section, v.Tab = "integrations", "api"
 	v.Data = d
 	a.Render(w, r, status, "settings/api", v)
 }
@@ -201,7 +201,7 @@ func (a *Admin) renderKeyNew(w http.ResponseWriter, r *http.Request, status int,
 	d.Expiry = expiryOptions()
 	v := a.NewView(w, r, "New API key")
 	v.Width = "narrow"
-	v.Section, v.Tab = "api", "api"
+	v.Section, v.Tab = "integrations", "api"
 	v.Crumbs = a.areaCrumbs("api", Crumb{Label: "New API key"}) // the same trail for /new and the 422 re-render
 	v.Data = d
 	a.Render(w, r, status, "settings/apikeynew", v)

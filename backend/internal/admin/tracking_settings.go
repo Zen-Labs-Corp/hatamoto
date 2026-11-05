@@ -15,7 +15,7 @@ import (
 
 const trackingPath = "/settings/tracking"
 
-// TrackingService is the tag manager settings store behind Settings > Tracking.
+// TrackingService is the tag manager settings store behind Settings > Privacy & tracking > Tracking.
 type TrackingService interface {
 	Get(ctx context.Context) (tags.Settings, error)
 	Save(ctx context.Context, s tags.Settings) error
@@ -218,9 +218,9 @@ func trackingMovedNotice(moved []string) string {
 		names = append(names, m)
 	}
 	if len(names) == 1 {
-		return "The " + names[0] + " plugin was replaced by Settings > Tracking. Your ID was copied; the plugin was removed."
+		return "The " + names[0] + " plugin was replaced by Settings > Privacy & tracking > Tracking. Your ID was copied; the plugin was removed."
 	}
-	return "The " + strings.Join(names, " and ") + " plugins were replaced by Settings > Tracking. Your IDs were copied; the plugins were removed."
+	return "The " + strings.Join(names, " and ") + " plugins were replaced by Settings > Privacy & tracking > Tracking. Your IDs were copied; the plugins were removed."
 }
 
 func (a *Admin) renderTracking(w http.ResponseWriter, r *http.Request, status int, set tags.Settings, errs []ui.FieldError) {
@@ -271,7 +271,7 @@ func (a *Admin) renderTracking(w http.ResponseWriter, r *http.Request, status in
 		d.Legacy = a.deps.LegacyTrackingPlugins(r.Context())
 	}
 	view := a.NewView(w, r, "Tracking")
-	view.Section, view.Tab = "tracking", "tracking"
+	view.Section, view.Tab = "privacy-tracking", "tracking"
 	view.Width = "narrow"
 	view.Data = d
 	a.Render(w, r, status, "settings/tracking", view)

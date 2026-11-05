@@ -56,8 +56,8 @@ const tokenSources = {
   // The entity list is paged, so search for the seeded title instead of hoping it is on page 1.
   post: [`${admin}/entities?q=QA+Post+1`, `a[href^="${admin}/entities/"]`, "QA Post 1"],
   page: [`${admin}/entities?q=` + encodeURIComponent(process.env.QA_PAGE_NAME || "About"), `a[href^="${admin}/entities/"]`, process.env.QA_PAGE_NAME || "About"],
-  media: [`${admin}/settings/media`, `a[href^="${admin}/media/"]`, ""],
-  form: [`${admin}/settings/forms`, 'a[href*="/forms/"]', ""],
+  media: [`${admin}/media`, `a[href^="${admin}/media/"]`, ""],
+  form: [`${admin}/forms`, 'a[href*="/forms/"]', ""],
   menu: [`${admin}/theme/menus`, 'a[href*="/menus/"]', ""],
   section: [`${admin}/theme/templates`, 'a[href*="/templates/"]', ""],
   type: [`${admin}/settings/types`, `a[href^="${admin}/settings/types/"]`, ""],
@@ -73,13 +73,13 @@ export async function resolvePath(page, urlPath, legacy = false) {
     const listPath = legacy ? legacyList[key] || list : list;
     await page.goto(base + listPath);
     const hrefs = await page.$$eval(sel, (as, t) => as.filter((a) => !t || a.textContent.includes(t)).map((a) => a.getAttribute("href")), text);
-    const id = hrefs.map((h) => h.match(/\/(?:entities|media|forms|menus|templates|sections|users|types)\/([0-9a-f-]{36})/)?.[1]).find(Boolean);
+    const id = hrefs.map((h) => h.match(/\/(?:entities|media|forms|menus|templates|sections|users|types)\/(?:edit\/)?([0-9a-f-]{36})/)?.[1]).find(Boolean);
     cache.set(key, id || null);
   }
   const id = cache.get(key);
   return id ? urlPath.replace(m[0], id) : null;
 }
-const legacyList = { media: `${admin}/media`, form: `${admin}/forms`, menu: `${admin}/menus`, section: `${admin}/sections`, user: `${admin}/users` };
+const legacyList = { media: `${admin}/settings/media`, form: `${admin}/settings/forms`, menu: `${admin}/menus`, section: `${admin}/sections`, user: `${admin}/users` };
 
 // Writes a result file under outDir and returns its path.
 export function writeResult(name, data) {

@@ -17,7 +17,7 @@ const privacyPath = "/settings/privacy"
 const privacyCountDays = 30
 
 // PrivacyService is the cookie consent settings store and the daily choice
-// counts behind Settings > Privacy.
+// counts behind Settings > Privacy & tracking > Cookie consent.
 type PrivacyService interface {
 	Get(ctx context.Context) (consent.Settings, error)
 	Save(ctx context.Context, s consent.Settings) error
@@ -161,7 +161,7 @@ func (a *Admin) renderPrivacy(w http.ResponseWriter, r *http.Request, status int
 	}
 	d.Counts = a.privacyCounts(r)
 	view := a.NewView(w, r, "Privacy")
-	view.Section, view.Tab = "privacy", "privacy"
+	view.Section, view.Tab = "privacy-tracking", "privacy"
 	view.Width = "narrow"
 	view.Data = d
 	a.Render(w, r, status, "settings/privacy", view)

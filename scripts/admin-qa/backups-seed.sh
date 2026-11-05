@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Seed Settings > Backups for the admin QA harness: one ok backup (a sidecar plus a
+# Seed Settings > Backups & recovery > Backups for the admin QA harness: one ok backup (a sidecar plus a
 # small tar) and one failed record under $HATAMOTO_DATA/backups, so strict mode has
 # rows to check. The files are 0600 like the real ones. Run it after the server is
 # up (the page reads the directory on every load); run-local.sh does.

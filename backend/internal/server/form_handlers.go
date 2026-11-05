@@ -894,7 +894,7 @@ func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.Fo
 		// Only a recipient with an admin account gets the link to the
 		// submission; it names the private admin address.
 		adminData := emailData
-		adminData.AdminURL = s.adminPathValue() + "/settings/submissions/" + submission.ID.String()
+		adminData.AdminURL = s.adminPathValue() + "/forms/submissions/" + submission.ID.String()
 		for _, send := range []struct {
 			to   []string
 			data email.FormSubmissionData

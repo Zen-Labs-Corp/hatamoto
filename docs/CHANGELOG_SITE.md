@@ -176,7 +176,7 @@ REST shapes (`internal/menu/model.go`): `POST /api/v1/menus`
 
 ## 3. API key and credentials for the generator
 
-Settings > API keys: create a key with scope `write:entities` (it also needs
+Settings > Integrations > API keys: create a key with scope `write:entities` (it also needs
 read for the lookup, i.e. `read:entities`). Keys may only reach
 `/api/v1/entities` routes. Put the credentials in `.hatamoto-changelog.env`
 (gitignored; env vars win):

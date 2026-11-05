@@ -50,12 +50,12 @@ var ownerOnly = []string{"owner"}
 // settingsLive is the set of tab IDs whose page already answers on Final.
 var settingsLive = map[string]bool{
 	"types": true, "taxonomies": true, "users": true,
-	"menus": true, "forms": true, "submissions": true,
+	"menus":     true,
 	"redirects": true, "linking": true, "templates": true,
 	"themes": true, "blocks": true, "colours": true, "fonts": true, "additional-css": true, "design-system": true, "presets": true, "parts": true,
-	"import": true, "media": true, "general": true, "branding": true, "export": true, "performance": true,
+	"import": true, "general": true, "branding": true, "export": true, "performance": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
-	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "jobs": true, "backups": true, "changes": true, "spam": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
+	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "jobs": true, "backups": true, "changes": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
 	"privacy": true, "tracking": true, "contact-button": true,
 	"user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
@@ -83,40 +83,25 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "locale-addresses", Label: "Addresses and search engines", Final: "/settings/locales/addresses", Roles: ownerOnly},
 		{ID: "locale-business", Label: "Business details", Final: "/settings/locales/business", Roles: ownerOnly},
 	}},
-	{ID: "site-access", Label: "Site access", Icon: "lock", Desc: "Coming soon, maintenance and password modes.", Group: "Site", Tabs: []settingsTabDef{
+	{ID: "users", Label: "Users", Icon: "users", Desc: "Who can sign in and what they can do.", Group: "Site", Tabs: []settingsTabDef{
+		{ID: "users", Label: "Users", Final: "/settings/users", Roles: ownerOnly},
+		{ID: "user-sign-in", Label: "Sign-in", Final: "/settings/users/sign-in", Roles: ownerOnly},
+	}},
+	{ID: "access-security", Label: "Access & security", Icon: "lock", Desc: "Coming soon, maintenance and password modes, and where you sign in.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "site-access", Label: "Site access", Final: "/settings/site-access", Roles: ownerOnly},
+		{ID: "admin-address", Label: "Admin address", Final: "/settings/security/admin-address", Roles: ownerOnly},
 	}},
 	{ID: "email", Label: "Email", Icon: "mail", Desc: "Password resets, invitations and form notices.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "email", Label: "Email", Final: "/settings/email", Roles: ownerOnly},
 		{ID: "email-log", Label: "Email log", Final: "/settings/email/log", Roles: ownerOnly},
 	}},
-	{ID: "privacy", Label: "Privacy", Icon: "shield", Desc: "Cookie consent for your visitors.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "privacy", Label: "Privacy", Final: "/settings/privacy", Roles: ownerOnly},
-	}},
-	{ID: "tracking", Label: "Tracking", Icon: "tag", Desc: "Analytics, ad and chat tags.", Group: "Site", Tabs: []settingsTabDef{
+	{ID: "privacy-tracking", Label: "Privacy & tracking", Icon: "shield", Desc: "Cookie consent for your visitors, and analytics, ad and chat tags.", Group: "Site", Tabs: []settingsTabDef{
+		{ID: "privacy", Label: "Cookie consent", Final: "/settings/privacy", Roles: ownerOnly},
 		{ID: "tracking", Label: "Tracking", Final: "/settings/tracking", Roles: ownerOnly},
-	}},
-	{ID: "contact-button", Label: "Contact button", Icon: "send", Desc: "A floating button that opens WhatsApp, a call, a text or an email.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "contact-button", Label: "Contact button", Final: "/settings/contact-button", Roles: ownerOnly},
-	}},
-	{ID: "users", Label: "Users", Icon: "users", Desc: "Who can sign in and what they can do.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "users", Label: "Users", Final: "/settings/users", Roles: ownerOnly},
-		{ID: "user-sign-in", Label: "Sign-in", Final: "/settings/users/sign-in", Roles: ownerOnly},
-	}},
-	{ID: "media", Label: "Media", Icon: "image", Desc: "Upload, browse and describe the files on your site.", Group: "Content", Tabs: []settingsTabDef{
-		{ID: "media", Label: "Media", Final: "/settings/media"},
-	}},
-	{ID: "versions", Label: "Versions", Icon: "list", Desc: "How many earlier versions of each item are kept.", Group: "Content", Tabs: []settingsTabDef{
-		{ID: "versions", Label: "Versions", Final: "/settings/versions", Roles: ownerOnly},
 	}},
 	{ID: "entity-models", Label: "Entity models", Icon: "content-model", Desc: "The kinds of content your site holds and how it is grouped.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "types", Label: "Entity types", Final: "/settings/types", Roles: ownerOnly},
 		{ID: "taxonomies", Label: "Taxonomies", Final: "/settings/taxonomies", Roles: ownerOnly},
-	}},
-	{ID: "forms", Label: "Forms", Icon: "inbox", Desc: "Forms on your site and what visitors send through them.", Group: "Content", Tabs: []settingsTabDef{
-		{ID: "forms", Label: "Forms", Final: "/settings/forms"},
-		{ID: "submissions", Label: "Submissions", Final: "/settings/submissions"},
-		{ID: "spam", Label: "Spam protection", Final: "/settings/spam", Roles: ownerOnly},
 	}},
 	{ID: "seo", Label: "SEO", Icon: "seo", Desc: "Titles, descriptions and the variables they use.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "seo-general", Label: "General", Final: "/settings/seo/general", Roles: ownerOnly},
@@ -138,11 +123,9 @@ var settingsRegistry = []settingsSectionDef{
 	{ID: "linking", Label: "Internal linking", Icon: "link", Desc: "Links between your pages.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "linking", Label: "Internal linking", Final: "/settings/linking"},
 	}},
-	{ID: "api", Label: "API", Icon: "key", Desc: "Keys that let scripts and integrations use the API.", Group: "System", Tabs: []settingsTabDef{
-		{ID: "api", Label: "API", Final: "/settings/api-keys", Roles: ownerOnly},
-	}},
-	{ID: "webhooks", Label: "Webhooks", Icon: "send", Desc: "Send signed POSTs to your systems when content changes.", Group: "System", Tabs: []settingsTabDef{
-		{ID: "subscriptions", Label: "Subscriptions", Final: "/settings/webhooks", Roles: ownerOnly},
+	{ID: "integrations", Label: "Integrations", Icon: "key", Desc: "API keys for scripts and webhooks that send signed POSTs when content changes.", Group: "System", Tabs: []settingsTabDef{
+		{ID: "api", Label: "API keys", Final: "/settings/api-keys", Roles: ownerOnly},
+		{ID: "subscriptions", Label: "Webhooks", Final: "/settings/webhooks", Roles: ownerOnly},
 		{ID: "deliveries", Label: "Delivery log", Final: "/settings/webhooks/deliveries", Roles: ownerOnly},
 	}},
 	{ID: "performance", Label: "Performance", Icon: "database", Desc: "Page cache, size limit and preload.", Group: "System", Tabs: []settingsTabDef{
@@ -154,20 +137,14 @@ var settingsRegistry = []settingsSectionDef{
 	{ID: "jobs", Label: "Jobs", Icon: "refresh", Desc: "Scheduled jobs, when they last ran and when they run next.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "jobs", Label: "Jobs", Final: "/settings/jobs", Roles: ownerOnly},
 	}},
-	{ID: "backups", Label: "Backups", Icon: "archive", Desc: "Download a full copy of your site, database and files.", Group: "System", Tabs: []settingsTabDef{
+	{ID: "backups-recovery", Label: "Backups & recovery", Icon: "archive", Desc: "Download a full copy of your site, how many earlier versions are kept, and undo imports.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "backups", Label: "Backups", Final: "/settings/backups", Roles: ownerOnly},
-	}},
-	{ID: "changes", Label: "Changes", Icon: "list", Desc: "Imports and other plugin runs, and undoing them.", Group: "System", Tabs: []settingsTabDef{
+		{ID: "versions", Label: "Versions", Final: "/settings/versions", Roles: ownerOnly},
 		{ID: "changes", Label: "Changes", Final: "/settings/changes", Roles: ownerOnly},
 	}},
-	{ID: "import-export", Label: "Import & export", Icon: "import-export", Desc: "Bring a site in from WordPress or take yours out.", Group: "System", Tabs: []settingsTabDef{
+	{ID: "tools", Label: "Tools", Icon: "search", Desc: "Bring a site in from WordPress, take yours out, and find and replace text across your content.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "import", Label: "WordPress import", Final: "/settings/import", Roles: ownerOnly},
-		{ID: "export", Label: "Site export & import", Final: "/settings/export", Roles: ownerOnly},
-	}},
-	{ID: "security", Label: "Security", Icon: "shield-check", Desc: "Where you sign in and who can change it.", Group: "System", Tabs: []settingsTabDef{
-		{ID: "admin-address", Label: "Admin address", Final: "/settings/security/admin-address", Roles: ownerOnly},
-	}},
-	{ID: "search-replace", Label: "Search and replace", Icon: "search", Desc: "Find text or an address across your content and change it, with a preview first.", Group: "Tools", Tabs: []settingsTabDef{
+		{ID: "export", Label: "Export", Final: "/settings/export", Roles: ownerOnly},
 		{ID: "search-replace", Label: "Search and replace", Final: "/settings/search-replace", Roles: ownerOnly},
 	}},
 }
@@ -204,6 +181,9 @@ var themeRegistry = []settingsSectionDef{
 	}},
 	{ID: "menus", Label: "Menus", Icon: "menu", Desc: "The navigation menus of your site.", Tabs: []settingsTabDef{
 		{ID: "menus", Label: "Menus", Final: "/theme/menus"},
+	}},
+	{ID: "contact-button", Label: "Contact button", Icon: "send", Desc: "A floating button that opens WhatsApp, a call, a text or an email.", Tabs: []settingsTabDef{
+		{ID: "contact-button", Label: "Contact button", Final: "/theme/contact-button", Roles: ownerOnly},
 	}},
 }
 
@@ -277,6 +257,37 @@ func areaOfTab(tab string) *adminArea {
 // <prefix>/settings/<id> entry URLs (and ?section=) still land on the new home.
 var settingsSectionAliases = map[string]string{
 	"content-model": "entity-models", "team": "users",
+	"import-export": "tools", "security": "access-security", "search-replace": "tools",
+	"api": "integrations", "webhooks": "integrations", "site-access": "access-security",
+	"privacy": "privacy-tracking", "tracking": "privacy-tracking",
+	"backups": "backups-recovery", "versions": "backups-recovery", "changes": "backups-recovery",
+}
+
+// settingsOldPages are the old section IDs that were a single page and are now
+// a tab of a merged section: their entry URL and ?section= land on that tab, not
+// on the first tab of the section that absorbed them.
+var settingsOldPages = map[string]string{
+	"security": "admin-address", "import-export": "import", "search-replace": "search-replace",
+	"api": "api", "webhooks": "subscriptions", "site-access": "site-access",
+	"privacy": "privacy", "tracking": "tracking",
+	"backups": "backups", "versions": "versions", "changes": "changes",
+}
+
+// settingsMovedOut are the old Settings section IDs that became main-menu pages.
+var settingsMovedOut = map[string]string{
+	"forms": "/forms", "media": "/media", "spam": "/forms/spam", "submissions": "/forms/submissions",
+}
+
+// settingsTabHref is the URL of tab for role, or "" when role cannot open it.
+func settingsTabHref(prefix, role, tab string) string {
+	for _, s := range settingsFor(prefix, role) {
+		for _, t := range s.Tabs {
+			if t.ID == tab {
+				return t.Href
+			}
+		}
+	}
+	return ""
 }
 
 func settingsFor(prefix, role string) []SettingsSection { return settingsArea.forPrefix(prefix, role) }
@@ -321,11 +332,6 @@ func areaLocateIn(prefix, full string) (section, tab string) {
 	// An agent page is a Crawlers sub-page with no tab path of its own.
 	if settingsLive["ai-crawlers"] && strings.HasPrefix(path, "/analytics/agents/") {
 		return "ai-crawlers", "ai-crawlers"
-	}
-	// The media detail and delete pages keep their <prefix>/media/{id} paths but
-	// belong to the Settings library; the picker and upload are fragments.
-	if settingsLive["media"] && strings.HasPrefix(path, "/media/") && path != "/media/picker" && path != "/media/upload" {
-		return "media", "media"
 	}
 	// The longest Final wins, so a tab that lives below another tab's path
 	// is not taken for a sub-page of it.
@@ -461,7 +467,7 @@ func (v *View) SectionTabs() []ui.Tab {
 // themeMoved maps the Settings sections that moved to Theme to the Theme
 // section that replaces them, so <prefix>/settings?section=appearance (and the
 // no-JS select of an old page) still lands.
-var themeMoved = map[string]string{"appearance": "themes", "menus": "menus", "menus-forms": "menus"}
+var themeMoved = map[string]string{"appearance": "themes", "menus": "menus", "menus-forms": "menus", "contact-button": "contact-button"}
 
 // areaHref is the URL of the section of area ar that role opens, or "" when
 // the role has no section in it. first is used when want is not visible.
@@ -484,7 +490,8 @@ func (a *Admin) forbidden(w http.ResponseWriter, r *http.Request) {
 
 // areaEntry is the entry point of an area for every signed-in role: it goes
 // to the first section the role may reach, or the one chosen with the no-JS
-// select (?section=). A Settings section that moved to Theme lands there.
+// select (?section=). A Settings section that moved to Theme lands there;
+// Forms moved to the main menu.
 func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		role := userFrom(r.Context()).Role
@@ -495,6 +502,16 @@ func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 					http.Redirect(w, r, href, http.StatusSeeOther)
 					return
 				}
+			}
+		}
+		if to, ok := settingsMovedOut[want]; ok && ar == settingsArea {
+			http.Redirect(w, r, a.adminPath+to, http.StatusSeeOther)
+			return
+		}
+		if tab, ok := settingsOldPages[want]; ok && ar == settingsArea {
+			if href := settingsTabHref(a.adminPath, role, tab); href != "" {
+				http.Redirect(w, r, href, http.StatusSeeOther)
+				return
 			}
 		}
 		if alias, ok := settingsSectionAliases[want]; ok && ar == settingsArea {
@@ -515,13 +532,23 @@ func (a *Admin) areaEntry(ar *adminArea) http.HandlerFunc {
 func (a *Admin) mountSettingsFrame(authed *httpx.Group) {
 	authed.HandleFunc("GET /settings", a.areaEntry(settingsArea))
 	// Multi-tab sections whose ID is not already a tab URL, plus the old IDs.
-	for _, id := range []string{"entity-models", "import-export", "security", "content-model", "seo", "team"} {
+	for _, id := range []string{
+		"entity-models", "import-export", "security", "content-model", "seo", "team",
+		"integrations", "access-security", "privacy-tracking", "backups-recovery", "tools",
+	} {
 		target := id
 		if alias, ok := settingsSectionAliases[id]; ok {
 			target = alias
 		}
 		authed.HandleFunc("GET /settings/"+id, func(w http.ResponseWriter, r *http.Request) {
-			for _, s := range settingsFor(a.adminPath, userFrom(r.Context()).Role) {
+			role := userFrom(r.Context()).Role
+			if tab, ok := settingsOldPages[id]; ok {
+				if href := settingsTabHref(a.adminPath, role, tab); href != "" {
+					http.Redirect(w, r, href, http.StatusFound)
+					return
+				}
+			}
+			for _, s := range settingsFor(a.adminPath, role) {
 				if s.ID == target {
 					http.Redirect(w, r, s.Href, http.StatusFound)
 					return

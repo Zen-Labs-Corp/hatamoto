@@ -248,7 +248,7 @@ gets a private random address instead.
 
 - Owners see a banner on every admin page: "Your admin is at /admin, the first address bots try."
   It offers **Choose a private address** and **Keep /admin**. Keeping a weak address, or changing to one, asks
-  for a typed confirmation. Once you confirm, the banner goes away and Settings > Security shows the
+  for a typed confirmation. Once you confirm, the banner goes away and Settings > Access & security shows the
   address as weak, accepted by you.
 - `hatamoto admin-url` prints the address. `hatamoto admin-url set <path>` stores another one (a weak
   one needs `--i-understand-weak`) and `hatamoto admin-url random` stores a random one. Both apply after
@@ -387,7 +387,7 @@ mode reports a rollback and never makes it. After a health-gate rollback `update
 one hop per check. Before switching, the agent checks that enabled plugins and the active theme
 declare an SDK range the new release meets, that there are three times the binary's size free
 under the data dir, and that no content import is running; any miss is shown in `update status`
-and retried at the next check. Before switching it takes a backup with the same engine as Settings > Backups
+and retried at the next check. Before switching it takes a backup with the same engine as Settings > Backups & recovery > Backups
 ([BACKUPS.md](BACKUPS.md)): the whole database, plugin schemas and content, kept as a `pre_update`
 backup (the newest 2 are kept). It needs `pg_dump` of the server's major version and enough free
 space. **A failed backup blocks the update**: nothing is installed, the status shows

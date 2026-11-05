@@ -56,7 +56,7 @@ func TestRetentionCardShowsCounts(t *testing.T) {
 			t.Errorf("page lacks %q", w)
 		}
 	}
-	// the trail leads back to Settings > Backups and ends on this page
+	// the trail leads back to Settings > Backups & recovery > Backups and ends on this page
 	if i, j := strings.Index(body, `>Backups</a>`), strings.LastIndex(body, "Backups to keep"); i < 0 || i > j {
 		t.Errorf("breadcrumb does not lead through Backups (%d, %d)", i, j)
 	}

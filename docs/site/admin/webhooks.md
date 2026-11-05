@@ -14,7 +14,7 @@ Webhooks are built into the server, so there is no plugin to install and no perm
 
 Webhooks are owner-only. There is no REST API for them.
 
-1. Open **Settings > Webhooks** (`<admin>/settings/webhooks`). The section has two tabs: **Subscriptions** and **Delivery log** (`<admin>/settings/webhooks/deliveries`).
+1. Open **Settings > Integrations > Webhooks** (`<admin>/settings/webhooks`). The section has two tabs: **Subscriptions** and **Delivery log** (`<admin>/settings/webhooks/deliveries`).
 2. Press **New webhook**. It opens a dialog, or the page `<admin>/settings/webhooks/new` without JavaScript.
 3. Give it a name (up to 120 bytes), an address, one or more events and, if you need them, custom headers and retry settings. Save it.
 4. Copy the signing secret (`whsec_...`). It is shown **once**, in a banner above the list, right after the webhook is created.
@@ -110,7 +110,7 @@ The log stores the receiver's status and the first 1,024 bytes of its answer. An
 
 Run `hatamoto migrate` (or start the new version, which migrates). On the first start Hatamoto copies the plugin's webhooks (same ids, URLs, events, headers, retry settings and secrets) into core and uninstalls the plugin with its data. Receivers keep verifying with the same secret and see the same bodies and headers. Pending and past deliveries are not copied, and events fired before the new version first starts are not sent, and a copy that fails is retried at the next start with the plugin kept.
 
-Webhooks are imported **paused** when the plugin was not really sending: disabled, signed by a key this instance no longer trusts, not installed, or not granted all of `db`, `http.fetch` and `http.fetch.any`. So is a webhook with no events or an unusable address. Resume them in Settings > Webhooks.
+Webhooks are imported **paused** when the plugin was not really sending: disabled, signed by a key this instance no longer trusts, not installed, or not granted all of `db`, `http.fetch` and `http.fetch.any`. So is a webhook with no events or an unusable address. Resume them in Settings > Integrations > Webhooks.
 
 Webhooks left behind by an earlier upgrade that you never installed the plugin for are copied by the database migration: they stay active if you upgrade directly from a release that still sent webhooks itself, otherwise they arrive paused.
 

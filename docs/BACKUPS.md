@@ -1,6 +1,6 @@
 # Backups
 
-Hatamoto can back itself up: from Settings > Backups in the admin, from the command line, and
+Hatamoto can back itself up: from Settings > Backups & recovery > Backups in the admin, from the command line, and
 automatically before an update. This page says what a backup holds, where it lives, and how to
 restore one: `hatamoto backup restore` rebuilds a clean machine in one command, and the manual
 procedure further down is the fallback. The server never restores a backup by itself; restoring is
@@ -41,7 +41,7 @@ Retention keeps the newest finished backups of each kind and removes older ones.
 own count, from 1 to 50, resolved in this order:
 
 1. The environment variable, when it is set to a whole number of 1 or more. A number above 50 counts as 50 (the page shows 50 and a warning is logged once).
-2. `$HATAMOTO_DATA/backups/retention.json`, which the owner writes from Settings > Backups > Backups to keep (the ⋯ menu on the Backups page).
+2. `$HATAMOTO_DATA/backups/retention.json`, which the owner writes from Settings > Backups & recovery > Backups > Backups to keep (the ⋯ menu on the Backups page).
 3. The default.
 
 | Variable | Default | Meaning |
@@ -54,7 +54,7 @@ An environment value that is zero, negative or not a whole number is ignored (wi
 `{"manual":10,"pre_update":5,"scheduled":7}`; a missing key means the default, and unknown keys are
 ignored. Failed and running backups are never counted and never pruned.
 
-Owners set the three counts on Settings > Backups. A count fixed by an environment variable shows as
+Owners set the three counts on Settings > Backups & recovery > Backups. A count fixed by an environment variable shows as
 a read-only field that names the variable; change it in the server config. A save that would delete
 backups first asks you to confirm and says how many of each kind go (the oldest finished ones); a
 save that deletes nothing applies at once. Saving prunes straight away, and every finished backup
@@ -79,7 +79,7 @@ are not listed, pruned or deleted. Delete them by hand when you no longer need t
 
 ## Taking a backup
 
-- **Admin:** Settings > Backups (owners only). "Back up now" starts one; the page shows progress,
+- **Admin:** Settings > Backups & recovery > Backups (owners only). "Back up now" starts one; the page shows progress,
   lists the backups with their size, and offers a download. The Off-site copy card on the same page
   sets up the upload described below.
 - **CLI:** `hatamoto backup create [--config <path>]` prints the media directory it reads, then the id, size and path,
@@ -105,7 +105,7 @@ are not listed, pruned or deleted. Delete them by hand when you no longer need t
 
 ## Off-site copy
 
-A backup on the same machine as the site does not survive losing the machine. Settings > Backups has
+A backup on the same machine as the site does not survive losing the machine. Settings > Backups & recovery > Backups has
 an **Off-site copy** card that uploads each scheduled backup to an S3-compatible bucket (Amazon S3,
 Cloudflare R2, Backblaze B2, MinIO or any server that speaks the S3 API), proves the copy there, and
 removes the oldest copies beyond the number you keep. Owners only. It needs no extra software on the
@@ -116,7 +116,7 @@ server: the client is part of the binary.
 "Back up and upload now" are uploaded. Pre-update backups stay on the machine.
 
 **Schedule.** Off, every day at a chosen hour, or every week on a chosen day and hour. Times are UTC.
-Each run takes a local backup of kind `scheduled` (kept on disk per the scheduled count above: `HATAMOTO_BACKUP_KEEP_SCHEDULED`, `retention.json` or the Settings > Backups > Backups to keep form (the ⋯ menu on the Backups page))
+Each run takes a local backup of kind `scheduled` (kept on disk per the scheduled count above: `HATAMOTO_BACKUP_KEEP_SCHEDULED`, `retention.json` or the Settings > Backups & recovery > Backups > Backups to keep form (the ⋯ menu on the Backups page))
 and then uploads it while it still holds the backup lock, so an upload never overlaps another backup
 or an update's backup. If another backup is running when a slot falls due, the run waits 10 minutes
 and tries again; that is not recorded as a failure. A slot is claimed in the database, so with several
@@ -157,7 +157,7 @@ the provider answer `RequestTimeTooSkewed`; fix the server's time.
 
 `hatamoto backup restore` leaves the off-site card switched off on the restored install. A restored
 copy shares the original's bucket and prefix, and its first scheduled upload would add to, and then
-prune, the original's copies. Before you turn it on again in Settings > Backups, change the prefix
+prune, the original's copies. Before you turn it on again in Settings > Backups & recovery > Backups, change the prefix
 or be sure the original is gone. A restore with the manual `pg_restore` steps does not do this:
 run `UPDATE hatamoto_offsite_settings SET enabled = false` before you start the server, or switch the card off as soon as it is up.
 

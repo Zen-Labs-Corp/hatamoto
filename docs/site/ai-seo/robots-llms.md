@@ -151,7 +151,7 @@ CONTACT=ads@example.com
 - **Empty means 404.** While a file is empty, its address answers a plain 404, not your themed 404 page.
 - **Changes take up to a minute** to reach visitors, because the file may be cached for 60 seconds.
 - **Check it.** Run `curl -i https://example.com/ads.txt` and look for `200` and `text/plain`.
-- **AdSense shortcut.** After you save an AdSense id in Settings > Tracking, the "Add the ads.txt line" link opens this page with the AdSense line added to the box. Press Save to keep it.
+- **AdSense shortcut.** After you save an AdSense id in Settings > Privacy & tracking > Tracking, the "Add the ads.txt line" link opens this page with the AdSense line added to the box. Press Save to keep it.
 
 ## Per-page controls
 

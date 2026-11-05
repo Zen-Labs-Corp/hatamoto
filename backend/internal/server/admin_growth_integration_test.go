@@ -225,12 +225,12 @@ func TestAdminGrowthIntegration(t *testing.T) {
 	// ============ form submit + export ============
 	t.Run("form submit and export", func(t *testing.T) {
 		name := "IT contact " + sfx
-		rec := admin("POST", "/admin/settings/forms", url.Values{"name": {name}})
+		rec := admin("POST", "/admin/forms", url.Values{"name": {name}})
 		loc := rec.Header().Get("Location")
-		if rec.Code != 303 || !strings.HasSuffix(loc, "/edit") {
+		if rec.Code != 303 || !strings.Contains(loc, "/forms/edit/") {
 			t.Fatalf("create form: %d %s", rec.Code, loc)
 		}
-		formID := strings.TrimSuffix(strings.TrimPrefix(loc, "/admin/settings/forms/"), "/edit")
+		formID := strings.TrimPrefix(loc, "/admin/forms/edit/")
 		t.Cleanup(func() {
 			_, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_form_submissions WHERE form_id=$1`, formID)
 			_, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_forms WHERE id=$1`, formID)
@@ -239,7 +239,7 @@ func TestAdminGrowthIntegration(t *testing.T) {
 		if err := db.Pool().QueryRow(ctx, `SELECT slug FROM hatamoto_forms WHERE id=$1`, formID).Scan(&slug); err != nil {
 			t.Fatal(err)
 		}
-		save := admin("POST", "/admin/settings/forms/"+formID+"/edit", url.Values{
+		save := admin("POST", "/admin/forms/edit/"+formID, url.Values{
 			"name": {name}, "status": {"active"}, "_op": {"save"}, "store": {"1"}, "success_message": {"Thanks!"},
 			"f.0.label": {"Name"}, "f.0.type": {"text"}, "f.0.name": {"name"}, "f.0.required": {"1"},
 			"f.1.label": {"Email"}, "f.1.type": {"email"}, "f.1.name": {"email"},
@@ -266,11 +266,11 @@ func TestAdminGrowthIntegration(t *testing.T) {
 		if n := count(`SELECT count(*) FROM hatamoto_form_submissions WHERE form_id=$1`, formID); n != 3 {
 			t.Fatalf("stored %d submissions, want 3", n)
 		}
-		list := admin("GET", "/admin/settings/submissions?form="+formID, nil)
+		list := admin("GET", "/admin/forms/submissions?form="+formID, nil)
 		if list.Code != 200 || !strings.Contains(list.Body.String(), "Name: Ada") {
 			t.Errorf("submissions list: %d", list.Code)
 		}
-		exp := admin("GET", "/admin/settings/submissions/export.csv?form="+formID, nil)
+		exp := admin("GET", "/admin/forms/submissions/export.csv?form="+formID, nil)
 		if exp.Code != 200 || !strings.HasPrefix(exp.Header().Get("Content-Type"), "text/csv") || !strings.Contains(exp.Header().Get("Content-Disposition"), slug) {
 			t.Fatalf("export: %d %v", exp.Code, exp.Header())
 		}
@@ -297,18 +297,18 @@ func TestAdminGrowthIntegration(t *testing.T) {
 			t.Errorf("csv content: msg=%v formula=%v rows=%v", sawMsg, sawFormula, rows)
 		}
 		// mark one as spam through the bulk action, then export by status
-		if rec := admin("POST", "/admin/settings/submissions/bulk?form="+formID, url.Values{"action": {"spam"}, "id": {firstID}}); rec.Code != 303 {
+		if rec := admin("POST", "/admin/forms/submissions/bulk?form="+formID, url.Values{"action": {"spam"}, "id": {firstID}}); rec.Code != 303 {
 			t.Fatalf("bulk spam: %d", rec.Code)
 		}
-		spam := admin("GET", "/admin/settings/submissions/export.csv?form="+formID+"&status=spam", nil)
+		spam := admin("GET", "/admin/forms/submissions/export.csv?form="+formID+"&status=spam", nil)
 		if r, _ := csv.NewReader(strings.NewReader(strings.TrimPrefix(spam.Body.String(), "\xef\xbb\xbf"))).ReadAll(); len(r) != 2 {
 			t.Errorf("spam export has %d rows, want header + 1", len(r))
 		}
 		// delete asks first, then deletes
-		if rec := admin("POST", "/admin/settings/submissions/bulk?form="+formID, url.Values{"action": {"delete"}, "id": {firstID}}); rec.Code != 200 || count(`SELECT count(*) FROM hatamoto_form_submissions WHERE form_id=$1`, formID) != 3 {
+		if rec := admin("POST", "/admin/forms/submissions/bulk?form="+formID, url.Values{"action": {"delete"}, "id": {firstID}}); rec.Code != 200 || count(`SELECT count(*) FROM hatamoto_form_submissions WHERE form_id=$1`, formID) != 3 {
 			t.Fatalf("delete must ask first: %d", rec.Code)
 		}
-		if rec := admin("POST", "/admin/settings/submissions/bulk?form="+formID, url.Values{"action": {"delete"}, "confirm": {"1"}, "id": {firstID}}); rec.Code != 303 || count(`SELECT count(*) FROM hatamoto_form_submissions WHERE form_id=$1`, formID) != 2 {
+		if rec := admin("POST", "/admin/forms/submissions/bulk?form="+formID, url.Values{"action": {"delete"}, "confirm": {"1"}, "id": {firstID}}); rec.Code != 303 || count(`SELECT count(*) FROM hatamoto_form_submissions WHERE form_id=$1`, formID) != 2 {
 			t.Fatalf("confirmed delete: %d", rec.Code)
 		}
 	})

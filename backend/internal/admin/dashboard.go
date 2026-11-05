@@ -406,14 +406,14 @@ func (a *Admin) dashSubmissions(ctx context.Context) (dashResult, error) {
 	}
 	sort.SliceStable(all, func(i, k int) bool { return all[i].CreatedAt.After(all[k].CreatedAt) })
 	sec := &dashSection{ID: "dash-submissions", Title: "Recent submissions", Description: "The last 14 days, newest first.",
-		State: dashOK, More: &ui.Button{Label: "All submissions", Href: a.adminPath + "/settings/submissions", Variant: "ghost"}}
+		State: dashOK, More: &ui.Button{Label: "All submissions", Href: a.adminPath + "/forms/submissions", Variant: "ghost"}}
 	for _, s := range all {
 		if len(sec.Rows) == dashRecent {
 			break
 		}
 		f := byForm[s.FormID]
 		sec.Rows = append(sec.Rows, dashRow{Title: f.Name, Summary: dashContact(f, s), Unread: s.Status == form.SubmissionStatusNew, When: fmtDateTime(s.CreatedAt.In(loc)),
-			Href: a.adminPath + "/settings/submissions/" + s.ID.String()})
+			Href: a.adminPath + "/forms/submissions/" + s.ID.String()})
 	}
 	switch {
 	case len(sec.Rows) == 0 && partial: // never claim "none" when the scan was cut off

@@ -164,7 +164,7 @@ func TestWebhooksListGoldenA11yAndBadges(t *testing.T) {
 		t.Errorf("a11y: %s", strings.Join(issues, "; "))
 	}
 	compareGolden(t, "pages/settings-webhooks.html", normalizePage(body))
-	for _, want := range []string{"Zapier", "https://hooks.zapier.test/abc", "3 events", "1 event", "Active", "Paused", "Subscriptions", "Delivery log", ">Webhooks<"} {
+	for _, want := range []string{"Zapier", "https://hooks.zapier.test/abc", "3 events", "1 event", "Active", "Paused", "API keys", "Delivery log", ">Webhooks<"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
@@ -215,11 +215,11 @@ func TestWebhooksOwnerOnly(t *testing.T) {
 	if rec := g.do("GET", p, "", nil, nil); rec.Code != 303 {
 		t.Errorf("anonymous GET = %d, want redirect to login", rec.Code)
 	}
-	if body := g.do("GET", "/admin/settings/media", "editor-token", nil, nil).Body.String(); strings.Contains(body, "/admin/settings/webhooks") {
+	if body := g.do("GET", "/admin/settings/redirects", "editor-token", nil, nil).Body.String(); strings.Contains(body, "/admin/settings/webhooks") {
 		t.Error("editor sidebar links to Webhooks")
 	}
-	if body := g.do("GET", "/admin/settings/media", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `href="/admin/settings/webhooks"`) {
-		t.Error("owner sidebar lacks Webhooks")
+	if body := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String(); !strings.Contains(body, `href="/admin/settings/api-keys"`) {
+		t.Error("owner sidebar lacks Integrations")
 	}
 }
 

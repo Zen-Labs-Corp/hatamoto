@@ -78,7 +78,7 @@ func (a *Admin) handleSecurityAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := a.NewView(w, r, "Admin address")
-	v.Section, v.Tab = "security", "admin-address"
+	v.Section, v.Tab = "access-security", "admin-address"
 	v.Width = "compact"
 	v.Data = a.securityAddressView(r, a.deps.Address.State())
 	a.Render(w, r, http.StatusOK, "settings/security-admin-address", v)

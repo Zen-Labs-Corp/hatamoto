@@ -65,7 +65,7 @@ type permRow struct {
 }
 
 // legacyWebhooksPlugin is the former first-party webhooks plugin. Webhooks are core now
-// (Settings > Webhooks); a row that is still installed gets a notice and a Remove link.
+// (Settings > Integrations > Webhooks); a row that is still installed gets a notice and a Remove link.
 const legacyWebhooksPlugin = "webhooks"
 
 // pluginRow is one line of the plugins list.

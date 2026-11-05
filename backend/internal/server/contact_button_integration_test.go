@@ -23,7 +23,7 @@ import (
 	"hatamoto.dev/core/internal/user"
 )
 
-// Settings > Contact button end to end on the real server wiring and a migrated
+// Theme > Contact button end to end on the real server wiring and a migrated
 // Postgres: the owner saves the floating button, an audit row is written, the
 // other theme settings keys survive, and a public page shows the link.
 //
@@ -107,7 +107,7 @@ func TestContactButtonIntegration(t *testing.T) {
 	csrf := adminToken(t, srv.router, token)
 	post := func(form url.Values) *httptest.ResponseRecorder {
 		t.Helper()
-		req := httptest.NewRequest("POST", "/admin/settings/contact-button", strings.NewReader(form.Encode()))
+		req := httptest.NewRequest("POST", "/admin/theme/contact-button", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		adminReq(req, token, csrf)
 		rec := httptest.NewRecorder()

@@ -25,16 +25,16 @@ func TestSettingsForRoles(t *testing.T) {
 
 	owner := sectionTabs(SettingsFor("owner"))
 	for id, want := range map[string]string{
-		"general": "general", "privacy": "privacy", "tracking": "tracking", "locales": "locales locale-addresses locale-business", "media": "media", "entity-models": "types taxonomies", "forms": "forms submissions spam",
-		"seo": "seo-general seo-titles seo-social seo-schema seo-kg seo-robots seo-ads-txt seo-verification seo-sitemap seo-breadcrumbs seo-indexnow seo-404", "redirects": "redirects", "linking": "linking", "users": "users user-sign-in", "api": "api",
-		"import-export": "import export", "performance": "performance", "updates": "updates", "backups": "backups", "security": "admin-address",
+		"general": "general", "privacy-tracking": "privacy tracking", "locales": "locales locale-addresses locale-business", "entity-models": "types taxonomies",
+		"seo": "seo-general seo-titles seo-social seo-schema seo-kg seo-robots seo-ads-txt seo-verification seo-sitemap seo-breadcrumbs seo-indexnow seo-404", "redirects": "redirects", "linking": "linking", "users": "users user-sign-in", "integrations": "api subscriptions deliveries",
+		"tools": "import export search-replace", "performance": "performance", "updates": "updates", "backups-recovery": "backups versions changes", "access-security": "site-access admin-address",
 	} {
 		if got := strings.Join(owner[id], " "); got != want {
 			t.Errorf("owner %s tabs %q, want %q", id, got, want)
 		}
 	}
 	editor := sectionTabs(SettingsFor("editor"))
-	for id, want := range map[string]string{"media": "media", "forms": "forms submissions", "redirects": "redirects", "linking": "linking"} {
+	for id, want := range map[string]string{"redirects": "redirects", "linking": "linking"} {
 		if got := strings.Join(editor[id], " "); got != want {
 			t.Errorf("editor %s tabs %q, want %q", id, got, want)
 		}
@@ -44,14 +44,39 @@ func TestSettingsForRoles(t *testing.T) {
 			t.Errorf("Settings still has the section %s, which moved to Theme", id)
 		}
 	}
-	for _, id := range []string{"general", "locales", "seo", "entity-models", "users", "api", "import-export", "performance", "updates", "backups", "security"} {
+	for _, id := range []string{"general", "locales", "seo", "entity-models", "users", "integrations", "tools", "performance", "updates", "backups-recovery", "access-security", "privacy-tracking"} {
 		if _, ok := editor[id]; ok {
 			t.Errorf("editor sees section %s", id)
 		}
 	}
-	if len(SettingsFor("nobody-role")) != 4 {
+	if len(SettingsFor("nobody-role")) != 2 {
 		// roles other than owner or editor still pass the ungated tabs today
 		t.Errorf("unknown role sections: %v", sectionTabs(SettingsFor("nobody-role")))
+	}
+}
+
+func TestContactButtonLivesInTheme(t *testing.T) {
+	t.Parallel()
+
+	if got := len(ThemeFor("owner")); got != 10 {
+		t.Errorf("owner theme sections = %d, want 10", got)
+	}
+	var last SettingsSection
+	for _, s := range ThemeFor("owner") {
+		last = s
+	}
+	if last.ID != "contact-button" || last.Group != "" || len(last.Tabs) != 1 || !strings.HasSuffix(last.Tabs[0].Href, "/theme/contact-button") {
+		t.Errorf("last theme section %+v, want an ungrouped contact-button", last)
+	}
+	for _, s := range ThemeFor("editor") {
+		if s.ID == "contact-button" {
+			t.Error("editor sees the Contact button in Theme")
+		}
+	}
+	for _, s := range SettingsFor("owner") {
+		if s.ID == "contact-button" {
+			t.Error("Settings still has the Contact button section")
+		}
 	}
 }
 
@@ -92,22 +117,44 @@ func TestSettingsEntryRedirects(t *testing.T) {
 		to          string
 	}{
 		{"owner-token", "/admin/settings", 303, "/admin/settings/general"},
-		{"editor-token", "/admin/settings", 303, "/admin/settings/media"},
-		{"editor-token", "/admin/settings?section=seo", 303, "/admin/settings/media"},
-		{"editor-token", "/admin/settings?section=team", 303, "/admin/settings/media"},
-		{"editor-token", "/admin/settings?section=forms", 303, "/admin/settings/forms"},
+		{"editor-token", "/admin/settings", 303, "/admin/settings/redirects"},
+		{"editor-token", "/admin/settings?section=seo", 303, "/admin/settings/redirects"},
+		{"editor-token", "/admin/settings?section=team", 303, "/admin/settings/redirects"},
+		{"editor-token", "/admin/settings?section=forms", 303, "/admin/forms"},
 		{"owner-token", "/admin/settings/entity-models", 302, "/admin/settings/types"},
 		{"owner-token", "/admin/settings/content-model", 302, "/admin/settings/types"},
 		{"editor-token", "/admin/settings/seo", 403, ""},
 		{"owner-token", "/admin/settings/seo", 302, "/admin/settings/seo/general"},
 		{"owner-token", "/admin/settings?section=appearance", 303, "/admin/theme/themes"},
 		{"owner-token", "/admin/settings?section=menus", 303, "/admin/theme/menus"},
+		{"owner-token", "/admin/settings?section=contact-button", 303, "/admin/theme/contact-button"},
 		{"owner-token", "/admin/settings?section=menus-forms", 303, "/admin/theme/menus"},
 		{"editor-token", "/admin/settings?section=appearance", 303, "/admin/theme/blocks"},
 		{"editor-token", "/admin/settings?section=menus", 303, "/admin/theme/menus"},
 		{"owner-token", "/admin/settings/team", 302, "/admin/settings/users"},
 		{"editor-token", "/admin/settings/team", 403, ""},
 		{"editor-token", "/admin/settings/import-export", 403, ""},
+		{"owner-token", "/admin/settings/import-export", 302, "/admin/settings/import"},
+		{"owner-token", "/admin/settings/security", 302, "/admin/settings/security/admin-address"},
+		{"editor-token", "/admin/settings/security", 403, ""},
+		{"owner-token", "/admin/settings?section=media", 303, "/admin/media"},
+		{"owner-token", "/admin/settings?section=spam", 303, "/admin/forms/spam"},
+		{"owner-token", "/admin/settings?section=submissions", 303, "/admin/forms/submissions"},
+		{"owner-token", "/admin/settings/integrations", 302, "/admin/settings/api-keys"},
+		{"owner-token", "/admin/settings/access-security", 302, "/admin/settings/site-access"},
+		{"owner-token", "/admin/settings/privacy-tracking", 302, "/admin/settings/privacy"},
+		{"owner-token", "/admin/settings/backups-recovery", 302, "/admin/settings/backups"},
+		{"owner-token", "/admin/settings/tools", 302, "/admin/settings/import"},
+		{"editor-token", "/admin/settings/tools", 403, ""},
+		{"owner-token", "/admin/settings?section=api", 303, "/admin/settings/api-keys"},
+		{"owner-token", "/admin/settings?section=webhooks", 303, "/admin/settings/webhooks"},
+		{"owner-token", "/admin/settings?section=site-access", 303, "/admin/settings/site-access"},
+		{"owner-token", "/admin/settings?section=privacy", 303, "/admin/settings/privacy"},
+		{"owner-token", "/admin/settings?section=tracking", 303, "/admin/settings/tracking"},
+		{"owner-token", "/admin/settings?section=backups", 303, "/admin/settings/backups"},
+		{"owner-token", "/admin/settings?section=versions", 303, "/admin/settings/versions"},
+		{"owner-token", "/admin/settings?section=changes", 303, "/admin/settings/changes"},
+		{"owner-token", "/admin/settings?section=search-replace", 303, "/admin/settings/search-replace"},
 	} {
 		rec := g.do("GET", tc.path, tc.token, nil, nil)
 		if rec.Code != tc.code || rec.Header().Get("Location") != tc.to {
@@ -152,7 +199,7 @@ func TestSettingsCrumbsChain(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("crumbs = %v, want %v", got, want)
 	}
-	if got := areaCrumbs("media", Crumb{Label: "a.png"}); len(got) != 3 || got[1].Label != "Media" {
+	if got := areaCrumbs("redirects", Crumb{Label: "a"}); len(got) != 3 || got[1].Label != "Redirects" {
 		t.Fatalf("a section named like its tab should appear once: %v", got)
 	}
 }
@@ -197,8 +244,7 @@ func TestSettingsPageCrumbsStartAtSettings(t *testing.T) {
 
 	// A sub-page sets its crumbs; the top bar renders the whole chain.
 	for name, crumbs := range map[string][]Crumb{
-		"types edit":  areaCrumbs("types", Crumb{Label: "Team"}),
-		"forms entry": areaCrumbs("forms", Crumb{Label: "Contact", Href: "/admin/settings/forms/x/edit"}, Crumb{Label: "Submission"}),
+		"types edit": areaCrumbs("types", Crumb{Label: "Team"}),
 	} {
 		rr := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", "/admin/profile", nil)
@@ -227,14 +273,13 @@ func TestSettingsNavGroups(t *testing.T) {
 	t.Parallel()
 
 	order, members := groupsOf(SettingsFor("owner"))
-	if got := strings.Join(order, ","); got != "Site,Content,System,Tools" {
+	if got := strings.Join(order, ","); got != "Site,Content,System" {
 		t.Fatalf("owner group order %q", got)
 	}
 	for g, want := range map[string]string{
-		"Site":    "general branding locales site-access email privacy tracking contact-button users",
-		"Content": "media versions entity-models forms seo redirects linking",
-		"System":  "api webhooks performance updates jobs backups changes import-export security",
-		"Tools":   "search-replace",
+		"Site":    "general branding locales users access-security email privacy-tracking",
+		"Content": "entity-models seo redirects linking",
+		"System":  "integrations performance updates jobs backups-recovery tools",
 	} {
 		if got := strings.Join(members[g], " "); got != want {
 			t.Errorf("owner %s sections %q, want %q", g, got, want)
@@ -338,5 +383,15 @@ func TestBrandingSectionIsOwnerOnly(t *testing.T) {
 	}
 	if !has("owner") || has("editor") {
 		t.Errorf("branding section: owner=%v editor=%v", has("owner"), has("editor"))
+	}
+}
+
+// Media lives in the main menu, so Settings keeps 17 sections (the 15 of the
+// regrouping plus Branding and Jobs).
+func TestSettingsSectionCount(t *testing.T) {
+	t.Parallel()
+
+	if got := len(settingsFor("/admin", "owner")); got != 17 {
+		t.Errorf("owner Settings sections = %d, want 17", got)
 	}
 }

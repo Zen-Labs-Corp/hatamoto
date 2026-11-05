@@ -154,22 +154,22 @@ func TestAdminPathPrefix(t *testing.T) {
 	}
 
 	t.Run("unauthenticated redirect", func(t *testing.T) {
-		rec := g.do("GET", "/x-test/settings/forms", "", nil, nil)
+		rec := g.do("GET", "/x-test/forms", "", nil, nil)
 		loc := rec.Header().Get("Location")
 		if rec.Code != http.StatusSeeOther || !strings.HasPrefix(loc, "/x-test/login?next=") {
 			t.Fatalf("%d Location %q", rec.Code, loc)
 		}
-		if next, _ := url.Parse(loc); next.Query().Get("next") != "/x-test/settings/forms" {
+		if next, _ := url.Parse(loc); next.Query().Get("next") != "/x-test/forms" {
 			t.Errorf("next = %q", next.Query().Get("next"))
 		}
-		rec = g.do("GET", "/x-test/settings/forms", "", nil, map[string]string{"HX-Request": "true"})
+		rec = g.do("GET", "/x-test/forms", "", nil, map[string]string{"HX-Request": "true"})
 		if hx := rec.Header().Get("HX-Redirect"); !strings.HasPrefix(hx, "/x-test/login") {
 			t.Errorf("HX-Redirect %q (%d)", hx, rec.Code)
 		}
 	})
 
 	t.Run("admin is not mounted", func(t *testing.T) {
-		for _, p := range []string{"/admin/settings/forms", "/admin/login", "/admin"} {
+		for _, p := range []string{"/admin/forms", "/admin/login", "/admin"} {
 			if rec := g.do("GET", p, "owner-token", nil, nil); rec.Code != http.StatusNotFound {
 				t.Errorf("GET %s = %d, want 404", p, rec.Code)
 			}
@@ -181,7 +181,7 @@ func TestAdminPathPrefix(t *testing.T) {
 	t.Run("pages", func(t *testing.T) {
 		for _, p := range []string{
 			"", "/entities", "/entities/" + fid(14).String() + "/edit",
-			"/settings/general", "/settings/forms", "/theme/themes", "/settings/users", "/settings/media",
+			"/settings/general", "/forms", "/theme/themes", "/settings/users", "/media",
 		} {
 			rec := g.do("GET", "/x-test"+p, "owner-token", nil, nil)
 			if rec.Code != http.StatusOK {
@@ -228,7 +228,7 @@ func TestAdminPathPrefix(t *testing.T) {
 			t.Error("no sampled page carried speculation rules")
 		}
 		for _, want := range []string{`action="/x-test/`, `hx-`} {
-			if !strings.Contains(sample+g.do("GET", "/x-test/settings/forms", "owner-token", nil, nil).Body.String(), want) {
+			if !strings.Contains(sample+g.do("GET", "/x-test/forms", "owner-token", nil, nil).Body.String(), want) {
 				t.Errorf("no %s attribute seen", want)
 			}
 		}

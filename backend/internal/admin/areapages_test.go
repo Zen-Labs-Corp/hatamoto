@@ -26,8 +26,8 @@ func TestSiteAndGrowthScreensAnswerInGo(t *testing.T) {
 	g := newRig(t)
 	id := "00000000-0000-4000-8000-000000000001"
 	for _, p := range []string{
-		"/admin/theme/menus", "/admin/theme/menus/" + id, "/admin/settings/forms", "/admin/settings/forms/new", "/admin/settings/forms/" + id + "/edit", "/admin/settings/submissions?form=" + id,
-		"/admin/settings/submissions/export.csv?form=" + id, "/admin/settings/redirects", "/admin/settings/redirects/404", "/admin/settings/redirects/explain", "/admin/settings/redirects/new",
+		"/admin/theme/menus", "/admin/theme/menus/" + id, "/admin/forms", "/admin/forms/new", "/admin/forms/edit/" + id, "/admin/forms/submissions?form=" + id,
+		"/admin/forms/submissions/export.csv?form=" + id, "/admin/settings/redirects", "/admin/settings/redirects/404", "/admin/settings/redirects/explain", "/admin/settings/redirects/new",
 		"/admin/theme/templates", "/admin/analytics", "/admin/analytics/crawlers", "/admin/analytics/content", "/admin/analytics/referrals", "/admin/analytics/health", "/admin/analytics/agents/gptbot", "/admin/analytics/data/overview.json",
 		"/admin/settings/linking", "/admin/settings/linking/equity", "/admin/settings/linking/suggestions", "/admin/settings/linking/import", "/admin/settings/linking/rules/new",
 		"/admin/plugins", "/admin/settings/redirects", "/admin/settings/general",

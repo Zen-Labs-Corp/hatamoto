@@ -11,7 +11,7 @@ DATABASE_URL=postgres://new-host/hatamoto hatamoto import site.tar.gz
 hatamoto user reset-password --email you@example.com
 ```
 
-Export and import are command line only. Admin → Settings → Import & export → Site export & import (`<admin>/settings/export`, owners only) is an informational page: it shows these two commands and links here. It has no upload or download button and changes nothing. The WordPress import wizard is the other tab of that section.
+Export and import are command line only. Admin → Settings → Tools → Export (`<admin>/settings/export`, owners only) is an informational page: it shows these two commands and links here. It has no upload or download button and changes nothing. The WordPress import wizard is the other tab of that section.
 
 ## What is included
 

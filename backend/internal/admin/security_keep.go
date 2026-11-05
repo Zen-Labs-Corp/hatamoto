@@ -63,7 +63,7 @@ func (a *Admin) renderAddressKeep(w http.ResponseWriter, r *http.Request, status
 		dc, _ = CheckDangerPhrase(r, dc)
 	}
 	v := a.NewView(w, r, "Keep admin address")
-	v.Section, v.Tab = "security", "admin-address"
+	v.Section, v.Tab = "access-security", "admin-address"
 	v.Width = "compact"
 	v.Crumbs = a.areaCrumbs("admin-address", Crumb{Label: "Keep"})
 	v.Data = securityKeepData{Danger: dc}

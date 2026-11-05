@@ -39,7 +39,7 @@ func TestShellCarriesNoncedSpeculationRules(t *testing.T) {
 		"/admin/login*", "/admin/setup*", "/admin/logout*", "/admin/theme", "/admin/*/delete*", "/admin/*/confirm*",
 		"/admin/*/export.csv*", "/admin/*/preview*", "/admin/preview/*", "/admin/plugins/*/ui*", "/admin/plugins/*/settings*", "/admin/*/bulk*",
 		"/admin/*/unsigned*", "/admin/*/check-updates*",
-		"/admin/settings/submissions/*", "/admin/entities/*/edit*", "/admin/entities/new*", "/admin/entities/drafts*",
+		"/admin/forms/submissions/*", "/admin/entities/*/edit*", "/admin/entities/new*", "/admin/entities/drafts*",
 	} {
 		if !strings.Contains(m[2], `"`+want+`"`) {
 			t.Errorf("rules do not exclude %s", want)

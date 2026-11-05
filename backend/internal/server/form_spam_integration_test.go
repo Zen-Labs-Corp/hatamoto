@@ -188,7 +188,7 @@ func TestFormSpamIntegration(t *testing.T) {
 	}
 
 	// ISC-26: saving in the admin purges the cached page.
-	save := do("POST", "/admin/settings/spam", url.Values{
+	save := do("POST", "/admin/forms/spam", url.Values{
 		"provider": {"turnstile"}, "site_key": {"0x4AAA-it"}, "secret_key": {providerSecret},
 		"min_seconds": {"0"}, "max_links": {"2"}, "action": {"spam"},
 	}, true)
@@ -227,7 +227,7 @@ func TestFormSpamIntegration(t *testing.T) {
 	}
 
 	// ISC-29: the secret is in no admin page, not in the audit log, and is sealed at rest.
-	for _, p := range []string{"/admin/settings/spam", "/admin/settings/forms/" + formID.String() + "/edit"} {
+	for _, p := range []string{"/admin/forms/spam", "/admin/forms/edit/" + formID.String()} {
 		rec := do("GET", p, nil, true)
 		if rec.Code != 200 || strings.Contains(rec.Body.String(), providerSecret) {
 			t.Errorf("%s: %d, secret present=%v", p, rec.Code, strings.Contains(rec.Body.String(), providerSecret))

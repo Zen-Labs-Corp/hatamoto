@@ -64,7 +64,7 @@ func (s *Server) retireWebhooksPlugin(ctx context.Context) {
 		return
 	}
 	if !firstPartySigned(row) {
-		log.Warn("webhooks: a plugin named webhooks is installed but is not signed by a first-party key; it is not imported and not uninstalled. Re-create its subscriptions in Settings > Webhooks, then uninstall the plugin from Plugins",
+		log.Warn("webhooks: a plugin named webhooks is installed but is not signed by a first-party key; it is not imported and not uninstalled. Re-create its subscriptions in Settings > Integrations > Webhooks, then uninstall the plugin from Plugins",
 			slog.String("signer", row.SignerKeyID))
 		return
 	}
@@ -73,7 +73,7 @@ func (s *Server) retireWebhooksPlugin(ctx context.Context) {
 	// paused unless the plugin was really sending: enabled, installed, still
 	// passing this instance's trust policy and granted everything it needed to
 	// send (db to read them, http.fetch to call out, http.fetch.any for any host).
-	// The owner resumes them in Settings > Webhooks.
+	// The owner resumes them in Settings > Integrations > Webhooks.
 	paused := !row.Enabled || row.State != packages.StateInstalled || s.packages.Usable(row) != nil
 	if !paused {
 		var granted bool
@@ -128,7 +128,7 @@ func firstPartySigned(row packages.Row) bool {
 // webhooksPluginLeftBehind reports whether a plugin named webhooks is installed
 // after boot that the boot step did not retire because it is not first-party.
 // A first-party row is not "left behind": it is retired (or retried) at boot.
-// The Settings > Webhooks page tells the owner how to move.
+// The Settings > Integrations > Webhooks page tells the owner how to move.
 func (s *Server) webhooksPluginLeftBehind(ctx context.Context) bool {
 	if s.packages == nil {
 		return false
