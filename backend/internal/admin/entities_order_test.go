@@ -3,6 +3,7 @@ package admin
 import (
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -160,5 +161,19 @@ func TestOrderMoveSaysWhenItTookAPageOver(t *testing.T) {
 		if got := strings.Contains(page, "This page is yours now"); got != took {
 			t.Errorf("took = %v, flash note shown = %v", took, got)
 		}
+	}
+}
+
+// Focus after a button move goes to the row's menu trigger: the move buttons
+// sit in a closed popover, where focus() is a no-op.
+func TestOrderingScriptFocusesTheRowMenuTrigger(t *testing.T) {
+	t.Parallel()
+	src, err := os.ReadFile("../../web/admin/js/ordering.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := string(src)
+	if !strings.Contains(js, `button[aria-haspopup="menu"]`) || strings.Contains(js, "hm-order-button") {
+		t.Error("restoreFocus must focus the row's menu trigger, not a button inside the closed menu")
 	}
 }
