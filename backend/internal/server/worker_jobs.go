@@ -11,7 +11,7 @@ import (
 // the in-process worker. WORKER_DISABLE_JOBS is a comma-separated list of job
 // names to skip (publish, retention_purge,
 // prune, entity_versions, agent_hits_partition,
-// agent_hits_maintenance, agent_ranges_refresh, agent_verify, agent_attribution_backfill, update_check, webhook_deliver, webhook_prune, changeset_sweep, standing_digest, traffic_prune,
+// agent_hits_maintenance, agent_ranges_refresh, agent_verify, agent_attribution_backfill, update_check, webhook_deliver, webhook_prune, changeset_sweep, standing_digest, user_access, traffic_prune,
 // stats_ping, backup_offsite) — e.g. so an operator can adopt an
 // existing database without immediately applying new retention deletes.
 //

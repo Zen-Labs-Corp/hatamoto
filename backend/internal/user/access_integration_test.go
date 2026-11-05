@@ -200,3 +200,34 @@ func TestAccessClaimEndedConcurrent(t *testing.T) {
 		t.Fatalf("claimed %d times", hits)
 	}
 }
+
+func TestAccessActiveOwnerEmails(t *testing.T) {
+	r, s := accessRig(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	past, future := now.Add(-time.Hour), now.Add(24*time.Hour)
+	open := accessUser(t, r, RoleOwner, nil)
+	soon := accessUser(t, r, RoleOwner, &future)
+	gone := accessUser(t, r, RoleOwner, &past)
+	subject := accessUser(t, r, RoleOwner, nil)
+	editor := accessUser(t, r, RoleEditor, nil)
+
+	got, err := s.ActiveOwnerEmails(ctx, now, subject.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	has := func(e string) bool {
+		for _, x := range got {
+			if x == e {
+				return true
+			}
+		}
+		return false
+	}
+	if !has(open.Email) || !has(soon.Email) {
+		t.Errorf("open owners missing: %v", got)
+	}
+	if has(gone.Email) || has(subject.Email) || has(editor.Email) {
+		t.Errorf("ended owner, the user or an editor listed: %v", got)
+	}
+}

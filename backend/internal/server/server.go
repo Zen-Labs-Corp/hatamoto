@@ -694,6 +694,7 @@ func (s *Server) setupDependencies() {
 	s.setupPlugins()
 	s.setupStanding()
 	s.scheduleStandingDigest()
+	s.scheduleUserAccess()
 }
 
 // buildHandler wraps the finished mux in the global middleware. It runs after
