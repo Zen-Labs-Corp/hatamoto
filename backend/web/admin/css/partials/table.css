@@ -54,7 +54,7 @@
 /* Wrap variant: review rows hold sentences, so cells wrap; the actions column stays on one line. */
 .hm-table--wrap { white-space: normal; }
 .hm-table--wrap th, .hm-table--wrap td { white-space: normal; }
-.hm-table--wrap .hm-table__actions { white-space: nowrap; }
+.hm-table--wrap .hm-table__actions, .hm-table--wrap .hm-table__nowrap { white-space: nowrap; }
 .hm-table__sort { display: inline-flex; align-items: center; gap: var(--space-1); color: inherit; text-decoration: none; }
 .hm-table__sort .hm-icon { width: 12px; height: 12px; opacity: .6; }
 .hm-table__sort:hover { color: var(--color-sumi); }

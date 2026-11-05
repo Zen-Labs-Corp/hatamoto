@@ -224,6 +224,7 @@ type BulkSelect struct {
 type Table struct {
 	ID, Caption, BaseURL string
 	CSRF                 string
+	Wrap                 bool // cells hold sentences and wrap (hm-table--wrap); the actions column stays on one line
 	Columns              []Col
 	Rows                 []Row
 	SortKey, SortDir     string // asc | desc
