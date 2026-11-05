@@ -1,8 +1,9 @@
 package webhook
 
 import (
-	"encoding/json"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Envelope is the JSON body of every webhook request. The field order is part
@@ -17,5 +18,5 @@ type Envelope struct {
 // NewEnvelope returns the body stored for a delivery and re-sent verbatim on
 // every attempt.
 func NewEnvelope(id, event string, now time.Time, data any) ([]byte, error) {
-	return json.Marshal(Envelope{ID: id, Event: event, Timestamp: now.UTC().Format(time.RFC3339), Data: data})
+	return jsonx.MarshalPinned(Envelope{ID: id, Event: event, Timestamp: now.UTC().Format(time.RFC3339), Data: data})
 }

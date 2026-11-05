@@ -2,11 +2,11 @@ package webhook
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
 )
 
@@ -36,7 +36,7 @@ func (r *Repo) ImportPluginSubscriptions(ctx context.Context, src PluginSource, 
 	for _, row := range res.Rows {
 		text, _ := row[0].(string)
 		var s Subscription
-		if err := json.Unmarshal([]byte(text), &s); err != nil {
+		if err := jsonx.Unmarshal([]byte(text), &s, jsonx.StoredLoose); err != nil {
 			return 0, fmt.Errorf("a plugin subscription is unreadable: %w", err) // no row content: it holds a secret
 		}
 		if s.ID == "" || strings.TrimSpace(s.URL) == "" {
