@@ -106,35 +106,12 @@
 
 <header class="hm-section-head">
 <div class="hm-section-head__row"><div class="hm-section-head__titles"><h1>Backups</h1><p class="hm-muted">Download a full copy of your site, database and files.</p></div>
-<div class="hm-row"><button type="submit" class="hm-btn hm-btn--primary" form="backup-form"><span>Back up now</span></button></div></div>
+<div class="hm-row"><button type="submit" class="hm-btn hm-btn--primary" form="backup-form"><span>Back up now</span></button><button type="button" class="hm-btn hm-btn--ghost hm-btn--icon" aria-label="More actions" aria-expanded="false" aria-haspopup="menu" popovertarget="hm-overflow"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+<div class="hm-menu" id="hm-overflow" popover role="menu"><a role="menuitem" class="hm-menu__item" href="/admin/settings/backups/retention"><span class="hm-menu__text">Backups to keep<span class="hm-menu__hint">How many of each kind stay</span></span></a></div></div></div>
 
 </header>
 <div class="hm-callout hm-callout--warning" id="backups-secrets" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><div class="hm-callout__main"><div class="hm-callout__body">A backup holds secrets: password hashes, API keys and plugin credentials. Store downloads somewhere safe.</div></div></div>
 <p class="hm-muted">Keeping the last 10 manual, 5 pre-update and 7 scheduled backups.</p>
-
-<form id="retention-form" method="post" action="/admin/settings/backups/retention" class="hm-cardform">
-<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
-<section class="hm-card" id="retention" aria-labelledby="retention-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="retention-title">Backups to keep</h2><p class="hm-muted">How many finished backups of each kind stay on the server. The oldest are deleted first.</p></div>
-<div class="hm-card__body">
-<div class="hm-field">
-<label class="hm-field__label" for="manual">Manual</label>
-<input class="hm-field__control" type="number" id="manual" name="manual" value="10" aria-describedby="manual-help" max="50" min="1" step="1">
-<p class="hm-field__help" id="manual-help">1 to 50</p>
-</div>
-<div class="hm-field">
-<label class="hm-field__label" for="pre-update">Pre-update</label>
-<input class="hm-field__control" type="number" id="pre-update" name="pre_update" value="5" aria-describedby="pre-update-help" max="50" min="1" step="1">
-<p class="hm-field__help" id="pre-update-help">1 to 50</p>
-</div>
-<div class="hm-field">
-<label class="hm-field__label" for="scheduled">Scheduled</label>
-<input class="hm-field__control" type="number" id="scheduled" name="scheduled" value="7" aria-describedby="scheduled-help" max="50" min="1" step="1">
-<p class="hm-field__help" id="scheduled-help">1 to 50</p>
-</div>
-</div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button>
-</footer></section>
-</form>
 
 <div id="backups-live" class="hm-stack hm-stack--loose">
 <div class="hm-card hm-tablecard" id="backups">
