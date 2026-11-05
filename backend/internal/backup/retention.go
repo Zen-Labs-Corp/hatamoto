@@ -243,11 +243,11 @@ func (s *Store) pruneKinds(r Retention) (map[Kind]int, error) {
 		if keep < MinKeep {
 			continue
 		}
-		n := s.CountPrunable(k.kind, keep)
-		if err := s.Prune(k.kind, keep); err != nil {
+		n, err := s.Prune(k.kind, keep)
+		deleted[k.kind] = n
+		if err != nil {
 			return deleted, err
 		}
-		deleted[k.kind] = n
 	}
 	return deleted, nil
 }

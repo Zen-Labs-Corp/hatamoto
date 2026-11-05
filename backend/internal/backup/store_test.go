@@ -101,7 +101,7 @@ func TestPruneKeepsNewestOKOnly(t *testing.T) {
 	if err := os.WriteFile(legacy, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Prune(KindManual, 2); err != nil {
+	if _, err := s.Prune(KindManual, 2); err != nil {
 		t.Fatal(err)
 	}
 	for i, in := range oks {
@@ -208,11 +208,12 @@ func TestCountPrunableMatchesPrune(t *testing.T) {
 	for _, keep := range []int{10, 4, 2, 1} {
 		n := s.CountPrunable(KindManual, keep)
 		before, _ := s.List()
-		if err := s.Prune(KindManual, keep); err != nil {
+		pruned, err := s.Prune(KindManual, keep)
+		if err != nil {
 			t.Fatal(err)
 		}
 		after, _ := s.List()
-		if got := len(before) - len(after); got != n {
+		if got := len(before) - len(after); got != n || pruned != n {
 			t.Fatalf("keep %d: CountPrunable %d, Prune removed %d", keep, n, got)
 		}
 	}

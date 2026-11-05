@@ -195,3 +195,29 @@ func TestFinishingBackupPrunesEveryKind(t *testing.T) {
 		t.Fatalf("%d manual backups left after a pre-update backup, want 1", manual)
 	}
 }
+
+func TestEnginePruneCountsDeletionsBeforeAFailure(t *testing.T) {
+	r := newRig(t)
+	r.e.opts.Retention = func() Retention { return Retention{50, 50, 50} }
+	var ids []string
+	for range 4 {
+		in, err := r.e.Create(t.Context(), Request{Kind: KindManual})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, in.ID)
+	}
+	// The oldest archive cannot be removed: it is a non-empty directory.
+	s, _ := r.e.st()
+	arc := s.archive(ids[0])
+	if err := os.Remove(arc); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(arc, "x"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := r.e.Prune(Retention{1, 50, 50})
+	if err == nil || deleted[KindManual] != 2 {
+		t.Fatalf("deleted = %v, err = %v; want 2 and an error", deleted, err)
+	}
+}
