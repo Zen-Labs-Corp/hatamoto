@@ -61,15 +61,15 @@ func (r *PostgresRepository) Create(ctx context.Context, input *CreateUserInput,
 
 	query := `
 		INSERT INTO hatamoto_users (
-			id, email, password_hash, role, name, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, email, role, name, created_at, updated_at
+			id, email, password_hash, role, name, access_ends_at, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, email, role, name, access_ends_at, created_at, updated_at
 	`
 
 	var u User
 	err = conn.QueryRow(ctx, query,
-		id, input.Email, passwordHash, input.Role, input.Name, now, now,
-	).Scan(&u.ID, &u.Email, &u.Role, &u.Name, &u.CreatedAt, &u.UpdatedAt)
+		id, input.Email, passwordHash, input.Role, input.Name, input.AccessEndsAt, now, now,
+	).Scan(&u.ID, &u.Email, &u.Role, &u.Name, &u.AccessEndsAt, &u.CreatedAt, &u.UpdatedAt)
 
 	if err != nil {
 		if isPgUniqueViolation(err) {
@@ -91,7 +91,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, 
 
 	query := `
 		SELECT id, email, password_hash, role, name, avatar_url,
-		       last_login_at, created_at, updated_at
+		       last_login_at, access_ends_at, created_at, updated_at
 		FROM hatamoto_users
 		WHERE id = $1
 	`
@@ -99,7 +99,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, 
 	var u User
 	err = conn.QueryRow(ctx, query, id).Scan(
 		&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.Name,
-		&u.AvatarURL, &u.LastLoginAt, &u.CreatedAt, &u.UpdatedAt,
+		&u.AvatarURL, &u.LastLoginAt, &u.AccessEndsAt, &u.CreatedAt, &u.UpdatedAt,
 	)
 
 	if err != nil {
@@ -123,7 +123,7 @@ func (r *PostgresRepository) GetByEmail(ctx context.Context, email string) (*Use
 	query := `
 		SELECT id, email, password_hash, role, name, avatar_url,
 		       last_login_at, failed_login_attempts, locked_until,
-		       created_at, updated_at
+		       access_ends_at, created_at, updated_at
 		FROM hatamoto_users
 		WHERE email = $1
 	`
@@ -132,7 +132,7 @@ func (r *PostgresRepository) GetByEmail(ctx context.Context, email string) (*Use
 	err = conn.QueryRow(ctx, query, email).Scan(
 		&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.Name,
 		&u.AvatarURL, &u.LastLoginAt, &u.FailedLoginAttempts, &u.LockedUntil,
-		&u.CreatedAt, &u.UpdatedAt,
+		&u.AccessEndsAt, &u.CreatedAt, &u.UpdatedAt,
 	)
 
 	if err != nil {
@@ -158,7 +158,7 @@ func (r *PostgresRepository) ListByEmail(ctx context.Context, email string) ([]*
 
 	query := `
 		SELECT id, email, password_hash, role, name, avatar_url,
-		       last_login_at, created_at, updated_at
+		       last_login_at, access_ends_at, created_at, updated_at
 		FROM hatamoto_users
 		WHERE email = $1
 		ORDER BY created_at
@@ -175,7 +175,7 @@ func (r *PostgresRepository) ListByEmail(ctx context.Context, email string) ([]*
 		var u User
 		if err := rows.Scan(
 			&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.Name,
-			&u.AvatarURL, &u.LastLoginAt, &u.CreatedAt, &u.UpdatedAt,
+			&u.AvatarURL, &u.LastLoginAt, &u.AccessEndsAt, &u.CreatedAt, &u.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan user: %w", err)
 		}
@@ -193,37 +193,58 @@ func (r *PostgresRepository) Update(ctx context.Context, id uuid.UUID, input *Up
 	}
 	defer conn.Release()
 
-	// Demoting an owner must leave another owner; check and update under one
-	// advisory lock so two owners demoting each other cannot both succeed.
-	if input.Role != nil && *input.Role != RoleOwner {
-		tx, err := conn.Begin(ctx)
-		if err != nil {
-			return nil, err
-		}
-		defer func() { _ = tx.Rollback(ctx) }()
+	demote := input.Role != nil && *input.Role != RoleOwner
+	setsDate := input.AccessEndsAt.Set && input.AccessEndsAt.At != nil
+	if !demote && !setsDate {
+		return updateUser(ctx, conn, id, input)
+	}
+
+	// Demoting an owner, or giving one an end date, must leave another owner
+	// without an end date; check and update under one advisory lock so two
+	// owners cannot both succeed.
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if demote {
 		if err := guardLastOwner(ctx, tx, id); err != nil {
 			return nil, err
 		}
-		u, err := updateUser(ctx, tx, id, input)
-		if err != nil {
-			return nil, err
+	} else {
+		stays := input.Role != nil
+		if !stays {
+			// A missing user passes; updateUser reports it.
+			err := tx.QueryRow(ctx, `SELECT role = 'owner' FROM hatamoto_users WHERE id = $1`, id).Scan(&stays)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return nil, err
+			}
 		}
-		return u, tx.Commit(ctx)
+		if stays {
+			if err := EnsureOpenOwner(ctx, tx, id); err != nil {
+				return nil, err
+			}
+		}
 	}
-	return updateUser(ctx, conn, id, input)
+	u, err := updateUser(ctx, tx, id, input)
+	if err != nil {
+		return nil, err
+	}
+	return u, tx.Commit(ctx)
 }
 
 // ownerGuardKey is the advisory-lock key serialising owner removal/demotion.
 const ownerGuardKey int64 = 0x68746d5f6f776e67 // "htm_owng"
 
-type queryer interface {
+// Queryer is the subset of a connection or transaction the owner guards need.
+type Queryer interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 }
 
 // guardLastOwner takes the owner lock and returns ErrLastOwner when id is the
 // only owner. A missing user passes (the caller's statement reports it).
-func guardLastOwner(ctx context.Context, q queryer, id uuid.UUID) error {
+func guardLastOwner(ctx context.Context, q Queryer, id uuid.UUID) error {
 	if _, err := q.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, ownerGuardKey); err != nil {
 		return err
 	}
@@ -231,7 +252,7 @@ func guardLastOwner(ctx context.Context, q queryer, id uuid.UUID) error {
 	var others int
 	err := q.QueryRow(ctx, `SELECT
 		COALESCE((SELECT role = 'owner' FROM hatamoto_users WHERE id = $1), false),
-		(SELECT count(*) FROM hatamoto_users WHERE role = 'owner' AND id <> $1)`, id).Scan(&isOwner, &others)
+		(SELECT count(*) FROM hatamoto_users WHERE role = 'owner' AND id <> $1 AND access_ends_at IS NULL)`, id).Scan(&isOwner, &others)
 	if err != nil {
 		return err
 	}
@@ -241,15 +262,16 @@ func guardLastOwner(ctx context.Context, q queryer, id uuid.UUID) error {
 	return nil
 }
 
-func updateUser(ctx context.Context, conn queryer, id uuid.UUID, input *UpdateUserInput) (*User, error) {
+func updateUser(ctx context.Context, conn Queryer, id uuid.UUID, input *UpdateUserInput) (*User, error) {
 	query := `
 		UPDATE hatamoto_users
 		SET name = COALESCE($2, name),
 		    avatar_url = COALESCE($3, avatar_url),
 		    role = COALESCE($4, role),
+		    access_ends_at = CASE WHEN $5 THEN $6 ELSE access_ends_at END,
 		    updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, email, role, name, avatar_url, last_login_at, created_at, updated_at
+		RETURNING id, email, role, name, avatar_url, last_login_at, access_ends_at, created_at, updated_at
 	`
 
 	var roleStr *string
@@ -259,9 +281,9 @@ func updateUser(ctx context.Context, conn queryer, id uuid.UUID, input *UpdateUs
 	}
 
 	var u User
-	err := conn.QueryRow(ctx, query, id, input.Name, input.AvatarURL, roleStr).Scan(
+	err := conn.QueryRow(ctx, query, id, input.Name, input.AvatarURL, roleStr, input.AccessEndsAt.Set, input.AccessEndsAt.At).Scan(
 		&u.ID, &u.Email, &u.Role, &u.Name,
-		&u.AvatarURL, &u.LastLoginAt, &u.CreatedAt, &u.UpdatedAt,
+		&u.AvatarURL, &u.LastLoginAt, &u.AccessEndsAt, &u.CreatedAt, &u.UpdatedAt,
 	)
 
 	if err != nil {
@@ -393,7 +415,7 @@ func (r *PostgresRepository) List(ctx context.Context, limit, offset int) ([]*Us
 	defer conn.Release()
 
 	query := `
-		SELECT id, email, role, name, avatar_url, last_login_at, created_at, updated_at
+		SELECT id, email, role, name, avatar_url, last_login_at, access_ends_at, created_at, updated_at
 		FROM hatamoto_users
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -410,7 +432,7 @@ func (r *PostgresRepository) List(ctx context.Context, limit, offset int) ([]*Us
 		var u User
 		if err := rows.Scan(
 			&u.ID, &u.Email, &u.Role, &u.Name,
-			&u.AvatarURL, &u.LastLoginAt, &u.CreatedAt, &u.UpdatedAt,
+			&u.AvatarURL, &u.LastLoginAt, &u.AccessEndsAt, &u.CreatedAt, &u.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan user: %w", err)
 		}
