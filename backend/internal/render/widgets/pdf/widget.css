@@ -13,11 +13,8 @@
   order: 1;
   font-size: 0.875em;
 }
-.hm-pdf__link {
-  color: var(--hm-text, inherit);
-}
 .hm-pdf__pre {
-  color: var(--hm-hai, #555);
+  color: color-mix(in srgb, currentColor 70%, transparent);
 }
 .hm-pdf__ph {
   display: grid;
