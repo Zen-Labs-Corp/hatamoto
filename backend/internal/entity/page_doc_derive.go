@@ -72,7 +72,7 @@ func DerivedAttributes(raw jsontext.Value) jsontext.Value {
 		// The renderer shows no body for an invalid doc; the frozen mirror must
 		// not resurface elsewhere.
 		delete(top, keySections)
-		if b, err := jsonx.Marshal(top); err == nil {
+		if b, err := jsonx.Marshal(top, jsonx.HTMLSafe); err == nil {
 			return b
 		}
 		return raw
