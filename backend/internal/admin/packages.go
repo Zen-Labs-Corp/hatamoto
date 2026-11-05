@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 	"net/url"
@@ -283,7 +283,7 @@ type PackageAdmin interface {
 	CallRoute(ctx context.Context, plugin, method, path string, query url.Values, body []byte, user CurrentUser) RouteResult
 	// CallHost runs one host function of the plugin (its permissions apply);
 	// the result is the sdk.CallResponse JSON.
-	CallHost(ctx context.Context, plugin, fn string, args json.RawMessage) json.RawMessage
+	CallHost(ctx context.Context, plugin, fn string, args jsontext.Value) jsontext.Value
 }
 
 // staged holds a downloaded or uploaded package between the permission prompt

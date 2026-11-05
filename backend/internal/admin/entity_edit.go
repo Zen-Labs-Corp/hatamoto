@@ -2,7 +2,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"html/template"
@@ -17,6 +17,7 @@ import (
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/person"
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/seopanel"
@@ -294,10 +295,10 @@ func schemaIsNested(sc *entity.EntitySchema) bool {
 	return err == nil && (p.HasParent() || p.HasPath())
 }
 
-func attrsMap(raw json.RawMessage) map[string]any {
+func attrsMap(raw jsontext.Value) map[string]any {
 	m := map[string]any{}
 	if len(raw) > 0 {
-		_ = json.Unmarshal(raw, &m)
+		_ = jsonx.Unmarshal(raw, &m, jsonx.Stored)
 	}
 	if m == nil {
 		m = map[string]any{}
@@ -751,9 +752,6 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 	if href := a.duplicateHref(r, sc, f.ID); !f.New && href != "" {
 		f.Overflow = append(f.Overflow, ui.Action{Label: "Duplicate", Hint: "Copy into a new draft", Post: href})
 	}
-	if f.Errors == nil {
-		f.Errors = map[string]string{}
-	}
 	f.Noun = draftNoun(sc)
 	if !f.New {
 		f.AnalyzeURL = a.adminPath + "/entities/" + f.ID + "/analyze"
@@ -1032,7 +1030,7 @@ func (a *Admin) validateEntityForm(r *http.Request, p *posted, sc *entity.Entity
 	f.SEO.schemaErrors(f.Errors)
 	f.SEO.robotsErrors(f.Errors)
 	f.SEO.crumbErrors(f.Errors, p.picked, p.termsSet)
-	if raw, err := json.Marshal(p.attrs); err == nil {
+	if raw, err := jsonx.Marshal(p.attrs); err == nil {
 		if verrs := schemaform.Validate(sc.Schema, raw); len(verrs) > 0 {
 			if p.errs == nil {
 				p.errs = schemaform.Errors{}
@@ -1120,7 +1118,7 @@ func (a *Admin) handleEntityCreate(w http.ResponseWriter, r *http.Request) {
 		}
 		locale = p.f.Locale
 	}
-	raw, _ := json.Marshal(p.attrs)
+	raw, _ := jsonx.Marshal(p.attrs)
 	in := &entity.CreateEntityInput{SchemaID: sc.ID, Name: p.f.Name, Slug: p.f.Slug, Locale: locale, Attributes: raw}
 	if p.f.Name != "" && schemaIsNested(sc) {
 		if id, err := uuid.Parse(p.parentID); err == nil {
@@ -1351,9 +1349,9 @@ func (a *Admin) handleEntitySave(w http.ResponseWriter, r *http.Request) {
 		a.renderEntityForm(w, r, http.StatusUnprocessableEntity, p.f, e, sc, p.attrs, p.errs, p.parentID, p.authorID, p.picked)
 		return
 	}
-	raw, _ := json.Marshal(p.attrs)
+	raw, _ := jsonx.Marshal(p.attrs)
 	summary := "Updated in the admin"
-	in := &entity.UpdateEntityInput{Name: &p.f.Name, Attributes: (*json.RawMessage)(&raw), ChangeSummary: &summary}
+	in := &entity.UpdateEntityInput{Name: &p.f.Name, Attributes: (*jsontext.Value)(&raw), ChangeSummary: &summary}
 	if p.f.Locale != e.Locale {
 		in.Locale = &p.f.Locale
 	}

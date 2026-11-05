@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"html/template"
 	"slices"
@@ -15,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // businessSchemaTpl describes one business profile as a form. Property names
@@ -244,7 +245,7 @@ func plusIcon() template.HTML {
 
 // businessSchema is the form of a non-default locale card: the site-only and
 // default-only properties are left out.
-func businessSchema() json.RawMessage {
+func businessSchema() jsontext.Value {
 	s, err := schemaform.WithoutProperties(businessSchemaWith(localeAddressProps), append(slices.Clone(siteOnlyProps), defaultOnlyProps...)...)
 	if err != nil {
 		return businessSchemaWith(localeAddressProps)
@@ -254,7 +255,7 @@ func businessSchema() json.RawMessage {
 
 // defaultSchema is the form of the default locale's card: every property but
 // no_office, since the default business is the organisation itself.
-func defaultSchema() json.RawMessage {
+func defaultSchema() jsontext.Value {
 	s, err := schemaform.WithoutProperties(businessSchemaWith(localeAddressProps), "no_office")
 	if err != nil {
 		return businessSchemaWith(localeAddressProps)
@@ -262,10 +263,10 @@ func defaultSchema() json.RawMessage {
 	return s
 }
 
-func businessSchemaWith(addressProps string) json.RawMessage {
-	types, _ := json.Marshal(bizprofile.Types)
-	days, _ := json.Marshal(bizprofile.Days)
-	return json.RawMessage(fmt.Sprintf(businessSchemaTpl, types, days, addressProps))
+func businessSchemaWith(addressProps string) jsontext.Value {
+	types, _ := jsonx.Marshal(bizprofile.Types)
+	days, _ := jsonx.Marshal(bizprofile.Days)
+	return jsontext.Value(fmt.Sprintf(businessSchemaTpl, types, days, addressProps))
 }
 
 // defaultUI is businessUI plus the help the default card needs: the fields a

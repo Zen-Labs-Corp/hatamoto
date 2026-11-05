@@ -1,13 +1,13 @@
 package admin
 
 import (
-	"encoding/json"
 	"errors"
 	"html"
 	"net/http"
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -17,7 +17,7 @@ func TestSEOKnowledgeGraphPreviewIsTheSiteGraph(t *testing.T) {
 	var asked *http.Request
 	s.a.deps.SiteGraph = func(r *http.Request) (map[string]any, error) { asked = r; return graph, nil }
 	body := s.get(t, "/admin/settings/seo/knowledge-graph")
-	want, _ := json.MarshalIndent(graph, "", "  ")
+	want, _ := jsonx.Indent(graph)
 	if asked == nil || !strings.Contains(html.UnescapeString(body), string(want)) {
 		t.Errorf("preview is not the marshalled site graph: %s", body)
 	}

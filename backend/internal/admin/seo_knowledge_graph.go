@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/url"
 	"slices"
@@ -9,6 +8,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
@@ -35,7 +35,7 @@ func orgSameAs(cfg *siteconfig.Config) []string {
 	var theme struct {
 		Links map[string]string `json:"socialLinks"`
 	}
-	if json.Unmarshal(cfg.ThemeExtra, &theme) == nil {
+	if jsonx.Unmarshal(cfg.ThemeExtra, &theme, jsonx.Stored) == nil {
 		for _, u := range theme.Links {
 			add(u)
 		}
@@ -114,7 +114,7 @@ func (a *Admin) handleSEOKnowledgeGraph(w http.ResponseWriter, r *http.Request) 
 		graph, err := a.deps.SiteGraph(r)
 		var pretty []byte
 		if err == nil {
-			pretty, err = json.MarshalIndent(graph, "", "  ")
+			pretty, err = jsonx.Indent(graph)
 		}
 		if err != nil {
 			a.logger().Error("seo knowledge graph preview", "err", err)

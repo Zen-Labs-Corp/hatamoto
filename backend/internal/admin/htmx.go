@@ -1,10 +1,11 @@
 package admin
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // IsHTMX reports an htmx-issued request .
@@ -28,7 +29,7 @@ func Redirect(w http.ResponseWriter, r *http.Request, target string) {
 
 // Toast sets the HX-Trigger header that makes admin.js show a toast.
 func Toast(w http.ResponseWriter, kind, message string) {
-	b, _ := json.Marshal(map[string]any{"hm:toast": map[string]any{"kind": kind, "message": message, "timeout": 4000}})
+	b, _ := jsonx.Marshal(map[string]any{"hm:toast": map[string]any{"kind": kind, "message": message, "timeout": 4000}})
 	w.Header().Set("HX-Trigger", string(b))
 }
 

@@ -6,7 +6,7 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -53,7 +53,7 @@ type SiteStore interface {
 	Get(ctx context.Context) (*siteconfig.Config, error)
 	Update(ctx context.Context, in siteconfig.UpdateInput) (*siteconfig.Config, error)
 	// SetLocaleProfile stores one locale's business details; empty raw clears it.
-	SetLocaleProfile(ctx context.Context, tag string, raw json.RawMessage) error
+	SetLocaleProfile(ctx context.Context, tag string, raw jsontext.Value) error
 }
 
 // OwnerCreator creates the first owner (auth.Bootstrap).
@@ -101,9 +101,9 @@ type TwoFactorService interface {
 
 // PasskeyService is the passkey ceremonies, sign-in and enrolment (twofactor.Passkeys).
 type PasskeyService interface {
-	BeginRegistration(ctx context.Context, uid uuid.UUID, name, displayName string) (json.RawMessage, string, error)
+	BeginRegistration(ctx context.Context, uid uuid.UUID, name, displayName string) (jsontext.Value, string, error)
 	FinishRegistration(ctx context.Context, ceremonyID string, uid uuid.UUID, keyName string, r *http.Request) (uuid.UUID, error)
-	BeginLogin(ctx context.Context, uid *uuid.UUID) (json.RawMessage, string, error)
+	BeginLogin(ctx context.Context, uid *uuid.UUID) (jsontext.Value, string, error)
 	FinishLogin(ctx context.Context, ceremonyID string, uid *uuid.UUID, r *http.Request) (uuid.UUID, error)
 }
 

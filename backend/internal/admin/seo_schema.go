@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -12,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 const seoSchemaPath = "/settings/seo/schema"
@@ -109,7 +109,7 @@ func annotatedSchemaType(schema []byte) string {
 	var doc struct {
 		Type string `json:"x-schema-org-type"`
 	}
-	_ = json.Unmarshal(schema, &doc)
+	_ = jsonx.Unmarshal(schema, &doc, jsonx.Stored)
 	return doc.Type
 }
 

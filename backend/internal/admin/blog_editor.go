@@ -1,9 +1,8 @@
 package admin
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"html/template"
 	"net/http"
@@ -21,6 +20,7 @@ import (
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // The blog editor (v1-13) is the writing view of the post types (postEditorFor):
@@ -380,7 +380,7 @@ func (a *Admin) panelFor(r *http.Request, e *entity.Entity, sc *entity.EntitySch
 // jsonLDPreview builds the document with the generator the public page uses,
 // including the FAQPage the FAQ blocks add.
 func (a *Admin) jsonLDPreview(e *entity.Entity, sc *entity.EntitySchema, p *posted, in seoInput) (string, string) {
-	raw, err := json.Marshal(p.attrs)
+	raw, err := jsonx.Marshal(p.attrs)
 	if err != nil {
 		return "", ""
 	}
@@ -408,16 +408,15 @@ func (a *Admin) jsonLDPreview(e *entity.Entity, sc *entity.EntitySchema, p *post
 	} else {
 		add(doc)
 	}
-	pretty, err := json.MarshalIndent(doc, "", "  ")
+	pretty, err := jsonx.Indent(doc)
 	if err != nil {
 		return "", ""
 	}
 	text := string(pretty)
 	// The custom block is its own script after the generated one.
 	for _, extra := range entity.CustomJSONLDDocs(raw) {
-		var b bytes.Buffer
-		if json.Indent(&b, extra, "", "  ") == nil {
-			text += "\n\n" + b.String()
+		if b, err := jsonx.IndentValue(extra); err == nil {
+			text += "\n\n" + string(b)
 		}
 	}
 	return text, strings.Join(types, " + ")
@@ -610,9 +609,9 @@ func (a *Admin) handleBlogSave(w http.ResponseWriter, r *http.Request, e *entity
 		render(http.StatusConflict, true)
 		return
 	}
-	raw, _ := json.Marshal(p.attrs)
+	raw, _ := jsonx.Marshal(p.attrs)
 	summary := "Updated in the blog editor"
-	in := &entity.UpdateEntityInput{Name: &p.f.Name, Attributes: (*json.RawMessage)(&raw), ChangeSummary: &summary}
+	in := &entity.UpdateEntityInput{Name: &p.f.Name, Attributes: (*jsontext.Value)(&raw), ChangeSummary: &summary}
 	if p.f.Slug != "" {
 		in.Slug = &p.f.Slug
 	}
@@ -667,7 +666,7 @@ type autosaveReply struct {
 	OK       bool   `json:"ok"`
 	Version  int    `json:"version"`
 	SavedAt  string `json:"saved_at,omitempty"`
-	Conflict bool   `json:"conflict,omitempty"`
+	Conflict bool   `json:"conflict,omitzero"`
 	Error    string `json:"error,omitempty"`
 }
 
@@ -722,9 +721,9 @@ func (a *Admin) handleBlogAutosave(w http.ResponseWriter, r *http.Request) {
 	if len([]rune(name)) <= 255 {
 		mirrorTitle(sc, attrs, name)
 	}
-	raw, _ := json.Marshal(attrs)
+	raw, _ := jsonx.Marshal(attrs)
 	summary := entity.AutosaveSummary
-	in := &entity.UpdateEntityInput{Attributes: (*json.RawMessage)(&raw), ChangeSummary: &summary, Autosave: true}
+	in := &entity.UpdateEntityInput{Attributes: (*jsontext.Value)(&raw), ChangeSummary: &summary, Autosave: true}
 	if name != "" && len([]rune(name)) <= 255 {
 		in.Name = &name
 		// A slug that follows the title keeps following it: the form says so
@@ -783,7 +782,7 @@ func (a *Admin) blogPreviewRequest(r *http.Request, e *entity.Entity, sc *entity
 	p, _ := a.readBlogForm(r, attrsMap(e.Attributes))
 	attrs := p.attrs
 	attrs["name"] = p.f.Name
-	raw, err := json.Marshal(attrs)
+	raw, err := jsonx.Marshal(attrs)
 	if err != nil {
 		return nil, err
 	}
@@ -792,14 +791,14 @@ func (a *Admin) blogPreviewRequest(r *http.Request, e *entity.Entity, sc *entity
 	if raw, err = entity.SanitizeAttributesAgainst(raw, nil); err != nil {
 		return nil, err
 	}
-	req := map[string]any{"entity_id": e.ID.String(), "schema": sc.Slug, "attributes": json.RawMessage(raw)}
+	req := map[string]any{"entity_id": e.ID.String(), "schema": sc.Slug, "attributes": jsontext.Value(raw)}
 	if a.deps.Content.PublicPath != nil && e.Status == entity.StatusPublished {
 		e.Schema = sc
 		if pth := a.deps.Content.PublicPath(r.Context(), e); pth != "" {
 			req["path"] = pth
 		}
 	}
-	return json.Marshal(req)
+	return jsonx.Marshal(req)
 }
 
 // neverPublished is true while an address may still follow the title: a live or

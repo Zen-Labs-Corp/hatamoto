@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"net/http"
 
@@ -16,8 +16,8 @@ import (
 const passkeyCeremonyParam = "c"
 
 type passkeyBeginReply struct {
-	Ceremony string          `json:"ceremony"`
-	Options  json.RawMessage `json:"options"`
+	Ceremony string         `json:"ceremony"`
+	Options  jsontext.Value `json:"options"`
 }
 
 // passkeyMode reads the sign-in mode: with a valid pending cookie the passkey
