@@ -56,7 +56,7 @@ func (s *Server) retireTrackingPlugins(ctx context.Context) {
 			continue
 		}
 		if !firstPartySigned(row) {
-			log.Warn("tracking: a plugin with this name is installed but is not signed by a first-party key; it is left alone. Enter its ID in Settings > Tracking, then uninstall the plugin from Plugins")
+			log.Warn("tracking: a plugin with this name is installed but is not signed by a first-party key; it is left alone. Enter its ID in Settings > Privacy & tracking > Tracking, then uninstall the plugin from Plugins")
 			continue
 		}
 		id, err := s.legacyPluginID(ctx, lp.plugin, lp.key)
@@ -73,7 +73,7 @@ func (s *Server) retireTrackingPlugins(ctx context.Context) {
 		// destroy the only copy of it, so the plugin and its settings stay.
 		if cur := set.Vendors[lp.vendor]; id != "" && !cur.Enabled && cur.ID == "" {
 			if cand, _ := tags.ByID(lp.vendor); !cand.ValidID(cand.NormalizeID(id)) {
-				log.Warn("tracking: the old plugin's ID is not a valid ID for this tag; the plugin and its settings are kept. Enter the ID in Settings > Tracking, then uninstall the plugin from Plugins")
+				log.Warn("tracking: the old plugin's ID is not a valid ID for this tag; the plugin and its settings are kept. Enter the ID in Settings > Privacy & tracking > Tracking, then uninstall the plugin from Plugins")
 				continue
 			}
 		}

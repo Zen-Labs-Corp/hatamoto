@@ -218,9 +218,9 @@ func trackingMovedNotice(moved []string) string {
 		names = append(names, m)
 	}
 	if len(names) == 1 {
-		return "The " + names[0] + " plugin was replaced by Settings > Tracking. Your ID was copied; the plugin was removed."
+		return "The " + names[0] + " plugin was replaced by Settings > Privacy & tracking > Tracking. Your ID was copied; the plugin was removed."
 	}
-	return "The " + strings.Join(names, " and ") + " plugins were replaced by Settings > Tracking. Your IDs were copied; the plugins were removed."
+	return "The " + strings.Join(names, " and ") + " plugins were replaced by Settings > Privacy & tracking > Tracking. Your IDs were copied; the plugins were removed."
 }
 
 func (a *Admin) renderTracking(w http.ResponseWriter, r *http.Request, status int, set tags.Settings, errs []ui.FieldError) {

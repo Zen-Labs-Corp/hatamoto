@@ -64,7 +64,7 @@ func (s *Server) retireWebhooksPlugin(ctx context.Context) {
 		return
 	}
 	if !firstPartySigned(row) {
-		log.Warn("webhooks: a plugin named webhooks is installed but is not signed by a first-party key; it is not imported and not uninstalled. Re-create its subscriptions in Settings > Webhooks, then uninstall the plugin from Plugins",
+		log.Warn("webhooks: a plugin named webhooks is installed but is not signed by a first-party key; it is not imported and not uninstalled. Re-create its subscriptions in Settings > Integrations > Webhooks, then uninstall the plugin from Plugins",
 			slog.String("signer", row.SignerKeyID))
 		return
 	}

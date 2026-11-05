@@ -1,5 +1,5 @@
 {{template "layouts/shell" .}}
-{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Forms" "Description" "Captcha and spam checks for the forms on your site."}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Spam protection" "Description" "Captcha and spam checks for the forms on your site."}}
 {{template "hm/tabs" dict "Label" "Forms sections" "Items" .Tabs}}
 {{template "hm/formerrors" dict "Errors" .Summary}}
 {{if .Unconfigured}}{{template "hm/callout-start" (dict "Kind" "warning")}}Captcha is required on {{.RequiredForms}} {{if eq .RequiredForms 1}}form{{else}}forms{{end}} but no provider keys are set. Submissions are accepted unchecked.{{template "hm/callout-end"}}

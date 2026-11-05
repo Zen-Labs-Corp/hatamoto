@@ -12,8 +12,12 @@ func TestMediaUploadPageAndCreatedRedirect(t *testing.T) {
 	t.Parallel()
 
 	c := newContentRig(t)
-	if page := c.get(t, "owner-token", "/admin/media/new", ""); !strings.Contains(page, `type="file"`) {
+	page := c.get(t, "owner-token", "/admin/media/new", "")
+	if !strings.Contains(page, `type="file"`) {
 		t.Fatalf("new page has no file input")
+	}
+	if strings.Contains(page, "/admin/settings/media") || !strings.Contains(page, `href="/admin/media"`) {
+		t.Errorf("Cancel does not point at the library")
 	}
 	list := c.get(t, "owner-token", "/admin/media", "")
 	if !strings.Contains(list, `data-hm-open="upload"`) || !strings.Contains(list, `href="/admin/media/new"`) {

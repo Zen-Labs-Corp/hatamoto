@@ -6,7 +6,7 @@
 {{template "hm/callout-start" dict "Kind" "info" "Title" "Moved into core" "ID" "tracking-moved"}}{{.}}{{template "hm/callout-end"}}
 {{template "hm/foot"}}{{template "hm/button" dict "Label" "Dismiss this notice" "Variant" "secondary" "Type" "submit"}}{{template "hm/foot-end"}}
 </form>{{end}}
-{{if .Legacy}}{{template "hm/callout" dict "Kind" "warning" "ID" "tracking-legacy" "Title" "An old tracking plugin is still installed" "Body" (printf "A plugin named %s is still installed (it is not first-party signed, or its ID could not be copied). It is not used by Settings > Tracking: enter its ID here, then remove it from Plugins." (join .Legacy ", "))}}{{end}}
+{{if .Legacy}}{{template "hm/callout" dict "Kind" "warning" "ID" "tracking-legacy" "Title" "An old tracking plugin is still installed" "Body" (printf "A plugin named %s is still installed (it is not first-party signed, or its ID could not be copied). It is not used by Settings > Privacy & tracking > Tracking: enter its ID here, then remove it from Plugins." (join .Legacy ", "))}}{{end}}
 {{if .NeverLoad}}{{template "hm/callout" dict "Kind" "warning" "ID" "tracking-never-loads" "Title" "Some tags will never load" "Body" (printf "Settings > Privacy does not ask visitors about the category of %s, so it is never allowed. Turn that category on in Settings > Privacy or turn the tag off." (join .NeverLoad ", "))}}{{end}}<form method="post" action="{{adminPath}}/settings/tracking" class="hm-cardform">
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "ID" "shared" "Title" "Shared settings" "Heading" "h2"}}
