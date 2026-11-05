@@ -116,3 +116,13 @@ func TestSanitizeSVGRefuses(t *testing.T) {
 		t.Errorf("line = %+v, want 3", se)
 	}
 }
+
+func TestSanitizeSVGRefusalSaysWhatWasRemoved(t *testing.T) {
+	t.Parallel()
+
+	_, _, err := SanitizeSVG([]byte(svgHead + `<script>x</script></svg>`))
+	var se *SVGError
+	if !errors.As(err, &se) || !strings.HasPrefix(se.Reason, "it contains <script> element") {
+		t.Errorf("reason = %+v, want it to name the removed element first", se)
+	}
+}

@@ -201,6 +201,9 @@ func (s *svgSanitizer) run() error {
 		return s.fail("it has no svg element")
 	}
 	if kept == 0 {
+		if len(s.removed) > 0 {
+			return s.fail("it contains " + strings.Join(s.removed, ", ") + ", and nothing is left after removing unsafe content")
+		}
 		return s.fail("nothing is left after removing unsafe content")
 	}
 	return nil
