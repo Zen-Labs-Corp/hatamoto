@@ -127,6 +127,9 @@ func TestPreviewShareServesTheDraft(t *testing.T) {
 				t.Errorf("body lacks %q", want)
 			}
 		}
+		if strings.Contains(body, ":///") {
+			t.Error("a link in the draft preview has an empty host")
+		}
 		if strings.Contains(body, "data-hm-change") {
 			t.Error("change marks in a draft preview")
 		}

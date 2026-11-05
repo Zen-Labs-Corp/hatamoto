@@ -158,6 +158,9 @@ type stagedRenderOpts struct {
 	// draftBanner renders a shared draft preview: the "Preview of a draft"
 	// banner and no change marks.
 	draftBanner bool
+	// from is the request being answered. Its host, scheme and proxy headers
+	// give the rendered page an absolute canonical address.
+	from *http.Request
 }
 
 // renderStaged renders se through the public route, with the staged set on ctx.
@@ -173,6 +176,14 @@ func (s *Server) renderStagedWith(ctx context.Context, o *stagedChangeset, se *s
 	r, err := http.NewRequestWithContext(ctx, http.MethodGet, se.Path, nil)
 	if err != nil {
 		return nil, err
+	}
+	if opts.from != nil {
+		r.Host, r.TLS, r.RemoteAddr = opts.from.Host, opts.from.TLS, opts.from.RemoteAddr
+		for _, k := range []string{"X-Forwarded-Proto", "X-Forwarded-Host"} {
+			if v := opts.from.Header.Get(k); v != "" {
+				r.Header.Set(k, v)
+			}
+		}
 	}
 	// Only staged redirects are consulted: a live rule must not hide the staged
 	// page, and a sandboxed frame never follows a Location.

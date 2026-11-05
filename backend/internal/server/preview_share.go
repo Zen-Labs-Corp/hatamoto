@@ -66,7 +66,7 @@ func (s *Server) handlePreviewShare(w http.ResponseWriter, r *http.Request) {
 		ents:   map[uuid.UUID]*stagedEntity{e.ID: se},
 		byPath: map[string]*stagedEntity{path: se},
 	}
-	body, err := s.renderStagedWith(withStaged(withHiddenLocalesServed(ctx), o), o, se, stagedRenderOpts{draftBanner: true})
+	body, err := s.renderStagedWith(withStaged(withHiddenLocalesServed(ctx), o), o, se, stagedRenderOpts{draftBanner: true, from: r})
 	if err != nil {
 		s.logger.Warn("draft preview: not shown", slog.String("entity_id", id.String()), slog.String("error", err.Error()))
 		http.NotFound(w, r)
