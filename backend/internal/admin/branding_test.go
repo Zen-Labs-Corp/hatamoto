@@ -14,7 +14,7 @@ import (
 	"hatamoto.dev/core/internal/siteconfig"
 )
 
-const brandingURL = "/admin/settings/branding"
+const brandingURL = "/admin/settings/admin-branding"
 
 var goodBrand = siteconfig.AdminBrand{
 	Name: "Studio Console", LogoURL: "/media/2026/logo.png", Accent: "#1f4e9a",

@@ -77,7 +77,7 @@ func accentDecls(s a11y.AccentSet) string {
 		";--color-brand:" + s.Accent + ";--color-on-brand:" + s.OnBrand
 }
 
-const brandingPath = "/settings/branding"
+const brandingPath = "/settings/admin-branding"
 
 // brandingData is the Settings > Branding page: the saved (or, after a failed
 // save, submitted) values and the contrast figures of the accent.

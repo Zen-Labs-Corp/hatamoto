@@ -23,15 +23,15 @@ async function violations(p) {
 const b = await launch("chromium");
 const owner = await newSession(b, { theme: "light", width: 1440, bypassCSP: true });
 try {
-  await owner.goto(`${base}${admin}/settings/branding`, { waitUntil: "load" });
+  await owner.goto(`${base}${admin}/settings/admin-branding`, { waitUntil: "load" });
   await owner.fill("#name", "QA Console");
   await owner.fill("#accent", "#f5e642");
   await owner.fill("#managed_text", "Managed by QA Studio");
   await owner.fill("#managed_url", "https://example.test/qa");
-  await owner.click('form[action$="/settings/branding"] button[type=submit]');
+  await owner.click('form[action$="/settings/admin-branding"] button[type=submit]');
   check("a failing accent is refused with the contrast message", (await owner.locator("#accent-error, .hm-field__error").allTextContents()).join(" ").includes("too light to read"));
   await owner.fill("#accent", ACCENT);
-  await Promise.all([owner.waitForURL((u) => u.pathname.endsWith("/settings/branding")), owner.click('form[action$="/settings/branding"] button[type=submit]')]);
+  await Promise.all([owner.waitForURL((u) => u.pathname.endsWith("/settings/admin-branding")), owner.click('form[action$="/settings/admin-branding"] button[type=submit]')]);
   check("a good accent saves", (await owner.locator("#accent").inputValue()) === ACCENT);
 
   for (const mode of ["light", "dark", "auto"]) {
@@ -49,13 +49,13 @@ try {
     await ctx.close();
   }
 
-  await owner.goto(`${base}${admin}/settings/branding`, { waitUntil: "load" });
+  await owner.goto(`${base}${admin}/settings/admin-branding`, { waitUntil: "load" });
   const v = await violations(owner);
   check("the Branding page has no axe violation", v.length === 0, v.join(", "));
 } finally {
-  await owner.goto(`${base}${admin}/settings/branding`, { waitUntil: "load" });
-  if (await owner.locator('form[action$="/settings/branding/reset"] button').count()) {
-    await Promise.all([owner.waitForURL((u) => u.pathname.endsWith("/settings/branding")), owner.click('form[action$="/settings/branding/reset"] button[type=submit]')]);
+  await owner.goto(`${base}${admin}/settings/admin-branding`, { waitUntil: "load" });
+  if (await owner.locator('form[action$="/settings/admin-branding/reset"] button').count()) {
+    await Promise.all([owner.waitForURL((u) => u.pathname.endsWith("/settings/admin-branding")), owner.click('form[action$="/settings/admin-branding/reset"] button[type=submit]')]);
   }
   await b.close();
 }

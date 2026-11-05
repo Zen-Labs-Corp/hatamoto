@@ -84,7 +84,7 @@ export const screens = [
   { name: "plugins-security", path: "/admin/plugins/security", mock: null, roles: O, expect: "#signers-card", states: [{ name: "unsigned-open", click: ".hm-pluginsecurity__advanced > summary" }] }, // the allow-unsigned form sits in a closed disclosure
   { name: "settings-plugins-upload", path: "/admin/plugins/upload", mock: null, roles: O },
   // Settings: General, API, Entity models
-  { name: "settings-branding", path: "/admin/settings/branding", mock: null, roles: O },
+  { name: "settings-branding", path: "/admin/settings/admin-branding", mock: null, roles: O },
   { name: "settings-general", path: "/admin/settings/general", legacy: "/admin/settings/site", mock: "settings-general", roles: O, primary: true, hover: true },
   // Settings > Locales. A single-locale seed shows the add-only state.
   { name: "settings-locales", path: "/admin/settings/locales", mock: "s1", roles: O, states: [{ name: "add-locale", click: '[data-hm-open="add-locale"]' }] },

@@ -76,7 +76,7 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "general", Label: "General", Final: "/settings/general", Roles: ownerOnly},
 	}},
 	{ID: "branding", Label: "Branding", Icon: "palette", Desc: "Admin name, logo, accent colour and sign-in page.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "branding", Label: "Branding", Final: "/settings/branding", Roles: ownerOnly},
+		{ID: "branding", Label: "Branding", Final: "/settings/admin-branding", Roles: ownerOnly},
 	}},
 	{ID: "locales", Label: "Locales", Icon: "globe", Desc: "Languages, addresses, search engines and business details.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "locales", Label: "Locales", Final: "/settings/locales", Roles: ownerOnly},
