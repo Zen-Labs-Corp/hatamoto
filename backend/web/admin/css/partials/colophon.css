@@ -6,6 +6,8 @@
 .hm-shell__main > .hm-content { flex: 1; }
 .hm-colophon { display: flex; justify-content: flex-end; padding: var(--space-3) var(--space-6) var(--space-4); }
 /* No opacity: --text-muted is the quietest colour that still meets 4.5:1. */
+.hm-colophon { align-items: baseline; gap: var(--space-1); }
+.hm-colophon__managed, .hm-colophon__sep { font-size: var(--text-xs); color: var(--text-muted); }
 .hm-colophon a { font-size: var(--text-xs); color: var(--text-muted); text-decoration: none; }
 .hm-colophon a:hover { color: var(--text); text-decoration: underline; }
 .hm-colophon a:focus-visible { outline: var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }

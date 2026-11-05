@@ -14,7 +14,7 @@
 {{template "hm/csrf" $}}
 {{template "hm/field" dict "ID" "email" "Name" "email" "Label" "Email" "Type" "email" "Value" .Email "Required" true "Attrs" (attrmap "autocomplete" "email" "autofocus" "autofocus")}}
 {{template "hm/foot"}}
-{{template "hm/button" dict "Label" "Send reset link" "Variant" "primary" "Type" "submit"}}
+{{template "hm/button" dict "Label" "Send reset link" "Variant" (or (and $.Brand.Accent "accent") "primary") "Type" "submit"}}
 {{template "hm/foot-end"}}
 </form>{{end}}
 <p class="hm-bare__links"><a href="{{adminPath}}/login">Back to sign in</a></p>
