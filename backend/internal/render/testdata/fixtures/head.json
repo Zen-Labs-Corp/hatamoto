@@ -6,7 +6,7 @@
     "Language": "en-AU",
     "Phone": "+61 2 5550 0100",
     "Hours": "Mon-Fri 9:00-17:30",
-    "Address": {"Street": "1 Example St", "City": "Sydney", "State": "NSW", "PostalCode": "2000", "Country": "AU"},
+    "Address": {"Street": "1 Example St", "City": "Sydney", "State": "NSW", "Country": "AU"},
     "SocialLinks": [
       {"Label": "GitHub", "URL": "https://github.com/example-org"},
       {"Label": "Mail", "URL": "mailto:hi@example.com"}
