@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -263,4 +264,28 @@ func TestEntityListOffersManualSort(t *testing.T) {
 	body = c.get(t, "owner-token", "/admin/entities?type=page", "")
 	has(t, body, `<option value="manual">Manual order</option>`, `<option value="updated" selected>Updated</option>`)
 	lacks(t, c.get(t, "owner-token", "/admin/entities", ""), "Manual order")
+}
+
+// The filter form carries exactly one sort control, so choosing "Manual order"
+// submits sort=manual alone and the list sorts by it.
+func TestEntityListSortSelectDrivesTheSort(t *testing.T) {
+	t.Parallel()
+	c := newContentRig(t)
+	c.ents.addEntity(60, c.page, "Alpha", "alpha", entity.StatusPublished, `{"body":"x"}`, t0)
+	body := c.get(t, "owner-token", "/admin/entities?type=page", "")
+	form := body[strings.Index(body, `<form class="hm-table__filters`):]
+	form = form[:strings.Index(form, "</form>")]
+	if n := strings.Count(form, `name="sort"`); n != 1 {
+		t.Fatalf("filter form has %d name=\"sort\" controls, want 1", n)
+	}
+	// What a browser submits: every hidden input, then the select's chosen option.
+	vals := url.Values{}
+	for _, m := range regexp.MustCompile(`<input type="hidden" name="([^"]+)" value="([^"]*)">`).FindAllStringSubmatch(form, -1) {
+		vals.Add(m[1], m[2])
+	}
+	vals.Add("sort", "manual")
+	c.get(t, "owner-token", "/admin/entities?"+vals.Encode(), "")
+	if got := c.ents.lastList.Sort; got != "manual" {
+		t.Errorf("list sort after choosing Manual order = %q, want manual (query %s)", got, vals.Encode())
+	}
 }
