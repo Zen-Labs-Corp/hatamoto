@@ -23,7 +23,7 @@ func newBackupEngine(pool *pgxpool.Pool, mediaDir, version string, logger *slog.
 	return backup.New(backup.Options{
 		Data: config.ResolveDataDir(), MediaDir: mediaDirOr(mediaDir), DatabaseURL: os.Getenv("DATABASE_URL"),
 		Pool: pool, Run: backup.OSExec, Free: updater.FreeDisk, Log: logger, Version: version,
-		KeepManual: manual, KeepPreUpdate: preUpdate,
+		KeepManual: manual, KeepPreUpdate: preUpdate, KeepScheduled: backup.KeepScheduledFromEnv(),
 		SecretsDir: secretsDirFromEnv(), ConfigPath: os.Getenv("HATAMOTO_CONFIG_FILE"),
 		Trust: trustIDs(logger),
 	})

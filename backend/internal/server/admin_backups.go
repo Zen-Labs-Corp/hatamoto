@@ -122,4 +122,5 @@ func (s *Server) SetBackups(eng *backup.Engine) {
 	if s.admin != nil {
 		s.admin.SetBackups(s.backups)
 	}
+	s.setupOffsite(eng)
 }
