@@ -5,7 +5,7 @@
 The backend, the admin, MCP and REST output and the plugin SDK now use the JSON v2 packages (`encoding/json/v2`). The sections below on empty lists, the plugin host and the platform encoder give the detail.
 
 - **Empty lists.** Nil slices and maps are written as `[]` and `{}` in REST, admin and MCP output; they were `null`. Clients that tested for `null` should test for an empty list.
-- **Stricter requests.** Request bodies with a repeated member name, invalid UTF-8 or data after the JSON value are rejected. A member whose name differs only in case (`Title` for `title`) is ignored, not rejected: the request succeeds but that field has no effect, so send the exact lowercase names.
+- **Stricter requests.** Request bodies with a repeated member name, invalid UTF-8 or data after the JSON value are rejected. A member whose name differs only in case (`Title` for `title`) is usually ignored, not rejected: the request succeeds but that field has no effect, so send each member name exactly as documented (some use camelCase, e.g. `nodeId`). A few endpoints, such as the author endpoint, reject unknown or wrong-case members with 400 instead.
 - **Webhooks and plugins.** Webhook bodies and their HMACs, and the bytes between host and plugin, are unchanged byte for byte.
 - **SDK.** `hatamoto.dev/sdk` 0.19.0 needs Go 1.27 to build a plugin; plugins built for earlier SDKs still load.
 - **Stored JSON.** The upgrade step normalises known mixed-case keys in stored JSON. `hatamoto doctor json` (read-only) reports any stored row that would fail strict reading or still has a case-variant key; it exits 1 if a row fails and 2 if it cannot connect. A row that still fails strict reading errors loudly instead of being half read.
