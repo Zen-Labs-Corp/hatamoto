@@ -51,6 +51,9 @@ type Theme struct {
 	// to the public policy without 'unsafe-inline' in script-src. It promises the
 	// theme emits no inline executable script and no on*= handler on public pages.
 	StrictScripts bool
+	// NoPrefetch is the theme's opt-out (theme.json "prefetch": false) of the
+	// public link prefetch rules.
+	NoPrefetch bool
 	// Menu is what the theme declares for menu items (theme.json "menu"):
 	// style, colour, badge and icon presets and suggested classes. Zero when
 	// the theme declares nothing.
@@ -73,8 +76,9 @@ type themeManifest struct {
 	CSP struct {
 		StrictScripts bool `json:"strictScripts"`
 	} `json:"csp"`
-	Menu  jsontext.Value `json:"menu"`
-	Menus jsontext.Value `json:"menus"`
+	Prefetch *bool          `json:"prefetch"`
+	Menu     jsontext.Value `json:"menu"`
+	Menus    jsontext.Value `json:"menus"`
 }
 
 // LoadTheme resolves theme.json (highest-precedence copy) and discovers section
@@ -91,6 +95,7 @@ func LoadTheme(c Chain) (*Theme, error) {
 		t.Name, t.Version, t.Settings = m.Name, m.Version, m.SettingsSchema
 		t.BuilderTokens = m.Builder.Tokens
 		t.StrictScripts = m.CSP.StrictScripts
+		t.NoPrefetch = m.Prefetch != nil && !*m.Prefetch
 		t.Menu = parseMenuDecl(m.Menu)
 		if locs, err := menu.ParseDecl(m.Menus); err == nil {
 			t.MenuLocations = locs
