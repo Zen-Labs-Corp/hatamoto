@@ -1031,6 +1031,26 @@
        "fs": "sm"
       }
      }
+    },
+    {
+     "id": "n906",
+     "t": "pdf",
+     "p": {
+      "src": "/media/brochure.pdf",
+      "title": "Product brochure",
+      "height": 600
+     },
+     "s": {
+      "base": {
+       "pt": "space-2",
+       "pb": "space-4",
+       "radius": "md"
+      },
+      "sm": {
+       "pt": "space-2",
+       "pb": "space-2"
+      }
+     }
     }
    ]
   },

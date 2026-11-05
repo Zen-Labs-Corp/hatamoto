@@ -200,6 +200,9 @@ func TestBoundEveryBindableKind(t *testing.T) {
 			if k.Kind == "video" {
 				node.P = map[string]any{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
 			}
+			if k.Kind == "pdf" { // renders nothing without a library PDF
+				node.P = map[string]any{"src": "/media/b.pdf"}
+			}
 			if k.Kind == "contactbutton" { // renders nothing without a number
 				node.P = map[string]any{"to": "+41791234567"}
 			}
