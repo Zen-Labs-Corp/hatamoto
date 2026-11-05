@@ -426,6 +426,9 @@ func outlineBindControl(n *builder.Node, p builder.PropInfo, inLoop bool, st *ou
 	return b
 }
 
+// contactChannelLabels are the Contact button's channels as the client reads them.
+var contactChannelLabels = map[string]string{"whatsapp": "WhatsApp", "call": "Phone", "sms": "SMS", "email": "Email"}
+
 func outlineProperty(n *builder.Node, p builder.PropInfo, nodeLabel string, st *outlineState) outlineProp {
 	op := outlineProp{ID: propFieldID(n.ID, p.Key), Name: "n." + n.ID + ".p." + p.Key, Label: schemaform.Humanize(p.Key), Control: "input", Type: "text"}
 	cur, has := n.P[p.Key]
@@ -438,7 +441,11 @@ func outlineProperty(n *builder.Node, p builder.PropInfo, nodeLabel string, st *
 		}
 		for _, e := range p.Enum {
 			s := fmt.Sprint(e)
-			op.Options = append(op.Options, outlineOption{Value: s, Label: s, Selected: has && fmt.Sprint(cur) == s})
+			label := s
+			if n.T == "contactbutton" && p.Key == "channel" {
+				label = contactChannelLabels[s]
+			}
+			op.Options = append(op.Options, outlineOption{Value: s, Label: label, Selected: has && fmt.Sprint(cur) == s})
 		}
 	case p.Type == "boolean":
 		op.Control = "checkbox"
@@ -467,6 +474,15 @@ func outlineProperty(n *builder.Node, p builder.PropInfo, nodeLabel string, st *
 				op.Control = "textarea"
 				op.Help = "Inline markup (bold, italic, links). Overrides Text when set."
 			}
+		}
+	}
+	if n.T == "contactbutton" {
+		switch p.Key {
+		case "to":
+			op.Label = "Number / address"
+			op.Help = "Leave blank to use the business profile."
+		case "message":
+			op.Label = "Prefilled message"
 		}
 	}
 	if op.Control != "select" && op.Control != "checkbox" {

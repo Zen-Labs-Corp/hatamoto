@@ -652,3 +652,23 @@ func TestOutlineSaysPlainKindNames(t *testing.T) {
 		}
 	}
 }
+
+func TestOutlineContactButtonProps(t *testing.T) {
+	n := &builder.Node{ID: "b1", T: "contactbutton", P: map[string]any{"channel": "whatsapp"}}
+	st := &outlineState{raw: map[string]string{}, nodeErrs: map[string][]string{}}
+	ch := outlineProperty(n, builder.PropInfo{Key: "channel", Type: "string", Enum: []any{"whatsapp", "call", "sms", "email"}}, "Contact button", st)
+	var got []string
+	for _, o := range ch.Options {
+		got = append(got, o.Label)
+	}
+	if strings.Join(got, ",") != "Default,WhatsApp,Phone,SMS,Email" {
+		t.Fatalf("channel options = %v", got)
+	}
+	to := outlineProperty(n, builder.PropInfo{Key: "to", Type: "string"}, "Contact button", st)
+	if to.Label != "Number / address" || !strings.Contains(to.Help, "business profile") {
+		t.Fatalf("to = %q / %q", to.Label, to.Help)
+	}
+	if msg := outlineProperty(n, builder.PropInfo{Key: "message", Type: "string"}, "Contact button", st); msg.Label != "Prefilled message" {
+		t.Fatalf("message label = %q", msg.Label)
+	}
+}
