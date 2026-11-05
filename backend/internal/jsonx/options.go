@@ -13,6 +13,7 @@
 //   - StoredLoose: Stored that also matches names case-insensitively, like
 //     the v1 decoder. For documents whose author spells keys freely (plugin
 //     manifests, entity attributes written by API clients).
+//   - ExactNumbers (exact.go): Stored with numbers inside `any` kept as raw text.
 //   - Output: API responses. Map keys are sorted, nil slices and maps are
 //     written as [] and {}.
 //   - HTMLSafe: Output plus escaping of <, > and & for JSON embedded in HTML.
