@@ -133,6 +133,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="check-form"`, Reason: "Check now, a row action of the status card and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="nobackup-form"`, Reason: "Update without a backup, a row action of the status card that opens a confirm page and is not a create form"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="apply-form"`, Reason: "Update now, a row action of the status card and not a create form"},
+	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="retry-form"`, Reason: "Retry, a row action of the status card that asks for the password first and is not a create form"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="unpin-form"`, Reason: "Unpin, a row action of the policy card and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="stats-form"`, Reason: "the Install stats switch, a settings form and not a create form"},
 	{Rule: "UI-10", File: "pages/settings/updates.html", Needle: `id="reset-stats-form"`, Reason: "Reset ID, a row action of the Install stats card and not a create form"},
