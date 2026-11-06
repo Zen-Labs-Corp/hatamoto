@@ -344,6 +344,17 @@ func TestUpdateRetryOfAVersionNotOnTheBadListIsRefused(t *testing.T) {
 	}
 }
 
+func TestUpdateRefusalOfABlockedRetry(t *testing.T) {
+	st := updater.Status{LastResult: updater.ResultOK, Decision: updater.KindBlocked, Reason: "v1.0.8 removes permission"}
+	err := updateRefusal(updateArgs{verb: "retry", version: "v1.0.8"}, st)
+	if err == nil || !strings.Contains(err.Error(), "not retrying v1.0.8: v1.0.8 removes permission") {
+		t.Fatalf("a blocked retry must fail: %v", err)
+	}
+	if err := updateRefusal(updateArgs{verb: "apply", version: "v1.0.8"}, st); err != nil {
+		t.Fatalf("apply keeps exiting 0 on a block: %v", err)
+	}
+}
+
 func TestUpdateRefusalOfASkippedRetry(t *testing.T) {
 	err := updateRefusal(updateArgs{verb: "retry", version: "v1.0.8"}, updater.Status{LastResult: updater.ResultSkipped, Reason: "busy"})
 	if err == nil || !strings.Contains(err.Error(), "v1.0.8") {

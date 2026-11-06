@@ -282,6 +282,8 @@ func updateRefusal(u updateArgs, st updater.Status) error {
 		return fmt.Errorf("not installing %s: the pre-update backup failed: %s; fix that, or install without a backup with --no-backup (HATAMOTO_UPDATE_BACKUP=0 turns it off for every update)", target, st.Reason)
 	case (u.verb == "fetch" || u.verb == "retry") && st.LastResult == updater.ResultSkipped:
 		return fmt.Errorf("not installing %s now: %s", u.version, st.Reason)
+	case u.verb == "retry" && st.Decision == updater.KindBlocked:
+		return fmt.Errorf("not retrying %s: %s", u.version, st.Reason)
 	}
 	return nil
 }
