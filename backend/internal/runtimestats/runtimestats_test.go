@@ -53,8 +53,8 @@ func TestShareZeroDenominator(t *testing.T) {
 }
 
 func TestHeapTotalSumsClasses(t *testing.T) {
-	s := build(map[string]float64{mObjects: 10, mFree: 20, mReleased: 30, mUnused: 40})
-	if s.LiveHeap != 10 || s.TotalHeap != 100 {
+	s := build(map[string]float64{mObjects: 10, mFree: 20, mUnused: 40, "/memory/classes/heap/released:bytes": 30})
+	if s.LiveHeap != 10 || s.TotalHeap != 70 {
 		t.Fatalf("heap = %d/%d", s.LiveHeap, s.TotalHeap)
 	}
 }

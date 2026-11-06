@@ -11,9 +11,9 @@ import (
 type Snapshot struct {
 	// LiveHeap is the memory occupied by heap objects.
 	LiveHeap uint64
-	// TotalHeap is the heap the runtime holds from the OS: objects, free,
-	// released and unused spans. Goroutine stacks and runtime metadata are
-	// not included.
+	// TotalHeap is the heap the runtime holds from the OS: objects, free
+	// and unused spans. Pages already returned to the OS, goroutine stacks and
+	// runtime metadata are not included.
 	TotalHeap uint64
 	// MemLimit is the soft memory limit; meaningful only when LimitSet.
 	MemLimit int64
@@ -27,7 +27,6 @@ type Snapshot struct {
 const (
 	mObjects    = "/memory/classes/heap/objects:bytes"
 	mFree       = "/memory/classes/heap/free:bytes"
-	mReleased   = "/memory/classes/heap/released:bytes"
 	mUnused     = "/memory/classes/heap/unused:bytes"
 	mLimit      = "/gc/gomemlimit:bytes"
 	mGCCPU      = "/cpu/classes/gc/total:cpu-seconds"
@@ -35,7 +34,7 @@ const (
 	mGoroutines = "/sched/goroutines:goroutines"
 )
 
-var names = []string{mObjects, mFree, mReleased, mUnused, mLimit, mGCCPU, mTotalCPU, mGoroutines}
+var names = []string{mObjects, mFree, mUnused, mLimit, mGCCPU, mTotalCPU, mGoroutines}
 
 // Read returns the current runtime snapshot.
 func Read() Snapshot { return build(fromMetrics(names, metrics.Read)) }
@@ -64,7 +63,7 @@ func fromMetrics(names []string, rd func([]metrics.Sample)) map[string]float64 {
 func build(v map[string]float64) Snapshot {
 	s := Snapshot{
 		LiveHeap:   uint64(v[mObjects]),
-		TotalHeap:  uint64(v[mObjects] + v[mFree] + v[mReleased] + v[mUnused]),
+		TotalHeap:  uint64(v[mObjects] + v[mFree] + v[mUnused]),
 		Goroutines: int(v[mGoroutines]),
 	}
 	// MaxInt64 is the runtime's "no limit"; as a float64 it rounds to 2^63.

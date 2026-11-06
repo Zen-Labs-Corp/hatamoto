@@ -114,7 +114,7 @@ func memoryRuntimeRows(rt RuntimeMemory) []memoryRow {
 	}
 	return []memoryRow{
 		{"Live heap", memorySize(rt.LiveHeap), "Memory held by objects in use."},
-		{"Total heap", memorySize(rt.TotalHeap), "Heap the runtime holds, including what it has not handed back."},
+		{"Total heap", memorySize(rt.TotalHeap), "Heap memory the runtime holds, not counting pages already returned to the OS."},
 		{"Memory limit", limit, "GOMEMLIMIT"},
 		{"GC CPU share", fmt.Sprintf("%.1f %%", rt.GCCPUShare*100), "Share of CPU time spent on garbage collection since start."},
 		{"Goroutines", thousands(rt.Goroutines), ""},
