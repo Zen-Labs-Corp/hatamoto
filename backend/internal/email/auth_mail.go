@@ -33,7 +33,17 @@ type AccessEndingData struct {
 	Email    string
 	Role     string
 	EndsOn   string
+	// DaysLeft is the whole days left, rounded up (0 and 1: within a day).
+	DaysLeft int
 	UsersURL string
+}
+
+// Remaining says how long is left: "in 3 days" or "within a day".
+func (d AccessEndingData) Remaining() string {
+	if d.DaysLeft <= 1 {
+		return "within a day"
+	}
+	return fmt.Sprintf("in %d days", d.DaysLeft)
 }
 
 // AdminAddressChangedData drives admin_address_changed.html. Address is the
@@ -107,8 +117,8 @@ func (s *Service) SendAccessEnding(ctx context.Context, to string, data AccessEn
 	if !ok {
 		subjectWho = data.Email
 	}
-	text := fmt.Sprintf("%s (%s, %s) loses access to %s in 3 days.\nChange the date or let it end: Settings > Users.\n%s\n",
-		who, data.Email, data.Role, data.SiteName, data.UsersURL)
+	text := fmt.Sprintf("%s (%s, %s) loses access to %s %s.\nChange the date or let it end: Settings > Users.\n%s\n",
+		who, data.Email, data.Role, data.SiteName, data.Remaining(), data.UsersURL)
 	return s.sendAuth(ctx, KindAccessEnding, to, data.SiteName, "Access for "+subjectWho+" ends on "+data.EndsOn, html, text)
 }
 

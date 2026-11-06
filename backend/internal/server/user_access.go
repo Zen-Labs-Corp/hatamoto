@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"math"
 	"strings"
 	"time"
 
@@ -58,6 +59,7 @@ func (s *Server) notifyAccessEnding(ctx context.Context, to string, u user.Acces
 		Email:    u.Email,
 		Role:     string(u.Role),
 		EndsOn:   u.EndsAt.Add(-time.Second).In(loc).Format("2 Jan 2006"),
+		DaysLeft: int(math.Ceil(time.Until(u.EndsAt).Hours() / 24)),
 		UsersURL: strings.TrimRight(base, "/") + adminPath + "/settings/users",
 	})
 }

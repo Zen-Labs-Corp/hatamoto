@@ -148,7 +148,7 @@ func TestAccessEndingMail(t *testing.T) {
 	svc.SetRecorder(rec)
 
 	err := svc.SendAccessEnding(context.Background(), "owner@example.test", AccessEndingData{
-		SiteName: "Acme", Name: "<b>Ann</b>", Email: "ann@example.test", Role: "editor", EndsOn: "31 Dec 2026", UsersURL: "https://acme.test/admin/settings/users",
+		SiteName: "Acme", Name: "<b>Ann</b>", Email: "ann@example.test", Role: "editor", EndsOn: "31 Dec 2026", DaysLeft: 2, UsersURL: "https://acme.test/admin/settings/users",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -158,7 +158,7 @@ func TestAccessEndingMail(t *testing.T) {
 		t.Fatalf("messages = %d, want 1", len(msgs))
 	}
 	data := msgs[0].Data
-	for _, want := range []string{"Subject: Access for <b>Ann</b> ends on 31 Dec 2026", "loses access to Acme in 3 days", "https://acme.test/admin/settings/users", "&lt;b&gt;Ann&lt;/b&gt;", "text/plain", "text/html"} {
+	for _, want := range []string{"Subject: Access for <b>Ann</b> ends on 31 Dec 2026", "loses access to Acme in 2 days", "https://acme.test/admin/settings/users", "&lt;b&gt;Ann&lt;/b&gt;", "text/plain", "text/html"} {
 		if !strings.Contains(data, want) {
 			t.Errorf("missing %q in\n%s", want, data)
 		}
@@ -192,5 +192,13 @@ func TestAccessEndingSubjectRefusesHeaderInjection(t *testing.T) {
 	}
 	if !strings.Contains(head, "Subject: Access for ann@example.test ends on 31 Dec 2026") {
 		t.Errorf("subject not the address:\n%s", head)
+	}
+}
+
+func TestAccessEndingRemaining(t *testing.T) {
+	for days, want := range map[int]string{0: "within a day", 1: "within a day", 3: "in 3 days"} {
+		if got := (AccessEndingData{DaysLeft: days}).Remaining(); got != want {
+			t.Errorf("%d days: %q, want %q", days, got, want)
+		}
 	}
 }
