@@ -105,6 +105,17 @@ type csvUploadData struct {
 	MaxRows int
 }
 
+// csvCrumbs is Settings, Import & export, CSV import, then the step. The CSV
+// wizard lives under the WordPress import tab's path but is not that page.
+func (a *Admin) csvCrumbs(step string) []Crumb {
+	trail := a.areaCrumbs("import")
+	trail = trail[:len(trail)-1]
+	if step == "" {
+		return append(trail, Crumb{Label: "CSV import"})
+	}
+	return append(trail, Crumb{Label: "CSV import", Href: a.adminPath + csvBase}, Crumb{Label: step})
+}
+
 func (a *Admin) renderCSVUpload(w http.ResponseWriter, r *http.Request, status int, selected string, errs map[string]string, summary []ui.FieldError) {
 	schemas, err := a.deps.Content.Entities.ListSchemas(r.Context())
 	if err != nil {
@@ -119,6 +130,7 @@ func (a *Admin) renderCSVUpload(w http.ResponseWriter, r *http.Request, status i
 		}
 	}
 	v := a.NewView(w, r, "Import a CSV file")
+	v.Crumbs = a.csvCrumbs("")
 	v.Data = d
 	v.Width = "narrow"
 	a.Render(w, r, status, "import/csv-upload", v)
@@ -234,6 +246,7 @@ func (a *Admin) renderCSVMap(w http.ResponseWriter, r *http.Request, status int,
 		d.Status = append(d.Status, ui.Option{Value: string(s), Label: strings.ToUpper(string(s[:1])) + string(s[1:]), Selected: s == def})
 	}
 	v := a.NewView(w, r, d.Title)
+	v.Crumbs = a.csvCrumbs(d.Title)
 	v.Data = d
 	a.Render(w, r, status, "import/csv-map", v)
 }
@@ -360,6 +373,7 @@ func (a *Admin) handleCSVDryRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := a.NewView(w, r, "Dry run")
+	v.Crumbs = a.csvCrumbs(v.Title)
 	v.Data = a.csvResult(id, st, rep, 2, false)
 	v.Width = "narrow"
 	a.Render(w, r, http.StatusOK, "import/csv-dryrun", v)
@@ -433,6 +447,7 @@ func (a *Admin) handleCSVReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := a.NewView(w, r, "CSV import report")
+	v.Crumbs = a.csvCrumbs(v.Title)
 	v.Data = a.csvResult(id, st, st.Done, 3, true)
 	v.Width = "narrow"
 	a.Render(w, r, http.StatusOK, "import/csv-report", v)
