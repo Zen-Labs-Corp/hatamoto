@@ -86,6 +86,24 @@ func (a *Admin) readAccessEnd(r *http.Request, field string, current *time.Time)
 	return &end, ""
 }
 
+// actorEnd is the signed-in owner's own access end (nil: none). Dates are
+// policy for owners without one only, so a failed lookup stops the request.
+func (a *Admin) actorEnd(r *http.Request) (*time.Time, error) {
+	id, err := uuid.Parse(userFrom(r.Context()).ID)
+	if err != nil {
+		return nil, err
+	}
+	me, err := a.deps.Manager.GetByID(r.Context(), id)
+	if err != nil {
+		return nil, err
+	}
+	return me.AccessEndsAt, nil
+}
+
+// beyondOwnEnd is the form message when an owner whose access ends would give
+// someone no end or a later one.
+const beyondOwnEnd = "Your own access ends, so choose an end date no later than yours."
+
 // accessDay is the date shown for a stored end: the last day of access.
 func (a *Admin) accessDay(ctx context.Context, t time.Time) time.Time {
 	return t.Add(-time.Second).In(a.siteLocation(ctx))
@@ -427,12 +445,23 @@ func (a *Admin) shownLink(r *http.Request, path, token string) string {
 func (a *Admin) issueInvite(w http.ResponseWriter, r *http.Request, addr string, role user.Role, accessEnds *time.Time, flash string) *auth.Invite {
 	self := userFrom(r.Context())
 	selfID, _ := uuid.Parse(self.ID)
-	token, inv, err := a.deps.Tokens.IssueInvite(r.Context(), addr, role, selfID, accessEnds)
 	d := usersData{}
 	d.InviteForm.Email, d.InviteForm.Role = addr, string(role)
 	if accessEnds != nil {
 		d.InviteForm.AccessEnds = user.AccessEndDay(*accessEnds, a.siteLocation(r.Context()))
 	}
+	own, oerr := a.actorEnd(r)
+	if oerr != nil {
+		a.logger().Error("look up the signed-in user failed", "err", oerr)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The invitation could not be created.")
+		return nil
+	}
+	if !user.MayGrant(own, accessEnds) {
+		d.InviteForm.AccessEndsErr = beyondOwnEnd
+		a.renderInvite(w, r, http.StatusUnprocessableEntity, d)
+		return nil
+	}
+	token, inv, err := a.deps.Tokens.IssueInvite(r.Context(), addr, role, selfID, accessEnds)
 	switch {
 	case errors.Is(err, user.ErrLastOwner):
 		d.InviteForm.AccessEndsErr = "Another owner without an end date is needed first."
@@ -623,6 +652,17 @@ func (a *Admin) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 		f.Errors["access-ends"] = msg
 	}
 	if len(f.Errors) == 0 && a.deps.Manager != nil {
+		own, oerr := a.actorEnd(r)
+		if oerr != nil {
+			a.logger().Error("look up the signed-in user failed", "err", oerr)
+			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The user could not be created.")
+			return
+		}
+		if !user.MayGrant(own, end) {
+			f.Errors["access-ends"] = beyondOwnEnd
+			a.renderUserForm(w, r, http.StatusUnprocessableEntity, f)
+			return
+		}
 		hash, herr := auth.HashPasswordContext(r.Context(), pw)
 		if herr != nil {
 			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The user could not be created.")
@@ -704,6 +744,22 @@ func (a *Admin) handleUserUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	in := &user.UpdateUserInput{Name: &f.Name, Role: &role}
 	changed := !sameInstant(u.AccessEndsAt, end)
+	own, oerr := a.actorEnd(r)
+	if oerr != nil {
+		a.logger().Error("look up the signed-in user failed", "err", oerr)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The user could not be saved.")
+		return
+	}
+	if changed && !user.MayChangeAccessEnd(own) {
+		f.Errors["access-ends"] = "Your own access ends, so you cannot change end dates."
+		a.renderUserForm(w, r, http.StatusUnprocessableEntity, f)
+		return
+	}
+	if role == user.RoleOwner && u.Role != user.RoleOwner && !user.MayGrant(own, end) {
+		f.Errors["role"] = "Your own access ends, so you can only make someone an owner who has an end date no later than yours."
+		a.renderUserForm(w, r, http.StatusUnprocessableEntity, f)
+		return
+	}
 	if changed {
 		in.AccessEndsAt = user.AccessEnd{Set: true, At: end}
 	}

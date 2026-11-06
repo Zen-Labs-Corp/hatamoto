@@ -234,3 +234,100 @@ func TestUsersListAccessColumn(t *testing.T) {
 		t.Errorf("a11y: %s", strings.Join(issues, "; "))
 	}
 }
+
+// limitedOwner gives the signed-in owner an end date ten days out.
+func limitedOwner(t *testing.T) (*ownerRig, time.Time) {
+	t.Helper()
+	g, _ := accessRigWith(t)
+	own := time.Now().Add(10 * 24 * time.Hour).UTC()
+	g.mgr.users[g.owner.ID].AccessEndsAt = &own
+	return g, own
+}
+
+func TestLimitedOwnerCannotChangeOwnEndDate(t *testing.T) {
+	t.Parallel()
+
+	g, own := limitedOwner(t)
+	path := "/admin/settings/users/" + g.owner.ID.String()
+	for name, form := range map[string]url.Values{
+		"clear":  {"name": {"Olga"}, "role": {"owner"}, "clear_access": {"1"}},
+		"empty":  {"name": {"Olga"}, "role": {"owner"}},
+		"extend": {"name": {"Olga"}, "role": {"owner"}, "access_ends": {futureDay(60)}},
+	} {
+		if rec := g.do("POST", path, "owner-token", form, nil); rec.Code == 303 {
+			t.Errorf("%s: saved", name)
+		}
+		if got := g.mgr.users[g.owner.ID].AccessEndsAt; got == nil || !got.Equal(own) {
+			t.Fatalf("%s: end is now %v", name, got)
+		}
+	}
+	other := "/admin/settings/users/" + g.editor.ID.String()
+	if rec := g.do("POST", other, "owner-token", url.Values{"name": {"Ed"}, "role": {"editor"}, "access_ends": {futureDay(5)}}, nil); rec.Code == 303 {
+		t.Error("a limited owner set another user's date")
+	}
+}
+
+func TestLimitedOwnerCannotCreateOrPromoteBeyondOwnEnd(t *testing.T) {
+	t.Parallel()
+
+	g, _ := limitedOwner(t)
+	pw := func(email, day string) url.Values {
+		f := url.Values{"email": {email}, "name": {"N"}, "role": {"editor"}, "password": {"a-long-enough-password"}}
+		if day != "" {
+			f.Set("access_ends", day)
+		}
+		return f
+	}
+	invite := func(email, day string) url.Values {
+		f := url.Values{"email": {email}, "role": {"editor"}}
+		if day != "" {
+			f.Set("access_ends", day)
+		}
+		return f
+	}
+	has := func(email string) bool {
+		for _, u := range g.mgr.users {
+			if u.Email == email {
+				return true
+			}
+		}
+		return false
+	}
+	for name, tc := range map[string]struct{ path, email string }{
+		"add no date": {"/admin/settings/users", "a@example.com"},
+	} {
+		if rec := g.do("POST", tc.path, "owner-token", pw(tc.email, ""), nil); rec.Code == 303 || has(tc.email) {
+			t.Errorf("%s: created", name)
+		}
+	}
+	if rec := g.do("POST", "/admin/settings/users", "owner-token", pw("b@example.com", futureDay(40)), nil); rec.Code == 303 || has("b@example.com") {
+		t.Error("add later date: created")
+	}
+	if rec := g.do("POST", "/admin/settings/users", "owner-token", pw("c@example.com", futureDay(3)), nil); rec.Code != 303 || !has("c@example.com") {
+		t.Errorf("add earlier date: %d", rec.Code)
+	}
+	if rec := g.do("POST", "/admin/settings/users/invite", "owner-token", invite("d@example.com", ""), nil); rec.Code == 303 || len(g.tokens.invites) != 0 {
+		t.Error("invite no date: issued")
+	}
+	if rec := g.do("POST", "/admin/settings/users/invite", "owner-token", invite("e@example.com", futureDay(40)), nil); rec.Code == 303 || len(g.tokens.invites) != 0 {
+		t.Error("invite later date: issued")
+	}
+	if rec := g.do("POST", "/admin/settings/users/invite", "owner-token", invite("f@example.com", futureDay(3)), nil); rec.Code != 303 || len(g.tokens.invites) != 1 {
+		t.Errorf("invite earlier date: %d", rec.Code)
+	}
+	// Promoting an editor who has no end date.
+	path := "/admin/settings/users/" + g.editor.ID.String()
+	if rec := g.do("POST", path, "owner-token", url.Values{"name": {"Ed"}, "role": {"owner"}}, nil); rec.Code == 303 || g.mgr.users[g.editor.ID].Role != user.RoleEditor {
+		t.Error("promoted a user with no end date")
+	}
+}
+
+func TestOpenOwnerStillSetsDates(t *testing.T) {
+	t.Parallel()
+
+	g, _ := accessRigWith(t)
+	path := "/admin/settings/users/" + g.editor.ID.String()
+	if rec := g.do("POST", path, "owner-token", url.Values{"name": {"Ed"}, "role": {"editor"}, "access_ends": {futureDay(90)}}, nil); rec.Code != 303 {
+		t.Fatalf("%d", rec.Code)
+	}
+}

@@ -47,6 +47,21 @@ func ValidateAccessEnd(t, now time.Time) error {
 	return nil
 }
 
+// ErrAccessEndNotAllowed is returned when an actor whose own access ends tries
+// to widen anyone's access past their own end.
+var ErrAccessEndNotAllowed = errors.New("your own access ends, so you cannot change end dates or give anyone access beyond yours")
+
+// MayGrant reports whether an actor whose own access ends at actorEnd (nil: no
+// end) may leave a user with the end date end: always when the actor has no
+// end, otherwise only a date that is set and not later than the actor's own.
+func MayGrant(actorEnd, end *time.Time) bool {
+	return actorEnd == nil || (end != nil && !end.After(*actorEnd))
+}
+
+// MayChangeAccessEnd reports whether the actor may set, extend or clear an
+// existing user's end date: only someone whose own access has no end.
+func MayChangeAccessEnd(actorEnd *time.Time) bool { return actorEnd == nil }
+
 // EnsureOpenOwner takes the owner lock and returns ErrLastOwner unless an
 // owner other than excluding has no end date. Call it inside the transaction
 // that gives an owner an end date.
