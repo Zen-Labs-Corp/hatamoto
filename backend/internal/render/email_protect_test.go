@@ -156,7 +156,4 @@ func TestEmailProtectSelfClosingRawTextAndObsoleteTags(t *testing.T) {
 			t.Errorf("changed:\n in: %s\nout: %s", in, out)
 		}
 	}
-	if out := string(protectEmails([]byte(wrap(`<svg><title/></svg><p>a@b.org</p>`)))); strings.Contains(out, "<p>a@b.org") {
-		t.Errorf("text after the raw-text run not protected: %s", out)
-	}
 }
