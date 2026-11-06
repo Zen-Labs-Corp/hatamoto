@@ -93,12 +93,13 @@ func TestImageDecorativeAndSrcset(t *testing.T) {
 
 func TestIslandsEmbedded(t *testing.T) {
 	ws := widgets()
-	for _, k := range []string{"tabs", "video"} {
+	for _, k := range []string{"tabs", "video", "form"} {
 		is, ok := ws.island[k]
 		if !ok {
 			t.Fatalf("%s has no island", k)
 		}
-		if n := len(is.body); n == 0 || n > 1536 {
+		// the form island carries logic and submit handling: its budget is gzip
+		if n := len(is.body); n == 0 || (k != "form" && n > 1536) || (k == "form" && gzipLen(t, string(is.body)) > 1536) {
 			t.Errorf("%s island is %d bytes", k, n)
 		}
 		for _, bad := range []string{"eval(", "innerHTML", "document.write", "new Function"} {
@@ -108,7 +109,7 @@ func TestIslandsEmbedded(t *testing.T) {
 		}
 	}
 	// The lightbox island belongs to image and gallery, not to a widget kind.
-	if _, ok := ws.island[lightboxKind]; !ok || len(ws.island) != 3 {
-		t.Errorf("islands = %d, only tabs, video and the lightbox have one", len(ws.island))
+	if _, ok := ws.island[lightboxKind]; !ok || len(ws.island) != 4 {
+		t.Errorf("islands = %d, only tabs, video, form and the lightbox have one", len(ws.island))
 	}
 }

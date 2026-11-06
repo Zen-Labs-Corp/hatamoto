@@ -12,7 +12,7 @@ import (
 // The all-widgets page without tabs/video ships no script at all (exact, not a tolerance).
 func TestBudgetPublicBuilderJS(t *testing.T) {
 	d := loadWidgetDoc(t, "all")
-	noIslands := &builder.Doc{V: 2, Nodes: withoutKinds(d.Nodes, "tabs", "video")}
+	noIslands := &builder.Doc{V: 2, Nodes: withoutKinds(d.Nodes, "tabs", "video", "form")}
 	n := scriptCount(renderDoc(t, jsLessLayers(), noIslands, false))
 	if n != 0 {
 		t.Errorf("page without tabs/video has %d scripts, want 0", n)
