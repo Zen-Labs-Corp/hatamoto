@@ -398,6 +398,17 @@ func rolledBackMessage(st UpdatesStatus, running string) string {
 	return endSentence(fmt.Sprintf("Update rolled back: %s: %s", target, clip(st.Reason, bannerReasonRunes)))
 }
 
+// rolledBackHead is the headline of the rolled-back callout on the Updates page.
+func rolledBackHead(target, running string) string {
+	if target == "" {
+		target = "the update"
+	}
+	if running == "" {
+		running = "the previous version"
+	}
+	return fmt.Sprintf("Update rolled back: %s failed its health check and the site went back to %s.", target, running)
+}
+
 // updatesNow is the clock of the Updates page (tests pin it).
 var updatesNow = time.Now
 
@@ -424,6 +435,8 @@ type updatesData struct {
 	CanCheck                 bool
 	ApplyTarget              string
 	RetryTarget              string // set in the rolled_back state: the version "Retry" installs
+	RolledBackHead           string // set in the rolled_back state: what was rolled back, to which version
+	RolledBackReason         string // set in the rolled_back state: why, "" when unknown
 	NoBackupTarget           string // set in the backup_failed state: the version "Update without a backup" installs
 	Applying                 bool
 	Live                     updatesLive // the update in progress, shown and polled while Live.On
@@ -900,6 +913,10 @@ func (a *Admin) fillUpdates(d *updatesData, st UpdatesState, in *updatesInput, l
 	d.ApplyTarget = st.ApplyTarget()
 	d.NoBackupTarget = st.ApplyWithoutBackupTarget()
 	d.RetryTarget = st.RetryTarget()
+	if cur.Decision == updRolledBack {
+		d.RolledBackHead = rolledBackHead(cur.Target, st.Running)
+		d.RolledBackReason = strings.TrimSpace(cur.Reason)
+	}
 	d.Pin = st.Pin
 
 	if in == nil {
@@ -935,6 +952,7 @@ func (a *Admin) fillUpdates(d *updatesData, st UpdatesState, in *updatesInput, l
 		// maintenance window"): the row says Updating and the live panel replaces the note.
 		d.Status = ui.Badge{Label: withVersion("Updating", live.Target), Kind: "info"}
 		d.StatusNote, d.ApplyTarget, d.NoBackupTarget, d.RetryTarget = "", "", "", ""
+		d.RolledBackHead, d.RolledBackReason = "", ""
 	}
 	d.StatusKind = "info"
 	if k := d.Status.Kind; k == "warning" || k == "danger" {

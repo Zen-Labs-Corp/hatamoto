@@ -157,10 +157,10 @@ func TestUpdatesPageStates(t *testing.T) {
 		{"rolled_back", func(f *fakeUpdates) {
 			f.state.Status.Decision, f.state.Status.Target = "rolled_back", "v1.4.2"
 			f.state.Status.Reason = "smoke failed: GET / returned 500"
-		}, []string{"Rolled back v1.4.2", `<span id="updates-status-note">smoke failed: GET / returned 500</span>`}, []string{"Rolled back v1.4.2:"}},
+		}, []string{"Rolled back v1.4.2", `<p id="updates-status-note">Update rolled back: v1.4.2 failed its health check and the site went back to v1.4.1.</p>`, "<p>Reason: smoke failed: GET / returned 500</p>", "Fixed the cause (a plugin or theme)?", "Re-runs the health check."}, []string{"Rolled back v1.4.2:"}},
 		{"rolled_back_no_reason", func(f *fakeUpdates) {
 			f.state.Status.Decision, f.state.Status.Target, f.state.Status.Reason = "rolled_back", "v1.4.2", ""
-		}, []string{`id="updates-status"`, `hm-callout--warning`, `<p class="hm-callout__title">Rolled back v1.4.2</p>`}, []string{"updates-status-note"}},
+		}, []string{`id="updates-status"`, `hm-callout--warning`, "went back to v1.4.1.", "Fixed the cause (a plugin or theme)?"}, []string{"Reason:", `<p class="hm-callout__title">Rolled back v1.4.2</p>`}},
 		{"off", func(f *fakeUpdates) { f.state.Mode = "off" }, []string{"Updates are off"}, nil},
 		{"notify", func(f *fakeUpdates) {
 			f.state.Mode = "notify"
