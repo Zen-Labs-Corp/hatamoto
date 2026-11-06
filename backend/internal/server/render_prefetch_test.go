@@ -40,24 +40,46 @@ func TestPrefetchRequestServedNormally(t *testing.T) {
 	}
 }
 
-// A custom admin address is a secret: the public rules never print it, so a
-// visitor cannot read it from a page (the scanner tests cover the 404s).
+// A custom admin address is a secret: the public rules never print it. The
+// block is one constant, so its bytes are the same on the home page and on a
+// 404, under a custom address, after the address changes, and under the
+// default address (the scanner tests cover the 404s themselves).
 func TestPrefetchRulesNeverPrintCustomAdminAddress(t *testing.T) {
 	h, s, _ := swapServer(t)
-	for _, addr := range []string{swapStart, strongCandidate(t, s)} {
+	blockOf := func(h http.Handler, path string) string {
+		t.Helper()
 		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
-		body := rec.Body.String()
-		if !strings.Contains(body, `type="speculationrules"`) {
-			t.Fatal("page lacks the rules block; test premise broken")
+		h.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
+		b := speculationRulesRe.FindString(rec.Body.String())
+		if b == "" {
+			t.Fatalf("%s lacks the rules block; test premise broken", path)
 		}
-		if strings.Contains(body, addr) {
-			t.Errorf("public page prints the admin address %s", addr)
-		}
-		if _, err := (&serverAddress{s: s}).Apply(context.Background(), admin.ApplyRequest{Path: addr, By: "Ana"}); err != nil {
-			t.Fatal(err)
+		return b
+	}
+	want := blockOf(h, "/")
+	check := func(label string, h http.Handler, addrs ...string) {
+		t.Helper()
+		for _, path := range []string{"/", "/no-such-page"} {
+			got := blockOf(h, path)
+			if got != want {
+				t.Errorf("%s %s: block differs:\n%s\nwant\n%s", label, path, got, want)
+			}
+			for _, a := range addrs {
+				if strings.Contains(got, a) {
+					t.Errorf("%s %s: block prints the admin address %s", label, path, a)
+				}
+			}
 		}
 	}
+	next := strongCandidate(t, s)
+	check("custom", h, swapStart, next)
+	if _, err := (&serverAddress{s: s}).Apply(context.Background(), admin.ApplyRequest{Path: next, By: "Ana"}); err != nil {
+		t.Fatal(err)
+	}
+	check("changed", h, swapStart, next)
+
+	_, pub, _ := tableChains(t) // no custom address on this site
+	check("default", pub, swapStart, next)
 }
 
 // A prefetch of a missing path writes no 404-log entry; a visit does.

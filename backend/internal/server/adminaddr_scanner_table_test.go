@@ -142,7 +142,8 @@ var speculationRulesRe = regexp.MustCompile(`<script type="speculationrules">.*?
 
 // maskSpeculationRules hides the public prefetch block, a constant that names
 // "/admin/*" and would otherwise be rewritten by the echoed-path swap when the
-// probe is /admin. It carries no configured address (TestPrefetchRulesNeverPrintCustomAdminAddress).
+// probe is /admin. Its bytes are pinned across addresses and pages by
+// TestPrefetchRulesNeverPrintCustomAdminAddress, so the mask hides no difference.
 func maskSpeculationRules(s string) string {
 	return speculationRulesRe.ReplaceAllString(s, "<speculationrules>")
 }
