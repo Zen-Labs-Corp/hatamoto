@@ -46,11 +46,47 @@ func TestFormWidget(t *testing.T) {
 			t.Errorf("form: missing %q\n%s", want, pub)
 		}
 	}
-	if strings.Contains(pub, "data-hm-") {
-		t.Error("public form carries data-hm-*")
+	if strings.Contains(pub, "data-hm-form=") {
+		t.Error("public form carries data-hm-form (hm.js would hijack the submit)")
+	}
+	for _, want := range []string{`data-hm-form-logic`, `data-hm-error-for="email"`, `id="hm-form-contact-email-error"`, `hm-form__field--full`} {
+		if !strings.Contains(pub, want) {
+			t.Errorf("form: missing %q", want)
+		}
 	}
 	if can := renderWithData(t, nil, v, true); !strings.Contains(can, `data-hm-form="contact"`) {
 		t.Error("canvas form lacks its marker")
+	}
+}
+
+func TestFormWidgetNewTypes(t *testing.T) {
+	v := minimalView()
+	v.Doc = dataDoc(t, "form")
+	v.Forms = map[string]FormView{"contact": {Slug: "contact", Name: "C", Fields: []FormField{
+		{Name: "a", Label: "A", Type: "text", Width: "half"},
+		{Name: "b", Label: "B", Type: "text", Width: "third", LogicField: "a", LogicOp: "is", LogicValue: `x"y`},
+		{Type: "heading", Text: "Head <b>"},
+		{Type: "paragraph", Text: "Para"},
+		{Type: "divider"},
+		{Name: "src", Type: "hidden", Hidden: true, HiddenValue: "v1"},
+		{Name: "ok", Label: "I agree", Type: "consent", Required: true, Link: "/privacy"},
+		{Name: "bad", Label: "Bad", Type: "consent", Link: "javascript:alert(1)"},
+	}}}
+	pub := renderWithData(t, nil, v, false)
+	for _, want := range []string{
+		`hm-form__field--half`, `hm-form__field--third`,
+		`data-hm-logic-field="a" data-hm-logic-op="is" data-hm-logic-value="x&#34;y"`,
+		`<h3 class="hm-form__heading">Head &lt;b&gt;</h3>`, `<p class="hm-form__text">Para</p>`, `<hr class="hm-form__divider">`,
+		`<input type="hidden" name="src" value="v1">`,
+		`<label class="hm-form__consent"><input type="checkbox" id="hm-form-contact-ok" name="ok" value="Yes" required> <span><a href="/privacy" rel="noopener">I agree</a>`,
+		`data-hm-error-for="ok"`, `data-hm-error-for="b"`,
+	} {
+		if !strings.Contains(pub, want) {
+			t.Errorf("missing %q\n%s", want, pub)
+		}
+	}
+	if strings.Contains(pub, "javascript:") {
+		t.Error("unsafe consent link rendered")
 	}
 }
 
