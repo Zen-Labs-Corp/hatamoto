@@ -385,6 +385,9 @@ func (s *Server) fillCappedArchive(ctx context.Context, rr *routeResult, cfg *en
 		return fmt.Errorf("list %s: %w", rr.Archive.Path, err)
 	}
 	v.Archive, v.Pagination = av, nil
+	if av.Group != nil {
+		v.Breadcrumb = crumbs(s.groupCrumbs(ctx, cfg, rr, av.Group))
+	}
 	v.Page.CanonicalURL = v.BaseURL + rr.CanonicalURL
 	if v.Page.Name == "" {
 		v.Page.Name = v.Page.Title
@@ -639,4 +642,17 @@ func pluralLabel(name string) string {
 		return name[:len(name)-1] + "ies"
 	}
 	return name + "s"
+}
+
+// groupCrumbs is the group page's trail: Home > archive > group.
+func (s *Server) groupCrumbs(ctx context.Context, cfg *entity.SchemaURLConfig, rr *routeResult, g *render.ArchiveGroupView) []BreadcrumbItem {
+	in := crumbInput{
+		Home:    BreadcrumbItem{Href: s.urlSnapshot(ctx).WithLocale(rr.Locale, "/")},
+		Archive: &BreadcrumbItem{Label: firstNonEmpty(cfg.ArchiveCrumbLabel, firstNonEmpty(cfg.ArchiveTitle, cfg.Name)), Href: s.urlSnapshot(ctx).WithLocale(rr.Locale, cfg.ArchivePath)},
+		Entry:   BreadcrumbItem{Label: g.Label, Href: g.URL},
+	}
+	if set := s.seoSettings(ctx); set != nil {
+		in.Cfg = set.Breadcrumbs
+	}
+	return shapeCrumbs(in)
 }

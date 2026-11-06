@@ -123,6 +123,22 @@ func TestArchiveCappedIntegration(t *testing.T) {
 	if code, _, _ = get(base + "/v0"); code != 200 {
 		t.Errorf("group v0 (one entry) = %d, want 200", code)
 	}
+	// Capped archives have one page; entries move to their group page anchor.
+	for path, want := range map[string]string{base + "?page=2": base, base + "/v1?page=2": base + "/v1"} {
+		if code, _, h := get(path); code != 301 || h.Get("Location") != want {
+			t.Errorf("GET %s = %d Location %q, want 301 %q", path, code, h.Get("Location"), want)
+		}
+	}
+	if code, _, h := get(base + "/e1002"); code != 301 || h.Get("Location") != base+"/v1#L1002" {
+		t.Errorf("entry = %d Location %q, want 301 %q", code, h.Get("Location"), base+"/v1#L1002")
+	}
+	// The group page's trail (the visible markup is the theme layout's).
+	_, body, _ = get(base + "/v1")
+	for _, want := range []string{`"name":"Home","position":1`, `"name":"Items","position":2`, `"name":"v1.x","position":3`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("group page BreadcrumbList: missing %s", want)
+		}
+	}
 	if code, _, _ = get(base + "/v7"); code != 404 {
 		t.Errorf("empty group v7 = %d, want 404", code)
 	}
