@@ -282,10 +282,8 @@ func validateArchiveGroups(raw jsontext.Value, archivePath string) error {
 	if strings.Count(g.Path, groupNumberToken) != 1 {
 		return settingsErr("archive_groups.path", "settings.archive_groups.path must contain %s exactly once", groupNumberToken)
 	}
-	for _, r := range strings.Replace(g.Path, groupNumberToken, "", 1) {
-		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '.' || r == '-') {
-			return settingsErr("archive_groups.path", "settings.archive_groups.path may only use letters, digits, '_', '.', '-' and %s", groupNumberToken)
-		}
+	if !validGroupPath(g.Path) {
+		return settingsErr("archive_groups.path", "settings.archive_groups.path may only use letters, digits, '_', '.', '-' and %s", groupNumberToken)
 	}
 	if g.Divisor < 1 {
 		return settingsErr("archive_groups.divisor", "settings.archive_groups.divisor must be at least 1")

@@ -125,6 +125,8 @@ func TestArchiveGroupSettingsDecodeLenient(t *testing.T) {
 		{"bad field type", `{"archive_limit":-3,"archive_groups":{"attribute":"sort","divisor":"5","path":"g{n}"}}`, 0, false},
 		{"array", `{"archive_groups":[1]}`, 0, false},
 		{"null", `{"archive_groups":null,"archive_limit":null}`, 0, false},
+		{"path with slash disabled", `{"archive_groups":{"attribute":"sort","divisor":5,"path":"/g{n}"}}`, 0, false},
+		{"bad anchor attribute disabled", `{"archive_groups":{"attribute":"sort","divisor":5,"path":"g{n}","anchor_attribute":"a b"}}`, 0, false},
 		{"invalid path disabled", `{"archive_groups":{"attribute":"sort","divisor":5,"path":"g"}}`, 0, false},
 	}
 	for _, tc := range tests {

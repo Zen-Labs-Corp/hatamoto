@@ -65,9 +65,24 @@ func (g *ArchiveGroupsSettings) UnmarshalJSON(b []byte) error {
 const groupNumberToken = "{n}"
 
 // Enabled reports whether the settings describe a usable grouping: a valid
-// attribute key, a divisor of at least 1 and a path with exactly one {n}.
+// attribute key, a divisor of at least 1 and a path with exactly one {n} and
+// no characters outside letters, digits, '_', '.' and '-'. The write check
+// uses the same path rule.
 func (g ArchiveGroupsSettings) Enabled() bool {
-	return ValidAttrKey(g.Attribute) && g.Divisor >= 1 && strings.Count(g.Path, groupNumberToken) == 1
+	return ValidAttrKey(g.Attribute) && g.Divisor >= 1 && validGroupPath(g.Path) &&
+		(g.AnchorAttribute == "" || ValidAttrKey(g.AnchorAttribute))
+}
+
+func validGroupPath(path string) bool {
+	if strings.Count(path, groupNumberToken) != 1 {
+		return false
+	}
+	for _, r := range strings.Replace(path, groupNumberToken, "", 1) {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '.' || r == '-') {
+			return false
+		}
+	}
+	return true
 }
 
 // Bucket returns the group number of an entry with the given attributes:
