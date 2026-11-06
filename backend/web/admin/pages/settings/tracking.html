@@ -31,7 +31,7 @@
 {{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" (or (and .Enabled "Save") "Turn on") "PrimaryAttrs" (attrmap "form" (printf "tracking-%s-form" .Key))}}
 {{end}}{{end}}{{end}}
 {{define "tracking-card"}}{{with .R}}<li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-{{.Key}}" aria-labelledby="tracking-{{.Key}}-name">
-<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-{{.Key}}-name">{{.Label}}</h3>{{if or .Value .Source}}<p class="hm-tagcard__meta">{{with .Value}}<code class="hm-tagcard__id">{{.}}</code>{{end}}{{if and .Value (not .Enabled)}}<span>Off</span>{{end}}{{with .Source}}<span>{{.}}</span>{{end}}</p>{{end}}</div>
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-{{.Key}}-name">{{.Label}}</h3>{{if or .Value .Source}}<p class="hm-tagcard__meta">{{if .Enabled}}{{template "hm/badge" dict "Label" "On" "Kind" "success"}}{{else if .Value}}{{template "hm/badge" dict "Label" "Off" "Kind" "muted"}}{{end}}{{with .Value}}<code class="hm-tagcard__id">{{.}}</code>{{end}}{{with .Source}}<span>{{.}}</span>{{end}}</p>{{end}}</div>
 <p class="hm-plugincard__desc hm-tagcard__desc">{{.Summary}}</p>
 <div class="hm-plugincard__foot">
 <span class="hm-tagcard__actions">{{if .Value}}{{template "hm/button" dict "Label" "Edit" "Size" "sm" "Variant" "ghost" "Href" .Href "AriaLabel" (printf "Edit %s" .Label) "Attrs" (attrmap "data-hm-open" (printf "tracking-%s-dialog" .Key))}}

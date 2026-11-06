@@ -7,7 +7,7 @@ import (
 
 // Settings > Tracking (tag directory): cards carry no category tile or label (the group heading
 // says it), the ID sits in mono under the name, the footer holds only actions, the shared card
-// links Cookie consent and its switch label is positive, and the per-tag page uses the compact
+// links Cookie consent, an on tag carries a green On badge under its name, and its switch label is positive, and the per-tag page uses the compact
 // width so the ID field is not page-wide.
 func TestTrackingDirectoryQuietCards(t *testing.T) {
 	t.Parallel()
@@ -18,7 +18,9 @@ func TestTrackingDirectoryQuietCards(t *testing.T) {
 			t.Errorf("tracking.html still has %q", bad)
 		}
 	}
-	for _, want := range []string{"hm-tagcard__meta", `"DescriptionHTML" .AllNote`, "Skip tags for signed-in users"} {
+	// A tag that is on shows a green On badge beside its ID, one that is set up but off a grey Off badge.
+	for _, want := range []string{"hm-tagcard__meta", `"DescriptionHTML" .AllNote`, "Skip tags for signed-in users",
+		`{{if .Enabled}}{{template "hm/badge" dict "Label" "On" "Kind" "success"}}`, `{{template "hm/badge" dict "Label" "Off" "Kind" "muted"}}`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("tracking.html lacks %q", want)
 		}
