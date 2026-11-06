@@ -435,6 +435,7 @@ POST /admin/settings/updates -> admin.(*Admin).handleUpdatesSave-fm
 POST /admin/settings/updates/apply -> admin.(*Admin).handleUpdatesApply-fm
 POST /admin/settings/updates/apply-without-backup -> admin.(*Admin).handleUpdatesApplyWithoutBackup-fm
 POST /admin/settings/updates/check -> admin.(*Admin).handleUpdatesCheck-fm
+POST /admin/settings/updates/retry -> admin.(*Admin).handleUpdatesRetry-fm
 POST /admin/settings/updates/stats -> admin.(*Admin).handleStatsSwitch-fm
 POST /admin/settings/updates/stats/choice -> admin.(*Admin).handleStatsChoice-fm
 POST /admin/settings/updates/stats/reset -> admin.(*Admin).handleStatsReset-fm
