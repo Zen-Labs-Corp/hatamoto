@@ -121,7 +121,7 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 	if prefixed && snap.Locales().IsHidden(locale) && !hiddenLocalesServed(ctx) {
 		// A hidden locale is not public yet: its prefix answers like any
 		// unknown path. Only the admin preview gets past this.
-		if deps.log404 != nil && r != nil {
+		if deps.log404 != nil && r != nil && !isPrefetch(r) {
 			deps.log404(fullPath, r.Referer(), r.UserAgent())
 		}
 		return &routeResult{NotFound: true, Locale: locale, Rest: path}, pageOutcome{Status: http.StatusNotFound, NotFound: true}, nil
@@ -143,7 +143,7 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 		return fail()
 	}
 	if res == nil {
-		if deps.log404 != nil && r != nil {
+		if deps.log404 != nil && r != nil && !isPrefetch(r) {
 			deps.log404(fullPath, r.Referer(), r.UserAgent())
 		}
 		return notFound, pageOutcome{Status: http.StatusNotFound, NotFound: true}, nil

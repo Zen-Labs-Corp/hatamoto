@@ -271,3 +271,29 @@ func TestSameHostOnlyRefusesExternalTargets(t *testing.T) {
 		t.Errorf("update: %v", err)
 	}
 }
+
+// A prefetch is not a visit: lookups under WithoutCounting add no hit, an
+// ordinary lookup of the same rule does.
+func TestWithoutCountingSkipsHit(t *testing.T) {
+	exact := &Redirect{SourcePath: "/old", TargetURL: "/new"}
+	wild := &Redirect{SourcePath: "/docs/*", TargetURL: "/d/$1"}
+	store := newFakeStore(exact, wild)
+	s := NewServiceWithStore(store, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	ctx := context.Background()
+	quiet := WithoutCounting(ctx)
+
+	if s.CheckRedirect(quiet, "/old") == nil || s.CheckRedirectPattern(quiet, "/docs/a") == nil {
+		t.Fatal("rules must still match")
+	}
+	s.Close() // flushes queued hits
+	if len(store.hits) != 0 {
+		t.Fatalf("prefetch counted hits: %v", store.hits)
+	}
+
+	s = NewServiceWithStore(store, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	s.CheckRedirect(ctx, "/old")
+	s.Close()
+	if store.hits[exact.ID] != 1 {
+		t.Fatalf("ordinary lookup must count: %v", store.hits)
+	}
+}

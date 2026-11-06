@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/redirect"
 )
 
 // Only the strict policy names the keyword; the permissive one already allows
@@ -22,10 +23,10 @@ func TestRenderCSPInlineSpeculationRules(t *testing.T) {
 	}
 }
 
-// A browser prefetch is an ordinary GET with Sec-Purpose: prefetch. Server-side
-// counting reads only the Referer host of an AI assistant (render_ai_referral.go,
-// own-site links never match) and pageviews come from the JS beacon, which a
-// prefetch does not run, so there is nothing to skip: the response is the same.
+// A browser prefetch is an ordinary GET with Sec-Purpose: prefetch. The
+// response is the same as for a visit; what it must not do is count as one
+// (redirect hits and the 404 log, see TestPrefetchSkipsCounters). Pageviews
+// come from the JS beacon, which a prefetch does not run.
 func TestPrefetchRequestServedNormally(t *testing.T) {
 	f := newRenderFixture(t)
 	f.next = okPage("About")
@@ -56,5 +57,41 @@ func TestPrefetchRulesNeverPrintCustomAdminAddress(t *testing.T) {
 		if _, err := (&serverAddress{s: s}).Apply(context.Background(), admin.ApplyRequest{Path: addr, By: "Ana"}); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+// A prefetch of a missing path writes no 404-log entry; a visit does.
+func TestPrefetchSkipsCounters(t *testing.T) {
+	f := newRenderFixture(t)
+	f.next = func() (*routeResult, pageOutcome, error) {
+		return &routeResult{NotFound: true}, pageOutcome{Status: 404, NotFound: true}, nil
+	}
+	for _, v := range []string{"prefetch", "prefetch;anonymous-client-ip"} {
+		f.get("/gone", func(r *http.Request) { r.Header.Set("Sec-Purpose", v) })
+	}
+	if len(f.notFound) != 0 {
+		t.Fatalf("prefetch logged 404s: %v", f.notFound)
+	}
+	f.get("/gone")
+	if len(f.notFound) != 1 {
+		t.Fatalf("a visit must log the 404: %v", f.notFound)
+	}
+}
+
+// The middleware marks a prefetch request so redirect lookups do not count it.
+func TestPrefetchMiddlewareMarksContext(t *testing.T) {
+	var counted bool
+	h := prefetchMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		counted = !redirect.IsUncounted(r.Context())
+	}))
+	req := httptest.NewRequest("GET", "/old", nil)
+	h.ServeHTTP(httptest.NewRecorder(), req)
+	if !counted {
+		t.Error("a visit must count")
+	}
+	req.Header.Set("Sec-Purpose", "prefetch")
+	h.ServeHTTP(httptest.NewRecorder(), req)
+	if counted {
+		t.Error("a prefetch must not count")
 	}
 }

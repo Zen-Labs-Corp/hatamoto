@@ -62,7 +62,7 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 	s.renderHandlers = h
 	overrideAssets(h.preview, s.renderEngine)
 	capture := func(next http.Handler) http.Handler {
-		return s.agentCaptureMiddleware(s.aiReferralMiddleware(next))
+		return prefetchMiddleware(s.agentCaptureMiddleware(s.aiReferralMiddleware(next)))
 	}
 	// Always mounted, so the route (and its reserved /fonts prefix) exists
 	// even when no store is wired: it then answers 404.
