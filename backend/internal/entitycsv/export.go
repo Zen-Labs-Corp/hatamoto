@@ -22,6 +22,10 @@ const ArraySep = "|"
 // KeyNamespace is the import key prefix of CSV rows of one type: csv:<type>:.
 func KeyNamespace(typeSlug string) string { return "csv:" + typeSlug + ":" }
 
+// IDKeyPrefix starts the key of a row exported for an entity that has no CSV
+// key: id:<uuid>. On import it updates the entity of that type with that id.
+const IDKeyPrefix = "id:"
+
 // ExportOptions tune WriteCSV.
 type ExportOptions struct {
 	// Type is the slug of the exported type; it names the key namespace.
@@ -93,7 +97,7 @@ func row(cols []Column, e *entity.Entity, opt ExportOptions) []string {
 func fixedCell(id string, e *entity.Entity, opt ExportOptions) string {
 	switch id {
 	case ColKey:
-		return KeyOf(e.Metadata, opt.Type)
+		return ExportKey(e.Metadata, opt.Type, e.ID)
 	case ColName:
 		return e.Name
 	case ColSlug:
@@ -118,6 +122,15 @@ func fixedCell(id string, e *entity.Entity, opt ExportOptions) string {
 		return e.ID.String()
 	}
 	return ""
+}
+
+// ExportKey is the key an export writes for an entity: its CSV key, or else
+// id:<uuid>, which an import resolves to this entity and never creates one.
+func ExportKey(metadata jsontext.Value, typeSlug string, id uuid.UUID) string {
+	if k := KeyOf(metadata, typeSlug); k != "" {
+		return k
+	}
+	return IDKeyPrefix + id.String()
 }
 
 // KeyOf returns the CSV key of an entity's metadata without the csv:<type>:

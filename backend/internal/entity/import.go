@@ -32,7 +32,13 @@ type ImportItem struct {
 	// Key is the idempotency key, unique per source entity (for example
 	// "wp:post:123"). An item whose key was imported before updates that
 	// entity in place instead of creating another.
-	Key        string
+	Key string
+	// TargetID names the existing entity of SchemaSlug to update, instead of
+	// finding it by Key. It never creates: an unknown id, or one of another
+	// type, fails the item. The update is partial (see Partial) and the stored
+	// metadata, including its own import key, is kept. Key must still be set
+	// and unique in the batch.
+	TargetID   *uuid.UUID
 	SchemaSlug string
 	Name       string
 	Slug       string // generated from Name when empty
@@ -281,14 +287,25 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 	if err != nil {
 		return nil, false, fmt.Errorf("schema %q: %w", it.SchemaSlug, err)
 	}
-	existing, err := r.store.GetByImportKey(ctx, it.Key)
-	switch {
-	case errors.Is(err, ErrEntityNotFound):
-		existing = nil
-	case err != nil:
-		return nil, false, err
+	var existing *Entity
+	if it.TargetID != nil {
+		existing, err = r.store.GetByID(ctx, *it.TargetID)
+		switch {
+		case errors.Is(err, ErrEntityNotFound) || (err == nil && existing.SchemaID != schema.ID):
+			return nil, false, fmt.Errorf("no %s with the id %s", schema.Slug, it.TargetID)
+		case err != nil:
+			return nil, false, err
+		}
+	} else {
+		existing, err = r.store.GetByImportKey(ctx, it.Key)
+		switch {
+		case errors.Is(err, ErrEntityNotFound):
+			existing = nil
+		case err != nil:
+			return nil, false, err
+		}
 	}
-	partial := it.Partial && existing != nil
+	partial := (it.Partial || it.TargetID != nil) && existing != nil
 	it = withStored(it, existing, partial)
 	if strings.TrimSpace(it.Name) == "" {
 		return nil, false, errors.New("name is required")
@@ -386,9 +403,11 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		status = *st
 	}
 
-	meta, err := importMetadata(it.Metadata, it.Key, r.source)
-	if err != nil {
-		return nil, false, err
+	meta := existing.metadataOrNil()
+	if it.TargetID == nil {
+		if meta, err = importMetadata(it.Metadata, it.Key, r.source); err != nil {
+			return nil, false, err
+		}
 	}
 	if r.dry && existing == nil {
 		k := schema.Slug + "|" + locale + "|" + slug
@@ -482,6 +501,14 @@ func mergeMaps(base, over map[string]any, replace []string, prefix string) map[s
 		base[k] = v
 	}
 	return base
+}
+
+// metadataOrNil is the stored metadata of e, nil when e is nil.
+func (e *Entity) metadataOrNil() jsontext.Value {
+	if e == nil {
+		return nil
+	}
+	return e.Metadata
 }
 
 func existingID(e *Entity) *uuid.UUID {

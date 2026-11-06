@@ -3,6 +3,7 @@
 package entitycsv
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"encoding/json/jsontext"
@@ -239,5 +240,95 @@ func TestReimportJSONCellReplacesObject(t *testing.T) {
 	}
 	if len(attrs["seo"]) != 1 || attrs["seo"]["title"] != "S" || len(attrs["meta"]) != 2 || attrs["meta"]["desc"] != "D" || attrs["meta"]["title"] != "T2" {
 		t.Errorf("attributes = %s, want seo replaced (noindex gone) and meta.desc kept", got.Attributes)
+	}
+}
+
+// Entities made without an import key export as id:<uuid>; the unchanged file
+// imports again as updates (also as a dry run), never as new rows. An id of
+// another type or an unknown id is a row error.
+func TestExportOfAdminEntitiesReimports(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 4, MinConnections: 1,
+		MaxConnLifetime: 30 * time.Minute, MaxConnIdleTime: 5 * time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	schemas := entity.NewPostgresSchemaRepository(db)
+	repo := entity.NewPostgresEntityRepository(db)
+	svc := entity.NewService(schemas, repo, slog.Default())
+	mk := func(prefix string) *entity.EntitySchema {
+		slug := prefix + uuid.NewString()[:8]
+		sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: slug, Slug: slug, Schema: jsontext.Value(strings.Replace(importSchema, `"required":["title"],`, "", 1))})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = schemas.Delete(ctx, sc.ID) })
+		t.Cleanup(func() { _, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_entities WHERE schema_id = $1`, sc.ID) })
+		return sc
+	}
+	sc, other := mk("csvid-"), mk("csvot-")
+	parent, err := svc.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: sc.ID, Name: "Parent", Attributes: jsontext.Value(`{"price":1}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, err := svc.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: sc.ID, Name: "Child", ParentID: &parent.ID, Attributes: jsontext.Value(`{"price":2}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := svc.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: other.ID, Name: "Foreign", Attributes: jsontext.Value(`{}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cols := append(append([]Column(nil), FixedColumns[:7]...), AttributeColumns(sc.Schema)...)
+	var buf bytes.Buffer
+	sent := false
+	next := func() ([]*entity.Entity, error) {
+		if sent {
+			return nil, nil
+		}
+		sent = true
+		return []*entity.Entity{parent, child}, nil
+	}
+	opt := ExportOptions{Type: sc.Slug, ParentKey: func(id uuid.UUID) string { return ExportKey(parent.Metadata, sc.Slug, id) }}
+	if err := WriteCSV(&buf, cols, next, opt); err != nil {
+		t.Fatal(err)
+	}
+	file := buf.String()
+	if !strings.Contains(file, IDKeyPrefix+parent.ID.String()) || !strings.Contains(file, IDKeyPrefix+child.ID.String()) {
+		t.Fatalf("export has no id keys:\n%s", file)
+	}
+	m := Mapping{Type: sc.Slug, Cols: map[string]string{}}
+	for _, c := range cols {
+		m.Cols[c.ID] = c.ID
+	}
+	count := func() int {
+		var n int
+		_ = db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_entities WHERE schema_id = $1`, sc.ID).Scan(&n)
+		return n
+	}
+	for _, dry := range []bool{true, false} {
+		rep, err := Run(ctx, svc, nil, sc, m, strings.NewReader(file), dry)
+		if err != nil || rep.Failed != 0 || rep.Created != 0 || rep.Updated != 2 || count() != 2 {
+			t.Fatalf("dry=%v report = %+v (%v), rows %d, errors %+v", dry, rep, err, count(), rep.Errors)
+		}
+	}
+	got, err := svc.GetEntity(ctx, child.ID)
+	if err != nil || got.ParentID == nil || *got.ParentID != parent.ID || KeyOf(got.Metadata, sc.Slug) != "" {
+		t.Fatalf("child after re-import = %+v (%v)", got, err)
+	}
+
+	bad := "key,name\n" + IDKeyPrefix + foreign.ID.String() + ",X\n" + IDKeyPrefix + uuid.NewString() + ",Y\n" + IDKeyPrefix + "nope,Z\n"
+	rep, err := Run(ctx, svc, nil, sc, Mapping{Type: sc.Slug, Cols: map[string]string{"key": "key", "name": "name"}}, strings.NewReader(bad), false)
+	if err != nil || rep.Failed != 3 || rep.Created != 0 || count() != 2 {
+		t.Fatalf("bad ids = %+v (%v), rows %d", rep, err, count())
+	}
+	if f, _ := svc.GetEntity(ctx, foreign.ID); f == nil || f.Name != "Foreign" {
+		t.Fatalf("entity of another type changed: %+v", f)
 	}
 }

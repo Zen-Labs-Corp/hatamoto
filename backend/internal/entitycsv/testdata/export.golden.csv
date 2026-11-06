@@ -1,3 +1,3 @@
 ﻿key,name,slug,status,published_at,locale,parent_key,order,attr:title,attr:price,attr:tags,attr:seo.title,attr:seo.og.image
 sku-1,'=cmd|calc,a,published,2026-01-02T03:04:05Z,en,root,3,Ünï ☃,'-5,x|y,S,
-,"Say ""hi"", ok",b,draft,,en,,3,'@home,,,,'+i
+id:00000000-0000-0000-0000-000000000002,"Say ""hi"", ok",b,draft,,en,,3,'@home,,,,'+i

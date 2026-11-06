@@ -100,7 +100,7 @@ func (a *Admin) handleEntityExport(w http.ResponseWriter, r *http.Request) {
 		}
 		k := ""
 		if p, err := ents.GetEntity(r.Context(), id); err == nil {
-			k = entitycsv.KeyOf(p.Metadata, sc.Slug)
+			k = entitycsv.ExportKey(p.Metadata, sc.Slug, p.ID)
 		}
 		parents[id] = k
 		return k

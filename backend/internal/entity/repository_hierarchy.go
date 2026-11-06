@@ -209,6 +209,8 @@ type ImportStore interface {
 	// GetByImportKey returns the entity imported under key, ErrEntityNotFound
 	// when there is none.
 	GetByImportKey(ctx context.Context, key string) (*Entity, error)
+	// GetByID returns the entity with the id, ErrEntityNotFound when there is none.
+	GetByID(ctx context.Context, id uuid.UUID) (*Entity, error)
 	// ImportUpsert inserts rec, or updates the entity rec.ID names, keeping
 	// the dates rec carries (the trigger-free import path). created is true
 	// for an insert.

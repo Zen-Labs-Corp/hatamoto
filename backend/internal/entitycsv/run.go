@@ -157,6 +157,19 @@ func Run(ctx context.Context, svc Importer, actor *uuid.UUID, schema *entity.Ent
 	return rep, nil
 }
 
+// idKey reads a key of the id:<uuid> form. isID is false for a plain key.
+func idKey(v string) (id uuid.UUID, isID bool, err error) {
+	raw, ok := strings.CutPrefix(v, IDKeyPrefix)
+	if !ok {
+		return uuid.Nil, false, nil
+	}
+	id, err = uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil, true, fmt.Errorf("%q is not a key: after %q comes an id from an export", v, IDKeyPrefix)
+	}
+	return id, true, nil
+}
+
 func keyColumn(target, header []string) string {
 	for i, t := range target {
 		if t == ColKey {
@@ -185,6 +198,12 @@ func buildItem(schema *entity.EntitySchema, target, header, rec []string, ns str
 				return nil, bad("the key is empty")
 			}
 			it.Key = ns + v
+			if id, isID, err := idKey(v); isID {
+				if err != nil {
+					return nil, bad("%v", err)
+				}
+				it.TargetID = &id
+			}
 		case ColName:
 			it.Name = v
 		case ColSlug:
@@ -193,7 +212,15 @@ func buildItem(schema *entity.EntitySchema, target, header, rec []string, ns str
 			it.Locale = strings.TrimSpace(v)
 		case ColParentKey:
 			if v = strings.TrimSpace(v); v != "" {
-				it.ParentKey = ns + v
+				id, isID, err := idKey(v)
+				switch {
+				case err != nil:
+					return nil, bad("%v", err)
+				case isID:
+					it.ParentID = &id
+				default:
+					it.ParentKey = ns + v
+				}
 			}
 		case ColStatus:
 			v = strings.ToLower(strings.TrimSpace(v))
