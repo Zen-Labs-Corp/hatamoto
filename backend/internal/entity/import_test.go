@@ -310,7 +310,7 @@ func TestImport_DryRunStoresNothing(t *testing.T) {
 	ctx := context.Background()
 	svc, repo, _, sink := importFixture(t)
 	item := func(key, name, slug string) ImportItem {
-		return ImportItem{Key: key, SchemaSlug: "page", Name: name, Slug: slug, Attributes: json.RawMessage(`{"title":"` + name + `"}`)}
+		return ImportItem{Key: key, SchemaSlug: "page", Name: name, Slug: slug, Attributes: jsontext.Value(`{"title":"` + name + `"}`)}
 	}
 	// An existing row to be reported as an update.
 	_, err := svc.Import(ctx, &testUserID, ImportBatch{Source: "test", Items: []ImportItem{item("old", "Old", "old")}})
@@ -321,7 +321,7 @@ func TestImport_DryRunStoresNothing(t *testing.T) {
 	child.ParentKey = "new"
 	res, err := svc.Import(ctx, &testUserID, ImportBatch{Source: "test", DryRun: true, Items: []ImportItem{
 		item("old", "Old", "old"), item("new", "New", "same"), item("dup", "Dup", "same"), child,
-		{Key: "bad", SchemaSlug: "page", Name: "Bad", Attributes: json.RawMessage(`{"nothing":1}`)},
+		{Key: "bad", SchemaSlug: "page", Name: "Bad", Attributes: jsontext.Value(`{"nothing":1}`)},
 	}})
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 2, res.Created) // new, child

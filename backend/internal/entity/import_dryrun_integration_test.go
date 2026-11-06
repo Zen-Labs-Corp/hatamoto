@@ -4,7 +4,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"testing"
 
@@ -22,7 +22,7 @@ func TestImportDryRunRollsBack(t *testing.T) {
 	sink := &recordingSink{}
 	svc.SetEvents(sink)
 	sch := "dryrun-" + uuid.NewString()[:8]
-	schema, err := schemas.Create(ctx, &CreateSchemaInput{Name: sch, Slug: sch, Schema: json.RawMessage(`{"type":"object","required":["title"],"properties":{"title":{"type":"string"}}}`)})
+	schema, err := schemas.Create(ctx, &CreateSchemaInput{Name: sch, Slug: sch, Schema: jsontext.Value(`{"type":"object","required":["title"],"properties":{"title":{"type":"string"}}}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestImportDryRunRollsBack(t *testing.T) {
 	}
 	pfx := "dry-" + uuid.NewString()[:8]
 	item := func(key, slug, title string) ImportItem {
-		return ImportItem{Key: pfx + key, SchemaSlug: schema.Slug, Name: title, Slug: pfx + slug, Attributes: json.RawMessage(`{"title":"` + title + `"}`)}
+		return ImportItem{Key: pfx + key, SchemaSlug: schema.Slug, Name: title, Slug: pfx + slug, Attributes: jsontext.Value(`{"title":"` + title + `"}`)}
 	}
 	t.Cleanup(func() {
 		_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_entities WHERE metadata->>'import_key' LIKE $1`, pfx+"%")
@@ -77,7 +77,7 @@ func TestImportDryRunRollsBack(t *testing.T) {
 
 	// A slug already used in the database is reported by the real constraint.
 	clash := item("c", "old", "C")
-	clash.Attributes = json.RawMessage(`{"title":"C"}`)
+	clash.Attributes = jsontext.Value(`{"title":"C"}`)
 	res, err = svc.Import(ctx, nil, ImportBatch{Source: "test", DryRun: true, Items: []ImportItem{clash}})
 	if err != nil || !errors.Is(res.Items[0].Err, ErrSlugAlreadyExists) {
 		t.Fatalf("slug clash dry run = %+v (%v)", res, err)

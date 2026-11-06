@@ -4,7 +4,7 @@ package person
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"log/slog"
 	"os"
 	"testing"
@@ -37,7 +37,7 @@ func TestImportDryRunMakesNoPeople(t *testing.T) {
 
 	slug := "dryby-" + uuid.NewString()[:8]
 	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: slug, Slug: slug,
-		Schema: json.RawMessage(`{"type":"object","properties":{"title":{"type":"string"},"author":{"type":"string"}}}`)})
+		Schema: jsontext.Value(`{"type":"object","properties":{"title":{"type":"string"},"author":{"type":"string"}}}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestImportDryRunMakesNoPeople(t *testing.T) {
 	authors := func() int { return count(`SELECT count(*) FROM hatamoto_authors WHERE name = $1`, who) }
 
 	batch := entity.ImportBatch{Source: "test", DryRun: true, Items: []entity.ImportItem{
-		{Key: "k:" + slug + ":1", SchemaSlug: slug, Name: "One", Attributes: json.RawMessage(`{"author":"` + who + `"}`)},
+		{Key: "k:" + slug + ":1", SchemaSlug: slug, Name: "One", Attributes: jsontext.Value(`{"author":"` + who + `"}`)},
 		{Key: "k:" + slug + ":2", SchemaSlug: slug, Name: "Two", AuthorName: who},
 	}}
 	res, err := svc.Import(ctx, nil, batch)

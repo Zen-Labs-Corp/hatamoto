@@ -3,7 +3,6 @@ package entitycsv
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"encoding/json/jsontext"
 	"flag"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")
@@ -155,10 +155,10 @@ func TestFreeFormObjectsRoundTrip(t *testing.T) {
 		t.Fatalf("re-import = %+v, %v\n%s", rep, err, buf.String())
 	}
 	var got, want any
-	if err := json.Unmarshal(imp.batches[0].Items[0].Attributes, &got); err != nil {
+	if err := jsonx.Unmarshal(imp.batches[0].Items[0].Attributes, &got); err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal([]byte(attrs), &want); err != nil {
+	if err := jsonx.Unmarshal([]byte(attrs), &want); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(got, want) {

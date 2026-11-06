@@ -5,7 +5,6 @@ package entitycsv
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"encoding/json/jsontext"
 	"fmt"
 	"log/slog"
@@ -19,6 +18,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // A dry run leaves the table alone, the import creates drafts, a second
@@ -235,7 +235,7 @@ func TestReimportJSONCellReplacesObject(t *testing.T) {
 		t.Fatal(err)
 	}
 	var attrs map[string]map[string]any
-	if err := json.Unmarshal(got.Attributes, &attrs); err != nil {
+	if err := jsonx.Unmarshal(got.Attributes, &attrs); err != nil {
 		t.Fatal(err)
 	}
 	if len(attrs["seo"]) != 1 || attrs["seo"]["title"] != "S" || len(attrs["meta"]) != 2 || attrs["meta"]["desc"] != "D" || attrs["meta"]["title"] != "T2" {
