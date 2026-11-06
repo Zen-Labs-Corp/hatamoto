@@ -102,7 +102,7 @@ func TestRunAgainstDatabase(t *testing.T) {
 	}
 
 	rep = run(build(""), m, false)
-	if rep.Created != 0 || rep.Updated != n || count() != n {
+	if rep.Created != 0 || rep.Unchanged != n || rep.Updated != 0 || count() != n {
 		t.Fatalf("second import = %+v, rows %d", rep, count())
 	}
 
@@ -314,7 +314,7 @@ func TestExportOfAdminEntitiesReimports(t *testing.T) {
 	}
 	for _, dry := range []bool{true, false} {
 		rep, err := Run(ctx, svc, nil, sc, m, strings.NewReader(file), dry)
-		if err != nil || rep.Failed != 0 || rep.Created != 0 || rep.Updated != 2 || count() != 2 {
+		if err != nil || rep.Failed != 0 || rep.Created != 0 || rep.Updated+rep.Unchanged != 2 || count() != 2 {
 			t.Fatalf("dry=%v report = %+v (%v), rows %d, errors %+v", dry, rep, err, count(), rep.Errors)
 		}
 	}
@@ -330,5 +330,59 @@ func TestExportOfAdminEntitiesReimports(t *testing.T) {
 	}
 	if f, _ := svc.GetEntity(ctx, foreign.ID); f == nil || f.Name != "Foreign" {
 		t.Fatalf("entity of another type changed: %+v", f)
+	}
+}
+
+// A re-import that changes nothing writes nothing: same updated_at, no new
+// version. A changed row still bumps both.
+func TestReimportUnchangedWritesNothing(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 4, MinConnections: 1,
+		MaxConnLifetime: 30 * time.Minute, MaxConnIdleTime: 5 * time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	schemas := entity.NewPostgresSchemaRepository(db)
+	repo := entity.NewPostgresEntityRepository(db)
+	svc := entity.NewService(schemas, repo, slog.Default())
+	slug := "csvun-" + uuid.NewString()[:8]
+	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: slug, Slug: slug, Schema: jsontext.Value(strings.Replace(importSchema, `"required":["title"],`, "", 1))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = schemas.Delete(ctx, sc.ID) })
+	t.Cleanup(func() { _, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_entities WHERE schema_id = $1`, sc.ID) })
+	m := Mapping{Type: slug, Cols: map[string]string{"sku": "key", "title": "name", "price": "attr:price"}}
+	run := func(csv string) *Report {
+		t.Helper()
+		rep, err := Run(ctx, svc, nil, sc, m, strings.NewReader(csv), false)
+		if err != nil || rep.Failed != 0 {
+			t.Fatalf("run = %+v, %v", rep, err)
+		}
+		return rep
+	}
+	run("sku,title,price\na,A,1\n")
+	before, err := repo.GetByImportKey(ctx, "csv:"+slug+":a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep := run("sku,title,price\na,A,1\n"); rep.Unchanged != 1 || rep.Updated != 0 {
+		t.Fatalf("same file = %+v, want 1 unchanged", rep)
+	}
+	same, _ := repo.GetByImportKey(ctx, "csv:"+slug+":a")
+	if !same.UpdatedAt.Equal(before.UpdatedAt) || same.Version != before.Version {
+		t.Errorf("unchanged row bumped: updated_at %v -> %v, version %d -> %d", before.UpdatedAt, same.UpdatedAt, before.Version, same.Version)
+	}
+	if rep := run("sku,title,price\na,A,2\n"); rep.Updated != 1 || rep.Unchanged != 0 {
+		t.Fatalf("changed file = %+v, want 1 updated", rep)
+	}
+	diff, _ := repo.GetByImportKey(ctx, "csv:"+slug+":a")
+	if !diff.UpdatedAt.After(before.UpdatedAt) || diff.Version != before.Version+1 {
+		t.Errorf("changed row: updated_at %v -> %v, version %d -> %d", before.UpdatedAt, diff.UpdatedAt, before.Version, diff.Version)
 	}
 }

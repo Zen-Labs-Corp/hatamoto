@@ -305,10 +305,14 @@ type csvResultData struct {
 
 func csvSummary(rep *entitycsv.Report, done bool) string {
 	rows := fmt.Sprintf("%d %s", rep.Rows, plural(rep.Rows, "row", "rows"))
-	if done {
-		return fmt.Sprintf("%s: %d created, %d updated, %d failed.", rows, rep.Created, rep.Updated, rep.Failed)
+	same := ""
+	if rep.Unchanged > 0 {
+		same = fmt.Sprintf(", %d unchanged", rep.Unchanged)
 	}
-	return fmt.Sprintf("%s: %d will be created, %d updated, %d have %s.", rows, rep.Created, rep.Updated, rep.Failed, plural(rep.Failed, "an error", "errors"))
+	if done {
+		return fmt.Sprintf("%s: %d created, %d updated%s, %d failed.", rows, rep.Created, rep.Updated, same, rep.Failed)
+	}
+	return fmt.Sprintf("%s: %d will be created, %d updated%s, %d have %s.", rows, rep.Created, rep.Updated, same, rep.Failed, plural(rep.Failed, "an error", "errors"))
 }
 
 func (a *Admin) csvResult(id uuid.UUID, st *entitycsv.State, rep *entitycsv.Report, step int, done bool) csvResultData {
@@ -414,7 +418,7 @@ func (a *Admin) handleCSVRun(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = spool.Remove(id)
 	a.audit(r, "entity.import_csv", st.Type, map[string]any{
-		"created": rep.Created, "updated": rep.Updated, "failed": rep.Failed, "rows": rep.Rows, "file": st.FileName,
+		"created": rep.Created, "updated": rep.Updated, "unchanged": rep.Unchanged, "failed": rep.Failed, "rows": rep.Rows, "file": st.FileName,
 	})
 	http.Redirect(w, r, a.csvURL(id, "/report"), http.StatusSeeOther)
 }

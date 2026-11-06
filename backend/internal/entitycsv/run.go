@@ -40,11 +40,13 @@ type RowError struct {
 
 // Report is the outcome of a dry or real run.
 type Report struct {
-	Rows    int        `json:"rows"`
-	Created int        `json:"created"`
-	Updated int        `json:"updated"`
-	Failed  int        `json:"failed"`
-	Errors  []RowError `json:"errors,omitempty"` // the first MaxListedErrors
+	Rows    int `json:"rows"`
+	Created int `json:"created"`
+	Updated int `json:"updated"`
+	// Unchanged counts rows of an existing entity that the file left as it was.
+	Unchanged int        `json:"unchanged,omitempty"`
+	Failed    int        `json:"failed"`
+	Errors    []RowError `json:"errors,omitempty"` // the first MaxListedErrors
 }
 
 func (r *Report) fail(e RowError) {
@@ -104,6 +106,8 @@ func Run(ctx context.Context, svc Importer, actor *uuid.UUID, schema *entity.Ent
 				if dry {
 					dryKeys[items[i].Key] = true
 				}
+			case it.Unchanged:
+				rep.Unchanged++
 			default:
 				rep.Updated++
 			}

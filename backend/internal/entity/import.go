@@ -98,13 +98,16 @@ type ImportItemResult struct {
 	Key     string
 	ID      uuid.UUID
 	Created bool
-	Err     error
+	// Unchanged marks a partial update that changed nothing: it wrote no
+	// version and no update time. It is not counted in ImportResult.Updated.
+	Unchanged bool
+	Err       error
 }
 
 // ImportResult summarises a batch. Items are in the order of the input.
 type ImportResult struct {
-	Created, Updated, Failed int
-	Items                    []ImportItemResult
+	Created, Updated, Unchanged, Failed int
+	Items                               []ImportItemResult
 }
 
 // ImportSummary is the payload of the import.completed event.
@@ -146,12 +149,12 @@ func (s *Service) Import(ctx context.Context, actor *uuid.UUID, batch ImportBatc
 		if r.Err != nil {
 			continue
 		}
-		e, created, err := run.item(ctx, &batch.Items[i])
+		e, created, unchanged, err := run.item(ctx, &batch.Items[i])
 		if err != nil {
 			r.Err = err
 			continue
 		}
-		r.ID, r.Created = e.ID, created
+		r.ID, r.Created, r.Unchanged = e.ID, created, unchanged
 		if run.dry && created {
 			run.dryIDs[e.ID] = true
 		}
@@ -164,6 +167,8 @@ func (s *Service) Import(ctx context.Context, actor *uuid.UUID, batch ImportBatc
 			res.Failed++
 		case r.Created:
 			res.Created++
+		case r.Unchanged:
+			res.Unchanged++
 		default:
 			res.Updated++
 		}
@@ -281,20 +286,20 @@ func (r *importRun) schema(ctx context.Context, slug string) (*EntitySchema, err
 }
 
 // item validates, sanitises and stores one item.
-func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, error) {
+func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, bool, error) {
 	s := r.s
 	schema, err := r.schema(ctx, it.SchemaSlug)
 	if err != nil {
-		return nil, false, fmt.Errorf("schema %q: %w", it.SchemaSlug, err)
+		return nil, false, false, fmt.Errorf("schema %q: %w", it.SchemaSlug, err)
 	}
 	var existing *Entity
 	if it.TargetID != nil {
 		existing, err = r.store.GetByID(ctx, *it.TargetID)
 		switch {
 		case errors.Is(err, ErrEntityNotFound) || (err == nil && existing.SchemaID != schema.ID):
-			return nil, false, fmt.Errorf("no %s with the id %s", schema.Slug, it.TargetID)
+			return nil, false, false, fmt.Errorf("no %s with the id %s", schema.Slug, it.TargetID)
 		case err != nil:
-			return nil, false, err
+			return nil, false, false, err
 		}
 	} else {
 		existing, err = r.store.GetByImportKey(ctx, it.Key)
@@ -302,13 +307,13 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		case errors.Is(err, ErrEntityNotFound):
 			existing = nil
 		case err != nil:
-			return nil, false, err
+			return nil, false, false, err
 		}
 	}
 	partial := (it.Partial || it.TargetID != nil) && existing != nil
 	it = withStored(it, existing, partial)
 	if strings.TrimSpace(it.Name) == "" {
-		return nil, false, errors.New("name is required")
+		return nil, false, false, errors.New("name is required")
 	}
 	status := it.Status
 	if status == "" {
@@ -318,15 +323,15 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		}
 	}
 	if !ValidStatus(status) {
-		return nil, false, ErrInvalidStatus
+		return nil, false, false, ErrInvalidStatus
 	}
 	if status == StatusScheduled && it.PublishedAt.IsZero() {
-		return nil, false, errors.New("a scheduled item needs published_at")
+		return nil, false, false, errors.New("a scheduled item needs published_at")
 	}
 	locale := it.Locale
 	if locale != "" {
 		if locale, err = NormalizeLocale(locale); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 	}
 	attrs := it.Attributes
@@ -334,10 +339,10 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		attrs = jsontext.Value(`{}`)
 	}
 	if err := s.validator.ValidateAttributes(schema.Schema, attrs); err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	if attrs, err = sanitizeAttributes(attrs); err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 
 	slug := normalizeSlug(it.Slug)
@@ -345,7 +350,7 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		slug = generateSlug(it.Name)
 	}
 	if slug == "" {
-		return nil, false, errors.New("slug is empty")
+		return nil, false, false, errors.New("slug is empty")
 	}
 	name := it.Name
 
@@ -357,7 +362,7 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		locale = schema.DefaultLocale(locale, func() bool { return r.s.siteIsMulti(ctx) })
 	}
 	if attrs, err = normalizeDocRaw(docWrite, stored, attrs, EligibleForPageDoc(schema)); err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 
 	if s.beforeSave != nil {
@@ -372,7 +377,7 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		}
 		draft := &BeforeSaveInput{Operation: op, ID: id, SchemaSlug: schema.Slug, Name: name, Slug: slug, Locale: draftLocale, Attributes: attrs}
 		if attrs, err = s.runBeforeSave(ctx, draft, schema); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 		name = draft.Name
 		if draft.Slug != "" {
@@ -382,18 +387,18 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 
 	parent, err := r.parent(ctx, it, existingID(existing))
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	byline, authorID, authorName, err := r.credit(ctx, it, attrs)
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	// The byline text is only written where the schema accepts it: one that
 	// forbids extra properties and has no "author" would reject the very next
 	// normal save of this entity. The author row (author_id) is set either way.
 	if authorName != "" && bylineOf(attrs) == "" && schemaAllowsProperty(schema.Schema, "author") {
 		if attrs, err = setAttribute(attrs, "author", authorName); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 	}
 
@@ -406,18 +411,18 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 	meta := existing.metadataOrNil()
 	if it.TargetID == nil {
 		if meta, err = importMetadata(it.Metadata, it.Key, r.source); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 	}
 	if r.dry && existing == nil {
 		k := schema.Slug + "|" + locale + "|" + slug
 		if r.seen[k] {
-			return nil, false, fmt.Errorf("%w: another row of this file has this slug", ErrSlugAlreadyExists)
+			return nil, false, false, fmt.Errorf("%w: another row of this file has this slug", ErrSlugAlreadyExists)
 		}
 		r.seen[k] = true
 	}
 	rec := &ImportRecord{
-		DryRun: r.dry, SchemaID: schema.ID, Name: name, Slug: slug, Locale: locale, Status: status, Attributes: attrs, Metadata: meta,
+		DryRun: r.dry, SkipUnchanged: partial, SchemaID: schema.ID, Name: name, Slug: slug, Locale: locale, Status: status, Attributes: attrs, Metadata: meta,
 		ParentID: parent, AuthorID: authorID, ActorID: r.actor,
 		BylinePersonID: byline.PersonID, BylineOrg: byline.Org,
 	}
@@ -432,10 +437,10 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 
 	e, created, err := r.store.ImportUpsert(ctx, rec)
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	e.Schema = schema
-	return e, created, nil
+	return e, created, rec.Unchanged, nil
 }
 
 // withStored returns the item with the stored values of an existing entity
