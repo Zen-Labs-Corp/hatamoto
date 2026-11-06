@@ -29,6 +29,7 @@ const (
 // updaterRunner is the part of *updater.Updater the adapter runs.
 type updaterRunner interface {
 	Run(ctx context.Context, o updater.RunOpts) (updater.Status, error)
+	RetryCheck(version string) (oldReason string, err error)
 }
 
 // updatesStore is the part of *updater.Store the adapter uses.
@@ -271,6 +272,34 @@ func (s *adminUpdates) apply(ctx context.Context, skipBackup bool) (admin.Update
 	if target == "" {
 		return admin.UpdatesResult{}, admin.ErrNoUpdate
 	}
+	return s.start(target, updater.RunOpts{Apply: target, Managed: true, SkipBackup: skipBackup}, "")
+}
+
+// Retry starts a retry of the rolled-back version the stored status names.
+// The updater's own check runs first, so a version that may not be retried is
+// refused before anything starts; its answer carries the reason the version
+// was bad-listed. The target never comes from the caller.
+func (s *adminUpdates) Retry(ctx context.Context) (admin.UpdatesResult, error) {
+	state, err := s.state(ctx)
+	if err != nil {
+		return admin.UpdatesResult{}, err
+	}
+	if state.Applying {
+		return admin.UpdatesResult{Busy: true}, nil
+	}
+	target := state.RetryTarget()
+	if target == "" {
+		return admin.UpdatesResult{}, admin.ErrNoUpdate
+	}
+	oldReason, err := s.run.RetryCheck(target)
+	if err != nil {
+		return admin.UpdatesResult{}, err
+	}
+	return s.start(target, updater.RunOpts{Apply: target, Retry: true, Managed: true}, oldReason)
+}
+
+// start runs o in the background under the lifecycle context.
+func (s *adminUpdates) start(target string, o updater.RunOpts, oldReason string) (admin.UpdatesResult, error) {
 	if !s.applying.CompareAndSwap(false, true) {
 		return admin.UpdatesResult{Target: target, Busy: true}, nil
 	}
@@ -288,14 +317,14 @@ func (s *adminUpdates) apply(ctx context.Context, skipBackup bool) (admin.Update
 		defer cancel()
 		defer s.applying.Store(false)
 		defer s.resetBanner()
-		st, err := s.run.Run(bg, updater.RunOpts{Apply: target, Managed: true, SkipBackup: skipBackup})
+		st, err := s.run.Run(bg, o)
 		if err != nil {
 			s.logger.Error("update now failed", "target", target, "err", err)
 			return
 		}
 		s.logger.Info("update now finished", "target", target, "decision", st.Decision, "reason", st.Reason)
 	}()
-	return admin.UpdatesResult{Target: target, Started: true}, nil
+	return admin.UpdatesResult{Target: target, Started: true, OldReason: oldReason}, nil
 }
 
 // Wait blocks until the background Update now run has ended or ctx is done.

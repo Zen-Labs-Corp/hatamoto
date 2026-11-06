@@ -35,6 +35,11 @@ type UpdatesService interface {
 	// ApplyWithoutBackup is Apply for an update the pre-update backup
 	// stopped: the same run, with the backup skipped for this version only.
 	ApplyWithoutBackup(ctx context.Context) (UpdatesResult, error)
+	// Retry starts a retry of the rolled-back version the service derives from
+	// its stored status (ErrNoUpdate when there is none), and refuses with the
+	// updater's own words when that version may not be retried. The caller
+	// never names a version. UpdatesResult.OldReason is why it was bad-listed.
+	Retry(ctx context.Context) (UpdatesResult, error)
 	// Unpin clears the stored pin.
 	Unpin(ctx context.Context) error
 	// Banner is the owner banner, nil when nothing needs attention.
@@ -139,7 +144,9 @@ type UpdatesResult struct {
 	Status  UpdatesStatus
 	Target  string // Apply: the version being installed
 	Started bool   // Apply: a background run was started
-	Busy    bool   // another check or update is already running
+	// OldReason is why the bad-listed version a Retry removed was listed.
+	OldReason string
+	Busy      bool // another check or update is already running
 }
 
 // UpdateBanner is the owner-only notice in the admin shell.
@@ -192,6 +199,20 @@ func (s UpdatesState) ApplyWithoutBackupTarget() string {
 		return ""
 	}
 	return s.ApplyTarget()
+}
+
+// RetryTarget is the version "Retry" installs: the release the last run rolled
+// back, "" in any other state, on a dev build, while an update runs, or while
+// the environment locks updates off. Like ApplyTarget it comes from the stored
+// status, never a form.
+func (s UpdatesState) RetryTarget() string {
+	if s.Dev || s.Applying || (s.Locks.Mode && s.Mode == "off") {
+		return ""
+	}
+	if st := s.Current(); st.Decision == updRolledBack {
+		return st.Target
+	}
+	return ""
 }
 
 // ApplyIsMajor reports that Update now would install a major release, which
@@ -402,6 +423,7 @@ type updatesData struct {
 	LastCheck                string
 	CanCheck                 bool
 	ApplyTarget              string
+	RetryTarget              string // set in the rolled_back state: the version "Retry" installs
 	NoBackupTarget           string // set in the backup_failed state: the version "Update without a backup" installs
 	Applying                 bool
 	Live                     updatesLive // the update in progress, shown and polled while Live.On
@@ -426,6 +448,9 @@ func (a *Admin) mountUpdatesSettings(owner *httpx.Group) {
 	owner.HandleFunc("POST /settings/updates/apply", a.handleUpdatesApply)
 	owner.HandleFunc("GET /settings/updates/apply-without-backup", a.handleUpdatesApplyWithoutBackup)
 	owner.HandleFunc("POST /settings/updates/apply-without-backup", a.handleUpdatesApplyWithoutBackup)
+	// A retry installs a release that was rolled back once, so it asks for the
+	// password again; a POST is never replayed after that page.
+	owner.Group("", a.RequireSudo).HandleFunc("POST /settings/updates/retry", a.handleUpdatesRetry)
 	owner.HandleFunc("POST /settings/updates/unpin", a.handleUpdatesUnpin)
 	owner.HandleFunc("POST /settings/updates/stats", a.handleStatsSwitch)
 	owner.HandleFunc("POST /settings/updates/stats/choice", a.handleStatsChoice)
@@ -696,6 +721,38 @@ func (a *Admin) handleUpdatesApplyWithoutBackup(w http.ResponseWriter, r *http.R
 	http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
 }
 
+// handleUpdatesRetry retries the version the last run rolled back. The version
+// comes from the stored status; the form carries none.
+func (a *Admin) handleUpdatesRetry(w http.ResponseWriter, r *http.Request) {
+	st, ok := a.loadUpdates(w, r)
+	if !ok {
+		return
+	}
+	if st.Applying {
+		a.SetFlash(w, r, "info", "An update is already running. This page shows the result when it finishes.")
+		http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
+		return
+	}
+	if st.RetryTarget() == "" {
+		a.SetFlash(w, r, "error", "Retry not started: no rolled-back update can be retried.")
+		http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
+		return
+	}
+	res, err := a.deps.Updates.Retry(r.Context())
+	switch {
+	case errors.Is(err, ErrNoUpdate):
+		a.SetFlash(w, r, "error", "Retry not started: no rolled-back update can be retried.")
+	case err != nil:
+		a.SetFlash(w, r, "error", "Retry not started: "+fullStop(err.Error()))
+	case res.Busy || !res.Started:
+		a.SetFlash(w, r, "info", "An update is already running. This page shows the result when it finishes.")
+	default:
+		a.audit(r, "updates.retry", res.Target, map[string]any{"target": res.Target, "reason": res.OldReason})
+		a.SetFlash(w, r, "info", "Retry of "+res.Target+" started; this page shows the result when it finishes.")
+	}
+	http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
+}
+
 func (a *Admin) handleUpdatesUnpin(w http.ResponseWriter, r *http.Request) {
 	if a.deps.Updates == nil {
 		a.unavailable(w, r, "Automatic updates")
@@ -842,6 +899,7 @@ func (a *Admin) fillUpdates(d *updatesData, st UpdatesState, in *updatesInput, l
 	d.Applying = st.Applying
 	d.ApplyTarget = st.ApplyTarget()
 	d.NoBackupTarget = st.ApplyWithoutBackupTarget()
+	d.RetryTarget = st.RetryTarget()
 	d.Pin = st.Pin
 
 	if in == nil {
@@ -876,7 +934,7 @@ func (a *Admin) fillUpdates(d *updatesData, st UpdatesState, in *updatesInput, l
 		// The stored check result is stale while an update runs ("Waiting for the
 		// maintenance window"): the row says Updating and the live panel replaces the note.
 		d.Status = ui.Badge{Label: withVersion("Updating", live.Target), Kind: "info"}
-		d.StatusNote, d.ApplyTarget, d.NoBackupTarget = "", "", ""
+		d.StatusNote, d.ApplyTarget, d.NoBackupTarget, d.RetryTarget = "", "", "", ""
 	}
 	d.StatusKind = "info"
 	if k := d.Status.Kind; k == "warning" || k == "danger" {

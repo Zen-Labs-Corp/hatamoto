@@ -13,13 +13,15 @@ import (
 )
 
 type fakeRunner struct {
-	mu      sync.Mutex
-	calls   []updater.RunOpts
-	status  updater.Status
-	err     error
-	release chan struct{} // when set, Run blocks until it is closed
-	started chan struct{}
-	done    chan struct{}
+	mu          sync.Mutex
+	calls       []updater.RunOpts
+	status      updater.Status
+	err         error
+	retryReason string
+	retryErr    error
+	release     chan struct{} // when set, Run blocks until it is closed
+	started     chan struct{}
+	done        chan struct{}
 }
 
 func (f *fakeRunner) Run(_ context.Context, o updater.RunOpts) (updater.Status, error) {
@@ -40,6 +42,8 @@ func (f *fakeRunner) Run(_ context.Context, o updater.RunOpts) (updater.Status, 
 	}
 	return f.status, f.err
 }
+
+func (f *fakeRunner) RetryCheck(string) (string, error) { return f.retryReason, f.retryErr }
 
 func (f *fakeRunner) callList() []updater.RunOpts {
 	f.mu.Lock()
@@ -462,6 +466,8 @@ func (f runnerFunc) Run(ctx context.Context, o updater.RunOpts) (updater.Status,
 	return f(ctx, o)
 }
 
+func (f runnerFunc) RetryCheck(string) (string, error) { return "", nil }
+
 func waitFor(t *testing.T, ok func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
@@ -600,6 +606,8 @@ func (c *ctxRunner) Run(ctx context.Context, _ updater.RunOpts) (updater.Status,
 	c.err <- ctx.Err()
 	return updater.Status{}, ctx.Err()
 }
+
+func (c *ctxRunner) RetryCheck(string) (string, error) { return "", nil }
 
 func TestAdapterApplyEndsWithTheServerAndWaitJoinsIt(t *testing.T) {
 	r := newAdapterRig()
@@ -773,5 +781,38 @@ func TestAdapterGlanceDropsTheCacheWhenCheckFails(t *testing.T) {
 	}
 	if g, _ := r.Glance(ctx); g.Status.Decision != "check_failed" {
 		t.Errorf("glance survived a failed check: %+v", g.Status)
+	}
+}
+
+func TestAdapterRetryRunsTheNamedRetry(t *testing.T) {
+	r := newAdapterRig()
+	r.store.status = updater.Status{Decision: updater.KindRolledBack, Target: "v1.4.2"}
+	r.run.retryReason = "smoke failed"
+	r.run.done = make(chan struct{})
+	res, err := r.Retry(context.Background())
+	if err != nil || !res.Started || res.Target != "v1.4.2" || res.OldReason != "smoke failed" {
+		t.Fatalf("retry = %+v %v", res, err)
+	}
+	<-r.run.done
+	r.Wait(context.Background())
+	calls := r.run.callList()
+	if want := (updater.RunOpts{Apply: "v1.4.2", Retry: true, Managed: true}); len(calls) != 1 || calls[0] != want {
+		t.Errorf("Run calls = %+v, want %+v", calls, want)
+	}
+}
+
+func TestAdapterRetryRefusals(t *testing.T) {
+	r := newAdapterRig()
+	r.store.status = updater.Status{Decision: "update_failed", Target: "v1.4.2"}
+	if _, err := r.Retry(context.Background()); !errors.Is(err, admin.ErrNoUpdate) {
+		t.Fatalf("err = %v, want ErrNoUpdate", err)
+	}
+	r.store.status = updater.Status{Decision: updater.KindRolledBack, Target: "v1.4.2"}
+	r.run.retryErr = errors.New("not bad-listed")
+	if _, err := r.Retry(context.Background()); err == nil || err.Error() != "not bad-listed" {
+		t.Fatalf("err = %v, want the updater's refusal", err)
+	}
+	if n := len(r.run.callList()); n != 0 {
+		t.Errorf("Run called %d times", n)
 	}
 }
