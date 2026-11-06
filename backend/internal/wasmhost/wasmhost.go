@@ -424,7 +424,7 @@ func (h *Host) HasExport(name, export string) bool {
 	case inst := <-p.pool:
 		p.popPooled(inst)
 		ok := inst.FunctionExists(export)
-		p.pushPooled(inst)
+		p.release(inst) // HasExport holds no slot, so the pool may have refilled
 		return ok
 	default:
 	}

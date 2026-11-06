@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	extism "github.com/extism/go-sdk"
 
@@ -170,5 +171,35 @@ func TestCacheBytesMemory(t *testing.T) {
 	t.Cleanup(func() { h.Close(context.Background()) })
 	if st := h.Stats(); st.CacheOnDisk || st.CacheBytes != 0 {
 		t.Fatalf("memory cache stats = %+v", st)
+	}
+}
+
+// HasExport returns its instance with release, not a blocking send: a full
+// pool (refilled by calls while HasExport holds no slot) must not hang it.
+func TestReleaseFullPoolDoesNotBlock(t *testing.T) {
+	h := newHost(t)
+	load(t, h, "good", sdk.Limits{MaxInstances: 1})
+	p := (*h.reg.Load())["good"]
+	inst := <-p.pool
+	p.popPooled(inst)
+	other, err := p.newInstance(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.pushPooled(other) // the pool is full again
+	done := make(chan struct{})
+	go func() { p.release(inst); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("release blocked on a full pool")
+	}
+	n := 0
+	p.pooledMem.Range(func(_, _ any) bool { n++; return true })
+	if len(p.pool) != 1 || n != 1 {
+		t.Fatalf("pool = %d, records = %d, want 1 and 1", len(p.pool), n)
+	}
+	if !h.HasExport("good", "echo") {
+		t.Fatal("HasExport false")
 	}
 }

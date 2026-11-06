@@ -88,8 +88,9 @@ func dirCacheBytes(dir string) int64 {
 // pushPooled records inst's memory, then pools it. Only the owner of inst
 // (the goroutine that just finished with it) may call it, so the instance is
 // idle while it is measured. The record is stored BEFORE the send so Stats
-// never sees a pooled instance without one. The pool has room (callers hold a
-// slot, load runs on an empty pool), so the send does not block.
+// never sees a pooled instance without one. The send blocks when the pool is
+// full, so only use it where the pool is known to have room (load, on an
+// empty pool). Anyone who holds no slot must use tryPushPooled or release.
 func (p *plugin) pushPooled(inst *extism.Plugin) {
 	p.pooledMem.Store(inst, instanceBytes(inst))
 	p.pool <- inst
