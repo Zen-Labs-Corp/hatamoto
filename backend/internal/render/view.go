@@ -383,6 +383,10 @@ type QuerySpec struct {
 	// the empty string, not "exists").
 	Attr, Eq string
 	EqSet    bool
+	// RangeAttr with RangeMin (inclusive) and/or RangeMax (exclusive) keeps
+	// entities whose numeric attribute RangeAttr lies in that range.
+	RangeAttr          string
+	RangeMin, RangeMax *float64
 	// IncludeScheduled adds scheduled entities (their date, no URL).
 	IncludeScheduled bool
 	// Author is an author slug, Term a "<kind>:<slug>" taxonomy term. A slug

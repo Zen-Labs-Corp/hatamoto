@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -39,6 +40,12 @@ type ListFilter struct {
 	// by the GIN index on attributes. An invalid key matches nothing.
 	Attr, AttrEq string
 	AttrEqSet    bool
+	// RangeAttr with RangeMin and/or RangeMax keeps entities whose numeric
+	// attribute RangeAttr is >= RangeMin and < RangeMax (a nil bound is open).
+	// Entities whose attribute is not a plain number never match; an invalid
+	// key matches nothing.
+	RangeAttr          string
+	RangeMin, RangeMax *float64
 	// IncludeScheduled adds scheduled entities (published_at is their date) to
 	// the published ones. Drafts and archived entities never appear.
 	IncludeScheduled bool
@@ -92,6 +99,32 @@ func orderSQL(spec string, arg func(any) string) string {
 			dir + " NULLS LAST, e.attributes->>" + k + "::text " + dir + " NULLS LAST, " + newest
 	}
 	return newest
+}
+
+// numericAttrSQL is the numeric value of the attribute whose key is the
+// placeholder k (NULL when the attribute is absent or not a plain number).
+func numericAttrSQL(k string) string {
+	return "CASE WHEN e.attributes->>" + k + "::text ~ '" + attrNumberRE + "' THEN (e.attributes->>" + k + "::text)::numeric END"
+}
+
+// rangeSQL returns the WHERE terms of f's numeric range filter (none when it
+// has no bound); arg binds a parameter.
+func rangeSQL(f ListFilter, arg func(any) string) []string {
+	if f.RangeAttr == "" || (f.RangeMin == nil && f.RangeMax == nil) {
+		return nil
+	}
+	if !ValidAttrKey(f.RangeAttr) {
+		return []string{"FALSE"}
+	}
+	k := arg(f.RangeAttr)
+	var out []string
+	if f.RangeMin != nil {
+		out = append(out, numericAttrSQL(k)+" >= "+arg(*f.RangeMin)+"::numeric")
+	}
+	if f.RangeMax != nil {
+		out = append(out, numericAttrSQL(k)+" < "+arg(*f.RangeMax)+"::numeric")
+	}
+	return out
 }
 
 // attrContains are the JSONB documents an attribute equal to v matches.
@@ -158,6 +191,7 @@ func (r *PostgresPublicRepository) ListPublishedFiltered(ctx context.Context, f 
 			where = append(where, "("+strings.Join(alts, " OR ")+")")
 		}
 	}
+	where = append(where, rangeSQL(f, arg)...)
 	if len(f.SchemaSlugs) > 0 {
 		where = append(where, "s.slug = ANY("+arg(f.SchemaSlugs)+")")
 	}
@@ -307,6 +341,50 @@ func (r *PostgresPublicRepository) ListAttrValues(ctx context.Context, schemaSlu
 			return nil, fmt.Errorf("failed to scan attribute value: %w", err)
 		}
 		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// GroupBucket is one numeric bucket of an attribute: N = floor(value/divisor),
+// the number of published entities in it and the newest update among them.
+type GroupBucket struct {
+	N      int64
+	Count  int
+	Newest time.Time
+}
+
+// ArchiveGroupBuckets returns the non-empty buckets of the numeric attribute
+// attr (non-negative plain numbers only) across the published base entities of
+// the given schemas, bucket = floor(value/divisor), newest bucket first. It
+// applies the same visibility rules as ListPublishedFiltered. An invalid key,
+// a divisor below 1 or no schemas gives none.
+func (r *PostgresPublicRepository) ArchiveGroupBuckets(ctx context.Context, schemaSlugs []string, attr string, divisor int64) ([]GroupBucket, error) {
+	if !ValidAttrKey(attr) || divisor < 1 || len(schemaSlugs) == 0 {
+		return nil, nil
+	}
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire connection: %w", err)
+	}
+	defer conn.Release()
+	rows, err := conn.Query(ctx, `
+		SELECT n, COUNT(*), MAX(updated_at) FROM (
+			SELECT floor(`+numericAttrSQL("$2")+` / $3::numeric)::bigint AS n, e.updated_at
+			FROM hatamoto_entities e JOIN hatamoto_entity_schemas s ON e.schema_id = s.id
+			WHERE s.slug = ANY($1) AND e.status = 'published' AND e.variant_key IS NULL
+			  AND `+HiddenPersonFor("$4")+`
+		) b WHERE n >= 0 GROUP BY n ORDER BY n DESC`, schemaSlugs, attr, divisor, VisibleLocales(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list archive groups: %w", err)
+	}
+	defer rows.Close()
+	var out []GroupBucket
+	for rows.Next() {
+		var b GroupBucket
+		if err := rows.Scan(&b.N, &b.Count, &b.Newest); err != nil {
+			return nil, fmt.Errorf("failed to scan archive group: %w", err)
+		}
+		out = append(out, b)
 	}
 	return out, rows.Err()
 }

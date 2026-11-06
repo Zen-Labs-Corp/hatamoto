@@ -128,6 +128,7 @@ func (d *renderData) Query(q render.QuerySpec) render.QueryResult {
 	f := entity.ListFilter{
 		SchemaSlugs: schemaSlugs(d.s.urlSnapshot(ctx), q.Schema),
 		Attr:        q.Attr, AttrEq: q.Eq, AttrEqSet: q.EqSet, Order: q.Order,
+		RangeAttr: q.RangeAttr, RangeMin: q.RangeMin, RangeMax: q.RangeMax,
 		IncludeScheduled: q.IncludeScheduled,
 		Offset:           min(max(q.Offset, 0), entity.MaxListOffset),
 	}
@@ -200,6 +201,9 @@ func queryAttrKeys(q render.QuerySpec) []string {
 	var keys []string
 	if q.Attr != "" {
 		keys = append(keys, q.Attr)
+	}
+	if q.RangeAttr != "" {
+		keys = append(keys, q.RangeAttr)
 	}
 	if k, ok := strings.CutPrefix(strings.TrimPrefix(q.Order, "-"), "attr:"); ok && k != "" {
 		keys = append(keys, k)

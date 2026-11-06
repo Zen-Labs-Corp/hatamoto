@@ -1,10 +1,13 @@
 package render
 
 import (
+	"encoding/json/jsontext"
 	"fmt"
 	"html"
 	"html/template"
+	"math"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -65,7 +68,9 @@ func dataFuncs(ds DataSource) template.FuncMap {
 		"navPos": navPos,
 		// query (dict "schema" "blog" "attr" "series_slug" "eq" "x" "author" "jo"
 		// "term" "category:news" "order" "-published_at" "limit" 12 "page" 2):
-		// a page of published entities of any schema with Items, Total, Page,
+		// "range_attr" with "range_min" (inclusive) and/or "range_max" (exclusive)
+		// keeps entities whose numeric attribute lies in that range.
+		// A page of published entities of any schema with Items, Total, Page,
 		// Pages and Limit. Only "schema" is required.
 		"query": func(args map[string]any) QueryResult { return query(ds, args) },
 		// attrValues "blog" "category" 50: the distinct non-empty string values
@@ -109,6 +114,9 @@ func query(ds DataSource, args map[string]any) QueryResult {
 		Limit:  DefaultQueryLimit,
 		Page:   min(max(toInt(args["page"]), 1), MaxQueryPage),
 	}
+	if q.RangeAttr = strings.TrimSpace(toStr(args["range_attr"])); q.RangeAttr != "" {
+		q.RangeMin, q.RangeMax = toFloat(args["range_min"]), toFloat(args["range_max"])
+	}
 	if v, ok := args["eq"]; ok {
 		if v == nil { // e.g. .Attrs.missing: nothing can equal it
 			return QueryResult{Page: 1, Pages: 1, Limit: q.Limit}
@@ -135,6 +143,40 @@ func query(ds DataSource, args map[string]any) QueryResult {
 	r.Limit = q.Limit
 	r.Page, r.Pages = max(r.Page, 1), max(r.Pages, 1)
 	return r
+}
+
+// toFloat is v as a finite number, nil when v is absent or not a number.
+func toFloat(v any) *float64 {
+	var f float64
+	switch t := v.(type) {
+	case nil:
+		return nil
+	case string:
+		var err error
+		if f, err = strconv.ParseFloat(strings.TrimSpace(t), 64); err != nil {
+			return nil
+		}
+	case template.HTML:
+		return toFloat(string(t))
+	case jsontext.Value:
+		return toFloat(string(t))
+	default:
+		rv := reflect.ValueOf(v)
+		switch rv.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			f = float64(rv.Int())
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			f = float64(rv.Uint())
+		case reflect.Float32, reflect.Float64:
+			f = rv.Float()
+		default:
+			return nil
+		}
+	}
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return nil
+	}
+	return &f
 }
 
 // pageNum is the page number of the request (?page=, 1..MaxQueryPage, default

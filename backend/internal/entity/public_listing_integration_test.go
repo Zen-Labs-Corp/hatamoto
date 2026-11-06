@@ -263,3 +263,47 @@ func TestListPublishedFiltered_HidesBlocksAndHiddenPeople(t *testing.T) {
 		}
 	}
 }
+
+func TestListPublishedFiltered_RangeAndGroupBuckets(t *testing.T) {
+	ctx := context.Background()
+	db := newIntegrationDB(t)
+	schemas := NewPostgresSchemaRepository(db)
+	sch := fmt.Sprintf("tdr-%s", uuid.NewString()[:8])
+	schema, err := schemas.Create(ctx, &CreateSchemaInput{Name: sch, Slug: sch, Schema: jsontext.Value(`{"type":"object","properties":{}}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = schemas.Delete(ctx, schema.ID) })
+	seedAttrs(t, ctx, schemas, schema.ID, "a", "A", `{"sort":1000008}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "b", "B", `{"sort":"1000001"}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "c", "C", `{"sort":999999}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "d", "D", `{"sort":2000000}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "text", "T", `{"sort":"abc"}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "none", "N", `{}`, "published")
+	seedAttrs(t, ctx, schemas, schema.ID, "draft", "Dr", `{"sort":1000002}`, "draft")
+	repo := NewPostgresPublicRepository(db)
+	lo, hi := 1000000.0, 2000000.0
+	items, total, err := repo.ListPublishedFiltered(ctx, ListFilter{SchemaSlugs: []string{sch}, RangeAttr: "sort", RangeMin: &lo, RangeMax: &hi, Order: "-attr:sort"}, 1, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := slugsOf(items); total != 2 || len(got) != 2 || got[0] != "a" || got[1] != "b" {
+		t.Errorf("range = %v total %d, want [a b]", got, total)
+	}
+	if _, total, _ = repo.ListPublishedFiltered(ctx, ListFilter{SchemaSlugs: []string{sch}, RangeAttr: "so rt", RangeMin: &lo}, 1, 10); total != 0 {
+		t.Errorf("invalid key matched %d", total)
+	}
+	if _, total, _ = repo.ListPublishedFiltered(ctx, ListFilter{SchemaSlugs: []string{sch}, RangeAttr: "sort", RangeMin: &lo}, 1, 10); total != 3 {
+		t.Errorf("open max = %d, want 3", total)
+	}
+	got, err := repo.ArchiveGroupBuckets(ctx, []string{sch}, "sort", 1000000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 || got[0].N != 2 || got[0].Count != 1 || got[1].N != 1 || got[1].Count != 2 || got[2].N != 0 || got[2].Count != 1 || got[1].Newest.IsZero() {
+		t.Errorf("buckets = %+v", got)
+	}
+	if got, _ = repo.ArchiveGroupBuckets(ctx, []string{sch}, "so rt", 1); len(got) != 0 {
+		t.Errorf("invalid key buckets = %+v", got)
+	}
+}
