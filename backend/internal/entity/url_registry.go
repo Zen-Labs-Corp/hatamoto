@@ -56,6 +56,12 @@ type SchemaURLConfig struct {
 	ArchiveDescription string
 	// ArchiveCrumbLabel is the trimmed archive_crumb_label setting.
 	ArchiveCrumbLabel string
+	// ArchiveLimit is the archive_limit setting: when > 0 the archive lists
+	// that many entries without pagination.
+	ArchiveLimit int
+	// ArchiveGroups is the archive_groups setting; zero (disabled) when unset,
+	// invalid or the schema has no archive path.
+	ArchiveGroups ArchiveGroupsSettings
 	// Explicit is true when the schema's settings supplied url_pattern.
 	Explicit bool
 }
@@ -312,6 +318,7 @@ func BuildURLSnapshot(schemas []*EntitySchema, logger *slog.Logger) (*URLSnapsho
 			ArchiveTitle:       strings.TrimSpace(p.st.ArchiveTitle),
 			ArchiveDescription: strings.TrimSpace(p.st.ArchiveDescription),
 			ArchiveCrumbLabel:  strings.TrimSpace(p.st.ArchiveCrumbLabel),
+			ArchiveLimit:       int(min(p.st.ArchiveLimit, MaxArchiveLimit)),
 			Explicit:           p.st.URLPattern != "",
 		}
 		patternText := p.st.URLPattern
@@ -334,6 +341,9 @@ func BuildURLSnapshot(schemas []*EntitySchema, logger *slog.Logger) (*URLSnapsho
 			return nil, fmt.Errorf("schema %q: %w", slug, err)
 		}
 		cfg.Pattern = pat
+		if p.st.ArchiveGroups.Enabled() && cfg.ArchivePath != "" {
+			cfg.ArchiveGroups = p.st.ArchiveGroups
+		}
 		cfg.SitemapGroup = effectiveGroup(pat, group)
 
 		route := urlpattern.SchemaRoute{
@@ -435,7 +445,8 @@ func (s *URLSnapshot) IsSectionPage(schemaSlug, slug string) bool {
 
 // OverrideAttributes returns the attribute names any schema override compares
 // against (sorted, unique), i.e. the attributes a bulk listing must carry to
-// pick each entity's pattern.
+// pick each entity's pattern, plus the attributes an archive group page
+// is built from.
 func (s *URLSnapshot) OverrideAttributes() []string {
 	seen := map[string]bool{}
 	var out []string
@@ -444,6 +455,14 @@ func (s *URLSnapshot) OverrideAttributes() []string {
 			if !seen[o.Attribute] {
 				seen[o.Attribute] = true
 				out = append(out, o.Attribute)
+			}
+		}
+		if c.ArchiveGroups.Enabled() {
+			for _, a := range []string{c.ArchiveGroups.Attribute, c.ArchiveGroups.AnchorAttribute} {
+				if a != "" && !seen[a] {
+					seen[a] = true
+					out = append(out, a)
+				}
 			}
 		}
 	}
