@@ -100,8 +100,8 @@ func TestEngineProtectsErrorAndNotFound(t *testing.T) {
 // email in JSON-LD and the feeds stay plain.
 func TestEmailProtectDocsStateLimits(t *testing.T) {
 	t.Parallel()
-	for _, f := range []string{"docs/site/themes/engine-details.md", "docs/RELEASE_NOTES.md", "docs/site/admin/settings-users-email.md"} {
-		b, err := os.ReadFile("../../../" + f)
+	for _, f := range []string{"../../../docs/site/themes/engine-details.md", "../../../docs/RELEASE_NOTES.md", "../../../docs/site/admin/settings-users-email.md"} {
+		b, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -43,3 +43,6 @@ deploy/install/**                                          backend  ./internal/r
 deploy/install-unit.sh                                     backend  ./internal/release
 deploy/systemd/hatamoto-api.service                        backend  ./internal/release
 backend/internal/render/hm_track.js                        backend  ./internal/analytics
+docs/site/themes/engine-details.md                         backend  ./internal/render
+docs/RELEASE_NOTES.md                                      backend  ./internal/render
+docs/site/admin/settings-users-email.md                    backend  ./internal/render
