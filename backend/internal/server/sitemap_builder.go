@@ -223,6 +223,9 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 		if known && cfg.Sitemap.Exclude {
 			continue
 		}
+		if known && hasArchiveGroups(cfg) && cfg.ArchiveGroups.RedirectEntries && entryInBucket(cfg, e) {
+			continue // the entry URL answers 301 to its group page
+		}
 		priority, changeFreq := sitemapStats(e, cfg, known, sm)
 
 		if p.isHomepage(e) {
@@ -564,11 +567,7 @@ func hasArchiveGroups(cfg *entity.SchemaURLConfig) bool {
 
 // noteArchiveBucket counts e into its group page, if its attribute puts it in one.
 func noteArchiveBucket(buckets map[string]*archiveBucket, cfg *entity.SchemaURLConfig, e *entity.SitemapEntry) {
-	attrs := make(map[string]any, len(e.Attrs))
-	for k, v := range e.Attrs {
-		attrs[k] = v
-	}
-	n, ok := cfg.ArchiveGroups.Bucket(attrs)
+	n, ok := entryBucket(cfg, e)
 	if !ok {
 		return
 	}
@@ -581,6 +580,20 @@ func noteArchiveBucket(buckets map[string]*archiveBucket, cfg *entity.SchemaURLC
 	if e.UpdatedAt > b.newest {
 		b.newest = e.UpdatedAt
 	}
+}
+
+func entryBucket(cfg *entity.SchemaURLConfig, e *entity.SitemapEntry) (int64, bool) {
+	attrs := make(map[string]any, len(e.Attrs))
+	for k, v := range e.Attrs {
+		attrs[k] = v
+	}
+	return cfg.ArchiveGroups.Bucket(attrs)
+}
+
+// entryInBucket reports whether the entry falls in a group page.
+func entryInBucket(cfg *entity.SchemaURLConfig, e *entity.SitemapEntry) bool {
+	_, ok := entryBucket(cfg, e)
+	return ok
 }
 
 // addArchiveGroupRows lists each group page (newest group first, per schema in

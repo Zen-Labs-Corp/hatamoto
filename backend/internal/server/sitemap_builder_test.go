@@ -438,3 +438,21 @@ func TestSitemapBuilder_ArchiveGroupsOtherSchemas(t *testing.T) {
 		t.Errorf("urls = %v, want %v", all, want)
 	}
 }
+
+// With redirect_entries on and no sitemap.exclude, entries that redirect to a
+// group page stay out of the sitemap; one without a bucket is still listed.
+func TestSitemapBuilder_RedirectEntriesNotListed(t *testing.T) {
+	t.Parallel()
+	snap := sitemapSnap(t, sitemapSchema("item", `{"url_pattern":"/things/{slug}","archive_path":"/things","archive_groups":{"attribute":"sort","divisor":1000,"path":"v{n}","redirect_entries":true}}`))
+	plan := planSitemap(basePlanInput(snap,
+		entry("item", "a", "2025-03-01", sortAttr("1002")),
+		entry("item", "text", "2025-01-01", sortAttr("abc")),
+	))
+	urls, ok := plan.GroupURLs("things")
+	if !ok {
+		t.Fatal("no group lists the archive")
+	}
+	if got, want := urlsOf(urls), []string{"/things", "/things/v1", "/things/text"}; !slices.Equal(slices.Sorted(slices.Values(got)), slices.Sorted(slices.Values(want))) {
+		t.Fatalf("urls = %v, want %v", got, want)
+	}
+}
