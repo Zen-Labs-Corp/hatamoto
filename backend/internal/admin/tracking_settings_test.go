@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/admin/a11y"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/tags"
 )
@@ -38,14 +39,33 @@ func TestTrackingPageGoldenDefault(t *testing.T) {
 	s, _ := newTrackingRig(t)
 	body := s.get(t, "/admin/settings/tracking")
 	for _, v := range tags.Vendors {
-		if !strings.Contains(body, `id="tracking-`+v.ID+`-id"`) || !strings.Contains(body, `id="tracking-`+v.ID+`-enabled"`) {
-			t.Errorf("vendor %s has no switch or id field", v.ID)
+		if !strings.Contains(body, `id="tracking-`+v.ID+`"`) || !strings.Contains(body, `href="/admin/settings/tracking/tags/`+v.ID+`"`) || !strings.Contains(body, `id="tracking-`+v.ID+`-id"`) {
+			t.Errorf("vendor %s has no card, tag page link or drawer field", v.ID)
 		}
 	}
-	if !strings.Contains(body, "Do not load tags for signed-in users") || strings.Contains(body, "Moved into core") {
-		t.Error("shared switch missing or a notice shows by default")
+	if !strings.Contains(body, "Skip tags for signed-in users") || !strings.Contains(body, `href="/admin/settings/privacy">Cookie consent</a>`) || strings.Contains(body, "Moved into core") {
+		t.Error("All tags card wrong or a notice shows by default")
 	}
 	compareGolden(t, "pages/settings-tracking.html", normalizePage(body))
+}
+
+// Ad platform tags that wait for analytics consent are still filed under ads.
+func TestTrackingGroupsByKindOfTag(t *testing.T) {
+	s, _ := newTrackingRig(t)
+	body := s.get(t, "/admin/settings/tracking")
+	ads := strings.Index(body, ">Ads and marketing<")
+	chat := strings.Index(body, ">Chat and support<")
+	if ads < 0 || chat < 0 {
+		t.Fatal("group headings missing")
+	}
+	for _, id := range []string{"uet", "linkedin"} {
+		if i := strings.Index(body, `id="tracking-`+id+`"`); i < ads || i > chat {
+			t.Errorf("%s is not under Ads and marketing", id)
+		}
+	}
+	if i := strings.Index(body, `id="tracking-clarity"`); i > ads {
+		t.Error("clarity left Analytics")
+	}
 }
 
 func TestTrackingPageGoldenGA4OnWithNotice(t *testing.T) {
@@ -106,8 +126,6 @@ func TestTrackingSaveRejectsInvalidIDNothingSaved(t *testing.T) {
 	s, f := newTrackingRig(t)
 	rec := s.do("POST", "/admin/settings/tracking", "owner-token", url.Values{
 		"ga4_present": {"1"}, "ga4_enabled": {"true"}, "ga4_id": {"UA-123"},
-		"gtm_present": {"1"}, "gtm_enabled": {"true"}, "gtm_id": {""},
-		"gads_present": {"1"}, "gads_enabled": {"false"}, "gads_id": {"AW-123456789"}, "gads_aux": {"bad label"},
 	}, nil)
 	if rec.Code != 422 {
 		t.Fatalf("status %d, want 422", rec.Code)
@@ -116,13 +134,83 @@ func TestTrackingSaveRejectsInvalidIDNothingSaved(t *testing.T) {
 		t.Error("an invalid post saved, audited or cleared the cache")
 	}
 	body := rec.Body.String()
-	for _, want := range []string{`href="#tracking-ga4-id"`, `href="#tracking-gtm-id"`, `href="#tracking-gads-aux"`, `id="tracking-ga4-id-error"`, "Enter the container id to turn this tag on.", `aria-invalid="true"`} {
+	for _, want := range []string{`href="#tracking-ga4-id"`, `id="tracking-ga4-id-error"`, `aria-invalid="true"`, `value="UA-123"`, ">Turn on<"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("response lacks %q", want)
 		}
 	}
-	if !strings.Contains(body, `value="UA-123"`) {
-		t.Error("the rejected value is not kept in the field")
+	if strings.Contains(body, ">Save<") {
+		t.Error("a tag that was off offers Save instead of Turn on after a bad id")
+	}
+}
+
+// The error page is the failing tag's own page and lists only its fields.
+func TestTrackingSaveErrorShowsTheFailingTagOnly(t *testing.T) {
+	s, f := newTrackingRig(t)
+	f.set.Vendors["gads"] = tags.VendorState{Enabled: true, ID: "AW-123456789"}
+	rec := s.do("POST", "/admin/settings/tracking", "owner-token", url.Values{
+		"gads_present": {"1"}, "gads_enabled": {"true"}, "gads_id": {"AW-123456789"}, "gads_aux": {"bad label"},
+	}, nil)
+	body := rec.Body.String()
+	if rec.Code != 422 || !strings.Contains(body, `href="#tracking-gads-aux"`) || !strings.Contains(body, ">Save<") {
+		t.Fatalf("status %d; want the Google Ads page with the label error and Save", rec.Code)
+	}
+	if strings.Contains(body, `id="tracking-ga4-id"`) {
+		t.Error("the error page shows other tags")
+	}
+}
+
+func TestTrackingTagPage(t *testing.T) {
+	s, f := newTrackingRig(t)
+	f.set.Vendors["meta"] = tags.VendorState{ID: "123456789012345"}
+	body := s.get(t, "/admin/settings/tracking/tags/meta")
+	for _, want := range []string{"Meta Pixel", `value="123456789012345"`, "connect.facebook.net", ">Turn on<", `href="/admin/settings/tracking"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("tag page lacks %q", want)
+		}
+	}
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("tag page a11y: %v", issues)
+	}
+	if rec := s.do("GET", "/admin/settings/tracking/tags/nope", "owner-token", nil, nil); rec.Code != 404 {
+		t.Errorf("unknown tag = %d, want 404", rec.Code)
+	}
+	if rec := s.do("GET", "/admin/settings/tracking/tags/meta", "editor-token", nil, nil); rec.Code == 200 {
+		t.Error("an editor can open a tag page")
+	}
+}
+
+// A card's one-click toggle posts no id; the stored id stays.
+func TestTrackingToggleKeepsTheID(t *testing.T) {
+	s, f := newTrackingRig(t)
+	f.set.Vendors["meta"] = tags.VendorState{Enabled: true, ID: "123456789012345"}
+	rec := s.do("POST", "/admin/settings/tracking", "owner-token", url.Values{"meta_present": {"1"}, "meta_enabled": {"false"}}, nil)
+	if rec.Code != 303 {
+		t.Fatalf("status %d", rec.Code)
+	}
+	if st := f.set.Vendors["meta"]; st.Enabled || st.ID != "123456789012345" {
+		t.Errorf("meta = %+v, want off with its id kept", st)
+	}
+	s.do("POST", "/admin/settings/tracking", "owner-token", url.Values{"meta_present": {"1"}, "meta_enabled": {"true"}}, nil)
+	if st := f.set.Vendors["meta"]; !st.Enabled || st.ID != "123456789012345" {
+		t.Errorf("meta = %+v, want on with its id kept", st)
+	}
+}
+
+func TestTrackingSavedFlash(t *testing.T) {
+	for _, c := range []struct {
+		en, dis, ch []string
+		want        string
+	}{
+		{[]string{"ga4"}, nil, nil, "Google Analytics 4 is on. It loads after a visitor accepts cookies."},
+		{nil, []string{"meta"}, nil, "Meta Pixel is off."},
+		{nil, nil, []string{"gtm"}, "Google Tag Manager saved."},
+		{[]string{"ga4"}, []string{"meta"}, nil, "Tracking settings saved."},
+		{nil, nil, nil, "Tracking settings saved."},
+	} {
+		if got := trackingSavedFlash(c.en, c.dis, c.ch); got != c.want {
+			t.Errorf("flash(%v,%v,%v) = %q, want %q", c.en, c.dis, c.ch, got, c.want)
+		}
 	}
 }
 

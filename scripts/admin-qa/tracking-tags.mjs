@@ -13,22 +13,29 @@ const b = await launch();
 let bad = 0;
 const ok = (c, m) => { console.log(`${c ? "ok  " : "FAIL"} ${m}`); if (!c) bad++; };
 
-// Owner turns GA4 and Meta on.
-const p = await newSession(b, { theme: "light", width: 1440 });
+// Owner sets up GA4 and Meta from their cards: Set up opens the drawer, Turn on saves.
+const p = await newSession(b, { theme: "light", width: 1440, bypassCSP: true }); // axe is injected below
+const setUp = async (key, id) => {
+  await p.goto(`${base}${admin}/settings/tracking`);
+  if (await p.locator(`#tracking-${key} button:has-text("Turn off")`).count()) return; // already on from an earlier run
+  await p.click(`#tracking-${key} a[data-hm-open]`);
+  await p.waitForSelector(`#tracking-${key}-dialog[open]`);
+  await p.fill(`#tracking-${key}-id`, id);
+  await Promise.all([p.waitForURL((u) => u.pathname.endsWith("/settings/tracking")), p.click(`#tracking-${key}-dialog button:has-text("Turn on")`)]);
+};
+await setUp("ga4", "G-QA1234567");
+await setUp("meta", "123456789012345");
 await p.goto(`${base}${admin}/settings/tracking`);
-await p.locator("label[for=tracking-ga4-enabled]").click();
-await p.fill("#tracking-ga4-id", "G-QA1234567");
-await p.locator("label[for=tracking-meta-enabled]").click();
-await p.fill("#tracking-meta-id", "123456789012345");
-await Promise.all([p.waitForURL((u) => u.pathname.endsWith("/settings/tracking")), p.click('form[action$="/settings/tracking"] button[type=submit]')]);
-ok(await p.locator("#tracking-ga4-enabled").isChecked() && (await p.inputValue("#tracking-meta-id")) === "123456789012345", "GA4 and Meta are saved on");
+ok((await p.locator('#tracking-ga4 button:has-text("Turn off")').count()) === 1 && (await p.locator("#tracking-meta .hm-tagcard__id").textContent()) === "123456789012345", "GA4 and Meta are saved on");
 
-// A bad id shows an inline error and saves nothing.
+// A bad id on the tag's own page shows an inline error and saves nothing.
+await p.goto(`${base}${admin}/settings/tracking/tags/ga4`);
 await p.fill("#tracking-ga4-id", "not-an-id");
-await Promise.all([p.waitForLoadState("load"), p.click('form[action$="/settings/tracking"] button[type=submit]')]);
+await Promise.all([p.waitForLoadState("load"), p.click('button[form="tracking-ga4-form"]')]);
 ok((await p.locator("#tracking-ga4-id-error").count()) === 1 && (await p.locator("#tracking-ga4-id").getAttribute("aria-invalid")) === "true", "a bad id shows an inline error");
-await p.goto(`${base}${admin}/settings/tracking`);
+await p.goto(`${base}${admin}/settings/tracking/tags/ga4`);
 ok((await p.inputValue("#tracking-ga4-id")) === "G-QA1234567", "the bad id was not saved");
+await p.goto(`${base}${admin}/settings/tracking`);
 
 // axe on the Tracking page.
 await p.addScriptTag({ content: axeSrc });

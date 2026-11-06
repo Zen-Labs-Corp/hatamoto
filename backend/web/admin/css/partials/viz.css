@@ -108,7 +108,9 @@
 .hm-notices .hm-callout__dismiss { margin: 0; }
 .hm-notices .hm-callout__body { flex: 1; }
 .hm-notices .hm-callout--danger { color: var(--callout-fg); }
-.hm-notices form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.hm-notices form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); justify-content: flex-end; }
+/* Phone: a notice wraps, so its icon sits beside the first line instead of the middle. */
+@media (max-width: 640px) { .hm-page > .hm-notices .hm-callout { align-items: flex-start; padding-block: var(--space-2); } .hm-notices .hm-callout > .hm-icon { margin-top: var(--space-0-5); } }
 .hm-notices form > span { flex: 1 1 16rem; }
 
 /* Analytics legend: Value and Share as right-aligned columns (CategoryBar.Columns). */

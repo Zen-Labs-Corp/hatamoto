@@ -190,6 +190,7 @@ GET /admin/settings/taxonomies/terms/{id}/unlink -> admin.(*Admin).handleTermUnl
 GET /admin/settings/team -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/tools -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/tracking -> admin.(*Admin).handleTracking-fm
+GET /admin/settings/tracking/tags/{key} -> admin.(*Admin).handleTrackingTag-fm
 GET /admin/settings/types -> admin.(*Admin).handleSchemas-fm
 GET /admin/settings/types/new -> admin.(*Admin).handleSchemaNew-fm
 GET /admin/settings/types/preview-pattern -> admin.(*Admin).handlePatternPreview-fm

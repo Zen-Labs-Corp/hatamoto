@@ -97,7 +97,7 @@
 <li><a class="hm-subnav__link" href="/admin/settings/import"><span>Tools</span></a></li>
 </ul>
 </nav>
-<div class="hm-page" data-width="narrow">
+<div class="hm-page" data-width="wide">
 
 
 <header class="hm-section-head">
@@ -110,176 +110,372 @@
 
 
 
+
+<div class="hm-tracking">
+<section class="hm-tracking__group" aria-labelledby="tracking-on-title">
+<div class="hm-tracking__head"><h2 class="hm-tracking__title" id="tracking-on-title">On your site</h2><span class="hm-mono hm-muted">0 of 13</span></div>
+<p class="hm-tracking__none hm-muted">No tags are on, so nothing loads on your site. Pick one below to set it up.</p>
+</section>
+<section class="hm-tracking__group" aria-labelledby="tracking-group-analytics">
+<div class="hm-tracking__head"><h2 class="hm-tracking__title" id="tracking-group-analytics">Analytics</h2></div>
+<ul class="hm-plugincards" role="list"><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-ga4" aria-labelledby="tracking-ga4-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-ga4-name">Google Analytics 4</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">Visits, events and conversions in Google Analytics.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/ga4" aria-label="Set up Google Analytics 4" data-hm-open="tracking-ga4-dialog"><span>Set up</span></a></span>
+</div></article></li><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-clarity" aria-labelledby="tracking-clarity-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-clarity-name">Microsoft Clarity</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">Heatmaps and session recordings.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/clarity" aria-label="Set up Microsoft Clarity" data-hm-open="tracking-clarity-dialog"><span>Set up</span></a></span>
+</div></article></li></ul>
+</section>
+<section class="hm-tracking__group" aria-labelledby="tracking-group-marketing">
+<div class="hm-tracking__head"><h2 class="hm-tracking__title" id="tracking-group-marketing">Ads and marketing</h2></div>
+<ul class="hm-plugincards" role="list"><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-gtm" aria-labelledby="tracking-gtm-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-gtm-name">Google Tag Manager</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">Loads your Tag Manager container. Its tags from other hosts are blocked.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/gtm" aria-label="Set up Google Tag Manager" data-hm-open="tracking-gtm-dialog"><span>Set up</span></a></span>
+</div></article></li><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-gads" aria-labelledby="tracking-gads-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-gads-name">Google Ads</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">Conversion tracking and remarketing for Google Ads.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/gads" aria-label="Set up Google Ads" data-hm-open="tracking-gads-dialog"><span>Set up</span></a></span>
+</div></article></li><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-meta" aria-labelledby="tracking-meta-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-meta-name">Meta Pixel</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">Conversions and audiences for Facebook and Instagram ads.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/meta" aria-label="Set up Meta Pixel" data-hm-open="tracking-meta-dialog"><span>Set up</span></a></span>
+</div></article></li><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-uet" aria-labelledby="tracking-uet-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-uet-name">Microsoft Advertising (UET)</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">Conversion tracking for Microsoft Advertising.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/uet" aria-label="Set up Microsoft Advertising (UET)" data-hm-open="tracking-uet-dialog"><span>Set up</span></a></span>
+</div></article></li><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-linkedin" aria-labelledby="tracking-linkedin-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-linkedin-name">LinkedIn Insight Tag</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">Conversions and retargeting for LinkedIn ads.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/linkedin" aria-label="Set up LinkedIn Insight Tag" data-hm-open="tracking-linkedin-dialog"><span>Set up</span></a></span>
+</div></article></li><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-tiktok" aria-labelledby="tracking-tiktok-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-tiktok-name">TikTok Pixel</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">Conversions and audiences for TikTok ads.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/tiktok" aria-label="Set up TikTok Pixel" data-hm-open="tracking-tiktok-dialog"><span>Set up</span></a></span>
+</div></article></li><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-pinterest" aria-labelledby="tracking-pinterest-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-pinterest-name">Pinterest Tag</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">Conversions and audiences for Pinterest ads.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/pinterest" aria-label="Set up Pinterest Tag" data-hm-open="tracking-pinterest-dialog"><span>Set up</span></a></span>
+</div></article></li><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-hubspot" aria-labelledby="tracking-hubspot-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-hubspot-name">HubSpot</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">HubSpot tracking, forms and chat.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/hubspot" aria-label="Set up HubSpot" data-hm-open="tracking-hubspot-dialog"><span>Set up</span></a></span>
+</div></article></li><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-adsense" aria-labelledby="tracking-adsense-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-adsense-name">Google AdSense</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">Shows Google ads on your pages.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/adsense" aria-label="Set up Google AdSense" data-hm-open="tracking-adsense-dialog"><span>Set up</span></a></span>
+</div></article></li></ul>
+</section>
+<section class="hm-tracking__group" aria-labelledby="tracking-group-functional">
+<div class="hm-tracking__head"><h2 class="hm-tracking__title" id="tracking-group-functional">Chat and support</h2></div>
+<ul class="hm-plugincards" role="list"><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-tawk" aria-labelledby="tracking-tawk-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-tawk-name">Tawk.to chat</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">A live chat widget on every page.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/tawk" aria-label="Set up Tawk.to chat" data-hm-open="tracking-tawk-dialog"><span>Set up</span></a></span>
+</div></article></li><li class="hm-plugincards__item"><article class="hm-plugincard" id="tracking-crisp" aria-labelledby="tracking-crisp-name">
+<div class="hm-tagcard__head"><h3 class="hm-plugincard__name hm-tagcard__name" id="tracking-crisp-name">Crisp chat</h3></div>
+<p class="hm-plugincard__desc hm-tagcard__desc">A live chat and help desk widget.</p>
+<div class="hm-plugincard__foot">
+<span class="hm-tagcard__actions"><a class="hm-btn hm-btn--secondary hm-btn--sm" href="/admin/settings/tracking/tags/crisp" aria-label="Set up Crisp chat" data-hm-open="tracking-crisp-dialog"><span>Set up</span></a></span>
+</div></article></li></ul>
+</section>
+
 <form method="post" action="/admin/settings/tracking" class="hm-cardform">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <section class="hm-card" id="shared" aria-labelledby="shared-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="shared-title">Shared settings</h2></div>
+<div class="hm-card__head"><h2 class="hm-card__title" id="shared-title">All tags</h2><p class="hm-muted">Tags never load in previews. Each one waits until a visitor accepts its category in <a href="/admin/settings/privacy">Cookie consent</a>.</p></div>
 <div class="hm-card__body">
 <div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-exclude"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-exclude" name="exclude_signed_in" value="true" checked aria-describedby="tracking-exclude-help"><span>Do not load tags for signed-in users</span></label><input type="hidden" name="exclude_signed_in" value="false">
-<p class="hm-field__help" id="tracking-exclude-help">Tags never load in previews. Non-necessary tags wait for cookie consent (Settings &gt; Privacy &amp; tracking &gt; Cookie consent).</p>
+<label class="hm-field__check hm-switch" for="tracking-exclude"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-exclude" name="exclude_signed_in" value="true" checked aria-describedby="tracking-exclude-help"><span>Skip tags for signed-in users</span></label><input type="hidden" name="exclude_signed_in" value="false">
+<p class="hm-field__help" id="tracking-exclude-help">Your own visits stay out of the reports.</p>
 </div>
-</div></section>
-<section class="hm-card" id="tags" aria-labelledby="tags-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="tags-title">Tags</h2><p class="hm-muted">Each tag loads once, after consent, and adds only its own hosts to the page policy. Off by default: nothing changes on your site until you turn a tag on.</p></div>
-<div class="hm-card__body">
-<fieldset class="hm-field__group" id="tracking-ga4"><legend class="hm-field__label">Google Analytics 4</legend>
-<input type="hidden" name="ga4_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-ga4-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-ga4-enabled" name="ga4_enabled" value="true"><span>Turn on Google Analytics 4</span></label><input type="hidden" name="ga4_enabled" value="false">
+</div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
+</form>
 </div>
+<dialog class="hm-dialog" id="tracking-ga4-dialog" aria-labelledby="tracking-ga4-dialog-title" aria-describedby="tracking-ga4-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-ga4-dialog-title">Google Analytics 4</h2>
+<p class="hm-muted" id="tracking-ga4-dialog-desc">Visits, events and conversions in Google Analytics.</p><div class="hm-dialog__body">
+<form id="tracking-ga4-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="ga4_present" value="1"><input type="hidden" name="ga4_enabled" value="true">
 <div class="hm-field">
-<label class="hm-field__label" for="tracking-ga4-id">Measurement ID</label>
-<input class="hm-field__control" type="text" id="tracking-ga4-id" name="ga4_id" aria-describedby="tracking-ga4-id-help">
-<p class="hm-field__help" id="tracking-ga4-id-help">Looks like G-ABC123XYZ9. Category: Analytics. Allows: www.googletagmanager.com, *.google-analytics.com, *.analytics.google.com.</p>
+<label class="hm-field__label" for="tracking-ga4-id">Measurement ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-ga4-id" name="ga4_id" required aria-describedby="tracking-ga4-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-ga4-id-help">Looks like G-ABC123XYZ9.</p>
 </div>
-</fieldset>
-<fieldset class="hm-field__group" id="tracking-gtm"><legend class="hm-field__label">Google Tag Manager</legend>
-<input type="hidden" name="gtm_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-gtm-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-gtm-enabled" name="gtm_enabled" value="true"><span>Turn on Google Tag Manager</span></label><input type="hidden" name="gtm_enabled" value="false">
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts analytics cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>www.googletagmanager.com</code></li><li><code>*.google-analytics.com</code></li><li><code>*.analytics.google.com</code></li></ul></dd></div>
+
+</dl>
+
+</form>
 </div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-ga4-form"><span>Turn on</span></button></form>
+</div></dialog>
+<dialog class="hm-dialog" id="tracking-gtm-dialog" aria-labelledby="tracking-gtm-dialog-title" aria-describedby="tracking-gtm-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-gtm-dialog-title">Google Tag Manager</h2>
+<p class="hm-muted" id="tracking-gtm-dialog-desc">Loads your Tag Manager container. Its tags from other hosts are blocked.</p><div class="hm-dialog__body">
+<form id="tracking-gtm-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="gtm_present" value="1"><input type="hidden" name="gtm_enabled" value="true">
 <div class="hm-field">
-<label class="hm-field__label" for="tracking-gtm-id">Container ID</label>
-<input class="hm-field__control" type="text" id="tracking-gtm-id" name="gtm_id" aria-describedby="tracking-gtm-id-help">
-<p class="hm-field__help" id="tracking-gtm-id-help">Looks like GTM-ABC123. Tags the container loads from other hosts are blocked by the page policy; add them as their own row here. Category: Marketing. Allows: www.googletagmanager.com.</p>
+<label class="hm-field__label" for="tracking-gtm-id">Container ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-gtm-id" name="gtm_id" required aria-describedby="tracking-gtm-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-gtm-id-help">Looks like GTM-ABC123. Tags the container loads from other hosts are blocked by the page policy; add them as their own row here.</p>
 </div>
-</fieldset>
-<fieldset class="hm-field__group" id="tracking-gads"><legend class="hm-field__label">Google Ads</legend>
-<input type="hidden" name="gads_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-gads-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-gads-enabled" name="gads_enabled" value="true"><span>Turn on Google Ads</span></label><input type="hidden" name="gads_enabled" value="false">
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts marketing cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>www.googletagmanager.com</code></li></ul></dd></div>
+
+</dl>
+
+</form>
 </div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-gtm-form"><span>Turn on</span></button></form>
+</div></dialog>
+<dialog class="hm-dialog" id="tracking-gads-dialog" aria-labelledby="tracking-gads-dialog-title" aria-describedby="tracking-gads-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-gads-dialog-title">Google Ads</h2>
+<p class="hm-muted" id="tracking-gads-dialog-desc">Conversion tracking and remarketing for Google Ads.</p><div class="hm-dialog__body">
+<form id="tracking-gads-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="gads_present" value="1"><input type="hidden" name="gads_enabled" value="true">
 <div class="hm-field">
-<label class="hm-field__label" for="tracking-gads-id">Conversion ID</label>
-<input class="hm-field__control" type="text" id="tracking-gads-id" name="gads_id" aria-describedby="tracking-gads-id-help">
-<p class="hm-field__help" id="tracking-gads-id-help">Looks like AW-123456789. Category: Marketing. Allows: www.googletagmanager.com, www.googleadservices.com, googleads.g.doubleclick.net, www.google.com, *.doubleclick.net.</p>
+<label class="hm-field__label" for="tracking-gads-id">Conversion ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-gads-id" name="gads_id" required aria-describedby="tracking-gads-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-gads-id-help">Looks like AW-123456789.</p>
 </div>
 <div class="hm-field">
 <label class="hm-field__label" for="tracking-gads-aux">Conversion label</label>
-<input class="hm-field__control" type="text" id="tracking-gads-aux" name="gads_aux" aria-describedby="tracking-gads-aux-help">
+<input class="hm-field__control" type="text" id="tracking-gads-aux" name="gads_aux" aria-describedby="tracking-gads-aux-help" autocomplete="off" spellcheck="false">
 <p class="hm-field__help" id="tracking-gads-aux-help">Optional. Sends a form conversion to this label.</p>
 </div>
-</fieldset>
-<fieldset class="hm-field__group" id="tracking-meta"><legend class="hm-field__label">Meta Pixel</legend>
-<input type="hidden" name="meta_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-meta-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-meta-enabled" name="meta_enabled" value="true"><span>Turn on Meta Pixel</span></label><input type="hidden" name="meta_enabled" value="false">
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts marketing cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>www.googletagmanager.com</code></li><li><code>www.googleadservices.com</code></li><li><code>googleads.g.doubleclick.net</code></li><li><code>www.google.com</code></li><li><code>*.doubleclick.net</code></li></ul></dd></div>
+
+</dl>
+
+</form>
 </div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-gads-form"><span>Turn on</span></button></form>
+</div></dialog>
+<dialog class="hm-dialog" id="tracking-meta-dialog" aria-labelledby="tracking-meta-dialog-title" aria-describedby="tracking-meta-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-meta-dialog-title">Meta Pixel</h2>
+<p class="hm-muted" id="tracking-meta-dialog-desc">Conversions and audiences for Facebook and Instagram ads.</p><div class="hm-dialog__body">
+<form id="tracking-meta-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="meta_present" value="1"><input type="hidden" name="meta_enabled" value="true">
 <div class="hm-field">
-<label class="hm-field__label" for="tracking-meta-id">Pixel ID</label>
-<input class="hm-field__control" type="text" id="tracking-meta-id" name="meta_id" aria-describedby="tracking-meta-id-help">
-<p class="hm-field__help" id="tracking-meta-id-help">A 15 or 16 digit number. Category: Marketing. Allows: connect.facebook.net, www.facebook.com.</p>
+<label class="hm-field__label" for="tracking-meta-id">Pixel ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-meta-id" name="meta_id" required aria-describedby="tracking-meta-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-meta-id-help">A 15 or 16 digit number.</p>
 </div>
-</fieldset>
-<fieldset class="hm-field__group" id="tracking-clarity"><legend class="hm-field__label">Microsoft Clarity</legend>
-<input type="hidden" name="clarity_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-clarity-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-clarity-enabled" name="clarity_enabled" value="true"><span>Turn on Microsoft Clarity</span></label><input type="hidden" name="clarity_enabled" value="false">
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts marketing cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>connect.facebook.net</code></li><li><code>www.facebook.com</code></li></ul></dd></div>
+
+</dl>
+
+</form>
 </div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-meta-form"><span>Turn on</span></button></form>
+</div></dialog>
+<dialog class="hm-dialog" id="tracking-clarity-dialog" aria-labelledby="tracking-clarity-dialog-title" aria-describedby="tracking-clarity-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-clarity-dialog-title">Microsoft Clarity</h2>
+<p class="hm-muted" id="tracking-clarity-dialog-desc">Heatmaps and session recordings.</p><div class="hm-dialog__body">
+<form id="tracking-clarity-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="clarity_present" value="1"><input type="hidden" name="clarity_enabled" value="true">
 <div class="hm-field">
-<label class="hm-field__label" for="tracking-clarity-id">Project ID</label>
-<input class="hm-field__control" type="text" id="tracking-clarity-id" name="clarity_id" aria-describedby="tracking-clarity-id-help">
-<p class="hm-field__help" id="tracking-clarity-id-help">Looks like k1a2b3c4d5. Category: Analytics. Allows: *.clarity.ms, c.bing.com.</p>
+<label class="hm-field__label" for="tracking-clarity-id">Project ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-clarity-id" name="clarity_id" required aria-describedby="tracking-clarity-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-clarity-id-help">Looks like k1a2b3c4d5.</p>
 </div>
-</fieldset>
-<fieldset class="hm-field__group" id="tracking-uet"><legend class="hm-field__label">Microsoft Advertising (UET)</legend>
-<input type="hidden" name="uet_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-uet-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-uet-enabled" name="uet_enabled" value="true"><span>Turn on Microsoft Advertising (UET)</span></label><input type="hidden" name="uet_enabled" value="false">
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts analytics cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>*.clarity.ms</code></li><li><code>c.bing.com</code></li></ul></dd></div>
+
+</dl>
+
+</form>
 </div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-clarity-form"><span>Turn on</span></button></form>
+</div></dialog>
+<dialog class="hm-dialog" id="tracking-uet-dialog" aria-labelledby="tracking-uet-dialog-title" aria-describedby="tracking-uet-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-uet-dialog-title">Microsoft Advertising (UET)</h2>
+<p class="hm-muted" id="tracking-uet-dialog-desc">Conversion tracking for Microsoft Advertising.</p><div class="hm-dialog__body">
+<form id="tracking-uet-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="uet_present" value="1"><input type="hidden" name="uet_enabled" value="true">
 <div class="hm-field">
-<label class="hm-field__label" for="tracking-uet-id">Tag ID</label>
-<input class="hm-field__control" type="text" id="tracking-uet-id" name="uet_id" aria-describedby="tracking-uet-id-help">
-<p class="hm-field__help" id="tracking-uet-id-help">The numeric UET tag id. Category: Analytics. Allows: bat.bing.com, bat.bing.net.</p>
+<label class="hm-field__label" for="tracking-uet-id">Tag ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-uet-id" name="uet_id" required aria-describedby="tracking-uet-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-uet-id-help">The numeric UET tag id.</p>
 </div>
-</fieldset>
-<fieldset class="hm-field__group" id="tracking-linkedin"><legend class="hm-field__label">LinkedIn Insight Tag</legend>
-<input type="hidden" name="linkedin_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-linkedin-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-linkedin-enabled" name="linkedin_enabled" value="true"><span>Turn on LinkedIn Insight Tag</span></label><input type="hidden" name="linkedin_enabled" value="false">
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts analytics cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>bat.bing.com</code></li><li><code>bat.bing.net</code></li></ul></dd></div>
+
+</dl>
+
+</form>
 </div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-uet-form"><span>Turn on</span></button></form>
+</div></dialog>
+<dialog class="hm-dialog" id="tracking-linkedin-dialog" aria-labelledby="tracking-linkedin-dialog-title" aria-describedby="tracking-linkedin-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-linkedin-dialog-title">LinkedIn Insight Tag</h2>
+<p class="hm-muted" id="tracking-linkedin-dialog-desc">Conversions and retargeting for LinkedIn ads.</p><div class="hm-dialog__body">
+<form id="tracking-linkedin-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="linkedin_present" value="1"><input type="hidden" name="linkedin_enabled" value="true">
 <div class="hm-field">
-<label class="hm-field__label" for="tracking-linkedin-id">Partner ID</label>
-<input class="hm-field__control" type="text" id="tracking-linkedin-id" name="linkedin_id" aria-describedby="tracking-linkedin-id-help">
-<p class="hm-field__help" id="tracking-linkedin-id-help">The numeric partner id. Category: Analytics. Allows: snap.licdn.com, px.ads.linkedin.com, www.linkedin.com.</p>
+<label class="hm-field__label" for="tracking-linkedin-id">Partner ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-linkedin-id" name="linkedin_id" required aria-describedby="tracking-linkedin-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-linkedin-id-help">The numeric partner id.</p>
 </div>
 <div class="hm-field">
 <label class="hm-field__label" for="tracking-linkedin-aux">Conversion ID</label>
-<input class="hm-field__control" type="text" id="tracking-linkedin-aux" name="linkedin_aux" aria-describedby="tracking-linkedin-aux-help">
+<input class="hm-field__control" type="text" id="tracking-linkedin-aux" name="linkedin_aux" aria-describedby="tracking-linkedin-aux-help" autocomplete="off" spellcheck="false">
 <p class="hm-field__help" id="tracking-linkedin-aux-help">Optional. Counts a form submit as this conversion.</p>
 </div>
-</fieldset>
-<fieldset class="hm-field__group" id="tracking-tiktok"><legend class="hm-field__label">TikTok Pixel</legend>
-<input type="hidden" name="tiktok_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-tiktok-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-tiktok-enabled" name="tiktok_enabled" value="true"><span>Turn on TikTok Pixel</span></label><input type="hidden" name="tiktok_enabled" value="false">
-</div>
-<div class="hm-field">
-<label class="hm-field__label" for="tracking-tiktok-id">Pixel ID</label>
-<input class="hm-field__control" type="text" id="tracking-tiktok-id" name="tiktok_id" aria-describedby="tracking-tiktok-id-help">
-<p class="hm-field__help" id="tracking-tiktok-id-help">Looks like C1A2B3D4E5F6G7H8I9J0. Category: Marketing. Allows: analytics.tiktok.com, *.tiktok.com.</p>
-</div>
-</fieldset>
-<fieldset class="hm-field__group" id="tracking-pinterest"><legend class="hm-field__label">Pinterest Tag</legend>
-<input type="hidden" name="pinterest_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-pinterest-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-pinterest-enabled" name="pinterest_enabled" value="true"><span>Turn on Pinterest Tag</span></label><input type="hidden" name="pinterest_enabled" value="false">
-</div>
-<div class="hm-field">
-<label class="hm-field__label" for="tracking-pinterest-id">Tag ID</label>
-<input class="hm-field__control" type="text" id="tracking-pinterest-id" name="pinterest_id" aria-describedby="tracking-pinterest-id-help">
-<p class="hm-field__help" id="tracking-pinterest-id-help">A 13 digit number. Category: Marketing. Allows: s.pinimg.com, ct.pinterest.com, *.pinterest.com.</p>
-</div>
-</fieldset>
-<fieldset class="hm-field__group" id="tracking-tawk"><legend class="hm-field__label">Tawk.to chat</legend>
-<input type="hidden" name="tawk_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-tawk-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-tawk-enabled" name="tawk_enabled" value="true"><span>Turn on Tawk.to chat</span></label><input type="hidden" name="tawk_enabled" value="false">
-</div>
-<div class="hm-field">
-<label class="hm-field__label" for="tracking-tawk-id">Property and widget ID</label>
-<input class="hm-field__control" type="text" id="tracking-tawk-id" name="tawk_id" aria-describedby="tracking-tawk-id-help">
-<p class="hm-field__help" id="tracking-tawk-id-help">Looks like 5f0a1b2c3d4e5f6a7b8c9d0e/1abcdefgh. Category: Functional. Allows: embed.tawk.to, *.tawk.to, cdn.jsdelivr.net, fonts.googleapis.com, fonts.gstatic.com.</p>
-</div>
-</fieldset>
-<fieldset class="hm-field__group" id="tracking-crisp"><legend class="hm-field__label">Crisp chat</legend>
-<input type="hidden" name="crisp_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-crisp-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-crisp-enabled" name="crisp_enabled" value="true"><span>Turn on Crisp chat</span></label><input type="hidden" name="crisp_enabled" value="false">
-</div>
-<div class="hm-field">
-<label class="hm-field__label" for="tracking-crisp-id">Website ID</label>
-<input class="hm-field__control" type="text" id="tracking-crisp-id" name="crisp_id" aria-describedby="tracking-crisp-id-help">
-<p class="hm-field__help" id="tracking-crisp-id-help">A UUID. Category: Functional. Allows: client.crisp.chat, storage.crisp.chat, client.relay.crisp.chat, stream.relay.crisp.chat.</p>
-</div>
-</fieldset>
-<fieldset class="hm-field__group" id="tracking-hubspot"><legend class="hm-field__label">HubSpot</legend>
-<input type="hidden" name="hubspot_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-hubspot-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-hubspot-enabled" name="hubspot_enabled" value="true"><span>Turn on HubSpot</span></label><input type="hidden" name="hubspot_enabled" value="false">
-</div>
-<div class="hm-field">
-<label class="hm-field__label" for="tracking-hubspot-id">Hub ID</label>
-<input class="hm-field__control" type="text" id="tracking-hubspot-id" name="hubspot_id" aria-describedby="tracking-hubspot-id-help">
-<p class="hm-field__help" id="tracking-hubspot-id-help">The numeric portal id. Category: Marketing. Allows: js.hs-scripts.com, js.hs-analytics.net, js.hscollectedforms.net, js.usemessages.com, js.hs-banner.com, api.hubapi.com, forms.hubspot.com, track.hubspot.com.</p>
-</div>
-</fieldset>
-<fieldset class="hm-field__group" id="tracking-adsense"><legend class="hm-field__label">Google AdSense</legend>
-<input type="hidden" name="adsense_present" value="1">
-<div class="hm-field">
-<label class="hm-field__check hm-switch" for="tracking-adsense-enabled"><input class="hm-field__box" type="checkbox" role="switch" id="tracking-adsense-enabled" name="adsense_enabled" value="true"><span>Turn on Google AdSense</span></label><input type="hidden" name="adsense_enabled" value="false">
-</div>
-<div class="hm-field">
-<label class="hm-field__label" for="tracking-adsense-id">Publisher ID</label>
-<input class="hm-field__control" type="text" id="tracking-adsense-id" name="adsense_id" aria-describedby="tracking-adsense-id-help">
-<p class="hm-field__help" id="tracking-adsense-id-help">Looks like ca-pub-1234567890123456. Category: Marketing. Allows: pagead2.googlesyndication.com, *.googlesyndication.com, www.googletagservices.com, adservice.google.com, partner.googleadservices.com, googleads.g.doubleclick.net.</p>
-</div>
-<p class="hm-muted"><a href="/admin/settings/seo/ads-txt">Add the ads.txt line</a></p>
-</fieldset>
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts analytics cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>snap.licdn.com</code></li><li><code>px.ads.linkedin.com</code></li><li><code>www.linkedin.com</code></li></ul></dd></div>
 
-</div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
+</dl>
+
 </form>
+</div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-linkedin-form"><span>Turn on</span></button></form>
+</div></dialog>
+<dialog class="hm-dialog" id="tracking-tiktok-dialog" aria-labelledby="tracking-tiktok-dialog-title" aria-describedby="tracking-tiktok-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-tiktok-dialog-title">TikTok Pixel</h2>
+<p class="hm-muted" id="tracking-tiktok-dialog-desc">Conversions and audiences for TikTok ads.</p><div class="hm-dialog__body">
+<form id="tracking-tiktok-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="tiktok_present" value="1"><input type="hidden" name="tiktok_enabled" value="true">
+<div class="hm-field">
+<label class="hm-field__label" for="tracking-tiktok-id">Pixel ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-tiktok-id" name="tiktok_id" required aria-describedby="tracking-tiktok-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-tiktok-id-help">Looks like C1A2B3D4E5F6G7H8I9J0.</p>
+</div>
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts marketing cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>analytics.tiktok.com</code></li><li><code>*.tiktok.com</code></li></ul></dd></div>
+
+</dl>
+
+</form>
+</div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-tiktok-form"><span>Turn on</span></button></form>
+</div></dialog>
+<dialog class="hm-dialog" id="tracking-pinterest-dialog" aria-labelledby="tracking-pinterest-dialog-title" aria-describedby="tracking-pinterest-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-pinterest-dialog-title">Pinterest Tag</h2>
+<p class="hm-muted" id="tracking-pinterest-dialog-desc">Conversions and audiences for Pinterest ads.</p><div class="hm-dialog__body">
+<form id="tracking-pinterest-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="pinterest_present" value="1"><input type="hidden" name="pinterest_enabled" value="true">
+<div class="hm-field">
+<label class="hm-field__label" for="tracking-pinterest-id">Tag ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-pinterest-id" name="pinterest_id" required aria-describedby="tracking-pinterest-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-pinterest-id-help">A 13 digit number.</p>
+</div>
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts marketing cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>s.pinimg.com</code></li><li><code>ct.pinterest.com</code></li><li><code>*.pinterest.com</code></li></ul></dd></div>
+
+</dl>
+
+</form>
+</div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-pinterest-form"><span>Turn on</span></button></form>
+</div></dialog>
+<dialog class="hm-dialog" id="tracking-tawk-dialog" aria-labelledby="tracking-tawk-dialog-title" aria-describedby="tracking-tawk-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-tawk-dialog-title">Tawk.to chat</h2>
+<p class="hm-muted" id="tracking-tawk-dialog-desc">A live chat widget on every page.</p><div class="hm-dialog__body">
+<form id="tracking-tawk-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="tawk_present" value="1"><input type="hidden" name="tawk_enabled" value="true">
+<div class="hm-field">
+<label class="hm-field__label" for="tracking-tawk-id">Property and widget ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-tawk-id" name="tawk_id" required aria-describedby="tracking-tawk-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-tawk-id-help">Looks like 5f0a1b2c3d4e5f6a7b8c9d0e/1abcdefgh.</p>
+</div>
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts functional cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>embed.tawk.to</code></li><li><code>*.tawk.to</code></li><li><code>cdn.jsdelivr.net</code></li><li><code>fonts.googleapis.com</code></li><li><code>fonts.gstatic.com</code></li></ul></dd></div>
+
+</dl>
+
+</form>
+</div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-tawk-form"><span>Turn on</span></button></form>
+</div></dialog>
+<dialog class="hm-dialog" id="tracking-crisp-dialog" aria-labelledby="tracking-crisp-dialog-title" aria-describedby="tracking-crisp-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-crisp-dialog-title">Crisp chat</h2>
+<p class="hm-muted" id="tracking-crisp-dialog-desc">A live chat and help desk widget.</p><div class="hm-dialog__body">
+<form id="tracking-crisp-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="crisp_present" value="1"><input type="hidden" name="crisp_enabled" value="true">
+<div class="hm-field">
+<label class="hm-field__label" for="tracking-crisp-id">Website ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-crisp-id" name="crisp_id" required aria-describedby="tracking-crisp-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-crisp-id-help">A UUID.</p>
+</div>
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts functional cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>client.crisp.chat</code></li><li><code>storage.crisp.chat</code></li><li><code>client.relay.crisp.chat</code></li><li><code>stream.relay.crisp.chat</code></li></ul></dd></div>
+
+</dl>
+
+</form>
+</div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-crisp-form"><span>Turn on</span></button></form>
+</div></dialog>
+<dialog class="hm-dialog" id="tracking-hubspot-dialog" aria-labelledby="tracking-hubspot-dialog-title" aria-describedby="tracking-hubspot-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-hubspot-dialog-title">HubSpot</h2>
+<p class="hm-muted" id="tracking-hubspot-dialog-desc">HubSpot tracking, forms and chat.</p><div class="hm-dialog__body">
+<form id="tracking-hubspot-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="hubspot_present" value="1"><input type="hidden" name="hubspot_enabled" value="true">
+<div class="hm-field">
+<label class="hm-field__label" for="tracking-hubspot-id">Hub ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-hubspot-id" name="hubspot_id" required aria-describedby="tracking-hubspot-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-hubspot-id-help">The numeric portal id.</p>
+</div>
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts marketing cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>js.hs-scripts.com</code></li><li><code>js.hs-analytics.net</code></li><li><code>js.hscollectedforms.net</code></li><li><code>js.usemessages.com</code></li><li><code>js.hs-banner.com</code></li><li><code>api.hubapi.com</code></li><li><code>forms.hubspot.com</code></li><li><code>track.hubspot.com</code></li></ul></dd></div>
+
+</dl>
+
+</form>
+</div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-hubspot-form"><span>Turn on</span></button></form>
+</div></dialog>
+<dialog class="hm-dialog" id="tracking-adsense-dialog" aria-labelledby="tracking-adsense-dialog-title" aria-describedby="tracking-adsense-dialog-desc" data-hm-static data-side="end">
+<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="tracking-adsense-dialog-title">Google AdSense</h2>
+<p class="hm-muted" id="tracking-adsense-dialog-desc">Shows Google ads on your pages.</p><div class="hm-dialog__body">
+<form id="tracking-adsense-form" method="post" action="/admin/settings/tracking" class="hm-tagform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"><input type="hidden" name="adsense_present" value="1"><input type="hidden" name="adsense_enabled" value="true">
+<div class="hm-field">
+<label class="hm-field__label" for="tracking-adsense-id">Publisher ID <span class="hm-field__req"><span class="hm-visually-hidden">(</span>Required<span class="hm-visually-hidden">)</span></span></label>
+<input class="hm-field__control" type="text" id="tracking-adsense-id" name="adsense_id" required aria-describedby="tracking-adsense-id-help" autocomplete="off" spellcheck="false">
+<p class="hm-field__help" id="tracking-adsense-id-help">Looks like ca-pub-1234567890123456.</p>
+</div>
+<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts marketing cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list"><li><code>pagead2.googlesyndication.com</code></li><li><code>*.googlesyndication.com</code></li><li><code>www.googletagservices.com</code></li><li><code>adservice.google.com</code></li><li><code>partner.googleadservices.com</code></li><li><code>googleads.g.doubleclick.net</code></li></ul></dd></div>
+
+</dl>
+<p class="hm-muted"><a href="/admin/settings/seo/ads-txt">Add the ads.txt line</a></p>
+</form>
+</div>
+<form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Cancel</span></button><button type="submit" class="hm-btn hm-btn--primary" form="tracking-adsense-form"><span>Turn on</span></button></form>
+</div></dialog>
 
 </div>
 </div>
@@ -297,4 +493,5 @@
 <template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span data-hm-toast-icon="error"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span><span data-hm-toast-icon="warning"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span data-hm-toast-icon="info"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></template>
 </body>
 </html>
+
 

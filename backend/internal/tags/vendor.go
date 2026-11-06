@@ -41,6 +41,8 @@ type Vendor struct {
 	// asked for consent. Empty for most vendors.
 	Noscript string
 	Help     string
+	// Summary says in one line what the tag does, for its card in the admin.
+	Summary string
 }
 
 // Hosts is a set of CSP origins per directive.
@@ -54,7 +56,8 @@ type Hosts struct {
 var Vendors = []Vendor{
 	{
 		// https://developers.google.com/tag-platform/tag-manager/csp
-		ID: "ga4", Label: "Google Analytics 4", IDLabel: "Measurement ID",
+		ID: "ga4", Summary: "Visits, events and conversions in Google Analytics.",
+		Label: "Google Analytics 4", IDLabel: "Measurement ID",
 		Pattern: regexp.MustCompile(`^(G|GT)-[A-Z0-9]{4,16}$`), Fold: true,
 		Category: "analytics", Boot: "ga4",
 		Src:     "https://www.googletagmanager.com/gtag/js?id={id}",
@@ -64,7 +67,8 @@ var Vendors = []Vendor{
 	},
 	{
 		// https://developers.google.com/tag-platform/tag-manager/web
-		ID: "gtm", Label: "Google Tag Manager", IDLabel: "Container ID",
+		ID: "gtm", Summary: "Loads your Tag Manager container. Its tags from other hosts are blocked.",
+		Label: "Google Tag Manager", IDLabel: "Container ID",
 		Pattern: regexp.MustCompile(`^GTM-[A-Z0-9]{4,12}$`), Fold: true,
 		Category: "marketing", Boot: "gtm",
 		Src:      "https://www.googletagmanager.com/gtm.js?id={id}",
@@ -74,7 +78,8 @@ var Vendors = []Vendor{
 	},
 	{
 		// https://support.google.com/google-ads/answer/7548399
-		ID: "gads", Label: "Google Ads", IDLabel: "Conversion ID",
+		ID: "gads", Summary: "Conversion tracking and remarketing for Google Ads.",
+		Label: "Google Ads", IDLabel: "Conversion ID",
 		Pattern: regexp.MustCompile(`^AW-[0-9]{6,12}$`), Fold: true,
 		Aux:      &Field{Label: "Conversion label", Pattern: regexp.MustCompile(`^[A-Za-z0-9_-]{4,40}$`), Help: "Optional. Sends a form conversion to this label."},
 		Category: "marketing", Boot: "gads",
@@ -85,7 +90,8 @@ var Vendors = []Vendor{
 	},
 	{
 		// https://developers.facebook.com/docs/meta-pixel/get-started
-		ID: "meta", Label: "Meta Pixel", IDLabel: "Pixel ID",
+		ID: "meta", Summary: "Conversions and audiences for Facebook and Instagram ads.",
+		Label: "Meta Pixel", IDLabel: "Pixel ID",
 		Pattern:  regexp.MustCompile(`^[0-9]{10,20}$`),
 		Category: "marketing", Boot: "meta",
 		Src:      "https://connect.facebook.net/en_US/fbevents.js",
@@ -96,7 +102,8 @@ var Vendors = []Vendor{
 	},
 	{
 		// https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-setup
-		ID: "clarity", Label: "Microsoft Clarity", IDLabel: "Project ID",
+		ID: "clarity", Summary: "Heatmaps and session recordings.",
+		Label: "Microsoft Clarity", IDLabel: "Project ID",
 		Pattern:  regexp.MustCompile(`^[a-z0-9]{8,12}$`),
 		Category: "analytics", Boot: "clarity",
 		Src:     "https://www.clarity.ms/tag/{id}",
@@ -106,7 +113,8 @@ var Vendors = []Vendor{
 	},
 	{
 		// https://help.ads.microsoft.com/#apex/ads/en/56688/2
-		ID: "uet", Label: "Microsoft Advertising (UET)", IDLabel: "Tag ID",
+		ID: "uet", Summary: "Conversion tracking for Microsoft Advertising.",
+		Label: "Microsoft Advertising (UET)", IDLabel: "Tag ID",
 		Pattern:  regexp.MustCompile(`^[0-9]{6,12}$`),
 		Category: "analytics", Boot: "uet",
 		Src:     "https://bat.bing.com/bat.js",
@@ -116,7 +124,8 @@ var Vendors = []Vendor{
 	},
 	{
 		// https://www.linkedin.com/help/lms/answer/a418880
-		ID: "linkedin", Label: "LinkedIn Insight Tag", IDLabel: "Partner ID",
+		ID: "linkedin", Summary: "Conversions and retargeting for LinkedIn ads.",
+		Label: "LinkedIn Insight Tag", IDLabel: "Partner ID",
 		Pattern:  regexp.MustCompile(`^[0-9]{5,12}$`),
 		Aux:      &Field{Label: "Conversion ID", Pattern: regexp.MustCompile(`^[0-9]{4,12}$`), Help: "Optional. Counts a form submit as this conversion."},
 		Category: "analytics", Boot: "linkedin",
@@ -127,7 +136,8 @@ var Vendors = []Vendor{
 	},
 	{
 		// https://business-api.tiktok.com/portal/docs?id=1739585696931842
-		ID: "tiktok", Label: "TikTok Pixel", IDLabel: "Pixel ID",
+		ID: "tiktok", Summary: "Conversions and audiences for TikTok ads.",
+		Label: "TikTok Pixel", IDLabel: "Pixel ID",
 		Pattern: regexp.MustCompile(`^[A-Z0-9]{10,30}$`), Fold: true,
 		Category: "marketing", Boot: "tiktok",
 		Src:     "https://analytics.tiktok.com/i18n/pixel/events.js?sdkid={id}&lib=ttq",
@@ -137,7 +147,8 @@ var Vendors = []Vendor{
 	},
 	{
 		// https://help.pinterest.com/en/business/article/install-the-pinterest-tag
-		ID: "pinterest", Label: "Pinterest Tag", IDLabel: "Tag ID",
+		ID: "pinterest", Summary: "Conversions and audiences for Pinterest ads.",
+		Label: "Pinterest Tag", IDLabel: "Tag ID",
 		Pattern:  regexp.MustCompile(`^[0-9]{10,20}$`),
 		Category: "marketing", Boot: "pinterest",
 		Src:     "https://s.pinimg.com/ct/core.js",
@@ -147,7 +158,8 @@ var Vendors = []Vendor{
 	},
 	{
 		// https://help.tawk.to/article/content-security-policy
-		ID: "tawk", Label: "Tawk.to chat", IDLabel: "Property and widget ID",
+		ID: "tawk", Summary: "A live chat widget on every page.",
+		Label: "Tawk.to chat", IDLabel: "Property and widget ID",
 		Pattern:  regexp.MustCompile(`^[0-9a-f]{24}/[0-9a-z]{6,12}$`),
 		Category: "functional", Boot: "tawk",
 		Src:     "https://embed.tawk.to/{id}",
@@ -159,7 +171,8 @@ var Vendors = []Vendor{
 	},
 	{
 		// https://docs.crisp.chat/guides/others/whitelisting-crisp-domains/
-		ID: "crisp", Label: "Crisp chat", IDLabel: "Website ID",
+		ID: "crisp", Summary: "A live chat and help desk widget.",
+		Label: "Crisp chat", IDLabel: "Website ID",
 		Pattern:  regexp.MustCompile(`^(?i:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`),
 		Category: "functional", Boot: "crisp",
 		Src:     "https://client.crisp.chat/l.js",
@@ -171,7 +184,8 @@ var Vendors = []Vendor{
 	},
 	{
 		// https://knowledge.hubspot.com/domains-and-urls/what-domains-do-i-need-to-allow-for-hubspot-tracking
-		ID: "hubspot", Label: "HubSpot", IDLabel: "Hub ID",
+		ID: "hubspot", Summary: "HubSpot tracking, forms and chat.",
+		Label: "HubSpot", IDLabel: "Hub ID",
 		Pattern:  regexp.MustCompile(`^[0-9]{5,12}$`),
 		Category: "marketing", Boot: "hubspot",
 		Src:     "https://js.hs-scripts.com/{id}.js",
@@ -181,7 +195,8 @@ var Vendors = []Vendor{
 	},
 	{
 		// https://support.google.com/adsense/answer/9274025
-		ID: "adsense", Label: "Google AdSense", IDLabel: "Publisher ID",
+		ID: "adsense", Summary: "Shows Google ads on your pages.",
+		Label: "Google AdSense", IDLabel: "Publisher ID",
 		Pattern:  regexp.MustCompile(`^ca-pub-[0-9]{10,20}$`),
 		Category: "marketing", Boot: "adsense",
 		Src:     "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={id}",

@@ -1,0 +1,12 @@
+{{/* The set-up form of one tag (Settings > Privacy & tracking > Tracking): its drawer on the directory and its own page. Data: V (the view, for the CSRF token), R (an admin trackingRow), FormID. Saving turns the tag on. */}}
+{{define "hm/form-tracking-tag"}}{{with .R}}<form id="{{$.FormID}}" method="post" action="{{adminPath}}/settings/tracking" class="hm-tagform">
+{{template "hm/csrf" $.V}}<input type="hidden" name="{{.Key}}_present" value="1"><input type="hidden" name="{{.Key}}_enabled" value="true">
+{{template "hm/field" dict "ID" (printf "tracking-%s-id" .Key) "Name" (printf "%s_id" .Key) "Label" .IDLabel "Value" .Value "Required" true "Help" .IDHelp "Error" .IDErr "Attrs" (attrmap "autocomplete" "off" "spellcheck" "false")}}
+{{if .HasAux}}{{template "hm/field" dict "ID" (printf "tracking-%s-aux" .Key) "Name" (printf "%s_aux" .Key) "Label" .AuxLabel "Value" .Aux "Help" .AuxHelp "Error" .AuxErr "Attrs" (attrmap "autocomplete" "off" "spellcheck" "false")}}
+{{end}}<dl class="hm-tagform__facts">
+<div><dt>Loads</dt><dd>After a visitor accepts {{.Consent}} cookies. Never in previews.</dd></div>
+<div><dt>Allows</dt><dd><ul class="hm-tagform__hosts" role="list">{{range .Hosts}}<li><code>{{.}}</code></li>{{end}}</ul></dd></div>
+{{with .Source}}<div><dt>From</dt><dd>{{.}}</dd></div>{{end}}
+</dl>
+{{with .AdsTxtURL}}<p class="hm-muted"><a href="{{.}}">Add the ads.txt line</a></p>{{end}}
+</form>{{end}}{{end}}
