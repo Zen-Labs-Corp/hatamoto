@@ -2,6 +2,7 @@ package render
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -125,5 +126,20 @@ func BenchmarkProtectEmails(b *testing.B) {
 	b.SetBytes(int64(len(in)))
 	for b.Loop() {
 		protectEmails(in)
+	}
+}
+
+func TestEmailProtectKeepsTagCase(t *testing.T) {
+	for _, in := range []string{
+		`<DIV CLASS=a>x@y.org</DIV>`,
+		`<svg><linearGradient id="g"></linearGradient></svg><p>x@y.org</p>`,
+		`<A HREF="/x">x</A> <Br>`,
+	} {
+		out := string(protectEmails([]byte(in + `<p>q@w.org</p>`)))
+		want := strings.NewReplacer("x@y.org", "\x00", "q@w.org", "\x00").Replace(in + `<p>q@w.org</p>`)
+		got := regexp.MustCompile(`(?:&#\d+;)+`).ReplaceAllString(out, "\x00")
+		if got != want {
+			t.Errorf("markup changed:\n in: %s\nout: %s", in, out)
+		}
 	}
 }
