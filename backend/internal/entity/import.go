@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -30,7 +32,13 @@ type ImportItem struct {
 	// Key is the idempotency key, unique per source entity (for example
 	// "wp:post:123"). An item whose key was imported before updates that
 	// entity in place instead of creating another.
-	Key        string
+	Key string
+	// TargetID names the existing entity of SchemaSlug to update, instead of
+	// finding it by Key. It never creates: an unknown id, or one of another
+	// type, fails the item. The update is partial (see Partial) and the stored
+	// metadata, including its own import key, is kept. Key must still be set
+	// and unique in the batch.
+	TargetID   *uuid.UUID
 	SchemaSlug string
 	Name       string
 	Slug       string // generated from Name when empty
@@ -53,6 +61,19 @@ type ImportItem struct {
 	BylinePersonID *uuid.UUID
 	BylineOrg      bool
 
+	// Partial makes an update of an existing entity touch only what the item
+	// carries: attributes are merged into the stored ones (an object member
+	// the item has replaces the stored one, the rest stays), and an empty
+	// Name, Slug, Status, PublishedAt, CreatedAt, Metadata, parent or byline
+	// keeps the stored value. NewStatus is the status of a created item whose
+	// Status is empty (draft when unset). A new item is unaffected.
+	Partial   bool
+	NewStatus EntityStatus
+	// ReplacePaths are dotted attribute paths whose object the item sets as a
+	// whole: a partial update replaces the stored object there (a member the
+	// item lacks is removed) instead of merging into it.
+	ReplacePaths []string
+
 	// Dates; zero values default to now (created/updated) and, for a
 	// published item, to its creation date (published).
 	PublishedAt, CreatedAt, UpdatedAt time.Time
@@ -64,6 +85,12 @@ type ImportBatch struct {
 	// entity metadata and sent in import.completed.
 	Source string
 	Items  []ImportItem
+	// DryRun runs every check and the database write of each item, then rolls
+	// the write back: nothing is stored, no event fires, no link is reindexed.
+	// The results are those a real run would give, with one gap: a parent that
+	// is created earlier in the same dry run does not exist, so it is not
+	// checked as a parent and the dry record keeps no parent.
+	DryRun bool
 }
 
 // ImportItemResult is the outcome of one item.
@@ -71,13 +98,16 @@ type ImportItemResult struct {
 	Key     string
 	ID      uuid.UUID
 	Created bool
-	Err     error
+	// Unchanged marks a partial update that changed nothing: it wrote no
+	// version and no update time. It is not counted in ImportResult.Updated.
+	Unchanged bool
+	Err       error
 }
 
 // ImportResult summarises a batch. Items are in the order of the input.
 type ImportResult struct {
-	Created, Updated, Failed int
-	Items                    []ImportItemResult
+	Created, Updated, Unchanged, Failed int
+	Items                               []ImportItemResult
 }
 
 // ImportSummary is the payload of the import.completed event.
@@ -111,19 +141,23 @@ func (s *Service) Import(ctx context.Context, actor *uuid.UUID, batch ImportBatc
 	for i, it := range batch.Items {
 		res.Items[i].Key = it.Key
 	}
-	run := &importRun{s: s, store: store, actor: actor, source: batch.Source, ids: map[string]uuid.UUID{}, schemas: map[string]*EntitySchema{}}
+	run := &importRun{s: s, store: store, actor: actor, source: batch.Source, ids: map[string]uuid.UUID{}, schemas: map[string]*EntitySchema{},
+		dry: batch.DryRun, dryIDs: map[uuid.UUID]bool{}, seen: map[string]bool{}}
 	var stored []uuid.UUID
 	for _, i := range orderByParent(batch.Items, res.Items) {
 		r := &res.Items[i]
 		if r.Err != nil {
 			continue
 		}
-		e, created, err := run.item(ctx, &batch.Items[i])
+		e, created, unchanged, err := run.item(ctx, &batch.Items[i])
 		if err != nil {
 			r.Err = err
 			continue
 		}
-		r.ID, r.Created = e.ID, created
+		r.ID, r.Created, r.Unchanged = e.ID, created, unchanged
+		if run.dry && created {
+			run.dryIDs[e.ID] = true
+		}
 		run.ids[batch.Items[i].Key] = e.ID
 		stored = append(stored, e.ID)
 	}
@@ -133,11 +167,19 @@ func (s *Service) Import(ctx context.Context, actor *uuid.UUID, batch ImportBatc
 			res.Failed++
 		case r.Created:
 			res.Created++
+		case r.Unchanged:
+			res.Unchanged++
 		default:
 			res.Updated++
 		}
 	}
 
+	if batch.DryRun {
+		s.logger.Info("dry run of an entity import",
+			slog.String("source", batch.Source), slog.Int("created", res.Created),
+			slog.Int("updated", res.Updated), slog.Int("failed", res.Failed))
+		return res, nil
+	}
 	s.logger.Info("imported entities",
 		slog.String("source", batch.Source), slog.Int("created", res.Created),
 		slog.Int("updated", res.Updated), slog.Int("failed", res.Failed))
@@ -225,6 +267,10 @@ type importRun struct {
 	source  string
 	ids     map[string]uuid.UUID // key -> entity id, for parents inside the batch
 	schemas map[string]*EntitySchema
+
+	dry    bool
+	dryIDs map[uuid.UUID]bool // rows a dry run "created"; they are rolled back, so they are no real parents
+	seen   map[string]bool    // schema|locale|slug of the rows a dry run created, to catch duplicates inside the batch
 }
 
 func (r *importRun) schema(ctx context.Context, slug string) (*EntitySchema, error) {
@@ -240,29 +286,52 @@ func (r *importRun) schema(ctx context.Context, slug string) (*EntitySchema, err
 }
 
 // item validates, sanitises and stores one item.
-func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, error) {
+func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, bool, error) {
 	s := r.s
 	schema, err := r.schema(ctx, it.SchemaSlug)
 	if err != nil {
-		return nil, false, fmt.Errorf("schema %q: %w", it.SchemaSlug, err)
+		return nil, false, false, fmt.Errorf("schema %q: %w", it.SchemaSlug, err)
 	}
+	var existing *Entity
+	if it.TargetID != nil {
+		existing, err = r.store.GetByID(ctx, *it.TargetID)
+		switch {
+		case errors.Is(err, ErrEntityNotFound) || (err == nil && existing.SchemaID != schema.ID):
+			return nil, false, false, fmt.Errorf("no %s with the id %s", schema.Slug, it.TargetID)
+		case err != nil:
+			return nil, false, false, err
+		}
+	} else {
+		existing, err = r.store.GetByImportKey(ctx, it.Key)
+		switch {
+		case errors.Is(err, ErrEntityNotFound):
+			existing = nil
+		case err != nil:
+			return nil, false, false, err
+		}
+	}
+	partial := (it.Partial || it.TargetID != nil) && existing != nil
+	it = withStored(it, existing, partial)
 	if strings.TrimSpace(it.Name) == "" {
-		return nil, false, errors.New("name is required")
+		return nil, false, false, errors.New("name is required")
 	}
 	status := it.Status
 	if status == "" {
 		status = StatusDraft
+		if existing == nil && it.NewStatus != "" {
+			status = it.NewStatus
+		}
 	}
 	if !ValidStatus(status) {
-		return nil, false, ErrInvalidStatus
+		return nil, false, false, ErrInvalidStatus
 	}
 	if status == StatusScheduled && it.PublishedAt.IsZero() {
-		return nil, false, errors.New("a scheduled item needs published_at")
+		return nil, false, false, errors.New("a scheduled item needs published_at")
 	}
 	locale := it.Locale
 	if locale != "" {
 		if locale, err = NormalizeLocale(locale); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 	}
 	attrs := it.Attributes
@@ -270,10 +339,10 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		attrs = jsontext.Value(`{}`)
 	}
 	if err := s.validator.ValidateAttributes(schema.Schema, attrs); err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	if attrs, err = sanitizeAttributes(attrs); err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 
 	slug := normalizeSlug(it.Slug)
@@ -281,17 +350,9 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		slug = generateSlug(it.Name)
 	}
 	if slug == "" {
-		return nil, false, errors.New("slug is empty")
+		return nil, false, false, errors.New("slug is empty")
 	}
 	name := it.Name
-
-	existing, err := r.store.GetByImportKey(ctx, it.Key)
-	switch {
-	case errors.Is(err, ErrEntityNotFound):
-		existing = nil
-	case err != nil:
-		return nil, false, err
-	}
 
 	var stored jsontext.Value
 	if existing != nil {
@@ -301,7 +362,7 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		locale = schema.DefaultLocale(locale, func() bool { return r.s.siteIsMulti(ctx) })
 	}
 	if attrs, err = normalizeDocRaw(docWrite, stored, attrs, EligibleForPageDoc(schema)); err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 
 	if s.beforeSave != nil {
@@ -316,7 +377,7 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		}
 		draft := &BeforeSaveInput{Operation: op, ID: id, SchemaSlug: schema.Slug, Name: name, Slug: slug, Locale: draftLocale, Attributes: attrs}
 		if attrs, err = s.runBeforeSave(ctx, draft, schema); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 		name = draft.Name
 		if draft.Slug != "" {
@@ -326,18 +387,18 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 
 	parent, err := r.parent(ctx, it, existingID(existing))
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	byline, authorID, authorName, err := r.credit(ctx, it, attrs)
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	// The byline text is only written where the schema accepts it: one that
 	// forbids extra properties and has no "author" would reject the very next
 	// normal save of this entity. The author row (author_id) is set either way.
 	if authorName != "" && bylineOf(attrs) == "" && schemaAllowsProperty(schema.Schema, "author") {
 		if attrs, err = setAttribute(attrs, "author", authorName); err != nil {
-			return nil, false, err
+			return nil, false, false, err
 		}
 	}
 
@@ -347,26 +408,112 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		status = *st
 	}
 
-	meta, err := importMetadata(it.Metadata, it.Key, r.source)
-	if err != nil {
-		return nil, false, err
+	meta := existing.metadataOrNil()
+	if it.TargetID == nil {
+		if meta, err = importMetadata(it.Metadata, it.Key, r.source); err != nil {
+			return nil, false, false, err
+		}
+	}
+	if r.dry && existing == nil {
+		k := schema.Slug + "|" + locale + "|" + slug
+		if r.seen[k] {
+			return nil, false, false, fmt.Errorf("%w: another row of this file has this slug", ErrSlugAlreadyExists)
+		}
+		r.seen[k] = true
 	}
 	rec := &ImportRecord{
-		SchemaID: schema.ID, Name: name, Slug: slug, Locale: locale, Status: status, Attributes: attrs, Metadata: meta,
+		DryRun: r.dry, SkipUnchanged: partial, SchemaID: schema.ID, Name: name, Slug: slug, Locale: locale, Status: status, Attributes: attrs, Metadata: meta,
 		ParentID: parent, AuthorID: authorID, ActorID: r.actor,
 		BylinePersonID: byline.PersonID, BylineOrg: byline.Org,
 	}
 	if existing != nil {
 		rec.ID = &existing.ID
 	}
+	if partial && byline.PersonID == nil && !byline.Org && authorID == nil {
+		// The item names no byline: the stored credit stays.
+		rec.BylinePersonID, rec.BylineOrg, rec.AuthorID = existing.BylinePersonID, existing.BylineOrg, existing.AuthorID
+	}
 	rec.CreatedAt, rec.UpdatedAt, rec.PublishedAt = importDates(it, status, time.Now())
 
 	e, created, err := r.store.ImportUpsert(ctx, rec)
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	e.Schema = schema
-	return e, created, nil
+	return e, created, rec.Unchanged, nil
+}
+
+// withStored returns the item with the stored values of an existing entity
+// filled in for what a partial item leaves empty (see ImportItem.Partial).
+func withStored(it *ImportItem, e *Entity, partial bool) *ImportItem {
+	if !partial {
+		return it
+	}
+	c := *it
+	if c.Name == "" {
+		c.Name = e.Name
+	}
+	if c.Slug == "" {
+		c.Slug = e.Slug
+	}
+	if c.Status == "" {
+		c.Status = e.Status
+	}
+	if c.PublishedAt.IsZero() && e.PublishedAt != nil {
+		c.PublishedAt = *e.PublishedAt
+	}
+	if c.CreatedAt.IsZero() {
+		c.CreatedAt = e.CreatedAt
+	}
+	if c.UpdatedAt.IsZero() {
+		c.UpdatedAt = time.Now()
+	}
+	if len(c.Metadata) == 0 {
+		c.Metadata = e.Metadata
+	}
+	if c.ParentKey == "" && c.ParentID == nil {
+		c.ParentID = e.ParentID
+	}
+	c.Attributes = mergeAttributes(e.Attributes, it.Attributes, it.ReplacePaths)
+	return &c
+}
+
+// mergeAttributes lays item over stored: object members recurse, every other
+// value of item replaces the stored one, and so does the object at a path in
+// replace. Numbers keep their exact digits.
+func mergeAttributes(stored, item jsontext.Value, replace []string) jsontext.Value {
+	var base, over map[string]any
+	if jsonx.Unmarshal(stored, &base, jsonx.ExactNumbers) != nil || base == nil {
+		return item
+	}
+	if len(item) > 0 && jsonx.Unmarshal(item, &over, jsonx.ExactNumbers) != nil {
+		return item
+	}
+	out, err := jsonx.Marshal(mergeMaps(base, over, replace, ""))
+	if err != nil {
+		return item
+	}
+	return out
+}
+
+func mergeMaps(base, over map[string]any, replace []string, prefix string) map[string]any {
+	for k, v := range over {
+		bm, bok := base[k].(map[string]any)
+		om, ook := v.(map[string]any)
+		if path := prefix + k; bok && ook && !slices.Contains(replace, path) {
+			v = mergeMaps(bm, om, replace, path+".")
+		}
+		base[k] = v
+	}
+	return base
+}
+
+// metadataOrNil is the stored metadata of e, nil when e is nil.
+func (e *Entity) metadataOrNil() jsontext.Value {
+	if e == nil {
+		return nil
+	}
+	return e.Metadata
 }
 
 func existingID(e *Entity) *uuid.UUID {
@@ -400,6 +547,9 @@ func (r *importRun) parent(ctx context.Context, it *ImportItem, self *uuid.UUID)
 	default:
 		return nil, nil
 	}
+	if r.dryIDs[id] {
+		return nil, nil
+	}
 	if err := r.s.checkParent(ctx, self, id); err != nil {
 		return nil, err
 	}
@@ -426,20 +576,39 @@ func (r *importRun) credit(ctx context.Context, it *ImportItem, attrs jsontext.V
 		// A legacy author id is stored as given; the foreign key verifies it.
 		return b, it.AuthorID, "", nil
 	case strings.TrimSpace(it.AuthorName) != "":
-		if b, err = s.bylines.Resolve(ctx, it.AuthorName); err != nil {
+		if b, err = r.resolve(ctx, it.AuthorName); err != nil {
 			return
 		}
 		name = strings.TrimSpace(it.AuthorName)
 	default:
 		var ok bool
-		if b, ok, err = s.bylineFromText(ctx, attrs); err != nil || !ok {
+		if r.dry {
+			// Read-only: a person the byline would create is not made.
+			text := bylineOf(attrs)
+			if text == "" || utf8.RuneCountInString(text) > maxBylineLen {
+				return b, nil, "", nil
+			}
+			if b, err = r.resolve(ctx, text); err != nil {
+				return b, nil, "", fmt.Errorf("failed to resolve byline %q: %w", text, err)
+			}
+		} else if b, ok, err = s.bylineFromText(ctx, attrs); err != nil || !ok {
 			return b, nil, "", err
 		}
 	}
-	if b.PersonID != nil {
+	if b.PersonID != nil && !r.dry {
 		authorID, err = s.mirrorOf(ctx, *b.PersonID)
 	}
 	return b, authorID, name, err
+}
+
+// resolve maps byline text to a credit. A dry run only looks: it never makes
+// the person or the mirror row, which would commit outside the rolled-back write.
+func (r *importRun) resolve(ctx context.Context, name string) (Byline, error) {
+	if !r.dry {
+		return r.s.bylines.Resolve(ctx, name)
+	}
+	b, _, err := r.s.bylines.Lookup(ctx, name)
+	return b, err
 }
 
 // importDates fills the dates of an item: created defaults to now, updated to

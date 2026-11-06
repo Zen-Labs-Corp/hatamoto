@@ -209,6 +209,8 @@ type ImportStore interface {
 	// GetByImportKey returns the entity imported under key, ErrEntityNotFound
 	// when there is none.
 	GetByImportKey(ctx context.Context, key string) (*Entity, error)
+	// GetByID returns the entity with the id, ErrEntityNotFound when there is none.
+	GetByID(ctx context.Context, id uuid.UUID) (*Entity, error)
 	// ImportUpsert inserts rec, or updates the entity rec.ID names, keeping
 	// the dates rec carries (the trigger-free import path). created is true
 	// for an insert.
@@ -235,6 +237,39 @@ type ImportRecord struct {
 	Locale string
 
 	CreatedAt, UpdatedAt, PublishedAt time.Time
+
+	// SkipUnchanged makes an update that would change nothing write nothing:
+	// no new updated_at, no version. Unchanged then reports it.
+	SkipUnchanged bool
+	// Unchanged is set by ImportUpsert when SkipUnchanged applied.
+	Unchanged bool
+
+	// DryRun does the whole write and rolls it back instead of committing.
+	DryRun bool
+}
+
+// sameAs reports whether storing rec over cur would change no stored value
+// (the update time aside).
+func (rec *ImportRecord) sameAs(cur *Entity) bool {
+	sameTime := func(a time.Time, b *time.Time) bool {
+		if b == nil {
+			return a.IsZero()
+		}
+		return !a.IsZero() && a.Truncate(time.Microsecond).Equal(b.Truncate(time.Microsecond))
+	}
+	return rec.SchemaID == cur.SchemaID && rec.Name == cur.Name && rec.Slug == cur.Slug && rec.Status == cur.Status &&
+		(rec.Locale == "" || rec.Locale == cur.Locale) &&
+		jsonRawEqual(rec.Attributes, cur.Attributes) && jsonRawEqual(rec.Metadata, cur.Metadata) &&
+		sameTime(rec.PublishedAt, cur.PublishedAt) && sameTime(rec.CreatedAt, &cur.CreatedAt) &&
+		uuidPtrEqual(rec.ParentID, cur.ParentID) && uuidPtrEqual(rec.AuthorID, cur.AuthorID) &&
+		uuidPtrEqual(rec.BylinePersonID, cur.BylinePersonID) && rec.BylineOrg == cur.BylineOrg
+}
+
+func uuidPtrEqual(a, b *uuid.UUID) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // GetByImportKey implements ImportStore.
@@ -294,13 +329,21 @@ func (r *PostgresEntityRepository) ImportUpsert(ctx context.Context, rec *Import
 		).Scan(&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata, &e.Version, &e.CreatedBy, &e.UpdatedBy,
 			&e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg)
 	} else {
-		var cur jsontext.Value
-		if err = tx.QueryRow(ctx, `SELECT attributes FROM hatamoto_entities WHERE id = $1 FOR UPDATE`, *rec.ID).Scan(&cur); err != nil {
+		err = tx.QueryRow(ctx, `SELECT id, schema_id, name, slug, locale, status, attributes, metadata, version, created_by, updated_by,
+			          created_at, updated_at, published_at, parent_id, author_id, byline_person_id, byline_org
+			FROM hatamoto_entities WHERE id = $1 FOR UPDATE`, *rec.ID).Scan(&e.ID, &e.SchemaID, &e.Name, &e.Slug, &e.Locale, &e.Status, &e.Attributes, &e.Metadata, &e.Version, &e.CreatedBy, &e.UpdatedBy,
+			&e.CreatedAt, &e.UpdatedAt, &e.PublishedAt, &e.ParentID, &e.AuthorID, &e.BylinePersonID, &e.BylineOrg)
+		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, false, ErrEntityNotFound
 			}
 			return nil, false, fmt.Errorf("failed to lock entity: %w", err)
 		}
+		if rec.SkipUnchanged && rec.sameAs(&e) {
+			rec.Unchanged = true
+			return &e, false, nil // nothing to write: the deferred Rollback ends the transaction
+		}
+		cur := e.Attributes
 		changing := !jsonRawEqual(rec.Attributes, cur)
 		if changing {
 			if _, err = tx.Exec(ctx, `INSERT INTO hatamoto_entity_versions (entity_id, version, attributes, changed_by, change_summary, live_at)
@@ -331,6 +374,9 @@ func (r *PostgresEntityRepository) ImportUpsert(ctx context.Context, rec *Import
 			return nil, false, fkViolation(err)
 		}
 		return nil, false, fmt.Errorf("failed to store imported entity: %w", err)
+	}
+	if rec.DryRun {
+		return &e, created, nil // the deferred Rollback discards the row
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, false, fmt.Errorf("failed to commit import row: %w", err)

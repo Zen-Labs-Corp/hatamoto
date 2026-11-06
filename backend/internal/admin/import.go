@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/admin/ui"
+	"hatamoto.dev/core/internal/entitycsv"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/importjob"
 	"hatamoto.dev/core/internal/wpimport"
@@ -61,6 +62,18 @@ func importStepList(current int) []ui.Step {
 func limitImportBody(prefix string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// The CSV import: only its upload carries a file; its other forms are small.
+			if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, prefix+csvBase) {
+				limit, msg := int64(csvFormLimit), "That form is too large."
+				if r.URL.Path == prefix+csvBase {
+					limit, msg = csvBodyLimit, fmt.Sprintf("The file is larger than %d MiB. Split it and import the parts one after another.", entitycsv.MaxFileBytes>>20)
+				}
+				if r.ContentLength > limit {
+					http.Error(w, msg, http.StatusRequestEntityTooLarge)
+					return
+				}
+				r.Body = http.MaxBytesReader(w, r.Body, limit)
+			}
 			if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, prefix+importBase) {
 				limit, msg := int64(importBodyLimit), fmt.Sprintf("The file is larger than %d MB. Export fewer content types, or import from the site's address instead.", importjob.MaxWXRBytes>>20)
 				if strings.HasSuffix(r.URL.Path, "/start") || strings.HasSuffix(r.URL.Path, "/cancel") {
@@ -89,6 +102,7 @@ func (a *Admin) mountImport(authed *httpx.Group) {
 	owner.HandleFunc("POST /settings/import/wordpress/{id}/resume", a.handleImportResume)
 	owner.HandleFunc("GET /settings/import/wordpress/{id}/cancel", a.handleImportCancelForm)
 	owner.HandleFunc("POST /settings/import/wordpress/{id}/cancel", a.handleImportCancel)
+	a.mountImportCSV(owner)
 }
 
 func (a *Admin) importService(w http.ResponseWriter, r *http.Request) (ImportService, bool) {

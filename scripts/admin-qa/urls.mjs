@@ -28,6 +28,7 @@ export const screens = [
   { name: "entities", path: "/admin/entities", mock: "content", roles: OE, states: [rowMenu, { name: "filters", click: '[popovertarget$="filters"]' }], primary: true },
   { name: "entities-seo", path: "/admin/entities?view=seo", mock: null, roles: OE, expect: "[data-hm-cell-edit]" },
   { name: "entities-type", path: "/admin/entities?type=post", mock: null, roles: OE },
+  { name: "entities-export", path: "/admin/entities/export?type=post", mock: null, roles: OE },
   { name: "entity-new", path: "/admin/entities/new", mock: null, roles: OE },
   { name: "people", path: "/admin/people", mock: null, roles: OE, list: true, states: [newDialog] },
   { name: "people-duplicates", path: "/admin/people/duplicates", mock: null, roles: OE }, // the empty state on the seeded site

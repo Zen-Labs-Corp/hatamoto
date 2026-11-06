@@ -331,7 +331,7 @@ func (m *Manager) spoolPath(id uuid.UUID) string {
 
 // spool copies the upload to disk, refusing more than MaxWXRBytes.
 func (m *Manager) spool(id uuid.UUID, r io.Reader) error {
-	if err := checkSpoolDir(m.cfg.SpoolDir); err != nil {
+	if err := CheckSpoolDir(m.cfg.SpoolDir); err != nil {
 		return err
 	}
 	f, err := os.OpenFile(m.spoolPath(id), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)

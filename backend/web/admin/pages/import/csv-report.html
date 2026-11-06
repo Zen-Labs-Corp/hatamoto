@@ -1,0 +1,14 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "CSV import report" "Description" (printf "%s from %s." .Type .FileName) "CSRF" $.CSRF}}
+{{template "hm/steps" (dict "Items" .Steps "Label" "CSV import progress")}}
+<p><strong>{{.Summary}}</strong></p>
+{{if .Errors}}{{template "hm/card-start" dict "Title" "Rows with an error" "ID" "csv-errors" "Heading" "h2"}}
+<div class="hm-table__scroll" role="region" aria-label="Rows with an error" tabindex="0"><table class="hm-table"><caption class="hm-visually-hidden">Rows that cannot be imported, with the reason. The header is row 1.</caption>
+<thead><tr><th scope="col">Row</th><th scope="col">Column</th><th scope="col">What went wrong</th></tr></thead>
+<tbody>{{range .Errors}}<tr><th scope="row" class="hm-table__rowhead">{{.Row}}</th><td data-label="Column">{{.Column}}</td><td data-label="What went wrong">{{.Message}}</td></tr>
+{{end}}</tbody></table></div>{{if .More}}<p class="hm-muted">And {{.More}} more.</p>{{end}}
+{{template "hm/card-end"}}{{end}}
+{{template "hm/card-start" dict "Title" "Next" "ID" "csv-next" "Heading" "h2"}}
+<p class="hm-muted">New rows are drafts unless the file gave a status. Check them in the list and publish what is ready.</p>
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Import another file" "Href" .Back}}{{template "hm/button" dict "Label" "Open the list" "Variant" "primary" "Href" .List}}{{template "hm/card-foot-end"}}
+{{end}}{{end}}

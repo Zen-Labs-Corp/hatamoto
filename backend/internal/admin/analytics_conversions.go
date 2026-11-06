@@ -14,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
+	"hatamoto.dev/core/internal/csvx"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -448,7 +449,7 @@ func (a *Admin) handleConversionsExport(w http.ResponseWriter, r *http.Request) 
 		if t != nil {
 			src, camp = t.Source, t.Campaign
 		}
-		_ = cw.Write([]string{l.At.UTC().Format(time.RFC3339), csvSafe(l.FormName), csvSafe(touchChannel(t)), csvSafe(src), csvSafe(camp), csvSafe(touchLanding(t)), csvSafe(l.Email)})
+		_ = cw.Write([]string{l.At.UTC().Format(time.RFC3339), csvx.Safe(l.FormName), csvx.Safe(touchChannel(t)), csvx.Safe(src), csvx.Safe(camp), csvx.Safe(touchLanding(t)), csvx.Safe(l.Email)})
 	}
 	cw.Flush()
 }

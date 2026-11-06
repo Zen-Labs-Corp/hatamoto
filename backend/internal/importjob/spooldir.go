@@ -6,11 +6,11 @@ import (
 	"syscall"
 )
 
-// checkSpoolDir creates the spool directory and refuses one that somebody
+// CheckSpoolDir creates the spool directory and refuses one that somebody
 // else prepared: the default lives under the shared system temp dir, where
 // another local user could have made the directory first and then read or
 // replace the exports spooled in it.
-func checkSpoolDir(dir string) error {
+func CheckSpoolDir(dir string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}

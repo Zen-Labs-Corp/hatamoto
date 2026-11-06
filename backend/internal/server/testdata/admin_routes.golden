@@ -32,6 +32,8 @@ GET /admin/builder/stylespec -> admin.(*Admin).handleStyleSpec-fm
 GET /admin/builder/templates/{id} -> admin.(*Admin).handleTemplateNodes-fm
 GET /admin/changesets/{id}/frame/{seq}/{ticket} -> admin.(*Admin).handleChangesetFrame-fm
 GET /admin/entities -> admin.(*Admin).handleEntities-fm
+GET /admin/entities/export -> admin.(*Admin).handleEntityExportForm-fm
+GET /admin/entities/export.csv -> admin.(*Admin).handleEntityExport-fm
 GET /admin/entities/new -> admin.(*Admin).handleEntityNew-fm
 GET /admin/entities/order -> admin.(*Admin).handleEntityOrder-fm
 GET /admin/entities/parent-options -> admin.(*Admin).handleParentOptions-fm
@@ -122,6 +124,10 @@ GET /admin/settings/general/locales/convert/apply -> admin.(*Admin).handleConver
 GET /admin/settings/general/locales/convert/history/{id}/revert -> admin.(*Admin).handleConvertRevertConfirm-fm
 GET /admin/settings/import -> admin.(*Admin).handleImportSource-fm
 GET /admin/settings/import-export -> admin.(*Admin).mountSettingsFrame.func1
+GET /admin/settings/import/csv -> admin.(*Admin).handleCSVUploadForm-fm
+GET /admin/settings/import/csv/{id} -> admin.(*Admin).handleCSVMapForm-fm
+GET /admin/settings/import/csv/{id}/dry-run -> admin.(*Admin).handleCSVDryRun-fm
+GET /admin/settings/import/csv/{id}/report -> admin.(*Admin).handleCSVReport-fm
 GET /admin/settings/import/wordpress -> admin.(*Admin).handleImportSource-fm
 GET /admin/settings/import/wordpress/{id} -> admin.(*Admin).handleImportRun-fm
 GET /admin/settings/import/wordpress/{id}/cancel -> admin.(*Admin).handleImportCancelForm-fm
@@ -365,6 +371,9 @@ POST /admin/settings/general/locales/convert/apply -> admin.(*Admin).handleConve
 POST /admin/settings/general/locales/convert/history/{id}/revert -> admin.(*Admin).handleConvertRevert-fm
 POST /admin/settings/general/locales/convert/report -> admin.(*Admin).handleConvertReport-fm
 POST /admin/settings/general/locales/convert/suggest -> admin.(*Admin).handleConvertSuggest-fm
+POST /admin/settings/import/csv -> admin.(*Admin).handleCSVUpload-fm
+POST /admin/settings/import/csv/{id}/map -> admin.(*Admin).handleCSVMap-fm
+POST /admin/settings/import/csv/{id}/run -> admin.(*Admin).handleCSVRun-fm
 POST /admin/settings/import/wordpress -> admin.(*Admin).handleImportBegin-fm
 POST /admin/settings/import/wordpress/{id}/cancel -> admin.(*Admin).handleImportCancel-fm
 POST /admin/settings/import/wordpress/{id}/resume -> admin.(*Admin).handleImportResume-fm

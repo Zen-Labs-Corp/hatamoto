@@ -52,6 +52,9 @@ func (r *importRepo) ImportUpsert(_ context.Context, rec *ImportRecord) (*Entity
 	} else {
 		e.ID = *rec.ID
 	}
+	if rec.DryRun {
+		return e, created, nil
+	}
 	r.entities[e.ID] = e
 	r.byKey[key] = e.ID
 	return e, created, nil
@@ -77,6 +80,17 @@ func (f *fakeBylines) Resolve(_ context.Context, name string) (Byline, error) {
 		f.people[name] = id
 	}
 	return Byline{PersonID: &id, Name: name}, nil
+}
+
+func (f *fakeBylines) Lookup(_ context.Context, name string) (Byline, bool, error) {
+	if name == "Acme" {
+		return Byline{Org: true, Name: name}, true, nil
+	}
+	id, ok := f.people[name]
+	if !ok {
+		return Byline{}, false, nil
+	}
+	return Byline{PersonID: &id, Name: name}, true, nil
 }
 
 func (f *fakeBylines) Name(_ context.Context, id *uuid.UUID) (string, error) {
@@ -289,4 +303,42 @@ func TestImportDates(t *testing.T) {
 	testutil.True(t, created.Equal(now) && updated.Equal(now) && published.IsZero())
 	created, updated, published = importDates(&ImportItem{CreatedAt: c, UpdatedAt: c.Add(-time.Hour)}, StatusPublished, now)
 	testutil.True(t, created.Equal(c) && updated.Equal(c) && published.Equal(c), "updated before created is raised to created")
+}
+
+func TestImport_DryRunStoresNothing(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	svc, repo, _, sink := importFixture(t)
+	item := func(key, name, slug string) ImportItem {
+		return ImportItem{Key: key, SchemaSlug: "page", Name: name, Slug: slug, Attributes: jsontext.Value(`{"title":"` + name + `"}`)}
+	}
+	// An existing row to be reported as an update.
+	_, err := svc.Import(ctx, &testUserID, ImportBatch{Source: "test", Items: []ImportItem{item("old", "Old", "old")}})
+	testutil.RequireNoError(t, err)
+	stored, events := len(repo.entities), len(sink.kinds())
+
+	child := item("child", "Child", "child")
+	child.ParentKey = "new"
+	res, err := svc.Import(ctx, &testUserID, ImportBatch{Source: "test", DryRun: true, Items: []ImportItem{
+		item("old", "Old", "old"), item("new", "New", "same"), item("dup", "Dup", "same"), child,
+		{Key: "bad", SchemaSlug: "page", Name: "Bad", Attributes: jsontext.Value(`{"nothing":1}`)},
+	}})
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 2, res.Created) // new, child
+	testutil.Equal(t, 1, res.Updated)
+	testutil.Equal(t, 2, res.Failed) // dup (slug), bad (title)
+	testutil.Error(t, res.Items[2].Err)
+	testutil.True(t, errors.Is(res.Items[2].Err, ErrSlugAlreadyExists), "dup: %v", res.Items[2].Err)
+	testutil.Equal(t, stored, len(repo.entities))
+	testutil.Equal(t, events, len(sink.kinds()), "a dry run emits no event")
+	for _, rec := range repo.recs[1:] {
+		testutil.True(t, rec.DryRun, "every dry record is flagged")
+	}
+	// The dry-created parent is not stored, so the child keeps no parent.
+	testutil.Nil(t, repo.recs[len(repo.recs)-1].ParentID)
+
+	// The same batch for real still creates everything.
+	res, err = svc.Import(ctx, &testUserID, ImportBatch{Source: "test", Items: []ImportItem{item("new", "New", "same")}})
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 1, res.Created)
 }

@@ -58,3 +58,20 @@ res, err := svc.Import(ctx, actor, entity.ImportBatch{
 * **No redirects.** Unlike an editor's save, an import does not write
   `entity-move` redirects when a re-run changes a slug or parent; the importer
   owns the redirect list for its source.
+* **Dry run.** `ImportBatch.DryRun` runs the whole per-item path, including the
+  database write, inside a transaction that is rolled back. Nothing is stored:
+  no row or version changes, no `import.completed`, no link reindex, no cache
+  purge. The result (`Created`, `Updated`, `Failed`, per-item errors) is what a
+  real run would give, so slug, foreign-key and key constraints are exercised
+  for real. Two limits: the `entity.before_save` plugin hook still runs (it sees
+  the same operation as for a real row), and a parent created earlier in the
+  same dry run does not exist, so it is not checked as a parent and the dry
+  record keeps no parent (the parent row itself was validated). Two rows of one
+  dry run with the same schema, locale and slug are reported as a slug conflict.
+* **CSV source.** The admin CSV import (Settings, Import) sends its rows through
+  this service with `Source: "csv"` and keys `csv:<type>:<value>`, in batches of
+  500, first as a dry run and then for real. It sets `ImportItem.Partial` and `NewStatus`:
+  an update of an existing entity touches only what the item carries, an empty value
+  or an unmapped column keeps the stored one, the default status applies to new
+  rows only, and an object listed in `ReplacePaths` (a JSON cell) replaces the stored
+  object. A value cannot be cleared this way. See the site page on export and import.

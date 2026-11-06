@@ -28,6 +28,9 @@ type BylineResolver interface {
 	// the company name, else the person with that slug or name, creating a
 	// non-public person without a login when there is none.
 	Resolve(ctx context.Context, name string) (Byline, error)
+	// Lookup is Resolve without any write: found is false when Resolve would
+	// have created a person. A dry run uses it.
+	Lookup(ctx context.Context, name string) (b Byline, found bool, err error)
 	// Name is the display name of the credit: the person's name, or the
 	// organisation's when personID is nil.
 	Name(ctx context.Context, personID *uuid.UUID) (string, error)

@@ -68,6 +68,11 @@ type EntityDuplicator interface {
 	Duplicate(ctx context.Context, userID, srcID uuid.UUID) (*entity.Entity, error)
 }
 
+// EntityImporter is entity.Service.Import as the CSV import wizard uses it.
+type EntityImporter interface {
+	Import(ctx context.Context, actor *uuid.UUID, batch entity.ImportBatch) (*entity.ImportResult, error)
+}
+
 // EntityOwnership is changeset.OwnershipService as the entity editors use it:
 // who owns a page, and the hand-back to the plugin that imported it.
 type EntityOwnership interface {
@@ -155,6 +160,11 @@ type ContentDeps struct {
 	Copier EntityCopier
 	// Duplicator copies an entry into a new draft. Nil turns Duplicate off.
 	Duplicator EntityDuplicator
+	// EntityImport stores the rows of the CSV import. Nil turns the CSV import off.
+	EntityImport EntityImporter
+	// CSVSpoolDir keeps uploaded CSV files between the wizard steps. Empty
+	// turns the CSV import off.
+	CSVSpoolDir string
 	// Ownership shows which plugin tracks a page and hands a page back to it.
 	// Nil hides the ownership card and turns the hand-back off.
 	Ownership EntityOwnership

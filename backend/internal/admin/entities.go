@@ -49,6 +49,8 @@ func (a *Admin) mountEntities(authed *httpx.Group) {
 	authed.Group("", a.RequireRole("owner", "editor")).HandleFunc("POST /entities/drafts", a.handleEntityDraft)
 	ord := authed.Group("", a.RequireRole("owner", "editor"))
 	ord.HandleFunc("GET /entities/order", a.handleEntityOrder)
+	ord.HandleFunc("GET /entities/export", a.handleEntityExportForm)
+	ord.HandleFunc("GET /entities/export.csv", a.handleEntityExport)
 	ord.HandleFunc("POST /entities/{id}/move", a.handleEntityMove)
 	authed.HandleFunc("GET /entities/parent-options", a.handleParentOptions)
 	authed.HandleFunc("POST /entities", a.handleEntityCreate)
@@ -560,6 +562,9 @@ func (a *Admin) renderEntities(w http.ResponseWriter, r *http.Request, p listPar
 		d.Primary = &act
 		if !entity.IsReuseSchema(resolved) {
 			d.Actions = []ui.Button{{Label: "Reorder", Href: a.adminPath + "/entities/order?type=" + url.QueryEscape(resolved.Slug), Icon: "arrow-up"}}
+			if u := userFrom(r.Context()); u != nil && (u.Role == "owner" || u.Role == "editor") {
+				d.Actions = append(d.Actions, ui.Button{Label: "Export CSV", Href: a.adminPath + "/entities/export?type=" + url.QueryEscape(resolved.Slug), Icon: "copy"})
+			}
 		}
 	} else {
 		create := ui.ButtonMenu{ID: "create-menu", Label: "Create", Icon: "plus"}

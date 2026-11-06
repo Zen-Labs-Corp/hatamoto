@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/uuid"
@@ -26,6 +28,8 @@ func (s *Server) contentDeps() admin.ContentDeps {
 	if s.entityService != nil {
 		d.Entities = s.entityService
 		d.Unpublish = s.entityService
+		d.EntityImport = s.entityService
+		d.CSVSpoolDir = filepath.Join(os.TempDir(), "hatamoto-import") // beside the WordPress import's uploads
 		if s.previewLinks != nil {
 			d.PreviewLinks = s.previewLinks
 		}
