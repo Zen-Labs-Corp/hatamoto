@@ -1,7 +1,6 @@
 package render
 
 import (
-	"encoding/json"
 	"io/fs"
 	"regexp"
 	"strings"
@@ -9,6 +8,7 @@ import (
 	"testing/fstest"
 
 	"hatamoto.dev/core/internal/adminpath"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type rulesDoc struct {
@@ -35,7 +35,7 @@ func parseRules(t *testing.T, tag string) (rulesEntry, []any) {
 		t.Fatalf("bad block: %s", tag)
 	}
 	var d rulesDoc
-	if err := json.Unmarshal([]byte(tag[len(open):len(tag)-len(closing)]), &d); err != nil {
+	if err := jsonx.Unmarshal([]byte(tag[len(open):len(tag)-len(closing)]), &d); err != nil {
 		t.Fatal(err)
 	}
 	if d.Prerender != nil || len(d.Prefetch) != 1 {
