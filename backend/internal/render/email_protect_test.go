@@ -99,24 +99,72 @@ func TestEmailProtectIdentity(t *testing.T) {
 	}
 }
 
+// literalAddrOutsideSkips returns a text token of page that still holds an
+// address while it sits outside head, code, scripts and the other skip tags.
+func literalAddrOutsideSkips(page []byte) string {
+	z := html.NewTokenizer(bytes.NewReader(page))
+	skip, inHead, rawNext := 0, false, false
+	for {
+		tt := z.Next()
+		skipText := rawNext
+		rawNext = false
+		switch tt {
+		case html.ErrorToken:
+			return ""
+		case html.StartTagToken, html.SelfClosingTagToken:
+			name, _ := z.TagName()
+			if string(name) == "head" && tt == html.StartTagToken {
+				inHead = true
+			}
+			if skipIndex(name) >= 0 {
+				if tt == html.StartTagToken {
+					skip++
+				} else {
+					rawNext = emailRawText[string(name)]
+				}
+			}
+		case html.EndTagToken:
+			name, _ := z.TagName()
+			if string(name) == "head" {
+				inHead = false
+			}
+			if skipIndex(name) >= 0 && skip > 0 {
+				skip--
+			}
+		case html.TextToken:
+			if skip > 0 || inHead || skipText {
+				continue
+			}
+			for _, m := range emailAddr.FindAll(z.Raw(), -1) {
+				if !assetName.Match(m) {
+					return string(z.Raw())
+				}
+			}
+		}
+	}
+}
+
 func FuzzProtectEmails(f *testing.F) {
 	f.Add(wrap(`<a href="mailto:a@b.org">a@b.org</a>`))
 	f.Add(`<a href=`)
 	f.Add(`<p>a@b.co<script>a@b.co`)
+	f.Add(wrap(`<DIV CLASS=a>x@y.org</DIV><svg><linearGradient></linearGradient></svg>`))
+	f.Add(wrap(`<pre>a@b.org<p>c@d.org`))
+	f.Add(wrap(`<p>&ampfoo@x.org &lt;a@b.org&gt; logo@2x.png</p>`))
+	f.Add(wrap(`<svg><title/></svg><script>"a@b.org"</script><p>c@d.org</p>`))
 	f.Fuzz(func(t *testing.T, s string) {
 		out := protectEmails([]byte(s))
-		if _, err := html.Parse(bytes.NewReader(out)); err != nil {
-			t.Fatal(err)
-		}
-		if !emailAddr.MatchString(s) && !containsFold([]byte(s), "mailto") && !bytes.Equal(out, []byte(s)) {
-			t.Fatalf("changed without a match: %q -> %q", s, out)
-		}
 		if !emailAddr.MatchString(s) && !containsFold([]byte(s), "mailto") {
+			if !bytes.Equal(out, []byte(s)) {
+				t.Fatalf("changed without a match: %q -> %q", s, out)
+			}
 			return
 		}
-		again := protectEmails(out)
-		if !bytes.Equal(protectEmails(again), again) {
-			t.Fatalf("not stable: %q", out)
+		if again := protectEmails(out); !bytes.Equal(again, out) {
+			t.Fatalf("not idempotent: %q -> %q -> %q", s, out, again)
+		}
+		if tok := literalAddrOutsideSkips(out); tok != "" {
+			t.Fatalf("literal address left in %q (input %q)", tok, s)
 		}
 	})
 }
