@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -62,6 +63,10 @@ type ImportItem struct {
 	// Status is empty (draft when unset). A new item is unaffected.
 	Partial   bool
 	NewStatus EntityStatus
+	// ReplacePaths are dotted attribute paths whose object the item sets as a
+	// whole: a partial update replaces the stored object there (a member the
+	// item lacks is removed) instead of merging into it.
+	ReplacePaths []string
 
 	// Dates; zero values default to now (created/updated) and, for a
 	// published item, to its creation date (published).
@@ -445,13 +450,14 @@ func withStored(it *ImportItem, e *Entity, partial bool) *ImportItem {
 	if c.ParentKey == "" && c.ParentID == nil {
 		c.ParentID = e.ParentID
 	}
-	c.Attributes = mergeAttributes(e.Attributes, it.Attributes)
+	c.Attributes = mergeAttributes(e.Attributes, it.Attributes, it.ReplacePaths)
 	return &c
 }
 
 // mergeAttributes lays item over stored: object members recurse, every other
-// value of item replaces the stored one. Numbers keep their exact digits.
-func mergeAttributes(stored, item jsontext.Value) jsontext.Value {
+// value of item replaces the stored one, and so does the object at a path in
+// replace. Numbers keep their exact digits.
+func mergeAttributes(stored, item jsontext.Value, replace []string) jsontext.Value {
 	var base, over map[string]any
 	if jsonx.Unmarshal(stored, &base, jsonx.ExactNumbers) != nil || base == nil {
 		return item
@@ -459,19 +465,19 @@ func mergeAttributes(stored, item jsontext.Value) jsontext.Value {
 	if len(item) > 0 && jsonx.Unmarshal(item, &over, jsonx.ExactNumbers) != nil {
 		return item
 	}
-	out, err := jsonx.Marshal(mergeMaps(base, over))
+	out, err := jsonx.Marshal(mergeMaps(base, over, replace, ""))
 	if err != nil {
 		return item
 	}
 	return out
 }
 
-func mergeMaps(base, over map[string]any) map[string]any {
+func mergeMaps(base, over map[string]any, replace []string, prefix string) map[string]any {
 	for k, v := range over {
 		bm, bok := base[k].(map[string]any)
 		om, ook := v.(map[string]any)
-		if bok && ook {
-			v = mergeMaps(bm, om)
+		if path := prefix + k; bok && ook && !slices.Contains(replace, path) {
+			v = mergeMaps(bm, om, replace, path+".")
 		}
 		base[k] = v
 	}

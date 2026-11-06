@@ -4,6 +4,7 @@ package entitycsv
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/json/jsontext"
 	"fmt"
 	"log/slog"
@@ -177,5 +178,58 @@ func TestReimportKeepsWhatTheFileDoesNotCarry(t *testing.T) {
 	fresh, err := repo.GetByImportKey(ctx, "csv:"+slug+":new")
 	if err != nil || fresh.Status != entity.StatusDraft {
 		t.Errorf("new row = %+v (%v), want a draft", fresh, err)
+	}
+}
+
+// A JSON object cell replaces the stored object (a member it lacks is gone);
+// flattened columns of an object merge within the object's mapped keys only.
+func TestReimportJSONCellReplacesObject(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 4, MinConnections: 1,
+		MaxConnLifetime: 30 * time.Minute, MaxConnIdleTime: 5 * time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	schemas := entity.NewPostgresSchemaRepository(db)
+	repo := entity.NewPostgresEntityRepository(db)
+	svc := entity.NewService(schemas, repo, slog.Default())
+	slug := "csvjs-" + uuid.NewString()[:8]
+	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: slug, Slug: slug, Schema: jsontext.Value(
+		`{"type":"object","properties":{"seo":{"type":"object"},"meta":{"type":"object","properties":{"title":{"type":"string"},"desc":{"type":"string"}}}}}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = schemas.Delete(ctx, sc.ID) })
+	t.Cleanup(func() {
+		_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_entities WHERE schema_id = $1`, sc.ID)
+	})
+	m := Mapping{Type: slug, Cols: map[string]string{"sku": "key", "name": "name", "seo": "attr:seo", "t": "attr:meta.title"}}
+	run := func(csv string) {
+		t.Helper()
+		rep, err := Run(ctx, svc, nil, sc, m, strings.NewReader(csv), false)
+		if err != nil || rep.Failed != 0 {
+			t.Fatalf("run = %+v, %v", rep, err)
+		}
+	}
+	run("sku,name,seo,t\na,A,\"{\"\"title\"\":\"\"S\"\",\"\"noindex\"\":true}\",T\n")
+	if _, err := db.Pool().Exec(ctx, `UPDATE hatamoto_entities SET attributes = jsonb_set(attributes, '{meta,desc}', '"D"') WHERE schema_id = $1`, sc.ID); err != nil {
+		t.Fatal(err)
+	}
+	run("sku,name,seo,t\na,A,\"{\"\"title\"\":\"\"S\"\"}\",T2\n")
+	got, err := repo.GetByImportKey(ctx, "csv:"+slug+":a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var attrs map[string]map[string]any
+	if err := json.Unmarshal(got.Attributes, &attrs); err != nil {
+		t.Fatal(err)
+	}
+	if len(attrs["seo"]) != 1 || attrs["seo"]["title"] != "S" || len(attrs["meta"]) != 2 || attrs["meta"]["desc"] != "D" || attrs["meta"]["title"] != "T2" {
+		t.Errorf("attributes = %s, want seo replaced (noindex gone) and meta.desc kept", got.Attributes)
 	}
 }

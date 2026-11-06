@@ -219,7 +219,7 @@ func buildItem(schema *entity.EntitySchema, target, header, rec []string, ns str
 	// A re-import by key changes what the file carries (an empty cell keeps the
 	// stored value); the default status is for new rows only.
 	it.Partial, it.NewStatus = true, defStatus
-	attrs, err := Unflatten(schema.Schema, cells)
+	attrs, whole, err := unflatten(schema.Schema, cells)
 	if err != nil {
 		var ce *CellError
 		if errors.As(err, &ce) {
@@ -227,7 +227,7 @@ func buildItem(schema *entity.EntitySchema, target, header, rec []string, ns str
 		}
 		return nil, &RowError{Message: err.Error()}
 	}
-	it.Attributes = attrs
+	it.Attributes, it.ReplacePaths = attrs, whole
 	return it, nil
 }
 
@@ -263,6 +263,14 @@ func (e *CellError) Error() string { return e.Path + ": " + e.Message }
 // other array given as JSON text. A path the schema does not know is a
 // string. Empty cells are not in cells; they leave the attribute out.
 func Unflatten(schema jsontext.Value, cells map[string]string) (jsontext.Value, error) {
+	attrs, _, err := unflatten(schema, cells)
+	return attrs, err
+}
+
+// unflatten is Unflatten that also returns the paths whose cell held a whole
+// JSON object, which replace the stored object instead of merging into it.
+func unflatten(schema jsontext.Value, cells map[string]string) (jsontext.Value, []string, error) {
+	var whole []string
 	root := map[string]any{}
 	paths := make([]string, 0, len(cells))
 	for p := range cells {
@@ -272,7 +280,10 @@ func Unflatten(schema jsontext.Value, cells map[string]string) (jsontext.Value, 
 	for _, p := range paths {
 		val, err := typedCell(propertySchema(schema, p), p, cells[p])
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		if v, ok := val.(jsontext.Value); ok && v.Kind() == '{' {
+			whole = append(whole, p)
 		}
 		parts := strings.Split(p, ".")
 		cur := root
@@ -284,13 +295,14 @@ func Unflatten(schema jsontext.Value, cells map[string]string) (jsontext.Value, 
 			}
 			m, ok := next.(map[string]any)
 			if !ok {
-				return nil, &CellError{p, "conflicts with the column that sets " + strings.Join(parts[:len(parts)-1], ".")}
+				return nil, nil, &CellError{p, "conflicts with the column that sets " + strings.Join(parts[:len(parts)-1], ".")}
 			}
 			cur = m
 		}
 		cur[parts[len(parts)-1]] = val
 	}
-	return jsonx.Marshal(root)
+	attrs, err := jsonx.Marshal(root)
+	return attrs, whole, err
 }
 
 // propertySchema finds the schema of the property at a dotted path, or nil.
