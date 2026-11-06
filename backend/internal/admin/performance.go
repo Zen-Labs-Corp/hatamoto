@@ -41,6 +41,7 @@ func (a *Admin) mountPerformanceSettings(owner *httpx.Group) {
 	owner.HandleFunc("POST /settings/performance", a.handlePerformanceSave)
 	owner.HandleFunc("POST /settings/performance/clear", a.handlePerformanceClear)
 	owner.HandleFunc("POST /settings/performance/preload", a.handlePerformancePreload)
+	owner.HandleFunc("GET "+performanceMemoryPath, a.handlePerformanceMemory)
 }
 
 func (a *Admin) handlePerformance(w http.ResponseWriter, r *http.Request) {
