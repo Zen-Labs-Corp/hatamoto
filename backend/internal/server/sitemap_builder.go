@@ -1,6 +1,7 @@
 package server
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -104,7 +105,10 @@ type sitemapGroup struct {
 	archive string
 	// archiveSchema is the content type the archive lists, "" for a plugin's.
 	archiveSchema string
-	rows          []groupRow
+	// archiveMod is the archive page's lastmod when it has group pages: the
+	// newest update in any of them ("" = the plan's today).
+	archiveMod string
+	rows       []groupRow
 	// folded is set on a legacy locale file: the per-group files it lists, in
 	// order. They are not registered in the plan themselves.
 	folded []*sitemapGroup
@@ -162,12 +166,18 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 	// are pruned below. prefixGroup maps a section prefix to its group.
 	prefixGroup := map[string]string{}
 	for _, cfg := range in.Snap.Configs() {
-		if cfg.Sitemap.Exclude {
-			continue // no entries and no index page
+		// An excluded schema has no entries and no index page, except that
+		// group pages keep the archive page and one row per group listed.
+		groupsOnly := cfg.Sitemap.Exclude && hasArchiveGroups(cfg)
+		if cfg.Sitemap.Exclude && !groupsOnly {
+			continue
 		}
 		g := ensure(cfg.SitemapGroup)
 		if g.archive == "" {
 			g.archive, g.archiveSchema = cfg.ArchivePath, cfg.SchemaSlug
+		}
+		if groupsOnly {
+			continue
 		}
 		if first := cfg.Pattern.FirstLiteral(); first != "" && prefixGroup[first] == "" {
 			prefixGroup[first] = cfg.SitemapGroup
@@ -196,6 +206,7 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 
 	sm := p.sitemapSettings()
 	var taxKeys []string
+	groupBuckets := map[string]*archiveBucket{}
 	for _, e := range in.Entries {
 		if e.NoIndex || p.noIndexEntry(e) || e.Slug == "" {
 			continue
@@ -206,6 +217,9 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 			continue
 		}
 		cfg, known := in.Snap.Config(e.SchemaSlug)
+		if known && hasArchiveGroups(cfg) {
+			noteArchiveBucket(groupBuckets, cfg, e)
+		}
 		if known && cfg.Sitemap.Exclude {
 			continue
 		}
@@ -253,6 +267,8 @@ func planSitemap(in sitemapInput) *sitemapPlan {
 		}
 		p.addGroupRow(ensure(group), groupRow{e: e, path: path, priority: priority, changeFreq: changeFreq, images: p.images(e)})
 	}
+
+	p.addArchiveGroupRows(groupBuckets, ensure)
 
 	if sm != nil && sm.Taxonomy {
 		for _, t := range in.Terms {
@@ -533,6 +549,72 @@ func (p *sitemapPlan) entryDate(e *entity.SitemapEntry) string {
 	return p.in.Today
 }
 
+// archiveBucket is one group page of an archive: the newest update among its
+// entries.
+type archiveBucket struct {
+	cfg    *entity.SchemaURLConfig
+	n      int64
+	newest string
+}
+
+// hasArchiveGroups reports whether the schema's archive has group pages.
+func hasArchiveGroups(cfg *entity.SchemaURLConfig) bool {
+	return cfg.ArchivePath != "" && cfg.ArchiveGroups.Enabled()
+}
+
+// noteArchiveBucket counts e into its group page, if its attribute puts it in one.
+func noteArchiveBucket(buckets map[string]*archiveBucket, cfg *entity.SchemaURLConfig, e *entity.SitemapEntry) {
+	attrs := make(map[string]any, len(e.Attrs))
+	for k, v := range e.Attrs {
+		attrs[k] = v
+	}
+	n, ok := cfg.ArchiveGroups.Bucket(attrs)
+	if !ok {
+		return
+	}
+	key := fmt.Sprintf("%s/%d", cfg.SchemaSlug, n)
+	b := buckets[key]
+	if b == nil {
+		b = &archiveBucket{cfg: cfg, n: n}
+		buckets[key] = b
+	}
+	if e.UpdatedAt > b.newest {
+		b.newest = e.UpdatedAt
+	}
+}
+
+// addArchiveGroupRows lists each group page (newest group first, per schema in
+// schema order) as a synthetic shared row of its schema's sitemap group, and
+// dates the archive page by the newest of them.
+func (p *sitemapPlan) addArchiveGroupRows(buckets map[string]*archiveBucket, ensure func(string) *sitemapGroup) {
+	list := make([]*archiveBucket, 0, len(buckets))
+	for _, b := range buckets {
+		list = append(list, b)
+	}
+	slices.SortFunc(list, func(a, b *archiveBucket) int {
+		if c := strings.Compare(a.cfg.SchemaSlug, b.cfg.SchemaSlug); c != 0 {
+			return c
+		}
+		return cmp.Compare(b.n, a.n)
+	})
+	for _, b := range list {
+		path := b.cfg.ArchiveGroups.URL(b.cfg.ArchivePath, b.n)
+		g := ensure(b.cfg.SitemapGroup)
+		te := &entity.SitemapEntry{Slug: strings.TrimPrefix(path, "/"), UpdatedAt: b.newest}
+		p.addGroupRow(g, groupRow{e: te, path: path, priority: sitemapIndexPriority, changeFreq: sitemapIndexChangeFreq})
+		if len(b.newest) < 10 {
+			continue
+		}
+		// The bare group and its per-locale files (their archive path carries
+		// the locale segment).
+		for _, f := range p.byKey {
+			if f.base == g.base && strings.HasSuffix(f.archive, b.cfg.ArchivePath) && f.archive != "" && b.newest[:10] > f.archiveMod {
+				f.archiveMod = b.newest[:10]
+			}
+		}
+	}
+}
+
 func (p *sitemapPlan) addGroupRow(g *sitemapGroup, r groupRow) {
 	if p.multi() {
 		if p.locales().IsHidden(r.e.Locale) {
@@ -709,7 +791,11 @@ func (p *sitemapPlan) rowURLs(g *sitemapGroup, urls []URL) []URL {
 		!p.sitemapSettings().ExcludedPath(g.archive) {
 		loc := base + g.archive
 		prio, cf := p.stats(sitemapIndexPriority, sitemapIndexChangeFreq)
-		urls = append(urls, URL{Loc: loc, LastMod: p.in.Today, ChangeFreq: cf, Priority: prio})
+		lastMod := g.archiveMod
+		if lastMod == "" {
+			lastMod = p.in.Today
+		}
+		urls = append(urls, URL{Loc: loc, LastMod: lastMod, ChangeFreq: cf, Priority: prio})
 	}
 	for _, pass := range []bool{true, false} { // section pages, then the rest
 		for _, r := range g.rows {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -379,5 +380,61 @@ func TestSitemapBuilder_RedirectedPathsDropped(t *testing.T) {
 	in.Redirected = func(path string) bool { return path == "/platform" }
 	if misc, _ := planSitemap(in).GroupURLs("misc"); !reflect.DeepEqual(urlsOf(misc), []string{"/about"}) {
 		t.Errorf("misc = %v, want [/about]", urlsOf(misc))
+	}
+}
+
+func sortAttr(n string) func(*entity.SitemapEntry) {
+	return func(e *entity.SitemapEntry) { e.Attrs = map[string]string{"sort": n} }
+}
+
+const sitemapGroupsSettings = `"archive_path":"/things","archive_groups":{"attribute":"sort","divisor":1000,"path":"v{n}"}`
+
+// An excluded schema with archive groups lists the archive page and one row
+// per group (dated by the newest entry in it), never an entry.
+func TestSitemapBuilder_ArchiveGroupsOfExcludedSchema(t *testing.T) {
+	t.Parallel()
+	snap := sitemapSnap(t, sitemapSchema("item", `{"url_pattern":"/things/{slug}","sitemap":{"exclude":true},`+sitemapGroupsSettings+`}`))
+	plan := planSitemap(basePlanInput(snap,
+		entry("item", "a", "2025-03-01", sortAttr("1002")),
+		entry("item", "b", "2025-05-09", sortAttr("1001")),
+		entry("item", "c", "2025-02-01", sortAttr("2000")),
+		entry("item", "d", "2025-01-01", sortAttr("5")),
+		entry("item", "text", "2026-01-01", sortAttr("abc")),
+		entry("item", "none", "2026-01-01", nil),
+	))
+	urls, ok := plan.GroupURLs("things")
+	if !ok {
+		t.Fatal("no group lists the archive")
+	}
+	if got, want := urlsOf(urls), []string{"/things", "/things/v2", "/things/v1", "/things/v0"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("urls = %v, want %v", got, want)
+	}
+	for i, want := range []string{"2025-05-09", "2025-02-01", "2025-05-09", "2025-01-01"} {
+		if urls[i].LastMod != want {
+			t.Errorf("%s lastmod = %s, want %s", urls[i].Loc, urls[i].LastMod, want)
+		}
+	}
+}
+
+// Without archive_groups an excluded schema stays out entirely, and a schema
+// with groups that is not excluded keeps its entries next to the group pages.
+func TestSitemapBuilder_ArchiveGroupsOtherSchemas(t *testing.T) {
+	t.Parallel()
+	snap := sitemapSnap(t,
+		sitemapSchema("quiet", `{"url_pattern":"/quiet/{slug}","archive_path":"/quiet","sitemap":{"exclude":true}}`),
+		sitemapSchema("item", `{"url_pattern":"/things/{slug}",`+sitemapGroupsSettings+`}`))
+	plan := planSitemap(basePlanInput(snap,
+		entry("quiet", "q", "2025-01-01", sortAttr("1")),
+		entry("item", "a", "2025-03-01", sortAttr("1002")),
+	))
+	var all []string
+	for _, key := range []string{"things", "quiet", "misc"} {
+		if urls, ok := plan.GroupURLs(key); ok {
+			all = append(all, urlsOf(urls)...)
+		}
+	}
+	slices.Sort(all)
+	if want := []string{"/things", "/things/a", "/things/v1"}; !reflect.DeepEqual(all, want) {
+		t.Errorf("urls = %v, want %v", all, want)
 	}
 }
