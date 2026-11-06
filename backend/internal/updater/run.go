@@ -508,8 +508,32 @@ func (u *Updater) preflight(ctx context.Context, dec Decision, o RunOpts) string
 		if b := SDKBlockers(dec.Rec, ranges); len(b) > 0 {
 			return b[0] + moreSuffix(len(b))
 		}
+		if ps, ok := u.env.Plugins.(PermissionSource); ok {
+			plugins, err := ps.EnabledPermissions(ctx)
+			if err != nil {
+				return fmt.Sprintf("cannot read the installed plugins to check %s: %v", dec.Target, err)
+			}
+			if b := RemovedPermissionBlockers(*dec.Rec, u.runningRemovedPermissions(), plugins); len(b) > 0 {
+				return b[0] + moreSuffix(len(b))
+			}
+		}
 	}
 	return DiskBlocker(u.free, u.env.Data, art.Size)
+}
+
+// runningRemovedPermissions is what the running release's stored record says
+// it removes; a bootstrap build, a missing or unreadable record counts as none.
+func (u *Updater) runningRemovedPermissions() []string {
+	l := supervisor.NewLayout(u.env.Data)
+	state, err := supervisor.LoadState(l.StatePath())
+	if err != nil || state.Run != supervisor.RunRelease {
+		return nil
+	}
+	rec, err := supervisor.StoredRecord(u.env.Supervisor, supervisor.RunningVersion(l, state, u.env.Version))
+	if err != nil {
+		return nil
+	}
+	return rec.RemovedPermissions
 }
 
 func moreSuffix(n int) string {

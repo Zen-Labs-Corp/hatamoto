@@ -901,3 +901,55 @@ func TestRunRetryDownloadFailureKeepsTheBadEntry(t *testing.T) {
 		t.Fatal("applied after a failed download")
 	}
 }
+
+type fakePermPlugins []NamedPermissions
+
+func (f fakePermPlugins) EnabledSDKRanges(context.Context) ([]NamedRange, error) { return nil, nil }
+func (f fakePermPlugins) EnabledPermissions(context.Context) ([]NamedPermissions, error) {
+	return f, nil
+}
+
+func TestRunBlocksOnARemovedPermission(t *testing.T) {
+	b := newRunBox(t, "v1.0.0")
+	b.offer("v1.0.1", func(r *release.Record) { r.RemovedPermissions = []string{"a.write"} })
+	b.publish([]release.Entry{open100("v1.0.1")}, nil)
+	b.u.env.Plugins = fakePermPlugins{{Name: "example-plugin", Version: "1.0.0", Permissions: []string{"a.write"}}}
+	st, err := b.u.Run(t.Context(), RunOpts{})
+	if err != nil || st.Decision != KindBlocked || !strings.Contains(st.Reason, `"a.write"`) || !strings.Contains(st.Reason, "example-plugin") {
+		t.Fatalf("%+v %v", st, err)
+	}
+	if b.hits("hatamoto-") != 0 {
+		t.Fatal("downloaded a blocked release")
+	}
+	// A plugin that does not declare it passes.
+	b.u.env.Plugins = fakePermPlugins{{Name: "example-plugin", Permissions: []string{"kv"}}}
+	b.supervisedNow = true
+	if st, err = b.u.Run(t.Context(), RunOpts{}); err != nil || st.Decision != KindApplying {
+		t.Fatalf("unaffected plugin: %+v %v", st, err)
+	}
+	// --force skips the check.
+	b.u.env.Plugins = fakePermPlugins{{Name: "example-plugin", Permissions: []string{"a.write"}}}
+	if st, err = b.u.Run(t.Context(), RunOpts{Force: true}); err != nil || st.Decision != KindApplying {
+		t.Fatalf("forced: %+v %v", st, err)
+	}
+}
+
+func TestRunDoesNotBlockOnAPermissionTheRunningReleaseRemoved(t *testing.T) {
+	b := newRunBox(t, "v1.0.0")
+	b.offer("v1.0.1", func(r *release.Record) { r.RemovedPermissions = []string{"a.write"} })
+	b.offer("v1.0.2", func(r *release.Record) { r.RemovedPermissions = []string{"a.write"} })
+	b.publish([]release.Entry{open100("v1.0.2")}, nil)
+	b.onRelease("v1.0.1")
+	dir := filepath.Join(b.data, "releases", "v1.0.1")
+	for name, src := range map[string]string{"release.json": "release.json", "release.json.sig": "release.json.sig"} {
+		if err := os.WriteFile(filepath.Join(dir, name), b.files["/releases/v1.0.1/"+src], 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b.u.env.Plugins = fakePermPlugins{{Name: "example-plugin", Permissions: []string{"a.write"}}}
+	b.supervisedNow = true
+	st, err := b.u.Run(t.Context(), RunOpts{})
+	if err != nil || st.Decision != KindApplying {
+		t.Fatalf("%+v %v", st, err)
+	}
+}

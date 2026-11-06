@@ -57,3 +57,27 @@ func TestUpdatePreflightThemeReadFailuresBlock(t *testing.T) {
 		}
 	}
 }
+
+type listPackages struct {
+	fakePackages
+	rows []packages.Row
+}
+
+func (f listPackages) List(context.Context) ([]packages.Row, error) { return f.rows, nil }
+
+func TestEnabledPermissionsSkipsDisabledAndUninstalling(t *testing.T) {
+	plugin := func(name string, enabled bool, state string) packages.Row {
+		return packages.Row{Kind: packages.KindPlugin, Name: name, Version: "1.0.0", Enabled: enabled, State: state,
+			Manifest: jsontext.Value(`{"permissions":["kv","entities.write"]}`)}
+	}
+	f := listPackages{rows: []packages.Row{
+		plugin("example-plugin", true, packages.StateInstalled),
+		plugin("example-off", false, packages.StateInstalled),
+		plugin("example-gone", true, packages.StateUninstalling),
+	}}
+	got, err := pluginSource{pk: f}.EnabledPermissions(context.Background())
+	if err != nil || len(got) != 1 || got[0].Name != "example-plugin" || got[0].Version != "1.0.0" ||
+		strings.Join(got[0].Permissions, ",") != "kv,entities.write" {
+		t.Fatalf("%+v %v", got, err)
+	}
+}

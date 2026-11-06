@@ -3,6 +3,7 @@ package updater
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"hatamoto.dev/core/internal/release"
 	"hatamoto.dev/sdk"
@@ -23,6 +24,18 @@ type NamedRange struct {
 // theme. The adapter over the package store lives with the server wiring.
 type PluginSource interface {
 	EnabledSDKRanges(ctx context.Context) ([]NamedRange, error)
+}
+
+// NamedPermissions is the permissions one enabled plugin declares.
+type NamedPermissions struct {
+	Name, Version string
+	Permissions   []string
+}
+
+// PermissionSource lists the permissions the enabled plugins declare. A
+// PluginSource that also implements it gets the removed-permission check.
+type PermissionSource interface {
+	EnabledPermissions(ctx context.Context) ([]NamedPermissions, error)
 }
 
 // ImportProbe reports whether a content import is running right now.
@@ -49,6 +62,23 @@ func SDKBlockers(rec *release.Record, ranges []NamedRange) []string {
 		}
 		if !ok {
 			out = append(out, fmt.Sprintf("%s %s needs SDK %s (target %s has %s)", r.Kind, r.Name, r.Range, rec.Version, rec.SDK))
+		}
+	}
+	return out
+}
+
+// RemovedPermissionBlockers returns one sentence for each permission the
+// target release removes that an enabled plugin still declares. already lists
+// the permissions the running release removed too: they are not new, so an
+// update does not block on them.
+func RemovedPermissionBlockers(rec release.Record, already []string, plugins []NamedPermissions) []string {
+	var out []string
+	for _, p := range plugins {
+		for _, perm := range p.Permissions {
+			if slices.Contains(rec.RemovedPermissions, perm) && !slices.Contains(already, perm) {
+				out = append(out, fmt.Sprintf("%s removes permission %q, still used by plugin %s (%s). Update the plugin first, or run `hatamoto update apply %s --force`.",
+					rec.Version, perm, p.Name, p.Version, rec.Version))
+			}
 		}
 	}
 	return out
