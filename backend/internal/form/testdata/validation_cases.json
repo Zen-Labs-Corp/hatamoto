@@ -1,0 +1,1921 @@
+{
+ "free_email_note": "block_free_email uses freemail.json",
+ "cases": [
+  {
+   "name": "required missing",
+   "fields": [
+    {
+     "id": "f_name",
+     "type": "text",
+     "label": "Name",
+     "name": "name",
+     "required": true
+    }
+   ],
+   "data": {},
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "name": "Name is required"
+   }
+  },
+  {
+   "name": "required blank",
+   "fields": [
+    {
+     "id": "f_name",
+     "type": "text",
+     "label": "Name",
+     "name": "name",
+     "required": true
+    }
+   ],
+   "data": {
+    "name": "   "
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "name": "Name is required"
+   }
+  },
+  {
+   "name": "required ok trims",
+   "fields": [
+    {
+     "id": "f_name",
+     "type": "text",
+     "label": "Name",
+     "name": "name",
+     "required": true
+    }
+   ],
+   "data": {
+    "name": "  Ada "
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "name": "Ada"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "optional empty dropped",
+   "fields": [
+    {
+     "id": "f_name",
+     "type": "text",
+     "label": "Name",
+     "name": "name"
+    }
+   ],
+   "data": {
+    "name": ""
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {},
+   "want_errors": {}
+  },
+  {
+   "name": "unknown keys ignored",
+   "fields": [
+    {
+     "id": "f_name",
+     "type": "text",
+     "label": "Name",
+     "name": "name"
+    }
+   ],
+   "data": {
+    "name": "a",
+    "extra": "b"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "name": "a"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "label falls back to name",
+   "fields": [
+    {
+     "id": "f_name",
+     "type": "text",
+     "label": "",
+     "name": "name",
+     "required": true
+    }
+   ],
+   "data": {},
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "name": "name is required"
+   }
+  },
+  {
+   "name": "email ok",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "a@example.com"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "email": "a@example.com"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "email bad",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "nope"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "email": "Email must be a valid email address"
+   }
+  },
+  {
+   "name": "email with display name rejected",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "A <a@example.com>"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "email": "Email must be a valid email address"
+   }
+  },
+  {
+   "name": "url ok",
+   "fields": [
+    {
+     "id": "f_site",
+     "type": "url",
+     "label": "Site",
+     "name": "site"
+    }
+   ],
+   "data": {
+    "site": "https://example.com/x"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "site": "https://example.com/x"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "url bad scheme",
+   "fields": [
+    {
+     "id": "f_site",
+     "type": "url",
+     "label": "Site",
+     "name": "site"
+    }
+   ],
+   "data": {
+    "site": "javascript:alert(1)"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "site": "Site must be a web address starting with http:// or https://"
+   }
+  },
+  {
+   "name": "url no host",
+   "fields": [
+    {
+     "id": "f_site",
+     "type": "url",
+     "label": "Site",
+     "name": "site"
+    }
+   ],
+   "data": {
+    "site": "https://"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "site": "Site must be a web address starting with http:// or https://"
+   }
+  },
+  {
+   "name": "date ok",
+   "fields": [
+    {
+     "id": "f_day",
+     "type": "date",
+     "label": "Day",
+     "name": "day"
+    }
+   ],
+   "data": {
+    "day": "2026-01-31"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "day": "2026-01-31"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "date bad",
+   "fields": [
+    {
+     "id": "f_day",
+     "type": "date",
+     "label": "Day",
+     "name": "day"
+    }
+   ],
+   "data": {
+    "day": "31/01/2026"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "day": "Day must be a date like 2026-01-31"
+   }
+  },
+  {
+   "name": "min length",
+   "fields": [
+    {
+     "id": "f_code",
+     "type": "text",
+     "label": "Code",
+     "name": "code",
+     "validation": {
+      "min_length": 3,
+      "max_length": 5
+     }
+    }
+   ],
+   "data": {
+    "code": "ab"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "code": "Code must be at least 3 characters"
+   }
+  },
+  {
+   "name": "max length",
+   "fields": [
+    {
+     "id": "f_code",
+     "type": "text",
+     "label": "Code",
+     "name": "code",
+     "validation": {
+      "min_length": 3,
+      "max_length": 5
+     }
+    }
+   ],
+   "data": {
+    "code": "abcdef"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "code": "Code is too long"
+   }
+  },
+  {
+   "name": "length ok",
+   "fields": [
+    {
+     "id": "f_code",
+     "type": "text",
+     "label": "Code",
+     "name": "code",
+     "validation": {
+      "min_length": 3,
+      "max_length": 5
+     }
+    }
+   ],
+   "data": {
+    "code": "abcd"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "code": "abcd"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "length counts runes",
+   "fields": [
+    {
+     "id": "f_code",
+     "type": "text",
+     "label": "Code",
+     "name": "code",
+     "validation": {
+      "min_length": 3,
+      "max_length": 5
+     }
+    }
+   ],
+   "data": {
+    "code": "\u00e4\u00f6\u00fc"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "code": "\u00e4\u00f6\u00fc"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "number ok from string",
+   "fields": [
+    {
+     "id": "f_age",
+     "type": "number",
+     "label": "Age",
+     "name": "age",
+     "validation": {
+      "min": 18,
+      "max": 99
+     }
+    }
+   ],
+   "data": {
+    "age": "30"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "age": 30
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "number ok from number",
+   "fields": [
+    {
+     "id": "f_age",
+     "type": "number",
+     "label": "Age",
+     "name": "age",
+     "validation": {
+      "min": 18,
+      "max": 99
+     }
+    }
+   ],
+   "data": {
+    "age": 42
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "age": 42
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "number below min",
+   "fields": [
+    {
+     "id": "f_age",
+     "type": "number",
+     "label": "Age",
+     "name": "age",
+     "validation": {
+      "min": 18,
+      "max": 99
+     }
+    }
+   ],
+   "data": {
+    "age": 17
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "age": "Age is out of range"
+   }
+  },
+  {
+   "name": "number above max",
+   "fields": [
+    {
+     "id": "f_age",
+     "type": "number",
+     "label": "Age",
+     "name": "age",
+     "validation": {
+      "min": 18,
+      "max": 99
+     }
+    }
+   ],
+   "data": {
+    "age": "100"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "age": "Age is out of range"
+   }
+  },
+  {
+   "name": "number not a number",
+   "fields": [
+    {
+     "id": "f_age",
+     "type": "number",
+     "label": "Age",
+     "name": "age",
+     "validation": {
+      "min": 18,
+      "max": 99
+     }
+    }
+   ],
+   "data": {
+    "age": "x"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "age": "Age must be a number"
+   }
+  },
+  {
+   "name": "pattern ok",
+   "fields": [
+    {
+     "id": "f_zip",
+     "type": "text",
+     "label": "Zip",
+     "name": "zip",
+     "validation": {
+      "pattern": "[0-9]{5}"
+     }
+    }
+   ],
+   "data": {
+    "zip": "12345"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "zip": "12345"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "pattern must match whole answer",
+   "fields": [
+    {
+     "id": "f_zip",
+     "type": "text",
+     "label": "Zip",
+     "name": "zip",
+     "validation": {
+      "pattern": "[0-9]{5}"
+     }
+    }
+   ],
+   "data": {
+    "zip": "123456"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "zip": "Zip is not in the expected format"
+   }
+  },
+  {
+   "name": "custom message overrides",
+   "fields": [
+    {
+     "id": "f_zip",
+     "type": "text",
+     "label": "Zip",
+     "name": "zip",
+     "validation": {
+      "pattern": "[0-9]{5}",
+      "message": "Five digits please"
+     }
+    }
+   ],
+   "data": {
+    "zip": "abc"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "zip": "Five digits please"
+   }
+  },
+  {
+   "name": "custom message on range",
+   "fields": [
+    {
+     "id": "f_age",
+     "type": "number",
+     "label": "Age",
+     "name": "age",
+     "validation": {
+      "min": 1,
+      "message": "Too low"
+     }
+    }
+   ],
+   "data": {
+    "age": 0
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "age": "Too low"
+   }
+  },
+  {
+   "name": "select ok",
+   "fields": [
+    {
+     "id": "f_c",
+     "type": "select",
+     "label": "Color",
+     "name": "color",
+     "options": [
+      {
+       "label": "Red",
+       "value": "red"
+      }
+     ]
+    }
+   ],
+   "data": {
+    "color": "red"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "color": "red"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "select option mismatch",
+   "fields": [
+    {
+     "id": "f_c",
+     "type": "select",
+     "label": "Color",
+     "name": "color",
+     "options": [
+      {
+       "label": "Red",
+       "value": "red"
+      }
+     ]
+    }
+   ],
+   "data": {
+    "color": "blue"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "color": "Choose one of the listed options for Color"
+   }
+  },
+  {
+   "name": "checkbox list ok",
+   "fields": [
+    {
+     "id": "f_t",
+     "type": "checkbox",
+     "label": "Topics",
+     "name": "topics",
+     "options": [
+      {
+       "label": "A",
+       "value": "a"
+      },
+      {
+       "label": "B",
+       "value": "b"
+      }
+     ]
+    }
+   ],
+   "data": {
+    "topics": [
+     "a",
+     "b"
+    ]
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "topics": [
+     "a",
+     "b"
+    ]
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "checkbox list mismatch",
+   "fields": [
+    {
+     "id": "f_t",
+     "type": "checkbox",
+     "label": "Topics",
+     "name": "topics",
+     "options": [
+      {
+       "label": "A",
+       "value": "a"
+      },
+      {
+       "label": "B",
+       "value": "b"
+      }
+     ]
+    }
+   ],
+   "data": {
+    "topics": [
+     "a",
+     "z"
+    ]
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "topics": "Choose only the listed options for Topics"
+   }
+  },
+  {
+   "name": "tickbox required unticked",
+   "fields": [
+    {
+     "id": "f_tb",
+     "type": "checkbox",
+     "label": "Agree",
+     "name": "agree",
+     "required": true
+    }
+   ],
+   "data": {
+    "agree": false
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "agree": "Agree is required"
+   }
+  },
+  {
+   "name": "tickbox ticked",
+   "fields": [
+    {
+     "id": "f_tb",
+     "type": "checkbox",
+     "label": "Agree",
+     "name": "agree",
+     "required": true
+    }
+   ],
+   "data": {
+    "agree": "on"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "agree": true
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "work email blocked",
+   "fields": [
+    {
+     "id": "f_work",
+     "type": "email",
+     "label": "Work email",
+     "name": "work",
+     "block_free_email": true
+    }
+   ],
+   "data": {
+    "work": "a@aol.com"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "work": "Work email must be a work email address"
+   }
+  },
+  {
+   "name": "work email blocked case-insensitive",
+   "fields": [
+    {
+     "id": "f_work",
+     "type": "email",
+     "label": "Work email",
+     "name": "work",
+     "block_free_email": true
+    }
+   ],
+   "data": {
+    "work": "a@AOL.com"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "work": "Work email must be a work email address"
+   }
+  },
+  {
+   "name": "work email allowed",
+   "fields": [
+    {
+     "id": "f_work",
+     "type": "email",
+     "label": "Work email",
+     "name": "work",
+     "block_free_email": true
+    }
+   ],
+   "data": {
+    "work": "a@example.com"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "work": "a@example.com"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "free email allowed without the flag",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "a@aol.com"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "email": "a@aol.com"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "consent missing",
+   "fields": [
+    {
+     "id": "f_co",
+     "type": "consent",
+     "label": "I agree",
+     "name": "terms",
+     "required": false
+    }
+   ],
+   "data": {},
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "terms": "I agree is required"
+   }
+  },
+  {
+   "name": "consent false",
+   "fields": [
+    {
+     "id": "f_co",
+     "type": "consent",
+     "label": "I agree",
+     "name": "terms",
+     "required": false
+    }
+   ],
+   "data": {
+    "terms": false
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "terms": "I agree is required"
+   }
+  },
+  {
+   "name": "consent on stores Yes",
+   "fields": [
+    {
+     "id": "f_co",
+     "type": "consent",
+     "label": "I agree",
+     "name": "terms",
+     "required": false
+    }
+   ],
+   "data": {
+    "terms": "on"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "terms": "Yes"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "consent true stores Yes",
+   "fields": [
+    {
+     "id": "f_co",
+     "type": "consent",
+     "label": "I agree",
+     "name": "terms",
+     "required": false
+    }
+   ],
+   "data": {
+    "terms": true
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "terms": "Yes"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "layout fields store nothing",
+   "fields": [
+    {
+     "id": "l1",
+     "type": "heading",
+     "label": "",
+     "name": "",
+     "text": "Hello"
+    },
+    {
+     "id": "l2",
+     "type": "paragraph",
+     "label": "",
+     "name": "",
+     "text": "Text"
+    },
+    {
+     "id": "l3",
+     "type": "divider",
+     "label": "",
+     "name": ""
+    },
+    {
+     "id": "f_name",
+     "type": "text",
+     "label": "Name",
+     "name": "name"
+    }
+   ],
+   "data": {
+    "name": "a",
+    "": "x"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "name": "a"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "layout fields posted by name are ignored",
+   "fields": [
+    {
+     "id": "l1",
+     "type": "heading",
+     "label": "",
+     "name": "h",
+     "text": "Hi"
+    }
+   ],
+   "data": {
+    "h": "posted"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {},
+   "want_errors": {}
+  },
+  {
+   "name": "hidden static",
+   "fields": [
+    {
+     "id": "f_h",
+     "type": "hidden",
+     "label": "Ref",
+     "name": "ref",
+     "hidden": {
+      "source": "static",
+      "value": "campaign-1"
+     }
+    }
+   ],
+   "data": {},
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "ref": "campaign-1"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "hidden static ignores posted",
+   "fields": [
+    {
+     "id": "f_h",
+     "type": "hidden",
+     "label": "Ref",
+     "name": "ref",
+     "hidden": {
+      "source": "static",
+      "value": "campaign-1"
+     }
+    }
+   ],
+   "data": {
+    "ref": "forged"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "ref": "campaign-1"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "hidden param",
+   "fields": [
+    {
+     "id": "f_h",
+     "type": "hidden",
+     "label": "Ref",
+     "name": "ref",
+     "hidden": {
+      "source": "param",
+      "param": "utm_source"
+     }
+    }
+   ],
+   "data": {
+    "ref": "forged"
+   },
+   "context": {
+    "page_url": "https://example.com/p?utm_source=news&x=1",
+    "referrer": ""
+   },
+   "want_data": {
+    "ref": "news"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "hidden param absent omitted",
+   "fields": [
+    {
+     "id": "f_h",
+     "type": "hidden",
+     "label": "Ref",
+     "name": "ref",
+     "hidden": {
+      "source": "param",
+      "param": "utm_source"
+     }
+    }
+   ],
+   "data": {
+    "ref": "forged"
+   },
+   "context": {
+    "page_url": "https://example.com/p",
+    "referrer": ""
+   },
+   "want_data": {},
+   "want_errors": {}
+  },
+  {
+   "name": "hidden page",
+   "fields": [
+    {
+     "id": "f_h",
+     "type": "hidden",
+     "label": "Ref",
+     "name": "ref",
+     "hidden": {
+      "source": "page"
+     }
+    }
+   ],
+   "data": {},
+   "context": {
+    "page_url": "https://example.com/p?a=1",
+    "referrer": ""
+   },
+   "want_data": {
+    "ref": "https://example.com/p?a=1"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "hidden referrer",
+   "fields": [
+    {
+     "id": "f_h",
+     "type": "hidden",
+     "label": "Ref",
+     "name": "ref",
+     "hidden": {
+      "source": "referrer"
+     }
+    }
+   ],
+   "data": {
+    "ref": "forged"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": "https://search.example/"
+   },
+   "want_data": {
+    "ref": "https://search.example/"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "hidden value capped at 500 characters",
+   "fields": [
+    {
+     "id": "f_h",
+     "type": "hidden",
+     "label": "Ref",
+     "name": "ref",
+     "hidden": {
+      "source": "static",
+      "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+     }
+    }
+   ],
+   "data": {},
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "ref": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "logic hidden required skipped",
+   "fields": [
+    {
+     "id": "f_kind",
+     "type": "text",
+     "label": "Kind",
+     "name": "kind"
+    },
+    {
+     "id": "f_detail",
+     "type": "text",
+     "label": "Detail",
+     "name": "detail",
+     "logic": {
+      "field_id": "f_kind",
+      "op": "is",
+      "value": "other"
+     },
+     "required": true
+    }
+   ],
+   "data": {
+    "kind": "a"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "kind": "a"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "logic hidden value dropped",
+   "fields": [
+    {
+     "id": "f_kind",
+     "type": "text",
+     "label": "Kind",
+     "name": "kind"
+    },
+    {
+     "id": "f_detail",
+     "type": "text",
+     "label": "Detail",
+     "name": "detail",
+     "logic": {
+      "field_id": "f_kind",
+      "op": "is",
+      "value": "other"
+     }
+    }
+   ],
+   "data": {
+    "kind": "a",
+    "detail": "secret"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "kind": "a"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "logic shown required enforced",
+   "fields": [
+    {
+     "id": "f_kind",
+     "type": "text",
+     "label": "Kind",
+     "name": "kind"
+    },
+    {
+     "id": "f_detail",
+     "type": "text",
+     "label": "Detail",
+     "name": "detail",
+     "logic": {
+      "field_id": "f_kind",
+      "op": "is",
+      "value": "other"
+     },
+     "required": true
+    }
+   ],
+   "data": {
+    "kind": "other"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "detail": "Detail is required"
+   }
+  },
+  {
+   "name": "logic shown value kept",
+   "fields": [
+    {
+     "id": "f_kind",
+     "type": "text",
+     "label": "Kind",
+     "name": "kind"
+    },
+    {
+     "id": "f_detail",
+     "type": "text",
+     "label": "Detail",
+     "name": "detail",
+     "logic": {
+      "field_id": "f_kind",
+      "op": "is",
+      "value": "other"
+     },
+     "required": true
+    }
+   ],
+   "data": {
+    "kind": "other",
+    "detail": "why"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "kind": "other",
+    "detail": "why"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "logic cascade hides dependents",
+   "fields": [
+    {
+     "id": "f_kind",
+     "type": "text",
+     "label": "Kind",
+     "name": "kind"
+    },
+    {
+     "id": "f_detail",
+     "type": "text",
+     "label": "Detail",
+     "name": "detail",
+     "logic": {
+      "field_id": "f_kind",
+      "op": "is",
+      "value": "other"
+     }
+    },
+    {
+     "id": "f_more",
+     "type": "text",
+     "label": "More",
+     "name": "more",
+     "required": true,
+     "logic": {
+      "field_id": "f_detail",
+      "op": "filled"
+     }
+    }
+   ],
+   "data": {
+    "kind": "a",
+    "detail": "x",
+    "more": "y"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "kind": "a"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "logic cascade shows when chain holds",
+   "fields": [
+    {
+     "id": "f_kind",
+     "type": "text",
+     "label": "Kind",
+     "name": "kind"
+    },
+    {
+     "id": "f_detail",
+     "type": "text",
+     "label": "Detail",
+     "name": "detail",
+     "logic": {
+      "field_id": "f_kind",
+      "op": "is",
+      "value": "other"
+     }
+    },
+    {
+     "id": "f_more",
+     "type": "text",
+     "label": "More",
+     "name": "more",
+     "required": true,
+     "logic": {
+      "field_id": "f_detail",
+      "op": "filled"
+     }
+    }
+   ],
+   "data": {
+    "kind": "other",
+    "detail": "x"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "more": "More is required"
+   }
+  },
+  {
+   "name": "logic hidden consent not required",
+   "fields": [
+    {
+     "id": "f_kind",
+     "type": "text",
+     "label": "Kind",
+     "name": "kind"
+    },
+    {
+     "id": "f_co",
+     "type": "consent",
+     "label": "I agree",
+     "name": "terms",
+     "logic": {
+      "field_id": "f_kind",
+      "op": "filled"
+     }
+    }
+   ],
+   "data": {},
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {},
+   "want_errors": {}
+  },
+  {
+   "name": "logic hidden hidden-field not stored",
+   "fields": [
+    {
+     "id": "f_kind",
+     "type": "text",
+     "label": "Kind",
+     "name": "kind"
+    },
+    {
+     "id": "f_h",
+     "type": "hidden",
+     "label": "Ref",
+     "name": "ref",
+     "hidden": {
+      "source": "static",
+      "value": "v"
+     },
+     "logic": {
+      "field_id": "f_kind",
+      "op": "filled"
+     }
+    }
+   ],
+   "data": {},
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {},
+   "want_errors": {}
+  },
+  {
+   "name": "logic hidden free-email check skipped",
+   "fields": [
+    {
+     "id": "f_kind",
+     "type": "text",
+     "label": "Kind",
+     "name": "kind"
+    },
+    {
+     "id": "f_work",
+     "type": "email",
+     "label": "Work email",
+     "name": "work",
+     "block_free_email": true,
+     "logic": {
+      "field_id": "f_kind",
+      "op": "filled"
+     }
+    }
+   ],
+   "data": {
+    "work": "a@aol.com"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {},
+   "want_errors": {}
+  },
+  {
+   "name": "logic is_not",
+   "fields": [
+    {
+     "id": "f_kind",
+     "type": "text",
+     "label": "Kind",
+     "name": "kind"
+    },
+    {
+     "id": "f_d",
+     "type": "text",
+     "label": "D",
+     "name": "d",
+     "required": true,
+     "logic": {
+      "field_id": "f_kind",
+      "op": "is_not",
+      "value": "x"
+     }
+    }
+   ],
+   "data": {
+    "kind": "y"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "d": "D is required"
+   }
+  },
+  {
+   "name": "logic contains list",
+   "fields": [
+    {
+     "id": "f_t",
+     "type": "checkbox",
+     "label": "Topics",
+     "name": "topics",
+     "options": [
+      {
+       "label": "A",
+       "value": "a"
+      },
+      {
+       "label": "B",
+       "value": "b"
+      }
+     ]
+    },
+    {
+     "id": "f_d",
+     "type": "text",
+     "label": "D",
+     "name": "d",
+     "required": true,
+     "logic": {
+      "field_id": "f_t",
+      "op": "contains",
+      "value": "b"
+     }
+    }
+   ],
+   "data": {
+    "topics": [
+     "a",
+     "b"
+    ]
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "d": "D is required"
+   }
+  },
+  {
+   "name": "logic empty",
+   "fields": [
+    {
+     "id": "f_kind",
+     "type": "text",
+     "label": "Kind",
+     "name": "kind"
+    },
+    {
+     "id": "f_d",
+     "type": "text",
+     "label": "D",
+     "name": "d",
+     "required": true,
+     "logic": {
+      "field_id": "f_kind",
+      "op": "empty"
+     }
+    }
+   ],
+   "data": {
+    "kind": "a"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "kind": "a"
+   },
+   "want_errors": {}
+  }
+ ],
+ "visibility": [
+  {
+   "name": "source matches",
+   "fields": [
+    {
+     "id": "a",
+     "type": "text",
+     "label": "A",
+     "name": "a"
+    },
+    {
+     "id": "b",
+     "type": "text",
+     "label": "B",
+     "name": "b",
+     "logic": {
+      "field_id": "a",
+      "op": "is",
+      "value": "x"
+     }
+    },
+    {
+     "id": "c",
+     "type": "text",
+     "label": "C",
+     "name": "c",
+     "logic": {
+      "field_id": "b",
+      "op": "empty"
+     }
+    },
+    {
+     "id": "d",
+     "type": "text",
+     "label": "D",
+     "name": "d",
+     "logic": {
+      "field_id": "a",
+      "op": "contains",
+      "value": "x"
+     }
+    },
+    {
+     "id": "e",
+     "type": "text",
+     "label": "E",
+     "name": "e",
+     "logic": {
+      "field_id": "a",
+      "op": "filled"
+     }
+    },
+    {
+     "id": "g",
+     "type": "text",
+     "label": "G",
+     "name": "g",
+     "logic": {
+      "field_id": "a",
+      "op": "is_not",
+      "value": "x"
+     }
+    }
+   ],
+   "data": {
+    "a": "x"
+   },
+   "want_visible": {
+    "a": true,
+    "b": true,
+    "c": true,
+    "d": true,
+    "e": true,
+    "g": false
+   }
+  },
+  {
+   "name": "source differs, cascade empties dependents",
+   "fields": [
+    {
+     "id": "a",
+     "type": "text",
+     "label": "A",
+     "name": "a"
+    },
+    {
+     "id": "b",
+     "type": "text",
+     "label": "B",
+     "name": "b",
+     "logic": {
+      "field_id": "a",
+      "op": "is",
+      "value": "x"
+     }
+    },
+    {
+     "id": "c",
+     "type": "text",
+     "label": "C",
+     "name": "c",
+     "logic": {
+      "field_id": "b",
+      "op": "empty"
+     }
+    },
+    {
+     "id": "d",
+     "type": "text",
+     "label": "D",
+     "name": "d",
+     "logic": {
+      "field_id": "a",
+      "op": "contains",
+      "value": "x"
+     }
+    },
+    {
+     "id": "e",
+     "type": "text",
+     "label": "E",
+     "name": "e",
+     "logic": {
+      "field_id": "a",
+      "op": "filled"
+     }
+    },
+    {
+     "id": "g",
+     "type": "text",
+     "label": "G",
+     "name": "g",
+     "logic": {
+      "field_id": "a",
+      "op": "is_not",
+      "value": "x"
+     }
+    }
+   ],
+   "data": {
+    "a": "y",
+    "b": "hi"
+   },
+   "want_visible": {
+    "a": true,
+    "b": false,
+    "c": true,
+    "d": false,
+    "e": true,
+    "g": true
+   }
+  },
+  {
+   "name": "no answer",
+   "fields": [
+    {
+     "id": "a",
+     "type": "text",
+     "label": "A",
+     "name": "a"
+    },
+    {
+     "id": "b",
+     "type": "text",
+     "label": "B",
+     "name": "b",
+     "logic": {
+      "field_id": "a",
+      "op": "is",
+      "value": "x"
+     }
+    },
+    {
+     "id": "c",
+     "type": "text",
+     "label": "C",
+     "name": "c",
+     "logic": {
+      "field_id": "b",
+      "op": "empty"
+     }
+    },
+    {
+     "id": "d",
+     "type": "text",
+     "label": "D",
+     "name": "d",
+     "logic": {
+      "field_id": "a",
+      "op": "contains",
+      "value": "x"
+     }
+    },
+    {
+     "id": "e",
+     "type": "text",
+     "label": "E",
+     "name": "e",
+     "logic": {
+      "field_id": "a",
+      "op": "filled"
+     }
+    },
+    {
+     "id": "g",
+     "type": "text",
+     "label": "G",
+     "name": "g",
+     "logic": {
+      "field_id": "a",
+      "op": "is_not",
+      "value": "x"
+     }
+    }
+   ],
+   "data": {},
+   "want_visible": {
+    "a": true,
+    "b": false,
+    "c": true,
+    "d": false,
+    "e": false,
+    "g": true
+   }
+  },
+  {
+   "name": "fields without an id are not listed",
+   "fields": [
+    {
+     "id": "a",
+     "type": "text",
+     "label": "A",
+     "name": "a"
+    },
+    {
+     "id": "",
+     "type": "text",
+     "label": "Z",
+     "name": "z"
+    }
+   ],
+   "data": {},
+   "want_visible": {
+    "a": true
+   }
+  }
+ ]
+}
