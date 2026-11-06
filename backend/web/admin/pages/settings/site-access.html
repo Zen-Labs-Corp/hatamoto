@@ -3,36 +3,17 @@
 {{template "hm/formerrors" dict "Errors" .Summary}}
 <form method="post" action="{{adminPath}}/settings/site-access" class="hm-cardform">
 {{template "hm/csrf" $}}
-{{template "hm/card-start" dict "ID" "site-access-card" "Title" "Who can see the site" "Heading" "h2" "Description" "Applies to the public site only. You and your team, signed in here, always see the real site. Saving clears the page cache. The sitemap, feeds and llms.txt answer 404 in coming soon and password mode, and 503 in maintenance mode. Plugin pages under /p/ stay open."}}<div class="hm-setlist">
-<div class="hm-setrow">
-<div class="hm-setrow__text">{{template "hm/radiocard" (dict "Legend" "Mode" "Name" "mode" "Cols" 2 "ID" "mode" "DescribedBy" (cond (ne (index .Errs "mode") "") "mode-error" "") "Items" .Modes)}}
+{{template "hm/card-start" dict "ID" "site-access-card" "Title" "Who can see the site" "Heading" "h2" "Description" "Applies to the public site only. You and your team, signed in here, always see the real site."}}
+<div class="hm-field">{{template "hm/radiocard" (dict "Legend" "Mode" "Name" "mode" "Cols" 2 "ID" "mode" "DescribedBy" (printf "mode-help%s" (cond (ne (index .Errs "mode") "") " mode-error" "")) "Items" .Modes)}}
+<p class="hm-field__help" id="mode-help">Saving clears the page cache. The sitemap, feeds and llms.txt answer 404 in coming soon and password mode, and 503 in maintenance mode. Plugin pages under /p/ stay open.</p>
 {{with index .Errs "mode"}}<p class="hm-field__error" id="mode-error">{{.}}</p>{{end}}</div>
-</div>
-<div class="hm-setrow">
-<div class="hm-setrow__text"><label class="hm-setrow__name" for="retry-after">Visitors may retry after</label>
-<p class="hm-field__help" id="retry-after-help">Sent to search engines in maintenance mode, so they come back later instead of dropping pages.</p>
-{{with index .Errs "retry-after"}}<p class="hm-field__error" id="retry-after-error">{{.}}</p>{{end}}</div>
-<div class="hm-setrow__control"><div class="hm-select hm-select--auto" data-hm-select><select class="hm-field__control" id="retry-after" name="retry_after"{{if index .Errs "retry-after"}} aria-invalid="true"{{end}} aria-describedby="retry-after-help{{if index .Errs "retry-after"}} retry-after-error{{end}}">{{range .RetryOpts}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div>
-</div>
-<div class="hm-setrow">
-<div class="hm-setrow__text"><label class="hm-setrow__name" for="password">Password</label>
-<p class="hm-field__help" id="password-help">{{if .HasPassword}}A password is set. Leave this empty to keep it; a new one signs every visitor out.{{else}}Needed for password mode: 8 to 128 characters.{{end}}</p>
-{{with index .Errs "password"}}<p class="hm-field__error" id="password-error">{{.}}</p>{{end}}</div>
-<div class="hm-setrow__control"><input class="hm-field__control" type="password" id="password" name="password" autocomplete="new-password"{{if index .Errs "password"}} aria-invalid="true"{{end}} aria-describedby="password-help{{if index .Errs "password"}} password-error{{end}}"></div>
-</div>
-<div class="hm-setrow">
-<div class="hm-setrow__text"><label class="hm-setrow__name" for="heading">Heading</label>
-<p class="hm-field__help" id="heading-help">Shown on the coming soon, maintenance and password pages. Empty uses a standard heading.</p>
-{{with index .Errs "heading"}}<p class="hm-field__error" id="heading-error">{{.}}</p>{{end}}</div>
-<div class="hm-setrow__control"><input class="hm-field__control" type="text" id="heading" name="heading"{{if .Heading}} value="{{.Heading}}"{{end}} maxlength="120"{{if index .Errs "heading"}} aria-invalid="true"{{end}} aria-describedby="heading-help{{if index .Errs "heading"}} heading-error{{end}}"></div>
-</div>
-<div class="hm-setrow">
-<div class="hm-setrow__text"><label class="hm-setrow__name" for="message">Message</label>
-<p class="hm-field__help" id="message-help">Plain text, in the default language of your site. Empty uses a standard message.</p>
-{{with index .Errs "message"}}<p class="hm-field__error" id="message-error">{{.}}</p>{{end}}</div>
-<div class="hm-setrow__control"><textarea class="hm-field__control" id="message" name="message" rows="4" maxlength="1000"{{if index .Errs "message"}} aria-invalid="true"{{end}} aria-describedby="message-help{{if index .Errs "message"}} message-error{{end}}">{{.Message}}</textarea></div>
-</div>
-</div>{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
-{{template "hm/card-end"}}
+<h3 class="hm-card__subtitle">The page visitors see</h3>
+{{template "hm/field" dict "ID" "heading" "Name" "heading" "Label" "Heading" "Value" .Heading "Help" "Shown on the coming soon, maintenance and password pages. Empty uses a standard heading." "Error" (index .Errs "heading") "Attrs" (attrmap "maxlength" "120")}}
+{{template "hm/field" dict "ID" "message" "Name" "message" "Label" "Message" "Control" "textarea" "Value" .Message "Help" "Plain text, in the default language of your site. Empty uses a standard message." "Error" (index .Errs "message") "Attrs" (attrmap "maxlength" "1000")}}
+<h3 class="hm-card__subtitle">Maintenance mode</h3>
+{{template "hm/field" dict "ID" "retry-after" "Name" "retry_after" "Label" "Visitors may retry after" "Control" "select" "Options" .RetryOpts "Help" "Sent to search engines, so they come back later instead of dropping pages." "Error" (index .Errs "retry-after")}}
+<h3 class="hm-card__subtitle">Password mode</h3>
+{{template "hm/field" dict "ID" "password" "Name" "password" "Label" "Password" "Type" "password" "Help" (cond .HasPassword "A password is set. Leave this empty to keep it; a new one signs every visitor out." "Needed for password mode: 8 to 128 characters.") "Error" (index .Errs "password") "Attrs" (attrmap "autocomplete" "new-password")}}
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
 </form>
 {{end}}{{end}}

@@ -702,7 +702,7 @@ func TestEveryPageTemplateIsExercised(t *testing.T) {
 		// v1-11: content_test.go
 		"entities/list": true, "entities/new": true, "entities/start": true, "entities/builder": true, "entities/edit": true, "entities/versions": true, "entities/translations": true, "entities/compare": true, "entities/version": true,
 		"schemas/list": true, "schemas/edit": true, "taxonomies/list": true, "taxonomies/new": true, "taxonomies/term": true, "taxonomies/merge": true,
-		"media/list": true, "media/new": true, "settings/upload": true, "media/detail": true, "media/picker": true,
+		"media/list": true, "media/new": true, "settings/upload": true, "media/detail": true, "media/picker": true, "settings/tracking-tag": true, // tracking_settings_test.go
 		"entities/parent": true, "entities/order": true, // a fragment: content_forge_test.go
 		"entities/blogedit": true, "entities/seopanel": true, // v1-13: blog_editor_test.go
 		"entities/translation-new": true, "entities/share": true, "taxonomies/term-copy-new": true, // translations_copy_test.go, taxonomies_locales_test.go

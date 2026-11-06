@@ -1,0 +1,7 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{with .Row}}{{template "hm/card-start" dict "ID" (printf "tracking-%s" .Key) "Title" .Label "Heading" "h2" "Description" .Summary}}
+{{template "hm/form-tracking-tag" dict "V" $ "R" . "FormID" (printf "tracking-%s-form" .Key)}}
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" $.Data.Back}}{{template "hm/button" dict "Label" (or (and .Enabled "Save") "Turn on") "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" (printf "tracking-%s-form" .Key))}}{{template "hm/card-foot-end"}}{{end}}
+{{end}}{{end}}

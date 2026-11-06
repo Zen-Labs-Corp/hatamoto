@@ -94,6 +94,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `Update all (`, Reason: "list action above the plugin list, a form of its own that updates every plugin without a review step"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Update to v%s"`, Reason: "list row action in a plugin row"},
 	{Rule: "UI-01", File: "pages/settings/plugins.html", Needle: `"Review update to v%s"`, Reason: "list row action in a plugin row"},
+	{Rule: "UI-01", File: "pages/settings/tracking.html", Needle: `"Turn off") "Turn on") "Size" "sm" "Type" "submit"`, Reason: "one-click on/off of a tag card, a one-button form in the card's own footer like a plugin card's Install"},
 	{Rule: "UI-01", File: "pages/plugins/browse.html", Needle: `"Try again"`, Reason: "retry action of the unreachable-registry state, a form of its own"},
 	{Rule: "UI-01", File: "pages/theme/browse-detail.html", Needle: `data-hm-panel-actions`, Reason: "drawer actions: pluginpanel.js moves this block into the dialog footer; the one-button POST form is the primary action"},
 	{Rule: "UI-01", File: "pages/theme/browse.html", Needle: `"Try again"`, Reason: "retry action of the unreachable-registry state, a form of its own"},

@@ -1,0 +1,22 @@
+/* Settings > Privacy & tracking > Tracking: the tag directory (cards from pluginbrowse.css) and the tag form. */
+.hm-tracking { display: flex; flex-direction: column; gap: var(--space-8); min-width: 0; }
+.hm-tracking__group { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.hm-tracking__head { display: flex; align-items: baseline; gap: var(--space-3); }
+.hm-tracking__title { margin: 0; font-size: var(--text-lg); }
+.hm-tracking__none { margin: 0; padding: var(--space-4); border: 1px dashed var(--border); border-radius: var(--radius-lg); }
+.hm-tagcard__head { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.hm-tagcard__name { margin: 0; font-size: var(--text-md); }
+.hm-tagcard__meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); margin: 0; font-size: var(--text-xs); color: var(--text-muted); }
+.hm-tagcard__meta > * + *::before { content: "·"; margin-inline-end: var(--space-2); }
+.hm-tagcard__desc { margin: 0; }
+.hm-tagcard__id { min-width: 0; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-tagcard__actions { display: inline-flex; align-items: center; gap: var(--space-2); flex: none; }
+.hm-tagcard__actions form { display: contents; }
+.hm-tagform { display: flex; flex-direction: column; gap: var(--space-4); }
+.hm-tagform__facts { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding-top: var(--space-4); border-top: 1px solid var(--border); font-size: var(--text-sm); }
+.hm-tagform__facts > div { display: grid; grid-template-columns: calc(var(--space-12) + var(--space-4)) 1fr; gap: var(--space-3); }
+.hm-tagform__facts dt { color: var(--text-muted); }
+.hm-tagform__facts dd { margin: 0; min-width: 0; }
+.hm-tagform__hosts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.hm-tagform__hosts code { font-family: var(--font-mono); font-size: var(--text-xs); overflow-wrap: anywhere; }
+.hm-tagform > p { margin: 0; }
