@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"net/url"
 	"strings"
 	"testing"
@@ -13,7 +13,7 @@ func newEmailProtectRig(t *testing.T) (*seoRig, *fakeSite) {
 	t.Helper()
 	s, _ := newPrivacyRig(t)
 	site := newFakeSite("Acme Site")
-	site.cfg.ThemeExtra = json.RawMessage(`{"socialLinks":{"github":"https://g.example"}}`)
+	site.cfg.ThemeExtra = jsontext.Value(`{"socialLinks":{"github":"https://g.example"}}`)
 	s.a.deps.Site = themeSite{site}
 	return s, site
 }

@@ -4,7 +4,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"testing"
 )
 
@@ -30,7 +30,7 @@ func TestSiteViewEmailPlainFollowsSetting(t *testing.T) {
 		value string
 		plain bool
 	}{{"false", true}, {"true", false}} {
-		if err := s.siteConfig.PatchThemeExtra(ctx, "protectEmail", json.RawMessage(c.value)); err != nil {
+		if err := s.siteConfig.PatchThemeExtra(ctx, "protectEmail", jsontext.Value(c.value)); err != nil {
 			t.Fatal(err)
 		}
 		if got := plain(); got != c.plain {
