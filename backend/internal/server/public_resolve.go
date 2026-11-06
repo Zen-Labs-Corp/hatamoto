@@ -75,6 +75,16 @@ type resolvedArchive struct {
 	// description (see archiveHeading).
 	Title       string
 	Description string
+	// Group is set when the path is one of the archive's group pages
+	// (archive_groups); Title and Description are then the group's.
+	Group *resolvedGroup
+}
+
+// resolvedGroup is the bucket a group page lists. The bucket may be empty:
+// the page loader answers 404 for that.
+type resolvedGroup struct {
+	N     int64
+	Label string
 }
 
 // resolveEntity maps a URL path to a published base entity using the schema
@@ -140,6 +150,20 @@ func resolveEntity(ctx context.Context, repo resolveRepo, snap *entity.URLSnapsh
 				return &resolvedPage{Kind: resolveKindArchive, URL: norm, Archive: &resolvedArchive{
 					SchemaSlug: c.SchemaSlug, Aliases: c.Aliases, Path: norm,
 					Title: title, Description: desc,
+				}}, nil
+			}
+		}
+		for _, c := range snap.Configs() {
+			if c.ArchivePath == "" || !c.ArchiveGroups.Enabled() {
+				continue
+			}
+			if n, ok := c.ArchiveGroups.Parse(c.ArchivePath, norm); ok {
+				archiveTitle, _ := archiveHeading(c, c.SchemaSlug)
+				title, desc := c.ArchiveGroups.Heading(n, archiveTitle)
+				return &resolvedPage{Kind: resolveKindArchive, URL: norm, Archive: &resolvedArchive{
+					SchemaSlug: c.SchemaSlug, Aliases: c.Aliases, Path: norm,
+					Title: title, Description: desc,
+					Group: &resolvedGroup{N: n, Label: c.ArchiveGroups.GroupLabel(n)},
 				}}, nil
 			}
 		}
