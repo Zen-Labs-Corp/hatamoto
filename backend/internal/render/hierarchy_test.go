@@ -343,10 +343,35 @@ func TestGoldenHierarchyTemplates(t *testing.T) {
 // newest first as the real query returns them.
 type releaseData struct{ fakeData }
 
-func (releaseData) Query(q QuerySpec) QueryResult {
-	if q.Schema != "release" || q.Order != "-attr:version_sort" || q.Limit != MaxQueryLimit {
+func (releaseData) Query(q QuerySpec) QueryResult { return queryReleases(q, false) }
+
+// manyReleaseData is releaseData plus eight older filler releases (11 in
+// total), so a cap or a range below the total is observable.
+type manyReleaseData struct{ fakeData }
+
+func (manyReleaseData) Query(q QuerySpec) QueryResult { return queryReleases(q, true) }
+
+func queryReleases(q QuerySpec, filler bool) QueryResult {
+	if q.Schema != "release" || q.Order != "-attr:version_sort" || q.Limit < 1 || q.Limit > MaxQueryLimit {
 		return QueryResult{}
 	}
+	items := releaseFixtures(filler)
+	if q.RangeAttr != "" {
+		var in []RelatedItem
+		for _, it := range items {
+			n, _ := it.Attrs[q.RangeAttr].(float64)
+			if (q.RangeMin == nil || n >= *q.RangeMin) && (q.RangeMax == nil || n < *q.RangeMax) {
+				in = append(in, it)
+			}
+		}
+		items = in
+	}
+	items = items[:min(len(items), q.Limit)]
+	return QueryResult{Items: items, Total: len(items), Page: 1, Pages: 1, Limit: q.Limit}
+}
+
+// releaseFixtures are the canned releases, newest first.
+func releaseFixtures(filler bool) []RelatedItem {
 	items := []RelatedItem{
 		{Name: "v0.27.0", Schema: "release", Attrs: map[string]any{
 			"version": "v0.27.0", "version_sort": 27000.0, "released_at": "2026-10-19", "channel": "edge",
@@ -365,7 +390,13 @@ func (releaseData) Query(q QuerySpec) QueryResult {
 			"summary": "First Hatamoto 1.x release.",
 		}},
 	}
-	return QueryResult{Items: items, Total: len(items), Page: 1, Pages: 1, Limit: q.Limit}
+	for i := 24; filler && i >= 17; i-- {
+		v := fmt.Sprintf("v0.%d.0", i)
+		items = append(items, RelatedItem{Name: v, Schema: "release", Attrs: map[string]any{
+			"version": v, "version_sort": float64(i * 1000), "released_at": "2026-09-01", "channel": "stable",
+		}})
+	}
+	return items
 }
 
 // The changelog layout reads releases through query, groups docs and chores
@@ -385,6 +416,67 @@ func TestGoldenArchiveRelease(t *testing.T) {
 		t.Error("string group was not sanitised")
 	}
 	compareGolden(t, "tpl-archive-release", out)
+}
+
+func archiveReleaseView() *PageView {
+	v := hierarchyView()
+	v.Kind, v.SchemaSlug, v.Page.Name = KindArchive, "release", "Changelog"
+	v.Page.Description = "Every Hatamoto release, newest first."
+	return v
+}
+
+// A capped archive lists only the newest N releases in full, links every
+// group at the top and again under "Older releases", and has no pagination.
+func TestGoldenArchiveReleaseLimited(t *testing.T) {
+	e := newTestEngine(t, Options{Data: manyReleaseData{}})
+	v := archiveReleaseView()
+	v.Archive = ArchiveView{Limit: 5, Path: "/changelog", Groups: []ArchiveGroupView{
+		{N: 0, Label: "v0.x", URL: "/changelog/v0", Count: 11},
+	}}
+	out := mainInner(t, renderToString(t, e, v))
+	if got := strings.Count(out, `class="hm-changelog__release"`); got != 5 {
+		t.Errorf("release sections = %d, want 5", got)
+	}
+	for _, want := range []string{"All releases:", `<a href="/changelog/v0">v0.x</a>`, "Older releases", "v0.x release notes"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q", want)
+		}
+	}
+	if strings.Contains(out, "pagination") || strings.Contains(out, `rel="next"`) {
+		t.Error("capped archive rendered pagination")
+	}
+	compareGolden(t, "tpl-archive-release-limited", out)
+}
+
+// A group page lists every release of its range with anchors, a jump list,
+// the other groups and a link back to the archive, under a visible breadcrumb.
+func TestGoldenArchiveReleaseGroup(t *testing.T) {
+	e := newTestEngine(t, Options{Data: manyReleaseData{}})
+	v := archiveReleaseView()
+	v.Page.Name, v.Page.Description = "Hatamoto 0.x release notes", "Every 0.x release, newest first."
+	v.Breadcrumb = []Crumb{{Name: "Home", URL: "/"}, {Name: "Changelog", URL: "/changelog"}, {Name: "v0.x", URL: "/changelog/v0"}}
+	v.Archive = ArchiveView{
+		Path:  "/changelog",
+		Group: &ArchiveGroupView{N: 0, Label: "v0.x", URL: "/changelog/v0", Attribute: "version_sort", Min: 0, Max: 1e6},
+		Groups: []ArchiveGroupView{
+			{N: 1, Label: "v1.x", URL: "/changelog/v1", Count: 2},
+			{N: 0, Label: "v0.x", URL: "/changelog/v0", Count: 11},
+		},
+	}
+	out := mainInner(t, renderToString(t, e, v))
+	if got := strings.Count(out, `class="hm-changelog__release"`); got != 11 {
+		t.Errorf("release sections = %d, want 11", got)
+	}
+	for _, want := range []string{`aria-label="Breadcrumb"`, `<a href="/changelog">Changelog</a>`, `aria-current="page">v0.x`,
+		"Jump to:", `<a href="#v0.27.0">0.27.0</a>`, "Other versions:", `<a href="/changelog/v1">v1.x</a>`, `<a href="/changelog">Latest</a>`, `id="v0.17.0"`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q", want)
+		}
+	}
+	if strings.Contains(out, "Older releases") || strings.Contains(out, `<a href="/changelog/v0">v0.x</a> ·`) {
+		t.Error("group page rendered the rolling-page sections or linked itself")
+	}
+	compareGolden(t, "tpl-archive-release-group", out)
 }
 
 // Themes written against the original partial contract (nav takes []NavItem,
