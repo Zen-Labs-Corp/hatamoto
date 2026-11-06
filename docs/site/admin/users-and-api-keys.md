@@ -39,10 +39,11 @@ Until they accept, the invitation appears under **Pending invitations**, with **
 For a contractor or a guest, set **Access ends on** in the invitation form or on the person's edit page. Their access stops at the end of that day in the site time zone. The date must be today or later.
 
 - From then on sign-in is refused with the usual neutral message, and anyone already signed in is signed out on their next request.
-- API keys that person created stop working, and the hourly job revokes them. The change is recorded in the audit log as `user.access_ended`.
+- API keys that person created stop working at once. The hourly job then deletes their sessions, revokes the keys and records the change is recorded in the audit log as `user.access_ended`.
 - Three days before the end, the other owners get an email, when the site can send email.
-- To restore access, choose a later date or tick **Clear date** on the edit page and save. Old sessions and revoked keys do not come back; the person signs in again and new keys are made.
+- To restore access, choose a later date or tick **Clear date** on the edit page and save. Old sessions and keys do not come back, even when you extend the date before the hourly job has run: saving the new date removes them. The person signs in again and new keys are made.
 - An owner with an end date needs another owner without one. The form says so if that is not the case.
+- Only an owner without an end date can set, extend or clear end dates. An owner who has an end date cannot change any date, their own included, and can only add, invite or promote someone whose end date is set and no later than their own.
 - The JSON users endpoints take `access_ends_at` (an RFC 3339 time with a zone; `null` clears it), owners only.
 
 ### Change or remove a person

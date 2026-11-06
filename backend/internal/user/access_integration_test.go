@@ -237,3 +237,69 @@ func TestAccessActiveOwnerEmails(t *testing.T) {
 		t.Errorf("ended owner, the user or an editor listed: %v", got)
 	}
 }
+
+// A user whose end has passed had their sessions and keys cut off, even when
+// the hourly job did not run: extending the date must not bring them back.
+func TestAccessExtendAfterEndDoesNotRevive(t *testing.T) {
+	r, _ := accessRig(t)
+	ctx := database.WithSuperadmin(context.Background())
+	past := time.Now().Add(-time.Minute)
+	u := accessUser(t, r, RoleEditor, &past)
+
+	exec := func(q string, args ...any) {
+		t.Helper()
+		c, err := r.db.GetConn(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer c.Release()
+		if _, err := c.Exec(ctx, q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	count := func(q string) (n int) {
+		t.Helper()
+		c, err := r.db.GetConn(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer c.Release()
+		if err := c.QueryRow(ctx, q, u.ID).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	exec(`INSERT INTO hatamoto_sessions (user_id, kind, expires_at, session_token_hash) VALUES ($1, 'admin', NOW() + interval '1 day', $2)`, u.ID, strings.Repeat("a", 64))
+	exec(`INSERT INTO hatamoto_api_keys (name, key_prefix, key_hash, created_by, scopes) VALUES ('k', 'nxk_test', $2, $1, '{}')`, u.ID, strings.Repeat("b", 64))
+	t.Cleanup(func() {
+		exec(`DELETE FROM hatamoto_api_keys WHERE created_by = $1`, u.ID)
+		exec(`DELETE FROM hatamoto_sessions WHERE user_id = $1`, u.ID)
+	})
+
+	end := time.Now().Add(48 * time.Hour)
+	if _, err := r.Update(ctx, u.ID, &UpdateUserInput{AccessEndsAt: AccessEnd{Set: true, At: &end}}); err != nil {
+		t.Fatal(err)
+	}
+	if n := count(`SELECT count(*) FROM hatamoto_sessions WHERE user_id = $1`); n != 0 {
+		t.Errorf("%d sessions survived the extension", n)
+	}
+	if n := count(`SELECT count(*) FROM hatamoto_api_keys WHERE created_by = $1 AND revoked_at IS NULL AND is_active`); n != 0 {
+		t.Errorf("%d keys survived the extension", n)
+	}
+
+	// A user who has not ended keeps theirs when the date moves.
+	live := accessUser(t, r, RoleEditor, &end)
+	exec(`INSERT INTO hatamoto_sessions (user_id, kind, expires_at, session_token_hash) VALUES ($1, 'admin', NOW() + interval '1 day', $2)`, live.ID, strings.Repeat("c", 64))
+	t.Cleanup(func() { exec(`DELETE FROM hatamoto_sessions WHERE user_id = $1`, live.ID) })
+	later := end.Add(24 * time.Hour)
+	if _, err := r.Update(ctx, live.ID, &UpdateUserInput{AccessEndsAt: AccessEnd{Set: true, At: &later}}); err != nil {
+		t.Fatal(err)
+	}
+	c, _ := r.db.GetConn(ctx)
+	defer c.Release()
+	var n int
+	_ = c.QueryRow(ctx, `SELECT count(*) FROM hatamoto_sessions WHERE user_id = $1`, live.ID).Scan(&n)
+	if n != 1 {
+		t.Errorf("a live user's session was revoked: %d", n)
+	}
+}

@@ -213,7 +213,7 @@ func (r *PostgresRepository) Update(ctx context.Context, id uuid.UUID, input *Up
 
 	demote := input.Role != nil && *input.Role != RoleOwner
 	setsDate := input.AccessEndsAt.Set && input.AccessEndsAt.At != nil
-	if !demote && !setsDate {
+	if !demote && !input.AccessEndsAt.Set {
 		return updateUser(ctx, conn, id, input)
 	}
 
@@ -225,11 +225,16 @@ func (r *PostgresRepository) Update(ctx context.Context, id uuid.UUID, input *Up
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if input.AccessEndsAt.Set {
+		if err := revokeIfEnded(ctx, tx, id); err != nil {
+			return nil, err
+		}
+	}
 	if demote {
 		if err := guardLastOwner(ctx, tx, id); err != nil {
 			return nil, err
 		}
-	} else {
+	} else if setsDate {
 		stays := input.Role != nil
 		if !stays {
 			// A missing user passes; updateUser reports it.
@@ -249,6 +254,22 @@ func (r *PostgresRepository) Update(ctx context.Context, id uuid.UUID, input *Up
 		return nil, err
 	}
 	return u, tx.Commit(ctx)
+}
+
+// revokeIfEnded deletes the sessions and revokes the API keys of a user whose
+// access has already ended. Ended means cut off for good: the per-request
+// checks refuse them, and a later date must not bring back what they held
+// before, whether or not the hourly job had run yet.
+func revokeIfEnded(ctx context.Context, q Queryer, id uuid.UUID) error {
+	const ended = `EXISTS (SELECT 1 FROM hatamoto_users WHERE id = $1 AND access_ends_at <= NOW())`
+	if _, err := q.Exec(ctx, `DELETE FROM hatamoto_sessions WHERE user_id = $1 AND kind IN ('admin','api') AND `+ended, id); err != nil {
+		return fmt.Errorf("revoke sessions: %w", err)
+	}
+	if _, err := q.Exec(ctx, `UPDATE hatamoto_api_keys SET is_active = false, revoked_at = NOW(), updated_at = NOW()
+		WHERE created_by = $1 AND revoked_at IS NULL AND `+ended, id); err != nil {
+		return fmt.Errorf("revoke keys: %w", err)
+	}
+	return nil
 }
 
 // ownerGuardKey is the advisory-lock key serialising owner removal/demotion.
