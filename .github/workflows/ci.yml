@@ -374,6 +374,8 @@ jobs:
           done
       - name: Neutral-site rules
         run: bash scripts/check-neutral.sh
+      - name: No encoding/json v1 imports
+        run: bash scripts/check-jsonv1.sh
       - name: Installer shellcheck
         run: HATAMOTO_REQUIRE_SHELLCHECK=1 bash deploy/install/test-shellcheck.sh
       # MIN_CORE_VERSION must be a listed, non-yanked, non-halted stable release.
