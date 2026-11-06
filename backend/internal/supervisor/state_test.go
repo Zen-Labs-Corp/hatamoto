@@ -166,7 +166,8 @@ func TestVerificationReasonSitesUseTheConstants(t *testing.T) {
 		}
 	}
 	if !(BadEntry{Reason: ReasonVerify + "x"}).VerificationFailure() || !(BadEntry{Reason: ReasonStagedVerify + "x"}).VerificationFailure() ||
-		(BadEntry{Reason: "health gate failed"}).VerificationFailure() {
+		(BadEntry{Reason: "health gate failed"}).VerificationFailure() ||
+		(BadEntry{Reason: "smoke: plugin boot: failed verification: x"}).VerificationFailure() {
 		t.Error("VerificationFailure does not match the two reason prefixes exactly")
 	}
 }

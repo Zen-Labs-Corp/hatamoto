@@ -113,7 +113,7 @@ const (
 // VerificationFailure reports whether the entry was listed because the staged
 // binary did not verify, as opposed to failing a health gate.
 func (b BadEntry) VerificationFailure() bool {
-	return strings.Contains(b.Reason, "failed verification")
+	return strings.HasPrefix(b.Reason, ReasonVerify) || strings.HasPrefix(b.Reason, ReasonStagedVerify)
 }
 
 // RemoveBad drops version from the bad list and returns the entry it removed.
