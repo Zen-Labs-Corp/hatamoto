@@ -76,9 +76,15 @@ func (a *Admin) readAccessEnd(r *http.Request, field string, current *time.Time)
 	if v == "" {
 		return nil, ""
 	}
-	end, err := user.AccessEndFromDate(v, a.siteLocation(r.Context()))
+	loc := a.siteLocation(r.Context())
+	end, err := user.AccessEndFromDate(v, loc)
 	if err != nil {
 		return nil, "Enter a date as year-month-day."
+	}
+	// The form shows a day. An end set elsewhere at another time of day, or
+	// before the site time zone changed, is unchanged while that day is kept.
+	if current != nil && user.AccessEndDay(*current, loc) == v {
+		return current, ""
 	}
 	if user.ValidateAccessEnd(end, time.Now()) != nil && (current == nil || !current.Equal(end)) {
 		return nil, "Choose a date from today on."

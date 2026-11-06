@@ -331,3 +331,21 @@ func TestOpenOwnerStillSetsDates(t *testing.T) {
 		t.Fatalf("%d", rec.Code)
 	}
 }
+
+// An end set over the API at another time of day still counts as unchanged
+// when the form sends back the same day, so a limited owner can save a name.
+func TestLimitedOwnerCanEditUserWithOddEndTime(t *testing.T) {
+	t.Parallel()
+
+	g, _ := limitedOwner(t)
+	sydney, _ := time.LoadLocation("Australia/Sydney")
+	odd := time.Now().Add(3*24*time.Hour + 5*time.Hour).UTC()
+	g.mgr.users[g.editor.ID].AccessEndsAt = &odd
+	form := url.Values{"name": {"Ed"}, "role": {"editor"}, "access_ends": {user.AccessEndDay(odd, sydney)}}
+	if rec := g.do("POST", "/admin/settings/users/"+g.editor.ID.String(), "owner-token", form, nil); rec.Code != 303 {
+		t.Fatalf("%d\n%s", rec.Code, rec.Body.String())
+	}
+	if got := g.mgr.users[g.editor.ID].AccessEndsAt; got == nil || !got.Equal(odd) {
+		t.Errorf("end is now %v", got)
+	}
+}
