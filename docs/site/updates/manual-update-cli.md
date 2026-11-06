@@ -122,7 +122,7 @@ status      blocked: v1.4.2 removes permission "entities.write", still used by p
 
 When another check is running the command stops with `not installing vX now: <reason>`.
 
-Unlike a scheduled install and the admin's **Update now**, this route takes no pre-update database dump, and it does not touch the stored status.
+Like a scheduled install and the admin's **Update now**, this route takes the pre-update database dump first, unless you pass `--no-backup`. It does not touch the stored status.
 
 ## apply --file
 
