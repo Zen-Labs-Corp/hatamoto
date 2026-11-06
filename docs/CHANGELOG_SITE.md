@@ -1,7 +1,10 @@
 # Changelog page (`/changelog`)
 
-One inline section per released version, newest first, each a CMS entity of the
-schema slugged `release`. The layout (`archive-release.html`, default theme) is
+A rolling page with the newest releases in full, plus one page per major version
+(`/changelog/v1`, `/changelog/v0`) with every release of that major in full and
+an anchor per release. Each release is a CMS entity of the schema slugged
+`release`; the old per-release URLs (`/changelog/v1-0-8`) answer a 301 to the
+anchor on their major page (`/changelog/v1#v1.0.8`). The layout (`archive-release.html`, default theme) is
 generic core and carries no site data; the schema, the entries and the footer
 link are site data created by the steps below. Entries are created by
 `go run ./tools/changelog` (see [CHANGELOG_RELEASE_HOOKS.md](CHANGELOG_RELEASE_HOOKS.md))
@@ -121,15 +124,35 @@ Settings JSON:
 
 ```json
 {
+  "sitemap": {"exclude": true},
   "url_pattern": "/changelog/{slug}",
   "archive_path": "/changelog",
   "archive_title": "Changelog",
-  "archive_description": "Every Hatamoto release, newest first.",
-  "sitemap": {
-    "exclude": true
+  "archive_description": "Every Example Project release, newest first.",
+  "archive_limit": 10,
+  "archive_groups": {
+    "attribute": "version_sort",
+    "divisor": 1000000,
+    "path": "v{n}",
+    "label": "v{n}.x",
+    "title": "Example Project {n}.x release notes",
+    "description": "Every {n}.x release, newest first.",
+    "anchor_attribute": "version",
+    "redirect_entries": true
   }
 }
 ```
+
+`archive_limit` lists the newest 10 releases in full on `/changelog` (no
+pagination; `?page=N` answers a 301 to `/changelog`). `archive_groups` adds one
+page per bucket `floor(version_sort / 1000000)`, that is per major version, at
+`/changelog/v{n}`; a major with no published release has no page (404). With
+`redirect_entries` each release URL answers a 301 to its major page plus
+`#<anchor_attribute>`. The two keys are ignored by builds that predate them. To
+roll back, remove `archive_limit` and `archive_groups` from the settings: the
+archive is the single page of up to 100 releases again and the per-release
+pages are served as before. See [URL_PATTERNS.md](URL_PATTERNS.md) for the
+settings reference.
 
 Notes are string arrays, not `content`: list items drop `content`, and arrays
 are rangeable in the layout. `version_sort` = major*1e6 + minor*1e3 + patch, so
@@ -149,9 +172,9 @@ it to start with `/`, and `public_resolve.go` serves `/changelog` as the
 `url_registry.go` substitutes the default pattern `/{slug}`, so each entry would
 be a public page at the site root (`/v0-27-0`) and join the `misc` sitemap
 group. Setting `url_pattern` to `/changelog/{slug}` keeps those pages under
-`/changelog/`, and `sitemap.exclude` keeps them out of the sitemap. This is a
-deliberate deviation from the plan's "no `url_pattern`"; the per-version pages
-are an unlinked side effect, not a feature (the layout anchors `#vX.Y.Z`).
+`/changelog/`, and `sitemap.exclude` keeps them out of the sitemap. With
+`archive_groups.redirect_entries` those entry URLs are not pages of their own:
+they redirect to the release's anchor on its major page.
 Entity slugs come from the name (`v0.27.0` -> `v0-27-0`), so `v0.2.1` and
 `v0.2.10` do not collide.
 
@@ -211,15 +234,10 @@ Verified by reading code (no instance was run):
   body); API keys cannot reach them (`apikey_route_auth.go`).
 - Footer renders `FooterNav` from the `footer`-location menu; none is seeded.
 
-Inferred, to confirm on the live site (TODO-9): the per-entry page at
-`/changelog/v0-27-0` renders with the default single layout.
-
-Verified in `sitemap_builder.go` (`planSitemap` skips an excluded config
-entirely: "no entries and no index page"): `sitemap.exclude` also drops the
-`/changelog` archive from the sitemap. Accepted: the alternative is to drop
-`exclude`, which would list a thin per-entry page for every release. The archive
-is reachable from the footer link; add `/changelog` to a hand-made sitemap or
-menu entry if it must be indexed.
+Sitemap: `sitemap.exclude` keeps the entries out. When `archive_groups` is set,
+the archive page and one row per major page (lastmod = newest release in that
+major) are still listed; without `archive_groups`, `exclude` drops the archive
+from the sitemap as well.
 
 ## 5. Runbook after merge
 
@@ -238,6 +256,7 @@ menu entry if it must be indexed.
    stable; a scheduled ramp counts from its first step's start time) and its
    `yanked` mark from the manifests. Notes follow the usual rule. `backfill
    --channel v=chan,...` still exists for setting channels by hand.
-5. Check: `curl -s $SITE/changelog | grep -o 'id="v[0-9.]*"'` lists newest first,
-   and the home page footer contains `href="/changelog"`.
+5. Check: `curl -s $SITE/changelog | grep -o 'id="v[0-9.]*"'` lists the newest
+   releases first (at most `archive_limit`), `/changelog/v1` lists every release
+   of that major, and the home page footer contains `href="/changelog"`.
 6. Install the release hooks: [CHANGELOG_RELEASE_HOOKS.md](CHANGELOG_RELEASE_HOOKS.md).

@@ -330,3 +330,60 @@ func TestService_SchemaChangeCallback(t *testing.T) {
 		t.Fatalf("callback ran for a rejected change: %d", calls)
 	}
 }
+
+func TestBuildURLSnapshot_ArchiveGroups(t *testing.T) {
+	t.Parallel()
+	const groups = `"archive_groups":{"attribute":"sort","divisor":1000,"path":"v{n}","anchor_attribute":"name"}`
+	snap, err := BuildURLSnapshot([]*EntitySchema{
+		schemaWith("item", `{"url_pattern":"/items/{slug}","archive_path":"/items","archive_limit":10,`+groups+`}`),
+		schemaWith("plain", `{"url_pattern":"/p/{slug}","archive_path":"/p"}`),
+		schemaWith("bad", `{"url_pattern":"/b/{slug}","archive_path":"/b","archive_limit":"x","archive_groups":{"attribute":"sort","divisor":0,"path":"v"}}`),
+		schemaWith("nopath", `{"url_pattern":"/n/{slug}",`+groups+`}`),
+		schemaWith("big", `{"url_pattern":"/g/{slug}","archive_path":"/g","archive_limit":5000}`),
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := func(slug string) *SchemaURLConfig {
+		c, ok := snap.Config(slug)
+		if !ok {
+			t.Fatalf("no config for %s", slug)
+		}
+		return c
+	}
+	if c := cfg("item"); c.ArchiveLimit != 10 || !c.ArchiveGroups.Enabled() || c.ArchiveGroups.Path != "v{n}" {
+		t.Errorf("item = limit %d groups %+v", c.ArchiveLimit, c.ArchiveGroups)
+	}
+	for _, slug := range []string{"plain", "bad", "nopath"} {
+		if c := cfg(slug); c.ArchiveLimit != 0 || c.ArchiveGroups != (ArchiveGroupsSettings{}) {
+			t.Errorf("%s must have no archive limit/groups: %d %+v", slug, c.ArchiveLimit, c.ArchiveGroups)
+		}
+	}
+	if c := cfg("big"); c.ArchiveLimit != MaxArchiveLimit {
+		t.Errorf("big limit = %d, want clamp to %d", c.ArchiveLimit, MaxArchiveLimit)
+	}
+	if got := urlFor(t, snap, "bad", nil, urlpattern.Vars{Slug: "x"}); got != "/b/x" {
+		t.Errorf("invalid groups must not reset routing: %q", got)
+	}
+}
+
+func TestURLSnapshot_OverrideAttributesGroups(t *testing.T) {
+	t.Parallel()
+	build := func(a, b string) []string {
+		snap, err := BuildURLSnapshot([]*EntitySchema{schemaWith("item", a), schemaWith("other", b)}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snap.OverrideAttributes()
+	}
+	if got := build(`{"archive_path":"/i"}`, ``); len(got) != 0 {
+		t.Errorf("no groups/overrides = %v", got)
+	}
+	const g = `"archive_groups":{"attribute":"sort","divisor":1,"path":"v{n}","anchor_attribute":"name"}`
+	if got, want := build(`{"archive_path":"/i",`+g+`}`, `{"overrides":[{"attribute":"kind","equals":"a","url_pattern":"/a/{slug}"}]}`), []string{"kind", "name", "sort"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("with groups = %v want %v", got, want)
+	}
+	if got, want := build(`{"archive_path":"/i","archive_groups":{"attribute":"sort","divisor":1,"path":"v{n}"}}`, `{"overrides":[{"attribute":"sort","equals":"a","url_pattern":"/a/{slug}"}]}`), []string{"sort"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("dedupe = %v want %v", got, want)
+	}
+}

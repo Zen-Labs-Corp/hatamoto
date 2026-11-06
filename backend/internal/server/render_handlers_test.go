@@ -193,6 +193,17 @@ func TestRenderRedirectIsReal(t *testing.T) {
 	}
 }
 
+func TestRenderRedirectKeepsFragment(t *testing.T) {
+	f := newRenderFixture(t)
+	f.next = func() (*routeResult, pageOutcome, error) {
+		return &routeResult{Redirect: &redirectHit{Target: "/things/v1#v1.0.8", Status: 301}}, pageOutcome{Status: 200}, nil
+	}
+	w := f.get("/things/one-0-8")
+	if w.Code != 301 || w.Header().Get("Location") != "/things/v1#v1.0.8" {
+		t.Fatalf("got %d %q", w.Code, w.Header().Get("Location"))
+	}
+}
+
 func TestRenderHomeRedirect(t *testing.T) {
 	f := newRenderFixture(t)
 	f.redirect = &redirect.Redirect{TargetURL: "/en", StatusCode: 302}

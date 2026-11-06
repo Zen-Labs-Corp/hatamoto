@@ -331,10 +331,12 @@ func termParents(ctx context.Context, db *database.DB, terms []*taxonomy.Term) m
 	return out
 }
 
-// fillArchive lists a schema archive page by page.
+// fillArchive lists a schema archive page by page, or, with archive_limit or
+// archive_groups set, as one capped page without pagination.
 func (s *Server) fillArchive(ctx context.Context, r *http.Request, rr *routeResult, v *render.PageView) error {
 	v.Kind = render.KindArchive
-	if cfg, ok := s.urlSnapshot(ctx).Config(rr.Archive.SchemaSlug); ok && cfg.ArchiveTitle == "" {
+	cfg, ok := s.urlSnapshot(ctx).Config(rr.Archive.SchemaSlug)
+	if ok && cfg.ArchiveTitle == "" {
 		// No explicit archive_title: the schema's singular name ("Post") is a
 		// poor heading. Prefer what the site calls the section in its menu,
 		// else the plural.
@@ -344,7 +346,76 @@ func (s *Server) fillArchive(ctx context.Context, r *http.Request, rr *routeResu
 		}
 	}
 	slugs := append([]string{rr.Archive.SchemaSlug}, rr.Archive.Aliases...)
-	return s.fillItems(ctx, r, v, entity.ListFilter{SchemaSlugs: slugs}, rr.Archive.Path)
+	if !ok || (cfg.ArchiveLimit <= 0 && !cfg.ArchiveGroups.Enabled()) {
+		return s.fillItems(ctx, r, v, entity.ListFilter{SchemaSlugs: slugs}, rr.Archive.Path)
+	}
+	return s.fillCappedArchive(ctx, rr, cfg, slugs, v)
+}
+
+// fillCappedArchive loads an archive page that lists at most archive_limit
+// entries (or one group's entries) and has no pagination: no rel next/prev, the
+// canonical is the page's own address.
+func (s *Server) fillCappedArchive(ctx context.Context, rr *routeResult, cfg *entity.SchemaURLConfig, slugs []string, v *render.PageView) error {
+	repo := entity.NewPostgresPublicRepository(s.db)
+	snap := s.urlSnapshot(ctx)
+	f := entity.ListFilter{SchemaSlugs: slugs}
+	var buckets []entity.GroupBucket
+	if g := cfg.ArchiveGroups; g.Enabled() {
+		var err error
+		if buckets, err = repo.ArchiveGroupBuckets(ctx, slugs, g.Attribute, g.Divisor); err != nil {
+			return fmt.Errorf("list %s: %w", rr.Archive.Path, err)
+		}
+		f.Order = "-attr:" + g.Attribute
+	}
+	av, ok := archiveView(cfg, func(p string) string { return snap.WithLocale(rr.Locale, p) }, rr.Archive.Group, buckets)
+	if !ok {
+		return &pageError{http.StatusNotFound, "empty group"}
+	}
+	perPage := render.MaxQueryLimit
+	if g := av.Group; g != nil {
+		f.RangeAttr, f.RangeMin, f.RangeMax = g.Attribute, &g.Min, &g.Max
+	} else if av.Limit > 0 {
+		perPage = av.Limit
+	}
+	rows, _, err := repo.ListPublishedFiltered(ctx, f, 1, perPage)
+	if err != nil {
+		return fmt.Errorf("list %s: %w", rr.Archive.Path, err)
+	}
+	if v.Items, err = s.listingItems(ctx, repo, rows); err != nil {
+		return fmt.Errorf("list %s: %w", rr.Archive.Path, err)
+	}
+	v.Archive, v.Pagination = av, nil
+	if av.Group != nil {
+		v.Breadcrumb = crumbs(s.groupCrumbs(ctx, cfg, rr, av.Group))
+	}
+	v.Page.CanonicalURL = v.BaseURL + rr.CanonicalURL
+	if v.Page.Name == "" {
+		v.Page.Name = v.Page.Title
+	}
+	return nil
+}
+
+// archiveView builds the view data of a capped or grouped archive from the
+// schema's settings and its non-empty buckets. group is the group page being
+// rendered (nil on the archive page); ok is false when that bucket is empty.
+// localize prefixes a path with the page's locale segment.
+func archiveView(cfg *entity.SchemaURLConfig, localize func(string) string, group *resolvedGroup, buckets []entity.GroupBucket) (v render.ArchiveView, ok bool) {
+	g := cfg.ArchiveGroups
+	v = render.ArchiveView{Path: localize(cfg.ArchivePath)}
+	if group == nil {
+		v.Limit = cfg.ArchiveLimit
+	}
+	for _, b := range buckets {
+		gv := render.ArchiveGroupView{
+			N: b.N, Label: g.GroupLabel(b.N), URL: localize(g.URL(cfg.ArchivePath, b.N)), Count: b.Count, Newest: b.Newest,
+			Min: g.Min(b.N), Max: g.Max(b.N), Attribute: g.Attribute,
+		}
+		v.Groups = append(v.Groups, gv)
+		if group != nil && group.N == b.N {
+			v.Group = &gv
+		}
+	}
+	return v, group == nil || v.Group != nil
 }
 
 func (s *Server) fillListing(ctx context.Context, r *http.Request, lr *listingRoute, v *render.PageView) error {
@@ -571,4 +642,17 @@ func pluralLabel(name string) string {
 		return name[:len(name)-1] + "ies"
 	}
 	return name + "s"
+}
+
+// groupCrumbs is the group page's trail: Home > archive > group.
+func (s *Server) groupCrumbs(ctx context.Context, cfg *entity.SchemaURLConfig, rr *routeResult, g *render.ArchiveGroupView) []BreadcrumbItem {
+	in := crumbInput{
+		Home:    BreadcrumbItem{Href: s.urlSnapshot(ctx).WithLocale(rr.Locale, "/")},
+		Archive: &BreadcrumbItem{Label: firstNonEmpty(cfg.ArchiveCrumbLabel, firstNonEmpty(cfg.ArchiveTitle, cfg.Name)), Href: s.urlSnapshot(ctx).WithLocale(rr.Locale, cfg.ArchivePath)},
+		Entry:   BreadcrumbItem{Label: g.Label, Href: g.URL},
+	}
+	if set := s.seoSettings(ctx); set != nil {
+		in.Cfg = set.Breadcrumbs
+	}
+	return shapeCrumbs(in)
 }

@@ -218,3 +218,37 @@ func TestScheduledItemExposesOnlyTheDateRow(t *testing.T) {
 		t.Errorf("non-attr order keys = %v", k)
 	}
 }
+
+func TestArchiveView(t *testing.T) {
+	t.Parallel()
+	cfg := &entity.SchemaURLConfig{
+		ArchivePath:  "/things",
+		ArchiveLimit: 3,
+		ArchiveGroups: entity.ArchiveGroupsSettings{
+			Attribute: "sort", Divisor: 1000, Path: "v{n}", Label: "v{n}.x",
+		},
+	}
+	loc := func(p string) string { return "/fr" + p }
+	buckets := []entity.GroupBucket{{N: 2, Count: 4}, {N: 0, Count: 1}}
+
+	v, ok := archiveView(cfg, loc, nil, buckets)
+	if !ok || v.Limit != 3 || v.Path != "/fr/things" || v.Group != nil || len(v.Groups) != 2 {
+		t.Fatalf("archive page = %+v ok=%v", v, ok)
+	}
+	if g := v.Groups[0]; g.N != 2 || g.Label != "v2.x" || g.URL != "/fr/things/v2" || g.Count != 4 || g.Min != 2000 || g.Max != 3000 || g.Attribute != "sort" {
+		t.Errorf("group 0 = %+v", g)
+	}
+
+	v, ok = archiveView(cfg, loc, &resolvedGroup{N: 0}, buckets)
+	if !ok || v.Limit != 0 || v.Group == nil || v.Group.N != 0 || v.Group.Min != 0 || v.Group.Max != 1000 || len(v.Groups) != 2 {
+		t.Fatalf("group page = %+v ok=%v", v, ok)
+	}
+	if _, ok = archiveView(cfg, loc, &resolvedGroup{N: 1}, buckets); ok {
+		t.Error("an empty bucket must not render")
+	}
+
+	cfg.ArchiveGroups = entity.ArchiveGroupsSettings{}
+	if v, ok = archiveView(cfg, loc, nil, nil); !ok || v.Limit != 3 || len(v.Groups) != 0 {
+		t.Errorf("limit only = %+v ok=%v", v, ok)
+	}
+}

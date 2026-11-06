@@ -155,8 +155,17 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 	}
 	out := &routeResult{Kind: res.Kind, CanonicalURL: snap.WithLocale(canonLocale, res.URL), Locale: locale, Rest: path}
 	if res.Kind == resolveKindArchive {
+		if r != nil && r.URL.Query().Has("page") && cappedArchive(snap, res.Archive) {
+			// A capped archive has one page: ?page=N is the page itself.
+			return &routeResult{Redirect: &redirectHit{Target: out.CanonicalURL, Status: http.StatusMovedPermanently}},
+				pageOutcome{Status: http.StatusOK}, nil
+		}
 		out.Archive = res.Archive
 		return out, pageOutcome{Status: http.StatusOK}, nil
+	}
+	if target := entryRedirectTarget(ctx, snap, canonLocale, res); target != "" {
+		return &routeResult{Redirect: &redirectHit{Target: target, Status: http.StatusMovedPermanently}},
+			pageOutcome{Status: http.StatusOK}, nil
 	}
 
 	// Scoped delegation: the payload (JSON-LD, breadcrumbs)
@@ -174,4 +183,39 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 		return notFound, outcome, nil
 	}
 	return out, outcome, nil
+}
+
+// cappedArchive reports whether the archive lists one capped page (archive_limit
+// or archive_groups set) instead of paginating.
+func cappedArchive(snap *entity.URLSnapshot, a *resolvedArchive) bool {
+	cfg, ok := snap.Config(a.SchemaSlug)
+	return ok && (a.Group != nil || cfg.ArchiveLimit > 0 || cfg.ArchiveGroups.Enabled())
+}
+
+// entryRedirectTarget is where an entity of a schema with
+// archive_groups.redirect_entries moves to: its group page, with the anchor
+// fragment. The locale prefix applies to the path only. It is "" for any other
+// entity, for one whose own URL is the group URL (it would loop) and inside a
+// changeset preview, which shows the staged entity itself.
+func entryRedirectTarget(ctx context.Context, snap *entity.URLSnapshot, locale string, res *resolvedPage) string {
+	if res.Kind != resolveKindEntity || res.Entity == nil || res.Entity.Schema == nil || stagedFrom(ctx) != nil {
+		return ""
+	}
+	cfg, ok := snap.Config(res.Entity.Schema.Slug)
+	if !ok || cfg.ArchivePath == "" {
+		return ""
+	}
+	target := cfg.ArchiveGroups.EntryTarget(cfg.ArchivePath, attrsForView(res.Entity.Attributes))
+	if target == "" {
+		return ""
+	}
+	path, fragment, hasFragment := strings.Cut(target, "#")
+	path = snap.WithLocale(locale, path)
+	if path == snap.WithLocale(locale, res.URL) {
+		return "" // the entry's own URL is its group URL: render it, a redirect would loop
+	}
+	if hasFragment {
+		path += "#" + fragment
+	}
+	return path
 }

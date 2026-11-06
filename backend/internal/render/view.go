@@ -11,6 +11,29 @@ import (
 	"hatamoto.dev/core/internal/seo"
 )
 
+// ArchiveGroupView is one group page of an archive (archive_groups): the
+// entries whose numeric Attribute lies in [Min, Max).
+type ArchiveGroupView struct {
+	N          int64
+	Label, URL string
+	Count      int
+	Newest     time.Time
+	Min, Max   float64
+	Attribute  string
+}
+
+// ArchiveView is the data of an archive with archive_limit and/or
+// archive_groups set. Limit is the entry cap of the archive page itself (0 on a
+// group page: the layout lists up to MaxQueryLimit). Path is the archive's own
+// URL, Group the group page being rendered (nil on the archive page), Groups
+// every non-empty group, newest first. Neither carries pagination.
+type ArchiveView struct {
+	Limit  int
+	Path   string
+	Group  *ArchiveGroupView
+	Groups []ArchiveGroupView
+}
+
 // PageView is everything a layout needs to render one page. The server builds
 // it from stored entities; the render package never touches the database.
 type PageView struct {
@@ -25,6 +48,9 @@ type PageView struct {
 	// Items and Pagination are set on archive, taxonomy, author and search views.
 	Items      []RelatedItem
 	Pagination *Pagination
+	// Archive is the capped / grouped archive data; the zero value is an
+	// ordinary paginated archive.
+	Archive ArchiveView
 	// Term is set on taxonomy views, Author on author views, Query on search views.
 	Term   *TermView
 	Author *AuthorView
@@ -383,6 +409,10 @@ type QuerySpec struct {
 	// the empty string, not "exists").
 	Attr, Eq string
 	EqSet    bool
+	// RangeAttr with RangeMin (inclusive) and/or RangeMax (exclusive) keeps
+	// entities whose numeric attribute RangeAttr lies in that range.
+	RangeAttr          string
+	RangeMin, RangeMax *float64
 	// IncludeScheduled adds scheduled entities (their date, no URL).
 	IncludeScheduled bool
 	// Author is an author slug, Term a "<kind>:<slug>" taxonomy term. A slug

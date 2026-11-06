@@ -13,3 +13,5 @@
   .hm-changelog__version { font-size: 1.25rem; }
   .hm-changelog__date { margin-left: 0; flex-basis: 100%; }
 }
+.hm-changelog__crumbs, .hm-changelog__jump, .hm-changelog__majors { margin: 0 0 1rem; }
+.hm-changelog__older { margin: 2rem 0 0.75rem; font-size: 1.25rem; }

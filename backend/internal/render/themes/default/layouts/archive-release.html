@@ -1,10 +1,14 @@
-{{define "content"}}{{$rel := query (dict "schema" "release" "order" "-attr:version_sort" "limit" 100)}}
+{{define "content"}}{{$ar := .Archive}}{{$lim := 100}}{{if $ar.Limit}}{{$lim = $ar.Limit}}{{end}}{{$rel := ""}}{{with $ar.Group}}{{$rel = query (dict "schema" "release" "order" "-attr:version_sort" "limit" 100 "range_attr" .Attribute "range_min" .Min "range_max" .Max)}}{{else}}{{$rel = query (dict "schema" "release" "order" "-attr:version_sort" "limit" $lim)}}{{end}}
 <div class="hm-container hm-listing hm-changelog">
-<header class="hm-listing__header">
+{{if $ar.Group}}<nav class="hm-meta hm-changelog__crumbs" aria-label="Breadcrumb">{{range $i, $c := .VisibleCrumbs}}{{if $i}} / {{end}}{{if $c.Href}}<a href="{{$c.Href}}">{{$c.Name}}</a>{{else}}<span aria-current="page">{{$c.Name}}</span>{{end}}{{end}}</nav>
+{{end}}<header class="hm-listing__header">
 <h1 class="hm-listing__title">{{.Page.Name}}</h1>
 {{with .Page.Description}}<p class="hm-listing__lede">{{.}}</p>
 {{end}}</header>
-{{range $i := $rel.Items}}{{$a := $i.Attrs}}
+{{if $ar.Group}}<nav class="hm-changelog__jump" aria-label="Jump to">Jump to: {{range $i, $j := $rel.Items}}{{if $i}} · {{end}}<a href="#{{$j.Attrs.version}}">{{trimPrefix $j.Attrs.version "v"}}</a>{{end}}</nav>
+<nav class="hm-changelog__majors" aria-label="Other versions">Other versions: {{range $ar.Groups}}{{if ne .N $ar.Group.N}}<a href="{{.URL}}">{{.Label}}</a> · {{end}}{{end}}<a href="{{$ar.Path}}">Latest</a></nav>
+{{else if $ar.Groups}}<nav class="hm-changelog__majors" aria-label="All releases">All releases: {{range $i, $g := $ar.Groups}}{{if $i}} · {{end}}<a href="{{$g.URL}}">{{$g.Label}}</a>{{end}}</nav>
+{{end}}{{range $i := $rel.Items}}{{$a := $i.Attrs}}
 <section class="hm-changelog__release" id="{{$a.version}}">
 <h2 class="hm-changelog__version">{{$a.version}}
 {{with $a.channel}}<span class="hm-chip hm-changelog__channel">{{.}}</span>{{end}}
@@ -18,4 +22,6 @@
 {{with $a.docs}}{{if eq (printf "%T" .) "string"}}<div class="hm-entry">{{sanitisedHTML .}}</div>{{else}}<ul class="hm-changelog__list">{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}{{end}}
 {{with $a.chores}}{{if eq (printf "%T" .) "string"}}<div class="hm-entry">{{sanitisedHTML .}}</div>{{else}}<ul class="hm-changelog__list">{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}{{end}}{{end}}
 </section>{{end}}
-</div>{{end}}
+{{if and $ar.Groups (not $ar.Group)}}<h2 class="hm-changelog__older">Older releases</h2>
+<ul class="hm-changelog__list">{{range $ar.Groups}}<li><a href="{{.URL}}">{{.Label}} release notes</a></li>{{end}}</ul>
+{{end}}</div>{{end}}

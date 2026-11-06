@@ -193,3 +193,43 @@ func TestResolveEntity_Archive(t *testing.T) {
 func (f *fakeResolveRepo) GetPublishedByPath(_ context.Context, segments []string, schemas []string) (*entity.Entity, error) {
 	return f.GetPublishedBySlugAndSchemas(context.Background(), segments[len(segments)-1], schemas)
 }
+
+func TestResolveEntity_ArchiveGroup(t *testing.T) {
+	t.Parallel()
+	snap := fixtureSnapshot(t, map[string]string{
+		"item":  `{"url_pattern":"/things/{slug}","archive_path":"/things","archive_title":"Things","archive_groups":{"attribute":"sort","divisor":1000,"path":"v{n}","label":"v{n}.x","title":"{archive_title} {n}.x notes","description":"All {label}."}}`,
+		"plain": `{"url_pattern":"/plain/{slug}","archive_path":"/plain"}`,
+	})
+	repo := &fakeResolveRepo{rows: []*entity.Entity{
+		fixtureEntity("item", "first", `{"sort":1001}`),
+		fixtureEntity("item", "v7", `{"sort":7001}`), // an entity slug shadows the group page
+	}}
+	ctx := context.Background()
+
+	got, err := resolveEntity(ctx, repo, snap, "/things/v1")
+	if err != nil || got == nil || got.Kind != resolveKindArchive || got.URL != "/things/v1" {
+		t.Fatalf("/things/v1: %+v %v", got, err)
+	}
+	a := got.Archive
+	if a.SchemaSlug != "item" || a.Path != "/things/v1" || a.Group == nil || a.Group.N != 1 || a.Group.Label != "v1.x" ||
+		a.Title != "Things 1.x notes" || a.Description != "All v1.x." {
+		t.Fatalf("archive = %+v group %+v", a, a.Group)
+	}
+	if got, _ := resolveEntity(ctx, repo, snap, "/things/v0/"); got == nil || got.Archive == nil || got.Archive.Group == nil || got.Archive.Group.N != 0 {
+		t.Fatalf("trailing slash / empty bucket number: %+v", got)
+	}
+	if got, _ := resolveEntity(ctx, repo, snap, "/things"); got == nil || got.Archive == nil || got.Archive.Group != nil {
+		t.Fatalf("hub must not be a group: %+v", got)
+	}
+	if got, _ := resolveEntity(ctx, repo, snap, "/things/first"); got == nil || got.Kind != resolveKindEntity {
+		t.Fatalf("entity under archive: %+v", got)
+	}
+	if got, _ := resolveEntity(ctx, repo, snap, "/things/v7"); got == nil || got.Kind != resolveKindEntity {
+		t.Fatalf("entity slug must win over a group page: %+v", got)
+	}
+	for _, p := range []string{"/things/v", "/things/vx", "/things/v01", "/things/v1/x", "/plain/v1", "/other/v1"} {
+		if got, _ := resolveEntity(ctx, repo, snap, p); got != nil {
+			t.Errorf("%s resolved: %+v", p, got)
+		}
+	}
+}

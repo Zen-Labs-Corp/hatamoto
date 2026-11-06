@@ -272,3 +272,53 @@ func TestDefaultLocale(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateSchemaSettingsForWriteArchiveGroups(t *testing.T) {
+	t.Parallel()
+	const ok = `"attribute":"sort","divisor":1000,"path":"v{n}"`
+	tests := []struct {
+		name    string
+		in      string
+		wantErr string
+	}{
+		{"none", `{"archive_path":"/items"}`, ""},
+		{"limit ok", `{"archive_limit":10}`, ""},
+		{"limit zero", `{"archive_limit":0}`, ""},
+		{"limit max", `{"archive_limit":100}`, ""},
+		{"limit too big", `{"archive_limit":101}`, "archive_limit"},
+		{"limit negative", `{"archive_limit":-1}`, "archive_limit"},
+		{"limit string", `{"archive_limit":"5"}`, "archive_limit"},
+		{"limit fraction", `{"archive_limit":1.5}`, "archive_limit"},
+		{"groups ok", `{"archive_path":"/items","archive_groups":{` + ok + `,"anchor_attribute":"name","redirect_entries":true,"label":"v{n}.x"}}`, ""},
+		{"groups null", `{"archive_groups":null}`, ""},
+		{"groups no archive path", `{"archive_groups":{` + ok + `}}`, "archive_groups"},
+		{"groups not object", `{"archive_path":"/items","archive_groups":"x"}`, "archive_groups"},
+		{"groups bad type", `{"archive_path":"/items","archive_groups":{"attribute":"sort","divisor":"1","path":"v{n}"}}`, "archive_groups"},
+		{"path no token", `{"archive_path":"/items","archive_groups":{"attribute":"sort","divisor":1,"path":"v"}}`, "archive_groups.path"},
+		{"path two tokens", `{"archive_path":"/items","archive_groups":{"attribute":"sort","divisor":1,"path":"{n}-{n}"}}`, "archive_groups.path"},
+		{"path slash", `{"archive_path":"/items","archive_groups":{"attribute":"sort","divisor":1,"path":"a/{n}"}}`, "archive_groups.path"},
+		{"path space", `{"archive_path":"/items","archive_groups":{"attribute":"sort","divisor":1,"path":"a b{n}"}}`, "archive_groups.path"},
+		{"path other brace", `{"archive_path":"/items","archive_groups":{"attribute":"sort","divisor":1,"path":"{x}{n}"}}`, "archive_groups.path"},
+		{"divisor zero", `{"archive_path":"/items","archive_groups":{"attribute":"sort","divisor":0,"path":"v{n}"}}`, "archive_groups.divisor"},
+		{"attribute bad", `{"archive_path":"/items","archive_groups":{"attribute":"a b","divisor":1,"path":"v{n}"}}`, "archive_groups.attribute"},
+		{"anchor bad", `{"archive_path":"/items","archive_groups":{` + ok + `,"anchor_attribute":"a b"}}`, "archive_groups.anchor_attribute"},
+		{"title too long", `{"archive_path":"/items","archive_groups":{` + ok + `,"title":"` + strings.Repeat("a", 201) + `"}}`, "archive_groups.title"},
+		{"description too long", `{"archive_path":"/items","archive_groups":{` + ok + `,"description":"` + strings.Repeat("a", 501) + `"}}`, "archive_groups.description"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateSchemaSettingsForWrite(jsontext.Value(tc.in))
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			var se *SettingsError
+			if !errors.As(err, &se) || se.Field != tc.wantErr {
+				t.Fatalf("err=%v want field %q", err, tc.wantErr)
+			}
+		})
+	}
+}
