@@ -83,6 +83,19 @@ with two exceptions: a `<form>` whose `action` is an http(s) or relative URL,
 and CSS: `<style>` elements and `style` attributes. Without `site.scripts` a
 plugin's sections can therefore still restyle the whole page.
 
+What this does not cover: the visitor's browser. With no grant at all, a
+plugin's markup and CSS (sections, partials and `assets/plugin.css`, which is
+linked on every page and not gated) can make visitors' browsers load resources
+from other hosts: an `<img src="https://...">`, a CSS `url()`. The public
+page CSP allows images from any https host. Such a request carries the
+visitor's address and the page it was made from, so an installed plugin can
+track visitors. CSS attribute selectors can also test the attributes of any
+element on the page and report a match through such a request. `http.fetch`
+and `allowed_hosts` limit only the plugin's own (server-side) network.
+Install plugins from publishers you trust. Core keeps this harmless as a
+reader: public HTML carries no per-user secrets (no session, CSRF or other
+token), and an owner browsing the site gets the same markup as a visitor.
+
 Without the grant a structural rule applies as well. Each branch of a template
 (the body and every `if`/`else`/`range`/`with` body) has every action replaced
 by an inert token and is run through the HTML tokenizer of `golang.org/x/net/html`,
@@ -102,6 +115,7 @@ whatever the data, because the rule reads the template source.
 | Guarantee | Package | Tests |
 |---|---|---|
 | `plugin.js` is not linked without the grant (the stylesheet is not gated) | `internal/render` | `TestPluginScriptNeedsGate` |
+| Public HTML is the same signed in and signed out, and no cookie value reaches it, so CSS on the page has no per-user secret to read | `internal/server` | `TestPublicHTMLCarriesNoPerUserSecrets` |
 | Sections and partials with scripting markup follow the grant, and the two exceptions stay allowed | `internal/render` | `TestPluginMarkupScriptsFollowTheGrant`, `TestPluginMarkupRefusedWithoutTheGrant`, `TestPluginMarkupExceptionsStayAllowed` |
 | The sample render is a defence-in-depth layer: the template is also rendered once on empty data and the output scanned. The source rule refuses `<scr{{"ipt"}}>`-style sources first, so the gate's call to it is not pinned by any test. Five representative printing-action sources passing both layers is a canary, not a proof | `internal/render` | `TestPluginSampleRenderStopsWhatTheSourceScanCannotSee`, `TestPluginSampleRenderCanary` |
 | A printing action only in text or in a quoted attribute value, never in a name, unquoted value, comment, doctype or raw-text element (`<style>` included); control structures, `{{break}}`/`{{continue}}` and `{{template}}` only in text; every branch starts and ends in text. Tag boundaries come from `x/net/html`'s tokenizer | `internal/render`, `internal/packages` (Postgres) | `TestPluginMarkupActionsNeedTheGrant`, `TestPluginMarkupActionsPartials`, `TestPluginMarkupActionsDefineEnd`, `TestHostilePluginJS_SectionsAndPartialsNeedTheGrant` |
