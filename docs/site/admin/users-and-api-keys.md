@@ -44,6 +44,7 @@ For a contractor or a guest, set **Access ends on** in the invitation form or on
 - To restore access, choose a later date or tick **Clear date** on the edit page and save. Old sessions and keys do not come back, even when you extend the date before the hourly job has run: saving the new date removes them. The person signs in again and new keys are made.
 - An owner with an end date needs another owner without one. The form says so if that is not the case.
 - Only an owner without an end date can set, extend or clear end dates. An owner who has an end date cannot change any date, their own included, and can only add, invite or promote someone whose end date is set and no later than their own.
+- An end date limits sign-in. It does not contain a malicious owner: any owner can still create a password reset link for another owner, install plugins and change settings while their access lasts. A reset link does not extend anyone's access, and a user whose end date has passed still cannot sign in after a reset. Give an end date to people you would trust with owner access for that long.
 - The JSON users endpoints take `access_ends_at` (an RFC 3339 time with a zone; `null` clears it), owners only.
 
 ### Change or remove a person

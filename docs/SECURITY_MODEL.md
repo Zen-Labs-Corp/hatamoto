@@ -284,6 +284,8 @@ docs has the `docker network inspect` command.
 | A user whose access end date has passed cannot sign in, and their live admin, bearer and API cookie sessions and the API keys they created are refused on the next request, without waiting for the hourly job | `internal/auth`, `internal/admin` | `TestAccessEndedRefusesEverySignIn`, `TestAccessEndedRefusesLiveSessions`, `TestAccessEndedAPIKeys`, `TestAccessEndedCookieRefused` |
 | An API key reaches only the routes its scopes allow, and a key whose creator lacks the editor role cannot write | `internal/middleware` | `TestAuthOrAPIKeyAllowlist`, `TestAuthOrAPIKeyRejectsCreatorWithoutEditRole` |
 
+An access end date limits sign-in. It is not a containment boundary against a malicious owner: while their access lasts, an owner with an end date can still create a password reset link for another owner, install plugins and change settings. A password reset does not extend access, and a user whose end date has passed is refused after a reset as well.
+
 ### Outbound connections of the server itself
 
 | Guarantee | Package | Tests |
