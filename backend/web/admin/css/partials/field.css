@@ -76,6 +76,11 @@ input.hm-field__control[type="file"] { padding: var(--space-1-5) var(--space-2);
 }
 .hm-field__chip:hover { border-color: var(--color-hai); }
 .hm-field__chip:has(:checked) { border-color: var(--color-sumi); background: var(--color-kasumi); font-weight: var(--weight-medium); }
+/* A ticked chip also carries a check mark, so the state does not rest on colour alone (WCAG 1.4.1). */
+.hm-field__chip:has(:checked)::before {
+  content: ""; flex: none; inline-size: 0.35em; block-size: 0.7em; margin-inline-end: var(--space-0-5);
+  border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-0.05em) rotate(45deg);
+}
 .hm-field__chip:has(:focus-visible) { outline: var(--focus-ring); outline-offset: 2px; }
 .hm-field__chip:has(:disabled) { opacity: 0.55; cursor: not-allowed; }
 .hm-field__chip--mono > span, .hm-field__code { font-family: var(--font-mono); }
