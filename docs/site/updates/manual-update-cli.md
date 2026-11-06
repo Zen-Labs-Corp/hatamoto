@@ -176,6 +176,7 @@ It refuses a version that:
 
 - is not on the bad list (`v1.4.0 is not on this box's bad list`);
 - failed signature or hash verification, which is never retried;
+- is halted by the maintainers (`v1.4.2 is halted by the maintainers (<reason>)`);
 - would be refused by `apply` for any other reason (withdrawn, already running, below the rollback floor, no build for your platform), or while another switch is in progress.
 
 | Flag | Meaning |
