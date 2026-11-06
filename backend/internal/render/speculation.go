@@ -18,9 +18,9 @@ const defaultAdminPrefix = "/admin"
 var speculationExcluded = []string{
 	defaultAdminPrefix + "/*", "/p/*", "/api/*", "/plugin-ui/*", "/forms/*", "/auth/*", "/preview/*",
 	"/media/*", "/theme/*", "/fonts/*", "/.well-known/*", "/-/*",
-	"/health*", "/ready*", "/sitemap*",
+	"/health", "/ready", "/sitemap", "/sitemap/*", "/sitemap.xsl",
 	"/*logout*",
-	"/*.xml", "/*.pdf", "/*.zip", "/*.txt", "/*.ico", "/feed*",
+	"/*.xml", "/*.pdf", "/*.zip", "/*.txt", "/*.ico", "/feed", "/feed/*",
 }
 
 // speculationQuery excludes URLs with a query string. It is the object form

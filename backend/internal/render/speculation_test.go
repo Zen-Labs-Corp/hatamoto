@@ -100,12 +100,12 @@ func TestSpeculationRulesExcludeReservedPrefixes(t *testing.T) {
 			t.Errorf("reserved prefix %q is not excluded from prefetch", r)
 		}
 	}
-	for _, page := range []string{"/", "/about", "/blog/hello-world", "/category/news"} {
+	for _, page := range []string{"/", "/about", "/blog/hello-world", "/category/news", "/feedback", "/healthy-recipes", "/ready-meals", "/sitemaps-explained"} {
 		if excluded(page) {
 			t.Errorf("page %q must stay prefetchable", page)
 		}
 	}
-	for _, bad := range []string{"/logout", "/admin/entities", "/a/b.pdf"} {
+	for _, bad := range []string{"/logout", "/admin/entities", "/a/b.pdf", "/health", "/ready", "/feed", "/feed/x", "/sitemap", "/sitemap.xsl"} {
 		if !excluded(bad) {
 			t.Errorf("%q must be excluded", bad)
 		}
