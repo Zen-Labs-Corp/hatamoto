@@ -624,10 +624,29 @@ func formView(f *form.Form) render.FormView {
 		Slug: f.Slug, Name: f.Name,
 		SubmitLabel: f.Settings.SubmitButtonText, SuccessNotice: f.Settings.SuccessMessage,
 	}
+	idToName := make(map[string]string, len(fields))
+	for _, fld := range fields {
+		idToName[fld.ID] = fld.Name
+	}
 	for _, fld := range fields {
 		rf := render.FormField{
 			Name: fld.Name, Label: fld.Label, Type: fld.Type, Required: fld.Required,
 			Placeholder: fld.Placeholder, HelpText: fld.HelpText,
+			Width: fld.Width, Text: fld.Text, Link: fld.Link,
+		}
+		if rf.Width == "" {
+			rf.Width = "full"
+		}
+		if fld.Hidden != nil {
+			rf.Hidden = true
+			if fld.Hidden.Source == "static" {
+				rf.HiddenValue = fld.Hidden.Value
+			}
+		}
+		if l := fld.Logic; l != nil {
+			if src := idToName[l.FieldID]; src != "" {
+				rf.LogicField, rf.LogicOp, rf.LogicValue = src, l.Op, l.Value
+			}
 		}
 		for _, o := range fld.Options {
 			rf.Options = append(rf.Options, render.FormOption{Value: o.Value, Label: o.Label})

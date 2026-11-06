@@ -962,6 +962,18 @@ type FormField struct {
 	Placeholder string
 	HelpText    string
 	Options     []FormOption
+	Width       string // full|half|third
+	Text        string // heading/paragraph content
+	Link        string // consent link target
+	Hidden      bool   // hidden field: rendered as a hidden input
+	// HiddenValue is set for static hidden fields only; other sources are
+	// resolved on submit.
+	HiddenValue string
+	// LogicField is the NAME of the field this one depends on; empty when the
+	// field has no (resolvable) condition.
+	LogicField string
+	LogicOp    string
+	LogicValue string
 }
 
 // FormOption is one choice of a select or radio field.
