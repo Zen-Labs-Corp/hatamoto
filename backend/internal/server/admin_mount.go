@@ -144,6 +144,7 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 		d.Offsite = s.offsiteAdm
 	}
 	d.Jobs = jobsService{s: s}
+	d.Memory = memoryService{s: s}
 	if s.mailStore != nil && s.emailService != nil {
 		d.EmailSettings = emailAdmin{
 			store:   s.mailStore,

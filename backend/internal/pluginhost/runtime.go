@@ -132,6 +132,10 @@ func (r *Runtime) Close(ctx context.Context) {
 // Host exposes the underlying runtime (tests).
 func (r *Runtime) Host() *wasmhost.Host { return r.host }
 
+// MemoryStats reports the loaded plugins' pools and the compilation cache. It
+// takes no plugin lock and never touches a running instance.
+func (r *Runtime) MemoryStats() wasmhost.HostStats { return r.host.Stats() }
+
 // Statuses returns the load results so far: loaded plugins and failures.
 func (r *Runtime) Statuses() []Status {
 	r.mu.Lock()
