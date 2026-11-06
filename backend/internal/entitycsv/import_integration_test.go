@@ -159,6 +159,11 @@ func TestReimportKeepsWhatTheFileDoesNotCarry(t *testing.T) {
 		t.Fatalf("setup row = %+v (%v)", before, err)
 	}
 
+	// The row is credited to the organisation; the file carries no author.
+	if _, err := db.Pool().Exec(ctx, `UPDATE hatamoto_entities SET byline_org = true WHERE id = $1`, before.ID); err != nil {
+		t.Fatal(err)
+	}
+
 	part := Mapping{Type: slug, Status: entity.StatusDraft, Cols: map[string]string{"sku": "key", "title": "name", "price": "attr:price"}}
 	rep := run("sku,title,price\nkid,Kid renamed,9\nnew,New,\n", part)
 	if rep.Updated != 1 || rep.Created != 1 {
@@ -174,6 +179,9 @@ func TestReimportKeepsWhatTheFileDoesNotCarry(t *testing.T) {
 	if after.Name != "Kid renamed" || after.Status != entity.StatusPublished || after.PublishedAt == nil || !after.PublishedAt.Equal(*before.PublishedAt) ||
 		!after.CreatedAt.Equal(before.CreatedAt) || after.ParentID == nil || *after.ParentID != *before.ParentID || after.Slug != before.Slug {
 		t.Errorf("row after = %+v, want status, dates, parent and slug kept (before %+v)", after, before)
+	}
+	if !after.BylineOrg {
+		t.Errorf("byline after a partial update: org=%v, want the stored credit kept", after.BylineOrg)
 	}
 	fresh, err := repo.GetByImportKey(ctx, "csv:"+slug+":new")
 	if err != nil || fresh.Status != entity.StatusDraft {
