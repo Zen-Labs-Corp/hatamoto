@@ -317,6 +317,13 @@ func typedCell(prop jsontext.Value, path, cell string) (any, error) {
 	if len(prop) > 0 {
 		_ = jsonx.Unmarshal(prop, &p, jsonx.StoredLoose)
 	}
+	if p.Type == "" && len(prop) > 0 && mayBeObject(prop) {
+		// No single declared type (free-form, or a list such as ["object","null"]):
+		// an object is exported as JSON text and comes back as the object.
+		if v := jsontext.Value(strings.TrimSpace(cell)); v.IsValid() && v.Kind() == '{' {
+			return v, nil
+		}
+	}
 	switch p.Type {
 	case "array":
 		var it struct {
@@ -346,6 +353,22 @@ func typedCell(prop jsontext.Value, path, cell string) (any, error) {
 		return jsonCell(path, cell, '{')
 	}
 	return scalarCell(p.Type, path, cell)
+}
+
+// mayBeObject reports whether a property schema without a single type string
+// lets the value be an object: it has no type, or its type list has "object".
+func mayBeObject(prop jsontext.Value) bool {
+	var p struct {
+		Type jsontext.Value `json:"type"`
+	}
+	if len(prop) > 0 {
+		_ = jsonx.Unmarshal(prop, &p, jsonx.StoredLoose)
+	}
+	if len(p.Type) == 0 {
+		return true
+	}
+	var types []string
+	return jsonx.Unmarshal(p.Type, &types, jsonx.StoredLoose) == nil && slices.Contains(types, "object")
 }
 
 // jsonCell reads a cell holding JSON text of the wanted kind.

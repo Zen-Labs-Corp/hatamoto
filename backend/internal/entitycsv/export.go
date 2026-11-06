@@ -79,6 +79,9 @@ func row(cols []Column, e *entity.Entity, opt ExportOptions) []string {
 				flat = Flatten(e.Attributes)
 			}
 			cell = flat[path]
+			if cell == "" {
+				cell = objectCell(e.Attributes, path)
+			}
 		} else {
 			cell = fixedCell(c.ID, e, opt)
 		}
@@ -206,4 +209,30 @@ func compact(raw jsontext.Value) string {
 		return string(raw)
 	}
 	return string(j)
+}
+
+// objectCell is the JSON text of the object at a dotted path, or "". A column
+// for a free-form object (no declared properties, or deeper than the column
+// depth) holds the object whole; Flatten only has its members.
+func objectCell(attrs jsontext.Value, path string) string {
+	cur := attrs
+	for _, part := range strings.Split(path, ".") {
+		if cur.Kind() != '{' {
+			return ""
+		}
+		entries, err := jsonx.ObjectEntries(cur)
+		if err != nil {
+			return ""
+		}
+		cur = nil
+		for _, e := range entries {
+			if e.Key == part {
+				cur = e.Value
+			}
+		}
+	}
+	if cur.Kind() != '{' {
+		return ""
+	}
+	return compact(cur)
 }

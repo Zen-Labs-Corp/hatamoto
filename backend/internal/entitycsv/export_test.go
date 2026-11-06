@@ -2,6 +2,8 @@ package entitycsv
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"encoding/json/jsontext"
 	"flag"
 	"os"
@@ -118,5 +120,48 @@ func TestWriteCSVGolden(t *testing.T) {
 	}
 	if !bytes.Equal(buf.Bytes(), want) {
 		t.Fatalf("export differs from %s:\n%s", golden, buf.String())
+	}
+}
+
+// Free-form objects, objects with a type list and objects deeper than the
+// column depth export as one JSON cell and import back unchanged.
+func TestFreeFormObjectsRoundTrip(t *testing.T) {
+	schema := jsontext.Value(`{"type":"object","properties":{
+		"title":{"type":"string"},
+		"seo":{"type":"object"},
+		"extra":{"type":["object","null"]},
+		"loose":{},
+		"a":{"type":"object","properties":{"b":{"type":"object","properties":{"c":{"type":"object","properties":{"d":{"type":"string"}}}}}}}}}`)
+	attrs := `{"title":"T","seo":{"title":"S","og":{"image":"i.png"}},"extra":{"k":[1,2],"n":null},"loose":{"x":1},"a":{"b":{"c":{"d":"deep","e":true}}}}`
+	e := &entity.Entity{ID: uuid.New(), Name: "N", Slug: "n", Attributes: jsontext.Value(attrs), Metadata: jsontext.Value(`{"import_key":"csv:product:k1"}`)}
+	cols, err := PickColumns(schema, []string{"key", "name", "attr:title", "attr:seo", "attr:extra", "attr:loose", "attr:a.b.c"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pages := [][]*entity.Entity{{e}, nil}
+	next := func() ([]*entity.Entity, error) { p := pages[0]; pages = pages[1:]; return p, nil }
+	var buf bytes.Buffer
+	if err := WriteCSV(&buf, cols, next, ExportOptions{Type: "product"}); err != nil {
+		t.Fatal(err)
+	}
+	m := Mapping{Type: "product", Cols: map[string]string{}}
+	for _, c := range cols {
+		m.Cols[c.ID] = c.ID
+	}
+	imp := &fakeImporter{}
+	sc := &entity.EntitySchema{ID: uuid.New(), Slug: "product", Schema: schema}
+	rep, err := Run(context.Background(), imp, nil, sc, m, strings.NewReader(strings.TrimPrefix(buf.String(), "\xEF\xBB\xBF")), false)
+	if err != nil || rep.Failed != 0 {
+		t.Fatalf("re-import = %+v, %v\n%s", rep, err, buf.String())
+	}
+	var got, want any
+	if err := json.Unmarshal(imp.batches[0].Items[0].Attributes, &got); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(attrs), &want); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("round trip = %s\nwant %s\ncsv:\n%s", imp.batches[0].Items[0].Attributes, attrs, buf.String())
 	}
 }
