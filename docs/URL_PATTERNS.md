@@ -178,6 +178,8 @@ admin schema API). All keys optional; unknown keys are ignored.
 |-----------------|----------|---------|
 | `url_pattern`   | string   | Pattern for this schema's entities. |
 | `archive_path`  | string   | Section index URL (for example `/blog`): listed first in the sitemap child, used as the breadcrumb section crumb. Must start with `/`. |
+| `archive_limit` | int      | 0..100, default 0 (off). The archive lists that many newest entries on one page, with no pagination: `?page=N` answers a 301 to the archive and no `rel=next` is emitted. |
+| `archive_groups` | object  | Splits the archive into one page per numeric bucket of an attribute. Needs `archive_path`. Keys: `attribute` (numeric attribute), `divisor` (>= 1; bucket = `floor(value / divisor)`), `path` (contains `{n}`, one segment: the group page is `archive_path` + `/` + path, for example `/changelog/v1`), `label` (short name, default `{n}`), `title` and `description` (page heading; placeholders `{n}`, `{label}`, `{archive_title}`; the title defaults to `{archive_title}: {label}`), `anchor_attribute` (attribute whose value is the `id` anchor of an entry on the group page), `redirect_entries` (bool). |
 | `sitemap_group` | string   | Child sitemap name. Default: first literal segment of the pattern, else `misc`. |
 | `aliases`       | string[] | Extra schema slugs that resolve to this schema (archive, route lookup, linking). |
 | `overrides`     | object[] | `{attribute, equals, url_pattern, sitemap_group}`: entities whose `attributes[attribute] == equals` use another pattern/group. |
@@ -187,7 +189,10 @@ admin schema API). All keys optional; unknown keys are ignored.
 | `editor` | string | `""` (default: the generic form) or `"post"`: edit entities of this schema in the post (TipTap) editor, as blog posts are, with autosaved drafts, preview and the SEO and AEO panel. The built-in `post`, `article`, `blog_post` and `blog` schemas always use it. Other attributes are kept on save and stay editable on the entity Details page. Validated on write: any other value is rejected, `"post"` needs the schema to declare a string `content` property, and the `person` schema cannot use it. A stored value that is not valid is ignored on read and never affects URL routing. |
 
 Settings are validated on write (pattern syntax, `archive_path`, override
-fields). Invalid stored settings are logged and the schema is routed with the
+fields, `archive_limit` 0..100, and for `archive_groups` a required
+`archive_path`, a `path` with `{n}` and only `[A-Za-z0-9{}_.-]`, a `divisor` of
+at least 1 and valid attribute keys). A malformed stored `archive_limit` or
+`archive_groups` reads as off. Invalid stored settings are logged and the schema is routed with the
 defaults, so one bad row cannot take the public site down.
 
 ### JSON-LD URLs and rollout
@@ -258,6 +263,18 @@ The Go renderer resolves every public path (there is no JSON resolve API):
 A schema's archive (`archive_path`) lists its rows and those of its aliases
 (the archive of `post` includes `blog` rows and vice versa).
 
+With `archive_limit` or `archive_groups` the archive is one page of the newest
+entries, with no pagination and a self canonical (`?page=N` is a 301 to the
+archive). With `archive_groups` each non-empty bucket also has a group page at
+`archive_path` + `/` + `path` that lists every entry of the bucket, newest
+first by the grouping attribute; an empty or unknown bucket is a 404. The
+archive page links every group. An entity whose own URL equals a group page
+path wins over the group page, so avoid a pattern that can produce it. With
+`redirect_entries`, an entity page of the schema answers a 301 to its group page
+plus `#<anchor_attribute>` (no fragment when that is unset); entities without a
+numeric grouping attribute keep their own page. A preview of staged changes
+shows the entity itself.
+
 ## Sitemap rules
 
 * `sitemap.xml` is the index; each `sitemap_group` gets one child
@@ -267,6 +284,7 @@ A schema's archive (`archive_path`) lists its rows and those of its aliases
   plugin static routes.
 * The index lists only non-empty children.
 * Priority/changefreq come from `settings.sitemap`, else the site-wide default of Settings > SEO > Sitemap, else the schema defaults.
+* A schema with `sitemap.exclude` and `archive_groups` still lists the archive page and one row per group (lastmod = newest entry of the group), but none of its entries.
 * Entities with `no_index` or `attributes.hide_from_sitemap`, rows of `sitemap.exclude` schemas and paths matching the site's exclude paths are omitted.
 * `{path}` and date URLs are listed at their canonical path (the same one the
   page's `canonical` and JSON-LD `url` use).

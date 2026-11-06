@@ -286,6 +286,7 @@ Only `schema` is required:
 | `author` | person slug (a `person` entity; see Authors). A person who is not public matches nothing |
 | `term` | `"<kind>:<slug>"`, e.g. `"category:news"` |
 | `order` | `-published_at` (default), `published_at`, `name`, `-name`, `attr:<key>`, `-attr:<key>`, `popular_7`, `popular_30`, `popular_90` (most pageviews over that many UTC days, today included, the newest filling the gap; see `popular` below; only the first 100 rows of the list are served; a failed lookup gives the newest and the page is not cached), `manual` (the position set on the Reorder page, ties by creation date then id; opt-in, the default is unchanged). Positions count among siblings of one type, parent and language, so `manual` is only meaningful within one of those sets: combine it with a `parent` or term filter, since a mixed list interleaves the sets. Attribute order sorts numeric values as numbers (so part 2 precedes part 10), then other text; entities without the attribute come last |
+| `range_attr` + `range_min` / `range_max` | keep entities whose numeric attribute `range_attr` is at least `range_min` and below `range_max` (either bound may be omitted); entities whose value is not a number never match. `range_attr` follows the key rules of `attr`; an invalid key gives an empty result |
 | `limit` | 1..100, default 12 |
 | `status` | `published` (default) or `published+scheduled`: scheduled items are listed for a "Publishing <date>" row and carry only `Name`, `Title`, `Schema`, `PublishedAt` and, in `Attrs`, just the `attr` filter key and the `attr:<key>` order key (so a series part number is available). `URL`, `Excerpt`, `Image`, `Category`, `Author`, `AuthorURL`, `WordCount`, `ReadingTime` and every other attribute are empty, so embargoed content never leaks. Drafts and archived items never appear; any other value means `published` |
 | `page` | 1..1000 and at most `Pages`: a page past the end returns the last page |
@@ -403,13 +404,23 @@ The engine picks the first layout that exists, trying the candidates in order:
 | not found / error | `404` / `error` |
 
 The default theme ships `archive-release.html`, a changelog layout for a schema
-with slug `release` and an `archive_path`. It lists up to 100 entries inline
-(not the 12-per-page archive), newest first by the numeric `version_sort`
-attribute, each as `<section id="{version}">`. Attributes: `version`,
+with slug `release` and an `archive_path`. It lists entries inline (not the
+12-per-page archive), newest first by the numeric `version_sort` attribute, each
+as `<section id="{version}">`. Without `archive_limit` and `archive_groups` it
+lists up to 100. With `archive_limit` it lists that many, followed by an "All
+releases" line and an "Older releases" list linking every group page. On a group
+page (`.Archive.Group` set) it prints the breadcrumb, the group title and
+description, a "Jump to" list of the versions (anchors), the other groups and a
+link to the archive ("Latest"), then every release of the group by a `query`
+with `range_attr`, `range_min` and `range_max`. Attributes: `version`,
 `version_sort`, `released_at` (`YYYY-MM-DD`), `channel`, `yanked`, `summary`
 and the string arrays `features`, `fixes`, `docs`, `chores` (`docs` and
 `chores` share one "Docs / Chores" heading). A group saved as a single string
 is rendered as sanitised rich text instead of a list.
+
+An `archive-<schema>` layout for a schema with `archive_groups` serves both the
+archive and its group pages: branch on `.Archive.Group`. Group pages resolve to
+the same layout candidates, with `.Kind` `archive`.
 
 A theme may omit any of them. Lookup tries all candidates in the highest
 layer of the [lookup chain](#installing-and-activating-themes) (the active
@@ -426,6 +437,7 @@ and archives through its own `page.html`, not the default's `single.html`.
 | `.Body` | `attributes.content` sanitised with the rich-text policy **at render time** (stored content is never trusted); empty when there is none. A post with only `attributes.content` renders from this |
 | `.Blocks` | the prepared sections of the page, derived from its `page_doc` (a page without a doc: its legacy `page_sections`) |
 | `.Items` | listings: cards with `.Title`, `.URL`, `.Excerpt`, `.Image`, `.Category`, `.PublishedAt`, `.Author`, `.AuthorURL`. An excerpt falls back to the first 200 characters of the content |
+| `.Archive` | capped or grouped archives (`archive_limit` / `archive_groups`; the zero value on any other page): `.Limit` (the cap, 0 on a group page: list up to 100), `.Path` (the archive's own URL, localised), `.Group` (the group page being rendered, nil on the archive page: `.N`, `.Label`, `.URL`, `.Attribute`, `.Min`, `.Max` for a `range_attr` query), `.Groups` (every non-empty group, newest first: `.N`, `.Label`, `.URL`, `.Count`, `.Newest`). Such pages have no `.Pagination` |
 | `.Pagination` | listings: `.Page`, `.TotalPages`, `.Total`, `.HasPrev`, `.HasNext`, `.PrevURL`, `.NextURL`, `.URL n` |
 | `.Term`, `.Author`, `.Query`, `.SearchType` | taxonomy (`.Kind`, `.Slug`, `.Name`, `.URL`, `.Description`, `.Parent`), author (`.Name`, `.Slug`, `.URL`, `.Avatar`, `.Bio`, `.JobTitle`, `.IsOrg`, `.SameAs`, a list of profile links) and search views (`.SearchType` is the schema slug a search is limited to, empty for the whole site) |
 | `.Site` | `.Name`, `.Tagline`, `.LogoURL`, `.Language` (the site setting `language`, BCP 47, default `en`; on a site with several public locales it is the locale of the page being rendered, per request; also `<html lang>` and JSON-LD `inLanguage`), `.Phone`, `.Hours` and `.Address` (`.Street`, `.City`, `.State`, `.PostalCode`, `.Country`; the site settings, also emitted in the Organization JSON-LD), `.Settings` (the theme settings object), `.Nav`, `.FooterNav`, `.SocialLinks` |
