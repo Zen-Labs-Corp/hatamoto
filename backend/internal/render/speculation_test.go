@@ -194,3 +194,17 @@ func withoutSpeculation(page string) string {
 }
 
 var speculationBlockRe = regexp.MustCompile(`<script type="speculationrules">.*?</script>`)
+
+func TestSpliceHeadInsertsBeforeLastHeadClose(t *testing.T) {
+	const page = `<head><title>a</title></head><body><p>&lt;/head&gt;</p></body>`
+	want := `<head><title>a</title><b>x</b></head><body><p>&lt;/head&gt;</p></body>`
+	for _, spare := range []int{0, 64} { // grown copy, and shifted inside the spare capacity
+		in := append(make([]byte, 0, len(page)+spare), page...)
+		if got := string(spliceHead(in, "<b>x</b>")); got != want {
+			t.Errorf("spare %d: %s", spare, got)
+		}
+	}
+	if got := string(spliceHead([]byte("<p>x</p>"), "<b>x</b>")); got != "<p>x</p>" {
+		t.Errorf("no head: %s", got)
+	}
+}

@@ -2,6 +2,7 @@ package render
 
 import (
 	"html/template"
+	"sync"
 
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -31,7 +32,10 @@ var speculationQuery = map[string]any{"pathname": "/*", "search": "(.+)"}
 // speculationRules is the inline speculationrules script for public pages:
 // same-site page links are prefetched on hover (moderate eagerness). Prefetch
 // only, never prerender: public pages run scripts and analytics.
-func speculationRules() template.HTML {
+func speculationRules() template.HTML { return speculationBlock() }
+
+// speculationBlock is the rules element, built once: it takes no site input.
+var speculationBlock = sync.OnceValue(func() template.HTML {
 	excluded := make([]any, 0, len(speculationExcluded)+1)
 	for _, p := range speculationExcluded {
 		excluded = append(excluded, p)
@@ -48,4 +52,4 @@ func speculationRules() template.HTML {
 		return ""
 	}
 	return template.HTML(`<script type="speculationrules">` + string(b) + `</script>`) // #nosec G203 -- JSON encoded HTML-safe
-}
+})
