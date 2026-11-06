@@ -79,7 +79,18 @@ type RunOpts struct {
 	Managed bool
 	// SkipBackup skips the pre-update backup for this run only.
 	SkipBackup bool
+	// Retry makes Apply a retry of a bad-listed version: the named route,
+	// except that the version must be on the bad list and its entry is
+	// removed when the switch is handed to the supervisor. Never set by the
+	// scheduled check.
+	Retry bool
 }
+
+// retryRefused is a retry the box's own state rules out. It is reported to
+// the caller but never stored as a failed update: nothing was attempted.
+type retryRefused struct{ error }
+
+func (e retryRefused) Unwrap() error { return e.error }
 
 // EnvBackup set to "0" turns the pre-update backup off.
 const EnvBackup = "HATAMOTO_UPDATE_BACKUP"
@@ -153,6 +164,21 @@ func (u *Updater) job(ctx context.Context) error {
 	return nil
 }
 
+// RetryCheck says, from the supervisor state alone, whether version may be
+// retried, and returns the reason it was bad-listed. It fetches nothing.
+func (u *Updater) RetryCheck(version string) (oldReason string, err error) {
+	state, err := supervisor.LoadState(supervisor.NewLayout(u.env.Data).StatePath())
+	if err != nil {
+		return "", fmt.Errorf("supervisor state: %w", err)
+	}
+	running := supervisor.RunningVersion(supervisor.NewLayout(u.env.Data), state, u.env.Version)
+	entry, err := supervisor.RetryRefusal(state, version, running)
+	if err != nil {
+		return "", retryRefused{err}
+	}
+	return entry.Reason, nil
+}
+
 // Run does one check and, under policy, the update. It makes exactly one
 // request before a target exists: the channel manifest.
 func (u *Updater) Run(ctx context.Context, o RunOpts) (Status, error) {
@@ -183,7 +209,7 @@ func (u *Updater) Run(ctx context.Context, o RunOpts) (Status, error) {
 	if err != nil {
 		st.LastResult, st.Reason = ResultError, err.Error()
 		st.Decision, st.Target, st.AvailableMajor, st.FirstSeen = prev.Decision, prev.Target, prev.AvailableMajor, prev.FirstSeen
-		if o.Managed && o.Apply != "" {
+		if o.Managed && o.Apply != "" && !errors.As(err, new(retryRefused)) {
 			st.Decision, st.Target = KindFailed, o.Apply
 		}
 	}
@@ -243,6 +269,9 @@ func (u *Updater) run(ctx context.Context, o RunOpts, set Settings, prev Status,
 	skip := func(kind, reason string) (Status, error) {
 		return Status{LastResult: ResultSkipped, Decision: kind, Reason: reason, FirstSeen: prev.FirstSeen, AvailableMajor: prev.AvailableMajor}, nil
 	}
+	if o.Retry && o.Apply == "" {
+		return Status{}, errors.New("retry needs a version")
+	}
 	if o.Apply == "" && set.Mode == ModeOff {
 		return skip(KindOff, "updates are off")
 	}
@@ -264,7 +293,13 @@ func (u *Updater) run(ctx context.Context, o RunOpts, set Settings, prev Status,
 	if o.Apply == "" && !release.ValidVersion(running) {
 		return skip(KindDev, "dev build, updates disabled")
 	}
+	if o.Retry { // refuses a pending switch, probation and an unproven release itself
+		if _, err := supervisor.RetryRefusal(state, o.Apply, running); err != nil {
+			return Status{}, retryRefused{err}
+		}
+	}
 	switch {
+	case o.Retry:
 	case state.Pending != nil:
 		return skip(KindBusy, fmt.Sprintf("a switch to %s is in progress", state.Pending.Version))
 	case state.Phase == "probation":
@@ -304,7 +339,7 @@ func (u *Updater) run(ctx context.Context, o RunOpts, set Settings, prev Status,
 	}
 	var dec Decision
 	if o.Apply != "" {
-		if dec, err = u.named(man, state, records, o.Apply, running); err != nil {
+		if dec, err = u.named(man, state, records, o.Apply, running, o.Retry); err != nil {
 			return Status{}, err
 		}
 	} else {
@@ -421,14 +456,18 @@ func (u *Updater) dropInvalid(m *release.ChannelManifest) {
 
 // named builds the decision for `update apply vX.Y.Z`: the operator route,
 // which ignores ramp, window, defer and pin but refuses a yanked or bad
-// version and verifies everything.
-func (u *Updater) named(m *release.ChannelManifest, state *supervisor.State, records *recordCache, version, running string) (Decision, error) {
+// version and verifies everything. A retry is the opposite for the bad list
+// (the version must be on it) and also refuses a halted release.
+func (u *Updater) named(m *release.ChannelManifest, state *supervisor.State, records *recordCache, version, running string, retry bool) (Decision, error) {
 	if !release.ValidVersion(version) {
 		return Decision{}, fmt.Errorf("%q is not a release version", version)
 	}
 	listed := false
 	for _, e := range m.Releases {
 		listed = listed || e.Version == version
+		if retry && e.Version == version && e.Halted {
+			return Decision{}, retryRefused{fmt.Errorf("%s is halted by the maintainers (%s)", version, e.HaltReason)}
+		}
 	}
 	if !listed {
 		return Decision{}, fmt.Errorf("%s is not on channel %s", version, m.Channel)
@@ -438,7 +477,7 @@ func (u *Updater) named(m *release.ChannelManifest, state *supervisor.State, rec
 			return Decision{}, fmt.Errorf("%s was withdrawn (%s)", version, y.Reason)
 		}
 	}
-	if state.IsBad(version) {
+	if !retry && state.IsBad(version) {
 		return Decision{}, fmt.Errorf("%s is on this box's bad list (it failed health gating before)", version)
 	}
 	if version == running {
@@ -528,6 +567,7 @@ func (u *Updater) install(ctx context.Context, st Status, dec Decision, records 
 	files := supervisor.ApplyOpts{
 		File: filepath.Join(dir, "hatamoto"), Record: filepath.Join(dir, "release.json"),
 		Sig: filepath.Join(dir, "release.json.sig"), Release: u.env.Supervisor.Release, Platform: u.env.Platform,
+		Retry: o.Retry,
 	}
 	if err := os.WriteFile(files.Record, f.rb, 0o600); err != nil {
 		return Status{}, err
@@ -557,6 +597,7 @@ func (u *Updater) install(ctx context.Context, st Status, dec Decision, records 
 			return Status{}, fmt.Errorf("apply %s: %w", dec.Target, err)
 		}
 		st.Decision, st.Reason = KindApplying, res.Message
+		st.RetriedFrom = res.RetriedFrom.Reason
 	default:
 		if _, err := u.stageFn(u.env.Supervisor, files); err != nil {
 			return Status{}, fmt.Errorf("stage %s: %w", dec.Target, err)

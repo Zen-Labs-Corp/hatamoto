@@ -57,6 +57,9 @@ type Status struct {
 	Target         string
 	AvailableMajor string
 	FirstSeen      map[string]time.Time
+	// RetriedFrom is why the bad entry a retry removed was listed. It is the
+	// outcome of that one run and is not stored.
+	RetriedFrom string
 }
 
 // Validate checks the policy values and clamps DeferDays into range.
