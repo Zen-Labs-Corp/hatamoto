@@ -191,3 +191,50 @@ func TestUpdateMeCannotChangeAccessEnd(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitedOwnerJSONCannotChangeOrOutlastOwnEnd(t *testing.T) {
+	g := newUsersAccessRig()
+	own := time.Now().Add(10 * 24 * time.Hour).UTC().Truncate(time.Second)
+	g.repo.users[g.owner.ID].AccessEndsAt = &own
+	// A second, open-ended owner so the last-owner guard is not what refuses.
+	other := &user.User{ID: uuid.New(), Email: "o2@example.test", Role: user.RoleOwner}
+	g.repo.users[other.ID] = other
+	soon := own.Add(-24 * time.Hour).Format(time.RFC3339)
+	later := own.Add(24 * time.Hour).Format(time.RFC3339)
+	pw := `"password":"a-long-enough-password","role":"editor"`
+
+	for name, body := range map[string]string{
+		"no date": `{"email":"a@example.test",` + pw + `}`,
+		"later":   `{"email":"b@example.test",` + pw + `,"access_ends_at":"` + later + `"}`,
+	} {
+		if rec := g.call(g.s.handleCreateUser, g.owner, "POST", "/users", "", body); rec.Code != http.StatusForbidden {
+			t.Errorf("create %s: %d %s", name, rec.Code, rec.Body.String())
+		}
+	}
+	if rec := g.call(g.s.handleCreateUser, g.owner, "POST", "/users", "", `{"email":"c@example.test",`+pw+`,"access_ends_at":"`+soon+`"}`); rec.Code != http.StatusCreated {
+		t.Errorf("create earlier: %d %s", rec.Code, rec.Body.String())
+	}
+
+	oid := g.owner.ID.String()
+	eid := g.editor.ID.String()
+	for name, tc := range map[string]struct{ id, body string }{
+		"clear own":    {oid, `{"access_ends_at":null}`},
+		"extend own":   {oid, `{"access_ends_at":"` + later + `"}`},
+		"set other":    {eid, `{"access_ends_at":"` + soon + `"}`},
+		"promote open": {eid, `{"role":"owner"}`},
+	} {
+		if rec := g.call(g.s.handleUpdateUser, g.owner, "PATCH", "/users/"+tc.id, tc.id, tc.body); rec.Code != http.StatusForbidden {
+			t.Errorf("%s: %d %s", name, rec.Code, rec.Body.String())
+		}
+	}
+	if got := g.repo.users[g.owner.ID].AccessEndsAt; got == nil || !got.Equal(own) {
+		t.Errorf("own end changed to %v", got)
+	}
+	if g.repo.users[g.editor.ID].Role != user.RoleEditor || g.repo.users[g.editor.ID].AccessEndsAt != nil {
+		t.Error("editor changed")
+	}
+	// A name change on yourself is fine.
+	if rec := g.call(g.s.handleUpdateUser, g.owner, "PATCH", "/users/"+oid, oid, `{"name":"Olga"}`); rec.Code != http.StatusOK {
+		t.Errorf("name: %d %s", rec.Code, rec.Body.String())
+	}
+}

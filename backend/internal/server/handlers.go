@@ -309,6 +309,16 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Someone whose own access ends cannot create a user who outlasts them.
+	own, ok := s.callerAccessEnd(w, r, claims)
+	if !ok {
+		return
+	}
+	if !user.MayGrant(own, input.AccessEndsAt) {
+		writeError(w, http.StatusForbidden, user.ErrAccessEndNotAllowed.Error())
+		return
+	}
+
 	passwordHash, err := auth.HashPasswordContext(r.Context(), input.Password)
 	if err != nil {
 		s.logger.Error("failed to hash password", "error", err)
@@ -391,6 +401,35 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Someone whose own access ends cannot change an end date, nor make a user
+	// without a date, or with a later one, an owner.
+	if input.AccessEndsAt.Set || (input.Role != nil && *input.Role == user.RoleOwner) {
+		own, ok := s.callerAccessEnd(w, r, claims)
+		if !ok {
+			return
+		}
+		if input.AccessEndsAt.Set && !user.MayChangeAccessEnd(own) {
+			writeError(w, http.StatusForbidden, user.ErrAccessEndNotAllowed.Error())
+			return
+		}
+		if input.Role != nil && *input.Role == user.RoleOwner && own != nil {
+			target, err := s.userRepo.GetByID(r.Context(), id)
+			if err != nil {
+				if errors.Is(err, user.ErrUserNotFound) {
+					writeError(w, http.StatusNotFound, "user not found")
+					return
+				}
+				s.logger.Error("failed to get user", "error", err)
+				writeError(w, http.StatusInternalServerError, "failed to update user")
+				return
+			}
+			if target.Role != user.RoleOwner && !user.MayGrant(own, target.AccessEndsAt) {
+				writeError(w, http.StatusForbidden, user.ErrAccessEndNotAllowed.Error())
+				return
+			}
+		}
+	}
+
 	// The end date is owner only, and a changed value must be in the future.
 	var before *user.User
 	if input.AccessEndsAt.Set {
@@ -436,6 +475,18 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, u)
+}
+
+// callerAccessEnd is the caller's own access end (nil: none). It writes the
+// error response and returns false when the caller cannot be read.
+func (s *Server) callerAccessEnd(w http.ResponseWriter, r *http.Request, claims *auth.Claims) (*time.Time, bool) {
+	me, err := s.userRepo.GetByID(r.Context(), claims.UserID)
+	if err != nil {
+		s.logger.Error("failed to get user", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to look up the caller")
+		return nil, false
+	}
+	return me.AccessEndsAt, true
 }
 
 func sameAccessEnd(a, b *time.Time) bool {
