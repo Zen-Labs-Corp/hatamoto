@@ -70,14 +70,15 @@ func SDKBlockers(rec *release.Record, ranges []NamedRange) []string {
 // RemovedPermissionBlockers returns one sentence for each permission the
 // target release removes that an enabled plugin still declares. already lists
 // the permissions the running release removed too: they are not new, so an
-// update does not block on them.
-func RemovedPermissionBlockers(rec release.Record, already []string, plugins []NamedPermissions) []string {
+// update does not block on them. verb is the command the hint tells the owner
+// to run with --force: "retry" for a bad-listed version, else "apply".
+func RemovedPermissionBlockers(rec release.Record, already []string, plugins []NamedPermissions, verb string) []string {
 	var out []string
 	for _, p := range plugins {
 		for _, perm := range p.Permissions {
 			if slices.Contains(rec.RemovedPermissions, perm) && !slices.Contains(already, perm) {
-				out = append(out, fmt.Sprintf("%s removes permission %q, still used by plugin %s (%s). Update the plugin first, or run `hatamoto update apply %s --force`.",
-					rec.Version, perm, p.Name, p.Version, rec.Version))
+				out = append(out, fmt.Sprintf("%s removes permission %q, still used by plugin %s (%s). Update the plugin first, or run `hatamoto update %s %s --force`.",
+					rec.Version, perm, p.Name, p.Version, verb, rec.Version))
 			}
 		}
 	}

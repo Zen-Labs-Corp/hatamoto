@@ -934,6 +934,22 @@ func TestRunBlocksOnARemovedPermission(t *testing.T) {
 	}
 }
 
+func TestRunRetryBlockedByARemovedPermissionHintsRetry(t *testing.T) {
+	b := newRunBox(t, "v1.0.0")
+	b.offer("v1.0.1", func(r *release.Record) { r.RemovedPermissions = []string{"a.write"} })
+	b.publish([]release.Entry{open100("v1.0.1")}, nil)
+	st := &supervisor.State{Run: supervisor.RunBootstrap}
+	st.AddBad("v1.0.1", "health gate failed: GET / returned 500")
+	if err := supervisor.SaveState(supervisor.NewLayout(b.data).StatePath(), st); err != nil {
+		t.Fatal(err)
+	}
+	b.u.env.Plugins = fakePermPlugins{{Name: "example-plugin", Version: "1.0.0", Permissions: []string{"a.write"}}}
+	got, err := b.u.Run(t.Context(), RunOpts{Apply: "v1.0.1", Retry: true})
+	if err != nil || got.Decision != KindBlocked || !strings.Contains(got.Reason, "`hatamoto update retry v1.0.1 --force`") {
+		t.Fatalf("%+v %v", got, err)
+	}
+}
+
 func TestRunDoesNotBlockOnAPermissionTheRunningReleaseRemoved(t *testing.T) {
 	b := newRunBox(t, "v1.0.0")
 	b.offer("v1.0.1", func(r *release.Record) { r.RemovedPermissions = []string{"a.write"} })

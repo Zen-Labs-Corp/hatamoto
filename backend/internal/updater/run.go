@@ -513,7 +513,11 @@ func (u *Updater) preflight(ctx context.Context, dec Decision, o RunOpts) string
 			if err != nil {
 				return fmt.Sprintf("cannot read the installed plugins to check %s: %v", dec.Target, err)
 			}
-			if b := RemovedPermissionBlockers(*dec.Rec, u.runningRemovedPermissions(), plugins); len(b) > 0 {
+			verb := "apply"
+			if o.Retry {
+				verb = "retry"
+			}
+			if b := RemovedPermissionBlockers(*dec.Rec, u.runningRemovedPermissions(), plugins, verb); len(b) > 0 {
 				return b[0] + moreSuffix(len(b))
 			}
 		}
