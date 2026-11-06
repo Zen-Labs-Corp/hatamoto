@@ -184,3 +184,22 @@ func TestFormCaptchaMarkup(t *testing.T) {
 		}
 	}
 }
+
+// The form island is served as an asset; its submit handling is pinned at the
+// string level (no JS runtime in the Go tests).
+func TestFormIslandSubmitHandling(t *testing.T) {
+	is, ok := widgets().island["form"]
+	if !ok {
+		t.Fatal("form has no island")
+	}
+	body := string(is.body)
+	for _, want := range []string{
+		`[data-hm-error-for]`, `slot.dataset.hmErrorFor`, `aria-invalid`, `aria-describedby`,
+		`!form.querySelector("[data-hm-captcha]")`, `/api/v1/public/forms/`, `return form.submit()`,
+		`body.redirect_url`, `body.fields`, `form[data-hm-form-logic]`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("island lacks %q", want)
+		}
+	}
+}
