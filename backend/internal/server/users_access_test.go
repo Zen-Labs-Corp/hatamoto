@@ -55,6 +55,9 @@ func (f *accessRepo) Update(_ context.Context, id uuid.UUID, in *user.UpdateUser
 	if in.AccessEndsAt.Set && in.AccessEndsAt.At != nil && u.Role == user.RoleOwner && f.openOwners(id) == 0 {
 		return nil, user.ErrLastOwner
 	}
+	if in.Role != nil {
+		u.Role = *in.Role
+	}
 	if in.AccessEndsAt.Set {
 		u.AccessEndsAt = in.AccessEndsAt.At
 	}
@@ -218,9 +221,10 @@ func TestLimitedOwnerJSONCannotChangeOrOutlastOwnEnd(t *testing.T) {
 	oid := g.owner.ID.String()
 	eid := g.editor.ID.String()
 	for name, tc := range map[string]struct{ id, body string }{
-		"clear own":  {oid, `{"access_ends_at":null}`},
-		"extend own": {oid, `{"access_ends_at":"` + later + `"}`},
-		"set other":  {eid, `{"access_ends_at":"` + soon + `"}`},
+		"clear own":           {oid, `{"access_ends_at":null}`},
+		"extend own":          {oid, `{"access_ends_at":"` + later + `"}`},
+		"set other":           {eid, `{"access_ends_at":"` + soon + `"}`},
+		"promote open (Role)": {eid, `{"Role":"owner"}`},
 	} {
 		if rec := g.call(g.s.handleUpdateUser, g.owner, "PATCH", "/users/"+tc.id, tc.id, tc.body); rec.Code != http.StatusForbidden {
 			t.Errorf("%s: %d %s", name, rec.Code, rec.Body.String())
@@ -231,6 +235,12 @@ func TestLimitedOwnerJSONCannotChangeOrOutlastOwnEnd(t *testing.T) {
 	}
 	if g.repo.users[g.editor.ID].Role != user.RoleEditor || g.repo.users[g.editor.ID].AccessEndsAt != nil {
 		t.Error("editor changed")
+	}
+	// The decoder is case sensitive: a lowercase "role" key is ignored, so it
+	// changes nothing (and the editor check above still holds).
+	g.call(g.s.handleUpdateUser, g.owner, "PATCH", "/users/"+eid, eid, `{"role":"owner"}`)
+	if g.repo.users[g.editor.ID].Role != user.RoleEditor {
+		t.Error("lowercase role key decoded")
 	}
 	// A name change on yourself is fine.
 	if rec := g.call(g.s.handleUpdateUser, g.owner, "PATCH", "/users/"+oid, oid, `{"name":"Olga"}`); rec.Code != http.StatusOK {

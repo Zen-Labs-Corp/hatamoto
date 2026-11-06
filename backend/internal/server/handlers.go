@@ -401,17 +401,35 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Someone whose own access ends cannot change an end date. (The JSON body
-	// does not carry a role: UpdateUserInput.Role has no json tag, so it never
-	// decodes and nobody can be promoted here.)
-	if input.AccessEndsAt.Set {
+	// Someone whose own access ends cannot change an end date, nor make a user
+	// without a date, or with a later one, an owner. UpdateUserInput.Role has
+	// no json tag, so it decodes under its Go name ("Role"; the decoder is case
+	// sensitive, so "role" is ignored): role changes over JSON are possible.
+	promote := input.Role != nil && *input.Role == user.RoleOwner
+	if input.AccessEndsAt.Set || promote {
 		own, ok := s.callerAccessEnd(w, r, claims)
 		if !ok {
 			return
 		}
-		if !user.MayChangeAccessEnd(own) {
+		if input.AccessEndsAt.Set && !user.MayChangeAccessEnd(own) {
 			writeError(w, http.StatusForbidden, user.ErrAccessEndNotAllowed.Error())
 			return
+		}
+		if promote && own != nil {
+			target, err := s.userRepo.GetByID(r.Context(), id)
+			if err != nil {
+				if errors.Is(err, user.ErrUserNotFound) {
+					writeError(w, http.StatusNotFound, "user not found")
+					return
+				}
+				s.logger.Error("failed to get user", "error", err)
+				writeError(w, http.StatusInternalServerError, "failed to update user")
+				return
+			}
+			if target.Role != user.RoleOwner && !user.MayGrant(own, target.AccessEndsAt) {
+				writeError(w, http.StatusForbidden, user.ErrAccessEndNotAllowed.Error())
+				return
+			}
 		}
 	}
 
