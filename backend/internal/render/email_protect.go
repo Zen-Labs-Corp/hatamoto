@@ -18,7 +18,11 @@ var assetName = regexp.MustCompile(`(?i)@\d+x\.(png|jpe?g|gif|webp|avif|svg)$`)
 
 // emailSkipTags hold text that is not shown as prose: code stays literal so a
 // documented address can be copied, and raw-text elements are not markup.
-var emailSkipTags = [...]string{"script", "style", "textarea", "title", "code", "pre", "noscript"}
+var emailSkipTags = [...]string{"script", "style", "textarea", "title", "code", "pre", "noscript", "xmp", "plaintext", "noembed", "noframes", "iframe"}
+
+// emailRawText are the skip tags whose content the tokenizer reads as one raw
+// text token, even after a self-closing start tag such as <title/>.
+var emailRawText = map[string]bool{"script": true, "style": true, "textarea": true, "title": true, "noscript": true, "xmp": true, "plaintext": true, "noembed": true, "noframes": true, "iframe": true}
 
 // skipIndex is the index of name in emailSkipTags, or -1.
 func skipIndex(name []byte) int {
@@ -46,9 +50,12 @@ func protectEmails(in []byte) []byte {
 	var skip [len(emailSkipTags)]int
 	skipping := 0
 	inHead := false
+	rawNext := false // the next token is raw text after a self-closing <title/>
 	for {
 		tt := z.Next()
 		raw := z.Raw()
+		skipText := rawNext
+		rawNext = false
 		switch tt {
 		case html.ErrorToken:
 			return append(out, raw...) // an unterminated tag at the end
@@ -57,9 +64,13 @@ func protectEmails(in []byte) []byte {
 			if string(name) == "head" && tt == html.StartTagToken {
 				inHead = true
 			}
-			if i := skipIndex(name); i >= 0 && tt == html.StartTagToken {
-				skip[i]++
-				skipping++
+			if i := skipIndex(name); i >= 0 {
+				if tt == html.StartTagToken {
+					skip[i]++
+					skipping++
+				} else if emailRawText[string(name)] {
+					rawNext = true
+				}
 			}
 			if skipping == 0 && !inHead && string(name) == "a" {
 				raw = rewriteMailtoHref(raw)
@@ -76,7 +87,7 @@ func protectEmails(in []byte) []byte {
 			}
 			out = append(out, raw...)
 		case html.TextToken:
-			if skipping > 0 || inHead {
+			if skipping > 0 || inHead || skipText {
 				out = append(out, raw...)
 				continue
 			}

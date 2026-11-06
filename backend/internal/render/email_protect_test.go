@@ -143,3 +143,20 @@ func TestEmailProtectKeepsTagCase(t *testing.T) {
 		}
 	}
 }
+
+func TestEmailProtectSelfClosingRawTextAndObsoleteTags(t *testing.T) {
+	for _, in := range []string{
+		`<svg><title/></svg><script>"a@b.org"</script>`,
+		`<svg><style/></svg><style>/* a@b.org */</style>`,
+		`<xmp>a@b.org</xmp>`,
+		`<plaintext>a@b.org`,
+		`<noembed>a@b.org</noembed><noframes>a@b.org</noframes><iframe>a@b.org</iframe>`,
+	} {
+		if out := string(protectEmails([]byte(wrap(in)))); out != wrap(in) {
+			t.Errorf("changed:\n in: %s\nout: %s", in, out)
+		}
+	}
+	if out := string(protectEmails([]byte(wrap(`<svg><title/></svg><p>a@b.org</p>`)))); strings.Contains(out, "<p>a@b.org") {
+		t.Errorf("text after the raw-text run not protected: %s", out)
+	}
+}
