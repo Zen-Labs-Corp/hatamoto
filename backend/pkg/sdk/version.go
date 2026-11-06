@@ -71,7 +71,9 @@ package sdk
 // the v1 behaviours (omitempty, Duration, byte arrays, method calls, repeated
 // member names in raw JSON) and reads them back with the v1 behaviours
 // (Duration, byte arrays, `,string`, case-only name folding, merging). The one difference left is that a struct with two
-// fields sharing a JSON name fails to marshal.
+// fields sharing a JSON name fails to marshal. It also exports
+// RemovedPermissions, the sorted list of permissions the SDK refuses, which the
+// release tool copies into the signed release record (additive).
 const Version = "0.19.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.

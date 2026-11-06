@@ -362,3 +362,48 @@ func TestRecordSDKCompatibleWithIsAdditive(t *testing.T) {
 		t.Fatalf("older reader: %+v, %v", old, err)
 	}
 }
+
+func TestRecordRemovedPermissionsIsAdditive(t *testing.T) {
+	rec := Record{Version: "v1.2.3", Kind: "patch", SDK: "0.10.0", SchemaHead: 5}
+	plain, err := MarshalRecord(rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(plain, []byte("removed_permissions")) {
+		t.Fatalf("empty list must be omitted:\n%s", plain)
+	}
+	rec.RemovedPermissions = []string{"entities.write", "terms.write"}
+	with, err := MarshalRecord(rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got Record
+	if err := jsonx.UnmarshalPinned(with, &got); err != nil || len(got.RemovedPermissions) != 2 {
+		t.Fatalf("round trip: %+v, %v", got, err)
+	}
+	// An older binary's view of the record (no such field) still decodes it.
+	var old struct{ Version, SDK string }
+	if err := jsonx.UnmarshalPinned(with, &old); err != nil || old.SDK != "0.10.0" {
+		t.Fatalf("older reader: %+v, %v", old, err)
+	}
+}
+
+func TestVerifyAcceptsRecordWithRemovedPermissions(t *testing.T) {
+	f := newFixture(t)
+	var rec Record
+	if err := jsonx.UnmarshalPinned(f.record, &rec); err != nil {
+		t.Fatal(err)
+	}
+	rec.RemovedPermissions = []string{"entities.write"}
+	b, err := MarshalRecord(rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := VerifyRecord(b, f.signRecord(t, f.relKey, b), f.opts)
+	if err != nil {
+		t.Fatalf("VerifyRecord: %v", err)
+	}
+	if len(got.RemovedPermissions) != 1 {
+		t.Fatalf("decoded record lost the field: %+v", got)
+	}
+}

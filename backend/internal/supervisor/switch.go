@@ -38,7 +38,7 @@ func (s *sup) switchTo(ctx context.Context) error {
 			refused = "unknown pending kind " + p.Kind
 		case target != RunBootstrap:
 			if verr := s.verifyRelease(target); verr != nil {
-				refused = "staged release failed verification: " + verr.Error()
+				refused = ReasonStagedVerify + verr.Error()
 				st.AddBad(target, refused)
 			}
 		}

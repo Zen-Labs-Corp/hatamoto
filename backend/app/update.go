@@ -24,18 +24,18 @@ import (
 
 // updateArgs is a parsed `update` command line.
 type updateArgs struct {
-	verb              string // apply (files), rollback, status, check, pin, unpin, fetch (apply vX.Y.Z)
+	verb              string // apply (files), rollback, status, check, pin, unpin, fetch (apply vX.Y.Z), retry
 	rollback          bool
 	force             bool
 	noBackup          bool // apply vX.Y.Z: skip the pre-update backup for this run
 	dryRun            bool
 	pin               string // pin vX.Y
-	version           string // apply vX.Y.Z
+	version           string // apply vX.Y.Z, retry vX.Y.Z
 	file, record, sig string
 }
 
 const updateUsage = "usage: hatamoto update status | check [--dry-run] | pin vX.Y | unpin | apply vX.Y.Z [--force] [--no-backup] | " +
-	"apply --file F --record R [--sig S] | rollback [--force]"
+	"retry vX.Y.Z [--force] [--no-backup] | apply --file F --record R [--sig S] | rollback [--force]"
 
 var pinArg = regexp.MustCompile(`^v\d+\.\d+$`)
 
@@ -73,6 +73,23 @@ func parseUpdateArgs(args []string) (updateArgs, error) {
 				return u, errors.New("usage: hatamoto update rollback [--force]")
 			}
 			u.force = true
+		}
+		return u, nil
+	case "retry":
+		const usage = "usage: hatamoto update retry vMAJOR.MINOR.PATCH [--force] [--no-backup]"
+		if len(args) < 2 || !release.ValidVersion(args[1]) {
+			return u, errors.New(usage)
+		}
+		u.version = args[1]
+		for _, a := range args[2:] {
+			switch a {
+			case "--force":
+				u.force = true
+			case "--no-backup":
+				u.noBackup = true
+			default:
+				return u, errors.New(usage)
+			}
 		}
 		return u, nil
 	case "apply":
@@ -134,7 +151,7 @@ func runUpdateCtx(ctx context.Context, args []string, out io.Writer, ro release.
 	}
 	cfg.Release = ro
 	switch u.verb {
-	case "status", "check", "pin", "unpin", "fetch":
+	case "status", "check", "pin", "unpin", "fetch", "retry":
 		return runUpdateOnline(ctx, u, cfg, out)
 	}
 	var res supervisor.Result
@@ -157,10 +174,10 @@ func runUpdateCtx(ctx context.Context, args []string, out io.Writer, ro release.
 // stand in for a foreign owner.
 var checkOwner = supervisor.CheckOwner
 
-// takesBackup reports whether the run backs up first: both verbs that can
-// install (check and apply vX.Y.Z) do, unless skipped or a dry run.
+// takesBackup reports whether the run backs up first: the verbs that can
+// install (check, apply vX.Y.Z and retry) do, unless skipped or a dry run.
 func takesBackup(u updateArgs) bool {
-	return (u.verb == "fetch" || u.verb == "check") && !u.noBackup && !u.dryRun
+	return (u.verb == "fetch" || u.verb == "check" || u.verb == "retry") && !u.noBackup && !u.dryRun
 }
 
 // runUpdateOnline runs the verbs that read the update settings (a database)
@@ -175,7 +192,7 @@ func runUpdateOnline(ctx context.Context, u updateArgs, cfg supervisor.Config, o
 	version := runningVersionOf(cfg)
 	env := updater.Env{Data: cfg.Data, Version: cfg.BootstrapVersion, Supervisor: cfg, BaseURL: os.Getenv("HATAMOTO_UPDATE_URL"),
 		DatabaseURL: os.Getenv("DATABASE_URL"), Log: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))}
-	withDB := u.verb != "fetch" || (os.Getenv("DATABASE_URL") != "" && !u.force)
+	withDB := (u.verb != "fetch" && u.verb != "retry") || (os.Getenv("DATABASE_URL") != "" && !u.force)
 	// The backup needs the database even when --force skips the plugin preflight.
 	wantBackup := takesBackup(u)
 	if withDB || (wantBackup && os.Getenv("DATABASE_URL") != "") {
@@ -225,20 +242,23 @@ func runUpdateOnline(ctx context.Context, u updateArgs, cfg supervisor.Config, o
 		}
 		return nil
 	}
-	if u.verb == "fetch" && env.Store != nil {
+	if (u.verb == "fetch" || u.verb == "retry") && env.Store != nil {
 		env.Store = nil // the explicit route does not touch the stored status
 	}
 	up, err := updater.New(env)
 	if err != nil {
 		return err
 	}
-	run := updater.RunOpts{DryRun: u.dryRun, Force: u.force, Apply: u.version, SkipBackup: u.noBackup}
+	run := updater.RunOpts{DryRun: u.dryRun, Force: u.force, Apply: u.version, Retry: u.verb == "retry", SkipBackup: u.noBackup}
 	st, err := up.Run(ctx, run)
 	if err != nil {
 		return err
 	}
 	if err := updateRefusal(u, st); err != nil {
 		return err
+	}
+	if st.RetriedFrom != "" {
+		fmt.Fprintf(out, "%s removed from the bad list (was: %s)\n", u.version, st.RetriedFrom)
 	}
 	set := updater.Settings{}.Effective(os.Getenv)
 	if env.Store != nil {
@@ -260,8 +280,10 @@ func updateRefusal(u updateArgs, st updater.Status) error {
 			target = "the update"
 		}
 		return fmt.Errorf("not installing %s: the pre-update backup failed: %s; fix that, or install without a backup with --no-backup (HATAMOTO_UPDATE_BACKUP=0 turns it off for every update)", target, st.Reason)
-	case u.verb == "fetch" && st.LastResult == updater.ResultSkipped:
+	case (u.verb == "fetch" || u.verb == "retry") && st.LastResult == updater.ResultSkipped:
 		return fmt.Errorf("not installing %s now: %s", u.version, st.Reason)
+	case u.verb == "retry" && st.Decision == updater.KindBlocked:
+		return fmt.Errorf("not retrying %s: %s", u.version, st.Reason)
 	}
 	return nil
 }

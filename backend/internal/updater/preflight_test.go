@@ -68,3 +68,34 @@ func TestFreeDiskReadsRealDirectory(t *testing.T) {
 		t.Fatal("missing dir must error")
 	}
 }
+
+func TestRemovedPermissionBlockers(t *testing.T) {
+	rec := release.Record{Version: "v1.1.0", RemovedPermissions: []string{"a.write", "b.write"}}
+	plugin := func(perms ...string) []NamedPermissions {
+		return []NamedPermissions{{Name: "example-plugin", Version: "1.2.0", Permissions: perms}}
+	}
+	got := RemovedPermissionBlockers(rec, nil, plugin("kv", "a.write"), "apply")
+	want := "v1.1.0 removes permission \"a.write\", still used by plugin example-plugin (1.2.0). Update the plugin first, or run `hatamoto update apply v1.1.0 --force`."
+	if len(got) != 1 || got[0] != want {
+		t.Fatalf("got %q", got)
+	}
+	got = RemovedPermissionBlockers(rec, nil, plugin("a.write"), "retry")
+	if len(got) != 1 || !strings.Contains(got[0], "`hatamoto update retry v1.1.0 --force`") {
+		t.Fatalf("retry hint: %q", got)
+	}
+	if got := RemovedPermissionBlockers(rec, nil, plugin("a.write", "b.write"), "apply"); len(got) != 2 {
+		t.Fatalf("two permissions: %q", got)
+	}
+	if got := RemovedPermissionBlockers(rec, []string{"a.write"}, plugin("a.write"), "apply"); len(got) != 0 {
+		t.Fatalf("already removed by the running release: %q", got)
+	}
+	if got := RemovedPermissionBlockers(rec, nil, plugin("kv"), "apply"); len(got) != 0 {
+		t.Fatalf("not declared: %q", got)
+	}
+	if got := RemovedPermissionBlockers(release.Record{Version: "v1.1.0"}, nil, plugin("a.write"), "apply"); len(got) != 0 {
+		t.Fatalf("nothing removed: %q", got)
+	}
+	if got := RemovedPermissionBlockers(rec, nil, nil, "apply"); len(got) != 0 {
+		t.Fatalf("no plugins: %q", got)
+	}
+}

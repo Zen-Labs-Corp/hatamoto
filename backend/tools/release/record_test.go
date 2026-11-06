@@ -94,6 +94,10 @@ func TestRecordCheck(t *testing.T) {
 		{"no v", clone(func(r *release.Record) { r.MinFrom = "1.0.0" }), nil, "min_from"},
 		{"bad kind", clone(func(r *release.Record) { r.Kind = "huge" }), nil, "kind"},
 		{"compat list ok", clone(func(r *release.Record) { r.SDKCompatibleWith = []string{"0.8.0", "0.9.0"} }), nil, ""},
+		{"removed ok", clone(func(r *release.Record) { r.RemovedPermissions = []string{"a.write", "b.write"} }), nil, ""},
+		{"removed empty entry", clone(func(r *release.Record) { r.RemovedPermissions = []string{""} }), nil, "removed_permissions"},
+		{"removed unsorted", clone(func(r *release.Record) { r.RemovedPermissions = []string{"b.write", "a.write"} }), nil, "sorted and unique"},
+		{"removed duplicate", clone(func(r *release.Record) { r.RemovedPermissions = []string{"a.write", "a.write"} }), nil, "sorted and unique"},
 		{"bad compat entry", clone(func(r *release.Record) { r.SDKCompatibleWith = []string{"0.8.0", "x"} }), nil, "sdk_compatible_with"},
 		{"no schema head", clone(func(r *release.Record) { r.SchemaHead = 0 }), nil, "schema_head"},
 	}
@@ -202,6 +206,28 @@ func TestRecordCopiesSDKCompatibleWith(t *testing.T) {
 	var rec release.Record
 	if err := jsonx.Unmarshal(b, &rec, jsonx.Stored); err != nil || len(rec.SDKCompatibleWith) != 2 {
 		t.Fatalf("got %+v, %v", rec, err)
+	}
+}
+
+func TestRecordCopiesRemovedPermissionsAndAmendKeepsThem(t *testing.T) {
+	dir := t.TempDir()
+	facts := writeDist(t, dir, "v1.2.3")
+	js := `{"version":"v1.2.3","commit":"abc123","sdk":"0.10.0","schema_head":5,"removed_permissions":["a.write","b.write"]}`
+	os.WriteFile(facts, []byte(js), 0o644)
+	out := filepath.Join(dir, "release.json")
+	runOK(t, env{}, "record", "--version", "v1.2.3", "--kind", "patch", "--facts", facts,
+		"--rollback-floor", "v1.2.0", "--min-from", "v1.0.0", "--notes-url", "https://example.test/n",
+		"--dir", dir, "--out", out)
+	rec, err := readRecord(out)
+	if err != nil || len(rec.RemovedPermissions) != 2 {
+		t.Fatalf("got %+v, %v", rec, err)
+	}
+	if got := runOK(t, env{}, "record", "--check", out, "--dir", dir); !strings.Contains(got, "a.write, b.write") {
+		t.Fatalf("check does not print the list:\n%s", got)
+	}
+	runOK(t, env{}, "record", "--amend", out, "--security")
+	if rec, err = readRecord(out); err != nil || len(rec.RemovedPermissions) != 2 || !rec.Security {
+		t.Fatalf("amend lost the field: %+v, %v", rec, err)
 	}
 }
 

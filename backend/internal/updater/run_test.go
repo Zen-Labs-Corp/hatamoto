@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -790,5 +791,181 @@ func TestRunUnsupervisedStagesAVersionOnce(t *testing.T) {
 	}
 	if b.hits("/hatamoto-") != artifactGets || len(b.staged) != 1 {
 		t.Fatalf("restaged: artifact GETs %d->%d, stage calls %d", artifactGets, b.hits("/hatamoto-"), len(b.staged))
+	}
+}
+
+// badBox is a box on v1.0.0 whose state lists v1.0.1 as bad, with v1.0.1
+// offered on the channel.
+func badBox(t *testing.T, mod func(*supervisor.State)) *runBox {
+	t.Helper()
+	b := newRunBox(t, "v1.0.0")
+	b.offer("v1.0.1", nil)
+	b.publish([]release.Entry{open100("v1.0.1")}, nil)
+	st := &supervisor.State{Run: supervisor.RunBootstrap}
+	st.AddBad("v1.0.1", "health gate failed: GET / returned 500")
+	if mod != nil {
+		mod(st)
+	}
+	if err := supervisor.SaveState(supervisor.NewLayout(b.data).StatePath(), st); err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func TestRunRetryAppliesABadVersionAndReportsWhy(t *testing.T) {
+	b := badBox(t, nil)
+	b.u.applyFn = func(_ supervisor.Config, o supervisor.ApplyOpts) (supervisor.Result, error) {
+		b.applied = append(b.applied, o)
+		return supervisor.Result{Message: "fake switch",
+			RetriedFrom: supervisor.BadEntry{Version: "v1.0.1", Reason: "health gate failed: GET / returned 500"}}, nil
+	}
+	if reason, err := b.u.RetryCheck("v1.0.1"); err != nil || !strings.Contains(reason, "returned 500") {
+		t.Fatalf("RetryCheck: %q %v", reason, err)
+	}
+	st, err := b.u.Run(t.Context(), RunOpts{Apply: "v1.0.1", Retry: true})
+	if err != nil || st.Decision != KindApplying || st.RetriedFrom != "health gate failed: GET / returned 500" {
+		t.Fatalf("%+v %v", st, err)
+	}
+	if len(b.applied) != 1 || !b.applied[0].Retry {
+		t.Fatalf("applied %+v", b.applied)
+	}
+	// The plain route still refuses the same version.
+	if _, err := b.u.Run(t.Context(), RunOpts{Apply: "v1.0.1"}); err == nil || !strings.Contains(err.Error(), "bad list") {
+		t.Fatalf("apply of a bad version: %v", err)
+	}
+}
+
+func TestRunRetryRefusals(t *testing.T) {
+	halted := func(b *runBox) {
+		e := open100("v1.0.1")
+		e.Halted, e.HaltReason = true, "paused"
+		b.publish([]release.Entry{e}, nil)
+	}
+	for _, c := range []struct {
+		name, version, want string
+		state               func(*supervisor.State)
+		box                 func(*runBox)
+	}{
+		{name: "not bad", version: "v1.0.2", want: "is not on this box's bad list"},
+		{name: "not newer", version: "v1.0.1", want: "is not newer than the running",
+			box: func(b *runBox) { b.u.env.Version = "v1.0.1" }},
+		{name: "yanked", version: "v1.0.1", want: "withdrawn",
+			box: func(b *runBox) {
+				b.publish([]release.Entry{open100("v1.0.1")}, []release.Yank{{Version: "v1.0.1", Reason: "x"}})
+			}},
+		{name: "halted", version: "v1.0.1", want: "halted", box: halted},
+		{name: "pending", version: "v1.0.1", want: "still in progress",
+			state: func(s *supervisor.State) { s.Pending = &supervisor.Pending{Kind: "apply", Version: "v1.0.9"} }},
+		{name: "probation", version: "v1.0.1", want: "probation",
+			state: func(s *supervisor.State) { s.Phase = "probation" }},
+		{name: "unproven", version: "v1.0.1", want: "not yet proven",
+			state: func(s *supervisor.State) { s.Unproven = "v1.0.0" }},
+		{name: "verification", version: "v1.0.1", want: "cannot be retried",
+			state: func(s *supervisor.State) { s.Bad[0].Reason = supervisor.ReasonVerify + "hash mismatch" }},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			b := badBox(t, c.state)
+			if c.box != nil {
+				c.box(b)
+			}
+			_, err := b.u.Run(t.Context(), RunOpts{Apply: c.version, Retry: true, Managed: true})
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("want %q, got %v", c.want, err)
+			}
+			if len(b.applied)+len(b.staged) != 0 || b.hits("/hatamoto-") != 0 {
+				t.Fatal("a refused retry installed something")
+			}
+		})
+	}
+}
+
+func TestRunRetryRefusalIsNotStoredAsAFailedUpdate(t *testing.T) {
+	b := badBox(t, nil)
+	_, err := b.u.Run(t.Context(), RunOpts{Apply: "v1.0.2", Retry: true, Managed: true})
+	if !errors.As(err, new(retryRefused)) {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestRunRetryDownloadFailureKeepsTheBadEntry(t *testing.T) {
+	b := badBox(t, nil)
+	delete(b.files, "/releases/v1.0.1/hatamoto-"+testPlatform)
+	if _, err := b.u.Run(t.Context(), RunOpts{Apply: "v1.0.1", Retry: true}); err == nil {
+		t.Fatal("download should fail")
+	}
+	st, err := supervisor.LoadState(supervisor.NewLayout(b.data).StatePath())
+	if err != nil || !st.IsBad("v1.0.1") {
+		t.Fatalf("bad list changed: %+v %v", st, err)
+	}
+	if len(b.applied) != 0 {
+		t.Fatal("applied after a failed download")
+	}
+}
+
+type fakePermPlugins []NamedPermissions
+
+func (f fakePermPlugins) EnabledSDKRanges(context.Context) ([]NamedRange, error) { return nil, nil }
+func (f fakePermPlugins) EnabledPermissions(context.Context) ([]NamedPermissions, error) {
+	return f, nil
+}
+
+func TestRunBlocksOnARemovedPermission(t *testing.T) {
+	b := newRunBox(t, "v1.0.0")
+	b.offer("v1.0.1", func(r *release.Record) { r.RemovedPermissions = []string{"a.write"} })
+	b.publish([]release.Entry{open100("v1.0.1")}, nil)
+	b.u.env.Plugins = fakePermPlugins{{Name: "example-plugin", Version: "1.0.0", Permissions: []string{"a.write"}}}
+	st, err := b.u.Run(t.Context(), RunOpts{})
+	if err != nil || st.Decision != KindBlocked || !strings.Contains(st.Reason, `"a.write"`) || !strings.Contains(st.Reason, "example-plugin") {
+		t.Fatalf("%+v %v", st, err)
+	}
+	if b.hits("hatamoto-") != 0 {
+		t.Fatal("downloaded a blocked release")
+	}
+	// A plugin that does not declare it passes.
+	b.u.env.Plugins = fakePermPlugins{{Name: "example-plugin", Permissions: []string{"kv"}}}
+	b.supervisedNow = true
+	if st, err = b.u.Run(t.Context(), RunOpts{}); err != nil || st.Decision != KindApplying {
+		t.Fatalf("unaffected plugin: %+v %v", st, err)
+	}
+	// --force skips the check.
+	b.u.env.Plugins = fakePermPlugins{{Name: "example-plugin", Permissions: []string{"a.write"}}}
+	if st, err = b.u.Run(t.Context(), RunOpts{Force: true}); err != nil || st.Decision != KindApplying {
+		t.Fatalf("forced: %+v %v", st, err)
+	}
+}
+
+func TestRunRetryBlockedByARemovedPermissionHintsRetry(t *testing.T) {
+	b := newRunBox(t, "v1.0.0")
+	b.offer("v1.0.1", func(r *release.Record) { r.RemovedPermissions = []string{"a.write"} })
+	b.publish([]release.Entry{open100("v1.0.1")}, nil)
+	st := &supervisor.State{Run: supervisor.RunBootstrap}
+	st.AddBad("v1.0.1", "health gate failed: GET / returned 500")
+	if err := supervisor.SaveState(supervisor.NewLayout(b.data).StatePath(), st); err != nil {
+		t.Fatal(err)
+	}
+	b.u.env.Plugins = fakePermPlugins{{Name: "example-plugin", Version: "1.0.0", Permissions: []string{"a.write"}}}
+	got, err := b.u.Run(t.Context(), RunOpts{Apply: "v1.0.1", Retry: true})
+	if err != nil || got.Decision != KindBlocked || !strings.Contains(got.Reason, "`hatamoto update retry v1.0.1 --force`") {
+		t.Fatalf("%+v %v", got, err)
+	}
+}
+
+func TestRunDoesNotBlockOnAPermissionTheRunningReleaseRemoved(t *testing.T) {
+	b := newRunBox(t, "v1.0.0")
+	b.offer("v1.0.1", func(r *release.Record) { r.RemovedPermissions = []string{"a.write"} })
+	b.offer("v1.0.2", func(r *release.Record) { r.RemovedPermissions = []string{"a.write"} })
+	b.publish([]release.Entry{open100("v1.0.2")}, nil)
+	b.onRelease("v1.0.1")
+	dir := filepath.Join(b.data, "releases", "v1.0.1")
+	for name, src := range map[string]string{"release.json": "release.json", "release.json.sig": "release.json.sig"} {
+		if err := os.WriteFile(filepath.Join(dir, name), b.files["/releases/v1.0.1/"+src], 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b.u.env.Plugins = fakePermPlugins{{Name: "example-plugin", Permissions: []string{"a.write"}}}
+	b.supervisedNow = true
+	st, err := b.u.Run(t.Context(), RunOpts{})
+	if err != nil || st.Decision != KindApplying {
+		t.Fatalf("%+v %v", st, err)
 	}
 }

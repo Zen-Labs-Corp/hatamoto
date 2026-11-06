@@ -1,6 +1,9 @@
 package sdk
 
-import "slices"
+import (
+	"maps"
+	"slices"
+)
 
 // Permission names a host capability a plugin may be granted. A plugin lists
 // the ones it needs in plugin.json; the owner grants them (a subset is fine);
@@ -72,4 +75,11 @@ var removedPermissions = map[Permission]string{
 func RemovedPermission(p Permission) bool {
 	_, gone := removedPermissions[p]
 	return gone
+}
+
+// RemovedPermissions lists every permission this SDK refuses as removed,
+// sorted. A release record carries the list so an updater can tell which
+// removals a target release adds.
+func RemovedPermissions() []Permission {
+	return slices.Sorted(maps.Keys(removedPermissions))
 }

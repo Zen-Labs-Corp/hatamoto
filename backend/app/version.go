@@ -58,6 +58,8 @@ type versionInfo struct {
 	SchemaHead int64  `json:"schema_head"`
 	// SDKCompatibleWith lists earlier SDK versions this build still serves.
 	SDKCompatibleWith []string `json:"sdk_compatible_with,omitempty"`
+	// RemovedPermissions lists the plugin permissions this build refuses.
+	RemovedPermissions []string `json:"removed_permissions,omitempty"`
 }
 
 func printVersionJSON(w io.Writer) error {
@@ -66,5 +68,9 @@ func printVersionJSON(w io.Writer) error {
 		return err
 	}
 	v, c := buildInfo()
-	return jsonx.Encode(w, versionInfo{Version: v, Commit: c, SDK: sdk.Version, SchemaHead: head, SDKCompatibleWith: sdk.CompatibleWith}, jsonx.Output)
+	removed := make([]string, 0, len(sdk.RemovedPermissions()))
+	for _, p := range sdk.RemovedPermissions() {
+		removed = append(removed, string(p))
+	}
+	return jsonx.Encode(w, versionInfo{Version: v, Commit: c, SDK: sdk.Version, SchemaHead: head, SDKCompatibleWith: sdk.CompatibleWith, RemovedPermissions: removed}, jsonx.Output)
 }

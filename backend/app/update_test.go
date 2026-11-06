@@ -220,7 +220,7 @@ func TestUpdateOnlineVerbsRefuseAForeignOwner(t *testing.T) {
 	old := checkOwner
 	checkOwner = func(supervisor.Layout) error { return errors.New("owned by somebody else") }
 	defer func() { checkOwner = old }()
-	for _, verb := range []string{"check", "check --dry-run", "pin v1.0", "unpin", "apply v1.0.1"} {
+	for _, verb := range []string{"check", "check --dry-run", "pin v1.0", "unpin", "apply v1.0.1", "retry v1.0.1"} {
 		err := runUpdateWith(strings.Fields(verb), io.Discard, release.Options{})
 		if err == nil || !strings.Contains(err.Error(), "owned by somebody else") {
 			t.Errorf("%s: want the owner refusal, got %v", verb, err)
@@ -293,6 +293,8 @@ func TestEveryInstallingVerbTakesABackup(t *testing.T) {
 	}{
 		{updateArgs{verb: "check"}, true},
 		{updateArgs{verb: "fetch", version: "v1.0.1"}, true},
+		{updateArgs{verb: "retry", version: "v1.0.1"}, true},
+		{updateArgs{verb: "retry", version: "v1.0.1", noBackup: true}, false},
 		{updateArgs{verb: "check", dryRun: true}, false},
 		{updateArgs{verb: "fetch", noBackup: true}, false},
 		{updateArgs{verb: "status"}, false},
@@ -300,5 +302,62 @@ func TestEveryInstallingVerbTakesABackup(t *testing.T) {
 		if got := takesBackup(c.u); got != c.want {
 			t.Errorf("%+v: takesBackup=%v, want %v", c.u, got, c.want)
 		}
+	}
+}
+
+func TestParseUpdateRetry(t *testing.T) {
+	ok := map[string]updateArgs{
+		"retry v1.0.8":                     {verb: "retry", version: "v1.0.8"},
+		"retry v1.0.8 --force":             {verb: "retry", version: "v1.0.8", force: true},
+		"retry v1.0.8 --no-backup --force": {verb: "retry", version: "v1.0.8", force: true, noBackup: true},
+		"retry v1.0.0-rc.1 --no-backup":    {verb: "retry", version: "v1.0.0-rc.1", noBackup: true},
+	}
+	for line, want := range ok {
+		got, err := parseUpdateArgs(strings.Fields(line))
+		if err != nil || got != want {
+			t.Errorf("%q: got %+v, %v; want %+v", line, got, err, want)
+		}
+	}
+	for _, line := range []string{"retry", "retry 1.0.8", "retry v1.0", "retry --force", "retry v1.0.8 --bogus", "retry v1.0.8 v1.0.9"} {
+		_, err := parseUpdateArgs(strings.Fields(line))
+		if err == nil || !strings.Contains(err.Error(), "hatamoto update retry vMAJOR.MINOR.PATCH [--force] [--no-backup]") {
+			t.Errorf("%q: want the retry usage, got %v", line, err)
+		}
+	}
+}
+
+func TestUpdateRetryOfAVersionNotOnTheBadListIsRefused(t *testing.T) {
+	data := t.TempDir()
+	t.Setenv("HATAMOTO_DATA", data)
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("HATAMOTO_UPDATE_URL", "")
+	old := checkOwner
+	checkOwner = func(supervisor.Layout) error { return nil }
+	defer func() { checkOwner = old }()
+	var out strings.Builder
+	err := runUpdateWith([]string{"retry", "v1.0.6", "--no-backup"}, &out, release.Options{})
+	if err == nil || !strings.Contains(err.Error(), "v1.0.6 is not on this box's bad list") {
+		t.Fatalf("want the bad-list refusal, got %v", err)
+	}
+	if out.Len() != 0 {
+		t.Errorf("a refusal printed %q", out.String())
+	}
+}
+
+func TestUpdateRefusalOfABlockedRetry(t *testing.T) {
+	st := updater.Status{LastResult: updater.ResultOK, Decision: updater.KindBlocked, Reason: "v1.0.8 removes permission"}
+	err := updateRefusal(updateArgs{verb: "retry", version: "v1.0.8"}, st)
+	if err == nil || !strings.Contains(err.Error(), "not retrying v1.0.8: v1.0.8 removes permission") {
+		t.Fatalf("a blocked retry must fail: %v", err)
+	}
+	if err := updateRefusal(updateArgs{verb: "apply", version: "v1.0.8"}, st); err != nil {
+		t.Fatalf("apply keeps exiting 0 on a block: %v", err)
+	}
+}
+
+func TestUpdateRefusalOfASkippedRetry(t *testing.T) {
+	err := updateRefusal(updateArgs{verb: "retry", version: "v1.0.8"}, updater.Status{LastResult: updater.ResultSkipped, Reason: "busy"})
+	if err == nil || !strings.Contains(err.Error(), "v1.0.8") {
+		t.Fatalf("a skipped retry must fail: %v", err)
 	}
 }

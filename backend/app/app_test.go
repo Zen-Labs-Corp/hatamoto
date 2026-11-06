@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -155,11 +156,15 @@ func TestPrintVersionJSON(t *testing.T) {
 		t.Fatalf("got %+v", info)
 	}
 	var loose map[string]any
-	if err := jsonx.Unmarshal(b.Bytes(), &loose); err != nil || len(loose) != 5 {
-		t.Fatalf("want exactly 5 fields, got %v (%v)", loose, err)
+	if err := jsonx.Unmarshal(b.Bytes(), &loose); err != nil || len(loose) != 6 {
+		t.Fatalf("want exactly 6 fields, got %v (%v)", loose, err)
 	}
 	if len(info.SDKCompatibleWith) != len(sdk.CompatibleWith) {
 		t.Fatalf("sdk_compatible_with = %v, want %v", info.SDKCompatibleWith, sdk.CompatibleWith)
+	}
+	want := []string{"entities.write", "media.write", "menus.write", "redirects.write", "terms.write"}
+	if !slices.Equal(info.RemovedPermissions, want) {
+		t.Fatalf("removed_permissions = %v, want %v", info.RemovedPermissions, want)
 	}
 }
 

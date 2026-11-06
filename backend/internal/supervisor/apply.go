@@ -26,6 +26,10 @@ type ApplyOpts struct {
 	Release release.Options
 	// Platform overrides runtime.GOOS-runtime.GOARCH (tests).
 	Platform string
+	// Retry says the version is on the bad list on purpose: the bad-list
+	// refusal is skipped, and the entry is removed together with the pending
+	// switch, so a failure before that point leaves the list untouched.
+	Retry bool
 }
 
 // Result says what an Apply or Rollback did; Message is for the operator.
@@ -33,6 +37,8 @@ type Result struct {
 	Version  string
 	Notified bool // the running supervisor was asked to do the gated switch
 	Message  string
+	// RetriedFrom is the bad entry a Retry removed; zero otherwise.
+	RetriedFrom BadEntry
 }
 
 // Apply verifies the artifact against its signed record, stages it under
@@ -44,14 +50,21 @@ func Apply(c Config, o ApplyOpts) (Result, error) {
 		return Result{}, err
 	}
 	var p Pending
+	var retried BadEntry
 	err = WithLock(l.LockPath(), func() error {
 		st, err := LoadState(l.StatePath())
 		if err != nil {
 			return err
 		}
 		running := RunningVersion(l, st, c.BootstrapVersion)
-		if err := checkApply(l, st, rec, running); err != nil {
+		if err := checkApply(l, st, rec, running, o.Retry); err != nil {
 			return err
+		}
+		if o.Retry {
+			if retried, err = RetryRefusal(st, rec.Version, running); err != nil {
+				return err
+			}
+			st.RemoveBad(rec.Version)
 		}
 		if st.Pending != nil {
 			return fmt.Errorf("another switch to %s is still in progress", st.Pending.Version)
@@ -64,7 +77,9 @@ func Apply(c Config, o ApplyOpts) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	return dispatch(l, c, p)
+	res, err := dispatch(l, c, p)
+	res.RetriedFrom = retried
+	return res, err
 }
 
 // Stage verifies and stages the artifact exactly as Apply does, but never
@@ -109,7 +124,7 @@ func verifyAndStage(c Config, o ApplyOpts) (Layout, *release.Record, error) {
 		return Layout{}, nil, err
 	}
 	if st, err := LoadState(l.StatePath()); err == nil { // refuse before staging; checked again under the lock
-		if err := checkApply(l, st, rec, RunningVersion(l, st, c.BootstrapVersion)); err != nil {
+		if err := checkApply(l, st, rec, RunningVersion(l, st, c.BootstrapVersion), o.Retry); err != nil {
 			return Layout{}, nil, err
 		}
 	}
@@ -193,9 +208,11 @@ func BootstrapVersionOf(st *State, fallback string) string {
 	return fallback
 }
 
-// checkApply holds the refusals; values that are not semver never block.
-func checkApply(l Layout, st *State, rec *release.Record, running string) error {
-	if st.IsBad(rec.Version) {
+// checkApply holds the refusals; values that are not semver never block. A
+// retry skips only the bad-list refusal: Apply's locked block applies the
+// retry refusals and removes the entry.
+func checkApply(l Layout, st *State, rec *release.Record, running string, retry bool) error {
+	if st.IsBad(rec.Version) && !retry {
 		return fmt.Errorf("%s is on the bad list (rolled back on this box before); a newer version supersedes it", rec.Version)
 	}
 	if rec.Version == running {

@@ -2,12 +2,15 @@ package supervisor
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/packages"
 )
 
 // State is releases/state.json, shared by the supervisor and the CLI under
@@ -98,6 +101,58 @@ func (s *State) AddBad(version, reason string) {
 		return
 	}
 	s.Bad = append(s.Bad, BadEntry{Version: version, Reason: reason, At: time.Now().UTC()})
+}
+
+// Reason prefixes of the two places that bad-list a release for failing
+// verification. Retry refuses entries with these reasons.
+const (
+	ReasonStagedVerify = "staged release failed verification: " // a pending switch refused it
+	ReasonVerify       = "failed verification: "                // the supervisor refused to run it
+)
+
+// VerificationFailure reports whether the entry was listed because the staged
+// binary did not verify, as opposed to failing a health gate.
+func (b BadEntry) VerificationFailure() bool {
+	return strings.HasPrefix(b.Reason, ReasonVerify) || strings.HasPrefix(b.Reason, ReasonStagedVerify)
+}
+
+// RemoveBad drops version from the bad list and returns the entry it removed.
+func (s *State) RemoveBad(version string) (BadEntry, bool) {
+	for i, b := range s.Bad {
+		if b.Version == version {
+			s.Bad = append(s.Bad[:i:i], s.Bad[i+1:]...)
+			return b, true
+		}
+	}
+	return BadEntry{}, false
+}
+
+// RetryRefusal returns the bad entry of version when it may be retried, else
+// the reason it may not. It changes nothing. running is the version the box
+// runs now; a value that is not semver never blocks.
+func RetryRefusal(st *State, version, running string) (BadEntry, error) {
+	var entry BadEntry
+	for _, b := range st.Bad {
+		if b.Version == version {
+			entry = b
+			break
+		}
+	}
+	switch {
+	case entry.Version == "":
+		return BadEntry{}, fmt.Errorf("%s is not on this box's bad list", version)
+	case version == running || (packages.ValidSemver(running) && packages.ValidSemver(version) && !packages.Newer(version, running)):
+		return BadEntry{}, fmt.Errorf("%s is not newer than the running %s", version, running)
+	case entry.VerificationFailure():
+		return BadEntry{}, fmt.Errorf("%s failed verification on this box; it cannot be retried (%s)", version, entry.Reason)
+	case st.Pending != nil:
+		return BadEntry{}, fmt.Errorf("another switch to %s is still in progress", st.Pending.Version)
+	case st.Phase == "probation":
+		return BadEntry{}, errors.New("a release is still in its probation window; retry once it has settled")
+	case st.Unproven != "":
+		return BadEntry{}, fmt.Errorf("%s has not yet proven itself; retry once it has", st.Unproven)
+	}
+	return entry, nil
 }
 
 // CorruptStateError means state.json was read but is not valid JSON, as

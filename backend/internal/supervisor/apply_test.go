@@ -807,3 +807,94 @@ func TestRunningFollowsThePIDLock(t *testing.T) {
 		t.Fatal("released lock still running")
 	}
 }
+
+// seedBad writes an idle state whose bad list holds version with reason.
+func (b *applyBox) seedBad(mod func(*State), version, reason string) {
+	b.t.Helper()
+	st := &State{V: 1, Phase: "idle"}
+	st.AddBad(version, reason)
+	if mod != nil {
+		mod(st)
+	}
+	_ = os.MkdirAll(b.l.Releases, 0o755)
+	if err := SaveState(b.l.StatePath(), st); err != nil {
+		b.t.Fatal(err)
+	}
+}
+
+func TestApplyRetryRemovesTheBadEntryAndSwitches(t *testing.T) {
+	b := newApplyBox(t, "v1.0.0")
+	b.seedBad(nil, "v1.1.0", "smoke failed: GET / (500)")
+	o := b.artifact("v1.1.0", "binary-1.1.0", nil)
+	if _, err := Apply(b.cfg, o); err == nil || !strings.Contains(err.Error(), "bad list") {
+		t.Fatalf("plain apply of a bad version: %v", err)
+	}
+	o.Retry = true
+	res, err := Apply(b.cfg, o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.RetriedFrom.Version != "v1.1.0" || res.RetriedFrom.Reason != "smoke failed: GET / (500)" {
+		t.Errorf("RetriedFrom = %+v", res.RetriedFrom)
+	}
+	st := b.state()
+	if st.IsBad("v1.1.0") || b.l.Link("current") != "v1.1.0" || st.Pending != nil {
+		t.Errorf("state %+v current %s", st, b.l.Link("current"))
+	}
+}
+
+// The entry is only dropped once staging has worked: a bad artifact leaves
+// the list exactly as it was.
+func TestApplyRetryKeepsTheEntryWhenStagingFails(t *testing.T) {
+	b := newApplyBox(t, "v1.0.0")
+	b.seedBad(nil, "v1.1.0", "smoke failed")
+	before, _ := os.ReadFile(b.l.StatePath())
+	o := b.artifact("v1.1.0", "binary-1.1.0", nil)
+	if err := os.WriteFile(o.File, []byte("binary-9.9.9"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	o.Retry = true
+	if _, err := Apply(b.cfg, o); err == nil || !strings.Contains(err.Error(), "artifact check failed") {
+		t.Fatalf("err = %v, want an artifact failure", err)
+	}
+	if after, _ := os.ReadFile(b.l.StatePath()); string(after) != string(before) {
+		t.Errorf("state changed:\n%s\n->\n%s", before, after)
+	}
+}
+
+func TestApplyRetryRefusalsLeaveTheStateUntouched(t *testing.T) {
+	cases := []struct {
+		name string
+		prep func(b *applyBox)
+		ver  string
+		want string
+	}{
+		{"not on the bad list", func(b *applyBox) { b.seedBad(nil, "v1.5.0", "x") }, "v1.1.0", "is not on this box's bad list"},
+		{"not newer than running", func(b *applyBox) { b.seedBad(nil, "v0.9.0", "x") }, "v0.9.0", "is not newer than the running v1.0.0"},
+		{"failed verification", func(b *applyBox) { b.seedBad(nil, "v1.1.0", ReasonVerify+"hash") }, "v1.1.0", "failed verification on this box"},
+		{"switch pending", func(b *applyBox) {
+			b.seedBad(func(st *State) { st.Pending = &Pending{Kind: "apply", Version: "v1.2.0"} }, "v1.1.0", "x")
+		}, "v1.1.0", "another switch to v1.2.0 is still in progress"},
+		{"probation", func(b *applyBox) {
+			b.seedBad(func(st *State) { st.Phase = "probation" }, "v1.1.0", "x")
+		}, "v1.1.0", "probation"},
+		{"unproven", func(b *applyBox) {
+			b.seedBad(func(st *State) { st.Unproven = "v1.0.5" }, "v1.1.0", "x")
+		}, "v1.1.0", "has not yet proven"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			b := newApplyBox(t, "v1.0.0")
+			c.prep(b)
+			before, _ := os.ReadFile(b.l.StatePath())
+			o := b.artifact(c.ver, "binary-"+c.ver, nil)
+			o.Retry = true
+			if _, err := Apply(b.cfg, o); err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("err = %v, want it to contain %q", err, c.want)
+			}
+			if after, _ := os.ReadFile(b.l.StatePath()); string(after) != string(before) {
+				t.Errorf("state changed:\n%s\n->\n%s", before, after)
+			}
+		})
+	}
+}

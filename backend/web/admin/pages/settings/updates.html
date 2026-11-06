@@ -7,7 +7,7 @@
 {{with .Live}}{{if .On}}<div id="updates-live" class="hm-stack hm-stack--tight" hx-get="{{.PollURL}}" hx-trigger="every 3s" hx-target="this" hx-select="#updates-live" hx-swap="outerHTML" hx-indicator="#updates-busy">
 <div class="hm-row">{{template "hm/indicator" dict "ID" "updates-busy" "Text" "" "On" true}}<p role="status">{{.Text}}</p></div>
 {{with .Progress}}{{template "hm/progress" .}}{{end}}</div>
-{{end}}{{end}}{{if or .StatusNote .ApplyTarget .NoBackupTarget (ne .StatusKind "info")}}{{template "hm/callout-start" (dict "ID" "updates-status" "Kind" .StatusKind "Title" (and (not .StatusNote) (ne .StatusKind "info") .Status.Label))}}{{if .StatusNote}}<span id="updates-status-note">{{.StatusNote}}</span> {{end}}{{if .NoBackupTarget}}<span>Update without a backup (this version only).</span> {{end}}{{if .ApplyTarget}}{{template "hm/button" dict "Label" (printf "Update now to %s" .ApplyTarget) "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "apply-form")}}{{if .NoBackupTarget}} {{template "hm/button" dict "Label" (printf "Update to %s without a backup" .NoBackupTarget) "Type" "submit" "Attrs" (attrmap "form" "nobackup-form")}}{{end}}{{end}}{{template "hm/callout-end"}}
+{{end}}{{end}}{{if or .StatusNote .ApplyTarget .NoBackupTarget .RetryTarget (ne .StatusKind "info")}}{{template "hm/callout-start" (dict "ID" "updates-status" "Kind" .StatusKind "Title" (and (not .StatusNote) (not .RolledBackHead) (ne .StatusKind "info") .Status.Label))}}{{if .RolledBackHead}}<div class="hm-stack hm-stack--tight"><p id="updates-status-note">{{.RolledBackHead}}</p>{{with .RolledBackReason}}<p>Reason: {{.}}</p>{{end}}</div>{{else if .StatusNote}}<span id="updates-status-note">{{.StatusNote}}</span> {{end}}{{if .NoBackupTarget}}<span>Update without a backup (this version only).</span> {{end}}{{if .ApplyTarget}}{{template "hm/button" dict "Label" (printf "Update now to %s" .ApplyTarget) "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "apply-form")}}{{if .NoBackupTarget}} {{template "hm/button" dict "Label" (printf "Update to %s without a backup" .NoBackupTarget) "Type" "submit" "Attrs" (attrmap "form" "nobackup-form")}}{{end}}{{end}}{{if .RetryTarget}}<div class="hm-stack hm-stack--tight"><p>Fixed the cause (a plugin or theme)?</p><div class="hm-row">{{template "hm/button" dict "Label" (printf "Retry %s" .RetryTarget) "Variant" "primary" "Type" "submit" "Attrs" (attrmap "form" "retry-form")}}<span class="hm-field__help">{{if .RetryHealth}}Re-runs the health check.{{else}}Tries the update again.{{end}}</span></div></div>{{end}}{{template "hm/callout-end"}}
 {{end}}
 <form method="post" action="{{adminPath}}/settings/updates" class="hm-cardform">
 {{template "hm/csrf" $}}
@@ -60,7 +60,8 @@
 <div hidden><form id="check-form" method="post" action="{{adminPath}}/settings/updates/check">{{template "hm/csrf" $}}</form>
 <form id="apply-form" method="post" action="{{adminPath}}/settings/updates/apply">{{template "hm/csrf" $}}</form>
 <form id="nobackup-form" method="post" action="{{adminPath}}/settings/updates/apply-without-backup">{{template "hm/csrf" $}}</form>
-<form id="unpin-form" method="post" action="{{adminPath}}/settings/updates/unpin">{{template "hm/csrf" $}}</form></div>
+{{if .RetryTarget}}<form id="retry-form" method="post" action="{{adminPath}}/settings/updates/retry">{{template "hm/csrf" $}}</form>
+{{end}}<form id="unpin-form" method="post" action="{{adminPath}}/settings/updates/unpin">{{template "hm/csrf" $}}</form></div>
 {{end}}{{with .InstallStats}}{{if .ForcedOff}}{{template "hm/card-start" dict "ID" "updates-stats" "Title" "Install stats" "Heading" "h2"}}<div class="hm-setlist">
 <div class="hm-setrow">
 <div class="hm-setrow__text"><p class="hm-setrow__name">Install stats</p>

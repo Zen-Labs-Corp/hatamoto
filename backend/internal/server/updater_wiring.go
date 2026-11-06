@@ -98,21 +98,56 @@ type packageReader interface {
 // are fine.
 type pluginSource struct{ pk packageReader }
 
-func (p pluginSource) EnabledSDKRanges(ctx context.Context) ([]updater.NamedRange, error) {
+// enabledPlugins decodes the manifest of every enabled, installed plugin.
+func (p pluginSource) enabledPlugins(ctx context.Context) ([]packages.Row, []sdk.Manifest, error) {
 	rows, err := p.pk.List(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var out []updater.NamedRange
+	var plugins []packages.Row
+	var manifests []sdk.Manifest
 	for _, r := range rows {
 		if !r.Enabled || r.State == packages.StateUninstalling || r.Kind != packages.KindPlugin {
 			continue
 		}
 		var m sdk.Manifest
 		if err := plugmanifest.Decode(r.Manifest, &m); err != nil {
-			return nil, fmt.Errorf("plugin %s manifest: %w", r.Name, err)
+			return nil, nil, fmt.Errorf("plugin %s manifest: %w", r.Name, err)
 		}
-		if m.SDK != "" {
+		plugins, manifests = append(plugins, r), append(manifests, m)
+	}
+	return plugins, manifests, nil
+}
+
+// EnabledPermissions lists what each enabled plugin declares, for the check
+// of the permissions a release removes.
+func (p pluginSource) EnabledPermissions(ctx context.Context) ([]updater.NamedPermissions, error) {
+	rows, manifests, err := p.enabledPlugins(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []updater.NamedPermissions
+	for i, r := range rows {
+		if len(manifests[i].Permissions) == 0 {
+			continue
+		}
+		perms := make([]string, len(manifests[i].Permissions))
+		for j, perm := range manifests[i].Permissions {
+			perms[j] = string(perm)
+		}
+		out = append(out, updater.NamedPermissions{Name: r.Name, Version: r.Version, Permissions: perms})
+	}
+	return out, nil
+}
+
+func (p pluginSource) EnabledSDKRanges(ctx context.Context) ([]updater.NamedRange, error) {
+	rows, manifests, err := p.enabledPlugins(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []updater.NamedRange
+	for i, r := range rows {
+		if m := manifests[i]; m.SDK != "" {
 			out = append(out, updater.NamedRange{Kind: "plugin", Name: r.Name, Range: m.SDK})
 		}
 	}

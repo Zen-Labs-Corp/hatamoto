@@ -32,6 +32,9 @@ type fakeUpdates struct {
 	applyErr  error
 	unpins    int
 	noBackup  int
+	retries   int
+	retryRes  UpdatesResult
+	retryErr  error
 	bannerGet int
 	glanceGet atomic.Int64 // Glance runs concurrently (the dashboard widgets)
 }
@@ -52,6 +55,10 @@ func (f *fakeUpdates) Apply(context.Context) (UpdatesResult, error) {
 func (f *fakeUpdates) ApplyWithoutBackup(context.Context) (UpdatesResult, error) {
 	f.noBackup++
 	return f.applyRes, f.applyErr
+}
+func (f *fakeUpdates) Retry(context.Context) (UpdatesResult, error) {
+	f.retries++
+	return f.retryRes, f.retryErr
 }
 func (f *fakeUpdates) Unpin(context.Context) error { f.unpins++; return nil }
 func (f *fakeUpdates) Banner(context.Context) (*UpdateBanner, error) {
@@ -150,10 +157,13 @@ func TestUpdatesPageStates(t *testing.T) {
 		{"rolled_back", func(f *fakeUpdates) {
 			f.state.Status.Decision, f.state.Status.Target = "rolled_back", "v1.4.2"
 			f.state.Status.Reason = "smoke failed: GET / returned 500"
-		}, []string{"Rolled back v1.4.2", `<span id="updates-status-note">smoke failed: GET / returned 500</span>`}, []string{"Rolled back v1.4.2:"}},
+		}, []string{"Rolled back v1.4.2", `<p id="updates-status-note">Update rolled back: v1.4.2 failed its health check and the site went back to v1.4.1.</p>`, "<p>Reason: smoke failed: GET / returned 500</p>", "Fixed the cause (a plugin or theme)?", "Re-runs the health check."}, []string{"Rolled back v1.4.2:"}},
 		{"rolled_back_no_reason", func(f *fakeUpdates) {
 			f.state.Status.Decision, f.state.Status.Target, f.state.Status.Reason = "rolled_back", "v1.4.2", ""
-		}, []string{`id="updates-status"`, `hm-callout--warning`, `<p class="hm-callout__title">Rolled back v1.4.2</p>`}, []string{"updates-status-note"}},
+		}, []string{`id="updates-status"`, `hm-callout--warning`, "went back to v1.4.1.", "Fixed the cause (a plugin or theme)?"}, []string{"Reason:", `<p class="hm-callout__title">Rolled back v1.4.2</p>`}},
+		{"rolled_back_manual", func(f *fakeUpdates) {
+			f.state.Status.Decision, f.state.Status.Target, f.state.Status.Reason = "rolled_back", "v1.4.2", "manual rollback"
+		}, []string{"Update rolled back: the site went back from v1.4.2 to v1.4.1.", "<p>Reason: manual rollback</p>"}, []string{"health check"}},
 		{"off", func(f *fakeUpdates) { f.state.Mode = "off" }, []string{"Updates are off"}, nil},
 		{"notify", func(f *fakeUpdates) {
 			f.state.Mode = "notify"
@@ -274,7 +284,7 @@ func TestUpdatesPageIsOwnerOnly(t *testing.T) {
 	}
 }
 
-var updatesPosts = []string{"", "/check", "/apply", "/apply-without-backup", "/unpin"}
+var updatesPosts = []string{"", "/check", "/apply", "/apply-without-backup", "/retry", "/unpin"}
 
 func TestUpdatesPostsAreOwnerOnlyAndNeedCSRF(t *testing.T) {
 	f := baseUpdates()
@@ -299,6 +309,7 @@ func TestUpdatesPostsAreOwnerOnlyAndNeedCSRF(t *testing.T) {
 
 func TestUpdatesPostsWithoutServiceAre503(t *testing.T) {
 	u := newUpdatesRig(t, nil)
+	grantSudo(u.ownerRig.rig)
 	for _, p := range updatesPosts {
 		if rec := u.do("POST", "/admin/settings/updates"+p, "owner-token", url.Values{}, nil); rec.Code != 503 {
 			t.Errorf("POST %s without a service = %d, want 503", p, rec.Code)
@@ -970,5 +981,106 @@ func TestUpdatesStatusStatWraps(t *testing.T) {
 	}
 	if strings.Contains(body, `hm-statcard__status`) {
 		t.Error("status stat is still a pill")
+	}
+}
+
+func rolledBackUpdates() *fakeUpdates {
+	f := baseUpdates()
+	f.state.Status = UpdatesStatus{Decision: "rolled_back", Target: "v1.4.2", Reason: "smoke failed"}
+	f.retryRes = UpdatesResult{Target: "v1.4.2", Started: true, OldReason: "smoke failed"}
+	return f
+}
+
+func TestUpdatesRetryNeedsStepUp(t *testing.T) {
+	f := rolledBackUpdates()
+	u := newUpdatesRig(t, f)
+	rec := u.do("POST", "/admin/settings/updates/retry", "owner-token", url.Values{}, nil)
+	if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), u.a.sudoPath()) || f.retries != 0 || len(u.events) != 0 {
+		t.Fatalf("no step-up = %d %s, calls %d", rec.Code, rec.Header().Get("Location"), f.retries)
+	}
+	grantSudo(u.ownerRig.rig)
+	// A version in the form is ignored: the service derives it.
+	rec = u.do("POST", "/admin/settings/updates/retry", "owner-token", url.Values{"target": {"v9.9.9"}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/updates" || f.retries != 1 {
+		t.Fatalf("retry = %d %s, calls %d", rec.Code, rec.Header().Get("Location"), f.retries)
+	}
+	if len(u.events) != 1 {
+		t.Fatalf("audit = %+v", u.events)
+	}
+	e := u.events[0]
+	if e.Action != "updates.retry" || e.Actor == "" || e.Target != "v1.4.2" || e.Detail["target"] != "v1.4.2" || e.Detail["reason"] != "smoke failed" {
+		t.Errorf("audit = %+v", e)
+	}
+	if body := u.followFlash(rec); !strings.Contains(body, "Retry of v1.4.2 started") || strings.Contains(body, "v9.9.9") {
+		t.Errorf("flash missing or forged version shown")
+	}
+}
+
+func TestUpdatesRetryRefusals(t *testing.T) {
+	tests := []struct {
+		name string
+		set  func(*fakeUpdates)
+		want string
+		call int
+	}{
+		{"nothing rolled back", func(f *fakeUpdates) { f.state.Status = UpdatesStatus{Decision: "up_to_date"} }, "no rolled-back update", 0},
+		{"running", func(f *fakeUpdates) { f.state.Applying = true }, "already running", 0},
+		{"updater refuses", func(f *fakeUpdates) {
+			f.retryRes, f.retryErr = UpdatesResult{}, errors.New("v1.4.2 is not bad-listed")
+		}, "Retry not started: v1.4.2 is not bad-listed.", 1},
+		{"gone", func(f *fakeUpdates) { f.retryErr = ErrNoUpdate }, "no rolled-back update", 1},
+		{"busy", func(f *fakeUpdates) { f.retryRes = UpdatesResult{Busy: true} }, "already running", 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := rolledBackUpdates()
+			tc.set(f)
+			u := newUpdatesRig(t, f)
+			grantSudo(u.ownerRig.rig)
+			rec := u.do("POST", "/admin/settings/updates/retry", "owner-token", url.Values{}, nil)
+			if rec.Code != 303 || f.retries != tc.call || len(u.events) != 0 {
+				t.Fatalf("= %d, calls %d, audit %d", rec.Code, f.retries, len(u.events))
+			}
+			if body := u.followFlash(rec); !strings.Contains(body, tc.want) {
+				t.Errorf("flash lacks %q", tc.want)
+			}
+		})
+	}
+}
+
+func TestUpdatesRetryTarget(t *testing.T) {
+	tests := []struct {
+		name string
+		mod  func(*UpdatesState)
+		want string
+	}{
+		{"rolled back", func(*UpdatesState) {}, "v1.4.2"},
+		{"no target", func(s *UpdatesState) { s.Status.Target = "" }, ""},
+		{"other decision", func(s *UpdatesState) { s.Status.Decision = "update_failed" }, ""},
+		{"dev build", func(s *UpdatesState) { s.Dev = true }, ""},
+		{"applying", func(s *UpdatesState) { s.Applying = true }, ""},
+		{"mode off", func(s *UpdatesState) { s.Mode = "off" }, ""},
+		{"env locked off", func(s *UpdatesState) { s.Mode, s.Locks.Mode = "off", true }, ""},
+	}
+	for _, tc := range tests {
+		st := rolledBackUpdates().state
+		tc.mod(&st)
+		if got := st.RetryTarget(); got != tc.want {
+			t.Errorf("%s: RetryTarget = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestUpdatesPageShowsRetryOnlyWhenRolledBack(t *testing.T) {
+	u := newUpdatesRig(t, rolledBackUpdates())
+	body := u.do("GET", "/admin/settings/updates", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{"Retry v1.4.2", `id="retry-form"`, `action="/admin/settings/updates/retry"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("rolled back page lacks %q", want)
+		}
+	}
+	u = newUpdatesRig(t, baseUpdates())
+	if body := u.do("GET", "/admin/settings/updates", "owner-token", nil, nil).Body.String(); strings.Contains(body, "retry-form") {
+		t.Error("retry form on a page with nothing to retry")
 	}
 }
