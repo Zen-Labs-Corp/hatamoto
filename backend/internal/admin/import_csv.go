@@ -51,7 +51,9 @@ func (a *Admin) csvReady(w http.ResponseWriter, r *http.Request) (*entitycsv.Spo
 		a.unavailable(w, r, "The CSV import")
 		return nil, false
 	}
-	return &entitycsv.Spool{Dir: c.CSVSpoolDir}, true
+	spool := &entitycsv.Spool{Dir: c.CSVSpoolDir}
+	spool.Sweep() // abandoned uploads go on the next wizard request, not only on the next upload
+	return spool, true
 }
 
 func (a *Admin) csvURL(id uuid.UUID, tail string) string {

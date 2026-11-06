@@ -297,4 +297,15 @@ func TestSpool(t *testing.T) {
 	if _, err := s.Open(id); !errors.Is(err, ErrNoUpload) {
 		t.Errorf("old upload kept: %v", err)
 	}
+
+	// Sweep alone (a wizard request without an upload) removes them too.
+	id2, err := s.Save(strings.NewReader("y\n"), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Chtimes(filepath.Join(s.Dir, "csv", id2.String()+".csv"), old, old)
+	s.Sweep()
+	if _, err := s.Open(id2); !errors.Is(err, ErrNoUpload) {
+		t.Errorf("Sweep kept an old upload: %v", err)
+	}
 }

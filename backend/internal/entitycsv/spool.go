@@ -66,7 +66,7 @@ func (s *Spool) Save(r io.Reader, max int64) (uuid.UUID, error) {
 	if err := s.ensure(); err != nil {
 		return uuid.Nil, err
 	}
-	s.sweep(time.Now().Add(-SpoolRetention))
+	s.Sweep()
 	id := uuid.New()
 	f, err := os.OpenFile(s.path(id, ".csv"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
@@ -135,6 +135,11 @@ func (s *Spool) Remove(id uuid.UUID) error {
 	}
 	return nil
 }
+
+// Sweep deletes uploads and reports older than SpoolRetention. Every wizard
+// request calls it, so an abandoned upload does not outlive the retention
+// until the next upload.
+func (s *Spool) Sweep() { s.sweep(time.Now().Add(-SpoolRetention)) }
 
 // sweep deletes spooled files last written before cutoff.
 func (s *Spool) sweep(cutoff time.Time) {
