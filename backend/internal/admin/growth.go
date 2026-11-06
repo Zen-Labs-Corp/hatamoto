@@ -43,6 +43,7 @@ type FormStore interface {
 	GetForm(ctx context.Context, id uuid.UUID) (*form.Form, error)
 	CreateForm(ctx context.Context, in *form.CreateFormInput) (*form.Form, error)
 	UpdateForm(ctx context.Context, id uuid.UUID, in *form.UpdateFormInput) (*form.Form, error)
+	SaveDefinition(ctx context.Context, id uuid.UUID, base time.Time, in *form.SaveDefinitionInput) (*form.Form, error)
 	DeleteForm(ctx context.Context, id uuid.UUID) error
 	ListSubmissions(ctx context.Context, formID uuid.UUID, p *form.ListSubmissionsParams) ([]*form.FormSubmission, int, error)
 	GetSubmission(ctx context.Context, id uuid.UUID) (*form.FormSubmission, error)
