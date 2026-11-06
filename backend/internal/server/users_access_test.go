@@ -218,10 +218,9 @@ func TestLimitedOwnerJSONCannotChangeOrOutlastOwnEnd(t *testing.T) {
 	oid := g.owner.ID.String()
 	eid := g.editor.ID.String()
 	for name, tc := range map[string]struct{ id, body string }{
-		"clear own":    {oid, `{"access_ends_at":null}`},
-		"extend own":   {oid, `{"access_ends_at":"` + later + `"}`},
-		"set other":    {eid, `{"access_ends_at":"` + soon + `"}`},
-		"promote open": {eid, `{"role":"owner"}`},
+		"clear own":  {oid, `{"access_ends_at":null}`},
+		"extend own": {oid, `{"access_ends_at":"` + later + `"}`},
+		"set other":  {eid, `{"access_ends_at":"` + soon + `"}`},
 	} {
 		if rec := g.call(g.s.handleUpdateUser, g.owner, "PATCH", "/users/"+tc.id, tc.id, tc.body); rec.Code != http.StatusForbidden {
 			t.Errorf("%s: %d %s", name, rec.Code, rec.Body.String())

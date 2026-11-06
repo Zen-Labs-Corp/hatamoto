@@ -401,32 +401,17 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Someone whose own access ends cannot change an end date, nor make a user
-	// without a date, or with a later one, an owner.
-	if input.AccessEndsAt.Set || (input.Role != nil && *input.Role == user.RoleOwner) {
+	// Someone whose own access ends cannot change an end date. (The JSON body
+	// does not carry a role: UpdateUserInput.Role has no json tag, so it never
+	// decodes and nobody can be promoted here.)
+	if input.AccessEndsAt.Set {
 		own, ok := s.callerAccessEnd(w, r, claims)
 		if !ok {
 			return
 		}
-		if input.AccessEndsAt.Set && !user.MayChangeAccessEnd(own) {
+		if !user.MayChangeAccessEnd(own) {
 			writeError(w, http.StatusForbidden, user.ErrAccessEndNotAllowed.Error())
 			return
-		}
-		if input.Role != nil && *input.Role == user.RoleOwner && own != nil {
-			target, err := s.userRepo.GetByID(r.Context(), id)
-			if err != nil {
-				if errors.Is(err, user.ErrUserNotFound) {
-					writeError(w, http.StatusNotFound, "user not found")
-					return
-				}
-				s.logger.Error("failed to get user", "error", err)
-				writeError(w, http.StatusInternalServerError, "failed to update user")
-				return
-			}
-			if target.Role != user.RoleOwner && !user.MayGrant(own, target.AccessEndsAt) {
-				writeError(w, http.StatusForbidden, user.ErrAccessEndNotAllowed.Error())
-				return
-			}
 		}
 	}
 
