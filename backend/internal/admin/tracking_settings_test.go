@@ -133,6 +133,11 @@ func TestTrackingDismissNoticeAudits(t *testing.T) {
 	if rec.Code != 303 || !f.set.NoticeDismissed {
 		t.Fatalf("status %d, dismissed %v", rec.Code, f.set.NoticeDismissed)
 	}
+	// The redirect must not activate a copy of the page prerendered (on hover)
+	// before the dismissal, which still shows the notice.
+	if got := rec.Header().Get("Clear-Site-Data"); got != `"prefetchCache", "prerenderCache"` {
+		t.Errorf("Clear-Site-Data = %q", got)
+	}
 	if len(s.events) != 1 || s.events[0].Action != "tracking.notice_dismiss" {
 		t.Errorf("audit = %+v", s.events)
 	}

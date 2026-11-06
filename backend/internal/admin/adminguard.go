@@ -260,6 +260,10 @@ func (a *Admin) tokenRule(w http.ResponseWriter, r *http.Request) (*http.Request
 		a.blocked(w, r)
 		return r, false
 	}
+	// An unsafe request may change what any admin page shows: drop the pages the
+	// speculation rules prerendered (on hover) before it, or the redirect after a
+	// POST activates a stale copy (a dismissed notice still showing).
+	w.Header().Set("Clear-Site-Data", clearSpeculations)
 	return pass(r)
 }
 
@@ -274,6 +278,10 @@ func (a *Admin) preSessionRoute(r *http.Request) bool {
 	}
 	return false
 }
+
+// clearSpeculations is the Clear-Site-Data value that discards prefetched and
+// prerendered pages only (no cookies, storage or HTTP cache).
+const clearSpeculations = `"prefetchCache", "prerenderCache"`
 
 // isNavigation is a top-level document navigation, which is the only way a
 // browser reaches an admin document without a script in between.
