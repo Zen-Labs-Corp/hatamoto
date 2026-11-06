@@ -180,3 +180,25 @@ func TestResolveRoute_CappedArchiveRedirects(t *testing.T) {
 		t.Errorf("unconfigured archive must keep ?page: %+v", res)
 	}
 }
+
+// An entry whose own URL is its group URL renders instead of redirecting to
+// itself; any other entry still moves to its group page.
+func TestEntryRedirectTargetSkipsOwnURL(t *testing.T) {
+	t.Parallel()
+	schema := &entity.EntitySchema{Slug: "item", Name: "Item", Settings: []byte(
+		`{"url_pattern":"/things/{slug}","archive_path":"/things","archive_groups":{"attribute":"sort","divisor":1000,"path":"v{n}","redirect_entries":true}}`)}
+	snap, err := entity.BuildURLSnapshot([]*entity.EntitySchema{schema}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := func(slug string) *resolvedPage {
+		return &resolvedPage{Kind: resolveKindEntity, URL: "/things/" + slug, Entity: &entity.Entity{
+			Slug: slug, Schema: schema, Attributes: []byte(`{"sort":1008}`)}}
+	}
+	if got := entryRedirectTarget(context.Background(), snap, "", res("v1")); got != "" {
+		t.Errorf("own URL redirects to %q", got)
+	}
+	if got := entryRedirectTarget(context.Background(), snap, "", res("other")); got != "/things/v1" {
+		t.Errorf("target = %q, want /things/v1", got)
+	}
+}

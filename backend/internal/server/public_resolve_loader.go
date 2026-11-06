@@ -195,7 +195,8 @@ func cappedArchive(snap *entity.URLSnapshot, a *resolvedArchive) bool {
 // entryRedirectTarget is where an entity of a schema with
 // archive_groups.redirect_entries moves to: its group page, with the anchor
 // fragment. The locale prefix applies to the path only. It is "" for any other
-// entity and inside a changeset preview, which shows the staged entity itself.
+// entity, for one whose own URL is the group URL (it would loop) and inside a
+// changeset preview, which shows the staged entity itself.
 func entryRedirectTarget(ctx context.Context, snap *entity.URLSnapshot, locale string, res *resolvedPage) string {
 	if res.Kind != resolveKindEntity || res.Entity == nil || res.Entity.Schema == nil || stagedFrom(ctx) != nil {
 		return ""
@@ -210,6 +211,9 @@ func entryRedirectTarget(ctx context.Context, snap *entity.URLSnapshot, locale s
 	}
 	path, fragment, hasFragment := strings.Cut(target, "#")
 	path = snap.WithLocale(locale, path)
+	if path == snap.WithLocale(locale, res.URL) {
+		return "" // the entry's own URL is its group URL: render it, a redirect would loop
+	}
 	if hasFragment {
 		path += "#" + fragment
 	}
