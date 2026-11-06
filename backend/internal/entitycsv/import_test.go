@@ -124,7 +124,7 @@ func TestRun_RowsMappingAndErrors(t *testing.T) {
 		t.Errorf("attributes = %s", a.Attributes)
 	}
 	f := items[2]
-	if f.Name != "=cmd" || string(f.Attributes) != `{"price":-3}` || f.Status != entity.StatusDraft {
+	if f.Name != "=cmd" || string(f.Attributes) != `{"price":-3}` || f.Status != "" || f.NewStatus != entity.StatusDraft || !f.Partial {
 		t.Errorf("item f = %+v (%s)", f, f.Attributes)
 	}
 }
@@ -148,8 +148,8 @@ func TestRun_BatchesStatusDefaultAndDryParents(t *testing.T) {
 	if rep.Created != BatchSize+5 || len(imp.batches) != 2 || len(imp.batches[0].Items) != BatchSize {
 		t.Fatalf("report %+v, %d batches", rep, len(imp.batches))
 	}
-	if imp.batches[0].Items[0].Status != entity.StatusPublished {
-		t.Error("the default status is not applied")
+	if it := imp.batches[0].Items[0]; it.Status != "" || it.NewStatus != entity.StatusPublished {
+		t.Error("the default status must be sent as NewStatus only, so it cannot reach an existing row")
 	}
 	if p := imp.batches[1].Items[1].ParentKey; p != "" {
 		t.Errorf("a dry-created parent of an earlier batch is still sent as %q", p)

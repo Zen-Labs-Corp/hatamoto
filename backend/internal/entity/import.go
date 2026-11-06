@@ -54,6 +54,15 @@ type ImportItem struct {
 	BylinePersonID *uuid.UUID
 	BylineOrg      bool
 
+	// Partial makes an update of an existing entity touch only what the item
+	// carries: attributes are merged into the stored ones (an object member
+	// the item has replaces the stored one, the rest stays), and an empty
+	// Name, Slug, Status, PublishedAt, CreatedAt, Metadata, parent or byline
+	// keeps the stored value. NewStatus is the status of a created item whose
+	// Status is empty (draft when unset). A new item is unaffected.
+	Partial   bool
+	NewStatus EntityStatus
+
 	// Dates; zero values default to now (created/updated) and, for a
 	// published item, to its creation date (published).
 	PublishedAt, CreatedAt, UpdatedAt time.Time
@@ -267,12 +276,24 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 	if err != nil {
 		return nil, false, fmt.Errorf("schema %q: %w", it.SchemaSlug, err)
 	}
+	existing, err := r.store.GetByImportKey(ctx, it.Key)
+	switch {
+	case errors.Is(err, ErrEntityNotFound):
+		existing = nil
+	case err != nil:
+		return nil, false, err
+	}
+	partial := it.Partial && existing != nil
+	it = withStored(it, existing, partial)
 	if strings.TrimSpace(it.Name) == "" {
 		return nil, false, errors.New("name is required")
 	}
 	status := it.Status
 	if status == "" {
 		status = StatusDraft
+		if existing == nil && it.NewStatus != "" {
+			status = it.NewStatus
+		}
 	}
 	if !ValidStatus(status) {
 		return nil, false, ErrInvalidStatus
@@ -305,14 +326,6 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 		return nil, false, errors.New("slug is empty")
 	}
 	name := it.Name
-
-	existing, err := r.store.GetByImportKey(ctx, it.Key)
-	switch {
-	case errors.Is(err, ErrEntityNotFound):
-		existing = nil
-	case err != nil:
-		return nil, false, err
-	}
 
 	var stored jsontext.Value
 	if existing != nil {
@@ -387,6 +400,10 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 	if existing != nil {
 		rec.ID = &existing.ID
 	}
+	if partial && byline.PersonID == nil && !byline.Org && authorID == nil {
+		// The item names no byline: the stored credit stays.
+		rec.BylinePersonID, rec.BylineOrg, rec.AuthorID = existing.BylinePersonID, existing.BylineOrg, existing.AuthorID
+	}
 	rec.CreatedAt, rec.UpdatedAt, rec.PublishedAt = importDates(it, status, time.Now())
 
 	e, created, err := r.store.ImportUpsert(ctx, rec)
@@ -395,6 +412,70 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, er
 	}
 	e.Schema = schema
 	return e, created, nil
+}
+
+// withStored returns the item with the stored values of an existing entity
+// filled in for what a partial item leaves empty (see ImportItem.Partial).
+func withStored(it *ImportItem, e *Entity, partial bool) *ImportItem {
+	if !partial {
+		return it
+	}
+	c := *it
+	if c.Name == "" {
+		c.Name = e.Name
+	}
+	if c.Slug == "" {
+		c.Slug = e.Slug
+	}
+	if c.Status == "" {
+		c.Status = e.Status
+	}
+	if c.PublishedAt.IsZero() && e.PublishedAt != nil {
+		c.PublishedAt = *e.PublishedAt
+	}
+	if c.CreatedAt.IsZero() {
+		c.CreatedAt = e.CreatedAt
+	}
+	if c.UpdatedAt.IsZero() {
+		c.UpdatedAt = time.Now()
+	}
+	if len(c.Metadata) == 0 {
+		c.Metadata = e.Metadata
+	}
+	if c.ParentKey == "" && c.ParentID == nil {
+		c.ParentID = e.ParentID
+	}
+	c.Attributes = mergeAttributes(e.Attributes, it.Attributes)
+	return &c
+}
+
+// mergeAttributes lays item over stored: object members recurse, every other
+// value of item replaces the stored one. Numbers keep their exact digits.
+func mergeAttributes(stored, item jsontext.Value) jsontext.Value {
+	var base, over map[string]any
+	if jsonx.Unmarshal(stored, &base, jsonx.ExactNumbers) != nil || base == nil {
+		return item
+	}
+	if len(item) > 0 && jsonx.Unmarshal(item, &over, jsonx.ExactNumbers) != nil {
+		return item
+	}
+	out, err := jsonx.Marshal(mergeMaps(base, over))
+	if err != nil {
+		return item
+	}
+	return out
+}
+
+func mergeMaps(base, over map[string]any) map[string]any {
+	for k, v := range over {
+		bm, bok := base[k].(map[string]any)
+		om, ook := v.(map[string]any)
+		if bok && ook {
+			v = mergeMaps(bm, om)
+		}
+		base[k] = v
+	}
+	return base
 }
 
 func existingID(e *Entity) *uuid.UUID {

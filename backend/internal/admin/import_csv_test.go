@@ -162,7 +162,7 @@ func TestCSVImportWizardGoldens(t *testing.T) {
 		t.Errorf("audit = %+v", r.events)
 	}
 	last := r.imp.batches[len(r.imp.batches)-1]
-	if last.DryRun || last.Source != "csv" || len(last.Items) != 2 || last.Items[0].Key != "csv:recipe:1" || last.Items[0].Status != entity.StatusDraft {
+	if last.DryRun || last.Source != "csv" || len(last.Items) != 2 || last.Items[0].Key != "csv:recipe:1" || last.Items[0].NewStatus != entity.StatusDraft {
 		t.Errorf("real batch = %+v", last)
 	}
 	// The report survives a reload, a second run does not import twice, the file is gone.

@@ -216,9 +216,9 @@ func buildItem(schema *entity.EntitySchema, target, header, rec []string, ns str
 			}
 		}
 	}
-	if it.Status == "" {
-		it.Status = defStatus
-	}
+	// A re-import by key changes what the file carries (an empty cell keeps the
+	// stored value); the default status is for new rows only.
+	it.Partial, it.NewStatus = true, defStatus
 	attrs, err := Unflatten(schema.Schema, cells)
 	if err != nil {
 		var ce *CellError

@@ -115,3 +115,67 @@ func TestRunAgainstDatabase(t *testing.T) {
 		t.Fatalf("published = %d, want %d", published, n)
 	}
 }
+
+// A re-import by key changes only the mapped columns: other attributes,
+// status, published date, created date and parent stay, an empty cell keeps
+// the stored value, and the default status is for new rows only.
+func TestReimportKeepsWhatTheFileDoesNotCarry(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 4, MinConnections: 1,
+		MaxConnLifetime: 30 * time.Minute, MaxConnIdleTime: 5 * time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	schemas := entity.NewPostgresSchemaRepository(db)
+	repo := entity.NewPostgresEntityRepository(db)
+	svc := entity.NewService(schemas, repo, slog.Default())
+	slug := "csvre-" + uuid.NewString()[:8]
+	sc, err := schemas.Create(ctx, &entity.CreateSchemaInput{Name: slug, Slug: slug, Schema: jsontext.Value(strings.Replace(importSchema, `"required":["title"],`, "", 1))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = schemas.Delete(ctx, sc.ID) })
+	t.Cleanup(func() {
+		_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_entities WHERE schema_id = $1`, sc.ID)
+	})
+	run := func(csv string, m Mapping) *Report {
+		t.Helper()
+		rep, err := Run(ctx, svc, nil, sc, m, strings.NewReader(csv), false)
+		if err != nil || rep.Failed != 0 {
+			t.Fatalf("run = %+v, %v", rep, err)
+		}
+		return rep
+	}
+	full := Mapping{Type: slug, Cols: map[string]string{"sku": "key", "title": "name", "price": "attr:price", "stock": "attr:stock", "up": "parent_key", "state": "status", "pub": "published_at"}}
+	run("sku,title,price,stock,up,state,pub\nroot,Root,1,1,,published,2026-01-02\nkid,Kid,2,7,root,published,2026-01-03\n", full)
+	before, err := repo.GetByImportKey(ctx, "csv:"+slug+":kid")
+	if err != nil || before.ParentID == nil || before.Status != entity.StatusPublished || before.PublishedAt == nil {
+		t.Fatalf("setup row = %+v (%v)", before, err)
+	}
+
+	part := Mapping{Type: slug, Status: entity.StatusDraft, Cols: map[string]string{"sku": "key", "title": "name", "price": "attr:price"}}
+	rep := run("sku,title,price\nkid,Kid renamed,9\nnew,New,\n", part)
+	if rep.Updated != 1 || rep.Created != 1 {
+		t.Fatalf("report = %+v", rep)
+	}
+	after, err := repo.GetByImportKey(ctx, "csv:"+slug+":kid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(strings.Fields(string(after.Attributes)), "") != `{"price":9,"stock":7}` {
+		t.Errorf("attributes = %s, want price changed and stock kept", after.Attributes)
+	}
+	if after.Name != "Kid renamed" || after.Status != entity.StatusPublished || after.PublishedAt == nil || !after.PublishedAt.Equal(*before.PublishedAt) ||
+		!after.CreatedAt.Equal(before.CreatedAt) || after.ParentID == nil || *after.ParentID != *before.ParentID || after.Slug != before.Slug {
+		t.Errorf("row after = %+v, want status, dates, parent and slug kept (before %+v)", after, before)
+	}
+	fresh, err := repo.GetByImportKey(ctx, "csv:"+slug+":new")
+	if err != nil || fresh.Status != entity.StatusDraft {
+		t.Errorf("new row = %+v (%v), want a draft", fresh, err)
+	}
+}
