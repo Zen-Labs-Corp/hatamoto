@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -456,20 +457,39 @@ func (r *importRun) credit(ctx context.Context, it *ImportItem, attrs jsontext.V
 		// A legacy author id is stored as given; the foreign key verifies it.
 		return b, it.AuthorID, "", nil
 	case strings.TrimSpace(it.AuthorName) != "":
-		if b, err = s.bylines.Resolve(ctx, it.AuthorName); err != nil {
+		if b, err = r.resolve(ctx, it.AuthorName); err != nil {
 			return
 		}
 		name = strings.TrimSpace(it.AuthorName)
 	default:
 		var ok bool
-		if b, ok, err = s.bylineFromText(ctx, attrs); err != nil || !ok {
+		if r.dry {
+			// Read-only: a person the byline would create is not made.
+			text := bylineOf(attrs)
+			if text == "" || utf8.RuneCountInString(text) > maxBylineLen {
+				return b, nil, "", nil
+			}
+			if b, err = r.resolve(ctx, text); err != nil {
+				return b, nil, "", fmt.Errorf("failed to resolve byline %q: %w", text, err)
+			}
+		} else if b, ok, err = s.bylineFromText(ctx, attrs); err != nil || !ok {
 			return b, nil, "", err
 		}
 	}
-	if b.PersonID != nil {
+	if b.PersonID != nil && !r.dry {
 		authorID, err = s.mirrorOf(ctx, *b.PersonID)
 	}
 	return b, authorID, name, err
+}
+
+// resolve maps byline text to a credit. A dry run only looks: it never makes
+// the person or the mirror row, which would commit outside the rolled-back write.
+func (r *importRun) resolve(ctx context.Context, name string) (Byline, error) {
+	if !r.dry {
+		return r.s.bylines.Resolve(ctx, name)
+	}
+	b, _, err := r.s.bylines.Lookup(ctx, name)
+	return b, err
 }
 
 // importDates fills the dates of an item: created defaults to now, updated to

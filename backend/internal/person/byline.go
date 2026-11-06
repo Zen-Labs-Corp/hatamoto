@@ -43,36 +43,47 @@ func (b *Byline) companyName(ctx context.Context) (string, error) {
 // Resolve implements entity.BylineResolver. Text equal (case-insensitive) to
 // the company name credits the organisation and never makes a person.
 func (b *Byline) Resolve(ctx context.Context, name string) (entity.Byline, error) {
+	by, found, err := b.Lookup(ctx, name)
+	if err != nil || found {
+		return by, err
+	}
 	name = strings.TrimSpace(name)
-	slug := author.Slugify(name)
-	if slug == "" || utf8.RuneCountInString(name) > maxNameLen {
-		return entity.Byline{}, fmt.Errorf("%w: byline must be 1 to %d characters", author.ErrInvalid, maxNameLen)
-	}
-	company, err := b.companyName(ctx)
-	if err != nil {
-		return entity.Byline{}, err
-	}
-	if company != "" && strings.EqualFold(company, name) {
-		return entity.Byline{Org: true, Name: company}, nil
-	}
-	var id uuid.UUID
-	var found string
-	err = b.db.QueryRow(ctx, `
-		SELECT e.id, e.name FROM hatamoto_entities e
-		JOIN hatamoto_entity_schemas s ON s.id = e.schema_id AND s.slug = 'person'
-		WHERE e.slug = $1 OR lower(btrim(e.name)) = lower($2)
-		ORDER BY (e.slug = $1) DESC, e.created_at, e.id LIMIT 1`, slug, name).Scan(&id, &found)
-	if err == nil {
-		return entity.Byline{PersonID: &id, Name: found}, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return entity.Byline{}, err
-	}
-	id, err = b.create(ctx, slug, name)
+	id, err := b.create(ctx, author.Slugify(name), name)
 	if err != nil {
 		return entity.Byline{}, err
 	}
 	return entity.Byline{PersonID: &id, Name: name}, nil
+}
+
+// Lookup implements entity.BylineResolver: Resolve without the writes. found is
+// false when Resolve would have created a person.
+func (b *Byline) Lookup(ctx context.Context, name string) (by entity.Byline, found bool, err error) {
+	name = strings.TrimSpace(name)
+	slug := author.Slugify(name)
+	if slug == "" || utf8.RuneCountInString(name) > maxNameLen {
+		return entity.Byline{}, false, fmt.Errorf("%w: byline must be 1 to %d characters", author.ErrInvalid, maxNameLen)
+	}
+	company, err := b.companyName(ctx)
+	if err != nil {
+		return entity.Byline{}, false, err
+	}
+	if company != "" && strings.EqualFold(company, name) {
+		return entity.Byline{Org: true, Name: company}, true, nil
+	}
+	var id uuid.UUID
+	var foundName string
+	err = b.db.QueryRow(ctx, `
+		SELECT e.id, e.name FROM hatamoto_entities e
+		JOIN hatamoto_entity_schemas s ON s.id = e.schema_id AND s.slug = 'person'
+		WHERE e.slug = $1 OR lower(btrim(e.name)) = lower($2)
+		ORDER BY (e.slug = $1) DESC, e.created_at, e.id LIMIT 1`, slug, name).Scan(&id, &foundName)
+	if err == nil {
+		return entity.Byline{PersonID: &id, Name: foundName}, true, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return entity.Byline{}, false, err
+	}
+	return entity.Byline{}, false, nil
 }
 
 // create makes a non-public person without a login. A slug taken by another

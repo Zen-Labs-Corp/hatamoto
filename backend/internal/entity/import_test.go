@@ -82,6 +82,17 @@ func (f *fakeBylines) Resolve(_ context.Context, name string) (Byline, error) {
 	return Byline{PersonID: &id, Name: name}, nil
 }
 
+func (f *fakeBylines) Lookup(_ context.Context, name string) (Byline, bool, error) {
+	if name == "Acme" {
+		return Byline{Org: true, Name: name}, true, nil
+	}
+	id, ok := f.people[name]
+	if !ok {
+		return Byline{}, false, nil
+	}
+	return Byline{PersonID: &id, Name: name}, true, nil
+}
+
 func (f *fakeBylines) Name(_ context.Context, id *uuid.UUID) (string, error) {
 	if id == nil {
 		return "Acme", nil
