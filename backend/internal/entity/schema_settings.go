@@ -65,6 +65,12 @@ type SchemaURLSettings struct {
 	// (und) when the create call names none. Anything but JSON true reads as
 	// false (checked on write only).
 	LocaleNeutral LocaleNeutralSetting `json:"locale_neutral,omitzero"`
+	// ArchiveLimit > 0 makes the archive page list that many entries with no
+	// pagination (0..MaxArchiveLimit, checked on write; anything invalid reads as 0).
+	ArchiveLimit ArchiveLimitSetting `json:"archive_limit,omitempty"`
+	// ArchiveGroups splits the archive into numeric-bucket pages. Invalid
+	// values read as disabled (checked on write only).
+	ArchiveGroups ArchiveGroupsSettings `json:"archive_groups,omitzero"`
 }
 
 // LocaleNeutralSetting is settings.locale_neutral as stored. It decodes
@@ -246,6 +252,57 @@ func ValidateSchemaSettingsForWrite(raw jsontext.Value) error {
 		if b := string(bytes.TrimSpace(v)); b != "true" && b != "false" {
 			return settingsErr("locale_neutral", "settings.locale_neutral must be true or false")
 		}
+	}
+	if v, ok := obj["archive_limit"]; ok {
+		var n int
+		if jsonx.Unmarshal(v, &n, jsonx.StoredLoose) != nil || n < 0 || n > MaxArchiveLimit {
+			return settingsErr("archive_limit", "settings.archive_limit must be a whole number from 0 to %d", MaxArchiveLimit)
+		}
+	}
+	if v, ok := obj["archive_groups"]; ok {
+		if err := validateArchiveGroups(v, st.ArchivePath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateArchiveGroups is the write-time check of settings.archive_groups.
+func validateArchiveGroups(raw jsontext.Value, archivePath string) error {
+	if string(bytes.TrimSpace(raw)) == "null" {
+		return nil
+	}
+	var g archiveGroupsRaw
+	if err := jsonx.Unmarshal(raw, &g, jsonx.StoredLoose); err != nil {
+		return settingsErr("archive_groups", "settings.archive_groups must be an object with valid field types")
+	}
+	if archivePath == "" {
+		return settingsErr("archive_groups", "settings.archive_groups requires settings.archive_path")
+	}
+	if strings.Count(g.Path, groupNumberToken) != 1 {
+		return settingsErr("archive_groups.path", "settings.archive_groups.path must contain %s exactly once", groupNumberToken)
+	}
+	for _, r := range strings.Replace(g.Path, groupNumberToken, "", 1) {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '.' || r == '-') {
+			return settingsErr("archive_groups.path", "settings.archive_groups.path may only use letters, digits, '_', '.', '-' and %s", groupNumberToken)
+		}
+	}
+	if g.Divisor < 1 {
+		return settingsErr("archive_groups.divisor", "settings.archive_groups.divisor must be at least 1")
+	}
+	if !ValidAttrKey(g.Attribute) {
+		return settingsErr("archive_groups.attribute", "settings.archive_groups.attribute is not a valid attribute key")
+	}
+	if g.AnchorAttribute != "" && !ValidAttrKey(g.AnchorAttribute) {
+		return settingsErr("archive_groups.anchor_attribute", "settings.archive_groups.anchor_attribute is not a valid attribute key")
+	}
+	for field, v := range map[string]string{"label": g.Label, "title": g.Title} {
+		if utf8.RuneCountInString(strings.TrimSpace(v)) > MaxArchiveTitleLen {
+			return settingsErr("archive_groups."+field, "settings.archive_groups.%s must be at most %d characters", field, MaxArchiveTitleLen)
+		}
+	}
+	if utf8.RuneCountInString(strings.TrimSpace(g.Description)) > MaxArchiveDescriptionLen {
+		return settingsErr("archive_groups.description", "settings.archive_groups.description must be at most %d characters", MaxArchiveDescriptionLen)
 	}
 	return nil
 }
