@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json/jsontext"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 )
@@ -80,5 +81,24 @@ func TestEngineProtectsErrorAndNotFound(t *testing.T) {
 	}
 	if strings.Contains(b.String(), "menu@example.org") {
 		t.Error("404 page keeps a literal address")
+	}
+}
+
+// The docs must not promise more than the feature does: the organisation
+// email in JSON-LD and the feeds stay plain.
+func TestEmailProtectDocsStateLimits(t *testing.T) {
+	t.Parallel()
+	for _, f := range []string{"docs/site/themes/engine-details.md", "docs/RELEASE_NOTES.md", "docs/site/admin/settings-users-email.md"} {
+		b, err := os.ReadFile("../../../" + f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := string(b)
+		if !strings.Contains(s, "JSON-LD") && !strings.Contains(s, "structured data") {
+			t.Errorf("%s: no word on structured data staying plain", f)
+		}
+		if strings.Contains(s, "finds nothing") {
+			t.Errorf("%s: overclaims", f)
+		}
 	}
 }

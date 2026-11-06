@@ -72,10 +72,11 @@ Output a plugin puts on a page, including template functions that read `kv` or `
 
 ## Email protection
 
-After a public page is rendered, the engine rewrites `mailto:` links and addresses in the page text to numeric character references (`&#104;&#105;...`). Browsers show and follow them as before, with scripts off too; a scraper that looks for the literal address or `mailto:` finds nothing. It is the last step before the page is written and the cache stores the result, so every source is covered: builder text, HTML sections, contact info, menus and `safeHref` links in your templates.
+After a public page is rendered, the engine rewrites `mailto:` links and addresses in the page text to numeric character references (`&#104;&#105;...`). Browsers show and follow them as before, with scripts off too; a simple scraper that looks for the literal address or `mailto:` in the visible page does not see it. It is the last step before the page is written and the cache stores the result, so every source in the page body is covered: builder text, HTML sections, contact info, menus and `safeHref` links in your templates.
 
 - **Only the visible parts change.** Addresses in `script`, `style`, `textarea`, `title`, `code`, `pre`, `noscript`, comments and everything in `<head>` stay literal, as does every attribute except the `href` of a `mailto:` link. Form fields are untouched. Text that is not an address, such as `logo@2x.png`, is left alone.
-- **Not applied** in the editor preview and canvas, on access notices, and outside page HTML: feeds, JSON-LD, `llms.txt`, the API and the MCP server keep the plain address.
+- **Not applied** in the editor preview and canvas, and outside engine-rendered pages: feeds, plugin routes, `llms.txt`, the API and the MCP server keep the plain address. Coming-soon, maintenance and password pages are protected like any other public page.
+- **Structured data stays plain.** The organisation email you set in Settings goes into the Organization or LocalBusiness JSON-LD in the page head and stays readable in the page source. Leave that field empty if you do not want it published.
 - **Setting.** Settings > Privacy, "Protect email addresses", on by default. Turning it off gives the plain output again.
 - **Theme scripts.** A script that reads `a[href^="mailto:"]` from the HTML source sees the references, not the text; the browser's DOM still holds the decoded value, so scripts that run in the page keep working.
 

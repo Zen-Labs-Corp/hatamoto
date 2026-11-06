@@ -289,7 +289,7 @@ Under the form, a table shows how many visitors chose Accept all, Reject all or 
 
 **Upgrade:** nothing changes until you turn the switch on. The migration adds two tables and nothing else.
 
-The same page has a separate **Protect email addresses** switch, on by default. It hides email addresses and `mailto:` links on your public pages from simple scrapers: visitors still see and click them, with scripts off too. Turn it off if a script in your theme needs the literal address. Saving it writes an "email_protection.settings" entry to the audit log and clears the page cache. Your feeds, structured data, `llms.txt` and the API keep the plain address, and the editor preview shows it as typed. See [Email protection](../themes/engine-details.md#email-protection).
+The same page has a separate **Protect email addresses** switch, on by default. It hides email addresses and `mailto:` links on your public pages from simple scrapers: visitors still see and click them, with scripts off too. Turn it off if a script in your theme needs the literal address. Saving it writes an "email_protection.settings" entry to the audit log and clears the page cache. Your feeds, plugin routes, `llms.txt` and the API keep the plain address, and so does the organisation email in your structured data (Organization or LocalBusiness JSON-LD); leave that field empty if you do not want it published. The editor preview shows it as typed. See [Email protection](../themes/engine-details.md#email-protection).
 
 ## Contact button: a floating link
 
