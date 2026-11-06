@@ -14,7 +14,7 @@
 <div class="hm-setrow__text"><p class="hm-setrow__name">Stored</p></div>
 <div class="hm-setrow__control">{{.PageCacheLine}} · {{.PageCachePages}}</div>
 </div>
-</div>{{else}}<p class="hm-field__help">The page cache is not available on this server.</p>{{end}}{{template "hm/card-end"}}
+</div>{{else if .PageCacheOff}}<p class="hm-field__help">The page cache is off, so nothing is stored.</p>{{else}}<p class="hm-field__help">The page cache is not available on this server.</p>{{end}}{{template "hm/card-end"}}
 {{if .PluginsAvailable}}{{template "hm/card-start" dict "ID" "memory-plugins-card" "Title" "Plugins" "Heading" "h2"}}{{template "hm/table" .Plugins}}
 <p class="hm-field__help">Wasm memory counts idle (pooled) instances only; an instance in the middle of a call is not read. Compiled code is the size of each plugin's module, not its machine code.</p>
 {{with .CacheLine}}<p class="hm-field__help">{{.}}</p>

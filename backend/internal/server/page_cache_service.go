@@ -232,7 +232,8 @@ func (p *pageCacheService) Stats(ctx context.Context) admin.PageCacheStats {
 		SchedulerAvailable:   p.scheduler != nil,
 		BaseURLPinned:        p.baseURL != nil && p.baseURL() != "",
 	}
-	if p.runtime.Enabled() && p.cache != nil {
+	st.Enabled = p.runtime.Enabled()
+	if st.Enabled && p.cache != nil {
 		st.Pages, st.Bytes = p.cache.RenderStats()
 	}
 	if p.cache != nil {

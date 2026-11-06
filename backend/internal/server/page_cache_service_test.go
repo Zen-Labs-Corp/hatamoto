@@ -572,3 +572,15 @@ func TestFirePreloadDoesNotTriggerOnceStopping(t *testing.T) {
 		t.Fatal("preload started after shutdown began")
 	}
 }
+
+func TestPageCacheStatsEnabledFollowsRuntime(t *testing.T) {
+	r := newServiceRig(t, true, "https://x.test")
+	r.svc.Apply(siteconfig.Config{PageCacheEnabled: true})
+	if !r.svc.Stats(context.Background()).Enabled {
+		t.Fatal("Enabled false with the cache on")
+	}
+	r.svc.Apply(siteconfig.Config{PageCacheEnabled: false})
+	if r.svc.Stats(context.Background()).Enabled {
+		t.Fatal("Enabled true with the cache off")
+	}
+}

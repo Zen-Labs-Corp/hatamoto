@@ -56,7 +56,8 @@ const performanceMemoryPath = "/settings/performance/memory"
 // memoryData is the Memory tab: pre-formatted so the template only lays out.
 type memoryData struct {
 	Runtime          []memoryRow
-	PageCacheLine    string // "" when the page cache is unavailable
+	PageCacheLine    string // "" when the page cache is unavailable or off
+	PageCacheOff     bool
 	PageCachePages   string
 	Plugins          ui.Table
 	PluginsAvailable bool
@@ -94,7 +95,9 @@ func (a *Admin) memoryPage(ctx context.Context, s MemoryView) memoryData {
 		ReadAt:           s.ReadAt.In(a.siteLocation(ctx)).Format("15:04:05"),
 		RefreshHref:      a.adminPath + performanceMemoryPath,
 	}
-	if pc := s.PageCache; pc != nil {
+	if pc := s.PageCache; pc != nil && !pc.Enabled {
+		d.PageCacheOff = true
+	} else if pc != nil {
 		d.PageCacheLine = memorySize(pc.Bytes)
 		if pc.CapBytes > 0 {
 			d.PageCacheLine += " of " + memorySize(pc.CapBytes)

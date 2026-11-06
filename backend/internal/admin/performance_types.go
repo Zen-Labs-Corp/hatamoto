@@ -37,6 +37,7 @@ type PageCacheSettings struct {
 // PageCacheStats is the live state shown next to the form. TTLSource is
 // "admin" or "server".
 type PageCacheStats struct {
+	Enabled              bool
 	Pages                int
 	Bytes, CapBytes      int64
 	EffectiveTTL         time.Duration

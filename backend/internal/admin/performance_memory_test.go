@@ -21,7 +21,7 @@ func newMemoryView() MemoryView {
 	return MemoryView{
 		Runtime: RuntimeMemory{LiveHeap: 212 << 20, TotalHeap: 341 << 20, GCCPUShare: 0.018, Goroutines: 143},
 		PageCache: &PageCacheStats{
-			Pages: 1204, Bytes: 48 << 20, CapBytes: 64 << 20,
+			Enabled: true, Pages: 1204, Bytes: 48 << 20, CapBytes: 64 << 20,
 		},
 		Plugins: []PluginMemoryRow{
 			{Name: "event-calendar", Pooled: 1, WasmBytes: 4300000, ModuleBytes: 2400000},
@@ -152,5 +152,16 @@ func TestMemoryPluginsHeading(t *testing.T) {
 	body := getMemory(t, memoryRig(t, newMemoryView()))
 	if !strings.Contains(body, `id="memory-plugins-card"`) || !strings.Contains(body, ">Plugins</h2>") {
 		t.Error("plugins table has no visible Plugins heading")
+	}
+}
+
+func TestMemoryPageCacheDisabled(t *testing.T) {
+	t.Parallel()
+
+	v := newMemoryView()
+	v.PageCache = &PageCacheStats{Enabled: false, CapBytes: 64 << 20}
+	body := getMemory(t, memoryRig(t, v))
+	if !strings.Contains(body, "The page cache is off") || strings.Contains(body, "0 pages") {
+		t.Error("disabled page cache not shown as off")
 	}
 }
