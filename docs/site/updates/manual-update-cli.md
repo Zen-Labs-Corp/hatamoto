@@ -118,7 +118,9 @@ The preflight checks the SDK range of the enabled plugins and the active theme, 
 
 ```text
 Update blocked: v1.4.2 removes permission "entities.write", still used by plugin example-plugin (1.2.1). Update the plugin first, or run `hatamoto update apply v1.4.2 --force`.
-``` When another check is running the command stops with `not installing vX now: <reason>`.
+```
+
+When another check is running the command stops with `not installing vX now: <reason>`.
 
 Unlike a scheduled install and the admin's **Update now**, this route takes no pre-update database dump, and it does not touch the stored status.
 
