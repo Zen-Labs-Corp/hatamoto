@@ -84,7 +84,7 @@ Never run these commands as root. They refuse to, because files root creates cou
 
 Run `bin/hatamoto update status` again. The `version` line shows the new release, and **Settings > Updates** lists the switch as **Updated** under **History**.
 
-If the status reads `blocked`, the reason names what stopped it: a plugin or theme that needs a different version, a plugin that still uses a permission the new release removed (for example `Update blocked: v1.4.2 removes permission "entities.write", still used by plugin example-plugin (1.2.1)`; update the plugin first, or run `hatamoto update apply v1.4.2 --force` if you accept the risk), too little disk space (the agent needs three times the program's size free in the data directory), or a version so old that an intermediate release must be installed first. Fix the cause and run `bin/hatamoto update check` again.
+If the status reads `blocked` (the admin banner says `An update is blocked: ...`), the reason names what stopped it: a plugin or theme that needs a different version, a plugin that still uses a permission the new release removed (for example `blocked: v1.4.2 removes permission "entities.write", still used by plugin example-plugin (1.2.1)`; update the plugin first, or run `hatamoto update apply v1.4.2 --force` if you accept the risk), too little disk space (the agent needs three times the program's size free in the data directory), or a version so old that an intermediate release must be installed first. Fix the cause and run `bin/hatamoto update check` again.
 
 If it reads `rolled back`, the new version failed its check and your site is back on the previous one. Follow [Back up and roll back](backups-and-rollback.md).
 

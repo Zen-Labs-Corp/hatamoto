@@ -387,8 +387,8 @@ mode reports a rollback and never makes it. After a health-gate rollback `update
 `rolled back vX: <reason>`. A release that needs a newer stepping stone (`min_from`) is reached in
 one hop per check. Before switching, the agent checks that enabled plugins and the active theme
 declare an SDK range the new release meets, that no enabled plugin still declares a permission the
-new release lists as removed (`Update blocked: vX removes permission "p", still used by plugin
-example-plugin (1.2.1)`; update the plugin first, or pass `--force`), that there are three times the binary's size free
+new release lists as removed (`blocked: vX removes permission "p", still used by plugin
+example-plugin (1.2.1)` in `update status`; update the plugin first, or pass `--force`), that there are three times the binary's size free
 under the data dir, and that no content import is running; any miss is shown in `update status`
 and retried at the next check. Before switching it takes a backup with the same engine as Settings > Backups & recovery > Backups
 ([BACKUPS.md](BACKUPS.md)): the whole database, plugin schemas and content, kept as a `pre_update`

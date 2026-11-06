@@ -114,10 +114,10 @@ It refuses a version that:
 - is below the running release's rollback floor;
 - has no build for your platform.
 
-The preflight checks the SDK range of the enabled plugins and the active theme, whether the target release removed a permission that an enabled plugin still declares (both only when `DATABASE_URL` is set), and the free disk space. `--force` skips all of them. A removed permission reads:
+The preflight checks the SDK range of the enabled plugins and the active theme, whether the target release removed a permission that an enabled plugin still declares (both only when `DATABASE_URL` is set), and the free disk space. `--force` skips all of them. A removed permission shows in the status as (on a retry the hint says `hatamoto update retry v1.4.2 --force`):
 
 ```text
-Update blocked: v1.4.2 removes permission "entities.write", still used by plugin example-plugin (1.2.1). Update the plugin first, or run `hatamoto update apply v1.4.2 --force`.
+status      blocked: v1.4.2 removes permission "entities.write", still used by plugin example-plugin (1.2.1). Update the plugin first, or run `hatamoto update apply v1.4.2 --force`.
 ```
 
 When another check is running the command stops with `not installing vX now: <reason>`.
