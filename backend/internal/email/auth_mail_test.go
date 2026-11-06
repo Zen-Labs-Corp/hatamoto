@@ -170,3 +170,27 @@ func TestAccessEndingMail(t *testing.T) {
 		t.Errorf("log rows: %+v", rec.entries)
 	}
 }
+
+func TestAccessEndingSubjectRefusesHeaderInjection(t *testing.T) {
+	t.Setenv("EMAIL_DISABLED", "")
+	sink := smtptest.Start(t, smtptest.Options{})
+	svc := newTestService(t)
+	svc.Reload(Config{SMTPHost: sink.Host(), SMTPPort: sink.Port(), FromAddress: "from@example.test", Security: SecurityNone})
+	err := svc.SendAccessEnding(context.Background(), "owner@example.test", AccessEndingData{
+		SiteName: "Acme", Name: "X\r\nBcc: evil@example.test", Email: "ann@example.test", Role: "editor", EndsOn: "31 Dec 2026",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	msgs := sink.Messages()
+	if len(msgs) != 1 {
+		t.Fatalf("messages = %d, want 1", len(msgs))
+	}
+	head, _, _ := strings.Cut(msgs[0].Data, "\r\n\r\n")
+	if strings.Contains(head, "Bcc:") {
+		t.Errorf("injected header:\n%s", head)
+	}
+	if !strings.Contains(head, "Subject: Access for ann@example.test ends on 31 Dec 2026") {
+		t.Errorf("subject not the address:\n%s", head)
+	}
+}

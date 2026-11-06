@@ -102,9 +102,14 @@ func (s *Service) SendAccessEnding(ctx context.Context, to string, data AccessEn
 	if who == "" {
 		who = data.Email
 	}
+	// The name is user-editable; a CR/LF in it must never reach the header.
+	subjectWho, ok := SanitizeHeader(who)
+	if !ok {
+		subjectWho = data.Email
+	}
 	text := fmt.Sprintf("%s (%s, %s) loses access to %s in 3 days.\nChange the date or let it end: Settings > Users.\n%s\n",
 		who, data.Email, data.Role, data.SiteName, data.UsersURL)
-	return s.sendAuth(ctx, KindAccessEnding, to, data.SiteName, "Access for "+who+" ends on "+data.EndsOn, html, text)
+	return s.sendAuth(ctx, KindAccessEnding, to, data.SiteName, "Access for "+subjectWho+" ends on "+data.EndsOn, html, text)
 }
 
 // SendAdminAddressChanged tells an owner the admin address changed.
