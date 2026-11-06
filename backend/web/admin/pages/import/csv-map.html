@@ -11,7 +11,7 @@
 {{end}}</tbody></table></div>
 {{template "hm/card-end"}}
 {{template "hm/card-start" dict "Title" "Status" "ID" "csv-status" "Heading" "h2"}}
-{{template "hm/field" dict "ID" "status" "Name" "status" "Label" "Status of rows without a Status value" "Control" "select" "Options" .Status "Help" "Rows are drafts unless the file says otherwise. A draft is not visible on the site."}}
+{{template "hm/field" dict "ID" "status" "Name" "status" "Label" "Status of new rows without a Status value" "Control" "select" "Options" .Status "Help" "New rows are drafts unless the file says otherwise. A row that is already stored keeps its status. A draft is not visible on the site."}}
 {{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Back" "Href" .Back}}{{template "hm/button" dict "Label" "Check the file" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}
 </form>
 {{end}}{{end}}

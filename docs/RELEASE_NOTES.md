@@ -15,7 +15,7 @@ The backend, the admin, MCP and REST output and the plugin SDK now use the JSON 
 ## Unreleased: CSV import and export
 
 - **Export.** **Export CSV** on a content type's list downloads its entries as CSV with the columns you pick: fixed columns plus one `attr:<path>` column per attribute. Cells that could run as a spreadsheet formula are prefixed with `'`.
-- **Import.** **Settings, Import, Import a CSV file instead** loads a CSV file into one content type in three steps: upload, map the columns, dry run and import. The Key column makes a second import update instead of add. New entries are drafts unless the file gives a status.
+- **Import.** **Settings, Import, Import a CSV file instead** loads a CSV file into one content type in three steps: upload, map the columns, dry run and import. The Key column makes a second import update instead of add. New entries are drafts unless the file gives a status. Updating by key changes only what the file carries: an empty cell or an unmapped column keeps the stored value, the default status applies to new rows only, and a JSON cell replaces its object. Clearing a value is not possible through CSV; edit the entry in the admin.
 - **Dry run.** `entity.Service.Import` takes `DryRun`: the whole path runs in a transaction that is rolled back, with no event, cache purge or stored row.
 - **Limits.** 32 MiB, 50 000 rows, 500 rows per batch. `order` is not imported. The `entity.before_save` hook runs in a dry run.
 - **Migration.** None. Rollback floor: none (imported rows carry `metadata.import_key` as for any import).

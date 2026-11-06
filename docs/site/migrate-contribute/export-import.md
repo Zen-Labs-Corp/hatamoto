@@ -101,9 +101,11 @@ Open a content type under **Entities** and choose **Export CSV**. Pick the colum
 Open **Settings**, **Import**, then **Import a CSV file instead**. Only owners can import. There are three steps, and nothing is stored until the last one.
 
 1. **Upload.** Choose the content type and the file. The first row names the columns. A file you exported works as it is.
-2. **Map the columns.** Say what each column means: Key, Name, Slug, Status, Published at, Locale, Parent key, an attribute, or Ignore. Key and Name are required and each target can be used once. Columns named like an export are mapped for you. Rows without a status become drafts, or the status you choose.
+2. **Map the columns.** Say what each column means: Key, Name, Slug, Status, Published at, Locale, Parent key, an attribute, or Ignore. Key and Name are required and each target can be used once. Columns named like an export are mapped for you. New rows without a status become drafts, or the status you choose; the choice applies to new rows only.
 3. **Dry run, then import.** The dry run runs every row through the real import inside a transaction that is rolled back, and lists the rows that would fail, with the row number (the header is row 1), the column and the reason. Rows with an error are skipped when you import; the others are stored.
 
-The **Key** identifies a row. It is stored as `csv:<type>:<key>`, so importing the same file again updates the entries instead of adding them again. A blank Key is not allowed. An entry that was not created by a CSV import is not matched by a key. Imported entries are drafts unless the file says otherwise, so check them before you publish.
+The **Key** identifies a row. It is stored as `csv:<type>:<key>`, so importing the same file again updates the entries instead of adding them again. A blank Key is not allowed. An entry that was not created by a CSV import is not matched by a key. New entries are drafts unless the file says otherwise, so check them before you publish.
+
+An import of a key that exists is an update of what the file carries. A column you do not map and an empty cell both keep the stored value, and so do the status, dates, parent and author of the entry. A cell with JSON text for an object replaces that object, so a key you remove from the text is removed. Clearing a value is not possible through CSV: edit the entry in the admin instead.
 
 Limits: 32 MiB per file, 50 000 rows, and rows are stored in batches of 500. A larger file has to be split. A dry run still runs the `entity.before_save` plugin hook, like a real import.

@@ -70,4 +70,8 @@ res, err := svc.Import(ctx, actor, entity.ImportBatch{
   dry run with the same schema, locale and slug are reported as a slug conflict.
 * **CSV source.** The admin CSV import (Settings, Import) sends its rows through
   this service with `Source: "csv"` and keys `csv:<type>:<value>`, in batches of
-  500, first as a dry run and then for real. See the site page on export and import.
+  500, first as a dry run and then for real. It sets `ImportItem.Partial` and `NewStatus`:
+  an update of an existing entity touches only what the item carries, an empty value
+  or an unmapped column keeps the stored one, the default status applies to new
+  rows only, and an object listed in `ReplacePaths` (a JSON cell) replaces the stored
+  object. A value cannot be cleared this way. See the site page on export and import.
