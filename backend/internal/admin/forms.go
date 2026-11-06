@@ -351,6 +351,8 @@ var fieldTypeLabels = map[string]string{
 	form.FieldTypeText: "Single-line text", form.FieldTypeEmail: "Email address", form.FieldTypePhone: "Phone number",
 	form.FieldTypeTextarea: "Multi-line text", form.FieldTypeSelect: "Drop-down list", form.FieldTypeRadio: "Choose one (radio buttons)",
 	form.FieldTypeCheckbox: "Choose several (checkboxes)", form.FieldTypeDate: "Date", form.FieldTypeNumber: "Number", form.FieldTypeURL: "Web address",
+	form.FieldTypeHeading: "Heading", form.FieldTypeParagraph: "Paragraph of text", form.FieldTypeDivider: "Divider",
+	form.FieldTypeHidden: "Hidden value", form.FieldTypeConsent: "Consent checkbox",
 }
 
 // fieldTypeIcon is the icon shown for a field type in the builder's row summary.
@@ -374,6 +376,16 @@ func fieldTypeIcon(t string) string {
 		return "list-ordered"
 	case form.FieldTypeURL:
 		return "link"
+	case form.FieldTypeHeading:
+		return "heading"
+	case form.FieldTypeParagraph:
+		return "align-left"
+	case form.FieldTypeDivider:
+		return "minus"
+	case form.FieldTypeHidden:
+		return "eye-off"
+	case form.FieldTypeConsent:
+		return "shield-check"
 	}
 	return "pen"
 }
@@ -605,12 +617,16 @@ func buildFormFields(rows []formFieldRow) []form.FormField {
 		if !form.ValidFieldType(r.Type) {
 			r.Type = form.FieldTypeText
 		}
+		// Layout and hidden fields may have no label; layout fields carry no answer, so no name.
+		layout := form.FormField{Type: r.Type}.IsLayout()
 		if r.Label == "" {
-			r.Err["label"] = "Enter a label"
+			if !layout && r.Type != form.FieldTypeHidden {
+				r.Err["label"] = "Enter a label"
+			}
 		} else if utf8.RuneCountInString(r.Label) > 200 {
 			r.Err["label"] = "Use at most 200 characters"
 		}
-		if r.Name == "" && r.Label != "" {
+		if r.Name == "" && r.Label != "" && !layout {
 			r.Name = fieldNameFromLabel(r.Label)
 		}
 		switch {
@@ -688,6 +704,8 @@ func carryFieldData(fields, stored []form.FormField) []form.FormField {
 			continue
 		}
 		fields[i].DefaultValue, fields[i].Attributes = old.DefaultValue, old.Attributes
+		fields[i].Logic, fields[i].InEmail, fields[i].NameLocked = old.Logic, old.InEmail, old.NameLocked
+		fields[i].BlockFreeEmail, fields[i].Text, fields[i].Link, fields[i].Hidden = old.BlockFreeEmail, old.Text, old.Link, old.Hidden
 		if old.Validation != nil && (old.Validation.Min != nil || old.Validation.Max != nil) {
 			if fields[i].Validation == nil {
 				fields[i].Validation = &form.FieldValidation{}
@@ -1123,6 +1141,9 @@ func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) 
 	known := map[string]bool{}
 	header := []string{"Received (UTC)", "Status", "Submission ID"}
 	for _, ff := range f.Fields {
+		if ff.IsLayout() {
+			continue
+		}
 		known[ff.Name] = true
 		header = append(header, csvx.Safe(ff.Label))
 	}
@@ -1156,6 +1177,9 @@ func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) 
 			written++
 			row := []string{s.CreatedAt.UTC().Format(time.RFC3339), s.Status, s.ID.String()}
 			for _, ff := range f.Fields {
+				if ff.IsLayout() {
+					continue
+				}
 				row = append(row, csvx.Safe(formatAnswer(s.Data[ff.Name])))
 			}
 			var other []string
