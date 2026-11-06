@@ -238,6 +238,8 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 
 	// Users cannot change their own role
 	input.Role = nil
+	// Nor their own end of access: only an owner sets that, on /users.
+	input.AccessEndsAt = user.AccessEnd{}
 
 	u, err := s.userRepo.Update(r.Context(), claims.UserID, &input)
 	if err != nil {

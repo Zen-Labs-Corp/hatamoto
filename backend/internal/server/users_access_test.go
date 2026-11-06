@@ -173,3 +173,21 @@ func TestUsersAccessPatch(t *testing.T) {
 		t.Fatalf("sole owner: %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestUpdateMeCannotChangeAccessEnd(t *testing.T) {
+	g := newUsersAccessRig()
+	end := time.Now().Add(72 * time.Hour).UTC().Truncate(time.Second)
+	g.repo.users[g.editor.ID].AccessEndsAt = &end
+	for name, body := range map[string]string{
+		"clear":  `{"access_ends_at":null}`,
+		"extend": `{"access_ends_at":"2099-01-01T00:00:00Z"}`,
+	} {
+		rec := g.call(g.s.handleUpdateMe, g.editor, "PATCH", "/api/v1/me", "", body)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", name, rec.Code, rec.Body.String())
+		}
+		if got := g.repo.users[g.editor.ID].AccessEndsAt; got == nil || !got.Equal(end) {
+			t.Fatalf("%s: access end changed to %v", name, got)
+		}
+	}
+}
