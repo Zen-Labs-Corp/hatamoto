@@ -52,22 +52,34 @@ func TestEngineEmailPlainAndEditorFramesLiteral(t *testing.T) {
 		"plain":   func(v *PageView) { v.Site.EmailPlain = true },
 		"preview": func(v *PageView) { v.Preview = true },
 		"canvas":  func(v *PageView) { v.Canvas = true },
-		"access":  func(v *PageView) { v.Access = &AccessView{} },
 	} {
 		v := emailFixture()
 		mut(v)
 		var b bytes.Buffer
-		var err error
-		if name == "access" {
-			err = e.RenderAccess(&b, v, http.StatusForbidden)
-		} else {
-			err = e.RenderPage(&b, v)
-		}
-		if err != nil {
+		if err := e.RenderPage(&b, v); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		if name != "access" && !strings.Contains(b.String(), "mailto:menu@example.org") {
+		if !strings.Contains(b.String(), "mailto:menu@example.org") {
 			t.Errorf("%s: output must stay literal", name)
+		}
+	}
+}
+
+// Coming-soon, maintenance and password notices are public pages, so the
+// owner's message is protected like any other page; EmailPlain still opts out.
+func TestEngineProtectsAccessNotice(t *testing.T) {
+	t.Parallel()
+	e := newTestEngine(t, Options{})
+	for _, plain := range []bool{false, true} {
+		v := emailFixture()
+		v.Site.EmailPlain = plain
+		v.Access = &AccessView{Mode: "coming_soon", Message: "Questions? hello@shop.example"}
+		var b bytes.Buffer
+		if err := e.RenderAccess(&b, v, http.StatusServiceUnavailable); err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Contains(b.String(), "hello@shop.example"); got != plain {
+			t.Errorf("plain=%v: literal address present=%v\n%s", plain, got, b.String())
 		}
 	}
 }
