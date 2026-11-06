@@ -50,6 +50,9 @@ var (
 	ErrSlugAlreadyExists  = errors.New("form slug already exists")
 	ErrInvalidStatus      = errors.New("invalid form status")
 	ErrInvalidFieldType   = errors.New("invalid field type")
+	// ErrVersionConflict means the form was saved by someone else after the
+	// version the caller based its edit on.
+	ErrVersionConflict = errors.New("form was changed by someone else")
 )
 
 // Form represents a form definition.
@@ -64,6 +67,13 @@ type Form struct {
 	CreatedAt   time.Time    `json:"created_at"`
 	UpdatedAt   time.Time    `json:"updated_at"`
 }
+
+// Version identifies the saved state of the form for conflict detection: its
+// last update time at the microsecond precision Postgres stores.
+func (f *Form) Version() string { return f.UpdatedAt.UTC().Format(time.RFC3339Nano) }
+
+// ParseVersion reads a string produced by Version.
+func ParseVersion(v string) (time.Time, error) { return time.Parse(time.RFC3339Nano, v) }
 
 // FormField represents a single field in a form.
 type FormField struct {
@@ -209,6 +219,16 @@ type UpdateFormInput struct {
 	Fields      []FormField   `json:"fields,omitempty"`
 	Settings    *FormSettings `json:"settings,omitempty"`
 	Status      *string       `json:"status,omitempty"`
+}
+
+// SaveDefinitionInput is a complete form definition. Unlike UpdateFormInput it
+// replaces fields and settings wholesale.
+type SaveDefinitionInput struct {
+	Name        string       `json:"name"`
+	Description *string      `json:"description,omitempty"`
+	Status      string       `json:"status"`
+	Fields      []FormField  `json:"fields"`
+	Settings    FormSettings `json:"settings"`
 }
 
 // CreateSubmissionInput represents input for creating a form submission.
