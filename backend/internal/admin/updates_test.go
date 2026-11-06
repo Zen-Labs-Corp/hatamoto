@@ -161,6 +161,9 @@ func TestUpdatesPageStates(t *testing.T) {
 		{"rolled_back_no_reason", func(f *fakeUpdates) {
 			f.state.Status.Decision, f.state.Status.Target, f.state.Status.Reason = "rolled_back", "v1.4.2", ""
 		}, []string{`id="updates-status"`, `hm-callout--warning`, "went back to v1.4.1.", "Fixed the cause (a plugin or theme)?"}, []string{"Reason:", `<p class="hm-callout__title">Rolled back v1.4.2</p>`}},
+		{"rolled_back_manual", func(f *fakeUpdates) {
+			f.state.Status.Decision, f.state.Status.Target, f.state.Status.Reason = "rolled_back", "v1.4.2", "manual rollback"
+		}, []string{"Update rolled back: the site went back from v1.4.2 to v1.4.1.", "<p>Reason: manual rollback</p>"}, []string{"health check"}},
 		{"off", func(f *fakeUpdates) { f.state.Mode = "off" }, []string{"Updates are off"}, nil},
 		{"notify", func(f *fakeUpdates) {
 			f.state.Mode = "notify"

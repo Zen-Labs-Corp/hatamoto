@@ -382,7 +382,17 @@ func clip(s string, n int) string {
 	return s
 }
 
-func rolledBackMessage(st UpdatesStatus, running string) string {
+// rolledBackLine says what was rolled back and why in one sentence: the health
+// wording when the reason is empty or a health/smoke failure, else a plain
+// statement that the site went back. detail is the reason to append in the
+// banner; the page shows the reason on its own line instead.
+func rolledBackLine(st UpdatesStatus, running string, detail bool) string {
+	line, _ := rolledBackWording(st, running, detail)
+	return line
+}
+
+// rolledBackWording is rolledBackLine plus whether it used the health wording.
+func rolledBackWording(st UpdatesStatus, running string, detail bool) (string, bool) {
 	back := "the previous version"
 	if running != "" {
 		back = running
@@ -393,20 +403,16 @@ func rolledBackMessage(st UpdatesStatus, running string) string {
 	}
 	why := strings.ToLower(st.Reason)
 	if why == "" || strings.Contains(why, "health") || strings.Contains(why, "smoke") {
-		return fmt.Sprintf("Update rolled back: %s failed its health check and the site went back to %s.", target, back)
+		return fmt.Sprintf("Update rolled back: %s failed its health check and the site went back to %s.", target, back), true
 	}
-	return endSentence(fmt.Sprintf("Update rolled back: %s: %s", target, clip(st.Reason, bannerReasonRunes)))
+	if detail {
+		return endSentence(fmt.Sprintf("Update rolled back: %s: %s", target, clip(st.Reason, bannerReasonRunes))), false
+	}
+	return fmt.Sprintf("Update rolled back: the site went back from %s to %s.", target, back), false
 }
 
-// rolledBackHead is the headline of the rolled-back callout on the Updates page.
-func rolledBackHead(target, running string) string {
-	if target == "" {
-		target = "the update"
-	}
-	if running == "" {
-		running = "the previous version"
-	}
-	return fmt.Sprintf("Update rolled back: %s failed its health check and the site went back to %s.", target, running)
+func rolledBackMessage(st UpdatesStatus, running string) string {
+	return rolledBackLine(st, running, true)
 }
 
 // updatesNow is the clock of the Updates page (tests pin it).
@@ -435,6 +441,7 @@ type updatesData struct {
 	CanCheck                 bool
 	ApplyTarget              string
 	RetryTarget              string // set in the rolled_back state: the version "Retry" installs
+	RetryHealth              bool   // the rollback was a health failure: the retry help says it re-runs the check
 	RolledBackHead           string // set in the rolled_back state: what was rolled back, to which version
 	RolledBackReason         string // set in the rolled_back state: why, "" when unknown
 	NoBackupTarget           string // set in the backup_failed state: the version "Update without a backup" installs
@@ -914,7 +921,7 @@ func (a *Admin) fillUpdates(d *updatesData, st UpdatesState, in *updatesInput, l
 	d.NoBackupTarget = st.ApplyWithoutBackupTarget()
 	d.RetryTarget = st.RetryTarget()
 	if cur.Decision == updRolledBack {
-		d.RolledBackHead = rolledBackHead(cur.Target, st.Running)
+		d.RolledBackHead, d.RetryHealth = rolledBackWording(cur, st.Running, false)
 		d.RolledBackReason = strings.TrimSpace(cur.Reason)
 	}
 	d.Pin = st.Pin
@@ -952,7 +959,7 @@ func (a *Admin) fillUpdates(d *updatesData, st UpdatesState, in *updatesInput, l
 		// maintenance window"): the row says Updating and the live panel replaces the note.
 		d.Status = ui.Badge{Label: withVersion("Updating", live.Target), Kind: "info"}
 		d.StatusNote, d.ApplyTarget, d.NoBackupTarget, d.RetryTarget = "", "", "", ""
-		d.RolledBackHead, d.RolledBackReason = "", ""
+		d.RolledBackHead, d.RolledBackReason, d.RetryHealth = "", "", false
 	}
 	d.StatusKind = "info"
 	if k := d.Status.Kind; k == "warning" || k == "danger" {
