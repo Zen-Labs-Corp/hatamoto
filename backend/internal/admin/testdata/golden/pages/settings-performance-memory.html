@@ -119,7 +119,7 @@
 </div>
 <div class="hm-setrow">
 <div class="hm-setrow__text"><p class="hm-setrow__name">Total heap</p>
-<p class="hm-field__help">Heap the runtime holds, including what it has not handed back.</p>
+<p class="hm-field__help">Heap memory the runtime holds, not counting pages already returned to the OS.</p>
 </div>
 <div class="hm-setrow__control">341.0 MB</div>
 </div>
@@ -149,7 +149,9 @@
 <div class="hm-setrow__control">48.0 MB of 64.0 MB · 1,204 pages</div>
 </div>
 </div></div></section>
-<div class="hm-card hm-tablecard" id="memory-plugins">
+<section class="hm-card" id="memory-plugins-card" aria-labelledby="memory-plugins-card-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="memory-plugins-card-title">Plugins</h2></div>
+<div class="hm-card__body"><div class="hm-card hm-tablecard" id="memory-plugins">
 <div class="hm-table__scroll" role="region" aria-label="Plugin memory" tabindex="0"><table class="hm-table hm-table--cards hm-table--wrap"><caption class="hm-visually-hidden">Plugin memory</caption>
 <thead><tr><th scope="col" class="hm-col-title">Plugin</th><th scope="col" class="hm-col-num">Pooled</th><th scope="col" class="hm-col-num">Live</th><th scope="col" class="hm-col-num">Wasm memory (pooled instances only)</th><th scope="col" class="hm-col-num">Compiled code (module size)</th></tr></thead>
 <tbody><tr id="row-event-calendar"><th scope="row" data-label="Plugin" class="hm-table__rowhead hm-col-title">event-calendar</th><td data-label="Pooled" class="hm-col-num">1</td><td data-label="Live" class="hm-col-num">0</td><td data-label="Wasm memory (pooled instances only)" class="hm-col-num hm-table__nowrap">4.1 MB</td><td data-label="Compiled code (module size)" class="hm-col-num hm-table__nowrap">2.3 MB</td></tr>
@@ -160,7 +162,7 @@
 
 </div>
 <p class="hm-field__help">Wasm memory counts idle (pooled) instances only; an instance in the middle of a call is not read. Compiled code is the size of each plugin's module, not its machine code.</p>
-</section>
+</div></section></section>
 
 </div>
 </div>

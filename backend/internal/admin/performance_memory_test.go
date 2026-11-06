@@ -145,3 +145,12 @@ func TestMemoryPageCacheAndPluginsOff(t *testing.T) {
 		}
 	}
 }
+
+func TestMemoryPluginsHeading(t *testing.T) {
+	t.Parallel()
+
+	body := getMemory(t, memoryRig(t, newMemoryView()))
+	if !strings.Contains(body, `id="memory-plugins-card"`) || !strings.Contains(body, ">Plugins</h2>") {
+		t.Error("plugins table has no visible Plugins heading")
+	}
+}
