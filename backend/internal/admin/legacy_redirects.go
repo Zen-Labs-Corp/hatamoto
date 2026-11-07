@@ -92,8 +92,10 @@ func legacyFormPages(prefix string) func(rest string) (string, url.Values, bool)
 	}
 }
 
-// legacySubmissions rewrites {id}/submissions[/rest] under <prefix>/forms, and
-// the pre-settings {id}/edit and {id}/delete to the form pages.
+// legacySubmissions rewrites {id}/submissions[/rest] under <prefix>/forms: the
+// list and one submission go to the form's Submissions tab, export and bulk keep
+// their routes with ?form=. It also sends the pre-settings {id}/edit and
+// {id}/delete to the form pages.
 func legacySubmissions(prefix, rest string) (string, url.Values, bool) {
 	parts := strings.Split(strings.Trim(rest, "/"), "/")
 	if len(parts) == 2 && (parts[1] == "edit" || parts[1] == "delete") && parts[0] != "" {
@@ -103,12 +105,14 @@ func legacySubmissions(prefix, rest string) (string, url.Values, bool) {
 		return "", nil, false
 	}
 	base := prefix + "/forms/submissions"
-	form := url.Values{"form": {parts[0]}}
+	tab := prefix + "/forms/design/" + parts[0] + "/submissions"
 	switch {
 	case len(parts) == 2:
-		return base, form, true
+		return tab, nil, true
 	case len(parts) == 3 && (parts[2] == "bulk" || parts[2] == "export.csv"):
-		return base + "/" + parts[2], form, true
+		return base + "/" + parts[2], url.Values{"form": {parts[0]}}, true
+	case len(parts) == 3: // one submission: the tab opens it in its drawer
+		return tab, url.Values{"s": {parts[2]}}, true
 	default:
 		return base + "/" + strings.Join(parts[2:], "/"), nil, true
 	}

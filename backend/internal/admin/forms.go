@@ -390,26 +390,6 @@ func validEmailList(s string) bool {
 
 // ---- submissions ----
 
-var submissionStatuses = []ui.Option{
-	{Value: "", Label: "All submissions"},
-	{Value: form.SubmissionStatusNew, Label: "New"},
-	{Value: form.SubmissionStatusRead, Label: "Read"},
-	{Value: form.SubmissionStatusArchived, Label: "Archived"},
-	{Value: form.SubmissionStatusSpam, Label: "Spam"},
-}
-
-func submissionBadge(s string) *ui.Badge {
-	switch s {
-	case form.SubmissionStatusNew:
-		return &ui.Badge{Label: "New", Kind: "info"}
-	case form.SubmissionStatusSpam:
-		return &ui.Badge{Label: "Spam", Kind: "danger"}
-	case form.SubmissionStatusArchived:
-		return &ui.Badge{Label: "Archived", Kind: "neutral"}
-	}
-	return &ui.Badge{Label: "Read", Kind: "success"}
-}
-
 // formatAnswer renders a stored answer as text.
 func formatAnswer(v any) string {
 	switch x := v.(type) {
@@ -442,19 +422,6 @@ func truncate(s string, n int) string {
 	return string(r[:n]) + "…"
 }
 
-func summarise(f *form.Form, sub *form.FormSubmission) string {
-	var parts []string
-	for _, ff := range f.Fields {
-		if v := formatAnswer(sub.Data[ff.Name]); v != "" {
-			parts = append(parts, ff.Label+": "+truncate(v, 60))
-		}
-		if len(parts) == 2 {
-			break
-		}
-	}
-	return strings.Join(parts, " · ")
-}
-
 // submissionsForm picks the form whose submissions the page lists: ?form=, or
 // the first form when none is named. ok is false when a response was written;
 // a nil form with ok true means the site has no forms yet.
@@ -466,18 +433,6 @@ func (a *Admin) submissionsForm(w http.ResponseWriter, r *http.Request, forms []
 		return nil, true
 	}
 	return forms[0], true
-}
-
-type submissionsData struct {
-	Form     *form.Form
-	Switch   []ui.Option // every form, the open one selected; empty hides the picker
-	Table    ui.Table
-	Actions  []ui.Button
-	Total    int
-	Statuses []ui.Option // the status filter, shown beside the form switcher
-	Stats    []ui.Stat
-	Tracker  ui.Tracker
-	Tabs     []ui.Tab
 }
 
 const (
@@ -603,6 +558,9 @@ func (a *Admin) submissionOverview(ctx context.Context, fs FormStore, f *form.Fo
 	return stats, t, nil
 }
 
+// handleSubmissions is the old submissions list: it sends the browser to the
+// Submissions tab of the form ?form= names (the first form when none is), keeping
+// the search, status and page; a site with no forms goes to the Forms list.
 func (a *Admin) handleSubmissions(w http.ResponseWriter, r *http.Request) {
 	fs, ok := a.formStore(w, r)
 	if !ok {
@@ -618,79 +576,12 @@ func (a *Admin) handleSubmissions(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	base := a.adminPath + "/forms/submissions"
-	v := a.NewView(w, r, "Submissions")
 	if f == nil {
-		v.Data = submissionsData{Table: ui.Table{ID: "submissions", Caption: "Submissions", CSRF: csrfToken(r.Context()), BaseURL: base,
-			Empty: ui.Empty{Icon: "inbox", Title: "No forms yet", Body: "Submissions appear here once a form exists and visitors send it.",
-				Actions: []ui.Button{{Label: "New form", Href: a.adminPath + "/forms/new", Variant: "primary"}}}}, Tabs: a.formsTabsFor(v, "submissions")}
-		a.Render(w, r, http.StatusOK, "forms/submissions", v)
+		http.Redirect(w, r, a.adminPath+"/forms", http.StatusFound)
 		return
-	}
-	status := r.URL.Query().Get("status")
-	if status != "" && !form.ValidSubmissionStatus(status) {
-		status = ""
 	}
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
-	subs, total, err := fs.ListSubmissions(r.Context(), f.ID, &form.ListSubmissionsParams{Status: status, Limit: submissionsPerPage, Offset: (page - 1) * submissionsPerPage})
-	if err != nil {
-		a.logger().Error("list submissions failed", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The submissions could not be loaded.")
-		return
-	}
-	formID := f.ID.String()
-	formQ := "?form=" + formID
-	query := url.Values{"form": {formID}}
-	if status != "" {
-		query.Set("status", status)
-	}
-	opts := make([]ui.Option, len(submissionStatuses))
-	for i, o := range submissionStatuses {
-		o.Selected = o.Value == status
-		opts[i] = o
-	}
-	t := ui.Table{
-		ID: "submissions", Caption: "Submissions of " + f.Name, BaseURL: base, CSRF: csrfToken(r.Context()),
-		Hidden:  map[string]string{"form": formID},
-		Columns: []ui.Col{{Key: "received", Label: "Received"}, {Key: "answers", Label: "Answers"}, {Key: "status", Label: "Status"}},
-		Bulk: []ui.BulkAction{{Label: "Mark read", Action: base + "/bulk" + formQ, Value: "read"}, {Label: "Archive", Action: base + "/bulk" + formQ, Value: "archive"},
-			{Label: "Mark as spam", Action: base + "/bulk" + formQ, Value: "spam"}, {Label: "Delete", Action: base + "/bulk" + formQ, Value: "delete", Danger: true}},
-		BulkURL: base + "/bulk" + formQ,
-		Page:    ui.Pagination{Page: page, PerPage: submissionsPerPage, Total: total, BaseURL: base, Query: query},
-		Empty:   ui.Empty{Icon: "inbox", Title: "No submissions", Body: "Submissions appear here when visitors send this form."},
-	}
-	for _, s := range subs {
-		id := s.ID.String()
-		t.Rows = append(t.Rows, ui.Row{ID: id, Label: "submission of " + fmtDateTime(s.CreatedAt), Cells: []ui.Cell{
-			{Text: fmtDateTime(s.CreatedAt), Link: base + "/" + id},
-			{Text: summarise(f, s)},
-			{Badge: submissionBadge(s.Status)},
-		}, Actions: []ui.Action{
-			{Label: "Open", Href: base + "/" + id},
-			{Label: "Delete", Href: base + "/" + id + "/delete", Post: base + "/" + id + "/delete", Danger: true, ConfirmLabel: "Delete submission", Confirm: "This submission is deleted for good."},
-		}})
-	}
-	exportQ := formQ
-	if status != "" {
-		exportQ += "&status=" + url.QueryEscape(status)
-	}
-	sw := make([]ui.Option, len(forms))
-	for i, o := range forms {
-		sw[i] = ui.Option{Value: o.ID.String(), Label: o.Name, Selected: o.ID == f.ID}
-	}
-	v.Title = "Submissions of " + f.Name
-	stats, tracker, err := a.submissionOverview(r.Context(), fs, f)
-	if err != nil {
-		a.logger().Error("submission overview failed", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The submissions could not be loaded.")
-		return
-	}
-	v.Data = submissionsData{Form: f, Switch: sw, Table: t, Actions: []ui.Button{{Label: "Export CSV", Href: base + "/export.csv" + exportQ, Icon: "copy"}}, Total: total,
-		Statuses: opts, Stats: stats, Tracker: tracker, Tabs: a.formsTabsFor(v, "submissions")}
-	a.Render(w, r, http.StatusOK, "forms/submissions", v)
+	http.Redirect(w, r, a.tabURL(f.ID, submissionSearch(r), submissionStatusParam(r), page, ""), http.StatusFound)
 }
 
 // handleSubmissionsExport streams every submission (of the chosen status and
@@ -808,23 +699,6 @@ func (a *Admin) loadSubmission(w http.ResponseWriter, r *http.Request) (*form.Fo
 
 type answerRow struct{ Label, Value string }
 
-type submissionData struct {
-	Form       *form.Form
-	Sub        *form.FormSubmission
-	Answers    []answerRow
-	Status     *ui.Badge
-	Base       string // /admin/forms/submissions
-	ListURL    string // the form's own list
-	Actions    []ui.Button
-	MailOn     bool
-	MailTo     string
-	MailErr    string
-	Received   string
-	StatusMove []ui.Action
-	// CameFrom is the First touch and Last touch rows of the Came from card.
-	CameFrom []answerRow
-}
-
 // touchParts is a stored touch as its channel name, source and landing page, in that order.
 // A submission stored without attribution has no touch: the channel reads Unknown, the rest is empty.
 func touchParts(t *form.Touch) (channel, source, landing string) {
@@ -863,52 +737,15 @@ func cameFrom(at *form.Attribution) []answerRow {
 	return []answerRow{row("First touch", at.First), row("Last touch", at.Last)}
 }
 
-func (a *Admin) submissionView(w http.ResponseWriter, r *http.Request, status int, f *form.Form, s *form.FormSubmission, mailTo, mailErr string) {
-	d := submissionData{Form: f, Sub: s, Status: submissionBadge(s.Status), Base: a.adminPath + "/forms/submissions", ListURL: a.adminPath + "/forms/submissions?form=" + f.ID.String(),
-		MailOn: a.deps.Growth.FormMail != nil && a.deps.Growth.FormMail.Configured(), MailTo: mailTo, MailErr: mailErr, Received: fmtDateTime(s.CreatedAt), CameFrom: cameFrom(s.Attribution)}
-	d.Actions = []ui.Button{{Label: "Back to submissions", Href: d.ListURL}, {Label: "Delete submission", Variant: "ghost", Href: d.Base + "/" + s.ID.String() + "/delete"}}
-	used := map[string]bool{}
-	for _, ff := range f.Fields {
-		used[ff.Name] = true
-		if v, ok := s.Data[ff.Name]; ok {
-			d.Answers = append(d.Answers, answerRow{ff.Label, formatAnswer(v)})
-		}
-	}
-	keys := make([]string, 0, len(s.Data))
-	for k := range s.Data {
-		if !used[k] {
-			keys = append(keys, k)
-		}
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		d.Answers = append(d.Answers, answerRow{k, formatAnswer(s.Data[k])})
-	}
-	v := a.NewView(w, r, "Submission of "+fmtDateTime(s.CreatedAt))
-	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: f.Name, Href: a.adminPath + "/forms/design/" + f.ID.String()}, {Label: "Submissions", Href: d.ListURL}, {Label: "Submission"}}
-	v.Data = d
-	v.Width = "narrow"
-	a.Render(w, r, status, "forms/submission", v)
-}
-
-// handleSubmission shows one submission. Opening a new one marks it read, as the
-// old admin did; the status buttons undo that.
+// handleSubmission is the address of one submission, which the notification
+// email links to: it sends the browser to the form's Submissions tab with that
+// submission open. It never marks anything read; opening it on the tab does.
 func (a *Admin) handleSubmission(w http.ResponseWriter, r *http.Request) {
 	f, s, ok := a.loadSubmission(w, r)
 	if !ok {
 		return
 	}
-	// A prerender or prefetch is a GET nobody made on purpose: it must not
-	// mark the enquiry read (Chrome sends "Sec-Purpose: prefetch;prerender").
-	if s.Status == form.SubmissionStatusNew && !strings.Contains(r.Header.Get("Sec-Purpose"), "prefetch") {
-		read := form.SubmissionStatusRead
-		if u, err := a.deps.Growth.Forms.UpdateSubmission(r.Context(), s.ID, &form.UpdateSubmissionInput{Status: &read}); err == nil && u != nil {
-			s.Status = u.Status
-		} else if err == nil {
-			s.Status = read
-		}
-	}
-	a.submissionView(w, r, http.StatusOK, f, s, "", "")
+	http.Redirect(w, r, a.tabURL(f.ID, "", "", 1, s.ID.String()), http.StatusSeeOther)
 }
 
 func (a *Admin) handleSubmissionStatus(w http.ResponseWriter, r *http.Request) {
@@ -930,15 +767,18 @@ func (a *Admin) handleSubmissionStatus(w http.ResponseWriter, r *http.Request) {
 	Redirect(w, r, a.backToTab(f, r.PostFormValue("back")))
 }
 
+// handleSubmissionEmail forwards one submission by email; the result is a flash
+// on the submission's tab.
 func (a *Admin) handleSubmissionEmail(w http.ResponseWriter, r *http.Request) {
 	f, s, ok := a.loadSubmission(w, r)
 	if !ok {
 		return
 	}
+	back := a.tabURL(f.ID, "", "", 1, s.ID.String())
 	m := a.deps.Growth.FormMail
 	if m == nil || !m.Configured() {
 		a.SetFlash(w, r, "error", "Email is not set up on this server, so nothing was sent.")
-		Redirect(w, r, a.adminPath+"/forms/submissions/"+s.ID.String())
+		Redirect(w, r, back)
 		return
 	}
 	to := strings.TrimSpace(r.PostFormValue("to"))
@@ -949,7 +789,8 @@ func (a *Admin) handleSubmissionEmail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(rcpt) == 0 || len(rcpt) > 10 || !validEmailList(to) {
-		a.submissionView(w, r, http.StatusUnprocessableEntity, f, s, to, "Enter up to 10 email addresses separated by commas")
+		a.SetFlash(w, r, "error", "Enter up to 10 email addresses separated by commas.")
+		Redirect(w, r, back)
 		return
 	}
 	by := ""
@@ -958,11 +799,12 @@ func (a *Admin) handleSubmissionEmail(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := m.Forward(r.Context(), f, s, rcpt, by); err != nil {
 		a.logger().Error("forward submission failed", "err", err)
-		a.submissionView(w, r, http.StatusBadGateway, f, s, to, "The email could not be sent. Check the SMTP settings of the server.")
+		a.SetFlash(w, r, "error", "The email could not be sent. Check the SMTP settings of the server.")
+		Redirect(w, r, back)
 		return
 	}
 	a.SetFlash(w, r, "success", "Submission emailed to "+strings.Join(rcpt, ", ")+".")
-	Redirect(w, r, a.adminPath+"/forms/submissions/"+s.ID.String())
+	Redirect(w, r, back)
 }
 
 func (a *Admin) handleSubmissionDeleteForm(w http.ResponseWriter, r *http.Request) {

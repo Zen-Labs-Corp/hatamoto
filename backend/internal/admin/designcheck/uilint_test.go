@@ -204,7 +204,6 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-05", File: "js/editor/kit.js", Needle: `text: "Remove"`, Reason: reasonEditor},
 	{Rule: "UI-05", File: "js/content.js", Needle: "data-hm-picker-close", Reason: "media picker dialog buttons built in JS"},
 	{Rule: "UI-05", File: "pages/settings/theme.html", Needle: `id="theme-{{.Name}}"`, Reason: "theme card with a dynamic id, heading in the body row and an Active modifier"},
-	{Rule: "UI-05", File: "pages/forms/submission.html", Needle: `aria-labelledby="sub-answers"`, Reason: "card whose header carries a status badge"},
 	{Rule: "UI-05", File: "pages/redirects/list.html", Needle: "hm-redirect-test", Reason: "inline test form styled as a card"},
 	{Rule: "UI-05", File: "pages/entities/versions.html", Needle: "hm-compare", Reason: "inline compare form styled as a card"},
 	{Rule: "UI-05", File: "pages/entities/compare.html", Needle: "hm-tablecard", Reason: "table card, no head or body"},

@@ -296,35 +296,40 @@ func submissionRig(t *testing.T) (*rig, *fakeForms, *fakeFormMail, *form.Form, *
 	return g, ff, mail, fm, s
 }
 
-func TestSubmissionListDetailAndStatus(t *testing.T) {
+func TestSubmissionOldAddressesLandOnTheTab(t *testing.T) {
 	t.Parallel()
 
 	g, ff, _, fm, s := submissionRig(t)
 	base := "/admin/forms/submissions"
-	listURL := base + "?form=" + fm.ID.String()
-	list := g.do("GET", listURL, "owner-token", nil, nil).Body.String()
-	if !strings.Contains(list, "Name: Ada") || !strings.Contains(list, "Export CSV") || strings.Contains(list, "<b>Lovelace") {
-		t.Fatalf("list: %s", list)
-	}
-	if issues := a11y.Check(list, a11y.Options{Page: true}); len(issues) > 0 {
-		t.Errorf("list a11y: %v", issues)
-	}
-	if body := g.do("GET", listURL+"&status=spam", "owner-token", nil, nil).Body.String(); !strings.Contains(body, "No submissions") {
-		t.Error("status filter should hide the new submission")
-	}
-	rec := g.do("GET", base+"/"+s.ID.String(), "owner-token", nil, nil)
-	body := rec.Body.String()
-	for _, want := range []string{"Ada &lt;b&gt;Lovelace", "legacy", "kept", "https://example.com/contact"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("detail missing %q", want)
+	tab := "/admin/forms/design/" + fm.ID.String() + "/submissions"
+	// The list keeps its filters; with no ?form= the first form's tab opens.
+	for from, want := range map[string]string{
+		base + "?form=" + fm.ID.String():                              tab,
+		base + "?form=" + fm.ID.String() + "&status=new&q=ada&page=2": tab + "?page=2&q=ada&status=new",
+		base + "?form=" + fm.ID.String() + "&status=bogus":            tab,
+		base: tab,
+	} {
+		if rec := g.do("GET", from, "owner-token", nil, nil); rec.Code != 302 || rec.Header().Get("Location") != want {
+			t.Errorf("GET %s: %d -> %q, want 302 -> %q", from, rec.Code, rec.Header().Get("Location"), want)
 		}
 	}
-	if ff.subs[s.ID].Status != form.SubmissionStatusRead {
-		t.Error("opening a new submission marks it read")
+	if rec := g.do("GET", base+"?form="+uuid.NewString(), "owner-token", nil, nil); rec.Code != 404 {
+		t.Errorf("unknown form: %d", rec.Code)
 	}
-	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
-		t.Errorf("detail a11y: %v", issues)
+	// The emailed link opens the submission on the tab and does not mark it read itself.
+	for _, hdr := range []map[string]string{nil, {"Sec-Purpose": "prefetch;prerender"}} {
+		rec := g.do("GET", base+"/"+s.ID.String(), "owner-token", nil, hdr)
+		if rec.Code != 303 || rec.Header().Get("Location") != tab+"?s="+s.ID.String() {
+			t.Errorf("submission link: %d -> %q", rec.Code, rec.Header().Get("Location"))
+		}
+		if ff.subs[s.ID].Status != form.SubmissionStatusNew {
+			t.Fatalf("the submission link marked the submission %q", ff.subs[s.ID].Status)
+		}
 	}
+	if rec := g.do("GET", base+"/"+uuid.NewString(), "owner-token", nil, nil); rec.Code != 404 {
+		t.Errorf("unknown submission: %d", rec.Code)
+	}
+	// Status changes, and a bad status is refused.
 	g.do("POST", base+"/"+s.ID.String()+"/status", "owner-token", url.Values{"status": {"spam"}}, nil)
 	if ff.subs[s.ID].Status != form.SubmissionStatusSpam {
 		t.Error("status not changed")
@@ -332,36 +337,38 @@ func TestSubmissionListDetailAndStatus(t *testing.T) {
 	if rec := g.do("POST", base+"/"+s.ID.String()+"/status", "owner-token", url.Values{"status": {"bogus"}}, nil); rec.Code != 400 {
 		t.Errorf("bad status: %d", rec.Code)
 	}
-	// An unknown submission is a 404, and the list of an unknown form too.
-	if rec := g.do("GET", base+"/"+uuid.NewString(), "owner-token", nil, nil); rec.Code != 404 {
-		t.Errorf("unknown submission: %d", rec.Code)
-	}
-	if rec := g.do("GET", base+"?form="+uuid.NewString(), "owner-token", nil, nil); rec.Code != 404 {
-		t.Errorf("unknown form: %d", rec.Code)
-	}
-	// With no ?form= the first form is listed, and the picker names the others.
-	if body := g.do("GET", base, "owner-token", nil, nil).Body.String(); !strings.Contains(body, `<select class="hm-field__control" id="sub-form"`) {
-		t.Error("submissions page has no form picker")
+	// A site with no forms goes to the Forms list.
+	g2, _, _ := newFormRig(t)
+	if rec := g2.do("GET", base, "owner-token", nil, nil); rec.Code != 302 || rec.Header().Get("Location") != "/admin/forms" {
+		t.Errorf("no forms: %d -> %q", rec.Code, rec.Header().Get("Location"))
 	}
 }
 
 func TestSubmissionEmailForward(t *testing.T) {
 	t.Parallel()
 
-	g, _, mail, _, s := submissionRig(t)
+	g, _, mail, fm, s := submissionRig(t)
 	url0 := "/admin/forms/submissions/" + s.ID.String() + "/email"
-	if rec := g.do("POST", url0, "owner-token", url.Values{"to": {"nope"}}, nil); rec.Code != 422 || len(mail.sent) != 0 {
-		t.Fatalf("invalid recipient: %d", rec.Code)
+	tab := "/admin/forms/design/" + fm.ID.String() + "/submissions?s=" + s.ID.String()
+	post := func(to string) int {
+		rec := g.do("POST", url0, "owner-token", url.Values{"to": {to}}, nil)
+		if rec.Header().Get("Location") != tab {
+			t.Errorf("email %q: sent to %q, want the submission's tab", to, rec.Header().Get("Location"))
+		}
+		return rec.Code
 	}
-	if rec := g.do("POST", url0, "owner-token", url.Values{"to": {"a@example.com, b@example.com"}}, nil); rec.Code != 303 || len(mail.sent) != 1 || len(mail.sent[0]) != 2 {
-		t.Fatalf("send: %d %v", rec.Code, mail.sent)
+	if code := post("nope"); code != 303 || len(mail.sent) != 0 {
+		t.Fatalf("invalid recipient: %d", code)
+	}
+	if code := post("a@example.com, b@example.com"); code != 303 || len(mail.sent) != 1 || len(mail.sent[0]) != 2 {
+		t.Fatalf("send: %d %v", code, mail.sent)
 	}
 	mail.err = errors.New("smtp down")
-	if rec := g.do("POST", url0, "owner-token", url.Values{"to": {"a@example.com"}}, nil); rec.Code != 502 {
-		t.Errorf("mail failure: %d", rec.Code)
+	if code := post("a@example.com"); code != 303 {
+		t.Errorf("mail failure: %d", code)
 	}
 	mail.on = false
-	g.do("POST", url0, "owner-token", url.Values{"to": {"a@example.com"}}, nil)
+	post("a@example.com")
 	if len(mail.sent) != 2 {
 		t.Error("nothing is sent when email is not configured")
 	}
@@ -448,22 +455,19 @@ func TestSubmissionsExportStreamsEveryPageAndNeutralisesFormulas(t *testing.T) {
 	}
 }
 
-func TestSubmissionDetailShowsWhereItCameFrom(t *testing.T) {
+func TestSubmissionDrawerShowsWhereItCameFrom(t *testing.T) {
 	t.Parallel()
 
-	g, _, _, _, s := submissionRig(t)
-	url := "/admin/forms/submissions/" + s.ID.String()
-	body := g.do("GET", url, "owner-token", nil, nil).Body.String()
-	if !strings.Contains(body, "sub-came-from") || !strings.Contains(body, "<dt>First touch</dt><dd>Unknown</dd>") || !strings.Contains(body, "<dt>Last touch</dt><dd>Unknown</dd>") {
-		t.Errorf("a submission without attribution reads Unknown on both touches: %s", body)
-	}
+	g, _, _, fm, s := submissionRig(t)
+	url := "/admin/forms/design/" + fm.ID.String() + "/submissions?s=" + s.ID.String()
 	s.Attribution = &form.Attribution{
 		First: &form.Touch{Channel: "ai_assistants", Source: "chatgpt", Landing: "/post/a"},
 		Last:  &form.Touch{Channel: "email", Source: "newsletter", Campaign: "oct-news", Landing: "/pricing"}}
-	body = g.do("GET", url, "owner-token", nil, nil).Body.String()
-	for _, want := range []string{"<dt>First touch</dt><dd>AI assistants / chatgpt / /post/a</dd>", "<dt>Last touch</dt><dd>Email / newsletter / oct-news / /pricing</dd>"} {
+	body := g.do("GET", url, "owner-token", nil, nil).Body.String()
+	for _, want := range []string{"<dt>First touch</dt><dd>AI assistants / chatgpt / /post/a</dd>", "<dt>Last touch</dt><dd>Email / newsletter / oct-news / /pricing</dd>",
+		"Ada &lt;b&gt;Lovelace", "legacy", "kept", "/contact"} {
 		if !strings.Contains(body, want) {
-			t.Errorf("detail missing %q", want)
+			t.Errorf("drawer missing %q", want)
 		}
 	}
 }
@@ -507,23 +511,6 @@ func TestSubmissionDeleteAsksFirst(t *testing.T) {
 	}
 	if rec := g.do("POST", u, "owner-token", url.Values{}, nil); rec.Code != 303 || len(ff.subs) != 0 {
 		t.Fatalf("delete: %d", rec.Code)
-	}
-}
-
-func TestSubmissionPrefetchDoesNotMarkRead(t *testing.T) {
-	t.Parallel()
-
-	g, _, _, _, s := submissionRig(t)
-	u := "/admin/forms/submissions/" + s.ID.String()
-	if rec := g.do("GET", u, "owner-token", nil, map[string]string{"Sec-Purpose": "prefetch;prerender"}); rec.Code != 200 {
-		t.Fatalf("prerender GET: %d", rec.Code)
-	}
-	if s.Status != form.SubmissionStatusNew {
-		t.Fatalf("a prerender marked the submission %q", s.Status)
-	}
-	g.do("GET", u, "owner-token", nil, nil)
-	if s.Status != form.SubmissionStatusRead {
-		t.Errorf("a normal open left the submission %q", s.Status)
 	}
 }
 
@@ -659,8 +646,8 @@ func TestSubmissionsOverviewShowsStatsTrackerAndFilters(t *testing.T) {
 	for i := 0; i < 4; i++ { // a spam burst must not count as activity
 		ff.addSub(fm, form.SubmissionStatusSpam, now.Add(-time.Duration(i+2)*time.Minute), nil)
 	}
-	body := g.do("GET", "/admin/forms/submissions?form="+fm.ID.String(), "owner-token", nil, nil).Body.String()
-	for _, want := range []string{"hm-tracker", ">Total<", ">New<", ">Last 7 days<", "data-hm-autosubmit", "<noscript>", `: 1 submission, busiest"`} {
+	body := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/submissions", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{"hm-tracker", ">Submissions<", ">Unread<", ">Conversion<", ">Spam<", `id="ss-q"`, `: 1 submission, busiest"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("overview lacks %q", want)
 		}

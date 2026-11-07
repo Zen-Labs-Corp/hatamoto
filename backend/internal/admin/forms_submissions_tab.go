@@ -301,6 +301,11 @@ func (a *Admin) buildSubmissionDrawer(ctx context.Context, f *form.Form, s *form
 	if s.Metadata.UserAgent != "" {
 		d.Details = append(d.Details, drawerDetail{Label: "Device", Value: analytics.DeviceClass(s.Metadata.UserAgent)})
 	}
+	if s.Attribution != nil {
+		for _, t := range cameFrom(s.Attribution) {
+			d.Details = append(d.Details, drawerDetail{Label: t.Label, Value: t.Value})
+		}
+	}
 	d.Details = append(d.Details,
 		drawerDetail{Label: "Location", Value: notRecorded},
 		drawerDetail{Label: "Notifications go to", Value: notifyRecipients(f)})
