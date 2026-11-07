@@ -21,7 +21,10 @@
 <template data-hm-bs-warn>{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true)}}{{template "hm/callout-end"}}</template>
 <template data-hm-bs-ico>{{range .Icons}}<span data-ico="{{.}}">{{icon .}}</span>{{end}}</template>
 <aside class="hm-fd__palette" aria-label="Add a field" data-hm-fd-palette hidden data-hm-bs-js></aside>
-<section class="hm-fd__canvas" aria-label="Form" data-hm-fd-canvas><div class="hm-fd__sheet" data-hm-fd-sheet></div></section>
+<section class="hm-fd__canvas" aria-label="Form" data-hm-fd-canvas data-device="desktop">
+<div class="hm-fd__bar" hidden data-hm-bs-js>{{template "hm/segmented" (dict "Mode" "buttons" "Label" "View" "Items" (list (dict "Label" "Edit" "Pressed" true "Attrs" (attrmap "data-hm-fd-mode" "edit")) (dict "Label" "Try it" "Attrs" (attrmap "data-hm-fd-mode" "try"))))}}
+{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Screen size" "Items" (list (dict "Label" "Desktop" "Pressed" true "Attrs" (attrmap "data-hm-fd-device" "desktop")) (dict "Label" "Tablet" "Attrs" (attrmap "data-hm-fd-device" "tablet")) (dict "Label" "Phone" "Attrs" (attrmap "data-hm-fd-device" "phone"))))}}</div>
+<div class="hm-fd__sheet" data-hm-fd-sheet></div></section>
 <aside class="hm-fd__inspector" aria-label="Field settings" data-hm-fd-inspector hidden data-hm-bs-js></aside>
 {{.Boot}}
 </div>{{end}}{{end}}

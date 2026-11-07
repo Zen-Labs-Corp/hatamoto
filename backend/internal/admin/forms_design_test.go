@@ -2,6 +2,7 @@ package admin
 
 import (
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -59,6 +60,36 @@ func TestFormDesignEditRedirectAndUnknown(t *testing.T) {
 	for _, p := range []string{"/admin/forms/design/", "/admin/forms/edit/"} {
 		if rec := g.do("GET", p+uuid.NewString(), "owner-token", nil, nil); rec.Code != http.StatusNotFound {
 			t.Errorf("%s unknown: %d", p, rec.Code)
+		}
+	}
+}
+
+// The designer's first paint carries its own modules and the shared ones, never the lazy chunks:
+// the preview, the inspector sections, the shortcut sheet and the history panel load on demand.
+// Only the modulepreload links count: the import map names every module.
+func TestFormDesignModulepreloadStaysSmall(t *testing.T) {
+	t.Parallel()
+
+	g, ff, _ := newFormRig(t)
+	fm := ff.addForm("Contact", contactFields...)
+	rec := g.do("GET", "/admin/forms/design/"+fm.ID.String(), "owner-token", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("design: %d", rec.Code)
+	}
+	preloaded := strings.Join(regexp.MustCompile(`<link rel="modulepreload"[^>]*>`).FindAllString(rec.Body.String(), -1), "\n")
+	for _, want := range []string{"/forms/screen.", "/forms/canvas.", "/forms/palette.", "/forms/inspector.", "/forms/save."} {
+		if !strings.Contains(preloaded, want) {
+			t.Errorf("first paint lacks %s", want)
+		}
+	}
+	for _, lazy := range []string{"/forms/preview.", "/forms/inspsections.", "/builder/keys.", "/builder/history."} {
+		if strings.Contains(preloaded, lazy) {
+			t.Errorf("first paint preloads the lazy module %s", lazy)
+		}
+	}
+	for _, banned := range []string{"/builder/screen.", "/builder/store.", "/builder/drag.", "/builder/sync.", "/builder/inspector."} {
+		if strings.Contains(preloaded, banned) {
+			t.Errorf("the designer pulls the page builder module %s", banned)
 		}
 	}
 }
