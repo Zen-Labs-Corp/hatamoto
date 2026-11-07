@@ -15,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/email/smtptest"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/user"
 )
 
 // countingFormRepo adds the recent-send count the rate limit reads: every
@@ -164,9 +165,11 @@ func TestFormSettings_StoreOffKeepsNoAnswersButStillMails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	notify := "team@example.test"
+	notify := "admin@x.test"
 	srv, repo := settingsServer(t, form.FormSettings{NotifyEmail: &notify, NotifySubject: "Enquiry from {{name}}"})
 	srv.emailService = svc
+	srv.userRepo = notifyUsers{byEmail: map[string]user.Role{"admin@x.test": user.RoleOwner}}
+	srv.adminBundle.Store(&adminBundle{prefix: "/hq-x7k"})
 	repo.forms["contact"].Settings.StoreOff = true
 
 	sendJSONFrom(srv, "203.0.113.1", "https://example.test/products/7", `{"name":"Ada","message":"secret words"}`)
@@ -189,8 +192,38 @@ func TestFormSettings_StoreOffKeepsNoAnswersButStillMails(t *testing.T) {
 			t.Errorf("notification lacks %q: %s", want, msgs[0].Data)
 		}
 	}
-	if strings.Contains(msgs[0].Data, "View in Admin") {
+	if hasLink(msgs[0].Data) {
 		t.Errorf("notification links to an empty row: %s", msgs[0].Data)
+	}
+}
+
+// A kept row with no answers (every field optional, sent blank) still holds
+// the visitor's metadata, so its mail keeps the link to it.
+func TestFormSettings_StoredBlankSubmissionKeepsAdminLink(t *testing.T) {
+	t.Setenv("EMAIL_DISABLED", "")
+	sink := smtptest.Start(t, smtptest.Options{Mode: smtptest.Plain})
+	svc, err := email.NewService(email.Config{SMTPHost: sink.Host(), SMTPPort: sink.Port(), FromAddress: "site@example.test", Security: email.SecurityNone},
+		slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	notify := "admin@x.test"
+	srv, repo := settingsServer(t, form.FormSettings{NotifyEmail: &notify})
+	srv.emailService = svc
+	srv.userRepo = notifyUsers{byEmail: map[string]user.Role{"admin@x.test": user.RoleOwner}}
+	srv.adminBundle.Store(&adminBundle{prefix: "/hq-x7k"})
+
+	sendJSON(srv, "203.0.113.1", `{"name":"","message":""}`)
+	if len(repo.subs) != 1 || len(repo.subs[0].Data) != 0 {
+		t.Fatalf("stored = %+v, want one row with no answers", repo.subs)
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for len(sink.Messages()) == 0 && time.Now().Before(deadline) {
+		time.Sleep(25 * time.Millisecond)
+	}
+	msgs := sink.Messages()
+	if len(msgs) != 1 || !hasLink(msgs[0].Data) {
+		t.Fatalf("notification = %+v, want the admin link", msgs)
 	}
 }
 

@@ -586,7 +586,8 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 	// admin sees that a send arrived) but holds no answers and nothing about
 	// the visitor; the in-memory data below still feeds the mail.
 	input := &form.CreateSubmissionInput{Status: status}
-	if s.dropAnswers(formObj) {
+	dropped := s.dropAnswers(formObj)
+	if dropped {
 		input.Data = map[string]interface{}{}
 	} else {
 		ip := meta.IPAddress
@@ -613,7 +614,7 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 	// A submission classed as spam is kept for review but reaches nobody: no
 	// notification, no confirmation, no hook or webhook.
 	if status != form.SubmissionStatusSpam {
-		s.sendFormSubmissionEmail(formObj, submission, data, meta)
+		s.sendFormSubmissionEmail(formObj, submission, data, meta, dropped)
 		s.sendFormConfirmationEmail(formObj, submission, data)
 		s.fireFormSubmitted(ctx, formObj, submission, data, meta)
 	}
@@ -887,8 +888,9 @@ func (s *Server) dropAnswers(formObj *form.Form) bool {
 // This is a non-blocking operation - errors are logged but don't affect the response.
 // The page and address come from the request metadata, not the stored row, which
 // is empty when the form stores nothing. The address is left out under no-IP
-// because the mail is kept in the email log.
-func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.FormSubmission, data map[string]interface{}, meta submitMeta) {
+// because the mail is kept in the email log. dropped says the row holds no
+// answers, so there is nothing for the admin link to open.
+func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.FormSubmission, data map[string]interface{}, meta submitMeta, dropped bool) {
 	// Check if email service is available and notification email is configured
 	if s.emailService == nil {
 		return
@@ -956,7 +958,7 @@ func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.Fo
 		// Only a recipient with an admin account gets the link to the
 		// submission; it names the private admin address.
 		adminData := emailData
-		if len(submission.Data) > 0 { // a store-off row has no answers to open
+		if !dropped {
 			adminData.AdminURL = s.adminPathValue() + "/forms/submissions/" + submission.ID.String()
 		}
 		for _, send := range []struct {

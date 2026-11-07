@@ -61,8 +61,8 @@ func runNotifyPage(t *testing.T, repo user.Repository, notify, pageURL string, w
 	s.adminBundle.Store(&adminBundle{prefix: "/hq-x7k"})
 
 	f := &form.Form{ID: uuid.New(), Name: "Contact", Slug: "contact", Settings: form.FormSettings{NotifyEmail: &notify}}
-	sub := &form.FormSubmission{ID: uuid.New(), FormID: f.ID, Data: map[string]any{"name": "Ada"}}
-	s.sendFormSubmissionEmail(f, sub, nil, submitMeta{PageURL: pageURL})
+	sub := &form.FormSubmission{ID: uuid.New(), FormID: f.ID}
+	s.sendFormSubmissionEmail(f, sub, nil, submitMeta{PageURL: pageURL}, false)
 
 	deadline := time.Now().Add(10 * time.Second)
 	for len(sink.Messages()) < want && time.Now().Before(deadline) {
@@ -149,7 +149,7 @@ func TestFormForwardRedactsAdminSubmitterPage(t *testing.T) {
 	s := &Server{cfg: &config.Config{}, logger: slog.New(slog.NewTextHandler(io.Discard, nil)), emailService: svc}
 	s.adminBundle.Store(&adminBundle{prefix: "/hq-x7k"})
 	f := &form.Form{ID: uuid.New(), Name: "Contact", Slug: "contact"}
-	sub := &form.FormSubmission{ID: uuid.New(), FormID: f.ID, Data: map[string]any{"name": "Ada"}}
+	sub := &form.FormSubmission{ID: uuid.New(), FormID: f.ID}
 	sub.Metadata.PageURL = "https://site.test/hq-x7k/entities/1/edit/preview/tok"
 	if err := (formMailer{s: s}).Forward(context.Background(), f, sub, []string{"ext@y.test"}, "Ana"); err != nil {
 		t.Fatal(err)
