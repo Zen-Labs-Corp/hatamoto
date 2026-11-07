@@ -177,11 +177,11 @@ ok(same((await settings()).blocked_words, ["casino", "example.net"]), "words: on
 await page.locator('[data-hm-fs-seg="retention_days"] [data-value="90"]').click();
 ok((await settings()).retention_days === 90 && (await page.locator('[data-hm-fs-seg="retention_days"] [data-value="90"]').getAttribute("aria-pressed")) === "true", "retention: 90 days");
 
-// the store switch hides retention and the no-IP switch
+// the store switch hides retention; no-IP stays
 await page.locator('label[for="fs-store"]').click();
-ok((await settings()).store_off === true && !(await page.locator('[data-hm-fs-seg="retention_days"]').isVisible()) && !(await page.locator('label[for="fs-noip"]').isVisible()), "store off: written as store_off, retention and no-IP hide");
+ok((await settings()).store_off === true && !(await page.locator('[data-hm-fs-seg="retention_days"]').isVisible()) && (await page.locator('label[for="fs-noip"]').isVisible()), "store off: written as store_off, retention hides, no-IP stays");
 await page.locator('label[for="fs-store"]').click();
-ok((await page.locator('[data-hm-fs-seg="retention_days"]').isVisible()) && (await page.locator('label[for="fs-noip"]').isVisible()) && (await settings()).retention_days === 90, "store on again: retention and no-IP show, retention keeps its value");
+ok((await page.locator('[data-hm-fs-seg="retention_days"]').isVisible()) && (await settings()).retention_days === 90, "store on again: retention shows with its value");
 await page.locator('label[for="fs-noip"]').click();
 ok((await settings()).no_ip === true, "no IP: on");
 
