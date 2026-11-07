@@ -123,6 +123,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "partials/sidebar.html", Needle: `action="{{adminPath}}/theme"`, Reason: "theme toggle in the sidebar"},
 	{Rule: "UI-01", File: "partials/sidebar.html", Needle: `action="{{adminPath}}/logout"`, Reason: "sign out button in the sidebar"},
 	{Rule: "UI-01", File: "partials/table.html", Needle: `data-hm-bulk-toolbar`, Reason: "bulk action toolbar above a table, not a form footer"},
+	{Rule: "UI-01", File: "partials/formssubdrawer.html", Needle: `data-hm-ss-status`, Reason: "submission drawer action: a one-button POST form in the drawer body (the dialog footer is the shared Close row), returning to the list"},
 	{Rule: "UI-01", File: "partials/mediatile.html", Needle: `data-hm-bulk-toolbar`, Reason: "bulk action toolbar above a media grid, not a form footer"},
 
 	// UI-10: page-level forms that edit or remove something, not a create form beside the list.

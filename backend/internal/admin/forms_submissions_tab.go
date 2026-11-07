@@ -22,6 +22,8 @@ type submissionsTabData struct {
 	Filter    ui.Segmented
 	Q, Status string
 	ExportURL string
+	Actions   []ui.Button // page header: Export CSV
+	Summary   string      // live-region text: how many submissions match
 	Table     ui.Table
 	Drawer    *submissionDrawer // nil when no submission is open
 }
@@ -32,6 +34,8 @@ type submissionDrawer struct {
 	Answers                       []drawerAnswer
 	Details                       []drawerDetail
 	Status, CSRF                  string
+	Back                          string // the list the status form returns to
+	Webhooks                      string // names of the webhooks that fire, owner only
 	PrevURL, NextURL              string
 	ShowWebhooks                  bool
 }
@@ -39,8 +43,9 @@ type submissionDrawer struct {
 type drawerAnswer struct{ Label, Value string }
 
 // drawerDetail is one row of the drawer's Details card. Exact is the full
-// timestamp behind a relative Value ("" when Value is already exact).
-type drawerDetail struct{ Label, Value, Exact string }
+// timestamp behind a relative Value ("" when Value is already exact); Stamp is
+// the same instant for the <time datetime> attribute.
+type drawerDetail struct{ Label, Value, Exact, Stamp string }
 
 const (
 	notRecorded  = "Not recorded"
@@ -235,15 +240,21 @@ func submissionsTabColumns(f *form.Form) []ui.Col {
 // submissionsTabRow is one table row; openURL opens the submission's drawer.
 func submissionsTabRow(f *form.Form, s *form.FormSubmission, now time.Time, openURL string) ui.Row {
 	from := submissionFrom(f, s)
-	cells := []ui.Cell{{Text: from, Link: openURL}, {Text: submissionEmail(f, s), Clip: true}}
+	cells := []ui.Cell{{Text: from, Link: openURL, LinkAttrs: map[string]string{"data-hm-ss-open": ""}}, {Text: submissionEmail(f, s), Clip: true}}
+	class := "hm-ss__row"
 	if s.Status == form.SubmissionStatusNew {
 		cells[0].Tag = &ui.Badge{Label: "New", Kind: "info"}
+		class += " hm-ss__row--unread"
+	}
+	if s.Status == form.SubmissionStatusSpam {
+		class += " hm-ss__row--spam"
 	}
 	for _, ff := range choiceColumns(f) {
 		cells = append(cells, ui.Cell{Text: formatAnswer(s.Data[ff.Name])})
 	}
 	cells = append(cells, ui.Cell{Text: pagePath(s.Metadata.PageURL), Mono: true, Clip: true}, ui.Cell{Text: relTime(now, s.CreatedAt), Nowrap: true})
-	return ui.Row{ID: s.ID.String(), Label: "submission from " + from, Cells: cells}
+	id := s.ID.String()
+	return ui.Row{ID: id, Label: "submission from " + from, Cells: cells, Class: class, Attrs: map[string]string{"data-hm-ss-row": "", "data-hm-ss-id": id}}
 }
 
 // buildSubmissionDrawer lays one submission out for the drawer. Answers follow
@@ -278,7 +289,7 @@ func (a *Admin) buildSubmissionDrawer(ctx context.Context, f *form.Form, s *form
 	for _, k := range keys {
 		d.Answers = append(d.Answers, drawerAnswer{k, formatAnswer(s.Data[k])})
 	}
-	d.Details = []drawerDetail{{Label: "Received", Value: relTime(now, s.CreatedAt), Exact: fmtDateTime(s.CreatedAt.In(loc))}}
+	d.Details = []drawerDetail{{Label: "Received", Value: relTime(now, s.CreatedAt), Exact: fmtDateTime(s.CreatedAt.In(loc)), Stamp: s.CreatedAt.UTC().Format(time.RFC3339)}}
 	if p := pagePath(s.Metadata.PageURL); p != "" {
 		d.Details = append(d.Details, drawerDetail{Label: "Page", Value: p})
 	}
