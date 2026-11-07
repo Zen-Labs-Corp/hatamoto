@@ -57,11 +57,13 @@ page with no secondary sidebar.
 
 **Submissions tab.** `<admin>/forms/design/{id}/submissions` is the one place to read a form's
 submissions. It shows stat cards (new, total, last 30 days, conversion), a search box (it looks in
-the answers), a status filter, a table with a checkbox per row, and bulk actions (mark read, mark
-unread, spam, delete; a bulk delete asks to confirm). **Export CSV** exports what the search and
+the answers), a status filter, a table with a checkbox per row, and bulk actions (mark read, spam,
+delete; a bulk delete asks to confirm). **Export CSV** exports what the search and
 filter show, not the whole form. A row opens a drawer with the answers and details (`?s={sid}`):
 opening a new submission marks it read, `j` and `k` move to the next and previous row, `Esc`
-closes it. Status, email-forward and delete actions return to the tab with the search, filter and
+closes it. The drawer offers Reply (a `mailto:` link to the email answer, when the form has one),
+Mark as spam / Not spam, Mark unread (on a read submission), Delete (asks first) and, in its More
+actions menu, Archive and Forward by email (only when the server can send mail). Status, email-forward and delete actions return to the tab with the search, filter and
 page kept; the result of an email-forward is a flash on the tab (303 back to it), not an error page.
 Conversion is the submissions divided by the visits that landed on the pages the form was sent
 from, over the last 30 days; it is not every page view, and shows "Not available" when there is no

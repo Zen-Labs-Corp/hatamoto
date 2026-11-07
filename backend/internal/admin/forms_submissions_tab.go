@@ -38,6 +38,7 @@ type submissionDrawer struct {
 	Webhooks                      string // names of the webhooks that fire, owner only
 	PrevURL, NextURL              string
 	ShowWebhooks                  bool
+	CanForward                    bool // the server can send mail: the menu offers Forward by email
 }
 
 type drawerAnswer struct{ Label, Value string }

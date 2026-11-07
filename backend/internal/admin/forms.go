@@ -774,7 +774,12 @@ func (a *Admin) handleSubmissionEmail(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	back := a.tabURL(f.ID, "", "", 1, s.ID.String())
+	back := a.backToTab(f, r.PostFormValue("back"))
+	if strings.Contains(back, "?") {
+		back += "&s=" + s.ID.String()
+	} else {
+		back += "?s=" + s.ID.String()
+	}
 	m := a.deps.Growth.FormMail
 	if m == nil || !m.Configured() {
 		a.SetFlash(w, r, "error", "Email is not set up on this server, so nothing was sent.")

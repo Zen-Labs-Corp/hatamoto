@@ -6,6 +6,7 @@ import (
 	"errors"
 	"html"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -794,5 +795,72 @@ func TestSubmissionBackRejectsOtherAddresses(t *testing.T) {
 		if rec.Code != 303 || !strings.HasPrefix(loc, plain) || strings.Contains(loc, "evil") || strings.Contains(loc, "status=bogus") {
 			t.Errorf("back %q: %d -> %q, want the form's own tab", back, rec.Code, loc)
 		}
+	}
+}
+
+// Every action the drawer offers is a form or link in the drawer itself: this
+// posts what the opened drawer renders and checks each result.
+func TestSubmissionDrawerActionsWork(t *testing.T) {
+	t.Parallel()
+
+	g, ff, mail, fm, s := submissionRig(t)
+	tab := "/admin/forms/design/" + fm.ID.String() + "/submissions"
+	filters := "?q=ada&status=read"
+	wantBack := tab + "?q=ada&status=read"
+	open := func() string {
+		rec := g.do("GET", tab+filters+"&s="+s.ID.String(), "owner-token", nil, map[string]string{"HX-Request": "true", "HX-Target": "hm-ss-drawer"})
+		if rec.Code != 200 {
+			t.Fatalf("drawer: %d", rec.Code)
+		}
+		return rec.Body.String()
+	}
+	form0 := func(drawer, action string) url.Values {
+		t.Helper()
+		i := strings.Index(drawer, `action="`+action+`"`)
+		if i < 0 {
+			t.Fatalf("drawer has no form posting to %s:\n%s", action, drawer)
+		}
+		end := i + strings.Index(drawer[i:], "</form>")
+		vals := url.Values{}
+		for _, m := range regexp.MustCompile(`<input[^>]*type="hidden"[^>]*name="([^"]+)"[^>]*value="([^"]*)"`).FindAllStringSubmatch(drawer[i:end], -1) {
+			vals.Set(m[1], html.UnescapeString(m[2]))
+		}
+		return vals
+	}
+	st := "/admin/forms/submissions/" + s.ID.String() + "/status"
+	drawer := open() // opening marks it read
+	if !strings.Contains(drawer, `href="mailto:ada@example.com"`) || !strings.Contains(drawer, "Mark unread") || !strings.Contains(drawer, "Archive") || !strings.Contains(drawer, "Forward by email") {
+		t.Fatalf("drawer lacks Reply, Mark unread, Archive or Forward by email:\n%s", drawer)
+	}
+	if !strings.Contains(drawer, "/delete?back=") {
+		t.Error("drawer lacks Delete")
+	}
+	for _, c := range []struct{ status, want string }{{"new", form.SubmissionStatusNew}, {"archived", form.SubmissionStatusArchived}, {"spam", form.SubmissionStatusSpam}} {
+		ff.subs[s.ID].Status = form.SubmissionStatusRead
+		vals := form0(drawer, st)
+		// The first status form is spam; pick the form that sets c.status.
+		for _, m := range regexp.MustCompile(`(?s)<form method="post" action="`+regexp.QuoteMeta(st)+`">.*?</form>`).FindAllString(drawer, -1) {
+			if strings.Contains(m, `name="status" value="`+c.status+`"`) {
+				vals = form0(m, st)
+			}
+		}
+		if vals.Get("status") != c.status {
+			t.Fatalf("drawer has no %s button (got %q)", c.status, vals.Get("status"))
+		}
+		rec := g.do("POST", st, "owner-token", vals, nil)
+		if rec.Code != 303 || rec.Header().Get("Location") != wantBack || ff.subs[s.ID].Status != c.want {
+			t.Errorf("%s: %d -> %q, status %s", c.status, rec.Code, rec.Header().Get("Location"), ff.subs[s.ID].Status)
+		}
+	}
+	ff.subs[s.ID].Status = form.SubmissionStatusRead
+	vals := form0(drawer, "/admin/forms/submissions/"+s.ID.String()+"/email")
+	vals.Set("to", "sales@example.com")
+	rec := g.do("POST", "/admin/forms/submissions/"+s.ID.String()+"/email", "owner-token", vals, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != wantBack+"&s="+s.ID.String() || len(mail.sent) != 1 {
+		t.Errorf("forward: %d -> %q sent %d", rec.Code, rec.Header().Get("Location"), len(mail.sent))
+	}
+	mail.on = false
+	if strings.Contains(open(), "Forward by email") {
+		t.Error("the drawer offers forwarding although email is not set up")
 	}
 }

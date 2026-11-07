@@ -246,6 +246,7 @@ func (a *Admin) renderSubmissionsTab(w http.ResponseWriter, r *http.Request, f *
 	if open != nil {
 		drawer = a.buildSubmissionDrawer(ctx, f, open, now, csrfToken(ctx))
 		drawer.Back = a.tabURL(f.ID, q, status, page, "")
+		drawer.CanForward = a.deps.Growth.FormMail != nil && a.deps.Growth.FormMail.Configured()
 		for i, sid := range ids {
 			if sid != drawer.ID {
 				continue
