@@ -1916,6 +1916,428 @@
    "want_visible": {
     "a": true
    }
+  },
+  {
+   "name": "contains tests each member of a list for the text",
+   "fields": [
+    {
+     "id": "a",
+     "type": "checkbox",
+     "label": "A",
+     "name": "a",
+     "options": [
+      {
+       "label": "Web design",
+       "value": "Web design"
+      },
+      {
+       "label": "SEO",
+       "value": "SEO"
+      }
+     ]
+    },
+    {
+     "id": "b",
+     "type": "text",
+     "label": "B",
+     "name": "b",
+     "logic": {
+      "field_id": "a",
+      "op": "contains",
+      "value": "design"
+     }
+    },
+    {
+     "id": "c",
+     "type": "text",
+     "label": "C",
+     "name": "c",
+     "logic": {
+      "field_id": "a",
+      "op": "contains",
+      "value": "nope"
+     }
+    }
+   ],
+   "data": {
+    "a": [
+     "Web design",
+     "SEO"
+    ]
+   },
+   "want_visible": {
+    "a": true,
+    "b": true,
+    "c": false
+   }
+  },
+  {
+   "name": "contains on one ticked box is a text test",
+   "fields": [
+    {
+     "id": "a",
+     "type": "checkbox",
+     "label": "A",
+     "name": "a",
+     "options": [
+      {
+       "label": "Web design",
+       "value": "Web design"
+      },
+      {
+       "label": "SEO",
+       "value": "SEO"
+      }
+     ]
+    },
+    {
+     "id": "b",
+     "type": "text",
+     "label": "B",
+     "name": "b",
+     "logic": {
+      "field_id": "a",
+      "op": "contains",
+      "value": "design"
+     }
+    },
+    {
+     "id": "c",
+     "type": "text",
+     "label": "C",
+     "name": "c",
+     "logic": {
+      "field_id": "a",
+      "op": "contains",
+      "value": "nope"
+     }
+    }
+   ],
+   "data": {
+    "a": "Web design"
+   },
+   "want_visible": {
+    "a": true,
+    "b": true,
+    "c": false
+   }
+  },
+  {
+   "name": "is and is_not on a list need a whole member",
+   "fields": [
+    {
+     "id": "a",
+     "type": "checkbox",
+     "label": "A",
+     "name": "a",
+     "options": [
+      {
+       "label": "Web design",
+       "value": "Web design"
+      },
+      {
+       "label": "SEO",
+       "value": "SEO"
+      }
+     ]
+    },
+    {
+     "id": "b",
+     "type": "text",
+     "label": "B",
+     "name": "b",
+     "logic": {
+      "field_id": "a",
+      "op": "is",
+      "value": "design"
+     }
+    },
+    {
+     "id": "c",
+     "type": "text",
+     "label": "C",
+     "name": "c",
+     "logic": {
+      "field_id": "a",
+      "op": "is",
+      "value": "SEO"
+     }
+    },
+    {
+     "id": "d",
+     "type": "text",
+     "label": "D",
+     "name": "d",
+     "logic": {
+      "field_id": "a",
+      "op": "is_not",
+      "value": "SEO"
+     }
+    },
+    {
+     "id": "e",
+     "type": "text",
+     "label": "E",
+     "name": "e",
+     "logic": {
+      "field_id": "a",
+      "op": "is_not",
+      "value": "design"
+     }
+    }
+   ],
+   "data": {
+    "a": [
+     "Web design",
+     "SEO"
+    ]
+   },
+   "want_visible": {
+    "a": true,
+    "b": false,
+    "c": true,
+    "d": false,
+    "e": true
+   }
+  },
+  {
+   "name": "text answers are trimmed before they are compared",
+   "fields": [
+    {
+     "id": "a",
+     "type": "text",
+     "label": "A",
+     "name": "a"
+    },
+    {
+     "id": "b",
+     "type": "text",
+     "label": "B",
+     "name": "b",
+     "logic": {
+      "field_id": "a",
+      "op": "is",
+      "value": "X"
+     }
+    },
+    {
+     "id": "c",
+     "type": "text",
+     "label": "C",
+     "name": "c",
+     "logic": {
+      "field_id": "a",
+      "op": "contains",
+      "value": "X"
+     }
+    },
+    {
+     "id": "d",
+     "type": "text",
+     "label": "D",
+     "name": "d",
+     "logic": {
+      "field_id": "a",
+      "op": "filled"
+     }
+    },
+    {
+     "id": "e",
+     "type": "text",
+     "label": "E",
+     "name": "e",
+     "logic": {
+      "field_id": "a",
+      "op": "is_not",
+      "value": "X"
+     }
+    },
+    {
+     "id": "f",
+     "type": "text",
+     "label": "F",
+     "name": "f",
+     "logic": {
+      "field_id": "a",
+      "op": "empty"
+     }
+    }
+   ],
+   "data": {
+    "a": "  X  "
+   },
+   "want_visible": {
+    "a": true,
+    "b": true,
+    "c": true,
+    "d": true,
+    "e": false,
+    "f": false
+   }
+  },
+  {
+   "name": "blank text is empty",
+   "fields": [
+    {
+     "id": "a",
+     "type": "text",
+     "label": "A",
+     "name": "a"
+    },
+    {
+     "id": "b",
+     "type": "text",
+     "label": "B",
+     "name": "b",
+     "logic": {
+      "field_id": "a",
+      "op": "filled"
+     }
+    },
+    {
+     "id": "c",
+     "type": "text",
+     "label": "C",
+     "name": "c",
+     "logic": {
+      "field_id": "a",
+      "op": "empty"
+     }
+    }
+   ],
+   "data": {
+    "a": "   "
+   },
+   "want_visible": {
+    "a": true,
+    "b": false,
+    "c": true
+   }
+  },
+  {
+   "name": "list members are trimmed before they are compared",
+   "fields": [
+    {
+     "id": "a",
+     "type": "checkbox",
+     "label": "A",
+     "name": "a",
+     "options": [
+      {
+       "label": "Web design",
+       "value": "Web design"
+      },
+      {
+       "label": "SEO",
+       "value": "SEO"
+      }
+     ]
+    },
+    {
+     "id": "b",
+     "type": "text",
+     "label": "B",
+     "name": "b",
+     "logic": {
+      "field_id": "a",
+      "op": "is",
+      "value": "SEO"
+     }
+    },
+    {
+     "id": "c",
+     "type": "text",
+     "label": "C",
+     "name": "c",
+     "logic": {
+      "field_id": "a",
+      "op": "contains",
+      "value": "SE"
+     }
+    },
+    {
+     "id": "d",
+     "type": "text",
+     "label": "D",
+     "name": "d",
+     "logic": {
+      "field_id": "a",
+      "op": "filled"
+     }
+    }
+   ],
+   "data": {
+    "a": [
+     " SEO "
+    ]
+   },
+   "want_visible": {
+    "a": true,
+    "b": true,
+    "c": true,
+    "d": true
+   }
+  },
+  {
+   "name": "an empty list is empty",
+   "fields": [
+    {
+     "id": "a",
+     "type": "checkbox",
+     "label": "A",
+     "name": "a",
+     "options": [
+      {
+       "label": "Web design",
+       "value": "Web design"
+      },
+      {
+       "label": "SEO",
+       "value": "SEO"
+      }
+     ]
+    },
+    {
+     "id": "b",
+     "type": "text",
+     "label": "B",
+     "name": "b",
+     "logic": {
+      "field_id": "a",
+      "op": "empty"
+     }
+    },
+    {
+     "id": "c",
+     "type": "text",
+     "label": "C",
+     "name": "c",
+     "logic": {
+      "field_id": "a",
+      "op": "filled"
+     }
+    },
+    {
+     "id": "d",
+     "type": "text",
+     "label": "D",
+     "name": "d",
+     "logic": {
+      "field_id": "a",
+      "op": "is",
+      "value": ""
+     }
+    }
+   ],
+   "data": {
+    "a": []
+   },
+   "want_visible": {
+    "a": true,
+    "b": true,
+    "c": false,
+    "d": true
+   }
   }
  ]
 }

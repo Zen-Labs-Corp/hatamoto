@@ -98,22 +98,23 @@ func emptyForLogic(v any) bool {
 	return isEmptyAnswer(v)
 }
 
-// answerHas matches a list answer by member and a text answer by equality, or
-// by substring when sub is set.
+// answerHas matches a text answer by trimmed equality, or by substring when
+// sub is set. A list answer matches when any of its members does (an empty list
+// is the empty answer). The form island applies the same rules.
 func answerHas(v any, want string, sub bool) bool {
-	if list, ok := v.([]any); ok {
-		for _, it := range list {
-			if logicText(it) == want {
-				return true
-			}
+	list, ok := v.([]any)
+	if !ok {
+		list = []any{v}
+	} else if len(list) == 0 {
+		list = []any{""}
+	}
+	for _, it := range list {
+		s := logicText(it)
+		if s == want || (sub && strings.Contains(s, want)) {
+			return true
 		}
-		return false
 	}
-	s := logicText(v)
-	if sub {
-		return strings.Contains(s, want)
-	}
-	return s == want
+	return false
 }
 
 func logicText(v any) string {

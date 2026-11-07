@@ -14,7 +14,7 @@ for (const form of document.querySelectorAll("form[data-hm-form-logic]")) {
   const values = (name) => {
     const out = controls(name)
       .filter((i) => !/^(checkbox|radio)$/.test(i.type) || i.checked)
-      .map((i) => i.value);
+      .map((i) => i.value.trim());
     return out.length ? out : [""];
   };
   const test = (op, got, want) => {

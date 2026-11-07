@@ -20,8 +20,8 @@ class RadioNodeList extends Array {}
 const mk = (o) => Object.assign({ disabled: false, checked: false, setAttribute() {}, removeAttribute() {}, focus() {} }, o);
 const inputs = (sc.inputs || []).map(mk);
 const wrappers = (sc.rules || []).map((r) => {
-  const input = mk({ name: r.name, type: 'text', value: r.inputValue || '' });
-  inputs.push(input);
+  let input = inputs.find((i) => i.name === r.name);
+  if (!input) { input = mk({ name: r.name, type: 'text', value: '' }); inputs.push(input); }
   return { hidden: false, input, dataset: { hmLogicField: r.field, hmLogicOp: r.op, hmLogicValue: r.value },
     querySelector: () => input, querySelectorAll: () => [input] };
 });
@@ -57,6 +57,71 @@ vm.runInNewContext(fs.readFileSync(process.argv[2], 'utf8'), ctx);
   console.log(JSON.stringify(out));
 })();
 `
+
+// islandVisibility runs one visibility case of the shared fixture through the
+// island: the answers become form controls, the rules become logic wrappers.
+func islandVisibility(t *testing.T, fields []map[string]any, data map[string]any) map[string]bool {
+	t.Helper()
+	nameOf := map[string]string{}
+	for _, f := range fields {
+		nameOf[f["id"].(string)], _ = f["name"].(string)
+	}
+	var inputs, rules []map[string]any
+	for _, f := range fields {
+		name, _ := f["name"].(string)
+		ctl := map[string]any{"name": name, "type": "text"}
+		if f["type"] == "checkbox" {
+			ctl["type"] = "checkbox"
+		}
+		switch v := data[name].(type) {
+		case []any:
+			for _, m := range v {
+				inputs = append(inputs, map[string]any{"name": name, "type": "checkbox", "value": m, "checked": true})
+			}
+		case string:
+			ctl["value"], ctl["checked"] = v, true
+			inputs = append(inputs, ctl)
+		}
+		if l, ok := f["logic"].(map[string]any); ok {
+			rules = append(rules, map[string]any{"name": name, "field": nameOf[l["field_id"].(string)], "op": l["op"], "value": l["value"]})
+		}
+	}
+	return runIsland(t, map[string]any{"inputs": inputs, "rules": rules}).Hidden
+}
+
+// The server and the island must agree on what is shown: both run the cases
+// of the fixture the server's own test reads.
+func TestFormIslandMatchesServerVisibilityCases(t *testing.T) {
+	t.Parallel()
+	raw, err := os.ReadFile(filepath.Join("..", "form", "testdata", "validation_cases.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tbl struct {
+		Visibility []struct {
+			Name        string           `json:"name"`
+			Fields      []map[string]any `json:"fields"`
+			Data        map[string]any   `json:"data"`
+			WantVisible map[string]bool  `json:"want_visible"`
+		} `json:"visibility"`
+	}
+	if err := json.Unmarshal(raw, &tbl); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range tbl.Visibility {
+		t.Run(tc.Name, func(t *testing.T) {
+			hidden := islandVisibility(t, tc.Fields, tc.Data)
+			for _, f := range tc.Fields {
+				if f["logic"] == nil {
+					continue
+				}
+				if got, want := !hidden[f["name"].(string)], tc.WantVisible[f["id"].(string)]; got != want {
+					t.Errorf("field %v: island shows it = %v, server = %v", f["name"], got, want)
+				}
+			}
+		})
+	}
+}
 
 type islandRun struct {
 	Assigned *string           `json:"assigned"`
