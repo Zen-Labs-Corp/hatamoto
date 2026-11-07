@@ -293,7 +293,7 @@ different: that node is not rendered at all ("Disabled (not rendered)").
 
 ### Islands and the CSP
 
-`tabs` and `video` have an `island.js` (module, no globals, no `eval`). It is served from
+`tabs`, `video` and `form` have an `island.js` (module, no globals, no `eval`). It is served from
 `/theme/assets/builder/<kind>.<hash8>.js` (content hash, immutable cache) and a `<script type="module" src>` is added
 to the plugin body slot only for kinds present on a public page, never in the canvas, never inline. The public CSP is
 `script-src 'self'` for themes that opt in (`csp.strictScripts`, the default theme; see [THEMES.md](THEMES.md#strict-script-policy-cspstrictscripts))
@@ -304,6 +304,16 @@ builder script.
 * **Tabs**: server output is every panel visible with its label as a `p.hm-tp__t` (not a heading, so the heading outline stays the
   author's), so it works without JS. The island
   builds the tablist (roving tabindex, arrows, Home, End, `aria-selected`, `aria-controls`) and hides inactive panels.
+* **Form**: the widget works as a plain form post. Each field is a `div.hm-form__field.hm-form__field--<type>.hm-form__field--<width>`
+  (`full`, `half`, `third`). Layout fields render `h3.hm-form__heading`, `p.hm-form__text` and `hr.hm-form__divider`; a
+  hidden field is a bare `input[type=hidden]`; consent is `label.hm-form__consent`. A field with logic carries
+  `data-hm-logic-field` (the source field's name), `data-hm-logic-op` and `data-hm-logic-value`, and every control is
+  followed by `small.hm-form__error[data-hm-error-for=<name>]`. The `<form>` has `data-hm-form-logic`. The island shows and
+  hides logic fields (hidden fields are also `disabled`, so native `required` never blocks) with the same rules as the
+  server, which decides again on submit. Unless the form has a captcha, the island submits to the JSON endpoint and
+  shows each field error in its slot (`aria-invalid`, `aria-describedby`), then the success message or redirect; a
+  network failure falls back to the native post. Logic applies to the Form widget, not to the legacy `contact_form`
+  section, which renders the new field types without logic.
 * **Video**: server output is a `div.hm-vid` with `data-embed` and a link to the watch URL (plus the optional
   same-origin poster). No third-party request is made at load; no remote thumbnail is ever used. A click replaces
   the link by an `iframe` on the allowlisted embed host (`youtube-nocookie.com`, `player.vimeo.com`). A URL that is not

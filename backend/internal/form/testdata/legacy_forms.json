@@ -1,0 +1,28 @@
+[
+  {
+    "name": "contact",
+    "fields": [
+      {"id":"f1","type":"text","label":"Name","name":"name","required":true,"position":0,"width":"half","placeholder":"Your name"},
+      {"id":"f2","type":"email","label":"Email","name":"email","required":true,"position":1,"width":"half"},
+      {"id":"f3","type":"select","label":"Topic","name":"topic","required":false,"position":2,"options":[{"value":"sales","label":"Sales"},{"value":"help","label":"Help"}]},
+      {"id":"f4","type":"textarea","label":"Message","name":"message","required":true,"position":3,"validation":{"min_length":10,"max_length":2000,"message":"Please write a little more"}}
+    ],
+    "settings": {"submit_button_text":"Send","success_message":"Thanks","enable_captcha":true,"confirmation_email":false,"store_submissions":true}
+  },
+  {
+    "name": "newsletter",
+    "fields": [
+      {"id":"a","type":"email","label":"Email","name":"email","required":true,"position":0}
+    ],
+    "settings": {"enable_captcha":false,"confirmation_email":true,"store_submissions":true,"submit_button_text":"Subscribe","success_message":"Subscribed"}
+  },
+  {
+    "name": "survey",
+    "fields": [
+      {"id":"q1","type":"radio","label":"Rating","name":"rating","required":true,"position":0,"options":[{"value":"1","label":"Bad"},{"value":"5","label":"Good"}]},
+      {"id":"q2","type":"number","label":"Age","name":"age","required":false,"position":1,"validation":{"min":18,"max":99}},
+      {"id":"q3","type":"url","label":"Website","name":"website","required":false,"position":2,"validation":{"pattern":"^https://"}}
+    ],
+    "settings": {"enable_captcha":false,"confirmation_email":false,"store_submissions":false,"success_message":"Done"}
+  }
+]

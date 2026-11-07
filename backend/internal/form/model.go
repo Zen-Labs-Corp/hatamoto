@@ -35,6 +35,12 @@ const (
 	FieldTypeDate     = "date"
 	FieldTypeNumber   = "number"
 	FieldTypeURL      = "url"
+
+	FieldTypeHeading   = "heading"
+	FieldTypeParagraph = "paragraph"
+	FieldTypeDivider   = "divider"
+	FieldTypeHidden    = "hidden"
+	FieldTypeConsent   = "consent"
 )
 
 // Common errors.
@@ -44,6 +50,9 @@ var (
 	ErrSlugAlreadyExists  = errors.New("form slug already exists")
 	ErrInvalidStatus      = errors.New("invalid form status")
 	ErrInvalidFieldType   = errors.New("invalid field type")
+	// ErrVersionConflict means the form was saved by someone else after the
+	// version the caller based its edit on.
+	ErrVersionConflict = errors.New("form was changed by someone else")
 )
 
 // Form represents a form definition.
@@ -58,6 +67,13 @@ type Form struct {
 	CreatedAt   time.Time    `json:"created_at"`
 	UpdatedAt   time.Time    `json:"updated_at"`
 }
+
+// Version identifies the saved state of the form for conflict detection: its
+// last update time at the microsecond precision Postgres stores.
+func (f *Form) Version() string { return f.UpdatedAt.UTC().Format(time.RFC3339Nano) }
+
+// ParseVersion reads a string produced by Version.
+func ParseVersion(v string) (time.Time, error) { return time.Parse(time.RFC3339Nano, v) }
 
 // FormField represents a single field in a form.
 type FormField struct {
@@ -74,7 +90,49 @@ type FormField struct {
 	Width        string            `json:"width,omitempty"` // "full", "half", "third"
 	Position     int               `json:"position"`
 	Attributes   map[string]string `json:"attributes,omitempty"`
+
+	// Logic shows the field only while its condition holds.
+	Logic *FieldLogic `json:"logic,omitempty"`
+	// InEmail is nil when the field is included in the notification email.
+	InEmail        *bool       `json:"in_email,omitempty"`
+	NameLocked     bool        `json:"name_locked,omitzero"`
+	BlockFreeEmail bool        `json:"block_free_email,omitzero"` // email type only
+	Text           string      `json:"text,omitempty"`            // heading/paragraph content
+	Link           string      `json:"link,omitempty"`            // consent link: /path or http(s) URL
+	Hidden         *HiddenSpec `json:"hidden,omitempty"`
 }
+
+// FieldLogic is a show-when condition on another field, referenced by id.
+// Ops: is, is_not, contains, filled, empty.
+type FieldLogic struct {
+	FieldID string `json:"field_id"`
+	Op      string `json:"op"`
+	Value   string `json:"value,omitempty"`
+}
+
+// HiddenSpec says how a hidden field's value is resolved on the server.
+// Source is one of param, page, referrer, static.
+type HiddenSpec struct {
+	Source string `json:"source"`
+	Param  string `json:"param,omitempty"`
+	Value  string `json:"value,omitempty"`
+}
+
+// IsLayout reports whether the field is display-only and carries no answer.
+func (f FormField) IsLayout() bool {
+	switch f.Type {
+	case FieldTypeHeading, FieldTypeParagraph, FieldTypeDivider:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsInput reports whether the field can hold a submitted value.
+func (f FormField) IsInput() bool { return !f.IsLayout() }
+
+// InEmailOn reports whether the field belongs in the notification email.
+func (f FormField) InEmailOn() bool { return f.InEmail == nil || *f.InEmail }
 
 // FieldOption represents an option for select, radio, or checkbox fields.
 type FieldOption struct {
@@ -163,6 +221,16 @@ type UpdateFormInput struct {
 	Status      *string       `json:"status,omitempty"`
 }
 
+// SaveDefinitionInput is a complete form definition. Unlike UpdateFormInput it
+// replaces fields and settings wholesale.
+type SaveDefinitionInput struct {
+	Name        string       `json:"name"`
+	Description *string      `json:"description,omitempty"`
+	Status      string       `json:"status"`
+	Fields      []FormField  `json:"fields"`
+	Settings    FormSettings `json:"settings"`
+}
+
 // CreateSubmissionInput represents input for creating a form submission.
 type CreateSubmissionInput struct {
 	Data     map[string]any     `json:"data"`
@@ -221,7 +289,8 @@ func ValidFieldType(fieldType string) bool {
 	switch fieldType {
 	case FieldTypeText, FieldTypeEmail, FieldTypePhone, FieldTypeTextarea,
 		FieldTypeSelect, FieldTypeRadio, FieldTypeCheckbox, FieldTypeDate,
-		FieldTypeNumber, FieldTypeURL:
+		FieldTypeNumber, FieldTypeURL, FieldTypeHeading, FieldTypeParagraph,
+		FieldTypeDivider, FieldTypeHidden, FieldTypeConsent:
 		return true
 	default:
 		return false
@@ -241,5 +310,10 @@ func GetFieldTypes() []string {
 		FieldTypeDate,
 		FieldTypeNumber,
 		FieldTypeURL,
+		FieldTypeHeading,
+		FieldTypeParagraph,
+		FieldTypeDivider,
+		FieldTypeHidden,
+		FieldTypeConsent,
 	}
 }

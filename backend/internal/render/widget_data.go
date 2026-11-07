@@ -20,7 +20,7 @@ func init() {
 		}
 		type field struct {
 			FormField
-			ID, InputType string
+			ID, InputType, Href string
 		}
 		x := struct {
 			Slug, Path, Success, Submit string
@@ -41,7 +41,11 @@ func init() {
 			x.Submit = "Send"
 		}
 		for _, ff := range f.Fields {
-			x.Fields = append(x.Fields, field{FormField: ff, ID: "hm-form-" + f.Slug + "-" + ff.Name, InputType: inputType(ff.Type)})
+			fl := field{FormField: ff, ID: "hm-form-" + f.Slug + "-" + ff.Name, InputType: inputType(ff.Type)}
+			if ff.Link != "" {
+				fl.Href = safeURL(ff.Link)
+			}
+			x.Fields = append(x.Fields, fl)
 		}
 		return x, nil
 	})

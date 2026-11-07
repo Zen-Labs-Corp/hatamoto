@@ -1,6 +1,7 @@
 package server
 
 import (
+	"cmp"
 	"net/http"
 	"net/url"
 	"strings"
@@ -43,12 +44,13 @@ func (s *Server) handlePublicFormPost(w http.ResponseWriter, r *http.Request) {
 
 	data := formValues(r.PostForm)
 
-	_, err := s.submitPublicForm(r.Context(), slug, data, controlFromValues(r.PostForm), submitMeta{
+	ctl := controlFromValues(r.PostForm)
+	_, err := s.submitPublicForm(r.Context(), slug, data, ctl, submitMeta{
 		IPAddress: middleware.GetClientIP(r),
 		TrustedIP: middleware.GetClientIP(r),
 		UserAgent: r.UserAgent(),
 		Referrer:  r.Referer(),
-		PageURL:   r.PostForm.Get("page_url"),
+		PageURL:   cmp.Or(ctl.Page, r.PostForm.Get("page_url")),
 		Host:      r.Host,
 	})
 	if err != nil {

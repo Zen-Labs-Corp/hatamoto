@@ -1,0 +1,135 @@
+package render
+
+import (
+	"bytes"
+	"strings"
+	"testing"
+
+	"hatamoto.dev/core/internal/builder"
+)
+
+// The legacy contact_form section renders the layout, hidden and consent
+// types as such, never as a text input.
+func TestContactFormSectionNewTypes(t *testing.T) {
+	e, err := New(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := minimalView()
+	v.Forms = map[string]FormView{"contact": {Slug: "contact", Name: "C", Fields: []FormField{
+		{Name: "a", Label: "A", Type: "text"},
+		{Type: "heading", Text: "Head <b>"},
+		{Type: "paragraph", Text: "Para"},
+		{Type: "divider"},
+		{Name: "src", Type: "hidden", Hidden: true, HiddenValue: "v1"},
+		{Name: "ok", Label: "I agree", Type: "consent", Required: true, Link: "/privacy"},
+		{Name: "bad", Label: "Bad", Type: "consent", Link: "javascript:alert(1)"},
+	}}}
+	v.Sections = []Section{{ID: "s", Type: "contact_form", Content: map[string]any{"form_slug": "contact"}}}
+	var buf bytes.Buffer
+	if err := e.RenderPage(&buf, v); err != nil {
+		t.Fatal(err)
+	}
+	out := mainInner(t, buf.String())
+	for _, want := range []string{
+		`<h3 class="hm-form__heading">Head &lt;b&gt;</h3>`, `<p class="hm-form__text">Para</p>`, `<hr class="hm-form__divider">`,
+		`<input type="hidden" name="src" value="v1">`,
+		`<label class="hm-form__consent"><input type="checkbox" id="hm-form-contact-ok" name="ok" value="Yes" required> <span><a href="/privacy" rel="noopener">I agree</a>`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q\n%s", want, out)
+		}
+	}
+	for _, bad := range []string{"javascript:", `name="src" type=`, `id="hm-form-contact-">`} {
+		if strings.Contains(out, bad) {
+			t.Errorf("unexpected %q", bad)
+		}
+	}
+}
+
+// A form with field logic placed through the contact_form section is driven by
+// the form island like the widget: logic markers, error slots, and the script.
+// A form without logic keeps the plain section markup.
+func TestContactFormSectionCarriesFieldLogic(t *testing.T) {
+	e, err := New(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	render := func(fields []FormField) string {
+		v := minimalView()
+		v.Forms = map[string]FormView{"contact": {Slug: "contact", Name: "C", Fields: fields}}
+		v.Sections = []Section{{ID: "s", Type: "contact_form", Content: map[string]any{"form_slug": "contact"}}}
+		var buf bytes.Buffer
+		if err := e.RenderPage(&buf, v); err != nil {
+			t.Fatal(err)
+		}
+		return buf.String()
+	}
+	out := render([]FormField{
+		{Name: "topic", Label: "Topic", Type: "select", Width: "half"},
+		{Name: "other", Label: "Other", Type: "text", LogicField: "topic", LogicOp: "is", LogicValue: "other"},
+	})
+	for _, want := range []string{
+		`data-hm-form-logic>`, `hm-form__field--half`,
+		`data-hm-logic-field="topic" data-hm-logic-op="is" data-hm-logic-value="other"`,
+		`data-hm-error-for="other"`, `/form.`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	if strings.Contains(out, `data-hm-form="`) {
+		t.Error("the logic form is also claimed by the theme script, which would submit it twice")
+	}
+	plain := render([]FormField{{Name: "a", Label: "A", Type: "text"}})
+	for _, bad := range []string{"data-hm-form-logic", "data-hm-error-for", "data-hm-logic-field"} {
+		if strings.Contains(plain, bad) {
+			t.Errorf("form without logic carries %q", bad)
+		}
+	}
+	if !strings.Contains(plain, `data-hm-form="contact"`) {
+		t.Error("form without logic lost its theme script marker")
+	}
+}
+
+// The form island follows the rendered component, not the top-level blocks: a
+// contact_form with logic inside a styled container or a theme part still
+// loads it, else its conditional field would always show.
+func TestContactFormLogicIslandWhenNested(t *testing.T) {
+	form := map[string]FormView{"contact": {Slug: "contact", Name: "C", Fields: []FormField{
+		{Name: "topic", Label: "Topic", Type: "select"},
+		{Name: "other", Label: "Other", Type: "text", LogicField: "topic", LogicOp: "is", LogicValue: "other"},
+	}}}
+	comp := func() *builder.Node {
+		return &builder.Node{ID: "cf", T: "component", P: map[string]any{"type": "contact_form", "content": map[string]any{"form_slug": "contact"}}}
+	}
+	styled := func() *builder.Node {
+		return &builder.Node{ID: "wrap", T: "container", P: map[string]any{"tag": "section"},
+			S: map[string]map[string]string{"base": {"pt": "space-1"}}, C: []*builder.Node{comp()}}
+	}
+	nested := func() *PageView { v := minimalView(); v.Doc = docOf(styled()); return v }
+	inHeader := func() *PageView {
+		v := minimalView()
+		v.Doc = docOf()
+		v.Site.Design.Parts = map[string]string{builder.SlotHeader: partHeader}
+		return v
+	}
+	cases := map[string]struct {
+		e *Engine
+		v *PageView
+	}{
+		"styled container": {partsEngine(t, standardParts()), nested()},
+		"header part": {partsEngine(t, fakeParts{parts: map[string]partDef{partHeader: {builder.SlotHeader, docOf(styled())}}},
+			themeOptIn(`["header"]`)), inHeader()},
+	}
+	for name, c := range cases {
+		c.v.Forms = form
+		out := page(t, c.e, c.v)
+		if !strings.Contains(out, "data-hm-form-logic") {
+			t.Fatalf("%s: the logic form did not render: %s", name, out)
+		}
+		if !strings.Contains(out, "/form.") {
+			t.Errorf("%s: the form island script is missing", name)
+		}
+	}
+}

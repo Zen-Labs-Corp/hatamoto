@@ -104,7 +104,10 @@ type PageView struct {
 	// render through the theme section partial, the rest natively.
 	Doc *builder.Doc
 	// anchors are the element anchors the current render has written.
-	anchors    *anchorSet
+	anchors *anchorSet
+	// formIsland is set when a contact_form component with field logic was
+	// rendered anywhere (nested, in a part), so the page loads the form island.
+	formIsland bool
 	BaseURL    string
 	Path       string
 	Breadcrumb []Crumb
@@ -953,6 +956,17 @@ type FormView struct {
 	CaptchaSiteKey  string
 }
 
+// HasLogic reports whether any field shows only under a condition. Such a form
+// is driven by the form island (logic, inline errors), like the form widget.
+func (f FormView) HasLogic() bool {
+	for _, ff := range f.Fields {
+		if ff.LogicField != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // FormField is one input of a FormView.
 type FormField struct {
 	Name        string
@@ -962,6 +976,18 @@ type FormField struct {
 	Placeholder string
 	HelpText    string
 	Options     []FormOption
+	Width       string // full|half|third
+	Text        string // heading/paragraph content
+	Link        string // consent link target
+	Hidden      bool   // hidden field: rendered as a hidden input
+	// HiddenValue is set for static hidden fields only; other sources are
+	// resolved on submit.
+	HiddenValue string
+	// LogicField is the NAME of the field this one depends on; empty when the
+	// field has no (resolvable) condition.
+	LogicField string
+	LogicOp    string
+	LogicValue string
 }
 
 // FormOption is one choice of a select or radio field.

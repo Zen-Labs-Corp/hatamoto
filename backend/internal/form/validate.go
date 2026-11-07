@@ -15,21 +15,55 @@ import (
 // maxAnswerRunes bounds an answer that sets no longest-answer check.
 const maxAnswerRunes = 20000
 
-// ValidateSubmission checks a public submission against the form's fields. It
-// is the one validator behind the JSON and the urlencoded submit endpoints.
-//
-// Only answers to fields the form defines are returned: unknown keys are
-// ignored (never stored). Empty optional answers are dropped. The errors are
-// keyed by field name; the returned data is nil when there is any error.
+// SubmitContext is what the server knows about a submission besides the
+// posted answers. Hidden fields resolve from it, never from posted data.
+type SubmitContext struct {
+	PageURL  string
+	Referrer string
+}
+
+// maxHiddenValueRunes bounds a resolved hidden value.
+const maxHiddenValueRunes = 500
+
+// ValidateSubmission validates without submit context. It is Validate with an
+// empty SubmitContext.
 func ValidateSubmission(fields []FormField, data map[string]any) (map[string]any, map[string]string) {
+	return Validate(fields, data, SubmitContext{})
+}
+
+// Validate checks a public submission against the form's fields. It is the
+// one validator behind the JSON and the urlencoded submit endpoints.
+//
+// Layout fields are skipped. A field hidden by its logic is never required
+// and its posted value is dropped. Hidden fields store the value resolved
+// from ctx. Only answers to fields the form defines are returned: unknown
+// keys are ignored (never stored). Empty optional answers are dropped. The
+// errors are keyed by field name; the returned data is nil when there is any
+// error.
+func Validate(fields []FormField, data map[string]any, ctx SubmitContext) (map[string]any, map[string]string) {
+	vis := Visible(fields, data)
 	clean := make(map[string]any, len(fields))
 	errs := map[string]string{}
 	for i := range fields {
 		f := &fields[i]
-		if f.Name == "" {
+		if f.IsLayout() || f.Name == "" {
+			continue
+		}
+		if f.ID != "" && !vis[f.ID] {
+			continue
+		}
+		if f.Type == FieldTypeHidden {
+			if v := resolveHidden(f.Hidden, ctx); v != "" {
+				clean[f.Name] = v
+			}
 			continue
 		}
 		val, msg := validateAnswer(f, data[f.Name])
+		if msg == "" && f.Type == FieldTypeEmail && f.BlockFreeEmail {
+			if s, ok := val.(string); ok && IsFreeEmail(s) {
+				msg = fieldLabel(f) + " must be a work email address"
+			}
+		}
 		switch {
 		case msg != "":
 			errs[f.Name] = msg
@@ -41,6 +75,38 @@ func ValidateSubmission(fields []FormField, data map[string]any) (map[string]any
 		return nil, errs
 	}
 	return clean, nil
+}
+
+func fieldLabel(f *FormField) string {
+	if f.Label == "" {
+		return f.Name
+	}
+	return f.Label
+}
+
+// resolveHidden returns the server-side value of a hidden field ("" for none).
+func resolveHidden(h *HiddenSpec, ctx SubmitContext) string {
+	if h == nil {
+		return ""
+	}
+	var v string
+	switch h.Source {
+	case "param":
+		if u, err := url.Parse(ctx.PageURL); err == nil {
+			v = u.Query().Get(h.Param)
+		}
+	case "page":
+		v = ctx.PageURL
+	case "referrer":
+		v = ctx.Referrer
+	case "static":
+		v = h.Value
+	}
+	v = strings.TrimSpace(v)
+	if utf8.RuneCountInString(v) > maxHiddenValueRunes {
+		v = string([]rune(v)[:maxHiddenValueRunes])
+	}
+	return v
 }
 
 func isEmptyAnswer(v any) bool {
@@ -58,9 +124,9 @@ func isEmptyAnswer(v any) bool {
 // validateAnswer returns the normalised answer (nil when there is none) or an
 // error message for the field.
 func validateAnswer(f *FormField, raw any) (any, string) {
-	label := f.Label
-	if label == "" {
-		label = f.Name
+	label := fieldLabel(f)
+	if f.Type == FieldTypeConsent {
+		return validateConsent(label, raw)
 	}
 	// A checkbox without choices is a yes/no box: false counts as not ticked.
 	if f.Type == FieldTypeCheckbox && len(f.Options) == 0 {
@@ -105,6 +171,22 @@ func validateAnswer(f *FormField, raw any) (any, string) {
 		return nil, msg
 	}
 	return s, ""
+}
+
+// validateConsent is always required and stores "Yes".
+func validateConsent(label string, raw any) (any, string) {
+	switch x := raw.(type) {
+	case bool:
+		if x {
+			return "Yes", ""
+		}
+	case string:
+		switch strings.ToLower(strings.TrimSpace(x)) {
+		case "yes", "on", "true", "1":
+			return "Yes", ""
+		}
+	}
+	return nil, label + " is required"
 }
 
 func validateTickbox(f *FormField, label string, raw any) (any, string) {

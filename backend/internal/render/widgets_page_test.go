@@ -73,7 +73,7 @@ func scriptCount(page string) int {
 	return strings.Count(page, "<script") - strings.Count(page, `<script type="application/ld+json"`) - strings.Count(page, trackTagStr) - strings.Count(page, `<script type="speculationrules"`)
 }
 
-var islandScript = regexp.MustCompile(`<script type="module" src="/theme/assets/builder/(tabs|video)\.[0-9a-f]{8}\.js"></script>`)
+var islandScript = regexp.MustCompile(`<script type="module" src="/theme/assets/builder/(tabs|video|form)\.[0-9a-f]{8}\.js"></script>`)
 
 func TestAllWidgetsFixtureCoversEveryKind(t *testing.T) {
 	d := loadWidgetDoc(t, "all")
@@ -114,22 +114,22 @@ func TestBudgetAllWidgetsPageCSS(t *testing.T) {
 func TestAllWidgetsPageScripts(t *testing.T) {
 	d := loadWidgetDoc(t, "all")
 
-	noIslands := &builder.Doc{V: 2, Nodes: withoutKinds(d.Nodes, "tabs", "video")}
+	noIslands := &builder.Doc{V: 2, Nodes: withoutKinds(d.Nodes, "tabs", "video", "form")}
 	page := renderDoc(t, jsLessLayers(), noIslands, false)
 	if n := scriptCount(page); n != 0 {
 		t.Errorf("page without tabs/video has %d scripts", n)
 	}
 
 	page = renderDoc(t, jsLessLayers(), d, false)
-	if got := scriptCount(page); got != 2 {
-		t.Errorf("page with tabs and video has %d scripts, want 2", got)
+	if got := scriptCount(page); got != 3 {
+		t.Errorf("page with tabs, video and form has %d scripts, want 3", got)
 	}
 	tags := islandScript.FindAllStringSubmatch(page, -1)
-	if len(tags) != 2 || tags[0][1] == tags[1][1] {
+	if len(tags) != 3 || tags[0][1] == tags[1][1] {
 		t.Errorf("island tags = %v", tags)
 	}
 
-	only := &builder.Doc{V: 2, Nodes: withoutKinds(d.Nodes, "video")}
+	only := &builder.Doc{V: 2, Nodes: withoutKinds(d.Nodes, "video", "form")}
 	page = renderDoc(t, jsLessLayers(), only, false)
 	if tags := islandScript.FindAllStringSubmatch(page, -1); scriptCount(page) != 1 || len(tags) != 1 || tags[0][1] != "tabs" {
 		t.Errorf("tabs-only page scripts: %v", tags)
@@ -146,7 +146,7 @@ func TestDisabledWidgetsShipNoCSSOrIsland(t *testing.T) {
 	var disable func(ns []*builder.Node)
 	disable = func(ns []*builder.Node) {
 		for _, n := range ns {
-			if n.T == "tabs" || n.T == "video" {
+			if n.T == "tabs" || n.T == "video" || n.T == "form" {
 				if n.P == nil {
 					n.P = map[string]any{}
 				}
@@ -172,7 +172,7 @@ func TestDisabledWidgetsShipNoCSSOrIsland(t *testing.T) {
 // builder island and no inline script, when tabs and video are absent.
 func TestAllWidgetsPageDefaultTheme(t *testing.T) {
 	d := loadWidgetDoc(t, "all")
-	noIslands := &builder.Doc{V: 2, Nodes: withoutKinds(d.Nodes, "tabs", "video")}
+	noIslands := &builder.Doc{V: 2, Nodes: withoutKinds(d.Nodes, "tabs", "video", "form")}
 	page := renderDoc(t, nil, noIslands, false)
 	if strings.Contains(page, "/theme/assets/builder/") || strings.Contains(page, `type="module"`) {
 		t.Error("builder island on a page without tabs/video")
@@ -183,8 +183,8 @@ func TestAllWidgetsPageDefaultTheme(t *testing.T) {
 		}
 	}
 	full := renderDoc(t, nil, d, false)
-	if got := len(islandScript.FindAllString(full, -1)); got != 2 {
-		t.Errorf("default theme page has %d island tags, want 2", got)
+	if got := len(islandScript.FindAllString(full, -1)); got != 3 {
+		t.Errorf("default theme page has %d island tags, want 3", got)
 	}
 	// Builder markers only: the v1 component's own data-hm-field is theme markup.
 	if m := mainInner(t, full); strings.Contains(m, "data-hm-node") || strings.Contains(m, "data-hm-t=") {

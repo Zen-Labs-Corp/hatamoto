@@ -2,9 +2,11 @@ package form
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/google/uuid"
@@ -62,6 +64,10 @@ func (s *Service) CreateForm(ctx context.Context, input *CreateFormInput) (*Form
 		}
 	}
 
+	if errs := append(settingsProblems(&input.Settings), ValidateDefinition(input.Fields)...); len(errs) > 0 {
+		return nil, errs
+	}
+
 	// Set default settings if not provided
 	if input.Settings.SubmitButtonText == "" {
 		input.Settings.SubmitButtonText = "Submit"
@@ -113,6 +119,10 @@ func (s *Service) UpdateForm(ctx context.Context, id uuid.UUID, input *UpdateFor
 		return nil, ErrInvalidStatus
 	}
 
+	if errs := settingsProblems(input.Settings); len(errs) > 0 {
+		return nil, errs
+	}
+
 	// Validate fields if provided
 	if input.Fields != nil {
 		for i, field := range input.Fields {
@@ -134,6 +144,9 @@ func (s *Service) UpdateForm(ctx context.Context, id uuid.UUID, input *UpdateFor
 				input.Fields[i].Name = generateFieldName(field.Label)
 			}
 		}
+		if errs := ValidateDefinition(input.Fields); len(errs) > 0 {
+			return nil, errs
+		}
 	}
 
 	form, err := s.repo.UpdateForm(ctx, id, input)
@@ -151,6 +164,30 @@ func (s *Service) UpdateForm(ctx context.Context, id uuid.UUID, input *UpdateFor
 	)
 
 	return form, nil
+}
+
+// SaveDefinition replaces a form's definition when base is still its version.
+// It returns DefinitionErrors for an invalid definition and ErrVersionConflict
+// when the form was saved since base.
+func (s *Service) SaveDefinition(ctx context.Context, id uuid.UUID, base time.Time, input *SaveDefinitionInput) (*Form, error) {
+	if !ValidStatus(input.Status) {
+		return nil, ErrInvalidStatus
+	}
+	if errs := append(settingsProblems(&input.Settings), ValidateDefinitionStrict(input.Fields)...); len(errs) > 0 {
+		return nil, errs
+	}
+	f, err := s.repo.SaveDefinition(ctx, id, base, input)
+	if err != nil {
+		if !errors.Is(err, ErrVersionConflict) {
+			s.logger.Error("failed to save form definition",
+				slog.String("form_id", id.String()),
+				slog.String("error", err.Error()),
+			)
+		}
+		return nil, err
+	}
+	s.logger.Info("saved form definition", slog.String("form_id", f.ID.String()))
+	return f, nil
 }
 
 // DeleteForm removes a form.

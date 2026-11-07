@@ -111,7 +111,7 @@
       "tol_pct": 5
     },
     "page_allwidgets_html_bytes": {
-      "value": 39333,
+      "value": 39590,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -249,6 +249,10 @@
     {
       "reason": "speculation rules block in public head",
       "date": "2026-11-06"
+    },
+    {
+      "reason": "forms: form widget markup (width classes, error slots, logic attributes) grows the all-widgets page",
+      "date": "2026-11-07"
     }
   ]
 }

@@ -44,6 +44,7 @@ func (a *Admin) mountForms(authed *httpx.Group) {
 	authed.HandleFunc("POST /forms", a.handleFormCreate)
 	authed.HandleFunc("GET /forms/edit/{id}", a.handleFormEdit)
 	authed.HandleFunc("POST /forms/edit/{id}", a.handleFormSave)
+	authed.HandleFunc("PUT /forms/{id}/definition", a.handleFormDefinition)
 	authed.HandleFunc("GET /forms/delete/{id}", a.handleFormDeleteForm)
 	authed.HandleFunc("POST /forms/delete/{id}", a.handleFormDelete)
 	// The list, export and bulk routes take the form as ?form={id}; a single
@@ -351,6 +352,8 @@ var fieldTypeLabels = map[string]string{
 	form.FieldTypeText: "Single-line text", form.FieldTypeEmail: "Email address", form.FieldTypePhone: "Phone number",
 	form.FieldTypeTextarea: "Multi-line text", form.FieldTypeSelect: "Drop-down list", form.FieldTypeRadio: "Choose one (radio buttons)",
 	form.FieldTypeCheckbox: "Choose several (checkboxes)", form.FieldTypeDate: "Date", form.FieldTypeNumber: "Number", form.FieldTypeURL: "Web address",
+	form.FieldTypeHeading: "Heading", form.FieldTypeParagraph: "Paragraph of text", form.FieldTypeDivider: "Divider",
+	form.FieldTypeHidden: "Hidden value", form.FieldTypeConsent: "Consent checkbox",
 }
 
 // fieldTypeIcon is the icon shown for a field type in the builder's row summary.
@@ -374,13 +377,32 @@ func fieldTypeIcon(t string) string {
 		return "list-ordered"
 	case form.FieldTypeURL:
 		return "link"
+	case form.FieldTypeHeading:
+		return "heading"
+	case form.FieldTypeParagraph:
+		return "align-left"
+	case form.FieldTypeDivider:
+		return "minus"
+	case form.FieldTypeHidden:
+		return "eye-off"
+	case form.FieldTypeConsent:
+		return "shield-check"
 	}
 	return "pen"
+}
+
+// noLegacyInput lists the types this editor has no inputs for (their text or
+// source); the designer edits them. An existing field of one still shows.
+func noLegacyInput(t string) bool {
+	return t == form.FieldTypeHeading || t == form.FieldTypeParagraph || t == form.FieldTypeHidden
 }
 
 func fieldTypeOptions(selected string) []ui.Option {
 	var out []ui.Option
 	for _, t := range form.GetFieldTypes() {
+		if noLegacyInput(t) && t != selected {
+			continue
+		}
 		out = append(out, ui.Option{Value: t, Label: fieldTypeLabels[t], Selected: t == selected})
 	}
 	return out
@@ -544,7 +566,7 @@ func parseFormFields(vals url.Values) []formFieldRow {
 
 func applyFieldOp(rows []formFieldRow, op, addType string) ([]formFieldRow, string) {
 	if op == "add" {
-		if !form.ValidFieldType(addType) {
+		if !form.ValidFieldType(addType) || noLegacyInput(addType) {
 			addType = form.FieldTypeText
 		}
 		return append(rows, formFieldRow{Type: addType, Width: "full"}), "Field added. It is not saved yet."
@@ -605,12 +627,16 @@ func buildFormFields(rows []formFieldRow) []form.FormField {
 		if !form.ValidFieldType(r.Type) {
 			r.Type = form.FieldTypeText
 		}
+		// Layout and hidden fields may have no label; layout fields carry no answer, so no name.
+		layout := form.FormField{Type: r.Type}.IsLayout()
 		if r.Label == "" {
-			r.Err["label"] = "Enter a label"
+			if !layout && r.Type != form.FieldTypeHidden {
+				r.Err["label"] = "Enter a label"
+			}
 		} else if utf8.RuneCountInString(r.Label) > 200 {
 			r.Err["label"] = "Use at most 200 characters"
 		}
-		if r.Name == "" && r.Label != "" {
+		if r.Name == "" && r.Label != "" && !layout {
 			r.Name = fieldNameFromLabel(r.Label)
 		}
 		switch {
@@ -688,6 +714,15 @@ func carryFieldData(fields, stored []form.FormField) []form.FormField {
 			continue
 		}
 		fields[i].DefaultValue, fields[i].Attributes = old.DefaultValue, old.Attributes
+		fields[i].Logic, fields[i].InEmail, fields[i].NameLocked = old.Logic, old.InEmail, old.NameLocked
+		fields[i].BlockFreeEmail, fields[i].Link = old.BlockFreeEmail, old.Link
+		// The text and the source only make sense for their own type.
+		if t := fields[i].Type; t == form.FieldTypeHeading || t == form.FieldTypeParagraph {
+			fields[i].Text = old.Text
+		}
+		if fields[i].Type == form.FieldTypeHidden {
+			fields[i].Hidden = old.Hidden
+		}
 		if old.Validation != nil && (old.Validation.Min != nil || old.Validation.Max != nil) {
 			if fields[i].Validation == nil {
 				fields[i].Validation = &form.FieldValidation{}
@@ -722,17 +757,6 @@ func validEmailList(s string) bool {
 	return true
 }
 
-func safeRedirectTarget(u string) bool {
-	if u == "" {
-		return true
-	}
-	if strings.HasPrefix(u, "/") && !strings.HasPrefix(u, "//") && !strings.ContainsAny(u, "\\ \t\r\n") {
-		return true
-	}
-	p, err := url.Parse(u)
-	return err == nil && (p.Scheme == "https" || p.Scheme == "http") && p.Host != "" && !strings.ContainsAny(u, " \t\r\n\\")
-}
-
 func (a *Admin) handleFormSave(w http.ResponseWriter, r *http.Request) {
 	cur, ok := a.loadForm(w, r)
 	if !ok {
@@ -765,7 +789,7 @@ func (a *Admin) handleFormSave(w http.ResponseWriter, r *http.Request) {
 	if !validEmailList(e.NotifyEmail) {
 		e.Errors["notify"] = "Enter email addresses separated by commas"
 	}
-	if !safeRedirectTarget(e.RedirectURL) {
+	if !form.ValidRedirectTarget(e.RedirectURL) {
 		e.Errors["redirect"] = "Enter a path like /thank-you or a full address starting with https://"
 	}
 	if len(e.Fields) > maxFormFields {
@@ -793,7 +817,18 @@ func (a *Admin) handleFormSave(w http.ResponseWriter, r *http.Request) {
 	if in.Fields == nil {
 		in.Fields = []form.FormField{}
 	}
-	if _, err := a.deps.Growth.Forms.UpdateForm(r.Context(), cur.ID, in); err != nil {
+	_, err := a.deps.Growth.Forms.UpdateForm(r.Context(), cur.ID, in)
+	var defErrs form.DefinitionErrors
+	if errors.As(err, &defErrs) {
+		msgs := make([]string, 0, len(defErrs))
+		for _, de := range defErrs {
+			msgs = append(msgs, de.Message)
+		}
+		e.Errors["fields"] = "Some fields need attention: " + strings.Join(msgs, "; ") + "."
+		a.renderFormEdit(w, r, http.StatusUnprocessableEntity, e)
+		return
+	}
+	if err != nil {
 		a.logger().Error("save form failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The form could not be saved.")
 		return
@@ -1123,6 +1158,9 @@ func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) 
 	known := map[string]bool{}
 	header := []string{"Received (UTC)", "Status", "Submission ID"}
 	for _, ff := range f.Fields {
+		if ff.IsLayout() {
+			continue
+		}
 		known[ff.Name] = true
 		header = append(header, csvx.Safe(ff.Label))
 	}
@@ -1156,6 +1194,9 @@ func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) 
 			written++
 			row := []string{s.CreatedAt.UTC().Format(time.RFC3339), s.Status, s.ID.String()}
 			for _, ff := range f.Fields {
+				if ff.IsLayout() {
+					continue
+				}
 				row = append(row, csvx.Safe(formatAnswer(s.Data[ff.Name])))
 			}
 			var other []string

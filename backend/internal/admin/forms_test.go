@@ -25,6 +25,8 @@ type fakeForms struct {
 	subs  map[uuid.UUID]*form.FormSubmission
 	// calls counts ListSubmissions pages, to prove the export pages through.
 	listCalls int
+	// saves counts SaveDefinition writes and drives the fake updated_at.
+	saves int
 }
 
 func newFakeForms() *fakeForms {
@@ -84,6 +86,9 @@ func (f *fakeForms) UpdateForm(_ context.Context, id uuid.UUID, in *form.UpdateF
 		fm.Description = in.Description
 	}
 	if in.Fields != nil {
+		if errs := form.ValidateDefinition(in.Fields); len(errs) > 0 {
+			return nil, errs
+		}
 		fm.Fields = in.Fields
 	}
 	if in.Settings != nil {
@@ -92,6 +97,30 @@ func (f *fakeForms) UpdateForm(_ context.Context, id uuid.UUID, in *form.UpdateF
 	if in.Status != nil {
 		fm.Status = *in.Status
 	}
+	return fm, nil
+}
+
+// SaveDefinition mirrors form.Service.SaveDefinition: the strict checks, then
+// a compare of the base with the stored updated_at and a new updated_at.
+func (f *fakeForms) SaveDefinition(_ context.Context, id uuid.UUID, base time.Time, in *form.SaveDefinitionInput) (*form.Form, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !form.ValidStatus(in.Status) {
+		return nil, form.ErrInvalidStatus
+	}
+	if errs := form.ValidateDefinitionStrict(in.Fields); len(errs) > 0 {
+		return nil, errs
+	}
+	fm, ok := f.forms[id]
+	if !ok {
+		return nil, form.ErrFormNotFound
+	}
+	if !fm.UpdatedAt.Equal(base) {
+		return nil, form.ErrVersionConflict
+	}
+	fm.Name, fm.Description, fm.Status, fm.Fields, fm.Settings = in.Name, in.Description, in.Status, in.Fields, in.Settings
+	f.saves++
+	fm.UpdatedAt = time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC).Add(time.Duration(f.saves) * time.Microsecond)
 	return fm, nil
 }
 func (f *fakeForms) DeleteForm(_ context.Context, id uuid.UUID) error {

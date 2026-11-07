@@ -56,6 +56,34 @@ counted). The Forms page has three tabs: Forms (`<admin>/forms`), Submissions
 (`<admin>/forms/submissions`) and Spam (`<admin>/forms/spam`, owner only). Media is one plain
 page with no secondary sidebar.
 
+**Form fields and logic.** A form field is one of the input types (text, email, phone, url,
+number, date, textarea, select, radio, checkbox, and the ones below) or a layout type. Layout types
+are `heading`, `paragraph` and `divider`: they show content and submit nothing, store nothing,
+add no CSV column and no notification email row. `hidden` stores a value the server resolves
+from the request (`param` is a query parameter of the submitting page, `page` its address,
+`referrer` the referrer, `static` a fixed value); a value posted for it is ignored. `consent`
+is a checkbox that is always required and stored as `Yes`; its optional `link` is a path
+starting with `/` or an `http(s)` address. An email field with `block_free_email` refuses
+addresses of common free providers ("must be a work email address"). A field with
+`in_email: false` is left out of the notification email (absent means included). A field has a
+width of `full`, `half` or `third`.
+
+A field's `logic` (`field_id`, `op`, `value`) shows it only when the condition holds. The ops
+are `is`, `is_not`, `contains`, `filled` and `empty`. A field hidden by logic is never
+required and its posted value is dropped. A field whose logic source is itself hidden sees an
+empty source. A rule that refers to its own field, to a missing field id or that forms a cycle
+is refused on save. `internal/form/testdata/validation_cases.json` is the shared rule table.
+
+**JSON save.** `PUT <admin>/forms/{id}/definition` saves a whole form definition:
+`{version, name, status, description?, fields, settings}` with the `X-CSRF-Token` header.
+`version` is the value the form was loaded with: the time it was last saved (RFC 3339 with
+fractional seconds). Success is `200 {ok:true, version, saved_at}`; use the new `version` for
+the next save. A stale version is `409 {conflict:true, version, error}` where `version` is the
+current one. A bad definition is `422 {ok:false, error, errors:[{field_id, message}]}`; a
+problem with the form itself uses `name` or `settings.<key>` as the key. The legacy form editor
+and the REST and MCP endpoints do not check a version: the last write wins, and any of them
+changes the version, so a designer holding an older one gets the 409.
+
 Settings and Theme each have a secondary sidebar, built by one component (`settings_nav.go`:
 an `adminArea` with `For(role)`; `SettingsFor` and `ThemeFor` are the two areas). A section
 URL (`<admin>/settings/{entity-models,backups-recovery,tools}`) answers 302 to the first tab
@@ -122,7 +150,7 @@ sidebar).
 | Path | Served by |
 | --- | --- |
 | `<admin>/login`, `logout`, `forgot`, `reset`, `accept`, `setup/*`, `profile` | Go (v1-10) |
-| `<admin>/forms*` (list, `new`, `edit/{id}`, `delete/{id}`, `submissions*` (list, `{sid}`, bulk, CSV export), `spam*`) and `<admin>/media*` (library, upload, formats) | Go (main menu since the Settings regroup) |
+| `<admin>/forms*` (list, `new`, `edit/{id}`, `delete/{id}`, `PUT {id}/definition` (JSON save), `submissions*` (list, `{sid}`, bulk, CSV export), `spam*`) and `<admin>/media*` (library, upload, formats) | Go (main menu since the Settings regroup) |
 | `<admin>/entities*`, `media/{upload,picker,{id}}`, `pick/{entities,terms}` | Go (v1-11, v1-14) |
 | `<admin>/theme/*`: `themes*` (activate, settings, uninstall, install), `colours`, `design-system*`, `presets*`, `parts`, `blocks`, `templates*`, `menus*` (including `POST menus/preview`, the editor's live preview), `contact-button` | Go (the Theme area; the screens date from v1-10 to B6) |
 | `<admin>/settings/*`: `general` and `api-keys*`, `types*` (the type editor has a **Shared across languages** switch, `locale_neutral`, which only takes effect on a site with several languages, read-only on built-in types; the New form of a type with several languages offers **All languages (shared)**), `taxonomies*`, `redirects*` (rules, 404 log, explain), `linking*` (rules, suggestions, equity, import), `users*`, `import*` (WordPress wizard, `docs/IMPORT-WORDPRESS.md`), `export`, `performance*` (page cache) | Go (v1-23a; the screens date from v1-10 to v1-22b) |

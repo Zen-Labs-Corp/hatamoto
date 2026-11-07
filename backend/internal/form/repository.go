@@ -21,6 +21,9 @@ type Repository interface {
 	GetFormBySlug(ctx context.Context, slug string) (*Form, error)
 	ListForms(ctx context.Context, status string) ([]*Form, error)
 	UpdateForm(ctx context.Context, id uuid.UUID, input *UpdateFormInput) (*Form, error)
+	// SaveDefinition replaces the definition when the form's updated_at still
+	// equals base; otherwise it returns ErrVersionConflict.
+	SaveDefinition(ctx context.Context, id uuid.UUID, base time.Time, input *SaveDefinitionInput) (*Form, error)
 	DeleteForm(ctx context.Context, id uuid.UUID) error
 
 	// Submission operations
@@ -303,6 +306,60 @@ func (r *PostgresRepository) UpdateForm(ctx context.Context, id uuid.UUID, input
 		return nil, fmt.Errorf("failed to unmarshal settings: %w", err)
 	}
 
+	return &f, nil
+}
+
+// SaveDefinition replaces name, description, status, fields and settings in
+// one statement guarded by the base version (updated_at).
+func (r *PostgresRepository) SaveDefinition(ctx context.Context, id uuid.UUID, base time.Time, input *SaveDefinitionInput) (*Form, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
+	fields := input.Fields
+	if fields == nil {
+		fields = []FormField{}
+	}
+	fieldsJSON, err := jsonx.Marshal(fields)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal fields: %w", err)
+	}
+	settingsJSON, err := jsonx.Marshal(input.Settings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal settings: %w", err)
+	}
+
+	var f Form
+	var fieldsData, settingsData []byte
+	err = conn.QueryRow(ctx, `
+		UPDATE hatamoto_forms
+		SET name = $3, description = $4, fields = $5, settings = $6, status = $7, updated_at = NOW()
+		WHERE id = $1 AND updated_at = $2
+		RETURNING id, name, slug, description, fields, settings, status, created_at, updated_at
+	`, id, base, input.Name, input.Description, fieldsJSON, settingsJSON, input.Status).Scan(
+		&f.ID, &f.Name, &f.Slug, &f.Description, &fieldsData, &settingsData, &f.Status, &f.CreatedAt, &f.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		var exists bool
+		if qerr := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_forms WHERE id = $1)`, id).Scan(&exists); qerr != nil {
+			return nil, fmt.Errorf("failed to check form: %w", qerr)
+		}
+		if !exists {
+			return nil, ErrFormNotFound
+		}
+		return nil, ErrVersionConflict
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to save form definition: %w", err)
+	}
+	if err := jsonx.Unmarshal(fieldsData, &f.Fields, jsonx.StoredLoose); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal fields: %w", err)
+	}
+	if err := jsonx.Unmarshal(settingsData, &f.Settings, jsonx.StoredLoose); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal settings: %w", err)
+	}
 	return &f, nil
 }
 
