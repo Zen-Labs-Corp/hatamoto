@@ -239,6 +239,7 @@ function start(root, boot) {
       sheetEl.hidden = mode === "try";
       previewEl.hidden = mode !== "try";
       if (mode !== "try") return;
+      select(null); // nothing stays selected behind the preview
       try {
         const m = await previewChunk();
         preview ??= m.mountPreview(previewEl, { getDoc: doc, freeEmail: boot.freeEmail ?? [], announce });
@@ -261,7 +262,7 @@ function start(root, boot) {
     if (t.closest?.("dialog[open]")) return;
     const text = !!t.closest?.("input, textarea, select, [contenteditable]");
     const control = !!t.closest?.("button, a[href], summary, [role=switch]");
-    const key = resolveKey(e, { text, selected: !!selected, control, canvas: canvas.contains(t) });
+    const key = resolveKey(e, { text, selected: !!selected, control, canvas: canvas.contains(t), preview: root.dataset.mode === "try" });
     if (!key) return;
     e.preventDefault();
     switch (key) {

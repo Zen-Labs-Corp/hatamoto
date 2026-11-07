@@ -74,3 +74,10 @@ test("Up and Down pick a field from the canvas when none is selected, and only t
   assert.equal(resolveKey({ key: "Delete" }, { canvas: true }), null);
   assert.equal(resolveKey({ key: "ArrowDown" }, { canvas: true, control: true }), null);
 });
+
+test("while Try it shows, only save and help act: the canvas is hidden", () => {
+  const t = { preview: true, selected: true, canvas: true };
+  assert.equal(resolveKey(mod("s"), t), "save");
+  assert.equal(resolveKey({ key: "?" }, t), "help");
+  for (const e of [{ key: "Delete" }, { key: "Backspace" }, { key: "ArrowDown" }, { key: "Escape" }, { key: "ArrowUp", altKey: true }, mod("z"), mod("y"), mod("d")]) assert.equal(resolveKey(e, t), null);
+});

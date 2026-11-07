@@ -243,6 +243,16 @@ await open(formId);
   ok((await doc()).fields[0].id === second1, "A3: Alt+Up then reorders it, with no mouse");
   await page.keyboard.press("Alt+ArrowDown");
 
+  // Try it hides the canvas: nothing is selected, and the editing keys do nothing
+  await (await rowAt(0)).click(EDGE);
+  const tryDoc = JSON.stringify(await doc());
+  await page.locator('[data-hm-fd-mode="try"]').click();
+  await page.locator("[data-hm-fd-sheet][hidden]").waitFor({ state: "attached" });
+  await page.evaluate(() => document.activeElement?.blur());
+  for (const k of ["Delete", "Backspace", "Control+d", "Control+z", "Alt+ArrowDown"]) await page.keyboard.press(k);
+  ok((await selected()) === null && JSON.stringify(await doc()) === tryDoc, "A3: in Try it nothing is selected and the editing keys change nothing");
+  await page.locator('[data-hm-fd-mode="edit"]').click();
+
   // typing in a field's label keeps every shortcut to itself
   const before = JSON.stringify(await doc());
   const input = (await rowAt(0)).locator("[data-hm-fd-label]");

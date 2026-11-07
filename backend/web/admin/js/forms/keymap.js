@@ -6,7 +6,7 @@
  * resolveKey(e, ctx) -> action name or null.
  * e: {key, ctrlKey, metaKey, shiftKey, altKey, isComposing, getModifierState?}.
  * ctx: {text (the target is an input, textarea, select or editable), selected (a field is
- * selected), canvas (the target is inside the canvas: Up and Down then pick a field when none is
+ * selected), preview (Try it is showing: only save and help act, the canvas is hidden), canvas (the target is inside the canvas: Up and Down then pick a field when none is
  * selected), control (the target is a button, link or other control: it keeps Enter, Space,
  * arrows and Backspace)}.
  * Actions: move-up move-down duplicate delete undo redo save deselect prev next help.
@@ -19,6 +19,7 @@ export function resolveKey(e, ctx) {
   const lower = typeof k === "string" ? k.toLowerCase() : "";
   if (mod && !e.altKey && lower === "s") return "save";
   if (ctx.text) return null;
+  if (ctx.preview) return k === "?" && !mod && !e.altKey ? "help" : null;
   if (mod) {
     if (e.altKey) return null;
     if (lower === "z") return e.shiftKey ? "redo" : "undo";
