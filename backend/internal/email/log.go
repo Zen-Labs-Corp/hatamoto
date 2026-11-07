@@ -21,6 +21,7 @@ const (
 	KindAdminAddressSetup   Kind = "admin_address_setup"
 	KindTest                Kind = "test"
 	KindRunDigest           Kind = "run_digest"
+	KindAccessEnding        Kind = "access_ending"
 	KindPlugin              Kind = "plugin"
 	KindOther               Kind = "other"
 )

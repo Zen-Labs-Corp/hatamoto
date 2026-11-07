@@ -497,7 +497,7 @@ func (s *Service) newMessageID(c Config) string {
 // opts.FromAddress / FromName override the service defaults for the
 // From header; opts.ReplyTo adds a Reply-To header when non-empty.
 func (s *Service) buildMIMEMessage(c Config, to []string, subject, htmlBody, textBody, messageID string, opts SendOptions) []byte {
-	boundary := "----=_Part_0_1234567890"
+	boundary := "----=_Part_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 
 	var msg bytes.Buffer
 

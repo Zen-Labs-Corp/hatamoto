@@ -118,3 +118,87 @@ func TestAdminAddressMailsReachTheSink(t *testing.T) {
 		}
 	}
 }
+
+func TestInviteMailShowsAccessEnd(t *testing.T) {
+	svc := newTestService(t)
+	var b bytes.Buffer
+	data := InviteMailData{SiteName: "Acme", Role: "editor", URL: "https://x/y", ExpiresIn: "7 days", AccessEnds: "31 Dec 2026"}
+	if err := svc.templates.ExecuteTemplate(&b, "invite.html", data); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(b.String(), "Your access ends on 31 Dec 2026.") {
+		t.Error("invite html without the access end line")
+	}
+	b.Reset()
+	data.AccessEnds = ""
+	if err := svc.templates.ExecuteTemplate(&b, "invite.html", data); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(b.String(), "Your access ends") {
+		t.Error("invite html shows an end it does not have")
+	}
+}
+
+func TestAccessEndingMail(t *testing.T) {
+	t.Setenv("EMAIL_DISABLED", "")
+	sink := smtptest.Start(t, smtptest.Options{})
+	svc := newTestService(t)
+	svc.Reload(Config{SMTPHost: sink.Host(), SMTPPort: sink.Port(), FromAddress: "from@example.test", Security: SecurityNone})
+	rec := &fakeRecorder{}
+	svc.SetRecorder(rec)
+
+	err := svc.SendAccessEnding(context.Background(), "owner@example.test", AccessEndingData{
+		SiteName: "Acme", Name: "<b>Ann</b>", Email: "ann@example.test", Role: "editor", EndsOn: "31 Dec 2026", DaysLeft: 2, UsersURL: "https://acme.test/admin/settings/users",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	msgs := sink.Messages()
+	if len(msgs) != 1 {
+		t.Fatalf("messages = %d, want 1", len(msgs))
+	}
+	data := msgs[0].Data
+	for _, want := range []string{"Subject: Access for <b>Ann</b> ends on 31 Dec 2026", "loses access to Acme in 2 days", "https://acme.test/admin/settings/users", "&lt;b&gt;Ann&lt;/b&gt;", "text/plain", "text/html"} {
+		if !strings.Contains(data, want) {
+			t.Errorf("missing %q in\n%s", want, data)
+		}
+	}
+	if strings.ContainsAny(data, "\u2013\u2014") {
+		t.Error("a dash in the mail")
+	}
+	if len(rec.entries) != 1 || rec.entries[0].Kind != KindAccessEnding || rec.entries[0].BodyText == "" {
+		t.Errorf("log rows: %+v", rec.entries)
+	}
+}
+
+func TestAccessEndingSubjectRefusesHeaderInjection(t *testing.T) {
+	t.Setenv("EMAIL_DISABLED", "")
+	sink := smtptest.Start(t, smtptest.Options{})
+	svc := newTestService(t)
+	svc.Reload(Config{SMTPHost: sink.Host(), SMTPPort: sink.Port(), FromAddress: "from@example.test", Security: SecurityNone})
+	err := svc.SendAccessEnding(context.Background(), "owner@example.test", AccessEndingData{
+		SiteName: "Acme", Name: "X\r\nBcc: evil@example.test", Email: "ann@example.test", Role: "editor", EndsOn: "31 Dec 2026",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	msgs := sink.Messages()
+	if len(msgs) != 1 {
+		t.Fatalf("messages = %d, want 1", len(msgs))
+	}
+	head, _, _ := strings.Cut(msgs[0].Data, "\r\n\r\n")
+	if strings.Contains(head, "Bcc:") {
+		t.Errorf("injected header:\n%s", head)
+	}
+	if !strings.Contains(head, "Subject: Access for ann@example.test ends on 31 Dec 2026") {
+		t.Errorf("subject not the address:\n%s", head)
+	}
+}
+
+func TestAccessEndingRemaining(t *testing.T) {
+	for days, want := range map[int]string{0: "within a day", 1: "within a day", 3: "in 3 days"} {
+		if got := (AccessEndingData{DaysLeft: days}).Remaining(); got != want {
+			t.Errorf("%d days: %q, want %q", days, got, want)
+		}
+	}
+}

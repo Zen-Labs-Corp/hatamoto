@@ -92,7 +92,7 @@ func (a *Admin) authenticate(r *http.Request) (*user.User, *session.Session, boo
 		return nil, nil, false
 	}
 	u, err := a.deps.Users.GetByID(database.WithSuperadmin(r.Context()), *sess.UserID)
-	if err != nil {
+	if err != nil || u.AccessEnded(time.Now()) {
 		return nil, nil, false
 	}
 	return u, sess, true

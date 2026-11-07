@@ -15,7 +15,9 @@
 
 <p style="margin:0 0 24px 0;font-size:14px;line-height:1.6;color:#404040;">{{if .InviterName}}{{.InviterName}} invited you{{else}}You are invited{{end}} to help run {{.SiteName}} as {{.Role}}. Accept the invitation to choose your password. The link works once and expires in {{.ExpiresIn}}.</p>
 
-<p style="margin:0 0 24px 0;"><a href="{{.URL}}" style="display:inline-block;background-color:#171717;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 20px;border-radius:10px;">Accept the invitation</a></p>
+{{if .AccessEnds}}<p style="margin:0 0 24px 0;font-size:14px;line-height:1.6;color:#404040;">Your access ends on {{.AccessEnds}}.</p>
+
+{{end}}<p style="margin:0 0 24px 0;"><a href="{{.URL}}" style="display:inline-block;background-color:#171717;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 20px;border-radius:10px;">Accept the invitation</a></p>
 
 <p style="margin:0 0 8px 0;font-size:12px;color:#737373;line-height:1.6;">If the button does not work, copy this address into your browser:<br>{{.URL}}</p>
 

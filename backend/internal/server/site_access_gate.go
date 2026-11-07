@@ -13,7 +13,6 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/render"
-	"hatamoto.dev/core/internal/session"
 	"hatamoto.dev/core/internal/siteaccess"
 	"hatamoto.dev/core/internal/siteconfig"
 )
@@ -100,15 +99,23 @@ func (s *Server) siteAccessSettings(ctx context.Context) siteaccess.Settings {
 }
 
 func (s *Server) siteAccessSignedIn(r *http.Request) bool {
-	if s.sessionStore == nil {
+	return s.adminCookieSignedIn(r)
+}
+
+// adminCookieSignedIn reports whether the request carries a live admin session
+// of a user whose access has not ended. It goes through the same validator as
+// the admin pages, so an ended user is refused on the next request and not only
+// once the hourly job has deleted their sessions.
+func (s *Server) adminCookieSignedIn(r *http.Request) bool {
+	if s.authService == nil {
 		return false
 	}
 	c, err := r.Cookie(auth.SessionCookieName)
 	if err != nil || c.Value == "" {
 		return false
 	}
-	sess, err := s.sessionStore.Validate(r.Context(), c.Value)
-	return err == nil && sess.Kind == session.KindAdmin && sess.UserID != nil
+	_, err = s.authService.ValidateSession(r.Context(), c.Value)
+	return err == nil
 }
 
 func (g *siteAccessGate) wrap(next http.Handler) http.Handler {

@@ -20,6 +20,30 @@ type InviteMailData struct {
 	Role        string
 	URL         string
 	ExpiresIn   string // "7 days"
+	// AccessEnds is the day the invited user's access ends, already formatted
+	// ("31 Dec 2026"); empty when there is no end.
+	AccessEnds string
+}
+
+// AccessEndingData drives access_ending.html. EndsOn is already formatted in the
+// site time zone ("31 Dec 2026").
+type AccessEndingData struct {
+	SiteName string
+	Name     string
+	Email    string
+	Role     string
+	EndsOn   string
+	// DaysLeft is the whole days left, rounded up (0 and 1: within a day).
+	DaysLeft int
+	UsersURL string
+}
+
+// Remaining says how long is left: "in 3 days" or "within a day".
+func (d AccessEndingData) Remaining() string {
+	if d.DaysLeft <= 1 {
+		return "within a day"
+	}
+	return fmt.Sprintf("in %d days", d.DaysLeft)
 }
 
 // AdminAddressChangedData drives admin_address_changed.html. Address is the
@@ -71,7 +95,31 @@ func (s *Service) SendInvite(ctx context.Context, to string, data InviteMailData
 	}
 	text := fmt.Sprintf("%s to help run %s as %s.\n\nAccept the invitation to choose your password (the link works once and expires in %s):\n\n%s\n",
 		who, data.SiteName, data.Role, data.ExpiresIn, data.URL)
+	if data.AccessEnds != "" {
+		text += "\nYour access ends on " + data.AccessEnds + ".\n"
+	}
 	return s.sendAuth(ctx, KindInvite, to, data.SiteName, "Join "+data.SiteName, html, text)
+}
+
+// SendAccessEnding reminds an owner that a user's access ends soon. The mail
+// carries no link secret, so the log may keep its body.
+func (s *Service) SendAccessEnding(ctx context.Context, to string, data AccessEndingData) error {
+	html, err := s.render("access_ending.html", data)
+	if err != nil {
+		return err
+	}
+	who := data.Name
+	if who == "" {
+		who = data.Email
+	}
+	// The name is user-editable; a CR/LF in it must never reach the header.
+	subjectWho, ok := SanitizeHeader(who)
+	if !ok {
+		subjectWho = data.Email
+	}
+	text := fmt.Sprintf("%s (%s, %s) loses access to %s %s.\nChange the date or let it end: Settings > Users.\n%s\n",
+		who, data.Email, data.Role, data.SiteName, data.Remaining(), data.UsersURL)
+	return s.sendAuth(ctx, KindAccessEnding, to, data.SiteName, "Access for "+subjectWho+" ends on "+data.EndsOn, html, text)
 }
 
 // SendAdminAddressChanged tells an owner the admin address changed.

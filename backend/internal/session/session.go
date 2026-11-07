@@ -163,7 +163,10 @@ func (s *Store) LiveAdminUser(ctx context.Context, id uuid.UUID) (uuid.UUID, boo
 	var userID *uuid.UUID
 	var expires time.Time
 	var lastUsed *time.Time
-	err = conn.QueryRow(ctx, `SELECT user_id, expires_at, last_used_at FROM hatamoto_sessions WHERE id = $1 AND kind = 'admin'`, id).
+	err = conn.QueryRow(ctx, `SELECT s.user_id, s.expires_at, s.last_used_at
+		FROM hatamoto_sessions s
+		JOIN hatamoto_users u ON u.id = s.user_id
+		WHERE s.id = $1 AND s.kind = 'admin' AND (u.access_ends_at IS NULL OR u.access_ends_at > NOW())`, id).
 		Scan(&userID, &expires, &lastUsed)
 	if err != nil || userID == nil || time.Now().After(expires) || (lastUsed != nil && time.Since(*lastUsed) > IdleTimeout) {
 		return uuid.Nil, false

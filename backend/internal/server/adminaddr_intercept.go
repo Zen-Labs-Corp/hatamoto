@@ -14,10 +14,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/middleware"
-	"hatamoto.dev/core/internal/session"
 )
 
 // maxInviteFormBytes bounds the body read to find the invite token of a
@@ -489,15 +487,8 @@ func (s *Server) newInterceptDeps() interceptDeps {
 			s.logger.Warn("not-found throttle skipped: requests arrive from a loopback or private address, so clients cannot be told apart; if hatamoto runs behind a reverse proxy or a container network, set HATAMOTO_TRUSTED_PROXIES to its address and make it send X-Forwarded-For")
 		})
 	}
-	if s.sessionStore != nil {
-		d.signedIn = func(r *http.Request) bool {
-			c, err := r.Cookie(auth.SessionCookieName)
-			if err != nil || c.Value == "" {
-				return false
-			}
-			sess, err := s.sessionStore.Validate(r.Context(), c.Value)
-			return err == nil && sess.Kind == session.KindAdmin && sess.UserID != nil
-		}
+	if s.authService != nil {
+		d.signedIn = s.adminCookieSignedIn
 	}
 	if s.userRepo != nil {
 		d.hasOwner = (&ownerCache{count: s.userRepo.Count}).hasOwner

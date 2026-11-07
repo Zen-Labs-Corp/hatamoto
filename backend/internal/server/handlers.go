@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/middleware"
@@ -236,6 +238,8 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 
 	// Users cannot change their own role
 	input.Role = nil
+	// Nor their own end of access: only an owner sets that, on /users.
+	input.AccessEndsAt = user.AccessEnd{}
 
 	u, err := s.userRepo.Update(r.Context(), claims.UserID, &input)
 	if err != nil {
@@ -275,10 +279,22 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 		Name     string `json:"name"`
 		Role     string `json:"role"`
+		// AccessEndsAt is an RFC 3339 instant with a zone; owners only.
+		AccessEndsAt *time.Time `json:"access_ends_at"`
 	}
 	if err := parseJSON(r, &input); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
+	}
+	if input.AccessEndsAt != nil {
+		if claims.Role != string(user.RoleOwner) {
+			writeError(w, http.StatusForbidden, "only owners can set an access end date")
+			return
+		}
+		if user.ValidateAccessEnd(*input.AccessEndsAt, time.Now()) != nil {
+			writeError(w, http.StatusBadRequest, "access_ends_at must be in the future")
+			return
+		}
 	}
 
 	role, err := user.ParseRole(input.Role)
@@ -290,6 +306,16 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	// Non-owners cannot create owners
 	if role == user.RoleOwner && claims.Role != string(user.RoleOwner) {
 		writeError(w, http.StatusForbidden, "only owners can create owner accounts")
+		return
+	}
+
+	// Someone whose own access ends cannot create a user who outlasts them.
+	own, ok := s.callerAccessEnd(w, r, claims)
+	if !ok {
+		return
+	}
+	if !user.MayGrant(own, input.AccessEndsAt) {
+		writeError(w, http.StatusForbidden, user.ErrAccessEndNotAllowed.Error())
 		return
 	}
 
@@ -305,15 +331,24 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Password: input.Password,
 		Role:     role,
 		Name:     input.Name,
+
+		AccessEndsAt: input.AccessEndsAt,
 	}, passwordHash)
 	if err != nil {
 		if errors.Is(err, user.ErrEmailAlreadyExists) {
 			writeError(w, http.StatusConflict, "email already exists")
 			return
 		}
+		if errors.Is(err, user.ErrLastOwner) {
+			writeError(w, http.StatusConflict, "another owner without an end date is needed first")
+			return
+		}
 		s.logger.Error("failed to create user", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create user")
 		return
+	}
+	if input.AccessEndsAt != nil {
+		s.auditAccessChange(r, claims, u.Email, nil, input.AccessEndsAt, "created")
 	}
 
 	writeJSON(w, http.StatusCreated, u)
@@ -366,18 +401,121 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Someone whose own access ends cannot change an end date, nor make a user
+	// without a date, or with a later one, an owner. UpdateUserInput.Role has
+	// no json tag, so it decodes under its Go name ("Role"; the decoder is case
+	// sensitive, so "role" is ignored): role changes over JSON are possible.
+	promote := input.Role != nil && *input.Role == user.RoleOwner
+	if input.AccessEndsAt.Set || promote {
+		own, ok := s.callerAccessEnd(w, r, claims)
+		if !ok {
+			return
+		}
+		if input.AccessEndsAt.Set && !user.MayChangeAccessEnd(own) {
+			writeError(w, http.StatusForbidden, user.ErrAccessEndNotAllowed.Error())
+			return
+		}
+		if promote && own != nil {
+			target, err := s.userRepo.GetByID(r.Context(), id)
+			if err != nil {
+				if errors.Is(err, user.ErrUserNotFound) {
+					writeError(w, http.StatusNotFound, "user not found")
+					return
+				}
+				s.logger.Error("failed to get user", "error", err)
+				writeError(w, http.StatusInternalServerError, "failed to update user")
+				return
+			}
+			if target.Role != user.RoleOwner && !user.MayGrant(own, target.AccessEndsAt) {
+				writeError(w, http.StatusForbidden, user.ErrAccessEndNotAllowed.Error())
+				return
+			}
+		}
+	}
+
+	// The end date is owner only, and a changed value must be in the future.
+	var before *user.User
+	if input.AccessEndsAt.Set {
+		if claims.Role != string(user.RoleOwner) {
+			writeError(w, http.StatusForbidden, "only owners can set an access end date")
+			return
+		}
+		if t := input.AccessEndsAt.At; t != nil && user.ValidateAccessEnd(*t, time.Now()) != nil {
+			writeError(w, http.StatusBadRequest, "access_ends_at must be in the future")
+			return
+		}
+		if before, err = s.userRepo.GetByID(r.Context(), id); err != nil {
+			if errors.Is(err, user.ErrUserNotFound) {
+				writeError(w, http.StatusNotFound, "user not found")
+				return
+			}
+			s.logger.Error("failed to get user", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to update user")
+			return
+		}
+	}
+
 	u, err := s.userRepo.Update(r.Context(), id, &input)
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
 			writeError(w, http.StatusNotFound, "user not found")
 			return
 		}
+		if errors.Is(err, user.ErrLastOwner) {
+			msg := "cannot remove or demote the last owner"
+			if input.AccessEndsAt.Set && input.AccessEndsAt.At != nil {
+				msg = "another owner without an end date is needed first"
+			}
+			writeError(w, http.StatusConflict, msg)
+			return
+		}
 		s.logger.Error("failed to update user", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update user")
 		return
 	}
+	if before != nil && !sameAccessEnd(before.AccessEndsAt, u.AccessEndsAt) {
+		s.auditAccessChange(r, claims, u.Email, before.AccessEndsAt, u.AccessEndsAt, "")
+	}
 
 	writeJSON(w, http.StatusOK, u)
+}
+
+// callerAccessEnd is the caller's own access end (nil: none). It writes the
+// error response and returns false when the caller cannot be read.
+func (s *Server) callerAccessEnd(w http.ResponseWriter, r *http.Request, claims *auth.Claims) (*time.Time, bool) {
+	me, err := s.userRepo.GetByID(r.Context(), claims.UserID)
+	if err != nil {
+		s.logger.Error("failed to get user", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to look up the caller")
+		return nil, false
+	}
+	return me.AccessEndsAt, true
+}
+
+func sameAccessEnd(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Equal(*b)
+}
+
+// auditAccessChange records a set, change or clear of a user's access end, in
+// the same shape as the admin screens. how is "created" for a new user.
+func (s *Server) auditAccessChange(r *http.Request, claims *auth.Claims, target string, from, to *time.Time, how string) {
+	text := func(t *time.Time) any {
+		if t == nil {
+			return nil
+		}
+		return t.UTC().Format(time.RFC3339)
+	}
+	detail := map[string]any{"from": text(from), "to": text(to)}
+	if how != "" {
+		detail[how] = true
+	}
+	s.adminAudit(r.Context(), admin.AuditEvent{
+		ActorID: claims.UserID.String(), Actor: claims.Email,
+		Action: "user.access_changed", Target: target, Detail: detail,
+	})
 }
 
 // handleDeleteUser deletes a specific user.

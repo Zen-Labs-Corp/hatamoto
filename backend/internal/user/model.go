@@ -2,10 +2,13 @@
 package user
 
 import (
+	"bytes"
 	"errors"
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Role is a user's role: owner (everything) or editor (content).
@@ -35,6 +38,9 @@ type User struct {
 	Name         *string    `json:"name,omitempty"`
 	AvatarURL    *string    `json:"avatar_url,omitempty"`
 	LastLoginAt  *time.Time `json:"last_login_at,omitempty"`
+	// AccessEndsAt is the instant from which the user can no longer sign in
+	// (nil: no end).
+	AccessEndsAt *time.Time `json:"access_ends_at,omitempty"`
 	// Login-lockout state (migration 004). Never serialized to clients.
 	FailedLoginAttempts int        `json:"-"`
 	LockedUntil         *time.Time `json:"-"`
@@ -48,6 +54,8 @@ type CreateUserInput struct {
 	Password string
 	Role     Role
 	Name     string
+	// AccessEndsAt is the optional end of access.
+	AccessEndsAt *time.Time
 }
 
 // UpdateUserInput represents input for updating a user.
@@ -55,6 +63,38 @@ type UpdateUserInput struct {
 	Name      *string
 	AvatarURL *string
 	Role      *Role
+	// AccessEndsAt changes the end of access; the zero value leaves it alone.
+	// It is a value, not a pointer: encoding/json skips UnmarshalJSON for a
+	// null into a pointer, and null must mean "clear".
+	AccessEndsAt AccessEnd `json:"access_ends_at"`
+}
+
+// AccessEnd is an optional change to a user's access end. Set is false when
+// the JSON key was absent; At is nil when it was null (clear).
+type AccessEnd struct {
+	Set bool
+	At  *time.Time
+}
+
+// UnmarshalJSON reads null (clear) or an RFC 3339 string. The decoder only
+// calls it when the key is present.
+func (a *AccessEnd) UnmarshalJSON(b []byte) error {
+	a.Set = true
+	if bytes.Equal(bytes.TrimSpace(b), []byte("null")) {
+		a.At = nil
+		return nil
+	}
+	var t time.Time
+	if err := jsonx.Unmarshal(b, &t); err != nil {
+		return errors.New("access_ends_at must be an RFC 3339 time or null")
+	}
+	a.At = &t
+	return nil
+}
+
+// AccessEnded reports whether the user's access has ended at now.
+func (u *User) AccessEnded(now time.Time) bool {
+	return u != nil && u.AccessEndsAt != nil && !now.Before(*u.AccessEndsAt)
 }
 
 // ValidRole checks if a role is valid.

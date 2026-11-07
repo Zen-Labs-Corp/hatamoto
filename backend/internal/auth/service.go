@@ -216,6 +216,12 @@ func (s *Service) authenticate(ctx context.Context, email, password string) (u *
 		return nil, false, ErrInvalidCredentials
 	}
 
+	// An ended account fails exactly like a wrong password, after the password
+	// was verified so the timing matches. It does not count against the lockout.
+	if u.AccessEnded(time.Now()) {
+		return nil, false, ErrInvalidCredentials
+	}
+
 	// A user with a second factor is not signed in yet: keep the failure
 	// counter so wrong codes at the next step add to it. If we cannot tell
 	// whether a factor exists, refuse (fail closed).
@@ -304,6 +310,9 @@ func (s *Service) LoginAPISession(ctx context.Context, email, password, code, us
 	if s.sessions == nil {
 		return nil, "", errors.New("sessions are not configured")
 	}
+	if err := s.requireActive(ctx, u.ID); err != nil {
+		return nil, "", err
+	}
 	token, _, err := s.sessions.IssueAPI(database.WithSuperadmin(ctx), u.ID, adminSessionTTL, userAgent, ip)
 	if err != nil {
 		return nil, "", err
@@ -355,8 +364,23 @@ func (s *Service) issueAdmin(ctx context.Context, userID uuid.UUID, userAgent, i
 	if s.sessions == nil {
 		return "", errors.New("sessions are not configured")
 	}
+	if err := s.requireActive(ctx, userID); err != nil {
+		return "", err
+	}
 	token, _, err := s.sessions.IssueAdmin(database.WithSuperadmin(ctx), userID, adminSessionTTL, userAgent, ip)
 	return token, err
+}
+
+// requireActive refuses to issue a session to a user whose access has ended or
+// who no longer exists, with the same error as a wrong password. Every session
+// issuance funnels through it, including the paths that skip authenticate
+// (reset, invite acceptance, passkey, second-factor completion).
+func (s *Service) requireActive(ctx context.Context, id uuid.UUID) error {
+	u, err := s.userRepo.GetByID(database.WithSuperadmin(ctx), id)
+	if err != nil || u.AccessEnded(time.Now()) {
+		return ErrInvalidCredentials
+	}
+	return nil
 }
 
 // Login authenticates a user with email and password.
@@ -419,6 +443,11 @@ func (s *Service) validateKinds(ctx context.Context, token string, kinds ...sess
 	superCtx := database.WithSuperadmin(ctx)
 	u, err := s.userRepo.GetByID(superCtx, *sess.UserID)
 	if err != nil {
+		return nil, session.ErrInvalid
+	}
+	// An ended account is refused on the next request; the worker deletes the
+	// rows afterwards.
+	if u.AccessEnded(time.Now()) {
 		return nil, session.ErrInvalid
 	}
 

@@ -36,6 +36,7 @@ var Catalog = []JobDef{
 	{ID: "webhook_prune", Name: "Webhook log prune", Schedule: "hourly", Safe: true, Switch: true},
 	{ID: "update_check", Name: "Update check", Schedule: "every 6 hours", Safe: true, ManualOnly: true, Switch: true},
 	{ID: "standing_digest", Name: "Standing digest mail", Schedule: "daily", Switch: true},
+	{ID: "user_access", Name: "Expiring user access", Schedule: "hourly", Switch: true},
 	{ID: "stats_ping", Name: "Install statistics", Schedule: "daily", Switch: true},
 	{ID: "backup_offsite", Name: "Off-site backup", Schedule: "checked every minute", Switch: true},
 	{ID: "core:preload", Name: "Page cache preload", Schedule: "as set in page cache settings"},
