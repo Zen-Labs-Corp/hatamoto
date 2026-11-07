@@ -227,9 +227,10 @@ await page.goto(`${base}${admin}/forms/edit/${formId}`);
 ok(page.url().includes(`/forms/design/${formId}`), `A4: the old edit URL lands on Build (${page.url().replace(base, "")})`);
 
 // ============ 409: a second writer changes the version ============
-await open(formId);
-await page.waitForSelector("[data-hm-fd-canvas] [data-id]");
-{
+/** Opens Build, lets a second writer save, then edits and saves here: the page ends in the conflict state. */
+async function conflict(label) {
+  await open(formId);
+  await page.waitForSelector("[data-hm-fd-canvas] [data-id]");
   const token = await csrf();
   const status = await page.evaluate(
     async ({ admin, id, token }) => {
@@ -246,12 +247,28 @@ await page.waitForSelector("[data-hm-fd-canvas] [data-id]");
     { admin, id: formId, token },
   );
   ok(status === 200, `the second writer saves (${status})`);
-  await inline(0, "Changed here");
+  await inline(0, label);
   await page.keyboard.press("Control+s");
   await page.waitForFunction(() => document.querySelector(".hm-savestate__text")?.textContent.includes("changed in another tab"));
+}
+
+await conflict("Changed here");
+{
   ok((await stateText()).includes("changed in another tab") && (await state()) === "error", "409: the bar says the form changed in another tab");
   ok((await page.locator('a:has-text("Reload")').count()) > 0, "409: a Reload link is offered");
   ok((await saved(formId)).fields[0].label !== "Changed here", "409: the stale save did not overwrite");
+  const nav = page.waitForNavigation();
+  await page.locator('a:has-text("Reload")').click();
+  await nav;
+  await page.waitForSelector("[data-hm-fd-canvas] [data-id]");
+  ok((await labels())[0] !== "Changed here", "409: Reload leaves the page and shows the saved form");
+}
+await conflict("Changed again");
+{
+  const nav = page.waitForNavigation();
+  await page.locator('.hm-tabs a:has-text("Settings")').first().click();
+  await nav;
+  ok(page.url().endsWith("/settings"), "409: a tab link still leaves the page");
 }
 
 // -- clean up and report -----------------------------------------------------

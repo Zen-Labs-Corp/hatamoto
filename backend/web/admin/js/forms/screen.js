@@ -12,6 +12,7 @@ import { createFormDrag } from "@hm/forms/drag";
 import { dragSource } from "@hm/builder/dragsource";
 import { createFormSaver } from "@hm/forms/save";
 import { resolveKey } from "@hm/forms/keymap";
+import { leaveMode, afterLeave } from "@hm/forms/leave";
 import { GROUPS } from "@hm/forms/shortcuts";
 import { TYPES } from "@hm/forms/types";
 
@@ -211,13 +212,16 @@ function start(root, boot) {
   titleEl.addEventListener("input", () => run([{ op: "setMeta", key: "name", value: titleEl.value }], { label: "Rename form", coalesce: "meta:name" }));
   statusEl?.addEventListener("change", () => run([{ op: "setMeta", key: "status", value: statusEl.value }], { label: "Change status" }));
 
-  // Leaving by a tab or the back link saves first; the page never unloads with unsaved changes unless the save failed.
+  // Leaving by a tab or the back link saves first. When saving cannot work (a conflict, a lost session, a
+  // refused or failed save) the page can still be left: by the browser's own prompt, or after a confirm here.
   document.addEventListener("click", (e) => {
     const a = e.target.closest?.("a[href]");
-    if (!a || !saver.dirty || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || a.target || !(a.closest(".hm-tabs") || a.closest(".hm-editor-bar"))) return;
+    if (!a || leaving || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || a.target || !(a.closest(".hm-tabs") || a.closest(".hm-editor-bar"))) return;
+    if (leaveMode(saver) === "go") return;
     e.preventDefault();
     saver.save().then(() => {
-      if (saver.dirty || saver.state === "error" || saver.state === "conflict" || saver.state === "stopped") return;
+      const next = afterLeave(saver);
+      if (next === "stay" || (next === "ask" && !confirm("This form could not be saved. Leave without saving your changes?"))) return;
       leaving = true;
       location.assign(a.href);
     });
