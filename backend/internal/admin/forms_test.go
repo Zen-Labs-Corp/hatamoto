@@ -71,7 +71,7 @@ func (f *fakeForms) CreateForm(_ context.Context, in *form.CreateFormInput) (*fo
 	if in.Slug != "" {
 		fm.Slug = in.Slug
 	}
-	fm.Description, fm.Settings = in.Description, in.Settings
+	fm.Description, fm.Settings, fm.Fields = in.Description, in.Settings, in.Fields
 	return fm, nil
 }
 func (f *fakeForms) UpdateForm(_ context.Context, id uuid.UUID, in *form.UpdateFormInput) (*form.Form, error) {
@@ -540,8 +540,9 @@ func TestFormEditCaptchaBanner(t *testing.T) {
 	if !strings.Contains(editor, warn) || strings.Contains(editor, "/admin/forms/spam") {
 		t.Error("editor should see the banner without a link")
 	}
-	if strings.Contains(page(off, "owner-token"), warn) {
-		t.Error("banner on a form with the switch off")
+	// With the switch off the warning is in the page but hidden; the script shows it with the switch.
+	if !strings.Contains(page(off, "owner-token"), `data-hm-fs-when="enable_captcha" hidden="hidden"`) || strings.Contains(owner, `data-hm-fs-when="enable_captcha" hidden`) {
+		t.Error("banner is not hidden exactly while the switch is off")
 	}
 
 	svc.withSecret(spam.ProviderTurnstile, "0x4AAA-site")
@@ -701,19 +702,4 @@ func TestFormsTabs(t *testing.T) {
 			t.Errorf("%s/%s: active tab %q", tc.role, tc.active, active)
 		}
 	}
-}
-
-func TestStatusOptionsCallInactivePaused(t *testing.T) {
-	t.Parallel()
-
-	for _, o := range statusOptions(form.StatusInactive) {
-		if o.Value != form.StatusInactive {
-			continue
-		}
-		if o.Value != "inactive" || !strings.Contains(o.Label, "Paused") || !o.Selected {
-			t.Errorf("inactive option = %+v, want stored value inactive, Paused label, selected", o)
-		}
-		return
-	}
-	t.Fatal("no option stores the inactive status")
 }

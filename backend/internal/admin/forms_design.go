@@ -4,6 +4,7 @@ import (
 	"context"
 	"html/template"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/webhook"
 )
 
 // formDesignTypeGroup is the palette group of a field type, in the designer's order.
@@ -89,6 +91,42 @@ func (a *Admin) handleFormDesign(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	boot, icons, err := a.formBoot(r.Context(), f, formModeBuild, userFrom(r.Context()).Role == "owner")
+	if err != nil {
+		a.logger().Error("form designer boot failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The form could not be loaded.")
+		return
+	}
+	id := f.ID.String()
+	v := a.NewView(w, r, "Design form: "+f.Name)
+	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: f.Name}}
+	v.Data = formDesignData{
+		ID: id, Name: f.Name, Slug: f.Slug, Status: f.Status,
+		Tabs: a.formDesignTabs(r.Context(), id, "build"), Statuses: formStatusPills(f.Status), Icons: icons, Boot: boot,
+	}
+	a.Render(w, r, http.StatusOK, "forms/design", v)
+}
+
+// The designer boots in one of two modes: the Build canvas, or the Settings
+// panel on the same shell (one store, one saver).
+const (
+	formModeBuild    = "build"
+	formModeSettings = "settings"
+)
+
+// formBootWebhook is one webhook that fires for a submitted form, with its last delivery.
+type formBootWebhook struct {
+	Name       string `json:"name"`
+	Active     bool   `json:"active"`
+	LastStatus string `json:"lastStatus,omitempty"`
+	LastAt     string `json:"lastAt,omitempty"`
+}
+
+// formBoot builds the boot JSON the designer script reads, and the icons its
+// template needs. The Build boot is the base; Settings adds the data the
+// panel previews (latest real submission, webhooks, site address). owner
+// gates the spam settings link.
+func (a *Admin) formBoot(ctx context.Context, f *form.Form, mode string, owner bool) (template.HTML, []string, error) {
 	id := f.ID.String()
 	types := make([]formDesignType, 0, len(form.GetFieldTypes()))
 	icons := append([]string(nil), formDesignUIIcons...)
@@ -100,25 +138,81 @@ func (a *Admin) handleFormDesign(w http.ResponseWriter, r *http.Request) {
 	if fields == nil {
 		fields = []form.FormField{}
 	}
-	boot, err := jsonx.Marshal(map[string]any{
+	m := map[string]any{
 		"id": id, "version": f.Version(), "updated": f.UpdatedAt.UTC().Format(time.RFC3339), "name": f.Name, "description": f.Description, "status": f.Status,
 		"fields": fields, "settings": f.Settings, "freeEmail": form.FreeEmailDomains(),
 		"saveUrl": a.adminPath + "/forms/" + id + "/definition", "endpoint": a.formEndpoint(f.Slug),
-		"captchaConfigured": !a.captchaUnconfigured(r.Context()), "types": types,
-	}, jsonx.HTMLSafe)
+		"captchaConfigured": !a.captchaUnconfigured(ctx), "types": types,
+	}
+	if mode == formModeSettings {
+		m["mode"] = mode
+		m["sample"] = a.formSample(ctx, f.ID)
+		m["webhooks"] = a.formWebhooks(ctx)
+		m["siteAddress"] = a.siteNotificationEmail(ctx)
+		if owner {
+			m["spamUrl"] = a.adminPath + "/forms/spam"
+		}
+	}
+	boot, err := jsonx.Marshal(m, jsonx.HTMLSafe)
 	if err != nil {
-		a.logger().Error("form designer boot failed", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The form could not be loaded.")
-		return
+		return "", nil, err
 	}
-	v := a.NewView(w, r, "Design form: "+f.Name)
-	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: f.Name}}
-	v.Data = formDesignData{
-		ID: id, Name: f.Name, Slug: f.Slug, Status: f.Status,
-		Tabs: a.formDesignTabs(r.Context(), id, "build"), Statuses: formStatusPills(f.Status), Icons: dedupe(icons),
-		Boot: template.HTML(`<script type="application/json" data-hm-fd-boot>` + string(boot) + `</script>`), //nolint:gosec // jsonx.HTMLSafe output: <, >, & and U+2028/9 are escaped
+	return template.HTML(`<script type="application/json" data-hm-fd-boot>` + string(boot) + `</script>`), dedupe(icons), nil //nolint:gosec // jsonx.HTMLSafe output: <, >, & and U+2028/9 are escaped
+}
+
+// formSample is the data of the latest real (not spam) submission, for the
+// confirmation preview; nil when there is none.
+func (a *Admin) formSample(ctx context.Context, id uuid.UUID) map[string]any {
+	subs, _, err := a.deps.Growth.Forms.ListSubmissions(ctx, id, &form.ListSubmissionsParams{Limit: 10})
+	if err != nil {
+		a.logger().Error("form sample failed", "form", id, "err", err)
+		return nil
 	}
-	a.Render(w, r, http.StatusOK, "forms/design", v)
+	for _, s := range subs {
+		if s.Status != form.SubmissionStatusSpam {
+			return s.Data
+		}
+	}
+	return nil
+}
+
+// formWebhooks lists the hooks that fire when a form is submitted. They are
+// not per form: every active hook on form.submitted gets every form.
+func (a *Admin) formWebhooks(ctx context.Context) []formBootWebhook {
+	out := []formBootWebhook{}
+	if a.deps.Webhooks == nil {
+		return out
+	}
+	subs, err := a.deps.Webhooks.List(ctx)
+	if err != nil {
+		a.logger().Error("form webhooks failed", "err", err)
+		return out
+	}
+	for _, s := range subs {
+		if !slices.Contains(s.Events, webhook.EventFormSubmitted) {
+			continue
+		}
+		h := formBootWebhook{Name: s.Name, Active: s.Active}
+		if rows, _, derr := a.deps.Webhooks.ListDeliveries(ctx, s.ID, 1, 0); derr == nil && len(rows) > 0 {
+			h.LastStatus = rows[0].Status
+			h.LastAt = rows[0].CreatedAt.UTC().Format(time.RFC3339)
+		}
+		out = append(out, h)
+	}
+	return out
+}
+
+// siteNotificationEmail is the address notifications go to when a form names
+// none; "" when unset or the site settings are not wired.
+func (a *Admin) siteNotificationEmail(ctx context.Context) string {
+	if a.deps.Site == nil {
+		return ""
+	}
+	cfg, err := a.deps.Site.Get(ctx)
+	if err != nil || cfg == nil {
+		return ""
+	}
+	return cfg.NotificationEmail
 }
 
 func dedupe(in []string) []string {

@@ -1,30 +1,38 @@
 package admin
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
-	"strings"
-	"unicode/utf8"
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/httpx"
 )
 
-// formTabData is the Settings and Share tabs of the form designer. Version is
-// the version the page was loaded at; Settings posts it back so a save over
-// someone else's change is refused.
-type formTabData struct {
-	formEdit
-	Tabs     []ui.Tab
-	Version  string
-	Conflict bool
+// formShareData is the Share tab of the form designer.
+type formShareData struct {
+	Name, Endpoint, EmbedCode string
+	Tabs                      []ui.Tab
+}
+
+// formSettingsData is the Settings tab: the Build editor bar's data, plus
+// what the server renders around the controls the script binds. The values
+// themselves come from the boot JSON, so one store and one saver serve both tabs.
+type formSettingsData struct {
+	formDesignData
+	// ReplyTo are the form's email fields; Tokens the fields a subject can name.
+	ReplyTo []ui.Option
+	Tokens  []string
+	// CaptchaUnconfigured: no captcha provider keys are usable. SpamLink is
+	// true when the viewer may open the page that fixes it (owners).
+	// CaptchaAttrs mark the warning for the script and hide it while the switch is off.
+	CaptchaAttrs                  map[string]string
+	CaptchaUnconfigured, SpamLink bool
 }
 
 func (a *Admin) mountFormTabs(authed *httpx.Group) {
 	authed.HandleFunc("GET /forms/design/{id}/{tab}", a.handleFormTab)
-	authed.HandleFunc("POST /forms/design/{id}/settings", a.handleFormSettingsSave)
+	authed.HandleFunc("POST /forms/design/{id}/duplicate", a.handleFormDuplicate)
 }
 
 func (a *Admin) handleFormTab(w http.ResponseWriter, r *http.Request) {
@@ -37,103 +45,51 @@ func (a *Admin) handleFormTab(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	a.renderFormTab(w, r, http.StatusOK, tab, f, formToEdit(f), f.Version(), false)
+	if tab == "settings" {
+		a.renderFormSettings(w, r, f)
+		return
+	}
+	endpoint := a.formEndpoint(f.Slug)
+	v := a.NewView(w, r, "Share and embed: "+f.Name)
+	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: f.Name, Href: a.adminPath + "/forms/design/" + f.ID.String()}, {Label: "Share and embed"}}
+	v.Data = formShareData{
+		Name: f.Name, Endpoint: endpoint, Tabs: a.formDesignTabs(r.Context(), f.ID.String(), "share"),
+		EmbedCode: fmt.Sprintf("<form action=\"%s\" method=\"POST\">\n  <!-- Add the fields here -->\n  <button type=\"submit\">%s</button>\n</form>", endpoint, orDefault(f.Settings.SubmitButtonText, "Submit")),
+	}
+	v.Width = "narrow"
+	a.Render(w, r, http.StatusOK, "forms/share", v)
 }
 
-func (a *Admin) renderFormTab(w http.ResponseWriter, r *http.Request, status int, tab string, cur *form.Form, e formEdit, version string, conflict bool) {
-	e.Statuses = statusOptions(e.Status)
-	if e.Captcha {
-		e.CaptchaUnconfigured = a.captchaUnconfigured(r.Context())
-		e.SpamLink = userFrom(r.Context()).Role == "owner"
+func (a *Admin) renderFormSettings(w http.ResponseWriter, r *http.Request, f *form.Form) {
+	owner := userFrom(r.Context()).Role == "owner"
+	boot, _, err := a.formBoot(r.Context(), f, formModeSettings, owner)
+	if err != nil {
+		a.logger().Error("form settings boot failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The form could not be loaded.")
+		return
 	}
-	e.Endpoint = a.formEndpoint(e.Slug)
-	e.EmbedCode = fmt.Sprintf("<form action=\"%s\" method=\"POST\">\n  <!-- Add the fields here -->\n  <button type=\"submit\">%s</button>\n</form>", e.Endpoint, orDefault(e.SubmitText, "Submit"))
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"status", "Status"}, {"notify", "Notification emails"}, {"redirect", "Redirect address"}, {"fields", "Fields"}} {
-		if m := e.Errors[k.id]; m != "" {
-			e.Summary = append(e.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
+	id := f.ID.String()
+	d := formSettingsData{
+		formDesignData: formDesignData{
+			ID: id, Name: f.Name, Slug: f.Slug, Status: f.Status,
+			Tabs: a.formDesignTabs(r.Context(), id, "settings"), Statuses: formStatusPills(f.Status), Boot: boot,
+		},
+		ReplyTo:      []ui.Option{{Value: "", Label: "The site address", Selected: f.Settings.NotifyReplyTo == ""}},
+		CaptchaAttrs: map[string]string{"data-hm-fs-when": "enable_captcha"}, CaptchaUnconfigured: a.captchaUnconfigured(r.Context()), SpamLink: owner,
+	}
+	if !f.Settings.EnableCaptcha {
+		d.CaptchaAttrs["hidden"] = "hidden"
+	}
+	for _, fld := range f.Fields {
+		if fld.Type == form.FieldTypeEmail {
+			d.ReplyTo = append(d.ReplyTo, ui.Option{Value: fld.Name, Label: fld.Label + " (the visitor)", Selected: f.Settings.NotifyReplyTo == fld.Name})
+		}
+		if fld.IsInput() && fld.Type != form.FieldTypeHidden && fld.Type != form.FieldTypeConsent && len(d.Tokens) < 9 {
+			d.Tokens = append(d.Tokens, fld.Name)
 		}
 	}
-	title := "Settings"
-	if tab == "share" {
-		title = "Share and embed"
-	}
-	v := a.NewView(w, r, title+": "+cur.Name)
-	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: cur.Name, Href: a.adminPath + "/forms/design/" + e.ID}, {Label: title}}
-	v.Data = formTabData{formEdit: e, Tabs: a.formDesignTabs(r.Context(), e.ID, tab), Version: version, Conflict: conflict}
-	v.Width = "narrow"
-	a.Render(w, r, status, "forms/"+tab, v)
-}
-
-// handleFormSettingsSave saves the form's details and settings. It never
-// reads fields: the stored ones are written back unchanged.
-func (a *Admin) handleFormSettingsSave(w http.ResponseWriter, r *http.Request) {
-	cur, ok := a.loadForm(w, r)
-	if !ok {
-		return
-	}
-	if err := r.ParseForm(); err != nil {
-		a.Error(w, r, http.StatusBadRequest, "Bad request", "The form could not be read.")
-		return
-	}
-	p := r.PostForm
-	t := func(k string) string { return strings.TrimSpace(p.Get(k)) }
-	e := formEdit{ID: cur.ID.String(), Slug: cur.Slug, Name: t("name"), Description: t("description"), Status: t("status"),
-		SubmitText: t("submit_text"), SuccessMsg: t("success_message"), RedirectURL: t("redirect_url"), NotifyEmail: t("notify_email"), ConfirmMsg: t("confirmation_message"),
-		Captcha: t("captcha") != "", Confirmation: t("confirmation") != "", Store: t("store") != "", Errors: map[string]string{}}
-	// A page shown again keeps the version it was loaded at.
-	base, err := form.ParseVersion(p.Get("version"))
-	if err != nil {
-		a.Error(w, r, http.StatusBadRequest, "Bad request", "The form version is missing. Reload the page and try again.")
-		return
-	}
-	if e.Name == "" {
-		e.Errors["name"] = "Enter a name"
-	} else if utf8.RuneCountInString(e.Name) > 120 {
-		e.Errors["name"] = "Use at most 120 characters"
-	}
-	if !validEmailList(e.NotifyEmail) {
-		e.Errors["notify"] = "Enter email addresses separated by commas"
-	}
-	if !form.ValidRedirectTarget(e.RedirectURL) {
-		e.Errors["redirect"] = "Enter a path like /thank-you or a full address starting with https://"
-	}
-	if !form.ValidStatus(e.Status) {
-		e.Errors["status"] = "Choose active, paused or archived"
-	}
-	if len(e.Errors) > 0 {
-		a.renderFormTab(w, r, http.StatusUnprocessableEntity, "settings", cur, e, p.Get("version"), false)
-		return
-	}
-	settings := form.FormSettings{
-		SubmitButtonText: orDefault(e.SubmitText, "Submit"), SuccessMessage: orDefault(e.SuccessMsg, "Thank you for your submission!"), SuccessRedirectURL: e.RedirectURL,
-		EnableCaptcha: e.Captcha, ConfirmationEmail: e.Confirmation, ConfirmationMessage: e.ConfirmMsg, StoreSubmissions: e.Store,
-	}
-	if e.NotifyEmail != "" {
-		settings.NotifyEmail = &e.NotifyEmail
-	}
-	desc := e.Description
-	_, err = a.deps.Growth.Forms.SaveDefinition(r.Context(), cur.ID, base, &form.SaveDefinitionInput{
-		Name: e.Name, Description: &desc, Status: e.Status, Fields: cur.Fields, Settings: settings,
-	})
-	var defErrs form.DefinitionErrors
-	switch {
-	case err == nil:
-	case errors.Is(err, form.ErrVersionConflict):
-		a.renderFormTab(w, r, http.StatusConflict, "settings", cur, e, p.Get("version"), true)
-		return
-	case errors.Is(err, form.ErrFormNotFound):
-		a.ErrorBack(w, r, http.StatusNotFound, "Form not found", "That form does not exist.", a.adminPath+"/forms", "Back to forms")
-		return
-	case errors.As(err, &defErrs):
-		e.Errors["fields"] = "Some fields need attention. Open the Build tab to fix them."
-		a.renderFormTab(w, r, http.StatusUnprocessableEntity, "settings", cur, e, p.Get("version"), false)
-		return
-	default:
-		a.logger().Error("save form settings failed", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The form could not be saved.")
-		return
-	}
-	a.invalidate(r.Context())
-	a.SetFlash(w, r, "success", "Form saved.")
-	http.Redirect(w, r, a.adminPath+"/forms/design/"+cur.ID.String()+"/settings", http.StatusSeeOther)
+	v := a.NewView(w, r, "Settings: "+f.Name)
+	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: f.Name, Href: a.adminPath + "/forms/design/" + id}, {Label: "Settings"}}
+	v.Data = d
+	a.Render(w, r, http.StatusOK, "forms/settings", v)
 }
