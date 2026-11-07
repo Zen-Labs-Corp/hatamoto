@@ -3,6 +3,7 @@
 import { h, actButton, switchRow, warnNote } from "@hm/builder/dom";
 import { TYPES, isLayout } from "@hm/forms/types";
 import { nameFrom, uniqueName, labelOps } from "@hm/forms/ops";
+import { icon } from "@hm/forms/palette";
 
 const INPUTS = ["text", "email", "phone", "textarea", "number", "url"];
 const CHOICES = ["select", "radio", "checkbox"];
@@ -20,6 +21,16 @@ export function sectionsFor(field) {
   out.push("layout", "rules");
   if (INPUTS.includes(t)) out.push("advanced");
   return out;
+}
+
+/** An icon-only button cloned from the server-rendered template[data-hm-bs-iconact], its icon swapped for `name`. */
+function iconButton(name, label, props = {}) {
+  const b = document.querySelector("template[data-hm-bs-iconact]").content.firstElementChild.cloneNode(true);
+  b.querySelector(".hm-icon").replaceWith(icon(name).firstElementChild);
+  b.setAttribute("aria-label", label);
+  b.setAttribute("title", label);
+  for (const [k, v] of Object.entries(props)) if (v === true) b.setAttribute(k, "");
+  return b;
 }
 
 let uid = 0;
@@ -82,7 +93,7 @@ export function createSections({ field, fields, commit, errors = {}, announce = 
     const put = (next, o) => send([{ op: "setField", id, key: "options", value: next }], o);
     const rows = opts.map((o, i) => {
       const lab = h("input", { class: "hm-field__control", type: "text", "aria-label": `Option ${i + 1} label`, value: o.label });
-      const val = h("input", { class: "hm-field__control", type: "text", "aria-label": `Option ${i + 1} value`, value: o.value });
+      const val = h("input", { class: "hm-field__control hm-fd-choice__value", type: "text", "aria-label": `Option ${i + 1} value`, value: o.value });
       lab.value = o.label;
       val.value = o.value;
       lab.addEventListener("input", () => put(opts.map((x, k) => (k === i ? { ...x, label: lab.value } : x)), { coalesce: `fd:${id}:opt${i}l` }));
@@ -92,15 +103,16 @@ export function createSections({ field, fields, commit, errors = {}, announce = 
         [n[i], n[j]] = [n[j], n[i]];
         put(n);
       };
-      return h(
-        "div",
-        { class: "hm-fd-choice", role: "group", "aria-label": `Option ${i + 1}` },
-        lab,
-        val,
-        actButton("Up", { type: "button", "aria-label": `Move option ${i + 1} up`, disabled: i === 0, onclick: () => swap(i - 1) }),
-        actButton("Down", { type: "button", "aria-label": `Move option ${i + 1} down`, disabled: i === opts.length - 1, onclick: () => swap(i + 1) }),
-        actButton("Remove", { type: "button", "aria-label": `Remove option ${i + 1}`, disabled: opts.length <= 1, onclick: () => put(opts.filter((_, k) => k !== i)) }),
-      );
+      const first = h("input", { class: "hm-field__box", type: "radio", name: `${dom}-def`, "aria-label": `Option ${i + 1} is selected at first`, title: "Selected at first (click again to clear)", checked: field.default_value === o.value });
+      first.checked = field.default_value === o.value;
+      first.addEventListener("click", () => set("default_value", field.default_value === o.value ? "" : o.value));
+      const up = iconButton("arrow-up", `Move option ${i + 1} up`, { disabled: i === 0 });
+      const down = iconButton("arrow-down", `Move option ${i + 1} down`, { disabled: i === opts.length - 1 });
+      const del = iconButton("x", `Remove option ${i + 1}`, { disabled: opts.length <= 1 });
+      up.addEventListener("click", () => swap(i - 1));
+      down.addEventListener("click", () => swap(i + 1));
+      del.addEventListener("click", () => put(opts.filter((_, k) => k !== i)));
+      return h("div", { class: "hm-fd-choice", role: "group", "aria-label": `Option ${i + 1}` }, field.type === "checkbox" ? null : first, lab, val, up, down, del);
     });
     const n = opts.length + 1;
     const add = actButton("Add an option", { type: "button", onclick: () => put([...opts, { label: `Option ${n}`, value: `option_${n}` }]) });
@@ -122,11 +134,7 @@ export function createSections({ field, fields, commit, errors = {}, announce = 
       if (!paste.hidden) paste.focus();
     } });
     const kids = [...rows, h("div", { class: "hm-fd-section__row" }, add, toggle), paste, apply];
-    if (field.type !== "checkbox") {
-      const def = select(`${dom}-def`, [["", "No default"], ...opts.map((o) => [o.value, o.label || o.value])], field.default_value ?? "");
-      def.addEventListener("change", () => set("default_value", def.value));
-      kids.push(row("Selected at first", def, { id: def.id }));
-    }
+    if (field.type !== "checkbox") kids.push(h("p", { class: "hm-field__help", text: "The round button marks the option selected at first. Click it again to clear." }));
     return section("Choices", ...kids);
   }
 

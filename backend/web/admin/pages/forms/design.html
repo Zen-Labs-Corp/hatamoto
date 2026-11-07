@@ -20,6 +20,7 @@
 <template data-hm-bs-badge>{{template "hm/badge" (dict "Label" "" "Mono" true)}}</template>
 <template data-hm-bs-chip>{{template "hm/badge" (dict "Label" "" "Plain" true)}}</template>
 <template data-hm-bs-act>{{template "hm/button" (dict "Label" "Action" "Size" "sm")}}</template>
+<template data-hm-bs-iconact>{{template "hm/button" (dict "AriaLabel" "Action" "IconOnly" true "Icon" "x" "Variant" "ghost" "Size" "sm")}}</template>
 <template data-hm-bs-warn>{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true)}}{{template "hm/callout-end"}}</template>
 <template data-hm-bs-ico>{{range .Icons}}<span data-ico="{{.}}">{{icon .}}</span>{{end}}</template>
 <aside class="hm-fd__palette" aria-label="Add a field" data-hm-fd-palette hidden data-hm-bs-js></aside>

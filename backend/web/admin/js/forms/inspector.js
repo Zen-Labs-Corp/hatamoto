@@ -6,7 +6,7 @@ import { h } from "@hm/builder/dom";
 import { lazy } from "@hm/builder/lazy";
 import { TYPES, compatible } from "@hm/forms/types";
 import { formCheck } from "@hm/forms/check";
-import { GROUPS } from "@hm/forms/shortcuts";
+import { KEYS, keyCap } from "@hm/forms/shortcuts";
 import { icon } from "@hm/forms/palette";
 
 const sectionsChunk = lazy(() => import("@hm/forms/inspsections"));
@@ -22,9 +22,13 @@ export function mountInspector(root, { getDoc, getSelected, commit, getErrors = 
 
   function idle(doc) {
     const check = formCheck(doc);
+    const item = (c) =>
+      h("li", { class: "hm-fd-check", "data-ok": String(c.ok) }, h("span", { class: "hm-fd-check__ico", "aria-hidden": "true" }, icon(c.ok ? "check" : "alert-circle")), h("span", { class: "hm-visually-hidden", text: c.ok ? "Done: " : "To do: " }), h("span", { text: c.ok ? c.label : c.hint }));
+    const row = ([combos, what]) => h("tr", {}, h("td", {}, ...combos.map((c) => h("kbd", { text: keyCap(c) }))), h("td", { text: what }));
     return [
-      h("section", { class: "hm-fd-section", "aria-label": "Form check" }, h("h3", { class: "hm-fd-group", text: "Form check" }), ...check.map((c) => h("div", { class: "hm-fd-check", "data-ok": String(c.ok) }, h("span", { text: c.ok ? "Done" : "To do" }), h("span", { text: c.ok ? c.label : `${c.label}. ${c.hint}` })))),
-      h("section", { class: "hm-fd-section", "aria-label": "Shortcuts" }, h("h3", { class: "hm-fd-group", text: "Shortcuts" }), ...GROUPS.map(([name, rows]) => h("dl", { class: "hm-fd-keys" }, h("dt", { text: name }), ...rows.map(([k, what]) => h("dd", { text: `${k}: ${what}` }))))),
+      h("div", { class: "hm-fd-empty-note" }, h("span", { class: "hm-fd-empty-note__ico", "aria-hidden": "true" }, icon("file-text")), h("b", { text: "Nothing selected" }), h("p", { class: "hm-muted", text: "Click a field on the form to edit it, or drag a new one in from Add a field." })),
+      h("section", { class: "hm-fd-section", "aria-label": "Form check" }, h("h3", { class: "hm-fd-group", text: "Form check" }), h("ul", { class: "hm-fd-checks" }, ...check.map(item))),
+      h("section", { class: "hm-fd-section", "aria-label": "Shortcuts" }, h("h3", { class: "hm-fd-group", text: "Shortcuts" }), h("table", { class: "hm-fd-keys" }, h("tbody", {}, ...KEYS.map(row)))),
     ];
   }
 
@@ -33,7 +37,7 @@ export function mountInspector(root, { getDoc, getSelected, commit, getErrors = 
     const sw = h("select", { class: "hm-field__control", "aria-label": "Field type", disabled: types.length < 2 }, ...types.map((t) => h("option", { value: t, text: TYPES[t].label })));
     sw.value = f.type;
     sw.addEventListener("change", () => commit([{ op: "replaceField", id: f.id, field: { ...f, type: sw.value } }], { label: "Change type" }));
-    return h("div", { class: "hm-fd-section" }, h("span", { class: "hm-fd-tile__ico", "aria-hidden": "true" }, icon(TYPES[f.type]?.icon ?? "pen")), sw);
+    return h("div", { class: "hm-fd-type" }, h("span", { class: "hm-fd-tile__ico", "aria-hidden": "true" }, icon(TYPES[f.type]?.icon ?? "pen")), sw);
   }
 
   function draw() {
