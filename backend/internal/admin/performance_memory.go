@@ -48,7 +48,12 @@ type MemoryView struct {
 	PluginsAvailable bool
 	CacheOnDisk      bool
 	CacheBytes       int64
-	ReadAt           time.Time
+	// IdleWindow is how long a pooled plugin instance may sit unused before it
+	// is closed (zero: no such policy); IdleClosed counts instances closed for
+	// idleness since start.
+	IdleWindow time.Duration
+	IdleClosed int64
+	ReadAt     time.Time
 }
 
 const performanceMemoryPath = "/settings/performance/memory"
@@ -62,6 +67,8 @@ type memoryData struct {
 	Plugins          ui.Table
 	PluginsAvailable bool
 	CacheLine        string // "" unless the compilation cache is on disk
+	IdleLine         string // "" unless the plugin host reports an idle window
+	ClosedLine       string // "" with IdleLine
 	ReadAt           string
 	RefreshHref      string
 }
@@ -106,6 +113,10 @@ func (a *Admin) memoryPage(ctx context.Context, s MemoryView) memoryData {
 	}
 	if s.CacheOnDisk {
 		d.CacheLine = "Compilation cache on disk: " + memorySize(s.CacheBytes) + ", shared by all plugins."
+	}
+	if s.IdleWindow > 0 {
+		d.IdleLine = fmt.Sprintf("Idle instances close after %d min; one stays warm.", int(s.IdleWindow.Minutes()))
+		d.ClosedLine = "Closed since start: " + thousands(int(s.IdleClosed))
 	}
 	return d
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/wasmhost"
@@ -38,12 +39,14 @@ func TestMemorySnapshotMapsPlugins(t *testing.T) {
 	addHostStats(&v, wasmhost.HostStats{
 		CacheOnDisk: true,
 		CacheBytes:  4096,
+		Evicted:     37,
+		IdleWindow:  5 * time.Minute,
 		Plugins: []wasmhost.PluginStats{
 			{Name: "alpha", Pooled: 2, Live: 1, PooledWasmBytes: 1 << 20, ModuleBytes: 300},
 		},
 	})
 	want := admin.PluginMemoryRow{Name: "alpha", Pooled: 2, Live: 1, WasmBytes: 1 << 20, ModuleBytes: 300}
-	if !v.PluginsAvailable || !v.CacheOnDisk || v.CacheBytes != 4096 || len(v.Plugins) != 1 || v.Plugins[0] != want {
+	if !v.PluginsAvailable || !v.CacheOnDisk || v.CacheBytes != 4096 || v.IdleClosed != 37 || v.IdleWindow != 5*time.Minute || len(v.Plugins) != 1 || v.Plugins[0] != want {
 		t.Fatalf("mapping wrong: %+v", v)
 	}
 }

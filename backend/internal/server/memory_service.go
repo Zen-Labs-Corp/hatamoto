@@ -42,6 +42,7 @@ func addHostStats(v *admin.MemoryView, hs wasmhost.HostStats) {
 	v.PluginsAvailable = true
 	v.CacheOnDisk = hs.CacheOnDisk
 	v.CacheBytes = hs.CacheBytes
+	v.IdleWindow, v.IdleClosed = hs.IdleWindow, hs.Evicted
 	v.Plugins = make([]admin.PluginMemoryRow, 0, len(hs.Plugins))
 	for _, p := range hs.Plugins {
 		v.Plugins = append(v.Plugins, admin.PluginMemoryRow{
