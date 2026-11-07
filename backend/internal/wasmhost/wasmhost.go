@@ -323,7 +323,7 @@ func (h *Host) load(ctx context.Context, m sdk.Manifest, wasm []byte) error {
 		_ = compiled.Close(ctx)
 		return fmt.Errorf("wasmhost: instantiate %s: %w", m.Name, err)
 	}
-	p.tryPushPooled(inst) // the pool is empty and has room
+	p.release(inst) // the pool is empty and has room
 
 	h.mu.Lock()
 	old := *h.reg.Load()
