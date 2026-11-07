@@ -4,13 +4,13 @@
     {{if $c.heading}}<h2 class="hm-plugin-directory__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
     {{if $c.subheading}}<p class="hm-plugin-directory__subheading" {{hmf "subheading"}}>{{$c.subheading}}</p>{{end}}
     {{if or $c.writeUrl $c.submitUrl}}<p class="hm-plugin-directory__actions">
-      {{with $c.writeUrl}}{{if hasPrefix . "https://"}}<a class="hm-btn" href="{{cta .}}" rel="noopener noreferrer">Write a theme</a>{{end}}{{end}}
-      {{with $c.submitUrl}}{{if hasPrefix . "https://"}}<a class="hm-btn hm-plugin-directory__btn--ghost" href="{{cta .}}" rel="noopener noreferrer">Submit a theme</a>{{end}}{{end}}
-    </p>{{end}}{{with $c.otherUrl}}{{if or (hasPrefix . "https://") (and (hasPrefix . "/") (not (hasPrefix . "//")))}}<a class="hm-plugin-directory__other" href="{{cta .}}">{{if $c.otherLabel}}{{$c.otherLabel}}{{else}}More{{end}}</a>{{end}}{{end}}
+      {{with $c.writeUrl}}{{if hasPrefix . "https://"}}<a class="hm-btn" href="{{cta .}}" rel="noopener noreferrer">{{t $ "theme_dir_write"}}</a>{{end}}{{end}}
+      {{with $c.submitUrl}}{{if hasPrefix . "https://"}}<a class="hm-btn hm-plugin-directory__btn--ghost" href="{{cta .}}" rel="noopener noreferrer">{{t $ "theme_dir_submit"}}</a>{{end}}{{end}}
+    </p>{{end}}{{with $c.otherUrl}}{{if or (hasPrefix . "https://") (and (hasPrefix . "/") (not (hasPrefix . "//")))}}<a class="hm-plugin-directory__other" href="{{cta .}}">{{if $c.otherLabel}}{{$c.otherLabel}}{{else}}{{t $ "more"}}{{end}}</a>{{end}}{{end}}
   </header>{{end}}
   {{if and $d (eq $d.State "ok")}}
   {{if ne (printf "%v" $c.showSearch) "false"}}<div class="hm-plugin-directory__tools">
-    <input class="hm-plugin-directory__search" type="search" hidden aria-label="Search themes" placeholder="Search themes" autocomplete="off" data-hm-plugin-search data-noun="theme">
+    <input class="hm-plugin-directory__search" type="search" hidden aria-label="{{t $ "theme_dir_search"}}" placeholder="{{t $ "theme_dir_search"}}" autocomplete="off" data-hm-plugin-search data-noun="theme">
     <p class="hm-plugin-directory__count" hidden aria-live="polite" data-hm-plugin-count></p>
   </div>{{end}}
   <ul class="hm-plugin-directory__grid">
@@ -18,13 +18,13 @@
       {{with .Screenshot}}{{if hasPrefix . "https://"}}<img class="hm-theme-directory__shot" src="{{.}}" alt="" loading="lazy" width="640" height="400">{{end}}{{end}}
       <h3 class="hm-plugin-directory__title">{{if $d.Linked}}<a href="/themes/{{.Name}}">{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</a>{{else}}{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}{{end}}</h3>
       <p class="hm-plugin-directory__meta"><span>{{.Name}} {{.Version}}</span>{{if .TierLabel}} <span class="hm-plugin-directory__tier">{{.TierLabel}}</span>{{end}}</p>
-      {{if .Author}}<p class="hm-plugin-directory__author">by {{.Author}}</p>{{end}}
+      {{if .Author}}<p class="hm-plugin-directory__author">{{t $ "by"}} {{.Author}}</p>{{end}}
       {{if .Description}}<p class="hm-plugin-directory__description">{{.Description}}</p>{{end}}
-      {{with .Source}}{{if hasPrefix . "https://"}}<a class="hm-plugin-directory__source" href="{{cta .}}" rel="noopener noreferrer">Source</a>{{end}}{{end}}
+      {{with .Source}}{{if hasPrefix . "https://"}}<a class="hm-plugin-directory__source" href="{{cta .}}" rel="noopener noreferrer">{{t $ "source"}}</a>{{end}}{{end}}
     </li>{{end}}
   </ul>
-  {{else if and $d (eq $d.State "empty")}}<p class="hm-plugin-directory__state">No themes are listed yet.</p>
-  {{else if and $d (eq $d.State "off")}}<p class="hm-plugin-directory__state">No theme registry is configured.</p>
-  {{else}}<p class="hm-plugin-directory__state">The theme directory is unavailable right now.</p>{{end}}
+  {{else if and $d (eq $d.State "empty")}}<p class="hm-plugin-directory__state">{{t $ "theme_dir_empty"}}</p>
+  {{else if and $d (eq $d.State "off")}}<p class="hm-plugin-directory__state">{{t $ "theme_dir_off"}}</p>
+  {{else}}<p class="hm-plugin-directory__state">{{t $ "theme_dir_unavailable"}}</p>{{end}}
   {{with $c.installHint}}<p class="hm-plugin-directory__hint" {{hmf "installHint"}}>{{.}}</p>{{end}}
 </div>{{end}}

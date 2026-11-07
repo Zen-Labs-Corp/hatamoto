@@ -15,5 +15,5 @@
     </dl>{{end}}
   </div>
   {{/* Map: iframe only for allow-listed embed hosts (embedAllowed); any other URL becomes a plain link. */}}
-  {{with $c.mapEmbedUrl}}{{if ne (printf "%v" $c.showMap) "false"}}{{if embedAllowed .}}<div class="hm-contact-info__map"><iframe src="{{.}}" title="Map" loading="lazy" referrerpolicy="no-referrer"></iframe></div>{{else}}<p class="hm-contact-info__map-link"><a href="{{safeHref .}}" rel="noopener">View map</a></p>{{end}}{{end}}{{end}}
+  {{with $c.mapEmbedUrl}}{{if ne (printf "%v" $c.showMap) "false"}}{{if embedAllowed .}}<div class="hm-contact-info__map"><iframe src="{{.}}" title="{{t $ "contact_info_map"}}" loading="lazy" referrerpolicy="no-referrer"></iframe></div>{{else}}<p class="hm-contact-info__map-link"><a href="{{safeHref .}}" rel="noopener">{{t $ "contact_info_view_map"}}</a></p>{{end}}{{end}}{{end}}
 </div>{{end}}

@@ -4,28 +4,28 @@
     {{if $c.heading}}<h2 class="hm-plugin-directory__heading" {{hmf "heading"}}>{{$c.heading}}</h2>{{end}}
     {{if $c.subheading}}<p class="hm-plugin-directory__subheading" {{hmf "subheading"}}>{{$c.subheading}}</p>{{end}}
     {{if or $c.writeUrl $c.submitUrl}}<p class="hm-plugin-directory__actions">
-      {{with $c.writeUrl}}{{if hasPrefix . "https://"}}<a class="hm-btn" href="{{cta .}}" rel="noopener noreferrer">Write a plugin</a>{{end}}{{end}}
-      {{with $c.submitUrl}}{{if hasPrefix . "https://"}}<a class="hm-btn hm-plugin-directory__btn--ghost" href="{{cta .}}" rel="noopener noreferrer">Submit a plugin</a>{{end}}{{end}}
-    </p>{{end}}{{with $c.otherUrl}}{{if or (hasPrefix . "https://") (and (hasPrefix . "/") (not (hasPrefix . "//")))}}<a class="hm-plugin-directory__other" href="{{cta .}}">{{if $c.otherLabel}}{{$c.otherLabel}}{{else}}More{{end}}</a>{{end}}{{end}}
+      {{with $c.writeUrl}}{{if hasPrefix . "https://"}}<a class="hm-btn" href="{{cta .}}" rel="noopener noreferrer">{{t $ "plugin_dir_write"}}</a>{{end}}{{end}}
+      {{with $c.submitUrl}}{{if hasPrefix . "https://"}}<a class="hm-btn hm-plugin-directory__btn--ghost" href="{{cta .}}" rel="noopener noreferrer">{{t $ "plugin_dir_submit"}}</a>{{end}}{{end}}
+    </p>{{end}}{{with $c.otherUrl}}{{if or (hasPrefix . "https://") (and (hasPrefix . "/") (not (hasPrefix . "//")))}}<a class="hm-plugin-directory__other" href="{{cta .}}">{{if $c.otherLabel}}{{$c.otherLabel}}{{else}}{{t $ "more"}}{{end}}</a>{{end}}{{end}}
   </header>{{end}}
   {{if and $d (eq $d.State "ok")}}
   {{if ne (printf "%v" $c.showSearch) "false"}}<div class="hm-plugin-directory__tools">
-    <input class="hm-plugin-directory__search" type="search" hidden aria-label="Search plugins" placeholder="Search plugins" autocomplete="off" data-hm-plugin-search>
+    <input class="hm-plugin-directory__search" type="search" hidden aria-label="{{t $ "plugin_dir_search"}}" placeholder="{{t $ "plugin_dir_search"}}" autocomplete="off" data-hm-plugin-search>
     <p class="hm-plugin-directory__count" hidden aria-live="polite" data-hm-plugin-count></p>
   </div>{{end}}
   <ul class="hm-plugin-directory__grid">
     {{range $d.Cards}}<li class="hm-plugin-directory__card" data-search="{{.Search}}">
       <h3 class="hm-plugin-directory__title">{{if $d.Linked}}<a href="/plugins/{{.Name}}">{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</a>{{else}}{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}{{end}}</h3>
       <p class="hm-plugin-directory__meta"><span>{{.Name}} {{.Version}}</span>{{if .TierLabel}} <span class="hm-plugin-directory__tier">{{.TierLabel}}</span>{{end}}</p>
-      {{if .Author}}<p class="hm-plugin-directory__author">by @{{.Author}}</p>{{end}}
+      {{if .Author}}<p class="hm-plugin-directory__author">{{t $ "by"}} @{{.Author}}</p>{{end}}
       {{if .Description}}<p class="hm-plugin-directory__description">{{.Description}}</p>{{end}}
-      {{if .PermCount}}<p class="hm-plugin-directory__perms"><span class="hm-plugin-directory__permcount">{{.PermCount}} permission{{if ne .PermCount 1}}s{{end}}</span>{{if .PermWarn}} <span class="hm-plugin-directory__warn"><span aria-hidden="true">⚠</span><span class="hm-visually-hidden">Warning: {{range $i, $w := .PermWarn}}{{if $i}} {{end}}{{$w}}{{end}}</span></span>{{end}}</p>
-      <details class="hm-plugin-directory__lines"><summary>Show permissions<span class="hm-visually-hidden"> for {{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</span></summary><ul>{{range .PermLines}}<li>{{if .Warn}}⚠ {{end}}<code>{{.Name}}</code> {{.Text}}</li>{{end}}</ul></details>{{else}}<p class="hm-plugin-directory__perms"><span class="hm-plugin-directory__permcount">No permissions</span></p>{{end}}
-      {{with .Source}}{{if hasPrefix . "https://"}}<a class="hm-plugin-directory__source" href="{{cta .}}" rel="noopener noreferrer">Source</a>{{end}}{{end}}
+      {{if .PermCount}}<p class="hm-plugin-directory__perms"><span class="hm-plugin-directory__permcount">{{if ne .PermCount 1}}{{t $ "permission_other" .PermCount}}{{else}}{{t $ "permission_one" .PermCount}}{{end}}</span>{{if .PermWarn}} <span class="hm-plugin-directory__warn"><span aria-hidden="true">⚠</span><span class="hm-visually-hidden">{{t $ "warning"}} {{range $i, $w := .PermWarn}}{{if $i}} {{end}}{{$w}}{{end}}</span></span>{{end}}</p>
+      <details class="hm-plugin-directory__lines"><summary>{{t $ "plugin_dir_show_permissions"}}<span class="hm-visually-hidden"> {{t $ "plugin_dir_for"}} {{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</span></summary><ul>{{range .PermLines}}<li>{{if .Warn}}⚠ {{end}}<code>{{.Name}}</code> {{.Text}}</li>{{end}}</ul></details>{{else}}<p class="hm-plugin-directory__perms"><span class="hm-plugin-directory__permcount">{{t $ "plugin_dir_no_permissions"}}</span></p>{{end}}
+      {{with .Source}}{{if hasPrefix . "https://"}}<a class="hm-plugin-directory__source" href="{{cta .}}" rel="noopener noreferrer">{{t $ "source"}}</a>{{end}}{{end}}
     </li>{{end}}
   </ul>
-  {{else if and $d (eq $d.State "empty")}}<p class="hm-plugin-directory__state">No plugins are listed yet.</p>
-  {{else if and $d (eq $d.State "off")}}<p class="hm-plugin-directory__state">No plugin registry is configured.</p>
-  {{else}}<p class="hm-plugin-directory__state">The plugin directory is unavailable right now.</p>{{end}}
+  {{else if and $d (eq $d.State "empty")}}<p class="hm-plugin-directory__state">{{t $ "plugin_dir_empty"}}</p>
+  {{else if and $d (eq $d.State "off")}}<p class="hm-plugin-directory__state">{{t $ "plugin_dir_off"}}</p>
+  {{else}}<p class="hm-plugin-directory__state">{{t $ "plugin_dir_unavailable"}}</p>{{end}}
   {{with $c.installHint}}<p class="hm-plugin-directory__hint" {{hmf "installHint"}}>{{.}}</p>{{end}}
 </div>{{end}}
