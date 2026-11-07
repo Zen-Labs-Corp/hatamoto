@@ -22,6 +22,7 @@ import (
 func newTypesServer(t *testing.T, f *form.Form) (*Server, *fakeFormRepo) {
 	t.Helper()
 	f.ID, f.Slug, f.Status = uuid.New(), "t", form.StatusActive
+	f.Settings.StoreSubmissions = true
 	repo := &fakeFormRepo{forms: map[string]*form.Form{"t": f}}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return &Server{cfg: &config.Config{}, logger: logger, formService: form.NewService(repo, logger)}, repo

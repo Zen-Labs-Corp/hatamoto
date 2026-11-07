@@ -3,6 +3,7 @@ package email
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/x509"
 	"embed"
@@ -580,6 +581,8 @@ type FormConfirmationData struct {
 	Name     string
 	Message  string
 	SiteName string
+	// Subject replaces the default subject when set; it is sanitised before use.
+	Subject string
 }
 
 // SendFormConfirmation emails a receipt to the person who submitted a form.
@@ -600,7 +603,7 @@ func (s *Service) SendFormConfirmation(ctx context.Context, to string, data Form
 	text.WriteString("Your submission of \"" + data.FormName + "\" has been received.\n\n")
 	text.WriteString(data.SiteName + "\n")
 
-	subject := fmt.Sprintf("We received your submission — %s", data.FormName)
+	subject := cmp.Or(data.Subject, fmt.Sprintf("We received your submission — %s", data.FormName))
 	if clean, ok := SanitizeHeader(subject); ok {
 		subject = clean
 	} else {

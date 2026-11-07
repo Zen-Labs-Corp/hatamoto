@@ -55,7 +55,7 @@ func newFormPostServer(t *testing.T) (*Server, *fakeFormRepo) {
 				{Name: "topic", Label: "Topic", Type: form.FieldTypeSelect, Options: []form.FieldOption{{Label: "Sales", Value: "sales"}, {Label: "Help", Value: "help"}}},
 				{Name: "tags", Label: "Tags", Type: form.FieldTypeCheckbox, Options: []form.FieldOption{{Label: "A", Value: "a"}, {Label: "B", Value: "b"}}},
 			},
-			Settings: form.FormSettings{SuccessMessage: "Thanks", SuccessRedirectURL: "/thanks"}},
+			Settings: form.FormSettings{SuccessMessage: "Thanks", SuccessRedirectURL: "/thanks", StoreSubmissions: true}},
 		"draft": {ID: uuid.New(), Slug: "draft", Status: form.StatusInactive},
 	}}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -142,8 +142,7 @@ func TestSafeLocalPath(t *testing.T) {
 	}
 }
 
-// The JSON endpoint must keep its status codes and bodies after the
-// submitPublicForm extraction.
+// The JSON endpoint must keep its status codes and bodies.
 func TestFormSubmit_JSONUnchanged(t *testing.T) {
 	t.Parallel()
 	srv, repo := newFormPostServer(t)

@@ -36,8 +36,15 @@ func (s *Server) handlePublicFormPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Honeypot: bots fill the hidden field. Answer as if it worked, store nothing.
-	if r.PostForm.Get(honeypotField) != "" {
+	formObj, err := s.activeFormBySlug(r.Context(), slug)
+	if err != nil {
+		http.Redirect(w, r, formPostRedirect(back, "form_error"), http.StatusSeeOther)
+		return
+	}
+
+	// Honeypot: bots fill the hidden field. Answer as if it worked, store
+	// nothing. A form can switch the trap off.
+	if !formObj.Settings.HoneypotOff && r.PostForm.Get(honeypotField) != "" {
 		http.Redirect(w, r, formPostRedirect(back, "submitted"), http.StatusSeeOther)
 		return
 	}
@@ -45,7 +52,7 @@ func (s *Server) handlePublicFormPost(w http.ResponseWriter, r *http.Request) {
 	data := formValues(r.PostForm)
 
 	ctl := controlFromValues(r.PostForm)
-	_, err := s.submitPublicForm(r.Context(), slug, data, ctl, submitMeta{
+	_, err = s.storeFormSubmission(r.Context(), formObj, slug, data, ctl, submitMeta{
 		IPAddress: middleware.GetClientIP(r),
 		TrustedIP: middleware.GetClientIP(r),
 		UserAgent: r.UserAgent(),

@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/email/smtptest"
 )
 
 func newTestService(t *testing.T) *Service {
@@ -47,5 +49,32 @@ func TestSendFormConfirmation_UnconfiguredIsNoop(t *testing.T) {
 	}
 	if err := svc.SendFormConfirmation(context.Background(), "", FormConfirmationData{}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSendFormConfirmationSubject(t *testing.T) {
+	svc, _, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	ctx := context.Background()
+	if err := svc.SendFormConfirmation(ctx, "v@x.test", FormConfirmationData{FormName: "Contact", Message: "Thanks", SiteName: "S", Subject: "Got it, thanks"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SendFormConfirmation(ctx, "v@x.test", FormConfirmationData{FormName: "Contact", Message: "Thanks", SiteName: "S"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SendFormConfirmation(ctx, "v@x.test", FormConfirmationData{FormName: "Contact", Message: "Thanks", SiteName: "S", Subject: "a\r\nBcc: evil@x.test"}); err != nil {
+		t.Fatal(err)
+	}
+	msgs := srv.Messages()
+	if len(msgs) != 3 {
+		t.Fatalf("messages = %d, want 3", len(msgs))
+	}
+	if !strings.Contains(msgs[0].Data, "Subject: Got it, thanks\r\n") {
+		t.Errorf("custom subject missing:\n%s", msgs[0].Data)
+	}
+	if !strings.Contains(msgs[1].Data, "Subject: =?utf-8?") && !strings.Contains(msgs[1].Data, "We received your submission") {
+		t.Errorf("default subject missing:\n%s", msgs[1].Data)
+	}
+	if strings.Contains(msgs[2].Data, "Bcc: evil") {
+		t.Errorf("header injection:\n%s", msgs[2].Data)
 	}
 }

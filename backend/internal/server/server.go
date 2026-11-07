@@ -142,6 +142,7 @@ type Server struct {
 	emailApplied           bool // a configuration has been applied since boot
 	formConfirmationSender formConfirmationSender
 	confirmThrottle        confirmationThrottle
+	formRates              ipFreeLimiter
 	apiKeyService          *auth.APIKeyService
 	// Test seams for /health and /ready; nil means the database and apiKeyService.
 	pingDB                   func(context.Context) error
