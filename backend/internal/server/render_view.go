@@ -52,7 +52,9 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 	}
 	if rr != nil && rr.NotFound && rr.Locale == "" {
 		// A 404 is built from an empty route: take the locale from the path.
-		if tag, _, ok := s.urlSnapshot(ctx).Locales().Resolve(requestPath(r)); ok {
+		// A hidden locale answers like any unknown path unless previewed.
+		set := s.urlSnapshot(ctx).Locales()
+		if tag, _, ok := set.Resolve(requestPath(r)); ok && (!set.IsHidden(tag) || hiddenLocalesServed(ctx)) {
 			rr.Locale = tag
 		}
 	}
