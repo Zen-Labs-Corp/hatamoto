@@ -56,6 +56,17 @@ func (s *Server) handleListForms(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// writeDefinitionErrors answers an invalid definition with 422 and the list of
+// problems, like the admin's JSON save. It reports whether err was one.
+func writeDefinitionErrors(w http.ResponseWriter, err error) bool {
+	var defErrs form.DefinitionErrors
+	if !errors.As(err, &defErrs) {
+		return false
+	}
+	writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "invalid form definition", "errors": defErrs})
+	return true
+}
+
 // handleCreateForm creates a new form.
 func (s *Server) handleCreateForm(w http.ResponseWriter, r *http.Request) {
 
@@ -78,6 +89,9 @@ func (s *Server) handleCreateForm(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, form.ErrInvalidFieldType) {
 			writeError(w, http.StatusBadRequest, "invalid field type")
+			return
+		}
+		if writeDefinitionErrors(w, err) {
 			return
 		}
 		s.logger.Error("failed to create form", "error", err)
@@ -139,6 +153,9 @@ func (s *Server) handleUpdateForm(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, form.ErrInvalidFieldType) {
 			writeError(w, http.StatusBadRequest, "invalid field type")
+			return
+		}
+		if writeDefinitionErrors(w, err) {
 			return
 		}
 		s.logger.Error("failed to update form", "error", err)
