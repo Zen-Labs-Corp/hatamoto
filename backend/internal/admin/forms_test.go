@@ -322,9 +322,12 @@ func TestFormEditUsesPublicAPIPrefix(t *testing.T) {
 		g, ff, _ := newFormRig(t, func(d *Deps) { d.PublicAPIPrefix = tc.prefix })
 		fm := ff.addForm("Contact", contactFields...)
 		body := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/share", "owner-token", nil, nil).Body.String()
-		// the endpoint field and the embed code
-		if n := strings.Count(body, tc.want); n < 2 {
-			t.Errorf("prefix %q: %q appears %d times, want at least 2", tc.prefix, tc.want, n)
+		// the endpoint field names the API; the embed code posts to the no-JS route
+		if !strings.Contains(body, `value="http`) || !strings.Contains(body, tc.want) {
+			t.Errorf("prefix %q: endpoint %q missing", tc.prefix, tc.want)
+		}
+		if !strings.Contains(body, `action=&#34;`) || !strings.Contains(body, `/forms/contact/submit&#34;`) {
+			t.Errorf("prefix %q: embed code does not post to /forms/contact/submit", tc.prefix)
 		}
 		if strings.Contains(body, tc.gone) {
 			t.Errorf("prefix %q: page still names %q", tc.prefix, tc.gone)
