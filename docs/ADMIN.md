@@ -1039,6 +1039,16 @@ The Preload card builds pages ahead of visitors:
   cached, errors, duration) is kept in memory only. Failed pages are named
   ("Failed: /a (500) · /b (panic)", up to 10, then "and N more").
 
+Settings > Performance > Memory (owner only, read-only) shows where the
+server's memory goes: the Go runtime (live and total heap, memory limit, GC
+share, goroutines), the page cache, and one row per loaded plugin. A plugin's
+Wasm memory counts its idle (pooled) instances only; Compiled code is the size
+of its module. Plugin instances that sit unused for 5 minutes are closed, down
+to one warm instance per plugin; the window is fixed. A closed instance starts
+again on demand when traffic returns, so the next call after a quiet period can
+be slower. The tab states the policy and "Closed since start: N", which counts
+the instances closed this way and resets on restart.
+
 The cache lives in the server process; each app instance has its own. Without
 `PUBLIC_BASE_URL` nothing is cached and preload is refused. With
 `HATAMOTO_WORKER=off` there is no scheduler, so only **Preload now** works.

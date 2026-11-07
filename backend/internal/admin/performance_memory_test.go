@@ -29,6 +29,8 @@ func newMemoryView() MemoryView {
 			{Name: "alt-text", ModuleBytes: 1100000},
 		},
 		PluginsAvailable: true,
+		IdleWindow:       5 * time.Minute,
+		IdleClosed:       37,
 		ReadAt:           time.Date(2026, 11, 7, 10, 42, 7, 0, time.UTC),
 	}
 }
@@ -163,5 +165,33 @@ func TestMemoryPageCacheDisabled(t *testing.T) {
 	body := getMemory(t, memoryRig(t, v))
 	if !strings.Contains(body, "The page cache is off") || strings.Contains(body, "0 pages") {
 		t.Error("disabled page cache not shown as off")
+	}
+}
+
+func TestMemoryIdleLines(t *testing.T) {
+	t.Parallel()
+
+	const idle = "Idle instances close after 5 min; one stays warm."
+	body := getMemory(t, memoryRig(t, newMemoryView()))
+	if !strings.Contains(body, idle) || !strings.Contains(body, "Closed since start: 37") {
+		t.Error("idle policy lines missing")
+	}
+	v := newMemoryView()
+	v.IdleClosed = 0
+	if body := getMemory(t, memoryRig(t, v)); !strings.Contains(body, "Closed since start: 0") {
+		t.Error("zero closed not shown")
+	}
+	v.IdleWindow = 10 * time.Minute
+	if body := getMemory(t, memoryRig(t, v)); !strings.Contains(body, "close after 10 min") {
+		t.Error("window not taken from the view")
+	}
+	v.IdleWindow = 0
+	if body := getMemory(t, memoryRig(t, v)); strings.Contains(body, "Idle instances") || strings.Contains(body, "Closed since start") {
+		t.Error("idle lines shown without an idle window")
+	}
+	off := newMemoryView()
+	off.PluginsAvailable = false
+	if body := getMemory(t, memoryRig(t, off)); strings.Contains(body, "Idle instances") || strings.Contains(body, "Closed since start") {
+		t.Error("idle lines shown while plugins are unavailable")
 	}
 }
