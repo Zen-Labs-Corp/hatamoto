@@ -2,8 +2,8 @@
 
 ## Unreleased: Form settings tab
 
-- **Keep submissions.** The Settings tab's "Keep submissions in the admin" switch writes `store_off` (absent means keep). Off stores no answers: they are only emailed and sent to hooks. The old `store_submissions` key is no longer read, so every existing form and every form created through the API keeps storing, as before; a form whose owner had switched it off on an earlier release keeps storing until the owner saves it from the Settings tab. If email is not configured or the form has no recipient, the answers are kept anyway and a warning is logged, so they cannot be lost.
-- **Nothing about the visitor.** With keeping off, the row holds only its id, status and time: no IP address, browser, page, referrer or attribution. "Do not store IP addresses" stays available for forms that keep submissions.
+- **Keep submissions.** The Settings tab's "Keep submissions in the admin" switch writes `store_off` (absent means keep). Off stores no answers: they are only emailed and sent to hooks. The old `store_submissions` key is no longer read, so every existing form and every form created through the API keeps storing, as before; a form whose owner had switched it off on an earlier release keeps storing until the owner saves it from the Settings tab. If email is not configured or the form has no recipient, the answers are kept anyway when email cannot be sent at all, and a warning is logged. A send that fails later is still lost.
+- **Nothing about the visitor.** With keeping off, the row holds only its id, status and time: no IP address, browser, page, referrer or attribution. The notification email still names the page and, unless "Do not store IP addresses" is on, the address. The no-IP switch only shows for forms that keep submissions. The per-form rate limit still applies.
 - **Migration.** None. Rollback floor: unchanged; an older release ignores the new keys and drops them the next time it saves that form.
 
 ## Unreleased: Theme strings

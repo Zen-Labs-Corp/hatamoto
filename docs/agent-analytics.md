@@ -323,8 +323,8 @@ answers, validates and caps it (1 KiB), and classifies it with the same
 classifier the Traffic beacon uses, so Traffic and Conversions agree on
 channels. A channel sent by the client is never trusted. The values are stored
 only when a submission is stored: with "Keep submissions" off on a form (`store_off`), the
-submission keeps no answers and no attribution, so it is not a lead, and
-nothing about the visitor (address, browser, page, referrer) is kept either:
+submission keeps no answers and no attribution. It still counts as a lead, under
+channel unknown, and nothing about the visitor (address, browser, page, referrer) is kept either:
 the row holds only its id, status and time.
 
 **Retention.** Attribution lives as long as its submission and is deleted with
