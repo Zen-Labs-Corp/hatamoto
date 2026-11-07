@@ -287,3 +287,13 @@ func TestThemeCheckRefusesInvalidMenus(t *testing.T) {
 		}
 	}
 }
+
+func TestThemeCheckRefusesInvalidStrings(t *testing.T) {
+	files := themeFiles(t, "bad", "assets/shot.png", testPNG(t))
+	files["theme.json"] = `{"name":"bad","version":"1.0.0","strings":{"search":"<b>Search</b>"}}`
+	dir := writeDir(t, files)
+	err := runThemeCheck([]string{dir}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), `string "search"`) {
+		t.Fatalf("err = %v", err)
+	}
+}

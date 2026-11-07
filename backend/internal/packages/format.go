@@ -29,6 +29,7 @@ import (
 	"hatamoto.dev/core/internal/jsonx/keynorm"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/plugmanifest"
+	"hatamoto.dev/core/internal/themestrings"
 	"hatamoto.dev/sdk"
 )
 
@@ -105,6 +106,9 @@ type Package struct {
 	// MenusErr is why theme.json's "menus" is invalid (nil: valid or absent).
 	// Parse stays lenient like ScreenshotErr; theme check and pack refuse on it.
 	MenusErr error
+	// StringsErr is why theme.json's "strings" is invalid (nil: valid or
+	// absent). Parse stays lenient like MenusErr; theme check and pack refuse on it.
+	StringsErr error
 
 	data []byte
 	zr   *zip.Reader
@@ -183,6 +187,8 @@ type ThemeMeta struct {
 	Screenshot string `json:"screenshot,omitempty"`
 	// Menus declares menu locations, see menu.ParseDecl.
 	Menus jsontext.Value `json:"menus,omitzero"`
+	// Strings declares the theme's UI strings, see themestrings.ParseDecl.
+	Strings jsontext.Value `json:"strings,omitzero"`
 }
 
 // ThemeMeta decodes theme.json of a theme package.
@@ -492,6 +498,7 @@ func Parse(raw []byte, lim Limits) (*Package, error) {
 			p.ScreenshotErr = ValidateScreenshot(m.Screenshot, assets)
 		}
 		_, p.MenusErr = menu.ParseDecl(m.Menus)
+		_, p.StringsErr = themestrings.ParseDecl(m.Strings)
 		p.Name, p.Version = m.Name, m.Version
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].name < entries[j].name })
