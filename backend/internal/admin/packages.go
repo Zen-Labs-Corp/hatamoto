@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/permtext"
+	"hatamoto.dev/core/internal/themestrings"
 )
 
 // The types and interface below are what the Plugins and Themes pages need of
@@ -271,6 +272,8 @@ type PackageAdmin interface {
 	// Activate switches the site to the theme ("default" is the built-in one).
 	Activate(ctx context.Context, theme string) error
 	ThemeSettingsSchema(ctx context.Context, theme string) []byte
+	// ThemeStrings is the UI strings the theme declares (ok false: not installed).
+	ThemeStrings(ctx context.Context, theme string) (themestrings.Decl, bool)
 	ThemeSettings(ctx context.Context, theme string) (map[string]any, error)
 	SaveThemeSettings(ctx context.Context, theme string, values map[string]any) (schemaform.Errors, error)
 	// PreviewURL is the public-site URL that starts a preview of the theme.

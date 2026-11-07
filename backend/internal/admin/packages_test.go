@@ -19,6 +19,7 @@ import (
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/siteconfig"
+	"hatamoto.dev/core/internal/themestrings"
 )
 
 func init() {
@@ -45,8 +46,9 @@ type fakePackages struct {
 	dropped      bool
 	droppedTypes bool
 	themes       []ThemeInfo
-	themeSchema  []byte // overrides themeSchemaJSON when set
-	activateErr  error  // makes Activate fail
+	themeStrings themestrings.Decl // strings of the theme "sunrise"
+	themeSchema  []byte            // overrides themeSchemaJSON when set
+	activateErr  error             // makes Activate fail
 	missing      []MissingSection
 	activated    string
 	settings     map[string]any
@@ -191,6 +193,15 @@ func (f *fakePackages) ThemeSettingsSchema(_ context.Context, theme string) []by
 		return []byte(themeSchemaJSON)
 	}
 	return nil
+}
+func (f *fakePackages) ThemeStrings(_ context.Context, theme string) (themestrings.Decl, bool) {
+	switch theme {
+	case "sunrise":
+		return f.themeStrings, true
+	case "default":
+		return themestrings.Decl{"search": "Search"}, true
+	}
+	return nil, false
 }
 func (f *fakePackages) ThemeSettings(context.Context, string) (map[string]any, error) {
 	return f.settings, nil

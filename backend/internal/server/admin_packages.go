@@ -23,6 +23,7 @@ import (
 	"hatamoto.dev/core/internal/permtext"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/plugmanifest"
+	"hatamoto.dev/core/internal/themestrings"
 	"hatamoto.dev/sdk"
 )
 
@@ -431,6 +432,10 @@ func (p *packageAdmin) Activate(ctx context.Context, theme string) error {
 func (p *packageAdmin) ThemeSettingsSchema(ctx context.Context, theme string) []byte {
 	b, _ := p.mgr().ThemeSettingsSchema(ctx, theme)
 	return b
+}
+
+func (p *packageAdmin) ThemeStrings(ctx context.Context, theme string) (themestrings.Decl, bool) {
+	return p.mgr().ThemeStrings(ctx, theme)
 }
 
 func (p *packageAdmin) ThemeSettings(ctx context.Context, theme string) (map[string]any, error) {
