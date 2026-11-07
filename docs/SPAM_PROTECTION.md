@@ -7,7 +7,7 @@ JavaScript form or a plain browser post. Configure it once at **Forms > Spam pro
 ## What runs, in order
 
 1. **Honeypot.** A hidden field people leave empty. A filled field gets a fake success and nothing
-   is stored. Unchanged.
+   is stored. Each form can switch it off in its Settings (`honeypot_off`); it is on by default.
 2. **Captcha.** Only for forms with **Require the spam check (captcha)** switched on, and only when
    a provider and a readable secret key are set. A missing or failed check answers 422 with "Please
    complete the spam check and try again." and nothing is stored. A provider outage counts as a
@@ -17,6 +17,11 @@ JavaScript form or a plain browser post. Configure it once at **Forms > Spam pro
    `casinos`, while an entry that starts or ends with punctuation such as `.ru` or `@mail.ru`
    matches inside longer text), or a
    blocked script such as Cyrillic trips a rule.
+   A form can add its own word list in Settings. A match is always stored as Spam, even when the
+   site action is refuse.
+5. **Per-form rate limit.** A form can allow N submissions an hour per visitor (Settings, 0 or empty
+   is no limit). The count comes from the stored IP; when the form does not keep IPs, an in-memory
+   counter per process is used. Over the limit is stored as spam with the reason "rate limit".
 
 The minimum time and the content rules apply to every form, with or without the captcha.
 
