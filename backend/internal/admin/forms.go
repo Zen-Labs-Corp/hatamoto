@@ -51,6 +51,7 @@ func (a *Admin) mountForms(authed *httpx.Group) {
 	authed.HandleFunc("GET /forms/submissions/export.csv", a.handleSubmissionsExport)
 	authed.HandleFunc("POST /forms/submissions/bulk", a.handleSubmissionsBulk)
 	authed.HandleFunc("GET /forms/submissions/{sid}", a.handleSubmission)
+	authed.HandleFunc("GET /forms/submissions/{sid}/files/{field}", a.handleSubmissionFile)
 	authed.HandleFunc("POST /forms/submissions/{sid}/status", a.handleSubmissionStatus)
 	authed.HandleFunc("POST /forms/submissions/{sid}/email", a.handleSubmissionEmail)
 	authed.HandleFunc("GET /forms/submissions/{sid}/delete", a.handleSubmissionDeleteForm)
@@ -306,7 +307,7 @@ var fieldTypeLabels = map[string]string{
 	form.FieldTypeTextarea: "Multi-line text", form.FieldTypeSelect: "Drop-down list", form.FieldTypeRadio: "Choose one (radio buttons)",
 	form.FieldTypeCheckbox: "Choose several (checkboxes)", form.FieldTypeDate: "Date", form.FieldTypeNumber: "Number", form.FieldTypeURL: "Web address",
 	form.FieldTypeHeading: "Heading", form.FieldTypeParagraph: "Paragraph of text", form.FieldTypeDivider: "Divider",
-	form.FieldTypeHidden: "Hidden value", form.FieldTypeConsent: "Consent checkbox",
+	form.FieldTypeHidden: "Hidden value", form.FieldTypeConsent: "Consent checkbox", form.FieldTypeFile: "File upload",
 }
 
 // fieldTypeIcon is the icon shown for a field type in the builder's row summary.
@@ -340,6 +341,8 @@ func fieldTypeIcon(t string) string {
 		return "eye-off"
 	case form.FieldTypeConsent:
 		return "shield-check"
+	case form.FieldTypeFile:
+		return "upload"
 	}
 	return "pen"
 }
@@ -378,6 +381,9 @@ func validEmailList(s string) bool {
 
 // formatAnswer renders a stored answer as text.
 func formatAnswer(v any) string {
+	if ref, ok := form.FileRefFromAny(v); ok {
+		return ref.String()
+	}
 	switch x := v.(type) {
 	case nil:
 		return ""

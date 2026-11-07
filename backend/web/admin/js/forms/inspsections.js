@@ -1,7 +1,7 @@
 // The inspector's section bodies (a lazy chunk, loaded when a field is first selected). sectionsFor
 // is pure: which sections a field type gets. createSections builds them. DOM via h() only.
 import { h, actButton, switchRow, warnNote } from "@hm/builder/dom";
-import { TYPES, isLayout } from "@hm/forms/types";
+import { TYPES, isLayout, DEFAULT_FILE_MB } from "@hm/forms/types";
 import { nameFrom, uniqueName, labelOps } from "@hm/forms/ops";
 import { icon } from "@hm/forms/palette";
 
@@ -19,7 +19,7 @@ export function sectionsFor(field) {
   const out = ["content"];
   if (CHOICES.includes(t)) out.push("choices");
   out.push("layout", "rules");
-  if (INPUTS.includes(t)) out.push("advanced");
+  if (INPUTS.includes(t) || t === "file") out.push("advanced");
   return out;
 }
 
@@ -145,7 +145,7 @@ export function createSections({ field, fields, commit, errors = {}, announce = 
   }
 
   function rules() {
-    const sources = fields.filter((f) => f.id !== id && !isLayout(f.type) && f.type !== "hidden");
+    const sources = fields.filter((f) => f.id !== id && !isLayout(f.type) && f.type !== "hidden" && f.type !== "file");
     const l = field.logic;
     const src = select(`${dom}-src`, [["", "Always"], ...sources.map((f) => [f.id, f.label || f.name])], l && sources.some((f) => f.id === l.field_id) ? l.field_id : "");
     const op = select(`${dom}-op`, OPS, l?.op ?? "filled");
@@ -167,15 +167,23 @@ export function createSections({ field, fields, commit, errors = {}, announce = 
   }
 
   function advanced() {
-    const v = field.validation ?? {};
+    // The validation as last committed by these controls. The sections are not rebuilt while the editor
+    // types, so each handler builds on this, not on the field as it was when they were drawn.
+    let v = field.validation ?? {};
+    const edit = (key, change) => {
+      const next = { ...v };
+      change(next);
+      v = next;
+      set("validation", Object.keys(next).length ? next : null, typing(`v.${key}`));
+    };
     const num = (key, name) => {
       const el = h("input", { class: "hm-field__control", type: "number", min: "0", id: `${dom}-${key}`, value: v[key] ?? "" });
       el.value = v[key] ?? "";
       el.addEventListener("input", () => {
-        const next = { ...v };
-        if (el.value === "") delete next[key];
-        else next[key] = Math.max(0, Math.trunc(Number(el.value)));
-        set("validation", Object.keys(next).length ? next : null, typing(`v.${key}`));
+        edit(key, (next) => {
+          if (el.value === "") delete next[key];
+          else next[key] = Math.max(0, Math.trunc(Number(el.value)));
+        });
       });
       return row(name, el, { id: el.id });
     };
@@ -183,13 +191,38 @@ export function createSections({ field, fields, commit, errors = {}, announce = 
       const el = h("input", { class: "hm-field__control", type: "text", id: `${dom}-${key}`, value: v[key] ?? "" });
       el.value = v[key] ?? "";
       el.addEventListener("input", () => {
-        const next = { ...v };
-        if (el.value === "") delete next[key];
-        else next[key] = el.value;
-        set("validation", Object.keys(next).length ? next : null, typing(`v.${key}`));
+        edit(key, (next) => {
+          if (el.value === "") delete next[key];
+          else next[key] = el.value;
+        });
       });
       return row(name, el, { id: el.id });
     };
+    // Allowed files: comma-separated extensions, stored as the validation's accept list.
+    const fileAccept = () => {
+      const el = h("input", { class: "hm-field__control", type: "text", id: `${dom}-accept`, value: (v.accept ?? []).join(", ") });
+      el.value = (v.accept ?? []).join(", ");
+      el.addEventListener("input", () => {
+        const list = el.value.split(",").map((s) => s.trim().replace(/^\./, "").toLowerCase()).filter(Boolean);
+        edit("accept", (next) => {
+          if (list.length) next.accept = list;
+          else delete next.accept;
+        });
+      });
+      return row("Allowed files", el, { id: el.id, help: "File types, separated by commas: pdf, png, docx." });
+    };
+    const fileMax = () => {
+      const el = h("input", { class: "hm-field__control", type: "number", min: "1", max: "25", id: `${dom}-max_mb`, value: v.max_mb ?? DEFAULT_FILE_MB });
+      el.value = v.max_mb ?? DEFAULT_FILE_MB;
+      el.addEventListener("input", () => {
+        edit("max_mb", (next) => {
+          if (el.value === "") delete next.max_mb;
+          else next.max_mb = Math.min(25, Math.max(1, Math.trunc(Number(el.value))));
+        });
+      });
+      return row("Largest file (MB)", el, { id: el.id, help: "Up to 25." });
+    };
+    if (field.type === "file") return section("Advanced", fileAccept(), fileMax());
     const kids = [];
     if (field.type === "number") kids.push(num("min", "Smallest number"), num("max", "Largest number"));
     else kids.push(num("min_length", "Shortest answer"), num("max_length", "Longest answer"));

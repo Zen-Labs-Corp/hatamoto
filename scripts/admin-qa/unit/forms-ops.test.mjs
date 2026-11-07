@@ -94,9 +94,9 @@ test("a form holds at most 60 fields", () => {
   assert.throws(() => O.applyOp(base([f("a")]), { op: "addField", index: 0, field: f("a") }), (e) => e.message.includes("taken"));
 });
 
-test("types: 15 server types, icons, families", () => {
-  assert.equal(Object.keys(T.TYPES).length, 15);
-  assert.equal("file" in T.TYPES, false);
+test("types: 16 server types, icons, families", () => {
+  assert.equal(Object.keys(T.TYPES).length, 16);
+  assert.equal("file" in T.TYPES, true);
   for (const t of Object.values(T.TYPES)) assert.ok(T.GROUP_ORDER.includes(t.group));
   assert.deepEqual(T.compatible("select"), ["select", "radio", "checkbox"]);
   assert.deepEqual(T.compatible("text"), ["text", "email", "phone", "textarea", "url", "number", "date"]);

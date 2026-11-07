@@ -103,8 +103,9 @@ func TestIslandsEmbedded(t *testing.T) {
 		if k == "form" {
 			size, unit = gzipLen(t, string(is.body)), "bytes gzipped"
 		}
-		if size == 0 || (size > 1536) {
-			t.Errorf("%s island is %d %s, budget 1536", k, size, unit)
+		// 1536 until the form island learned to send a file as multipart (+64).
+		if size == 0 || (size > 1600) {
+			t.Errorf("%s island is %d %s, budget 1600", k, size, unit)
 		}
 		for _, bad := range []string{"eval(", "innerHTML", "document.write", "new Function"} {
 			if strings.Contains(string(is.body), bad) {

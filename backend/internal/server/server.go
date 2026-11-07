@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -144,6 +145,7 @@ type Server struct {
 	formConfirmationSender formConfirmationSender
 	confirmThrottle        confirmationThrottle
 	formRates              ipFreeLimiter
+	uploadsInFlight        atomic.Int32 // multipart bodies being read, see maxConcurrentUploads
 	apiKeyService          *auth.APIKeyService
 	// Test seams for /health and /ready; nil means the database and apiKeyService.
 	pingDB                   func(context.Context) error
@@ -474,6 +476,7 @@ func (s *Server) setupDependencies() {
 	// Form service
 	formRepo := form.NewPostgresRepository(s.db)
 	s.formService = form.NewService(formRepo, s.logger)
+	attachFormFileStore(s.formService, s.logger)
 	s.seoStore = seo.NewStore(s.db.Pool())
 	s.consentStore = consent.NewStore(s.db.Pool())
 	s.consentCounter = consent.NewCounter(s.db.Pool())
@@ -1283,4 +1286,15 @@ func (s *Server) voidStandingForSchemas(ctx context.Context) {
 	if err != nil {
 		s.logger.Error("failed to void standing approvals after a schema change", slog.String("error", err.Error()))
 	}
+}
+
+// attachFormFileStore gives the form service its private upload folder under the data
+// directory, outside the public media tree; files are served only through the admin.
+func attachFormFileStore(svc *form.Service, logger *slog.Logger) {
+	store, err := form.NewFileStore(filepath.Join(config.ResolveDataDir(), "private", "form-uploads"))
+	if err != nil {
+		logger.Error("form upload store unavailable, file fields will refuse uploads", "error", err)
+		return
+	}
+	svc.SetFileStore(store)
 }

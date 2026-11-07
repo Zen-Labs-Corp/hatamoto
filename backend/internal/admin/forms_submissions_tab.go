@@ -41,7 +41,8 @@ type submissionDrawer struct {
 	CanForward                    bool // the server can send mail: the menu offers Forward by email
 }
 
-type drawerAnswer struct{ Label, Value string }
+// drawerAnswer is one answer of the drawer; DownloadURL is set for an uploaded file.
+type drawerAnswer struct{ Label, Value, DownloadURL string }
 
 // drawerDetail is one row of the drawer's Details card. Exact is the full
 // timestamp behind a relative Value ("" when Value is already exact); Stamp is
@@ -282,7 +283,11 @@ func (a *Admin) buildSubmissionDrawer(ctx context.Context, f *form.Form, s *form
 		// A blank answer still shows (as "Not answered"); only a submission
 		// without any data (the store is off) has nothing to list.
 		if v, ok := s.Data[ff.Name]; ok || len(s.Data) > 0 {
-			d.Answers = append(d.Answers, drawerAnswer{ff.Label, formatAnswer(v)})
+			ans := drawerAnswer{Label: ff.Label, Value: formatAnswer(v)}
+			if _, isFile := form.StoredFileRef(v); isFile {
+				ans.DownloadURL = a.submissionFileURL(d.ID, url.PathEscape(ff.Name))
+			}
+			d.Answers = append(d.Answers, ans)
 		}
 	}
 	keys := make([]string, 0, len(s.Data))
@@ -293,7 +298,11 @@ func (a *Admin) buildSubmissionDrawer(ctx context.Context, f *form.Form, s *form
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		d.Answers = append(d.Answers, drawerAnswer{k, formatAnswer(s.Data[k])})
+		ans := drawerAnswer{Label: k, Value: formatAnswer(s.Data[k])}
+		if _, isFile := form.StoredFileRef(s.Data[k]); isFile {
+			ans.DownloadURL = a.submissionFileURL(d.ID, url.PathEscape(k))
+		}
+		d.Answers = append(d.Answers, ans)
 	}
 	d.Details = []drawerDetail{{Label: "Received", Value: relTime(now, s.CreatedAt), Exact: fmtDateTime(s.CreatedAt.In(loc)), Stamp: s.CreatedAt.UTC().Format(time.RFC3339)}}
 	if p := pagePath(s.Metadata.PageURL); p != "" {

@@ -28,9 +28,9 @@ test("dropIndex: top, between, end and empty", () => {
   assert.equal(dropIndex(50, []), 0);
 });
 
-test("the palette lists the known types in group order and leaves out file", () => {
+test("the palette lists the known types in group order with file under advanced", () => {
   const items = paletteItems([{ type: "file" }, { type: "consent" }, { type: "email" }, { type: "select" }, { type: "divider" }]);
-  assert.deepEqual(items.map((i) => i.key), ["email", "select", "consent", "divider"]);
+  assert.deepEqual(items.map((i) => i.key), ["email", "select", "consent", "divider", "file"]);
 });
 
 test("the palette filter matches the label", () => {

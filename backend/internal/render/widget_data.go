@@ -25,14 +25,14 @@ func init() {
 		x := struct {
 			Slug, Path, Success, Submit string
 			Submitted, Failed           bool
-			Captcha                     bool
+			Captcha, HasFile            bool
 			CaptchaProvider             string
 			CaptchaSiteKey              string
 			Fields                      []field
 		}{
 			Slug: f.Slug, Path: w.View.Path, Success: f.SuccessNotice, Submit: f.SubmitLabel,
 			Submitted: w.View.Submitted, Failed: w.View.FormError,
-			Captcha: f.Captcha, CaptchaProvider: f.CaptchaProvider, CaptchaSiteKey: f.CaptchaSiteKey,
+			Captcha: f.Captcha, HasFile: f.HasFile(), CaptchaProvider: f.CaptchaProvider, CaptchaSiteKey: f.CaptchaSiteKey,
 		}
 		if x.Success == "" {
 			x.Success = "Thank you, your message has been sent."
@@ -117,7 +117,7 @@ func inputType(t string) string {
 		return "email"
 	case "tel", "phone":
 		return "tel"
-	case "date", "number", "url":
+	case "date", "number", "url", "file":
 		return strings.ToLower(t)
 	}
 	return "text"

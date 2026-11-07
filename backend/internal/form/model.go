@@ -35,6 +35,7 @@ const (
 	FieldTypeDate     = "date"
 	FieldTypeNumber   = "number"
 	FieldTypeURL      = "url"
+	FieldTypeFile     = "file"
 
 	FieldTypeHeading   = "heading"
 	FieldTypeParagraph = "paragraph"
@@ -148,6 +149,12 @@ type FieldValidation struct {
 	Max       *int    `json:"max,omitempty"`
 	Pattern   *string `json:"pattern,omitempty"`
 	Message   *string `json:"message,omitempty"`
+
+	// Accept lists the extensions (lowercase, no dot, from the table in
+	// filetypes.go) a file field takes. MaxMB is the largest upload in MB
+	// (1..MaxFileUploadMB); nil means DefaultFileMaxMB. File fields only.
+	Accept []string `json:"accept,omitempty"`
+	MaxMB  *int     `json:"max_mb,omitempty"`
 }
 
 // FormSettings represents form-level settings.
@@ -318,7 +325,7 @@ func ValidFieldType(fieldType string) bool {
 	switch fieldType {
 	case FieldTypeText, FieldTypeEmail, FieldTypePhone, FieldTypeTextarea,
 		FieldTypeSelect, FieldTypeRadio, FieldTypeCheckbox, FieldTypeDate,
-		FieldTypeNumber, FieldTypeURL, FieldTypeHeading, FieldTypeParagraph,
+		FieldTypeNumber, FieldTypeURL, FieldTypeFile, FieldTypeHeading, FieldTypeParagraph,
 		FieldTypeDivider, FieldTypeHidden, FieldTypeConsent:
 		return true
 	default:
@@ -339,6 +346,7 @@ func GetFieldTypes() []string {
 		FieldTypeDate,
 		FieldTypeNumber,
 		FieldTypeURL,
+		FieldTypeFile,
 		FieldTypeHeading,
 		FieldTypeParagraph,
 		FieldTypeDivider,

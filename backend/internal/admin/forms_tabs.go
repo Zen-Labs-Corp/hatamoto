@@ -82,7 +82,7 @@ func (a *Admin) renderFormSettings(w http.ResponseWriter, r *http.Request, f *fo
 		if fld.Type == form.FieldTypeEmail {
 			d.ReplyTo = append(d.ReplyTo, ui.Option{Value: fld.Name, Label: fld.Label + " (the visitor)", Selected: f.Settings.NotifyReplyTo == fld.Name})
 		}
-		if fld.IsInput() && fld.Type != form.FieldTypeHidden && fld.Type != form.FieldTypeConsent && len(d.Tokens) < 9 {
+		if fld.IsInput() && fld.Type != form.FieldTypeHidden && fld.Type != form.FieldTypeConsent && fld.Type != form.FieldTypeFile && len(d.Tokens) < 9 {
 			d.Tokens = append(d.Tokens, fld.Name)
 		}
 	}

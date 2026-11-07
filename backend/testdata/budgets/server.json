@@ -1,13 +1,13 @@
 {
   "metrics": {
     "alloc_RenderNodesEndpoint_allocs": {
-      "value": 10198,
+      "value": 9364,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderNodesEndpoint_bytes": {
-      "value": 685773,
+      "value": 651005,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
@@ -15,11 +15,7 @@
   },
   "history": [
     {
-      "reason": "admin-media-forms: dropzone, bulk select, form builder rows, menu undo",
-      "date": "2026-10-22"
-    },
-    {
-      "reason": "admin-editors: phone builder bar, panes, entity form save state; editor_js cap 128-\u003e132 KiB (declared in PR body)",
+      "reason": "admin-editors: phone builder bar, panes, entity form save state; editor_js cap 128->132 KiB (declared in PR body)",
       "date": "2026-10-23"
     },
     {
@@ -93,6 +89,10 @@
     {
       "reason": "social SEO settings and share card",
       "date": "2026-11-01"
+    },
+    {
+      "reason": "form file upload field adds widget CSS/JS and designer palette entry",
+      "date": "2026-11-07"
     }
   ]
 }

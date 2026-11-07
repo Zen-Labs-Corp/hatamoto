@@ -14,7 +14,14 @@ func EmbedHTML(f *Form, action string) string {
 	w := func(s string) { b.WriteString(s) }
 	e := html.EscapeString
 
-	w(`<form class="hm-form" method="post" action="` + e(action) + `">` + "\n")
+	enctype := ""
+	for _, fl := range f.Fields {
+		if fl.Type == FieldTypeFile {
+			enctype = ` enctype="multipart/form-data"` // a urlencoded post would send the file name only
+			break
+		}
+	}
+	w(`<form class="hm-form" method="post" action="` + e(action) + `"` + enctype + `>` + "\n")
 	if !f.Settings.HoneypotOff {
 		w(`<div aria-hidden="true"><label>Leave this empty<input type="text" name="hm_website" tabindex="-1" autocomplete="off"></label></div>` + "\n")
 	}
@@ -100,6 +107,12 @@ func embedField(b *strings.Builder, slug string, f FormField) {
 				w(`<option value="` + e(o.Value) + `">` + e(o.Label) + `</option>`)
 			}
 			w("</select>\n")
+		case FieldTypeFile:
+			accept := ""
+			if a := f.FileAccept(); a != "" {
+				accept = ` accept="` + e(a) + `"`
+			}
+			w(`<input id="` + id + `" name="` + name + `" type="file"` + accept + req + ">\n")
 		default:
 			w(`<input id="` + id + `" name="` + name + `" type="` + embedInputType(f.Type) + `"` + ph + req + ">\n")
 		}

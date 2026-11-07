@@ -4,6 +4,7 @@ package form_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,18 +50,81 @@ func TestPurgeExpiredSubmissions(t *testing.T) {
 		seedSubmission(t, db, f.ID, 10*day, "new", "")
 	}
 
-	n, err := repo.PurgeExpiredSubmissions(ctx)
+	n, files, err := repo.PurgeExpiredSubmissions(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if n != 2 {
 		t.Errorf("purged %d rows, want 2 (old new + old spam)", n)
 	}
+	if len(files) != 0 {
+		t.Errorf("rows without file answers returned files: %v", files)
+	}
 	if c, _ := repo.GetSubmissionCount(ctx, purged.ID); c != 1 {
 		t.Errorf("30-day form has %d submissions, want 1", c)
 	}
 	if c, _ := repo.GetSubmissionCount(ctx, kept.ID); c != 3 {
 		t.Errorf("form without retention has %d submissions, want 3", c)
+	}
+}
+
+// A purge returns the uploads of every deleted row (spam included), reading
+// them from the stored answers under any key, and leaves newer rows' files alone.
+func TestPurgeExpiredSubmissionsReturnsFiles(t *testing.T) {
+	ctx := database.WithSuperadmin(context.Background())
+	db := testDB(t)
+	repo := form.NewPostgresRepository(db)
+	day := 24 * time.Hour
+
+	f, err := repo.CreateForm(ctx, &form.CreateFormInput{Name: "Apply", Slug: "apply",
+		Fields: []form.FormField{
+			{ID: "a", Name: "cv", Label: "CV", Type: form.FieldTypeFile},
+			{ID: "b", Name: "note", Label: "Note", Type: form.FieldTypeText},
+		},
+		Settings: form.FormSettings{RetentionDays: 30}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := func(c string) string { return strings.Repeat(c, 32) }
+	var seedAs func(key string, age time.Duration, status, cv, note string)
+	seed := func(age time.Duration, status, cv, note string) { seedAs("cv", age, status, cv, note) }
+	seedAs = func(key string, age time.Duration, status, cv, note string) {
+		conn, err := db.GetConn(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Release()
+		_, err = conn.Exec(ctx, `INSERT INTO hatamoto_form_submissions (form_id, data, metadata, status, created_at)
+			VALUES ($1, jsonb_build_object($6::text, jsonb_build_object('id', $2::text, 'name', 'a.pdf', 'size', 1, 'type', 'application/pdf'), 'note', $3::text), '{}', $4, now() - make_interval(secs => $5))`,
+			f.ID, cv, note, status, age.Seconds(), key)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	seed(40*day, "new", id("a"), "x")
+	seed(40*day, "spam", id("b"), "y")
+	seed(10*day, "new", id("c"), "z")
+	// A file stored under a key that is no longer a file field is still returned.
+	seedAs("old_cv", 40*day, "new", id("e"), "w")
+	// A non-file field holding a ref-shaped string is never treated as a file.
+	seed(40*day, "new", "not-an-id", id("d"))
+
+	n, files, err := repo.PurgeExpiredSubmissions(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 4 {
+		t.Fatalf("purged %d rows, want 4", n)
+	}
+	got := map[string]bool{}
+	for _, pf := range files {
+		if pf.FormID != f.ID {
+			t.Errorf("file %s has form %s, want %s", pf.FileID, pf.FormID, f.ID)
+		}
+		got[pf.FileID] = true
+	}
+	if len(got) != 3 || !got[id("a")] || !got[id("b")] || !got[id("e")] {
+		t.Fatalf("returned files = %v, want the old new and spam rows' files only", got)
 	}
 }
 

@@ -140,6 +140,14 @@
     return data;
   }
 
+  // A form with a file input posts its FormData as multipart (the browser sets
+  // the Content-Type and boundary); the same keys are left out as in collect.
+  function multipart(form) {
+    var data = new FormData(form);
+    Object.keys(SKIP).forEach(function (key) { data.delete(key); });
+    return data;
+  }
+
   var CAPTCHA_RETRY = 'The spam check could not be completed. Please try again.';
 
   function showError(form, message) {
@@ -199,6 +207,7 @@
 
   function enhanceForm(form, captcha) {
     restoreDraft(form, form.getAttribute('data-hm-form'));
+    var hasFile = !!form.querySelector('input[type="file"]');
     form.addEventListener('submit', function (event) {
       if (!window.fetch) return;
       var honeypot = form.elements.hm_website;
@@ -212,8 +221,8 @@
         }
         return fetch('/api/v1/public/forms/' + encodeURIComponent(slug) + '/submit', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Page-URL': location.href },
-          body: JSON.stringify(collect(form)),
+          headers: hasFile ? { 'X-Page-URL': location.href } : { 'Content-Type': 'application/json', 'X-Page-URL': location.href },
+          body: hasFile ? multipart(form) : JSON.stringify(collect(form)),
         });
       })
         .then(function (res) {

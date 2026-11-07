@@ -34,7 +34,7 @@ const form = {
     return f.length === 0 ? undefined : f.length > 1 ? Object.assign(new RadioNodeList(), f) : f[0];
   } }),
   querySelectorAll: (sel) => (sel === '[data-hm-logic-field]' ? wrappers : []),
-  querySelector: (sel) => (sel === '[data-hm-captcha]' && sc.captcha ? {} : null),
+  querySelector: (sel) => (sel === '[data-hm-captcha]' && sc.captcha) || (sel === '[type=file]' && sc.file) ? {} : null,
   getAttribute: () => '/forms/t/submit',
   addEventListener: (t, fn) => { handlers[t] = fn; },
   appendChild(el) { Object.assign(el, { disabled: false, checked: false }); inputs.push(el); return el; },
@@ -50,7 +50,7 @@ const ctx = {
   CustomEvent: class { constructor(n, o) { this.type = n; this.detail = o && o.detail; } },
   document: { referrer: sc.referrer || '', querySelectorAll: () => [form], dispatchEvent() {}, createElement: () => ({}) },
   location: { href: sc.href || 'https://site.test/p', assign(u) { out.assigned = u; } },
-  fetch: async (u, o) => { out.fetch = { u, headers: o.headers, body: String(o.body) }; return { ok: true, status: 201, json: async () => sc.reply || {} }; },
+  fetch: async (u, o) => { out.fetch = { u, headers: o.headers, body: String(o.body), multipart: o.body instanceof FormData }; return { ok: true, status: 201, json: async () => sc.reply || {} }; },
 };
 vm.runInNewContext(fs.readFileSync(process.argv[2], 'utf8'), ctx);
 (async () => {
@@ -138,6 +138,9 @@ type islandFetch struct {
 	U       string            `json:"u"`
 	Headers map[string]string `json:"headers"`
 	Body    string            `json:"body"`
+	// Multipart is true when the body is the FormData itself (files travel),
+	// false when it is the urlencoded copy.
+	Multipart bool `json:"multipart"`
 }
 
 func runIsland(t *testing.T, scenario map[string]any) islandRun {
@@ -205,6 +208,25 @@ func TestFormIslandPostsPageURLAndReferrer(t *testing.T) {
 	}
 	if q.Get("hm_page") != "https://site.test/c?utm=spring" || q.Get("hm_ref") != "https://search.test/q" {
 		t.Errorf("body = %s", out.Fetch.Body)
+	}
+}
+
+// A form with a file input sends its FormData untouched (a URLSearchParams
+// copy would turn a file into "[object File]"); any other form stays urlencoded.
+func TestFormIslandSendsFilesAsMultipart(t *testing.T) {
+	t.Parallel()
+	inputs := []map[string]any{{"name": "email", "type": "text", "value": "a@b.test"}}
+	for _, file := range []bool{true, false} {
+		out := runIsland(t, map[string]any{"submit": true, "file": file, "inputs": inputs, "reply": map[string]any{"success": true}})
+		if out.Fetch == nil {
+			t.Fatal("no submit request")
+		}
+		if out.Fetch.Multipart != file {
+			t.Errorf("file form = %v: multipart body = %v", file, out.Fetch.Multipart)
+		}
+		if _, set := out.Fetch.Headers["Content-Type"]; set {
+			t.Errorf("file form = %v: Content-Type set by hand (the boundary would be lost)", file)
+		}
 	}
 }
 

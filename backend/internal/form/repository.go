@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -34,7 +35,17 @@ type Repository interface {
 	DeleteSubmission(ctx context.Context, id uuid.UUID) error
 	GetSubmissionCount(ctx context.Context, formID uuid.UUID) (int, error)
 	CountRecentSubmissionsByIP(ctx context.Context, formID uuid.UUID, ip string, since time.Time) (int, error)
-	PurgeExpiredSubmissions(ctx context.Context) (int64, error)
+	// PurgeExpiredSubmissions deletes the submissions past their form's
+	// retention and returns how many, plus the stored files they referenced
+	// so the caller can delete them. On error the files of rows already
+	// deleted are still returned.
+	PurgeExpiredSubmissions(ctx context.Context) (int64, []PurgedFile, error)
+}
+
+// PurgedFile names a stored upload whose submission a purge deleted.
+type PurgedFile struct {
+	FormID uuid.UUID
+	FileID string
 }
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -796,11 +807,13 @@ const purgeBatchSize = 1000
 
 // PurgeExpiredSubmissions deletes, for every form with a retention of 30, 90 or
 // 365 days, the submissions (spam included) older than that. Forms without a
-// retention keep everything. Run it with a superadmin context.
-func (r *PostgresRepository) PurgeExpiredSubmissions(ctx context.Context) (int64, error) {
+// retention keep everything. It returns the uploads the deleted rows pointed
+// at; deleting those is the caller's job (Service does it). Run it with a
+// superadmin context.
+func (r *PostgresRepository) PurgeExpiredSubmissions(ctx context.Context) (int64, []PurgedFile, error) {
 	conn, err := r.db.GetConn(ctx)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	defer conn.Release()
 
@@ -808,7 +821,7 @@ func (r *PostgresRepository) PurgeExpiredSubmissions(ctx context.Context) (int64
 	rows, err := conn.Query(ctx, `SELECT id, (settings->>'retention_days')::int FROM hatamoto_forms
 		WHERE settings->>'retention_days' ~ '^(30|90|365)$'`)
 	if err != nil {
-		return 0, fmt.Errorf("failed to list forms with retention: %w", err)
+		return 0, nil, fmt.Errorf("failed to list forms with retention: %w", err)
 	}
 	type retained struct {
 		id   uuid.UUID
@@ -819,32 +832,63 @@ func (r *PostgresRepository) PurgeExpiredSubmissions(ctx context.Context) (int64
 		var f retained
 		if err := rows.Scan(&f.id, &f.days); err != nil {
 			rows.Close()
-			return 0, fmt.Errorf("failed to scan form retention: %w", err)
+			return 0, nil, fmt.Errorf("failed to scan form retention: %w", err)
 		}
 		forms = append(forms, f)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		return 0, fmt.Errorf("failed to list forms with retention: %w", err)
+		return 0, nil, fmt.Errorf("failed to list forms with retention: %w", err)
 	}
 
 	var total int64
+	var files []PurgedFile
 	for _, f := range forms {
 		for {
-			res, err := conn.Exec(ctx, `DELETE FROM hatamoto_form_submissions WHERE ctid IN (
-				SELECT ctid FROM hatamoto_form_submissions
-				WHERE form_id = $1 AND created_at < now() - make_interval(days => $2)
-				LIMIT $3)`, f.id, f.days, purgeBatchSize)
+			n, err := purgeBatch(ctx, conn, f.id, f.days, &files)
+			total += n
 			if err != nil {
-				return total, fmt.Errorf("failed to purge submissions: %w", err)
+				return total, files, err
 			}
-			total += res.RowsAffected()
-			if res.RowsAffected() < purgeBatchSize {
+			if n < purgeBatchSize {
 				break
 			}
 		}
 	}
-	return total, nil
+	return total, files, nil
+}
+
+// purgeBatch deletes up to purgeBatchSize expired submissions of one form and
+// appends the uploads they referenced to files.
+func purgeBatch(ctx context.Context, conn *pgxpool.Conn, formID uuid.UUID, days int, files *[]PurgedFile) (int64, error) {
+	rows, err := conn.Query(ctx, `DELETE FROM hatamoto_form_submissions WHERE ctid IN (
+		SELECT ctid FROM hatamoto_form_submissions
+		WHERE form_id = $1 AND created_at < now() - make_interval(days => $2)
+		LIMIT $3) RETURNING data`, formID, days, purgeBatchSize)
+	if err != nil {
+		return 0, fmt.Errorf("failed to purge submissions: %w", err)
+	}
+	defer rows.Close()
+	var n int64
+	for rows.Next() {
+		var dataData []byte
+		if err := rows.Scan(&dataData); err != nil {
+			return n, fmt.Errorf("failed to scan purged submission: %w", err)
+		}
+		n++
+		var data map[string]any
+		if err := jsonx.Unmarshal(dataData, &data, jsonx.StoredLoose); err != nil {
+			continue // a row that cannot be read has no refs we could trust
+		}
+		for _, ref := range fileRefs(data) {
+			*files = append(*files, PurgedFile{FormID: formID, FileID: ref.ID})
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return n, fmt.Errorf("failed to purge submissions: %w", err)
+	}
+	return n, nil
 }
 
 // isPgUniqueViolation checks if an error is a PostgreSQL unique constraint violation.

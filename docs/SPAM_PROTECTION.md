@@ -25,6 +25,15 @@ JavaScript form or a plain browser post. Configure it once at **Forms > Spam pro
 
 The minimum time and the content rules apply to every form, with or without the captcha.
 
+**Forms with a file field.** The file limits (allowed extension, content check, size) are applied
+while the request is read, before these checks run, and a refused file stops the submission. A
+file is written to its final place only after the checks pass; a submission refused or dropped
+by them leaves no file. A submission saved as Spam keeps its file, so you can review it, and the
+file is deleted with that submission. The body is capped at the form's file limits plus a small
+allowance, but a proxy or CDN in front has its own body-size limit (some default to 1 MB), so
+raise it to at least the form's largest file (25 MB at most) for the form paths, or large
+uploads fail before reaching Hatamoto.
+
 When a rule trips, **Save as Spam** (the default) stores the submission with the Spam status. The
 visitor still sees the normal success message, but no notification email, confirmation email or
 form hook fires. Find these in Submissions with the Spam filter, and change the status of any false positive.
