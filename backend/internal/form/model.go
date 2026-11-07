@@ -232,6 +232,9 @@ type CreateFormInput struct {
 	Description *string      `json:"description,omitempty"`
 	Fields      []FormField  `json:"fields"`
 	Settings    FormSettings `json:"settings"`
+	// Status is the initial status; empty or invalid means active. Set by the
+	// admin (templates start paused), never read from a request body.
+	Status string `json:"-"`
 }
 
 // UpdateFormInput represents input for updating a form.

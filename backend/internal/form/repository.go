@@ -68,6 +68,11 @@ func (r *PostgresRepository) CreateForm(ctx context.Context, input *CreateFormIn
 		return nil, fmt.Errorf("failed to marshal settings: %w", err)
 	}
 
+	status := StatusActive
+	if ValidStatus(input.Status) {
+		status = input.Status
+	}
+
 	query := `
 		INSERT INTO hatamoto_forms (id, name, slug, description, fields, settings, status, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -78,7 +83,7 @@ func (r *PostgresRepository) CreateForm(ctx context.Context, input *CreateFormIn
 	var fieldsData, settingsData []byte
 
 	err = conn.QueryRow(ctx, query,
-		id, input.Name, input.Slug, input.Description, fieldsJSON, settingsJSON, StatusActive, now, now,
+		id, input.Name, input.Slug, input.Description, fieldsJSON, settingsJSON, status, now, now,
 	).Scan(&f.ID, &f.Name, &f.Slug, &f.Description, &fieldsData, &settingsData, &f.Status, &f.CreatedAt, &f.UpdatedAt)
 
 	if err != nil {
