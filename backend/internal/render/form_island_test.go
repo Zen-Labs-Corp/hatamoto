@@ -54,6 +54,7 @@ const ctx = {
 };
 vm.runInNewContext(fs.readFileSync(process.argv[2], 'utf8'), ctx);
 (async () => {
+  out.noValidate = !!form.noValidate;
   if (sc.submit) await handlers.submit({ preventDefault() {} });
   wrappers.forEach((w) => { out.hidden[w.input.name] = w.hidden; });
   console.log(JSON.stringify(out));
@@ -126,10 +127,11 @@ func TestFormIslandMatchesServerVisibilityCases(t *testing.T) {
 }
 
 type islandRun struct {
-	Assigned *string           `json:"assigned"`
-	Fetch    *islandFetch      `json:"fetch"`
-	Hidden   map[string]bool   `json:"hidden"`
-	Inputs   map[string]string `json:"inputs"`
+	Assigned   *string           `json:"assigned"`
+	Fetch      *islandFetch      `json:"fetch"`
+	Hidden     map[string]bool   `json:"hidden"`
+	Inputs     map[string]string `json:"inputs"`
+	NoValidate bool              `json:"noValidate"`
 }
 
 type islandFetch struct {
@@ -232,5 +234,17 @@ func TestFormWidgetCSSLeavesThemeLayoutAlone(t *testing.T) {
 	}
 	if strings.Contains(string(raw), "__submit") {
 		t.Error("the widget must not restyle the submit button")
+	}
+}
+
+// With the island in charge of the submit, the server's inline errors replace
+// the browser's native bubbles; a captcha form posts natively and keeps them.
+func TestFormIslandTakesOverNativeValidation(t *testing.T) {
+	t.Parallel()
+	if !runIsland(t, map[string]any{}).NoValidate {
+		t.Error("island-handled form still validates natively: empty required fields never reach the inline errors")
+	}
+	if runIsland(t, map[string]any{"captcha": true}).NoValidate {
+		t.Error("captcha form gave up native validation but the island does not submit it")
 	}
 }

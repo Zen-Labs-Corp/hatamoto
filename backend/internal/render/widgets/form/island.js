@@ -66,6 +66,7 @@ for (const form of document.querySelectorAll("form[data-hm-form-logic]")) {
   };
   const slug = /^\/forms\/([^/]+)\/submit$/.exec(form.getAttribute("action"))?.[1];
   if (slug && !form.querySelector("[data-hm-captcha]")) {
+    form.noValidate = true;
     form.addEventListener("submit", async (e) => {
       if (form.elements.hm_website?.value) return;
       e.preventDefault();
