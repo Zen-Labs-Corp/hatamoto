@@ -105,16 +105,47 @@ func TestPoolIsLIFO(t *testing.T) {
 	_ = a.Close(t.Context())
 	_ = b.Close(t.Context())
 
-	// Real calls: the instance one call returns is the one the next takes.
-	var seen []*extism.Plugin
-	p.beforeCall = func(inst *extism.Plugin) { seen = append(seen, inst) }
-	for range 2 {
-		if _, err := call(h, "good", "echo", "x"); err != nil {
-			t.Fatal(err)
-		}
+	// Real calls: two overlapping calls hold two distinct instances, then
+	// return one after the other; the next call must take the last one back.
+	var (
+		mu      sync.Mutex
+		held    []*extism.Plugin
+		arrived = make(chan struct{}, 2)
+		gates   = []chan struct{}{make(chan struct{}), make(chan struct{})}
+		done    = []chan struct{}{make(chan struct{}), make(chan struct{})}
+	)
+	p.beforeCall = func(inst *extism.Plugin) {
+		mu.Lock()
+		n := len(held)
+		held = append(held, inst)
+		mu.Unlock()
+		arrived <- struct{}{}
+		<-gates[n]
+	}
+	for i := range 2 {
+		go func() {
+			defer close(done[i])
+			if _, err := call(h, "good", "echo", "x"); err != nil {
+				t.Error(err)
+			}
+		}()
+		<-arrived // the first call holds its instance before the second starts
+	}
+	if held[0] == held[1] {
+		t.Fatal("overlapping calls shared an instance")
+	}
+	close(gates[0])
+	<-done[0]
+	close(gates[1])
+	<-done[1] // held[1]'s instance was returned last
+
+	var next *extism.Plugin
+	p.beforeCall = func(inst *extism.Plugin) { next = inst }
+	if _, err := call(h, "good", "echo", "x"); err != nil {
+		t.Fatal(err)
 	}
 	p.beforeCall = nil
-	if len(seen) != 2 || seen[0] != seen[1] {
-		t.Fatalf("sequential calls used different instances: %v", seen)
+	if next != held[1] {
+		t.Fatal("the next call did not take the instance returned last")
 	}
 }
