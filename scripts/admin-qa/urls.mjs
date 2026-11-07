@@ -116,7 +116,7 @@ export const screens = [
   { name: "settings-taxonomies-seo", path: "/admin/settings/taxonomies?kind=category&view=seo", mock: null, roles: O, list: true, expect: "[data-hm-cell-edit]" },
   { name: "settings-taxonomies-new", path: "/admin/settings/taxonomies/new", mock: null, roles: O },
   // Forms
-  { name: "forms", path: "/admin/forms", legacy: "/admin/settings/forms", mock: "settings-forms", roles: OE, primary: true },
+  { name: "forms", path: "/admin/forms", legacy: "/admin/settings/forms", mock: "settings-forms", roles: OE, primary: true, list: true, states: [newDialog] },
   { name: "forms-new", path: "/admin/forms/new", legacy: "/admin/settings/forms/new", mock: null, roles: OE },
   { name: "forms-design", path: "/admin/forms/design/{form}", legacy: "/admin/settings/forms/{form}/edit", mock: null, roles: OE },
   { name: "forms-settings", path: "/admin/forms/design/{form}/settings", mock: null, roles: OE },
