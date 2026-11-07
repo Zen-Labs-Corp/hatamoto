@@ -77,3 +77,31 @@ func TestRegistrySecondName(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestExpandSkipsCodeTagsAndAttributes(t *testing.T) {
+	reg := Registry{"form": echo, "year": func(map[string]string) (string, bool, bool) { return "2026", false, true }}
+	for _, in := range []string{
+		`<p>Use <code>[form slug="contact"]</code> here</p>`,
+		`<pre>[form slug="contact"]</pre>`,
+		`<pre><code>[form slug=&#34;contact&#34;]</code></pre>`,
+		`<p><a href="/x" title="[form slug=&#34;x&#34;]">l</a></p>`,
+		`<p><img src="a.png" alt="[form slug=&#34;x&#34;]"></p>`,
+		`<script>var a="[form slug=\"x\"]"</script><textarea>[form slug="x"]</textarea>`,
+	} {
+		if got := Expand(in, reg); got != in {
+			t.Errorf("Expand(%q) = %q, want unchanged", in, got)
+		}
+		if got := Slugs(in, "form"); len(got) != 0 {
+			t.Errorf("Slugs(%q) = %v, want none", in, got)
+		}
+	}
+}
+
+func TestExpandTextAfterCodeStillExpands(t *testing.T) {
+	reg := Registry{"form": echo, "year": func(map[string]string) (string, bool, bool) { return "2026", false, true }}
+	got := Expand(`<p><code>[year]</code> [year]</p><p>[form slug=&#34;c&#34;]</p>`, reg)
+	want := `<p><code>[year]</code> 2026</p><form data-s="c"></form>`
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

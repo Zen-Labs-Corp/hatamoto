@@ -6,6 +6,8 @@ package shortcode
 import (
 	"regexp"
 	"strings"
+
+	"golang.org/x/net/html"
 )
 
 // Call is one shortcode found in a string; Start and End are byte offsets of
@@ -34,17 +36,68 @@ var (
 	loneRE = regexp.MustCompile(`(?s)<p[^>]*>\s*$`)
 )
 
-// Find returns every call in s, in order. Names are case-sensitive; a slug
+// rawTextTags hold code or raw text, where a shortcode is shown, not run.
+var rawTextTags = map[string]bool{"code": true, "pre": true, "script": true, "style": true, "textarea": true}
+
+// textSpans returns the byte ranges of s that are text nodes outside
+// code, pre, script, style and textarea. Tags and their attribute values are
+// never in a span.
+func textSpans(s string) [][2]int {
+	var spans [][2]int
+	z := html.NewTokenizer(strings.NewReader(s))
+	pos, depth := 0, 0
+	for {
+		tt := z.Next()
+		if tt == html.ErrorToken {
+			return spans
+		}
+		end := pos + len(z.Raw())
+		switch tt {
+		case html.StartTagToken:
+			if name, _ := z.TagName(); rawTextTags[string(name)] {
+				depth++
+			}
+		case html.EndTagToken:
+			if name, _ := z.TagName(); rawTextTags[string(name)] && depth > 0 {
+				depth--
+			}
+		case html.TextToken:
+			if depth == 0 {
+				if n := len(spans); n > 0 && spans[n-1][1] == pos {
+					spans[n-1][1] = end
+				} else {
+					spans = append(spans, [2]int{pos, end})
+				}
+			}
+		}
+		pos = end
+	}
+}
+
+func inSpans(spans [][2]int, start, end int) bool {
+	for _, sp := range spans {
+		if start >= sp[0] && end <= sp[1] {
+			return true
+		}
+	}
+	return false
+}
+
+// Find returns every call in s, in order. Calls inside tags, code, pre, script, style or textarea are skipped. Names are case-sensitive; a slug
 // attribute outside [a-z0-9_-]+ makes the call a non-match.
 func Find(s string) []Call {
 	if !strings.Contains(s, "[") {
 		return nil
 	}
 	var out []Call
+	spans := textSpans(s)
 	for _, m := range callRE.FindAllStringSubmatchIndex(s, -1) {
 		attrs := map[string]string{}
 		for _, a := range attrRE.FindAllStringSubmatch(s[m[4]:m[5]], -1) {
 			attrs[a[1]] = a[2] + a[3] + a[4] + a[5] + a[6]
+		}
+		if !inSpans(spans, m[0], m[1]) {
+			continue
 		}
 		if slug, has := attrs["slug"]; has && !slugRE.MatchString(slug) {
 			continue
