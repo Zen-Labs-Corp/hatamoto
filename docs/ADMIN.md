@@ -52,8 +52,8 @@ The main menu lists Overview, then Site (Entities, Media, Forms, Analytics) and 
 (Plugins, Theme, Settings). Forms and Media are main-menu items at `<admin>/forms` and
 `<admin>/media`, not Settings sections. The Forms item carries a badge with the number of
 new submissions (hidden at zero, the same for every role that sees Forms; spam is not
-counted). The Forms page (`<admin>/forms`) has no tabs row. It shows a stat strip (new, total, last 30 days
-and a sparkline), a table with a 14 day sparkline, an unread button and a "Used on" cell per form,
+counted). The Forms page (`<admin>/forms`) has no tabs row. It shows a stat strip (submissions in 30 days, unread, spam caught, active forms and a 14 day
+sparkline), a table with a 30 day count and sparkline, an unread count and a "Used on" cell per form,
 and the five latest submissions across forms, each linking to that form's Submissions tab with
 the drawer open. The header has **New form**, which opens a dialog with six templates (Blank,
 Contact, Quote request, Newsletter signup, Event RSVP and Job application; `<admin>/forms/new` is
