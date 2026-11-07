@@ -1,9 +1,14 @@
 package server
 
 import (
+	"bytes"
+	"context"
+	"strings"
 	"testing"
 
+	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/render"
 )
 
 func TestFormViewNewFieldProps(t *testing.T) {
@@ -55,5 +60,61 @@ func TestFormViewConsentIsAlwaysRequired(t *testing.T) {
 	}
 	if v.Fields[1].Required {
 		t.Error("a text field became required")
+	}
+}
+
+func TestFormSectionsLoadShortcodeForms(t *testing.T) {
+	t.Parallel()
+	doc := &builder.Doc{V: 2, Nodes: []*builder.Node{
+		{ID: "c", T: "container", C: []*builder.Node{
+			{ID: "r", T: "richtext", P: map[string]any{"html": `<p>[form slug="contact"]</p>`}},
+			{ID: "f", T: "form", P: map[string]any{"slug": "contact"}},
+		}},
+	}}
+	secs := []render.Section{{ID: "s", Type: "content", Content: map[string]any{"body": []any{`[form slug='quote']`, `[form slug="contact"]`}}}}
+	got := map[string]int{}
+	for _, s := range formSections(secs, doc) {
+		if s.Type == "contact_form" {
+			got[contactFormSlug(s.Content)]++
+		}
+	}
+	if len(got) != 2 || got["contact"] != 1 || got["quote"] != 1 {
+		t.Fatalf("contact_form slugs = %v, want contact and quote once each", got)
+	}
+}
+
+func TestShortcodeFormRendersThroughBuiltForms(t *testing.T) {
+	t.Parallel()
+	srv, _ := newTypesServer(t, &form.Form{Name: "Contact", Fields: []form.FormField{
+		{ID: "n", Type: form.FieldTypeText, Name: "name", Label: "Your name"},
+	}})
+	doc := &builder.Doc{V: 2, Nodes: []*builder.Node{
+		{ID: "r", T: "richtext", P: map[string]any{"html": `<p>Before</p><p>[form slug="t"]</p>`}},
+	}}
+	engine, err := render.New(render.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := &render.PageView{BaseURL: "https://x.io", Path: "/", Doc: doc}
+	v.Forms = srv.formsForSections(context.Background(), formSections(nil, doc))
+	var buf bytes.Buffer
+	if err := engine.RenderPage(&buf, v); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Your name") || strings.Contains(out, "[form") {
+		t.Errorf("shortcode not expanded to the form: %s", out)
+	}
+
+	// A paused form is not loaded, so the shortcode renders nothing.
+	srv2, repo := newTypesServer(t, &form.Form{Name: "Contact"})
+	repo.forms["t"].Status = form.StatusInactive
+	v.Forms = srv2.formsForSections(context.Background(), formSections(nil, doc))
+	buf.Reset()
+	if err := engine.RenderPage(&buf, v); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "<form") || strings.Contains(buf.String(), "[form") {
+		t.Errorf("paused form leaked: %s", buf.String())
 	}
 }
