@@ -86,6 +86,7 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		keyFile:    s.indexNowKeyFile,
 		capture:    capture,
 		preview:    s.handlePreviewShare,
+		formPage:   s.handleFormPage,
 	})
 }
 
@@ -112,6 +113,8 @@ type renderRoutes struct {
 	// preview (optional) serves a shared draft preview link. It is mounted
 	// outside capture and the page cache.
 	preview http.HandlerFunc
+	// formPage (optional) serves the hosted form page, GET /f/{slug}.
+	formPage http.HandlerFunc
 }
 
 func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
@@ -160,6 +163,10 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 		// as page traffic.
 		previewLimiter := middleware.NewRateLimiter(1, 20)
 		r.HandleFunc("GET "+previewPathPrefix+"{token}", previewLimiter.Middleware(http.HandlerFunc(rt.preview)).ServeHTTP)
+	}
+
+	if rt.formPage != nil {
+		captured.HandleFunc("GET "+formPagePrefix+"{slug}", rt.formPage)
 	}
 
 	r.Group("", capture).HandleFunc("GET /", rt.pages.handleRenderHome)
