@@ -117,13 +117,16 @@ The admin was reorganised in v1-23a (Settings with its own sections) and again w
 | `/admin/settings/forms` (exact) | `<admin>/forms` |
 | `/admin/settings/forms/new` | `<admin>/forms/new` |
 | `/admin/settings/forms/{id}/edit`, `.../delete` | `<admin>/forms/edit/{id}`, `<admin>/forms/delete/{id}` |
-| `/admin/settings/submissions...` | `<admin>/forms/submissions...` (same suffixes: `{sid}`, `status`, `email`, `delete`, `bulk`, `export.csv`) |
+| `/admin/settings/submissions...` | `<admin>/forms/submissions...` (same suffixes: `{sid}`, `status`, `email`, `delete`, `bulk`, `export.csv`); the bare list and `{sid}` then redirect again to the tab (below) |
 | `/admin/settings/spam` | `<admin>/forms/spam` |
 | `/admin/settings/media...` | `<admin>/media...` |
 | `/admin/settings/contact-button` | `<admin>/theme/contact-button` |
 | `/admin/forms/{id}/edit`, `.../delete` (before v1-23a) | `<admin>/forms/edit/{id}`, `<admin>/forms/delete/{id}` |
-| `/admin/forms/{id}/submissions` | `<admin>/forms/submissions?form={id}` |
-| `/admin/forms/{id}/submissions/{sid}`, and its `status`, `email`, `delete` | `<admin>/forms/submissions/{sid}`, and the same suffixes |
+| `/admin/forms/{id}/submissions` | `<admin>/forms/design/{id}/submissions` |
+| `/admin/forms/{id}/submissions/{sid}` | `<admin>/forms/design/{id}/submissions?s={sid}` (the drawer opens) |
+| `/admin/forms/{id}/submissions/{sid}/status`, `.../email`, `.../delete` | `<admin>/forms/submissions/{sid}/status`, and the same suffixes |
+| `/admin/forms/submissions` (the old list, `?form={id}`, `q`, `status` and `page` are kept) | `<admin>/forms/design/{id}/submissions`, 302; with no form, `<admin>/forms` |
+| `/admin/forms/submissions/{sid}` (a GET, as in notification emails) | `<admin>/forms/design/{id}/submissions?s={sid}`, 303 |
 | `/admin/forms/{id}/submissions/bulk`, `.../export.csv` | `<admin>/forms/submissions/bulk?form={id}`, `<admin>/forms/submissions/export.csv?form={id}` |
 | `/admin/redirects...` (rules, 404 log, explain) | `<admin>/settings/redirects...` (same suffixes) |
 | `/admin/linking...` | `<admin>/settings/linking...` |
@@ -137,4 +140,4 @@ Two plugin addresses are real handlers, not rows of the table above (so they nee
 
 These do not move: `<admin>/entities...`, `<admin>/analytics/referrals`, `<admin>/analytics/data/*.json`, `<admin>/forms`, `<admin>/forms/new`, `<admin>/forms/edit/{id}` (answers 303 to `<admin>/forms/design/{id}`, the Build tab), `<admin>/media...` (library, upload, picker, detail and delete pages), `<admin>/pick/*`, `<admin>/preview/theme/{name}`, `POST <admin>/plugins/{name}/bridge`, `<admin>/profile`, `POST <admin>/theme`, `POST <admin>/logout`, login, forgot, reset, accept, `<admin>/setup/*` and `<admin>/assets/*`. `<admin>` and `<admin>/` still answer 303 to the landing page, `<admin>/entities`.
 
-**Accepted caveat.** A 301 makes a browser repeat a POST as a GET, so a form that was open on an old URL before the upgrade and is then submitted lands on the new page and does nothing. Nothing is saved and nothing is lost; reload the page and submit again. Bookmarks, emailed links (a new submission email links to `<admin>/forms/submissions/{sid}`) and plugin links to old paths keep working.
+**Accepted caveat.** A 301 makes a browser repeat a POST as a GET, so a form that was open on an old URL before the upgrade and is then submitted lands on the new page and does nothing. Nothing is saved and nothing is lost; reload the page and submit again. Bookmarks, emailed links (a new submission email links to `<admin>/forms/submissions/{sid}`, which opens that submission in its form's Submissions tab) and plugin links to old paths keep working.

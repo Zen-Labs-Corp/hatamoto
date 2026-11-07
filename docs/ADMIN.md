@@ -52,16 +52,29 @@ The main menu lists Overview, then Site (Entities, Media, Forms, Analytics) and 
 (Plugins, Theme, Settings). Forms and Media are main-menu items at `<admin>/forms` and
 `<admin>/media`, not Settings sections. The Forms item carries a badge with the number of
 new submissions (hidden at zero, the same for every role that sees Forms; spam is not
-counted). The Forms page has three tabs: Forms (`<admin>/forms`), Submissions
-(`<admin>/forms/submissions`) and Spam (`<admin>/forms/spam`, owner only). Media is one plain
+counted). The Forms page has two tabs: Forms (`<admin>/forms`) and Spam (`<admin>/forms/spam`, owner only). Media is one plain
 page with no secondary sidebar.
+
+**Submissions tab.** `<admin>/forms/design/{id}/submissions` is the one place to read a form's
+submissions. It shows stat cards (new, total, last 30 days, conversion), a search box (it looks in
+the answers), a status filter, a table with a checkbox per row, and bulk actions (mark read, mark
+unread, spam, delete; a bulk delete asks to confirm). **Export CSV** exports what the search and
+filter show, not the whole form. A row opens a drawer with the answers and details (`?s={sid}`):
+opening a new submission marks it read, `j` and `k` move to the next and previous row, `Esc`
+closes it. Status, email-forward and delete actions return to the tab with the search, filter and
+page kept; the result of an email-forward is a flash on the tab (303 back to it), not an error page.
+Conversion is the submissions divided by the visits that landed on the pages the form was sent
+from, over the last 30 days; it is not every page view, and shows "Not available" when there is no
+analytics or no visits. `<admin>/forms/submissions` and `<admin>/forms/submissions/{sid}` redirect
+to the form's tab (the old list and detail pages are gone); the export, bulk, status, email and
+delete routes under `<admin>/forms/submissions/` stay. Pure logic: `scripts/admin-qa/unit/forms-submissions.test.mjs`.
 
 **Form designer.** A form opens on `<admin>/forms/design/{id}` (Build), with the tabs Settings
 (`.../settings`, on the same editor bar as Build: name, status, Undo, Redo and Save; it saves through the
 JSON `PUT` below with the same version check and needs JavaScript, there is no plain POST; recipients are
 chips and are stored as one comma-separated string; **Duplicate form** makes a paused "Copy of" form at
 `POST .../design/{id}/duplicate`), Submissions
-(`<admin>/forms/submissions?form={id}`) and Share and embed (`.../share`). The old
+(`.../design/{id}/submissions`) and Share and embed (`.../share`). The old
 `<admin>/forms/edit/{id}` answers 303 to Build. Build needs JavaScript (there is no
 no-JS field editor); without it the page says so. It has a palette (click or drag a type), a
 canvas (the form as visitors see it; the label is edited in place), an inspector (Content,
@@ -173,7 +186,7 @@ sidebar).
 | Path | Served by |
 | --- | --- |
 | `<admin>/login`, `logout`, `forgot`, `reset`, `accept`, `setup/*`, `profile` | Go (v1-10) |
-| `<admin>/forms*` (list, `new`, `design/{id}` (Build), `design/{id}/settings`, `design/{id}/share`, `edit/{id}` (303 to Build), `delete/{id}`, `PUT {id}/definition` (JSON save), `submissions*` (list, `{sid}`, bulk, CSV export), `spam*`) and `<admin>/media*` (library, upload, formats) | Go (main menu since the Settings regroup) |
+| `<admin>/forms*` (list, `new`, `design/{id}` (Build), `design/{id}/settings`, `design/{id}/share`, `edit/{id}` (303 to Build), `delete/{id}`, `PUT {id}/definition` (JSON save), `design/{id}/submissions` (the tab), `submissions*` (redirects to the tab, bulk, CSV export, per-submission actions), `spam*`) and `<admin>/media*` (library, upload, formats) | Go (main menu since the Settings regroup) |
 | `<admin>/entities*`, `media/{upload,picker,{id}}`, `pick/{entities,terms}` | Go (v1-11, v1-14) |
 | `<admin>/theme/*`: `themes*` (activate, settings, uninstall, install), `colours`, `design-system*`, `presets*`, `parts`, `blocks`, `templates*`, `menus*` (including `POST menus/preview`, the editor's live preview), `strings` (`GET ?locale=<tag>`, `POST`), `contact-button` | Go (the Theme area; the screens date from v1-10 to B6) |
 | `<admin>/settings/*`: `general` and `api-keys*`, `types*` (the type editor has a **Shared across languages** switch, `locale_neutral`, which only takes effect on a site with several languages, read-only on built-in types; the New form of a type with several languages offers **All languages (shared)**), `taxonomies*`, `redirects*` (rules, 404 log, explain), `linking*` (rules, suggestions, equity, import), `users*`, `import*` (WordPress wizard, `docs/IMPORT-WORDPRESS.md`), `export`, `performance*` (page cache) | Go (v1-23a; the screens date from v1-10 to v1-22b) |

@@ -1,5 +1,13 @@
 # Release notes
 
+## Unreleased: Submissions tab
+
+- **One place for submissions.** A form's Submissions tab now has stat cards (new, total, last 30 days, conversion), search across the answers, a status filter, bulk actions and a drawer that shows one submission. Opening a new submission marks it read; `j` and `k` move between rows and `Esc` closes the drawer. Export CSV honours the search and the filter.
+- **Conversion.** Submissions divided by the visits that landed on the pages the form was sent from, over the last 30 days. It is not every page view, and shows "Not available" without analytics or visits.
+- **Old addresses redirect.** The old submission list and detail pages are gone. `<admin>/forms/submissions` and `<admin>/forms/submissions/{sid}` now send you to the form's Submissions tab, so bookmarks and links in earlier notification emails keep working. See `docs/REDIRECTS.md`.
+- **Email forward.** Forwarding a submission by email now reports its result as a message on the tab (a 303 back to it) instead of a separate 422 or 502 page.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: Form settings tab
 
 - **Keep submissions.** The Settings tab's "Keep submissions in the admin" switch writes `store_off` (absent means keep). Off stores no answers: they are only emailed and sent to hooks. The old `store_submissions` key is no longer read, so every existing form and every form created through the API keeps storing, as before; a form whose owner had switched it off on an earlier release keeps storing until the owner saves it from the Settings tab. If email is not configured or the form has no recipient, the answers are kept anyway and a warning is logged. A send that fails later is still lost.

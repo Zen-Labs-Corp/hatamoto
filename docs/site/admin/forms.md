@@ -42,6 +42,12 @@ In this guide you design a form on the **Build** tab, check how it behaves with 
 
 Reload the Build tab: your fields are in the order you left them. Open **Submissions** and send a test through the page that shows the form; the answer appears in the list.
 
+### Submissions tab
+
+The Submissions tab shows four numbers above the list: new, total, the last 30 days, and conversion. Conversion is the submissions divided by the visits that landed on the pages the form was sent from, over the last 30 days. It is not every page view, and it reads "Not available" when there are no visits to count.
+
+Search looks in the answers. The status filter narrows the list, and **Export CSV** exports exactly what the search and filter show. Tick rows to mark them read or unread, move them to spam, or delete them. Click a row to open it in a side drawer: opening a new submission marks it read. Press `j` and `k` to move between submissions and `Esc` to close the drawer. Forwarding a submission by email reports back on the tab. Old links to a submission, including the ones in notification emails, open it in this tab.
+
 If you see "This form was changed in another tab", someone else (or another tab of yours) saved the form after you opened it. Press **Reload** to see their version. Your unsaved edits on this tab are not applied, so make them again.
 
 Keyboard shortcuts on the Build tab, when you are not typing in a box:
