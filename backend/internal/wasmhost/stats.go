@@ -45,16 +45,17 @@ type HostStats struct {
 	IdleWindow time.Duration
 }
 
-// Stats reports the loaded plugins' pools. It is lock-free: it takes no slot,
-// pops nothing from a pool and reads no instance, only numbers recorded by
-// the instances' owners (see pushPooled).
+// Stats reports the loaded plugins' pools. It takes no slot or plugin lock,
+// pops nothing from a pool (only a brief leaf lock to count it) and reads no
+// instance, only numbers recorded by the instances' owners (see
+// tryPushPooled).
 func (h *Host) Stats() HostStats {
 	reg := *h.reg.Load()
 	st := HostStats{Plugins: make([]PluginStats, 0, len(reg)), Evicted: h.evicted.Load(), IdleWindow: h.idleWindow}
 	for name, p := range reg {
 		ps := PluginStats{
 			Name:         name,
-			Pooled:       len(p.pool),
+			Pooled:       p.poolLen(),
 			Live:         len(p.slots),
 			MaxInstances: cap(p.slots),
 			ModuleBytes:  p.wasmBytes,
@@ -93,31 +94,50 @@ func dirCacheBytes(dir string) int64 {
 	return total
 }
 
-// pushPooled records inst's memory, then pools it. Only the owner of inst
-// (the goroutine that just finished with it) may call it, so the instance is
-// idle while it is measured. The record is stored BEFORE the send so Stats
-// never sees a pooled instance without one. The send blocks when the pool is
-// full, so only use it where the pool is known to have room (load, on an
-// empty pool). Anyone who holds no slot must use tryPushPooled or release.
-func (p *plugin) pushPooled(inst *extism.Plugin) {
-	p.pooledMem.Store(inst, pooledRec{instanceBytes(inst), p.now()})
-	p.pool <- inst
-}
-
-// tryPushPooled is pushPooled that gives up when the pool is full.
+// tryPushPooled records inst's memory, then pools it as the newest instance;
+// it gives up (false) when the pool is full. Only the owner of inst (the
+// goroutine that just finished with it) may call it, so the instance is idle
+// while it is measured. The record is stored BEFORE the push so Stats never
+// sees a pooled instance without one. It never blocks.
 func (p *plugin) tryPushPooled(inst *extism.Plugin) bool {
 	p.pooledMem.Store(inst, pooledRec{instanceBytes(inst), p.now()})
-	select {
-	case p.pool <- inst:
-		return true
-	default:
+	p.pmu.Lock()
+	if len(p.idle) >= cap(p.slots) {
+		p.pmu.Unlock()
 		p.pooledMem.Delete(inst)
 		return false
 	}
+	p.idle = append(p.idle, inst)
+	p.pmu.Unlock()
+	return true
+}
+
+// popTop takes the most recently returned instance and forgets its record,
+// or returns nil when the pool is empty. It never blocks.
+func (p *plugin) popTop() *extism.Plugin {
+	p.pmu.Lock()
+	n := len(p.idle)
+	if n == 0 {
+		p.pmu.Unlock()
+		return nil
+	}
+	inst := p.idle[n-1]
+	p.idle[n-1] = nil
+	p.idle = p.idle[:n-1]
+	p.pmu.Unlock()
+	p.popPooled(inst)
+	return inst
+}
+
+// poolLen is the number of pooled instances, a snapshot.
+func (p *plugin) poolLen() int {
+	p.pmu.Lock()
+	defer p.pmu.Unlock()
+	return len(p.idle)
 }
 
 // pooledRec is what pooledMem keeps per pooled instance: its measured memory
-// and when it was returned. The pool is FIFO, so the time is per instance: a
+// and when it was returned. The time is per instance, not per pool: a
 // per-plugin clock would keep stale instances alive.
 type pooledRec struct {
 	bytes uint64
@@ -125,55 +145,42 @@ type pooledRec struct {
 }
 
 // sweepIdle closes pooled instances that have sat unused for at least window,
-// always leaving one (the most recently returned) and never starting one. It
-// holds no slot and never blocks: it pops from the pool without waiting, so
-// an instance it holds is exclusively its own, and a caller that finds the
-// pool empty at worst cold-starts. RLock makes close wait for the sweep and
-// makes a closed plugin a no-op. It returns the number of instances closed.
+// oldest first, always leaving the newest and never starting one. It holds no
+// slot and never blocks: it filters the stack in place under the leaf lock
+// (survivors keep their order, the newest stays on top) and closes the stale
+// ones outside it, after they have left the pool, so they are exclusively its
+// own. A caller that finds the pool empty at worst cold-starts. RLock makes
+// close wait for the sweep and makes a closed plugin a no-op. It returns the
+// number of instances closed.
 func (p *plugin) sweepIdle(now time.Time, window time.Duration) (closed int) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if p.closed {
 		return 0
 	}
-	// One pass over the instances present now: stale ones are closed, fresh
-	// ones go back to the tail, so a full pass leaves the FIFO order intact.
-	for range len(p.pool) {
-		if len(p.pool) <= 1 {
-			return closed
-		}
-		var inst *extism.Plugin
-		select {
-		case inst = <-p.pool:
-		default:
-			return closed
-		}
+	var stale []*extism.Plugin
+	p.pmu.Lock()
+	n := len(p.idle)
+	keep := p.idle[:0]
+	for i, inst := range p.idle {
 		v, _ := p.pooledMem.Load(inst)
 		rec, _ := v.(pooledRec)
-		// An empty pool means a caller took the sibling, so this one is the
-		// last warm instance: keep it, however old.
-		if now.Sub(rec.at) < window || len(p.pool) == 0 {
-			p.putBack(inst, rec)
-			continue
+		// The top is the last warm instance: keep it, however old.
+		if i < n-1 && now.Sub(rec.at) >= window {
+			stale = append(stale, inst)
+		} else {
+			keep = append(keep, inst)
 		}
+	}
+	clear(p.idle[len(keep):]) // let the closed ones be collected
+	p.idle = keep
+	p.pmu.Unlock()
+	for _, inst := range stale {
 		p.popPooled(inst) // forget it BEFORE closing, so Stats never counts a closed instance
 		_ = inst.Close(context.Background())
 		closed++
 	}
 	return closed
-}
-
-// putBack returns an instance sweepIdle took, keeping its original return
-// time. It never blocks: when callers refilled the pool meanwhile it closes
-// the instance instead, like release.
-func (p *plugin) putBack(inst *extism.Plugin, rec pooledRec) {
-	p.pooledMem.Store(inst, rec)
-	select {
-	case p.pool <- inst:
-	default:
-		p.popPooled(inst)
-		_ = inst.Close(context.Background())
-	}
 }
 
 // popPooled drops the record of an instance just received from the pool.

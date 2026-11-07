@@ -30,13 +30,13 @@ func TestSweeperEvictsOnTick(t *testing.T) {
 	load(t, h, "good", sdk.Limits{MaxInstances: 4})
 	p := (*h.reg.Load())["good"]
 	fill(t, p, 3)
-	if len(p.pool) != 4 {
-		t.Fatalf("pool = %d, want 4", len(p.pool))
+	if p.poolLen() != 4 {
+		t.Fatalf("pool = %d, want 4", p.poolLen())
 	}
 	clock.Advance(2 * time.Minute)
 	waitFor(t, "the sweeper to evict three instances", func() bool { return h.Stats().Evicted == 3 })
-	if len(p.pool) != 1 {
-		t.Fatalf("pool = %d, want 1", len(p.pool))
+	if p.poolLen() != 1 {
+		t.Fatalf("pool = %d, want 1", p.poolLen())
 	}
 	if recordCount(p) != 1 {
 		t.Fatalf("pooledMem has %d entries, want 1", recordCount(p))

@@ -28,11 +28,11 @@ func TestClosedPooledInstanceIsReplaced(t *testing.T) {
 
 	// Poison the pooled instance the way a cancelled call leaves it.
 	p := (*h.reg.Load())["stub"]
-	inst := <-p.pool
+	inst := p.popTop()
 	if err := inst.Close(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	p.pool <- inst
+	p.tryPushPooled(inst)
 
 	if out, err := call(h, "stub", "echo", "y"); err != nil || out != "y" {
 		t.Fatalf("call on a closed pooled instance: %q %v", out, err)
@@ -162,8 +162,8 @@ func TestRejectWithDeadAfterCallDiscards(t *testing.T) {
 	if p.breakers["filter_entity_before_save"] != nil {
 		t.Fatal("a rejection counts as a success: the breaker must be cleared")
 	}
-	if got := h.Discarded("rej"); got != 1 || len(p.pool) != 0 {
-		t.Fatalf("discarded = %d, pooled = %d, want 1 and 0", got, len(p.pool))
+	if got := h.Discarded("rej"); got != 1 || p.poolLen() != 0 {
+		t.Fatalf("discarded = %d, pooled = %d, want 1 and 0", got, p.poolLen())
 	}
 }
 
@@ -181,8 +181,8 @@ func TestGuestErrorWithDeadAfterCallDiscards(t *testing.T) {
 	if p.breakers["guest_error"] != nil {
 		t.Fatal("breaker must be cleared")
 	}
-	if got := h.Discarded("stub"); got != 1 || len(p.pool) != 0 {
-		t.Fatalf("discarded = %d, pooled = %d, want 1 and 0", got, len(p.pool))
+	if got := h.Discarded("stub"); got != 1 || p.poolLen() != 0 {
+		t.Fatalf("discarded = %d, pooled = %d, want 1 and 0", got, p.poolLen())
 	}
 }
 
@@ -192,29 +192,29 @@ func TestFreshInstanceNeverPooled(t *testing.T) {
 	h := newHost(t)
 	load(t, h, "stub", sdk.Limits{MaxInstances: 2})
 	p := (*h.reg.Load())["stub"]
-	for len(p.pool) > 0 { // load may have warmed one
-		_ = (<-p.pool).Close(context.Background())
+	for p.poolLen() > 0 { // load may have warmed one
+		_ = p.popTop().Close(context.Background())
 	}
 	fresh := WithFreshInstance(context.Background())
 
 	if out, err := h.Call(fresh, "stub", "echo", []byte("a")); err != nil || string(out) != "a" {
 		t.Fatalf("fresh call: %q %v", out, err)
 	}
-	if len(p.pool) != 0 {
-		t.Fatalf("fresh call pooled its instance: %d", len(p.pool))
+	if p.poolLen() != 0 {
+		t.Fatalf("fresh call pooled its instance: %d", p.poolLen())
 	}
-	if _, err := call(h, "stub", "echo", "b"); err != nil || len(p.pool) != 1 {
-		t.Fatalf("plain call: %v, pooled %d", err, len(p.pool))
+	if _, err := call(h, "stub", "echo", "b"); err != nil || p.poolLen() != 1 {
+		t.Fatalf("plain call: %v, pooled %d", err, p.poolLen())
 	}
-	warm := <-p.pool
-	p.pool <- warm
+	warm := p.popTop()
+	p.tryPushPooled(warm)
 	if _, err := h.Call(fresh, "stub", "echo", []byte("c")); err != nil {
 		t.Fatal(err)
 	}
-	if len(p.pool) != 1 {
-		t.Fatalf("pool = %d after a fresh call, want the warm instance only", len(p.pool))
+	if p.poolLen() != 1 {
+		t.Fatalf("pool = %d after a fresh call, want the warm instance only", p.poolLen())
 	}
-	if got := <-p.pool; got != warm {
+	if got := p.popTop(); got != warm {
 		t.Fatal("fresh call replaced the pooled instance")
 	}
 }

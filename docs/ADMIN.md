@@ -1072,7 +1072,9 @@ server's memory goes: the Go runtime (live and total heap, memory limit, GC
 share, goroutines), the page cache, and one row per loaded plugin. A plugin's
 Wasm memory counts its idle (pooled) instances only; Compiled code is the size
 of its module. Plugin instances that sit unused for 5 minutes are closed, down
-to one warm instance per plugin; the window is fixed. A closed instance starts
+to one warm instance per plugin; the window is fixed. The pool reuses the
+most recently returned instance first, so under steady low traffic (calls that do not overlap) the extra
+instances go idle and are closed. A closed instance starts
 again on demand when traffic returns, so the next call after a quiet period can
 be slower. The tab states the policy and "Closed since start: N", which counts
 the instances closed this way and resets on restart.

@@ -12,6 +12,7 @@
 ## Unreleased: idle plugin instances are closed after 5 minutes
 
 - **Idle eviction.** A plugin's pooled instances that have not been used for 5 minutes are closed, leaving one warm instance per plugin (the most recently used one). A burst of traffic that grew the pool no longer holds that memory until restart; when traffic returns, instances start again on demand. The window is fixed.
+- **Newest instance first.** The pool reuses the most recently returned plugin instance, so steady low traffic lets extra instances idle out and shrinks the pool to one.
 - **Memory tab.** Settings, Performance, Memory states the policy and shows "Closed since start: N", the number of instances closed this way since the server started.
 - **Migration.** None. Rollback floor: none.
 
