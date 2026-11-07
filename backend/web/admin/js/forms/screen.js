@@ -298,6 +298,7 @@ function start(root, boot) {
       syncHistory();
       if (mode !== "try") return;
       select(null); // nothing stays selected behind the preview
+      setAdd(false); // the palette is hidden in Try it; don't leave it open for the way back
       try {
         const m = await previewChunk();
         preview ??= m.mountPreview(previewEl, { getDoc: doc, freeEmail: boot.freeEmail ?? [], announce });

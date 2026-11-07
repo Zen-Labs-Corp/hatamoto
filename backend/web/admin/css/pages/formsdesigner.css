@@ -108,5 +108,5 @@
 .hm-fd__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-block-end: var(--space-3); }
 .hm-fd__summary { flex: 1; text-align: center; color: var(--text-muted); font-size: var(--text-sm); }
 .hm-fd__canvas[data-device="phone"] .hm-fd__card { max-width: 24rem; }
-.hm-fd[data-mode="try"] :is(.hm-fd__palette, .hm-fd__inspector) { display: none; }
+.hm-fd[data-mode="try"] :is(.hm-fd__add, .hm-fd__palette, .hm-fd__inspector) { display: none; }
 @media (min-width: 960px) { .hm-fd[data-mode="try"] { grid-template-columns: minmax(0, 1fr); } }
