@@ -567,17 +567,6 @@ func (s *Server) activeFormBySlug(ctx context.Context, slug string) (*form.Form,
 	return formObj, nil
 }
 
-// submitPublicForm stores a public submission for the form identified by slug
-// and runs the follow-up notifications. It is shared by the JSON and the
-// urlencoded endpoints.
-func (s *Server) submitPublicForm(ctx context.Context, slug string, data map[string]interface{}, ctl spamControl, meta submitMeta) (*submitResult, error) {
-	formObj, err := s.activeFormBySlug(ctx, slug)
-	if err != nil {
-		return nil, err
-	}
-	return s.storeFormSubmission(ctx, formObj, slug, data, ctl, meta)
-}
-
 func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, slug string, data map[string]interface{}, ctl spamControl, meta submitMeta) (*submitResult, error) {
 	// One validator for every public submit path: unknown fields are dropped,
 	// required, type, choices, length and pattern checks are enforced.
@@ -593,16 +582,26 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 	if serr != nil {
 		return nil, serr
 	}
-	input := &form.CreateSubmissionInput{
-		Status:      status,
-		Data:        data,
-		Attribution: attributionFromControl(ctl.Attribution, meta.Host),
-		Metadata: form.SubmissionMetadata{
-			IPAddress: meta.IPAddress,
+	// With storage off the row still exists (mail and hooks need its id, the
+	// admin sees that a send arrived) but holds no answers and nothing about
+	// the visitor; the in-memory data below still feeds the mail.
+	input := &form.CreateSubmissionInput{Status: status}
+	dropped := s.dropAnswers(formObj)
+	if dropped {
+		input.Data = map[string]interface{}{}
+	} else {
+		ip := meta.IPAddress
+		if formObj.Settings.NoIP {
+			ip = ""
+		}
+		input.Data = data
+		input.Attribution = attributionFromControl(ctl.Attribution, meta.Host)
+		input.Metadata = form.SubmissionMetadata{
+			IPAddress: ip,
 			UserAgent: meta.UserAgent,
 			Referrer:  meta.Referrer,
 			PageURL:   meta.PageURL,
-		},
+		}
 	}
 
 	// Create submission
@@ -615,7 +614,7 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 	// A submission classed as spam is kept for review but reaches nobody: no
 	// notification, no confirmation, no hook or webhook.
 	if status != form.SubmissionStatusSpam {
-		s.sendFormSubmissionEmail(formObj, submission, data)
+		s.sendFormSubmissionEmail(formObj, submission, data, meta, dropped)
 		s.sendFormConfirmationEmail(formObj, submission, data)
 		s.fireFormSubmitted(ctx, formObj, submission, data, meta)
 	}
@@ -720,22 +719,31 @@ func controlFromValues(post url.Values) spamControl {
 // status to store the submission with, or the error to answer with: a failed
 // captcha and a refused rule trip are both 422.
 func (s *Server) checkSpam(ctx context.Context, f *form.Form, data map[string]interface{}, ctl spamControl, ip string) (string, *submitError) {
-	if s.spam == nil {
-		return form.SubmissionStatusNew, nil
+	if s.spam != nil {
+		verdict, reason := s.spam.Check(ctx, spam.Input{
+			Slug: f.Slug, CaptchaRequired: f.Settings.EnableCaptcha, Data: data,
+			Timing: ctl.Timing, Captcha: ctl.Captcha, IP: ip,
+		})
+		switch verdict {
+		case spam.CaptchaFail:
+			s.logger.Info("form captcha failed", "form_id", f.ID.String(), "reason", reason)
+			return "", &submitError{status: http.StatusUnprocessableEntity, msg: "Please complete the spam check and try again.", code: "captcha_required"}
+		case spam.Refuse:
+			s.logger.Info("form submission refused", "form_id", f.ID.String(), "reason", reason)
+			return "", &submitError{status: http.StatusUnprocessableEntity, msg: "Your message could not be accepted.", code: "refused"}
+		case spam.Spam:
+			s.logger.Info("form submission saved as spam", "form_id", f.ID.String(), "reason", reason)
+			return form.SubmissionStatusSpam, nil
+		}
 	}
-	verdict, reason := s.spam.Check(ctx, spam.Input{
-		Slug: f.Slug, CaptchaRequired: f.Settings.EnableCaptcha, Data: data,
-		Timing: ctl.Timing, Captcha: ctl.Captcha, IP: ip,
-	})
-	switch verdict {
-	case spam.CaptchaFail:
-		s.logger.Info("form captcha failed", "form_id", f.ID.String(), "reason", reason)
-		return "", &submitError{status: http.StatusUnprocessableEntity, msg: "Please complete the spam check and try again.", code: "captcha_required"}
-	case spam.Refuse:
-		s.logger.Info("form submission refused", "form_id", f.ID.String(), "reason", reason)
-		return "", &submitError{status: http.StatusUnprocessableEntity, msg: "Your message could not be accepted.", code: "refused"}
-	case spam.Spam:
-		s.logger.Info("form submission saved as spam", "form_id", f.ID.String(), "reason", reason)
+	// The form's own rules never refuse: a match is stored as spam, whatever
+	// the site-wide action is.
+	if len(f.Settings.BlockedWords) > 0 && spam.MatchWords(f.Settings.BlockedWords, data) {
+		s.logger.Info("form submission saved as spam", "form_id", f.ID.String(), "reason", "form word")
+		return form.SubmissionStatusSpam, nil
+	}
+	if s.formOverRateLimit(ctx, f, ip, time.Now()) {
+		s.logger.Info("form submission saved as spam", "form_id", f.ID.String(), "reason", formRateReason)
 		return form.SubmissionStatusSpam, nil
 	}
 	return form.SubmissionStatusNew, nil
@@ -792,13 +800,13 @@ func (s *Server) handlePublicFormSubmit(w http.ResponseWriter, r *http.Request) 
 	var trapped bool
 	if ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); ct == "application/x-www-form-urlencoded" {
 		data, err = parseFormValues(w, r)
-		trapped = err == nil && r.PostForm.Get(honeypotField) != ""
+		trapped = err == nil && !formObj.Settings.HoneypotOff && r.PostForm.Get(honeypotField) != ""
 		if err == nil {
 			ctl = controlFromValues(r.PostForm)
 		}
 	} else {
 		err = parseJSON(r, &data)
-		trapped = err == nil && honeypotFilled(data[honeypotField])
+		trapped = err == nil && !formObj.Settings.HoneypotOff && honeypotFilled(data[honeypotField])
 		ctl = takeControl(data)
 	}
 	if err != nil {
@@ -860,16 +868,36 @@ func (s *Server) handlePublicFormSubmit(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusCreated, response)
 }
 
+// dropAnswers reports whether a submission's answers are kept out of the
+// database: the form says so and the notification can actually carry them.
+// Without a working mail path the answers would be lost, so they are kept.
+func (s *Server) dropAnswers(formObj *form.Form) bool {
+	if !formObj.Settings.StoreOff {
+		return false
+	}
+	if s.emailService == nil || !s.emailService.IsConfigured() ||
+		len(buildFormNotification(formObj, nil, s.notificationAddress(context.Background())).To) == 0 {
+		s.logger.Warn("form is set not to store submissions but no notification can be sent; keeping the answers",
+			slog.String("form_id", formObj.ID.String()))
+		return false
+	}
+	return true
+}
+
 // sendFormSubmissionEmail sends an email notification for a form submission.
 // This is a non-blocking operation - errors are logged but don't affect the response.
-func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.FormSubmission, data map[string]interface{}) {
+// The page and address come from the request metadata, not the stored row, which
+// is empty when the form stores nothing. The address is left out under no-IP
+// because the mail is kept in the email log. dropped says the row holds no
+// answers, so there is nothing for the admin link to open.
+func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.FormSubmission, data map[string]interface{}, meta submitMeta, dropped bool) {
 	// Check if email service is available and notification email is configured
 	if s.emailService == nil {
 		return
 	}
 
-	notifyEmail := formObj.Settings.NotifyEmail
-	if notifyEmail == nil || *notifyEmail == "" {
+	notice := buildFormNotification(formObj, data, s.notificationAddress(context.Background()))
+	if len(notice.To) == 0 {
 		s.logger.Debug("no notification email configured for form", slog.String("form_id", formObj.ID.String()))
 		return
 	}
@@ -894,6 +922,10 @@ func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.Fo
 		}
 	}
 
+	ip := meta.IPAddress
+	if formObj.Settings.NoIP {
+		ip = ""
+	}
 	// Build email data
 	emailData := email.FormSubmissionData{
 		FormName:      formObj.Name,
@@ -901,8 +933,8 @@ func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.Fo
 		SubmissionID:  submission.ID.String(),
 		SubmittedAt:   time.Now(),
 		Fields:        fields,
-		SubmitterIP:   submission.Metadata.IPAddress,
-		SubmitterPage: s.redactPageURL(submission.Metadata.PageURL),
+		SubmitterIP:   ip,
+		SubmitterPage: s.redactPageURL(meta.PageURL),
 		SiteName:      s.siteName(context.Background()),
 	}
 
@@ -914,26 +946,26 @@ func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.Fo
 		defer cancel()
 
 		var admins, others []string
-		for _, rcpt := range strings.Split(*notifyEmail, ",") {
-			rcpt = strings.TrimSpace(rcpt)
-			switch {
-			case rcpt == "":
-			case s.isAdminAccountEmail(ctx, rcpt):
+		for _, rcpt := range notice.To {
+			if s.isAdminAccountEmail(ctx, rcpt) {
 				admins = append(admins, rcpt)
-			default:
+			} else {
 				others = append(others, rcpt)
 			}
 		}
+		opts := email.FormNotifyOptions{Subject: notice.Subject, ReplyTo: notice.ReplyTo}
 
 		// Only a recipient with an admin account gets the link to the
 		// submission; it names the private admin address.
 		adminData := emailData
-		adminData.AdminURL = s.adminPathValue() + "/forms/submissions/" + submission.ID.String()
+		if !dropped {
+			adminData.AdminURL = s.adminPathValue() + "/forms/submissions/" + submission.ID.String()
+		}
 		for _, send := range []struct {
 			to   []string
 			data email.FormSubmissionData
 		}{{admins, adminData}, {others, emailData}} {
-			if err := s.emailService.SendFormSubmission(ctx, send.to, send.data); err != nil {
+			if err := s.emailService.SendFormSubmission(ctx, send.to, send.data, opts); err != nil {
 				s.logger.Error("failed to send form submission email",
 					slog.String("error", err.Error()),
 					slog.String("form_id", formObj.ID.String()),
@@ -942,6 +974,19 @@ func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.Fo
 			}
 		}
 	}()
+}
+
+// notificationAddress is the site's notification address, the fallback
+// recipient of a form that names none; empty when unset or unreadable.
+func (s *Server) notificationAddress(ctx context.Context) string {
+	if s.siteConfig == nil {
+		return ""
+	}
+	cfg, err := s.siteConfig.Get(ctx)
+	if err != nil || cfg == nil {
+		return ""
+	}
+	return cfg.NotificationEmail
 }
 
 // isAdminAccountEmail reports whether addr belongs to an account that can sign
@@ -1054,6 +1099,7 @@ func formConfirmation(formObj *form.Form, data map[string]interface{}, siteName 
 		Name:     name,
 		Message:  message,
 		SiteName: siteName,
+		Subject:  strings.TrimSpace(formObj.Settings.ConfirmationSubject),
 	}, true
 }
 

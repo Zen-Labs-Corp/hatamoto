@@ -1,19 +1,7 @@
 {{template "layouts/shell" .}}
 {{define "modules"}}@hm/formsdesigner{{end}}
 {{define "main"}}{{with .Data}}<h1 class="hm-visually-hidden">Design {{.Name}}</h1>
-<div class="hm-fd-head">
-{{template "hm/button" (dict "Href" (printf "%s/forms" adminPath) "IconOnly" true "Icon" "arrow-right" "Variant" "ghost" "AriaLabel" "Back to forms" "Attrs" (attrmap "data-flip" ""))}}
-<a class="hm-fd-head__crumb" href="{{adminPath}}/forms">Forms</a><span class="hm-fd-head__slash" aria-hidden="true">/</span>
-<input type="text" class="hm-fd-head__title" id="fd-name" data-hm-fd-title hidden data-hm-bs-js value="{{.Name}}" maxlength="120" aria-label="Form name" placeholder="Form name">
-<noscript><span class="hm-fd-head__title">{{.Name}}</span></noscript>
-<span class="hm-fd-status" data-status="{{.Status}}" hidden data-hm-bs-js><select class="hm-fd-status__select" data-hm-fd-status aria-label="Status">{{range .Statuses}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select>{{icon "chevron-down"}}</span>
-<span class="hm-fd-head__end">
-<span data-hm-fd-state>{{template "hm/savestate" (dict "State" "saved" "Text" "Saved")}}</span>
-{{template "hm/button" (dict "Label" "Undo" "AriaLabel" "Undo" "IconOnly" true "Icon" "corner-up-right" "Variant" "ghost" "Attrs" (attrmap "data-hm-fd-undo" "" "data-flip" "" "disabled" "disabled" "hidden" "hidden" "data-hm-bs-js" "" "title" "Undo (Ctrl/Cmd + Z)"))}}
-{{template "hm/button" (dict "Label" "Redo" "AriaLabel" "Redo" "IconOnly" true "Icon" "corner-up-right" "Variant" "ghost" "Attrs" (attrmap "data-hm-fd-redo" "" "disabled" "disabled" "hidden" "hidden" "data-hm-bs-js" "" "title" "Redo (Ctrl/Cmd + Shift + Z)"))}}
-{{template "hm/button" (dict "Label" "Save" "Variant" "primary" "Attrs" (attrmap "hidden" "hidden" "data-hm-bs-js" "" "data-hm-fd-save" ""))}}
-</span>
-</div>
+{{template "hm/formseditorbar" .}}
 {{template "hm/tabs" (dict "Label" "Form sections" "Items" .Tabs)}}
 <noscript>{{template "hm/callout-start" (dict "Kind" "warning")}}The form designer needs JavaScript.{{template "hm/callout-end"}}</noscript>
 <div class="hm-fd" data-hm-fd>

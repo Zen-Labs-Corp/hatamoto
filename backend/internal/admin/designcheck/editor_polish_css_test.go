@@ -41,7 +41,7 @@ func TestBlogSidePanelIsFlushColumn(t *testing.T) {
 func TestTokenInputHasFocusRing(t *testing.T) {
 	t.Parallel()
 
-	if css := adminAsset(t, "css", "pages", "blogeditor.css"); !strings.Contains(css, ".hm-tokens__input:focus-visible { outline: var(--focus-ring);") {
+	if css := adminAsset(t, "css", "partials", "taginput.css"); !strings.Contains(css, ".hm-tokens__input:focus-visible { outline: var(--focus-ring);") {
 		t.Error("the token input has no focus ring")
 	}
 }

@@ -202,3 +202,41 @@ func manyFields(n int) string {
 	b.WriteString("]")
 	return b.String()
 }
+
+// The Settings tab saves through the same PUT: the new keys are stored, problems
+// are keyed settings.<key>, and a stale version is a conflict.
+func TestFormDefinitionSettingsTab(t *testing.T) {
+	t.Parallel()
+
+	g, ff, _ := newFormRig(t)
+	fm := ff.addForm("Contact", contactFields...)
+	id, first := fm.ID.String(), fm.Version()
+	put := func(version, settings string) *httptest.ResponseRecorder {
+		return g.putDefinition(id, "owner-token", `{"version":"`+version+`","name":"Contact","status":"active","fields":[],"settings":{`+settings+`}}`, nil)
+	}
+
+	rec := put(first, `"notify_email":"a@example.com, b@example.com","notify_subject":"New enquiry from {{name}}","honeypot_off":true,"rate_limit_per_hour":5,"blocked_words":["casino"],"retention_days":90,"no_ip":true`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
+	}
+	got := ff.forms[fm.ID].Settings
+	if *got.NotifyEmail != "a@example.com, b@example.com" || !got.HoneypotOff || got.RateLimitPerHour != 5 || got.RetentionDays != 90 || !got.NoIP || len(got.BlockedWords) != 1 {
+		t.Errorf("stored %+v", got)
+	}
+
+	for name, tc := range map[string]struct{ settings, key string }{
+		"recipient": {`"notify_email":"nope"`, "settings.notify_email"},
+		"redirect":  {`"success_redirect_url":"javascript:x"`, "settings.success_redirect_url"},
+	} {
+		rec := put(ff.forms[fm.ID].Version(), tc.settings)
+		out := decodeDefinitionReply(t, rec)
+		if rec.Code != http.StatusUnprocessableEntity || len(out.Errors) != 1 || out.Errors[0].FieldID != tc.key {
+			t.Errorf("%s: %d %+v", name, rec.Code, out)
+		}
+	}
+
+	stale := put(first, `"no_ip":false`)
+	if out := decodeDefinitionReply(t, stale); stale.Code != http.StatusConflict || !out.Conflict {
+		t.Errorf("stale: %d %+v", stale.Code, out)
+	}
+}

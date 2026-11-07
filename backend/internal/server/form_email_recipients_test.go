@@ -62,8 +62,7 @@ func runNotifyPage(t *testing.T, repo user.Repository, notify, pageURL string, w
 
 	f := &form.Form{ID: uuid.New(), Name: "Contact", Slug: "contact", Settings: form.FormSettings{NotifyEmail: &notify}}
 	sub := &form.FormSubmission{ID: uuid.New(), FormID: f.ID}
-	sub.Metadata.PageURL = pageURL
-	s.sendFormSubmissionEmail(f, sub, nil)
+	s.sendFormSubmissionEmail(f, sub, nil, submitMeta{PageURL: pageURL}, false)
 
 	deadline := time.Now().Add(10 * time.Second)
 	for len(sink.Messages()) < want && time.Now().Before(deadline) {

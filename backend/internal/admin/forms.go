@@ -315,24 +315,6 @@ func (a *Admin) handleFormDelete(w http.ResponseWriter, r *http.Request) {
 
 // ---- the builder ----
 
-type formEdit struct {
-	ID, Name, Slug, Description, Status string
-	SubmitText, SuccessMsg, RedirectURL string
-	NotifyEmail, ConfirmMsg             string
-	Captcha, Confirmation, Store        bool
-	Statuses                            []ui.Option
-	Errors                              map[string]string
-	Summary                             []ui.FieldError
-	Notice, EmbedCode, Endpoint         string
-	Actions                             []ui.Button
-	AddType                             string
-	Submissions                         int
-	// CaptchaUnconfigured: the switch is on but no captcha provider keys are
-	// usable, so submissions are accepted unchecked. SpamLink is true when the
-	// viewer may open the page that fixes it (owners).
-	CaptchaUnconfigured, SpamLink bool
-}
-
 var fieldTypeLabels = map[string]string{
 	form.FieldTypeText: "Single-line text", form.FieldTypeEmail: "Email address", form.FieldTypePhone: "Phone number",
 	form.FieldTypeTextarea: "Multi-line text", form.FieldTypeSelect: "Drop-down list", form.FieldTypeRadio: "Choose one (radio buttons)",
@@ -374,27 +356,6 @@ func fieldTypeIcon(t string) string {
 		return "shield-check"
 	}
 	return "pen"
-}
-
-func statusOptions(selected string) []ui.Option {
-	return []ui.Option{
-		{Value: form.StatusActive, Label: "Active: accepts submissions", Selected: selected == form.StatusActive},
-		{Value: form.StatusInactive, Label: "Paused: shows nothing and accepts nothing", Selected: selected == form.StatusInactive},
-		{Value: form.StatusArchived, Label: "Archived", Selected: selected == form.StatusArchived},
-	}
-}
-
-func formToEdit(f *form.Form) formEdit {
-	e := formEdit{ID: f.ID.String(), Name: f.Name, Slug: f.Slug, Status: f.Status,
-		SubmitText: f.Settings.SubmitButtonText, SuccessMsg: f.Settings.SuccessMessage, RedirectURL: f.Settings.SuccessRedirectURL,
-		ConfirmMsg: f.Settings.ConfirmationMessage, Captcha: f.Settings.EnableCaptcha, Confirmation: f.Settings.ConfirmationEmail, Store: f.Settings.StoreSubmissions}
-	if f.Description != nil {
-		e.Description = *f.Description
-	}
-	if f.Settings.NotifyEmail != nil {
-		e.NotifyEmail = *f.Settings.NotifyEmail
-	}
-	return e
 }
 
 // formEndpoint is where visitors send the form: under the configured public

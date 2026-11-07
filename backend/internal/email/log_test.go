@@ -45,7 +45,7 @@ func TestEveryKindLeavesOneRow(t *testing.T) {
 		kind Kind
 		send func() error
 	}{
-		{KindFormNotification, func() error { return svc.SendFormSubmission(ctx, []string{"o@example.com"}, fd) }},
+		{KindFormNotification, func() error { return svc.SendFormSubmission(ctx, []string{"o@example.com"}, fd, FormNotifyOptions{}) }},
 		{KindFormForward, func() error { return svc.SendFormSubmissionForward(ctx, []string{"o@example.com"}, fd, "Bob") }},
 		{KindFormConfirmation, func() error {
 			return svc.SendFormConfirmation(ctx, "s@example.com", FormConfirmationData{FormName: "Contact", Message: "Thanks", SiteName: "S"})

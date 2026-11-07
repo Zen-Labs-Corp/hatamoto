@@ -142,6 +142,7 @@ type Server struct {
 	emailApplied           bool // a configuration has been applied since boot
 	formConfirmationSender formConfirmationSender
 	confirmThrottle        confirmationThrottle
+	formRates              ipFreeLimiter
 	apiKeyService          *auth.APIKeyService
 	// Test seams for /health and /ready; nil means the database and apiKeyService.
 	pingDB                   func(context.Context) error
@@ -587,6 +588,7 @@ func (s *Server) setupDependencies() {
 			retention := worker.NewRetentionPurgeWorker(s.sessionStore, s.logger)
 			retention.AddPurge("user tokens", s.userTokens.PurgeExpired)
 			retention.AddPurge("email log", s.emailLog.Purge)
+			s.addFormRetention(retention)
 			s.scheduler.SetRetentionPurgeWorker(retention)
 		}
 
@@ -911,6 +913,12 @@ func (s *Server) currentMediaFormats(ctx context.Context) media.Formats {
 		return media.Formats{WebP: true, AVIF: true}
 	}
 	return s.formatPolicy(ctx)
+}
+
+// addFormRetention makes the daily purge delete form submissions older than
+// their form's retention (forms without one keep everything).
+func (s *Server) addFormRetention(w *worker.RetentionPurgeWorker) {
+	w.AddPurge("form submissions", s.formService.PurgeExpiredSubmissions)
 }
 
 // Start begins listening for HTTP requests.

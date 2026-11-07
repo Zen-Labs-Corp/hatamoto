@@ -297,7 +297,7 @@ POST /admin/entities/{id}/versions/{version}/restore -> admin.(*Admin).handleVer
 POST /admin/forgot -> admin.(*Admin).handleForgot-fm
 POST /admin/forms -> admin.(*Admin).handleFormCreate-fm
 POST /admin/forms/delete/{id} -> admin.(*Admin).handleFormDelete-fm
-POST /admin/forms/design/{id}/settings -> admin.(*Admin).handleFormSettingsSave-fm
+POST /admin/forms/design/{id}/duplicate -> admin.(*Admin).handleFormDuplicate-fm
 POST /admin/forms/spam -> admin.(*Admin).handleSpamSave-fm
 POST /admin/forms/spam/test -> admin.(*Admin).handleSpamTest-fm
 POST /admin/forms/submissions/bulk -> admin.(*Admin).handleSubmissionsBulk-fm

@@ -57,7 +57,10 @@ counted). The Forms page has three tabs: Forms (`<admin>/forms`), Submissions
 page with no secondary sidebar.
 
 **Form designer.** A form opens on `<admin>/forms/design/{id}` (Build), with the tabs Settings
-(`.../settings`, a plain form that posts to the same path), Submissions
+(`.../settings`, on the same editor bar as Build: name, status, Undo, Redo and Save; it saves through the
+JSON `PUT` below with the same version check and needs JavaScript, there is no plain POST; recipients are
+chips and are stored as one comma-separated string; **Duplicate form** makes a paused "Copy of" form at
+`POST .../design/{id}/duplicate`), Submissions
 (`<admin>/forms/submissions?form={id}`) and Share and embed (`.../share`). The old
 `<admin>/forms/edit/{id}` answers 303 to Build. Build needs JavaScript (there is no
 no-JS field editor); without it the page says so. It has a palette (click or drag a type), a

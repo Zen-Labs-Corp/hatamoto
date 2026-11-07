@@ -140,6 +140,14 @@ func TestSaveDefinition(t *testing.T) {
 		t.Fatalf("version round trip: %v %v", got, err)
 	}
 
+	// The Build tab may rename or retype the Reply-To field; that must not block its save.
+	dangling := *valid
+	dangling.Settings = FormSettings{NotifyReplyTo: "email"}
+	svc, _ = newStubService()
+	if _, err := svc.SaveDefinition(ctx, uuid.New(), base, &dangling); err != nil {
+		t.Fatalf("dangling notify_reply_to: %v", err)
+	}
+
 	for i, fields := range badLogicFields() {
 		svc, repo := newStubService()
 		_, err := svc.SaveDefinition(ctx, uuid.New(), base, &SaveDefinitionInput{Name: "F", Status: StatusActive, Fields: fields})

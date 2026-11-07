@@ -22,6 +22,8 @@ webhooks.
 | `form.submitted` | `form_id`, `form_slug`, `submission_id`, `attribution` when recorded (never the fields) |
 | `import.completed` | `created`, `failed`, `source`, `updated` |
 
+Every active `form.submitted` hook fires for all forms; a form's Settings tab lists them.
+
 `form.submitted` carries ids only, because submitted fields are personal data; the one
 other thing it carries is `attribution`, the first and last touch (`channel`, `source`,
 `medium`, `campaign`, `landing`) of the submitter's tab, left out when none was recorded;

@@ -77,7 +77,7 @@ func TestSendFormSubmissionEmail_WarnsWhenUnconfigured(t *testing.T) {
 	s := forwardServer(t, "localhost", slog.New(slog.NewTextHandler(&buf, nil)))
 	to := "ops@example.com"
 	f := &form.Form{ID: uuid.New(), Settings: form.FormSettings{NotifyEmail: &to}}
-	s.sendFormSubmissionEmail(f, &form.FormSubmission{ID: uuid.New()}, nil)
+	s.sendFormSubmissionEmail(f, &form.FormSubmission{ID: uuid.New()}, nil, submitMeta{}, false)
 	if !strings.Contains(buf.String(), "SMTP is not configured") {
 		t.Fatalf("no warning logged: %q", buf.String())
 	}

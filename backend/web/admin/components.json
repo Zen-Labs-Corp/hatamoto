@@ -426,5 +426,16 @@
     "selector": ".hm-valuediff",
     "owner": "css/partials/diff.css",
     "props": {}
+  },
+  "taginput": {
+    "selector": ".hm-tokens",
+    "owner": "css/partials/taginput.css",
+    "partial": "hm/taginput",
+    "props": {}
+  },
+  "tagchip": {
+    "selector": ".hm-chip",
+    "owner": "css/partials/taginput.css",
+    "props": {}
   }
 }

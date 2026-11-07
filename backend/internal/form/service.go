@@ -307,6 +307,17 @@ func (s *Service) GetSubmissionCount(ctx context.Context, formID uuid.UUID) (int
 	return s.repo.GetSubmissionCount(ctx, formID)
 }
 
+// CountRecentSubmissionsByIP counts a form's submissions from one address since a time.
+func (s *Service) CountRecentSubmissionsByIP(ctx context.Context, formID uuid.UUID, ip string, since time.Time) (int, error) {
+	return s.repo.CountRecentSubmissionsByIP(ctx, formID, ip, since)
+}
+
+// PurgeExpiredSubmissions deletes submissions older than their form's retention.
+// Call it with a superadmin context.
+func (s *Service) PurgeExpiredSubmissions(ctx context.Context) (int64, error) {
+	return s.repo.PurgeExpiredSubmissions(ctx)
+}
+
 // --- Slug Generation ---
 
 var (

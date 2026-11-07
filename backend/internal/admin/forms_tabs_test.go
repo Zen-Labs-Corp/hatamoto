@@ -3,9 +3,9 @@ package admin
 import (
 	"net/http"
 	"net/url"
-	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/a11y"
@@ -37,69 +37,62 @@ func TestFormTabsPages(t *testing.T) {
 	}
 }
 
-func TestFormSettingsSaveKeepsFields(t *testing.T) {
+func TestFormSettingsBoot(t *testing.T) {
 	t.Parallel()
 
 	g, ff, _ := newFormRig(t)
 	fm := ff.addForm("Contact", contactFields...)
-	before := append([]form.FormField(nil), fm.Fields...)
-	page := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/settings", "owner-token", nil, nil).Body.String()
-	if !strings.Contains(page, `name="version" value="`+fm.Version()+`"`) {
-		t.Fatalf("settings lacks the version field")
-	}
-	post := url.Values{"version": {fm.Version()}, "name": {"Renamed"}, "status": {"inactive"}, "store": {"1"}, "notify_email": {"a@example.com"}, "f.0.label": {"ignored"}}
-	rec := g.do("POST", "/admin/forms/design/"+fm.ID.String()+"/settings", "owner-token", post, nil)
-	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/admin/forms/design/"+fm.ID.String()+"/settings" {
-		t.Fatalf("save: %d %q %s", rec.Code, rec.Header().Get("Location"), rec.Body.String())
-	}
-	got := ff.forms[fm.ID]
-	if got.Name != "Renamed" || got.Status != "inactive" || *got.Settings.NotifyEmail != "a@example.com" {
-		t.Errorf("not saved: %+v", got)
-	}
-	if !reflect.DeepEqual(got.Fields, before) {
-		t.Errorf("fields changed: %+v", got.Fields)
-	}
-}
-
-func TestFormSettingsSaveStaleVersion(t *testing.T) {
-	t.Parallel()
-
-	g, ff, _ := newFormRig(t)
-	fm := ff.addForm("Contact", contactFields...)
-	stale := fm.Version()
-	if _, err := ff.SaveDefinition(t.Context(), fm.ID, fm.UpdatedAt, &form.SaveDefinitionInput{Name: "Theirs", Status: form.StatusActive, Fields: fm.Fields}); err != nil {
-		t.Fatal(err)
-	}
-	saves := ff.saves
-	rec := g.do("POST", "/admin/forms/design/"+fm.ID.String()+"/settings", "owner-token", url.Values{"version": {stale}, "name": {"Mine"}, "status": {"active"}}, nil)
-	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "This form was changed by someone else. Reload it to see their changes.") {
-		t.Fatalf("stale save: %d", rec.Code)
-	}
-	if ff.saves != saves || ff.forms[fm.ID].Name != "Theirs" {
-		t.Errorf("a stale save wrote: %+v", ff.forms[fm.ID])
-	}
-}
-
-func TestFormSettingsSaveValidates(t *testing.T) {
-	t.Parallel()
-
-	g, ff, _ := newFormRig(t)
-	fm := ff.addForm("Contact", contactFields...)
-	for name, v := range map[string]url.Values{
-		"blank name":   {"version": {fm.Version()}, "name": {""}, "status": {"active"}},
-		"bad email":    {"version": {fm.Version()}, "name": {"A"}, "status": {"active"}, "notify_email": {"nope"}},
-		"bad redirect": {"version": {fm.Version()}, "name": {"A"}, "status": {"active"}, "redirect_url": {"javascript:x"}},
-		"bad status":   {"version": {fm.Version()}, "name": {"A"}, "status": {"x"}},
-		"long name":    {"version": {fm.Version()}, "name": {strings.Repeat("a", 121)}, "status": {"active"}},
-	} {
-		if rec := g.do("POST", "/admin/forms/design/"+fm.ID.String()+"/settings", "owner-token", v, nil); rec.Code != http.StatusUnprocessableEntity {
-			t.Errorf("%s: %d", name, rec.Code)
+	ff.addSub(fm, form.SubmissionStatusSpam, time.Now(), map[string]any{"name": "Spammer"})
+	ff.addSub(fm, form.SubmissionStatusNew, time.Now().Add(-time.Hour), map[string]any{"name": "Ada"})
+	settings := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/settings", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`data-hm-fd-boot`, `"mode":"settings"`, `"sample":{"name":"Ada"}`, `"webhooks":[]`, `Add webhook`} {
+		if !strings.Contains(settings, want) {
+			t.Errorf("settings boot lacks %s", want)
 		}
 	}
-	if ff.saves != 0 {
-		t.Error("an invalid save wrote")
+	editor := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/settings", "editor-token", nil, nil)
+	if editor.Code != http.StatusOK {
+		t.Fatalf("editor settings: %d", editor.Code)
 	}
-	if rec := g.do("POST", "/admin/forms/design/"+fm.ID.String()+"/settings", "owner-token", url.Values{"name": {"A"}, "status": {"active"}}, nil); rec.Code != http.StatusBadRequest {
-		t.Errorf("no version: %d", rec.Code)
+	for _, leak := range []string{`"webhooks"`, "siteAddress", "spamUrl", "Add webhook", "/settings/webhooks"} {
+		if strings.Contains(editor.Body.String(), leak) {
+			t.Errorf("an editor's Settings page carries %q, which only owners may see", leak)
+		}
+	}
+	if build := g.do("GET", "/admin/forms/design/"+fm.ID.String(), "owner-token", nil, nil).Body.String(); strings.Contains(build, `"mode"`) || strings.Contains(build, `"sample"`) {
+		t.Error("the Build boot carries Settings data")
+	}
+}
+
+// The Settings page carries the Build editor bar and the controls the script binds.
+func TestFormSettingsPageHasEditorBar(t *testing.T) {
+	t.Parallel()
+
+	g, ff, _ := newFormRig(t)
+	fm := ff.addForm("Contact", contactFields...)
+	body := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/settings", "owner-token", nil, nil).Body.String()
+	for _, hook := range []string{"data-hm-fd-title", "data-hm-fd-status", "data-hm-fd-state", "data-hm-fd-undo", "data-hm-fd-redo", "data-hm-fd-save"} {
+		if !strings.Contains(body, hook) {
+			t.Errorf("settings lacks the editor bar hook %s", hook)
+		}
+	}
+	for _, want := range []string{`data-hm-ti`, `data-hm-fs="notify_email"`, `data-hm-fs-seg="retention_days"`, `data-hm-fs-token="{{name}}"`, `action="/admin/forms/design/` + fm.ID.String() + `/duplicate"`, `Email (the visitor)`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("settings lacks %s", want)
+		}
+	}
+	if strings.Contains(body, "View on site") || strings.Contains(body, `name="version"`) {
+		t.Error("settings shows View on site or the old version field")
+	}
+}
+
+func TestFormSettingsOldPostIsGone(t *testing.T) {
+	t.Parallel()
+
+	g, ff, _ := newFormRig(t)
+	fm := ff.addForm("Contact", contactFields...)
+	rec := g.do("POST", "/admin/forms/design/"+fm.ID.String()+"/settings", "owner-token", url.Values{"name": {"A"}}, nil)
+	if rec.Code != http.StatusMethodNotAllowed && rec.Code != http.StatusNotFound {
+		t.Errorf("POST settings: %d, want 405/404", rec.Code)
 	}
 }

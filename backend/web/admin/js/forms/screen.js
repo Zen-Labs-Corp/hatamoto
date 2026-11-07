@@ -18,6 +18,9 @@ import { TYPES, isLayout } from "@hm/forms/types";
 
 const previewChunk = lazy(() => import("@hm/forms/preview"));
 const sheetChunk = lazy(() => import("@hm/builder/keys"));
+const settingsChunk = lazy(() => import("@hm/forms/settingspanel"));
+// What the Build-only parts are in Settings mode: nothing to draw, nothing under the pointer.
+const INERT = { draw() {}, paint() {}, contains: () => false, rowRects: () => [], focusField() {} };
 
 const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content ?? "";
 const SAVE_STATE = { pending: "unsaved", saving: "saving", saved: "saved", error: "error", conflict: "error", stopped: "error", idle: "saved" };
@@ -34,12 +37,14 @@ export function ago(ms) {
 }
 
 function start(root, boot) {
+  const settings = boot.mode === "settings"; // the Settings tab: same store, saver and bar, no canvas
   let st = createStore({ name: boot.name, description: boot.description, status: boot.status, fields: boot.fields ?? [], settings: boot.settings ?? {} });
   let selected = null;
   let errors = {};
   let leaving = false;
   let sheet = null;
   let preview = null;
+  let panel = null; // the Settings panel, once its chunk has loaded
 
   const part = (name) => $(document, `[data-hm-fd-${name}]`);
   const sheetEl = $(root, "[data-hm-fd-sheet]");
@@ -58,7 +63,7 @@ function start(root, boot) {
 
   const live = h("div", { class: "hm-visually-hidden", role: "status", "aria-live": "polite" });
   const previewEl = h("div", { hidden: true });
-  canvasEl.append(previewEl);
+  canvasEl?.append(previewEl);
   root.append(live);
   const announce = (msg) => {
     live.textContent = "";
@@ -110,13 +115,13 @@ function start(root, boot) {
     onErrors: (map, summary) => {
       errors = map;
       redraw();
-      const other = Object.entries(map).filter(([k]) => !doc().fields.some((f) => f.id === k)).map(([, m]) => m);
+      const other = Object.entries(map).filter(([k]) => !doc().fields.some((f) => f.id === k) && !(settings && k.startsWith("settings."))).map(([, m]) => m);
       if (other.length) showState("error", `${summary} ${other.join(" ")}`.trim());
     },
   });
 
   // ----- parts -----
-  const canvas = mountCanvas(sheetEl, {
+  const canvas = settings ? INERT : mountCanvas(sheetEl, {
     getDoc: doc,
     getSelected: () => selected,
     getErrors: () => errors,
@@ -125,20 +130,22 @@ function start(root, boot) {
     onAction: (id, a) => act(a, id),
     announce,
   });
-  const inspector = mountInspector(part("inspector"), { getDoc: doc, getSelected: () => selected, commit: (ops, o) => run(ops, o), getErrors: () => errors, announce });
+  const inspector = settings ? INERT : mountInspector(part("inspector"), { getDoc: doc, getSelected: () => selected, commit: (ops, o) => run(ops, o), getErrors: () => errors, announce });
   // Below the three-column width the palette folds behind "Add a field"; the canvas stays the first thing on the screen.
   const addToggle = part("addtoggle");
   const setAdd = (open) => {
     root.dataset.add = open ? "open" : "closed";
     addToggle.setAttribute("aria-expanded", String(open));
   };
-  addToggle.hidden = false;
-  addToggle.addEventListener("click", () => setAdd(addToggle.getAttribute("aria-expanded") !== "true"));
-  const palette = mountPalette(part("palette"), { types: boot.types ?? [], onAdd: (type) => {
+  if (addToggle) {
+    addToggle.hidden = false;
+    addToggle.addEventListener("click", () => setAdd(addToggle.getAttribute("aria-expanded") !== "true"));
+  }
+  const palette = settings ? INERT : mountPalette(part("palette"), { types: boot.types ?? [], onAdd: (type) => {
       add(type);
       if (!matchMedia("(min-width: 960px)").matches) setAdd(false);
     }, onDragStart: (type, e) => drag.start(e, { type }) });
-  const drag = createFormDrag({
+  const drag = settings ? null : createFormDrag({
     sheet: sheetEl,
     rowRects: canvas.rowRects,
     onDrop: (index, spec) => {
@@ -151,13 +158,15 @@ function start(root, boot) {
       }
     },
   });
-  dragSource(sheetEl, {
-    pick: (e) => {
-      const el = e.target.closest("[data-id]");
-      return el && !e.target.closest("input, select, textarea, button") ? () => ({ id: el.dataset.id }) : null;
-    },
-    start: (e, spec) => drag.start(e, spec),
-  });
+  if (!settings) {
+    dragSource(sheetEl, {
+      pick: (e) => {
+        const el = e.target.closest("[data-id]");
+        return el && !e.target.closest("input, select, textarea, button") ? () => ({ id: el.dataset.id }) : null;
+      },
+      start: (e, spec) => drag.start(e, spec),
+    });
+  }
 
   // ----- drawing -----
   // Undo and Redo change the hidden form: they are off in Try it.
@@ -185,7 +194,12 @@ function start(root, boot) {
     canvas.draw();
     inspector.draw();
     syncHistory();
-    drawSummary();
+    if (settings) {
+      panel?.sync();
+      panel?.showErrors(errors);
+    } else {
+      drawSummary();
+    }
     if (document.activeElement !== titleEl) titleEl.value = doc().name ?? "";
     if (statusEl && document.activeElement !== statusEl) statusEl.value = doc().status;
     if (statusEl) statusEl.parentElement.dataset.status = doc().status;
@@ -200,7 +214,10 @@ function start(root, boot) {
       if (saver.state !== "conflict" && saver.state !== "stopped") showState("error", e.message); // a stopped save keeps its bar
       return false;
     }
-    for (const op of ops) if (op.id) delete errors[op.id];
+    for (const op of ops) {
+      if (op.id) delete errors[op.id];
+      if (op.op === "setSettings") delete errors[`settings.${op.key}`];
+    }
     saver.markDirty();
     redraw();
     return true;
@@ -328,7 +345,7 @@ function start(root, boot) {
     const text = !!t.closest?.("input, textarea, select, [contenteditable]");
     const control = !!t.closest?.("button, a[href], summary, [role=switch]");
     const key = resolveKey(e, { text, selected: !!selected, control, canvas: canvas.contains(t), preview: root.dataset.mode === "try" });
-    if (!key) return;
+    if (!key || (settings && key !== "save" && key !== "undo" && key !== "redo")) return;
     e.preventDefault();
     switch (key) {
       case "save":
@@ -354,6 +371,15 @@ function start(root, boot) {
   palette.paint();
   showState("idle");
   redraw();
+  if (settings) {
+    settingsChunk()
+      .then((m) => {
+        panel = m.mountSettings(root, { getDoc: doc, commit: run, boot, save: () => saver.save(), ago });
+        root.hidden = false;
+        redraw();
+      })
+      .catch(() => showState("error", "The settings could not be loaded. Reload the page to try again."));
+  }
 
   if (new URLSearchParams(location.search).get("qa") === "1") {
     root.dataset.hmQa = "";

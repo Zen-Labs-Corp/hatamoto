@@ -17,11 +17,11 @@ const { GROUPS } = await import(new URL("forms/shortcuts.js", root));
 const ok = (doc) => Object.fromEntries(formCheck(doc).map((c) => [c.id, c.ok]));
 const f = (id, type = "text", name = id) => ({ id, type, name, label: id });
 
-test("an empty form fails all but the vacuous checks; every item has a label and a hint", () => {
+test("an empty form fails all but the names check; every item has a label and a hint", () => {
   const items = formCheck({ fields: [], settings: {} });
-  assert.equal(items.length, 5);
+  assert.equal(items.length, 6);
   for (const c of items) assert.ok(c.label && c.hint, c.id);
-  assert.deepEqual(ok({ fields: [], settings: {} }), { email: false, spam: false, notify: false, names: true, consent: true });
+  assert.deepEqual(ok({ fields: [], settings: {} }), { email: false, spam: false, notify: false, names: true, replyto: true, consent: false });
 });
 
 test("each item flips with the doc", () => {
@@ -29,10 +29,14 @@ test("each item flips with the doc", () => {
   assert.equal(ok({ fields: [], settings: { enable_captcha: true } }).spam, true);
   assert.equal(ok({ fields: [], settings: { notify_email: "  " } }).notify, false);
   assert.equal(ok({ fields: [], settings: { notify_email: "me@example.com" } }).notify, true);
+  assert.equal(ok({ fields: [f("a", "email", "mail")], settings: { notify_reply_to: "mail" } }).replyto, true);
+  assert.equal(ok({ fields: [f("a", "email", "other")], settings: { notify_reply_to: "mail" } }).replyto, false);
+  assert.equal(ok({ fields: [f("a", "text", "mail")], settings: { notify_reply_to: "mail" } }).replyto, false);
   assert.equal(ok({ fields: [f("a", "text", "x"), f("b", "text", "x")], settings: {} }).names, false);
   assert.equal(ok({ fields: [f("a", "heading", ""), f("b", "divider", "")], settings: {} }).names, true);
-  assert.equal(ok({ fields: [f("a")], settings: { store_submissions: true } }).consent, false);
-  assert.equal(ok({ fields: [f("a"), f("c", "consent")], settings: { store_submissions: true } }).consent, true);
+  assert.equal(ok({ fields: [f("a")], settings: {} }).consent, false);
+  assert.equal(ok({ fields: [f("a")], settings: { store_off: true } }).consent, true);
+  assert.equal(ok({ fields: [f("a"), f("c", "consent")], settings: {} }).consent, true);
 });
 
 test("the shortcut sheet data has the builder's shape", () => {
