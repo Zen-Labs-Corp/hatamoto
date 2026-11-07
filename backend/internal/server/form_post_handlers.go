@@ -2,10 +2,12 @@ package server
 
 import (
 	"cmp"
+	"mime"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/middleware"
 )
 
@@ -13,7 +15,8 @@ import (
 const maxFormPostBodySize = 1 << 20
 
 // handlePublicFormPost is the JS-off submit path for server-rendered forms:
-// it accepts application/x-www-form-urlencoded, stores the submission through
+// it accepts application/x-www-form-urlencoded (or multipart/form-data for
+// forms with a file field), stores the submission through
 // the same code as the JSON endpoint and answers with a 303 back to the page.
 // Success appends ?submitted=1, any failure ?form_error=1.
 func (s *Server) handlePublicFormPost(w http.ResponseWriter, r *http.Request) {
@@ -23,41 +26,64 @@ func (s *Server) handlePublicFormPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, maxFormPostBodySize)
-	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, formPostRedirect("/", "form_error"), http.StatusSeeOther)
-		return
+	// A form with a file input posts multipart; the files are staged and
+	// checked like on the JSON endpoint. Any failure is the generic error.
+	var (
+		formObj *form.Form
+		post    url.Values
+		files   uploads
+		err     error
+	)
+	if ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); ct == "multipart/form-data" {
+		if formObj, err = s.activeFormBySlug(r.Context(), slug); err != nil {
+			http.Redirect(w, r, formPostRedirect("/", "form_error"), http.StatusSeeOther)
+			return
+		}
+		post, files, err = s.readMultipartSubmit(w, r, formObj)
+		if err != nil {
+			http.Redirect(w, r, formPostRedirect(safeLocalPath(post.Get("_redirect")), "form_error"), http.StatusSeeOther)
+			return
+		}
+		defer files.discard()
+	} else {
+		r.Body = http.MaxBytesReader(w, r.Body, maxFormPostBodySize)
+		if err := r.ParseForm(); err != nil {
+			http.Redirect(w, r, formPostRedirect("/", "form_error"), http.StatusSeeOther)
+			return
+		}
+		post = r.PostForm
 	}
-	back := safeLocalPath(r.PostForm.Get("_redirect"))
+	back := safeLocalPath(post.Get("_redirect"))
 	// A sandboxed page needs a valid timing token; without one nothing is
 	// stored and the visitor gets the same answer as any rejected submission.
-	if originNull(r) && !s.timingTokenOK(slug, controlFromValues(r.PostForm).Timing) {
+	if originNull(r) && !s.timingTokenOK(slug, controlFromValues(post).Timing) {
 		http.Redirect(w, r, formPostRedirect(back, "form_error"), http.StatusSeeOther)
 		return
 	}
 
-	formObj, err := s.activeFormBySlug(r.Context(), slug)
-	if err != nil {
-		http.Redirect(w, r, formPostRedirect(back, "form_error"), http.StatusSeeOther)
-		return
+	if formObj == nil {
+		if formObj, err = s.activeFormBySlug(r.Context(), slug); err != nil {
+			http.Redirect(w, r, formPostRedirect(back, "form_error"), http.StatusSeeOther)
+			return
+		}
 	}
 
 	// Honeypot: bots fill the hidden field. Answer as if it worked, store
 	// nothing. A form can switch the trap off.
-	if !formObj.Settings.HoneypotOff && r.PostForm.Get(honeypotField) != "" {
+	if !formObj.Settings.HoneypotOff && post.Get(honeypotField) != "" {
 		http.Redirect(w, r, formPostRedirect(back, "submitted"), http.StatusSeeOther)
 		return
 	}
 
-	data := formValues(r.PostForm)
+	data := formValues(post)
 
-	ctl := controlFromValues(r.PostForm)
-	_, err = s.storeFormSubmission(r.Context(), formObj, slug, data, nil, ctl, submitMeta{
+	ctl := controlFromValues(post)
+	_, err = s.storeFormSubmission(r.Context(), formObj, slug, data, files, ctl, submitMeta{
 		IPAddress: middleware.GetClientIP(r),
 		TrustedIP: middleware.GetClientIP(r),
 		UserAgent: r.UserAgent(),
 		Referrer:  r.Referer(),
-		PageURL:   cmp.Or(ctl.Page, r.PostForm.Get("page_url")),
+		PageURL:   cmp.Or(ctl.Page, post.Get("page_url")),
 		Host:      r.Host,
 	})
 	if err != nil {

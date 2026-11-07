@@ -137,7 +137,9 @@ func (s *Server) readMultipartSubmit(w http.ResponseWriter, r *http.Request, f *
 	}
 	if len(errs) > 0 {
 		files.discard()
-		return nil, nil, &submitError{status: http.StatusBadRequest, msg: "validation failed", fields: errs}
+		// post comes back with the error so the no-JS path can still find
+		// where to send the visitor.
+		return post, nil, &submitError{status: http.StatusBadRequest, msg: "validation failed", fields: errs}
 	}
 	return post, files, nil
 }

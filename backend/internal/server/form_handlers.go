@@ -1058,6 +1058,10 @@ func (s *Server) isAdminAccountEmail(ctx context.Context, addr string) bool {
 
 // formatFieldValue converts a field value to a display string.
 func formatFieldValue(val interface{}) string {
+	// A file answer is its name and size, never an id or URL.
+	if ref, ok := form.FileRefFromAny(val); ok {
+		return ref.String()
+	}
 	switch v := val.(type) {
 	case string:
 		return v
