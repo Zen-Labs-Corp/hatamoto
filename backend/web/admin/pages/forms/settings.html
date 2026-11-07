@@ -4,7 +4,7 @@
 {{template "hm/formseditorbar" .}}
 {{template "hm/tabs" (dict "Label" "Form sections" "Items" .Tabs)}}
 <noscript>{{template "hm/callout-start" (dict "Kind" "warning")}}The form settings need JavaScript.{{template "hm/callout-end"}}</noscript>
-<div class="hm-fs" data-hm-fs-root data-hm-fd hidden data-hm-bs-js>
+<div class="hm-fs" data-hm-fs-root data-hm-fd hidden>
 <div class="hm-fs__col">
 {{template "hm/card-start" (dict "ID" "fs-after" "Title" "After someone sends it")}}
 {{template "hm/field" (dict "ID" "fs-submit-text" "Name" "submit_button_text" "Label" "Button text" "Placeholder" "Submit" "Attrs" (attrmap "data-hm-fs" "submit_button_text" "maxlength" "60"))}}
@@ -24,6 +24,7 @@
 <p class="hm-field__error" data-hm-fs-err="settings.notify_email" hidden></p>
 </div>
 {{template "hm/field" (dict "ID" "fs-notify-subject" "Name" "notify_subject" "Label" "Subject" "Placeholder" "New enquiry" "Help" "Click a field to put its answer in the subject." "Attrs" (attrmap "data-hm-fs" "notify_subject" "maxlength" "200" "autocomplete" "off"))}}
+<p class="hm-field__help" data-hm-fs-subject-preview hidden></p>
 {{if .Tokens}}<div class="hm-fs__tokens" role="group" aria-label="Fields to put in the subject">{{range .Tokens}}{{template "hm/button" (dict "Label" . "Size" "sm" "Variant" "ghost" "Attrs" (attrmap "data-hm-fs-token" (printf "{{%s}}" .) "data-hm-fs-target" "fs-notify-subject"))}}{{end}}</div>{{end}}
 <p class="hm-field__error" data-hm-fs-err="settings.notify_subject" hidden></p>
 {{template "hm/field" (dict "ID" "fs-reply-to" "Name" "notify_reply_to" "Label" "Hitting reply goes to" "Control" "select" "Options" .ReplyTo "Attrs" (attrmap "data-hm-fs" "notify_reply_to"))}}
@@ -34,12 +35,11 @@
 <div class="hm-fs__sub" data-hm-fs-when="confirmation_email" hidden>
 {{template "hm/field" (dict "ID" "fs-confirm-subject" "Name" "confirmation_subject" "Label" "Subject" "Attrs" (attrmap "data-hm-fs" "confirmation_subject" "maxlength" "200" "autocomplete" "off"))}}
 <p class="hm-field__error" data-hm-fs-err="settings.confirmation_subject" hidden></p>
-{{template "hm/field" (dict "ID" "fs-confirm-msg" "Name" "confirmation_message" "Label" "Message" "Control" "textarea" "Rows" 5 "Help" "{{field_name}} inserts an answer. A summary of the answers is added below. Empty uses the message shown after sending." "Attrs" (attrmap "data-hm-fs" "confirmation_message"))}}
+{{template "hm/field" (dict "ID" "fs-confirm-msg" "Name" "confirmation_message" "Label" "Message" "Control" "textarea" "Rows" 5 "Help" "Sent as written, with the form name and the visitor's name added. Empty uses the message shown after sending." "Attrs" (attrmap "data-hm-fs" "confirmation_message"))}}
 <p class="hm-field__label" id="fs-preview-label">Preview, with the latest real submission</p>
 <div class="hm-fs-mail" role="group" aria-labelledby="fs-preview-label" data-hm-fs-mail>
 <dl class="hm-fs-mail__head"><dt>To</dt><dd data-hm-fs-mail-to></dd><dt>Subject</dt><dd data-hm-fs-mail-subject></dd></dl>
 <p class="hm-fs-mail__body" data-hm-fs-mail-body></p>
-<dl class="hm-fs-mail__rows" data-hm-fs-mail-rows></dl>
 </div>
 </div>
 {{template "hm/card-end"}}
