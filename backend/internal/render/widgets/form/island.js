@@ -71,10 +71,11 @@ for (const form of document.querySelectorAll("form[data-hm-form-logic]")) {
       if (form.elements.hm_website?.value) return;
       e.preventDefault();
       clear();
+      const d = new FormData(form);
       const res = await fetch("/api/v1/public/forms/" + slug + "/submit", {
         method: "POST",
         headers: { "X-Page-URL": location.href },
-        body: new URLSearchParams(new FormData(form)),
+        body: form.querySelector("[type=file]") ? d : new URLSearchParams(d),
       }).catch(() => null);
       const body = (await res?.json().catch(() => null)) || {};
       if (!res || (!res.ok && !(body.fields && fail(body.fields)))) return form.submit();
