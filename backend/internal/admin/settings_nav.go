@@ -53,7 +53,7 @@ var settingsLive = map[string]bool{
 	"menus":     true,
 	"redirects": true, "linking": true, "templates": true,
 	"themes": true, "blocks": true, "colours": true, "fonts": true, "additional-css": true, "design-system": true, "presets": true, "parts": true,
-	"import": true, "general": true, "branding": true, "export": true, "performance": true,
+	"import": true, "general": true, "branding": true, "export": true, "performance": true, "memory": true,
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "jobs": true, "backups": true, "changes": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
@@ -130,6 +130,7 @@ var settingsRegistry = []settingsSectionDef{
 	}},
 	{ID: "performance", Label: "Performance", Icon: "database", Desc: "Page cache, size limit and preload.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "performance", Label: "Performance", Final: "/settings/performance", Roles: ownerOnly},
+		{ID: "memory", Label: "Memory", Final: "/settings/performance/memory", Roles: ownerOnly},
 	}},
 	{ID: "updates", Label: "Updates", Icon: "refresh", Desc: "Version, channel and automatic updates.", Group: "System", Tabs: []settingsTabDef{
 		{ID: "updates", Label: "Updates", Final: "/settings/updates", Roles: ownerOnly},

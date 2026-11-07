@@ -1,0 +1,23 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+<section class="hm-stack">
+{{template "hm/card-start" dict "ID" "memory-runtime-card" "Title" "Go runtime" "Heading" "h2" "Description" "A snapshot taken when the page loaded. It does not update by itself."}}<div class="hm-setlist">
+{{range .Runtime}}<div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">{{.Name}}</p>
+{{if .Note}}<p class="hm-field__help">{{.Note}}</p>
+{{end}}</div>
+<div class="hm-setrow__control">{{.Value}}</div>
+</div>
+{{end}}</div>{{template "hm/card-foot"}}<span class="hm-card__foot-note">Read {{.ReadAt}}</span>{{template "hm/button" dict "Label" "Refresh" "Href" .RefreshHref}}{{template "hm/card-foot-end"}}
+{{template "hm/card-start" dict "ID" "memory-pagecache-card" "Title" "Page cache" "Heading" "h2"}}{{if .PageCacheLine}}<div class="hm-setlist">
+<div class="hm-setrow">
+<div class="hm-setrow__text"><p class="hm-setrow__name">Stored</p></div>
+<div class="hm-setrow__control">{{.PageCacheLine}} · {{.PageCachePages}}</div>
+</div>
+</div>{{else if .PageCacheOff}}<p class="hm-field__help">The page cache is off, so nothing is stored.</p>{{else}}<p class="hm-field__help">The page cache is not available on this server.</p>{{end}}{{template "hm/card-end"}}
+{{if .PluginsAvailable}}{{template "hm/card-start" dict "ID" "memory-plugins-card" "Title" "Plugins" "Heading" "h2"}}{{template "hm/table" .Plugins}}
+<p class="hm-field__help">Wasm memory counts idle (pooled) instances only; an instance in the middle of a call is not read. Compiled code is the size of each plugin's module, not its machine code.</p>
+{{with .CacheLine}}<p class="hm-field__help">{{.}}</p>
+{{end}}{{template "hm/card-end"}}{{else}}{{template "hm/card-start" dict "ID" "memory-plugins-card" "Title" "Plugins" "Heading" "h2"}}<p class="hm-field__help">The plugin host is not running, so there are no plugin numbers.</p>{{template "hm/card-end"}}
+{{end}}</section>
+{{end}}{{end}}

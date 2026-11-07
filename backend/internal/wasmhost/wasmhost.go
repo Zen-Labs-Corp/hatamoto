@@ -90,6 +90,8 @@ type Host struct {
 	mu    sync.Mutex // serialises Load/Unload writers only
 
 	hostCall HostCall // set before the first Load
+
+	cacheDir string // set only when the on-disk compilation cache opened
 }
 
 // HostCall serves a plugin's hm_call import: in is the guest's request, the
@@ -116,6 +118,7 @@ func New(log *slog.Logger, cacheDir string) (*Host, error) {
 				slog.String("dir", cacheDir), slog.Any("error", err))
 		} else {
 			h.cache = c
+			h.cacheDir = cacheDir
 		}
 	}
 	empty := map[string]*plugin{}
@@ -132,11 +135,16 @@ func openCache(dir string) (wazero.CompilationCache, error) {
 }
 
 type plugin struct {
-	manifest sdk.Manifest
-	compiled *extism.CompiledPlugin
-	pool     chan *extism.Plugin
-	slots    chan struct{} // one token per concurrent call; bounds live instances
-	log      *slog.Logger
+	manifest  sdk.Manifest
+	compiled  *extism.CompiledPlugin
+	pool      chan *extism.Plugin
+	slots     chan struct{} // one token per concurrent call; bounds live instances
+	wasmBytes int64         // size of the retained .wasm module
+
+	// pooledMem holds the measured memory (uint64) of each instance that sits
+	// in pool, keyed by *extism.Plugin. See pushPooled and popPooled.
+	pooledMem sync.Map
+	log       *slog.Logger
 
 	mu     sync.RWMutex // RLock per call; Lock to close
 	closed bool
@@ -275,18 +283,19 @@ func (h *Host) load(ctx context.Context, m sdk.Manifest, wasm []byte) error {
 		return fmt.Errorf("wasmhost: compile %s: %w", m.Name, err)
 	}
 	p := &plugin{
-		manifest: m,
-		compiled: compiled,
-		pool:     make(chan *extism.Plugin, m.Limits.MaxInstances),
-		slots:    make(chan struct{}, m.Limits.MaxInstances),
-		log:      h.log.With(slog.String("plugin", m.Name)),
+		manifest:  m,
+		compiled:  compiled,
+		pool:      make(chan *extism.Plugin, m.Limits.MaxInstances),
+		slots:     make(chan struct{}, m.Limits.MaxInstances),
+		log:       h.log.With(slog.String("plugin", m.Name)),
+		wasmBytes: int64(len(wasm)),
 	}
 	inst, err := p.newInstance(ctx)
 	if err != nil {
 		_ = compiled.Close(ctx)
 		return fmt.Errorf("wasmhost: instantiate %s: %w", m.Name, err)
 	}
-	p.pool <- inst
+	p.pushPooled(inst) // the pool is empty and has room: cannot block
 
 	h.mu.Lock()
 	old := *h.reg.Load()
@@ -413,8 +422,9 @@ func (h *Host) HasExport(name, export string) bool {
 	}
 	select {
 	case inst := <-p.pool:
+		p.popPooled(inst)
 		ok := inst.FunctionExists(export)
-		p.pool <- inst
+		p.release(inst) // HasExport holds no slot, so the pool may have refilled
 		return ok
 	default:
 	}
@@ -433,8 +443,10 @@ func (p *plugin) close(ctx context.Context) {
 	for {
 		select {
 		case inst := <-p.pool:
+			p.popPooled(inst)
 			_ = inst.Close(ctx)
 		default:
+			p.pooledMem.Clear()
 			_ = p.compiled.Close(ctx) // closes the wazero runtime and every module
 			return
 		}
@@ -547,6 +559,7 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 	if !fresh { // a fresh call never runs on a pooled instance's memory
 		select {
 		case inst = <-p.pool:
+			p.popPooled(inst)
 		default:
 		}
 	}
@@ -684,9 +697,7 @@ func (p *plugin) keep(inst *extism.Plugin, fresh bool) {
 // release returns inst to the pool, or closes it when the pool is full. It
 // closes with a background context: a per-call context may already be done.
 func (p *plugin) release(inst *extism.Plugin) {
-	select {
-	case p.pool <- inst:
-	default:
+	if !p.tryPushPooled(inst) {
 		_ = inst.Close(context.Background())
 	}
 }

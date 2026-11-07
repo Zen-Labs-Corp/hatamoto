@@ -95,6 +95,7 @@ export const screens = [
   { name: "settings-search-replace", path: "/admin/settings/search-replace", mock: null, roles: O },
   { name: "settings-tracking", path: "/admin/settings/tracking", mock: null, roles: O },
   { name: "settings-performance", path: "/admin/settings/performance", mock: null, roles: O },
+  { name: "settings-performance-memory", path: "/admin/settings/performance/memory", mock: null, roles: O },
   { name: "settings-updates", path: "/admin/settings/updates", mock: null, roles: O },
   { name: "settings-changes", path: "/admin/settings/changes", mock: null, roles: O }, // empty without plugin runs; review-flow.mjs walks the populated page and Undo
   // Pinned by HATAMOTO_ADMIN_PATH in this harness, so the page shows the read-only text. The change and Keep screens

@@ -259,6 +259,9 @@ type Deps struct {
 	// PageCache is the rendered-page cache behind Settings > Performance;
 	// nil answers that page with 503.
 	PageCache PageCacheService
+	// Memory is the read-only memory snapshot behind Settings > Performance >
+	// Memory; nil answers that page with 503.
+	Memory MemoryService
 	// SiteAccess is the public site gate (open, coming soon, maintenance,
 	// password) behind Settings > Access & security > Site access; nil answers that page with 503.
 	SiteAccess SiteAccessService

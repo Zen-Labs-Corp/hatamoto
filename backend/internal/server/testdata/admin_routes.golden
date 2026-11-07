@@ -150,6 +150,7 @@ GET /admin/settings/locales/edit/{tag} -> admin.(*Admin).handleLocaleEdit-fm
 GET /admin/settings/locales/new -> admin.(*Admin).handleLocaleNew-fm
 GET /admin/settings/locales/remove/{tag} -> admin.(*Admin).handleLocaleRemoveConfirm-fm
 GET /admin/settings/performance -> admin.(*Admin).handlePerformance-fm
+GET /admin/settings/performance/memory -> admin.(*Admin).handlePerformanceMemory-fm
 GET /admin/settings/privacy -> admin.(*Admin).handlePrivacy-fm
 GET /admin/settings/privacy-tracking -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/redirects -> admin.(*Admin).handleRedirects-fm

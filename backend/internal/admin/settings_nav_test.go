@@ -27,7 +27,7 @@ func TestSettingsForRoles(t *testing.T) {
 	for id, want := range map[string]string{
 		"general": "general", "privacy-tracking": "privacy tracking", "locales": "locales locale-addresses locale-business", "entity-models": "types taxonomies",
 		"seo": "seo-general seo-titles seo-social seo-schema seo-kg seo-robots seo-ads-txt seo-verification seo-sitemap seo-breadcrumbs seo-indexnow seo-404", "redirects": "redirects", "linking": "linking", "users": "users user-sign-in", "integrations": "api subscriptions deliveries",
-		"tools": "import export search-replace", "performance": "performance", "updates": "updates", "backups-recovery": "backups versions changes", "access-security": "site-access admin-address",
+		"tools": "import export search-replace", "performance": "performance memory", "updates": "updates", "backups-recovery": "backups versions changes", "access-security": "site-access admin-address",
 	} {
 		if got := strings.Join(owner[id], " "); got != want {
 			t.Errorf("owner %s tabs %q, want %q", id, got, want)
