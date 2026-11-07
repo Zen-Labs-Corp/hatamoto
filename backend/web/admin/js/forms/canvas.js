@@ -55,8 +55,17 @@ function control(f) {
 }
 
 export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}), onSelect, onEdit, onAction = () => {}, announce = () => {} }) {
-  root.setAttribute("role", "listbox");
-  root.setAttribute("aria-label", "Form fields");
+  // A listbox needs options: with no fields the sheet is a plain drop target holding the empty note.
+  const empty = h("div", { class: "hm-fd-empty" }, h("b", { text: "Drag your first field here" }), "or pick one on the left.");
+  const listbox = (on) => {
+    if (on) {
+      root.setAttribute("role", "listbox");
+      root.setAttribute("aria-label", "Form fields");
+    } else {
+      root.removeAttribute("role");
+      root.removeAttribute("aria-label");
+    }
+  };
   const nodes = new Map(); // id -> {el, sig}
   const said = new Map(); // id -> last announced error
   let quiet = false; // a focus the screen moves itself does not select
@@ -101,6 +110,9 @@ export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}),
     const shown = visible(fields, {});
     const sel = getSelected();
     const keep = new Set(fields.map((f) => f.id));
+    listbox(fields.length > 0);
+    if (fields.length) empty.remove();
+    else if (root.firstElementChild !== empty || root.children.length > 1) root.replaceChildren(empty);
     for (const [id, n] of nodes)
       if (!keep.has(id)) {
         n.el.remove();
@@ -129,7 +141,7 @@ export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}),
       if (error) said.set(f.id, error);
       else said.delete(f.id);
     });
-    while (root.children.length > fields.length) root.lastElementChild.remove();
+    while (fields.length && root.children.length > fields.length) root.lastElementChild.remove();
   }
 
   return {

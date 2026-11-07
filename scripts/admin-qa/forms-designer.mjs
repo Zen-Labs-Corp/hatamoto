@@ -83,6 +83,21 @@ if (!formId) {
 await open(formId);
 navs = 0;
 
+// the empty form: a drop target with a hint, and no listbox without options
+{
+  const sheet = page.locator("[data-hm-fd-sheet]");
+  ok((await sheet.locator(".hm-fd-empty").innerText()).includes("Drag your first field here") && (await sheet.getAttribute("role")) === null, "empty form: the hint shows and the sheet is not an empty listbox");
+  const t = await tile("text").boundingBox();
+  const to = await sheet.locator(".hm-fd-empty").boundingBox();
+  await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(t.x + t.width / 2 + 12, t.y + t.height / 2 + 12, { steps: 4 });
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 });
+  await page.mouse.up();
+  ok(same(await types(), ["text"]) && (await sheet.getAttribute("role")) === "listbox" && (await sheet.locator(".hm-fd-empty").count()) === 0, "empty form: dropping a tile on the hint adds the first field and the list returns");
+  await (await rowAt(0)).locator('[data-act="delete"]').click({ force: true });
+  ok((await sheet.locator(".hm-fd-empty").count()) === 1, "empty form: the hint returns when the last field is deleted");
+}
 await tile("text").click();
 await tile("email").click();
 // a drag from the palette onto the lower half of the last row
