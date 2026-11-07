@@ -257,7 +257,9 @@ await open(formId);
   await page.evaluate(() => document.activeElement?.blur());
   for (const k of ["Delete", "Backspace", "Control+d", "Control+z", "Alt+ArrowDown"]) await page.keyboard.press(k);
   ok((await selected()) === null && JSON.stringify(await doc()) === tryDoc, "A3: in Try it nothing is selected and the editing keys change nothing");
+  ok((await page.locator("[data-hm-fd-undo]").isDisabled()) && (await page.locator("[data-hm-fd-redo]").isDisabled()), "A3: Undo and Redo are off in Try it");
   await page.locator('[data-hm-fd-mode="edit"]').click();
+  ok(!(await page.locator("[data-hm-fd-undo]").isDisabled()), "A3: Undo is back after Try it");
 
   // typing in a field's label keeps every shortcut to itself
   const before = JSON.stringify(await doc());

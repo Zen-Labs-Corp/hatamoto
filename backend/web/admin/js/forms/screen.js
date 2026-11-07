@@ -124,12 +124,17 @@ function start(root, boot) {
   });
 
   // ----- drawing -----
+  // Undo and Redo change the hidden form: they are off in Try it.
+  function syncHistory() {
+    const trying = root.dataset.mode === "try";
+    undoBtn.disabled = trying || !canUndo(st);
+    redoBtn.disabled = trying || !canRedo(st);
+  }
   function redraw() {
     if (selected && idx(selected) < 0) selected = null;
     canvas.draw();
     inspector.draw();
-    undoBtn.disabled = !canUndo(st);
-    redoBtn.disabled = !canRedo(st);
+    syncHistory();
     if (document.activeElement !== titleEl) titleEl.value = doc().name ?? "";
     if (statusEl && document.activeElement !== statusEl) statusEl.value = doc().status;
   }
@@ -244,6 +249,7 @@ function start(root, boot) {
       root.dataset.mode = mode;
       sheetEl.hidden = mode === "try";
       previewEl.hidden = mode !== "try";
+      syncHistory();
       if (mode !== "try") return;
       select(null); // nothing stays selected behind the preview
       try {
