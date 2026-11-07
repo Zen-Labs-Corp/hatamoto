@@ -22,7 +22,7 @@ See [Builder contract](builder-contract.md) for what the editor does with them.
 
 ## URLs and media
 
-`cta`, `safeurl` and `safeHref` are the same function: they validate an href and allow only `http`, `https`, `mailto`, `tel`, `sms` and relative targets. Anything else becomes `#`. `telHref` builds a `tel:` link, keeping digits and a leading `+`.
+`cta`, `safeurl` and `safeHref` are the same function: they validate an href and allow only `http`, `https`, `mailto`, `tel`, `sms` and relative targets. Anything else becomes `#`. `telHref` builds a `tel:` link, keeping digits and a leading `+`. A `mailto:` link from these functions is encoded after the page is rendered (see [Email protection](engine-details.md#email-protection)), so a theme must not compare the rendered HTML against the literal address.
 
 `imgsrc` allows http, https, relative and raster `data:` image URLs and returns `""` otherwise. `embedAllowed` reports whether an iframe address is on the allowed list, and additionally accepts Google Maps and OpenStreetMap embeds. `srcset .Entity.Image` returns `"/media/a_medium.jpg 300w, ..."` built from the resized copies of a stored media file (the square thumbnail is skipped). It returns `""` for remote URLs and for files with no copies. It lists only copies in the original format. `picturesources .Entity.Image "100vw"` (the second argument is the `sizes` attribute) returns the `<source>` elements (AVIF, then WebP) for the same file, or `""` when there are none; put it inside `<picture>` before the `<img>`: `<picture>{{picturesources .Entity.Image "100vw"}}<img src="..." srcset="{{srcset .Entity.Image}}" sizes="100vw"></picture>`.
 

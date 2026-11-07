@@ -144,6 +144,16 @@
 <p class="hm-muted">A visitor's choice is remembered for 12 months. Choices are counted per day without any visitor data.</p>
 </div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
 </form>
+<form method="post" id="email-protection-form" action="/admin/settings/privacy/email-protection" class="hm-cardform">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
+<section class="hm-card" id="email-protection" aria-labelledby="email-protection-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="email-protection-title">Email addresses</h2><p class="hm-muted">Hides addresses from simple scrapers. Visitors still see and click them; turn off if your theme script needs the literal address.</p></div>
+<div class="hm-card__body">
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="privacy-protect-email"><input class="hm-field__box" type="checkbox" role="switch" id="privacy-protect-email" name="protect_email" value="true" checked><span>Protect email addresses</span></label><input type="hidden" name="protect_email" value="false">
+</div>
+</div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
+</form>
 <div class="hm-card hm-tablecard" id="consent-counts">
 <div class="hm-table__scroll" role="region" aria-label="Consent choices, last 30 days" tabindex="0"><table class="hm-table hm-table--cards"><caption class="hm-visually-hidden">Consent choices, last 30 days</caption>
 <thead><tr><th scope="col" class="hm-col-title">Day</th><th scope="col">Accept all</th><th scope="col">Reject all</th><th scope="col">Custom</th></tr></thead>

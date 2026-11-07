@@ -289,6 +289,8 @@ Under the form, a table shows how many visitors chose Accept all, Reject all or 
 
 **Upgrade:** nothing changes until you turn the switch on. The migration adds two tables and nothing else.
 
+The same page has a separate **Protect email addresses** switch, on by default. It hides email addresses and `mailto:` links on your public pages from simple scrapers: visitors still see and click them, with scripts off too. Turn it off if a script in your theme needs the literal address. Saving it writes an "email_protection.settings" entry to the audit log and clears the page cache. Your feeds, plugin routes, `llms.txt` and the API keep the plain address, and so does the organisation email in your structured data (Organization or LocalBusiness JSON-LD); leave that field empty if you do not want it published. The editor preview shows it as typed. See [Email protection](../themes/engine-details.md#email-protection).
+
 ## Contact button: a floating link
 
 `<admin>/theme/contact-button` (the Contact button section of Theme, owners only) adds one link that stays in a corner of every public page. It opens WhatsApp, a phone call, a text message or an email. It is **off by default**: until you turn it on, your pages are exactly what they were before.

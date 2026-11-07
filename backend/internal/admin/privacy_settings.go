@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/consent"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 const privacyPath = "/settings/privacy"
@@ -27,6 +29,7 @@ type PrivacyService interface {
 func (a *Admin) mountPrivacySettings(owner *httpx.Group) {
 	owner.HandleFunc("GET "+privacyPath, a.handlePrivacy)
 	owner.HandleFunc("POST "+privacyPath, a.handlePrivacySave)
+	owner.HandleFunc("POST "+privacyPath+"/email-protection", a.handleEmailProtectionSave)
 }
 
 type privacyCategory struct {
@@ -41,6 +44,9 @@ type privacyData struct {
 	Regions    []ui.Option
 	Categories []privacyCategory
 	Counts     ui.Table
+	// EmailShown is false when no site settings store is wired; EmailOn is the
+	// stored email protection switch (on by default).
+	EmailShown, EmailOn bool
 }
 
 // privacyFromForm applies the posted fields over stored. A field the post does
@@ -160,6 +166,14 @@ func (a *Admin) renderPrivacy(w http.ResponseWriter, r *http.Request, status int
 		})
 	}
 	d.Counts = a.privacyCounts(r)
+	if a.deps.Site != nil {
+		d.EmailShown, d.EmailOn = true, true
+		if cfg, err := a.loadSite(r.Context()); err != nil {
+			a.logger().Error("privacy settings: site settings", "err", err)
+		} else {
+			d.EmailOn = siteconfig.ParseProtectEmail(cfg.ThemeExtra)
+		}
+	}
 	view := a.NewView(w, r, "Privacy")
 	view.Section, view.Tab = "privacy-tracking", "privacy"
 	view.Width = "narrow"
@@ -188,4 +202,37 @@ func (a *Admin) privacyCounts(r *http.Request) ui.Table {
 		}})
 	}
 	return t
+}
+
+// handleEmailProtectionSave stores the "Protect email addresses" switch. A
+// missing field is off: an unchecked switch posts its off value, and a post
+// without the field must not leave protection on by accident.
+func (a *Admin) handleEmailProtectionSave(w http.ResponseWriter, r *http.Request) {
+	if a.deps.Site == nil {
+		a.unavailable(w, r, "Privacy settings")
+		return
+	}
+	cfg, err := a.loadSite(r.Context())
+	if err != nil {
+		a.logger().Error("email protection settings", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The email protection setting could not be loaded.")
+		return
+	}
+	_ = r.ParseForm() // a malformed body leaves the form empty, which reads as off
+	on := r.PostForm.Get("protect_email") == "true"
+	raw, err := siteconfig.MergeProtectEmail(cfg.ThemeExtra, on)
+	if err == nil {
+		_, err = a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{ThemeExtra: jsontext.Value(raw)})
+	}
+	if err != nil {
+		a.logger().Error("email protection settings save", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The email protection setting could not be saved.")
+		return
+	}
+	a.audit(r, "email_protection.settings", "email_protection", map[string]any{"enabled": on})
+	if a.deps.Invalidate != nil {
+		a.deps.Invalidate(r.Context())
+	}
+	a.SetFlash(w, r, "success", "Email protection saved.")
+	http.Redirect(w, r, a.adminPath+privacyPath, http.StatusSeeOther)
 }

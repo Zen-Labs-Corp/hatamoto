@@ -613,7 +613,8 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	// frame can drive the editor. Stylesheets and JSON-LD data blocks stay.
 	// Exceptions the gate cannot cover: sanitiser gaps and scripts a third-party
 	// theme hardcodes; the sandbox CSP and the bridge port are the backstop.
-	editor := v.Preview || v.Canvas || v.Access != nil // access notices run no plugin or page scripts
+	framed := v.Preview || v.Canvas
+	editor := framed || v.Access != nil // access notices run no plugin or page scripts
 	d.PluginHead, d.PluginBody = pluginAssetMarkup(!editor)
 	d.PluginHead += docCSS.head()
 	var islands template.HTML
@@ -687,6 +688,9 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	}
 	out = markPreviewChanges(out, v)
 	out = markDraftBanner(out, v)
+	if !framed && !v.Site.EmailPlain { // access notices are public, so they are protected too
+		out = protectEmails(out) // last: later steps must not add literal addresses
+	}
 	_, err := w.Write(out)
 	return err
 }

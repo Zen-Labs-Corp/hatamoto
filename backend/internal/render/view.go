@@ -489,6 +489,9 @@ type SiteView struct {
 	// CustomCSSName is the file name of the owner's additional stylesheet
 	// (custom.<hash>.css, see CustomCSSName); "" when none is set.
 	CustomCSSName string
+	// EmailPlain is set when the owner turned email protection off; the zero
+	// value protects, so tests and previews follow the default.
+	EmailPlain bool
 	// Language is the BCP 47 site language (default "en" when unset).
 	Language string
 	// Phone, Hours and Address are the public contact details from the site
