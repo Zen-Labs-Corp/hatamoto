@@ -46,6 +46,7 @@ func (a *Admin) mountForms(authed *httpx.Group) {
 	authed.HandleFunc("GET /forms/edit/{id}", a.handleFormEditRedirect)
 	authed.HandleFunc("POST /forms/edit/{id}", a.handleFormSave)
 	authed.HandleFunc("PUT /forms/{id}/definition", a.handleFormDefinition)
+	a.mountFormTabs(authed)
 	authed.HandleFunc("GET /forms/delete/{id}", a.handleFormDeleteForm)
 	authed.HandleFunc("POST /forms/delete/{id}", a.handleFormDelete)
 	// The list, export and bulk routes take the form as ?form={id}; a single

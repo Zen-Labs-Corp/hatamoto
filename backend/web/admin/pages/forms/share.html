@@ -1,0 +1,8 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Share and embed" "Description" .Name "CSRF" $.CSRF}}
+{{template "hm/tabs" dict "Label" "Form sections" "Items" .Tabs}}
+{{template "hm/card-start" dict "ID" "form-embed" "Title" "Embed" "Description" "To build the form by hand in a template, post to the address below. Fields are sent by their name."}}
+<div class="hm-row hm-copyrow">{{template "hm/field" dict "ID" "endpoint" "Name" "endpoint" "Label" "Endpoint" "Value" .Endpoint "Help" "Visitors send this form here." "Attrs" (attrmap "readonly" "")}}{{template "hm/button" dict "Label" "Copy endpoint" "Attrs" (attrmap "data-hm-copy-field" "endpoint")}}</div>
+{{template "hm/field" dict "ID" "embed-code" "Name" "embed_code" "Label" "Embed code" "Control" "textarea" "Rows" 5 "Value" .EmbedCode "Attrs" (attrmap "readonly" "")}}
+{{template "hm/button" dict "Label" "Copy embed code" "Attrs" (attrmap "data-hm-copy-field" "embed-code")}}{{template "hm/card-end"}}
+{{end}}{{end}}

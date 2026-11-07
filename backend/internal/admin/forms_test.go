@@ -262,7 +262,7 @@ func fieldForm(rows ...map[string]string) url.Values {
 }
 
 func TestFormEditUsesPublicAPIPrefix(t *testing.T) {
-	t.Skip("the legacy edit page is a redirect now; the endpoint moves to the share tab")
+	t.Parallel()
 
 	for _, tc := range []struct{ prefix, want, gone string }{
 		{"", "/api/v1/public/forms/contact/submit", "/hook/"},
@@ -270,10 +270,10 @@ func TestFormEditUsesPublicAPIPrefix(t *testing.T) {
 	} {
 		g, ff, _ := newFormRig(t, func(d *Deps) { d.PublicAPIPrefix = tc.prefix })
 		fm := ff.addForm("Contact", contactFields...)
-		body := g.do("GET", "/admin/forms/edit/"+fm.ID.String(), "owner-token", nil, nil).Body.String()
-		// the endpoint field, the copy button and the embed code
-		if n := strings.Count(body, tc.want); n < 3 {
-			t.Errorf("prefix %q: %q appears %d times, want at least 3", tc.prefix, tc.want, n)
+		body := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/share", "owner-token", nil, nil).Body.String()
+		// the endpoint field and the embed code
+		if n := strings.Count(body, tc.want); n < 2 {
+			t.Errorf("prefix %q: %q appears %d times, want at least 2", tc.prefix, tc.want, n)
 		}
 		if strings.Contains(body, tc.gone) {
 			t.Errorf("prefix %q: page still names %q", tc.prefix, tc.gone)
@@ -631,16 +631,15 @@ func TestSubmissionPrefetchDoesNotMarkRead(t *testing.T) {
 }
 
 func TestFormEditCaptchaBanner(t *testing.T) {
-	t.Skip("the legacy edit page is a redirect now; the banner moves to the settings tab")
 	const warn = "Captcha is on for this form but no provider keys are set. Submissions are accepted unchecked."
 	g, ff, _ := newFormRig(t)
 	on := ff.addForm("Contact", contactFields...)
 	on.Settings.EnableCaptcha = true
 	off := ff.addForm("Plain", contactFields...)
 	page := func(fm *form.Form, token string) string {
-		rec := g.do("GET", "/admin/forms/edit/"+fm.ID.String(), token, nil, nil)
+		rec := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/settings", token, nil, nil)
 		if rec.Code != 200 {
-			t.Fatalf("edit = %d", rec.Code)
+			t.Fatalf("settings = %d", rec.Code)
 		}
 		return rec.Body.String()
 	}

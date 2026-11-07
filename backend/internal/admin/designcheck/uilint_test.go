@@ -293,6 +293,7 @@ var uiStickyTemplates = map[string]bool{
 	"pages/entities/edit.html":   true,
 	"pages/schemas/edit.html":    true,
 	"pages/forms/edit.html":      true,
+	"pages/forms/settings.html":  true,
 	"pages/taxonomies/term.html": true,
 	"pages/plugins/plugin.html":  true,
 	// The changeset review page: the publish bar stays in reach beside a long list of risky changes.
