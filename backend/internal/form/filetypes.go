@@ -1,5 +1,16 @@
 package form
 
+import (
+	"archive/zip"
+	"bytes"
+	"errors"
+	"io"
+	"slices"
+	"strings"
+
+	"hatamoto.dev/core/internal/media"
+)
+
 // fileKind says how a stored upload is checked beyond its sniffed type.
 type fileKind int
 
@@ -48,4 +59,78 @@ func ValidAcceptExt(ext string) bool {
 // and for messages.
 func AcceptExts() []string {
 	return []string{"pdf", "png", "jpg", "jpeg", "gif", "webp", "txt", "csv", "md", "json", "docx", "xlsx", "pptx", "zip"}
+}
+
+// ErrFileType is returned by CheckUpload when the content does not match the
+// extension, or the extension is not in the table.
+var ErrFileType = errors.New("file content does not match its type")
+
+// sniffLen is how much of the file the content sniff reads.
+const sniffLen = 1024
+
+// CheckUpload checks size bytes of r against ext (lowercase, no dot): the
+// sniffed content type must be one the extension allows (a .pdf that is an
+// executable or HTML fails), text types must be text without NUL bytes, and
+// Office types must be a zip holding [Content_Types].xml. It returns the
+// content type to store and serve for the extension. A mismatch returns
+// ErrFileType.
+func CheckUpload(ext string, r io.ReaderAt, size int64) (string, error) {
+	ft, ok := fileTypes[ext]
+	if !ok {
+		return "", ErrFileType
+	}
+	head := make([]byte, min(size, sniffLen))
+	if _, err := r.ReadAt(head, 0); err != nil && !errors.Is(err, io.EOF) {
+		return "", err
+	}
+	if len(head) == 0 {
+		return "", ErrFileType
+	}
+	sniffed := media.SniffContentType(head)
+	switch ft.kind {
+	case kindBinary:
+		if !slices.Contains(ft.mimes, sniffed) {
+			return "", ErrFileType
+		}
+	case kindText:
+		if !strings.HasPrefix(sniffed, "text/plain") {
+			return "", ErrFileType
+		}
+		nul, err := containsNUL(r, size)
+		if err != nil {
+			return "", err
+		}
+		if nul {
+			return "", ErrFileType
+		}
+	case kindOOXML:
+		if sniffed != "application/zip" {
+			return "", ErrFileType
+		}
+		zr, err := zip.NewReader(r, size)
+		if err != nil {
+			return "", ErrFileType
+		}
+		if !slices.ContainsFunc(zr.File, func(f *zip.File) bool { return f.Name == "[Content_Types].xml" }) {
+			return "", ErrFileType
+		}
+	}
+	return ft.mime, nil
+}
+
+func containsNUL(r io.ReaderAt, size int64) (bool, error) {
+	buf := make([]byte, 32*1024)
+	sr := io.NewSectionReader(r, 0, size)
+	for {
+		n, err := sr.Read(buf)
+		if bytes.IndexByte(buf[:n], 0) >= 0 {
+			return true, nil
+		}
+		if err == io.EOF {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+	}
 }
