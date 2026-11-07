@@ -1,5 +1,14 @@
 # Release notes
 
+## Unreleased: Form logic and new field types
+
+- **Types.** Forms gain `heading`, `paragraph` and `divider` (layout only: nothing is submitted, stored, exported or emailed), `hidden` (value resolved by the server from a query parameter, the page, the referrer or a fixed value) and `consent` (always required, stored as `Yes`). Fields can be half or a third wide.
+- **Logic.** A field can show only when another field `is`, `is_not`, `contains`, is `filled` or is `empty`. A hidden field is never required and its value is dropped. A rule to itself, to a missing field or in a cycle is refused on save, in the admin, REST and MCP.
+- **Save endpoint.** `PUT <admin>/forms/{id}/definition` saves a whole form as JSON, with the last-saved time as its version: a stale save gets 409 with the current version, an invalid definition 422 with a message per field. The legacy editor, REST and MCP stay last write wins.
+- **Public form.** The Form widget shows and hides fields live and, on a form without captcha, shows errors next to each field without a page reload. Without JavaScript it posts as before.
+- **Email, CSV and API.** A field with `in_email: false` is left out of the notification email; an email field with `block_free_email` refuses free-provider addresses. CSV export skips layout fields. The public form JSON also carries the new keys (`in_email`, static hidden values), which are not secret.
+- **Migration.** None. Rollback floor: unchanged; an older release ignores the new keys and drops them the next time it saves that form.
+
 ## Unreleased: idle plugin instances are closed after 5 minutes
 
 - **Idle eviction.** A plugin's pooled instances that have not been used for 5 minutes are closed, leaving one warm instance per plugin (the most recently used one). A burst of traffic that grew the pool no longer holds that memory until restart; when traffic returns, instances start again on demand. The window is fixed.
