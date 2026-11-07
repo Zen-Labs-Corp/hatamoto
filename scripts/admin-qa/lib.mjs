@@ -73,7 +73,7 @@ export async function resolvePath(page, urlPath, legacy = false) {
     const listPath = legacy ? legacyList[key] || list : list;
     await page.goto(base + listPath);
     const hrefs = await page.$$eval(sel, (as, t) => as.filter((a) => !t || a.textContent.includes(t)).map((a) => a.getAttribute("href")), text);
-    const id = hrefs.map((h) => h.match(/\/(?:entities|media|forms|menus|templates|sections|users|types)\/(?:edit\/)?([0-9a-f-]{36})/)?.[1]).find(Boolean);
+    const id = hrefs.map((h) => h.match(/\/(?:entities|media|forms|menus|templates|sections|users|types)\/(?:edit\/|design\/)?([0-9a-f-]{36})/)?.[1]).find(Boolean);
     cache.set(key, id || null);
   }
   const id = cache.get(key);

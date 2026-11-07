@@ -118,7 +118,9 @@ export const screens = [
   // Forms
   { name: "forms", path: "/admin/forms", legacy: "/admin/settings/forms", mock: "settings-forms", roles: OE, primary: true },
   { name: "forms-new", path: "/admin/forms/new", legacy: "/admin/settings/forms/new", mock: null, roles: OE },
-  { name: "forms-edit", path: "/admin/forms/edit/{form}", legacy: "/admin/settings/forms/{form}/edit", mock: null, roles: OE },
+  { name: "forms-design", path: "/admin/forms/design/{form}", legacy: "/admin/settings/forms/{form}/edit", mock: null, roles: OE },
+  { name: "forms-settings", path: "/admin/forms/design/{form}/settings", mock: null, roles: OE },
+  { name: "forms-share", path: "/admin/forms/design/{form}/share", mock: null, roles: OE },
   { name: "submissions", path: "/admin/forms/submissions?form={form}", legacy: "/admin/settings/submissions?form={form}", mock: "settings-submissions", roles: OE },
   { name: "submissions-all", path: "/admin/forms/submissions", legacy: "/admin/settings/submissions", mock: null, roles: OE }, // no form filter
   // SEO and URLs
