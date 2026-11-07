@@ -1,5 +1,4 @@
-// Form: field logic (mirrors form.Visible; the server decides again) and inline
-// submit errors. Captcha forms keep the native submit.
+// Form: field logic (mirrors form.Visible), inline errors, page URL for hidden fields.
 for (const form of document.querySelectorAll("form[data-hm-form-logic]")) {
   const rules = [...form.querySelectorAll("[data-hm-logic-field]")];
   const byName = {};
@@ -9,7 +8,7 @@ for (const form of document.querySelectorAll("form[data-hm-form-logic]")) {
   }
   const controls = (name) => {
     const found = form.elements[name];
-    return !found ? [] : found instanceof RadioNodeList ? [...found] : [found];
+    return found instanceof RadioNodeList ? [...found] : found ? [found] : [];
   };
   const values = (name) => {
     const out = controls(name)
@@ -18,7 +17,7 @@ for (const form of document.querySelectorAll("form[data-hm-form-logic]")) {
     return out.length ? out : [""];
   };
   const test = (op, got, want) => {
-    const filled = got.some((v) => v !== "");
+    const filled = got.some(Boolean);
     if (op === "filled") return filled;
     if (op === "empty") return !filled;
     if (op === "contains") return got.some((v) => v.includes(want));
@@ -42,13 +41,8 @@ for (const form of document.querySelectorAll("form[data-hm-form-logic]")) {
   form.addEventListener("input", run);
   form.addEventListener("change", run);
   run();
-  // The page the form sits on and the visitor's referrer: the server cannot
-  // tell them from the submit request's own Referer.
-  for (const [name, value] of [["hm_page", location.href], ["hm_ref", document.referrer]]) {
-    const input = form.elements[name] || form.appendChild(document.createElement("input"));
-    input.type = "hidden";
-    input.name = name;
-    input.value = value;
+  for (const [n, v] of [["hm_page", location.href], ["hm_ref", document.referrer]]) {
+    Object.assign(form.elements[n] || form.appendChild(document.createElement("input")), { type: "hidden", name: n, value: v });
   }
   const slots = () => form.querySelectorAll("[data-hm-error-for]");
   const clear = () => {
