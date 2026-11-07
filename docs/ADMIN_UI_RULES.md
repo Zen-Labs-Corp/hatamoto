@@ -142,8 +142,8 @@ A change to one component edits only its own subsection below and its entry in t
 | danger-confirm | `.hm-danger-confirm` | `css/partials/danger-confirm.css` | `hm/danger-confirm` | `border-top-left-radius: 0`, `font-size: var(--text-sm)`, `padding-left: 0`, `padding-right: 0` |
 | dialog | `.hm-dialog` | `css/partials/dialog.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)`; `.hm-dialog[data-side="end"]`: `border-top-left-radius: 0` |
 | dropzone | `.hm-dropzone` | `css/partials/dropzone.css` | `hm/dropzone` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-4)`, `padding-right: var(--space-4)` |
-| fieldcard | `.hm-fd-field` | `css/pages/formsdesigner.css` | none | `border-top-left-radius: var(--radius-md)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-fd-field--invalid`: `border-top-color: var(--color-danger)`; `.hm-fd-field--selected`: `border-top-color: var(--color-accent)` |
-| fieldtile | `.hm-fd-tile` | `css/pages/formsdesigner.css` | none | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)` |
+| fieldcard | `.hm-fd-field` | `css/pages/formsdesigner.css` | none |  |
+| fieldtile | `.hm-fd-tile` | `css/pages/formsdesigner.css` | none |  |
 | input | `.hm-field__control` | `css/partials/field.css` | `hm/field` | `border-top-color: var(--border-field)`, `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-md)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `select.hm-field__control`: `padding-right: var(--space-8)` |
 | listbar | `.hm-listbar` | `css/partials/listbar.css` | `hm/listbar` |  |
 | menu | `.hm-menu` | `css/partials/menu.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)` |

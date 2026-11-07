@@ -260,35 +260,11 @@
   },
   "fieldtile": {
     "selector": ".hm-fd-tile",
-    "owner": "css/pages/formsdesigner.css",
-    "props": {
-      "border-top-left-radius": "var(--radius-md)",
-      "font-size": "var(--text-sm)",
-      "font-weight": "var(--weight-medium)",
-      "padding-left": "var(--space-2)",
-      "padding-right": "var(--space-2)"
-    }
+    "owner": "css/pages/formsdesigner.css"
   },
   "fieldcard": {
     "selector": ".hm-fd-field",
-    "owner": "css/pages/formsdesigner.css",
-    "variants": {
-      "selected": ".hm-fd-field--selected",
-      "invalid": ".hm-fd-field--invalid"
-    },
-    "props": {
-      "border-top-left-radius": "var(--radius-md)",
-      "padding-left": "var(--space-3)",
-      "padding-right": "var(--space-3)"
-    },
-    "variantProps": {
-      "selected": {
-        "border-top-color": "var(--color-accent)"
-      },
-      "invalid": {
-        "border-top-color": "var(--color-danger)"
-      }
-    }
+    "owner": "css/pages/formsdesigner.css"
   },
   "segmented": {
     "selector": ".hm-segmented__btn",
