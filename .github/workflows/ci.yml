@@ -275,17 +275,68 @@ jobs:
         if: steps.rel.outputs.relevant == 'true'
         run: bash scripts/n-1.sh
 
+  # internal/server is left out of the smoke above (one package, longer than the rest together), so
+  # its integration tests run here: four hash buckets (scripts/ci-server-shard.sh), one database each.
+  # The full tier (ci-full) already runs the whole package, so the job is skipped there.
+  # The shard count 4 appears twice (the matrix and the script argument);
+  # scripts/test-ci-server-shard.sh fails when they disagree.
+  server-integration:
+    name: server-integration (${{ matrix.shard }}/4)
+    if: inputs.tier != 'full'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4 # 18
+        env:
+          POSTGRES_USER: hatamoto
+          POSTGRES_PASSWORD: hatamoto
+          POSTGRES_DB: hatamoto
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hatamoto"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
+      HATAMOTO_TEST_DB_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
+      EMAIL_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.sha }}
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Apply migrations
+        run: go run ./cmd/hatamoto migrate
+      - name: Integration tests, one shard of internal/server
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: bash ../scripts/ci-server-shard.sh "$SHARD" 4
+
   # The stable required check for the matrix above: green only when every leg is.
   # `if: always()` makes it report (and fail) instead of being skipped when a leg fails.
   backend:
-    needs: backend-matrix
+    needs: [backend-matrix, server-integration]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Every PostgreSQL leg passed
+      - name: Every PostgreSQL leg and server shard passed
         env:
           RESULT: ${{ needs.backend-matrix.result }}
-        run: test "$RESULT" = success
+          SHARDS: ${{ needs.server-integration.result }}
+        run: test "$RESULT" = success && { test "$SHARDS" = success || test "$SHARDS" = skipped; }
 
   # Go supports the two newest majors. The SDK is a public module, so it is
   # tested on both. The 1.26 leg only runs while backend/pkg/sdk/go.mod declares
