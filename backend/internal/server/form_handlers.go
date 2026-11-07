@@ -933,7 +933,7 @@ func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.Fo
 			to   []string
 			data email.FormSubmissionData
 		}{{admins, adminData}, {others, emailData}} {
-			if err := s.emailService.SendFormSubmission(ctx, send.to, send.data); err != nil {
+			if err := s.emailService.SendFormSubmission(ctx, send.to, send.data, email.FormNotifyOptions{}); err != nil {
 				s.logger.Error("failed to send form submission email",
 					slog.String("error", err.Error()),
 					slog.String("form_id", formObj.ID.String()),

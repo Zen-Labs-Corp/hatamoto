@@ -253,8 +253,18 @@ type FormFieldData struct {
 	Value string
 }
 
+// FormNotifyOptions customises a form notification. Both values go into mail
+// headers unchanged, so callers pass only validated, single-line values; empty
+// fields keep the defaults.
+type FormNotifyOptions struct {
+	// Subject replaces the default "New Form Submission: <form>" subject.
+	Subject string
+	// ReplyTo is a bare, validated address (the visitor's).
+	ReplyTo string
+}
+
 // SendFormSubmission sends a notification email for a new form submission.
-func (s *Service) SendFormSubmission(ctx context.Context, to []string, data FormSubmissionData) error {
+func (s *Service) SendFormSubmission(ctx context.Context, to []string, data FormSubmissionData, opts FormNotifyOptions) error {
 	if len(to) == 0 {
 		s.logger.Debug("no recipients for form submission email, skipping")
 		return nil
@@ -269,9 +279,12 @@ func (s *Service) SendFormSubmission(ctx context.Context, to []string, data Form
 	// Create plain text version
 	textBody := s.createPlainTextSubmission(data)
 
-	subject := fmt.Sprintf("New Form Submission: %s", data.FormName)
+	subject := opts.Subject
+	if subject == "" {
+		subject = fmt.Sprintf("New Form Submission: %s", data.FormName)
+	}
 
-	_, err := s.SendTrackedWith(ctx, SendOptions{Kind: KindFormNotification}, to, subject, htmlBuf.String(), textBody)
+	_, err := s.SendTrackedWith(ctx, SendOptions{Kind: KindFormNotification, ReplyTo: opts.ReplyTo}, to, subject, htmlBuf.String(), textBody)
 	return err
 }
 
