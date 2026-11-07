@@ -342,6 +342,7 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 	size := e.plugins.size() // before the snapshot: a later grant change rebuilds
 	snap := e.plugins.gated()
 	maps.Copy(funcs, snap.funcs)
+	funcs["t"] = newTFunc(th.Strings) // after the copy: the snapshot carries the generic one
 
 	baseSrc, err := chain.ReadFile("layouts/base.html")
 	if err != nil {

@@ -61,27 +61,42 @@ func resolveStrings(def themestrings.Decl, ov map[string]string) map[string]stri
 // the page data (the template's "." or "$"), a section, or a dict carrying a
 // "Strings" entry. A missing key, nil map or unknown v yields the key itself.
 // The result is plain text: html/template escapes it where it is printed.
-func tFunc(v any, key string, args ...any) string {
-	var m map[string]string
+// Compiled themes use newTFunc, which falls back to the theme defaults.
+var tFunc = newTFunc(nil)
+
+// newTFunc is tFunc with a fallback: when v carries no Strings map (a default
+// partial called the pre-"t" way, without "Strings"), or the map lacks the
+// key, the chain's theme default text is used before the key itself.
+func newTFunc(def themestrings.Decl) func(any, string, ...any) string {
+	return func(v any, key string, args ...any) string {
+		s, ok := stringsOf(v)[key]
+		if !ok {
+			s, ok = def[key]
+		}
+		if !ok {
+			return key
+		}
+		return themestrings.Interpolate(s, args...)
+	}
+}
+
+func stringsOf(v any) map[string]string {
 	switch p := v.(type) {
 	case *pageData:
-		m = p.Strings
+		return p.Strings
 	case pageData:
-		m = p.Strings
+		return p.Strings
 	case *preparedSection:
-		m = p.Page.Strings
+		return p.Page.Strings
 	case preparedSection:
-		m = p.Page.Strings
+		return p.Page.Strings
 	case *sectionPage:
-		m = p.Strings
+		return p.Strings
 	case sectionPage:
-		m = p.Strings
+		return p.Strings
 	case map[string]any:
-		m, _ = p["Strings"].(map[string]string)
+		m, _ := p["Strings"].(map[string]string)
+		return m
 	}
-	s, ok := m[key]
-	if !ok {
-		return key
-	}
-	return themestrings.Interpolate(s, args...)
+	return nil
 }

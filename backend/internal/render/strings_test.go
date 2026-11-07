@@ -141,3 +141,33 @@ func TestSmokeRenderWithT(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A child theme that calls the default partials the pre-"t" way (no
+// "Strings" in the dict) still renders the theme's English text, not keys.
+func TestDefaultPartialsOldCallShapesRenderText(t *testing.T) {
+	child := fstest.MapFS{
+		"theme.json": mapFile(`{"name":"child","version":"1.0.0"}`),
+		"layouts/base.html": mapFile(`{{template "nav" .Site.Nav}}|` +
+			`{{template "nav" dict "Items" .Site.Nav "Path" .Path}}|` +
+			`{{template "entry-meta" dict "Words" "` + strings.Repeat("word ", 400) + `"}}`),
+	}
+	e, err := New(Options{Layers: []fs.FS{child}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := minimalView()
+	v.Site.Nav = []NavItem{{Label: "Home", Href: "/"}}
+	var buf bytes.Buffer
+	if err := e.RenderPage(&buf, v); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, key := range []string{"nav_primary", "nav_menu", "min_read"} {
+		if strings.Contains(out, key) {
+			t.Errorf("raw key %q in %q", key, out)
+		}
+	}
+	if !strings.Contains(out, "min read") || !strings.Contains(out, "Menu") {
+		t.Fatalf("default text missing: %q", out)
+	}
+}
