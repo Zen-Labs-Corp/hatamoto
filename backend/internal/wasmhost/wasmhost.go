@@ -156,12 +156,20 @@ func openCache(dir string) (wazero.CompilationCache, error) {
 type plugin struct {
 	manifest  sdk.Manifest
 	compiled  *extism.CompiledPlugin
-	pool      chan *extism.Plugin
 	slots     chan struct{} // one token per concurrent call; bounds live instances
 	wasmBytes int64         // size of the retained .wasm module
 
+	// idle is the pool, a stack: [0] is the oldest returned instance, the
+	// last the newest, which the next call takes first (LIFO) so that under
+	// light traffic the older ones go idle and the sweep can close them. Its
+	// size is capped at cap(slots). pmu guards idle only; it is a leaf lock
+	// (order p.mu, then pmu) and is never held across Close, instanceBytes or
+	// a call.
+	pmu  sync.Mutex
+	idle []*extism.Plugin
+
 	// pooledMem holds a pooledRec (measured memory and return time) of each instance that sits
-	// in pool, keyed by *extism.Plugin. See pushPooled and popPooled.
+	// in idle, keyed by *extism.Plugin. See tryPushPooled and popPooled.
 	pooledMem sync.Map
 	log       *slog.Logger
 	now       func() time.Time // the host's clock; stamps pooledMem records
@@ -305,7 +313,6 @@ func (h *Host) load(ctx context.Context, m sdk.Manifest, wasm []byte) error {
 	p := &plugin{
 		manifest:  m,
 		compiled:  compiled,
-		pool:      make(chan *extism.Plugin, m.Limits.MaxInstances),
 		slots:     make(chan struct{}, m.Limits.MaxInstances),
 		log:       h.log.With(slog.String("plugin", m.Name)),
 		wasmBytes: int64(len(wasm)),
@@ -316,7 +323,7 @@ func (h *Host) load(ctx context.Context, m sdk.Manifest, wasm []byte) error {
 		_ = compiled.Close(ctx)
 		return fmt.Errorf("wasmhost: instantiate %s: %w", m.Name, err)
 	}
-	p.pushPooled(inst) // the pool is empty and has room: cannot block
+	p.tryPushPooled(inst) // the pool is empty and has room
 
 	h.mu.Lock()
 	old := *h.reg.Load()
@@ -482,13 +489,10 @@ func (h *Host) HasExport(name, export string) bool {
 	if p.closed {
 		return false
 	}
-	select {
-	case inst := <-p.pool:
-		p.popPooled(inst)
+	if inst := p.popTop(); inst != nil {
 		ok := inst.FunctionExists(export)
 		p.release(inst) // HasExport holds no slot, so the pool may have refilled
 		return ok
-	default:
 	}
 	inst, err := p.newInstance(context.Background())
 	if err != nil {
@@ -502,17 +506,16 @@ func (p *plugin) close(ctx context.Context) {
 	p.mu.Lock() // waits for in-flight calls, each bounded by the timeout
 	defer p.mu.Unlock()
 	p.closed = true
-	for {
-		select {
-		case inst := <-p.pool:
-			p.popPooled(inst)
-			_ = inst.Close(ctx)
-		default:
-			p.pooledMem.Clear()
-			_ = p.compiled.Close(ctx) // closes the wazero runtime and every module
-			return
-		}
+	p.pmu.Lock()
+	idle := p.idle
+	p.idle = nil
+	p.pmu.Unlock()
+	for _, inst := range idle {
+		p.popPooled(inst)
+		_ = inst.Close(ctx)
 	}
+	p.pooledMem.Clear()
+	_ = p.compiled.Close(ctx) // closes the wazero runtime and every module
 }
 
 func (p *plugin) newInstance(ctx context.Context) (*extism.Plugin, error) {
@@ -619,11 +622,7 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 
 	var inst *extism.Plugin
 	if !fresh { // a fresh call never runs on a pooled instance's memory
-		select {
-		case inst = <-p.pool:
-			p.popPooled(inst)
-		default:
-		}
+		inst = p.popTop() // nil when empty: cold start
 	}
 	if inst == nil {
 		startCtx, cancelStart := context.WithTimeout(ctx, maxStartWait)

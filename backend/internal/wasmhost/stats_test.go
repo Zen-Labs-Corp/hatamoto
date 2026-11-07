@@ -67,8 +67,8 @@ func TestStatsAfterUnloadZero(t *testing.T) {
 	}
 	n := 0
 	p.pooledMem.Range(func(_, _ any) bool { n++; return true })
-	if n != 0 || len(p.pool) != 0 {
-		t.Fatalf("records after unload = %d, pooled = %d", n, len(p.pool))
+	if n != 0 || p.poolLen() != 0 {
+		t.Fatalf("records after unload = %d, pooled = %d", n, p.poolLen())
 	}
 }
 
@@ -126,9 +126,8 @@ func TestInstanceBytesGuestIncluded(t *testing.T) {
 	h := newHost(t)
 	load(t, h, "good", sdk.Limits{})
 	p := (*h.reg.Load())["good"]
-	inst := <-p.pool
-	defer p.pushPooled(inst)
-	p.popPooled(inst)
+	inst := p.popTop()
+	defer p.tryPushPooled(inst)
 	guest := guestMemoryBytes(inst)
 	kernel := uint64(inst.Memory().Size())
 	if guest == 0 || guest <= kernel || instanceBytes(inst) != guest+kernel {
@@ -180,13 +179,12 @@ func TestReleaseFullPoolDoesNotBlock(t *testing.T) {
 	h := newHost(t)
 	load(t, h, "good", sdk.Limits{MaxInstances: 1})
 	p := (*h.reg.Load())["good"]
-	inst := <-p.pool
-	p.popPooled(inst)
+	inst := p.popTop()
 	other, err := p.newInstance(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	p.pushPooled(other) // the pool is full again
+	p.tryPushPooled(other) // the pool is full again
 	done := make(chan struct{})
 	go func() { p.release(inst); close(done) }()
 	select {
@@ -196,8 +194,8 @@ func TestReleaseFullPoolDoesNotBlock(t *testing.T) {
 	}
 	n := 0
 	p.pooledMem.Range(func(_, _ any) bool { n++; return true })
-	if len(p.pool) != 1 || n != 1 {
-		t.Fatalf("pool = %d, records = %d, want 1 and 1", len(p.pool), n)
+	if p.poolLen() != 1 || n != 1 {
+		t.Fatalf("pool = %d, records = %d, want 1 and 1", p.poolLen(), n)
 	}
 	if !h.HasExport("good", "echo") {
 		t.Fatal("HasExport false")

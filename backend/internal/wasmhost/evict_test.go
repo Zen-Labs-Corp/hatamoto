@@ -54,7 +54,7 @@ func fill(t *testing.T, p *plugin, n int) []*extism.Plugin {
 		if err != nil {
 			t.Fatal(err)
 		}
-		p.pushPooled(inst)
+		p.tryPushPooled(inst)
 		out = append(out, inst)
 	}
 	return out
@@ -87,15 +87,15 @@ func TestSweepShrinksIdlePoolToOne(t *testing.T) {
 	}
 	wg.Wait()
 	p.beforeCall = nil
-	if len(p.pool) != 4 || len(used) != 4 {
-		t.Fatalf("burst left pool %d, used %d, want 4 and 4", len(p.pool), len(used))
+	if p.poolLen() != 4 || len(used) != 4 {
+		t.Fatalf("burst left pool %d, used %d, want 4 and 4", p.poolLen(), len(used))
 	}
 
 	clock.Advance(IdleWindow)
 	closed := p.sweepIdle(h.now(), h.idleWindow)
 	h.evicted.Add(int64(closed))
-	if closed != 3 || len(p.pool) != 1 || h.evicted.Load() != 3 {
-		t.Fatalf("closed %d, pool %d, evicted %d, want 3, 1, 3", closed, len(p.pool), h.evicted.Load())
+	if closed != 3 || p.poolLen() != 1 || h.evicted.Load() != 3 {
+		t.Fatalf("closed %d, pool %d, evicted %d, want 3, 1, 3", closed, p.poolLen(), h.evicted.Load())
 	}
 	if n := recordCount(p); n != 1 {
 		t.Fatalf("pooledMem has %d entries, want 1", n)
@@ -130,16 +130,16 @@ func TestSweepKeepsRecentlyUsed(t *testing.T) {
 	if n := p.sweepIdle(h.now(), IdleWindow); n != 1 {
 		t.Fatalf("closed %d, want 1 (the t0 instance)", n)
 	}
-	if len(p.pool) != 3 || isClosed(a[0]) {
-		t.Fatalf("pool %d, t0+2m instance closed %v", len(p.pool), isClosed(a[0]))
+	if p.poolLen() != 3 || isClosed(a[0]) {
+		t.Fatalf("pool %d, t0+2m instance closed %v", p.poolLen(), isClosed(a[0]))
 	}
 	// 4 min later everything is stale, but the newest must survive.
 	clock.Advance(4 * time.Minute)
 	if n := p.sweepIdle(h.now(), IdleWindow); n != 2 {
 		t.Fatalf("closed %d, want 2", n)
 	}
-	if len(p.pool) != 1 || !isClosed(a[0]) || !isClosed(b[0]) || isClosed(c[0]) {
-		t.Fatalf("survivor is not the most recently returned instance (pool %d)", len(p.pool))
+	if p.poolLen() != 1 || !isClosed(a[0]) || !isClosed(b[0]) || isClosed(c[0]) {
+		t.Fatalf("survivor is not the most recently returned instance (pool %d)", p.poolLen())
 	}
 	if recordCount(p) != 1 {
 		t.Fatalf("pooledMem has %d entries, want 1", recordCount(p))
@@ -151,14 +151,13 @@ func TestSweepNeverClosesBelowOne(t *testing.T) {
 	load(t, h, "good", sdk.Limits{MaxInstances: 2})
 	p := (*h.reg.Load())["good"]
 	clock.Advance(time.Hour)
-	if n := p.sweepIdle(h.now(), IdleWindow); n != 0 || len(p.pool) != 1 {
-		t.Fatalf("pool of 1: closed %d, pool %d", n, len(p.pool))
+	if n := p.sweepIdle(h.now(), IdleWindow); n != 0 || p.poolLen() != 1 {
+		t.Fatalf("pool of 1: closed %d, pool %d", n, p.poolLen())
 	}
 	// Empty pool (the instance is out on a call): nothing happens, nothing starts.
-	inst := <-p.pool
-	p.popPooled(inst)
-	if n := p.sweepIdle(h.now(), IdleWindow); n != 0 || len(p.pool) != 0 || recordCount(p) != 0 {
-		t.Fatalf("empty pool: closed %d, pool %d, records %d", n, len(p.pool), recordCount(p))
+	inst := p.popTop()
+	if n := p.sweepIdle(h.now(), IdleWindow); n != 0 || p.poolLen() != 0 || recordCount(p) != 0 {
+		t.Fatalf("empty pool: closed %d, pool %d, records %d", n, p.poolLen(), recordCount(p))
 	}
 	p.release(inst)
 }
@@ -199,8 +198,8 @@ func TestSweepDuringConcurrentCalls(t *testing.T) {
 	if d := p.discarded.Load(); d != 0 {
 		t.Fatalf("discarded %d instances: a sweep closed one in use", d)
 	}
-	if len(p.pool) < 1 || recordCount(p) != len(p.pool) {
-		t.Fatalf("pool %d, records %d", len(p.pool), recordCount(p))
+	if p.poolLen() < 1 || recordCount(p) != p.poolLen() {
+		t.Fatalf("pool %d, records %d", p.poolLen(), recordCount(p))
 	}
 }
 
