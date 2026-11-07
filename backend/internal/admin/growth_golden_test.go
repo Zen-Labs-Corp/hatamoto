@@ -77,6 +77,8 @@ func TestGrowthPageGoldens(t *testing.T) {
 	})
 	pages := []struct{ name, path string }{
 		{"menus-edit", "/admin/theme/menus/" + m.ID.String()},
+		{"forms-list", "/admin/forms"},
+		{"forms-share", "/admin/forms/design/" + fo.ID.String() + "/share"},
 		{"forms-design", "/admin/forms/design/" + fo.ID.String()},
 		{"forms-submissions", "/admin/forms/design/" + fo.ID.String() + "/submissions?s=" + sub.ID.String()},
 		{"redirects-explain", "/admin/settings/redirects/explain?path=%2Fold"},
