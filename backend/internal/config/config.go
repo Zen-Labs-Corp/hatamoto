@@ -207,7 +207,10 @@ func ValidatePublicAPIPrefix(p string) error {
 			}
 		}
 	}
-	if reservedPrefixRoot(segs[0]) {
+	// "f" is reserved for the hosted form page /f/{slug}, but an install that
+	// already serves its API under /f/... must keep booting: routes deeper than
+	// /f/{slug} do not collide with it.
+	if reservedPrefixRoot(segs[0]) && segs[0] != "f" {
 		return bad("starts with a path the server already uses")
 	}
 	return nil

@@ -87,3 +87,15 @@ func TestPublicAPIPrefixOffByDefault(t *testing.T) {
 		t.Errorf("prefix added no routes: %d vs %d", got, base)
 	}
 }
+
+// An install that already serves its API under /f/... keeps working next to
+// the hosted form page /f/{slug}.
+func TestPublicAPIPrefixUnderFormPagePrefix(t *testing.T) {
+	h, _, repo := prefixServer(t, "/f/v1")
+	if rec := prefixServe(h, "GET", "/f/v1/forms/contact/token", ""); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"token"`) {
+		t.Errorf("token: %d %s", rec.Code, rec.Body)
+	}
+	if rec := prefixServe(h, "POST", "/f/v1/forms/contact/submit", `{"name":"Ada"}`, "Content-Type", "application/json"); rec.Code != http.StatusCreated || len(repo.subs) != 1 {
+		t.Errorf("submit: %d %s", rec.Code, rec.Body)
+	}
+}
