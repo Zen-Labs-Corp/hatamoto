@@ -563,7 +563,8 @@ func (s *Server) submitPublicForm(ctx context.Context, slug string, data map[str
 func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, slug string, data map[string]interface{}, ctl spamControl, meta submitMeta) (*submitResult, error) {
 	// One validator for every public submit path: unknown fields are dropped,
 	// required, type, choices, length and pattern checks are enforced.
-	data, fieldErrs := form.ValidateSubmission(formObj.Fields, data)
+	// Hidden fields resolve from the request context, never from posted data.
+	data, fieldErrs := form.Validate(formObj.Fields, data, form.SubmitContext{PageURL: meta.PageURL, Referrer: meta.Referrer})
 	if len(fieldErrs) > 0 {
 		return nil, &submitError{status: http.StatusBadRequest, msg: "validation failed", fields: fieldErrs}
 	}
@@ -852,6 +853,9 @@ func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.Fo
 	// Build field data for email template
 	fields := make([]email.FormFieldData, 0, len(formObj.Fields))
 	for _, field := range formObj.Fields {
+		if field.IsLayout() || !field.InEmailOn() {
+			continue
+		}
 		if val, ok := data[field.Name]; ok {
 			fields = append(fields, email.FormFieldData{
 				Label: field.Label,
