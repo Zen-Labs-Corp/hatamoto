@@ -117,13 +117,12 @@ function start(root, boot) {
     announce,
   });
   const inspector = mountInspector(part("inspector"), { getDoc: doc, getSelected: () => selected, commit: (ops, o) => run(ops, o), getErrors: () => errors, announce });
-  const palette = mountPalette(part("palette"), { types: boot.types ?? [], onAdd: (type) => add(type), onDragStart: (type, e) => drag.start(e, { type }), recentKey: `forms:${boot.id}` });
+  const palette = mountPalette(part("palette"), { types: boot.types ?? [], onAdd: (type) => add(type), onDragStart: (type, e) => drag.start(e, { type }) });
   const drag = createFormDrag({
     sheet: sheetEl,
     rowRects: canvas.rowRects,
     onDrop: (index, spec) => {
       if (spec.type) {
-        palette.remember(spec.type);
         add(spec.type, index);
       } else {
         const from = idx(spec.id);
