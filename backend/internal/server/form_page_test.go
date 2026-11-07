@@ -90,3 +90,14 @@ func TestFormPageYieldsToEntity(t *testing.T) {
 		t.Fatalf("entity under /f/ was shadowed: %d %s", w.Code, body)
 	}
 }
+
+func TestFormPageInThemeContainer(t *testing.T) {
+	_, h := formPageRig(t, form.StatusActive)
+	body := getPath(h, "/f/t").Body.String()
+	c := strings.Index(body, `class="hm-container hm-contact-form`)
+	h1 := strings.Index(body, `<h1 class="hm-contact-form__heading"`)
+	f := strings.Index(body, `<form class="hm-form"`)
+	if c < 0 || h1 < c || f < h1 || !strings.Contains(body, ">Contact us</h1>") {
+		t.Errorf("want theme container, then h1 with the form name, then the form (%d %d %d): %s", c, h1, f, body)
+	}
+}

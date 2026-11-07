@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"net/http"
 
-	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/render"
 )
@@ -56,12 +55,15 @@ func (s *Server) handleFormPage(w http.ResponseWriter, r *http.Request) {
 	}
 	v.Kind = render.KindPage
 	v.Page = render.PageMeta{Name: f.Name, Title: f.Name, NoIndex: true}
-	v.Doc = &builder.Doc{V: 2, Nodes: []*builder.Node{{
-		ID: "form-page", T: "container", C: []*builder.Node{{
-			ID: "form", T: "form", P: map[string]any{"slug": f.Slug},
-		}},
-	}}}
-	v.Forms = s.formsForSections(ctx, formSections(nil, v.Doc))
+	// One contact_form section: the theme wraps it in its standard container
+	// like any page section; the form name is the page's h1.
+	content := map[string]any{"form_slug": f.Slug, "heading": f.Name, "heading_level": 1}
+	if f.Description != nil && *f.Description != "" {
+		content["subheading"] = *f.Description
+	}
+	v.Doc = nil
+	v.Sections = []render.Section{{ID: "form-page", Type: "contact_form", Content: content}}
+	v.Forms = s.formsForSections(ctx, formSections(v.Sections, nil))
 	v.Ctx = ctx
 	var buf bytes.Buffer
 	if err := h.engine.RenderPage(&buf, v); err != nil {
