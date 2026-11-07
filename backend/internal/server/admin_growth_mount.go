@@ -75,6 +75,9 @@ func (s *Server) adminGrowth() admin.GrowthDeps {
 			g.FormMail = formMailer{s}
 		}
 	}
+	if s.formUsage != nil {
+		g.FormUsage = s.formUsage.Get
+	}
 	if s.entityService != nil && s.taxonomyService != nil {
 		g.Pickers = pickers{s}
 	}

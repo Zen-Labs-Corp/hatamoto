@@ -245,7 +245,7 @@ func (s *Server) purgeRendered(ctx context.Context) {
 	}
 }
 
-// registerRenderInvalidation drops the cached rendered pages whenever an
+// registerRenderInvalidation also resets the form usage index. It drops the cached rendered pages whenever an
 // entity is created, updated, published (or unpublished) or deleted; cached
 // sitemaps go with them (scheduled publishes fire the same hook). Pages
 // embed siblings and navigation, so the whole set goes (coarse on purpose).
@@ -255,7 +255,13 @@ func (s *Server) registerRenderInvalidation() {
 		sdk.EntityCreated.Name, sdk.EntityUpdated.Name,
 		sdk.EntityPublished.Name, sdk.EntityDeleted.Name, sdk.ImportCompleted.Name,
 	} {
-		s.hooks.AddAction(name, 0, func(ctx context.Context, _ any) { s.invalidateRendered(ctx) })
+		s.hooks.AddAction(name, 0, func(ctx context.Context, _ any) {
+			s.invalidateRendered(ctx)
+			// The same events change where a form is placed.
+			if s.formUsage != nil {
+				s.formUsage.Invalidate()
+			}
+		})
 	}
 }
 
