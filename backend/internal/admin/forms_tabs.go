@@ -2,7 +2,6 @@ package admin
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -15,12 +14,6 @@ import (
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/httpx"
 )
-
-// formShareData is the Share tab of the form designer.
-type formShareData struct {
-	Name, Endpoint, EmbedCode string
-	Tabs                      []ui.Tab
-}
 
 // formSettingsData is the Settings tab: the Build editor bar's data, plus
 // what the server renders around the controls the script binds. The values
@@ -62,15 +55,7 @@ func (a *Admin) handleFormTab(w http.ResponseWriter, r *http.Request) {
 		a.renderSubmissionsTab(w, r, f)
 		return
 	}
-	endpoint := a.formEndpoint(f.Slug)
-	v := a.NewView(w, r, "Share and embed: "+f.Name)
-	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: f.Name, Href: a.adminPath + "/forms/design/" + f.ID.String()}, {Label: "Share and embed"}}
-	v.Data = formShareData{
-		Name: f.Name, Endpoint: endpoint, Tabs: a.formDesignTabs(r.Context(), f.ID.String(), "share"),
-		EmbedCode: fmt.Sprintf("<form action=\"%s\" method=\"POST\">\n  <!-- Add the fields here -->\n  <button type=\"submit\">%s</button>\n</form>", endpoint, orDefault(f.Settings.SubmitButtonText, "Submit")),
-	}
-	v.Width = "narrow"
-	a.Render(w, r, http.StatusOK, "forms/share", v)
+	a.renderFormShare(w, r, f)
 }
 
 func (a *Admin) renderFormSettings(w http.ResponseWriter, r *http.Request, f *form.Form) {

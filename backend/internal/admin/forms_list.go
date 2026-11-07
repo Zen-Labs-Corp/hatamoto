@@ -257,15 +257,20 @@ func (a *Admin) firstPlace(ctx context.Context, ps []entity.FormPlacement) strin
 }
 
 // placementPath is the public path of a published page placement ("" for an
-// area, an unpublished page, or when the path is unknown).
+// area, an unpublished page, or when the path is unknown). With no entity
+// store the path is worked out from the placement alone.
 func (a *Admin) placementPath(ctx context.Context, p entity.FormPlacement) string {
 	c := a.deps.Content
-	if p.Kind != entity.PlacementPage || p.Status != string(entity.StatusPublished) || c.Entities == nil || c.PublicPath == nil {
+	if p.Kind != entity.PlacementPage || p.Status != string(entity.StatusPublished) || c.PublicPath == nil {
 		return ""
 	}
-	e, err := c.Entities.GetEntity(ctx, p.EntityID)
-	if err != nil || e == nil {
-		return ""
+	e := &entity.Entity{ID: p.EntityID, Name: p.Name, Slug: p.Slug, Schema: &entity.EntitySchema{Slug: p.SchemaSlug}}
+	if c.Entities != nil {
+		full, err := c.Entities.GetEntity(ctx, p.EntityID)
+		if err != nil || full == nil {
+			return ""
+		}
+		e = full
 	}
 	return c.PublicPath(ctx, e)
 }

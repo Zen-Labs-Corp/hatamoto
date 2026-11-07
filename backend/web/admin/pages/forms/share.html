@@ -1,8 +1,26 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Share and embed" "Description" .Name "CSRF" $.CSRF}}
 {{template "hm/tabs" dict "Label" "Form sections" "Items" .Tabs}}
-{{template "hm/card-start" dict "ID" "form-embed" "Title" "Embed" "Description" "To build the form by hand in a template, post to the address below. Fields are sent by their name."}}
-<div class="hm-row hm-copyrow">{{template "hm/field" dict "ID" "endpoint" "Name" "endpoint" "Label" "Endpoint" "Value" .Endpoint "Help" "Visitors send this form here." "Attrs" (attrmap "readonly" "")}}{{template "hm/button" dict "Label" "Copy endpoint" "Attrs" (attrmap "data-hm-copy-field" "endpoint")}}</div>
-{{template "hm/field" dict "ID" "embed-code" "Name" "embed_code" "Label" "Embed code" "Control" "textarea" "Rows" 5 "Value" .EmbedCode "Attrs" (attrmap "readonly" "" "data-hm-code" "")}}
-{{template "hm/button" dict "Label" "Copy embed code" "Attrs" (attrmap "data-hm-copy-field" "embed-code")}}{{template "hm/card-end"}}
+{{if .Paused}}{{template "hm/callout-start" (dict "Kind" "warning" "Title" "This form is paused")}}The link below shows a not found page and the shortcode and Form block show nothing until you set the form to Active. Visitors cannot send it while it is paused.{{template "hm/callout-end"}}{{end}}
+{{template "hm/card-start" dict "ID" "form-usage" "Title" "Where this form is used" "Description" "Views are visits that started on the page, so a page people reach mid-visit can show fewer views than submissions."}}
+{{template "hm/table" .Usage}}{{template "hm/card-end"}}
+<div class="hm-grid2">
+{{template "hm/card-start" dict "ID" "form-editor" "Title" "In the page editor" "Description" "Add a Form block and pick this form. Edits here show up everywhere it is used, with no copy to keep in sync."}}
+<p><strong>Form</strong> block: {{.Name}}, {{.Fields}} {{if eq .Fields 1}}field{{else}}fields{{end}} {{template "hm/badge" .Status}}</p>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "form-shortcode" "Title" "Shortcode and link"}}
+<div class="hm-stack">
+<div class="hm-row hm-copyrow">{{template "hm/field" dict "ID" "share-shortcode" "Name" "shortcode" "Label" "Shortcode" "Value" .Shortcode "Help" "For rich text and templates. It shows nothing while the form is paused." "Attrs" (attrmap "readonly" "")}}{{template "hm/button" dict "Label" "Copy shortcode" "Attrs" (attrmap "data-hm-copy-field" "share-shortcode")}}</div>
+<div class="hm-row hm-copyrow">{{template "hm/field" dict "ID" "share-link" "Name" "link" "Label" "Link to just the form" "Value" .Link "Help" "A plain page with only this form, for emails, QR codes and ads." "Attrs" (attrmap "readonly" "")}}{{template "hm/button" dict "Label" "Copy link" "Attrs" (attrmap "data-hm-copy-field" "share-link")}}</div>
+</div>
+{{template "hm/card-end"}}
+</div>
+{{template "hm/card-start" dict "ID" "form-html" "Title" "Your own HTML" "Description" "Build the markup yourself and post to the form address. Fields are matched by name, and the same checks, spam rules and notifications apply."}}
+<div class="hm-stack">
+{{if .Captcha}}<p class="hm-muted">This form uses the spam check widget, which plain HTML cannot show. Use the Form block, the shortcode or the link instead.</p>{{end}}
+<div class="hm-row hm-copyrow">{{template "hm/field" dict "ID" "share-endpoint" "Name" "endpoint" "Label" "Endpoint" "Value" .Endpoint "Help" "For scripts that send the form as JSON or a form post." "Attrs" (attrmap "readonly" "")}}{{template "hm/button" dict "Label" "Copy endpoint" "Attrs" (attrmap "data-hm-copy-field" "share-endpoint")}}</div>
+{{template "hm/field" dict "ID" "share-html" "Name" "html" "Label" "HTML" "Control" "textarea" "Rows" 12 "Value" .Markup "Attrs" (attrmap "readonly" "" "data-hm-code" "")}}
+<div>{{template "hm/button" dict "Label" "Copy HTML" "Attrs" (attrmap "data-hm-copy-field" "share-html")}}</div>
+</div>
+{{template "hm/card-end"}}
 {{end}}{{end}}
