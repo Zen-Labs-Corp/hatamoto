@@ -86,7 +86,7 @@ navs = 0;
 // the empty form: a drop target with a hint, and no listbox without options
 {
   const sheet = page.locator("[data-hm-fd-sheet]");
-  ok((await sheet.locator(".hm-fd-empty").innerText()).includes("Drag your first field here") && (await sheet.getAttribute("role")) === null, "empty form: the hint shows and the sheet is not an empty listbox");
+  ok((await sheet.locator(".hm-fd-empty").innerText()).includes("Drag your first field here") && !(await sheet.locator(".hm-fd-empty").innerText()).includes("left") && (await sheet.getAttribute("role")) === null, "empty form: the hint shows and the sheet is not an empty listbox");
   const t = await tile("text").boundingBox();
   const to = await sheet.locator(".hm-fd-empty").boundingBox();
   await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2);

@@ -56,7 +56,7 @@ function control(f) {
 
 export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}), onSelect, onEdit, onAction = () => {}, announce = () => {} }) {
   // A listbox needs options: with no fields the sheet is a plain drop target holding the empty note.
-  const empty = h("div", { class: "hm-fd-empty" }, h("b", { text: "Drag your first field here" }), "or pick one on the left.");
+  const empty = h("div", { class: "hm-fd-empty" }, h("b", { text: "Drag your first field here" }), "or pick one from Add a field.");
   const listbox = (on) => {
     if (on) {
       root.setAttribute("role", "listbox");
