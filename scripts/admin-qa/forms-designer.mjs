@@ -147,6 +147,19 @@ await inline(1, "Notes");
 }
 ok(same(await labels(), ["Full name", "Notes", "Work email"]), "labels edited inline and in the inspector reach the document");
 
+// a label edit whose blur comes from a click on the row's own button: the click must land
+{
+  const n = (await doc()).fields.length;
+  const input = (await rowAt(0)).locator("[data-hm-fd-label]");
+  await input.fill("Edited then duplicated");
+  await (await rowAt(0)).locator('[data-act="duplicate"]').click();
+  const d = await doc();
+  ok(d.fields.length === n + 1 && d.fields[0].label === "Edited then duplicated", "a click on Duplicate right after a label edit lands (the edit and the click both count)");
+  await page.keyboard.press("Control+z");
+  await page.keyboard.press("Control+z");
+  ok((await labels())[0] === "Full name" && (await rowAt(0)).locator("[data-hm-fd-label]") && (await (await rowAt(0)).locator("[data-hm-fd-label]").inputValue()) === "Full name", "undo puts the label back in the row's input");
+}
+
 // add one more, delete it by its button
 await tile("number").click();
 ok((await doc()).fields.length === 4, "a fourth field is added");

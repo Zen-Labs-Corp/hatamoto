@@ -77,7 +77,7 @@ export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}),
   function build(f, fields, error) {
     const el = h("div", { role: "option", "data-id": f.id, tabindex: "-1" });
     if (!isLayout(f.type)) {
-      const input = h("input", { type: "text", class: "hm-fd-field__label hm-fd-field__edit", value: f.label, "aria-label": `Label of ${TYPES[f.type]?.label ?? f.type} field`, "aria-invalid": error ? "true" : false, "data-hm-fd-label": "" });
+      const input = h("input", { type: "text", class: "hm-fd-field__label hm-fd-field__edit", value: f.label, "aria-label": `Label of ${TYPES[f.type]?.label ?? f.type} field`, "aria-invalid": error ? "true" : false, "data-hm-fd-label": "", "data-label": f.label });
       input.value = f.label;
       let start = f.label;
       input.addEventListener("focus", () => (start = input.value));
@@ -90,7 +90,7 @@ export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}),
         }
       });
       input.addEventListener("blur", () => {
-        if (input.value !== f.label) onEdit(f.id, "label", input.value, { coalesce: false });
+        if (input.value !== input.dataset.label) onEdit(f.id, "label", input.value, { coalesce: false });
       });
       el.append(h("div", { class: "hm-fd-field__head" }, input, f.required ? h("span", { class: "hm-fd-field__req", "aria-hidden": "true", text: "*" }) : null));
     }
@@ -122,7 +122,9 @@ export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}),
     const first = fields.some((f) => f.id === sel) ? sel : fields[0]?.id;
     fields.forEach((f, i) => {
       const error = errors[f.id] ?? "";
-      const sig = JSON.stringify([f, error, fields.map((x) => (x.id === f.logic?.field_id ? x.label || x.name : 0))]);
+      // The label input is patched, not rebuilt (a label edit renames the field too, and a rebuild on blur
+      // would swallow the click that caused the blur).
+      const sig = JSON.stringify([{ ...f, label: f.type === "consent" ? f.label : undefined, name: undefined }, error, fields.map((x) => (x.id === f.logic?.field_id ? x.label || x.name : 0))]);
       let n = nodes.get(f.id);
       if (!n || n.sig !== sig) {
         const el = build(f, fields, error);
@@ -131,6 +133,11 @@ export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}),
         nodes.set(f.id, n);
       }
       const el = n.el;
+      const input = el.querySelector("[data-hm-fd-label]");
+      if (input && input.dataset.label !== f.label) {
+        input.value = f.label;
+        input.dataset.label = f.label;
+      }
       if (root.children[i] !== el) root.insertBefore(el, root.children[i] ?? null);
       el.className = ["hm-fd-field", WIDTH[f.width] ?? "", f.id === sel ? "hm-fd-field--selected" : "", f.logic && !shown[f.id] ? "hm-fd-field--hidden-by-rule" : "", error ? "hm-fd-field--invalid" : ""].filter(Boolean).join(" ");
       el.setAttribute("aria-selected", String(f.id === sel));
