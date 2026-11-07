@@ -77,7 +77,7 @@ func relTime(now, t time.Time) string {
 func choiceColumns(f *form.Form) []form.FormField {
 	var out []form.FormField
 	for _, ff := range f.Fields {
-		if ff.Type == form.FieldTypeSelect || ff.Type == form.FieldTypeRadio {
+		if ff.Type == form.FieldTypeSelect || ff.Type == form.FieldTypeRadio || (ff.Type == form.FieldTypeCheckbox && len(ff.Options) > 0) {
 			out = append(out, ff)
 			if len(out) == 2 {
 				break
@@ -216,6 +216,25 @@ func submissionFrom(f *form.Form, s *form.FormSubmission) string {
 	return "Anonymous"
 }
 
+// submissionCompany is the first filled answer of a text field named or
+// labelled after a company or organisation ("" when there is none). The
+// location is not stored, so it is never the fallback.
+func submissionCompany(f *form.Form, s *form.FormSubmission) string {
+	for _, ff := range f.Fields {
+		if ff.Type != form.FieldTypeText {
+			continue
+		}
+		id := strings.ToLower(ff.Name + " " + ff.Label)
+		if !strings.Contains(id, "company") && !strings.Contains(id, "organi") {
+			continue
+		}
+		if v := strings.TrimSpace(formatAnswer(s.Data[ff.Name])); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // submissionEmail is the first email answer of a submission.
 func submissionEmail(f *form.Form, s *form.FormSubmission) string {
 	for _, ff := range f.Fields {
@@ -239,9 +258,11 @@ func submissionsTabColumns(f *form.Form) []ui.Col {
 }
 
 // submissionsTabRow is one table row; openURL opens the submission's drawer.
-func submissionsTabRow(f *form.Form, s *form.FormSubmission, now time.Time, openURL string) ui.Row {
+// The Received cell shows the relative time and the exact one (in the site's
+// time zone) as its title.
+func submissionsTabRow(f *form.Form, s *form.FormSubmission, now time.Time, loc *time.Location, openURL string) ui.Row {
 	from := submissionFrom(f, s)
-	cells := []ui.Cell{{Text: from, Link: openURL, LinkAttrs: map[string]string{"data-hm-ss-open": ""}}, {Text: submissionEmail(f, s), Clip: true}}
+	cells := []ui.Cell{{Text: from, Link: openURL, LinkAttrs: map[string]string{"data-hm-ss-open": ""}, Sub: submissionCompany(f, s)}, {Text: submissionEmail(f, s), Clip: true}}
 	class := "hm-ss__row"
 	if s.Status == form.SubmissionStatusNew {
 		cells[0].Tag = &ui.Badge{Label: "New", Kind: "info"}
@@ -253,7 +274,7 @@ func submissionsTabRow(f *form.Form, s *form.FormSubmission, now time.Time, open
 	for _, ff := range choiceColumns(f) {
 		cells = append(cells, ui.Cell{Text: formatAnswer(s.Data[ff.Name])})
 	}
-	cells = append(cells, ui.Cell{Text: pagePath(s.Metadata.PageURL), Mono: true, Clip: true}, ui.Cell{Text: relTime(now, s.CreatedAt), Nowrap: true})
+	cells = append(cells, ui.Cell{Text: pagePath(s.Metadata.PageURL), Mono: true, Clip: true}, ui.Cell{Text: relTime(now, s.CreatedAt), Title: fmtDateTime(s.CreatedAt.In(loc)), Nowrap: true})
 	id := s.ID.String()
 	return ui.Row{ID: id, Label: "submission from " + from, Cells: cells, Class: class, Attrs: map[string]string{"data-hm-ss-row": "", "data-hm-ss-id": id}}
 }

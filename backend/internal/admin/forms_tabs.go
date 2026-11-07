@@ -234,9 +234,10 @@ func (a *Admin) renderSubmissionsTab(w http.ResponseWriter, r *http.Request, f *
 		t.Empty = ui.Empty{Icon: "search", Title: "No submissions match", Body: "Try a different word or status.", Actions: []ui.Button{{Label: "Clear filters", Href: base}}}
 	}
 	ids := make([]string, len(subs))
+	loc := a.siteLocation(ctx)
 	for i, s := range subs {
 		ids[i] = s.ID.String()
-		row := submissionsTabRow(f, s, now, a.tabURL(f.ID, q, status, page, ids[i]))
+		row := submissionsTabRow(f, s, now, loc, a.tabURL(f.ID, q, status, page, ids[i]))
 		if open != nil && s.ID == open.ID {
 			row.Attrs["aria-selected"] = "true"
 		}

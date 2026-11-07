@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -152,5 +153,42 @@ func TestSubmissionDrawerTabEmptyMetadata(t *testing.T) {
 	d = a.buildSubmissionDrawer(context.Background(), f, s, now, "tok")
 	if d.ReplyURL != "mailto:ada@qa.test" || len(d.Answers) != 2 || d.Answers[1].Label != "gone" {
 		t.Errorf("drawer: %+v", d)
+	}
+}
+
+// ISC-6: the row is From (name over company), Email, the choice fields' answers, Page and Received
+// with the exact time as its title; a checkbox group counts as a choice, a lone checkbox does not.
+func TestSubmissionsTabColumnsAndRow(t *testing.T) {
+	t.Parallel()
+	opts := []form.FieldOption{{Label: "A", Value: "a"}}
+	f := &form.Form{Fields: []form.FormField{
+		{Name: "name", Label: "Name", Type: form.FieldTypeText},
+		{Name: "company", Label: "Company", Type: form.FieldTypeText},
+		{Name: "email", Label: "Email", Type: form.FieldTypeEmail},
+		{Name: "topic", Label: "Topic", Type: form.FieldTypeSelect},
+		{Name: "agree", Label: "I agree", Type: form.FieldTypeCheckbox},
+		{Name: "size", Label: "Team size", Type: form.FieldTypeRadio},
+		{Name: "extras", Label: "Extras", Type: form.FieldTypeCheckbox, Options: opts},
+	}}
+	var labels []string
+	for _, c := range submissionsTabColumns(f) {
+		labels = append(labels, c.Label)
+	}
+	if got, want := strings.Join(labels, "|"), "From|Email|Topic|Team size|Page|Received"; got != want {
+		t.Fatalf("columns = %s, want %s", got, want)
+	}
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	s := &form.FormSubmission{ID: uuid.New(), CreatedAt: now.Add(-3 * time.Hour), Status: form.SubmissionStatusRead,
+		Data:     map[string]any{"name": "Ada", "company": "Acme", "email": "ada@qa.test", "topic": "Sales", "size": "10"},
+		Metadata: form.SubmissionMetadata{PageURL: "https://qa.test/pricing"}}
+	cells := submissionsTabRow(f, s, now, time.UTC, "/open").Cells
+	if len(cells) != 6 {
+		t.Fatalf("%d cells, want 6", len(cells))
+	}
+	if cells[0].Text != "Ada" || cells[0].Sub != "Acme" || cells[1].Text != "ada@qa.test" || cells[2].Text != "Sales" || cells[3].Text != "10" || cells[4].Text != "/pricing" {
+		t.Errorf("cells: %+v", cells)
+	}
+	if cells[5].Text != "3h ago" || cells[5].Title != "7 Nov 2026 09:00" {
+		t.Errorf("received cell = %q title %q", cells[5].Text, cells[5].Title)
 	}
 }
