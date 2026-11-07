@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 70960,
+      "value": 70981,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -41,35 +41,23 @@
   },
   "history": [
     {
-      "reason": "builder chrome: editor_js_total_gzip 270352 -\u003e 272745 (+2393 B)",
-      "date": "2026-11-01"
-    },
-    {
-      "reason": "builder chrome: admin_css_gzip 56702 -\u003e 57618 (+916 B)",
-      "date": "2026-11-01"
-    },
-    {
-      "reason": "builder chrome review fixes (Esc, Enter and Alt+Up/Down handling in phone.js and screen.js): editor_js_first_gzip 103226 to 103333 (+107 B), cap moves by the same amount",
-      "date": "2026-11-01"
-    },
-    {
       "reason": "builder chrome acceptance fixes (hint bar chips and x dismiss, published pending line): editor_js_first_gzip 103333 to 103395 (+62 B, cap moves by the same amount), editor_js_total_gzip 272745 to 273094 (+349 B)",
       "date": "2026-11-01"
     },
     {
-      "reason": "builder chrome rebased onto the Translations drawer: editor_js_first_gzip 103395 -\u003e 103525 (+130 B), the drawer opener and lazy chunk plus the chrome work, measured",
+      "reason": "builder chrome rebased onto the Translations drawer: editor_js_first_gzip 103395 -> 103525 (+130 B), the drawer opener and lazy chunk plus the chrome work, measured",
       "date": "2026-11-01"
     },
     {
-      "reason": "builder chrome rebased onto the Translations drawer: editor_js_total_gzip 273094 -\u003e 274238 (+1144 B), the drawer opener and lazy chunk plus the chrome work, measured",
+      "reason": "builder chrome rebased onto the Translations drawer: editor_js_total_gzip 273094 -> 274238 (+1144 B), the drawer opener and lazy chunk plus the chrome work, measured",
       "date": "2026-11-01"
     },
     {
-      "reason": "builder chrome rebased onto the Translations drawer: admin_css_gzip 57618 -\u003e 57994 (+376 B), the drawer opener and lazy chunk plus the chrome work, measured",
+      "reason": "builder chrome rebased onto the Translations drawer: admin_css_gzip 57618 -> 57994 (+376 B), the drawer opener and lazy chunk plus the chrome work, measured",
       "date": "2026-11-01"
     },
     {
-      "reason": "builder chrome rebased onto the Translations drawer: canvas_host_gzip 7986 -\u003e 8045 (+59 B), the drawer opener and lazy chunk plus the chrome work, measured",
+      "reason": "builder chrome rebased onto the Translations drawer: canvas_host_gzip 7986 -> 8045 (+59 B), the drawer opener and lazy chunk plus the chrome work, measured",
       "date": "2026-11-01"
     },
     {
@@ -89,27 +77,27 @@
       "date": "2026-11-02"
     },
     {
-      "reason": "builder Layers panel (part 1): navigator rows, thumbnails and caption; editor_js_first_gzip 103783 -\u003e 104404, editor_js_total_gzip 274966 -\u003e 275587, measured",
+      "reason": "builder Layers panel (part 1): navigator rows, thumbnails and caption; editor_js_first_gzip 103783 -> 104404, editor_js_total_gzip 274966 -> 275587, measured",
       "date": "2026-11-03"
     },
     {
-      "reason": "builder Layers panel (part 1): field selection, inspector field mode and the canvas field outline; editor_js_first_gzip 104404 -\u003e 106251, editor_js_total_gzip 275587 -\u003e 278389, measured",
+      "reason": "builder Layers panel (part 1): field selection, inspector field mode and the canvas field outline; editor_js_first_gzip 104404 -> 106251, editor_js_total_gzip 275587 -> 278389, measured",
       "date": "2026-11-03"
     },
     {
-      "reason": "builder Layers panel (part 1): Pages tab (lazy), solid row and Layers CSS; editor_js_first_gzip 106251 -\u003e 106337, editor_js_total_gzip 278389 -\u003e 279460, admin_css_gzip 64038 -\u003e 64406, canvas_host_gzip 8050 -\u003e 8410 (canvas field outline), measured",
+      "reason": "builder Layers panel (part 1): Pages tab (lazy), solid row and Layers CSS; editor_js_first_gzip 106251 -> 106337, editor_js_total_gzip 278389 -> 279460, admin_css_gzip 64038 -> 64406, canvas_host_gzip 8050 -> 8410 (canvas field outline), measured",
       "date": "2026-11-03"
     },
     {
-      "reason": "builder inspector restyle (part 2): editor_js_total_gzip 279460 -\u003e 285115 (+5655 B), editor_js_first_gzip 106337 -\u003e 106987 (+650 B), admin_css_gzip 64406 -\u003e 65543 (+1137 B), measured",
+      "reason": "builder inspector restyle (part 2): editor_js_total_gzip 279460 -> 285115 (+5655 B), editor_js_first_gzip 106337 -> 106987 (+650 B), admin_css_gzip 64406 -> 65543 (+1137 B), measured",
       "date": "2026-11-03"
     },
     {
-      "reason": "builder chrome match (top bar, stage bar, canvas selection marks, Insert cards, slash popover): editor_js_total_gzip 286662 -\u003e 290019 (+3357 B), editor_js_first_gzip 106987 -\u003e 107862 (+875 B), admin_css_gzip 65543 -\u003e 66978 (+1435 B), canvas_host_gzip 8410 -\u003e 8645, measured; caps move with the measurements",
+      "reason": "builder chrome match (top bar, stage bar, canvas selection marks, Insert cards, slash popover): editor_js_total_gzip 286662 -> 290019 (+3357 B), editor_js_first_gzip 106987 -> 107862 (+875 B), admin_css_gzip 65543 -> 66978 (+1435 B), canvas_host_gzip 8410 -> 8645, measured; caps move with the measurements",
       "date": "2026-11-03"
     },
     {
-      "reason": "builder chrome review fixes (Fit menu radio items, Add section pill placement, Preview states): editor_js_total_gzip 290019 -\u003e 292701 (+2682 B), editor_js_first_gzip 107862 -\u003e 108180 (+318 B), measured; caps move by the same amount",
+      "reason": "builder chrome review fixes (Fit menu radio items, Add section pill placement, Preview states): editor_js_total_gzip 290019 -> 292701 (+2682 B), editor_js_first_gzip 107862 -> 108180 (+318 B), measured; caps move by the same amount",
       "date": "2026-11-04"
     },
     {
@@ -126,6 +114,10 @@
     },
     {
       "reason": "forms submissions tab styles",
+      "date": "2026-11-07"
+    },
+    {
+      "reason": "form file upload field adds widget CSS/JS and designer palette entry",
       "date": "2026-11-07"
     }
   ]
