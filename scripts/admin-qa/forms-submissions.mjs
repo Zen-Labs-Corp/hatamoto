@@ -165,6 +165,27 @@ ok((await drawer.innerText()).includes(firstName) && (await drawer.innerText()).
 ok((await drawerId()) === ids[0] && page.url().includes(`s=${ids[0]}`), "click: the address names the open submission");
 ok(!(await first.evaluate((r) => r.classList.contains("hm-ss__row--unread"))) && (await unread.count()) === 4, "click: its unread styling is gone");
 
+// the action row sits right under the header block and clear of the DETAILS list, and nothing overlaps
+const layout = () =>
+  page.evaluate(() => {
+    const body = document.querySelector("[data-hm-ss-drawer-body] [data-hm-ss-id]");
+    const r = (el) => el.getBoundingClientRect();
+    const actions = r(body.querySelector(".hm-ss__actions"));
+    const details = r(body.querySelector(".hm-ss__details"));
+    const head = r(body.querySelector(".hm-ss__head"));
+    const lastRow = r([...body.querySelectorAll(".hm-ss__details dd")].pop());
+    const nav = [...document.querySelectorAll("dialog[open] [data-hm-ss-nav]")].map((a) => ({ label: a.getAttribute("aria-label"), title: a.title, box: r(a) }));
+    const title = head;
+    return { actions, details, head, lastRow, nav, title, answers: r(body.querySelector(".hm-ss__answers")) };
+  });
+const checkLayout = async (tag, want) => {
+  const l = await layout();
+  ok(l.actions.top >= l.head.bottom - 0.5 && l.actions.bottom <= l.answers.top + 0.5, `${tag}: the action row sits under the header and above the answers`);
+  ok(l.lastRow.bottom <= l.details.bottom + 0.5 && l.actions.bottom <= l.details.top + 0.5, `${tag}: the action row and the DETAILS list do not overlap`);
+  ok(l.nav.length === want && l.nav.every((n) => n.label && n.title && n.box.top >= l.head.top - 0.5 && n.box.bottom <= l.head.bottom + 0.5), `${tag}: Previous and Next are icon buttons in the drawer head (${l.nav.map((n) => n.title).join(", ")})`);
+};
+await checkLayout("1440px", 1); // the first submission has no Previous
+
 // ============ a drawer action: Mark unread ============
 await page.getByRole("button", { name: "Mark unread" }).click();
 await page.waitForLoadState("load");
@@ -268,9 +289,14 @@ const over = await page.evaluate(() => document.documentElement.scrollWidth - do
 ok(over <= 0, `390px: no horizontal scroll on the page (${over}px over)`);
 fs.mkdirSync(outDir, { recursive: true });
 await page.screenshot({ fullPage: true, path: path.join(outDir, "forms-submissions-390.png") });
-await page.setViewportSize({ width: 1440, height: 900 });
-await open(`?s=${ids[0]}`);
+await open(`?s=${ids[1]}`);
 await page.waitForSelector("dialog[open]");
+await checkLayout("390px", 2);
+await page.setViewportSize({ width: 1440, height: 900 });
+await open(`?s=${ids[1]}`);
+await page.waitForSelector("dialog[open]");
+await checkLayout("1440px, middle row", 2);
+await page.waitForFunction(() => document.getAnimations().length === 0); // the drawer's slide-in is done
 await page.screenshot({ path: path.join(outDir, "forms-submissions.png") });
 
 // -- clean up and report -----------------------------------------------------
