@@ -503,4 +503,5 @@ POST /admin/theme/themes/{name}/activate -> admin.(*Admin).handleThemeActivate-f
 POST /admin/theme/themes/{name}/settings -> admin.(*Admin).handleThemeSettingsSave-fm
 POST /admin/theme/themes/{name}/uninstall -> admin.(*Admin).handleThemeUninstall-fm
 POST /admin/{rest...} -> admin.secureHeaders.func1
+PUT /admin/forms/{id}/definition -> admin.(*Admin).handleFormDefinition-fm
 PUT /admin/{rest...} -> admin.secureHeaders.func1
