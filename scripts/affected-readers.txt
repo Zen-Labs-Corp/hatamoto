@@ -18,6 +18,7 @@ scripts/admin-qa/**                                        backend  ./internal/a
 backend/internal/admin/testdata/canvas_protocol_cases.json backend  ./internal/render
 backend/internal/render/themes/default/schemas/**          backend  ./internal/admin/schemaform
 backend/internal/entity/testdata/inline_href_cases.json    backend  ./internal/render
+backend/internal/form/testdata/validation_cases.json      backend  ./internal/render
 backend/testdata/inline/**                                 backend  ./internal/entity
 backend/testdata/stylespec/**                              backend  ./internal/builder
 backend/internal/render/testdata/packs/**                  backend  ./internal/packages
