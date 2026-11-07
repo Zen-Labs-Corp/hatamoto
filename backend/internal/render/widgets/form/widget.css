@@ -1,11 +1,13 @@
 /* form: fallback layout; a theme's .hm-form rules take over the fields */
 .hm-formw { max-width: 40rem; }
 .hm-formw .hm-form__field { display: flex; flex-direction: column; gap: var(--hm-space-1, 0.25rem); margin-bottom: var(--hm-space-3, 0.75rem); }
-.hm-formw .hm-form { display: flex; flex-wrap: wrap; gap: 0 var(--hm-space-3, 0.75rem); }
-.hm-formw .hm-form > * { flex: 1 1 100%; }
-.hm-formw .hm-form__field--half { flex: 1 1 calc(50% - var(--hm-space-3, 0.75rem)); }
-.hm-formw .hm-form__field--third { flex: 1 1 calc(33% - var(--hm-space-3, 0.75rem)); }
-@media (max-width: 600px) { .hm-formw .hm-form__field--half, .hm-formw .hm-form__field--third { flex-basis: 100%; } }
+/* Widths: only a form with a half or third field becomes a six-column grid, so every other form keeps the theme's layout. */
+.hm-formw .hm-form:has(.hm-form__field--half, .hm-form__field--third) { display: grid; grid-template-columns: repeat(6, 1fr); }
+:where(.hm-formw .hm-form:has(.hm-form__field--half, .hm-form__field--third)) { gap: 0 var(--hm-space-3, 0.75rem); }
+.hm-formw .hm-form:has(.hm-form__field--half, .hm-form__field--third) > * { grid-column: 1 / -1; }
+.hm-formw .hm-form:has(.hm-form__field--half, .hm-form__field--third) > .hm-form__field--half { grid-column: span 3; }
+.hm-formw .hm-form:has(.hm-form__field--half, .hm-form__field--third) > .hm-form__field--third { grid-column: span 2; }
+@media (max-width: 600px) { .hm-formw .hm-form:has(.hm-form__field--half, .hm-form__field--third) > .hm-form__field { grid-column: 1 / -1; } }
 .hm-formw .hm-form__heading, .hm-formw .hm-form__text { margin: 0; }
 .hm-formw .hm-form__divider { width: 100%; border: 0; border-top: 1px solid var(--hm-border, #bbb); }
 .hm-formw .hm-form__field[hidden] { display: none; }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -201,5 +202,34 @@ func TestFormIslandPostsPageURLAndReferrer(t *testing.T) {
 	}
 	if q.Get("hm_page") != "https://site.test/c?utm=spring" || q.Get("hm_ref") != "https://search.test/q" {
 		t.Errorf("body = %s", out.Fetch.Body)
+	}
+}
+
+// A theme's .hm-form layout (a grid with a gap, a submit button that keeps its
+// width) must survive the widget: a rule that styles the form element itself
+// may only apply to a form that has a half or third field.
+func TestFormWidgetCSSLeavesThemeLayoutAlone(t *testing.T) {
+	t.Parallel()
+	raw, err := os.ReadFile(filepath.Join("widgets", "form", "widget.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	onForm := regexp.MustCompile(`\.hm-form(?:\s*>|\s*$|:)`)
+	for _, line := range strings.Split(string(raw), "\n") {
+		sel, _, ok := strings.Cut(line, "{")
+		if !ok || strings.HasPrefix(strings.TrimSpace(line), "@media") {
+			continue
+		}
+		for _, s := range strings.Split(strings.ReplaceAll(sel, ", ", ","), ",") {
+			if strings.Contains(s, ":has(") {
+				continue
+			}
+			if onForm.MatchString(strings.TrimSpace(s)) {
+				t.Errorf("%q styles every form, so it overrides the theme", strings.TrimSpace(s))
+			}
+		}
+	}
+	if strings.Contains(string(raw), "__submit") {
+		t.Error("the widget must not restyle the submit button")
 	}
 }
