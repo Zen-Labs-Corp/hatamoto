@@ -132,7 +132,7 @@ a public address. The submission keeps only `{id, name, size, type}`; the CSV, t
 and forwarded emails and the table print `name (size)`, with no link and no attachment. An owner
 or editor downloads the file from the drawer; it is sent as an attachment with
 `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`, and a file that is no longer on
-disk answers "file no longer available". The file is deleted with its submission (single, bulk,
+disk answers "That file does not exist.". The file is deleted with its submission (single, bulk,
 REST), with the form, and by the retention purge, spam submissions included. A form that does not
 store submissions discards the bytes. Uploads are not part of backups or the export (see
 `docs/BACKUPS.md`).

@@ -317,7 +317,7 @@ A form with a file field stores each upload under `<data>/private/form-uploads/<
 do the content export and the restore: a submission keeps only the file's name, size and a
 reference. Back up that directory yourself (copy it with the database backup) and put it back in
 the same place after a restore. A submission whose file is missing still opens; its Download
-answers "file no longer available". Deleting a submission, a form or expired submissions
+answers "That file does not exist.". Deleting a submission, a form or expired submissions
 removes the files, so the directory only holds files of submissions that still exist.
 
 ### Content only
