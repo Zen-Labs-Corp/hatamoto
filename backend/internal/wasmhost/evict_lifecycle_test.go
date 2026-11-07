@@ -34,9 +34,9 @@ func TestSweeperEvictsOnTick(t *testing.T) {
 		t.Fatalf("pool = %d, want 4", len(p.pool))
 	}
 	clock.Advance(2 * time.Minute)
-	waitFor(t, "the sweeper to shrink the pool", func() bool { return len(p.pool) == 1 })
-	if got := h.Stats().Evicted; got != 3 {
-		t.Fatalf("evicted = %d, want 3", got)
+	waitFor(t, "the sweeper to evict three instances", func() bool { return h.Stats().Evicted == 3 })
+	if len(p.pool) != 1 {
+		t.Fatalf("pool = %d, want 1", len(p.pool))
 	}
 	if recordCount(p) != 1 {
 		t.Fatalf("pooledMem has %d entries, want 1", recordCount(p))
