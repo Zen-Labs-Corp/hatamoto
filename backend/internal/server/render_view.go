@@ -637,6 +637,10 @@ func formView(f *form.Form) render.FormView {
 		if rf.Width == "" {
 			rf.Width = "full"
 		}
+		// The server always requires consent, so the form shows it that way.
+		if fld.Type == form.FieldTypeConsent {
+			rf.Required = true
+		}
 		if fld.Hidden != nil {
 			rf.Hidden = true
 			if fld.Hidden.Source == "static" {

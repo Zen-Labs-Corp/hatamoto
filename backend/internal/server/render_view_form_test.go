@@ -43,3 +43,17 @@ func TestFormViewNewFieldProps(t *testing.T) {
 		t.Errorf("text/link: %+v %+v", v.Fields[5], v.Fields[6])
 	}
 }
+
+func TestFormViewConsentIsAlwaysRequired(t *testing.T) {
+	f := &form.Form{Slug: "c", Fields: []form.FormField{
+		{ID: "k", Type: form.FieldTypeConsent, Name: "k", Label: "Terms", Required: false},
+		{ID: "n", Type: form.FieldTypeText, Name: "n", Label: "Name", Position: 1},
+	}}
+	v := formView(f)
+	if !v.Fields[0].Required {
+		t.Error("a consent field stored with required=false renders as optional, but the server requires it")
+	}
+	if v.Fields[1].Required {
+		t.Error("a text field became required")
+	}
+}
