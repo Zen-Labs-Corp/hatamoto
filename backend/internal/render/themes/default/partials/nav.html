@@ -1,6 +1,6 @@
-{{define "nav"}}{{$m := navctx .}}{{if $m.Items}}<nav class="hm-nav-wrap" aria-label="Primary">
+{{define "nav"}}{{$m := navctx .}}{{if $m.Items}}<nav class="hm-nav-wrap" aria-label="{{t . "nav_primary"}}">
 <details class="hm-nav">
-<summary class="hm-nav__toggle">Menu</summary>
+<summary class="hm-nav__toggle">{{t . "nav_menu"}}</summary>
 <ul class="hm-nav__list">{{template "nav-items" $m}}</ul>
 </details>
 </nav>{{end}}{{end}}
