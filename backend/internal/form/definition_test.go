@@ -2,7 +2,10 @@ package form
 
 import (
 	"errors"
+	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/spam"
 )
 
 func lg(id string) *FieldLogic { return &FieldLogic{FieldID: id, Op: LogicFilled} }
@@ -104,5 +107,47 @@ func TestValidateDefinitionStrict(t *testing.T) {
 	}
 	if len(ValidateDefinitionStrict(many)) == 0 {
 		t.Error("61 fields accepted")
+	}
+}
+
+func TestSettingsProblems(t *testing.T) {
+	t.Parallel()
+	fields := []FormField{{Name: "email", Type: FieldTypeEmail}, {Name: "city", Type: FieldTypeText}}
+	long := strings.Repeat("w", 101)
+	tests := []struct {
+		name string
+		s    FormSettings
+		want string // expected FieldID, "" = valid
+	}{
+		{"empty", FormSettings{}, ""},
+		{"all valid", FormSettings{NotifySubject: "Hi {{email}}", NotifyReplyTo: "email", RateLimitPerHour: 5, RetentionDays: 90, BlockedWords: []string{"casino"}}, ""},
+		{"retention", FormSettings{RetentionDays: 31}, "settings.retention_days"},
+		{"rate high", FormSettings{RateLimitPerHour: 1001}, "settings.rate_limit_per_hour"},
+		{"rate negative", FormSettings{RateLimitPerHour: -1}, "settings.rate_limit_per_hour"},
+		{"too many words", FormSettings{BlockedWords: make([]string, spam.MaxBlockedWords+1)}, "settings.blocked_words"},
+		{"long word", FormSettings{BlockedWords: []string{long}}, "settings.blocked_words"},
+		{"subject crlf", FormSettings{NotifySubject: "a\r\nBcc: x"}, "settings.notify_subject"},
+		{"subject long", FormSettings{ConfirmationSubject: strings.Repeat("s", 201)}, "settings.confirmation_subject"},
+		{"reply-to not email", FormSettings{NotifyReplyTo: "city"}, "settings.notify_reply_to"},
+		{"reply-to unknown", FormSettings{NotifyReplyTo: "zzz"}, "settings.notify_reply_to"},
+		{"bad redirect", FormSettings{SuccessRedirectURL: "//evil"}, "settings.success_redirect_url"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			errs := settingsProblems(&tc.s, fields)
+			if tc.want == "" {
+				if len(errs) != 0 {
+					t.Fatalf("errors = %v, want none", errs)
+				}
+				return
+			}
+			if len(errs) == 0 || errs[0].FieldID != tc.want {
+				t.Fatalf("errors = %v, want %s", errs, tc.want)
+			}
+		})
+	}
+	if errs := settingsProblems(&FormSettings{NotifyReplyTo: "zzz"}, nil); len(errs) != 0 {
+		t.Errorf("reply-to checked without fields: %v", errs)
 	}
 }

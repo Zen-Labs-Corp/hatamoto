@@ -2,10 +2,13 @@ package form
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"hatamoto.dev/core/internal/spam"
 )
 
 const (
@@ -240,10 +243,55 @@ func ValidRedirectTarget(u string) bool {
 	return err == nil && (p.Scheme == "https" || p.Scheme == "http") && p.Host != "" && !strings.ContainsAny(u, " \t\r\n\\")
 }
 
-// settingsProblems lists what is wrong with a form's settings.
-func settingsProblems(s *FormSettings) DefinitionErrors {
-	if s != nil && !ValidRedirectTarget(s.SuccessRedirectURL) {
-		return DefinitionErrors{{FieldID: "settings.success_redirect_url", Message: "Enter a path like /thank-you or a full address starting with https://"}}
+const (
+	maxRateLimitPerHour = 1000
+	maxSubjectRunes     = 200
+)
+
+// settingsProblems lists what is wrong with a form's settings. fields is the
+// definition the settings are saved with; nil skips the field-name checks.
+func settingsProblems(s *FormSettings, fields []FormField) DefinitionErrors {
+	if s == nil {
+		return nil
 	}
-	return nil
+	var errs DefinitionErrors
+	add := func(key, msg string) { errs = append(errs, DefinitionError{FieldID: "settings." + key, Message: msg}) }
+	if !ValidRedirectTarget(s.SuccessRedirectURL) {
+		add("success_redirect_url", "Enter a path like /thank-you or a full address starting with https://")
+	}
+	for _, sub := range []struct{ key, val string }{{"notify_subject", s.NotifySubject}, {"confirmation_subject", s.ConfirmationSubject}} {
+		if utf8.RuneCountInString(sub.val) > maxSubjectRunes || strings.ContainsAny(sub.val, "\r\n") {
+			add(sub.key, "Use one line of at most 200 characters")
+		}
+	}
+	if s.RateLimitPerHour < 0 || s.RateLimitPerHour > maxRateLimitPerHour {
+		add("rate_limit_per_hour", "Enter a number from 0 to 1000")
+	}
+	switch s.RetentionDays {
+	case 0, 30, 90, 365:
+	default:
+		add("retention_days", "Choose 30 days, 90 days, 1 year or never")
+	}
+	if len(s.BlockedWords) > spam.MaxBlockedWords {
+		add("blocked_words", fmt.Sprintf("Use at most %d words", spam.MaxBlockedWords))
+	}
+	for _, w := range s.BlockedWords {
+		if len(w) > spam.MaxWordLen {
+			add("blocked_words", fmt.Sprintf("Each word can be at most %d characters", spam.MaxWordLen))
+			break
+		}
+	}
+	if s.NotifyReplyTo != "" && fields != nil && !hasEmailField(fields, s.NotifyReplyTo) {
+		add("notify_reply_to", "Choose one of the form's email fields")
+	}
+	return errs
+}
+
+func hasEmailField(fields []FormField, name string) bool {
+	for i := range fields {
+		if fields[i].Name == name && fields[i].Type == FieldTypeEmail {
+			return true
+		}
+	}
+	return false
 }

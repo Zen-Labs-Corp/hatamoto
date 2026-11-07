@@ -162,6 +162,23 @@ type FormSettings struct {
 	// SuccessMessage is used when it is empty.
 	ConfirmationMessage string `json:"confirmation_message,omitempty"`
 	StoreSubmissions    bool   `json:"store_submissions"`
+
+	// NotifySubject is the notification subject; {{field_name}} tokens are
+	// filled from the submission.
+	NotifySubject string `json:"notify_subject,omitempty"`
+	// NotifyReplyTo names an email field whose value becomes the Reply-To.
+	NotifyReplyTo       string `json:"notify_reply_to,omitempty"`
+	ConfirmationSubject string `json:"confirmation_subject,omitempty"`
+	// HoneypotOff is inverted so an absent key keeps the trap field on.
+	HoneypotOff bool `json:"honeypot_off,omitzero"`
+	// RateLimitPerHour caps sends per visitor per hour; 0 is off.
+	RateLimitPerHour int `json:"rate_limit_per_hour,omitzero"`
+	// BlockedWords marks a submission containing any of them as spam.
+	BlockedWords []string `json:"blocked_words,omitempty"`
+	// RetentionDays deletes submissions older than this; 0 keeps them.
+	RetentionDays int `json:"retention_days,omitzero"`
+	// NoIP stops the submitter's address being stored.
+	NoIP bool `json:"no_ip,omitzero"`
 }
 
 // FormSubmission represents a submitted form entry.
