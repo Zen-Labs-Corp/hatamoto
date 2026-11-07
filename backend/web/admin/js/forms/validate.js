@@ -227,6 +227,8 @@ function validateAnswer(f, raw) {
   const lab = label(f);
   if (f.type === "consent") return validateConsent(lab, raw);
   if (f.type === "checkbox" && (f.options ?? []).length === 0) return validateTickbox(f, lab, raw);
+  // a file is checked by the server: the offline preview has no upload to look at
+  if (f.type === "file") return [null, ""];
   if (isEmptyAnswer(raw)) return [null, f.required ? `${lab} is required` : ""];
   switch (f.type) {
     case "select":

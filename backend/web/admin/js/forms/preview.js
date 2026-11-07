@@ -3,6 +3,7 @@
 // shows its messages inline, announced through the live region. Nothing is sent anywhere.
 import { h, actButton } from "@hm/builder/dom";
 import { validate, visible } from "@hm/forms/validate";
+import { fileHint } from "@hm/forms/types";
 
 const WIDTH = { half: "hm-fd-field--half", third: "hm-fd-field--third" };
 const isLayout = (f) => f.type === "heading" || f.type === "paragraph" || f.type === "divider";
@@ -37,6 +38,11 @@ export function mountPreview(root, { getDoc, freeEmail = [], announce = () => {}
       case "consent": {
         const input = h("input", { class: "hm-field__box", type: "checkbox", id });
         return { el: h("label", { class: "hm-field__check", for: id }, input, h("span", { text: f.label || "I agree" })), read: () => input.checked };
+      }
+      case "file": {
+        // nothing is sent from the preview: a switched-off tile, and no answer to read
+        const el = h("div", { class: "hm-fd-field__ctl", id }, h("b", { text: "Choose a file" }), " or drag it here", h("br", {}), fileHint(f));
+        return { el, read: () => "" };
       }
       default: {
         const el = h("input", { class: "hm-field__control", id, type: TEXT_TYPE[f.type] ?? "text", placeholder: f.placeholder });

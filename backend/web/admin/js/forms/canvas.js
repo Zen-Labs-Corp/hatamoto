@@ -2,7 +2,7 @@
 // (role=option, roving tabindex; the screen's keymap moves the selection). The label is a plain
 // text input that commits on Enter or blur and reverts on Escape. DOM is built with h() only.
 import { h, chip, actButton } from "@hm/builder/dom";
-import { TYPES, isLayout } from "@hm/forms/types";
+import { TYPES, isLayout, fileHint } from "@hm/forms/types";
 import { visible } from "@hm/forms/validate";
 
 const OP_TEXT = { filled: "is filled", empty: "is empty", is: "is", is_not: "is not", contains: "contains" };
@@ -64,6 +64,9 @@ function control(f) {
       return h("div", { class: "hm-fd-field__opts hm-field__group" }, ...(f.options ?? []).map((o) => choice(f.type, o.label, f.type === "radio" && o.value === f.default_value)));
     case "consent":
       return h("div", { class: "hm-fd-field__opts" }, choice("checkbox", f.label ?? "", false));
+    case "file":
+      // the public tile, switched off: nothing here takes a file
+      return h("div", { class: "hm-fd-field__ctl" }, h("b", { text: "Choose a file" }), " or drag it here", h("br", {}), fileHint(f));
     case "hidden":
       return h("div", { class: "hm-muted", text: "Hidden value: not shown to visitors" });
     default:
