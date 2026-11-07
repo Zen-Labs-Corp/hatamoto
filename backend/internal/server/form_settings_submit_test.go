@@ -48,8 +48,16 @@ func settingsServer(t *testing.T, set form.FormSettings) (*Server, *fakeFormRepo
 
 // sendJSON posts a JSON submission from ip and returns the status code.
 func sendJSON(srv *Server, ip, body string) int {
+	return sendJSONFrom(srv, ip, "", body)
+}
+
+// sendJSONFrom is sendJSON from a page (the X-Page-URL header), when page is set.
+func sendJSONFrom(srv *Server, ip, page, body string) int {
 	req := httptest.NewRequest(http.MethodPost, "/forms/contact/submit", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	if page != "" {
+		req.Header.Set("X-Page-URL", page)
+	}
 	req.RemoteAddr = ip + ":4000"
 	req.SetPathValue("slug", "contact")
 	rec := httptest.NewRecorder()
@@ -161,7 +169,7 @@ func TestFormSettings_StoreOffKeepsNoAnswersButStillMails(t *testing.T) {
 	srv.emailService = svc
 	repo.forms["contact"].Settings.StoreOff = true
 
-	sendJSON(srv, "203.0.113.1", `{"name":"Ada","message":"secret words"}`)
+	sendJSONFrom(srv, "203.0.113.1", "https://example.test/products/7", `{"name":"Ada","message":"secret words"}`)
 	if len(repo.subs) != 1 || len(repo.subs[0].Data) != 0 {
 		t.Fatalf("stored data = %+v, want a row with no answers", repo.subs)
 	}
@@ -175,6 +183,14 @@ func TestFormSettings_StoreOffKeepsNoAnswersButStillMails(t *testing.T) {
 	msgs := sink.Messages()
 	if len(msgs) != 1 || !strings.Contains(msgs[0].Data, "Subject: Enquiry from Ada") || !strings.Contains(msgs[0].Data, "secret words") {
 		t.Fatalf("notification = %+v", msgs)
+	}
+	for _, want := range []string{"https://example.test/products/7", "203.0.113.1"} {
+		if !strings.Contains(msgs[0].Data, want) {
+			t.Errorf("notification lacks %q: %s", want, msgs[0].Data)
+		}
+	}
+	if strings.Contains(msgs[0].Data, "View in Admin") {
+		t.Errorf("notification links to an empty row: %s", msgs[0].Data)
 	}
 }
 

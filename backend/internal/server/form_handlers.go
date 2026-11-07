@@ -613,7 +613,7 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 	// A submission classed as spam is kept for review but reaches nobody: no
 	// notification, no confirmation, no hook or webhook.
 	if status != form.SubmissionStatusSpam {
-		s.sendFormSubmissionEmail(formObj, submission, data)
+		s.sendFormSubmissionEmail(formObj, submission, data, meta)
 		s.sendFormConfirmationEmail(formObj, submission, data)
 		s.fireFormSubmitted(ctx, formObj, submission, data, meta)
 	}
@@ -885,7 +885,10 @@ func (s *Server) dropAnswers(formObj *form.Form) bool {
 
 // sendFormSubmissionEmail sends an email notification for a form submission.
 // This is a non-blocking operation - errors are logged but don't affect the response.
-func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.FormSubmission, data map[string]interface{}) {
+// The page and address come from the request metadata, not the stored row, which
+// is empty when the form stores nothing. The address is left out under no-IP
+// because the mail is kept in the email log.
+func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.FormSubmission, data map[string]interface{}, meta submitMeta) {
 	// Check if email service is available and notification email is configured
 	if s.emailService == nil {
 		return
@@ -917,6 +920,10 @@ func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.Fo
 		}
 	}
 
+	ip := meta.IPAddress
+	if formObj.Settings.NoIP {
+		ip = ""
+	}
 	// Build email data
 	emailData := email.FormSubmissionData{
 		FormName:      formObj.Name,
@@ -924,8 +931,8 @@ func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.Fo
 		SubmissionID:  submission.ID.String(),
 		SubmittedAt:   time.Now(),
 		Fields:        fields,
-		SubmitterIP:   submission.Metadata.IPAddress,
-		SubmitterPage: s.redactPageURL(submission.Metadata.PageURL),
+		SubmitterIP:   ip,
+		SubmitterPage: s.redactPageURL(meta.PageURL),
 		SiteName:      s.siteName(context.Background()),
 	}
 
@@ -949,7 +956,9 @@ func (s *Server) sendFormSubmissionEmail(formObj *form.Form, submission *form.Fo
 		// Only a recipient with an admin account gets the link to the
 		// submission; it names the private admin address.
 		adminData := emailData
-		adminData.AdminURL = s.adminPathValue() + "/forms/submissions/" + submission.ID.String()
+		if len(submission.Data) > 0 { // a store-off row has no answers to open
+			adminData.AdminURL = s.adminPathValue() + "/forms/submissions/" + submission.ID.String()
+		}
 		for _, send := range []struct {
 			to   []string
 			data email.FormSubmissionData
