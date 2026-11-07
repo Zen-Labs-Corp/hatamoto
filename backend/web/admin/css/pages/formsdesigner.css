@@ -38,3 +38,11 @@
 .hm-fd-check { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-2); border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--text-body); }
 .hm-fd-check:hover { background: var(--surface-hover); }
 .hm-fd-check:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+
+.hm-fd-field__head { display: flex; align-items: baseline; gap: var(--space-1); }
+.hm-fd-field__edit { flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; }
+.hm-fd-field__edit:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-fd-field__req { color: var(--color-danger); }
+.hm-fd-field__opts { margin: 0; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--text-sm); }
+.hm-fd-field__actions { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.hm-fd-field__actions[hidden] { display: none; }
