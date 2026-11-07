@@ -69,7 +69,7 @@ Conversion is the submissions divided by the visits that landed on the pages the
 from, over the last 30 days; it is not every page view, and shows "Not available" when there is no
 analytics or no visits. `<admin>/forms/submissions` and `<admin>/forms/submissions/{sid}` redirect
 to the form's tab (the old list and detail pages are gone); the export, bulk, status, email and
-delete routes under `<admin>/forms/submissions/` stay. Pure logic: `scripts/admin-qa/unit/forms-submissions.test.mjs`.
+delete routes under `<admin>/forms/submissions/` stay. Pure logic: `scripts/admin-qa/unit/forms-submissions.test.mjs`; browser check: `scripts/admin-qa/forms-submissions.mjs`.
 
 **Form designer.** A form opens on `<admin>/forms/design/{id}` (Build), with the tabs Settings
 (`.../settings`, on the same editor bar as Build: name, status, Undo, Redo and Save; it saves through the
