@@ -607,8 +607,10 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	if v.Doc != nil {
 		d.Blocks, docCSS = e.docBlocks(c, v)
 	} else {
-		d.Blocks = prepareSections(c.theme, v.Sections, v.Canvas)
+		d.Blocks = prepareSectionsFor(c.theme, v.Sections, v.Canvas, v)
 	}
+	// Body is expanded here, before the form island decision below.
+	d.Body = template.HTML(RewriteEntityLinks(string(sanitisedHTML(v.Attrs["content"], v)), v.EntityLinks)) // #nosec G203 -- sanitised, only href replaced
 	docCSS.markFormSections(d.Blocks, v.Forms)
 	if parts, pc := e.renderParts(c, tmpl, v); pc != nil {
 		d.Part = parts
@@ -656,7 +658,6 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		tagsHTML = tagsMarkup(cfg)
 		d.PluginBody += tagsHTML
 	}
-	d.Body = template.HTML(RewriteEntityLinks(string(sanitisedHTML(v.Attrs["content"])), v.EntityLinks)) // #nosec G203 -- sanitised, only href replaced
 	if d.Related == nil {
 		// Views with no entity (404, error, archive) still let a shared partial
 		// `call .Related` safely.
@@ -740,7 +741,7 @@ func finishBlock(p *preparedSection, v *PageView, settings map[string]any, strs 
 // ok is false when the section renders nothing (hidden, blank content).
 func prepareBlock(c *compiled, v *PageView, s Section, canvas bool, settings map[string]any) (p preparedSection, ok bool) {
 	s.IsVisible = nil
-	out := prepareSections(c.theme, []Section{s}, canvas)
+	out := prepareSectionsFor(c.theme, []Section{s}, canvas, v)
 	if len(out) == 0 {
 		return p, false
 	}

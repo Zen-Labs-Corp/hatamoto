@@ -75,6 +75,7 @@ GET /api/v1/settings/site/theme -> (*siteSettingsHandlers).handleGetTheme-fm
 GET /api/v1/terms/ -> hatamoto.dev/core/internal/taxonomy.(*Handlers).ListTerms-fm
 GET /api/v1/users/ -> (*Server).handleListUsers-fm
 GET /api/v1/users/{id} -> (*Server).handleGetUser-fm
+GET /f/{slug} -> (*Server).handleFormPage-fm
 GET /health -> (*Server).handleHealth-fm
 GET /llms.txt -> (*Server).handleLLMsTxt-fm
 GET /media/* -> (*Server).handleServeMedia-fm

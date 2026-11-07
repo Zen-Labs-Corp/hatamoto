@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/analytics"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
 )
 
@@ -75,7 +76,7 @@ func TestChoiceColumnsTab(t *testing.T) {
 
 func TestFormConversionTab(t *testing.T) {
 	t.Parallel()
-	f := &form.Form{ID: uuid.New(), Slug: "contact"}
+	f := &form.Form{ID: uuid.New(), Slug: "contact", Status: form.StatusActive}
 	sub := func(page string) *form.FormSubmission {
 		return &form.FormSubmission{Metadata: form.SubmissionMetadata{PageURL: page}}
 	}
@@ -92,6 +93,8 @@ func TestFormConversionTab(t *testing.T) {
 	} {
 		a := &Admin{}
 		a.deps.Growth.Traffic = c.traffic
+		a.deps.Growth.FormUsage = pageUsage("contact", "contact")
+		a.deps.Content.PublicPath = func(_ context.Context, e *entity.Entity) string { return "/" + e.Slug }
 		st := a.formConversion(context.Background(), f, subs, from, to)
 		if c.wantUnavailable {
 			if st.Value != notAvailable || st.Note != "" {
@@ -105,25 +108,32 @@ func TestFormConversionTab(t *testing.T) {
 	}
 }
 
+// pageUsage places the form on one published page.
+func pageUsage(formSlug, pageSlug string) func(context.Context) (map[string][]entity.FormPlacement, error) {
+	return func(context.Context) (map[string][]entity.FormPlacement, error) {
+		return map[string][]entity.FormPlacement{formSlug: {
+			{EntityID: uuid.New(), Kind: entity.PlacementPage, Name: "Page", Slug: pageSlug, SchemaSlug: "page", Status: string(entity.StatusPublished)},
+			{Kind: entity.PlacementArea, Name: "Footer", Area: "Footer"},
+		}}, nil
+	}
+}
+
 func TestFormPagesTab(t *testing.T) {
 	t.Parallel()
 	a := &Admin{}
-	f := &form.Form{Slug: "contact"}
-	subs := []*form.FormSubmission{
-		{Metadata: form.SubmissionMetadata{PageURL: "https://qa.test/b?x=1"}},
-		{Metadata: form.SubmissionMetadata{PageURL: "https://qa.test/b"}},
-		{Metadata: form.SubmissionMetadata{PageURL: "/a"}},
-		{},
-	}
-	got := a.formPages(context.Background(), f, subs)
-	want := []string{"/a", "/b", "/f/contact"}
-	if len(got) != len(want) {
+	a.deps.Growth.FormUsage = pageUsage("contact", "b")
+	a.deps.Content.PublicPath = func(_ context.Context, e *entity.Entity) string { return "/" + e.Slug }
+	f := &form.Form{Slug: "contact", Status: form.StatusActive}
+
+	// The placements' published pages and the hosted page; an area has no path.
+	got := a.formPages(context.Background(), f)
+	if want := []string{"/b", "/f/contact"}; strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("pages = %v, want %v", got, want)
 	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("pages = %v, want %v", got, want)
-		}
+	// A paused form has no hosted page.
+	f.Status = form.StatusInactive
+	if got := a.formPages(context.Background(), f); len(got) != 1 || got[0] != "/b" {
+		t.Fatalf("paused pages = %v, want [/b]", got)
 	}
 }
 

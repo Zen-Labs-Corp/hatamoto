@@ -135,7 +135,7 @@ func TestPageCacheTTLFromEnv(t *testing.T) {
 }
 
 func TestValidatePublicAPIPrefix(t *testing.T) {
-	for _, ok := range []string{"", "/x/v1", "/content/v2/pub", "/a_b/c-d"} {
+	for _, ok := range []string{"", "/x/v1", "/content/v2/pub", "/a_b/c-d", "/f/v1"} {
 		if err := ValidatePublicAPIPrefix(ok); err != nil {
 			t.Errorf("%q: %v", ok, err)
 		}
@@ -152,6 +152,9 @@ func TestValidatePublicAPIPrefix(t *testing.T) {
 
 func TestPublicAPIPrefixReservedRoots(t *testing.T) {
 	for _, r := range adminpath.ReservedPrefixes {
+		if r == "f" {
+			continue // allowed for installs that already use /f/...; see TestValidatePublicAPIPrefix
+		}
 		if r == "-" || r == "feed" || r == "sitemap" || r == ".well-known" || r == "favicon.ico" {
 			continue // not a valid PUBLIC_API_PREFIX segment shape or checked below
 		}

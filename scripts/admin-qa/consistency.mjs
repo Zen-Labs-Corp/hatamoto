@@ -272,7 +272,7 @@ function check({ sticky, list, spec }) {
     if (!page || !head) out.push(["UI-D10", "div.hm-page", "no page header on a list screen", ""]);
     else {
       const first = [...page.children].filter((c) => c.compareDocumentPosition(head) & Node.DOCUMENT_POSITION_PRECEDING)
-        .find((c) => visible(c) && !c.matches("nav.hm-tabs, div.hm-tabs[role=group], .hm-secretbanner, .hm-flash, .hm-callout, .hm-formerrors, dialog, form[role=search], .hm-filterbar, .hm-media-toolbar"));
+        .find((c) => visible(c) && !c.matches("nav.hm-tabs, div.hm-tabs[role=group], .hm-secretbanner, .hm-flash, .hm-callout, .hm-formerrors, dialog, form[role=search], .hm-filterbar, .hm-media-toolbar, .hm-statgrid"));
       if (!first || !(first.matches(LISTY) || first.querySelector(LISTY))) out.push(["UI-D10", first ? sel(first) : "div.hm-page", "the list is not the first content block after the header", ""]);
       for (const f of page.querySelectorAll("form")) {
         if ((f.getAttribute("method") || "").toLowerCase() !== "post" || f.closest("dialog, .hm-notices, .hm-table, .hm-datatable, .hm-pluginlist, .hm-themes, .hm-pkg") || f.matches("#unsigned, #image-formats-form, #rebuild-form") || f.querySelector("#unsigned") || f.querySelector(LISTY) || (f.getAttribute("id") || "").startsWith("bulk-")) continue; // the bulk action form of the table, wrapping it or tied to its select boxes by form=

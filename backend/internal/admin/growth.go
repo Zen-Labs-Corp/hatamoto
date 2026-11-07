@@ -9,6 +9,7 @@ import (
 	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/analytics"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/jsonx"
@@ -231,8 +232,11 @@ type PluginAdmin interface {
 
 // GrowthDeps groups the services of the site and growth screens.
 type GrowthDeps struct {
-	Menus     MenuStore
-	Forms     FormStore
+	Menus MenuStore
+	Forms FormStore
+	// FormUsage returns where each form (by slug) is placed (nil = "Not available").
+	// The map is shared and read-only.
+	FormUsage func(ctx context.Context) (map[string][]entity.FormPlacement, error)
 	Redirects RedirectStore
 	Explain   URLExplainer
 	Pickers   Pickers

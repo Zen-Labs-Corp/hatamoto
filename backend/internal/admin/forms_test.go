@@ -74,6 +74,9 @@ func (f *fakeForms) CreateForm(_ context.Context, in *form.CreateFormInput) (*fo
 		fm.Slug = in.Slug
 	}
 	fm.Description, fm.Settings, fm.Fields = in.Description, in.Settings, in.Fields
+	if in.Status != "" {
+		fm.Status = in.Status
+	}
 	return fm, nil
 }
 func (f *fakeForms) UpdateForm(_ context.Context, id uuid.UUID, in *form.UpdateFormInput) (*form.Form, error) {
@@ -246,8 +249,16 @@ func TestFormListNewAndDelete(t *testing.T) {
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("list a11y: %v", issues)
 	}
-	if !strings.Contains(body, `hm-badge--info`) || !strings.Contains(body, "Last 14 days") {
-		t.Errorf("list lacks the New badge or the 14-day column")
+	for _, want := range []string{"1 unread", "Submissions, 30 days", "Latest submissions, all forms", `data-hm-open="new-form"`, `name="template"`, "Spam protection"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("list lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "Forms sections") {
+		t.Errorf("list still carries the tabs row")
+	}
+	if ed := g.do("GET", "/admin/forms", "editor-token", nil, nil).Body.String(); strings.Contains(ed, "Spam protection") {
+		t.Errorf("an editor is offered the owner-only Spam protection page")
 	}
 	newPage := g.do("GET", "/admin/forms/new", "owner-token", nil, nil).Body.String()
 	if issues := a11y.Check(newPage, a11y.Options{Page: true}); len(issues) > 0 {
@@ -260,11 +271,44 @@ func TestFormListNewAndDelete(t *testing.T) {
 	if rec.Code != 303 || !strings.Contains(rec.Header().Get("Location"), "/forms/design/") {
 		t.Fatalf("create: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
+	for _, f := range ff.forms {
+		if f.Name == "Newsletter" && (f.Status != form.StatusInactive || len(f.Fields) != 0) {
+			t.Errorf("blank form: status %q, %d fields; want paused and empty", f.Status, len(f.Fields))
+		}
+	}
 	if g.do("GET", "/admin/forms/delete/"+fm.ID.String(), "owner-token", nil, nil).Code != 200 || len(ff.forms) != 2 {
 		t.Fatal("the confirmation page must not delete")
 	}
 	if rec := g.do("POST", "/admin/forms/delete/"+fm.ID.String(), "owner-token", url.Values{}, nil); rec.Code != 303 || len(ff.forms) != 1 {
 		t.Fatalf("delete: %d", rec.Code)
+	}
+}
+
+func TestFormCreateFromTemplate(t *testing.T) {
+	t.Parallel()
+
+	g, ff, _ := newFormRig(t)
+	newPage := g.do("GET", "/admin/forms/new", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(newPage, `name="template" value="contact"`) || !strings.Contains(newPage, `value="blank" checked`) {
+		t.Errorf("new page lacks the template cards: %s", newPage)
+	}
+	rec := g.do("POST", "/admin/forms", "owner-token", url.Values{"template": {"contact"}}, nil)
+	if rec.Code != 303 || !strings.Contains(rec.Header().Get("Location"), "/forms/design/") {
+		t.Fatalf("create from template: %d", rec.Code)
+	}
+	var got *form.Form
+	for _, f := range ff.forms {
+		got = f
+	}
+	if got == nil || got.Name != "Contact" || got.Status != form.StatusInactive || len(got.Fields) != 3 {
+		t.Fatalf("template form: %+v", got)
+	}
+	if rec := g.do("POST", "/admin/forms", "owner-token", url.Values{"template": {"nope"}, "name": {"X"}}, nil); rec.Code != 422 || !strings.Contains(rec.Body.String(), "Choose one of the templates") {
+		t.Errorf("unknown template: %d", rec.Code)
+	}
+	rec = g.do("POST", "/admin/forms", "owner-token", url.Values{"template": {"blank"}, "name": {""}}, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Enter a name") {
+		t.Errorf("blank template without a name: %d", rec.Code)
 	}
 }
 
@@ -278,9 +322,12 @@ func TestFormEditUsesPublicAPIPrefix(t *testing.T) {
 		g, ff, _ := newFormRig(t, func(d *Deps) { d.PublicAPIPrefix = tc.prefix })
 		fm := ff.addForm("Contact", contactFields...)
 		body := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/share", "owner-token", nil, nil).Body.String()
-		// the endpoint field and the embed code
-		if n := strings.Count(body, tc.want); n < 2 {
-			t.Errorf("prefix %q: %q appears %d times, want at least 2", tc.prefix, tc.want, n)
+		// the endpoint field names the API; the embed code posts to the no-JS route
+		if !strings.Contains(body, `value="http`) || !strings.Contains(body, tc.want) {
+			t.Errorf("prefix %q: endpoint %q missing", tc.prefix, tc.want)
+		}
+		if !strings.Contains(body, `action=&#34;`) || !strings.Contains(body, `/forms/contact/submit&#34;`) {
+			t.Errorf("prefix %q: embed code does not post to /forms/contact/submit", tc.prefix)
 		}
 		if strings.Contains(body, tc.gone) {
 			t.Errorf("prefix %q: page still names %q", tc.prefix, tc.gone)
@@ -658,25 +705,6 @@ func TestSubmissionsOverviewShowsStatsTrackerAndFilters(t *testing.T) {
 	}
 }
 
-func TestFormActivityCells(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
-	subs := []*form.FormSubmission{{CreatedAt: now.Add(-time.Hour)}, {CreatedAt: now.Add(-48 * time.Hour)}}
-	total, last := formActivityCells(subs, 9, false, nil, now, time.UTC)
-	if total.Text != "9" || last.Text != "" || last.Spark == nil {
-		t.Errorf("complete scan: total %+v last %+v", total, last)
-	}
-	total, last = formActivityCells(subs, 9, true, nil, now, time.UTC)
-	if total.Text != "9" || last.Text != "2+" || last.Spark != nil {
-		t.Errorf("capped scan must show a lower bound and no spark: total %+v last %+v", total, last)
-	}
-	total, last = formActivityCells(nil, 0, false, errors.New("db down"), now, time.UTC)
-	if total.Text != "—" || last.Text != "—" {
-		t.Errorf("failed scan must show dashes, not 0: total %+v last %+v", total, last)
-	}
-}
-
 func TestFormsTabs(t *testing.T) {
 	t.Parallel()
 
@@ -694,7 +722,7 @@ func TestFormsTabs(t *testing.T) {
 		role, active string
 		want         []string
 	}{
-		{"owner", "forms", []string{"Forms", "Submissions", "Spam"}},
+		{"owner", "submissions", []string{"Forms", "Submissions", "Spam"}},
 		{"owner", "spam", []string{"Forms", "Submissions", "Spam"}},
 		{"editor", "submissions", []string{"Forms", "Submissions"}},
 	} {

@@ -25,6 +25,7 @@ import (
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/seo"
+	"hatamoto.dev/core/internal/shortcode"
 	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/urlpattern"
 )
@@ -61,7 +62,12 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 	s.applyLocale(ctx, rr, v, v.BaseURL)
 	s.applyStrings(ctx, v)
 	v.Contact = s.pageContact(ctx, v.Locale)
-	v.Forms = s.formsForSections(ctx, formSections(v.Sections, v.Doc))
+	formSecs := formSections(v.Sections, v.Doc)
+	// Entity text attributes (body, schema richtext fields) may hold shortcodes.
+	for _, slug := range shortcodeFormSlugs(v.Attrs) {
+		formSecs = append(formSecs, render.Section{Type: "contact_form", Content: map[string]any{"form_slug": slug}})
+	}
+	v.Forms = s.formsForSections(ctx, formSecs)
 	v.EntityLinks = s.entityLinkTargets(ctx, v)
 	v.Uncacheable = new(bool)
 	s.applyPluginDirectory(ctx, v)
@@ -236,15 +242,65 @@ func viewSections(sections []render.Section, doc *builder.Doc) []render.Section 
 }
 
 // formSections is viewSections plus one contact_form entry per native form
-// widget of the doc, so formsForSections loads the forms of both.
+// widget of the doc and per [form slug="..."] shortcode in the section
+// content and doc props, so formsForSections loads the forms of all three.
 func formSections(sections []render.Section, doc *builder.Doc) []render.Section {
 	out := viewSections(sections, doc)
+	seen := map[string]bool{}
+	add := func(id, slug string) {
+		if slug == "" || seen[slug] {
+			return
+		}
+		seen[slug] = true
+		out = append(out, render.Section{ID: id, Type: "contact_form", Content: map[string]any{"form_slug": slug}})
+	}
 	for _, n := range builder.NodesOfKind(doc, "form") {
-		if slug, _ := n.P["slug"].(string); slug != "" {
-			out = append(out, render.Section{ID: n.ID, Type: "contact_form", Content: map[string]any{"form_slug": slug}})
+		slug, _ := n.P["slug"].(string)
+		add(n.ID, slug)
+	}
+	for _, sec := range sections {
+		for _, slug := range shortcodeFormSlugs(sec.Content) {
+			add(sec.ID, slug)
 		}
 	}
+	if doc != nil {
+		var walk func(ns []*builder.Node)
+		walk = func(ns []*builder.Node) {
+			for _, n := range ns {
+				if n == nil {
+					continue
+				}
+				for _, slug := range shortcodeFormSlugs(n.P) {
+					add(n.ID, slug)
+				}
+				walk(n.C)
+			}
+		}
+		walk(doc.Nodes)
+	}
 	return out
+}
+
+// shortcodeFormSlugs returns the form slugs of every [form] shortcode found in
+// the strings of v (maps, slices and strings, any depth).
+func shortcodeFormSlugs(v any) []string {
+	switch x := v.(type) {
+	case string:
+		return shortcode.Slugs(x, "form")
+	case map[string]any:
+		var out []string
+		for _, e := range x {
+			out = append(out, shortcodeFormSlugs(e)...)
+		}
+		return out
+	case []any:
+		var out []string
+		for _, e := range x {
+			out = append(out, shortcodeFormSlugs(e)...)
+		}
+		return out
+	}
+	return nil
 }
 
 // pluginDirectoryCacheAge caps the page cache of a page with a plugin

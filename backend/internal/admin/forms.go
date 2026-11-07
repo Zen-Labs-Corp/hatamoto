@@ -129,42 +129,7 @@ func formStatusBadge(status string) *ui.Badge {
 	return &ui.Badge{Label: "Archived", Kind: "neutral"}
 }
 
-const (
-	formSparkDays    = 14
-	formSparkScanCap = 400 // rows read per form for its spark: two pages, to bound the cost of the list
-)
-
-// newCountCell shows unread submissions as an accent badge ("2 New"), and plain 0 when there are none.
-func newCountCell(n int) ui.Cell {
-	if n == 0 {
-		return ui.Cell{Text: "0"}
-	}
-	return ui.Cell{Badge: &ui.Badge{Label: strconv.Itoa(n) + " New", Kind: "info"}}
-}
-
-// formActivityCells builds the "All submissions" and "Last 14 days" cells of a forms-list row.
-// The spark stands alone (the cell holds no number beside it); with no activity the cell reads 0.
-// A failed scan shows a dash in both instead of a 0, and a capped scan shows a lower bound
-// without a spark, because days beyond the cap would read as a false drop-off.
-func formActivityCells(recent []*form.FormSubmission, all int, capped bool, err error, now time.Time, loc *time.Location) (total, last14 ui.Cell) {
-	if err != nil {
-		return ui.Cell{Text: "—"}, ui.Cell{Text: "—"}
-	}
-	days := submissionDays(recent, now, formSparkDays, loc)
-	vals := make([]int64, len(days))
-	var sum int64
-	for i, n := range days {
-		vals[i], sum = int64(n), sum+int64(n)
-	}
-	total = ui.Cell{Text: strconv.Itoa(all)}
-	if capped {
-		return total, ui.Cell{Text: strconv.FormatInt(sum, 10) + "+"}
-	}
-	if sp := ui.SparkOf(vals); sp != nil {
-		return total, ui.Cell{Spark: sp}
-	}
-	return total, ui.Cell{Text: strconv.FormatInt(sum, 10)}
-}
+const formSparkDays = 14 // days of the list's trend card
 
 func (a *Admin) handleForms(w http.ResponseWriter, r *http.Request) {
 	fs, ok := a.formStore(w, r)
@@ -177,59 +142,68 @@ func (a *Admin) handleForms(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The forms could not be loaded.")
 		return
 	}
-	t := ui.Table{
-		ID: "forms", Caption: "Forms", BaseURL: a.adminPath + "/forms", CSRF: csrfToken(r.Context()),
-		Columns: []ui.Col{{Key: "name", Label: "Name"}, {Key: "status", Label: "Status"}, {Key: "fields", Label: "Fields", Align: "right", WideOnly: true}, {Key: "new", Label: "New submissions", Align: "right"}, {Key: "total", Label: "All submissions", Align: "right", WideOnly: true}, {Key: "recent", Label: "Last 14 days"}},
-		Empty:   ui.Empty{Icon: "inbox", Title: "No forms yet", Body: "A form collects enquiries from your pages.", Actions: []ui.Button{{Label: "New form", Href: a.adminPath + "/forms/new", Variant: "primary"}}},
-	}
-	loc := a.siteLocation(r.Context())
-	now := time.Now().In(loc)
-	since := now.AddDate(0, 0, -(formSparkDays - 1))
-	since = time.Date(since.Year(), since.Month(), since.Day(), 0, 0, 0, 0, loc)
-	for _, f := range forms {
-		id := f.ID.String()
-		recent, all, capped, err := loadRecentSubmissions(r.Context(), fs, f.ID, since, formSparkScanCap)
-		if err != nil {
-			a.logger().Error("form activity failed", "form", id, "err", err)
-		}
-		totalCell, recentCell := formActivityCells(recent, all, capped, err, now, loc)
-		_, fresh, err := fs.ListSubmissions(r.Context(), f.ID, &form.ListSubmissionsParams{Limit: 1, Status: form.SubmissionStatusNew})
-		if err != nil {
-			a.logger().Error("form new count failed", "form", id, "err", err)
-		}
-		t.Rows = append(t.Rows, ui.Row{ID: id, Label: f.Name, Cells: []ui.Cell{
-			{Text: f.Name, Link: a.adminPath + "/forms/design/" + id},
-			{Badge: formStatusBadge(f.Status)},
-			{Text: strconv.Itoa(len(f.Fields))}, newCountCell(fresh), totalCell,
-			recentCell,
-		}, Actions: []ui.Action{
-			{Label: "Submissions", Href: a.adminPath + "/forms/submissions?form=" + id},
-			{Label: "Edit", Href: a.adminPath + "/forms/design/" + id},
-			{Label: "Delete", Href: a.adminPath + "/forms/delete/" + id, Post: a.adminPath + "/forms/delete/" + id, Danger: true, ConfirmLabel: "Delete form",
-				Confirm: "The form " + f.Name + " and all of its submissions are deleted. Pages that embed it stop showing it."},
-		}})
-	}
+	d := a.buildFormsList(r.Context(), fs, forms)
+	d.Table.Empty = ui.Empty{Icon: "inbox", Title: "No forms yet", Body: "A form collects enquiries from your pages.", Actions: []ui.Button{{Label: "New form", Href: a.adminPath + "/forms/new", Variant: "primary", Attrs: map[string]string{"data-hm-open": "new-form"}}}}
 	v := a.NewView(w, r, "Forms")
+	actions := []ui.Button{}
+	if v.User != nil && v.User.Role == "owner" {
+		actions = append(actions, ui.Button{Label: "Spam protection", Href: a.adminPath + "/forms/spam", Icon: "shield-check"})
+	}
+	actions = append(actions, ui.Button{Label: "New form", Href: a.adminPath + "/forms/new", Variant: "primary", Icon: "plus", Attrs: map[string]string{"data-hm-open": "new-form"}})
+	choices := templateChoices("")
 	v.Data = struct {
-		Table   ui.Table
-		Actions []ui.Button
-		Tabs    []ui.Tab
-	}{t, []ui.Button{{Label: "New form", Href: a.adminPath + "/forms/new", Variant: "primary", Icon: "plus"}}, a.formsTabsFor(v, "forms")}
+		formsListData
+		Actions       []ui.Button
+		TemplateItems []ui.RadioCardItem
+	}{d, actions, radioItems(choices)}
 	a.Render(w, r, http.StatusOK, "forms/list", v)
 }
 
 type newFormData struct {
 	Name, Slug, Description string
+	Template                string
+	Templates               []tplChoice
+	TemplateItems           []ui.RadioCardItem
 	Errors                  map[string]string
 	Summary                 []ui.FieldError
 }
 
+// tplChoice is one template radio card on the new-form page.
+type tplChoice struct {
+	Key, Name, Blurb string
+	Checked          bool
+}
+
+// radioItems turns the template choices into hm/radiocard items.
+func radioItems(cs []tplChoice) []ui.RadioCardItem {
+	out := make([]ui.RadioCardItem, 0, len(cs))
+	for _, c := range cs {
+		out = append(out, ui.RadioCardItem{Value: c.Key, Title: c.Name, Description: c.Blurb, Checked: c.Checked})
+	}
+	return out
+}
+
+// templateChoices lists the form templates with the one named by selected checked
+// (blank when none is named).
+func templateChoices(selected string) []tplChoice {
+	if selected == "" {
+		selected = "blank"
+	}
+	var out []tplChoice
+	for _, t := range form.Templates() {
+		out = append(out, tplChoice{Key: t.Key, Name: t.Name, Blurb: t.Blurb, Checked: t.Key == selected})
+	}
+	return out
+}
+
 func (a *Admin) renderNewForm(w http.ResponseWriter, r *http.Request, status int, d newFormData) {
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Identifier"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Identifier"}, {"template", "Template"}} {
 		if m := d.Errors[k.id]; m != "" {
 			d.Summary = append(d.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
 	}
+	d.Templates = templateChoices(d.Template)
+	d.TemplateItems = radioItems(d.Templates)
 	v := a.NewView(w, r, "New form")
 	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: "New form"}}
 	v.Data = d
@@ -249,7 +223,17 @@ func (a *Admin) handleFormCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	d := newFormData{Name: strings.TrimSpace(r.PostFormValue("name")), Slug: strings.TrimSpace(r.PostFormValue("slug")), Description: strings.TrimSpace(r.PostFormValue("description")), Errors: map[string]string{}}
+	d := newFormData{Name: strings.TrimSpace(r.PostFormValue("name")), Slug: strings.TrimSpace(r.PostFormValue("slug")), Description: strings.TrimSpace(r.PostFormValue("description")), Template: strings.TrimSpace(r.PostFormValue("template")), Errors: map[string]string{}}
+	if d.Template == "" {
+		d.Template = "blank"
+	}
+	tpl, tplOK := form.TemplateByKey(d.Template)
+	if !tplOK {
+		d.Errors["template"] = "Choose one of the templates"
+	}
+	if d.Name == "" && tplOK && tpl.Key != "blank" {
+		d.Name = tpl.Name
+	}
 	if d.Name == "" {
 		d.Errors["name"] = "Enter a name"
 	} else if utf8.RuneCountInString(d.Name) > 120 {
@@ -265,7 +249,9 @@ func (a *Admin) handleFormCreate(w http.ResponseWriter, r *http.Request) {
 		a.renderNewForm(w, r, http.StatusUnprocessableEntity, d)
 		return
 	}
-	in := &form.CreateFormInput{Name: d.Name, Slug: d.Slug, Fields: []form.FormField{}, Settings: form.FormSettings{StoreSubmissions: true}}
+	built := tpl.Build()
+	in := &built
+	in.Name, in.Slug, in.Status = d.Name, d.Slug, form.StatusInactive
 	if d.Description != "" {
 		in.Description = &d.Description
 	}
@@ -281,7 +267,7 @@ func (a *Admin) handleFormCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
-	a.SetFlash(w, r, "success", "Form created. Add its fields below.")
+	a.SetFlash(w, r, "success", "Form created. It goes live when you set it to Active.")
 	Redirect(w, r, a.adminPath+"/forms/design/"+f.ID.String())
 }
 

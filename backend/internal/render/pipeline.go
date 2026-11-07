@@ -89,6 +89,12 @@ func treeFor(def *SectionDef) *schemaNode {
 // sanitises richtext/html fields (stripping forged data-hm-* markers). The
 // input is not modified.
 func prepareSections(t *Theme, in []Section, canvas bool) []preparedSection {
+	return prepareSectionsFor(t, in, canvas, nil)
+}
+
+// prepareSectionsFor is prepareSections for a page render: with a view, the
+// shortcodes of richtext fields are expanded after sanitising.
+func prepareSectionsFor(t *Theme, in []Section, canvas bool, v *PageView) []preparedSection {
 	visible := make([]Section, 0, len(in))
 	for _, s := range in {
 		if s.IsVisible != nil && !*s.IsVisible {
@@ -105,7 +111,7 @@ func prepareSections(t *Theme, in []Section, canvas bool) []preparedSection {
 			out = append(out, preparedSection{ID: s.ID, Type: s.Type, Comment: "unknown section type: " + commentSafe(s.Type)})
 			continue
 		}
-		s.Content = prepareContent(def, s.Content, canvas)
+		s.Content = prepareContent(def, s.Content, canvas, v)
 		if s.Type == "content" && isBlankBody(s.Content["body"]) {
 			continue
 		}
@@ -114,12 +120,12 @@ func prepareSections(t *Theme, in []Section, canvas bool) []preparedSection {
 	return out
 }
 
-func prepareContent(def *SectionDef, content map[string]any, canvas bool) map[string]any {
+func prepareContent(def *SectionDef, content map[string]any, canvas bool, v *PageView) map[string]any {
 	tree := treeFor(def)
 	if tree == nil {
 		return deepCopyMap(content)
 	}
-	m, _ := prepareValue(tree, content, 0, "", canvas).(map[string]any)
+	m, _ := prepareValueFor(tree, content, 0, "", canvas, v).(map[string]any)
 	if m == nil {
 		m = map[string]any{}
 	}
@@ -132,6 +138,11 @@ const maxPrepareDepth = 16
 // sanitise + wrap richtext/html strings. path is the canonical field path of
 // v; with canvas set, html strings are stamped with editable-text addresses.
 func prepareValue(n *schemaNode, v any, depth int, path string, canvas bool) any {
+	return prepareValueFor(n, v, depth, path, canvas, nil)
+}
+
+// prepareValueFor is prepareValue with the page view richtext shortcodes need.
+func prepareValueFor(n *schemaNode, v any, depth int, path string, canvas bool, page *PageView) any {
 	if depth > maxPrepareDepth {
 		return v
 	}
@@ -143,7 +154,7 @@ func prepareValue(n *schemaNode, v any, depth int, path string, canvas bool) any
 			if n != nil {
 				cn = n.Properties[k]
 			}
-			out[k] = prepareValue(cn, child, depth+1, joinPath(path, k), canvas)
+			out[k] = prepareValueFor(cn, child, depth+1, joinPath(path, k), canvas, page)
 		}
 		if n != nil {
 			for canon, pn := range n.Properties {
@@ -152,7 +163,7 @@ func prepareValue(n *schemaNode, v any, depth int, path string, canvas bool) any
 				}
 				for _, a := range pn.Alias {
 					if av, ok := out[a]; ok && !isEmptyValue(av) {
-						out[canon] = prepareValue(pn, t[a], depth+1, joinPath(path, canon), canvas)
+						out[canon] = prepareValueFor(pn, t[a], depth+1, joinPath(path, canon), canvas, page)
 						break
 					}
 				}
@@ -171,7 +182,7 @@ func prepareValue(n *schemaNode, v any, depth int, path string, canvas bool) any
 			if _, isObj := child.(map[string]any); !isObj && item != nil && item.Type == "object" {
 				continue
 			}
-			out = append(out, prepareValue(item, child, depth+1, joinPath(path, strconv.Itoa(i)), canvas))
+			out = append(out, prepareValueFor(item, child, depth+1, joinPath(path, strconv.Itoa(i)), canvas, page))
 		}
 		return out
 	case string:
@@ -180,7 +191,7 @@ func prepareValue(n *schemaNode, v any, depth int, path string, canvas bool) any
 		}
 		switch n.Kind {
 		case "richtext":
-			return template.HTML(entity.SanitizeRichText(t)) // #nosec G203 -- sanitised above
+			return expandShortcodes(entity.SanitizeRichText(t), page)
 		case "html":
 			s := entity.SanitizeHTMLSectionBody(t)
 			if canvas {

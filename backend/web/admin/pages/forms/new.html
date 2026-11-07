@@ -5,6 +5,7 @@
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict}}
 <div class="hm-stack">
+{{template "hm/radiocard" dict "Legend" "Template" "Name" "template" "ID" "template" "Cols" 2 "Items" .TemplateItems}}
 {{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errors "name") "Attrs" (attrmap "maxlength" "120" "autocomplete" "off")}}
 {{template "hm/field" dict "ID" "slug" "Name" "slug" "Label" "Identifier" "Value" .Slug "Help" "Used in the form's address. Leave empty to make it from the name." "Error" (index .Errors "slug") "Attrs" (attrmap "autocomplete" "off")}}
 {{template "hm/field" dict "ID" "description" "Name" "description" "Label" "Description" "Control" "textarea" "Rows" 3 "Value" .Description "Help" "Only shown here, to you." "Error" (index .Errors "description")}}

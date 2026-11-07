@@ -17,7 +17,7 @@ const defaultAdminPrefix = "/admin"
 // besides the admin address: routes that are not pages, anything that looks
 // like an action, and URLs with a query string. "*" also matches across slashes.
 var speculationExcluded = []string{
-	defaultAdminPrefix + "/*", "/p/*", "/api/*", "/plugin-ui/*", "/forms/*", "/auth/*", "/preview/*",
+	defaultAdminPrefix + "/*", "/p/*", "/f/*", "/api/*", "/plugin-ui/*", "/forms/*", "/auth/*", "/preview/*",
 	"/media/*", "/theme/*", "/fonts/*", "/.well-known/*", "/-/*",
 	"/health", "/ready", "/sitemap", "/sitemap/*", "/sitemap.xsl",
 	"/*logout*",

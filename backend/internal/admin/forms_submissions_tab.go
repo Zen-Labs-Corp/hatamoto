@@ -102,24 +102,6 @@ func pagePath(raw string) string {
 	return u.Path
 }
 
-// formPages are the pages the form is known to sit on: the paths its recent
-// submissions came from, and its own endpoint page. The submissions-share-list
-// work replaces this with the form's real placements.
-func (a *Admin) formPages(_ context.Context, f *form.Form, subs []*form.FormSubmission) []string {
-	seen := map[string]bool{"/f/" + f.Slug: true}
-	for _, s := range subs {
-		if p := pagePath(s.Metadata.PageURL); p != "" {
-			seen[p] = true
-		}
-	}
-	pages := make([]string, 0, len(seen))
-	for p := range seen {
-		pages = append(pages, p)
-	}
-	sort.Strings(pages)
-	return pages
-}
-
 // formConversion is the Conversion card: submissions from the form's pages
 // over the visits those pages had. Visits are page visits, not form views.
 func (a *Admin) formConversion(ctx context.Context, f *form.Form, subs []*form.FormSubmission, from, to time.Time) ui.Stat {
@@ -127,7 +109,7 @@ func (a *Admin) formConversion(ctx context.Context, f *form.Form, subs []*form.F
 	if a.deps.Growth.Traffic == nil {
 		return st
 	}
-	pages := a.formPages(ctx, f, subs)
+	pages := a.formPages(ctx, f)
 	on := make(map[string]bool, len(pages))
 	for _, p := range pages {
 		on[p] = true

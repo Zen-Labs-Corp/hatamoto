@@ -1,7 +1,7 @@
 {{define "section-contact_form"}}{{$c := .Content}}{{$slug := default "" $c.form_slug}}{{$f := index .Page.Forms $slug}}
 <div class="hm-container hm-contact-form hm-contact-form--{{default "centered" $c.variant}}">
   <div class="hm-contact-form__intro">
-    {{with $c.heading}}<h2 class="hm-contact-form__heading" {{hmf "heading"}}>{{.}}</h2>{{end}}
+    {{with $c.heading}}{{if eq (print $c.heading_level) "1"}}<h1 class="hm-contact-form__heading" {{hmf "heading"}}>{{.}}</h1>{{else}}<h2 class="hm-contact-form__heading" {{hmf "heading"}}>{{.}}</h2>{{end}}{{end}}
     {{with $c.subheading}}<p class="hm-contact-form__subheading" {{hmf "subheading"}}>{{.}}</p>{{end}}
   </div>
   {{if $f.Slug}}

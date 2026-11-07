@@ -116,7 +116,8 @@ type Server struct {
 	apiCSRFKeyOnce         sync.Once
 	apiCSRFKeyVal          []byte
 	entityService          *entity.Service
-	previewLinks           *previewlink.Store // shared draft preview links; nil without a database
+	formUsage              *entity.FormUsageIndex // where each form is placed; cleared by entity changes
+	previewLinks           *previewlink.Store     // shared draft preview links; nil without a database
 	mediaService           *media.Service
 	logoSizes              logoSizeCache // logo pixel sizes by URL; see render_logo.go
 	menuService            *menu.Service
@@ -391,6 +392,7 @@ func (s *Server) setupDependencies() {
 		s.authService.NeverLock(s.cfg.Demo.LoginEmail)
 	}
 	s.entityService = entity.NewService(schemaRepo, entityRepo, s.logger)
+	s.formUsage = entity.NewFormUsageIndex(s.entityService)
 	// The block and theme_part types are created by code, not a migration.
 	if s.db != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

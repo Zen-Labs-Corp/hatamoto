@@ -275,6 +275,15 @@ plus `#<anchor_attribute>` (no fragment when that is unset); entities without a
 numeric grouping attribute keep their own page. A preview of staged changes
 shows the entity itself.
 
+## Hosted form page `/f/{slug}`
+
+Each Active form has a hosted page at `/f/{slug}`, shown in the theme with a noindex
+meta tag and header. A Paused, Archived or unknown form answers with the themed 404.
+The path is not part of a schema pattern. The request is resolved through the registry
+first: an entity or redirect at a path under `/f/` wins, and only otherwise does the
+form page answer. `f` is not a schema section prefix reservation; it is only reserved
+as an admin address. The page is not in the sitemap or `llms.txt`.
+
 ## Sitemap rules
 
 * `sitemap.xml` is the index; each `sitemap_group` gets one child

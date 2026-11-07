@@ -16,7 +16,7 @@ In this guide you design a form on the **Build** tab, check how it behaves with 
 
 ### Create the form and add fields
 
-1. Open **Forms** (`<admin>/forms`), press **New form**, give it a name such as "Contact" and press **Create form**. The form opens on its **Build** tab at `<admin>/forms/design/{id}`.
+1. Open **Forms** (`<admin>/forms`), press **New form**, pick a template, give it a name such as "Contact" and press **Create form**. The form opens on its **Build** tab at `<admin>/forms/design/{id}`. The templates are Blank, Contact, Quote request, Newsletter signup, Event RSVP and Job application. Every new form starts **Paused**, so nothing is accepted until you set it to **Active**.
 
 2. Add fields from the list on the left. Click a field type to add it after the selected field, or drag it to the place you want. Use the search box to find a type. Besides text, email, phone, long text, choices, date, number and web address, there are layout types (a heading, a paragraph of text and a divider), a consent checkbox and a hidden value.
 
@@ -36,11 +36,20 @@ In this guide you design a form on the **Build** tab, check how it behaves with 
 
 9. Set the status from the bar on the Build tab, or on Settings: **Active** accepts submissions, **Paused** shows nothing and accepts nothing, and **Archived** retires the form.
 
-10. Open **Share and embed** for the address a hand-built form posts to and a ready embed code. To place the form on a page, add the **form** element in the page builder, or a contact-form section if your theme has one.
+10. To place the form on a page, add the **form** element in the page builder, or a contact-form section if your theme has one. Open the **Share** tab for other ways to share it, described below.
 
 ## Check it worked
 
 Reload the Build tab: your fields are in the order you left them. Open **Submissions** and send a test through the page that shows the form; the answer appears in the list.
+
+### Share tab
+
+The **Share** tab (`<admin>/forms/design/{id}/share`) shows where the form is used and how to share it. Each copy box has a **Copy** button.
+
+- **Used on.** A table of the pages that show the form, through the form element or a shortcode. For each page it shows the views, submissions and conversion over the last 30 days; a page with no visits shows a dash for conversion. A form placed in a theme part or a block is listed by its area name, such as "Footer", without a path. Pages that only reuse a block holding the form are not listed individually.
+- **Shortcode.** Type `[form slug="contact"]` in a rich text widget, a rich text field or a page body to show the form there. On its own line it is replaced by the form. A form that is Paused, Archived or does not exist shows nothing to visitors, so the shortcode never leaves a broken form behind.
+- **Link.** Every Active form has a page of its own at `/f/{slug}` in your theme, which search engines are asked not to index. A Paused or Archived form answers with the not found page. If a page or redirect already uses a path under `/f/`, that page or redirect is served and the form page does not replace it. The tab says the link is paused when the form is not Active.
+- **Endpoint and HTML.** The address a hand-built form posts to, and generated HTML you can paste into a page you build yourself. The HTML includes the hidden honeypot field, unless you turned the honeypot off in Settings. It cannot carry a captcha: a form that uses one must be shown with the form element or the shortcode.
 
 ### Submissions tab
 

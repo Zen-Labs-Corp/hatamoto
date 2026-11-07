@@ -11,7 +11,7 @@ import (
 // a doc that reached storage another way never skips the policy.
 func init() {
 	registerWidget("richtext", func(w *widgetCtx) (any, error) {
-		return template.HTML(entity.SanitizeRichText(str(w.P, "html"))), nil // #nosec G203 -- sanitised above
+		return expandShortcodes(entity.SanitizeRichText(str(w.P, "html")), w.View), nil
 	})
 	registerWidget("html", func(w *widgetCtx) (any, error) {
 		w.Class = "hm-html hm-w-html"                                               // hm-w-html lets the lint skip the author's style attributes

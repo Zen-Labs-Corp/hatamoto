@@ -52,8 +52,20 @@ The main menu lists Overview, then Site (Entities, Media, Forms, Analytics) and 
 (Plugins, Theme, Settings). Forms and Media are main-menu items at `<admin>/forms` and
 `<admin>/media`, not Settings sections. The Forms item carries a badge with the number of
 new submissions (hidden at zero, the same for every role that sees Forms; spam is not
-counted). The Forms page has two tabs: Forms (`<admin>/forms`) and Spam (`<admin>/forms/spam`, owner only). Media is one plain
+counted). The Forms page (`<admin>/forms`) has no tabs row. It shows a stat strip (submissions in 30 days, unread, spam caught, active forms and a 14 day
+sparkline), a table with a 30 day count and sparkline, an unread count and a "Used on" cell per form,
+and the five latest submissions across forms, each linking to that form's Submissions tab with
+the drawer open. The header has **New form**, which opens a dialog with six templates (Blank,
+Contact, Quote request, Newsletter signup, Event RSVP and Job application; `<admin>/forms/new` is
+the no-JavaScript fallback), and, for owners, a **Spam protection** button to `<admin>/forms/spam`,
+which keeps its own tabs. A form made from a template starts Paused. Media is one plain
 page with no secondary sidebar.
+
+**Share tab.** `<admin>/forms/design/{id}/share` lists where the form is used (pages with the form
+element or a `[form slug="..."]` shortcode, with views, submissions and conversion per page over
+30 days; a theme part or block is named by its area, with no path), and gives the shortcode, the
+hosted link `/f/{slug}`, the endpoint and generated HTML, each with a Copy button. The link and
+the endpoint use the public base URL. A form that is not Active says its link is paused.
 
 **Submissions tab.** `<admin>/forms/design/{id}/submissions` is the one place to read a form's
 submissions. It shows stat cards (new, total, last 30 days, conversion), a search box (it looks in
