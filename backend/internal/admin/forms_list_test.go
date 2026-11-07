@@ -103,7 +103,7 @@ func TestBuildFormsList(t *testing.T) {
 	first := d.Latest.Rows[0]
 	if first.Cells[0].Text != "Ada" || first.Cells[0].Sub != "ada@example.com" || first.Cells[1].Text != "Contact" ||
 		first.Cells[2].Text != "Hello there" || !strings.Contains(first.Cells[0].Link, "/forms/design/"+contact.ID.String()+"/submissions?s=") ||
-		!strings.Contains(first.Class, "unread") {
+		first.Cells[0].Tag == nil {
 		t.Errorf("latest first row = %+v", first)
 	}
 }

@@ -289,18 +289,18 @@ func (a *Admin) latestTable(rows []latestRow, now time.Time, loc *time.Location)
 		},
 	}
 	for _, r := range rows {
+		id := r.sub.ID.String()
 		from := submissionFrom(r.form, r.sub)
 		sub := submissionEmail(r.form, r.sub)
 		if sub == from {
 			sub = ""
 		}
-		class := "hm-ss__row"
+		cell := ui.Cell{Text: from, Link: a.tabURL(r.form.ID, "", "", 1, id), Sub: sub}
 		if r.sub.Status == form.SubmissionStatusNew {
-			class += " hm-ss__row--unread"
+			cell.Tag = &ui.Badge{Label: "New", Kind: "info"}
 		}
-		id := r.sub.ID.String()
-		t.Rows = append(t.Rows, ui.Row{ID: id, Label: "submission from " + from, Class: class, Cells: []ui.Cell{
-			{Text: from, Link: a.tabURL(r.form.ID, "", "", 1, id), Sub: sub},
+		t.Rows = append(t.Rows, ui.Row{ID: id, Label: "submission from " + from, Cells: []ui.Cell{
+			cell,
 			{Text: r.form.Name},
 			{Text: submissionExcerpt(r.form, r.sub), Clip: true},
 			{Text: relTime(now, r.sub.CreatedAt), Title: fmtDateTime(r.sub.CreatedAt.In(loc)), Nowrap: true},
