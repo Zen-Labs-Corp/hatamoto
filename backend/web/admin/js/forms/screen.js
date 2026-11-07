@@ -65,7 +65,11 @@ function start(root, boot) {
     savestate.dataset.short = text;
     reload?.remove();
     reload = null;
-    if (state === "conflict" || state === "stopped") {
+    const stopped = state === "conflict" || state === "stopped";
+    saveBtn.disabled = stopped;
+    if (stopped) saveBtn.title = `Saving is off: ${text}`;
+    else saveBtn.removeAttribute("title");
+    if (stopped) {
       reload = h("a", { href: location.href, text: "Reload", onclick: () => (leaving = true) });
       stateEl.after(reload);
     }
@@ -209,6 +213,8 @@ function start(root, boot) {
   undoBtn.addEventListener("click", () => history(undo));
   redoBtn.addEventListener("click", () => history(redo));
   saveBtn.addEventListener("click", () => saver.save());
+  // A stopped save does nothing; Ctrl/Cmd+S says why instead of staying silent.
+  const saveKey = () => (saver.state === "conflict" || saver.state === "stopped" ? announce(`Not saved. ${stateText.textContent}`) : saver.save());
   titleEl.addEventListener("input", () => run([{ op: "setMeta", key: "name", value: titleEl.value }], { label: "Rename form", coalesce: "meta:name" }));
   statusEl?.addEventListener("change", () => run([{ op: "setMeta", key: "status", value: statusEl.value }], { label: "Change status" }));
 
@@ -267,7 +273,7 @@ function start(root, boot) {
     e.preventDefault();
     switch (key) {
       case "save":
-        return void saver.save();
+        return void saveKey();
       case "undo":
         return history(undo);
       case "redo":
