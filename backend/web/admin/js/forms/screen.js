@@ -120,7 +120,18 @@ function start(root, boot) {
     announce,
   });
   const inspector = mountInspector(part("inspector"), { getDoc: doc, getSelected: () => selected, commit: (ops, o) => run(ops, o), getErrors: () => errors, announce });
-  const palette = mountPalette(part("palette"), { types: boot.types ?? [], onAdd: (type) => add(type), onDragStart: (type, e) => drag.start(e, { type }) });
+  // Below the three-column width the palette folds behind "Add a field"; the canvas stays the first thing on the screen.
+  const addToggle = part("addtoggle");
+  const setAdd = (open) => {
+    root.dataset.add = open ? "open" : "closed";
+    addToggle.setAttribute("aria-expanded", String(open));
+  };
+  addToggle.hidden = false;
+  addToggle.addEventListener("click", () => setAdd(addToggle.getAttribute("aria-expanded") !== "true"));
+  const palette = mountPalette(part("palette"), { types: boot.types ?? [], onAdd: (type) => {
+      add(type);
+      if (!matchMedia("(min-width: 960px)").matches) setAdd(false);
+    }, onDragStart: (type, e) => drag.start(e, { type }) });
   const drag = createFormDrag({
     sheet: sheetEl,
     rowRects: canvas.rowRects,

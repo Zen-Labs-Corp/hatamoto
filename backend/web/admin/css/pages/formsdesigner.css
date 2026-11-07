@@ -22,7 +22,13 @@
 .hm-fd__palette, .hm-fd__inspector, .hm-fd__canvas { min-width: 0; padding: var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .hm-fd__canvas { background: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0) 0 0 / var(--space-4) var(--space-4), var(--bg); }
 .hm-fd__palette, .hm-fd__inspector { display: flex; flex-direction: column; gap: var(--space-3); }
+.hm-fd__add { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--control-h); border: 1px solid var(--border-control); border-radius: var(--radius-md); background: var(--surface); color: var(--text); font: inherit; font-weight: var(--weight-semibold); cursor: pointer; }
+.hm-fd__add[hidden] { display: none; }
+.hm-fd__add[aria-expanded="true"] { border-color: var(--text); }
+.hm-fd:not([data-add="open"]) .hm-fd__palette { display: none; }
 @media (min-width: 960px) {
+  .hm-fd__add { display: none; }
+  .hm-fd:not([data-add="open"]) .hm-fd__palette { display: flex; }
   .hm-fd { grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr) minmax(16rem, 22rem); align-items: start; }
   .hm-fd__palette, .hm-fd__inspector { position: sticky; inset-block-start: var(--space-3); max-block-size: calc(100vh - var(--space-12)); overflow-y: auto; }
 }

@@ -47,10 +47,10 @@ function control(f) {
     case "radio":
     case "checkbox":
       // the public widget's own markup, switched off: real radios and boxes, the default ticked
-      if (f.type === "checkbox" && !(f.options ?? []).length) return h("div", { class: "hm-fd-field__opts" }, choice("checkbox", f.label || "I agree", false));
+      if (f.type === "checkbox" && !(f.options ?? []).length) return h("div", { class: "hm-fd-field__opts" }, choice("checkbox", "I agree", false));
       return h("div", { class: "hm-fd-field__opts hm-field__group" }, ...(f.options ?? []).map((o) => choice(f.type, o.label, f.type === "radio" && o.value === f.default_value)));
     case "consent":
-      return h("div", { class: "hm-fd-field__opts" }, choice("checkbox", f.label || "I agree", false));
+      return h("div", { class: "hm-fd-field__opts" }, choice("checkbox", "I agree", false));
     case "hidden":
       return h("div", { class: "hm-muted", text: "Hidden value: not shown to visitors" });
     default:
@@ -128,7 +128,7 @@ export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}),
       const error = errors[f.id] ?? "";
       // The label input is patched, not rebuilt (a label edit renames the field too, and a rebuild on blur
       // would swallow the click that caused the blur).
-      const sig = JSON.stringify([{ ...f, label: f.type === "consent" || (f.type === "checkbox" && !f.options?.length) ? f.label : undefined, name: undefined }, error, fields.map((x) => (x.id === f.logic?.field_id ? x.label || x.name : 0))]);
+      const sig = JSON.stringify([{ ...f, label: undefined, name: undefined }, error, fields.map((x) => (x.id === f.logic?.field_id ? x.label || x.name : 0))]);
       let n = nodes.get(f.id);
       if (!n || n.sig !== sig) {
         const el = build(f, fields, error);

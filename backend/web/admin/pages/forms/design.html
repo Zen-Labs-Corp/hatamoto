@@ -23,7 +23,8 @@
 <template data-hm-bs-iconact>{{template "hm/button" (dict "AriaLabel" "Action" "IconOnly" true "Icon" "x" "Variant" "ghost" "Size" "sm")}}</template>
 <template data-hm-bs-warn>{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true)}}{{template "hm/callout-end"}}</template>
 <template data-hm-bs-ico>{{range .Icons}}<span data-ico="{{.}}">{{icon .}}</span>{{end}}</template>
-<aside class="hm-fd__palette" aria-label="Add a field" data-hm-fd-palette hidden data-hm-bs-js></aside>
+<button type="button" class="hm-fd__add" aria-expanded="false" aria-controls="fd-add-sheet" data-hm-fd-addtoggle hidden data-hm-bs-js>{{icon "plus"}}<span>Add a field</span></button>
+<aside class="hm-fd__palette" id="fd-add-sheet" aria-label="Add a field" data-hm-fd-palette hidden data-hm-bs-js></aside>
 <section class="hm-fd__canvas" aria-label="Form" data-hm-fd-canvas data-device="desktop">
 <div class="hm-fd__bar" hidden data-hm-bs-js>{{template "hm/segmented" (dict "Mode" "buttons" "Label" "View" "Items" (list (dict "Label" "Edit" "Icon" "edit" "Pressed" true "Attrs" (attrmap "data-hm-fd-mode" "edit")) (dict "Label" "Try it" "Icon" "eye" "Attrs" (attrmap "data-hm-fd-mode" "try"))))}}
 <span class="hm-fd__summary" data-hm-fd-summary></span>
