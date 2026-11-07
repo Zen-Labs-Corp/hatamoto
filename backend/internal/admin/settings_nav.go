@@ -57,7 +57,7 @@ var settingsLive = map[string]bool{
 	"ai-overview": true, "ai-traffic": true, "ai-conversions": true, "ai-crawlers": true, "ai-google": true, "ai-content": true, "ai-referrals": true, "ai-health": true,
 	"admin-address": true, "site-access": true, "versions": true, "api": true, "updates": true, "jobs": true, "backups": true, "changes": true, "subscriptions": true, "deliveries": true, "email": true, "email-log": true,
 	"seo-general": true, "seo-titles": true, "seo-social": true, "seo-schema": true, "seo-kg": true, "seo-robots": true, "seo-ads-txt": true, "seo-verification": true, "seo-sitemap": true, "seo-breadcrumbs": true, "seo-indexnow": true, "seo-404": true,
-	"privacy": true, "tracking": true, "contact-button": true,
+	"privacy": true, "tracking": true, "contact-button": true, "theme-strings": true,
 	"user-sign-in": true, "locales": true, "locale-addresses": true, "locale-business": true, "search-replace": true,
 }
 
@@ -182,6 +182,9 @@ var themeRegistry = []settingsSectionDef{
 	}},
 	{ID: "menus", Label: "Menus", Icon: "menu", Desc: "The navigation menus of your site.", Tabs: []settingsTabDef{
 		{ID: "menus", Label: "Menus", Final: "/theme/menus"},
+	}},
+	{ID: "theme-strings", Label: "Strings", Icon: "globe", Desc: "Translate the theme's own words for each locale.", Tabs: []settingsTabDef{
+		{ID: "theme-strings", Label: "Strings", Final: "/theme/strings", Roles: ownerOnly},
 	}},
 	{ID: "contact-button", Label: "Contact button", Icon: "send", Desc: "A floating button that opens WhatsApp, a call, a text or an email.", Tabs: []settingsTabDef{
 		{ID: "contact-button", Label: "Contact button", Final: "/theme/contact-button", Roles: ownerOnly},

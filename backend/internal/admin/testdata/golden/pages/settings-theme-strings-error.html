@@ -72,10 +72,29 @@
 <div class="hm-shell__main">
 <div class="hm-topbar"><button type="button" class="hm-btn hm-btn--ghost hm-btn--sm hm-btn--icon" aria-label="Toggle sidebar" aria-controls="hm-sidebar" aria-expanded="true" data-hm-sidebar-toggle="" hidden=""><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></button><span class="hm-topbar__sep" aria-hidden="true"></span><nav class="hm-topbar__crumbs" aria-label="Breadcrumb"><ol><li><a href="/admin">Home</a></li><li><a href="/admin/theme">Theme</a></li><li aria-current="page">Theme strings</li></ol></nav></div>
 <main id="hm-main" class="hm-content">
+<div class="hm-settings">
+<nav class="hm-subnav" aria-label="Theme">
+<h2 class="hm-subnav__title hm-visually-hidden">Theme</h2>
+<ul class="hm-subnav__list" role="list"><li><a class="hm-subnav__link" href="/admin/theme/themes"><span>Themes</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/colours"><span>Colours and fonts</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/additional-css"><span>Additional CSS</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/design-system"><span>Design system</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/presets"><span>Style presets</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/parts"><span>Layout parts</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/blocks"><span>Blocks</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/templates"><span>Templates</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/menus"><span>Menus</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/strings" aria-current="page"><span>Strings</span></a></li>
+<li><a class="hm-subnav__link" href="/admin/theme/contact-button"><span>Contact button</span></a></li>
+</ul>
+</nav>
 <div class="hm-page" data-width="wide">
 
 
+<header class="hm-section-head">
+<div class="hm-section-head__titles"><h1>Strings</h1><p class="hm-muted">Translate the theme&#39;s own words for each locale.</p></div>
 
+</header>
 <div class="hm-formerrors" id="hm-form-errors" role="alert" tabindex="-1" data-hm-focus><h2 class="hm-formerrors__title">There is a problem with this form</h2><ul><li><a href="#theme-strings-s_search">search: text must not contain &lt;, &gt; or &amp;</a></li></ul></div>
 <div class="hm-callout hm-callout--info" id="theme-strings-help" role="note"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><div class="hm-callout__main"><p class="hm-callout__title">Leave blank to use the theme default</p><div class="hm-callout__body">A blank text prints the theme default. On a site with several locales it prints the default locale&#39;s text first.</div></div></div>
 <form method="post" action="/admin/theme/strings?locale=en" id="theme-strings">
@@ -92,6 +111,7 @@
 <footer class="hm-card__foot hm-card__foot--plain"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer>
 </form>
 
+</div>
 </div>
 </main>
 <footer class="hm-colophon"><a href="https://hatamoto.dev" rel="noopener" target="_blank" title="Hatamoto dev build">Hatamoto dev build <span aria-hidden="true">&middot;</span> Stand close. Serve well.</a></footer>
