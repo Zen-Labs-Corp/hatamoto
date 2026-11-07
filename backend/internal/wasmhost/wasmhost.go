@@ -98,6 +98,15 @@ type Host struct {
 	now        func() time.Time
 	idleWindow time.Duration
 	evicted    atomic.Int64 // instances closed for idleness since start
+
+	// The sweeper is one goroutine per host, started by the first load. started
+	// and closed are guarded by mu; sweepEvery is fixed like idleWindow.
+	sweepEvery time.Duration
+	stop       chan struct{}
+	wg         sync.WaitGroup
+	started    bool
+	closed     bool
+	closeOnce  sync.Once
 }
 
 // IdleWindow is how long a pooled instance may sit unused before it is closed,
@@ -120,7 +129,7 @@ func New(log *slog.Logger, cacheDir string) (*Host, error) {
 	if log == nil {
 		log = slog.Default()
 	}
-	h := &Host{log: log, now: time.Now, idleWindow: IdleWindow}
+	h := &Host{log: log, now: time.Now, idleWindow: IdleWindow, sweepEvery: IdleWindow / 5, stop: make(chan struct{})}
 	h.cache = wazero.NewCompilationCache()
 	if cacheDir != "" {
 		if c, err := openCache(cacheDir); err != nil {
@@ -318,6 +327,7 @@ func (h *Host) load(ctx context.Context, m sdk.Manifest, wasm []byte) error {
 	prev := next[m.Name]
 	next[m.Name] = p
 	h.reg.Store(&next)
+	h.startSweeper()
 	h.mu.Unlock()
 
 	if prev != nil {
@@ -394,12 +404,52 @@ func (h *Host) hostFunction(name string, log *slog.Logger) extism.HostFunction {
 		[]extism.ValueType{extism.ValueTypePTR}, []extism.ValueType{extism.ValueTypePTR})
 }
 
-// Close unloads every plugin and the compilation cache.
-func (h *Host) Close(ctx context.Context) {
-	for _, name := range h.Loaded() {
-		h.Unload(ctx, name)
+// startSweeper starts the idle sweeper unless it runs or the host is closed.
+// The caller holds h.mu, which orders it against Close (no wg.Add after Wait).
+func (h *Host) startSweeper() {
+	if h.started || h.closed {
+		return
 	}
-	_ = h.cache.Close(ctx)
+	h.started = true
+	h.wg.Add(1)
+	go func() {
+		defer h.wg.Done()
+		t := time.NewTicker(h.sweepEvery)
+		defer t.Stop()
+		for {
+			select {
+			case <-h.stop:
+				return
+			case <-t.C:
+				h.sweepAll()
+			}
+		}
+	}()
+}
+
+// sweepAll runs one idle sweep over the plugins loaded now. It reads the
+// lock-free registry and takes no host lock.
+func (h *Host) sweepAll() {
+	now := h.now()
+	for _, p := range *h.reg.Load() {
+		h.evicted.Add(int64(p.sweepIdle(now, h.idleWindow)))
+	}
+}
+
+// Close stops the sweeper, then unloads every plugin and the compilation
+// cache. It is safe to call more than once.
+func (h *Host) Close(ctx context.Context) {
+	h.closeOnce.Do(func() {
+		h.mu.Lock()
+		h.closed = true
+		close(h.stop)
+		h.mu.Unlock()
+		h.wg.Wait() // not under h.mu: the sweeper never takes it, but Unload does
+		for _, name := range h.Loaded() {
+			h.Unload(ctx, name)
+		}
+		_ = h.cache.Close(ctx)
+	})
 }
 
 // Loaded reports the names currently loaded, sorted.
