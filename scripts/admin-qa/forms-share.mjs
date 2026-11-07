@@ -29,7 +29,7 @@ const shortcode = await val("share-shortcode");
 const slug = shortcode.match(/slug="([^"]+)"/)?.[1];
 ok(!!slug, `shortcode ${shortcode}`);
 ok((await val("share-link")).endsWith(`/f/${slug}`), "the link points at the hosted page");
-ok(/<form[^>]+action="[^"]+\/forms\/[^"]+\/submit"/.test(await val("share-html")), "the markup posts to the endpoint");
+ok(/<form[^>]+action="https?:\/\/[^"\/]+\/forms\/[^"\/]+\/submit"/.test(await val("share-html")), "the markup posts to the endpoint");
 ok(/This form is paused/.test(await page.locator("main").innerText()), "a new form is Paused and the tab says so");
 ok((await page.request.get(`${base}/f/${slug}`)).status() === 404, "the hosted page is not found while paused");
 await page.goto(`${base}${admin}/forms`);

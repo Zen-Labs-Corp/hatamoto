@@ -184,7 +184,8 @@ func (a *Admin) renderFormShare(w http.ResponseWriter, r *http.Request, f *form.
 	}
 	origin := a.addressOrigin(r)
 	endpoint := origin + a.formEndpoint(f.Slug)
-	markup := absoluteInsert(form.EmbedHTML(f, endpoint), `<input type="hidden" name="_redirect" value="`+formHostedPath(f)+`">`)
+	// The pasted form posts to the redirecting no-JS route; the JSON API URL is for scripts.
+	markup := absoluteInsert(form.EmbedHTML(f, origin+"/forms/"+f.Slug+"/submit"), `<input type="hidden" name="_redirect" value="`+formHostedPath(f)+`">`)
 	fields := 0
 	for _, fl := range f.Fields {
 		if fl.IsInput() {

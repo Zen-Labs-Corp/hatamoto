@@ -26,11 +26,14 @@ func TestShareTabCopyAndMarkup(t *testing.T) {
 		`value="https://site.test/api/v1/public/forms/contact/submit"`,
 		`data-hm-copy-field="share-shortcode"`, `data-hm-copy-field="share-link"`,
 		`data-hm-copy-field="share-endpoint"`, `data-hm-copy-field="share-html"`,
-		`action=&#34;https://site.test/api/v1/public/forms/contact/submit&#34;`, `name=&#34;hm_website&#34;`, `name=&#34;_redirect&#34;`,
+		`action=&#34;https://site.test/forms/contact/submit&#34;`, `name=&#34;hm_website&#34;`, `name=&#34;_redirect&#34;`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("share tab lacks %q", want)
 		}
+	}
+	if strings.Contains(body, `action=&#34;https://site.test/api/`) {
+		t.Error("the generated markup posts to the JSON API, not the redirecting form route")
 	}
 	if strings.Contains(body, "This form is paused") {
 		t.Error("an active form is described as paused")
