@@ -249,8 +249,16 @@ func TestFormListNewAndDelete(t *testing.T) {
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("list a11y: %v", issues)
 	}
-	if !strings.Contains(body, `hm-badge--info`) || !strings.Contains(body, "Last 14 days") {
-		t.Errorf("list lacks the New badge or the 14-day column")
+	for _, want := range []string{"1 unread", "Submissions, 30 days", "Latest submissions, all forms", `data-hm-open="new-form"`, `name="template"`, "Spam protection"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("list lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "Forms sections") {
+		t.Errorf("list still carries the tabs row")
+	}
+	if ed := g.do("GET", "/admin/forms", "editor-token", nil, nil).Body.String(); strings.Contains(ed, "Spam protection") {
+		t.Errorf("an editor is offered the owner-only Spam protection page")
 	}
 	newPage := g.do("GET", "/admin/forms/new", "owner-token", nil, nil).Body.String()
 	if issues := a11y.Check(newPage, a11y.Options{Page: true}); len(issues) > 0 {
@@ -694,25 +702,6 @@ func TestSubmissionsOverviewShowsStatsTrackerAndFilters(t *testing.T) {
 	}
 }
 
-func TestFormActivityCells(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
-	subs := []*form.FormSubmission{{CreatedAt: now.Add(-time.Hour)}, {CreatedAt: now.Add(-48 * time.Hour)}}
-	total, last := formActivityCells(subs, 9, false, nil, now, time.UTC)
-	if total.Text != "9" || last.Text != "" || last.Spark == nil {
-		t.Errorf("complete scan: total %+v last %+v", total, last)
-	}
-	total, last = formActivityCells(subs, 9, true, nil, now, time.UTC)
-	if total.Text != "9" || last.Text != "2+" || last.Spark != nil {
-		t.Errorf("capped scan must show a lower bound and no spark: total %+v last %+v", total, last)
-	}
-	total, last = formActivityCells(nil, 0, false, errors.New("db down"), now, time.UTC)
-	if total.Text != "—" || last.Text != "—" {
-		t.Errorf("failed scan must show dashes, not 0: total %+v last %+v", total, last)
-	}
-}
-
 func TestFormsTabs(t *testing.T) {
 	t.Parallel()
 
@@ -730,7 +719,7 @@ func TestFormsTabs(t *testing.T) {
 		role, active string
 		want         []string
 	}{
-		{"owner", "forms", []string{"Forms", "Submissions", "Spam"}},
+		{"owner", "submissions", []string{"Forms", "Submissions", "Spam"}},
 		{"owner", "spam", []string{"Forms", "Submissions", "Spam"}},
 		{"editor", "submissions", []string{"Forms", "Submissions"}},
 	} {

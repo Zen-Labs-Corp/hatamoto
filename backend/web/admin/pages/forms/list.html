@@ -1,5 +1,17 @@
 {{template "layouts/shell" .}}
-{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Forms" "Description" "Forms on your site and what visitors send through them." "Actions" .Actions}}
-{{template "hm/tabs" dict "Label" "Forms sections" "Items" .Tabs}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Forms" "Description" "Build forms, see what comes in, and decide where it goes." "Actions" .Actions}}
+{{if .HasForms}}{{template "hm/stats" dict "Variant" "strip" "Items" .Stats}}{{end}}
 {{template "hm/table" .Table}}
+{{if .Latest.Rows}}<h2>Latest submissions, all forms</h2>
+{{template "hm/table" .Latest}}{{end}}
+{{template "hm/dialog-start" dict "ID" "new-form" "Title" "New form" "Description" "Pick a template to start from. The form starts paused, so nothing goes live until you set it to Active." "Static" true}}
+<form id="new-form-form" method="post" action="{{adminPath}}/forms">{{template "hm/csrf" $}}
+<div class="hm-stack">
+{{template "hm/radiocard" dict "Legend" "Template" "Name" "template" "ID" "template" "Cols" 2 "Items" .TemplateItems}}
+{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Help" "Leave empty to use the template name." "Attrs" (attrmap "maxlength" "120" "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "slug" "Name" "slug" "Label" "Identifier" "Help" "Used in the form's address. Leave empty to make it from the name." "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "description" "Name" "description" "Label" "Description" "Control" "textarea" "Rows" 3 "Help" "Only shown here, to you."}}
+</div>
+</form>
+{{template "hm/dialog-end" dict "CloseLabel" "Cancel" "Primary" "Create form" "PrimaryAttrs" (attrmap "form" "new-form-form")}}
 {{end}}{{end}}
