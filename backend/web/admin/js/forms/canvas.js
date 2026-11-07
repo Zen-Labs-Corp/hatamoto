@@ -59,6 +59,11 @@ export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}),
   root.setAttribute("aria-label", "Form fields");
   const nodes = new Map(); // id -> {el, sig}
   const said = new Map(); // id -> last announced error
+  let quiet = false; // a focus the screen moves itself does not select
+  root.addEventListener("focusin", (e) => {
+    const id = quiet ? null : e.target.closest?.("[data-id]")?.dataset.id;
+    if (id) onSelect(id);
+  });
 
   function build(f, fields, error) {
     const el = h("div", { role: "option", "data-id": f.id, tabindex: "-1" });
@@ -129,7 +134,12 @@ export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}),
 
   return {
     draw,
-    focusField: (id) => nodes.get(id)?.el.focus(),
+    focusField: (id, { quiet: q = false } = {}) => {
+      quiet = q;
+      nodes.get(id)?.el.focus();
+      quiet = false;
+    },
+    contains: (el) => root.contains(el),
     rowRects: () => Array.from(root.querySelectorAll(":scope > [data-id]"), (el) => el.getBoundingClientRect()),
   };
 }

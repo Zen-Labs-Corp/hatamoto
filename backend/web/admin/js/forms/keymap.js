@@ -6,6 +6,7 @@
  * resolveKey(e, ctx) -> action name or null.
  * e: {key, ctrlKey, metaKey, shiftKey, altKey, isComposing, getModifierState?}.
  * ctx: {text (the target is an input, textarea, select or editable), selected (a field is
+ * selected), canvas (the target is inside the canvas: Up and Down then pick a field when none is
  * selected), control (the target is a button, link or other control: it keeps Enter, Space,
  * arrows and Backspace)}.
  * Actions: move-up move-down duplicate delete undo redo save deselect prev next help.
@@ -30,7 +31,8 @@ export function resolveKey(e, ctx) {
     return k === "ArrowUp" ? "move-up" : k === "ArrowDown" ? "move-down" : null;
   }
   if (k === "?") return "help";
-  if (e.shiftKey || ctx.control || !ctx.selected) return null;
+  if (e.shiftKey || ctx.control) return null;
+  if (!ctx.selected) return ctx.canvas && k === "ArrowUp" ? "prev" : ctx.canvas && k === "ArrowDown" ? "next" : null;
   switch (k) {
     case "Delete":
     case "Backspace":

@@ -261,7 +261,7 @@ function start(root, boot) {
     if (t.closest?.("dialog[open]")) return;
     const text = !!t.closest?.("input, textarea, select, [contenteditable]");
     const control = !!t.closest?.("button, a[href], summary, [role=switch]");
-    const key = resolveKey(e, { text, selected: !!selected, control });
+    const key = resolveKey(e, { text, selected: !!selected, control, canvas: canvas.contains(t) });
     if (!key) return;
     e.preventDefault();
     switch (key) {
@@ -277,7 +277,7 @@ function start(root, boot) {
         return step(1);
       case "deselect":
         select(null);
-        return void sheetEl.querySelector('[tabindex="0"]')?.focus();
+        return canvas.focusField(sheetEl.querySelector('[tabindex="0"]')?.dataset.id, { quiet: true });
       case "help":
         return void sheetChunk().then((m) => ((sheet ??= m.createSheet(GROUPS)), sheet.open()));
       default:

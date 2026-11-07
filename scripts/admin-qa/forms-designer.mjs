@@ -202,6 +202,19 @@ await open(formId);
   await page.keyboard.press("ArrowUp");
   ok((await selected()) === (await doc()).fields[0].id, "A3: Up selects the previous field");
 
+  // keyboard only: focusing a row selects it, and the arrows pick a field when none is selected
+  await page.keyboard.press("Escape");
+  ok((await selected()) === null && (await page.evaluate(() => document.activeElement?.dataset.id != null)), "A3: Esc deselects and leaves focus on a row");
+  await page.keyboard.press("ArrowDown");
+  ok((await selected()) === (await doc()).fields[0].id, "A3: Down with nothing selected picks the first field");
+  await page.keyboard.press("Escape");
+  await (await rowAt(1)).focus();
+  ok((await selected()) === (await doc()).fields[1].id, "A3: focusing a row selects it");
+  const second1 = (await doc()).fields[1].id;
+  await page.keyboard.press("Alt+ArrowUp");
+  ok((await doc()).fields[0].id === second1, "A3: Alt+Up then reorders it, with no mouse");
+  await page.keyboard.press("Alt+ArrowDown");
+
   // typing in a field's label keeps every shortcut to itself
   const before = JSON.stringify(await doc());
   const input = (await rowAt(0)).locator("[data-hm-fd-label]");

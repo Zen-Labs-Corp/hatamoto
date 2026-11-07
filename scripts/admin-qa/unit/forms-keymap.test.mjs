@@ -66,3 +66,11 @@ test("AltGraph and IME composition never act", () => {
   assert.equal(resolveKey({ key: "Process", keyCode: 229 }, canvas), null);
   assert.equal(resolveKey(mod("s", { isComposing: true }), inField), null);
 });
+
+test("Up and Down pick a field from the canvas when none is selected, and only there", () => {
+  assert.equal(resolveKey({ key: "ArrowDown" }, { canvas: true }), "next");
+  assert.equal(resolveKey({ key: "ArrowUp" }, { canvas: true }), "prev");
+  assert.equal(resolveKey({ key: "ArrowDown" }, {}), null);
+  assert.equal(resolveKey({ key: "Delete" }, { canvas: true }), null);
+  assert.equal(resolveKey({ key: "ArrowDown" }, { canvas: true, control: true }), null);
+});
