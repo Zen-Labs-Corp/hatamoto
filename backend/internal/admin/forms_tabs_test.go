@@ -58,6 +58,28 @@ func TestFormSettingsBoot(t *testing.T) {
 	}
 }
 
+// The Settings page carries the Build editor bar and the controls the script binds.
+func TestFormSettingsPageHasEditorBar(t *testing.T) {
+	t.Parallel()
+
+	g, ff, _ := newFormRig(t)
+	fm := ff.addForm("Contact", contactFields...)
+	body := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/settings", "owner-token", nil, nil).Body.String()
+	for _, hook := range []string{"data-hm-fd-title", "data-hm-fd-status", "data-hm-fd-state", "data-hm-fd-undo", "data-hm-fd-redo", "data-hm-fd-save"} {
+		if !strings.Contains(body, hook) {
+			t.Errorf("settings lacks the editor bar hook %s", hook)
+		}
+	}
+	for _, want := range []string{`data-hm-ti`, `data-hm-fs="notify_email"`, `data-hm-fs-seg="retention_days"`, `data-hm-fs-token="{{name}}"`, `action="/admin/forms/design/` + fm.ID.String() + `/duplicate"`, `Email (the visitor)`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("settings lacks %s", want)
+		}
+	}
+	if strings.Contains(body, "View on site") || strings.Contains(body, `name="version"`) {
+		t.Error("settings shows View on site or the old version field")
+	}
+}
+
 func TestFormSettingsOldPostIsGone(t *testing.T) {
 	t.Parallel()
 

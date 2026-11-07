@@ -1,9 +1,84 @@
 {{template "layouts/shell" .}}
 {{define "modules"}}@hm/formsdesigner{{end}}
 {{define "main"}}{{with .Data}}<h1 class="hm-visually-hidden">Settings for {{.Name}}</h1>
+{{template "hm/formseditorbar" .}}
 {{template "hm/tabs" (dict "Label" "Form sections" "Items" .Tabs)}}
 <noscript>{{template "hm/callout-start" (dict "Kind" "warning")}}The form settings need JavaScript.{{template "hm/callout-end"}}</noscript>
-<div class="hm-fs" data-hm-fs-root>
-{{if .CaptchaUnconfigured}}{{template "hm/callout-start" (dict "Kind" "warning" "Attrs" .CaptchaAttrs)}}Captcha is on for this form but no provider keys are set. Submissions are accepted unchecked.{{if .SpamLink}} <a href="{{adminPath}}/forms/spam">Set up spam protection</a>{{end}}{{template "hm/callout-end"}}{{end}}
+<div class="hm-fs" data-hm-fs-root data-hm-fd hidden data-hm-bs-js>
+<div class="hm-fs__col">
+{{template "hm/card-start" (dict "ID" "fs-after" "Title" "After someone sends it")}}
+{{template "hm/field" (dict "ID" "fs-submit-text" "Name" "submit_button_text" "Label" "Button text" "Placeholder" "Submit" "Attrs" (attrmap "data-hm-fs" "submit_button_text" "maxlength" "60"))}}
+{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Then" "Attrs" (attrmap "data-hm-fs-seg" "after") "Items" (list (dict "Label" "Show a message" "Pressed" true "Attrs" (attrmap "data-value" "message")) (dict "Label" "Go to a page" "Attrs" (attrmap "data-value" "redirect"))))}}
+<div data-hm-fs-when="@after:message" hidden>
+{{template "hm/field" (dict "ID" "fs-success" "Name" "success_message" "Label" "Message" "Control" "textarea" "Rows" 3 "Help" "Shown after a successful send. Empty shows: Thank you for your submission!" "Attrs" (attrmap "data-hm-fs" "success_message"))}}
+</div>
+<div data-hm-fs-when="@after:redirect" hidden>
+{{template "hm/field" (dict "ID" "fs-redirect" "Name" "success_redirect_url" "Label" "Page" "Placeholder" "/thank-you" "Help" "A path on this site or a full address starting with https://." "Attrs" (attrmap "data-hm-fs" "success_redirect_url" "autocomplete" "off"))}}
+<p class="hm-field__error" data-hm-fs-err="settings.success_redirect_url" hidden></p>
+</div>
+{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "fs-team" "Title" "Tell your team")}}
+<div class="hm-field">
+<span class="hm-field__label" id="fs-notify-label">Send each one to</span>
+{{template "hm/taginput" (dict "ID" "fs-notify" "Key" "notify_email" "Label" "Add a recipient" "Placeholder" "name@company.com" "Hint" "Enter or comma after each address. Empty uses the address in Settings > Email.")}}
+<p class="hm-field__error" data-hm-fs-err="settings.notify_email" hidden></p>
+</div>
+{{template "hm/field" (dict "ID" "fs-notify-subject" "Name" "notify_subject" "Label" "Subject" "Placeholder" "New enquiry" "Help" "Click a field to put its answer in the subject." "Attrs" (attrmap "data-hm-fs" "notify_subject" "maxlength" "200" "autocomplete" "off"))}}
+{{if .Tokens}}<div class="hm-fs__tokens" role="group" aria-label="Fields to put in the subject">{{range .Tokens}}{{template "hm/button" (dict "Label" . "Size" "sm" "Variant" "ghost" "Attrs" (attrmap "data-hm-fs-token" (printf "{{%s}}" .) "data-hm-fs-target" "fs-notify-subject"))}}{{end}}</div>{{end}}
+<p class="hm-field__error" data-hm-fs-err="settings.notify_subject" hidden></p>
+{{template "hm/field" (dict "ID" "fs-reply-to" "Name" "notify_reply_to" "Label" "Hitting reply goes to" "Control" "select" "Options" .ReplyTo "Attrs" (attrmap "data-hm-fs" "notify_reply_to"))}}
+<p class="hm-field__error" data-hm-fs-err="settings.notify_reply_to" hidden></p>
+{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "fs-confirm" "Title" "Confirmation to the visitor")}}
+{{template "hm/field" (dict "ID" "fs-confirm-on" "Name" "confirmation_email" "Label" "Email the visitor a copy" "Control" "switch" "Help" "Goes to the address in the form's email field." "Attrs" (attrmap "data-hm-fs" "confirmation_email"))}}
+<div class="hm-fs__sub" data-hm-fs-when="confirmation_email" hidden>
+{{template "hm/field" (dict "ID" "fs-confirm-subject" "Name" "confirmation_subject" "Label" "Subject" "Attrs" (attrmap "data-hm-fs" "confirmation_subject" "maxlength" "200" "autocomplete" "off"))}}
+<p class="hm-field__error" data-hm-fs-err="settings.confirmation_subject" hidden></p>
+{{template "hm/field" (dict "ID" "fs-confirm-msg" "Name" "confirmation_message" "Label" "Message" "Control" "textarea" "Rows" 5 "Help" "{{field_name}} inserts an answer. A summary of the answers is added below. Empty uses the message shown after sending." "Attrs" (attrmap "data-hm-fs" "confirmation_message"))}}
+<p class="hm-field__label" id="fs-preview-label">Preview, with the latest real submission</p>
+<div class="hm-fs-mail" role="group" aria-labelledby="fs-preview-label" data-hm-fs-mail>
+<dl class="hm-fs-mail__head"><dt>To</dt><dd data-hm-fs-mail-to></dd><dt>Subject</dt><dd data-hm-fs-mail-subject></dd></dl>
+<p class="hm-fs-mail__body" data-hm-fs-mail-body></p>
+<dl class="hm-fs-mail__rows" data-hm-fs-mail-rows></dl>
+</div>
+</div>
+{{template "hm/card-end"}}
+</div>
+<div class="hm-fs__col">
+{{template "hm/card-start" (dict "ID" "fs-spam" "Title" "Spam protection")}}
+{{template "hm/field" (dict "ID" "fs-captcha" "Name" "enable_captcha" "Label" "Require the spam check (captcha)" "Control" "switch" "Help" "Submissions without a passed check are refused." "Attrs" (attrmap "data-hm-fs" "enable_captcha"))}}
+{{if .CaptchaUnconfigured}}{{template "hm/callout-start" (dict "Kind" "warning" "Attrs" .CaptchaAttrs)}}Captcha is on for this form but no provider keys are set. Submissions are accepted unchecked.{{if .SpamLink}} <a href="{{adminPath}}/forms/spam">Set up spam protection</a>{{end}}{{template "hm/callout-end"}}
+{{else}}{{template "hm/callout-start" (dict "Kind" "success" "Attrs" .CaptchaAttrs)}}The spam check keys are set up.{{if .SpamLink}} <a href="{{adminPath}}/forms/spam">Change</a>{{end}}{{template "hm/callout-end"}}
+{{end}}{{template "hm/field" (dict "ID" "fs-honeypot" "Name" "honeypot" "Label" "Hidden trap field" "Control" "switch" "Help" "Invisible to people. Bots fill it in and are caught. No friction." "Attrs" (attrmap "data-hm-fs" "honeypot_off"))}}
+{{template "hm/field" (dict "ID" "fs-rate" "Name" "rate_limit_per_hour" "Label" "Per visitor, at most (sends per hour)" "Placeholder" "No limit" "Help" "Over the limit, a send is kept in Spam." "Attrs" (attrmap "data-hm-fs" "rate_limit_per_hour" "inputmode" "numeric" "autocomplete" "off"))}}
+<p class="hm-field__error" data-hm-fs-err="settings.rate_limit_per_hour" hidden></p>
+{{template "hm/field" (dict "ID" "fs-words" "Name" "blocked_words" "Label" "Treat as spam when it contains" "Control" "textarea" "Rows" 3 "Help" "One word or domain per line. Matches land in Spam, so nothing is lost." "Attrs" (attrmap "data-hm-fs" "blocked_words" "spellcheck" "false"))}}
+<p class="hm-field__error" data-hm-fs-err="settings.blocked_words" hidden></p>
+{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "fs-storage" "Title" "Storage and privacy")}}
+{{template "hm/field" (dict "ID" "fs-store" "Name" "store_submissions" "Label" "Keep submissions in the admin" "Control" "switch" "Help" "Off means email only; nothing is stored." "Attrs" (attrmap "data-hm-fs" "store_submissions"))}}
+<div class="hm-fs__sub" data-hm-fs-when="store_submissions" hidden>
+<p class="hm-field__label" id="fs-retention-label">Delete submissions after</p>
+{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Delete submissions after" "Attrs" (attrmap "data-hm-fs-seg" "retention_days") "Items" (list (dict "Label" "30 days" "Attrs" (attrmap "data-value" "30")) (dict "Label" "90 days" "Attrs" (attrmap "data-value" "90")) (dict "Label" "1 year" "Attrs" (attrmap "data-value" "365")) (dict "Label" "Never" "Pressed" true "Attrs" (attrmap "data-value" "0"))))}}
+<p class="hm-field__error" data-hm-fs-err="settings.retention_days" hidden></p>
+{{template "hm/field" (dict "ID" "fs-noip" "Name" "no_ip" "Label" "Do not store IP addresses" "Control" "switch" "Attrs" (attrmap "data-hm-fs" "no_ip"))}}
+</div>
+{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "fs-hooks" "Title" "Send to other tools" "Description" "Webhooks send form.submitted with every answer. Every active webhook on that event gets all forms.")}}
+<ul class="hm-fs-hooks" data-hm-fs-hooks></ul>
+<p class="hm-muted" data-hm-fs-nohooks hidden>No webhook listens for form submissions yet.</p>
+<template data-hm-fs-hook><li class="hm-fs-hook"><span class="hm-fs-hook__dot" aria-hidden="true"></span><span class="hm-fs-hook__name"></span><span class="hm-muted hm-fs-hook__last"></span></li></template>
+{{template "hm/button" (dict "Label" "Add webhook" "Icon" "plus" "Size" "sm" "Href" (printf "%s/settings/webhooks" adminPath))}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" (dict "ID" "fs-danger" "Title" "Danger zone")}}
+<p class="hm-muted">Duplicate makes a paused copy with the same fields and settings. Archive takes the form out of use and keeps its submissions. Delete removes the form and all its submissions.</p>
+{{template "hm/card-foot"}}
+<div class="hm-row hm-fs__danger">
+<form method="post" action="{{adminPath}}/forms/design/{{.ID}}/duplicate">{{template "hm/csrf" $}}{{template "hm/button" (dict "Label" "Duplicate form" "Type" "submit")}}</form>
+{{template "hm/button" (dict "Label" "Archive" "Attrs" (attrmap "data-hm-fs-archive" ""))}}
+{{template "hm/button" (dict "Label" "Delete form" "Variant" "danger-text" "Icon" "trash" "Href" (printf "%s/forms/delete/%s" adminPath .ID))}}
+</div>
+{{template "hm/card-foot-end"}}
+</div>
 {{.Boot}}
 </div>{{end}}{{end}}

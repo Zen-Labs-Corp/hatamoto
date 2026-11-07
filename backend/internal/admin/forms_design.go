@@ -42,10 +42,12 @@ type formDesignType struct {
 // Settings and Share tabs reuse.
 type formDesignData struct {
 	ID, Name, Slug, Status string
-	Tabs                   []ui.Tab
-	Statuses               []ui.Option
-	Icons                  []string
-	Boot                   template.HTML
+	// ViewURL is the form's public page for "View on site"; empty because forms have none.
+	ViewURL  string
+	Tabs     []ui.Tab
+	Statuses []ui.Option
+	Icons    []string
+	Boot     template.HTML
 }
 
 // formDesignTabs is the tab strip across the designer. active is "build",
