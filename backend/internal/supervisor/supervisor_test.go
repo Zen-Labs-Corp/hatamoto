@@ -220,7 +220,9 @@ func (h *harness) lastStart() string { h.mu.Lock(); defer h.mu.Unlock(); return 
 
 func eventually(t *testing.T, what string, cond func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
+	// Every supervisor state save fsyncs (about 27 per crash-loop test); a loaded
+	// disk can take seconds, and passing runs return in milliseconds.
+	deadline := time.Now().Add(60 * time.Second)
 	for time.Now().Before(deadline) {
 		if cond() {
 			return
