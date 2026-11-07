@@ -15,7 +15,7 @@ export const retentionOptions = [
   { days: 0, label: "Never" },
 ];
 
-const BOOLEANS = ["store_submissions", "enable_captcha", "confirmation_email", "no_ip"];
+const BOOLEANS = ["enable_captcha", "confirmation_email", "no_ip"];
 
 /**
  * Replaces {{field_name}} with the field's value in data. A token that names no field of the form,
@@ -46,6 +46,7 @@ export function joinRecipients(list) {
 export function settingsPatch(key, value) {
   if (BOOLEANS.includes(key)) return Boolean(value);
   switch (key) {
+    case "store_off":
     case "honeypot_off":
       return value ? null : true; // the control is "trap field on"; the key is inverted so absent keeps it on
     case "rate_limit_per_hour": {
@@ -79,6 +80,7 @@ export function controlValue(key, settings) {
   const v = settings?.[key];
   if (BOOLEANS.includes(key)) return Boolean(v);
   switch (key) {
+    case "store_off":
     case "honeypot_off":
       return !v;
     case "rate_limit_per_hour":

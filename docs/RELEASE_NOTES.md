@@ -1,5 +1,10 @@
 # Release notes
 
+## Unreleased: Form settings tab
+
+- **Keep submissions.** The Settings tab's "Keep submissions in the admin" switch writes `store_off` (absent means keep). Off stores no answers: they are only emailed and sent to hooks. The old `store_submissions` key is no longer read, so every existing form and every form created through the API keeps storing, as before; a form whose owner had switched it off on an earlier release keeps storing until the owner saves it from the Settings tab. If email is not configured or the form has no recipient, the answers are kept anyway and a warning is logged, so they cannot be lost.
+- **Migration.** None. Rollback floor: unchanged; an older release ignores the new keys and drops them the next time it saves that form.
+
 ## Unreleased: Theme strings
 
 - **Declare and use.** A theme can list its words under `strings` in `theme.json` and print them with `{{t . "key"}}`; `{{t . "key" n}}` replaces `{n}` in the text. A partial called with `dict` receives them as `"Strings" .Strings`. A key the theme did not declare prints as the key. A malformed `strings` block fails `hatamoto theme check` and packing; at runtime its invalid entries are ignored.

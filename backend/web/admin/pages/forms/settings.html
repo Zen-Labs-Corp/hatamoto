@@ -56,8 +56,8 @@
 <p class="hm-field__error" data-hm-fs-err="settings.blocked_words" hidden></p>
 {{template "hm/card-end"}}
 {{template "hm/card-start" (dict "ID" "fs-storage" "Title" "Storage and privacy")}}
-{{template "hm/field" (dict "ID" "fs-store" "Name" "store_submissions" "Label" "Keep submissions in the admin" "Control" "switch" "Help" "Off means email only; nothing is stored." "Attrs" (attrmap "data-hm-fs" "store_submissions"))}}
-<div class="hm-fs__sub" data-hm-fs-when="store_submissions" hidden>
+{{template "hm/field" (dict "ID" "fs-store" "Name" "store_off" "Label" "Keep submissions in the admin" "Control" "switch" "Help" "Off means email only; nothing is stored." "Attrs" (attrmap "data-hm-fs" "store_off"))}}
+<div class="hm-fs__sub" data-hm-fs-when="store_off" hidden>
 <p class="hm-field__label" id="fs-retention-label">Delete submissions after</p>
 {{template "hm/segmented" (dict "Mode" "buttons" "Label" "Delete submissions after" "Attrs" (attrmap "data-hm-fs-seg" "retention_days") "Items" (list (dict "Label" "30 days" "Attrs" (attrmap "data-value" "30")) (dict "Label" "90 days" "Attrs" (attrmap "data-value" "90")) (dict "Label" "1 year" "Attrs" (attrmap "data-value" "365")) (dict "Label" "Never" "Pressed" true "Attrs" (attrmap "data-value" "0"))))}}
 <p class="hm-field__error" data-hm-fs-err="settings.retention_days" hidden></p>

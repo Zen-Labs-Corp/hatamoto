@@ -34,7 +34,6 @@ func (r countingFormRepo) CountRecentSubmissionsByIP(_ context.Context, _ uuid.U
 // settingsServer serves one active contact form with the given settings.
 func settingsServer(t *testing.T, set form.FormSettings) (*Server, *fakeFormRepo) {
 	t.Helper()
-	set.StoreSubmissions = true
 	repo := &fakeFormRepo{forms: map[string]*form.Form{"contact": {
 		ID: uuid.New(), Slug: "contact", Name: "Contact", Status: form.StatusActive,
 		Fields: []form.FormField{
@@ -160,7 +159,7 @@ func TestFormSettings_StoreOffKeepsNoAnswersButStillMails(t *testing.T) {
 	notify := "team@example.test"
 	srv, repo := settingsServer(t, form.FormSettings{NotifyEmail: &notify, NotifySubject: "Enquiry from {{name}}"})
 	srv.emailService = svc
-	repo.forms["contact"].Settings.StoreSubmissions = false
+	repo.forms["contact"].Settings.StoreOff = true
 
 	sendJSON(srv, "203.0.113.1", `{"name":"Ada","message":"secret words"}`)
 	if len(repo.subs) != 1 || len(repo.subs[0].Data) != 0 {
@@ -173,6 +172,25 @@ func TestFormSettings_StoreOffKeepsNoAnswersButStillMails(t *testing.T) {
 	msgs := sink.Messages()
 	if len(msgs) != 1 || !strings.Contains(msgs[0].Data, "Subject: Enquiry from Ada") || !strings.Contains(msgs[0].Data, "secret words") {
 		t.Fatalf("notification = %+v", msgs)
+	}
+}
+
+// An API-created form has no store keys at all (StoreSubmissions false): it keeps its answers.
+func TestFormSettings_AbsentStoreKeyKeepsAnswers(t *testing.T) {
+	srv, repo := settingsServer(t, form.FormSettings{})
+	sendJSON(srv, "203.0.113.1", `{"name":"Ada","message":"hello"}`)
+	if len(repo.subs) != 1 || repo.subs[0].Data["message"] != "hello" {
+		t.Fatalf("stored = %+v, want the answers kept", repo.subs)
+	}
+}
+
+// Store off with no mail path would lose the answers for good, so they are kept.
+func TestFormSettings_StoreOffWithoutMailKeepsAnswers(t *testing.T) {
+	notify := "team@example.test"
+	srv, repo := settingsServer(t, form.FormSettings{StoreOff: true, NotifyEmail: &notify})
+	sendJSON(srv, "203.0.113.1", `{"name":"Ada","message":"hello"}`)
+	if len(repo.subs) != 1 || repo.subs[0].Data["message"] != "hello" {
+		t.Fatalf("stored = %+v, want the answers kept without SMTP", repo.subs)
 	}
 }
 

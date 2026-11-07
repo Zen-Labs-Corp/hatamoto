@@ -585,7 +585,7 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 	// With storage off the row still exists (mail and hooks need its id) but
 	// holds no answers; the in-memory data below still feeds the mail.
 	stored := data
-	if !formObj.Settings.StoreSubmissions {
+	if s.dropAnswers(formObj) {
 		stored = map[string]interface{}{}
 	}
 	ip := meta.IPAddress
@@ -866,6 +866,22 @@ func (s *Server) handlePublicFormSubmit(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeJSON(w, http.StatusCreated, response)
+}
+
+// dropAnswers reports whether a submission's answers are kept out of the
+// database: the form says so and the notification can actually carry them.
+// Without a working mail path the answers would be lost, so they are kept.
+func (s *Server) dropAnswers(formObj *form.Form) bool {
+	if !formObj.Settings.StoreOff {
+		return false
+	}
+	if s.emailService == nil || !s.emailService.IsConfigured() ||
+		len(buildFormNotification(formObj, nil, s.notificationAddress(context.Background())).To) == 0 {
+		s.logger.Warn("form is set not to store submissions but no notification can be sent; keeping the answers",
+			slog.String("form_id", formObj.ID.String()))
+		return false
+	}
+	return true
 }
 
 // sendFormSubmissionEmail sends an email notification for a form submission.

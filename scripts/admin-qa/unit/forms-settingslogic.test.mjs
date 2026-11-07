@@ -42,8 +42,8 @@ test("recipients: a legacy string reads as a list and an unedited list is not re
 });
 
 test("settingsPatch: switches are explicit, empty values delete, the trap field is inverted", () => {
-  assert.equal(L.settingsPatch("store_submissions", false), false); // never null: absent would mean something else to older readers
-  assert.equal(L.settingsPatch("store_submissions", true), true);
+  assert.equal(L.settingsPatch("store_off", true), null); // keep on: the key is absent, which keeps submissions
+  assert.equal(L.settingsPatch("store_off", false), true);
   for (const k of ["enable_captcha", "confirmation_email", "no_ip"]) assert.equal(L.settingsPatch(k, false), false);
   assert.equal(L.settingsPatch("honeypot_off", true), null); // trap field on: the key is absent
   assert.equal(L.settingsPatch("honeypot_off", false), true);
@@ -63,7 +63,7 @@ test("settingsPatch: switches are explicit, empty values delete, the trap field 
 });
 
 test("controlValue is the inverse of settingsPatch", () => {
-  const s = { honeypot_off: true, rate_limit_per_hour: 5, blocked_words: ["a", "b"], retention_days: 30, store_submissions: false, notify_email: "a@example.com, b@example.com" };
+  const s = { honeypot_off: true, rate_limit_per_hour: 5, blocked_words: ["a", "b"], retention_days: 30, store_off: true, notify_email: "a@example.com, b@example.com" };
   assert.equal(L.controlValue("honeypot_off", s), false);
   assert.equal(L.controlValue("honeypot_off", {}), true);
   assert.equal(L.controlValue("rate_limit_per_hour", s), "5");
@@ -71,15 +71,16 @@ test("controlValue is the inverse of settingsPatch", () => {
   assert.equal(L.controlValue("blocked_words", s), "a\nb");
   assert.equal(L.controlValue("retention_days", s), 30);
   assert.equal(L.controlValue("retention_days", {}), 0);
-  assert.equal(L.controlValue("store_submissions", s), false);
+  assert.equal(L.controlValue("store_off", s), false);
+  assert.equal(L.controlValue("store_off", { store_submissions: false }), true); // the legacy key is not read
   assert.deepEqual(L.controlValue("notify_email", s), ["a@example.com", "b@example.com"]);
   assert.equal(L.controlValue("notify_subject", {}), "");
 });
 
 test("whenMatches: setting switches and the screen's own choice", () => {
-  assert.equal(L.whenMatches("store_submissions", { store_submissions: true }), true);
-  assert.equal(L.whenMatches("store_submissions", { store_submissions: false }), false);
-  assert.equal(L.whenMatches("!store_submissions", {}), true);
+  assert.equal(L.whenMatches("store_off", {}), true);
+  assert.equal(L.whenMatches("store_off", { store_off: true }), false);
+  assert.equal(L.whenMatches("!store_off", { store_off: true }), true);
   assert.equal(L.whenMatches("@after:redirect", {}, { after: "redirect" }), true);
   assert.equal(L.whenMatches("@after:message", {}, { after: "redirect" }), false);
 });

@@ -179,7 +179,7 @@ ok((await settings()).retention_days === 90 && (await page.locator('[data-hm-fs-
 
 // the store switch hides retention and no-IP
 await page.locator('label[for="fs-store"]').click();
-ok((await settings()).store_submissions === false && !(await page.locator('[data-hm-fs-seg="retention_days"]').isVisible()), "store off: written as false, retention hides");
+ok((await settings()).store_off === true && !(await page.locator('[data-hm-fs-seg="retention_days"]').isVisible()), "store off: written as store_off, retention hides");
 await page.locator('label[for="fs-store"]').click();
 ok((await page.locator('[data-hm-fs-seg="retention_days"]').isVisible()) && (await settings()).retention_days === 90, "store on again: retention shows with its value");
 await page.locator('label[for="fs-noip"]').click();
