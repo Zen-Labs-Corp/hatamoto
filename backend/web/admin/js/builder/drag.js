@@ -5,8 +5,8 @@
 // indicator drawn inside the canvas stage. No SortableJS here, no frame access.
 import { applyOp, holdsChildren, v1Shaped } from "@hm/builder/store";
 import { h } from "@hm/builder/dom";
+import { dragSource } from "@hm/builder/dragsource";
 
-const THRESHOLD = 4; // px of pointer travel before a press becomes a drag
 const EDGE = 8; // px (on screen) of a container's border that means "next to it", not "inside it"
 
 /** Client coordinates -> document coordinates of the frame (box: the stage's client rect). */
@@ -188,25 +188,4 @@ export function createDrag({ canvas, getDoc, scroller, onDrop }) {
   };
 }
 
-/**
- * Turns a press-and-move on el into a drag start. pick(event) returns a function
- * that makes the drag spec ({id} or {node}), or null when the press is not on a source.
- * Touch is left alone (it scrolls); touch users have the keyboard commands and click.
- */
-export function dragSource(el, { pick, start }) {
-  let down = null;
-  el.addEventListener("pointerdown", (e) => {
-    const make = e.button === 0 && e.pointerType !== "touch" ? pick(e) : null;
-    down = make ? { x: e.clientX, y: e.clientY, id: e.pointerId, make } : null;
-  });
-  el.addEventListener("pointermove", (e) => {
-    if (!down || e.pointerId !== down.id) return;
-    if (e.buttons === 0) down = null;
-    else if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > THRESHOLD) {
-      const d = down;
-      down = null;
-      start(e, d.make());
-    }
-  });
-  for (const ev of ["pointerup", "pointercancel"]) el.addEventListener(ev, () => (down = null));
-}
+export { dragSource };
