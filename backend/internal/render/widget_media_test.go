@@ -99,8 +99,12 @@ func TestIslandsEmbedded(t *testing.T) {
 			t.Fatalf("%s has no island", k)
 		}
 		// the form island carries logic and submit handling: its budget is gzip
-		if n := len(is.body); n == 0 || (k != "form" && n > 1536) || (k == "form" && gzipLen(t, string(is.body)) > 1536) {
-			t.Errorf("%s island is %d bytes", k, n)
+		size, unit := len(is.body), "bytes"
+		if k == "form" {
+			size, unit = gzipLen(t, string(is.body)), "bytes gzipped"
+		}
+		if size == 0 || (size > 1536) {
+			t.Errorf("%s island is %d %s, budget 1536", k, size, unit)
 		}
 		for _, bad := range []string{"eval(", "innerHTML", "document.write", "new Function"} {
 			if strings.Contains(string(is.body), bad) {
