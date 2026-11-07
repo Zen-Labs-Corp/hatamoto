@@ -293,6 +293,22 @@ Under the form, a table shows how many visitors chose Accept all, Reject all or 
 
 The same page has a separate **Protect email addresses** switch, on by default. It hides email addresses and `mailto:` links on your public pages from simple scrapers: visitors still see and click them, with scripts off too. Turn it off if a script in your theme needs the literal address. Saving it writes an "email_protection.settings" entry to the audit log and clears the page cache. Your feeds, plugin routes, `llms.txt` and the API keep the plain address, and so does the organisation email in your structured data (Organization or LocalBusiness JSON-LD); leave that field empty if you do not want it published. The editor preview shows it as typed. See [Email protection](../themes/engine-details.md#email-protection).
 
+## Strings: the words of your theme
+
+`<admin>/theme/strings` (the Strings section of Theme, owners only) lists the words the active theme prints on your public pages, such as search labels, pager links and navigation names, and lets you change each one for every locale of your site. Nothing changes until you fill in a field.
+
+On a site with more than one locale, a tab for each locale sits above the table; pick the locale to edit. Each row shows:
+
+| Column | Meaning |
+|---|---|
+| Where | The string's key and what it is used for. |
+| Default | The theme's own text. You cannot edit it here. |
+| The locale's name | Your text for the chosen locale. Leave it blank to use the theme default. |
+
+A page shows your text for its locale. If that is blank, it shows your text for the default locale, and if that is blank too, the theme's text. A text is 1 to 300 characters, plain text with no `<`, `>` or `&`. A text may contain `{n}`, which the theme replaces with a number, for example a result count; keep it in your translation.
+
+Saving changes only the locale you are editing and leaves other locales and other themes alone, writes a "theme.strings" entry to the audit log (the theme, the locale, how many texts were set and how many cleared) and clears the page cache so the change shows at once. Your texts are kept per theme: switching themes does not delete them. A theme that declares no strings shows a short notice instead of the table. To build a theme with strings, see [Translate theme strings](../themes/translate-theme-strings.md).
+
 ## Contact button: a floating link
 
 `<admin>/theme/contact-button` (the Contact button section of Theme, owners only) adds one link that stays in a corner of every public page. It opens WhatsApp, a phone call, a text message or an email. It is **off by default**: until you turn it on, your pages are exactly what they were before.
@@ -391,6 +407,7 @@ The **Theme** item in the sidebar (`<admin>/theme`) has one section per page:
 | Blocks | `<admin>/theme/blocks` | owner, editor |
 | Templates | `<admin>/theme/templates` | owner, editor |
 | Menus | `<admin>/theme/menus` | owner, editor |
+| Strings | `<admin>/theme/strings` | owner |
 | Contact button | `<admin>/theme/contact-button` | owner |
 
 Owners switch and configure **Themes** (activate, per-theme settings, uninstall), set the brand colours, fonts and corners under **Colours and fonts**, and shape the builder under Design system, Layout parts and Style presets, described in the [Editor reference](builder-reference.md). **Templates** lists the layout templates saved from the builder and older section templates. Activating a theme shows a confirmation page that lists any section types the new theme lacks. Themes install inactive; owners can preview one at `<admin>/preview/theme/{name}` before activating it.

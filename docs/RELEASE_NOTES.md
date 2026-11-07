@@ -1,5 +1,13 @@
 # Release notes
 
+## Unreleased: Theme strings
+
+- **Declare and use.** A theme can list its words under `strings` in `theme.json` and print them with `{{t . "key"}}`; `{{t . "key" n}}` replaces `{n}` in the text. A partial called with `dict` receives them as `"Strings" .Strings`. A key the theme did not declare prints as the key. A malformed `strings` block is refused at install and by `hatamoto theme check`.
+- **Translate.** Owners edit them per locale in Theme > Strings (`<admin>/theme/strings`). A blank text falls back to the default locale's text, then to the theme's own. Saving is recorded in the audit log as `theme.strings`.
+- **Default theme.** Its words (search, pager, navigation labels and more) now come from theme strings, with the same default text, so existing sites look the same until an owner changes one.
+- **Not covered.** The consent banner, widget text and `hm.js` are not theme strings.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: Form logic and new field types
 
 - **Types.** Forms gain `heading`, `paragraph` and `divider` (layout only: nothing is submitted, stored, exported or emailed), `hidden` (value resolved by the server from a query parameter, the page, the referrer or a fixed value; the page script sends the page URL and the visitor's referrer, so without JavaScript those three store nothing) and `consent` (always required, stored as `Yes`). Fields can be half or a third wide.
