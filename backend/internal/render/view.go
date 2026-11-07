@@ -104,7 +104,10 @@ type PageView struct {
 	// render through the theme section partial, the rest natively.
 	Doc *builder.Doc
 	// anchors are the element anchors the current render has written.
-	anchors    *anchorSet
+	anchors *anchorSet
+	// formIsland is set when a contact_form component with field logic was
+	// rendered anywhere (nested, in a part), so the page loads the form island.
+	formIsland bool
 	BaseURL    string
 	Path       string
 	Breadcrumb []Crumb

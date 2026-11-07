@@ -756,6 +756,9 @@ func (e *Engine) renderComponent(b *bytes.Buffer, c *compiled, v *PageView, n *b
 	if !ok {
 		return
 	}
+	if slug, _ := p.Content["form_slug"].(string); p.Type == "contact_form" && v.Forms[slug].HasLogic() {
+		v.formIsland = true
+	}
 	var out bytes.Buffer
 	if err := execDispatch(tmpl, &out, p); err != nil {
 		e.log.Error("render: section failed, rendered empty", "type", p.Type, "id", p.ID, "error", err)

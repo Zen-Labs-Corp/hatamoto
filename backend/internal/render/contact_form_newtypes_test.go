@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/builder"
 )
 
 // The legacy contact_form section renders the layout, hidden and consent
@@ -87,5 +89,47 @@ func TestContactFormSectionCarriesFieldLogic(t *testing.T) {
 	}
 	if !strings.Contains(plain, `data-hm-form="contact"`) {
 		t.Error("form without logic lost its theme script marker")
+	}
+}
+
+// The form island follows the rendered component, not the top-level blocks: a
+// contact_form with logic inside a styled container or a theme part still
+// loads it, else its conditional field would always show.
+func TestContactFormLogicIslandWhenNested(t *testing.T) {
+	form := map[string]FormView{"contact": {Slug: "contact", Name: "C", Fields: []FormField{
+		{Name: "topic", Label: "Topic", Type: "select"},
+		{Name: "other", Label: "Other", Type: "text", LogicField: "topic", LogicOp: "is", LogicValue: "other"},
+	}}}
+	comp := func() *builder.Node {
+		return &builder.Node{ID: "cf", T: "component", P: map[string]any{"type": "contact_form", "content": map[string]any{"form_slug": "contact"}}}
+	}
+	styled := func() *builder.Node {
+		return &builder.Node{ID: "wrap", T: "container", P: map[string]any{"tag": "section"},
+			S: map[string]map[string]string{"base": {"pt": "space-1"}}, C: []*builder.Node{comp()}}
+	}
+	nested := func() *PageView { v := minimalView(); v.Doc = docOf(styled()); return v }
+	inHeader := func() *PageView {
+		v := minimalView()
+		v.Doc = docOf()
+		v.Site.Design.Parts = map[string]string{builder.SlotHeader: partHeader}
+		return v
+	}
+	cases := map[string]struct {
+		e *Engine
+		v *PageView
+	}{
+		"styled container": {partsEngine(t, standardParts()), nested()},
+		"header part": {partsEngine(t, fakeParts{parts: map[string]partDef{partHeader: {builder.SlotHeader, docOf(styled())}}},
+			themeOptIn(`["header"]`)), inHeader()},
+	}
+	for name, c := range cases {
+		c.v.Forms = form
+		out := page(t, c.e, c.v)
+		if !strings.Contains(out, "data-hm-form-logic") {
+			t.Fatalf("%s: the logic form did not render: %s", name, out)
+		}
+		if !strings.Contains(out, "/form.") {
+			t.Errorf("%s: the form island script is missing", name)
+		}
 	}
 }

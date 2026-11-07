@@ -592,7 +592,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		Settings:   settings,
 	}
 	var docCSS builderCSS
-	v.anchors = newAnchorSet()
+	v.anchors, v.formIsland = newAnchorSet(), false
 	if v.Doc != nil {
 		d.Blocks, docCSS = e.docBlocks(c, v)
 	} else {
@@ -603,6 +603,12 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		d.Part = parts
 		docCSS.merge(*pc)
 		docCSS.compilePresets(v.Site.Design)
+	}
+	if v.formIsland {
+		if docCSS.kinds == nil {
+			docCSS.kinds = map[string]bool{}
+		}
+		docCSS.kinds["form"] = true
 	}
 	if lp := v.loopPaged; lp != nil {
 		d.Head = e.pagedHead(v, lp)
