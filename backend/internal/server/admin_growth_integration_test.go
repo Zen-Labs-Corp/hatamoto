@@ -227,10 +227,10 @@ func TestAdminGrowthIntegration(t *testing.T) {
 		name := "IT contact " + sfx
 		rec := admin("POST", "/admin/forms", url.Values{"name": {name}})
 		loc := rec.Header().Get("Location")
-		if rec.Code != 303 || !strings.Contains(loc, "/forms/edit/") {
+		if rec.Code != 303 || !strings.Contains(loc, "/forms/design/") {
 			t.Fatalf("create form: %d %s", rec.Code, loc)
 		}
-		formID := strings.TrimPrefix(loc, "/admin/forms/edit/")
+		formID := strings.TrimPrefix(loc, "/admin/forms/design/")
 		t.Cleanup(func() {
 			_, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_form_submissions WHERE form_id=$1`, formID)
 			_, _ = db.Pool().Exec(context.Background(), `DELETE FROM hatamoto_forms WHERE id=$1`, formID)
@@ -239,13 +239,21 @@ func TestAdminGrowthIntegration(t *testing.T) {
 		if err := db.Pool().QueryRow(ctx, `SELECT slug FROM hatamoto_forms WHERE id=$1`, formID).Scan(&slug); err != nil {
 			t.Fatal(err)
 		}
-		save := admin("POST", "/admin/forms/edit/"+formID, url.Values{
-			"name": {name}, "status": {"active"}, "_op": {"save"}, "store": {"1"}, "success_message": {"Thanks!"},
-			"f.0.label": {"Name"}, "f.0.type": {"text"}, "f.0.name": {"name"}, "f.0.required": {"1"},
-			"f.1.label": {"Email"}, "f.1.type": {"email"}, "f.1.name": {"email"},
-			"f.2.label": {"Message"}, "f.2.type": {"textarea"}, "f.2.name": {"message"},
-		})
-		if save.Code != 303 {
+		var updated time.Time
+		if err := db.Pool().QueryRow(ctx, `SELECT updated_at FROM hatamoto_forms WHERE id=$1`, formID).Scan(&updated); err != nil {
+			t.Fatal(err)
+		}
+		def := `{"version":"` + updated.UTC().Format(time.RFC3339Nano) + `","name":"` + name + `","status":"active","fields":[
+			{"id":"f1","type":"text","label":"Name","name":"name","required":true,"position":0,"width":"full"},
+			{"id":"f2","type":"email","label":"Email","name":"email","position":1,"width":"full"},
+			{"id":"f3","type":"textarea","label":"Message","name":"message","position":2,"width":"full"}],
+			"settings":{"store_submissions":true,"success_message":"Thanks!","submit_button_text":"Send"}}`
+		req := httptest.NewRequest(http.MethodPut, "/admin/forms/"+formID+"/definition", strings.NewReader(def))
+		req.Header.Set("Content-Type", "application/json")
+		adminReq(req, token, csrf)
+		save := httptest.NewRecorder()
+		srv.router.ServeHTTP(save, req)
+		if save.Code != http.StatusOK {
 			t.Fatalf("save form: %d\n%s", save.Code, save.Body)
 		}
 		submit := func(name, email, msg string) {

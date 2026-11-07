@@ -251,16 +251,6 @@ func TestFormListNewAndDelete(t *testing.T) {
 	}
 }
 
-func fieldForm(rows ...map[string]string) url.Values {
-	v := url.Values{"name": {"Contact"}, "status": {"active"}, "_op": {"save"}, "store": {"1"}, "submit_text": {"Send"}}
-	for i, r := range rows {
-		for k, val := range r {
-			v.Set("f."+strconv.Itoa(i)+"."+k, val)
-		}
-	}
-	return v
-}
-
 func TestFormEditUsesPublicAPIPrefix(t *testing.T) {
 	t.Parallel()
 
@@ -278,100 +268,6 @@ func TestFormEditUsesPublicAPIPrefix(t *testing.T) {
 		if strings.Contains(body, tc.gone) {
 			t.Errorf("prefix %q: page still names %q", tc.prefix, tc.gone)
 		}
-	}
-}
-
-func TestFormBuilderSaveAndValidation(t *testing.T) {
-	t.Parallel()
-
-	g, ff, _ := newFormRig(t)
-	fm := ff.addForm("Contact", contactFields...)
-	if edit := g.do("GET", "/admin/forms/edit/"+fm.ID.String(), "owner-token", nil, nil); edit.Code != 303 {
-		t.Fatal(edit.Code)
-	}
-	f := fieldForm(
-		map[string]string{"id": "a", "type": "text", "label": "Full name", "required": "1", "maxlen": "80"},
-		map[string]string{"type": "select", "label": "Topic", "options": "Sales\nSupport | help\n"},
-		map[string]string{"type": "email", "label": "Email", "name": "email", "pattern": `^[^@]+@[^@]+$`},
-	)
-	f.Set("notify_email", "a@example.com, b@example.com")
-	f.Set("captcha", "1")
-	f.Set("redirect_url", "/thanks")
-	rec := g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", f, nil)
-	if rec.Code != 303 {
-		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
-	}
-	got := ff.forms[fm.ID]
-	if len(got.Fields) != 3 || got.Fields[0].ID != "a" || got.Fields[0].Name != "full_name" || got.Fields[1].ID == "" || got.Fields[1].Name != "topic" {
-		t.Fatalf("fields: %+v", got.Fields)
-	}
-	if o := got.Fields[1].Options; len(o) != 2 || o[0].Value != "sales" || o[1].Value != "help" {
-		t.Errorf("options: %+v", o)
-	}
-	if v := got.Fields[0].Validation; v == nil || *v.MaxLength != 80 {
-		t.Errorf("validation: %+v", got.Fields[0].Validation)
-	}
-	if !got.Settings.EnableCaptcha || got.Settings.SuccessRedirectURL != "/thanks" || *got.Settings.NotifyEmail != "a@example.com, b@example.com" || got.Settings.SubmitButtonText != "Send" {
-		t.Errorf("settings: %+v", got.Settings)
-	}
-
-	for name, bad := range map[string]url.Values{
-		"duplicate name": fieldForm(map[string]string{"type": "text", "label": "A", "name": "x"}, map[string]string{"type": "text", "label": "B", "name": "x"}),
-		"bad pattern":    fieldForm(map[string]string{"type": "text", "label": "A", "pattern": "("}),
-		"no options":     fieldForm(map[string]string{"type": "radio", "label": "A"}),
-		"blank label":    fieldForm(map[string]string{"type": "text", "label": ""}),
-		"bad field name": fieldForm(map[string]string{"type": "text", "label": "A", "name": "Bad Name"}),
-		"bad number":     fieldForm(map[string]string{"type": "text", "label": "A", "minlen": "x"}),
-	} {
-		before := len(ff.forms[fm.ID].Fields)
-		rec := g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", bad, nil)
-		if rec.Code != 422 || len(ff.forms[fm.ID].Fields) != before {
-			t.Errorf("%s: want 422 and no save, got %d", name, rec.Code)
-		}
-		if issues := a11y.Check(rec.Body.String(), a11y.Options{Page: true}); len(issues) > 0 {
-			t.Errorf("%s a11y: %v", name, issues)
-		}
-	}
-	for name, mutate := range map[string]func(url.Values){
-		"bad notify":   func(v url.Values) { v.Set("notify_email", "not-an-email") },
-		"javascript:":  func(v url.Values) { v.Set("redirect_url", "javascript:alert(1)") },
-		"protocol-rel": func(v url.Values) { v.Set("redirect_url", "//evil.example") },
-	} {
-		v := fieldForm()
-		mutate(v)
-		if rec := g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", v, nil); rec.Code != 422 {
-			t.Errorf("%s: %d", name, rec.Code)
-		}
-	}
-}
-
-func TestFormBuilderOpsWithoutJS(t *testing.T) {
-	t.Parallel()
-
-	g, ff, _ := newFormRig(t)
-	fm := ff.addForm("Contact")
-	base := func() url.Values {
-		return fieldForm(map[string]string{"type": "text", "label": "One"}, map[string]string{"type": "text", "label": "Two"})
-	}
-	pos := func(body, label string) int { return strings.Index(body, `value="`+label+`"`) }
-	f := base()
-	f.Set("_op", "down.0")
-	body := g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", f, nil).Body.String()
-	if pos(body, "Two") > pos(body, "One") || !strings.Contains(body, "not saved yet") || len(ff.forms[fm.ID].Fields) != 0 {
-		t.Error("down should swap without saving")
-	}
-	f = base()
-	f.Set("_op", "remove.0")
-	body = g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", f, nil).Body.String()
-	if pos(body, "One") >= 0 || pos(body, "Two") < 0 {
-		t.Error("remove should drop the first field")
-	}
-	f = base()
-	f.Set("_op", "add")
-	f.Set("add_type", "select")
-	body = g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", f, nil).Body.String()
-	if !strings.Contains(body, `name="f.2.label"`) {
-		t.Error("add should append a third row")
 	}
 }
 
@@ -598,21 +494,6 @@ func TestSubmissionDeleteAsksFirst(t *testing.T) {
 	}
 }
 
-func TestCarryFieldDataKeepsAPIOnlyData(t *testing.T) {
-	t.Parallel()
-
-	min, max := 1, 9
-	stored := []form.FormField{{ID: "a", DefaultValue: "x", Attributes: map[string]string{"k": "v"}, Validation: &form.FieldValidation{Min: &min, Max: &max}}}
-	got := carryFieldData([]form.FormField{{ID: "a", Validation: &form.FieldValidation{MaxLength: &max}}, {ID: "new"}}, stored)
-	v := got[0].Validation
-	if got[0].DefaultValue != "x" || got[0].Attributes["k"] != "v" || *v.Min != 1 || *v.Max != 9 || *v.MaxLength != 9 {
-		t.Errorf("not carried: %+v %+v", got[0], v)
-	}
-	if got[1].Validation != nil || got[1].DefaultValue != "" {
-		t.Errorf("new field must stay empty: %+v", got[1])
-	}
-}
-
 func TestSubmissionPrefetchDoesNotMarkRead(t *testing.T) {
 	t.Parallel()
 
@@ -675,25 +556,6 @@ func TestFormEditCaptchaBanner(t *testing.T) {
 	svc.key = spam.SecretKey("rotated")
 	if !strings.Contains(page(on, "owner-token"), warn) {
 		t.Error("no banner for an unreadable secret")
-	}
-}
-
-// Builder rows are <details>: a new blank row and a row with an error render
-// open, a saved one closed, and Choices is shown by data-type, not by script.
-func TestFormBuilderRowsCollapseAndOpenOnError(t *testing.T) {
-	t.Parallel()
-
-	g, ff, _ := newFormRig(t)
-	fm := ff.addForm("Contact")
-	f := fieldForm(map[string]string{"type": "text", "label": "One", "id": "keep"}, map[string]string{"type": "select", "label": "", "id": "keep2"})
-	f.Set("_op", "save")
-	rec := g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", f, nil)
-	body := rec.Body.String()
-	if rec.Code != 422 || strings.Count(body, `<details class="hm-fieldlist__row" open>`) != 1 || strings.Count(body, `<details class="hm-fieldlist__row">`) != 1 {
-		t.Errorf("want one open (errored) and one closed row, status %d", rec.Code)
-	}
-	if !strings.Contains(body, `data-type="select"`) || !strings.Contains(body, `hm-fieldlist__choices`) {
-		t.Error("choices wrapper or data-type missing")
 	}
 }
 

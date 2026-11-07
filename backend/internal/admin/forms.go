@@ -24,13 +24,10 @@ import (
 )
 
 const (
-	maxFormFields      = 60
 	submissionsPerPage = 25
 	exportPageSize     = 500
 	exportMaxRows      = 200000
 )
-
-var fieldNameRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 
 // FormMailer forwards a submission by email (the "Email this" action).
 type FormMailer interface {
@@ -44,7 +41,6 @@ func (a *Admin) mountForms(authed *httpx.Group) {
 	authed.HandleFunc("POST /forms", a.handleFormCreate)
 	authed.HandleFunc("GET /forms/design/{id}", a.handleFormDesign)
 	authed.HandleFunc("GET /forms/edit/{id}", a.handleFormEditRedirect)
-	authed.HandleFunc("POST /forms/edit/{id}", a.handleFormSave)
 	authed.HandleFunc("PUT /forms/{id}/definition", a.handleFormDefinition)
 	a.mountFormTabs(authed)
 	authed.HandleFunc("GET /forms/delete/{id}", a.handleFormDeleteForm)
@@ -319,25 +315,12 @@ func (a *Admin) handleFormDelete(w http.ResponseWriter, r *http.Request) {
 
 // ---- the builder ----
 
-type formFieldRow struct {
-	N                                 int
-	ID, Type, Label, Name             string
-	Placeholder, Help, Width, Options string
-	MinLen, MaxLen, Pattern, Message  string
-	Required                          bool
-	Types, Widths                     []ui.Option
-	Err                               map[string]string
-	TypeIcon                          string // icon in the collapsed row summary
-	Open                              bool   // the row renders expanded: it has an error or was just added
-}
-
 type formEdit struct {
 	ID, Name, Slug, Description, Status string
 	SubmitText, SuccessMsg, RedirectURL string
 	NotifyEmail, ConfirmMsg             string
 	Captcha, Confirmation, Store        bool
-	Fields                              []formFieldRow
-	Statuses, AddTypes                  []ui.Option
+	Statuses                            []ui.Option
 	Errors                              map[string]string
 	Summary                             []ui.FieldError
 	Notice, EmbedCode, Endpoint         string
@@ -393,44 +376,12 @@ func fieldTypeIcon(t string) string {
 	return "pen"
 }
 
-// noLegacyInput lists the types this editor has no inputs for (their text or
-// source); the designer edits them. An existing field of one still shows.
-func noLegacyInput(t string) bool {
-	return t == form.FieldTypeHeading || t == form.FieldTypeParagraph || t == form.FieldTypeHidden
-}
-
-func fieldTypeOptions(selected string) []ui.Option {
-	var out []ui.Option
-	for _, t := range form.GetFieldTypes() {
-		if noLegacyInput(t) && t != selected {
-			continue
-		}
-		out = append(out, ui.Option{Value: t, Label: fieldTypeLabels[t], Selected: t == selected})
-	}
-	return out
-}
-
-func widthOptions(selected string) []ui.Option {
-	if selected == "" {
-		selected = "full"
-	}
-	return []ui.Option{
-		{Value: "full", Label: "Full width", Selected: selected == "full"},
-		{Value: "half", Label: "Half width", Selected: selected == "half"},
-		{Value: "third", Label: "One third", Selected: selected == "third"},
-	}
-}
-
 func statusOptions(selected string) []ui.Option {
 	return []ui.Option{
 		{Value: form.StatusActive, Label: "Active: accepts submissions", Selected: selected == form.StatusActive},
 		{Value: form.StatusInactive, Label: "Paused: shows nothing and accepts nothing", Selected: selected == form.StatusInactive},
 		{Value: form.StatusArchived, Label: "Archived", Selected: selected == form.StatusArchived},
 	}
-}
-
-func hasOptions(t string) bool {
-	return t == form.FieldTypeSelect || t == form.FieldTypeRadio || t == form.FieldTypeCheckbox
 }
 
 func formToEdit(f *form.Form) formEdit {
@@ -442,35 +393,6 @@ func formToEdit(f *form.Form) formEdit {
 	}
 	if f.Settings.NotifyEmail != nil {
 		e.NotifyEmail = *f.Settings.NotifyEmail
-	}
-	fields := append([]form.FormField(nil), f.Fields...)
-	sort.SliceStable(fields, func(i, j int) bool { return fields[i].Position < fields[j].Position })
-	for _, ff := range fields {
-		row := formFieldRow{ID: ff.ID, Type: ff.Type, Label: ff.Label, Name: ff.Name, Placeholder: ff.Placeholder, Help: ff.HelpText, Width: ff.Width, Required: ff.Required}
-		var opts []string
-		for _, o := range ff.Options {
-			if o.Value == "" || o.Value == o.Label {
-				opts = append(opts, o.Label)
-			} else {
-				opts = append(opts, o.Label+" | "+o.Value)
-			}
-		}
-		row.Options = strings.Join(opts, "\n")
-		if v := ff.Validation; v != nil {
-			if v.MinLength != nil {
-				row.MinLen = strconv.Itoa(*v.MinLength)
-			}
-			if v.MaxLength != nil {
-				row.MaxLen = strconv.Itoa(*v.MaxLength)
-			}
-			if v.Pattern != nil {
-				row.Pattern = *v.Pattern
-			}
-			if v.Message != nil {
-				row.Message = *v.Message
-			}
-		}
-		e.Fields = append(e.Fields, row)
 	}
 	return e
 }
@@ -485,257 +407,11 @@ func (a *Admin) formEndpoint(slug string) string {
 	return prefix + "/forms/" + slug + "/submit"
 }
 
-func (a *Admin) renderFormEdit(w http.ResponseWriter, r *http.Request, status int, e formEdit) {
-	e.Statuses = statusOptions(e.Status)
-	e.AddTypes = fieldTypeOptions(e.AddType)
-	for i := range e.Fields {
-		e.Fields[i].N = i
-		e.Fields[i].Types = fieldTypeOptions(e.Fields[i].Type)
-		e.Fields[i].Widths = widthOptions(e.Fields[i].Width)
-		e.Fields[i].TypeIcon = fieldTypeIcon(e.Fields[i].Type)
-		e.Fields[i].Open = len(e.Fields[i].Err) > 0 || (e.Fields[i].ID == "" && e.Fields[i].Label == "")
-	}
-	if e.Captcha {
-		e.CaptchaUnconfigured = a.captchaUnconfigured(r.Context())
-		e.SpamLink = userFrom(r.Context()).Role == "owner"
-	}
-	e.Actions = []ui.Button{{Label: "Submissions", Href: a.adminPath + "/forms/submissions?form=" + e.ID, Icon: "inbox"}}
-	e.Endpoint = a.formEndpoint(e.Slug)
-	e.EmbedCode = fmt.Sprintf("<form action=\"%s\" method=\"POST\">\n  <!-- Add the fields here -->\n  <button type=\"submit\">%s</button>\n</form>", e.Endpoint, orDefault(e.SubmitText, "Submit"))
-	e.Summary = nil
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"status", "Status"}, {"notify", "Notification emails"}, {"redirect", "Redirect address"}, {"fields", "Fields"}} {
-		if m := e.Errors[k.id]; m != "" {
-			e.Summary = append(e.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
-		}
-	}
-	for _, fr := range e.Fields {
-		for _, k := range []string{"label", "name", "options", "minlen", "maxlen", "pattern"} {
-			if m := fr.Err[k]; m != "" {
-				e.Summary = append(e.Summary, ui.FieldError{ID: "f-" + strconv.Itoa(fr.N) + "-" + k, Label: "Field " + strconv.Itoa(fr.N+1), Message: m})
-			}
-		}
-	}
-	v := a.NewView(w, r, "Edit form: "+e.Name)
-	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: e.Name}}
-	v.Data = e
-	v.Width = "narrow"
-	a.Render(w, r, status, "forms/edit", v)
-}
-
 func orDefault(s, d string) string {
 	if s == "" {
 		return d
 	}
 	return s
-}
-
-func parseFormFields(vals url.Values) []formFieldRow {
-	seen := map[int]bool{}
-	for k := range vals {
-		if rest, ok := strings.CutPrefix(k, "f."); ok {
-			if n, _, ok := strings.Cut(rest, "."); ok {
-				if i, err := strconv.Atoi(n); err == nil && i >= 0 && i < 10000 {
-					seen[i] = true
-				}
-			}
-		}
-	}
-	ns := make([]int, 0, len(seen))
-	for n := range seen {
-		ns = append(ns, n)
-	}
-	sort.Ints(ns)
-	rows := make([]formFieldRow, 0, len(ns))
-	for _, n := range ns {
-		p := "f." + strconv.Itoa(n) + "."
-		g := func(k string) string { return strings.TrimSpace(vals.Get(p + k)) }
-		rows = append(rows, formFieldRow{
-			ID: g("id"), Type: g("type"), Label: g("label"), Name: g("name"), Placeholder: g("placeholder"), Help: g("help"), Width: g("width"),
-			Options: strings.ReplaceAll(vals.Get(p+"options"), "\r\n", "\n"), MinLen: g("minlen"), MaxLen: g("maxlen"), Pattern: g("pattern"), Message: g("message"),
-			Required: g("required") != "",
-		})
-	}
-	return rows
-}
-
-func applyFieldOp(rows []formFieldRow, op, addType string) ([]formFieldRow, string) {
-	if op == "add" {
-		if !form.ValidFieldType(addType) || noLegacyInput(addType) {
-			addType = form.FieldTypeText
-		}
-		return append(rows, formFieldRow{Type: addType, Width: "full"}), "Field added. It is not saved yet."
-	}
-	name, idx, ok := strings.Cut(op, ".")
-	i, err := strconv.Atoi(idx)
-	if !ok || err != nil || i < 0 || i >= len(rows) {
-		return rows, ""
-	}
-	switch name {
-	case "remove":
-		return append(rows[:i:i], rows[i+1:]...), "Field removed. It is not saved yet. Existing submissions keep their answers."
-	case "up":
-		if i == 0 {
-			return rows, "This field is already first."
-		}
-		rows[i-1], rows[i] = rows[i], rows[i-1]
-		return rows, "Field moved up. It is not saved yet."
-	case "down":
-		if i == len(rows)-1 {
-			return rows, "This field is already last."
-		}
-		rows[i+1], rows[i] = rows[i], rows[i+1]
-		return rows, "Field moved down. It is not saved yet."
-	}
-	return rows, ""
-}
-
-// parseOptions reads "Label" or "Label | value" per line.
-func parseOptions(s string) []form.FieldOption {
-	var out []form.FieldOption
-	for _, line := range strings.Split(s, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		label, value, _ := strings.Cut(line, "|")
-		label, value = strings.TrimSpace(label), strings.TrimSpace(value)
-		if value == "" {
-			value = strings.Trim(regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(strings.ToLower(label), "_"), "_")
-			if value == "" {
-				value = label
-			}
-		}
-		out = append(out, form.FieldOption{Label: label, Value: value})
-	}
-	return out
-}
-
-// buildFormFields validates the rows and returns the fields to store; per-row
-// problems go into the row's Err.
-func buildFormFields(rows []formFieldRow) []form.FormField {
-	names := map[string]int{}
-	out := make([]form.FormField, 0, len(rows))
-	for i := range rows {
-		r := &rows[i]
-		r.Err = map[string]string{}
-		if !form.ValidFieldType(r.Type) {
-			r.Type = form.FieldTypeText
-		}
-		// Layout and hidden fields may have no label; layout fields carry no answer, so no name.
-		layout := form.FormField{Type: r.Type}.IsLayout()
-		if r.Label == "" {
-			if !layout && r.Type != form.FieldTypeHidden {
-				r.Err["label"] = "Enter a label"
-			}
-		} else if utf8.RuneCountInString(r.Label) > 200 {
-			r.Err["label"] = "Use at most 200 characters"
-		}
-		if r.Name == "" && r.Label != "" && !layout {
-			r.Name = fieldNameFromLabel(r.Label)
-		}
-		switch {
-		case r.Name == "":
-		case !fieldNameRe.MatchString(r.Name):
-			r.Err["name"] = "Start with a letter, then lowercase letters, numbers and underscores"
-		case names[r.Name] > 0:
-			r.Err["name"] = "Another field already uses this name"
-		}
-		names[r.Name]++
-		ff := form.FormField{ID: r.ID, Type: r.Type, Label: r.Label, Name: r.Name, Placeholder: r.Placeholder, HelpText: r.Help, Required: r.Required, Position: i}
-		if r.Width == "half" || r.Width == "third" {
-			ff.Width = r.Width
-		} else {
-			ff.Width = "full"
-		}
-		if ff.ID == "" {
-			ff.ID = uuid.NewString()
-			r.ID = ff.ID
-		}
-		if hasOptions(r.Type) {
-			ff.Options = parseOptions(r.Options)
-			if len(ff.Options) == 0 {
-				r.Err["options"] = "Add at least one choice, one per line"
-			}
-		}
-		v := &form.FieldValidation{}
-		has := false
-		for _, n := range []struct {
-			s   string
-			dst **int
-			key string
-		}{{r.MinLen, &v.MinLength, "minlen"}, {r.MaxLen, &v.MaxLength, "maxlen"}} {
-			if n.s == "" {
-				continue
-			}
-			x, err := strconv.Atoi(n.s)
-			if err != nil || x < 0 || x > 100000 {
-				r.Err[n.key] = "Enter a whole number"
-				continue
-			}
-			*n.dst, has = &x, true
-		}
-		if r.Pattern != "" {
-			if _, err := regexp.Compile(r.Pattern); err != nil || len(r.Pattern) > 500 {
-				r.Err["pattern"] = "This is not a valid pattern"
-			} else {
-				p := r.Pattern
-				v.Pattern, has = &p, true
-			}
-		}
-		if r.Message != "" {
-			m := r.Message
-			v.Message, has = &m, true
-		}
-		if has {
-			ff.Validation = v
-		}
-		out = append(out, ff)
-	}
-	return out
-}
-
-// carryFieldData puts back what the builder has no input for (default value,
-// attributes, numeric min/max) from the stored field with the same ID, so a
-// save never drops data set through the JSON API or MCP.
-func carryFieldData(fields, stored []form.FormField) []form.FormField {
-	byID := make(map[string]*form.FormField, len(stored))
-	for i := range stored {
-		byID[stored[i].ID] = &stored[i]
-	}
-	for i := range fields {
-		old := byID[fields[i].ID]
-		if old == nil {
-			continue
-		}
-		fields[i].DefaultValue, fields[i].Attributes = old.DefaultValue, old.Attributes
-		fields[i].Logic, fields[i].InEmail, fields[i].NameLocked = old.Logic, old.InEmail, old.NameLocked
-		fields[i].BlockFreeEmail, fields[i].Link = old.BlockFreeEmail, old.Link
-		// The text and the source only make sense for their own type.
-		if t := fields[i].Type; t == form.FieldTypeHeading || t == form.FieldTypeParagraph {
-			fields[i].Text = old.Text
-		}
-		if fields[i].Type == form.FieldTypeHidden {
-			fields[i].Hidden = old.Hidden
-		}
-		if old.Validation != nil && (old.Validation.Min != nil || old.Validation.Max != nil) {
-			if fields[i].Validation == nil {
-				fields[i].Validation = &form.FieldValidation{}
-			}
-			fields[i].Validation.Min, fields[i].Validation.Max = old.Validation.Min, old.Validation.Max
-		}
-	}
-	return fields
-}
-
-func fieldNameFromLabel(label string) string {
-	n := strings.Trim(regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(strings.ToLower(label), "_"), "_")
-	if n == "" || n[0] < 'a' || n[0] > 'z' {
-		n = "field_" + n
-	}
-	if len(n) > 64 {
-		n = n[:64]
-	}
-	return strings.TrimRight(n, "_")
 }
 
 func validEmailList(s string) bool {
@@ -749,87 +425,6 @@ func validEmailList(s string) bool {
 		}
 	}
 	return true
-}
-
-func (a *Admin) handleFormSave(w http.ResponseWriter, r *http.Request) {
-	cur, ok := a.loadForm(w, r)
-	if !ok {
-		return
-	}
-	if err := r.ParseForm(); err != nil {
-		a.Error(w, r, http.StatusBadRequest, "Bad request", "The form could not be read.")
-		return
-	}
-	p := r.PostForm
-	t := func(k string) string { return strings.TrimSpace(p.Get(k)) }
-	e := formEdit{ID: cur.ID.String(), Slug: cur.Slug, Name: t("name"), Description: t("description"), Status: t("status"),
-		SubmitText: t("submit_text"), SuccessMsg: t("success_message"), RedirectURL: t("redirect_url"), NotifyEmail: t("notify_email"), ConfirmMsg: t("confirmation_message"),
-		Captcha: t("captcha") != "", Confirmation: t("confirmation") != "", Store: t("store") != "",
-		Fields: parseFormFields(p), AddType: t("add_type"), Errors: map[string]string{}}
-	if op := p.Get("_op"); op != "" && op != "save" {
-		e.Fields, e.Notice = applyFieldOp(e.Fields, op, e.AddType)
-		e.Errors = nil
-		a.renderFormEdit(w, r, http.StatusOK, e)
-		return
-	}
-	if e.Name == "" {
-		e.Errors["name"] = "Enter a name"
-	} else if utf8.RuneCountInString(e.Name) > 120 {
-		e.Errors["name"] = "Use at most 120 characters"
-	}
-	if !form.ValidStatus(e.Status) {
-		e.Status = cur.Status
-	}
-	if !validEmailList(e.NotifyEmail) {
-		e.Errors["notify"] = "Enter email addresses separated by commas"
-	}
-	if !form.ValidRedirectTarget(e.RedirectURL) {
-		e.Errors["redirect"] = "Enter a path like /thank-you or a full address starting with https://"
-	}
-	if len(e.Fields) > maxFormFields {
-		e.Errors["fields"] = "A form holds at most 60 fields"
-	}
-	fields := carryFieldData(buildFormFields(e.Fields), cur.Fields)
-	for _, fr := range e.Fields {
-		if len(fr.Err) > 0 {
-			e.Errors["fields"] = "Some fields need attention."
-		}
-	}
-	if len(e.Errors) > 0 {
-		a.renderFormEdit(w, r, http.StatusUnprocessableEntity, e)
-		return
-	}
-	settings := form.FormSettings{
-		SubmitButtonText: orDefault(e.SubmitText, "Submit"), SuccessMessage: orDefault(e.SuccessMsg, "Thank you for your submission!"), SuccessRedirectURL: e.RedirectURL,
-		EnableCaptcha: e.Captcha, ConfirmationEmail: e.Confirmation, ConfirmationMessage: e.ConfirmMsg, StoreSubmissions: e.Store,
-	}
-	if e.NotifyEmail != "" {
-		settings.NotifyEmail = &e.NotifyEmail
-	}
-	desc := e.Description
-	in := &form.UpdateFormInput{Name: &e.Name, Description: &desc, Fields: fields, Settings: &settings, Status: &e.Status}
-	if in.Fields == nil {
-		in.Fields = []form.FormField{}
-	}
-	_, err := a.deps.Growth.Forms.UpdateForm(r.Context(), cur.ID, in)
-	var defErrs form.DefinitionErrors
-	if errors.As(err, &defErrs) {
-		msgs := make([]string, 0, len(defErrs))
-		for _, de := range defErrs {
-			msgs = append(msgs, de.Message)
-		}
-		e.Errors["fields"] = "Some fields need attention: " + strings.Join(msgs, "; ") + "."
-		a.renderFormEdit(w, r, http.StatusUnprocessableEntity, e)
-		return
-	}
-	if err != nil {
-		a.logger().Error("save form failed", "err", err)
-		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The form could not be saved.")
-		return
-	}
-	a.invalidate(r.Context())
-	a.SetFlash(w, r, "success", "Form saved.")
-	http.Redirect(w, r, a.adminPath+"/forms/edit/"+cur.ID.String(), http.StatusSeeOther)
 }
 
 // ---- submissions ----
