@@ -250,8 +250,26 @@ func defaultVal(def, v any) any {
 
 // sanitisedHTML runs rich text (a TipTap body attribute) through the same
 // sanitiser as stored rich-text section fields. Non-string input gives "".
-func sanitisedHTML(v any) template.HTML {
-	return template.HTML(entity.SanitizeRichText(strVal(v))) // #nosec G203 -- sanitised above
+// A template that passes its dot as the second argument
+// ({{sanitisedHTML .Attrs.content $}}) also gets [form slug="..."] expanded
+// after sanitising; without it shortcodes stay literal text.
+func sanitisedHTML(v any, page ...any) template.HTML {
+	s := entity.SanitizeRichText(strVal(v))
+	if len(page) == 0 {
+		return template.HTML(s) // #nosec G203 -- sanitised above
+	}
+	var pv *PageView
+	switch p := page[0].(type) {
+	case *PageView:
+		pv = p
+	case PageView:
+		pv = &p
+	case *pageData:
+		pv = &p.PageView
+	case pageData:
+		pv = &p.PageView
+	}
+	return expandShortcodes(s, pv)
 }
 
 // sanitisedSectionHTML runs an HTML fragment (a plugin func's output, say)
