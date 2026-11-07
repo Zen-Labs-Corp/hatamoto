@@ -82,3 +82,21 @@ func TestFormatFieldValueFile(t *testing.T) {
 		t.Errorf("no-id ref = %q", got)
 	}
 }
+
+func TestFormViewFileField(t *testing.T) {
+	t.Parallel()
+	mb := 5
+	v := formView(&form.Form{Slug: "apply", Fields: []form.FormField{
+		{Name: "cv", Label: "CV", Type: form.FieldTypeFile, Validation: &form.FieldValidation{Accept: []string{"pdf", "docx"}, MaxMB: &mb}},
+		{Name: "name", Label: "Name", Type: form.FieldTypeText},
+	}})
+	if got := v.Fields[0]; got.Accept != ".pdf,.docx" || got.Hint != ".pdf, .docx · 5 MB" {
+		t.Errorf("file field = %+v", got)
+	}
+	if got := v.Fields[1]; got.Accept != "" || got.Hint != "" {
+		t.Errorf("text field carries file props: %+v", got)
+	}
+	if !v.HasFile() {
+		t.Error("HasFile = false")
+	}
+}

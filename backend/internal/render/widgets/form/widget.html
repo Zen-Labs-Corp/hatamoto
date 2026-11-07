@@ -17,7 +17,7 @@
 {{else}}<label class="hm-form__label" for="{{.ID}}">{{.Label}}{{if .Required}} <abbr title="required">*</abbr>{{end}}</label>
 {{if eq .Type "textarea"}}<textarea id="{{.ID}}" name="{{.Name}}" rows="5"{{with .Placeholder}} placeholder="{{.}}"{{end}}{{if .Required}} required{{end}}></textarea>
 {{else if eq .Type "select"}}<select id="{{.ID}}" name="{{.Name}}"{{if .Required}} required{{end}}><option value="">{{if .Placeholder}}{{.Placeholder}}{{else}}Select…{{end}}</option>{{range .Options}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select>
-{{else if eq .Type "file"}}<input id="{{.ID}}" name="{{.Name}}" type="file"{{with .Accept}} accept="{{.}}"{{end}}{{if .Required}} required{{end}}><small class="hm-form__help">{{.Accept}} · {{.MaxMB}} MB</small>
+{{else if eq .Type "file"}}<input id="{{.ID}}" name="{{.Name}}" type="file"{{with .Accept}} accept="{{.}}"{{end}}{{if .Required}} required{{end}}><small class="hm-form__help">{{.Hint}}</small>
 {{else}}<input id="{{.ID}}" name="{{.Name}}" type="{{.InputType}}"{{with .Placeholder}} placeholder="{{.}}"{{end}}{{if .Required}} required{{end}}>{{end}}
 <small class="hm-form__error" id="{{.ID}}-error" data-hm-error-for="{{.Name}}" hidden></small>{{end}}
 {{with .HelpText}}<small class="hm-form__help">{{.}}</small>{{end}}

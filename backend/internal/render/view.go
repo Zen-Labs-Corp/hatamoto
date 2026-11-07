@@ -1006,10 +1006,10 @@ type FormField struct {
 	LogicField string
 	LogicOp    string
 	LogicValue string
-	// Accept is the file input's accept list (".pdf,.docx") and MaxMB its size
-	// limit, for file fields.
+	// Accept is the file input's accept list (".pdf,.docx") and Hint the line
+	// shown under it (".pdf, .docx · 10 MB"), for file fields.
 	Accept string
-	MaxMB  int
+	Hint   string
 }
 
 // FormOption is one choice of a select or radio field.

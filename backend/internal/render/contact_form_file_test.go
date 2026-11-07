@@ -9,7 +9,7 @@ import (
 func fileTestFields(withFile bool) []FormField {
 	fields := []FormField{{Name: "name", Label: "Name", Type: "text"}}
 	if withFile {
-		fields = append(fields, FormField{Name: "cv", Label: "CV", Type: "file", Required: true, Accept: ".pdf,.docx", MaxMB: 10})
+		fields = append(fields, FormField{Name: "cv", Label: "CV", Type: "file", Required: true, Accept: ".pdf,.docx", Hint: ".pdf, .docx · 10 MB"})
 	}
 	return fields
 }
@@ -43,7 +43,7 @@ func TestFileFieldRendersInEveryServerRenderer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			with := render(t, fileTestFields(true))
 			for _, want := range []string{
-				`enctype="multipart/form-data"`, `name="cv" type="file" accept=".pdf,.docx" required`, `.pdf,.docx · 10 MB`,
+				`enctype="multipart/form-data"`, `name="cv" type="file" accept=".pdf,.docx" required`, `.pdf, .docx · 10 MB`,
 			} {
 				if !strings.Contains(with, want) {
 					t.Errorf("missing %q\n%s", want, with)

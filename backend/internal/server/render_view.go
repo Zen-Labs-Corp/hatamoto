@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -703,7 +704,8 @@ func formView(f *form.Form) render.FormView {
 			rf.Width = "full"
 		}
 		if fld.Type == form.FieldTypeFile {
-			rf.Accept, rf.MaxMB = fld.FileAccept(), fld.FileMaxMB()
+			rf.Accept = fld.FileAccept()
+			rf.Hint = strings.ReplaceAll(rf.Accept, ",", ", ") + " · " + strconv.Itoa(fld.FileMaxMB()) + " MB"
 		}
 		// The server always requires consent, so the form shows it that way.
 		if fld.Type == form.FieldTypeConsent {
