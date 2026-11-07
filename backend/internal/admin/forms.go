@@ -42,7 +42,8 @@ func (a *Admin) mountForms(authed *httpx.Group) {
 	authed.HandleFunc("GET /forms", a.handleForms)
 	authed.HandleFunc("GET /forms/new", a.handleFormNew)
 	authed.HandleFunc("POST /forms", a.handleFormCreate)
-	authed.HandleFunc("GET /forms/edit/{id}", a.handleFormEdit)
+	authed.HandleFunc("GET /forms/design/{id}", a.handleFormDesign)
+	authed.HandleFunc("GET /forms/edit/{id}", a.handleFormEditRedirect)
 	authed.HandleFunc("POST /forms/edit/{id}", a.handleFormSave)
 	authed.HandleFunc("PUT /forms/{id}/definition", a.handleFormDefinition)
 	authed.HandleFunc("GET /forms/delete/{id}", a.handleFormDeleteForm)
@@ -200,13 +201,13 @@ func (a *Admin) handleForms(w http.ResponseWriter, r *http.Request) {
 			a.logger().Error("form new count failed", "form", id, "err", err)
 		}
 		t.Rows = append(t.Rows, ui.Row{ID: id, Label: f.Name, Cells: []ui.Cell{
-			{Text: f.Name, Link: a.adminPath + "/forms/edit/" + id},
+			{Text: f.Name, Link: a.adminPath + "/forms/design/" + id},
 			{Badge: formStatusBadge(f.Status)},
 			{Text: strconv.Itoa(len(f.Fields))}, newCountCell(fresh), totalCell,
 			recentCell,
 		}, Actions: []ui.Action{
 			{Label: "Submissions", Href: a.adminPath + "/forms/submissions?form=" + id},
-			{Label: "Edit", Href: a.adminPath + "/forms/edit/" + id},
+			{Label: "Edit", Href: a.adminPath + "/forms/design/" + id},
 			{Label: "Delete", Href: a.adminPath + "/forms/delete/" + id, Post: a.adminPath + "/forms/delete/" + id, Danger: true, ConfirmLabel: "Delete form",
 				Confirm: "The form " + f.Name + " and all of its submissions are deleted. Pages that embed it stop showing it."},
 		}})
@@ -284,7 +285,7 @@ func (a *Admin) handleFormCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	a.invalidate(r.Context())
 	a.SetFlash(w, r, "success", "Form created. Add its fields below.")
-	Redirect(w, r, a.adminPath+"/forms/edit/"+f.ID.String())
+	Redirect(w, r, a.adminPath+"/forms/design/"+f.ID.String())
 }
 
 var slugRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
@@ -471,14 +472,6 @@ func formToEdit(f *form.Form) formEdit {
 		e.Fields = append(e.Fields, row)
 	}
 	return e
-}
-
-func (a *Admin) handleFormEdit(w http.ResponseWriter, r *http.Request) {
-	f, ok := a.loadForm(w, r)
-	if !ok {
-		return
-	}
-	a.renderFormEdit(w, r, http.StatusOK, formToEdit(f))
 }
 
 // formEndpoint is where visitors send the form: under the configured public
@@ -1338,7 +1331,7 @@ func (a *Admin) submissionView(w http.ResponseWriter, r *http.Request, status in
 		d.Answers = append(d.Answers, answerRow{k, formatAnswer(s.Data[k])})
 	}
 	v := a.NewView(w, r, "Submission of "+fmtDateTime(s.CreatedAt))
-	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: f.Name, Href: a.adminPath + "/forms/edit/" + f.ID.String()}, {Label: "Submissions", Href: d.ListURL}, {Label: "Submission"}}
+	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: f.Name, Href: a.adminPath + "/forms/design/" + f.ID.String()}, {Label: "Submissions", Href: d.ListURL}, {Label: "Submission"}}
 	v.Data = d
 	v.Width = "narrow"
 	a.Render(w, r, status, "forms/submission", v)

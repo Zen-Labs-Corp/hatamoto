@@ -103,7 +103,7 @@ func TestRenderedFormsPagesLinkToNewPaths(t *testing.T) {
 	g, _, _, fm, s := submissionRig(t)
 	attr := regexp.MustCompile(`(?:href|action|formaction|hx-get|hx-post|data-hm-post)="([^"]*)"`)
 	for _, path := range []string{
-		"/admin/forms", "/admin/forms/new", "/admin/forms/edit/" + fm.ID.String(),
+		"/admin/forms", "/admin/forms/new", "/admin/forms/design/" + fm.ID.String(),
 		"/admin/forms/submissions?form=" + fm.ID.String(), "/admin/forms/submissions/" + s.ID.String(),
 		"/admin/forms/submissions/" + s.ID.String() + "/delete",
 	} {

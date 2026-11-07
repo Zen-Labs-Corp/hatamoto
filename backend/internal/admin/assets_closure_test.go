@@ -160,6 +160,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 		"entities/edit":            {"@hm/repeater", "@hm/content", "@hm/entityform", "@hm/seopanel"},
 		"entities/list":            {"@hm/content", "@hm/seobulk"},
 		"entities/translations":    {"@hm/searchselect"},
+		"forms/design":             {"@hm/formsdesigner"},
 		"forms/edit":               {"@hm/content"},
 		"forms/submissions":        {"@hm/content"},
 		"linking/rule":             {"@hm/searchselect"},

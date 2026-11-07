@@ -44,7 +44,7 @@ func TestBigCreateForm(t *testing.T) {
 
 	g, _, _ := newFormRig(t)
 	rec := g.do("POST", "/admin/forms", "owner-token", url.Values{"name": {"Newsletter"}}, nil)
-	bigCreated(t, rec, "/admin/forms/edit/", "")
+	bigCreated(t, rec, "/admin/forms/design/", "")
 }
 
 func TestBigCreateEntityType(t *testing.T) {

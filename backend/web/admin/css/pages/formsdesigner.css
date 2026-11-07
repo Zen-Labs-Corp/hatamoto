@@ -1,0 +1,5 @@
+/* Form designer: palette | canvas | inspector. Tokens only. */
+.hm-fd { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); min-width: 0; }
+.hm-fd__palette, .hm-fd__inspector { min-width: 0; }
+.hm-fd__canvas { min-width: 0; }
+.hm-fd__sheet { min-width: 0; }
