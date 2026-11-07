@@ -39,19 +39,22 @@ func newSettingsSaveFixture(t *testing.T, srv *Server, ctx context.Context) *set
 	pool := srv.db.Pool()
 	f := &settingsSaveFixture{srv: srv, ctx: ctx, slugs: []string{"ss-one", "ss-two", "ss-three"}}
 
-	var prev struct {
-		language, tz, xdef string
-		locales            []byte
-		prefixAll          bool
+	var hadSite bool
+	if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_site_config)`).Scan(&hadSite); err != nil {
+		t.Fatal(err)
 	}
-	hadSite := pool.QueryRow(ctx, `SELECT language, timezone, x_default_locale, locales, prefix_all FROM hatamoto_site_config`).
-		Scan(&prev.language, &prev.tz, &prev.xdef, &prev.locales, &prev.prefixAll) == nil
 	if !hadSite {
 		// Other tests create and drop the singleton on the same database, so the
 		// row can appear between the SELECT above and this INSERT.
 		if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_site_config (company_name, language) VALUES ('Save IT', 'en') ON CONFLICT (id) DO NOTHING`); err != nil {
 			t.Fatal(err)
 		}
+	}
+	// The saves below write the identity, the locales and the business fields;
+	// keep the whole row so none of it leaks into the tests that run after.
+	var prev []byte
+	if err := pool.QueryRow(ctx, `SELECT to_jsonb(c) FROM hatamoto_site_config c`).Scan(&prev); err != nil {
+		t.Fatal(err)
 	}
 	var schemaID string
 	if err := pool.QueryRow(ctx, `SELECT id::text FROM hatamoto_entity_schemas WHERE slug = 'page'`).Scan(&schemaID); err != nil {
@@ -71,13 +74,15 @@ func newSettingsSaveFixture(t *testing.T, srv *Server, ctx context.Context) *set
 	t.Cleanup(func() {
 		c := context.Background()
 		_, _ = pool.Exec(c, `DELETE FROM hatamoto_entities WHERE slug = ANY($1)`, f.slugs)
-		if hadSite {
-			_, _ = pool.Exec(c, `UPDATE hatamoto_site_config SET language=$1, timezone=$2, x_default_locale=$3, locales=$4::jsonb, prefix_all=$5`,
-				prev.language, prev.tz, prev.xdef, string(prev.locales), prev.prefixAll)
-		} else {
-			// Never delete the singleton: a concurrent test may own it by now.
-			_, _ = pool.Exec(c, `UPDATE hatamoto_site_config SET language='en', locales='[]'::jsonb, x_default_locale='', prefix_all=false`)
-		}
+		// Never delete the singleton: a concurrent test may own it by now.
+		_, _ = pool.Exec(c, `UPDATE hatamoto_site_config AS c SET
+			company_name = p.company_name, public_base_url = p.public_base_url, language = p.language,
+			timezone = p.timezone, logo_url = p.logo_url, tagline = p.tagline, custom_domain = p.custom_domain,
+			locales = p.locales, prefix_all = p.prefix_all, x_default_locale = p.x_default_locale,
+			postal_address = p.postal_address, phone = p.phone, business_hours = p.business_hours,
+			business_profile = p.business_profile, locale_profiles = p.locale_profiles
+			FROM jsonb_populate_record(NULL::hatamoto_site_config, $1::jsonb) AS p`, string(prev))
+		f.srv.siteConfig.Invalidate()
 	})
 	return f
 }
