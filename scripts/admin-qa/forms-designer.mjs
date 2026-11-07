@@ -321,6 +321,11 @@ await conflict("Changed here");
   await page.evaluate(() => document.activeElement?.blur());
   await page.keyboard.press("Control+s");
   ok((await page.locator("[data-hm-fd] [role=status].hm-visually-hidden").innerText()).includes("Not saved"), "409: Ctrl+S says it did not save");
+  // an edit the store refuses (the 60-field cap) must not undo the stopped state
+  await (await rowAt(0)).click(EDGE);
+  for (let i = 0; i < 62; i++) await page.keyboard.press("Control+d");
+  ok((await doc()).fields.length === 60, "409: the field cap is reached");
+  ok((await saveBtn.isDisabled()) && (await page.locator('a:has-text("Reload")').count()) === 1 && (await stateText()).includes("changed in another tab"), "409: a refused edit keeps Save off, the Reload link and the message");
   const nav = page.waitForNavigation();
   await page.locator('a:has-text("Reload")').click();
   await nav;

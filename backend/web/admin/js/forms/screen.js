@@ -145,7 +145,7 @@ function start(root, boot) {
       st = commit(st, ops, o);
     } catch (e) {
       announce(e.message);
-      showState("error", e.message);
+      if (saver.state !== "conflict" && saver.state !== "stopped") showState("error", e.message); // a stopped save keeps its bar
       return false;
     }
     for (const op of ops) if (op.id) delete errors[op.id];
