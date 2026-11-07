@@ -15,4 +15,8 @@
 .hm-formw .hm-form__captcha { margin-bottom: var(--hm-space-3, 0.75rem); }
 .hm-formw .hm-form__error[hidden] { display: none; }
 .hm-formw .hm-form__error { color: var(--hm-danger, #b00020); }
+/* Inline field errors are plain small text under the field, never the theme's boxed alert. */
+.hm-formw [data-hm-error-for] { margin: 0; padding: 0; border: 0; background: none; border-radius: 0; font-size: 0.875em; line-height: 1.3; }
+.hm-formw [data-hm-error-for]:empty { display: none; }
+.hm-formw [aria-invalid="true"]:focus { outline: 2px solid var(--hm-danger, #b00020); outline-offset: 2px; }
 .hm-ph { margin: 0; padding: var(--hm-space-3, 0.75rem); border: 1px dashed var(--hm-border, #bbb); color: var(--hm-muted-text, #555); }

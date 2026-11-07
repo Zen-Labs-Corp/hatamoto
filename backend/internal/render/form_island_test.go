@@ -248,3 +248,36 @@ func TestFormIslandTakesOverNativeValidation(t *testing.T) {
 		t.Error("captcha form gave up native validation but the island does not submit it")
 	}
 }
+
+// The inline error slots are plain small text under the field. The theme's
+// .hm-form__error is a bordered, padded alert box that looked like an extra
+// input, so both stylesheets must flatten the slots, collapse empty ones and
+// give the focused invalid field a visible outline.
+func TestInlineErrorSlotsAreNotBoxed(t *testing.T) {
+	t.Parallel()
+	for _, f := range []string{
+		filepath.Join("widgets", "form", "widget.css"),
+		filepath.Join("themes", "default", "assets", "css", "sections", "contact_form.css"),
+	} {
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var flat, empty, focus bool
+		for _, line := range strings.Split(string(raw), "\n") {
+			sel, body, ok := strings.Cut(line, "{")
+			switch {
+			case !ok:
+			case strings.Contains(sel, "[data-hm-error-for]:empty"):
+				empty = strings.Contains(body, "display: none")
+			case strings.Contains(sel, "[data-hm-error-for]"):
+				flat = strings.Contains(body, "border: 0") && strings.Contains(body, "padding: 0")
+			case strings.Contains(sel, `[aria-invalid="true"]:focus`):
+				focus = strings.Contains(body, "outline:")
+			}
+		}
+		if !flat || !empty || !focus {
+			t.Errorf("%s: flat=%v empty-collapsed=%v focus-outline=%v", f, flat, empty, focus)
+		}
+	}
+}

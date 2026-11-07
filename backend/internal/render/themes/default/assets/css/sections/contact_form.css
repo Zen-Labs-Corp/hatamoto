@@ -24,3 +24,7 @@
 .hm-form:has(.hm-form__field--half, .hm-form__field--third) > .hm-form__field--half { grid-column: span 3; }
 .hm-form:has(.hm-form__field--half, .hm-form__field--third) > .hm-form__field--third { grid-column: span 2; }
 @media (max-width: 600px) { .hm-form:has(.hm-form__field--half, .hm-form__field--third) > .hm-form__field { grid-column: 1 / -1; } }
+/* Inline field errors (logic forms): plain small text under the field, not the boxed page alert. */
+.hm-form [data-hm-error-for] { margin: 0; padding: 0; border: 0; background: none; border-radius: 0; font-size: 0.875em; line-height: 1.3; color: var(--hm-danger, #b00020); }
+.hm-form [data-hm-error-for]:empty { display: none; }
+.hm-form [aria-invalid="true"]:focus { outline: 2px solid var(--hm-danger, #b00020); outline-offset: 2px; }
