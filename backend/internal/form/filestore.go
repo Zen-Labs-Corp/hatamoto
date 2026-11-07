@@ -11,6 +11,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -22,6 +23,11 @@ const maxFileNameRunes = 120
 
 // tmpDir holds uploads that are staged but not yet attached to a submission.
 const tmpDir = "tmp"
+
+// stagedMaxAge is how long a staged file may sit in tmp before the sweep at
+// start-up removes it. An upload is cut off after minutes, so an older file
+// is what a crash or kill left behind.
+const stagedMaxAge = time.Hour
 
 // ErrFileTooLarge is returned by Stage when the upload exceeds its limit.
 var ErrFileTooLarge = errors.New("file too large")
@@ -47,7 +53,33 @@ func NewFileStore(root string) (*FileStore, error) {
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return nil, fmt.Errorf("create file store root: %w", err)
 	}
-	return &FileStore{root: root}, nil
+	st := &FileStore{root: root}
+	st.sweepStaged(time.Now())
+	return st, nil
+}
+
+// sweepStaged removes staged files older than stagedMaxAge: the leftovers of a
+// process that died mid-upload. Best effort, nothing is reported.
+func (s *FileStore) sweepStaged(now time.Time) {
+	root, err := s.open()
+	if err != nil {
+		return
+	}
+	defer root.Close()
+	dir, err := root.Open(tmpDir)
+	if err != nil {
+		return
+	}
+	entries, err := dir.ReadDir(-1)
+	dir.Close()
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if info, err := e.Info(); err == nil && !e.IsDir() && now.Sub(info.ModTime()) > stagedMaxAge {
+			_ = root.Remove(path.Join(tmpDir, e.Name()))
+		}
+	}
 }
 
 func (s *FileStore) open() (*os.Root, error) { return os.OpenRoot(s.root) }

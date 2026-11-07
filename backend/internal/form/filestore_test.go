@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -229,5 +230,33 @@ func TestSanitizeName(t *testing.T) {
 	}
 	if g := SanitizeName(strings.Repeat("a", 500)); len([]rune(g)) != maxFileNameRunes {
 		t.Errorf("no-ext long name: %d runes", len([]rune(g)))
+	}
+}
+
+// Staged files a dead process left behind are swept when the store starts;
+// a recent one (an upload in progress) is kept.
+func TestNewFileStoreSweepsStaleStagedFiles(t *testing.T) {
+	t.Parallel()
+	_, root := newTestStore(t)
+	for _, n := range []string{"stale", "fresh"} {
+		if err := os.MkdirAll(filepath.Join(root, tmpDir), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, tmpDir, n), []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old := time.Now().Add(-2 * stagedMaxAge)
+	if err := os.Chtimes(filepath.Join(root, tmpDir, "stale"), old, old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewFileStore(root); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, tmpDir, "stale")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("stale staged file kept: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, tmpDir, "fresh")); err != nil {
+		t.Errorf("recent staged file removed: %v", err)
 	}
 }
