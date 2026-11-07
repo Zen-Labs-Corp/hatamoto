@@ -18,6 +18,8 @@ func formPageRig(t *testing.T, status string) (*renderFixture, http.Handler) {
 		{ID: "n", Type: form.FieldTypeText, Name: "name", Label: "Your name"},
 	}})
 	repo.forms["t"].Status = status
+	desc := "Internal note: admin-only wording"
+	repo.forms["t"].Description = &desc
 	f := newRenderFixture(t)
 	f.next = func() (*routeResult, pageOutcome, error) {
 		return &routeResult{NotFound: true}, pageOutcome{Status: http.StatusNotFound, NotFound: true}, nil
@@ -99,5 +101,13 @@ func TestFormPageInThemeContainer(t *testing.T) {
 	f := strings.Index(body, `<form class="hm-form"`)
 	if c < 0 || h1 < c || f < h1 || !strings.Contains(body, ">Contact us</h1>") {
 		t.Errorf("want theme container, then h1 with the form name, then the form (%d %d %d): %s", c, h1, f, body)
+	}
+}
+
+func TestFormPageOmitsAdminDescription(t *testing.T) {
+	_, h := formPageRig(t, form.StatusActive)
+	body := getPath(h, "/f/t").Body.String()
+	if strings.Contains(body, "admin-only wording") {
+		t.Errorf("form description is admin-only but rendered publicly: %s", body)
 	}
 }

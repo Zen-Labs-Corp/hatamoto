@@ -56,11 +56,9 @@ func (s *Server) handleFormPage(w http.ResponseWriter, r *http.Request) {
 	v.Kind = render.KindPage
 	v.Page = render.PageMeta{Name: f.Name, Title: f.Name, NoIndex: true}
 	// One contact_form section: the theme wraps it in its standard container
-	// like any page section; the form name is the page's h1.
+	// like any page section; the form name is the page's h1. The description is
+	// admin-only and is never rendered here.
 	content := map[string]any{"form_slug": f.Slug, "heading": f.Name, "heading_level": 1}
-	if f.Description != nil && *f.Description != "" {
-		content["subheading"] = *f.Description
-	}
 	v.Doc = nil
 	v.Sections = []render.Section{{ID: "form-page", Type: "contact_form", Content: content}}
 	v.Forms = s.formsForSections(ctx, formSections(v.Sections, nil))
