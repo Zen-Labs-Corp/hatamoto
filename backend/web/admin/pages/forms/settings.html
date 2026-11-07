@@ -62,7 +62,9 @@
 {{template "hm/segmented" (dict "Mode" "buttons" "Label" "Delete submissions after" "Attrs" (attrmap "data-hm-fs-seg" "retention_days") "Items" (list (dict "Label" "30 days" "Attrs" (attrmap "data-value" "30")) (dict "Label" "90 days" "Attrs" (attrmap "data-value" "90")) (dict "Label" "1 year" "Attrs" (attrmap "data-value" "365")) (dict "Label" "Never" "Pressed" true "Attrs" (attrmap "data-value" "0"))))}}
 <p class="hm-field__error" data-hm-fs-err="settings.retention_days" hidden></p>
 </div>
+<div data-hm-fs-when="store_off" hidden>
 {{template "hm/field" (dict "ID" "fs-noip" "Name" "no_ip" "Label" "Do not store IP addresses" "Control" "switch" "Attrs" (attrmap "data-hm-fs" "no_ip"))}}
+</div>
 {{template "hm/card-end"}}
 {{if .Owner}}{{template "hm/card-start" (dict "ID" "fs-hooks" "Title" "Send to other tools" "Description" "Webhooks send form.submitted with every answer. Every active webhook on that event gets all forms.")}}
 <ul class="hm-fs-hooks" data-hm-fs-hooks></ul>
