@@ -1,7 +1,6 @@
 package render
 
 import (
-	"encoding/json"
 	"net/url"
 	"os"
 	"os/exec"
@@ -9,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // islandHarness runs widgets/form/island.js against a minimal fake form. The
@@ -106,7 +107,7 @@ func TestFormIslandMatchesServerVisibilityCases(t *testing.T) {
 			WantVisible map[string]bool  `json:"want_visible"`
 		} `json:"visibility"`
 	}
-	if err := json.Unmarshal(raw, &tbl); err != nil {
+	if err := jsonx.Unmarshal(raw, &tbl); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range tbl.Visibility {
@@ -147,7 +148,7 @@ func runIsland(t *testing.T, scenario map[string]any) islandRun {
 	if err := os.WriteFile(harness, []byte(islandHarness), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	sc, _ := json.Marshal(scenario)
+	sc, _ := jsonx.Marshal(scenario)
 	cmd := exec.Command("node", harness, filepath.Join("widgets", "form", "island.js"))
 	cmd.Env = append(os.Environ(), "SC="+string(sc))
 	raw, err := cmd.CombinedOutput()
@@ -155,7 +156,7 @@ func runIsland(t *testing.T, scenario map[string]any) islandRun {
 		t.Fatalf("node: %v\n%s", err, raw)
 	}
 	var out islandRun
-	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &out); err != nil {
+	if err := jsonx.Unmarshal([]byte(strings.TrimSpace(string(raw))), &out); err != nil {
 		t.Fatalf("output %q: %v", raw, err)
 	}
 	return out
