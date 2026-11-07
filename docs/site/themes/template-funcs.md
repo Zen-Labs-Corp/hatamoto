@@ -125,6 +125,17 @@ All of these are fail-open: an error or timeout gives no items and the page stil
 
 `queryParam . "name"` is the first value of the query parameter `name` as a string, cut to 200 bytes, or `""`. A request with a query string is never cached, so a theme can branch on it (for example `?days=7`) without a cache key.
 
+### t
+
+`t . "key"` returns the theme's text for `key`, in the language of the page. `t . "n_results" .Total` also replaces every `{n}` in the text with its first extra argument. Pass the page data as the first argument: `.` in a layout, partial or section, or `$` inside a `range`. A partial called with `dict` has no page data of its own, so hand it the strings: `{{template "pager" dict "Strings" .Strings}}`, then `{{t . "next"}}` inside it. Without `Strings` the partial prints the theme's default text, not the page language's.
+
+A key the theme did not declare returns the key itself, so a typo shows up on the page. The result is plain text and `html/template` escapes it where it prints, in an attribute as well as in the body. Keys are declared in `theme.json` and translated in the admin, see [Translate theme strings](translate-theme-strings.md).
+
+```gotemplate
+<a href="{{.Pagination.NextURL}}">{{t . "next"}}</a>
+<p>{{t . "n_results" .Pagination.Total}}</p>
+```
+
 ### query
 
 `query dict` lists published entities on any view and returns `{Items []RelatedItem, Total, Page, Pages, Limit int}`. Only `schema` is required.

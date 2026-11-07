@@ -205,3 +205,30 @@ func TestParseThemeInvalidMenusIsRecorded(t *testing.T) {
 		t.Fatalf("valid block: %v / %v", err, p.MenusErr)
 	}
 }
+
+func TestParseThemeInvalidStringsIsRecorded(t *testing.T) {
+	long := strings.Repeat("x", 301)
+	for name, raw := range map[string]string{
+		"bad key":    `{"Bad Key":"x"}`,
+		"long value": `{"a":"` + long + `"}`,
+		"html":       `{"a":"<b>x</b>"}`,
+		"not object": `["a"]`,
+	} {
+		p, err := themePackage(t, `{"name":"kumo","version":"1.0.0","strings":`+raw+`}`, nil)
+		if err != nil {
+			t.Fatalf("%s: Parse refused: %v", name, err)
+		}
+		if p.StringsErr == nil {
+			t.Errorf("%s: StringsErr not set", name)
+		}
+	}
+	for name, manifest := range map[string]string{
+		"valid":  `{"name":"kumo","version":"1.0.0","strings":{"search":"Search","min_read":"{n} min read"}}`,
+		"absent": `{"name":"kumo","version":"1.0.0"}`,
+	} {
+		p, err := themePackage(t, manifest, nil)
+		if err != nil || p.StringsErr != nil {
+			t.Errorf("%s: %v / %v", name, err, p.StringsErr)
+		}
+	}
+}

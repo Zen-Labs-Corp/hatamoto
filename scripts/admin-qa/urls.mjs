@@ -146,6 +146,7 @@ export const screens = [
   { name: "theme-menus", path: "/admin/theme/menus", legacy: "/admin/menus", mock: "settings-menus", roles: OE, list: true, states: [newDialog] },
   { name: "theme-menus-new", path: "/admin/theme/menus/new", mock: null, roles: OE },
   { name: "theme-menus-edit", path: "/admin/theme/menus/{menu}", legacy: "/admin/menus/{menu}", mock: "settings-menus", roles: OE },
+  { name: "theme-strings", path: "/admin/theme/strings", mock: null, roles: O },
   { name: "theme-contact-button", path: "/admin/theme/contact-button", legacy: "/admin/settings/contact-button", mock: null, roles: O },
   // Team, media, import and export
   { name: "settings-users", path: "/admin/settings/users", legacy: "/admin/users", mock: "settings-users", roles: O, list: true, states: [newDialog] },

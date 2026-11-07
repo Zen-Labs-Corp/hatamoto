@@ -137,6 +137,9 @@ func checkTheme(files map[string][]byte, opts themeCheckOpts) (*packages.ThemeMe
 	if p.MenusErr != nil {
 		return nil, nil, fmt.Errorf("%s: %w", packages.ThemeManifest, p.MenusErr)
 	}
+	if p.StringsErr != nil {
+		return nil, nil, fmt.Errorf("%s: %w", packages.ThemeManifest, p.StringsErr)
+	}
 	var shot []byte
 	if opts.registry {
 		if p.ScreenshotErr != nil {

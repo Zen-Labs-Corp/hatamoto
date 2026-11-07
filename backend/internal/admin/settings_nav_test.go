@@ -58,8 +58,8 @@ func TestSettingsForRoles(t *testing.T) {
 func TestContactButtonLivesInTheme(t *testing.T) {
 	t.Parallel()
 
-	if got := len(ThemeFor("owner")); got != 10 {
-		t.Errorf("owner theme sections = %d, want 10", got)
+	if got := len(ThemeFor("owner")); got != 11 {
+		t.Errorf("owner theme sections = %d, want 11", got)
 	}
 	var last SettingsSection
 	for _, s := range ThemeFor("owner") {

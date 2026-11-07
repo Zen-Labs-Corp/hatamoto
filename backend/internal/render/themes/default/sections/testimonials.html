@@ -6,7 +6,7 @@
   {{if $c.testimonials}}<ul class="hm-testimonials__list">
     {{range $i, $t := $c.testimonials}}<li class="hm-testimonials__item">
       <figure class="hm-testimonials__figure">
-        {{if $t.rating}}<p class="hm-testimonials__rating" role="img" aria-label="Rated {{$t.rating}} out of 5"><span aria-hidden="true">★ <span {{hmf "testimonials" $i "rating"}}>{{$t.rating}}</span>/5</span></p>{{end}}
+        {{if $t.rating}}<p class="hm-testimonials__rating" role="img" aria-label="{{t $ "testimonials_rating" $t.rating}}"><span aria-hidden="true">★ <span {{hmf "testimonials" $i "rating"}}>{{$t.rating}}</span>/5</span></p>{{end}}
         <blockquote class="hm-testimonials__quote" {{hmf "testimonials" $i "quote"}}>{{$t.quote}}</blockquote>
         <figcaption class="hm-testimonials__author">
           {{if $t.avatar}}{{with imgsrc $t.avatar}}<img class="hm-testimonials__avatar" src="{{.}}" alt="" width="48" height="48" loading="lazy">{{end}}{{end}}

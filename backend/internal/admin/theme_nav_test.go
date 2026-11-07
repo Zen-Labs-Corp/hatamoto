@@ -19,7 +19,7 @@ func TestThemeForRoles(t *testing.T) {
 		}
 		return strings.Join(ids, " ")
 	}
-	if got, want := joined("owner"), "themes colours additional-css design-system presets parts blocks templates menus contact-button"; got != want {
+	if got, want := joined("owner"), "themes colours additional-css design-system presets parts blocks templates menus theme-strings contact-button"; got != want {
 		t.Errorf("owner Theme sections %q, want %q", got, want)
 	}
 	if got, want := joined("editor"), "blocks templates menus"; got != want {

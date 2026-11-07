@@ -50,7 +50,16 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 	if err := s.fillView(ctx, r, rr, v); err != nil {
 		return nil, err
 	}
+	if rr != nil && rr.NotFound && rr.Locale == "" {
+		// A 404 is built from an empty route: take the locale from the path.
+		// A hidden locale answers like any unknown path unless previewed.
+		set := s.urlSnapshot(ctx).Locales()
+		if tag, _, ok := set.Resolve(requestPath(r)); ok && (!set.IsHidden(tag) || hiddenLocalesServed(ctx)) {
+			rr.Locale = tag
+		}
+	}
 	s.applyLocale(ctx, rr, v, v.BaseURL)
+	s.applyStrings(ctx, v)
 	v.Contact = s.pageContact(ctx, v.Locale)
 	v.Forms = s.formsForSections(ctx, formSections(v.Sections, v.Doc))
 	v.EntityLinks = s.entityLinkTargets(ctx, v)

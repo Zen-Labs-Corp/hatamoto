@@ -13,6 +13,7 @@ import (
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/themestrings"
 )
 
 // SectionDef is one section type of a theme: its template source and schema.
@@ -61,6 +62,10 @@ type Theme struct {
 	// MenuLocations are the menu locations the theme declares (theme.json
 	// "menus"); nil when absent or invalid (lenient at runtime).
 	MenuLocations []menu.DeclLocation
+	// Strings are the default UI strings the theme declares (theme.json
+	// "strings"), merged over every layer of the chain, lowest first. Invalid
+	// entries are dropped (lenient at runtime); nil when none.
+	Strings themestrings.Decl
 
 	chain Chain
 }
@@ -97,6 +102,7 @@ func LoadTheme(c Chain) (*Theme, error) {
 		t.StrictScripts = m.CSP.StrictScripts
 		t.NoPrefetch = m.Prefetch != nil && !*m.Prefetch
 		t.Menu = parseMenuDecl(m.Menu)
+		t.Strings = chainStrings(c)
 		if locs, err := menu.ParseDecl(m.Menus); err == nil {
 			t.MenuLocations = locs
 		}

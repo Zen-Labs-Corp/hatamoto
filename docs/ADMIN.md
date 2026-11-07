@@ -116,7 +116,7 @@ There are 15 sections in three groups (paths under `<admin>/settings/`):
 | Backups & recovery | `backups`, `versions`, `changes` | owner |
 | Tools | `import` (WordPress import), `export` (informational, see EXPORT.md), `search-replace` | owner |
 
-Theme has nine sections, one tab each (paths under `<admin>/theme/`):
+Theme has eleven sections, one tab each (paths under `<admin>/theme/`):
 
 | Section | Path | Who |
 | --- | --- | --- |
@@ -128,6 +128,8 @@ Theme has nine sections, one tab each (paths under `<admin>/theme/`):
 | Blocks | `blocks` (B6 list: name, used by, edit, delete, **New block**) | owner, editor |
 | Templates | `templates` | owner, editor |
 | Menus | `menus` | owner, editor |
+| Strings | `strings` (the active theme's words, translated per locale) | owner |
+| Additional CSS | `additional-css` (the site's own CSS, served as its own stylesheet) | owner |
 | Contact button | `contact-button` (the floating contact link on public pages) | owner |
 
 Entities does not list the built-in `block` and `theme_part` types (rows, counts, type tabs,
@@ -152,7 +154,7 @@ sidebar).
 | `<admin>/login`, `logout`, `forgot`, `reset`, `accept`, `setup/*`, `profile` | Go (v1-10) |
 | `<admin>/forms*` (list, `new`, `edit/{id}`, `delete/{id}`, `PUT {id}/definition` (JSON save), `submissions*` (list, `{sid}`, bulk, CSV export), `spam*`) and `<admin>/media*` (library, upload, formats) | Go (main menu since the Settings regroup) |
 | `<admin>/entities*`, `media/{upload,picker,{id}}`, `pick/{entities,terms}` | Go (v1-11, v1-14) |
-| `<admin>/theme/*`: `themes*` (activate, settings, uninstall, install), `colours`, `design-system*`, `presets*`, `parts`, `blocks`, `templates*`, `menus*` (including `POST menus/preview`, the editor's live preview), `contact-button` | Go (the Theme area; the screens date from v1-10 to B6) |
+| `<admin>/theme/*`: `themes*` (activate, settings, uninstall, install), `colours`, `design-system*`, `presets*`, `parts`, `blocks`, `templates*`, `menus*` (including `POST menus/preview`, the editor's live preview), `strings` (`GET ?locale=<tag>`, `POST`), `contact-button` | Go (the Theme area; the screens date from v1-10 to B6) |
 | `<admin>/settings/*`: `general` and `api-keys*`, `types*` (the type editor has a **Shared across languages** switch, `locale_neutral`, which only takes effect on a site with several languages, read-only on built-in types; the New form of a type with several languages offers **All languages (shared)**), `taxonomies*`, `redirects*` (rules, 404 log, explain), `linking*` (rules, suggestions, equity, import), `users*`, `import*` (WordPress wizard, `docs/IMPORT-WORDPRESS.md`), `export`, `performance*` (page cache) | Go (v1-23a; the screens date from v1-10 to v1-22b) |
 | `<admin>/analytics` (Overview), `/crawlers`, `/content`, `/referrals`, `/health`, `/agents/{id}`; `POST /crawlers/robots`; `data/{overview,agents,agent,pages,first-crawls,referrals,errors,robots}.json` (all take `from`, `to` and `compare=1`) | Go (v1-14, v1-23a, AI analytics redesign) |
 | `<admin>/plugins*` (list, install, update, enable, uninstall, upload), `plugins/{name}/settings` and `/permissions` (plugin pages), `/plugin-ui/*` (their sandboxed documents), `preview/theme/{name}` | Go (v1-18) |

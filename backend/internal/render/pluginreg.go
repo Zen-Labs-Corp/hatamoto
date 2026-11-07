@@ -242,8 +242,12 @@ type pluginSnapshot struct {
 func (r *pluginRegistry) snapshot() pluginSnapshot {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	funcs := maps.Clone(r.funcs)
+	// "t" is the one core func plugin templates may call (theme strings); the
+	// vetting scratch sets know only the funcs of this snapshot.
+	funcs["t"] = tFunc
 	return pluginSnapshot{
-		funcs:    maps.Clone(r.funcs),
+		funcs:    funcs,
 		partials: maps.Clone(r.partials),
 		sections: maps.Clone(r.sections),
 		owner:    maps.Clone(r.owner),

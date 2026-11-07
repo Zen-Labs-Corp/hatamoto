@@ -78,6 +78,7 @@ Every layout receives these fields. Which ones are filled depends on the view ki
 | `.Pagination` | listings: `.Page`, `.TotalPages`, `.Total`, `.HasPrev`, `.HasNext`, `.PrevURL`, `.NextURL`, `.URL n` |
 | `.Term`, `.Author`, `.Query`, `.SearchType` | taxonomy, author and search views. `.SearchType` is the schema slug a search is limited to, empty for the whole site |
 | `.Site` | `.Name`, `.Tagline`, `.LogoURL`, `.Language`, `.Phone`, `.Hours`, `.Address`, `.Settings` (extras of the site's design tokens object, not the theme settings), `.Nav`, `.FooterNav`, `.SocialLinks` |
+| `.Strings` | the theme's strings for this request, a read-only `map[string]string`: the defaults from `theme.json` with the owner's text for the page's language laid over them. Read it with `{{t . "key"}}` (see [Template functions](template-funcs.md#t)); pass it to a partial called with `dict` as `"Strings" .Strings` |
 | `.Settings` | the active theme's settings: the values of its `settings_schema`, with schema defaults merged in, so a key with a `default` is always present. A read-only `map[string]any`; strings are escaped like any other value. Section templates read the same map |
 | `.Tokens` | the owner's colours, fonts and corner radii from **Theme > Colours and fonts**, only the values changed from the stock defaults (see [Builder contract](builder-contract.md)) |
 | `.CSSHref` | the address of the theme's bundled stylesheet (see [Assets, icons and feeds](assets-icons-feeds.md)) |
@@ -85,6 +86,7 @@ Every layout receives these fields. Which ones are filled depends on the view ki
 | `.SchemaSlug` | the entity's schema slug |
 | `.PublishedAt`, `.UpdatedAt` | `time.Time`, zero when unknown |
 | `.Related` | `func(limit int) []RelatedItem` |
+| `.Page.Strings` | section templates only: the same strings as `.Strings`; `{{t . "key"}}` works in a section as it is |
 
 `.Site.Language` is the site setting `language` (default `en`); it also feeds `<html lang>` and the JSON-LD `inLanguage`.
 

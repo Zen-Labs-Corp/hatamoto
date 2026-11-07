@@ -97,6 +97,7 @@ type Server struct {
 	// (tests); lastAccess is the last settings read, kept for a failed read.
 	accessSettings func(context.Context) (siteaccess.Settings, error)
 	lastAccess     atomic.Pointer[siteaccess.Settings]
+	stringsMemo    atomic.Pointer[stringsMemo] // parsed theme string overrides of the last config
 	httpServer     *http.Server
 
 	// Infrastructure

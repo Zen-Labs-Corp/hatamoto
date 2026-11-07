@@ -45,6 +45,8 @@ type sectionPage struct {
 	// and queryParam read them from a section's ".").
 	PageNum int
 	Params  url.Values
+	// Strings are the resolved theme strings (see pageData.Strings).
+	Strings map[string]string
 }
 
 // CommentHTML returns the unknown-type marker as an HTML comment. Comment is

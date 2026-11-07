@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -28,6 +29,7 @@ import (
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/standing"
+	"hatamoto.dev/core/internal/themestrings"
 	"hatamoto.dev/sdk"
 )
 
@@ -1142,6 +1144,39 @@ func (m *Manager) ThemeSettingsSchema(ctx context.Context, name string) (jsontex
 	}
 	return meta.SettingsSchema, nil
 }
+
+// ThemeStrings is the UI strings the theme declares: what its own theme.json
+// declares laid over the built-in theme's, the way the renderer layers them.
+// ok is false when the theme is not installed.
+func (m *Manager) ThemeStrings(ctx context.Context, name string) (themestrings.Decl, bool) {
+	base := defaultThemeStrings()
+	if name == "" || name == DefaultTheme {
+		return base, true
+	}
+	row, err := m.store.Get(ctx, KindTheme, name)
+	if err != nil {
+		return nil, false
+	}
+	var meta ThemeMeta
+	if jsonx.Unmarshal(row.Manifest, &meta, jsonx.StoredLoose) != nil {
+		return base, true
+	}
+	out := maps.Clone(base)
+	if out == nil {
+		out = themestrings.Decl{}
+	}
+	maps.Copy(out, themestrings.Lenient(meta.Strings))
+	return out, true
+}
+
+// defaultThemeStrings reads the embedded theme's declarations once.
+var defaultThemeStrings = sync.OnceValue(func() themestrings.Decl {
+	t, err := render.LoadTheme(render.Chain{render.DefaultFS()})
+	if err != nil {
+		return nil
+	}
+	return t.Strings
+})
 
 // ThemeSettings returns a theme's settings with the schema's defaults merged.
 func (m *Manager) ThemeSettings(ctx context.Context, name string) (map[string]any, error) {

@@ -1,8 +1,8 @@
 {{define "content"}}<section class="hm-error">
 <div class="hm-container">
 <p class="hm-error__code">404</p>
-<h1>Page not found</h1>
-<p>The page you are looking for does not exist or has moved.</p>
-<p><a class="hm-btn" href="/">Back to the homepage</a></p>
+<h1>{{t . "not_found_title"}}</h1>
+<p>{{t . "not_found_message"}}</p>
+<p><a class="hm-btn" href="/">{{t . "back_to_home"}}</a></p>
 </div>
 </section>{{end}}

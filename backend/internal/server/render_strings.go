@@ -1,0 +1,79 @@
+package server
+
+import (
+	"bytes"
+	"context"
+
+	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/siteconfig"
+	"hatamoto.dev/core/internal/themestrings"
+)
+
+type previewThemeKey struct{}
+
+// withPreviewTheme marks ctx as rendering through the preview engine of theme,
+// so the string overrides of that theme apply, not the active one's.
+func withPreviewTheme(ctx context.Context, theme string) context.Context {
+	return context.WithValue(ctx, previewThemeKey{}, theme)
+}
+
+// stringsTheme is the theme whose overrides a request uses: the previewed one,
+// else the active engine's.
+func stringsTheme(ctx context.Context, active string) string {
+	if t, ok := ctx.Value(previewThemeKey{}).(string); ok {
+		return t
+	}
+	return active
+}
+
+// applyStrings fills v.StringOverrides: the owner's theme string overrides for
+// the active theme, chained locale -> default locale (the renderer puts the
+// theme's own defaults underneath). Call it after applyLocale, which sets
+// v.Locale. It only writes the view it is given.
+func (s *Server) applyStrings(ctx context.Context, v *render.PageView) {
+	if s.renderEngine == nil || s.siteConfig == nil {
+		return
+	}
+	cfg, err := s.siteConfig.Get(ctx)
+	if err != nil || !bytes.Contains(cfg.ThemeExtra, []byte(themestrings.ExtraKey)) {
+		return
+	}
+	v.StringOverrides = themestrings.Chain(s.parsedStringOverrides(cfg), stringsTheme(ctx, s.renderEngine.ThemeName()),
+		v.Locale, defaultStringsTag(s.urlSnapshot(ctx).Locales(), siteLanguage(cfg)), nil)
+}
+
+// stringsMemo is the parsed overrides of one config snapshot.
+type stringsMemo struct {
+	cfg *siteconfig.Config
+	ov  themestrings.Overrides
+}
+
+// parsedStringOverrides parses theme_extra once per config snapshot (the store
+// hands out the same pointer until it refreshes), not once per request.
+func (s *Server) parsedStringOverrides(cfg *siteconfig.Config) themestrings.Overrides {
+	if m := s.stringsMemo.Load(); m != nil && m.cfg == cfg {
+		return m.ov
+	}
+	ov := themestrings.ParseOverrides(cfg.ThemeExtra)
+	s.stringsMemo.Store(&stringsMemo{cfg: cfg, ov: ov})
+	return ov
+}
+
+// defaultStringsTag is the default locale tag: the locale set's default on a
+// multi-locale site, else the normalised site language.
+func defaultStringsTag(set *entity.LocaleSet, language string) string {
+	if set.Multi() {
+		return set.Default()
+	}
+	if tag, err := entity.NormalizeLocale(language); err == nil {
+		return tag
+	}
+	return language
+}
+
+// themeStringOverrides chains the stored overrides of theme for a page of
+// locale ("" on a one-locale site: the default tag).
+func themeStringOverrides(themeExtra []byte, theme, locale, defaultTag string) map[string]string {
+	return themestrings.Chain(themestrings.ParseOverrides(themeExtra), theme, locale, defaultTag, nil)
+}

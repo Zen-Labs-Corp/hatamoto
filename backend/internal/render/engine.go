@@ -157,6 +157,10 @@ type Engine struct {
 // causes has a stable identifier.
 func (e *Engine) SetThemeName(name string) { e.themeName.Store(name) }
 
+// ThemeName is the name theme.json gives the theme in effect ("" when it has
+// none). It keys the theme's stored string overrides.
+func (e *Engine) ThemeName() string { return e.current().theme.Name }
+
 // faultTheme is the theme name boot fault identifiers carry.
 func (e *Engine) faultTheme() string {
 	if n, _ := e.themeName.Load().(string); n != "" {
@@ -338,6 +342,7 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 	size := e.plugins.size() // before the snapshot: a later grant change rebuilds
 	snap := e.plugins.gated()
 	maps.Copy(funcs, snap.funcs)
+	funcs["t"] = newTFunc(th.Strings) // after the copy: the snapshot carries the generic one
 
 	baseSrc, err := chain.ReadFile("layouts/base.html")
 	if err != nil {
@@ -525,6 +530,10 @@ type pageData struct {
 	// defaults merged), read-only.
 	Settings map[string]any
 
+	// Strings are the resolved theme strings (defaults with the request's
+	// overrides on top), read by the "t" func.
+	Strings map[string]string
+
 	// Part is the markup of the active theme parts; zero unless the theme opted
 	// in and the owner assigned a part (see parts.go).
 	Part partOut
@@ -583,6 +592,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		return fmt.Errorf("render: no layout among %v", candidates)
 	}
 	settings := *e.settings.Load()
+	v.strs = resolveStrings(c.theme.Strings, v.StringOverrides)
 	d := &pageData{
 		PageView:   *v,
 		CSSHref:    AssetPrefix + c.cssName,
@@ -590,6 +600,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		Status:     status,
 		StatusText: http.StatusText(status),
 		Settings:   settings,
+		Strings:    v.strs,
 	}
 	var docCSS builderCSS
 	v.anchors, v.formIsland = newAnchorSet(), false
@@ -661,7 +672,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		d.PageNum = 1
 	}
 	for i := range d.Blocks {
-		finishBlock(&d.Blocks[i], v, d.Settings)
+		finishBlock(&d.Blocks[i], v, d.Settings, d.Strings)
 	}
 	if c.hasJS && !editor {
 		d.JSHref = AssetPrefix + "hm.js"
@@ -719,9 +730,9 @@ func dropScriptSrc(tags []extTag) []extTag {
 
 // finishBlock completes a prepared section with the page-level context its
 // template reads: entity links resolved, form/submit state, theme settings.
-func finishBlock(p *preparedSection, v *PageView, settings map[string]any) {
+func finishBlock(p *preparedSection, v *PageView, settings map[string]any, strs map[string]string) {
 	p.Content, _ = rewriteLinksIn(p.Content, v.EntityLinks).(map[string]any)
-	p.Page = sectionPage{Forms: v.Forms, PluginDirectory: v.PluginDirectory, ThemeDirectory: v.ThemeDirectory, Path: v.Path, Submitted: v.Submitted, FormError: v.FormError, PageNum: v.PageNum, Params: v.Params}
+	p.Page = sectionPage{Forms: v.Forms, PluginDirectory: v.PluginDirectory, ThemeDirectory: v.ThemeDirectory, Path: v.Path, Submitted: v.Submitted, FormError: v.FormError, PageNum: v.PageNum, Params: v.Params, Strings: strs}
 	p.Settings = settings
 }
 
@@ -734,7 +745,10 @@ func prepareBlock(c *compiled, v *PageView, s Section, canvas bool, settings map
 		return p, false
 	}
 	p = out[0]
-	finishBlock(&p, v, settings)
+	if v.strs == nil { // outside a page render (editor canvas): resolve once per view
+		v.strs = resolveStrings(c.theme.Strings, v.StringOverrides)
+	}
+	finishBlock(&p, v, settings, v.strs)
 	return p, true
 }
 
