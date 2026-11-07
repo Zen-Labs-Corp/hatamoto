@@ -20,7 +20,7 @@ run with `-tags=integration`; the others run with plain `go test`.
 | Themes | Everything the template engine can do: a theme is trusted code like the binary | Be installed from an unknown signer (refused until the owner trusts the key) |
 | Plugins | Only the capabilities the owner granted, inside a WASM sandbox | Anything else: see "Plugins" |
 | The update channel and registry hosts | Nothing on their own: every release is checked against keys compiled into the binary, and every package against the first-party key plus the keys in `HATAMOTO_TRUSTED_KEYS` | Shipping code that is not signed |
-| Visitors | Read public pages, submit public forms | Everything else |
+| Visitors | Read public pages, submit public forms (including a file on a form that has a file field) | Everything else |
 | Reverse proxies | Tell the server the client address, only when listed in `HATAMOTO_TRUSTED_PROXIES` (loopback by default) | Anything from an unlisted address |
 
 ## Guarantees and the tests that enforce them
@@ -271,6 +271,21 @@ docs has the `docker network inspect` command.
 | Import refuses bad names and symlink escapes, and skips (with a warning) files whose content is not on the media allowlist, such as HTML or SVG | `internal/portability` | `TestMediaStageRefusesBadNamesAndSymlinkEscapes`, `TestMediaStageSkipsNonAllowlistedTypes` |
 | A symlinked directory inside the upload directory fails loudly instead of leaking | `internal/media` | `TestUpload_SymlinkedDirInsideUploadDirFailsLoudly` |
 
+### Form uploads
+
+| Guarantee | Package | Tests |
+|---|---|---|
+| A stored upload is addressed only by a generated 32-hex id, never by a client name or path; names with `../`, separators or control characters are cleaned and the file is opened through `os.Root`, so a symlink cannot leave the store | `internal/form` | `TestFileStoreIDsAreNeverPaths`, `TestFileStoreSymlinkEscapeRefused`, `TestSanitizeName` |
+| The extension must be on the accept table (no svg, html, js, xml or programs) and the file's content must match it | `internal/form` | `TestAcceptTable`, `TestCheckUpload`, `TestValidateDefinitionFile` |
+| A file answer is accepted only as the server's own reference, so a client cannot point a submission at a stored file | `internal/form` | `TestValidateFileAnswer` |
+| Deleting a submission or a form, and the retention purge, remove the files; a missing file is not an error | `internal/form` | `TestDeleteSubmissionRemovesFiles`, `TestDeleteFormRemovesItsFiles`, `TestPurgeExpiredSubmissionsRemovesReturnedFiles` |
+| The multipart submit streams under a size cap, refuses the wrong type or size, and leaves nothing on disk after a refusal | `internal/server` | file upload handler tests in `internal/server` (`form_upload_test.go`) |
+| Only a signed-in owner or editor can download an upload; others get 404 and no bytes; the reply is an attachment with `nosniff` and `no-store` | `internal/admin` | download tests in `internal/admin` (`forms_files_test.go`) |
+
+Uploads are stored unencrypted under `<data>/private/form-uploads`, so the data directory's
+access rules cover them. Files are checked by size and content type only; there is no virus scan
+(see the non-goals).
+
 ### Sign-in, setup and keys
 
 | Guarantee | Package | Tests |
@@ -340,6 +355,9 @@ listed so that nobody mistakes them for enforced guarantees.
   anyone who can write to the binary, the data directory or the environment file.
 - **Plugins that you granted `site.scripts`**, `http.fetch.any` or other broad
   capabilities: the owner's grant is the boundary.
+- **Malware inside an allowed upload.** Form uploads are checked by size, extension and
+  content type; there is no antivirus scan, and the file is only ever served as a download to
+  signed-in owners and editors. Scan files before opening them.
 - **Denial of service by volume.** There are rate limits and caps, not a
   guarantee of availability under load.
 - **A compromised Postgres superuser or the host operating system.**

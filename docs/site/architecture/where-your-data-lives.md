@@ -99,6 +99,7 @@ Everything here only reads. Nothing you run changes the site.
    | `cache/wasm` | compiled plugins | nothing: the server rebuilds it |
    | `releases` | the versions the **supervisor** (the process that starts the server and switches to a new version after an update) can switch between, and its state | the next update downloads again; you cannot roll back without it |
    | `backups` | one database copy, `pre-<version>.dump`, taken before each update | only that copy |
+   | `private/form-uploads` | files visitors attached to forms with a file field, in one folder per form, under generated names | the files are gone; submissions still open and say the file is no longer available. Back it up with the database: it is not in the backups Hatamoto makes |
    | `install_id` | a random id, kept on this machine, so that not every site gets an update at the same moment | a new one is made, and your turn for updates may move |
 
    If you set `HATAMOTO_SECRET` in the settings file, it is never written to disk, and no `secrets.env` is created.
@@ -111,6 +112,7 @@ You can now name the three things to back up and where they are:
 |---|---|---|
 | Content, settings, users, installed plugins and themes | Postgres | `pg_dump` |
 | Uploaded media | `MEDIA_UPLOAD_DIR` | copy the folder |
+| Files attached to forms | `private/form-uploads` in the data directory | copy the folder |
 | Server secret | `HATAMOTO_SECRET` in your settings file, or `secrets/secrets.env` | keep a copy with your settings |
 
 Themes and plugins you installed are stored inside the database, so the database backup covers them. The built-in default theme is part of the program itself.

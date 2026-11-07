@@ -73,7 +73,7 @@ the answers), a status filter, a table with a checkbox per row, and bulk actions
 delete; a bulk delete asks to confirm). **Export CSV** exports what the search and
 filter show, not the whole form. A row opens a drawer with the answers and details (`?s={sid}`):
 opening a new submission marks it read, `j` and `k` move to the next and previous row, `Esc`
-closes it. The drawer offers Reply (a `mailto:` link to the email answer, when the form has one),
+closes it. A file answer shows as a name and size with a Download link (see **File upload** below). The drawer offers Reply (a `mailto:` link to the email answer, when the form has one),
 Mark as spam / Not spam, Mark unread (on a read submission), Delete (asks first) and, in its More
 actions menu, Archive and Forward by email (only when the server can send mail). Status, email-forward and delete actions return to the tab with the search, filter and
 page kept; the result of an email-forward is a flash on the tab (303 back to it), not an error page.
@@ -81,7 +81,7 @@ Conversion is the submissions divided by the visits that landed on the pages the
 from, over the last 30 days; it is not every page view, and shows "Not available" when there is no
 analytics or no visits. `<admin>/forms/submissions` and `<admin>/forms/submissions/{sid}` redirect
 to the form's tab (the old list and detail pages are gone); the export, bulk, status, email and
-delete routes under `<admin>/forms/submissions/` stay. Pure logic: `scripts/admin-qa/unit/forms-submissions.test.mjs`; browser check: `scripts/admin-qa/forms-submissions.mjs`.
+delete routes under `<admin>/forms/submissions/` stay, plus `GET <admin>/forms/submissions/{sid}/files/{field}`, the download of an uploaded file (signed-in owners and editors only). Pure logic: `scripts/admin-qa/unit/forms-submissions.test.mjs`; browser check: `scripts/admin-qa/forms-submissions.mjs`.
 
 **Form designer.** A form opens on `<admin>/forms/design/{id}` (Build), with the tabs Settings
 (`.../settings`, on the same editor bar as Build: name, status, Undo, Redo and Save; it saves through the
@@ -116,6 +116,26 @@ starting with `/` or an `http(s)` address. An email field with `block_free_email
 addresses of common free providers ("must be a work email address"). A field with
 `in_email: false` is left out of the notification email (absent means included). A field has a
 width of `full`, `half` or `third`.
+
+**File upload.** A `file` field takes one file from the visitor. In the designer's inspector
+(Advanced) **Allowed files** lists the extensions it accepts and **Largest file (MB)** its size
+limit (default 10, at most 25; saved as `validation.accept` and `validation.max_mb`). The accept
+list may only hold: pdf, png, jpg, jpeg, gif, webp, txt, csv, md, json, docx, xlsx, pptx, zip.
+Web-executable types (svg, html, js, xml) and programs (exe) cannot be allowed. The server checks
+the extension, the size and the file's real content (a `.pdf` that is really an executable or an
+HTML page is refused), and answers 400 with the field's message; nothing is stored on a refusal.
+A form with a file field posts as `multipart/form-data` (the form element, shortcode, hosted
+page and generated HTML all do this, with or without JavaScript); a file named in a JSON or
+urlencoded post is refused. Files are kept in the data directory under
+`private/form-uploads/<form id>/` under a generated name, never in the media folder and never at
+a public address. The submission keeps only `{id, name, size, type}`; the CSV, the notification
+and forwarded emails and the table print `name (size)`, with no link and no attachment. An owner
+or editor downloads the file from the drawer; it is sent as an attachment with
+`X-Content-Type-Options: nosniff` and `Cache-Control: no-store`, and a file that is no longer on
+disk answers "file no longer available". The file is deleted with its submission (single, bulk,
+REST), with the form, and by the retention purge, spam submissions included. A form that does not
+store submissions discards the bytes. Uploads are not part of backups or the export (see
+`docs/BACKUPS.md`).
 
 A field's `logic` (`field_id`, `op`, `value`) shows it only when the condition holds. The ops
 are `is`, `is_not`, `contains`, `filled` and `empty`. A field hidden by logic is never
@@ -200,7 +220,7 @@ sidebar).
 | Path | Served by |
 | --- | --- |
 | `<admin>/login`, `logout`, `forgot`, `reset`, `accept`, `setup/*`, `profile` | Go (v1-10) |
-| `<admin>/forms*` (list, `new`, `design/{id}` (Build), `design/{id}/settings`, `design/{id}/share`, `edit/{id}` (303 to Build), `delete/{id}`, `PUT {id}/definition` (JSON save), `design/{id}/submissions` (the tab), `submissions*` (redirects to the tab, bulk, CSV export, per-submission actions), `spam*`) and `<admin>/media*` (library, upload, formats) | Go (main menu since the Settings regroup) |
+| `<admin>/forms*` (list, `new`, `design/{id}` (Build), `design/{id}/settings`, `design/{id}/share`, `edit/{id}` (303 to Build), `delete/{id}`, `PUT {id}/definition` (JSON save), `design/{id}/submissions` (the tab), `submissions*` (redirects to the tab, bulk, CSV export, per-submission actions, `{sid}/files/{field}` file download), `spam*`) and `<admin>/media*` (library, upload, formats) | Go (main menu since the Settings regroup) |
 | `<admin>/entities*`, `media/{upload,picker,{id}}`, `pick/{entities,terms}` | Go (v1-11, v1-14) |
 | `<admin>/theme/*`: `themes*` (activate, settings, uninstall, install), `colours`, `design-system*`, `presets*`, `parts`, `blocks`, `templates*`, `menus*` (including `POST menus/preview`, the editor's live preview), `strings` (`GET ?locale=<tag>`, `POST`), `contact-button` | Go (the Theme area; the screens date from v1-10 to B6) |
 | `<admin>/settings/*`: `general` and `api-keys*`, `types*` (the type editor has a **Shared across languages** switch, `locale_neutral`, which only takes effect on a site with several languages, read-only on built-in types; the New form of a type with several languages offers **All languages (shared)**), `taxonomies*`, `redirects*` (rules, 404 log, explain), `linking*` (rules, suggestions, equity, import), `users*`, `import*` (WordPress wizard, `docs/IMPORT-WORDPRESS.md`), `export`, `performance*` (page cache) | Go (v1-23a; the screens date from v1-10 to v1-22b) |

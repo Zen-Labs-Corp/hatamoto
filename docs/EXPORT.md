@@ -34,6 +34,8 @@ Export and import are command line only. Admin → Settings → Tools → Export
 
 **Form submissions are included by default** (a backup should be complete) but hold visitor data: use `--no-submissions` for an archive you will share. Users are included because they own content; their emails are personal data too.
 
+**Form uploads are not included.** A submission's file answer is exported as a reference (`id`, `name`, `size`, `type`) in `hatamoto_form_submissions.jsonl`, not the file bytes. The files live in `<data>/private/form-uploads`; copy that directory yourself, and note that an import into a new site leaves those references without files (the download says "file no longer available").
+
 **Not included:** API keys and sessions (secrets), crawler hits, analytics, 404 logs and the link index (history or derived data; the link index fills again as pages are saved), plugin credentials, settings and stored data. **Installed plugin and theme packages** (the `hatamoto_packages` table), the active theme and theme settings are not archived either, on purpose: a package is code the new host must trust by its own keys. Reinstall them on the new host (`hatamoto package install`, then `hatamoto theme activate`); packages already installed do not stop an import.
 
 ## Format (version 1)

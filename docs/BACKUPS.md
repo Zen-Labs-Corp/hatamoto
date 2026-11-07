@@ -303,10 +303,22 @@ CREATEDB or CREATEROLE). `<db>` is the new database. Run the Hatamoto commands a
    ```
    `<plugin role>` is the role step 5 created for that plugin (`hm_p_<id>_<name>`, visible in
    `\du`, or as the owner of the `plugin_<name>` schema).
-7. The database dump holds no media files. They are in `content.tar.gz` under `media/`; copy them
+7. Files that visitors uploaded to forms are in neither the database dump nor `content.tar.gz`
+   (see "Form uploads"). Copy `<data>/private/form-uploads` back if you saved it.
+8. The database dump holds no media files. They are in `content.tar.gz` under `media/`; copy them
    back to `MEDIA_UPLOAD_DIR` if that directory is new, then start the service.
 
 The restored site keeps its users and passwords. Restoring leaves `backups/retention.json` as it is.
+
+### Form uploads
+
+A form with a file field stores each upload under `<data>/private/form-uploads/<form id>/`
+(`HATAMOTO_DATA`), not in the media folder. **Backups do not include these files**, and neither
+do the content export and the restore: a submission keeps only the file's name, size and a
+reference. Back up that directory yourself (copy it with the database backup) and put it back in
+the same place after a restore. A submission whose file is missing still opens; its Download
+answers "file no longer available". Deleting a submission, a form or expired submissions
+removes the files, so the directory only holds files of submissions that still exist.
 
 ### Content only
 

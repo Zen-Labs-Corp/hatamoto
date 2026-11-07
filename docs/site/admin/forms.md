@@ -18,7 +18,7 @@ In this guide you design a form on the **Build** tab, check how it behaves with 
 
 1. Open **Forms** (`<admin>/forms`), press **New form**, pick a template, give it a name such as "Contact" and press **Create form**. The form opens on its **Build** tab at `<admin>/forms/design/{id}`. The templates are Blank, Contact, Quote request, Newsletter signup, Event RSVP and Job application. Every new form starts **Paused**, so nothing is accepted until you set it to **Active**.
 
-2. Add fields from the list on the left. Click a field type to add it after the selected field, or drag it to the place you want. Use the search box to find a type. Besides text, email, phone, long text, choices, date, number and web address, there are layout types (a heading, a paragraph of text and a divider), a consent checkbox and a hidden value.
+2. Add fields from the list on the left. Click a field type to add it after the selected field, or drag it to the place you want. Use the search box to find a type. Besides text, email, phone, long text, choices, date, number and web address, there are layout types (a heading, a paragraph of text and a divider), a consent checkbox, a hidden value and a **File upload** field.
 
 3. Click a label on the form to rename it, then press Enter. Click a field to select it and change its settings in the panel on the right: **Content** (label, name, placeholder, help text and whether an answer is **Required**), **Choices** for lists, **Layout** (full, half or third width), **Rules** and **Advanced**.
 
@@ -27,6 +27,8 @@ In this guide you design a form on the **Build** tab, check how it behaves with 
 5. Reorder by dragging a field, or select it and press Alt with the Up or Down arrow. Use **Duplicate** or **Delete** on the selected field. Deleting shows a message, and Ctrl+Z (Cmd+Z on a Mac) brings the field back.
 
 6. Press **Save**, or Ctrl+S (Cmd+S). The bar shows "Saved" when it is done. Changing tab or pressing the back arrow saves first; if the save fails, the page stays where it is and shows why.
+
+A **File upload** field lets a visitor attach one file. In **Advanced** choose **Allowed files** (such as pdf, png, docx) and **Largest file (MB)**: 10 by default, 25 at most. Images, documents, text and zip files can be allowed; web pages, SVG and programs cannot. The server checks the real content as well as the name, so a renamed file is refused. Uploads are private: only signed-in owners and editors can download them, from the submission drawer, and they are deleted with their submission. The CSV and the emails show the file's name and size, not the file.
 
 ### Try it and set what happens next
 
@@ -55,7 +57,7 @@ The **Share** tab (`<admin>/forms/design/{id}/share`) shows where the form is us
 
 The Submissions tab shows four numbers above the list: new, total, the last 30 days, and conversion. Conversion is the submissions divided by the visits that landed on the pages the form was sent from, over the last 30 days. It is not every page view, and it reads "Not available" when there are no visits to count.
 
-Search looks in the answers. The status filter narrows the list, and **Export CSV** exports exactly what the search and filter show. Tick rows to mark them read, move them to spam, or delete them. Click a row to open it in a side drawer: opening a new submission marks it read. Press `j` and `k` to move between submissions and `Esc` to close the drawer. The drawer has **Reply** (an email to the person who sent it, when the form asks for an email address), **Mark as spam**, **Mark unread**, **Delete**, and a **More actions** menu with **Archive** and **Forward by email** (shown when the server can send email). Forwarding a submission by email reports back on the tab. Old links to a submission, including the ones in notification emails, open it in this tab.
+Search looks in the answers. The status filter narrows the list, and **Export CSV** exports exactly what the search and filter show. Tick rows to mark them read, move them to spam, or delete them. Click a row to open it in a side drawer: opening a new submission marks it read. Press `j` and `k` to move between submissions and `Esc` to close the drawer. The drawer shows a file answer with a **Download** link. The drawer has **Reply** (an email to the person who sent it, when the form asks for an email address), **Mark as spam**, **Mark unread**, **Delete**, and a **More actions** menu with **Archive** and **Forward by email** (shown when the server can send email). Forwarding a submission by email reports back on the tab. Old links to a submission, including the ones in notification emails, open it in this tab.
 
 If you see "This form was changed in another tab", someone else (or another tab of yours) saved the form after you opened it. Press **Reload** to see their version. Your unsaved edits on this tab are not applied, so make them again.
 
