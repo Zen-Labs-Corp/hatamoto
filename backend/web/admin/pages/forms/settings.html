@@ -48,7 +48,7 @@
 {{template "hm/card-start" (dict "ID" "fs-spam" "Title" "Spam protection")}}
 {{template "hm/field" (dict "ID" "fs-captcha" "Name" "enable_captcha" "Label" "Require the spam check (captcha)" "Control" "switch" "Help" "Submissions without a passed check are refused." "Attrs" (attrmap "data-hm-fs" "enable_captcha"))}}
 {{if .CaptchaUnconfigured}}{{template "hm/callout-start" (dict "Kind" "warning" "Attrs" .CaptchaAttrs)}}Captcha is on for this form but no provider keys are set. Submissions are accepted unchecked.{{if .SpamLink}} <a href="{{adminPath}}/forms/spam">Set up spam protection</a>{{end}}{{template "hm/callout-end"}}
-{{else}}{{template "hm/callout-start" (dict "Kind" "success" "Attrs" .CaptchaAttrs)}}The spam check keys are set up.{{if .SpamLink}} <a href="{{adminPath}}/forms/spam">Change</a>{{end}}{{template "hm/callout-end"}}
+{{else}}{{template "hm/callout-start" (dict "Kind" "info" "Attrs" .CaptchaAttrs)}}The spam check keys are set up.{{if .SpamLink}} <a href="{{adminPath}}/forms/spam">Change</a>{{end}}{{template "hm/callout-end"}}
 {{end}}{{template "hm/field" (dict "ID" "fs-honeypot" "Name" "honeypot" "Label" "Hidden trap field" "Control" "switch" "Help" "Invisible to people. Bots fill it in and are caught. No friction." "Attrs" (attrmap "data-hm-fs" "honeypot_off"))}}
 {{template "hm/field" (dict "ID" "fs-rate" "Name" "rate_limit_per_hour" "Label" "Per visitor, at most (sends per hour)" "Placeholder" "No limit" "Help" "Over the limit, a send is kept in Spam." "Attrs" (attrmap "data-hm-fs" "rate_limit_per_hour" "inputmode" "numeric" "autocomplete" "off"))}}
 <p class="hm-field__error" data-hm-fs-err="settings.rate_limit_per_hour" hidden></p>

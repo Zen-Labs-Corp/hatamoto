@@ -161,6 +161,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 		"entities/list":            {"@hm/content", "@hm/seobulk"},
 		"entities/translations":    {"@hm/searchselect"},
 		"forms/design":             {"@hm/formsdesigner"},
+		"forms/settings":           {"@hm/formsdesigner"},
 		"forms/submissions":        {"@hm/content"},
 		"linking/rule":             {"@hm/searchselect"},
 		"linking/rules":            {"@hm/content"},
