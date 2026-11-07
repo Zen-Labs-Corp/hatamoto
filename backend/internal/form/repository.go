@@ -550,6 +550,31 @@ func (r *PostgresRepository) GetSubmissionByID(ctx context.Context, id uuid.UUID
 	return &s, nil
 }
 
+// maxSubmissionSearchRunes caps the search text.
+const maxSubmissionSearchRunes = 100
+
+// submissionSearchClause matches submissions (alias s) with an answer value
+// containing the LIKE pattern bound at $n.
+func submissionSearchClause(n int) string {
+	return fmt.Sprintf(`EXISTS (SELECT 1 FROM jsonb_each_text(s.data) e WHERE e.value ILIKE $%d ESCAPE '\')`, n)
+}
+
+// submissionSearchPattern returns the bound LIKE pattern for params.Search,
+// or "" when there is nothing to search for.
+func submissionSearchPattern(params *ListSubmissionsParams) string {
+	if params == nil {
+		return ""
+	}
+	q := strings.TrimSpace(params.Search)
+	if q == "" {
+		return ""
+	}
+	if r := []rune(q); len(r) > maxSubmissionSearchRunes {
+		q = string(r[:maxSubmissionSearchRunes])
+	}
+	return "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(q) + "%"
+}
+
 // ListSubmissions retrieves submissions for a form with pagination.
 func (r *PostgresRepository) ListSubmissions(ctx context.Context, formID uuid.UUID, params *ListSubmissionsParams) ([]*FormSubmission, int, error) {
 	conn, err := r.db.GetConn(ctx)
@@ -559,12 +584,16 @@ func (r *PostgresRepository) ListSubmissions(ctx context.Context, formID uuid.UU
 	defer conn.Release()
 
 	// Build count query
-	countQuery := `SELECT COUNT(*) FROM hatamoto_form_submissions WHERE form_id = $1`
+	countQuery := `SELECT COUNT(*) FROM hatamoto_form_submissions s WHERE s.form_id = $1`
 	countArgs := []any{formID}
 
 	if params != nil && params.Status != "" {
-		countQuery += ` AND status = $2`
+		countQuery += fmt.Sprintf(` AND s.status = $%d`, len(countArgs)+1)
 		countArgs = append(countArgs, params.Status)
+	}
+	if pattern := submissionSearchPattern(params); pattern != "" {
+		countQuery += ` AND ` + submissionSearchClause(len(countArgs)+1)
+		countArgs = append(countArgs, pattern)
 	}
 
 	var total int
@@ -589,6 +618,12 @@ func (r *PostgresRepository) ListSubmissions(ctx context.Context, formID uuid.UU
 	if params != nil && params.Status != "" {
 		query += fmt.Sprintf(` AND s.status = $%d`, argIndex)
 		args = append(args, params.Status)
+		argIndex++
+	}
+
+	if pattern := submissionSearchPattern(params); pattern != "" {
+		query += ` AND ` + submissionSearchClause(argIndex)
+		args = append(args, pattern)
 		argIndex++
 	}
 

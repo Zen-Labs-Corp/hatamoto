@@ -278,6 +278,10 @@ type ListSubmissionsParams struct {
 	// first): rows are neither repeated nor skipped when new ones arrive. It
 	// replaces Offset and skips the total count.
 	After *SubmissionCursor `json:"-"`
+	// Search keeps submissions with an answer containing this text
+	// (case-insensitive, literal). Admin only: never part of the REST or
+	// plugin JSON.
+	Search string `json:"-"`
 }
 
 // SubmissionCursor is the position of the last submission of a page.
