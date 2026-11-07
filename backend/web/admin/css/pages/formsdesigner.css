@@ -1,5 +1,40 @@
-/* Form designer: palette | canvas | inspector. Tokens only. */
+/* Form designer: palette | canvas | inspector. Tokens only, no shadows. */
+.hm-page:has(.hm-fd) { max-width: none; }
 .hm-fd { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); min-width: 0; }
-.hm-fd__palette, .hm-fd__inspector { min-width: 0; }
-.hm-fd__canvas { min-width: 0; }
-.hm-fd__sheet { min-width: 0; }
+.hm-fd__palette, .hm-fd__inspector, .hm-fd__canvas { min-width: 0; padding: var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.hm-fd__canvas { background: var(--bg); }
+.hm-fd__palette, .hm-fd__inspector { display: flex; flex-direction: column; gap: var(--space-3); }
+@media (min-width: 960px) {
+  .hm-fd { grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr) minmax(16rem, 22rem); align-items: start; }
+  .hm-fd__palette, .hm-fd__inspector { position: sticky; inset-block-start: var(--space-3); max-block-size: calc(100vh - var(--space-12)); overflow-y: auto; }
+}
+/* The sheet is the form as a visitor sees it: six columns, so full, half and third widths line up. */
+.hm-fd__sheet { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-3); max-width: var(--page-narrow); margin-inline: auto; padding: var(--space-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+
+.hm-fd-tile { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-h); padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--text); font-size: var(--text-sm); font-weight: var(--weight-medium); text-align: start; cursor: grab; }
+.hm-fd-tile:hover { background: var(--surface-hover); border-color: var(--border-control); }
+.hm-fd-tile:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
+.hm-fd-field { position: relative; grid-column: span 6; display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding: var(--space-3); border: 1px solid transparent; border-radius: var(--radius-md); background: var(--surface); }
+.hm-fd-field--half { grid-column: span 3; }
+.hm-fd-field--third { grid-column: span 2; }
+.hm-fd-field:hover { border-color: var(--border); }
+.hm-fd-field:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-fd-field--selected { border-color: var(--color-accent); outline: 1px solid var(--color-accent); }
+.hm-fd-field--selected:hover { border-color: var(--color-accent); }
+.hm-fd-field--hidden-by-rule { border-style: dashed; border-color: var(--border); opacity: 0.6; }
+.hm-fd-field--invalid { border-color: var(--color-danger); }
+.hm-fd-field--invalid:hover { border-color: var(--color-danger); }
+.hm-fd-field__label { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text); overflow-wrap: anywhere; }
+.hm-fd-field__ctl { min-height: var(--control-h); padding: var(--space-2); border: 1px solid var(--border-field); border-radius: var(--radius-sm); background: var(--bg); color: var(--text-muted); font-size: var(--text-sm); pointer-events: none; }
+@media (max-width: 640px) { .hm-fd-field--half, .hm-fd-field--third { grid-column: span 6; } }
+
+/* The insertion line while dragging a field or a tile over the sheet. */
+.hm-fd-drop { grid-column: 1 / -1; block-size: var(--space-0-5); border-radius: var(--radius-full); background: var(--color-accent); }
+
+.hm-fd-section { display: flex; flex-direction: column; gap: var(--space-2); padding-block-end: var(--space-3); border-block-end: 1px solid var(--border); }
+.hm-fd-section:last-child { border-block-end: 0; }
+
+.hm-fd-check { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-2); border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--text-body); }
+.hm-fd-check:hover { background: var(--surface-hover); }
+.hm-fd-check:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
