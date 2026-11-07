@@ -47,7 +47,9 @@ func newSettingsSaveFixture(t *testing.T, srv *Server, ctx context.Context) *set
 	hadSite := pool.QueryRow(ctx, `SELECT language, timezone, x_default_locale, locales, prefix_all FROM hatamoto_site_config`).
 		Scan(&prev.language, &prev.tz, &prev.xdef, &prev.locales, &prev.prefixAll) == nil
 	if !hadSite {
-		if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_site_config (company_name, language) VALUES ('Save IT', 'en')`); err != nil {
+		// Other tests create and drop the singleton on the same database, so the
+		// row can appear between the SELECT above and this INSERT.
+		if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_site_config (company_name, language) VALUES ('Save IT', 'en') ON CONFLICT (id) DO NOTHING`); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -56,6 +58,10 @@ func newSettingsSaveFixture(t *testing.T, srv *Server, ctx context.Context) *set
 		t.Fatal(err)
 	}
 	f.reset(t)
+	// Leftovers of an earlier crashed run would collide with the inserts below.
+	if _, err := pool.Exec(ctx, `DELETE FROM hatamoto_entities WHERE slug = ANY($1)`, f.slugs); err != nil {
+		t.Fatal(err)
+	}
 	for _, s := range f.slugs {
 		if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_entities (schema_id, name, slug, locale, status, attributes)
 			VALUES ($1, $2, $2, 'en', 'draft', '{}'::jsonb)`, schemaID, s); err != nil {
@@ -69,7 +75,8 @@ func newSettingsSaveFixture(t *testing.T, srv *Server, ctx context.Context) *set
 			_, _ = pool.Exec(c, `UPDATE hatamoto_site_config SET language=$1, timezone=$2, x_default_locale=$3, locales=$4::jsonb, prefix_all=$5`,
 				prev.language, prev.tz, prev.xdef, string(prev.locales), prev.prefixAll)
 		} else {
-			_, _ = pool.Exec(c, `DELETE FROM hatamoto_site_config`)
+			// Never delete the singleton: a concurrent test may own it by now.
+			_, _ = pool.Exec(c, `UPDATE hatamoto_site_config SET language='en', locales='[]'::jsonb, x_default_locale='', prefix_all=false`)
 		}
 	})
 	return f
