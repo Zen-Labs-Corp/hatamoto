@@ -98,7 +98,7 @@ func (a *Admin) handleFormSettingsSave(w http.ResponseWriter, r *http.Request) {
 		e.Errors["redirect"] = "Enter a path like /thank-you or a full address starting with https://"
 	}
 	if !form.ValidStatus(e.Status) {
-		e.Errors["status"] = "Choose active, inactive or archived"
+		e.Errors["status"] = "Choose active, paused or archived"
 	}
 	if len(e.Errors) > 0 {
 		a.renderFormTab(w, r, http.StatusUnprocessableEntity, "settings", cur, e, p.Get("version"), false)

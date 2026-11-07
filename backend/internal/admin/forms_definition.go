@@ -96,7 +96,7 @@ func (a *Admin) handleFormDefinition(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.Is(err, form.ErrInvalidStatus):
 		reply(http.StatusUnprocessableEntity, formDefinitionReply{Error: "Some things need attention.",
-			Errors: form.DefinitionErrors{{FieldID: "status", Message: "Choose active, inactive or archived"}}})
+			Errors: form.DefinitionErrors{{FieldID: "status", Message: "Choose active, paused or archived"}}})
 		return
 	case errors.Is(err, form.ErrFormNotFound):
 		reply(http.StatusNotFound, formDefinitionReply{Error: "This form does not exist."})

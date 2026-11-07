@@ -86,7 +86,7 @@ The library is at `<admin>/media`, with Grid and List views, a search box and a 
 
 Forms are at `<admin>/forms` (the **Forms** item of the main menu), and the messages visitors send are at `<admin>/forms/submissions`.
 
-A form has a name, an **Identifier** (used in the form's address; made from the name when left empty), a **Status** (Active accepts submissions; Inactive shows nothing and accepts nothing; Archived), a description shown only in the admin, and an ordered list of fields.
+A form has a name, an **Identifier** (used in the form's address; made from the name when left empty), a **Status** (Active accepts submissions; Paused shows nothing and accepts nothing; Archived), a description shown only in the admin, and an ordered list of fields.
 
 | Field option | Values |
 |---|---|

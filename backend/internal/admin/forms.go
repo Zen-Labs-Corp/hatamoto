@@ -128,7 +128,7 @@ func formStatusBadge(status string) *ui.Badge {
 	case form.StatusActive:
 		return &ui.Badge{Label: "Active", Kind: "success"}
 	case form.StatusInactive:
-		return &ui.Badge{Label: "Inactive", Kind: "warning"}
+		return &ui.Badge{Label: "Paused", Kind: "warning"}
 	}
 	return &ui.Badge{Label: "Archived", Kind: "neutral"}
 }
@@ -424,7 +424,7 @@ func widthOptions(selected string) []ui.Option {
 func statusOptions(selected string) []ui.Option {
 	return []ui.Option{
 		{Value: form.StatusActive, Label: "Active: accepts submissions", Selected: selected == form.StatusActive},
-		{Value: form.StatusInactive, Label: "Inactive: shows nothing and accepts nothing", Selected: selected == form.StatusInactive},
+		{Value: form.StatusInactive, Label: "Paused: shows nothing and accepts nothing", Selected: selected == form.StatusInactive},
 		{Value: form.StatusArchived, Label: "Archived", Selected: selected == form.StatusArchived},
 	}
 }

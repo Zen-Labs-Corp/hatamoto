@@ -840,3 +840,18 @@ func TestFormsTabs(t *testing.T) {
 		}
 	}
 }
+
+func TestStatusOptionsCallInactivePaused(t *testing.T) {
+	t.Parallel()
+
+	for _, o := range statusOptions(form.StatusInactive) {
+		if o.Value != form.StatusInactive {
+			continue
+		}
+		if o.Value != "inactive" || !strings.Contains(o.Label, "Paused") || !o.Selected {
+			t.Errorf("inactive option = %+v, want stored value inactive, Paused label, selected", o)
+		}
+		return
+	}
+	t.Fatal("no option stores the inactive status")
+}
