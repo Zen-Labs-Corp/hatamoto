@@ -130,10 +130,18 @@ func TestAccessEndedRefusesLiveSessions(t *testing.T) {
 		t.Errorf("sessions: %d, want 2 untouched", n)
 	}
 
+	// A later date does not bring back what the ended user held: saving it
+	// removes the old sessions, so the old cookie stays refused.
 	future := time.Now().Add(time.Hour)
 	r.setEnd(t, u.ID, &future)
-	if _, err := svc.ValidateSession(ctx, adminTok); err != nil {
-		t.Errorf("after extension: %v", err)
+	if _, err := svc.ValidateSession(ctx, adminTok); !errors.Is(err, session.ErrInvalid) {
+		t.Errorf("old session after extension: %v, want ErrInvalid", err)
+	}
+	if n := r.sessionCount(t, u.ID); n != 0 {
+		t.Errorf("sessions after extension: %d, want 0", n)
+	}
+	if _, err := svc.IssueSession(ctx, u.ID, "ua", ""); err != nil {
+		t.Errorf("new session after extension: %v", err)
 	}
 }
 
