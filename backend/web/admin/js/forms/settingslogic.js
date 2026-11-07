@@ -108,7 +108,7 @@ export function whenMatches(expr, settings, ui = {}) {
 
 /** The sample answers the preview is filled from: the latest real submission, else each field's label. */
 export function sampleData(fields, sample) {
-  if (sample) return sample;
+  if (sample && Object.keys(sample).length) return sample;
   return Object.fromEntries((fields ?? []).map((f) => [f.name, f.label || f.name]));
 }
 
