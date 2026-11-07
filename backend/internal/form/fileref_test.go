@@ -1,8 +1,9 @@
 package form
 
 import (
-	"encoding/json"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestFileRefString(t *testing.T) {
@@ -22,12 +23,12 @@ func TestFileRefString(t *testing.T) {
 func TestFileRefFromAnyJSONRoundTrip(t *testing.T) {
 	t.Parallel()
 	in := FileRef{ID: "0123456789abcdef0123456789abcdef", Name: "cv.pdf", Size: 2048, Type: "application/pdf"}
-	raw, err := json.Marshal(map[string]any{"cv": in})
+	raw, err := jsonx.Marshal(map[string]any{"cv": in})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var back map[string]any
-	if err := json.Unmarshal(raw, &back); err != nil {
+	if err := jsonx.Unmarshal(raw, &back, jsonx.StoredLoose); err != nil {
 		t.Fatal(err)
 	}
 	got, ok := FileRefFromAny(back["cv"])
