@@ -219,6 +219,31 @@ func TestChangesetTxOriginAndSlugSuffix(t *testing.T) {
 	}
 }
 
+// A changeset never refuses the und / language-specific slug clash: the slug
+// probe ignores the locale, so the second row takes the next free suffix.
+func TestChangesetTxSlugSuffixAcrossLocaleSplit(t *testing.T) {
+	attrs := jsontext.Value(`{"content":"x"}`)
+	for _, c := range []struct{ name, first, second string }{
+		{"und over en", "en", ""},
+		{"en over und", "", "en"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := newCSFixtureSettings(t, jsontext.Value(`{"locale_neutral":true}`))
+			useLocales(t, f.svc, "en", "fr")
+			if _, err := f.svc.CreateEntity(f.ctx, nil, &CreateEntityInput{SchemaID: f.schema.ID, Name: "About", Slug: "about", Locale: c.first, Attributes: attrs}); err != nil {
+				t.Fatal(err)
+			}
+			res, err := f.apply(TxOp{Name: "About", Slug: "about", Locale: c.second, Attributes: attrs})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res.Slug != "about-2" {
+				t.Errorf("slug = %q, want about-2", res.Slug)
+			}
+		})
+	}
+}
+
 func TestChangesetTxSlugSuffixStaysWithinColumn(t *testing.T) {
 	f := newCSFixture(t)
 	long := strings.Repeat("a", 255)

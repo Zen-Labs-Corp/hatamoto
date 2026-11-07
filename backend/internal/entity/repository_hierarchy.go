@@ -290,6 +290,30 @@ func (r *PostgresEntityRepository) GetByImportKey(ctx context.Context, key strin
 	return r.GetByID(ctx, id)
 }
 
+// checkImportUpdateSlug runs the cross-locale slug check for an import update,
+// only when the row's schema, slug, locale or (for nested types) parent changes,
+// so a clash that already exists does not block a re-import of the same row.
+func (r *PostgresEntityRepository) checkImportUpdateSlug(ctx context.Context, tx pgx.Tx, cur *Entity, rec *ImportRecord) error {
+	locale := cur.Locale
+	if rec.Locale != "" {
+		locale = rec.Locale
+	}
+	changed := rec.SchemaID != cur.SchemaID || rec.Slug != cur.Slug || locale != cur.Locale
+	if !changed && !sameUUIDPtr(rec.ParentID, cur.ParentID) {
+		var nested bool
+		if err := tx.QueryRow(ctx, `SELECT slug_nested FROM hatamoto_entities WHERE id = $1`, cur.ID).Scan(&nested); err != nil {
+			return fmt.Errorf("failed to read the slug scope: %w", err)
+		}
+		changed = nested
+	}
+	if !changed {
+		return nil
+	}
+	return checkCrossLocaleSlug(ctx, tx, crossLocaleSlug{
+		SchemaID: rec.SchemaID, Slug: rec.Slug, Locale: locale, Parent: rec.ParentID, Self: &cur.ID,
+	})
+}
+
 // ImportUpsert implements ImportStore.
 func (r *PostgresEntityRepository) ImportUpsert(ctx context.Context, rec *ImportRecord) (*Entity, bool, error) {
 	conn, err := r.db.GetConn(ctx)
@@ -313,6 +337,11 @@ func (r *PostgresEntityRepository) ImportUpsert(ctx context.Context, rec *Import
 	var e Entity
 	created := rec.ID == nil
 	if created {
+		if err := checkCrossLocaleSlug(ctx, tx, crossLocaleSlug{
+			SchemaID: rec.SchemaID, Slug: rec.Slug, Locale: rec.Locale, Parent: rec.ParentID,
+		}); err != nil {
+			return nil, false, err
+		}
 		err = tx.QueryRow(ctx, `
 			INSERT INTO hatamoto_entities (schema_id, name, slug, locale, status, attributes, metadata, version,
 				created_by, updated_by, created_at, updated_at, published_at, author_id, parent_id, byline_person_id, byline_org, sort_order)
@@ -342,6 +371,9 @@ func (r *PostgresEntityRepository) ImportUpsert(ctx context.Context, rec *Import
 		if rec.SkipUnchanged && rec.sameAs(&e) {
 			rec.Unchanged = true
 			return &e, false, nil // nothing to write: the deferred Rollback ends the transaction
+		}
+		if err := r.checkImportUpdateSlug(ctx, tx, &e, rec); err != nil {
+			return nil, false, err
 		}
 		cur := e.Attributes
 		changing := !jsonRawEqual(rec.Attributes, cur)

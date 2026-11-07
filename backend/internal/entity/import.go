@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -142,7 +143,7 @@ func (s *Service) Import(ctx context.Context, actor *uuid.UUID, batch ImportBatc
 		res.Items[i].Key = it.Key
 	}
 	run := &importRun{s: s, store: store, actor: actor, source: batch.Source, ids: map[string]uuid.UUID{}, schemas: map[string]*EntitySchema{},
-		dry: batch.DryRun, dryIDs: map[uuid.UUID]bool{}, seen: map[string]bool{}}
+		dry: batch.DryRun, dryIDs: map[uuid.UUID]bool{}, seen: map[string]bool{}, sides: map[string]bool{}}
 	var stored []uuid.UUID
 	for _, i := range orderByParent(batch.Items, res.Items) {
 		r := &res.Items[i]
@@ -271,6 +272,7 @@ type importRun struct {
 	dry    bool
 	dryIDs map[uuid.UUID]bool // rows a dry run "created"; they are rolled back, so they are no real parents
 	seen   map[string]bool    // schema|locale|slug of the rows a dry run created, to catch duplicates inside the batch
+	sides  map[string]bool    // schema|slug|und? of the same rows, to catch an und row beside a language-specific one
 }
 
 func (r *importRun) schema(ctx context.Context, slug string) (*EntitySchema, error) {
@@ -419,7 +421,13 @@ func (r *importRun) item(ctx context.Context, it *ImportItem) (*Entity, bool, bo
 		if r.seen[k] {
 			return nil, false, false, fmt.Errorf("%w: another row of this file has this slug", ErrSlugAlreadyExists)
 		}
+		// A row in all languages and one in a specific language may not share a slug.
+		side := schema.Slug + "|" + slug + "|" + strconv.FormatBool(locale == LocaleShared)
+		if r.sides[schema.Slug+"|"+slug+"|"+strconv.FormatBool(locale != LocaleShared)] {
+			return nil, false, false, fmt.Errorf("%w: another row of this file has this slug", ErrSlugAlreadyExists)
+		}
 		r.seen[k] = true
+		r.sides[side] = true
 	}
 	rec := &ImportRecord{
 		DryRun: r.dry, SkipUnchanged: partial, SchemaID: schema.ID, Name: name, Slug: slug, Locale: locale, Status: status, Attributes: attrs, Metadata: meta,
