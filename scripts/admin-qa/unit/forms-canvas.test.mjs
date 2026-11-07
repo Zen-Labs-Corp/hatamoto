@@ -11,7 +11,7 @@ register(
       return next(s, c);
     }`),
 );
-const { fieldSummary, ruleNote } = await import(new URL("forms/canvas.js", root));
+const { fieldSummary, ruleNote, rowSig } = await import(new URL("forms/canvas.js", root));
 
 const email = { id: "f_1", type: "email", label: "Email", name: "email" };
 
@@ -28,4 +28,15 @@ test("a rule reads as a sentence, naming the source field", () => {
   assert.equal(ruleNote({ ...f, logic: { field_id: "gone", op: "empty" } }, [email]), "Shows when a removed field is empty");
   assert.equal(ruleNote(email, []), "");
   assert.match(fieldSummary(f, [email, f]), /Short text · Shows when Email is filled/);
+});
+
+test("the label is part of the redraw signature only where it is the text beside the box", () => {
+  const sig = (f, label) => rowSig({ ...f, label });
+  const consent = { id: "c", type: "consent", name: "consent" };
+  const single = { id: "k", type: "checkbox", name: "k" };
+  const multi = { id: "m", type: "checkbox", name: "m", options: [{ label: "A", value: "a" }] };
+  assert.notEqual(sig(consent, "One"), sig(consent, "Two"));
+  assert.notEqual(sig(single, "One"), sig(single, "Two"));
+  assert.equal(sig(multi, "One"), sig(multi, "Two"));
+  assert.equal(sig({ id: "t", type: "text", name: "t" }, "One"), sig({ id: "t", type: "text", name: "t" }, "Two"));
 });

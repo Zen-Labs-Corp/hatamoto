@@ -32,6 +32,19 @@ const ACTIONS = [
 
 const choice = (type, label, checked) => h("label", { class: "hm-field__check" }, h("input", { class: "hm-field__box", type, disabled: true, checked, tabindex: "-1" }), h("span", { text: label }));
 
+/** True for the shapes drawn as one box beside the field's own label: consent, and a checkbox with no options. */
+const singleBox = (f) => f.type === "consent" || (f.type === "checkbox" && !(f.options ?? []).length);
+
+/**
+ * What decides a row's redraw: everything but the label and name (the label input is patched, not rebuilt:
+ * a label edit renames the field too, and a rebuild on blur would swallow the click that caused the blur),
+ * except where the label is the text beside the box.
+ */
+export function rowSig(f, fields = [], error = "") {
+  const label = singleBox(f) ? f.label : undefined;
+  return JSON.stringify([{ ...f, label, name: undefined }, error, fields.map((x) => (x.id === f.logic?.field_id ? x.label || x.name : 0))]);
+}
+
 function control(f) {
   switch (f.type) {
     case "heading":
@@ -47,10 +60,10 @@ function control(f) {
     case "radio":
     case "checkbox":
       // the public widget's own markup, switched off: real radios and boxes, the default ticked
-      if (f.type === "checkbox" && !(f.options ?? []).length) return h("div", { class: "hm-fd-field__opts" }, choice("checkbox", "I agree", false));
+      if (singleBox(f)) return h("div", { class: "hm-fd-field__opts" }, choice("checkbox", f.label ?? "", false));
       return h("div", { class: "hm-fd-field__opts hm-field__group" }, ...(f.options ?? []).map((o) => choice(f.type, o.label, f.type === "radio" && o.value === f.default_value)));
     case "consent":
-      return h("div", { class: "hm-fd-field__opts" }, choice("checkbox", "I agree", false));
+      return h("div", { class: "hm-fd-field__opts" }, choice("checkbox", f.label ?? "", false));
     case "hidden":
       return h("div", { class: "hm-muted", text: "Hidden value: not shown to visitors" });
     default:
@@ -126,9 +139,7 @@ export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}),
     const first = fields.some((f) => f.id === sel) ? sel : fields[0]?.id;
     fields.forEach((f, i) => {
       const error = errors[f.id] ?? "";
-      // The label input is patched, not rebuilt (a label edit renames the field too, and a rebuild on blur
-      // would swallow the click that caused the blur).
-      const sig = JSON.stringify([{ ...f, label: undefined, name: undefined }, error, fields.map((x) => (x.id === f.logic?.field_id ? x.label || x.name : 0))]);
+      const sig = rowSig(f, fields, error);
       let n = nodes.get(f.id);
       if (!n || n.sig !== sig) {
         const el = build(f, fields, error);
