@@ -108,11 +108,11 @@ export function mountSettings(root, { getDoc, commit, boot, save, ago }) {
   });
 
   // ----- webhooks: one row per hook, cloned from the page's template -----
-  const hookList = root.querySelector("[data-hm-fs-hooks]");
+  const hookList = root.querySelector("[data-hm-fs-hooks]"); // absent for an editor: the card is owner-only
   const hookTpl = root.querySelector("template[data-hm-fs-hook]");
   const hooks = boot.webhooks ?? [];
-  root.querySelector("[data-hm-fs-nohooks]").hidden = hooks.length > 0;
-  for (const w of hooks) {
+  if (hookList) root.querySelector("[data-hm-fs-nohooks]").hidden = hooks.length > 0;
+  for (const w of hookList ? hooks : []) {
     const li = hookTpl.content.firstElementChild.cloneNode(true);
     li.querySelector(".hm-fs-hook__name").textContent = w.name;
     const dot = li.querySelector(".hm-fs-hook__dot");

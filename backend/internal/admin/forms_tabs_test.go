@@ -45,13 +45,19 @@ func TestFormSettingsBoot(t *testing.T) {
 	ff.addSub(fm, form.SubmissionStatusSpam, time.Now(), map[string]any{"name": "Spammer"})
 	ff.addSub(fm, form.SubmissionStatusNew, time.Now().Add(-time.Hour), map[string]any{"name": "Ada"})
 	settings := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/settings", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{`data-hm-fd-boot`, `"mode":"settings"`, `"sample":{"name":"Ada"}`, `"webhooks":[]`, `"spamUrl":"/admin/forms/spam"`} {
+	for _, want := range []string{`data-hm-fd-boot`, `"mode":"settings"`, `"sample":{"name":"Ada"}`, `"webhooks":[]`, `Add webhook`} {
 		if !strings.Contains(settings, want) {
 			t.Errorf("settings boot lacks %s", want)
 		}
 	}
-	if strings.Contains(g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/settings", "editor-token", nil, nil).Body.String(), "spamUrl") {
-		t.Error("an editor is offered the spam settings link")
+	editor := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/settings", "editor-token", nil, nil)
+	if editor.Code != http.StatusOK {
+		t.Fatalf("editor settings: %d", editor.Code)
+	}
+	for _, leak := range []string{`"webhooks"`, "siteAddress", "spamUrl", "Add webhook", "/settings/webhooks"} {
+		if strings.Contains(editor.Body.String(), leak) {
+			t.Errorf("an editor's Settings page carries %q, which only owners may see", leak)
+		}
 	}
 	if build := g.do("GET", "/admin/forms/design/"+fm.ID.String(), "owner-token", nil, nil).Body.String(); strings.Contains(build, `"mode"`) || strings.Contains(build, `"sample"`) {
 		t.Error("the Build boot carries Settings data")

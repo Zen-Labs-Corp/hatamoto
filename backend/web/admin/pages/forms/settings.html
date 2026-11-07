@@ -64,12 +64,12 @@
 </div>
 {{template "hm/field" (dict "ID" "fs-noip" "Name" "no_ip" "Label" "Do not store IP addresses" "Control" "switch" "Attrs" (attrmap "data-hm-fs" "no_ip"))}}
 {{template "hm/card-end"}}
-{{template "hm/card-start" (dict "ID" "fs-hooks" "Title" "Send to other tools" "Description" "Webhooks send form.submitted with every answer. Every active webhook on that event gets all forms.")}}
+{{if .Owner}}{{template "hm/card-start" (dict "ID" "fs-hooks" "Title" "Send to other tools" "Description" "Webhooks send form.submitted with every answer. Every active webhook on that event gets all forms.")}}
 <ul class="hm-fs-hooks" data-hm-fs-hooks></ul>
 <p class="hm-muted" data-hm-fs-nohooks hidden>No webhook listens for form submissions yet.</p>
 <template data-hm-fs-hook><li class="hm-fs-hook"><span class="hm-fs-hook__dot" aria-hidden="true"></span><span class="hm-fs-hook__name"></span><span class="hm-muted hm-fs-hook__last"></span></li></template>
 {{template "hm/button" (dict "Label" "Add webhook" "Icon" "plus" "Size" "sm" "Href" (printf "%s/settings/webhooks" adminPath))}}
-{{template "hm/card-end"}}
+{{template "hm/card-end"}}{{end}}
 {{template "hm/card-start" (dict "ID" "fs-danger" "Title" "Danger zone")}}
 <p class="hm-muted">Duplicate makes a paused copy with the same fields and settings. Archive takes the form out of use and keeps its submissions. Delete removes the form and all its submissions.</p>
 {{template "hm/card-foot"}}

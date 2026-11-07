@@ -28,6 +28,8 @@ type formSettingsData struct {
 	// CaptchaAttrs mark the warning for the script and hide it while the switch is off.
 	CaptchaAttrs                  map[string]string
 	CaptchaUnconfigured, SpamLink bool
+	// Owner: the viewer may open Settings > Webhooks, so the page offers it.
+	Owner bool
 }
 
 func (a *Admin) mountFormTabs(authed *httpx.Group) {
@@ -75,7 +77,7 @@ func (a *Admin) renderFormSettings(w http.ResponseWriter, r *http.Request, f *fo
 			Tabs: a.formDesignTabs(r.Context(), id, "settings"), Statuses: formStatusPills(f.Status), Boot: boot,
 		},
 		ReplyTo:      []ui.Option{{Value: "", Label: "The site address", Selected: f.Settings.NotifyReplyTo == ""}},
-		CaptchaAttrs: map[string]string{"data-hm-fs-when": "enable_captcha"}, CaptchaUnconfigured: a.captchaUnconfigured(r.Context()), SpamLink: owner,
+		CaptchaAttrs: map[string]string{"data-hm-fs-when": "enable_captcha"}, CaptchaUnconfigured: a.captchaUnconfigured(r.Context()), SpamLink: owner, Owner: owner,
 	}
 	if !f.Settings.EnableCaptcha {
 		d.CaptchaAttrs["hidden"] = "hidden"

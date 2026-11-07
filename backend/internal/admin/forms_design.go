@@ -126,8 +126,8 @@ type formBootWebhook struct {
 
 // formBoot builds the boot JSON the designer script reads, and the icons its
 // template needs. The Build boot is the base; Settings adds the data the
-// panel previews (latest real submission, webhooks, site address). owner
-// gates the spam settings link.
+// panel previews (latest real submission, webhooks). owner gates the
+// webhooks, which only owners may see.
 func (a *Admin) formBoot(ctx context.Context, f *form.Form, mode string, owner bool) (template.HTML, []string, error) {
 	id := f.ID.String()
 	types := make([]formDesignType, 0, len(form.GetFieldTypes()))
@@ -149,10 +149,8 @@ func (a *Admin) formBoot(ctx context.Context, f *form.Form, mode string, owner b
 	if mode == formModeSettings {
 		m["mode"] = mode
 		m["sample"] = a.formSample(ctx, f.ID)
-		m["webhooks"] = a.formWebhooks(ctx)
-		m["siteAddress"] = a.siteNotificationEmail(ctx)
-		if owner {
-			m["spamUrl"] = a.adminPath + "/forms/spam"
+		if owner { // Settings > Webhooks is owner-only; an editor gets none of it
+			m["webhooks"] = a.formWebhooks(ctx)
 		}
 	}
 	boot, err := jsonx.Marshal(m, jsonx.HTMLSafe)
@@ -202,19 +200,6 @@ func (a *Admin) formWebhooks(ctx context.Context) []formBootWebhook {
 		out = append(out, h)
 	}
 	return out
-}
-
-// siteNotificationEmail is the address notifications go to when a form names
-// none; "" when unset or the site settings are not wired.
-func (a *Admin) siteNotificationEmail(ctx context.Context) string {
-	if a.deps.Site == nil {
-		return ""
-	}
-	cfg, err := a.deps.Site.Get(ctx)
-	if err != nil || cfg == nil {
-		return ""
-	}
-	return cfg.NotificationEmail
 }
 
 func dedupe(in []string) []string {
