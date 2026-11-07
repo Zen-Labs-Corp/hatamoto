@@ -1,0 +1,13 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{if .Empty}}{{template "hm/empty" dict "Title" "This theme has no strings to translate" "Body" "A theme lists the words it prints in its theme.json. This one lists none." "Compact" true}}
+{{else}}{{if .Multi}}{{template "hm/tabs" dict "Label" "Locale" "Items" .Tabs}}
+{{end}}{{template "hm/callout" dict "Kind" "info" "ID" "theme-strings-help" "Title" "Leave blank to use the theme default" "Body" "A blank text prints the theme default. On a site with several locales it prints the default locale's text first."}}
+<form method="post" action="{{.Action}}?locale={{.Tag}}" id="theme-strings">
+{{template "hm/csrf" $}}
+<input type="hidden" name="locale" value="{{.Tag}}">
+{{template "hm/table" .Table}}
+{{template "hm/foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/foot-end"}}
+</form>
+{{end}}{{end}}{{end}}

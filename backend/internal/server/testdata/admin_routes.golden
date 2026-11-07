@@ -239,6 +239,7 @@ GET /admin/theme/menus/{id}/delete -> admin.(*Admin).handleMenuDeleteForm-fm
 GET /admin/theme/parts -> admin.(*Admin).handlePartsForm-fm
 GET /admin/theme/presets -> admin.(*Admin).handlePresetsForm-fm
 GET /admin/theme/presets/{name}/delete -> admin.(*Admin).handlePresetDeleteForm-fm
+GET /admin/theme/strings -> admin.(*Admin).handleThemeStrings-fm
 GET /admin/theme/templates -> admin.(*Admin).handleSections-fm
 GET /admin/theme/templates/{id} -> admin.(*Admin).handleSectionEdit-fm
 GET /admin/theme/templates/{id}/delete -> admin.(*Admin).handleSectionDeleteForm-fm
@@ -495,6 +496,7 @@ POST /admin/theme/parts -> admin.(*Admin).handlePartsSave-fm
 POST /admin/theme/presets -> admin.(*Admin).handlePresetsSave-fm
 POST /admin/theme/presets/new -> admin.(*Admin).handlePresetAdd-fm
 POST /admin/theme/presets/{name}/delete -> admin.(*Admin).handlePresetDelete-fm
+POST /admin/theme/strings -> admin.(*Admin).handleThemeStringsSave-fm
 POST /admin/theme/templates/{id} -> admin.(*Admin).handleSectionSave-fm
 POST /admin/theme/templates/{id}/delete -> admin.(*Admin).handleSectionDelete-fm
 POST /admin/theme/themes/fetch -> admin.(*Admin).handleThemeFetch-fm
