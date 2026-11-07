@@ -1,8 +1,12 @@
 package admin
 
 import (
+	"context"
 	"html/template"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/form"
@@ -12,18 +16,18 @@ import (
 // formDesignTypeGroup is the palette group of a field type, in the designer's order.
 func formDesignTypeGroup(t string) string {
 	switch t {
-	case form.FieldTypeSelect, form.FieldTypeRadio, form.FieldTypeCheckbox:
+	case form.FieldTypeSelect, form.FieldTypeRadio, form.FieldTypeCheckbox, form.FieldTypeConsent:
 		return "choices"
 	case form.FieldTypeHeading, form.FieldTypeParagraph, form.FieldTypeDivider:
 		return "layout"
-	case form.FieldTypeHidden, form.FieldTypeConsent:
+	case form.FieldTypeHidden:
 		return "advanced"
 	}
 	return "fields"
 }
 
 // formDesignUIIcons are the icons the designer script draws besides the type icons.
-var formDesignUIIcons = []string{"arrow-up", "arrow-down", "chevron-down", "chevron-right", "copy", "eye", "eye-off", "grip", "more", "plus", "search", "trash", "x"}
+var formDesignUIIcons = []string{"arrow-up", "arrow-down", "chevron-down", "chevron-right", "copy", "eye", "eye-off", "grip", "more", "plus", "search", "trash", "x", "check", "alert-circle", "monitor", "smartphone", "edit", "file-text"}
 
 type formDesignType struct {
 	Type  string `json:"type"`
@@ -44,13 +48,30 @@ type formDesignData struct {
 
 // formDesignTabs is the tab strip across the designer. active is "build",
 // "settings" or "share".
-func (a *Admin) formDesignTabs(id, active string) []ui.Tab {
+func (a *Admin) formDesignTabs(ctx context.Context, id, active string) []ui.Tab {
 	base := a.adminPath + "/forms/design/" + id
+	var count int
+	if fid, err := uuid.Parse(id); err == nil && a.deps.Growth.Forms != nil {
+		var cerr error
+		if _, count, cerr = a.deps.Growth.Forms.ListSubmissions(ctx, fid, &form.ListSubmissionsParams{Limit: 1}); cerr != nil {
+			a.logger().Error("form submission count failed", "form", id, "err", cerr)
+		}
+	}
 	return []ui.Tab{
-		{Label: "Build", Href: base, Active: active == "build"},
-		{Label: "Settings", Href: base + "/settings", Active: active == "settings"},
-		{Label: "Submissions", Href: a.adminPath + "/forms/submissions?form=" + id},
-		{Label: "Share and embed", Href: base + "/share", Active: active == "share"},
+		{Label: "Build", Icon: "file-text", Href: base, Active: active == "build"},
+		{Label: "Settings", Icon: "settings", Href: base + "/settings", Active: active == "settings"},
+		{Label: "Submissions", Icon: "inbox", Count: count, Href: a.adminPath + "/forms/submissions?form=" + id},
+		{Label: "Share and embed", Icon: "code", Href: base + "/share", Active: active == "share"},
+	}
+}
+
+// formStatusPills are the status choices in the editor bar: short, since the
+// bar shows the chosen one as a pill. The values are the form statuses.
+func formStatusPills(selected string) []ui.Option {
+	return []ui.Option{
+		{Value: form.StatusActive, Label: "Active", Selected: selected == form.StatusActive},
+		{Value: form.StatusInactive, Label: "Paused", Selected: selected == form.StatusInactive},
+		{Value: form.StatusArchived, Label: "Archived", Selected: selected == form.StatusArchived},
 	}
 }
 
@@ -80,7 +101,7 @@ func (a *Admin) handleFormDesign(w http.ResponseWriter, r *http.Request) {
 		fields = []form.FormField{}
 	}
 	boot, err := jsonx.Marshal(map[string]any{
-		"id": id, "version": f.Version(), "name": f.Name, "description": f.Description, "status": f.Status,
+		"id": id, "version": f.Version(), "updated": f.UpdatedAt.UTC().Format(time.RFC3339), "name": f.Name, "description": f.Description, "status": f.Status,
 		"fields": fields, "settings": f.Settings, "freeEmail": form.FreeEmailDomains(),
 		"saveUrl": a.adminPath + "/forms/" + id + "/definition", "endpoint": a.formEndpoint(f.Slug),
 		"captchaConfigured": !a.captchaUnconfigured(r.Context()), "types": types,
@@ -91,9 +112,10 @@ func (a *Admin) handleFormDesign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := a.NewView(w, r, "Design form: "+f.Name)
+	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: f.Name}}
 	v.Data = formDesignData{
 		ID: id, Name: f.Name, Slug: f.Slug, Status: f.Status,
-		Tabs: a.formDesignTabs(id, "build"), Statuses: statusOptions(f.Status), Icons: dedupe(icons),
+		Tabs: a.formDesignTabs(r.Context(), id, "build"), Statuses: formStatusPills(f.Status), Icons: dedupe(icons),
 		Boot: template.HTML(`<script type="application/json" data-hm-fd-boot>` + string(boot) + `</script>`), //nolint:gosec // jsonx.HTMLSafe output: <, >, & and U+2028/9 are escaped
 	}
 	a.Render(w, r, http.StatusOK, "forms/design", v)

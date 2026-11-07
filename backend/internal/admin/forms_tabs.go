@@ -59,7 +59,7 @@ func (a *Admin) renderFormTab(w http.ResponseWriter, r *http.Request, status int
 	}
 	v := a.NewView(w, r, title+": "+cur.Name)
 	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: cur.Name, Href: a.adminPath + "/forms/design/" + e.ID}, {Label: title}}
-	v.Data = formTabData{formEdit: e, Tabs: a.formDesignTabs(e.ID, tab), Version: version, Conflict: conflict}
+	v.Data = formTabData{formEdit: e, Tabs: a.formDesignTabs(r.Context(), e.ID, tab), Version: version, Conflict: conflict}
 	v.Width = "narrow"
 	a.Render(w, r, status, "forms/"+tab, v)
 }

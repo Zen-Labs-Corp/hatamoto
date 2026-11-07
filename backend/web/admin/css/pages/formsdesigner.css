@@ -1,5 +1,23 @@
 /* Form designer: palette | canvas | inspector. Tokens only, no shadows. */
 .hm-page:has(.hm-fd) { max-width: none; }
+/* The editor bar: back, breadcrumb, name, status pill on the left; save state, undo, redo and Save on the right. */
+.hm-fd-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-block-end: var(--space-2); }
+.hm-fd-head__crumb { color: var(--text-muted); font-size: var(--text-sm); text-decoration: none; }
+.hm-fd-head__crumb:hover { color: var(--text); }
+.hm-fd-head__slash { margin-inline-start: calc(-1 * var(--space-1)); color: var(--text-muted); }
+.hm-fd-head__title { field-sizing: content; min-inline-size: 6rem; max-inline-size: 100%; flex: 0 1 auto; padding: var(--space-0-5) var(--space-2); border: 1px solid transparent; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+.hm-fd-head__title:hover { border-color: var(--border-control); }
+.hm-fd-head__title:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-fd-head__end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); margin-inline-start: auto; white-space: nowrap; }
+.hm-fd-head [data-flip] .hm-icon { transform: scaleX(-1); } /* one arrow icon: Undo and Back are its mirror image */
+.hm-fd-status { position: relative; display: inline-flex; align-items: center; border-radius: var(--radius-full); background: var(--color-kasumi); color: var(--text-body); font-size: var(--text-xs); font-weight: var(--weight-medium); }
+.hm-fd-status[data-status="active"] { background: color-mix(in srgb, var(--color-success) 12%, var(--color-paper)); color: var(--color-success); }
+.hm-fd-status[data-status="inactive"] { background: color-mix(in srgb, var(--color-warning) 12%, var(--color-paper)); color: var(--color-warning); }
+.hm-fd-status__select { appearance: none; padding: var(--space-1) var(--space-6) var(--space-1) var(--space-3); border: 0; border-radius: var(--radius-full); background: none; color: inherit; font: inherit; cursor: pointer; }
+.hm-fd-status__select:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-fd-status .hm-icon { position: absolute; inset-inline-end: var(--space-2); inline-size: var(--space-3); block-size: var(--space-3); pointer-events: none; }
+@media (max-width: 640px) { .hm-fd-head__title { flex: 1 1 8rem; } .hm-fd-head__end { inline-size: 100%; margin-inline-start: 0; } .hm-fd-head__end [data-hm-fd-state] { margin-inline-end: auto; } }
+
 .hm-fd { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); min-width: 0; }
 .hm-fd__palette, .hm-fd__inspector, .hm-fd__canvas { min-width: 0; padding: var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .hm-fd__canvas { background: var(--bg); }

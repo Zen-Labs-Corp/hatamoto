@@ -499,6 +499,7 @@ func (p Pagination) Links() []PageLink {
 // Tab is a link tab of hm/tabs.
 type Tab struct {
 	Label, Href string
+	Icon        string // an optional icon name drawn before the label
 	Count       int
 	Active      bool
 }

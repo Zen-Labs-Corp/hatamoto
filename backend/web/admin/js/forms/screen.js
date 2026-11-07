@@ -21,7 +21,17 @@ const sheetChunk = lazy(() => import("@hm/builder/keys"));
 
 const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content ?? "";
 const SAVE_STATE = { pending: "unsaved", saving: "saving", saved: "saved", error: "error", conflict: "error", stopped: "error", idle: "saved" };
-const STATE_TEXT = { pending: "Unsaved changes", saving: "Saving…", saved: "Saved", idle: "Saved" };
+const STATE_TEXT = { pending: "Unsaved changes", saving: "Saving…" };
+
+/** "just now", "4 min ago", "2 h ago", "3 days ago". */
+export function ago(ms) {
+  const m = Math.floor(Math.max(0, ms) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m} min ago`;
+  if (m < 1440) return `${Math.floor(m / 60)} h ago`;
+  const d = Math.floor(m / 1440);
+  return `${d} ${d === 1 ? "day" : "days"} ago`;
+}
 
 function start(root, boot) {
   let st = createStore({ name: boot.name, description: boot.description, status: boot.status, fields: boot.fields ?? [], settings: boot.settings ?? {} });
@@ -58,15 +68,20 @@ function start(root, boot) {
 
   // ----- state line -----
   let reload = null;
+  let savedAt = Date.parse(boot.updated) || Date.now(); // when the stored form was last written
+  let clean = true;
+  const savedText = () => `Saved ${ago(Date.now() - savedAt)}`;
   function showState(state, message = "") {
     savestate.dataset.state = SAVE_STATE[state] ?? "saved";
-    const text = message || STATE_TEXT[state] || "Not saved";
+    clean = (state === "saved" || state === "idle") && !message;
+    if (clean && state === "saved") savedAt = Date.now();
+    const text = message || (clean ? savedText() : (STATE_TEXT[state] ?? "Not saved"));
     stateText.textContent = text;
     savestate.dataset.short = text;
     reload?.remove();
     reload = null;
     const stopped = state === "conflict" || state === "stopped";
-    saveBtn.disabled = stopped;
+    saveBtn.disabled = stopped || clean; // nothing to save when the form is as stored
     if (stopped) saveBtn.title = `Saving is off: ${text}`;
     else saveBtn.removeAttribute("title");
     if (stopped) {
@@ -74,6 +89,8 @@ function start(root, boot) {
       stateEl.after(reload);
     }
   }
+
+  setInterval(() => clean && (stateText.textContent = savedText()), 30000);
 
   const saver = createFormSaver({
     url: boot.saveUrl,
@@ -137,6 +154,7 @@ function start(root, boot) {
     syncHistory();
     if (document.activeElement !== titleEl) titleEl.value = doc().name ?? "";
     if (statusEl && document.activeElement !== statusEl) statusEl.value = doc().status;
+    if (statusEl) statusEl.parentElement.dataset.status = doc().status;
   }
 
   /** Runs ops as one history entry; false (and a spoken reason) when the store refuses them. */
@@ -227,7 +245,7 @@ function start(root, boot) {
   // refused or failed save) the page can still be left: by the browser's own prompt, or after a confirm here.
   document.addEventListener("click", (e) => {
     const a = e.target.closest?.("a[href]");
-    if (!a || leaving || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || a.target || !(a.closest(".hm-tabs") || a.closest(".hm-editor-bar"))) return;
+    if (!a || leaving || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || a.target || !(a.closest(".hm-tabs") || a.closest(".hm-fd-head"))) return;
     if (leaveMode(saver) === "go") return;
     e.preventDefault();
     saver.save().then(() => {
@@ -299,7 +317,7 @@ function start(root, boot) {
   });
 
   palette.paint();
-  showState("saved");
+  showState("idle");
   redraw();
 
   if (new URLSearchParams(location.search).get("qa") === "1") {

@@ -59,7 +59,7 @@ async function saved(id) {
 const shape = (fields) => fields.map((f) => [f.type, f.label]);
 
 async function waitSaved() {
-  await page.waitForFunction(() => document.querySelector(".hm-savestate")?.dataset.state === "saved" && document.querySelector(".hm-savestate__text")?.textContent === "Saved");
+  await page.waitForFunction(() => document.querySelector(".hm-savestate")?.dataset.state === "saved" && document.querySelector(".hm-savestate__text")?.textContent.startsWith("Saved"));
 }
 
 // -- a form of our own -------------------------------------------------------
