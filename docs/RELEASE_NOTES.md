@@ -1,5 +1,14 @@
 # Release notes
 
+## Unreleased: Share tab and forms list
+
+- **Share tab.** A form's Share tab now lists the pages that use it (with views, submissions and conversion per page over 30 days), and gives the shortcode, the hosted link, the endpoint and generated HTML, each with Copy. A theme part or block is named by its area, not a path.
+- **Shortcode.** `[form slug="..."]` in rich text (a widget, a schema rich text field or `body`) shows the form. A Paused, Archived or unknown form shows nothing to visitors.
+- **Hosted page.** `/f/{slug}` serves an Active form in the theme with noindex; Paused, Archived or unknown forms get the themed 404. An entity or redirect at a path under `/f/` takes precedence. `f` is now reserved as an admin address.
+- **Forms list.** A stat strip, a 14 day sparkline, an unread button and a "Used on" cell per form, and the five latest submissions. The tabs row is gone from the list; owners reach Spam protection from a button.
+- **Templates.** New form offers six templates and opens a dialog. A new form starts Paused.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: Submissions tab
 
 - **One place for submissions.** A form's Submissions tab now has stat cards (new, total, last 30 days, conversion), search across the answers, a status filter, bulk actions (mark read, spam, delete) and a drawer that shows one submission, with Reply, Mark as spam, Mark unread, Delete, Archive and Forward by email. Opening a new submission marks it read; `j` and `k` move between rows and `Esc` closes the drawer. Export CSV honours the search and the filter.
