@@ -145,6 +145,7 @@ type Server struct {
 	formConfirmationSender formConfirmationSender
 	confirmThrottle        confirmationThrottle
 	formRates              ipFreeLimiter
+	uploadsInFlight        atomic.Int32 // multipart bodies being read, see maxConcurrentUploads
 	apiKeyService          *auth.APIKeyService
 	// Test seams for /health and /ready; nil means the database and apiKeyService.
 	pingDB                   func(context.Context) error

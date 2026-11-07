@@ -62,17 +62,42 @@ func (l *ipFreeLimiter) over(formID, bucket string, limit int, now time.Time) bo
 	return false
 }
 
+// exhausted reports, without recording a send, whether the visitor already
+// made limit sends for this form within the window.
+func (l *ipFreeLimiter) exhausted(formID, bucket string, limit int, now time.Time) bool {
+	cutoff := now.Add(-formRateWindow)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	n := 0
+	for _, at := range l.hits[formID+"|"+bucket] {
+		if at.After(cutoff) {
+			n++
+		}
+	}
+	return n >= limit
+}
+
 // formOverRateLimit reports whether this send exceeds the form's per-visitor
 // hourly limit. With the address stored, the limit counts the form's recent
 // submissions from it; with no-IP on or storage off, no address is stored, so
 // a per-process counter keyed on the address bucket is used instead. A failed count lets the
 // send through.
 func (s *Server) formOverRateLimit(ctx context.Context, f *form.Form, ip string, now time.Time) bool {
+	return s.formRateCheck(ctx, f, ip, now, true)
+}
+
+// formRateCheck is formOverRateLimit; record says whether an in-memory counter
+// notes this send (the upload path asks before reading the body, then the
+// spam check counts the send once).
+func (s *Server) formRateCheck(ctx context.Context, f *form.Form, ip string, now time.Time, record bool) bool {
 	limit := f.Settings.RateLimitPerHour
 	if limit <= 0 || ip == "" {
 		return false
 	}
 	if f.Settings.NoIP || f.Settings.StoreOff {
+		if !record {
+			return s.formRates.exhausted(f.ID.String(), middleware.IPBucket(ip), limit, now)
+		}
 		return s.formRates.over(f.ID.String(), middleware.IPBucket(ip), limit, now)
 	}
 	n, err := s.formService.CountRecentSubmissionsByIP(ctx, f.ID, ip, now.Add(-formRateWindow))

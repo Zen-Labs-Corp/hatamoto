@@ -529,6 +529,7 @@ type submitError struct {
 	msg    string
 	fields map[string]string // per-field messages of a validation failure
 	code   string            // stable machine-readable reason, for clients to branch on
+	retry  int               // seconds for a Retry-After header, 0 for none
 }
 
 func (e *submitError) Error() string { return e.msg }
@@ -536,6 +537,9 @@ func (e *submitError) Error() string { return e.msg }
 func writeSubmitError(w http.ResponseWriter, err error) {
 	var se *submitError
 	if errors.As(err, &se) {
+		if se.retry > 0 {
+			w.Header().Set("Retry-After", strconv.Itoa(se.retry))
+		}
 		if len(se.fields) > 0 {
 			writeJSON(w, se.status, map[string]any{"error": se.msg, "fields": se.fields})
 			return

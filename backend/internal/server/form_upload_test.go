@@ -296,3 +296,69 @@ func TestAttachFormFileStoreUsesPrivateDataFolder(t *testing.T) {
 		t.Fatalf("private folder not created: %v", err)
 	}
 }
+
+// An unreadable body: any read of it fails the test.
+type forbiddenBody struct{ t *testing.T }
+
+func (b forbiddenBody) Read([]byte) (int, error) {
+	b.t.Error("the body was read")
+	return 0, io.EOF
+}
+
+func TestFormUploadOverRateLimitIsRefusedBeforeTheBodyIsRead(t *testing.T) {
+	t.Parallel()
+	srv, repo, root := newUploadServer(t)
+	repo.forms["t"].Settings.NoIP = true
+	repo.forms["t"].Settings.RateLimitPerHour = 2
+	send := func() *httptest.ResponseRecorder {
+		body, ct := multipartBody(t, map[string]string{"name": "Ada"}, uploadPart{"cv", "cv.pdf", testPDF})
+		return postMultipart(srv, body, ct)
+	}
+	// Two sends fit the limit: asking before the body must not count them twice.
+	for i := 0; i < 2; i++ {
+		if rec := send(); rec.Code != http.StatusCreated || repo.subs[i].Status != form.SubmissionStatusNew {
+			t.Fatalf("send %d: %d", i, rec.Code)
+		}
+	}
+	before := len(storedFiles(t, root))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/public/forms/t/submit", forbiddenBody{t})
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=x")
+	req.SetPathValue("slug", "t")
+	rec := httptest.NewRecorder()
+	srv.handlePublicFormSubmit(rec, req)
+	if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") == "" {
+		t.Fatalf("status %d retry-after %q", rec.Code, rec.Header().Get("Retry-After"))
+	}
+	if len(storedFiles(t, root)) != before || len(repo.subs) != 2 {
+		t.Error("a refused upload left a file or a row")
+	}
+}
+
+func TestFormUploadConcurrencyIsCapped(t *testing.T) {
+	t.Parallel()
+	srv, repo, root := newUploadServer(t)
+	srv.uploadsInFlight.Store(maxConcurrentUploads)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/public/forms/t/submit", forbiddenBody{t})
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=x")
+	req.SetPathValue("slug", "t")
+	rec := httptest.NewRecorder()
+	srv.handlePublicFormSubmit(rec, req)
+	if rec.Code != http.StatusServiceUnavailable || rec.Header().Get("Retry-After") == "" {
+		t.Fatalf("status %d retry-after %q", rec.Code, rec.Header().Get("Retry-After"))
+	}
+	if got := srv.uploadsInFlight.Load(); got != maxConcurrentUploads {
+		t.Errorf("in flight = %d after a refusal", got)
+	}
+	if len(storedFiles(t, root)) != 0 || len(repo.subs) != 0 {
+		t.Error("a refused upload wrote something")
+	}
+	// A slot freed: the upload goes through, and gives its slot back.
+	srv.uploadsInFlight.Store(maxConcurrentUploads - 1)
+	body, ct := multipartBody(t, map[string]string{"name": "Ada"}, uploadPart{"cv", "cv.pdf", testPDF})
+	if rec := postMultipart(srv, body, ct); rec.Code != http.StatusCreated {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	if got := srv.uploadsInFlight.Load(); got != maxConcurrentUploads-1 {
+		t.Errorf("in flight = %d after a send", got)
+	}
+}

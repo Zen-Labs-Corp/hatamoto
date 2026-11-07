@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/middleware"
 )
 
 const (
@@ -24,6 +25,11 @@ const (
 	// uploadDeadline is how long a request with files may take to read and
 	// answer; the server-wide 30 s would cut a large upload on a slow link.
 	uploadDeadline = 5 * time.Minute
+	// maxConcurrentUploads caps the multipart bodies of file forms read at the
+	// same time, so anonymous senders cannot hold unbounded disk and sockets.
+	maxConcurrentUploads = 8
+	// uploadRetryAfter is the Retry-After seconds of a refused upload.
+	uploadRetryAfter = 30
 )
 
 // uploadedFile is one file part held in the private store's staging area until
@@ -74,6 +80,20 @@ func (s *Server) readMultipartSubmit(w http.ResponseWriter, r *http.Request, f *
 	}
 	if r.ContentLength > budget {
 		return nil, nil, errRequestTooLarge
+	}
+	if len(fileFields) > 0 {
+		// Refuse before a byte of the body is read or written: a sender over
+		// the form's rate limit, or one more upload than the server takes at a
+		// time, costs nothing but this answer. (The honeypot and timing token
+		// travel in the body itself, so they still run after it.)
+		if ip := middleware.GetClientIP(r); s.formRateCheck(r.Context(), f, ip, time.Now(), false) {
+			return nil, nil, errUploadRateLimit
+		}
+		if s.uploadsInFlight.Add(1) > maxConcurrentUploads {
+			s.uploadsInFlight.Add(-1)
+			return nil, nil, errUploadsBusy
+		}
+		defer s.uploadsInFlight.Add(-1)
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, budget)
 	mr, err := r.MultipartReader()
@@ -145,6 +165,8 @@ func (s *Server) readMultipartSubmit(w http.ResponseWriter, r *http.Request, f *
 }
 
 var (
+	errUploadsBusy     = &submitError{status: http.StatusServiceUnavailable, msg: "too many uploads in progress, try again shortly", retry: uploadRetryAfter}
+	errUploadRateLimit = &submitError{status: http.StatusTooManyRequests, msg: "too many submissions, try again later", retry: uploadRetryAfter}
 	errInvalidBody     = &submitError{status: http.StatusBadRequest, msg: "invalid request body"}
 	errRequestTooLarge = &submitError{status: http.StatusRequestEntityTooLarge, msg: "request too large"}
 )
