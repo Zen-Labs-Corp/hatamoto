@@ -17,7 +17,17 @@ import (
 type Service struct {
 	repo   Repository
 	logger *slog.Logger
+	files  *FileStore
 }
+
+// SetFileStore sets where uploaded files live. With it, deleting a
+// submission, a form or expired submissions also deletes their files. Without
+// one (a site with no file fields) the Service touches no files. Call it once
+// at startup.
+func (s *Service) SetFileStore(fs *FileStore) { s.files = fs }
+
+// FileStore returns the store set by SetFileStore, or nil.
+func (s *Service) FileStore() *FileStore { return s.files }
 
 // NewService creates a new form service.
 func NewService(repo Repository, logger *slog.Logger) *Service {
@@ -199,6 +209,15 @@ func (s *Service) DeleteForm(ctx context.Context, id uuid.UUID) error {
 		)
 		return err
 	}
+	// The cascade removed the submissions; the directory holds their files.
+	if s.files != nil {
+		if err := s.files.DeleteForm(id); err != nil {
+			s.logger.Error("failed to delete form files",
+				slog.String("form_id", id.String()),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
 
 	s.logger.Info("deleted form",
 		slog.String("form_id", id.String()),
@@ -285,14 +304,34 @@ func (s *Service) UpdateSubmission(ctx context.Context, id uuid.UUID, input *Upd
 	return submission, nil
 }
 
-// DeleteSubmission removes a submission.
+// DeleteSubmission removes a submission and, when a file store is set, the
+// files its file fields hold. The row goes first: a leaked file is harmless,
+// a row whose file is gone is a broken download. A file that is already gone
+// is not an error, and a file that cannot be removed is logged, not returned.
 func (s *Service) DeleteSubmission(ctx context.Context, id uuid.UUID) error {
+	var refs []FileRef
+	var formID uuid.UUID
+	if s.files != nil {
+		sub, err := s.repo.GetSubmissionByID(ctx, id)
+		if err != nil {
+			return err
+		}
+		f, err := s.repo.GetFormByID(ctx, sub.FormID)
+		if err != nil {
+			return err
+		}
+		formID, refs = f.ID, fileRefs(f.Fields, sub.Data)
+	}
 	if err := s.repo.DeleteSubmission(ctx, id); err != nil {
 		s.logger.Error("failed to delete submission",
 			slog.String("submission_id", id.String()),
 			slog.String("error", err.Error()),
 		)
 		return err
+	}
+
+	for _, ref := range refs {
+		s.deleteFile(formID, ref.ID)
 	}
 
 	s.logger.Info("deleted submission",
@@ -312,10 +351,28 @@ func (s *Service) CountRecentSubmissionsByIP(ctx context.Context, formID uuid.UU
 	return s.repo.CountRecentSubmissionsByIP(ctx, formID, ip, since)
 }
 
-// PurgeExpiredSubmissions deletes submissions older than their form's retention.
-// Call it with a superadmin context.
+// PurgeExpiredSubmissions deletes submissions older than their form's retention,
+// and their files. Call it with a superadmin context.
 func (s *Service) PurgeExpiredSubmissions(ctx context.Context) (int64, error) {
-	return s.repo.PurgeExpiredSubmissions(ctx)
+	n, files, err := s.repo.PurgeExpiredSubmissions(ctx)
+	if s.files != nil {
+		for _, f := range files {
+			s.deleteFile(f.FormID, f.FileID)
+		}
+	}
+	return n, err
+}
+
+// deleteFile removes one stored upload after its row is gone; a failure only
+// leaks the file, so it is logged.
+func (s *Service) deleteFile(formID uuid.UUID, fileID string) {
+	if err := s.files.Delete(formID, fileID); err != nil {
+		s.logger.Error("failed to delete form file",
+			slog.String("form_id", formID.String()),
+			slog.String("file_id", fileID),
+			slog.String("error", err.Error()),
+		)
+	}
 }
 
 // --- Slug Generation ---

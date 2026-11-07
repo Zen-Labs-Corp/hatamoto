@@ -94,3 +94,19 @@ func (f FormField) FileAccept() string {
 	}
 	return strings.Join(exts, ",")
 }
+
+// fileRefs returns the stored uploads a submission's data points at: only
+// answers to the form's file fields count, and only refs with a generated id.
+func fileRefs(fields []FormField, data map[string]any) []FileRef {
+	var refs []FileRef
+	for i := range fields {
+		f := &fields[i]
+		if f.Type != FieldTypeFile || f.Name == "" {
+			continue
+		}
+		if ref, ok := FileRefFromAny(data[f.Name]); ok && ValidFileID(ref.ID) {
+			refs = append(refs, ref)
+		}
+	}
+	return refs
+}

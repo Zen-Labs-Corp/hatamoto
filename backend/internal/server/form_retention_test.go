@@ -16,9 +16,9 @@ type purgeFormRepo struct {
 	purged int
 }
 
-func (r *purgeFormRepo) PurgeExpiredSubmissions(context.Context) (int64, error) {
+func (r *purgeFormRepo) PurgeExpiredSubmissions(context.Context) (int64, []form.PurgedFile, error) {
 	r.purged++
-	return 3, nil
+	return 3, nil, nil
 }
 
 func TestFormRetentionRegisteredOnDailyPurge(t *testing.T) {
