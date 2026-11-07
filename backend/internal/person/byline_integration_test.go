@@ -118,3 +118,81 @@ func TestBylineResolver(t *testing.T) {
 		t.Error("mirror author row removed")
 	}
 }
+
+// TestBylineCreateLocale: an auto-created person is shared (und) only when the
+// person type is locale neutral on a multi-language site.
+func TestBylineCreateLocale(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+
+	const multi = `[{"tag":"en","segment":"en"},{"tag":"fr","segment":"fr"}]`
+	cases := []struct {
+		name    string
+		flagged bool
+		locales string
+		want    string // "" = the site language
+	}{
+		{"flagged multi-locale", true, multi, "und"},
+		{"flagged single-locale", true, `[]`, ""},
+		{"unflagged multi-locale", false, multi, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tx, err := pool.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tx.Rollback(ctx)
+			flag := `settings - 'locale_neutral'`
+			if c.flagged {
+				flag = `COALESCE(settings, '{}'::jsonb) || '{"locale_neutral": true}'::jsonb`
+			}
+			if _, err := tx.Exec(ctx, `UPDATE hatamoto_entity_schemas SET settings = `+flag+` WHERE slug = 'person'`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_site_config`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO hatamoto_site_config (company_name, locales) VALUES ('Acme Org', $1::jsonb)`, c.locales); err != nil {
+				t.Fatal(err)
+			}
+			by, err := NewByline(tx).Resolve(ctx, "Grace Hopper")
+			if err != nil || by.PersonID == nil {
+				t.Fatalf("Resolve = %+v, %v", by, err)
+			}
+			var ok bool
+			if err := tx.QueryRow(ctx, `SELECT locale = COALESCE(NULLIF($2, ''), public.hatamoto_site_language()) FROM hatamoto_entities WHERE id = $1`, *by.PersonID, c.want).Scan(&ok); err != nil || !ok {
+				t.Errorf("locale for %s wrong (want %q): %v", c.name, c.want, err)
+			}
+		})
+	}
+
+	t.Run("slug taken by an en entity of another type", func(t *testing.T) {
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback(ctx)
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO hatamoto_entities (schema_id, name, slug, locale, status, attributes)
+			SELECT id, 'x', 'grace-hopper', 'en', 'draft', '{}' FROM hatamoto_entity_schemas WHERE slug = 'post'`); err != nil {
+			t.Fatal(err)
+		}
+		by, err := NewByline(tx).Resolve(ctx, "Grace Hopper")
+		if err != nil || by.PersonID == nil {
+			t.Fatalf("Resolve = %+v, %v", by, err)
+		}
+		got, err := NewStore(tx).Get(ctx, *by.PersonID)
+		if err != nil || got.Slug != "grace-hopper-2" {
+			t.Errorf("slug = %q, %v; want grace-hopper-2", got.Slug, err)
+		}
+	})
+}

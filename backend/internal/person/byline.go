@@ -2,6 +2,7 @@ package person
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"strings"
@@ -89,11 +90,17 @@ func (b *Byline) Lookup(ctx context.Context, name string) (by entity.Byline, fou
 // create makes a non-public person without a login. A slug taken by another
 // entity gets -2, -3, ... appended.
 func (b *Byline) create(ctx context.Context, slug, name string) (uuid.UUID, error) {
+	loc, err := b.newLocale(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
 	for n := 1; ; n++ {
 		try := slug
 		if n > 1 {
 			try = fmt.Sprintf("%s-%d", slug, n)
 		}
+		// The probe matches any locale, so it already covers a clash between a
+		// shared (und) person and an entity in the site language.
 		var taken bool
 		if err := b.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_entities WHERE slug = $1 AND parent_id IS NULL)`, try).Scan(&taken); err != nil {
 			return uuid.Nil, err
@@ -103,15 +110,39 @@ func (b *Byline) create(ctx context.Context, slug, name string) (uuid.UUID, erro
 		}
 		var id uuid.UUID
 		err := b.db.QueryRow(ctx, `
-			INSERT INTO hatamoto_entities (schema_id, name, slug, status, attributes, published_at)
-			SELECT s.id, $2, $1, 'draft', '{"public": false}'::jsonb, NULL
+			INSERT INTO hatamoto_entities (schema_id, name, slug, locale, status, attributes, published_at)
+			SELECT s.id, $2, $1, COALESCE(NULLIF($3, ''), public.hatamoto_site_language()), 'draft', '{"public": false}'::jsonb, NULL
 			FROM hatamoto_entity_schemas s WHERE s.slug = 'person'
-			RETURNING id`, try, name).Scan(&id)
+			RETURNING id`, try, name, loc).Scan(&id)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return uuid.Nil, fmt.Errorf("the person content type is missing")
 		}
 		return id, err
 	}
+}
+
+// newLocale is the locale a new person gets: the shared one when the person
+// type is locale neutral on a multi-language site, else "" (the site language).
+func (b *Byline) newLocale(ctx context.Context) (string, error) {
+	var raw []byte
+	err := b.db.QueryRow(ctx, `SELECT settings FROM hatamoto_entity_schemas WHERE slug = 'person'`).Scan(&raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", fmt.Errorf("the person content type is missing")
+	}
+	if err != nil {
+		return "", err
+	}
+	var multiErr error
+	multi := func() bool {
+		var n int
+		multiErr = b.db.QueryRow(ctx, `SELECT COALESCE(jsonb_array_length(locales), 0) FROM hatamoto_site_config LIMIT 1`).Scan(&n)
+		if errors.Is(multiErr, pgx.ErrNoRows) {
+			multiErr = nil
+		}
+		return n >= 2
+	}
+	loc := (&entity.EntitySchema{Settings: jsontext.Value(raw)}).DefaultLocale("", multi)
+	return loc, multiErr
 }
 
 // Name implements entity.BylineResolver.
