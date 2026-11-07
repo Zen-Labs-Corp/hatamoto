@@ -65,6 +65,7 @@ GET /admin/forms/submissions -> admin.(*Admin).handleSubmissions-fm
 GET /admin/forms/submissions/export.csv -> admin.(*Admin).handleSubmissionsExport-fm
 GET /admin/forms/submissions/{sid} -> admin.(*Admin).handleSubmission-fm
 GET /admin/forms/submissions/{sid}/delete -> admin.(*Admin).handleSubmissionDeleteForm-fm
+GET /admin/forms/submissions/{sid}/files/{field} -> admin.(*Admin).handleSubmissionFile-fm
 GET /admin/login -> admin.(*Admin).handleLoginForm-fm
 GET /admin/login/2fa -> admin.(*Admin).handleTwoStepForm-fm
 GET /admin/media -> admin.(*Admin).handleMedia-fm
