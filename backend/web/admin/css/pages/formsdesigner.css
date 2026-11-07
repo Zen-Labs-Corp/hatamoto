@@ -46,3 +46,9 @@
 .hm-fd-field__opts { margin: 0; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--text-sm); }
 .hm-fd-field__actions { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .hm-fd-field__actions[hidden] { display: none; }
+
+.hm-fd-shield { position: fixed; inset: 0; z-index: var(--z-shield); cursor: grabbing; touch-action: none; }
+.hm-fd-group { margin: 0; font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.hm-fd-palette__list { display: flex; flex-direction: column; gap: var(--space-3); }
+.hm-fd-palette__tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); gap: var(--space-2); }
+.hm-fd-dragging { user-select: none; }

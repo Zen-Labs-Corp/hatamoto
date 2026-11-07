@@ -130,6 +130,6 @@ export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}),
   return {
     draw,
     focusField: (id) => nodes.get(id)?.el.focus(),
-    rowRects: () => Array.from(root.children, (el) => el.getBoundingClientRect()),
+    rowRects: () => Array.from(root.querySelectorAll(":scope > [data-id]"), (el) => el.getBoundingClientRect()),
   };
 }
