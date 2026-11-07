@@ -582,26 +582,25 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 	if serr != nil {
 		return nil, serr
 	}
-	// With storage off the row still exists (mail and hooks need its id) but
-	// holds no answers; the in-memory data below still feeds the mail.
-	stored := data
+	// With storage off the row still exists (mail and hooks need its id, the
+	// admin sees that a send arrived) but holds no answers and nothing about
+	// the visitor; the in-memory data below still feeds the mail.
+	input := &form.CreateSubmissionInput{Status: status}
 	if s.dropAnswers(formObj) {
-		stored = map[string]interface{}{}
-	}
-	ip := meta.IPAddress
-	if formObj.Settings.NoIP {
-		ip = ""
-	}
-	input := &form.CreateSubmissionInput{
-		Status:      status,
-		Data:        stored,
-		Attribution: attributionFromControl(ctl.Attribution, meta.Host),
-		Metadata: form.SubmissionMetadata{
+		input.Data = map[string]interface{}{}
+	} else {
+		ip := meta.IPAddress
+		if formObj.Settings.NoIP {
+			ip = ""
+		}
+		input.Data = data
+		input.Attribution = attributionFromControl(ctl.Attribution, meta.Host)
+		input.Metadata = form.SubmissionMetadata{
 			IPAddress: ip,
 			UserAgent: meta.UserAgent,
 			Referrer:  meta.Referrer,
 			PageURL:   meta.PageURL,
-		},
+		}
 	}
 
 	// Create submission

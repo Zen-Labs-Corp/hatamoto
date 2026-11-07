@@ -165,6 +165,9 @@ func TestFormSettings_StoreOffKeepsNoAnswersButStillMails(t *testing.T) {
 	if len(repo.subs) != 1 || len(repo.subs[0].Data) != 0 {
 		t.Fatalf("stored data = %+v, want a row with no answers", repo.subs)
 	}
+	if m := repo.subs[0].Metadata; m != (form.SubmissionMetadata{}) || repo.subs[0].Attribution != nil {
+		t.Fatalf("stored metadata = %+v attribution = %+v, want nothing about the visitor", m, repo.subs[0].Attribution)
+	}
 	deadline := time.Now().Add(10 * time.Second)
 	for len(sink.Messages()) == 0 && time.Now().Before(deadline) {
 		time.Sleep(25 * time.Millisecond)
