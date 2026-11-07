@@ -50,6 +50,12 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 	if err := s.fillView(ctx, r, rr, v); err != nil {
 		return nil, err
 	}
+	if rr != nil && rr.NotFound && rr.Locale == "" {
+		// A 404 is built from an empty route: take the locale from the path.
+		if tag, _, ok := s.urlSnapshot(ctx).Locales().Resolve(requestPath(r)); ok {
+			rr.Locale = tag
+		}
+	}
 	s.applyLocale(ctx, rr, v, v.BaseURL)
 	s.applyStrings(ctx, v)
 	v.Contact = s.pageContact(ctx, v.Locale)
