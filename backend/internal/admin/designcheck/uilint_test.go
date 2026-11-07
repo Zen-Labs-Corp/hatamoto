@@ -123,6 +123,9 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "partials/sidebar.html", Needle: `action="{{adminPath}}/theme"`, Reason: "theme toggle in the sidebar"},
 	{Rule: "UI-01", File: "partials/sidebar.html", Needle: `action="{{adminPath}}/logout"`, Reason: "sign out button in the sidebar"},
 	{Rule: "UI-01", File: "partials/table.html", Needle: `data-hm-bulk-toolbar`, Reason: "bulk action toolbar above a table, not a form footer"},
+	{Rule: "UI-01", File: "partials/formssubdrawer.html", Needle: `define "hm/formssubstatus"`, Reason: "submission drawer action: a one-button POST form in the drawer body (the dialog footer is the shared Close row), returning to the list"},
+	{Rule: "UI-01", File: "partials/formssubdrawer.html", Needle: `>Archive</button>`, Reason: "submission drawer Archive: a one-button POST form in the More actions menu in the drawer body (the dialog footer is the shared Close row), returning to the list"},
+	{Rule: "UI-01", File: "partials/formssubdrawer.html", Needle: `"Label" "Forward"`, Reason: "submission drawer Forward by email: the submit of the form in the More actions menu (the dialog footer is the shared Close row), returning to the list"},
 	{Rule: "UI-01", File: "partials/mediatile.html", Needle: `data-hm-bulk-toolbar`, Reason: "bulk action toolbar above a media grid, not a form footer"},
 
 	// UI-10: page-level forms that edit or remove something, not a create form beside the list.
@@ -203,7 +206,6 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-05", File: "js/editor/kit.js", Needle: `text: "Remove"`, Reason: reasonEditor},
 	{Rule: "UI-05", File: "js/content.js", Needle: "data-hm-picker-close", Reason: "media picker dialog buttons built in JS"},
 	{Rule: "UI-05", File: "pages/settings/theme.html", Needle: `id="theme-{{.Name}}"`, Reason: "theme card with a dynamic id, heading in the body row and an Active modifier"},
-	{Rule: "UI-05", File: "pages/forms/submission.html", Needle: `aria-labelledby="sub-answers"`, Reason: "card whose header carries a status badge"},
 	{Rule: "UI-05", File: "pages/redirects/list.html", Needle: "hm-redirect-test", Reason: "inline test form styled as a card"},
 	{Rule: "UI-05", File: "pages/entities/versions.html", Needle: "hm-compare", Reason: "inline compare form styled as a card"},
 	{Rule: "UI-05", File: "pages/entities/compare.html", Needle: "hm-tablecard", Reason: "table card, no head or body"},

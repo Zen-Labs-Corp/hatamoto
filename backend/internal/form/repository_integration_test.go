@@ -86,3 +86,65 @@ func TestCountRecentSubmissionsByIP(t *testing.T) {
 		}
 	}
 }
+
+func TestListSubmissionsSearch(t *testing.T) {
+	ctx := database.WithSuperadmin(context.Background())
+	db := testDB(t)
+	repo := form.NewPostgresRepository(db)
+
+	mk := func(slug string) *form.Form {
+		f, err := repo.CreateForm(ctx, &form.CreateFormInput{Name: slug, Slug: slug, Fields: []form.FormField{}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return f
+	}
+	seed := func(f *form.Form, status, data string) {
+		t.Helper()
+		conn, err := db.GetConn(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Release()
+		if _, err := conn.Exec(ctx, `INSERT INTO hatamoto_form_submissions (form_id, data, metadata, status)
+			VALUES ($1, $2::jsonb, '{}', $3)`, f.ID, data, status); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a, other := mk("search-a"), mk("search-b")
+	seed(a, "new", `{"name":"Ada Lovelace","msg":"50%_off today"}`)
+	seed(a, "read", `{"name":"Grace Hopper","msg":"500 off"}`)
+	seed(a, "spam", `{"name":"Alan Turing","msg":"back\\slash"}`)
+	seed(other, "new", `{"name":"Ada Other","msg":"50%_off"}`)
+
+	list := func(p form.ListSubmissionsParams) ([]*form.FormSubmission, int) {
+		t.Helper()
+		rows, total, err := repo.ListSubmissions(ctx, a.ID, &p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return rows, total
+	}
+	for _, tc := range []struct {
+		name string
+		p    form.ListSubmissionsParams
+		want int
+	}{
+		{"no search", form.ListSubmissionsParams{}, 3},
+		{"blank search", form.ListSubmissionsParams{Search: "   "}, 3},
+		{"case-insensitive", form.ListSubmissionsParams{Search: "LOVELACE"}, 1},
+		{"percent and underscore are literal", form.ListSubmissionsParams{Search: "50%_off"}, 1},
+		{"lone percent is literal", form.ListSubmissionsParams{Search: "%"}, 1},
+		{"lone underscore is literal", form.ListSubmissionsParams{Search: "_"}, 1},
+		{"backslash is literal", form.ListSubmissionsParams{Search: `\`}, 1},
+		{"search and status", form.ListSubmissionsParams{Search: "a", Status: "read"}, 1},
+		{"search excludes other status", form.ListSubmissionsParams{Search: "Lovelace", Status: "spam"}, 0},
+		{"other form never matches", form.ListSubmissionsParams{Search: "Other"}, 0},
+		{"quote is data, not SQL", form.ListSubmissionsParams{Search: `'); DROP TABLE x;--`}, 0},
+	} {
+		rows, total := list(tc.p)
+		if len(rows) != tc.want || total != tc.want {
+			t.Errorf("%s: got %d rows, total %d; want %d", tc.name, len(rows), total, tc.want)
+		}
+	}
+}

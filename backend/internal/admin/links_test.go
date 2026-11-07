@@ -96,7 +96,7 @@ func TestRenderedPagesLinkToNewPaths(t *testing.T) {
 }
 
 // Forms, submissions and their editor pages, rendered with data, link only to
-// the new paths (the submission list and detail are the busiest in links).
+// the new paths (the Submissions tab and its drawer are the busiest in links).
 func TestRenderedFormsPagesLinkToNewPaths(t *testing.T) {
 	t.Parallel()
 
@@ -104,7 +104,7 @@ func TestRenderedFormsPagesLinkToNewPaths(t *testing.T) {
 	attr := regexp.MustCompile(`(?:href|action|formaction|hx-get|hx-post|data-hm-post)="([^"]*)"`)
 	for _, path := range []string{
 		"/admin/forms", "/admin/forms/new", "/admin/forms/design/" + fm.ID.String(),
-		"/admin/forms/submissions?form=" + fm.ID.String(), "/admin/forms/submissions/" + s.ID.String(),
+		"/admin/forms/design/" + fm.ID.String() + "/submissions", "/admin/forms/design/" + fm.ID.String() + "/submissions?s=" + s.ID.String(),
 		"/admin/forms/submissions/" + s.ID.String() + "/delete",
 	} {
 		rec := g.do("GET", path, "owner-token", nil, nil)

@@ -1,12 +1,12 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 69725,
+      "value": 70960,
       "unit": "bytes",
       "tol_abs": 1024
     },
     "canvas_host_gzip": {
-      "value": 8645,
+      "value": 8773,
       "unit": "bytes",
       "tol_abs": 512
     },
@@ -122,6 +122,10 @@
     },
     {
       "reason": "forms designer: designer CSS (admin_css_gzip 68139 -> 69725, +1586 B) and the shared command log, drag source and save reply extracted from the page builder into their own modules (editor_js_first_gzip 108180 -> 108473, +293 B; editor_js_total_gzip 292701 -> 294043, +1342 B), measured; the forms modules are not in the builder's import closure; caps move with the measurements",
+      "date": "2026-11-07"
+    },
+    {
+      "reason": "forms submissions tab styles",
       "date": "2026-11-07"
     }
   ]

@@ -72,7 +72,7 @@ The picker inside a PDF widget lists PDF files only. A PDF can be shown in a fra
 
 4. Put the form on a page. In the page builder, add the **form** element and choose your form, or add a contact-form section if your theme has one.
 
-5. Read what visitors send under **Forms > Submissions** (`<admin>/forms/submissions`). Messages that the spam rules catch are kept with the status Spam; move one back if it was a mistake.
+5. Read what visitors send under the form's **Submissions** tab (`<admin>/forms`, open a form, then Submissions). Messages that the spam rules catch are kept with the status Spam; move one back if it was a mistake.
 
 ### Forward an old address
 

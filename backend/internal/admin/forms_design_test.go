@@ -40,7 +40,7 @@ func TestFormDesignPage(t *testing.T) {
 	if n := strings.Count(body, `class="hm-tabs__tab"`); n != 4 {
 		t.Errorf("tab strip has %d items, want 4", n)
 	}
-	if !strings.Contains(body, `href="/admin/forms/submissions?form=`+fm.ID.String()+`"`) {
+	if !strings.Contains(body, `href="/admin/forms/design/`+fm.ID.String()+`/submissions"`) {
 		t.Error("tab strip lacks the submissions link")
 	}
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {

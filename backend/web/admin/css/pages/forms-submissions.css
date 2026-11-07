@@ -1,0 +1,25 @@
+/* Forms > Submissions tab: list with a detail drawer. Tokens only; state classes on tr, shared components untouched. */
+.hm-page:has(.hm-ss) { max-width: none; }
+/* The hidden tooltip of the tracker blocks nearest the edge is wider than the card and made the page scroll sideways; clip it. */
+.hm-ss__tracker { overflow-x: clip; }
+/* Row states. The unread edge is an inset hairline on the first cell: it never covers the focus ring. */
+.hm-ss__row--unread > * { font-weight: var(--weight-semibold); }
+.hm-ss__row--unread > :first-child { box-shadow: inset 3px 0 0 var(--color-accent); }
+.hm-ss__row--spam > * { color: var(--text-muted); }
+.hm-ss__row[aria-selected="true"] > * { background: var(--color-accent-soft); }
+.hm-ss__row a[data-hm-ss-open] { color: inherit; text-decoration: none; }
+.hm-ss__row a[data-hm-ss-open]:hover { text-decoration: underline; }
+/* Drawer body: answers first, then the details list. */
+.hm-ss__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); margin: 0 0 var(--space-3); }
+.hm-ss__actions { margin: 0 0 var(--space-4); }
+.hm-ss__answers { display: flex; flex-direction: column; gap: var(--space-3); margin: 0 0 var(--space-4); }
+.hm-ss__answer { min-width: 0; }
+.hm-ss__answer-label { margin: 0 0 var(--space-0-5); color: var(--text-muted); font-size: var(--text-sm); }
+.hm-ss__answer-value { margin: 0; color: var(--text); overflow-wrap: anywhere; white-space: pre-wrap; }
+.hm-ss__empty { color: var(--text-muted); font-style: italic; }
+.hm-ss__details { margin: 0; padding-block-start: var(--space-3); border-block-start: 1px solid var(--border); font-size: var(--text-sm); }
+.hm-ss__details dt { color: var(--text-muted); }
+@media (forced-colors: active) {
+  .hm-ss__row--unread > :first-child { border-inline-start: 3px solid Highlight; }
+  .hm-ss__row[aria-selected="true"] > :first-child { border-inline-start: 3px solid Highlight; }
+}

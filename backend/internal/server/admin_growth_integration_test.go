@@ -274,9 +274,15 @@ func TestAdminGrowthIntegration(t *testing.T) {
 		if n := count(`SELECT count(*) FROM hatamoto_form_submissions WHERE form_id=$1`, formID); n != 3 {
 			t.Fatalf("stored %d submissions, want 3", n)
 		}
-		list := admin("GET", "/admin/forms/submissions?form="+formID, nil)
-		if list.Code != 200 || !strings.Contains(list.Body.String(), "Name: Ada") {
-			t.Errorf("submissions list: %d", list.Code)
+		// the old list URL now lands on the form's Submissions tab
+		tab := "/admin/forms/design/" + formID + "/submissions"
+		old := admin("GET", "/admin/forms/submissions?form="+formID, nil)
+		if old.Code/100 != 3 || old.Header().Get("Location") != tab {
+			t.Errorf("old submissions list: %d -> %q, want a redirect to %s", old.Code, old.Header().Get("Location"), tab)
+		}
+		list := admin("GET", tab, nil)
+		if list.Code != 200 || !strings.Contains(list.Body.String(), "Ada") {
+			t.Errorf("submissions tab: %d", list.Code)
 		}
 		exp := admin("GET", "/admin/forms/submissions/export.csv?form="+formID, nil)
 		if exp.Code != 200 || !strings.HasPrefix(exp.Header().Get("Content-Type"), "text/csv") || !strings.Contains(exp.Header().Get("Content-Disposition"), slug) {

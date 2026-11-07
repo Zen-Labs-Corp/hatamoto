@@ -61,7 +61,7 @@ if (selfTest) {
   const checks = [
     [got.join() === "/admin/ghost", `expected exactly /admin/ghost, got ${got.join() || "nothing"}`],
     [normalise("/admin/entities/3f2b8c1e-0000-4000-8000-000000000001/edit?outline=1") === "/admin/entities/{id}/edit", "uuid and query normalisation"],
-    [normalise("/admin/forms/submissions?form={form}") === normalise("/admin/forms/submissions?form=3f2b8c1e-0000-4000-8000-000000000001"), "token and uuid agree"],
+    [normalise("/admin/forms/design/{form}/submissions") === normalise("/admin/forms/design/3f2b8c1e-0000-4000-8000-000000000001/submissions"), "token and uuid agree"],
     [crawled.scanned === 4 && crawled.broken === 0, `BFS should scan 4 pages across three nav levels, got ${crawled.scanned} (${crawled.broken} broken)`],
     [crawled.seen.has("/admin/settings/redirects/explain") && crawled.reached.has("/admin/settings/redirects/explain"), "a tab row on a depth-2 page must be followed"],
     [crawlIgnore.every((i) => i.re instanceof RegExp && i.reason), "crawlIgnore entries need re and reason"],

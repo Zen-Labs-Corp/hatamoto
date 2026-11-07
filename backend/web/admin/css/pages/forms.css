@@ -13,9 +13,6 @@
 .hm-formbuilder { padding-bottom: var(--space-8); scroll-padding-bottom: calc(var(--space-8) * 2); }
 .hm-copyrow { align-items: flex-end; }
 .hm-copyrow .hm-field { flex: 1 1 auto; min-width: 0; }
-.hm-submissions__filters { flex-wrap: wrap; margin: var(--space-4) 0; }
-/* The hidden tooltip of the blocks nearest the edge is wider than the card and made the page scroll sideways; clip it on the tracker. */
-.hm-submissions__tracker { overflow-x: clip; }
 /* repeater drag handle, injected by repeater.js */
 .hm-repeater__grip { display: inline-flex; vertical-align: middle; margin-inline-end: var(--space-2); color: var(--text-muted); cursor: grab; }
 

@@ -121,9 +121,8 @@ export const screens = [
   { name: "forms-design", path: "/admin/forms/design/{form}", legacy: "/admin/settings/forms/{form}/edit", mock: null, roles: OE },
   { name: "forms-settings", path: "/admin/forms/design/{form}/settings", mock: null, roles: OE },
   { name: "forms-share", path: "/admin/forms/design/{form}/share", mock: null, roles: OE },
-  { name: "submissions", path: "/admin/forms/submissions?form={form}", legacy: "/admin/settings/submissions?form={form}", mock: "settings-submissions", roles: OE },
-  { name: "submissions-all", path: "/admin/forms/submissions", legacy: "/admin/settings/submissions", mock: null, roles: OE }, // no form filter
-  // SEO and URLs
+  { name: "submissions", path: "/admin/forms/design/{form}/submissions", legacy: "/admin/settings/submissions?form={form}", mock: "settings-submissions", roles: OE },
+    // SEO and URLs
   { name: "settings-redirects", path: "/admin/settings/redirects", legacy: "/admin/redirects", mock: "settings-redirects", roles: OE, list: true, states: [newDialog] },
   { name: "settings-redirects-new", path: "/admin/settings/redirects/new", legacy: "/admin/redirects/new", mock: null, roles: OE },
   { name: "settings-redirects-explain", path: "/admin/settings/redirects/explain", mock: null, roles: OE },
@@ -182,7 +181,7 @@ export const screens = [
   { name: "forgot", path: "/admin/forgot", mock: null, roles: OE, auth: false },
   // PR-E admin-media-forms: the media table view and the status-filtered submissions page.
   { name: "media-list", path: "/admin/media?view=list", legacy: "/admin/settings/media?view=list", mock: null, roles: OE },
-  { name: "submissions-new", path: "/admin/forms/submissions?form={form}&status=new", legacy: "/admin/settings/submissions?form={form}&status=new", mock: null, roles: OE },
+  { name: "submissions-new", path: "/admin/forms/design/{form}/submissions?status=new", legacy: "/admin/settings/submissions?form={form}&status=new", mock: null, roles: OE },
 ];
 
 // Not inventoried because the QA seed cannot reach them without external input:

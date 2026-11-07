@@ -444,7 +444,7 @@ owner and an editor), then run the commands under "Harness".
   signed in, the login page signed out.
   `go test ./internal/admin -run Legacy` covers the table; spot check with
   `curl -sI http://localhost:8090/admin/forms/7/submissions/3` (301 to
-  `/admin/forms/submissions/3`) and `curl -sI -X POST http://localhost:8090/admin/users/new`.
+  `/admin/forms/design/7/submissions?s=3`) and `curl -sI -X POST http://localhost:8090/admin/users/new`.
 * **Segment boundaries**: `/admin/settings/theme` redirects and `/admin/theme/themes`
   does not; `/admin/settings/media` redirects to `/admin/media` and `/admin/media/picker`,
   `/admin/media/upload` and `/admin/media/{id}` do not redirect.
@@ -459,7 +459,8 @@ owner and an editor), then run the commands under "Harness".
   admin's Go source, templates and scripts (not tests) for a moved path; click through
   one page per section and confirm the address bar never shows a 301 on the way (the only
   allowed 301 is one you typed or bookmarked). The form-submission notification email links
-  to `/admin/forms/submissions/{sid}`.
+  to `/admin/forms/submissions/{sid}`, which redirects to the form's Submissions tab with that
+  submission open.
 * **Accepted limit (POST)**: a form opened on an old URL before the upgrade and submitted
   after it arrives as a GET (a 301 never keeps the method) and saves nothing. Reload and
   submit again.

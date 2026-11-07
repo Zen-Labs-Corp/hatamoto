@@ -51,20 +51,20 @@ type formDesignData struct {
 }
 
 // formDesignTabs is the tab strip across the designer. active is "build",
-// "settings" or "share".
+// "settings", "submissions" or "share".
 func (a *Admin) formDesignTabs(ctx context.Context, id, active string) []ui.Tab {
 	base := a.adminPath + "/forms/design/" + id
-	var count int
+	var count int // unread submissions
 	if fid, err := uuid.Parse(id); err == nil && a.deps.Growth.Forms != nil {
 		var cerr error
-		if _, count, cerr = a.deps.Growth.Forms.ListSubmissions(ctx, fid, &form.ListSubmissionsParams{Limit: 1}); cerr != nil {
+		if _, count, cerr = a.deps.Growth.Forms.ListSubmissions(ctx, fid, &form.ListSubmissionsParams{Status: form.SubmissionStatusNew, Limit: 1}); cerr != nil {
 			a.logger().Error("form submission count failed", "form", id, "err", cerr)
 		}
 	}
 	return []ui.Tab{
 		{Label: "Build", Icon: "file-text", Href: base, Active: active == "build"},
 		{Label: "Settings", Icon: "settings", Href: base + "/settings", Active: active == "settings"},
-		{Label: "Submissions", Icon: "inbox", Count: count, Href: a.adminPath + "/forms/submissions?form=" + id},
+		{Label: "Submissions", Icon: "inbox", Count: count, Href: base + "/submissions", Active: active == "submissions"},
 		{Label: "Share and embed", Icon: "code", Href: base + "/share", Active: active == "share"},
 	}
 }

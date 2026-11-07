@@ -162,7 +162,7 @@ func TestPagesDeclareEntryModules(t *testing.T) {
 		"entities/translations":    {"@hm/searchselect"},
 		"forms/design":             {"@hm/formsdesigner"},
 		"forms/settings":           {"@hm/formsdesigner"},
-		"forms/submissions":        {"@hm/content"},
+		"forms/submissionstab":     {"@hm/content", "@hm/formssubmissions"},
 		"linking/rule":             {"@hm/searchselect"},
 		"linking/rules":            {"@hm/content"},
 		"linking/suggestions":      {"@hm/searchselect"},
