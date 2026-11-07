@@ -18,6 +18,14 @@ const ok = (c, m) => {
 const same = (a, c) => JSON.stringify(a) === JSON.stringify(c);
 
 const page = await newSession(b, { theme: "light", width: 1440 });
+// the 30 s "Saved N min ago" timer, callable on demand
+await page.addInitScript(() => {
+  const si = window.setInterval;
+  window.setInterval = (fn, ms, ...a) => {
+    if (ms === 30000) window.__hmTick30 = fn;
+    return si(fn, ms, ...a);
+  };
+});
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 page.on("console", (m) => {
@@ -170,6 +178,18 @@ ok(same(await labels(), ["Full name", "Notes", "Work email"]), "the Delete butto
 await page.keyboard.press("Control+s");
 await waitSaved();
 ok(navs === 0, `building and saving made no page load (${navs})`);
+{
+  // the relative-time tick must not be announced: the live region is off for it, and back on for a real state change
+  const live = () => page.locator(".hm-savestate").first().getAttribute("aria-live");
+  await page.evaluate(() => window.__hmTick30());
+  ok((await live()) === "off", "the 30 s relative-time tick is silent for screen readers");
+  await page.keyboard.press("Control+z");
+  await page.waitForFunction(() => document.querySelector(".hm-savestate")?.dataset.state !== "saved");
+  ok((await live()) === "polite", "a save-state change is announced again");
+  await page.keyboard.press("Control+Shift+z");
+  await page.keyboard.press("Control+s");
+  await waitSaved();
+}
 {
   const want = shape((await doc()).fields);
   const got = shape((await saved(formId)).fields);

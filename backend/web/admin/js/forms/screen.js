@@ -79,6 +79,7 @@ function start(root, boot) {
     clean = (state === "saved" || state === "idle") && !message;
     if (clean && state === "saved") savedAt = Date.now();
     const text = message || (clean ? savedText() : (STATE_TEXT[state] ?? "Not saved"));
+    savestate.setAttribute("aria-live", "polite"); // a state change is announced
     stateText.textContent = text;
     savestate.dataset.short = text;
     reload?.remove();
@@ -93,7 +94,12 @@ function start(root, boot) {
     }
   }
 
-  setInterval(() => clean && (stateText.textContent = savedText()), 30000);
+  // The relative time ticking over is not news: silence the live region for that write; the next state change turns it back on.
+  setInterval(() => {
+    if (!clean) return;
+    savestate.setAttribute("aria-live", "off");
+    stateText.textContent = savedText();
+  }, 30000);
 
   const saver = createFormSaver({
     url: boot.saveUrl,
