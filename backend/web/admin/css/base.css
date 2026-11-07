@@ -32,7 +32,7 @@ a:hover { text-decoration-color: currentColor; }
 img, svg { display: block; max-width: 100%; }
 code, kbd, samp, pre { font-family: var(--font-mono); font-size: var(--text-sm); }
 code, kbd, samp, pre, .hm-mono, .hm-copyrow .hm-field__control, textarea[data-hm-code] { font-variant-ligatures: none; } /* "-->" must stay three characters, not an arrow */
-textarea[data-hm-code] { font-family: var(--font-mono); font-size: var(--text-sm); }
+textarea[data-hm-code] { font-family: var(--font-mono); font-size: var(--text-md); } /* the input contract (UI-D14) owns the size; only the family changes */
 kbd { border: 1px solid var(--border-control); border-bottom-width: 2px; border-radius: var(--radius-sm); padding: 0 var(--space-1); background: var(--color-paper); }
 button, input, select, textarea { font: inherit; color: inherit; }
 /* Every native checkbox and radio: one size, the ink accent, no UA blue. */
