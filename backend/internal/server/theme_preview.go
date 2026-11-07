@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -158,6 +159,9 @@ func (h *renderHandlers) forRequest(w http.ResponseWriter, r *http.Request) (*re
 	}
 	hp := *h
 	hp.engine, hp.uncached = eng, true
+	if h.buildView != nil {
+		hp.buildView = inPreviewTheme(h.buildView, eng.ThemeName())
+	}
 	return &hp, false
 }
 
@@ -177,4 +181,12 @@ func overrideAssets(p *themePreview, active *render.Engine) {
 			eng.AssetHandler().ServeHTTP(w, r)
 		})
 	})
+}
+
+// inPreviewTheme wraps a view builder so the view is built for the previewed
+// theme (its string overrides), not the active one.
+func inPreviewTheme(build func(context.Context, *http.Request, *routeResult) (*render.PageView, error), theme string) func(context.Context, *http.Request, *routeResult) (*render.PageView, error) {
+	return func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error) {
+		return build(withPreviewTheme(ctx, theme), r, rr)
+	}
 }

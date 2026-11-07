@@ -9,6 +9,23 @@ import (
 	"hatamoto.dev/core/internal/themestrings"
 )
 
+type previewThemeKey struct{}
+
+// withPreviewTheme marks ctx as rendering through the preview engine of theme,
+// so the string overrides of that theme apply, not the active one's.
+func withPreviewTheme(ctx context.Context, theme string) context.Context {
+	return context.WithValue(ctx, previewThemeKey{}, theme)
+}
+
+// stringsTheme is the theme whose overrides a request uses: the previewed one,
+// else the active engine's.
+func stringsTheme(ctx context.Context, active string) string {
+	if t, ok := ctx.Value(previewThemeKey{}).(string); ok {
+		return t
+	}
+	return active
+}
+
 // applyStrings fills v.StringOverrides: the owner's theme string overrides for
 // the active theme, chained locale -> default locale (the renderer puts the
 // theme's own defaults underneath). Call it after applyLocale, which sets
@@ -21,7 +38,7 @@ func (s *Server) applyStrings(ctx context.Context, v *render.PageView) {
 	if err != nil || !bytes.Contains(cfg.ThemeExtra, []byte(themestrings.ExtraKey)) {
 		return
 	}
-	v.StringOverrides = themeStringOverrides(cfg.ThemeExtra, s.renderEngine.ThemeName(),
+	v.StringOverrides = themeStringOverrides(cfg.ThemeExtra, stringsTheme(ctx, s.renderEngine.ThemeName()),
 		v.Locale, defaultStringsTag(s.urlSnapshot(ctx).Locales(), siteLanguage(cfg)))
 }
 

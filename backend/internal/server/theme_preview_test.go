@@ -1,11 +1,14 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/render"
 )
 
 func TestPreviewTokenSignatureAndExpiry(t *testing.T) {
@@ -64,5 +67,21 @@ func TestPreviewStartSetsCookieAndRedirects(t *testing.T) {
 	var none *themePreview
 	if none.start(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/?"+previewParam+"=x", nil)) || none.engine(httptest.NewRequest(http.MethodGet, "/", nil)) != nil {
 		t.Error("a nil preview must be inert")
+	}
+}
+
+// A preview request builds its view in the previewed theme's name, so the
+// active theme's string overrides do not leak into it.
+func TestPreviewBuildViewCarriesTheme(t *testing.T) {
+	var seen string
+	build := inPreviewTheme(func(ctx context.Context, _ *http.Request, _ *routeResult) (*render.PageView, error) {
+		seen = stringsTheme(ctx, "active")
+		return nil, nil
+	}, "previewed")
+	if _, err := build(context.Background(), nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if seen != "previewed" {
+		t.Errorf("theme seen by the view build = %q", seen)
 	}
 }

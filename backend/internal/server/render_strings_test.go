@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"io/fs"
 	"maps"
 	"testing"
@@ -86,5 +87,15 @@ func TestStringOverridesRenderOnEveryPageKind(t *testing.T) {
 				t.Errorf("%s locale %q: %q, want %q", name, locale, buf.String(), want)
 			}
 		}
+	}
+}
+
+func TestStringsThemeFollowsPreview(t *testing.T) {
+	ctx := context.Background()
+	if got := stringsTheme(ctx, "active"); got != "active" {
+		t.Errorf("no preview: %q", got)
+	}
+	if got := stringsTheme(withPreviewTheme(ctx, "other"), "active"); got != "other" {
+		t.Errorf("preview: %q", got)
 	}
 }
