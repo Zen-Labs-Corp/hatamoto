@@ -1669,6 +1669,94 @@
     "kind": "a"
    },
    "want_errors": {}
+  },
+  {
+   "name": "email unicode local part",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "j\u00f6rg@example.de"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "email": "j\u00f6rg@example.de"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "email underscore in domain",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "a@foo_bar.example"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "email": "a@foo_bar.example"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "url scheme without slashes",
+   "fields": [
+    {
+     "id": "f_site",
+     "type": "url",
+     "label": "Site",
+     "name": "site"
+    }
+   ],
+   "data": {
+    "site": "https:example.com"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "site": "Site must be a web address starting with http:// or https://"
+   }
+  },
+  {
+   "name": "url single slash",
+   "fields": [
+    {
+     "id": "f_site",
+     "type": "url",
+     "label": "Site",
+     "name": "site"
+    }
+   ],
+   "data": {
+    "site": "http:/example.com"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "site": "Site must be a web address starting with http:// or https://"
+   }
   }
  ],
  "visibility": [

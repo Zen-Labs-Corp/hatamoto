@@ -108,8 +108,10 @@ function resolveHidden(h, ctx) {
 const ruleMessage = (f, def) => (typeof f.validation?.message === "string" && f.validation.message.trim() !== "" ? f.validation.message : def);
 const hasOption = (opts, v) => (opts ?? []).some((o) => o.value === v);
 
-// An address with no display name: dot-atom local part, dotted host labels (the server's net/mail rules, narrowed).
-const EMAIL_RE = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$/;
+// An address with no display name: dot-atoms on both sides of the @, where an atom char is ASCII atext or any
+// non-ASCII character (the server's net/mail rules, narrowed to no quoted parts, comments or literals).
+const ATOM = "[A-Za-z0-9!#$%&'*+/=?^_`{|}~\\-]|[^\\x00-\\x7f]";
+const EMAIL_RE = new RegExp(`^(?:${ATOM})+(?:\\.(?:${ATOM})+)*@(?:${ATOM})+(?:\\.(?:${ATOM})+)*$`, "u");
 const NUM_RE = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
 
 function validDate(s) {
@@ -130,7 +132,8 @@ function checkText(f, lab, s) {
     case "url": {
       let u = null;
       try {
-        u = new URL(s);
+        // new URL also takes "https:example.com"; the server's parser leaves that without a host
+        if (/^https?:\/\//i.test(s)) u = new URL(s);
       } catch {}
       if (!u || (u.protocol !== "http:" && u.protocol !== "https:") || u.host === "") return `${lab} must be a web address starting with http:// or https://`;
       break;
