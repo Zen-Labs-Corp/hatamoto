@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"errors"
+	"html"
 	"net/url"
 	"sort"
 	"strconv"
@@ -715,6 +716,96 @@ func TestFormsTabs(t *testing.T) {
 		}
 		if !strings.EqualFold(active, tc.active) {
 			t.Errorf("%s/%s: active tab %q", tc.role, tc.active, active)
+		}
+	}
+}
+
+func TestSubmissionsExportHonoursSearchAndStatus(t *testing.T) {
+	t.Parallel()
+
+	g, ff, _ := newFormRig(t)
+	fm := ff.addForm("Contact", contactFields...)
+	at := time.Now()
+	ff.addSub(fm, form.SubmissionStatusNew, at, map[string]any{"name": "=cmd|' /C calc'!A0 Match", "email": "a@example.com"})
+	ff.addSub(fm, form.SubmissionStatusNew, at.Add(-time.Minute), map[string]any{"name": "Other", "email": "b@example.com"})
+	ff.addSub(fm, form.SubmissionStatusRead, at.Add(-2*time.Minute), map[string]any{"name": "Match read"})
+	export := func(query string) [][]string {
+		t.Helper()
+		rec := g.do("GET", "/admin/forms/submissions/export.csv?form="+fm.ID.String()+query, "owner-token", nil, nil)
+		rows, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(rec.Body.String(), "\xef\xbb\xbf"))).ReadAll()
+		if rec.Code != 200 || err != nil {
+			t.Fatalf("export %q: %d %v", query, rec.Code, err)
+		}
+		return rows
+	}
+	if rows := export(""); len(rows) != 4 {
+		t.Errorf("without a filter the export holds %d rows, want header + 3", len(rows))
+	}
+	rows := export("&status=new&q=match")
+	if len(rows) != 2 || !strings.HasPrefix(rows[1][3], "'=") {
+		t.Fatalf("status=new&q=match: %v (want the one unread match, formula neutralised)", rows)
+	}
+	if rows := export("&q=" + url.QueryEscape("  MATCH ")); len(rows) != 3 {
+		t.Errorf("a trimmed, case-insensitive search found %d rows, want header + 2", len(rows)-1)
+	}
+}
+
+func TestSubmissionActionsReturnToTabWithFilters(t *testing.T) {
+	t.Parallel()
+
+	g, ff, _, fm, s := submissionRig(t)
+	s2 := ff.addSub(fm, form.SubmissionStatusNew, time.Now(), map[string]any{"name": "Bob"})
+	tab := "/admin/forms/design/" + fm.ID.String() + "/submissions"
+	back := tab + "?q=bob&status=new&page=2&s=" + s.ID.String()
+	want := tab + "?page=2&q=bob&status=new"
+	bulk := "/admin/forms/submissions/bulk?form=" + fm.ID.String()
+
+	rec := g.do("POST", bulk, "owner-token", url.Values{"action": {"read"}, "id": {s.ID.String()}, "back": {back}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != want || ff.subs[s.ID].Status != form.SubmissionStatusRead {
+		t.Fatalf("bulk read: %d -> %q, status %s", rec.Code, rec.Header().Get("Location"), ff.subs[s.ID].Status)
+	}
+	rec = g.do("POST", bulk, "owner-token", url.Values{"action": {"spam"}, "id": {s2.ID.String()}, "back": {back}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != want || ff.subs[s2.ID].Status != form.SubmissionStatusSpam {
+		t.Fatalf("bulk spam: %d -> %q", rec.Code, rec.Header().Get("Location"))
+	}
+	// Single status keeps the filters too.
+	rec = g.do("POST", "/admin/forms/submissions/"+s.ID.String()+"/status", "owner-token", url.Values{"status": {"new"}, "back": {back}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != want || ff.subs[s.ID].Status != form.SubmissionStatusNew {
+		t.Fatalf("status: %d -> %q", rec.Code, rec.Header().Get("Location"))
+	}
+	// Bulk delete asks first (the page keeps the filters), then returns to the tab.
+	rec = g.do("POST", bulk, "owner-token", url.Values{"action": {"delete"}, "id": {s.ID.String()}, "back": {back}}, nil)
+	if rec.Code != 200 || len(ff.subs) != 2 || !strings.Contains(rec.Body.String(), "back="+url.QueryEscape(want)) {
+		t.Fatalf("bulk delete must ask first: %d subs=%d", rec.Code, len(ff.subs))
+	}
+	rec = g.do("POST", bulk, "owner-token", url.Values{"action": {"delete"}, "confirmed": {"1"}, "id": {s.ID.String()}, "back": {back}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != want || len(ff.subs) != 1 {
+		t.Fatalf("confirmed bulk delete: %d -> %q subs=%d", rec.Code, rec.Header().Get("Location"), len(ff.subs))
+	}
+	// Single delete: GET asks and never deletes; POST deletes and returns.
+	del := "/admin/forms/submissions/" + s2.ID.String() + "/delete"
+	rec = g.do("GET", del+"?back="+url.QueryEscape(back), "owner-token", nil, nil)
+	if rec.Code != 200 || len(ff.subs) != 1 || !strings.Contains(rec.Body.String(), `href="`+html.EscapeString(want)+`"`) {
+		t.Fatalf("delete confirm: %d subs=%d", rec.Code, len(ff.subs))
+	}
+	rec = g.do("POST", del+"?back="+url.QueryEscape(back), "owner-token", url.Values{}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != want || len(ff.subs) != 0 {
+		t.Fatalf("delete: %d -> %q subs=%d", rec.Code, rec.Header().Get("Location"), len(ff.subs))
+	}
+}
+
+func TestSubmissionBackRejectsOtherAddresses(t *testing.T) {
+	t.Parallel()
+
+	g, ff, _, fm, _ := submissionRig(t)
+	plain := "/admin/forms/design/" + fm.ID.String() + "/submissions"
+	bulk := "/admin/forms/submissions/bulk?form=" + fm.ID.String()
+	other := ff.addForm("Other")
+	for _, back := range []string{"//evil.example/x", "https://evil.example/admin/forms", "/elsewhere", `/admin\\evil`, "javascript:alert(1)", "", "/admin/forms/design/" + other.ID.String() + "/submissions?q=x&status=bogus"} {
+		rec := g.do("POST", bulk, "owner-token", url.Values{"action": {"read"}, "back": {back}}, nil)
+		loc := rec.Header().Get("Location")
+		if rec.Code != 303 || !strings.HasPrefix(loc, plain) || strings.Contains(loc, "evil") || strings.Contains(loc, "status=bogus") {
+			t.Errorf("back %q: %d -> %q, want the form's own tab", back, rec.Code, loc)
 		}
 	}
 }

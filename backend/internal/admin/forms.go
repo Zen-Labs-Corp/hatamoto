@@ -693,18 +693,15 @@ func (a *Admin) handleSubmissions(w http.ResponseWriter, r *http.Request) {
 	a.Render(w, r, http.StatusOK, "forms/submissions", v)
 }
 
-// handleSubmissionsExport streams every submission (of the chosen status) as
-// CSV, a page at a time, so a large form never sits in memory. Each field of the
+// handleSubmissionsExport streams every submission (of the chosen status and
+// search, as the Submissions tab shows them) as CSV, a page at a time, so a large form never sits in memory. Each field of the
 // form is a column; answers the form no longer has follow in one "other" column.
 func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) {
 	f, ok := a.loadFormQuery(w, r)
 	if !ok {
 		return
 	}
-	status := r.URL.Query().Get("status")
-	if status != "" && !form.ValidSubmissionStatus(status) {
-		status = ""
-	}
+	status, q := submissionStatusParam(r), submissionSearch(r)
 	known := map[string]bool{}
 	header := []string{"Received (UTC)", "Status", "Submission ID"}
 	for _, ff := range f.Fields {
@@ -728,7 +725,7 @@ func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) 
 	rc := http.NewResponseController(w)
 	var after *form.SubmissionCursor
 	for written := 0; ; {
-		subs, _, err := a.deps.Growth.Forms.ListSubmissions(r.Context(), f.ID, &form.ListSubmissionsParams{Status: status, Limit: exportPageSize, After: after})
+		subs, _, err := a.deps.Growth.Forms.ListSubmissions(r.Context(), f.ID, &form.ListSubmissionsParams{Status: status, Search: q, Limit: exportPageSize, After: after})
 		if err != nil {
 			// The status line is gone; end the file visibly rather than silently short.
 			a.logger().Error("export submissions failed", "err", err)
@@ -737,7 +734,7 @@ func (a *Admin) handleSubmissionsExport(w http.ResponseWriter, r *http.Request) 
 		}
 		for _, s := range subs {
 			if written >= exportMaxRows {
-				_ = cw.Write([]string{"# export truncated at " + strconv.Itoa(exportMaxRows) + " submissions; filter by status to export the rest"})
+				_ = cw.Write([]string{"# export truncated at " + strconv.Itoa(exportMaxRows) + " submissions; narrow the search or status filter to export the rest"})
 				cw.Flush()
 				return
 			}
@@ -915,7 +912,7 @@ func (a *Admin) handleSubmission(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Admin) handleSubmissionStatus(w http.ResponseWriter, r *http.Request) {
-	_, s, ok := a.loadSubmission(w, r)
+	f, s, ok := a.loadSubmission(w, r)
 	if !ok {
 		return
 	}
@@ -930,7 +927,7 @@ func (a *Admin) handleSubmissionStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.SetFlash(w, r, "success", "Marked as "+st+".")
-	Redirect(w, r, a.adminPath+"/forms/submissions/"+s.ID.String())
+	Redirect(w, r, a.backToTab(f, r.PostFormValue("back")))
 }
 
 func (a *Admin) handleSubmissionEmail(w http.ResponseWriter, r *http.Request) {
@@ -969,14 +966,15 @@ func (a *Admin) handleSubmissionEmail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Admin) handleSubmissionDeleteForm(w http.ResponseWriter, r *http.Request) {
-	_, s, ok := a.loadSubmission(w, r)
+	f, s, ok := a.loadSubmission(w, r)
 	if !ok {
 		return
 	}
+	back := a.backToTab(f, r.URL.Query().Get("back"))
 	a.renderConfirm(w, r, confirmData{
 		Title: "Delete this submission?", Message: "The submission of " + fmtDateTime(s.CreatedAt) + " is deleted for good.",
-		Post: a.adminPath + "/forms/submissions/" + s.ID.String() + "/delete", Label: "Delete submission",
-		Back: a.adminPath + "/forms/submissions/" + s.ID.String(), Danger: true,
+		Post: a.adminPath + "/forms/submissions/" + s.ID.String() + "/delete?back=" + url.QueryEscape(back), Label: "Delete submission",
+		Back: back, Danger: true,
 	})
 }
 
@@ -991,7 +989,7 @@ func (a *Admin) handleSubmissionDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.SetFlash(w, r, "success", "Submission deleted.")
-	Redirect(w, r, a.adminPath+"/forms/submissions?form="+f.ID.String())
+	Redirect(w, r, a.backToTab(f, r.FormValue("back")))
 }
 
 // handleSubmissionsBulk applies one action to the ticked submissions. Delete
@@ -1002,7 +1000,7 @@ func (a *Admin) handleSubmissionsBulk(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	back := a.adminPath + "/forms/submissions?form=" + f.ID.String()
+	back := a.backToTab(f, r.FormValue("back"))
 	action := r.PostFormValue("action")
 	var ids []uuid.UUID
 	for _, s := range r.PostForm["id"] {
@@ -1020,8 +1018,8 @@ func (a *Admin) handleSubmissionsBulk(w http.ResponseWriter, r *http.Request) {
 	}
 	status := map[string]string{"read": form.SubmissionStatusRead, "archive": form.SubmissionStatusArchived, "spam": form.SubmissionStatusSpam, "new": form.SubmissionStatusNew}[action]
 	switch {
-	case action == "delete" && r.PostFormValue("confirm") == "":
-		a.renderBulkDeleteConfirm(w, r, f, ids)
+	case action == "delete" && r.PostFormValue("confirm") == "" && r.PostFormValue("confirmed") != "1":
+		a.renderBulkDeleteConfirm(w, r, f, ids, back)
 		return
 	case action != "delete" && status == "":
 		a.Error(w, r, http.StatusBadRequest, "Bad request", "That is not a bulk action.")
@@ -1050,6 +1048,29 @@ func (a *Admin) handleSubmissionsBulk(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
+// backToTab is where an action on a form's submissions returns to: the form's
+// Submissions tab with the search, status and page of the address back names.
+// Only those three values are taken from back, and only when it is an address
+// on this admin (a path under the admin prefix, no scheme or host), so a
+// forged value can never send the browser elsewhere.
+func (a *Admin) backToTab(f *form.Form, back string) string {
+	u, err := url.Parse(back)
+	if err != nil || u.Scheme != "" || u.Host != "" || u.User != nil || strings.Contains(back, `\`) || !strings.HasPrefix(u.Path, a.adminPath+"/") {
+		return a.tabURL(f.ID, "", "", 1, "")
+	}
+	q := u.Query()
+	status := q.Get("status")
+	if !form.ValidSubmissionStatus(status) {
+		status = ""
+	}
+	page, _ := strconv.Atoi(q.Get("page"))
+	search := strings.TrimSpace(q.Get("q"))
+	if rs := []rune(search); len(rs) > submissionSearchMax {
+		search = string(rs[:submissionSearchMax])
+	}
+	return a.tabURL(f.ID, search, status, page, "")
+}
+
 func plural(n int, one, many string) string {
 	if n == 1 {
 		return one
@@ -1057,13 +1078,13 @@ func plural(n int, one, many string) string {
 	return many
 }
 
-func (a *Admin) renderBulkDeleteConfirm(w http.ResponseWriter, r *http.Request, f *form.Form, ids []uuid.UUID) {
+func (a *Admin) renderBulkDeleteConfirm(w http.ResponseWriter, r *http.Request, f *form.Form, ids []uuid.UUID, back string) {
 	var hidden []string
 	for _, id := range ids {
 		hidden = append(hidden, id.String())
 	}
 	v := a.NewView(w, r, "Delete submissions")
-	v.Data = bulkDelete{len(ids), a.adminPath + "/forms/submissions/bulk?form=" + f.ID.String(), a.adminPath + "/forms/submissions?form=" + f.ID.String(), hidden, "submission", "delete"}
+	v.Data = bulkDelete{len(ids), a.adminPath + "/forms/submissions/bulk?form=" + f.ID.String() + "&back=" + url.QueryEscape(back), back, hidden, "submission", "delete"}
 	v.Width = "narrow"
 	a.Render(w, r, http.StatusOK, "bulkdelete", v)
 }
