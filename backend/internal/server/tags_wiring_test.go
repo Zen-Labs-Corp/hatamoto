@@ -82,7 +82,7 @@ func TestTagsGA4PageAndCSPNameOnlyGA4Hosts(t *testing.T) {
 			t.Errorf("CSP names a vendor that is off (%s): %s", not, csp)
 		}
 	}
-	if !strings.Contains(csp, "script-src 'self' https://www.googletagmanager.com") {
+	if !strings.Contains(csp, "script-src 'self' 'inline-speculation-rules' https://www.googletagmanager.com") {
 		t.Errorf("strict script-src not extended in place: %s", csp)
 	}
 }

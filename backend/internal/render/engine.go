@@ -686,6 +686,9 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	if consent != "" {
 		out = spliceHeadStart(out, consent) // first in <head>: the Consent Mode defaults precede every other script
 	}
+	if !editor && !c.theme.NoPrefetch && !bytes.Contains(out, []byte(`type="speculationrules"`)) {
+		out = spliceHead(out, speculationRules())
+	}
 	out = markPreviewChanges(out, v)
 	out = markDraftBanner(out, v)
 	if !framed && !v.Site.EmailPlain { // access notices are public, so they are protected too
@@ -865,6 +868,10 @@ func (e *Engine) BuilderTokens() bool { return e.current().theme.BuilderTokens }
 // StrictScripts reports whether the live theme opted in to the public policy
 // without inline scripts (theme.json csp.strictScripts).
 func (e *Engine) StrictScripts() bool { return e.current().theme.StrictScripts }
+
+// Prefetch reports whether the live theme keeps the public link prefetch
+// rules (theme.json prefetch, on unless set to false).
+func (e *Engine) Prefetch() bool { return !e.current().theme.NoPrefetch }
 
 // BuilderParts lists the layout slots the live theme opted in to render
 // builder parts for (theme.json builder.parts), in display order.

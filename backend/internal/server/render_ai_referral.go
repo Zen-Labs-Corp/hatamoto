@@ -16,7 +16,7 @@ import (
 // everything that is not an HTML page (robots.txt, sitemaps, feeds, ...).
 func (s *Server) aiReferralMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.analyticsService == nil || r.Method != http.MethodGet {
+		if s.analyticsService == nil || r.Method != http.MethodGet || isPrefetch(r) {
 			next.ServeHTTP(w, r)
 			return
 		}

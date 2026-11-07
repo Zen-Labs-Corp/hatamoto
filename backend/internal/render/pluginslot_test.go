@@ -34,7 +34,7 @@ func TestPluginAssetSlots(t *testing.T) {
 			t.Errorf("%s: got %q want %q", tc.slot, got, tc.want)
 		}
 	}
-	out := renderToString(t, e, minimalView())
+	out := withoutSpeculation(renderToString(t, e, minimalView()))
 	if !strings.Contains(out, "</body>") || strings.Contains(out, "plugin") {
 		t.Errorf("default render must not mention plugin assets:\n%s", out)
 	}

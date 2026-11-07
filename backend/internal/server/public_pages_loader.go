@@ -69,7 +69,7 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 	}
 	if err != nil {
 		if errors.Is(err, entity.ErrEntityNotFound) {
-			if s.redirectService != nil {
+			if s.redirectService != nil && !isPrefetch(r) {
 				s.redirectService.Log404Async("/"+slug, r.Referer(), r.UserAgent())
 			}
 			return nil, pageOutcome{Status: http.StatusNotFound, NotFound: true}, nil

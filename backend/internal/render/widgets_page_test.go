@@ -68,9 +68,9 @@ func styledNodes(nodes []*builder.Node) int {
 }
 
 // scriptCount is the number of executable <script> tags; JSON-LD is data and
-// the core beacon (hm-track.js, on every public page) is not a builder script.
+// the speculation rules block is data; the core beacon (hm-track.js, on every public page) is not a builder script.
 func scriptCount(page string) int {
-	return strings.Count(page, "<script") - strings.Count(page, `<script type="application/ld+json"`) - strings.Count(page, trackTagStr)
+	return strings.Count(page, "<script") - strings.Count(page, `<script type="application/ld+json"`) - strings.Count(page, trackTagStr) - strings.Count(page, `<script type="speculationrules"`)
 }
 
 var islandScript = regexp.MustCompile(`<script type="module" src="/theme/assets/builder/(tabs|video)\.[0-9a-f]{8}\.js"></script>`)
@@ -178,7 +178,7 @@ func TestAllWidgetsPageDefaultTheme(t *testing.T) {
 		t.Error("builder island on a page without tabs/video")
 	}
 	for _, m := range regexp.MustCompile(`<script[^>]*>`).FindAllString(page, -1) {
-		if !strings.Contains(m, " src=") && !strings.Contains(m, "application/ld+json") {
+		if !strings.Contains(m, " src=") && !strings.Contains(m, "application/ld+json") && !strings.Contains(m, "speculationrules") {
 			t.Errorf("inline script %s", m)
 		}
 	}

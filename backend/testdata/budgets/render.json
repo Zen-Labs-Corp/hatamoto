@@ -25,25 +25,25 @@
       "tol_abs": 64
     },
     "alloc_RenderPage72_allocs": {
-      "value": 563,
+      "value": 570,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderPage72_bytes": {
-      "value": 72163,
+      "value": 73888,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
     },
     "alloc_RenderPageStat72_allocs": {
-      "value": 2178,
+      "value": 2186,
       "unit": "allocs",
       "tol_pct": 10,
       "tol_abs": 2
     },
     "alloc_RenderPageStat72_bytes": {
-      "value": 178032,
+      "value": 179596,
       "unit": "bytes",
       "tol_pct": 10,
       "tol_abs": 64
@@ -86,7 +86,7 @@
       "tol_pct": 5
     },
     "golden_page-shell_bytes": {
-      "value": 4100,
+      "value": 4547,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -111,7 +111,7 @@
       "tol_pct": 5
     },
     "page_allwidgets_html_bytes": {
-      "value": 37335,
+      "value": 39333,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -146,7 +146,7 @@
       "cap": 8192
     },
     "page_settings_html_bytes": {
-      "value": 7061,
+      "value": 7533,
       "unit": "bytes",
       "tol_pct": 5
     },
@@ -245,6 +245,10 @@
     {
       "reason": "social SEO settings and share card",
       "date": "2026-11-01"
+    },
+    {
+      "reason": "speculation rules block in public head",
+      "date": "2026-11-06"
     }
   ]
 }

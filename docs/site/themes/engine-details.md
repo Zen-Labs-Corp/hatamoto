@@ -80,6 +80,10 @@ After a public page is rendered, the engine rewrites `mailto:` links and address
 - **Setting.** Settings > Privacy, "Protect email addresses", on by default. Turning it off gives the plain output again.
 - **Theme scripts.** A script that reads `a[href^="mailto:"]` from the HTML source sees the references, not the text; the browser's DOM still holds the decoded value, so scripts that run in the page keep working.
 
+## Link prefetch
+
+Public pages carry one `speculationrules` block that prefetches same-site page links on hover. It leaves out the admin address, non-page routes (`/p/`, `/api/`, `/media/`, `/theme/` and similar), logout-like paths, links with a query string and file downloads. A theme switches it off with `"prefetch": false` in `theme.json`; there is no admin setting. Preview and canvas frames carry no block. The strict script policy allows the block through the `'inline-speculation-rules'` keyword, which permits speculation rules only.
+
 ## Known gaps
 
 - **`related_articles` is not provided.** There is no such section in the default theme. Use `related` or `call .Related` in a layout instead (see [Template functions](template-funcs.md)).

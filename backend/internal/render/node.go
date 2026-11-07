@@ -259,15 +259,18 @@ func (b builderCSS) head() template.HTML {
 }
 
 // spliceHead inserts markup before the last </head>; output without one is unchanged.
+// It shifts the tail inside page's own backing array when there is room, so the
+// caller must not use page afterwards (every caller assigns the result back).
 func spliceHead(page []byte, tag template.HTML) []byte {
 	i := bytes.LastIndex(page, []byte("</head>"))
 	if i < 0 {
 		return page
 	}
-	out := make([]byte, 0, len(page)+len(tag))
-	out = append(out, page[:i]...)
-	out = append(out, tag...)
-	return append(out, page[i:]...)
+	n := len(page)
+	out := append(page, tag...) // grows the length (and the array when needed)
+	copy(out[i+len(tag):], page[i:n])
+	copy(out[i:], tag)
+	return out
 }
 
 // spliceBody inserts markup before the last </body>; output without one is unchanged.

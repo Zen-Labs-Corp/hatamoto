@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -134,7 +135,17 @@ func (q tableReq) dump(h http.Handler) string {
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
-	return dumpResponse(rec)
+	return maskSpeculationRules(dumpResponse(rec))
+}
+
+var speculationRulesRe = regexp.MustCompile(`<script type="speculationrules">.*?</script>`)
+
+// maskSpeculationRules hides the public prefetch block, a constant that names
+// "/admin/*" and would otherwise be rewritten by the echoed-path swap when the
+// probe is /admin. Its bytes are pinned across addresses and pages by
+// TestPrefetchRulesNeverPrintCustomAdminAddress, so the mask hides no difference.
+func maskSpeculationRules(s string) string {
+	return speculationRulesRe.ReplaceAllString(s, "<speculationrules>")
 }
 
 // randomLike returns a path of the same shape as p (same segment count and

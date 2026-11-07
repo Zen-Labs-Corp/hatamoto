@@ -1086,6 +1086,22 @@ the key keeps the previous policy byte for byte. There is no nonce: public HTML 
 a per-request nonce would go stale. `style-src` still allows `'unsafe-inline'` (tokens, builder CSS, `style=` in
 content). The admin preview and canvas responses keep the previous policy (the canvas bridge is an inline script).
 
+### Link prefetch (`prefetch`)
+
+Public pages carry one `<script type="speculationrules">` block before `</head>`. It asks the browser to prefetch
+(never prerender) same-site links on hover, at moderate eagerness, so the next page is often already fetched when the
+visitor clicks. The block is a data block, not an executable script. It skips the admin address `/admin`, the
+non-page routes (`/p/`, `/api/`, `/plugin-ui/`, `/forms/`, `/auth/`, `/preview/`, `/media/`, `/theme/`, `/fonts/`,
+`/.well-known/`, `/-/`, health, sitemap and feed paths), anything with `logout` in its path, links with a query
+string, and `.xml`, `.pdf`, `.zip`, `.txt` and `.ico` files. A custom admin address is never printed on public
+pages. If a theme already prints its own `speculationrules` block, the core adds none.
+
+`theme.json` may carry `"prefetch": false` to switch the block off; absent or `true` keeps it. There is no admin
+setting. Editor frames (preview and canvas) and access notices carry no block. The strict policy
+(`csp.strictScripts`) allows the block with the `'inline-speculation-rules'` keyword in `script-src`, which permits
+speculation rules only, never an executable inline script; the default policy already allows inline script and is
+unchanged.
+
 ### Layout parts (`builder.parts`)
 
 `theme.json` may list the slots the theme lets the site build in the builder:

@@ -297,6 +297,19 @@ func (s *Service) ListRedirects(ctx context.Context, params RedirectListParams) 
 
 // ── Redirect Lookup (used by public handlers) ────────────────────────────────
 
+type uncountedKey struct{}
+
+// WithoutCounting marks ctx so redirect lookups under it do not count a hit
+// (a browser prefetch is not a visit).
+func WithoutCounting(ctx context.Context) context.Context {
+	return context.WithValue(ctx, uncountedKey{}, true)
+}
+
+func uncounted(ctx context.Context) bool { return ctx.Value(uncountedKey{}) != nil }
+
+// IsUncounted reports whether ctx came from WithoutCounting.
+func IsUncounted(ctx context.Context) bool { return uncounted(ctx) }
+
 // CheckRedirect looks up a redirect for the given path. Returns nil if
 // no match. Reads from an in-memory cache with TTL.
 func (s *Service) CheckRedirect(ctx context.Context, path string) *Redirect {
@@ -309,7 +322,7 @@ func (s *Service) CheckRedirect(ctx context.Context, path string) *Redirect {
 	rd := tc.redirects[path]
 	s.mu.RUnlock()
 
-	if rd != nil {
+	if rd != nil && !uncounted(ctx) {
 		s.countHit(rd.ID)
 	}
 	return rd
@@ -347,7 +360,7 @@ func (s *Service) CheckRedirectPattern(ctx context.Context, path string) *Redire
 		return nil
 	}
 	rd := FindPattern(tc.patterns, path)
-	if rd != nil {
+	if rd != nil && !uncounted(ctx) {
 		s.countHit(rd.ID)
 	}
 	return rd
