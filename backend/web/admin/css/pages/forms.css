@@ -28,7 +28,6 @@
 .hm-fs .hm-card__body { display: flex; flex-direction: column; gap: var(--space-3); }
 .hm-fs__sub { display: flex; flex-direction: column; gap: var(--space-3); }
 .hm-fs__tokens { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-block-start: calc(-1 * var(--space-1)); }
-.hm-fs__danger { flex-wrap: wrap; justify-content: space-between; align-items: center; }
 .hm-fs-mail { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; font-size: var(--text-sm); }
 .hm-fs-mail__head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-0-5) var(--space-3); margin: 0; padding: var(--space-2) var(--space-3); background: var(--color-kasumi); color: var(--text-muted); font-size: var(--text-xs); }
 .hm-fs-mail__head dd { margin: 0; color: var(--text); font-weight: var(--weight-medium); overflow-wrap: anywhere; }

@@ -73,11 +73,9 @@
 {{template "hm/card-start" (dict "ID" "fs-danger" "Title" "Danger zone")}}
 <p class="hm-muted">Duplicate makes a paused copy with the same fields and settings. Archive takes the form out of use and keeps its submissions. Delete removes the form and all its submissions.</p>
 {{template "hm/card-foot"}}
-<div class="hm-row hm-fs__danger">
 <form method="post" action="{{adminPath}}/forms/design/{{.ID}}/duplicate">{{template "hm/csrf" $}}{{template "hm/button" (dict "Label" "Duplicate form" "Type" "submit")}}</form>
 {{template "hm/button" (dict "Label" "Archive" "Attrs" (attrmap "data-hm-fs-archive" ""))}}
 {{template "hm/button" (dict "Label" "Delete form" "Variant" "danger-text" "Icon" "trash" "Href" (printf "%s/forms/delete/%s" adminPath .ID))}}
-</div>
 {{template "hm/card-foot-end"}}
 </div>
 {{.Boot}}
