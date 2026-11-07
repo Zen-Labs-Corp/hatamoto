@@ -34,7 +34,7 @@ test("file is an advanced palette type with the upload icon", () => {
   assert.deepEqual([TYPES.file.group, TYPES.file.icon, TYPES.file.label], ["advanced", "upload", "File upload"]);
   const items = paletteItems([{ type: "text" }, { type: "file" }]);
   assert.deepEqual(items.map((i) => i.key), ["text", "file"]);
-  assert.deepEqual(compatible("file"), []);
+  assert.deepEqual(compatible("file"), ["file"]);
 });
 
 test("the tile hint lists extensions and the size limit, defaulting to 10 MB", () => {

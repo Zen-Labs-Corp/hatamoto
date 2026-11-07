@@ -24,7 +24,7 @@ export const TYPES = {
 };
 
 /** The types a field of this type can be switched to without losing its answer shape (itself included). */
-export const compatible = (type) => Object.keys(TYPES).filter((t) => TYPES[t].family === TYPES[type].family && t !== "file");
+export const compatible = (type) => Object.keys(TYPES).filter((t) => TYPES[t].family === TYPES[type].family);
 
 /** Display-only types: no answer, no name. */
 export const isLayout = (type) => TYPES[type]?.group === "layout";
