@@ -1,9 +1,10 @@
 // Pure address parsing for the tag input. Mirrors validEmailList in
 // backend/internal/admin/forms.go (net/mail ParseAddress, bare address only): a display name
 // ("Name <a@b.c>") is not accepted. The server stays the authority; this is the early hint.
-const ATEXT = "[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+";
-const LABEL = "[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?";
-const ADDRESS = new RegExp(`^${ATEXT}(?:\\.${ATEXT})*@${LABEL}(?:\\.${LABEL})*$`);
+// net/mail takes any atext in the local part and the domain, and RFC 6532 UTF-8 (jörg@müller.de, a_b.example).
+const ATEXT = "[A-Za-z0-9!#$%&'*+/=?^_`{|}~\\u0080-\\u{10FFFF}-]+";
+const DOTATOM = `${ATEXT}(?:\\.${ATEXT})*`;
+const ADDRESS = new RegExp(`^${DOTATOM}@${DOTATOM}$`, "u");
 
 export function isEmail(s) {
   return s.length <= 254 && ADDRESS.test(s);

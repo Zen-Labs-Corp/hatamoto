@@ -1,6 +1,6 @@
 // Behaviour for the hm/taginput partial: email chips with an inline error and a live region.
 // Nested module (preload only). The caller owns the list; onChange fires for user edits only.
-import { isEmail, parseAddresses } from "@hm/ui/emailaddr";
+import { parseAddresses } from "@hm/ui/emailaddr";
 
 export function mountTagInput(root, { list = [], onChange } = {}) {
   const chips = root.querySelector("[data-hm-ti-chips]");
@@ -107,13 +107,14 @@ export function mountTagInput(root, { list = [], onChange } = {}) {
     else clearError();
   });
 
-  items = list.filter(isEmail);
+  // A stored recipient the check cannot parse is still shown: dropping it would lose it on the next edit.
+  items = list.slice();
   render();
 
   return {
     get: () => items.slice(),
     set(next) {
-      items = next.filter(isEmail);
+      items = next.slice();
       clearError();
       render();
     },

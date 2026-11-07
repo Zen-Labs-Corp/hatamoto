@@ -152,3 +152,16 @@ test("blur commits pending text; set() re-renders without onChange", () => {
   assert.deepEqual(texts(m), ["z@y.xx"]);
   assert.equal(m.calls.length, 0);
 });
+
+test("addresses net/mail accepts are accepted: UTF-8 and underscores", () => {
+  const { valid, bad } = parseAddresses("jörg@müller.de, a_b@sub_domain.example, 用户@例子.广告, nope@, @x.y");
+  assert.deepEqual(valid, ["jörg@müller.de", "a_b@sub_domain.example", "用户@例子.广告"]);
+  assert.deepEqual(bad, ["nope@", "@x.y"]);
+});
+
+test("a stored recipient the check cannot parse is kept, so the next edit does not drop it", () => {
+  const m = make(["info@x.com", "legacy recipient"], () => {});
+  assert.equal(m.api.get().length, 2);
+  m.api.set(["info@x.com", "legacy recipient"]);
+  assert.deepEqual(m.api.get(), ["info@x.com", "legacy recipient"]);
+});
