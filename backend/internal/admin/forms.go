@@ -306,7 +306,7 @@ var fieldTypeLabels = map[string]string{
 	form.FieldTypeTextarea: "Multi-line text", form.FieldTypeSelect: "Drop-down list", form.FieldTypeRadio: "Choose one (radio buttons)",
 	form.FieldTypeCheckbox: "Choose several (checkboxes)", form.FieldTypeDate: "Date", form.FieldTypeNumber: "Number", form.FieldTypeURL: "Web address",
 	form.FieldTypeHeading: "Heading", form.FieldTypeParagraph: "Paragraph of text", form.FieldTypeDivider: "Divider",
-	form.FieldTypeHidden: "Hidden value", form.FieldTypeConsent: "Consent checkbox",
+	form.FieldTypeHidden: "Hidden value", form.FieldTypeConsent: "Consent checkbox", form.FieldTypeFile: "File upload",
 }
 
 // fieldTypeIcon is the icon shown for a field type in the builder's row summary.
@@ -340,6 +340,8 @@ func fieldTypeIcon(t string) string {
 		return "eye-off"
 	case form.FieldTypeConsent:
 		return "shield-check"
+	case form.FieldTypeFile:
+		return "upload"
 	}
 	return "pen"
 }

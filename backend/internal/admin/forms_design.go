@@ -22,7 +22,7 @@ func formDesignTypeGroup(t string) string {
 		return "choices"
 	case form.FieldTypeHeading, form.FieldTypeParagraph, form.FieldTypeDivider:
 		return "layout"
-	case form.FieldTypeHidden:
+	case form.FieldTypeHidden, form.FieldTypeFile:
 		return "advanced"
 	}
 	return "fields"
