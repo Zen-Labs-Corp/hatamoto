@@ -77,7 +77,7 @@ func (a *Admin) handleFormDefinition(w http.ResponseWriter, r *http.Request) {
 	if n := req.Settings.NotifyEmail; n != nil && !validEmailList(*n) {
 		problem("settings.notify_email", "Enter email addresses separated by commas")
 	}
-	if !safeRedirectTarget(req.Settings.SuccessRedirectURL) {
+	if !form.ValidRedirectTarget(req.Settings.SuccessRedirectURL) {
 		problem("settings.success_redirect_url", "Enter a path like /thank-you or a full address starting with https://")
 	}
 	if len(problems) > 0 {

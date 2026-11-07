@@ -162,3 +162,24 @@ func TestSaveDefinition(t *testing.T) {
 		t.Errorf("conflict err = %v", err)
 	}
 }
+
+func TestServiceRefusesUnsafeSuccessRedirect(t *testing.T) {
+	ctx := context.Background()
+	bad := "javascript:alert(1)"
+	field := []FormField{{ID: "a", Type: FieldTypeText, Name: "a", Label: "A"}}
+	svc, repo := newStubService()
+	_, errCreate := svc.CreateForm(ctx, &CreateFormInput{Name: "F", Fields: field, Settings: FormSettings{SuccessRedirectURL: bad}})
+	_, errUpdate := svc.UpdateForm(ctx, uuid.New(), &UpdateFormInput{Settings: &FormSettings{SuccessRedirectURL: bad}})
+	_, errSave := svc.SaveDefinition(ctx, uuid.New(), time.Now(), &SaveDefinitionInput{Name: "F", Status: StatusActive, Fields: field, Settings: FormSettings{SuccessRedirectURL: bad}})
+	for name, err := range map[string]error{"create": errCreate, "update": errUpdate, "save": errSave} {
+		if !errors.Is(err, ErrInvalidDefinition) {
+			t.Errorf("%s: err = %v, want ErrInvalidDefinition", name, err)
+		}
+	}
+	if repo.writes != 0 {
+		t.Errorf("%d writes reached the repository", repo.writes)
+	}
+	if _, err := svc.UpdateForm(ctx, uuid.New(), &UpdateFormInput{Settings: &FormSettings{SuccessRedirectURL: "/thanks"}}); err != nil {
+		t.Errorf("a relative path was refused: %v", err)
+	}
+}

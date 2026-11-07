@@ -2,6 +2,7 @@ package form
 
 import (
 	"errors"
+	"net/url"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -224,4 +225,25 @@ func ValidateDefinitionStrict(fields []FormField) DefinitionErrors {
 		}
 	}
 	return errs.orNil()
+}
+
+// ValidRedirectTarget reports whether u may be a success redirect: empty, a
+// site-relative path, or an http(s) address.
+func ValidRedirectTarget(u string) bool {
+	if u == "" {
+		return true
+	}
+	if strings.HasPrefix(u, "/") && !strings.HasPrefix(u, "//") && !strings.ContainsAny(u, "\\ \t\r\n") {
+		return true
+	}
+	p, err := url.Parse(u)
+	return err == nil && (p.Scheme == "https" || p.Scheme == "http") && p.Host != "" && !strings.ContainsAny(u, " \t\r\n\\")
+}
+
+// settingsProblems lists what is wrong with a form's settings.
+func settingsProblems(s *FormSettings) DefinitionErrors {
+	if s != nil && !ValidRedirectTarget(s.SuccessRedirectURL) {
+		return DefinitionErrors{{FieldID: "settings.success_redirect_url", Message: "Enter a path like /thank-you or a full address starting with https://"}}
+	}
+	return nil
 }

@@ -64,7 +64,7 @@ func (s *Service) CreateForm(ctx context.Context, input *CreateFormInput) (*Form
 		}
 	}
 
-	if errs := ValidateDefinition(input.Fields); len(errs) > 0 {
+	if errs := append(settingsProblems(&input.Settings), ValidateDefinition(input.Fields)...); len(errs) > 0 {
 		return nil, errs
 	}
 
@@ -119,6 +119,10 @@ func (s *Service) UpdateForm(ctx context.Context, id uuid.UUID, input *UpdateFor
 		return nil, ErrInvalidStatus
 	}
 
+	if errs := settingsProblems(input.Settings); len(errs) > 0 {
+		return nil, errs
+	}
+
 	// Validate fields if provided
 	if input.Fields != nil {
 		for i, field := range input.Fields {
@@ -169,7 +173,7 @@ func (s *Service) SaveDefinition(ctx context.Context, id uuid.UUID, base time.Ti
 	if !ValidStatus(input.Status) {
 		return nil, ErrInvalidStatus
 	}
-	if errs := ValidateDefinitionStrict(input.Fields); len(errs) > 0 {
+	if errs := append(settingsProblems(&input.Settings), ValidateDefinitionStrict(input.Fields)...); len(errs) > 0 {
 		return nil, errs
 	}
 	f, err := s.repo.SaveDefinition(ctx, id, base, input)

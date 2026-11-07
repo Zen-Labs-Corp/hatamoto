@@ -741,17 +741,6 @@ func validEmailList(s string) bool {
 	return true
 }
 
-func safeRedirectTarget(u string) bool {
-	if u == "" {
-		return true
-	}
-	if strings.HasPrefix(u, "/") && !strings.HasPrefix(u, "//") && !strings.ContainsAny(u, "\\ \t\r\n") {
-		return true
-	}
-	p, err := url.Parse(u)
-	return err == nil && (p.Scheme == "https" || p.Scheme == "http") && p.Host != "" && !strings.ContainsAny(u, " \t\r\n\\")
-}
-
 func (a *Admin) handleFormSave(w http.ResponseWriter, r *http.Request) {
 	cur, ok := a.loadForm(w, r)
 	if !ok {
@@ -784,7 +773,7 @@ func (a *Admin) handleFormSave(w http.ResponseWriter, r *http.Request) {
 	if !validEmailList(e.NotifyEmail) {
 		e.Errors["notify"] = "Enter email addresses separated by commas"
 	}
-	if !safeRedirectTarget(e.RedirectURL) {
+	if !form.ValidRedirectTarget(e.RedirectURL) {
 		e.Errors["redirect"] = "Enter a path like /thank-you or a full address starting with https://"
 	}
 	if len(e.Fields) > maxFormFields {

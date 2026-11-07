@@ -76,7 +76,7 @@ for (const form of document.querySelectorAll("form[data-hm-form-logic]")) {
       const body = (await res?.json().catch(() => null)) || {};
       if (!res || (!res.ok && !(body.fields && fail(body.fields)))) return form.submit();
       if (!res.ok) return;
-      if (body.redirect_url) return location.assign(body.redirect_url);
+      if (body.redirect_url && /^https?:$/.test(new URL(body.redirect_url, location.href).protocol)) return location.assign(body.redirect_url);
       if (body.submission_id) {
         document.dispatchEvent(new CustomEvent("hm:conversion", { detail: { id: body.submission_id, form: slug, value: null } }));
       }
