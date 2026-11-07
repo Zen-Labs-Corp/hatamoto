@@ -167,15 +167,23 @@ export function createSections({ field, fields, commit, errors = {}, announce = 
   }
 
   function advanced() {
-    const v = field.validation ?? {};
+    // The validation as last committed by these controls. The sections are not rebuilt while the editor
+    // types, so each handler builds on this, not on the field as it was when they were drawn.
+    let v = field.validation ?? {};
+    const edit = (key, change) => {
+      const next = { ...v };
+      change(next);
+      v = next;
+      set("validation", Object.keys(next).length ? next : null, typing(`v.${key}`));
+    };
     const num = (key, name) => {
       const el = h("input", { class: "hm-field__control", type: "number", min: "0", id: `${dom}-${key}`, value: v[key] ?? "" });
       el.value = v[key] ?? "";
       el.addEventListener("input", () => {
-        const next = { ...v };
-        if (el.value === "") delete next[key];
-        else next[key] = Math.max(0, Math.trunc(Number(el.value)));
-        set("validation", Object.keys(next).length ? next : null, typing(`v.${key}`));
+        edit(key, (next) => {
+          if (el.value === "") delete next[key];
+          else next[key] = Math.max(0, Math.trunc(Number(el.value)));
+        });
       });
       return row(name, el, { id: el.id });
     };
@@ -183,10 +191,10 @@ export function createSections({ field, fields, commit, errors = {}, announce = 
       const el = h("input", { class: "hm-field__control", type: "text", id: `${dom}-${key}`, value: v[key] ?? "" });
       el.value = v[key] ?? "";
       el.addEventListener("input", () => {
-        const next = { ...v };
-        if (el.value === "") delete next[key];
-        else next[key] = el.value;
-        set("validation", Object.keys(next).length ? next : null, typing(`v.${key}`));
+        edit(key, (next) => {
+          if (el.value === "") delete next[key];
+          else next[key] = el.value;
+        });
       });
       return row(name, el, { id: el.id });
     };
@@ -195,11 +203,11 @@ export function createSections({ field, fields, commit, errors = {}, announce = 
       const el = h("input", { class: "hm-field__control", type: "text", id: `${dom}-accept`, value: (v.accept ?? []).join(", ") });
       el.value = (v.accept ?? []).join(", ");
       el.addEventListener("input", () => {
-        const next = { ...v };
         const list = el.value.split(",").map((s) => s.trim().replace(/^\./, "").toLowerCase()).filter(Boolean);
-        if (list.length) next.accept = list;
-        else delete next.accept;
-        set("validation", Object.keys(next).length ? next : null, typing("v.accept"));
+        edit("accept", (next) => {
+          if (list.length) next.accept = list;
+          else delete next.accept;
+        });
       });
       return row("Allowed files", el, { id: el.id, help: "File types, separated by commas: pdf, png, docx." });
     };
@@ -207,10 +215,10 @@ export function createSections({ field, fields, commit, errors = {}, announce = 
       const el = h("input", { class: "hm-field__control", type: "number", min: "1", max: "25", id: `${dom}-max_mb`, value: v.max_mb ?? DEFAULT_FILE_MB });
       el.value = v.max_mb ?? DEFAULT_FILE_MB;
       el.addEventListener("input", () => {
-        const next = { ...v };
-        if (el.value === "") delete next.max_mb;
-        else next.max_mb = Math.min(25, Math.max(1, Math.trunc(Number(el.value))));
-        set("validation", Object.keys(next).length ? next : null, typing("v.max_mb"));
+        edit("max_mb", (next) => {
+          if (el.value === "") delete next.max_mb;
+          else next.max_mb = Math.min(25, Math.max(1, Math.trunc(Number(el.value))));
+        });
       });
       return row("Largest file (MB)", el, { id: el.id, help: "Up to 25." });
     };

@@ -12,9 +12,19 @@ register(
       return next(s, c);
     }`),
 );
+class El {
+  constructor(tag) { this.tag = tag; this.attrs = {}; this.kids = []; this.on = {}; this.value = ""; this.dataset = {}; }
+  setAttribute(k, v) { this.attrs[k] = String(v); }
+  getAttribute(k) { return this.attrs[k] ?? null; }
+  append(...k) { this.kids.push(...k); }
+  addEventListener(t, f) { (this.on[t] ??= []).push(f); }
+  type(v) { this.value = v; for (const f of this.on.input ?? []) f({}); }
+  walk(out = []) { for (const k of this.kids) if (typeof k === "object") (out.push(k), k.walk(out)); return out; }
+}
+globalThis.document = { createElement: (t) => new El(t), createElementNS: (_n, t) => new El(t), querySelector: () => null };
 const { TYPES, compatible, fileHint } = await import(new URL("forms/types.js", root));
 const { paletteItems } = await import(new URL("forms/palette.js", root));
-const { sectionsFor } = await import(new URL("forms/inspsections.js", root));
+const { sectionsFor, createSections } = await import(new URL("forms/inspsections.js", root));
 const { fieldSummary } = await import(new URL("forms/canvas.js", root));
 const { validate } = await import(new URL("forms/validate.js", root));
 
@@ -41,4 +51,17 @@ test("a file field gets content, layout, rules and advanced", () => {
 test("the offline preview does not judge a file answer", () => {
   assert.deepEqual(validate([{ ...file, required: true }], {}).errors, {});
   assert.deepEqual(validate([file], { cv: "" }).data, {});
+});
+
+test("Allowed files and Largest file keep each other's edit when the sections are not rebuilt in between", () => {
+  const field = { id: "f", type: "file", label: "CV", name: "cv", validation: { accept: ["pdf"] } };
+  let validation = field.validation;
+  const commit = (ops) => { for (const o of ops) if (o.key === "validation") validation = o.value; };
+  const nodes = createSections({ field, fields: [field], commit }).flatMap((n) => [n, ...n.walk()]);
+  const input = (suffix) => nodes.find((n) => n.tag === "input" && n.attrs.id?.endsWith(suffix));
+  input("-accept").type("pdf, docx");
+  input("-max_mb").type("5");
+  assert.deepEqual(validation, { accept: ["pdf", "docx"], max_mb: 5 });
+  input("-accept").type("png");
+  assert.deepEqual(validation, { accept: ["png"], max_mb: 5 });
 });
