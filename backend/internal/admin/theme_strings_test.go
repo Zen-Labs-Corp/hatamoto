@@ -48,6 +48,7 @@ func TestThemeStringsPageGolden(t *testing.T) {
 					t.Errorf("page lacks %q", want)
 				}
 			}
+			a11yOK(t, body)
 			compareGolden(t, "pages/"+c.name+".html", normalizePage(body))
 		})
 	}
@@ -155,5 +156,6 @@ func TestThemeStringsErrorGolden(t *testing.T) {
 	if !strings.Contains(body, `value="Onward"`) {
 		t.Error("the text that was valid is not kept in the form")
 	}
+	a11yOK(t, body)
 	compareGolden(t, "pages/settings-theme-strings-error.html", normalizePage(body))
 }
