@@ -567,7 +567,15 @@ func (s *Server) activeFormBySlug(ctx context.Context, slug string) (*form.Form,
 	return formObj, nil
 }
 
-func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, slug string, data map[string]interface{}, ctl spamControl, meta submitMeta) (*submitResult, error) {
+func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, slug string, data map[string]interface{}, files uploads, ctl spamControl, meta submitMeta) (*submitResult, error) {
+	// Staged uploads that are not committed below (any early return, a
+	// refused or invalid submission, a failed insert) are removed here.
+	defer files.discard()
+	for name, up := range files {
+		ref := up.ref
+		ref.ID = pendingFileID
+		data[name] = ref
+	}
 	// One validator for every public submit path: unknown fields are dropped,
 	// required, type, choices, length and pattern checks are enforced.
 	// Hidden fields resolve from the request context, never from posted data.
@@ -577,6 +585,13 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 		PageURL: s.redactPageURL(meta.PageURL), Referrer: s.redactPageURL(ctl.Ref)})
 	if len(fieldErrs) > 0 {
 		return nil, &submitError{status: http.StatusBadRequest, msg: "validation failed", fields: fieldErrs}
+	}
+	// A file whose field Validate dropped (hidden by logic) is not kept.
+	for name, up := range files {
+		if _, kept := data[name]; !kept {
+			up.staged.Discard()
+			delete(files, name)
+		}
 	}
 	status, serr := s.checkSpam(ctx, formObj, data, ctl, meta.TrustedIP)
 	if serr != nil {
@@ -604,9 +619,19 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 		}
 	}
 
+	// Only now, with the submission accepted, do the files reach their final
+	// place. With storage off nothing would reference them, so only the name
+	// stays (in the mail).
+	committed, err := s.commitUploads(formObj, files, data, dropped)
+	if err != nil {
+		s.logger.Error("failed to store uploaded file", "error", err, "form_id", formObj.ID.String())
+		return nil, &submitError{status: http.StatusInternalServerError, msg: "failed to process submission"}
+	}
+
 	// Create submission
 	submission, err := s.formService.CreateSubmission(ctx, formObj.ID, input)
 	if err != nil {
+		s.removeUploads(formObj, committed)
 		s.logger.Error("failed to create submission", "error", err, "form_id", formObj.ID.String())
 		return nil, &submitError{status: http.StatusInternalServerError, msg: "failed to process submission"}
 	}
@@ -798,13 +823,27 @@ func (s *Server) handlePublicFormSubmit(w http.ResponseWriter, r *http.Request) 
 	var data map[string]interface{}
 	var ctl spamControl
 	var trapped bool
-	if ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); ct == "application/x-www-form-urlencoded" {
+	var files uploads
+	ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	switch ct {
+	case "multipart/form-data":
+		var post url.Values
+		post, files, err = s.readMultipartSubmit(w, r, formObj)
+		if err != nil {
+			writeSubmitError(w, err)
+			return
+		}
+		defer files.discard()
+		data = formValues(post)
+		ctl = controlFromValues(post)
+		trapped = !formObj.Settings.HoneypotOff && post.Get(honeypotField) != ""
+	case "application/x-www-form-urlencoded":
 		data, err = parseFormValues(w, r)
 		trapped = err == nil && !formObj.Settings.HoneypotOff && r.PostForm.Get(honeypotField) != ""
 		if err == nil {
 			ctl = controlFromValues(r.PostForm)
 		}
-	} else {
+	default:
 		err = parseJSON(r, &data)
 		trapped = err == nil && !formObj.Settings.HoneypotOff && honeypotFilled(data[honeypotField])
 		ctl = takeControl(data)
@@ -836,7 +875,7 @@ func (s *Server) handlePublicFormSubmit(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	res, err := s.storeFormSubmission(r.Context(), formObj, slug, data, ctl, submitMeta{
+	res, err := s.storeFormSubmission(r.Context(), formObj, slug, data, files, ctl, submitMeta{
 		IPAddress: middleware.GetClientIP(r),
 		TrustedIP: middleware.GetClientIP(r),
 		UserAgent: r.UserAgent(),

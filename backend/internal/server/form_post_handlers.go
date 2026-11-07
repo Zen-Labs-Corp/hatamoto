@@ -52,7 +52,7 @@ func (s *Server) handlePublicFormPost(w http.ResponseWriter, r *http.Request) {
 	data := formValues(r.PostForm)
 
 	ctl := controlFromValues(r.PostForm)
-	_, err = s.storeFormSubmission(r.Context(), formObj, slug, data, ctl, submitMeta{
+	_, err = s.storeFormSubmission(r.Context(), formObj, slug, data, nil, ctl, submitMeta{
 		IPAddress: middleware.GetClientIP(r),
 		TrustedIP: middleware.GetClientIP(r),
 		UserAgent: r.UserAgent(),
