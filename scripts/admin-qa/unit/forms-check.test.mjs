@@ -19,9 +19,9 @@ const f = (id, type = "text", name = id) => ({ id, type, name, label: id });
 
 test("an empty form fails all but the names check; every item has a label and a hint", () => {
   const items = formCheck({ fields: [], settings: {} });
-  assert.equal(items.length, 5);
+  assert.equal(items.length, 6);
   for (const c of items) assert.ok(c.label && c.hint, c.id);
-  assert.deepEqual(ok({ fields: [], settings: {} }), { email: false, spam: false, notify: false, names: true, consent: false });
+  assert.deepEqual(ok({ fields: [], settings: {} }), { email: false, spam: false, notify: false, names: true, replyto: true, consent: false });
 });
 
 test("each item flips with the doc", () => {
@@ -29,6 +29,9 @@ test("each item flips with the doc", () => {
   assert.equal(ok({ fields: [], settings: { enable_captcha: true } }).spam, true);
   assert.equal(ok({ fields: [], settings: { notify_email: "  " } }).notify, false);
   assert.equal(ok({ fields: [], settings: { notify_email: "me@example.com" } }).notify, true);
+  assert.equal(ok({ fields: [f("a", "email", "mail")], settings: { notify_reply_to: "mail" } }).replyto, true);
+  assert.equal(ok({ fields: [f("a", "email", "other")], settings: { notify_reply_to: "mail" } }).replyto, false);
+  assert.equal(ok({ fields: [f("a", "text", "mail")], settings: { notify_reply_to: "mail" } }).replyto, false);
   assert.equal(ok({ fields: [f("a", "text", "x"), f("b", "text", "x")], settings: {} }).names, false);
   assert.equal(ok({ fields: [f("a", "heading", ""), f("b", "divider", "")], settings: {} }).names, true);
   assert.equal(ok({ fields: [f("a")], settings: {} }).consent, false);

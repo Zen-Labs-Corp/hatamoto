@@ -248,9 +248,10 @@ const (
 	maxSubjectRunes     = 200
 )
 
-// settingsProblems lists what is wrong with a form's settings. fields is the
-// definition the settings are saved with; nil skips the field-name checks.
-func settingsProblems(s *FormSettings, fields []FormField) DefinitionErrors {
+// settingsProblems lists what is wrong with a form's settings. A Reply-To that
+// names no email field is not one: the Build tab can rename or retype that
+// field at any time, so sending ignores it and the Form check flags it.
+func settingsProblems(s *FormSettings) DefinitionErrors {
 	if s == nil {
 		return nil
 	}
@@ -281,17 +282,5 @@ func settingsProblems(s *FormSettings, fields []FormField) DefinitionErrors {
 			break
 		}
 	}
-	if s.NotifyReplyTo != "" && fields != nil && !hasEmailField(fields, s.NotifyReplyTo) {
-		add("notify_reply_to", "Choose one of the form's email fields")
-	}
 	return errs
-}
-
-func hasEmailField(fields []FormField, name string) bool {
-	for i := range fields {
-		if fields[i].Name == name && fields[i].Type == FieldTypeEmail {
-			return true
-		}
-	}
-	return false
 }

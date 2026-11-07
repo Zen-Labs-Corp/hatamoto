@@ -112,7 +112,6 @@ func TestValidateDefinitionStrict(t *testing.T) {
 
 func TestSettingsProblems(t *testing.T) {
 	t.Parallel()
-	fields := []FormField{{Name: "email", Type: FieldTypeEmail}, {Name: "city", Type: FieldTypeText}}
 	long := strings.Repeat("w", 101)
 	tests := []struct {
 		name string
@@ -128,14 +127,13 @@ func TestSettingsProblems(t *testing.T) {
 		{"long word", FormSettings{BlockedWords: []string{long}}, "settings.blocked_words"},
 		{"subject crlf", FormSettings{NotifySubject: "a\r\nBcc: x"}, "settings.notify_subject"},
 		{"subject long", FormSettings{ConfirmationSubject: strings.Repeat("s", 201)}, "settings.confirmation_subject"},
-		{"reply-to not email", FormSettings{NotifyReplyTo: "city"}, "settings.notify_reply_to"},
-		{"reply-to unknown", FormSettings{NotifyReplyTo: "zzz"}, "settings.notify_reply_to"},
+		{"reply-to names no email field", FormSettings{NotifyReplyTo: "zzz"}, ""},
 		{"bad redirect", FormSettings{SuccessRedirectURL: "//evil"}, "settings.success_redirect_url"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			errs := settingsProblems(&tc.s, fields)
+			errs := settingsProblems(&tc.s)
 			if tc.want == "" {
 				if len(errs) != 0 {
 					t.Fatalf("errors = %v, want none", errs)
@@ -146,8 +144,5 @@ func TestSettingsProblems(t *testing.T) {
 				t.Fatalf("errors = %v, want %s", errs, tc.want)
 			}
 		})
-	}
-	if errs := settingsProblems(&FormSettings{NotifyReplyTo: "zzz"}, nil); len(errs) != 0 {
-		t.Errorf("reply-to checked without fields: %v", errs)
 	}
 }

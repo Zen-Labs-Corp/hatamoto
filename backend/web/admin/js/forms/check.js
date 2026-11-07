@@ -13,6 +13,7 @@ export function formCheck(doc) {
     { id: "spam", label: "Spam protection is on", ok: !!s.enable_captcha, hint: "Turn on spam protection in Settings." },
     { id: "notify", label: "Someone is notified", ok: typeof s.notify_email === "string" && s.notify_email.trim() !== "", hint: "Enter an address to notify in Settings." },
     { id: "names", label: "Every field name is unique", ok: !dup, hint: "Two fields share a name; rename one." },
+    { id: "replyto", label: "Reply-To is an email field", ok: !s.notify_reply_to || fields.some((f) => f.type === "email" && f.name === s.notify_reply_to), hint: "The Reply-To field was renamed or removed; choose it again in Settings." },
     // Stored answers are personal data: when they are kept, ask for consent.
     { id: "consent", label: "Asks for consent when answers are stored", ok: !!s.store_off || fields.some((f) => f.type === "consent"), hint: "Add a Consent field: answers are stored." },
   ];
