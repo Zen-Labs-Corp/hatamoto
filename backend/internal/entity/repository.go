@@ -367,8 +367,20 @@ func (r *PostgresEntityRepository) Create(ctx context.Context, userID *uuid.UUID
 		          version, created_by, updated_by, created_at, updated_at, published_at, parent_id, author_id, byline_person_id, byline_org, sort_order
 	`
 
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if err := checkCrossLocaleSlug(ctx, tx, crossLocaleSlug{
+		SchemaID: input.SchemaID, Slug: input.Slug, Locale: input.Locale, Parent: input.ParentID,
+	}); err != nil {
+		return nil, err
+	}
+
 	var e Entity
-	err = conn.QueryRow(ctx, query,
+	err = tx.QueryRow(ctx, query,
 		id, input.SchemaID, input.Name, input.Slug, input.Attributes, metadata,
 		userID, now, now, input.ParentID, input.AuthorID,
 		input.BylinePersonID, input.BylineOrg, statusArg(input.Status), input.Locale,
@@ -387,6 +399,9 @@ func (r *PostgresEntityRepository) Create(ctx context.Context, userID *uuid.UUID
 		return nil, fmt.Errorf("failed to create entity: %w", err)
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
 	return &e, nil
 }
 
@@ -488,10 +503,13 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 	var currentAttributes jsontext.Value
 	var prevOrigin, prevStatus string
 	var prevParent *uuid.UUID
+	var prevSlug, prevLocale string
+	var slugNested bool
+	var schemaID uuid.UUID
 	err = tx.QueryRow(ctx,
-		`SELECT version, attributes, origin, status, parent_id FROM hatamoto_entities WHERE id = $1 FOR UPDATE`,
+		`SELECT version, attributes, origin, status, parent_id, slug, locale, slug_nested, schema_id FROM hatamoto_entities WHERE id = $1 FOR UPDATE`,
 		id,
-	).Scan(&currentVersion, &currentAttributes, &prevOrigin, &prevStatus, &prevParent)
+	).Scan(&currentVersion, &currentAttributes, &prevOrigin, &prevStatus, &prevParent, &prevSlug, &prevLocale, &slugNested, &schemaID)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -502,6 +520,29 @@ func (r *PostgresEntityRepository) Update(ctx context.Context, id uuid.UUID, use
 
 	if input.ExpectedVersion != nil && *input.ExpectedVersion != currentVersion {
 		return nil, &VersionConflictError{Current: currentVersion}
+	}
+
+	// An existing clash stays editable: the cross-locale check runs only when
+	// the slug, the locale or (for nested types) the parent actually changes.
+	newSlug, newLocale, newParent := prevSlug, prevLocale, prevParent
+	if input.Slug != nil {
+		newSlug = *input.Slug
+	}
+	if input.Locale != nil {
+		newLocale = *input.Locale
+	}
+	switch {
+	case input.ClearParent:
+		newParent = nil
+	case input.ParentID != nil:
+		newParent = input.ParentID
+	}
+	if newSlug != prevSlug || newLocale != prevLocale || (slugNested && !sameUUIDPtr(prevParent, newParent)) {
+		if err := checkCrossLocaleSlug(ctx, tx, crossLocaleSlug{
+			SchemaID: schemaID, Slug: newSlug, Locale: newLocale, Parent: newParent, Self: &id,
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	// Coalesce-on-write: only snapshot a version (and bump the entity version)
