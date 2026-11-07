@@ -6,6 +6,7 @@ import (
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/siteconfig"
 	"hatamoto.dev/core/internal/themestrings"
 )
 
@@ -38,8 +39,25 @@ func (s *Server) applyStrings(ctx context.Context, v *render.PageView) {
 	if err != nil || !bytes.Contains(cfg.ThemeExtra, []byte(themestrings.ExtraKey)) {
 		return
 	}
-	v.StringOverrides = themeStringOverrides(cfg.ThemeExtra, stringsTheme(ctx, s.renderEngine.ThemeName()),
-		v.Locale, defaultStringsTag(s.urlSnapshot(ctx).Locales(), siteLanguage(cfg)))
+	v.StringOverrides = themestrings.Chain(s.parsedStringOverrides(cfg), stringsTheme(ctx, s.renderEngine.ThemeName()),
+		v.Locale, defaultStringsTag(s.urlSnapshot(ctx).Locales(), siteLanguage(cfg)), nil)
+}
+
+// stringsMemo is the parsed overrides of one config snapshot.
+type stringsMemo struct {
+	cfg *siteconfig.Config
+	ov  themestrings.Overrides
+}
+
+// parsedStringOverrides parses theme_extra once per config snapshot (the store
+// hands out the same pointer until it refreshes), not once per request.
+func (s *Server) parsedStringOverrides(cfg *siteconfig.Config) themestrings.Overrides {
+	if m := s.stringsMemo.Load(); m != nil && m.cfg == cfg {
+		return m.ov
+	}
+	ov := themestrings.ParseOverrides(cfg.ThemeExtra)
+	s.stringsMemo.Store(&stringsMemo{cfg: cfg, ov: ov})
+	return ov
 }
 
 // defaultStringsTag is the default locale tag: the locale set's default on a

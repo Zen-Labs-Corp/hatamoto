@@ -10,6 +10,7 @@ import (
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/siteconfig"
 )
 
 const stringsExtra = `{"colors":{},"themeStrings":{"st":{` +
@@ -97,5 +98,22 @@ func TestStringsThemeFollowsPreview(t *testing.T) {
 	}
 	if got := stringsTheme(withPreviewTheme(ctx, "other"), "active"); got != "other" {
 		t.Errorf("preview: %q", got)
+	}
+}
+
+func TestParsedStringOverridesParsesOncePerConfig(t *testing.T) {
+	s := &Server{}
+	cfg := &siteconfig.Config{ThemeExtra: []byte(stringsExtra)}
+	first := s.parsedStringOverrides(cfg)
+	if first.For("st", "fr")["hello"] != "Bonjour" {
+		t.Fatalf("parsed: %v", first)
+	}
+	// Same snapshot: served from the memo, whatever the bytes say now.
+	cfg.ThemeExtra = nil
+	if got := s.parsedStringOverrides(cfg); got.For("st", "fr")["hello"] != "Bonjour" {
+		t.Error("same config snapshot was parsed again")
+	}
+	if got := s.parsedStringOverrides(&siteconfig.Config{}); len(got) != 0 {
+		t.Errorf("a new snapshot must be re-read: %v", got)
 	}
 }
