@@ -275,7 +275,9 @@ func (a *Admin) buildSubmissionDrawer(ctx context.Context, f *form.Form, s *form
 		if ff.IsLayout() {
 			continue
 		}
-		if v, ok := s.Data[ff.Name]; ok {
+		// A blank answer still shows (as "Not answered"); only a submission
+		// without any data (the store is off) has nothing to list.
+		if v, ok := s.Data[ff.Name]; ok || len(s.Data) > 0 {
 			d.Answers = append(d.Answers, drawerAnswer{ff.Label, formatAnswer(v)})
 		}
 	}

@@ -130,13 +130,28 @@ func (f *fakeForms) DeleteForm(_ context.Context, id uuid.UUID) error {
 	delete(f.forms, id)
 	return nil
 }
+
+// submissionMatches mirrors the repository's search: a case-insensitive match
+// of the text against any answer value.
+func submissionMatches(s *form.FormSubmission, q string) bool {
+	if q == "" {
+		return true
+	}
+	for _, v := range s.Data {
+		if strings.Contains(strings.ToLower(formatAnswer(v)), strings.ToLower(q)) {
+			return true
+		}
+	}
+	return false
+}
+
 func (f *fakeForms) ListSubmissions(_ context.Context, formID uuid.UUID, p *form.ListSubmissionsParams) ([]*form.FormSubmission, int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.listCalls++
 	var all []*form.FormSubmission
 	for _, s := range f.subs {
-		if s.FormID == formID && (p == nil || p.Status == "" || s.Status == p.Status) {
+		if s.FormID == formID && (p == nil || ((p.Status == "" || s.Status == p.Status) && submissionMatches(s, p.Search))) {
 			all = append(all, s)
 		}
 	}
