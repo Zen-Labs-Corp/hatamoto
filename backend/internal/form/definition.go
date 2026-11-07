@@ -140,11 +140,36 @@ func ValidateDefinition(fields []FormField) DefinitionErrors {
 				bad("This field type has no choices")
 			}
 		}
+		if f.Type == FieldTypeFile {
+			checkFileSpec(f, bad)
+		}
 		if f.Link != "" && !validConsentLink(f.Link) {
 			bad("Use a link starting with / or http(s)://")
 		}
 	}
 	return errs.orNil()
+}
+
+// checkFileSpec holds a file field to the extensions in the table and the
+// size ceiling. Text rules mean nothing on a file and are refused.
+func checkFileSpec(f *FormField, bad func(string)) {
+	v := f.Validation
+	if v == nil || len(v.Accept) == 0 {
+		bad("Choose at least one allowed file type")
+		return
+	}
+	for _, ext := range v.Accept {
+		if !ValidAcceptExt(ext) {
+			bad("File type ." + strings.TrimPrefix(ext, ".") + " is not allowed")
+			break
+		}
+	}
+	if v.MaxMB != nil && (*v.MaxMB < 1 || *v.MaxMB > MaxFileUploadMB) {
+		bad(fmt.Sprintf("Largest file must be between 1 and %d MB", MaxFileUploadMB))
+	}
+	if len(f.Options) > 0 || v.Pattern != nil || v.MinLength != nil || v.MaxLength != nil || v.Min != nil || v.Max != nil {
+		bad("A file field takes only allowed types and a size limit")
+	}
 }
 
 func checkHiddenSpec(f *FormField, bad func(string)) {

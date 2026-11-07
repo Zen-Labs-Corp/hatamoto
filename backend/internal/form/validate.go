@@ -128,6 +128,9 @@ func validateAnswer(f *FormField, raw any) (any, string) {
 	if f.Type == FieldTypeConsent {
 		return validateConsent(label, raw)
 	}
+	if f.Type == FieldTypeFile {
+		return validateFile(f, label, raw)
+	}
 	// A checkbox without choices is a yes/no box: false counts as not ticked.
 	if f.Type == FieldTypeCheckbox && len(f.Options) == 0 {
 		return validateTickbox(f, label, raw)
@@ -171,6 +174,22 @@ func validateAnswer(f *FormField, raw any) (any, string) {
 		return nil, msg
 	}
 	return s, ""
+}
+
+// validateFile accepts only a FileRef, which the server builds from a stored
+// upload. Anything a client can send in JSON or a urlencoded body (a string, a
+// map) is refused, so a client can never point an answer at a stored file.
+func validateFile(f *FormField, label string, raw any) (any, string) {
+	if ref, ok := raw.(FileRef); ok && ref.ID != "" {
+		return ref, ""
+	}
+	if isEmptyAnswer(raw) {
+		if f.Required {
+			return nil, ruleMessage(f, label+" is required")
+		}
+		return nil, ""
+	}
+	return nil, ruleMessage(f, label+" must be a file upload")
 }
 
 // validateConsent is always required and stores "Yes".
