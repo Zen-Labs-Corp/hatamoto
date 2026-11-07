@@ -1,8 +1,18 @@
 // The builder store: every op verb and its inverse, history, limits, compositions.
 // Run: node --test scripts/admin-qa/unit/builder-store.test.mjs
+import { register } from "node:module";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+// store.js imports the command log by its @hm/ specifier, as the browser's import map resolves it.
+const root = new URL("../../../backend/web/admin/js/", import.meta.url).href;
+register(
+  "data:text/javascript," +
+    encodeURIComponent(`export async function resolve(s, c, next) {
+      if (s.startsWith("@hm/")) return { url: ${JSON.stringify(root)} + s.slice(4) + ".js", shortCircuit: true };
+      return next(s, c);
+    }`),
+);
 const S = await import(new URL("../../../backend/web/admin/js/builder/store.js", import.meta.url));
 
 const leaf = (id, t = "text", p = { text: id }) => ({ id, t, p });
