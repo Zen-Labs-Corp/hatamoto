@@ -109,9 +109,47 @@ const ruleMessage = (f, def) => (typeof f.validation?.message === "string" && f.
 const hasOption = (opts, v) => (opts ?? []).some((o) => o.value === v);
 
 // An address with no display name: dot-atoms on both sides of the @, where an atom char is ASCII atext or any
-// non-ASCII character (the server's net/mail rules, narrowed to no quoted parts, comments or literals).
+// non-ASCII character (the server's net/mail rules, narrowed to no quoted parts or comments). The domain may also
+// be a literal: `[1.2.3.4]` (an IPv4 address, or an IPv4-mapped IPv6 one) or `[IPv6:...]` (any IP address).
 const ATOM = "[A-Za-z0-9!#$%&'*+/=?^_`{|}~\\-]|[^\\x00-\\x7f]";
-const EMAIL_RE = new RegExp(`^(?:${ATOM})+(?:\\.(?:${ATOM})+)*@(?:${ATOM})+(?:\\.(?:${ATOM})+)*$`, "u");
+const DOT_ATOM = `(?:${ATOM})+(?:\\.(?:${ATOM})+)*`;
+const EMAIL_RE = new RegExp(`^${DOT_ATOM}@(?:${DOT_ATOM}|\\[([\\x21-\\x5a\\x5e-\\x7e]+)\\])$`, "u");
+
+const V4_RE = /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
+
+/** Go's net.ParseIP: "v4" for a dotted quad, "mapped" for an IPv6 address inside ::ffff:0:0/96, "v6" for any other IPv6 one, "" for no address. */
+function ipKind(s) {
+  if (V4_RE.test(s)) return "v4";
+  if (!s.includes(":")) return "";
+  const cut = s.lastIndexOf(":") + 1;
+  let tail = null; // a trailing dotted quad stands for the last two groups
+  if (s.slice(cut).includes(".")) {
+    if (!V4_RE.test(s.slice(cut))) return "";
+    const q = s.slice(cut).split(".").map(Number);
+    tail = [q[0] * 256 + q[1], q[2] * 256 + q[3]];
+    s = `${s.slice(0, cut)}0:0`;
+  }
+  const parts = s.split("::");
+  if (parts.length > 2) return "";
+  const side = (x) => (x === "" ? [] : x.split(":"));
+  const [head, rest] = [side(parts[0]), side(parts[1] ?? "")];
+  if (![...head, ...rest].every((x) => /^[0-9A-Fa-f]{1,4}$/.test(x))) return "";
+  const n = head.length + rest.length;
+  if (parts.length === 2 ? n > 7 : n !== 8) return "";
+  const g = [...head, ...Array(parts.length === 2 ? 8 - n : 0).fill("0"), ...rest].map((x) => parseInt(x, 16));
+  if (tail) g.splice(6, 2, ...tail);
+  return g.slice(0, 5).every((x) => x === 0) && g[5] === 0xffff ? "mapped" : "v6";
+}
+
+function validEmail(s) {
+  const m = EMAIL_RE.exec(s);
+  if (!m || new TextEncoder().encode(s).length > 254) return false;
+  const lit = m[1];
+  if (lit === undefined) return true;
+  if (lit.startsWith("IPv6:")) return ipKind(lit.slice(5)) !== "";
+  const k = ipKind(lit);
+  return k === "v4" || k === "mapped";
+}
 const NUM_RE = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
 
 function validDate(s) {
@@ -127,7 +165,7 @@ function checkText(f, lab, s) {
   const n = runes(s);
   switch (f.type) {
     case "email":
-      if (!EMAIL_RE.test(s) || new TextEncoder().encode(s).length > 254) return `${lab} must be a valid email address`;
+      if (!validEmail(s)) return `${lab} must be a valid email address`;
       break;
     case "url": {
       let u = null;
