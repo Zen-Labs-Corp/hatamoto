@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -280,5 +281,18 @@ func TestFormUploadSpamRowKeepsFile(t *testing.T) {
 	}
 	if len(storedFiles(t, root)) != 1 {
 		t.Errorf("spam row lost its file: %v", storedFiles(t, root))
+	}
+}
+
+func TestAttachFormFileStoreUsesPrivateDataFolder(t *testing.T) {
+	data := t.TempDir()
+	t.Setenv("HATAMOTO_DATA", data)
+	svc := form.NewService(&fakeFormRepo{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	attachFormFileStore(svc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if svc.FileStore() == nil {
+		t.Fatal("file store not attached")
+	}
+	if fi, err := os.Stat(filepath.Join(config.ResolveDataDir(), "private", "form-uploads")); err != nil || !fi.IsDir() {
+		t.Fatalf("private folder not created: %v", err)
 	}
 }

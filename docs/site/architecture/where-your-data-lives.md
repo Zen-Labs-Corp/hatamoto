@@ -106,7 +106,7 @@ Everything here only reads. Nothing you run changes the site.
 
 ## Check it worked
 
-You can now name the three things to back up and where they are:
+You can now name the four things to back up and where they are:
 
 | What | Where | How |
 |---|---|---|

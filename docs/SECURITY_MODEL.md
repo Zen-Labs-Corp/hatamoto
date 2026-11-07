@@ -279,8 +279,8 @@ docs has the `docker network inspect` command.
 | The extension must be on the accept table (no svg, html, js, xml or programs) and the file's content must match it | `internal/form` | `TestAcceptTable`, `TestCheckUpload`, `TestValidateDefinitionFile` |
 | A file answer is accepted only as the server's own reference, so a client cannot point a submission at a stored file | `internal/form` | `TestValidateFileAnswer` |
 | Deleting a submission or a form, and the retention purge, remove the files; a missing file is not an error | `internal/form` | `TestDeleteSubmissionRemovesFiles`, `TestDeleteFormRemovesItsFiles`, `TestPurgeExpiredSubmissionsRemovesReturnedFiles` |
-| The multipart submit streams under a size cap, refuses the wrong type or size, and leaves nothing on disk after a refusal | `internal/server` | file upload handler tests in `internal/server` (`form_upload_test.go`) |
-| Only a signed-in owner or editor can download an upload; others get 404 and no bytes; the reply is an attachment with `nosniff` and `no-store` | `internal/admin` | download tests in `internal/admin` (`forms_files_test.go`) |
+| The multipart submit streams under a size cap, refuses the wrong type or size, and leaves nothing on disk after a refusal | `internal/server` | `TestFormUploadRefusals`, `TestFormUploadBodyCutOff`, `TestFormUploadFailedInsertRemovesFile` |
+| Only a signed-in owner or editor can download an upload; others get 404 and no bytes; the reply is an attachment with `nosniff` and `no-store` | `internal/admin` | `TestSubmissionFileDownload`, `TestSubmissionFileAnonymousGetsNothing`, `TestSubmissionFileWrongTargetsAre404` |
 
 Uploads are stored unencrypted under `<data>/private/form-uploads`, so the data directory's
 access rules cover them. Files are checked by size and content type only; there is no virus scan

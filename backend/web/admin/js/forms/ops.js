@@ -152,6 +152,9 @@ export function newField(type, fields) {
     case "hidden":
       f.hidden = { source: "static", value: "" };
       break;
+    case "file":
+      f.validation = { accept: ["pdf"] };
+      break;
   }
   f.name = uniqueName(nameFrom(f.label), fields);
   return f;
