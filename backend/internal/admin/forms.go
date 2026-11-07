@@ -220,16 +220,49 @@ func (a *Admin) handleForms(w http.ResponseWriter, r *http.Request) {
 
 type newFormData struct {
 	Name, Slug, Description string
+	Template                string
+	Templates               []tplChoice
+	TemplateItems           []ui.RadioCardItem
 	Errors                  map[string]string
 	Summary                 []ui.FieldError
 }
 
+// tplChoice is one template radio card on the new-form page.
+type tplChoice struct {
+	Key, Name, Blurb string
+	Checked          bool
+}
+
+// radioItems turns the template choices into hm/radiocard items.
+func radioItems(cs []tplChoice) []ui.RadioCardItem {
+	out := make([]ui.RadioCardItem, 0, len(cs))
+	for _, c := range cs {
+		out = append(out, ui.RadioCardItem{Value: c.Key, Title: c.Name, Description: c.Blurb, Checked: c.Checked})
+	}
+	return out
+}
+
+// templateChoices lists the form templates with the one named by selected checked
+// (blank when none is named).
+func templateChoices(selected string) []tplChoice {
+	if selected == "" {
+		selected = "blank"
+	}
+	var out []tplChoice
+	for _, t := range form.Templates() {
+		out = append(out, tplChoice{Key: t.Key, Name: t.Name, Blurb: t.Blurb, Checked: t.Key == selected})
+	}
+	return out
+}
+
 func (a *Admin) renderNewForm(w http.ResponseWriter, r *http.Request, status int, d newFormData) {
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Identifier"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Identifier"}, {"template", "Template"}} {
 		if m := d.Errors[k.id]; m != "" {
 			d.Summary = append(d.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
 	}
+	d.Templates = templateChoices(d.Template)
+	d.TemplateItems = radioItems(d.Templates)
 	v := a.NewView(w, r, "New form")
 	v.Crumbs = []Crumb{{Label: "Forms", Href: a.adminPath + "/forms"}, {Label: "New form"}}
 	v.Data = d
@@ -249,7 +282,17 @@ func (a *Admin) handleFormCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	d := newFormData{Name: strings.TrimSpace(r.PostFormValue("name")), Slug: strings.TrimSpace(r.PostFormValue("slug")), Description: strings.TrimSpace(r.PostFormValue("description")), Errors: map[string]string{}}
+	d := newFormData{Name: strings.TrimSpace(r.PostFormValue("name")), Slug: strings.TrimSpace(r.PostFormValue("slug")), Description: strings.TrimSpace(r.PostFormValue("description")), Template: strings.TrimSpace(r.PostFormValue("template")), Errors: map[string]string{}}
+	if d.Template == "" {
+		d.Template = "blank"
+	}
+	tpl, tplOK := form.TemplateByKey(d.Template)
+	if !tplOK {
+		d.Errors["template"] = "Choose one of the templates"
+	}
+	if d.Name == "" && tplOK && tpl.Key != "blank" {
+		d.Name = tpl.Name
+	}
 	if d.Name == "" {
 		d.Errors["name"] = "Enter a name"
 	} else if utf8.RuneCountInString(d.Name) > 120 {
@@ -265,7 +308,9 @@ func (a *Admin) handleFormCreate(w http.ResponseWriter, r *http.Request) {
 		a.renderNewForm(w, r, http.StatusUnprocessableEntity, d)
 		return
 	}
-	in := &form.CreateFormInput{Name: d.Name, Slug: d.Slug, Fields: []form.FormField{}, Settings: form.FormSettings{StoreSubmissions: true}}
+	built := tpl.Build()
+	in := &built
+	in.Name, in.Slug, in.Status = d.Name, d.Slug, form.StatusInactive
 	if d.Description != "" {
 		in.Description = &d.Description
 	}
@@ -281,7 +326,7 @@ func (a *Admin) handleFormCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
-	a.SetFlash(w, r, "success", "Form created. Add its fields below.")
+	a.SetFlash(w, r, "success", "Form created. It goes live when you set it to Active.")
 	Redirect(w, r, a.adminPath+"/forms/design/"+f.ID.String())
 }
 

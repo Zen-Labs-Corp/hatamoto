@@ -74,6 +74,9 @@ func (f *fakeForms) CreateForm(_ context.Context, in *form.CreateFormInput) (*fo
 		fm.Slug = in.Slug
 	}
 	fm.Description, fm.Settings, fm.Fields = in.Description, in.Settings, in.Fields
+	if in.Status != "" {
+		fm.Status = in.Status
+	}
 	return fm, nil
 }
 func (f *fakeForms) UpdateForm(_ context.Context, id uuid.UUID, in *form.UpdateFormInput) (*form.Form, error) {
@@ -260,11 +263,44 @@ func TestFormListNewAndDelete(t *testing.T) {
 	if rec.Code != 303 || !strings.Contains(rec.Header().Get("Location"), "/forms/design/") {
 		t.Fatalf("create: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
+	for _, f := range ff.forms {
+		if f.Name == "Newsletter" && (f.Status != form.StatusInactive || len(f.Fields) != 0) {
+			t.Errorf("blank form: status %q, %d fields; want paused and empty", f.Status, len(f.Fields))
+		}
+	}
 	if g.do("GET", "/admin/forms/delete/"+fm.ID.String(), "owner-token", nil, nil).Code != 200 || len(ff.forms) != 2 {
 		t.Fatal("the confirmation page must not delete")
 	}
 	if rec := g.do("POST", "/admin/forms/delete/"+fm.ID.String(), "owner-token", url.Values{}, nil); rec.Code != 303 || len(ff.forms) != 1 {
 		t.Fatalf("delete: %d", rec.Code)
+	}
+}
+
+func TestFormCreateFromTemplate(t *testing.T) {
+	t.Parallel()
+
+	g, ff, _ := newFormRig(t)
+	newPage := g.do("GET", "/admin/forms/new", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(newPage, `name="template" value="contact"`) || !strings.Contains(newPage, `value="blank" checked`) {
+		t.Errorf("new page lacks the template cards: %s", newPage)
+	}
+	rec := g.do("POST", "/admin/forms", "owner-token", url.Values{"template": {"contact"}}, nil)
+	if rec.Code != 303 || !strings.Contains(rec.Header().Get("Location"), "/forms/design/") {
+		t.Fatalf("create from template: %d", rec.Code)
+	}
+	var got *form.Form
+	for _, f := range ff.forms {
+		got = f
+	}
+	if got == nil || got.Name != "Contact" || got.Status != form.StatusInactive || len(got.Fields) != 3 {
+		t.Fatalf("template form: %+v", got)
+	}
+	if rec := g.do("POST", "/admin/forms", "owner-token", url.Values{"template": {"nope"}, "name": {"X"}}, nil); rec.Code != 422 || !strings.Contains(rec.Body.String(), "Choose one of the templates") {
+		t.Errorf("unknown template: %d", rec.Code)
+	}
+	rec = g.do("POST", "/admin/forms", "owner-token", url.Values{"template": {"blank"}, "name": {""}}, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Enter a name") {
+		t.Errorf("blank template without a name: %d", rec.Code)
 	}
 }
 
