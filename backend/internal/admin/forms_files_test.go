@@ -163,3 +163,34 @@ func TestSubmissionFileSurvivesFieldChange(t *testing.T) {
 		}
 	}
 }
+
+// Only owner and editor exist (user.Role), and both may download; there is no
+// lower role to refuse. Anything without a session is refused (see
+// TestSubmissionFileAnonymousGetsNothing). When a role is added, test it here.
+func TestSubmissionFileRolesAreOwnerAndEditorOnly(t *testing.T) {
+	t.Parallel()
+
+	g, _, _, _, path := fileRig(t)
+	for _, token := range []string{"owner-token", "editor-token"} {
+		if rec := g.do("GET", path, token, nil, nil); rec.Code != http.StatusOK {
+			t.Errorf("%s: %d", token, rec.Code)
+		}
+	}
+}
+
+// A file named like a spreadsheet formula is neutralised in the CSV export.
+func TestSubmissionFileCSVNeutralisesFormulaName(t *testing.T) {
+	t.Parallel()
+
+	g, fm, sub, _, _ := fileRig(t)
+	cv := sub.Data["cv"].(map[string]any)
+	cv["name"] = "=cmd|' /C calc'!A0.pdf"
+	rec := g.do("GET", "/admin/forms/submissions/export.csv?form="+fm.ID.String(), "owner-token", nil, nil)
+	rows, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(rec.Body.String(), "\xef\xbb\xbf"))).ReadAll()
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("rows = %v, %v", rows, err)
+	}
+	if got := rows[1][4]; !strings.HasPrefix(got, "'=cmd") {
+		t.Errorf("csv cell = %q, want a leading apostrophe", got)
+	}
+}
