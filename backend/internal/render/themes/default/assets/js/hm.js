@@ -273,6 +273,10 @@
       var captcha = setupCaptcha(form);
       if (form.hasAttribute('data-hm-form')) enhanceForm(form, captcha);
       else if (captcha) holdNativeSubmit(form, captcha);
+      // The full page URL and the visitor's referrer, for hidden fields that
+      // read them (the form post's own Referer is this page).
+      setHidden(form, 'hm_page', location.href);
+      setHidden(form, 'hm_ref', document.referrer);
     });
   }
 

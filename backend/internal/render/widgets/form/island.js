@@ -42,6 +42,14 @@ for (const form of document.querySelectorAll("form[data-hm-form-logic]")) {
   form.addEventListener("input", run);
   form.addEventListener("change", run);
   run();
+  // The page the form sits on and the visitor's referrer: the server cannot
+  // tell them from the submit request's own Referer.
+  for (const [name, value] of [["hm_page", location.href], ["hm_ref", document.referrer]]) {
+    const input = form.elements[name] || form.appendChild(document.createElement("input"));
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+  }
   const slots = () => form.querySelectorAll("[data-hm-error-for]");
   const clear = () => {
     for (const slot of slots()) slot.hidden = true;

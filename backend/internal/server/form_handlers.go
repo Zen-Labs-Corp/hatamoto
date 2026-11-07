@@ -1,6 +1,7 @@
 package server
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -564,7 +565,10 @@ func (s *Server) storeFormSubmission(ctx context.Context, formObj *form.Form, sl
 	// One validator for every public submit path: unknown fields are dropped,
 	// required, type, choices, length and pattern checks are enforced.
 	// Hidden fields resolve from the request context, never from posted data.
-	data, fieldErrs := form.Validate(formObj.Fields, data, form.SubmitContext{PageURL: meta.PageURL, Referrer: meta.Referrer})
+	// The page and referrer go through the same admin-path redaction as the
+	// notification email, so a form sent from inside the admin does not store it.
+	data, fieldErrs := form.Validate(formObj.Fields, data, form.SubmitContext{
+		PageURL: s.redactPageURL(meta.PageURL), Referrer: s.redactPageURL(ctl.Ref)})
 	if len(fieldErrs) > 0 {
 		return nil, &submitError{status: http.StatusBadRequest, msg: "validation failed", fields: fieldErrs}
 	}
@@ -617,6 +621,14 @@ const (
 	// hm-track.js at submit time. It is evidence for the attribution columns,
 	// never submission data.
 	attributionField = "hm_attr"
+
+	// pageField and refField carry the full URL of the page the form sits on
+	// and the visitor's document.referrer, filled in by the page script. The
+	// submit request's own Referer is the page, so it cannot tell them apart,
+	// and a native post's page_url has no query string. Without JS both stay
+	// empty: "param" and "referrer" hidden fields then store nothing.
+	pageField = "hm_page"
+	refField  = "hm_ref"
 )
 
 // providerCaptchaFields are the names the providers' own widgets post under,
@@ -628,6 +640,7 @@ type spamControl struct {
 	Timing      string
 	Captcha     string
 	Attribution string // raw hm_attr; may be empty or garbled, never rejects
+	Page, Ref   string // hm_page and hm_ref, see pageField
 }
 
 // attributionFromControl classifies a raw hm_attr value into the stored
@@ -647,7 +660,7 @@ func attributionFromControl(raw, host string) *form.Attribution {
 }
 
 func isControlField(k string) bool {
-	if k == timingField || k == captchaField || k == attributionField {
+	if k == timingField || k == captchaField || k == attributionField || k == pageField || k == refField {
 		return true
 	}
 	for _, n := range providerCaptchaFields {
@@ -661,7 +674,7 @@ func isControlField(k string) bool {
 // takeControl removes the control fields from a JSON body and returns them.
 func takeControl(data map[string]interface{}) spamControl {
 	str := func(k string) string { v, _ := data[k].(string); return v }
-	ctl := spamControl{Timing: str(timingField), Captcha: str(captchaField), Attribution: str(attributionField)}
+	ctl := spamControl{Timing: str(timingField), Captcha: str(captchaField), Attribution: str(attributionField), Page: str(pageField), Ref: str(refField)}
 	for _, n := range providerCaptchaFields {
 		if ctl.Captcha == "" {
 			ctl.Captcha = str(n)
@@ -677,7 +690,7 @@ func takeControl(data map[string]interface{}) spamControl {
 
 // controlFromValues reads the control fields of a urlencoded post.
 func controlFromValues(post url.Values) spamControl {
-	ctl := spamControl{Timing: post.Get(timingField), Captcha: post.Get(captchaField), Attribution: post.Get(attributionField)}
+	ctl := spamControl{Timing: post.Get(timingField), Captcha: post.Get(captchaField), Attribution: post.Get(attributionField), Page: post.Get(pageField), Ref: post.Get(refField)}
 	for _, n := range providerCaptchaFields {
 		if ctl.Captcha == "" {
 			ctl.Captcha = post.Get(n)
@@ -803,7 +816,7 @@ func (s *Server) handlePublicFormSubmit(w http.ResponseWriter, r *http.Request) 
 		TrustedIP: middleware.GetClientIP(r),
 		UserAgent: r.UserAgent(),
 		Referrer:  r.Referer(),
-		PageURL:   r.Header.Get("X-Page-URL"),
+		PageURL:   cmp.Or(ctl.Page, r.Header.Get("X-Page-URL")),
 		Host:      r.Host,
 	})
 	if err != nil {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -182,6 +183,71 @@ func TestFormSubmitEmailSkipsInEmailFalseAndLayout(t *testing.T) {
 	for _, bad := range []string{"PrivateLabel", "v2", "LayoutHeadingLabel"} {
 		if strings.Contains(body, bad) {
 			t.Errorf("email contains %q:\n%s", bad, body)
+		}
+	}
+}
+
+func hiddenSourcesForm() *form.Form {
+	return &form.Form{Fields: []form.FormField{
+		{ID: "u", Type: form.FieldTypeHidden, Name: "utm", Label: "UTM", Hidden: &form.HiddenSpec{Source: "param", Param: "utm"}},
+		{ID: "r", Type: form.FieldTypeHidden, Name: "ref", Label: "Ref", Hidden: &form.HiddenSpec{Source: "referrer"}},
+		{ID: "p", Type: form.FieldTypeHidden, Name: "where", Label: "Page", Hidden: &form.HiddenSpec{Source: "page"}},
+	}}
+}
+
+func TestFormPostHiddenSourcesUseThePageScriptFields(t *testing.T) {
+	t.Parallel()
+	srv, repo := newTypesServer(t, hiddenSourcesForm())
+	// postForm sends Referer = the form's own page; the visitor's referrer is hm_ref.
+	rec := postForm(srv, "t", url.Values{
+		"_redirect": {"/c"}, "page_url": {"/c"},
+		"hm_page": {"https://site.test/c?utm=spring"}, "hm_ref": {"https://search.test/q"},
+	})
+	if rec.Code != http.StatusSeeOther || len(repo.subs) != 1 {
+		t.Fatalf("%d subs=%d", rec.Code, len(repo.subs))
+	}
+	want := map[string]any{"utm": "spring", "ref": "https://search.test/q", "where": "https://site.test/c?utm=spring"}
+	for k, v := range want {
+		if got := repo.subs[0].Data[k]; got != v {
+			t.Errorf("%s = %v, want %v", k, got, v)
+		}
+	}
+	if _, ok := repo.subs[0].Data["hm_page"]; ok {
+		t.Error("hm_page was stored as an answer")
+	}
+}
+
+func TestFormPostHiddenReferrerIsNotThePageItself(t *testing.T) {
+	t.Parallel()
+	srv, repo := newTypesServer(t, hiddenSourcesForm())
+	postForm(srv, "t", url.Values{"_redirect": {"/c"}, "page_url": {"/c"}})
+	if got, ok := repo.subs[0].Data["ref"]; ok {
+		t.Errorf("without the page script the referrer stays empty, got %v (the submit Referer is the page)", got)
+	}
+}
+
+func TestFormSubmitJSONHiddenSourcesUseReservedFields(t *testing.T) {
+	t.Parallel()
+	srv, repo := newTypesServer(t, hiddenSourcesForm())
+	body := `{"hm_page":"https://site.test/c?utm=fall","hm_ref":"https://news.test/"}`
+	if code, out := submitJSON(t, srv, body); code != 201 {
+		t.Fatalf("%d %v", code, out)
+	}
+	d := repo.subs[0].Data
+	if d["utm"] != "fall" || d["ref"] != "https://news.test/" || len(d) != 3 {
+		t.Errorf("data = %v", d)
+	}
+}
+
+func TestFormHiddenPageAndReferrerAreRedactedLikeTheEmail(t *testing.T) {
+	t.Parallel()
+	srv, repo := newTypesServer(t, hiddenSourcesForm())
+	srv.adminBundle.Store(&adminBundle{prefix: "/hq-x7k"})
+	postForm(srv, "t", url.Values{"_redirect": {"/c"},
+		"hm_page": {"https://site.test/hq-x7k/entities/1/edit?utm=x"}, "hm_ref": {"https://site.test/hq-x7k/forms"}})
+	for k, v := range repo.subs[0].Data {
+		if strings.Contains(fmt.Sprint(v), "hq-x7k") {
+			t.Errorf("%s stored the admin address: %v", k, v)
 		}
 	}
 }

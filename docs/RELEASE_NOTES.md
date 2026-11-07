@@ -2,7 +2,7 @@
 
 ## Unreleased: Form logic and new field types
 
-- **Types.** Forms gain `heading`, `paragraph` and `divider` (layout only: nothing is submitted, stored, exported or emailed), `hidden` (value resolved by the server from a query parameter, the page, the referrer or a fixed value) and `consent` (always required, stored as `Yes`). Fields can be half or a third wide.
+- **Types.** Forms gain `heading`, `paragraph` and `divider` (layout only: nothing is submitted, stored, exported or emailed), `hidden` (value resolved by the server from a query parameter, the page, the referrer or a fixed value; the page script sends the page URL and the visitor's referrer, so without JavaScript those three store nothing) and `consent` (always required, stored as `Yes`). Fields can be half or a third wide.
 - **Logic.** A field can show only when another field `is`, `is_not`, `contains`, is `filled` or is `empty`. A hidden field is never required and its value is dropped. A rule to itself, to a missing field or in a cycle is refused on save, in the admin, REST and MCP.
 - **Save endpoint.** `PUT <admin>/forms/{id}/definition` saves a whole form as JSON, with the last-saved time as its version: a stale save gets 409 with the current version, an invalid definition 422 with a message per field. The legacy editor, REST and MCP stay last write wins.
 - **Public form.** The Form widget shows and hides fields live and, on a form without captcha, shows errors next to each field without a page reload. Without JavaScript it posts as before.

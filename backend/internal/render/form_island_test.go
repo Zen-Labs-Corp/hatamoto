@@ -2,6 +2,7 @@ package render
 
 import (
 	"encoding/json"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,6 +35,7 @@ const form = {
   querySelector: (sel) => (sel === '[data-hm-captcha]' && sc.captcha ? {} : null),
   getAttribute: () => '/forms/t/submit',
   addEventListener: (t, fn) => { handlers[t] = fn; },
+  appendChild(el) { Object.assign(el, { disabled: false, checked: false }); inputs.push(el); return el; },
   submit() { out.nativeSubmit = true; },
   replaceWith() { out.replaced = true; },
 };
@@ -115,5 +117,24 @@ func TestFormIslandFollowsOnlySafeRedirects(t *testing.T) {
 		if got != c.want {
 			t.Errorf("redirect %q navigated to %q, want %q", c.redirect, got, c.want)
 		}
+	}
+}
+
+func TestFormIslandPostsPageURLAndReferrer(t *testing.T) {
+	t.Parallel()
+	out := runIsland(t, map[string]any{
+		"submit": true, "href": "https://site.test/c?utm=spring", "referrer": "https://search.test/q",
+		"inputs": []map[string]any{{"name": "email", "type": "text", "value": "a@b.test"}},
+		"reply":  map[string]any{"success": true},
+	})
+	if out.Fetch == nil {
+		t.Fatal("no submit request")
+	}
+	q, err := url.ParseQuery(out.Fetch.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q.Get("hm_page") != "https://site.test/c?utm=spring" || q.Get("hm_ref") != "https://search.test/q" {
+		t.Errorf("body = %s", out.Fetch.Body)
 	}
 }
