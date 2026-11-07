@@ -11,7 +11,7 @@ This page lists the rules for theme packages: the files a package holds, the arc
 A theme ships as one `.hmp` file, which is a zip archive. The server stores it in Postgres and applies it while running; nothing is copied onto the server's disk and no restart is needed. A package is signed with an ed25519 key, and a server installs only packages signed by a key it trusts, unless the owner explicitly allowed unsigned packages.
 
 ```text
-theme.json        the manifest (name, version, optional description, settings_schema and builder)
+theme.json        the manifest (name, version, optional description, strings, settings_schema and builder)
 layouts/  partials/  sections/  schemas/    templates and schemas
 assets/           public files
 signature.json    written by `hatamoto theme pack --key`
@@ -20,13 +20,14 @@ README.md  LICENSE  CHANGELOG.md   allowed at the root, ignored by the host
 
 ## The manifest
 
-`theme.json` needs `name` and `version`, and may carry `description`, `settings_schema`, `screenshot`, `menus` and `builder` (see [Builder contract](builder-contract.md)).
+`theme.json` needs `name` and `version`, and may carry `description`, `strings`, `settings_schema`, `screenshot`, `menus` and `builder` (see [Builder contract](builder-contract.md)).
 
 | Key | Rule |
 | --- | --- |
 | `name` | a lower-case letter, then 1 to 39 lower-case letters, digits or hyphens. `default` is reserved for the built-in theme |
 | `version` | a semantic version such as `1.0.0` |
 | `description` | shown on the theme's card |
+| `strings` | optional object of string key to default text: the words your templates print with `{{t . "key"}}`. At most 500 keys. A key is a lower-case letter, then up to 63 lower-case letters, digits or underscores. A text is 1 to 300 characters of plain text: no `<`, `>` or `&`, and no control characters. A broken block is refused when the package is installed and fails `hatamoto theme check`. See [Translate theme strings](translate-theme-strings.md) |
 | `settings_schema` | a JSON Schema in the supported subset; it becomes the theme's **Settings** form and reaches templates as `.Settings` |
 | `menus` | optional menu locations the theme renders, each with a `title` and optional `default` items (`label` plus `url` or `archive`). At most 12 locations and 24 items per location. A malformed block fails `hatamoto theme check`. Activating the theme creates a menu for each declared location that has default items and none yet, and never overwrites or deletes one |
 | `screenshot` | optional preview image under `assets/` (for example `assets/screenshot.webp`): PNG, WebP or JPEG, never SVG, at most 2 MiB, 640 to 2560 by 360 to 1600 pixels. An invalid screenshot is ignored on install. The registry requires it, and `hatamoto theme check <dir> --registry`, `theme pack --registry` and the registry build check it strictly |
@@ -36,6 +37,10 @@ README.md  LICENSE  CHANGELOG.md   allowed at the root, ignored by the host
   "name": "my-theme",
   "version": "1.0.0",
   "description": "A calm single-column theme.",
+  "strings": {
+    "read_more": "Read more",
+    "n_results": "{n} results"
+  },
   "settings_schema": {
     "type": "object",
     "properties": {
