@@ -1,9 +1,10 @@
 package user
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestAccessEndHelpers(t *testing.T) {
@@ -62,18 +63,18 @@ func TestAccessEnded(t *testing.T) {
 
 func TestUpdateInputAccessEndJSON(t *testing.T) {
 	var in UpdateUserInput
-	if err := json.Unmarshal([]byte(`{"name":"x"}`), &in); err != nil || in.AccessEndsAt.Set {
+	if err := jsonx.Unmarshal([]byte(`{"name":"x"}`), &in); err != nil || in.AccessEndsAt.Set {
 		t.Fatalf("absent: %+v %v", in, err)
 	}
 	in = UpdateUserInput{}
-	if err := json.Unmarshal([]byte(`{"access_ends_at":null}`), &in); err != nil || !in.AccessEndsAt.Set || in.AccessEndsAt.At != nil {
+	if err := jsonx.Unmarshal([]byte(`{"access_ends_at":null}`), &in); err != nil || !in.AccessEndsAt.Set || in.AccessEndsAt.At != nil {
 		t.Fatalf("null: %+v %v", in, err)
 	}
 	in = UpdateUserInput{}
-	if err := json.Unmarshal([]byte(`{"access_ends_at":"2026-12-01T10:00:00Z"}`), &in); err != nil || !in.AccessEndsAt.Set || in.AccessEndsAt.At == nil || in.AccessEndsAt.At.Hour() != 10 {
+	if err := jsonx.Unmarshal([]byte(`{"access_ends_at":"2026-12-01T10:00:00Z"}`), &in); err != nil || !in.AccessEndsAt.Set || in.AccessEndsAt.At == nil || in.AccessEndsAt.At.Hour() != 10 {
 		t.Fatalf("string: %+v %v", in, err)
 	}
-	if err := json.Unmarshal([]byte(`{"access_ends_at":"2026-12-01"}`), &UpdateUserInput{}); err == nil {
+	if err := jsonx.Unmarshal([]byte(`{"access_ends_at":"2026-12-01"}`), &UpdateUserInput{}); err == nil {
 		t.Fatal("zone-less date accepted")
 	}
 }

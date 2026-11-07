@@ -3,11 +3,12 @@ package user
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Role is a user's role: owner (everything) or editor (content).
@@ -84,7 +85,7 @@ func (a *AccessEnd) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 	var t time.Time
-	if err := json.Unmarshal(b, &t); err != nil {
+	if err := jsonx.Unmarshal(b, &t); err != nil {
 		return errors.New("access_ends_at must be an RFC 3339 time or null")
 	}
 	a.At = &t
