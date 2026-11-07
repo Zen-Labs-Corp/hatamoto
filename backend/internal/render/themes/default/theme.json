@@ -133,7 +133,8 @@
     "contact_form_hp_label": "Leave this empty",
     "contact_form_required": "required",
     "contact_form_select": "Select…",
-    "contact_form_send": "Send"
+    "contact_form_send": "Send",
+    "testimonials_rating": "Rated {n} out of 5"
   },
   "settings_schema": {
     "type": "object",
