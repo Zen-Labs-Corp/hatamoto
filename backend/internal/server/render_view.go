@@ -51,6 +51,7 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 		return nil, err
 	}
 	s.applyLocale(ctx, rr, v, v.BaseURL)
+	s.applyStrings(ctx, v)
 	v.Contact = s.pageContact(ctx, v.Locale)
 	v.Forms = s.formsForSections(ctx, formSections(v.Sections, v.Doc))
 	v.EntityLinks = s.entityLinkTargets(ctx, v)

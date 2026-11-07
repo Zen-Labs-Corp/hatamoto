@@ -126,8 +126,9 @@ func (o Overrides) For(theme, tag string) map[string]string { return o[theme][ta
 
 // Chain flattens the fallback chain for one request: the default-locale
 // overrides overlaid by the locale's own. An empty localeTag means the
-// default locale. Only declared keys with valid text are kept; the theme
-// default is not included (the renderer applies it underneath).
+// default locale. Only valid text is kept, and only declared keys unless decl
+// is nil (the renderer ignores undeclared keys itself). The theme default is
+// not included (the renderer applies it underneath).
 func Chain(o Overrides, theme, localeTag, defaultTag string, decl Decl) map[string]string {
 	if localeTag == "" {
 		localeTag = defaultTag
@@ -135,7 +136,7 @@ func Chain(o Overrides, theme, localeTag, defaultTag string, decl Decl) map[stri
 	var out map[string]string
 	layer := func(m map[string]string) {
 		for k, v := range m {
-			if _, ok := decl[k]; !ok || ValidText(v) != nil {
+			if _, declared := decl[k]; (decl != nil && !declared) || ValidText(v) != nil {
 				continue
 			}
 			if out == nil {

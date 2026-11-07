@@ -157,6 +157,10 @@ type Engine struct {
 // causes has a stable identifier.
 func (e *Engine) SetThemeName(name string) { e.themeName.Store(name) }
 
+// ThemeName is the name theme.json gives the theme in effect ("" when it has
+// none). It keys the theme's stored string overrides.
+func (e *Engine) ThemeName() string { return e.current().theme.Name }
+
 // faultTheme is the theme name boot fault identifiers carry.
 func (e *Engine) faultTheme() string {
 	if n, _ := e.themeName.Load().(string); n != "" {

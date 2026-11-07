@@ -60,6 +60,9 @@ func TestChain(t *testing.T) {
 			t.Errorf("%s: %v", c.name, got)
 		}
 	}
+	if got := Chain(o, "th", "fr", "de1", nil); !maps.Equal(got, map[string]string{"a": "FrA", "b": "DefB", "gone": "x"}) {
+		t.Errorf("nil decl: %v", got)
+	}
 	if got := Chain(o, "none", "fr", "de1", decl); len(got) != 0 {
 		t.Errorf("unknown theme: %v", got)
 	}
