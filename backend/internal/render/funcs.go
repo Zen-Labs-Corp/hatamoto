@@ -46,6 +46,7 @@ func baseFuncs() template.FuncMap {
 		"readingTime":          readingTime,
 		"navctx":               navCtx,
 		"navlink":              navLink,
+		"t":                    tFunc,
 	}
 	for k, f := range extraFuncs() {
 		fm[k] = f

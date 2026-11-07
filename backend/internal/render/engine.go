@@ -525,6 +525,10 @@ type pageData struct {
 	// defaults merged), read-only.
 	Settings map[string]any
 
+	// Strings are the resolved theme strings (defaults with the request's
+	// overrides on top), read by the "t" func.
+	Strings map[string]string
+
 	// Part is the markup of the active theme parts; zero unless the theme opted
 	// in and the owner assigned a part (see parts.go).
 	Part partOut
@@ -590,6 +594,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		Status:     status,
 		StatusText: http.StatusText(status),
 		Settings:   settings,
+		Strings:    resolveStrings(c.theme.Strings, v.StringOverrides),
 	}
 	var docCSS builderCSS
 	v.anchors, v.formIsland = newAnchorSet(), false
@@ -661,7 +666,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		d.PageNum = 1
 	}
 	for i := range d.Blocks {
-		finishBlock(&d.Blocks[i], v, d.Settings)
+		finishBlock(&d.Blocks[i], v, d.Settings, d.Strings)
 	}
 	if c.hasJS && !editor {
 		d.JSHref = AssetPrefix + "hm.js"
@@ -719,9 +724,9 @@ func dropScriptSrc(tags []extTag) []extTag {
 
 // finishBlock completes a prepared section with the page-level context its
 // template reads: entity links resolved, form/submit state, theme settings.
-func finishBlock(p *preparedSection, v *PageView, settings map[string]any) {
+func finishBlock(p *preparedSection, v *PageView, settings map[string]any, strs map[string]string) {
 	p.Content, _ = rewriteLinksIn(p.Content, v.EntityLinks).(map[string]any)
-	p.Page = sectionPage{Forms: v.Forms, PluginDirectory: v.PluginDirectory, ThemeDirectory: v.ThemeDirectory, Path: v.Path, Submitted: v.Submitted, FormError: v.FormError, PageNum: v.PageNum, Params: v.Params}
+	p.Page = sectionPage{Forms: v.Forms, PluginDirectory: v.PluginDirectory, ThemeDirectory: v.ThemeDirectory, Path: v.Path, Submitted: v.Submitted, FormError: v.FormError, PageNum: v.PageNum, Params: v.Params, Strings: strs}
 	p.Settings = settings
 }
 
@@ -734,7 +739,7 @@ func prepareBlock(c *compiled, v *PageView, s Section, canvas bool, settings map
 		return p, false
 	}
 	p = out[0]
-	finishBlock(&p, v, settings)
+	finishBlock(&p, v, settings, resolveStrings(c.theme.Strings, v.StringOverrides))
 	return p, true
 }
 

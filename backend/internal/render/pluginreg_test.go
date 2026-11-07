@@ -95,7 +95,7 @@ func TestPluginRegNamesAndDuplicates(t *testing.T) {
 	}
 	// Snapshot is a copy.
 	delete(funcs, "plugin_acme_hello")
-	if f2 := r.snapshot().funcs; len(f2) != 1 {
+	if _, ok := r.snapshot().funcs["plugin_acme_hello"]; !ok {
 		t.Fatal("snapshot must be a copy")
 	}
 }
