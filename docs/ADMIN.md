@@ -116,7 +116,7 @@ There are 15 sections in three groups (paths under `<admin>/settings/`):
 | Backups & recovery | `backups`, `versions`, `changes` | owner |
 | Tools | `import` (WordPress import), `export` (informational, see EXPORT.md), `search-replace` | owner |
 
-Theme has ten sections, one tab each (paths under `<admin>/theme/`):
+Theme has eleven sections, one tab each (paths under `<admin>/theme/`):
 
 | Section | Path | Who |
 | --- | --- | --- |
@@ -129,6 +129,7 @@ Theme has ten sections, one tab each (paths under `<admin>/theme/`):
 | Templates | `templates` | owner, editor |
 | Menus | `menus` | owner, editor |
 | Strings | `strings` (the active theme's words, translated per locale) | owner |
+| Additional CSS | `additional-css` (the site's own CSS, served as its own stylesheet) | owner |
 | Contact button | `contact-button` (the floating contact link on public pages) | owner |
 
 Entities does not list the built-in `block` and `theme_part` types (rows, counts, type tabs,

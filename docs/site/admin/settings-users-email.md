@@ -301,8 +301,8 @@ On a site with more than one locale, a tab for each locale sits above the table;
 
 | Column | Meaning |
 |---|---|
-| Where | The string's key and what it is used for. |
-| Default | The theme's own text. You cannot edit it here. |
+| Where | The string's key. |
+| Theme default | The theme's own text. You cannot edit it here. |
 | The locale's name | Your text for the chosen locale. Leave it blank to use the theme default. |
 
 A page shows your text for its locale. If that is blank, it shows your text for the default locale, and if that is blank too, the theme's text. A text is 1 to 300 characters, plain text with no `<`, `>` or `&`. A text may contain `{n}`, which the theme replaces with a number, for example a result count; keep it in your translation.

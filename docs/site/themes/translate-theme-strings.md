@@ -23,7 +23,7 @@ Add a `strings` object to `theme.json`. Each key is a name you choose and each v
 }
 ```
 
-A key is a lower-case letter followed by up to 63 lower-case letters, digits or underscores. A text is 1 to 300 characters of plain text: no `<`, `>` or `&`, and no control characters. A theme holds at most 500 strings. A package with a broken `strings` block is refused when it is installed, and `hatamoto theme check` reports it. The full rules are in [Package format](package-format.md#the-manifest).
+A key is a lower-case letter followed by up to 63 lower-case letters, digits or underscores. A text is 1 to 300 characters of plain text: no `<`, `>` or `&`, and no control characters. A theme holds at most 500 strings. `hatamoto theme check` and packing refuse a broken `strings` block; an installed package is not refused, and the invalid entries are ignored. The full rules are in [Package format](package-format.md#the-manifest).
 
 ## Use them in templates
 
@@ -50,7 +50,7 @@ A key that is not declared prints as the key itself, so a typo is easy to spot. 
 
 ## How the owner translates them
 
-The owner opens **Theme > Strings** (`<admin>/theme/strings`, owners only). On a site with more than one locale there is a tab for each locale; pick one. The page lists every string of the active theme with its key, what it is for, the theme's default text and a field for the chosen locale. A blank field means "use the default". Saving writes only the filled fields and clears the page cache.
+The owner opens **Theme > Strings** (`<admin>/theme/strings`, owners only). On a site with more than one locale there is a tab for each locale; pick one. The page lists every string of the active theme with its key, the theme's default text and a field for the chosen locale. A blank field means "use the default". Saving writes only the filled fields and clears the page cache.
 
 The text shown on a public page is the first of these that exists:
 
