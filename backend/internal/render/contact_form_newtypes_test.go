@@ -44,3 +44,48 @@ func TestContactFormSectionNewTypes(t *testing.T) {
 		}
 	}
 }
+
+// A form with field logic placed through the contact_form section is driven by
+// the form island like the widget: logic markers, error slots, and the script.
+// A form without logic keeps the plain section markup.
+func TestContactFormSectionCarriesFieldLogic(t *testing.T) {
+	e, err := New(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	render := func(fields []FormField) string {
+		v := minimalView()
+		v.Forms = map[string]FormView{"contact": {Slug: "contact", Name: "C", Fields: fields}}
+		v.Sections = []Section{{ID: "s", Type: "contact_form", Content: map[string]any{"form_slug": "contact"}}}
+		var buf bytes.Buffer
+		if err := e.RenderPage(&buf, v); err != nil {
+			t.Fatal(err)
+		}
+		return buf.String()
+	}
+	out := render([]FormField{
+		{Name: "topic", Label: "Topic", Type: "select", Width: "half"},
+		{Name: "other", Label: "Other", Type: "text", LogicField: "topic", LogicOp: "is", LogicValue: "other"},
+	})
+	for _, want := range []string{
+		`data-hm-form-logic>`, `hm-form__field--half`,
+		`data-hm-logic-field="topic" data-hm-logic-op="is" data-hm-logic-value="other"`,
+		`data-hm-error-for="other"`, `/form.`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	if strings.Contains(out, `data-hm-form="`) {
+		t.Error("the logic form is also claimed by the theme script, which would submit it twice")
+	}
+	plain := render([]FormField{{Name: "a", Label: "A", Type: "text"}})
+	for _, bad := range []string{"data-hm-form-logic", "data-hm-error-for", "data-hm-logic-field"} {
+		if strings.Contains(plain, bad) {
+			t.Errorf("form without logic carries %q", bad)
+		}
+	}
+	if !strings.Contains(plain, `data-hm-form="contact"`) {
+		t.Error("form without logic lost its theme script marker")
+	}
+}

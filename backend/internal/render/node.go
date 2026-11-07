@@ -201,6 +201,22 @@ func (b *builderCSS) compilePresets(d builder.Design) {
 	b.presetCSS = w.String()
 }
 
+// markFormSections gives the page the form island when a contact_form section
+// shows a form with field logic (the section marks such a form for the island).
+func (b *builderCSS) markFormSections(blocks []preparedSection, forms map[string]FormView) {
+	for _, p := range blocks {
+		if p.Type != "contact_form" {
+			continue
+		}
+		if slug, _ := p.Content["form_slug"].(string); forms[slug].HasLogic() {
+			if b.kinds == nil {
+				b.kinds = map[string]bool{}
+			}
+			b.kinds["form"] = true
+		}
+	}
+}
+
 // islands is the script markup of the present kinds' islands. Never in the canvas.
 func (b builderCSS) islands() template.HTML {
 	if b.canvas || len(b.kinds) == 0 {

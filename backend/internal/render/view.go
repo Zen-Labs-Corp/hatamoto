@@ -953,6 +953,17 @@ type FormView struct {
 	CaptchaSiteKey  string
 }
 
+// HasLogic reports whether any field shows only under a condition. Such a form
+// is driven by the form island (logic, inline errors), like the form widget.
+func (f FormView) HasLogic() bool {
+	for _, ff := range f.Fields {
+		if ff.LogicField != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // FormField is one input of a FormView.
 type FormField struct {
 	Name        string

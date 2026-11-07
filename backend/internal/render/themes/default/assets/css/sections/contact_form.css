@@ -18,3 +18,9 @@
 /* Honeypot: off-screen, not display:none, so naive bots still fill it. */
 .hm-form__hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 @media (max-width: 48rem) { .hm-contact-form--split { grid-template-columns: 1fr; } }
+.hm-form__field[hidden], .hm-form__error[hidden] { display: none; }
+.hm-form:has(.hm-form__field--half, .hm-form__field--third) { grid-template-columns: repeat(6, 1fr); }
+.hm-form:has(.hm-form__field--half, .hm-form__field--third) > * { grid-column: 1 / -1; }
+.hm-form:has(.hm-form__field--half, .hm-form__field--third) > .hm-form__field--half { grid-column: span 3; }
+.hm-form:has(.hm-form__field--half, .hm-form__field--third) > .hm-form__field--third { grid-column: span 2; }
+@media (max-width: 600px) { .hm-form:has(.hm-form__field--half, .hm-form__field--third) > .hm-form__field { grid-column: 1 / -1; } }

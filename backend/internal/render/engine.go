@@ -598,6 +598,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	} else {
 		d.Blocks = prepareSections(c.theme, v.Sections, v.Canvas)
 	}
+	docCSS.markFormSections(d.Blocks, v.Forms)
 	if parts, pc := e.renderParts(c, tmpl, v); pc != nil {
 		d.Part = parts
 		docCSS.merge(*pc)
