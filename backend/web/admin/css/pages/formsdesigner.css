@@ -20,14 +20,18 @@
 
 .hm-fd { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); min-width: 0; }
 .hm-fd__palette, .hm-fd__inspector, .hm-fd__canvas { min-width: 0; padding: var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
-.hm-fd__canvas { background: var(--bg); }
+.hm-fd__canvas { background: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0) 0 0 / var(--space-4) var(--space-4), var(--bg); }
 .hm-fd__palette, .hm-fd__inspector { display: flex; flex-direction: column; gap: var(--space-3); }
 @media (min-width: 960px) {
   .hm-fd { grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr) minmax(16rem, 22rem); align-items: start; }
   .hm-fd__palette, .hm-fd__inspector { position: sticky; inset-block-start: var(--space-3); max-block-size: calc(100vh - var(--space-12)); overflow-y: auto; }
 }
 /* The sheet is the form as a visitor sees it: six columns, so full, half and third widths line up. */
-.hm-fd__sheet { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-3); max-width: var(--page-narrow); margin-inline: auto; padding: var(--space-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.hm-fd__card { max-width: var(--page-narrow); margin-inline: auto; padding: var(--space-6); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.hm-fd__sheet { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-3); }
+.hm-fd__formhead { margin-block-end: var(--space-4); padding-inline: var(--space-3); }
+.hm-fd__formtitle { margin: 0 0 var(--space-1); font-size: var(--text-xl); font-weight: var(--weight-semibold); color: var(--text); overflow-wrap: anywhere; }
+.hm-fd__formhead p { margin: 0; }
 
 .hm-fd-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: var(--space-2); min-height: calc(var(--space-8) * 2); padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--text); font-size: var(--text-sm); font-weight: var(--weight-medium); text-align: start; cursor: grab; }
 .hm-fd-tile:hover { background: var(--surface-hover); border-color: var(--border-control); }
@@ -63,7 +67,7 @@
 .hm-fd-field__edit { flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; }
 .hm-fd-field__edit:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .hm-fd-field__req { color: var(--color-danger); }
-.hm-fd-field__opts { margin: 0; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--text-sm); }
+.hm-fd-field__opts { display: flex; flex-direction: column; gap: var(--space-1-5); pointer-events: none; } /* a picture of the options: only the field takes the click */
 .hm-fd-field__actions { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 
 .hm-fd-shield { position: fixed; inset: 0; z-index: var(--z-shield); cursor: grabbing; touch-action: none; }
@@ -85,8 +89,8 @@
 .hm-fd-choice .hm-field__control { flex: 1 1 6rem; min-width: 0; }
 .hm-fd-section__row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
-.hm-fd__bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); margin-block-end: var(--space-3); }
-.hm-fd__canvas[data-device="tablet"] .hm-fd__sheet { max-width: 48rem; }
-.hm-fd__canvas[data-device="phone"] .hm-fd__sheet { max-width: 24rem; }
+.hm-fd__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-block-end: var(--space-3); }
+.hm-fd__summary { flex: 1; text-align: center; color: var(--text-muted); font-size: var(--text-sm); }
+.hm-fd__canvas[data-device="phone"] .hm-fd__card { max-width: 24rem; }
 .hm-fd[data-mode="try"] :is(.hm-fd__palette, .hm-fd__inspector) { display: none; }
 @media (min-width: 960px) { .hm-fd[data-mode="try"] { grid-template-columns: minmax(0, 1fr); } }

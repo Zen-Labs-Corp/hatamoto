@@ -24,9 +24,12 @@
 <template data-hm-bs-ico>{{range .Icons}}<span data-ico="{{.}}">{{icon .}}</span>{{end}}</template>
 <aside class="hm-fd__palette" aria-label="Add a field" data-hm-fd-palette hidden data-hm-bs-js></aside>
 <section class="hm-fd__canvas" aria-label="Form" data-hm-fd-canvas data-device="desktop">
-<div class="hm-fd__bar" hidden data-hm-bs-js>{{template "hm/segmented" (dict "Mode" "buttons" "Label" "View" "Items" (list (dict "Label" "Edit" "Pressed" true "Attrs" (attrmap "data-hm-fd-mode" "edit")) (dict "Label" "Try it" "Attrs" (attrmap "data-hm-fd-mode" "try"))))}}
-{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Screen size" "Items" (list (dict "Label" "Desktop" "Pressed" true "Attrs" (attrmap "data-hm-fd-device" "desktop")) (dict "Label" "Tablet" "Attrs" (attrmap "data-hm-fd-device" "tablet")) (dict "Label" "Phone" "Attrs" (attrmap "data-hm-fd-device" "phone"))))}}</div>
-<div class="hm-fd__sheet" data-hm-fd-sheet></div></section>
+<div class="hm-fd__bar" hidden data-hm-bs-js>{{template "hm/segmented" (dict "Mode" "buttons" "Label" "View" "Items" (list (dict "Label" "Edit" "Icon" "edit" "Pressed" true "Attrs" (attrmap "data-hm-fd-mode" "edit")) (dict "Label" "Try it" "Icon" "eye" "Attrs" (attrmap "data-hm-fd-mode" "try"))))}}
+<span class="hm-fd__summary" data-hm-fd-summary></span>
+{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Screen size" "Items" (list (dict "Label" "" "Icon" "monitor" "Pressed" true "Attrs" (attrmap "data-hm-fd-device" "desktop" "aria-label" "Desktop" "title" "Desktop")) (dict "Label" "" "Icon" "smartphone" "Attrs" (attrmap "data-hm-fd-device" "phone" "aria-label" "Phone" "title" "Phone"))))}}</div>
+<div class="hm-fd__card" data-hm-fd-card>
+<header class="hm-fd__formhead" data-hm-fd-formhead hidden><h2 class="hm-fd__formtitle"></h2><p class="hm-muted"></p></header>
+<div class="hm-fd__sheet" data-hm-fd-sheet></div></div></section>
 <aside class="hm-fd__inspector" aria-label="Field settings" data-hm-fd-inspector hidden data-hm-bs-js></aside>
 {{.Boot}}
 </div>{{end}}{{end}}

@@ -80,7 +80,7 @@ export function mountPreview(root, { getDoc, freeEmail = [], announce = () => {}
       for (const [f, wrap] of rows) wrap.hidden = !shown[f.id];
     };
     const note = h("p", { class: "hm-muted", role: "status" });
-    const form = h("form", { class: "hm-fd__sheet", novalidate: true, "aria-label": "Try the form" }, ...rows.map(([, w]) => w), h("div", { class: "hm-fd-field" }, actButton("Submit", { type: "submit" }), note));
+    const form = h("form", { class: "hm-fd__card hm-fd__sheet", novalidate: true, "aria-label": "Try the form" }, ...rows.map(([, w]) => w), h("div", { class: "hm-fd-field" }, actButton("Submit", { type: "submit" }), note));
     form.addEventListener("input", sync);
     form.addEventListener("change", sync);
     form.addEventListener("submit", (e) => {

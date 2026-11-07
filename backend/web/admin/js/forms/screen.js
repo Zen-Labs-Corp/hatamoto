@@ -14,7 +14,7 @@ import { createFormSaver } from "@hm/forms/save";
 import { resolveKey } from "@hm/forms/keymap";
 import { leaveMode, afterLeave } from "@hm/forms/leave";
 import { GROUPS } from "@hm/forms/shortcuts";
-import { TYPES } from "@hm/forms/types";
+import { TYPES, isLayout } from "@hm/forms/types";
 
 const previewChunk = lazy(() => import("@hm/forms/preview"));
 const sheetChunk = lazy(() => import("@hm/builder/keys"));
@@ -44,6 +44,9 @@ function start(root, boot) {
   const part = (name) => $(document, `[data-hm-fd-${name}]`);
   const sheetEl = $(root, "[data-hm-fd-sheet]");
   const canvasEl = $(root, "[data-hm-fd-canvas]");
+  const cardEl = $(root, "[data-hm-fd-card]");
+  const headEl = $(root, "[data-hm-fd-formhead]");
+  const summaryEl = $(root, "[data-hm-fd-summary]");
   const titleEl = part("title");
   const statusEl = part("status");
   const undoBtn = part("undo");
@@ -146,11 +149,26 @@ function start(root, boot) {
     undoBtn.disabled = trying || !canUndo(st);
     redoBtn.disabled = trying || !canRedo(st);
   }
+  /** "10 fields · 6 required · 1 conditional" above the form, and the form's own title and description on the sheet. */
+  function drawSummary() {
+    const fields = doc().fields.filter((f) => !isLayout(f.type));
+    const n = fields.length;
+    const required = fields.filter((f) => f.required).length;
+    const conditional = doc().fields.filter((f) => f.logic).length;
+    summaryEl.textContent = `${n} ${n === 1 ? "field" : "fields"} · ${required} required · ${conditional} conditional`;
+    const title = doc().name ?? "";
+    const about = doc().description ?? "";
+    headEl.hidden = !title && !about;
+    headEl.firstElementChild.textContent = title;
+    headEl.lastElementChild.textContent = about;
+    headEl.lastElementChild.hidden = !about;
+  }
   function redraw() {
     if (selected && idx(selected) < 0) selected = null;
     canvas.draw();
     inspector.draw();
     syncHistory();
+    drawSummary();
     if (document.activeElement !== titleEl) titleEl.value = doc().name ?? "";
     if (statusEl && document.activeElement !== statusEl) statusEl.value = doc().status;
     if (statusEl) statusEl.parentElement.dataset.status = doc().status;
@@ -264,7 +282,7 @@ function start(root, boot) {
       const mode = b.dataset.hmFdMode;
       $$(document, "[data-hm-fd-mode]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
       root.dataset.mode = mode;
-      sheetEl.hidden = mode === "try";
+      sheetEl.hidden = cardEl.hidden = mode === "try";
       previewEl.hidden = mode !== "try";
       syncHistory();
       if (mode !== "try") return;
