@@ -1669,6 +1669,248 @@
     "kind": "a"
    },
    "want_errors": {}
+  },
+  {
+   "name": "email unicode local part",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "j\u00f6rg@example.de"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "email": "j\u00f6rg@example.de"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "email underscore in domain",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "a@foo_bar.example"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "email": "a@foo_bar.example"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "email ipv4 domain literal",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "a@[192.0.2.1]"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "email": "a@[192.0.2.1]"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "email tagged ipv6 domain literal",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "a@[IPv6:2001:db8::1]"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "email": "a@[IPv6:2001:db8::1]"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "email ipv4-mapped domain literal",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "a@[::ffff:192.0.2.1]"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": {
+    "email": "a@[::ffff:192.0.2.1]"
+   },
+   "want_errors": {}
+  },
+  {
+   "name": "email bare ipv6 domain literal",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "a@[2001:db8::1]"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "email": "Email must be a valid email address"
+   }
+  },
+  {
+   "name": "email domain literal that is not an address",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "a@[abc]"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "email": "Email must be a valid email address"
+   }
+  },
+  {
+   "name": "email ipv4 literal with out of range octet",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "a@[999.1.1.1]"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "email": "Email must be a valid email address"
+   }
+  },
+  {
+   "name": "email tagged ipv6 literal with too many groups",
+   "fields": [
+    {
+     "id": "f_email",
+     "type": "email",
+     "label": "Email",
+     "name": "email"
+    }
+   ],
+   "data": {
+    "email": "a@[IPv6:1:2:3:4:5:6:7:8:9]"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "email": "Email must be a valid email address"
+   }
+  },
+  {
+   "name": "url scheme without slashes",
+   "fields": [
+    {
+     "id": "f_site",
+     "type": "url",
+     "label": "Site",
+     "name": "site"
+    }
+   ],
+   "data": {
+    "site": "https:example.com"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "site": "Site must be a web address starting with http:// or https://"
+   }
+  },
+  {
+   "name": "url single slash",
+   "fields": [
+    {
+     "id": "f_site",
+     "type": "url",
+     "label": "Site",
+     "name": "site"
+    }
+   ],
+   "data": {
+    "site": "http:/example.com"
+   },
+   "context": {
+    "page_url": "",
+    "referrer": ""
+   },
+   "want_data": null,
+   "want_errors": {
+    "site": "Site must be a web address starting with http:// or https://"
+   }
   }
  ],
  "visibility": [

@@ -1,0 +1,37 @@
+{{template "layouts/shell" .}}
+{{define "modules"}}@hm/formsdesigner{{end}}
+{{define "main"}}{{with .Data}}<h1 class="hm-visually-hidden">Design {{.Name}}</h1>
+<div class="hm-fd-head">
+{{template "hm/button" (dict "Href" (printf "%s/forms" adminPath) "IconOnly" true "Icon" "arrow-right" "Variant" "ghost" "AriaLabel" "Back to forms" "Attrs" (attrmap "data-flip" ""))}}
+<a class="hm-fd-head__crumb" href="{{adminPath}}/forms">Forms</a><span class="hm-fd-head__slash" aria-hidden="true">/</span>
+<input type="text" class="hm-fd-head__title" id="fd-name" data-hm-fd-title hidden data-hm-bs-js value="{{.Name}}" maxlength="120" aria-label="Form name" placeholder="Form name">
+<noscript><span class="hm-fd-head__title">{{.Name}}</span></noscript>
+<span class="hm-fd-status" data-status="{{.Status}}" hidden data-hm-bs-js><select class="hm-fd-status__select" data-hm-fd-status aria-label="Status">{{range .Statuses}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select>{{icon "chevron-down"}}</span>
+<span class="hm-fd-head__end">
+<span data-hm-fd-state>{{template "hm/savestate" (dict "State" "saved" "Text" "Saved")}}</span>
+{{template "hm/button" (dict "Label" "Undo" "AriaLabel" "Undo" "IconOnly" true "Icon" "corner-up-right" "Variant" "ghost" "Attrs" (attrmap "data-hm-fd-undo" "" "data-flip" "" "disabled" "disabled" "hidden" "hidden" "data-hm-bs-js" "" "title" "Undo (Ctrl/Cmd + Z)"))}}
+{{template "hm/button" (dict "Label" "Redo" "AriaLabel" "Redo" "IconOnly" true "Icon" "corner-up-right" "Variant" "ghost" "Attrs" (attrmap "data-hm-fd-redo" "" "disabled" "disabled" "hidden" "hidden" "data-hm-bs-js" "" "title" "Redo (Ctrl/Cmd + Shift + Z)"))}}
+{{template "hm/button" (dict "Label" "Save" "Variant" "primary" "Attrs" (attrmap "hidden" "hidden" "data-hm-bs-js" "" "data-hm-fd-save" ""))}}
+</span>
+</div>
+{{template "hm/tabs" (dict "Label" "Form sections" "Items" .Tabs)}}
+<noscript>{{template "hm/callout-start" (dict "Kind" "warning")}}The form designer needs JavaScript.{{template "hm/callout-end"}}</noscript>
+<div class="hm-fd" data-hm-fd>
+<template data-hm-bs-badge>{{template "hm/badge" (dict "Label" "" "Mono" true)}}</template>
+<template data-hm-bs-chip>{{template "hm/badge" (dict "Label" "" "Plain" true)}}</template>
+<template data-hm-bs-act>{{template "hm/button" (dict "Label" "Action" "Size" "sm")}}</template>
+<template data-hm-bs-iconact>{{template "hm/button" (dict "AriaLabel" "Action" "IconOnly" true "Icon" "x" "Variant" "ghost" "Size" "sm")}}</template>
+<template data-hm-bs-warn>{{template "hm/callout-start" (dict "Kind" "warning" "Compact" true)}}{{template "hm/callout-end"}}</template>
+<template data-hm-bs-ico>{{range .Icons}}<span data-ico="{{.}}">{{icon .}}</span>{{end}}</template>
+<button type="button" class="hm-fd__add" aria-expanded="false" aria-controls="fd-add-sheet" data-hm-fd-addtoggle hidden data-hm-bs-js>{{icon "plus"}}<span>Add a field</span></button>
+<aside class="hm-fd__palette" id="fd-add-sheet" aria-label="Add a field" data-hm-fd-palette hidden data-hm-bs-js></aside>
+<section class="hm-fd__canvas" aria-label="Form" data-hm-fd-canvas data-device="desktop">
+<div class="hm-fd__bar" hidden data-hm-bs-js>{{template "hm/segmented" (dict "Mode" "buttons" "Label" "View" "Items" (list (dict "Label" "Edit" "Icon" "edit" "Pressed" true "Attrs" (attrmap "data-hm-fd-mode" "edit")) (dict "Label" "Try it" "Icon" "eye" "Attrs" (attrmap "data-hm-fd-mode" "try"))))}}
+<span class="hm-fd__summary" data-hm-fd-summary></span>
+{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Screen size" "Items" (list (dict "Label" "" "Icon" "monitor" "Pressed" true "Attrs" (attrmap "data-hm-fd-device" "desktop" "aria-label" "Desktop" "title" "Desktop")) (dict "Label" "" "Icon" "smartphone" "Attrs" (attrmap "data-hm-fd-device" "phone" "aria-label" "Phone" "title" "Phone"))))}}</div>
+<div class="hm-fd__card" data-hm-fd-card>
+<header class="hm-fd__formhead" data-hm-fd-formhead hidden><h2 class="hm-fd__formtitle"></h2><p class="hm-muted"></p></header>
+<div class="hm-fd__sheet" data-hm-fd-sheet></div></div></section>
+<aside class="hm-fd__inspector" aria-label="Field settings" data-hm-fd-inspector hidden data-hm-bs-js></aside>
+{{.Boot}}
+</div>{{end}}{{end}}

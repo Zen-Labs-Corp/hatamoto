@@ -29,6 +29,7 @@
         "page-editor",
         "blog-and-people",
         "media-menus-redirects",
+        "forms",
         "users-and-api-keys"
       ],
       "reference": [

@@ -142,6 +142,8 @@ A change to one component edits only its own subsection below and its entry in t
 | danger-confirm | `.hm-danger-confirm` | `css/partials/danger-confirm.css` | `hm/danger-confirm` | `border-top-left-radius: 0`, `font-size: var(--text-sm)`, `padding-left: 0`, `padding-right: 0` |
 | dialog | `.hm-dialog` | `css/partials/dialog.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)`; `.hm-dialog[data-side="end"]`: `border-top-left-radius: 0` |
 | dropzone | `.hm-dropzone` | `css/partials/dropzone.css` | `hm/dropzone` | `border-top-left-radius: var(--radius-md)`, `font-size: var(--text-sm)`, `padding-left: var(--space-4)`, `padding-right: var(--space-4)` |
+| fieldcard | `.hm-fd-field` | `css/pages/formsdesigner.css` | none |  |
+| fieldtile | `.hm-fd-tile` | `css/pages/formsdesigner.css` | none |  |
 | input | `.hm-field__control` | `css/partials/field.css` | `hm/field` | `border-top-color: var(--border-field)`, `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-md)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `select.hm-field__control`: `padding-right: var(--space-8)` |
 | listbar | `.hm-listbar` | `css/partials/listbar.css` | `hm/listbar` |  |
 | menu | `.hm-menu` | `css/partials/menu.css` | none | `border-top-color: var(--color-kinu)`, `border-top-left-radius: var(--radius-lg)`, `box-shadow: var(--shadow-3)` |
@@ -825,7 +827,7 @@ reason:
 | Menu trigger in `partials/pageheader.html` | Icon, label and chevron in one primary button. |
 | Menu tree row buttons in `pages/menus/edit.html` | Icon buttons whose hidden text is rewritten by JS. |
 | Page and blog editor toolbars, canvas, section ops, bubble, slash menu (`pages/entities/pageedit.html`, `blogedit.html`, `js/editor/*`, `js/canvas/*`) | Editor toolbar and canvas controls, not form actions. |
-| Schema field and form field row buttons (`pages/schemas/edit.html`, `pages/forms/edit.html`, `schemaform/field.html`) | Small row operations (move, remove, add item) inside repeaters. |
+| Schema field row buttons (`pages/schemas/edit.html`, `schemaform/field.html`) | Small row operations (move, remove, add item) inside repeaters. |
 | Consent gates: `pages/settings/plugins.html`, `packageconfirm.html`, `pluginprompt.html` | Acknowledgements, not settings, so they stay checkboxes. |
 | Multi-pick lists: API scopes, webhook events, permissions, content types, terms, table select, media tile select, schemaform clear box | Pick several, so checkboxes are correct. |
 | One-button POST forms in rows, menus and headers (`forms/submission.html`, `linking/suggestions.html`, `partials/pageheader.html`, `pluginhead.html`, `rowmenu.html`, `sidebar.html`, the bulk toolbar in `partials/table.html`) | Not a form footer. Each is one named entry. The webhook row actions (Pause, Resume, Send test, Retry) are `ui.Action{Post}` items rendered by `rowmenu.html`, so they are covered by its entry and need none of their own. |

@@ -100,7 +100,6 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "pages/theme/browse.html", Needle: `"Try again"`, Reason: "retry action of the unreachable-registry state, a form of its own"},
 	{Rule: "UI-01", File: "pages/entities/compare.html", Needle: `.RestoreLabel`, Reason: "list row action: restores one node of the layout, a form of its own in the changes table"},
 	{Rule: "UI-01", File: "pages/media/picker.html", Needle: `"Upload"`, Reason: "inline upload beside its file input in a dialog"},
-	{Rule: "UI-01", File: "pages/forms/edit.html", Needle: `"Add field"`, Reason: "inline add row inside the editor, next to its select"},
 	{Rule: "UI-01", File: "pages/schemas/edit.html", Needle: `"Add field"`, Reason: "inline add row inside the editor, next to its select"},
 	{Rule: "UI-01", File: "pages/schemas/edit.html", Needle: `value="up:{{$f.Key}}"`, Reason: "field row operations (move, remove) inside the editor"},
 	{Rule: "UI-01", File: "pages/schemas/edit.html", Needle: `save_json`, Reason: "action of the advanced JSON disclosure, a nested form of its own"},
@@ -292,7 +291,7 @@ var (
 var uiStickyTemplates = map[string]bool{
 	"pages/entities/edit.html":   true,
 	"pages/schemas/edit.html":    true,
-	"pages/forms/edit.html":      true,
+	"pages/forms/settings.html":  true,
 	"pages/taxonomies/term.html": true,
 	"pages/plugins/plugin.html":  true,
 	// The changeset review page: the publish bar stays in reach beside a long list of risky changes.

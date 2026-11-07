@@ -258,6 +258,14 @@
       "padding-left": "var(--space-2)"
     }
   },
+  "fieldtile": {
+    "selector": ".hm-fd-tile",
+    "owner": "css/pages/formsdesigner.css"
+  },
+  "fieldcard": {
+    "selector": ".hm-fd-field",
+    "owner": "css/pages/formsdesigner.css"
+  },
   "segmented": {
     "selector": ".hm-segmented__btn",
     "owner": "css/partials/segmented.css",

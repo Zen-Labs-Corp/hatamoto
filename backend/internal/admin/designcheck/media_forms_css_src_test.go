@@ -26,16 +26,6 @@ func TestRepeaterGripKeepsTheNativeMarker(t *testing.T) {
 	}
 }
 
-// The builder hides the native marker, so a row needs its own chevron that turns when open.
-func TestFormBuilderRowHasExpandIndicator(t *testing.T) {
-	t.Parallel()
-
-	css := readAdminCSS(t, "forms.css")
-	if !strings.Contains(css, ".hm-fieldlist__chev") || !strings.Contains(css, ".hm-fieldlist__row[open] > summary .hm-fieldlist__chev") {
-		t.Error("builder row summary lacks an open/closed indicator")
-	}
-}
-
 // The dialog body already scrolls; a second scroll box on .hm-picker clips tile focus rings.
 func TestPickerDoesNotClipFocusRings(t *testing.T) {
 	t.Parallel()

@@ -56,7 +56,9 @@ GET /admin/entities/{id}/versions/{version}/restore -> admin.(*Admin).handleVers
 GET /admin/forgot -> admin.(*Admin).handleForgotForm-fm
 GET /admin/forms -> admin.(*Admin).handleForms-fm
 GET /admin/forms/delete/{id} -> admin.(*Admin).handleFormDeleteForm-fm
-GET /admin/forms/edit/{id} -> admin.(*Admin).handleFormEdit-fm
+GET /admin/forms/design/{id} -> admin.(*Admin).handleFormDesign-fm
+GET /admin/forms/design/{id}/{tab} -> admin.(*Admin).handleFormTab-fm
+GET /admin/forms/edit/{id} -> admin.(*Admin).handleFormEditRedirect-fm
 GET /admin/forms/new -> admin.(*Admin).handleFormNew-fm
 GET /admin/forms/spam -> admin.(*Admin).handleSpam-fm
 GET /admin/forms/submissions -> admin.(*Admin).handleSubmissions-fm
@@ -295,7 +297,7 @@ POST /admin/entities/{id}/versions/{version}/restore -> admin.(*Admin).handleVer
 POST /admin/forgot -> admin.(*Admin).handleForgot-fm
 POST /admin/forms -> admin.(*Admin).handleFormCreate-fm
 POST /admin/forms/delete/{id} -> admin.(*Admin).handleFormDelete-fm
-POST /admin/forms/edit/{id} -> admin.(*Admin).handleFormSave-fm
+POST /admin/forms/design/{id}/settings -> admin.(*Admin).handleFormSettingsSave-fm
 POST /admin/forms/spam -> admin.(*Admin).handleSpamSave-fm
 POST /admin/forms/spam/test -> admin.(*Admin).handleSpamTest-fm
 POST /admin/forms/submissions/bulk -> admin.(*Admin).handleSubmissionsBulk-fm

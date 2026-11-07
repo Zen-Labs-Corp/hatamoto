@@ -15,7 +15,7 @@ var areaPages = map[string][]string{
 	"analytics": {"analytics/overview", "analytics/traffic", "analytics/conversions", "analytics/crawlers", "analytics/google", "analytics/content", "analytics/referrals", "analytics/health", "analytics/agent"},
 	"linking":   {"linking/rules", "linking/rule", "linking/import", "linking/suggestions", "linking/equity", "linking/inbound"},
 	"plugins":   {"settings/plugins", "plugins/plugin", "plugins/permissions", "plugins/changeset", "plugins/changeset-preview", "plugins/runs", "plugins/run", "plugins/automatic", "settings/changes"}, // run and changes pages: run_progress_test.go, runs_page_test.go, changes_page_test.go; changeset pages: plugins_changeset_test.go,
-	"forms":     {"forms/list", "forms/new", "forms/edit", "forms/submissions", "forms/submission", "bulkdelete"},
+	"forms":     {"forms/list", "forms/new", "forms/design", "forms/settings", "forms/share", "forms/submissions", "forms/submission", "bulkdelete"},
 }
 
 // TestSiteAndGrowthScreensAnswerInGo: with no service wired, every screen of

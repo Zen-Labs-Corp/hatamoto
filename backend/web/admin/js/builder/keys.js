@@ -76,7 +76,7 @@ export function filterGroups(groups, q) {
 }
 
 /** The shortcut sheet: a modal <dialog> built once; open() shows it, Escape closes it. */
-export function createSheet() {
+export function createSheet(groups = GROUPS) {
   const close = h("button", { type: "button", class: "hm-btn hm-btn--primary", text: "Close" });
   const search = h("input", { type: "search", class: "hm-field__control", id: "hm-bs-sheet-q", autocomplete: "off", placeholder: "Search shortcuts…", "aria-label": "Search shortcuts", "aria-controls": "hm-bs-sheet-body" });
   // The list scrolls inside the dialog: it takes a Tab stop (a keyboard user scrolls it with the arrows) and a name, as axe requires of a scroll region.
@@ -94,7 +94,7 @@ export function createSheet() {
     return parts.every(isKey) ? parts.map((p, i) => (i % 2 ? p : h("kbd", { class: "hm-bs-key", text: p }))) : [keys];
   };
   function paint() {
-    const shown = filterGroups(GROUPS, search.value);
+    const shown = filterGroups(groups, search.value);
     body.replaceChildren(
       ...(shown.length
         ? shown.map(([name, rows]) => h("table", { class: "hm-bs-keys" }, h("caption", { class: "hm-bs-keys__g", text: name }), h("tbody", {}, ...rows.map(([keys, what]) => h("tr", {}, h("th", { scope: "row", class: "hm-bs-keys__k" }, ...caps(keys)), h("td", { text: what }))))))

@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 68139,
+      "value": 69725,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 108180,
+      "value": 108473,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 108468
+      "cap": 108761
     },
     "editor_js_total_gzip": {
-      "value": 292701,
+      "value": 294043,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 293725
+      "cap": 295067
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -119,6 +119,10 @@
     {
       "reason": "admin branding: accent button, logo and managed-by line styles: admin_css_gzip 68025 -> 68139 (+114 B), measured",
       "date": "2026-11-05"
+    },
+    {
+      "reason": "forms designer: designer CSS (admin_css_gzip 68139 -> 69725, +1586 B) and the shared command log, drag source and save reply extracted from the page builder into their own modules (editor_js_first_gzip 108180 -> 108473, +293 B; editor_js_total_gzip 292701 -> 294043, +1342 B), measured; the forms modules are not in the builder's import closure; caps move with the measurements",
+      "date": "2026-11-07"
     }
   ]
 }

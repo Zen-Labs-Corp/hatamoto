@@ -1,0 +1,33 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Settings" "Description" .Name "CSRF" $.CSRF}}
+{{template "hm/tabs" dict "Label" "Form sections" "Items" .Tabs}}
+{{template "hm/formerrors" dict "Errors" .Summary}}
+{{if .Conflict}}{{template "hm/callout-start" (dict "Kind" "warning")}}This form was changed by someone else. Reload it to see their changes.{{template "hm/callout-end"}}{{end}}
+<form method="post" action="{{adminPath}}/forms/design/{{.ID}}/settings" class="hm-stack hm-formbuilder">
+{{template "hm/csrf" $}}
+<input type="hidden" name="version" value="{{.Version}}">
+{{template "hm/card-start" dict "ID" "form-details" "Title" "Details"}}
+{{template "hm/field" dict "ID" "name" "Name" "name" "Label" "Name" "Value" .Name "Required" true "Error" (index .Errors "name") "Attrs" (attrmap "maxlength" "120" "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "status" "Name" "status" "Label" "Status" "Control" "select" "Options" .Statuses "Error" (index .Errors "status")}}
+{{template "hm/field" dict "ID" "description" "Name" "description" "Label" "Description" "Control" "textarea" "Rows" 2 "Value" .Description "Help" "Only shown here, to you."}}
+<p class="hm-muted">Identifier <code>{{.Slug}}</code>.</p>
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "form-after" "Title" "After someone sends it"}}
+{{template "hm/field" dict "ID" "submit_text" "Name" "submit_text" "Label" "Button text" "Value" .SubmitText "Placeholder" "Submit" "Attrs" (attrmap "maxlength" "60")}}
+{{template "hm/field" dict "ID" "success_message" "Name" "success_message" "Label" "Success message" "Control" "textarea" "Rows" 2 "Value" .SuccessMsg "Help" "Shown after a successful send. Default: Thank you for your submission!"}}
+{{template "hm/field" dict "ID" "redirect" "Name" "redirect_url" "Label" "Redirect to" "Value" .RedirectURL "Help" "Optional. A path like /thank-you or a full address; replaces the success message." "Error" (index .Errors "redirect")}}
+{{template "hm/field" dict "ID" "notify" "Name" "notify_email" "Label" "Email notifications to" "Value" .NotifyEmail "Help" "Separate several addresses with commas. Leave empty to use the notification email in Settings." "Error" (index .Errors "notify") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/field" dict "ID" "store" "Name" "store" "Label" "Keep submissions in the admin" "Control" "switch" "Value" "1" "Checked" .Store}}
+{{template "hm/field" dict "ID" "confirmation" "Name" "confirmation" "Label" "Send the visitor a confirmation email" "Control" "switch" "Value" "1" "Checked" .Confirmation}}
+{{template "hm/field" dict "ID" "confirmation_message" "Name" "confirmation_message" "Label" "Confirmation email text" "Control" "textarea" "Rows" 3 "Value" .ConfirmMsg "Help" "Used when the confirmation email is on. Empty uses the success message."}}
+{{template "hm/card-end"}}
+{{template "hm/card-start" dict "ID" "form-spam" "Title" "Spam protection"}}
+{{if .CaptchaUnconfigured}}{{template "hm/callout-start" (dict "Kind" "warning")}}Captcha is on for this form but no provider keys are set. Submissions are accepted unchecked.{{if .SpamLink}} <a href="{{adminPath}}/forms/spam">Set up spam protection</a>{{end}}{{template "hm/callout-end"}}
+{{end}}{{template "hm/field" dict "ID" "captcha" "Name" "captcha" "Label" "Require the spam check (captcha)" "Control" "switch" "Value" "1" "Checked" .Captcha "Help" "Submissions without a passed check are refused."}}
+{{template "hm/card-end"}}
+<div class="hm-savebar">
+<span class="hm-savebar__aside">{{template "hm/button" dict "Label" "Delete form" "Variant" "danger-text" "Href" (printf "%s/forms/delete/%s" adminPath .ID)}}</span>
+{{template "hm/button" dict "Label" "Save form" "Variant" "primary" "Type" "submit"}}
+</div>
+</form>
+{{end}}{{end}}

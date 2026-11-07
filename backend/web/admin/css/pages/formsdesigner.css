@@ -1,0 +1,112 @@
+/* Form designer: palette | canvas | inspector. Tokens only, no shadows. */
+.hm-page:has(.hm-fd) { max-width: none; }
+/* The editor bar: back, breadcrumb, name, status pill on the left; save state, undo, redo and Save on the right. */
+.hm-fd-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-block-end: var(--space-2); }
+.hm-fd-head__crumb { color: var(--text-muted); font-size: var(--text-sm); text-decoration: none; }
+.hm-fd-head__crumb:hover { color: var(--text); }
+.hm-fd-head__slash { margin-inline-start: calc(-1 * var(--space-1)); color: var(--text-muted); }
+.hm-fd-head__title { field-sizing: content; min-inline-size: 6rem; max-inline-size: 100%; flex: 0 1 auto; padding: var(--space-0-5) var(--space-2); border: 1px solid transparent; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+.hm-fd-head__title:hover { border-color: var(--border-control); }
+.hm-fd-head__title:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-fd-head__end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); margin-inline-start: auto; white-space: nowrap; }
+.hm-fd-head [data-flip] .hm-icon { transform: scaleX(-1); } /* one arrow icon: Undo and Back are its mirror image */
+.hm-fd-status { position: relative; display: inline-flex; align-items: center; border-radius: var(--radius-full); background: var(--color-kasumi); color: var(--text-body); font-size: var(--text-xs); font-weight: var(--weight-medium); }
+.hm-fd-status[data-status="active"] { background: color-mix(in srgb, var(--color-success) 12%, var(--color-paper)); color: var(--color-success); }
+.hm-fd-status[data-status="inactive"] { background: color-mix(in srgb, var(--color-warning) 12%, var(--color-paper)); color: var(--color-warning); }
+.hm-fd-status__select { appearance: none; padding: var(--space-1) var(--space-6) var(--space-1) var(--space-3); border: 0; border-radius: var(--radius-full); background: none; color: inherit; font: inherit; cursor: pointer; }
+.hm-fd-status__select:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-fd-status .hm-icon { position: absolute; inset-inline-end: var(--space-2); inline-size: var(--space-3); block-size: var(--space-3); pointer-events: none; }
+@media (max-width: 640px) { .hm-fd-head__title { flex: 1 1 8rem; } .hm-fd-head__end { inline-size: 100%; margin-inline-start: 0; } .hm-fd-head__end [data-hm-fd-state] { margin-inline-end: auto; } }
+
+.hm-fd { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); min-width: 0; }
+.hm-fd__palette, .hm-fd__inspector, .hm-fd__canvas { min-width: 0; padding: var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.hm-fd__canvas { background: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0) 0 0 / var(--space-4) var(--space-4), var(--bg); }
+.hm-fd__palette, .hm-fd__inspector { display: flex; flex-direction: column; gap: var(--space-3); }
+.hm-fd__add { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--control-h); border: 1px solid var(--border-control); border-radius: var(--radius-md); background: var(--surface); color: var(--text); font: inherit; font-weight: var(--weight-semibold); cursor: pointer; }
+.hm-fd__add[hidden] { display: none; }
+.hm-fd__add[aria-expanded="true"] { border-color: var(--text); }
+.hm-fd:not([data-add="open"]) .hm-fd__palette { display: none; }
+@media (min-width: 960px) {
+  .hm-fd__add { display: none; }
+  .hm-fd:not([data-add="open"]) .hm-fd__palette { display: flex; }
+  .hm-fd { grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr) minmax(16rem, 22rem); align-items: start; }
+  .hm-fd__palette, .hm-fd__inspector { position: sticky; inset-block-start: var(--space-3); max-block-size: calc(100vh - var(--space-12)); overflow-y: auto; }
+}
+/* The sheet is the form as a visitor sees it: six columns, so full, half and third widths line up. */
+.hm-fd__card { max-width: var(--page-narrow); margin-inline: auto; padding: var(--space-6); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.hm-fd__sheet { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-3); }
+.hm-fd__formhead { margin-block-end: var(--space-4); padding-inline: var(--space-3); }
+.hm-fd__formtitle { margin: 0 0 var(--space-1); font-size: var(--text-xl); font-weight: var(--weight-semibold); color: var(--text); overflow-wrap: anywhere; }
+.hm-fd__formhead p { margin: 0; }
+
+.hm-fd-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: var(--space-2); min-height: calc(var(--space-8) * 2); padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--text); font-size: var(--text-sm); font-weight: var(--weight-medium); text-align: start; cursor: grab; }
+.hm-fd-tile:hover { background: var(--surface-hover); border-color: var(--border-control); }
+.hm-fd-tile:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
+.hm-fd-field { position: relative; grid-column: span 6; display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding: var(--space-3); border: 1px solid transparent; border-radius: var(--radius-md); background: var(--surface); }
+.hm-fd-empty { grid-column: span 6; padding: var(--space-8) var(--space-4); border: 1.5px dashed var(--border-control); border-radius: var(--radius-md); text-align: center; color: var(--text-muted); }
+.hm-fd-empty b { display: block; margin-block-end: var(--space-1); color: var(--text); }
+.hm-fd-field--half { grid-column: span 3; }
+.hm-fd-field--third { grid-column: span 2; }
+.hm-fd-field:hover { border-color: var(--border); }
+.hm-fd-field:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-fd-field--selected { border-color: var(--color-accent); outline: 1px solid var(--color-accent); }
+.hm-fd-field--selected:hover { border-color: var(--color-accent); }
+.hm-fd-field--hidden-by-rule { border-style: dashed; border-color: var(--border); opacity: 0.6; }
+.hm-fd-field--invalid { border-color: var(--color-danger); }
+.hm-fd-field--invalid:hover { border-color: var(--color-danger); }
+.hm-fd-field__label { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text); overflow-wrap: anywhere; }
+.hm-fd-field__ctl { min-height: var(--control-h); padding: var(--space-2); border: 1px solid var(--border-field); border-radius: var(--radius-sm); background: var(--bg); color: var(--text-muted); font-size: var(--text-sm); pointer-events: none; }
+@media (max-width: 640px) { .hm-fd-field--half, .hm-fd-field--third { grid-column: span 6; } }
+
+/* The insertion line while dragging a field or a tile over the sheet. */
+.hm-fd-drop { grid-column: 1 / -1; block-size: var(--space-0-5); border-radius: var(--radius-full); background: var(--color-accent); }
+
+.hm-fd-section { display: flex; flex-direction: column; gap: var(--space-2); padding-block-end: var(--space-3); border-block-end: 1px solid var(--border); }
+.hm-fd-section:last-child { border-block-end: 0; }
+
+.hm-fd-checks { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.hm-fd-check { display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--text-sm); color: var(--text-body); }
+.hm-fd-check__ico { display: inline-flex; flex: none; padding-block-start: var(--space-0-5); }
+.hm-fd-check[data-ok="true"] .hm-fd-check__ico { color: var(--color-success); }
+.hm-fd-check[data-ok="false"] .hm-fd-check__ico { color: var(--color-warning); }
+.hm-fd-empty-note { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); padding: var(--space-4) var(--space-2); text-align: center; color: var(--text-muted); }
+.hm-fd-empty-note__ico { display: inline-flex; color: var(--text-muted); }
+.hm-fd-empty-note b { color: var(--text); }
+.hm-fd-empty-note p { margin: 0; font-size: var(--text-sm); }
+
+.hm-fd-field__head { display: flex; align-items: baseline; gap: var(--space-1); }
+.hm-fd-field__edit { flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; }
+.hm-fd-field__edit:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-fd-field__req { color: var(--color-danger); }
+.hm-fd-field__opts { display: flex; flex-direction: column; gap: var(--space-1-5); pointer-events: none; } /* a picture of the options: only the field takes the click */
+.hm-fd-field__actions { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+
+.hm-fd-shield { position: fixed; inset: 0; z-index: var(--z-shield); cursor: grabbing; touch-action: none; }
+.hm-fd-group { margin: 0; font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.hm-fd-palette__list { display: flex; flex-direction: column; gap: var(--space-3); }
+.hm-fd-palette__tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.hm-fd-tile .hm-icon { color: var(--text-muted); }
+.hm-fd-tile__new { position: absolute; inset-block-start: var(--space-1-5); inset-inline-end: var(--space-1-5); }
+.hm-fd-search { display: flex; align-items: center; gap: var(--space-2); padding-inline: var(--space-2); border: 1px solid var(--border-field); border-radius: var(--radius-md); background: var(--surface); color: var(--text-muted); }
+.hm-fd-search__icon { display: inline-flex; }
+.hm-fd-search:focus-within { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-fd-search__input { flex: 1; min-width: 0; min-height: calc(var(--control-h) - 2 * var(--space-px)); padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: var(--text-sm); outline: none; }
+.hm-fd-dragging { user-select: none; }
+.hm-fd-tile__ico { display: inline-flex; }
+.hm-fd-type { display: flex; align-items: center; gap: var(--space-2); padding-block-end: var(--space-3); border-block-end: 1px solid var(--border); }
+.hm-fd-type .hm-field__control { flex: 1; min-width: 0; }
+.hm-fd-keys { border-collapse: collapse; font-size: var(--text-sm); color: var(--text-body); }
+.hm-fd-keys td { padding: var(--space-1) var(--space-2) var(--space-1) 0; vertical-align: baseline; }
+.hm-fd-keys td:first-child { white-space: nowrap; }
+.hm-fd-keys kbd { margin-inline-end: var(--space-1); font-size: var(--text-xs); color: var(--text); }
+.hm-fd-choice { display: flex; align-items: center; gap: var(--space-1); }
+.hm-fd-choice .hm-field__control { flex: 1 1 0; min-width: 0; }
+.hm-fd-choice .hm-fd-choice__value { flex: 0.6 1 0; }
+.hm-fd-section__row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.hm-fd__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-block-end: var(--space-3); }
+.hm-fd__summary { flex: 1; text-align: center; color: var(--text-muted); font-size: var(--text-sm); }
+.hm-fd__canvas[data-device="phone"] .hm-fd__card { max-width: 24rem; }
+.hm-fd[data-mode="try"] :is(.hm-fd__add, .hm-fd__palette, .hm-fd__inspector) { display: none; }
+@media (min-width: 960px) { .hm-fd[data-mode="try"] { grid-template-columns: minmax(0, 1fr); } }

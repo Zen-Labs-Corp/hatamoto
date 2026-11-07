@@ -227,7 +227,7 @@ func TestFormSpamIntegration(t *testing.T) {
 	}
 
 	// ISC-29: the secret is in no admin page, not in the audit log, and is sealed at rest.
-	for _, p := range []string{"/admin/forms/spam", "/admin/forms/edit/" + formID.String()} {
+	for _, p := range []string{"/admin/forms/spam", "/admin/forms/design/" + formID.String(), "/admin/forms/design/" + formID.String() + "/settings", "/admin/forms/design/" + formID.String() + "/share"} {
 		rec := do("GET", p, nil, true)
 		if rec.Code != 200 || strings.Contains(rec.Body.String(), providerSecret) {
 			t.Errorf("%s: %d, secret present=%v", p, rec.Code, strings.Contains(rec.Body.String(), providerSecret))
