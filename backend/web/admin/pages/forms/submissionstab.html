@@ -5,7 +5,7 @@
 {{template "hm/tabs" dict "Label" "Form sections" "Items" .Tabs}}
 {{template "hm/stats" dict "Variant" "strip" "Items" .Stats}}
 {{template "hm/card-start" dict "ID" "ss-activity" "Title" "Submissions, last 30 days"}}<div class="hm-ss__tracker">{{template "hm/tracker" .Tracker}}</div>{{template "hm/card-end"}}
-{{template "hm/filterbar" (dict "ID" "ss" "BaseURL" (printf "%s/forms/design/%s/submissions" adminPath .ID) "Target" "ss-results" "Live" true "ListBar" true "ChipsOutside" true "Segmented" .Filter "SearchLabel" "Search answers" "Query" .Q)}}
+{{template "hm/filterbar" (dict "ID" "ss" "BaseURL" (printf "%s/forms/design/%s/submissions" adminPath .ID) "Target" "ss-results" "Live" true "ListBar" true "ChipsOutside" true "Segmented" .Filter "SearchLabel" "Search answers" "Query" .Q "OOB" "#ss-export")}}
 <p id="ss-status" class="hm-visually-hidden" role="status">{{.Summary}}</p>
 <div id="ss-results">{{template "hm/table" .Table}}</div>
 {{template "hm/dialog-start" dict "ID" "hm-ss-drawer" "Title" "Submission" "Side" "end" "Width" "wide"}}<div data-hm-ss-drawer-body>{{with .Drawer}}{{template "hm/formssubdrawer" .}}{{end}}</div>{{template "hm/dialog-end" dict "CloseLabel" "Close"}}

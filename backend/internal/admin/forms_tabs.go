@@ -307,7 +307,7 @@ func (a *Admin) renderSubmissionsTab(w http.ResponseWriter, r *http.Request, f *
 	v.Data = submissionsTabData{
 		formDesignData: formDesignData{ID: id, Name: f.Name, Slug: f.Slug, Status: f.Status, Tabs: a.formDesignTabs(ctx, id, "submissions")},
 		Stats:          stats, Tracker: tracker, Filter: filter, Q: q, Status: status, ExportURL: exportURL,
-		Actions: []ui.Button{{Label: "Export CSV", Href: exportURL, Icon: "copy"}},
+		Actions: []ui.Button{{Label: "Export CSV", Href: exportURL, Icon: "copy", Attrs: map[string]string{"id": "ss-export"}}},
 		Summary: fmtNum(int64(total)) + " " + plural(total, "submission", "submissions"),
 		Table:   t, Drawer: drawer,
 	}

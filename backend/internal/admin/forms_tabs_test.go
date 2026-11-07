@@ -250,3 +250,22 @@ func TestSubmissionsTabWebhooksAreOwnerOnly(t *testing.T) {
 		t.Errorf("an editor's drawer carries webhooks: %d", editor.Code)
 	}
 }
+
+// The header's Export CSV link is not part of the swapped results, so the live
+// search must refresh it out of band: the page names it in the filterbar's
+// out-of-band list, and the response carries a link for the current q and status.
+func TestSubmissionsTabExportLinkFollowsSearchAndStatus(t *testing.T) {
+	t.Parallel()
+
+	g, ff, fm, base := submissionsTabRig(t)
+	ff.addSub(fm, form.SubmissionStatusNew, time.Now(), map[string]any{"name": "Acme"})
+	body := g.do("GET", base+"?q=acme&status=new", "owner-token", nil, map[string]string{"HX-Request": "true"}).Body.String()
+	want := `href="/admin/forms/submissions/export.csv?form=` + fm.ID.String() + `&amp;status=new&amp;q=acme"`
+	i := strings.Index(body, `id="ss-export"`)
+	if i < 0 || !strings.Contains(body[max(0, i-200):i+200], want) {
+		t.Errorf("response lacks the export link %q next to id=ss-export", want)
+	}
+	if !strings.Contains(body, `hx-select-oob="#ss-count,#ss-status:innerHTML,#ss-export"`) {
+		t.Error("the filterbar does not refresh the export link out of band")
+	}
+}
