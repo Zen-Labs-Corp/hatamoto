@@ -87,6 +87,7 @@ type EditCell struct {
 	Control                        string // "text" | "textarea" | "switch" | "save"
 	Max                            int    // counter limit; used with Count
 	Count                          *EditCount
+	Error                          string // the field's error, shown under the control
 	Form                           string // id of the row form the control belongs to
 	// Control "save" only: the form's POST target, CSRF token and hidden fields.
 	Action, CSRF string

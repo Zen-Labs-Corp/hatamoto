@@ -115,7 +115,10 @@ func (a *Admin) handleThemeStringsSave(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_ = r.ParseForm() // a malformed body is an empty form, which clears nothing it does not own
+	if err := r.ParseForm(); err != nil { // a cut-off body would read as "clear every string"
+		a.Error(w, r, http.StatusBadRequest, "Bad request", "The form could not be read. Nothing was saved.")
+		return
+	}
 	tag := r.PostForm.Get("locale")
 	if !c.has(tag) {
 		a.renderThemeStrings(w, r, http.StatusUnprocessableEntity, c, c.defTag, c.stored.For(c.theme, c.defTag),
@@ -234,6 +237,10 @@ func (a *Admin) renderThemeStrings(w http.ResponseWriter, r *http.Request, statu
 			{Key: "text", Label: locale, Role: "title"},
 		},
 	}
+	cellErr := map[string]string{}
+	for _, e := range errs {
+		cellErr[e.ID] = e.Message
+	}
 	for _, k := range keys {
 		name := themeStringsField + k
 		text := values[k]
@@ -244,7 +251,7 @@ func (a *Admin) renderThemeStrings(w http.ResponseWriter, r *http.Request, statu
 				{Text: k, Mono: true},
 				{Text: c.decl[k]},
 				{Edit: &ui.EditCell{Name: name, Value: text, Orig: text, Control: "text", Form: themeStringsForm,
-					Label: locale + ": " + themeStringLabel(k)}},
+					Label: locale + ": " + themeStringLabel(k), Error: cellErr[themeStringsForm+"-"+name]}},
 			},
 		})
 	}

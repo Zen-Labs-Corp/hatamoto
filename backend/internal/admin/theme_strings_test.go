@@ -2,6 +2,8 @@ package admin
 
 import (
 	"encoding/json/jsontext"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -158,4 +160,40 @@ func TestThemeStringsErrorGolden(t *testing.T) {
 	}
 	a11yOK(t, body)
 	compareGolden(t, "pages/settings-theme-strings-error.html", normalizePage(body))
+}
+
+// A body that cannot be parsed must not read as "clear every string".
+func TestThemeStringsSaveMalformedFormIs400(t *testing.T) {
+	s, site := newThemeStringsRig(t, twoLocales...)
+	site.cfg.ThemeExtra = jsontext.Value(`{"themeStrings":{"sunrise":{"en":{"search":"Find"}}}}`)
+	before := string(site.cfg.ThemeExtra)
+	req := httptest.NewRequest("POST", "/admin/theme/strings", strings.NewReader("locale=en&s_search=%zz"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: "hatamoto_session", Value: "owner-token"})
+	s.addFetchMeta(req, "owner-token", nil)
+	rec := httptest.NewRecorder()
+	s.h.ServeHTTP(rec, req)
+	if rec.Code != 400 {
+		t.Fatalf("status %d, want 400", rec.Code)
+	}
+	if string(site.cfg.ThemeExtra) != before || s.flushed != 0 || len(s.events) != 0 {
+		t.Error("a malformed post saved, audited or cleared the cache")
+	}
+}
+
+// The 422 page marks the failing field itself, not only the summary.
+func TestThemeStringsErrorMarksTheField(t *testing.T) {
+	s, _ := newThemeStringsRig(t)
+	rec := s.do("POST", "/admin/theme/strings", "owner-token", url.Values{"locale": {"en"}, "s_search": {"<b>"}, "s_pager_next": {"Onward"}}, nil)
+	body := rec.Body.String()
+	bad, good := seoControlTag(body, "s_search"), seoControlTag(body, "s_pager_next")
+	if !strings.Contains(bad, `aria-invalid="true"`) || !strings.Contains(bad, `aria-describedby="theme-strings-s_search-error"`) {
+		t.Errorf("failing field not marked: %s", bad)
+	}
+	if !strings.Contains(body, `id="theme-strings-s_search-error"`) {
+		t.Error("no inline error message")
+	}
+	if strings.Contains(good, "aria-invalid") {
+		t.Errorf("valid field marked: %s", good)
+	}
 }
