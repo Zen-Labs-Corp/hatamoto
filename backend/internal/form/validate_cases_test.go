@@ -63,7 +63,7 @@ func TestValidationCases(t *testing.T) {
 				}
 				return
 			}
-			if errs != nil && len(errs) > 0 {
+			if len(errs) > 0 {
 				t.Fatalf("errors = %v, want none", errs)
 			}
 			want := tc.WantData
