@@ -316,11 +316,7 @@ func (s *Service) DeleteSubmission(ctx context.Context, id uuid.UUID) error {
 		if err != nil {
 			return err
 		}
-		f, err := s.repo.GetFormByID(ctx, sub.FormID)
-		if err != nil {
-			return err
-		}
-		formID, refs = f.ID, fileRefs(f.Fields, sub.Data)
+		formID, refs = sub.FormID, fileRefs(sub.Data)
 	}
 	if err := s.repo.DeleteSubmission(ctx, id); err != nil {
 		s.logger.Error("failed to delete submission",

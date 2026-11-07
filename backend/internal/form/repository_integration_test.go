@@ -69,7 +69,7 @@ func TestPurgeExpiredSubmissions(t *testing.T) {
 }
 
 // A purge returns the uploads of every deleted row (spam included), reading
-// them from the form's file fields only, and leaves newer rows' files alone.
+// them from the stored answers under any key, and leaves newer rows' files alone.
 func TestPurgeExpiredSubmissionsReturnsFiles(t *testing.T) {
 	ctx := database.WithSuperadmin(context.Background())
 	db := testDB(t)
@@ -86,15 +86,17 @@ func TestPurgeExpiredSubmissionsReturnsFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := func(c string) string { return strings.Repeat(c, 32) }
-	seed := func(age time.Duration, status, cv, note string) {
+	var seedAs func(key string, age time.Duration, status, cv, note string)
+	seed := func(age time.Duration, status, cv, note string) { seedAs("cv", age, status, cv, note) }
+	seedAs = func(key string, age time.Duration, status, cv, note string) {
 		conn, err := db.GetConn(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer conn.Release()
 		_, err = conn.Exec(ctx, `INSERT INTO hatamoto_form_submissions (form_id, data, metadata, status, created_at)
-			VALUES ($1, jsonb_build_object('cv', jsonb_build_object('id', $2::text, 'name', 'a.pdf', 'size', 1, 'type', 'application/pdf'), 'note', $3::text), '{}', $4, now() - make_interval(secs => $5))`,
-			f.ID, cv, note, status, age.Seconds())
+			VALUES ($1, jsonb_build_object($6::text, jsonb_build_object('id', $2::text, 'name', 'a.pdf', 'size', 1, 'type', 'application/pdf'), 'note', $3::text), '{}', $4, now() - make_interval(secs => $5))`,
+			f.ID, cv, note, status, age.Seconds(), key)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -102,6 +104,8 @@ func TestPurgeExpiredSubmissionsReturnsFiles(t *testing.T) {
 	seed(40*day, "new", id("a"), "x")
 	seed(40*day, "spam", id("b"), "y")
 	seed(10*day, "new", id("c"), "z")
+	// A file stored under a key that is no longer a file field is still returned.
+	seedAs("old_cv", 40*day, "new", id("e"), "w")
 	// A non-file field holding a ref-shaped string is never treated as a file.
 	seed(40*day, "new", "not-an-id", id("d"))
 
@@ -109,8 +113,8 @@ func TestPurgeExpiredSubmissionsReturnsFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != 3 {
-		t.Fatalf("purged %d rows, want 3", n)
+	if n != 4 {
+		t.Fatalf("purged %d rows, want 4", n)
 	}
 	got := map[string]bool{}
 	for _, pf := range files {
@@ -119,7 +123,7 @@ func TestPurgeExpiredSubmissionsReturnsFiles(t *testing.T) {
 		}
 		got[pf.FileID] = true
 	}
-	if len(got) != 2 || !got[id("a")] || !got[id("b")] {
+	if len(got) != 3 || !got[id("a")] || !got[id("b")] || !got[id("e")] {
 		t.Fatalf("returned files = %v, want the old new and spam rows' files only", got)
 	}
 }

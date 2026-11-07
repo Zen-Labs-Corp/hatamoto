@@ -141,3 +141,25 @@ func TestSubmissionFileDrawerLinkAndCSV(t *testing.T) {
 		t.Errorf("csv cell = %q", got)
 	}
 }
+
+// A file stays downloadable, and the drawer keeps its link, after the field it
+// was uploaded to is renamed or removed.
+func TestSubmissionFileSurvivesFieldChange(t *testing.T) {
+	t.Parallel()
+
+	g, fm, sub, _, path := fileRig(t)
+	for name, fields := range map[string][]form.FormField{
+		"renamed": {{ID: "f", Type: form.FieldTypeFile, Label: "Your CV", Name: "your_cv"}},
+		"removed": {},
+	} {
+		fm.Fields = fields
+		rec := g.do("GET", path, "owner-token", nil, nil)
+		if rec.Code != http.StatusOK || rec.Body.String() != pdfBody {
+			t.Errorf("%s: download %d", name, rec.Code)
+		}
+		drawer := g.do("GET", "/admin/forms/design/"+fm.ID.String()+"/submissions?s="+sub.ID.String(), "owner-token", nil, nil)
+		if !strings.Contains(drawer.Body.String(), `href="`+path+`"`) {
+			t.Errorf("%s: drawer lost the download link", name)
+		}
+	}
+}

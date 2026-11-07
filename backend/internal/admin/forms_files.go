@@ -38,14 +38,9 @@ func (a *Admin) handleSubmissionFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("field")
-	var ref form.FileRef
-	found := false
-	for _, ff := range f.Fields {
-		if ff.Type == form.FieldTypeFile && ff.Name == name {
-			ref, found = form.FileRefFromAny(s.Data[name])
-			break
-		}
-	}
+	// The key is the one the answer is stored under, not necessarily a current
+	// file field: the designer may have renamed or retyped the field since.
+	ref, found := form.StoredFileRef(s.Data[name])
 	store := a.formFileStore()
 	if !found || store == nil {
 		a.fileNotFound(w, r)

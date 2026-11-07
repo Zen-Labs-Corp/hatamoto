@@ -145,7 +145,7 @@ func TestDeleteSubmissionToleratesMissingFile(t *testing.T) {
 	}
 }
 
-func TestDeleteSubmissionIgnoresNonFileKeysAndForgedIDs(t *testing.T) {
+func TestDeleteSubmissionIgnoresForgedIDsAndMalformedRefs(t *testing.T) {
 	t.Parallel()
 	fx := newFileFixture(t)
 	victim := fx.put(t)
@@ -153,20 +153,35 @@ func TestDeleteSubmissionIgnoresNonFileKeysAndForgedIDs(t *testing.T) {
 	if err := os.WriteFile(outside, []byte("s"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// A ref in a text field, and path-shaped ids in file fields, delete nothing.
+	// Path-shaped ids, and a valid id without a name or type, delete nothing.
 	id := fx.addSub(map[string]any{
-		"note":  victim,
-		"cv":    map[string]any{"id": "../../secret"},
-		"photo": map[string]any{"id": "../" + victim["id"].(string)},
+		"cv":    map[string]any{"id": "../../secret", "name": "x", "type": "t"},
+		"photo": map[string]any{"id": "../" + victim["id"].(string), "name": "x", "type": "t"},
+		"note":  map[string]any{"id": victim["id"]},
 	})
 	if err := fx.svc.DeleteSubmission(context.Background(), id); err != nil {
 		t.Fatal(err)
 	}
 	if !fx.exists(victim) {
-		t.Error("a ref outside a file field deleted a file")
+		t.Error("a malformed ref deleted a file")
 	}
 	if _, err := os.Stat(outside); err != nil {
 		t.Errorf("file outside the store removed: %v", err)
+	}
+}
+
+// Field names are not stable: a file stored under a key that is no longer a
+// file field (renamed, retyped or removed) is still deleted with its row.
+func TestDeleteSubmissionRemovesFilesOfFieldsThatChanged(t *testing.T) {
+	t.Parallel()
+	fx := newFileFixture(t)
+	renamed, retyped := fx.put(t), fx.put(t)
+	id := fx.addSub(map[string]any{"old_cv": renamed, "note": retyped})
+	if err := fx.svc.DeleteSubmission(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	if fx.exists(renamed) || fx.exists(retyped) {
+		t.Error("files under a changed field remain")
 	}
 }
 

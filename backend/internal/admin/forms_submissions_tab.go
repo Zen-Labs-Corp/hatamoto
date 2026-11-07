@@ -284,7 +284,7 @@ func (a *Admin) buildSubmissionDrawer(ctx context.Context, f *form.Form, s *form
 		// without any data (the store is off) has nothing to list.
 		if v, ok := s.Data[ff.Name]; ok || len(s.Data) > 0 {
 			ans := drawerAnswer{Label: ff.Label, Value: formatAnswer(v)}
-			if _, isFile := form.FileRefFromAny(v); isFile && ff.Type == form.FieldTypeFile {
+			if _, isFile := form.StoredFileRef(v); isFile {
 				ans.DownloadURL = a.submissionFileURL(d.ID, url.PathEscape(ff.Name))
 			}
 			d.Answers = append(d.Answers, ans)
@@ -298,7 +298,11 @@ func (a *Admin) buildSubmissionDrawer(ctx context.Context, f *form.Form, s *form
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		d.Answers = append(d.Answers, drawerAnswer{Label: k, Value: formatAnswer(s.Data[k])})
+		ans := drawerAnswer{Label: k, Value: formatAnswer(s.Data[k])}
+		if _, isFile := form.StoredFileRef(s.Data[k]); isFile {
+			ans.DownloadURL = a.submissionFileURL(d.ID, url.PathEscape(k))
+		}
+		d.Answers = append(d.Answers, ans)
 	}
 	d.Details = []drawerDetail{{Label: "Received", Value: relTime(now, s.CreatedAt), Exact: fmtDateTime(s.CreatedAt.In(loc)), Stamp: s.CreatedAt.UTC().Format(time.RFC3339)}}
 	if p := pagePath(s.Metadata.PageURL); p != "" {

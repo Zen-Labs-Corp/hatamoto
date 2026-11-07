@@ -95,16 +95,26 @@ func (f FormField) FileAccept() string {
 	return strings.Join(exts, ",")
 }
 
-// fileRefs returns the stored uploads a submission's data points at: only
-// answers to the form's file fields count, and only refs with a generated id.
-func fileRefs(fields []FormField, data map[string]any) []FileRef {
+// StoredFileRef reads a stored answer as an upload the server made: a ref
+// with a generated id and a name and type. Field names are not stable (a
+// designer can rename, retype or remove a file field after submissions
+// arrived), so uploads are found by the shape of the stored value, never by
+// the form's current fields. A visitor cannot plant such a value: Validate
+// stores a ref only for a file field, and ids are scoped to the form's own
+// directory in the store.
+func StoredFileRef(v any) (FileRef, bool) {
+	ref, ok := FileRefFromAny(v)
+	if !ok || !ValidFileID(ref.ID) || ref.Name == "" || ref.Type == "" || ref.Size < 0 {
+		return FileRef{}, false
+	}
+	return ref, true
+}
+
+// fileRefs returns every upload a submission's data points at, under any key.
+func fileRefs(data map[string]any) []FileRef {
 	var refs []FileRef
-	for i := range fields {
-		f := &fields[i]
-		if f.Type != FieldTypeFile || f.Name == "" {
-			continue
-		}
-		if ref, ok := FileRefFromAny(data[f.Name]); ok && ValidFileID(ref.ID) {
+	for _, v := range data {
+		if ref, ok := StoredFileRef(v); ok {
 			refs = append(refs, ref)
 		}
 	}

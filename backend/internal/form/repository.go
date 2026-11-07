@@ -818,27 +818,21 @@ func (r *PostgresRepository) PurgeExpiredSubmissions(ctx context.Context) (int64
 	defer conn.Release()
 
 	// The regexp guards the cast: only the three allowed values are ever read as int.
-	rows, err := conn.Query(ctx, `SELECT id, (settings->>'retention_days')::int, fields FROM hatamoto_forms
+	rows, err := conn.Query(ctx, `SELECT id, (settings->>'retention_days')::int FROM hatamoto_forms
 		WHERE settings->>'retention_days' ~ '^(30|90|365)$'`)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to list forms with retention: %w", err)
 	}
 	type retained struct {
-		id     uuid.UUID
-		days   int
-		fields []FormField
+		id   uuid.UUID
+		days int
 	}
 	var forms []retained
 	for rows.Next() {
 		var f retained
-		var fieldsData []byte
-		if err := rows.Scan(&f.id, &f.days, &fieldsData); err != nil {
+		if err := rows.Scan(&f.id, &f.days); err != nil {
 			rows.Close()
 			return 0, nil, fmt.Errorf("failed to scan form retention: %w", err)
-		}
-		if err := jsonx.Unmarshal(fieldsData, &f.fields, jsonx.StoredLoose); err != nil {
-			rows.Close()
-			return 0, nil, fmt.Errorf("failed to unmarshal fields: %w", err)
 		}
 		forms = append(forms, f)
 	}
@@ -851,7 +845,7 @@ func (r *PostgresRepository) PurgeExpiredSubmissions(ctx context.Context) (int64
 	var files []PurgedFile
 	for _, f := range forms {
 		for {
-			n, err := purgeBatch(ctx, conn, f.id, f.days, f.fields, &files)
+			n, err := purgeBatch(ctx, conn, f.id, f.days, &files)
 			total += n
 			if err != nil {
 				return total, files, err
@@ -866,7 +860,7 @@ func (r *PostgresRepository) PurgeExpiredSubmissions(ctx context.Context) (int64
 
 // purgeBatch deletes up to purgeBatchSize expired submissions of one form and
 // appends the uploads they referenced to files.
-func purgeBatch(ctx context.Context, conn *pgxpool.Conn, formID uuid.UUID, days int, fields []FormField, files *[]PurgedFile) (int64, error) {
+func purgeBatch(ctx context.Context, conn *pgxpool.Conn, formID uuid.UUID, days int, files *[]PurgedFile) (int64, error) {
 	rows, err := conn.Query(ctx, `DELETE FROM hatamoto_form_submissions WHERE ctid IN (
 		SELECT ctid FROM hatamoto_form_submissions
 		WHERE form_id = $1 AND created_at < now() - make_interval(days => $2)
@@ -886,7 +880,7 @@ func purgeBatch(ctx context.Context, conn *pgxpool.Conn, formID uuid.UUID, days 
 		if err := jsonx.Unmarshal(dataData, &data, jsonx.StoredLoose); err != nil {
 			continue // a row that cannot be read has no refs we could trust
 		}
-		for _, ref := range fileRefs(fields, data) {
+		for _, ref := range fileRefs(data) {
 			*files = append(*files, PurgedFile{FormID: formID, FileID: ref.ID})
 		}
 	}
