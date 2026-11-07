@@ -51,6 +51,7 @@ func (a *Admin) mountForms(authed *httpx.Group) {
 	authed.HandleFunc("GET /forms/submissions/export.csv", a.handleSubmissionsExport)
 	authed.HandleFunc("POST /forms/submissions/bulk", a.handleSubmissionsBulk)
 	authed.HandleFunc("GET /forms/submissions/{sid}", a.handleSubmission)
+	authed.HandleFunc("GET /forms/submissions/{sid}/files/{field}", a.handleSubmissionFile)
 	authed.HandleFunc("POST /forms/submissions/{sid}/status", a.handleSubmissionStatus)
 	authed.HandleFunc("POST /forms/submissions/{sid}/email", a.handleSubmissionEmail)
 	authed.HandleFunc("GET /forms/submissions/{sid}/delete", a.handleSubmissionDeleteForm)
@@ -380,6 +381,9 @@ func validEmailList(s string) bool {
 
 // formatAnswer renders a stored answer as text.
 func formatAnswer(v any) string {
+	if ref, ok := form.FileRefFromAny(v); ok {
+		return ref.String()
+	}
 	switch x := v.(type) {
 	case nil:
 		return ""
