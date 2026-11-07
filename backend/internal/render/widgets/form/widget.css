@@ -8,6 +8,7 @@
 .hm-formw .hm-form:has(.hm-form__field--half, .hm-form__field--third) > .hm-form__field--half { grid-column: span 3; }
 .hm-formw .hm-form:has(.hm-form__field--half, .hm-form__field--third) > .hm-form__field--third { grid-column: span 2; }
 @media (max-width: 600px) { .hm-formw .hm-form:has(.hm-form__field--half, .hm-form__field--third) > .hm-form__field { grid-column: 1 / -1; } }
+.hm-formw input[type="file"] { max-width: 100%; }
 .hm-formw .hm-form__heading, .hm-formw .hm-form__text { margin: 0; }
 .hm-formw .hm-form__divider { width: 100%; border: 0; border-top: 1px solid var(--hm-border, #bbb); }
 .hm-formw .hm-form__field[hidden] { display: none; }

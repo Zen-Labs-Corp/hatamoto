@@ -8,6 +8,7 @@
   width: 100%; padding: 0.6rem 0.75rem; font: inherit; color: inherit; background: var(--hm-bg);
   border: 1px solid var(--ht-line); border-radius: var(--hm-radius-md);
 }
+.hm-form input[type="file"] { width: 100%; padding: 0.4rem 0; font: inherit; color: inherit; }
 .hm-form__group { border: 0; padding: 0; margin: 0; display: grid; gap: 0.35rem; }
 .hm-form__check { display: flex; gap: 0.5rem; align-items: baseline; }
 .hm-form__help { color: var(--ht-fg-muted); }

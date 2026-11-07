@@ -702,6 +702,9 @@ func formView(f *form.Form) render.FormView {
 		if rf.Width == "" {
 			rf.Width = "full"
 		}
+		if fld.Type == form.FieldTypeFile {
+			rf.Accept, rf.MaxMB = fld.FileAccept(), fld.FileMaxMB()
+		}
 		// The server always requires consent, so the form shows it that way.
 		if fld.Type == form.FieldTypeConsent {
 			rf.Required = true

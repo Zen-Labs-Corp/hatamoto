@@ -7,7 +7,7 @@
   {{if $f.Slug}}
   {{if .Page.Submitted}}<p class="hm-form__success" role="status">{{default (t $ "contact_form_success") $f.SuccessNotice}}</p>{{end}}
   {{if .Page.FormError}}<p class="hm-form__error" role="alert">{{t $ "contact_form_error"}}</p>{{end}}
-  <form class="hm-form" method="post" action="/forms/{{$f.Slug}}/submit" {{if $f.HasLogic}}data-hm-form-logic{{else}}data-hm-form="{{$f.Slug}}"{{end}}>
+  <form class="hm-form" method="post" action="/forms/{{$f.Slug}}/submit"{{if $f.HasFile}} enctype="multipart/form-data"{{end}} {{if $f.HasLogic}}data-hm-form-logic{{else}}data-hm-form="{{$f.Slug}}"{{end}}>
     <input type="hidden" name="_redirect" value="{{.Page.Path}}">
     <input type="hidden" name="page_url" value="{{.Page.Path}}">
     <div class="hm-form__hp" aria-hidden="true"><label>{{t $ "contact_form_hp_label"}}<input type="text" name="hm_website" tabindex="-1" autocomplete="off"></label></div>
@@ -23,6 +23,7 @@
       {{else}}<label class="hm-form__label" for="{{$id}}">{{.Label}}{{if .Required}} <abbr title="{{t $ "contact_form_required"}}">*</abbr>{{end}}</label>
       {{if eq .Type "textarea"}}<textarea id="{{$id}}" name="{{.Name}}" rows="5"{{with .Placeholder}} placeholder="{{.}}"{{end}}{{if .Required}} required{{end}}></textarea>
       {{else if eq .Type "select"}}<select id="{{$id}}" name="{{.Name}}"{{if .Required}} required{{end}}><option value="">{{default (t $ "contact_form_select") .Placeholder}}</option>{{range .Options}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select>
+      {{else if eq .Type "file"}}<input id="{{$id}}" name="{{.Name}}" type="file"{{with .Accept}} accept="{{.}}"{{end}}{{if .Required}} required{{end}}><small class="hm-form__help">{{.Accept}} · {{.MaxMB}} MB</small>{{if $f.HasLogic}}<small class="hm-form__error" id="{{$id}}-error" data-hm-error-for="{{.Name}}" hidden></small>{{end}}
       {{else}}<input id="{{$id}}" name="{{.Name}}" type="{{if eq .Type "email"}}email{{else if or (eq .Type "tel") (eq .Type "phone")}}tel{{else if eq .Type "date"}}date{{else if eq .Type "number"}}number{{else if eq .Type "url"}}url{{else}}text{{end}}"{{with .Placeholder}} placeholder="{{.}}"{{end}}{{if .Required}} required{{end}}>{{end}}{{if $f.HasLogic}}<small class="hm-form__error" id="{{$id}}-error" data-hm-error-for="{{.Name}}" hidden></small>{{end}}{{end}}
       {{with .HelpText}}<small class="hm-form__help">{{.}}</small>{{end}}
     </div>

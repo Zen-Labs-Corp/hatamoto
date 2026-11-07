@@ -974,6 +974,17 @@ func (f FormView) HasLogic() bool {
 	return false
 }
 
+// HasFile reports whether any field takes a file upload. Such a form posts
+// multipart/form-data; every other form keeps the default encoding.
+func (f FormView) HasFile() bool {
+	for _, ff := range f.Fields {
+		if ff.Type == "file" {
+			return true
+		}
+	}
+	return false
+}
+
 // FormField is one input of a FormView.
 type FormField struct {
 	Name        string
@@ -995,6 +1006,10 @@ type FormField struct {
 	LogicField string
 	LogicOp    string
 	LogicValue string
+	// Accept is the file input's accept list (".pdf,.docx") and MaxMB its size
+	// limit, for file fields.
+	Accept string
+	MaxMB  int
 }
 
 // FormOption is one choice of a select or radio field.
