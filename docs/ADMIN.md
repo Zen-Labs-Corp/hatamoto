@@ -56,6 +56,25 @@ counted). The Forms page has three tabs: Forms (`<admin>/forms`), Submissions
 (`<admin>/forms/submissions`) and Spam (`<admin>/forms/spam`, owner only). Media is one plain
 page with no secondary sidebar.
 
+**Form designer.** A form opens on `<admin>/forms/design/{id}` (Build), with the tabs Settings
+(`.../settings`, a plain form that posts to the same path), Submissions
+(`<admin>/forms/submissions?form={id}`) and Share and embed (`.../share`). The old
+`<admin>/forms/edit/{id}` answers 303 to Build. Build needs JavaScript (there is no
+no-JS field editor); without it the page says so. It has a palette (click or drag a type), a
+canvas (the form as visitors see it; the label is edited in place), an inspector (Content,
+Choices, Layout, Rules, Advanced) and an Edit | Try it switch with Desktop, Tablet and Phone
+widths. Try it runs the same rules a visitor meets, in the browser (`js/forms/validate.js`,
+held equal to the server by `internal/form/testdata/validation_cases.json`) and sends nothing.
+Edits are ops on a command log, so undo and redo cover every change. Shortcuts, when the focus
+is not in a text control: Alt+Up/Down move the field, Ctrl/Cmd+D duplicates, Delete removes it
+(a toast offers Ctrl/Cmd+Z), Up/Down select, Esc deselects, Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z and
+Ctrl+Y undo and redo, `?` lists them; Ctrl/Cmd+S saves from anywhere. Save is explicit (the
+Save button or Ctrl/Cmd+S); changing tab or pressing the back arrow saves first and stays on
+the page if the save fails. A version conflict shows "This form was changed in another tab"
+with a Reload link. A form's status is stored as `active`, `inactive` or `archived`; the admin
+calls `inactive` Paused. `?qa=1` on Build exposes `window.__hmForms` for the admin-qa script
+`forms-designer.mjs`.
+
 **Form fields and logic.** A form field is one of the input types (text, email, phone, url,
 number, date, textarea, select, radio, checkbox, and the ones below) or a layout type. Layout types
 are `heading`, `paragraph` and `divider`: they show content and submit nothing, store nothing,

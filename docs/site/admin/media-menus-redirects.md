@@ -66,9 +66,9 @@ The picker inside a PDF widget lists PDF files only. A PDF can be shown in a fra
 
 1. Open **Forms** (`<admin>/forms`) and press **New form**. Give it a name, such as "Contact", and press **Create form**.
 
-2. Press **Add field** for each question. For a contact form, add a name (single-line text), an email address and a message (multi-line text), and tick **Required** where an answer is needed.
+2. On the **Build** tab, click a field type for each question. For a contact form, add a name (single-line text), an email address and a message (multi-line text), and switch on **Required** where an answer is needed. Press **Save**. The guide [Build a form](forms.md) covers the tab in full.
 
-3. Under **After someone sends it**, fill in the **Success message** and the address in **Email notifications to**. Notification email works only once email is set up (**Settings > Email** or the server's `SMTP_*` settings); see [Set up email](../operate/email.md). Set **Status** to Active and press **Save form**.
+3. Open the **Settings** tab, fill in the **Success message** and the address in **Email notifications to**. Notification email works only once email is set up (**Settings > Email** or the server's `SMTP_*` settings); see [Set up email](../operate/email.md). Make sure the status is **Active** and press **Save form**.
 
 4. Put the form on a page. In the page builder, add the **form** element and choose your form, or add a contact-form section if your theme has one.
 

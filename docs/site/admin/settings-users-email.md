@@ -86,13 +86,14 @@ The library is at `<admin>/media`, with Grid and List views, a search box and a 
 
 Forms are at `<admin>/forms` (the **Forms** item of the main menu), and the messages visitors send are at `<admin>/forms/submissions`.
 
-A form has a name, an **Identifier** (used in the form's address; made from the name when left empty), a **Status** (Active accepts submissions; Paused shows nothing and accepts nothing; Archived), a description shown only in the admin, and an ordered list of fields.
+Forms are built on the **Build** tab of the form designer, with **Settings**, **Submissions** and **Share and embed** beside it; the guide [Build a form](forms.md) walks through it. A form has a name, an **Identifier** (used in the form's address; made from the name when left empty), a **Status** (Active accepts submissions; Paused shows nothing and accepts nothing; Archived), a description shown only in the admin, and an ordered list of fields.
 
 | Field option | Values |
 |---|---|
-| Type | Single-line text, email address, phone number, multi-line text, drop-down list, radio buttons, checkboxes, date, number and web address |
+| Type | Single-line text, email address, phone number, multi-line text, drop-down list, radio buttons, checkboxes, date, number, web address, consent checkbox and hidden value, plus the layout types heading, paragraph of text and divider (shown to visitors, nothing is stored) |
 | Label, Field name | What the visitor sees, and the name the answer is stored under |
 | Width | Full, half or third |
+| Show when | Show the field only when another answer is, is not, contains, is filled or is empty |
 | Placeholder, Help text | Hints in and under the field |
 | Required | The visitor must answer |
 | Choices | For list types |
@@ -109,7 +110,7 @@ Form-level settings:
 | Send the visitor a confirmation email | With your own text |
 | Require the spam check (captcha) | Show the captcha chosen in Spam protection and refuse submissions that fail it. If no provider is set up, a warning shows and submissions are accepted unchecked. |
 
-The **Embed** card shows the address a hand-built form in a template posts to; fields are sent by their name. Place a form on a page with the builder's `form` widget or a contact-form section. Notification mail needs outgoing email, see [Email](#email).
+The **Share and embed** tab shows the address a hand-built form in a template posts to; fields are sent by their name. Place a form on a page with the builder's `form` widget or a contact-form section. Notification mail needs outgoing email, see [Email](#email).
 
 The submissions list filters by form and by status (New, Read, Archived, Spam). Messages caught by the spam rules are stored as Spam, send no email and can be moved to another status if they were a false alarm. Bulk actions mark rows as read, archive them, mark them as spam or delete them (twice confirmed). Open a submission at `<admin>/forms/submissions/{sid}` to read it, change its status or email it on. **Export CSV** (`<admin>/forms/submissions/export.csv`) streams 500 rows at a time with a byte-order mark, and prefixes cells that begin with `=`, `+`, `-` or `@` so a spreadsheet will not run them as formulas.
 
