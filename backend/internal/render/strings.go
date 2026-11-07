@@ -59,9 +59,11 @@ func resolveStrings(def themestrings.Decl, ov map[string]string) map[string]stri
 
 // tFunc is the "t" template func: {{t . "key"}} or {{t . "min_read" 5}}. v is
 // the page data (the template's "." or "$"), a section, or a dict carrying a
-// "Strings" entry. A missing key, nil map or unknown v yields the key itself.
+// "Strings" entry. Without defaults a missing key, nil map or unknown v
+// yields the key itself. Compiled themes use newTFunc instead: there those
+// cases yield the theme's default text, so a partial called without "Strings"
+// prints the default, never a translation.
 // The result is plain text: html/template escapes it where it is printed.
-// Compiled themes use newTFunc, which falls back to the theme defaults.
 var tFunc = newTFunc(nil)
 
 // newTFunc is tFunc with a fallback: when v carries no Strings map (a default
