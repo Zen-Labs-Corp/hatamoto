@@ -2,7 +2,7 @@ package entity
 
 import (
 	"context"
-	"encoding/json"
+	"hatamoto.dev/core/internal/jsonx"
 	"testing"
 
 	"github.com/google/uuid"
@@ -25,7 +25,7 @@ func (f *fakeFormScanner) ScanFormCandidates(_ context.Context, fn func(*Entity)
 }
 
 func usageEntity(schema, name, slug string, attrs any) *Entity {
-	b, _ := json.Marshal(attrs)
+	b, _ := jsonx.Marshal(attrs)
 	return &Entity{ID: uuid.New(), Name: name, Slug: slug, Status: StatusPublished, Attributes: b, Schema: &EntitySchema{Slug: schema}}
 }
 
