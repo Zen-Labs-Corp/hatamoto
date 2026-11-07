@@ -1,7 +1,7 @@
 // A form's Submissions tab, by click paths with real pointer and keyboard events. It makes its own
 // form and sends five submissions through the public endpoint, then checks: the stats strip and the
 // tracker, search, the status filter, the export (only the rows that match), the side drawer (a row
-// click marks it read, a ?s= address opens it on load, j and k move between submissions from inside
+// click marks it read, Mark unread puts it back, a ?s= address opens it on load, j and k move between submissions from inside
 // the open drawer without closing it, Esc closes it and focus returns to the row), the bulk actions
 // (Mark read, Mark as spam, Delete with its confirmation), the old addresses, the sidebar badge and
 // a 390px viewport. The form is deleted at the end.
@@ -143,10 +143,13 @@ ok(csv.includes("Ada") && csv.includes("Cara") && !csv.includes("Ben") && !csv.i
 await open();
 await page.locator("#ss-q").fill("zebra");
 await page.waitForFunction(() => document.querySelectorAll("tr[data-hm-ss-row]").length === 2);
-// KNOWN product gap, not failed here: the header's Export CSV is outside the swapped table, so after a live search
-// its link still has the address the page loaded with and exports every row. Turn this into ok() once it follows.
 const liveHref = (await exportHref()) ?? "";
-console.log(`${liveHref.includes("q=zebra") ? "ok  " : "KNOWN"} export: the link follows a live search without a reload`);
+ok(liveHref.includes("q=zebra") && liveHref.includes(`form=${formId}`), "export: the link follows a live search without a reload");
+await page.locator('#ss-seg label:has-text("Unread")').click();
+await page.waitForFunction(() => location.search.includes("status=new"));
+await page.waitForFunction(() => document.querySelector("#ss-export")?.getAttribute("href")?.includes("status=new"));
+const segHref = (await exportHref()) ?? "";
+ok(segHref.includes("q=zebra") && segHref.includes("status=new"), "export: the link follows a segment change too");
 await page.locator("#ss-q").fill("");
 await page.waitForFunction(() => document.querySelectorAll("tr[data-hm-ss-row]").length === 5);
 
@@ -161,6 +164,15 @@ ok(await drawer.evaluate((d) => d.open), "click: the drawer opens");
 ok((await drawer.innerText()).includes(firstName) && (await drawer.innerText()).includes("Message"), `click: the drawer shows ${firstName}'s answers`);
 ok((await drawerId()) === ids[0] && page.url().includes(`s=${ids[0]}`), "click: the address names the open submission");
 ok(!(await first.evaluate((r) => r.classList.contains("hm-ss__row--unread"))) && (await unread.count()) === 4, "click: its unread styling is gone");
+
+// ============ a drawer action: Mark unread ============
+await page.getByRole("button", { name: "Mark unread" }).click();
+await page.waitForLoadState("load");
+await page.waitForFunction((t) => location.pathname === t, tab);
+ok((await page.getByText("Marked as new").count()) > 0 && (await unread.count()) === 5 && (await rows.nth(0).evaluate((r) => r.classList.contains("hm-ss__row--unread"))), "drawer: Mark unread puts the submission back in Unread and returns to the tab");
+await open();
+await first.locator("a[data-hm-ss-open]").click();
+await page.waitForFunction(() => document.querySelector("dialog[open] [data-hm-ss-drawer-body] [data-hm-ss-id]"));
 
 // ============ j and k with the drawer open ============
 await drawer.evaluate((d) => { d.dataset.qaSame = "1"; });
