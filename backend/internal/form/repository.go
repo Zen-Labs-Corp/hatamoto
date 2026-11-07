@@ -33,6 +33,8 @@ type Repository interface {
 	UpdateSubmission(ctx context.Context, id uuid.UUID, input *UpdateSubmissionInput) (*FormSubmission, error)
 	DeleteSubmission(ctx context.Context, id uuid.UUID) error
 	GetSubmissionCount(ctx context.Context, formID uuid.UUID) (int, error)
+	CountRecentSubmissionsByIP(ctx context.Context, formID uuid.UUID, ip string, since time.Time) (int, error)
+	PurgeExpiredSubmissions(ctx context.Context) (int64, error)
 }
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -727,6 +729,82 @@ func (r *PostgresRepository) GetSubmissionCount(ctx context.Context, formID uuid
 	}
 
 	return count, nil
+}
+
+// CountRecentSubmissionsByIP counts a form's submissions from one address
+// since the given time. An empty address counts nothing.
+func (r *PostgresRepository) CountRecentSubmissionsByIP(ctx context.Context, formID uuid.UUID, ip string, since time.Time) (int, error) {
+	if ip == "" {
+		return 0, nil
+	}
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Release()
+
+	var count int
+	err = conn.QueryRow(ctx, `SELECT COUNT(*) FROM hatamoto_form_submissions
+		WHERE form_id = $1 AND created_at >= $2 AND metadata->>'ip_address' = $3`, formID, since, ip).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count recent submissions: %w", err)
+	}
+	return count, nil
+}
+
+const purgeBatchSize = 1000
+
+// PurgeExpiredSubmissions deletes, for every form with a retention of 30, 90 or
+// 365 days, the submissions (spam included) older than that. Forms without a
+// retention keep everything. Run it with a superadmin context.
+func (r *PostgresRepository) PurgeExpiredSubmissions(ctx context.Context) (int64, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Release()
+
+	// The regexp guards the cast: only the three allowed values are ever read as int.
+	rows, err := conn.Query(ctx, `SELECT id, (settings->>'retention_days')::int FROM hatamoto_forms
+		WHERE settings->>'retention_days' ~ '^(30|90|365)$'`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to list forms with retention: %w", err)
+	}
+	type retained struct {
+		id   uuid.UUID
+		days int
+	}
+	var forms []retained
+	for rows.Next() {
+		var f retained
+		if err := rows.Scan(&f.id, &f.days); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("failed to scan form retention: %w", err)
+		}
+		forms = append(forms, f)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("failed to list forms with retention: %w", err)
+	}
+
+	var total int64
+	for _, f := range forms {
+		for {
+			res, err := conn.Exec(ctx, `DELETE FROM hatamoto_form_submissions WHERE ctid IN (
+				SELECT ctid FROM hatamoto_form_submissions
+				WHERE form_id = $1 AND created_at < now() - make_interval(days => $2)
+				LIMIT $3)`, f.id, f.days, purgeBatchSize)
+			if err != nil {
+				return total, fmt.Errorf("failed to purge submissions: %w", err)
+			}
+			total += res.RowsAffected()
+			if res.RowsAffected() < purgeBatchSize {
+				break
+			}
+		}
+	}
+	return total, nil
 }
 
 // isPgUniqueViolation checks if an error is a PostgreSQL unique constraint violation.

@@ -78,6 +78,28 @@ func EvaluateRules(s Settings, data map[string]interface{}) (reason string, trip
 	return "", false
 }
 
+// MatchWords reports whether any string value in data contains one of words,
+// by the same whole-word rules as the site-wide blocked words.
+func MatchWords(words []string, data map[string]any) bool {
+	matchers := wordMatchers(words)
+	if len(matchers) == 0 {
+		return false
+	}
+	var texts []string
+	for _, v := range data {
+		collectStrings(v, &texts)
+	}
+	for _, t := range texts {
+		lower := strings.ToLower(t)
+		for _, m := range matchers {
+			if m(lower) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // wordMatchers returns one matcher per blocked word. A word matches whole
 // words only, so "ass" does not block "class"; a phrase matches as a run of
 // whole words. An edge that is punctuation (".ru") needs no boundary. Scripts written without spaces (CJK, Thai) match as substrings.

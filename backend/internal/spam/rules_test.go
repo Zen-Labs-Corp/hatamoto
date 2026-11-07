@@ -65,3 +65,27 @@ func TestLinkCount(t *testing.T) {
 		}
 	}
 }
+
+func TestMatchWords(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name  string
+		words []string
+		data  map[string]any
+		want  bool
+	}{
+		{"hit", []string{"Crypto"}, map[string]any{"m": "buy crypto now"}, true},
+		{"nested value", []string{"casino"}, map[string]any{"m": []any{"x", "Casino!"}}, true},
+		{"whole word only", []string{"ass"}, map[string]any{"m": "Our class passed"}, false},
+		{"phrase", []string{"seo services"}, map[string]any{"m": "Cheap SEO services!"}, true},
+		{"cjk substring", []string{"赌博"}, map[string]any{"m": "网络赌博网站"}, true},
+		{"no words", nil, map[string]any{"m": "crypto"}, false},
+		{"blank word ignored", []string{"  "}, map[string]any{"m": "crypto"}, false},
+		{"no data", []string{"crypto"}, nil, false},
+	}
+	for _, c := range cases {
+		if got := MatchWords(c.words, c.data); got != c.want {
+			t.Errorf("%s: MatchWords = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
