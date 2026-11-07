@@ -107,6 +107,9 @@ type PageView struct {
 	// Doc is a page_doc v2 tree. When set it replaces Sections: v1-shaped nodes
 	// render through the theme section partial, the rest natively.
 	Doc *builder.Doc
+	// strs is StringOverrides laid over the theme defaults, resolved once per
+	// render and shared (read-only) by the page and its component nodes.
+	strs map[string]string
 	// anchors are the element anchors the current render has written.
 	anchors *anchorSet
 	// formIsland is set when a contact_form component with field logic was

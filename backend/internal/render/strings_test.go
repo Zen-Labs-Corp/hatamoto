@@ -3,6 +3,7 @@ package render
 import (
 	"bytes"
 	"io/fs"
+	"reflect"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -169,5 +170,27 @@ func TestDefaultPartialsOldCallShapesRenderText(t *testing.T) {
 	}
 	if !strings.Contains(out, "min read") || !strings.Contains(out, "Menu") {
 		t.Fatalf("default text missing: %q", out)
+	}
+}
+
+// Component nodes of one view share one resolved map (no clone per node).
+func TestPrepareBlockSharesResolvedStrings(t *testing.T) {
+	e, err := New(Options{Layers: []fs.FS{stringsTheme(stringsDecl)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := minimalView()
+	v.StringOverrides = map[string]string{"greeting": "Hi"}
+	sec := Section{ID: "s1", Type: "note", Content: map[string]any{}}
+	a, ok1 := prepareBlock(e.current(), v, sec, false, nil)
+	b, ok2 := prepareBlock(e.current(), v, sec, false, nil)
+	if !ok1 || !ok2 {
+		t.Fatal("section not prepared")
+	}
+	if a.Page.Strings["greeting"] != "Hi" {
+		t.Fatalf("override lost: %v", a.Page.Strings)
+	}
+	if reflect.ValueOf(a.Page.Strings).Pointer() != reflect.ValueOf(b.Page.Strings).Pointer() {
+		t.Error("each prepareBlock cloned the strings map")
 	}
 }

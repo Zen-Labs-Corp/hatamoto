@@ -592,6 +592,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		return fmt.Errorf("render: no layout among %v", candidates)
 	}
 	settings := *e.settings.Load()
+	v.strs = resolveStrings(c.theme.Strings, v.StringOverrides)
 	d := &pageData{
 		PageView:   *v,
 		CSSHref:    AssetPrefix + c.cssName,
@@ -599,7 +600,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		Status:     status,
 		StatusText: http.StatusText(status),
 		Settings:   settings,
-		Strings:    resolveStrings(c.theme.Strings, v.StringOverrides),
+		Strings:    v.strs,
 	}
 	var docCSS builderCSS
 	v.anchors, v.formIsland = newAnchorSet(), false
@@ -744,7 +745,10 @@ func prepareBlock(c *compiled, v *PageView, s Section, canvas bool, settings map
 		return p, false
 	}
 	p = out[0]
-	finishBlock(&p, v, settings, resolveStrings(c.theme.Strings, v.StringOverrides))
+	if v.strs == nil { // outside a page render (editor canvas): resolve once per view
+		v.strs = resolveStrings(c.theme.Strings, v.StringOverrides)
+	}
+	finishBlock(&p, v, settings, v.strs)
 	return p, true
 }
 
