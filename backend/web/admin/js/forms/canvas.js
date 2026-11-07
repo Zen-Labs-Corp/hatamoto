@@ -134,6 +134,9 @@ export function mountCanvas(root, { getDoc, getSelected, getErrors = () => ({}),
       }
       const el = n.el;
       const input = el.querySelector("[data-hm-fd-label]");
+      // Roving tabindex reaches the label too: only the roving row's label is a Tab stop, so Tab goes on
+      // to the inspector without selecting (by focus) every row on the way.
+      input?.setAttribute("tabindex", f.id === first ? "0" : "-1");
       if (input && input.dataset.label !== f.label) {
         input.value = f.label;
         input.dataset.label = f.label;

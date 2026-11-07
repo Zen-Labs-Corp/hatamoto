@@ -238,6 +238,12 @@ await open(formId);
   await page.keyboard.press("Escape");
   await (await rowAt(1)).focus();
   ok((await selected()) === (await doc()).fields[1].id, "A3: focusing a row selects it");
+  // Tab from the selected row must reach the inspector without selecting the rows after it
+  const pick = (await doc()).fields[1].id;
+  for (let i = 0; i < 12 && !(await page.evaluate(() => document.activeElement?.closest("[data-hm-fd-inspector]") != null)); i++) await page.keyboard.press("Tab");
+  ok(await page.evaluate(() => document.activeElement?.closest("[data-hm-fd-inspector]") != null), "A3: Tab from the canvas reaches the inspector");
+  ok((await selected()) === pick, "A3: tabbing to the inspector keeps the selected field selected");
+  await (await rowAt(1)).focus();
   const second1 = (await doc()).fields[1].id;
   await page.keyboard.press("Alt+ArrowUp");
   ok((await doc()).fields[0].id === second1, "A3: Alt+Up then reorders it, with no mouse");
