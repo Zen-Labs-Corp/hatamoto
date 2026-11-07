@@ -2,8 +2,9 @@ package form
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func TestTemplatesValid(t *testing.T) {
@@ -80,16 +81,16 @@ func TestTemplatesRSVPLogicRefsRadio(t *testing.T) {
 
 func TestCreateFormInputStatusNotInJSON(t *testing.T) {
 	var in CreateFormInput
-	if err := json.Unmarshal([]byte(`{"name":"x","status":"archived"}`), &in); err != nil {
+	if err := jsonx.Unmarshal([]byte(`{"name":"x","status":"archived"}`), &in, jsonx.StoredLoose); err != nil {
 		t.Fatal(err)
 	}
 	if in.Status != "" {
 		t.Errorf("Status = %q, want empty", in.Status)
 	}
 	in.Status = StatusInactive
-	b, _ := json.Marshal(in)
+	b, _ := jsonx.Marshal(in)
 	var m map[string]any
-	_ = json.Unmarshal(b, &m)
+	_ = jsonx.Unmarshal(b, &m)
 	if _, ok := m["status"]; ok {
 		t.Error("status serialised")
 	}
