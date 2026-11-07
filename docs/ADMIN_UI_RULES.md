@@ -168,7 +168,7 @@ A change to one component edits only its own subsection below and its entry in t
 | switch | `.hm-switch .hm-field__box` | `css/partials/field.css` | `hm/field` |  |
 | table | `.hm-table` | `css/partials/table.css` | `hm/table` | ; `.hm-table--wrap`: `white-space: normal` |
 | tabs | `.hm-tabs__tab, .hm-tablist__tab` | `css/partials/tabs.css` | `hm/tabs` | `font-size: var(--text-sm)`, `font-weight: var(--weight-medium)`, `padding-left: var(--space-2)`, `padding-right: var(--space-2)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab`: `padding-left: var(--space-3)`, `padding-right: var(--space-3)`; `.hm-tabs[data-variant="segmented"] .hm-tabs__tab[aria-current="page"]`: `background-color: var(--color-paper)`, `box-shadow: 0 0 0 1px var(--segment-ring), inset 0 -1px 0 var(--segment-bevel)`, `color: var(--color-sumi)`, `font-weight: var(--weight-semibold)`; `.hm-tabs[data-variant="sub"] .hm-tabs__tab`: `font-size: var(--text-xs)` |
-| tagchip | `.hm-chip` | `css/partials/taginput.css` | none | `border-top-left-radius: var(--radius-sm)`, `font-size: var(--text-xs)`, `font-weight: var(--weight-medium)`, `height: var(--chip-h)`, `padding-left: var(--space-2)` |
+| tagchip | `.hm-chip` | `css/partials/taginput.css` | none |  |
 | taginput | `.hm-tokens` | `css/partials/taginput.css` | `hm/taginput` |  |
 | togglechip | `.hm-field__chip` | `css/partials/field.css` | `hm/field` | `border-top-left-radius: var(--radius-full)`, `font-size: var(--text-sm)`, `padding-left: var(--space-3)`, `padding-right: var(--space-3)` |
 | valuediff | `.hm-valuediff` | `css/partials/diff.css` | none |  |
