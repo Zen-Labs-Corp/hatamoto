@@ -12,7 +12,8 @@ import (
 const (
 	formRateWindow = time.Hour
 	// formRateMaxTracked bounds the no-IP counter; when full of live entries,
-	// new visitors are counted as over the limit rather than growing memory.
+	// new visitors are not counted (the limiter fails open): failing closed
+	// would let a flood of distinct addresses mark everyone else's send as spam.
 	formRateMaxTracked = 10000
 )
 
@@ -50,7 +51,7 @@ func (l *ipFreeLimiter) over(formID, bucket string, limit int, now time.Time) bo
 			}
 		}
 		if len(l.hits) >= formRateMaxTracked {
-			return true
+			return false
 		}
 	}
 	if len(recent) >= limit {
