@@ -48,3 +48,4 @@ t-publish-install scripts/publish-install.sh,scripts/test-publish-install.sh,dep
 t-ci-relevance   scripts/ci-relevance.sh,scripts/test-ci-relevance.sh   bash scripts/test-ci-relevance.sh
 t-ci-full   scripts/ci-full-plan.sh,scripts/ci-full-report.sh,scripts/test-ci-full.sh   bash scripts/test-ci-full.sh
 t-ci-smoke      scripts/ci-smoke-pkgs.sh,scripts/ci-smoke-exclude.txt,scripts/test-ci-smoke.sh   bash scripts/test-ci-smoke.sh
+t-ci-shard   scripts/ci-server-shard.sh,scripts/test-ci-server-shard.sh,.github/workflows/ci.yml   bash scripts/test-ci-server-shard.sh

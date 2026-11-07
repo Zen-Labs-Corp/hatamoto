@@ -49,6 +49,10 @@ func TestLogoutIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(db.Close)
+	// Login reads the site's sign-in policy; a fresh database has no site row until a test or first boot adds one.
+	if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_site_config (company_name) VALUES ('Logout IT') ON CONFLICT (id) DO NOTHING`); err != nil {
+		t.Fatal(err)
+	}
 
 	email := "logout-" + uuid.NewString()[:6] + "@example.test"
 	const password = "correct horse battery staple 9"
