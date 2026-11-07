@@ -178,6 +178,25 @@ func TestFormSettings_StoreOffKeepsNoAnswersButStillMails(t *testing.T) {
 	}
 }
 
+// A store-off row holds no address, so the limit must not rely on stored IPs.
+func TestFormSettings_StoreOffStillRateLimits(t *testing.T) {
+	t.Setenv("EMAIL_DISABLED", "")
+	sink := smtptest.Start(t, smtptest.Options{Mode: smtptest.Plain})
+	svc, err := email.NewService(email.Config{SMTPHost: sink.Host(), SMTPPort: sink.Port(), FromAddress: "site@example.test", Security: email.SecurityNone},
+		slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	notify := "team@example.test"
+	srv, repo := settingsServer(t, form.FormSettings{StoreOff: true, RateLimitPerHour: 1, NotifyEmail: &notify})
+	srv.emailService = svc
+	sendJSON(srv, "203.0.113.1", `{"name":"Ada","message":"one"}`)
+	sendJSON(srv, "203.0.113.1", `{"name":"Ada","message":"two"}`)
+	if len(repo.subs) != 2 || repo.subs[1].Status != form.SubmissionStatusSpam {
+		t.Fatalf("stored = %+v, want the second send stored as spam", repo.subs)
+	}
+}
+
 // An API-created form has no store keys at all (StoreSubmissions false): it keeps its answers.
 func TestFormSettings_AbsentStoreKeyKeepsAnswers(t *testing.T) {
 	srv, repo := settingsServer(t, form.FormSettings{})

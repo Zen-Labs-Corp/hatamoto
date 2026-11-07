@@ -64,15 +64,15 @@ func (l *ipFreeLimiter) over(formID, bucket string, limit int, now time.Time) bo
 
 // formOverRateLimit reports whether this send exceeds the form's per-visitor
 // hourly limit. With the address stored, the limit counts the form's recent
-// submissions from it; with no-IP on, no address is stored, so a per-process
-// counter keyed on the address bucket is used instead. A failed count lets the
+// submissions from it; with no-IP on or storage off, no address is stored, so
+// a per-process counter keyed on the address bucket is used instead. A failed count lets the
 // send through.
 func (s *Server) formOverRateLimit(ctx context.Context, f *form.Form, ip string, now time.Time) bool {
 	limit := f.Settings.RateLimitPerHour
 	if limit <= 0 || ip == "" {
 		return false
 	}
-	if f.Settings.NoIP {
+	if f.Settings.NoIP || f.Settings.StoreOff {
 		return s.formRates.over(f.ID.String(), middleware.IPBucket(ip), limit, now)
 	}
 	n, err := s.formService.CountRecentSubmissionsByIP(ctx, f.ID, ip, now.Add(-formRateWindow))
