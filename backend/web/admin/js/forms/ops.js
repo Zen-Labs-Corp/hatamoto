@@ -166,3 +166,14 @@ export function duplicateOps(doc, id) {
   delete copy.name_locked;
   return [{ op: "addField", index: at + 1, field: copy }];
 }
+
+/** The ops that set a field's label; its name follows the label until the name is pinned (name_locked) or it is a layout block. */
+export function labelOps(doc, id, label) {
+  const f = doc.fields[indexOf(doc, id)];
+  const ops = [{ op: "setField", id, key: "label", value: label }];
+  if (!isLayout(f.type) && !f.name_locked) {
+    const others = doc.fields.filter((x) => x.id !== id);
+    ops.push({ op: "setField", id, key: "name", value: uniqueName(nameFrom(label || TYPES[f.type].label), others) });
+  }
+  return ops;
+}

@@ -52,3 +52,10 @@
 .hm-fd-palette__list { display: flex; flex-direction: column; gap: var(--space-3); }
 .hm-fd-palette__tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); gap: var(--space-2); }
 .hm-fd-dragging { user-select: none; }
+.hm-fd-tile__ico { display: inline-flex; }
+.hm-fd-keys { margin: 0; font-size: var(--text-sm); color: var(--text-body); }
+.hm-fd-keys dt { font-weight: var(--weight-medium); }
+.hm-fd-keys dd { margin: 0; }
+.hm-fd-choice { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.hm-fd-choice .hm-field__control { flex: 1 1 6rem; min-width: 0; }
+.hm-fd-section__row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
