@@ -92,7 +92,17 @@ type Host struct {
 	hostCall HostCall // set before the first Load
 
 	cacheDir string // set only when the on-disk compilation cache opened
+
+	// now, idleWindow and evicted drive idle eviction (see sweepIdle). now and
+	// idleWindow are fixed at New; tests replace them before the first Load.
+	now        func() time.Time
+	idleWindow time.Duration
+	evicted    atomic.Int64 // instances closed for idleness since start
 }
+
+// IdleWindow is how long a pooled instance may sit unused before it is closed,
+// down to one warm instance per plugin. Fixed: there is no knob for it.
+const IdleWindow = 5 * time.Minute
 
 // HostCall serves a plugin's hm_call import: in is the guest's request, the
 // result goes back to it. ctx is the context of the hook call that is running
@@ -110,7 +120,7 @@ func New(log *slog.Logger, cacheDir string) (*Host, error) {
 	if log == nil {
 		log = slog.Default()
 	}
-	h := &Host{log: log}
+	h := &Host{log: log, now: time.Now, idleWindow: IdleWindow}
 	h.cache = wazero.NewCompilationCache()
 	if cacheDir != "" {
 		if c, err := openCache(cacheDir); err != nil {
@@ -141,10 +151,11 @@ type plugin struct {
 	slots     chan struct{} // one token per concurrent call; bounds live instances
 	wasmBytes int64         // size of the retained .wasm module
 
-	// pooledMem holds the measured memory (uint64) of each instance that sits
+	// pooledMem holds a pooledRec (measured memory and return time) of each instance that sits
 	// in pool, keyed by *extism.Plugin. See pushPooled and popPooled.
 	pooledMem sync.Map
 	log       *slog.Logger
+	now       func() time.Time // the host's clock; stamps pooledMem records
 
 	mu     sync.RWMutex // RLock per call; Lock to close
 	closed bool
@@ -289,6 +300,7 @@ func (h *Host) load(ctx context.Context, m sdk.Manifest, wasm []byte) error {
 		slots:     make(chan struct{}, m.Limits.MaxInstances),
 		log:       h.log.With(slog.String("plugin", m.Name)),
 		wasmBytes: int64(len(wasm)),
+		now:       h.now,
 	}
 	inst, err := p.newInstance(ctx)
 	if err != nil {

@@ -1,12 +1,14 @@
 package wasmhost
 
 import (
+	"context"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
+	"time"
 	"unsafe"
 
 	extism "github.com/extism/go-sdk"
@@ -35,6 +37,12 @@ type HostStats struct {
 	// plugins; 0 when the cache is in memory.
 	CacheBytes int64
 	Plugins    []PluginStats // sorted by name
+	// Evicted counts instances closed for idleness since the host started
+	// (not failures: see PluginStats.Discarded).
+	Evicted int64
+	// IdleWindow is how long a pooled instance may sit unused before it is
+	// closed, down to one warm instance per plugin.
+	IdleWindow time.Duration
 }
 
 // Stats reports the loaded plugins' pools. It is lock-free: it takes no slot,
@@ -42,7 +50,7 @@ type HostStats struct {
 // the instances' owners (see pushPooled).
 func (h *Host) Stats() HostStats {
 	reg := *h.reg.Load()
-	st := HostStats{Plugins: make([]PluginStats, 0, len(reg))}
+	st := HostStats{Plugins: make([]PluginStats, 0, len(reg)), Evicted: h.evicted.Load(), IdleWindow: h.idleWindow}
 	for name, p := range reg {
 		ps := PluginStats{
 			Name:         name,
@@ -53,7 +61,7 @@ func (h *Host) Stats() HostStats {
 			Discarded:    p.discarded.Load(),
 		}
 		p.pooledMem.Range(func(_, v any) bool {
-			ps.PooledWasmBytes += v.(uint64)
+			ps.PooledWasmBytes += v.(pooledRec).bytes
 			return true
 		})
 		st.Plugins = append(st.Plugins, ps)
@@ -92,19 +100,79 @@ func dirCacheBytes(dir string) int64 {
 // full, so only use it where the pool is known to have room (load, on an
 // empty pool). Anyone who holds no slot must use tryPushPooled or release.
 func (p *plugin) pushPooled(inst *extism.Plugin) {
-	p.pooledMem.Store(inst, instanceBytes(inst))
+	p.pooledMem.Store(inst, pooledRec{instanceBytes(inst), p.now()})
 	p.pool <- inst
 }
 
 // tryPushPooled is pushPooled that gives up when the pool is full.
 func (p *plugin) tryPushPooled(inst *extism.Plugin) bool {
-	p.pooledMem.Store(inst, instanceBytes(inst))
+	p.pooledMem.Store(inst, pooledRec{instanceBytes(inst), p.now()})
 	select {
 	case p.pool <- inst:
 		return true
 	default:
 		p.pooledMem.Delete(inst)
 		return false
+	}
+}
+
+// pooledRec is what pooledMem keeps per pooled instance: its measured memory
+// and when it was returned. The pool is FIFO, so the time is per instance: a
+// per-plugin clock would keep stale instances alive.
+type pooledRec struct {
+	bytes uint64
+	at    time.Time
+}
+
+// sweepIdle closes pooled instances that have sat unused for at least window,
+// always leaving one (the most recently returned) and never starting one. It
+// holds no slot and never blocks: it pops from the pool without waiting, so
+// an instance it holds is exclusively its own, and a caller that finds the
+// pool empty at worst cold-starts. RLock makes close wait for the sweep and
+// makes a closed plugin a no-op. It returns the number of instances closed.
+func (p *plugin) sweepIdle(now time.Time, window time.Duration) (closed int) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.closed {
+		return 0
+	}
+	// One pass over the instances present now: stale ones are closed, fresh
+	// ones go back to the tail, so a full pass leaves the FIFO order intact.
+	for range len(p.pool) {
+		if len(p.pool) <= 1 {
+			return closed
+		}
+		var inst *extism.Plugin
+		select {
+		case inst = <-p.pool:
+		default:
+			return closed
+		}
+		v, _ := p.pooledMem.Load(inst)
+		rec, _ := v.(pooledRec)
+		// An empty pool means a caller took the sibling, so this one is the
+		// last warm instance: keep it, however old.
+		if now.Sub(rec.at) < window || len(p.pool) == 0 {
+			p.putBack(inst, rec)
+			continue
+		}
+		p.popPooled(inst) // forget it BEFORE closing, so Stats never counts a closed instance
+		_ = inst.Close(context.Background())
+		closed++
+	}
+	return closed
+}
+
+// putBack returns an instance sweepIdle took, keeping its original return
+// time. It never blocks: when callers refilled the pool meanwhile it closes
+// the instance instead, like release.
+func (p *plugin) putBack(inst *extism.Plugin, rec pooledRec) {
+	p.pooledMem.Store(inst, rec)
+	select {
+	case p.pool <- inst:
+	default:
+		p.popPooled(inst)
+		_ = inst.Close(context.Background())
 	}
 }
 
