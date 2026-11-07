@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -113,11 +114,16 @@ func TestCarryFieldDataKeepsNewKeys(t *testing.T) {
 
 	off := false
 	stored := []form.FormField{{ID: "a", Logic: &form.FieldLogic{FieldID: "x", Op: form.LogicIs, Value: "1"}, InEmail: &off, NameLocked: true,
-		BlockFreeEmail: true, Text: "t", Link: "/p", Hidden: &form.HiddenSpec{Source: "page"}}}
-	got := carryFieldData([]form.FormField{{ID: "a"}, {ID: "new"}}, stored)[0]
-	if got.Logic == nil || got.Logic.Value != "1" || got.InEmail == nil || *got.InEmail || !got.NameLocked || !got.BlockFreeEmail ||
-		got.Text != "t" || got.Link != "/p" || got.Hidden == nil || got.Hidden.Source != "page" {
+		BlockFreeEmail: true, Link: "/p"},
+		{ID: "h", Type: form.FieldTypeHeading, Text: "t"},
+		{ID: "k", Type: form.FieldTypeHidden, Hidden: &form.HiddenSpec{Source: "page"}}}
+	all := carryFieldData([]form.FormField{{ID: "a"}, {ID: "new"}, {ID: "h", Type: form.FieldTypeHeading}, {ID: "k", Type: form.FieldTypeHidden}}, stored)
+	got := all[0]
+	if got.Logic == nil || got.Logic.Value != "1" || got.InEmail == nil || *got.InEmail || !got.NameLocked || !got.BlockFreeEmail || got.Link != "/p" {
 		t.Errorf("not carried: %+v", got)
+	}
+	if all[2].Text != "t" || all[3].Hidden == nil || all[3].Hidden.Source != "page" {
+		t.Errorf("text or source not carried: %+v %+v", all[2], all[3])
 	}
 }
 
@@ -150,5 +156,66 @@ func TestSubmissionsExportSkipsLayoutFields(t *testing.T) {
 		if c == "Section" {
 			t.Error("layout field has a CSV column")
 		}
+	}
+}
+
+func TestLegacyEditorOffersOnlyTypesItCanEdit(t *testing.T) {
+	t.Parallel()
+
+	offered := func(opts []ui.Option) map[string]bool {
+		m := map[string]bool{}
+		for _, o := range opts {
+			m[o.Value] = true
+		}
+		return m
+	}
+	got := offered(fieldTypeOptions(form.FieldTypeText))
+	for _, ft := range []string{form.FieldTypeHeading, form.FieldTypeParagraph, form.FieldTypeHidden} {
+		if got[ft] {
+			t.Errorf("%s is offered but the editor has no input for it", ft)
+		}
+	}
+	if !got[form.FieldTypeConsent] || !got[form.FieldTypeDivider] || !got[form.FieldTypeText] {
+		t.Errorf("types the editor can edit are missing: %v", got)
+	}
+	if !offered(fieldTypeOptions(form.FieldTypeHeading))[form.FieldTypeHeading] {
+		t.Error("an existing heading must keep its type in the list")
+	}
+	rows, _ := applyFieldOp(nil, "add", form.FieldTypeHidden)
+	if rows[0].Type != form.FieldTypeText {
+		t.Errorf("adding a hidden row made a %q row", rows[0].Type)
+	}
+}
+
+func TestLegacyEditorSaveShowsDefinitionErrorsInsteadOfA500(t *testing.T) {
+	t.Parallel()
+
+	g, ff, _ := newFormRig(t)
+	fm := ff.addForm("Contact", form.FormField{ID: "a", Type: form.FieldTypeText, Label: "Name", Name: "name", Width: "full"})
+	// A forged heading row without text, and a field whose carried hidden
+	// source no longer matches its type.
+	rows := []map[string]string{
+		{"id": "a", "type": "text", "label": "Name", "name": "name", "width": "full"},
+		{"type": "heading", "width": "full"},
+	}
+	rec := g.do("POST", "/admin/forms/edit/"+fm.ID.String(), "owner-token", fieldForm(rows...), nil)
+	if rec.Code != 422 {
+		t.Fatalf("status %d, want 422: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "Enter the text to show") {
+		t.Errorf("the page does not say what is wrong: %s", rec.Body.String())
+	}
+	if len(ff.forms[fm.ID].Fields) != 1 {
+		t.Error("an invalid save changed the form")
+	}
+}
+
+func TestCarryFieldDataDropsSourceOfAnotherType(t *testing.T) {
+	t.Parallel()
+
+	stored := []form.FormField{{ID: "d", Type: form.FieldTypeHidden, Name: "s", Hidden: &form.HiddenSpec{Source: "page"}, Text: "x"}}
+	got := carryFieldData([]form.FormField{{ID: "d", Type: form.FieldTypeText, Name: "s"}}, stored)
+	if got[0].Hidden != nil || got[0].Text != "" {
+		t.Errorf("hidden %v text %q survived a type change", got[0].Hidden, got[0].Text)
 	}
 }

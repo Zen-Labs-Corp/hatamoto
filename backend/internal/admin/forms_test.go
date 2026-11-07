@@ -86,6 +86,9 @@ func (f *fakeForms) UpdateForm(_ context.Context, id uuid.UUID, in *form.UpdateF
 		fm.Description = in.Description
 	}
 	if in.Fields != nil {
+		if errs := form.ValidateDefinition(in.Fields); len(errs) > 0 {
+			return nil, errs
+		}
 		fm.Fields = in.Fields
 	}
 	if in.Settings != nil {

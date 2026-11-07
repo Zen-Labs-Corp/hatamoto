@@ -391,9 +391,18 @@ func fieldTypeIcon(t string) string {
 	return "pen"
 }
 
+// noLegacyInput lists the types this editor has no inputs for (their text or
+// source); the designer edits them. An existing field of one still shows.
+func noLegacyInput(t string) bool {
+	return t == form.FieldTypeHeading || t == form.FieldTypeParagraph || t == form.FieldTypeHidden
+}
+
 func fieldTypeOptions(selected string) []ui.Option {
 	var out []ui.Option
 	for _, t := range form.GetFieldTypes() {
+		if noLegacyInput(t) && t != selected {
+			continue
+		}
 		out = append(out, ui.Option{Value: t, Label: fieldTypeLabels[t], Selected: t == selected})
 	}
 	return out
@@ -557,7 +566,7 @@ func parseFormFields(vals url.Values) []formFieldRow {
 
 func applyFieldOp(rows []formFieldRow, op, addType string) ([]formFieldRow, string) {
 	if op == "add" {
-		if !form.ValidFieldType(addType) {
+		if !form.ValidFieldType(addType) || noLegacyInput(addType) {
 			addType = form.FieldTypeText
 		}
 		return append(rows, formFieldRow{Type: addType, Width: "full"}), "Field added. It is not saved yet."
@@ -706,7 +715,14 @@ func carryFieldData(fields, stored []form.FormField) []form.FormField {
 		}
 		fields[i].DefaultValue, fields[i].Attributes = old.DefaultValue, old.Attributes
 		fields[i].Logic, fields[i].InEmail, fields[i].NameLocked = old.Logic, old.InEmail, old.NameLocked
-		fields[i].BlockFreeEmail, fields[i].Text, fields[i].Link, fields[i].Hidden = old.BlockFreeEmail, old.Text, old.Link, old.Hidden
+		fields[i].BlockFreeEmail, fields[i].Link = old.BlockFreeEmail, old.Link
+		// The text and the source only make sense for their own type.
+		if t := fields[i].Type; t == form.FieldTypeHeading || t == form.FieldTypeParagraph {
+			fields[i].Text = old.Text
+		}
+		if fields[i].Type == form.FieldTypeHidden {
+			fields[i].Hidden = old.Hidden
+		}
 		if old.Validation != nil && (old.Validation.Min != nil || old.Validation.Max != nil) {
 			if fields[i].Validation == nil {
 				fields[i].Validation = &form.FieldValidation{}
@@ -801,7 +817,18 @@ func (a *Admin) handleFormSave(w http.ResponseWriter, r *http.Request) {
 	if in.Fields == nil {
 		in.Fields = []form.FormField{}
 	}
-	if _, err := a.deps.Growth.Forms.UpdateForm(r.Context(), cur.ID, in); err != nil {
+	_, err := a.deps.Growth.Forms.UpdateForm(r.Context(), cur.ID, in)
+	var defErrs form.DefinitionErrors
+	if errors.As(err, &defErrs) {
+		msgs := make([]string, 0, len(defErrs))
+		for _, de := range defErrs {
+			msgs = append(msgs, de.Message)
+		}
+		e.Errors["fields"] = "Some fields need attention: " + strings.Join(msgs, "; ") + "."
+		a.renderFormEdit(w, r, http.StatusUnprocessableEntity, e)
+		return
+	}
+	if err != nil {
 		a.logger().Error("save form failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The form could not be saved.")
 		return
