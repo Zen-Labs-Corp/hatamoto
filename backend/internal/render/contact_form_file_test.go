@@ -67,3 +67,25 @@ func TestFormViewHasFile(t *testing.T) {
 		t.Error("HasFile")
 	}
 }
+
+// A logic form with a file field has one error element for it, so the id the
+// island and assistive technology use is unique.
+func TestFileFieldOnLogicFormHasOneErrorElement(t *testing.T) {
+	e, err := New(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := minimalView()
+	v.Forms = map[string]FormView{"apply": {Slug: "apply", Name: "Apply", Fields: []FormField{
+		{Name: "topic", Label: "Topic", Type: "select"},
+		{Name: "cv", Label: "CV", Type: "file", Accept: ".pdf", Hint: ".pdf", LogicField: "topic", LogicOp: "is", LogicValue: "x"},
+	}}}
+	v.Sections = []Section{{ID: "s", Type: "contact_form", Content: map[string]any{"form_slug": "apply"}}}
+	var buf bytes.Buffer
+	if err := e.RenderPage(&buf, v); err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(buf.String(), `data-hm-error-for="cv"`); n != 1 {
+		t.Errorf("%d error elements for the file field, want 1", n)
+	}
+}
