@@ -194,9 +194,7 @@ func (p *plugin) popPooled(inst *extism.Plugin) { p.pooledMem.Delete(inst) }
 // alone (understated, never wrong in kind). inst must not be running a call.
 func instanceBytes(inst *extism.Plugin) uint64 {
 	var n uint64
-	if m := inst.Memory(); m != nil {
-		n += uint64(m.Size())
-	}
+	n += memorySize(inst.Memory())
 	return n + guestMemoryBytes(inst)
 }
 
@@ -211,8 +209,19 @@ func guestMemoryBytes(inst *extism.Plugin) uint64 {
 	if mod == nil {
 		return 0
 	}
-	if mem := mod.Memory(); mem != nil {
-		return uint64(mem.Size())
+	return memorySize(mod.Memory())
+}
+
+// memorySize returns a memory's size in bytes, or 0 when there is none.
+// wazero returns a non-nil api.Memory holding a nil *MemoryInstance for a
+// module without memory, and calling Size on it panics, so a plain nil check
+// is not enough.
+func memorySize(m api.Memory) uint64 {
+	if m == nil {
+		return 0
 	}
-	return 0
+	if v := reflect.ValueOf(m); v.Kind() == reflect.Pointer && v.IsNil() {
+		return 0
+	}
+	return uint64(m.Size())
 }
