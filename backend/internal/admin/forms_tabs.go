@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -205,7 +204,7 @@ func (a *Admin) renderSubmissionsTab(w http.ResponseWriter, r *http.Request, f *
 	if status != "" {
 		query.Set("status", status)
 	}
-	now := time.Now()
+	now := analyticsNow()
 	t := ui.Table{
 		ID: "submissions", Caption: "Submissions of " + f.Name, BaseURL: base, CSRF: csrfToken(ctx),
 		Columns: submissionsTabColumns(f),

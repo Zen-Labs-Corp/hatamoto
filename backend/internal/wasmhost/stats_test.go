@@ -11,6 +11,7 @@ import (
 	"time"
 
 	extism "github.com/extism/go-sdk"
+	"github.com/tetratelabs/wazero"
 
 	"hatamoto.dev/sdk"
 )
@@ -199,5 +200,23 @@ func TestReleaseFullPoolDoesNotBlock(t *testing.T) {
 	}
 	if !h.HasExport("good", "echo") {
 		t.Fatal("HasExport false")
+	}
+}
+
+// A guest without memory makes wazero return an api.Memory holding a nil
+// *MemoryInstance; sizing it must not panic (it crashed plugin load).
+func TestMemorySizeModuleWithoutMemory(t *testing.T) {
+	ctx := context.Background()
+	rt := wazero.NewRuntime(ctx)
+	defer rt.Close(ctx)
+	mod, err := rt.Instantiate(ctx, []byte("\x00asm\x01\x00\x00\x00"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := memorySize(mod.Memory()); got != 0 {
+		t.Fatalf("memorySize = %d, want 0", got)
+	}
+	if got := memorySize(nil); got != 0 {
+		t.Fatalf("memorySize(nil) = %d, want 0", got)
 	}
 }

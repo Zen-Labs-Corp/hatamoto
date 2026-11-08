@@ -52,7 +52,7 @@ func (fa formActivity) sum(from, to int) int {
 // the totals; a capped scan shows a lower bound and no comparison or sparkline.
 func (a *Admin) buildFormsList(ctx context.Context, fs FormStore, forms []*form.Form) formsListData {
 	loc := a.siteLocation(ctx)
-	now := time.Now().In(loc)
+	now := analyticsNow().In(loc)
 	since := now.AddDate(0, 0, -(formsListWindowDays - 1))
 	since = time.Date(since.Year(), since.Month(), since.Day(), 0, 0, 0, 0, loc)
 

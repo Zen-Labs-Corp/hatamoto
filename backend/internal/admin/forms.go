@@ -497,7 +497,7 @@ func scanRecentSubmissions(ctx context.Context, fs FormStore, formID uuid.UUID, 
 // submissionOverview builds the stat cards and the 30-day tracker of one form.
 func (a *Admin) submissionOverview(ctx context.Context, fs FormStore, f *form.Form) ([]ui.Stat, ui.Tracker, error) {
 	loc := a.siteLocation(ctx)
-	now := time.Now().In(loc)
+	now := analyticsNow().In(loc)
 	since := now.AddDate(0, 0, -(submissionDaysShown - 1))
 	since = time.Date(since.Year(), since.Month(), since.Day(), 0, 0, 0, 0, loc)
 	recent, all, capped, err := loadRecentSubmissions(ctx, fs, f.ID, since, submissionTrackerCap)

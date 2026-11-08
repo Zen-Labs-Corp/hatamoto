@@ -108,7 +108,7 @@ func (a *Admin) shareUsageTable(ctx context.Context, fs FormStore, f *form.Form,
 		Empty: ui.Empty{Icon: "globe", Title: "Not on any page yet", Body: "Add a Form block to a page, or use one of the options below."},
 	}
 	loc := a.siteLocation(ctx)
-	now := time.Now().In(loc)
+	now := analyticsNow().In(loc)
 	since := now.AddDate(0, 0, -shareWindowDays)
 	subsByPage := map[string]int64{}
 	subsOK := false
