@@ -48,8 +48,9 @@ func TestEngineTrackTagSkippedInEditorFrames(t *testing.T) {
 	}
 }
 
+// Not parallel: it sets the package-wide public API prefix, which parallel
+// script tests (e.g. TestConsentScriptContract) read.
 func TestEngineTrackTagSkippedForLegacyBeaconTheme(t *testing.T) {
-	t.Parallel()
 	e := themeWithJS(t, "navigator.sendBeacon('/api/v1/track', b)")
 	if out := renderToString(t, e, minimalView()); strings.Contains(out, "hm-track.js") {
 		t.Fatalf("legacy theme must keep its own beacon, not get a second sender")
