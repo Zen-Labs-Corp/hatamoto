@@ -146,7 +146,7 @@ func (a *Admin) submissionsTabOverview(ctx context.Context, fs FormStore, f *for
 	if err != nil {
 		return nil, ui.Tracker{}, err
 	}
-	now := time.Now()
+	now := analyticsNow()
 	cur := now.AddDate(0, 0, -submissionDaysShown)
 	prev := now.AddDate(0, 0, -2*submissionDaysShown)
 	recent, spam, _, capped, err := scanRecentSubmissions(ctx, fs, f.ID, prev, submissionTrackerCap)
