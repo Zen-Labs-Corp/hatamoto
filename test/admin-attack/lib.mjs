@@ -70,6 +70,13 @@ export const raw = (path, { method = "GET", headers = {}, body } = {}) =>
     req.end(body);
   });
 
+// maskPath replaces the path asked for with <path> wherever the page echoes it as a whole path,
+// i.e. not followed by another path character. Constant text that merely starts with the same
+// letters (the public prefetch rules list "/admin/*" and "/auth/*" on every page) is left alone,
+// so it reads the same in the probe and in the random-path reference.
+export const maskPath = (body, path) =>
+  path ? body.replace(new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![A-Za-z0-9/_.*%~-])", "g"), "<path>") : body;
+
 // Result lines: PASS when the attack failed and its positive control succeeded,
 // HOLE when the attack got through, INCONCLUSIVE when the control failed (a blind probe proves nothing).
 const results = [];
