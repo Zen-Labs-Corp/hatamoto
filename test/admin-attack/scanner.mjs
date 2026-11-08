@@ -3,14 +3,14 @@
 // Black box over raw HTTP against the server pinned to a RANDOM admin address. Only values that
 // differ per request are masked: Date, X-Request-Id, nonces and the page's own URL (canonical,
 // og:url), which the server derives from the path asked for. Sends no proxy headers.
-import { launch, newOwner, base, raw, record, finish } from "./lib.mjs";
+import { launch, newOwner, base, raw, maskPath, record, finish } from "./lib.mjs";
 import { scannerPaths, MIN_PATHS } from "./scanner-paths.mjs";
 
 const paths = scannerPaths();
 const mask = (r, p) => ({
   status: r.status,
   headers: r.raw.map((v, i) => (i % 2 === 0 ? v.toLowerCase() : /^(date|x-request-id)$/i.test(r.raw[i - 1]) ? "<varies>" : v)),
-  body: r.body.replaceAll(p, "<path>").replace(/(rel="canonical" href|property="og:url" content)="[^"]*"/g, '$1="<url>"').replace(/nonce="[^"]*"/g, 'nonce=""'),
+  body: maskPath(r.body, p).replace(/(rel="canonical" href|property="og:url" content)="[^"]*"/g, '$1="<url>"').replace(/nonce="[^"]*"/g, 'nonce=""'),
 });
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const rnd = () => "/zz-" + Math.random().toString(36).slice(2, 12);

@@ -2,7 +2,7 @@
 // Run against the server pinned to a RANDOM address (ADMIN_ADDR=/<random>, same database as the
 // pinned /admin run). The page is not told the address. With the pin at /admin most of these
 // would be meaningless (everything under /admin passes the address filter), hence this run.
-import { launch, newOwner, base, addr, raw, record, finish } from "./lib.mjs";
+import { launch, newOwner, base, addr, raw, maskPath, record, finish } from "./lib.mjs";
 
 if (addr === "/admin") throw new Error("attacks-discovery needs a random ADMIN_ADDR, not /admin");
 const segment = addr.slice(1);
@@ -134,7 +134,7 @@ const mask = (r, path) => ({
   status: r.status,
   headers: r.raw.map((v, i) => (i % 2 === 0 ? v.toLowerCase() : /^(date|x-request-id)$/i.test(r.raw[i - 1]) ? "<varies>" : v)),
   // The only request-derived bytes are the page's own URL (canonical link, og:url), normalised by the server.
-  body: r.body.replaceAll(path, "<path>").replace(/(rel="canonical" href|property="og:url" content)="[^"]*"/g, '$1="<url>"').replace(/nonce="[^"]*"/g, 'nonce=""').replace(/(nonce-)[A-Za-z0-9+/=_-]+/g, "$1N"),
+  body: maskPath(r.body, path).replace(/(rel="canonical" href|property="og:url" content)="[^"]*"/g, '$1="<url>"').replace(/nonce="[^"]*"/g, 'nonce=""').replace(/(nonce-)[A-Za-z0-9+/=_-]+/g, "$1N"),
 });
 const diffs = [];
 for (const withCookie of [false, true]) {
