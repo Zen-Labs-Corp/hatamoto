@@ -530,17 +530,32 @@ func TestRunSendsNothingWhenOffForcedOrDev(t *testing.T) {
 	}
 }
 
-func TestRunBuildFailureSendsNothing(t *testing.T) {
+func TestRunUnreportableDetailedFallsBackToBasicAndMarksTheVersion(t *testing.T) {
 	ctx := context.Background()
-	s, m, r, h, f := detailedRig(t)
-	_ = s.Choose(ctx, LevelDetailed)
-	h.Panic()
-	f.pg = 4
-	if err := s.Run(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if len(r.reqs) != 0 || m.st.LastStatus != "error: build" || m.st.Counts.Panics != 1 {
-		t.Fatalf("%d requests, status %q, counts %+v", len(r.reqs), m.st.LastStatus, m.st.Counts)
+	for name, mutate := range map[string]func(*fakeSources){
+		"theme version": func(f *fakeSources) { f.theme.Version = "1.02.0" },
+		"postgres":      func(f *fakeSources) { f.pg = 4 },
+	} {
+		s, m, r, h, f := detailedRig(t)
+		_ = s.Choose(ctx, LevelDetailed)
+		h.Panic()
+		mutate(f)
+		if err := s.Run(ctx); err != nil {
+			t.Fatal(err)
+		}
+		entries, err := jsonx.ObjectEntries([]byte(strings.Join(r.bodies, "")))
+		if err != nil || len(r.bodies) != 1 || len(entries) != 3 {
+			t.Fatalf("%s: want one basic body, got %v", name, r.bodies)
+		}
+		if m.st.LastStatus != "ok" || m.st.LastSentVersion != "v1.2.3" || m.st.Counts.Panics != 1 {
+			t.Fatalf("%s: status %q version %q counts %+v", name, m.st.LastStatus, m.st.LastSentVersion, m.st.Counts)
+		}
+		// The version is reported, so the next hourly check stays quiet.
+		m.claimedAt = time.Now().Add(-2 * time.Hour)
+		_ = s.Run(ctx)
+		if len(r.bodies) != 1 {
+			t.Fatalf("%s: a reported version was sent again", name)
+		}
 	}
 }
 

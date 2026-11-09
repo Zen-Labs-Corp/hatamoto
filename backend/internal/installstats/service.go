@@ -207,8 +207,11 @@ func (s *Service) Flush(ctx context.Context) error {
 // Run is the hourly job. It makes no request unless the variable is not off,
 // the level is Basic or Detailed, the build is a release, and this process won
 // the claim. It never retries: the claim stamps the time whatever the outcome.
-// A body that cannot be built is not sent and ends as "error: build". Neither
-// the ID nor the URL is logged or stored in the status.
+// A Detailed body that cannot be built (a value the receiver would refuse,
+// such as an odd theme version) is replaced by the Basic body, so the install
+// still reports and the version counts as reported. Only a Basic body that
+// cannot be encoded ends as "error: build". Neither the ID nor the URL is
+// logged or stored in the status.
 func (s *Service) Run(ctx context.Context) error {
 	if err := s.Enforce(ctx); err != nil {
 		return err
@@ -242,7 +245,8 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 // body builds the request body for the stored level, and returns the health
-// counts it carries. Detailed without sources falls back to Basic.
+// counts it carries. Detailed falls back to Basic without sources, or when
+// the Detailed body cannot be built; the counts then stay stored.
 func (s *Service) body(ctx context.Context, id string, st State) ([]byte, Counts, error) {
 	if st.Level == LevelDetailed {
 		if s.sources != nil {
@@ -251,9 +255,11 @@ func (s *Service) body(ctx context.Context, id string, st State) ([]byte, Counts
 				Install: id, Version: s.version, Channel: s.channelName(ctx),
 				Src: s.sources, Counts: st.Counts, WindowStart: st.WindowStart, Now: now,
 			})
-			return b, st.Counts, err
-		}
-		if s.warned.CompareAndSwap(false, true) {
+			if err == nil {
+				return b, st.Counts, nil
+			}
+			s.log.Warn("install stats: detailed body not built, sending the basic body", "error", err)
+		} else if s.warned.CompareAndSwap(false, true) {
 			s.log.Warn("install stats: no detailed sources, sending the basic body")
 		}
 	}
