@@ -318,16 +318,14 @@ func (i *idleReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// mediaSpools bounds the objects spooled to local disk at once. Only a Range
-// request spools; everything else streams or answers from the lookup.
-var mediaSpools = make(chan struct{}, 4)
-
 // serveStoredObject serves /media from a non-local store:
 //   - HEAD answers from the lookup, nothing is downloaded (the type comes from
 //     the file extension);
-//   - a plain GET streams the object, sniffing its type from the first bytes;
-//   - a Range GET spools the object to a temporary file so it can seek, behind
-//     a small semaphore (503 with Retry-After when all slots are busy).
+//   - GET streams the object, sniffing its type from the first bytes;
+//   - a single-range GET is answered 206 with just that range, fetched from the
+//     bucket with a ranged request. A multi-range request, a non-bytes unit or
+//     a failed If-Range is answered 200 with the whole object, which RFC 9110
+//     allows.
 func (s *Server) serveStoredObject(w http.ResponseWriter, r *http.Request, rel string) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
@@ -352,54 +350,79 @@ func (s *Server) serveStoredObject(w http.ResponseWriter, r *http.Request, rel s
 	}
 	name := filepath.Base(rel)
 
-	switch {
-	case r.Method == http.MethodHead:
+	if r.Method == http.MethodHead {
 		setMediaHeaders(w, media.MIMEForExtension(filepath.Ext(name)), info.ETag, info.Size)
 		w.Header().Set("Accept-Ranges", "bytes")
 		w.WriteHeader(http.StatusOK)
-
-	case r.Header.Get("Range") != "":
-		select {
-		case mediaSpools <- struct{}{}:
-			defer func() { <-mediaSpools }()
-		default:
-			w.Header().Set("Retry-After", "1")
-			writeError(w, http.StatusServiceUnavailable, "media storage is busy, retry shortly")
-			return
-		}
-		rs, got, err := s.mediaService.OpenObject(ctx, rel)
-		if err != nil {
-			mediaStoreFailure(w, err)
-			return
-		}
-		defer rs.Close()
-		timer.Stop()
-		head := make([]byte, media.SniffLen)
-		n, _ := rs.Read(head)
-		if _, err := rs.Seek(0, io.SeekStart); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to access file")
-			return
-		}
-		setMediaHeaders(w, media.SniffContentType(head[:n]), info.ETag, got.Size)
-		http.ServeContent(w, r, name, info.ModTime, rs)
-
-	default:
-		got, body, err := s.mediaService.GetObject(ctx, rel)
-		if err != nil {
-			mediaStoreFailure(w, err)
-			return
-		}
-		defer body.Close()
-		timer.Stop()
-		idle := time.AfterFunc(mediaIdleTimeout, cancel)
-		idle.Stop() // each Read starts it
-		br := bufio.NewReaderSize(&idleReader{r: body, timer: idle, idle: mediaIdleTimeout}, media.SniffLen)
-		head, _ := br.Peek(media.SniffLen)
-		setMediaHeaders(w, media.SniffContentType(head), got.ETag, got.Size)
-		w.Header().Set("Accept-Ranges", "bytes")
-		w.WriteHeader(http.StatusOK)
-		_, _ = io.Copy(w, br)
+		return
 	}
+
+	byteRange := singleByteRange(r, info)
+	// Size, validator and range come from the response that carries the bytes,
+	// not from the lookup: the object may have been replaced in between.
+	got, rg, body, err := s.mediaService.GetObjectRange(ctx, rel, byteRange)
+	if errors.Is(err, media.ErrRangeNotSatisfiable) {
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes */%d", info.Size))
+		writeError(w, http.StatusRequestedRangeNotSatisfiable, "range not satisfiable")
+		return
+	}
+	if err != nil {
+		mediaStoreFailure(w, err)
+		return
+	}
+	defer body.Close()
+	timer.Stop()
+	idle := time.AfterFunc(mediaIdleTimeout, cancel)
+	idle.Stop() // each Read starts it
+	br := bufio.NewReaderSize(&idleReader{r: body, timer: idle, idle: mediaIdleTimeout}, media.SniffLen)
+
+	// The type is sniffed from the start of the object. A range that starts
+	// later fetches those bytes separately.
+	var head []byte
+	if rg.Partial && rg.Start > 0 {
+		_, _, hb, err := s.mediaService.GetObjectRange(ctx, rel, fmt.Sprintf("bytes=0-%d", media.SniffLen-1))
+		if err != nil {
+			mediaStoreFailure(w, err)
+			return
+		}
+		head, _ = io.ReadAll(io.LimitReader(&idleReader{r: hb, timer: idle, idle: mediaIdleTimeout}, media.SniffLen))
+		hb.Close()
+	} else {
+		head, _ = br.Peek(media.SniffLen)
+	}
+	length := got.Size
+	if rg.Partial {
+		length = rg.End - rg.Start + 1
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", rg.Start, rg.End, got.Size))
+	}
+	setMediaHeaders(w, media.SniffContentType(head), got.ETag, length)
+	w.Header().Set("Accept-Ranges", "bytes")
+	if rg.Partial {
+		w.WriteHeader(http.StatusPartialContent)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+	_, _ = io.Copy(w, br)
+}
+
+// singleByteRange returns the request's Range header when it asks for exactly
+// one bytes range and any If-Range still matches the object; otherwise "", and
+// the whole object is sent.
+func singleByteRange(r *http.Request, info media.ObjectInfo) string {
+	rng := r.Header.Get("Range")
+	if !strings.HasPrefix(rng, "bytes=") || strings.Contains(rng, ",") {
+		return ""
+	}
+	if ir := r.Header.Get("If-Range"); ir != "" {
+		if t, err := http.ParseTime(ir); err == nil {
+			if info.ModTime.IsZero() || !info.ModTime.Truncate(time.Second).Equal(t) {
+				return ""
+			}
+		} else if info.ETag == "" || ir != info.ETag { // a weak validator never matches
+			return ""
+		}
+	}
+	return rng
 }
 
 // mediaStoreFailure answers for a store error: a missing file or an invalid

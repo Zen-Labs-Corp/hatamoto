@@ -11,6 +11,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -159,26 +161,98 @@ func TestServeMediaObjectStorageHeadAndGetDoNotSpool(t *testing.T) {
 	}
 }
 
-// Range requests spool behind a semaphore: when every slot is taken the
-// answer is 503 with Retry-After, and a free slot is released afterwards.
-func TestServeMediaObjectStorageRangeSpoolIsBounded(t *testing.T) {
+// A single range is answered 206 straight from the bucket with a ranged
+// request: nothing is spooled to disk and no slot limits it. The type is
+// sniffed from the start of the object even when the range starts later.
+func TestServeMediaObjectStorageSingleRangeComesFromTheBucket(t *testing.T) {
 	h, fake, _ := s3MediaServer(t)
-	fake.Put("site/p.png", []byte("\x89PNG\r\n\x1a\n0123456789"), nil)
-	old := mediaSpools
-	mediaSpools = make(chan struct{}, 1)
-	defer func() { mediaSpools = old }()
+	png := "\x89PNG\r\n\x1a\n0123456789"
+	fake.Put("site/p.png", []byte(png), nil)
+	fake.Put("site/page.png", []byte("<html><script>alert(1)</script>0123456789"), nil)
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp)
 
-	mediaSpools <- struct{}{}
-	w := getMedia(h, "p.png", map[string]string{"Range": "bytes=0-0"})
-	if w.Code != http.StatusServiceUnavailable || w.Header().Get("Retry-After") == "" {
-		t.Errorf("busy = %d %v", w.Code, w.Header())
+	full := getMedia(h, "p.png", nil)
+	etag := full.Header().Get("ETag")
+	for _, rng := range []string{"bytes=8-11", "bytes=10-", "bytes=-4"} {
+		w := getMedia(h, "p.png", map[string]string{"Range": rng})
+		want := map[string]string{"bytes=8-11": "0123", "bytes=10-": "23456789", "bytes=-4": "6789"}[rng]
+		if w.Code != http.StatusPartialContent || w.Body.String() != want || w.Header().Get("Content-Length") != strconv.Itoa(len(want)) ||
+			!strings.HasSuffix(w.Header().Get("Content-Range"), "/18") || w.Header().Get("ETag") != etag ||
+			w.Header().Get("Accept-Ranges") != "bytes" || w.Header().Get("Content-Type") != "image/png" {
+			t.Errorf("%s = %d %q %v", rng, w.Code, w.Body.String(), w.Header())
+		}
 	}
-	<-mediaSpools
-	if w = getMedia(h, "p.png", map[string]string{"Range": "bytes=8-9"}); w.Code != http.StatusPartialContent || w.Body.String() != "01" {
-		t.Errorf("free = %d %q", w.Code, w.Body.String())
+	if w := getMedia(h, "p.png", map[string]string{"Range": "bytes=0-0"}); w.Header().Get("Content-Range") != "bytes 0-0/18" || w.Body.String() != "\x89" {
+		t.Errorf("first byte = %v %q", w.Header(), w.Body.String())
 	}
-	if len(mediaSpools) != 0 {
-		t.Error("the spool slot was not released")
+	// Not a media type: the same download fallback as a plain GET, from a range that starts late.
+	w := getMedia(h, "page.png", map[string]string{"Range": "bytes=10-"})
+	if w.Code != http.StatusPartialContent || w.Header().Get("Content-Type") != "application/octet-stream" ||
+		w.Header().Get("Content-Disposition") != "attachment" || w.Header().Get("Content-Security-Policy") != "sandbox" {
+		t.Errorf("html range = %d %v", w.Code, w.Header())
+	}
+	var ranged int
+	for _, r := range fake.Requests() {
+		if r.Method == http.MethodGet && r.Header.Get("Range") != "" {
+			ranged++
+		}
+	}
+	if ranged < 5 {
+		t.Errorf("only %d ranged requests reached the bucket", ranged)
+	}
+	if left, _ := os.ReadDir(tmp); len(left) != 0 {
+		t.Errorf("a range spooled to disk: %v", left)
+	}
+}
+
+func TestServeMediaObjectStorageRangeEdgeCases(t *testing.T) {
+	h, fake, _ := s3MediaServer(t)
+	png := "\x89PNG\r\n\x1a\n0123456789"
+	fake.Put("site/p.png", []byte(png), nil)
+	etag := getMedia(h, "p.png", nil).Header().Get("ETag")
+
+	w := getMedia(h, "p.png", map[string]string{"Range": "bytes=18-"})
+	if w.Code != http.StatusRequestedRangeNotSatisfiable || w.Header().Get("Content-Range") != "bytes */18" {
+		t.Errorf("unsatisfiable = %d %v", w.Code, w.Header())
+	}
+	for name, hdr := range map[string]map[string]string{
+		"multi-range":    {"Range": "bytes=0-1,4-5"},
+		"other unit":     {"Range": "items=0-1"},
+		"stale If-Range": {"Range": "bytes=8-9", "If-Range": `"other"`},
+		"weak If-Range":  {"Range": "bytes=8-9", "If-Range": "W/" + etag},
+	} {
+		if w := getMedia(h, "p.png", hdr); w.Code != 200 || w.Body.String() != png {
+			t.Errorf("%s = %d %q, want the whole object", name, w.Code, w.Body.String())
+		}
+	}
+	if w := getMedia(h, "p.png", map[string]string{"Range": "bytes=8-9", "If-Range": etag}); w.Code != http.StatusPartialContent || w.Body.String() != "01" {
+		t.Errorf("matching If-Range = %d %q", w.Code, w.Body.String())
+	}
+	if w := getMedia(h, "p.png", map[string]string{"Range": "bytes=8-9", "If-None-Match": etag}); w.Code != http.StatusNotModified {
+		t.Errorf("Range with a current validator = %d", w.Code)
+	}
+}
+
+// Many slow readers of ranges do not block each other or refuse anyone: the
+// bucket is read as the client takes the bytes, with no global slot.
+func TestServeMediaObjectStorageManyRangesDoNotRefuse(t *testing.T) {
+	h, fake, _ := s3MediaServer(t)
+	fake.Put("site/v.png", []byte("\x89PNG\r\n\x1a\n0123456789"), nil)
+	var wg sync.WaitGroup
+	var refused atomic.Int32
+	for range 12 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if w := getMedia(h, "v.png", map[string]string{"Range": "bytes=0-"}); w.Code != http.StatusPartialContent {
+				refused.Add(1)
+			}
+		}()
+	}
+	wg.Wait()
+	if refused.Load() != 0 {
+		t.Errorf("%d concurrent range requests were refused", refused.Load())
 	}
 }
 

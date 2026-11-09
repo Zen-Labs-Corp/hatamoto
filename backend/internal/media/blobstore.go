@@ -171,6 +171,16 @@ type ObjectInfo struct {
 	SHA256  string
 }
 
+// ByteRange is the part of an object a stream holds: bytes Start through End,
+// inclusive. Partial is false when the stream is the whole object.
+type ByteRange struct {
+	Start, End int64
+	Partial    bool
+}
+
+// ErrRangeNotSatisfiable is returned for a range that lies outside the object.
+var ErrRangeNotSatisfiable = errors.New("range not satisfiable")
+
 // Optional store capabilities. Callers type-assert for them; BlobStore itself
 // stays minimal. A missing key returns an error satisfying
 // errors.Is(err, fs.ErrNotExist).
@@ -183,10 +193,14 @@ type (
 	Lister interface {
 		List(ctx context.Context, prefix string) ([]ObjectInfo, error)
 	}
-	// InfoGetter streams key and reports the object the stream belongs to, so
-	// size and validator never come from a different version than the bytes.
-	InfoGetter interface {
-		GetWithInfo(ctx context.Context, key string) (ObjectInfo, io.ReadCloser, error)
+	// RangeGetter streams key, or one byte range of it ("bytes=a-b",
+	// "bytes=a-" or "bytes=-n"; empty for all). ObjectInfo describes the whole
+	// object as the response saw it, so size and validator never come from a
+	// different version than the bytes. A store may ignore
+	// the range and send everything (ByteRange.Partial is then false); an
+	// unsatisfiable range returns ErrRangeNotSatisfiable.
+	RangeGetter interface {
+		GetRange(ctx context.Context, key, byteRange string) (ObjectInfo, ByteRange, io.ReadCloser, error)
 	}
 	// Opener opens key for random access; close the returned file.
 	Opener interface {

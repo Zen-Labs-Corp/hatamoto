@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -20,8 +21,8 @@ const metaSHA256 = "sha256"
 
 // S3Store keeps media bytes in S3-compatible object storage. The object key is
 // the target prefix followed by the media key, verbatim. The client needs the
-// body as a ReaderAt of known size and has no ranged reads, so Put and Open
-// spool through a temporary file on local disk.
+// body as a ReaderAt of known size, so Put and Open spool through a temporary
+// file on local disk.
 type S3Store struct {
 	client  *s3.Client
 	prefix  string
@@ -98,17 +99,30 @@ func (s *S3Store) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	return body, nil
 }
 
-// GetWithInfo streams key; the details come from the same response as the bytes.
-func (s *S3Store) GetWithInfo(ctx context.Context, key string) (ObjectInfo, io.ReadCloser, error) {
+// GetRange streams a byte range of key straight from the bucket.
+func (s *S3Store) GetRange(ctx context.Context, key, byteRange string) (ObjectInfo, ByteRange, io.ReadCloser, error) {
 	obj, err := s.objectKey(key)
 	if err != nil {
-		return ObjectInfo{}, nil, err
+		return ObjectInfo{}, ByteRange{}, nil, err
 	}
-	body, o, err := s.client.Get(ctx, obj)
+	body, o, err := s.client.GetRange(ctx, obj, byteRange)
 	if err != nil {
-		return ObjectInfo{}, nil, notExist("get", key, err)
+		var se *s3.Error
+		if errors.As(err, &se) && se.Status == http.StatusRequestedRangeNotSatisfiable {
+			return ObjectInfo{}, ByteRange{}, nil, ErrRangeNotSatisfiable
+		}
+		return ObjectInfo{}, ByteRange{}, nil, notExist("get", key, err)
 	}
-	return objectInfo(key, o), body, nil
+	if o.ContentRange == "" {
+		return objectInfo(key, o), ByteRange{Start: 0, End: o.Size - 1}, body, nil
+	}
+	var start, end, total int64
+	if _, err := fmt.Sscanf(o.ContentRange, "bytes %d-%d/%d", &start, &end, &total); err != nil {
+		body.Close()
+		return ObjectInfo{}, ByteRange{}, nil, fmt.Errorf("get blob %q: bad Content-Range", key)
+	}
+	o.Size = total
+	return objectInfo(key, o), ByteRange{Start: start, End: end, Partial: true}, body, nil
 }
 
 // Delete removes key. The client treats a missing key as success, so Head

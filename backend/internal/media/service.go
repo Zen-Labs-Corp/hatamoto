@@ -420,29 +420,15 @@ func (s *Service) StatObject(ctx context.Context, rel string) (ObjectInfo, error
 	return st.Stat(ctx, rel)
 }
 
-// GetObject streams a stored file by its path relative to the store and
-// reports the object the bytes belong to. Close the returned reader. A missing
+// GetObjectRange streams a stored file by its path relative to the store, or
+// one byte range of it (see RangeGetter). Close the returned reader. A missing
 // file satisfies errors.Is(err, fs.ErrNotExist).
-func (s *Service) GetObject(ctx context.Context, rel string) (ObjectInfo, io.ReadCloser, error) {
-	g, ok := s.store.(InfoGetter)
+func (s *Service) GetObjectRange(ctx context.Context, rel, byteRange string) (ObjectInfo, ByteRange, io.ReadCloser, error) {
+	g, ok := s.store.(RangeGetter)
 	if !ok {
-		return ObjectInfo{}, nil, errors.New("the media store cannot stream objects")
+		return ObjectInfo{}, ByteRange{}, nil, errors.New("the media store cannot stream ranges")
 	}
-	return g.GetWithInfo(ctx, rel)
-}
-
-// OpenObject opens a stored file for random-access reads. Close the returned
-// file. OpenFile is the local-disk variant of the same thing.
-func (s *Service) OpenObject(ctx context.Context, rel string) (io.ReadSeekCloser, ObjectInfo, error) {
-	op, ok := s.store.(Opener)
-	if !ok {
-		return nil, ObjectInfo{}, errors.New("the media store cannot open objects")
-	}
-	info, rc, err := op.Open(ctx, rel)
-	if err != nil {
-		return nil, ObjectInfo{}, err
-	}
-	return rc, info, nil
+	return g.GetRange(ctx, rel, byteRange)
 }
 
 // Config returns the media service configuration.
