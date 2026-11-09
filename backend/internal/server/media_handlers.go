@@ -298,6 +298,26 @@ func setMediaHeaders(w http.ResponseWriter, contentType, etag string, size int64
 // storage (the lookup, the start of a download, a whole spool).
 var mediaStoreTimeout = 30 * time.Second
 
+// mediaIdleTimeout bounds one read from the bucket's response body: a provider
+// that stops sending mid-object cannot pin the request.
+var mediaIdleTimeout = 30 * time.Second
+
+// idleReader cancels the request when a single Read takes longer than the
+// timeout. The timer runs only while waiting for the bucket, not while the
+// client is slow to take the bytes.
+type idleReader struct {
+	r     io.Reader
+	timer *time.Timer
+	idle  time.Duration
+}
+
+func (i *idleReader) Read(p []byte) (int, error) {
+	i.timer.Reset(i.idle)
+	n, err := i.r.Read(p)
+	i.timer.Stop()
+	return n, err
+}
+
 // mediaSpools bounds the objects spooled to local disk at once. Only a Range
 // request spools; everything else streams or answers from the lookup.
 var mediaSpools = make(chan struct{}, 4)
@@ -371,7 +391,9 @@ func (s *Server) serveStoredObject(w http.ResponseWriter, r *http.Request, rel s
 		}
 		defer body.Close()
 		timer.Stop()
-		br := bufio.NewReaderSize(body, media.SniffLen)
+		idle := time.AfterFunc(mediaIdleTimeout, cancel)
+		idle.Stop() // each Read starts it
+		br := bufio.NewReaderSize(&idleReader{r: body, timer: idle, idle: mediaIdleTimeout}, media.SniffLen)
 		head, _ := br.Peek(media.SniffLen)
 		setMediaHeaders(w, media.SniffContentType(head), got.ETag, got.Size)
 		w.Header().Set("Accept-Ranges", "bytes")

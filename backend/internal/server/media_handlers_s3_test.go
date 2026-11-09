@@ -237,3 +237,37 @@ func TestServeMediaObjectStorageGetUsesTheDownloadsDetails(t *testing.T) {
 		t.Errorf("GET = %q %v", w.Body.String(), w.Header())
 	}
 }
+
+// A bucket that stalls in the middle of an object does not pin the request.
+func TestServeMediaObjectStorageStalledBodyIsCut(t *testing.T) {
+	hang := make(chan struct{})
+	stall := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "100000")
+		if r.Method == http.MethodHead {
+			return
+		}
+		_, _ = w.Write([]byte("\x89PNG\r\n\x1a\nsome bytes"))
+		w.(http.Flusher).Flush()
+		<-hang
+	}))
+	defer stall.Close()
+	defer close(hang)
+	store, err := media.NewS3Store(media.S3Target{Endpoint: stall.URL, Region: s3test.Region,
+		Bucket: s3test.Bucket, AccessKey: s3test.AccessKey, SecretKey: s3test.SecretKey}, "/media", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{mediaService: media.NewService(nil, media.Config{UploadDir: t.TempDir(), MaxSizeMB: 1, Store: store}, slog.Default())}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /media/{rest...}", s.handleServeMedia)
+	old := mediaIdleTimeout
+	mediaIdleTimeout = 200 * time.Millisecond
+	defer func() { mediaIdleTimeout = old }()
+	done := make(chan struct{})
+	go func() { getMedia(mux, "p.png", nil); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("a stalled body held the request open")
+	}
+}
