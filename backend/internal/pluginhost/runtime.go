@@ -45,6 +45,9 @@ type Status struct {
 	// DataError says why the plugin's own data (schema, migrations) is not
 	// ready; the plugin itself is loaded.
 	DataError string
+	// TempFileLimitOff is set when the plugin's database role runs without a
+	// temp_file_limit (managed PostgreSQL); see docs/PLUGIN_API.md.
+	TempFileLimitOff bool
 }
 
 // Runtime loads plugins into a wasmhost.Host and registers their hook
@@ -300,6 +303,7 @@ func (r *Runtime) LoadWith(ctx context.Context, m sdk.Manifest, wasm []byte, ass
 	// template funcs go live and can call one.
 	r.record(st)
 	st.DataError = r.activate(ctx, m, assets)
+	st.TempFileLimitOff = r.tempFileLimitOff(m.Name, st.DataError)
 	r.syncExtSources()
 	r.log.Info("plugin loaded", slog.String("plugin", m.Name), slog.String("version", m.Version), slog.Any("hooks", st.Hooks))
 	return r.record(st)

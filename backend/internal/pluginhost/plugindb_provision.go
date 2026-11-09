@@ -144,9 +144,38 @@ func (d *PluginDB) swapState(ctx context.Context, plugin string, rotate bool) (*
 		return old, fmt.Errorf("pluginhost: provision %q: %w", plugin, err)
 	default:
 		st.role, st.password = role, pw
+		st.tempFileOff = !d.tempFileLimitSet(ctx, role)
+		if st.tempFileOff && (old == nil || !old.tempFileOff) {
+			d.log.Warn("plugindb: temp_file_limit not applied",
+				slog.String("plugin", plugin),
+				slog.String("reason", "database role may not set temp_file_limit"))
+		}
 	}
 	d.state[plugin] = st
 	return old, nil
+}
+
+// tempFileLimitSet reports whether role carries a temp_file_limit setting. A
+// role admin that may not grant the parameter leaves it unset. A failed query
+// counts as applied: this is a hint for operators, never an error.
+func (d *PluginDB) tempFileLimitSet(ctx context.Context, role string) bool {
+	var set bool
+	err := d.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles r, unnest(coalesce(r.rolconfig, '{}')) c
+		WHERE r.rolname = $1 AND c LIKE 'temp_file_limit=%')`, role).Scan(&set)
+	if err != nil {
+		d.log.Debug("plugindb: temp_file_limit check failed", slog.Any("error", err))
+		return true
+	}
+	return set
+}
+
+// TempFileLimitOff reports whether plugin's database role runs without a
+// temp_file_limit (the bootstrap role could not grant it).
+func (d *PluginDB) TempFileLimitOff(plugin string) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	st := d.state[plugin]
+	return st != nil && st.tempFileOff
 }
 
 // provisionRole makes the plugin's role and schema usable, trying in order:
@@ -173,7 +202,7 @@ func (d *PluginDB) provisionRole(ctx context.Context, plugin string, rotate bool
 			return err
 		}
 		if !viaFunc && !direct {
-			return fmt.Errorf("%w: run deploy/sql/role-admin-bootstrap.sql once as a superuser (see docs/PLUGIN_API.md)", ErrRoleUnavailable)
+			return fmt.Errorf("%w: run deploy/sql/role-admin-bootstrap.sql once as a superuser or a role with CREATEROLE and CREATEDB (see docs/PLUGIN_API.md)", ErrRoleUnavailable)
 		}
 		dbID, err := instanceID(ctx, tx)
 		if err != nil {
@@ -344,7 +373,7 @@ func roleError(err error) error {
 	}
 	var pe *pgconn.PgError
 	if errors.As(err, &pe) && pe.Code == "42501" {
-		return fmt.Errorf("%w: run deploy/sql/role-admin-bootstrap.sql once as a superuser (see docs/PLUGIN_API.md): %s", ErrRoleUnavailable, pe.Message)
+		return fmt.Errorf("%w: run deploy/sql/role-admin-bootstrap.sql once as a superuser or a role with CREATEROLE and CREATEDB (see docs/PLUGIN_API.md): %s", ErrRoleUnavailable, pe.Message)
 	}
 	return fmt.Errorf("%w: %w", ErrRoleUnavailable, err)
 }

@@ -70,6 +70,8 @@ type dbState struct {
 	roleErr  error  // nil: the role exists and is usable
 	password string // the role's login password; never logged
 	pool     *pgxpool.Pool
+	// tempFileOff: the role has no temp_file_limit (the bootstrap role could not grant it).
+	tempFileOff bool
 }
 
 // NewPluginDB returns a PluginDB over the core pool.
