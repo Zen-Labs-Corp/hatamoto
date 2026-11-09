@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"hatamoto.dev/core/internal/admin/ui"
@@ -214,13 +215,14 @@ type MediaStorageProbe interface {
 const healthMediaStorageTimeout = 2 * time.Second
 
 // healthMediaStorage is never an error: an unreachable bucket is a bad row.
-// The failure is logged, but not shown, as it can name the endpoint.
+// The failure is logged with its error text (an s3.Error carries the
+// operation, status and code, never a URL or credentials) but not shown.
 func (a *Admin) healthMediaStorage(ctx context.Context) (*healthCheck, error) {
 	ctx, cancel := context.WithTimeout(ctx, healthMediaStorageTimeout)
 	defer cancel()
 	c := &healthCheck{Group: healthData, Label: "Media storage"}
 	if err := a.deps.MediaStorage.Test(ctx); err != nil {
-		a.logger().Warn("admin: media object storage is not reachable")
+		a.logger().Warn("admin: media object storage is not reachable", slog.Any("error", err))
 		c.Value, c.Level = "Object storage: bucket unreachable", healthBad
 		return c, nil
 	}
