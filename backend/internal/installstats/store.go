@@ -6,13 +6,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 // Consent is the owner's stored answer.
@@ -152,7 +153,7 @@ func scanState(row pgx.Row) (State, error) {
 		st.InstallID = *id
 	}
 	if len(errsJS) > 0 {
-		if err := json.Unmarshal(errsJS, &st.Counts.PluginErrors); err != nil {
+		if err := jsonx.Unmarshal(errsJS, &st.Counts.PluginErrors); err != nil {
 			return State{}, fmt.Errorf("decode plugin errors: %w", err)
 		}
 	}
@@ -362,7 +363,7 @@ func (s *Store) withLockedRow(ctx context.Context, fn func(tx pgx.Tx, st State) 
 }
 
 func writeCounts(ctx context.Context, tx pgx.Tx, c Counts) error {
-	js, err := json.Marshal(c.PluginErrors)
+	js, err := jsonx.Marshal(c.PluginErrors)
 	if err != nil {
 		return err
 	}
