@@ -45,7 +45,7 @@ The commands below assume the systemd layout: the program at `/opt/hatamoto/bin/
    ```
 
    ```text
-   {"version":"v1.4.2","commit":"...","sdk":"0.16.0","schema_head":202610251000,"sdk_compatible_with":["0.5.0","0.6.0","0.7.0","0.8.0","0.9.0","0.10.0","0.11.0","0.12.0","0.13.0","0.14.0","0.15.0"]}
+   {"version":"v1.1.0","commit":"478035ef543010635e28e108699b86f6713e622f","sdk":"0.19.0","schema_head":202611051000,"sdk_compatible_with":["0.5.0","0.6.0","0.7.0","0.8.0","0.9.0","0.10.0","0.11.0","0.12.0","0.13.0","0.14.0","0.15.0","0.16.0","0.17.0","0.18.0"],"removed_permissions":["entities.write","media.write","menus.write","redirects.write","terms.write"]}
    ```
 
    Your version, commit and schema head will differ.

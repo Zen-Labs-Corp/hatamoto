@@ -39,7 +39,7 @@ In this guide you build `hello`, the example plugin in the Hatamoto repository, 
    go get hatamoto.dev/sdk@v0.12.0
    ```
 
-   SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown ([The sdk range](manifest.md#the-sdk-range)).
+   This guide builds against SDK 0.12.0 and declares `^0.11`, the oldest range it needs, so the plugin also loads on older servers. Hatamoto `v1.1.0` ships SDK 0.19.0 and serves every range back to `^0.5`; build against a newer SDK only when you use what it added, and declare that range. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown ([The sdk range](manifest.md#the-sdk-range)).
 
 3. Open `main.go`. It registers two handlers and exports one function per **hook**, a point where a plugin joins in: an action runs when something happens, a filter changes a value before it is used.
 

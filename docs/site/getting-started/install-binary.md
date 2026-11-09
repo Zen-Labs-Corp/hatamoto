@@ -69,7 +69,7 @@ In this guide you download Hatamoto, connect it to a Postgres database and start
    ```
 
    ```text
-   hatamoto v0.31.0 (commit 15887307b221388a8a86d939775cdaa10ad0f8ca, sdk 0.12.0)
+   hatamoto v1.1.0 (commit 478035ef543010635e28e108699b86f6713e622f, sdk 0.19.0)
    ```
 
 ### Prepare the database
