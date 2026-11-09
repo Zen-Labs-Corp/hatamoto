@@ -730,9 +730,8 @@ Names are a contract (`TestTokensContract`): add freely, never rename.
   --border`. Dark values apply under `:root[data-admin-theme="dark"]`, set from
   the `hm_theme` cookie on `<html>` (no flash, no inline script).
 * Density: the `hm_density=compact` cookie sets `data-admin-density="compact"` on
-  `<html>`, and the compact values live in `tokens.css`. Plugin pages that render in
-  the admin layout follow it; an iframed plugin document needs the attribute
-  propagated to its own `<html>`.
+  `<html>`, and the compact values live in `tokens.css`. Plugin UIs are sandboxed
+  iframes, so they do not follow it yet and stay at Comfortable sizes.
 
 Values are the live admin's, so the Go admin looks like the one it replaces; the
 handoff's dimensions and rules (36 px controls, 232 px sidebar, one primary
