@@ -28,7 +28,7 @@ Three terms are new here. The **key-value store** (`kv`) is the plugin's own sto
    go get hatamoto.dev/sdk@v0.12.0
    ```
 
-   SDK 0.12.0 ships with Hatamoto `v0.31.0`; until your users run it, declare `^0.11`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
+   This guide builds against SDK 0.12.0 and declares `^0.11`, the oldest range it needs, so the plugin also loads on older servers. Hatamoto `v1.1.0` ships SDK 0.19.0 and serves every range back to `^0.5`; build against a newer SDK only when you use what it added, and declare that range. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
 
 2. Create `plugin.json`. It asks for the `kv` **permission**, a right the owner grants, and declares one public route and one cron job:
 
