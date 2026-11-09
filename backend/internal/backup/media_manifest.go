@@ -81,3 +81,58 @@ func hashObject(ctx context.Context, store media.BlobStore, key string) (string,
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
+
+// maxMediaProblemsListed caps the object keys named per kind of problem.
+const maxMediaProblemsListed = 10
+
+// mediaCheck is the result of comparing a media manifest with a store.
+type mediaCheck struct {
+	Total      int
+	Missing    []string // keys not in the store
+	Mismatched []string // keys whose size or sha256 differ
+	// Unverified is set when the store could not be read; the other fields are then partial.
+	Unverified error
+}
+
+// verifyMediaManifest compares every listed object with the store. It only
+// reads. Size and the sha256 recorded in the object's metadata are compared
+// (an object without it is read and hashed); the bytes of an object whose
+// size and metadata agree are not re-read. A store failure stops the check and is returned in Unverified.
+func verifyMediaManifest(ctx context.Context, store media.BlobStore, mm *mediaManifest) mediaCheck {
+	res := mediaCheck{Total: len(mm.Files)}
+	st, ok := store.(media.Stater)
+	if !ok {
+		res.Unverified = errors.New("the media store cannot report object sizes")
+		return res
+	}
+	for _, f := range mm.Files {
+		info, err := st.Stat(ctx, f.Key)
+		if errors.Is(err, fs.ErrNotExist) {
+			res.Missing = append(res.Missing, f.Key)
+			continue
+		}
+		if err != nil {
+			res.Unverified = err
+			return res
+		}
+		if info.Size != f.Size {
+			res.Mismatched = append(res.Mismatched, f.Key)
+			continue
+		}
+		sum := info.SHA256
+		if sum == "" {
+			if sum, err = hashObject(ctx, store, f.Key); err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					res.Missing = append(res.Missing, f.Key)
+					continue
+				}
+				res.Unverified = err
+				return res
+			}
+		}
+		if sum != f.SHA256 {
+			res.Mismatched = append(res.Mismatched, f.Key)
+		}
+	}
+	return res
+}

@@ -39,8 +39,11 @@ type scanned struct {
 	hasSecrets bool
 	mediaFiles int
 	mediaBytes int64
-	badMedia   []string // media entry names that would escape the media dir
-	contentErr error    // content.tar.gz is not a readable gzip tar
+	// mediaObjects is media-manifest.json: the objects of a site whose media
+	// is in object storage. nil when the archive has none.
+	mediaObjects *mediaManifest
+	badMedia     []string // media entry names that would escape the media dir
+	contentErr   error    // content.tar.gz is not a readable gzip tar
 }
 
 // scanArchive reads the archive once, hashing every entry, and reads the
@@ -78,6 +81,19 @@ func scanArchive(file string) (*scanned, error) {
 			}
 			haveManifest = true
 			continue
+		case mediaManifestName:
+			var buf bytes.Buffer
+			n, err = io.Copy(io.MultiWriter(hash, &buf), io.LimitReader(tr, maxSmall*64+1))
+			if err == nil && n > maxSmall*64 {
+				err = errors.New("media-manifest.json is too large")
+			}
+			if err == nil {
+				var mm mediaManifest
+				if jerr := jsonx.Unmarshal(buf.Bytes(), &mm, jsonx.StoredLoose); jerr != nil {
+					err = fmt.Errorf("media-manifest.json is not valid: %w", jerr)
+				}
+				s.mediaObjects = &mm
+			}
 		case secretsName:
 			var buf bytes.Buffer
 			n, err = io.Copy(io.MultiWriter(hash, &buf), io.LimitReader(tr, maxSmall+1))
@@ -257,14 +273,20 @@ func (x *restorer) check(ctx context.Context) (*RestorePlan, error) {
 		plan.Checks = append(plan.Checks, "target db empty")
 	}
 
-	// The media dir holds nothing yet.
-	switch entries, err := os.ReadDir(x.o.MediaDir); {
-	case err != nil && !errors.Is(err, os.ErrNotExist):
-		return nil, fmt.Errorf("cannot read the media dir: %w", err)
-	case len(entries) > 0:
-		refuse = append(refuse, fmt.Sprintf("the media dir %s is not empty", x.o.MediaDir))
-	default:
-		plan.Checks = append(plan.Checks, "media dir empty")
+	if x.o.MediaStore != nil || s.mediaObjects != nil {
+		if err := x.checkObjectMedia(ctx, plan, &refuse); err != nil {
+			return nil, err
+		}
+	} else {
+		// The media dir holds nothing yet.
+		switch entries, err := os.ReadDir(x.o.MediaDir); {
+		case err != nil && !errors.Is(err, os.ErrNotExist):
+			return nil, fmt.Errorf("cannot read the media dir: %w", err)
+		case len(entries) > 0:
+			refuse = append(refuse, fmt.Sprintf("the media dir %s is not empty", x.o.MediaDir))
+		default:
+			plan.Checks = append(plan.Checks, "media dir empty")
+		}
 	}
 
 	// secrets.env: an existing one must be the same file.
@@ -525,7 +547,17 @@ func (x *restorer) buildPlan(plan *RestorePlan) {
 	for _, name := range mf.Plugins {
 		plan.Would = append(plan.Would, "restore "+schemaName(name)+".dump")
 	}
-	plan.Would = append(plan.Would, fmt.Sprintf("restore %d media file%s (%s)", x.scan.mediaFiles, plural(x.scan.mediaFiles), mib(x.scan.mediaBytes)))
+	switch {
+	case x.scan.mediaObjects != nil && x.scan.mediaFiles == 0:
+		n := len(x.scan.mediaObjects.Files)
+		if x.o.MediaStore != nil {
+			plan.Would = append(plan.Would, fmt.Sprintf("check %d media object%s in object storage", n, plural(n)))
+		}
+	case x.o.MediaStore != nil:
+		plan.Would = append(plan.Would, fmt.Sprintf("restore %d media file%s (%s) to object storage", x.scan.mediaFiles, plural(x.scan.mediaFiles), mib(x.scan.mediaBytes)))
+	default:
+		plan.Would = append(plan.Would, fmt.Sprintf("restore %d media file%s (%s)", x.scan.mediaFiles, plural(x.scan.mediaFiles), mib(x.scan.mediaBytes)))
+	}
 	if x.scan.hasSecrets {
 		plan.Would = append(plan.Would, "write secrets.env")
 	}
