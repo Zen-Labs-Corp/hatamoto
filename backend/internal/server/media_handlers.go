@@ -427,7 +427,10 @@ func (s *Server) serveStoredObject(w http.ResponseWriter, r *http.Request, rel s
 		}
 		// Replaced between the two downloads: start over with the whole object,
 		// whose own first bytes need no second request.
-		if err := refetchWhole(); err != nil {
+		timer.Reset(mediaStoreTimeout) // the response headers wait under the store timeout too
+		err = refetchWhole()
+		timer.Stop()
+		if err != nil {
 			mediaStoreFailure(w, err)
 			return
 		}

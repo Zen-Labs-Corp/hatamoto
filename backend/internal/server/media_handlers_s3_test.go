@@ -461,3 +461,38 @@ func TestServeMediaObjectStorageFirstBytesReadErrorIs502(t *testing.T) {
 		})
 	}
 }
+
+// The whole-object refetch after a replacement found while sniffing waits for
+// the store under the same bound as every other call.
+func TestServeMediaObjectStorageSniffRefetchIsBounded(t *testing.T) {
+	older := []byte("\x89PNG\r\n\x1a\n0123456789abcdef0123456789abcdef")
+	newer := []byte("\x89PNG\r\n\x1a\nNEWNEWNEWNEWNEWNEW-and-longer-than-the-old-one")
+	fake := s3test.NewServer(t)
+	target, _ := url.Parse(fake.URL)
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	hang := make(chan struct{})
+	var gets atomic.Int32
+	front := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			switch gets.Add(1) {
+			case 2:
+				fake.Put("site/p.png", newer, nil) // replaced between the range and the sniff fetch
+			case 3:
+				<-hang
+				return
+			}
+		}
+		proxy.ServeHTTP(w, r)
+	}))
+	defer front.Close()
+	defer close(hang)
+	fake.Put("site/p.png", older, nil)
+	old := mediaStoreTimeout
+	mediaStoreTimeout = 300 * time.Millisecond
+	defer func() { mediaStoreTimeout = old }()
+	start := time.Now()
+	w := getMedia(serveFrontedByS3(t, front.URL, "site/"), "p.png", map[string]string{"Range": "bytes=20-25"})
+	if w.Code != http.StatusBadGateway || time.Since(start) > 10*time.Second {
+		t.Errorf("hung refetch = %d after %v", w.Code, time.Since(start))
+	}
+}
