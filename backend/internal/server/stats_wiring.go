@@ -2,11 +2,14 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"math/rand/v2"
 	"time"
 
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/installstats"
+	"hatamoto.dev/core/internal/middleware"
 )
 
 // statsJob is the worker job name WORKER_DISABLE_JOBS uses for the install
@@ -18,6 +21,23 @@ const statsJob = "stats_ping"
 // restart (an update) from pushing the next report a full day out.
 const statsCheckEvery = time.Hour
 
+// statsFlushEvery is how often the in-memory health counts go to the database
+// (at most this much is lost to a crash; a send flushes first too).
+var statsFlushEvery = 5 * time.Minute
+
+// healthSink is the install stats health collector; nil-safe to call into
+// before SetStats.
+func (s *Server) healthSink() *installstats.Health { return s.health.Load() }
+
+// recoveryChain is the outermost logging middleware: the 5xx counter outside
+// the panic recovery, so the 500 written for a recovered panic is counted too.
+func (s *Server) recoveryChain() []httpx.Middleware {
+	return []httpx.Middleware{
+		middleware.CountServerErrors(func() { s.healthSink().HTTP5xx() }),
+		middleware.RecoveryLogger(s.logger, s.redactLogPath, middleware.OnPanic(func() { s.healthSink().Panic() })),
+	}
+}
+
 // SetStats hands the install stats service to the server. Call it before
 // Start. HATAMOTO_TELEMETRY=off is applied here, once, even when the worker is
 // off, so a stored install ID is deleted at boot. The daily job is scheduled
@@ -25,8 +45,10 @@ const statsCheckEvery = time.Hour
 func (s *Server) SetStats(svc *installstats.Service) {
 	s.stats = svc
 	if svc == nil {
+		s.health.Store(nil)
 		return
 	}
+	s.health.Store(svc.Health())
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := svc.Enforce(ctx); err != nil {
@@ -36,6 +58,7 @@ func (s *Server) SetStats(svc *installstats.Service) {
 		s.admin.SetStats(adminStats{svc})
 	}
 	s.scheduleStats()
+	s.startStatsFlush()
 }
 
 // adminStats presents the install stats service to the admin.
@@ -46,16 +69,47 @@ func (a adminStats) View(ctx context.Context) (admin.StatsView, error) {
 	if err != nil {
 		return admin.StatsView{}, err
 	}
-	return admin.StatsView{
-		Consent: string(v.State.Consent), ForcedOff: v.ForcedOff, PreviewJSON: v.PreviewJSON,
-		LastSent: v.State.LastOKAt,
-	}, nil
+	level := "unset"
+	switch v.Level {
+	case installstats.LevelOff:
+		level = "off"
+	case installstats.LevelBasic:
+		level = "basic"
+	case installstats.LevelDetailed:
+		level = "detailed"
+	}
+	return admin.StatsView{Level: level, ForcedOff: v.ForcedOff, LastSent: v.LastSent}, nil
 }
 
-func (a adminStats) Unanswered(ctx context.Context) (bool, error) { return a.svc.Unanswered(ctx) }
-func (a adminStats) ForcedOff() bool                              { return a.svc.ForcedOff() }
-func (a adminStats) Choose(ctx context.Context, yes bool) error   { return a.svc.Choose(ctx, yes) }
-func (a adminStats) Reset(ctx context.Context) error              { return a.svc.Reset(ctx) }
+func (a adminStats) Banner(ctx context.Context) (string, error) {
+	k, err := a.svc.Banner(ctx)
+	switch k {
+	case installstats.BannerUnanswered:
+		return "unanswered", err
+	case installstats.BannerNudge:
+		return "nudge", err
+	}
+	return "", err
+}
+
+func (a adminStats) ForcedOff() bool { return a.svc.ForcedOff() }
+
+// Choose refuses a level the service does not know: the admin validates first,
+// and a stray value must never become a default.
+func (a adminStats) Choose(ctx context.Context, level string) error {
+	switch level {
+	case "off":
+		return a.svc.Choose(ctx, installstats.LevelOff)
+	case "basic":
+		return a.svc.Choose(ctx, installstats.LevelBasic)
+	case "detailed":
+		return a.svc.Choose(ctx, installstats.LevelDetailed)
+	}
+	return fmt.Errorf("install stats: unknown level %q", level)
+}
+
+func (a adminStats) DismissNudge(ctx context.Context) error { return a.svc.DismissNudge(ctx) }
+func (a adminStats) Reset(ctx context.Context) error        { return a.svc.Reset(ctx) }
 
 // scheduleStats puts the ping on the worker scheduler: a check every hour
 // (sending at most once a day), the first 5 to 15 minutes after start. Nothing is scheduled in a public demo or
@@ -71,4 +125,45 @@ func (s *Server) scheduleStats() bool {
 		return false
 	}
 	return true
+}
+
+// startStatsFlush moves the health counts into the database every
+// statsFlushEvery until Shutdown, which flushes once more. It does not need
+// the worker scheduler, and nothing runs in a public demo.
+func (s *Server) startStatsFlush() {
+	if s.stopStatsFlush != nil {
+		s.stopStatsFlush()
+		s.stopStatsFlush = nil
+	}
+	if s.stats == nil || s.demoOn() {
+		return
+	}
+	svc, every := s.stats, statsFlushEvery
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	flush := func(ctx context.Context) {
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		if err := svc.Flush(ctx); err != nil {
+			s.logger.Warn("install stats: could not store health counts", "error", err)
+		}
+	}
+	go func() {
+		defer close(done)
+		t := time.NewTicker(every)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				flush(ctx)
+			}
+		}
+	}()
+	s.stopStatsFlush = func() {
+		cancel()
+		<-done
+		flush(context.Background())
+	}
 }

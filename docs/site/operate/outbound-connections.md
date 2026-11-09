@@ -12,7 +12,7 @@ This page lists every outbound connection of the `hatamoto` server, so you can d
 |---|---|---|---|---|
 | Update check | `https://hatamoto.dev/releases/channels/<channel>.json` | About every six hours (give or take 30 minutes), first within ten minutes of start | One anonymous GET. No query, cookie or identifier of your install; only the headers Go adds itself. | `HATAMOTO_UPDATES=off`, or the update mode in Settings > Updates ([policy](../updates/pin-or-turn-off-updates.md)) |
 | Update download | The same host: the release record and the binary | Only when the check finds a release the policy installs, or you press Update now | Anonymous GETs, same as above | `HATAMOTO_UPDATES=notify` (look, never install) or `off` |
-| Install stats | `https://hatamoto.dev/p/stats/v1/ping` | Once a day (give or take an hour), first 5 to 15 minutes after start, and only after an owner chose **Send stats**. Never in a development build | One POST with the user agent `hatamoto-stats`, a 10 second timeout, no cookies, no redirects followed. The JSON body has three keys: `install` (a random ID made when the owner opts in), `version` and `channel`. Nothing about your site, content or visitors. | Leave it off, switch it off or press Reset ID in Settings > Updates, or set `HATAMOTO_TELEMETRY=off` (no call, and the stored ID is deleted) |
+| Install stats | `https://hatamoto.dev/p/stats/v1/ping` | Once a day (give or take an hour), first 5 to 15 minutes after start, and only after an owner chose **Basic** or **Detailed**; also at the next hourly check after the version changed. Never in a development build | One POST with the user agent `hatamoto-stats`, a 10 second timeout, no cookies, no redirects followed. On Basic the JSON body has three keys: `install` (a random ID made when the owner opts in), `version` and `channel`. Detailed adds platform, theme, plugin and error-count fields, listed in [Install stats](install-stats.md). Nothing about your site, content or visitors. | Leave it off, choose Off or press Reset ID in Settings > Updates, or set `HATAMOTO_TELEMETRY=off` (no call, and the stored ID is deleted) |
 | Registry | `https://hatamoto.dev/registry.json`, then the package files it lists | Only when an admin opens the Plugins or Themes browser, or installs from it. The public directory page also fetches it when one is served | Anonymous GET | `HATAMOTO_REGISTRY_URL=off` (uploads still work) |
 | AI-crawler IP ranges | The published range files of the crawler operators in the built-in agent registry: Google, Bing, OpenAI, Perplexity, Anthropic, Common Crawl, DuckDuckGo, Apple and Ahrefs | First about 90 seconds after start, then daily | GET with the user agent `hatamoto-agent-verifier`; no cookies, nothing about your site | `HATAMOTO_AGENT_RANGES=off` |
 | Cloudflare edge ranges | `https://www.cloudflare.com/ips-v4` and `https://www.cloudflare.com/ips-v6` | Only when `HATAMOTO_TRUSTED_CDN=cloudflare`: once at start, then every 24 hours | GET with the user agent `hatamoto-agent-verifier`, 20 second timeout, 4 MiB cap; no cookies, nothing about your site | Leave `HATAMOTO_TRUSTED_CDN` unset, or set `HATAMOTO_AGENT_RANGES=off` (the stored or built-in list is used) |
@@ -32,19 +32,19 @@ Plugin calls, webhooks and the import are checked against private, loopback and 
 
 | Connection | Code |
 |---|---|
-| Update check, schedule | `backend/internal/updater/run.go:43` (`checkEvery`, `checkJitter`), first run at `:137` |
+| Update check, schedule | `backend/internal/updater/run.go:43` (`checkEvery`, `checkJitter`), first run at `:148` |
 | Update fetches | `backend/internal/updater/fetch.go:23` (default host), `:45` (no headers of its own), `:120` (manifest), `:128` (record), `:147` (download) |
-| Install stats | `backend/internal/installstats/service.go:180` (`Run`), `:25` (user agent), `:92` (10 second client), `:94` (no redirects), `:211` (POST); `backend/internal/installstats/env.go:20` (default URL); `backend/internal/server/stats_wiring.go:69` (hourly check, one send a day), `:14` (`stats_ping` job); `backend/internal/server/worker_jobs.go:31` (job list) |
-| `HATAMOTO_UPDATES` | `backend/internal/updater/types.go:31` and `:84` |
-| Registry | `backend/internal/config/packages.go:13` (default URL), `:24` (`off`); `backend/internal/packages/registry.go:154`; `backend/internal/server/admin_packages.go:61`; `backend/internal/server/registry_directory.go:148` |
-| IP ranges | `backend/internal/agents/registry.json` (hosts); `backend/internal/agents/refresh.go:14` and `:108` (user agent); `backend/internal/worker/scheduler.go:353` (daily, 90 s after start); `backend/internal/server/worker_jobs.go:19` and `:48` (`HATAMOTO_AGENT_RANGES=off`) |
+| Install stats | `backend/internal/installstats/service.go:210` (`Run`), `:27` (user agent), `:99` (10 second client), `:101` (no redirects), `:273` (POST); `backend/internal/installstats/store.go:30` (20 hour rule), `:35` (30 minute guard after a version change), `:243` (`Claim`); `backend/internal/installstats/env.go:20` (default URL), `:24` (`HATAMOTO_TELEMETRY=off`); `backend/internal/server/stats_wiring.go:22` (hourly check), `:17` (`stats_ping` job), `:118` (scheduling); `backend/internal/worker/catalog.go:40` (job list) |
+| `HATAMOTO_UPDATES` | `backend/internal/updater/types.go:31` and `:89` |
+| Registry | `backend/internal/config/packages.go:13` (default URL), `:50` (`off`); `backend/internal/packages/registry.go:324`; `backend/internal/server/admin_packages.go:71`; `backend/internal/server/registry_directory.go:178` |
+| IP ranges | `backend/internal/agents/registry.json` (hosts); `backend/internal/agents/refresh.go:14` and `:108` (user agent); `backend/internal/worker/scheduler.go:554` (daily, 90 s after start); `backend/internal/server/worker_jobs.go:21` and `:54` (`HATAMOTO_AGENT_RANGES=off`) |
 | Cloudflare edge ranges | `backend/internal/agents/cdn_ranges.go` (`cdnRangeURLs`, `CDNRefresher`, `RunCDNRefresh`); `backend/internal/agents/cloudflare_fallback.go` (built-in list); `backend/internal/server/server.go` (`applyTrustedCDN`, refresh goroutine) |
-| Reverse DNS | `backend/internal/agents/verify.go:128` (`LookupAddr`); `backend/internal/agents/verify_worker.go` |
-| Captcha | `backend/internal/spam/verify.go:28` (endpoints), `:85` (fields sent) |
+| Reverse DNS | `backend/internal/agents/verify.go:139` (`LookupAddr`); `backend/internal/agents/verify_worker.go` |
+| Captcha | `backend/internal/spam/verify.go:28` (endpoints), `:84` (fields sent) |
 | Email | `backend/internal/email/`, `backend/internal/mailsettings/settings.go` |
 | Webhooks | `backend/internal/webhook/outbound.go`, `deliver.go` |
 | Plugin `http.fetch` | `backend/internal/pluginhost/fetch.go:20` |
-| Embeds | `backend/internal/render/funcs.go:128`; `backend/internal/entity/sanitize.go:19` |
+| Embeds | `backend/internal/render/funcs.go:123`; `backend/internal/entity/sanitize.go:19` |
 
 ## Related
 

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -13,6 +14,7 @@ import (
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/lock"
 
+	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/migrations"
 )
 
@@ -46,12 +48,23 @@ func withProvider(pool *pgxpool.Pool, fn func(*goose.Provider) error) error {
 	return fn(prov)
 }
 
+// isMigrationFailure reports whether err is a migration that ran and failed.
+// A lock that could not be taken, a database that is away and a boot that was
+// cancelled are not, and must not reach the install stats.
+func isMigrationFailure(ctx context.Context, err error) bool {
+	var partial *goose.PartialError
+	return errors.As(err, &partial) && ctx.Err() == nil
+}
+
 // migrateUp applies every pending core migration and logs each one.
 func migrateUp(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
 	return withProvider(pool, func(p *goose.Provider) error {
 		res, err := p.Up(ctx)
 		for _, r := range res {
 			logger.Info("migration applied", "version", r.Source.Version, "file", r.Source.Path, "took", r.Duration)
+		}
+		if isMigrationFailure(ctx, err) {
+			recordMigrationFailure(config.ResolveDataDir())
 		}
 		if err != nil {
 			return fmt.Errorf("migrate up: %w", err)

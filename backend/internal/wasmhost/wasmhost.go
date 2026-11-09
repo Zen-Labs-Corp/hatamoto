@@ -568,6 +568,33 @@ func WithFreshInstance(ctx context.Context) context.Context {
 	return context.WithValue(ctx, freshKey{}, true)
 }
 
+// errorObserver is the process-wide callback set by SetErrorObserver.
+var errorObserver atomic.Pointer[func(plugin string)]
+
+// SetErrorObserver installs a process-wide callback invoked once per failed
+// plugin call with the plugin name only, never the error. Failures are traps,
+// timeouts, out-of-memory, oversized output and guest errors; deliberate
+// rejections (sdk.RejectPrefix) and consequences such as ErrCircuitOpen or
+// ErrSaturated are not reported. f must be cheap and must not block. nil
+// clears it.
+func SetErrorObserver(f func(plugin string)) {
+	if f == nil {
+		errorObserver.Store(nil)
+		return
+	}
+	errorObserver.Store(&f)
+}
+
+// observeError reports one failed call of plugin; a panicking observer is ignored.
+func observeError(plugin string) {
+	f := errorObserver.Load()
+	if f == nil {
+		return
+	}
+	defer func() { _ = recover() }()
+	(*f)(plugin)
+}
+
 func isFresh(ctx context.Context) bool { v, _ := ctx.Value(freshKey{}).(bool); return v }
 
 // Call runs export on plugin name with JSON input and returns its output.
@@ -712,6 +739,7 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 			if reject {
 				return nil, err
 			}
+			observeError(name)
 			return nil, fmt.Errorf("%s.%s: %w", name, export, err)
 		}
 		// A caller deadline (render.head, jsonld.enrich) that cut the guest
@@ -724,6 +752,7 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 		ran := time.Since(start)
 		if callerCtx.Err() == nil || ran >= timeout || ran >= start.Sub(entry) {
 			p.failed(export)
+			observeError(name)
 		}
 		p.discarded.Add(1)
 		_ = inst.Close(context.Background())

@@ -74,16 +74,10 @@
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
 {{template "hm/card-start" dict "ID" "updates-stats" "Title" "Install stats" "Heading" "h2"}}<div class="hm-setlist">
 <div class="hm-setrow">
-<div class="hm-setrow__text"><label class="hm-setrow__name" for="stats-on">Send install stats</label>
-<p class="hm-field__help">{{if eq .Consent "yes"}}Sends anonymous install stats to hatamoto.dev once a day. Turn off to stop.{{else}}Send anonymous install stats to hatamoto.dev once a day. Nothing is sent while this is off.{{end}}</p></div>
-<div class="hm-setrow__control">{{template "hm/field" (dict "Control" "switch" "ID" "stats-on" "Name" "stats" "Value" "on" "Label" "Send install stats" "Bare" true "OffValue" "off" "Checked" (eq .Consent "yes"))}}</div>
+<div class="hm-setrow__text">{{template "hm/radiocard" (dict "Legend" "Install stats" "Name" "level" "Cols" 3 "ID" "level" "DescribedBy" "stats-help" "Items" $.Data.StatsCards)}}
+<p class="hm-field__help" id="stats-help">Anonymous, once a day, to hatamoto.dev. <a href="{{$.Data.StatsDocsURL}}" target="_blank" rel="noopener">What is collected</a></p></div>
 </div>
-<div class="hm-setrow">
-<div class="hm-setrow__text"><p class="hm-setrow__name">What is sent</p>
-<p class="hm-field__help">{{if eq .Consent "yes"}}This is the exact request body.{{else}}This is the exact request body, with an example ID. A real ID is created when you turn this on.{{end}} No site address, no content, no names.</p>
-<pre class="hm-code" tabindex="0">{{.PreviewJSON}}</pre></div>
-</div>
-{{if eq .Consent "yes"}}<div class="hm-setrow">
+{{if or (eq .Level "basic") (eq .Level "detailed")}}<div class="hm-setrow">
 <div class="hm-setrow__text"><p class="hm-setrow__name">Last sent</p>
 <p class="hm-field__help">{{if $.Data.StatsLastSent}}{{$.Data.StatsLastSent}}{{else}}Not sent yet. Hatamoto tries again once a day.{{end}}</p></div>
 <div class="hm-setrow__control">{{template "hm/button" dict "Label" "Reset ID" "Type" "submit" "Attrs" (attrmap "form" "reset-stats-form")}}</div>

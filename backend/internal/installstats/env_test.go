@@ -50,7 +50,7 @@ func TestResolveURL(t *testing.T) {
 }
 
 func TestPayloadHasExactlyThreeKeys(t *testing.T) {
-	for _, b := range [][]byte{mustJSON(t, Payload{}), []byte(Payload{Install: "a", Version: "v1.0.0", Channel: "stable"}.Pretty())} {
+	for _, b := range [][]byte{mustJSON(t, Payload{}), mustJSON(t, Payload{Install: "a", Version: "v1.0.0", Channel: "stable"})} {
 		var m map[string]any
 		if err := jsonx.Unmarshal(b, &m); err != nil {
 			t.Fatal(err)

@@ -453,8 +453,9 @@ POST /admin/settings/updates/apply -> admin.(*Admin).handleUpdatesApply-fm
 POST /admin/settings/updates/apply-without-backup -> admin.(*Admin).handleUpdatesApplyWithoutBackup-fm
 POST /admin/settings/updates/check -> admin.(*Admin).handleUpdatesCheck-fm
 POST /admin/settings/updates/retry -> admin.(*Admin).handleUpdatesRetry-fm
-POST /admin/settings/updates/stats -> admin.(*Admin).handleStatsSwitch-fm
+POST /admin/settings/updates/stats -> admin.(*Admin).handleStatsLevel-fm
 POST /admin/settings/updates/stats/choice -> admin.(*Admin).handleStatsChoice-fm
+POST /admin/settings/updates/stats/dismiss -> admin.(*Admin).handleStatsDismiss-fm
 POST /admin/settings/updates/stats/reset -> admin.(*Admin).handleStatsReset-fm
 POST /admin/settings/updates/unpin -> admin.(*Admin).handleUpdatesUnpin-fm
 POST /admin/settings/users -> admin.(*Admin).handleUserCreate-fm

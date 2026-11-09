@@ -75,14 +75,32 @@ func redactPath(redact func(string) string, p string) string {
 	return redact(p)
 }
 
+// RecoveryOption tunes RecoveryLogger.
+type RecoveryOption func(*recoveryOpts)
+
+type recoveryOpts struct{ onPanic func() }
+
+// OnPanic registers f, called once per recovered panic before the 500 is
+// written. A nil f is a no-op.
+func OnPanic(f func()) RecoveryOption {
+	return func(o *recoveryOpts) { o.onPanic = f }
+}
+
 // RecoveryLogger recovers from panics and logs them. redact works as in
 // RequestLogger.
-func RecoveryLogger(logger *slog.Logger, redact func(path string) string) func(http.Handler) http.Handler {
+func RecoveryLogger(logger *slog.Logger, redact func(path string) string, opts ...RecoveryOption) func(http.Handler) http.Handler {
+	var o recoveryOpts
+	for _, opt := range opts {
+		opt(&o)
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := redactPath(redact, r.URL.Path)
 			defer func() {
 				if err := recover(); err != nil {
+					if o.onPanic != nil {
+						o.onPanic()
+					}
 					logger.Error("panic recovered",
 						slog.Any("error", err),
 						slog.String("method", r.Method),
@@ -92,6 +110,27 @@ func RecoveryLogger(logger *slog.Logger, redact func(path string) string) func(h
 				}
 			}()
 			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// CountServerErrors calls onErr once per response whose final status is 500 or
+// higher, except 503: the server answers that on purpose (maintenance mode,
+// /readyz while the database is away, a feature that is not configured, a busy
+// upload queue), so counting it would bury real failures. Place it outside RecoveryLogger so the 500 written for a recovered
+// panic is seen too (that request counts as both a panic and a server error).
+// A nil onErr makes it a pass-through.
+func CountServerErrors(onErr func()) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		if onErr == nil {
+			return next
+		}
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			wrapped := wrapResponseWriter(w)
+			next.ServeHTTP(wrapped, r)
+			if wrapped.status >= http.StatusInternalServerError && wrapped.status != http.StatusServiceUnavailable {
+				onErr()
+			}
 		})
 	}
 }

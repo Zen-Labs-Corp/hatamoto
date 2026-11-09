@@ -183,6 +183,11 @@ type Server struct {
 	scheduler *worker.Scheduler
 	updater   *updater.Updater
 	stats     *installstats.Service
+	// health is the install stats health collector. It is a pointer swapped in
+	// by SetStats, so middleware built before SetStats counts into it too.
+	health atomic.Pointer[installstats.Health]
+	// stopStatsFlush ends the health flush goroutine and flushes once more.
+	stopStatsFlush func()
 	// webhooks queues and manages outgoing webhooks; webhookDeliverer sends them.
 	webhooks         *webhook.Service
 	changesets       *changeset.Engine
@@ -715,8 +720,10 @@ func (s *Server) buildHandler() http.Handler {
 	chain := []httpx.Middleware{
 		// Security headers — applied first so every response includes them.
 		s.securityHeadersMiddleware,
-		// Logging and recovery
-		middleware.RecoveryLogger(s.logger, s.redactLogPath),
+	}
+	// Logging and recovery
+	chain = append(chain, s.recoveryChain()...)
+	chain = append(chain,
 		middleware.RequestLogger(s.logger, s.redactLogPath),
 		requestIDMiddleware,
 		expireLegacyCookies(legacy, s.logger),
@@ -727,7 +734,7 @@ func (s *Server) buildHandler() http.Handler {
 		// signed-out admin requests with the standard 404, and nothing between it
 		// and the mux may change a response.
 		interceptMiddleware(deps),
-	}
+	)
 	if s.demoOn() {
 		validate := s.validateSession
 		if validate == nil {
@@ -1062,6 +1069,9 @@ func (s *Server) Shutdown() error {
 	s.stopSmoke(ctx)
 	if s.stopProbes != nil {
 		s.stopProbes()
+	}
+	if s.stopStatsFlush != nil {
+		s.stopStatsFlush()
 	}
 
 	// An Update now run watches the lifecycle context; it must be over before
