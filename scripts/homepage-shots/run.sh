@@ -9,14 +9,30 @@
 # SHOTS_CACHE (dir that keeps the demo key and gtm.hmp between runs, for iterating; dev only,
 # the key is a throwaway demo key, never put a real key there; must be outside the repo),
 # SHOTS_SERVE=1 (seed, print the address and wait, no capture).
+# SHOTS_SET=readme captures the README images instead (readme-shots.json, 1600 px wide, into
+# docs/images/), plus a real MCP session and the theme gallery; see README.md here.
 set -Eeuo pipefail
 ROOT=$(git rev-parse --show-toplevel)
 HS=$ROOT/scripts/homepage-shots
 QA=$ROOT/scripts/admin-qa
 # shellcheck source=../admin-qa/qa-env.sh
 . "$QA/qa-env.sh"
-OUT_DIR=${OUT_DIR:-$ROOT/scripts/homepage-shots/out}
-QA_VERSION=${QA_VERSION:-v0.26.0}
+SHOTS_SET=${SHOTS_SET:-homepage}
+case "$SHOTS_SET" in
+  homepage)
+    SHOTS_FILE=$HS/shots.json
+    OUT_DIR=${OUT_DIR:-$ROOT/scripts/homepage-shots/out}
+    QA_VERSION=${QA_VERSION:-v0.26.0} ;;
+  readme)
+    SHOTS_FILE=$HS/readme-shots.json
+    OUT_DIR=${OUT_DIR:-$ROOT/docs/images}
+    # The newest release tag, so Settings > Updates shows a believable version.
+    QA_VERSION=${QA_VERSION:-$(git -C "$ROOT" tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)}
+    QA_VERSION=${QA_VERSION:-v1.0.0}
+    ;;
+  *) echo "homepage-shots: SHOTS_SET must be homepage or readme" >&2; exit 2 ;;
+esac
+export SHOTS_SET
 W=$(mktemp -d /tmp/hm-homepage-shots.XXXXXX)
 SRV=""; PGSTARTED=""
 die() { echo "homepage-shots: $*" >&2; exit 2; }
@@ -26,6 +42,19 @@ cleanup() {
   rm -rf "$W"
 }
 trap cleanup EXIT
+
+if [ "$SHOTS_SET" = readme ]; then
+  # The prior/next versions of the rolled-back update shown in Settings > Updates.
+  IFS=. read -r vmaj vmin vpat <<<"${QA_VERSION#v}"
+  export SHOTS_NEXT_VERSION="v$vmaj.$vmin.$((vpat + 1))"
+  if [ "$vpat" -gt 0 ]; then export SHOTS_PREV_VERSION="v$vmaj.$vmin.$((vpat - 1))"; else export SHOTS_PREV_VERSION="v$vmaj.$((vmin > 0 ? vmin - 1 : 0)).0"; fi
+  # The WordPress scan report reads a WXR export: the importer fixture's (test/wpfixture), with its
+  # local address and name replaced by the demo's, so the report shows nothing about the fixture host.
+  WXR_SRC=${README_WXR:-${XDG_CACHE_HOME:-$HOME/.cache}/hatamoto-wpfixture/site/wpfixture.wxr}
+  [ -f "$WXR_SRC" ] || die "no WXR export at $WXR_SRC: run test/wpfixture/run-local.sh up once (or set README_WXR)"
+  sed -E 's#https?://(127\.0\.0\.1|localhost)(:[0-9]+)?#https://old.northwind.example#g; s#Acme Fixture#Northwind Studio#g' "$WXR_SRC" >"$W/old-site.wxr"
+  export README_WXR=$W/old-site.wxr MCP_HTML=$W/mcp.html
+fi
 free_port() { node -e 'const s=require("net").createServer().listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})'; }
 
 if [ -n "${SHOTS_CACHE:-}" ]; then
@@ -93,6 +122,23 @@ if [ "${SHOTS_SERVE:-}" = 1 ]; then
   echo "serving $BASE (owner $QA_EMAIL, password $QA_PASSWORD); Ctrl-C to stop" >&2
   echo "env: DATABASE_URL=$DATABASE_URL HATAMOTO_BIN=$HATAMOTO_BIN GTM_HMP=$GTM_HMP" >&2
   wait "$SRV"
+fi
+
+if [ "$SHOTS_SET" = readme ]; then
+  # Captured into the work dir first, so a failed run never leaves docs/images half replaced.
+  node "$HS/capture.mjs" --shots "$SHOTS_FILE" --out "$W/readme" ${ONLY:+--only "$ONLY"} || {
+    mkdir -p "$HS/out"; cp "$W"/readme/_fail-* "$HS/out/" 2>/dev/null || true; die "capture failed (failure screenshots in $HS/out)"; }
+  THEME_SHOTS=${THEME_SHOTS:-$ROOT/registry/screenshots}
+  if [ -z "${ONLY:-}" ] || [[ ,$ONLY, == *,readme-themes,* ]]; then
+    if [ -d "$THEME_SHOTS" ]; then node "$HS/theme-grid.mjs" "$THEME_SHOTS" "$W/readme/themes.webp"
+    else echo "homepage-shots: no theme screenshots in $THEME_SHOTS, themes.webp left as it is" >&2; fi
+  fi
+  [ -n "${ONLY:-}" ] || node "$HS/contact-sheet.mjs" "$W/readme" "$SHOTS_FILE"
+  mkdir -p "$OUT_DIR" "$HS/out"
+  cp "$W"/readme/*.webp "$OUT_DIR/"
+  [ ! -f "$W/readme/contact-sheet.png" ] || cp "$W/readme/contact-sheet.png" "$HS/out/readme-contact-sheet.png"
+  echo "homepage-shots: done, README images in $OUT_DIR (contact sheet: $HS/out/readme-contact-sheet.png)"
+  exit 0
 fi
 
 mkdir -p "$OUT_DIR"
