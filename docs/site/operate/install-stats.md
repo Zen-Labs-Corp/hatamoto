@@ -109,7 +109,7 @@ The receiver keeps one report per install and UTC day: a second report the same 
 An owner chooses in one of three places, and can change the choice at any time:
 
 - On a new site, the setup wizard has a **Help improve Hatamoto** step after **Look**, with **Off**, **Basic** and **Detailed**, none preselected. See [First run](../getting-started/first-run.md).
-- On an install that has not answered yet, a banner asks the owner once, with **No thanks**, **Basic** and **Detailed**. An install on Basic is offered Detailed once, and **Dismiss** ends the offer for good.
+- On an install that has not answered yet, a banner asks the owner once, with **No thanks**, **Basic** and **Detailed**. An install that was already sending before Detailed existed (so it counts as Basic without having chosen it) is offered Detailed once, and **Dismiss** ends the offer for good. Choosing Basic yourself, in the setup step, the banner or Settings, never shows the offer.
 - **Settings > Updates** has an **Install stats** section with the three levels, a **What is collected** link to this page, and when it was last sent successfully. Editors do not see the question.
 
 Choosing Basic or Detailed creates the install ID. Choosing Off deletes it, and the health counts with it. While stats are on, **Reset ID** replaces the ID with a new random one, so earlier reports can no longer be linked to later ones.

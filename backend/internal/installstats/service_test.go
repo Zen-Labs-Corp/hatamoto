@@ -41,7 +41,7 @@ func (m *memStore) Enable(_ context.Context, level Level) (State, error) {
 			m.st.WindowStart = &now
 		}
 	}
-	m.st.Consent, m.st.Level = ConsentYes, level
+	m.st.Consent, m.st.Level, m.st.NudgeDismissed = ConsentYes, level, true
 	if m.st.InstallID == "" {
 		m.n++
 		m.st.InstallID = strings.Repeat(string(rune('a'+m.n)), 32)
@@ -311,7 +311,7 @@ func TestBannerKinds(t *testing.T) {
 		want  BannerKind
 	}{
 		{"unset", nil, LevelUnset, BannerUnanswered},
-		{"basic", nil, LevelBasic, BannerNudge},
+		{"explicit basic", nil, LevelBasic, BannerNone},
 		{"detailed", nil, LevelDetailed, BannerNone},
 		{"off", nil, LevelOff, BannerNone},
 		{"forced off", map[string]string{EnvTelemetry: "off"}, LevelUnset, BannerNone},
@@ -324,8 +324,13 @@ func TestBannerKinds(t *testing.T) {
 			t.Errorf("%s: Banner = %q, %v; want %q", c.name, got, err, c.want)
 		}
 	}
-	s, _, _ := rig(t, nil, "v1.2.3")
+	// A Basic row that was never chosen here (migrated from consent yes) is offered Detailed once.
+	s, m, _ := rig(t, nil, "v1.2.3")
 	_ = s.Choose(ctx, LevelBasic)
+	m.st.NudgeDismissed = false
+	if got, _ := s.Banner(ctx); got != BannerNudge {
+		t.Fatalf("migrated basic: %q, want nudge", got)
+	}
 	if err := s.DismissNudge(ctx); err != nil {
 		t.Fatal(err)
 	}

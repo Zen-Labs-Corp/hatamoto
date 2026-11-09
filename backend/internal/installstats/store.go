@@ -201,8 +201,10 @@ func (s *Store) Load(ctx context.Context) (State, error) {
 	return st, nil
 }
 
-// Enable records consent yes at level (basic or detailed). An existing ID is
-// kept; otherwise a new random one is created. Entering Detailed starts a
+// Enable records consent yes at level (basic or detailed). It is the owner's
+// explicit choice, so the Detailed offer counts as made: only rows migrated
+// from consent yes keep it. An existing ID is kept; otherwise a new random one
+// is created. Entering Detailed starts a
 // fresh health window with zero counts; leaving it zeroes them.
 func (s *Store) Enable(ctx context.Context, level Level) (State, error) {
 	if level != LevelBasic && level != LevelDetailed {
@@ -216,9 +218,9 @@ func (s *Store) Enable(ctx context.Context, level Level) (State, error) {
 	// keeps them.
 	const t = `hatamoto_install_stats`
 	_, err = s.db.Exec(ctx, `
-		INSERT INTO hatamoto_install_stats (id, consent, level, install_id, health_window_start)
-		VALUES (TRUE, 'yes', $2, $1, CASE WHEN $2::text = 'detailed' THEN now() END)
-		ON CONFLICT (id) DO UPDATE SET consent = 'yes', level = EXCLUDED.level,
+		INSERT INTO hatamoto_install_stats (id, consent, level, install_id, nudge_dismissed, health_window_start)
+		VALUES (TRUE, 'yes', $2, $1, TRUE, CASE WHEN $2::text = 'detailed' THEN now() END)
+		ON CONFLICT (id) DO UPDATE SET consent = 'yes', level = EXCLUDED.level, nudge_dismissed = TRUE,
 			install_id = COALESCE(`+t+`.install_id, EXCLUDED.install_id),
 			health_window_start = CASE
 				WHEN `+t+`.level = EXCLUDED.level THEN `+t+`.health_window_start

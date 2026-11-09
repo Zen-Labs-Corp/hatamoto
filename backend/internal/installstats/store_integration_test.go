@@ -211,6 +211,9 @@ func TestMigrationBackfillsLevel_Integration(t *testing.T) {
 			if err != nil || got.Level != want || string(got.Consent) != consent {
 				t.Fatalf("level = %q consent = %q (%v), want %q / %q", got.Level, got.Consent, err, want, consent)
 			}
+			if consent == "yes" && got.NudgeDismissed {
+				t.Fatal("a migrated yes row must still get the Detailed offer")
+			}
 		})
 	}
 }
@@ -387,7 +390,13 @@ func TestBannerKinds_Integration(t *testing.T) {
 		}
 	}
 	want(BannerUnanswered)
+	// An explicit choice of Basic is not nudged towards Detailed.
 	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+		t.Fatal(err)
+	}
+	want(BannerNone)
+	// A row migrated from consent yes is, once, until dismissed.
+	if _, err := st.db.Exec(ctx, `UPDATE hatamoto_install_stats SET nudge_dismissed = FALSE`); err != nil {
 		t.Fatal(err)
 	}
 	want(BannerNudge)
