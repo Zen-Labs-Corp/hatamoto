@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/media"
@@ -70,6 +72,10 @@ func (s *Server) handleMediaUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.logger.Error("failed to upload media", "error", err)
+		if errors.Is(err, media.ErrStorageFailed) && s.mediaService.ObjectStorage() {
+			writeError(w, http.StatusBadGateway, "media storage is unavailable")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to upload file")
 		return
 	}
@@ -210,34 +216,52 @@ func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Resolved inside an os.Root: a symlink in the upload directory cannot
-	// lead the server to a file outside it.
-	file, err := s.mediaService.OpenFile(cleanPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			writeError(w, http.StatusNotFound, "file not found")
+	var (
+		content io.ReadSeeker
+		size    int64
+		modTime time.Time
+		etag    string
+		name    = filepath.Base(cleanPath)
+	)
+	if s.mediaService.ObjectStorage() {
+		rs, info, ok := s.openStoredObject(w, r, cleanPath)
+		if !ok {
 			return
 		}
-		writeError(w, http.StatusForbidden, "invalid path")
-		return
-	}
-	defer file.Close()
+		defer rs.Close()
+		content, size, modTime, etag = rs, info.Size, info.ModTime, info.ETag
+	} else {
+		// Resolved inside an os.Root: a symlink in the upload directory cannot
+		// lead the server to a file outside it.
+		file, err := s.mediaService.OpenFile(cleanPath)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				writeError(w, http.StatusNotFound, "file not found")
+				return
+			}
+			writeError(w, http.StatusForbidden, "invalid path")
+			return
+		}
+		defer file.Close()
 
-	stat, err := file.Stat()
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to access file")
-		return
-	}
-	if stat.IsDir() {
-		writeError(w, http.StatusForbidden, "cannot serve directory")
-		return
+		stat, err := file.Stat()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to access file")
+			return
+		}
+		if stat.IsDir() {
+			writeError(w, http.StatusForbidden, "cannot serve directory")
+			return
+		}
+		content, size, modTime, name = file, stat.Size(), stat.ModTime(), stat.Name()
+		etag = fmt.Sprintf(`"%x-%x"`, stat.Size(), stat.ModTime().UnixNano())
 	}
 
 	// Detect content type
 	buffer := make([]byte, media.SniffLen)
-	n, _ := file.Read(buffer)
+	n, _ := content.Read(buffer)
 	contentType := media.SniffContentType(buffer[:n])
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
+	if _, err := content.Seek(0, io.SeekStart); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to access file")
 		return
 	}
@@ -267,9 +291,66 @@ func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
 	// check cheap).
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "public, max-age=86400, must-revalidate")
-	w.Header().Set("ETag", fmt.Sprintf(`"%x-%x"`, stat.Size(), stat.ModTime().UnixNano()))
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
+	if etag != "" {
+		w.Header().Set("ETag", etag)
+	}
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", size))
 
 	// Serve file
-	http.ServeContent(w, r, stat.Name(), stat.ModTime(), file)
+	http.ServeContent(w, r, name, modTime, content)
+}
+
+// openStoredObject opens a file of a non-local media store. It answers the
+// request itself and reports false when the file is missing, the path is not
+// valid, the browser's copy is current (304) or the store is unreachable
+// (502, logged: a bucket outage is not a "forbidden").
+func (s *Server) openStoredObject(w http.ResponseWriter, r *http.Request, rel string) (io.ReadSeekCloser, media.ObjectInfo, bool) {
+	fail := func(err error) {
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+			writeError(w, http.StatusNotFound, "file not found")
+		case errors.Is(err, media.ErrInvalidKey):
+			writeError(w, http.StatusForbidden, "invalid path")
+		default:
+			slog.Error("media: object storage", "err", err)
+			writeError(w, http.StatusBadGateway, "media storage is unavailable")
+		}
+	}
+	// The validator comes from a cheap lookup, so a browser that already has
+	// the bytes never makes the server fetch them.
+	info, err := s.mediaService.StatObject(r.Context(), rel)
+	if err != nil {
+		fail(err)
+		return nil, media.ObjectInfo{}, false
+	}
+	if info.ETag != "" && ifNoneMatchHits(r, info.ETag) {
+		w.Header().Set("Cache-Control", "public, max-age=86400, must-revalidate")
+		w.Header().Set("ETag", info.ETag)
+		w.WriteHeader(http.StatusNotModified)
+		return nil, media.ObjectInfo{}, false
+	}
+	rs, got, err := s.mediaService.OpenObject(r.Context(), rel)
+	if err != nil {
+		fail(err)
+		return nil, media.ObjectInfo{}, false
+	}
+	if info.ETag != "" {
+		got.ETag = info.ETag
+	}
+	return rs, got, true
+}
+
+// ifNoneMatchHits reports whether the request's If-None-Match names etag (or
+// is "*"). It applies to GET and HEAD only.
+func ifNoneMatchHits(r *http.Request, etag string) bool {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
+	}
+	for _, c := range strings.Split(r.Header.Get("If-None-Match"), ",") {
+		c = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(c), "W/"))
+		if c == "*" || c == etag {
+			return true
+		}
+	}
+	return false
 }

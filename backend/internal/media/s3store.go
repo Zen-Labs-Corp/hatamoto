@@ -113,8 +113,11 @@ func (s *S3Store) Delete(ctx context.Context, key string) error {
 
 func objectInfo(key string, o s3.Object) ObjectInfo {
 	etag := ""
-	if o.ETag != "" {
+	switch {
+	case o.ETag != "":
 		etag = `"` + o.ETag + `"`
+	case o.Meta[metaSHA256] != "":
+		etag = `"` + o.Meta[metaSHA256] + `"`
 	}
 	return ObjectInfo{Key: key, Size: o.Size, ETag: etag, ModTime: o.LastModified, SHA256: o.Meta[metaSHA256]}
 }

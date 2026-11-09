@@ -399,7 +399,39 @@ func (s *Service) removeBlob(ctx context.Context, key string) {
 // The path is resolved inside an os.Root: "..", absolute paths and symlinks
 // that lead outside the directory are refused. Close the returned file.
 func (s *Service) OpenFile(rel string) (*os.File, error) {
+	if s.local == nil {
+		return nil, errors.New("media files are not on the local disk")
+	}
 	return s.local.openFile(rel)
+}
+
+// ObjectStorage reports whether the bytes live in a store other than the local
+// disk.
+func (s *Service) ObjectStorage() bool { return s.local == nil }
+
+// StatObject reports size and validator of a stored file by its path relative
+// to the store, without reading it. A missing file satisfies
+// errors.Is(err, fs.ErrNotExist).
+func (s *Service) StatObject(ctx context.Context, rel string) (ObjectInfo, error) {
+	st, ok := s.store.(Stater)
+	if !ok {
+		return ObjectInfo{}, errors.New("the media store cannot report object details")
+	}
+	return st.Stat(ctx, rel)
+}
+
+// OpenObject opens a stored file for random-access reads. Close the returned
+// file. OpenFile is the local-disk variant of the same thing.
+func (s *Service) OpenObject(ctx context.Context, rel string) (io.ReadSeekCloser, ObjectInfo, error) {
+	op, ok := s.store.(Opener)
+	if !ok {
+		return nil, ObjectInfo{}, errors.New("the media store cannot open objects")
+	}
+	info, rc, err := op.Open(ctx, rel)
+	if err != nil {
+		return nil, ObjectInfo{}, err
+	}
+	return rc, info, nil
 }
 
 // Config returns the media service configuration.

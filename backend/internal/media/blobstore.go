@@ -54,14 +54,17 @@ func (l *localStore) localPath(key string) string { return filepath.Join(l.root,
 
 func (l *localStore) openRoot() (*os.Root, error) { return os.OpenRoot(l.root) }
 
+// ErrInvalidKey is returned for keys that are empty, absolute or climb out.
+var ErrInvalidKey = errors.New("invalid blob key")
+
 // checkKey refuses keys that are absolute or climb out with "..".
 func checkKey(key string) error {
 	if key == "" || filepath.IsAbs(key) || strings.HasPrefix(key, "/") {
-		return fmt.Errorf("invalid blob key %q", key)
+		return fmt.Errorf("%w %q", ErrInvalidKey, key)
 	}
 	for _, part := range strings.FieldsFunc(key, func(r rune) bool { return r == '/' || r == filepath.Separator }) {
 		if part == ".." {
-			return fmt.Errorf("invalid blob key %q", key)
+			return fmt.Errorf("%w %q", ErrInvalidKey, key)
 		}
 	}
 	return nil
