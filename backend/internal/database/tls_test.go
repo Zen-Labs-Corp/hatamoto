@@ -61,7 +61,15 @@ func TestVerifyFullURLParsesToTLSConfig(t *testing.T) {
 			if tc.ServerName != "db.example.com" || tc.InsecureSkipVerify {
 				t.Errorf("ServerName = %q, skip verify = %v", tc.ServerName, tc.InsecureSkipVerify)
 			}
-			if tc.RootCAs == nil || len(tc.RootCAs.Subjects()) != 1 { //nolint:staticcheck // counting the pool's certificates
+			pem, err := os.ReadFile(ca)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := x509.NewCertPool()
+			if !want.AppendCertsFromPEM(pem) {
+				t.Fatal("test CA is not valid PEM")
+			}
+			if tc.RootCAs == nil || !tc.RootCAs.Equal(want) {
 				t.Errorf("RootCAs does not hold the given CA")
 			}
 			if len(cfg.ConnConfig.Fallbacks) != 0 {
