@@ -56,40 +56,38 @@ func newUploadCache(open func(ctx context.Context, key string) (*os.File, int64,
 // on for the next call.
 func (c *uploadCache) get(ctx context.Context, id, blobKey string) (io.ReaderAt, int64, error) {
 	k := id + "\x00" + blobKey
-	for {
-		c.mu.Lock()
-		now := c.now()
-		c.evict(now)
-		e := c.m[k]
-		creator := e == nil
-		if creator {
-			e = &cachedUpload{ready: make(chan struct{})}
-			c.m[k] = e
-			c.armLocked()
-		}
-		e.last = now
-		e.refs++
-		if creator {
-			e.refs++     // the download's own reference, so it can finish unobserved
-			c.evict(now) // the new entry is the newest: only older ones go
-		}
-		c.mu.Unlock()
-
-		if creator {
-			go c.download(k, e, blobKey)
-		}
-		select {
-		case <-e.ready:
-		case <-ctx.Done():
-			c.release(e)
-			return nil, 0, ctx.Err()
-		}
-		if e.err != nil {
-			c.release(e)
-			return nil, 0, e.err
-		}
-		return &cachedReader{c: c, e: e}, e.size, nil
+	c.mu.Lock()
+	now := c.now()
+	c.evict(now)
+	e := c.m[k]
+	creator := e == nil
+	if creator {
+		e = &cachedUpload{ready: make(chan struct{})}
+		c.m[k] = e
+		c.armLocked()
 	}
+	e.last = now
+	e.refs++
+	if creator {
+		e.refs++     // the download's own reference, so it can finish unobserved
+		c.evict(now) // the new entry is the newest: only older ones go
+	}
+	c.mu.Unlock()
+
+	if creator {
+		go c.download(k, e, blobKey)
+	}
+	select {
+	case <-e.ready:
+	case <-ctx.Done():
+		c.release(e)
+		return nil, 0, ctx.Err()
+	}
+	if e.err != nil {
+		c.release(e)
+		return nil, 0, e.err
+	}
+	return &cachedReader{c: c, e: e}, e.size, nil
 }
 
 // download fetches the file of e in the background, detached from the caller
