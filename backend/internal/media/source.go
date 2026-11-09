@@ -34,3 +34,23 @@ func (s *Service) withLocalSource(ctx context.Context, key string, fn func(path 
 	}
 	return fn(tmp.Name())
 }
+
+// putSpooled copies r to a temporary file, stores that file under key and
+// returns its path, which the caller removes (also when err is not nil and the
+// path is not empty). It is how an upload reaches a store that has no local
+// file to decode from.
+func (s *Service) putSpooled(ctx context.Context, key string, r io.Reader) (path string, written int64, err error) {
+	tmp, err := os.CreateTemp("", "hatamoto-media-*")
+	if err != nil {
+		return "", 0, err
+	}
+	defer tmp.Close()
+	if _, err := io.Copy(tmp, r); err != nil {
+		return tmp.Name(), 0, err
+	}
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		return tmp.Name(), 0, err
+	}
+	written, err = s.store.Put(ctx, key, tmp)
+	return tmp.Name(), written, err
+}

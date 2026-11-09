@@ -201,13 +201,29 @@ func (s *Service) Upload(ctx context.Context, userID *uuid.UUID, file io.Reader,
 	// Save file. The store creates the directory, refuses one that leaves the
 	// upload root (a symlink to another disk) and removes a partial file.
 	storagePath := filepath.Join(legacyMediaTenantDir, uniqueName)
-	fullPath := s.local.localPath(storagePath)
+	fullPath := ""
+	if s.local != nil {
+		fullPath = s.local.localPath(storagePath)
+	}
 
 	src := file
 	if remaining >= 0 { // a body longer than it declared still cannot pass the quota
 		src = io.LimitReader(file, remaining+1)
 	}
-	written, err := s.store.Put(ctx, storagePath, src)
+	var written int64
+	var err error
+	if s.local != nil {
+		written, err = s.store.Put(ctx, storagePath, src)
+	} else {
+		// Another store has no file to decode from: the upload is spooled to a
+		// temporary file, stored from it and decoded from it.
+		var spooled string
+		spooled, written, err = s.putSpooled(ctx, storagePath, src)
+		if spooled != "" {
+			defer os.Remove(spooled)
+			fullPath = spooled
+		}
+	}
 	if err != nil {
 		s.logger.Error("failed to store file (a symlink inside MEDIA_UPLOAD_DIR that leaves it is refused; point MEDIA_UPLOAD_DIR itself at the other disk)",
 			slog.String("path", storagePath), slog.String("error", err.Error()))
@@ -677,7 +693,9 @@ func (s *Service) buildVariants(ctx context.Context, m *Media, sourcePath string
 	// <picture> a 1x source. It must beat the original file.
 	medium := VariantSizes["medium"]
 	if !hasLarge && (srcWidth > medium.MaxWidth || srcHeight > medium.MaxHeight) && len(formats) > 0 {
-		if fi, err := os.Stat(sourcePath); err == nil {
+		if s.local == nil {
+			addModern("full", srcImg, srcWidth, srcHeight, int(m.FileSize))
+		} else if fi, err := os.Stat(sourcePath); err == nil {
 			addModern("full", srcImg, srcWidth, srcHeight, int(fi.Size()))
 		}
 	}
@@ -700,7 +718,11 @@ func (s *Service) RegenerateVariants(ctx context.Context, id uuid.UUID) (*Media,
 	if !m.SupportsVariants() {
 		return m, nil
 	}
-	variants, err := s.buildVariants(ctx, m, s.local.localPath(m.StoragePath), 0)
+	var variants []ImageVariant
+	err = s.withLocalSource(ctx, m.StoragePath, func(path string) (berr error) {
+		variants, berr = s.buildVariants(ctx, m, path, 0)
+		return berr
+	})
 	if err != nil {
 		return nil, err
 	}
