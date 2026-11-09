@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"io"
 	"os"
 	"sort"
@@ -16,6 +15,10 @@ import (
 const (
 	uploadCacheTTL = 2 * time.Minute
 	uploadCacheMax = 16
+	// uploadDownloadTimeout bounds one download. It does not depend on the
+	// caller's context: a host call has a short deadline, a large object may
+	// need longer, and the next read finds the finished file.
+	uploadDownloadTimeout = 2 * time.Minute
 )
 
 // uploadCache keeps the opened (already unlinked) spool files of staged
@@ -48,8 +51,9 @@ func newUploadCache(open func(ctx context.Context, key string) (*os.File, int64,
 }
 
 // get returns a reader over the staged file of upload id, opening it once.
-// Closing the reader only releases it: the cache owns the file. A caller whose
-// ctx ends stops waiting at once.
+// Closing the reader only releases it: the cache owns the file. The download runs on its own
+// context; a caller whose ctx ends stops waiting at once and the download goes
+// on for the next call.
 func (c *uploadCache) get(ctx context.Context, id, blobKey string) (io.ReaderAt, int64, error) {
 	k := id + "\x00" + blobKey
 	for {
@@ -66,39 +70,48 @@ func (c *uploadCache) get(ctx context.Context, id, blobKey string) (io.ReaderAt,
 		e.last = now
 		e.refs++
 		if creator {
+			e.refs++     // the download's own reference, so it can finish unobserved
 			c.evict(now) // the new entry is the newest: only older ones go
 		}
 		c.mu.Unlock()
 
 		if creator {
-			f, size, err := c.open(ctx, blobKey)
-			c.mu.Lock()
-			e.f, e.size, e.err = f, size, err
-			if err != nil && c.m[k] == e {
-				delete(c.m, k)
-				e.evicted = true
-			}
-			c.mu.Unlock()
-			close(e.ready)
-		} else {
-			select {
-			case <-e.ready:
-			case <-ctx.Done():
-				c.release(e)
-				return nil, 0, ctx.Err()
-			}
+			go c.download(k, e, blobKey)
+		}
+		select {
+		case <-e.ready:
+		case <-ctx.Done():
+			c.release(e)
+			return nil, 0, ctx.Err()
 		}
 		if e.err != nil {
 			c.release(e)
-			// The download of another caller that was cancelled is not this
-			// caller's failure: try again with our own context.
-			if !creator && ctx.Err() == nil && (errors.Is(e.err, context.Canceled) || errors.Is(e.err, context.DeadlineExceeded)) {
-				continue
-			}
 			return nil, 0, e.err
 		}
 		return &cachedReader{c: c, e: e}, e.size, nil
 	}
+}
+
+// download fetches the file of e in the background, detached from the caller
+// that started it, and wakes everyone waiting for it. A failed entry leaves
+// the map first, so the next read tries again. The creator's reference of the
+// download is given up at the end.
+func (c *uploadCache) download(k string, e *cachedUpload, blobKey string) {
+	ctx, cancel := context.WithTimeout(context.Background(), uploadDownloadTimeout)
+	defer cancel()
+	f, size, err := c.open(ctx, blobKey)
+	c.mu.Lock()
+	e.f, e.size, e.err = f, size, err
+	if err != nil && c.m[k] == e {
+		delete(c.m, k)
+		e.evicted = true
+	}
+	e.refs-- // the download's own reference (taken by get)
+	if e.evicted && e.refs == 0 && e.f != nil {
+		e.f.Close()
+	}
+	c.mu.Unlock()
+	close(e.ready)
 }
 
 // release gives up one reference of e and closes its file when it was the last

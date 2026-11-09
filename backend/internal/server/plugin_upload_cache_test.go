@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image"
 	"image/png"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -234,5 +236,87 @@ func TestUploadCacheReleasesIdleFilesWithoutAnotherRead(t *testing.T) {
 			t.Fatal("the idle file stayed open")
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// A caller whose context ends before the download does gets its context error
+// and the download goes on: the next call finds the finished file. A failed
+// download is not kept.
+func TestUploadCacheDownloadOutlivesTheCaller(t *testing.T) {
+	release := make(chan struct{})
+	var opens atomic.Int32
+	c := newUploadCache(func(ctx context.Context, _ string) (*os.File, int64, error) {
+		n := opens.Add(1)
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return nil, 0, ctx.Err()
+		}
+		if n == 1 {
+			return nil, 0, io.ErrUnexpectedEOF
+		}
+		f, err := os.CreateTemp(t.TempDir(), "up")
+		if err != nil {
+			return nil, 0, err
+		}
+		f.WriteString("hello")
+		return f, 5, nil
+	})
+	defer c.closeAll()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if _, _, err := c.get(ctx, "up1", "k"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("first caller err = %v, want deadline exceeded", err)
+	}
+	close(release) // the download finishes after the caller left (and fails)
+	var err error
+	for i := 0; i < 200; i++ { // wait until the failed entry has left the map
+		c.mu.Lock()
+		n := len(c.m)
+		c.mu.Unlock()
+		if n == 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if _, _, err = c.get(context.Background(), "up1", "k"); err != nil {
+		t.Fatalf("retry after a failed download: %v", err)
+	}
+	if _, _, err = c.get(context.Background(), "up1", "k"); err != nil || opens.Load() != 2 {
+		t.Fatalf("cached read: err=%v opens=%d, want nil and 2", err, opens.Load())
+	}
+}
+
+// The download is not bound to the first caller's deadline: a slow download
+// that outlives it is read from the cache by the second call.
+func TestUploadCacheSlowDownloadSurvivesCallerDeadline(t *testing.T) {
+	var opens atomic.Int32
+	c := newUploadCache(func(ctx context.Context, _ string) (*os.File, int64, error) {
+		opens.Add(1)
+		select {
+		case <-time.After(150 * time.Millisecond):
+		case <-ctx.Done():
+			return nil, 0, ctx.Err()
+		}
+		f, err := os.CreateTemp(t.TempDir(), "up")
+		if err != nil {
+			return nil, 0, err
+		}
+		return f, 0, nil
+	})
+	defer c.closeAll()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if _, _, err := c.get(ctx, "up1", "k"); err == nil {
+		t.Fatal("first caller should time out")
+	}
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel2()
+	if _, _, err := c.get(ctx2, "up1", "k"); err != nil {
+		t.Fatalf("second caller: %v", err)
+	}
+	if opens.Load() != 1 {
+		t.Errorf("opens = %d, want 1", opens.Load())
 	}
 }

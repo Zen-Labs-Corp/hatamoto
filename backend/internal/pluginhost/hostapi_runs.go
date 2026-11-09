@@ -178,6 +178,9 @@ func fnUploadRead(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (
 	}
 	ra, size, err := a.svc.Uploads.Open(ctx, e.plugin, id)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, herr(sdk.ErrUnavailable, "upload %s is still being fetched; retry", args.UploadID)
+		}
 		return nil, herr(sdk.ErrNotFound, "upload %s is not available", args.UploadID)
 	}
 	if c, ok := ra.(io.Closer); ok {
