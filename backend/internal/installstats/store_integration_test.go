@@ -194,7 +194,7 @@ func rawScratch(t *testing.T) *pgxpool.Pool {
 	return applyMigrations(t, scratchBare(t), "202610280900_install_stats.sql", "202610281000_install_stats_last_ok.sql")
 }
 
-func TestMigrationBackfillsLevel_Integration(t *testing.T) {
+func TestMigrationLevelDerivedFromConsent_Integration(t *testing.T) {
 	ctx := context.Background()
 	for consent, want := range map[string]Level{"yes": LevelBasic, "no": LevelOff, "unset": LevelUnset} {
 		t.Run(consent, func(t *testing.T) {

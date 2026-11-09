@@ -2,11 +2,14 @@
 -- level is the owner's choice (unset, off, basic, detailed). consent keeps its
 -- meaning: yes for basic and detailed, no for off, so an older binary that only
 -- reads consent keeps working and treats every opted-in install as Basic.
+-- Expand only: no CHECK on the existing table (the Store only writes the four
+-- values) and no backfill. An existing row starts at 'unset'; Store.Load
+-- derives the level from consent (yes -> basic, no -> off), and nudge_dismissed
+-- stays FALSE, so an install that already said yes gets the Detailed offer.
 -- The h_* columns hold the Detailed level's health counts since
 -- health_window_start; h_sent is what the last Detailed report carried and h_sent_at when it was claimed; last_sent_version lets a new version report at once.
 ALTER TABLE hatamoto_install_stats
-    ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'unset'
-        CHECK (level IN ('unset', 'off', 'basic', 'detailed')),
+    ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'unset',
     ADD COLUMN IF NOT EXISTS last_sent_version TEXT NOT NULL DEFAULT '',
     ADD COLUMN IF NOT EXISTS nudge_dismissed BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS health_window_start TIMESTAMPTZ,
@@ -17,9 +20,6 @@ ALTER TABLE hatamoto_install_stats
     ADD COLUMN IF NOT EXISTS h_plugin_errors JSONB NOT NULL DEFAULT '{}',
     ADD COLUMN IF NOT EXISTS h_sent JSONB NOT NULL DEFAULT '{}',
     ADD COLUMN IF NOT EXISTS h_sent_at TIMESTAMPTZ;
-
-UPDATE hatamoto_install_stats
-   SET level = CASE consent WHEN 'yes' THEN 'basic' WHEN 'no' THEN 'off' ELSE 'unset' END;
 
 -- +goose Down
 ALTER TABLE hatamoto_install_stats
