@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -16,10 +17,42 @@ import (
 	"hatamoto.dev/core/internal/media"
 )
 
-const mediaUsageErr = "usage: hatamoto media migrate --to s3|local [--dry-run]"
+const mediaUsageErr = "usage: hatamoto media migrate --to s3|local [--dry-run]\n       hatamoto media sweep [--older-than 24h] [--apply]"
 
 const mediaUsage = `  media migrate --to s3|local [--dry-run]
-                                   copy the media library between local disk and object storage (verified by sha256, resumable, the source is kept)`
+                                   copy the media library between local disk and object storage (verified by sha256, resumable, the source is kept)
+  media sweep [--older-than 24h] [--apply]
+                                   list (and with --apply delete) files in object storage that no media record refers to (dry run by default, at least 1h old)`
+
+// maxSweepListed is how many orphan keys a dry run prints.
+const maxSweepListed = 50
+
+type mediaSweepFlags struct {
+	olderThan time.Duration
+	apply     bool
+}
+
+func parseMediaSweepArgs(args []string) (mediaSweepFlags, error) {
+	f := mediaSweepFlags{olderThan: 24 * time.Hour}
+	pos, err := flagSet("media sweep", args, func(fs *flag.FlagSet) {
+		fs.DurationVar(&f.olderThan, "older-than", f.olderThan, "only files at least this old (minimum 1h)")
+		fs.BoolVar(&f.apply, "apply", false, "delete the files found (default: only list them)")
+	})
+	if err != nil || len(pos) != 0 || f.olderThan < media.MinSweepAge {
+		return f, errors.New(mediaUsageErr)
+	}
+	return f, nil
+}
+
+// mediaSweepPlan is everything one `media sweep` run needs; runMediaSweep
+// builds it from the environment and tests build it from fakes.
+type mediaSweepPlan struct {
+	mediaSweepFlags
+	store    media.SweepStore
+	bucket   string // printed: the resolved bucket/prefix
+	loadKeys func(ctx context.Context) (map[string]struct{}, error)
+	now      time.Time
+}
 
 type mediaMigrateFlags struct {
 	to     string
@@ -49,6 +82,9 @@ type mediaMigratePlan struct {
 
 // runMedia runs `hatamoto media migrate`.
 func runMedia(ctx context.Context, databaseURL string, args []string, out io.Writer) error {
+	if len(args) >= 2 && args[0] == "media" && args[1] == "sweep" {
+		return runMediaSweep(ctx, databaseURL, args[2:], out)
+	}
 	if len(args) < 2 || args[0] != "media" || args[1] != "migrate" {
 		return errors.New(mediaUsageErr)
 	}
@@ -93,6 +129,55 @@ func runMedia(ctx context.Context, databaseURL string, args []string, out io.Wri
 	repo := media.NewPostgresRepository(db)
 	p.list = func(ctx context.Context) ([]*media.Media, error) { return listAllMedia(ctx, repo) }
 	return mediaMigrate(ctx, p, out)
+}
+
+// runMediaSweep runs `hatamoto media sweep`.
+func runMediaSweep(ctx context.Context, databaseURL string, args []string, out io.Writer) error {
+	f, err := parseMediaSweepArgs(args)
+	if err != nil {
+		return err
+	}
+	if databaseURL == "" {
+		return errors.New("DATABASE_URL is required")
+	}
+	if driver, err := media.StorageFromEnv(os.Getenv); err != nil {
+		return err
+	} else if driver != "s3" {
+		fmt.Fprintln(out, "media sweep needs object storage (MEDIA_STORAGE=s3, HATAMOTO_MEDIA_S3_*); local media has no orphan sweep")
+		return exitError{1}
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	cfg.Database.URL = databaseURL
+	target, err := media.S3TargetFromEnv(os.Getenv)
+	if err != nil {
+		return err
+	}
+	store, err := media.NewS3Store(target, "/media", nil)
+	if err != nil {
+		return err
+	}
+	db, err := database.New(ctx, cfg.Database)
+	if err != nil {
+		return fmt.Errorf("connect to database: %w", err)
+	}
+	defer db.Close()
+	repo := media.NewPostgresRepository(db)
+	p := mediaSweepPlan{mediaSweepFlags: f, store: store, bucket: target.Bucket + "/" + target.Prefix,
+		loadKeys: func(ctx context.Context) (map[string]struct{}, error) {
+			rows, err := listAllMedia(ctx, repo)
+			if err != nil {
+				return nil, err
+			}
+			keys := map[string]struct{}{}
+			for _, k := range media.MediaKeys(rows) {
+				keys[k] = struct{}{}
+			}
+			return keys, nil
+		}}
+	return mediaSweep(ctx, p, out)
 }
 
 // listAllMedia walks the whole library by id, so a row is never skipped or
@@ -174,5 +259,46 @@ func mediaMigrate(ctx context.Context, p mediaMigratePlan, out io.Writer) error 
 			fmt.Fprintln(out, "next: unset MEDIA_STORAGE (or set it to local) and restart")
 		}
 	}
+	return nil
+}
+
+// sweepAge prints a threshold as 24h when it is whole hours.
+func sweepAge(d time.Duration) string {
+	if d%time.Hour == 0 {
+		return fmt.Sprintf("%dh", d/time.Hour)
+	}
+	return d.String()
+}
+
+func mediaSweep(ctx context.Context, p mediaSweepPlan, out io.Writer) error {
+	res, err := media.Sweep(ctx, p.store, p.loadKeys, media.SweepOptions{OlderThan: p.olderThan, Apply: p.apply, Now: p.now})
+	if err != nil {
+		return err
+	}
+	n := len(res.Orphans)
+	if !p.apply {
+		fmt.Fprintf(out, "dry run: %s orphan objects under %s older than %s (%s)", thousands(n), p.bucket, sweepAge(p.olderThan), humanBytes(res.Bytes))
+		if n == 0 {
+			fmt.Fprintln(out)
+			return nil
+		}
+		fmt.Fprintln(out, ":")
+		for _, o := range res.Orphans[:min(n, maxSweepListed)] {
+			fmt.Fprintf(out, "  %s  %s  %s\n", o.Key, humanBytes(o.Size), o.ModTime.UTC().Format(time.RFC3339))
+		}
+		if n > maxSweepListed {
+			fmt.Fprintf(out, "  and %s more\n", thousands(n-maxSweepListed))
+		}
+		fmt.Fprintln(out, "run with --apply to delete them")
+		return nil
+	}
+	for _, e := range res.Failed {
+		fmt.Fprintf(out, "failed: %v\n", e)
+	}
+	if len(res.Failed) > 0 {
+		fmt.Fprintf(out, "deleted %s of %s orphan objects\n", thousands(res.Deleted), thousands(n))
+		return exitError{1}
+	}
+	fmt.Fprintf(out, "deleted %s orphan objects (%s)\n", thousands(res.Deleted), humanBytes(res.Bytes))
 	return nil
 }
