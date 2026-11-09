@@ -158,3 +158,27 @@ func TestBackupCLIEngineResolvesRetentionFile(t *testing.T) {
 		t.Fatalf("%d backups kept, want 2", len(rows))
 	}
 }
+
+func TestPrintBackupCreatedMissingMedia(t *testing.T) {
+	t.Setenv("HATAMOTO_DATA", "/data")
+	info := backup.Info{ID: "b1", Size: 2048, Parts: []string{"secrets.env"}}
+
+	var out bytes.Buffer
+	info.MediaMissing = 2
+	printBackupCreated(&out, info)
+	if !strings.Contains(out.String(), "media files missing: 2\n") {
+		t.Errorf("output lacks the missing count:\n%s", out.String())
+	}
+	for _, want := range []string{"backup b1\n", "size 2.0 KiB\n", "path /data/backups/b1.tar\n", "includes secrets.env\n", "Note: "} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output lacks %q:\n%s", want, out.String())
+		}
+	}
+
+	out.Reset()
+	info.MediaMissing = 0
+	printBackupCreated(&out, info)
+	if strings.Contains(out.String(), "missing") {
+		t.Errorf("a backup with nothing missing mentions it:\n%s", out.String())
+	}
+}
