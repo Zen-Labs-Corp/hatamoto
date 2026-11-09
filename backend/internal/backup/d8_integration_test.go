@@ -25,9 +25,8 @@ import (
 // These tests run the whole backup and restore flow twice, once with a
 // superuser admin and once with a role that has only CREATEROLE and CREATEDB
 // (the shape of the admin role a managed PostgreSQL gives out). The databases
-// are provisioned in the documented order for that role: it creates the app
-// role and the database, and the app role then grants it CREATE on the
-// database. They need what the restore integration tests need and skip
+// are provisioned in the documented order for that role: it joins the app
+// role it creates, then creates the database for it. They need what the restore integration tests need and skip
 // otherwise.
 
 type adminMode int
@@ -141,7 +140,8 @@ func (c *d8Cluster) provisionApp(db string) {
 		c.roles = append(c.roles, c.appRole)
 	}
 	c.exec(admin, "CREATE DATABASE "+db+" OWNER "+c.appRole)
-	c.exec(c.appURL(db), "GRANT CREATE ON DATABASE "+db+" TO "+c.adminRole)
+	// No grant on the database: the admin inherits CREATE, with its grant option,
+	// from the membership in the app role, as the guide says.
 }
 
 func (c *d8Cluster) has(role string) bool {
@@ -156,20 +156,27 @@ func (c *d8Cluster) has(role string) bool {
 // bootstrap runs role-admin-bootstrap.sql as the admin role and returns psql's output.
 func (c *d8Cluster) bootstrap(db string) string {
 	c.t.Helper()
+	out, err := c.bootstrapAs(db, c.adminRole)
+	if err != nil {
+		c.t.Fatalf("bootstrap as %s: %v\n%s", c.adminRole, err, out)
+	}
+	return out
+}
+
+// bootstrapAs runs the script as a role the test made (or the admin role).
+func (c *d8Cluster) bootstrapAs(db, role string) (string, error) {
+	c.t.Helper()
 	cfg := c.super.Config()
 	pw := "x"
-	if c.adminRole == cfg.User {
+	if role == cfg.User {
 		pw = cfg.Password
 	}
 	cmd := exec.Command("psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-v", "app_role="+c.appRole, "-d", db,
 		"-f", "../../../deploy/sql/role-admin-bootstrap.sql")
 	cmd.Env = append(os.Environ(), "PGHOST="+cfg.Host, "PGPORT="+strconv.Itoa(int(cfg.Port)),
-		"PGUSER="+c.adminRole, "PGPASSWORD="+pw)
+		"PGUSER="+role, "PGPASSWORD="+pw)
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		c.t.Fatalf("bootstrap as %s: %v\n%s", c.adminRole, err, out)
-	}
-	return string(out)
+	return string(out), err
 }
 
 // cleanup drops everything by the superuser, after the databases.
@@ -379,5 +386,40 @@ func (c *d8Cluster) negativeAdmins(t *testing.T, archive string, o RestoreOption
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("admin %s: err = %v, want %q", tc.role, err, tc.want)
 		}
+	}
+}
+
+// A role that holds CREATE on the database only without the grant option (or a
+// membership that does not inherit) is refused before anything is changed:
+// the script's reruns need the option. With the option it runs and reruns.
+func TestBootstrapNeedsGrantOptionOnDatabaseCreate(t *testing.T) {
+	c := newD8Cluster(t, adminSuperuser)
+	u := strings.ReplaceAll(uuid.NewString(), "-", "")[:10]
+	adm, db := "hm_d8_ni_"+u, "hm_d8_ni_db_"+u
+	c.makeRole(c.appRole, "NOCREATEROLE")
+	c.makeRole(adm, "CREATEROLE CREATEDB NOSUPERUSER NOINHERIT")
+	c.exec(c.url(c.super.Config().User, "postgres"),
+		"GRANT "+c.appRole+" TO "+adm+" WITH SET TRUE, INHERIT FALSE",
+		"CREATE DATABASE "+db+" OWNER "+c.appRole)
+	c.dbs = append(c.dbs, db)
+	c.exec(c.appURL(db), "GRANT CREATE ON DATABASE "+db+" TO "+adm)
+
+	out, err := c.bootstrapAs(db, adm)
+	if err == nil || !strings.Contains(out, "WITH GRANT OPTION") {
+		t.Fatalf("without the grant option: err = %v\n%s", err, out)
+	}
+	c.exec(c.appURL(db), "GRANT CREATE ON DATABASE "+db+" TO "+adm+" WITH GRANT OPTION")
+	for run := 1; run <= 2; run++ {
+		if out, err := c.bootstrapAs(db, adm); err != nil {
+			t.Fatalf("run %d with the grant option: %v\n%s", run, err, out)
+		}
+	}
+	conn, err := pgx.Connect(context.Background(), c.url(c.super.Config().User, db))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(context.Background())
+	if err := conn.QueryRow(context.Background(), `SELECT left(id, 8) FROM hatamoto_admin.instance`).Scan(&c.id8); err != nil {
+		t.Fatal(err)
 	}
 }

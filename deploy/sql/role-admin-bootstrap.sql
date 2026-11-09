@@ -68,11 +68,11 @@ SELECT rolsuper AS is_super FROM pg_roles WHERE rolname = current_user
 \gset
 \if :is_super
 \else
-  SELECT has_database_privilege(current_user, current_database(), 'CREATE') AS db_create
+  SELECT has_database_privilege(current_user, current_database(), 'CREATE WITH GRANT OPTION') AS db_create
   \gset
   \if :db_create
   \else
-    DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: this role needs CREATE on the database (the database owner grants it: GRANT CREATE ON DATABASE <db> TO <this role> WITH GRANT OPTION)'; END $$;
+    DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: this role needs CREATE on the database with the grant option: it inherits both from the database owner role (GRANT <owner> TO <this role> WITH SET TRUE), or the owner grants them (GRANT CREATE ON DATABASE <db> TO <this role> WITH GRANT OPTION)'; END $$;
   \endif
 \endif
 

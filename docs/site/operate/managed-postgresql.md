@@ -26,11 +26,7 @@ Hosts, users and passwords below are examples. Use `~/.pgpass` or `PGPASSWORD` i
    CREATE DATABASE site OWNER site_app;
    ```
 
-   `GRANT ... WITH SET TRUE` lets the admin role create the database on behalf of `site_app`. Then connect to the new database as `site_app` and give the admin role the right to create objects there:
-
-   ```sql
-   GRANT CREATE ON DATABASE site TO admin;
-   ```
+   `GRANT ... WITH SET TRUE` lets the admin role create the database on behalf of `site_app`. The membership inherits by default, and that is all the bootstrap needs: the admin role gets `CREATE` on the database, with the right to grant it, from `site_app`, the database owner. Keep the membership inheriting (do not add `INHERIT FALSE`, and do not make the admin role `NOINHERIT`). The bootstrap reads the database id as the admin role, and after the first start only `site_app` can read it.
 
 2. Run the bootstrap once, as the admin role, in the new database, naming the application role. This is the same script a superuser runs, and it is safe to rerun:
 
@@ -72,4 +68,4 @@ Hosts, users and passwords below are examples. Use `~/.pgpass` or `PGPASSWORD` i
 
 Run `hatamoto migrate status`: every migration is applied. Run `curl -s http://127.0.0.1:8090/ready`. In `psql` as the application role, `SELECT rolcreaterole FROM pg_roles WHERE rolname = current_user;` returns `f`. Grant a plugin that uses `db`: it loads without a `data_error`, and its settings page shows the temporary file note only if the provider refused the grant.
 
-If a plugin answers `unavailable` and mentions `role-admin-bootstrap`, step 2 has not run in this database, or ran as a role that lacks `CREATEROLE` or `CREATE` on the database. Rerun it after fixing the grants.
+If a plugin answers `unavailable` and mentions `role-admin-bootstrap`, step 2 has not run in this database, or ran as a role that lacks `CREATEROLE`, or `CREATE` on the database with the grant option (inherited from `site_app`). Rerun it after fixing the grants.

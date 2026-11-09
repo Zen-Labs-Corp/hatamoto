@@ -692,7 +692,7 @@ A deployment that reaches Postgres over a Unix socket with `peer` authentication
 
 **What the database user needs.** Creating `hm_p_<id8>_<name>` takes a privilege (`CREATEROLE`) that the application's own database role should not hold: on a shared PostgreSQL cluster that role may own other databases. The host therefore tries, in order:
 
-1. **The bootstrap functions** (self-hosted installs on a shared or locked-down cluster). Run one command, once, as the PostgreSQL superuser or as a role with `CREATEROLE` and `CREATEDB` that has `CREATE` on the database (for example the admin user a managed provider gives you; see the [managed PostgreSQL guide](site/operate/managed-postgresql.md)), in the Hatamoto database (the `<application user>` is the user in `DATABASE_URL`):
+1. **The bootstrap functions** (self-hosted installs on a shared or locked-down cluster). Run one command, once, as the PostgreSQL superuser or as a role with `CREATEROLE` and `CREATEDB` that has `CREATE` on the database with the grant option (inherited from the database owner role it is a member of, or granted `WITH GRANT OPTION`; for example the admin user a managed provider gives you; see the [managed PostgreSQL guide](site/operate/managed-postgresql.md)), in the Hatamoto database (the `<application user>` is the user in `DATABASE_URL`):
 
    ```sh
    sudo -u postgres psql -X -v ON_ERROR_STOP=1 -v app_role=<application user> \
