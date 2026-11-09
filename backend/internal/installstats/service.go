@@ -179,11 +179,13 @@ func (s *Service) Reset(ctx context.Context) error {
 }
 
 // Enforce applies HATAMOTO_TELEMETRY=off: consent becomes no and the ID is
-// deleted. Lifting the variable later does not resume sending; the owner
+// deleted. Without the variable it only repairs the stored level. Lifting the variable later does not resume sending; the owner
 // turns it on again in Settings > Updates.
 func (s *Service) Enforce(ctx context.Context) error {
 	if !ForcedOff(s.getenv) {
-		return nil
+		// Loading repairs a level an older binary left out of step with consent.
+		_, err := s.store.Load(ctx)
+		return err
 	}
 	return s.store.Disable(ctx)
 }

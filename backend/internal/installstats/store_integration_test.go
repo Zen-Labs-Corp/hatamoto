@@ -431,3 +431,60 @@ func TestDisableWipesCounters_Integration(t *testing.T) {
 		t.Fatalf("detailed -> basic: %+v", basic)
 	}
 }
+
+// An older binary writes only consent. Its Enable and Disable statements are
+// run as they were, then the new Store must agree with them.
+func TestOldBinaryConsentChangeIsReconciled_Integration(t *testing.T) {
+	ctx := context.Background()
+	const oldEnable = `INSERT INTO hatamoto_install_stats (id, consent, install_id) VALUES (TRUE, 'yes', '0123456789abcdef0123456789abcdef')
+		ON CONFLICT (id) DO UPDATE SET consent = 'yes', install_id = COALESCE(hatamoto_install_stats.install_id, EXCLUDED.install_id)`
+	const oldDisable = `INSERT INTO hatamoto_install_stats (id, consent, install_id) VALUES (TRUE, 'no', NULL)
+		ON CONFLICT (id) DO UPDATE SET consent = 'no', install_id = NULL`
+
+	for _, from := range []Level{LevelOff, LevelUnset} {
+		t.Run("enable from "+string(from), func(t *testing.T) {
+			pool := scratchPool(t)
+			if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_install_stats (id, consent, level) VALUES (TRUE, 'no', $1)`, string(from)); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := pool.Exec(ctx, oldEnable); err != nil {
+				t.Fatal(err)
+			}
+			st := NewStore(pool)
+			if _, ok, err := st.Claim(ctx, "v1"); err != nil || ok {
+				t.Fatalf("claim before the level is repaired: ok=%v err=%v", ok, err)
+			}
+			got, err := st.Load(ctx)
+			if err != nil || got.Level != LevelBasic || got.InstallID == "" {
+				t.Fatalf("after old Enable: level %q id %q (%v), want basic with an id", got.Level, got.InstallID, err)
+			}
+			if _, ok, err := st.Claim(ctx, "v1"); err != nil || !ok {
+				t.Fatalf("claim after repair: ok=%v err=%v", ok, err)
+			}
+		})
+	}
+
+	t.Run("disable from detailed", func(t *testing.T) {
+		pool := scratchPool(t)
+		st := NewStore(pool)
+		if _, err := st.Enable(ctx, LevelDetailed); err != nil {
+			t.Fatal(err)
+		}
+		if err := st.AddHealth(ctx, Counts{Panics: 2}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, oldDisable); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok, err := st.Claim(ctx, "v1"); err != nil || ok {
+			t.Fatalf("claim after old Disable: ok=%v err=%v", ok, err)
+		}
+		got, err := st.Load(ctx)
+		if err != nil || got.Level != LevelOff || got.InstallID != "" || !got.Counts.IsZero() || got.WindowStart != nil {
+			t.Fatalf("after old Disable: %+v (%v), want off, no id, no counts", got, err)
+		}
+		if kind, _ := st.Banner(ctx); kind != BannerNone {
+			t.Fatalf("banner = %q, want none", kind)
+		}
+	})
+}

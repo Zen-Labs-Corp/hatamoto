@@ -167,8 +167,30 @@ func scanState(row pgx.Row) (State, error) {
 	return st, nil
 }
 
-// Load returns the stored state; a missing row is consent unset.
+// reconcile repairs a row an older binary changed. That binary only knows
+// consent: its Enable leaves level off or unset, and its Disable leaves basic
+// or detailed (with the health counts). Consent wins: yes becomes basic, no
+// becomes off with the counts wiped. A row where the two agree is untouched.
+func (s *Store) reconcile(ctx context.Context) error {
+	_, err := s.db.Exec(ctx, `
+		UPDATE hatamoto_install_stats SET
+			level = CASE consent WHEN 'yes' THEN 'basic' ELSE 'off' END,
+			health_window_start = NULL, h_panics = 0, h_http_5xx = 0, h_render_errors = 0,
+			h_migration_failed = 0, h_plugin_errors = '{}'::jsonb, h_sent = '{}'::jsonb
+		WHERE (consent = 'yes' AND level NOT IN ('basic', 'detailed'))
+		   OR (consent = 'no' AND level <> 'off')`)
+	if err != nil {
+		return fmt.Errorf("reconcile install stats level: %w", err)
+	}
+	return nil
+}
+
+// Load returns the stored state; a missing row is consent unset. It first
+// repairs a level that disagrees with consent (see reconcile).
 func (s *Store) Load(ctx context.Context) (State, error) {
+	if err := s.reconcile(ctx); err != nil {
+		return State{}, err
+	}
 	st, err := scanState(s.db.QueryRow(ctx, `SELECT `+stateColumns+` FROM hatamoto_install_stats WHERE id`))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return State{Consent: ConsentUnset, Level: LevelUnset}, nil
@@ -243,7 +265,7 @@ func (s *Store) Reset(ctx context.Context) (State, error) {
 }
 
 // Claim takes the right to send now: it stamps last_sent_at and returns the ID,
-// but only when consent is yes and either the last claim is older than the
+// but only when consent is yes, the level is Basic or Detailed and either the last claim is older than the
 // interval, or the running version differs from the last one reported and the
 // last claim is older than versionRetry. The check and the stamp are one
 // statement, so replicas and restarts cannot both send. ok is false when
@@ -251,7 +273,7 @@ func (s *Store) Reset(ctx context.Context) (State, error) {
 func (s *Store) Claim(ctx context.Context, version string) (id string, ok bool, err error) {
 	err = s.db.QueryRow(ctx, `
 		UPDATE hatamoto_install_stats SET last_sent_at = now()
-		WHERE id AND consent = 'yes' AND install_id IS NOT NULL
+		WHERE id AND consent = 'yes' AND level IN ('basic', 'detailed') AND install_id IS NOT NULL
 		  AND (last_sent_at IS NULL
 		       OR last_sent_at < now() - interval '`+sendInterval+`'
 		       OR (last_sent_version IS DISTINCT FROM $1 AND last_sent_at < now() - interval '`+versionRetry+`'))
