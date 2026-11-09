@@ -11,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/backup"
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/supervisor"
 )
@@ -97,9 +98,14 @@ func runBackupRestore(ctx context.Context, args []string, out io.Writer, logger 
 		a.source = path
 	}
 	ver, _ := buildInfo()
+	mediaStore, err := media.NewStoreFromEnv(os.Getenv, "/media")
+	if err != nil {
+		return err
+	}
 	plan, err := backup.Restore(ctx, backup.RestoreOptions{
 		Data:        config.ResolveDataDir(),
 		MediaDir:    mediaDirOr(os.Getenv("MEDIA_UPLOAD_DIR")),
+		MediaStore:  mediaStore,
 		SecretsDir:  secretsDirFromEnv(),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		Version:     ver,

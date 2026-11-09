@@ -12,19 +12,40 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"hatamoto.dev/core/internal/backup"
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/release"
 	"hatamoto.dev/core/internal/updater"
 )
 
 // newBackupEngine builds the backup engine over the data dir and database.
+// A site on object storage (MEDIA_STORAGE=s3) hands the engine its media
+// store; with no database (list, delete) no store is built and no S3
+// variable is read, so those commands never need the bucket.
 func newBackupEngine(pool *pgxpool.Pool, mediaDir, version string, logger *slog.Logger) *backup.Engine {
+	var store media.BlobStore
+	if pool != nil {
+		store = mediaStoreOrUnavailable(os.Getenv)
+	}
 	return backup.New(backup.Options{
-		Data: config.ResolveDataDir(), MediaDir: mediaDirOr(mediaDir), DatabaseURL: os.Getenv("DATABASE_URL"),
+		MediaStore: store,
+		Data:       config.ResolveDataDir(), MediaDir: mediaDirOr(mediaDir), DatabaseURL: os.Getenv("DATABASE_URL"),
 		Pool: pool, Run: backup.OSExec, Free: updater.FreeDisk, Log: logger, Version: version,
 		SecretsDir: secretsDirFromEnv(), ConfigPath: os.Getenv("HATAMOTO_CONFIG_FILE"),
 		Trust: trustIDs(logger),
 	})
+}
+
+// mediaStoreOrUnavailable is the object storage store of the environment, nil
+// for local media. Invalid settings give a store that fails every call with the
+// reason, so a backup of such a site fails with it instead of treating the
+// media as local.
+func mediaStoreOrUnavailable(getenv func(string) string) media.BlobStore {
+	store, err := media.NewStoreFromEnv(getenv, "/media")
+	if err != nil {
+		return media.UnavailableStore(err)
+	}
+	return store
 }
 
 // secretsDirFromEnv is where serve keeps secrets.env (see serve).

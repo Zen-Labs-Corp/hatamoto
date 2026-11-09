@@ -20,6 +20,7 @@ import (
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/portability"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/siteconfig"
@@ -67,13 +68,18 @@ func runOps(ctx context.Context, args []string, _ *slog.Logger, out io.Writer) e
 	// Services log at info; keep stdout for the command's own output.
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	switch args[0] {
-	case "export":
-		return runExport(ctx, db, cfg.Server.MediaUploadDir, args[1:], out)
-	case "import":
-		if len(args) > 1 && args[1] == "wordpress" {
+	case "export", "import":
+		if args[0] == "import" && len(args) > 1 && args[1] == "wordpress" {
 			return runImportWordPress(ctx, db, cfg, args[2:], logger, out)
 		}
-		return runImport(ctx, db, cfg.Server.MediaUploadDir, args[1:], logger, out)
+		store, err := media.NewStoreFromEnv(os.Getenv, cfg.Server.MediaBaseURL)
+		if err != nil {
+			return err
+		}
+		if args[0] == "export" {
+			return runExport(ctx, db, cfg.Server.MediaUploadDir, store, args[1:], out)
+		}
+		return runImport(ctx, db, cfg.Server.MediaUploadDir, store, args[1:], logger, out)
 	case "entity":
 		return runEntity(ctx, db, args[1:], out, logger)
 	case "redirect":
@@ -388,7 +394,7 @@ func mediaDirOr(dir string) string {
 	return dir
 }
 
-func runExport(ctx context.Context, db *database.DB, mediaDir string, args []string, out io.Writer) error {
+func runExport(ctx context.Context, db *database.DB, mediaDir string, store media.BlobStore, args []string, out io.Writer) error {
 	var noSub bool
 	pos, err := flagSet("export", args, func(fs *flag.FlagSet) {
 		fs.BoolVar(&noSub, "no-submissions", false, "leave out form submissions (visitor data)")
@@ -396,7 +402,7 @@ func runExport(ctx context.Context, db *database.DB, mediaDir string, args []str
 	if err != nil || len(pos) != 1 {
 		return errors.New("usage: hatamoto export <file.tar.gz> [--no-submissions]")
 	}
-	opts := portability.ExportOptions{MediaDir: mediaDirOr(mediaDir), NoSubmissions: noSub}
+	opts := portability.ExportOptions{MediaDir: mediaDirOr(mediaDir), Store: store, NoSubmissions: noSub}
 	if pos[0] == "-" {
 		_, err := portability.Export(ctx, db.Pool(), os.Stdout, opts)
 		return err
@@ -426,7 +432,7 @@ func runExport(ctx context.Context, db *database.DB, mediaDir string, args []str
 	return nil
 }
 
-func runImport(ctx context.Context, db *database.DB, mediaDir string, args []string, logger *slog.Logger, out io.Writer) error {
+func runImport(ctx context.Context, db *database.DB, mediaDir string, store media.BlobStore, args []string, logger *slog.Logger, out io.Writer) error {
 	pos, err := flagSet("import", args, func(*flag.FlagSet) {})
 	if err != nil || len(pos) != 1 {
 		return errors.New("usage: hatamoto import <file.tar.gz>")
@@ -442,7 +448,7 @@ func runImport(ctx context.Context, db *database.DB, mediaDir string, args []str
 	if err := migrateUp(ctx, db.Pool(), logger); err != nil {
 		return err
 	}
-	res, err := portability.Import(ctx, db.Pool(), f, portability.ImportOptions{MediaDir: mediaDirOr(mediaDir)})
+	res, err := portability.Import(ctx, db.Pool(), f, portability.ImportOptions{MediaDir: mediaDirOr(mediaDir), Store: store})
 	if err != nil {
 		return err
 	}

@@ -70,3 +70,7 @@ func (u unavailableStore) Put(context.Context, string, io.Reader) (int64, error)
 func (u unavailableStore) Get(context.Context, string) (io.ReadCloser, error)    { return nil, u.err }
 func (u unavailableStore) Delete(context.Context, string) error                  { return u.err }
 func (u unavailableStore) URL(key string) string                                 { return "/media/" + key }
+func (u unavailableStore) Stat(context.Context, string) (ObjectInfo, error) {
+	return ObjectInfo{}, u.err
+}
+func (u unavailableStore) List(context.Context, string) ([]ObjectInfo, error) { return nil, u.err }
