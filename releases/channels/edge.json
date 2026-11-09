@@ -222,6 +222,17 @@
         }
       ],
       "halted": false
+    },
+    {
+      "version": "v1.2.0",
+      "record_sig": "d7effd9870698586:CElchi3E5OEwS5raRDqUSXkNyE/P8Z3UZyCJWyGLOKUNLpreV6Qp0XQc8XjuxIY4QKQfUY+w4+J5rQ707rKBDQ==",
+      "ramp": [
+        {
+          "from": "2026-11-09T11:56:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
     }
   ],
   "yanked": []
