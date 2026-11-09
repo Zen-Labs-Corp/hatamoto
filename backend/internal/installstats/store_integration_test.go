@@ -605,3 +605,29 @@ func TestDetailedSentTodayAndKeptDay_Integration(t *testing.T) {
 		t.Fatalf("after kept day: %+v", got)
 	}
 }
+
+// A send claimed just before midnight UTC is booked by the receiver on that
+// day, so it is stamped with the claim time, not the time the POST finished.
+func TestResultIsStampedWithTheClaimTime_Integration(t *testing.T) {
+	ctx := context.Background()
+	pool := scratchPool(t)
+	st := NewStore(pool)
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := st.Claim(ctx, "v1"); err != nil || !ok {
+		t.Fatalf("claim: %v %v", ok, err)
+	}
+	// Pretend the claim happened on the previous UTC day.
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_sent_at = date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' - interval '2 seconds'`); err != nil {
+		t.Fatal(err)
+	}
+	claimed, _ := st.Load(ctx)
+	if err := st.RecordResult(ctx, "ok", "v1", &Counts{Panics: 1}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := st.Load(ctx)
+	if !got.LastOKAt.Equal(*claimed.LastSentAt) || !got.DetailedSentAt.Equal(*claimed.LastSentAt) || got.DetailedSentToday {
+		t.Fatalf("last ok %v, detailed sent %v (today %v), want the claim time %v", got.LastOKAt, got.DetailedSentAt, got.DetailedSentToday, claimed.LastSentAt)
+	}
+}

@@ -345,7 +345,7 @@ func (s *Store) AddHealth(ctx context.Context, d Counts) error {
 }
 
 // RecordResult stores the outcome of the last send. On "ok" it also stores the
-// version reported and the time of the success. sent is the health counts
+// version reported and the claim time of the success. sent is the health counts
 // the body carried, nil for a Basic body: a Detailed one is remembered with the
 // time (h_sent_at), and the next UTC day's rollover (startDay) takes it off.
 // Counts bumped while the send ran are never touched. A failed send changes
@@ -364,10 +364,10 @@ func (s *Store) RecordResult(ctx context.Context, status, version string, sent *
 			}
 		}
 		_, err := tx.Exec(ctx, `
-			UPDATE hatamoto_install_stats SET last_status = $1, last_ok_at = now(),
+			UPDATE hatamoto_install_stats SET last_status = $1, last_ok_at = COALESCE(last_sent_at, now()),
 				last_sent_version = $2,
 				h_sent = CASE WHEN $4 THEN $3::jsonb ELSE h_sent END,
-				h_sent_at = CASE WHEN $4 THEN now() ELSE h_sent_at END WHERE id`,
+				h_sent_at = CASE WHEN $4 THEN COALESCE(last_sent_at, now()) ELSE h_sent_at END WHERE id`,
 			status, version, string(js), sent != nil)
 		return err
 	})
