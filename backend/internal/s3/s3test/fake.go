@@ -123,7 +123,8 @@ func (s *Server) FailPut(fn func(key string) bool) {
 }
 
 // PutThenFail makes single PUTs of matching keys store the object and then
-// answer 503, the ambiguous outcome of a request whose reply was lost.
+// answer an error, the ambiguous outcome of a request whose reply was lost.
+// The status is one the client does not retry, so tests stay fast.
 func (s *Server) PutThenFail(fn func(key string) bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -218,7 +219,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, "InternalError")
 	case r.Method == http.MethodPut && s.putThenFail != nil && s.putThenFail(key):
 		s.store(key, Object{Data: body, Meta: metaOf(r)})
-		fail(w, http.StatusServiceUnavailable, "SlowDown")
+		fail(w, http.StatusBadRequest, "InvalidRequest")
 	case r.Method == http.MethodPut:
 		s.store(key, Object{Data: body, Meta: metaOf(r)})
 		w.Header().Set("ETag", etag(body))
