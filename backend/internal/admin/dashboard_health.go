@@ -76,6 +76,9 @@ func (a *Admin) healthChecks() []healthCheckFn {
 		}
 		fns = append(fns, a.healthDisk)
 	}
+	if a.deps.MediaStorage != nil {
+		fns = append(fns, a.healthMediaStorage)
+	}
 	if a.deps.Webhooks != nil {
 		fns = append(fns, a.healthWebhooks)
 	}
@@ -197,6 +200,31 @@ func (a *Admin) healthDisk(ctx context.Context) (*healthCheck, error) {
 	default:
 		c.Level = healthOK
 	}
+	return c, nil
+}
+
+// MediaStorageProbe checks that the media object storage answers with the
+// configured credentials.
+type MediaStorageProbe interface {
+	Test(ctx context.Context) error
+}
+
+// healthMediaStorageTimeout bounds the probe so a hung endpoint cannot stall
+// the card.
+const healthMediaStorageTimeout = 2 * time.Second
+
+// healthMediaStorage is never an error: an unreachable bucket is a bad row.
+// The failure is logged, but not shown, as it can name the endpoint.
+func (a *Admin) healthMediaStorage(ctx context.Context) (*healthCheck, error) {
+	ctx, cancel := context.WithTimeout(ctx, healthMediaStorageTimeout)
+	defer cancel()
+	c := &healthCheck{Group: healthData, Label: "Media storage"}
+	if err := a.deps.MediaStorage.Test(ctx); err != nil {
+		a.logger().Warn("admin: media object storage is not reachable")
+		c.Value, c.Level = "Object storage: bucket unreachable", healthBad
+		return c, nil
+	}
+	c.Value, c.Level = "Object storage, reachable", healthOK
 	return c, nil
 }
 

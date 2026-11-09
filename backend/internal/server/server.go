@@ -120,7 +120,8 @@ type Server struct {
 	formUsage              *entity.FormUsageIndex // where each form is placed; cleared by entity changes
 	previewLinks           *previewlink.Store     // shared draft preview links; nil without a database
 	mediaService           *media.Service
-	logoSizes              logoSizeCache // logo pixel sizes by URL; see render_logo.go
+	mediaStorage           media.BlobStore // the media store; nil for local disk
+	logoSizes              logoSizeCache   // logo pixel sizes by URL; see render_logo.go
 	menuService            *menu.Service
 	formService            *form.Service
 	spam                   *spam.Pipeline // nil in tests that skip spam checks
@@ -445,6 +446,7 @@ func (s *Server) setupDependencies() {
 	if s.demoOn() {
 		mediaConfig.MaxTotalBytes = int64(s.cfg.Demo.MediaQuotaMB) * 1024 * 1024
 	}
+	s.mediaStorage = mediaConfig.Store
 	s.mediaService = media.NewService(mediaRepo, mediaConfig, s.logger)
 	s.mediaService.SetChangeObserver(s.onMediaChange)
 	s.mediaFormats = mediaFormatStore{site: s.siteConfig}

@@ -73,4 +73,8 @@ func (u unavailableStore) URL(key string) string                                
 func (u unavailableStore) Stat(context.Context, string) (ObjectInfo, error) {
 	return ObjectInfo{}, u.err
 }
+
+// Test fails with the configuration error, so the health row reports it.
+func (u unavailableStore) Test(context.Context) error { return u.err }
+
 func (u unavailableStore) List(context.Context, string) ([]ObjectInfo, error) { return nil, u.err }

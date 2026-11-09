@@ -143,6 +143,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	if s.offsiteAdm != nil {
 		d.Offsite = s.offsiteAdm
 	}
+	if p, ok := s.mediaStorage.(admin.MediaStorageProbe); ok {
+		d.MediaStorage = p
+	}
 	d.Jobs = jobsService{s: s}
 	d.Memory = memoryService{s: s}
 	if s.mailStore != nil && s.emailService != nil {
