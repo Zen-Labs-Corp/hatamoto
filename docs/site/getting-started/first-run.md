@@ -52,7 +52,7 @@ In this guide you claim your new Hatamoto site in the browser. A wizard of eight
 
 7. On **Look**, pick a **Brand colour** for the built-in theme and select **Continue**. It is a six-digit colour code and starts as `#0060df`.
 
-8. On **Help improve Hatamoto** (the **Stats** step), choose **No thanks** or **Send stats**. Nothing is sent unless you choose **Send stats**, and the step shows the exact data before you choose: see [Install stats](../operate/install-stats.md). You can change your mind any time in **Settings > Updates**. The step is left out when the server sets `HATAMOTO_TELEMETRY=off`.
+8. On **Help improve Hatamoto** (the **Stats** step), choose **Off**, **Basic** or **Detailed**. None is preselected, and nothing is sent unless you choose Basic or Detailed. **What is collected** opens the page that lists what each level sends: see [Install stats](../operate/install-stats.md). You can change your mind any time in **Settings > Updates**. The step is left out when the server sets `HATAMOTO_TELEMETRY=off`.
 
 9. On **Content**, choose what your site starts with and select **Finish setup**:
 

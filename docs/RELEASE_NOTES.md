@@ -1,5 +1,14 @@
 # Release notes
 
+## Unreleased: Detailed install stats
+
+- **Three levels.** Install stats now have Off, Basic and Detailed, chosen with a radio group in the setup wizard, the owner banner and Settings > Updates. The "what is sent" preview is gone from the admin: a **What is collected** link opens the [Install stats](site/operate/install-stats.md) page, which lists what each level sends.
+- **Basic is unchanged.** An install that opted in before sends exactly the same three keys and stays on Basic until an owner chooses Detailed. Owners on Basic are offered Detailed once in a banner, and **Dismiss** ends the offer.
+- **Detailed.** Adds the platform, Postgres major version, install age bucket, the active theme, first-party and registry plugins by name (a count for the rest) and counts of panics, server errors, theme render errors, plugin errors, failed or rolled-back updates and failed migrations. Counts only, never messages.
+- **Version change.** A new version is reported at the next hourly check instead of waiting 20 hours.
+- **Operator override.** `HATAMOTO_TELEMETRY=off` rules out both levels.
+- **Migration.** Adds the stats level, last reported version and health counts to the install stats row. Rollback floor: unchanged; an older release reads Basic and Detailed as the old opt-in and keeps sending its three keys.
+
 ## Unreleased: Compact density
 
 - **Display setting.** Your profile has a new Display card where you choose Comfortable or Compact. Compact shows about 10% more on screen (sidebar, navigation, tables, cards and controls are about 10% smaller), and text never goes below 11px. The choice is remembered in a cookie, so it applies to this browser only.
