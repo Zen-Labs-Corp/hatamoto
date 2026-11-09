@@ -52,8 +52,9 @@ type setupData struct {
 	// ContentItems are the three content choices as radio cards.
 	ContentItems []ui.RadioCardItem
 	// stats
-	StatsJSON   string // the exact request body shown before the owner chooses
-	StatsNeeded bool   // the form was posted without choosing Yes or No
+	StatsCards   []ui.RadioCardItem // the three levels, none preselected
+	StatsDocsURL string
+	StatsNeeded  bool // the form was posted without choosing a level
 	// Back is the previous step's address; empty on the first steps.
 	Back string
 	// content
@@ -445,10 +446,10 @@ func (a *Admin) setupBackToStats(ctx context.Context) string {
 	return a.adminPath + "/setup/theme"
 }
 
-func (a *Admin) renderSetupStats(w http.ResponseWriter, r *http.Request, status int, v StatsView, needed bool) {
+func (a *Admin) renderSetupStats(w http.ResponseWriter, r *http.Request, status int, needed bool) {
 	nv := a.NewView(w, r, "Help improve Hatamoto")
 	nv.Wide = true
-	nv.Data = setupData{Steps: steps(5), Back: a.adminPath + "/setup/theme", StatsJSON: v.PreviewJSON, StatsNeeded: needed}
+	nv.Data = setupData{Steps: steps(5), Back: a.adminPath + "/setup/theme", StatsCards: statsLevelCards(""), StatsDocsURL: statsDocsURL, StatsNeeded: needed}
 	a.Render(w, r, status, "setup/stats", nv)
 }
 
@@ -466,12 +467,7 @@ func (a *Admin) handleSetupStatsForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, a.adminPath+"/setup/content", http.StatusSeeOther)
 		return
 	}
-	v, err := a.deps.Stats.View(r.Context())
-	if err != nil {
-		a.setupStatsSkip(w, r, "setup: stats view", err)
-		return
-	}
-	a.renderSetupStats(w, r, http.StatusOK, v, false)
+	a.renderSetupStats(w, r, http.StatusOK, false)
 }
 
 func (a *Admin) handleSetupStats(w http.ResponseWriter, r *http.Request) {
@@ -480,17 +476,12 @@ func (a *Admin) handleSetupStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	choice := r.PostFormValue("choice")
-	if choice != "yes" && choice != "no" {
-		// Neither answer is a default: Enter on the form, or a bare post, asks again.
-		v, err := a.deps.Stats.View(r.Context())
-		if err != nil {
-			a.setupStatsSkip(w, r, "setup: stats view", err)
-			return
-		}
-		a.renderSetupStats(w, r, http.StatusUnprocessableEntity, v, true)
+	if !validStatsLevel(choice) {
+		// No level is a default: Enter on the form, or a bare post, asks again.
+		a.renderSetupStats(w, r, http.StatusUnprocessableEntity, true)
 		return
 	}
-	if err := a.deps.Stats.Choose(r.Context(), choice == "yes"); err != nil {
+	if err := a.deps.Stats.Choose(r.Context(), choice); err != nil {
 		a.setupStatsSkip(w, r, "setup: stats choose", err)
 		return
 	}

@@ -13,14 +13,17 @@ import (
 
 // fakeStats is a StatsService that records what the handlers asked of it.
 type fakeStats struct {
-	view    StatsView
-	viewErr error
-	chooseE error
-	resetE  error
-	views   int
-	asks    int
-	chosen  []bool
-	resets  int
+	view       StatsView
+	banner     string // what Banner answers; "" for none
+	viewErr    error
+	chooseE    error
+	resetE     error
+	dismissE   error
+	views      int
+	asks       int
+	chosen     []string
+	resets     int
+	dismissals int
 }
 
 func (f *fakeStats) View(context.Context) (StatsView, error) {
@@ -28,16 +31,24 @@ func (f *fakeStats) View(context.Context) (StatsView, error) {
 	return f.view, f.viewErr
 }
 
-func (f *fakeStats) Unanswered(context.Context) (bool, error) {
+func (f *fakeStats) Banner(context.Context) (string, error) {
 	f.asks++
-	return f.view.Consent == "unset" && !f.view.ForcedOff, f.viewErr
+	if f.view.ForcedOff {
+		return "", f.viewErr
+	}
+	return f.banner, f.viewErr
 }
 
 func (f *fakeStats) ForcedOff() bool { return f.view.ForcedOff }
 
-func (f *fakeStats) Choose(_ context.Context, yes bool) error {
-	f.chosen = append(f.chosen, yes)
+func (f *fakeStats) Choose(_ context.Context, level string) error {
+	f.chosen = append(f.chosen, level)
 	return f.chooseE
+}
+
+func (f *fakeStats) DismissNudge(context.Context) error {
+	f.dismissals++
+	return f.dismissE
 }
 
 func (f *fakeStats) Reset(context.Context) error {
@@ -46,9 +57,6 @@ func (f *fakeStats) Reset(context.Context) error {
 }
 
 const statsTestID = "0123456789abcdef0123456789abcdef"
-
-// statsTestPreview is a request body as the wizard shows it.
-const statsTestPreview = "{\n  \"install\": \"6f1c0a9e5b7d4e28a3c1f09d7b2e4a65\",\n  \"version\": \"v1.4.1\",\n  \"channel\": \"stable\"\n}"
 
 func newStatsRig(t *testing.T, f *fakeStats) *updatesRig {
 	t.Helper()
@@ -59,24 +67,24 @@ func newStatsRig(t *testing.T, f *fakeStats) *updatesRig {
 	return u
 }
 
-var statsPosts = []string{"/stats", "/stats/choice", "/stats/reset"}
+var statsPosts = []string{"/stats", "/stats/choice", "/stats/dismiss", "/stats/reset"}
 
 func TestStatsPostsAreOwnerOnlyAndNeedCSRF(t *testing.T) {
-	f := &fakeStats{view: StatsView{Consent: "unset"}}
+	f := &fakeStats{view: StatsView{Level: "unset"}}
 	u := newStatsRig(t, f)
 	for _, p := range statsPosts {
 		target := "/admin/settings/updates" + p
-		if rec := u.do("POST", target, "editor-token", url.Values{"choice": {"yes"}}, nil); rec.Code != 403 {
+		if rec := u.do("POST", target, "editor-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil); rec.Code != 403 {
 			t.Errorf("editor POST %s = %d, want 403", target, rec.Code)
 		}
-		if rec := u.do("POST", target, "", url.Values{"choice": {"yes"}}, nil); rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), "/admin/login") {
+		if rec := u.do("POST", target, "", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil); rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), "/admin/login") {
 			t.Errorf("anonymous POST %s = %d %s", target, rec.Code, rec.Header().Get("Location"))
 		}
-		if rec := u.do("POST", target, "owner-token", url.Values{"choice": {"yes"}}, map[string]string{"X-CSRF-Token": ""}); rec.Code != 403 {
+		if rec := u.do("POST", target, "owner-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, map[string]string{"X-CSRF-Token": ""}); rec.Code != 403 {
 			t.Errorf("no CSRF POST %s = %d, want 403", target, rec.Code)
 		}
 	}
-	if f.views != 0 || len(f.chosen) != 0 || f.resets != 0 || len(u.events) != 0 {
+	if f.views != 0 || len(f.chosen) != 0 || f.resets != 0 || f.dismissals != 0 || len(u.events) != 0 {
 		t.Error("a refused request reached the service")
 	}
 }
@@ -84,28 +92,25 @@ func TestStatsPostsAreOwnerOnlyAndNeedCSRF(t *testing.T) {
 func TestStatsPostsWithoutServiceAre503(t *testing.T) {
 	u := newStatsRig(t, nil)
 	for _, p := range statsPosts {
-		if rec := u.do("POST", "/admin/settings/updates"+p, "owner-token", url.Values{"choice": {"yes"}}, nil); rec.Code != 503 {
+		if rec := u.do("POST", "/admin/settings/updates"+p, "owner-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil); rec.Code != 503 {
 			t.Errorf("POST %s without a service = %d, want 503", p, rec.Code)
 		}
 	}
 }
 
 func TestStatsChoiceCallsServiceOnceAndAuditsWithoutID(t *testing.T) {
-	for _, c := range []struct {
-		choice string
-		want   bool
-	}{{"yes", true}, {"no", false}} {
-		f := &fakeStats{view: StatsView{Consent: "unset", PreviewJSON: statsTestID}}
+	for _, choice := range []string{"off", "basic", "detailed"} {
+		f := &fakeStats{view: StatsView{Level: "unset"}}
 		u := newStatsRig(t, f)
-		rec := u.do("POST", "/admin/settings/updates/stats/choice", "owner-token", url.Values{"choice": {c.choice}}, nil)
+		rec := u.do("POST", "/admin/settings/updates/stats/choice", "owner-token", url.Values{"choice": {choice}}, nil)
 		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/updates" {
-			t.Fatalf("choice %s = %d %s", c.choice, rec.Code, rec.Header().Get("Location"))
+			t.Fatalf("choice %s = %d %s", choice, rec.Code, rec.Header().Get("Location"))
 		}
-		if len(f.chosen) != 1 || f.chosen[0] != c.want {
-			t.Errorf("choice %s: Choose calls = %v", c.choice, f.chosen)
+		if len(f.chosen) != 1 || f.chosen[0] != choice {
+			t.Errorf("choice %s: Choose calls = %v", choice, f.chosen)
 		}
-		if len(u.events) != 1 || u.events[0].Action != "stats.consent" || u.events[0].Detail["choice"] != c.choice {
-			t.Fatalf("choice %s: audit = %+v", c.choice, u.events)
+		if len(u.events) != 1 || u.events[0].Action != "stats.consent" || u.events[0].Detail["choice"] != choice {
+			t.Fatalf("choice %s: audit = %+v", choice, u.events)
 		}
 		if strings.Contains(fmt.Sprint(u.events), statsTestID) {
 			t.Error("audit detail carries the install ID")
@@ -114,9 +119,9 @@ func TestStatsChoiceCallsServiceOnceAndAuditsWithoutID(t *testing.T) {
 }
 
 func TestStatsChoiceRefusesAnythingElse(t *testing.T) {
-	f := &fakeStats{view: StatsView{Consent: "unset"}}
+	f := &fakeStats{view: StatsView{Level: "unset"}}
 	u := newStatsRig(t, f)
-	for _, form := range []url.Values{{}, {"choice": {""}}, {"choice": {"maybe"}}} {
+	for _, form := range []url.Values{{}, {"choice": {""}}, {"choice": {"maybe"}}, {"choice": {"yes"}}, {"choice": {"Basic"}}} {
 		if rec := u.do("POST", "/admin/settings/updates/stats/choice", "owner-token", form, nil); rec.Code != 400 {
 			t.Errorf("choice %v = %d, want 400", form, rec.Code)
 		}
@@ -126,31 +131,47 @@ func TestStatsChoiceRefusesAnythingElse(t *testing.T) {
 	}
 }
 
-func TestStatsSwitchOnAndOff(t *testing.T) {
-	for _, c := range []struct {
-		value string
-		want  bool
-	}{{"on", true}, {"off", false}, {"", false}} {
-		f := &fakeStats{view: StatsView{Consent: "no"}}
+func TestStatsLevelPost(t *testing.T) {
+	for _, level := range []string{"off", "basic", "detailed"} {
+		f := &fakeStats{view: StatsView{Level: "off"}}
 		u := newStatsRig(t, f)
-		form := url.Values{}
-		if c.value != "" {
-			form.Set("stats", c.value)
+		rec := u.do("POST", "/admin/settings/updates/stats", "owner-token", url.Values{"level": {level}}, nil)
+		if rec.Code != 303 {
+			t.Fatalf("level %q = %d", level, rec.Code)
 		}
-		if rec := u.do("POST", "/admin/settings/updates/stats", "owner-token", form, nil); rec.Code != 303 {
-			t.Fatalf("switch %q = %d", c.value, rec.Code)
+		if len(f.chosen) != 1 || f.chosen[0] != level {
+			t.Errorf("level %q: Choose calls = %v", level, f.chosen)
 		}
-		if len(f.chosen) != 1 || f.chosen[0] != c.want {
-			t.Errorf("switch %q: Choose calls = %v", c.value, f.chosen)
+		if len(u.events) != 1 || u.events[0].Detail["choice"] != level {
+			t.Errorf("level %q: audit = %+v", level, u.events)
 		}
+	}
+	f := &fakeStats{view: StatsView{Level: "basic"}}
+	u := newStatsRig(t, f)
+	for _, form := range []url.Values{{}, {"level": {""}}, {"level": {"on"}}, {"stats": {"on"}}} {
+		if rec := u.do("POST", "/admin/settings/updates/stats", "owner-token", form, nil); rec.Code != 400 {
+			t.Errorf("level %v = %d, want 400", form, rec.Code)
+		}
+	}
+	if len(f.chosen) != 0 {
+		t.Errorf("an invalid level reached the service: %v", f.chosen)
+	}
+}
+
+func TestStatsDismissCallsServiceOnce(t *testing.T) {
+	f := &fakeStats{view: StatsView{Level: "basic"}, banner: statsBannerNudge}
+	u := newStatsRig(t, f)
+	rec := u.do("POST", "/admin/settings/updates/stats/dismiss", "owner-token", url.Values{}, nil)
+	if rec.Code != 303 || f.dismissals != 1 || len(f.chosen) != 0 {
+		t.Errorf("dismiss = %d, dismissals %d, chosen %v", rec.Code, f.dismissals, f.chosen)
 	}
 }
 
 func TestStatsForcedOffChangesNothing(t *testing.T) {
-	f := &fakeStats{view: StatsView{Consent: "no", ForcedOff: true}}
+	f := &fakeStats{view: StatsView{Level: "off", ForcedOff: true}}
 	u := newStatsRig(t, f)
 	for _, p := range statsPosts {
-		rec := u.do("POST", "/admin/settings/updates"+p, "owner-token", url.Values{"choice": {"yes"}, "stats": {"on"}}, nil)
+		rec := u.do("POST", "/admin/settings/updates"+p, "owner-token", url.Values{"choice": {"detailed"}, "level": {"detailed"}}, nil)
 		if rec.Code != 303 {
 			t.Fatalf("POST %s = %d", p, rec.Code)
 		}
@@ -158,13 +179,13 @@ func TestStatsForcedOffChangesNothing(t *testing.T) {
 			t.Errorf("POST %s: flash missing %q", p, statsForcedOffNote)
 		}
 	}
-	if len(f.chosen) != 0 || f.resets != 0 || len(u.events) != 0 {
-		t.Errorf("forced off: Choose %v, Reset %d, audit %d", f.chosen, f.resets, len(u.events))
+	if len(f.chosen) != 0 || f.resets != 0 || f.dismissals != 0 || len(u.events) != 0 {
+		t.Errorf("forced off: Choose %v, Reset %d, dismissals %d, audit %d", f.chosen, f.resets, f.dismissals, len(u.events))
 	}
 }
 
 func TestStatsResetCallsServiceOnce(t *testing.T) {
-	f := &fakeStats{view: StatsView{Consent: "yes", PreviewJSON: statsTestID}}
+	f := &fakeStats{view: StatsView{Level: "basic"}}
 	u := newStatsRig(t, f)
 	if rec := u.do("POST", "/admin/settings/updates/stats/reset", "owner-token", url.Values{}, nil); rec.Code != 303 {
 		t.Fatalf("reset = %d", rec.Code)
@@ -184,15 +205,16 @@ func TestStatsServiceErrorsAreQuietAndNotAudited(t *testing.T) {
 		f    *fakeStats
 		path string
 	}{
-		{"choose", &fakeStats{view: StatsView{Consent: "unset"}, chooseE: boom}, "/stats/choice"},
-		{"switch", &fakeStats{view: StatsView{Consent: "yes"}, chooseE: boom}, "/stats"},
+		{"choose", &fakeStats{view: StatsView{Level: "unset"}, chooseE: boom}, "/stats/choice"},
+		{"level", &fakeStats{view: StatsView{Level: "basic"}, chooseE: boom}, "/stats"},
+		{"dismiss", &fakeStats{view: StatsView{Level: "basic"}, dismissE: boom}, "/stats/dismiss"},
 		{"view", &fakeStats{viewErr: boom}, "/stats/choice"},
 		{"reset view", &fakeStats{viewErr: boom}, "/stats/reset"},
-		{"reset", &fakeStats{view: StatsView{Consent: "yes"}, resetE: boom}, "/stats/reset"},
+		{"reset", &fakeStats{view: StatsView{Level: "basic"}, resetE: boom}, "/stats/reset"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			u := newStatsRig(t, c.f)
-			rec := u.do("POST", "/admin/settings/updates"+c.path, "owner-token", url.Values{"choice": {"yes"}, "stats": {"on"}}, nil)
+			rec := u.do("POST", "/admin/settings/updates"+c.path, "owner-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil)
 			if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/updates" {
 				t.Fatalf("= %d %s, want a quiet 303 to Settings > Updates", rec.Code, rec.Header().Get("Location"))
 			}
@@ -210,7 +232,7 @@ func TestStatsServiceErrorsAreQuietAndNotAudited(t *testing.T) {
 }
 
 func TestStatsServiceStillRefusesWithoutServiceOrChoice(t *testing.T) {
-	u := newStatsRig(t, &fakeStats{view: StatsView{Consent: "unset"}})
+	u := newStatsRig(t, &fakeStats{view: StatsView{Level: "unset"}})
 	if rec := u.do("POST", "/admin/settings/updates/stats/choice", "owner-token", url.Values{"choice": {"maybe"}}, nil); rec.Code != 400 {
 		t.Errorf("bad choice = %d, want 400", rec.Code)
 	}
@@ -218,18 +240,19 @@ func TestStatsServiceStillRefusesWithoutServiceOrChoice(t *testing.T) {
 
 func TestUpdatesInstallStatsCardStates(t *testing.T) {
 	sent := updatesClock.Add(-3 * time.Hour)
-	preview := "{\n  \"install\": \"" + statsTestID + "\",\n  \"version\": \"v1.4.1\",\n  \"channel\": \"stable\"\n}"
+	common := []string{`id="updates-stats"`, `name="level"`, "Nothing is sent", "Version and update channel", "Basic, plus plugins, theme and error counts", `href="https://hatamoto.dev/docs/operate/install-stats" target="_blank" rel="noopener">What is collected</a>`}
 	for _, c := range []struct {
 		name    string
 		view    StatsView
 		wants   []string
 		absents []string
 	}{
-		{"unset", StatsView{Consent: "unset", PreviewJSON: preview}, []string{`id="updates-stats"`, "Send install stats", `role="switch"`, "A real ID is created when you turn this on.", "&#34;install&#34;", "Nothing is sent while this is off."}, []string{"Reset ID", `value="on" checked`, "server configuration", "Last sent", "Not sent yet.", "Turn off to stop."}},
-		{"yes", StatsView{Consent: "yes", PreviewJSON: preview, LastSent: &sent}, []string{"This is the exact request body.", `value="on" checked`, "Reset ID", `id="reset-stats-form"`, "Last sent", "Turn off to stop."}, []string{"Not sent yet.", "A real ID is created", "Nothing is sent while this is off.", "error: "}},
-		{"yes_never_sent", StatsView{Consent: "yes", PreviewJSON: preview}, []string{"Last sent", "Not sent yet. Hatamoto tries again once a day.", "Turn off to stop."}, []string{"Nothing is sent while this is off.", "error: "}},
-		{"no", StatsView{Consent: "no", PreviewJSON: preview}, []string{`role="switch"`, "Nothing is sent while this is off."}, []string{`value="on" checked`, "Reset ID", "Last sent", "Turn off to stop."}},
-		{"forced_off", StatsView{Consent: "no", ForcedOff: true, PreviewJSON: preview}, []string{"Turned off by the server configuration.", "hm-badge"}, []string{`role="switch"`, `id="stats-form"`, "Reset ID"}},
+		{"unset", StatsView{Level: "unset"}, common, []string{`name="level" value="off" checked`, `name="level" value="basic" checked`, `name="level" value="detailed" checked`, "Reset ID", "Last sent"}},
+		{"off", StatsView{Level: "off"}, append([]string{`name="level" value="off" checked`}, common...), []string{`name="level" value="basic" checked`, "Reset ID", "Last sent"}},
+		{"basic", StatsView{Level: "basic", LastSent: &sent}, append([]string{`name="level" value="basic" checked`, "Reset ID", `id="reset-stats-form"`, "Last sent"}, common...), []string{`name="level" value="off" checked`, "Not sent yet."}},
+		{"detailed", StatsView{Level: "detailed", LastSent: &sent}, append([]string{`name="level" value="detailed" checked`, "Reset ID", "Last sent"}, common...), []string{`name="level" value="off" checked`, "Not sent yet."}},
+		{"detailed_never_sent", StatsView{Level: "detailed"}, []string{"Last sent", "Not sent yet. Hatamoto tries again once a day."}, nil},
+		{"forced_off", StatsView{Level: "off", ForcedOff: true}, []string{"Turned off by the server configuration.", "hm-badge"}, []string{`name="level"`, `id="stats-form"`, "Reset ID"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f := &fakeStats{view: c.view}
@@ -239,12 +262,12 @@ func TestUpdatesInstallStatsCardStates(t *testing.T) {
 					t.Errorf("page lacks %q", w)
 				}
 			}
-			for _, b := range c.absents {
+			for _, b := range append(c.absents, "hm-code", "What is sent", "error: ") {
 				if strings.Contains(body, b) {
 					t.Errorf("page has %q", b)
 				}
 			}
-			if c.name != "yes_never_sent" {
+			if c.name != "detailed_never_sent" {
 				compareGolden(t, "pages/settings-updates-stats-"+c.name+".html", normalizePage(body))
 			}
 		})
@@ -252,7 +275,7 @@ func TestUpdatesInstallStatsCardStates(t *testing.T) {
 }
 
 func TestStatsCardAbsentInDemo(t *testing.T) {
-	u := newStatsRig(t, &fakeStats{view: StatsView{Consent: "unset", PreviewJSON: statsTestPreview}})
+	u := newStatsRig(t, &fakeStats{view: StatsView{Level: "unset"}})
 	u.a.deps.Demo.Enabled = true
 	if body := u.get(t); strings.Contains(body, `id="updates-stats"`) {
 		t.Error("the demo shows the Install stats card")
@@ -268,18 +291,21 @@ func newSetupStatsRig(t *testing.T, view StatsView) (*setupRig, *fakeStats) {
 	return g, f
 }
 
-func TestSetupStatsStepShowsExactJSONAndPreselectsNothing(t *testing.T) {
+func TestSetupStatsStepOffersThreeLevelsAndPreselectsNothing(t *testing.T) {
 	t.Parallel()
 
-	g, f := newSetupStatsRig(t, StatsView{Consent: "unset", PreviewJSON: statsTestPreview})
+	// Even a stored level is not preselected: the owner answers here.
+	g, f := newSetupStatsRig(t, StatsView{Level: "detailed"})
 	body := g.do("GET", "/admin/setup/stats", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{"Help improve Hatamoto", "&#34;install&#34;: &#34;6f1c0a9e5b7d4e28a3c1f09d7b2e4a65&#34;", "No site address, no content, no names.", `name="choice" value="no"`, `name="choice" value="yes"`, "Step 6 of 8"} {
+	for _, want := range []string{"Help improve Hatamoto", `name="choice" value="off"`, `name="choice" value="basic"`, `name="choice" value="detailed"`, `href="https://hatamoto.dev/docs/operate/install-stats" target="_blank" rel="noopener">What is collected</a>`, "Continue", `href="/admin/setup/theme"><span>Back</span>`, "Step 6 of 8"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("stats step lacks %q", want)
 		}
 	}
-	if strings.Contains(body, "checked") {
-		t.Error("a choice is preselected")
+	for _, not := range []string{"checked", "required", "hm-code", "No thanks", "Send stats"} {
+		if strings.Contains(body, not) {
+			t.Errorf("stats step has %q", not)
+		}
 	}
 	if len(f.chosen) != 0 {
 		t.Error("viewing the step stored a choice")
@@ -294,22 +320,19 @@ func TestSetupStatsStepShowsExactJSONAndPreselectsNothing(t *testing.T) {
 func TestSetupStatsChoice(t *testing.T) {
 	t.Parallel()
 
-	for _, c := range []struct {
-		choice string
-		want   bool
-	}{{"yes", true}, {"no", false}} {
-		g, f := newSetupStatsRig(t, StatsView{Consent: "unset"})
+	for _, choice := range []string{"off", "basic", "detailed"} {
+		g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
 		var events []AuditEvent
 		g.a.deps.Audit = func(_ context.Context, e AuditEvent) { events = append(events, e) }
-		rec := g.do("POST", "/admin/setup/stats", "owner-token", url.Values{"choice": {c.choice}}, nil)
+		rec := g.do("POST", "/admin/setup/stats", "owner-token", url.Values{"choice": {choice}}, nil)
 		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
-			t.Fatalf("%s: %d %s", c.choice, rec.Code, rec.Header().Get("Location"))
+			t.Fatalf("%s: %d %s", choice, rec.Code, rec.Header().Get("Location"))
 		}
-		if len(f.chosen) != 1 || f.chosen[0] != c.want {
-			t.Errorf("%s: Choose calls = %v", c.choice, f.chosen)
+		if len(f.chosen) != 1 || f.chosen[0] != choice {
+			t.Errorf("%s: Choose calls = %v", choice, f.chosen)
 		}
-		if len(events) != 1 || events[0].Action != "stats.consent" || events[0].Detail["choice"] != c.choice {
-			t.Errorf("%s: audit = %+v", c.choice, events)
+		if len(events) != 1 || events[0].Action != "stats.consent" || events[0].Detail["choice"] != choice {
+			t.Errorf("%s: audit = %+v", choice, events)
 		}
 		if g.site.cfg.SetupCompletedAt != nil {
 			t.Error("the Stats step finished setup")
@@ -320,10 +343,10 @@ func TestSetupStatsChoice(t *testing.T) {
 func TestSetupStatsWithoutAChoiceAsksAgain(t *testing.T) {
 	t.Parallel()
 
-	g, f := newSetupStatsRig(t, StatsView{Consent: "unset", PreviewJSON: statsTestPreview})
-	for _, form := range []url.Values{{}, {"choice": {""}}, {"choice": {"maybe"}}} {
+	g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
+	for _, form := range []url.Values{{}, {"choice": {""}}, {"choice": {"maybe"}}, {"choice": {"yes"}}} {
 		rec := g.do("POST", "/admin/setup/stats", "owner-token", form, nil)
-		if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Choose No thanks or Send stats.") {
+		if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Choose Off, Basic or Detailed.") {
 			t.Errorf("post %v = %d", form, rec.Code)
 		}
 	}
@@ -339,10 +362,10 @@ func TestSetupStatsSkippedUnderEnvOffOrWithoutService(t *testing.T) {
 		"forced off": func(g *setupRig, f *fakeStats) { f.view.ForcedOff = true },
 		"no service": func(g *setupRig, f *fakeStats) { g.a.deps.Stats = nil },
 	} {
-		g, f := newSetupStatsRig(t, StatsView{Consent: "no"})
+		g, f := newSetupStatsRig(t, StatsView{Level: "off"})
 		setup(g, f)
 		for _, m := range []string{"GET", "POST"} {
-			rec := g.do(m, "/admin/setup/stats", "owner-token", url.Values{"choice": {"yes"}}, nil)
+			rec := g.do(m, "/admin/setup/stats", "owner-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil)
 			if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
 				t.Errorf("%s %s = %d %s", name, m, rec.Code, rec.Header().Get("Location"))
 			}
@@ -366,7 +389,7 @@ func TestSetupStatsSkippedUnderEnvOffOrWithoutService(t *testing.T) {
 func TestSetupCompletesWithoutTheStatsStep(t *testing.T) {
 	t.Parallel()
 
-	g, f := newSetupStatsRig(t, StatsView{Consent: "unset"})
+	g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
 	if rec := g.do("POST", "/admin/setup/content", "owner-token", url.Values{"content": {"empty"}}, nil); rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/done" || g.site.cfg.SetupCompletedAt == nil {
 		t.Errorf("content: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
@@ -378,9 +401,9 @@ func TestSetupCompletesWithoutTheStatsStep(t *testing.T) {
 func TestSetupStatsIsOwnerOnly(t *testing.T) {
 	t.Parallel()
 
-	g, f := newSetupStatsRig(t, StatsView{Consent: "unset"})
+	g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
 	for _, m := range []string{"GET", "POST"} {
-		if rec := g.do(m, "/admin/setup/stats", "editor-token", url.Values{"choice": {"yes"}}, nil); rec.Code != 403 {
+		if rec := g.do(m, "/admin/setup/stats", "editor-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil); rec.Code != 403 {
 			t.Errorf("editor %s = %d, want 403", m, rec.Code)
 		}
 	}
@@ -399,13 +422,11 @@ func TestSetupStatsStoreErrorsContinueToContent(t *testing.T) {
 		form   url.Values
 		setup  func(f *fakeStats)
 	}{
-		{"get view", "GET", nil, func(f *fakeStats) { f.viewErr = boom }},
-		{"post view", "POST", url.Values{}, func(f *fakeStats) { f.viewErr = boom }},
-		{"post choose", "POST", url.Values{"choice": {"yes"}}, func(f *fakeStats) { f.chooseE = boom }},
+		{"post choose", "POST", url.Values{"choice": {"basic"}}, func(f *fakeStats) { f.chooseE = boom }},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			g, f := newSetupStatsRig(t, StatsView{Consent: "unset", PreviewJSON: statsTestPreview})
+			g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
 			c.setup(f)
 			var logs strings.Builder
 			g.a.deps.Logger = slog.New(slog.NewTextHandler(&logs, nil))
@@ -428,10 +449,10 @@ func TestSetupStatsStoreErrorsContinueToContent(t *testing.T) {
 func TestSetupStatsSkippedInDemo(t *testing.T) {
 	t.Parallel()
 
-	g, f := newSetupStatsRig(t, StatsView{Consent: "unset", PreviewJSON: statsTestPreview})
+	g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
 	g.a.deps.Demo.Enabled = true
 	for _, m := range []string{"GET", "POST"} {
-		rec := g.do(m, "/admin/setup/stats", "owner-token", url.Values{"choice": {"yes"}}, nil)
+		rec := g.do(m, "/admin/setup/stats", "owner-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil)
 		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
 			t.Errorf("%s = %d %s", m, rec.Code, rec.Header().Get("Location"))
 		}

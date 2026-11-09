@@ -44,17 +44,16 @@
 <form method="post" action="/admin/setup/stats" class="hm-stack">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Continue</button>
-<p>Send anonymous install stats to hatamoto.dev once a day. This is everything that is sent:</p>
-<pre class="hm-code" tabindex="0">{
-  &#34;install&#34;: &#34;6f1c0a9e5b7d4e28a3c1f09d7b2e4a65&#34;,
-  &#34;version&#34;: &#34;v1.4.1&#34;,
-  &#34;channel&#34;: &#34;stable&#34;
-}</pre>
-<p class="hm-muted">No site address, no content, no names. Change this any time in Settings &gt; Updates.</p>
+<p>Send anonymous install stats to hatamoto.dev once a day. Change this any time in Settings &gt; Updates.</p>
+<fieldset class="hm-radiocards hm-radiocards--3" id="choice"><legend class="hm-field__label">Install stats</legend>
+<label class="hm-radiocard" for="choice-0"><input class="hm-radiocard__input" type="radio" id="choice-0" name="choice" value="off"><span class="hm-radiocard__body"><span class="hm-radiocard__title">Off</span><span class="hm-muted">Nothing is sent</span></span></label>
+<label class="hm-radiocard" for="choice-1"><input class="hm-radiocard__input" type="radio" id="choice-1" name="choice" value="basic"><span class="hm-radiocard__body"><span class="hm-radiocard__title">Basic</span><span class="hm-muted">Version and update channel</span></span></label>
+<label class="hm-radiocard" for="choice-2"><input class="hm-radiocard__input" type="radio" id="choice-2" name="choice" value="detailed"><span class="hm-radiocard__body"><span class="hm-radiocard__title">Detailed</span><span class="hm-muted">Basic, plus plugins, theme and error counts</span></span></label>
+</fieldset>
+<p><a href="https://hatamoto.dev/docs/operate/install-stats" target="_blank" rel="noopener">What is collected</a></p>
 <footer class="hm-card__foot hm-card__foot--plain">
 <span class="hm-card__foot-note"><a class="hm-btn hm-btn--ghost" href="/admin/setup/theme"><span>Back</span></a></span>
-<button type="submit" class="hm-btn hm-btn--secondary" name="choice" value="no"><span>No thanks</span></button>
-<button type="submit" class="hm-btn hm-btn--primary" name="choice" value="yes"><span>Send stats</span></button>
+<button type="submit" class="hm-btn hm-btn--primary"><span>Continue</span></button>
 </footer>
 </form>
 

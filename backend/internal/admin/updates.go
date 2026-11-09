@@ -458,7 +458,9 @@ type updatesData struct {
 	Pin                      string
 	History                  ui.Table
 	InstallStats             *StatsView // nil when there is no stats service or it failed
-	StatsLastSent            string     // time of the last successful report, "" before the first
+	StatsCards               []ui.RadioCardItem
+	StatsDocsURL             string
+	StatsLastSent            string // time of the last successful report, "" before the first
 }
 
 func (a *Admin) mountUpdatesSettings(owner *httpx.Group) {
@@ -472,8 +474,9 @@ func (a *Admin) mountUpdatesSettings(owner *httpx.Group) {
 	// password again; a POST is never replayed after that page.
 	owner.Group("", a.RequireSudo).HandleFunc("POST /settings/updates/retry", a.handleUpdatesRetry)
 	owner.HandleFunc("POST /settings/updates/unpin", a.handleUpdatesUnpin)
-	owner.HandleFunc("POST /settings/updates/stats", a.handleStatsSwitch)
+	owner.HandleFunc("POST /settings/updates/stats", a.handleStatsLevel)
 	owner.HandleFunc("POST /settings/updates/stats/choice", a.handleStatsChoice)
+	owner.HandleFunc("POST /settings/updates/stats/dismiss", a.handleStatsDismiss)
 	owner.HandleFunc("POST /settings/updates/stats/reset", a.handleStatsReset)
 }
 
@@ -889,6 +892,7 @@ func (a *Admin) renderUpdates(w http.ResponseWriter, r *http.Request, status int
 			a.logger().Warn("stats view", "err", err)
 		} else {
 			d.InstallStats = &sv
+			d.StatsCards, d.StatsDocsURL = statsLevelCards(sv.Level), statsDocsURL
 			if sv.LastSent != nil {
 				d.StatsLastSent = fmtDateTime(sv.LastSent.In(loc))
 			}

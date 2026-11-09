@@ -195,7 +195,7 @@ func TestProfileGateSkipsSetupWizardUntilSetupCompletes(t *testing.T) {
 	g.a.deps.Site = site
 
 	g.a.deps.EmailSettings = &fakeEmailSettings{}
-	g.a.deps.Stats = &fakeStats{view: StatsView{Consent: "unset"}}
+	g.a.deps.Stats = &fakeStats{view: StatsView{Level: "unset"}}
 	site.cfg.SetupCompletedAt = nil
 	for _, path := range []string{"/admin/setup/site", "/admin/setup/email", "/admin/setup/theme", "/admin/setup/stats", "/admin/setup/content", "/admin/setup/done"} {
 		if rec := g.do("GET", path, "owner-token", nil, nil); rec.Code != http.StatusOK {

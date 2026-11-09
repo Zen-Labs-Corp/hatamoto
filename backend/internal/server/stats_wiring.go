@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"math/rand/v2"
 	"time"
 
@@ -63,35 +64,52 @@ func (s *Server) SetStats(svc *installstats.Service) {
 // adminStats presents the install stats service to the admin.
 type adminStats struct{ svc *installstats.Service }
 
-// Until the admin takes a level (a later change), the three levels map onto
-// the old yes/no choice: off is no, basic and detailed are yes.
 func (a adminStats) View(ctx context.Context) (admin.StatsView, error) {
 	v, err := a.svc.View(ctx)
 	if err != nil {
 		return admin.StatsView{}, err
 	}
-	consent := "yes"
+	level := "unset"
 	switch v.Level {
-	case installstats.LevelUnset:
-		consent = "unset"
 	case installstats.LevelOff:
-		consent = "no"
+		level = "off"
+	case installstats.LevelBasic:
+		level = "basic"
+	case installstats.LevelDetailed:
+		level = "detailed"
 	}
-	return admin.StatsView{Consent: consent, ForcedOff: v.ForcedOff, LastSent: v.LastSent}, nil
+	return admin.StatsView{Level: level, ForcedOff: v.ForcedOff, LastSent: v.LastSent}, nil
 }
 
-func (a adminStats) Unanswered(ctx context.Context) (bool, error) {
+func (a adminStats) Banner(ctx context.Context) (string, error) {
 	k, err := a.svc.Banner(ctx)
-	return k == installstats.BannerUnanswered, err
-}
-func (a adminStats) ForcedOff() bool { return a.svc.ForcedOff() }
-func (a adminStats) Choose(ctx context.Context, yes bool) error {
-	if yes {
-		return a.svc.Choose(ctx, installstats.LevelBasic)
+	switch k {
+	case installstats.BannerUnanswered:
+		return "unanswered", err
+	case installstats.BannerNudge:
+		return "nudge", err
 	}
-	return a.svc.Choose(ctx, installstats.LevelOff)
+	return "", err
 }
-func (a adminStats) Reset(ctx context.Context) error { return a.svc.Reset(ctx) }
+
+func (a adminStats) ForcedOff() bool { return a.svc.ForcedOff() }
+
+// Choose refuses a level the service does not know: the admin validates first,
+// and a stray value must never become a default.
+func (a adminStats) Choose(ctx context.Context, level string) error {
+	switch level {
+	case "off":
+		return a.svc.Choose(ctx, installstats.LevelOff)
+	case "basic":
+		return a.svc.Choose(ctx, installstats.LevelBasic)
+	case "detailed":
+		return a.svc.Choose(ctx, installstats.LevelDetailed)
+	}
+	return fmt.Errorf("install stats: unknown level %q", level)
+}
+
+func (a adminStats) DismissNudge(ctx context.Context) error { return a.svc.DismissNudge(ctx) }
+func (a adminStats) Reset(ctx context.Context) error        { return a.svc.Reset(ctx) }
 
 // scheduleStats puts the ping on the worker scheduler: a check every hour
 // (sending at most once a day), the first 5 to 15 minutes after start. Nothing is scheduled in a public demo or
