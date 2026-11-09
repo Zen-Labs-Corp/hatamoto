@@ -28,7 +28,7 @@ func (s *Server) setupPluginRuns(svc *pluginhost.Services) {
 	}
 	if s.mediaService != nil {
 		svc.Blobs = s.mediaService
-		svc.Uploads = runUploads{s}
+		svc.Uploads = runUploads{s: s, cache: newUploadCache(s.mediaService.OpenStaged)}
 	}
 	if s.siteConfig != nil {
 		svc.Site = siteInfoSource{s}
@@ -67,7 +67,10 @@ func (s *Server) recoverPluginRuns(ctx context.Context, rt *pluginhost.Runtime) 
 
 // runUploads opens the file the owner uploaded for a run, from the staged
 // blob storage. It never exposes a path.
-type runUploads struct{ s *Server }
+type runUploads struct {
+	s     *Server
+	cache *uploadCache // staged files in object storage; local files are opened directly
+}
 
 func (u runUploads) Open(ctx context.Context, plugin string, id uuid.UUID) (io.ReaderAt, int64, error) {
 	up, err := (&plugrun.Store{DB: u.s.db}).Upload(ctx, id)
@@ -76,6 +79,9 @@ func (u runUploads) Open(ctx context.Context, plugin string, id uuid.UUID) (io.R
 	}
 	if up.Plugin != plugin {
 		return nil, 0, plugrun.ErrNotFound
+	}
+	if u.s.mediaService.ObjectStorage() {
+		return u.cache.get(id.String(), up.BlobKey)
 	}
 	f, size, err := u.s.mediaService.OpenStaged(up.BlobKey)
 	if err != nil {
