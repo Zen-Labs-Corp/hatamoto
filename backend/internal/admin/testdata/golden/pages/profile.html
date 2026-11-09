@@ -116,6 +116,19 @@
 <button type="submit" class="hm-btn hm-btn--primary"><span>Save profile</span></button>
 </footer></section>
 </form>
+<form method="post" action="/admin/profile/density" class="hm-cardform">
+<section class="hm-card" id="display-card" aria-labelledby="display-card-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="display-card-title">Display</h2><p class="hm-muted">Text and spacing in this browser.</p></div>
+<div class="hm-card__body">
+<input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
+<fieldset class="hm-radiocards hm-radiocards--2" id="density"><legend class="hm-field__label">Text and spacing</legend>
+<label class="hm-radiocard" for="density-0"><input class="hm-radiocard__input" type="radio" id="density-0" name="density" value="comfortable" checked><span class="hm-radiocard__body"><span class="hm-radiocard__title">Comfortable</span><span class="hm-muted">Today&#39;s sizes</span></span></label>
+<label class="hm-radiocard" for="density-1"><input class="hm-radiocard__input" type="radio" id="density-1" name="density" value="compact"><span class="hm-radiocard__body"><span class="hm-radiocard__title">Compact</span><span class="hm-muted">About 10% smaller, more on screen</span></span></label>
+</fieldset>
+</div><footer class="hm-card__foot">
+<button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button>
+</footer></section>
+</form>
 <form method="post" action="/admin/profile/password" class="hm-cardform">
 <section class="hm-card" id="password-card" aria-labelledby="password-card-title">
 <div class="hm-card__head"><h2 class="hm-card__title" id="password-card-title">Change your password</h2><p class="hm-muted">Other devices are signed out.</p></div>
