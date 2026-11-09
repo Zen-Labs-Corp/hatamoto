@@ -9,6 +9,8 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/media"
@@ -93,19 +95,24 @@ func runMedia(ctx context.Context, databaseURL string, args []string, out io.Wri
 	return mediaMigrate(ctx, p, out)
 }
 
-// listAllMedia pages through the whole library.
-func listAllMedia(ctx context.Context, repo media.Repository) ([]*media.Media, error) {
+// listAllMedia walks the whole library by id, so a row is never skipped or
+// seen twice however the rows are ordered by date or change during the run.
+func listAllMedia(ctx context.Context, repo interface {
+	ListAllAfter(ctx context.Context, after uuid.UUID, limit int) ([]*media.Media, error)
+}) ([]*media.Media, error) {
 	const page = 500
 	var all []*media.Media
+	var after uuid.UUID
 	for {
-		res, err := repo.List(ctx, &media.ListMediaFilter{}, page, len(all))
+		items, err := repo.ListAllAfter(ctx, after, page)
 		if err != nil {
 			return nil, err
 		}
-		all = append(all, res.Items...)
-		if len(res.Items) < page {
+		all = append(all, items...)
+		if len(items) < page {
 			return all, nil
 		}
+		after = items[len(items)-1].ID
 	}
 }
 

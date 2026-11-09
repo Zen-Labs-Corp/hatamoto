@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/s3/s3test"
 )
@@ -105,5 +107,36 @@ func TestMediaMigrateDryRunAndFailure(t *testing.T) {
 	var ee exitError
 	if !errors.As(err, &ee) || ee.code != 1 || !strings.Contains(out.String(), "failed           1") || strings.Contains(out.String(), "next:") {
 		t.Fatalf("failure: %v\n%s", err, out.String())
+	}
+}
+
+// keysetRepo serves rows ordered by id only, as the real keyset query does.
+type keysetRepo struct{ rows []*media.Media }
+
+func (r keysetRepo) ListAllAfter(_ context.Context, after uuid.UUID, limit int) ([]*media.Media, error) {
+	var out []*media.Media
+	for _, m := range r.rows {
+		if bytes.Compare(m.ID[:], after[:]) > 0 && len(out) < limit {
+			out = append(out, m)
+		}
+	}
+	return out, nil
+}
+
+func TestListAllMediaVisitsEveryRowOnce(t *testing.T) {
+	var rows []*media.Media
+	for i := 1; i <= 1203; i++ { // more than two pages
+		rows = append(rows, &media.Media{ID: uuid.UUID{0, byte(i >> 8), byte(i)}})
+	}
+	got, err := listAllMedia(context.Background(), keysetRepo{rows})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[uuid.UUID]bool{}
+	for _, m := range got {
+		seen[m.ID] = true
+	}
+	if len(got) != len(rows) || len(seen) != len(rows) {
+		t.Errorf("got %d rows (%d distinct), want %d", len(got), len(seen), len(rows))
 	}
 }

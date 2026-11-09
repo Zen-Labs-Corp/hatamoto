@@ -144,3 +144,39 @@ func (c *countingSource) RegenerateVariants(ctx context.Context, id uuid.UUID) (
 	}
 	return m, err
 }
+
+// ListAllAfter walks every record, whatever its type, by id.
+func TestListAllAfterWalksEveryRecordOnce(t *testing.T) {
+	repo := scratchMediaRepo(t)
+	ctx := context.Background()
+	want := map[uuid.UUID]bool{}
+	for i, mt := range []string{"image/png", "application/pdf", "video/mp4", "image/jpeg", "application/pdf"} {
+		m := &Media{ID: uuid.New(), Filename: "f" + string(rune('a'+i)), OriginalFilename: "o", MimeType: mt,
+			StorageProvider: "local", StoragePath: "p/" + string(rune('a'+i)), Variants: []ImageVariant{}}
+		if err := repo.Create(ctx, m); err != nil {
+			t.Fatal(err)
+		}
+		want[m.ID] = true
+	}
+	got := map[uuid.UUID]bool{}
+	var after uuid.UUID
+	for {
+		page, err := repo.ListAllAfter(ctx, after, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range page {
+			if got[m.ID] {
+				t.Errorf("%s seen twice", m.ID)
+			}
+			got[m.ID] = true
+		}
+		if len(page) < 2 {
+			break
+		}
+		after = page[len(page)-1].ID
+	}
+	if len(got) != len(want) {
+		t.Errorf("walked %d records, want %d", len(got), len(want))
+	}
+}
