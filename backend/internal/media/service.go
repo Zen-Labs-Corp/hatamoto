@@ -17,6 +17,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -225,12 +226,16 @@ func (s *Service) Upload(ctx context.Context, userID *uuid.UUID, file io.Reader,
 		}
 	}
 	if err != nil {
+		if s.local == nil {
+			// The store may have kept the object although the call failed.
+			s.removeBlobDetached(ctx, storagePath)
+		}
 		s.logger.Error("failed to store file (a symlink inside MEDIA_UPLOAD_DIR that leaves it is refused; point MEDIA_UPLOAD_DIR itself at the other disk)",
 			slog.String("path", storagePath), slog.String("error", err.Error()))
 		return nil, ErrStorageFailed
 	}
 	if remaining >= 0 && written > remaining {
-		s.removeBlob(ctx, storagePath)
+		s.removeBlobDetached(ctx, storagePath)
 		return nil, ErrQuotaExceeded
 	}
 
@@ -262,7 +267,7 @@ func (s *Service) Upload(ctx context.Context, userID *uuid.UUID, file io.Reader,
 		// extended WebP the header dimensions can understate the real frame size,
 		// so createVariants performs a second post-DECODE bounds check.
 		if err := s.enforcePixelCap(fullPath); err != nil {
-			s.removeBlob(ctx, storagePath)
+			s.removeBlobDetached(ctx, storagePath)
 			return nil, err
 		}
 
@@ -284,7 +289,7 @@ func (s *Service) Upload(ctx context.Context, userID *uuid.UUID, file io.Reader,
 			if errors.Is(err, ErrImageTooLarge) {
 				// The post-decode bounds check caught a bomb the header check
 				// missed (extended WebP). Delete the original and fail the upload.
-				s.removeBlob(ctx, storagePath)
+				s.removeBlobDetached(ctx, storagePath)
 				return nil, err
 			} else if err != nil {
 				s.logger.Warn("failed to create variants", slog.String("error", err.Error()))
@@ -297,7 +302,11 @@ func (s *Service) Upload(ctx context.Context, userID *uuid.UUID, file io.Reader,
 	// Save to database
 	if err := s.repo.Create(ctx, m); err != nil {
 		// Cleanup file on database error
-		s.removeBlob(ctx, storagePath)
+		if s.local == nil {
+			s.RemoveFilesDetached(ctx, m)
+		} else {
+			s.removeBlob(ctx, storagePath)
+		}
 		return nil, err
 	}
 
@@ -393,6 +402,20 @@ func (s *Service) removeBlob(ctx context.Context, key string) {
 	if err := s.store.Delete(ctx, key); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		s.logger.Warn("failed to remove file", slog.String("path", key), slog.String("error", err.Error()))
 	}
+}
+
+// cleanupTimeout bounds the removal of an object a failed operation left.
+const cleanupTimeout = 10 * time.Second
+
+// removeBlobDetached is removeBlob for the failure path of an operation whose
+// context may already be cancelled: a client that went away must not leave
+// the object behind. Use it only for keys this operation created; a cancelled
+// PUT of an existing key can still land, and deleting that key would destroy
+// data.
+func (s *Service) removeBlobDetached(ctx context.Context, key string) {
+	c, cancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
+	defer cancel()
+	s.removeBlob(c, key)
 }
 
 // OpenFile opens a stored file by its path relative to the upload directory.
@@ -599,6 +622,11 @@ func (s *Service) buildVariants(ctx context.Context, m *Media, sourcePath string
 			return false, nil
 		}
 		if _, err = s.store.Put(ctx, path, data); err != nil {
+			if s.local == nil && !slices.ContainsFunc(m.Variants, func(v ImageVariant) bool { return v.Path == path }) {
+				// The store may have kept the copy of a call that failed; no
+				// row will ever name it. A copy the row already names is live.
+				s.removeBlobDetached(ctx, path)
+			}
 			return false, err
 		}
 		if s.config.MaxTotalBytes > 0 && dirSize(s.uploadRoot()) > s.config.MaxTotalBytes {
@@ -761,6 +789,18 @@ func (s *Service) RegenerateVariants(ctx context.Context, id uuid.UUID) (*Media,
 		m.Variants = []ImageVariant{}
 	}
 	if err := s.repo.Update(ctx, m); err != nil {
+		if s.local == nil {
+			// Copies the old list did not name are unreferenced now.
+			had := make(map[string]bool, len(old))
+			for _, v := range old {
+				had[v.Path] = true
+			}
+			for _, v := range variants {
+				if !had[v.Path] {
+					s.removeBlobDetached(ctx, v.Path)
+				}
+			}
+		}
 		return nil, err
 	}
 	keep := make(map[string]bool, len(variants))

@@ -126,6 +126,7 @@ func (s *Service) stageInStore(ctx context.Context, key string, src io.Reader, s
 		}
 	}
 	if err := putFile(ctx, s.store, key, tmp); err != nil {
+		s.removeBlobDetached(ctx, key) // the store may have kept the object of a call that failed
 		s.logger.Error("failed to stage file", "path", key, "error", err.Error())
 		return "", ErrStorageFailed
 	}
@@ -143,7 +144,7 @@ func (s *Service) AttachStagedTx(ctx context.Context, tx pgx.Tx, op MediaOp) (*M
 		return nil, err
 	}
 	if err := insertMediaTx(ctx, tx, m, op.Origin); err != nil {
-		s.RemoveFiles(ctx, m)
+		s.RemoveFilesDetached(ctx, m)
 		return nil, err
 	}
 	return m, nil
@@ -180,10 +181,13 @@ func (s *Service) prepareAttach(ctx context.Context, op MediaOp) (*Media, error)
 	storagePath := filepath.Join(legacyMediaTenantDir, name)
 	written, err := s.store.Put(ctx, storagePath, body)
 	if err != nil {
+		if s.local == nil {
+			s.removeBlobDetached(ctx, storagePath) // the store may have kept the object of a call that failed
+		}
 		return nil, ErrStorageFailed
 	}
 	if s.config.MaxTotalBytes > 0 && dirSize(s.uploadRoot()) > s.config.MaxTotalBytes {
-		s.removeBlob(ctx, storagePath)
+		s.removeBlobDetached(ctx, storagePath)
 		return nil, ErrQuotaExceeded
 	}
 
@@ -230,7 +234,7 @@ func (s *Service) prepareAttach(ctx context.Context, op MediaOp) (*Media, error)
 			return nil
 		})
 		if err != nil {
-			s.removeBlob(ctx, storagePath)
+			s.RemoveFilesDetached(ctx, m)
 			if errors.Is(err, ErrImageTooLarge) {
 				return nil, err
 			}
@@ -247,6 +251,15 @@ func (s *Service) RemoveFiles(ctx context.Context, m *Media) {
 	s.removeBlob(ctx, m.StoragePath)
 	for _, v := range m.Variants {
 		s.removeBlob(ctx, v.Path)
+	}
+}
+
+// RemoveFilesDetached is RemoveFiles for a failure path whose context may be
+// cancelled.
+func (s *Service) RemoveFilesDetached(ctx context.Context, m *Media) {
+	s.removeBlobDetached(ctx, m.StoragePath)
+	for _, v := range m.Variants {
+		s.removeBlobDetached(ctx, v.Path)
 	}
 }
 
