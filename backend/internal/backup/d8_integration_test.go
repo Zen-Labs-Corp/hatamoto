@@ -253,9 +253,10 @@ func backupRestoreFlow(t *testing.T, mode adminMode) {
 	}
 	c.exec(c.appURL(name), `DROP FUNCTION public.format(text, text)`)
 	pool := c.migrate(name)
-	needRestoreTools(t, pool)
-	// A rerun after the core migrations read the core id too.
+	// A rerun after the core migrations reads the core id too; it needs only
+	// psql, so it runs even where the dump tools do not match the server.
 	c.bootstrap(name)
+	needRestoreTools(t, pool)
 
 	var id8 string
 	if err := pool.QueryRow(ctx, `SELECT left(id::text, 8) FROM hatamoto_instance`).Scan(&id8); err != nil {
