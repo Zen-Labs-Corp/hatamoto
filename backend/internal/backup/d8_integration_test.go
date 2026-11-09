@@ -548,3 +548,49 @@ func TestBootstrapRefusesInstanceViewPlantedByAppRole(t *testing.T) {
 		})
 	}
 }
+
+// The application role owns public.hatamoto_instance and can also change its
+// shape without replacing it: give the id column a type with an assignment cast
+// to text (the cast function would run as a superuser reader), or force row-level
+// security on it (a policy would run as an inheriting reader). The bootstrap
+// refuses both, as a superuser and as an admin that inherits the application role.
+func TestBootstrapRefusesReshapedInstanceTable(t *testing.T) {
+	shapes := []struct {
+		name  string
+		stmts []string
+	}{
+		{"cast-typed id column", []string{
+			"CREATE TYPE public.hm_d8_t AS (x text)",
+			"CREATE FUNCTION public.hm_d8_evil(public.hm_d8_t) RETURNS text LANGUAGE sql AS $$ SELECT 'x'::text $$",
+			"CREATE CAST (public.hm_d8_t AS text) WITH FUNCTION public.hm_d8_evil(public.hm_d8_t) AS ASSIGNMENT",
+			"ALTER TABLE public.hatamoto_instance DROP CONSTRAINT hatamoto_instance_id_check",
+			"ALTER TABLE public.hatamoto_instance ALTER id TYPE public.hm_d8_t USING row(id)::public.hm_d8_t",
+		}},
+		{"forced row-level security", []string{
+			"ALTER TABLE public.hatamoto_instance ENABLE ROW LEVEL SECURITY",
+			"ALTER TABLE public.hatamoto_instance FORCE ROW LEVEL SECURITY",
+		}},
+	}
+	for _, sh := range shapes {
+		for _, asSuper := range []bool{false, true} {
+			name := sh.name + "/admin"
+			if asSuper {
+				name = sh.name + "/superuser"
+			}
+			t.Run(name, func(t *testing.T) {
+				c := newD8Cluster(t, adminSuperuser)
+				adm, db := bootstrapNonOwnerSetup(c, "WITH SET TRUE, INHERIT TRUE")
+				c.migrate(db)
+				c.exec(c.appURL(db), sh.stmts...)
+				role := adm
+				if asSuper {
+					role = c.super.Config().User
+				}
+				out, err := c.bootstrapAs(db, role)
+				if err == nil || !strings.Contains(out, "not a plain table with a text id and no row-level security") {
+					t.Fatalf("err = %v\n%s", err, out)
+				}
+			})
+		}
+	}
+}
