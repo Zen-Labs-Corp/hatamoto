@@ -59,6 +59,7 @@ In this guide you write a blog post, check how it will look in search results, p
 ### Edit your own profile
 
 1. Click your picture at the bottom of the sidebar (`<admin>/profile`). Change your name, photo, job title, short bio, LinkedIn address and whether your profile is public, then press **Save profile**. On the same page you can change your password (at least 12 characters) and **Sign out on all devices**.
+2. In the **Display** card choose **Comfortable** or **Compact** and press **Save**. The choice is saved for this browser only, so it does not follow you to another browser or device.
 
 ## Check it worked
 

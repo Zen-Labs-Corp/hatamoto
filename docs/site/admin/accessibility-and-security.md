@@ -39,6 +39,7 @@ The profile step blocks every admin page except the profile pages, sign-out, sta
 - **Secrets are shown once.** A new API key, a webhook signing secret, an invitation link or a reset link appears on a page that is never cached and is not shown again.
 - **Roles.** An editor who opens an owner-only address gets a "Not allowed" page (HTTP 403).
 - **Dark mode** follows the button in the sidebar footer and is remembered in a cookie, so there is no flash on load.
+- **Compact density** (Your profile, then Display) shows about 10% more on screen. It is remembered in a cookie for this browser, and text stays at least 11px.
 - **Page transitions** use the browser's cross-document view transitions where supported, and the admin prerenders same-site admin links on hover. Both are optional and respect the reduced motion preference. Editors, exports and form targets are never prerendered.
 
 ## Keyboard and accessibility

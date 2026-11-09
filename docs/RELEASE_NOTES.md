@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased: Compact density
+
+- **Display setting.** Your profile has a new Display card where you choose Comfortable or Compact. Compact shows about 10% more on screen (sidebar, navigation, tables, cards and controls are about 10% smaller), and text never goes below 11px. The choice is remembered in a cookie, so it applies to this browser only.
+- **Default unchanged.** Comfortable stays the default and looks exactly as before until someone opts in.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: Media in object storage
 
 - **Object storage.** `MEDIA_STORAGE=s3` with `HATAMOTO_MEDIA_S3_ENDPOINT`, `_REGION`, `_BUCKET`, `_PREFIX`, `_ACCESS_KEY` and `_SECRET_KEY` keeps the media library's bytes in an S3-compatible bucket. Upload, replace, delete, variants, rebuild, folders, usage and the plugin media functions work on it, nothing is written under `MEDIA_UPLOAD_DIR`, and `/media/...` addresses are unchanged: the server serves each file from the bucket with the object's ETag and the same `Cache-Control` as before. The default, `local`, is unchanged.
