@@ -16,7 +16,7 @@ request.
 
 - Questions and ideas: [GitHub Discussions](https://github.com/Zen-Labs-Corp/hatamoto/discussions).
 - Security: **security@hatamoto.dev**, see [`SECURITY.md`](SECURITY.md).
-- Conduct: **conduct@hatamoto.dev**, see [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+- Conduct: **conduct@hatamoto.dev**, see [`CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md).
 - Trademarks: **trademarks@hatamoto.dev**, see [`TRADEMARKS.md`](TRADEMARKS.md).
 
 ## Emeritus maintainers

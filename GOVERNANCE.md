@@ -31,7 +31,7 @@ The people who currently hold these roles are in
 - **Security** problems are handled privately, by the process in
   [`SECURITY.md`](SECURITY.md).
 - **Conduct** problems are handled by the process in
-  [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+  [`CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md).
 
 ## Becoming a maintainer
 

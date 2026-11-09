@@ -11,10 +11,10 @@ given in public, on GitHub, so that the answer helps the next person too.
 | Report a bug | [A bug report](https://github.com/Zen-Labs-Corp/hatamoto/issues/new/choose) |
 | Report a problem importing a WordPress site | The "WordPress import problem" form in [new issue](https://github.com/Zen-Labs-Corp/hatamoto/issues/new/choose) |
 | Ask how to build a plugin | Discussions, or the "Plugin SDK question" form; the SDK lives in [hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk) |
-| Ask for a feature | A feature request issue, after a look at the [roadmap](docs/ROADMAP.md) |
-| Report a security problem | **Not** in public: [`SECURITY.md`](SECURITY.md), or security@hatamoto.dev |
+| Ask for a feature | A feature request issue, after a look at the [roadmap](../docs/ROADMAP.md) |
+| Report a security problem | **Not** in public: [`SECURITY.md`](../SECURITY.md), or security@hatamoto.dev |
 | Report a conduct problem | conduct@hatamoto.dev, see [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) |
-| Ask about the name or logo | trademarks@hatamoto.dev, see [`TRADEMARKS.md`](TRADEMARKS.md) |
+| Ask about the name or logo | trademarks@hatamoto.dev, see [`TRADEMARKS.md`](../TRADEMARKS.md) |
 
 Problems with a third-party plugin or theme belong in that plugin's own
 repository.
