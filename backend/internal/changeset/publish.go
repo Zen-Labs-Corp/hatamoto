@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -19,6 +20,9 @@ func (e *Engine) Publish(ctx context.Context, csID int64) (Result, error) {
 	res, _, err := e.publish(ctx, csID, publishAll, nil, 0)
 	return res, err
 }
+
+// publishTxTimeout bounds the publish transaction's own begin and commit.
+const publishTxTimeout = 5 * time.Minute
 
 // publishMode says which items a publish applies.
 type publishMode int
@@ -44,7 +48,13 @@ func (e *Engine) publish(ctx context.Context, csID int64, mode publishMode, gate
 		stale   bool
 		dropped int
 	)
-	err := e.DB.WithTx(ctx, func(tx pgx.Tx) error {
+	// The transaction (begin, rollback and above all commit) runs on a context
+	// the client cannot cancel: a COMMIT cut off mid-flight may still have
+	// committed, and the undo below would then delete files of rows that exist.
+	// The work inside keeps the request's ctx, so a gone client still stops it.
+	txCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), publishTxTimeout)
+	defer stop()
+	err := e.DB.WithTx(txCtx, func(tx pgx.Tx) error {
 		cs, err := lockChangeset(ctx, tx, csID)
 		if err != nil {
 			return err
