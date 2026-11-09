@@ -409,15 +409,7 @@ func (d *PluginDB) pluginPool(ctx context.Context, plugin string) (*pgxpool.Pool
 	if err != nil {
 		return nil, err
 	}
-	cc := d.pool.Config().ConnConfig.Copy()
-	cc.User, cc.Password = st.role, st.password
-	cc.RuntimeParams = map[string]string{"application_name": "hatamoto-plugin-" + plugin}
-	cc.AfterConnect, cc.ValidateConnect = nil, nil
-	// No named prepared statements: DISCARD ALL on release would drop them
-	// under the driver's feet.
-	cc.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
-	cc.StatementCacheCapacity, cc.DescriptionCacheCapacity = 0, 0
-	cfg.ConnConfig = cc
+	cfg.ConnConfig = pluginConnConfig(d.pool.Config().ConnConfig, plugin, st.role, st.password)
 	cfg.MaxConns, cfg.MinConns = pluginPoolConns, 0
 	cfg.MaxConnIdleTime = time.Minute
 	cfg.MaxConnLifetime = time.Hour
@@ -447,6 +439,21 @@ func (d *PluginDB) pluginPool(ctx context.Context, plugin string) (*pgxpool.Pool
 	}
 	st.pool = pool
 	return pool, nil
+}
+
+// pluginConnConfig is the core connection config with the user and password
+// swapped for the plugin's role. Everything else, TLS settings included, is
+// the core pool's.
+func pluginConnConfig(base *pgx.ConnConfig, plugin, role, password string) *pgx.ConnConfig {
+	cc := base.Copy()
+	cc.User, cc.Password = role, password
+	cc.RuntimeParams = map[string]string{"application_name": "hatamoto-plugin-" + plugin}
+	cc.AfterConnect, cc.ValidateConnect = nil, nil
+	// No named prepared statements: DISCARD ALL on release would drop them
+	// under the driver's feet.
+	cc.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
+	cc.StatementCacheCapacity, cc.DescriptionCacheCapacity = 0, 0
+	return cc
 }
 
 // Close closes every plugin pool.
