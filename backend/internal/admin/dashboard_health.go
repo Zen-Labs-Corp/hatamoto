@@ -215,8 +215,9 @@ type MediaStorageProbe interface {
 const healthMediaStorageTimeout = 2 * time.Second
 
 // healthMediaStorage is never an error: an unreachable bucket is a bad row.
-// The failure is logged with its error text (an s3.Error carries the
-// operation, status and code, never a URL or credentials) but not shown.
+// The failure is logged with its error text, which may name the endpoint and
+// bucket (a transport error carries the request URL) but never credentials,
+// and is not shown on the card.
 func (a *Admin) healthMediaStorage(ctx context.Context) (*healthCheck, error) {
 	ctx, cancel := context.WithTimeout(ctx, healthMediaStorageTimeout)
 	defer cancel()
