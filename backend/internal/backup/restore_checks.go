@@ -328,14 +328,14 @@ func (x *restorer) checkAdmin(ctx context.Context, appQ Querier) []string {
 	if !capable {
 		return []string{"--admin-url needs a superuser or a role with CREATEROLE and CREATEDB"}
 	}
-	// A superuser may do anything; any other role needs CREATE on the target
-	// database for the bootstrap's schema (the database owner grants it).
+	// A superuser may do anything; any other role needs CREATE with the grant
+	// option on the target database (as the bootstrap does), for its schema.
 	var canCreate bool
-	if err := adminQ.QueryRow(ctx, `SELECT rolsuper OR has_database_privilege(current_user, current_database(), 'CREATE') FROM pg_roles WHERE rolname = current_user`).Scan(&canCreate); err != nil {
+	if err := adminQ.QueryRow(ctx, `SELECT rolsuper OR has_database_privilege(current_user, current_database(), 'CREATE WITH GRANT OPTION') FROM pg_roles WHERE rolname = current_user`).Scan(&canCreate); err != nil {
 		return []string{"cannot check the --admin-url role: " + errorLine(err)}
 	}
 	if !canCreate {
-		return []string{"--admin-url role needs CREATE on the target database (see the managed PostgreSQL guide)"}
+		return []string{"--admin-url role needs CREATE on the target database with the grant option (see the managed PostgreSQL guide)"}
 	}
 	// The bootstrap reads the restored public.hatamoto_instance as this role,
 	// before it switches roles; the app role owns that table, so the admin

@@ -379,16 +379,20 @@ func (c *d8Cluster) negativeAdmins(t *testing.T, archive string, o RestoreOption
 	c.makeRole(noCreate, "CREATEROLE CREATEDB NOSUPERUSER") // not granted CREATE on the target
 	noInherit := "hm_d8_noinh_" + u                         // CREATE on the target, but does not inherit the app role
 	c.makeRole(noInherit, "CREATEROLE CREATEDB NOSUPERUSER")
+	plainCreate := "hm_d8_plain_" + u // plain CREATE on the target, without the grant option
+	c.makeRole(plainCreate, "CREATEROLE CREATEDB NOSUPERUSER")
 	db := o.DatabaseURL[strings.LastIndex(o.DatabaseURL, "/")+1:]
 	if i := strings.IndexByte(db, '?'); i >= 0 {
 		db = db[:i]
 	}
 	c.exec(c.url(c.super.Config().User, "postgres"), "GRANT "+c.appRole+" TO "+noInherit+" WITH SET TRUE, INHERIT FALSE")
-	c.exec(o.DatabaseURL, "GRANT CREATE ON DATABASE "+db+" TO "+noInherit)
+	c.exec(o.DatabaseURL, "GRANT CREATE ON DATABASE "+db+" TO "+noInherit+" WITH GRANT OPTION")
+	c.exec(o.DatabaseURL, "GRANT CREATE ON DATABASE "+db+" TO "+plainCreate)
 	for _, tc := range []struct{ role, want string }{
 		{noInherit, "must inherit the application role"},
 		{noDB, "--admin-url needs a superuser or a role with CREATEROLE and CREATEDB"},
 		{noCreate, "needs CREATE on the target database"},
+		{plainCreate, "with the grant option"},
 	} {
 		_, err := Restore(context.Background(), o, RestoreRequest{Source: archive, AdminURL: c.url(tc.role, "postgres"), DryRun: true,
 			ConfigOut: filepath.Join(base, "dry.env")})
