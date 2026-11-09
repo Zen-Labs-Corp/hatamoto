@@ -377,7 +377,16 @@ func (c *d8Cluster) negativeAdmins(t *testing.T, archive string, o RestoreOption
 	noDB, noCreate := "hm_d8_nodb_"+u, "hm_d8_nocr_"+u
 	c.makeRole(noDB, "CREATEROLE NOCREATEDB")               // no CREATEDB
 	c.makeRole(noCreate, "CREATEROLE CREATEDB NOSUPERUSER") // not granted CREATE on the target
+	noInherit := "hm_d8_noinh_" + u                         // CREATE on the target, but does not inherit the app role
+	c.makeRole(noInherit, "CREATEROLE CREATEDB NOSUPERUSER")
+	db := o.DatabaseURL[strings.LastIndex(o.DatabaseURL, "/")+1:]
+	if i := strings.IndexByte(db, '?'); i >= 0 {
+		db = db[:i]
+	}
+	c.exec(c.url(c.super.Config().User, "postgres"), "GRANT "+c.appRole+" TO "+noInherit+" WITH SET TRUE, INHERIT FALSE")
+	c.exec(o.DatabaseURL, "GRANT CREATE ON DATABASE "+db+" TO "+noInherit)
 	for _, tc := range []struct{ role, want string }{
+		{noInherit, "must inherit the application role"},
 		{noDB, "--admin-url needs a superuser or a role with CREATEROLE and CREATEDB"},
 		{noCreate, "needs CREATE on the target database"},
 	} {

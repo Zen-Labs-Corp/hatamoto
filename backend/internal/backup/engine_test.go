@@ -40,6 +40,7 @@ type engineQuerier struct {
 	sysErr          error
 	notSuper        bool // the role is neither a superuser nor CREATEROLE and CREATEDB
 	noDBCreate      bool // the role lacks CREATE on the database
+	noAppInherit    bool // the role does not inherit the app role
 }
 
 // strRow scans one string, one bool or fails.
@@ -68,6 +69,8 @@ func (q *engineQuerier) QueryRow(_ context.Context, sql string, _ ...any) pgx.Ro
 		return strRow{s: q.sysID, err: q.sysErr}
 	case strings.Contains(sql, "inet_server_addr"):
 		return strRow{s: q.instance}
+	case strings.Contains(sql, "pg_has_role"):
+		return strRow{b: !q.noAppInherit}
 	case strings.Contains(sql, "has_database_privilege"):
 		return strRow{b: !q.noDBCreate}
 	case strings.Contains(sql, "rolsuper"):

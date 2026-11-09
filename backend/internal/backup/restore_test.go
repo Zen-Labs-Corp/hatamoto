@@ -600,6 +600,7 @@ func TestRestoreChecksAdminURLAndTarget(t *testing.T) {
 		{"admin cannot connect", func(r *restoreRig, _ *RestoreRequest) { r.adminErr = errors.New("password authentication failed") }, "--admin-url cannot connect"},
 		{"admin is neither a superuser nor CREATEROLE and CREATEDB", func(r *restoreRig, _ *RestoreRequest) { r.admin.notSuper = true }, "--admin-url needs a superuser or a role with CREATEROLE and CREATEDB"},
 		{"admin lacks CREATE on the target database", func(r *restoreRig, _ *RestoreRequest) { r.admin.noDBCreate = true }, "needs CREATE on the target database"},
+		{"admin does not inherit the app role", func(r *restoreRig, _ *RestoreRequest) { r.admin.noAppInherit = true }, "must inherit the application role"},
 		{"admin reaches another cluster", func(r *restoreRig, _ *RestoreRequest) { r.admin.sysID = "9999" }, "different PostgreSQL cluster"},
 		{"app url has no role", func(r *restoreRig, _ *RestoreRequest) { r.o.DatabaseURL = "postgres://db.example/site" }, "DATABASE_URL needs the app role"},
 		{"app url names no database", func(r *restoreRig, _ *RestoreRequest) { r.o.DatabaseURL = "postgres://u@db.example" }, "DATABASE_URL names no database"},
