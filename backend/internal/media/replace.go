@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"os"
 	"path"
 	"path/filepath"
 
@@ -63,6 +64,10 @@ func (s *Service) Replace(ctx context.Context, id uuid.UUID, file io.Reader, fil
 			return nil, err
 		}
 		body, cleaned = bytes.NewReader(clean), removed
+	}
+
+	if s.local == nil {
+		return s.replaceInStore(ctx, m, body, sniffed, cleaned, limit, maxBytes)
 	}
 
 	tmpKey := path.Join(legacyMediaTenantDir, "replace-"+uuid.NewString()+".tmp")
@@ -162,6 +167,97 @@ func (s *Service) Replace(ctx context.Context, id uuid.UUID, file io.Reader, fil
 
 	// Copies the new list no longer names are dropped after cached pages have
 	// been purged.
+	keep := make(map[string]bool, len(nm.Variants))
+	for _, v := range nm.Variants {
+		keep[v.Path] = true
+	}
+	s.notifyChanged(ctx)
+	for _, v := range m.Variants {
+		if !keep[v.Path] {
+			s.removeBlob(ctx, v.Path)
+		}
+	}
+	return &nm, nil
+}
+
+// replaceInStore is Replace for a store without rename. The new bytes are
+// spooled to a temporary file and checked there; only then is the bucket
+// touched. An object write is atomic, so the original is overwritten in place
+// (no window with a partial file, and no temporary objects left to collect).
+// The old original and variants are kept in temporary files and put back if
+// the rebuild or the row update fails.
+func (s *Service) replaceInStore(ctx context.Context, m *Media, body io.Reader, sniffed string, cleaned []string, limit, maxBytes int64) (*Media, error) {
+	newTmp, written, err := spoolTemp(io.LimitReader(body, limit+1))
+	if newTmp != "" {
+		defer os.Remove(newTmp)
+	}
+	if err != nil {
+		s.logger.Error("failed to spool the replacement", slog.String("error", err.Error()))
+		return nil, ErrStorageFailed
+	}
+	if written > limit {
+		if limit < maxBytes {
+			return nil, ErrQuotaExceeded
+		}
+		return nil, ErrFileTooLarge
+	}
+
+	nm := *m
+	nm.MimeType, nm.FileSize = sniffed, written
+	nm.Width, nm.Height, nm.Variants, nm.Cleaned = nil, nil, []ImageVariant{}, cleaned
+	if nm.IsImage() && sniffed != svgMIME {
+		if err := s.enforcePixelCap(newTmp); err != nil {
+			return nil, err
+		}
+		if w, h, err := s.getImageDimensions(newTmp); err == nil {
+			nm.Width, nm.Height = &w, &h
+		}
+	}
+
+	// Keep what is there now, so a failure can put it back.
+	oldKeys := []string{m.StoragePath}
+	for _, v := range m.Variants {
+		oldKeys = append(oldKeys, v.Path)
+	}
+	snap, err := s.snapshot(ctx, oldKeys)
+	defer snap.discard()
+	if err != nil {
+		s.logger.Error("failed to read the current file", slog.String("path", m.StoragePath), slog.String("error", err.Error()))
+		return nil, ErrStorageFailed
+	}
+	// fail puts the old objects back and removes new variants the old list did
+	// not have.
+	fail := func(newVariants []ImageVariant, err error) (*Media, error) {
+		for _, v := range newVariants {
+			if _, had := snap.files[v.Path]; !had {
+				s.removeBlob(ctx, v.Path)
+			}
+		}
+		if !snap.has(m.StoragePath) {
+			s.removeBlob(ctx, m.StoragePath)
+		}
+		snap.restore(ctx, s.store, s.logger)
+		return nil, err
+	}
+
+	if err := putFile(ctx, s.store, m.StoragePath, newTmp); err != nil {
+		s.logger.Error("failed to store the replacement", slog.String("path", m.StoragePath), slog.String("error", err.Error()))
+		return fail(nil, ErrStorageFailed)
+	}
+	if nm.IsImage() && sniffed != svgMIME && nm.SupportsVariants() {
+		variants, err := s.createVariants(ctx, &nm, newTmp)
+		if errors.Is(err, ErrImageTooLarge) {
+			return fail(variants, err)
+		} else if err != nil {
+			s.logger.Warn("failed to create variants", slog.String("error", err.Error()))
+		} else {
+			nm.Variants = variants
+		}
+	}
+	if err := s.repo.UpdateFile(ctx, &nm); err != nil {
+		return fail(nm.Variants, err)
+	}
+
 	keep := make(map[string]bool, len(nm.Variants))
 	for _, v := range nm.Variants {
 		keep[v.Path] = true
