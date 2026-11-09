@@ -46,6 +46,10 @@ type Config struct {
 	// AVIFBudget bounds the AVIF encode time of one upload; 0 = 10 s. Copies
 	// that do not fit are made by the rebuild job.
 	AVIFBudget time.Duration
+	// Store holds the bytes. nil = the local disk under UploadDir. With any
+	// other store UploadDir is not touched and MaxTotalBytes is ignored (the
+	// quota measures a local directory).
+	Store BlobStore
 }
 
 // DefaultConfig returns the default media configuration.
@@ -82,6 +86,7 @@ type Service struct {
 	quotaMu sync.Mutex
 	// store holds every write. Image decoding reads through local (a path),
 	// the one place the local driver leaks; OpenFile needs an *os.File too.
+	// local is nil when the bytes live in another store.
 	store BlobStore
 	local *localStore
 	// formats decides which modern formats are written; nil = WebP only.
@@ -117,6 +122,14 @@ func (s *Service) notifyChanged(ctx context.Context) {
 
 // NewService creates a new media service.
 func NewService(repo Repository, config Config, logger *slog.Logger) *Service {
+	if config.Store != nil {
+		if ls, ok := config.Store.(*localStore); ok {
+			return &Service{repo: repo, config: config, logger: logger, root: ls.root, store: ls, local: ls}
+		}
+		// The quota walks a local directory; it does not apply to a bucket.
+		config.MaxTotalBytes = 0
+		return &Service{repo: repo, config: config, logger: logger, store: config.Store}
+	}
 	// Ensure upload directory exists
 	if err := os.MkdirAll(config.UploadDir, 0755); err != nil {
 		logger.Error("failed to create upload directory", slog.String("error", err.Error()))
