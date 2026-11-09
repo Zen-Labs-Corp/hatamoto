@@ -31,9 +31,10 @@ type pluginView struct {
 	// RequestHeaders are the extra request headers its routes receive.
 	RequestHeaders []string `json:"request_headers,omitempty"`
 	// omitzero: a declared empty "csp":{} is still listed, as before.
-	CSP       *sdk.CSP `json:"csp,omitzero"`
-	Funcs     []string `json:"funcs,omitempty"`
-	DataError string   `json:"data_error,omitempty"`
+	CSP              *sdk.CSP `json:"csp,omitzero"`
+	Funcs            []string `json:"funcs,omitempty"`
+	DataError        string   `json:"data_error,omitempty"`
+	TempFileLimitOff bool     `json:"temp_file_limit_off,omitempty"`
 }
 
 // routeView is sdk.Route as listed: omitzero keeps "public" absent on a
@@ -65,7 +66,7 @@ func (s *Server) pluginViews() []pluginView {
 			Name: st.Name, Loaded: st.Loaded, Error: st.Error, Hooks: st.Hooks,
 			Version: m.Version, SDK: m.SDK, Description: m.Description, AllowedHosts: m.AllowedHosts,
 			Permissions: m.Permissions, Cron: m.Cron,
-			Cookies: m.Cookies, RequestHeaders: m.RequestHeaders, CSP: m.CSP, Funcs: m.Funcs, DataError: st.DataError,
+			Cookies: m.Cookies, RequestHeaders: m.RequestHeaders, CSP: m.CSP, Funcs: m.Funcs, DataError: st.DataError, TempFileLimitOff: st.TempFileLimitOff,
 		}
 		for _, r := range m.Routes {
 			v.Routes = append(v.Routes, routeView(r))

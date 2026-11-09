@@ -1,7 +1,10 @@
 -- One-time, idempotent bootstrap that lets the application create the Postgres
 -- roles of plugins (docs/PLUGIN_API.md "Own data") WITHOUT giving the
 -- application's own role CREATEROLE. Run it as a superuser in the Hatamoto
--- database, naming the application's database role:
+-- database, naming the application's database role. On a managed PostgreSQL
+-- without a superuser, a role with CREATEROLE and CREATEDB that also holds CREATE
+-- on the database works too (docs/site/operate/managed-postgresql.md has the
+-- provisioning order):
 --
 --   sudo -u postgres psql -X -v ON_ERROR_STOP=1 -v app_role=<application user> \
 --     -d <hatamoto database> -f deploy/sql/role-admin-bootstrap.sql
@@ -30,10 +33,19 @@
 --     refuse (and never grant, rotate or drop) a role not recorded in
 --     plugin_roles for this database. EXECUTE is granted to the application's
 --     role and nobody else.
+-- A non-superuser (CREATEROLE and CREATEDB, no other privilege) takes a longer
+-- path with the same result: it grants itself SET on the new role admin, moves
+-- the objects over, and finishes the script as that role. Without the privilege
+-- to grant SET ON PARAMETER the temp_file_limit grant is skipped with a NOTICE,
+-- and plugin roles then run without that cap.
 -- Nothing in the cluster outside the hatamoto_admin schema is altered, and the
 -- application's role gains no attribute.
 
 \set ON_ERROR_STOP on
+
+-- A role that owns the database can create objects in public: never resolve a
+-- name through it.
+SET search_path = pg_catalog, pg_temp;
 
 SELECT :'app_role' ~ '^[A-Za-z_][A-Za-z0-9_$-]{0,62}$' AS app_role_ok,
        EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_role') AS app_role_exists,
@@ -52,7 +64,58 @@ SELECT :'app_role' ~ '^[A-Za-z_][A-Za-z0-9_$-]{0,62}$' AS app_role_ok,
   DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: PostgreSQL 16 or newer is required'; END $$;
 \endif
 
+SELECT rolsuper AS is_super FROM pg_roles WHERE rolname = current_user
+\gset
+\if :is_super
+\else
+  SELECT has_database_privilege(current_user, current_database(), 'CREATE WITH GRANT OPTION') AS db_create
+  \gset
+  \if :db_create
+  \else
+    DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: this role needs CREATE WITH GRANT OPTION on the database: it inherits it from the database owner role (GRANT <owner> TO <this role> WITH SET TRUE, INHERIT TRUE)'; END $$;
+  \endif
+\endif
+
 BEGIN;
+
+\if :is_super
+\else
+  -- A rerun: the schema is already owned by the role admin, which this role holds
+  -- SET on from the first run; work as that role from the start.
+  SELECT coalesce((SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'hatamoto_admin'), '') AS prev_owner,
+         EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'hatamoto_admin') AS schema_exists,
+         coalesce((SELECT pg_get_userbyid(nspowner) ~ '^hatamoto_role_admin_[0-9a-f]{8}$'
+                     AND pg_has_role(current_user, nspowner, 'SET')
+                     FROM pg_namespace WHERE nspname = 'hatamoto_admin'), false) AS rerun
+  \gset
+  -- The core id is read as this role (it inherits the app role, which owns the
+  -- table); the role admin used on a rerun cannot read it.
+  SELECT to_regclass('public.hatamoto_instance') IS NOT NULL AS has_core
+  \gset
+  \set core_id ''
+  \if :has_core
+    SELECT id AS core_id FROM public.hatamoto_instance
+    \gset
+  \endif
+  SELECT set_config('hatamoto.core_id', :'core_id', true) AS core_cfg
+  \gset
+  \if :rerun
+  \else
+    \if :schema_exists
+      SELECT :'prev_owner' ~ '^hatamoto_role_admin_[0-9a-f]{8}$' AS owner_is_role_admin
+      \gset
+      \if :owner_is_role_admin
+        DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: this role cannot act as the role admin that owns the hatamoto_admin schema; rerun as a superuser or as the role that first ran the bootstrap'; END $$;
+      \endif
+      DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: the hatamoto_admin schema exists and is not owned by the role admin'; END $$;
+    \endif
+  \endif
+  \if :rerun
+    -- CREATE SCHEMA IF NOT EXISTS below still checks the privilege.
+    GRANT CREATE ON DATABASE :"DBNAME" TO :"prev_owner";
+    SET LOCAL ROLE :"prev_owner";
+  \endif
+\endif
 
 -- The schema starts out owned by the superuser: the id is chosen before the
 -- role admin (whose name contains it) exists.
@@ -67,7 +130,8 @@ DECLARE
   core text;
   mine text;
 BEGIN
-  IF to_regclass('public.hatamoto_instance') IS NOT NULL THEN
+  core := nullif(current_setting('hatamoto.core_id', true), '');
+  IF core IS NULL AND to_regclass('public.hatamoto_instance') IS NOT NULL THEN
     EXECUTE 'SELECT id FROM public.hatamoto_instance' INTO core;
   END IF;
   SELECT id INTO mine FROM hatamoto_admin.instance;
@@ -87,6 +151,7 @@ SELECT NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'admin_role') AS need
   CREATE ROLE :"admin_role" NOLOGIN CREATEROLE NOSUPERUSER NOCREATEDB NOREPLICATION NOBYPASSRLS NOINHERIT;
 \endif
 
+\if :is_super
 ALTER SCHEMA hatamoto_admin OWNER TO :"admin_role";
 ALTER TABLE hatamoto_admin.instance OWNER TO :"admin_role";
 
@@ -97,6 +162,33 @@ CREATE TABLE IF NOT EXISTS hatamoto_admin.plugin_roles (
   plugin text NOT NULL
 );
 ALTER TABLE hatamoto_admin.plugin_roles OWNER TO :"admin_role";
+\else
+-- Not a superuser: CREATE ROLE gave this role ADMIN on the new role but not SET,
+-- and owning an object needs SET. Grant it (skipped when it already holds it),
+-- then hand the objects over; the new owner needs CREATE on the schema and, for
+-- the schema itself, on the database. The rest of the script runs as that owner
+-- (a rerun already is that owner and skips the handover).
+\if :rerun
+\else
+SELECT pg_has_role(current_user, :'admin_role', 'SET') AS has_set
+\gset
+\if :has_set
+\else
+  GRANT :"admin_role" TO CURRENT_USER WITH SET TRUE, INHERIT FALSE;
+\endif
+CREATE TABLE IF NOT EXISTS hatamoto_admin.plugin_roles (
+  role   text PRIMARY KEY,
+  db_id  text NOT NULL,
+  plugin text NOT NULL
+);
+GRANT CREATE ON SCHEMA hatamoto_admin TO :"admin_role";
+ALTER TABLE hatamoto_admin.instance OWNER TO :"admin_role";
+ALTER TABLE hatamoto_admin.plugin_roles OWNER TO :"admin_role";
+GRANT CREATE ON DATABASE :"DBNAME" TO :"admin_role";
+ALTER SCHEMA hatamoto_admin OWNER TO :"admin_role";
+SET LOCAL ROLE :"admin_role";
+\endif
+\endif
 REVOKE ALL ON hatamoto_admin.instance, hatamoto_admin.plugin_roles FROM PUBLIC;
 
 REVOKE ALL ON SCHEMA hatamoto_admin FROM PUBLIC;
@@ -198,7 +290,22 @@ REVOKE EXECUTE ON FUNCTION hatamoto_admin.app_role(), hatamoto_admin.db_id(),
 GRANT EXECUTE ON FUNCTION hatamoto_admin.db_id(), hatamoto_admin.provision_plugin_role(text, text),
   hatamoto_admin.drop_plugin_role(text) TO :"app_role";
 
+\if :is_super
 -- temp_file_limit is superuser-only; let the function set it per plugin role.
 GRANT SET ON PARAMETER temp_file_limit TO :"admin_role";
+\else
+RESET ROLE;
+-- The role admin needed CREATE on the database only to own the schema.
+REVOKE CREATE ON DATABASE :"DBNAME" FROM :"admin_role";
+-- Only a superuser may grant it; without it the plugin roles have no temp cap.
+SELECT format($q$
+  DO $d$ BEGIN
+    GRANT SET ON PARAMETER temp_file_limit TO %I;
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'role-admin-bootstrap: temp_file_limit cannot be granted by this role; plugin roles run without it';
+  END $d$
+$q$, :'admin_role') AS ddl
+\gexec
+\endif
 
 COMMIT;

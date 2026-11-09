@@ -144,9 +144,38 @@ func (d *PluginDB) swapState(ctx context.Context, plugin string, rotate bool) (*
 		return old, fmt.Errorf("pluginhost: provision %q: %w", plugin, err)
 	default:
 		st.role, st.password = role, pw
+		st.tempFileOff = !d.tempFileLimitSet(ctx, role)
+		if st.tempFileOff && (old == nil || !old.tempFileOff) {
+			d.log.Warn("plugindb: temp_file_limit not applied",
+				slog.String("plugin", plugin),
+				slog.String("reason", "database role may not set temp_file_limit"))
+		}
 	}
 	d.state[plugin] = st
 	return old, nil
+}
+
+// tempFileLimitSet reports whether role carries a temp_file_limit setting. A
+// role admin that may not grant the parameter leaves it unset. A failed query
+// counts as applied: this is a hint for operators, never an error.
+func (d *PluginDB) tempFileLimitSet(ctx context.Context, role string) bool {
+	var set bool
+	err := d.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles r, unnest(coalesce(r.rolconfig, '{}')) c
+		WHERE r.rolname = $1 AND c LIKE 'temp_file_limit=%')`, role).Scan(&set)
+	if err != nil {
+		d.log.Debug("plugindb: temp_file_limit check failed", slog.Any("error", err))
+		return true
+	}
+	return set
+}
+
+// TempFileLimitOff reports whether plugin's database role runs without a
+// temp_file_limit (the bootstrap role could not grant it).
+func (d *PluginDB) TempFileLimitOff(plugin string) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	st := d.state[plugin]
+	return st != nil && st.tempFileOff
 }
 
 // provisionRole makes the plugin's role and schema usable, trying in order:
@@ -173,7 +202,7 @@ func (d *PluginDB) provisionRole(ctx context.Context, plugin string, rotate bool
 			return err
 		}
 		if !viaFunc && !direct {
-			return fmt.Errorf("%w: run deploy/sql/role-admin-bootstrap.sql once as a superuser (see docs/PLUGIN_API.md)", ErrRoleUnavailable)
+			return fmt.Errorf("%w: run deploy/sql/role-admin-bootstrap.sql once as a superuser or a role with CREATEROLE and CREATEDB (see docs/PLUGIN_API.md)", ErrRoleUnavailable)
 		}
 		dbID, err := instanceID(ctx, tx)
 		if err != nil {
@@ -344,7 +373,7 @@ func roleError(err error) error {
 	}
 	var pe *pgconn.PgError
 	if errors.As(err, &pe) && pe.Code == "42501" {
-		return fmt.Errorf("%w: run deploy/sql/role-admin-bootstrap.sql once as a superuser (see docs/PLUGIN_API.md): %s", ErrRoleUnavailable, pe.Message)
+		return fmt.Errorf("%w: run deploy/sql/role-admin-bootstrap.sql once as a superuser or a role with CREATEROLE and CREATEDB (see docs/PLUGIN_API.md): %s", ErrRoleUnavailable, pe.Message)
 	}
 	return fmt.Errorf("%w: %w", ErrRoleUnavailable, err)
 }
@@ -380,15 +409,7 @@ func (d *PluginDB) pluginPool(ctx context.Context, plugin string) (*pgxpool.Pool
 	if err != nil {
 		return nil, err
 	}
-	cc := d.pool.Config().ConnConfig.Copy()
-	cc.User, cc.Password = st.role, st.password
-	cc.RuntimeParams = map[string]string{"application_name": "hatamoto-plugin-" + plugin}
-	cc.AfterConnect, cc.ValidateConnect = nil, nil
-	// No named prepared statements: DISCARD ALL on release would drop them
-	// under the driver's feet.
-	cc.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
-	cc.StatementCacheCapacity, cc.DescriptionCacheCapacity = 0, 0
-	cfg.ConnConfig = cc
+	cfg.ConnConfig = pluginConnConfig(d.pool.Config().ConnConfig, plugin, st.role, st.password)
 	cfg.MaxConns, cfg.MinConns = pluginPoolConns, 0
 	cfg.MaxConnIdleTime = time.Minute
 	cfg.MaxConnLifetime = time.Hour
@@ -418,6 +439,21 @@ func (d *PluginDB) pluginPool(ctx context.Context, plugin string) (*pgxpool.Pool
 	}
 	st.pool = pool
 	return pool, nil
+}
+
+// pluginConnConfig is the core connection config with the user and password
+// swapped for the plugin's role. Everything else, TLS settings included, is
+// the core pool's.
+func pluginConnConfig(base *pgx.ConnConfig, plugin, role, password string) *pgx.ConnConfig {
+	cc := base.Copy()
+	cc.User, cc.Password = role, password
+	cc.RuntimeParams = map[string]string{"application_name": "hatamoto-plugin-" + plugin}
+	cc.AfterConnect, cc.ValidateConnect = nil, nil
+	// No named prepared statements: DISCARD ALL on release would drop them
+	// under the driver's feet.
+	cc.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
+	cc.StatementCacheCapacity, cc.DescriptionCacheCapacity = 0, 0
+	return cc
 }
 
 // Close closes every plugin pool.

@@ -157,6 +157,12 @@ func (r *Runtime) deactivate(name string) {
 	r.mu.Unlock()
 }
 
+// tempFileLimitOff reports the plugin role's missing temp_file_limit once its
+// data is ready.
+func (r *Runtime) tempFileLimitOff(plugin, dataError string) bool {
+	return dataError == "" && r.caps.db != nil && r.caps.db.TempFileLimitOff(plugin)
+}
+
 // prepareData provisions the plugin's schema when it holds kv or db and runs
 // its migrations when it holds db.
 func (r *Runtime) prepareData(ctx context.Context, m sdk.Manifest, a Assets) string {
@@ -224,6 +230,7 @@ func (r *Runtime) Grant(ctx context.Context, name string, perms []sdk.Permission
 		a := r.assets[name]
 		r.mu.Unlock()
 		st.DataError = r.prepareData(ctx, st.Manifest, a)
+		st.TempFileLimitOff = r.tempFileLimitOff(st.Manifest.Name, st.DataError)
 		if len(st.Manifest.BuilderSources) > 0 {
 			// builder.data is registered only while granted: apply the change now.
 			r.engine.RemovePlugin(name)

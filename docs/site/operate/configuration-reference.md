@@ -76,7 +76,7 @@ Under systemd put them in the environment file; under Docker use `environment:` 
 | `DATABASE_MAX_CONN_LIFETIME` | `1h` | Longest age of a connection before it is recycled (duration). |
 | `DATABASE_MAX_CONN_IDLE_TIME` | `30m` | How long an idle connection may stay open (duration). |
 
-With several processes, multiply the maximum by the number of processes and check it against Postgres's `max_connections`.
+With several processes, multiply the maximum by the number of processes and check it against Postgres's `max_connections`. Every plugin that uses `db` adds a pool of up to 2 connections. To size the pools for many sites on one cluster, see [Run on managed PostgreSQL](managed-postgresql.md).
 
 ## HTTP server
 
@@ -379,7 +379,7 @@ Each process sends directly. There is no shared mail queue, and a failed send is
 Plugins that use the `db` host API run under their own Postgres login roles, named `hm_p_<id8>_<name>`. Three things must hold for them:
 
 - Nothing in the database may be open to `PUBLIC` that the application role does not own. Otherwise `db.*` stays off until the owner of those objects runs `REVOKE ... FROM PUBLIC`, and the log says so. `HATAMOTO_PLUGIN_DB_ALLOW_PUBLIC_OBJECTS=1` accepts the exposure instead.
-- `pg_hba.conf` must allow password authentication for the plugin roles on the host `DATABASE_URL` uses, for example `host all all 127.0.0.1/32 scram-sha-256`.
+- `pg_hba.conf` must allow password authentication for the plugin roles on the host `DATABASE_URL` uses, for example `host all all 127.0.0.1/32 scram-sha-256`, or the provider's role login rules on a managed cluster ([Run on managed PostgreSQL](managed-postgresql.md)).
 - `DATABASE_URL` must use a TCP host, not a Unix socket with peer authentication.
 
 Roles belong to the Postgres cluster, not to one database, so `pg_dump` of the database does not include them. A plugin's schema and tables are in the dump. After a restore into another cluster, reload or grant the plugin again so the server creates its role. Plugins that only use their key-value storage are not affected.

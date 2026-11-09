@@ -31,6 +31,8 @@ type stepsRig struct {
 	seen  map[string]string // tool and flag, or "dump <name>", to the file content seen at call time
 	paths map[string]string // label to file path
 	fail  map[string]error  // first arg or tool name to a failure
+
+	pauseSQL []string // the SQL the off-site pause ran as the app role
 }
 
 func newStepsRig(t *testing.T, mut func(*archSpec)) *stepsRig {
@@ -45,6 +47,11 @@ func newStepsRig(t *testing.T, mut func(*archSpec)) *stepsRig {
 		o:   RestoreOptions{DatabaseURL: stepsAppURL},
 		req: RestoreRequest{AdminURL: stepsAdminURL},
 		src: arch, scan: sc, mf: sc.mf,
+	}
+	rr.o.PauseOffsite = func(_ context.Context, sql string) error {
+		r.log = append(r.log, "pause offsite")
+		r.pauseSQL = append(r.pauseSQL, sql)
+		return r.fail["pause offsite"]
 	}
 	rr.run = func(_ context.Context, env []string, name string, args ...string) ([]byte, error) {
 		r.calls = append(r.calls, append([]string{name}, args...))
@@ -98,7 +105,7 @@ func TestRestoreStepsOrderAndArguments(t *testing.T) {
 	if err := r.d.steps(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	want := "pg_restore,psql,provision forms,owner plugin_forms,pg_restore-l,pg_restore"
+	want := "pg_restore,psql,pause offsite,provision forms,owner plugin_forms,pg_restore-l,pg_restore"
 	if got := strings.Join(r.log, ","); got != want {
 		t.Fatalf("order = %s, want %s", got, want)
 	}
@@ -158,7 +165,7 @@ func TestRestoreStepsBootstrapFileIs0600AndRemoved(t *testing.T) {
 	run := r.d.run
 	r.d.run = func(ctx context.Context, env []string, name string, args ...string) ([]byte, error) {
 		if name == "psql" {
-			fi, err := os.Stat(args[len(args)-3]) // the last -f file, before -c and its SQL
+			fi, err := os.Stat(args[len(args)-1]) // the last -f file
 			if err != nil {
 				t.Error(err)
 			} else {
@@ -173,9 +180,6 @@ func TestRestoreStepsBootstrapFileIs0600AndRemoved(t *testing.T) {
 	if mode != 0o600 {
 		t.Errorf("bootstrap file mode = %v", mode)
 	}
-	if got := r.calls[1]; got[len(got)-2] != "-c" || got[len(got)-1] != pauseOffsiteSQL {
-		t.Errorf("psql did not switch off-site backups off: %v", got)
-	}
 	if r.seen["psql -f"] != bootstrapSQL {
 		t.Error("psql did not get the embedded bootstrap SQL")
 	}
@@ -184,6 +188,40 @@ func TestRestoreStepsBootstrapFileIs0600AndRemoved(t *testing.T) {
 	}
 	if _, err := os.Stat(r.paths["workdir"]); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("work dir left behind: %v", err)
+	}
+}
+
+// The admin role of a managed database has no privilege on the app role's
+// tables, so the off-site pause runs as the app role, once, after the bootstrap.
+func TestRestoreStepsPauseOffsiteRunsAsAppRoleAfterBootstrap(t *testing.T) {
+	r := newStepsRig(t, nil)
+	if err := r.d.steps(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.pauseSQL) != 1 || r.pauseSQL[0] != pauseOffsiteSQL {
+		t.Fatalf("pause ran %q, want %q once", r.pauseSQL, pauseOffsiteSQL)
+	}
+	for _, c := range r.calls {
+		for _, a := range c {
+			if a == "-c" || a == pauseOffsiteSQL {
+				t.Errorf("a tool call carries the pause SQL: %v", c)
+			}
+		}
+	}
+	if got := strings.Join(r.log[:3], ","); got != "pg_restore,psql,pause offsite" {
+		t.Errorf("pause not right after the bootstrap: %s", strings.Join(r.log, ","))
+	}
+}
+
+func TestRestoreStepsPauseOffsiteFailureAborts(t *testing.T) {
+	r := newStepsRig(t, nil)
+	r.fail["pause offsite"] = errors.New("permission denied")
+	err := r.d.steps(t.Context())
+	if err == nil || !strings.Contains(err.Error(), "off-site backup pause") || !strings.Contains(err.Error(), "permission denied") {
+		t.Fatalf("err = %v", err)
+	}
+	if got := strings.Join(r.log, ","); got != "pg_restore,psql,pause offsite" {
+		t.Fatalf("ran %s after a failed pause", got)
 	}
 }
 
@@ -253,7 +291,7 @@ func TestRestoreStepsWithoutPlugins(t *testing.T) {
 	if err := r.d.steps(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(r.log, ","); got != "pg_restore,psql" {
+	if got := strings.Join(r.log, ","); got != "pg_restore,psql,pause offsite" {
 		t.Fatalf("ran %s", got)
 	}
 }

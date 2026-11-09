@@ -238,7 +238,7 @@ func (x *restorer) check(ctx context.Context) (*RestorePlan, error) {
 		plan.Checks = append(plan.Checks, "trust keys ok")
 	}
 
-	// The superuser URL, before anything is written: the bootstrap would
+	// The admin URL, before anything is written: the bootstrap would
 	// otherwise fail after the core restore.
 	if reasons := x.checkAdmin(ctx, q); len(reasons) > 0 {
 		refuse = append(refuse, reasons...)
@@ -288,7 +288,8 @@ func (x *restorer) check(ctx context.Context) (*RestorePlan, error) {
 
 // checkAdmin checks what the real run's database steps would need: the
 // DATABASE_URL names an app role and a database, the admin URL is a postgres
-// URL that connects to that database as a superuser, and both reach the same
+// URL that connects to that database as a superuser or a role with CREATEROLE,
+// CREATEDB and CREATE on that database and inherits the app role, and both reach the same
 // cluster (roles are cluster wide, so a bootstrap elsewhere would not help).
 func (x *restorer) checkAdmin(ctx context.Context, appQ Querier) []string {
 	if _, err := pgEnv("DATABASE_URL", x.o.DatabaseURL, true); err != nil {
@@ -320,12 +321,21 @@ func (x *restorer) checkAdmin(ctx context.Context, appQ Querier) []string {
 		return []string{"--admin-url cannot connect to the target database: " + errorLine(err)}
 	}
 	defer closeAdmin()
-	var super bool
-	if err := adminQ.QueryRow(ctx, `SELECT rolsuper FROM pg_roles WHERE rolname = current_user`).Scan(&super); err != nil {
+	var capable bool
+	if err := adminQ.QueryRow(ctx, `SELECT rolsuper OR (rolcreaterole AND rolcreatedb) FROM pg_roles WHERE rolname = current_user`).Scan(&capable); err != nil {
 		return []string{"cannot check the --admin-url role: " + errorLine(err)}
 	}
-	if !super {
-		return []string{"--admin-url is not a superuser; the role bootstrap needs one"}
+	if !capable {
+		return []string{"--admin-url needs a superuser or a role with CREATEROLE and CREATEDB"}
+	}
+	// A superuser may do anything; any other role needs CREATE with the grant
+	// option on the target database (as the bootstrap does), for its schema.
+	var canCreate bool
+	if err := adminQ.QueryRow(ctx, `SELECT rolsuper OR has_database_privilege(current_user, current_database(), 'CREATE WITH GRANT OPTION') FROM pg_roles WHERE rolname = current_user`).Scan(&canCreate); err != nil {
+		return []string{"cannot check the --admin-url role: " + errorLine(err)}
+	}
+	if !canCreate {
+		return []string{"--admin-url role needs CREATE on the target database with the grant option (see the managed PostgreSQL guide)"}
 	}
 	adminID, appID, err := clusterIDs(ctx, adminQ, appQ)
 	if err != nil {
@@ -333,6 +343,16 @@ func (x *restorer) checkAdmin(ctx context.Context, appQ Querier) []string {
 	}
 	if adminID != appID {
 		return []string{"--admin-url reaches a different PostgreSQL cluster than DATABASE_URL"}
+	}
+	// The bootstrap reads the restored public.hatamoto_instance as this role,
+	// before it switches roles; the app role owns that table, so the admin
+	// must inherit the app role.
+	var inherits bool
+	if err := adminQ.QueryRow(ctx, `SELECT rolsuper OR pg_has_role(current_user, $1, 'USAGE') FROM pg_roles WHERE rolname = current_user`, target.appRole).Scan(&inherits); err != nil {
+		return []string{"cannot check the --admin-url role: " + errorLine(err)}
+	}
+	if !inherits {
+		return []string{"--admin-url role must inherit the application role (GRANT <app role> TO <admin role> WITH SET TRUE, INHERIT TRUE; see the managed PostgreSQL guide)"}
 	}
 	return nil
 }

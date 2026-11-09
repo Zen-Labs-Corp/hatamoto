@@ -682,7 +682,7 @@ A plugin that holds `kv` or `db` gets its own Postgres schema `plugin_<name>` (a
 - Uninstalling a plugin keeps its data unless the owner chooses "delete its data too": then the host drops the schema (as the plugin role), the role and credentials, the `kv` rows and the settings (see [PACKAGES.md](PACKAGES.md#uninstall-and-your-data)).
 - There is no disk quota on a plugin's tables yet.
 
-**Needs password authentication for plugin roles.** The plugin pool connects over the same host as `DATABASE_URL`, as a different user, with a password. `pg_hba.conf` must allow that, for example (this is what hatamoto.dev uses):
+**Needs password authentication for plugin roles.** The plugin pool connects over the same host as `DATABASE_URL`, as a different user, with a password. `pg_hba.conf` (or, on a managed cluster, the provider's role login rules) must allow that, for example (this is what hatamoto.dev uses):
 
 ```
 host  all  all  127.0.0.1/32  scram-sha-256
@@ -692,14 +692,14 @@ A deployment that reaches Postgres over a Unix socket with `peer` authentication
 
 **What the database user needs.** Creating `hm_p_<id8>_<name>` takes a privilege (`CREATEROLE`) that the application's own database role should not hold: on a shared PostgreSQL cluster that role may own other databases. The host therefore tries, in order:
 
-1. **The bootstrap functions** (self-hosted installs on a shared or locked-down cluster). Run one command, once, as the PostgreSQL superuser, in the Hatamoto database (the `<application user>` is the user in `DATABASE_URL`):
+1. **The bootstrap functions** (self-hosted installs on a shared or locked-down cluster). Run one command, once, as the PostgreSQL superuser or as a role with `CREATEROLE` and `CREATEDB` that has `CREATE` on the database with the grant option (inherited from the database owner role it is a member of with `INHERIT TRUE`; for example the admin user a managed provider gives you; see the [managed PostgreSQL guide](site/operate/managed-postgresql.md)), in the Hatamoto database (the `<application user>` is the user in `DATABASE_URL`):
 
    ```sh
    sudo -u postgres psql -X -v ON_ERROR_STOP=1 -v app_role=<application user> \
      -d <hatamoto database> -f deploy/sql/role-admin-bootstrap.sql
    ```
 
-   It is idempotent (rerun it any time) and needs PostgreSQL 16+. It creates the role `hatamoto_role_admin_<id8>` (per database; `NOLOGIN`, `CREATEROLE`, plus `SET` on the `temp_file_limit` parameter; PG16 `CREATEROLE` can manage only roles it created) and, in the schema `hatamoto_admin`, the `SECURITY DEFINER` functions `provision_plugin_role(name, scram_verifier)` and `drop_plugin_role(name)`. They pin `search_path = pg_catalog, pg_temp`, accept only `^[a-z][a-z0-9_]{0,40}$`, derive the role name themselves, record each role they create in `hatamoto_admin.plugin_roles` and refuse to touch, grant, rotate or drop any role not recorded for this database, and are executable by the application role alone (not `PUBLIC`, not the plugin roles). The application role gains no attribute and the cluster's other databases and roles are not affected. The function also grants the new role to the application role `WITH INHERIT FALSE, SET TRUE` (membership runs app -> plugin only), so the app can create the plugin's schema but does not inherit its rights. `scripts/ship.sh` runs this in its preflight on the production host.
+   It is idempotent (rerun it any time) and needs PostgreSQL 16+. It creates the role `hatamoto_role_admin_<id8>` (per database; `NOLOGIN`, `CREATEROLE`, plus `SET` on the `temp_file_limit` parameter; PG16 `CREATEROLE` can manage only roles it created) and, in the schema `hatamoto_admin`, the `SECURITY DEFINER` functions `provision_plugin_role(name, scram_verifier)` and `drop_plugin_role(name)`. They pin `search_path = pg_catalog, pg_temp`, accept only `^[a-z][a-z0-9_]{0,40}$`, derive the role name themselves, record each role they create in `hatamoto_admin.plugin_roles` and refuse to touch, grant, rotate or drop any role not recorded for this database, and are executable by the application role alone (not `PUBLIC`, not the plugin roles). The application role gains no attribute and the cluster's other databases and roles are not affected. The function also grants the new role to the application role `WITH INHERIT FALSE, SET TRUE` (membership runs app -> plugin only), so the app can create the plugin's schema but does not inherit its rights. A role that is not a superuser may be refused `SET` on `temp_file_limit`: the script then skips that grant with a notice, plugin roles run without the cap and the plugin's settings page shows a note. `scripts/ship.sh` runs this in its preflight on the production host.
 2. **Direct `CREATE ROLE`**, when the application role itself has `CREATEROLE` or is a superuser. This is the case for dockerised installs where the app user owns the database or is the cluster superuser, and for CI: they need nothing.
 3. Otherwise `db.*` and migrations answer `unavailable` (the reason, including this instruction, is shown as `data_error`); `kv` and everything else still work.
 

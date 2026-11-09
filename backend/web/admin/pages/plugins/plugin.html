@@ -1,6 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{if .Data.Owner}}{{template "hm/pluginhead" .}}{{else}}{{template "hm/pageheader" dict "Title" .Title "CSRF" .CSRF}}{{end}}
-{{with .Data}}{{template "hm/formerrors" dict "Errors" .Summary}}
+{{with .Data}}{{template "hm/formerrors" dict "Errors" .Summary}}{{if .Plugin.TempFileLimitOff}}{{template "hm/card-start" dict "ID" "data-card" "Title" "Data" "Heading" "h2"}}<p class="hm-muted">Temp file cap: not applied. The database role may not set temp_file_limit. Queries still have statement timeouts.</p>{{template "hm/card-end"}}{{end}}
 {{if .HasSchema}}{{if .Inactive}}{{template "hm/callout-start" (dict "Kind" "warning" "Title" "This plugin is not active")}}Settings you save are stored, but it may need a fix and a server restart before they take effect.{{template "hm/callout-end"}}{{end}}
 <form method="post" action="{{adminPath}}/plugins/{{.Plugin.Name}}/settings" class="hm-stack">
 {{template "hm/csrf" $}}

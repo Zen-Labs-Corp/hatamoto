@@ -151,8 +151,9 @@ func newRestoreRig(t *testing.T) *restoreRig {
 	r.o = RestoreOptions{
 		Data: filepath.Join(base, "data"), MediaDir: filepath.Join(base, "uploads"), SecretsDir: filepath.Join(base, "secrets"),
 		DatabaseURL: testURL, Version: "v1.2.3", Q: r.q,
-		Getenv: func(string) string { return "" },
-		Trust:  func() (TrustIDs, error) { return restoreTrust, nil },
+		Getenv:       func(string) string { return "" },
+		Trust:        func() (TrustIDs, error) { return restoreTrust, nil },
+		PauseOffsite: func(context.Context, string) error { return nil },
 		OpenAdmin: func(_ context.Context, url string) (Querier, func(), error) {
 			r.adminURL = url
 			if r.adminErr != nil {
@@ -597,7 +598,9 @@ func TestRestoreChecksAdminURLAndTarget(t *testing.T) {
 		{"admin not a postgres url", func(_ *restoreRig, q *RestoreRequest) { q.AdminURL = "mysql://root@h/x" }, "--admin-url is not a postgres URL"},
 		{"admin url missing", func(_ *restoreRig, q *RestoreRequest) { q.AdminURL = "" }, "no admin URL"},
 		{"admin cannot connect", func(r *restoreRig, _ *RestoreRequest) { r.adminErr = errors.New("password authentication failed") }, "--admin-url cannot connect"},
-		{"admin is not a superuser", func(r *restoreRig, _ *RestoreRequest) { r.admin.notSuper = true }, "not a superuser"},
+		{"admin is neither a superuser nor CREATEROLE and CREATEDB", func(r *restoreRig, _ *RestoreRequest) { r.admin.notSuper = true }, "--admin-url needs a superuser or a role with CREATEROLE and CREATEDB"},
+		{"admin lacks CREATE on the target database", func(r *restoreRig, _ *RestoreRequest) { r.admin.noDBCreate = true }, "needs CREATE on the target database"},
+		{"admin does not inherit the app role", func(r *restoreRig, _ *RestoreRequest) { r.admin.noAppInherit = true }, "must inherit the application role"},
 		{"admin reaches another cluster", func(r *restoreRig, _ *RestoreRequest) { r.admin.sysID = "9999" }, "different PostgreSQL cluster"},
 		{"app url has no role", func(r *restoreRig, _ *RestoreRequest) { r.o.DatabaseURL = "postgres://db.example/site" }, "DATABASE_URL needs the app role"},
 		{"app url names no database", func(r *restoreRig, _ *RestoreRequest) { r.o.DatabaseURL = "postgres://u@db.example" }, "DATABASE_URL names no database"},
