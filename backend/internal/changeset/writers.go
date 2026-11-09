@@ -590,7 +590,7 @@ func (w MediaWriter) Apply(ctx context.Context, tx Tx, origin string, it Item, t
 	if err != nil {
 		return Outcome{}, err
 	}
-	return Outcome{TargetID: m.ID.String(), Created: true, Undo: func(ctx context.Context) { w.Svc.RemoveFiles(ctx, m) }}, nil
+	return Outcome{TargetID: m.ID.String(), Created: true, Undo: func(ctx context.Context) { w.Svc.RemoveFilesDetached(ctx, m) }}, nil
 }
 
 // applyAlt sets the alt text of an existing media row and keeps the old text
@@ -643,7 +643,7 @@ func (w MediaWriter) Restore(ctx context.Context, tx Tx, it StoredItem) (func(co
 	if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_media WHERE id = $1`, id); err != nil {
 		return nil, fmt.Errorf("failed to delete media: %w", err)
 	}
-	return func(ctx context.Context) { w.Svc.RemoveFiles(ctx, m) }, nil
+	return func(ctx context.Context) { w.Svc.RemoveFilesDetached(ctx, m) }, nil
 }
 
 func (w MediaWriter) After(context.Context, []AppliedItem) {}

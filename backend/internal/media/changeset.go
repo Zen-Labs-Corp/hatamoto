@@ -137,7 +137,7 @@ func (s *Service) stageInStore(ctx context.Context, key string, src io.Reader, s
 // is copied to its final place (with image variants), the row is inserted with
 // the op's origin and no run, and the staged copy is left for DeleteStaged,
 // which the caller runs after commit. If the caller's transaction later rolls
-// back, it must call RemoveFiles on the returned record.
+// back, it must call RemoveFilesDetached on the returned record.
 func (s *Service) AttachStagedTx(ctx context.Context, tx pgx.Tx, op MediaOp) (*Media, error) {
 	m, err := s.prepareAttach(ctx, op)
 	if err != nil {
