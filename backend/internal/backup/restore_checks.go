@@ -337,6 +337,13 @@ func (x *restorer) checkAdmin(ctx context.Context, appQ Querier) []string {
 	if !canCreate {
 		return []string{"--admin-url role needs CREATE on the target database with the grant option (see the managed PostgreSQL guide)"}
 	}
+	adminID, appID, err := clusterIDs(ctx, adminQ, appQ)
+	if err != nil {
+		return []string{"cannot tell whether --admin-url and DATABASE_URL reach the same cluster: " + errorLine(err)}
+	}
+	if adminID != appID {
+		return []string{"--admin-url reaches a different PostgreSQL cluster than DATABASE_URL"}
+	}
 	// The bootstrap reads the restored public.hatamoto_instance as this role,
 	// before it switches roles; the app role owns that table, so the admin
 	// must inherit the app role.
@@ -346,13 +353,6 @@ func (x *restorer) checkAdmin(ctx context.Context, appQ Querier) []string {
 	}
 	if !inherits {
 		return []string{"--admin-url role must inherit the application role (GRANT <app role> TO <admin role> WITH SET TRUE, INHERIT TRUE; see the managed PostgreSQL guide)"}
-	}
-	adminID, appID, err := clusterIDs(ctx, adminQ, appQ)
-	if err != nil {
-		return []string{"cannot tell whether --admin-url and DATABASE_URL reach the same cluster: " + errorLine(err)}
-	}
-	if adminID != appID {
-		return []string{"--admin-url reaches a different PostgreSQL cluster than DATABASE_URL"}
 	}
 	return nil
 }
