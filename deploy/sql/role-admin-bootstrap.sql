@@ -72,7 +72,7 @@ SELECT rolsuper AS is_super FROM pg_roles WHERE rolname = current_user
   \gset
   \if :db_create
   \else
-    DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: this role needs CREATE on the database with the grant option: it inherits both from the database owner role (GRANT <owner> TO <this role> WITH SET TRUE), or the owner grants them (GRANT CREATE ON DATABASE <db> TO <this role> WITH GRANT OPTION)'; END $$;
+    DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: this role needs CREATE WITH GRANT OPTION on the database: it inherits it from the database owner role (GRANT <owner> TO <this role> WITH SET TRUE, INHERIT TRUE)'; END $$;
   \endif
 \endif
 
@@ -102,6 +102,11 @@ BEGIN;
   \if :rerun
   \else
     \if :schema_exists
+      SELECT :'prev_owner' ~ '^hatamoto_role_admin_[0-9a-f]{8}$' AS owner_is_role_admin
+      \gset
+      \if :owner_is_role_admin
+        DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: this role cannot act as the role admin that owns the hatamoto_admin schema; rerun as a superuser or as the role that first ran the bootstrap'; END $$;
+      \endif
       DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: the hatamoto_admin schema exists and is not owned by the role admin'; END $$;
     \endif
   \endif
