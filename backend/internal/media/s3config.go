@@ -103,13 +103,14 @@ func validatePrefix(p string) error {
 }
 
 // SharesWith reports whether the other target (an off-site backup target, say)
-// is the same bucket at the same endpoint with a prefix that contains this one
-// or is contained in it. /media serves every object under the media prefix, so
-// such a bucket would publish the other target's objects.
+// is the same bucket at the same endpoint with a prefix that falls under this
+// one. /media serves every object under the media prefix (which is empty or
+// ends with a slash), so such a target would publish the other target's
+// objects. A target outside the media prefix is out of reach.
 func (t S3Target) SharesWith(endpoint, bucket, prefix string) bool {
 	norm := func(e string) string { return strings.ToLower(strings.TrimRight(strings.TrimSpace(e), "/")) }
 	if t.Bucket != bucket || norm(t.Endpoint) != norm(endpoint) {
 		return false
 	}
-	return strings.HasPrefix(t.Prefix, prefix) || strings.HasPrefix(prefix, t.Prefix)
+	return strings.HasPrefix(prefix, t.Prefix)
 }

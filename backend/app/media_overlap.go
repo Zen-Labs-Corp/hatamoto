@@ -35,8 +35,8 @@ func checkMediaOffsiteOverlap(ctx context.Context, getenv func(string) string, s
 	if err != nil {
 		return fmt.Errorf("check the off-site target: %w", err)
 	}
-	if !found {
-		return nil
+	if !found || !set.Enabled {
+		return nil // a disabled target uploads nothing; enabling it in the admin runs the check
 	}
 	return clash("saved settings", set.EffectiveEndpoint(), set.Bucket, set.Prefix)
 }

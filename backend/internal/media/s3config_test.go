@@ -85,7 +85,9 @@ func TestS3TargetSharesWith(t *testing.T) {
 		want                     bool
 	}{
 		{"https://objects.example.com", "b", "backups/", false},
-		{"https://objects.example.com", "b", "", true},
+		{"https://objects.example.com", "b", "", false},
+		{"https://objects.example.com", "b", "media", false},
+		{"https://objects.example.com", "b", "media-old/", false},
 		{"https://objects.example.com/", "b", "media/", true},
 		{"https://objects.example.com", "b", "media/x/", true},
 		{"https://objects.example.com", "other", "", false},
