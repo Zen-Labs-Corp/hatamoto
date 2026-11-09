@@ -8,7 +8,7 @@ Install stats are an anonymous count of running Hatamoto installs and the releas
 
 ## What is sent
 
-Once a day (give or take an hour), the first time 5 to 15 minutes after the server starts, Hatamoto sends one `POST` to `https://hatamoto.dev/p/stats/v1/ping`. The body is JSON with exactly three keys:
+Once a day, Hatamoto sends one `POST` to `https://hatamoto.dev/p/stats/v1/ping`. Hatamoto checks every hour (the first check 5 to 15 minutes after the server starts) and sends when the last report is more than 20 hours old, so a restart or an update does not delay it by a day. The body is JSON with exactly three keys:
 
 ```json
 {
@@ -24,7 +24,7 @@ Once a day (give or take an hour), the first time 5 to 15 minutes after the serv
 | `version` | The release the server runs. |
 | `channel` | The update channel in use: `stable`, `edge` or `canary`. It is whatever you set, also when the update mode is `off`. |
 
-The request has the user agent `hatamoto-stats` and a 10 second timeout. It sends no cookies and follows no redirects. A development build, whose version is not a release, never sends. A failed request is not retried before the next day.
+The request has the user agent `hatamoto-stats` and a 10 second timeout. It sends no cookies and follows no redirects. A development build, whose version is not a release, never sends. A failed request is not retried for 20 hours.
 
 ## What is not sent
 
@@ -51,4 +51,4 @@ To skip the daily job without touching the choice, add `stats_ping` to `WORKER_D
 
 ## Where it is stored
 
-In one row of the site's database, next to the other site settings: the choice, the install ID while it is on, the time of the last successful report and the result of the last attempt (`ok`, `error: http <code>` or `error: network`). A failed attempt shows nothing in the admin and is tried again about a day later. All replicas share it, and a report is sent by one of them at most once a day. The ID and the endpoint are never written to the log. A backup of the database carries the row, so a restore keeps the choice and the ID.
+In one row of the site's database, next to the other site settings: the choice, the install ID while it is on, the time of the last successful report and the result of the last attempt (`ok`, `error: http <code>` or `error: network`). A failed attempt shows nothing in the admin and is tried again 20 hours later. All replicas share it, and a report is sent by one of them at most once a day. The ID and the endpoint are never written to the log. A backup of the database carries the row, so a restore keeps the choice and the ID.
