@@ -71,3 +71,33 @@ func TestPublishCommitIsNotCancelledByTheClient(t *testing.T) {
 		t.Errorf("state = %s, want published", got)
 	}
 }
+
+// slowApply makes the work of a publish outlast the commit timeout.
+type slowApply struct {
+	KindWriter
+	d time.Duration
+}
+
+func (w slowApply) Apply(ctx context.Context, tx Tx, origin string, it Item, target string) (Outcome, error) {
+	time.Sleep(w.d)
+	return w.KindWriter.Apply(ctx, tx, origin, it, target)
+}
+
+// The commit timeout starts at COMMIT: a publish whose work takes longer than
+// it must still commit.
+func TestPublishWorkMayOutlastTheCommitTimeout(t *testing.T) {
+	f := newFixture(t)
+	f.eng.Writers[KindEntity] = slowApply{f.eng.Writers[KindEntity], 700 * time.Millisecond}
+	old := publishCommitTimeout
+	publishCommitTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { publishCommitTimeout = old })
+
+	cs := f.begin("acme")
+	f.stage(cs, f.entityItem("k"+f.tag, "slow-"+f.tag, "x"))
+	if _, err := f.eng.Publish(f.ctx, cs); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if got := f.state(cs); got != StatePublished {
+		t.Errorf("state = %s, want published", got)
+	}
+}

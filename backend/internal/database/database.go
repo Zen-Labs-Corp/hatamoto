@@ -98,6 +98,14 @@ func (db *DB) setTenantContext(ctx context.Context, conn *pgxpool.Conn) error {
 
 // WithTx executes a function within a transaction with tenant context.
 func (db *DB) WithTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
+	return db.WithTxDetachedCommit(ctx, 0, fn)
+}
+
+// WithTxDetachedCommit is WithTx, but COMMIT runs on a context that ctx's
+// cancellation cannot reach, so a commit cut off mid-flight cannot leave the
+// outcome unknown. The commit is bounded by commitTimeout, which starts just
+// before it; zero means plain WithTx behaviour (COMMIT on ctx).
+func (db *DB) WithTxDetachedCommit(ctx context.Context, commitTimeout time.Duration, fn func(tx pgx.Tx) error) error {
 	conn, err := db.GetConn(ctx)
 	if err != nil {
 		return err
@@ -116,7 +124,12 @@ func (db *DB) WithTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
 		return err
 	}
 
-	return tx.Commit(ctx)
+	if commitTimeout <= 0 {
+		return tx.Commit(ctx)
+	}
+	cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), commitTimeout)
+	defer cancel()
+	return tx.Commit(cctx)
 }
 
 // ExecWithTimeout executes a query with a timeout.
