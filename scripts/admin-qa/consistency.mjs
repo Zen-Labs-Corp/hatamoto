@@ -134,18 +134,31 @@ function check({ sticky, list, spec }) {
     out.push(["UI-D2", sel(el), "shadow outside an popup", bs]);
   }
 
+  // Resolves a token the way the page would, so the checks compare computed values.
+  const probe = (prop, value) => {
+    const d = document.createElement("div");
+    d.style.setProperty(prop, value);
+    document.body.appendChild(d);
+    const v = getComputedStyle(d).getPropertyValue(prop);
+    d.remove();
+    return v;
+  };
+
   // UI-D3: button size
   // Controls inside .hm-listbar are the one exception to the radius: the list toolbar sets every
   // control to --control-h-sm with --radius-md (listbar.css), so 8 is accepted there and only there.
   const LISTBAR = ".hm-listbar";
   const listbarRadius = (() => { const d = document.createElement("div"); d.style.borderTopLeftRadius = "var(--radius-md)"; document.body.appendChild(d); const v = px(getComputedStyle(d).borderTopLeftRadius); d.remove(); return v; })();
+  // Allowed heights come from the live tokens, so Comfortable and Compact both pass.
+  const heights = ["--control-h", "--control-h-sm", "--control-h-xs"].map((t) => px(probe("height", `var(${t})`)));
   for (const b of document.querySelectorAll(".hm-btn")) {
     const r0 = b.getBoundingClientRect();
     if (!visible(b) || b.closest(BTN_OK) || r0.height <= 1) continue; // 1px = visually hidden (Enter-key submit)
     const cs = getComputedStyle(b);
     const h = px(cs.height), r = px(cs.borderTopLeftRadius);
+    const okH = heights.includes(h);
     const okR = r === 6 || (r === listbarRadius && b.closest(LISTBAR));
-    if (!((h === 36 || h === 32) && okR)) out.push(["UI-D3", sel(b), "button size/radius is not 36|32 / 6 (32 / 8 in a list toolbar)", `${h} / ${r}`]);
+    if (!(okH && okR)) out.push(["UI-D3", sel(b), `button size/radius is not ${heights.join("|")} / 6 (small / 8 in a list toolbar)`, `${h} / ${r}`]);
   }
 
   // UI-D4: switches and segmented controls
@@ -165,16 +178,6 @@ function check({ sticky, list, spec }) {
     const n = g.querySelectorAll('input[type="radio"]').length;
     if (n < 2) out.push(["UI-D4", sel(g), "segmented control with fewer than 2 options", n]);
   }
-
-  // Resolves a token the way the page would, so the checks compare computed values.
-  const probe = (prop, value) => {
-    const d = document.createElement("div");
-    d.style.setProperty(prop, value);
-    document.body.appendChild(d);
-    const v = getComputedStyle(d).getPropertyValue(prop);
-    d.remove();
-    return v;
-  };
 
   // UI-D14: component contracts (backend/web/admin/components.json). Every visible element of a
   // component carries the contract values, plus its variant's. Named exceptions are the contexts
