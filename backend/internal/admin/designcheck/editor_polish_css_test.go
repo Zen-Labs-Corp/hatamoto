@@ -26,7 +26,7 @@ func TestBlogSidePanelIsFlushColumn(t *testing.T) {
 	css := adminAsset(t, "css", "pages", "blogeditor.css")
 	for _, want := range []string{
 		".hm-page:has(.hm-be) { max-width: none; padding: 0; gap: 0; }",
-		"position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto;",
+		"position: sticky; top: var(--editor-bar-h); height: calc(100vh - var(--editor-bar-h)); overflow-y: auto;",
 		"border-left: 1px solid var(--border)",
 		".hm-be__side .hm-card { background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; box-shadow: none; }",
 		"@media (min-width: 960px)",

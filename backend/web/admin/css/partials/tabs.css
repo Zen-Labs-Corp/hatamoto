@@ -53,7 +53,7 @@
 .hm-tabs__more .hm-icon { width: 14px; height: 14px; }
 .hm-tabs__menu { width: 280px; max-height: min(420px, 70vh); }
 .hm-tabs__menu:popover-open { gap: var(--space-1); }
-.hm-tabs__filter { flex: none; height: 32px; font-size: var(--text-sm); }
+.hm-tabs__filter { flex: none; height: var(--control-h-sm); font-size: var(--text-sm); }
 .hm-tabs__menu-list { display: flex; flex-direction: column; overflow-y: auto; min-height: 0; }
 .hm-tabs__menu [role="menuitem"] { justify-content: space-between; flex: none; }
 .hm-tabs__menu [role="menuitem"][aria-current="page"] { color: var(--color-sumi); font-weight: var(--weight-medium); }
