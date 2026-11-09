@@ -197,3 +197,13 @@ func TestBackupOnObjectStorageFailsWhenBucketDown(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// Every referenced object missing means a wrong bucket or prefix: the backup
+// fails instead of recording an empty manifest.
+func TestBackupOnObjectStorageFailsWhenNoReferencedObjectExists(t *testing.T) {
+	fake := s3test.NewServer(t)
+	r, _ := s3Rig(t, fake, "2026/gone.png", "2026/gone-medium.webp")
+	if _, err := r.e.Create(context.Background(), Request{Kind: KindManual}); err == nil || !strings.Contains(err.Error(), "none of the 2 media objects") {
+		t.Fatalf("err = %v", err)
+	}
+}

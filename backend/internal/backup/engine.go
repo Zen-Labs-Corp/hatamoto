@@ -378,6 +378,11 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 			return *info, err
 		}
 		man.MediaMissing = len(missing)
+		// The local rule: a backup that finds none of the files the rows
+		// reference points at the wrong bucket or prefix, not at a few strays.
+		if len(missing) > 0 && len(missing) == len(mediaObjects) {
+			return *info, fmt.Errorf("none of the %d media objects referenced by the database were found in object storage; check the HATAMOTO_MEDIA_S3_* settings", len(missing))
+		}
 		if len(missing) > 0 {
 			e.opts.Log.Warn("backup: media objects referenced by the database are missing from object storage and left out of the manifest",
 				"missing", len(missing), "sample", missing[:min(len(missing), maxMissingLogged)])
