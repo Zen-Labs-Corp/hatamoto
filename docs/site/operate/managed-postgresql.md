@@ -26,7 +26,7 @@ Hosts, users and passwords below are examples. Use `~/.pgpass` or `PGPASSWORD` i
    CREATE DATABASE site OWNER site_app;
    ```
 
-   `GRANT ... WITH SET TRUE` lets the admin role create the database on behalf of `site_app`. The membership inherits by default, and that is all the bootstrap needs: the admin role gets `CREATE` on the database, with the right to grant it, from `site_app`, the database owner. Keep the membership inheriting (do not add `INHERIT FALSE`, and do not make the admin role `NOINHERIT`). The bootstrap reads the database id as the admin role, and after the first start only `site_app` can read it.
+   `GRANT ... WITH SET TRUE` lets the admin role create the database on behalf of `site_app`. The membership inherits by default, and that is what gives the admin role `CREATE` on the database, with the right to grant it, from `site_app`, the database owner. Keep the membership inheriting if you rely on that (an admin that does not inherit needs `CREATE ... WITH GRANT OPTION` granted to it directly). The bootstrap reads the database id from the core table as the admin role if it can, else as `site_app`: after the first start only `site_app` can read that table, so rerunning the bootstrap by hand needs `SET` on `site_app` (the `WITH SET TRUE` above), not inheritance. Restoring a backup as the admin role still requires an inheriting membership.
 
 2. Run the bootstrap once, as the admin role, in the new database, naming the application role. This is the same script a superuser runs, and it is safe to rerun:
 

@@ -37,7 +37,9 @@
 -- path with the same result: it grants itself SET on the new role admin, moves
 -- the objects over, and finishes the script as that role. Without the privilege
 -- to grant SET ON PARAMETER the temp_file_limit grant is skipped with a NOTICE,
--- and plugin roles then run without that cap.
+-- and plugin roles then run without that cap. After the core migrations ran, that role
+-- reads the database id from the core table as the application role, so it needs SET
+-- on it (GRANT <app role> TO <this role> WITH SET TRUE); inheriting is not required.
 -- Nothing in the cluster outside the hatamoto_admin schema is altered, and the
 -- application's role gains no attribute.
 
@@ -88,14 +90,28 @@ BEGIN;
                      AND pg_has_role(current_user, nspowner, 'SET')
                      FROM pg_namespace WHERE nspname = 'hatamoto_admin'), false) AS rerun
   \gset
-  -- The core id is read as this role (it inherits the app role, which owns the
-  -- table); the role admin used on a rerun cannot read it.
+  -- The core id is read by this role when it can (it inherits the app role, which owns
+  -- the table), else as the app role when this role holds SET on it (a membership that
+  -- does not inherit); the role admin used on a rerun cannot read it. A role with
+  -- neither is refused with a message instead of a permission error.
   SELECT to_regclass('public.hatamoto_instance') IS NOT NULL AS has_core
   \gset
   \set core_id ''
   \if :has_core
-    SELECT id AS core_id FROM public.hatamoto_instance
+    SELECT has_table_privilege(current_user, 'public.hatamoto_instance', 'SELECT') AS can_read,
+           pg_has_role(current_user, :'app_role', 'SET') AS can_set
     \gset
+    \if :can_read
+      SELECT id AS core_id FROM public.hatamoto_instance
+      \gset
+    \elif :can_set
+      SET LOCAL ROLE :"app_role";
+      SELECT id AS core_id FROM public.hatamoto_instance
+      \gset
+      RESET ROLE;
+    \else
+      DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: this role cannot read public.hatamoto_instance; grant it SET on the application role (GRANT <app role> TO <this role> WITH SET TRUE)'; END $$;
+    \endif
   \endif
   SELECT set_config('hatamoto.core_id', :'core_id', true) AS core_cfg
   \gset
