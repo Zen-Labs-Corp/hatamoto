@@ -1,18 +1,10 @@
 package installstats
 
-import "hatamoto.dev/core/internal/jsonx"
-
-// Payload is the whole request body. It has exactly these three fields; adding
-// one changes what an owner agreed to, so it needs a new consent text.
+// Payload is the Basic request body. It has exactly these three fields; adding
+// one changes what an owner agreed to, so it needs a new consent text. The
+// Detailed body is built by BuildDetailed.
 type Payload struct {
 	Install string `json:"install"`
 	Version string `json:"version"`
 	Channel string `json:"channel"`
-}
-
-// Pretty is the body indented for display; it decodes to the same JSON as the
-// wire body.
-func (p Payload) Pretty() string {
-	b, _ := jsonx.Indent(p, jsonx.PinnedMarshal)
-	return string(b)
 }

@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"regexp"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"hatamoto.dev/core/internal/jsonx"
@@ -23,9 +25,6 @@ var ErrForcedOff = errors.New("install stats are turned off by the server config
 
 // userAgent names the sender. It carries no version or install detail.
 const userAgent = "hatamoto-stats"
-
-// placeholderID is shown in the preview before an ID exists.
-const placeholderID = "6f1c0a9e5b7d4e28a3c1f09d7b2e4a65"
 
 // Backend is the stored state the Service works on; *Store implements it.
 type Backend interface {
@@ -55,6 +54,8 @@ type Config struct {
 	Getenv  func(string) string          // nil means os.Getenv
 	HTTP    HTTPDoer                     // nil means a guarded client with a 10 s timeout
 	Log     *slog.Logger                 // nil means slog.Default()
+	Health  *Health                      // in-memory counts to flush; nil means none
+	Sources Sources                      // facts for the Detailed body; nil sends Basic instead
 }
 
 // Service holds the owner's choice and sends the daily ping.
@@ -66,12 +67,15 @@ type Service struct {
 	http    HTTPDoer
 	log     *slog.Logger
 	url     string
+	health  *Health
+	sources Sources
+	warned  atomic.Bool // the "no sources" notice was logged
 }
 
 // New returns a Service. An invalid HATAMOTO_TELEMETRY_URL is reported once
 // and the default endpoint is used.
 func New(c Config) *Service {
-	s := &Service{store: c.Store, version: c.Version, channel: c.Channel, getenv: c.Getenv, http: c.HTTP, log: c.Log}
+	s := &Service{store: c.Store, version: c.Version, channel: c.Channel, getenv: c.Getenv, http: c.HTTP, log: c.Log, health: c.Health, sources: c.Sources}
 	if s.getenv == nil {
 		s.getenv = os.Getenv
 	}
@@ -108,53 +112,57 @@ func isRelease(v string) bool { return release.ValidVersion(v) && !devVersion.Ma
 
 // View is what the admin shows.
 type View struct {
-	State       State
-	ForcedOff   bool
-	Preview     Payload // the exact body; carries a placeholder ID until consent is yes
-	PreviewJSON string
+	Level     Level // off under HATAMOTO_TELEMETRY=off
+	ForcedOff bool
+	LastSent  *time.Time // last successful report
 }
 
-// View loads the state and builds the preview.
+// View loads the stored choice.
 func (s *Service) View(ctx context.Context) (View, error) {
 	st, err := s.store.Load(ctx)
 	if err != nil {
 		return View{}, err
 	}
-	forced := ForcedOff(s.getenv)
-	if forced {
-		st.Consent, st.InstallID = ConsentNo, ""
+	if ForcedOff(s.getenv) {
+		return View{Level: LevelOff, ForcedOff: true}, nil
 	}
-	p := s.payload(ctx, st.InstallID)
-	if p.Install == "" {
-		p.Install = placeholderID
-	}
-	return View{State: st, ForcedOff: forced, Preview: p, PreviewJSON: p.Pretty()}, nil
+	return View{Level: st.Level, LastSent: st.LastOKAt}, nil
 }
 
 // ForcedOff reports whether HATAMOTO_TELEMETRY=off is set.
 func (s *Service) ForcedOff() bool { return ForcedOff(s.getenv) }
 
-// Unanswered reports whether the owner still has to answer: the variable is
-// not off and the stored choice is unset. It reads the choice only; it builds
-// no preview, so it is cheap enough for every page view.
-func (s *Service) Unanswered(ctx context.Context) (bool, error) {
+// Banner says which owner banner to show. It reads the choice only, so it is
+// cheap enough for every page view. Nothing shows under HATAMOTO_TELEMETRY=off.
+func (s *Service) Banner(ctx context.Context) (BannerKind, error) {
 	if s.ForcedOff() {
-		return false, nil
+		return BannerNone, nil
 	}
-	st, err := s.store.Load(ctx)
-	return err == nil && st.Consent == ConsentUnset, err
+	return s.store.Banner(ctx)
 }
 
-// Choose records the owner's answer. Yes creates the install ID; No deletes it.
-func (s *Service) Choose(ctx context.Context, yes bool) error {
+// DismissNudge hides the Detailed offer for good.
+func (s *Service) DismissNudge(ctx context.Context) error {
+	if s.ForcedOff() {
+		return ErrForcedOff
+	}
+	return s.store.DismissNudge(ctx)
+}
+
+// Choose records the owner's answer. Basic and Detailed create the install ID;
+// Off deletes it.
+func (s *Service) Choose(ctx context.Context, level Level) error {
 	if ForcedOff(s.getenv) {
 		return ErrForcedOff
 	}
-	if !yes {
+	switch level {
+	case LevelOff:
 		return s.store.Disable(ctx)
+	case LevelBasic, LevelDetailed:
+		_, err := s.store.Enable(ctx, level)
+		return err
 	}
-	_, err := s.store.Enable(ctx, LevelBasic)
-	return err
+	return fmt.Errorf("install stats: unknown level %q", level)
 }
 
 // Reset replaces the install ID with a new one.
@@ -176,10 +184,25 @@ func (s *Service) Enforce(ctx context.Context) error {
 	return s.store.Disable(ctx)
 }
 
-// Run is the daily job. It makes no request unless the variable is not off,
-// consent is yes, the build is a release, and this process won the claim for
-// the interval. It never retries: the claim stamps the time whatever the
-// outcome. Neither the ID nor the URL is logged or stored in the status.
+// Flush moves the in-memory health counts into the database. Counts that
+// could not be stored are put back, so nothing is lost to a database error.
+func (s *Service) Flush(ctx context.Context) error {
+	d := s.health.Drain()
+	if d.IsZero() {
+		return nil
+	}
+	if err := s.store.AddHealth(ctx, d); err != nil {
+		s.health.Restore(d)
+		return err
+	}
+	return nil
+}
+
+// Run is the hourly job. It makes no request unless the variable is not off,
+// the level is Basic or Detailed, the build is a release, and this process won
+// the claim. It never retries: the claim stamps the time whatever the outcome.
+// A body that cannot be built is not sent and ends as "error: build". Neither
+// the ID nor the URL is logged or stored in the status.
 func (s *Service) Run(ctx context.Context) error {
 	if err := s.Enforce(ctx); err != nil {
 		return err
@@ -191,26 +214,59 @@ func (s *Service) Run(ctx context.Context) error {
 	if !isRelease(s.version) {
 		return nil
 	}
+	if err := s.Flush(ctx); err != nil {
+		s.log.Warn("install stats: could not store health counts", "error", err)
+	}
 	id, ok, err := s.store.Claim(ctx, s.version)
 	if err != nil || !ok {
 		return err
 	}
-	status := s.send(ctx, s.payload(ctx, id))
-	s.log.Info("install stats sent", "status", status)
-	return s.store.RecordResult(ctx, status, s.version, Counts{})
-}
-
-func (s *Service) payload(ctx context.Context, id string) Payload {
-	p := Payload{Install: id, Version: s.version}
-	if s.channel != nil {
-		p.Channel = s.channel(ctx)
+	st, err := s.store.Load(ctx)
+	if err != nil {
+		return err
 	}
-	return p
+	body, sent, err := s.body(ctx, id, st)
+	if err != nil {
+		s.log.Warn("install stats: body not built, nothing sent", "error", err)
+		return s.store.RecordResult(ctx, "error: build", s.version, Counts{})
+	}
+	status := s.post(ctx, body)
+	s.log.Info("install stats sent", "status", status)
+	return s.store.RecordResult(ctx, status, s.version, sent)
 }
 
-// send posts the payload and returns the status text to store.
-func (s *Service) send(ctx context.Context, p Payload) string {
-	body, _ := jsonx.MarshalPinned(p)
+// body builds the request body for the stored level, and returns the health
+// counts it carries. Detailed without sources falls back to Basic.
+func (s *Service) body(ctx context.Context, id string, st State) ([]byte, Counts, error) {
+	if st.Level == LevelDetailed {
+		if s.sources != nil {
+			now := time.Now()
+			b, err := BuildDetailed(ctx, BuildInput{
+				Install: id, Version: s.version, Channel: s.channelName(ctx),
+				Src: s.sources, Counts: st.Counts, WindowStart: st.WindowStart, Now: now,
+			})
+			return b, st.Counts, err
+		}
+		if s.warned.CompareAndSwap(false, true) {
+			s.log.Warn("install stats: no detailed sources, sending the basic body")
+		}
+	}
+	b, err := encodeBasic(Payload{Install: id, Version: s.version, Channel: s.channelName(ctx)})
+	return b, Counts{}, err
+}
+
+func (s *Service) channelName(ctx context.Context) string {
+	if s.channel == nil {
+		return ""
+	}
+	return s.channel(ctx)
+}
+
+// encodeBasic is the Basic body: exactly the three keys of Payload.
+func encodeBasic(p Payload) ([]byte, error) { return jsonx.MarshalPinned(p) }
+
+// post sends body and returns the status text to store.
+func (s *Service) post(ctx context.Context, body []byte) string {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.url, bytes.NewReader(body))
 	if err != nil {
 		return "error: network"

@@ -8,25 +8,20 @@ import (
 	"testing"
 )
 
-// The request body and the indented preview are shown to the owner and sent
-// to the stats endpoint; their bytes are pinned as the previous encoder wrote
-// them, HTML characters escaped.
+// The Basic request body is sent to the stats endpoint; its bytes are pinned
+// as the previous encoder wrote them, HTML characters escaped.
 
 var wireCases = []struct {
-	name       string
-	p          Payload
-	body       string
-	prettyBody string
+	name string
+	p    Payload
+	body string
 }{
 	{"plain", Payload{Install: "x", Version: "v", Channel: "c"},
-		`{"install":"x","version":"v","channel":"c"}`,
-		"{\n  \"install\": \"x\",\n  \"version\": \"v\",\n  \"channel\": \"c\"\n}"},
+		`{"install":"x","version":"v","channel":"c"}`},
 	{"html characters and non-ASCII", Payload{Install: "i-é", Version: "v1.2.3-rc.1+b&c", Channel: "a&b<c>d"},
-		`{"install":"i-é","version":"v1.2.3-rc.1+b\u0026c","channel":"a\u0026b\u003cc\u003ed"}`,
-		"{\n  \"install\": \"i-é\",\n  \"version\": \"v1.2.3-rc.1+b\\u0026c\",\n  \"channel\": \"a\\u0026b\\u003cc\\u003ed\"\n}"},
+		`{"install":"i-é","version":"v1.2.3-rc.1+b\u0026c","channel":"a\u0026b\u003cc\u003ed"}`},
 	{"empty channel", Payload{Install: "x", Version: "v"},
-		`{"install":"x","version":"v","channel":""}`,
-		"{\n  \"install\": \"x\",\n  \"version\": \"v\",\n  \"channel\": \"\"\n}"},
+		`{"install":"x","version":"v","channel":""}`},
 }
 
 func TestWireBodyBytes(t *testing.T) {
@@ -39,21 +34,15 @@ func TestWireBodyBytes(t *testing.T) {
 			}))
 			defer srv.Close()
 			s := &Service{http: srv.Client(), url: srv.URL}
-			if status := s.send(context.Background(), c.p); status != "ok" {
+			body, err := encodeBasic(c.p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if status := s.post(context.Background(), body); status != "ok" {
 				t.Fatalf("status = %q", status)
 			}
 			if got != c.body {
 				t.Fatalf("wire body changed:\n got %s\nwant %s", got, c.body)
-			}
-		})
-	}
-}
-
-func TestPrettyBytes(t *testing.T) {
-	for _, c := range wireCases {
-		t.Run(c.name, func(t *testing.T) {
-			if got := c.p.Pretty(); got != c.prettyBody {
-				t.Fatalf("Pretty changed:\n got %q\nwant %q", got, c.prettyBody)
 			}
 		})
 	}

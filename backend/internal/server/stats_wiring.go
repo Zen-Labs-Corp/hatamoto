@@ -41,21 +41,35 @@ func (s *Server) SetStats(svc *installstats.Service) {
 // adminStats presents the install stats service to the admin.
 type adminStats struct{ svc *installstats.Service }
 
+// Until the admin takes a level (a later change), the three levels map onto
+// the old yes/no choice: off is no, basic and detailed are yes.
 func (a adminStats) View(ctx context.Context) (admin.StatsView, error) {
 	v, err := a.svc.View(ctx)
 	if err != nil {
 		return admin.StatsView{}, err
 	}
-	return admin.StatsView{
-		Consent: string(v.State.Consent), ForcedOff: v.ForcedOff, PreviewJSON: v.PreviewJSON,
-		LastSent: v.State.LastOKAt,
-	}, nil
+	consent := "yes"
+	switch v.Level {
+	case installstats.LevelUnset:
+		consent = "unset"
+	case installstats.LevelOff:
+		consent = "no"
+	}
+	return admin.StatsView{Consent: consent, ForcedOff: v.ForcedOff, LastSent: v.LastSent}, nil
 }
 
-func (a adminStats) Unanswered(ctx context.Context) (bool, error) { return a.svc.Unanswered(ctx) }
-func (a adminStats) ForcedOff() bool                              { return a.svc.ForcedOff() }
-func (a adminStats) Choose(ctx context.Context, yes bool) error   { return a.svc.Choose(ctx, yes) }
-func (a adminStats) Reset(ctx context.Context) error              { return a.svc.Reset(ctx) }
+func (a adminStats) Unanswered(ctx context.Context) (bool, error) {
+	k, err := a.svc.Banner(ctx)
+	return k == installstats.BannerUnanswered, err
+}
+func (a adminStats) ForcedOff() bool { return a.svc.ForcedOff() }
+func (a adminStats) Choose(ctx context.Context, yes bool) error {
+	if yes {
+		return a.svc.Choose(ctx, installstats.LevelBasic)
+	}
+	return a.svc.Choose(ctx, installstats.LevelOff)
+}
+func (a adminStats) Reset(ctx context.Context) error { return a.svc.Reset(ctx) }
 
 // scheduleStats puts the ping on the worker scheduler: a check every hour
 // (sending at most once a day), the first 5 to 15 minutes after start. Nothing is scheduled in a public demo or

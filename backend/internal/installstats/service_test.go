@@ -20,9 +20,11 @@ type memStore struct {
 	st        State
 	claimedAt time.Time
 	n         int
+	disabled  int   // Disable calls
+	addErr    error // returned by AddHealth
 }
 
-func newMem() *memStore { return &memStore{st: State{Consent: ConsentUnset}} }
+func newMem() *memStore { return &memStore{st: State{Consent: ConsentUnset, Level: LevelUnset}} }
 
 func (m *memStore) Load(context.Context) (State, error) {
 	m.mu.Lock()
@@ -32,6 +34,13 @@ func (m *memStore) Load(context.Context) (State, error) {
 func (m *memStore) Enable(_ context.Context, level Level) (State, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.st.Level != level {
+		m.st.Counts, m.st.WindowStart = Counts{}, nil
+		if level == LevelDetailed {
+			now := time.Now()
+			m.st.WindowStart = &now
+		}
+	}
 	m.st.Consent, m.st.Level = ConsentYes, level
 	if m.st.InstallID == "" {
 		m.n++
@@ -43,6 +52,8 @@ func (m *memStore) Disable(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.st.Consent, m.st.Level, m.st.InstallID = ConsentNo, LevelOff, ""
+	m.st.Counts, m.st.WindowStart = Counts{}, nil
+	m.disabled++
 	return nil
 }
 func (m *memStore) Reset(context.Context) (State, error) {
@@ -67,24 +78,50 @@ func (m *memStore) Claim(_ context.Context, version string) (string, bool, error
 	m.claimedAt = time.Now()
 	return m.st.InstallID, true, nil
 }
-func (m *memStore) RecordResult(_ context.Context, s, version string, _ Counts) error {
+func (m *memStore) RecordResult(_ context.Context, s, version string, sent Counts) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.st.LastStatus = s
-	if s == "ok" {
-		now := time.Now()
-		m.st.LastOKAt = &now
-		m.st.LastSentVersion = version
+	if s != "ok" {
+		return nil
+	}
+	now := time.Now().UTC()
+	newDay := m.st.LastOKAt == nil || m.st.LastOKAt.UTC().Format(time.DateOnly) < now.Format(time.DateOnly)
+	m.st.LastOKAt = &now
+	m.st.LastSentVersion = version
+	if newDay {
+		m.st.WindowStart = &now
+		m.st.Counts = m.st.Counts.sub(sent)
 	}
 	return nil
 }
-func (m *memStore) AddHealth(context.Context, Counts) error { return nil }
-func (m *memStore) DismissNudge(context.Context) error      { return nil }
+func (m *memStore) AddHealth(_ context.Context, d Counts) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.addErr != nil {
+		return m.addErr
+	}
+	if m.st.Level == LevelDetailed {
+		m.st.Counts = m.st.Counts.add(d)
+	}
+	return nil
+}
+func (m *memStore) DismissNudge(context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.st.Level == LevelBasic {
+		m.st.NudgeDismissed = true
+	}
+	return nil
+}
 func (m *memStore) Banner(context.Context) (BannerKind, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.st.Consent == ConsentUnset {
+	switch {
+	case m.st.Level == LevelUnset:
 		return BannerUnanswered, nil
+	case m.st.Level == LevelBasic && !m.st.NudgeDismissed:
+		return BannerNudge, nil
 	}
 	return BannerNone, nil
 }
@@ -122,8 +159,8 @@ func TestRunSendsNothingWithoutConsent(t *testing.T) {
 	ctx := context.Background()
 	for name, setup := range map[string]func(*Service, *memStore){
 		"unset":  func(*Service, *memStore) {},
-		"no":     func(s *Service, _ *memStore) { _ = s.Choose(ctx, false) },
-		"dev":    func(s *Service, _ *memStore) { _ = s.Choose(ctx, true) },
+		"no":     func(s *Service, _ *memStore) { _ = s.Choose(ctx, LevelOff) },
+		"dev":    func(s *Service, _ *memStore) { _ = s.Choose(ctx, LevelBasic) },
 		"forced": func(_ *Service, m *memStore) { _, _ = m.Enable(ctx, LevelBasic) },
 	} {
 		env, version := map[string]string{}, "v1.2.3"
@@ -152,7 +189,7 @@ func TestRunNeverSendsFromASourceBuild(t *testing.T) {
 		"v1.4.3+dirty", "1.4.3", "",
 	} {
 		s, _, r := rig(t, nil, version)
-		_ = s.Choose(ctx, true)
+		_ = s.Choose(ctx, LevelBasic)
 		if err := s.Run(ctx); err != nil {
 			t.Fatalf("%q: %v", version, err)
 		}
@@ -162,7 +199,7 @@ func TestRunNeverSendsFromASourceBuild(t *testing.T) {
 	}
 	for _, version := range []string{"v1.5.0", "v1.5.0-rc.1"} {
 		s, _, r := rig(t, nil, version)
-		_ = s.Choose(ctx, true)
+		_ = s.Choose(ctx, LevelBasic)
 		if err := s.Run(ctx); err != nil || len(r.reqs) != 1 {
 			t.Errorf("%q: err %v, %d requests, want 1", version, err, len(r.reqs))
 		}
@@ -179,7 +216,7 @@ func TestEnforceDeletesTheID(t *testing.T) {
 	if st, _ := m.Load(ctx); st.Consent != ConsentNo || st.InstallID != "" {
 		t.Fatalf("env off must leave consent no and no id: %+v", st)
 	}
-	if err := s.Choose(ctx, true); !errors.Is(err, ErrForcedOff) {
+	if err := s.Choose(ctx, LevelBasic); !errors.Is(err, ErrForcedOff) {
 		t.Fatalf("choose under env off = %v", err)
 	}
 	if err := s.Reset(ctx); !errors.Is(err, ErrForcedOff) {
@@ -193,7 +230,7 @@ func TestEnforceDeletesTheID(t *testing.T) {
 func TestRunSendsOnceWithTheExactBody(t *testing.T) {
 	ctx := context.Background()
 	s, m, r := rig(t, nil, "v1.2.3")
-	if err := s.Choose(ctx, true); err != nil {
+	if err := s.Choose(ctx, LevelBasic); err != nil {
 		t.Fatal(err)
 	}
 	id := m.st.InstallID
@@ -229,7 +266,7 @@ func TestRunSendsOnceWithTheExactBody(t *testing.T) {
 func TestRunErrorKeepsLastSuccessTime(t *testing.T) {
 	ctx := context.Background()
 	s, m, r := rig(t, nil, "v1.2.3")
-	_ = s.Choose(ctx, true)
+	_ = s.Choose(ctx, LevelBasic)
 	if err := s.Run(ctx); err != nil || m.st.LastOKAt == nil {
 		t.Fatalf("ok run: %v, last ok %v", err, m.st.LastOKAt)
 	}
@@ -253,7 +290,7 @@ func TestRunStatusNeverHoldsTheID(t *testing.T) {
 	}{{404, nil, "error: http 404"}, {302, nil, "error: http 302"}, {0, errors.New("dial https://hatamoto.dev: refused"), "error: network"}} {
 		s, m, r := rig(t, nil, "v1.2.3")
 		r.status, r.err = c.status, c.err
-		_ = s.Choose(ctx, true)
+		_ = s.Choose(ctx, LevelBasic)
 		id := m.st.InstallID
 		if err := s.Run(ctx); err != nil {
 			t.Fatal(err)
@@ -264,50 +301,73 @@ func TestRunStatusNeverHoldsTheID(t *testing.T) {
 	}
 }
 
-func TestUnansweredReadsOnlyTheChoice(t *testing.T) {
+func TestBannerKinds(t *testing.T) {
 	ctx := context.Background()
 	for _, c := range []struct {
-		name string
-		env  map[string]string
-		yes  *bool
-		want bool
+		name  string
+		env   map[string]string
+		level Level
+		want  BannerKind
 	}{
-		{"unset", nil, nil, true},
-		{"yes", nil, ptr(true), false},
-		{"no", nil, ptr(false), false},
-		{"forced off", map[string]string{EnvTelemetry: "off"}, nil, false},
+		{"unset", nil, LevelUnset, BannerUnanswered},
+		{"basic", nil, LevelBasic, BannerNudge},
+		{"detailed", nil, LevelDetailed, BannerNone},
+		{"off", nil, LevelOff, BannerNone},
+		{"forced off", map[string]string{EnvTelemetry: "off"}, LevelUnset, BannerNone},
 	} {
 		s, _, _ := rig(t, c.env, "v1.2.3")
-		if c.yes != nil {
-			_ = s.Choose(ctx, *c.yes)
+		if c.level != LevelUnset && c.env == nil {
+			_ = s.Choose(ctx, c.level)
 		}
-		if got, err := s.Unanswered(ctx); err != nil || got != c.want {
-			t.Errorf("%s: Unanswered = %v, %v; want %v", c.name, got, err, c.want)
+		if got, err := s.Banner(ctx); err != nil || got != c.want {
+			t.Errorf("%s: Banner = %q, %v; want %q", c.name, got, err, c.want)
 		}
+	}
+	s, _, _ := rig(t, nil, "v1.2.3")
+	_ = s.Choose(ctx, LevelBasic)
+	if err := s.DismissNudge(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.Banner(ctx); got != BannerNone {
+		t.Fatalf("after dismiss: %q", got)
+	}
+	f, _, _ := rig(t, map[string]string{EnvTelemetry: "off"}, "v1.2.3")
+	if err := f.DismissNudge(ctx); !errors.Is(err, ErrForcedOff) {
+		t.Fatalf("dismiss under env off = %v", err)
 	}
 }
 
-func ptr(b bool) *bool { return &b }
-
-func TestViewPreview(t *testing.T) {
+func TestViewLevels(t *testing.T) {
 	ctx := context.Background()
 	s, m, _ := rig(t, nil, "v1.2.3")
-	v, err := s.View(ctx)
-	if err != nil || v.State.Consent != ConsentUnset || v.Preview.Install != placeholderID || v.ForcedOff {
+	if v, err := s.View(ctx); err != nil || v.Level != LevelUnset || v.ForcedOff || v.LastSent != nil {
 		t.Fatalf("unset view: %+v %v", v, err)
 	}
-	_ = s.Choose(ctx, true)
-	v, _ = s.View(ctx)
-	if v.Preview.Install != m.st.InstallID || !strings.Contains(v.PreviewJSON, `"channel": "stable"`) {
-		t.Fatalf("yes view: %+v", v)
+	_ = s.Choose(ctx, LevelDetailed)
+	_ = s.Run(ctx)
+	if v, _ := s.View(ctx); v.Level != LevelDetailed || v.LastSent != nil && !v.LastSent.Equal(*m.st.LastOKAt) {
+		t.Fatalf("detailed view: %+v", v)
 	}
 	first := m.st.InstallID
 	if err := s.Reset(ctx); err != nil || m.st.InstallID == first {
 		t.Fatalf("reset: %v", err)
 	}
-	f, _, _ := rig(t, map[string]string{EnvTelemetry: "off"}, "v1.2.3")
-	if v, _ := f.View(ctx); !v.ForcedOff || v.State.Consent != ConsentNo {
+	f, fm, _ := rig(t, map[string]string{EnvTelemetry: "off"}, "v1.2.3")
+	_, _ = fm.Enable(ctx, LevelDetailed)
+	if v, _ := f.View(ctx); !v.ForcedOff || v.Level != LevelOff {
 		t.Fatalf("forced view: %+v", v)
+	}
+}
+
+func TestChooseRejectsUnknownLevels(t *testing.T) {
+	s, m, _ := rig(t, nil, "v1.2.3")
+	for _, l := range []Level{LevelUnset, "bogus"} {
+		if err := s.Choose(context.Background(), l); err == nil {
+			t.Errorf("Choose(%q) accepted", l)
+		}
+	}
+	if m.st.Level != LevelUnset {
+		t.Fatalf("state changed: %+v", m.st)
 	}
 }
 
@@ -329,5 +389,198 @@ func TestClientDoesNotFollowRedirects(t *testing.T) {
 	c := newClient(false)
 	if c.Jar != nil || c.Timeout != 10*time.Second {
 		t.Fatalf("jar %v timeout %v", c.Jar, c.Timeout)
+	}
+}
+
+func detailedRig(t *testing.T) (*Service, *memStore, *recorder, *Health, *fakeSources) {
+	t.Helper()
+	m, r, h, f := newMem(), &recorder{}, NewHealth(), newFake()
+	f.plugins = []PluginInfo{{Name: "searchconsole", Version: "1.0.0", Enabled: true, FirstParty: true}}
+	s := New(Config{Store: m, Version: "v1.2.3", Getenv: envOf(nil), HTTP: r, Health: h, Sources: f,
+		Channel: func(context.Context) string { return "stable" }})
+	return s, m, r, h, f
+}
+
+func TestRunBasicBodyIsThreeKeys(t *testing.T) {
+	ctx := context.Background()
+	s, _, r, h, _ := detailedRig(t)
+	_ = s.Choose(ctx, LevelBasic)
+	h.Panic()
+	if err := s.Run(ctx); err != nil || len(r.bodies) != 1 {
+		t.Fatalf("run: %v, %d bodies", err, len(r.bodies))
+	}
+	entries, err := jsonx.ObjectEntries([]byte(r.bodies[0]))
+	if err != nil || len(entries) != 3 || entries[0].Key != "install" || entries[1].Key != "version" || entries[2].Key != "channel" {
+		t.Fatalf("basic body: %s (%v)", r.bodies[0], err)
+	}
+}
+
+func TestRunDetailedBodyCarriesCounts(t *testing.T) {
+	ctx := context.Background()
+	s, m, r, h, _ := detailedRig(t)
+	if err := s.Choose(ctx, LevelDetailed); err != nil {
+		t.Fatal(err)
+	}
+	h.HTTP5xx()
+	h.HTTP5xx()
+	h.PluginError("searchconsole")
+	if err := s.Run(ctx); err != nil || len(r.bodies) != 1 {
+		t.Fatalf("run: %v, %d bodies", err, len(r.bodies))
+	}
+	if err := validateDetailed([]byte(r.bodies[0])); err != nil {
+		t.Fatalf("%v\n%s", err, r.bodies[0])
+	}
+	for _, want := range []string{`"level":"detailed"`, `"http_5xx":2`, `"plugin_errors":{"searchconsole":1}`, `"install":"` + m.st.InstallID} {
+		if !strings.Contains(r.bodies[0], want) {
+			t.Errorf("missing %s in %s", want, r.bodies[0])
+		}
+	}
+	if m.st.LastStatus != "ok" || !m.st.Counts.IsZero() {
+		t.Errorf("after ok: status %q counts %+v", m.st.LastStatus, m.st.Counts)
+	}
+}
+
+func TestRunFailedSendKeepsCountsAndLaterOkClearsThem(t *testing.T) {
+	ctx := context.Background()
+	for name, fail := range map[string]func(*recorder){
+		"http 500": func(r *recorder) { r.status = 500 },
+		"network":  func(r *recorder) { r.err = errors.New("refused") },
+	} {
+		s, m, r, h, _ := detailedRig(t)
+		_ = s.Choose(ctx, LevelDetailed)
+		h.Panic()
+		fail(r)
+		if err := s.Run(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if m.st.Counts.Panics != 1 || m.st.LastOKAt != nil {
+			t.Fatalf("%s: failed send lost counts: %+v", name, m.st)
+		}
+		m.claimedAt = time.Now().Add(-21 * time.Hour)
+		*r = recorder{}
+		if err := s.Run(ctx); err != nil || len(r.bodies) != 1 || !strings.Contains(r.bodies[0], `"panics":1`) {
+			t.Fatalf("%s: retry: %v %v", name, err, r.bodies)
+		}
+		if m.st.Counts.Panics != 0 {
+			t.Fatalf("%s: ok send did not clear counts: %+v", name, m.st.Counts)
+		}
+	}
+}
+
+func TestRunSameDayResendCarriesTheDayTotal(t *testing.T) {
+	ctx := context.Background()
+	s, m, r, h, _ := detailedRig(t)
+	_ = s.Choose(ctx, LevelDetailed)
+	h.Panic()
+	_ = s.Run(ctx) // first send of a new day: counts reset after it
+	if m.st.Counts.Panics != 0 {
+		t.Fatalf("first send kept counts: %+v", m.st.Counts)
+	}
+	h.Panic()
+	h.Panic()
+	// A version change allows a second send the same day.
+	m.claimedAt = time.Now().Add(-time.Hour)
+	m.st.LastSentVersion = "v1.0.0"
+	if err := s.Run(ctx); err != nil || len(r.bodies) != 2 {
+		t.Fatalf("second run: %v, %d bodies", err, len(r.bodies))
+	}
+	if !strings.Contains(r.bodies[1], `"panics":2`) {
+		t.Fatalf("second body: %s", r.bodies[1])
+	}
+	// The next UTC day sends the same counts once more, then resets.
+	yesterday := time.Now().Add(-24 * time.Hour)
+	m.st.LastOKAt = &yesterday
+	m.claimedAt = time.Now().Add(-21 * time.Hour)
+	_ = s.Run(ctx)
+	if len(r.bodies) != 3 || !strings.Contains(r.bodies[2], `"panics":2`) || m.st.Counts.Panics != 0 {
+		t.Fatalf("next day: %d bodies, counts %+v", len(r.bodies), m.st.Counts)
+	}
+}
+
+func TestChooseDetailedThenRunSendsDetailed(t *testing.T) {
+	ctx := context.Background()
+	s, _, r, _, _ := detailedRig(t)
+	_ = s.Choose(ctx, LevelDetailed)
+	_ = s.Run(ctx)
+	if len(r.bodies) != 1 || !strings.Contains(r.bodies[0], `"level":"detailed"`) {
+		t.Fatalf("bodies: %v", r.bodies)
+	}
+}
+
+func TestRunSendsNothingWhenOffForcedOrDev(t *testing.T) {
+	ctx := context.Background()
+	s, m, r, _, _ := detailedRig(t)
+	_ = s.Choose(ctx, LevelDetailed)
+	_ = s.Choose(ctx, LevelOff)
+	_ = s.Run(ctx)
+	if len(r.reqs) != 0 {
+		t.Fatalf("off sent %d", len(r.reqs))
+	}
+	f := New(Config{Store: m, Version: "v1.2.3", Getenv: envOf(map[string]string{EnvTelemetry: "off"}), HTTP: r, Sources: newFake()})
+	_, _ = m.Enable(ctx, LevelDetailed)
+	before := m.disabled
+	_ = f.Run(ctx)
+	if len(r.reqs) != 0 || m.disabled != before+1 || m.st.Level != LevelOff {
+		t.Fatalf("forced off: %d requests, disabled %d->%d, level %q", len(r.reqs), before, m.disabled, m.st.Level)
+	}
+	d := New(Config{Store: m, Version: "v1.2.3-dev.1", Getenv: envOf(nil), HTTP: r, Sources: newFake()})
+	_, _ = m.Enable(ctx, LevelDetailed)
+	_ = d.Run(ctx)
+	if len(r.reqs) != 0 {
+		t.Fatalf("dev build sent %d", len(r.reqs))
+	}
+}
+
+func TestRunBuildFailureSendsNothing(t *testing.T) {
+	ctx := context.Background()
+	s, m, r, h, f := detailedRig(t)
+	_ = s.Choose(ctx, LevelDetailed)
+	h.Panic()
+	f.pg = 4
+	if err := s.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.reqs) != 0 || m.st.LastStatus != "error: build" || m.st.Counts.Panics != 1 {
+		t.Fatalf("%d requests, status %q, counts %+v", len(r.reqs), m.st.LastStatus, m.st.Counts)
+	}
+}
+
+func TestDetailedWithoutSourcesDegradesToBasic(t *testing.T) {
+	ctx := context.Background()
+	m, r := newMem(), &recorder{}
+	s := New(Config{Store: m, Version: "v1.2.3", Getenv: envOf(nil), HTTP: r})
+	_ = s.Choose(ctx, LevelDetailed)
+	_ = s.Run(ctx)
+	entries, err := jsonx.ObjectEntries([]byte(r.bodies[0]))
+	if err != nil || len(entries) != 3 {
+		t.Fatalf("body: %s", r.bodies[0])
+	}
+}
+
+func TestFlushStoresAndRestores(t *testing.T) {
+	ctx := context.Background()
+	s, m, _, h, _ := detailedRig(t)
+	_ = s.Choose(ctx, LevelDetailed)
+	h.Panic()
+	h.PluginError("a")
+	m.addErr = errors.New("db down")
+	if err := s.Flush(ctx); err == nil {
+		t.Fatal("flush error swallowed")
+	}
+	if !m.st.Counts.IsZero() {
+		t.Fatalf("stored on error: %+v", m.st.Counts)
+	}
+	m.addErr = nil
+	if err := s.Flush(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if m.st.Counts.Panics != 1 || m.st.Counts.PluginErrors["a"] != 1 {
+		t.Fatalf("restored counts lost: %+v", m.st.Counts)
+	}
+	if c := h.Drain(); !c.IsZero() {
+		t.Fatalf("memory not drained: %+v", c)
+	}
+	if err := New(Config{Store: m}).Flush(ctx); err != nil { // no Health configured
+		t.Fatal(err)
 	}
 }
