@@ -192,7 +192,9 @@ type InsertOutcome struct {
 type PluginInfo struct {
 	Name, Version, SDK, Description, Error, DataError string
 	Loaded                                            bool
-	Hooks, Permissions, Granted, AllowedHosts         []string
+	// TempFileLimitOff: the plugin's database role runs without temp_file_limit.
+	TempFileLimitOff                          bool
+	Hooks, Permissions, Granted, AllowedHosts []string
 	// Refused is the part of Permissions this plugin may never be given (a
 	// community plugin and its scripts); the page shows them unticked.
 	Refused                      []string
