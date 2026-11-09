@@ -166,17 +166,7 @@ func runMediaSweep(ctx context.Context, databaseURL string, args []string, out i
 	defer db.Close()
 	repo := media.NewPostgresRepository(db)
 	p := mediaSweepPlan{mediaSweepFlags: f, store: store, bucket: target.Bucket + "/" + target.Prefix,
-		loadKeys: func(ctx context.Context) (map[string]struct{}, error) {
-			rows, err := listAllMedia(ctx, repo)
-			if err != nil {
-				return nil, err
-			}
-			keys := map[string]struct{}{}
-			for _, k := range media.MediaKeys(rows) {
-				keys[k] = struct{}{}
-			}
-			return keys, nil
-		}}
+		loadKeys: repo.ReferencedKeys}
 	return mediaSweep(ctx, p, out)
 }
 
