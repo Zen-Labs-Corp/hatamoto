@@ -115,7 +115,9 @@ func compileKinds(kinds map[string]kindSpec) map[string]*jsonschema.Schema {
 // compileKind compiles one kind schema (plus the universal preset prop) with c.
 func compileKind(c *jsonschema.Compiler, name, schema string) (*jsonschema.Schema, error) {
 	c.Draft = jsonschema.Draft2020
-	url := "kind/" + name + ".json"
+	// Absolute and not a file URL: a relative URL is resolved against the working
+	// directory, which panics the whole binary at init when it cannot be read.
+	url := "mem:///builder/kind/" + name + ".json"
 	if err := c.AddResource(url, strings.NewReader(withUniversal(name, schema))); err != nil {
 		return nil, err
 	}
