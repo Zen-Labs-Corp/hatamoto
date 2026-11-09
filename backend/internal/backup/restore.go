@@ -41,7 +41,7 @@ type RestoreOptions struct {
 // RestoreRequest is one restore.
 type RestoreRequest struct {
 	Source    string // a backup id or the path of a .tar
-	AdminURL  string // superuser DSN for the role bootstrap
+	AdminURL  string // DSN of a superuser, or of a role with CREATEROLE, CREATEDB and CREATE on the target database, for the role bootstrap
 	ConfigOut string // where to write the recorded config; empty means the config is not written
 	DryRun    bool
 }
