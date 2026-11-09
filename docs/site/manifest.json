@@ -139,6 +139,7 @@
         "deploy-systemd",
         "reverse-proxy-tls",
         "backups",
+        "managed-postgresql",
         "hardening",
         "email"
       ],
