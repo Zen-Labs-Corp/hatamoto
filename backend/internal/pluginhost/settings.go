@@ -9,6 +9,7 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,12 +32,19 @@ func NewSettingsStore(pool *pgxpool.Pool) *SettingsStore { return &SettingsStore
 
 // CompileSchema compiles a plugin settings schema (JSON Schema 2020-12).
 func CompileSchema(schema []byte) (*jsonschema.Schema, error) {
+	// An absolute, non-file URL: a relative one is resolved against the working
+	// directory (an error when the process cannot read it) and as a file on disk.
+	const url = "mem:///plugin/settings.json"
 	c := jsonschema.NewCompiler()
 	c.Draft = jsonschema.Draft2020
-	if err := c.AddResource("settings.json", bytes.NewReader(schema)); err != nil {
+	// A plugin's schema loads nothing else: a $ref to a file or URL is an error.
+	c.LoadURL = func(s string) (io.ReadCloser, error) {
+		return nil, fmt.Errorf("external reference %q is not allowed", s)
+	}
+	if err := c.AddResource(url, bytes.NewReader(schema)); err != nil {
 		return nil, fmt.Errorf("pluginhost: parse settings schema: %w", err)
 	}
-	sch, err := c.Compile("settings.json")
+	sch, err := c.Compile(url)
 	if err != nil {
 		return nil, fmt.Errorf("pluginhost: compile settings schema: %w", err)
 	}

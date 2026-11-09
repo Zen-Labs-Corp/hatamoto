@@ -3,6 +3,7 @@ package entity
 import (
 	"encoding/json/jsontext"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 
@@ -18,9 +19,7 @@ type Validator struct {
 
 // NewValidator creates a new JSON Schema validator.
 func NewValidator() *Validator {
-	compiler := jsonschema.NewCompiler()
-	compiler.Draft = jsonschema.Draft2020
-	installLenientFormats(compiler)
+	compiler := newSchemaCompiler()
 	return &Validator{
 		compiler: compiler,
 	}
@@ -71,6 +70,27 @@ func lenientURI(v any) bool {
 // "url" / "iri" formats on the supplied compiler with the lenient checker
 // above. Apply this to every Compiler we instantiate so all validation
 // paths agree on what counts as a URI.
+// schemaURL is where a content type schema is compiled. It is absolute and not a
+// file URL: the compiler resolves a relative URL against the working directory
+// (which fails when the process cannot read it), and treats it as a file on disk.
+const schemaURL = "mem:///entity/schema.json"
+
+// newSchemaCompiler returns a Draft 2020-12 compiler with the lenient URI
+// formats that loads nothing but the schema it is given: a $ref to a file or a
+// URL is an error, so a schema can never read the server's disk.
+func newSchemaCompiler() *jsonschema.Compiler {
+	c := jsonschema.NewCompiler()
+	c.Draft = jsonschema.Draft2020
+	installLenientFormats(c)
+	c.LoadURL = refuseExternalRef
+	return c
+}
+
+// refuseExternalRef is a jsonschema LoadURL that loads nothing.
+func refuseExternalRef(s string) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("external reference %q is not allowed", s)
+}
+
 func installLenientFormats(c *jsonschema.Compiler) {
 	c.Formats["uri"] = lenientURI
 	c.Formats["uri-reference"] = lenientURI
@@ -117,15 +137,13 @@ func (v *Validator) ValidateSchema(schemaJSON jsontext.Value) error {
 	}
 
 	// Try to compile the schema to validate it
-	compiler := jsonschema.NewCompiler()
-	compiler.Draft = jsonschema.Draft2020
-	installLenientFormats(compiler)
+	compiler := newSchemaCompiler()
 
-	if err := compiler.AddResource("schema.json", strings.NewReader(string(schemaJSON))); err != nil {
+	if err := compiler.AddResource(schemaURL, strings.NewReader(string(schemaJSON))); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidSchema, err)
 	}
 
-	if _, err := compiler.Compile("schema.json"); err != nil {
+	if _, err := compiler.Compile(schemaURL); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidSchema, err)
 	}
 
@@ -358,15 +376,13 @@ func (v *Validator) ValidateAttributes(schemaJSON, attributesJSON jsontext.Value
 	}
 
 	// Compile the schema
-	compiler := jsonschema.NewCompiler()
-	compiler.Draft = jsonschema.Draft2020
-	installLenientFormats(compiler)
+	compiler := newSchemaCompiler()
 
-	if err := compiler.AddResource("schema.json", strings.NewReader(string(schemaJSON))); err != nil {
+	if err := compiler.AddResource(schemaURL, strings.NewReader(string(schemaJSON))); err != nil {
 		return fmt.Errorf("%w: failed to parse schema: %v", ErrValidationFailed, err)
 	}
 
-	schema, err := compiler.Compile("schema.json")
+	schema, err := compiler.Compile(schemaURL)
 	if err != nil {
 		return fmt.Errorf("%w: failed to compile schema: %v", ErrValidationFailed, err)
 	}
@@ -455,11 +471,9 @@ func (v *Validator) ValidateWithDetails(schemaJSON, attributesJSON jsontext.Valu
 		attributesJSON = jsontext.Value(`{}`)
 	}
 
-	compiler := jsonschema.NewCompiler()
-	compiler.Draft = jsonschema.Draft2020
-	installLenientFormats(compiler)
+	compiler := newSchemaCompiler()
 
-	if err := compiler.AddResource("schema.json", strings.NewReader(string(schemaJSON))); err != nil {
+	if err := compiler.AddResource(schemaURL, strings.NewReader(string(schemaJSON))); err != nil {
 		result.Valid = false
 		result.Errors = append(result.Errors, ValidationError{
 			Path:    "",
@@ -468,7 +482,7 @@ func (v *Validator) ValidateWithDetails(schemaJSON, attributesJSON jsontext.Valu
 		return result
 	}
 
-	schema, err := compiler.Compile("schema.json")
+	schema, err := compiler.Compile(schemaURL)
 	if err != nil {
 		result.Valid = false
 		result.Errors = append(result.Errors, ValidationError{
