@@ -396,8 +396,12 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 	if err != nil {
 		return *info, fmt.Errorf("trust keys: %w", err)
 	}
+	version := manifestVersion
+	if mediaStorage != "" {
+		version = objectMediaManifestVersion
+	}
 	mf := manifest{
-		Format: manifestFormat, Version: manifestVersion, Created: info.Created,
+		Format: manifestFormat, Version: version, Created: info.Created,
 		Kind: info.Kind, Target: info.Target, HatamotoVersion: e.opts.Version,
 		ServerMajor: server, PgDump: pgVersion, Parts: parts, Plugins: pluginNames,
 		ContentRows: man.Rows, MediaFiles: man.MediaFiles, MediaBytes: man.MediaBytes, MediaMissing: man.MediaMissing, MediaStorage: mediaStorage,

@@ -15,9 +15,14 @@ import (
 const (
 	manifestFormat  = "hatamoto-backup"
 	manifestVersion = 1
-	manifestName    = "manifest.json"
-	secretsName     = "secrets.env"
-	configName      = "config.env"
+	// objectMediaManifestVersion is the version of an archive that carries
+	// media_storage: a binary that predates object storage refuses it instead
+	// of restoring a site without its media. Archives of a local site stay at
+	// manifestVersion.
+	objectMediaManifestVersion = 2
+	manifestName               = "manifest.json"
+	secretsName                = "secrets.env"
+	configName                 = "config.env"
 )
 
 type part struct {

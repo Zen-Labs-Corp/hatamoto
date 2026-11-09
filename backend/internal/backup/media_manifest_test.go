@@ -207,3 +207,47 @@ func TestBackupOnObjectStorageFailsWhenNoReferencedObjectExists(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// An archive that carries media_storage is version 2, so an older binary
+// refuses it; a local archive stays at 1. Restore reads both.
+func TestManifestVersionFollowsMediaStorage(t *testing.T) {
+	ctx := context.Background()
+	fake := s3test.NewServer(t)
+	r, _ := s3Rig(t, fake, "2026/a.png")
+	if _, err := r.e.opts.MediaStore.Put(ctx, "2026/a.png", strings.NewReader("a")); err != nil {
+		t.Fatal(err)
+	}
+	info, err := r.e.Create(ctx, Request{Kind: KindManual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mf manifest
+	if err := jsonx.Unmarshal(archiveEntry(t, filepath.Join(r.data, "backups", info.ID+".tar"), manifestName), &mf, jsonx.StoredLoose); err != nil {
+		t.Fatal(err)
+	}
+	if mf.MediaStorage != "s3" || mf.Version != 2 {
+		t.Errorf("object storage archive: storage %q version %d, want s3 and 2", mf.MediaStorage, mf.Version)
+	}
+
+	local := newRig(t)
+	linfo, err := local.e.Create(ctx, Request{Kind: KindManual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lmf manifest
+	if err := jsonx.Unmarshal(archiveEntry(t, filepath.Join(local.data, "backups", linfo.ID+".tar"), manifestName), &lmf, jsonx.StoredLoose); err != nil {
+		t.Fatal(err)
+	}
+	if lmf.MediaStorage != "" || lmf.Version != 1 {
+		t.Errorf("local archive: storage %q version %d, want none and 1", lmf.MediaStorage, lmf.Version)
+	}
+}
+
+func TestRestoreReadsManifestVersions1And2(t *testing.T) {
+	for _, v := range []int{1, 2} {
+		r := newRestoreRig(t)
+		if _, err := r.dry(t, buildArchive(t, func(s *archSpec) { s.Mf.Version = v })); err != nil {
+			t.Errorf("version %d refused: %v", v, err)
+		}
+	}
+}

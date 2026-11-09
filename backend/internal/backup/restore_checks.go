@@ -120,8 +120,8 @@ func scanArchive(file string) (*scanned, error) {
 	if s.mf.Format != manifestFormat {
 		return nil, fmt.Errorf("%s is not a hatamoto backup (format %q)", file, s.mf.Format)
 	}
-	if s.mf.Version > manifestVersion {
-		return nil, fmt.Errorf("backup manifest version %d is newer than this binary reads (%d)", s.mf.Version, manifestVersion)
+	if s.mf.Version > objectMediaManifestVersion {
+		return nil, fmt.Errorf("backup manifest version %d is newer than this binary reads (%d)", s.mf.Version, objectMediaManifestVersion)
 	}
 	return s, nil
 }
