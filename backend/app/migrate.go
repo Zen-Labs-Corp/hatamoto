@@ -13,6 +13,7 @@ import (
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/lock"
 
+	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/migrations"
 )
 
@@ -54,6 +55,7 @@ func migrateUp(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) err
 			logger.Info("migration applied", "version", r.Source.Version, "file", r.Source.Path, "took", r.Duration)
 		}
 		if err != nil {
+			recordMigrationFailure(config.ResolveDataDir())
 			return fmt.Errorf("migrate up: %w", err)
 		}
 		if len(res) == 0 {
