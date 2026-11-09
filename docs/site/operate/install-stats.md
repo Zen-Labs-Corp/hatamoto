@@ -87,7 +87,7 @@ The health counts are numbers only: never a message, a path, a URL, a stack trac
 |---|---|
 | `since_hours` | The length of the window the counts cover, in hours. |
 | `panics` | Recovered panics in request handling. |
-| `http_5xx` | Responses with a status of 500 or more, including the 500 written for a recovered panic. |
+| `http_5xx` | Responses with a status of 500 or more, except 503, which Hatamoto answers on purpose (maintenance mode, a failing readiness check, a feature that is not configured, a busy upload queue). Includes the 500 written for a recovered panic. |
 | `render_errors` | Public page render failures, attributed to the active theme. |
 | `plugin_errors` | Per listed plugin: traps, timeouts, memory-limit stops and errors returned by the plugin code. Errors of plugins that are not listed are summed under the key `other`. |
 | `update_failed` | Updates that failed. |

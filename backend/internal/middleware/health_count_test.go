@@ -14,7 +14,9 @@ func TestCountServerErrors(t *testing.T) {
 		status int
 		want   int
 	}{
-		{"503", http.StatusServiceUnavailable, 1},
+		{"503 is deliberate", http.StatusServiceUnavailable, 0},
+		{"502", http.StatusBadGateway, 1},
+		{"504", http.StatusGatewayTimeout, 1},
 		{"500", http.StatusInternalServerError, 1},
 		{"200", http.StatusOK, 0},
 		{"404", http.StatusNotFound, 0},

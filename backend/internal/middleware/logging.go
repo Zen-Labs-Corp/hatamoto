@@ -115,7 +115,9 @@ func RecoveryLogger(logger *slog.Logger, redact func(path string) string, opts .
 }
 
 // CountServerErrors calls onErr once per response whose final status is 500 or
-// higher. Place it outside RecoveryLogger so the 500 written for a recovered
+// higher, except 503: the server answers that on purpose (maintenance mode,
+// /readyz while the database is away, a feature that is not configured, a busy
+// upload queue), so counting it would bury real failures. Place it outside RecoveryLogger so the 500 written for a recovered
 // panic is seen too (that request counts as both a panic and a server error).
 // A nil onErr makes it a pass-through.
 func CountServerErrors(onErr func()) func(http.Handler) http.Handler {
@@ -126,7 +128,7 @@ func CountServerErrors(onErr func()) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			wrapped := wrapResponseWriter(w)
 			next.ServeHTTP(wrapped, r)
-			if wrapped.status >= http.StatusInternalServerError {
+			if wrapped.status >= http.StatusInternalServerError && wrapped.status != http.StatusServiceUnavailable {
 				onErr()
 			}
 		})
