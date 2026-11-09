@@ -33,6 +33,9 @@ type profileData struct {
 	// Initials fill the avatar until a photo exists; RoleLabel and RoleKind draw the role badge.
 	Initials, RoleLabel, RoleKind string
 
+	// DensityCards are the Display card's choices, the saved one checked.
+	DensityCards []ui.RadioCardItem
+
 	// TwoFactor shows the link to Profile > Security.
 	TwoFactor bool
 
@@ -51,6 +54,7 @@ var profileFields = []struct{ ID, Label string }{
 func (a *Admin) mountProfile(authed *httpx.Group) {
 	authed.HandleFunc("GET /profile", a.handleProfile)
 	authed.HandleFunc("POST /profile", a.handleProfileSave)
+	authed.HandleFunc("POST /profile/density", a.handleProfileDensity)
 	authed.HandleFunc("POST /profile/password", a.handleProfilePassword)
 	authed.HandleFunc("GET /profile/complete", a.handleProfileComplete)
 	authed.HandleFunc("POST /profile/complete", a.handleProfileCompleteSave)
@@ -115,6 +119,11 @@ func (a *Admin) renderProfile(w http.ResponseWriter, r *http.Request, status int
 	d.Initials = initialsOf(cmp.Or(d.Name, u.Name, u.Email))
 	d.RoleKind = roleBadgeKind(u.Role)
 	d.RoleLabel = strings.ToUpper(u.Role[:1]) + u.Role[1:]
+	cur := densityOf(r)
+	d.DensityCards = []ui.RadioCardItem{
+		{Value: "comfortable", Title: "Comfortable", Description: "Today's sizes", Checked: cur == "comfortable"},
+		{Value: "compact", Title: "Compact", Description: "About 10% smaller, more on screen", Checked: cur == "compact"},
+	}
 	v := a.NewView(w, r, "Your profile")
 	if page == "profile/complete" {
 		v.Title = "Complete your profile"
@@ -175,6 +184,18 @@ func (a *Admin) handleProfileSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.SetFlash(w, r, "success", "Profile saved.")
+	http.Redirect(w, r, a.adminPath+"/profile", http.StatusSeeOther)
+}
+
+// handleProfileDensity stores the display density in a cookie (per browser).
+// It needs no person record, so it does not wait for the People store.
+func (a *Admin) handleProfileDensity(w http.ResponseWriter, r *http.Request) {
+	v := "comfortable"
+	if r.PostFormValue("density") == "compact" {
+		v = "compact"
+	}
+	a.setDensity(w, r, v)
+	a.SetFlash(w, r, "success", "Display saved.")
 	http.Redirect(w, r, a.adminPath+"/profile", http.StatusSeeOther)
 }
 
