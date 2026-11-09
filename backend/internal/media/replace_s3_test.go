@@ -126,3 +126,47 @@ func TestS3ReplaceRejectsBeforeTouchingTheBucket(t *testing.T) {
 	}
 	e.assertClean(t)
 }
+
+// cancelOnUpdateRepo cancels the request context when the row update runs,
+// i.e. after the new bytes were put, and fails the update.
+type cancelOnUpdateRepo struct {
+	fakeRepo
+	cancel context.CancelFunc
+}
+
+func (r *cancelOnUpdateRepo) UpdateFile(ctx context.Context, m *Media) error {
+	r.cancel()
+	return ctx.Err()
+}
+
+func TestS3ReplaceRollsBackAfterTheRequestIsCancelled(t *testing.T) {
+	e := newS3Env(t)
+	repo := &cancelOnUpdateRepo{}
+	svc := NewService(repo, Config{UploadDir: e.localDir, BaseURL: "/media", MaxSizeMB: 20, Store: e.svc.store}, slog.Default())
+	svc.SetFormatPolicy(func(context.Context) Formats { return Formats{WebP: true} })
+	orig := jpegPhoto(t, 3000, 2000)
+	m, err := svc.Upload(context.Background(), nil, bytes.NewReader(orig), "photo.jpg", "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := map[string][]byte{}
+	for k, o := range e.fake.Objects() {
+		before[k] = o.Data
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	repo.cancel = cancel
+	next := jpegPhoto(t, 2000, 1000)
+	if _, err := svc.Replace(ctx, m.ID, bytes.NewReader(next), "new.jpg", int64(len(next))); err == nil {
+		t.Fatal("expected the update error")
+	}
+	got := e.fake.Objects()
+	if len(got) != len(before) {
+		t.Errorf("objects after rollback: %d, want %d", len(got), len(before))
+	}
+	for k, want := range before {
+		if !bytes.Equal(got[k].Data, want) {
+			t.Errorf("object %s was not restored", k)
+		}
+	}
+}

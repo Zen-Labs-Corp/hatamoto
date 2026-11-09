@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -180,6 +181,9 @@ func (s *Service) Replace(ctx context.Context, id uuid.UUID, file io.Reader, fil
 	return &nm, nil
 }
 
+// rollbackTimeout bounds the object storage calls of a replace rollback.
+const rollbackTimeout = time.Minute
+
 // replaceInStore is Replace for a store without rename. The new bytes are
 // spooled to a temporary file and checked there; only then is the bucket
 // touched. An object write is atomic, so the original is overwritten in place
@@ -228,15 +232,19 @@ func (s *Service) replaceInStore(ctx context.Context, m *Media, body io.Reader, 
 	// fail puts the old objects back and removes new variants the old list did
 	// not have.
 	fail := func(newVariants []ImageVariant, err error) (*Media, error) {
+		// A client that went away must not stop the rollback: the bucket
+		// would keep the new bytes next to the old row.
+		rb, cancel := context.WithTimeout(context.WithoutCancel(ctx), rollbackTimeout)
+		defer cancel()
 		for _, v := range newVariants {
 			if _, had := snap.files[v.Path]; !had {
-				s.removeBlob(ctx, v.Path)
+				s.removeBlob(rb, v.Path)
 			}
 		}
 		if !snap.has(m.StoragePath) {
-			s.removeBlob(ctx, m.StoragePath)
+			s.removeBlob(rb, m.StoragePath)
 		}
-		snap.restore(ctx, s.store, s.logger)
+		snap.restore(rb, s.store, s.logger)
 		return nil, err
 	}
 
