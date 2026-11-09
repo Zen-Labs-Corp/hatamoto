@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"context"
 	"errors"
 	"net/http/httptest"
 	"testing"
@@ -9,10 +8,6 @@ import (
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/s3/s3test"
 )
-
-type fakeMediaProbe struct{ err error }
-
-func (f fakeMediaProbe) Test(context.Context) error { return f.err }
 
 func mediaStoreAt(t *testing.T, endpoint string) *media.S3Store {
 	t.Helper()
