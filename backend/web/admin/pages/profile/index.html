@@ -11,7 +11,7 @@
 {{template "hm/card-foot-end"}}
 </form>
 <form method="post" action="{{adminPath}}/profile/density" class="hm-cardform">
-{{template "hm/card-start" dict "ID" "display-card" "Title" "Display" "Description" "Text and spacing in this browser."}}
+{{template "hm/card-start" dict "ID" "display-card" "Title" "Display"}}
 {{template "hm/csrf" $}}
 {{template "hm/radiocard" (dict "Legend" "Text and spacing" "Name" "density" "Cols" 2 "ID" "density" "Items" .DensityCards)}}
 {{template "hm/card-foot"}}

@@ -121,7 +121,7 @@ func (a *Admin) renderProfile(w http.ResponseWriter, r *http.Request, status int
 	d.RoleLabel = strings.ToUpper(u.Role[:1]) + u.Role[1:]
 	cur := densityOf(r)
 	d.DensityCards = []ui.RadioCardItem{
-		{Value: "comfortable", Title: "Comfortable", Description: "Today's sizes", Checked: cur == "comfortable"},
+		{Value: "comfortable", Title: "Comfortable", Description: "Current size", Checked: cur == "comfortable"},
 		{Value: "compact", Title: "Compact", Description: "About 10% smaller, more on screen", Checked: cur == "compact"},
 	}
 	v := a.NewView(w, r, "Your profile")
