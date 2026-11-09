@@ -35,6 +35,7 @@ type Backend interface {
 	Claim(ctx context.Context, version string) (id string, ok bool, err error)
 	AddHealth(ctx context.Context, d Counts) error
 	RecordResult(ctx context.Context, status, version string, sent *Counts) error
+	RecordKeptDay(ctx context.Context, version string) error
 	DismissNudge(ctx context.Context) error
 	Banner(ctx context.Context) (BannerKind, error)
 }
@@ -237,6 +238,9 @@ func (s *Service) Run(ctx context.Context) error {
 	body, sent, err := s.body(ctx, id, st)
 	if err != nil {
 		s.log.Warn("install stats: body not built, nothing sent", "error", err)
+		if errors.Is(err, errKeepDetailedDay) {
+			return s.store.RecordKeptDay(ctx, s.version)
+		}
 		return s.store.RecordResult(ctx, "error: build", s.version, nil)
 	}
 	status := s.post(ctx, body)
@@ -246,7 +250,8 @@ func (s *Service) Run(ctx context.Context) error {
 
 // body builds the request body for the stored level, and returns the health
 // counts it carries (nil for a Basic body). Detailed falls back to Basic
-// without sources, or when the Detailed body cannot be built; the counts then stay stored.
+// without sources, or when the Detailed body cannot be built, unless a Detailed
+// body was already sent today (errKeepDetailedDay); the counts then stay stored.
 func (s *Service) body(ctx context.Context, id string, st State) ([]byte, *Counts, error) {
 	if st.Level == LevelDetailed {
 		if s.sources != nil {
@@ -258,6 +263,11 @@ func (s *Service) body(ctx context.Context, id string, st State) ([]byte, *Count
 			if err == nil {
 				return b, &st.Counts, nil
 			}
+			if st.DetailedSentToday {
+				// The receiver replaces a day's rows: a Basic body would wipe
+				// the Detailed one it holds.
+				return nil, nil, errKeepDetailedDay
+			}
 			s.log.Warn("install stats: detailed body not built, sending the basic body", "error", err)
 		} else if s.warned.CompareAndSwap(false, true) {
 			s.log.Warn("install stats: no detailed sources, sending the basic body")
@@ -266,6 +276,9 @@ func (s *Service) body(ctx context.Context, id string, st State) ([]byte, *Count
 	b, err := encodeBasic(Payload{Install: id, Version: s.version, Channel: s.channelName(ctx)})
 	return b, nil, err
 }
+
+// errKeepDetailedDay says a Detailed body went out today and cannot be rebuilt.
+var errKeepDetailedDay = errors.New("detailed body not built after one was sent today")
 
 func (s *Service) channelName(ctx context.Context) string {
 	if s.channel == nil {

@@ -377,6 +377,17 @@ func (s *Store) RecordResult(ctx context.Context, status, version string, sent *
 	return nil
 }
 
+// RecordKeptDay records "error: build" for a send that was not made because a
+// Detailed body already went out the same UTC day and a Basic one would
+// replace it at the receiver. The version still counts as reported, so the
+// hourly check does not retry.
+func (s *Store) RecordKeptDay(ctx context.Context, version string) error {
+	if _, err := s.db.Exec(ctx, `UPDATE hatamoto_install_stats SET last_status = 'error: build', last_sent_version = $1 WHERE id`, version); err != nil {
+		return fmt.Errorf("record install stats kept day: %w", err)
+	}
+	return nil
+}
+
 // DismissNudge stores that the owner dismissed the Detailed offer. It does
 // nothing unless the level is basic.
 func (s *Store) DismissNudge(ctx context.Context) error {

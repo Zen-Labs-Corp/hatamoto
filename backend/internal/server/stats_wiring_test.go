@@ -52,7 +52,8 @@ func (m *memStats) addedCounts() installstats.Counts {
 func (m *memStats) RecordResult(context.Context, string, string, *installstats.Counts) error {
 	return nil
 }
-func (m *memStats) DismissNudge(context.Context) error { return nil }
+func (m *memStats) RecordKeptDay(context.Context, string) error { return nil }
+func (m *memStats) DismissNudge(context.Context) error          { return nil }
 func (m *memStats) Banner(context.Context) (installstats.BannerKind, error) {
 	return installstats.BannerNone, nil
 }

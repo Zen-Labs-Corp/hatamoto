@@ -572,3 +572,36 @@ func TestBasicThenDetailedWindowStartsAtChoice_Integration(t *testing.T) {
 		t.Fatalf("window %v, want the Enable time %v", got.WindowStart, detailed.WindowStart)
 	}
 }
+
+// DetailedSentToday follows the database's UTC day, and RecordKeptDay marks
+// the version reported without touching the counts.
+func TestDetailedSentTodayAndKeptDay_Integration(t *testing.T) {
+	ctx := context.Background()
+	pool := scratchPool(t)
+	st := NewStore(pool)
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.AddHealth(ctx, Counts{Panics: 3}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := st.Claim(ctx, "v1"); err != nil || !ok {
+		t.Fatalf("claim: %v %v", ok, err)
+	}
+	if got, _ := st.Load(ctx); got.DetailedSentToday {
+		t.Fatal("nothing was sent yet")
+	}
+	if err := st.RecordResult(ctx, "ok", "v1", &Counts{Panics: 3}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := st.Load(ctx); !got.DetailedSentToday {
+		t.Fatal("a Detailed ok today is not seen")
+	}
+	if err := st.RecordKeptDay(ctx, "v2"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := st.Load(ctx)
+	if got.LastStatus != "error: build" || got.LastSentVersion != "v2" || got.Sent.Panics != 3 || got.Counts.Panics != 3 || !got.DetailedSentToday {
+		t.Fatalf("after kept day: %+v", got)
+	}
+}

@@ -106,6 +106,12 @@ func (m *memStore) RecordResult(_ context.Context, s, version string, sent *Coun
 	}
 	return nil
 }
+func (m *memStore) RecordKeptDay(_ context.Context, version string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.st.LastStatus, m.st.LastSentVersion = "error: build", version
+	return nil
+}
 func (m *memStore) AddHealth(_ context.Context, d Counts) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -571,6 +577,38 @@ func TestRunUnreportableDetailedFallsBackToBasicAndMarksTheVersion(t *testing.T)
 		if len(r.bodies) != 1 {
 			t.Fatalf("%s: a reported version was sent again", name)
 		}
+	}
+}
+
+// A Detailed report already went out today; a version-change resend whose
+// build fails must not replace it with a Basic ping at the receiver.
+func TestRunSameDayBuildFailureKeepsTheDetailedReport(t *testing.T) {
+	ctx := context.Background()
+	s, m, r, h, f := detailedRig(t)
+	_ = s.Choose(ctx, LevelDetailed)
+	h.Panic()
+	h.Panic()
+	h.Panic()
+	if err := s.Run(ctx); err != nil || len(r.bodies) != 1 {
+		t.Fatalf("first run: %v, %d bodies", err, len(r.bodies))
+	}
+	f.theme.Version = "1.02.0"
+	m.claimedAt = time.Now().Add(-time.Hour)
+	m.st.LastSentVersion = "v1.0.0"
+	if err := s.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.bodies) != 1 {
+		t.Fatalf("a second body was sent: %v", r.bodies)
+	}
+	if m.st.LastStatus != "error: build" || m.st.LastSentVersion != "v1.2.3" || m.st.Sent.Panics != 3 || m.st.Counts.Panics != 3 {
+		t.Fatalf("status %q version %q sent %+v counts %+v", m.st.LastStatus, m.st.LastSentVersion, m.st.Sent, m.st.Counts)
+	}
+	// The version counts as reported: the next hourly check stays quiet.
+	m.claimedAt = time.Now().Add(-2 * time.Hour)
+	_ = s.Run(ctx)
+	if len(r.bodies) != 1 {
+		t.Fatal("the hourly loop sent again")
 	}
 }
 
