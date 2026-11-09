@@ -31,7 +31,7 @@ The settings below are examples. Never put the secret key in a file that is comm
    HATAMOTO_MEDIA_S3_SECRET_KEY=<secret key>
    ```
 
-   Leave `HATAMOTO_MEDIA_S3_ENDPOINT` empty to use Amazon S3 in the given region. The prefix is placed in front of every object name exactly as you write it, so end it with `/` to keep the files in a folder of the bucket. Several sites can share one bucket with different prefixes. The endpoint must use `https`, unless it is a local or private address such as a MinIO on your own network.
+   Leave `HATAMOTO_MEDIA_S3_ENDPOINT` empty to use Amazon S3 in the given region. The prefix is placed in front of every object name exactly as you write it. It is either empty or a folder path that ends with `/`, with no leading `/`, no empty segments and no `..`; anything else stops the start. Several sites can share one bucket with different prefixes, such as `site-a/` and `site-b/`. The prefix must hold only media: `/media` serves every object under it, so never point it at a folder that holds anything else. For the same reason the server refuses to start when the media prefix and the off-site backup target share a bucket and one prefix contains the other (an empty prefix contains all of them): give the backups their own bucket or a separate prefix. The endpoint must use `https`, unless it is a local or private address such as a MinIO on your own network.
 
 2. See what would be copied. A dry run reads the library and the bucket and writes nothing:
 

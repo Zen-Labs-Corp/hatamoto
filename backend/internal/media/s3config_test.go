@@ -63,3 +63,39 @@ func TestS3TargetFromEnv(t *testing.T) {
 		t.Errorf("error leaks: %v", err)
 	}
 }
+
+func TestS3TargetFromEnvValidatesThePrefix(t *testing.T) {
+	for prefix, ok := range map[string]bool{
+		"": true, "site-a/": true, "a/b/": true,
+		"site-a": false, "/site-a/": false, "a/../b/": false, "a//b/": false, "../": false, "/": false,
+	} {
+		env := fullS3Env()
+		env[EnvS3Prefix] = prefix
+		_, err := S3TargetFromEnv(envMap(env))
+		if (err == nil) != ok {
+			t.Errorf("prefix %q: err = %v, want ok=%v", prefix, err, ok)
+		}
+	}
+}
+
+func TestS3TargetSharesWith(t *testing.T) {
+	mt := S3Target{Endpoint: "https://objects.example.com", Bucket: "b", Prefix: "media/"}
+	for _, tc := range []struct {
+		endpoint, bucket, prefix string
+		want                     bool
+	}{
+		{"https://objects.example.com", "b", "backups/", false},
+		{"https://objects.example.com", "b", "", true},
+		{"https://objects.example.com/", "b", "media/", true},
+		{"https://objects.example.com", "b", "media/x/", true},
+		{"https://objects.example.com", "other", "", false},
+		{"https://elsewhere.example.com", "b", "", false},
+	} {
+		if got := mt.SharesWith(tc.endpoint, tc.bucket, tc.prefix); got != tc.want {
+			t.Errorf("%+v: got %v", tc, got)
+		}
+	}
+	if !(S3Target{Endpoint: "https://o", Bucket: "b"}).SharesWith("https://o", "b", "backups/") {
+		t.Error("an empty media prefix contains every prefix")
+	}
+}

@@ -17,6 +17,7 @@ import (
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/middleware"
+	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/server"
 	"hatamoto.dev/core/internal/user"
@@ -395,6 +396,9 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	logger.Info("connected to database")
 
 	if err := migrateUp(ctx, db.Pool(), logger); err != nil {
+		return err
+	}
+	if err := checkMediaOffsiteOverlap(ctx, os.Getenv, offsite.NewStore(db.Pool()).Get); err != nil {
 		return err
 	}
 	faultAfterMigrate()

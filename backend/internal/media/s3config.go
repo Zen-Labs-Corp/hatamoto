@@ -75,5 +75,41 @@ func S3TargetFromEnv(getenv func(string) string) (S3Target, error) {
 	if _, err := s3.ValidateEndpoint(t.Endpoint); err != nil {
 		return S3Target{}, fmt.Errorf("%s: %w", EnvS3Endpoint, err)
 	}
+	if err := validatePrefix(t.Prefix); err != nil {
+		return S3Target{}, fmt.Errorf("%s: %w", EnvS3Prefix, err)
+	}
 	return t, nil
+}
+
+// validatePrefix accepts an empty prefix or a "/"-terminated path of
+// non-empty segments, so a prefix never matches a sibling that merely starts
+// with the same letters and never climbs out with "..".
+func validatePrefix(p string) error {
+	if p == "" {
+		return nil
+	}
+	if !strings.HasSuffix(p, "/") {
+		return errors.New("must be empty or end with a slash")
+	}
+	if strings.HasPrefix(p, "/") {
+		return errors.New("must not start with a slash")
+	}
+	for _, seg := range strings.Split(strings.TrimSuffix(p, "/"), "/") {
+		if seg == "" || seg == ".." {
+			return errors.New(`must not contain empty or ".." segments`)
+		}
+	}
+	return nil
+}
+
+// SharesWith reports whether the other target (an off-site backup target, say)
+// is the same bucket at the same endpoint with a prefix that contains this one
+// or is contained in it. /media serves every object under the media prefix, so
+// such a bucket would publish the other target's objects.
+func (t S3Target) SharesWith(endpoint, bucket, prefix string) bool {
+	norm := func(e string) string { return strings.ToLower(strings.TrimRight(strings.TrimSpace(e), "/")) }
+	if t.Bucket != bucket || norm(t.Endpoint) != norm(endpoint) {
+		return false
+	}
+	return strings.HasPrefix(t.Prefix, prefix) || strings.HasPrefix(prefix, t.Prefix)
 }

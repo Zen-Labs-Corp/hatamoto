@@ -70,7 +70,7 @@ Under systemd put them in the environment file; under Docker use `environment:` 
 | `HATAMOTO_MEDIA_S3_ENDPOINT` | empty | Endpoint of the object storage service, a bare `https://host` (`http` only for local or private addresses). Empty means Amazon S3 in the region below. Read when `MEDIA_STORAGE=s3`, and by `hatamoto media migrate`. |
 | `HATAMOTO_MEDIA_S3_REGION` | none | Region of the bucket. Required for `s3`. |
 | `HATAMOTO_MEDIA_S3_BUCKET` | none | Bucket name. Required for `s3`. |
-| `HATAMOTO_MEDIA_S3_PREFIX` | empty | Placed in front of every object name exactly as written; end it with `/` to use a folder of the bucket. |
+| `HATAMOTO_MEDIA_S3_PREFIX` | empty | Empty, or a folder of the bucket that ends with `/` (no leading `/`, no `..`). It must hold only media: `/media` serves every object under it. |
 | `HATAMOTO_MEDIA_S3_ACCESS_KEY` | none | Access key. Required for `s3`. |
 | `HATAMOTO_MEDIA_S3_SECRET_KEY` | none | Secret key. Required for `s3`. Read from the environment only; Hatamoto never stores it. |
 
