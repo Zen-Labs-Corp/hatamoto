@@ -49,7 +49,7 @@
 .hm-be .prose table { border-collapse: collapse; margin: 0 0 1.1em; font-size: .95em; }
 .hm-be .prose th, .hm-be .prose td { border: 1px solid var(--border); padding: .4em .6em; text-align: left; vertical-align: top; }
 /* The formatting toolbar shows by default and stays under the top bar while the text scrolls. */
-.hm-be .hm-ed--blog > .hm-ed__bar { position: sticky; top: 56px; z-index: var(--z-sticky); margin: 0 0 var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-1); }
+.hm-be .hm-ed--blog > .hm-ed__bar { position: sticky; top: var(--editor-bar-h); z-index: var(--z-sticky); margin: 0 0 var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-1); }
 @media (max-width: 45rem) { .hm-be .hm-ed--blog > .hm-ed__bar { position: static; } }
 .hm-be .hm-ed__btn[data-hm-suggest] { margin-inline-start: auto; color: var(--color-accent); font-weight: var(--weight-medium); }
 /* Link suggestions (the toolbar's "Suggest links"): rule matches in the live draft. */
@@ -68,7 +68,7 @@
 .hm-be__link[data-done] .hm-be__link-anchor { color: var(--color-success); }
 .hm-be__side { min-width: 0; display: flex; flex-direction: column; background: var(--color-paper); border-top: 1px solid var(--border); }
 @media (min-width: 960px) {
-  .hm-be__side { position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; border-top: 0; border-left: 1px solid var(--border); }
+  .hm-be__side { position: sticky; top: var(--editor-bar-h); height: calc(100vh - var(--editor-bar-h)); overflow-y: auto; border-top: 0; border-left: 1px solid var(--border); }
 }
 /* Sections are flat blocks split by hairlines: no card box, radius or shadow. */
 .hm-be__side .hm-card { background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; box-shadow: none; }

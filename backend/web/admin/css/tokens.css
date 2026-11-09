@@ -98,6 +98,10 @@
   --badge-h: 22px;
   --badge-h-sm: 15px; /* compact pill (hm-badge--sm) */
   --chip-h: 1.5rem;
+  --topbar-h: 48px;
+  --editor-bar-h: 56px;
+  --nav-link-h: 34px;
+  --icon-size: 16px;
   --sidebar-w: 224px;
   --subnav-w: 208px;
   --sidebar-rail-w: 56px; /* collapsed sidebar: icons only */
@@ -292,4 +296,18 @@
     --chart-bar-quiet: #2e2e31;
     color-scheme: dark;
   }
+}
+
+/* Compact density: about 90% of Comfortable, whole px, text floored at 11px. Names are the plugin contract; only values change here. */
+:root[data-admin-density="compact"] {
+  --control-h: 32px; --control-h-sm: 29px; --control-h-xs: 25px; /* xs stays >= 25: WCAG 2.5.8 needs 24 */
+  --badge-h: 20px; --badge-h-sm: 13px;
+  --sidebar-w: 202px; --subnav-w: 187px; --sidebar-rail-w: 50px;
+  --page-narrow: 684px; --page-wide: 1296px; --page-pad-x: 43px; --page-pad-y: 29px;
+  --space-1: 4px; --space-1-5: 5px; --space-2: 7px; --space-2-5: 9px; --space-3: 11px; --space-4: 14px;
+  --space-5: 18px; --space-6: 22px; --space-8: 29px; --space-12: 43px;
+  --text-2xs: 11px; --text-xs: 11px; --text-sm: 12px; --text-md: 13px; --text-reading: 14px; --text-lg: 14px;
+  --text-title: 16px; --text-xl: 18px; --text-2xl: 22px; --text-metric: 25px; --text-3xl: 2rem;
+  --leading-5: 18px; --leading-5-5: 20px; --leading-6: 22px; --leading-7: 25px; --leading-8: 29px;
+  --topbar-h: 43px; --editor-bar-h: 50px; --nav-link-h: 31px; --icon-size: 14px;
 }

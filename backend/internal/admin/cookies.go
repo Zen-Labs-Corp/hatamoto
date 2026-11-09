@@ -90,6 +90,26 @@ func themeOf(r *http.Request) string {
 	return "auto"
 }
 
+const densityCookie = "hm_density"
+
+// densityOf is the display density the page renders with: "compact" only when
+// chosen, anything else is "comfortable".
+func densityOf(r *http.Request) string {
+	if c, err := r.Cookie(densityCookie); err == nil && c.Value == "compact" {
+		return "compact"
+	}
+	return "comfortable"
+}
+
+// setDensity stores the choice for a year. Comfortable is stored too, so the
+// choice is explicit.
+func (a *Admin) setDensity(w http.ResponseWriter, r *http.Request, v string) {
+	http.SetCookie(w, &http.Cookie{
+		Name: densityCookie, Value: v, Path: "/", MaxAge: int(365 * 24 * time.Hour / time.Second),
+		Secure: a.secure(r), SameSite: http.SameSiteLaxMode,
+	})
+}
+
 // handleTheme toggles light/dark. It is a POST (CSRF-checked like the rest) so
 // the server can render data-admin-theme on <html> with no flash and no inline
 // script.

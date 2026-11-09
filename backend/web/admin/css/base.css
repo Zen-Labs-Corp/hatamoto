@@ -73,14 +73,14 @@ form.hm-stack { max-width: 46rem; }
 .hm-row--between { justify-content: space-between; }
 .hm-muted { color: var(--text-muted); }
 .hm-mono { font-family: var(--font-mono); }
-.hm-icon { width: 16px; height: 16px; flex: none; }
+.hm-icon { width: var(--icon-size); height: var(--icon-size); flex: none; }
 [hidden] { display: none !important; }
 
 /* app shell */
 .hm-shell { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100vh; min-height: 100dvh; }
 .hm-shell__main { min-width: 0; }
-/* Editor layout: no sidebar, a 56px sticky bar with a way back. */
-.hm-editor-bar { position: sticky; top: 0; z-index: var(--z-header); display: flex; align-items: center; gap: var(--space-4); height: 56px; padding: 0 var(--space-6); background: var(--surface); border-bottom: 1px solid var(--border); }
+/* Editor layout: no sidebar, a sticky bar with a way back. */
+.hm-editor-bar { position: sticky; top: 0; z-index: var(--z-header); display: flex; align-items: center; gap: var(--space-4); height: var(--editor-bar-h); padding: 0 var(--space-6); background: var(--surface); border-bottom: 1px solid var(--border); }
 .hm-editor-bar__back { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 32px; color: var(--text-body); font-size: var(--text-sm); font-weight: var(--weight-medium); text-decoration: none; }
 .hm-editor-bar__back:hover { color: var(--text); }
 .hm-editor-bar__back:focus-visible { outline: var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
@@ -89,14 +89,14 @@ form.hm-stack { max-width: 46rem; }
 /* Phones: the crumbs give way and the save state shrinks to one ellipsed line; it is never
    display:none, so it stays seen and announced. The bar wraps its buttons. */
 @media (max-width: 45rem) {
-  .hm-editor-bar { height: auto; min-height: 56px; flex-wrap: wrap; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-4); }
+  .hm-editor-bar { height: auto; min-height: var(--editor-bar-h); flex-wrap: wrap; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-4); }
   .hm-editor-bar__crumbs { display: none; }
   .hm-editor-bar__state { max-inline-size: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-xs); }
 }
 .hm-content { min-width: 0; }
 /* Top bar: sidebar toggle and the breadcrumb, a hairline below. The toggle needs script, so it
    stays hidden until admin.js shows it. */
-.hm-topbar { display: flex; align-items: center; gap: var(--space-2); height: 48px; padding: 0 var(--space-4); border-bottom: 1px solid var(--border); background: var(--bg); }
+.hm-topbar { display: flex; align-items: center; gap: var(--space-2); height: var(--topbar-h); padding: 0 var(--space-4); border-bottom: 1px solid var(--border); background: var(--bg); }
 .hm-topbar__sep { width: 1px; height: 16px; background: var(--border); }
 .hm-topbar__crumbs ol { display: flex; gap: var(--space-2); list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); color: var(--color-hai); }
 .hm-topbar__crumbs li + li::before { content: "\203A"; margin-right: var(--space-2); display: inline-block; transform: translateY(-1px); }

@@ -343,6 +343,7 @@ POST /admin/plugins/{name}/uninstall -> admin.(*Admin).handlePluginUninstall-fm
 POST /admin/plugins/{name}/update -> admin.(*Admin).handlePluginUpdate-fm
 POST /admin/profile -> admin.(*Admin).handleProfileSave-fm
 POST /admin/profile/complete -> admin.(*Admin).handleProfileCompleteSave-fm
+POST /admin/profile/density -> admin.(*Admin).handleProfileDensity-fm
 POST /admin/profile/password -> admin.(*Admin).handleProfilePassword-fm
 POST /admin/profile/security/codes -> admin.(*Admin).handleCodesRegenerate-fm
 POST /admin/profile/security/passkeys/begin -> admin.(*Admin).handlePasskeyAddBegin-fm

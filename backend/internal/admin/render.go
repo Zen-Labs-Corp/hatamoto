@@ -73,6 +73,8 @@ type View struct {
 	SiteURL string
 	Lang    string
 	Theme   string
+	// Density is "compact" or "comfortable"; only compact renders an attribute.
+	Density string
 	Path    string
 	// adminPath is the admin URL prefix of the instance that built the view;
 	// use prefix(), which falls back to the default for a hand-made View.
@@ -443,7 +445,7 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	as, _ := a.state()
 	ctx := r.Context()
 	v := &View{
-		Title: title, SiteName: a.deps.SiteNameFallback, Lang: "en", Theme: themeOf(r), Path: r.URL.Path, adminPath: a.adminPath, speculation: a.speculation, appVersion: a.appVersion,
+		Title: title, SiteName: a.deps.SiteNameFallback, Lang: "en", Theme: themeOf(r), Density: densityOf(r), Path: r.URL.Path, adminPath: a.adminPath, speculation: a.speculation, appVersion: a.appVersion,
 		Nonce: Nonce(ctx), CSRF: csrfToken(ctx), Assets: as, User: userFrom(ctx),
 	}
 	if a.deps.Demo.Enabled {

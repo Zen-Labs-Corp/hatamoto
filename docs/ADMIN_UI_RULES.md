@@ -771,6 +771,7 @@ Label renames that touch template wording are not done here. Each is owned by th
 | Plain footer (`.hm-card__foot--plain`) | same, no border, no inline padding |
 | Sticky footer (`.hm-savebar`) | the same geometry, `position: sticky; bottom: 0`, flat |
 | Radius, spacing, stacking, type | tokens only: `--radius-sm\|md\|lg` (6, 8, 12px), `--radius-full`, `--space-*` (half steps `--space-0-5`, `-1-5`, `-2-5`), `--z-*`, `--text-*`; no literal radii, z-index or font sizes in partial CSS (see `docs/ADMIN.md`) |
+| Compact density | every size token in `tokens.css` also has a value in the `:root[data-admin-density="compact"]` block (about 90%, whole px, text never below 11px, controls never below 24px; exempt: radii, hairlines, z-index, weights); `make design-check` enforces it (density guard) |
 | Button | height 36px, radius 6px, 13px text, weight 500; `--sm` is 32px |
 | Switch (`.hm-switch`) | 32px by 18px track, radius 999px, colours from tokens |
 | Dialog footer (`.hm-dialog__foot`) | same values as the card footer |
