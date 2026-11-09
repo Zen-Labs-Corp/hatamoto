@@ -253,7 +253,11 @@ func (s *Service) replaceInStore(ctx context.Context, m *Media, body io.Reader, 
 		return fail(nil, ErrStorageFailed)
 	}
 	if nm.IsImage() && sniffed != svgMIME && nm.SupportsVariants() {
+		// The new copies take the names of the live ones: let the cleanup of a
+		// failed write see the live list, then start from none again.
+		nm.Variants = m.Variants
 		variants, err := s.createVariants(ctx, &nm, newTmp)
+		nm.Variants = []ImageVariant{}
 		if errors.Is(err, ErrImageTooLarge) {
 			return fail(variants, err)
 		} else if err != nil {

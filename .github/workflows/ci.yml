@@ -80,6 +80,19 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
+      # The backup and restore tests shell out to pg_dump, pg_restore and psql, which must be
+      # the server's major. The runner image ships another one, and /usr/bin/psql picks the
+      # highest installed, so the matching bin directory goes first on PATH.
+      - name: Install PostgreSQL client matching the server
+        if: inputs.tier == 'full'
+        env:
+          PG: ${{ matrix.pg }}
+        run: |
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y "postgresql-client-$PG"
+          echo "/usr/lib/postgresql/$PG/bin" >> "$GITHUB_PATH"
+          "/usr/lib/postgresql/$PG/bin/pg_dump" --version | grep -q " $PG\."
       - name: Apply migrations
         if: matrix.pg == '18' || inputs.tier == 'full'
         run: go run ./cmd/hatamoto migrate
@@ -182,7 +195,7 @@ jobs:
           if grep -h -e '--- SKIP' /tmp/wh.log /tmp/whm.log /tmp/whl.log /tmp/whr.log; then echo 'a guarded webhook test was skipped' >&2; exit 1; fi
       # A named test that is missing, renamed or skipped must fail the job, not
       # pass silently. must_run <pkg> <Test>...: runs exactly those tests and
-      # requires a "--- PASS" line for each (and no SKIP).
+      # requires a "--- PASS" line for each (and no SKIP, not even of a subtest).
       - name: Must-run tests
         if: inputs.tier == 'full'
         run: |
@@ -191,15 +204,15 @@ jobs:
             names=$(IFS='|'; echo "$*")
             log=$(mktemp)
             go test -count=1 -v -tags=integration -run "^($names)\$" "$pkg" | tee "$log"
-            for t in "$@"; do
-              grep -q -e "^--- PASS: $t " "$log" || { echo "must-run test missing or not passing: $t" >&2; exit 1; }
-              if grep -q -e "^--- SKIP: $t " "$log"; then echo "must-run test skipped: $t" >&2; exit 1; fi
-            done
+            bash ../scripts/must-run-check.sh "$log" "$@"
           }
           # A4: a plugin whose plugin.js would call /admin/... is not linked without the site.scripts
           # grant, and its section and partial templates need the grant too.
           must_run ./internal/packages TestHostilePluginJS_NotLinkedWithoutGrant TestHostilePluginJS_SectionsAndPartialsNeedTheGrant
           must_run ./internal/wasmhost TestHostileGuests
+          # D8: backup, restore and the role-admin bootstrap as a non-superuser admin. They skip
+          # without psql/pg_dump of the server's major, so a skip (also of a subtest) fails here.
+          must_run ./internal/backup TestBackupRestoreAsSuperuserAndCreateRoleAdmin TestBootstrapNeedsGrantOptionOnDatabaseCreate TestBootstrapRefusesSchemaOfAnotherOwner TestBootstrapWorksForAdminWithoutInheritance TestBootstrapRefusesAdminWithoutSetOnAppRole
           # E3: the SDK builds from outside the repo (local mode: replace to backend/pkg/sdk).
           bash ../scripts/test-sdk-external.sh
       - name: govulncheck

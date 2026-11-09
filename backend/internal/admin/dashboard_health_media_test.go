@@ -1,8 +1,11 @@
 package admin
 
 import (
+	"bytes"
 	"errors"
+	"log/slog"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/media"
@@ -32,16 +35,24 @@ func TestDashboardHealthMediaStorage(t *testing.T) {
 		probe MediaStorageProbe
 		value string
 		kind  string
+		logs  string // the failure is logged with its error text
 	}{
-		{"reachable", mediaStoreAt(t, fake.URL), "Object storage, reachable", "success"},
-		{"closed server", mediaStoreAt(t, closedURL), "Object storage: bucket unreachable", "danger"},
-		{"invalid settings", media.UnavailableStore(errors.New("HATAMOTO_MEDIA_S3_BUCKET is not set")).(MediaStorageProbe), "Object storage: bucket unreachable", "danger"},
+		{"reachable", mediaStoreAt(t, fake.URL), "Object storage, reachable", "success", ""},
+		{"closed server", mediaStoreAt(t, closedURL), "Object storage: bucket unreachable", "danger", ""},
+		{"invalid settings", media.UnavailableStore(errors.New("HATAMOTO_MEDIA_S3_BUCKET is not set")).(MediaStorageProbe), "Object storage: bucket unreachable", "danger", "HATAMOTO_MEDIA_S3_BUCKET is not set"},
 	} {
-		g := newRig(t, func(d *Deps) { d.MediaStorage = tc.probe })
+		var logBuf bytes.Buffer
+		g := newRig(t, func(d *Deps) {
+			d.MediaStorage = tc.probe
+			d.Logger = slog.New(slog.NewTextHandler(&logBuf, nil))
+		})
 		items, _ := healthOf(t, g)
 		it, ok := items["Media storage"]
 		if !ok || it.Badge.Label != tc.value || it.Badge.Kind != tc.kind {
 			t.Errorf("%s: %+v (found %v)", tc.name, it, ok)
+		}
+		if !strings.Contains(logBuf.String(), tc.logs) {
+			t.Errorf("%s: log %q does not carry %q", tc.name, logBuf.String(), tc.logs)
 		}
 	}
 }

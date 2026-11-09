@@ -450,3 +450,147 @@ func TestBootstrapRefusesSchemaOfAnotherOwner(t *testing.T) {
 		t.Fatalf("err = %v\n%s", err, out)
 	}
 }
+
+// bootstrapNonOwnerSetup makes the D8 shape of a managed server: an application role that owns
+// the database, and an admin that is neither the owner of the core tables nor inheriting
+// the application role. It holds CREATE on the database through a grant option.
+func bootstrapNonOwnerSetup(c *d8Cluster, membership string) (adm, db string) {
+	u := strings.ReplaceAll(uuid.NewString(), "-", "")[:10]
+	adm, db = "hm_d8_no_"+u, "hm_d8_no_db_"+u
+	c.makeRole(c.appRole, "NOCREATEROLE")
+	c.makeRole(adm, "CREATEROLE CREATEDB NOSUPERUSER NOINHERIT")
+	c.exec(c.url(c.super.Config().User, "postgres"),
+		"GRANT "+c.appRole+" TO "+adm+" "+membership,
+		"CREATE DATABASE "+db+" OWNER "+c.appRole)
+	c.dbs = append(c.dbs, db)
+	c.exec(c.appURL(db), "GRANT CREATE ON DATABASE "+db+" TO "+adm+" WITH GRANT OPTION")
+	return adm, db
+}
+
+// A hand run after the core migrations, by an admin that holds SET on the application role
+// but does not inherit it: the core id is read as the application role, and a rerun works.
+func TestBootstrapWorksForAdminWithoutInheritance(t *testing.T) {
+	c := newD8Cluster(t, adminSuperuser)
+	adm, db := bootstrapNonOwnerSetup(c, "WITH SET TRUE, INHERIT FALSE")
+	c.migrate(db)
+
+	for run := 1; run <= 2; run++ {
+		if out, err := c.bootstrapAs(db, adm); err != nil {
+			t.Fatalf("run %d: %v\n%s", run, err, out)
+		}
+	}
+	conn, err := pgx.Connect(context.Background(), c.url(c.super.Config().User, db))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(context.Background())
+	var adminID, coreID string
+	if err := conn.QueryRow(context.Background(), `SELECT id FROM hatamoto_admin.instance`).Scan(&adminID); err != nil {
+		t.Fatal(err)
+	}
+	c.id8 = adminID[:8]
+	if err := conn.QueryRow(context.Background(), `SELECT id FROM public.hatamoto_instance`).Scan(&coreID); err != nil {
+		t.Fatal(err)
+	}
+	if adminID != coreID {
+		t.Errorf("hatamoto_admin.instance.id = %s, public.hatamoto_instance.id = %s", adminID, coreID)
+	}
+}
+
+// An admin with neither inheritance nor SET on the application role cannot read the core id;
+// it gets a clear message, no raw permission error, and nothing is left behind.
+func TestBootstrapRefusesAdminWithoutSetOnAppRole(t *testing.T) {
+	c := newD8Cluster(t, adminSuperuser)
+	adm, db := bootstrapNonOwnerSetup(c, "WITH SET FALSE, INHERIT FALSE")
+	c.migrate(db)
+
+	out, err := c.bootstrapAs(db, adm)
+	if err == nil || !strings.Contains(out, "cannot read public.hatamoto_instance") || strings.Contains(out, "permission denied") {
+		t.Fatalf("err = %v\n%s", err, out)
+	}
+	conn, err := pgx.Connect(context.Background(), c.url(c.super.Config().User, db))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(context.Background())
+	var left bool
+	if err := conn.QueryRow(context.Background(), `SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'hatamoto_admin')`).Scan(&left); err != nil {
+		t.Fatal(err)
+	}
+	if left {
+		t.Error("the hatamoto_admin schema was left behind")
+	}
+}
+
+// The application role owns public.hatamoto_instance and could replace it with a view
+// whose function runs as whoever reads it. The bootstrap refuses anything but a plain
+// table, as a superuser and as an admin that inherits the application role.
+func TestBootstrapRefusesInstanceViewPlantedByAppRole(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		super bool
+	}{{"admin that inherits the app role", false}, {"superuser", true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newD8Cluster(t, adminSuperuser)
+			adm, db := bootstrapNonOwnerSetup(c, "WITH SET TRUE, INHERIT TRUE")
+			c.migrate(db)
+			c.exec(c.appURL(db),
+				"ALTER TABLE public.hatamoto_instance RENAME TO hatamoto_instance_real",
+				"CREATE VIEW public.hatamoto_instance AS SELECT id FROM public.hatamoto_instance_real")
+			role := adm
+			if tc.super {
+				role = c.super.Config().User
+			}
+			out, err := c.bootstrapAs(db, role)
+			if err == nil || !strings.Contains(out, "not a plain table") {
+				t.Fatalf("err = %v\n%s", err, out)
+			}
+		})
+	}
+}
+
+// The application role owns public.hatamoto_instance and can also change its
+// shape without replacing it: give the id column a type with an assignment cast
+// to text (the cast function would run as a superuser reader), or force row-level
+// security on it (a policy would run as an inheriting reader). The bootstrap
+// refuses both, as a superuser and as an admin that inherits the application role.
+func TestBootstrapRefusesReshapedInstanceTable(t *testing.T) {
+	shapes := []struct {
+		name  string
+		stmts []string
+	}{
+		{"cast-typed id column", []string{
+			"CREATE TYPE public.hm_d8_t AS (x text)",
+			"CREATE FUNCTION public.hm_d8_evil(public.hm_d8_t) RETURNS text LANGUAGE sql AS $$ SELECT 'x'::text $$",
+			"CREATE CAST (public.hm_d8_t AS text) WITH FUNCTION public.hm_d8_evil(public.hm_d8_t) AS ASSIGNMENT",
+			"ALTER TABLE public.hatamoto_instance DROP CONSTRAINT hatamoto_instance_id_check",
+			"ALTER TABLE public.hatamoto_instance ALTER id TYPE public.hm_d8_t USING row(id)::public.hm_d8_t",
+		}},
+		{"forced row-level security", []string{
+			"ALTER TABLE public.hatamoto_instance ENABLE ROW LEVEL SECURITY",
+			"ALTER TABLE public.hatamoto_instance FORCE ROW LEVEL SECURITY",
+		}},
+	}
+	for _, sh := range shapes {
+		for _, asSuper := range []bool{false, true} {
+			name := sh.name + "/admin"
+			if asSuper {
+				name = sh.name + "/superuser"
+			}
+			t.Run(name, func(t *testing.T) {
+				c := newD8Cluster(t, adminSuperuser)
+				adm, db := bootstrapNonOwnerSetup(c, "WITH SET TRUE, INHERIT TRUE")
+				c.migrate(db)
+				c.exec(c.appURL(db), sh.stmts...)
+				role := adm
+				if asSuper {
+					role = c.super.Config().User
+				}
+				out, err := c.bootstrapAs(db, role)
+				if err == nil || !strings.Contains(out, "not a plain table with a text id and no row-level security") {
+					t.Fatalf("err = %v\n%s", err, out)
+				}
+			})
+		}
+	}
+}

@@ -112,16 +112,24 @@ func runBackup(ctx context.Context, args []string, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "backup %s\nsize %s\npath %s/backups/%s.tar\n", info.ID, humanBytes(info.Size), config.ResolveDataDir(), info.ID)
-		for _, name := range []string{"secrets.env", "config.env"} {
-			if slices.Contains(info.Parts, name) {
-				fmt.Fprintf(out, "includes %s\n", name)
-			}
-		}
-		fmt.Fprintln(out, "Note: the archive holds your database and secrets.env (when present). Keep it private.")
+		printBackupCreated(out, info)
 		return nil
 	}
 	return errors.New(backupUsageErr)
+}
+
+// printBackupCreated reports a finished `backup create`.
+func printBackupCreated(out io.Writer, info backup.Info) {
+	fmt.Fprintf(out, "backup %s\nsize %s\npath %s/backups/%s.tar\n", info.ID, humanBytes(info.Size), config.ResolveDataDir(), info.ID)
+	if info.MediaMissing > 0 {
+		fmt.Fprintf(out, "media files missing: %d\n", info.MediaMissing)
+	}
+	for _, name := range []string{"secrets.env", "config.env"} {
+		if slices.Contains(info.Parts, name) {
+			fmt.Fprintf(out, "includes %s\n", name)
+		}
+	}
+	fmt.Fprintln(out, "Note: the archive holds your database and secrets.env (when present). Keep it private.")
 }
 
 // mediaObjectTarget names the media bucket and prefix when MEDIA_STORAGE=s3

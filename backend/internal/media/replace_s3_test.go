@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -167,6 +168,35 @@ func TestS3ReplaceRollsBackAfterTheRequestIsCancelled(t *testing.T) {
 	for k, want := range before {
 		if !bytes.Equal(got[k].Data, want) {
 			t.Errorf("object %s was not restored", k)
+		}
+	}
+}
+
+// A failed write of a copy the row already names must not delete that copy:
+// the new copies of a replacement are written under the same names.
+func TestS3ReplaceFailedVariantWriteKeepsTheLiveVariant(t *testing.T) {
+	ctx := context.Background()
+	svc, repo, e := newS3ReplaceEnv(t)
+	m, err := svc.Upload(ctx, nil, bytes.NewReader(jpegPhoto(t, 3000, 2000)), "photo.jpg", "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var live string
+	for _, v := range m.Variants {
+		if strings.HasSuffix(v.Path, "_thumbnail.jpg") {
+			live = v.Path
+		}
+	}
+	if live == "" {
+		t.Fatalf("no thumbnail among %v", m.Variants)
+	}
+	e.fake.PutThenFail(func(k string) bool { return strings.HasSuffix(k, "_thumbnail.jpg") })
+	repo.fail = true // the rollback restores the old copies; only the bug deletes one
+	next := jpegPhoto(t, 2800, 1900)
+	_, _ = svc.Replace(ctx, m.ID, bytes.NewReader(next), "photo.jpg", int64(len(next)))
+	for _, r := range e.fake.Requests() {
+		if r.Method == http.MethodDelete && strings.HasSuffix(r.Path, live) {
+			t.Errorf("the live variant %s was deleted", live)
 		}
 	}
 }

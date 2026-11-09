@@ -370,28 +370,70 @@ func (s *Server) serveStoredObject(w http.ResponseWriter, r *http.Request, rel s
 		mediaStoreFailure(w, err)
 		return
 	}
-	defer body.Close()
+	defer func() { body.Close() }()
+	// refetchWhole drops the current response and sends the whole object, with
+	// the details of the response that carries those bytes: a range cut from an
+	// older version of the object must never be sent under a newer validator.
+	refetchWhole := func() error {
+		body.Close()
+		got, rg, body, err = s.mediaService.GetObjectRange(ctx, rel, "")
+		if err != nil {
+			body = io.NopCloser(strings.NewReader(""))
+		}
+		return err
+	}
+	if rg.Partial && (got.ETag != info.ETag || !ifRangeHolds(r, got)) {
+		if err := refetchWhole(); err != nil {
+			mediaStoreFailure(w, err)
+			return
+		}
+	}
 	timer.Stop()
 	idle := time.AfterFunc(mediaIdleTimeout, cancel)
 	idle.Stop() // each Read starts it
-	br := bufio.NewReaderSize(&idleReader{r: body, timer: idle, idle: mediaIdleTimeout}, media.SniffLen)
 
 	// The type is sniffed from the start of the object. A range that does not
 	// cover the sniff window (and is not the whole short object) fetches those
-	// bytes separately, bounded by its own store timeout.
+	// bytes separately, bounded by its own store timeout. A read that fails
+	// here is a store failure, not a reason to serve the file as a download.
 	var head []byte
-	if rg.Partial && !(rg.Start == 0 && (rg.End-rg.Start+1 >= media.SniffLen || rg.End == got.Size-1)) {
+	var br *bufio.Reader
+	for {
+		br = bufio.NewReaderSize(&idleReader{r: body, timer: idle, idle: mediaIdleTimeout}, media.SniffLen)
+		if !(rg.Partial && !(rg.Start == 0 && (rg.End-rg.Start+1 >= media.SniffLen || rg.End == got.Size-1))) {
+			var perr error
+			head, perr = br.Peek(media.SniffLen)
+			if perr != nil && !errors.Is(perr, io.EOF) && !errors.Is(perr, bufio.ErrBufferFull) {
+				mediaStoreFailure(w, perr)
+				return
+			}
+			break
+		}
 		headCtx, headCancel := context.WithTimeout(ctx, mediaStoreTimeout)
 		defer headCancel()
-		_, _, hb, err := s.mediaService.GetObjectRange(headCtx, rel, fmt.Sprintf("bytes=0-%d", media.SniffLen-1))
+		hinfo, _, hb, err := s.mediaService.GetObjectRange(headCtx, rel, fmt.Sprintf("bytes=0-%d", media.SniffLen-1))
 		if err != nil {
 			mediaStoreFailure(w, err)
 			return
 		}
-		head, _ = io.ReadAll(io.LimitReader(&idleReader{r: hb, timer: idle, idle: mediaIdleTimeout}, media.SniffLen))
+		head, err = io.ReadAll(io.LimitReader(&idleReader{r: hb, timer: idle, idle: mediaIdleTimeout}, media.SniffLen))
 		hb.Close()
-	} else {
-		head, _ = br.Peek(media.SniffLen)
+		if err != nil {
+			mediaStoreFailure(w, err)
+			return
+		}
+		if hinfo.ETag == got.ETag {
+			break
+		}
+		// Replaced between the two downloads: start over with the whole object,
+		// whose own first bytes need no second request.
+		timer.Reset(mediaStoreTimeout) // the response headers wait under the store timeout too
+		err = refetchWhole()
+		timer.Stop()
+		if err != nil {
+			mediaStoreFailure(w, err)
+			return
+		}
 	}
 	length := got.Size
 	if rg.Partial {
@@ -413,19 +455,23 @@ func (s *Server) serveStoredObject(w http.ResponseWriter, r *http.Request, rel s
 // the whole object is sent.
 func singleByteRange(r *http.Request, info media.ObjectInfo) string {
 	rng := r.Header.Get("Range")
-	if !strings.HasPrefix(rng, "bytes=") || strings.Contains(rng, ",") {
+	if !strings.HasPrefix(rng, "bytes=") || strings.Contains(rng, ",") || !ifRangeHolds(r, info) {
 		return ""
 	}
-	if ir := r.Header.Get("If-Range"); ir != "" {
-		if t, err := http.ParseTime(ir); err == nil {
-			if info.ModTime.IsZero() || !info.ModTime.Truncate(time.Second).Equal(t) {
-				return ""
-			}
-		} else if info.ETag == "" || ir != info.ETag { // a weak validator never matches
-			return ""
-		}
-	}
 	return rng
+}
+
+// ifRangeHolds reports whether the request's If-Range (if any) matches the
+// object described by info.
+func ifRangeHolds(r *http.Request, info media.ObjectInfo) bool {
+	ir := r.Header.Get("If-Range")
+	if ir == "" {
+		return true
+	}
+	if t, err := http.ParseTime(ir); err == nil {
+		return !info.ModTime.IsZero() && info.ModTime.Truncate(time.Second).Equal(t)
+	}
+	return info.ETag != "" && ir == info.ETag // a weak validator never matches
 }
 
 // mediaStoreFailure answers for a store error: a missing file or an invalid

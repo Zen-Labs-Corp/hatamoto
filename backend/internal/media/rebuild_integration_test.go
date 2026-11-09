@@ -180,3 +180,27 @@ func TestListAllAfterWalksEveryRecordOnce(t *testing.T) {
 		t.Errorf("walked %d records, want %d", len(got), len(want))
 	}
 }
+
+// The sweep deletes what no row names, so a row that belongs to a run still
+// protects its files.
+func TestReferencedKeysIncludesRunRows(t *testing.T) {
+	repo := scratchMediaRepo(t)
+	ctx := context.Background()
+	m := &Media{ID: uuid.New(), Filename: "f", OriginalFilename: "o", MimeType: "image/png",
+		StorageProvider: "local", StoragePath: "t/run.png", Variants: []ImageVariant{{Size: "thumbnail", Path: "t/run_thumbnail.png"}}}
+	if err := repo.Create(ctx, m); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.db.Pool().Exec(ctx, `UPDATE hatamoto_media SET run_id = $2 WHERE id = $1`, m.ID, uuid.New()); err != nil {
+		t.Fatal(err)
+	}
+	keys, err := repo.ReferencedKeys(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"t/run.png", "t/run_thumbnail.png"} {
+		if _, ok := keys[k]; !ok {
+			t.Errorf("%s is not referenced", k)
+		}
+	}
+}

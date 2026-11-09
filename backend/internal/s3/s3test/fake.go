@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Credentials every Server accepts.
@@ -32,7 +33,12 @@ const (
 type Object struct {
 	Data []byte
 	Meta map[string]string // lower-case keys
+	// ModTime is the last-modified time; stored objects default to DefaultModTime.
+	ModTime time.Time
 }
+
+// DefaultModTime is the modification time of objects stored without one.
+var DefaultModTime = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 
 // Request is one received request.
 type Request struct {
@@ -61,6 +67,9 @@ type Server struct {
 	// Tamper, when set, may change an object right after it was stored, to
 	// model a provider that keeps something other than what it was sent.
 	Tamper func(key string, o *Object)
+
+	// failPut and putThenFail are set by FailPut and PutThenFail.
+	failPut, putThenFail func(key string) bool
 
 	mu      sync.Mutex
 	objects map[string]Object
@@ -95,7 +104,31 @@ func (s *Server) Objects() map[string]Object {
 func (s *Server) Put(key string, data []byte, meta map[string]string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.objects[key] = Object{Data: append([]byte(nil), data...), Meta: meta}
+	s.objects[key] = Object{Data: append([]byte(nil), data...), Meta: meta, ModTime: DefaultModTime}
+}
+
+// PutAt stores an object with the given modification time, which the list
+// and the Last-Modified header of GET and HEAD report.
+func (s *Server) PutAt(key string, data []byte, meta map[string]string, t time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.objects[key] = Object{Data: append([]byte(nil), data...), Meta: meta, ModTime: t}
+}
+
+// FailPut makes single PUTs of matching keys answer 500 without storing.
+func (s *Server) FailPut(fn func(key string) bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.failPut = fn
+}
+
+// PutThenFail makes single PUTs of matching keys store the object and then
+// answer an error, the ambiguous outcome of a request whose reply was lost.
+// The status is one the client does not retry, so tests stay fast.
+func (s *Server) PutThenFail(fn func(key string) bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.putThenFail = fn
 }
 
 // Corrupt flips one byte of the stored object, keeping its size.
@@ -182,6 +215,11 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodDelete && q.Has("uploadId"):
 		delete(s.uploads, q.Get("uploadId"))
 		w.WriteHeader(http.StatusNoContent)
+	case r.Method == http.MethodPut && s.failPut != nil && s.failPut(key):
+		fail(w, http.StatusInternalServerError, "InternalError")
+	case r.Method == http.MethodPut && s.putThenFail != nil && s.putThenFail(key):
+		s.store(key, Object{Data: body, Meta: metaOf(r)})
+		fail(w, http.StatusBadRequest, "InvalidRequest")
 	case r.Method == http.MethodPut:
 		s.store(key, Object{Data: body, Meta: metaOf(r)})
 		w.Header().Set("ETag", etag(body))
@@ -198,6 +236,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-Amz-Meta-"+k, v)
 		}
 		w.Header().Set("ETag", etag(o.Data))
+		w.Header().Set("Last-Modified", o.ModTime.UTC().Format(http.TimeFormat))
 		data := o.Data
 		status := http.StatusOK
 		if rng := r.Header.Get("Range"); rng != "" && r.Method == http.MethodGet {
@@ -254,8 +293,8 @@ func (s *Server) bucket(w http.ResponseWriter, r *http.Request, q map[string][]s
 		fmt.Fprintf(&b, "<NextContinuationToken>%s</NextContinuationToken>", keys[len(keys)-1])
 	}
 	for _, k := range keys {
-		fmt.Fprintf(&b, "<Contents><Key>%s</Key><Size>%d</Size><ETag>%s</ETag><LastModified>2026-01-02T03:04:05Z</LastModified></Contents>",
-			k, len(s.objects[k].Data), etag(s.objects[k].Data))
+		fmt.Fprintf(&b, "<Contents><Key>%s</Key><Size>%d</Size><ETag>%s</ETag><LastModified>%s</LastModified></Contents>",
+			k, len(s.objects[k].Data), etag(s.objects[k].Data), s.objects[k].ModTime.UTC().Format(time.RFC3339))
 	}
 	b.WriteString("</ListBucketResult>")
 	_, _ = io.WriteString(w, b.String())
@@ -315,6 +354,9 @@ func (s *Server) complete(w http.ResponseWriter, q map[string][]string, key stri
 func (s *Server) store(key string, o Object) {
 	if s.Tamper != nil {
 		s.Tamper(key, &o)
+	}
+	if o.ModTime.IsZero() {
+		o.ModTime = DefaultModTime
 	}
 	s.objects[key] = o
 }

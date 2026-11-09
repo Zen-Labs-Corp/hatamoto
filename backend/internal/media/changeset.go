@@ -126,6 +126,7 @@ func (s *Service) stageInStore(ctx context.Context, key string, src io.Reader, s
 		}
 	}
 	if err := putFile(ctx, s.store, key, tmp); err != nil {
+		s.removeBlobDetached(ctx, key) // the store may have kept the object of a call that failed
 		s.logger.Error("failed to stage file", "path", key, "error", err.Error())
 		return "", ErrStorageFailed
 	}
@@ -136,14 +137,14 @@ func (s *Service) stageInStore(ctx context.Context, key string, src io.Reader, s
 // is copied to its final place (with image variants), the row is inserted with
 // the op's origin and no run, and the staged copy is left for DeleteStaged,
 // which the caller runs after commit. If the caller's transaction later rolls
-// back, it must call RemoveFiles on the returned record.
+// back, it must call RemoveFilesDetached on the returned record.
 func (s *Service) AttachStagedTx(ctx context.Context, tx pgx.Tx, op MediaOp) (*Media, error) {
 	m, err := s.prepareAttach(ctx, op)
 	if err != nil {
 		return nil, err
 	}
 	if err := insertMediaTx(ctx, tx, m, op.Origin); err != nil {
-		s.RemoveFiles(ctx, m)
+		s.RemoveFilesDetached(ctx, m)
 		return nil, err
 	}
 	return m, nil
@@ -180,10 +181,13 @@ func (s *Service) prepareAttach(ctx context.Context, op MediaOp) (*Media, error)
 	storagePath := filepath.Join(legacyMediaTenantDir, name)
 	written, err := s.store.Put(ctx, storagePath, body)
 	if err != nil {
+		if s.local == nil {
+			s.removeBlobDetached(ctx, storagePath) // the store may have kept the object of a call that failed
+		}
 		return nil, ErrStorageFailed
 	}
 	if s.config.MaxTotalBytes > 0 && dirSize(s.uploadRoot()) > s.config.MaxTotalBytes {
-		s.removeBlob(ctx, storagePath)
+		s.removeBlobDetached(ctx, storagePath)
 		return nil, ErrQuotaExceeded
 	}
 
@@ -230,7 +234,7 @@ func (s *Service) prepareAttach(ctx context.Context, op MediaOp) (*Media, error)
 			return nil
 		})
 		if err != nil {
-			s.removeBlob(ctx, storagePath)
+			s.RemoveFilesDetached(ctx, m)
 			if errors.Is(err, ErrImageTooLarge) {
 				return nil, err
 			}
@@ -247,6 +251,15 @@ func (s *Service) RemoveFiles(ctx context.Context, m *Media) {
 	s.removeBlob(ctx, m.StoragePath)
 	for _, v := range m.Variants {
 		s.removeBlob(ctx, v.Path)
+	}
+}
+
+// RemoveFilesDetached is RemoveFiles for a failure path whose context may be
+// cancelled.
+func (s *Service) RemoveFilesDetached(ctx context.Context, m *Media) {
+	s.removeBlobDetached(ctx, m.StoragePath)
+	for _, v := range m.Variants {
+		s.removeBlobDetached(ctx, v.Path)
 	}
 }
 
@@ -331,13 +344,19 @@ func (s *Service) StagedKeyModTime(key string) (time.Time, error) {
 // it with its size. The caller closes it. Only keys under the staged
 // directory are accepted.
 func (s *Service) OpenStaged(key string) (*os.File, int64, error) {
+	return s.OpenStagedCtx(context.Background(), key)
+}
+
+// OpenStagedCtx is OpenStaged for a caller that can stop waiting: a download
+// from object storage ends when ctx does (or after storeOpTimeout).
+func (s *Service) OpenStagedCtx(ctx context.Context, key string) (*os.File, int64, error) {
 	if err := checkKey(key); err != nil || !isStagedKey(key) {
 		return nil, 0, fmt.Errorf("not a staged blob key %q", key)
 	}
 	var f *os.File
 	var err error
 	if s.local == nil {
-		f, err = s.spoolStaged(key)
+		f, err = s.spoolStaged(ctx, key)
 	} else {
 		f, err = os.Open(s.local.localPath(key))
 	}
@@ -386,8 +405,8 @@ func (s *Service) storeModTime(key string) (time.Time, error) {
 
 // spoolStaged copies the staged object at key to a temporary file that is
 // already unlinked: it vanishes when the caller closes it.
-func (s *Service) spoolStaged(key string) (*os.File, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), storeOpTimeout)
+func (s *Service) spoolStaged(ctx context.Context, key string) (*os.File, error) {
+	ctx, cancel := context.WithTimeout(ctx, storeOpTimeout)
 	defer cancel()
 	body, err := s.store.Get(ctx, key)
 	if err != nil {

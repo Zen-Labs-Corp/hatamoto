@@ -261,6 +261,7 @@ type Server struct {
 	// Lifecycle context of background work. Cancelled by Shutdown.
 	lifecycleCtx    context.Context
 	lifecycleCancel context.CancelFunc
+	uploadCache     *uploadCache // staged plugin uploads kept open between reads
 
 	// pageRuntime is the live page-cache on/off and lifetime; renderHandlers
 	// are the public handlers, kept for the preloader. Both nil until the
@@ -1043,6 +1044,9 @@ func (s *Server) Shutdown() error {
 	// The IndexNow runner flushes what is queued once the context ends.
 	if s.indexNow != nil {
 		s.indexNow.Wait(ctx)
+	}
+	if s.uploadCache != nil {
+		s.uploadCache.closeAll()
 	}
 	// A running preload watches the lifecycle context; wait for it to exit.
 	s.stopPreload()

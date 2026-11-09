@@ -9,7 +9,7 @@
 #         Only the Unix socket directory is elsewhere (a short /tmp path: socket paths are
 #         limited to ~100 bytes); the DSN uses TCP.
 # INTEGRATION_MUST_RUN  optional, one "<package> <Test>..." entry per line: after the packages, run exactly
-#         those tests (-v, integration tag) and fail unless each prints "--- PASS" and none is skipped
+#         those tests (-v, integration tag) and fail unless each prints "--- PASS" and none is skipped (a skipped subtest fails too)
 #         (the local twin of the "Must-run tests" step of .github/workflows/ci.yml). With it set,
 #         no package argument is needed.
 # GO_TEST_TIMEOUT  per-package `go test -timeout` (default 30m; Go's 10m default panics slow
@@ -98,10 +98,7 @@ run_must() { # run_must <dsn>: the INTEGRATION_MUST_RUN entries, in order
     read -ra tests <<<"$names"; re=$(IFS="|"; echo "${tests[*]}")
     DATABASE_URL=$d HATAMOTO_TEST_DB_URL=$d EMAIL_DISABLED=true \
       go test -count=1 -timeout "${GO_TEST_TIMEOUT:-30m}" -v -tags=integration -p 1 -run "^($re)\$" "$pkg" 2>&1 | tee "$log"
-    for t in $names; do
-      grep -q -e "^--- PASS: $t " "$log" || { echo "must-run test missing or not passing: $t" >&2; rc=1; }
-      if grep -q -e "^--- SKIP: $t " "$log"; then echo "must-run test skipped: $t" >&2; rc=1; fi
-    done
+    bash "$root/scripts/must-run-check.sh" "$log" $names || rc=1
   done <<<"${INTEGRATION_MUST_RUN:-}"
   return $rc
 }

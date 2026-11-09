@@ -351,3 +351,148 @@ func TestServeMediaObjectStorageStalledBodyIsCut(t *testing.T) {
 		t.Fatal("a stalled body held the request open")
 	}
 }
+
+// serveFrontedByS3 serves /media from the store at endpoint.
+func serveFrontedByS3(t *testing.T, endpoint, prefix string) http.Handler {
+	t.Helper()
+	store, err := media.NewS3Store(media.S3Target{Endpoint: endpoint, Region: s3test.Region, Bucket: s3test.Bucket,
+		Prefix: prefix, AccessKey: s3test.AccessKey, SecretKey: s3test.SecretKey}, "/media", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{mediaService: media.NewService(nil, media.Config{UploadDir: t.TempDir(), MaxSizeMB: 1, Store: store}, slog.Default())}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /media/{rest...}", s.handleServeMedia)
+	return mux
+}
+
+// A ranged request validated against the old object is never answered with
+// bytes of a replacement that landed between the lookup and the download.
+func TestServeMediaObjectStorageReplaceDuringRangedGet(t *testing.T) {
+	older := []byte("\x89PNG\r\n\x1a\n0123456789abcdef")
+	newer := []byte("\x89PNG\r\n\x1a\nNEWNEWNEWNEWNEWNEW-and-longer")
+	oldSum, newSum := md5.Sum(older), md5.Sum(newer)
+	oldETag, newETag := `"`+hex.EncodeToString(oldSum[:])+`"`, `"`+hex.EncodeToString(newSum[:])+`"`
+
+	for _, tc := range []struct {
+		name string
+		hdr  map[string]string
+	}{
+		{"if-range", map[string]string{"Range": "bytes=8-11", "If-Range": oldETag}},
+		{"no if-range", map[string]string{"Range": "bytes=8-11"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := s3test.NewServer(t)
+			target, _ := url.Parse(fake.URL)
+			proxy := httputil.NewSingleHostReverseProxy(target)
+			var gets atomic.Int32
+			front := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet && gets.Add(1) == 1 {
+					fake.Put("site/p.png", newer, nil) // replaced before the first download
+				}
+				proxy.ServeHTTP(w, r)
+			}))
+			defer front.Close()
+			fake.Put("site/p.png", older, nil)
+			w := getMedia(serveFrontedByS3(t, front.URL, "site/"), "p.png", tc.hdr)
+			switch w.Code {
+			case http.StatusOK:
+				if w.Body.String() != string(newer) || w.Header().Get("ETag") != newETag {
+					t.Errorf("200 = %q %v", w.Body.String(), w.Header())
+				}
+			case http.StatusPartialContent:
+				if w.Header().Get("ETag") != newETag && w.Header().Get("ETag") != tc.hdr["If-Range"] ||
+					w.Header().Get("ETag") == newETag && w.Body.String() != string(newer[8:12]) ||
+					w.Header().Get("ETag") == oldETag && w.Body.String() != string(older[8:12]) {
+					t.Errorf("206 = %q %v", w.Body.String(), w.Header())
+				}
+				if tc.name == "if-range" && w.Header().Get("ETag") != oldETag {
+					t.Errorf("206 under If-Range with ETag %s", w.Header().Get("ETag"))
+				}
+			default:
+				t.Errorf("status = %d", w.Code)
+			}
+			if tc.name == "no if-range" && w.Code != http.StatusOK {
+				t.Errorf("a ranged request during a replace = %d, want a coherent 200", w.Code)
+			}
+		})
+	}
+}
+
+// A body that dies in the first bytes is a store failure (502), not a file
+// served as an octet-stream download.
+func TestServeMediaObjectStorageFirstBytesReadErrorIs502(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		rng   string
+		abort func(r *http.Request) bool
+	}{
+		{"whole object", "", func(*http.Request) bool { return true }},
+		{"sniff request of a range", "bytes=5-9", func(r *http.Request) bool { return strings.HasPrefix(r.Header.Get("Range"), "bytes=0-") }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			png := "\x89PNG\r\n\x1a\nsome bytes"
+			front := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodHead {
+					w.Header().Set("Content-Length", "100000")
+					return
+				}
+				if !tc.abort(r) {
+					w.Header().Set("Content-Range", "bytes 5-9/100000")
+					w.Header().Set("Content-Length", "5")
+					w.WriteHeader(http.StatusPartialContent)
+					_, _ = w.Write([]byte(png[5:10]))
+					return
+				}
+				w.Header().Set("Content-Length", "100000")
+				_, _ = w.Write([]byte(png))
+				w.(http.Flusher).Flush()
+				panic(http.ErrAbortHandler)
+			}))
+			defer front.Close()
+			hdr := map[string]string{}
+			if tc.rng != "" {
+				hdr["Range"] = tc.rng
+			}
+			w := getMedia(serveFrontedByS3(t, front.URL, ""), "p.png", hdr)
+			if w.Code != http.StatusBadGateway || w.Header().Get("Content-Disposition") != "" {
+				t.Errorf("status = %d, headers %v", w.Code, w.Header())
+			}
+		})
+	}
+}
+
+// The whole-object refetch after a replacement found while sniffing waits for
+// the store under the same bound as every other call.
+func TestServeMediaObjectStorageSniffRefetchIsBounded(t *testing.T) {
+	older := []byte("\x89PNG\r\n\x1a\n0123456789abcdef0123456789abcdef")
+	newer := []byte("\x89PNG\r\n\x1a\nNEWNEWNEWNEWNEWNEW-and-longer-than-the-old-one")
+	fake := s3test.NewServer(t)
+	target, _ := url.Parse(fake.URL)
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	hang := make(chan struct{})
+	var gets atomic.Int32
+	front := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			switch gets.Add(1) {
+			case 2:
+				fake.Put("site/p.png", newer, nil) // replaced between the range and the sniff fetch
+			case 3:
+				<-hang
+				return
+			}
+		}
+		proxy.ServeHTTP(w, r)
+	}))
+	defer front.Close()
+	defer close(hang)
+	fake.Put("site/p.png", older, nil)
+	old := mediaStoreTimeout
+	mediaStoreTimeout = 300 * time.Millisecond
+	defer func() { mediaStoreTimeout = old }()
+	start := time.Now()
+	w := getMedia(serveFrontedByS3(t, front.URL, "site/"), "p.png", map[string]string{"Range": "bytes=20-25"})
+	if w.Code != http.StatusBadGateway || time.Since(start) > 10*time.Second {
+		t.Errorf("hung refetch = %d after %v", w.Code, time.Since(start))
+	}
+}

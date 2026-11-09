@@ -15,7 +15,7 @@ t-neutral        scripts/check-neutral.sh,scripts/test-check-neutral.sh   bash s
 jsonv1           backend/**,scripts/check-jsonv1.sh                 bash scripts/check-jsonv1.sh
 t-jsonv1         scripts/check-jsonv1.sh,scripts/test-check-jsonv1.sh   bash scripts/test-check-jsonv1.sh
 t-dco            scripts/check-dco.sh,scripts/test-check-dco.sh     bash scripts/test-check-dco.sh
-t-hooks          .githooks/**,Makefile,.gitleaks.toml,scripts/test-hooks.sh,scripts/check-neutral.sh,scripts/check-dco.sh,scripts/go-test-flaky.sh,scripts/integration-gate.sh,scripts/known-flakes.txt,scripts/check-suites.sh,scripts/check-suites.txt,scripts/affected-readers.txt   bash scripts/test-hooks.sh
+t-hooks          .githooks/**,Makefile,.gitleaks.toml,scripts/test-hooks.sh,scripts/check-neutral.sh,scripts/check-dco.sh,scripts/go-test-flaky.sh,scripts/integration-gate.sh,scripts/must-run-check.sh,scripts/known-flakes.txt,scripts/check-suites.sh,scripts/check-suites.txt,scripts/affected-readers.txt   bash scripts/test-hooks.sh
 migrations       *                                                  bash scripts/check-migrations.sh
 t-migrations     scripts/check-migrations.sh,scripts/baseline-ref.sh,scripts/test-check-migrations.sh   bash scripts/test-check-migrations.sh
 t-version        scripts/version.sh,scripts/test-version.sh        bash scripts/test-version.sh
@@ -48,4 +48,5 @@ t-publish-install scripts/publish-install.sh,scripts/test-publish-install.sh,dep
 t-ci-relevance   scripts/ci-relevance.sh,scripts/test-ci-relevance.sh   bash scripts/test-ci-relevance.sh
 t-ci-full   scripts/ci-full-plan.sh,scripts/ci-full-report.sh,scripts/test-ci-full.sh   bash scripts/test-ci-full.sh
 t-ci-smoke      scripts/ci-smoke-pkgs.sh,scripts/ci-smoke-exclude.txt,scripts/test-ci-smoke.sh   bash scripts/test-ci-smoke.sh
+t-ci-mustrun  scripts/must-run-check.sh,scripts/test-ci-must-run.sh,scripts/integration-gate.sh,.github/workflows/ci.yml  bash scripts/test-ci-must-run.sh
 t-ci-shard   scripts/ci-server-shard.sh,scripts/test-ci-server-shard.sh,.github/workflows/ci.yml   bash scripts/test-ci-server-shard.sh

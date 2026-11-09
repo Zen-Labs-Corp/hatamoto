@@ -155,6 +155,37 @@ func (r *PostgresRepository) ListAllAfter(ctx context.Context, after uuid.UUID, 
 	return r.listAfter(ctx, "run_id IS NULL", after, limit)
 }
 
+// ReferencedKeys returns the storage path and variant paths of every record,
+// whatever its type or run. `media sweep` deletes what is not in it, so it
+// must not leave a record out.
+func (r *PostgresRepository) ReferencedKeys(ctx context.Context) (map[string]struct{}, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+	rows, err := conn.Query(ctx, `SELECT storage_path, variants FROM hatamoto_media`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list media keys: %w", err)
+	}
+	defer rows.Close()
+	keys := map[string]struct{}{}
+	for rows.Next() {
+		var m Media
+		var variants []byte
+		if err := rows.Scan(&m.StoragePath, &variants); err != nil {
+			return nil, fmt.Errorf("failed to scan media keys: %w", err)
+		}
+		if err := m.UnmarshalVariants(variants); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal variants: %w", err)
+		}
+		for _, k := range MediaKeys([]*Media{&m}) {
+			keys[k] = struct{}{}
+		}
+	}
+	return keys, rows.Err()
+}
+
 func (r *PostgresRepository) listAfter(ctx context.Context, where string, after uuid.UUID, limit int) ([]*Media, error) {
 	conn, err := r.db.GetConn(ctx)
 	if err != nil {

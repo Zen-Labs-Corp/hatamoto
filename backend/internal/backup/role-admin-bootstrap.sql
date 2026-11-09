@@ -37,7 +37,9 @@
 -- path with the same result: it grants itself SET on the new role admin, moves
 -- the objects over, and finishes the script as that role. Without the privilege
 -- to grant SET ON PARAMETER the temp_file_limit grant is skipped with a NOTICE,
--- and plugin roles then run without that cap.
+-- and plugin roles then run without that cap. After the core migrations ran, that role
+-- reads the database id from the core table as the application role, so it needs SET
+-- on it (GRANT <app role> TO <this role> WITH SET TRUE); inheriting is not required.
 -- Nothing in the cluster outside the hatamoto_admin schema is altered, and the
 -- application's role gains no attribute.
 
@@ -88,14 +90,45 @@ BEGIN;
                      AND pg_has_role(current_user, nspowner, 'SET')
                      FROM pg_namespace WHERE nspname = 'hatamoto_admin'), false) AS rerun
   \gset
-  -- The core id is read as this role (it inherits the app role, which owns the
-  -- table); the role admin used on a rerun cannot read it.
+  -- The core id is read as the app role when this role holds SET on it, so that
+  -- anything the app role planted in its place runs with the app role's own
+  -- rights; only a role without SET reads it directly (it inherits the app role,
+  -- which owns the table). The role admin used on a rerun cannot read it. The app
+  -- role owns the table and could swap in a view, a column type with a cast, or a
+  -- row-level security policy whose functions would run as the reader. So the table
+  -- is locked first (no rename or drop until the transaction ends), then it must be
+  -- a plain table with a text id and no row-level security. A role with neither
+  -- route is refused with a message instead of a permission error.
   SELECT to_regclass('public.hatamoto_instance') IS NOT NULL AS has_core
   \gset
   \set core_id ''
   \if :has_core
+    SELECT has_table_privilege(current_user, 'public.hatamoto_instance', 'SELECT') AS can_read,
+           pg_has_role(current_user, :'app_role', 'SET') AS can_set
+    \gset
+    \if :can_read
+    \elif :can_set
+    \else
+      DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: this role cannot read public.hatamoto_instance; grant it SET on the application role (GRANT <app role> TO <this role> WITH SET TRUE)'; END $$;
+    \endif
+    \if :can_set
+      SET LOCAL ROLE :"app_role";
+    \endif
+    LOCK TABLE public.hatamoto_instance IN ACCESS SHARE MODE;
+    SELECT coalesce((SELECT c.relkind = 'r' AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity
+                            AND a.atttypid = 'pg_catalog.text'::regtype
+                       FROM pg_class c JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'id' AND NOT a.attisdropped
+                      WHERE c.oid = to_regclass('public.hatamoto_instance')), false) AS core_ok
+    \gset
+    \if :core_ok
+    \else
+      DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: public.hatamoto_instance is not a plain table with a text id and no row-level security'; END $$;
+    \endif
     SELECT id AS core_id FROM public.hatamoto_instance
     \gset
+    \if :can_set
+      RESET ROLE;
+    \endif
   \endif
   SELECT set_config('hatamoto.core_id', :'core_id', true) AS core_cfg
   \gset
@@ -132,6 +165,14 @@ DECLARE
 BEGIN
   core := nullif(current_setting('hatamoto.core_id', true), '');
   IF core IS NULL AND to_regclass('public.hatamoto_instance') IS NOT NULL THEN
+    -- The superuser read: same lock and checks as above, before anything runs.
+    LOCK TABLE public.hatamoto_instance IN ACCESS SHARE MODE;
+    IF NOT coalesce((SELECT c.relkind = 'r' AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity
+                            AND a.atttypid = 'pg_catalog.text'::regtype
+                       FROM pg_class c JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'id' AND NOT a.attisdropped
+                      WHERE c.oid = to_regclass('public.hatamoto_instance')), false) THEN
+      RAISE EXCEPTION 'role-admin-bootstrap: public.hatamoto_instance is not a plain table with a text id and no row-level security';
+    END IF;
     EXECUTE 'SELECT id FROM public.hatamoto_instance' INTO core;
   END IF;
   SELECT id INTO mine FROM hatamoto_admin.instance;
