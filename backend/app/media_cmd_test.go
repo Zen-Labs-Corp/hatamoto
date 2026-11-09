@@ -151,7 +151,7 @@ func TestParseMediaSweep(t *testing.T) {
 	if err != nil || !f.apply || f.olderThan != 72*time.Hour {
 		t.Fatalf("flags = %+v, %v", f, err)
 	}
-	for _, bad := range []string{"--older-than soon", "--older-than 30m", "--older-than 0s", "extra"} {
+	for _, bad := range []string{"--older-than soon", "--older-than 30m", "--older-than 23h", "--older-than 1h", "--older-than 0s", "extra"} {
 		if _, err := parseMediaSweepArgs(strings.Fields(bad)); err == nil {
 			t.Errorf("%q accepted", bad)
 		}

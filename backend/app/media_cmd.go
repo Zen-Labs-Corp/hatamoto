@@ -22,7 +22,7 @@ const mediaUsageErr = "usage: hatamoto media migrate --to s3|local [--dry-run]\n
 const mediaUsage = `  media migrate --to s3|local [--dry-run]
                                    copy the media library between local disk and object storage (verified by sha256, resumable, the source is kept)
   media sweep [--older-than 24h] [--apply]
-                                   list (and with --apply delete) files in object storage that no media record refers to (dry run by default, at least 1h old)`
+                                   list (and with --apply delete) files in object storage that no media record refers to (dry run by default, at least 24h old; do not run --apply during an import or a publish)`
 
 // maxSweepListed is how many orphan keys a dry run prints.
 const maxSweepListed = 50
@@ -35,8 +35,8 @@ type mediaSweepFlags struct {
 func parseMediaSweepArgs(args []string) (mediaSweepFlags, error) {
 	f := mediaSweepFlags{olderThan: 24 * time.Hour}
 	pos, err := flagSet("media sweep", args, func(fs *flag.FlagSet) {
-		fs.DurationVar(&f.olderThan, "older-than", f.olderThan, "only files at least this old (minimum 1h)")
-		fs.BoolVar(&f.apply, "apply", false, "delete the files found (default: only list them)")
+		fs.DurationVar(&f.olderThan, "older-than", f.olderThan, "only files at least this old (minimum 24h)")
+		fs.BoolVar(&f.apply, "apply", false, "delete the files found (default: only list them); do not run during an import or a publish")
 	})
 	if err != nil || len(pos) != 0 || f.olderThan < media.MinSweepAge {
 		return f, errors.New(mediaUsageErr)

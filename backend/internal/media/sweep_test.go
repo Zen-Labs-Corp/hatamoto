@@ -102,7 +102,7 @@ func TestSweepApplyDeletesOnlyOrphans(t *testing.T) {
 
 func TestSweepRejectsAgeBelowTheMinimum(t *testing.T) {
 	st, _ := sweepFixture(t)
-	for _, age := range []time.Duration{0, -time.Hour, 59 * time.Minute} {
+	for _, age := range []time.Duration{0, -time.Hour, time.Hour, 23 * time.Hour} {
 		if _, err := Sweep(context.Background(), st, sweepKeys(), SweepOptions{OlderThan: age, Apply: true, Now: sweepNow}); err == nil {
 			t.Errorf("age %s accepted", age)
 		}

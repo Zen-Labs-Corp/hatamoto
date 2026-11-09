@@ -11,8 +11,10 @@ import (
 )
 
 // MinSweepAge is the youngest age a sweep accepts: an object this fresh may
-// belong to an upload whose row is not written yet.
-const MinSweepAge = time.Hour
+// belong to an upload, import or changeset publish whose row is not committed
+// yet (a long publish or import writes its files first and commits the rows at
+// the end).
+const MinSweepAge = 24 * time.Hour
 
 // SweepStore is the part of a store a sweep needs.
 type SweepStore interface {
