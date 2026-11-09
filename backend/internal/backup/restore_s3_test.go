@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -120,4 +121,27 @@ func TestRestoreWithMediaBytesGoesToBucket(t *testing.T) {
 	r2.o.MediaStore = r.o.MediaStore
 	_, err := r2.dry(t, buildArchive(t, noPlugins))
 	wantRefusal(t, err, "media object storage prefix is not empty")
+}
+
+// An archive with media bytes and a media manifest, restored with no store
+// (back onto local disk), still refuses a media dir that holds files.
+func TestRestoreBytesArchiveToLocalRefusesNonEmptyMediaDir(t *testing.T) {
+	r := newRestoreRig(t)
+	if err := os.MkdirAll(r.o.MediaDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(r.o.MediaDir, "x.jpg"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	withManifest := func(s *archSpec) {
+		noPlugins(s)
+		body, err := jsonx.Marshal(mediaManifest{Version: mediaManifestVersion, Files: []mediaManifestFile{{Key: "b.txt", Size: 2, SHA256: sumOf("bb")}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.Bodies[mediaManifestName] = body
+		s.Parts = append(s.Parts, mediaManifestName)
+	}
+	_, err := r.dry(t, buildArchive(t, withManifest))
+	wantRefusal(t, err, "media dir", "is not empty")
 }

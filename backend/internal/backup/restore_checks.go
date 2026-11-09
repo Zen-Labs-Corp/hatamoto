@@ -273,7 +273,7 @@ func (x *restorer) check(ctx context.Context) (*RestorePlan, error) {
 		plan.Checks = append(plan.Checks, "target db empty")
 	}
 
-	if x.o.MediaStore != nil || s.mediaObjects != nil {
+	if x.o.MediaStore != nil || (s.mediaObjects != nil && s.mediaFiles == 0) {
 		if err := x.checkObjectMedia(ctx, plan, &refuse); err != nil {
 			return nil, err
 		}
