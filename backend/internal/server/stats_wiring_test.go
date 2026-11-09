@@ -58,6 +58,25 @@ func TestStatsJobIsKnown(t *testing.T) {
 	t.Fatal("knownWorkerJobs is missing stats_ping")
 }
 
+// The job checks hourly so a restart cannot push a report a day out; the
+// store's 20-hour claim keeps it to one send a day.
+func TestStatsJobChecksHourly(t *testing.T) {
+	t.Setenv("WORKER_DISABLE_JOBS", "")
+	s, _ := statsTestServer(true)
+	if !s.scheduleStats() {
+		t.Fatal("job not scheduled")
+	}
+	for _, j := range s.scheduler.Jobs() {
+		if j.ID == statsJob {
+			if j.Every != time.Hour || j.Jitter >= 30*time.Minute {
+				t.Fatalf("every %s jitter %s, want hourly with a small jitter", j.Every, j.Jitter)
+			}
+			return
+		}
+	}
+	t.Fatal("stats_ping not registered")
+}
+
 func TestStatsJobHonoursDisableListAndWorker(t *testing.T) {
 	t.Setenv("WORKER_DISABLE_JOBS", "")
 	if s, _ := statsTestServer(true); !s.scheduleStats() {
