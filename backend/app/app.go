@@ -440,7 +440,7 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	logger.Info("session cookie names set", "secure", cfg.AdminCookieSecure)
 
 	srv := server.New(cfg, db, logger)
-	startUpdater(srv, db.Pool(), cfg.Server.MediaUploadDir, cfg.Demo.Enabled, logger)
+	startUpdater(srv, db.Pool(), cfg.Server.MediaUploadDir, cfg.Demo.Enabled, cfg.Server.EnableWorker, logger)
 	if err := srv.Start(); err != nil {
 		return fmt.Errorf("server error: %w", err)
 	}

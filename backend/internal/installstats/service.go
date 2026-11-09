@@ -129,6 +129,10 @@ func (s *Service) View(ctx context.Context) (View, error) {
 	return View{Level: st.Level, LastSent: st.LastOKAt}, nil
 }
 
+// Health returns the in-memory collector the Service flushes; nil when none
+// was configured. Every Health method is safe on nil.
+func (s *Service) Health() *Health { return s.health }
+
 // ForcedOff reports whether HATAMOTO_TELEMETRY=off is set.
 func (s *Service) ForcedOff() bool { return ForcedOff(s.getenv) }
 

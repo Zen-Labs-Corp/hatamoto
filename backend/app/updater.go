@@ -5,13 +5,16 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"hatamoto.dev/core/internal/backup"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/installstats"
+	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/server"
 	"hatamoto.dev/core/internal/updater"
+	"hatamoto.dev/core/internal/wasmhost"
 	"hatamoto.dev/core/internal/wpimport"
 )
 
@@ -44,10 +47,14 @@ func updaterEnv(pool *pgxpool.Pool, eng *backup.Engine, logger *slog.Logger) (up
 
 // installStats builds the opt-in install stats service. Its channel is the
 // update channel; the update mode does not matter, stats have their own switch.
-func installStats(pool *pgxpool.Pool, version string, logger *slog.Logger) *installstats.Service {
+func installStats(pool *pgxpool.Pool, version string, worker bool, logger *slog.Logger) *installstats.Service {
 	us := updater.NewStore(pool)
-	return installstats.New(installstats.Config{
+	h := installstats.NewHealth()
+	wasmhost.SetErrorObserver(h.PluginError)
+	svc := installstats.New(installstats.Config{
 		Store:   installstats.NewStore(pool),
+		Health:  h,
+		Sources: statsSources{pool: pool, pkgs: packages.NewStore(pool), worker: worker},
 		Version: version,
 		Channel: func(ctx context.Context) string {
 			set, _, err := us.Load(ctx)
@@ -58,16 +65,36 @@ func installStats(pool *pgxpool.Pool, version string, logger *slog.Logger) *inst
 		},
 		Log: logger,
 	})
+	countMigrationFailures(svc, h, config.ResolveDataDir(), logger)
+	return svc
+}
+
+// countMigrationFailures adds the failed migrations recorded by earlier boots
+// (a failed migration usually ends in a rollback, so the count waits in a
+// file) to the health counts, and removes the file only once they are stored.
+func countMigrationFailures(svc *installstats.Service, h *installstats.Health, dataDir string, logger *slog.Logger) {
+	n := readMigrationFailures(dataDir)
+	if n == 0 {
+		return
+	}
+	h.MigrationFailed(int64(n))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := svc.Flush(ctx); err != nil {
+		logger.Warn("install stats: could not store the migration failure count", "error", err)
+		return
+	}
+	clearMigrationMarker(dataDir)
 }
 
 // startUpdater hands the update agent to the server. A problem here (say an
 // unusable update URL) is logged and never stops the site from starting.
-func startUpdater(srv *server.Server, pool *pgxpool.Pool, mediaDir string, demo bool, logger *slog.Logger) {
+func startUpdater(srv *server.Server, pool *pgxpool.Pool, mediaDir string, demo, worker bool, logger *slog.Logger) {
 	// One engine serves the updater's pre-update backup and the admin page.
 	version, _ := buildInfo()
 	eng := newBackupEngine(pool, mediaDir, version, logger)
 	srv.SetBackups(eng)
-	srv.SetStats(installStats(pool, version, logger))
+	srv.SetStats(installStats(pool, version, worker, logger))
 	if demo {
 		// Public demo: no update check, no apply. The Updates page says so.
 		srv.NoUpdater(errors.New("updates are switched off in the public demo"))

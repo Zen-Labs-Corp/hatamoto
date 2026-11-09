@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/installstats"
+	"hatamoto.dev/core/internal/middleware"
 )
 
 // statsJob is the worker job name WORKER_DISABLE_JOBS uses for the install
@@ -18,6 +20,23 @@ const statsJob = "stats_ping"
 // restart (an update) from pushing the next report a full day out.
 const statsCheckEvery = time.Hour
 
+// statsFlushEvery is how often the in-memory health counts go to the database
+// (at most this much is lost to a crash; a send flushes first too).
+var statsFlushEvery = 5 * time.Minute
+
+// healthSink is the install stats health collector; nil-safe to call into
+// before SetStats.
+func (s *Server) healthSink() *installstats.Health { return s.health.Load() }
+
+// recoveryChain is the outermost logging middleware: the 5xx counter outside
+// the panic recovery, so the 500 written for a recovered panic is counted too.
+func (s *Server) recoveryChain() []httpx.Middleware {
+	return []httpx.Middleware{
+		middleware.CountServerErrors(func() { s.healthSink().HTTP5xx() }),
+		middleware.RecoveryLogger(s.logger, s.redactLogPath, middleware.OnPanic(func() { s.healthSink().Panic() })),
+	}
+}
+
 // SetStats hands the install stats service to the server. Call it before
 // Start. HATAMOTO_TELEMETRY=off is applied here, once, even when the worker is
 // off, so a stored install ID is deleted at boot. The daily job is scheduled
@@ -25,8 +44,10 @@ const statsCheckEvery = time.Hour
 func (s *Server) SetStats(svc *installstats.Service) {
 	s.stats = svc
 	if svc == nil {
+		s.health.Store(nil)
 		return
 	}
+	s.health.Store(svc.Health())
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := svc.Enforce(ctx); err != nil {
@@ -36,6 +57,7 @@ func (s *Server) SetStats(svc *installstats.Service) {
 		s.admin.SetStats(adminStats{svc})
 	}
 	s.scheduleStats()
+	s.startStatsFlush()
 }
 
 // adminStats presents the install stats service to the admin.
@@ -85,4 +107,45 @@ func (s *Server) scheduleStats() bool {
 		return false
 	}
 	return true
+}
+
+// startStatsFlush moves the health counts into the database every
+// statsFlushEvery until Shutdown, which flushes once more. It does not need
+// the worker scheduler, and nothing runs in a public demo.
+func (s *Server) startStatsFlush() {
+	if s.stopStatsFlush != nil {
+		s.stopStatsFlush()
+		s.stopStatsFlush = nil
+	}
+	if s.stats == nil || s.demoOn() {
+		return
+	}
+	svc, every := s.stats, statsFlushEvery
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	flush := func(ctx context.Context) {
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		if err := svc.Flush(ctx); err != nil {
+			s.logger.Warn("install stats: could not store health counts", "error", err)
+		}
+	}
+	go func() {
+		defer close(done)
+		t := time.NewTicker(every)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				flush(ctx)
+			}
+		}
+	}()
+	s.stopStatsFlush = func() {
+		cancel()
+		<-done
+		flush(context.Background())
+	}
 }

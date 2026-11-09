@@ -93,6 +93,9 @@ type renderHandlers struct {
 	// dataFailures counts failed template data lookups (recent, terms, ...);
 	// a page rendered while it moved is served but not cached. Nil: no check.
 	dataFailures func() int64
+	// renderFailed counts a public page that could not be rendered (install
+	// stats health); nil: not counted.
+	renderFailed func()
 
 	log404        func(path, referer, userAgent string)
 	checkRedirect func(ctx context.Context, path string) *redirect.Redirect
@@ -145,6 +148,7 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 		buildView:     s.buildPageView,
 		searchLimit:   middleware.NewRateLimiter(2, 30).Middleware,
 		pageFilter:    pluginhost.NewPageFilter(s.hooks),
+		renderFailed:  func() { s.healthSink().RenderError() },
 		preview:       s.preview,
 		runtime:       s.pageRuntime,
 
@@ -445,6 +449,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	// sandboxed must not carry frames (a sandboxed PDF viewer is blocked).
 	v.NoFrames = h.communityScripts != nil && h.communityScripts() // such pages get sandboxCSP
 	if err := h.engine.RenderPage(&buf, v); err != nil {
+		h.countRenderFailure()
 		h.logger.ErrorContext(r.Context(), "render: page", "error", err, "path", path)
 		h.writeError(w, r, http.StatusInternalServerError, v)
 		return
@@ -565,6 +570,12 @@ func (h *renderHandlers) writeFailure(w http.ResponseWriter, r *http.Request, er
 	h.writeError(w, r, http.StatusInternalServerError, nil)
 }
 
+func (h *renderHandlers) countRenderFailure() {
+	if h.renderFailed != nil {
+		h.renderFailed()
+	}
+}
+
 func (h *renderHandlers) writeError(w http.ResponseWriter, r *http.Request, status int, v *render.PageView) {
 	if v == nil {
 		v = h.errorView(r, &routeResult{NotFound: true})
@@ -572,6 +583,7 @@ func (h *renderHandlers) writeError(w http.ResponseWriter, r *http.Request, stat
 	v.Ctx = r.Context()
 	var buf bytes.Buffer
 	if err := h.engine.RenderError(&buf, v, status); err != nil {
+		h.countRenderFailure()
 		http.Error(w, http.StatusText(status), status)
 		return
 	}
