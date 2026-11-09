@@ -232,6 +232,9 @@ func backupRestoreFlow(t *testing.T, mode adminMode) {
 	name := "hm_d8_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:10]
 	c.provisionApp(name)
 
+	// A function planted in public by the app role must not be picked up by the
+	// bootstrap (it pins search_path), or it would run as the role admin.
+	c.exec(c.appURL(name), `CREATE FUNCTION public.format(text, text) RETURNS text LANGUAGE sql AS 'SELECT 1/0'`)
 	// The bootstrap: the NOTICE appears once for the limited role, never for a
 	// superuser, and a rerun changes nothing.
 	for run := 1; run <= 2; run++ {
@@ -241,6 +244,7 @@ func backupRestoreFlow(t *testing.T, mode adminMode) {
 			t.Fatalf("bootstrap run %d printed the temp_file_limit notice %d times, want %d:\n%s", run, notices, want, out)
 		}
 	}
+	c.exec(c.appURL(name), `DROP FUNCTION public.format(text, text)`)
 	pool := c.migrate(name)
 	needRestoreTools(t, pool)
 	// A rerun after the core migrations read the core id too.

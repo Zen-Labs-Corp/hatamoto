@@ -43,6 +43,10 @@
 
 \set ON_ERROR_STOP on
 
+-- A role that owns the database can create objects in public: never resolve a
+-- name through it.
+SET search_path = pg_catalog, pg_temp;
+
 SELECT :'app_role' ~ '^[A-Za-z_][A-Za-z0-9_$-]{0,62}$' AS app_role_ok,
        EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_role') AS app_role_exists,
        current_setting('server_version_num')::int >= 160000 AS pg16
