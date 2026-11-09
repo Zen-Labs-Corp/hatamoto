@@ -95,9 +95,9 @@ var settingsRegistry = []settingsSectionDef{
 		{ID: "email", Label: "Email", Final: "/settings/email", Roles: ownerOnly},
 		{ID: "email-log", Label: "Email log", Final: "/settings/email/log", Roles: ownerOnly},
 	}},
-	{ID: "privacy-tracking", Label: "Privacy & tracking", Icon: "shield", Desc: "Cookie consent for your visitors, and analytics, ad and chat tags.", Group: "Site", Tabs: []settingsTabDef{
-		{ID: "privacy", Label: "Cookie consent", Final: "/settings/privacy", Roles: ownerOnly},
+	{ID: "privacy-tracking", Label: "Privacy & tracking", Icon: "shield", Desc: "Analytics, ad and chat tags, and cookie consent for your visitors.", Group: "Site", Tabs: []settingsTabDef{
 		{ID: "tracking", Label: "Tracking", Final: "/settings/tracking", Roles: ownerOnly},
+		{ID: "privacy", Label: "Cookie consent", Final: "/settings/privacy", Roles: ownerOnly},
 	}},
 	{ID: "entity-models", Label: "Entity models", Icon: "content-model", Desc: "The kinds of content your site holds and how it is grouped.", Group: "Content", Tabs: []settingsTabDef{
 		{ID: "types", Label: "Entity types", Final: "/settings/types", Roles: ownerOnly},
