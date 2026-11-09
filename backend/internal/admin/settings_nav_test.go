@@ -25,7 +25,7 @@ func TestSettingsForRoles(t *testing.T) {
 
 	owner := sectionTabs(SettingsFor("owner"))
 	for id, want := range map[string]string{
-		"general": "general", "privacy-tracking": "privacy tracking", "locales": "locales locale-addresses locale-business", "entity-models": "types taxonomies",
+		"general": "general", "privacy-tracking": "tracking privacy", "locales": "locales locale-addresses locale-business", "entity-models": "types taxonomies",
 		"seo": "seo-general seo-titles seo-social seo-schema seo-kg seo-robots seo-ads-txt seo-verification seo-sitemap seo-breadcrumbs seo-indexnow seo-404", "redirects": "redirects", "linking": "linking", "users": "users user-sign-in", "integrations": "api subscriptions deliveries",
 		"tools": "import export search-replace", "performance": "performance memory", "updates": "updates", "backups-recovery": "backups versions changes", "access-security": "site-access admin-address",
 	} {
@@ -142,7 +142,7 @@ func TestSettingsEntryRedirects(t *testing.T) {
 		{"owner-token", "/admin/settings?section=submissions", 303, "/admin/forms/submissions"},
 		{"owner-token", "/admin/settings/integrations", 302, "/admin/settings/api-keys"},
 		{"owner-token", "/admin/settings/access-security", 302, "/admin/settings/site-access"},
-		{"owner-token", "/admin/settings/privacy-tracking", 302, "/admin/settings/privacy"},
+		{"owner-token", "/admin/settings/privacy-tracking", 302, "/admin/settings/tracking"},
 		{"owner-token", "/admin/settings/backups-recovery", 302, "/admin/settings/backups"},
 		{"owner-token", "/admin/settings/tools", 302, "/admin/settings/import"},
 		{"editor-token", "/admin/settings/tools", 403, ""},
