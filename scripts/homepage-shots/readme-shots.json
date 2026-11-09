@@ -1,0 +1,24 @@
+{
+  "host": "northwind.example",
+  "width": 1600,
+  "shots": [
+    {"slot": "readme-builder", "file": "builder.webp", "url": "/admin/entities/{entity:Home}/edit", "urlLabel": "hatamoto.dev/admin/entities/edit", "viewport": [1440, 857], "dpr": 2, "settle": 1200, "actions": [{"waitFor": "li[data-id='c-hero#headline']"}, {"wait": 1000}, {"click": "li[data-id='c-hero#headline']"}, {"wait": 1000}], "hide": ".hm-bs-hint", "alt": "The visual page builder: the layers of the home page on the left, the page on a canvas with desktop, tablet and phone sizes, and the selected headline's settings on the right."},
+    {"slot": "readme-builder-dark", "file": "builder-dark.webp", "theme": "dark", "url": "/admin/entities/{entity:Home}/edit", "urlLabel": "hatamoto.dev/admin/entities/edit", "viewport": [1440, 857], "dpr": 2, "settle": 1200, "actions": [{"waitFor": "li[data-id='c-hero#headline']"}, {"wait": 1000}, {"click": "li[data-id='c-hero#headline']"}, {"wait": 1000}], "hide": ".hm-bs-hint", "alt": "The visual page builder in the dark admin theme."},
+    {"slot": "readme-overview", "file": "overview.webp", "url": "/admin", "urlLabel": "hatamoto.dev/admin", "viewport": [1440, 857], "dpr": 2, "alt": "The admin overview: published pages, drafts, new form submissions, AI-referred visits and missing pages, then site health and the pages AI crawlers fetch most."},
+    {"slot": "readme-site", "file": "site.webp", "url": "/blog", "urlLabel": "hatamoto.dev/blog", "viewport": [1440, 857], "dpr": 2, "alt": "The public blog archive of the demo site in the built-in theme."},
+    {"from": "hm-n-s-editor-i", "slot": "readme-editor", "file": "editor.webp"},
+    {"slot": "readme-wordpress", "file": "wordpress-import.webp", "url": "/admin/import", "urlLabel": "hatamoto.dev/admin/settings/import/wordpress", "viewport": [1440, 1600], "dpr": 2, "actions": [{"check": "#kind-1"}, {"setInputFiles": ["#wxr", "$README_WXR"]}, {"submit": "form:has(#wxr)"}, {"waitFor": "#fidelity"}], "hide": "#mode, #counts", "css": ".hm-settings > nav{display:none !important} .hm-settings{display:block !important;background:none !important}", "region": ".hm-page", "regionHeight": 1180, "pad": 0, "alt": "The WordPress import scan report: posts, pages, media, terms, authors and menus found, how the old permalinks map to a URL pattern, which plugins and page builders were detected, and the expected fidelity per item before anything is imported.", "bg": "corner"},
+    {"from": "hm-hero__image", "slot": "readme-ai-analytics", "file": "ai-analytics.webp"},
+    {"slot": "readme-ai-crawlers", "file": "ai-crawlers.webp", "url": "/admin/analytics/crawlers", "urlLabel": "hatamoto.dev/admin/analytics/crawlers", "viewport": [1440, 857], "dpr": 2, "alt": "AI crawlers: fetches by purpose and every agent with its verification status and an Allow or Block switch per purpose."},
+    {"slot": "readme-mcp", "file": "mcp.webp", "html": "$MCP_HTML", "urlLabel": "MCP session · POST hatamoto.dev/mcp", "viewport": [1440, 857], "dpr": 2, "alt": "A real MCP session: an agent connects with an API key, lists the tools, creates a draft post and publishes it, and the new page answers 200."},
+    {"from": "hm-n-s-plugin-i", "slot": "readme-plugins", "file": "plugins.webp"},
+    {"slot": "readme-updates", "file": "updates.webp", "url": "/admin/settings/updates", "urlLabel": "hatamoto.dev/admin/settings/updates", "viewport": [1440, 857], "dpr": 2, "pre": "bash seed.d/reassert-updates.sh", "keepBanner": true, "alt": "Settings > Updates after a failed update: the new version failed its health check after install, so the site went back to the previous version on its own, with the reason and a Retry button."},
+    {"from": "hm-n-t-redirects-s-i", "slot": "readme-redirects", "file": "redirects.webp"},
+    {"from": "hm-n-t-linking-s-i", "slot": "readme-linking", "file": "linking.webp"},
+    {"slot": "readme-menus", "file": "menus.webp", "url": "/admin/theme/menus/{menu:Header}", "urlLabel": "hatamoto.dev/admin/theme/menus", "viewport": [1440, 857], "dpr": 2, "alt": "The menu editor: the Header menu's items, reordered by dragging or with the buttons, nested by indenting."},
+    {"from": "hm-n-t-subs-s-i", "slot": "readme-forms", "file": "forms.webp"},
+    {"from": "hm-n-t-perf-s-i", "slot": "readme-cache", "file": "cache.webp"},
+    {"from": "hm-n-s-types-i", "slot": "readme-url-patterns", "file": "url-patterns.webp"},
+    {"from": "hm-n-s-keys-i", "slot": "readme-api-keys", "file": "api-keys.webp"}
+  ]
+}
