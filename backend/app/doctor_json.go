@@ -15,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/consent"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
+	"hatamoto.dev/core/internal/installstats"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/jsonx/keynorm"
 	"hatamoto.dev/core/internal/media"
@@ -81,6 +82,8 @@ var doctorRegistry = map[string]colCheck{
 	"hatamoto_locale_conversions.schemas_before":   opaque,
 	"hatamoto_locale_conversions.settings_after":   opaque,
 	"hatamoto_locale_conversions.settings_before":  opaque,
+	"hatamoto_install_stats.h_plugin_errors":       {decode: decodeAs[map[string]int64]()},
+	"hatamoto_install_stats.h_sent":                {decode: decodeAs[installstats.Counts]()},
 	"hatamoto_mcp_audit.args":                      opaque,
 	"hatamoto_menu_items.attrs":                    opaque,
 	"hatamoto_migration_notes.details":             opaque,
