@@ -151,8 +151,9 @@ func newRestoreRig(t *testing.T) *restoreRig {
 	r.o = RestoreOptions{
 		Data: filepath.Join(base, "data"), MediaDir: filepath.Join(base, "uploads"), SecretsDir: filepath.Join(base, "secrets"),
 		DatabaseURL: testURL, Version: "v1.2.3", Q: r.q,
-		Getenv: func(string) string { return "" },
-		Trust:  func() (TrustIDs, error) { return restoreTrust, nil },
+		Getenv:       func(string) string { return "" },
+		Trust:        func() (TrustIDs, error) { return restoreTrust, nil },
+		PauseOffsite: func(context.Context, string) error { return nil },
 		OpenAdmin: func(_ context.Context, url string) (Querier, func(), error) {
 			r.adminURL = url
 			if r.adminErr != nil {

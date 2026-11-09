@@ -54,6 +54,9 @@ func (x *dbRestorer) steps(ctx context.Context) error {
 	if err := x.runBootstrap(ctx, work); err != nil {
 		return fmt.Errorf("restore stopped at role bootstrap: %w", err)
 	}
+	if err := x.pauseOffsiteSync(ctx); err != nil {
+		return fmt.Errorf("restore stopped at off-site backup pause: %w", err)
+	}
 	return x.restorePlugins(ctx, work)
 }
 
@@ -137,13 +140,33 @@ func (x *dbRestorer) restoreCore(ctx context.Context, dump string) error {
 // database. A restored copy shares the original's bucket prefix, and its first
 // upload would prune the original's copies; the owner turns the card on again
 // after checking the prefix. Backups made before the feature have no table.
+// It runs as the app role, which owns the table: an admin role that is not a
+// superuser has no privilege on it.
 const pauseOffsiteSQL = `DO $$ BEGIN
 IF to_regclass('public.hatamoto_offsite_settings') IS NOT NULL THEN
 UPDATE public.hatamoto_offsite_settings SET enabled = false;
 END IF;
 END $$`
 
-// runBootstrap runs the embedded role-admin bootstrap as the superuser of
+// pauseOffsiteSync runs pauseOffsiteSQL on the restored database as the app role.
+func (x *dbRestorer) pauseOffsiteSync(ctx context.Context) error {
+	if x.o.PauseOffsite != nil {
+		return x.o.PauseOffsite(ctx, pauseOffsiteSQL)
+	}
+	open := x.o.OpenPool
+	if open == nil {
+		open = func(ctx context.Context, url string) (*pgxpool.Pool, error) { return pgxpool.New(ctx, url) }
+	}
+	pool, err := open(ctx, x.o.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("cannot reach the restored database: %w", err)
+	}
+	defer pool.Close()
+	_, err = pool.Exec(ctx, pauseOffsiteSQL)
+	return err
+}
+
+// runBootstrap runs the embedded role-admin bootstrap as the admin role of
 // AdminURL against the target database, after a guard that refuses objects the
 // dump planted. It needs psql: the script uses psql
 // meta-commands.
@@ -168,7 +191,7 @@ func (x *dbRestorer) runBootstrap(ctx context.Context, work string) error {
 	defer os.Remove(guard)
 	// One session: the guard runs first and ON_ERROR_STOP ends psql on its error.
 	out, err := x.run(ctx, env, "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-v", "app_role="+x.appRole,
-		"-f", guard, "-f", file, "-c", pauseOffsiteSQL)
+		"-f", guard, "-f", file)
 	if err != nil {
 		return errors.New(restoreError(out, err))
 	}

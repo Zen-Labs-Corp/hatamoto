@@ -29,6 +29,9 @@ type RestoreOptions struct {
 	// Trust gives the key IDs of this binary; nil means the embedded ones.
 	Trust    func() (TrustIDs, error)
 	OpenPool func(ctx context.Context, url string) (*pgxpool.Pool, error)
+	// PauseOffsite runs the SQL that switches off-site backups off, as the app
+	// role; nil opens a pool from DatabaseURL.
+	PauseOffsite func(ctx context.Context, sql string) error
 	// OpenAdmin connects with the admin URL (pointed at the target database)
 	// for the pre-flight checks; nil connects with pgx.
 	OpenAdmin func(ctx context.Context, url string) (Querier, func(), error)
