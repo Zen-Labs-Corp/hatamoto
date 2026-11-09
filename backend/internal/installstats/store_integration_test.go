@@ -165,14 +165,14 @@ func TestStoreClaim_Integration(t *testing.T) {
 		t.Fatalf("claim after the interval: ok=%v err=%v", ok, err)
 	}
 
-	if err := st.RecordResult(ctx, "ok", "v1", Counts{}); err != nil {
+	if err := st.RecordResult(ctx, "ok", "v1", nil); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Load(ctx)
 	if got.LastStatus != "ok" || got.LastSentAt == nil || got.LastOKAt == nil {
 		t.Fatalf("result not stored: %+v", got)
 	}
-	if err := st.RecordResult(ctx, "error: http 404", "v1", Counts{}); err != nil {
+	if err := st.RecordResult(ctx, "error: http 404", "v1", nil); err != nil {
 		t.Fatal(err)
 	}
 	after, _ := st.Load(ctx)
@@ -253,13 +253,13 @@ func TestLastSentVersionOnlyOnOk_Integration(t *testing.T) {
 	if _, err := st.Enable(ctx, LevelBasic); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.RecordResult(ctx, "error: network", "v2", Counts{}); err != nil {
+	if err := st.RecordResult(ctx, "error: network", "v2", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := st.Load(ctx); got.LastSentVersion != "" {
 		t.Fatalf("a failed send stored version %q", got.LastSentVersion)
 	}
-	if err := st.RecordResult(ctx, "ok", "v2", Counts{}); err != nil {
+	if err := st.RecordResult(ctx, "ok", "v2", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := st.Load(ctx); got.LastSentVersion != "v2" {
@@ -285,13 +285,13 @@ func TestHealthSurvivesRestart_Integration(t *testing.T) {
 	if err != nil || got.Counts.Panics != 3 || got.Counts.HTTP5xx != 4 || got.Counts.PluginErrors["a"] != 3 || got.Counts.PluginErrors["b"] != 1 || got.WindowStart == nil {
 		t.Fatalf("after restart: %+v %v", got, err)
 	}
-	if err := restarted.RecordResult(ctx, "error: network", "v1", got.Counts); err != nil {
+	if err := restarted.RecordResult(ctx, "error: network", "v1", &got.Counts); err != nil {
 		t.Fatal(err)
 	}
 	if after, _ := restarted.Load(ctx); after.Counts.Panics != 3 {
 		t.Fatalf("a failed send cleared the counts: %+v", after.Counts)
 	}
-	if err := restarted.RecordResult(ctx, "ok", "v1", got.Counts); err != nil {
+	if err := restarted.RecordResult(ctx, "ok", "v1", &got.Counts); err != nil {
 		t.Fatal(err)
 	}
 	if after, _ := restarted.Load(ctx); after.Counts.Panics != 3 || after.Sent.Panics != 3 {
@@ -331,7 +331,7 @@ func TestSameDayResend_Integration(t *testing.T) {
 		t.Fatalf("first send carries %d, want 2", first.Counts.Panics)
 	}
 	add(1) // lands while the first send runs
-	if err := st.RecordResult(ctx, "ok", "v1", first.Counts); err != nil {
+	if err := st.RecordResult(ctx, "ok", "v1", &first.Counts); err != nil {
 		t.Fatal(err)
 	}
 
@@ -340,24 +340,21 @@ func TestSameDayResend_Integration(t *testing.T) {
 	if second.Counts.Panics != 3 || !second.WindowStart.Equal(*first.WindowStart) {
 		t.Fatalf("same-day send carries %d (window %v, was %v), want 3", second.Counts.Panics, second.WindowStart, first.WindowStart)
 	}
-	if err := st.RecordResult(ctx, "ok", "v1", second.Counts); err != nil {
+	if err := st.RecordResult(ctx, "ok", "v1", &second.Counts); err != nil {
 		t.Fatal(err)
 	}
 	add(4)
 
 	// The next UTC day starts after the last send of the previous day.
-	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_ok_at = now() - interval '25 hours'`); err != nil {
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET h_sent_at = now() - interval '25 hours', health_window_start = now() - interval '48 hours'`); err != nil {
 		t.Fatal(err)
 	}
 	lastSend, _ := st.Load(ctx)
 	next := claim()
-	if next.Counts.Panics != 4 || !next.WindowStart.Equal(*lastSend.LastOKAt) {
-		t.Fatalf("next-day send carries %d (window %v), want only the 4 added after the last send at %v", next.Counts.Panics, next.WindowStart, lastSend.LastOKAt)
+	if next.Counts.Panics != 4 || !next.WindowStart.Equal(*lastSend.DetailedSentAt) {
+		t.Fatalf("next-day send carries %d (window %v), want only the 4 added after the last send at %v", next.Counts.Panics, next.WindowStart, lastSend.DetailedSentAt)
 	}
 	// A failed attempt must not lose or repeat anything on the retry.
-	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_ok_at = now() - interval '25 hours'`); err != nil {
-		t.Fatal(err)
-	}
 	if retry := claim(); retry.Counts.Panics != 4 {
 		t.Fatalf("retry carries %d, want 4", retry.Counts.Panics)
 	}
@@ -496,4 +493,82 @@ func TestOldBinaryConsentChangeIsReconciled_Integration(t *testing.T) {
 			t.Fatalf("banner = %q, want none", kind)
 		}
 	})
+}
+
+// The window never moves back to a report that was not Detailed: an old
+// last_ok_at (Off for months, or a Basic ping) must not reach before the
+// moment Detailed was chosen.
+func TestRolloverNeverReachesBeforeDetailedChoice_Integration(t *testing.T) {
+	ctx := context.Background()
+	pool := scratchPool(t)
+	st := NewStore(pool)
+	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+		t.Fatal(err)
+	}
+	// A Basic report long ago, then Off, then Detailed.
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_ok_at = now() - interval '200 days', last_sent_at = now() - interval '200 days'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Disable(ctx); err != nil {
+		t.Fatal(err)
+	}
+	detailed, err := st.Enable(ctx, LevelDetailed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.AddHealth(ctx, Counts{Panics: 2}); err != nil {
+		t.Fatal(err)
+	}
+	// The next claim, on a later UTC day than the old Basic report.
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_sent_at = now() - interval '25 hours'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := st.Claim(ctx, "v1"); err != nil || !ok {
+		t.Fatalf("claim: %v %v", ok, err)
+	}
+	got, _ := st.Load(ctx)
+	if !got.WindowStart.Equal(*detailed.WindowStart) || got.Counts.Panics != 2 {
+		t.Fatalf("window %v counts %d, want the Detailed choice at %v and 2", got.WindowStart, got.Counts.Panics, detailed.WindowStart)
+	}
+
+	// Basic reports, with Detailed chosen later: a Basic ok leaves no mark.
+	if err := st.RecordResult(ctx, "ok", "v1", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_sent_at = now() - interval '25 hours', last_ok_at = now() - interval '25 hours'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := st.Claim(ctx, "v1"); err != nil || !ok {
+		t.Fatalf("claim: %v %v", ok, err)
+	}
+	if again, _ := st.Load(ctx); !again.WindowStart.Equal(*detailed.WindowStart) || again.Counts.Panics != 2 {
+		t.Fatalf("persistent Basic fallback moved the window to %v or dropped counts (%d)", again.WindowStart, again.Counts.Panics)
+	}
+}
+
+// A Basic report followed by the owner choosing Detailed: the first Detailed
+// rollover starts from the choice, not from the Basic report.
+func TestBasicThenDetailedWindowStartsAtChoice_Integration(t *testing.T) {
+	ctx := context.Background()
+	pool := scratchPool(t)
+	st := NewStore(pool)
+	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_ok_at = now() - interval '30 hours'`); err != nil {
+		t.Fatal(err)
+	}
+	detailed, err := st.Enable(ctx, LevelDetailed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_sent_at = now() - interval '25 hours'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := st.Claim(ctx, "v1"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := st.Load(ctx); !got.WindowStart.Equal(*detailed.WindowStart) {
+		t.Fatalf("window %v, want the Enable time %v", got.WindowStart, detailed.WindowStart)
+	}
 }

@@ -34,7 +34,7 @@ type Backend interface {
 	Reset(ctx context.Context) (State, error)
 	Claim(ctx context.Context, version string) (id string, ok bool, err error)
 	AddHealth(ctx context.Context, d Counts) error
-	RecordResult(ctx context.Context, status, version string, sent Counts) error
+	RecordResult(ctx context.Context, status, version string, sent *Counts) error
 	DismissNudge(ctx context.Context) error
 	Banner(ctx context.Context) (BannerKind, error)
 }
@@ -237,7 +237,7 @@ func (s *Service) Run(ctx context.Context) error {
 	body, sent, err := s.body(ctx, id, st)
 	if err != nil {
 		s.log.Warn("install stats: body not built, nothing sent", "error", err)
-		return s.store.RecordResult(ctx, "error: build", s.version, Counts{})
+		return s.store.RecordResult(ctx, "error: build", s.version, nil)
 	}
 	status := s.post(ctx, body)
 	s.log.Info("install stats sent", "status", status)
@@ -245,9 +245,9 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 // body builds the request body for the stored level, and returns the health
-// counts it carries. Detailed falls back to Basic without sources, or when
-// the Detailed body cannot be built; the counts then stay stored.
-func (s *Service) body(ctx context.Context, id string, st State) ([]byte, Counts, error) {
+// counts it carries (nil for a Basic body). Detailed falls back to Basic
+// without sources, or when the Detailed body cannot be built; the counts then stay stored.
+func (s *Service) body(ctx context.Context, id string, st State) ([]byte, *Counts, error) {
 	if st.Level == LevelDetailed {
 		if s.sources != nil {
 			now := time.Now()
@@ -256,7 +256,7 @@ func (s *Service) body(ctx context.Context, id string, st State) ([]byte, Counts
 				Src: s.sources, Counts: st.Counts, WindowStart: st.WindowStart, Now: now,
 			})
 			if err == nil {
-				return b, st.Counts, nil
+				return b, &st.Counts, nil
 			}
 			s.log.Warn("install stats: detailed body not built, sending the basic body", "error", err)
 		} else if s.warned.CompareAndSwap(false, true) {
@@ -264,7 +264,7 @@ func (s *Service) body(ctx context.Context, id string, st State) ([]byte, Counts
 		}
 	}
 	b, err := encodeBasic(Payload{Install: id, Version: s.version, Channel: s.channelName(ctx)})
-	return b, Counts{}, err
+	return b, nil, err
 }
 
 func (s *Service) channelName(ctx context.Context) string {

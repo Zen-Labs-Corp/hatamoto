@@ -3,7 +3,7 @@
 -- meaning: yes for basic and detailed, no for off, so an older binary that only
 -- reads consent keeps working and treats every opted-in install as Basic.
 -- The h_* columns hold the Detailed level's health counts since
--- health_window_start; h_sent is what the last report carried; last_sent_version lets a new version report at once.
+-- health_window_start; h_sent is what the last Detailed report carried and h_sent_at when it was claimed; last_sent_version lets a new version report at once.
 ALTER TABLE hatamoto_install_stats
     ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'unset'
         CHECK (level IN ('unset', 'off', 'basic', 'detailed')),
@@ -15,13 +15,15 @@ ALTER TABLE hatamoto_install_stats
     ADD COLUMN IF NOT EXISTS h_render_errors BIGINT NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS h_migration_failed BIGINT NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS h_plugin_errors JSONB NOT NULL DEFAULT '{}',
-    ADD COLUMN IF NOT EXISTS h_sent JSONB NOT NULL DEFAULT '{}';
+    ADD COLUMN IF NOT EXISTS h_sent JSONB NOT NULL DEFAULT '{}',
+    ADD COLUMN IF NOT EXISTS h_sent_at TIMESTAMPTZ;
 
 UPDATE hatamoto_install_stats
    SET level = CASE consent WHEN 'yes' THEN 'basic' WHEN 'no' THEN 'off' ELSE 'unset' END;
 
 -- +goose Down
 ALTER TABLE hatamoto_install_stats
+    DROP COLUMN IF EXISTS h_sent_at,
     DROP COLUMN IF EXISTS h_sent,
     DROP COLUMN IF EXISTS h_plugin_errors,
     DROP COLUMN IF EXISTS h_migration_failed,

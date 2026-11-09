@@ -126,6 +126,12 @@ type State struct {
 	WindowStart     *time.Time // start of the health counts; nil outside Detailed
 	Counts          Counts
 	Sent            Counts // the counts the last report carried; Counts includes them until the next UTC day
+	// DetailedSentAt is when the last ok report that carried a Detailed body
+	// was claimed; nil when none did since the level or consent changed.
+	DetailedSentAt *time.Time
+	// DetailedSentToday says that time is on the current UTC day, by the
+	// database clock.
+	DetailedSentToday bool
 }
 
 // Store reads and writes the single hatamoto_install_stats row. It does no
@@ -137,7 +143,8 @@ type Store struct{ db Querier }
 func NewStore(db Querier) *Store { return &Store{db: db} }
 
 const stateColumns = `consent, level, install_id, last_sent_at, last_ok_at, last_status, last_sent_version,
-	nudge_dismissed, health_window_start, h_panics, h_http_5xx, h_render_errors, h_migration_failed, h_plugin_errors, h_sent`
+	nudge_dismissed, health_window_start, h_panics, h_http_5xx, h_render_errors, h_migration_failed, h_plugin_errors, h_sent,
+	h_sent_at, COALESCE((h_sent_at AT TIME ZONE 'UTC')::date = (now() AT TIME ZONE 'UTC')::date, FALSE)`
 
 func scanState(row pgx.Row) (State, error) {
 	var (
@@ -148,7 +155,7 @@ func scanState(row pgx.Row) (State, error) {
 	)
 	if err := row.Scan(&st.Consent, &st.Level, &id, &st.LastSentAt, &st.LastOKAt, &st.LastStatus, &st.LastSentVersion,
 		&st.NudgeDismissed, &st.WindowStart, &st.Counts.Panics, &st.Counts.HTTP5xx, &st.Counts.RenderErrors,
-		&st.Counts.MigrationFailed, &errsJS, &sentJS); err != nil {
+		&st.Counts.MigrationFailed, &errsJS, &sentJS, &st.DetailedSentAt, &st.DetailedSentToday); err != nil {
 		return State{}, err
 	}
 	if id != nil {
@@ -176,7 +183,7 @@ func (s *Store) reconcile(ctx context.Context) error {
 		UPDATE hatamoto_install_stats SET
 			level = CASE consent WHEN 'yes' THEN 'basic' ELSE 'off' END,
 			health_window_start = NULL, h_panics = 0, h_http_5xx = 0, h_render_errors = 0,
-			h_migration_failed = 0, h_plugin_errors = '{}'::jsonb, h_sent = '{}'::jsonb
+			h_migration_failed = 0, h_plugin_errors = '{}'::jsonb, h_sent = '{}'::jsonb, h_sent_at = NULL
 		WHERE (consent = 'yes' AND level NOT IN ('basic', 'detailed'))
 		   OR (consent = 'no' AND level <> 'off')`)
 	if err != nil {
@@ -230,7 +237,8 @@ func (s *Store) Enable(ctx context.Context, level Level) (State, error) {
 			h_render_errors = CASE WHEN `+t+`.level = EXCLUDED.level THEN `+t+`.h_render_errors ELSE 0 END,
 			h_migration_failed = CASE WHEN `+t+`.level = EXCLUDED.level THEN `+t+`.h_migration_failed ELSE 0 END,
 			h_plugin_errors = CASE WHEN `+t+`.level = EXCLUDED.level THEN `+t+`.h_plugin_errors ELSE '{}'::jsonb END,
-			h_sent = CASE WHEN `+t+`.level = EXCLUDED.level THEN `+t+`.h_sent ELSE '{}'::jsonb END`,
+			h_sent = CASE WHEN `+t+`.level = EXCLUDED.level THEN `+t+`.h_sent ELSE '{}'::jsonb END,
+			h_sent_at = CASE WHEN `+t+`.level = EXCLUDED.level THEN `+t+`.h_sent_at END`,
 		id, string(level))
 	if err != nil {
 		return State{}, fmt.Errorf("enable install stats: %w", err)
@@ -245,7 +253,7 @@ func (s *Store) Disable(ctx context.Context) error {
 		INSERT INTO hatamoto_install_stats (id, consent, level, install_id) VALUES (TRUE, 'no', 'off', NULL)
 		ON CONFLICT (id) DO UPDATE SET consent = 'no', level = 'off', install_id = NULL,
 			health_window_start = NULL, h_panics = 0, h_http_5xx = 0, h_render_errors = 0,
-			h_migration_failed = 0, h_plugin_errors = '{}'::jsonb, h_sent = '{}'::jsonb`)
+			h_migration_failed = 0, h_plugin_errors = '{}'::jsonb, h_sent = '{}'::jsonb, h_sent_at = NULL`)
 	if err != nil {
 		return fmt.Errorf("disable install stats: %w", err)
 	}
@@ -294,15 +302,24 @@ func (s *Store) Claim(ctx context.Context, version string) (id string, ok bool, 
 
 // startDay is the health window's rollover. Counts are kept through a UTC day
 // and every report carries all of them, because the receiver replaces a day's
-// rows. When the last successful report is from an earlier UTC day, what it
-// carried is taken off and the window starts at that report, so the next body
-// holds only what came after it. Counts bumped meanwhile survive.
+// rows. When the last report that carried a Detailed body is from an earlier
+// UTC day (by the database clock), what it carried is taken off and the window
+// moves forward to that report, so the next body holds only what came after
+// it. The window never moves backwards, and is left alone when no Detailed
+// body was sent. Counts bumped meanwhile survive.
 func (s *Store) startDay(ctx context.Context) error {
 	err := s.withLockedRow(ctx, func(tx pgx.Tx, st State) error {
-		if st.LastOKAt == nil || st.LastOKAt.UTC().Format(time.DateOnly) >= time.Now().UTC().Format(time.DateOnly) {
+		var rolled bool
+		err := tx.QueryRow(ctx, `
+			UPDATE hatamoto_install_stats SET health_window_start = GREATEST(health_window_start, h_sent_at),
+				h_sent = '{}'::jsonb, h_sent_at = NULL
+			WHERE id AND h_sent_at IS NOT NULL
+			  AND (h_sent_at AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date
+			RETURNING TRUE`).Scan(&rolled)
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
-		if _, err := tx.Exec(ctx, `UPDATE hatamoto_install_stats SET health_window_start = last_ok_at, h_sent = '{}'::jsonb WHERE id`); err != nil {
+		if err != nil {
 			return err
 		}
 		return writeCounts(ctx, tx, st.Counts.sub(st.Sent))
@@ -328,25 +345,30 @@ func (s *Store) AddHealth(ctx context.Context, d Counts) error {
 }
 
 // RecordResult stores the outcome of the last send. On "ok" it also stores the
-// time of the success, the version reported and the counts the body carried
-// (sent), which the next UTC day's rollover (startDay) takes off. A report
-// without counts leaves the stored ones alone. Counts bumped while the send
-// ran are never touched. A failed send changes only the status. The text must
-// not contain the install ID.
-func (s *Store) RecordResult(ctx context.Context, status, version string, sent Counts) error {
+// version reported and the time of the success. sent is the health counts
+// the body carried, nil for a Basic body: a Detailed one is remembered with the
+// time (h_sent_at), and the next UTC day's rollover (startDay) takes it off.
+// Counts bumped while the send ran are never touched. A failed send changes
+// only the status. The text must not contain the install ID.
+func (s *Store) RecordResult(ctx context.Context, status, version string, sent *Counts) error {
 	err := s.withLockedRow(ctx, func(tx pgx.Tx, _ State) error {
 		if status != "ok" {
 			_, err := tx.Exec(ctx, `UPDATE hatamoto_install_stats SET last_status = $1 WHERE id`, status)
 			return err
 		}
-		js, err := jsonx.Marshal(sent)
-		if err != nil {
-			return err
+		js := []byte("{}")
+		if sent != nil {
+			var err error
+			if js, err = jsonx.Marshal(*sent); err != nil {
+				return err
+			}
 		}
-		_, err = tx.Exec(ctx, `
-			UPDATE hatamoto_install_stats SET last_status = $1, last_ok_at = now(), last_sent_version = $2,
-				h_sent = CASE WHEN $4 THEN h_sent ELSE $3::jsonb END WHERE id`,
-			status, version, string(js), sent.IsZero())
+		_, err := tx.Exec(ctx, `
+			UPDATE hatamoto_install_stats SET last_status = $1, last_ok_at = now(),
+				last_sent_version = $2,
+				h_sent = CASE WHEN $4 THEN $3::jsonb ELSE h_sent END,
+				h_sent_at = CASE WHEN $4 THEN now() ELSE h_sent_at END WHERE id`,
+			status, version, string(js), sent != nil)
 		return err
 	})
 	if err != nil {

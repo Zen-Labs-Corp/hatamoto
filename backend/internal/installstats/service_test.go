@@ -29,13 +29,20 @@ func newMem() *memStore { return &memStore{st: State{Consent: ConsentUnset, Leve
 func (m *memStore) Load(context.Context) (State, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.st, nil
+	return m.withToday(), nil
+}
+
+// withToday fills DetailedSentToday, which the real Store computes in SQL.
+func (m *memStore) withToday() State {
+	st := m.st
+	st.DetailedSentToday = st.DetailedSentAt != nil && st.DetailedSentAt.UTC().Format(time.DateOnly) == time.Now().UTC().Format(time.DateOnly)
+	return st
 }
 func (m *memStore) Enable(_ context.Context, level Level) (State, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.st.Level != level {
-		m.st.Counts, m.st.Sent, m.st.WindowStart = Counts{}, Counts{}, nil
+		m.st.Counts, m.st.Sent, m.st.WindowStart, m.st.DetailedSentAt = Counts{}, Counts{}, nil, nil
 		if level == LevelDetailed {
 			now := time.Now()
 			m.st.WindowStart = &now
@@ -52,7 +59,7 @@ func (m *memStore) Disable(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.st.Consent, m.st.Level, m.st.InstallID = ConsentNo, LevelOff, ""
-	m.st.Counts, m.st.Sent, m.st.WindowStart = Counts{}, Counts{}, nil
+	m.st.Counts, m.st.Sent, m.st.WindowStart, m.st.DetailedSentAt = Counts{}, Counts{}, nil, nil
 	m.disabled++
 	return nil
 }
@@ -76,12 +83,15 @@ func (m *memStore) Claim(_ context.Context, version string) (string, bool, error
 		return "", false, nil
 	}
 	m.claimedAt = time.Now()
-	if m.st.LastOKAt != nil && m.st.LastOKAt.UTC().Format(time.DateOnly) < time.Now().UTC().Format(time.DateOnly) {
-		m.st.WindowStart, m.st.Counts, m.st.Sent = m.st.LastOKAt, m.st.Counts.sub(m.st.Sent), Counts{}
+	if at := m.st.DetailedSentAt; at != nil && at.UTC().Format(time.DateOnly) < time.Now().UTC().Format(time.DateOnly) {
+		if m.st.WindowStart == nil || at.After(*m.st.WindowStart) {
+			m.st.WindowStart = at
+		}
+		m.st.Counts, m.st.Sent, m.st.DetailedSentAt = m.st.Counts.sub(m.st.Sent), Counts{}, nil
 	}
 	return m.st.InstallID, true, nil
 }
-func (m *memStore) RecordResult(_ context.Context, s, version string, sent Counts) error {
+func (m *memStore) RecordResult(_ context.Context, s, version string, sent *Counts) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.st.LastStatus = s
@@ -91,8 +101,8 @@ func (m *memStore) RecordResult(_ context.Context, s, version string, sent Count
 	now := time.Now().UTC()
 	m.st.LastOKAt = &now
 	m.st.LastSentVersion = version
-	if !sent.IsZero() {
-		m.st.Sent = sent
+	if sent != nil {
+		m.st.Sent, m.st.DetailedSentAt = *sent, &now
 	}
 	return nil
 }
@@ -493,7 +503,7 @@ func TestRunSameDayResendCarriesTheDayTotal(t *testing.T) {
 	// The next UTC day carries only what came after the last send.
 	h.Panic()
 	yesterday := time.Now().Add(-24 * time.Hour)
-	m.st.LastOKAt = &yesterday
+	m.st.DetailedSentAt = &yesterday
 	m.claimedAt = time.Now().Add(-21 * time.Hour)
 	_ = s.Run(ctx)
 	if len(r.bodies) != 3 || !strings.Contains(r.bodies[2], `"panics":1`) {

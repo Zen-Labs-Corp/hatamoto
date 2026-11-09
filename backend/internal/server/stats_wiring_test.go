@@ -49,7 +49,7 @@ func (m *memStats) addedCounts() installstats.Counts {
 	defer m.mu.Unlock()
 	return m.added
 }
-func (m *memStats) RecordResult(context.Context, string, string, installstats.Counts) error {
+func (m *memStats) RecordResult(context.Context, string, string, *installstats.Counts) error {
 	return nil
 }
 func (m *memStats) DismissNudge(context.Context) error { return nil }
