@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // BlobStore holds the bytes of stored media. Keys are the persisted
@@ -155,4 +156,107 @@ func (l *localStore) Delete(_ context.Context, key string) error {
 		return err
 	}
 	return nil
+}
+
+// ObjectInfo describes one stored object. SHA256 is empty when the store does
+// not know it.
+type ObjectInfo struct {
+	Key     string
+	Size    int64
+	ETag    string
+	ModTime time.Time
+	SHA256  string
+}
+
+// Optional store capabilities. Callers type-assert for them; BlobStore itself
+// stays minimal. A missing key returns an error satisfying
+// errors.Is(err, fs.ErrNotExist).
+type (
+	// Stater reports size, validator and mod time of one key.
+	Stater interface {
+		Stat(ctx context.Context, key string) (ObjectInfo, error)
+	}
+	// Lister returns every object whose key starts with prefix.
+	Lister interface {
+		List(ctx context.Context, prefix string) ([]ObjectInfo, error)
+	}
+	// Opener opens key for random access; close the returned file.
+	Opener interface {
+		Open(ctx context.Context, key string) (ObjectInfo, io.ReadSeekCloser, error)
+	}
+)
+
+var (
+	_ Stater = (*localStore)(nil)
+	_ Lister = (*localStore)(nil)
+	_ Opener = (*localStore)(nil)
+)
+
+// localETag is the validator of a local file: it changes whenever the size or
+// the mod time does, which is how a replaced file keeps its address.
+func localETag(size int64, mod time.Time) string {
+	return fmt.Sprintf(`"%x-%x"`, size, mod.UnixNano())
+}
+
+func (l *localStore) info(key string, fi fs.FileInfo) ObjectInfo {
+	return ObjectInfo{Key: key, Size: fi.Size(), ETag: localETag(fi.Size(), fi.ModTime()), ModTime: fi.ModTime()}
+}
+
+func (l *localStore) Stat(_ context.Context, key string) (ObjectInfo, error) {
+	if err := checkKey(key); err != nil {
+		return ObjectInfo{}, err
+	}
+	root, err := l.openRoot()
+	if err != nil {
+		return ObjectInfo{}, err
+	}
+	defer root.Close()
+	fi, err := root.Stat(key)
+	if err != nil {
+		return ObjectInfo{}, err
+	}
+	return l.info(key, fi), nil
+}
+
+func (l *localStore) List(ctx context.Context, prefix string) ([]ObjectInfo, error) {
+	var out []ObjectInfo
+	err := filepath.WalkDir(l.root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if cerr := ctx.Err(); cerr != nil {
+			return cerr
+		}
+		if d.IsDir() || !d.Type().IsRegular() {
+			return nil
+		}
+		rel, rerr := filepath.Rel(l.root, p)
+		if rerr != nil {
+			return rerr
+		}
+		key := filepath.ToSlash(rel)
+		if !strings.HasPrefix(key, prefix) {
+			return nil
+		}
+		fi, ierr := d.Info()
+		if ierr != nil {
+			return ierr
+		}
+		out = append(out, l.info(key, fi))
+		return nil
+	})
+	return out, err
+}
+
+func (l *localStore) Open(_ context.Context, key string) (ObjectInfo, io.ReadSeekCloser, error) {
+	f, err := l.openFile(key)
+	if err != nil {
+		return ObjectInfo{}, nil, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return ObjectInfo{}, nil, err
+	}
+	return l.info(key, fi), f, nil
 }
