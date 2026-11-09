@@ -140,6 +140,7 @@
         "reverse-proxy-tls",
         "backups",
         "managed-postgresql",
+        "media-object-storage",
         "hardening",
         "email"
       ],

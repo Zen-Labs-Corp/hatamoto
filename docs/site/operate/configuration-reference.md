@@ -66,6 +66,13 @@ Under systemd put them in the environment file; under Docker use `environment:` 
 | `MEDIA_UPLOAD_DIR` | `./uploads` (`/app/uploads` in the image) | Directory for uploaded media files. It may itself be a symlink (it is resolved once at start). Symlinks **inside** it that lead elsewhere (for example `uploads/<folder> -> /mnt/disk`) are refused: uploads fail with an error in the log and existing files there return 403. To keep media on another disk, point `MEDIA_UPLOAD_DIR` at that disk. |
 | `MEDIA_BASE_URL` | `/media` | URL prefix under which media is served. |
 | `MEDIA_MAX_SIZE_MB` | `10` | Largest accepted upload, in megabytes (integer). |
+| `MEDIA_STORAGE` | `local` | Where media bytes live: `local` (the directory above) or `s3` (S3-compatible object storage, set up with the `HATAMOTO_MEDIA_S3_*` variables). Case-insensitive. Any other value stops `serve` at boot. See [Keep media in object storage](media-object-storage.md). |
+| `HATAMOTO_MEDIA_S3_ENDPOINT` | empty | Endpoint of the object storage service, a bare `https://host` (`http` only for local or private addresses). Empty means Amazon S3 in the region below. Read when `MEDIA_STORAGE=s3`, and by `hatamoto media migrate`. |
+| `HATAMOTO_MEDIA_S3_REGION` | none | Region of the bucket. Required for `s3`. |
+| `HATAMOTO_MEDIA_S3_BUCKET` | none | Bucket name. Required for `s3`. |
+| `HATAMOTO_MEDIA_S3_PREFIX` | empty | Placed in front of every object name exactly as written; end it with `/` to use a folder of the bucket. |
+| `HATAMOTO_MEDIA_S3_ACCESS_KEY` | none | Access key. Required for `s3`. |
+| `HATAMOTO_MEDIA_S3_SECRET_KEY` | none | Secret key. Required for `s3`. Read from the environment only; Hatamoto never stores it. |
 
 ## Database pool
 
@@ -191,7 +198,7 @@ Which command reads which variable is listed in the [command-line reference](cli
 | `$HATAMOTO_DATA/backups/pre-<version>.dump` | The database dump taken before an update, mode 0600, directory 0700. One is kept. See [Backups and rollback](../updates/backups-and-rollback.md). | No, but it is not a backup plan. |
 | `$HATAMOTO_DATA/cache/wasm` | Compiled plugin code. | Yes, recreated on demand. |
 | `$HATAMOTO_DATA/install_id` | A random identifier for this install, mode 0600. It decides when this install is offered a new release and never leaves the machine. | Keep it with the data directory; a new one changes when releases arrive. |
-| `MEDIA_UPLOAD_DIR` | Uploaded media files, including generated image variants. The database only stores their records. | No. Back it up. |
+| `MEDIA_UPLOAD_DIR` | Uploaded media files, including generated image variants. The database only stores their records. With `MEDIA_STORAGE=s3` nothing is written here and the files live in the bucket instead. | No. Back it up (with `s3`, back up the bucket: see [Keep media in object storage](media-object-storage.md)). |
 
 There is no content directory and no theme directory: content, themes, plugins and plugin data are stored in Postgres. Logs go to standard output; Hatamoto writes no log files.
 
