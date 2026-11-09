@@ -291,8 +291,8 @@ func TestHealthSurvivesRestart_Integration(t *testing.T) {
 	if err := restarted.RecordResult(ctx, "ok", "v1", got.Counts); err != nil {
 		t.Fatal(err)
 	}
-	if after, _ := restarted.Load(ctx); !after.Counts.IsZero() {
-		t.Fatalf("ok on a new day left %+v", after.Counts)
+	if after, _ := restarted.Load(ctx); after.Counts.Panics != 3 || after.Sent.Panics != 3 {
+		t.Fatalf("ok must keep the day's counts and record what was sent: %+v sent %+v", after.Counts, after.Sent)
 	}
 }
 
@@ -303,45 +303,60 @@ func TestSameDayResend_Integration(t *testing.T) {
 	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.AddHealth(ctx, Counts{Panics: 2}); err != nil {
-		t.Fatal(err)
+	// claim lets the next Claim pass, as a version change or a later day would.
+	claim := func() State {
+		t.Helper()
+		if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_sent_at = now() - interval '25 hours'`); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok, err := st.Claim(ctx, "v1"); err != nil || !ok {
+			t.Fatalf("claim: %v %v", ok, err)
+		}
+		got, _ := st.Load(ctx)
+		return got
 	}
-	snap, _ := st.Load(ctx)
-	// A bump lands between the snapshot and the ok.
-	if err := st.AddHealth(ctx, Counts{Panics: 1}); err != nil {
-		t.Fatal(err)
-	}
-	if err := st.RecordResult(ctx, "ok", "v1", snap.Counts); err != nil {
-		t.Fatal(err)
-	}
-	day1, _ := st.Load(ctx)
-	if day1.Counts.Panics != 1 {
-		t.Fatalf("first ok of a new day: panics = %d, want the 1 bumped during the send", day1.Counts.Panics)
-	}
-
-	// Same UTC day: counts and window stay.
-	if err := st.AddHealth(ctx, Counts{Panics: 4}); err != nil {
-		t.Fatal(err)
-	}
-	second, _ := st.Load(ctx)
-	if err := st.RecordResult(ctx, "ok", "v2", second.Counts); err != nil {
-		t.Fatal(err)
-	}
-	same, _ := st.Load(ctx)
-	if same.Counts.Panics != 5 || !same.WindowStart.Equal(*day1.WindowStart) {
-		t.Fatalf("same-day ok changed counts/window: %+v (window %v, was %v)", same.Counts, same.WindowStart, day1.WindowStart)
+	add := func(n int64) {
+		t.Helper()
+		if err := st.AddHealth(ctx, Counts{Panics: n}); err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	// A UTC day later the counts sent are taken off and the window moves.
+	add(2)
+	first := claim()
+	if first.Counts.Panics != 2 {
+		t.Fatalf("first send carries %d, want 2", first.Counts.Panics)
+	}
+	add(1) // lands while the first send runs
+	if err := st.RecordResult(ctx, "ok", "v1", first.Counts); err != nil {
+		t.Fatal(err)
+	}
+
+	// Same UTC day: the later send carries the day's total, window unchanged.
+	second := claim()
+	if second.Counts.Panics != 3 || !second.WindowStart.Equal(*first.WindowStart) {
+		t.Fatalf("same-day send carries %d (window %v, was %v), want 3", second.Counts.Panics, second.WindowStart, first.WindowStart)
+	}
+	if err := st.RecordResult(ctx, "ok", "v1", second.Counts); err != nil {
+		t.Fatal(err)
+	}
+	add(4)
+
+	// The next UTC day starts after the last send of the previous day.
 	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_ok_at = now() - interval '25 hours'`); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.RecordResult(ctx, "ok", "v2", Counts{Panics: 3}); err != nil {
+	lastSend, _ := st.Load(ctx)
+	next := claim()
+	if next.Counts.Panics != 4 || !next.WindowStart.Equal(*lastSend.LastOKAt) {
+		t.Fatalf("next-day send carries %d (window %v), want only the 4 added after the last send at %v", next.Counts.Panics, next.WindowStart, lastSend.LastOKAt)
+	}
+	// A failed attempt must not lose or repeat anything on the retry.
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_ok_at = now() - interval '25 hours'`); err != nil {
 		t.Fatal(err)
 	}
-	next, _ := st.Load(ctx)
-	if next.Counts.Panics != 2 || !next.WindowStart.After(*day1.WindowStart) {
-		t.Fatalf("new-day ok: %+v window %v", next.Counts, next.WindowStart)
+	if retry := claim(); retry.Counts.Panics != 4 {
+		t.Fatalf("retry carries %d, want 4", retry.Counts.Panics)
 	}
 }
 

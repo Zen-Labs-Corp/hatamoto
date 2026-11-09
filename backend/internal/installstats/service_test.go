@@ -35,7 +35,7 @@ func (m *memStore) Enable(_ context.Context, level Level) (State, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.st.Level != level {
-		m.st.Counts, m.st.WindowStart = Counts{}, nil
+		m.st.Counts, m.st.Sent, m.st.WindowStart = Counts{}, Counts{}, nil
 		if level == LevelDetailed {
 			now := time.Now()
 			m.st.WindowStart = &now
@@ -52,7 +52,7 @@ func (m *memStore) Disable(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.st.Consent, m.st.Level, m.st.InstallID = ConsentNo, LevelOff, ""
-	m.st.Counts, m.st.WindowStart = Counts{}, nil
+	m.st.Counts, m.st.Sent, m.st.WindowStart = Counts{}, Counts{}, nil
 	m.disabled++
 	return nil
 }
@@ -76,6 +76,9 @@ func (m *memStore) Claim(_ context.Context, version string) (string, bool, error
 		return "", false, nil
 	}
 	m.claimedAt = time.Now()
+	if m.st.LastOKAt != nil && m.st.LastOKAt.UTC().Format(time.DateOnly) < time.Now().UTC().Format(time.DateOnly) {
+		m.st.WindowStart, m.st.Counts, m.st.Sent = m.st.LastOKAt, m.st.Counts.sub(m.st.Sent), Counts{}
+	}
 	return m.st.InstallID, true, nil
 }
 func (m *memStore) RecordResult(_ context.Context, s, version string, sent Counts) error {
@@ -86,12 +89,10 @@ func (m *memStore) RecordResult(_ context.Context, s, version string, sent Count
 		return nil
 	}
 	now := time.Now().UTC()
-	newDay := m.st.LastOKAt == nil || m.st.LastOKAt.UTC().Format(time.DateOnly) < now.Format(time.DateOnly)
 	m.st.LastOKAt = &now
 	m.st.LastSentVersion = version
-	if newDay {
-		m.st.WindowStart = &now
-		m.st.Counts = m.st.Counts.sub(sent)
+	if !sent.IsZero() {
+		m.st.Sent = sent
 	}
 	return nil
 }
@@ -435,12 +436,12 @@ func TestRunDetailedBodyCarriesCounts(t *testing.T) {
 			t.Errorf("missing %s in %s", want, r.bodies[0])
 		}
 	}
-	if m.st.LastStatus != "ok" || !m.st.Counts.IsZero() {
-		t.Errorf("after ok: status %q counts %+v", m.st.LastStatus, m.st.Counts)
+	if m.st.LastStatus != "ok" || m.st.Sent.HTTP5xx != 2 {
+		t.Errorf("after ok: status %q sent %+v", m.st.LastStatus, m.st.Sent)
 	}
 }
 
-func TestRunFailedSendKeepsCountsAndLaterOkClearsThem(t *testing.T) {
+func TestRunFailedSendKeepsCountsAndLaterOkRecordsThem(t *testing.T) {
 	ctx := context.Background()
 	for name, fail := range map[string]func(*recorder){
 		"http 500": func(r *recorder) { r.status = 500 },
@@ -461,8 +462,8 @@ func TestRunFailedSendKeepsCountsAndLaterOkClearsThem(t *testing.T) {
 		if err := s.Run(ctx); err != nil || len(r.bodies) != 1 || !strings.Contains(r.bodies[0], `"panics":1`) {
 			t.Fatalf("%s: retry: %v %v", name, err, r.bodies)
 		}
-		if m.st.Counts.Panics != 0 {
-			t.Fatalf("%s: ok send did not clear counts: %+v", name, m.st.Counts)
+		if m.st.Sent.Panics != 1 {
+			t.Fatalf("%s: ok send did not record what it carried: %+v", name, m.st)
 		}
 	}
 }
@@ -472,11 +473,8 @@ func TestRunSameDayResendCarriesTheDayTotal(t *testing.T) {
 	s, m, r, h, _ := detailedRig(t)
 	_ = s.Choose(ctx, LevelDetailed)
 	h.Panic()
-	_ = s.Run(ctx) // first send of a new day: counts reset after it
-	if m.st.Counts.Panics != 0 {
-		t.Fatalf("first send kept counts: %+v", m.st.Counts)
-	}
 	h.Panic()
+	_ = s.Run(ctx) // first send of the day carries 2
 	h.Panic()
 	// A version change allows a second send the same day.
 	m.claimedAt = time.Now().Add(-time.Hour)
@@ -484,16 +482,17 @@ func TestRunSameDayResendCarriesTheDayTotal(t *testing.T) {
 	if err := s.Run(ctx); err != nil || len(r.bodies) != 2 {
 		t.Fatalf("second run: %v, %d bodies", err, len(r.bodies))
 	}
-	if !strings.Contains(r.bodies[1], `"panics":2`) {
-		t.Fatalf("second body: %s", r.bodies[1])
+	if !strings.Contains(r.bodies[0], `"panics":2`) || !strings.Contains(r.bodies[1], `"panics":3`) {
+		t.Fatalf("bodies: %v", r.bodies)
 	}
-	// The next UTC day sends the same counts once more, then resets.
+	// The next UTC day carries only what came after the last send.
+	h.Panic()
 	yesterday := time.Now().Add(-24 * time.Hour)
 	m.st.LastOKAt = &yesterday
 	m.claimedAt = time.Now().Add(-21 * time.Hour)
 	_ = s.Run(ctx)
-	if len(r.bodies) != 3 || !strings.Contains(r.bodies[2], `"panics":2`) || m.st.Counts.Panics != 0 {
-		t.Fatalf("next day: %d bodies, counts %+v", len(r.bodies), m.st.Counts)
+	if len(r.bodies) != 3 || !strings.Contains(r.bodies[2], `"panics":1`) {
+		t.Fatalf("next day: %d bodies %v", len(r.bodies), r.bodies)
 	}
 }
 

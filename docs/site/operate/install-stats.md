@@ -94,7 +94,7 @@ The health counts are numbers only: never a message, a path, a URL, a stack trac
 | `update_rolled_back` | Updates that were rolled back. |
 | `migration_failed` | Failed database migrations, recorded by a marker file in the data directory that survives the rollback. |
 
-The counts cover the time since the last successful report of an earlier UTC day. A second report on the same UTC day (for example after a version change) replaces that day's report and carries the counts already sent that day plus any new ones. The counts are taken off only after the first successful report of a new UTC day. A failed report keeps them.
+The counts cover the time since the last successful report of an earlier UTC day. A second report on the same UTC day (for example after a version change) replaces that day's report and carries the counts already sent that day plus any new ones. The first report of the next UTC day starts after the last report of the day before, so no count is sent on two days. A failed report loses nothing.
 
 ## What is not sent
 
