@@ -1,10 +1,15 @@
 package app
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/pressly/goose/v3"
 )
 
 func TestMarkerCountsAndClears(t *testing.T) {
@@ -45,4 +50,24 @@ func TestMarkerUnwritableDirIsIgnored(t *testing.T) {
 		t.Fatalf("read %d from a missing dir", n)
 	}
 	clearMigrationMarker(missing)
+}
+
+func TestOnlyAFailedMigrationIsRecorded(t *testing.T) {
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	failed := fmt.Errorf("migrate: %w", &goose.PartialError{Failed: &goose.MigrationResult{}, Err: errors.New("syntax error")})
+	for name, c := range map[string]struct {
+		ctx  context.Context
+		err  error
+		want bool
+	}{
+		"failed migration":   {context.Background(), failed, true},
+		"lock or connection": {context.Background(), errors.New("failed to acquire lock"), false},
+		"no error":           {context.Background(), nil, false},
+		"cancelled boot":     {cancelled, failed, false},
+	} {
+		if got := isMigrationFailure(c.ctx, c.err); got != c.want {
+			t.Errorf("%s: isMigrationFailure = %v, want %v", name, got, c.want)
+		}
+	}
 }
