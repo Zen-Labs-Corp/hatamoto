@@ -32,6 +32,10 @@ type ExportOptions struct {
 	SkipMedia bool
 	// NoSubmissions leaves out form submissions (visitor data).
 	NoSubmissions bool
+	// OnMedia, when set, is called once with the relative path of each media
+	// file the rows reference (the stored file and its variants), whether or
+	// not the bytes are exported.
+	OnMedia func(rel string)
 	// OnMissing, when set, is called with the relative path of each referenced
 	// media file that is not on disk.
 	OnMissing func(rel string)
@@ -104,10 +108,16 @@ func Export(ctx context.Context, pool *pgxpool.Pool, w io.Writer, opts ExportOpt
 	}
 	seen := map[string]bool{}
 	for _, p := range mediaPaths {
-		if seen[p] || opts.SkipMedia {
+		if seen[p] {
 			continue
 		}
 		seen[p] = true
+		if opts.OnMedia != nil {
+			opts.OnMedia(p)
+		}
+		if opts.SkipMedia {
+			continue
+		}
 		var size int64
 		var err error
 		if opts.Store != nil {

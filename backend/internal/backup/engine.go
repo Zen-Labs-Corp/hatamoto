@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/portability"
 )
 
@@ -22,7 +23,11 @@ type Options struct {
 	MediaDir    string // upload dir of the content export; empty means ./uploads
 	DatabaseURL string
 	Pool        *pgxpool.Pool // nil means the database is not reachable
-	Run         ExecFunc      // nil means OSExec
+	// MediaStore holds the media bytes when they are not on the local disk
+	// (object storage); nil means MediaDir. The backup then carries a media
+	// manifest instead of the bytes, unless Request.WithMedia is set.
+	MediaStore media.BlobStore
+	Run        ExecFunc // nil means OSExec
 	// Free reports the bytes writable under dir; nil skips the space check.
 	Free    func(dir string) (uint64, error)
 	Now     func() time.Time
@@ -49,6 +54,9 @@ type Request struct {
 	Wait   time.Duration // how long a pre-update backup waits for the lock; 0 means DefaultWait
 	// ConfigPath overrides Options.ConfigPath for this backup.
 	ConfigPath string
+	// WithMedia also copies the media bytes into the archive when they live in
+	// object storage. Local media is always copied.
+	WithMedia bool
 	// OnDone, when set, runs after an ok backup is on disk and pruned, while
 	// the backup lock is still held, so nothing else can start a backup
 	// meanwhile. archive is the tar's path. A failure inside OnDone is the
@@ -281,7 +289,7 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 	if e.q == nil {
 		return *info, errors.New("database not reachable")
 	}
-	if err := e.preflight(ctx, s.Dir()); err != nil {
+	if err := e.preflight(ctx, s.Dir(), e.opts.MediaStore == nil); err != nil {
 		return *info, err
 	}
 	pgVersion, err := e.checkTool(ctx)
@@ -351,12 +359,29 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 	}
 
 	pr.step("content")
-	man, err := e.exportContent(ctx, filepath.Join(work, "content.tar.gz"))
+	man, mediaObjects, err := e.exportContent(ctx, filepath.Join(work, "content.tar.gz"), req.WithMedia)
 	if err != nil {
 		return *info, err
 	}
 	if err := add("content.tar.gz"); err != nil {
 		return *info, err
+	}
+	var mediaStorage string
+	if e.opts.MediaStore != nil {
+		mediaStorage = "s3"
+		pr.step("media manifest")
+		missing, err := writeMediaManifest(ctx, e.opts.MediaStore, mediaObjects, filepath.Join(work, mediaManifestName))
+		if err != nil {
+			return *info, fmt.Errorf("media manifest: %w", err)
+		}
+		if err := add(mediaManifestName); err != nil {
+			return *info, err
+		}
+		man.MediaMissing = len(missing)
+		if len(missing) > 0 {
+			e.opts.Log.Warn("backup: media objects referenced by the database are missing from object storage and left out of the manifest",
+				"missing", len(missing), "sample", missing[:min(len(missing), maxMissingLogged)])
+		}
 	}
 	pr.finished()
 
@@ -370,7 +395,7 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 		Format: manifestFormat, Version: manifestVersion, Created: info.Created,
 		Kind: info.Kind, Target: info.Target, HatamotoVersion: e.opts.Version,
 		ServerMajor: server, PgDump: pgVersion, Parts: parts, Plugins: pluginNames,
-		ContentRows: man.Rows, MediaFiles: man.MediaFiles, MediaBytes: man.MediaBytes, MediaMissing: man.MediaMissing,
+		ContentRows: man.Rows, MediaFiles: man.MediaFiles, MediaBytes: man.MediaBytes, MediaMissing: man.MediaMissing, MediaStorage: mediaStorage,
 		Trust: &trust, ConfigPath: configPath,
 	}
 	size, names, err := writeArchive(s, info.ID, work, parts, mf)
@@ -427,35 +452,51 @@ func copyPart(src, dst string) error {
 // maxMissingLogged caps the missing media paths named in the log.
 const maxMissingLogged = 10
 
-func (e *Engine) exportContent(ctx context.Context, path string) (*portability.Manifest, error) {
+// exportContent writes the content archive. With a media store it returns the
+// paths of every media object the rows reference, for the media manifest; the
+// bytes go into the archive only when withMedia is set.
+func (e *Engine) exportContent(ctx context.Context, path string, withMedia bool) (*portability.Manifest, []string, error) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o600)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var missing []string
-	man, err := e.exportFn(ctx, f, portability.ExportOptions{MediaDir: e.mediaDir(), OnMissing: func(rel string) {
+	var missing, referenced []string
+	opts := portability.ExportOptions{MediaDir: e.mediaDir(), OnMissing: func(rel string) {
 		if len(missing) < maxMissingLogged {
 			missing = append(missing, rel)
 		}
-	}})
+	}}
+	if store := e.opts.MediaStore; store != nil {
+		opts.Store = store
+		opts.SkipMedia = !withMedia
+		opts.OnMedia = func(rel string) { referenced = append(referenced, rel) }
+	}
+	man, err := e.exportFn(ctx, f, opts)
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
 	if err != nil {
-		return nil, fmt.Errorf("content export: %w", err)
+		return nil, nil, fmt.Errorf("content export: %w", err)
+	}
+	if e.opts.MediaStore != nil {
+		if man.MediaMissing > 0 {
+			e.opts.Log.Warn("backup: media objects referenced by the database are missing and left out",
+				"missing", man.MediaMissing, "sample", missing)
+		}
+		return man, referenced, nil
 	}
 	if man.MediaMissing > 0 {
 		dir := e.MediaDirAbs()
 		if st, serr := os.Stat(dir); serr != nil || !st.IsDir() {
-			return nil, fmt.Errorf("media directory %s not found; set MEDIA_UPLOAD_DIR or run from the service directory", dir)
+			return nil, nil, fmt.Errorf("media directory %s not found; set MEDIA_UPLOAD_DIR or run from the service directory", dir)
 		}
 		if man.MediaFiles == 0 {
-			return nil, fmt.Errorf("none of the %d media files referenced by the database were found in %s; set MEDIA_UPLOAD_DIR or run from the service directory", man.MediaMissing, dir)
+			return nil, nil, fmt.Errorf("none of the %d media files referenced by the database were found in %s; set MEDIA_UPLOAD_DIR or run from the service directory", man.MediaMissing, dir)
 		}
 		e.opts.Log.Warn("backup: media files referenced by the database are missing and left out",
 			"dir", dir, "missing", man.MediaMissing, "sample", missing)
 	}
-	return man, nil
+	return man, nil, nil
 }
 
 // MediaDirAbs is the absolute path of the media dir the content export reads.
@@ -481,7 +522,7 @@ const backupsDirMargin = 64 << 20
 // directory holds the dump parts and the finished tar side by side, so its
 // peak is about twice the database plus media, with a margin. The temp dir
 // only holds the content export spool: half again as headroom.
-func (e *Engine) preflight(ctx context.Context, dir string) error {
+func (e *Engine) preflight(ctx context.Context, dir string, localMedia bool) error {
 	if e.opts.Free == nil {
 		return nil
 	}
@@ -489,7 +530,10 @@ func (e *Engine) preflight(ctx context.Context, dir string) error {
 	if err := e.q.QueryRow(ctx, `SELECT pg_database_size(current_database())`).Scan(&db); err != nil {
 		return fmt.Errorf("cannot read the database size: %w", err)
 	}
-	size := uint64(db) + dirBytes(e.mediaDir())
+	size := uint64(db)
+	if localMedia { // media in object storage is not copied unless asked, and is not on this disk
+		size += dirBytes(e.mediaDir())
+	}
 	for _, c := range []struct {
 		dir  string
 		need uint64
