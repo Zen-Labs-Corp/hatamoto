@@ -80,6 +80,9 @@ func (s *Service) StageBlob(ctx context.Context, runID uuid.UUID, r io.Reader, f
 		src = io.LimitReader(src, maxBytes+1)
 	}
 	key := path.Join(stagedPrefix(runID), s.generateFilename(filepath.Ext(filename)))
+	if s.local == nil {
+		return s.stageInStore(ctx, key, src, sniffed, maxBytes)
+	}
 	written, err := s.store.Put(ctx, key, src)
 	if err != nil {
 		s.logger.Error("failed to stage file", "path", key, "error", err.Error())
@@ -98,6 +101,33 @@ func (s *Service) StageBlob(ctx context.Context, runID uuid.UUID, r io.Reader, f
 			s.removeBlob(ctx, key)
 			return "", err
 		}
+	}
+	return key, nil
+}
+
+// stageInStore is the tail of StageBlob for a non-local store: the bytes are
+// spooled and checked in a temporary file, and only a file that passes is
+// stored. The total quota does not apply to a bucket.
+func (s *Service) stageInStore(ctx context.Context, key string, src io.Reader, sniffed string, maxBytes int64) (string, error) {
+	tmp, written, err := spoolTemp(src)
+	if tmp != "" {
+		defer os.Remove(tmp)
+	}
+	if err != nil {
+		s.logger.Error("failed to stage file", "path", key, "error", err.Error())
+		return "", ErrStorageFailed
+	}
+	if maxBytes > 0 && written > maxBytes {
+		return "", ErrFileTooLarge
+	}
+	if strings.HasPrefix(sniffed, "image/") && sniffed != svgMIME {
+		if err := s.enforcePixelCap(tmp); err != nil {
+			return "", err
+		}
+	}
+	if err := putFile(ctx, s.store, key, tmp); err != nil {
+		s.logger.Error("failed to stage file", "path", key, "error", err.Error())
+		return "", ErrStorageFailed
 	}
 	return key, nil
 }
@@ -183,20 +213,28 @@ func (s *Service) prepareAttach(ctx context.Context, op MediaOp) (*Media, error)
 		Variants:         []ImageVariant{},
 	}
 	if m.IsImage() && mimeType != svgMIME {
-		fullPath := s.local.localPath(storagePath)
-		if w, h, err := s.getImageDimensions(fullPath); err == nil {
-			m.Width, m.Height = &w, &h
-		}
-		if m.SupportsVariants() {
-			variants, err := s.createVariants(ctx, m, fullPath)
-			if errors.Is(err, ErrImageTooLarge) {
-				s.removeBlob(ctx, storagePath)
-				return nil, err
-			} else if err != nil {
-				s.logger.Warn("failed to create variants", "error", err.Error())
-			} else {
-				m.Variants = variants
+		err := s.withLocalSource(ctx, storagePath, func(fullPath string) error {
+			if w, h, err := s.getImageDimensions(fullPath); err == nil {
+				m.Width, m.Height = &w, &h
 			}
+			if m.SupportsVariants() {
+				variants, err := s.createVariants(ctx, m, fullPath)
+				if errors.Is(err, ErrImageTooLarge) {
+					return err
+				} else if err != nil {
+					s.logger.Warn("failed to create variants", "error", err.Error())
+				} else {
+					m.Variants = variants
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			s.removeBlob(ctx, storagePath)
+			if errors.Is(err, ErrImageTooLarge) {
+				return nil, err
+			}
+			return nil, ErrStorageFailed
 		}
 	}
 	return m, nil
@@ -231,6 +269,21 @@ func (s *Service) DeleteStaged(ctx context.Context, keys []string) error {
 // ListStagedKeys lists the key of every file under the staged directory, for
 // the sweeper's orphan scan (the blob store itself cannot list).
 func (s *Service) ListStagedKeys(ctx context.Context) ([]string, error) {
+	if s.local == nil {
+		l, ok := s.store.(Lister)
+		if !ok {
+			return nil, errors.New("the media store cannot list objects")
+		}
+		objs, err := l.List(ctx, path.Join(legacyMediaTenantDir, stagedDir)+"/")
+		if err != nil {
+			return nil, err
+		}
+		keys := make([]string, 0, len(objs))
+		for _, o := range objs {
+			keys = append(keys, o.Key)
+		}
+		return keys, nil
+	}
 	base := filepath.Join(s.local.root, legacyMediaTenantDir, stagedDir)
 	var keys []string
 	err := filepath.WalkDir(base, func(p string, d fs.DirEntry, err error) error {
@@ -264,6 +317,9 @@ func (s *Service) StagedKeyModTime(key string) (time.Time, error) {
 	if err := checkKey(key); err != nil || !isStagedKey(key) {
 		return time.Time{}, fmt.Errorf("not a staged blob key %q", key)
 	}
+	if s.local == nil {
+		return s.storeModTime(key)
+	}
 	fi, err := os.Stat(s.local.localPath(key))
 	if err != nil {
 		return time.Time{}, err
@@ -278,7 +334,13 @@ func (s *Service) OpenStaged(key string) (*os.File, int64, error) {
 	if err := checkKey(key); err != nil || !isStagedKey(key) {
 		return nil, 0, fmt.Errorf("not a staged blob key %q", key)
 	}
-	f, err := os.Open(s.local.localPath(key))
+	var f *os.File
+	var err error
+	if s.local == nil {
+		f, err = s.spoolStaged(key)
+	} else {
+		f, err = os.Open(s.local.localPath(key))
+	}
 	if err != nil {
 		return nil, 0, err
 	}
@@ -288,4 +350,62 @@ func (s *Service) OpenStaged(key string) (*os.File, int64, error) {
 		return nil, 0, err
 	}
 	return f, fi.Size(), nil
+}
+
+// storeOpTimeout bounds the store calls of the methods that take no context.
+const storeOpTimeout = 2 * time.Minute
+
+// storeModTime is the last-write time of key in a non-local store. A store
+// that does not report one yields "now", which keeps the sweeper from deleting
+// a file whose age it cannot tell.
+func (s *Service) storeModTime(key string) (time.Time, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), storeOpTimeout)
+	defer cancel()
+	if st, ok := s.store.(Stater); ok {
+		info, err := st.Stat(ctx, key)
+		if err != nil {
+			return time.Time{}, err
+		}
+		if !info.ModTime.IsZero() {
+			return info.ModTime, nil
+		}
+	}
+	if l, ok := s.store.(Lister); ok {
+		objs, err := l.List(ctx, key)
+		if err != nil {
+			return time.Time{}, err
+		}
+		for _, o := range objs {
+			if o.Key == key && !o.ModTime.IsZero() {
+				return o.ModTime, nil
+			}
+		}
+	}
+	return time.Now(), nil
+}
+
+// spoolStaged copies the staged object at key to a temporary file that is
+// already unlinked: it vanishes when the caller closes it.
+func (s *Service) spoolStaged(key string) (*os.File, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), storeOpTimeout)
+	defer cancel()
+	body, err := s.store.Get(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+	f, err := os.CreateTemp("", "hatamoto-media-*")
+	if err != nil {
+		return nil, err
+	}
+	os.Remove(f.Name())
+	if _, err := io.Copy(f, body); err != nil {
+		f.Close()
+		return nil, err
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return f, nil
 }
