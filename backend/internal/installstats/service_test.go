@@ -29,10 +29,10 @@ func (m *memStore) Load(context.Context) (State, error) {
 	defer m.mu.Unlock()
 	return m.st, nil
 }
-func (m *memStore) Enable(context.Context) (State, error) {
+func (m *memStore) Enable(_ context.Context, level Level) (State, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.st.Consent = ConsentYes
+	m.st.Consent, m.st.Level = ConsentYes, level
 	if m.st.InstallID == "" {
 		m.n++
 		m.st.InstallID = strings.Repeat(string(rune('a'+m.n)), 32)
@@ -42,7 +42,7 @@ func (m *memStore) Enable(context.Context) (State, error) {
 func (m *memStore) Disable(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.st.Consent, m.st.InstallID = ConsentNo, ""
+	m.st.Consent, m.st.Level, m.st.InstallID = ConsentNo, LevelOff, ""
 	return nil
 }
 func (m *memStore) Reset(context.Context) (State, error) {
@@ -54,24 +54,39 @@ func (m *memStore) Reset(context.Context) (State, error) {
 	}
 	return m.st, nil
 }
-func (m *memStore) Claim(context.Context) (string, bool, error) {
+func (m *memStore) Claim(_ context.Context, version string) (string, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.st.Consent != ConsentYes || m.st.InstallID == "" || time.Since(m.claimedAt) < 20*time.Hour {
+	if m.st.Consent != ConsentYes || m.st.InstallID == "" {
+		return "", false, nil
+	}
+	since := time.Since(m.claimedAt)
+	if since < 20*time.Hour && (m.st.LastSentVersion == version || since < 30*time.Minute) {
 		return "", false, nil
 	}
 	m.claimedAt = time.Now()
 	return m.st.InstallID, true, nil
 }
-func (m *memStore) RecordResult(_ context.Context, s string) error {
+func (m *memStore) RecordResult(_ context.Context, s, version string, _ Counts) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.st.LastStatus = s
 	if s == "ok" {
 		now := time.Now()
 		m.st.LastOKAt = &now
+		m.st.LastSentVersion = version
 	}
 	return nil
+}
+func (m *memStore) AddHealth(context.Context, Counts) error { return nil }
+func (m *memStore) DismissNudge(context.Context) error      { return nil }
+func (m *memStore) Banner(context.Context) (BannerKind, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.st.Consent == ConsentUnset {
+		return BannerUnanswered, nil
+	}
+	return BannerNone, nil
 }
 
 type recorder struct {
@@ -109,7 +124,7 @@ func TestRunSendsNothingWithoutConsent(t *testing.T) {
 		"unset":  func(*Service, *memStore) {},
 		"no":     func(s *Service, _ *memStore) { _ = s.Choose(ctx, false) },
 		"dev":    func(s *Service, _ *memStore) { _ = s.Choose(ctx, true) },
-		"forced": func(_ *Service, m *memStore) { _, _ = m.Enable(ctx) },
+		"forced": func(_ *Service, m *memStore) { _, _ = m.Enable(ctx, LevelBasic) },
 	} {
 		env, version := map[string]string{}, "v1.2.3"
 		switch name {
@@ -157,7 +172,7 @@ func TestRunNeverSendsFromASourceBuild(t *testing.T) {
 func TestEnforceDeletesTheID(t *testing.T) {
 	ctx := context.Background()
 	s, m, r := rig(t, map[string]string{EnvTelemetry: "off"}, "v1.2.3")
-	_, _ = m.Enable(ctx)
+	_, _ = m.Enable(ctx, LevelBasic)
 	if err := s.Run(ctx); err != nil || len(r.reqs) != 0 {
 		t.Fatalf("run: %v, %d requests", err, len(r.reqs))
 	}

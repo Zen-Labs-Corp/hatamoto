@@ -30,11 +30,14 @@ const placeholderID = "6f1c0a9e5b7d4e28a3c1f09d7b2e4a65"
 // Backend is the stored state the Service works on; *Store implements it.
 type Backend interface {
 	Load(ctx context.Context) (State, error)
-	Enable(ctx context.Context) (State, error)
+	Enable(ctx context.Context, level Level) (State, error)
 	Disable(ctx context.Context) error
 	Reset(ctx context.Context) (State, error)
-	Claim(ctx context.Context) (id string, ok bool, err error)
-	RecordResult(ctx context.Context, status string) error
+	Claim(ctx context.Context, version string) (id string, ok bool, err error)
+	AddHealth(ctx context.Context, d Counts) error
+	RecordResult(ctx context.Context, status, version string, sent Counts) error
+	DismissNudge(ctx context.Context) error
+	Banner(ctx context.Context) (BannerKind, error)
 }
 
 var _ Backend = (*Store)(nil)
@@ -150,7 +153,7 @@ func (s *Service) Choose(ctx context.Context, yes bool) error {
 	if !yes {
 		return s.store.Disable(ctx)
 	}
-	_, err := s.store.Enable(ctx)
+	_, err := s.store.Enable(ctx, LevelBasic)
 	return err
 }
 
@@ -188,13 +191,13 @@ func (s *Service) Run(ctx context.Context) error {
 	if !isRelease(s.version) {
 		return nil
 	}
-	id, ok, err := s.store.Claim(ctx)
+	id, ok, err := s.store.Claim(ctx, s.version)
 	if err != nil || !ok {
 		return err
 	}
 	status := s.send(ctx, s.payload(ctx, id))
 	s.log.Info("install stats sent", "status", status)
-	return s.store.RecordResult(ctx, status)
+	return s.store.RecordResult(ctx, status, s.version, Counts{})
 }
 
 func (s *Service) payload(ctx context.Context, id string) Payload {

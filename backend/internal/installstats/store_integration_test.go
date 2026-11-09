@@ -16,8 +16,14 @@ import (
 )
 
 // scratchPool creates a throwaway database with only the install stats
-// migration applied and drops it afterwards.
+// migrations applied and drops it afterwards.
 func scratchPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	return applyMigrations(t, scratchBare(t), "202610280900_install_stats.sql", "202610281000_install_stats_last_ok.sql", "202611091000_install_stats_level.sql")
+}
+
+// scratchBare creates a throwaway empty database and drops it afterwards.
+func scratchBare(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	dsn := os.Getenv("HATAMOTO_TEST_DB_URL")
 	if dsn == "" {
@@ -46,7 +52,14 @@ func scratchPool(t *testing.T) *pgxpool.Pool {
 		_, _ = admin.Exec(ctx, "DROP DATABASE "+name+" WITH (FORCE)")
 		admin.Close(ctx)
 	})
-	for _, f := range []string{"202610280900_install_stats.sql", "202610281000_install_stats_last_ok.sql"} {
+	return pool
+}
+
+// applyMigrations runs the Up part of each named migration file on pool.
+func applyMigrations(t *testing.T, pool *pgxpool.Pool, files ...string) *pgxpool.Pool {
+	t.Helper()
+	ctx := context.Background()
+	for _, f := range files {
 		sqlText, err := os.ReadFile("../../migrations/" + f)
 		if err != nil {
 			t.Fatal(err)
@@ -65,7 +78,7 @@ func TestStoreMissingRowIsUnset_Integration(t *testing.T) {
 	if err != nil || got.Consent != ConsentUnset || got.InstallID != "" {
 		t.Fatalf("missing row must be unset without an id: %+v %v", got, err)
 	}
-	if _, ok, err := st.Claim(context.Background()); err != nil || ok {
+	if _, ok, err := st.Claim(context.Background(), "v1"); err != nil || ok {
 		t.Fatalf("claim with consent unset: ok=%v err=%v", ok, err)
 	}
 }
@@ -78,11 +91,11 @@ func TestStoreEnableDisableReset_Integration(t *testing.T) {
 	if got, err := st.Reset(ctx); err != nil || got.InstallID != "" {
 		t.Fatalf("reset without consent: %+v %v", got, err)
 	}
-	first, err := st.Enable(ctx)
+	first, err := st.Enable(ctx, LevelBasic)
 	if err != nil || first.Consent != ConsentYes || len(first.InstallID) != 32 {
 		t.Fatalf("enable: %+v %v", first, err)
 	}
-	again, err := st.Enable(ctx)
+	again, err := st.Enable(ctx, LevelBasic)
 	if err != nil || again.InstallID != first.InstallID {
 		t.Fatalf("a second enable must keep the id: %+v %v", again, err)
 	}
@@ -101,7 +114,7 @@ func TestStoreEnableDisableReset_Integration(t *testing.T) {
 		t.Fatalf("reset with consent no: %+v %v", got, err)
 	}
 	// A new yes after no is a new id.
-	back, err := st.Enable(ctx)
+	back, err := st.Enable(ctx, LevelBasic)
 	if err != nil || back.InstallID == "" || back.InstallID == first.InstallID {
 		t.Fatalf("enable after disable: %+v %v", back, err)
 	}
@@ -111,7 +124,7 @@ func TestStoreClaim_Integration(t *testing.T) {
 	ctx := context.Background()
 	pool := scratchPool(t)
 	st := NewStore(pool)
-	enabled, err := st.Enable(ctx)
+	enabled, err := st.Enable(ctx, LevelBasic)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +138,7 @@ func TestStoreClaim_Integration(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			id, ok, err := st.Claim(ctx)
+			id, ok, err := st.Claim(ctx, "v1")
 			if err != nil {
 				t.Error(err)
 				return
@@ -148,18 +161,18 @@ func TestStoreClaim_Integration(t *testing.T) {
 	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_sent_at = now() - interval '21 hours'`); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok, err := st.Claim(ctx); err != nil || !ok {
+	if _, ok, err := st.Claim(ctx, "v1"); err != nil || !ok {
 		t.Fatalf("claim after the interval: ok=%v err=%v", ok, err)
 	}
 
-	if err := st.RecordResult(ctx, "ok"); err != nil {
+	if err := st.RecordResult(ctx, "ok", "v1", Counts{}); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Load(ctx)
 	if got.LastStatus != "ok" || got.LastSentAt == nil || got.LastOKAt == nil {
 		t.Fatalf("result not stored: %+v", got)
 	}
-	if err := st.RecordResult(ctx, "error: http 404"); err != nil {
+	if err := st.RecordResult(ctx, "error: http 404", "v1", Counts{}); err != nil {
 		t.Fatal(err)
 	}
 	after, _ := st.Load(ctx)
@@ -170,7 +183,236 @@ func TestStoreClaim_Integration(t *testing.T) {
 	if err := st.Disable(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok, err := st.Claim(ctx); err != nil || ok {
+	if _, ok, err := st.Claim(ctx, "v1"); err != nil || ok {
 		t.Fatalf("claim with consent no: ok=%v err=%v", ok, err)
+	}
+}
+
+// rawScratch is scratchPool without any migration, for upgrade tests.
+func rawScratch(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	return applyMigrations(t, scratchBare(t), "202610280900_install_stats.sql", "202610281000_install_stats_last_ok.sql")
+}
+
+func TestMigrationBackfillsLevel_Integration(t *testing.T) {
+	ctx := context.Background()
+	for consent, want := range map[string]Level{"yes": LevelBasic, "no": LevelOff, "unset": LevelUnset} {
+		t.Run(consent, func(t *testing.T) {
+			pool := rawScratch(t)
+			id := "NULL"
+			if consent == "yes" {
+				id = "'0123456789abcdef0123456789abcdef'"
+			}
+			if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_install_stats (id, consent, install_id) VALUES (TRUE, '`+consent+`', `+id+`)`); err != nil {
+				t.Fatal(err)
+			}
+			applyMigrations(t, pool, "202611091000_install_stats_level.sql")
+			got, err := NewStore(pool).Load(ctx)
+			if err != nil || got.Level != want || string(got.Consent) != consent {
+				t.Fatalf("level = %q consent = %q (%v), want %q / %q", got.Level, got.Consent, err, want, consent)
+			}
+		})
+	}
+}
+
+func TestClaimVersionChange_Integration(t *testing.T) {
+	ctx := context.Background()
+	pool := scratchPool(t)
+	st := NewStore(pool)
+	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+		t.Fatal(err)
+	}
+	set := func(ago, version string) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_sent_at = now() - $1::interval, last_sent_version = $2`, ago, version); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range []struct {
+		name, ago, last, running string
+		want                     bool
+	}{
+		{"same version, 2h", "2 hours", "v1", "v1", false},
+		{"new version, 2h", "2 hours", "v1", "v2", true},
+		{"new version, 5 min", "5 minutes", "v1", "v2", false},
+		{"same version, 21h", "21 hours", "v1", "v1", true},
+	} {
+		set(tc.ago, tc.last)
+		if _, ok, err := st.Claim(ctx, tc.running); err != nil || ok != tc.want {
+			t.Fatalf("%s: ok=%v err=%v, want %v", tc.name, ok, err, tc.want)
+		}
+	}
+}
+
+func TestLastSentVersionOnlyOnOk_Integration(t *testing.T) {
+	ctx := context.Background()
+	st := NewStore(scratchPool(t))
+	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.RecordResult(ctx, "error: network", "v2", Counts{}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := st.Load(ctx); got.LastSentVersion != "" {
+		t.Fatalf("a failed send stored version %q", got.LastSentVersion)
+	}
+	if err := st.RecordResult(ctx, "ok", "v2", Counts{}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := st.Load(ctx); got.LastSentVersion != "v2" {
+		t.Fatalf("version = %q", got.LastSentVersion)
+	}
+}
+
+func TestHealthSurvivesRestart_Integration(t *testing.T) {
+	ctx := context.Background()
+	pool := scratchPool(t)
+	st := NewStore(pool)
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.AddHealth(ctx, Counts{Panics: 2, PluginErrors: map[string]int64{"a": 1}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.AddHealth(ctx, Counts{Panics: 1, HTTP5xx: 4, PluginErrors: map[string]int64{"a": 2, "b": 1}}); err != nil {
+		t.Fatal(err)
+	}
+	restarted := NewStore(pool)
+	got, err := restarted.Load(ctx)
+	if err != nil || got.Counts.Panics != 3 || got.Counts.HTTP5xx != 4 || got.Counts.PluginErrors["a"] != 3 || got.Counts.PluginErrors["b"] != 1 || got.WindowStart == nil {
+		t.Fatalf("after restart: %+v %v", got, err)
+	}
+	if err := restarted.RecordResult(ctx, "error: network", "v1", got.Counts); err != nil {
+		t.Fatal(err)
+	}
+	if after, _ := restarted.Load(ctx); after.Counts.Panics != 3 {
+		t.Fatalf("a failed send cleared the counts: %+v", after.Counts)
+	}
+	if err := restarted.RecordResult(ctx, "ok", "v1", got.Counts); err != nil {
+		t.Fatal(err)
+	}
+	if after, _ := restarted.Load(ctx); !after.Counts.IsZero() {
+		t.Fatalf("ok on a new day left %+v", after.Counts)
+	}
+}
+
+func TestSameDayResend_Integration(t *testing.T) {
+	ctx := context.Background()
+	pool := scratchPool(t)
+	st := NewStore(pool)
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.AddHealth(ctx, Counts{Panics: 2}); err != nil {
+		t.Fatal(err)
+	}
+	snap, _ := st.Load(ctx)
+	// A bump lands between the snapshot and the ok.
+	if err := st.AddHealth(ctx, Counts{Panics: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.RecordResult(ctx, "ok", "v1", snap.Counts); err != nil {
+		t.Fatal(err)
+	}
+	day1, _ := st.Load(ctx)
+	if day1.Counts.Panics != 1 {
+		t.Fatalf("first ok of a new day: panics = %d, want the 1 bumped during the send", day1.Counts.Panics)
+	}
+
+	// Same UTC day: counts and window stay.
+	if err := st.AddHealth(ctx, Counts{Panics: 4}); err != nil {
+		t.Fatal(err)
+	}
+	second, _ := st.Load(ctx)
+	if err := st.RecordResult(ctx, "ok", "v2", second.Counts); err != nil {
+		t.Fatal(err)
+	}
+	same, _ := st.Load(ctx)
+	if same.Counts.Panics != 5 || !same.WindowStart.Equal(*day1.WindowStart) {
+		t.Fatalf("same-day ok changed counts/window: %+v (window %v, was %v)", same.Counts, same.WindowStart, day1.WindowStart)
+	}
+
+	// A UTC day later the counts sent are taken off and the window moves.
+	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_ok_at = now() - interval '25 hours'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.RecordResult(ctx, "ok", "v2", Counts{Panics: 3}); err != nil {
+		t.Fatal(err)
+	}
+	next, _ := st.Load(ctx)
+	if next.Counts.Panics != 2 || !next.WindowStart.After(*day1.WindowStart) {
+		t.Fatalf("new-day ok: %+v window %v", next.Counts, next.WindowStart)
+	}
+}
+
+func TestAddHealthIgnoredUnlessDetailed_Integration(t *testing.T) {
+	ctx := context.Background()
+	st := NewStore(scratchPool(t))
+	if err := st.AddHealth(ctx, Counts{Panics: 1}); err != nil { // no row yet
+		t.Fatal(err)
+	}
+	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.AddHealth(ctx, Counts{Panics: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := st.Load(ctx); !got.Counts.IsZero() {
+		t.Fatalf("basic level stored %+v", got.Counts)
+	}
+}
+
+func TestBannerKinds_Integration(t *testing.T) {
+	ctx := context.Background()
+	st := NewStore(scratchPool(t))
+	want := func(k BannerKind) {
+		t.Helper()
+		if got, err := st.Banner(ctx); err != nil || got != k {
+			t.Fatalf("banner = %q (%v), want %q", got, err, k)
+		}
+	}
+	want(BannerUnanswered)
+	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+		t.Fatal(err)
+	}
+	want(BannerNudge)
+	if err := st.DismissNudge(ctx); err != nil {
+		t.Fatal(err)
+	}
+	want(BannerNone)
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
+		t.Fatal(err)
+	}
+	want(BannerNone)
+	if err := st.Disable(ctx); err != nil {
+		t.Fatal(err)
+	}
+	want(BannerNone)
+}
+
+func TestDisableWipesCounters_Integration(t *testing.T) {
+	ctx := context.Background()
+	st := NewStore(scratchPool(t))
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.AddHealth(ctx, Counts{Panics: 2, PluginErrors: map[string]int64{"a": 1}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Disable(ctx); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := st.Load(ctx)
+	if !got.Counts.IsZero() || got.WindowStart != nil || got.Level != LevelOff || got.Consent != ConsentNo || got.InstallID != "" {
+		t.Fatalf("after disable: %+v", got)
+	}
+	// Leaving Detailed for Basic zeroes too, and consent stays yes.
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
+		t.Fatal(err)
+	}
+	_ = st.AddHealth(ctx, Counts{Panics: 1})
+	basic, _ := st.Enable(ctx, LevelBasic)
+	if !basic.Counts.IsZero() || basic.Consent != ConsentYes {
+		t.Fatalf("detailed -> basic: %+v", basic)
 	}
 }

@@ -15,17 +15,24 @@ import (
 type memStats struct{ st installstats.State }
 
 func (m *memStats) Load(context.Context) (installstats.State, error) { return m.st, nil }
-func (m *memStats) Enable(context.Context) (installstats.State, error) {
-	m.st = installstats.State{Consent: installstats.ConsentYes, InstallID: "0123456789abcdef0123456789abcdef"}
+func (m *memStats) Enable(_ context.Context, level installstats.Level) (installstats.State, error) {
+	m.st = installstats.State{Consent: installstats.ConsentYes, Level: level, InstallID: "0123456789abcdef0123456789abcdef"}
 	return m.st, nil
 }
 func (m *memStats) Disable(context.Context) error {
-	m.st = installstats.State{Consent: installstats.ConsentNo}
+	m.st = installstats.State{Consent: installstats.ConsentNo, Level: installstats.LevelOff}
 	return nil
 }
-func (m *memStats) Reset(context.Context) (installstats.State, error) { return m.st, nil }
-func (m *memStats) Claim(context.Context) (string, bool, error)       { return "", false, nil }
-func (m *memStats) RecordResult(context.Context, string) error        { return nil }
+func (m *memStats) Reset(context.Context) (installstats.State, error)    { return m.st, nil }
+func (m *memStats) Claim(context.Context, string) (string, bool, error)  { return "", false, nil }
+func (m *memStats) AddHealth(context.Context, installstats.Counts) error { return nil }
+func (m *memStats) RecordResult(context.Context, string, string, installstats.Counts) error {
+	return nil
+}
+func (m *memStats) DismissNudge(context.Context) error { return nil }
+func (m *memStats) Banner(context.Context) (installstats.BannerKind, error) {
+	return installstats.BannerNone, nil
+}
 
 func TestAdminStatsViewShowsLastSuccess(t *testing.T) {
 	s, m := statsTestServer(false)
@@ -98,7 +105,7 @@ func TestStartupEnforcesTelemetryOff(t *testing.T) {
 	t.Setenv("WORKER_DISABLE_JOBS", "")
 	t.Setenv("HATAMOTO_TELEMETRY", "off")
 	s, m := statsTestServer(false) // the worker is off: the ID must go anyway
-	_, _ = m.Enable(context.Background())
+	_, _ = m.Enable(context.Background(), installstats.LevelBasic)
 	s.SetStats(s.stats)
 	if m.st.Consent != installstats.ConsentNo || m.st.InstallID != "" {
 		t.Fatalf("env off at startup must clear the id: %+v", m.st)
@@ -109,7 +116,7 @@ func TestStartupLeavesConsentAloneWhenNotOff(t *testing.T) {
 	t.Setenv("WORKER_DISABLE_JOBS", "")
 	t.Setenv("HATAMOTO_TELEMETRY", "")
 	s, m := statsTestServer(false)
-	_, _ = m.Enable(context.Background())
+	_, _ = m.Enable(context.Background(), installstats.LevelBasic)
 	s.SetStats(s.stats)
 	if m.st.Consent != installstats.ConsentYes || m.st.InstallID == "" {
 		t.Fatalf("startup must not change consent: %+v", m.st)
