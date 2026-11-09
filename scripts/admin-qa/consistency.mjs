@@ -452,18 +452,20 @@ async function pool(tasks, n) {
 for (const roleName of ["owner", "editor"]) {
   const list = allScreens.filter((s) => s.roles.includes(roleName)).filter((s) => !only.length || only.includes(s.name));
   const combos = [];
-  for (const width of [1440, 390]) for (const theme of ["light", "dark"]) combos.push(async () => {
-    const p = await newSession(b, { theme, width, signedIn: false });
+  // The last combo is the Compact density pass; its label (and screenshot suffix) is "light-compact".
+  for (const [width, mode, density] of [[1440, "light"], [1440, "dark"], [390, "light"], [390, "dark"], [1440, "light", "compact"]]) combos.push(async () => {
+    const theme = density ? `${mode}-${density}` : mode;
+    const p = await newSession(b, { theme: mode, density, width, signedIn: false });
     if (roleName === "owner") await login(p); else await anonLogin(p, EDITOR_EMAIL);
     for (const s of list) {
       const label = `${roleName}:${s.name}`;
       let page = p;
       if (s.auth === false) {
         if (roleName === "editor") continue; // signed-out screens are role independent
-        page = await newSession(b, { theme, width, signedIn: false });
+        page = await newSession(b, { theme: mode, density, width, signedIn: false });
       } else if (s.as === "newcomer") {
         // A user without a profile: the gate sends them to the step this screen is.
-        page = await newSession(b, { theme, width, signedIn: false });
+        page = await newSession(b, { theme: mode, density, width, signedIn: false });
         await anonLogin(page, NEWCOMER_EMAIL);
       }
       const v = await visit(page, s);
@@ -479,7 +481,7 @@ for (const roleName of ["owner", "editor"]) {
           if (await page.evaluate(hoverCheck, id)) bad.push(["UI-D11", `input#${id}`, "border does not darken on hover", ""]);
         }
       }
-      if (theme === "light") bad.push(...(await dialogCheck(page)));
+      if (mode === "light" && !density) bad.push(...(await dialogCheck(page)));
       scans++;
       await page.screenshot({ fullPage: true, path: path.join(OUT, `${roleName === "owner" ? "" : "editor-"}${s.name}-${width}-${theme}.png`) });
       // The create dialog open: screenshot, scanned like the page. The opener is the header action.
