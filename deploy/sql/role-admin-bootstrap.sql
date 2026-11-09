@@ -83,6 +83,17 @@ BEGIN;
                      AND pg_has_role(current_user, nspowner, 'SET')
                      FROM pg_namespace WHERE nspname = 'hatamoto_admin'), false) AS rerun
   \gset
+  -- The core id is read as this role (it inherits the app role, which owns the
+  -- table); the role admin used on a rerun cannot read it.
+  SELECT to_regclass('public.hatamoto_instance') IS NOT NULL AS has_core
+  \gset
+  \set core_id ''
+  \if :has_core
+    SELECT id AS core_id FROM public.hatamoto_instance
+    \gset
+  \endif
+  SELECT set_config('hatamoto.core_id', :'core_id', true) AS core_cfg
+  \gset
   \if :rerun
     -- CREATE SCHEMA IF NOT EXISTS below still checks the privilege.
     GRANT CREATE ON DATABASE :"DBNAME" TO :"prev_owner";
@@ -103,7 +114,8 @@ DECLARE
   core text;
   mine text;
 BEGIN
-  IF to_regclass('public.hatamoto_instance') IS NOT NULL THEN
+  core := nullif(current_setting('hatamoto.core_id', true), '');
+  IF core IS NULL AND to_regclass('public.hatamoto_instance') IS NOT NULL THEN
     EXECUTE 'SELECT id FROM public.hatamoto_instance' INTO core;
   END IF;
   SELECT id INTO mine FROM hatamoto_admin.instance;

@@ -243,6 +243,8 @@ func backupRestoreFlow(t *testing.T, mode adminMode) {
 	}
 	pool := c.migrate(name)
 	needRestoreTools(t, pool)
+	// A rerun after the core migrations read the core id too.
+	c.bootstrap(name)
 
 	var id8 string
 	if err := pool.QueryRow(ctx, `SELECT left(id::text, 8) FROM hatamoto_instance`).Scan(&id8); err != nil {
