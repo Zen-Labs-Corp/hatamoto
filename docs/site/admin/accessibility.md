@@ -14,7 +14,7 @@ This page states what the Hatamoto admin aims for, how that is tested and where 
 |---|---|
 | Target | WCAG 2.2, level AA, for every admin screen, in light and dark colours and at 1440 and 390 pixels wide |
 | Scope | The admin under `<admin>`, and the default theme's navigation. Plugin admin pages and themes you install from elsewhere are their authors' responsibility. |
-| Status | Pre-1.0. The checks below pass on the screens we test, but we have not had an outside audit. |
+| Status | The checks below pass on the screens we test, but we have not had an outside audit. |
 
 ## How it is tested
 

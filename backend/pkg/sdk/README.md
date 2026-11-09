@@ -36,7 +36,7 @@ Semantic, with the pre-1.0 rules in [STABILITY.md](STABILITY.md):
 while the SDK is 0.x a minor release may change behaviour, but only after the change was announced as a
 deprecation notice in an earlier SDK minor and recorded in the release notes. A patch never breaks a covered surface, except a security exception, which says so in its
 release note and advisory. `Version` is the current version; `CompatibleWith` lists every
-earlier 0.x minor from 0.5.0, and a host keeps serving all of them until 1.0. A plugin declares the oldest range it
+earlier 0.x minor from 0.5.0, and a host keeps serving all of them until the SDK reaches 1.0. A plugin declares the oldest range it
 needs in `plugin.json` (today `"sdk": "^0.11"`, so hosts before v0.31.0 still load it); a host refuses a plugin whose range matches neither.
 
 | SDK | Change |

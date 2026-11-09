@@ -1,6 +1,6 @@
 # Hatamoto roadmap
 
-Status: **pre-1.0.** Releases are published on three channels (`stable`, `edge`, `canary`; see
+Status: **core v1, plugin SDK pre-1.0.** Releases are published on three channels (`stable`, `edge`, `canary`; see
 [How updates work](site/updates/index.md)) and the plugin SDK is at v0: it can still change between
 minor versions until it is frozen at 1.0 (see [Not in 1.0](#8-not-in-10-decided) for what is out of scope).
 This page says what Hatamoto 1.0 is, how it is built and what is next. Sections 1 to 4 describe the product and its invariants; the rest
