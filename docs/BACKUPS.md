@@ -15,6 +15,7 @@ One backup is one tar file, `<id>.tar`, with these parts:
 | `core.dump` | `pg_dump --format=custom` of the whole database except the plugin schemas and the privileged `hatamoto_admin` schema. |
 | `plugin_<name>.dump` | One `pg_dump` per plugin schema (`plugin_<name>`), so a plugin's own tables travel with the backup. |
 | `content.tar.gz` | The content export (the same format as `hatamoto export`: content, menus, settings, media files). |
+| `media-manifest.json` | Only for a site whose media is in object storage (`MEDIA_STORAGE=s3`): `{"version":1,"files":[{"key","size","sha256"}]}`, one entry per file the media library references, with the object name relative to the bucket prefix. A referenced file that is not in the bucket is left out and counted in `media_missing`. It is a normal part: listed in `parts` and written before `manifest.json`. |
 | `secrets.env` | A verbatim copy of `<secrets dir>/secrets.env` (`HATAMOTO_SECRETS_DIR`, default `./data/secrets`), when that file exists. If the secret lives only in the environment (`HATAMOTO_SECRET` set, nothing written to disk) there is nothing to copy and the part is left out. |
 | `config.env` | A verbatim copy of your environment file, when you name one with `--config` or `HATAMOTO_CONFIG_FILE` (see "Taking a backup"). Left out otherwise. |
 | `manifest.json` | What is in the archive and where it came from (below). |
@@ -23,11 +24,21 @@ One backup is one tar file, `<id>.tar`, with these parts:
 (the release a pre-update backup was taken for), `hatamoto_version`, `server_major` (the PostgreSQL
 major version), `pg_dump` (the client version), `parts` (name, size and SHA-256 of each file),
 `plugins` (the plugin schemas that were dumped), `content_rows` (rows per table in the content
-export), `media_files`, `media_bytes` and `media_missing` (referenced files that were not on disk; left out when 0),
+export), `media_files`, `media_bytes` and `media_missing` (referenced files that were not on disk or in the bucket; left out when 0), `media_storage` (`s3` when the media was in object storage; left out for local disk),
 `trust` (the key IDs of the release and manifest signing keys built into the binary that made the
 backup, and of the keys in `HATAMOTO_TRUSTED_KEYS`) and `config_path` (the absolute path the config file had; restore shows it as a hint and never writes there).
 Backups made before `trust`, `secrets.env` and `config.env` existed lack them; they still restore,
 with warnings.
+
+### Media in object storage
+
+With `MEDIA_STORAGE=s3` the archive holds the manifest instead of the media bytes: `content.tar.gz` has no `media/` members, and `media_files` and `media_bytes` stay 0. Bucket versioning is the media history. `hatamoto backup create --with-media` also copies the bytes into `content.tar.gz` under `media/`, as for local disk. `backup create` and the backup taken before an update read the bucket with the same `HATAMOTO_MEDIA_S3_*` variables as the server; invalid settings fail the backup with the reason. The free-space check counts the media directory only for local media.
+
+Restore with `MEDIA_STORAGE=s3` and the same variables set:
+
+- An archive with a media manifest and no media bytes is checked against the bucket, size and SHA-256 per object (an object with no recorded checksum is read and hashed). Missing and differing objects are listed as warnings, in `--dry-run` too. They never stop the restore. An object with a matching size and recorded checksum is not read again.
+- An archive with media bytes is written into the bucket. The bucket prefix must be empty: the restore refuses otherwise, and says how many objects it found. The plan line then reads "restore N media files to object storage".
+- A manifest-only archive restored without `MEDIA_STORAGE=s3` cannot check anything and warns.
 
 Fonts the owner added live in the database table `hatamoto_fonts`, so they travel with every backup, export and import.
 
@@ -82,7 +93,7 @@ are not listed, pruned or deleted. Delete them by hand when you no longer need t
 - **Admin:** Settings > Backups & recovery > Backups (owners only). "Back up now" starts one; the page shows progress,
   lists the backups with their size, and offers a download. The Off-site copy card on the same page
   sets up the upload described below.
-- **CLI:** `hatamoto backup create [--config <path>]` prints the media directory it reads, then the id, size and path,
+- **CLI:** `hatamoto backup create [--config <path>] [--with-media]` prints the media directory it reads, then the id, size and path,
   and names `secrets.env` and `config.env` when they went in. `hatamoto backup list [--json]`
   and `hatamoto backup delete <id>` work with the database down. Run them as the service user with
   `HATAMOTO_DATA` set. Run `backup create` from the service's working directory (the media default
@@ -259,6 +270,7 @@ and nothing is written:
 | `--config-out` | The path is not absolute and clean, or its directory does not exist. |
 | target database not empty | Any table, view, sequence or similar outside the system schemas, including `hatamoto_admin` from an early bootstrap. The message names the schemas. |
 | media directory not empty | `MEDIA_UPLOAD_DIR` holds any file or directory. A missing directory counts as empty. |
+| media prefix not empty | With `MEDIA_STORAGE=s3` and an archive that holds media bytes: the bucket prefix already holds objects. |
 | different `secrets.env` | The secrets directory already holds a `secrets.env` with other contents. The same contents are accepted. |
 | unsafe media path | The archive holds a media file that would land outside the media directory. |
 | damaged archive | A part is missing or does not match its SHA-256 in the manifest. |

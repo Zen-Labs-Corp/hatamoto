@@ -22,7 +22,7 @@ hatamoto user reset-password --email you@example.com
 
 > Your admin address is private to your install, for example `/k7qm-x2rf-9tdc`. Print it on the server with `hatamoto admin-url`. This page writes it as `<admin>`.
 
-Both commands need `DATABASE_URL` and read media from, or write it to, `MEDIA_UPLOAD_DIR` (default `./uploads`). They are command line only. The admin page Settings, Import & export, Site export & import (`<admin>/settings/export`, owners only) is informational: it shows these commands and has no upload or download button.
+Both commands need `DATABASE_URL` and read media from, or write it to, `MEDIA_UPLOAD_DIR` (default `./uploads`), or the bucket when `MEDIA_STORAGE=s3` (see [Keep media in object storage](../operate/media-object-storage.md)). The archive format is the same either way. They are command line only. The admin page Settings, Import & export, Site export & import (`<admin>/settings/export`, owners only) is informational: it shows these commands and has no upload or download button.
 
 Export writes beside the target and renames the file into place when it finishes, so a failed export never leaves a half archive under the final name. This is a content backup, not a full server backup. See [Backups](../operate/backups.md) for the database dump, secrets and media directory that a complete restore needs.
 

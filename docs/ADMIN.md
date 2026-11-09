@@ -884,7 +884,7 @@ Services reach the admin through `Deps.Growth.Packages` (`PackageAdmin`, `packag
 
 ## Overview and Audit log
 
-`GET <admin>` is the Overview: KPI row, then for owners a Site health card, the pages AI
+`GET <admin>` is the Overview: KPI row, then for owners a Site health card (with a **Media storage** row, "Object storage, reachable" or "Object storage: bucket unreachable", only when `MEDIA_STORAGE=s3`; it never shows the endpoint or credentials), the pages AI
 crawlers, missing pages and recent submissions cards, and an Activity card (layout rules in
 `ADMIN_UI_RULES.md`, "Dashboard"). **Activity** merges the newest audit rows with update
 history (installs, rollbacks), newest first, and links to the Audit log. If one source
