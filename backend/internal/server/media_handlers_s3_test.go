@@ -1,10 +1,15 @@
 package server
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -197,5 +202,38 @@ func TestServeMediaObjectStorageTimesOut(t *testing.T) {
 	start := time.Now()
 	if w := getMedia(mux, "p.png", nil); w.Code != http.StatusBadGateway || time.Since(start) > 5*time.Second {
 		t.Errorf("hung bucket = %d after %v", w.Code, time.Since(start))
+	}
+}
+
+// An object replaced between the lookup and the download is served with the
+// size and validator of the bytes actually sent.
+func TestServeMediaObjectStorageGetUsesTheDownloadsDetails(t *testing.T) {
+	fake := s3test.NewServer(t)
+	target, _ := url.Parse(fake.URL)
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	older := []byte("\x89PNG\r\n\x1a\nold")
+	newer := []byte("\x89PNG\r\n\x1a\nthe replacement is longer")
+	front := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			fake.Put("site/p.png", newer, nil) // replaced after the lookup
+		}
+		proxy.ServeHTTP(w, r)
+	}))
+	defer front.Close()
+	fake.Put("site/p.png", older, nil)
+	store, err := media.NewS3Store(media.S3Target{Endpoint: front.URL, Region: s3test.Region, Bucket: s3test.Bucket,
+		Prefix: "site/", AccessKey: s3test.AccessKey, SecretKey: s3test.SecretKey}, "/media", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{mediaService: media.NewService(nil, media.Config{UploadDir: t.TempDir(), MaxSizeMB: 1, Store: store}, slog.Default())}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /media/{rest...}", s.handleServeMedia)
+
+	w := getMedia(mux, "p.png", nil)
+	sum := md5.Sum(newer)
+	if w.Body.String() != string(newer) || w.Header().Get("Content-Length") != strconv.Itoa(len(newer)) ||
+		w.Header().Get("ETag") != `"`+hex.EncodeToString(sum[:])+`"` {
+		t.Errorf("GET = %q %v", w.Body.String(), w.Header())
 	}
 }

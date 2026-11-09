@@ -98,6 +98,19 @@ func (s *S3Store) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	return body, nil
 }
 
+// GetWithInfo streams key; the details come from the same response as the bytes.
+func (s *S3Store) GetWithInfo(ctx context.Context, key string) (ObjectInfo, io.ReadCloser, error) {
+	obj, err := s.objectKey(key)
+	if err != nil {
+		return ObjectInfo{}, nil, err
+	}
+	body, o, err := s.client.Get(ctx, obj)
+	if err != nil {
+		return ObjectInfo{}, nil, notExist("get", key, err)
+	}
+	return objectInfo(key, o), body, nil
+}
+
 // Delete removes key. The client treats a missing key as success, so Head
 // first to keep the BlobStore contract.
 func (s *S3Store) Delete(ctx context.Context, key string) error {

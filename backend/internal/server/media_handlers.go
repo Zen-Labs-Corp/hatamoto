@@ -364,7 +364,7 @@ func (s *Server) serveStoredObject(w http.ResponseWriter, r *http.Request, rel s
 		http.ServeContent(w, r, name, info.ModTime, rs)
 
 	default:
-		body, err := s.mediaService.GetObject(ctx, rel)
+		got, body, err := s.mediaService.GetObject(ctx, rel)
 		if err != nil {
 			mediaStoreFailure(w, err)
 			return
@@ -373,7 +373,7 @@ func (s *Server) serveStoredObject(w http.ResponseWriter, r *http.Request, rel s
 		timer.Stop()
 		br := bufio.NewReaderSize(body, media.SniffLen)
 		head, _ := br.Peek(media.SniffLen)
-		setMediaHeaders(w, media.SniffContentType(head), info.ETag, info.Size)
+		setMediaHeaders(w, media.SniffContentType(head), got.ETag, got.Size)
 		w.Header().Set("Accept-Ranges", "bytes")
 		w.WriteHeader(http.StatusOK)
 		_, _ = io.Copy(w, br)

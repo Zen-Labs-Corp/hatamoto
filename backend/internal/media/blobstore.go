@@ -183,6 +183,11 @@ type (
 	Lister interface {
 		List(ctx context.Context, prefix string) ([]ObjectInfo, error)
 	}
+	// InfoGetter streams key and reports the object the stream belongs to, so
+	// size and validator never come from a different version than the bytes.
+	InfoGetter interface {
+		GetWithInfo(ctx context.Context, key string) (ObjectInfo, io.ReadCloser, error)
+	}
 	// Opener opens key for random access; close the returned file.
 	Opener interface {
 		Open(ctx context.Context, key string) (ObjectInfo, io.ReadSeekCloser, error)

@@ -420,10 +420,15 @@ func (s *Service) StatObject(ctx context.Context, rel string) (ObjectInfo, error
 	return st.Stat(ctx, rel)
 }
 
-// GetObject streams a stored file by its path relative to the store. Close the
-// returned reader. A missing file satisfies errors.Is(err, fs.ErrNotExist).
-func (s *Service) GetObject(ctx context.Context, rel string) (io.ReadCloser, error) {
-	return s.store.Get(ctx, rel)
+// GetObject streams a stored file by its path relative to the store and
+// reports the object the bytes belong to. Close the returned reader. A missing
+// file satisfies errors.Is(err, fs.ErrNotExist).
+func (s *Service) GetObject(ctx context.Context, rel string) (ObjectInfo, io.ReadCloser, error) {
+	g, ok := s.store.(InfoGetter)
+	if !ok {
+		return ObjectInfo{}, nil, errors.New("the media store cannot stream objects")
+	}
+	return g.GetWithInfo(ctx, rel)
 }
 
 // OpenObject opens a stored file for random-access reads. Close the returned
