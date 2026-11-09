@@ -7,7 +7,7 @@
 - **Migrate.** `hatamoto media migrate --to s3|local [--dry-run]` copies the library between local disk and the bucket, verifies every file by sha256, resumes after a stop and never deletes the source.
 - **Backups.** With object storage, a backup holds `media-manifest.json` (object name, size, sha256) instead of the bytes; `hatamoto backup create --with-media` copies the bytes too. Restore checks the manifest against the bucket and reports missing or differing objects as warnings without stopping the restore. Export and import read and write media through the same storage.
 - **Quota.** The total-size quota counts local disk only; it does not apply to object storage.
-- **Migration.** None. Rollback floor: unchanged, but a release without this feature reads `MEDIA_UPLOAD_DIR` only: run `media migrate --to local` and unset `MEDIA_STORAGE` first.
+- **Migration.** None. Rollback floor: unchanged for sites on local disk, but raised for a site that switched to `MEDIA_STORAGE=s3`. A release without this feature ignores `MEDIA_STORAGE` and reads `MEDIA_UPLOAD_DIR` only, so it starts normally and serves no media (every `/media/...` address answers 404), and an automatic rollback does the same. Before you roll back, run `hatamoto media migrate --to local` and unset `MEDIA_STORAGE`. A backup taken on object storage carries manifest version 2, which a release without this feature refuses to restore; backups of a local site are unchanged.
 
 ## Unreleased: Share tab and forms list
 
