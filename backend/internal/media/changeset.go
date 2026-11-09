@@ -344,13 +344,19 @@ func (s *Service) StagedKeyModTime(key string) (time.Time, error) {
 // it with its size. The caller closes it. Only keys under the staged
 // directory are accepted.
 func (s *Service) OpenStaged(key string) (*os.File, int64, error) {
+	return s.OpenStagedCtx(context.Background(), key)
+}
+
+// OpenStagedCtx is OpenStaged for a caller that can stop waiting: a download
+// from object storage ends when ctx does (or after storeOpTimeout).
+func (s *Service) OpenStagedCtx(ctx context.Context, key string) (*os.File, int64, error) {
 	if err := checkKey(key); err != nil || !isStagedKey(key) {
 		return nil, 0, fmt.Errorf("not a staged blob key %q", key)
 	}
 	var f *os.File
 	var err error
 	if s.local == nil {
-		f, err = s.spoolStaged(key)
+		f, err = s.spoolStaged(ctx, key)
 	} else {
 		f, err = os.Open(s.local.localPath(key))
 	}
@@ -399,8 +405,8 @@ func (s *Service) storeModTime(key string) (time.Time, error) {
 
 // spoolStaged copies the staged object at key to a temporary file that is
 // already unlinked: it vanishes when the caller closes it.
-func (s *Service) spoolStaged(key string) (*os.File, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), storeOpTimeout)
+func (s *Service) spoolStaged(ctx context.Context, key string) (*os.File, error) {
+	ctx, cancel := context.WithTimeout(ctx, storeOpTimeout)
 	defer cancel()
 	body, err := s.store.Get(ctx, key)
 	if err != nil {

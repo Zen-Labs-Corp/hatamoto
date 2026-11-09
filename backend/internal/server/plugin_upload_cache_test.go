@@ -53,8 +53,8 @@ func stagedS3Upload(t *testing.T, size int) (*media.Service, *s3test.Server, str
 // listing cannot).
 func trackedCache(svc *media.Service) (*uploadCache, *[]*os.File) {
 	var opened []*os.File
-	c := newUploadCache(func(key string) (*os.File, int64, error) {
-		f, size, err := svc.OpenStaged(key)
+	c := newUploadCache(func(ctx context.Context, key string) (*os.File, int64, error) {
+		f, size, err := svc.OpenStagedCtx(ctx, key)
 		opened = append(opened, f)
 		return f, size, err
 	})
@@ -68,14 +68,14 @@ func isOpen(f *os.File) bool {
 
 func TestUploadCacheStreamsTheStagedObjectOnce(t *testing.T) {
 	svc, fake, key, data := stagedS3Upload(t, 1<<20+(256<<10))
-	c := newUploadCache(svc.OpenStaged)
+	c := newUploadCache(svc.OpenStagedCtx)
 	defer c.closeAll()
 	getsBefore := countGets(fake)
 
 	var got []byte
 	const chunk = 256 << 10
 	for off := int64(0); ; off += chunk {
-		ra, size, err := c.get("up1", key)
+		ra, size, err := c.get(context.Background(), "up1", key)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -103,7 +103,7 @@ func TestUploadCacheEvictsIdleFiles(t *testing.T) {
 	c, opened := trackedCache(svc)
 	clock := time.Now()
 	c.now = func() time.Time { return clock }
-	ra, _, err := c.get("up1", key)
+	ra, _, err := c.get(context.Background(), "up1", key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestUploadCacheKeepsAtMostMaxEntries(t *testing.T) {
 	clock := time.Now()
 	c.now = func() time.Time { clock = clock.Add(time.Second); return clock }
 	for _, id := range []string{"a", "b", "c"} {
-		ra, _, err := c.get(id, key)
+		ra, _, err := c.get(context.Background(), id, key)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -144,7 +144,7 @@ func TestUploadCacheKeepsAtMostMaxEntries(t *testing.T) {
 func TestUploadCacheDefersClosingAFileInUse(t *testing.T) {
 	svc, _, key, data := stagedS3Upload(t, 4096)
 	c, opened := trackedCache(svc)
-	ra, _, err := c.get("up1", key)
+	ra, _, err := c.get(context.Background(), "up1", key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,5 +156,83 @@ func TestUploadCacheDefersClosingAFileInUse(t *testing.T) {
 	ra.(io.Closer).Close()
 	if isOpen((*opened)[0]) {
 		t.Error("the file is still open after the last reader closed")
+	}
+}
+
+// A download in progress must not hold up the cache: another upload's read
+// returns while the first is still being fetched.
+func TestUploadCacheDownloadDoesNotBlockOtherKeys(t *testing.T) {
+	svc, _, key, _ := stagedS3Upload(t, 4096)
+	release := make(chan struct{})
+	started := make(chan struct{})
+	c := newUploadCache(func(ctx context.Context, k string) (*os.File, int64, error) {
+		if k == "slow" {
+			close(started)
+			<-release
+			return nil, 0, io.ErrUnexpectedEOF
+		}
+		return svc.OpenStagedCtx(ctx, k)
+	})
+	defer c.closeAll()
+	go c.get(context.Background(), "up1", "slow")
+	<-started
+
+	done := make(chan error, 1)
+	go func() {
+		ra, _, err := c.get(context.Background(), "up2", key)
+		if err == nil {
+			ra.(io.Closer).Close()
+		}
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("a read of another upload waited for the slow download")
+	}
+	close(release)
+}
+
+// A caller waiting for a download that another call started leaves when its
+// own context ends.
+func TestUploadCacheWaiterHonoursItsContext(t *testing.T) {
+	release := make(chan struct{})
+	started := make(chan struct{})
+	c := newUploadCache(func(context.Context, string) (*os.File, int64, error) {
+		close(started)
+		<-release
+		return nil, 0, io.ErrUnexpectedEOF
+	})
+	defer c.closeAll()
+	go c.get(context.Background(), "up1", "k")
+	<-started
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, _, err := c.get(ctx, "up1", "k"); err != context.Canceled {
+		t.Errorf("err = %v, want context.Canceled", err)
+	}
+	close(release)
+}
+
+// An idle file is released by the cache's own timer, without another read.
+func TestUploadCacheReleasesIdleFilesWithoutAnotherRead(t *testing.T) {
+	svc, _, key, _ := stagedS3Upload(t, 4096)
+	c, opened := trackedCache(svc)
+	defer c.closeAll()
+	c.ttl = 20 * time.Millisecond
+	ra, _, err := c.get(context.Background(), "up1", key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ra.(io.Closer).Close()
+	deadline := time.Now().Add(10 * time.Second)
+	for isOpen((*opened)[0]) {
+		if time.Now().After(deadline) {
+			t.Fatal("the idle file stayed open")
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }

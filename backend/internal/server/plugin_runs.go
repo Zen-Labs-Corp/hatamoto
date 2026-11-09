@@ -28,7 +28,8 @@ func (s *Server) setupPluginRuns(svc *pluginhost.Services) {
 	}
 	if s.mediaService != nil {
 		svc.Blobs = s.mediaService
-		svc.Uploads = runUploads{s: s, cache: newUploadCache(s.mediaService.OpenStaged)}
+		s.uploadCache = newUploadCache(s.mediaService.OpenStagedCtx)
+		svc.Uploads = runUploads{s: s, cache: s.uploadCache}
 	}
 	if s.siteConfig != nil {
 		svc.Site = siteInfoSource{s}
@@ -81,7 +82,7 @@ func (u runUploads) Open(ctx context.Context, plugin string, id uuid.UUID) (io.R
 		return nil, 0, plugrun.ErrNotFound
 	}
 	if u.s.mediaService.ObjectStorage() {
-		return u.cache.get(id.String(), up.BlobKey)
+		return u.cache.get(ctx, id.String(), up.BlobKey)
 	}
 	f, size, err := u.s.mediaService.OpenStaged(up.BlobKey)
 	if err != nil {
