@@ -26,6 +26,9 @@ func TestPluginSettingsTempFileNote(t *testing.T) {
 			if !strings.Contains(body, `<p class="hm-muted">Temp file cap`) {
 				t.Errorf("note is not a muted line")
 			}
+			if strings.Contains(body, "managed PostgreSQL") {
+				t.Errorf("the note blames managed PostgreSQL on any install")
+			}
 			if issues := a11y.Check(normalizePage(body), a11y.Options{Page: true}); len(issues) > 0 {
 				t.Errorf("a11y: %s", strings.Join(issues, "; "))
 			}

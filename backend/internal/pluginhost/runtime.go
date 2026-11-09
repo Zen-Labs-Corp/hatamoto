@@ -46,7 +46,7 @@ type Status struct {
 	// ready; the plugin itself is loaded.
 	DataError string
 	// TempFileLimitOff is set when the plugin's database role runs without a
-	// temp_file_limit (managed PostgreSQL); see docs/PLUGIN_API.md.
+	// temp_file_limit; see docs/PLUGIN_API.md.
 	TempFileLimitOff bool
 }
 
