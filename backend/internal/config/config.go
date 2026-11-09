@@ -150,6 +150,9 @@ type ServerConfig struct {
 	MediaUploadDir string
 	MediaBaseURL   string
 	MediaMaxSizeMB int
+	// MediaStorage is where media bytes live: "local" (default) or "s3".
+	// The S3 target itself comes from HATAMOTO_MEDIA_S3_* and is never held here.
+	MediaStorage string
 }
 
 // DatabaseConfig holds PostgreSQL connection settings.
@@ -286,6 +289,7 @@ func Load() (*Config, error) {
 		MediaUploadDir:  getEnv("MEDIA_UPLOAD_DIR", "./uploads"),
 		MediaBaseURL:    getEnv("MEDIA_BASE_URL", "/media"),
 		MediaMaxSizeMB:  getEnvInt("MEDIA_MAX_SIZE_MB", 10),
+		MediaStorage:    strings.ToLower(strings.TrimSpace(getEnv("MEDIA_STORAGE", "local"))),
 	}
 
 	cfg.Packages = LoadPackageConfig()
@@ -482,6 +486,9 @@ func (c *Config) Validate() error {
 	// DMARC), so turning SMTP on without saying who the mail is from is an error.
 	if h := c.SMTP.Host; h != "" && h != "localhost" && c.SMTP.From == DefaultSMTPFrom {
 		return fmt.Errorf("SMTP_FROM is required when SMTP_HOST is set (the default %s cannot send)", DefaultSMTPFrom)
+	}
+	if m := c.Server.MediaStorage; m != "" && m != "local" && m != "s3" {
+		return fmt.Errorf("MEDIA_STORAGE: %q is not supported, use local or s3", m)
 	}
 	if c.Secret == "" {
 		return fmt.Errorf("HATAMOTO_SECRET is required (JWT_SECRET is accepted as its old name)")
