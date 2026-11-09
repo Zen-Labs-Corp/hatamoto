@@ -15,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/server"
@@ -369,6 +370,11 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	}
 	for _, w := range cfg.Warnings {
 		logger.Warn("configuration: " + w)
+	}
+	// Missing or invalid object storage settings stop the start; an
+	// unreachable bucket does not (no network call is made here).
+	if _, err := media.ConfigFromServer(cfg.Server, os.Getenv, nil); err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
 	db, err := database.New(ctx, cfg.Database)

@@ -37,6 +37,8 @@ type DepsConfig struct {
 	MediaDir     string
 	MediaBaseURL string
 	MediaMaxMB   int
+	// Store holds the media bytes; nil = local disk under MediaDir.
+	Store media.BlobStore
 }
 
 // NewDeps wires the services over db. Call Close when done.
@@ -64,6 +66,7 @@ func NewDeps(db *database.DB, cfg DepsConfig, logger *slog.Logger) *Deps {
 	if cfg.MediaMaxMB > 0 {
 		mc.MaxSizeMB = cfg.MediaMaxMB
 	}
+	mc.Store = cfg.Store
 	termRepo := taxonomy.NewPostgresRepository(db)
 	return &Deps{
 		DB: db, Entities: ents, SchemaRepo: schemaRepo,

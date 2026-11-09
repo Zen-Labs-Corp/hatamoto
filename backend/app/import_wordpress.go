@@ -18,6 +18,7 @@ import (
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/safefetch"
 	"hatamoto.dev/core/internal/wpimport"
 )
@@ -73,7 +74,11 @@ func runImportWordPress(ctx context.Context, db *database.DB, cfg *config.Config
 	if err := migrateUp(ctx, db.Pool(), logger); err != nil {
 		return err
 	}
-	deps := wpimport.NewDeps(db, wpimport.DepsConfig{MediaDir: mediaDirOr(cfg.Server.MediaUploadDir), MediaBaseURL: cfg.Server.MediaBaseURL, MediaMaxMB: cfg.Server.MediaMaxSizeMB}, logger)
+	mc, err := media.ConfigFromServer(cfg.Server, os.Getenv, logger)
+	if err != nil {
+		return err
+	}
+	deps := wpimport.NewDeps(db, wpimport.DepsConfig{MediaDir: mediaDirOr(cfg.Server.MediaUploadDir), MediaBaseURL: cfg.Server.MediaBaseURL, MediaMaxMB: cfg.Server.MediaMaxSizeMB, Store: mc.Store}, logger)
 	defer deps.Close()
 	return importWordPress(ctx, deps, f, out)
 }
