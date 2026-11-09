@@ -83,7 +83,8 @@ BEGIN;
   -- A rerun: the schema is already owned by the role admin, which this role holds
   -- SET on from the first run; work as that role from the start.
   SELECT coalesce((SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'hatamoto_admin'), '') AS prev_owner,
-         coalesce((SELECT nspowner <> (SELECT oid FROM pg_roles WHERE rolname = current_user)
+         EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'hatamoto_admin') AS schema_exists,
+         coalesce((SELECT pg_get_userbyid(nspowner) ~ '^hatamoto_role_admin_[0-9a-f]{8}$'
                      AND pg_has_role(current_user, nspowner, 'SET')
                      FROM pg_namespace WHERE nspname = 'hatamoto_admin'), false) AS rerun
   \gset
@@ -98,6 +99,12 @@ BEGIN;
   \endif
   SELECT set_config('hatamoto.core_id', :'core_id', true) AS core_cfg
   \gset
+  \if :rerun
+  \else
+    \if :schema_exists
+      DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: the hatamoto_admin schema exists and is not owned by the role admin'; END $$;
+    \endif
+  \endif
   \if :rerun
     -- CREATE SCHEMA IF NOT EXISTS below still checks the privilege.
     GRANT CREATE ON DATABASE :"DBNAME" TO :"prev_owner";
@@ -158,7 +165,7 @@ ALTER TABLE hatamoto_admin.plugin_roles OWNER TO :"admin_role";
 -- (a rerun already is that owner and skips the handover).
 \if :rerun
 \else
-SELECT pg_has_role(current_user, :'admin_role', 'USAGE') AS has_set
+SELECT pg_has_role(current_user, :'admin_role', 'SET') AS has_set
 \gset
 \if :has_set
 \else

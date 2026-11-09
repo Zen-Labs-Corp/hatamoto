@@ -432,3 +432,16 @@ func TestBootstrapNeedsGrantOptionOnDatabaseCreate(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// An existing hatamoto_admin schema that the role admin does not own (the app
+// role can plant one) is refused, and no role is switched to or granted CREATE.
+func TestBootstrapRefusesSchemaOfAnotherOwner(t *testing.T) {
+	c := newD8Cluster(t, adminCreateRole)
+	db := "hm_d8_fs_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:10]
+	c.provisionApp(db)
+	c.exec(c.appURL(db), "CREATE SCHEMA hatamoto_admin")
+	out, err := c.bootstrapAs(db, c.adminRole)
+	if err == nil || !strings.Contains(out, "not owned by the role admin") {
+		t.Fatalf("err = %v\n%s", err, out)
+	}
+}
