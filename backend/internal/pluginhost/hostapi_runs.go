@@ -178,10 +178,7 @@ func fnUploadRead(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (
 	}
 	ra, size, err := a.svc.Uploads.Open(ctx, e.plugin, id)
 	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, herr(sdk.ErrUnavailable, "upload %s is still being fetched; retry", args.UploadID)
-		}
-		return nil, herr(sdk.ErrNotFound, "upload %s is not available", args.UploadID)
+		return nil, uploadOpenError(ctx, args.UploadID, err)
 	}
 	if c, ok := ra.(io.Closer); ok {
 		defer c.Close()
@@ -194,6 +191,17 @@ func fnUploadRead(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (
 		}
 	}
 	return sdk.UploadChunk{DataB64: base64.StdEncoding.EncodeToString(buf), Size: size, EOF: args.Offset+n >= size}, nil
+}
+
+// uploadOpenError maps a failed upload open. Only the caller's own ctx ending
+// is transient (`timeout`: the host may still be fetching the file, so the same
+// read can be retried). A failed download, including its own deadline, or a
+// failed lookup is terminal.
+func uploadOpenError(ctx context.Context, uploadID string, err error) *sdk.HostError {
+	if ctx.Err() != nil {
+		return herr(sdk.ErrTimeout, "upload %s is still being fetched; retry the read", uploadID)
+	}
+	return herr(sdk.ErrNotFound, "upload %s is not available", uploadID)
 }
 
 func fnBufferPut(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {

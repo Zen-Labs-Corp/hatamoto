@@ -626,7 +626,7 @@ Outside a run, the run-only functions (`run.*`, `upload.read`, `buffer.*`, `medi
 | `run.progress` | both | `{ "done", "total"?, "message"? }` | `{}`; shown in the run view |
 | `run.finish` | both | `{ "summary"? }` | `{}`; ends the phase |
 | `run.fail` | both | `{ "reason" }` | `{}`; fails the run |
-| `upload.read` | fetch | `{ "upload_id", "offset", "len" }` (len at most 256 KiB) | `{ "data_b64", "size", "eof" }`; only the run's own upload |
+| `upload.read` | fetch | `{ "upload_id", "offset", "len" }` (len at most 256 KiB) | `{ "data_b64", "size", "eof" }`; only the run's own upload. The first read of a large upload may return `timeout` while the host fetches it; retry the same read, also in a later step |
 | `buffer.put` | fetch | `{ "key", "value_b64" }` | `{}` |
 | `buffer.get` | transform | `{ "key" }` | `{ "found", "value_b64"? }` |
 | `buffer.list` | transform | `{ "prefix"?, "after"?, "limit"? }` | `{ "keys", "next"? }` |
