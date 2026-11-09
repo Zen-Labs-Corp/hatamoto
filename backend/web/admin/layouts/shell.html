@@ -1,5 +1,5 @@
 {{define "layouts/shell"}}<!doctype html>
-<html lang="{{.Lang}}" data-admin-theme="{{.Theme}}">
+<html lang="{{.Lang}}" data-admin-theme="{{.Theme}}"{{if eq .Density "compact"}} data-admin-density="compact"{{end}}>
 <head>
 {{template "layouts/head" .}}
 <script type="speculationrules" nonce="{{.Nonce}}">{{.SpeculationRules}}</script>
