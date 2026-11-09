@@ -183,8 +183,14 @@ func TestServeMediaObjectStorageSingleRangeComesFromTheBucket(t *testing.T) {
 			t.Errorf("%s = %d %q %v", rng, w.Code, w.Body.String(), w.Header())
 		}
 	}
-	if w := getMedia(h, "p.png", map[string]string{"Range": "bytes=0-0"}); w.Header().Get("Content-Range") != "bytes 0-0/18" || w.Body.String() != "\x89" {
+	if w := getMedia(h, "p.png", map[string]string{"Range": "bytes=0-0"}); w.Header().Get("Content-Range") != "bytes 0-0/18" || w.Body.String() != "\x89" || w.Header().Get("Content-Type") != "image/png" {
 		t.Errorf("first byte = %v %q", w.Header(), w.Body.String())
+	}
+	// A probe that starts at 0 but is shorter than the sniff window still gets the real type.
+	fake.Put("site/v.mp4", append([]byte("\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"), make([]byte, 600)...), nil)
+	if w := getMedia(h, "v.mp4", map[string]string{"Range": "bytes=0-1"}); w.Code != http.StatusPartialContent ||
+		w.Header().Get("Content-Type") != "video/mp4" || w.Header().Get("Content-Disposition") != "" {
+		t.Errorf("mp4 probe = %d %v", w.Code, w.Header())
 	}
 	// Not a media type: the same download fallback as a plain GET, from a range that starts late.
 	w := getMedia(h, "page.png", map[string]string{"Range": "bytes=10-"})

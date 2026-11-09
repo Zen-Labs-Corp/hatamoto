@@ -376,11 +376,14 @@ func (s *Server) serveStoredObject(w http.ResponseWriter, r *http.Request, rel s
 	idle.Stop() // each Read starts it
 	br := bufio.NewReaderSize(&idleReader{r: body, timer: idle, idle: mediaIdleTimeout}, media.SniffLen)
 
-	// The type is sniffed from the start of the object. A range that starts
-	// later fetches those bytes separately.
+	// The type is sniffed from the start of the object. A range that does not
+	// cover the sniff window (and is not the whole short object) fetches those
+	// bytes separately, bounded by its own store timeout.
 	var head []byte
-	if rg.Partial && rg.Start > 0 {
-		_, _, hb, err := s.mediaService.GetObjectRange(ctx, rel, fmt.Sprintf("bytes=0-%d", media.SniffLen-1))
+	if rg.Partial && !(rg.Start == 0 && (rg.End-rg.Start+1 >= media.SniffLen || rg.End == got.Size-1)) {
+		headCtx, headCancel := context.WithTimeout(ctx, mediaStoreTimeout)
+		defer headCancel()
+		_, _, hb, err := s.mediaService.GetObjectRange(headCtx, rel, fmt.Sprintf("bytes=0-%d", media.SniffLen-1))
 		if err != nil {
 			mediaStoreFailure(w, err)
 			return
