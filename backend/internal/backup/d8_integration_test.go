@@ -521,3 +521,30 @@ func TestBootstrapRefusesAdminWithoutSetOnAppRole(t *testing.T) {
 		t.Error("the hatamoto_admin schema was left behind")
 	}
 }
+
+// The application role owns public.hatamoto_instance and could replace it with a view
+// whose function runs as whoever reads it. The bootstrap refuses anything but a plain
+// table, as a superuser and as an admin that inherits the application role.
+func TestBootstrapRefusesInstanceViewPlantedByAppRole(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		super bool
+	}{{"admin that inherits the app role", false}, {"superuser", true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newD8Cluster(t, adminSuperuser)
+			adm, db := bootstrapNonOwnerSetup(c, "WITH SET TRUE, INHERIT TRUE")
+			c.migrate(db)
+			c.exec(c.appURL(db),
+				"ALTER TABLE public.hatamoto_instance RENAME TO hatamoto_instance_real",
+				"CREATE VIEW public.hatamoto_instance AS SELECT id FROM public.hatamoto_instance_real")
+			role := adm
+			if tc.super {
+				role = c.super.Config().User
+			}
+			out, err := c.bootstrapAs(db, role)
+			if err == nil || !strings.Contains(out, "not a plain table") {
+				t.Fatalf("err = %v\n%s", err, out)
+			}
+		})
+	}
+}

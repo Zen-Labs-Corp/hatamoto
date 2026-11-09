@@ -90,25 +90,33 @@ BEGIN;
                      AND pg_has_role(current_user, nspowner, 'SET')
                      FROM pg_namespace WHERE nspname = 'hatamoto_admin'), false) AS rerun
   \gset
-  -- The core id is read by this role when it can (it inherits the app role, which owns
-  -- the table), else as the app role when this role holds SET on it (a membership that
-  -- does not inherit); the role admin used on a rerun cannot read it. A role with
-  -- neither is refused with a message instead of a permission error.
-  SELECT to_regclass('public.hatamoto_instance') IS NOT NULL AS has_core
+  -- The core id is read as the app role when this role holds SET on it, so that
+  -- anything the app role planted in its place runs with the app role's own
+  -- rights; only a role without SET reads it directly (it inherits the app role,
+  -- which owns the table). The role admin used on a rerun cannot read it. The
+  -- relation must be a plain table: the app role owns it and could swap in a view
+  -- whose functions would run as the reader. A role with neither route is refused
+  -- with a message instead of a permission error.
+  SELECT to_regclass('public.hatamoto_instance') IS NOT NULL AS has_core,
+         coalesce((SELECT relkind = 'r' FROM pg_class WHERE oid = to_regclass('public.hatamoto_instance')), false) AS core_is_table
   \gset
   \set core_id ''
   \if :has_core
+    \if :core_is_table
+    \else
+      DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: public.hatamoto_instance is not a plain table'; END $$;
+    \endif
     SELECT has_table_privilege(current_user, 'public.hatamoto_instance', 'SELECT') AS can_read,
            pg_has_role(current_user, :'app_role', 'SET') AS can_set
     \gset
-    \if :can_read
-      SELECT id AS core_id FROM public.hatamoto_instance
-      \gset
-    \elif :can_set
+    \if :can_set
       SET LOCAL ROLE :"app_role";
       SELECT id AS core_id FROM public.hatamoto_instance
       \gset
       RESET ROLE;
+    \elif :can_read
+      SELECT id AS core_id FROM public.hatamoto_instance
+      \gset
     \else
       DO $$ BEGIN RAISE EXCEPTION 'role-admin-bootstrap: this role cannot read public.hatamoto_instance; grant it SET on the application role (GRANT <app role> TO <this role> WITH SET TRUE)'; END $$;
     \endif
@@ -147,6 +155,10 @@ DECLARE
   mine text;
 BEGIN
   core := nullif(current_setting('hatamoto.core_id', true), '');
+  IF to_regclass('public.hatamoto_instance') IS NOT NULL
+     AND (SELECT relkind FROM pg_class WHERE oid = to_regclass('public.hatamoto_instance')) <> 'r' THEN
+    RAISE EXCEPTION 'role-admin-bootstrap: public.hatamoto_instance is not a plain table';
+  END IF;
   IF core IS NULL AND to_regclass('public.hatamoto_instance') IS NOT NULL THEN
     EXECUTE 'SELECT id FROM public.hatamoto_instance' INTO core;
   END IF;
