@@ -145,6 +145,17 @@ const rebuildMimes = `mime_type IN ('image/jpeg', 'image/png', 'image/webp') AND
 
 // ListImagesAfter implements Repository.
 func (r *PostgresRepository) ListImagesAfter(ctx context.Context, after uuid.UUID, limit int) ([]*Media, error) {
+	return r.listAfter(ctx, rebuildMimes, after, limit)
+}
+
+// ListAllAfter returns up to limit records of every type whose id is greater
+// than after, ordered by id. Walking with it visits each record exactly once,
+// whatever is inserted or deleted meanwhile (`media migrate` does).
+func (r *PostgresRepository) ListAllAfter(ctx context.Context, after uuid.UUID, limit int) ([]*Media, error) {
+	return r.listAfter(ctx, "run_id IS NULL", after, limit)
+}
+
+func (r *PostgresRepository) listAfter(ctx context.Context, where string, after uuid.UUID, limit int) ([]*Media, error) {
 	conn, err := r.db.GetConn(ctx)
 	if err != nil {
 		return nil, err
@@ -156,7 +167,7 @@ func (r *PostgresRepository) ListImagesAfter(ctx context.Context, after uuid.UUI
 		       storage_provider, storage_path, public_url, width, height, variants,
 		       alt_text, caption, folder, uploaded_by, created_at, updated_at
 		FROM hatamoto_media
-		WHERE `+rebuildMimes+` AND id > $1
+		WHERE `+where+` AND id > $1
 		ORDER BY id
 		LIMIT $2`, after, limit)
 	if err != nil {

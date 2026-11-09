@@ -1,14 +1,18 @@
 package server
 
 import (
+	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/media"
@@ -70,6 +74,10 @@ func (s *Server) handleMediaUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.logger.Error("failed to upload media", "error", err)
+		if errors.Is(err, media.ErrStorageFailed) && s.mediaService.ObjectStorage() {
+			writeError(w, http.StatusBadGateway, "media storage is unavailable")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to upload file")
 		return
 	}
@@ -210,6 +218,11 @@ func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.mediaService.ObjectStorage() {
+		s.serveStoredObject(w, r, cleanPath)
+		return
+	}
+
 	// Resolved inside an os.Root: a symlink in the upload directory cannot
 	// lead the server to a file outside it.
 	file, err := s.mediaService.OpenFile(cleanPath)
@@ -242,9 +255,17 @@ func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only allowlisted media types are shown inline. Anything else already on
-	// disk (an .html planted by an old import, say) is a download the browser
-	// cannot run in the site's origin.
+	setMediaHeaders(w, contentType, fmt.Sprintf(`"%x-%x"`, stat.Size(), stat.ModTime().UnixNano()), stat.Size())
+
+	// Serve file
+	http.ServeContent(w, r, stat.Name(), stat.ModTime(), file)
+}
+
+// setMediaHeaders sets the response headers every served media file gets.
+// Only allowlisted media types are shown inline. Anything else already on
+// disk (an .html planted by an old import, say) is a download the browser
+// cannot run in the site's origin.
+func setMediaHeaders(w http.ResponseWriter, contentType, etag string, size int64) {
 	if _, ok := media.AllowedExtensionsForMIME(contentType); !ok {
 		contentType = "application/octet-stream"
 		w.Header().Set("Content-Disposition", "attachment")
@@ -267,9 +288,172 @@ func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
 	// check cheap).
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "public, max-age=86400, must-revalidate")
-	w.Header().Set("ETag", fmt.Sprintf(`"%x-%x"`, stat.Size(), stat.ModTime().UnixNano()))
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
+	if etag != "" {
+		w.Header().Set("ETag", etag)
+	}
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", size))
+}
 
-	// Serve file
-	http.ServeContent(w, r, stat.Name(), stat.ModTime(), file)
+// mediaStoreTimeout bounds the calls a /media request makes to object
+// storage (the lookup, the start of a download, a whole spool).
+var mediaStoreTimeout = 30 * time.Second
+
+// mediaIdleTimeout bounds one read from the bucket's response body: a provider
+// that stops sending mid-object cannot pin the request.
+var mediaIdleTimeout = 30 * time.Second
+
+// idleReader cancels the request when a single Read takes longer than the
+// timeout. The timer runs only while waiting for the bucket, not while the
+// client is slow to take the bytes.
+type idleReader struct {
+	r     io.Reader
+	timer *time.Timer
+	idle  time.Duration
+}
+
+func (i *idleReader) Read(p []byte) (int, error) {
+	i.timer.Reset(i.idle)
+	n, err := i.r.Read(p)
+	i.timer.Stop()
+	return n, err
+}
+
+// serveStoredObject serves /media from a non-local store:
+//   - HEAD answers from the lookup, nothing is downloaded (the type comes from
+//     the file extension);
+//   - GET streams the object, sniffing its type from the first bytes;
+//   - a single-range GET is answered 206 with just that range, fetched from the
+//     bucket with a ranged request. A multi-range request, a non-bytes unit or
+//     a failed If-Range is answered 200 with the whole object, which RFC 9110
+//     allows.
+func (s *Server) serveStoredObject(w http.ResponseWriter, r *http.Request, rel string) {
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	timer := time.AfterFunc(mediaStoreTimeout, cancel)
+	defer timer.Stop()
+
+	// The validator comes from a cheap lookup, so a browser that already has
+	// the bytes never makes the server fetch them.
+	info, err := s.mediaService.StatObject(ctx, rel)
+	if err != nil {
+		mediaStoreFailure(w, err)
+		return
+	}
+	if info.ETag != "" && ifNoneMatchHits(r, info.ETag) {
+		w.Header().Set("Cache-Control", "public, max-age=86400, must-revalidate")
+		w.Header().Set("ETag", info.ETag)
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	if !info.ModTime.IsZero() {
+		w.Header().Set("Last-Modified", info.ModTime.UTC().Format(http.TimeFormat))
+	}
+	name := filepath.Base(rel)
+
+	if r.Method == http.MethodHead {
+		setMediaHeaders(w, media.MIMEForExtension(filepath.Ext(name)), info.ETag, info.Size)
+		w.Header().Set("Accept-Ranges", "bytes")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	byteRange := singleByteRange(r, info)
+	// Size, validator and range come from the response that carries the bytes,
+	// not from the lookup: the object may have been replaced in between.
+	got, rg, body, err := s.mediaService.GetObjectRange(ctx, rel, byteRange)
+	if errors.Is(err, media.ErrRangeNotSatisfiable) {
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes */%d", info.Size))
+		writeError(w, http.StatusRequestedRangeNotSatisfiable, "range not satisfiable")
+		return
+	}
+	if err != nil {
+		mediaStoreFailure(w, err)
+		return
+	}
+	defer body.Close()
+	timer.Stop()
+	idle := time.AfterFunc(mediaIdleTimeout, cancel)
+	idle.Stop() // each Read starts it
+	br := bufio.NewReaderSize(&idleReader{r: body, timer: idle, idle: mediaIdleTimeout}, media.SniffLen)
+
+	// The type is sniffed from the start of the object. A range that does not
+	// cover the sniff window (and is not the whole short object) fetches those
+	// bytes separately, bounded by its own store timeout.
+	var head []byte
+	if rg.Partial && !(rg.Start == 0 && (rg.End-rg.Start+1 >= media.SniffLen || rg.End == got.Size-1)) {
+		headCtx, headCancel := context.WithTimeout(ctx, mediaStoreTimeout)
+		defer headCancel()
+		_, _, hb, err := s.mediaService.GetObjectRange(headCtx, rel, fmt.Sprintf("bytes=0-%d", media.SniffLen-1))
+		if err != nil {
+			mediaStoreFailure(w, err)
+			return
+		}
+		head, _ = io.ReadAll(io.LimitReader(&idleReader{r: hb, timer: idle, idle: mediaIdleTimeout}, media.SniffLen))
+		hb.Close()
+	} else {
+		head, _ = br.Peek(media.SniffLen)
+	}
+	length := got.Size
+	if rg.Partial {
+		length = rg.End - rg.Start + 1
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", rg.Start, rg.End, got.Size))
+	}
+	setMediaHeaders(w, media.SniffContentType(head), got.ETag, length)
+	w.Header().Set("Accept-Ranges", "bytes")
+	if rg.Partial {
+		w.WriteHeader(http.StatusPartialContent)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+	_, _ = io.Copy(w, br)
+}
+
+// singleByteRange returns the request's Range header when it asks for exactly
+// one bytes range and any If-Range still matches the object; otherwise "", and
+// the whole object is sent.
+func singleByteRange(r *http.Request, info media.ObjectInfo) string {
+	rng := r.Header.Get("Range")
+	if !strings.HasPrefix(rng, "bytes=") || strings.Contains(rng, ",") {
+		return ""
+	}
+	if ir := r.Header.Get("If-Range"); ir != "" {
+		if t, err := http.ParseTime(ir); err == nil {
+			if info.ModTime.IsZero() || !info.ModTime.Truncate(time.Second).Equal(t) {
+				return ""
+			}
+		} else if info.ETag == "" || ir != info.ETag { // a weak validator never matches
+			return ""
+		}
+	}
+	return rng
+}
+
+// mediaStoreFailure answers for a store error: a missing file or an invalid
+// path as such, anything else as 502 (logged: a bucket outage is not a
+// "forbidden").
+func mediaStoreFailure(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		writeError(w, http.StatusNotFound, "file not found")
+	case errors.Is(err, media.ErrInvalidKey):
+		writeError(w, http.StatusForbidden, "invalid path")
+	default:
+		slog.Error("media: object storage", "err", err)
+		writeError(w, http.StatusBadGateway, "media storage is unavailable")
+	}
+}
+
+// ifNoneMatchHits reports whether the request's If-None-Match names etag (or
+// is "*"). It applies to GET and HEAD only.
+func ifNoneMatchHits(r *http.Request, etag string) bool {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
+	}
+	for _, c := range strings.Split(r.Header.Get("If-None-Match"), ",") {
+		c = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(c), "W/"))
+		if c == "*" || c == etag {
+			return true
+		}
+	}
+	return false
 }

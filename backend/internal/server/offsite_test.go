@@ -428,3 +428,23 @@ func TestOffsiteRunNowRefusesWhenSwitchedOff(t *testing.T) {
 		t.Fatal("a backup was started")
 	}
 }
+
+func TestOffsiteAdminSaveRefusesTheMediaPrefix(t *testing.T) {
+	o, store, srv := newOffsiteAdmin(t)
+	env := map[string]string{
+		"MEDIA_STORAGE": "s3", "HATAMOTO_MEDIA_S3_ENDPOINT": srv.URL, "HATAMOTO_MEDIA_S3_REGION": s3test.Region,
+		"HATAMOTO_MEDIA_S3_BUCKET": s3test.Bucket, "HATAMOTO_MEDIA_S3_PREFIX": "media/",
+		"HATAMOTO_MEDIA_S3_ACCESS_KEY": "ak", "HATAMOTO_MEDIA_S3_SECRET_KEY": "sk",
+	}
+	o.getenv = func(k string) string { return env[k] }
+	in := offsiteInput(srv)
+	in.Prefix = "media/backups/"
+	errs, err := o.Save(t.Context(), in)
+	if err != nil || len(errs) != 1 || errs[0].ID != "offsite-prefix" || store.set.Bucket != "" {
+		t.Fatalf("Save = %v, %v, saved %q", errs, err, store.set.Bucket)
+	}
+	in.Prefix = "backups/"
+	if errs, err := o.Save(t.Context(), in); err != nil || len(errs) != 0 {
+		t.Fatalf("a prefix outside the media prefix was refused: %v, %v", errs, err)
+	}
+}

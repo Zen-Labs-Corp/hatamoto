@@ -112,6 +112,20 @@ func AllowedExtensionsForMIME(mimeType string) ([]string, bool) {
 	return exts, ok
 }
 
+// MIMEForExtension returns the allowed MIME type a filename extension (with
+// its leading dot, any case) belongs to, or "" when there is none.
+func MIMEForExtension(ext string) string {
+	ext = strings.ToLower(ext)
+	for mt, exts := range mimeToExts {
+		for _, e := range exts {
+			if e == ext {
+				return mt
+			}
+		}
+	}
+	return ""
+}
+
 // ExtensionMatchesMIME reports whether a filename extension is consistent with
 // the sniffed MIME type. It cross-validates content against the declared name
 // so a .png full of JPEG bytes, or a .php renamed .jpg, is rejected. ext is

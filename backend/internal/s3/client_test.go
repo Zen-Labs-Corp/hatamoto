@@ -260,3 +260,26 @@ func TestErrorCodeIsCapped(t *testing.T) {
 		t.Fatalf("err = %.200v", err)
 	}
 }
+
+func TestGetRange(t *testing.T) {
+	srv := s3test.NewServer(t)
+	c := newTestClient(t, srv)
+	srv.Put("k", []byte("0123456789"), nil)
+	ctx := context.Background()
+	for rng, want := range map[string]string{"bytes=2-4": "234", "bytes=7-": "789", "bytes=-3": "789", "bytes=8-99": "89"} {
+		rc, o, err := c.GetRange(ctx, "k", rng)
+		if err != nil {
+			t.Fatalf("%s: %v", rng, err)
+		}
+		b, _ := io.ReadAll(rc)
+		rc.Close()
+		if string(b) != want || o.Size != int64(len(want)) || !strings.HasSuffix(o.ContentRange, "/10") {
+			t.Errorf("%s: got %q %+v", rng, b, o)
+		}
+	}
+	_, _, err := c.GetRange(ctx, "k", "bytes=10-")
+	var e *Error
+	if !errors.As(err, &e) || e.Status != http.StatusRequestedRangeNotSatisfiable {
+		t.Errorf("unsatisfiable range: err = %v", err)
+	}
+}

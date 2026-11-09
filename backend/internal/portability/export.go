@@ -5,8 +5,10 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -15,14 +17,25 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/media"
 )
 
 // ExportOptions control Export.
 type ExportOptions struct {
 	// MediaDir is the upload directory the media rows' paths are relative to.
 	MediaDir string
+	// Store, when set, holds the media bytes instead of MediaDir (object
+	// storage). It must also implement media.Stater.
+	Store media.BlobStore
+	// SkipMedia leaves the media files out of the archive; the rows still
+	// carry their paths. MediaFiles, MediaBytes and MediaMissing stay zero.
+	SkipMedia bool
 	// NoSubmissions leaves out form submissions (visitor data).
 	NoSubmissions bool
+	// OnMedia, when set, is called once with the relative path of each media
+	// file the rows reference (the stored file and its variants), whether or
+	// not the bytes are exported.
+	OnMedia func(rel string)
 	// OnMissing, when set, is called with the relative path of each referenced
 	// media file that is not on disk.
 	OnMissing func(rel string)
@@ -88,13 +101,30 @@ func Export(ctx context.Context, pool *pgxpool.Pool, w io.Writer, opts ExportOpt
 		mediaPaths = append(mediaPaths, paths...)
 	}
 
+	if opts.Store != nil {
+		if _, ok := opts.Store.(media.Stater); !ok && !opts.SkipMedia {
+			return nil, errors.New("export: the media store cannot report object sizes")
+		}
+	}
 	seen := map[string]bool{}
 	for _, p := range mediaPaths {
 		if seen[p] {
 			continue
 		}
 		seen[p] = true
-		size, err := addMediaFile(tw, opts.MediaDir, p, now)
+		if opts.OnMedia != nil {
+			opts.OnMedia(p)
+		}
+		if opts.SkipMedia {
+			continue
+		}
+		var size int64
+		var err error
+		if opts.Store != nil {
+			size, err = addStoreMediaFile(ctx, tw, opts.Store, p, now)
+		} else {
+			size, err = addMediaFile(tw, opts.MediaDir, p, now)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -277,4 +307,36 @@ func addMediaFile(tw *tar.Writer, dir, rel string, mod time.Time) (int64, error)
 		err = fmt.Errorf("%s changed while exporting", clean)
 	}
 	return st.Size(), err
+}
+
+// addStoreMediaFile is addMediaFile over a blob store: it returns the size, or
+// -1 when the object is missing.
+func addStoreMediaFile(ctx context.Context, tw *tar.Writer, store media.BlobStore, rel string, mod time.Time) (int64, error) {
+	clean, err := cleanMediaPath(rel)
+	if err != nil {
+		return -1, err
+	}
+	info, err := store.(media.Stater).Stat(ctx, clean)
+	if errors.Is(err, fs.ErrNotExist) {
+		return -1, nil
+	}
+	if err != nil {
+		return -1, err
+	}
+	rc, err := store.Get(ctx, clean)
+	if errors.Is(err, fs.ErrNotExist) {
+		return -1, nil
+	}
+	if err != nil {
+		return -1, err
+	}
+	defer rc.Close()
+	if err := tw.WriteHeader(&tar.Header{Name: mediaPrefix + clean, Mode: 0o644, Size: info.Size, ModTime: mod}); err != nil {
+		return -1, err
+	}
+	n, err := io.Copy(tw, io.LimitReader(rc, info.Size))
+	if err == nil && n != info.Size {
+		err = fmt.Errorf("%s changed while exporting", clean)
+	}
+	return info.Size, err
 }

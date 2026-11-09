@@ -15,9 +15,14 @@ import (
 const (
 	manifestFormat  = "hatamoto-backup"
 	manifestVersion = 1
-	manifestName    = "manifest.json"
-	secretsName     = "secrets.env"
-	configName      = "config.env"
+	// objectMediaManifestVersion is the version of an archive that carries
+	// media_storage: a binary that predates object storage refuses it instead
+	// of restoring a site without its media. Archives of a local site stay at
+	// manifestVersion.
+	objectMediaManifestVersion = 2
+	manifestName               = "manifest.json"
+	secretsName                = "secrets.env"
+	configName                 = "config.env"
 )
 
 type part struct {
@@ -43,8 +48,11 @@ type manifest struct {
 	MediaFiles      int              `json:"media_files"`
 	MediaBytes      int64            `json:"media_bytes"`
 	MediaMissing    int              `json:"media_missing,omitzero"`
-	Trust           *TrustIDs        `json:"trust,omitempty"`
-	ConfigPath      string           `json:"config_path,omitempty"`
+	// MediaStorage names the driver ("s3") holding the media bytes when it is not
+	// the local disk; mediaManifestName then lists the objects.
+	MediaStorage string    `json:"media_storage,omitempty"`
+	Trust        *TrustIDs `json:"trust,omitempty"`
+	ConfigPath   string    `json:"config_path,omitempty"`
 }
 
 // describe fixes the mode of a finished part (pg_dump honours the umask) and

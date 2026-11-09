@@ -180,6 +180,17 @@ hatamoto import wordpress (--url URL [--user U --app-password P] | --wxr FILE) [
 
 Further flags of `import wordpress`: `--allow-private-hosts`, `--no-permalinks`, `--keep-edited`, `--json`, `--media-concurrency N` (default 4) and `--max-items N` (default limit 50000). See [WordPress import](../migrate-contribute/wordpress-import.md) and [Export and import](../migrate-contribute/export-import.md).
 
+## Media and backups
+
+```text
+hatamoto media migrate --to s3|local [--dry-run]
+hatamoto backup create [--config P] [--with-media]
+```
+
+`media migrate` copies the media library between local disk (`MEDIA_UPLOAD_DIR`) and S3-compatible object storage (the `HATAMOTO_MEDIA_S3_*` variables, read whatever `MEDIA_STORAGE` is set to). It checks every copy by SHA-256, skips files that are already at the destination with the same SHA-256 so a stopped run resumes, never deletes the source, and exits non-zero when any file fails. `--dry-run` writes nothing. When it ends it tells you to set `MEDIA_STORAGE=s3` and restart (or to unset it for `--to local`). It needs `DATABASE_URL`. See [Keep media in object storage](media-object-storage.md).
+
+`backup create` of a site with `MEDIA_STORAGE=s3` stores a manifest of the media files instead of their bytes; `--with-media` copies the bytes into the backup too. See [Back up and restore](backups.md).
+
 ## Packages, keys and themes
 
 ```text
@@ -250,5 +261,6 @@ Run every `update` verb with `HATAMOTO_DATA` set to the service's data directory
 | `HATAMOTO_TRUSTED_KEYS` | `package install`, `theme activate`, `theme dev` and `registry page`. |
 | `API_PORT` | `healthcheck`. |
 | `WP_APP_PASSWORD` | Default password for `import wordpress`. |
-| `MEDIA_UPLOAD_DIR` | `export`, `import` and `import wordpress`. |
+| `MEDIA_UPLOAD_DIR` | `export`, `import`, `import wordpress` and `media migrate`. |
+| `MEDIA_STORAGE`, `HATAMOTO_MEDIA_S3_*` | `export`, `import`, `import wordpress` and `backup create` and `restore` when media is in object storage; `media migrate` reads the `HATAMOTO_MEDIA_S3_*` variables always. |
 | `ENVIRONMENT` | `package install` and `theme dev` (development packages). |

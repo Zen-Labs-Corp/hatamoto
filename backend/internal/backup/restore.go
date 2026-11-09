@@ -11,13 +11,20 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"hatamoto.dev/core/internal/media"
 )
 
 // RestoreOptions say where a backup is restored to. Everything is checked
 // against the archive before anything is written.
 type RestoreOptions struct {
-	Data        string // the data dir; an id source is $Data/backups/<id>.tar
-	MediaDir    string // must be empty or missing
+	Data     string // the data dir; an id source is $Data/backups/<id>.tar
+	MediaDir string // must be empty or missing
+	// MediaStore holds the media bytes when they are in object storage; nil
+	// means MediaDir. An archive with media bytes is restored into it (the
+	// prefix must be empty); one with only a media manifest is checked
+	// against it.
+	MediaStore  media.BlobStore
 	SecretsDir  string // secrets.env is written here
 	DatabaseURL string // the app role on the empty target database
 	Version     string // the running hatamoto version; must equal the backup's

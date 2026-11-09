@@ -37,6 +37,7 @@ type Object struct {
 	ETag         string
 	LastModified time.Time
 	Meta         map[string]string // user metadata, keys lower-case, from Head and Get only
+	ContentRange string            // the Content-Range of a partial Get, else empty
 }
 
 // Error is a failed request. It carries the status and provider code only:
@@ -319,7 +320,7 @@ func (c *Client) Head(ctx context.Context, key string) (Object, error) {
 
 func objectFromHeaders(key string, resp *http.Response) Object {
 	o := Object{Key: key, Size: resp.ContentLength, ETag: strings.Trim(resp.Header.Get("Etag"), `"`),
-		Meta: map[string]string{}}
+		ContentRange: resp.Header.Get("Content-Range"), Meta: map[string]string{}}
 	o.LastModified, _ = http.ParseTime(resp.Header.Get("Last-Modified"))
 	for k, vs := range resp.Header {
 		if name, ok := strings.CutPrefix(strings.ToLower(k), "x-amz-meta-"); ok && len(vs) > 0 {
@@ -331,7 +332,22 @@ func objectFromHeaders(key string, resp *http.Response) Object {
 
 // Get opens key for reading; the caller closes the body.
 func (c *Client) Get(ctx context.Context, key string) (io.ReadCloser, Object, error) {
-	resp, err := c.doRetry(ctx, func() request { return request{op: "get", method: http.MethodGet, key: key} })
+	return c.GetRange(ctx, key, "")
+}
+
+// GetRange is Get with a Range header value such as "bytes=0-99" (empty reads
+// the whole object). A satisfiable range is answered 206: Object.Size is then
+// the length of the body and Object.ContentRange says which bytes it holds. A
+// provider may ignore the header and answer 200 with the whole object. An
+// unsatisfiable range is an *Error with status 416.
+func (c *Client) GetRange(ctx context.Context, key, byteRange string) (io.ReadCloser, Object, error) {
+	resp, err := c.doRetry(ctx, func() request {
+		r := request{op: "get", method: http.MethodGet, key: key}
+		if byteRange != "" {
+			r.header = http.Header{"Range": {byteRange}}
+		}
+		return r
+	})
 	if err != nil {
 		return nil, Object{}, err
 	}

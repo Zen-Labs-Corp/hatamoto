@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,6 +32,10 @@ var ErrNotEmpty = errors.New("database is not empty")
 type ImportOptions struct {
 	// MediaDir is the upload directory media files are written to.
 	MediaDir string
+	// Store, when set, receives the media files instead of MediaDir (object
+	// storage). It must also implement media.Stater. The archive is still
+	// staged in the operating system's temporary directory first.
+	Store media.BlobStore
 	// MaxBytes caps the decompressed archive (a gzip-bomb guard). Zero means
 	// DefaultMaxImportBytes.
 	MaxBytes int64
@@ -126,7 +131,7 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 	if err != nil {
 		return nil, err
 	}
-	stage := &mediaStage{root: opts.MediaDir}
+	stage := &mediaStage{root: opts.MediaDir, store: opts.Store, ctx: ctx}
 	defer func() {
 		stage.cleanup()
 		if err != nil {
@@ -598,6 +603,9 @@ func checkMediaRow(line []byte) error {
 // never touches files that were already there.
 type mediaStage struct {
 	root   string
+	store  media.BlobStore // non-nil: files are placed in the store, staged under the OS temp dir
+	ctx    context.Context
+	keys   []string // keys this import put into the store
 	dir    string   // staging dir, created on the first file
 	staged []string // clean relative paths
 	placed []string // absolute paths this import created
@@ -648,14 +656,25 @@ func (m *mediaStage) add(rel string, r io.Reader) (n int64, warn string, err err
 		}
 		r = bytes.NewReader(cleaned)
 	}
-	if _, err := os.Lstat(filepath.Join(m.root, filepath.FromSlash(clean))); err == nil {
+	if m.store != nil {
+		exists, err := m.storeHas(clean)
+		if err != nil {
+			return 0, "", err
+		}
+		if exists {
+			return 0, "", fmt.Errorf("media file %q already exists in the media object storage; import into an empty prefix", clean)
+		}
+	} else if _, err := os.Lstat(filepath.Join(m.root, filepath.FromSlash(clean))); err == nil {
 		return 0, "", fmt.Errorf("media file %q already exists in %s; import into an empty media directory", clean, m.root)
 	}
 	if m.dir == "" {
-		if err := os.MkdirAll(m.root, 0o755); err != nil {
+		stageRoot := m.root
+		if m.store != nil {
+			stageRoot = "" // the OS temp dir: the bytes are temporary
+		} else if err := os.MkdirAll(m.root, 0o755); err != nil {
 			return 0, "", err
 		}
-		if m.dir, err = os.MkdirTemp(m.root, ".import-"); err != nil {
+		if m.dir, err = os.MkdirTemp(stageRoot, ".import-"); err != nil {
 			return 0, "", err
 		}
 	}
@@ -687,6 +706,9 @@ func (m *mediaStage) place() error {
 	if len(m.staged) == 0 {
 		return nil
 	}
+	if m.store != nil {
+		return m.placeInStore()
+	}
 	root, err := filepath.EvalSymlinks(m.root)
 	if err != nil {
 		return err
@@ -711,8 +733,41 @@ func (m *mediaStage) place() error {
 	return nil
 }
 
+// storeHas reports whether key is already in the store.
+func (m *mediaStage) storeHas(key string) (bool, error) {
+	st, ok := m.store.(media.Stater)
+	if !ok {
+		return false, errors.New("import: the media store cannot report whether an object exists")
+	}
+	_, err := st.Stat(m.ctx, key)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// placeInStore puts every staged file into the store.
+func (m *mediaStage) placeInStore() error {
+	for _, clean := range m.staged {
+		f, err := os.Open(filepath.Join(m.dir, filepath.FromSlash(clean)))
+		if err != nil {
+			return err
+		}
+		_, err = m.store.Put(m.ctx, clean, f)
+		f.Close()
+		if err != nil {
+			return fmt.Errorf("place media file %q: %w", clean, err)
+		}
+		m.keys = append(m.keys, clean)
+	}
+	return nil
+}
+
 // undo removes the files place created (and nothing else).
 func (m *mediaStage) undo() {
+	for _, k := range m.keys {
+		_ = m.store.Delete(context.WithoutCancel(m.ctx), k)
+	}
 	for _, p := range m.placed {
 		_ = os.Remove(p)
 	}

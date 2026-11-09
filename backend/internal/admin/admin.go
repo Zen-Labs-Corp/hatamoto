@@ -320,6 +320,10 @@ type Deps struct {
 	// Offsite is the off-site backup target on Settings > Backups & recovery > Backups; nil hides
 	// the card. Set it only when non-nil and only with Backups.
 	Offsite OffsiteService
+	// MediaStorage checks that the media object storage is reachable, for the
+	// Media storage row of the Site health card; nil (local media) hides the
+	// row. It does not depend on Backups.
+	MediaStorage MediaStorageProbe
 	// Jobs is the scheduled-jobs overview on Settings > Jobs; nil answers that
 	// page with 503.
 	Jobs JobsService

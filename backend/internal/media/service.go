@@ -46,6 +46,10 @@ type Config struct {
 	// AVIFBudget bounds the AVIF encode time of one upload; 0 = 10 s. Copies
 	// that do not fit are made by the rebuild job.
 	AVIFBudget time.Duration
+	// Store holds the bytes. nil = the local disk under UploadDir. With any
+	// other store UploadDir is not touched and MaxTotalBytes is ignored (the
+	// quota measures a local directory).
+	Store BlobStore
 }
 
 // DefaultConfig returns the default media configuration.
@@ -82,6 +86,7 @@ type Service struct {
 	quotaMu sync.Mutex
 	// store holds every write. Image decoding reads through local (a path),
 	// the one place the local driver leaks; OpenFile needs an *os.File too.
+	// local is nil when the bytes live in another store.
 	store BlobStore
 	local *localStore
 	// formats decides which modern formats are written; nil = WebP only.
@@ -117,6 +122,14 @@ func (s *Service) notifyChanged(ctx context.Context) {
 
 // NewService creates a new media service.
 func NewService(repo Repository, config Config, logger *slog.Logger) *Service {
+	if config.Store != nil {
+		if ls, ok := config.Store.(*localStore); ok {
+			return &Service{repo: repo, config: config, logger: logger, root: ls.root, store: ls, local: ls}
+		}
+		// The quota walks a local directory; it does not apply to a bucket.
+		config.MaxTotalBytes = 0
+		return &Service{repo: repo, config: config, logger: logger, store: config.Store}
+	}
 	// Ensure upload directory exists
 	if err := os.MkdirAll(config.UploadDir, 0755); err != nil {
 		logger.Error("failed to create upload directory", slog.String("error", err.Error()))
@@ -188,13 +201,29 @@ func (s *Service) Upload(ctx context.Context, userID *uuid.UUID, file io.Reader,
 	// Save file. The store creates the directory, refuses one that leaves the
 	// upload root (a symlink to another disk) and removes a partial file.
 	storagePath := filepath.Join(legacyMediaTenantDir, uniqueName)
-	fullPath := s.local.localPath(storagePath)
+	fullPath := ""
+	if s.local != nil {
+		fullPath = s.local.localPath(storagePath)
+	}
 
 	src := file
 	if remaining >= 0 { // a body longer than it declared still cannot pass the quota
 		src = io.LimitReader(file, remaining+1)
 	}
-	written, err := s.store.Put(ctx, storagePath, src)
+	var written int64
+	var err error
+	if s.local != nil {
+		written, err = s.store.Put(ctx, storagePath, src)
+	} else {
+		// Another store has no file to decode from: the upload is spooled to a
+		// temporary file, stored from it and decoded from it.
+		var spooled string
+		spooled, written, err = s.putSpooled(ctx, storagePath, src)
+		if spooled != "" {
+			defer os.Remove(spooled)
+			fullPath = spooled
+		}
+	}
 	if err != nil {
 		s.logger.Error("failed to store file (a symlink inside MEDIA_UPLOAD_DIR that leaves it is refused; point MEDIA_UPLOAD_DIR itself at the other disk)",
 			slog.String("path", storagePath), slog.String("error", err.Error()))
@@ -370,7 +399,36 @@ func (s *Service) removeBlob(ctx context.Context, key string) {
 // The path is resolved inside an os.Root: "..", absolute paths and symlinks
 // that lead outside the directory are refused. Close the returned file.
 func (s *Service) OpenFile(rel string) (*os.File, error) {
+	if s.local == nil {
+		return nil, errors.New("media files are not on the local disk")
+	}
 	return s.local.openFile(rel)
+}
+
+// ObjectStorage reports whether the bytes live in a store other than the local
+// disk.
+func (s *Service) ObjectStorage() bool { return s.local == nil }
+
+// StatObject reports size and validator of a stored file by its path relative
+// to the store, without reading it. A missing file satisfies
+// errors.Is(err, fs.ErrNotExist).
+func (s *Service) StatObject(ctx context.Context, rel string) (ObjectInfo, error) {
+	st, ok := s.store.(Stater)
+	if !ok {
+		return ObjectInfo{}, errors.New("the media store cannot report object details")
+	}
+	return st.Stat(ctx, rel)
+}
+
+// GetObjectRange streams a stored file by its path relative to the store, or
+// one byte range of it (see RangeGetter). Close the returned reader. A missing
+// file satisfies errors.Is(err, fs.ErrNotExist).
+func (s *Service) GetObjectRange(ctx context.Context, rel, byteRange string) (ObjectInfo, ByteRange, io.ReadCloser, error) {
+	g, ok := s.store.(RangeGetter)
+	if !ok {
+		return ObjectInfo{}, ByteRange{}, nil, errors.New("the media store cannot stream ranges")
+	}
+	return g.GetRange(ctx, rel, byteRange)
 }
 
 // Config returns the media service configuration.
@@ -664,7 +722,9 @@ func (s *Service) buildVariants(ctx context.Context, m *Media, sourcePath string
 	// <picture> a 1x source. It must beat the original file.
 	medium := VariantSizes["medium"]
 	if !hasLarge && (srcWidth > medium.MaxWidth || srcHeight > medium.MaxHeight) && len(formats) > 0 {
-		if fi, err := os.Stat(sourcePath); err == nil {
+		if s.local == nil {
+			addModern("full", srcImg, srcWidth, srcHeight, int(m.FileSize))
+		} else if fi, err := os.Stat(sourcePath); err == nil {
 			addModern("full", srcImg, srcWidth, srcHeight, int(fi.Size()))
 		}
 	}
@@ -687,7 +747,11 @@ func (s *Service) RegenerateVariants(ctx context.Context, id uuid.UUID) (*Media,
 	if !m.SupportsVariants() {
 		return m, nil
 	}
-	variants, err := s.buildVariants(ctx, m, s.local.localPath(m.StoragePath), 0)
+	var variants []ImageVariant
+	err = s.withLocalSource(ctx, m.StoragePath, func(path string) (berr error) {
+		variants, berr = s.buildVariants(ctx, m, path, 0)
+		return berr
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -198,9 +198,23 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-Amz-Meta-"+k, v)
 		}
 		w.Header().Set("ETag", etag(o.Data))
-		w.Header().Set("Content-Length", strconv.Itoa(len(o.Data)))
+		data := o.Data
+		status := http.StatusOK
+		if rng := r.Header.Get("Range"); rng != "" && r.Method == http.MethodGet {
+			start, end, ok := parseRange(rng, len(o.Data))
+			if !ok {
+				w.Header().Set("Content-Range", fmt.Sprintf("bytes */%d", len(o.Data)))
+				fail(w, http.StatusRequestedRangeNotSatisfiable, "InvalidRange")
+				return
+			}
+			data = o.Data[start : end+1]
+			status = http.StatusPartialContent
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(o.Data)))
+		}
+		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 		if r.Method == http.MethodGet {
-			_, _ = w.Write(o.Data)
+			w.WriteHeader(status)
+			_, _ = w.Write(data)
 		}
 	default:
 		fail(w, http.StatusMethodNotAllowed, "MethodNotAllowed")
@@ -401,4 +415,27 @@ func mac(key []byte, data string) []byte {
 	m := hmac.New(sha256.New, key)
 	m.Write([]byte(data))
 	return m.Sum(nil)
+}
+
+// parseRange reads one "bytes=a-b", "bytes=a-" or "bytes=-n" spec against an
+// object of size bytes and returns the inclusive first and last byte.
+func parseRange(h string, size int) (start, end int, ok bool) {
+	spec, found := strings.CutPrefix(h, "bytes=")
+	first, last, found2 := strings.Cut(spec, "-")
+	if !found || !found2 || size == 0 {
+		return 0, 0, false
+	}
+	a, errA := strconv.Atoi(first)
+	b, errB := strconv.Atoi(last)
+	switch {
+	case first == "" && errB == nil && b > 0: // the last b bytes
+		return max(size-b, 0), size - 1, true
+	case errA != nil || a >= size:
+		return 0, 0, false
+	case last == "":
+		return a, size - 1, true
+	case errB != nil || b < a:
+		return 0, 0, false
+	}
+	return a, min(b, size-1), true
 }

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // BlobStore holds the bytes of stored media. Keys are the persisted
@@ -53,14 +54,17 @@ func (l *localStore) localPath(key string) string { return filepath.Join(l.root,
 
 func (l *localStore) openRoot() (*os.Root, error) { return os.OpenRoot(l.root) }
 
+// ErrInvalidKey is returned for keys that are empty, absolute or climb out.
+var ErrInvalidKey = errors.New("invalid blob key")
+
 // checkKey refuses keys that are absolute or climb out with "..".
 func checkKey(key string) error {
 	if key == "" || filepath.IsAbs(key) || strings.HasPrefix(key, "/") {
-		return fmt.Errorf("invalid blob key %q", key)
+		return fmt.Errorf("%w %q", ErrInvalidKey, key)
 	}
 	for _, part := range strings.FieldsFunc(key, func(r rune) bool { return r == '/' || r == filepath.Separator }) {
 		if part == ".." {
-			return fmt.Errorf("invalid blob key %q", key)
+			return fmt.Errorf("%w %q", ErrInvalidKey, key)
 		}
 	}
 	return nil
@@ -155,4 +159,126 @@ func (l *localStore) Delete(_ context.Context, key string) error {
 		return err
 	}
 	return nil
+}
+
+// ObjectInfo describes one stored object. SHA256 is empty when the store does
+// not know it.
+type ObjectInfo struct {
+	Key     string
+	Size    int64
+	ETag    string
+	ModTime time.Time
+	SHA256  string
+}
+
+// ByteRange is the part of an object a stream holds: bytes Start through End,
+// inclusive. Partial is false when the stream is the whole object.
+type ByteRange struct {
+	Start, End int64
+	Partial    bool
+}
+
+// ErrRangeNotSatisfiable is returned for a range that lies outside the object.
+var ErrRangeNotSatisfiable = errors.New("range not satisfiable")
+
+// Optional store capabilities. Callers type-assert for them; BlobStore itself
+// stays minimal. A missing key returns an error satisfying
+// errors.Is(err, fs.ErrNotExist).
+type (
+	// Stater reports size, validator and mod time of one key.
+	Stater interface {
+		Stat(ctx context.Context, key string) (ObjectInfo, error)
+	}
+	// Lister returns every object whose key starts with prefix.
+	Lister interface {
+		List(ctx context.Context, prefix string) ([]ObjectInfo, error)
+	}
+	// RangeGetter streams key, or one byte range of it ("bytes=a-b",
+	// "bytes=a-" or "bytes=-n"; empty for all). ObjectInfo describes the whole
+	// object as the response saw it, so size and validator never come from a
+	// different version than the bytes. A store may ignore
+	// the range and send everything (ByteRange.Partial is then false); an
+	// unsatisfiable range returns ErrRangeNotSatisfiable.
+	RangeGetter interface {
+		GetRange(ctx context.Context, key, byteRange string) (ObjectInfo, ByteRange, io.ReadCloser, error)
+	}
+	// Opener opens key for random access; close the returned file.
+	Opener interface {
+		Open(ctx context.Context, key string) (ObjectInfo, io.ReadSeekCloser, error)
+	}
+)
+
+var (
+	_ Stater = (*localStore)(nil)
+	_ Lister = (*localStore)(nil)
+	_ Opener = (*localStore)(nil)
+)
+
+// localETag is the validator of a local file: it changes whenever the size or
+// the mod time does, which is how a replaced file keeps its address.
+func localETag(size int64, mod time.Time) string {
+	return fmt.Sprintf(`"%x-%x"`, size, mod.UnixNano())
+}
+
+func (l *localStore) info(key string, fi fs.FileInfo) ObjectInfo {
+	return ObjectInfo{Key: key, Size: fi.Size(), ETag: localETag(fi.Size(), fi.ModTime()), ModTime: fi.ModTime()}
+}
+
+func (l *localStore) Stat(_ context.Context, key string) (ObjectInfo, error) {
+	if err := checkKey(key); err != nil {
+		return ObjectInfo{}, err
+	}
+	root, err := l.openRoot()
+	if err != nil {
+		return ObjectInfo{}, err
+	}
+	defer root.Close()
+	fi, err := root.Stat(key)
+	if err != nil {
+		return ObjectInfo{}, err
+	}
+	return l.info(key, fi), nil
+}
+
+func (l *localStore) List(ctx context.Context, prefix string) ([]ObjectInfo, error) {
+	var out []ObjectInfo
+	err := filepath.WalkDir(l.root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if cerr := ctx.Err(); cerr != nil {
+			return cerr
+		}
+		if d.IsDir() || !d.Type().IsRegular() {
+			return nil
+		}
+		rel, rerr := filepath.Rel(l.root, p)
+		if rerr != nil {
+			return rerr
+		}
+		key := filepath.ToSlash(rel)
+		if !strings.HasPrefix(key, prefix) {
+			return nil
+		}
+		fi, ierr := d.Info()
+		if ierr != nil {
+			return ierr
+		}
+		out = append(out, l.info(key, fi))
+		return nil
+	})
+	return out, err
+}
+
+func (l *localStore) Open(_ context.Context, key string) (ObjectInfo, io.ReadSeekCloser, error) {
+	f, err := l.openFile(key)
+	if err != nil {
+		return ObjectInfo{}, nil, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return ObjectInfo{}, nil, err
+	}
+	return l.info(key, fi), f, nil
 }

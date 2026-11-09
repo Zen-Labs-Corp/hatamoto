@@ -1,5 +1,14 @@
 # Release notes
 
+## Unreleased: Media in object storage
+
+- **Object storage.** `MEDIA_STORAGE=s3` with `HATAMOTO_MEDIA_S3_ENDPOINT`, `_REGION`, `_BUCKET`, `_PREFIX`, `_ACCESS_KEY` and `_SECRET_KEY` keeps the media library's bytes in an S3-compatible bucket. Upload, replace, delete, variants, rebuild, folders, usage and the plugin media functions work on it, nothing is written under `MEDIA_UPLOAD_DIR`, and `/media/...` addresses are unchanged: the server serves each file from the bucket with the object's ETag and the same `Cache-Control` as before. The default, `local`, is unchanged.
+- **Start and failures.** `serve` refuses to start on missing or invalid object storage settings, but not on an unreachable bucket: pages render, and uploads and `/media` requests fail with an error (`502` for a served file) and a log line. Owners see a Media storage row on the dashboard's Site health card.
+- **Migrate.** `hatamoto media migrate --to s3|local [--dry-run]` copies the library between local disk and the bucket, verifies every file by sha256, resumes after a stop and never deletes the source.
+- **Backups.** With object storage, a backup holds `media-manifest.json` (object name, size, sha256) instead of the bytes; `hatamoto backup create --with-media` copies the bytes too. Restore checks the manifest against the bucket and reports missing or differing objects as warnings without stopping the restore. Export and import read and write media through the same storage.
+- **Quota.** The total-size quota counts local disk only; it does not apply to object storage.
+- **Migration.** None. Rollback floor: unchanged for sites on local disk, but raised for a site that switched to `MEDIA_STORAGE=s3`. A release without this feature ignores `MEDIA_STORAGE` and reads `MEDIA_UPLOAD_DIR` only, so it starts normally and serves no media (every `/media/...` address answers 404), and an automatic rollback does the same. Before you roll back, run `hatamoto media migrate --to local` and unset `MEDIA_STORAGE`. A backup taken on object storage carries manifest version 2, which a release without this feature refuses to restore; backups of a local site are unchanged.
+
 ## Unreleased: Share tab and forms list
 
 - **Share tab.** A form's Share tab now lists the pages that use it (with views, submissions and conversion per page over 30 days), and gives the shortcode, the hosted link, the endpoint and generated HTML, each with Copy. A theme part or block is named by its area, not a path.

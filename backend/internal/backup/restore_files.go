@@ -71,16 +71,20 @@ func (x *restorer) entryReader(name string) (io.Reader, io.Closer, error) {
 	}
 }
 
-// restoreMedia writes the media/ entries of content.tar.gz through the local
-// store, keyed by the name after the prefix. Unsafe names were refused by the
+// restoreMedia writes the media/ entries of content.tar.gz through the media
+// store (the local disk unless object storage is set), keyed by the name after the prefix. Unsafe names were refused by the
 // checks; they are skipped here as well.
 func (x *restorer) restoreMedia(ctx context.Context) error {
 	if x.scan.mediaFiles == 0 {
 		return nil
 	}
-	store, err := media.NewLocalStore(x.o.MediaDir, "/media")
-	if err != nil {
-		return err
+	store := x.o.MediaStore
+	if store == nil {
+		local, err := media.NewLocalStore(x.o.MediaDir, "/media")
+		if err != nil {
+			return err
+		}
+		store = local
 	}
 	r, c, err := x.entryReader(contentName)
 	if err != nil {

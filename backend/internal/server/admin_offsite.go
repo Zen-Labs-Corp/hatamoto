@@ -3,12 +3,14 @@ package server
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"time"
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/backup"
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/offsite"
 )
 
@@ -28,6 +30,8 @@ type offsiteAdmin struct {
 	svc   *offsiteService
 	key   []byte
 	now   func() time.Time
+	// getenv reads the media storage settings; nil means os.Getenv.
+	getenv func(string) string
 }
 
 func (o *offsiteAdmin) clock() time.Time {
@@ -103,6 +107,9 @@ func (o *offsiteAdmin) Save(ctx context.Context, in admin.OffsiteInput) ([]ui.Fi
 	if err := set.Validate(); err != nil {
 		return []ui.FieldError{offsiteFieldError(err)}, nil
 	}
+	if set.Enabled && o.sharesMediaStorage(set) {
+		return []ui.FieldError{{ID: "offsite-prefix", Label: "Folder prefix", Message: "This bucket and folder are inside the media storage, which is public. Use another bucket or a folder outside the media prefix."}}, nil
+	}
 	switch {
 	case !set.Enabled || set.Schedule.Kind == offsite.ScheduleOff:
 	case saved.Enabled && saved.Schedule == set.Schedule && !saved.NextDueAt.IsZero():
@@ -111,6 +118,20 @@ func (o *offsiteAdmin) Save(ctx context.Context, in admin.OffsiteInput) ([]ui.Fi
 		set.NextDueAt = set.Schedule.Next(o.clock())
 	}
 	return nil, o.store.Save(ctx, set)
+}
+
+// sharesMediaStorage reports whether set would put the archives under the S3
+// media prefix, where /media serves them.
+func (o *offsiteAdmin) sharesMediaStorage(set offsite.Settings) bool {
+	getenv := o.getenv
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	if kind, _ := media.StorageFromEnv(getenv); kind != "s3" {
+		return false
+	}
+	mt, err := media.S3TargetFromEnv(getenv)
+	return err == nil && set.Bucket != "" && mt.SharesWith(set.EffectiveEndpoint(), set.Bucket, set.Prefix)
 }
 
 func (o *offsiteAdmin) Test(ctx context.Context, in admin.OffsiteInput) error {

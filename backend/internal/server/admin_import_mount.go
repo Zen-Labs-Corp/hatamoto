@@ -3,8 +3,10 @@ package server
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"hatamoto.dev/core/internal/importjob"
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/wpimport"
 )
 
@@ -17,8 +19,10 @@ import (
 // stay stable, or every stored credential becomes unreadable (the wizard then
 // asks for it again).
 func (s *Server) newImportManager() *importjob.Manager {
+	mc, _ := media.ConfigFromServer(s.cfg.Server, os.Getenv, s.logger) // invalid config: Store fails every call
 	deps := wpimport.NewDeps(s.db, wpimport.DepsConfig{
 		MediaDir: mediaDirOr(s.cfg.Server.MediaUploadDir), MediaBaseURL: s.cfg.Server.MediaBaseURL, MediaMaxMB: s.cfg.Server.MediaMaxSizeMB,
+		Store: mc.Store,
 	}, s.logger)
 	return importjob.New(importjob.Config{
 		Pool: s.db.Pool(), Deps: deps, Key: importjob.DeriveKey(s.cfg.Secret), Logger: s.logger, AdminPath: s.adminPathValue,

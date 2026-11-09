@@ -15,7 +15,9 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/middleware"
+	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/server"
 	"hatamoto.dev/core/internal/user"
@@ -43,6 +45,7 @@ const (
 	cmdLocales  // locales convert (locales_convert.go)
 	cmdAdminURL // admin-url, admin-url set|random (admin_url.go)
 	cmdDoctor   // doctor json (doctor_json.go)
+	cmdMedia    // media migrate (media_cmd.go)
 	cmdHelp
 )
 
@@ -63,6 +66,7 @@ commands:
   admin-url random                 store a new random admin address (applies after a restart)
   routes                           list the core HTTP routes
   plugins list                     list the plugins in HATAMOTO_PLUGIN_DIR (the development override)
+` + mediaUsage + `
   sanitize-html-sections [--dry-run]
 ` + opsUsage + "\n" + packagesUsage + "\n" + builderUsage + "\n" + localesUsage + "\n" + doctorUsage + `
   supervise                        run serve as a child, switch to verified releases in $HATAMOTO_DATA/releases and roll back when one fails its health gate
@@ -142,6 +146,12 @@ func parseArgs(args []string) (command, error) {
 	case "admin-url":
 		if _, err := parseAdminURLArgs(args[1:]); err == nil {
 			return cmdAdminURL, nil
+		}
+	case "media":
+		if len(args) >= 2 && args[1] == "migrate" {
+			if _, err := parseMediaMigrateArgs(args[2:]); err == nil {
+				return cmdMedia, nil
+			}
 		}
 	case "routes":
 		if len(args) == 1 {
@@ -278,6 +288,8 @@ func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) e
 		return runBuilderConvert(ctx, os.Getenv("DATABASE_URL"), args[2:], os.Stdout)
 	case cmdDoctor:
 		return runDoctorJSON(ctx, os.Getenv("DATABASE_URL"), os.Stdout)
+	case cmdMedia:
+		return runMedia(ctx, os.Getenv("DATABASE_URL"), args, os.Stdout)
 	case cmdLocales:
 		return runLocalesConvert(ctx, os.Getenv("DATABASE_URL"), args[2:], os.Stdout, os.Stderr)
 	}
@@ -370,6 +382,11 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	for _, w := range cfg.Warnings {
 		logger.Warn("configuration: " + w)
 	}
+	// Missing or invalid object storage settings stop the start; an
+	// unreachable bucket does not (no network call is made here).
+	if _, err := media.ConfigFromServer(cfg.Server, os.Getenv, nil); err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
+	}
 
 	db, err := database.New(ctx, cfg.Database)
 	if err != nil {
@@ -379,6 +396,9 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	logger.Info("connected to database")
 
 	if err := migrateUp(ctx, db.Pool(), logger); err != nil {
+		return err
+	}
+	if err := checkMediaOffsiteOverlap(ctx, os.Getenv, offsite.NewStore(db.Pool()).Get); err != nil {
 		return err
 	}
 	faultAfterMigrate()

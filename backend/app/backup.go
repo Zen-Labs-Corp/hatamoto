@@ -14,11 +14,12 @@ import (
 
 	"hatamoto.dev/core/internal/backup"
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/supervisor"
 )
 
-const backupUsageErr = "usage: hatamoto backup create [--config <path>] | list [--json] [--remote] | delete <id> | restore <id|path.tar> --admin-url <DSN> [--dry-run] [--config-out <path>]"
+const backupUsageErr = "usage: hatamoto backup create [--config <path>] [--with-media] | list [--json] [--remote] | delete <id> | restore <id|path.tar> --admin-url <DSN> [--dry-run] [--config-out <path>]"
 
 // runBackup runs `hatamoto backup ...`. list and delete need only the data
 // directory, so they work with the database down; create opens it lazily.
@@ -84,7 +85,7 @@ func runBackup(ctx context.Context, args []string, out io.Writer) error {
 	case "restore":
 		return runBackupRestore(ctx, args[1:], out, logger)
 	case "create":
-		configPath, err := parseCreateFlags(args[1:])
+		ca, err := parseCreateArgs(args[1:])
 		if err != nil {
 			return err
 		}
@@ -102,8 +103,12 @@ func runBackup(ctx context.Context, args []string, out io.Writer) error {
 		}
 		ver, _ := buildInfo()
 		eng := newBackupEngine(db.Pool(), cfg.Server.MediaUploadDir, ver, logger)
-		fmt.Fprintf(out, "media %s\n", eng.MediaDirAbs())
-		info, err := eng.Create(ctx, backup.Request{Kind: backup.KindManual, ConfigPath: configPath})
+		if target, ok := mediaObjectTarget(); ok {
+			fmt.Fprintf(out, "media: object storage (%s)\n", target)
+		} else {
+			fmt.Fprintf(out, "media %s\n", eng.MediaDirAbs())
+		}
+		info, err := eng.Create(ctx, backup.Request{Kind: backup.KindManual, ConfigPath: ca.configPath, WithMedia: ca.withMedia})
 		if err != nil {
 			return err
 		}
@@ -119,16 +124,43 @@ func runBackup(ctx context.Context, args []string, out io.Writer) error {
 	return errors.New(backupUsageErr)
 }
 
-// parseCreateFlags reads the flags of `backup create`: only --config, the
-// operator's env file to store verbatim (HATAMOTO_CONFIG_FILE when unset).
+// mediaObjectTarget names the media bucket and prefix when MEDIA_STORAGE=s3
+// and the settings are complete; never the secret.
+func mediaObjectTarget() (string, bool) {
+	if kind, _ := media.StorageFromEnv(os.Getenv); kind != "s3" {
+		return "", false
+	}
+	t, err := media.S3TargetFromEnv(os.Getenv)
+	if err != nil {
+		return "", false
+	}
+	return t.Bucket + "/" + t.Prefix, true
+}
+
+type createArgs struct {
+	configPath string
+	withMedia  bool
+}
+
+// parseCreateFlags reads --config of `backup create`: the operator's env file
+// to store verbatim (HATAMOTO_CONFIG_FILE when unset).
 func parseCreateFlags(args []string) (configPath string, err error) {
+	ca, err := parseCreateArgs(args)
+	return ca.configPath, err
+}
+
+// parseCreateArgs reads the flags of `backup create`: --config and, for media
+// in object storage, --with-media (copy the media bytes into the archive too).
+func parseCreateArgs(args []string) (createArgs, error) {
+	var ca createArgs
 	pos, err := flagSet("backup create", args, func(fs *flag.FlagSet) {
-		fs.StringVar(&configPath, "config", "", "env file to store verbatim in the backup")
+		fs.StringVar(&ca.configPath, "config", "", "env file to store verbatim in the backup")
+		fs.BoolVar(&ca.withMedia, "with-media", false, "also copy the media bytes when media is in object storage")
 	})
 	if err != nil || len(pos) != 0 {
-		return "", errors.New("usage: hatamoto backup create [--config <path>]")
+		return createArgs{}, errors.New("usage: hatamoto backup create [--config <path>] [--with-media]")
 	}
-	return configPath, nil
+	return ca, nil
 }
 
 func humanBytes(n int64) string {

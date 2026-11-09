@@ -541,7 +541,7 @@ func TestRestoreRejectsNonBackups(t *testing.T) {
 	if _, err := r.dry(t, wrongFormat); err == nil || !strings.Contains(err.Error(), "not a hatamoto backup") {
 		t.Fatalf("err = %v", err)
 	}
-	newer := buildArchive(t, func(s *archSpec) { s.Mf.Version = manifestVersion + 1 })
+	newer := buildArchive(t, func(s *archSpec) { s.Mf.Version = objectMediaManifestVersion + 1 })
 	if _, err := r.dry(t, newer); err == nil || !strings.Contains(err.Error(), "newer") {
 		t.Fatalf("err = %v", err)
 	}

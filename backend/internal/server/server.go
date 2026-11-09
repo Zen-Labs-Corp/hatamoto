@@ -120,7 +120,8 @@ type Server struct {
 	formUsage              *entity.FormUsageIndex // where each form is placed; cleared by entity changes
 	previewLinks           *previewlink.Store     // shared draft preview links; nil without a database
 	mediaService           *media.Service
-	logoSizes              logoSizeCache // logo pixel sizes by URL; see render_logo.go
+	mediaStorage           media.BlobStore // the media store; nil for local disk
+	logoSizes              logoSizeCache   // logo pixel sizes by URL; see render_logo.go
 	menuService            *menu.Service
 	formService            *form.Service
 	spam                   *spam.Pipeline // nil in tests that skip spam checks
@@ -438,19 +439,14 @@ func (s *Server) setupDependencies() {
 
 	// Media service
 	mediaRepo := media.NewPostgresRepository(s.db)
-	mediaConfig := media.DefaultConfig()
-	if s.cfg.Server.MediaUploadDir != "" {
-		mediaConfig.UploadDir = s.cfg.Server.MediaUploadDir
-	}
-	if s.cfg.Server.MediaBaseURL != "" {
-		mediaConfig.BaseURL = s.cfg.Server.MediaBaseURL
-	}
-	if s.cfg.Server.MediaMaxSizeMB > 0 {
-		mediaConfig.MaxSizeMB = s.cfg.Server.MediaMaxSizeMB
-	}
+	// app.Main refuses to start on an invalid object storage configuration; a
+	// caller that skipped that check gets a store that fails every call, never
+	// a silent write to local disk.
+	mediaConfig, _ := media.ConfigFromServer(s.cfg.Server, os.Getenv, s.logger)
 	if s.demoOn() {
 		mediaConfig.MaxTotalBytes = int64(s.cfg.Demo.MediaQuotaMB) * 1024 * 1024
 	}
+	s.mediaStorage = mediaConfig.Store
 	s.mediaService = media.NewService(mediaRepo, mediaConfig, s.logger)
 	s.mediaService.SetChangeObserver(s.onMediaChange)
 	s.mediaFormats = mediaFormatStore{site: s.siteConfig}
