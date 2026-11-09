@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -216,59 +218,54 @@ func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var (
-		content io.ReadSeeker
-		size    int64
-		modTime time.Time
-		etag    string
-		name    = filepath.Base(cleanPath)
-	)
 	if s.mediaService.ObjectStorage() {
-		rs, info, ok := s.openStoredObject(w, r, cleanPath)
-		if !ok {
-			return
-		}
-		defer rs.Close()
-		content, size, modTime, etag = rs, info.Size, info.ModTime, info.ETag
-	} else {
-		// Resolved inside an os.Root: a symlink in the upload directory cannot
-		// lead the server to a file outside it.
-		file, err := s.mediaService.OpenFile(cleanPath)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				writeError(w, http.StatusNotFound, "file not found")
-				return
-			}
-			writeError(w, http.StatusForbidden, "invalid path")
-			return
-		}
-		defer file.Close()
+		s.serveStoredObject(w, r, cleanPath)
+		return
+	}
 
-		stat, err := file.Stat()
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to access file")
+	// Resolved inside an os.Root: a symlink in the upload directory cannot
+	// lead the server to a file outside it.
+	file, err := s.mediaService.OpenFile(cleanPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			writeError(w, http.StatusNotFound, "file not found")
 			return
 		}
-		if stat.IsDir() {
-			writeError(w, http.StatusForbidden, "cannot serve directory")
-			return
-		}
-		content, size, modTime, name = file, stat.Size(), stat.ModTime(), stat.Name()
-		etag = fmt.Sprintf(`"%x-%x"`, stat.Size(), stat.ModTime().UnixNano())
+		writeError(w, http.StatusForbidden, "invalid path")
+		return
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to access file")
+		return
+	}
+	if stat.IsDir() {
+		writeError(w, http.StatusForbidden, "cannot serve directory")
+		return
 	}
 
 	// Detect content type
 	buffer := make([]byte, media.SniffLen)
-	n, _ := content.Read(buffer)
+	n, _ := file.Read(buffer)
 	contentType := media.SniffContentType(buffer[:n])
-	if _, err := content.Seek(0, io.SeekStart); err != nil {
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to access file")
 		return
 	}
 
-	// Only allowlisted media types are shown inline. Anything else already on
-	// disk (an .html planted by an old import, say) is a download the browser
-	// cannot run in the site's origin.
+	setMediaHeaders(w, contentType, fmt.Sprintf(`"%x-%x"`, stat.Size(), stat.ModTime().UnixNano()), stat.Size())
+
+	// Serve file
+	http.ServeContent(w, r, stat.Name(), stat.ModTime(), file)
+}
+
+// setMediaHeaders sets the response headers every served media file gets.
+// Only allowlisted media types are shown inline. Anything else already on
+// disk (an .html planted by an old import, say) is a download the browser
+// cannot run in the site's origin.
+func setMediaHeaders(w http.ResponseWriter, contentType, etag string, size int64) {
 	if _, ok := media.AllowedExtensionsForMIME(contentType); !ok {
 		contentType = "application/octet-stream"
 		w.Header().Set("Content-Disposition", "attachment")
@@ -295,49 +292,107 @@ func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("ETag", etag)
 	}
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", size))
-
-	// Serve file
-	http.ServeContent(w, r, name, modTime, content)
 }
 
-// openStoredObject opens a file of a non-local media store. It answers the
-// request itself and reports false when the file is missing, the path is not
-// valid, the browser's copy is current (304) or the store is unreachable
-// (502, logged: a bucket outage is not a "forbidden").
-func (s *Server) openStoredObject(w http.ResponseWriter, r *http.Request, rel string) (io.ReadSeekCloser, media.ObjectInfo, bool) {
-	fail := func(err error) {
-		switch {
-		case errors.Is(err, os.ErrNotExist):
-			writeError(w, http.StatusNotFound, "file not found")
-		case errors.Is(err, media.ErrInvalidKey):
-			writeError(w, http.StatusForbidden, "invalid path")
-		default:
-			slog.Error("media: object storage", "err", err)
-			writeError(w, http.StatusBadGateway, "media storage is unavailable")
-		}
-	}
+// mediaStoreTimeout bounds the calls a /media request makes to object
+// storage (the lookup, the start of a download, a whole spool).
+var mediaStoreTimeout = 30 * time.Second
+
+// mediaSpools bounds the objects spooled to local disk at once. Only a Range
+// request spools; everything else streams or answers from the lookup.
+var mediaSpools = make(chan struct{}, 4)
+
+// serveStoredObject serves /media from a non-local store:
+//   - HEAD answers from the lookup, nothing is downloaded (the type comes from
+//     the file extension);
+//   - a plain GET streams the object, sniffing its type from the first bytes;
+//   - a Range GET spools the object to a temporary file so it can seek, behind
+//     a small semaphore (503 with Retry-After when all slots are busy).
+func (s *Server) serveStoredObject(w http.ResponseWriter, r *http.Request, rel string) {
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	timer := time.AfterFunc(mediaStoreTimeout, cancel)
+	defer timer.Stop()
+
 	// The validator comes from a cheap lookup, so a browser that already has
 	// the bytes never makes the server fetch them.
-	info, err := s.mediaService.StatObject(r.Context(), rel)
+	info, err := s.mediaService.StatObject(ctx, rel)
 	if err != nil {
-		fail(err)
-		return nil, media.ObjectInfo{}, false
+		mediaStoreFailure(w, err)
+		return
 	}
 	if info.ETag != "" && ifNoneMatchHits(r, info.ETag) {
 		w.Header().Set("Cache-Control", "public, max-age=86400, must-revalidate")
 		w.Header().Set("ETag", info.ETag)
 		w.WriteHeader(http.StatusNotModified)
-		return nil, media.ObjectInfo{}, false
+		return
 	}
-	rs, got, err := s.mediaService.OpenObject(r.Context(), rel)
-	if err != nil {
-		fail(err)
-		return nil, media.ObjectInfo{}, false
+	if !info.ModTime.IsZero() {
+		w.Header().Set("Last-Modified", info.ModTime.UTC().Format(http.TimeFormat))
 	}
-	if info.ETag != "" {
-		got.ETag = info.ETag
+	name := filepath.Base(rel)
+
+	switch {
+	case r.Method == http.MethodHead:
+		setMediaHeaders(w, media.MIMEForExtension(filepath.Ext(name)), info.ETag, info.Size)
+		w.Header().Set("Accept-Ranges", "bytes")
+		w.WriteHeader(http.StatusOK)
+
+	case r.Header.Get("Range") != "":
+		select {
+		case mediaSpools <- struct{}{}:
+			defer func() { <-mediaSpools }()
+		default:
+			w.Header().Set("Retry-After", "1")
+			writeError(w, http.StatusServiceUnavailable, "media storage is busy, retry shortly")
+			return
+		}
+		rs, got, err := s.mediaService.OpenObject(ctx, rel)
+		if err != nil {
+			mediaStoreFailure(w, err)
+			return
+		}
+		defer rs.Close()
+		timer.Stop()
+		head := make([]byte, media.SniffLen)
+		n, _ := rs.Read(head)
+		if _, err := rs.Seek(0, io.SeekStart); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to access file")
+			return
+		}
+		setMediaHeaders(w, media.SniffContentType(head[:n]), info.ETag, got.Size)
+		http.ServeContent(w, r, name, info.ModTime, rs)
+
+	default:
+		body, err := s.mediaService.GetObject(ctx, rel)
+		if err != nil {
+			mediaStoreFailure(w, err)
+			return
+		}
+		defer body.Close()
+		timer.Stop()
+		br := bufio.NewReaderSize(body, media.SniffLen)
+		head, _ := br.Peek(media.SniffLen)
+		setMediaHeaders(w, media.SniffContentType(head), info.ETag, info.Size)
+		w.Header().Set("Accept-Ranges", "bytes")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.Copy(w, br)
 	}
-	return rs, got, true
+}
+
+// mediaStoreFailure answers for a store error: a missing file or an invalid
+// path as such, anything else as 502 (logged: a bucket outage is not a
+// "forbidden").
+func mediaStoreFailure(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		writeError(w, http.StatusNotFound, "file not found")
+	case errors.Is(err, media.ErrInvalidKey):
+		writeError(w, http.StatusForbidden, "invalid path")
+	default:
+		slog.Error("media: object storage", "err", err)
+		writeError(w, http.StatusBadGateway, "media storage is unavailable")
+	}
 }
 
 // ifNoneMatchHits reports whether the request's If-None-Match names etag (or

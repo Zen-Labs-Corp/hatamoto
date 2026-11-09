@@ -420,6 +420,12 @@ func (s *Service) StatObject(ctx context.Context, rel string) (ObjectInfo, error
 	return st.Stat(ctx, rel)
 }
 
+// GetObject streams a stored file by its path relative to the store. Close the
+// returned reader. A missing file satisfies errors.Is(err, fs.ErrNotExist).
+func (s *Service) GetObject(ctx context.Context, rel string) (io.ReadCloser, error) {
+	return s.store.Get(ctx, rel)
+}
+
 // OpenObject opens a stored file for random-access reads. Close the returned
 // file. OpenFile is the local-disk variant of the same thing.
 func (s *Service) OpenObject(ctx context.Context, rel string) (io.ReadSeekCloser, ObjectInfo, error) {

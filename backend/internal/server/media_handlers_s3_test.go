@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/s3/s3test"
@@ -109,5 +111,91 @@ func TestServeMediaUnreachableObjectStorageIs502(t *testing.T) {
 	mux.HandleFunc("GET /media/{rest...}", s.handleServeMedia)
 	if w := getMedia(mux, "p.png", nil); w.Code != http.StatusBadGateway {
 		t.Errorf("unreachable bucket = %d, want 502", w.Code)
+	}
+}
+
+func countGets(fake *s3test.Server) int {
+	n := 0
+	for _, r := range fake.Requests() {
+		if r.Method == http.MethodGet && strings.Contains(r.Path, "site/") && !strings.Contains(r.Path, "list-type") {
+			n++
+		}
+	}
+	return n
+}
+
+// HEAD is answered from the lookup and a plain GET streams: neither spools the
+// object (no temporary file) and HEAD downloads nothing.
+func TestServeMediaObjectStorageHeadAndGetDoNotSpool(t *testing.T) {
+	h, fake, _ := s3MediaServer(t)
+	png := "\x89PNG\r\n\x1a\n0123456789"
+	fake.Put("site/p.png", []byte(png), nil)
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp)
+
+	before := countGets(fake)
+	req := httptest.NewRequest(http.MethodHead, "/media/p.png", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != 200 || w.Body.Len() != 0 || w.Header().Get("Content-Type") != "image/png" || w.Header().Get("Content-Length") != "18" {
+		t.Errorf("HEAD = %d %v %q", w.Code, w.Header(), w.Body.String())
+	}
+	if got := countGets(fake); got != before {
+		t.Errorf("HEAD downloaded the object (%d GETs)", got-before)
+	}
+	if w = getMedia(h, "p.png", nil); w.Code != 200 || w.Body.String() != png || w.Header().Get("Content-Length") != "18" {
+		t.Errorf("GET = %d %q", w.Code, w.Body.String())
+	}
+	if countGets(fake) != before+1 {
+		t.Errorf("GETs = %d, want one download for the plain GET", countGets(fake)-before)
+	}
+	if left, _ := os.ReadDir(tmp); len(left) != 0 {
+		t.Errorf("GET spooled to disk: %v", left)
+	}
+}
+
+// Range requests spool behind a semaphore: when every slot is taken the
+// answer is 503 with Retry-After, and a free slot is released afterwards.
+func TestServeMediaObjectStorageRangeSpoolIsBounded(t *testing.T) {
+	h, fake, _ := s3MediaServer(t)
+	fake.Put("site/p.png", []byte("\x89PNG\r\n\x1a\n0123456789"), nil)
+	old := mediaSpools
+	mediaSpools = make(chan struct{}, 1)
+	defer func() { mediaSpools = old }()
+
+	mediaSpools <- struct{}{}
+	w := getMedia(h, "p.png", map[string]string{"Range": "bytes=0-0"})
+	if w.Code != http.StatusServiceUnavailable || w.Header().Get("Retry-After") == "" {
+		t.Errorf("busy = %d %v", w.Code, w.Header())
+	}
+	<-mediaSpools
+	if w = getMedia(h, "p.png", map[string]string{"Range": "bytes=8-9"}); w.Code != http.StatusPartialContent || w.Body.String() != "01" {
+		t.Errorf("free = %d %q", w.Code, w.Body.String())
+	}
+	if len(mediaSpools) != 0 {
+		t.Error("the spool slot was not released")
+	}
+}
+
+// A bucket that never answers does not hold the request open past the bound.
+func TestServeMediaObjectStorageTimesOut(t *testing.T) {
+	hang := make(chan struct{})
+	slow := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { <-hang }))
+	defer slow.Close()
+	defer close(hang)
+	store, err := media.NewS3Store(media.S3Target{Endpoint: slow.URL, Region: s3test.Region,
+		Bucket: s3test.Bucket, AccessKey: s3test.AccessKey, SecretKey: s3test.SecretKey}, "/media", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{mediaService: media.NewService(nil, media.Config{UploadDir: t.TempDir(), MaxSizeMB: 1, Store: store}, slog.Default())}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /media/{rest...}", s.handleServeMedia)
+	old := mediaStoreTimeout
+	mediaStoreTimeout = 200 * time.Millisecond
+	defer func() { mediaStoreTimeout = old }()
+	start := time.Now()
+	if w := getMedia(mux, "p.png", nil); w.Code != http.StatusBadGateway || time.Since(start) > 5*time.Second {
+		t.Errorf("hung bucket = %d after %v", w.Code, time.Since(start))
 	}
 }
