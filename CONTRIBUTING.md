@@ -93,7 +93,7 @@ bash scripts/admin-qa/run-local.sh consistency.mjs      # Chrome + Postgres, see
 ## Questions, reviews and response times
 
 Ask questions in [GitHub Discussions](https://github.com/Zen-Labs-Corp/hatamoto/discussions)
-(see [`SUPPORT.md`](SUPPORT.md)); issues are for bugs and concrete requests.
+(see [`SUPPORT.md`](.github/SUPPORT.md)); issues are for bugs and concrete requests.
 These are targets, not promises, and they count business days:
 
 | What | Target |

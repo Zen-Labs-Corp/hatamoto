@@ -19,6 +19,7 @@ Open source, no plugin stack, no PHP, no Node, no telemetry unless you turn it o
 <p align="center">
   <a href="https://hatamoto.dev">Website</a> ·
   <a href="https://hatamoto.dev/docs">Docs</a> ·
+  <a href="docs/README.md">Docs in this repo</a> ·
   <a href="docs/site/getting-started/index.md">Get started</a> ·
   <a href="https://hatamoto.dev/plugins">Plugins</a> ·
   <a href="https://hatamoto.dev/themes">Themes</a> ·
@@ -211,7 +212,7 @@ to `off` (no network call at all).
 ## Contribute
 
 Go is the only toolchain: `make build`, `make check`, and `go test ./...` from `backend/`.
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md), and report security
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](.github/CODE_OF_CONDUCT.md), and report security
 problems privately as described in [SECURITY.md](SECURITY.md). Write a plugin: [plugin guide](docs/PLUGINS_WRITE_AND_SUBMIT.md);
 write a theme: [theme guide](docs/THEMES_WRITE_AND_SUBMIT.md).
 

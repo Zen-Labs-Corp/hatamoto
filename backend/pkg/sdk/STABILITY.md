@@ -10,9 +10,9 @@ the name is given. Where it is project policy only, the text says so. Paths in c
 
 | Thing | Scheme | Today |
 |---|---|---|
-| Product (the `hatamoto` binary) | `vX.Y.Z`, git tag `vX.Y.Z` | `v0.31.0` |
+| Product (the `hatamoto` binary) | `vX.Y.Z`, git tag `vX.Y.Z` | `v1.1.0` |
 | Go module for the product source | `hatamoto.dev/core`, git tag `backend/vX.Y.Z`, created by `scripts/tag-release.sh` | follows the product |
-| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.19.0` (`0.12.0` shipped with product `v0.31.0`) |
+| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.19.0` (shipped with product `v1.1.0`) |
 | Plugin manifest | the `sdk` range in `plugin.json` | follows the SDK |
 | Theme contract | `data-hm-contract` on `<html>` | `1` |
 | HTTP API | `/api/v1` path prefix | `v1` |
