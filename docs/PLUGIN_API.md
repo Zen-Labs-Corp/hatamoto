@@ -10,6 +10,8 @@ Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.
 >
 > Also in 0.20: an `items` entry of `builder_sources` can declare up to 8 typed `params` (filters), each query loop stores its own values, and the `builder.data` request carries the validated values as `params`. Additive: a source without `params`, and a loop whose values all drop out, produce the same request bytes as before (same `id`, no `params` key). See `builder_sources` below and [builder.data](#builderdata). Rollback floor: a host older than this change refuses a page whose loop stores `params`.
 >
+> And in 0.20: `standing_approval.create` lets an approved run also publish new entries by itself (see [Creating content automatically](#creating-content-automatically)). It needs `^0.20`; an older host ignores it and creates wait for review.
+>
 > **0.19 changes.** The SDK needs Go 1.27 or newer (`hatamoto.dev/sdk` declares `go 1.27`). It uses the JSON v2 packages: `json.RawMessage` is an alias of `jsontext.Value` in Go 1.27, so SDK types that now name `jsontext.Value` (for example the `args` of `guest.OnFunc`) are source compatible, and the bytes exchanged with the host are unchanged. The guest and the host marshal the SDK types and the types you write (call arguments, results, run summaries) with the v1 behaviours pinned (`omitempty`, `time.Duration` as nanoseconds, byte arrays as number arrays, `MarshalJSON` and `MarshalText` methods, repeated member names inside raw JSON), so your tags need no change; the guest reads these types back with the same v1 behaviours (`time.Duration` from nanoseconds, byte arrays, `,string`, names folded by case only, merging into a filled value, so `kv.get` into the struct you stored works); the one difference is that a struct with two fields sharing a JSON name fails to marshal. On the host, a changeset payload that cannot be encoded returns `invalid_argument` instead of staging `{}`, a repeated member in a `plugin.json` list element loads (the last wins), plugin settings validation rejects invalid UTF-8 that v1 replaced, and plugin manifest reads in the admin packages screen, the updater, the settings CLI and at boot use the same decoder as install. No ABI, host function or manifest field changed; `^0.18` plugins keep loading. Additive: `sdk.RemovedPermissions()` returns the sorted list of removed permissions (the five `*.write` names); the release tool copies it into the signed release record as `removed_permissions` so an update can be refused up front when an enabled plugin still declares one.
 >
 > **0.18 needs `^0.18`.** A plugin that uses `csp`, `request_headers`, `translation_of`, `changeset.media.alt` or shipped content types must declare `"sdk": "^0.18"`: an older host ignores those fields without an error and the plugin would run without them.
@@ -625,14 +627,42 @@ Two ways to keep a value current without a review each time.
 | `standing_approval.fields` | attribute keys the run may change, 1 to 16, each matching the identifier pattern, no duplicates |
 | `standing_approval.schemas` | entity schema slugs the rule applies to, 1 to 16, same rules |
 | `standing_approval.max_per_hour` | most automatic changes an hour; 0 or absent means 200, and more than 200 is refused |
+| `standing_approval.create.schemas` | optional: entity schema slugs whose new entries the run may publish by itself, 1 to 16, each also listed in `standing_approval.schemas` |
+| `standing_approval.create.max_per_hour` | most new entries an hour, 1 to 100; there is no default, so it must be set |
 
 A run with a `standing_approval` takes no `inputs`, and a manifest may have only one such run (the host approves one rule per plugin; a second is refused at load). A cron-started run has no owner to confirm hosts, so its fetch phase may call the manifest's `allowed_hosts` (the owner saw them at install), except the `*` wildcard, which a cron-started run never gets. A manifest with a `standing_approval` may list at most 32 `allowed_hosts` besides `*`. The block is additive: older hosts ignore it, and there is no new host function or permission. Cron, hooks and routes still cannot write content: to change content on a schedule, use a cron-started run with a standing approval.
 
-Nothing happens until the owner approves the rule on the plugin's **Automatic updates** tab (a step-up sign-in is required). Without an active approval the cron tick does not start the run. With one, the run publishes itself only when every item is an update of a listed field on an object the plugin owns (`origin` is `plugin:<name>`), the field is a number, boolean, date or enum in the entity schema, nothing else in the item changed, there is no proposal and the hourly cap holds. Anything else stays staged for review as usual. Never published automatically: HTML, links, slugs, free text, creates, deletes, terms, menus, redirects and media.
+Nothing happens until the owner approves the rule on the plugin's **Automatic updates** tab (a step-up sign-in is required). Without an active approval the cron tick does not start the run. With one, the run publishes itself only when every item is an update of a listed field on an object the plugin owns (`origin` is `plugin:<name>`), the field is a number, boolean, date or enum in the entity schema, nothing else in the item changed, there is no proposal and the hourly cap holds. Anything else stays staged for review as usual. Never published automatically: HTML, links, slugs, free text, deletes, terms, menus, redirects and media. New entries wait for review too, unless the rule opts in with `create`, described next.
 
 Because the item replaces the whole attributes object, a price-only update must resend `slug`, `name` and `parent` unchanged (and the other attributes as they are); a changed slug, name or parent is outside the rule and the changeset waits for review.
 
-The approval is void when the plugin's version or manifest changes, when a schema the rule names changes, or when the plugin is uninstalled. The owner then sees the plugin as updated, with the rule paused until they review and allow it again. A once a day summary lists what published automatically, and Settings, Changes marks those changesets as published automatically.
+The approval is void when the plugin's version or manifest changes, when a schema the rule names changes, or when the plugin is uninstalled. The owner then sees the plugin as updated, with the rule paused until they review and allow it again. A once a day summary lists what published automatically, and Settings, Changes marks those changesets as published automatically. New entries are listed in their own section of the summary, apart from the updates.
+
+#### Creating content automatically
+
+Add `create` to the rule to let the approved run also publish new entries of the schemas it lists:
+
+```json
+"standing_approval": {
+  "fields": ["price"], "schemas": ["product"], "max_per_hour": 100,
+  "create": { "schemas": ["product"], "max_per_hour": 20 }
+}
+```
+
+The owner sees one more line on the Automatic updates tab ("May publish new product entries on its own, up to 20 an hour") before approving. New entries go through the same path as a change the owner reviews: validation, HTML sanitising, slug rules, events, revision history and undo. Their origin is `plugin:<name>`, so later updates to them follow the update rule.
+
+The hourly create cap is separate from the update cap: creates do not use the update budget, and updates do not use the create budget. Adding or changing `create` in a plugin update changes the manifest, so an existing approval is void until the owner allows the new rule.
+
+A changeset stays staged for review as a whole, with nothing published, when any item:
+
+- deletes anything, or is a redirect, a menu, a media item or alt text, a term to create, or a proposal;
+- creates an entry in a schema that `create.schemas` does not list, or sets a status other than draft or published;
+- touches content another source owns;
+- sets `translation_of` to an entry the plugin does not own, or to one outside the listed schemas;
+- gives a slug that is already taken in the schema;
+- would take the hour past `create.max_per_hour`.
+
+A changeset that mixes a create with anything outside the rule waits as a whole. An existing term can be assigned to a new entry; making a new term cannot be automatic.
 
 ### `on_run_step`
 
