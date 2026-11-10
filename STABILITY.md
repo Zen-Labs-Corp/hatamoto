@@ -61,7 +61,7 @@ The SDK is bumped to 0.13.0 for `locale`, to 0.14.0 for the form attribution and
 change under the same version (`scripts/publish-sdk.sh` refuses to retag a different tree) and 0.10 and
 0.11 set the precedent of shipping additive payload changes as a minor.
 
-The 0.20.0 bump is additive over 0.19: entity terms and a term filter on `entities.get` and `entities.list` (see `version.go`).
+The 0.20.0 bump is additive over 0.19: entity terms and a term filter on `entities.get` and `entities.list`, and typed `params` on items builder sources, sent on the `builder.data` request (see `version.go`).
 
 The 0.19.0 bump raises the Go floor of the SDK module to 1.27 and moves it to the JSON v2 packages. Wire bytes are unchanged (also for plugin-author types the guest marshals and reads back; only a struct with two fields sharing a JSON name now fails), and `json.RawMessage` is an alias of `jsontext.Value` in Go 1.27, so the source change is compatible.
 
