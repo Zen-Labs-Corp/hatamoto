@@ -20,6 +20,7 @@ func TestMentionsMediaPath(t *testing.T) {
 	for in, want := range map[string]bool{
 		"/media/a.jpg": true, "media/a.jpg": true, "https://example.com/Media/a.jpg": true,
 		`<img src="/uploads/x.png">`: true, "a%2Fmedia%2Fb": true,
+		`/%6Dedia/x.jpg`: true, `\\MEDIA\\x.jpg`: true, "/%256Dedia/x": true, "&#47;media&#47;x": true,
 		"": false, "Hello": false, "/mediation/x": false, "https://example.com/about": false,
 	} {
 		if got := MentionsMediaPath(in); got != want {
@@ -47,6 +48,16 @@ func TestEffectiveFormat(t *testing.T) {
 	} {
 		if got := EffectiveFormat(c.format, c.hint); got != c.want {
 			t.Errorf("EffectiveFormat(%q,%q) = %q, want %q", c.format, c.hint, got, c.want)
+		}
+	}
+}
+
+func TestNormalizeValue(t *testing.T) {
+	for in, want := range map[string]string{
+		"/%6Dedia/X.JPG": "/media/x.jpg", `\Media\x`: "/media/x", "/%256Dedia/x": "/media/x", "plain": "plain",
+	} {
+		if got := NormalizeValue(in); got != want {
+			t.Errorf("NormalizeValue(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

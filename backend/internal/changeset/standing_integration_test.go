@@ -728,6 +728,25 @@ func TestStandingCreateRefusals(t *testing.T) {
 		{"markup_in_nested_key", func() int64 {
 			return s.stageAll(s.newItem("mk9", map[string]any{"attributes": map[string]any{"title": "T", "nested": map[string]any{"deep": []any{`<video src=x></video>`}}}}))
 		}, "image markup"},
+		{"media_path_percent_encoded_plain", func() int64 {
+			return s.stageAll(s.newItem("pn1", map[string]any{"attributes": map[string]any{"title": "/%6Dedia/x.jpg"}}))
+		}, "media library"},
+		{"media_path_upper_plain", func() int64 {
+			return s.stageAll(s.newItem("pn2", map[string]any{"attributes": map[string]any{"title": "/MEDIA/x.jpg"}}))
+		}, "media library"},
+		{"media_path_backslash_plain", func() int64 {
+			return s.stageAll(s.newItem("pn3", map[string]any{"attributes": map[string]any{"title": `\media\x.jpg`}}))
+		}, "media library"},
+		{"media_library_url_with_query", func() int64 {
+			u := "https://" + s.siteHost() + "/pics/" + s.tag + "q.jpg"
+			s.mediaRow(u)
+			return s.stageAll(s.newItem("pn4", map[string]any{"attributes": map[string]any{"title": u + "?v=2#top"}}))
+		}, "media library"},
+		{"media_library_url_upper", func() int64 {
+			u := "https://" + s.siteHost() + "/pics/" + s.tag + "u.jpg"
+			s.mediaRow(u)
+			return s.stageAll(s.newItem("pn5", map[string]any{"attributes": map[string]any{"title": strings.ToUpper(u)}}))
+		}, "media library"},
 		{"media_alias_of_image_field", func() int64 {
 			return s.stageAll(s.newItem("e10z", map[string]any{"attributes": map[string]any{"title": "T", "caption": "x.jpg"}}))
 		}, "image or file"},

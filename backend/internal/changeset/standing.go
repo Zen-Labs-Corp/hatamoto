@@ -654,9 +654,9 @@ func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte,
 		err := tx.QueryRow(ctx, `
 			SELECT EXISTS (
 				SELECT 1 FROM hatamoto_media m
-				WHERE m.id::text = ANY($1) OR m.public_url = ANY($1) OR m.storage_path = ANY($1)
+				WHERE m.id::text = ANY($1) OR lower(m.public_url) = ANY($1) OR lower(m.storage_path) = ANY($1)
 				   OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.variants) = 'array' THEN m.variants ELSE '[]'::jsonb END) v
-				              WHERE v->>'url' = ANY($1)))`, strs).Scan(&hit)
+				              WHERE lower(v->>'url') = ANY($1)))`, strs).Scan(&hit)
 		if err != nil {
 			return "its files could not be checked."
 		}
@@ -667,16 +667,24 @@ func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte,
 	return ""
 }
 
-// collectStrings gathers every string value and every map key at any depth.
-// A string that parses as a URL also adds its path, so an absolute address of
-// a library file matches however the library stores it.
+// collectStrings gathers every string value and every map key at any depth,
+// each as written and normalised (decoded, slashes straightened, lowercased).
+// A string that parses as a URL also adds its path, and the normalised form
+// without its query and fragment, so an address of a library file matches
+// however the library stores it and however it is spelled or signed.
 func collectStrings(v any, out *[]string) {
 	add := func(s string) {
 		if s == "" {
 			return
 		}
-		*out = append(*out, s)
-		if u, err := url.Parse(s); err == nil && u.Host != "" && u.Path != "" {
+		n := schemafield.NormalizeValue(s)
+		*out = append(*out, strings.ToLower(s), n)
+		bare, _, _ := strings.Cut(n, "#")
+		bare, _, _ = strings.Cut(bare, "?")
+		if bare != n {
+			*out = append(*out, bare)
+		}
+		if u, err := url.Parse(bare); err == nil && u.Path != "" && (u.Host != "" || bare != n) {
 			*out = append(*out, u.Path, strings.TrimPrefix(u.Path, "/"))
 		}
 	}

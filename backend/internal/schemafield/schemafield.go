@@ -63,11 +63,18 @@ var mediaPathMarkers = []string{"/media/", "/uploads/", "%2fmedia%2f", "%2fuploa
 // host or inside markup. It is deliberately broad: a false positive only makes
 // a change wait for a person.
 func MentionsMediaPath(s string) bool {
-	l := strings.ToLower(s)
+	l := NormalizeValue(s)
 	for _, m := range mediaPathMarkers {
 		if strings.Contains(l, m) || strings.HasPrefix(l, m[1:]) {
 			return true
 		}
 	}
 	return false
+}
+
+// NormalizeValue is a plain value as a reader would resolve it: entities and
+// percent escapes decoded until stable, backslashes turned into slashes, and
+// lowercased. "/%6Dedia/x" and "\\MEDIA\\x" read as "/media/x".
+func NormalizeValue(s string) string {
+	return strings.ToLower(strings.ReplaceAll(DecodeUntilStable(s), `\`, "/"))
 }
