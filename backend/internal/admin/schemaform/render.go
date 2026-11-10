@@ -247,6 +247,12 @@ func optionLabel(v string) string {
 	return strings.Join(words, " ")
 }
 
+// IsImageField is the rule that makes a string field an image picker: marked
+// x-media, or a uri whose name says "image" (the built-in featured_image).
+func IsImageField(name, format string, xMedia bool) bool {
+	return xMedia || (format == "uri" && strings.Contains(strings.ToLower(name), "image"))
+}
+
 // kind implements the dispatcher's precedence (field-renderer.tsx:96-403).
 func (b *builder) kind(name string, n *Node, v any, hint UIHint) string {
 	switch n.Type {
@@ -263,7 +269,7 @@ func (b *builder) kind(name string, n *Node, v any, hint UIHint) string {
 		if n.XHm == "html" {
 			return "html"
 		}
-		if n.XMedia || (n.Format == "uri" && strings.Contains(strings.ToLower(name), "image")) {
+		if IsImageField(name, n.Format, n.XMedia) {
 			return "image"
 		}
 		if b.richText(name, n, hint) {

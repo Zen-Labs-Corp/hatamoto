@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/jsonx"
 )
 
@@ -611,7 +612,7 @@ func checkCreateAttributes(schemaDoc []byte, raw jsontext.Value) string {
 			}
 			return fmt.Sprintf("it sends %q, which its type does not declare.", k)
 		}
-		if hasMediaMarker(def) {
+		if hasMediaMarker(def) || isImageByName(k, def) {
 			return fmt.Sprintf("%q holds an image or file, which never qualifies.", k)
 		}
 	}
@@ -630,6 +631,14 @@ func isEmptyValue(v any) bool {
 		return len(x) == 0
 	}
 	return false
+}
+
+// isImageByName applies the admin's own rule for a field the schema does not
+// mark: a uri whose name says "image" (the built-in featured_image).
+func isImageByName(name string, def any) bool {
+	n, _ := def.(map[string]any)
+	format, _ := n["format"].(string)
+	return schemaform.IsImageField(name, format, false)
 }
 
 // hasMediaMarker reports whether a schema node, or any node below it, is an

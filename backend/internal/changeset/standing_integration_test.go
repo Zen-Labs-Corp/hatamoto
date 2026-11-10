@@ -41,7 +41,7 @@ func newStandingFixture(t *testing.T) *standingFixture {
 			"price":{"type":"number"},"stock":{"type":"integer"},"active":{"type":"boolean"},
 			"on":{"type":"string","format":"date"},"tier":{"type":"string","enum":["a","b"]},
 			"title":{"type":"string"},"nested":{"type":"object"},"content":{"type":"string"},
-			"photo":{"type":"string","format":"uri","x-media":true},
+			"photo":{"type":"string","format":"uri","x-media":true},"featured_image":{"type":"string","format":"uri"},
 			"gallery":{"type":"array","items":{"type":"string","x-hm-field":"image"}}}}`)})
 	if err != nil {
 		t.Fatal(err)
@@ -609,8 +609,11 @@ func TestStandingCreateRefusals(t *testing.T) {
 		{"media_attribute_nested", func() int64 {
 			return s.stageAll(s.newItem("e10n", map[string]any{"attributes": map[string]any{"title": "T", "gallery": []any{"/media/x.png"}}}))
 		}, "image or file"},
+		{"media_attribute_by_name", func() int64 {
+			return s.stageAll(s.newItem("e10b", map[string]any{"attributes": map[string]any{"title": "T", "featured_image": "/media/x.png"}}))
+		}, "image or file"},
 		{"undeclared_attribute", func() int64 {
-			return s.stageAll(s.newItem("e10u", map[string]any{"attributes": map[string]any{"title": "T", "featured_image": "/media/x.png"}}))
+			return s.stageAll(s.newItem("e10u", map[string]any{"attributes": map[string]any{"title": "T", "hero": "/media/x.png"}}))
 		}, "does not declare"},
 		{"slug_taken", func() int64 {
 			return s.stageAll(s.newItem("e11", map[string]any{"slug": "s-" + s.tag}))
