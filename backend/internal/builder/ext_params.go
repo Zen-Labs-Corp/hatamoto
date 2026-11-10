@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
@@ -133,11 +132,6 @@ func paramFloat(v any) (float64, bool) {
 		f = float64(n)
 	case int64:
 		f = float64(n)
-	case json.Number:
-		var err error
-		if f, err = n.Float64(); err != nil {
-			return 0, false
-		}
 	default:
 		return 0, false
 	}
@@ -202,7 +196,7 @@ func StructuralParamsErr(raw any) error {
 			if len(x) > MaxParamValue {
 				return fmt.Errorf("params.%s is longer than %d bytes", k, MaxParamValue)
 			}
-		case bool, float64, int, int64, json.Number:
+		case bool, float64, int, int64:
 		default:
 			return fmt.Errorf("params.%s must be a string, number or boolean", k)
 		}

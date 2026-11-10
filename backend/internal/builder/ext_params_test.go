@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"encoding/json"
 	"errors"
 	"math"
 	"reflect"
@@ -37,7 +36,7 @@ func TestSanitizeParams(t *testing.T) {
 		{"bool as string dropped", map[string]any{"hot": "true"}, nil},
 		{"number as string dropped", map[string]any{"min": "3"}, nil},
 		{"number int normalised", map[string]any{"min": 3}, map[string]any{"min": 3.0}},
-		{"number json.Number", map[string]any{"min": json.Number("1.0")}, map[string]any{"min": 1.0}},
+		{"number int64", map[string]any{"min": int64(4)}, map[string]any{"min": 4.0}},
 		{"number NaN dropped", map[string]any{"min": math.NaN()}, nil},
 		{"number Inf dropped", map[string]any{"min": math.Inf(1)}, nil},
 		{"text wrong type", map[string]any{"q": 5.0}, nil},
@@ -55,7 +54,7 @@ func TestSanitizeParams(t *testing.T) {
 
 func TestCanonicalParams(t *testing.T) {
 	a := SanitizeParams(paramDecl, map[string]any{"q": "go", "min": 1, "hot": true})
-	b := SanitizeParams(paramDecl, map[string]any{"hot": true, "min": json.Number("1.0"), "q": "go"})
+	b := SanitizeParams(paramDecl, map[string]any{"hot": true, "min": 1.0, "q": "go"})
 	if CanonicalParams(a) != CanonicalParams(b) {
 		t.Errorf("%s != %s", CanonicalParams(a), CanonicalParams(b))
 	}
