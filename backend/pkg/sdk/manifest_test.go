@@ -98,6 +98,60 @@ func TestManifestValidate(t *testing.T) {
 		{"builder source without permission", func(m *Manifest) {
 			m.BuilderSources = []BuilderSource{{Name: "a", Label: "L", Kind: "items"}}
 		}, "builder.data"},
+		{"builder params ok", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{
+				{Name: "q", Label: "Search", Type: "text"},
+				{Name: "cat", Label: "Category", Type: "select", Options: []BuilderOption{{Value: "news", Label: "News"}, {Value: "ads"}}},
+				{Name: "hot", Label: "Hot", Type: "bool"},
+				{Name: "min", Label: "Minimum", Type: "number"},
+			}}}
+		}, ""},
+		{"builder params eight", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items"}}
+			for i := range MaxBuilderParams {
+				m.BuilderSources[0].Params = append(m.BuilderSources[0].Params, BuilderParam{Name: "p" + string(rune('a'+i)), Label: "L", Type: "text"})
+			}
+		}, ""},
+		{"builder params nine", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items"}}
+			for i := 0; i <= MaxBuilderParams; i++ {
+				m.BuilderSources[0].Params = append(m.BuilderSources[0].Params, BuilderParam{Name: "p" + string(rune('a'+i)), Label: "L", Type: "text"})
+			}
+		}, `builder source "a": more than 8 params`},
+		{"builder param bad type", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{{Name: "q", Label: "Q", Type: "date"}}}}
+		}, "want text, select, bool or number"},
+		{"builder param bad name", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{{Name: "Q", Label: "Q", Type: "text"}}}}
+		}, "name"},
+		{"builder param empty label", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{{Name: "q", Type: "text"}}}}
+		}, "label"},
+		{"builder param duplicate", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{{Name: "q", Label: "Q", Type: "text"}, {Name: "q", Label: "Q", Type: "bool"}}}}
+		}, "duplicate param"},
+		{"builder select without options", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{{Name: "q", Label: "Q", Type: "select"}}}}
+		}, "1 to 50 options"},
+		{"builder select too many options", func(m *Manifest) {
+			ps := BuilderParam{Name: "q", Label: "Q", Type: "select"}
+			for i := 0; i <= MaxBuilderParamOptions; i++ {
+				ps.Options = append(ps.Options, BuilderOption{Value: strings.Repeat("v", 1+i)})
+			}
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{ps}}}
+		}, "1 to 50 options"},
+		{"builder select duplicate option", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{{Name: "q", Label: "Q", Type: "select", Options: []BuilderOption{{Value: "x"}, {Value: "x"}}}}}}
+		}, "duplicate option"},
+		{"builder select empty option", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{{Name: "q", Label: "Q", Type: "select", Options: []BuilderOption{{Value: ""}}}}}}
+		}, "option value"},
+		{"builder text with options", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{{Name: "q", Label: "Q", Type: "text", Options: []BuilderOption{{Value: "x"}}}}}}
+		}, "select params only"},
+		{"builder value source with params", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "value", Params: []BuilderParam{{Name: "q", Label: "Q", Type: "text"}}}}
+		}, "params apply to items sources only"},
 		{"bad cookie", func(m *Manifest) { m.Cookies = []string{"a b"} }, "cookie"},
 	}
 	for _, tt := range tests {
@@ -205,6 +259,21 @@ func TestBuilderDataHook(t *testing.T) {
 	}
 	if !ValidPermission(PermBuilderData) {
 		t.Error("builder.data permission unknown")
+	}
+}
+
+// TestBuilderDataQueryLegacyBytes pins the request of a source without params:
+// no "params" key, whether the map is nil or empty.
+func TestBuilderDataQueryLegacyBytes(t *testing.T) {
+	const want = `{"id":"i:ext.p.s:3","source":"ext.p.s","limit":3}`
+	for _, params := range []map[string]any{nil, {}} {
+		b, err := jsonv2.Marshal(BuilderDataQuery{ID: "i:ext.p.s:3", Source: "ext.p.s", Limit: 3, Params: params})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(b) != want {
+			t.Errorf("params=%#v: %s, want %s", params, b, want)
+		}
 	}
 }
 
