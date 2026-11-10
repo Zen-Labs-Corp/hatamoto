@@ -41,14 +41,14 @@ func fnPackagesInspect(ctx context.Context, a *API, e *callEnv, raw jsontext.Val
 	if u, perr := url.Parse(req.URL); req.URL == "" || len(req.URL) > maxInspectURLLen || perr != nil || u.Scheme != "https" {
 		return nil, herr(sdk.ErrInvalidArgument, "url must be an https URL of at most %d bytes", maxInspectURLLen)
 	}
-	if !a.limits(e.plugin).fetch.Allow() {
-		return nil, herr(sdk.ErrRateLimited, "http.fetch rate limit for this plugin reached; try again shortly")
-	}
 	select {
 	case inspectSlots <- struct{}{}:
 		defer func() { <-inspectSlots }()
 	default:
 		return nil, herr(sdk.ErrRateLimited, "packages.inspect is busy; try again shortly")
+	}
+	if !a.limits(e.plugin).fetch.Allow() {
+		return nil, herr(sdk.ErrRateLimited, "http.fetch rate limit for this plugin reached; try again shortly")
 	}
 
 	hosts := effectiveHosts(ctx, e.manifest.AllowedHosts)

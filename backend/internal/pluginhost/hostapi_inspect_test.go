@@ -143,3 +143,19 @@ func TestReadBodySizesTheBufferOnce(t *testing.T) {
 		}
 	}
 }
+
+func TestInspectBusyDoesNotSpendRateTokens(t *testing.T) {
+	a := inspectAPIHosts(t, Services{Fetcher: NewFetcher(), Packages: &fakeInspector{}, FetchPerMinute: 2}, []string{"127.0.0.1"}, sdk.PermPackagesInspect)
+	for range cap(inspectSlots) {
+		inspectSlots <- struct{}{}
+	}
+	for range 5 {
+		wantInspectCode(t, callInspect(t, a, inspectURL), sdk.ErrRateLimited)
+	}
+	for range cap(inspectSlots) {
+		<-inspectSlots
+	}
+	// The slots are free again and the busy calls kept their tokens: the next
+	// call reaches the address guard instead of the rate limiter.
+	wantInspectCode(t, callInspect(t, a, inspectURL), sdk.ErrBlocked)
+}
