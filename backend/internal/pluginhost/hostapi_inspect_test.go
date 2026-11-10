@@ -1,8 +1,10 @@
 package pluginhost
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/jsontext"
+	"runtime"
 	"testing"
 
 	"hatamoto.dev/core/internal/jsonx"
@@ -117,4 +119,27 @@ func TestInspectFetchPhaseUsesTheRunsHosts(t *testing.T) {
 	a := inspectAPIHosts(t, Services{Fetcher: NewFetcher(), Packages: &fakeInspector{}}, []string{"other.example.org"}, sdk.PermPackagesInspect)
 	ctx := WithRun(context.Background(), RunCtx{Phase: sdk.RunPhaseFetch, Hosts: []string{"confirmed.example.com"}})
 	wantInspectCode(t, callInspectCtx(t, ctx, a, `{"url":"https://other.example.org/x.hmp"}`), sdk.ErrBlocked)
+}
+
+func TestReadBodySizesTheBufferOnce(t *testing.T) {
+	const size = 8 << 20
+	body := make([]byte, size)
+	for _, cl := range []int64{size, -1} {
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		runtime.ReadMemStats(&before)
+		got, err := readBody(bytes.NewReader(body), cl, 64<<20)
+		runtime.ReadMemStats(&after)
+		if err != nil || len(got) != size {
+			t.Fatalf("size %d: err %v, read %d", cl, err, len(got))
+		}
+		allocated := int64(after.TotalAlloc - before.TotalAlloc)
+		budget := int64(size + size/4) // known length: one buffer of about the body
+		if cl < 0 {
+			budget = 64<<20 + 1<<20 // unknown length: one buffer of the limit
+		}
+		if allocated > budget {
+			t.Fatalf("size %d: allocated %d bytes, budget %d", cl, allocated, budget)
+		}
+	}
 }

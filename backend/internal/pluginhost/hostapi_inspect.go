@@ -1,6 +1,7 @@
 package pluginhost
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/jsontext"
 	"errors"
@@ -56,9 +57,9 @@ func fnPackagesInspect(ctx context.Context, a *API, e *callEnv, raw jsontext.Val
 	}
 	limit := a.svc.Packages.ArchiveLimit()
 	var data []byte
-	err = a.svc.Fetcher.DownloadPublic(ctx, e.plugin, hosts, req.URL, limit, func(r io.Reader) error {
+	err = a.svc.Fetcher.DownloadPublic(ctx, e.plugin, hosts, req.URL, limit, func(r io.Reader, size int64) error {
 		var rerr error
-		data, rerr = io.ReadAll(r)
+		data, rerr = readBody(r, size, limit)
 		return rerr
 	})
 	var status *DownloadStatusError
@@ -73,6 +74,19 @@ func fnPackagesInspect(ctx context.Context, a *API, e *callEnv, raw jsontext.Val
 		return nil, err
 	}
 	return inspectProblem("could not download the package"), nil
+}
+
+// readBody reads r to the end into one buffer sized up front: from size (the
+// Content-Length) when it is within limit, else for limit bytes. io.ReadAll
+// would regrow, and hold two copies of, a large archive.
+func readBody(r io.Reader, size, limit int64) ([]byte, error) {
+	n := limit + 1
+	if size >= 0 && size <= limit {
+		n = size
+	}
+	buf := bytes.NewBuffer(make([]byte, 0, n+bytes.MinRead))
+	_, err := buf.ReadFrom(r)
+	return buf.Bytes(), err
 }
 
 func inspectProblem(msg string) sdk.InspectResult {

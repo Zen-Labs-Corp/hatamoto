@@ -20,8 +20,8 @@ func publicTestServer(t *testing.T, h http.Handler) (*httptest.Server, *Fetcher)
 // listed is the allowed_hosts entry for a test server.
 func listed(srv *httptest.Server) []string { return []string{srv.Listener.Addr().String()} }
 
-func readAll(dst *[]byte) func(io.Reader) error {
-	return func(r io.Reader) (err error) {
+func readAll(dst *[]byte) func(io.Reader, int64) error {
+	return func(r io.Reader, _ int64) (err error) {
 		*dst, err = io.ReadAll(r)
 		return err
 	}
