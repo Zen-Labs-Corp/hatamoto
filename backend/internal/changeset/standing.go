@@ -612,7 +612,7 @@ func checkCreateAttributes(schemaDoc []byte, raw jsontext.Value) string {
 			}
 			return fmt.Sprintf("it sends %q, which its type does not declare.", k)
 		}
-		if hasMediaMarker(def) || isImageByName(k, def) {
+		if hasMediaMarker(def) || imageByName(k, def) {
 			return fmt.Sprintf("%q holds an image or file, which never qualifies.", k)
 		}
 	}
@@ -626,19 +626,38 @@ func isEmptyValue(v any) bool {
 	case string:
 		return x == ""
 	case []any:
-		return len(x) == 0
+		return !slices.ContainsFunc(x, func(e any) bool { return !isEmptyValue(e) })
 	case map[string]any:
-		return len(x) == 0
+		for _, e := range x {
+			if !isEmptyValue(e) {
+				return false
+			}
+		}
+		return true
 	}
 	return false
 }
 
-// isImageByName applies the admin's own rule for a field the schema does not
-// mark: a uri whose name says "image" (the built-in featured_image).
-func isImageByName(name string, def any) bool {
-	n, _ := def.(map[string]any)
+// imageByName applies the admin's naming rule to a schema node and to every
+// property and array item below it. A node is named by its own key; array
+// items take the array's key, as the admin does.
+func imageByName(name string, node any) bool {
+	n, ok := node.(map[string]any)
+	if !ok {
+		return false
+	}
 	format, _ := n["format"].(string)
-	return schemaform.IsImageField(name, format, false)
+	if schemaform.IsImageField(name, format, false) {
+		return true
+	}
+	if props, ok := n["properties"].(map[string]any); ok {
+		for k, child := range props {
+			if imageByName(k, child) {
+				return true
+			}
+		}
+	}
+	return imageByName(name, n["items"])
 }
 
 // hasMediaMarker reports whether a schema node, or any node below it, is an

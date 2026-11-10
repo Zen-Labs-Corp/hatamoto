@@ -42,7 +42,9 @@ func newStandingFixture(t *testing.T) *standingFixture {
 			"on":{"type":"string","format":"date"},"tier":{"type":"string","enum":["a","b"]},
 			"title":{"type":"string"},"nested":{"type":"object"},"content":{"type":"string"},
 			"photo":{"type":"string","format":"uri","x-media":true},"featured_image":{"type":"string","format":"uri"},
-			"gallery":{"type":"array","items":{"type":"string","x-hm-field":"image"}}}}`)})
+			"gallery":{"type":"array","items":{"type":"string","x-hm-field":"image"}},
+			"images":{"type":"array","items":{"type":"string","format":"uri"}},
+			"banner":{"type":"object","properties":{"image":{"type":"string","format":"uri"}}}}}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -482,6 +484,10 @@ func TestStandingCreatePublishes(t *testing.T) {
 		return cs, res
 	}
 
+	t.Run("empty_media_shaped_values", func(t *testing.T) {
+		publish(s.newItem("emp", map[string]any{"attributes": map[string]any{"title": "T", "images": []any{}, "banner": map[string]any{"image": ""}}}))
+	})
+
 	t.Run("published_and_draft", func(t *testing.T) {
 		events := s.events.count()
 		publish(s.newItem("pub", map[string]any{"status": "published"}), s.newItem("dr", map[string]any{"status": "draft"}), s.newItem("dflt", nil))
@@ -611,6 +617,12 @@ func TestStandingCreateRefusals(t *testing.T) {
 		}, "image or file"},
 		{"media_attribute_by_name", func() int64 {
 			return s.stageAll(s.newItem("e10b", map[string]any{"attributes": map[string]any{"title": "T", "featured_image": "/media/x.png"}}))
+		}, "image or file"},
+		{"media_array_of_uri_by_name", func() int64 {
+			return s.stageAll(s.newItem("e10a", map[string]any{"attributes": map[string]any{"title": "T", "images": []any{"/media/a.jpg"}}}))
+		}, "image or file"},
+		{"media_nested_property_by_name", func() int64 {
+			return s.stageAll(s.newItem("e10h", map[string]any{"attributes": map[string]any{"title": "T", "banner": map[string]any{"image": "/media/a.jpg"}}}))
 		}, "image or file"},
 		{"undeclared_attribute", func() int64 {
 			return s.stageAll(s.newItem("e10u", map[string]any{"attributes": map[string]any{"title": "T", "hero": "/media/x.png"}}))
