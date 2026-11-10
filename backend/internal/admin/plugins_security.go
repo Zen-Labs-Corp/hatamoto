@@ -21,6 +21,8 @@ func (a *Admin) mountPluginSecurity(owner *httpx.Group) {
 	}
 	on.HandleFunc("POST /plugins/unsigned", a.handleAllowUnsigned)
 	owner.HandleFunc("POST /plugins/unsigned/off", a.handleStopUnsigned)
+	on.HandleFunc("POST /plugins/developer", a.handleAllowDeveloper)
+	owner.HandleFunc("POST /plugins/developer/off", a.handleStopDeveloper)
 }
 
 // pluginSecurityPage is the data of the Package security page.
@@ -187,6 +189,78 @@ func (a *Admin) handleStopUnsigned(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.SetFlash(w, r, "success", "Unsigned packages are no longer accepted.")
+	to := a.adminPath + "/plugins/security"
+	if r.PostFormValue("return") == "plugins" {
+		to = a.adminPath + "/plugins"
+	}
+	http.Redirect(w, r, to, http.StatusSeeOther)
+}
+
+// handleAllowDeveloper switches the developer-package opt-in on. The same gates
+// as the unsigned opt-in, in the same order, without a duration: the
+// acknowledgement, the site address typed exactly, and the owner's password.
+func (a *Admin) handleAllowDeveloper(w http.ResponseWriter, r *http.Request) {
+	pk, ok := a.packageAdmin(w, r)
+	if !ok {
+		return
+	}
+	if r.PostFormValue("understand") != "1" {
+		a.unsignedRefused(w, r, "Tick the box to continue", "Developer packages can only be allowed after you confirm that you understand they are not reviewed by Hatamoto.")
+		return
+	}
+	host := a.packageHost(r)
+	if host == "" {
+		a.unsignedRefused(w, r, "The site address is unknown", "This server could not work out its own address, so the address check cannot be done.")
+		return
+	}
+	if !strings.EqualFold(strings.TrimSpace(r.PostFormValue("host")), host) {
+		a.unsignedRefused(w, r, "Type the site address", "The address you typed does not match this site.")
+		return
+	}
+	u, s := userFrom(r.Context()), sessionFrom(r.Context())
+	if u == nil || s == nil || s.UserID == nil {
+		a.toLogin(w, r)
+		return
+	}
+	if !a.hasPassword(r) {
+		a.unsignedRefused(w, r, "Set a password first", "Allowing developer packages asks for your password, and your account has none yet. Set one on your profile page.")
+		return
+	}
+	pc, ok := a.deps.Auth.(passwordConfirmer)
+	if !ok {
+		a.Error(w, r, http.StatusServiceUnavailable, "Confirmation unavailable", "The server is not ready.")
+		return
+	}
+	if err := pc.ConfirmPassword(r.Context(), *s.UserID, u.Email, r.PostFormValue("password")); err != nil {
+		if r.Context().Err() != nil {
+			return
+		}
+		a.logger().Info("developer packages password check failed", "err", err)
+		a.unsignedRefused(w, r, "Confirmation failed", sudoMessage)
+		return
+	}
+	if err := pk.SetAllowDeveloper(r.Context(), true); err != nil {
+		a.logger().Error("set allow developer failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The setting could not be saved.")
+		return
+	}
+	a.SetFlash(w, r, "success", "Developer packages are now allowed. They are not reviewed by Hatamoto.")
+	http.Redirect(w, r, a.adminPath+"/plugins/security", http.StatusSeeOther)
+}
+
+// handleStopDeveloper turns the developer-package opt-in off. One click and no
+// other gate. Packages that are already installed keep running.
+func (a *Admin) handleStopDeveloper(w http.ResponseWriter, r *http.Request) {
+	pk, ok := a.packageAdmin(w, r)
+	if !ok {
+		return
+	}
+	if err := pk.SetAllowDeveloper(r.Context(), false); err != nil {
+		a.logger().Error("set allow developer failed", "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The setting could not be saved.")
+		return
+	}
+	a.SetFlash(w, r, "success", "Developer packages are no longer allowed. Installed ones keep running.")
 	to := a.adminPath + "/plugins/security"
 	if r.PostFormValue("return") == "plugins" {
 		to = a.adminPath + "/plugins"
