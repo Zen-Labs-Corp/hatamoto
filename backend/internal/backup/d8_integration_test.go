@@ -54,9 +54,15 @@ type d8Cluster struct {
 
 func newD8Cluster(t *testing.T, mode adminMode) *d8Cluster {
 	t.Helper()
-	dsn := os.Getenv("DATABASE_URL")
+	return newD8ClusterDSN(t, mode, os.Getenv("DATABASE_URL"), "DATABASE_URL not set")
+}
+
+// newD8ClusterDSN is newD8Cluster for a cluster named by a superuser DSN, so a
+// test can hold two clusters at once; skipMsg is used when the DSN is empty.
+func newD8ClusterDSN(t *testing.T, mode adminMode, dsn, skipMsg string) *d8Cluster {
+	t.Helper()
 	if dsn == "" {
-		t.Skip("DATABASE_URL not set")
+		t.Skip(skipMsg)
 	}
 	ctx := context.Background()
 	super, err := pgx.Connect(ctx, dsn)

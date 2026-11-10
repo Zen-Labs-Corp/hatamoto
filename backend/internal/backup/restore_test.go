@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/url"
 	"os"
@@ -172,6 +173,13 @@ func newRestoreRig(t *testing.T) *restoreRig {
 	return r
 }
 
+// serverTools makes the server and both client tools report one major.
+func (r *restoreRig) serverTools(major int) {
+	r.q.major = int64(major)
+	r.tools["pg_restore"] = fmt.Sprintf("pg_restore (PostgreSQL) %d.0", major)
+	r.tools["psql"] = fmt.Sprintf("psql (PostgreSQL) %d.0", major)
+}
+
 func (r *restoreRig) dry(t *testing.T, src string) (*RestorePlan, error) {
 	t.Helper()
 	return Restore(t.Context(), r.o, RestoreRequest{Source: src, AdminURL: "postgres://su:pw@h/postgres", DryRun: true})
@@ -200,7 +208,7 @@ func TestRestoreDryRunPlanOutput(t *testing.T) {
 	plan.Print(&out)
 	want := `warning  config not written; recorded path "/etc/hatamoto/hatamoto.env"; pass --config-out with the path you want
 backup   20261025T101500Z-manual (hatamoto "v1.2.3", pg 16, 1 plugin)
-checks   version ok, pg major ok, trust keys ok, admin url ok, target db empty, media dir empty
+checks   version ok, pg major ok (backup 16, server 16), trust keys ok, admin url ok, target db empty, media dir empty
 would    restore core.dump, run role bootstrap, provision plugin_forms, restore plugin_forms.dump,
          restore 2 media files (0.0 MiB), write secrets.env
 dry run: nothing written
@@ -260,17 +268,30 @@ func TestRestoreRefusals(t *testing.T) {
 			rig:   func(r *restoreRig) { r.o.Version = "" },
 			wants: []string{"this binary has no version"},
 		},
-		"server major": {
-			rig:   func(r *restoreRig) { r.q.major = 17 },
-			wants: []string{"PostgreSQL 16, the server is 17"},
+		"backup newer than the server": {
+			mut:   func(s *archSpec) { s.Mf.ServerMajor = 18 },
+			wants: []string{"PostgreSQL 18, the server is 16", "restore into PostgreSQL 18 or newer"},
 		},
-		"pg_restore major": {
-			rig:   func(r *restoreRig) { r.tools["pg_restore"] = "pg_restore (PostgreSQL) 17.1" },
-			wants: []string{"pg_restore 17 does not match"},
+		"backup below the supported floor": {
+			mut:   func(s *archSpec) { s.Mf.ServerMajor = 15 },
+			rig:   func(r *restoreRig) { r.serverTools(18) },
+			wants: []string{"PostgreSQL 15; restore supports backups from PostgreSQL 16 or newer"},
 		},
-		"psql major": {
-			rig:   func(r *restoreRig) { r.tools["psql"] = "psql (PostgreSQL) 15.4" },
-			wants: []string{"psql 15 does not match"},
+		"pg_restore older than the server": {
+			rig:   func(r *restoreRig) { r.q.major = 18; r.tools["psql"] = "psql (PostgreSQL) 18.0" },
+			wants: []string{"pg_restore 16 does not match the server's PostgreSQL 18"},
+		},
+		"pg_restore newer than the server": {
+			rig:   func(r *restoreRig) { r.tools["pg_restore"] = "pg_restore (PostgreSQL) 19.1" },
+			wants: []string{"pg_restore 19 does not match the server's PostgreSQL 16"},
+		},
+		"psql older than the server": {
+			rig:   func(r *restoreRig) { r.q.major = 18; r.tools["pg_restore"] = "pg_restore (PostgreSQL) 18.0" },
+			wants: []string{"psql 16 does not match the server's PostgreSQL 18"},
+		},
+		"psql newer than the server": {
+			rig:   func(r *restoreRig) { r.tools["psql"] = "psql (PostgreSQL) 17.4" },
+			wants: []string{"psql 17 does not match the server's PostgreSQL 16"},
 		},
 		"trust release IDs": {
 			rig: func(r *restoreRig) {
@@ -389,10 +410,34 @@ func TestRestoreSecretsFile(t *testing.T) {
 
 func TestRestoreCollectsAllRefusals(t *testing.T) {
 	r := newRestoreRig(t)
-	r.q.major = 17
 	r.q.schemas = [][]string{{"public"}}
-	_, err := r.dry(t, buildArchive(t, func(s *archSpec) { s.Mf.HatamotoVersion = "v0" }))
-	wantRefusal(t, err, `hatamoto "v0"`, "the server is 17", "not empty")
+	_, err := r.dry(t, buildArchive(t, func(s *archSpec) { s.Mf.HatamotoVersion = "v0"; s.Mf.ServerMajor = 17 }))
+	wantRefusal(t, err, `hatamoto "v0"`, "the server is 16", "not empty")
+}
+
+// An older backup restores into a newer server when both tools match the
+// server, and an equal major restores as before.
+func TestRestoreAcceptsOlderAndEqualMajor(t *testing.T) {
+	for _, c := range []struct{ backup, server int }{{16, 18}, {17, 18}, {16, 16}, {18, 18}} {
+		r := newRestoreRig(t)
+		r.serverTools(c.server)
+		plan, err := r.dry(t, buildArchive(t, func(s *archSpec) { s.Mf.ServerMajor = c.backup }))
+		if err != nil {
+			t.Fatalf("backup %d into server %d: %v", c.backup, c.server, err)
+		}
+		want := fmt.Sprintf("pg major ok (backup %d, server %d)", c.backup, c.server)
+		if !strings.Contains(strings.Join(plan.Checks, "|"), want) {
+			t.Errorf("checks = %v, want %q", plan.Checks, want)
+		}
+	}
+}
+
+// Each wrong tool is reported on its own.
+func TestRestoreReportsEachWrongToolSeparately(t *testing.T) {
+	r := newRestoreRig(t)
+	r.q.major = 18
+	_, err := r.dry(t, buildArchive(t, nil))
+	wantRefusal(t, err, "pg_restore 16 does not match the server's PostgreSQL 18", "psql 16 does not match the server's PostgreSQL 18")
 }
 
 // An archive from before secrets, config and trust IDs were recorded restores

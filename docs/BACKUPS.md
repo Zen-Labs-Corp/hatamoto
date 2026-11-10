@@ -218,10 +218,16 @@ Before you run it:
 
 1. Run the **same Hatamoto version** that made the backup (the manifest's `hatamoto_version`).
    Restoring into another version is refused; restore with the matching release, then update.
-2. Have PostgreSQL 16 or newer, and `psql` and `pg_restore` on `PATH` with the same major version as
-   the server and as the server the backup came from (`server_major`). The Docker image has them.
+2. Have a server whose major is the backup's `server_major` or newer (a PostgreSQL 16 backup restores
+   into a PostgreSQL 18 server; a backup from a newer major than the server is refused, and so is one
+   from before PostgreSQL 16). `psql` and `pg_restore` on `PATH` must have the major of the
+   server you restore into, not of the backup: `pg_restore` reads older dumps but not newer ones.
+   The Docker image has them for the major it was built with (`PG_MAJOR`, 16 by default; see
+   [Docker](#docker)), so to restore through the image into another major, build it with
+   `--build-arg PG_MAJOR=<the server's major>`. Otherwise the restore refuses with
+   `pg_restore 16 does not match the server's PostgreSQL 18`.
 3. Create the app role and an empty database it owns (as a superuser). The role name may use
-   lowercase letters, digits and underscores:
+   lowercase letters, digits and underscores, and need not match the role of the source site:
    `CREATE ROLE "<app role>" LOGIN PASSWORD '...'; CREATE DATABASE "<db>" OWNER "<app role>";`
 4. Use a cluster that no longer has the original plugin roles (`hm_p_<id>_<name>`) or the
    `hatamoto_role_admin_<id>` role: those names are cluster-wide, and restoring into the cluster
@@ -246,7 +252,7 @@ A dry run prints what the real run would do:
 
 ```
 backup   20261025T101500Z-manual (hatamoto "v0.9.3", pg 16, 1 plugin)
-checks   version ok, pg major ok, trust keys ok, admin url ok, target db empty, media dir empty
+checks   version ok, pg major ok (backup 16, server 18), trust keys ok, admin url ok, target db empty, media dir empty
 would    restore core.dump, run role bootstrap, provision plugin_forms, restore plugin_forms.dump,
          restore 42 media files (3.1 MiB), write secrets.env,
          write config to /opt/hatamoto/config/hatamoto.env
@@ -263,7 +269,7 @@ and nothing is written:
 | Refusal | Meaning |
 |---|---|
 | version | The backup's `hatamoto_version` differs from this binary's, or either is empty. |
-| PostgreSQL major | The server, `pg_restore` or `psql` does not have the backup's `server_major`. Each is reported on its own. |
+| PostgreSQL major | The backup is from a newer major than the server, or from before PostgreSQL 16; or `pg_restore` or `psql` does not have the server's major. Each is reported on its own. |
 | signing keys | The release or manifest key IDs built into this binary differ from the ones recorded. Run the release that made the backup. |
 | admin URL | `--admin-url` is missing, is not a postgres URL, cannot connect to the target database, is not a superuser, or reaches a different PostgreSQL cluster than `DATABASE_URL`. |
 | `DATABASE_URL` | It names no app role or no database, the role has an unusual name, it is not a postgres URL, or it holds a host list, `service`, or a query parameter the tools cannot be given. |
@@ -290,15 +296,18 @@ failed run belong to the cluster; drop them before retrying on the same cluster.
 
 Use this when `hatamoto backup restore` cannot run, for example on a machine where you cannot install
 the matching release. Tested on PostgreSQL 16. The installer installs PostgreSQL 18 by default and checks that `pg_dump` matches the installed major. The steps below were run end to end on a fresh PostgreSQL 16 cluster
-with one plugin installed. Use a `pg_restore` and `psql` of the same major version as the server.
+with one plugin installed. Use a `pg_restore` and `psql` of the same major version as the server you restore into; the server may be newer than the one that made the backup.
 `<app role>` is the role the application connects as (it owns the database and has no superuser,
 CREATEDB or CREATEROLE). `<db>` is the new database. Run the Hatamoto commands as `<service-user>`.
 
 1. Unpack the archive: `tar -xf <id>.tar`.
 2. Create the app role (if the cluster is new) and an empty database owned by it:
    `CREATE ROLE "<app role>" LOGIN PASSWORD '...'; CREATE DATABASE "<db>" OWNER "<app role>";`
-3. As the app role, restore the core dump:
-   `pg_restore --no-owner --role=<app role> -d <db> core.dump`
+3. As the app role, restore the core dump without its `DEFAULT ACL` entries, which name the
+   source's app role, then set the default privileges for yours:
+   `pg_restore -l core.dump | grep -v ' DEFAULT ACL - ' > core.list`
+   `pg_restore --no-owner --role=<app role> -L core.list -d <db> core.dump`
+   `psql -d <db> -c 'ALTER DEFAULT PRIVILEGES REVOKE ALL ON TABLES FROM PUBLIC' -c 'ALTER DEFAULT PRIVILEGES REVOKE ALL ON SEQUENCES FROM PUBLIC' -c 'ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC'`
 4. As a superuser, run the role-admin bootstrap. It adopts the instance id that step 3 restored, so
    it must come after step 3:
    `psql -d <db> -v app_role=<app role> -f deploy/sql/role-admin-bootstrap.sql`

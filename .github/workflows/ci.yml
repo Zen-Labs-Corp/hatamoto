@@ -59,8 +59,24 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # The older server the cross-major restore test takes its backup from.
+      postgres16:
+        image: postgres:16@sha256:8e011e58c789a89790269f53614a28a58cb02706ce74ba6d9d4171613d0b75e1 # 16
+        env:
+          POSTGRES_USER: hatamoto
+          POSTGRES_PASSWORD: hatamoto
+          POSTGRES_DB: hatamoto
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U hatamoto"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
+      HATAMOTO_TEST_PG_SOURCE_URL: postgres://hatamoto:hatamoto@localhost:5433/hatamoto?sslmode=disable
+      HATAMOTO_TEST_PG_SOURCE_BIN: /usr/lib/postgresql/16/bin
       HATAMOTO_TEST_DB_URL: postgres://hatamoto:hatamoto@localhost:5432/hatamoto?sslmode=disable
       EMAIL_DISABLED: "true"
       # Empty on PG18 (unset). "0" on PG16 skips TestRenderPageP50 there, so the
@@ -93,6 +109,12 @@ jobs:
           sudo apt-get install -y "postgresql-client-$PG"
           echo "/usr/lib/postgresql/$PG/bin" >> "$GITHUB_PATH"
           "/usr/lib/postgresql/$PG/bin/pg_dump" --version | grep -q " $PG\."
+          # The cross-major restore test makes its backup with the older pg_dump, called by full
+          # path; it stays off PATH so the server's own tools come first.
+          if [ "$PG" = 18 ]; then
+            sudo apt-get install -y postgresql-client-16
+            /usr/lib/postgresql/16/bin/pg_dump --version | grep -q " 16\."
+          fi
       - name: Apply migrations
         if: matrix.pg == '18' || inputs.tier == 'full'
         run: go run ./cmd/hatamoto migrate
@@ -215,6 +237,19 @@ jobs:
           must_run ./internal/backup TestBackupRestoreAsSuperuserAndCreateRoleAdmin TestBootstrapNeedsGrantOptionOnDatabaseCreate TestBootstrapRefusesSchemaOfAnotherOwner TestBootstrapWorksForAdminWithoutInheritance TestBootstrapRefusesAdminWithoutSetOnAppRole
           # E3: the SDK builds from outside the repo (local mode: replace to backend/pkg/sdk).
           bash ../scripts/test-sdk-external.sh
+      # A PostgreSQL 16 backup restored into the 18 server. Only the 18 leg has an older source;
+      # on the 16 leg the test skips, which must_run would reject.
+      - name: Must-run cross-major restore
+        if: inputs.tier == 'full' && matrix.pg == '18'
+        run: |
+          must_run() {
+            pkg=$1; shift
+            names=$(IFS='|'; echo "$*")
+            log=$(mktemp)
+            go test -count=1 -v -tags=integration -run "^($names)\$" "$pkg" | tee "$log"
+            bash ../scripts/must-run-check.sh "$log" "$@"
+          }
+          must_run ./internal/backup TestCrossMajorRestoreOlderIntoNewer
       - name: govulncheck
         if: inputs.tier == 'full'
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...

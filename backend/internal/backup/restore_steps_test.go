@@ -19,6 +19,7 @@ const pluginListing = `;
 ; Archive created at 2026-10-25
 2615; 1259 1 SCHEMA - plugin_forms hm_p_1a2b3c4d_forms
 1259; 1259 2 TABLE plugin_forms deliveries hm_p_1a2b3c4d_forms
+2037; 826 3 DEFAULT ACL - DEFAULT PRIVILEGES FOR FUNCTIONS hm_source_app
 `
 
 // stepsRig records every exec, provision and owner lookup in one call log and
@@ -78,6 +79,9 @@ func newStepsRig(t *testing.T, mut func(*archSpec)) *stepsRig {
 				r.seen["dump "+strings.TrimSuffix(last[strings.LastIndex(last, "/")+1:], ".dump")] = string(b)
 			}
 			r.paths["workdir"] = last[:strings.LastIndex(last, "/")]
+			if strings.HasSuffix(last, "/"+coreName) {
+				r.seen["core -L"] = r.seen["pg_restore -L"]
+			}
 		}
 		if err, ok := r.fail[label]; ok {
 			return []byte("pg_restore: error: boom\nCommand was: x\n"), err
@@ -105,15 +109,19 @@ func TestRestoreStepsOrderAndArguments(t *testing.T) {
 	if err := r.d.steps(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	want := "pg_restore,psql,pause offsite,provision forms,owner plugin_forms,pg_restore-l,pg_restore"
+	want := "pg_restore-l,pg_restore,psql,pause offsite,provision forms,owner plugin_forms,pg_restore-l,pg_restore"
 	if got := strings.Join(r.log, ","); got != want {
 		t.Fatalf("order = %s, want %s", got, want)
 	}
-	core := r.calls[0]
-	if strings.Join(core[:5], " ") != "pg_restore --no-owner --role=hm_app --exit-on-error --dbname=site" || !strings.HasSuffix(core[5], "/core.dump") {
+	core := r.calls[1]
+	if strings.Join(core[:4], " ") != "pg_restore --no-owner --role=hm_app --exit-on-error" || core[4] != "-L" ||
+		core[6] != "--dbname=site" || !strings.HasSuffix(core[7], "/core.dump") {
 		t.Errorf("core call = %v", core)
 	}
-	psql := r.calls[1]
+	if got := r.seen["core -L"]; strings.Contains(got, "DEFAULT ACL") || !strings.Contains(got, "TABLE plugin_forms") {
+		t.Errorf("core list = %q", got)
+	}
+	psql := r.calls[2]
 	if strings.Join(psql[:7], " ") != "psql -X -q -v ON_ERROR_STOP=1 -v app_role=hm_app" || psql[7] != "-f" {
 		t.Errorf("psql call = %v", psql)
 	}
@@ -153,7 +161,7 @@ func TestRestoreStepsCredentialsOnlyByEnv(t *testing.T) {
 	}
 	// The bootstrap runs as the superuser against the target database, not
 	// the database the admin URL points at.
-	boot := r.envs[1]
+	boot := r.envs[2]
 	if !has(boot, "PGUSER=su") || !has(boot, "PGPASSWORD=adminpw") || !has(boot, "PGDATABASE=site") || has(boot, "PGDATABASE=postgres") {
 		t.Errorf("bootstrap env = %v", boot)
 	}
@@ -208,7 +216,7 @@ func TestRestoreStepsPauseOffsiteRunsAsAppRoleAfterBootstrap(t *testing.T) {
 			}
 		}
 	}
-	if got := strings.Join(r.log[:3], ","); got != "pg_restore,psql,pause offsite" {
+	if got := strings.Join(r.log[:4], ","); got != "pg_restore-l,pg_restore,psql,pause offsite" {
 		t.Errorf("pause not right after the bootstrap: %s", strings.Join(r.log, ","))
 	}
 }
@@ -220,7 +228,7 @@ func TestRestoreStepsPauseOffsiteFailureAborts(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "off-site backup pause") || !strings.Contains(err.Error(), "permission denied") {
 		t.Fatalf("err = %v", err)
 	}
-	if got := strings.Join(r.log, ","); got != "pg_restore,psql,pause offsite" {
+	if got := strings.Join(r.log, ","); got != "pg_restore-l,pg_restore,psql,pause offsite" {
 		t.Fatalf("ran %s after a failed pause", got)
 	}
 }
@@ -246,7 +254,7 @@ func TestRestoreStepsCoreFailureStopsEverything(t *testing.T) {
 	if strings.Contains(err.Error(), "Command was") {
 		t.Errorf("error repeats the command: %v", err)
 	}
-	if got := strings.Join(r.log, ","); got != "pg_restore" {
+	if got := strings.Join(r.log, ","); got != "pg_restore-l,pg_restore" {
 		t.Fatalf("ran %s after a core failure", got)
 	}
 }
@@ -258,7 +266,7 @@ func TestRestoreStepsBootstrapFailureStopsBeforePlugins(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "role bootstrap") {
 		t.Fatalf("err = %v", err)
 	}
-	if got := strings.Join(r.log, ","); got != "pg_restore,psql" {
+	if got := strings.Join(r.log, ","); got != "pg_restore-l,pg_restore,psql" {
 		t.Fatalf("ran %s", got)
 	}
 }
@@ -270,7 +278,7 @@ func TestRestoreStepsPluginFailureNamesPlugin(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "plugin forms") || !strings.Contains(err.Error(), "role unavailable") {
 		t.Fatalf("err = %v", err)
 	}
-	if strings.Contains(strings.Join(r.log, ","), "pg_restore-l") {
+	if strings.Count(strings.Join(r.log, ","), "pg_restore-l") != 1 { // the core listing only
 		t.Error("plugin dump listed after a failed provision")
 	}
 }
@@ -291,7 +299,7 @@ func TestRestoreStepsWithoutPlugins(t *testing.T) {
 	if err := r.d.steps(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(r.log, ","); got != "pg_restore,psql,pause offsite" {
+	if got := strings.Join(r.log, ","); got != "pg_restore-l,pg_restore,psql,pause offsite" {
 		t.Fatalf("ran %s", got)
 	}
 }
@@ -356,6 +364,18 @@ func TestFilterSchemaLine(t *testing.T) {
 		if got := filterSchemaLine(c.in); got != c.want {
 			t.Errorf("%s: got %q want %q", name, got, c.want)
 		}
+	}
+}
+
+func TestFilterDefaultACL(t *testing.T) {
+	in := "2037; 826 20714 DEFAULT ACL - DEFAULT PRIVILEGES FOR FUNCTIONS src_app\n215; 1259 20715 TABLE public t src_app\n"
+	want := "215; 1259 20715 TABLE public t src_app\n"
+	if got := filterDefaultACL(in); got != want {
+		t.Errorf("got %q want %q", got, want)
+	}
+	keep := "1; 2 3 TABLE public default_acl_t o\n"
+	if got := filterDefaultACL(keep); got != keep {
+		t.Errorf("kept entry changed: %q", got)
 	}
 }
 
