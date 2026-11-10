@@ -45,6 +45,10 @@ type Entry struct {
 	Source string `json:"source,omitempty"`
 	Commit string `json:"commit,omitempty"`
 	Tier   string `json:"tier,omitempty"`
+	// SignerKey is the base64 ed25519 public key of the package's author. A
+	// developer index carries it for every entry; hosts verify the package
+	// against it. Optional: servers that predate it ignore the key.
+	SignerKey string `json:"signer_key,omitempty"`
 	// Screenshot is a registry-relative path to a theme preview image.
 	Screenshot string `json:"screenshot,omitempty"`
 	// About (plain text, paragraphs split by a single newline) and Features
@@ -214,7 +218,51 @@ var screenshotPathPattern = regexp.MustCompile(`^screenshots/[a-z][a-z0-9-]{1,39
 const (
 	TierFirstParty = "first-party"
 	TierCommunity  = "community"
+	TierDeveloper  = "developer"
 )
+
+// Revocation withdraws trust from a signer key (SignerKey), or from a package
+// by Name and, when set, Version. Reason is shown to the owner.
+type Revocation struct {
+	SignerKey string `json:"signer_key,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Version   string `json:"version,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+}
+
+// maxRevocationReason caps the stored reason of a revocation.
+const maxRevocationReason = 200
+
+// cleanRevocations keeps the usable revocations: one needs a parsable key or a
+// package name. The reason is trimmed, stripped of control characters and capped.
+func cleanRevocations(in []Revocation) []Revocation {
+	var out []Revocation
+	for _, rv := range in {
+		if _, err := ParsePublicKey(rv.SignerKey); err != nil {
+			rv.SignerKey = ""
+		}
+		if !namePattern.MatchString(rv.Name) {
+			rv.Name, rv.Version = "", ""
+		}
+		if rv.SignerKey == "" && rv.Name == "" {
+			continue
+		}
+		rv.Version = strings.TrimSpace(rv.Version)
+		reason := strings.Map(func(c rune) rune {
+			if unicode.IsControl(c) {
+				return -1
+			}
+			return c
+		}, rv.Reason)
+		reason = strings.TrimSpace(reason)
+		if runes := []rune(reason); len(runes) > maxRevocationReason {
+			reason = string(runes[:maxRevocationReason])
+		}
+		rv.Reason = reason
+		out = append(out, rv)
+	}
+	return out
+}
 
 // Index is the payload of a registry.json envelope.
 type Index struct {
@@ -224,6 +272,9 @@ type Index struct {
 	IssuedAt  string  `json:"issued_at"`
 	ExpiresAt string  `json:"expires_at"`
 	Packages  []Entry `json:"packages"`
+	// Revoked lists withdrawn signer keys and package versions. Only the
+	// developer index is acted on.
+	Revoked []Revocation `json:"revoked,omitempty"`
 }
 
 // Limits on a signed index's freshness.
@@ -357,8 +408,14 @@ func ParseIndex(doc []byte, trust TrustSet, now time.Time) (*Index, error) {
 	valid := idx.Packages[:0]
 	for _, e := range idx.Packages {
 		if (e.Kind == KindPlugin || e.Kind == KindTheme) && namePattern.MatchString(e.Name) && len(e.SHA256) == 64 && e.URL != "" {
-			if e.Tier != TierFirstParty && e.Tier != TierCommunity {
+			if e.Tier != TierFirstParty && e.Tier != TierCommunity && e.Tier != TierDeveloper {
 				e.Tier = ""
+			}
+			if _, err := ParsePublicKey(e.SignerKey); err != nil {
+				e.SignerKey = ""
+			}
+			if e.Tier == TierDeveloper && e.SignerKey == "" {
+				continue
 			}
 			if !screenshotPathPattern.MatchString(e.Screenshot) {
 				e.Screenshot = ""
@@ -380,7 +437,33 @@ func ParseIndex(doc []byte, trust TrustSet, now time.Time) (*Index, error) {
 		}
 	}
 	idx.Packages = valid
+	idx.Revoked = cleanRevocations(idx.Revoked)
 	return &idx, nil
+}
+
+// FilterDeveloper returns the developer index dev reduced to what a host may
+// offer: entries with a valid signer_key, forced to TierDeveloper, minus every
+// kind and name that main lists (nil main: none) and every first-party plugin,
+// so a developer can never shadow a main-registry or first-party package.
+// Revocations are kept.
+func FilterDeveloper(dev, main *Index) *Index {
+	out := &Index{Version: dev.Version, IssuedAt: dev.IssuedAt, ExpiresAt: dev.ExpiresAt, Revoked: dev.Revoked}
+	for _, e := range dev.Packages {
+		if _, err := ParsePublicKey(e.SignerKey); err != nil {
+			continue
+		}
+		if slices.Contains(FirstPartyPlugins, e.Name) {
+			continue
+		}
+		if main != nil {
+			if _, shadowed := main.Find(e.Kind, e.Name); shadowed {
+				continue
+			}
+		}
+		e.Tier = TierDeveloper
+		out.Packages = append(out.Packages, e)
+	}
+	return out
 }
 
 // Find returns the entry for kind and name.
