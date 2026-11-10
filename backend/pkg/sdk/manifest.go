@@ -331,6 +331,9 @@ func validateBuilderParams(plugin string, s BuilderSource) error {
 				if o.Value == "" || len(o.Value) > MaxBuilderParamValue {
 					return fail("option value must be 1 to %d bytes", MaxBuilderParamValue)
 				}
+				if n := len([]rune(o.Label)); n > 60 {
+					return fail("option label must be at most 60 characters (%q has %d)", o.Value, n)
+				}
 				if vals[o.Value] {
 					return fail("duplicate option %q", o.Value)
 				}

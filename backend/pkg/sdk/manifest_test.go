@@ -140,6 +140,9 @@ func TestManifestValidate(t *testing.T) {
 			}
 			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{ps}}}
 		}, "1 to 50 options"},
+		{"builder select long option label", func(m *Manifest) {
+			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{{Name: "q", Label: "Q", Type: "select", Options: []BuilderOption{{Value: "x", Label: strings.Repeat("é", 61)}}}}}}
+		}, "option label must be at most 60 characters"},
 		{"builder select duplicate option", func(m *Manifest) {
 			m.Permissions, m.BuilderSources = []string{PermBuilderData}, []BuilderSource{{Name: "a", Label: "L", Kind: "items", Params: []BuilderParam{{Name: "q", Label: "Q", Type: "select", Options: []BuilderOption{{Value: "x"}, {Value: "x"}}}}}}
 		}, "duplicate option"},

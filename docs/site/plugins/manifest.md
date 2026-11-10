@@ -130,7 +130,7 @@ Each param is one filter a query loop can set. The host checks the values and se
 | `name` | Same shape as a source name, unique in the source. |
 | `label` | 1 to 60 characters, shown in the editor. |
 | `type` | `text`, `select`, `bool` or `number`. |
-| `options` | `select` only, 1 to 50 entries of `{ "value", "label" }`. Values are unique, non-empty and at most 200 bytes; `label` defaults to the value. Other types take none. |
+| `options` | `select` only, 1 to 50 entries of `{ "value", "label" }`. Values are unique, non-empty and at most 200 bytes; `label` defaults to the value and is at most 60 characters. Other types take none. |
 
 A manifest that breaks a rule, or puts `params` on a `value` source, is refused at load. Values are dropped when they do not fit: unknown names, text over 200 bytes, a select value outside the options, a wrong type, empty text and `false`. A number arrives as a float64. When nothing survives, the request has no `params` and is identical to one for a source without params. Treat the request `id` as opaque (it gains a `:p<hash>` suffix when params are present). Declare `"sdk": "^0.20"`.
 
