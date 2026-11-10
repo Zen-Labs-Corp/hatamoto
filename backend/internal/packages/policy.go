@@ -39,7 +39,7 @@ func communityGrantError[S ~string](perms []S) error {
 // checkScriptsGrant refuses site.scripts and builder.island in perms for a
 // community package.
 func checkScriptsGrant(o Origin, perms []string) error {
-	if refuseCommunityScripts && o == OriginCommunity {
+	if refuseCommunityScripts && o.restricted() {
 		return communityGrantError(perms)
 	}
 	return nil
@@ -49,15 +49,26 @@ func checkScriptsGrant(o Origin, perms []string) error {
 // for more than image hosts.
 var ErrCommunityCSP error = communityCSPError{}
 
-type communityCSPError struct{}
+type communityCSPError struct{ developer bool }
 
-func (communityCSPError) Error() string { return "Community plugins may only add image hosts." }
+func (e communityCSPError) Error() string {
+	if e.developer {
+		return "Developer plugins may only add image hosts."
+	}
+	return "Community plugins may only add image hosts."
+}
+
+// Is makes the developer wording match ErrCommunityCSP, so callers map one sentinel.
+func (communityCSPError) Is(target error) bool { return target == ErrCommunityCSP }
 
 // checkCommunityCSP refuses script, connection and frame hosts in a community
 // package's csp block: they would widen what the site's pages may load.
 func checkCommunityCSP(o Origin, m sdk.Manifest) error {
-	if refuseCommunityScripts && o == OriginCommunity && m.CSP != nil &&
+	if refuseCommunityScripts && o.restricted() && m.CSP != nil &&
 		len(m.CSP.ScriptSrc)+len(m.CSP.ConnectSrc)+len(m.CSP.FrameSrc) > 0 {
+		if o == OriginDeveloper {
+			return communityCSPError{developer: true}
+		}
 		return ErrCommunityCSP
 	}
 	return nil
@@ -104,7 +115,7 @@ func (m *Manager) originOf(plugin string) Origin {
 
 // scriptsPolicyRefuses reports whether policy refuses site.scripts for plugin.
 func (m *Manager) scriptsPolicyRefuses(plugin string) bool {
-	return refuseCommunityScripts && m.originOf(plugin) == OriginCommunity
+	return refuseCommunityScripts && m.originOf(plugin).restricted()
 }
 
 // ScriptsRefused is scriptsPolicyRefuses for other packages (grant policy and
@@ -120,7 +131,7 @@ func (m *Manager) CommunityScriptsLive() bool {
 		return false
 	}
 	for name, origin := range *o {
-		if origin == OriginCommunity && m.scriptGate(name) {
+		if origin.restricted() && m.scriptGate(name) {
 			return true
 		}
 	}
@@ -130,7 +141,7 @@ func (m *Manager) CommunityScriptsLive() bool {
 // CommunityPlugin reports whether name is a community-origin plugin, by the same
 // origins map as CommunityScriptsLive. It does not say whether its script is
 // linked; the render path asks it about scripts a page body already links.
-func (m *Manager) CommunityPlugin(name string) bool { return m.originOf(name) == OriginCommunity }
+func (m *Manager) CommunityPlugin(name string) bool { return m.originOf(name).restricted() }
 
 // CheckGrant is the pluginhost grant policy: a refusal when perms ask a
 // community plugin for site.scripts or builder.island.

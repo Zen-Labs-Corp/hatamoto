@@ -17,7 +17,15 @@ const (
 	// OriginCommunity is signed by a first-party key but not on FirstPartyPlugins
 	// (the registry signs community builds with the same key).
 	OriginCommunity
+	// OriginDeveloper is signed by a developer's own key and installed from the
+	// developer index. It gets the community policy. It is last so the stored
+	// values of the other origins never change.
+	OriginDeveloper
 )
+
+// restricted reports whether the origin gets the community policy: no scripts
+// in the site origin and image hosts only in the csp block.
+func (o Origin) restricted() bool { return o == OriginCommunity || o == OriginDeveloper }
 
 // FirstPartyPlugins are the plugins the core team maintains. The list is the
 // rule; the author is not checked.
@@ -52,5 +60,12 @@ func Classify(name, signerKeyID string) Origin {
 	return OriginCommunity
 }
 
-// ClassifyRow classifies a stored package row.
-func ClassifyRow(r Row) Origin { return Classify(r.Name, r.SignerKeyID) }
+// ClassifyRow classifies a stored package row. A developer row is
+// OriginDeveloper unless a first-party key signed it: that key never makes a
+// package a developer package.
+func ClassifyRow(r Row) Origin {
+	if r.Developer && !IsFirstPartyKey(r.SignerKeyID) {
+		return OriginDeveloper
+	}
+	return Classify(r.Name, r.SignerKeyID)
+}
