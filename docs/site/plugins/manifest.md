@@ -54,7 +54,7 @@ A manifest that uses most fields:
 | `funcs` | no | Template functions, at most 64. |
 | `ui` | no | An admin page shipped in `ui/`. |
 | `runs` | no | Runs the owner can start, at most 8 (SDK 0.17 and later); see [Runs](#runs). |
-| `builder_sources` | no | Data sources the plugin offers to the page builder, at most 8 (SDK 0.11 and later). |
+| `builder_sources` | no | Data sources the plugin offers to the page builder, at most 8 (SDK 0.11 and later); items sources can declare `params` (0.20). |
 | `limits` | no | Resource limits; every field is optional. |
 | `settings_schema` | no | JSON Schema (draft 2020-12) for the plugin's settings. |
 
@@ -119,6 +119,20 @@ Each entry declares one data source that the page builder can bind to, answered 
 | `label` | 1 to 60 characters, shown in the editor. |
 | `kind` | `value` (one string for a field) or `items` (a list for a loop). |
 | `class` | For `value` sources only: `text` (the default), `url` or `image`. |
+| `params` | For `items` sources only: at most 8 typed filters (SDK 0.20 and later). |
+
+### params
+
+Each param is one filter a query loop can set. The host checks the values and sends the valid ones as `params` on the `builder.data` request.
+
+| Key | Rule |
+|---|---|
+| `name` | Same shape as a source name, unique in the source. |
+| `label` | 1 to 60 characters, shown in the editor. |
+| `type` | `text`, `select`, `bool` or `number`. |
+| `options` | `select` only, 1 to 50 entries of `{ "value", "label" }`. Values are unique, non-empty and at most 200 bytes; `label` defaults to the value. Other types take none. |
+
+A manifest that breaks a rule, or puts `params` on a `value` source, is refused at load. Values are dropped when they do not fit: unknown names, text over 200 bytes, a select value outside the options, a wrong type, empty text and `false`. A number arrives as a float64. When nothing survives, the request has no `params` and is identical to one for a source without params. Treat the request `id` as opaque (it gains a `:p<hash>` suffix when params are present). Declare `"sdk": "^0.20"`.
 
 ## limits
 

@@ -266,6 +266,7 @@ asks for the `builder.data` permission and exports `filter_builder_data`:
 | `label` | 1 to 60 characters, shown in the editor |
 | `kind` | `value` (one string for a prop) or `items` (a list for a loop) |
 | `class` | `text`, `url` or `image`; only for `value`; decides which props may bind it |
+| `params` | only for `items`: up to 8 typed filters, see [Source params](#source-params) |
 
 At most 8 sources. Declaring sources requires the `builder.data` permission,
 and the filter is registered **only while the owner has granted it**: without
@@ -281,6 +282,45 @@ A binding or loop naming a source that is not registered (plugin disabled or
 removed) stays valid: it renders empty (a loop shows its empty state), and the
 canvas shows `‹ext.plugin.name›`.
 
+### Source params
+
+An `items` source can offer filters. Each entry of `params` is `{name, label, type, options}`:
+
+```json
+{"name": "forecast", "label": "Forecast", "kind": "items", "params": [
+  {"name": "q", "label": "Search", "type": "text"},
+  {"name": "region", "label": "Region", "type": "select",
+   "options": [{"value": "north", "label": "North"}, {"value": "south"}]},
+  {"name": "alerts", "label": "Alerts only", "type": "bool"},
+  {"name": "days", "label": "Days", "type": "number"}
+]}
+```
+
+| Field | Rule |
+|---|---|
+| `name` | same shape as a source name, unique in the source |
+| `label` | 1 to 60 characters |
+| `type` | `text`, `select`, `bool` or `number` |
+| `options` | `select` only: 1 to 50 `{value, label}`, values unique, non-empty, at most 200 bytes; `label` defaults to `value` |
+
+At most 8 params per source; a manifest that breaks a rule, or puts `params` on a
+`value` source, is refused at load. Every query loop on the source stores its own
+values (`params` on the loop) and the editor shows them under a collapsed
+**Filters** group in the loop's Content tab, one control per param by type. Only
+a source with params shows the group.
+
+The host sends the values on the request as `params`, after checking them against
+the declaration: unknown names are dropped, text is at most 200 bytes, a select
+value must be one of the options, a bool must be a JSON boolean and is sent only
+as `true` (`false` is dropped), a number must be finite and arrives as a float64.
+Empty values are dropped and `params` is left out when nothing survives, which
+gives the exact request an unparameterised loop sends. The check at save time is
+structural only (an object of at most 32 scalar values); the declaration is
+applied at request time, so changing a plugin's options never blocks saving a page.
+
+Params apply to loops only, never to value sources (prop bindings). There are no
+defaults, required flags or dynamic options.
+
 ### The hook
 
 Input and output are the same JSON object (`BuilderDataRequest` in `hatamoto.dev/sdk`):
@@ -293,12 +333,12 @@ Input and output are the same JSON object (`BuilderDataRequest` in `hatamoto.dev
                 {"id": "i:ext.weather-demo.forecast:5", "items": [ {"title": "Day 1", "url": "/f/1", "attrs": {"temp": "16C"}} ]} ] }
 ```
 
-Answer every request in `results`, matched by `id`; a non-empty `error` marks one
+Answer every request in `results`, matched by `id` (treat the `id` as opaque: a loop with params gets a `:p<16 hex>` suffix, a hash of its values; echo it unchanged); a non-empty `error` marks one
 request failed. An item has `title`, `url`, `excerpt`, `image`, `category`,
 `author`, `author_url`, `published_at` (RFC 3339 or `YYYY-MM-DD`) and `attrs`.
 
 - **Ownership**: the host sends a plugin only the requests naming its own declared `ext.<plugin>.*` sources, and takes back only results for those ids. A plugin cannot answer for another.
-- **Batching**: one call per page render carries every request of the page, theme parts and synced blocks included. Theme parts (header, footer, content wrapper) share one more batch, so at most two calls happen per render; there is never a call per node or per item. Requests are deduplicated; at most 16 distinct requests per render.
+- **Batching**: one call per page render carries every request of the page, theme parts and synced blocks included. Theme parts (header, footer, content wrapper) share one more batch, so at most two calls happen per render; there is never a call per node or per item. Requests are deduplicated (loops on one source and limit share a request when their sanitized params are equal, whatever the key order); at most 16 distinct requests per render, params variants included.
 - **Caps**: at most 48 items per request (the request's `limit` is at most 48), strings at most 2048 bytes of valid UTF-8, at most 16 `attrs` keys per item, output JSON bounded (64 results/items per array, depth 6) and by `max_output_bytes`. A result that breaks a cap is dropped **whole**, never partially.
 - **Time**: the manifest's `limits.hook_timeouts_ms["builder.data"]` (default 250 ms, at most 10 s), inside a 500 ms budget for the whole batch.
 - **Safety**: values and item fields are ordinary props to the renderer: escaped by context, URLs through the same safe-URL check (a `javascript:` value renders an empty `href`), images through the usual variant path.
@@ -317,6 +357,7 @@ value (`ok`, `slow`, `trap`, `big`, `liar`) to watch each failure behaviour.
 | `widget.html`, `widget.css` | 16 KiB each |
 | `island.js` | 32 KiB |
 | `builder_sources` per plugin | 8 |
+| `params` per source, options per select, text/option value | 8, 50, 200 bytes |
 | requests per render, calls per render | 16, 2 |
 | items per request, string, attrs per item | 48, 2048 bytes, 16 |
 | batch budget, default source timeout | 500 ms, 250 ms |
