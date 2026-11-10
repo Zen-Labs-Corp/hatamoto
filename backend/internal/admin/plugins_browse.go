@@ -17,6 +17,9 @@ import (
 	"hatamoto.dev/core/internal/permtext"
 )
 
+// developerTooltip is what a Developer badge means.
+const developerTooltip = "Signed by a registered developer. Not reviewed by Hatamoto."
+
 // pluginsNow is the clock of the plugin pages ("refreshed N ago"); tests pin it.
 var pluginsNow = time.Now
 
@@ -43,6 +46,10 @@ type browseFacet struct {
 type browseCard struct {
 	Name, Title, Author, Description, Href, Initial string
 	FirstParty                                      bool
+	// Developer marks an entry of the developer index; DeveloperNote is the
+	// visible line under the byline (a card is a link, so no tooltip).
+	Developer     bool
+	DeveloperNote string
 	// Action is the label in the card footer: Install, Installed or Update.
 	Action string
 	// Meta is the muted mono line under the name: the permission count,
@@ -140,7 +147,7 @@ func (a *Admin) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	if res.Facets.HasCategories {
 		groups = append(groups, browseGroup{Name: "cat", Label: "Category", Facets: d.Cats})
 	}
-	d.Toolbar = browseToolbarFor(base, q, res, groups, d.SortOptions)
+	d.Toolbar = browseToolbarFor(base, q, res, groups, d.SortOptions, reg.DeveloperAvail)
 	if !reg.FetchedAt.IsZero() {
 		d.Refreshed = agoText(pluginsNow().Sub(reg.FetchedAt))
 	}
@@ -160,7 +167,8 @@ func (a *Admin) handleBrowse(w http.ResponseWriter, r *http.Request) {
 
 // browseToolbarFor builds the toolbar from the parsed query, the result page,
 // the popover checkbox groups and the sort options.
-func browseToolbarFor(base string, q BrowseQuery, res BrowsePage, groups []browseGroup, sortOptions []ui.Option) browseToolbar {
+// developer adds the Developer publisher when the developer index is offered.
+func browseToolbarFor(base string, q BrowseQuery, res BrowsePage, groups []browseGroup, sortOptions []ui.Option, developer bool) browseToolbar {
 	href := func(v url.Values) string {
 		if len(v) == 0 {
 			return base
@@ -180,6 +188,9 @@ func browseToolbarFor(base string, q BrowseQuery, res BrowsePage, groups []brows
 		Sort:    ui.Filter{Name: "sort", Label: "Sort", Options: sortOptions},
 		BaseURL: base, ClearHref: base, InstalledHidden: res.InstalledHidden, InstalledTotal: res.InstalledTotal,
 		ShowInstalledHref: href(shown.Values()), HideInstalledHref: href(hidden.Values()),
+	}
+	if developer {
+		tb.Segmented.Items = append(tb.Segmented.Items, ui.SegmentedItem{Label: "Developer", Value: packages.TierDeveloper, Pressed: slices.Equal(q.Tiers, []string{packages.TierDeveloper})})
 	}
 	for _, g := range tb.Groups {
 		for _, f := range g.Facets {
@@ -211,6 +222,10 @@ func (a *Admin) browseCard(e RegistryEntry) browseCard {
 		Name: e.Name, Title: e.Title, Author: e.Author, Description: e.Description,
 		Href: a.pluginURL(e.Name, "about"), FirstParty: e.Tier == "first-party", Action: "Install",
 	}
+	if e.Developer {
+		c.Developer, c.DeveloperNote = true, developerTooltip
+		c.Author = strings.TrimPrefix(e.Author, "@")
+	}
 	if c.Title == "" {
 		c.Title = e.Name
 	}
@@ -228,8 +243,11 @@ func (a *Admin) browseCard(e RegistryEntry) browseCard {
 	if len(e.Tags) > 0 {
 		c.Meta = "Tag pack · Runs no code"
 	}
-	if c.FirstParty {
+	switch {
+	case c.FirstParty:
 		c.Meta = "First-party · " + c.Meta
+	case c.Developer:
+		c.Meta = "Developer · " + c.Meta
 	}
 	switch {
 	case e.Update:
@@ -293,6 +311,12 @@ type pluginDetailPage struct {
 	Source   string
 	Primary  *detailPrimary
 	Actions  []ui.Button
+	// DeveloperNote is the line a developer package carries on its page.
+	DeveloperNote string
+	// InstallOff replaces Primary with a disabled button and a link to
+	// Package security: a developer package while the switch is off.
+	InstallOff   *detailPrimary
+	SecurityHref string
 }
 
 // handleBrowseDetail is the no-script detail page of a registry plugin. A
@@ -332,6 +356,13 @@ func (a *Admin) handleBrowseDetail(w http.ResponseWriter, r *http.Request) {
 	if e.Author != "" {
 		d.Byline = "By " + e.Author
 	}
+	if e.Developer {
+		d.Badge = &ui.Badge{Label: "Developer", Plain: true}
+		if e.Author != "" {
+			d.Byline = "By @" + strings.TrimPrefix(e.Author, "@")
+		}
+		d.DeveloperNote = developerNote(e.SignerKeyID)
+	}
 	if e.Size > 0 {
 		d.Size = humanSize(e.Size)
 	}
@@ -353,6 +384,11 @@ func (a *Admin) handleBrowseDetail(w http.ResponseWriter, r *http.Request) {
 	case !e.Installed:
 		d.Primary = &detailPrimary{Post: fetch, Fields: map[string]string{"name": e.Name}, Label: "Install…"}
 	}
+	if e.Developer && d.Primary != nil && !pk.AllowDeveloper(r.Context()) {
+		// UX only: the server refuses a developer package while the switch is off.
+		d.InstallOff, d.Primary = d.Primary, nil
+		d.SecurityHref = a.adminPath + "/plugins/security"
+	}
 	if e.Installed {
 		d.Actions = []ui.Button{{Label: "Settings", Href: a.pluginURL(e.Name, "settings")}}
 	}
@@ -360,6 +396,14 @@ func (a *Admin) handleBrowseDetail(w http.ResponseWriter, r *http.Request) {
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: "Browse", Href: browse}, {Label: d.Title}}
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "plugins/browse-detail", v)
+}
+
+// developerNote is the line under a developer package's header.
+func developerNote(keyID string) string {
+	if keyID == "" {
+		return "Not reviewed by Hatamoto."
+	}
+	return "Not reviewed by Hatamoto. Signed by key " + keyID + "."
 }
 
 // httpURL returns s when it is an absolute http or https address, else "".

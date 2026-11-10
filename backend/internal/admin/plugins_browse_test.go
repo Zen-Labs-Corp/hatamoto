@@ -385,3 +385,41 @@ func TestBrowseCardMetaAndPager(t *testing.T) {
 		t.Error("the pager shows on a single page")
 	}
 }
+
+func developerBrowseView() RegistryView {
+	return RegistryView{Host: "registry.example.test", DeveloperAvail: true, Entries: []RegistryEntry{
+		{Kind: "plugin", Name: "gtm", Title: "Tag Manager", Author: "Hatamoto", Tier: "first-party", Version: "1.0.0", Description: "Tags"},
+		{Kind: "plugin", Name: "acme-seo", Title: "Acme SEO", Author: "acme", Tier: "developer", Developer: true, SignerKeyID: "3f9a1c2b7d4e5f60", Version: "1.2.0", Description: "Meta tags"},
+	}}
+}
+
+func TestBrowseDeveloperCard(t *testing.T) {
+	t.Parallel()
+
+	g, _ := browseRig(t, developerBrowseView())
+	body := getBrowse(g, "")
+	for _, want := range []string{"by @acme", "Developer · No permissions", "Signed by a registered developer. Not reviewed by Hatamoto.", `value="developer"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("browse lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "by @Hatamoto") || strings.Count(body, "Signed by a registered developer") != 1 {
+		t.Error("only the developer card carries the developer note")
+	}
+	// Filtering by tier=developer lists the developer card alone.
+	only := getBrowse(g, "?tier=developer")
+	if !strings.Contains(only, "Acme SEO") || strings.Contains(only, "Tag Manager") {
+		t.Errorf("tier=developer: %s", only)
+	}
+}
+
+func TestBrowseDeveloperChipHiddenWithoutIndex(t *testing.T) {
+	t.Parallel()
+
+	v := developerBrowseView()
+	v.DeveloperAvail = false
+	g, _ := browseRig(t, v)
+	if body := getBrowse(g, ""); strings.Contains(body, `value="developer"`) {
+		t.Error("the Developer chip shows although the developer index is not offered")
+	}
+}

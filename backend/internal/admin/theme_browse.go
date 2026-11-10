@@ -118,7 +118,7 @@ func (a *Admin) handleThemeBrowse(w http.ResponseWriter, r *http.Request) {
 		}
 		groups = append(groups, g)
 	}
-	d.Toolbar = browseToolbarFor(base, q, res, groups, sortOptions)
+	d.Toolbar = browseToolbarFor(base, q, res, groups, sortOptions, reg.DeveloperAvail)
 	if !reg.FetchedAt.IsZero() {
 		d.Refreshed = agoText(pluginsNow().Sub(reg.FetchedAt))
 	}

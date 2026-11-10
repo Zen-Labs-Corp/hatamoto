@@ -153,3 +153,41 @@ func TestHTTPURL(t *testing.T) {
 		}
 	}
 }
+
+func TestBrowseDetailDeveloper(t *testing.T) {
+	t.Parallel()
+
+	g, fp := browseRig(t, developerBrowseView())
+	for _, tc := range []struct {
+		on        bool
+		want, not []string
+	}{
+		{false, []string{"By @acme", "Developer", "Not reviewed by Hatamoto. Signed by key 3f9a1c2b7d4e5f60.", "Developer packages are off on this site.", `href="/admin/plugins/security"`, `disabled="disabled"`}, []string{`action="/admin/plugins/fetch"`}},
+		{true, []string{"Not reviewed by Hatamoto. Signed by key 3f9a1c2b7d4e5f60.", `action="/admin/plugins/fetch"`, "Install…"}, []string{"Developer packages are off", `disabled="disabled"`}},
+	} {
+		fp.developerOn = tc.on
+		code, body := getAbout(g, "acme-seo", nil)
+		if code != 200 {
+			t.Fatalf("on=%v: status %d", tc.on, code)
+		}
+		for _, w := range tc.want {
+			if !strings.Contains(body, w) {
+				t.Errorf("on=%v: lacks %q", tc.on, w)
+			}
+		}
+		for _, n := range tc.not {
+			if strings.Contains(body, n) {
+				t.Errorf("on=%v: has %q", tc.on, n)
+			}
+		}
+		// The panel fragment shows the same.
+		_, frag := getAbout(g, "acme-seo", map[string]string{"HX-Request": "true"})
+		if tc.on == strings.Contains(frag, "Developer packages are off") {
+			t.Errorf("on=%v: fragment disagrees", tc.on)
+		}
+	}
+	// A first-party detail is unchanged by the switch.
+	if _, body := getAbout(g, "gtm", nil); strings.Contains(body, "Not reviewed by Hatamoto") {
+		t.Error("first-party detail carries the developer note")
+	}
+}
