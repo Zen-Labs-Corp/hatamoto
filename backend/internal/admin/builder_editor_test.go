@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -534,4 +535,62 @@ func TestBuilderPageList(t *testing.T) {
 	if pubs := r.a.builderPages(req); len(pubs) != 0 {
 		t.Errorf("options.pages = %v with no path service", pubs)
 	}
+}
+
+// The boot lists each items source with the params it declares, and a loop's
+// stored params survive a save.
+func TestBuilderBootLoopSourcesAndParamsPersist(t *testing.T) {
+	registerParamSources(t)
+	r := newEditorRig(t)
+	r.ent.Attributes = jsontext.Value(builderOnlyDoc)
+	body := r.do("GET", r.path(), "owner-token", nil, nil).Body.String()
+	const open = `id="hm-builder-boot">`
+	i := strings.Index(body, open)
+	if i < 0 {
+		t.Fatal("no boot element")
+	}
+	rest := body[i+len(open):]
+	var boot struct {
+		LoopSources []bootLoopSource    `json:"loopSources"`
+		Options     map[string][]string `json:"options"`
+	}
+	if err := jsonx.Unmarshal([]byte(rest[:strings.Index(rest, "</script>")]), &boot, jsonx.StoredLoose); err != nil {
+		t.Fatal(err)
+	}
+	if len(boot.LoopSources) != 2 {
+		t.Fatalf("loopSources = %+v, want the two items sources", boot.LoopSources)
+	}
+	plain, filtered := boot.LoopSources[0], boot.LoopSources[1]
+	if plain.ID != "ext.cal.all" || plain.Label != "All" || len(plain.Params) != 0 {
+		t.Errorf("plain source = %+v", plain)
+	}
+	if filtered.ID != "ext.cal.events" || len(filtered.Params) != 2 || filtered.Params[0].Type != "select" ||
+		len(filtered.Params[0].Options) != 2 || filtered.Params[0].Options[0].Label != "Workshops" || filtered.Params[0].Options[1].Label != "talk" {
+		t.Errorf("filtered source = %+v", filtered)
+	}
+	if got := boot.Options["sources"]; !slices.Equal(got, []string{"ext.cal.all", "ext.cal.events"}) {
+		t.Errorf("options.sources = %v, must stay the id list", got)
+	}
+
+	s := newSaveRig(t)
+	doc := `{"v":2,"nodes":[{"id":"l1","t":"loop","p":{"from":"source","source":"ext.cal.events","limit":3,"params":{"cat":"ws","days":30,"upcoming":true}},"c":[{"id":"h1","t":"heading","p":{"text":"x","level":2}}]}]}`
+	if code, out := s.save(t, s.page, saveBody(1, doc, "save", "")); code != 200 || !out.OK {
+		t.Fatalf("save: %d %+v", code, out)
+	}
+	stored, _ := storedDoc(t, s.ents.ents[s.page.ID])
+	if !strings.Contains(string(stored), `"params":{"cat":"ws","days":30,"upcoming":true}`) {
+		t.Errorf("stored doc lost the loop params: %s", stored)
+	}
+}
+
+func registerParamSources(t *testing.T) {
+	t.Helper()
+	builder.SetExtSources([]builder.ExtSource{
+		{Plugin: "cal", Name: "all", Label: "All", Kind: builder.ExtItems},
+		{Plugin: "cal", Name: "events", Label: "Events", Kind: builder.ExtItems, Params: []builder.ExtParam{
+			{Name: "cat", Label: "Category", Type: "select", Options: []builder.ExtOption{{Value: "ws", Label: "Workshops"}, {Value: "talk"}}},
+			{Name: "days", Label: "Days ahead", Type: "number"},
+		}},
+	})
+	t.Cleanup(func() { builder.SetExtSources(nil) })
 }

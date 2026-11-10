@@ -74,6 +74,52 @@ type bootBindSource struct {
 	Class  string `json:"class"`
 }
 
+// bootLoopSource is a plugin items source with the filters it declares: what
+// the loop inspector needs to draw its Filters group.
+type bootLoopSource struct {
+	ID     string      `json:"id"`
+	Label  string      `json:"label"`
+	Plugin string      `json:"plugin"`
+	Params []bootParam `json:"params,omitempty"`
+}
+
+type bootParam struct {
+	Name    string       `json:"name"`
+	Label   string       `json:"label"`
+	Type    string       `json:"type"`
+	Options []bootOption `json:"options,omitempty"`
+}
+
+type bootOption struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
+}
+
+// loopSources lists the items sources a query loop can read, with their params
+// ([] when no plugin offers one).
+func loopSources() []bootLoopSource {
+	out := []bootLoopSource{}
+	for _, src := range builder.ExtSources() {
+		if src.Kind != builder.ExtItems {
+			continue
+		}
+		ls := bootLoopSource{ID: src.ID(), Label: src.Label, Plugin: src.Plugin}
+		for _, p := range src.Params {
+			bp := bootParam{Name: p.Name, Label: p.Label, Type: p.Type}
+			for _, o := range p.Options {
+				label := o.Label
+				if label == "" {
+					label = o.Value
+				}
+				bp.Options = append(bp.Options, bootOption{Value: o.Value, Label: label})
+			}
+			ls.Params = append(ls.Params, bp)
+		}
+		out = append(out, ls)
+	}
+	return out
+}
+
 type bootSection struct {
 	Type   string                `json:"type"`
 	Title  string                `json:"title"`
@@ -127,7 +173,7 @@ func (a *Admin) builderShellData(r *http.Request, e *entity.Entity, sc *entity.E
 	}
 	bootMap := map[string]any{
 		"doc": doc, "version": e.Version, "status": string(e.Status), "name": e.Name, "user": user, "entity": id,
-		"kinds": kinds, "bindSources": bindSources, "sections": sections, "options": a.builderOptions(r), "pageList": a.builderPageList(r, e), "design": a.builderDesign(r), "reuse": a.builderReuse(r, e, sc),
+		"kinds": kinds, "bindSources": bindSources, "sections": sections, "options": a.builderOptions(r), "loopSources": loopSources(), "pageList": a.builderPageList(r, e), "design": a.builderDesign(r), "reuse": a.builderReuse(r, e, sc),
 		"urls": map[string]string{
 			"stage": base + "/builder/stage", "render": base + "/edit/render", "component": base + "/builder/component",
 			"save": base + "/builder/save", "seo": base + "/builder/seo", "analyze": base + "/builder/analyze", "nodeVersions": base + "/builder/node-versions", "paste": base + "/builder/paste", "stylespec": a.adminPath + "/builder/stylespec", "presets": a.adminPath + "/builder/presets", "details": base, "versions": sh.VersionsHref, "view": sh.ViewHref, "theme": a.adminPath + "/theme/colours",
