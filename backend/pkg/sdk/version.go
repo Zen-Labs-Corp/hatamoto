@@ -98,6 +98,9 @@ package sdk
 // cookies, using its declared cookies and the visitor's country. It adds the
 // RedirectContext and Redirect types. Every failure leaves the request to
 // normal handling.
+//
+// A run's standing_approval may also carry an optional `create` ({schemas,
+// max_per_hour}) that lets an approved run publish new entries on its own.
 const Version = "0.22.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.

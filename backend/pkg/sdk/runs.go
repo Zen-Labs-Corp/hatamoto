@@ -29,6 +29,8 @@ const (
 	// DefaultStandingPerHour is the changes an hour a standing approval allows
 	// when max_per_hour is 0, and its ceiling.
 	DefaultStandingPerHour = 200
+	// MaxStandingCreatePerHour is the ceiling of standing_approval.create.max_per_hour.
+	MaxStandingCreatePerHour = 100
 )
 
 // Proposal kinds a run may declare in Run.Proposes.
@@ -78,6 +80,17 @@ type StandingApproval struct {
 	// MaxPerHour caps the changes published an hour; 0 means
 	// DefaultStandingPerHour, and the value may not exceed it.
 	MaxPerHour int `json:"max_per_hour,omitzero"`
+	// Create opts the rule in to publishing new entries by itself. Without
+	// it a run that creates anything waits for the owner.
+	Create *StandingCreate `json:"create,omitzero"`
+}
+
+// StandingCreate lets an approved run publish new entries of Schemas, at
+// most MaxPerHour an hour. Every schema must also be in
+// StandingApproval.Schemas. There is no default: MaxPerHour must be set.
+type StandingCreate struct {
+	Schemas    []string `json:"schemas"`
+	MaxPerHour int      `json:"max_per_hour"`
 }
 
 func (m Manifest) validateStanding(r Run) error {
@@ -96,7 +109,14 @@ func (m Manifest) validateStanding(r Run) error {
 	case sa.MaxPerHour < 0 || sa.MaxPerHour > DefaultStandingPerHour:
 		return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.max_per_hour %d outside 0..%d", m.Name, r.Name, sa.MaxPerHour, DefaultStandingPerHour)
 	}
-	for label, list := range map[string][]string{"fields": sa.Fields, "schemas": sa.Schemas} {
+	lists := map[string][]string{"fields": sa.Fields, "schemas": sa.Schemas}
+	if c := sa.Create; c != nil {
+		if c.MaxPerHour < 1 || c.MaxPerHour > MaxStandingCreatePerHour {
+			return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.create.max_per_hour %d outside 1..%d", m.Name, r.Name, c.MaxPerHour, MaxStandingCreatePerHour)
+		}
+		lists["create.schemas"] = c.Schemas
+	}
+	for label, list := range lists {
 		if len(list) == 0 || len(list) > MaxStandingFields {
 			return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.%s needs 1..%d entries", m.Name, r.Name, label, MaxStandingFields)
 		}
@@ -106,6 +126,13 @@ func (m Manifest) validateStanding(r Run) error {
 				return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.%s: bad or duplicate entry %q (want %s)", m.Name, r.Name, label, v, identPattern)
 			}
 			seen[v] = true
+		}
+	}
+	if c := sa.Create; c != nil {
+		for _, v := range c.Schemas {
+			if !slices.Contains(sa.Schemas, v) {
+				return fmt.Errorf("sdk: plugin %q: run %q: standing_approval.create.schemas must be listed in standing_approval.schemas", m.Name, r.Name)
+			}
 		}
 	}
 	return nil

@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -13,6 +14,23 @@ func validRun() Run {
 
 func validStanding() *StandingApproval {
 	return &StandingApproval{Fields: []string{"price"}, Schemas: []string{"product"}}
+}
+
+func withCreate(r *Run, schemas []string, perHour int) {
+	r.Cron = "tick"
+	r.StandingApproval = validStanding()
+	r.StandingApproval.Create = &StandingCreate{Schemas: schemas, MaxPerHour: perHour}
+}
+
+func TestStandingWithoutCreateMarshalsUnchanged(t *testing.T) {
+	b, err := json.Marshal(validStanding())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `{"fields":["price"],"schemas":["product"]}`
+	if string(b) != want {
+		t.Fatalf("marshal = %s, want %s", b, want)
+	}
 }
 
 func TestRunsValidate(t *testing.T) {
@@ -62,6 +80,25 @@ func TestRunsValidate(t *testing.T) {
 			r.StandingApproval = validStanding()
 			r.StandingApproval.MaxPerHour = DefaultStandingPerHour + 1
 		}, "max_per_hour"},
+		{"standing create valid", func(r *Run) {
+			r.Cron = "tick"
+			r.StandingApproval = validStanding()
+			r.StandingApproval.Create = &StandingCreate{Schemas: []string{"product"}, MaxPerHour: MaxStandingCreatePerHour}
+		}, ""},
+		{"standing create cap 0", func(r *Run) { withCreate(r, []string{"product"}, 0) }, "create.max_per_hour"},
+		{"standing create cap negative", func(r *Run) { withCreate(r, []string{"product"}, -1) }, "create.max_per_hour"},
+		{"standing create cap 101", func(r *Run) { withCreate(r, []string{"product"}, MaxStandingCreatePerHour+1) }, "create.max_per_hour"},
+		{"standing create no schemas", func(r *Run) { withCreate(r, nil, 5) }, "create.schemas needs 1.."},
+		{"standing create duplicate schema", func(r *Run) { withCreate(r, []string{"product", "product"}, 5) }, "create.schemas: bad or duplicate"},
+		{"standing create bad ident", func(r *Run) { withCreate(r, []string{"Product"}, 5) }, "create.schemas: bad or duplicate"},
+		{"standing create too many schemas", func(r *Run) {
+			var many []string
+			for i := 0; i <= MaxStandingFields; i++ {
+				many = append(many, "s"+strings.Repeat("x", i))
+			}
+			withCreate(r, many, 5)
+		}, "create.schemas needs 1.."},
+		{"standing create schema not listed", func(r *Run) { withCreate(r, []string{"post"}, 5) }, "must be listed in standing_approval.schemas"},
 		{"standing with inputs", func(r *Run) {
 			r.Cron = "tick"
 			r.StandingApproval = validStanding()
