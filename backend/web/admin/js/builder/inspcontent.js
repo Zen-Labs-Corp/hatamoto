@@ -6,7 +6,7 @@ import { find, unchanged } from "@hm/builder/store";
 import { bindOps, unbindOps, sourcesFor, chipText, inLoop } from "@hm/builder/bindops";
 import { seedNode } from "@hm/builder/palette";
 import { plainLabel } from "@hm/builder/inspector";
-import { declFor, cleanParams, setCount, nextParams, filtersLabel } from "@hm/builder/loopparams";
+import { declFor, cleanParams, setCount, nextParams, filtersLabel, tooLong, MAX_PARAM_BYTES } from "@hm/builder/loopparams";
 
 export const PROP_NAMES = { text: "Text", level: "Level", href: "Link", src: "Image address", url: "Video address", poster: "Poster image", linktext: "Link text", count: "Number of columns", slug: "Form", single: "Open one item at a time", ordered: "Numbered", alt: "Alt text", layout: "Layout", tag: "HTML tag", hidden: "Disabled (not rendered)", decorative: "Decorative (no alt text needed)" };
 const title = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -343,7 +343,7 @@ export function createContent(ctx) {
         box.append(h("div", { class: "hm-field hm-bs-field hm-bs-field--check" }, sw.label));
         continue;
       }
-      let el;
+      let el, msg;
       if (d.type === "select") {
         el = h("select", { id, class: "hm-field__control" }, h("option", { value: "", text: "Not set" }), ...(d.options ?? []).map((o) => h("option", { value: o.value, text: o.label || o.value })));
         el.value = typeof cur === "string" ? cur : "";
@@ -355,9 +355,17 @@ export function createContent(ctx) {
       } else {
         el = h("input", { id, type: "text", class: "hm-field__control", maxlength: "200" });
         el.value = typeof cur === "string" ? cur : "";
-        el.addEventListener("input", () => change(d, el.value, { coalesce: true }));
+        el.setAttribute("aria-describedby", `${id}-e`);
+        el.addEventListener("input", () => {
+          const bad = tooLong(el.value);
+          if (bad) el.setAttribute("aria-invalid", "true");
+          else el.removeAttribute("aria-invalid");
+          msg.hidden = !bad;
+          if (!bad) change(d, el.value, { coalesce: true });
+        });
+        msg = h("span", { class: "hm-bs-err", id: `${id}-e`, hidden: true, text: `At most ${MAX_PARAM_BYTES} bytes (some characters take more than one).` });
       }
-      box.append(h("div", { class: "hm-field hm-bs-field" }, h("label", { class: "hm-field__label", for: id, text: d.label }), el));
+      box.append(h("div", { class: "hm-field hm-bs-field" }, h("label", { class: "hm-field__label", for: id, text: d.label }), el, ...(msg ? [msg] : [])));
     }
     return h("div", { class: "hm-bs-field" }, toggle, box);
   }

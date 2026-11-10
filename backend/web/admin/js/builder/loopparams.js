@@ -4,10 +4,14 @@
 /** The params a source declares; [] for a source without any (or an unknown one). */
 export const declFor = (loopSources, id) => (loopSources ?? []).find((s) => s.id === id)?.params ?? [];
 
+/** The longest text value the server keeps, in UTF-8 bytes (an input's maxlength counts characters, not bytes). */
+export const MAX_PARAM_BYTES = 200;
+export const tooLong = (v) => typeof v === "string" && new TextEncoder().encode(v).length > MAX_PARAM_BYTES;
+
 const usable = (d, v) => {
   if (d.type === "bool") return v === true;
   if (d.type === "number") return typeof v === "number" && Number.isFinite(v);
-  return typeof v === "string" && v !== "";
+  return typeof v === "string" && v !== "" && !tooLong(v);
 };
 
 /** The stored values the declaration still knows and that carry something; a name the source does not declare is ignored. */

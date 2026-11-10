@@ -135,3 +135,22 @@ test("clearing the last filter stores null", () => {
   sel.fire("change");
   assert.deepEqual(commits[0].ops, [{ op: "setProp", id: "l", key: "params", value: null }]);
 });
+
+test("a text filter over 200 UTF-8 bytes is flagged invalid and never committed", () => {
+  const node = { id: "l", t: "loop", p: { from: "source", source: "ext.cal.events" } };
+  const { panel, commits } = setup(node);
+  const venue = find(panel, (n) => n.attrs.type === "text" && n.attrs.id?.endsWith("-venue"));
+  const msg = find(panel, (n) => n.attrs.id === `${venue.attrs.id}-e`);
+  assert.equal(nextParams(decl, {}, "venue", "あ".repeat(67)), null, "201 bytes is not stored");
+  assert.deepEqual(nextParams(decl, {}, "venue", "あ".repeat(66)), { venue: "あ".repeat(66) }, "198 bytes is");
+  venue.value = "あ".repeat(70); // 70 characters pass maxlength=200, 210 bytes do not pass the server
+  venue.fire("input");
+  assert.equal(commits.length, 0);
+  assert.equal(venue.attrs["aria-invalid"], "true");
+  assert.equal(msg.hidden, false);
+  venue.value = "あ".repeat(60);
+  venue.fire("input");
+  assert.equal(commits.length, 1);
+  assert.equal(venue.attrs["aria-invalid"], undefined);
+  assert.equal(msg.hidden, true);
+});
