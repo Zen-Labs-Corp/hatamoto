@@ -178,18 +178,18 @@
 /* More toggles: a quiet text button under a group's primary rows; its rows stay in the DOM while closed. */
 .hm-bs-style .hm-bs-grp__hd { flex: 1 1 auto; min-width: 0; margin: 0; font: inherit; }
 .hm-bs-style .hm-bs-more__w { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.hm-bs-style .hm-bs-morebtn { appearance: none; align-self: flex-start; display: inline-flex; align-items: center; gap: var(--space-1); min-block-size: 24px; padding: 0; font: inherit; font-size: var(--text-xs); color: var(--text-muted); background: none; border: 0; cursor: pointer; }
-.hm-bs-style .hm-bs-morebtn::before { content: "+" / ""; inline-size: 1rem; text-align: center; }
-.hm-bs-style .hm-bs-morebtn[aria-expanded="true"]::before { content: "\2212" / ""; }
-.hm-bs-style .hm-bs-morebtn:hover { color: var(--text); }
-.hm-bs-style .hm-bs-morebtn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
-.hm-bs-style .hm-bs-grp__more { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding-inline-start: var(--space-2); border-inline-start: 1px solid var(--border); }
-.hm-bs-style .hm-bs-grp__more[hidden] { display: none; }
+.hm-bs-style .hm-bs-morebtn, .hm-bs-content .hm-bs-morebtn { appearance: none; align-self: flex-start; display: inline-flex; align-items: center; gap: var(--space-1); min-block-size: 24px; padding: 0; font: inherit; font-size: var(--text-xs); color: var(--text-muted); background: none; border: 0; cursor: pointer; }
+.hm-bs-style .hm-bs-morebtn::before, .hm-bs-content .hm-bs-morebtn::before { content: "+" / ""; inline-size: 1rem; text-align: center; }
+.hm-bs-style .hm-bs-morebtn[aria-expanded="true"]::before, .hm-bs-content .hm-bs-morebtn[aria-expanded="true"]::before { content: "\2212" / ""; }
+.hm-bs-style .hm-bs-morebtn:hover, .hm-bs-content .hm-bs-morebtn:hover { color: var(--text); }
+.hm-bs-style .hm-bs-morebtn:focus-visible, .hm-bs-content .hm-bs-morebtn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hm-bs-style .hm-bs-grp__more, .hm-bs-content .hm-bs-grp__more { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding-inline-start: var(--space-2); border-inline-start: 1px solid var(--border); }
+.hm-bs-style .hm-bs-grp__more[hidden], .hm-bs-content .hm-bs-grp__more[hidden] { display: none; }
 .hm-bs-style .hm-bs-width .hm-bs-opts { flex-wrap: nowrap; }
 @media (forced-colors: active) {
   .hm-bs-style .hm-bs-fld { border-color: ButtonBorder; }
   .hm-bs-style .hm-bs-fld:focus-within { outline-color: Highlight; }
-  .hm-bs-style .hm-bs-morebtn:focus-visible { outline-color: Highlight; }
+  .hm-bs-style .hm-bs-morebtn:focus-visible, .hm-bs-content .hm-bs-morebtn:focus-visible { outline-color: Highlight; }
 }
 
 /* Content tab (the mockup's .cf and .sub): a tight label-to-control gap (the shared field owns label and control looks), item cards with a number. */
