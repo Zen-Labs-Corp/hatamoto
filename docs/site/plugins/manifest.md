@@ -44,7 +44,7 @@ A manifest that uses most fields:
 | `description` | no | Free text shown in the admin. |
 | `config` | no | A string map the guest reads with `guest.Config(key)` (`pdk.GetConfig`). Use it for fixed values; use `settings_schema` for values the owner edits. |
 | `permissions` | no | Capabilities the plugin asks for. Unknown or duplicated names are refused. |
-| `allowed_hosts` | no | Allowlist for `http.fetch`. |
+| `allowed_hosts` | no | Allowlist for `http.fetch` and `packages.inspect`. |
 | `routes` | no | HTTP routes, at most 64. |
 | `cron` | no | Scheduled calls, at most 16. |
 | `request_headers` | no | Extra request header names passed to this plugin's routes (for example `Stripe-Signature`), at most 8. `Authorization`, `Cookie`, `Proxy-Authorization` and every header that carries the visitor's address are refused. The plugin page lists them. |
@@ -81,7 +81,7 @@ The manifest only lists what the plugin asks for. The owner decides what it gets
 
 ## allowed_hosts
 
-The list only matters when `http.fetch` is granted. Entries are an exact host, `*.suffix` (subdomains only, not the apex), `host:port`, or `*`. Without a port only 80 and 443 are allowed, `*` included, so `*:8443` lists a port explicitly. An empty entry is refused.
+The list only matters when `http.fetch` or `packages.inspect` is granted. Entries are an exact host, `*.suffix` (subdomains only, not the apex), `host:port`, or `*`. Without a port only 80 and 443 are allowed, `*` included, so `*:8443` lists a port explicitly. An empty entry is refused.
 
 `*` means any public address. It is valid only when the plugin also lists `http.fetch.any`, and `http.fetch.any` in turn needs `http.fetch`. The pair exists for plugins that call addresses the owner types in (a plugin that pings URLs the owner configures). The permission prompt shows it as a warning, and an update that newly asks for it needs the owner's confirmation and clears the plugin's grants. The address guard still refuses private, loopback and link-local addresses whatever the list says.
 

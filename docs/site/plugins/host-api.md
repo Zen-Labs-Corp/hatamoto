@@ -43,7 +43,7 @@ A plugin always loads. What it may do is decided by the owner, and nothing is gr
 | `log` | `log` |
 | `mail.send` | `mail.send` |
 | `http.fetch` | `http.fetch`, to the hosts in `allowed_hosts` |
-| `http.fetch.any` | lets `http.fetch` honour a `*` entry of `allowed_hosts`; needs `http.fetch` too |
+| `http.fetch.any` | lets `http.fetch` and `packages.inspect` honour a `*` entry of `allowed_hosts`; needs `http.fetch` too |
 | `packages.inspect` | `packages.inspect`: download a Hatamoto package from an https URL on one of the plugin's `allowed_hosts` and report what it is and whether a key signed it. The prompt reads "Download and check Hatamoto packages from the web" |
 | `kv` | `kv.get`, `kv.set`, `kv.delete`, `kv.list` |
 | `db` | `db.query`, `db.exec`, and the plugin's migrations |

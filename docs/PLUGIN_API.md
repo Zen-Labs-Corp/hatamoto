@@ -439,7 +439,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 | `description` | optional |
 | `config` | string map readable in the guest (`pdk.GetConfig`) |
 | `permissions` | capabilities the plugin asks for; see [Permissions](#permissions). Unknown names are refused |
-| `allowed_hosts` | allowlist for `http.fetch`: exact hosts, `*.suffix` (subdomains only, not the apex), `host:port`, or `*` (any public host, for plugins that call URLs the owner configures). Without a port only 80 and 443 are allowed, `*` included; `*:8443` lists a port explicitly. A `*` entry needs the separate `http.fetch.any` permission (below) in `permissions`, and works only while the owner has granted it. The address guard still refuses private addresses. It does nothing unless `http.fetch` is granted |
+| `allowed_hosts` | allowlist for `http.fetch` and `packages.inspect`: exact hosts, `*.suffix` (subdomains only, not the apex), `host:port`, or `*` (any public host, for plugins that call URLs the owner configures). Without a port only 80 and 443 are allowed, `*` included; `*:8443` lists a port explicitly. A `*` entry needs the separate `http.fetch.any` permission (below) in `permissions`, and works only while the owner has granted it. The address guard still refuses private addresses. It does nothing unless `http.fetch` or `packages.inspect` is granted |
 | `routes` | HTTP routes the plugin serves; see [Routes](#routes) (at most 64) |
 | `cron` | scheduled calls; see [Cron](#cron) (at most 16) |
 | `cookies` | cookie names `render.page` and the plugin's public routes may read and set (at most 8; `[A-Za-z0-9_-]`) |
@@ -472,7 +472,7 @@ A plugin always loads. What it may *do* is decided by the owner. Nothing is gran
 | `log` | `log` |
 | `mail.send` | `mail.send` |
 | `http.fetch` | `http.fetch`, to the hosts in `allowed_hosts` |
-| `http.fetch.any` | lets `http.fetch` honour a `*` / `*:port` entry of `allowed_hosts`: **any public web address**. The prompt shows it as a warning, `package.grants` and the install/update audit record it, and an update that newly asks for it (or lists new hosts) needs the owner's confirmation and clears the plugin's grants, like a change of signer. Needs `http.fetch` too |
+| `http.fetch.any` | lets `http.fetch` and `packages.inspect` honour a `*` / `*:port` entry of `allowed_hosts`: **any public web address**. The prompt shows it as a warning, `package.grants` and the install/update audit record it, and an update that newly asks for it (or lists new hosts) needs the owner's confirmation and clears the plugin's grants, like a change of signer. Needs `http.fetch` too |
 | `packages.inspect` | `packages.inspect`: download a Hatamoto package from an https URL and report what it is and whether a key signed it. It reaches only the hosts the plugin may reach with `http.fetch` (its `allowed_hosts`, redirects included). The prompt reads "Download and check Hatamoto packages from the web" and lists those hosts as "Web addresses it may call". It installs nothing and is not a warning permission |
 | `kv` | `kv.get`, `kv.set`, `kv.delete`, `kv.list` |
 | `db` | `db.query`, `db.exec`, and the plugin's migrations |
