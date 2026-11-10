@@ -21,7 +21,7 @@
 <link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
 <script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
-<script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/settings/import/csv/*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/forms/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
+<script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/settings/import/csv/*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/developer*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/forms/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
 
 </head>
 <body>
@@ -83,7 +83,7 @@
 
 
 <header class="hm-pageheader">
-<div class="hm-pageheader__row"><div class="hm-pageheader__text"><div class="hm-pageheader__title"><h1>Package security</h1></div><p class="hm-muted">Trusted signers and unsigned packages.</p></div>
+<div class="hm-pageheader__row"><div class="hm-pageheader__text"><div class="hm-pageheader__title"><h1>Package security</h1></div><p class="hm-muted">Trusted signers, developer packages and unsigned packages.</p></div>
 <div class="hm-row"></div></div>
 </header>
 <section class="hm-card" id="status-card" aria-labelledby="status-card-title">
@@ -98,6 +98,11 @@
 <li class="hm-pluginsecurity__signer"><span><strong>Example signer</strong> <span class="hm-muted">Built in, ed25519</span></span><span class="hm-badge hm-badge--neutral hm-badge--wrap hm-badge--mono">abc123</span></li>
 </ul>
 <p class="hm-muted">Signers are set by whoever runs the server, not from this screen.</p></div></section>
+<section class="hm-card" id="developer-card" aria-labelledby="developer-card-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="developer-card-title">Developer packages</h2></div>
+<div class="hm-card__body"><p class="hm-row"><span class="hm-badge hm-badge--muted"><span class="hm-badge__dot" aria-hidden="true"></span>Off</span></p>
+<p class="hm-muted">Plugins and themes published by registered developers on hatamoto.dev. Hatamoto checks who signed them, but does not review their code.</p>
+<footer class="hm-card__foot hm-card__foot--plain"><a class="hm-btn hm-btn--secondary" href="/admin/plugins/security/developer"><span>Allow developer packages…</span></a></footer></div></section>
 
 
 </div>

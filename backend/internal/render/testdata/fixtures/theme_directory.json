@@ -40,6 +40,17 @@
         "Search": "kumo kumo minimal docs theme. tanaka"
       },
       {
+        "Name": "devtheme",
+        "Title": "Dev Theme",
+        "Version": "v0.3.0",
+        "Tier": "developer",
+        "TierLabel": "Developer",
+        "Author": "acme",
+        "Description": "A theme from a registered developer.",
+        "Source": "https://example.org/devtheme",
+        "Search": "devtheme dev theme a theme from a registered developer. acme"
+      },
+      {
         "Name": "hostile",
         "Title": "<img src=x onerror=alert(1)>",
         "Version": "v0.1.0",

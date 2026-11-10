@@ -52,12 +52,13 @@ func TestGrowthPageGoldens(t *testing.T) {
 	fp := &fakePlugins{settings: map[string]map[string]any{}, list: []PluginInfo{{Name: "hello", Version: "1.0.0", Loaded: true, Hooks: []string{"on_entity_published"}, Permissions: []string{"kv"}, Granted: []string{"kv"}}}}
 	until := stamp.Add(24 * time.Hour)
 	pk := &fakePackages{unsigned: true, unsignedEnd: &until, signers: []SignerInfo{{Name: "Example signer", Algorithm: "ed25519", Fingerprint: "abc123", Source: "Built in"}}, registry: RegistryView{
-		Host: "registry.example", FetchedAt: stamp.Add(-3 * time.Hour),
+		Host: "registry.example", DeveloperAvail: true, FetchedAt: stamp.Add(-3 * time.Hour),
 		Entries: []RegistryEntry{
 			{Kind: "plugin", Name: "hello", Title: "Hello", Version: "1.1.0", Description: "Says hello.", Permissions: []string{"kv"}, Installed: true, InstalledVersion: "1.0.0", Update: true, Tier: "first-party", Category: "Content"},
 			{Kind: "plugin", Name: "google-analytics", Title: "Google Analytics", Version: "1.0.0", Description: "Google Analytics: adds the Google tag for your GA4 measurement ID.", Permissions: []string{"settings.read", "http.fetch"}, Tier: "first-party", Category: "Analytics"},
 			{Kind: "plugin", Name: "gallery", Title: "Gallery", Version: "2.0.0", Description: "Photo galleries for pages.", Author: "Example Author", Tier: "community", Category: "Media", Featured: true,
 				Permissions: []string{"kv", "media.read"}, About: "Adds a gallery section.\nWorks with the media library.", Features: []string{"Grid layout", "Lightbox"}, Size: 20480, Source: "https://example.com/gallery", Homepage: "https://example.com/gallery"},
+			{Kind: "plugin", Name: "dev-tools", Title: "Dev Tools", Version: "0.2.0", Description: "Helpers from a registered developer.", Author: "acme", Tier: "developer", Developer: true, SignerKeyID: "3f9a1c2b7d4e5f60", Permissions: []string{"kv"}},
 			{Kind: "plugin", Name: "seo-helper", Version: "0.3.0", Description: "Checks titles.", Permissions: []string{}},
 			{Kind: "theme", Name: "hanshi", Title: "Hanshi", Version: "1.0.0", Description: "The first-party blog theme.", Installed: true, InstalledVersion: "1.0.0", Active: true, Tier: "first-party", SiteType: "blog", Flags: []string{"dark"}, Featured: true,
 				About: "A calm reading theme.", Features: []string{"Dark mode"}, Size: 40960},
