@@ -74,9 +74,16 @@ package sdk
 // fields sharing a JSON name fails to marshal. It also exports
 // RemovedPermissions, the sorted list of permissions the SDK refuses, which the
 // release tool copies into the signed release record (additive).
-const Version = "0.19.0"
+//
+// 0.20.0 is additive over 0.19. For a plugin whose sdk range requires 0.20 and
+// that holds terms.read, entities.get and entities.list return each entity's
+// `terms` ({kind, slug, name}), and entities.list accepts a `term` filter
+// ({kind, slug}) that keeps only entities carrying exactly that term. Every
+// other plugin sees the same bytes as before. It adds the EntityTerm and
+// EntityTermFilter types that describe these shapes.
+const Version = "0.20.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
 // lists its predecessors here. 0.4 plugins were native Go.
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0"}
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0"}
