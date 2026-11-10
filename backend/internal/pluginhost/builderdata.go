@@ -32,7 +32,7 @@ func ExtSources(h *hooks.Engine) render.ExtSourceFunc {
 				render.NoteDegradedCtx(ctx)
 				break
 			}
-			in.Requests = append(in.Requests, sdk.BuilderDataQuery{ID: q.ID, Source: q.Source, Limit: clampItems(q.Limit)})
+			in.Requests = append(in.Requests, sdk.BuilderDataQuery{ID: q.ID, Source: q.Source, Limit: clampItems(q.Limit), Params: q.Params})
 		}
 		out, ok := h.Apply(ctx, sdk.BuilderData.Name, in).(sdk.BuilderDataRequest)
 		if !ok {
@@ -60,29 +60,54 @@ func clampItems(n int) int {
 	return n
 }
 
+// declSrc is a declared builder source: its kind and params.
+type declSrc struct {
+	kind   string
+	params []builder.ExtParam
+}
+
+// declaredSources maps the full id of each source in m to its declaration.
+func declaredSources(m sdk.Manifest) map[string]declSrc {
+	declared := map[string]declSrc{}
+	for _, s := range m.BuilderSources {
+		declared["ext."+m.Name+"."+s.Name] = declSrc{kind: s.Kind, params: extParams(s.Params)}
+	}
+	return declared
+}
+
+// ownRequests keeps the requests that name a declared source, with their
+// params sanitized against that source's declaration. This is authoritative:
+// whatever render sent, a plugin only gets params its own manifest declares
+// and accepts (none for a source without params). It also returns each kept
+// request's source kind by id.
+func ownRequests(declared map[string]declSrc, reqs []sdk.BuilderDataQuery) ([]sdk.BuilderDataQuery, map[string]string) {
+	var own []sdk.BuilderDataQuery
+	kept := map[string]string{}
+	for _, q := range reqs {
+		if d, ok := declared[q.Source]; ok {
+			q.Params = builder.SanitizeParams(d.params, q.Params)
+			own = append(own, q)
+			kept[q.ID] = d.kind
+		}
+	}
+	return own, kept
+}
+
 // builderDataFilter is the filter of one plugin: it hands the plugin its own
 // requests, validates the answer against the declared sources and the caps,
 // and appends the valid results to the chain's value.
 func (r *Runtime) builderDataFilter(m sdk.Manifest, export string) func(context.Context, any) (any, error) {
 	generic := r.filter(m.Name, export)
-	declared := map[string]string{} // full source id -> kind
-	for _, s := range m.BuilderSources {
-		declared["ext."+m.Name+"."+s.Name] = s.Kind
-	}
+	declared := declaredSources(m)
 	return noteRenderFailure(sdk.BuilderData.Name, func(ctx context.Context, v any) (any, error) {
 		cur, ok := v.(sdk.BuilderDataRequest)
 		if !ok || !r.caps.grants.Has(m.Name, sdk.PermBuilderData) {
 			return v, nil
 		}
 		in := cur
-		in.Requests, in.Results = nil, nil
-		kept := map[string]string{} // request id -> source kind
-		for _, q := range cur.Requests {
-			if kind, own := declared[q.Source]; own {
-				in.Requests = append(in.Requests, q)
-				kept[q.ID] = kind
-			}
-		}
+		in.Results = nil
+		var kept map[string]string // request id -> source kind
+		in.Requests, kept = ownRequests(declared, cur.Requests)
 		if len(in.Requests) == 0 {
 			return v, nil // nothing for this plugin: no call
 		}
@@ -186,6 +211,19 @@ func relatedOf(it sdk.BuilderDataItem) render.RelatedItem {
 // unloads or its grants change.
 func (r *Runtime) syncExtSources() { builder.SetExtSources(r.ExtSourceList()) }
 
+// extParams maps a manifest's param declarations to the builder registry's.
+func extParams(ps []sdk.BuilderParam) []builder.ExtParam {
+	var out []builder.ExtParam
+	for _, p := range ps {
+		e := builder.ExtParam{Name: p.Name, Label: p.Label, Type: p.Type}
+		for _, o := range p.Options {
+			e.Options = append(e.Options, builder.ExtOption{Value: o.Value, Label: o.Label})
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
 // ExtSourceList returns the builder data sources of every loaded plugin that
 // holds the builder.data grant, for the editor vocabulary.
 func (r *Runtime) ExtSourceList() []builder.ExtSource {
@@ -195,7 +233,7 @@ func (r *Runtime) ExtSourceList() []builder.ExtSource {
 			continue
 		}
 		for _, s := range st.Manifest.BuilderSources {
-			out = append(out, builder.ExtSource{Plugin: st.Name, Name: s.Name, Label: s.Label, Kind: s.Kind, Class: s.Class})
+			out = append(out, builder.ExtSource{Plugin: st.Name, Name: s.Name, Label: s.Label, Kind: s.Kind, Class: s.Class, Params: extParams(s.Params)})
 		}
 	}
 	slices.SortFunc(out, func(a, b builder.ExtSource) int {
