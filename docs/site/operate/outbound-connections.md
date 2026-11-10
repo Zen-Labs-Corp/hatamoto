@@ -21,6 +21,7 @@ This page lists every outbound connection of the `hatamoto` server, so you can d
 | Email | The SMTP host you configure | When Hatamoto sends a password reset, an invitation or a form notification, or an owner presses **Send a test email** (**Test connection** on the captcha settings also reaches the provider) | The message | Leave email unconfigured: no saved Settings > Email (**Use the server's SMTP_* settings instead** removes it) and no `SMTP_HOST` |
 | Webhooks | The URLs you subscribe in Settings > Integrations > Webhooks | On the events you pick | The event payload, signed | Delete the subscription |
 | Plugins | The hosts a plugin declares in `allowed_hosts` and you granted | When the plugin calls `http.fetch` | Whatever the plugin sends | Do not grant `http.fetch`; `HATAMOTO_PLUGIN_FETCH_PER_MINUTE` caps the rate |
+| Package inspection | Any public `https` address a plugin passes to `packages.inspect`, port 443 only | When a plugin holding the `packages.inspect` permission calls it | One anonymous GET with the user agent `hatamoto-plugin/<name>`; the file is read (at most 64 MiB), checked and dropped, never installed | Do not grant `packages.inspect`; `HATAMOTO_PLUGIN_FETCH_PER_MINUTE` caps the rate |
 | Embeds in pages | The visitor's browser, not your server, loads YouTube, Vimeo or map iframes | When a visitor opens a page that contains one | Nothing from the server | Remove the embed; `HATAMOTO_EMBED_HOSTS` limits which hosts rich text may embed |
 | WordPress import | The WordPress site you import from, every media URL it (or the WXR file) lists, and the `--audit-url` site | Only during an import you start | Requests for the content and the media files | Do not run an import |
 
@@ -44,6 +45,7 @@ Plugin calls, webhooks and the import are checked against private, loopback and 
 | Email | `backend/internal/email/`, `backend/internal/mailsettings/settings.go` |
 | Webhooks | `backend/internal/webhook/outbound.go`, `deliver.go` |
 | Plugin `http.fetch` | `backend/internal/pluginhost/fetch.go:20` |
+| Package inspection | `backend/internal/pluginhost/hostapi_inspect.go`, `backend/internal/pluginhost/fetch_download.go` (`DownloadPublic`) |
 | Embeds | `backend/internal/render/funcs.go:123`; `backend/internal/entity/sanitize.go:19` |
 
 ## Related

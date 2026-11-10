@@ -10,15 +10,15 @@ A plugin reaches the server through one imported function, `hm_call`, in the was
 
 ## SDK version
 
-The contract between the server and a plugin is the Go module `hatamoto.dev/sdk`. The current SDK version is `0.20.0`. The manifest declares the range a plugin was built against, and the server refuses a plugin whose range does not contain a version it serves. This server serves `0.20.0` and also plugins built for `0.5.0` to `0.19.0` (see [The sdk range](manifest.md#the-sdk-range)). Minor versions are additive, and before 1.0 a breaking change bumps the minor.
+The contract between the server and a plugin is the Go module `hatamoto.dev/sdk`. The current SDK version is `0.21.0`. The manifest declares the range a plugin was built against, and the server refuses a plugin whose range does not contain a version it serves. This server serves `0.21.0` and also plugins built for `0.5.0` to `0.20.0` (see [The sdk range](manifest.md#the-sdk-range)). Minor versions are additive, and before 1.0 a breaking change bumps the minor.
 
 ```go
 // backend/pkg/sdk/version.go
-const Version = "0.20.0"
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0"}
+const Version = "0.21.0"
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0"}
 ```
 
-Fetch it with `go get hatamoto.dev/sdk@v0.20.0`. SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. The import path is a vanity path that points at the public SDK repository, so it does not change if the repository moves. It is a root module with plain tags: version `v0.20.0` is the git tag `v0.20.0`. The SDK root package has no dependencies beyond the standard library, and its `guest` subpackage is the Go layer over the Extism PDK. The Go helpers are `guest.OnAction`, `guest.OnFilter`, `guest.OnHTTP`, `guest.OnCron`, `guest.OnRunStep`, `guest.OnFunc`, `guest.Call`, `guest.Config`, `guest.Log`, `guest.Reject`, `guest.CapabilityDenied` and `guest.Handle`.
+Fetch it with `go get hatamoto.dev/sdk@v0.21.0`. SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. The import path is a vanity path that points at the public SDK repository, so it does not change if the repository moves. It is a root module with plain tags: version `v0.21.0` is the git tag `v0.21.0`. The SDK root package has no dependencies beyond the standard library, and its `guest` subpackage is the Go layer over the Extism PDK. The Go helpers are `guest.OnAction`, `guest.OnFilter`, `guest.OnHTTP`, `guest.OnCron`, `guest.OnRunStep`, `guest.OnFunc`, `guest.Call`, `guest.Config`, `guest.Log`, `guest.Reject`, `guest.CapabilityDenied` and `guest.Handle`.
 
 ## How calls work
 
@@ -44,6 +44,7 @@ A plugin always loads. What it may do is decided by the owner, and nothing is gr
 | `mail.send` | `mail.send` |
 | `http.fetch` | `http.fetch`, to the hosts in `allowed_hosts` |
 | `http.fetch.any` | lets `http.fetch` honour a `*` entry of `allowed_hosts`; needs `http.fetch` too |
+| `packages.inspect` | `packages.inspect`: download a Hatamoto package from a public https URL and report what it is and whether a key signed it. The prompt reads "Download and check Hatamoto packages from the web" |
 | `kv` | `kv.get`, `kv.set`, `kv.delete`, `kv.list` |
 | `db` | `db.query`, `db.exec`, and the plugin's migrations |
 | `builder.data` | no function: lets the plugin answer the `builder.data` filter for the sources it declares; without the grant the filter is not registered |
@@ -111,6 +112,7 @@ Every call has a deadline of at most 15 seconds and never longer than the hook c
 | `log` | `{ "level", "message" }` (level is `debug`, `info`, `warn` or `error`) | `{}` |
 | `mail.send` | `{ "to": [1 to 10 addresses], "subject", "text"?, "html"? }` | `{ "sent": n }` |
 | `http.fetch` | `{ "method"?, "url", "headers"?, "body"? or "body_b64"?, "timeout_ms"? }` | `{ "status", "headers", "body" or "body_b64", "truncated"? }` |
+| `packages.inspect` | `{ "url", "signer_key"? }` | `{ "kind", "name", "version", "sha256", "size", "signer_key_id", "signature_ok", "problems", .. }`; see [packages.inspect](#packagesinspect) |
 | `kv.get` / `kv.set` | `{ "key" }` / `{ "key", "value", "ttl_seconds"? }` | `{ "found", "value"? }` / `{}` |
 | `kv.delete` / `kv.list` | `{ "key" }` / `{ "prefix"?, "limit"? (100, max 1000) }` | `{}` / `{ "keys" }` |
 | `db.query` | `{ "sql", "args"? }` | `{ "columns", "rows", "truncated"? }` |
@@ -131,7 +133,7 @@ Content changes are made by a **run** the owner starts. The plugin declares it i
 | Functions | fetch | transform |
 |---|---|---|
 | `permissions`, `log`, `settings.get`, `run.info`, `run.checkpoint`, `run.progress`, `run.finish`, `run.fail` | yes | yes |
-| `http.fetch`, `upload.read`, `buffer.put`, `media.import_url` | yes | no |
+| `http.fetch`, `packages.inspect`, `upload.read`, `buffer.put`, `media.import_url` | yes | no |
 | `buffer.get`, `buffer.list`, `site.info`, `entities.slug_taken`, published reads, `changeset.*` | no | yes |
 | `kv.*`, `db.*`, `mail.send`, `forms.list`, `forms.submissions` | no | no |
 
@@ -180,6 +182,16 @@ An Entity is `{ id, schema_slug, slug, locale, name, status, version, parent_id?
 4. Redirects are followed up to 5 hops, and each hop repeats all of this.
 
 Request and response bodies are capped at 1 MiB (`truncated` means the response was cut: treat it as an error and ask for less). The default timeout is 10 seconds and the maximum 30, but a call never outlives the 15 second host-call deadline or the running hook's timeout. Cookies and environment proxies are off, and `Set-Cookie` plus other response headers outside a short allowlist are not passed back. Each plugin may make 600 requests per minute (burst 60), tunable with `HATAMOTO_PLUGIN_FETCH_PER_MINUTE`; beyond it calls answer `rate_limited`.
+
+## packages.inspect
+
+`packages.inspect` (SDK 0.21, permission `packages.inspect`) downloads one package from a public web address and returns a verdict. It installs nothing. The request is `{ "url", "signer_key"? }`: `url` must be `https` (`invalid_argument` otherwise), and `signer_key` is the base64 ed25519 public key the package is expected to be signed by.
+
+The result is `{ "kind", "name", "version", "sha256", "size", "signer_key_id", "signature_ok", "sdk"?, "permissions"?, "allowed_hosts"?, "description"?, "problems" }`. A package that cannot be fetched, parsed or verified is reported in `problems` (never null) with `signature_ok: false`, never as an error: an unreachable address, a non-2xx answer, a body over the 64 MiB archive limit, a corrupt or unsigned package, a signature by another key (the problem names the package's own signer id, which is also `signer_key_id`) or a file changed after signing. The manifest fields are filled only when the archive parsed, and there is no `title`. The package body is never returned or logged.
+
+The download follows the same address rules as `http.fetch`: the host resolves the name itself, refuses non-public addresses (`blocked`), allows port 443 only and re-checks every redirect, but it needs no `allowed_hosts` entry. Each call spends one token of the plugin's `http.fetch` rate limit (`rate_limited`), at most two inspections run at once on the server, and the call is cut by the 15 second host call limit (`timeout`).
+
+The package `hatamoto.dev/sdk/registry` holds the registry index types and `registry.SignIndex`, which signs an index into the same envelope, byte for byte, as the server's own signer, plus `registry.KeyID`. It uses the standard library only.
 
 ## Cached pages and plugin data
 

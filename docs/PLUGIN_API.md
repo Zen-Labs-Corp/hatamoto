@@ -1,7 +1,9 @@
-# Plugin API (SDK 0.20)
+# Plugin API (SDK 0.21)
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
+> **0.21 changes (additive over 0.20).** New permission `packages.inspect` and host function `packages.inspect`: download a package from a public https URL and get its kind, name, version, `sha256`, size, manifest summary and whether a given ed25519 key signed it, reported as `problems` and never as an error for a bad package. New helper package `hatamoto.dev/sdk/registry` with the registry index types and `registry.SignIndex`. No existing type, constant or function changed. See **packages.inspect** below.
+>
 > **0.20 changes (additive over 0.19).** `entities.get` and each item of `entities.list` carry `terms`, the entity's term assignments as `[{ kind, slug, name }]`, and `entities.list` takes `term: { kind, slug }` to keep only entities carrying that term. Both need `terms.read` (the key is absent without it), and `terms` is returned only to a plugin whose `sdk` range requires 0.20 or later; plugins built for `^0.19` or older get exactly the bytes they got before. See "Terms (SDK 0.20)" below. `EntityEvent` does not change.
 >
 > Also in 0.20: an `items` entry of `builder_sources` can declare up to 8 typed `params` (filters), each query loop stores its own values, and the `builder.data` request carries the validated values as `params`. Additive: a source without `params`, and a loop whose values all drop out, produce the same request bytes as before (same `id`, no `params` key). See `builder_sources` below and [builder.data](#builderdata). Rollback floor: a host older than this change refuses a page whose loop stores `params`.
@@ -131,13 +133,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.20.0`; plugins built for `^0.5` to `^0.19` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.21.0`; plugins built for `^0.5` to `^0.20` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.20.0
+go get hatamoto.dev/sdk@v0.21.0
 ```
 
 SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -147,7 +149,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.20.0` is the git tag `v0.20.0`. The core repository stays
+plain release tags: version `0.21.0` is the git tag `v0.21.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -164,7 +166,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.20 is current.
+> SDK 0.21 is current.
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -433,7 +435,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 |---|---|
 | `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
-| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.20.0 and also serves `^0.5` to `^0.19` plugins |
+| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.21.0 and also serves `^0.5` to `^0.20` plugins |
 | `description` | optional |
 | `config` | string map readable in the guest (`pdk.GetConfig`) |
 | `permissions` | capabilities the plugin asks for; see [Permissions](#permissions). Unknown names are refused |
@@ -471,6 +473,7 @@ A plugin always loads. What it may *do* is decided by the owner. Nothing is gran
 | `mail.send` | `mail.send` |
 | `http.fetch` | `http.fetch`, to the hosts in `allowed_hosts` |
 | `http.fetch.any` | lets `http.fetch` honour a `*` / `*:port` entry of `allowed_hosts`: **any public web address**. The prompt shows it as a warning, `package.grants` and the install/update audit record it, and an update that newly asks for it (or lists new hosts) needs the owner's confirmation and clears the plugin's grants, like a change of signer. Needs `http.fetch` too |
+| `packages.inspect` | `packages.inspect`: download a Hatamoto package from a public https URL and report what it is and whether a key signed it. The prompt reads "Download and check Hatamoto packages from the web". It installs nothing and is not a warning permission |
 | `kv` | `kv.get`, `kv.set`, `kv.delete`, `kv.list` |
 | `db` | `db.query`, `db.exec`, and the plugin's migrations |
 | `site.scripts` | no host function: the plugin's browser JavaScript runs on your public pages. Needed for `assets/plugin.js` to be linked and for `script-src` tags of a `render.head` filter to be emitted. The prompt shows it as a warning: "Runs its JavaScript on every public page, with full access to the site, including signed-in admins. Without it the plugin's script is not loaded." (an update that newly asks for it, and the plugin's page in the admin, repeat that wording). The warning is deliberately broad. The script has the visitor's page privileges and the admin is sealed against it, with the limits listed in `docs/SECURITY_MODEL.md` (Admin isolation); an update that newly asks for it needs the owner's confirmation and clears the grants. `sections/*.html` and `partials/*.html` that contain scripts are also stopped without it. A plugin that ships a script without the grant shows a note in the admin with a link to grant it |
@@ -508,6 +511,7 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 | `log` | `{ "level": "debug|info|warn|error", "message" }` | `{}`. At most 10 lines/s (burst 20), then `rate_limited`; messages are cut at 4 KiB |
 | `mail.send` | `{ "to": [1..10 plain addresses], "subject", "text"?, "html"? }` | `{ "sent": n }`. Goes through the site's mail service and From identity; 6 recipients per minute (burst 10: one token per recipient), then `rate_limited`; `unavailable` when mail is not configured |
 | `http.fetch` | `{ "method"?, "url", "headers"?, "body"? or "body_b64"?, "timeout_ms"? }` | `{ "status", "headers", "body" or "body_b64", "truncated"? }`. At most 600 requests per plugin per minute (`HATAMOTO_PLUGIN_FETCH_PER_MINUTE`, burst 60), then `rate_limited`. `truncated` means the body was cut at 1 MiB: treat it as an error, ask for less (the Search Console plugin sends `prettyPrint=false` and pages of 1,000 rows) |
+| `packages.inspect` | `{ "url", "signer_key"? }` | `{ "kind", "name", "version", "sha256", "size", "signer_key_id", "signature_ok", "sdk"?, "permissions"?, "allowed_hosts"?, "description"?, "problems" }`. Spends one token of the plugin's `http.fetch` rate limit; see **packages.inspect** below |
 | `kv.get` | `{ "key" }` | `{ "found": bool, "value"? }` |
 | `kv.set` | `{ "key", "value" (any JSON, at most 256 KiB), "ttl_seconds"? }` | `{}` |
 | `kv.delete` / `kv.list` | `{ "key" }` / `{ "prefix"?, "limit"? (100, max 1000) }` | `{}` / `{ "keys": [..] }` |
@@ -533,6 +537,10 @@ Menu items: `link_type` is `entity`, `custom`, `external`, `archive` or `none`. 
 **Terms (SDK 0.20).** For a plugin whose `sdk` range requires 0.20 or later and that holds `terms.read`, an Entity carries `terms`: `[{ kind, slug, name }]`, ordered by kind, then name. An entity with no terms has `"terms": []`; every other plugin gets no `terms` key, so plugins built for `^0.19` or older, and plugins without `terms.read`, see the same result as before. A failed lookup returns `internal`, never a missing key. `entities.list` takes `term: { "kind", "slug" }` and keeps only entities carrying exactly that term (not entities that carry one of its child terms). It needs `terms.read` (`capability_denied` without it, whatever the `sdk` range); a term that does not exist gives `{ "items": [], "next_cursor": null }`, and a malformed `kind` is `invalid_argument`. The terms of a page are read with one batched query. In a run's fetch phase the terms and the filter are available as well, on public entities only (the visitor rule applies before terms are loaded); `terms.list` and `terms.get` stay transform-phase functions. `EntityEvent` and the `entity.*` event payloads do not carry terms: read them with `entities.get`.
 
 **http.fetch** is the only server-side network a plugin has (markup and CSS it ships can still make visitors' browsers load resources from other hosts; see `docs/SECURITY_MODEL.md`). In order: the URL host and port must match `allowed_hosts` (`blocked` otherwise; `http` and `https` only, no credentials in the URL, methods GET/HEAD/POST/PUT/PATCH/DELETE); the host is **resolved by the host** and every answer must be a public address: loopback, private (10/8, 172.16/12, 192.168/16, fc00::/7), link-local (169.254/16 including cloud metadata, fe80::/10), CGNAT, multicast, unspecified, documentation and reserved ranges, and IPv4-in-IPv6 forms (mapped, NAT64, 6to4) are refused, and one bad answer refuses the host; the connection is then made to the checked IP, never to the name again, so DNS cannot rebind between check and connect; every redirect hop (at most 5) repeats all of this. Request body at most 1 MiB, response at most 1 MiB (`truncated`), 10 s by default and 30 s at most. Redirects are followed (at most 5 hops, each re-checked as above); cookies and proxies from the environment are off; `Set-Cookie` and other response headers outside a short allowlist are not passed back.
+
+**packages.inspect** (SDK 0.21) downloads one package and returns a verdict; it needs the `packages.inspect` permission and no `allowed_hosts` entry. `url` must be `https` (`invalid_argument` otherwise; at most 2,048 bytes, no credentials, port 443 only). The host resolves the name itself and refuses non-public addresses and every redirect hop that is not public https, exactly like `http.fetch` (`blocked`). The call spends one token of the plugin's `http.fetch` rate limit (`rate_limited`), and the host runs at most two inspections at once (`rate_limited` "busy" while both are taken). The whole call is subject to the 15 s host call ceiling (`timeout`). The archive is read up to 64 MiB; a longer body stops the read and is reported as a problem. `signer_key` is the base64 ed25519 public key the package is expected to be signed by; without it the signature is not accepted. The result is never an error for a bad package: an unreachable URL, a non-2xx answer ("download answered 404"), an oversized or corrupt archive, an unsigned package, a signature by another key (the problem names the package's own signer id, also returned as `signer_key_id`) or a changed file all give `signature_ok: false` and one or more strings in `problems` (never null). `kind`, `name`, `version`, `sdk`, `permissions`, `allowed_hosts` and `description` come from the package manifest and are filled only when the archive parsed; there is no `title`. `sha256` and `size` describe the archive. The package body, or any part of it, is never returned or logged, and nothing is installed.
+
+**Registry helper (SDK 0.21).** The package `hatamoto.dev/sdk/registry` has the types of a registry index (`Index`, `Entry`, `Revocation`) and `registry.SignIndex(index, privateKey)`, which signs an index JSON document into the same signed envelope the server verifies, byte for byte the same as the server's own signer, plus `registry.KeyID(publicKey)`. It uses the standard library only, so a plugin can import it.
 
 ## Runs and changesets
 
@@ -619,7 +627,7 @@ The fetch phase collects data from the outside and sees no site data; the transf
 | Functions | fetch | transform |
 |---|---|---|
 | `permissions`, `log`, `settings.get`, `run.info`, `run.checkpoint`, `run.progress`, `run.finish`, `run.fail` | yes | yes |
-| `http.fetch`, `upload.read`, `buffer.put`, `media.import_url` | yes | `phase_denied` |
+| `http.fetch`, `packages.inspect`, `upload.read`, `buffer.put`, `media.import_url` | yes | `phase_denied` |
 | `buffer.get`, `buffer.list`, `site.info`, `entities.slug_taken`, `changeset.*` | `phase_denied` | yes |
 | `entities.get`, `entities.list`, `entities.translations`, `terms.list`, `terms.get`, `menus.get`, `menus.list`, `media.get`, `media.list`, `redirects.list` (published reads) | `phase_denied` | yes |
 | `kv.*`, `db.*`, `mail.send`, `forms.list`, `forms.submissions` | `phase_denied` | `phase_denied` |
