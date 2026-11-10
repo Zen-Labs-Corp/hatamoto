@@ -25,7 +25,9 @@ func (w recordUndo) Apply(ctx context.Context, tx Tx, origin string, it Item, ta
 // The client cannot cancel the COMMIT of a publish: a cancelled request must
 // not cut the commit off (it may have committed anyway) and run the undo, which
 // would delete files of rows that exist. A deferred trigger slows the commit
-// down; the test cancels the request while the server is inside COMMIT.
+// down; the test cancels the request while the server is inside COMMIT. The
+// watcher only matches this database's COMMIT sleeping in the trigger: CI runs
+// other packages on the same server, and their COMMITs must not cancel early.
 func TestPublishCommitIsNotCancelledByTheClient(t *testing.T) {
 	f := newFixture(t)
 	var undone bool
@@ -54,7 +56,8 @@ func TestPublishCommitIsNotCancelledByTheClient(t *testing.T) {
 		for end := time.Now().Add(20 * time.Second); time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
 			var n int
 			f.db.Pool().QueryRow(context.Background(),
-				`SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND lower(query) = 'commit'`).Scan(&n)
+				`SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()
+				 AND state = 'active' AND lower(query) = 'commit' AND wait_event = 'PgSleep'`).Scan(&n)
 			if n > 0 {
 				cancel()
 				return

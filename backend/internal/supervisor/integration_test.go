@@ -7,10 +7,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
+	"math/rand/v2"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -77,6 +80,31 @@ type box struct {
 	trustKey string // base64 public key, handed to the supervisor process
 }
 
+// apiPort returns a free port for a box's child below the kernel's ephemeral
+// range. A port from FreeLoopbackAddr is released before the child binds it,
+// so the supervisor's smoke address (also from FreeLoopbackAddr) could get the
+// same port and its /smoke would reach the child's API mux (HTTP 404).
+func apiPort(t *testing.T) string {
+	t.Helper()
+	low := 32768
+	if raw, err := os.ReadFile("/proc/sys/net/ipv4/ip_local_port_range"); err == nil {
+		if f := strings.Fields(string(raw)); len(f) == 2 {
+			if n, err := strconv.Atoi(f[0]); err == nil && n > 12000 {
+				low = n
+			}
+		}
+	}
+	for range 100 {
+		port := strconv.Itoa(10000 + rand.IntN(low-10000))
+		if l, err := net.Listen("tcp", "127.0.0.1:"+port); err == nil {
+			l.Close()
+			return port
+		}
+	}
+	t.Fatal("no free port below the ephemeral range")
+	return ""
+}
+
 func newBox(t *testing.T) *box {
 	t.Helper()
 	k, err := packages.GenerateKey()
@@ -87,11 +115,7 @@ func newBox(t *testing.T) *box {
 	ts := packages.TrustSet{}
 	ts.Add(pub)
 	dir := t.TempDir()
-	addr, err := FreeLoopbackAddr()
-	if err != nil {
-		t.Fatal(err)
-	}
-	b := &box{t: t, dir: dir, data: filepath.Join(dir, "data"), port: addr[strings.LastIndex(addr, ":")+1:],
+	b := &box{t: t, dir: dir, data: filepath.Join(dir, "data"), port: apiPort(t),
 		version: "v1.0.0", key: k, opts: release.Options{Release: ts}, trustKey: k.Public}
 	b.l = NewLayout(b.data)
 	b.boot = filepath.Join(dir, "boot", "hatamoto") // /id answers "boot"

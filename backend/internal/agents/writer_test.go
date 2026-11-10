@@ -23,12 +23,19 @@ type fakeStore struct {
 	hits    []Hit
 	batches chan []Hit
 	block   chan struct{} // when non-nil, InsertHits waits on it
+	entered chan struct{} // gets a value each time InsertHits starts waiting on block
 }
 
-func newFakeStore() *fakeStore { return &fakeStore{batches: make(chan []Hit, 64)} }
+func newFakeStore() *fakeStore {
+	return &fakeStore{batches: make(chan []Hit, 64), entered: make(chan struct{}, 1)}
+}
 
 func (f *fakeStore) InsertHits(ctx context.Context, hits []Hit) error {
 	if f.block != nil {
+		select {
+		case f.entered <- struct{}{}:
+		default:
+		}
 		<-f.block
 	}
 	f.mu.Lock()
@@ -72,6 +79,18 @@ func TestRecordDropsWhenFull(t *testing.T) {
 	}
 	if got := w.Stats().Dropped; got == 0 {
 		t.Fatalf("expected drops, got %d", got)
+	}
+	// The writer may take its first batch only after the burst, which frees
+	// queue slots: wait until it is stuck in the store, then top the queue up.
+	select {
+	case <-st.entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the writer never reached the store")
+	}
+	for i := 0; w.Record(RawHit{UA: gptUA, Path: "/x", Source: SourceBackend}); i++ {
+		if i > queueSize {
+			t.Fatal("the queue never filled")
+		}
 	}
 	// And a single Record on a full queue returns promptly, reporting the refusal.
 	done := make(chan struct{})
