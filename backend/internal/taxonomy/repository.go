@@ -403,7 +403,7 @@ func (r *PostgresRepository) TermsForEntities(ctx context.Context, entityIDs []u
           FROM hatamoto_entity_terms et
           JOIN hatamoto_terms t ON t.id = et.term_id
          WHERE et.entity_id = ANY($1)
-         ORDER BY et.entity_id, t.kind, t.name
+         ORDER BY et.entity_id, t.kind, t.name, t.slug
     `, entityIDs)
 	if err != nil {
 		return nil, err
