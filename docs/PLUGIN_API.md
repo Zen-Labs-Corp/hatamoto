@@ -662,7 +662,7 @@ A changeset stays staged for review as a whole, with nothing published, when any
 - gives a slug that is already taken in the schema;
 - would take the hour past `create.max_per_hour`.
 
-A changeset that mixes a create with anything outside the rule waits as a whole. An existing term can be assigned to a new entry; making a new term cannot be automatic.
+A changeset that mixes a create with anything outside the rule waits as a whole. A new entry cannot carry terms: an entity item has no terms field, and a changeset with a term item waits for review.
 
 ### `on_run_step`
 
