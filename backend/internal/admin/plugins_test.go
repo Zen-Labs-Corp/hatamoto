@@ -470,3 +470,26 @@ func TestEnableRevokedPluginExplainsRefusal(t *testing.T) {
 		t.Errorf("unknown plugin: status %d", rec.Code)
 	}
 }
+
+// While developer packages are allowed the Plugins page says so and offers
+// Turn off, which returns to the page; while off there is no notice.
+func TestPluginsPageDeveloperBanner(t *testing.T) {
+	t.Parallel()
+
+	g, pk, _ := newPackageRig(t)
+	if body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String(); strings.Contains(body, "Developer packages are allowed") {
+		t.Fatal("banner shown while developer packages are off")
+	}
+	pk.developerOn = true
+	body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`id="developer-banner"`, "Developer packages are allowed.", `action="/admin/plugins/developer/off"`, `name="return" value="plugins"`, ">Turn off<"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	a11yOK(t, body)
+	rec := g.do("POST", "/admin/plugins/developer/off", "owner-token", url.Values{"return": {"plugins"}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/plugins" || pk.developerOn {
+		t.Fatalf("turn off: status %d, location %q, on %v", rec.Code, rec.Header().Get("Location"), pk.developerOn)
+	}
+}

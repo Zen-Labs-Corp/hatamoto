@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -23,5 +24,26 @@ func TestRevokedThemeShowsRevocation(t *testing.T) {
 	}
 	if strings.Contains(body, "()") {
 		t.Error("empty parentheses")
+	}
+}
+
+func TestThemesPageDeveloperBanner(t *testing.T) {
+	t.Parallel()
+
+	g, pk, _ := newPackageRig(t)
+	if body := g.do("GET", "/admin/theme/themes", "owner-token", nil, nil).Body.String(); strings.Contains(body, "Developer packages are allowed") {
+		t.Fatal("banner shown while developer packages are off")
+	}
+	pk.developerOn = true
+	body := g.do("GET", "/admin/theme/themes", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`id="developer-banner"`, "Developer packages are allowed.", `action="/admin/plugins/developer/off"`, `name="return" value="theme"`, ">Turn off<"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	a11yOK(t, body)
+	rec := g.do("POST", "/admin/plugins/developer/off", "owner-token", url.Values{"return": {"theme"}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/theme/themes" || pk.developerOn {
+		t.Fatalf("turn off: status %d, location %q, on %v", rec.Code, rec.Header().Get("Location"), pk.developerOn)
 	}
 }

@@ -151,7 +151,10 @@ type pluginsPage struct {
 	Unsigned      UnsignedState
 	UnsignedUntil string
 	AllowUnsigned bool
-	BrowseHref    string
+	// Developer is set while developer packages are allowed: the page says so
+	// and offers Turn off.
+	Developer  bool
+	BrowseHref string
 	// Filtered is true when a tab other than All or a search narrows the list.
 	Filtered bool
 }
@@ -256,6 +259,7 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 		d.CanInstall = true
 		d.Unsigned = pk.UnsignedState(r.Context())
 		d.AllowUnsigned = d.Unsigned.On
+		d.Developer = pk.AllowDeveloper(r.Context())
 		if d.Unsigned.On && d.Unsigned.Until != nil {
 			d.UnsignedUntil = d.Unsigned.Until.UTC().Format("2 Jan 2006 15:04 UTC")
 		}

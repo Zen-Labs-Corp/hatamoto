@@ -89,6 +89,9 @@ func themePalette(t ThemeInfo, cfg *siteconfig.Config) []themeSwatch {
 type themesPage struct {
 	Themes        []themeCard
 	AllowUnsigned bool
+	// Developer is set while developer packages are allowed: the page says so
+	// and offers Turn off.
+	Developer bool
 	// Actions are the header's Browse themes link and Upload theme button (opens the dialog).
 	Actions []ui.Button
 }
@@ -109,7 +112,7 @@ func (a *Admin) handleThemes(w http.ResponseWriter, r *http.Request) {
 	for i, t := range themes {
 		cards[i] = themeCard{ThemeInfo: t, Palette: themePalette(t, cfg)}
 	}
-	d := themesPage{Themes: cards, AllowUnsigned: pk.AllowUnsigned(r.Context()),
+	d := themesPage{Themes: cards, AllowUnsigned: pk.AllowUnsigned(r.Context()), Developer: pk.AllowDeveloper(r.Context()),
 		Actions: []ui.Button{
 			{Label: "Upload theme", Href: a.adminPath + "/plugins/upload?for=theme", Icon: "upload", Attrs: map[string]string{"data-hm-open": "upload-pkg"}},
 			{Label: "Browse themes", Href: a.adminPath + "/theme/browse", Variant: "primary", Icon: "search"},
