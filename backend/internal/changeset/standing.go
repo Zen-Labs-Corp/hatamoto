@@ -647,6 +647,10 @@ func imageByName(name string, node any) bool {
 		return false
 	}
 	format, _ := n["format"].(string)
+	xHm, _ := n["x-hm-field"].(string)
+	if schemafield.IsURIField(format, xHm) {
+		format = "uri"
+	}
 	if schemafield.IsImageField(name, format, false) {
 		return true
 	}

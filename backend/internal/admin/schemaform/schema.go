@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/schemafield"
 )
 
 // Node is the subset of JSON Schema the admin forms understand. Properties keep
@@ -225,11 +226,11 @@ func (n *Node) mapHint() {
 		n.Format = "richtext"
 	case "html", "code", "css":
 		n.Format = "textarea"
-	case "url":
-		n.Format = "uri"
 	case "image":
-		n.Format = "uri"
 		n.XMedia = true
+	}
+	if schemafield.IsURIField(n.Format, n.XHm) {
+		n.Format = "uri"
 	}
 }
 
