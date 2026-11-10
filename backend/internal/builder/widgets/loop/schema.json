@@ -29,6 +29,7 @@
     "offset": {"type": "integer", "minimum": 0, "maximum": 1000},
     "paging": {"enum": ["none", "pages"]},
     "exclude_current": {"type": "boolean"},
+    "params": {"type": "object"},
     "hidden": {"type": "boolean"}
   }
 }

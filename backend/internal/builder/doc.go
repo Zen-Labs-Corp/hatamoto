@@ -177,6 +177,11 @@ func (d *Doc) Validate() error {
 			if x.T == "loop" && x.P["from"] == "source" && x.P["source"] == nil {
 				return invalid("%s: a loop from a source needs its source", x.ID)
 			}
+			if x.T == "loop" && x.P["params"] != nil {
+				if err := StructuralParamsErr(x.P["params"]); err != nil {
+					return invalid("%s: %v", x.ID, err)
+				}
+			}
 			if err := validateBinds(r, x, inLoop); err != nil {
 				return invalid("%s: %v", x.ID, err)
 			}
