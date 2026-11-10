@@ -590,7 +590,8 @@ func ownedOrStaged(ctx context.Context, tx pgx.Tx, p StandingPolicy, origin, ref
 
 // checkCreateAttributes refuses a new entry that carries a media reference:
 // a non-empty value in a field the schema marks as an image or file, in a
-// key the schema does not declare, or in a field it cannot classify.
+// key the schema does not declare, or in a field it cannot classify; and one
+// whose strings carry image markup.
 func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte, raw jsontext.Value) string {
 	attrs, ok := decodeObject(raw)
 	if !ok {
@@ -640,6 +641,11 @@ func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte,
 	// never qualifies: the readers resolve images by value, not by field.
 	var strs []string
 	collectStrings(attrs, &strs)
+	// Any picture or media element, in any string, waits for a person: whose
+	// file it is, and from which host, cannot be told from the markup alone.
+	if slices.ContainsFunc(strs, schemafield.MentionsImageMarkup) {
+		return "it carries image markup, which never qualifies."
+	}
 	if slices.ContainsFunc(strs, schemafield.MentionsMediaPath) {
 		return "it refers to a file in the media library, which never qualifies."
 	}

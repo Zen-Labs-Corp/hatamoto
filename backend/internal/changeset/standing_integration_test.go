@@ -543,6 +543,10 @@ func TestStandingCreatePublishes(t *testing.T) {
 		}
 	})
 
+	t.Run("text_html_with_links_and_headings", func(t *testing.T) {
+		publish(s.newItem("txt", map[string]any{"attributes": map[string]any{"title": "T", "content": `<h2>Heading</h2><p>Read <a href="/about">about us</a> and <strong>more</strong>.</p>`}}))
+	})
+
 	t.Run("html_is_sanitised", func(t *testing.T) {
 		publish(s.newItem("html", map[string]any{"attributes": map[string]any{"title": "T", "content": "<p>hello</p><script>alert(1)</script>"}}))
 		var content string
@@ -676,7 +680,7 @@ func TestStandingCreateRefusals(t *testing.T) {
 		}, "media library"},
 		{"media_path_in_markup", func() int64 {
 			return s.stageAll(s.newItem("e10m", map[string]any{"attributes": map[string]any{"title": "T", "content": `<p><img src="/uploads/2026/x.jpg"></p>`}}))
-		}, "media library"},
+		}, "image markup"},
 		{"media_absolute_own_url", func() int64 {
 			return s.stageAll(s.newItem("e10q", map[string]any{"attributes": map[string]any{"title": "https://" + s.siteHost() + "/media/2026/x.jpg"}}))
 		}, "media library"},
@@ -697,6 +701,33 @@ func TestStandingCreateRefusals(t *testing.T) {
 			s.mediaRow(u)
 			return s.stageAll(s.newItem("e10e", map[string]any{"attributes": map[string]any{"title": u}}))
 		}, "media library"},
+		{"markup_img_cdn_host", func() int64 {
+			return s.stageAll(s.newItem("mk1", map[string]any{"attributes": map[string]any{"title": "T", "content": `<p><img src="https://` + s.siteHost() + `/key.jpg"></p>`}}))
+		}, "image markup"},
+		{"markup_img_percent_encoded_media", func() int64 {
+			return s.stageAll(s.newItem("mk2", map[string]any{"attributes": map[string]any{"title": "T", "content": `<img src="/%6Dedia/k.jpg">`}}))
+		}, "image markup"},
+		{"markup_img_site_linked_host", func() int64 {
+			return s.stageAll(s.newItem("mk3", map[string]any{"attributes": map[string]any{"title": "T", "content": `<img src="https://` + s.siteHost() + `/pic.jpg">`}}))
+		}, "image markup"},
+		{"markup_srcset_only", func() int64 {
+			return s.stageAll(s.newItem("mk4", map[string]any{"attributes": map[string]any{"title": "T", "content": `<div srcset="https://cdn.example/a.jpg 1x">x</div>`}}))
+		}, "image markup"},
+		{"markup_picture_source", func() int64 {
+			return s.stageAll(s.newItem("mk5", map[string]any{"attributes": map[string]any{"title": "T", "content": `<picture><source srcset="https://cdn.example/a.webp"></picture>`}}))
+		}, "image markup"},
+		{"markup_style_url", func() int64 {
+			return s.stageAll(s.newItem("mk6", map[string]any{"attributes": map[string]any{"title": "T", "content": `<div style="background:url(https://cdn.example/a.jpg)">x</div>`}}))
+		}, "image markup"},
+		{"markup_markdown_image", func() int64 {
+			return s.stageAll(s.newItem("mk7", map[string]any{"attributes": map[string]any{"title": "T", "content": "![a](https://" + s.siteHost() + "/a.jpg)"}}))
+		}, "image markup"},
+		{"markup_entity_encoded_img", func() int64 {
+			return s.stageAll(s.newItem("mk8", map[string]any{"attributes": map[string]any{"title": "T", "content": `&lt;img src="https://cdn.example/a.jpg"&gt;`}}))
+		}, "image markup"},
+		{"markup_in_nested_key", func() int64 {
+			return s.stageAll(s.newItem("mk9", map[string]any{"attributes": map[string]any{"title": "T", "nested": map[string]any{"deep": []any{`<video src=x></video>`}}}}))
+		}, "image markup"},
 		{"media_alias_of_image_field", func() int64 {
 			return s.stageAll(s.newItem("e10z", map[string]any{"attributes": map[string]any{"title": "T", "caption": "x.jpg"}}))
 		}, "image or file"},
@@ -822,7 +853,9 @@ func TestStandingCreateRefusals(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			defer func(p StandingPolicy) { s.policy = p }(s.policy)
+			// A failure belongs to this case, not to the whole table.
+			defer func(p StandingPolicy, pt *testing.T) { s.policy, s.t = p, pt }(s.policy, s.t)
+			s.t = t
 			s.setSchema(schemaDoc)
 			s.withCreate(10)
 			s.policy.Schemas = []string{s.slug}
