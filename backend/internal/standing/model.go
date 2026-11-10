@@ -20,6 +20,16 @@ type Policy struct {
 	Fields     []string `json:"fields"`
 	Schemas    []string `json:"schemas"`
 	MaxPerHour int      `json:"max_per_hour"`
+	// Create is set only when the approved rule opted in to publishing new
+	// entries; nil keeps the stored form and the behaviour of an update rule.
+	Create *CreatePolicy `json:"create,omitempty"`
+}
+
+// CreatePolicy is the create part of an approved rule: the schemas whose new
+// entries may publish by themselves and the hourly cap.
+type CreatePolicy struct {
+	Schemas    []string `json:"schemas"`
+	MaxPerHour int      `json:"max_per_hour"`
 }
 
 // Fingerprint identifies what the owner approved: the plugin release, its
