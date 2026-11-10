@@ -375,7 +375,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	// An update of a developer package must come from the same developer key.
 	// This is not a confirmation: Confirm cannot bypass it.
 	if updating {
-		if err := CheckDeveloperPin(prev, p, origin); err != nil {
+		if err := CheckDeveloperPin(prev, p, developerKey); err != nil {
 			return nil, err
 		}
 	}
@@ -652,21 +652,24 @@ func (m *Manager) CheckPolicy(ctx context.Context, p *Package, src Source) error
 }
 
 // PolicyOrigin is CheckPolicy that also returns the origin the package would be
-// installed with (the signer's, when the policy refuses it), so a prompt can apply the same community policy as Install:
-// OriginDeveloper for a developer package the owner allows.
-func (m *Manager) PolicyOrigin(ctx context.Context, p *Package, src Source) (Origin, error) {
+// installed with (the signer's, when the policy refuses it), so a prompt can
+// apply the same community policy as Install: OriginDeveloper for a developer
+// package the owner allows. For that one it also returns the developer key
+// (as CheckDeveloperPin takes it); otherwise the key is "".
+func (m *Manager) PolicyOrigin(ctx context.Context, p *Package, src Source) (Origin, string, error) {
 	grant, err := m.checkPolicy(ctx, p, src)
 	if grant != nil {
-		return OriginDeveloper, err
+		return OriginDeveloper, developerKeyString(grant.Key), err
 	}
-	return Classify(p.Name, signerOf(p)), err
+	return Classify(p.Name, signerOf(p)), "", err
 }
 
 // CheckDeveloperPin refuses an update of the installed developer package prev
-// that is not a developer package signed by the same key (origin is the one
-// PolicyOrigin gave p). Confirm never bypasses it.
-func CheckDeveloperPin(prev Row, p *Package, origin Origin) error {
-	if prev.Developer && (origin != OriginDeveloper || signerOf(p) != prev.SignerKeyID) {
+// unless it is a developer package verified by the very key stored on prev
+// (developerKey is the one PolicyOrigin gave p, "" for none). Confirm never
+// bypasses it.
+func CheckDeveloperPin(prev Row, p *Package, developerKey string) error {
+	if prev.Developer && (developerKey == "" || developerKey != prev.DeveloperKey) {
 		return &DeveloperError{Name: p.Name, Version: p.Version, KeyID: signerOf(p), WantKeyID: prev.SignerKeyID, Err: ErrDeveloperSignerChanged}
 	}
 	return nil

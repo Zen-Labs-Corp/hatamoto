@@ -249,7 +249,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		return admin.PackageSummary{}, refusal(err)
 	}
 	sum := admin.PackageSummary{Kind: string(pkg.Kind), Name: pkg.Name, Version: pkg.Version}
-	origin, policyErr := p.mgr().PolicyOrigin(ctx, pkg, packages.SourceUpload)
+	origin, developerKey, policyErr := p.mgr().PolicyOrigin(ctx, pkg, packages.SourceUpload)
 	switch pkg.Kind {
 	case packages.KindPlugin:
 		m, _ := pkg.PluginManifest()
@@ -289,7 +289,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 			sum.Problem = packages.ErrUninstalling.Error()
 		}
 		// Install refuses this whatever Confirm says, so do not offer it.
-		if err := packages.CheckDeveloperPin(row, pkg, origin); err != nil && sum.Problem == "" {
+		if err := packages.CheckDeveloperPin(row, pkg, developerKey); err != nil && sum.Problem == "" {
 			sum.Problem = err.Error()
 		}
 	}

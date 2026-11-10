@@ -271,8 +271,8 @@ func TestPolicyOriginOfADeveloperPackage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	origin, err := d.mgr.PolicyOrigin(ctx, p, SourceUpload)
-	if err != nil || origin != OriginDeveloper {
+	origin, key, err := d.mgr.PolicyOrigin(ctx, p, SourceUpload)
+	if err != nil || origin != OriginDeveloper || key != d.dev.Public {
 		t.Fatalf("origin %v, err %v", origin, err)
 	}
 	if got := RefusedPermissions(origin, p); len(got) != 1 || got[0] != "builder.island" {

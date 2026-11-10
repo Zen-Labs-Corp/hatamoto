@@ -233,19 +233,19 @@ func TestDeveloperPackageGetsCommunityPolicyAtThePrompt(t *testing.T) {
 }
 
 func TestCheckDeveloperPin(t *testing.T) {
-	p := &Package{Kind: KindPlugin, Name: "acme-seo", Version: "2.0.0", Signature: &Signature{Signer: "bbbbbbbbbbbbbbbb"}}
-	row := Row{Developer: true, SignerKeyID: "aaaaaaaaaaaaaaaa"}
-	if err := CheckDeveloperPin(row, p, OriginDeveloper); !errors.Is(err, ErrDeveloperSignerChanged) {
-		t.Fatalf("another key: %v", err)
-	}
-	p.Signature.Signer = "aaaaaaaaaaaaaaaa"
-	if err := CheckDeveloperPin(row, p, OriginDeveloper); err != nil {
+	p := &Package{Kind: KindPlugin, Name: "acme-seo", Version: "2.0.0", Signature: &Signature{Signer: "aaaaaaaaaaaaaaaa"}}
+	row := Row{Developer: true, SignerKeyID: "aaaaaaaaaaaaaaaa", DeveloperKey: "key-a"}
+	if err := CheckDeveloperPin(row, p, "key-a"); err != nil {
 		t.Fatalf("same key: %v", err)
 	}
-	if err := CheckDeveloperPin(row, p, OriginSelfBuilt); !errors.Is(err, ErrDeveloperSignerChanged) {
+	// The same 64-bit id with another full key is another key.
+	if err := CheckDeveloperPin(row, p, "key-b"); !errors.Is(err, ErrDeveloperSignerChanged) {
+		t.Fatalf("same id, other key: %v", err)
+	}
+	if err := CheckDeveloperPin(row, p, ""); !errors.Is(err, ErrDeveloperSignerChanged) {
 		t.Fatalf("not a developer package: %v", err)
 	}
-	if err := CheckDeveloperPin(Row{SignerKeyID: "aaaaaaaaaaaaaaaa"}, p, OriginSelfBuilt); err != nil {
+	if err := CheckDeveloperPin(Row{SignerKeyID: "aaaaaaaaaaaaaaaa"}, p, ""); err != nil {
 		t.Fatalf("not a developer row: %v", err)
 	}
 }
