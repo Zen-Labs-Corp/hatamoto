@@ -288,6 +288,10 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		if row.State == packages.StateUninstalling {
 			sum.Problem = packages.ErrUninstalling.Error()
 		}
+		// Install refuses this whatever Confirm says, so do not offer it.
+		if err := packages.CheckDeveloperPin(row, pkg, origin); err != nil && sum.Problem == "" {
+			sum.Problem = err.Error()
+		}
 	}
 	// First-party is a claim about whose plugin this is, so it needs a
 	// verified signature and a name on the first-party list.

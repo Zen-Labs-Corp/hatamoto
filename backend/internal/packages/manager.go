@@ -374,8 +374,10 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	}
 	// An update of a developer package must come from the same developer key.
 	// This is not a confirmation: Confirm cannot bypass it.
-	if updating && prev.Developer && (grant == nil || KeyID(grant.Key) != prev.SignerKeyID) {
-		return nil, &DeveloperError{Name: p.Name, Version: p.Version, KeyID: signerOf(p), WantKeyID: prev.SignerKeyID, Err: ErrDeveloperSignerChanged}
+	if updating {
+		if err := CheckDeveloperPin(prev, p, origin); err != nil {
+			return nil, err
+		}
 	}
 	var need *ConfirmationRequired
 	if updating {
@@ -658,6 +660,16 @@ func (m *Manager) PolicyOrigin(ctx context.Context, p *Package, src Source) (Ori
 		return OriginDeveloper, err
 	}
 	return Classify(p.Name, signerOf(p)), err
+}
+
+// CheckDeveloperPin refuses an update of the installed developer package prev
+// that is not a developer package signed by the same key (origin is the one
+// PolicyOrigin gave p). Confirm never bypasses it.
+func CheckDeveloperPin(prev Row, p *Package, origin Origin) error {
+	if prev.Developer && (origin != OriginDeveloper || signerOf(p) != prev.SignerKeyID) {
+		return &DeveloperError{Name: p.Name, Version: p.Version, KeyID: signerOf(p), WantKeyID: prev.SignerKeyID, Err: ErrDeveloperSignerChanged}
+	}
+	return nil
 }
 
 // ErrNotListed is a package neither the main registry nor the developer index
