@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"hatamoto.dev/core/internal/httpx"
 
@@ -87,14 +88,18 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		capture:    capture,
 		preview:    s.handlePreviewShare,
 		formPage:   s.handleFormPage,
+
+		acquireBound: s.cfg.Database.PublicAcquireTimeout,
 	})
 }
 
 // renderRoutes are the handlers mountRenderRoutes wires; split from Server so
 // the routing is testable without a database.
 type renderRoutes struct {
-	pages  *renderHandlers
-	assets http.Handler
+	// acquireBound is the public acquire timeout; 0 disables the bound.
+	acquireBound time.Duration
+	pages        *renderHandlers
+	assets       http.Handler
 	// fonts (optional) serves GET /fonts/<sha256>.woff2 from the font store.
 	fonts      http.Handler
 	robots     http.HandlerFunc
@@ -124,6 +129,11 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 	if capture == nil {
 		capture = func(next http.Handler) http.Handler { return next }
 	}
+	// Public page requests (and only those) give up on a busy connection pool
+	// after the acquire bound and answer 503. It wraps capture, so every
+	// crawler-visible route below carries it.
+	bound, record := publicAcquireBound(rt.acquireBound), capture
+	capture = func(next http.Handler) http.Handler { return bound(record(next)) }
 	// A "GET" pattern also serves HEAD, so HEAD reaches these handlers rather
 	// than the page catch-all.
 	captured := r.Group("", capture)

@@ -96,9 +96,9 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 	if len(path) > 1 {
 		path = strings.TrimSuffix(path, "/")
 	}
-	fail := func() (*routeResult, pageOutcome, error) {
+	fail := func(err error) (*routeResult, pageOutcome, error) {
 		return nil, pageOutcome{Status: http.StatusInternalServerError},
-			&pageError{http.StatusInternalServerError, "failed to resolve path"}
+			loadFailure(err, "failed to resolve path")
 	}
 
 	if deps.checkRedirect != nil {
@@ -110,8 +110,8 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 
 	snap, err := deps.snapshot(ctx)
 	if err != nil {
-		s.logger.Error("resolve: url registry", "error", err)
-		return fail()
+		s.logLoadFailure("resolve: url registry", err)
+		return fail(err)
 	}
 	// After the redirect check (rules may name a prefixed path): strip the
 	// locale segment and scope every read to that locale. An unprefixed path is
@@ -139,8 +139,8 @@ func (s *Server) resolveRouteWith(ctx context.Context, deps routeDeps, path stri
 	notFound := &routeResult{NotFound: true, Locale: locale, Rest: path}
 	res, err := resolveStagedOrLive(ctx, deps.repo, snap, fullPath, path)
 	if err != nil {
-		s.logger.Error("resolve: lookup", "error", err, "path", path)
-		return fail()
+		s.logLoadFailure("resolve: lookup", err, "path", path)
+		return fail(err)
 	}
 	if res == nil {
 		if deps.log404 != nil && r != nil && !isPrefetch(r) {

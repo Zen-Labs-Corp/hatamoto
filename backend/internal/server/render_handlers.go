@@ -13,6 +13,7 @@ import (
 
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/middleware"
@@ -430,6 +431,10 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		h.writeNotFoundQuiet(w, r) // e.g. ?page past the last page: not a broken link
 		return
 	}
+	if errors.Is(err, database.ErrPoolBusy) {
+		h.writeFailure(w, r, err)
+		return
+	}
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "render: build view", "error", err, "path", path)
 		h.writeError(w, r, http.StatusInternalServerError, nil)
@@ -557,6 +562,11 @@ func (h *renderHandlers) writeNotFoundQuiet(w http.ResponseWriter, r *http.Reque
 
 // writeFailure maps a loader error to a themed error page.
 func (h *renderHandlers) writeFailure(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, database.ErrPoolBusy) {
+		h.logger.DebugContext(r.Context(), "render: pool busy", "path", r.URL.Path)
+		h.writeBusy(w, r)
+		return
+	}
 	var pe *pageError
 	if errors.As(err, &pe) {
 		if pe.status == http.StatusNotFound {

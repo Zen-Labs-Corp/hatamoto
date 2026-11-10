@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/person"
@@ -35,6 +36,21 @@ type pageError struct {
 }
 
 func (e *pageError) Error() string { return e.msg }
+
+// Is lets errors.Is(err, database.ErrPoolBusy) see a pool-busy load failure
+// built by loadFailure.
+func (e *pageError) Is(target error) bool {
+	return target == database.ErrPoolBusy && e.status == http.StatusServiceUnavailable
+}
+
+// loadFailure is the pageError for a failed load: a busy pool is a 503 (the
+// site is warming up), anything else a 500.
+func loadFailure(err error, msg string) *pageError {
+	if errors.Is(err, database.ErrPoolBusy) {
+		return &pageError{http.StatusServiceUnavailable, msg}
+	}
+	return &pageError{http.StatusInternalServerError, msg}
+}
 
 // loadPublicPage assembles the published entity page for slug. The request is
 // consulted for scope (context), query flags, Accept, base URL and lead/bot
@@ -74,9 +90,9 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 			}
 			return nil, pageOutcome{Status: http.StatusNotFound, NotFound: true}, nil
 		}
-		s.logger.Error("failed to get page", "error", err)
+		s.logLoadFailure("failed to get page", err)
 		return nil, pageOutcome{Status: http.StatusInternalServerError},
-			&pageError{http.StatusInternalServerError, "failed to get page"}
+			loadFailure(err, "failed to get page")
 	}
 
 	applyStagedEntity(ctx, ent)
@@ -204,9 +220,9 @@ func (s *Server) loadHomepage(r *http.Request) (*PublicPageResponse, pageOutcome
 		if errors.Is(err, entity.ErrEntityNotFound) {
 			return nil, pageOutcome{Status: http.StatusOK, NotFound: true}, nil
 		}
-		s.logger.Error("failed to get homepage", "error", err)
+		s.logLoadFailure("failed to get homepage", err)
 		return nil, pageOutcome{Status: http.StatusInternalServerError},
-			&pageError{http.StatusInternalServerError, "failed to get homepage"}
+			loadFailure(err, "failed to get homepage")
 	}
 
 	applyStagedEntity(ctx, ent)
