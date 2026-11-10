@@ -31,13 +31,13 @@ run_set_domain() {
 
 usage() {
   cat <<'HM_USAGE'
-usage: install.sh [all | build [--seal] | first-boot | set-domain HOST [--email ADDR] | download VERSION OUTFILE | version]
+usage: install.sh [all | build [--seal] | first-boot | set-domain HOST [--email ADDR] | download [--channel stable|edge] VERSION OUTFILE | version]
   all (default)  build stage, then first-boot stage; never seals
   build          install packages, the verified binary and the unit
   build --seal   as build, then remove host identity and caches for an image
   first-boot     create secrets, database and site, start the service
   set-domain     point the installed site at another host name
-  download       verify and fetch one release binary (used by the tests)
+  download       verify and fetch one release binary from a channel (default stable; used by the tests and hosting tooling)
   version        print the installer version
 HM_USAGE
 }
@@ -73,7 +73,16 @@ main() {
       run_set_domain "$@"
       ;;
     download)
-      [ $# -eq 2 ] || die "usage: install.sh download VERSION OUTFILE"
+      dl_set=0
+      dl_chan=""
+      if [ "${1:-}" = "--channel" ]; then
+        [ $# -ge 2 ] || die "usage: install.sh download [--channel stable|edge] VERSION OUTFILE"
+        dl_set=1
+        dl_chan="$2"
+        shift 2
+      fi
+      [ $# -eq 2 ] || die "usage: install.sh download [--channel stable|edge] VERSION OUTFILE"
+      [ "$dl_set" = 0 ] || run_part trust_set_channel "$dl_chan"
       run_part trust_fetch "$1" "$2"
       ;;
     version)

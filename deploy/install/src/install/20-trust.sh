@@ -13,6 +13,14 @@ TRUST_MAX_SIZE=268435456
 TRUST_MAX_META=1048576
 TRUST_CHANNEL=stable
 
+# trust_set_channel NAME selects the release channel; only the ones the mirror serves to installs.
+trust_set_channel() {
+  case "$1" in
+    stable | edge) TRUST_CHANNEL="$1" ;;
+    *) die "unknown channel \"$1\" (stable or edge)" ;;
+  esac
+}
+
 # trust_die removes the work directory, then dies naming the failed check.
 trust_die() {
   [ -z "$TRUST_TMP" ] || rm -rf "$TRUST_TMP"
