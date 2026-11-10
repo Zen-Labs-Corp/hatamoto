@@ -816,6 +816,11 @@ func (m *Manager) ContentTypeUses(ctx context.Context, name string) ([]entity.Pl
 
 // SetEnabled turns an installed plugin on or off without uninstalling it.
 func (m *Manager) SetEnabled(ctx context.Context, name string, on bool) error {
+	if on {
+		if err := m.checkNotRevoked(ctx, KindPlugin, name); err != nil {
+			return err
+		}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	nwidgets, ntags := m.widgetCount(name), tagPackCount(name)
@@ -958,6 +963,11 @@ func (m *Manager) sectionUses(ctx context.Context) ([]MissingSection, error) {
 func (m *Manager) Activate(ctx context.Context, name string, force bool) error {
 	if name == DefaultTheme {
 		name = ""
+	}
+	if name != "" {
+		if err := m.checkNotRevoked(ctx, KindTheme, name); err != nil {
+			return err
+		}
 	}
 	layers, _, err := m.themeLayers(ctx, name)
 	if err != nil {
@@ -1308,15 +1318,27 @@ func (m *Manager) Reconcile(ctx context.Context) {
 
 // Run reconciles every interval until ctx ends, so a package installed by the
 // CLI (or another replica) goes live without a restart.
+//
+// When a developer registry is set it also reads the developer index every
+// DeveloperEvery, which applies its revocations.
 func (m *Manager) Run(ctx context.Context, every time.Duration) {
 	t := time.NewTicker(every)
 	defer t.Stop()
+	dev := time.NewTicker(DeveloperEvery)
+	defer dev.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
 			m.Reconcile(ctx)
+		case <-dev.C:
+			if m.DeveloperRegistry == nil {
+				continue
+			}
+			if _, err := m.DeveloperIndex(ctx, true); err != nil && !errors.Is(err, ErrRegistryOff) {
+				m.Logger.Debug("packages: developer index refresh", "error", err)
+			}
 		}
 	}
 }

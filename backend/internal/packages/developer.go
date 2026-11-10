@@ -125,10 +125,6 @@ func (m *Manager) fetchDeveloperIndex(ctx context.Context) (*Index, error) {
 	return idx, nil
 }
 
-// ApplyRevocations disables installed developer packages the developer index
-// revokes. It runs inside every successful developer index read.
-func (m *Manager) ApplyRevocations(ctx context.Context, idx *Index) error { return nil }
-
 // checkPolicy is CheckPolicy that also returns the developer grant when p is a
 // developer package the owner allows. It only reads state, so Inspect may call
 // it without the install lock.
