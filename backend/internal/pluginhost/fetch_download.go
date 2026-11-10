@@ -58,10 +58,10 @@ func (f *Fetcher) Download(ctx context.Context, plugin string, allowed []string,
 // errNotHTTPS is returned by DownloadPublic for a URL that is not https.
 var errNotHTTPS = errors.New("url is not https")
 
-// DownloadPublic is Download for any public https host: no allowed_hosts
-// list, https only, no credentials, port 443 only. The address guard and the
-// redirect re-checks still apply, so a private address is refused.
-func (f *Fetcher) DownloadPublic(ctx context.Context, plugin, rawURL string, max int64, sink func(io.Reader) error) error {
+// DownloadPublic is Download restricted further: https only, no credentials,
+// port 443 only. The host (and every redirect hop's host) must still match
+// allowed, the same rule http.fetch uses. The address guard applies too.
+func (f *Fetcher) DownloadPublic(ctx context.Context, plugin string, allowed []string, rawURL string, max int64, sink func(io.Reader) error) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("bad url: %w", err)
@@ -69,7 +69,12 @@ func (f *Fetcher) DownloadPublic(ctx context.Context, plugin, rawURL string, max
 	if u.Scheme != "https" {
 		return errNotHTTPS
 	}
-	check := func(u *url.URL) error { return checkPublicURL(u, f.allowPrivate) }
+	check := func(u *url.URL) error {
+		if err := checkURL(u, allowed); err != nil {
+			return err
+		}
+		return checkPublicURL(u, f.allowPrivate)
+	}
 	if err := check(u); err != nil {
 		return err
 	}

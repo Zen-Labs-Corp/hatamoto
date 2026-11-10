@@ -83,7 +83,7 @@ func inspectOnce(t *testing.T, body []byte, in packages.Inspector, signerKey str
 	if err := g.Set(context.Background(), "p", []sdk.Permission{sdk.PermPackagesInspect}); err != nil {
 		t.Fatal(err)
 	}
-	m := sdk.Manifest{Name: "p"}
+	m := sdk.Manifest{Name: "p", AllowedHosts: []string{srv.Listener.Addr().String()}}
 	a := pluginhost.NewAPI(pluginhost.Services{Fetcher: fetcher, Packages: in}, g, func(string) (sdk.Manifest, bool) { return m, true }, nil)
 	args, _ := jsonx.MarshalPinned(sdk.InspectRequest{URL: srv.URL + "/acme.hmp", SignerKey: signerKey})
 	req, _ := jsonx.MarshalPinned(sdk.CallRequest{Fn: sdk.FnPackagesInspect, Args: jsontext.Value(args)})
@@ -169,7 +169,7 @@ func TestInspectStopsAtTheArchiveLimit(t *testing.T) {
 	defer srv.Close()
 	g := pluginhost.NewGrantStore(nil)
 	_ = g.Set(context.Background(), "p", []sdk.Permission{sdk.PermPackagesInspect})
-	m := sdk.Manifest{Name: "p"}
+	m := sdk.Manifest{Name: "p", AllowedHosts: []string{srv.Listener.Addr().String()}}
 	svc := pluginhost.Services{
 		Fetcher:  pluginhost.NewFetcherForTestsTLS(srv.Client().Transport.(*http.Transport).TLSClientConfig),
 		Packages: packages.Inspector{Limits: packages.Limits{Archive: limit}},

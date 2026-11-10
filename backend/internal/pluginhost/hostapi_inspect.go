@@ -27,8 +27,8 @@ var inspectSlots = make(chan struct{}, 2)
 
 const maxInspectURLLen = 2048
 
-// fnPackagesInspect downloads a package from a public https URL and returns
-// its verdict. The body is never part of the result.
+// fnPackagesInspect downloads a package from an https URL on one of the hosts
+// http.fetch may call and returns its verdict. The body is never part of the result.
 func fnPackagesInspect(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {
 	req, err := decodeArgs[sdk.InspectRequest](raw)
 	if err != nil {
@@ -50,9 +50,13 @@ func fnPackagesInspect(ctx context.Context, a *API, e *callEnv, raw jsontext.Val
 		return nil, herr(sdk.ErrRateLimited, "packages.inspect is busy; try again shortly")
 	}
 
+	hosts := effectiveHosts(ctx, e.manifest.AllowedHosts)
+	if !a.grants.Has(e.plugin, sdk.PermHTTPFetchAny) {
+		hosts = withoutWildcard(hosts) // "*" is honoured only with its own grant
+	}
 	limit := a.svc.Packages.ArchiveLimit()
 	var data []byte
-	err = a.svc.Fetcher.DownloadPublic(ctx, e.plugin, req.URL, limit, func(r io.Reader) error {
+	err = a.svc.Fetcher.DownloadPublic(ctx, e.plugin, hosts, req.URL, limit, func(r io.Reader) error {
 		var rerr error
 		data, rerr = io.ReadAll(r)
 		return rerr

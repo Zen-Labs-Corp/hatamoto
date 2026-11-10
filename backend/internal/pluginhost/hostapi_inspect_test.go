@@ -19,19 +19,29 @@ func (f *fakeInspector) Inspect([]byte, string) sdk.InspectResult {
 
 func inspectAPI(t *testing.T, svc Services, grant ...sdk.Permission) *API {
 	t.Helper()
+	return inspectAPIHosts(t, svc, nil, grant...)
+}
+
+func inspectAPIHosts(t *testing.T, svc Services, hosts []string, grant ...sdk.Permission) *API {
+	t.Helper()
 	g := NewGrantStore(nil)
 	if err := g.Set(context.Background(), "p", grant); err != nil {
 		t.Fatal(err)
 	}
-	m := sdk.Manifest{Name: "p"}
+	m := sdk.Manifest{Name: "p", AllowedHosts: hosts}
 	return NewAPI(svc, g, func(string) (sdk.Manifest, bool) { return m, true }, nil)
 }
 
 func callInspect(t *testing.T, a *API, args string) sdk.CallResponse {
 	t.Helper()
+	return callInspectCtx(t, context.Background(), a, args)
+}
+
+func callInspectCtx(t *testing.T, ctx context.Context, a *API, args string) sdk.CallResponse {
+	t.Helper()
 	in, _ := jsonx.MarshalPinned(sdk.CallRequest{Fn: sdk.FnPackagesInspect, Args: jsontext.Value(args)})
 	var out sdk.CallResponse
-	if err := jsonx.UnmarshalPinned(a.Call(context.Background(), "p", in), &out); err != nil {
+	if err := jsonx.UnmarshalPinned(a.Call(ctx, "p", in), &out); err != nil {
 		t.Fatal(err)
 	}
 	return out
@@ -87,4 +97,24 @@ func TestInspectBlocksPrivateAddress(t *testing.T) {
 func TestInspectUnavailableWithoutInspector(t *testing.T) {
 	a := inspectAPI(t, Services{Fetcher: NewFetcher()}, sdk.PermPackagesInspect)
 	wantInspectCode(t, callInspect(t, a, inspectURL), sdk.ErrUnavailable)
+}
+
+func TestInspectRefusesHostOutsideAllowedHosts(t *testing.T) {
+	fake := &fakeInspector{}
+	a := inspectAPIHosts(t, Services{Fetcher: NewFetcher(), Packages: fake}, []string{"api.example.com"}, sdk.PermPackagesInspect)
+	wantInspectCode(t, callInspect(t, a, `{"url":"https://other.example.org/x.hmp"}`), sdk.ErrBlocked)
+	if fake.calls != 0 {
+		t.Fatal("inspector ran for a host outside allowed_hosts")
+	}
+}
+
+func TestInspectWildcardNeedsTheFetchAnyGrant(t *testing.T) {
+	a := inspectAPIHosts(t, Services{Fetcher: NewFetcher(), Packages: &fakeInspector{}}, []string{"*"}, sdk.PermPackagesInspect)
+	wantInspectCode(t, callInspect(t, a, `{"url":"https://other.example.org/x.hmp"}`), sdk.ErrBlocked)
+}
+
+func TestInspectFetchPhaseUsesTheRunsHosts(t *testing.T) {
+	a := inspectAPIHosts(t, Services{Fetcher: NewFetcher(), Packages: &fakeInspector{}}, []string{"other.example.org"}, sdk.PermPackagesInspect)
+	ctx := WithRun(context.Background(), RunCtx{Phase: sdk.RunPhaseFetch, Hosts: []string{"confirmed.example.com"}})
+	wantInspectCode(t, callInspectCtx(t, ctx, a, `{"url":"https://other.example.org/x.hmp"}`), sdk.ErrBlocked)
 }
