@@ -247,6 +247,7 @@ func TestNoRunStartHostFunction(t *testing.T) {
 		"media.list",
 		"menus.get",
 		"menus.list",
+		"packages.inspect",
 		"permissions",
 		"redirects.list",
 		"run.checkpoint",

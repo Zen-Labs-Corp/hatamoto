@@ -1,0 +1,90 @@
+package pluginhost
+
+import (
+	"context"
+	"encoding/json/jsontext"
+	"testing"
+
+	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/sdk"
+)
+
+type fakeInspector struct{ calls int }
+
+func (*fakeInspector) ArchiveLimit() int64 { return 1 << 20 }
+func (f *fakeInspector) Inspect([]byte, string) sdk.InspectResult {
+	f.calls++
+	return sdk.InspectResult{Problems: []string{}}
+}
+
+func inspectAPI(t *testing.T, svc Services, grant ...sdk.Permission) *API {
+	t.Helper()
+	g := NewGrantStore(nil)
+	if err := g.Set(context.Background(), "p", grant); err != nil {
+		t.Fatal(err)
+	}
+	m := sdk.Manifest{Name: "p"}
+	return NewAPI(svc, g, func(string) (sdk.Manifest, bool) { return m, true }, nil)
+}
+
+func callInspect(t *testing.T, a *API, args string) sdk.CallResponse {
+	t.Helper()
+	in, _ := jsonx.MarshalPinned(sdk.CallRequest{Fn: sdk.FnPackagesInspect, Args: jsontext.Value(args)})
+	var out sdk.CallResponse
+	if err := jsonx.UnmarshalPinned(a.Call(context.Background(), "p", in), &out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func wantInspectCode(t *testing.T, out sdk.CallResponse, code string) {
+	t.Helper()
+	if out.OK || out.Error == nil || out.Error.Code != code {
+		t.Fatalf("want %s, got %+v", code, out)
+	}
+}
+
+const inspectURL = `{"url":"https://127.0.0.1:1/x.hmp"}`
+
+func TestInspectNeedsTheGrant(t *testing.T) {
+	a := inspectAPI(t, Services{Fetcher: NewFetcher(), Packages: &fakeInspector{}})
+	out := callInspect(t, a, inspectURL)
+	wantInspectCode(t, out, sdk.ErrCapabilityDenied)
+	if out.Error.Capability != string(sdk.PermPackagesInspect) {
+		t.Fatalf("capability = %q", out.Error.Capability)
+	}
+}
+
+func TestInspectRefusesBadArguments(t *testing.T) {
+	fake := &fakeInspector{}
+	a := inspectAPI(t, Services{Fetcher: NewFetcher(), Packages: fake}, sdk.PermPackagesInspect)
+	for _, args := range []string{`{}`, `{"url":"http://example.com/x.hmp"}`, `{"url":"ftp://example.com/x"}`, `{"url":"https://example.com/x","extra":1}`} {
+		wantInspectCode(t, callInspect(t, a, args), sdk.ErrInvalidArgument)
+	}
+	if fake.calls != 0 {
+		t.Fatal("inspector ran for a bad argument")
+	}
+}
+
+func TestInspectRateLimit(t *testing.T) {
+	a := inspectAPI(t, Services{Fetcher: NewFetcher(), Packages: &fakeInspector{}, FetchPerMinute: 2}, sdk.PermPackagesInspect)
+	var limited int
+	for range 5 {
+		if out := callInspect(t, a, inspectURL); !out.OK && out.Error.Code == sdk.ErrRateLimited {
+			limited++
+		}
+	}
+	if limited != 3 {
+		t.Fatalf("%d of 5 calls were limited, want 3 (burst of 2)", limited)
+	}
+}
+
+func TestInspectBlocksPrivateAddress(t *testing.T) {
+	a := inspectAPI(t, Services{Fetcher: NewFetcher(), Packages: &fakeInspector{}}, sdk.PermPackagesInspect)
+	wantInspectCode(t, callInspect(t, a, inspectURL), sdk.ErrBlocked)
+}
+
+func TestInspectUnavailableWithoutInspector(t *testing.T) {
+	a := inspectAPI(t, Services{Fetcher: NewFetcher()}, sdk.PermPackagesInspect)
+	wantInspectCode(t, callInspect(t, a, inspectURL), sdk.ErrUnavailable)
+}
