@@ -150,6 +150,10 @@ in `HATAMOTO_TRUSTED_KEYS` (base64 public keys, separated by commas or spaces;
    cleared here too), or when it is the active theme and would drop section types
    your content uses. The CLI needs `--confirm`.
 
+6. A **developer package** is a signed package whose key is not in the trust set
+   but is listed for it in the developer index (next section). It installs only
+   while the owner's "Allow developer packages" switch is on.
+
 **The first-party key is trusted by default.** If its private half leaked, every
 server would trust packages signed with it until upgraded. Set
 `HATAMOTO_TRUST_FIRST_PARTY=false` to drop it and trust only
@@ -179,8 +183,45 @@ statically.
 active theme falls back to the built-in one) and the admin says so. To rotate:
 add the new key, re-sign and update the packages, then remove the old key.
 
+### Developer packages
+
+Besides the main registry, a server reads a second signed index of developer
+packages (default `https://hatamoto.dev/p/devportal/registry.json`). It is signed by
+a **listing key** that is built in and only ever vouches for that index: it is
+never added to the keys that verify packages, and the first-party key never
+validates a developer package. Entries are tier `developer`: not reviewed by
+Hatamoto. Each entry carries the `signer_key` of its author.
+
+- **A switch, off by default.** Admin > Plugins > Package security > "Allow developer
+  packages" takes an acknowledgement, the site address typed exactly and the owner's
+  password (no duration). Turning it off is one click. While it is off the developer
+  tier cannot be installed or updated (the CLI and uploads say so, as below). Packages
+  that are already installed keep running: the switch is read only when installing.
+- **The key is pinned.** A package is accepted only when the key that signed it is
+  the one the index lists for that name. An update must be signed by the same key as
+  the installed version, otherwise it is refused and no confirmation (`--confirm`)
+  overrides it. A developer package runs under the same limits as a community one
+  (only image hosts in its content security policy, no scripts policy), also after a
+  restart while the index is unreachable: the installed row keeps the developer's key.
+- **No shadowing.** An entry whose name is in the main registry or is a first-party
+  plugin is dropped.
+- **Revocation.** The index may revoke a signer key, or one name and version (a name alone revokes every version of it). A matching
+  installed developer package is disabled with the reason shown in the admin; its data
+  is kept, a revoked active theme is deactivated, and the change is audited as
+  `package.revoke_disable`. When the registry withdraws the revocation, the package can be
+  switched on again; while it still applies (or the index cannot be read) that is
+  refused. The index is read when you press "Check for updates" and shortly after
+  start and every 6 hours in the background, but only while a developer package is
+  installed: a site without one makes no request to the developer index. First-party packages are never touched.
+- **Configuration.** `HATAMOTO_DEVELOPER_REGISTRY_URL` overrides the index address;
+  `off` disables the feature (nothing is fetched, no developer package installs). A
+  server limited to first-party signers (the public demo) never reads it.
+
+If the main registry cannot be read, the developer index is unavailable too (the
+names are checked against it), so a shadowing entry can never slip through.
+
 Every install, update, uninstall, activation, grant change and every switch of
-the unsigned opt-in (with the chosen duration) is written to the admin audit log
+the unsigned opt-in (with the chosen duration) and of the developer switch is written to the admin audit log
 (`hatamoto_admin_audit`) with who did it (the signed-in user, `api` or `cli`).
 
 Plugins are additionally sandboxed (WASM, own database role, nothing granted
@@ -362,6 +403,7 @@ settings and nothing else; the active theme cannot be uninstalled.
 | Variable | Effect |
 | --- | --- |
 | `HATAMOTO_REGISTRY_URL` | Signed registry index (default `https://hatamoto.dev/registry.json`; `off` disables). |
+| `HATAMOTO_DEVELOPER_REGISTRY_URL` | Signed index of developer packages (default `https://hatamoto.dev/p/devportal/registry.json`; `off` disables). See [developer packages](#developer-packages). |
 | `HATAMOTO_TRUSTED_KEYS` | Base64 ed25519 public keys of trusted signers. |
 | `HATAMOTO_TRUST_FIRST_PARTY` | `false` stops trusting the built-in first-party key (default: trusted). |
 | `HATAMOTO_PLUGIN_FETCH_PER_MINUTE` | Outbound `http.fetch` requests one plugin may make per minute (default 600). |
@@ -370,7 +412,7 @@ settings and nothing else; the active theme cannot be uninstalled.
 | `HATAMOTO_PLUGIN_CACHE_DIR` | Compiled-code cache across restarts (default `$HATAMOTO_DATA/cache/wasm`, mode 0700; `off` keeps it in memory). |
 | `HATAMOTO_SIGNING_KEY` | Default `--key` of the pack commands. |
 
-The unsigned opt-in (an on/off flag and, for a timed allowance, its end time in
+The developer-package switch (`allow_developer`) is stored there too. The unsigned opt-in (an on/off flag and, for a timed allowance, its end time in
 `allow_unsigned_until`) and the active theme are stored in the database
 (`hatamoto_package_config`), not in the environment.
 
@@ -383,7 +425,7 @@ hatamoto theme pack (--archive F --sha256 H | --package F) [--registry] [--expec
 hatamoto theme check <dir> | --archive F --sha256 H | --package F [--registry] [--expect-name N] [--screenshot-out D]
 hatamoto plugin pack <dir> [--key F] [--out F]
 hatamoto theme dev <dir> --dev [--no-activate] [--confirm]
-hatamoto package install <file|url> [--grant P,P|all] [--source upload|url|dev] [--dev] [--confirm]
+hatamoto package install <file|url|name> [--grant P,P|all] [--source upload|url|dev] [--dev] [--confirm]
 hatamoto registry index <dir> --key F [--meta F] [--out F] [--url-prefix P] [--valid-days N]
 hatamoto registry page <registry.json> [--out F] [--title T] [--intro T] [--write-url U] [--submit-url U] [--install-hint T] [--trusted-key K]
 ```

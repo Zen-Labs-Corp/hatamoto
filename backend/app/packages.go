@@ -23,6 +23,8 @@ import (
 	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/safefetch"
+	"hatamoto.dev/sdk"
 )
 
 // packageCommands are the first words routed to runPackages.
@@ -41,7 +43,7 @@ const packagesUsage = `  keys generate [--name N] [--dir D]       make an ed2551
                                            list the .hmp files in <dir> in a registry index signed with key F (docs/PACKAGES.md)
   registry page <registry.json> [--out F] [--title T] [--intro T] [--write-url U] [--submit-url U] [--install-hint T] [--trusted-key K]
                                            render the plugins of a signed registry index as one static HTML page
-  package install <file|url> [--grant P,P|all] [--source upload|url|dev] [--dev] [--confirm]
+  package install <file|url|name> [--grant P,P|all] [--source upload|url|dev] [--dev] [--confirm]
                                            install a package (docs/PACKAGES.md); a running server applies it within seconds
 ` + installOpsUsage
 
@@ -294,8 +296,10 @@ func packageManager(ctx context.Context, logger *slog.Logger, devFlag bool) (*pa
 		return nil, nil, false, "", err
 	}
 	registerInstalledPluginTemplates(ctx, packages.NewStore(db.Pool()), logger)
+	mainReg, devReg := packageRegistries(cfg.Packages, trust)
 	m := packages.NewManager(packages.Options{
 		Pool: db.Pool(), Trust: trust, AllowDev: dev, Engine: eng, Logger: logger,
+		Registry: mainReg, DeveloperRegistry: devReg,
 		MenuSeeder: menu.NewService(menu.NewPostgresRepository(db), logger),
 	})
 	return m, db, dev, why, nil
@@ -368,10 +372,22 @@ func runPackageInstall(ctx context.Context, args []string, logger *slog.Logger, 
 		return err
 	}
 	if len(pos) != 1 {
-		return errors.New("usage: hatamoto package install <file|url> [--grant P,P|all]")
+		return errors.New("usage: hatamoto package install <file|url|name> [--grant P,P|all]")
 	}
 	var data []byte
-	if strings.HasPrefix(pos[0], "https://") || strings.HasPrefix(pos[0], "http://") {
+	var m *packages.Manager
+	var db *database.DB
+	var why string
+	if isPackageName(pos[0]) {
+		source = "registry"
+		if m, db, _, why, err = packageManager(ctx, logger, devFlag); err != nil {
+			return err
+		}
+		defer db.Close()
+		if data, err = fetchByName(packages.WithActor(ctx, packages.Actor{Email: "cli"}), m, pos[0]); err != nil {
+			return err
+		}
+	} else if strings.HasPrefix(pos[0], "https://") || strings.HasPrefix(pos[0], "http://") {
 		source = "url"
 		c := &http.Client{Timeout: 2 * time.Minute}
 		if data, err = packages.FetchURL(ctx, c, pos[0], packages.DefaultLimits.Archive); err != nil {
@@ -389,11 +405,12 @@ func runPackageInstall(ctx context.Context, args []string, logger *slog.Logger, 
 	if err != nil {
 		return err
 	}
-	m, db, _, why, err := packageManager(ctx, logger, devFlag)
-	if err != nil {
-		return err
+	if m == nil {
+		if m, db, _, why, err = packageManager(ctx, logger, devFlag); err != nil {
+			return err
+		}
+		defer db.Close()
 	}
-	defer db.Close()
 	ctx = packages.WithActor(ctx, packages.Actor{Email: "cli"})
 	if packages.Source(source) == packages.SourceDev && why != "" {
 		return fmt.Errorf("%w: %s", packages.ErrDevDisabled, why)
@@ -411,7 +428,11 @@ func runPackageInstall(ctx context.Context, args []string, logger *slog.Logger, 
 	if _, err := m.Install(ctx, data, req); err != nil {
 		return confirmHint(err)
 	}
-	fmt.Fprintf(out, "installed %s %s v%s\n", p.Kind, p.Name, p.Version)
+	if note := developerNote(ctx, m, p); note != "" {
+		fmt.Fprintf(out, "installed %s %s %s (%s)\n", p.Kind, p.Name, p.Version, note)
+	} else {
+		fmt.Fprintf(out, "installed %s %s v%s\n", p.Kind, p.Name, p.Version)
+	}
 	switch p.Kind {
 	case packages.KindPlugin:
 		man, _ := p.PluginManifest()
@@ -423,6 +444,74 @@ func runPackageInstall(ctx context.Context, args []string, logger *slog.Logger, 
 	}
 	fmt.Fprintln(out, "a running server applies it within a few seconds; no restart is needed")
 	return nil
+}
+
+// isPackageName reports whether a package install argument names a registry
+// package: not an existing file, not a URL, and shaped like a package name.
+func isPackageName(arg string) bool {
+	if strings.HasPrefix(arg, "https://") || strings.HasPrefix(arg, "http://") || !sdk.NamePattern.MatchString(arg) {
+		return false
+	}
+	_, err := os.Stat(arg)
+	return err != nil
+}
+
+// fetchByName downloads the plugin, else the theme, called name. The Manager
+// reads the main registry first and then the developer index. A failure for
+// one kind (an unreachable developer index, say) does not hide a package of the
+// other kind; it is reported only when nothing is found.
+func fetchByName(ctx context.Context, m *packages.Manager, name string) ([]byte, error) {
+	var first error
+	for _, kind := range []packages.Kind{packages.KindPlugin, packages.KindTheme} {
+		data, err := m.FetchFromRegistry(ctx, kind, name)
+		switch {
+		case err == nil:
+			return data, nil
+		case !errors.Is(err, packages.ErrNotListed) && first == nil:
+			first = err
+		}
+	}
+	if first != nil {
+		return nil, first
+	}
+	return nil, fmt.Errorf("the registry has no plugin or theme %q", name)
+}
+
+// developerNote describes a developer package for the install success line
+// ("developer: <author>, key <id>"); "" for any other package.
+func developerNote(ctx context.Context, m *packages.Manager, p *packages.Package) string {
+	row, err := m.Store().Get(ctx, p.Kind, p.Name)
+	if err != nil || !row.Developer {
+		return ""
+	}
+	author := ""
+	if idx, err := m.DeveloperIndex(ctx, false); err == nil {
+		if e, ok := idx.Find(p.Kind, p.Name); ok {
+			author = e.Author
+		}
+	}
+	if author == "" {
+		return "developer: key " + row.SignerKeyID
+	}
+	return "developer: " + author + ", key " + row.SignerKeyID
+}
+
+// packageRegistries builds the registries the CLI reads for installs by name:
+// the main one (trusted by the site's keys) and the developer index, which only
+// its listing key signs and which never joins the package trust set. Each is
+// nil when it is off.
+func packageRegistries(pc config.PackageConfig, trust packages.TrustSet) (main, developer *packages.Registry) {
+	client := safefetch.NewClient(safefetch.ClientOptions{Timeout: 60 * time.Second})
+	if !pc.RegistryOff() {
+		main = &packages.Registry{URL: pc.RegistryURL, Trust: trust, Limits: packages.DefaultLimits, AllowInsecure: pc.AllowInsecureRegistry, Client: client}
+	}
+	if !pc.DeveloperRegistryOff() {
+		if listing, err := packages.ParsePublicKey(config.DeveloperListingKey); err == nil {
+			developer = &packages.Registry{URL: pc.DeveloperRegistryURL, Trust: packages.TrustSet{packages.KeyID(listing): listing},
+				Limits: packages.DefaultLimits, AllowInsecure: pc.AllowInsecureRegistry, Client: client}
+		}
+	}
+	return main, developer
 }
 
 func readBounded(path string, max int64) ([]byte, error) {

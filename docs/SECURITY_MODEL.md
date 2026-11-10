@@ -155,7 +155,15 @@ unsigned packages.
 | Removing a trusted key disables its packages at the next load | `internal/packages` (Postgres) | `TestARemovedTrustedKeyDisablesItsPackages` |
 | A change of signer or a downgrade needs the owner's confirmation, and a signer change clears the plugin's grants | `internal/packages` (Postgres) | `TestDowngradeAndSignerChangeNeedTheOwnersConfirmation`, `TestSignerChangeResetsThePluginsGrants` |
 | Unsigned packages need an explicit opt-in behind four gates (acknowledgement, typed site address, duration, password), and a timed one lapses by itself | `internal/admin`, `internal/packages` | `TestAllowUnsignedEachGateAlone`, `TestAllowUnsignedCheapGatesComeBeforeThePassword`, `TestUnsignedPackagePromptWarnsAndShowsProblem` |
+| Developer packages need an owner switch behind three gates (acknowledgement, typed site address, password) and the signed index must list the signing key for the name; any other key is refused | `internal/admin`, `internal/packages` | `TestAllowDeveloperEachGateAlone`, `TestAllowDeveloperCheapGatesComeBeforeThePassword`, `TestDeveloperKeyMismatchIsRefused` (Postgres: `TestDeveloperInstallNeedsTheSwitchAndTheListedKey`) |
+| The developer index is trusted only through its own listing key, which never verifies a package, and the first-party key never vouches for a developer package | `internal/packages` | `TestDeveloperIndexIsVerifiedAgainstTheListingKeyOnly`, `TestFirstPartyKeyNeverVouchesForADeveloperPackage`, `TestDeveloperIndexIsFilteredAgainstTheMainIndex` |
+| Turning the developer switch off keeps installed packages running, blocks installs and updates, and an update signed by another key is refused even with a confirmation | `internal/packages` (Postgres) | `TestDeveloperSwitchOffKeepsInstalledPluginsAndPinsUpdates`, `TestDeveloperRowReloadsAtBootWithoutTheIndex` |
+| A revoked developer key or version disables the installed package (data kept, reason stored, audited) until the registry withdraws it | `internal/packages` (Postgres) | `TestRevocationByKeyDisablesTheRowAndKeepsItsData`, `TestRevokedActiveThemeIsDeactivated` |
 | The first-party key is trusted by default and can be switched off | `internal/config` | `TestFirstPartyKeyIsAlwaysTrusted`, `TestFirstPartyTrustCanBeSwitchedOff`, `TestTrustedKeysAreValidatedAtBoot` |
+
+A developer package is signed code nobody at Hatamoto reviewed: the switch only
+lets the install through when the key matches the one the index lists, and an
+update must keep that key. Revocation can disable a package, it cannot vouch for one.
 
 The unsigned opt-in confirms the owner's password only. It does not ask for the
 second factor, by design: the four gates above are the whole check.
@@ -361,7 +369,8 @@ listed so that nobody mistakes them for enforced guarantees.
 - **Denial of service by volume.** There are rate limits and caps, not a
   guarantee of availability under load.
 - **A compromised Postgres superuser or the host operating system.**
-- **Owner opt-outs.** Allowing unsigned packages, setting
+- **Owner opt-outs.** Allowing unsigned packages, allowing developer packages
+  (unreviewed code signed by its author's key), setting
   `HATAMOTO_PLUGIN_DB_ALLOW_PUBLIC_OBJECTS=1`, switching off first-party trust
   (`HATAMOTO_TRUST_FIRST_PARTY`) or adding trusted keys moves the boundary to
   what the owner chose.

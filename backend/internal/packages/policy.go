@@ -39,7 +39,7 @@ func communityGrantError[S ~string](perms []S) error {
 // checkScriptsGrant refuses site.scripts and builder.island in perms for a
 // community package.
 func checkScriptsGrant(o Origin, perms []string) error {
-	if refuseCommunityScripts && o == OriginCommunity {
+	if refuseCommunityScripts && o.restricted() {
 		return communityGrantError(perms)
 	}
 	return nil
@@ -49,35 +49,47 @@ func checkScriptsGrant(o Origin, perms []string) error {
 // for more than image hosts.
 var ErrCommunityCSP error = communityCSPError{}
 
-type communityCSPError struct{}
+type communityCSPError struct{ developer bool }
 
-func (communityCSPError) Error() string { return "Community plugins may only add image hosts." }
+func (e communityCSPError) Error() string {
+	if e.developer {
+		return "Developer plugins may only add image hosts."
+	}
+	return "Community plugins may only add image hosts."
+}
+
+// Is makes the developer wording match ErrCommunityCSP, so callers map one sentinel.
+func (communityCSPError) Is(target error) bool { return target == ErrCommunityCSP }
 
 // checkCommunityCSP refuses script, connection and frame hosts in a community
 // package's csp block: they would widen what the site's pages may load.
 func checkCommunityCSP(o Origin, m sdk.Manifest) error {
-	if refuseCommunityScripts && o == OriginCommunity && m.CSP != nil &&
+	if refuseCommunityScripts && o.restricted() && m.CSP != nil &&
 		len(m.CSP.ScriptSrc)+len(m.CSP.ConnectSrc)+len(m.CSP.FrameSrc) > 0 {
+		if o == OriginDeveloper {
+			return communityCSPError{developer: true}
+		}
 		return ErrCommunityCSP
 	}
 	return nil
 }
 
-// CheckCommunityCSP is checkCommunityCSP for a parsed package, for the install
-// prompt.
-func CheckCommunityCSP(p *Package) error {
+// CheckCommunityCSP is checkCommunityCSP for a parsed package of origin o (from
+// Manager.PolicyOrigin), for the install prompt.
+func CheckCommunityCSP(o Origin, p *Package) error {
 	m, _ := p.PluginManifest()
-	return checkCommunityCSP(Classify(p.Name, signerOf(p)), m)
+	return checkCommunityCSP(o, m)
 }
 
 // RefusedPermissions is the part of a plugin package's requested permissions
 // that policy would refuse to grant it (site.scripts and builder.island for a
-// community package), so a prompt can say so instead of posting them.
-func RefusedPermissions(p *Package) []string {
+// community or developer package of origin o), so a prompt can say so instead
+// of posting them.
+func RefusedPermissions(o Origin, p *Package) []string {
 	m, _ := p.PluginManifest()
 	var out []string
 	for _, perm := range m.Permissions {
-		if checkScriptsGrant(Classify(p.Name, signerOf(p)), []string{perm}) != nil {
+		if checkScriptsGrant(o, []string{perm}) != nil {
 			out = append(out, perm)
 		}
 	}
@@ -104,7 +116,7 @@ func (m *Manager) originOf(plugin string) Origin {
 
 // scriptsPolicyRefuses reports whether policy refuses site.scripts for plugin.
 func (m *Manager) scriptsPolicyRefuses(plugin string) bool {
-	return refuseCommunityScripts && m.originOf(plugin) == OriginCommunity
+	return refuseCommunityScripts && m.originOf(plugin).restricted()
 }
 
 // ScriptsRefused is scriptsPolicyRefuses for other packages (grant policy and
@@ -120,7 +132,7 @@ func (m *Manager) CommunityScriptsLive() bool {
 		return false
 	}
 	for name, origin := range *o {
-		if origin == OriginCommunity && m.scriptGate(name) {
+		if origin.restricted() && m.scriptGate(name) {
 			return true
 		}
 	}
@@ -130,7 +142,7 @@ func (m *Manager) CommunityScriptsLive() bool {
 // CommunityPlugin reports whether name is a community-origin plugin, by the same
 // origins map as CommunityScriptsLive. It does not say whether its script is
 // linked; the render path asks it about scripts a page body already links.
-func (m *Manager) CommunityPlugin(name string) bool { return m.originOf(name) == OriginCommunity }
+func (m *Manager) CommunityPlugin(name string) bool { return m.originOf(name).restricted() }
 
 // CheckGrant is the pluginhost grant policy: a refusal when perms ask a
 // community plugin for site.scripts or builder.island.

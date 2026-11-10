@@ -204,6 +204,11 @@ func (p *packageAdmin) Registry(ctx context.Context) admin.RegistryView {
 
 func (p *packageAdmin) RefreshRegistry(ctx context.Context) admin.RegistryView {
 	p.refresh()
+	// The developer index has its own cache and error: when it cannot be read
+	// the main registry still works. Reading it also applies its revocations.
+	if _, err := p.mgr().DeveloperIndex(ctx, true); err != nil && !errors.Is(err, packages.ErrRegistryOff) {
+		p.s.logger.Debug("packages: developer index refresh", "error", err)
+	}
 	return p.Registry(ctx)
 }
 
@@ -228,7 +233,8 @@ func refusal(err error) error {
 	case errors.As(err, &pe), errors.Is(err, packages.ErrUninstalling), errors.Is(err, packages.ErrIndexExpired), errors.Is(err, packages.ErrIndexNotFresh), errors.Is(err, packages.ErrInsecureURL),
 		errors.Is(err, packages.ErrUnsigned), errors.Is(err, packages.ErrUntrustedKey), errors.Is(err, packages.ErrBadSignature),
 		errors.Is(err, packages.ErrUnsignedNotAllowed), errors.Is(err, packages.ErrSignerNotAllowed), errors.Is(err, packages.ErrDevDisabled),
-		errors.Is(err, packages.ErrReservedName), errors.Is(err, packages.ErrPermission), errors.Is(err, packages.ErrRegistryOff), errors.Is(err, packages.ErrCommunityScripts):
+		errors.Is(err, packages.ErrReservedName), errors.Is(err, packages.ErrPermission), errors.Is(err, packages.ErrRegistryOff), errors.Is(err, packages.ErrCommunityScripts),
+		errors.Is(err, packages.ErrDeveloperOff), errors.Is(err, packages.ErrDeveloperKeyMismatch), errors.Is(err, packages.ErrDeveloperSignerChanged), errors.Is(err, packages.ErrRevoked):
 		return &admin.Refusal{Msg: strings.TrimPrefix(err.Error(), "package: ")}
 	}
 	if strings.Contains(err.Error(), "registry") || strings.Contains(err.Error(), "download") {
@@ -243,11 +249,12 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		return admin.PackageSummary{}, refusal(err)
 	}
 	sum := admin.PackageSummary{Kind: string(pkg.Kind), Name: pkg.Name, Version: pkg.Version}
+	origin, developerKey, policyErr := p.mgr().PolicyOrigin(ctx, pkg, packages.SourceUpload)
 	switch pkg.Kind {
 	case packages.KindPlugin:
 		m, _ := pkg.PluginManifest()
 		sum.Description, sum.Permissions, sum.AllowedHosts = m.Description, m.Permissions, m.AllowedHosts
-		sum.Refused = packages.RefusedPermissions(pkg)
+		sum.Refused = packages.RefusedPermissions(origin, pkg)
 		sum.RequestHeaders, sum.CSP = m.RequestHeaders, permtext.CSPLines(m.CSP)
 		sum.ContentTypes = packages.ContentTypeNames(pkg)
 		sum.Tags = tagInfos(pkg)
@@ -262,11 +269,11 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	if pkg.Signature != nil {
 		sum.Signed, sum.Signer = true, pkg.Signature.Signer
 	}
-	if err := p.mgr().CheckPolicy(ctx, pkg, packages.SourceUpload); err != nil {
-		sum.Problem = err.Error()
+	if policyErr != nil {
+		sum.Problem = policyErr.Error()
 	}
 	if sum.Problem == "" && pkg.Kind == packages.KindPlugin {
-		if err := packages.CheckCommunityCSP(pkg); err != nil {
+		if err := packages.CheckCommunityCSP(origin, pkg); err != nil {
 			sum.Problem = err.Error()
 		}
 	}
@@ -280,6 +287,10 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		}
 		if row.State == packages.StateUninstalling {
 			sum.Problem = packages.ErrUninstalling.Error()
+		}
+		// Install refuses this whatever Confirm says, so do not offer it.
+		if err := packages.CheckDeveloperPin(row, pkg, developerKey); err != nil && sum.Problem == "" {
+			sum.Problem = err.Error()
 		}
 	}
 	// First-party is a claim about whose plugin this is, so it needs a
@@ -345,6 +356,15 @@ func (p *packageAdmin) IsTagPack(ctx context.Context, name string) bool {
 func (p *packageAdmin) AllowUnsigned(ctx context.Context) bool {
 	cfg, err := p.mgr().Store().Config(ctx)
 	return err == nil && cfg.AllowUnsigned
+}
+
+func (p *packageAdmin) AllowDeveloper(ctx context.Context) bool {
+	cfg, err := p.mgr().Store().Config(ctx)
+	return err == nil && cfg.AllowDeveloper
+}
+
+func (p *packageAdmin) SetAllowDeveloper(ctx context.Context, on bool) error {
+	return p.mgr().SetAllowDeveloper(actorCtx(ctx), on)
 }
 
 func (p *packageAdmin) UnsignedState(ctx context.Context) admin.UnsignedState {

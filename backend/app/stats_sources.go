@@ -41,7 +41,7 @@ func (s statsSources) Plugins(ctx context.Context) ([]installstats.PluginInfo, e
 		}
 		out = append(out, installstats.PluginInfo{
 			Name: r.Name, Version: r.Version, Enabled: r.Enabled,
-			FirstParty: packages.ClassifyRow(r) != packages.OriginSelfBuilt,
+			FirstParty: isFirstPartyOrigin(packages.ClassifyRow(r)),
 		})
 	}
 	return out, nil
@@ -122,3 +122,9 @@ func (s statsSources) UpdateCounts(ctx context.Context, since time.Time) (failed
 }
 
 func (s statsSources) WorkerOn() bool { return s.worker }
+
+// isFirstPartyOrigin is true for a package a first-party key signed (first-party
+// and community builds), never for a developer package or a self-built one.
+func isFirstPartyOrigin(o packages.Origin) bool {
+	return o == packages.OriginFirstParty || o == packages.OriginCommunity
+}

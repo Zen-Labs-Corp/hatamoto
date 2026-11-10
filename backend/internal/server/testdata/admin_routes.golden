@@ -320,6 +320,8 @@ POST /admin/media/{id}/replace -> admin.(*Admin).handleMediaReplace-fm
 POST /admin/people -> admin.(*Admin).handlePersonCreate-fm
 POST /admin/people/merge -> admin.(*Admin).handlePeopleMerge-fm
 POST /admin/plugins/check-updates -> admin.(*Admin).handleCheckUpdates-fm
+POST /admin/plugins/developer -> admin.(*Admin).handleAllowDeveloper-fm
+POST /admin/plugins/developer/off -> admin.(*Admin).handleStopDeveloper-fm
 POST /admin/plugins/fetch -> admin.(*Admin).handlePluginFetch-fm
 POST /admin/plugins/install -> admin.(*Admin).handlePluginInstall-fm
 POST /admin/plugins/unsigned -> admin.(*Admin).handleAllowUnsigned-fm

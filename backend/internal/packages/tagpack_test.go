@@ -228,10 +228,10 @@ func TestTagPackCommunityAllowed(t *testing.T) {
 		t.Fatal(err)
 	}
 	p.Signature = &Signature{Signer: FirstPartyKeyIDs[0]}
-	if got := RefusedPermissions(p); len(got) != 0 {
+	if got := RefusedPermissions(OriginCommunity, p); len(got) != 0 {
 		t.Fatalf("community refused = %v", got)
 	}
-	if err := CheckCommunityCSP(p); err != nil {
+	if err := CheckCommunityCSP(OriginCommunity, p); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -31,7 +31,7 @@ hatamoto theme pack (--archive F --sha256 H | --package F) [--registry] [--expec
 hatamoto theme check <dir> | --archive F --sha256 H | --package F [--registry] [--expect-name N] [--screenshot-out D]
 hatamoto plugin pack <dir> [--key F] [--out F]
 hatamoto theme dev <dir> [--no-activate]
-hatamoto package install <file|url> [--grant P,P|all]
+hatamoto package install <file|url|name> [--grant P,P|all] [--confirm]
 hatamoto package list [--json]
 hatamoto theme activate <name|default> [--force]
 hatamoto apikey create --name N --scopes a,b [--out FILE] [--as EMAIL] [--description D] [--rate-limit N]
@@ -68,7 +68,16 @@ Unattended installs (no admin session needed; each writes the database and a run
 - `apikey create` prints the key **once**: to the new file `FILE` with mode 0600 (an existing file is never overwritten, and no key is created if the file cannot be written), or, without `--out`, alone on stdout (the details go to stderr). Scopes are validated as in the admin. A key acts with its creator's authority, so it is created as `--as EMAIL` or the oldest owner. The audit log records name, scopes and prefix, never the key.
 - `plugin settings set` takes top-level `key=value` pairs. Values are read as the property's schema type (strings stay text; numbers, booleans, arrays and objects are JSON), merged over the stored settings (write-only values such as secrets are kept unless set), validated against the plugin's `settings_schema` as in the admin, saved and audited (key names only). Put a secret in a file or on stdin, not on the command line, where other local users can read it: `plugin settings set acme token=@/run/secrets/acme` or `... token=-`. The result is validated with the schema defaults applied, so a required property that has a default need not be set. Cached sitemaps that depend on a setting refresh with their TTL.
 - `theme check` validates a theme (theme.json, screenshot, package limits) from a directory, an author zip (`--archive F --sha256 H`) or a packed `.hmp` (`--package F`) without a key, refuses a malformed `menus` block (menu locations, see [THEMES.md](THEMES.md#menu-locations-menus)), and writes nothing except the screenshot when `--screenshot-out D` is given. `--registry` adds the rules of the theme directory: a valid screenshot is required and `default` is refused; `--expect-name N` refuses a theme with another name. `theme pack` takes the same source flags and options, for registry builders. See [THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md).
-- `package list` shows installed plugins and themes with version, source, signer and the active theme.
+- `package install <name>` (an argument that is not an existing file or an `http(s)` URL) installs the plugin, else the theme, with that name from the registry, or from the developer index when the registry lacks it. A developer package is refused while the owner's switch is off:
+
+  ```
+  acme-seo is a developer package (signed by Acme, key 3f9a1c2b7d4e5f60, not reviewed by Hatamoto).
+  Developer packages are off on this site. An owner can turn them on in
+  Admin > Plugins > Package security > Allow developer packages.
+  ```
+
+  A package signed by another key than the index lists, or an update signed by another key than the installed version, is refused and `--confirm` does not change that. On success the line ends with `(developer: <author>, key <id>)`. `HATAMOTO_DEVELOPER_REGISTRY_URL=off` disables the developer index ([PACKAGES.md](PACKAGES.md#developer-packages)).
+- `package list` shows installed plugins and themes with version, source, signer and the active theme; `--json` also reports `allow_unsigned` and `allow_developer`.
 
 Packages (signing, trust, the registry): see [PACKAGES.md](PACKAGES.md); to submit a plugin, see [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md); to submit a theme, see [THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md). `package install` and `theme dev` write the database; a running server applies the change within seconds.
 

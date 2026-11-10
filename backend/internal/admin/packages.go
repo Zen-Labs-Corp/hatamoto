@@ -264,6 +264,11 @@ type PackageAdmin interface {
 	// SetAllowUnsigned turns the opt-in on until the given time (nil: until
 	// turned off) or off; duration labels it in the audit log.
 	SetAllowUnsigned(ctx context.Context, on bool, until *time.Time, duration string) error
+	// AllowDeveloper reports whether the owner allows developer packages.
+	AllowDeveloper(ctx context.Context) bool
+	// SetAllowDeveloper turns developer packages on or off. Off never stops an
+	// installed package.
+	SetAllowDeveloper(ctx context.Context, on bool) error
 	// Signers lists the trusted keys.
 	Signers(ctx context.Context) []SignerInfo
 
