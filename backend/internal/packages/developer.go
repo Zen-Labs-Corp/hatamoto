@@ -186,6 +186,9 @@ func (m *Manager) developerGrant(ctx context.Context, p *Package, untrusted erro
 	if err := (TrustSet{signed: pub}).Verify(p); err != nil {
 		return nil, err
 	}
+	if rv, ok := revocationFor(Row{Developer: true, Name: p.Name, Version: p.Version, SignerKeyID: signed}, idx); ok {
+		return nil, fmt.Errorf("%s: %w: %s", p.Name, ErrRevoked, revocationReason(rv))
+	}
 	cfg, err := m.store.Config(ctx)
 	if err != nil {
 		return nil, err

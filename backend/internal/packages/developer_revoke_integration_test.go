@@ -195,3 +195,42 @@ func TestRevokedActiveThemeIsDeactivated(t *testing.T) {
 		t.Fatalf("activate after the revocation lifted: %v", err)
 	}
 }
+
+func TestRevokedVersionCannotBeInstalledOrReuploaded(t *testing.T) {
+	d, _ := installedDev(t)
+	ctx := context.Background()
+
+	// The index revokes 1.0.0 but lists 1.1.0 under the same key.
+	d.list(d.pack("1.1.0", d.dev, nil), d.dev)
+	d.revoke(Revocation{Name: "capa", Version: "1.0.0", Reason: "bad build"})
+	if row, _ := d.mgr.Store().Get(ctx, KindPlugin, "capa"); row.Enabled || row.DisabledReason != "bad build" {
+		t.Fatalf("row: %+v", row)
+	}
+	// Re-uploading the revoked version over the revoked row is refused and
+	// leaves the stored reason alone.
+	if _, err := d.mgr.Install(ctx, d.pack("1.0.0", d.dev, nil), InstallRequest{Source: SourceUpload, Grant: capaGrant}); !errors.Is(err, ErrRevoked) {
+		t.Fatalf("re-upload of a revoked version: %v", err)
+	}
+	if row, _ := d.mgr.Store().Get(ctx, KindPlugin, "capa"); row.DisabledReason != "bad build" {
+		t.Fatalf("re-upload cleared the reason: %+v", row)
+	}
+	if err := d.mgr.SetEnabled(ctx, "capa", true); !errors.Is(err, ErrRevoked) {
+		t.Fatalf("re-enable: %v", err)
+	}
+}
+
+func TestRevokedVersionFreshInstallIsRefused(t *testing.T) {
+	d := newDevRig(t)
+	ctx := context.Background()
+	if err := d.mgr.SetAllowDeveloper(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	d.list(d.pack("1.1.0", d.dev, nil), d.dev)
+	d.revoke(Revocation{Name: "capa", Version: "1.0.0", Reason: "bad build"})
+	if _, err := d.mgr.Install(ctx, d.pack("1.0.0", d.dev, nil), InstallRequest{Source: SourceUpload, Grant: capaGrant}); !errors.Is(err, ErrRevoked) {
+		t.Fatalf("install of a revoked version: %v", err)
+	}
+	if _, err := d.mgr.Install(ctx, d.pack("1.1.0", d.dev, nil), InstallRequest{Source: SourceUpload, Grant: capaGrant}); err != nil {
+		t.Fatalf("install of the listed version: %v", err)
+	}
+}
