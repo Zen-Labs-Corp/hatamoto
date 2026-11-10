@@ -12,6 +12,14 @@ import (
 // DefaultRegistryURL is the registry plugins and themes are browsed from.
 const DefaultRegistryURL = "https://hatamoto.dev/registry.json"
 
+// DefaultDeveloperRegistryURL is the signed index of developer packages,
+// browsed only while the owner allows developer packages.
+const DefaultDeveloperRegistryURL = "https://hatamoto.dev/p/devportal/registry.json"
+
+// DeveloperListingKey is the public half of the key that signs the developer
+// index. It only verifies that index; it is never a package trust key.
+const DeveloperListingKey = "y6GSscyMTBF34YKufnzvSGQDb5do6Dl01EDMOyfFjEo=" // gitleaks:allow (public key)
+
 // FirstPartyKey is the public half of the "hatamoto first-party" signing key:
 // the key that signs the first-party plugins in the default
 // registry. It is always trusted, so those plugins install with one click. The
@@ -24,6 +32,9 @@ type PackageConfig struct {
 	// RegistryURL is HATAMOTO_REGISTRY_URL: the signed registry index. "off"
 	// disables browsing (upload still works).
 	RegistryURL string
+	// DeveloperRegistryURL is HATAMOTO_DEVELOPER_REGISTRY_URL: the signed index
+	// of developer packages. "off" disables the feature.
+	DeveloperRegistryURL string
 	// TrustedKeys is HATAMOTO_TRUSTED_KEYS: base64 ed25519 public keys of the
 	// signers whose packages and registry indexes are accepted, separated by
 	// commas or spaces.
@@ -49,16 +60,25 @@ func (p PackageConfig) TrustedKeyList() string {
 // RegistryOff reports that browsing a registry is disabled.
 func (p PackageConfig) RegistryOff() bool { return strings.EqualFold(p.RegistryURL, "off") }
 
+// DeveloperRegistryOff reports that the developer index is disabled.
+func (p PackageConfig) DeveloperRegistryOff() bool {
+	return strings.EqualFold(p.DeveloperRegistryURL, "off")
+}
+
 // LoadPackageConfig reads the package env vars.
 func LoadPackageConfig() PackageConfig {
 	p := PackageConfig{
 		RegistryURL:           strings.TrimSpace(os.Getenv("HATAMOTO_REGISTRY_URL")),
+		DeveloperRegistryURL:  strings.TrimSpace(os.Getenv("HATAMOTO_DEVELOPER_REGISTRY_URL")),
 		TrustedKeys:           strings.TrimSpace(os.Getenv("HATAMOTO_TRUSTED_KEYS")),
 		AllowInsecureRegistry: strings.EqualFold(strings.TrimSpace(os.Getenv("HATAMOTO_REGISTRY_ALLOW_HTTP")), "true"),
 		NoFirstParty:          strings.EqualFold(strings.TrimSpace(os.Getenv("HATAMOTO_TRUST_FIRST_PARTY")), "false"),
 	}
 	if p.RegistryURL == "" {
 		p.RegistryURL = DefaultRegistryURL
+	}
+	if p.DeveloperRegistryURL == "" {
+		p.DeveloperRegistryURL = DefaultDeveloperRegistryURL
 	}
 	return p
 }
@@ -73,6 +93,15 @@ func (p PackageConfig) Validate() error {
 		}
 		if u.Scheme == "http" && !p.AllowInsecureRegistry {
 			return fmt.Errorf("HATAMOTO_REGISTRY_URL %q is http: the registry must be served over https (HATAMOTO_REGISTRY_ALLOW_HTTP=true allows http for development)", p.RegistryURL)
+		}
+	}
+	if p.DeveloperRegistryURL != "" && !p.DeveloperRegistryOff() {
+		u, err := url.Parse(p.DeveloperRegistryURL)
+		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+			return fmt.Errorf("HATAMOTO_DEVELOPER_REGISTRY_URL %q must be an https URL (or \"off\")", p.DeveloperRegistryURL)
+		}
+		if u.Scheme == "http" && !p.AllowInsecureRegistry {
+			return fmt.Errorf("HATAMOTO_DEVELOPER_REGISTRY_URL %q is http: the index must be served over https (HATAMOTO_REGISTRY_ALLOW_HTTP=true allows http for development)", p.DeveloperRegistryURL)
 		}
 	}
 	for _, k := range strings.FieldsFunc(p.TrustedKeys, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' || r == '\t' }) {
