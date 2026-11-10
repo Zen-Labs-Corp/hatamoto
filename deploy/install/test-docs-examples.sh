@@ -77,3 +77,7 @@ bash "$here/build-install.sh" --out "$tmp/asm" >/dev/null
 HATAMOTO_INSTALL_SOURCE_ONLY=1 sh -c '. "$1"; fb_banner https://x.example/setup "K7M2" example.com 203.0.113.7' _ "$tmp/asm/firstboot.sh" | norm > "$tmp/real-banner"
 diff -u "$tmp/real-banner" "$tmp/doc-banner" >&2 || fail "the banner in the install guide differs from the one first boot prints"
 pass "install guide banner matches fb_banner"
+
+verify="$here/../../docs/site/updates/verify-a-download.md"
+grep -q 'install.sh download --channel' "$verify" || fail "verify-a-download.md does not document download --channel"
+pass "verify-a-download documents --channel"
