@@ -11,6 +11,10 @@ import (
 // applies its revocations between admin refreshes.
 const DeveloperEvery = 6 * time.Hour
 
+// DeveloperFirstRead is the delay before Run's first read after start; up to
+// the same time again is added as jitter.
+const DeveloperFirstRead = 30 * time.Second
+
 // ErrRevoked is a package the developer index has revoked: it stays disabled
 // until the registry no longer lists the revocation.
 var ErrRevoked = errors.New("the package was revoked by the registry")

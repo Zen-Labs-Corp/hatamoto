@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/pluginhost"
 )
@@ -271,5 +272,26 @@ func TestSwitchingOnChecksTheIndexEvenWithoutAStoredReason(t *testing.T) {
 	d.mgr.devMu.Unlock()
 	if err := d.mgr.SetEnabled(ctx, "capa", true); !errors.Is(err, ErrRevoked) {
 		t.Fatalf("re-enable: %v", err)
+	}
+}
+
+func TestBackgroundDeveloperReadNeedsADeveloperPackage(t *testing.T) {
+	d := newDevRig(t)
+	ctx := context.Background()
+	d.mgr.refreshDeveloper(ctx)
+	if !d.mgr.dev.at.IsZero() {
+		t.Fatal("the developer index was read with no developer package installed")
+	}
+	if err := d.mgr.SetAllowDeveloper(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	d.list(d.pack("1.0.0", d.dev, nil), d.dev)
+	if _, err := d.mgr.InstallFromRegistry(ctx, KindPlugin, "capa", InstallRequest{Grant: capaGrant}); err != nil {
+		t.Fatal(err)
+	}
+	d.mgr.dev.at = time.Time{}
+	d.mgr.refreshDeveloper(ctx)
+	if d.mgr.dev.at.IsZero() {
+		t.Fatal("the developer index was not read with a developer package installed")
 	}
 }

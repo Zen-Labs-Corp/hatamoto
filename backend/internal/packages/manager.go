@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"maps"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"slices"
@@ -1323,27 +1324,41 @@ func (m *Manager) Reconcile(ctx context.Context) {
 // Run reconciles every interval until ctx ends, so a package installed by the
 // CLI (or another replica) goes live without a restart.
 //
-// When a developer registry is set it also reads the developer index every
-// DeveloperEvery, which applies its revocations.
+// While a developer package is installed it also reads the developer index
+// shortly after start and then every DeveloperEvery, which applies its
+// revocations. A site without one makes no such request.
 func (m *Manager) Run(ctx context.Context, every time.Duration) {
 	t := time.NewTicker(every)
 	defer t.Stop()
 	dev := time.NewTicker(DeveloperEvery)
 	defer dev.Stop()
+	first := time.NewTimer(DeveloperFirstRead + rand.N(DeveloperFirstRead))
+	defer first.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
 			m.Reconcile(ctx)
+		case <-first.C:
+			m.refreshDeveloper(ctx)
 		case <-dev.C:
-			if m.DeveloperRegistry == nil {
-				continue
-			}
-			if _, err := m.DeveloperIndex(ctx, true); err != nil && !errors.Is(err, ErrRegistryOff) {
-				m.Logger.Debug("packages: developer index refresh", "error", err)
-			}
+			m.refreshDeveloper(ctx)
 		}
+	}
+}
+
+// refreshDeveloper reads the developer index, but only when a developer
+// package is installed: nothing else needs its revocations.
+func (m *Manager) refreshDeveloper(ctx context.Context) {
+	if m.DeveloperRegistry == nil {
+		return
+	}
+	if has, err := m.store.HasDeveloper(ctx); err != nil || !has {
+		return
+	}
+	if _, err := m.DeveloperIndex(ctx, true); err != nil && !errors.Is(err, ErrRegistryOff) {
+		m.Logger.Debug("packages: developer index refresh", "error", err)
 	}
 }
 

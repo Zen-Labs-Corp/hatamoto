@@ -210,8 +210,9 @@ Hatamoto. Each entry carries the `signer_key` of its author.
   is kept, a revoked active theme is deactivated, and the change is audited as
   `package.revoke_disable`. When the registry withdraws the revocation, the package can be
   switched on again; while it still applies (or the index cannot be read) that is
-  refused. The index is read when you press "Check for updates" and every 6 hours in
-  the background. First-party packages are never touched.
+  refused. The index is read when you press "Check for updates" and shortly after
+  start and every 6 hours in the background, but only while a developer package is
+  installed: a site without one makes no request to the developer index. First-party packages are never touched.
 - **Configuration.** `HATAMOTO_DEVELOPER_REGISTRY_URL` overrides the index address;
   `off` disables the feature (nothing is fetched, no developer package installs). A
   server limited to first-party signers (the public demo) never reads it.

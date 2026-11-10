@@ -136,6 +136,13 @@ func scanRow(rows pgx.Row) (Row, error) {
 	return r, err
 }
 
+// HasDeveloper reports whether any package was installed from the developer index.
+func (s *Store) HasDeveloper(ctx context.Context) (bool, error) {
+	var has bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_packages WHERE developer)`).Scan(&has)
+	return has, err
+}
+
 // List returns every installed package, plugins first, by name.
 func (s *Store) List(ctx context.Context) ([]Row, error) {
 	rows, err := s.pool.Query(ctx, `SELECT `+rowColumns+` FROM hatamoto_packages ORDER BY kind DESC, name`)
