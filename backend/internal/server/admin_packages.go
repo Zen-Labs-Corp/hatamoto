@@ -190,16 +190,67 @@ func (p *packageAdmin) Registry(ctx context.Context) admin.RegistryView {
 	have := p.installedVersions(ctx)
 	v := admin.RegistryView{Host: p.registryHost(), FetchedAt: p.fetchedTime()}
 	for _, e := range idx.Packages {
-		cur, installed := have[string(e.Kind)+"/"+e.Name]
-		v.Entries = append(v.Entries, admin.RegistryEntry{
-			Kind: string(e.Kind), Name: e.Name, Version: e.Version, Description: e.Description, Homepage: e.Homepage,
-			Permissions: e.Permissions, Installed: installed, InstalledVersion: cur, Update: installed && packages.Newer(e.Version, cur),
-			Title: e.Title, Author: e.Author, Tier: e.Tier, Category: e.Category, About: e.About, Source: e.Source, Commit: e.Commit,
-			Features: e.Features, Size: e.Size, Featured: e.Featured, Tags: registryTags(e.Tags),
-			Screenshot: packages.ScreenshotURL(p.registryURL(), e.Screenshot), SiteType: e.SiteType, Flags: slices.Clone(e.Flags),
-		})
+		v.Entries = append(v.Entries, p.registryEntry(e, have))
 	}
+	p.addDeveloperEntries(ctx, &v, have)
+	sortRegistryEntries(v.Entries)
 	return v
+}
+
+// addDeveloperEntries appends the developer index's entries to v. The developer
+// index has its own cache and error: when it is off or cannot be read, v keeps
+// the main list and no error.
+func (p *packageAdmin) addDeveloperEntries(ctx context.Context, v *admin.RegistryView, have map[string]string) {
+	dev, err := p.mgr().DeveloperIndex(ctx, false)
+	switch {
+	case errors.Is(err, packages.ErrRegistryOff):
+		return
+	case err != nil:
+		p.s.logger.Debug("packages: developer index", "error", err)
+		return
+	}
+	v.DeveloperAvail = true
+	for _, e := range dev.Packages {
+		v.Entries = append(v.Entries, p.registryEntry(e, have))
+	}
+}
+
+// registryEntry is the admin's view of one index entry; have maps kind/name to
+// the installed version.
+func (p *packageAdmin) registryEntry(e packages.Entry, have map[string]string) admin.RegistryEntry {
+	cur, installed := have[string(e.Kind)+"/"+e.Name]
+	out := admin.RegistryEntry{
+		Kind: string(e.Kind), Name: e.Name, Version: e.Version, Description: e.Description, Homepage: e.Homepage,
+		Permissions: e.Permissions, Installed: installed, InstalledVersion: cur, Update: installed && packages.Newer(e.Version, cur),
+		Title: e.Title, Author: e.Author, Tier: e.Tier, Category: e.Category, About: e.About, Source: e.Source, Commit: e.Commit,
+		Features: e.Features, Size: e.Size, Featured: e.Featured, Tags: registryTags(e.Tags),
+		Screenshot: packages.ScreenshotURL(p.registryURL(), e.Screenshot), SiteType: e.SiteType, Flags: slices.Clone(e.Flags),
+	}
+	if e.Tier == packages.TierDeveloper {
+		out.Developer = true
+		if pub, err := packages.ParsePublicKey(e.SignerKey); err == nil {
+			out.SignerKeyID = packages.KeyID(pub)
+		}
+	}
+	return out
+}
+
+// sortRegistryEntries puts first-party entries first, then orders by name
+// (stable), so every caller lists the same way.
+func sortRegistryEntries(entries []admin.RegistryEntry) {
+	slices.SortStableFunc(entries, func(a, b admin.RegistryEntry) int {
+		if c := firstPartyRank(a) - firstPartyRank(b); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Name, b.Name)
+	})
+}
+
+func firstPartyRank(e admin.RegistryEntry) int {
+	if e.Tier == packages.TierFirstParty {
+		return 0
+	}
+	return 1
 }
 
 func (p *packageAdmin) RefreshRegistry(ctx context.Context) admin.RegistryView {

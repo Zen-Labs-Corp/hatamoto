@@ -53,6 +53,12 @@ type RegistryEntry struct {
 	Active bool
 	// Tags are the tags of a tag pack, as the index lists them.
 	Tags []TagInfo
+	// Developer is set for an entry of the developer index: published by a
+	// registered developer, signed by SignerKeyID and not reviewed by Hatamoto.
+	Developer bool
+	// SignerKeyID is the id (16 hex characters) of the key the index says signed
+	// the entry. It is the entry's claim; installing checks the package itself.
+	SignerKeyID string
 }
 
 // TagInfo is one tag of a tag pack as the owner is shown it: what it is called,
@@ -74,6 +80,10 @@ type RegistryView struct {
 	// FetchedAt is when the index was last read from the registry (zero if it
 	// never was or the read failed before the cache was filled).
 	FetchedAt time.Time
+	// DeveloperAvail is set when the developer index was read and its entries
+	// are in Entries. It is false when developer packages are not offered here
+	// (no index configured, the public demo) or the index could not be read.
+	DeveloperAvail bool
 }
 
 // UnsignedState is the owner's opt-in for unsigned packages, already
