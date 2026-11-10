@@ -1,7 +1,6 @@
 package standing
 
 import (
-	"encoding/json"
 	"testing"
 
 	"hatamoto.dev/core/internal/jsonx"
@@ -13,7 +12,7 @@ const (
 )
 
 func TestCreatePolicyAbsentKeepsPolicyJSON(t *testing.T) {
-	b, err := json.Marshal(Policy{Fields: []string{"price"}, Schemas: []string{"product"}, MaxPerHour: 10})
+	b, err := jsonx.Marshal(Policy{Fields: []string{"price"}, Schemas: []string{"product"}, MaxPerHour: 10})
 	if err != nil {
 		t.Fatal(err)
 	}

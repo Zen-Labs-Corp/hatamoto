@@ -1,7 +1,7 @@
 package sdk
 
 import (
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"slices"
 	"strings"
@@ -23,7 +23,7 @@ func withCreate(r *Run, schemas []string, perHour int) {
 }
 
 func TestStandingWithoutCreateMarshalsUnchanged(t *testing.T) {
-	b, err := json.Marshal(validStanding())
+	b, err := jsonv2.Marshal(validStanding())
 	if err != nil {
 		t.Fatal(err)
 	}
