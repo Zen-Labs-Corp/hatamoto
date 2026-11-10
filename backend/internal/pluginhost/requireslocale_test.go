@@ -1,6 +1,11 @@
 package pluginhost
 
-import "testing"
+import (
+	"slices"
+	"testing"
+
+	"hatamoto.dev/sdk"
+)
 
 func TestRangeRequiresLocale(t *testing.T) {
 	older := []string{"0.13.0", "0.14.0", "0.15.0"}
@@ -25,6 +30,24 @@ func TestRangeRequiresLocale(t *testing.T) {
 	for _, c := range cases {
 		if got := rangeRequiresLocale(c.rng, c.comp); got != c.want {
 			t.Errorf("rangeRequiresLocale(%q, %v) = %v, want %v", c.rng, c.comp, got, c.want)
+		}
+	}
+}
+
+func TestRangeRequiresTerms(t *testing.T) {
+	compat := append(slices.Clone(sdk.CompatibleWith), sdk.Version)
+	for rng, want := range map[string]bool{
+		"^0.20":    true,
+		">=0.20":   true,
+		"^0.19":    false,
+		">=0.5":    false,
+		"^0.5":     false,
+		"garbage":  false,
+		"^0.21":    false,
+		">=0.19.0": false,
+	} {
+		if got := rangeRequires(rng, compat, termsRequiredSince); got != want {
+			t.Errorf("rangeRequires(%q, termsRequiredSince) = %v, want %v", rng, got, want)
 		}
 	}
 }
