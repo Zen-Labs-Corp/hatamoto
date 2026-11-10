@@ -144,11 +144,11 @@ func TestCommunityPluginUsesOriginsMap(t *testing.T) {
 func TestRefusedPermissionsForCommunityPackage(t *testing.T) {
 	pkg := &Package{Kind: KindPlugin, Name: "blocks", Manifest: []byte(`{"permissions":["kv","builder.island","site.scripts"]}`),
 		Signature: &Signature{Signer: FirstPartyKeyIDs[0]}}
-	if got := RefusedPermissions(pkg); !slices.Equal(got, []string{"builder.island", "site.scripts"}) {
+	if got := RefusedPermissions(Classify(pkg.Name, signerOf(pkg)), pkg); !slices.Equal(got, []string{"builder.island", "site.scripts"}) {
 		t.Fatalf("community refused = %v", got)
 	}
 	pkg.Signature = nil // self built: policy does not refuse
-	if got := RefusedPermissions(pkg); len(got) != 0 {
+	if got := RefusedPermissions(Classify(pkg.Name, signerOf(pkg)), pkg); len(got) != 0 {
 		t.Fatalf("self built refused = %v", got)
 	}
 }
@@ -215,5 +215,19 @@ func TestNewRequestHeaders(t *testing.T) {
 	}
 	if got := newRequestHeaders([]byte(`{"name":"promo","request_headers":["x-hook","STRIPE-SIGNATURE"]}`), p); len(got) != 0 {
 		t.Errorf("unchanged headers = %v", got)
+	}
+}
+
+// A developer package gets the community policy at the prompt: Install would
+// refuse the same permissions and CSP hosts.
+func TestDeveloperPackageGetsCommunityPolicyAtThePrompt(t *testing.T) {
+	pkg := &Package{Kind: KindPlugin, Name: "acme-seo",
+		Manifest:  []byte(`{"permissions":["kv","builder.island"],"csp":{"script_src":["https://js.example.com"]}}`),
+		Signature: &Signature{Signer: "0123456789abcdef"}}
+	if got := RefusedPermissions(OriginDeveloper, pkg); !slices.Equal(got, []string{"builder.island"}) {
+		t.Fatalf("developer refused = %v", got)
+	}
+	if err := CheckCommunityCSP(OriginDeveloper, pkg); err == nil {
+		t.Fatal("a developer package with a script host passed the prompt")
 	}
 }

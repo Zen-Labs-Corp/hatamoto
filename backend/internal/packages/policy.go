@@ -74,21 +74,22 @@ func checkCommunityCSP(o Origin, m sdk.Manifest) error {
 	return nil
 }
 
-// CheckCommunityCSP is checkCommunityCSP for a parsed package, for the install
-// prompt.
-func CheckCommunityCSP(p *Package) error {
+// CheckCommunityCSP is checkCommunityCSP for a parsed package of origin o (from
+// Manager.PolicyOrigin), for the install prompt.
+func CheckCommunityCSP(o Origin, p *Package) error {
 	m, _ := p.PluginManifest()
-	return checkCommunityCSP(Classify(p.Name, signerOf(p)), m)
+	return checkCommunityCSP(o, m)
 }
 
 // RefusedPermissions is the part of a plugin package's requested permissions
 // that policy would refuse to grant it (site.scripts and builder.island for a
-// community package), so a prompt can say so instead of posting them.
-func RefusedPermissions(p *Package) []string {
+// community or developer package of origin o), so a prompt can say so instead
+// of posting them.
+func RefusedPermissions(o Origin, p *Package) []string {
 	m, _ := p.PluginManifest()
 	var out []string
 	for _, perm := range m.Permissions {
-		if checkScriptsGrant(Classify(p.Name, signerOf(p)), []string{perm}) != nil {
+		if checkScriptsGrant(o, []string{perm}) != nil {
 			out = append(out, perm)
 		}
 	}

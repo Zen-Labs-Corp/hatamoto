@@ -252,3 +252,33 @@ func TestDeveloperRowReloadsAtBootWithoutTheIndex(t *testing.T) {
 		t.Error("after a reboot the plugin must still get the community policy")
 	}
 }
+
+// The install prompt classifies a developer package as one, so it applies the
+// same community policy Install does (and so offers no confirmation for an
+// update the key pin refuses).
+func TestPolicyOriginOfADeveloperPackage(t *testing.T) {
+	d := newDevRig(t)
+	ctx := context.Background()
+	if err := d.mgr.SetAllowDeveloper(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	raw := d.pack("1.0.0", d.dev, func(m *sdk.Manifest) {
+		m.Permissions = append(m.Permissions, "builder.island")
+		m.CSP = &sdk.CSP{ScriptSrc: []string{"https://js.example.com"}}
+	})
+	d.list(raw, d.dev)
+	p, err := Parse(raw, DefaultLimits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	origin, err := d.mgr.PolicyOrigin(ctx, p, SourceUpload)
+	if err != nil || origin != OriginDeveloper {
+		t.Fatalf("origin %v, err %v", origin, err)
+	}
+	if got := RefusedPermissions(origin, p); len(got) != 1 || got[0] != "builder.island" {
+		t.Fatalf("refused = %v", got)
+	}
+	if err := CheckCommunityCSP(origin, p); err == nil {
+		t.Fatal("script host passed the prompt")
+	}
+}

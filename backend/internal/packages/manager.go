@@ -649,6 +649,17 @@ func (m *Manager) CheckPolicy(ctx context.Context, p *Package, src Source) error
 	return err
 }
 
+// PolicyOrigin is CheckPolicy that also returns the origin the package would be
+// installed with (the signer's, when the policy refuses it), so a prompt can apply the same community policy as Install:
+// OriginDeveloper for a developer package the owner allows.
+func (m *Manager) PolicyOrigin(ctx context.Context, p *Package, src Source) (Origin, error) {
+	grant, err := m.checkPolicy(ctx, p, src)
+	if grant != nil {
+		return OriginDeveloper, err
+	}
+	return Classify(p.Name, signerOf(p)), err
+}
+
 // ErrNotListed is a package neither the main registry nor the developer index
 // lists.
 var ErrNotListed = errors.New("package not listed")

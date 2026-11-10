@@ -249,11 +249,12 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		return admin.PackageSummary{}, refusal(err)
 	}
 	sum := admin.PackageSummary{Kind: string(pkg.Kind), Name: pkg.Name, Version: pkg.Version}
+	origin, policyErr := p.mgr().PolicyOrigin(ctx, pkg, packages.SourceUpload)
 	switch pkg.Kind {
 	case packages.KindPlugin:
 		m, _ := pkg.PluginManifest()
 		sum.Description, sum.Permissions, sum.AllowedHosts = m.Description, m.Permissions, m.AllowedHosts
-		sum.Refused = packages.RefusedPermissions(pkg)
+		sum.Refused = packages.RefusedPermissions(origin, pkg)
 		sum.RequestHeaders, sum.CSP = m.RequestHeaders, permtext.CSPLines(m.CSP)
 		sum.ContentTypes = packages.ContentTypeNames(pkg)
 		sum.Tags = tagInfos(pkg)
@@ -268,11 +269,11 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	if pkg.Signature != nil {
 		sum.Signed, sum.Signer = true, pkg.Signature.Signer
 	}
-	if err := p.mgr().CheckPolicy(ctx, pkg, packages.SourceUpload); err != nil {
-		sum.Problem = err.Error()
+	if policyErr != nil {
+		sum.Problem = policyErr.Error()
 	}
 	if sum.Problem == "" && pkg.Kind == packages.KindPlugin {
-		if err := packages.CheckCommunityCSP(pkg); err != nil {
+		if err := packages.CheckCommunityCSP(origin, pkg); err != nil {
 			sum.Problem = err.Error()
 		}
 	}
