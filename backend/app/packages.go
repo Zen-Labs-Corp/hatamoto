@@ -457,13 +457,22 @@ func isPackageName(arg string) bool {
 }
 
 // fetchByName downloads the plugin, else the theme, called name. The Manager
-// reads the main registry first and then the developer index.
+// reads the main registry first and then the developer index. A failure for
+// one kind (an unreachable developer index, say) does not hide a package of the
+// other kind; it is reported only when nothing is found.
 func fetchByName(ctx context.Context, m *packages.Manager, name string) ([]byte, error) {
+	var first error
 	for _, kind := range []packages.Kind{packages.KindPlugin, packages.KindTheme} {
 		data, err := m.FetchFromRegistry(ctx, kind, name)
-		if !errors.Is(err, packages.ErrNotListed) {
-			return data, err
+		switch {
+		case err == nil:
+			return data, nil
+		case !errors.Is(err, packages.ErrNotListed) && first == nil:
+			first = err
 		}
+	}
+	if first != nil {
+		return nil, first
 	}
 	return nil, fmt.Errorf("the registry has no plugin or theme %q", name)
 }
