@@ -196,6 +196,17 @@ func (f *fakeRepo) ListTermsByIDs(_ context.Context, ids []uuid.UUID) ([]*Term, 
 	return out, nil
 }
 
+func (f *fakeRepo) TermsForEntities(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]EntityTermRef, error) {
+	out := map[uuid.UUID][]EntityTermRef{}
+	for _, id := range ids {
+		terms, _ := f.ListTermsForEntity(ctx, id)
+		for _, t := range terms {
+			out[id] = append(out[id], EntityTermRef{Kind: t.Kind, Slug: t.Slug, Name: t.Name})
+		}
+	}
+	return out, nil
+}
+
 func (f *fakeRepo) ListTermsForEntity(_ context.Context, entityID uuid.UUID) ([]*Term, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

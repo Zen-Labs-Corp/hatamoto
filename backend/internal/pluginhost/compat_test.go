@@ -46,7 +46,7 @@ func TestSDKRefusalInvalidRange(t *testing.T) {
 // load and install. (The update preflight, updater.SDKBlockers, applies the
 // same rule to a target release's version and list separately.)
 func TestSDKRefusalMatchesCompatible(t *testing.T) {
-	for _, rng := range []string{"^0.5", "^0.11", "^0.12", "^0.13", "^0.14", "^0.15", "^0.16", "^0.17", "^0.18", "^99.0", ">=0.11.2 <0.12.0", ""} {
+	for _, rng := range []string{"^0.5", "^0.11", "^0.12", "^0.13", "^0.14", "^0.15", "^0.16", "^0.17", "^0.18", "^0.19", "^0.20", "^0.21", "^99.0", ">=0.11.2 <0.12.0", ""} {
 		m := sdk.Manifest{Name: "p", SDK: rng}
 		ok, err := m.Compatible()
 		if refusal := SDKRefusal(m); (refusal == nil) != (err == nil && ok) {

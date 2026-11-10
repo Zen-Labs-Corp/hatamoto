@@ -73,6 +73,11 @@ type Repository interface {
 	// hydrate the picker on load.
 	ListTermsForEntity(ctx context.Context, entityID uuid.UUID) ([]*Term, error)
 
+	// TermsForEntities returns the terms of many entities in one round-trip,
+	// keyed by entity id and ordered by kind then name. Entities without terms
+	// are absent from the map.
+	TermsForEntities(ctx context.Context, entityIDs []uuid.UUID) (map[uuid.UUID][]EntityTermRef, error)
+
 	// ReplaceEntityTerms is the idempotent set-replace operation behind
 	// the PUT /entities/{id}/terms endpoint. termIDs may be empty to
 	// detach all terms. Runs in a single transaction so partial state
@@ -371,6 +376,46 @@ func (r *PostgresRepository) ListTermsByIDs(ctx context.Context, ids []uuid.UUID
 			return nil, err
 		}
 		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// EntityTermRef is the public shape of a term assigned to an entity.
+type EntityTermRef struct {
+	Kind string
+	Slug string
+	Name string
+}
+
+// TermsForEntities loads the terms of every listed entity with a single query.
+func (r *PostgresRepository) TermsForEntities(ctx context.Context, entityIDs []uuid.UUID) (map[uuid.UUID][]EntityTermRef, error) {
+	out := map[uuid.UUID][]EntityTermRef{}
+	if len(entityIDs) == 0 {
+		return out, nil
+	}
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+	rows, err := conn.Query(ctx, `
+        SELECT et.entity_id, t.kind, t.slug, t.name
+          FROM hatamoto_entity_terms et
+          JOIN hatamoto_terms t ON t.id = et.term_id
+         WHERE et.entity_id = ANY($1)
+         ORDER BY et.entity_id, t.kind, t.name, t.slug
+    `, entityIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var ref EntityTermRef
+		if err := rows.Scan(&id, &ref.Kind, &ref.Slug, &ref.Name); err != nil {
+			return nil, err
+		}
+		out[id] = append(out[id], ref)
 	}
 	return out, rows.Err()
 }

@@ -6,13 +6,13 @@ import (
 )
 
 func TestVersionPinned(t *testing.T) {
-	if Version != "0.19.0" {
-		t.Fatalf("Version = %q, want 0.19.0; changing it is an SDK release decision, update this pin with it", Version)
+	if Version != "0.20.0" {
+		t.Fatalf("Version = %q, want 0.20.0; changing it is an SDK release decision, update this pin with it", Version)
 	}
 }
 
 func TestCompatibleWithPinned(t *testing.T) {
-	want := []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0"}
+	want := []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0"}
 	if !slices.Equal(CompatibleWith, want) {
 		t.Fatalf("CompatibleWith = %v, want %v; every 0.x minor from 0.5 stays served until 1.0", CompatibleWith, want)
 	}

@@ -644,6 +644,16 @@ type entityDTO struct {
 	Attributes  jsontext.Value `json:"attributes"`
 	PublishedAt *time.Time     `json:"published_at,omitempty"`
 	UpdatedAt   time.Time      `json:"updated_at"`
+	// Terms is set only for a plugin entitled to it (see termsEntitled). A nil
+	// pointer leaves the key out, so every other plugin sees the same bytes as
+	// before; a pointer to an empty slice is "terms": [].
+	Terms *[]entityTermDTO `json:"terms,omitempty"`
+}
+
+type entityTermDTO struct {
+	Kind string `json:"kind"`
+	Slug string `json:"slug"`
+	Name string `json:"name"`
 }
 
 func (a *API) entityDTO(ctx context.Context, e *entity.Entity) entityDTO {
@@ -792,7 +802,45 @@ func fnEntitiesGet(ctx context.Context, a *API, env *callEnv, raw jsontext.Value
 			return nil, herr(sdk.ErrNotFound, "entity not found")
 		}
 	}
-	return a.entityDTOGrouped(ctx, ent)
+	dto, err := a.entityDTOGrouped(ctx, ent)
+	if err != nil {
+		return nil, err
+	}
+	if a.termsEntitled(env) {
+		if err := a.attachTerms(ctx, []*entityDTO{&dto}, []uuid.UUID{ent.ID}); err != nil {
+			return nil, err
+		}
+	}
+	return dto, nil
+}
+
+// termsEntitled reports whether the calling plugin sees entity terms: its sdk
+// range requires 0.20 or later and it holds terms.read. The range is checked
+// first so callers without a grant store (unit rigs) never reach it.
+func (a *API) termsEntitled(env *callEnv) bool {
+	return requiresTerms(env) && a.grants != nil && a.grants.Has(env.plugin, sdk.PermTermsRead)
+}
+
+// attachTerms sets Terms on every dto (ids[i] belongs to dtos[i]) with one
+// query. A missing key means "not entitled", so a failed lookup is an error,
+// never a silent omission.
+func (a *API) attachTerms(ctx context.Context, dtos []*entityDTO, ids []uuid.UUID) error {
+	if a.svc.Terms == nil {
+		return unavailable("terms")
+	}
+	byEntity, err := a.svc.Terms.TermsForEntities(ctx, ids)
+	if err != nil {
+		a.log.Warn("entity terms lookup failed", slog.Any("error", err))
+		return herr(sdk.ErrInternal, "terms lookup failed")
+	}
+	for i, dto := range dtos {
+		terms := make([]entityTermDTO, 0, len(byEntity[ids[i]]))
+		for _, t := range byEntity[ids[i]] {
+			terms = append(terms, entityTermDTO{Kind: t.Kind, Slug: t.Slug, Name: t.Name})
+		}
+		dto.Terms = &terms
+	}
+	return nil
 }
 
 // runSeesOnlyPublished reports whether a read of an entity with this status
@@ -819,13 +867,14 @@ func (a *API) publicEntities(ctx context.Context, ids []uuid.UUID) (map[uuid.UUI
 	return a.svc.PublicEntityIDs(ctx, ids)
 }
 
-func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value) (any, error) {
+func fnEntitiesList(ctx context.Context, a *API, env *callEnv, raw jsontext.Value) (any, error) {
 	args, err := decodeArgs[struct {
-		SchemaSlug string `json:"schema_slug"`
-		Status     string `json:"status"`
-		Search     string `json:"search"`
-		Limit      int    `json:"limit"`
-		Cursor     string `json:"cursor"`
+		SchemaSlug string                `json:"schema_slug"`
+		Status     string                `json:"status"`
+		Search     string                `json:"search"`
+		Term       *sdk.EntityTermFilter `json:"term"`
+		Limit      int                   `json:"limit"`
+		Cursor     string                `json:"cursor"`
 	}](raw)
 	if err != nil {
 		return nil, err
@@ -853,6 +902,29 @@ func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value)
 			return nil, herr(sdk.ErrInvalidArgument, "status %q", args.Status)
 		}
 		filter.Status = &st
+	}
+	if args.Term != nil {
+		// Unlike the terms.* functions this one is not gated by the dispatcher,
+		// so the grant is checked here.
+		if a.grants == nil || !a.grants.Has(env.plugin, sdk.PermTermsRead) {
+			he := herr(sdk.ErrCapabilityDenied, "the term filter needs %s", sdk.PermTermsRead)
+			he.Capability = sdk.PermTermsRead
+			return nil, he
+		}
+		if !taxonomy.ValidKind(args.Term.Kind) {
+			return nil, herr(sdk.ErrInvalidArgument, "term kind %q", args.Term.Kind)
+		}
+		if a.svc.Terms == nil {
+			return nil, unavailable("terms")
+		}
+		t, err := a.svc.Terms.GetTermBySlug(ctx, args.Term.Kind, args.Term.Slug)
+		if errors.Is(err, taxonomy.ErrTermNotFound) {
+			return map[string]any{"items": []any{}, "next_cursor": (*string)(nil)}, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		filter.TermID, filter.TermExact = &t.ID, true
 	}
 	page := &entity.KeysetPage{Limit: clamp(args.Limit, 50, 200), Direction: "next"}
 	if args.Cursor != "" {
@@ -892,6 +964,16 @@ func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value)
 		}
 		items = append(items, dto)
 	}
+	if len(items) > 0 && a.termsEntitled(env) {
+		ptrs := make([]*entityDTO, len(items))
+		ids := make([]uuid.UUID, len(items))
+		for i := range items {
+			ptrs[i], ids[i] = &items[i], res.Items[i].ID
+		}
+		if err := a.attachTerms(ctx, ptrs, ids); err != nil {
+			return nil, err
+		}
+	}
 	return map[string]any{"items": items, "next_cursor": res.NextCursor}, nil
 }
 
@@ -899,18 +981,37 @@ func fnEntitiesList(ctx context.Context, a *API, _ *callEnv, raw jsontext.Value)
 // locale of the entities they create.
 const localeRequiredSince = "0.15.0"
 
+// termsRequiredSince is the first SDK version whose plugins get entity terms.
+const termsRequiredSince = "0.20.0"
+
 // requiresLocale reports whether the calling plugin was built for SDK 0.15 or
 // later only. Older plugins keep the site language as the default.
 func requiresLocale(env *callEnv) bool {
+	return envRequires(env, localeRequiredSince)
+}
+
+// requiresTerms reports whether the calling plugin was built for SDK 0.20 or
+// later only. Older plugins never see entity terms.
+func requiresTerms(env *callEnv) bool {
+	return envRequires(env, termsRequiredSince)
+}
+
+func envRequires(env *callEnv, since string) bool {
 	if env == nil {
 		return false
 	}
-	return rangeRequiresLocale(env.manifest.SDK, append(slices.Clone(sdk.CompatibleWith), sdk.Version))
+	return rangeRequires(env.manifest.SDK, append(slices.Clone(sdk.CompatibleWith), sdk.Version), since)
 }
 
 // rangeRequiresLocale reports whether rng admits some version in compatible
 // at or after localeRequiredSince and none before it.
 func rangeRequiresLocale(rng string, compatible []string) bool {
+	return rangeRequires(rng, compatible, localeRequiredSince)
+}
+
+// rangeRequires reports whether rng admits some version in compatible at or
+// after since and none before it.
+func rangeRequires(rng string, compatible []string, since string) bool {
 	admitsNew := false
 	for _, v := range compatible {
 		ok, err := sdk.Satisfies(v, rng)
@@ -920,7 +1021,7 @@ func rangeRequiresLocale(rng string, compatible []string) bool {
 		if !ok {
 			continue
 		}
-		if older, _ := sdk.Satisfies(v, "<"+localeRequiredSince); older {
+		if older, _ := sdk.Satisfies(v, "<"+since); older {
 			return false
 		}
 		admitsNew = true

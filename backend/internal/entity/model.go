@@ -242,6 +242,9 @@ type ListEntitiesFilter struct {
 	PersonID *uuid.UUID `json:"person_id,omitempty"`
 	// TermID keeps entities tagged with this term or one of its descendants.
 	TermID *uuid.UUID `json:"term_id,omitempty"`
+	// TermExact narrows TermID to entities carrying exactly that term,
+	// without its descendants.
+	TermExact bool `json:"term_exact,omitempty"`
 	// Under keeps the descendants (children, grandchildren, ...) of this entity.
 	Under *uuid.UUID `json:"under,omitempty"`
 	// UpdatedFrom (inclusive) and UpdatedBefore (exclusive) bound updated_at.
