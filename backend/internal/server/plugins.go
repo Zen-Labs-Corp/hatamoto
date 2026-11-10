@@ -8,6 +8,7 @@ import (
 
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/packages"
 	"hatamoto.dev/core/internal/pluginhost"
 )
 
@@ -50,6 +51,7 @@ func (s *Server) setupPlugins() {
 			Settings:  s.pluginSettings,
 			DB:        pdb,
 			Fetcher:   s.pluginFetcher(),
+			Packages:  packages.Inspector{}, // verdict for packages.inspect; zero Limits = packages.DefaultLimits
 
 			FetchPerMinute: s.cfg.Plugins.FetchPerMinute,
 		},

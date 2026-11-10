@@ -30,9 +30,10 @@ var texts = map[string]Text{
 		Help:  "WARNING: send requests to ANY public web address, including addresses typed into its settings. Treat it as a way out to the internet from this server.",
 		Short: "Any web address.", Warn: true,
 	},
-	sdk.PermKV:          {Help: "Keep small values of its own"},
-	sdk.PermDB:          {Help: "Keep its own data tables"},
-	sdk.PermBuilderData: {Help: "Offer data sources to the page builder"},
+	sdk.PermPackagesInspect: {Help: "Download and check Hatamoto packages from the web"},
+	sdk.PermKV:              {Help: "Keep small values of its own"},
+	sdk.PermDB:              {Help: "Keep its own data tables"},
+	sdk.PermBuilderData:     {Help: "Offer data sources to the page builder"},
 	sdk.PermSiteScripts: {
 		Help:  "Runs its JavaScript on every public page, with full access to the site, including signed-in admins. Without it the plugin's script is not loaded.",
 		Short: "JavaScript on every public page.", Warn: true,

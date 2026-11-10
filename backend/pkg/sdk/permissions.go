@@ -28,8 +28,11 @@ const (
 	// PermHTTPFetch so the permission prompt can warn about it, and an update
 	// that newly asks for it is reviewed again.
 	PermHTTPFetchAny Permission = "http.fetch.any"
-	PermKV           Permission = "kv"
-	PermDB           Permission = "db"
+	// PermPackagesInspect lets a plugin ask core to download an https package
+	// and report what it contains and whether its signature holds (SDK 0.21.0).
+	PermPackagesInspect Permission = "packages.inspect"
+	PermKV              Permission = "kv"
+	PermDB              Permission = "db"
 	// PermBuilderData lets the plugin answer builder.data requests for the
 	// builder_sources it declares. Without the grant the filter is not
 	// registered.
@@ -54,6 +57,7 @@ var Permissions = []Permission{
 	PermRedirectsRead, PermFormsRead,
 	PermSettings, PermLog, PermMailSend, PermHTTPFetch, PermHTTPFetchAny, PermKV, PermDB,
 	PermBuilderData, PermBuilderIsland, PermSiteScripts,
+	PermPackagesInspect,
 }
 
 // ValidPermission reports whether p is a known capability.

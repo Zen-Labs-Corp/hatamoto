@@ -48,6 +48,7 @@ var fnPhases = map[string]phaseSet{
 	sdk.FnRunFail:       phBoth,
 
 	sdk.FnHTTPFetch:         phFetch,
+	sdk.FnPackagesInspect:   phFetch,
 	sdk.FnUploadRead:        phFetch,
 	sdk.FnBufferPut:         phFetch,
 	sdk.FnMediaImportURL:    phFetch,

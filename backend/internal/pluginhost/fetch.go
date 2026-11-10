@@ -2,6 +2,7 @@ package pluginhost
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -50,7 +51,8 @@ func defaultLookup(ctx context.Context, host string) ([]netip.Addr, error) {
 type Fetcher struct {
 	lookup       Lookup
 	dialer       net.Dialer
-	allowPrivate bool // tests only: skip the address ranges so a loopback server is reachable
+	allowPrivate bool        // tests only: skip the address ranges so a loopback server is reachable
+	tlsConfig    *tls.Config // tests only: trust an httptest TLS server; nil in production
 }
 
 // NewFetcher returns a Fetcher using the system resolver.
@@ -60,6 +62,12 @@ func NewFetcher() *Fetcher { return &Fetcher{lookup: defaultLookup} }
 // addresses, so a test can stand an httptest server in for a remote service.
 // The plugin's allowed_hosts still apply. Never use it outside tests.
 func NewFetcherForTests() *Fetcher { return &Fetcher{lookup: defaultLookup, allowPrivate: true} }
+
+// NewFetcherForTestsTLS is NewFetcherForTests with a TLS client config, so a
+// test can reach an httptest TLS server. Never use it outside tests.
+func NewFetcherForTestsTLS(cfg *tls.Config) *Fetcher {
+	return &Fetcher{lookup: defaultLookup, allowPrivate: true, tlsConfig: cfg}
+}
 
 // FetchRequest is the input of http.fetch.
 type FetchRequest struct {

@@ -329,7 +329,7 @@ func browseMatches(e RegistryEntry, q BrowseQuery, kind packages.Kind) bool {
 	for _, p := range q.Perms {
 		switch p {
 		case browsePermNoNet:
-			if hasAnyPerm(e, "http.fetch", "http.fetch.any") {
+			if hasAnyPerm(e, "http.fetch", "http.fetch.any", "packages.inspect") {
 				return false
 			}
 		case browsePermNoScripts:
