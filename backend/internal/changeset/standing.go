@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/schemafield"
 )
 
 // MaxStandingPerHour is the ceiling of the hourly cap of a standing policy, and
@@ -647,7 +647,7 @@ func imageByName(name string, node any) bool {
 		return false
 	}
 	format, _ := n["format"].(string)
-	if schemaform.IsImageField(name, format, false) {
+	if schemafield.IsImageField(name, format, false) {
 		return true
 	}
 	if props, ok := n["properties"].(map[string]any); ok {
