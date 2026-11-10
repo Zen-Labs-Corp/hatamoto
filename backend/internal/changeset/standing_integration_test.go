@@ -850,3 +850,14 @@ func TestStandingCreateTranslationOfIDResolvesLikeTheWriter(t *testing.T) {
 		}
 	})
 }
+
+// The writer reads parent_key only as a source key, never as an entity id.
+func TestStandingCreateParentKeyIsNeverAnEntityID(t *testing.T) {
+	s := newStandingFixture(t)
+	s.withCreate(10)
+	// s.target is an owned entry in a listed schema, but its id is no source key.
+	v := s.mustWait(s.stageAll(s.newItem("pk", map[string]any{"parent_key": s.target})))
+	if !strings.Contains(strings.Join(v.Reasons, "|"), "parent") {
+		t.Errorf("reasons %q lack the parent", v.Reasons)
+	}
+}
