@@ -48,7 +48,7 @@ func (x *dbRestorer) steps(ctx context.Context) error {
 	if err := x.extractDumps(work); err != nil {
 		return fmt.Errorf("extract dumps: %w", err)
 	}
-	if err := x.restoreCore(ctx, filepath.Join(work, coreName)); err != nil {
+	if err := x.restoreCore(ctx, work); err != nil {
 		return fmt.Errorf("restore stopped at core database: %w", err)
 	}
 	if err := x.runBootstrap(ctx, work); err != nil {
@@ -124,19 +124,52 @@ func (x *dbRestorer) extractDumps(dir string) error {
 }
 
 // restoreCore loads the core dump into the empty database as the app role.
-func (x *dbRestorer) restoreCore(ctx context.Context, dump string) error {
+// The dump's DEFAULT ACL entries name the source's app role ("FOR ROLE <it>"),
+// which may not exist on this server under that name, so they are left out of
+// the restore list. pauseOffsiteSQL sets the same default privileges for the
+// app role afterwards.
+func (x *dbRestorer) restoreCore(ctx context.Context, work string) error {
 	env, err := pgEnv("DATABASE_URL", x.o.DatabaseURL, true)
 	if err != nil {
 		return err
 	}
-	out, err := x.run(ctx, env, "pg_restore", "--no-owner", "--role="+x.appRole, "--exit-on-error", "--dbname="+x.dbName, dump)
+	dump := filepath.Join(work, coreName)
+	listing, err := x.run(ctx, env, "pg_restore", "-l", dump)
+	if err != nil {
+		return fmt.Errorf("list: %s", restoreError(listing, err))
+	}
+	list, err := writeTemp0600(work, "core-*.list", []byte(filterDefaultACL(string(listing))))
+	if err != nil {
+		return err
+	}
+	defer os.Remove(list)
+	out, err := x.run(ctx, env, "pg_restore", "--no-owner", "--role="+x.appRole, "--exit-on-error",
+		"-L", list, "--dbname="+x.dbName, dump)
 	if err != nil {
 		return errors.New(restoreError(out, err))
 	}
 	return nil
 }
 
-// pauseOffsiteSQL switches scheduled off-site backups off on the restored
+// filterDefaultACL drops the DEFAULT ACL entries (ALTER DEFAULT PRIVILEGES) from
+// a pg_restore -l listing.
+func filterDefaultACL(listing string) string {
+	var keep []string
+	for _, l := range strings.Split(listing, "\n") {
+		if strings.Contains(l, " DEFAULT ACL - ") {
+			continue
+		}
+		keep = append(keep, l)
+	}
+	return strings.Join(keep, "\n")
+}
+
+// pauseOffsiteSQL also sets the app role's default privileges, as the core
+// migrations leave them (migrations/202610161000_plugin_isolation.sql): the
+// restore skips the dump's DEFAULT ACL entries, which name the source's app
+// role. The result is what a fresh install has.
+//
+// It switches scheduled off-site backups off on the restored
 // database. A restored copy shares the original's bucket prefix, and its first
 // upload would prune the original's copies; the owner turns the card on again
 // after checking the prefix. Backups made before the feature have no table.
@@ -146,7 +179,10 @@ const pauseOffsiteSQL = `DO $$ BEGIN
 IF to_regclass('public.hatamoto_offsite_settings') IS NOT NULL THEN
 UPDATE public.hatamoto_offsite_settings SET enabled = false;
 END IF;
-END $$`
+END $$;
+ALTER DEFAULT PRIVILEGES REVOKE ALL ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES REVOKE ALL ON SEQUENCES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`
 
 // pauseOffsiteSync runs pauseOffsiteSQL on the restored database as the app role.
 func (x *dbRestorer) pauseOffsiteSync(ctx context.Context) error {

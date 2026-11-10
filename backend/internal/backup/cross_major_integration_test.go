@@ -131,9 +131,12 @@ func crossMajorFlow(t *testing.T, mode adminMode) {
 		t.Fatalf("the backup records PostgreSQL %d, want the source's %d", mf.ServerMajor, srcMajor)
 	}
 
-	// Restore into the newer cluster, as the admin role of this mode.
+	// Restore into the newer cluster, as the admin role of this mode. The
+	// target's app role has its own name, not the source's.
 	dst.id8 = id8
-	dst.appRole = src.appRole // the dump names its owner, so the target needs the same role
+	if dst.appRole == src.appRole {
+		t.Fatalf("source and target share the app role %q", src.appRole)
+	}
 	target := "hm_xm_t_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:10]
 	dst.provisionApp(target)
 	base := t.TempDir()
@@ -157,6 +160,15 @@ func crossMajorFlow(t *testing.T, mode adminMode) {
 	var offsite bool
 	if err := restored.QueryRow(ctx, `SELECT enabled FROM hatamoto_offsite_settings`).Scan(&offsite); err != nil || offsite {
 		t.Errorf("off-site backups enabled after restore = %v, %v", offsite, err)
+	}
+	// The app role's default privileges match a fresh install: a function it
+	// creates is not executable by PUBLIC.
+	var public bool
+	if _, err := restored.Exec(ctx, `CREATE FUNCTION hm_xm_probe() RETURNS int LANGUAGE sql AS 'SELECT 1'`); err != nil {
+		t.Fatalf("probe function: %v", err)
+	}
+	if err := restored.QueryRow(ctx, `SELECT has_function_privilege('public', 'hm_xm_probe()', 'EXECUTE')`).Scan(&public); err != nil || public {
+		t.Errorf("PUBLIC can execute a new function of the app role = %v, %v", public, err)
 	}
 	conn, err := restored.Acquire(ctx)
 	if err != nil {
