@@ -377,7 +377,11 @@ func (p *packageAdmin) Install(ctx context.Context, data []byte, source string, 
 }
 
 func (p *packageAdmin) SetEnabled(ctx context.Context, name string, on bool) error {
-	return p.mgr().SetEnabled(actorCtx(ctx), name, on)
+	err := p.mgr().SetEnabled(actorCtx(ctx), name, on)
+	if errors.Is(err, packages.ErrRevoked) {
+		return refusal(err)
+	}
+	return err
 }
 
 func (p *packageAdmin) Uninstall(ctx context.Context, kind, name string, dropData, dropContentTypes bool) error {
@@ -480,6 +484,7 @@ func (p *packageAdmin) Themes(ctx context.Context) ([]admin.ThemeInfo, error) {
 			HasSettings: len(meta.SettingsSchema) > 0 && string(meta.SettingsSchema) != "null",
 			Update:      p.updateFor(ctx, packages.KindTheme, r.Name, r.Version),
 			Blocked:     p.mgr().Blocked(packages.KindTheme, r.Name),
+			Revoked:     r.DisabledReason,
 		})
 	}
 	return out, nil
@@ -659,7 +664,7 @@ func (p *packageAdmin) meta(ctx context.Context, r packages.Row) *admin.PackageM
 	}
 	m := &admin.PackageMeta{Enabled: r.Enabled, Signed: r.Signed(), Signer: r.SignerKeyID, FirstParty: firstPartyRow(r), Source: string(r.Source),
 		Update: p.updateFor(ctx, packages.KindPlugin, r.Name, r.Version), UpdateNew: p.updateNewFor(ctx, r.Name, r.Version, man.Permissions),
-		Blocked: p.mgr().Blocked(packages.KindPlugin, r.Name), LoadError: p.mgr().LoadError(r.Name), ScriptsBlocked: scripts, MarkupStopped: p.mgr().MarkupStopped(r.Name), AsksScripts: slices.Contains(man.Permissions, sdk.PermSiteScripts), Uninstalling: r.State == packages.StateUninstalling}
+		Blocked: p.mgr().Blocked(packages.KindPlugin, r.Name), Revoked: r.DisabledReason, LoadError: p.mgr().LoadError(r.Name), ScriptsBlocked: scripts, MarkupStopped: p.mgr().MarkupStopped(r.Name), AsksScripts: slices.Contains(man.Permissions, sdk.PermSiteScripts), Uninstalling: r.State == packages.StateUninstalling}
 	if r.Name == legacyWebhooksPlugin {
 		m.LegacyFirstParty = firstPartySigned(r)
 		m.WebhooksImported = p.s.webhooksImportRecorded(ctx)

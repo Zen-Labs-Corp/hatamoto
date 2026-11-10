@@ -131,6 +131,9 @@ type PackageMeta struct {
 	// Blocked says why policy keeps the package from loading (a signer that is
 	// no longer trusted, a dev package in production); "" when it is not.
 	Blocked string
+	// Revoked is the reason the registry revoked the package ("" when it was
+	// not). A revoked package is disabled and cannot be turned back on.
+	Revoked string
 	// LoadError is why the package was refused at load (a permission the host
 	// removed, an unreadable archive); "" when it was not.
 	LoadError string
@@ -225,7 +228,29 @@ type ThemeInfo struct {
 	Update                     string
 	// Blocked says why policy keeps an installed theme from running ("" when it is not).
 	Blocked string
+	// Revoked is the reason the registry revoked the theme ("" when it was not).
+	Revoked string
 }
+
+// defaultRevocation is the reason stored when the registry gives none.
+const defaultRevocation = "revoked by the registry"
+
+// revokedText is the line a revoked package carries; "" when reason is "".
+func revokedText(reason string) string {
+	switch reason {
+	case "":
+		return ""
+	case defaultRevocation:
+		return "Disabled: " + defaultRevocation + "."
+	}
+	return "Disabled: " + defaultRevocation + " (" + reason + ")"
+}
+
+// RevokedText is the owner-facing line for a revoked plugin; "" when not revoked.
+func (m PackageMeta) RevokedText() string { return revokedText(m.Revoked) }
+
+// RevokedText is the owner-facing line for a revoked theme; "" when not revoked.
+func (t ThemeInfo) RevokedText() string { return revokedText(t.Revoked) }
 
 // MissingSection is a section type the content uses that a theme lacks.
 type MissingSection struct {

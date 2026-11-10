@@ -91,6 +91,9 @@ type pluginRow struct {
 	UpdateNew []string
 	// UpToDate: the registry lists this plugin and offers nothing newer.
 	UpToDate bool
+	// Revoked is "Disabled: revoked by the registry (reason)" for a package the
+	// registry revoked; "" otherwise.
+	Revoked string
 	// FirstParty marks a package signed by the project's own key; Initial is
 	// the letter of the row's neutral tile.
 	FirstParty bool
@@ -238,6 +241,7 @@ func (a *Admin) handlePlugins(w http.ResponseWriter, r *http.Request) {
 		}
 		if p.Package != nil {
 			row.FirstParty = p.Package.FirstParty
+			row.Revoked = p.Package.RevokedText()
 			row.ScriptsBlocked, row.AsksScripts = p.Package.ScriptsBlocked, p.Package.AsksScripts
 			row.SectionsStopped = len(p.Package.MarkupStopped) > 0
 		}
@@ -357,12 +361,14 @@ type pluginState struct {
 	Marker string
 }
 
-// pluginStatus derives the state once. Precedence: uninstalling, blocked,
-// turned off, loaded, widget-only, tag pack, failed.
+// pluginStatus derives the state once. Precedence: uninstalling, revoked,
+// blocked, turned off, loaded, widget-only, tag pack, failed.
 func pluginStatus(p PluginInfo) pluginState {
 	switch {
 	case p.Package != nil && p.Package.Uninstalling:
 		return pluginState{Badge: ui.Badge{Label: "Uninstalling", Kind: "danger"}, Marker: "Off"}
+	case p.Package != nil && p.Package.Revoked != "":
+		return pluginState{Badge: ui.Badge{Label: "Disabled", Kind: "muted"}, Marker: "Off"}
 	case p.Package != nil && p.Package.Blocked != "":
 		return pluginState{Badge: ui.Badge{Label: "Blocked", Kind: "danger"}, Marker: "Failed"}
 	case p.Package != nil && !p.Package.Enabled:

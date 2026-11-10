@@ -400,6 +400,11 @@ func (a *Admin) handlePluginEnable(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	on := strings.HasSuffix(r.URL.Path, "/enable")
 	if err := pk.SetEnabled(r.Context(), name, on); err != nil {
+		var ref *Refusal
+		if errors.As(err, &ref) {
+			a.ErrorBack(w, r, http.StatusUnprocessableEntity, "Not turned on", ref.Msg, a.pluginURL(name, "settings"), "Back to plugin")
+			return
+		}
 		a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed from a package.", a.adminPath+"/plugins", "Back to plugins")
 		return
 	}

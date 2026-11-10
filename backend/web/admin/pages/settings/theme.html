@@ -14,7 +14,7 @@
 {{template "hm/menuitem" dict "Table" $t "Action" (dict "Label" "Uninstall" "Icon" "trash" "Href" (printf "%s/theme/themes/%s/uninstall" adminPath .Name) "Danger" true)}}
 {{end}}</div></div></div>
 {{if .Description}}<p class="hm-muted">{{.Description}}</p>{{end}}
-{{if .Blocked}}{{template "hm/callout" (dict "Kind" "danger" "Title" "Not used" "Body" (printf "%s The theme is kept, not deleted." .Blocked))}}{{end}}
+{{if .Revoked}}{{template "hm/callout" (dict "Kind" "danger" "Title" "Not used" "Body" (printf "%s The theme is kept, not deleted." .RevokedText))}}{{else if .Blocked}}{{template "hm/callout" (dict "Kind" "danger" "Title" "Not used" "Body" (printf "%s The theme is kept, not deleted." .Blocked))}}{{end}}
 <div class="hm-theme__actions">{{if not .Active}}{{template "hm/button" dict "Label" "Activate" "Href" (printf "%s/theme/themes/%s/activate" adminPath .Name) "Variant" "secondary" "Size" "sm"}}
 {{else if .Update}}<form method="post" action="{{adminPath}}/theme/themes/fetch">{{template "hm/csrf" $}}<input type="hidden" name="name" value="{{.Name}}">{{template "hm/button" dict "Label" (printf "Update to %s" .Update) "Variant" "secondary" "Size" "sm" "Type" "submit"}}</form>{{end}}</div>
 {{template "hm/card-end"}}
