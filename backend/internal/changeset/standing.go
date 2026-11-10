@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +30,33 @@ type StandingPolicy struct {
 	Fields     []string
 	Schemas    []string
 	MaxPerHour int
+	// Create, when set, lets the rule publish new entries of its schemas.
+	// Nil keeps the rule update-only.
+	Create *CreatePolicy
+}
+
+// MaxStandingCreatesPerHour is the ceiling of the hourly create cap.
+const MaxStandingCreatesPerHour = 100
+
+// CreatePolicy is the opt-in part of a standing policy that publishes new
+// entries of the named schemas, at most MaxPerHour an hour.
+type CreatePolicy struct {
+	Schemas    []string
+	MaxPerHour int
+}
+
+// createCap is how many creates an hour the policy allows. There is no
+// default: a missing or non-positive limit allows none.
+func (p StandingPolicy) createCap() int {
+	if p.Create == nil || p.Create.MaxPerHour <= 0 {
+		return 0
+	}
+	return min(p.Create.MaxPerHour, MaxStandingCreatesPerHour)
+}
+
+// createsEnabled reports whether any create can qualify under the policy.
+func (p StandingPolicy) createsEnabled() bool {
+	return p.createCap() > 0 && len(p.Create.Schemas) > 0
 }
 
 // PolicyVerdict says whether a changeset is inside a policy. Reasons are plain
@@ -52,12 +80,32 @@ func (e *Engine) AutoPublishedLastHour(ctx context.Context, plugin string) (int,
 }
 
 func autoPublishedSince(ctx context.Context, q rowQuerier, plugin string, since time.Time) (int, error) {
+	return countApplied(ctx, q, plugin, since, "")
+}
+
+// appliedCreate matches the items a publish applied as a new entity: a create
+// leaves no pre-image and no token of a live object (publishItem records both
+// for every update).
+const appliedCreate = `(i.kind = 'entity' AND i.op = 'upsert' AND i.before IS NULL AND i.before_token IS NULL)`
+
+// updatesSince counts the applied items of plugin's automatic changesets
+// that are not creates: the budget of the update rule.
+func updatesSince(ctx context.Context, q rowQuerier, plugin string, since time.Time) (int, error) {
+	return countApplied(ctx, q, plugin, since, ` AND NOT `+appliedCreate)
+}
+
+// createsSince counts the applied creates of plugin's automatic changesets.
+func createsSince(ctx context.Context, q rowQuerier, plugin string, since time.Time) (int, error) {
+	return countApplied(ctx, q, plugin, since, ` AND `+appliedCreate)
+}
+
+func countApplied(ctx context.Context, q rowQuerier, plugin string, since time.Time, filter string) (int, error) {
 	var n int
 	err := q.QueryRow(ctx, `
 		SELECT count(*) FROM hatamoto_changeset_items i
 		JOIN hatamoto_changesets c ON c.id = i.changeset_id
 		WHERE c.plugin = $1 AND c.auto_published AND c.state = 'published'
-		  AND c.published_at > $2 AND i.result = $3`,
+		  AND c.published_at > $2 AND i.result = $3`+filter,
 		plugin, since, ResultApplied).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count automatic changes: %w", err)
@@ -145,13 +193,15 @@ func (e *Engine) checkPolicyIn(ctx context.Context, tx pgx.Tx, cs changesetRow, 
 		v.refuse("The run changed nothing.")
 		return nil
 	}
-	used, err := autoPublishedSince(ctx, tx, cs.Plugin, e.now().Add(-time.Hour))
-	if err != nil {
-		return err
-	}
-	if used+int(cs.Items) > p.cap() {
-		v.refuse(fmt.Sprintf("It would pass %d automatic changes in an hour.", p.cap()))
-		return nil
+	if !p.createsEnabled() {
+		used, err := autoPublishedSince(ctx, tx, cs.Plugin, e.now().Add(-time.Hour))
+		if err != nil {
+			return err
+		}
+		if used+int(cs.Items) > p.cap() {
+			v.refuse(fmt.Sprintf("It would pass %d automatic changes in an hour.", p.cap()))
+			return nil
+		}
 	}
 	if err := e.ensureClassified(ctx, tx, csID, cs.Plugin); err != nil {
 		return err
@@ -159,6 +209,31 @@ func (e *Engine) checkPolicyIn(ctx context.Context, tx pgx.Tx, cs changesetRow, 
 	items, err := loadItems(ctx, tx, csID, false)
 	if err != nil {
 		return err
+	}
+	st := &standingRun{created: map[string]string{}, slugs: map[string]bool{}}
+	if p.createsEnabled() {
+		staged := 0
+		for _, it := range items {
+			if isCleanCreate(ctx, tx, p, it) {
+				staged++
+			}
+		}
+		used, err := updatesSince(ctx, tx, cs.Plugin, e.now().Add(-time.Hour))
+		if err != nil {
+			return err
+		}
+		if used+int(cs.Items)-staged > p.cap() {
+			v.refuse(fmt.Sprintf("It would pass %d automatic changes in an hour.", p.cap()))
+			return nil
+		}
+		usedCreates, err := createsSince(ctx, tx, cs.Plugin, e.now().Add(-time.Hour))
+		if err != nil {
+			return err
+		}
+		if usedCreates+staged > p.createCap() {
+			v.refuse(fmt.Sprintf("It would pass %d new entries in an hour.", p.createCap()))
+			return nil
+		}
 	}
 	risks, err := loadRisks(ctx, tx, csID)
 	if err != nil {
@@ -172,7 +247,7 @@ func (e *Engine) checkPolicyIn(ctx context.Context, tx pgx.Tx, cs changesetRow, 
 			v.refuse(fmt.Sprintf("Change %d needs a closer look.", it.Seq))
 			continue
 		}
-		if reason := checkStandingItem(ctx, tx, p, it); reason != "" {
+		if reason := checkStandingItem(ctx, tx, p, it, st); reason != "" {
 			v.refuse(fmt.Sprintf("Change %d: %s", it.Seq, reason))
 		}
 	}
@@ -200,7 +275,7 @@ func loadRisks(ctx context.Context, tx pgx.Tx, csID int64) (map[int]string, erro
 }
 
 // checkStandingItem returns why an item is outside the policy, or "".
-func checkStandingItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it StoredItem) string {
+func checkStandingItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it StoredItem, st *standingRun) string {
 	if it.Kind != KindEntity {
 		return "only page and record updates qualify."
 	}
@@ -209,6 +284,9 @@ func checkStandingItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it Stor
 	}
 	if len(it.BlobKeys) > 0 {
 		return "files never qualify."
+	}
+	if isCleanCreate(ctx, tx, p, it) {
+		return checkCreateItem(ctx, tx, p, it, st)
 	}
 	target := it.TargetID
 	if target == "" {
@@ -373,6 +451,203 @@ func isScalar(v any) bool {
 	switch v.(type) {
 	case float64, bool, string:
 		return true
+	}
+	return false
+}
+
+// standingRun is what the item checks of one changeset share: the creates
+// already accepted, so later items may name them as parent or translation
+// source (they apply in the same order).
+type standingRun struct {
+	created map[string]string // source key -> schema slug
+	slugs   map[string]bool   // schema slug + "/" + lowercased explicit slug
+}
+
+// isCleanCreate reports whether the item is a plain create the policy may
+// judge: an entity upsert with no target and no live or stale mapping. Anything
+// else (a mapped key, a target that is gone) is not a create and keeps the
+// update rule's refusal.
+func isCleanCreate(ctx context.Context, tx rowQuerier, p StandingPolicy, it StoredItem) bool {
+	if !p.createsEnabled() || it.Kind != KindEntity || it.Op != OpUpsert || it.TargetID != "" {
+		return false
+	}
+	mapped, err := mappedTarget(ctx, tx, Origin(p.Plugin), it.Kind, it.SourceKey)
+	return err == nil && mapped == ""
+}
+
+// Entity attribute keys the SEO block of a payload merges into, which a schema
+// need not declare.
+var undeclaredAttributeKeys = []string{"meta_title", "meta_description"}
+
+// checkCreateItem returns why a new entry is outside the create rule, or "".
+// Every check must pass; the writer applies the item as a human publish would.
+func checkCreateItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it StoredItem, st *standingRun) string {
+	var pl entityPayload
+	if jsonx.Unmarshal(it.Payload, &pl, jsonx.StoredLoose) != nil {
+		return "it could not be read."
+	}
+	if !slices.Contains(p.Create.Schemas, pl.Schema) {
+		return "its type is not covered by the create rule."
+	}
+	if it.SourceKey != "" {
+		if _, dup := st.created[it.SourceKey]; dup {
+			return "two new entries share one source key."
+		}
+	}
+	switch pl.Status {
+	case "", "draft", "published":
+	default:
+		return "it sets a status other than draft or published."
+	}
+	if pl.ParentID != nil {
+		return "a new entry may not be placed under an existing page."
+	}
+	if pl.SEO != nil && pl.SEO.Canonical != "" {
+		return "it sets a canonical address."
+	}
+	origin := Origin(p.Plugin)
+	if pl.ParentKey != "" {
+		ok, reason := ownedOrStaged(ctx, tx, p, origin, pl.ParentKey, st)
+		if !ok {
+			return "its parent " + reason
+		}
+	}
+	if pl.TranslationOf != "" {
+		ok, reason := ownedOrStaged(ctx, tx, p, origin, pl.TranslationOf, st)
+		if !ok {
+			return "its translation source " + reason
+		}
+	}
+	var schemaID uuid.UUID
+	var schemaDoc []byte
+	if err := tx.QueryRow(ctx, `SELECT id, schema FROM hatamoto_entity_schemas WHERE slug = $1`, pl.Schema).Scan(&schemaID, &schemaDoc); err != nil {
+		return "its type could not be read."
+	}
+	if pl.Slug != "" {
+		key := pl.Schema + "/" + strings.ToLower(pl.Slug)
+		var taken bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (SELECT 1 FROM hatamoto_entities WHERE schema_id = $1 AND lower(slug) = lower($2) AND variant_key IS NULL)`,
+			schemaID, pl.Slug).Scan(&taken); err != nil {
+			return "its address could not be checked."
+		}
+		if taken || st.slugs[key] {
+			return "its address is already taken."
+		}
+		st.slugs[key] = true
+	}
+	if reason := checkCreateAttributes(schemaDoc, pl.Attributes); reason != "" {
+		return reason
+	}
+	if it.SourceKey != "" {
+		st.created[it.SourceKey] = pl.Schema
+	}
+	return ""
+}
+
+// ownedOrStaged resolves a parent or translation reference the way the writer
+// does (an id, else a source key of this origin) and accepts only entities of
+// this plugin in a listed schema, or an earlier create of this changeset.
+func ownedOrStaged(ctx context.Context, tx pgx.Tx, p StandingPolicy, origin, ref string, st *standingRun) (bool, string) {
+	if schema, ok := st.created[ref]; ok {
+		if slices.Contains(p.Create.Schemas, schema) {
+			return true, ""
+		}
+		return false, "is in a type the create rule does not cover."
+	}
+	id, err := uuid.Parse(ref)
+	if err != nil {
+		target, err := liveEntityTarget(ctx, tx, origin, ref)
+		if err != nil || target == "" {
+			return false, "could not be found."
+		}
+		if id, err = uuid.Parse(target); err != nil {
+			return false, "could not be found."
+		}
+	}
+	var liveOrigin, schema string
+	err = tx.QueryRow(ctx, `
+		SELECT e.origin, s.slug FROM hatamoto_entities e JOIN hatamoto_entity_schemas s ON s.id = e.schema_id WHERE e.id = $1`, id).
+		Scan(&liveOrigin, &schema)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, "could not be found."
+	}
+	if err != nil {
+		return false, "could not be read."
+	}
+	if liveOrigin != origin {
+		return false, "is something the plugin did not create."
+	}
+	if !slices.Contains(p.Create.Schemas, schema) {
+		return false, "is in a type the create rule does not cover."
+	}
+	return true, ""
+}
+
+// checkCreateAttributes refuses a new entry that carries a media reference:
+// a non-empty value in a field the schema marks as an image or file, in a
+// key the schema does not declare, or in a field it cannot classify.
+func checkCreateAttributes(schemaDoc []byte, raw jsontext.Value) string {
+	attrs, ok := decodeObject(raw)
+	if !ok {
+		return "its values could not be read."
+	}
+	var props struct {
+		Properties map[string]any `json:"properties"`
+	}
+	if jsonx.Unmarshal(schemaDoc, &props, jsonx.StoredLoose) != nil {
+		return "its type could not be read."
+	}
+	for k, v := range attrs {
+		if isEmptyValue(v) {
+			continue
+		}
+		def, declared := props.Properties[k]
+		if !declared {
+			if slices.Contains(undeclaredAttributeKeys, k) {
+				continue
+			}
+			return fmt.Sprintf("it sends %q, which its type does not declare.", k)
+		}
+		if hasMediaMarker(def) {
+			return fmt.Sprintf("%q holds an image or file, which never qualifies.", k)
+		}
+	}
+	return ""
+}
+
+func isEmptyValue(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case string:
+		return x == ""
+	case []any:
+		return len(x) == 0
+	case map[string]any:
+		return len(x) == 0
+	}
+	return false
+}
+
+// hasMediaMarker reports whether a schema node, or any node below it, is an
+// image or file field.
+func hasMediaMarker(node any) bool {
+	switch n := node.(type) {
+	case map[string]any:
+		if m, _ := n["x-media"].(bool); m {
+			return true
+		}
+		if f, _ := n["x-hm-field"].(string); f == "image" || f == "file" {
+			return true
+		}
+		for _, child := range n {
+			if hasMediaMarker(child) {
+				return true
+			}
+		}
+	case []any:
+		return slices.ContainsFunc(n, hasMediaMarker)
 	}
 	return false
 }
