@@ -85,6 +85,16 @@ func TestRunBrowseFilters(t *testing.T) {
 	}
 }
 
+func TestRunBrowseNoNetworkExcludesPackagesInspect(t *testing.T) {
+	all := []RegistryEntry{
+		{Kind: "plugin", Name: "quiet", Permissions: []string{"settings"}},
+		{Kind: "plugin", Name: "checker", Permissions: []string{"packages.inspect"}},
+	}
+	if got := browseNames(RunBrowse(all, BrowseQuery{Perms: []string{"nonet"}}).Items); !slices.Equal(got, []string{"quiet"}) {
+		t.Fatalf("got %v", got)
+	}
+}
+
 func TestRunBrowseSortUsesTitleThenName(t *testing.T) {
 	all := []RegistryEntry{
 		{Kind: "plugin", Name: "zz", Title: "Apple"},
