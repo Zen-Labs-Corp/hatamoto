@@ -214,3 +214,30 @@ func TestGeoIPDBEnv(t *testing.T) {
 		}
 	}
 }
+
+func TestPublicAcquireTimeout(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x")
+	t.Setenv("DATABASE_PUBLIC_ACQUIRE_TIMEOUT", "")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Database.PublicAcquireTimeout; got != 3*time.Second {
+		t.Fatalf("default = %s", got)
+	}
+	t.Setenv("DATABASE_PUBLIC_ACQUIRE_TIMEOUT", "500ms")
+	cfg, _ = Load()
+	if got := cfg.Database.PublicAcquireTimeout; got != 500*time.Millisecond {
+		t.Fatalf("override = %s", got)
+	}
+	t.Setenv("DATABASE_PUBLIC_ACQUIRE_TIMEOUT", "0")
+	cfg, _ = Load()
+	if cfg.Database.PublicAcquireTimeout != 0 || cfg.Database.Validate() != nil {
+		t.Fatalf("0 must disable and validate, got %s", cfg.Database.PublicAcquireTimeout)
+	}
+	t.Setenv("DATABASE_PUBLIC_ACQUIRE_TIMEOUT", "-1s")
+	cfg, _ = Load()
+	if err := cfg.Database.Validate(); err == nil {
+		t.Fatal("negative must be rejected")
+	}
+}

@@ -162,6 +162,17 @@ type DatabaseConfig struct {
 	MinConnections  int
 	MaxConnLifetime time.Duration
 	MaxConnIdleTime time.Duration
+	// PublicAcquireTimeout bounds how long a public page request waits for a
+	// pool connection before answering 503. 0 disables the bound.
+	PublicAcquireTimeout time.Duration
+}
+
+// Validate rejects settings that cannot work.
+func (d DatabaseConfig) Validate() error {
+	if d.PublicAcquireTimeout < 0 {
+		return fmt.Errorf("DATABASE_PUBLIC_ACQUIRE_TIMEOUT must not be negative, got %s", d.PublicAcquireTimeout)
+	}
+	return nil
 }
 
 // PublicSiteConfig holds the canonical public origin for the tenant. When set
@@ -311,6 +322,8 @@ func Load() (*Config, error) {
 		MinConnections:  getEnvInt("DATABASE_MIN_CONNECTIONS", 5),
 		MaxConnLifetime: getDuration("DATABASE_MAX_CONN_LIFETIME", 1*time.Hour),
 		MaxConnIdleTime: getDuration("DATABASE_MAX_CONN_IDLE_TIME", 30*time.Minute),
+
+		PublicAcquireTimeout: getDuration("DATABASE_PUBLIC_ACQUIRE_TIMEOUT", 3*time.Second),
 	}
 
 	cfg.Secret = getEnv("HATAMOTO_SECRET", getEnv("JWT_SECRET", ""))
@@ -462,6 +475,9 @@ const (
 func (c *Config) Validate() error {
 	if c.Database.URL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
+	}
+	if err := c.Database.Validate(); err != nil {
+		return err
 	}
 	if err := c.Admin.Validate(); err != nil {
 		return err
