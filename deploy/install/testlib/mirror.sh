@@ -45,6 +45,7 @@ mirror_init() {
     cp "$M_PRIV/manifest.pub" "$M_TRUST/manifest.pub"
   fi
   printf '{"channel":"stable","issued_at":"","expires_at":"","releases":[],"yanked":[]}\n' > "$M_SRC/stable.json"
+  printf '{"channel":"edge","issued_at":"","expires_at":"","releases":[],"yanked":[]}\n' > "$M_SRC/edge.json"
   M_PID=""
 }
 
@@ -53,10 +54,14 @@ mirror_tool() {
   HATAMOTO_TEST_TRUST_DIR="$M_TRUST" "$M_TOOL" "$@"
 }
 
-# mirror_add VERSION RAMP adds a release (RAMP like now:100 or now:5,+2d:100).
-# Each platform gets different small fake bytes.
-mirror_add() {
-  local v="$1" ramp="$2" rel p core kind patch minor
+# mirror_add VERSION RAMP adds a release to stable (RAMP like now:100 or now:5,+2d:100).
+# Each platform gets different small fake bytes. mirror_add_edge does the same on edge.
+mirror_add() { _mirror_add stable "$1" "$2"; }
+mirror_add_edge() { _mirror_add edge "$1" "$2"; }
+
+# _mirror_add CHANNEL VERSION RAMP
+_mirror_add() {
+  local chan="$1" v="$2" ramp="$3" rel p core kind patch minor
   rel="$M_SITE/releases/$v"
   mkdir -p "$rel"
   for p in linux-amd64 linux-arm64 darwin-amd64 darwin-arm64; do
@@ -70,12 +75,14 @@ mirror_add() {
     --rollback-floor "$v" --min-from "$v" --allow-same --notes-url https://example.test/notes \
     --dir "$rel" --out "$rel/release.json" >/dev/null
   mirror_tool sign-record "$rel/release.json" --key "$M_PRIV/release.key" --out "$rel/release.json.sig" --allow-same >/dev/null
-  mirror_tool channel add stable "$v" --record "$rel/release.json" --sig "$rel/release.json.sig" \
+  mirror_tool channel add "$chan" "$v" --record "$rel/release.json" --sig "$rel/release.json.sig" \
     --ramp "$ramp" --dir "$M_SRC" >/dev/null
 }
 
-# mirror_publish signs the channel source with the manifest key (valid 14 days).
+# mirror_publish signs the channel sources with the manifest key (valid 14 days).
 mirror_publish() {
+  mirror_tool channel resign --channel edge --in "$M_SRC" --out "$M_SITE/releases/channels" \
+    --key "$M_PRIV/manifest.key" >/dev/null
   mirror_tool channel resign --channel stable --in "$M_SRC" --out "$M_SITE/releases/channels" \
     --key "$M_PRIV/manifest.key" >/dev/null
 }
@@ -121,9 +128,9 @@ mirror_tamper_record() {
   mv "$f.new" "$f"
 }
 
-# mirror_tamper_index: edit the published index after it was signed.
+# mirror_tamper_index [CHANNEL]: edit the published index (default stable) after it was signed.
 mirror_tamper_index() {
-  local f="$M_SITE/releases/channels/stable.json"
+  local f="$M_SITE/releases/channels/${1:-stable}.json"
   jq '.index.releases[0].halted = false | .index.yanked = []' "$f" > "$f.new"
   # Make sure the bytes really differ even when the edit was a no-op.
   jq '.index.expires_at = "2099-01-01T00:00:00Z"' "$f.new" > "$f"

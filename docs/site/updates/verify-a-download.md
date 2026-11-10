@@ -93,6 +93,16 @@ gh attestation verify install.sh \
 
 The script is not tied to one version: it carries the three public keys (the release primary, the release backup and the manifest key, see [the two keys](trust-and-signing.md#the-two-keys)) and uses them to check the release list and the binary it installs, so it picks the newest stable release, or the installer's minimum if that is newer, unless you set `HATAMOTO_VERSION`. Because the keys are inside the script, a key rotation means we publish a new installer: an old copy keeps trusting the old keys.
 
+## Download with the installer
+
+`install.sh download [--channel stable|edge] VERSION OUTFILE` fetches one release binary through the same signed chain the updater runs: the signed channel index, the signed release record, then the size and SHA-256 of the binary. It writes `OUTFILE` only when every check passed.
+
+The channel defaults to `stable`. Use `--channel edge` for a release that is not on stable yet. The installer takes any version the channel lists that is not yanked or halted; it does not consider the rollout ramp. A channel other than `stable` or `edge` is refused before any request, and an index signed for another channel than the one you asked for fails the `index-channel` check.
+
+```bash
+sh install.sh download --channel edge v1.2.0 ./hatamoto
+```
+
 ## Check it worked
 
 Step 1 ends with `Verification succeeded!`, step 2 prints `OK` for each file, step 3 prints `Signature Verified Successfully` and step 4 shows two identical hashes. Three agreeing proofs mean the file is what we built, listed and signed.
