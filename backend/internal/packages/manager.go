@@ -385,7 +385,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	// must not leave the new package enabled.
 	var voided int64
 	if err := pgx.BeginFunc(ctx, m.Pool, func(tx pgx.Tx) error {
-		if err := m.store.put(ctx, tx, p, req.Source, true); err != nil {
+		if err := m.store.put(ctx, tx, p, req.Source, true, ""); err != nil {
 			return err
 		}
 		// An approval belongs to one exact release: any change to the

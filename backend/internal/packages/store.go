@@ -33,8 +33,15 @@ type Row struct {
 	Manifest    jsontext.Value
 	SHA256      string
 	SignerKeyID string // "" for an unsigned package
-	Source      Source
-	Enabled     bool
+	// Developer marks a package installed from the developer index.
+	Developer bool
+	// DeveloperKey is the base64 public key that signed a developer package;
+	// it lets the row be verified at boot without the index.
+	DeveloperKey string
+	// DisabledReason is why a revocation switched the package off; "" if none.
+	DisabledReason string
+	Source         Source
+	Enabled        bool
 	// State is StateInstalled, or StateUninstalling for a removal that has
 	// started and can be retried (the package is not loaded).
 	State       string
@@ -60,6 +67,9 @@ type Config struct {
 	AllowUnsigned bool
 	// AllowUnsignedUntil is when a timed opt-in ends; nil is "until turned off".
 	AllowUnsignedUntil *time.Time
+	// AllowDeveloper lets packages from the developer index be installed and
+	// updated. It never affects a package that is already installed.
+	AllowDeveloper bool
 	// ActiveTheme is the installed theme in use; "" is the built-in default.
 	ActiveTheme string
 	// ServerEnvironment is the ENVIRONMENT of the server that last booted on
@@ -85,10 +95,13 @@ type execer interface {
 // Put installs or replaces (update) the package of the same kind and name. An
 // update keeps the stored enabled flag; a new package is stored with enabled.
 func (s *Store) Put(ctx context.Context, p *Package, src Source, enabled bool) error {
-	return s.put(ctx, s.pool, p, src, enabled)
+	return s.put(ctx, s.pool, p, src, enabled, "")
 }
 
-func (s *Store) put(ctx context.Context, db execer, p *Package, src Source, enabled bool) error {
+// put stores the package; developerKey is the base64 public key of a developer
+// package ("" for any other). An install or update clears a stored
+// disabled reason: the new release is checked afresh.
+func (s *Store) put(ctx context.Context, db execer, p *Package, src Source, enabled bool, developerKey string) error {
 	sum := p.SHA256()
 	var sig []byte
 	var signer *string
@@ -97,26 +110,28 @@ func (s *Store) put(ctx context.Context, db execer, p *Package, src Source, enab
 		signer = &p.Signature.Signer
 	}
 	_, err := db.Exec(ctx, `
-		INSERT INTO hatamoto_packages (kind, name, version, manifest, data, sha256, signature, signer_key_id, source, enabled)
-		VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10)
+		INSERT INTO hatamoto_packages (kind, name, version, manifest, data, sha256, signature, signer_key_id, source, enabled, developer, developer_key)
+		VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (kind, name) DO UPDATE SET
 		    version = EXCLUDED.version, manifest = EXCLUDED.manifest, data = EXCLUDED.data,
 		    sha256 = EXCLUDED.sha256, signature = EXCLUDED.signature, signer_key_id = EXCLUDED.signer_key_id,
-		    source = EXCLUDED.source, updated_at = now()`,
-		string(p.Kind), p.Name, p.Version, []byte(p.Manifest), p.Data(), hex.EncodeToString(sum[:]), sig, signer, string(src), enabled)
+		    source = EXCLUDED.source, developer = EXCLUDED.developer, developer_key = EXCLUDED.developer_key,
+		    disabled_reason = NULL, updated_at = now()`,
+		string(p.Kind), p.Name, p.Version, []byte(p.Manifest), p.Data(), hex.EncodeToString(sum[:]), sig, signer, string(src), enabled,
+		developerKey != "", nilIfEmpty(developerKey))
 	if err != nil {
 		return fmt.Errorf("packages: store %s %q: %w", p.Kind, p.Name, err)
 	}
 	return nil
 }
 
-const rowColumns = `kind, name, version, manifest, sha256, COALESCE(signer_key_id, ''), source, enabled, state, octet_length(data), installed_at, updated_at`
+const rowColumns = `kind, name, version, manifest, sha256, COALESCE(signer_key_id, ''), source, enabled, state, developer, COALESCE(developer_key, ''), COALESCE(disabled_reason, ''), octet_length(data), installed_at, updated_at`
 
 func scanRow(rows pgx.Row) (Row, error) {
 	var r Row
 	var kind, src string
 	var manifest []byte
-	err := rows.Scan(&kind, &r.Name, &r.Version, &manifest, &r.SHA256, &r.SignerKeyID, &src, &r.Enabled, &r.State, &r.Size, &r.InstalledAt, &r.UpdatedAt)
+	err := rows.Scan(&kind, &r.Name, &r.Version, &manifest, &r.SHA256, &r.SignerKeyID, &src, &r.Enabled, &r.State, &r.Developer, &r.DeveloperKey, &r.DisabledReason, &r.Size, &r.InstalledAt, &r.UpdatedAt)
 	r.Kind, r.Source, r.Manifest = Kind(kind), Source(src), manifest
 	return r, err
 }
@@ -164,9 +179,30 @@ func (s *Store) Load(ctx context.Context, kind Kind, name string) (*Package, Row
 	return p, row, err
 }
 
-// SetEnabled flips a plugin's enabled flag.
+func nilIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+// SetEnabled flips a plugin's enabled flag. Enabling clears a stored disabled
+// reason (the caller has checked the package is no longer revoked).
 func (s *Store) SetEnabled(ctx context.Context, kind Kind, name string, on bool) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE hatamoto_packages SET enabled = $3, updated_at = now() WHERE kind = $1 AND name = $2`, string(kind), name, on)
+	tag, err := s.pool.Exec(ctx, `UPDATE hatamoto_packages SET enabled = $3, disabled_reason = CASE WHEN $3 THEN NULL ELSE disabled_reason END, updated_at = now() WHERE kind = $1 AND name = $2`, string(kind), name, on)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// DisableWithReason switches a package off and stores why. The archive and
+// the package's data are kept.
+func (s *Store) DisableWithReason(ctx context.Context, kind Kind, name, reason string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE hatamoto_packages SET enabled = false, disabled_reason = $3, updated_at = now() WHERE kind = $1 AND name = $2`, string(kind), name, reason)
 	if err != nil {
 		return err
 	}
@@ -202,7 +238,7 @@ func (s *Store) Config(ctx context.Context) (Config, error) {
 	var c Config
 	var active *string
 	var env *string
-	err := s.pool.QueryRow(ctx, `SELECT (allow_unsigned AND (allow_unsigned_until IS NULL OR allow_unsigned_until > now())), allow_unsigned_until, active_theme, server_environment FROM hatamoto_package_config WHERE singleton`).Scan(&c.AllowUnsigned, &c.AllowUnsignedUntil, &active, &env)
+	err := s.pool.QueryRow(ctx, `SELECT (allow_unsigned AND (allow_unsigned_until IS NULL OR allow_unsigned_until > now())), allow_unsigned_until, allow_developer, active_theme, server_environment FROM hatamoto_package_config WHERE singleton`).Scan(&c.AllowUnsigned, &c.AllowUnsignedUntil, &c.AllowDeveloper, &active, &env)
 	if active != nil {
 		c.ActiveTheme = *active
 	}
@@ -253,6 +289,12 @@ func (s *Store) SetAllowUnsignedUntil(ctx context.Context, on bool, until *time.
 		until = nil
 	}
 	_, err := s.pool.Exec(ctx, `UPDATE hatamoto_package_config SET allow_unsigned = $1, allow_unsigned_until = $2, updated_at = now() WHERE singleton`, on, until)
+	return err
+}
+
+// SetAllowDeveloper stores the owner's switch for developer packages.
+func (s *Store) SetAllowDeveloper(ctx context.Context, on bool) error {
+	_, err := s.pool.Exec(ctx, `UPDATE hatamoto_package_config SET allow_developer = $1, updated_at = now() WHERE singleton`, on)
 	return err
 }
 
