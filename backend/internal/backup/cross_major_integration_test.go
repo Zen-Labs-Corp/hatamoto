@@ -33,7 +33,11 @@ func toolMajorOf(t *testing.T, bin string, args ...string) int {
 	if err != nil {
 		t.Skipf("%s not usable: %v", bin, err)
 	}
-	n, _ := strconv.Atoi(versionMajor.FindStringSubmatch(string(out))[1])
+	m := versionMajor.FindStringSubmatch(string(out))
+	if m == nil {
+		t.Skipf("%s --version printed no version: %q", bin, out)
+	}
+	n, _ := strconv.Atoi(m[1])
 	return n
 }
 
