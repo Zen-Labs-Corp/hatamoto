@@ -34,6 +34,10 @@ type themeCardView struct {
 	Name, Title, Author, Description, Href, Initial string
 	Screenshot                                      string
 	FirstParty                                      bool
+	// Developer marks an entry of the developer index; DeveloperNote is the
+	// visible line under the byline.
+	Developer     bool
+	DeveloperNote string
 	// Type is the footer's "Blog · v1.0.0" text.
 	Type string
 	// Action is the footer's label; ActionKind (install, installed, update,
@@ -153,6 +157,10 @@ func (a *Admin) themeCard(e RegistryEntry) themeCardView {
 		Href: a.themeURL(e.Name, "about"), FirstParty: e.Tier == "first-party",
 		Action: "Install", ActionKind: "install",
 	}
+	if e.Developer {
+		c.Developer, c.DeveloperNote = true, developerTooltip
+		c.Author = strings.TrimPrefix(e.Author, "@")
+	}
 	if c.Title == "" {
 		c.Title = e.Name
 	}
@@ -193,6 +201,12 @@ type themeDetailPage struct {
 	Source    string
 	Primary   *detailPrimary
 	Actions   []ui.Button
+	// DeveloperNote is the line a developer theme carries on its page.
+	DeveloperNote string
+	// InstallOff replaces Primary with a disabled button and a link to
+	// Package security: a developer theme while the switch is off.
+	InstallOff   *detailPrimary
+	SecurityHref string
 	// Panel is true for the side-panel fragment: the actions are then
 	// rendered as a block pluginpanel.js moves into the drawer footer.
 	Panel bool
@@ -238,6 +252,13 @@ func (a *Admin) handleThemeAbout(w http.ResponseWriter, r *http.Request) {
 	if e.Author != "" {
 		d.Byline = "By " + e.Author
 	}
+	if e.Developer {
+		d.Badge = &ui.Badge{Label: "Developer", Plain: true}
+		if e.Author != "" {
+			d.Byline = "By @" + strings.TrimPrefix(e.Author, "@")
+		}
+		d.DeveloperNote = developerNote(e.SignerKeyID)
+	}
 	if e.Size > 0 {
 		d.Size = humanSize(e.Size)
 	}
@@ -282,6 +303,11 @@ func (a *Admin) handleThemeAbout(w http.ResponseWriter, r *http.Request) {
 	default:
 		d.Note = "Installed. Activate it when you are ready; your content stays as it is."
 		d.Primary = &detailPrimary{Href: a.themeURL(e.Name, "activate"), Label: "Activate…"}
+	}
+	if e.Developer && d.Primary != nil && d.Primary.Post != "" && !pk.AllowDeveloper(r.Context()) {
+		// UX only: the server refuses a developer package while the switch is off.
+		d.InstallOff, d.Primary = d.Primary, nil
+		d.SecurityHref = a.adminPath + "/plugins/security"
 	}
 	if demo := httpURL(e.Homepage); demo != "" {
 		d.Actions = append([]ui.Button{{Label: "Preview demo ↗", AriaLabel: "Preview demo (opens in a new tab)", Href: demo, Attrs: map[string]string{"target": "_blank", "rel": "noopener noreferrer"}}}, d.Actions...)
