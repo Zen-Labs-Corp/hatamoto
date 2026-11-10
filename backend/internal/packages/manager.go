@@ -157,9 +157,12 @@ type Options struct {
 	Pool     *pgxpool.Pool
 	Trust    TrustSet
 	Registry *Registry
-	Plugins  PluginRuntime
-	Grants   pluginhost.Grants
-	Dropper  DataDropper
+	// DeveloperRegistry reads the developer index. Its Trust holds the listing
+	// key only; nil (or an "off" URL) disables developer packages.
+	DeveloperRegistry *Registry
+	Plugins           PluginRuntime
+	Grants            pluginhost.Grants
+	Dropper           DataDropper
 	// Schemas creates and removes the entity types a plugin package ships. nil
 	// (the CLI) installs none.
 	Schemas SchemaStore
@@ -194,6 +197,9 @@ type Options struct {
 type Manager struct {
 	Options
 	store *Store
+
+	devMu sync.Mutex // guards dev
+	dev   developerState
 
 	mu      sync.Mutex // serialises changes and reconciliation
 	loaded  map[string]loadedPlugin
@@ -247,6 +253,9 @@ func NewManager(o Options) *Manager {
 	if o.Registry != nil && o.Registry.Limits == (Limits{}) {
 		o.Registry.Limits = DefaultLimits
 	}
+	if o.DeveloperRegistry != nil && o.DeveloperRegistry.Limits == (Limits{}) {
+		o.DeveloperRegistry.Limits = DefaultLimits
+	}
 	return &Manager{Options: o, store: NewStore(o.Pool), loaded: map[string]loadedPlugin{}, preview: map[string]previewEntry{}, blocked: map[string]string{}}
 }
 
@@ -294,8 +303,14 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	if err != nil {
 		return nil, err
 	}
-	if err := m.CheckPolicy(ctx, p, req.Source); err != nil {
+	grant, err := m.checkPolicy(ctx, p, req.Source)
+	if err != nil {
 		return nil, err
+	}
+	origin := Classify(p.Name, signerOf(p))
+	developerKey := ""
+	if grant != nil {
+		origin, developerKey = OriginDeveloper, developerKeyString(grant.Key)
 	}
 	var perms []sdk.Permission
 	switch p.Kind {
@@ -316,7 +331,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if err := pluginhost.SDKRefusal(man); err != nil {
 			return nil, &ParseError{Msg: err.Error()}
 		}
-		if err := checkCommunityCSP(Classify(p.Name, signerOf(p)), man); err != nil {
+		if err := checkCommunityCSP(origin, man); err != nil {
 			return nil, err
 		}
 		if err := validateWidgets(p); err != nil {
@@ -356,6 +371,11 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 			return nil, err
 		}
 	}
+	// An update of a developer package must come from the same developer key.
+	// This is not a confirmation: Confirm cannot bypass it.
+	if updating && prev.Developer && (grant == nil || KeyID(grant.Key) != prev.SignerKeyID) {
+		return nil, &DeveloperError{Name: p.Name, Version: p.Version, KeyID: signerOf(p), WantKeyID: prev.SignerKeyID, Err: ErrDeveloperSignerChanged}
+	}
 	var need *ConfirmationRequired
 	if updating {
 		if need, err = m.needsConfirmation(ctx, p, prev, req.Source); err != nil {
@@ -374,7 +394,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		switch {
 		case req.Grant != nil:
 			grants = normalizePerms(perms)
-			if err := checkScriptsGrant(Classify(p.Name, signerOf(p)), grants); err != nil {
+			if err := checkScriptsGrant(origin, grants); err != nil {
 				return nil, err
 			}
 		case signerChanged:
@@ -385,7 +405,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	// must not leave the new package enabled.
 	var voided int64
 	if err := pgx.BeginFunc(ctx, m.Pool, func(tx pgx.Tx) error {
-		if err := m.store.put(ctx, tx, p, req.Source, true, ""); err != nil {
+		if err := m.store.put(ctx, tx, p, req.Source, true, developerKey); err != nil {
 			return err
 		}
 		// An approval belongs to one exact release: any change to the
@@ -620,44 +640,44 @@ func newCSPHosts(installed jsontext.Value, p *Package) []string {
 
 // CheckPolicy says whether p may be installed from src: signed by a trusted
 // key, or unsigned and allowed (the owner's opt-in, or a dev push outside
-// production). The error is one of the Err* values.
+// production). A package signed by a developer's key is accepted when the
+// developer index lists that key for it and the owner allows developer
+// packages. The error is one of the Err* values.
 func (m *Manager) CheckPolicy(ctx context.Context, p *Package, src Source) error {
-	if len(m.OnlySigners) > 0 && !slices.Contains(m.OnlySigners, signerOf(p)) {
-		return ErrSignerNotAllowed
-	}
-	err := m.Trust.Verify(p)
-	switch {
-	case err == nil:
-		return nil
-	case !errors.Is(err, ErrUnsigned):
-		return err
-	case src == SourceDev:
-		if !m.AllowDev {
-			return ErrDevDisabled
-		}
-		return nil
-	}
-	cfg, err := m.store.Config(ctx)
-	if err != nil {
-		return err
-	}
-	if !cfg.AllowUnsigned {
-		return ErrUnsignedNotAllowed
-	}
-	return nil
+	_, err := m.checkPolicy(ctx, p, src)
+	return err
 }
 
 // FetchFromRegistry downloads kind/name from the registry, checked against the
 // hash the signed index lists and against the name it was listed under (a
 // registry that serves another package under a listed name is lying).
 func (m *Manager) FetchFromRegistry(ctx context.Context, kind Kind, name string) ([]byte, error) {
+	reg := m.Registry
 	idx, err := m.Registry.Fetch(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrRegistryOff) {
 		return nil, err
 	}
-	e, ok := idx.Find(kind, name)
+	var e Entry
+	ok := false
+	if err == nil {
+		e, ok = idx.Find(kind, name)
+	}
 	if !ok {
-		return nil, fmt.Errorf("the registry has no %s %q", kind, name)
+		// Not in the main registry: the developer index lists it, if it is on.
+		didx, derr := m.DeveloperIndex(ctx, false)
+		if derr == nil {
+			e, ok = didx.Find(kind, name)
+			reg = m.DeveloperRegistry
+		}
+		switch {
+		case ok:
+		case derr != nil && !errors.Is(derr, ErrRegistryOff):
+			return nil, derr
+		case err != nil && derr != nil:
+			return nil, ErrRegistryOff // neither registry is configured
+		default:
+			return nil, fmt.Errorf("the registry has no %s %q", kind, name)
+		}
 	}
 	// With the install limited to some signers (the public demo), only the
 	// registry's first-party tier can qualify: say no before downloading
@@ -665,7 +685,7 @@ func (m *Manager) FetchFromRegistry(ctx context.Context, kind Kind, name string)
 	if len(m.OnlySigners) > 0 && e.Tier != TierFirstParty {
 		return nil, ErrSignerNotAllowed
 	}
-	data, err := m.Registry.Download(ctx, e)
+	data, err := reg.Download(ctx, e)
 	if err != nil {
 		return nil, err
 	}
@@ -1040,6 +1060,13 @@ func (m *Manager) usable(r Row) error {
 	if r.Source == SourceDev && !m.AllowDev {
 		return ErrDevDisabled
 	}
+	if r.DisabledReason != "" {
+		return errors.New(r.DisabledReason)
+	}
+	if r.Developer {
+		_, err := developerRowTrust(r)
+		return err
+	}
 	if r.SignerKeyID != "" {
 		if _, ok := m.Trust[r.SignerKeyID]; !ok {
 			return fmt.Errorf("%w: it is signed by key %s, which is no longer in HATAMOTO_TRUSTED_KEYS", ErrUntrustedKey, r.SignerKeyID)
@@ -1066,8 +1093,14 @@ func (m *Manager) loadUsable(ctx context.Context, kind Kind, name string) (*Pack
 	if err != nil {
 		return nil, row, err
 	}
+	trust := m.Trust
+	if row.Developer {
+		if trust, err = developerRowTrust(row); err != nil {
+			return nil, row, err
+		}
+	}
 	if row.SignerKeyID != "" {
-		if err := m.Trust.Verify(p); err != nil {
+		if err := trust.Verify(p); err != nil {
 			return nil, row, err
 		}
 	}
