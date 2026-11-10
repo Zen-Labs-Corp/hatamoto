@@ -38,3 +38,15 @@ func TestIsImageAttributeName(t *testing.T) {
 		t.Error("title is not an image")
 	}
 }
+
+func TestEffectiveFormat(t *testing.T) {
+	for _, c := range []struct{ format, hint, want string }{
+		{"", "url", "uri"}, {"", "image", "uri"}, {"uri", "richtext", "richtext"},
+		{"uri", "code", "textarea"}, {"uri", "html", "textarea"}, {"", "css", "textarea"},
+		{"uri", "", "uri"}, {"date", "other", "date"}, {"", "", ""},
+	} {
+		if got := EffectiveFormat(c.format, c.hint); got != c.want {
+			t.Errorf("EffectiveFormat(%q,%q) = %q, want %q", c.format, c.hint, got, c.want)
+		}
+	}
+}

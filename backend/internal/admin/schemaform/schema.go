@@ -221,17 +221,10 @@ func (n *Node) label(name string) string {
 // textarea switches the name-based rich text rule off) and a "url" field named
 // "hero_image" is an image field (format uri switches the name rule on).
 func (n *Node) mapHint() {
-	switch n.XHm {
-	case "richtext":
-		n.Format = "richtext"
-	case "html", "code", "css":
-		n.Format = "textarea"
-	case "image":
+	if n.XHm == "image" {
 		n.XMedia = true
 	}
-	if schemafield.IsURIField(n.Format, n.XHm) {
-		n.Format = "uri"
-	}
+	n.Format = schemafield.EffectiveFormat(n.Format, n.XHm)
 }
 
 // SortNames orders property names by an x-hm-order list: the names it lists

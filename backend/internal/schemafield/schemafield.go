@@ -10,17 +10,27 @@ func IsImageField(name, format string, xMedia bool) bool {
 	return xMedia || (format == "uri" && strings.Contains(strings.ToLower(name), "image"))
 }
 
-// IsURIField reports whether a field is a uri after the admin has read its
-// x-hm-field hint: "url" and "image" make a uri, the text hints ("richtext",
-// "html", "code", "css") override any format, and otherwise format decides.
-func IsURIField(format, xHm string) bool {
+// EffectiveFormat is the format the admin form renders a field with once it
+// has read the field's x-hm-field hint: "url" and "image" make a uri, "richtext"
+// a rich text, "html", "code" and "css" a textarea; any other hint leaves the
+// schema's own format. This is the only hint table; the form and the changeset
+// gate both read it.
+func EffectiveFormat(format, xHm string) string {
 	switch xHm {
 	case "url", "image":
-		return true
-	case "richtext", "html", "code", "css":
-		return false
+		return "uri"
+	case "richtext":
+		return "richtext"
+	case "html", "code", "css":
+		return "textarea"
 	}
-	return format == "uri"
+	return format
+}
+
+// IsURIField reports whether a field is a uri after the admin has read its
+// x-hm-field hint.
+func IsURIField(format, xHm string) bool {
+	return EffectiveFormat(format, xHm) == "uri"
 }
 
 // ImageAttributeNames are the entity attribute keys the public readers take as
