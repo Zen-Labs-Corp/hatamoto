@@ -154,3 +154,12 @@ test("a text filter over 200 UTF-8 bytes is flagged invalid and never committed"
   assert.equal(venue.attrs["aria-invalid"], undefined);
   assert.equal(msg.hidden, true);
 });
+
+test("editing the Source field keeps the filters (render and the plugin host drop undeclared names)", () => {
+  const node = { id: "l", t: "loop", p: { from: "source", source: "ext.cal.events", params: { cat: "ws" } } };
+  const { panel, commits } = setup(node);
+  const src = find(panel, (n) => n.attrs.type === "text");
+  src.value = "ext.cal.event";
+  src.fire("input");
+  assert.deepEqual(commits.at(-1).ops, [{ op: "setProp", id: "l", key: "source", value: "ext.cal.event" }]);
+});
