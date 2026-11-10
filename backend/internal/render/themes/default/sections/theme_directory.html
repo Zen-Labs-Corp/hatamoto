@@ -17,8 +17,8 @@
     {{range $d.Cards}}<li class="hm-plugin-directory__card" data-search="{{.Search}}">
       {{with .Screenshot}}{{if hasPrefix . "https://"}}<img class="hm-theme-directory__shot" src="{{.}}" alt="" loading="lazy" width="640" height="400">{{end}}{{end}}
       <h3 class="hm-plugin-directory__title">{{if $d.Linked}}<a href="/themes/{{.Name}}">{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}</a>{{else}}{{if .Title}}{{.Title}}{{else}}{{.Name}}{{end}}{{end}}</h3>
-      <p class="hm-plugin-directory__meta"><span>{{.Name}} {{.Version}}</span>{{if .TierLabel}} <span class="hm-plugin-directory__tier">{{.TierLabel}}</span>{{end}}</p>
-      {{if .Author}}<p class="hm-plugin-directory__author">{{t $ "by"}} {{.Author}}</p>{{end}}
+      <p class="hm-plugin-directory__meta"><span>{{.Name}} {{.Version}}</span>{{if .TierLabel}} <span class="hm-plugin-directory__tier"{{if eq .Tier "developer"}} title="{{t $ "developer_note"}}"{{end}}>{{.TierLabel}}</span>{{end}}</p>
+      {{if .Author}}<p class="hm-plugin-directory__author">{{t $ "by"}} @{{.Author}}</p>{{end}}{{if eq .Tier "developer"}}<p class="hm-plugin-directory__note">{{t $ "developer_note"}}</p>{{end}}
       {{if .Description}}<p class="hm-plugin-directory__description">{{.Description}}</p>{{end}}
       {{with .Source}}{{if hasPrefix . "https://"}}<a class="hm-plugin-directory__source" href="{{cta .}}" rel="noopener noreferrer">{{t $ "source"}}</a>{{end}}{{end}}
     </li>{{end}}
