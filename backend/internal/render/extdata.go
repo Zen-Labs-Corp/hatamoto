@@ -2,6 +2,8 @@ package render
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,6 +18,8 @@ import (
 type ExtRequest struct {
 	ID, Source string
 	Limit      int
+	// Params are the loop's sanitized filter values (nil when none).
+	Params map[string]any `json:",omitempty"`
 }
 
 // ExtBatch is every external-source request of one page render, sent in a
@@ -64,8 +68,34 @@ func (s *extState) askedCount() int {
 	return len(s.asked)
 }
 
-func extValueKey(src string) string            { return "v:" + src }
-func extItemsKey(src string, limit int) string { return "i:" + src + ":" + strconv.Itoa(limit) }
+func extValueKey(src string) string { return "v:" + src }
+
+// extItemsKey is the request ID of an items source. Without params it is the
+// legacy "i:<src>:<limit>"; with sanitized params a short hash of their
+// canonical form follows, so loops with equal params share one request.
+func extItemsKey(src string, limit int, params map[string]any) string {
+	key := "i:" + src + ":" + strconv.Itoa(limit)
+	if len(params) == 0 {
+		return key
+	}
+	sum := sha256.Sum256([]byte(builder.CanonicalParams(params)))
+	return key + ":p" + hex.EncodeToString(sum[:8])
+}
+
+// loopParams are the stored params of a source loop, sanitized against the
+// source's declaration (nil when none survive or the source is unknown).
+func loopParams(src string, p map[string]any) map[string]any {
+	raw, _ := p["params"].(map[string]any)
+	if len(raw) == 0 {
+		return nil
+	}
+	for _, s := range builder.ExtSources() {
+		if s.ID() == src && s.Kind == builder.ExtItems {
+			return builder.SanitizeParams(s.Params, raw)
+		}
+	}
+	return nil
+}
 
 // extValue is the resolved text of a value source ("" when unknown or failed).
 func (v *PageView) extValue(src string) string {
@@ -79,11 +109,11 @@ func (v *PageView) extValue(src string) string {
 }
 
 // extItems is the item list of an items source (nil when unknown or failed).
-func (v *PageView) extItems(src string, limit int) []RelatedItem {
+func (v *PageView) extItems(src string, limit int, params map[string]any) []RelatedItem {
 	if v.ext == nil {
 		return nil
 	}
-	if r := v.ext.res[extItemsKey(src, limit)]; r.OK {
+	if r := v.ext.res[extItemsKey(src, limit, params)]; r.OK {
 		return r.Items
 	}
 	return nil
@@ -101,19 +131,20 @@ func extRegistered() map[string]string {
 }
 
 // collectExt calls add for every external binding and every source loop in
-// the trees, hidden subtrees skipped.
-func collectExt(ns []*builder.Node, add func(kind, src string, limit int)) {
+// the trees, hidden subtrees skipped. params is only set for an items source.
+func collectExt(ns []*builder.Node, add func(kind, src string, limit int, params map[string]any)) {
 	for _, n := range ns {
 		if n == nil || nodeHidden(n) {
 			continue
 		}
 		for _, src := range n.B {
 			if strings.HasPrefix(src, "ext.") {
-				add(builder.ExtValue, src, 0)
+				add(builder.ExtValue, src, 0, nil)
 			}
 		}
 		if n.T == "loop" && str(n.P, "from") == "source" {
-			add(builder.ExtItems, str(n.P, "source"), intProp(n.P, "limit", loopDefaultLimit, 1, loopMaxLimit))
+			src := str(n.P, "source")
+			add(builder.ExtItems, src, intProp(n.P, "limit", loopDefaultLimit, 1, loopMaxLimit), loopParams(src, n.P))
 		}
 		collectExt(n.C, add)
 	}
@@ -133,7 +164,7 @@ func (e *Engine) prefetchExt(v *PageView, ns ...*builder.Node) {
 	var batch ExtBatch
 	var pending []string
 	over := false
-	collectExt(ns, func(kind, src string, limit int) {
+	collectExt(ns, func(kind, src string, limit int, params map[string]any) {
 		if reg == nil {
 			reg = extRegistered()
 		}
@@ -142,7 +173,7 @@ func (e *Engine) prefetchExt(v *PageView, ns ...*builder.Node) {
 		}
 		key := extValueKey(src)
 		if kind == builder.ExtItems {
-			key = extItemsKey(src, limit)
+			key = extItemsKey(src, limit, params)
 		}
 		if v.ext != nil && v.ext.asked[key] || slices.Contains(pending, key) {
 			return
@@ -152,7 +183,7 @@ func (e *Engine) prefetchExt(v *PageView, ns ...*builder.Node) {
 			return
 		}
 		pending = append(pending, key)
-		batch.Requests = append(batch.Requests, ExtRequest{ID: key, Source: src, Limit: limit})
+		batch.Requests = append(batch.Requests, ExtRequest{ID: key, Source: src, Limit: limit, Params: params})
 	})
 	ctx := requestCtx(v)
 	if over {

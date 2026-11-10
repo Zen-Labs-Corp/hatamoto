@@ -90,6 +90,25 @@ func sourceLoop(limit int) *builder.Node {
 	return loopNode(map[string]any{"from": "source", "source": "ext.weather.forecast", "limit": limit}, kids...)
 }
 
+// extSetupParams registers a forecast source that declares params.
+func extSetupParams(t *testing.T) {
+	t.Helper()
+	builder.SetExtSources([]builder.ExtSource{{Plugin: "weather", Name: "forecast", Label: "Forecast", Kind: builder.ExtItems, Params: []builder.ExtParam{
+		{Name: "cat", Label: "Category", Type: builder.ParamSelect, Options: []builder.ExtOption{{Value: "news"}, {Value: "ads"}}},
+		{Name: "q", Label: "Search", Type: builder.ParamText},
+		{Name: "n", Label: "Minimum", Type: builder.ParamNumber},
+		{Name: "hot", Label: "Hot", Type: builder.ParamBool},
+	}}})
+	t.Cleanup(func() { builder.SetExtSources(nil) })
+}
+
+func sourceLoopParams(id string, limit int, params map[string]any) *builder.Node {
+	n := sourceLoop(limit)
+	n.ID = id
+	n.P["params"] = params
+	return n
+}
+
 func TestExtOneCallForBindingsAndLoop(t *testing.T) {
 	extSetup(t)
 	f := &extFake{values: map[string]string{"ext.weather.temp": "<b>21</b>", "ext.weather.link": "javascript:alert(1)"}, items: map[string][]RelatedItem{"ext.weather.forecast": extItems(12)}}
@@ -262,5 +281,113 @@ func TestExtPrefetchOnceForCanvasTopNodes(t *testing.T) {
 		if !strings.Contains(all.String(), want) {
 			t.Errorf("canvas output lacks %q:\n%s", want, all.String())
 		}
+	}
+}
+
+func TestExtParamsDistinctRequests(t *testing.T) {
+	extSetupParams(t)
+	f := &extFake{items: map[string][]RelatedItem{"ext.weather.forecast": extItems(3)}}
+	doc := docOf(
+		sourceLoopParams("a", 3, map[string]any{"cat": "news"}),
+		sourceLoopParams("b", 3, map[string]any{"cat": "ads", "q": "go"}),
+		sourceLoop(3),
+	)
+	_, degraded := extRender(t, f, nil, doc, false)
+	reqs := f.batches[0].Requests
+	if degraded != 0 || len(reqs) != 3 {
+		t.Fatalf("degraded=%d requests=%+v, want 3", degraded, reqs)
+	}
+	seen := map[string]bool{}
+	for _, r := range reqs {
+		seen[r.ID] = true
+		switch {
+		case r.Params["cat"] == "news":
+			if len(r.Params) != 1 {
+				t.Errorf("a: %v", r.Params)
+			}
+		case r.Params["cat"] == "ads":
+			if r.Params["q"] != "go" {
+				t.Errorf("b: %v", r.Params)
+			}
+		case r.Params != nil || r.ID != "i:ext.weather.forecast:3":
+			t.Errorf("plain loop must keep the legacy request: %+v", r)
+		}
+	}
+	if len(seen) != 3 {
+		t.Errorf("ids not distinct: %v", seen)
+	}
+}
+
+func TestExtParamsEqualShareOneRequest(t *testing.T) {
+	extSetupParams(t)
+	f := &extFake{items: map[string][]RelatedItem{"ext.weather.forecast": extItems(3)}}
+	doc := docOf(
+		sourceLoopParams("a", 3, map[string]any{"cat": "news", "n": 1, "hot": true}),
+		sourceLoopParams("b", 3, map[string]any{"hot": true, "n": 1.0, "cat": "news"}),
+		sourceLoopParams("c", 3, map[string]any{"n": 1, "cat": "news", "hot": true, "undeclared": "x", "q": ""}),
+	)
+	if _, degraded := extRender(t, f, nil, doc, false); degraded != 0 || len(f.batches[0].Requests) != 1 {
+		t.Fatalf("degraded=%d requests=%+v, want 1", degraded, f.batches[0].Requests)
+	}
+	if id := f.batches[0].Requests[0].ID; !strings.HasPrefix(id, "i:ext.weather.forecast:3:p") || len(id) != len("i:ext.weather.forecast:3:p")+16 {
+		t.Errorf("id = %q", id)
+	}
+}
+
+func TestExtParamsCountTowardCap(t *testing.T) {
+	extSetupParams(t)
+	f := &extFake{items: map[string][]RelatedItem{"ext.weather.forecast": extItems(3)}}
+	var nodes []*builder.Node
+	for i := 1; i <= maxExtRequests+1; i++ {
+		nodes = append(nodes, sourceLoopParams(fmt.Sprintf("lp%d", i), 3, map[string]any{"q": fmt.Sprintf("term%d", i)}))
+	}
+	_, degraded := extRender(t, f, nil, docOf(nodes...), false)
+	if len(f.batches[0].Requests) != maxExtRequests || degraded == 0 {
+		t.Fatalf("requests=%d degraded=%d, want %d and >0", len(f.batches[0].Requests), degraded, maxExtRequests)
+	}
+}
+
+// A loop whose params all sanitize away asks the legacy request.
+func TestExtLegacyRequestUnchanged(t *testing.T) {
+	for name, setup := range map[string]func(*testing.T){"no params declared": extSetup, "params declared": extSetupParams} {
+		t.Run(name, func(t *testing.T) {
+			setup(t)
+			if got := extItemsKey("ext.weather.forecast", 3, nil); got != "i:ext.weather.forecast:3" {
+				t.Fatalf("key = %q", got)
+			}
+			f := &extFake{items: map[string][]RelatedItem{"ext.weather.forecast": extItems(3)}}
+			doc := docOf(sourceLoopParams("a", 3, map[string]any{"q": "", "cat": "", "nope": "x", "hot": false}))
+			extRender(t, f, nil, doc, false)
+			reqs := f.batches[0].Requests
+			if len(reqs) != 1 || reqs[0].ID != "i:ext.weather.forecast:3" || reqs[0].Params != nil || reqs[0].Limit != 3 {
+				t.Fatalf("requests = %+v", reqs)
+			}
+		})
+	}
+}
+
+func TestExtParamsCanvasPrefetchOnce(t *testing.T) {
+	extSetupParams(t)
+	f := &extFake{items: map[string][]RelatedItem{"ext.weather.forecast": extItems(3)}}
+	e, err := New(Options{ExtSources: f.fn})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, scope, done := BindDegradeScope(context.Background())
+	defer done()
+	doc := docOf(sourceLoopParams("a", 3, map[string]any{"cat": "news"}), sourceLoopParams("b", 3, map[string]any{"cat": "ads"}))
+	v := minimalView()
+	v.Ctx, v.Doc, v.Canvas = ctx, doc, true
+	e.PrefetchExt(v, doc.Nodes)
+	var all strings.Builder
+	for _, n := range doc.Nodes {
+		fr, ok, err := e.RenderTop(v, n)
+		if err != nil || !ok {
+			t.Fatalf("RenderTop %s: ok=%v err=%v", n.ID, ok, err)
+		}
+		all.WriteString(fr.HTML)
+	}
+	if f.calls() != 1 || len(f.batches[0].Requests) != 2 || scope.Count() != 0 || !strings.Contains(all.String(), "Day 1") {
+		t.Fatalf("calls=%d requests=%d degraded=%d", f.calls(), len(f.batches[0].Requests), scope.Count())
 	}
 }

@@ -100,7 +100,8 @@ func prepLoop(w *widgetCtx) (any, error) {
 	case "archive":
 		items, pager = v.Items, v.Pagination
 	case "source":
-		items = v.extItems(str(w.P, "source"), limit)
+		src := str(w.P, "source")
+		items = v.extItems(src, limit, loopParams(src, w.P))
 		if len(items) > limit {
 			items = items[:limit]
 		}
