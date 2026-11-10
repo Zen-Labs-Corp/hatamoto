@@ -402,6 +402,11 @@ func (s *Service) ListTermsForEntity(ctx context.Context, entityID uuid.UUID) ([
 	return s.repo.ListTermsForEntity(ctx, entityID)
 }
 
+// TermsForEntities pass-through: the terms of many entities in one query.
+func (s *Service) TermsForEntities(ctx context.Context, entityIDs []uuid.UUID) (map[uuid.UUID][]EntityTermRef, error) {
+	return s.repo.TermsForEntities(ctx, entityIDs)
+}
+
 // ReplaceEntityTerms validates the term IDs (all must exist) then calls
 // the repository. We pre-fetch to give the admin a clear error rather
 // than a generic FK-violation surface.

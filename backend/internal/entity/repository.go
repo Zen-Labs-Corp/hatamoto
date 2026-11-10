@@ -1125,7 +1125,11 @@ func appendListFilters(filter *ListEntitiesFilter, args []any, argIdx int) (stri
 		args = append(args, *filter.PersonID)
 		argIdx++
 	}
-	if filter.TermID != nil {
+	if filter.TermID != nil && filter.TermExact {
+		fmt.Fprintf(&b, ` AND EXISTS (SELECT 1 FROM hatamoto_entity_terms et WHERE et.entity_id = e.id AND et.term_id = $%d)`, argIdx)
+		args = append(args, *filter.TermID)
+		argIdx++
+	} else if filter.TermID != nil {
 		fmt.Fprintf(&b, ` AND EXISTS (
 			WITH RECURSIVE sub(id) AS (
 				SELECT id FROM hatamoto_terms WHERE id = $%d
