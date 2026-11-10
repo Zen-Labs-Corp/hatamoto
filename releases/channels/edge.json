@@ -233,6 +233,17 @@
         }
       ],
       "halted": false
+    },
+    {
+      "version": "v1.2.1",
+      "record_sig": "d7effd9870698586:3DsNx/pOCmOH/MKzgi2ODDrsLr3RkVN9Wa8WYeVknC2rI7lIUWyo1kLNcIEtIIt6+jlHRb2r7XbVGBlVun/PDA==",
+      "ramp": [
+        {
+          "from": "2026-11-10T03:13:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
     }
   ],
   "yanked": []
