@@ -6,6 +6,7 @@ import { find, unchanged } from "@hm/builder/store";
 import { bindOps, unbindOps, sourcesFor, chipText, inLoop } from "@hm/builder/bindops";
 import { seedNode } from "@hm/builder/palette";
 import { plainLabel } from "@hm/builder/inspector";
+import { declFor, cleanParams, setCount, nextParams, filtersLabel } from "@hm/builder/loopparams";
 
 export const PROP_NAMES = { text: "Text", level: "Level", href: "Link", src: "Image address", url: "Video address", poster: "Poster image", linktext: "Link text", count: "Number of columns", slug: "Form", single: "Open one item at a time", ordered: "Numbered", alt: "Alt text", layout: "Layout", tag: "HTML tag", hidden: "Disabled (not rendered)", decorative: "Decorative (no alt text needed)" };
 const title = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -52,6 +53,7 @@ export function controlOf(p) {
 export const needsAlt = (node) => node.t === "image" && node.p?.decorative !== true && !(typeof node.p?.alt === "string" && node.p.alt.trim());
 
 let uid = 0;
+const filtersOpen = new Map(); // node id -> whether its Filters group was opened (a redraw rebuilds the panel)
 
 /** The bound-data chip: the server-rendered mono badge cloned from its template, with the source text. */
 function boundChip(root, id, text) {
@@ -177,6 +179,9 @@ export function createContent(ctx) {
       else if (p.key === "tag" && node.t === "container" && (value === null || value === "div") && cur().aria && !cur().href && !find(api.getDoc(), node.id)?.b?.href) {
         // a plain div takes no accessible name: drop the one it had in the same step
         commit([{ op: "setProp", id: node.id, key: "tag", value }, { op: "setProp", id: node.id, key: "aria", value: null }], { label: "Change HTML tag", ...opts });
+      } else if (node.t === "loop" && p.key === "source" && cur().params) {
+        // the filters belong to the source they were set for: a new source starts without them
+        commit([{ op: "setProp", id: node.id, key: "source", value }, { op: "setProp", id: node.id, key: "params", value: null }], { label: `Change ${name}`, ...opts });
       } else setProp(node.id, p.key, value, { label: `Change ${name}`, ...opts });
     };
     if (node.t === "columns" && p.key === "count") {
@@ -306,6 +311,57 @@ export function createContent(ctx) {
     return holder;
   }
 
+  /** A query loop's Filters group: one control per param its plugin source declares, behind a disclosure button; null when it declares none. */
+  function filtersGroup(node) {
+    const now = find(api.getDoc(), node.id) ?? node;
+    const decl = now.p?.from === "source" ? declFor(api.loopSources, now.p.source) : [];
+    if (!decl.length) return null;
+    const gid = `hm-bs-p${++uid}`;
+    const open = filtersOpen.get(node.id) ?? false;
+    const toggle = h("button", { type: "button", class: "hm-bs-morebtn", "aria-expanded": String(open), "aria-controls": gid, text: filtersLabel(setCount(decl, now.p.params)) });
+    const box = h("div", { id: gid, class: "hm-bs-grp__more" });
+    box.hidden = !open;
+    toggle.addEventListener("click", () => {
+      const next = toggle.getAttribute("aria-expanded") !== "true";
+      toggle.setAttribute("aria-expanded", String(next));
+      box.hidden = !next;
+      filtersOpen.set(node.id, next);
+    });
+    const stored = () => find(api.getDoc(), node.id)?.p?.params;
+    const change = (d, raw, opts = {}) => {
+      const value = nextParams(decl, stored(), d.name, raw);
+      if (!commit([{ op: "setProp", id: node.id, key: "params", value }], { label: `Change ${d.label}`, ...opts })) return;
+      toggle.textContent = filtersLabel(setCount(decl, value));
+    };
+    for (const d of decl) {
+      const id = `${gid}-${d.name}`;
+      const cur = stored()?.[d.name];
+      if (d.type === "bool") {
+        const sw = switchRow(id, d.label);
+        sw.input.checked = cur === true;
+        sw.input.addEventListener("change", () => change(d, sw.input.checked));
+        box.append(h("div", { class: "hm-field hm-bs-field hm-bs-field--check" }, sw.label));
+        continue;
+      }
+      let el;
+      if (d.type === "select") {
+        el = h("select", { id, class: "hm-field__control" }, h("option", { value: "", text: "Not set" }), ...(d.options ?? []).map((o) => h("option", { value: o.value, text: o.label || o.value })));
+        el.value = typeof cur === "string" ? cur : "";
+        el.addEventListener("change", () => change(d, el.value));
+      } else if (d.type === "number") {
+        el = h("input", { id, type: "number", class: "hm-field__control", step: "any" });
+        el.value = typeof cur === "number" ? String(cur) : "";
+        el.addEventListener("change", () => change(d, el.value));
+      } else {
+        el = h("input", { id, type: "text", class: "hm-field__control", maxlength: "200" });
+        el.value = typeof cur === "string" ? cur : "";
+        el.addEventListener("input", () => change(d, el.value, { coalesce: true }));
+      }
+      box.append(h("div", { class: "hm-field hm-bs-field" }, h("label", { class: "hm-field__label", for: id, text: d.label }), el));
+    }
+    return h("div", { class: "hm-bs-field" }, toggle, box);
+  }
+
   /** opts.only: [key, ...aliases] of the one content field to show (the Inspector's field mode); the other fields stay in the form, hidden. */
   function contentPanel(node, opts = {}) {
     if (node.t === "ref") {
@@ -330,6 +386,19 @@ export function createContent(ctx) {
           if (items) panel.prepend(items);
         })
         .catch(console.error);
+    if (node.t === "loop" && !opts.only) {
+      // the group follows the Source field: it appears, changes or goes as the source does (not while a filter itself is edited)
+      const slot = h("div");
+      const sync = (e) => {
+        if (e?.target && slot.contains?.(e.target)) return;
+        const g = filtersGroup(node);
+        slot.replaceChildren(...(g ? [g] : []));
+      };
+      sync();
+      panel.append(slot);
+      panel.addEventListener("input", sync);
+      panel.addEventListener("change", sync);
+    }
     if (node.t !== "component") import("@hm/builder/elementsettings").then((m) => m.contentExtras(node, panel, { api, commit })).catch(console.error);
     if (node.t === "loop" && !(node.c ?? []).some((c) => c.t === "loopempty")) {
       const add = seedNode({ t: "loopempty", c: [{ t: "text", p: { text: "Nothing here yet." } }] });
