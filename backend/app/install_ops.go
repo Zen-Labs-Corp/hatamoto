@@ -438,7 +438,7 @@ func runPackageList(ctx context.Context, args []string, out io.Writer) error {
 			Source: string(r.Source), State: r.State, Installed: r.InstalledAt})
 	}
 	if asJSON {
-		return printJSON(out, map[string]any{"packages": items, "active_theme": cfg.ActiveTheme, "allow_unsigned": cfg.AllowUnsigned})
+		return printJSON(out, map[string]any{"packages": items, "active_theme": cfg.ActiveTheme, "allow_unsigned": cfg.AllowUnsigned, "allow_developer": cfg.AllowDeveloper})
 	}
 	for _, it := range items {
 		flags := []string{it.Source}

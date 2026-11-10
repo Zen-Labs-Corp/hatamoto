@@ -648,6 +648,10 @@ func (m *Manager) CheckPolicy(ctx context.Context, p *Package, src Source) error
 	return err
 }
 
+// ErrNotListed is a package neither the main registry nor the developer index
+// lists.
+var ErrNotListed = errors.New("package not listed")
+
 // FetchFromRegistry downloads kind/name from the registry, checked against the
 // hash the signed index lists and against the name it was listed under (a
 // registry that serves another package under a listed name is lying).
@@ -676,7 +680,7 @@ func (m *Manager) FetchFromRegistry(ctx context.Context, kind Kind, name string)
 		case err != nil && derr != nil:
 			return nil, ErrRegistryOff // neither registry is configured
 		default:
-			return nil, fmt.Errorf("the registry has no %s %q", kind, name)
+			return nil, fmt.Errorf("%w: the registry has no %s %q", ErrNotListed, kind, name)
 		}
 	}
 	// With the install limited to some signers (the public demo), only the
