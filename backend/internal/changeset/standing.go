@@ -5,6 +5,7 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"slices"
 	"strings"
@@ -537,7 +538,7 @@ func checkCreateItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it Stored
 		}
 		st.slugs[key] = true
 	}
-	if reason := checkCreateAttributes(schemaDoc, pl.Attributes); reason != "" {
+	if reason := checkCreateAttributes(ctx, tx, schemaDoc, pl.Attributes); reason != "" {
 		return reason
 	}
 	if it.SourceKey != "" {
@@ -590,7 +591,7 @@ func ownedOrStaged(ctx context.Context, tx pgx.Tx, p StandingPolicy, origin, ref
 // checkCreateAttributes refuses a new entry that carries a media reference:
 // a non-empty value in a field the schema marks as an image or file, in a
 // key the schema does not declare, or in a field it cannot classify.
-func checkCreateAttributes(schemaDoc []byte, raw jsontext.Value) string {
+func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte, raw jsontext.Value) string {
 	attrs, ok := decodeObject(raw)
 	if !ok {
 		return "its values could not be read."
@@ -601,7 +602,25 @@ func checkCreateAttributes(schemaDoc []byte, raw jsontext.Value) string {
 	if jsonx.Unmarshal(schemaDoc, &props, jsonx.StoredLoose) != nil {
 		return "its type could not be read."
 	}
+	// A key an image field reads as its own (x-hm-alias) is as good as the image.
+	aliased := map[string]bool{}
+	for k, def := range props.Properties {
+		if hasMediaMarker(def) || imageByName(k, def) {
+			if d, ok := def.(map[string]any); ok {
+				if names, ok := d["x-hm-alias"].([]any); ok {
+					for _, a := range names {
+						if name, ok := a.(string); ok {
+							aliased[name] = true
+						}
+					}
+				}
+			}
+		}
+	}
 	for k, v := range attrs {
+		if (schemafield.IsImageAttributeName(k) || aliased[k]) && !isEmptyValue(v) {
+			return fmt.Sprintf("%q holds an image or file, which never qualifies.", k)
+		}
 		def, declared := props.Properties[k]
 		if !declared {
 			if isBareEmpty(v) {
@@ -619,7 +638,57 @@ func checkCreateAttributes(schemaDoc []byte, raw jsontext.Value) string {
 			return fmt.Sprintf("%q holds an image or file, which never qualifies.", k)
 		}
 	}
+	// Whatever the schema says, a value that points into the media library
+	// never qualifies: the readers resolve images by value, not by field.
+	var strs []string
+	collectStrings(attrs, &strs)
+	if slices.ContainsFunc(strs, schemafield.MentionsMediaPath) {
+		return "it refers to a file in the media library, which never qualifies."
+	}
+	if len(strs) > 0 {
+		var hit bool
+		err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM hatamoto_media m
+				WHERE m.id::text = ANY($1) OR m.public_url = ANY($1) OR m.storage_path = ANY($1)
+				   OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.variants) = 'array' THEN m.variants ELSE '[]'::jsonb END) v
+				              WHERE v->>'url' = ANY($1)))`, strs).Scan(&hit)
+		if err != nil {
+			return "its files could not be checked."
+		}
+		if hit {
+			return "it refers to a file in the media library, which never qualifies."
+		}
+	}
 	return ""
+}
+
+// collectStrings gathers every string value and every map key at any depth.
+// A string that parses as a URL also adds its path, so an absolute address of
+// a library file matches however the library stores it.
+func collectStrings(v any, out *[]string) {
+	add := func(s string) {
+		if s == "" {
+			return
+		}
+		*out = append(*out, s)
+		if u, err := url.Parse(s); err == nil && u.Host != "" && u.Path != "" {
+			*out = append(*out, u.Path, strings.TrimPrefix(u.Path, "/"))
+		}
+	}
+	switch x := v.(type) {
+	case string:
+		add(x)
+	case []any:
+		for _, e := range x {
+			collectStrings(e, out)
+		}
+	case map[string]any:
+		for k, e := range x {
+			add(k)
+			collectStrings(e, out)
+		}
+	}
 }
 
 // isBareEmpty is the strict test for a key the schema does not declare: only

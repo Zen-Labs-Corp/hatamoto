@@ -45,7 +45,10 @@ func newStandingFixture(t *testing.T) *standingFixture {
 			"gallery":{"type":"array","items":{"type":"string","x-hm-field":"image"}},
 			"images":{"type":"array","items":{"type":"string","format":"uri"}},
 			"banner":{"type":"object","properties":{"image":{"type":"string","format":"uri"}}},
-			"hero_image":{"type":"string","x-hm-field":"url"}}}`)})
+			"hero_image":{"type":"string","x-hm-field":"url"},
+			"og_image":{"type":"string"},"image":{"type":"string"},
+			"caption":{"type":"string"},
+			"cover_image":{"type":"string","format":"uri","x-hm-alias":["caption"]}}}`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -383,6 +386,32 @@ func (s *standingFixture) stageAll(items ...Item) int64 {
 	return cs
 }
 
+// siteHost makes a host the site's own (published entries link to it) and
+// returns it, so an address on it is not an external link to the gate.
+func (s *standingFixture) siteHost() string {
+	s.t.Helper()
+	host := "site-" + s.tag + ".test"
+	a := s.attrs()
+	a["cta"] = "https://" + host + "/"
+	if _, err := s.db.Pool().Exec(s.ctx, `UPDATE hatamoto_entities SET attributes = $2, status = 'published' WHERE id = $1`, s.target, raw(a)); err != nil {
+		s.t.Fatal(err)
+	}
+	return host
+}
+
+// mediaRow adds a library file with the given public URL and returns its id.
+func (s *standingFixture) mediaRow(publicURL string) string {
+	s.t.Helper()
+	var id string
+	if err := s.db.Pool().QueryRow(s.ctx, `
+		INSERT INTO hatamoto_media (filename, original_filename, mime_type, file_size, storage_path, public_url)
+		VALUES ('f.jpg', 'f.jpg', 'image/jpeg', 1, $1, $2) RETURNING id::text`, "k/"+s.tag+publicURL[len(publicURL)-6:], publicURL).Scan(&id); err != nil {
+		s.t.Fatal(err)
+	}
+	s.t.Cleanup(func() { _, _ = s.db.Pool().Exec(s.ctx, `DELETE FROM hatamoto_media WHERE id = $1`, id) })
+	return id
+}
+
 // otherSchema makes a second schema of the same shape and returns its slug.
 func (s *standingFixture) otherSchema() string {
 	s.t.Helper()
@@ -627,6 +656,41 @@ func TestStandingCreateRefusals(t *testing.T) {
 		}, "image or file"},
 		{"media_url_hint_by_name", func() int64 {
 			return s.stageAll(s.newItem("e10x", map[string]any{"attributes": map[string]any{"title": "T", "hero_image": "/media/a.jpg"}}))
+		}, "image or file"},
+		{"media_name_plain_og_image", func() int64 {
+			return s.stageAll(s.newItem("e10o", map[string]any{"attributes": map[string]any{"title": "T", "og_image": "x.jpg"}}))
+		}, "image or file"},
+		{"media_name_plain_image", func() int64 {
+			return s.stageAll(s.newItem("e10i", map[string]any{"attributes": map[string]any{"title": "T", "image": "x.jpg"}}))
+		}, "image or file"},
+		{"media_path_value", func() int64 {
+			return s.stageAll(s.newItem("e10p", map[string]any{"attributes": map[string]any{"title": "/media/x.jpg"}}))
+		}, "media library"},
+		{"media_path_in_markup", func() int64 {
+			return s.stageAll(s.newItem("e10m", map[string]any{"attributes": map[string]any{"title": "T", "content": `<p><img src="/uploads/2026/x.jpg"></p>`}}))
+		}, "media library"},
+		{"media_absolute_own_url", func() int64 {
+			return s.stageAll(s.newItem("e10q", map[string]any{"attributes": map[string]any{"title": "https://" + s.siteHost() + "/media/2026/x.jpg"}}))
+		}, "media library"},
+		{"media_path_under_meta_key", func() int64 {
+			return s.stageAll(s.newItem("e10t", map[string]any{"attributes": map[string]any{"title": "T", "meta_description": "/media/x.jpg"}}))
+		}, "media library"},
+		{"media_path_as_map_key", func() int64 {
+			return s.stageAll(s.newItem("e10r", map[string]any{"attributes": map[string]any{"title": "T", "nested": map[string]any{"/media/x.jpg": 1}}}))
+		}, "media library"},
+		{"media_path_in_array", func() int64 {
+			return s.stageAll(s.newItem("e10y", map[string]any{"attributes": map[string]any{"title": "T", "nested": map[string]any{"x": []any{"a", "/media/x.jpg"}}}}))
+		}, "media library"},
+		{"media_library_id", func() int64 {
+			return s.stageAll(s.newItem("e10d", map[string]any{"attributes": map[string]any{"title": s.mediaRow("https://cdn.example/pics/" + s.tag + ".jpg")}}))
+		}, "media library"},
+		{"media_library_public_url", func() int64 {
+			u := "https://" + s.siteHost() + "/pics/" + s.tag + "b.jpg"
+			s.mediaRow(u)
+			return s.stageAll(s.newItem("e10e", map[string]any{"attributes": map[string]any{"title": u}}))
+		}, "media library"},
+		{"media_alias_of_image_field", func() int64 {
+			return s.stageAll(s.newItem("e10z", map[string]any{"attributes": map[string]any{"title": "T", "caption": "x.jpg"}}))
 		}, "image or file"},
 		{"undeclared_attribute_map_key", func() int64 {
 			return s.stageAll(s.newItem("e10k", map[string]any{"attributes": map[string]any{"title": "T", "hero": map[string]any{"/media/a.jpg": nil}}}))
