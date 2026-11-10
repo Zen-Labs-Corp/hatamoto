@@ -39,8 +39,8 @@ func TestRenderPageCardsForPluginsOnly(t *testing.T) {
 	if strings.Contains(out, "sunrise") {
 		t.Error("a theme was listed")
 	}
-	if strings.Index(out, "alpha v1") > strings.Index(out, "beta v0") {
-		t.Error("cards are not in index order")
+	if strings.Index(out, "beta v0") > strings.Index(out, "alpha v1") {
+		t.Error("the first-party card must come first")
 	}
 }
 
@@ -65,6 +65,7 @@ func TestRenderPageTitleAndAuthor(t *testing.T) {
 	idx := &Index{Packages: []Entry{
 		{Kind: KindPlugin, Name: "gtm", Title: "Google Tag Manager", Version: "0.1.0", Author: "Hatamoto", Tier: TierFirstParty},
 		{Kind: KindPlugin, Name: "alpha", Version: "1.0.0", Author: "acme", Tier: TierCommunity},
+		{Kind: KindPlugin, Name: "zed", Version: "1.0.0", Author: "devhandle", Tier: TierDeveloper},
 	}}
 	out := renderPage(t, idx, PageOptions{})
 	if !strings.Contains(out, "<h2>Google Tag Manager</h2>") || !strings.Contains(out, "gtm v0.1.0") {
@@ -74,7 +75,25 @@ func TestRenderPageTitleAndAuthor(t *testing.T) {
 		t.Error("a card without a title must head with its name")
 	}
 	if strings.Contains(out, "@Hatamoto") || !strings.Contains(out, "by @acme") {
-		t.Error("by @author must show for community cards only")
+		t.Error("by @author must show for community cards")
+	}
+	if !strings.Contains(out, "by @devhandle") || !strings.Contains(out, ">Developer</span>") {
+		t.Error("developer card needs its badge and by @handle")
+	}
+	if n := strings.Count(out, "Signed by a registered developer. Not reviewed by Hatamoto."); n != 2 {
+		t.Errorf("developer note shown %d times, want 2 (badge title and visible note)", n)
+	}
+}
+
+func TestRenderPageFirstPartyFirst(t *testing.T) {
+	idx := &Index{Packages: []Entry{
+		{Kind: KindPlugin, Name: "dev", Version: "1.0.0", Tier: TierDeveloper},
+		{Kind: KindPlugin, Name: "comm", Version: "1.0.0", Tier: TierCommunity},
+		{Kind: KindPlugin, Name: "first", Version: "1.0.0", Tier: TierFirstParty},
+	}}
+	out := renderPage(t, idx, PageOptions{})
+	if f, d := strings.Index(out, "<h2>first</h2>"), strings.Index(out, "<h2>dev</h2>"); f < 0 || f > d {
+		t.Error("first-party card must come first")
 	}
 }
 
