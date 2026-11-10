@@ -97,9 +97,14 @@ func (m *Manager) DeveloperIndex(ctx context.Context, force bool) (*Index, error
 	if !force && time.Since(m.dev.at) < developerCacheTTL {
 		return m.dev.cached, m.dev.err
 	}
-	m.dev.cached, m.dev.err = m.fetchDeveloperIndex(ctx)
-	m.dev.at = time.Now()
-	return m.dev.cached, m.dev.err
+	idx, err := m.fetchDeveloperIndex(ctx)
+	if err != nil && ctx.Err() != nil {
+		// The caller gave up (a client left); that says nothing about the
+		// index, so it must not refuse everyone else for the next 30 seconds.
+		return nil, err
+	}
+	m.dev.cached, m.dev.err, m.dev.at = idx, err, time.Now()
+	return idx, err
 }
 
 func (m *Manager) fetchDeveloperIndex(ctx context.Context) (*Index, error) {

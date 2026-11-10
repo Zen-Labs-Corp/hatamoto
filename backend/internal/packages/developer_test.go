@@ -270,3 +270,17 @@ func TestRevocationForNameOnlyRevokesEveryVersion(t *testing.T) {
 		t.Error("a versioned revocation hit another version")
 	}
 }
+
+// A read abandoned by its caller is not cached as an index failure.
+func TestDeveloperIndexDoesNotCacheACancelledRead(t *testing.T) {
+	f := newDevFixture(t)
+	m := f.manager()
+	gone, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := m.DeveloperIndex(gone, false); err == nil {
+		t.Fatal("a cancelled read succeeded")
+	}
+	if _, err := m.DeveloperIndex(context.Background(), false); err != nil {
+		t.Fatalf("the next read inherited the cancellation: %v", err)
+	}
+}
