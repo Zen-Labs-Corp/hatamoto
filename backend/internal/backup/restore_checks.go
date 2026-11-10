@@ -218,15 +218,20 @@ func (x *restorer) check(ctx context.Context) (*RestorePlan, error) {
 		plan.Checks = append(plan.Checks, "version ok")
 	}
 
-	// Postgres majors: the server and both client tools.
+	// Postgres majors. A backup from an older major (minRestoreMajor or newer)
+	// restores into a newer server; the client tools must match the server,
+	// because pg_restore reads older dumps but not newer ones.
 	pgOK := true
 	server, err := x.serverMajor(ctx, q)
 	switch {
 	case err != nil:
 		return nil, fmt.Errorf("cannot read the server version: %w", err)
-	case server != mf.ServerMajor:
+	case mf.ServerMajor < minRestoreMajor:
 		pgOK = false
-		refuse = append(refuse, fmt.Sprintf("backup is from PostgreSQL %d, the server is %d", mf.ServerMajor, server))
+		refuse = append(refuse, fmt.Sprintf("backup is from PostgreSQL %d; restore supports backups from PostgreSQL %d or newer", mf.ServerMajor, minRestoreMajor))
+	case mf.ServerMajor > server:
+		pgOK = false
+		refuse = append(refuse, fmt.Sprintf("backup is from PostgreSQL %d, the server is %d; restore into PostgreSQL %d or newer", mf.ServerMajor, server, mf.ServerMajor))
 	}
 	for _, tool := range []string{"pg_restore", "psql"} {
 		major, err := toolMajor(ctx, x.run, tool)
@@ -234,13 +239,13 @@ func (x *restorer) check(ctx context.Context) (*RestorePlan, error) {
 		case err != nil:
 			pgOK = false
 			refuse = append(refuse, err.Error())
-		case major != mf.ServerMajor:
+		case major != server:
 			pgOK = false
-			refuse = append(refuse, fmt.Sprintf("%s %d does not match the backup's PostgreSQL %d", tool, major, mf.ServerMajor))
+			refuse = append(refuse, fmt.Sprintf("%s %d does not match the server's PostgreSQL %d", tool, major, server))
 		}
 	}
 	if pgOK {
-		plan.Checks = append(plan.Checks, "pg major ok")
+		plan.Checks = append(plan.Checks, fmt.Sprintf("pg major ok (backup %d, server %d)", mf.ServerMajor, server))
 	}
 
 	// Trust keys.
@@ -604,6 +609,9 @@ func (x *restorer) querier(ctx context.Context) (Querier, func(), error) {
 	}
 	return pool, pool.Close, nil
 }
+
+// minRestoreMajor is the oldest PostgreSQL major a backup may come from.
+const minRestoreMajor = 16
 
 func (x *restorer) serverMajor(ctx context.Context, q Querier) (int, error) {
 	if x.o.ServerMajor != nil {
