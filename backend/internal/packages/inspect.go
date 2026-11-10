@@ -13,14 +13,33 @@ import (
 // downloaded .hmp is and whether a given key signed it. It reports trouble as
 // Problems, never as an error, and never returns any of the package bytes.
 type Inspector struct {
-	Limits Limits // zero means DefaultLimits
+	Limits Limits // a zero field means the DefaultLimits value
 }
 
 func (i Inspector) limits() Limits {
-	if i.Limits == (Limits{}) {
-		return DefaultLimits
+	l, d := i.Limits, DefaultLimits
+	if l.Archive == 0 {
+		l.Archive = d.Archive
 	}
-	return i.Limits
+	if l.Entries == 0 {
+		l.Entries = d.Entries
+	}
+	if l.File == 0 {
+		l.File = d.File
+	}
+	if l.Total == 0 {
+		l.Total = d.Total
+	}
+	if l.Ratio == 0 {
+		l.Ratio = d.Ratio
+	}
+	if l.RatioFloor == 0 {
+		l.RatioFloor = d.RatioFloor
+	}
+	if l.Path == 0 {
+		l.Path = d.Path
+	}
+	return l
 }
 
 // ArchiveLimit is the largest archive Inspect accepts, in bytes.

@@ -108,3 +108,18 @@ func TestInspectGarbageAndOverLimit(t *testing.T) {
 		t.Fatalf("over limit: %+v", res)
 	}
 }
+
+func TestInspectorFillsZeroLimitsFromTheDefaults(t *testing.T) {
+	k := newKey(t)
+	raw, err := PackFiles(inspectPluginFiles(), &k)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := Inspector{Limits: Limits{Archive: 1 << 20}}
+	if got := in.ArchiveLimit(); got != 1<<20 {
+		t.Fatalf("archive limit = %d", got)
+	}
+	if res := in.Inspect(raw, k.Public); !res.SignatureOK || len(res.Problems) != 0 {
+		t.Fatalf("partial limits refused a real package: %+v", res)
+	}
+}
