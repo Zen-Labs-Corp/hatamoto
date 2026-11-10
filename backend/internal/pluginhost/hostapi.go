@@ -79,6 +79,8 @@ type Services struct {
 	Settings  *SettingsStore
 	DB        *PluginDB
 	Fetcher   *Fetcher
+	// Packages gives packages.inspect its verdict; nil makes it unavailable.
+	Packages PackageInspector
 	// FetchPerMinute caps one plugin's outbound http.fetch requests per
 	// minute; 0 means DefaultFetchPerMinute.
 	FetchPerMinute int
@@ -356,6 +358,7 @@ var hostFns = map[string]hostFn{
 	sdk.FnSettingsGet:          {perm: sdk.PermSettings, run: fnSettingsGet},
 	sdk.FnMailSend:             {perm: sdk.PermMailSend, run: fnMailSend},
 	sdk.FnHTTPFetch:            {perm: sdk.PermHTTPFetch, run: fnHTTPFetch},
+	sdk.FnPackagesInspect:      {perm: sdk.PermPackagesInspect, run: fnPackagesInspect},
 	sdk.FnKVGet:                {perm: sdk.PermKV, run: fnKVGet},
 	sdk.FnKVSet:                {perm: sdk.PermKV, run: fnKVSet},
 	sdk.FnKVDelete:             {perm: sdk.PermKV, run: fnKVDelete},
