@@ -99,3 +99,30 @@ func TestSecurityPageOwnerOnly(t *testing.T) {
 		t.Errorf("editor: %d", code)
 	}
 }
+
+func TestSecurityPageDeveloperRow(t *testing.T) {
+	t.Parallel()
+
+	for _, on := range []bool{false, true} {
+		g := pkgSecurityRig(t, &fakePackages{developerOn: on})
+		_, body := getSecurity(g, "owner-token")
+		row := strings.Index(body, "Developer packages")
+		unsigned := strings.Index(body, "Advanced: allow unsigned packages")
+		if row < 0 || unsigned < 0 || row > unsigned {
+			t.Fatalf("on=%v: the Developer packages row (%d) must come above the unsigned block (%d)", on, row, unsigned)
+		}
+		if !strings.Contains(body, "Hatamoto checks who signed them, but does not review their code.") {
+			t.Errorf("on=%v: copy missing", on)
+		}
+		if on {
+			if !strings.Contains(body, `action="/admin/plugins/developer/off"`) || !strings.Contains(body, ">Turn off<") || strings.Contains(body, "Allow developer packages…") {
+				t.Error("on: want the Turn off form only")
+			}
+		} else if !strings.Contains(body, `href="/admin/plugins/security/developer"`) || !strings.Contains(body, "Allow developer packages…") || strings.Contains(body, "developer/off") {
+			t.Error("off: want the Allow link only")
+		}
+		if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+			t.Errorf("on=%v a11y: %v", on, issues)
+		}
+	}
+}
