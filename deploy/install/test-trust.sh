@@ -46,6 +46,11 @@ mirror_add v0.6.0-rc.1 now:100
 mirror_add v1.0.0 +2d:100
 mirror_tool channel halt stable v0.2.5 --reason testing --dir "$M_SRC" >/dev/null
 mirror_tool channel yank stable v0.3.0 --reason "bad build" --dir "$M_SRC" >/dev/null
+mirror_add_edge v0.2.9 now:100
+mirror_add_edge v0.2.8 now:100
+mirror_add_edge v0.2.7 now:100
+mirror_tool channel yank edge v0.2.8 --reason t --dir "$M_SRC" >/dev/null
+mirror_tool channel halt edge v0.2.7 --reason t --dir "$M_SRC" >/dev/null
 mirror_publish
 mirror_serve
 cp -a "$M_SITE" "$tmp/site.good"
@@ -54,7 +59,7 @@ restore() { rm -rf "${M_SITE:?}"/* "${M_SITE:?}"/.[!.]* 2>/dev/null || true; cp 
 # dl SCRIPT VERSION OUT [ENV...]: run the download seam, stderr to $tmp/err.
 dl() {
   local s="$1" v="$2" out="$3"; shift 3
-  env HATAMOTO_RELEASE_BASE="$M_URL" "$@" sh "$s" download "$v" "$out" 2>"$tmp/err" >"$tmp/stdout"
+  env HATAMOTO_RELEASE_BASE="$M_URL" "$@" sh "$s" download ${DL_CHAN:+--channel "$DL_CHAN"} "$v" "$out" 2>"$tmp/err" >"$tmp/stdout"
 }
 
 # refused NAME SCRIPT VERSION [ENV...]: must exit non-zero, name the check, leave no output file.
@@ -204,6 +209,43 @@ grep -q 'u0026' "$M_SITE/releases/channels/stable.json" || fail "fixture lost th
 refused index-signature "$script" v0.2.0
 pass "fail-closed on escaped characters (documented limit)"
 restore
+
+# --- the edge channel (download --channel edge)
+DL_CHAN=edge dl "$script" v0.2.9 "$tmp/out.bin" || fail "edge download failed: $(cat "$tmp/err")"
+cmp -s "$tmp/out.bin" "$M_SITE/releases/v0.2.9/hatamoto-$plat" || fail "edge bytes differ from the fixture"
+grep -q 'verified hatamoto v0.2.9' "$tmp/err" "$tmp/stdout" || fail "edge download not reported verified"
+pass "edge-only version downloads with --channel edge"
+DL_CHAN=edge refused index-yanked "$script" v0.2.8
+DL_CHAN=edge refused index-halted "$script" v0.2.7
+DL_CHAN=edge refused index-entry "$script" v0.2.0
+mirror_tamper_index edge; DL_CHAN=edge refused index-signature "$script" v0.2.9; restore
+mirror_tamper_binary v0.2.9 "$plat"; DL_CHAN=edge refused artifact-sha256 "$script" v0.2.9; restore
+# A mirror cannot swap channels: the signed .channel must match the request.
+cp "$M_SITE/releases/channels/stable.json" "$M_SITE/releases/channels/edge.json"
+DL_CHAN=edge refused index-channel "$script" v0.2.0; restore
+cp "$M_SITE/releases/channels/edge.json" "$M_SITE/releases/channels/stable.json"
+refused index-channel "$script" v0.2.9; restore
+# Unknown channels die before any request (port 9 is closed).
+for tc_bad in nightly Edge canary '../x' ''; do
+  rm -f "$tmp/out.bin"
+  if env HATAMOTO_RELEASE_BASE=http://127.0.0.1:9/releases sh "$script" download --channel "$tc_bad" v0.2.0 "$tmp/out.bin" 2>"$tmp/err"; then fail "channel '$tc_bad' accepted"; fi
+  grep -q 'unknown channel' "$tmp/err" || fail "channel '$tc_bad' not refused as unknown: $(cat "$tmp/err")"
+  if grep -q 'FAILED CHECK' "$tmp/err"; then fail "channel '$tc_bad' reached the network: $(cat "$tmp/err")"; fi
+  [ ! -e "$tmp/out.bin" ] || fail "channel '$tc_bad': output file exists"
+done
+pass "refused: unknown channels, before any request"
+if sh "$script" download --channel 2>"$tmp/err"; then fail "--channel without a value accepted"; fi
+grep -q usage "$tmp/err" || fail "--channel without a value: no usage line"
+if sh "$script" download --channel edge v0.2.9 2>"$tmp/err"; then fail "missing OUTFILE accepted"; fi
+grep -q usage "$tmp/err" || fail "missing OUTFILE: no usage line"
+pass "usage on a missing channel value or argument"
+# Default stays stable; no channel option on other commands.
+refused index-entry "$script" v0.2.9
+dl "$script" v0.2.0 "$tmp/out.bin" || fail "default download broke: $(cat "$tmp/err")"
+if sh "$script" all --channel edge 2>"$tmp/err"; then fail "all accepted --channel"; fi
+grep -q 'all takes no arguments' "$tmp/err" || fail "all --channel not refused: $(cat "$tmp/err")"
+sh "$script" help | grep -q -- '--channel' || fail "usage does not name --channel"
+pass "default channel is stable; --channel only on download"
 
 # --- production keys never accept a test-signed mirror (ISC-A-3)
 dl "$tmp/prod-asm/install.sh" v0.2.0 "$tmp/out.bin" && fail "production script accepted a test-signed mirror"
