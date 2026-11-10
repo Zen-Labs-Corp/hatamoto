@@ -112,7 +112,7 @@ Every call has a deadline of at most 15 seconds and never longer than the hook c
 | `log` | `{ "level", "message" }` (level is `debug`, `info`, `warn` or `error`) | `{}` |
 | `mail.send` | `{ "to": [1 to 10 addresses], "subject", "text"?, "html"? }` | `{ "sent": n }` |
 | `http.fetch` | `{ "method"?, "url", "headers"?, "body"? or "body_b64"?, "timeout_ms"? }` | `{ "status", "headers", "body" or "body_b64", "truncated"? }` |
-| `packages.inspect` | `{ "url", "signer_key"? }` | `{ "kind", "name", "version", "sha256", "size", "signer_key_id", "signature_ok", "problems", .. }`; see [packages.inspect](#packagesinspect) |
+| `packages.inspect` | `{ "url", "signer_key"? }` | `{ "kind", "name", "version", "sha256", "size", "signer_key_id", "signature_ok", "problems", .. }`; see [packages.inspect](#packages-inspect) |
 | `kv.get` / `kv.set` | `{ "key" }` / `{ "key", "value", "ttl_seconds"? }` | `{ "found", "value"? }` / `{}` |
 | `kv.delete` / `kv.list` | `{ "key" }` / `{ "prefix"?, "limit"? (100, max 1000) }` | `{}` / `{ "keys" }` |
 | `db.query` | `{ "sql", "args"? }` | `{ "columns", "rows", "truncated"? }` |
