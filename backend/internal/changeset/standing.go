@@ -602,21 +602,42 @@ func checkCreateAttributes(schemaDoc []byte, raw jsontext.Value) string {
 		return "its type could not be read."
 	}
 	for k, v := range attrs {
-		if isEmptyValue(v) {
-			continue
-		}
 		def, declared := props.Properties[k]
 		if !declared {
+			if isBareEmpty(v) {
+				continue
+			}
 			if slices.Contains(undeclaredAttributeKeys, k) {
 				continue
 			}
 			return fmt.Sprintf("it sends %q, which its type does not declare.", k)
+		}
+		if isEmptyValue(v) {
+			continue
 		}
 		if hasMediaMarker(def) || imageByName(k, def) {
 			return fmt.Sprintf("%q holds an image or file, which never qualifies.", k)
 		}
 	}
 	return ""
+}
+
+// isBareEmpty is the strict test for a key the schema does not declare: only
+// null, "", [] and {} are empty. A container with anything inside is not, even
+// when its elements or map keys look blank, because nothing says how the admin
+// would read it.
+func isBareEmpty(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case string:
+		return x == ""
+	case []any:
+		return len(x) == 0
+	case map[string]any:
+		return len(x) == 0
+	}
+	return false
 }
 
 func isEmptyValue(v any) bool {

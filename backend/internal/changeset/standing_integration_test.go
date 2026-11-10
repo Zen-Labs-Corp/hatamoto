@@ -628,6 +628,9 @@ func TestStandingCreateRefusals(t *testing.T) {
 		{"media_url_hint_by_name", func() int64 {
 			return s.stageAll(s.newItem("e10x", map[string]any{"attributes": map[string]any{"title": "T", "hero_image": "/media/a.jpg"}}))
 		}, "image or file"},
+		{"undeclared_attribute_map_key", func() int64 {
+			return s.stageAll(s.newItem("e10k", map[string]any{"attributes": map[string]any{"title": "T", "hero": map[string]any{"/media/a.jpg": nil}}}))
+		}, "does not declare"},
 		{"undeclared_attribute", func() int64 {
 			return s.stageAll(s.newItem("e10u", map[string]any{"attributes": map[string]any{"title": "T", "hero": "/media/x.png"}}))
 		}, "does not declare"},
