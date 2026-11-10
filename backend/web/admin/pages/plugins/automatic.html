@@ -12,5 +12,5 @@
 {{template "hm/card-start" dict "ID" "outside" "Title" "When a run steps outside the rule" "Heading" "h2"}}{{range .Waiting}}{{template "hm/callout-start" (dict "Kind" "warning" "Title" .Title)}}{{.Body}} <a href="{{.Review}}">Review</a>{{template "hm/callout-end"}}
 {{else}}<p class="hm-muted">No run is waiting for you. A run that goes outside the rule is held back, and nothing from it is published.</p>{{end}}
 {{if .WaitingMore}}<p class="hm-muted">{{.WaitingMore}} more waiting. They are listed on the Runs tab.</p>{{end}}{{template "hm/card-end"}}{{end}}
-{{if .SummaryTitle}}{{template "hm/card-start" dict "ID" "summary-card" "Title" .SummaryTitle "Heading" "h2"}}{{template "hm/table" .Summary}}{{template "hm/card-end"}}{{end}}
+{{if .SummaryTitle}}{{template "hm/card-start" dict "ID" "summary-card" "Title" .SummaryTitle "Heading" "h2"}}{{template "hm/table" .Summary}}{{with .Created}}<h3>{{.Caption}}</h3>{{template "hm/table" .}}{{end}}{{template "hm/card-end"}}{{end}}
 {{end}}{{end}}

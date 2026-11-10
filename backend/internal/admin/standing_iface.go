@@ -18,6 +18,10 @@ type StandingRule struct {
 	Fields        []string
 	Schemas       []string
 	MaxPerHour    int
+	// CreateSchemas and CreateMaxPerHour are set only when the rule also
+	// lets the run publish new entries of those schemas.
+	CreateSchemas    []string
+	CreateMaxPerHour int
 }
 
 // ErrStandingChanged means the plugin changed between showing the rule and
@@ -50,6 +54,7 @@ type StandingWaiting struct {
 type StandingDigestRow struct {
 	Plugin  string
 	Changes int
+	Created int // new entries the run published on its own
 }
 
 // StandingApprovals reads and records standing approvals (nil = the

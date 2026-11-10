@@ -57,6 +57,8 @@ type standingData struct {
 	// published itself in the last day.
 	Summary      ui.Table
 	SummaryTitle string
+	// Created lists the entries runs published on their own; nil when none.
+	Created *ui.Table
 }
 
 // pausedNotice is the callout shown after an approval ended.
@@ -156,7 +158,7 @@ func (a *Admin) handlePluginStanding(w http.ResponseWriter, r *http.Request) {
 	if d.ShowRule {
 		d.Paused = nil
 	}
-	d.SummaryTitle, d.Summary = a.standingSummary(r.Context(), digest)
+	d.SummaryTitle, d.Summary, d.Created = a.standingSummary(r.Context(), digest)
 	if active != nil {
 		d.ApprovedOn = fmtDate(active.At.In(a.siteLocation(r.Context())))
 	}
@@ -179,11 +181,11 @@ func (a *Admin) handlePluginStanding(w http.ResponseWriter, r *http.Request) {
 }
 
 // standingSummary groups the last day's automatic runs by plugin.
-func (a *Admin) standingSummary(ctx context.Context, rows []StandingDigestRow) (string, ui.Table) {
+func (a *Admin) standingSummary(ctx context.Context, rows []StandingDigestRow) (string, ui.Table, *ui.Table) {
 	if len(rows) == 0 {
-		return "", ui.Table{}
+		return "", ui.Table{}, nil
 	}
-	type sum struct{ runs, changes int }
+	type sum struct{ runs, changes, created int }
 	var order []string
 	by := map[string]*sum{}
 	for _, d := range rows {
@@ -193,6 +195,7 @@ func (a *Admin) standingSummary(ctx context.Context, rows []StandingDigestRow) (
 		}
 		by[d.Plugin].runs++
 		by[d.Plugin].changes += d.Changes
+		by[d.Plugin].created += d.Created
 	}
 	title := "Daily summary, " + fmtDate(pluginsNow().In(a.siteLocation(ctx)))
 	t := ui.Table{
@@ -204,7 +207,20 @@ func (a *Admin) standingSummary(ctx context.Context, rows []StandingDigestRow) (
 		t.Rows = append(t.Rows, ui.Row{ID: name, Label: name, Cells: []ui.Cell{{Text: name}, {Text: thousands(s.runs)}, {Text: thousands(s.changes)}},
 			Actions: []ui.Action{{Label: "See runs", Href: a.pluginURL(name, "runs"), Button: true, AriaLabel: "See runs of " + name}}})
 	}
-	return title, t
+	var created *ui.Table
+	for _, name := range order {
+		n := by[name].created
+		if n == 0 {
+			continue
+		}
+		if created == nil {
+			created = &ui.Table{ID: "summary-created", Caption: "New entries published automatically",
+				Columns: []ui.Col{{Key: "plugin", Label: "Plugin", Role: "title"}, {Key: "created", Label: "New entries", Role: "num"}}}
+		}
+		created.Rows = append(created.Rows, ui.Row{ID: "created-" + name, Label: name, Cells: []ui.Cell{{Text: name}, {Text: thousands(n)}},
+			Actions: []ui.Action{{Label: "See runs", Href: a.pluginURL(name, "runs"), Button: true, AriaLabel: "See runs of " + name}}})
+	}
+	return title, t, created
 }
 
 // handleStandingApprove records the owner's approval. The form carries only
@@ -259,12 +275,17 @@ func ruleLines(rule StandingRule) []promptStatement {
 	line := func(k permtext.Kind, title, sub string) promptStatement {
 		return promptStatement{Statement: permtext.Statement{Kind: k, Title: title, Sub: sub}, Icon: statementIcon(k)}
 	}
-	return []promptStatement{
+	never := "Never text, links, page addresses or pages you wrote"
+	lines := []promptStatement{
 		line(permtext.KindOK, "May change "+joinWords(rule.Fields), "Only numbers, yes or no values, dates and fixed choices in those fields."),
 		line(permtext.KindOK, "Only on "+joinWords(rule.Schemas)+" it created", "Content you wrote, or that another plugin made, is never touched."),
 		line(permtext.KindOK, "Up to "+countNoun(rule.MaxPerHour, "change")+" an hour", "A run that would go past this waits for your review."),
-		line(permtext.KindNo, "Never text, links, page addresses or pages you wrote", ""),
 	}
+	if len(rule.CreateSchemas) > 0 {
+		lines = append(lines, line(permtext.KindReview, "May publish new "+joinWords(rule.CreateSchemas)+" entries on its own, up to "+thousands(rule.CreateMaxPerHour)+" an hour", "A run that would go past this waits for your review."))
+		never = "Never deletes, redirects, menus, media, other sources\u2019 content or other content types"
+	}
+	return append(lines, line(permtext.KindNo, never, ""))
 }
 
 // joinWords joins names for a sentence: "a", "a and b", "a, b and c".
