@@ -74,16 +74,17 @@ const (
 	FnFormsList        = "forms.list"
 	FnFormsSubmissions = "forms.submissions" // {form_slug, limit?, offset?}
 
-	FnSettingsGet = "settings.get" // {} -> the plugin's own settings object
-	FnLog         = "log"          // {level, message}
-	FnMailSend    = "mail.send"    // {to[], subject, text?, html?}
-	FnHTTPFetch   = "http.fetch"   // {method?, url, headers?, body?, body_b64?, timeout_ms?} -> {status, headers, body, body_b64?}
-	FnKVGet       = "kv.get"       // {key} -> {found, value}
-	FnKVSet       = "kv.set"       // {key, value, ttl_seconds?}
-	FnKVDelete    = "kv.delete"    // {key}
-	FnKVList      = "kv.list"      // {prefix?, limit?} -> {keys}
-	FnDBQuery     = "db.query"     // {sql, args?} -> {columns, rows, truncated}
-	FnDBExec      = "db.exec"      // {sql, args?} -> {rows_affected}
+	FnSettingsGet     = "settings.get"     // {} -> the plugin's own settings object
+	FnLog             = "log"              // {level, message}
+	FnMailSend        = "mail.send"        // {to[], subject, text?, html?}
+	FnHTTPFetch       = "http.fetch"       // {method?, url, headers?, body?, body_b64?, timeout_ms?} -> {status, headers, body, body_b64?}
+	FnPackagesInspect = "packages.inspect" // {url, signer_key?} -> InspectResult
+	FnKVGet           = "kv.get"           // {key} -> {found, value}
+	FnKVSet           = "kv.set"           // {key, value, ttl_seconds?}
+	FnKVDelete        = "kv.delete"        // {key}
+	FnKVList          = "kv.list"          // {prefix?, limit?} -> {keys}
+	FnDBQuery         = "db.query"         // {sql, args?} -> {columns, rows, truncated}
+	FnDBExec          = "db.exec"          // {sql, args?} -> {rows_affected}
 )
 
 // Host functions of a run (SDK 0.17.0). They work only inside a run, in the
@@ -159,4 +160,30 @@ type HTTPResponse struct {
 type CronEvent struct {
 	Name        string `json:"name"`
 	ScheduledAt string `json:"scheduled_at"` // RFC 3339
+}
+
+// InspectRequest is the argument of packages.inspect (SDK 0.21.0). URL must be
+// https. SignerKey is the base64 ed25519 public key the package is expected to
+// be signed by.
+type InspectRequest struct {
+	URL       string `json:"url"`
+	SignerKey string `json:"signer_key,omitempty"`
+}
+
+// InspectResult is what packages.inspect returns. A package that cannot be
+// fetched, parsed or verified is reported in Problems, not as an error. The
+// package body is never part of the result.
+type InspectResult struct {
+	Kind         string   `json:"kind"`
+	Name         string   `json:"name"`
+	Version      string   `json:"version"`
+	SHA256       string   `json:"sha256"`
+	Size         int64    `json:"size"`
+	SignerKeyID  string   `json:"signer_key_id"` // the package's own signer id, "" if unsigned
+	SignatureOK  bool     `json:"signature_ok"`
+	SDK          string   `json:"sdk,omitempty"`
+	Permissions  []string `json:"permissions,omitempty"`
+	AllowedHosts []string `json:"allowed_hosts,omitempty"`
+	Description  string   `json:"description,omitempty"`
+	Problems     []string `json:"problems"` // never nil on the wire
 }
