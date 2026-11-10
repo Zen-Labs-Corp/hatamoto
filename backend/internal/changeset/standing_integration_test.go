@@ -399,6 +399,14 @@ func (s *standingFixture) siteHost() string {
 	return host
 }
 
+// setSchema replaces the fixture schema's document.
+func (s *standingFixture) setSchema(doc string) {
+	s.t.Helper()
+	if _, err := s.db.Pool().Exec(s.ctx, `UPDATE hatamoto_entity_schemas SET schema = $2 WHERE slug = $1`, s.slug, doc); err != nil {
+		s.t.Fatal(err)
+	}
+}
+
 // mediaRow adds a library file with the given public URL and returns its id.
 func (s *standingFixture) mediaRow(publicURL string) string {
 	s.t.Helper()
@@ -692,6 +700,16 @@ func TestStandingCreateRefusals(t *testing.T) {
 		{"media_alias_of_image_field", func() int64 {
 			return s.stageAll(s.newItem("e10z", map[string]any{"attributes": map[string]any{"title": "T", "caption": "x.jpg"}}))
 		}, "image or file"},
+		{"schema_properties_case_variant", func() int64 {
+			// The admin reads only "properties"; a schema that also spells it
+			// another way is one the gate cannot be sure it reads alike.
+			s.setSchema(`{"type":"object","properties":{"title":{"type":"string"},"price":{"type":"number"}},"Properties":{"hero":{"type":"string","x-media":true}}}`)
+			return s.stageAll(s.newItem("e10v", nil))
+		}, "type could not be read"},
+		{"schema_only_wrong_case_properties", func() int64 {
+			s.setSchema(`{"type":"object","PROPERTIES":{"title":{"type":"string"},"price":{"type":"number"}}}`)
+			return s.stageAll(s.newItem("e10w", nil))
+		}, "type could not be read"},
 		{"undeclared_attribute_map_key", func() int64 {
 			return s.stageAll(s.newItem("e10k", map[string]any{"attributes": map[string]any{"title": "T", "hero": map[string]any{"/media/a.jpg": nil}}}))
 		}, "does not declare"},
@@ -798,9 +816,14 @@ func TestStandingCreateRefusals(t *testing.T) {
 			return s.stageAll(s.newItem("e23", nil))
 		}, "creating never qualifies"},
 	}
+	var schemaDoc string
+	if err := s.db.Pool().QueryRow(s.ctx, `SELECT schema::text FROM hatamoto_entity_schemas WHERE slug = $1`, s.slug).Scan(&schemaDoc); err != nil {
+		t.Fatal(err)
+	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			defer func(p StandingPolicy) { s.policy = p }(s.policy)
+			s.setSchema(schemaDoc)
 			s.withCreate(10)
 			s.policy.Schemas = []string{s.slug}
 			if _, err := s.db.Pool().Exec(s.ctx, `UPDATE hatamoto_entities SET attributes = $2, origin = $3 WHERE id = $1`,

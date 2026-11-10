@@ -596,15 +596,13 @@ func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte,
 	if !ok {
 		return "its values could not be read."
 	}
-	var props struct {
-		Properties map[string]any `json:"properties"`
-	}
-	if jsonx.Unmarshal(schemaDoc, &props, jsonx.StoredLoose) != nil {
+	props, ok := schemaProperties(schemaDoc)
+	if !ok {
 		return "its type could not be read."
 	}
 	// A key an image field reads as its own (x-hm-alias) is as good as the image.
 	aliased := map[string]bool{}
-	for k, def := range props.Properties {
+	for k, def := range props {
 		if hasMediaMarker(def) || imageByName(k, def) {
 			if d, ok := def.(map[string]any); ok {
 				if names, ok := d["x-hm-alias"].([]any); ok {
@@ -621,7 +619,7 @@ func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte,
 		if (schemafield.IsImageAttributeName(k) || aliased[k]) && !isEmptyValue(v) {
 			return fmt.Sprintf("%q holds an image or file, which never qualifies.", k)
 		}
-		def, declared := props.Properties[k]
+		def, declared := props[k]
 		if !declared {
 			if isBareEmpty(v) {
 				continue
@@ -689,6 +687,24 @@ func collectStrings(v any, out *[]string) {
 			collectStrings(e, out)
 		}
 	}
+}
+
+// schemaProperties reads the declared fields exactly as the admin form does:
+// from the member named "properties". A document that spells that member any
+// other way as well (another case, which a loose reader would merge) is one the
+// gate cannot be sure it reads as the admin does, so it is refused.
+func schemaProperties(schemaDoc []byte) (map[string]any, bool) {
+	var doc map[string]any
+	if jsonx.Unmarshal(schemaDoc, &doc, jsonx.StoredLoose) != nil {
+		return nil, false
+	}
+	for k := range doc {
+		if k != "properties" && strings.EqualFold(k, "properties") {
+			return nil, false
+		}
+	}
+	props, _ := doc["properties"].(map[string]any)
+	return props, true
 }
 
 // isBareEmpty is the strict test for a key the schema does not declare: only
