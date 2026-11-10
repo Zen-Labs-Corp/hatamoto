@@ -4,6 +4,7 @@ package changeset
 
 import (
 	"encoding/json/jsontext"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -804,4 +805,48 @@ func TestStandingCreateCapHoldsAcrossConcurrentGates(t *testing.T) {
 	if n := s.plugged(s.slug); n != 3 { // the fixture entry plus the two creates
 		t.Fatalf("plugin entries = %d, want 3", n)
 	}
+}
+
+func (s *standingFixture) translationGroup(id string) *string {
+	s.t.Helper()
+	var g *string
+	if err := s.db.Pool().QueryRow(s.ctx, `SELECT translation_group::text FROM hatamoto_entities WHERE id = $1`, id).Scan(&g); err != nil {
+		s.t.Fatal(err)
+	}
+	return g
+}
+
+// A source key shaped like an entry id must not steer translation_of: the
+// writer reads an id as the entity, so the gate must judge that entity.
+func TestStandingCreateTranslationOfUUIDSourceKeyStaysStaged(t *testing.T) {
+	s := newStandingFixture(t)
+	s.withCreate(10)
+	ownerEntry := s.liveEntity("", s.slug, "ow")
+	before := s.translationGroup(ownerEntry)
+	a := s.newItem("tk", nil)
+	a.SourceKey = ownerEntry
+	b := s.newItem("tb", map[string]any{"locale": "fr", "translation_of": ownerEntry})
+	cs := s.stageAll(a, b)
+	v := s.mustWait(cs)
+	if !strings.Contains(strings.Join(v.Reasons, "|"), "translation source") {
+		t.Errorf("reasons %q lack the translation source", v.Reasons)
+	}
+	if after := s.translationGroup(ownerEntry); fmt.Sprint(before) != fmt.Sprint(after) {
+		t.Errorf("owner entry translation_group changed: %v -> %v", before, after)
+	}
+}
+
+// The gate and the writer must agree on what a UUID-shaped reference means.
+func TestStandingCreateTranslationOfIDResolvesLikeTheWriter(t *testing.T) {
+	t.Run("translation_of_owned_id_is_that_entity", func(t *testing.T) {
+		s := newStandingFixture(t)
+		s.withCreate(10)
+		v, res, err := s.eng.PublishUnderPolicy(s.ctx, s.stageAll(s.newItem("tr", map[string]any{"locale": "fr", "translation_of": s.target})), s.policy, 9)
+		if err != nil || !v.OK || res.Applied != 1 {
+			t.Fatalf("verdict %+v applied=%d err=%v", v, res.Applied, err)
+		}
+		if s.translationGroup(s.target) == nil || s.translationGroup(s.idOfSlugIn(s.slug, "tr-"+s.tag)) == nil {
+			t.Error("the owned entry and the new one are not linked")
+		}
+	})
 }

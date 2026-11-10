@@ -507,13 +507,13 @@ func checkCreateItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it Stored
 	}
 	origin := Origin(p.Plugin)
 	if pl.ParentKey != "" {
-		ok, reason := ownedOrStaged(ctx, tx, p, origin, pl.ParentKey, st)
+		ok, reason := ownedOrStaged(ctx, tx, p, origin, pl.ParentKey, st, false)
 		if !ok {
 			return "its parent " + reason
 		}
 	}
 	if pl.TranslationOf != "" {
-		ok, reason := ownedOrStaged(ctx, tx, p, origin, pl.TranslationOf, st)
+		ok, reason := ownedOrStaged(ctx, tx, p, origin, pl.TranslationOf, st, true)
 		if !ok {
 			return "its translation source " + reason
 		}
@@ -545,18 +545,20 @@ func checkCreateItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it Stored
 	return ""
 }
 
-// ownedOrStaged resolves a parent or translation reference the way the writer
-// does (an id, else a source key of this origin) and accepts only entities of
-// this plugin in a listed schema, or an earlier create of this changeset.
-func ownedOrStaged(ctx context.Context, tx pgx.Tx, p StandingPolicy, origin, ref string, st *standingRun) (bool, string) {
-	if schema, ok := st.created[ref]; ok {
-		if slices.Contains(p.Create.Schemas, schema) {
-			return true, ""
-		}
-		return false, "is in a type the create rule does not cover."
-	}
+// ownedOrStaged resolves a parent or translation reference exactly as the
+// writer does and accepts only entities of this plugin in a listed schema, or
+// an earlier create of this changeset. A translation_of that parses as an id is
+// that entity (the writer never consults source keys then); a parent_key is
+// only ever a source key.
+func ownedOrStaged(ctx context.Context, tx pgx.Tx, p StandingPolicy, origin, ref string, st *standingRun, isTranslation bool) (bool, string) {
 	id, err := uuid.Parse(ref)
-	if err != nil {
+	if !isTranslation || err != nil {
+		if schema, ok := st.created[ref]; ok {
+			if slices.Contains(p.Create.Schemas, schema) {
+				return true, ""
+			}
+			return false, "is in a type the create rule does not cover."
+		}
 		target, err := liveEntityTarget(ctx, tx, origin, ref)
 		if err != nil || target == "" {
 			return false, "could not be found."
