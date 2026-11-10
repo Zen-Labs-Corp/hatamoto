@@ -883,6 +883,26 @@ func fnEntitiesList(ctx context.Context, a *API, env *callEnv, raw jsontext.Valu
 		return nil, unavailable("entities")
 	}
 	filter := &entity.ListEntitiesFilter{Search: args.Search}
+	if args.SchemaSlug != "" {
+		s, err := a.svc.Entities.GetSchemaBySlug(ctx, args.SchemaSlug)
+		if err != nil {
+			return nil, err
+		}
+		filter.SchemaID = &s.ID
+	}
+	if _, inRun := RunFrom(ctx); inRun {
+		if args.Status != "" && args.Status != string(entity.StatusPublished) {
+			return nil, herr(sdk.ErrInvalidArgument, "a run reads published entities only")
+		}
+		args.Status = string(entity.StatusPublished)
+	}
+	if args.Status != "" {
+		st := entity.EntityStatus(args.Status)
+		if !entity.ValidStatus(st) {
+			return nil, herr(sdk.ErrInvalidArgument, "status %q", args.Status)
+		}
+		filter.Status = &st
+	}
 	if args.Term != nil {
 		// Unlike the terms.* functions this one is not gated by the dispatcher,
 		// so the grant is checked here.
@@ -905,26 +925,6 @@ func fnEntitiesList(ctx context.Context, a *API, env *callEnv, raw jsontext.Valu
 			return nil, err
 		}
 		filter.TermID, filter.TermExact = &t.ID, true
-	}
-	if args.SchemaSlug != "" {
-		s, err := a.svc.Entities.GetSchemaBySlug(ctx, args.SchemaSlug)
-		if err != nil {
-			return nil, err
-		}
-		filter.SchemaID = &s.ID
-	}
-	if _, inRun := RunFrom(ctx); inRun {
-		if args.Status != "" && args.Status != string(entity.StatusPublished) {
-			return nil, herr(sdk.ErrInvalidArgument, "a run reads published entities only")
-		}
-		args.Status = string(entity.StatusPublished)
-	}
-	if args.Status != "" {
-		st := entity.EntityStatus(args.Status)
-		if !entity.ValidStatus(st) {
-			return nil, herr(sdk.ErrInvalidArgument, "status %q", args.Status)
-		}
-		filter.Status = &st
 	}
 	page := &entity.KeysetPage{Limit: clamp(args.Limit, 50, 200), Direction: "next"}
 	if args.Cursor != "" {

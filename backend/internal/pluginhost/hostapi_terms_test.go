@@ -277,3 +277,15 @@ func TestEntitiesTermsLookupFailure(t *testing.T) {
 	_, err = r.call(t, fnEntitiesList, "^0.20", true, map[string]any{})
 	wantCode(t, err, sdk.ErrInternal)
 }
+
+// An unknown term must not hide a bad schema or status.
+func TestEntitiesListUnknownTermStillValidates(t *testing.T) {
+	r := newTermsRig(t)
+	term := map[string]any{"kind": "category", "slug": "nope"}
+	_, err := r.call(t, fnEntitiesList, "^0.20", true, map[string]any{"term": term, "schema_slug": "missing"})
+	if !errors.Is(err, entity.ErrSchemaNotFound) {
+		t.Errorf("unknown schema: err = %v, want ErrSchemaNotFound", err)
+	}
+	_, err = r.call(t, fnEntitiesList, "^0.20", true, map[string]any{"term": term, "status": "bogus"})
+	wantCode(t, err, sdk.ErrInvalidArgument)
+}
