@@ -222,9 +222,12 @@ Before you run it:
    into a PostgreSQL 18 server; a backup from a newer major than the server is refused, and so is one
    from before PostgreSQL 16). `psql` and `pg_restore` on `PATH` must have the major of the
    server you restore into, not of the backup: `pg_restore` reads older dumps but not newer ones.
-   The Docker image has them.
+   The Docker image has them for the major it was built with (`PG_MAJOR`, 16 by default; see
+   [Docker](#docker)), so to restore through the image into another major, build it with
+   `--build-arg PG_MAJOR=<the server's major>`. Otherwise the restore refuses with
+   `pg_restore 16 does not match the server's PostgreSQL 18`.
 3. Create the app role and an empty database it owns (as a superuser). The role name may use
-   lowercase letters, digits and underscores:
+   lowercase letters, digits and underscores, and need not match the role of the source site:
    `CREATE ROLE "<app role>" LOGIN PASSWORD '...'; CREATE DATABASE "<db>" OWNER "<app role>";`
 4. Use a cluster that no longer has the original plugin roles (`hm_p_<id>_<name>`) or the
    `hatamoto_role_admin_<id>` role: those names are cluster-wide, and restoring into the cluster
@@ -300,8 +303,11 @@ CREATEDB or CREATEROLE). `<db>` is the new database. Run the Hatamoto commands a
 1. Unpack the archive: `tar -xf <id>.tar`.
 2. Create the app role (if the cluster is new) and an empty database owned by it:
    `CREATE ROLE "<app role>" LOGIN PASSWORD '...'; CREATE DATABASE "<db>" OWNER "<app role>";`
-3. As the app role, restore the core dump:
-   `pg_restore --no-owner --role=<app role> -d <db> core.dump`
+3. As the app role, restore the core dump without its `DEFAULT ACL` entries, which name the
+   source's app role, then set the default privileges for yours:
+   `pg_restore -l core.dump | grep -v ' DEFAULT ACL - ' > core.list`
+   `pg_restore --no-owner --role=<app role> -L core.list -d <db> core.dump`
+   `psql -d <db> -c 'ALTER DEFAULT PRIVILEGES REVOKE ALL ON TABLES FROM PUBLIC' -c 'ALTER DEFAULT PRIVILEGES REVOKE ALL ON SEQUENCES FROM PUBLIC' -c 'ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC'`
 4. As a superuser, run the role-admin bootstrap. It adopts the instance id that step 3 restored, so
    it must come after step 3:
    `psql -d <db> -v app_role=<app role> -f deploy/sql/role-admin-bootstrap.sql`
