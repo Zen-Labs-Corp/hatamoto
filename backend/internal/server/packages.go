@@ -65,6 +65,17 @@ func (s *Server) setupPackages() {
 			Client: safefetch.NewClient(safefetch.ClientOptions{Timeout: 60 * time.Second}),
 		}
 	}
+	if !s.cfg.Packages.DeveloperRegistryOff() && len(opts.OnlySigners) == 0 {
+		// The listing key signs only the developer index. It is never added to
+		// the trust set that verifies packages.
+		if listing, err := packages.ParsePublicKey(config.DeveloperListingKey); err == nil {
+			opts.DeveloperRegistry = &packages.Registry{
+				URL: s.cfg.Packages.DeveloperRegistryURL, Trust: packages.TrustSet{packages.KeyID(listing): listing},
+				Limits: packages.DefaultLimits, AllowInsecure: s.cfg.Packages.AllowInsecureRegistry,
+				Client: safefetch.NewClient(safefetch.ClientOptions{Timeout: 60 * time.Second}),
+			}
+		}
+	}
 	if s.plugins != nil {
 		opts.Plugins, opts.Grants = s.plugins, s.plugins.Grants()
 		if s.pluginDB != nil {

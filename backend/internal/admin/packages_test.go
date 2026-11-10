@@ -37,6 +37,7 @@ type fakePackages struct {
 	tagPacks     map[string]bool // plugin names whose stored package holds tags/
 	registry     RegistryView
 	unsigned     bool
+	developerOn  bool
 	unsignedEnd  *time.Time // end of a timed opt-in, with unsigned
 	signers      []SignerInfo
 	refreshed    int // RefreshRegistry calls
@@ -168,6 +169,11 @@ func (f *fakePackages) UnsignedState(context.Context) UnsignedState {
 }
 func (f *fakePackages) SetAllowUnsigned(_ context.Context, on bool, until *time.Time, _ string) error {
 	f.unsigned, f.unsignedEnd = on, until
+	return nil
+}
+func (f *fakePackages) AllowDeveloper(context.Context) bool { return f.developerOn }
+func (f *fakePackages) SetAllowDeveloper(_ context.Context, on bool) error {
+	f.developerOn = on
 	return nil
 }
 func (f *fakePackages) Signers(context.Context) []SignerInfo        { return f.signers }
