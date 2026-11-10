@@ -251,3 +251,22 @@ func mustPub(t *testing.T, k Key) []byte {
 }
 
 func firstPartyKeyForTest(t *testing.T) string { return config.FirstPartyKey }
+
+func TestRevocationForNameOnlyRevokesEveryVersion(t *testing.T) {
+	idx := &Index{Revoked: []Revocation{{Name: "acme-seo", Reason: "malware"}}}
+	for _, v := range []string{"1.0.0", "2.3.4"} {
+		if _, ok := revocationFor(Row{Developer: true, Name: "acme-seo", Version: v}, idx); !ok {
+			t.Errorf("name-only revocation missed version %s", v)
+		}
+	}
+	if _, ok := revocationFor(Row{Developer: true, Name: "other", Version: "1.0.0"}, idx); ok {
+		t.Error("revocation hit another name")
+	}
+	if _, ok := revocationFor(Row{Name: "acme-seo", Version: "1.0.0"}, idx); ok {
+		t.Error("revocation hit a non-developer row")
+	}
+	pinned := &Index{Revoked: []Revocation{{Name: "acme-seo", Version: "1.0.0"}}}
+	if _, ok := revocationFor(Row{Developer: true, Name: "acme-seo", Version: "1.1.0"}, pinned); ok {
+		t.Error("a versioned revocation hit another version")
+	}
+}

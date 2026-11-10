@@ -111,12 +111,6 @@ func TestRevocationByNameAndVersionOnlyHitsThatVersionAndLifts(t *testing.T) {
 	if row, _ := d.mgr.Store().Get(ctx, KindPlugin, "capa"); !row.Enabled || row.DisabledReason != "" {
 		t.Fatalf("another version's revocation touched the row: %+v", row)
 	}
-	// A name without a version revokes nothing.
-	d.revoke(Revocation{Name: "capa", Reason: "no version"})
-	if row, _ := d.mgr.Store().Get(ctx, KindPlugin, "capa"); !row.Enabled {
-		t.Fatalf("a revocation without a version disabled the row: %+v", row)
-	}
-
 	d.revoke(Revocation{Name: "capa", Version: "1.0.0", Reason: "bad build"})
 	if row, _ := d.mgr.Store().Get(ctx, KindPlugin, "capa"); row.Enabled || row.DisabledReason != "bad build" {
 		t.Fatalf("row: %+v", row)

@@ -20,7 +20,8 @@ const DeveloperFirstRead = 30 * time.Second
 var ErrRevoked = errors.New("the package was revoked by the registry")
 
 // revocationFor returns the revocation of idx that applies to the developer
-// row r: its signer key, or its exact name and version.
+// row r: its signer key, its exact name and version, or its name alone (every
+// version of it).
 func revocationFor(r Row, idx *Index) (Revocation, bool) {
 	if !r.Developer || idx == nil {
 		return Revocation{}, false
@@ -31,7 +32,7 @@ func revocationFor(r Row, idx *Index) (Revocation, bool) {
 				return rv, true
 			}
 		}
-		if rv.Name != "" && rv.Version != "" && rv.Name == r.Name && rv.Version == r.Version {
+		if rv.Name != "" && rv.Name == r.Name && (rv.Version == "" || rv.Version == r.Version) {
 			return rv, true
 		}
 	}

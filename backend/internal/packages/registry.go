@@ -222,7 +222,8 @@ const (
 )
 
 // Revocation withdraws trust from a signer key (SignerKey), or from a package
-// by Name and, when set, Version. Reason is shown to the owner.
+// by Name and Version, or, with no Version, by Name for every version. Reason
+// is shown to the owner.
 type Revocation struct {
 	SignerKey string `json:"signer_key,omitempty"`
 	Name      string `json:"name,omitempty"`

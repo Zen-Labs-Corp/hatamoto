@@ -205,7 +205,7 @@ Hatamoto. Each entry carries the `signer_key` of its author.
   restart while the index is unreachable: the installed row keeps the developer's key.
 - **No shadowing.** An entry whose name is in the main registry or is a first-party
   plugin is dropped.
-- **Revocation.** The index may revoke a signer key, or one name and version. A matching
+- **Revocation.** The index may revoke a signer key, or one name and version (a name alone revokes every version of it). A matching
   installed developer package is disabled with the reason shown in the admin; its data
   is kept, a revoked active theme is deactivated, and the change is audited as
   `package.revoke_disable`. When the registry withdraws the revocation, the package can be
