@@ -66,9 +66,7 @@ func (m *Manager) ApplyRevocations(ctx context.Context, idx *Index) error {
 			continue
 		}
 		activeTheme := r.Kind == KindTheme && r.Name == cfg.ActiveTheme
-		if !r.Enabled && !activeTheme {
-			continue
-		}
+		live := r.Enabled || activeTheme
 		rv, ok := revocationFor(r, idx)
 		if !ok {
 			continue
@@ -82,6 +80,10 @@ func (m *Manager) ApplyRevocations(ctx context.Context, idx *Index) error {
 			if err := m.store.SetActiveTheme(ctx, ""); err != nil {
 				errs = append(errs, err)
 			}
+		}
+		if !live {
+			// Already off: only the reason is stored, so it cannot be switched back on.
+			continue
 		}
 		changed = true
 		attr := "plugin"
@@ -99,12 +101,25 @@ func (m *Manager) ApplyRevocations(ctx context.Context, idx *Index) error {
 }
 
 // checkNotRevoked guards turning a package back on. A row without a stored
-// reason is fine. One with a reason needs a fresh developer index that no
+// reason is fine unless it is a developer package the cached developer index
+// revokes. One with a reason needs a fresh developer index that no
 // longer revokes it; otherwise (or when the index cannot be read) it returns
 // ErrRevoked. A package whose row is missing is left to the caller's own error.
 func (m *Manager) checkNotRevoked(ctx context.Context, kind Kind, name string) error {
 	row, err := m.store.Get(ctx, kind, name)
-	if err != nil || row.DisabledReason == "" {
+	if err != nil || (row.DisabledReason == "" && !row.Developer) {
+		return nil
+	}
+	if row.DisabledReason == "" {
+		// Not revoked as far as is known: the cached index decides, and an
+		// unreadable one does not keep a working package off.
+		idx, err := m.DeveloperIndex(ctx, false)
+		if err != nil {
+			return nil
+		}
+		if rv, ok := revocationFor(row, idx); ok {
+			return fmt.Errorf("%s: %w: %s", name, ErrRevoked, revocationReason(rv))
+		}
 		return nil
 	}
 	idx, err := m.DeveloperIndex(ctx, true)

@@ -234,3 +234,42 @@ func TestRevokedVersionFreshInstallIsRefused(t *testing.T) {
 		t.Fatalf("install of the listed version: %v", err)
 	}
 }
+
+func TestRevocationOfADisabledPluginStopsItSwitchingBackOn(t *testing.T) {
+	d, _ := installedDev(t)
+	ctx := context.Background()
+	if err := d.mgr.SetEnabled(ctx, "capa", false); err != nil {
+		t.Fatal(err)
+	}
+	d.revoke(Revocation{SignerKey: d.dev.Public, Reason: "key leaked"})
+	if row, _ := d.mgr.Store().Get(ctx, KindPlugin, "capa"); row.Enabled || row.DisabledReason != "key leaked" {
+		t.Fatalf("a disabled row did not get the reason: %+v", row)
+	}
+	if err := d.mgr.SetEnabled(ctx, "capa", true); !errors.Is(err, ErrRevoked) {
+		t.Fatalf("re-enable: %v", err)
+	}
+	if d.loaded("capa") {
+		t.Error("the revoked plugin is loaded")
+	}
+}
+
+func TestSwitchingOnChecksTheIndexEvenWithoutAStoredReason(t *testing.T) {
+	d, _ := installedDev(t)
+	ctx := context.Background()
+	if err := d.mgr.SetEnabled(ctx, "capa", false); err != nil {
+		t.Fatal(err)
+	}
+	// The revocation arrives while no read applies it to the row (the cached
+	// index has it, the row has no reason yet).
+	d.mu.Lock()
+	d.idx.Revoked = []Revocation{{Name: "capa", Version: "1.0.0", Reason: "bad build"}}
+	d.mu.Unlock()
+	d.mgr.devMu.Lock()
+	idx := *d.mgr.dev.cached
+	idx.Revoked = d.idx.Revoked
+	d.mgr.dev.cached = &idx
+	d.mgr.devMu.Unlock()
+	if err := d.mgr.SetEnabled(ctx, "capa", true); !errors.Is(err, ErrRevoked) {
+		t.Fatalf("re-enable: %v", err)
+	}
+}
