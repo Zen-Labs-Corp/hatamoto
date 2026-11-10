@@ -118,6 +118,13 @@ The backend, the admin, MCP and REST output and the plugin SDK now use the JSON 
 - **Failures.** If the rollup cannot be read the list falls back to the newest entities and the page is served but not cached.
 - **Migration.** None. Rollback floor: remove popular loop orders first, an older release refuses them.
 
+## Unreleased: SDK 0.20.0, entity terms for plugins
+
+- **Terms on entities.** For a plugin whose `sdk` range requires 0.20 and that holds `terms.read`, `entities.get` and each item of `entities.list` carry `terms`: `[{kind, slug, name}]`, ordered by kind, then name (`[]` when the entity has none). Plugins built for `^0.19` or older, and plugins without `terms.read`, get the same bytes as before.
+- **Term filter.** `entities.list` takes `term: {kind, slug}` and keeps only entities carrying exactly that term (child terms do not match). It needs `terms.read`; an unknown term gives an empty page. In a run's fetch phase it applies to public entities only.
+- **SDK.** `hatamoto.dev/sdk` 0.20.0 adds `EntityTerm` and `EntityTermFilter`; `CompatibleWith` now ends at `0.19.0`. `EntityEvent` is unchanged.
+- **Migration.** None. Rollback floor: unchanged; a plugin that declares `^0.20` loads only on a server that serves SDK 0.20.
+
 ## Unreleased: PDF widget
 
 - **Widget.** A new **PDF** widget (Media group) shows a PDF from the media library in the browser's viewer, with a download link (the editor preview and sites with a live community script show the link only, as those pages cannot frame a file) and, when the library knows it, the file size. On a phone only the link shows. Height is 200 to 2000 pixels. No script runs on the page.

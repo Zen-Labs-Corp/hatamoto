@@ -7,7 +7,7 @@ on nothing but the standard library, never imports Hatamoto core packages, and t
 module has its own `go.mod`.
 
 ```sh
-go get hatamoto.dev/sdk@v0.19.0
+go get hatamoto.dev/sdk@v0.20.0
 ```
 
 Releases are plain `vX.Y.Z` tags of this repository, where `X.Y.Z` is the `Version`
@@ -41,6 +41,7 @@ needs in `plugin.json` (the examples in the core repository declare `^0.8` or `^
 
 | SDK | Change |
 |---|---|
+| 0.20.0 | Additive over 0.19: `entities.get` and `entities.list` return each entity's `terms` (`[{kind, slug, name}]`) to a plugin whose range requires 0.20 and that holds `terms.read`, and `entities.list` takes a `term` filter (`{kind, slug}`, exact term). New types `EntityTerm` and `EntityTermFilter`. Other plugins see the same results as before. |
 | 0.19.0 | Go 1.27 is the SDK floor. The SDK uses the JSON v2 packages; `json.RawMessage` is an alias of `jsontext.Value` in Go 1.27, so types naming `jsontext.Value` are source compatible. Wire bytes are unchanged, also for plugin types the guest marshals (the v1 `omitempty`, `time.Duration`, byte-array and method behaviours are pinned, and the guest reads them back the same way); a struct with two fields sharing a JSON name now fails to marshal |
 | 0.18.0 | Additive over 0.17: `request_headers` and `csp` in `plugin.json`, declared cookies on public routes, `translation_of` on `changeset.entity.upsert`, `caption` and `credit` on `changeset.media.attach`, `changeset.media.alt`, public content reads in the run fetch phase, content types shipped as `schemas/<name>.json`. Purely additive |
 | 0.17.0 | Runs. The 12 direct write host functions (`entities.create`, `entities.update`, `entities.set_status`, `entities.delete`, `terms.save`, `terms.delete`, `menus.save`, `menus.add_item`, `menus.delete_item`, `media.upload`, `redirects.create`, `redirects.delete`) and the five `*.write` permissions are removed; a manifest asking for one is refused. A plugin declares a `runs` block and exports `on_run_step`; `run.*`, `upload.read`, `buffer.*`, `media.import_url`, `site.info`, `entities.slug_taken` and `changeset.*` stage content into a changeset the owner publishes. New error codes `phase_denied` and `not_owned`; guest wrappers in `guest`. A break for plugins that wrote content |
