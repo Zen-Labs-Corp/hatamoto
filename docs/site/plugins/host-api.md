@@ -44,7 +44,7 @@ A plugin always loads. What it may do is decided by the owner, and nothing is gr
 | `mail.send` | `mail.send` |
 | `http.fetch` | `http.fetch`, to the hosts in `allowed_hosts` |
 | `http.fetch.any` | lets `http.fetch` honour a `*` entry of `allowed_hosts`; needs `http.fetch` too |
-| `packages.inspect` | `packages.inspect`: download a Hatamoto package from a public https URL and report what it is and whether a key signed it. The prompt reads "Download and check Hatamoto packages from the web" |
+| `packages.inspect` | `packages.inspect`: download a Hatamoto package from an https URL on one of the plugin's `allowed_hosts` and report what it is and whether a key signed it. The prompt reads "Download and check Hatamoto packages from the web" |
 | `kv` | `kv.get`, `kv.set`, `kv.delete`, `kv.list` |
 | `db` | `db.query`, `db.exec`, and the plugin's migrations |
 | `builder.data` | no function: lets the plugin answer the `builder.data` filter for the sources it declares; without the grant the filter is not registered |
@@ -174,7 +174,7 @@ An Entity is `{ id, schema_slug, slug, locale, name, status, version, parent_id?
 
 ## http.fetch
 
-`http.fetch` is the only network a plugin has. In order:
+`http.fetch` and `packages.inspect` are the only network a plugin has, and both reach only the hosts in `allowed_hosts`. In order:
 
 1. The URL host and port must match `allowed_hosts`, else `blocked`. Only `http` and `https` are allowed, with no credentials in the URL and the methods GET, HEAD, POST, PUT, PATCH and DELETE.
 2. The host resolves the name itself and every answer must be a public address. Loopback, private, link-local (including cloud metadata addresses), carrier-grade NAT, multicast, reserved ranges and IPv4-in-IPv6 forms are refused, and one bad answer refuses the host.
@@ -185,13 +185,13 @@ Request and response bodies are capped at 1 MiB (`truncated` means the response 
 
 ## packages.inspect
 
-`packages.inspect` (SDK 0.21, permission `packages.inspect`) downloads one package from a public web address and returns a verdict. It installs nothing. The request is `{ "url", "signer_key"? }`: `url` must be `https` (`invalid_argument` otherwise), and `signer_key` is the base64 ed25519 public key the package is expected to be signed by.
+`packages.inspect` (SDK 0.21, permission `packages.inspect`) downloads one package from a web address on the plugin's `allowed_hosts` and returns a verdict. It installs nothing. The request is `{ "url", "signer_key"? }`: `url` must be `https` (`invalid_argument` otherwise), and `signer_key` is the base64 ed25519 public key the package is expected to be signed by.
 
 The result is `{ "kind", "name", "version", "sha256", "size", "signer_key_id", "signature_ok", "sdk"?, "permissions"?, "allowed_hosts"?, "description"?, "problems" }`. A package that cannot be fetched, parsed or verified is reported in `problems` (never null) with `signature_ok: false`, never as an error: an unreachable address, a non-2xx answer, a body over the 64 MiB archive limit, a corrupt or unsigned package, a signature by another key (the problem names the package's own signer id, which is also `signer_key_id`) or a file changed after signing. The manifest fields are filled only when the archive parsed, and there is no `title`. The package body is never returned or logged.
 
-The download follows the same address rules as `http.fetch`: the host resolves the name itself, refuses non-public addresses (`blocked`), allows port 443 only and re-checks every redirect, but it needs no `allowed_hosts` entry. Each call spends one token of the plugin's `http.fetch` rate limit (`rate_limited`), at most two inspections run at once on the server, and the call is cut by the 15 second host call limit (`timeout`).
+The download follows the same rules as `http.fetch`: the host of the address, and of every redirect, must be in `allowed_hosts` (a `*` entry counts only with `http.fetch.any`; during a run's fetch phase, only the hosts the owner confirmed), otherwise the call is `blocked`. The host resolves the name itself, refuses non-public addresses (`blocked`), and allows port 443 only; credentials in the address or a missing host are `blocked` too. A package on a GitHub release needs `github.com` and the host GitHub redirects release downloads to, currently `release-assets.githubusercontent.com` (older links used `objects.githubusercontent.com`), in `allowed_hosts`. At most two inspections run at once on the server (`rate_limited` while both are taken); a call that gets a slot spends one token of the plugin's `http.fetch` rate limit (`rate_limited`), and the call is cut by the 15 second host call limit (`timeout`).
 
-The package `hatamoto.dev/sdk/registry` holds the registry index types and `registry.SignIndex`, which signs an index into the same envelope, byte for byte, as the server's own signer, plus `registry.KeyID`. It uses the standard library only.
+The package `hatamoto.dev/sdk/registry` holds the registry index types and `registry.SignIndex`, which signs an index into the same envelope, byte for byte, as the server's own signer, plus `registry.KeyID`. It uses the standard library only. `Index.Revoked`, `Revocation` and `Entry.SignerKey` are reserved: hosts up to SDK 0.21 and this core release ignore them, and a later core release will enforce them.
 
 ## Cached pages and plugin data
 

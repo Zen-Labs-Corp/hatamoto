@@ -26,6 +26,10 @@ func KeyID(pub ed25519.PublicKey) string {
 }
 
 // Index is the document a registry publishes (sign it with SignIndex).
+//
+// Revoked is reserved: hosts up to SDK 0.21 and the core release that ships it
+// ignore it, so a listed revocation is not enforced yet. A later core release
+// will enforce it.
 type Index struct {
 	Version   int          `json:"version"`
 	IssuedAt  string       `json:"issued_at"`
@@ -35,7 +39,7 @@ type Index struct {
 }
 
 // Revocation withdraws trust from a signer key, or from one package version
-// it signed.
+// it signed. It is reserved: hosts up to SDK 0.21 ignore it (see Index.Revoked).
 type Revocation struct {
 	SignerKey string `json:"signer_key,omitempty"`
 	Name      string `json:"name,omitempty"`
@@ -76,7 +80,9 @@ type Entry struct {
 	Flags    []string `json:"flags,omitempty"`
 	// Tags summarises the tag declarations of a tag pack.
 	Tags []TagSummary `json:"tags,omitempty"`
-	// SignerKey is the base64 ed25519 public key of the package's author.
+	// SignerKey is the base64 ed25519 public key of the package's author. It is
+	// reserved: hosts up to SDK 0.21 ignore it, a later core release will enforce
+	// it.
 	SignerKey string `json:"signer_key,omitempty"`
 }
 

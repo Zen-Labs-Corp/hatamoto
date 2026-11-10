@@ -118,7 +118,7 @@ Each call returns at most 1000 rows or 1 MiB, with at most 64 parameters and 64 
 
 ## Outbound HTTP
 
-`http.fetch` is the only network access. The host checks the URL against `allowed_hosts`, resolves the name itself, rejects non-public addresses, connects to the verified address and repeats this for each of at most five redirects. Bodies are limited to 1 MiB and calls to 10 seconds by default (30 at most). Each plugin has a budget of `HATAMOTO_PLUGIN_FETCH_PER_MINUTE` requests per minute, default 600. See [Auth and security](auth-and-security.md) for the shared guard.
+`http.fetch` and `packages.inspect` are the only network access, and both are limited to `allowed_hosts`. The host checks the URL against `allowed_hosts`, resolves the name itself, rejects non-public addresses, connects to the verified address and repeats this for each of at most five redirects. Bodies are limited to 1 MiB and calls to 10 seconds by default (30 at most). Each plugin has a budget of `HATAMOTO_PLUGIN_FETCH_PER_MINUTE` requests per minute, default 600. See [Auth and security](auth-and-security.md) for the shared guard.
 
 ## Packages and signing
 
