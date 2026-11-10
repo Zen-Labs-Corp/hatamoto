@@ -80,7 +80,9 @@ package sdk
 // `terms` ({kind, slug, name}), and entities.list accepts a `term` filter
 // ({kind, slug}) that keeps only entities carrying exactly that term. Every
 // other plugin sees the same bytes as before. It adds the EntityTerm and
-// EntityTermFilter types that describe these shapes.
+// EntityTermFilter types that describe these shapes. An items builder source
+// may also declare up to 8 typed `params`, and its builder.data request then
+// carries the loop's sanitized `params` (absent when none).
 const Version = "0.20.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.

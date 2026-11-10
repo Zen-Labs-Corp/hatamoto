@@ -208,6 +208,30 @@ type BuilderSource struct {
 	// Class is the prop class a value source fits: text, url or image
 	// (default text). Only for value sources.
 	Class string `json:"class,omitempty"`
+	// Params are the filters an items source accepts (at most
+	// MaxBuilderParams). The editor stores a value per loop and the host sends
+	// the sanitized values on the builder.data request.
+	Params []BuilderParam `json:"params,omitempty"`
+}
+
+// BuilderParam is one typed filter of an items source.
+type BuilderParam struct {
+	// Name is the key in the request's params (same shape as a source name).
+	Name string `json:"name"`
+	// Label is shown in the editor (1 to 60 characters).
+	Label string `json:"label"`
+	// Type is BuilderParamText, BuilderParamSelect, BuilderParamBool or
+	// BuilderParamNumber.
+	Type string `json:"type"`
+	// Options are the choices of a select param (1 to MaxBuilderParamOptions);
+	// no other type takes options.
+	Options []BuilderOption `json:"options,omitempty"`
+}
+
+// BuilderOption is one choice of a select param. Label defaults to Value.
+type BuilderOption struct {
+	Value string `json:"value"`
+	Label string `json:"label,omitempty"`
 }
 
 // Builder source kinds and value classes.
@@ -216,6 +240,19 @@ const (
 	BuilderSourceItems = "items"
 
 	MaxBuilderSources = 8
+)
+
+// Builder param types and limits.
+const (
+	BuilderParamText   = "text"
+	BuilderParamSelect = "select"
+	BuilderParamBool   = "bool"
+	BuilderParamNumber = "number"
+
+	MaxBuilderParams       = 8
+	MaxBuilderParamOptions = 50
+	// MaxBuilderParamValue is the longest text or option value, in bytes.
+	MaxBuilderParamValue = 200
 )
 
 // builderSourceNamePattern is a builder source name.
@@ -248,12 +285,66 @@ func (m Manifest) validateBuilderSources() error {
 			if s.Class != "" && s.Class != "text" && s.Class != "url" && s.Class != "image" {
 				return fmt.Errorf("sdk: plugin %q: builder source %q: class %q (want text, url or image)", m.Name, s.Name, s.Class)
 			}
+			if len(s.Params) > 0 {
+				return fmt.Errorf("sdk: plugin %q: builder source %q: params apply to items sources only", m.Name, s.Name)
+			}
 		case BuilderSourceItems:
 			if s.Class != "" {
 				return fmt.Errorf("sdk: plugin %q: builder source %q: class applies to value sources only", m.Name, s.Name)
 			}
+			if err := validateBuilderParams(m.Name, s); err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("sdk: plugin %q: builder source %q: kind %q (want value or items)", m.Name, s.Name, s.Kind)
+		}
+	}
+	return nil
+}
+
+func validateBuilderParams(plugin string, s BuilderSource) error {
+	if len(s.Params) > MaxBuilderParams {
+		return fmt.Errorf("sdk: plugin %q: builder source %q: more than %d params", plugin, s.Name, MaxBuilderParams)
+	}
+	seen := map[string]bool{}
+	for _, p := range s.Params {
+		fail := func(format string, a ...any) error {
+			return fmt.Errorf("sdk: plugin %q: builder source %q: param %q: %s", plugin, s.Name, p.Name, fmt.Sprintf(format, a...))
+		}
+		if !builderSourceNamePattern.MatchString(p.Name) {
+			return fail("name (want %s)", builderSourceNamePattern)
+		}
+		if seen[p.Name] {
+			return fail("duplicate param")
+		}
+		seen[p.Name] = true
+		if n := len([]rune(p.Label)); n < 1 || n > 60 {
+			return fail("label must be 1 to 60 characters")
+		}
+		switch p.Type {
+		case BuilderParamSelect:
+			if len(p.Options) < 1 || len(p.Options) > MaxBuilderParamOptions {
+				return fail("a select needs 1 to %d options", MaxBuilderParamOptions)
+			}
+			vals := map[string]bool{}
+			for _, o := range p.Options {
+				if o.Value == "" || len(o.Value) > MaxBuilderParamValue {
+					return fail("option value must be 1 to %d bytes", MaxBuilderParamValue)
+				}
+				if n := len([]rune(o.Label)); n > 60 {
+					return fail("option label must be at most 60 characters (%q has %d)", o.Value, n)
+				}
+				if vals[o.Value] {
+					return fail("duplicate option %q", o.Value)
+				}
+				vals[o.Value] = true
+			}
+		case BuilderParamText, BuilderParamBool, BuilderParamNumber:
+			if len(p.Options) > 0 {
+				return fail("options apply to select params only")
+			}
+		default:
+			return fail("type %q (want text, select, bool or number)", p.Type)
 		}
 	}
 	return nil

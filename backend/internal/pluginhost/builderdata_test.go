@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -272,5 +273,84 @@ func TestCheckBuilderResult(t *testing.T) {
 		if err := checkBuilderResult(tc.kind, tc.r); (err != nil) != tc.bad {
 			t.Errorf("%s: err = %v, want bad=%v", name, err, tc.bad)
 		}
+	}
+}
+
+func paramManifest() sdk.Manifest {
+	return sdk.Manifest{Name: "p", BuilderSources: []sdk.BuilderSource{
+		{Name: "s", Label: "S", Kind: sdk.BuilderSourceItems, Params: []sdk.BuilderParam{
+			{Name: "q", Label: "Q", Type: sdk.BuilderParamText},
+			{Name: "cat", Label: "Cat", Type: sdk.BuilderParamSelect, Options: []sdk.BuilderOption{{Value: "news"}}},
+			{Name: "hot", Label: "Hot", Type: sdk.BuilderParamBool},
+			{Name: "n", Label: "N", Type: sdk.BuilderParamNumber},
+		}},
+		{Name: "plain", Label: "P", Kind: sdk.BuilderSourceItems},
+		{Name: "val", Label: "V", Kind: sdk.BuilderSourceValue},
+	}}
+}
+
+// The filter sanitizes the params of each own request against the plugin's
+// manifest, whatever render sent.
+func TestBuilderDataFilterSanitizesParams(t *testing.T) {
+	declared := declaredSources(paramManifest())
+	long := strings.Repeat("x", sdk.MaxBuilderParamValue+1)
+	for _, c := range []struct {
+		name   string
+		source string
+		in     map[string]any
+		want   map[string]any
+	}{
+		{"valid kept and typed", "ext.p.s", map[string]any{"q": "go", "cat": "news", "hot": true, "n": 2}, map[string]any{"q": "go", "cat": "news", "hot": true, "n": 2.0}},
+		{"unknown dropped", "ext.p.s", map[string]any{"q": "go", "evil": "x"}, map[string]any{"q": "go"}},
+		{"over 200 bytes dropped", "ext.p.s", map[string]any{"q": long, "cat": "news"}, map[string]any{"cat": "news"}},
+		{"select outside options dropped", "ext.p.s", map[string]any{"cat": "ads"}, nil},
+		{"bool must be a bool", "ext.p.s", map[string]any{"hot": "true"}, nil},
+		{"number must be a number", "ext.p.s", map[string]any{"n": "5"}, nil},
+		{"empties omitted", "ext.p.s", map[string]any{"q": "", "hot": false}, nil},
+		{"source without params gets none", "ext.p.plain", map[string]any{"q": "go"}, nil},
+		{"value source gets none", "ext.p.val", map[string]any{"q": "go"}, nil},
+	} {
+		got, kept := ownRequests(declared, []sdk.BuilderDataQuery{{ID: "r", Source: c.source, Limit: 3, Params: c.in}})
+		if len(got) != 1 || kept["r"] == "" {
+			t.Fatalf("%s: request lost: %+v", c.name, got)
+		}
+		if !reflect.DeepEqual(got[0].Params, c.want) {
+			t.Errorf("%s: params = %#v, want %#v", c.name, got[0].Params, c.want)
+		}
+	}
+	got, _ := ownRequests(declared, []sdk.BuilderDataQuery{{ID: "x", Source: "ext.other.s", Params: map[string]any{"q": "a"}}})
+	if len(got) != 0 {
+		t.Errorf("another plugin's source forwarded: %+v", got)
+	}
+}
+
+// A plugin whose manifest declares no params (a ^0.19 plugin cannot) gets the
+// legacy request bytes even if render sent params.
+func TestBuilderDataLegacyRequestBytes(t *testing.T) {
+	_, m := dsBuild(t)
+	own, _ := ownRequests(declaredSources(m), []sdk.BuilderDataQuery{{ID: "i:ext.datasource-demo.forecast:3", Source: "ext." + m.Name + ".forecast", Limit: 3, Params: map[string]any{"cat": "x", "n": 1.0}}})
+	if len(own) != 1 {
+		t.Fatalf("own = %+v", own)
+	}
+	b, err := jsonx.MarshalPinned(own[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"id":"i:ext.datasource-demo.forecast:3","source":"ext.` + m.Name + `.forecast","limit":3}`
+	if string(b) != want {
+		t.Errorf("%s, want %s", b, want)
+	}
+}
+
+// Render's params never break a plugin that declares none: the request is
+// answered as before.
+func TestBuilderDataParamsIgnoredBySourceWithoutParams(t *testing.T) {
+	rt, engine, _ := newRuntime(t)
+	dsLoad(t, rt, "datasource-demo", nil, true)
+	r := req("b", "datasource-demo", "forecast", 3)
+	r.Params = map[string]any{"cat": "news"}
+	res := ExtSources(engine)(context.Background(), render.ExtBatch{Requests: []render.ExtRequest{r}})
+	if got := res["b"]; !got.OK || len(got.Items) != 3 {
+		t.Fatalf("forecast = %+v", got)
 	}
 }

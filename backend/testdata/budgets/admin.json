@@ -1,7 +1,7 @@
 {
   "metrics": {
     "admin_css_gzip": {
-      "value": 70981,
+      "value": 71396,
       "unit": "bytes",
       "tol_abs": 1024
     },
@@ -11,16 +11,16 @@
       "tol_abs": 512
     },
     "editor_js_first_gzip": {
-      "value": 108473,
+      "value": 108481,
       "unit": "bytes",
       "tol_abs": 1024,
       "cap": 108761
     },
     "editor_js_total_gzip": {
-      "value": 294043,
+      "value": 295649,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 295067
+      "cap": 296673
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -40,10 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "builder chrome acceptance fixes (hint bar chips and x dismiss, published pending line): editor_js_first_gzip 103333 to 103395 (+62 B, cap moves by the same amount), editor_js_total_gzip 272745 to 273094 (+349 B)",
-      "date": "2026-11-01"
-    },
     {
       "reason": "builder chrome rebased onto the Translations drawer: editor_js_first_gzip 103395 -> 103525 (+130 B), the drawer opener and lazy chunk plus the chrome work, measured",
       "date": "2026-11-01"
@@ -119,6 +115,10 @@
     {
       "reason": "form file upload field adds widget CSS/JS and designer palette entry",
       "date": "2026-11-07"
+    },
+    {
+      "reason": "builder loop params editor",
+      "date": "2026-11-10"
     }
   ]
 }

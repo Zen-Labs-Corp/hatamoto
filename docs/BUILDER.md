@@ -590,6 +590,16 @@ distinct requests, 500 ms in total. Values go through the same escaping and URL 
 the props empty, shows the loop's empty state and keeps the page out of the page cache; a success is cached with the
 page. The editor offers value sources in **Bind** (grouped by plugin) and item sources in the loop's **Source** field.
 
+An `items` source may declare up to 8 typed `params` (text, select, bool, number). For a query loop on such a source
+the Content tab shows a collapsed **Filters (N set)** group below the loop's props, one control per param (values
+for names the source does not declare are kept when the source changes, but render and the plugin host ignore them). A
+text value over 200 bytes is flagged and not stored; the last valid value is kept. The values are stored in
+the loop's `params` prop (`null` when empty, so existing pages stay byte-identical). `Validate` checks only their
+shape (an object of at most 32 scalars, strings up to 200 bytes); the declaration is applied at request time, where
+unknown names, over-long text, select values outside the options, wrongly typed values, empty values and `false` are
+dropped. The request to the plugin carries the survivors as `params`; its `id` gains a `:p<hash>` suffix and loops with
+equal values share one request. Rollback floor: a binary from before this change refuses a loop that stores `params`.
+
 ## Rendering
 
 - A **v1-shaped** top-level node (an unstyled `section` container with one `component`, `v1: true`) renders through

@@ -18,6 +18,8 @@ const (
 // sources.
 type ExtSource struct {
 	Plugin, Name, Label, Kind, Class string
+	// Params are the filters an items source accepts (none for a value source).
+	Params []ExtParam
 }
 
 // ID is the source id used in node bindings and in a loop's source prop.
@@ -45,6 +47,7 @@ func SetExtSources(ss []ExtSource) {
 		if s.Kind == ExtItems {
 			s.Class = ""
 		}
+		s.Params = cleanExtParams(s.Kind, s.Params)
 		out = append(out, s)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID() < out[j].ID() })
@@ -54,7 +57,11 @@ func SetExtSources(ss []ExtSource) {
 // ExtSources returns the registered plugin data sources (a fresh copy).
 func ExtSources() []ExtSource {
 	if p := extSources.Load(); p != nil {
-		return append([]ExtSource(nil), *p...)
+		out := append([]ExtSource(nil), *p...)
+		for i := range out {
+			out[i].Params = cloneExtParams(out[i].Params)
+		}
+		return out
 	}
 	return nil
 }

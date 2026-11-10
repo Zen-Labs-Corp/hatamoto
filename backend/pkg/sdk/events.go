@@ -311,6 +311,9 @@ type BuilderDataQuery struct {
 	ID     string `json:"id"`
 	Source string `json:"source"`
 	Limit  int    `json:"limit,omitzero"`
+	// Params are the loop's filter values, already sanitized against the
+	// source's declared params. Nil (and absent on the wire) when none apply.
+	Params map[string]any `json:"params,omitempty"`
 }
 
 // BuilderDataResult answers one query: Value for a value source, Items for an

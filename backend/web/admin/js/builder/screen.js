@@ -158,6 +158,7 @@ function start(root, boot) {
     kinds: boot.kinds,
     sections: boot.sections,
     options: boot.options ?? {},
+    loopSources: boot.loopSources ?? [],
     user: boot.user ?? "",
     canStyle: !!(boot.canStyle && boot.siteStyles),
     editSiteStyles: () => siteBtn?.click(),
