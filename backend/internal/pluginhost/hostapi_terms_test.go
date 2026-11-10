@@ -120,6 +120,30 @@ func (r *termsRig) call(t *testing.T, fn func(context.Context, *API, *callEnv, j
 	return out, nil
 }
 
+// withoutTerms returns the result with every "terms" key removed: what a
+// plugin that cannot see terms must receive, byte for byte in content.
+func withoutTerms(res map[string]any) map[string]any {
+	out := map[string]any{}
+	for k, v := range res {
+		if k == "terms" {
+			continue
+		}
+		if items, ok := v.([]any); ok {
+			cp := make([]any, len(items))
+			for i, it := range items {
+				if m, ok := it.(map[string]any); ok {
+					cp[i] = withoutTerms(m)
+				} else {
+					cp[i] = it
+				}
+			}
+			v = cp
+		}
+		out[k] = v
+	}
+	return out
+}
+
 func TestEntitiesGetTerms(t *testing.T) {
 	r := newTermsRig(t)
 	e, bare := r.seed(), r.seed()
@@ -146,6 +170,11 @@ func TestEntitiesGetTerms(t *testing.T) {
 		t.Errorf("terms of an entity without terms = %#v, want []", got["terms"])
 	}
 
+	full, err := r.call(t, fnEntitiesGet, "^0.20", true, map[string]any{"id": e.ID.String()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantBare := withoutTerms(full)
 	for name, c := range map[string]struct {
 		sdk   string
 		grant bool
@@ -159,8 +188,8 @@ func TestEntitiesGetTerms(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		if _, ok := got["terms"]; ok {
-			t.Errorf("%s: terms key present: %v", name, got["terms"])
+		if !reflect.DeepEqual(got, wantBare) {
+			t.Errorf("%s: result = %v, want %v", name, got, wantBare)
 		}
 	}
 }
@@ -208,14 +237,44 @@ func TestEntitiesListTerms(t *testing.T) {
 		}
 	}
 
-	got, err = r.call(t, fnEntitiesList, "^0.19", true, map[string]any{})
+	wantBare := withoutTerms(got)
+	for name, c := range map[string]struct {
+		sdk   string
+		grant bool
+	}{"^0.19 with grant": {"^0.19", true}, "^0.20 without grant": {"^0.20", false}} {
+		r.terms.batches = 0
+		got, err = r.call(t, fnEntitiesList, c.sdk, c.grant, map[string]any{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, wantBare) {
+			t.Errorf("%s: result = %v, want %v", name, got, wantBare)
+		}
+		if r.terms.batches != 0 {
+			t.Errorf("%s: %d terms queries, want 0", name, r.terms.batches)
+		}
+	}
+}
+
+// The term filter is gated by terms.read alone, whatever the sdk range.
+func TestEntitiesListTermFilterOlderSDK(t *testing.T) {
+	r := newTermsRig(t)
+	a, _ := r.seed(), r.seed()
+	r.ents.tagged[a.ID] = []uuid.UUID{r.news.ID}
+
+	got, err := r.call(t, fnEntitiesList, "^0.19", true, map[string]any{"term": map[string]any{"kind": "category", "slug": "news"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i, it := range got["items"].([]any) {
-		if _, ok := it.(map[string]any)["terms"]; ok {
-			t.Errorf("^0.19 item %d has terms", i)
-		}
+	if f := r.ents.last; f.TermID == nil || *f.TermID != r.news.ID || !f.TermExact {
+		t.Errorf("filter = %+v, want the news term matched exactly", f)
+	}
+	items := got["items"].([]any)
+	if len(items) != 1 || items[0].(map[string]any)["id"] != a.ID.String() {
+		t.Errorf("items = %v, want only the tagged entity", items)
+	}
+	if _, ok := items[0].(map[string]any)["terms"]; ok {
+		t.Error("^0.19 item carries terms")
 	}
 }
 
