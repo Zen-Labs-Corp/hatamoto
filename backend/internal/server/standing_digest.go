@@ -55,7 +55,7 @@ func (j *digestJob) run(ctx context.Context) error {
 	data := email.RunDigestData{SiteName: name, HistoryURL: root + "/settings/changes"}
 	for _, r := range rows {
 		data.Runs = append(data.Runs, email.RunDigestRow{
-			Plugin: r.Plugin, Run: r.Run, Changes: r.Changes,
+			Plugin: r.Plugin, Run: r.Run, Changes: r.Changes, Created: r.Created,
 			URL: root + "/plugins/" + url.PathEscape(r.Plugin) + "/changesets/" + strconv.FormatInt(r.ChangesetID, 10),
 		})
 	}

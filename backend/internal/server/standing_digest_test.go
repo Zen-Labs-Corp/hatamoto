@@ -87,3 +87,13 @@ func TestDigestJobUsesThePathAloneWithoutABaseURL(t *testing.T) {
 		t.Fatalf("history url = %q, want the path alone", got)
 	}
 }
+
+func TestDigestJobPassesCreatedCounts(t *testing.T) {
+	r := newDigestRig(true, []standing.DigestRow{{Plugin: "news", Run: "feed", ChangesetID: 4, Changes: 1, Created: 2}})
+	if err := r.job.run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.data[0].Runs[0]; got.Changes != 1 || got.Created != 2 {
+		t.Fatalf("row = %+v, want 1 change and 2 created", got)
+	}
+}

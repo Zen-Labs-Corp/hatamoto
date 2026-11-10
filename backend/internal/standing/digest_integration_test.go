@@ -46,3 +46,41 @@ func TestClaimDigestHasOneWinnerPerPeriod(t *testing.T) {
 		t.Fatalf("claim of the next period = %v, %v; want true", next, err)
 	}
 }
+
+func TestDigestSplitsAutomaticCreatesFromUpdates(t *testing.T) {
+	s, ctx := newStore(t)
+	p := testPlugin(t, s, ctx)
+	_, cs := insertRun(t, s, p, "cron", "published", true, time.Now().UTC().Add(-time.Hour))
+	items := []struct {
+		kind, op, result string
+		before           any
+		token            any
+	}{
+		{"entity", "upsert", "applied", nil, nil},              // create
+		{"entity", "upsert", "applied", nil, nil},              // create
+		{"entity", "upsert", "applied", `{"name":"x"}`, "tok"}, // update
+		{"term", "upsert", "applied", nil, nil},                // not an entity create by kind
+		{"entity", "upsert", "skipped", `{"name":"y"}`, "tok"}, // not applied
+	}
+	for i, it := range items {
+		if _, err := s.DB.Pool().Exec(ctx, `
+			INSERT INTO hatamoto_changeset_items (changeset_id, seq, kind, op, source_key, result, before, before_token)
+			VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)`,
+			cs, i, it.kind, it.op, "k"+string(rune('a'+i)), it.result, it.before, it.token); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := s.Digest(ctx, time.Now().UTC().Add(-24*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range got {
+		if d.Plugin == p {
+			if d.Created != 2 || d.Changes != 2 {
+				t.Fatalf("Created=%d Changes=%d, want 2 and 2", d.Created, d.Changes)
+			}
+			return
+		}
+	}
+	t.Fatal("run missing from the digest")
+}

@@ -19,16 +19,21 @@ type DigestRow struct {
 	Run         string
 	RunID       uuid.UUID
 	ChangesetID int64
-	Changes     int
+	Changes     int // applied updates and other non-create items
+	Created     int // entries the run created on its own
 	At          time.Time
 }
 
 // Digest lists the changesets published automatically since the given time,
-// newest first, with how many changes each applied.
+// newest first, with how many updates each applied and how many new entries
+// it created.
 func (s *Store) Digest(ctx context.Context, since time.Time) ([]DigestRow, error) {
 	rows, err := s.DB.Pool().Query(ctx, `
 		SELECT c.plugin, r.name, r.id, c.id, c.published_at,
-		       (SELECT count(*) FROM hatamoto_changeset_items i WHERE i.changeset_id = c.id AND i.result = 'applied')
+		       (SELECT count(*) FROM hatamoto_changeset_items i WHERE i.changeset_id = c.id AND i.result = 'applied'
+		          AND NOT (i.kind = 'entity' AND i.op = 'upsert' AND i.before IS NULL AND i.before_token IS NULL)),
+		       (SELECT count(*) FROM hatamoto_changeset_items i WHERE i.changeset_id = c.id AND i.result = 'applied'
+		          AND i.kind = 'entity' AND i.op = 'upsert' AND i.before IS NULL AND i.before_token IS NULL)
 		FROM hatamoto_changesets c JOIN hatamoto_runs r ON r.id = c.run_id
 		WHERE c.auto_published AND c.state = 'published' AND c.published_at >= $1
 		ORDER BY c.published_at DESC LIMIT 200`, since)
@@ -39,7 +44,7 @@ func (s *Store) Digest(ctx context.Context, since time.Time) ([]DigestRow, error
 	var out []DigestRow
 	for rows.Next() {
 		var d DigestRow
-		if err := rows.Scan(&d.Plugin, &d.Run, &d.RunID, &d.ChangesetID, &d.At, &d.Changes); err != nil {
+		if err := rows.Scan(&d.Plugin, &d.Run, &d.RunID, &d.ChangesetID, &d.At, &d.Changes, &d.Created); err != nil {
 			return nil, fmt.Errorf("failed to read a summary row: %w", err)
 		}
 		out = append(out, d)
