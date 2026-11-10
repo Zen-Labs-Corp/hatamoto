@@ -88,7 +88,7 @@ type BrowsePage struct {
 func ParseBrowseQuery(v url.Values) BrowseQuery {
 	q := BrowseQuery{
 		Q:             strings.TrimSpace(v.Get("q")),
-		Tiers:         keepKnown(v["tier"], []string{packages.TierFirstParty, packages.TierCommunity}),
+		Tiers:         keepKnown(v["tier"], []string{packages.TierFirstParty, packages.TierCommunity, packages.TierDeveloper}),
 		Cats:          keepKnown(v["cat"], packages.Categories),
 		Perms:         keepKnown(v["perm"], []string{browsePermNoNet, browsePermNoScripts}),
 		Types:         keepKnown(v["type"], packages.SiteTypes),
@@ -304,9 +304,9 @@ func browseMatches(e RegistryEntry, q BrowseQuery, kind packages.Kind) bool {
 	}
 	if len(q.Tiers) > 0 {
 		// An entry that states no tier is community.
-		tier := packages.TierCommunity
-		if e.Tier == packages.TierFirstParty {
-			tier = packages.TierFirstParty
+		tier := e.Tier
+		if tier == "" {
+			tier = packages.TierCommunity
 		}
 		if !slices.Contains(q.Tiers, tier) {
 			return false

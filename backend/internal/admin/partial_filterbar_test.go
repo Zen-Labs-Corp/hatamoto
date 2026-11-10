@@ -16,7 +16,7 @@ func TestPartialFilterbarOptIns(t *testing.T) {
 	bar := ui.Table{
 		ID: "browse", BaseURL: "/admin/plugins/browse", SearchLabel: "Search plugins",
 		Live: true, Target: "browse-results", Bare: true, ChipsOutside: true, FilterCount: 1,
-		Segmented: &ui.Segmented{Label: "Publisher", Name: "tier", Items: []ui.SegmentedItem{{Label: "All", Pressed: true}, {Label: "Community", Value: "community"}}},
+		Segmented: &ui.Segmented{Label: "Publisher", Name: "tier", Items: []ui.SegmentedItem{{Label: "All", Pressed: true}, {Label: "Community", Value: "community"}, {Label: "Developer", Value: "developer"}}},
 		PopoverFilters: []ui.Filter{
 			{Name: "perm", Label: "Permissions", Control: "checkbox", Options: []ui.Option{{Value: "a", Label: "No network", Selected: true}, {Value: "b", Label: "No scripts"}}},
 			{Name: "hide", Label: "Hide installed", Control: "switch", Value: "1", OffValue: "0", Checked: true},

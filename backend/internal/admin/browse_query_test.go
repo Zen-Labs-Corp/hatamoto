@@ -376,3 +376,31 @@ func TestRunBrowseSearchIgnoresSiteType(t *testing.T) {
 		t.Errorf("theme search lost site_type: %d", got.Total)
 	}
 }
+
+// tier=developer is a known tier for plugins and themes, round-trips through
+// Values, and developer entries are not community.
+func TestBrowseQueryDeveloperTier(t *testing.T) {
+	v := url.Values{"tier": {"developer", "bogus"}}
+	for name, q := range map[string]BrowseQuery{"plugins": ParseBrowseQuery(v), "themes": ParseThemeBrowseQuery(v)} {
+		if !slices.Equal(q.Tiers, []string{"developer"}) {
+			t.Fatalf("%s: tiers %v", name, q.Tiers)
+		}
+		if got := q.Values().Encode(); got != "tier=developer" {
+			t.Fatalf("%s: values %q", name, got)
+		}
+	}
+	all := []RegistryEntry{
+		{Kind: "plugin", Name: "acme", Tier: "developer", Developer: true},
+		{Kind: "plugin", Name: "main", Tier: "community"},
+		{Kind: "plugin", Name: "plain"},
+		{Kind: "plugin", Name: "fp", Tier: "first-party"},
+	}
+	for tier, want := range map[string][]string{
+		"developer": {"acme"}, "community": {"main", "plain"}, "first-party": {"fp"},
+	} {
+		got := browseNames(RunBrowse(all, BrowseQuery{Tiers: []string{tier}, Sort: "name"}).Items)
+		if !slices.Equal(got, want) {
+			t.Errorf("tier %s: got %v, want %v", tier, got, want)
+		}
+	}
+}
