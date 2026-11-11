@@ -43,9 +43,10 @@ let res = await open();
 check(!/camera=\(self\)/.test(res.headers()["permissions-policy"] || ""), "ungranted: the admin page does not allow the camera", res.headers()["permissions-policy"]);
 check((await p.locator("#plugin-camera").count()) === 0, "ungranted: no capture dialog on the page");
 check((await p.locator("[data-hm-pluginframe][data-camera]").count()) === 0, "ungranted: the frame host carries no camera flag");
-await pframe().locator("#snap").click();
+await pframe().locator("#snap").click(); // a real click in the frame: the gesture the op needs
 let r = await waitOut();
 check(!!r.refused && !r.ok, "ungranted: hatamoto.camera.capture() is refused", JSON.stringify(r));
+check(await pframe().evaluate(() => hatamoto.camera.available === false), "ungranted: hatamoto.camera.available is false");
 check((await p.locator("dialog[open]").count()) === 0, "ungranted: no dialog opened");
 
 // ---- (2) the owner ticks the permission ----
@@ -62,6 +63,11 @@ check(/camera=\(self\)/.test(res.headers()["permissions-policy"] || ""), "grante
 check((await p.locator("[data-hm-pluginframe][data-camera='1']").count()) === 1 && (await p.locator("#plugin-camera").count()) === 1, "granted: the frame host is flagged and the dialog is on the page");
 const sandbox = await p.locator("iframe.hm-pluginframe").getAttribute("sandbox");
 check(sandbox === "allow-scripts" && (await p.locator("iframe.hm-pluginframe").getAttribute("allow")) === null, "granted: the frame stays sandbox=allow-scripts with no allow attribute", String(sandbox));
+
+check(await pframe().evaluate(() => hatamoto.camera.available === true), "granted: hatamoto.camera.available is true");
+// A call from a timer, long after any click (the evaluate itself counts as a gesture, so wait it out), is refused (a script cannot start the camera).
+const noClick = await pframe().evaluate(() => new Promise((r) => setTimeout(r, 6000)).then(() => hatamoto.camera.capture()).then(() => "resolved", (e) => String(e.message)));
+check(/click/.test(noClick) && (await p.locator("dialog[open]").count()) === 0, "granted: no click, no dialog", noClick);
 
 // Capture: the dialog opens with a live preview, Capture returns one JPEG.
 await pframe().locator("#snap").click();
