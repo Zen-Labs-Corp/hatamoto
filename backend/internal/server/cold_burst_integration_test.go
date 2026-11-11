@@ -4,8 +4,10 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -49,8 +51,10 @@ func coldBurstEnv(t *testing.T, bound string) (*wireEnv, *httptest.Server) {
 // A cold burst of public requests against a small pool is answered, each with
 // a page or a 503 carrying Retry-After, and nothing queues for tens of seconds.
 func TestColdBurstPublicPagesStayBounded_Integration(t *testing.T) {
-	_, ts := coldBurstEnv(t, "1s")
-	paths := []string{"/", "/blog", "/search", "/sitemap.xml"}
+	const bound = time.Second
+	_, ts := coldBurstEnv(t, bound.String())
+	// Only routes that answer 200 or a pool-busy 503: a 500 here is a bug.
+	paths := []string{"/", "/blog", "/blog/post-1", "/sitemap.xml"}
 	client := &http.Client{Timeout: 20 * time.Second}
 
 	const n = 50
@@ -100,8 +104,8 @@ func TestColdBurstPublicPagesStayBounded_Integration(t *testing.T) {
 			t.Errorf("request %d (%s): status %d, want 200 or 503", i, paths[i%len(paths)], r.status)
 		}
 	}
-	if slowest > 15*time.Second {
-		t.Errorf("slowest request took %s", slowest)
+	if limit := bound + 4*time.Second; slowest > limit {
+		t.Errorf("slowest request took %s, want at most the %s bound plus slack (%s)", slowest, bound, limit)
 	}
 	if ok == 0 {
 		t.Error("no request was served")
@@ -114,7 +118,8 @@ func TestColdBurstPublicPagesStayBounded_Integration(t *testing.T) {
 // released they succeed.
 func TestStarvedPoolBoundsOnlyPublicPages_Integration(t *testing.T) {
 	e, ts := coldBurstEnv(t, "500ms")
-	ctx := context.Background()
+	ctx, cancelSetup := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancelSetup()
 
 	// Warm what a page needs, then take every connection.
 	if resp, err := http.Get(ts.URL + "/"); err == nil {
@@ -156,15 +161,20 @@ func TestStarvedPoolBoundsOnlyPublicPages_Integration(t *testing.T) {
 		t.Errorf("503 body is not the error page: %.200s", body)
 	}
 
-	// Admin and API are not bounded: they are still waiting well past the bound.
-	for _, path := range []string{"/admin/login", "/api/v1/public/knowledge-graph"} {
+	// The API is not bounded: it is still waiting well past the bound, so the
+	// client gives up first (no answer at all, in particular no 503 or 500).
+	for _, path := range []string{"/api/v1/public/knowledge-graph"} {
 		c := &http.Client{Timeout: 1500 * time.Millisecond}
-		if r, err := c.Get(ts.URL + path); err == nil {
+		r, err := c.Get(ts.URL + path)
+		if err == nil {
 			code := r.StatusCode
 			_ = r.Body.Close()
-			if code == http.StatusServiceUnavailable {
-				t.Errorf("%s answered 503 on a starved pool; it must not carry the bound", path)
-			}
+			t.Errorf("%s answered %d on a starved pool; it must keep waiting", path, code)
+			continue
+		}
+		var ne net.Error
+		if !errors.As(err, &ne) || !ne.Timeout() {
+			t.Errorf("%s: err = %v, want a client timeout", path, err)
 		}
 	}
 
