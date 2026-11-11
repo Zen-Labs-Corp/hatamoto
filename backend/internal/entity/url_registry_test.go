@@ -429,7 +429,12 @@ func TestURLRegistry_ColdSnapshotsShareOneLoad(t *testing.T) {
 	t.Parallel()
 	l := &blockingLister{release: make(chan struct{})}
 	r := NewURLRegistry(l, nil)
-	go func() { time.Sleep(100 * time.Millisecond); close(l.release) }()
+	go func() {
+		if !r.flight.WaitForWaiters(50, 30*time.Second) {
+			t.Error("not every caller joined the flight")
+		}
+		close(l.release)
+	}()
 	for _, err := range snapshotBurst(t, r, 50) {
 		if err != nil {
 			t.Fatal(err)
@@ -471,7 +476,6 @@ func TestURLRegistry_InvalidateDuringLoadIsNotOverwritten(t *testing.T) {
 	r.Invalidate()
 	close(l.release)
 	<-done
-	time.Sleep(20 * time.Millisecond)
 
 	l.schemas = []*EntitySchema{schemaWith("doc", `{"url_pattern":"/new/{slug}"}`)}
 	u, _, err := r.URLFor(ctx, "doc", nil, urlpattern.Vars{Slug: "x"})

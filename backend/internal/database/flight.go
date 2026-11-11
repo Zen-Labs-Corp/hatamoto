@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -40,6 +42,7 @@ type Flight[T any] struct {
 	errAt   time.Time
 	lastErr error
 	now     func() time.Time
+	waiting atomic.Int32
 }
 
 type flightCall[T any] struct {
@@ -54,6 +57,21 @@ func (f *Flight[T]) clock() time.Time {
 		return f.now()
 	}
 	return time.Now()
+}
+
+// WaitForWaiters blocks until n callers are waiting on a load (the one that
+// started it included) or timeout passes, and reports whether n was reached. It
+// lets tests release a blocked loader only once every caller has joined,
+// without guessing with a sleep.
+func (f *Flight[T]) WaitForWaiters(n int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for int(f.waiting.Load()) < n {
+		if time.Now().After(deadline) {
+			return false
+		}
+		runtime.Gosched()
+	}
+	return true
 }
 
 // Forget invalidates the flight: the shared error is dropped and a load
@@ -97,6 +115,8 @@ func (f *Flight[T]) DoCommit(ctx context.Context, load func(context.Context) (T,
 		f.cur = c
 		go f.lead(ctx, c, gen, load, commit)
 	}
+	f.waiting.Add(1)
+	defer f.waiting.Add(-1)
 	f.mu.Unlock()
 
 	var bound <-chan time.Time

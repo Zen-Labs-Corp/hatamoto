@@ -43,7 +43,12 @@ func TestFlightSharesOneLoad(t *testing.T) {
 		<-release
 		return 7, nil
 	}
-	go func() { time.Sleep(100 * time.Millisecond); close(release) }()
+	go func() {
+		if !f.WaitForWaiters(flightCallers, 30*time.Second) {
+			t.Error("not every caller joined the flight")
+		}
+		close(release)
+	}()
 	errs := runCallers(flightCallers, func() error {
 		v, err := f.Do(context.Background(), load)
 		if err == nil && v != 7 {
@@ -176,9 +181,9 @@ func TestFlightBoundedWaiterGetsPoolBusy(t *testing.T) {
 	var f Flight[int]
 	release := make(chan struct{})
 	defer close(release)
-	var sawBound atomic.Bool
+	bounded := make(chan bool, 1)
 	load := func(ctx context.Context) (int, error) {
-		sawBound.Store(AcquireBound(ctx) != 0)
+		bounded <- AcquireBound(ctx) != 0
 		<-release
 		return 1, nil
 	}
@@ -191,8 +196,7 @@ func TestFlightBoundedWaiterGetsPoolBusy(t *testing.T) {
 	if time.Since(start) > 2*time.Second {
 		t.Fatal("bound not honoured")
 	}
-	time.Sleep(20 * time.Millisecond)
-	if sawBound.Load() {
+	if <-bounded {
 		t.Fatal("the shared load must not inherit the acquire bound")
 	}
 }

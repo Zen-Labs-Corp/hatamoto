@@ -41,7 +41,12 @@ func TestGetColdBurstSharesOneLoad(t *testing.T) {
 		<-release
 		return &Config{CompanyName: "Example"}, nil
 	})
-	go func() { time.Sleep(100 * time.Millisecond); close(release) }()
+	go func() {
+		if !s.flight.WaitForWaiters(50, 30*time.Second) {
+			t.Error("not every caller joined the flight")
+		}
+		close(release)
+	}()
 	cfgs, errs := getBurst(s, 50)
 	for i := range cfgs {
 		if errs[i] != nil || cfgs[i].CompanyName != "Example" {
@@ -96,7 +101,6 @@ func TestInvalidateDuringLoadIsNotOverwritten(t *testing.T) {
 	s.Invalidate()
 	close(release)
 	<-done
-	time.Sleep(20 * time.Millisecond)
 
 	cfg, err := s.Get(context.Background())
 	if err != nil || cfg.CompanyName != "new" {

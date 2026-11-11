@@ -35,7 +35,12 @@ func TestListConcurrentCallersShareOneQuery(t *testing.T) {
 		<-release
 		return []Font{{Family: "Inter", Weight: 400}}, nil
 	}}
-	go func() { time.Sleep(100 * time.Millisecond); close(release) }()
+	go func() {
+		if !s.flight.WaitForWaiters(50, 30*time.Second) {
+			t.Error("not every caller joined the flight")
+		}
+		close(release)
+	}()
 	out, errs := listBurst(s, 50)
 	for i := range out {
 		if errs[i] != nil || len(out[i]) != 1 || out[i][0].Family != "Inter" {
