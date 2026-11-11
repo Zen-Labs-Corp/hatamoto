@@ -200,10 +200,10 @@ func (s *Service) SetAudit(fn func(ctx context.Context, action, target string, d
 // is true only when this call wrote the row; that is also when the audit
 // function runs.
 func (s *Service) ApplyDefault(ctx context.Context) (applied bool, err error) {
-	if ForcedOff(s.getenv) || s.demo || !isRelease(s.version) || s.setupComplete == nil {
+	if ForcedOff(s.getenv) || s.demo || !isRelease(s.version) {
 		return false, nil
 	}
-	done, err := s.setupComplete(ctx)
+	done, err := s.setupDone(ctx)
 	if err != nil || !done {
 		return false, err
 	}
@@ -247,8 +247,17 @@ func (s *Service) Flush(ctx context.Context) error {
 	return nil
 }
 
+// setupDone reports whether setup is complete. Without a SetupComplete
+// function it is not: nothing is defaulted or sent.
+func (s *Service) setupDone(ctx context.Context) (bool, error) {
+	if s.setupComplete == nil {
+		return false, nil
+	}
+	return s.setupComplete(ctx)
+}
+
 // Run is the hourly job. It first applies the default (Enforce). It makes no
-// request unless the variable is not off, the level is Basic or Detailed, the build is a release, and this process won
+// request unless setup is complete, the variable is not off, the level is Basic or Detailed, the build is a release, and this process won
 // the claim. It never retries: the claim stamps the time whatever the outcome.
 // A Detailed body that cannot be built (a value the receiver would refuse,
 // such as an odd theme version) is replaced by the Basic body, so the install
@@ -265,6 +274,10 @@ func (s *Service) Run(ctx context.Context) error {
 	// A development build is not a release; it never reports.
 	if !isRelease(s.version) {
 		return nil
+	}
+	// Nothing is sent before setup is complete, whatever the level.
+	if done, err := s.setupDone(ctx); err != nil || !done {
+		return err
 	}
 	if err := s.Flush(ctx); err != nil {
 		s.log.Warn("install stats: could not store health counts", "error", err)

@@ -181,7 +181,8 @@ func rig(t *testing.T, env map[string]string, version string) (*Service, *memSto
 	t.Helper()
 	m, r := newMem(), &recorder{}
 	s := New(Config{Store: m, Version: version, Getenv: envOf(env), HTTP: r,
-		Channel: func(context.Context) string { return "stable" }})
+		Channel:       func(context.Context) string { return "stable" },
+		SetupComplete: func(context.Context) (bool, error) { return true, nil }})
 	return s, m, r
 }
 
@@ -198,6 +199,34 @@ func defaultRig(t *testing.T, env map[string]string, version string, setupDone b
 		audits = append(audits, map[string]any{"action": action, "target": target, "detail": detail})
 	})
 	return s, m, r, &audits
+}
+
+func TestRunSendsOnlyOnceSetupIsComplete(t *testing.T) {
+	ctx := context.Background()
+	for _, level := range []Level{LevelDetailed, LevelBasic} {
+		done := false
+		s, m, r := rig(t, nil, "v1.2.3")
+		s.setupComplete = func(context.Context) (bool, error) { return done, nil }
+		if err := s.Choose(ctx, level); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Run(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if len(r.reqs) != 0 {
+			t.Fatalf("%s: %d requests before setup is complete, want 0", level, len(r.reqs))
+		}
+		if st, _ := m.Load(ctx); st.Level != level {
+			t.Fatalf("%s: level = %q", level, st.Level)
+		}
+		done = true
+		if err := s.Run(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if len(r.reqs) != 1 {
+			t.Fatalf("%s: %d requests after setup is complete, want 1", level, len(r.reqs))
+		}
+	}
 }
 
 func TestRunDefaultsToDetailedWhenSetupComplete(t *testing.T) {
@@ -336,7 +365,7 @@ func TestChooseClearsTheDefaultedNotice(t *testing.T) {
 func TestRunSendsNothingWithoutConsent(t *testing.T) {
 	ctx := context.Background()
 	for name, setup := range map[string]func(*Service, *memStore){
-		"unset":  func(*Service, *memStore) {},
+		"unset":  func(s *Service, _ *memStore) { s.setupComplete = nil }, // no default applied
 		"no":     func(s *Service, _ *memStore) { _ = s.Choose(ctx, LevelOff) },
 		"dev":    func(s *Service, _ *memStore) { _ = s.Choose(ctx, LevelBasic) },
 		"forced": func(_ *Service, m *memStore) { _, _ = m.Enable(ctx, LevelBasic) },
@@ -580,7 +609,8 @@ func detailedRig(t *testing.T) (*Service, *memStore, *recorder, *Health, *fakeSo
 	m, r, h, f := newMem(), &recorder{}, NewHealth(), newFake()
 	f.plugins = []PluginInfo{{Name: "searchconsole", Version: "1.0.0", Enabled: true, FirstParty: true}}
 	s := New(Config{Store: m, Version: "v1.2.3", Getenv: envOf(nil), HTTP: r, Health: h, Sources: f,
-		Channel: func(context.Context) string { return "stable" }})
+		Channel:       func(context.Context) string { return "stable" },
+		SetupComplete: func(context.Context) (bool, error) { return true, nil }})
 	return s, m, r, h, f
 }
 
@@ -776,7 +806,8 @@ func TestRunSameDayBuildFailureKeepsTheDetailedReport(t *testing.T) {
 func TestDetailedWithoutSourcesDegradesToBasic(t *testing.T) {
 	ctx := context.Background()
 	m, r := newMem(), &recorder{}
-	s := New(Config{Store: m, Version: "v1.2.3", Getenv: envOf(nil), HTTP: r})
+	s := New(Config{Store: m, Version: "v1.2.3", Getenv: envOf(nil), HTTP: r,
+		SetupComplete: func(context.Context) (bool, error) { return true, nil }})
 	_ = s.Choose(ctx, LevelDetailed)
 	_ = s.Run(ctx)
 	entries, err := jsonx.ObjectEntries([]byte(r.bodies[0]))
