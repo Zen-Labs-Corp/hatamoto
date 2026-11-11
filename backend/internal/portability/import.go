@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -202,7 +203,7 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 				return nil, fmt.Errorf("unexpected data file %q", h.Name)
 			}
 			next++
-			n, err := importTable(ctx, tx, t, tr)
+			n, err := importTable(ctx, tx, t, tr, mediaProvider(opts))
 			if err != nil {
 				return nil, fmt.Errorf("import %s: %w", name, err)
 			}
@@ -409,7 +410,7 @@ func checkManifest(m *Manifest, res *ImportResult) error {
 }
 
 // importTable inserts every JSON line of r into t, in batches.
-func importTable(ctx context.Context, tx pgx.Tx, t table, r io.Reader) (int64, error) {
+func importTable(ctx context.Context, tx pgx.Tx, t table, r io.Reader, provider string) (int64, error) {
 	br := bufio.NewReaderSize(r, 1<<20)
 	var (
 		n     int64
@@ -438,7 +439,7 @@ func importTable(ctx context.Context, tx pgx.Tx, t table, r io.Reader) (int64, e
 					return 0, err
 				}
 			}
-			row, perr := prepareRow(t, line)
+			row, perr := prepareRow(t, line, provider)
 			if perr != nil {
 				return 0, perr
 			}
@@ -475,9 +476,19 @@ func readLine(br *bufio.Reader) ([]byte, error) {
 	}
 }
 
+// mediaProvider names the storage the import writes media files to: object
+// storage when a Store is set, the upload directory otherwise.
+func mediaProvider(opts ImportOptions) string {
+	if opts.Store != nil {
+		return "s3"
+	}
+	return "local"
+}
+
 // prepareRow applies the table's import rules to a row: the self-reference is
-// stashed and cleared, the forced values are merged.
-func prepareRow(t table, line []byte) (string, error) {
+// stashed and cleared, the forced values are merged. provider is the storage
+// the media files land in.
+func prepareRow(t table, line []byte, provider string) (string, error) {
 	var m map[string]jsontext.Value
 	if err := jsonx.Unmarshal(line, &m, jsonx.StoredLoose); err != nil {
 		return "", fmt.Errorf("bad row: %w", err)
@@ -487,8 +498,8 @@ func prepareRow(t table, line []byte) (string, error) {
 			return "", err
 		}
 		// The archive carries the files, and the import writes them to this
-		// site's upload directory.
-		m["storage_provider"] = jsontext.Value(`"local"`)
+		// site's own store, whatever store the source used.
+		m["storage_provider"] = jsontext.Value(strconv.Quote(provider))
 	}
 	if t.forced != "" {
 		var o map[string]jsontext.Value

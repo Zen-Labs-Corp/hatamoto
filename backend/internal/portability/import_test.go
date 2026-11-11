@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/media"
 )
 
 func TestCheckMediaRowRejectsUnsafePaths(t *testing.T) {
@@ -195,13 +197,24 @@ func TestMediaStageSanitisesSVG(t *testing.T) {
 	}
 }
 
-func TestPrepareRowImportsS3MediaAsLocal(t *testing.T) {
-	line := []byte(`{"id":"1","storage_path":"pic.png","storage_provider":"s3"}`)
-	got, err := prepareRow(table{name: "hatamoto_media"}, line)
-	if err != nil {
-		t.Fatal(err)
+func TestPrepareRowMediaProviderFollowsTarget(t *testing.T) {
+	for _, tc := range []struct{ source, target string }{{"s3", "local"}, {"local", "s3"}, {"s3", "s3"}} {
+		line := []byte(`{"id":"1","storage_path":"pic.png","storage_provider":"` + tc.source + `"}`)
+		got, err := prepareRow(table{name: "hatamoto_media"}, line, tc.target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := `"storage_provider":"` + tc.target + `"`; !strings.Contains(got, want) {
+			t.Errorf("%s -> %s: row = %s", tc.source, tc.target, got)
+		}
 	}
-	if !strings.Contains(got, `"storage_provider":"local"`) {
-		t.Errorf("row = %s, want provider local", got)
+}
+
+func TestMediaProvider(t *testing.T) {
+	if got := mediaProvider(ImportOptions{}); got != "local" {
+		t.Errorf("no store = %q, want local", got)
+	}
+	if got := mediaProvider(ImportOptions{Store: &media.S3Store{}}); got != "s3" {
+		t.Errorf("store set = %q, want s3", got)
 	}
 }
