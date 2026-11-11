@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 	"sync/atomic"
 
@@ -47,7 +48,9 @@ func (s *Server) requestRedirect(next http.Handler) http.Handler {
 			Country: s.geoHolder.Country(middleware.GetClientIP(r)),
 		})
 		if !answered {
-			next.ServeHTTP(w, r)
+			// The path is declared, so the answer depends on the visitor: a
+			// shared cache must not replay this response to someone else.
+			next.ServeHTTP(&visitorSpecificWriter{ResponseWriter: w}, r)
 			return
 		}
 		pluginhost.WriteSetCookies(w, r, out.SetCookies)
@@ -66,9 +69,12 @@ func (s *Server) requestRedirect(next http.Handler) http.Handler {
 	})
 }
 
-// visitorSpecificWriter makes a response safe for shared caches whichever
-// handler writes it, by fixing the headers as they are sent: Cache-Control:
-// no-store (the response carries a plugin's Set-Cookie) and Vary: Cookie.
+// visitorSpecificWriter makes the response of a declared path safe for shared
+// caches whichever handler writes it, by fixing the headers as they are sent.
+// noStore forces Cache-Control: no-store (the response carries a plugin's
+// Set-Cookie); otherwise a public or s-maxage policy becomes private. Vary:
+// Cookie is added either way, the rule core uses for plugin routes that
+// declare cookies.
 type visitorSpecificWriter struct {
 	http.ResponseWriter
 	noStore bool
@@ -99,6 +105,8 @@ func (v *visitorSpecificWriter) fix() {
 	h := v.Header()
 	if v.noStore {
 		h.Set("Cache-Control", "no-store")
+	} else if cc := h.Get("Cache-Control"); cc != "" {
+		h.Set("Cache-Control", privatizeCacheControl(cc))
 	}
 	for _, f := range h.Values("Vary") {
 		for tok := range strings.SplitSeq(f, ",") {
@@ -108,6 +116,35 @@ func (v *visitorSpecificWriter) fix() {
 		}
 	}
 	h.Add("Vary", "Cookie")
+}
+
+// privatizeCacheControl turns a shared-cacheable policy into a private one:
+// public becomes private and s-maxage is dropped.
+func privatizeCacheControl(cc string) string {
+	var out []string
+	hasPrivate := false
+	for d := range strings.SplitSeq(cc, ",") {
+		d = strings.TrimSpace(d)
+		name, _, _ := strings.Cut(strings.ToLower(d), "=")
+		switch name {
+		case "s-maxage", "":
+			continue
+		case "public":
+			d = "private"
+			name = "private"
+		}
+		if name == "private" {
+			if hasPrivate {
+				continue
+			}
+			hasPrivate = true
+		}
+		out = append(out, d)
+	}
+	if !hasPrivate && !slices.Contains(out, "no-store") {
+		out = append(out, "private")
+	}
+	return strings.Join(out, ", ")
 }
 
 func (s *Server) underPublicAPIPrefix(p string) bool {

@@ -407,3 +407,54 @@ func TestRequestRedirectCookieOnlyAnswerSkipsPageCache(t *testing.T) {
 		t.Fatalf("Cache-Control = %q", rec.Header().Get("Cache-Control"))
 	}
 }
+
+func TestPrivatizeCacheControl(t *testing.T) {
+	for in, want := range map[string]string{
+		"public, max-age=60, s-maxage=300": "private, max-age=60",
+		"public, max-age=60, s-maxage=60":  "private, max-age=60",
+		"max-age=60":                       "max-age=60, private",
+		"private, no-cache, no-store":      "private, no-cache, no-store",
+		"no-store":                         "no-store",
+		"Public, S-MaxAge=5":               "private",
+	} {
+		if got := privatizeCacheControl(in); got != want {
+			t.Errorf("privatizeCacheControl(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// When the plugin has nothing to say on a declared path (empty answer or a
+// failure) the normal response must not be shared-cacheable, or an edge cache
+// would replay it and the hook would never see the next visitor. The internal
+// page cache is still used.
+func TestRequestRedirectFallThroughIsNotSharedCacheable(t *testing.T) {
+	for _, mode := range []string{"empty", "trap", "badloc"} {
+		t.Run(mode, func(t *testing.T) {
+			rs := newRedirectServer(t, mode)
+			f := newRenderFixture(t)
+			f.next = okPage("Go")
+			rec := rs.servedThrough(f, "/go")
+			cc := rec.Header().Get("Cache-Control")
+			if rec.Code != http.StatusOK || strings.Contains(cc, "public") || strings.Contains(cc, "s-maxage") || !strings.Contains(cc, "private") {
+				t.Errorf("%d Cache-Control = %q, want private without s-maxage", rec.Code, cc)
+			}
+			if !hasVaryCookie(rec.Header()) {
+				t.Errorf("Vary = %v, want Cookie", rec.Header().Values("Vary"))
+			}
+			rs.servedThrough(f, "/go")
+			if f.resolves != 1 || len(f.cache.sets) != 1 {
+				t.Errorf("the page cache was not used: %d resolves, %d stores", f.resolves, len(f.cache.sets))
+			}
+		})
+	}
+}
+
+// A path no plugin declares keeps its public headers.
+func TestRequestRedirectUndeclaredPathKeepsPublicCache(t *testing.T) {
+	rs := newRedirectServer(t, "empty")
+	f := newRenderFixture(t)
+	f.next = okPage("Other")
+	if cc := rs.servedThrough(f, "/other").Header().Get("Cache-Control"); !strings.Contains(cc, "s-maxage") {
+		t.Fatalf("Cache-Control = %q, want the public policy", cc)
+	}
+}
