@@ -2,10 +2,12 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
 	"hatamoto.dev/core/internal/agents"
+	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -71,6 +73,11 @@ func (s *Server) robotsDenyTokens(ctx context.Context) []string {
 	}
 	denied, err := s.robotsPolicy.DeniedPurposes(ctx)
 	if err != nil {
+		// Never answer with the default file: it lacks the owner's crawler
+		// policy. Flag it so the route answers 503 (see busyConverter).
+		if errors.Is(err, database.ErrPoolBusy) {
+			database.NotePoolBusy(ctx)
+		}
 		return nil
 	}
 	return agents.DenyTokens(agents.Default(), denied)

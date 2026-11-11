@@ -28,6 +28,71 @@ func publicAcquireBound(d time.Duration) func(http.Handler) http.Handler {
 	}
 }
 
+// busyConverter makes a public route that built its answer after a bounded
+// acquire gave up (database.PoolBusyHit) answer 503 with Retry-After instead
+// of whatever it produced: a degraded 200 (robots.txt without the owner's
+// crawler policy, sitemap or feed with fallback URLs) or a generic 500. It
+// sits innermost, so the agent-hit capture records the real 503. It does not
+// touch an answer that is already a 503.
+func busyConverter(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bw := &busyWriter{ResponseWriter: w, r: r}
+		next.ServeHTTP(bw, r)
+		if !bw.decided {
+			bw.decide(http.StatusOK, true)
+		}
+	})
+}
+
+type busyWriter struct {
+	http.ResponseWriter
+	r       *http.Request
+	decided bool
+	swallow bool
+}
+
+// decide runs once, at the first header or body write (or at the end of the
+// request). implicit is true when the handler did not call WriteHeader, so the
+// status is left to the underlying writer on a pass-through.
+func (b *busyWriter) decide(code int, implicit bool) {
+	b.decided = true
+	if code == http.StatusServiceUnavailable || !database.PoolBusyHit(b.r.Context()) {
+		if !implicit {
+			b.ResponseWriter.WriteHeader(code)
+		}
+		return
+	}
+	b.swallow = true
+	h := b.Header()
+	for _, k := range []string{"Etag", "Last-Modified", "Content-Encoding", "Content-Length", "Content-Language"} {
+		h.Del(k)
+	}
+	h.Set("Retry-After", busyRetryAfter)
+	h.Set("Cache-Control", "no-store")
+	h.Set("Content-Type", "text/plain; charset=utf-8")
+	b.ResponseWriter.WriteHeader(http.StatusServiceUnavailable)
+	_, _ = b.ResponseWriter.Write([]byte("service temporarily unavailable\n"))
+}
+
+func (b *busyWriter) WriteHeader(code int) {
+	if !b.decided {
+		b.decide(code, false)
+	}
+}
+
+func (b *busyWriter) Write(p []byte) (int, error) {
+	if !b.decided {
+		b.decide(http.StatusOK, true)
+	}
+	if b.swallow {
+		return len(p), nil
+	}
+	return b.ResponseWriter.Write(p)
+}
+
+// Unwrap lets http.ResponseController reach the underlying writer.
+func (b *busyWriter) Unwrap() http.ResponseWriter { return b.ResponseWriter }
+
 // writeBusy answers 503 with Retry-After and the themed error page (marked
 // private by writeHTML, so never shared-cached). The page
 // is built without any database access (no buildView), since the pool is what

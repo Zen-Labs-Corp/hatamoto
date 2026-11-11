@@ -133,7 +133,12 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 	// after the acquire bound and answer 503. It wraps capture, so every
 	// crawler-visible route below carries it.
 	bound, record := publicAcquireBound(rt.acquireBound), capture
-	capture = func(next http.Handler) http.Handler { return bound(record(next)) }
+	capture = func(next http.Handler) http.Handler {
+		if rt.acquireBound > 0 {
+			next = busyConverter(next)
+		}
+		return bound(record(next))
+	}
 	// A "GET" pattern also serves HEAD, so HEAD reaches these handlers rather
 	// than the page catch-all.
 	captured := r.Group("", capture)

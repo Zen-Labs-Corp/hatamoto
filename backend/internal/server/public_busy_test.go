@@ -152,3 +152,52 @@ func TestPoolBusyHitSkipsSitemapAndFeedCache(t *testing.T) {
 		t.Errorf("healthy feed not cached: %v", err)
 	}
 }
+
+// Routes other than HTML pages (robots.txt, sitemaps, feeds, llms.txt, form
+// pages) answer 503 + Retry-After, never cached, when a bounded acquire gave up
+// -- whether they degraded to a 200 or failed with a 500.
+func TestBusyPoolAnswers503OnNonPageRoutes(t *testing.T) {
+	f := newRenderFixture(t)
+	s := &Server{robotsPolicy: fakeRobotsStore{err: fmt.Errorf("denied: %w", database.ErrPoolBusy)}}
+	busyThen := func(code int) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			database.NotePoolBusy(r.Context())
+			w.Header().Set("Cache-Control", "public, max-age=3600")
+			w.WriteHeader(code)
+			_, _ = w.Write([]byte("partial"))
+		}
+	}
+	r, h := baseRouter()
+	mountRenderRoutes(r, renderRoutes{
+		pages: f.h, assets: stub("assets"), robots: s.handleRobots, sitemap: busyThen(http.StatusInternalServerError),
+		subSitemap: busyThen(http.StatusInternalServerError), llms: busyThen(http.StatusOK), xsl: stub("xsl"),
+		formPost: stub("form"), feed: busyThen(http.StatusInternalServerError),
+		formPage: busyThen(http.StatusInternalServerError), acquireBound: time.Second,
+	})
+	for _, p := range []string{"/robots.txt", "/sitemap.xml", "/sitemap-posts.xml", "/llms.txt", "/feed.xml", "/f/contact"} {
+		w := getPath(h, p)
+		if w.Code != http.StatusServiceUnavailable || w.Header().Get("Retry-After") != "2" {
+			t.Errorf("%s: status = %d, Retry-After = %q", p, w.Code, w.Header().Get("Retry-After"))
+		}
+		if cc := w.Header().Get("Cache-Control"); cc != "no-store" {
+			t.Errorf("%s: Cache-Control = %q", p, cc)
+		}
+		if strings.Contains(w.Body.String(), "partial") {
+			t.Errorf("%s: degraded body leaked: %q", p, w.Body.String())
+		}
+	}
+}
+
+// Without a flagged acquire the converter is invisible.
+func TestBusyConverterPassesHealthyAnswers(t *testing.T) {
+	h := publicAcquireBound(time.Second)(busyConverter(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=60")
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte("ok"))
+	})))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/x", nil))
+	if w.Code != http.StatusTeapot || w.Body.String() != "ok" || w.Header().Get("Cache-Control") != "public, max-age=60" {
+		t.Fatalf("%d %q %v", w.Code, w.Body.String(), w.Header())
+	}
+}
