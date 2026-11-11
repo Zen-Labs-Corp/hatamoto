@@ -13,7 +13,7 @@ the name is given. Where it is project policy only, the text says so. Paths in c
 |---|---|---|
 | Product (the `hatamoto` binary) | `vX.Y.Z`, git tag `vX.Y.Z` | `v1.1.0` |
 | Go module for the product source | `hatamoto.dev/core`, git tag `backend/vX.Y.Z`, created by `scripts/tag-release.sh` | follows the product |
-| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.22.0` |
+| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.22.1` |
 | Plugin manifest | the `sdk` range in `plugin.json` | follows the SDK |
 | Theme contract | `data-hm-contract` on `<html>` | `1` |
 | HTTP API | `/api/v1` path prefix | `v1` |
@@ -63,6 +63,8 @@ change under the same version (`scripts/publish-sdk.sh` refuses to retag a diffe
 
 The 0.22.0 bump is additive over 0.21: the `request.redirect` filter and the `redirect_paths` manifest field, with the `RedirectContext` and `Redirect` types, and a standing approval `create` rule (see `version.go`). A plugin that uses them, or the `request.redirect` key of `limits.hook_timeouts_ms`, must declare `^0.22`: an older host would ignore the field and the redirects would silently stop.
 
+The 0.22.1 bump is additive over 0.22.0: `permissions()` gains `mail` (`recipients_per_hour`) for a plugin granted `mail.send`, with the `PermissionsResult` and `MailQuota` types. No existing output changed.
+
 The 0.21.0 bump is additive over 0.20: the `packages.inspect` permission and host function, the `hatamoto.dev/sdk/registry` package and `guest.PackagesInspect` (see `version.go`).
 
 The 0.20.0 bump is additive over 0.19: entity terms and a term filter on `entities.get` and `entities.list`, and typed `params` on items builder sources, sent on the `builder.data` request (see `version.go`).
@@ -108,7 +110,7 @@ The `sdk` range in `plugin.json` is the handshake between a plugin and a host. A
 SDK version (`sdk.Version`) and every version in `sdk.CompatibleWith`, and refuses a plugin whose range
 matches none of them.
 
-- Every 0.x SDK minor from 0.5 stays served until SDK 1.0. Today `Version` is `0.22.0` and
+- Every 0.x SDK minor from 0.5 stays served until SDK 1.0. Today `Version` is `0.22.1` and
   `CompatibleWith` is `0.5.0` to `0.21.0`. Dropping an entry is a breaking change and is announced like
   any other.
 - A newer host serves older ranges. An older host refuses a newer range: a host that serves 0.21 refuses

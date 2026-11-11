@@ -10,15 +10,15 @@ A plugin reaches the server through one imported function, `hm_call`, in the was
 
 ## SDK version
 
-The contract between the server and a plugin is the Go module `hatamoto.dev/sdk`. The current SDK version is `0.22.0`. The manifest declares the range a plugin was built against, and the server refuses a plugin whose range does not contain a version it serves. This server serves `0.22.0` and also plugins built for `0.5.0` to `0.21.0` (see [The sdk range](manifest.md#the-sdk-range)). Minor versions are additive, and before 1.0 a breaking change bumps the minor.
+The contract between the server and a plugin is the Go module `hatamoto.dev/sdk`. The current SDK version is `0.22.1`. The manifest declares the range a plugin was built against, and the server refuses a plugin whose range does not contain a version it serves. This server serves `0.22.1` and also plugins built for `0.5.0` to `0.21.0` (see [The sdk range](manifest.md#the-sdk-range)). Minor versions are additive, and before 1.0 a breaking change bumps the minor.
 
 ```go
 // backend/pkg/sdk/version.go
-const Version = "0.22.0"
+const Version = "0.22.1"
 var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0"}
 ```
 
-Fetch it with `go get hatamoto.dev/sdk@v0.22.0`. SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. The import path is a vanity path that points at the public SDK repository, so it does not change if the repository moves. It is a root module with plain tags: version `v0.22.0` is the git tag `v0.22.0`. The SDK root package has no dependencies beyond the standard library, and its `guest` subpackage is the Go layer over the Extism PDK. The Go helpers are `guest.OnAction`, `guest.OnFilter`, `guest.OnHTTP`, `guest.OnCron`, `guest.OnRunStep`, `guest.OnFunc`, `guest.Call`, `guest.Config`, `guest.Log`, `guest.Reject`, `guest.CapabilityDenied` and `guest.Handle`.
+Fetch it with `go get hatamoto.dev/sdk@v0.22.1`. SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. The import path is a vanity path that points at the public SDK repository, so it does not change if the repository moves. It is a root module with plain tags: version `v0.22.1` is the git tag `v0.22.1`. The SDK root package has no dependencies beyond the standard library, and its `guest` subpackage is the Go layer over the Extism PDK. The Go helpers are `guest.OnAction`, `guest.OnFilter`, `guest.OnHTTP`, `guest.OnCron`, `guest.OnRunStep`, `guest.OnFunc`, `guest.Call`, `guest.Config`, `guest.Log`, `guest.Reject`, `guest.CapabilityDenied` and `guest.Handle`.
 
 ## How calls work
 
@@ -51,7 +51,7 @@ A plugin always loads. What it may do is decided by the owner, and nothing is gr
 | `builder.island` | no function: needed by a package whose widgets ship an `island.js`, a script that runs on your public pages; without the grant the widgets render but the script is not served |
 | `site.scripts` | no function: links `assets/plugin.js`, emits `script-src` tags from `render.head` and lets partials and sections that contain scripts register; runs JavaScript on every public page with full access to the site, including signed-in admins; ungranted plugins' `plugin.js` is not linked and their sections/partials must pass the markup check; warned in the install prompt |
 
-The function `permissions` is always allowed and returns `{ "granted": [..], "requested": [..] }`.
+The function `permissions` is always allowed and returns `{ "granted": [..], "requested": [..] }`, plus `"mail": { "recipients_per_hour": n }` when `mail.send` is granted (SDK 0.22.1).
 
 > Your admin address is private to your install, for example `/k7qm-x2rf-9tdc`. Print it on the server with `hatamoto admin-url`. This page writes it as `<admin>`.
 
@@ -122,7 +122,7 @@ Notes on specific functions:
 
 - **Term `seo`** is read-only. A Term result carries it; the search appearance of a term is edited on its admin page only.
 - **`log`** allows 10 lines per second (burst 20), then `rate_limited`. Messages are cut at 4 KiB.
-- **`mail.send`** goes through the site's mail service and From identity, allows 6 recipients per minute (burst 10), and answers `unavailable` when mail is not configured.
+- **`mail.send`** goes through the site's mail service and From identity, allows the owner-set recipients per hour (default 360, 1 to 3600, set on the plugin Permissions tab; the plugin cannot change it; burst clamp(N/36, 10, 100)), answers `rate_limited` "mail quota (N recipients per hour) reached" past it, and answers `unavailable` when mail is not configured.
 - **`kv.set`** values are any JSON up to 256 KiB. A plugin may hold 10,000 keys and 64 MiB of values.
 - **`db.query`** returns at most 1,000 rows and 1 MiB. See [Data, routes and cron](data-routes-cron.md).
 

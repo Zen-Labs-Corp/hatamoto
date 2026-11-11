@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased: Per-plugin mail quota
+
+- **Owner-set limit.** The owner sets how many recipients a plugin may email per hour (default 360, which is the previous 6 a minute; 1 to 3600) on the plugin's Permissions tab, for a plugin that declares `mail.send`. Saving is audited and applies at once, without a restart. The plugin cannot change it.
+- **SDK.** `hatamoto.dev/sdk` 0.22.1: `permissions()` returns `mail: {recipients_per_hour}` for a plugin granted `mail.send`; a refused send reads "mail quota (N recipients per hour) reached".
+- **Migration.** Adds the nullable `mail_per_hour` column to `hatamoto_plugin_grants` (NULL means 360). Rollback floor: unchanged; an older release ignores the column and uses its fixed limit.
+
 ## Unreleased: Detailed install stats by default
 
 - **On by default.** A new install, and an existing one whose owner was never asked, sends the Detailed [install stats](site/operate/install-stats.md) once setup is finished. Release builds only: development builds and public demos send nothing.

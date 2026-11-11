@@ -7,7 +7,7 @@ on nothing but the standard library, never imports Hatamoto core packages, and t
 module has its own `go.mod`.
 
 ```sh
-go get hatamoto.dev/sdk@v0.22.0
+go get hatamoto.dev/sdk@v0.22.1
 ```
 
 Releases are plain `vX.Y.Z` tags of this repository, where `X.Y.Z` is the `Version`
@@ -41,6 +41,7 @@ needs in `plugin.json` (the examples in the core repository declare `^0.8` or `^
 
 | SDK | Change |
 |---|---|
+| 0.22.1 | Additive over 0.22.0: `permissions()` returns `mail` (`{recipients_per_hour}`) for a plugin granted `mail.send`, the owner-set mail quota (default 360, 1 to 3600). Adds the `PermissionsResult` and `MailQuota` types. |
 | 0.22.0 | Additive over 0.21: filter `request.redirect` and manifest field `redirect_paths` (up to 16 exact public paths). For GET and HEAD requests to a declared path the plugin gets `RedirectContext` (`path`, `query`, its declared `cookies`, the visitor's `country`) and may answer with a same-site 302 or 307 and declared cookies, before routing and the page cache. Fail open. A run's `standing_approval` may also carry an optional `create` rule (`{schemas, max_per_hour}`) that lets an approved run publish new entries of those schemas by itself. |
 | 0.21.0 | Additive over 0.20: permission `packages.inspect` and host function `packages.inspect` (`{url, signer_key?}` returns `InspectResult`: kind, name, version, `sha256`, size, signer id, `signature_ok`, manifest summary and `problems`); new types `InspectRequest` and `InspectResult`; new package `hatamoto.dev/sdk/registry` (index types, `SignIndex`, `KeyID`; standard library only); `guest.PackagesInspect`. Existing plugins are unaffected. |
 | 0.20.0 | Additive over 0.19: `entities.get` and `entities.list` return each entity's `terms` (`[{kind, slug, name}]`) to a plugin whose range requires 0.20 and that holds `terms.read`, and `entities.list` takes a `term` filter (`{kind, slug}`, exact term). New types `EntityTerm` and `EntityTermFilter`. Other plugins see the same results as before. |

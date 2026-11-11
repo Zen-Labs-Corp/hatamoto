@@ -2,6 +2,8 @@
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
+> **0.22.1 changes (additive over 0.22.0).** `permissions()` gains `"mail": {"recipients_per_hour": N}` for a plugin granted `mail.send`: the number of recipients the plugin may email per hour. The limit is owner-set per plugin (default 360, range 1 to 3600, on the plugin Permissions tab) and the plugin cannot change it. The key is absent without the grant; `granted` and `requested` are unchanged.
+>
 > **0.22 changes (additive over 0.21).** New filter `request.redirect` and manifest field `redirect_paths`: a plugin declares exact public paths and, for GET and HEAD requests to them, may answer before routing, stored redirects and the page cache with a same-site 302 or 307 and declared cookies, using its declared cookies and the visitor's country. No existing type or wire output changed. See [request.redirect](#requestredirect).
 >
 > `standing_approval.create` also arrives in 0.22: it lets an approved run publish new entries by itself (see [Creating content automatically](#creating-content-automatically)). It needs `^0.22`; an older host ignores it and creates wait for review.
@@ -137,13 +139,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.22.0`; plugins built for `^0.5` to `^0.21` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.22.1`; plugins built for `^0.5` to `^0.21` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.22.0
+go get hatamoto.dev/sdk@v0.22.1
 ```
 
 SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -153,7 +155,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.22.0` is the git tag `v0.22.0`. The core repository stays
+plain release tags: version `0.22.1` is the git tag `v0.22.1`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -170,7 +172,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.22 is current.
+> SDK 0.22 is current (0.22.1).
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -460,7 +462,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 |---|---|
 | `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
-| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.22.0 and also serves `^0.5` to `^0.21` plugins |
+| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.22.1 and also serves `^0.5` to `^0.21` plugins |
 | `description` | optional |
 | `config` | string map readable in the guest (`pdk.GetConfig`) |
 | `permissions` | capabilities the plugin asks for; see [Permissions](#permissions). Unknown names are refused |
@@ -522,7 +524,7 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 
 | Function | Arguments | Result |
 |---|---|---|
-| `permissions` (always allowed) | none | `{ "granted": [..], "requested": [..] }` |
+| `permissions` (always allowed) | none | `{ "granted": [..], "requested": [..], "mail"?: { "recipients_per_hour": n } }`; `mail` only when `mail.send` is granted (SDK 0.22.1) |
 | `entities.get` | `{ "id" }`, `{ "path": "/a/b" }`, or `{ "slug", "parent_id"?, "schema_slug"? }` (`schema_slug` needs `parent_id`; send one selector only) | Entity |
 | `entities.list` | `{ "schema_slug"?, "status"?, "search"?, "term"? (`{ "kind", "slug" }`, needs `terms.read`), "limit"? (50, max 200), "cursor"? }` | `{ "items": [Entity], "next_cursor" }` |
 | `entities.translations` | `{ "id" }` | `[ { "id", "locale", "status", "path"? } ]` (the entity's translation group, itself included, ordered by locale; `[]` when it has none or is alone) |
@@ -535,7 +537,7 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 | `forms.submissions` | `{ "form_slug", "limit"?, "offset"? }` | `{ "items": [ { id, status, data, created_at } ], "total" }`. IP address and user agent are never included |
 | `settings.get` | `{}` | the plugin's own settings object, schema defaults merged in (write-only values included: they are the plugin's own secrets) |
 | `log` | `{ "level": "debug|info|warn|error", "message" }` | `{}`. At most 10 lines/s (burst 20), then `rate_limited`; messages are cut at 4 KiB |
-| `mail.send` | `{ "to": [1..10 plain addresses], "subject", "text"?, "html"? }` | `{ "sent": n }`. Goes through the site's mail service and From identity; 6 recipients per minute (burst 10: one token per recipient), then `rate_limited`; `unavailable` when mail is not configured |
+| `mail.send` | `{ "to": [1..10 plain addresses], "subject", "text"?, "html"? }` | `{ "sent": n }`. Goes through the site's mail service and From identity; owner-set recipients per hour (default 360, which is 6 a minute; 1 to 3600, set by the owner on the plugin Permissions tab; burst clamp(N/36, 10, 100), one token per recipient), then `rate_limited` "mail quota (N recipients per hour) reached"; `unavailable` when mail is not configured. The plugin cannot change the limit |
 | `http.fetch` | `{ "method"?, "url", "headers"?, "body"? or "body_b64"?, "timeout_ms"? }` | `{ "status", "headers", "body" or "body_b64", "truncated"? }`. At most 600 requests per plugin per minute (`HATAMOTO_PLUGIN_FETCH_PER_MINUTE`, burst 60), then `rate_limited`. `truncated` means the body was cut at 1 MiB: treat it as an error, ask for less (the Search Console plugin sends `prettyPrint=false` and pages of 1,000 rows) |
 | `packages.inspect` | `{ "url", "signer_key"? }` | `{ "kind", "name", "version", "sha256", "size", "signer_key_id", "signature_ok", "sdk"?, "permissions"?, "allowed_hosts"?, "description"?, "problems" }`. Spends one token of the plugin's `http.fetch` rate limit; see **packages.inspect** below |
 | `kv.get` | `{ "key" }` | `{ "found": bool, "value"? }` |
