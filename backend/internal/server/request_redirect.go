@@ -52,7 +52,10 @@ func (s *Server) requestRedirect(next http.Handler) http.Handler {
 		}
 		pluginhost.WriteSetCookies(w, r, out.SetCookies)
 		if out.Redirect == nil {
-			next.ServeHTTP(w, r.WithContext(withUncachedRequest(r.Context())))
+			// Whatever answers (page, stored redirect, 404) carries the plugin's
+			// Set-Cookie, so it is never stored anywhere.
+			next.ServeHTTP(&visitorSpecificWriter{ResponseWriter: w, noStore: true},
+				r.WithContext(withUncachedRequest(r.Context())))
 			return
 		}
 		// Not http.Redirect: it re-cleans the path, which could turn a
@@ -63,7 +66,54 @@ func (s *Server) requestRedirect(next http.Handler) http.Handler {
 	})
 }
 
+// visitorSpecificWriter makes a response safe for shared caches whichever
+// handler writes it, by fixing the headers as they are sent: Cache-Control:
+// no-store (the response carries a plugin's Set-Cookie) and Vary: Cookie.
+type visitorSpecificWriter struct {
+	http.ResponseWriter
+	noStore bool
+	sent    bool
+}
+
+func (v *visitorSpecificWriter) WriteHeader(code int) {
+	if !v.sent && (code >= 200 || code == http.StatusSwitchingProtocols) {
+		v.sent = true
+		v.fix()
+	}
+	v.ResponseWriter.WriteHeader(code)
+}
+
+func (v *visitorSpecificWriter) Write(b []byte) (int, error) {
+	if !v.sent {
+		v.sent = true
+		v.fix()
+	}
+	return v.ResponseWriter.Write(b)
+}
+
+func (v *visitorSpecificWriter) Flush() { http.NewResponseController(v.ResponseWriter).Flush() }
+
+func (v *visitorSpecificWriter) Unwrap() http.ResponseWriter { return v.ResponseWriter }
+
+func (v *visitorSpecificWriter) fix() {
+	h := v.Header()
+	if v.noStore {
+		h.Set("Cache-Control", "no-store")
+	}
+	for _, f := range h.Values("Vary") {
+		for tok := range strings.SplitSeq(f, ",") {
+			if t := strings.TrimSpace(tok); t == "*" || strings.EqualFold(t, "Cookie") {
+				return
+			}
+		}
+	}
+	h.Add("Vary", "Cookie")
+}
+
 func (s *Server) underPublicAPIPrefix(p string) bool {
+	if s.cfg == nil {
+		return false
+	}
 	prefix := s.cfg.PublicSite.APIPrefix
 	return prefix != "" && underPrefix(p, prefix)
 }

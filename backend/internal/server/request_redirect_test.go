@@ -335,3 +335,75 @@ func TestRequestRedirectLocationIsSentVerbatimOrDropped(t *testing.T) {
 		}
 	}
 }
+
+// servedThrough serves GET path through the request.redirect wrapper in front
+// of the fixture's real catch-all handler.
+func (rs *redirectServer) servedThrough(f *renderFixture, path string) *httptest.ResponseRecorder {
+	return get(rs.s.requestRedirect(http.HandlerFunc(f.h.handleRenderCatchAll)), "GET", path)
+}
+
+func hasVaryCookie(h http.Header) bool {
+	for _, v := range h.Values("Vary") {
+		if strings.Contains(strings.ToLower(v), "cookie") {
+			return true
+		}
+	}
+	return false
+}
+
+// The response that carries the plugin's Set-Cookie is never stored, whatever
+// handler then answers the path, and never reaches the page cache.
+func TestRequestRedirectCookieOnlyAnswerIsNoStoreWhateverAnswers(t *testing.T) {
+	cases := map[string]func(f *renderFixture){
+		"page": func(f *renderFixture) { f.next = okPage("Go") },
+		"stored redirect": func(f *renderFixture) {
+			f.next = func() (*routeResult, pageOutcome, error) {
+				return &routeResult{Redirect: &redirectHit{Target: "/start", Status: 301}}, pageOutcome{Status: 301}, nil
+			}
+		},
+		"not found": func(f *renderFixture) {
+			f.next = func() (*routeResult, pageOutcome, error) {
+				return &routeResult{NotFound: true}, pageOutcome{Status: 404, NotFound: true}, nil
+			}
+		},
+	}
+	for name, setup := range cases {
+		t.Run(name, func(t *testing.T) {
+			rs := newRedirectServer(t, "cookie")
+			f := newRenderFixture(t)
+			setup(f)
+			rec := rs.servedThrough(f, "/go")
+			if cc := rec.Header().Get("Cache-Control"); cc != "no-store" {
+				t.Errorf("Cache-Control = %q, want no-store", cc)
+			}
+			if !hasVaryCookie(rec.Header()) {
+				t.Errorf("Vary = %v, want Cookie", rec.Header().Values("Vary"))
+			}
+			if len(rec.Result().Cookies()) == 0 {
+				t.Error("the plugin's cookie was not set")
+			}
+			if len(f.cache.sets) != 0 {
+				t.Errorf("the response was written to the page cache: %v", f.cache.sets)
+			}
+		})
+	}
+}
+
+// A page cached earlier is not served to a cookie-only answer.
+func TestRequestRedirectCookieOnlyAnswerSkipsPageCache(t *testing.T) {
+	rs := newRedirectServer(t, "cookie")
+	f := newRenderFixture(t)
+	f.next = okPage("Go")
+	f.get("/go") // primes the cache without the wrapper
+	if len(f.cache.sets) == 0 {
+		t.Skip("the fixture does not cache this page")
+	}
+	before := f.resolves
+	rec := rs.servedThrough(f, "/go")
+	if f.resolves != before+1 {
+		t.Fatal("served from the page cache")
+	}
+	if rec.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("Cache-Control = %q", rec.Header().Get("Cache-Control"))
+	}
+}
