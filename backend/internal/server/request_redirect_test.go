@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/core/internal/analytics"
@@ -20,6 +21,7 @@ import (
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/pluginhost/plugintest"
 	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/siteaccess"
 	"hatamoto.dev/sdk"
 )
 
@@ -456,5 +458,72 @@ func TestRequestRedirectUndeclaredPathKeepsPublicCache(t *testing.T) {
 	f.next = okPage("Other")
 	if cc := rs.servedThrough(f, "/other").Header().Get("Cache-Control"); !strings.Contains(cc, "s-maxage") {
 		t.Fatalf("Cache-Control = %q, want the public policy", cc)
+	}
+}
+
+// The site access gate sits in front of the wrapper: a request it holds back
+// never reaches the plugin.
+func TestRequestRedirectNotCalledWhenSiteGateHoldsRequestBack(t *testing.T) {
+	rs := newRedirectServer(t, "redirect")
+	rs.s.accessSettings = func(context.Context) (siteaccess.Settings, error) {
+		return siteaccess.Settings{Mode: siteaccess.ModeMaintenance, RetryAfter: 60, Epoch: 1}, nil
+	}
+	rs.s.setupRoutes()
+	rs.s.renderHandlers = newRenderFixture(t).h // renders the gate's maintenance page
+	rec := get(rs.s.dispatcher(), "GET", "/go")
+	if rec.Code != http.StatusServiceUnavailable || rec.Header().Get("Location") != "" {
+		t.Fatalf("maintenance: %d, Location %q, want the gate's 503", rec.Code, rec.Header().Get("Location"))
+	}
+	if rs.asked.Load() != 0 {
+		t.Fatal("the plugin was called for a request the site gate held back")
+	}
+	rs.s.accessSettings = func(context.Context) (siteaccess.Settings, error) {
+		return siteaccess.Settings{Mode: siteaccess.ModeOpen}, nil
+	}
+	if rec := get(rs.s.dispatcher(), "GET", "/go"); rec.Code != http.StatusFound || rs.asked.Load() != 1 {
+		t.Fatalf("open site: %d, %d calls, want the plugin's redirect", rec.Code, rs.asked.Load())
+	}
+}
+
+// The country follows the trusted-proxy policy: a forwarded address from a
+// peer that is not a trusted proxy is ignored.
+func TestRequestRedirectCountryIgnoresForwardedForFromUntrustedPeer(t *testing.T) {
+	rs := newRedirectServer(t, "redirect")
+	h, _, _ := rs.chain()
+	country := func(remote string) string {
+		req := httptest.NewRequest("GET", "/go", nil)
+		req.RemoteAddr = remote
+		req.Header.Set("X-Forwarded-For", "1.2.3.4") // the low half: XX
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		loc, _ := url.Parse(rec.Header().Get("Location"))
+		return loc.Query().Get("c")
+	}
+	if got := country("200.1.1.1:5000"); got != "YY" {
+		t.Fatalf("untrusted peer: country %q, want YY (its own address), not the forwarded one", got)
+	}
+	if got := country("127.0.0.1:5000"); got != "XX" {
+		t.Fatalf("trusted proxy: country %q, want XX (the forwarded address)", got)
+	}
+}
+
+// A plugin that never answers costs the visitor at most the call's timeout,
+// not the plugin's own run time.
+func TestRequestRedirectTimeoutIsCapped(t *testing.T) {
+	rs := newRedirectServer(t, "sl"+"eep")
+	h, reached, _ := rs.chain()
+	start := time.Now()
+	rec := get(h, "GET", "/go")
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Fatalf("a hung plugin held the request for %v", elapsed)
+	}
+	if rec.Body.String() != "normal" || reached.Load() != 1 {
+		t.Fatalf("not handled normally after the timeout: %d %q", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUnderPublicAPIPrefixWithoutConfig(t *testing.T) {
+	if (&Server{}).underPublicAPIPrefix("/go") {
+		t.Fatal("a server without a config reported an API prefix")
 	}
 }
