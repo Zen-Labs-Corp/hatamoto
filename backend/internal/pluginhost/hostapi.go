@@ -84,6 +84,9 @@ type Services struct {
 	// FetchPerMinute caps one plugin's outbound http.fetch requests per
 	// minute; 0 means DefaultFetchPerMinute.
 	FetchPerMinute int
+	// MailQuotas holds the owner-set mail.send recipients per hour; nil means
+	// DefaultMailPerHour for every plugin.
+	MailQuotas MailQuotas
 
 	// Run services. A nil one makes the functions that need it unavailable.
 	Changesets *changeset.Engine
@@ -132,7 +135,16 @@ type API struct {
 
 type pluginLimits struct {
 	log, mail, fetch *rate.Limiter
+
+	// Guarded by API.mu.
+	quota int   // mail.send recipients per hour the mail limiter was built for
+	hour  int64 // unix hour the sent counter belongs to
+	sent  int   // recipients mailed in that hour
 }
+
+// burstFor is the mail limiter's burst for a quota of n recipients per hour:
+// 1/36 of the hour's allowance, between 10 (one call's maximum) and 100.
+func burstFor(n int) int { return min(100, max(10, n/36)) }
 
 // NewAPI returns the host-function dispatcher. manifest looks up a loaded
 // plugin's manifest.
@@ -146,20 +158,53 @@ func NewAPI(svc Services, grants Grants, manifest func(string) (sdk.Manifest, bo
 func (a *API) limits(plugin string) *pluginLimits {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	return a.limitsLocked(plugin)
+}
+
+// limitsLocked is limits for a caller that holds a.mu.
+func (a *API) limitsLocked(plugin string) *pluginLimits {
 	l := a.limiters[plugin]
 	if l == nil {
 		perMin := a.svc.FetchPerMinute
 		if perMin <= 0 {
 			perMin = DefaultFetchPerMinute
 		}
+		quota := DefaultMailPerHour
+		if a.svc.MailQuotas != nil {
+			quota = a.svc.MailQuotas.MailPerHour(plugin)
+		}
 		l = &pluginLimits{
-			log:   rate.NewLimiter(10, 20),                         // 10 lines/s, burst 20
-			mail:  rate.NewLimiter(rate.Every(10*time.Second), 10), // 6 recipients/min, burst 10
+			log:   rate.NewLimiter(10, 20), // 10 lines/s, burst 20
+			mail:  rate.NewLimiter(rate.Limit(quota)/3600, burstFor(quota)),
+			quota: quota,
 			fetch: rate.NewLimiter(rate.Every(time.Minute/time.Duration(perMin)), min(perMin, 60)),
 		}
 		a.limiters[plugin] = l
 	}
 	return l
+}
+
+// SetMailQuota applies a new mail.send quota to the plugin's running limiter:
+// no restart, and the tokens it holds are kept.
+func (a *API) SetMailQuota(plugin string, perHour int) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	l := a.limitsLocked(plugin)
+	l.quota = perHour
+	l.mail.SetLimit(rate.Limit(perHour) / 3600)
+	l.mail.SetBurst(burstFor(perHour))
+}
+
+// MailQuotaState returns the plugin's live quota and the recipients it mailed
+// in the current clock hour (counted since this process started).
+func (a *API) MailQuotaState(plugin string) (perHour, sentThisHour int) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	l := a.limitsLocked(plugin)
+	if l.hour != time.Now().Unix()/3600 {
+		return l.quota, 0
+	}
+	return l.quota, l.sent
 }
 
 type callEnv struct {
@@ -384,7 +429,12 @@ func fnPermissions(_ context.Context, a *API, e *callEnv, _ jsontext.Value) (any
 	if g == nil {
 		g = []sdk.Permission{}
 	}
-	return map[string]any{"granted": g, "requested": e.manifest.Permissions}, nil
+	out := map[string]any{"granted": g, "requested": e.manifest.Permissions}
+	if slices.Contains(g, sdk.PermMailSend) {
+		perHour, _ := a.MailQuotaState(e.plugin)
+		out["mail"] = map[string]any{"recipients_per_hour": perHour}
+	}
+	return out, nil
 }
 
 // --- log, settings, mail, fetch ----------------------------------------------
@@ -458,13 +508,34 @@ func fnMailSend(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (an
 	}
 	// One token per recipient: the limit bounds the mails a plugin sends,
 	// not the calls it makes.
-	if !a.limits(e.plugin).mail.AllowN(time.Now(), len(args.To)) {
-		return nil, herr(sdk.ErrRateLimited, "mail rate limit (6 recipients per minute, burst 10)")
+	if ok, quota := a.takeMail(e.plugin, len(args.To)); !ok {
+		return nil, herr(sdk.ErrRateLimited, "mail quota (%d recipients per hour) reached", quota)
 	}
 	if err := a.svc.Mail.SendPlugin(ctx, e.plugin, args.To, args.Subject, args.HTML, args.Text); err != nil {
 		return nil, err
 	}
+	a.countMail(e.plugin, len(args.To))
 	return map[string]any{"sent": len(args.To)}, nil
+}
+
+// takeMail takes n recipients from the plugin's mail limiter and returns the
+// quota in force, read under the same lock as the limiter.
+func (a *API) takeMail(plugin string, n int) (bool, int) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	l := a.limitsLocked(plugin)
+	return l.mail.AllowN(time.Now(), n), l.quota
+}
+
+// countMail adds n delivered recipients to the plugin's hour counter.
+func (a *API) countMail(plugin string, n int) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	l := a.limitsLocked(plugin)
+	if h := time.Now().Unix() / 3600; l.hour != h {
+		l.hour, l.sent = h, 0
+	}
+	l.sent += n
 }
 
 func fnHTTPFetch(ctx context.Context, a *API, e *callEnv, raw jsontext.Value) (any, error) {

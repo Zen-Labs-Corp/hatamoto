@@ -35,6 +35,8 @@ type Config struct {
 	Services  Services
 	Grants    Grants
 	Scheduler Scheduler
+	// MailQuotas is the owner-set mail.send quota; nil means the default for every plugin.
+	MailQuotas MailQuotas
 }
 
 type capabilities struct {
@@ -51,11 +53,28 @@ func (r *Runtime) Configure(c Config) {
 	if c.Grants == nil {
 		c.Grants = NewGrantStore(nil)
 	}
+	c.Services.MailQuotas = c.MailQuotas
 	r.caps = capabilities{grants: c.Grants, cron: c.Scheduler, db: c.Services.DB}
 	r.caps.api = NewAPI(c.Services, c.Grants, r.manifest, r.log)
 	r.host.SetHostCall(r.caps.api.Call)
 	r.caps.admin = NewRouteRegistry(r.host.Call, false, r.log)
 	r.caps.public = NewRouteRegistry(r.host.Call, true, r.log)
+}
+
+// SetMailQuota applies the plugin's new mail.send quota to its running
+// limiter. The caller stores it; a rebuilt API reads it from Config.MailQuotas.
+func (r *Runtime) SetMailQuota(plugin string, perHour int) {
+	if r.caps.api != nil {
+		r.caps.api.SetMailQuota(plugin, perHour)
+	}
+}
+
+// MailQuotaState returns the plugin's live quota and the recipients it mailed this hour.
+func (r *Runtime) MailQuotaState(plugin string) (perHour, sentThisHour int) {
+	if r.caps.api == nil {
+		return DefaultMailPerHour, 0
+	}
+	return r.caps.api.MailQuotaState(plugin)
 }
 
 // Grants returns the grant store.
