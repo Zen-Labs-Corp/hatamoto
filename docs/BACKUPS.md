@@ -276,7 +276,7 @@ and nothing is written:
 | admin URL | `--admin-url` is missing, is not a postgres URL, cannot connect to the target database, is not a superuser, or reaches a different PostgreSQL cluster than `DATABASE_URL`. |
 | `DATABASE_URL` | It names no app role or no database, the role has an unusual name, it is not a postgres URL, or it holds a host list, `service`, or a query parameter the tools cannot be given. |
 | `--config-out` | The path is not absolute and clean, or its directory does not exist. |
-| cluster roles exist | The cluster already holds a role the backup recorded (the role admin or a plugin role), so it belongs to another site. The message names the roles. Not checked for backups that record no roles. |
+| cluster roles exist | The cluster already holds a role the backup recorded (the role admin or a plugin role), so it belongs to another database or was left by an earlier failed restore. The message names the roles; drop them or restore into another cluster. Not checked for backups that record no roles. |
 | target database not empty | Any table, view, sequence or similar outside the system schemas, including `hatamoto_admin` from an early bootstrap. The message names the schemas. |
 | media directory not empty | `MEDIA_UPLOAD_DIR` holds any file or directory. A missing directory counts as empty. |
 | media prefix not empty | With `MEDIA_STORAGE=s3` and an archive that holds media bytes: the bucket prefix already holds objects. |
@@ -292,8 +292,9 @@ already exists. Restore never overwrites a config file, and
 writes `secrets.env` with mode 0600 in a 0700 directory.
 
 **If a step fails** the error names the step reached. Nothing is rolled back: drop and recreate the
-empty database (and empty the media directory), then run the command again. Plugin roles made by a
-failed run belong to the cluster; drop them before retrying on the same cluster.
+empty database (and empty the media directory), then run the command again. Roles made by a
+failed run belong to the cluster: drop the plugin roles (`hm_p_<id8>_*`) and the role-admin role
+(`hatamoto_role_admin_<id8>`) before retrying on the same cluster.
 
 ### Manual procedure (fallback)
 

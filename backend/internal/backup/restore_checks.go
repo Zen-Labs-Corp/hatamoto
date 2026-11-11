@@ -268,7 +268,8 @@ func (x *restorer) check(ctx context.Context) (*RestorePlan, error) {
 	}
 
 	// The backup's cluster roles are free: the target database is empty, so a
-	// role that exists already belongs to another database.
+	// role that exists already was left by another database or an
+	// earlier failed restore.
 	if reasons, err := x.checkClusterRoles(ctx, q); err != nil {
 		return nil, fmt.Errorf("cannot check cluster roles: %w", err)
 	} else if len(reasons) > 0 {
@@ -715,5 +716,5 @@ func (x *restorer) checkClusterRoles(ctx context.Context, q Querier) ([]string, 
 	if len(names) == 0 {
 		return nil, nil
 	}
-	return []string{"cluster roles " + strings.Join(names, ", ") + " already exist (owned by another site); restore into a cluster that no longer has them"}, nil
+	return []string{"cluster roles " + strings.Join(names, ", ") + " already exist; drop them if a failed restore left them, or restore into a cluster without them"}, nil
 }

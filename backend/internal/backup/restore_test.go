@@ -574,7 +574,7 @@ func TestRestoreRefusesExistingClusterRoles(t *testing.T) {
 		base := filepath.Dir(r.o.MediaDir)
 		before := snapshot(t, base)
 		_, err := Restore(t.Context(), r.o, RestoreRequest{Source: buildArchive(t, withRoles), AdminURL: "postgres://su:pw@h/postgres", DryRun: dry})
-		wantRefusal(t, err, "cluster roles hatamoto_role_admin_abcd1234, hm_p_abcd1234_forms already exist")
+		wantRefusal(t, err, "cluster roles hatamoto_role_admin_abcd1234, hm_p_abcd1234_forms already exist; drop them if a failed restore left them, or restore into a cluster without them")
 		if strings.Contains(err.Error(), "unrelated") {
 			t.Errorf("refusal names an unrelated role: %v", err)
 		}
