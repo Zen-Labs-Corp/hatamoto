@@ -142,7 +142,11 @@ func TestStandingTabWithCreate(t *testing.T) {
 	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
 		t.Errorf("a11y: %s", strings.Join(issues, "; "))
 	}
-	compareGolden(t, "pages/plugins-automatic-create.html", normalizePage(body))
+	// The summary is dated by the wall clock, and this test runs in parallel so
+	// it cannot pin pluginsNow; freeze the date text for the golden instead.
+	today := fmtDate(time.Now().In(time.UTC))
+	frozen := strings.ReplaceAll(body, "Daily summary, "+today, "Daily summary, 10 Nov 2026")
+	compareGolden(t, "pages/plugins-automatic-create.html", normalizePage(frozen))
 
 	fs.digest = []StandingDigestRow{{Plugin: "shop-sync", Changes: 3}}
 	if body = g.do("GET", standingPath, "owner-token", nil, nil).Body.String(); strings.Contains(body, "New entries published automatically") {
