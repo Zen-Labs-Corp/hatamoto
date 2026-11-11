@@ -277,3 +277,31 @@ func TestFlightUnboundedStarterHasNoCap(t *testing.T) {
 		t.Fatalf("v=%d err=%v", v, err)
 	}
 }
+
+// A panicking commit must not leave the flight locked or the waiters hanging.
+func TestFlightCommitPanicDoesNotLockFlight(t *testing.T) {
+	t.Parallel()
+	var f Flight[int]
+	done := make(chan error, 1)
+	go func() {
+		_, err := f.DoCommit(context.Background(), func(context.Context) (int, error) { return 1, nil }, func(int) { panic("kaput") })
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("want an error from the panicking commit")
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("waiter hung after a commit panic")
+	}
+	// The flight lock is free and the flight usable again.
+	if f.mu.TryLock() {
+		f.mu.Unlock()
+	} else {
+		t.Fatal("Flight.mu left locked")
+	}
+	if v, err := f.Do(context.Background(), func(context.Context) (int, error) { return 9, nil }); err != nil || v != 9 {
+		t.Fatalf("v=%d err=%v", v, err)
+	}
+}

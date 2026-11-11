@@ -147,11 +147,13 @@ func (f *Flight[T]) DoCommit(ctx context.Context, load func(context.Context) (T,
 func (f *Flight[T]) own(ctx context.Context, gen uint64, load func(context.Context) (T, error), commit func(T)) (T, error) {
 	val, err := load(ctx)
 	if err == nil && commit != nil {
-		f.mu.Lock()
-		if f.gen == gen {
-			commit(val)
-		}
-		f.mu.Unlock()
+		func() {
+			f.mu.Lock()
+			defer f.mu.Unlock()
+			if f.gen == gen {
+				commit(val)
+			}
+		}()
 	}
 	return val, err
 }
@@ -180,8 +182,17 @@ func (f *Flight[T]) lead(ctx context.Context, c *flightCall[T], gen uint64, load
 	}()
 
 	capped := err != nil && errors.Is(lctx.Err(), context.DeadlineExceeded)
-	f.mu.Lock()
-	if f.gen == gen {
+	func() {
+		f.mu.Lock()
+		defer f.mu.Unlock() // also when commit panics
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("shared load commit panicked: %v", r)
+			}
+		}()
+		if f.gen != gen {
+			return
+		}
 		f.cur = nil
 		if err == nil {
 			if commit != nil {
@@ -190,8 +201,7 @@ func (f *Flight[T]) lead(ctx context.Context, c *flightCall[T], gen uint64, load
 		} else if !capped { // a cap expiry is not a failure of the dependency
 			f.lastErr, f.errAt = err, f.clock()
 		}
-	}
-	f.mu.Unlock()
+	}()
 	c.val, c.err, c.capped = val, err, capped
 	close(c.done)
 }
