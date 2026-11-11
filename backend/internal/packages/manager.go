@@ -332,6 +332,9 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if err := pluginhost.SDKRefusal(man); err != nil {
 			return nil, &ParseError{Msg: err.Error()}
 		}
+		if err := pluginhost.RedirectPathsRefusal(man); err != nil {
+			return nil, &ParseError{Msg: err.Error()}
+		}
 		if err := checkCommunityCSP(origin, man); err != nil {
 			return nil, err
 		}
@@ -369,6 +372,16 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	}
 	if p.Kind == KindPlugin && (!updating || prev.Enabled) {
 		if err := m.checkSchemas(ctx, p); err != nil {
+			return nil, err
+		}
+	}
+	// A path is declared by one plugin only, whether or not it is enabled.
+	if p.Kind == KindPlugin {
+		rows, err := m.store.List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if err := redirectPathConflict(rows, p); err != nil {
 			return nil, err
 		}
 	}
@@ -858,6 +871,13 @@ func (m *Manager) SetEnabled(ctx context.Context, name string, on bool) error {
 	if on {
 		p, _, err := m.store.Load(ctx, KindPlugin, name)
 		if err != nil {
+			return err
+		}
+		rows, err := m.store.List(ctx)
+		if err != nil {
+			return err
+		}
+		if err := redirectPathConflict(rows, p); err != nil {
 			return err
 		}
 		// A plugin installed before content types existed may ship a schema the
