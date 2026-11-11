@@ -147,6 +147,6 @@ if (r.ok) document.getElementById("shot").src = r.image;   // a JPEG data URL
 else console.log(r.error);                                  // cancelled, denied or unavailable
 ```
 
-Hatamoto's own dialog shows the preview and the **Capture** button, so the plugin never touches the camera. Add the `<img id="shot">` yourself; `img-src data:` is already allowed.
+Call it from a click handler: without a recent click, or without the owner's grant, the promise rejects with an `Error`. `hatamoto.camera.available` is `true` when the owner granted the camera, so you can hide the button otherwise. Revoking applies on the next page load. Hatamoto's own dialog shows the preview and the **Capture** button, so the plugin never touches the camera. Add the `<img id="shot">` yourself; `img-src data:` is already allowed.
 
 The bridge has one more call, `hatamoto.host`, for host functions, but only the owner may use it. Its rules, the full page policy, template functions and public files are on [Admin pages and templates](admin-pages-and-templates.md).

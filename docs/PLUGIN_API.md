@@ -2,7 +2,7 @@
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
-> **0.22.2 changes (additive over 0.22.1).** The `ui` block gains `"allow": ["camera"]`. When the owner ticks `ui.allow:camera` on the plugin's Permissions tab, the plugin's admin page may call `hatamoto.camera.capture()` and get one photo from the owner's camera. A host older than 0.22.2 ignores the field and the grant, so a plugin that relies on it declares `^0.22.2`. See [Camera](#camera).
+> **0.22.2 changes (additive over 0.22.1).** The `ui` block gains `"allow": ["camera"]`. When the owner ticks `ui.allow:camera` on the plugin's Permissions tab, the plugin's admin page may call `hatamoto.camera.capture()` and get one photo from the owner's camera. A host older than 0.22.2 ignores the field and the grant, so a plugin that relies on it declares `^0.22.2`. `permissions()` lists `ui.allow:camera` in `requested` (and in `granted` once ticked) for a plugin that asks, so `granted` stays a subset of `requested`. See [Camera](#camera).
 >
 > **0.22.1 changes (additive over 0.22.0).** `permissions()` gains `"mail": {"recipients_per_hour": N}` for a plugin granted `mail.send`: the number of recipients the plugin may email per hour. The limit is owner-set per plugin (default 360, range 1 to 3600, on the plugin Permissions tab) and the plugin cannot change it. The key is absent without the grant and on hosts older than 0.22.1, so treat a missing `mail` as unknown and assume the default; `granted` and `requested` are unchanged.
 >
@@ -142,14 +142,17 @@ A plugin whose page needs a photo (a scan, a receipt, a profile picture) declare
 ```
 
 ```js
-const r = await hatamoto.camera.capture();
+await hatamoto.ready;
+if (hatamoto.camera.available) {            // the owner granted it; false otherwise
+  const r = await hatamoto.camera.capture(); // call it from a click handler
+}
 //   -> {ok:true, image:"data:image/jpeg;base64,...", width, height}
 //   |  {ok:false, error:"cancelled" | "denied" | "unavailable"}
 ```
 
-The call opens a dialog that **core** draws on the admin page, outside the frame: the person sees the live preview, clicks **Capture** and gets one JPEG, at most 1280 px on the longer side and about 1 MB. `cancelled` means they closed the dialog, `denied` that the browser or the owner refused the camera, `unavailable` that there is no camera or the browser cannot open one. The result shape and these three codes are stable.
+The call opens a dialog that **core** draws on the admin page, outside the frame: the person sees the live preview, clicks **Capture** and gets one JPEG, at most 1280 px on the longer side and about 1 MB. `cancelled` means they closed the dialog, `denied` that the browser refused the camera (the dialog stays open with the reason until the person closes it), `unavailable` that there is no camera or the browser cannot open one. The result shape and these three codes are stable.
 
-The owner must tick `ui.allow:camera` on the plugin's Permissions tab. It is unticked by default, kept when the plugin is updated and revoked when it is uninstalled. Without the grant the bridge refuses the op. The frame's sandbox and Content-Security-Policy stay as above: the plugin never touches the camera itself, and the camera stops when the dialog closes. Declare `^0.22.2` to rely on it: `^0.22` also matches a 0.22.1 host, which ignores `allow` and the grant.
+The owner must tick `ui.allow:camera` on the plugin's Permissions tab. It is unticked by default, kept when the plugin is updated and revoked when it is uninstalled. Without the grant the call does not return `{ok:false}`: the promise **rejects** with an `Error`, so check `hatamoto.camera.available` (also `camera` in the `hatamoto.ready` value) before showing a scan button, or wrap the call in `try`/`catch`. The call also needs a person's click in the page just before it: from a timer or on load the promise rejects with an `Error` too, and only one capture can be open at a time (a second call returns `cancelled`). Clicks on **Capture** are ignored for half a second after the preview appears. Revoking the grant applies the next time the page loads. The frame's sandbox and Content-Security-Policy stay as above: the plugin never touches the camera itself, and the camera stops when the dialog closes. Declare `^0.22.2` to rely on it: `^0.22` also matches a 0.22.1 host, which ignores `allow` and the grant.
 
 The bridge serves only the first document loaded in the frame, and every request
 carries a per-load nonce. If the page navigates the frame elsewhere, the host
