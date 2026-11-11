@@ -25,10 +25,11 @@ var (
 // leading slash or backslash, a leading "www.", a media or document file
 // extension, or a CSS url( or image-set(. It looks at the string as written and
 // as a reader would resolve it (decoded until stable, backslashes straightened,
-// lowercased). Inside HTML markup the value of every attribute of every tag
-// (href, src, action, cite, data, xlink:href, ...) is checked the same way, so
-// a link in a tag is found whether or not the string starts with it. Plain prose, numbers, times ("19:30"), labels ("Doors: 7pm")
-// and fractions ("page 3/4") do not match. It is deliberately broad: a false
+// lowercased). Inside HTML markup, a link attribute (href, src, action, cite,
+// data, xlink:href, data-entity-id, ...) with a non-blank value matches whatever
+// the value is, and every other attribute value is checked like plain text
+// (never parsed as markup again). Plain prose, numbers, times ("19:30"), labels
+// ("Doors: 7pm") and fractions ("page 3/4") do not match. It is deliberately broad: a false
 // positive only makes a change wait for a person.
 func LooksLikeURLOrPath(s string) bool {
 	if strings.TrimSpace(s) == "" {
