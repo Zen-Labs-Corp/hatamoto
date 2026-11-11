@@ -61,7 +61,7 @@ The SDK is bumped to 0.13.0 for `locale`, to 0.14.0 for the form attribution and
 change under the same version (`scripts/publish-sdk.sh` refuses to retag a different tree) and 0.10 and
 0.11 set the precedent of shipping additive payload changes as a minor.
 
-The 0.22.0 bump is additive over 0.21: the `request.redirect` filter and the `redirect_paths` manifest field, with the `RedirectContext` and `Redirect` types (see `version.go`).
+The 0.22.0 bump is additive over 0.21: the `request.redirect` filter and the `redirect_paths` manifest field, with the `RedirectContext` and `Redirect` types (see `version.go`). A plugin that uses them, or the `request.redirect` key of `limits.hook_timeouts_ms`, must declare `^0.22`: an older host would ignore the field and the redirects would silently stop.
 
 The 0.21.0 bump is additive over 0.20: the `packages.inspect` permission and host function, the `hatamoto.dev/sdk/registry` package and `guest.PackagesInspect` (see `version.go`).
 
