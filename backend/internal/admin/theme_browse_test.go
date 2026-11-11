@@ -267,3 +267,17 @@ func TestThemeBrowseDeveloperCard(t *testing.T) {
 		t.Error("the Developer chip shows although the developer index is not offered")
 	}
 }
+
+// A developer theme card shows the Developer badge with or without an author.
+func TestThemeBrowseDeveloperBadgeWithoutAuthor(t *testing.T) {
+	t.Parallel()
+
+	g, _ := themeBrowseRig(t, RegistryView{Host: themeRegistryHost, DeveloperAvail: true, Entries: []RegistryEntry{
+		{Kind: "theme", Name: "anon", Title: "Anon", Tier: "developer", Developer: true, Version: "1.0.0"},
+	}})
+	body := getThemeBrowse(g, "")
+	i := strings.Index(body, "hm-themecard__by")
+	if i < 0 || !strings.Contains(body[i:i+400], "Developer") || strings.Contains(body, "by @") {
+		t.Errorf("developer badge missing or an empty author shown:\n%s", body)
+	}
+}
