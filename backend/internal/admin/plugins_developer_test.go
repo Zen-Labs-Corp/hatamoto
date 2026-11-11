@@ -172,3 +172,14 @@ func TestDeveloperGatesPagePasswordless(t *testing.T) {
 		t.Error("a passwordless owner must be sent to the profile, not shown a gate form")
 	}
 }
+
+// The Package security copy names no site: the developer index is configurable.
+func TestPackageSecurityDeveloperCopyIsNeutral(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := unsignedRig(t)
+	rec := g.do("GET", "/admin/plugins/security", "owner-token", nil, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Developer packages") || strings.Contains(rec.Body.String(), "developers on hatamoto.dev") {
+		t.Errorf("status %d, body names a site or lacks the developer card", rec.Code)
+	}
+}

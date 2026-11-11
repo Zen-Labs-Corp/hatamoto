@@ -10,7 +10,7 @@
 </ul>{{else}}<p class="hm-muted">No signers are trusted.</p>{{end}}
 <p class="hm-muted">Signers are set by whoever runs the server, not from this screen.</p>{{template "hm/card-end"}}
 {{template "hm/card-start" dict "ID" "developer-card" "Title" "Developer packages" "Heading" "h2"}}<p class="hm-row">{{if .Developer}}{{template "hm/badge" dict "Label" "On" "Kind" "warning"}}{{else}}{{template "hm/badge" dict "Label" "Off" "Kind" "muted"}}{{end}}</p>
-<p class="hm-muted">Plugins and themes published by registered developers on hatamoto.dev. Hatamoto checks who signed them, but does not review their code.</p>
+<p class="hm-muted">Plugins and themes published by registered developers on the developer registry. Hatamoto checks who signed them, but does not review their code.</p>
 {{if .Developer}}<form method="post" action="{{adminPath}}/plugins/developer/off">{{template "hm/csrf" $}}{{template "hm/foot"}}{{template "hm/button" dict "Label" "Turn off" "Type" "submit"}}{{template "hm/foot-end"}}</form>
 {{else}}{{template "hm/foot"}}{{template "hm/button" dict "Label" "Allow developer packages…" "Href" (printf "%s/plugins/security/developer" adminPath)}}{{template "hm/foot-end"}}{{end}}{{template "hm/card-end"}}
 {{if not .State.On}}{{template "hm/callout-start" (dict "Kind" "danger" "ID" "unsigned-allow")}}<details class="hm-disclosure hm-pluginsecurity__advanced"><summary>Advanced: allow unsigned packages</summary><div class="hm-disclosure__body">
