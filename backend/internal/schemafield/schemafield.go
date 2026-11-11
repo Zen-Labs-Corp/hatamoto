@@ -37,8 +37,12 @@ func IsURIField(format, xHm string) bool {
 // an image by name, whatever the schema says about them: the SEO panel's social
 // image (internal/seopanel/attrs.go), og:image (internal/server/public_pages_loader.go),
 // sitemap images (internal/server/public_handlers.go) and JSON-LD images
-// (internal/entity/public_repository.go). A new reader of such a key belongs here.
-var ImageAttributeNames = []string{"og_image", "featured_image", "image", "photo"}
+// (internal/entity/public_repository.go). The default theme's readers take
+// cover, hero_image, thumbnail, headshot and logo the same way
+// (internal/server/render_listing.go, internal/render/bind.go and the JSON-LD
+// image); they are listed as defence in depth, since the automatic create also
+// refuses every link. A new reader of such a key belongs here.
+var ImageAttributeNames = []string{"og_image", "featured_image", "image", "photo", "cover", "hero_image", "thumbnail", "headshot", "logo"}
 
 // IsImageAttributeName reports whether a public reader treats the attribute
 // key as an image by name.

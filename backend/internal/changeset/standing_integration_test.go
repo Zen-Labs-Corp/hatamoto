@@ -764,19 +764,19 @@ func TestStandingCreateRefusals(t *testing.T) {
 		{"link_like_0_cover", func() int64 {
 			s.setSchema(linkFieldsSchema)
 			return s.stageAll(s.newItem("lk0", map[string]any{"attributes": map[string]any{"title": "T", "cover": "https://" + s.siteHost() + "/flyer.jpg"}}))
-		}, "links, paths or files"},
+		}, "image or file"},
 		{"link_like_1_thumbnail", func() int64 {
 			s.setSchema(linkFieldsSchema)
 			return s.stageAll(s.newItem("lk1", map[string]any{"attributes": map[string]any{"title": "T", "thumbnail": "/name.jpg"}}))
-		}, "links, paths or files"},
+		}, "image or file"},
 		{"link_like_2_hero_image", func() int64 {
 			s.setSchema(linkFieldsSchema)
 			return s.stageAll(s.newItem("lk2", map[string]any{"attributes": map[string]any{"title": "T", "hero_image": "name.jpg"}}))
-		}, "links, paths or files"},
+		}, "image or file"},
 		{"link_like_3_logo", func() int64 {
 			s.setSchema(linkFieldsSchema)
 			return s.stageAll(s.newItem("lk3", map[string]any{"attributes": map[string]any{"title": "T", "logo": "www.example.com/logo"}}))
-		}, "links, paths or files"},
+		}, "image or file"},
 		{"link_like_4_style", func() int64 {
 			s.setSchema(linkFieldsSchema)
 			return s.stageAll(s.newItem("lk4", map[string]any{"attributes": map[string]any{"title": "T", "style": "background:image-set(\"x.png\" 1x)"}}))
