@@ -13,8 +13,8 @@ The full theme reference (layouts, template funcs, sections, markers) is
 
 Developer packages are listed at <https://hatamoto.dev/themes> and in Admin >
 Settings > Theme > Browse registry. Site owners can install them once they allow
-developer packages (see Part 2). Themes in the first-party registry are listed another way, see
-[First-party listing](#first-party-listing).
+developer packages (see Part 2). Themes in the first-party registry are listed
+another way, see [First-party listing](#first-party-listing).
 
 
 ## Part 1: Write a theme
@@ -144,8 +144,8 @@ hatamoto theme pack ./hatamoto-kumo --key mykey.key --out kumo.hmp
 Keep `mykey.key` out of git and never share it. Hatamoto does not re-sign your
 theme: the `.hmp` you build carries your signature, and that is what site owners
 install. An account has one key and updates must be signed with the same key, so
-keep it safe and reuse it in [Part 2](#part-2-publish-your-theme). The command prints `signed by <key id>`. To try the package on your own
-development server, trust your key with `HATAMOTO_TRUSTED_KEYS` or allow
+keep it safe and reuse it in [Part 2](#part-2-publish-your-theme). The command
+prints `signed by <key id>`. To try the package on your own development server, trust your key with `HATAMOTO_TRUSTED_KEYS` or allow
 unsigned packages, as described in
 [THEMES.md](THEMES.md#installing-and-activating-themes) and
 [PACKAGES.md](PACKAGES.md).
@@ -205,18 +205,20 @@ from Browse registry or with `hatamoto package install <name>`.
 ### Updating a theme
 
 Raise `version` in `theme.json`, pack with the same key, attach the new `.hmp` to
-a new release and submit the new link (use the form, not "Resubmit"). The new version replaces the old listing
-once approved. An update signed by a different key is refused.
+a new release and submit the new link (use the form, not "Resubmit"). The new
+version replaces the old listing once approved. An update signed by a different
+key is refused.
 
 ### Removing a theme
 
 Contact us and we will remove the listing. We may refuse or remove listings under
-the developer terms. A removal by us revokes the listing: sites that installed
-the theme have it turned off the next time they read the developer index, within
-about 6 hours, and a site that uses it as its active theme goes back to the
-default theme. A listing also drops out by itself when the release file or its
-signer changes; that only takes it out of the listing and leaves installed copies
-alone.
+the developer terms. A removal revokes the listed version: sites running that
+version have it turned off within about 6 hours, and a site that uses it as its
+active theme goes back to the default theme. Older versions a site has installed
+keep running unless we revoke your key, which turns off every package signed by
+it. Suspending an account only delists. A listing also drops out by itself when
+the release file or its signer changes; that only takes it out of the listing and
+leaves installed copies alone.
 
 ## First-party listing
 

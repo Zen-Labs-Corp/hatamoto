@@ -310,7 +310,8 @@ release, and follow [Part 2](#part-2-publish-your-plugin).
 Anyone can publish. Developer accounts are free for now. We may introduce a fee later and will announce it in advance. You need an account to submit.
 
 1. **Create an account.** Open <https://hatamoto.dev/developers>, choose
-   "Sign in with GitHub", add a display name and accept the developer terms. You need a verified email on your GitHub account.
+   "Sign in with GitHub", add a display name and accept the developer terms.
+   You need a verified email on your GitHub account.
 2. **Add your signing key.** Use the key you made in Part 1 step 6. Do not run
    `keys generate` again with the same name, it refuses to overwrite `mykey.key`.
    On the dashboard, paste the contents of `mykey.pub` and choose "Add key".
@@ -346,11 +347,12 @@ link and the same text again, so it only helps when you replaced the file at tha
 link. For a new release or new text, fill in the form again.
 
 **Removing.** To take a plugin down, contact us. We may refuse or remove
-listings as the developer terms allow. A removal by us revokes the listing, and
-sites that installed it have it turned off the next time they read the developer
-index, within about 6 hours. A listing also drops out by itself if its file or
-signer changes; that only takes it out of the listing and leaves installed copies
-alone.
+listings as the developer terms allow. A removal revokes the listed version:
+sites running that version have it turned off within about 6 hours. Older
+versions a site has installed keep running unless we revoke your key, which turns
+off every package signed by it. Suspending an account only delists. A listing
+also drops out by itself if its file or signer changes; that only takes it out of
+the listing and leaves installed copies alone.
 
 ## First-party listing
 
@@ -406,8 +408,9 @@ and that the commit exists.
 
 ### Listing rules
 
-The validator and the registry build both enforce these rules. First-party plugins are exempt from the brand, reserved-name and title-word rules. The word lists
-live in the `policy/` folder of the plugins repository.
+The validator and the registry build both enforce these rules. First-party
+plugins are exempt from the brand, reserved-name and title-word rules. The word
+lists live in the `policy/` folder of the plugins repository.
 
 - `author` must equal the owner of `repo`, except for first-party plugins.
 - No part of the name may be a banned word or a reserved name, or a brand you do
