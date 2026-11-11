@@ -382,3 +382,16 @@ func TestManifestCSP(t *testing.T) {
 		}
 	}
 }
+
+func TestRedirectPathsRefusePercentEscapes(t *testing.T) {
+	m := Manifest{Name: "rdr", Version: "0.1.0", SDK: "^0.22", RedirectPaths: []string{"/caf\u00e9", "/a/b"}}
+	if err := m.Validate(); err != nil {
+		t.Fatalf("decoded paths refused: %v", err)
+	}
+	for _, p := range []string{"/caf%C3%A9", "/a%2Fb", "/%41", "/a%"} {
+		m.RedirectPaths = []string{p}
+		if err := m.Validate(); err == nil || !strings.Contains(err.Error(), `must not contain "%"`) {
+			t.Errorf("redirect_paths %q: err = %v, want a refusal of %%", p, err)
+		}
+	}
+}

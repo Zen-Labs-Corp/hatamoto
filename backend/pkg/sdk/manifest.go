@@ -688,7 +688,9 @@ func (m Manifest) validateCapabilities() error {
 }
 
 // validateRedirectPaths checks the declared request.redirect paths: exact,
-// clean, absolute paths without query, fragment or wildcard. Which paths the
+// clean, absolute paths without query, fragment, wildcard or percent escape
+// (a path is matched decoded, so a declared "/caf%C3%A9" could never match;
+// declare "/café"). Which paths the
 // host reserves for itself is the host's business, not checked here.
 func (m Manifest) validateRedirectPaths() error {
 	if len(m.RedirectPaths) > MaxRedirectPaths {
@@ -718,7 +720,7 @@ func checkRedirectPath(p string) error {
 		switch c := p[i]; {
 		case c <= 0x20 || c == 0x7f:
 			return errors.New("must not contain whitespace or control characters")
-		case c == '?' || c == '#' || c == '*' || c == '\\':
+		case c == '?' || c == '#' || c == '*' || c == '\\' || c == '%':
 			return fmt.Errorf("must not contain %q", string(c))
 		}
 	}
