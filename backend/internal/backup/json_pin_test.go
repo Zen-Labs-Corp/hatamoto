@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -252,5 +253,23 @@ func TestRetentionWriteBytes(t *testing.T) {
 	}
 	if string(b) != headRetention {
 		t.Fatalf("retention.json = %q, want %q", b, headRetention)
+	}
+}
+
+// Roles round-trip through the manifest; without them the key is omitted, so
+// older readers and the byte pins above are unaffected.
+func TestManifestRolesRoundTrip(t *testing.T) {
+	if strings.Contains(string(manifestOf(t, pinManifest())), "roles") {
+		t.Fatal("roles key written for a manifest without roles")
+	}
+	mf := pinManifest()
+	mf.Roles = []string{"hatamoto_role_admin_abcd1234", "hm_p_abcd1234_forms"}
+	path := tarWith(t, []string{manifestName}, map[string][]byte{manifestName: manifestOf(t, mf)})
+	sc, err := scanArchive(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(sc.mf.Roles, mf.Roles) {
+		t.Fatalf("roles = %v", sc.mf.Roles)
 	}
 }
