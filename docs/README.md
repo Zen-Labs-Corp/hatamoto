@@ -25,9 +25,9 @@ How the guides are written and published: [`site/README.md`](site/README.md), [`
 
 | Document | What it covers |
 | --- | --- |
-| [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md) | write a plugin in your own repo and get it into the registry |
+| [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md) | write a plugin in your own repo and publish it |
 | [PLUGIN_API.md](PLUGIN_API.md) | the plugin SDK: manifest, hooks, host functions, permissions |
-| [THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md) | build a theme in your own repo and get it listed |
+| [THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md) | build a theme in your own repo and publish it |
 | [THEMES.md](THEMES.md) | the theme contract: layouts, partials, template functions, sections |
 | [WIDGET_PACKS.md](WIDGET_PACKS.md) | builder widgets and data sources supplied by a package |
 | [PACKAGES.md](PACKAGES.md) | `.hmp` packages, signing and the registry |

@@ -100,6 +100,7 @@ The server trusts the built-in first-party key and the keys listed in `HATAMOTO_
 3. If it is unsigned, it is refused unless the owner switched on **Allow unsigned packages** on the Plugins page (`<admin>/plugins`). That setting is off by default, needs an acknowledgement tick, and the page then shows a standing warning.
 4. A `theme dev` push is an unsigned development package, allowed only when the server's `ENVIRONMENT` is not `production`. A production server never loads development packages and ignores any such row in its database at load and activate; the admin shows why.
 5. Replacing an installed package asks for confirmation when the new version is not newer, when another key (or no key) signed it, or when it is the active theme and would drop section types your content uses. The CLI needs `--confirm` for these.
+6. A package from the developer registry is signed by the key of a registered developer, not by a key in your list. It installs only after the owner switches on **Allow developer packages** on the Package security page (`<admin>/plugins/security`), which takes an acknowledgement, the typed site address and the owner password. Hatamoto checks who signed it but does not review the code.
 
 `HATAMOTO_TRUST_FIRST_PARTY=false` drops the built-in first-party key, so only `HATAMOTO_TRUSTED_KEYS` is trusted. A package whose signer is no longer trusted is not loaded at boot or at the next check. The server logs `installed package not loaded`, the card shows **Not used:** with the reason, and an active theme falls back to the built-in one. To rotate a key, add the new one, re-sign and update your packages, then remove the old key.
 
@@ -110,7 +111,8 @@ Installs, updates, activations and every switch of the unsigned opt-in are writt
 | Variable | Default | Effect |
 | --- | --- | --- |
 | `HATAMOTO_REGISTRY_URL` | `https://hatamoto.dev/registry.json` | signed registry index to browse. `off` disables browsing, while upload and the CLI still work. Must be `https://` |
-| `HATAMOTO_REGISTRY_ALLOW_HTTP` | unset | `true` allows an `http://` registry, for development only |
+| `HATAMOTO_REGISTRY_ALLOW_HTTP` | unset | `true` allows an `http://` registry or developer registry, for development only |
+| `HATAMOTO_DEVELOPER_REGISTRY_URL` | `https://hatamoto.dev/p/devportal/registry.json` | signed index of developer packages. `off` disables them. Must be `https://` unless `HATAMOTO_REGISTRY_ALLOW_HTTP=true` |
 | `HATAMOTO_TRUSTED_KEYS` | empty | base64 ed25519 public keys of trusted signers, separated by commas or spaces. A value that is not a 32-byte key stops the server at boot |
 | `HATAMOTO_TRUST_FIRST_PARTY` | trusted | `false` stops trusting the built-in first-party key |
 | `HATAMOTO_SIGNING_KEY` | unset | default `--key` of `theme pack`, `plugin pack` and `registry index` |

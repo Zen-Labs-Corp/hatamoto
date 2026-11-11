@@ -1237,7 +1237,7 @@ hatamoto theme check ./my-theme               # the same checks as pack, writes 
 hatamoto theme check ./my-theme --registry    # also the registry rules: a valid screenshot is required, "default" is refused
 ```
 
-To publish a theme in the registry, see [THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md).
+To publish a theme, see [THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md#part-2-publish-your-theme).
 
 ## Plugins
 

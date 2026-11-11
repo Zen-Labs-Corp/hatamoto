@@ -1,20 +1,19 @@
 # Write and submit a plugin
 
-How to write a Hatamoto plugin in your own GitHub repo and get it approved for
-the registry. Part 1 covers writing and testing, Part 2 covers the submission.
+How to write a Hatamoto plugin in your own GitHub repo and publish it through a
+developer account. Part 1 covers writing and testing, Part 2 covers publishing.
 The full reference (hooks, payloads, host functions, permissions) is
 [PLUGIN_API.md](PLUGIN_API.md); packaging and trust are in
 [PACKAGES.md](PACKAGES.md).
 
 > **Status:** the Hatamoto SDK (`hatamoto.dev/sdk`) is fetchable with `go get`
-> only once Hatamoto core goes public (roadmap item v1-24). Submissions to the
-> registry open at the same time. Until then the steps below describe the path
-> you will follow, and a plugin inside this repository uses the `replace`
-> described in PLUGIN_API.md.
+> only once Hatamoto core goes public (roadmap item v1-24). Until then the steps
+> below describe the path you will follow, and a plugin inside this repository
+> uses the `replace` described in PLUGIN_API.md.
 
-Approved plugins are listed at <https://hatamoto.dev/plugins> and install with
-one click from Admin > Plugins > Browse registry. Looking to publish a theme
-instead? See [THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md).
+Plugins published this way are listed as Developer packages in Admin > Plugins >
+Browse registry. Looking to publish a theme instead? See
+[THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md).
 
 ## Part 1: Write a plugin
 
@@ -198,11 +197,11 @@ recommended.
 
 | Field | Meaning |
 |---|---|
-| `name` | `^[a-z][a-z0-9-]{1,39}$`; also the name of your manifest file here |
+| `name` | `^[a-z][a-z0-9-]{1,39}$` |
 | `version` | your plugin's semver; bump it for every release |
 | `sdk` | SDK range you built against, for example `^0.11` (declare `^0.11` until your users run v0.31.0, then `^0.12`) |
 | `description` | shown in the plugin directory |
-| `permissions` | capabilities you ask for (`settings`, `kv`, `db`, `http.fetch`, ...). Ask for the least you need; reviewers check each one |
+| `permissions` | capabilities you ask for (`settings`, `kv`, `db`, `http.fetch`, ...). Ask for the least you need; site owners see each one when they install |
 | `allowed_hosts` | the hosts `http.fetch` may call; list them exactly |
 | `routes`, `cron`, `funcs`, `cookies`, `limits`, `settings_schema` | optional, see the plugin reference |
 
@@ -218,12 +217,13 @@ cp plugin.json build/plugin.json
 for d in migrations ui assets; do if [ -d "$d" ]; then cp -r "$d" "build/$d"; fi; done
 ```
 
-`build/` is exactly what gets packed. This is also the recipe the registry
-uses, so if it works here it works there. Add `build/` to `.gitignore`.
+`build/` is exactly what gets packed. This is also the recipe the first-party
+registry uses, so if it works here it works there. Add `build/` to `.gitignore`.
 
-Only Go plugins can be listed today. A plugin written in another language can
-be packed and installed on your own server, but the registry builder runs the Go
-recipe above and does not build other toolchains.
+The first-party registry builds Go plugins only. A developer account takes any
+signed `.hmp`, so a plugin written in another language can be packed, installed
+on your own server and published through [Part 2](#part-2-publish-your-plugin).
+Only the build step above is Go specific.
 
 ### 5. Test on your machine
 
@@ -280,9 +280,10 @@ hatamoto keys generate --name mykey      # mykey.key (secret) + mykey.pub
 hatamoto plugin pack ./build --key mykey.key --out acme-seo.hmp
 ```
 
-Keep `mykey.key` out of git. This key is only for your own trials: the registry
-re-builds your plugin from source and signs it with the Hatamoto key, so your
-signature is never shipped.
+Keep `mykey.key` out of git and never share it. Hatamoto does not re-sign your
+plugin: the `.hmp` you build carries your signature, and that is what site
+owners install. An account has one key and updates must be signed with the same
+key, so keep it safe and reuse it in [Part 2](#part-2-publish-your-plugin).
 
 To try the package on a development server, pick one:
 
@@ -299,36 +300,78 @@ To try the package on a development server, pick one:
   package, replacing an installed one of the same name. Nothing is stored and a
   restart reloads it. It is for development only, never for deployment.
 
-### 7. Publish your repo and submit
+### 7. Publish your repo and release
 
-Push your code to GitHub, tag a release if you like, copy the 40 character commit
-id you want reviewed, and follow [Part 2](#part-2-submit-a-plugin).
+Push your code to GitHub, build a signed `.hmp` file, attach it to a GitHub
+release, and follow [Part 2](#part-2-publish-your-plugin).
 
-## Part 2: Submit a plugin
+## Part 2: Publish your plugin
 
-Submissions go to the public plugins repository <https://github.com/Zen-Labs-Corp/hatamoto-plugins>.
+Anyone can publish. Developer accounts are free for now. We may introduce a fee later and will announce it in advance. You need an account to submit.
 
-### How it works
+1. **Create an account.** Open <https://hatamoto.dev/developers>, choose
+   "Sign in with GitHub", add a display name and accept the developer terms.
+   You need a verified email on your GitHub account.
+2. **Add your signing key.** Use the key you made in Part 1 step 6. Do not run
+   `keys generate` again with the same name, it refuses to overwrite `mykey.key`.
+   On the dashboard, paste the contents of `mykey.pub` and choose "Add key".
+   Each account has one key.
+3. **Pack and sign.** Run `hatamoto plugin pack ./build --key mykey.key`, then
+   attach the `.hmp` file to a release on GitHub.
+4. **Submit.** On the dashboard fill in the form and choose "Check and submit":
+   - Kind: Plugin.
+   - Release file: the link to the `.hmp` file, in the form
+     `https://github.com/<owner>/<repo>/releases/download/<tag>/<file>.hmp`.
+     Other hosts and release page links are refused.
+   - Source repository (optional), Title (optional).
+   - What it does (up to 600 characters) and Category.
 
-1. You keep your plugin in your own public GitHub repo.
-2. You open a pull request here that adds one small manifest pinning a commit.
-3. CI checks the manifest. A maintainer reviews your code at that commit.
-4. A merge is the approval. After the merge, CI keeps a copy of the pinned
-   commit at `github.com/Zen-Labs-Corp/<name>`. The release manager
-   builds from that copy, signs the result with the Hatamoto key and publishes
-   it. Every signed build is kept.
+The checks run at once and each result is shown in a list. If one fails, nothing
+is submitted and the list says why. If all pass, the status is "Waiting for
+approval". The site owner approves the plugin or tells you why not, by email.
+We give no fixed review time.
 
-The release build downloads and verifies your modules through `go.sum`, exactly
-like CI. A `vendor/` directory, in your repo or in our copy, is ignored.
+**Names.** A name is lower case letters, digits and hyphens, matching
+`^[a-z][a-z0-9-]{1,39}$`. It becomes yours when your first version is approved.
 
-We never accept binaries. Everything is built from the source you pinned. By
-submitting you grant the project the right to archive, build, sign and
-redistribute that source and its builds, even if you later delete or change
-your repository.
+**After approval.** The plugin appears as a Developer package. Hatamoto never
+signs your code, and it checks who signed a package but does not review the
+code. A site owner must first turn on Admin > Plugins > Package security >
+Allow developer packages. That takes three steps: an acknowledgement, typing
+the site address, and the owner password. Then the owner can install
+it from Browse registry or with `hatamoto package install <name>`.
 
-### The manifest
+**Updating.** Publish a new release with a higher version, signed by the same
+key, and submit it again with the new release link. "Resubmit" sends the same
+link and the same text again, so it only helps when you replaced the file at that
+link. For a new release or new text, fill in the form again.
 
-Add `manifests/<name>.json`, where `<name>` is the `name` in your `plugin.json`:
+**Removing.** To take a plugin down, contact us. We may refuse or remove
+listings as the developer terms allow. A removal revokes the listed version:
+sites running that version have it turned off within about 6 hours. Older
+versions a site has installed keep running unless we revoke your key, which turns
+off every package signed by it. Suspending an account only delists. A listing
+also drops out by itself if its file or signer changes; that only takes it out of
+the listing and leaves installed copies alone.
+
+## First-party listing
+
+This section is for first-party plugins and for community plugins already in the
+main registry. Outside authors publish through a developer account, as described
+in [Part 2](#part-2-publish-your-plugin).
+
+The public repository <https://github.com/Zen-Labs-Corp/hatamoto-plugins> lists
+these plugins. Each one is a small manifest that pins a commit in the author's
+own repo. After a maintainer reviews the code at that commit and merges the
+manifest, the release manager builds the plugin from the pinned source, signs it
+with the Hatamoto key and publishes it in the registry index. Binaries are never
+accepted, and a `vendor/` directory is ignored. By listing, you grant the
+project the right to archive, build, sign and redistribute that source and its
+builds.
+
+### Manifest
+
+The manifest is `manifests/<name>.json`, where `<name>` is the `name` in `plugin.json`:
 
 ```json
 {
@@ -357,108 +400,41 @@ Add `manifests/<name>.json`, where `<name>` is the `name` in your `plugin.json`:
 | `sdk` | yes | SDK range you built against; matches `plugin.json` |
 | `homepage` | no | an `https://` link |
 
-`tier` is reserved for the maintainers: `first-party` is accepted only for repositories under
-the `Zen-Labs-Corp` organization (such a manifest has no `author`), and is refused for everyone
-else. Leave it out; your plugin is then listed as Community.
-
-No other keys are allowed. See `manifests/schema.json` in the plugins repository.
-Check your file before you push:
-
-```sh
-scripts/validate-manifest.sh manifests/acme-seo.json --remote   # run in a clone of hatamoto-plugins
-```
-
-`--remote` also fetches your repo and confirms the commit exists and that
-`plugin.json` at that commit has the same name.
+`tier: first-party` is accepted only for repositories under the `Zen-Labs-Corp`
+organization, and such a manifest has no `author`. Other manifests are listed as
+Community. The schema is `manifests/schema.json` in the plugins repository, and
+`scripts/validate-manifest.sh manifests/<name>.json --remote` checks a manifest
+and that the commit exists.
 
 ### Listing rules
 
-The plugin directory is the shop window, so listings are held to a few rules. The
-validator in the plugins repository checks your manifest, and the registry build
-checks it again before anything is signed, so a listing that breaks a rule never
-reaches the index. The word lists behind the rules live in the `policy/` folder of
-the plugins repository; change them in their own pull request.
+The validator and the registry build both enforce these rules. First-party
+plugins are exempt from the brand, reserved-name and title-word rules. The word
+lists live in the `policy/` folder of the plugins repository.
 
-- **Author.** For a community plugin, `author` must equal the owner of `repo`
-  (case does not matter).
-- **Name.** No part of the name (split at hyphens) may be a banned word, and the
-  name may not be a reserved name. The first part may not be a brand from the
-  brand list unless you are that brand's owner (for example `stripe-checkout`). A
-  name may not be one character away from, or only differ by look-alike letters
-  from, another listed plugin or theme, or a reserved name.
-- **Title.** At most 40 characters, one script only (no mixing Latin with
-  Cyrillic, for example), at most one separator out of `: , & / | +` and a
-  spaced hyphen, and only letters, digits, spaces and `. , : & / | + ' ! ? -`. No
-  brackets, emoji, symbols, invisible or fullwidth characters, no banned words, no
-  brand as the first word unless you own it, and the title must share a word with
-  the name.
-- **Description** (the `description` in `plugin.json` at the pinned commit): 20
-  to 160 characters, at most two sentence terminators, no URL or domain, only
-  letters, digits, spaces and ASCII punctuation (plus `。` and `、`), no emoji or
-  symbols, not equal to the title or the name, not an unfilled template text, no
-  banned words other than `free` and `plugin`, and at most 3 brands.
-- **First-party plugins** are exempt from the brand and reserved-name rules, and
-  from the title-shares-a-word-with-the-name rule. The rest apply to everyone.
-
-A person also reads every submission. Reasons to ask for changes or to decline:
-
-- **One listing per product.** Betas ship as prerelease versions of the same
-  plugin, and a suite is one plugin, not one listing per feature.
-- **No listings that only point elsewhere**, such as "install from npm".
-- **A paid external service must be stated** in the description.
-- **No near-duplicates** from the same author.
-- **Repeated spam.** After a second rejection for spam, that author's future pull
-  requests are closed.
-
-### The pull request
-
-Fork this repo, add your manifest, and open a PR. Fill in the template: it asks
-you to justify each permission. One plugin per PR.
-
-CI runs the validator on your manifest and, once the SDK is public, builds your
-plugin at the pinned commit with
-`GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared`.
+- `author` must equal the owner of `repo`, except for first-party plugins.
+- No part of the name may be a banned word or a reserved name, or a brand you do
+  not own, or one character away from another listed name.
+- The title has at most 40 characters, one script, and shares a word with the
+  name.
+- The description in `plugin.json` has 20 to 160 characters, no URL, no emoji
+  and no banned words.
 
 ### Review criteria
 
-A maintainer reads the source at the pinned commit. We look for:
+A maintainer reads the source at the pinned commit and looks for:
 
-- **Pinned source.** The commit exists in the public repo and is what you want
-  shipped. Branches and tags are not accepted, only commit ids.
-- **Reproducible build.** It builds from a clean checkout with the recipe in
-  Part 1 of this guide, no `replace` for the SDK, no `go.work`, no `go generate`, no network use at build
-  time beyond fetching Go modules.
-- **Justified permissions.** Each entry in `permissions` is needed for a
-  feature the description promises.
-- **Minimal `allowed_hosts`.** Exact hosts, not `*`, unless the plugin must call
-  URLs the owner configures (and then say so in the PR).
-- **Readable code.** No obfuscated, minified or encoded blobs, no hidden
-  behaviour, no data sent anywhere the description does not mention.
-- **License.** The repo has a license file, and it matches the manifest.
-- **Fit.** The plugin works, has tests, and does not duplicate a first-party
-  plugin without good reason.
+- A commit id (not a branch or tag) that builds from a clean checkout with the
+  Part 1 recipe, with no SDK `replace`, no `go.work` and no `go generate`.
+- Permissions and `allowed_hosts` that match what the description promises.
+- Readable code, with no hidden behaviour and no undisclosed data sent out.
+- A license file that matches the manifest.
+- One listing per product, no listings that only point elsewhere, and a paid
+  external service stated in the description.
 
-Reviewers may ask for changes. Push fixes to your repo and update `commit` in
-the PR.
+### Updating and removing
 
-### After the merge
-
-The release manager builds your plugin from the pinned commit, signs it with the
-Hatamoto key and publishes a new registry index. It then shows up in Browse
-registry on every Hatamoto server and as a card on
-<https://hatamoto.dev/plugins>, labelled "Community" and "by @author". Publishing
-is done by a person with the signing key, so it can lag the merge by a little.
-
-### Updating a plugin
-
-Open a new PR that changes `commit` (and `sdk` if it changed) in your existing
-manifest. Bump `version` in `plugin.json` first, so servers can tell the new build from
-the old one. The review looks at the
-changes since the previous commit.
-
-### Removing a plugin
-
-Open a PR that deletes your manifest. After it merges the release manager
-publishes an index without the plugin. Copies already installed keep working until
-each site owner removes them. If a plugin is found to be harmful, maintainers may
-remove its manifest without notice and publish immediately.
+To update, open a pull request that changes `commit` (and `sdk` if it changed),
+after bumping `version` in `plugin.json`. To remove a plugin, open a pull request
+that deletes its manifest. Installed copies keep working until each site owner
+removes them. Maintainers may remove a harmful plugin without notice.
