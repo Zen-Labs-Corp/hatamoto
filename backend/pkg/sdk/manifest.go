@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"encoding/json/jsontext"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -81,6 +82,12 @@ type Manifest struct {
 
 	// Cookies are the cookie names a render.page filter may read and set.
 	Cookies []string `json:"cookies,omitempty"`
+
+	// RedirectPaths are the exact public paths the plugin's request.redirect
+	// filter is called for (GET and HEAD). A trailing slash is a distinct
+	// path. At most MaxRedirectPaths. The host additionally refuses paths it
+	// routes itself, and a path another plugin already declared.
+	RedirectPaths []string `json:"redirect_paths,omitempty"`
 
 	// RequestHeaders are extra request header names (for example a webhook
 	// signature) passed to this plugin's routes, on top of the fixed list.
@@ -438,7 +445,11 @@ const (
 	MaxCookies  = 8
 	// MaxRequestHeaders caps Manifest.RequestHeaders.
 	MaxRequestHeaders = 8
-	MinCronEvery      = time.Minute
+	// MaxRedirectPaths caps Manifest.RedirectPaths.
+	MaxRedirectPaths = 16
+	// MaxRedirectPathLen caps the length of one redirect path in bytes.
+	MaxRedirectPathLen = 256
+	MinCronEvery       = time.Minute
 )
 
 // identPattern is a cron job, template func or section name.
@@ -665,9 +676,58 @@ func (m Manifest) validateCapabilities() error {
 	if err := m.validateRequestHeaders(); err != nil {
 		return err
 	}
+	if err := m.validateRedirectPaths(); err != nil {
+		return err
+	}
 	if m.CSP != nil {
 		if err := m.CSP.validate(); err != nil {
 			return fmt.Errorf("sdk: plugin %q: %w", m.Name, err)
+		}
+	}
+	return nil
+}
+
+// validateRedirectPaths checks the declared request.redirect paths: exact,
+// clean, absolute paths without query, fragment or wildcard. Which paths the
+// host reserves for itself is the host's business, not checked here.
+func (m Manifest) validateRedirectPaths() error {
+	if len(m.RedirectPaths) > MaxRedirectPaths {
+		return fmt.Errorf("sdk: plugin %q: more than %d redirect_paths", m.Name, MaxRedirectPaths)
+	}
+	seen := map[string]bool{}
+	for _, p := range m.RedirectPaths {
+		if err := checkRedirectPath(p); err != nil {
+			return fmt.Errorf("sdk: plugin %q: redirect_paths %q: %w", m.Name, p, err)
+		}
+		if seen[p] {
+			return fmt.Errorf("sdk: plugin %q: duplicate redirect_paths %q", m.Name, p)
+		}
+		seen[p] = true
+	}
+	return nil
+}
+
+func checkRedirectPath(p string) error {
+	if !strings.HasPrefix(p, "/") {
+		return errors.New("must start with /")
+	}
+	if len(p) > MaxRedirectPathLen {
+		return fmt.Errorf("longer than %d bytes", MaxRedirectPathLen)
+	}
+	for i := 0; i < len(p); i++ {
+		switch c := p[i]; {
+		case c <= 0x20 || c == 0x7f:
+			return errors.New("must not contain whitespace or control characters")
+		case c == '?' || c == '#' || c == '*' || c == '\\':
+			return fmt.Errorf("must not contain %q", string(c))
+		}
+	}
+	if strings.Contains(p, "//") {
+		return errors.New("must not contain //")
+	}
+	for seg := range strings.SplitSeq(p, "/") {
+		if seg == "." || seg == ".." {
+			return errors.New("must be a clean path")
 		}
 	}
 	return nil

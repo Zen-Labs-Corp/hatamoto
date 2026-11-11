@@ -241,6 +241,32 @@ type PageContext struct {
 	SetCookies []SetCookie       `json:"set_cookies,omitempty"`
 }
 
+// RedirectContext is the value filtered by request.redirect for one GET or
+// HEAD request to a path the plugin declared in its manifest (redirect_paths).
+// Path is the exact request path and Query the raw query string. Cookies holds
+// only the cookie names the plugin declared (cookies), by their short names.
+// Country is the visitor's ISO 3166-1 alpha-2 code from the country database,
+// or empty when unknown; the visitor's address is never passed.
+//
+// Redirect and SetCookies are output only and arrive empty. A Redirect uses
+// status 302 or 307 and a same-site Location (a path with an optional query);
+// SetCookies may only use declared names. A result that breaks a rule is
+// dropped whole and the request is handled as if the plugin had not answered.
+type RedirectContext struct {
+	Path       string            `json:"path"`
+	Query      string            `json:"query,omitempty"`
+	Cookies    map[string]string `json:"cookies,omitempty"`
+	Country    string            `json:"country,omitempty"`
+	Redirect   *Redirect         `json:"redirect,omitempty"`
+	SetCookies []SetCookie       `json:"set_cookies,omitempty"`
+}
+
+// Redirect is the answer of a request.redirect filter: Status is 302 or 307.
+type Redirect struct {
+	Status   int    `json:"status"`
+	Location string `json:"location"`
+}
+
 // PageBlockFields are the content keys a slim block carries as Fields, when
 // their value is a short string, number or boolean.
 var PageBlockFields = []string{"variant", "anchor", "label"}
