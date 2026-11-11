@@ -57,7 +57,7 @@ func (s *Server) SetStats(svc *installstats.Service) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := svc.Enforce(ctx); err != nil {
-		s.logger.Warn("install stats: could not apply HATAMOTO_TELEMETRY", "error", err)
+		s.logger.Warn("install stats: startup check failed", "error", err)
 	}
 	if s.admin != nil {
 		s.admin.SetStats(adminStats{svc})

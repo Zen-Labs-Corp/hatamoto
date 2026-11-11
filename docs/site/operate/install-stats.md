@@ -1,7 +1,7 @@
 ---
 title: Install stats
 nav_title: Install stats
-description: The anonymous install stats at three levels, on at Detailed by default, (Off, Basic, Detailed): what each sends, what is never sent, how to change it and how an operator rules it out.
+description: The anonymous install stats at three levels (Off, Basic, Detailed), Detailed by default: what each sends, what is never sent, how to change it and how an operator rules it out.
 ---
 
 Install stats are an anonymous report from a running Hatamoto install. An owner picks one of three levels: **Off**, **Basic** or **Detailed**. A new install, and an existing one that was never asked, sends the Detailed report once setup is finished, unless an owner picks another level or the server sets `HATAMOTO_TELEMETRY=off`. Development builds and public demos send nothing. An owner who chose Off or Basic keeps that choice. This page is the one place that lists what each level sends and how to control it. The update check is a separate request and stays anonymous; see [Outbound connections](outbound-connections.md) for every call the server makes.
@@ -109,7 +109,7 @@ The receiver keeps one report per install and UTC day: a second report the same 
 Installs that were never asked start at Detailed once setup is finished, and the owner sees a one-time notice on the admin pages: **Hatamoto now shares detailed install stats (version, plugins, theme, error counts).** with **Change in Settings** and **Got it**. **Got it**, or choosing any level yourself, ends the notice. An owner chooses in one of three places, and can change the choice at any time:
 
 - On a new site, the setup wizard has a **Help improve Hatamoto** step after **Look**, with **Off**, **Basic** and **Detailed**, and Detailed preselected. See [First run](../getting-started/first-run.md).
-- On an install that has not answered yet and has not finished setup, a banner asks the owner, with **No thanks**, **Basic** and **Detailed**. An install that was already sending before Detailed existed (so it counts as Basic without having chosen it) is offered Detailed once, and **Dismiss** ends the offer for good. Choosing Basic yourself, in the setup step, the banner or Settings, never shows the offer.
+- If the default could not be applied (a development build, or a failure), a banner asks the owner, with **No thanks**, **Basic** and **Detailed**. An install that was already sending before Detailed existed (so it counts as Basic without having chosen it) is offered Detailed once, and **Dismiss** ends the offer for good. Choosing Basic yourself, in the setup step, the banner or Settings, never shows the offer.
 - **Settings > Updates** has an **Install stats** section with the three levels, a **What is collected** link to this page, and when it was last sent successfully. Editors do not see the question.
 
 Choosing Basic or Detailed creates the install ID. Choosing Off deletes it, and the health counts with it. While stats are on, **Reset ID** replaces the ID with a new random one, so earlier reports can no longer be linked to later ones.
