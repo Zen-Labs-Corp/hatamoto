@@ -121,6 +121,25 @@ func TestGrowthPageGoldens(t *testing.T) {
 		}
 	}
 
+	// The developer package detail page, with the developer switch off (install
+	// disabled, link to Package security) and on (install enabled).
+	for _, v := range []struct {
+		name string
+		on   bool
+	}{{"plugins-browse-detail-developer-off", false}, {"plugins-browse-detail-developer-on", true}} {
+		pk.developerOn = v.on
+		rec := g.do("GET", "/admin/plugins/dev-tools/about", "owner-token", nil, nil)
+		if rec.Code != 200 {
+			t.Fatalf("%s: %d", v.name, rec.Code)
+		}
+		body := normalizePage(rec.Body.String())
+		compareGolden(t, "pages/growth-"+v.name+".html", body)
+		if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+			t.Errorf("%s a11y: %s", v.name, strings.Join(issues, "; "))
+		}
+	}
+	pk.developerOn = false
+
 	// With nothing installed the list only explains: no button in the empty state, no footer link.
 	empty := newRig(t, func(d *Deps) {
 		d.Growth.Packages = pk
