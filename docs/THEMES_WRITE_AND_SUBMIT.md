@@ -210,3 +210,76 @@ Contact us and we will remove the listing. We may refuse or remove listings unde
 the developer terms. A listing also drops out by itself when the release file or
 its signer changes. Copies already installed stay on sites until their owners
 remove them.
+
+## First-party listing
+
+This section is for first-party themes and for themes already listed in the main
+registry as Community. Everyone else publishes through a developer account, see
+[Part 2](#part-2-publish-your-theme).
+
+Those themes are listed with a manifest pull request to
+<https://github.com/Zen-Labs-Corp/hatamoto-plugins>, in the folder
+`manifests/themes/`. The manifest pins a git commit or a zip archive with its
+sha256. A maintainer reviews the theme at that pin. After the merge the release
+manager fetches the pin, repacks it and signs it with the Hatamoto key. The
+registry never accepts binaries or pre-signed packages, and by submitting you
+grant the project the right to repack, sign and redistribute the theme and its
+builds (`archive_grant`).
+
+### The manifest
+
+Add `manifests/themes/<name>.json`, where `<name>` is the `name` in `theme.json`.
+Give exactly one source, `repo` plus `commit` or `archive` plus `sha256`:
+
+```json
+{
+  "name": "kumo",
+  "repo": "https://codeberg.org/tanaka/hatamoto-kumo",
+  "commit": "0123456789abcdef0123456789abcdef01234567",
+  "title": "Kumo",
+  "author": "tanaka",
+  "license": "MIT",
+  "archive_grant": true,
+  "homepage": "https://example.com/kumo"
+}
+```
+
+| Field | Required | Rule |
+|---|---|---|
+| `name` | yes | `^[a-z][a-z0-9-]{1,39}$`; equals the file name and the `name` in `theme.json`; not reserved, unique across plugins and themes |
+| `repo`, `commit` | git source | an `https://` URL on a public host, and a full 40 character lowercase hex commit id; optional `subdir` for a folder inside the repo |
+| `archive`, `sha256` | archive source | an `https://` URL of a `.zip` (at most 64 MiB) and the 64 character hex hash of exactly that file |
+| `title` | no | card name, 1 to 60 characters |
+| `author` | yes | shown as "by author" |
+| `license` | yes | an SPDX id from the list in the manifest validator, for example `MIT` or `Apache-2.0` |
+| `archive_grant` | yes | must be `true` |
+| `homepage` | no | an `https://` link |
+
+No other keys are allowed. The hosts must be public DNS names over `https`: no IP
+addresses, `localhost`, internal suffixes, ports or credentials. Check the file
+in a clone of hatamoto-plugins before you push:
+
+```sh
+scripts/validate-theme-manifest.sh manifests/themes/kumo.json --remote
+```
+
+### Review criteria
+
+- **Pinned source.** A commit id that exists, or a zip that matches its sha256.
+  Branches and tags are not accepted.
+- **Passes the checks.** `hatamoto theme check --registry` passes and the theme
+  installs and renders on a current Hatamoto.
+- **No remote assets, no trackers.** Everything comes from `assets/`; no analytics,
+  beacons or hidden calls home.
+- **Readable templates.** No obfuscated or encoded blobs. Minified third-party
+  libraries are fine when the plain source and licence ship with them.
+- **Truthful screenshot.** It shows this theme as a site owner gets it.
+- **License.** A license file that matches the manifest, and redistributable
+  fonts and images.
+- **Fit.** The theme works and does not duplicate an existing one without reason.
+
+### Updating and removing
+
+To update, open a new pull request that changes the pin, after you raise
+`version` in `theme.json`. To remove a theme, open a pull request that deletes
+its manifest. Installed copies keep working until each site owner removes them.
