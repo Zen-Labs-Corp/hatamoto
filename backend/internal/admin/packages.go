@@ -182,6 +182,9 @@ type PluginUIInfo struct {
 	// Functions are the host functions its page may call: what its granted
 	// permissions allow.
 	Functions []string
+	// Camera is set when the manifest asks for ui.allow camera AND the owner
+	// granted it: both are needed, so a grant that outlived the ask does nothing.
+	Camera bool
 }
 
 // PackageSummary is a package as shown on the permission prompt.
