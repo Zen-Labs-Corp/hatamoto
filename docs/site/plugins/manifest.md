@@ -53,7 +53,7 @@ A manifest that uses most fields:
 | `cookies` | no | Cookie names `render.page` and the plugin's public routes may read and set, at most 8. |
 | `render_page` | no | `{ "full_blocks": true }` sends `render.page` whole blocks (SDK 0.9 and later). |
 | `funcs` | no | Template functions, at most 64. |
-| `ui` | no | An admin page shipped in `ui/`. |
+| `ui` | no | An admin page shipped in `ui/`; `allow: ["camera"]` asks for the camera (SDK 0.22.2). |
 | `runs` | no | Runs the owner can start, at most 8 (SDK 0.17 and later); see [Runs](#runs). |
 | `builder_sources` | no | Data sources the plugin offers to the page builder, at most 8 (SDK 0.11 and later); items sources can declare `params` (0.20). |
 | `limits` | no | Resource limits; every field is optional. |
@@ -65,7 +65,7 @@ The range uses npm rules: `>=x`, `>x`, `<=x`, `<x`, `=x`, a bare version, `^x` a
 
 A plugin that uses `csp`, `request_headers`, `translation_of`, `changeset.media.alt` or shipped content types must declare `^0.18`: an older host ignores those fields without an error. A plugin that uses `redirect_paths`, the `request.redirect` filter or its `limits.hook_timeouts_ms` key must declare `^0.22`, so that an older host refuses it instead of silently dropping the redirects.
 
-The server serves SDK `0.22.1` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.21.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
+The server serves SDK `0.22.2` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.21.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. Declare `^0.22.2` for the camera: `^0.22` also matches a 0.22.1 host. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
 
 ## Permissions
 
@@ -108,7 +108,7 @@ Each func name matches `^[a-z][a-z0-9_]{0,31}$`, is unique, and is called from a
 
 ## ui
 
-`title` is 1 to 40 characters and is the sidebar label and the page heading. `entry` is a relative `.html` path under `ui/` (default `index.html`; no `..`, no `//`). `roles` lists who may open the page, `owner` and `editor` only. Empty means owner only. The viewer role is valid on routes but not on the admin page.
+`title` is 1 to 40 characters and is the sidebar label and the page heading. `entry` is a relative `.html` path under `ui/` (default `index.html`; no `..`, no `//`). `roles` lists who may open the page, `owner` and `editor` only. Empty means owner only. `allow` may list `"camera"` (SDK 0.22.2): the owner must also tick the camera switch on the plugin's Permissions tab before the page may call `hatamoto.camera.capture()`. A plugin that relies on it declares `^0.22.2`, because `^0.22` also matches a 0.22.1 host, which ignores `allow`. The viewer role is valid on routes but not on the admin page.
 
 ## builder_sources
 

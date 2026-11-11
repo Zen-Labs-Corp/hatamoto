@@ -137,4 +137,16 @@ The page runs in the **sandbox**, a closed space where it can do only what its p
 
 If the page says "Could not load the count (503).", the plugin lacks a permission: grant both `kv` and `settings`. If the page stays on "Loading...", open the browser console. A message about the Content Security Policy means a script or style is inline in `index.html`; move it to its own file.
 
+### Take a photo
+
+To let the page take a photo, add `"allow": ["camera"]` to `ui` and declare `"sdk": "^0.22.2"`. The owner ticks the camera switch on the plugin's Permissions tab (it is off by default). Then:
+
+```js
+const r = await hatamoto.camera.capture();
+if (r.ok) document.getElementById("shot").src = r.image;   // a JPEG data URL
+else console.log(r.error);                                  // cancelled, denied or unavailable
+```
+
+Hatamoto's own dialog shows the preview and the **Capture** button, so the plugin never touches the camera. Add the `<img id="shot">` yourself; `img-src data:` is already allowed.
+
 The bridge has one more call, `hatamoto.host`, for host functions, but only the owner may use it. Its rules, the full page policy, template functions and public files are on [Admin pages and templates](admin-pages-and-templates.md).

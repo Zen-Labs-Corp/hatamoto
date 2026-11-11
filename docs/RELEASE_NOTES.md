@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased: plugin camera on the admin page
+
+- **Camera.** A plugin whose manifest declares `"ui": {"allow": ["camera"]}` can ask for one photo with `hatamoto.camera.capture()`. Core opens its own capture dialog on the admin page, the person clicks **Capture**, and the page gets one JPEG (at most 1280 px, about 1 MB) or `cancelled`, `denied` or `unavailable`. The owner ticks the camera switch on the install prompt or the plugin's Permissions tab; it is off by default, kept on update and revoked on uninstall. The page's sandbox and CSP are unchanged, and the camera policy is sent only on granted plugin pages.
+- **SDK.** `hatamoto.dev/sdk` 0.22.2 adds `ui.allow` and the `ui.allow:camera` grant. A plugin that relies on it declares `^0.22.2`; an older host ignores it.
+- **Migration.** None. Rollback floor: unchanged; an older release ignores `ui.allow` and the extra grant string.
+
 ## Unreleased: Per-plugin mail quota
 
 - **Owner-set limit.** The owner sets how many recipients a plugin may email per hour (default 360, which is the previous 6 a minute; 1 to 3600) on the plugin's Permissions tab, for a plugin that declares `mail.send`. Saving is audited and applies at once, without a restart. The plugin cannot change it.

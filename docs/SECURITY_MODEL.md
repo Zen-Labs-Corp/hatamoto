@@ -40,7 +40,15 @@ file system and no host access except through capabilities the owner granted.
 | A capability is denied until the owner grants it, and a grant the manifest does not request is refused | `internal/pluginhost` | `TestDeniedUntilGranted`, `TestGrantMustBeRequested` |
 | A host call request over 1 MiB is refused | `internal/wasmhost` | `TestHostCall` |
 | Guest logging, `mail.send` and `http.fetch` are rate limited per plugin; other host calls are not rate limited | `internal/pluginhost` | `TestHostCallLimits` (log), `TestFetchRateCapPerPlugin` (`http.fetch`), `TestMailSendRateLimitPerPlugin` (`mail.send`: per recipient, per plugin) |
-| A plugin's admin page runs in a sandboxed iframe and its bridge carries only granted capabilities | `internal/admin` | `TestPluginUIPageIsASandboxedIframe`, `TestBridgeCarriesOnlyGrantedCapabilities`, `TestBridgeIsRateLimitedPerUserAndPlugin` |
+| A plugin's admin page runs in a sandboxed iframe, its bridge carries only granted capabilities, and the camera is opened by core's page, never by plugin code, only after the owner granted `ui.allow:camera` | `internal/admin` | `TestPluginUIPageIsASandboxedIframe`, `TestBridgeCarriesOnlyGrantedCapabilities`, `TestBridgeIsRateLimitedPerUserAndPlugin`, `TestPluginPageCameraPolicyFollowsTheGrant` |
+
+The camera follows the same rule. The plugin page's iframe keeps its sandbox and
+Content-Security-Policy, so plugin code cannot open a camera. Core's trusted admin
+page does it when the page calls `hatamoto.camera.capture()`, and only for a plugin
+whose manifest asks (`ui.allow`) and whose owner ticked `ui.allow:camera`. The admin
+page sends `Permissions-Policy: camera=(self)` only on such granted plugin pages, a
+person clicks **Capture** in core's dialog, and the camera tracks are stopped when
+the dialog closes.
 
 ### Plugin database role
 
