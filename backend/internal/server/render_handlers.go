@@ -215,19 +215,25 @@ func (h *renderHandlers) handleRenderHome(w http.ResponseWriter, r *http.Request
 	}
 	// With prefix-all every locale, the default included, lives under its own
 	// segment: the bare root points at the default locale's home. Never cached.
-	set := h.localeSet(database.WithPoolBusyScope(r.Context()))
-	if set.Multi() {
-		if prefix := set.Prefix(set.Default()); prefix != "" {
-			w.Header().Set("Cache-Control", "no-store")
-			target := prefix
-			if r.URL.RawQuery != "" {
-				target += "?" + r.URL.RawQuery
-			}
-			http.Redirect(w, r, target, http.StatusFound)
-			return
-		}
+	set, lookupErr := h.localeSet(database.WithPoolBusyScope(r.Context()))
+	if h.redirectHomeToDefault(w, r, set) {
+		return
 	}
-	h.serve(w, r, "/", func() (*routeResult, pageOutcome, error) {
+	// A failed lookup above must not decide the page on a miss: the page is
+	// built (and cached) only with a locale set that was actually read.
+	onMiss := func() bool {
+		if lookupErr == nil {
+			return false
+		}
+		var err error
+		if set, err = h.localeSet(r.Context()); err != nil || database.PoolBusyHit(r.Context()) {
+			database.NotePoolBusy(r.Context())
+			h.writeBusy(w, r)
+			return true
+		}
+		return h.redirectHomeToDefault(w, r, set)
+	}
+	h.serve(w, r, "/", onMiss, func() (*routeResult, pageOutcome, error) {
 		if !set.Multi() {
 			return homeRoute(h.loadHome(r))
 		}
@@ -242,21 +248,43 @@ func (h *renderHandlers) handleRenderHome(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// redirectHomeToDefault answers the bare root of a prefix-all site with a
+// redirect to the default locale's home and reports whether it did.
+func (h *renderHandlers) redirectHomeToDefault(w http.ResponseWriter, r *http.Request, set *entity.LocaleSet) bool {
+	if !set.Multi() {
+		return false
+	}
+	prefix := set.Prefix(set.Default())
+	if prefix == "" {
+		return false
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	target := prefix
+	if r.URL.RawQuery != "" {
+		target += "?" + r.URL.RawQuery
+	}
+	http.Redirect(w, r, target, http.StatusFound)
+	return true
+}
+
 // localeSet is the public locale set; nil (safe to call) on a single-locale
-// install, in a route-table build and while the URL snapshot cannot load: a
-// cached page or a redirect still answers then, and a miss is decided by the
-// resolver, which reads the snapshot itself. Callers pass a ctx under
-// database.WithPoolBusyScope: a give-up here must not turn a cached page into
-// a 503 (serve flags the request itself when it has to build the page).
-func (h *renderHandlers) localeSet(ctx context.Context) *entity.LocaleSet {
+// install and in a route-table build. The error is set when the URL snapshot
+// could not be read: a cached page or a redirect still answers then, but a
+// page must not be built from the nil set (see the handlers' miss hook).
+// Callers pass a ctx under database.WithPoolBusyScope: a give-up here must not
+// turn a cached page into a 503.
+func (h *renderHandlers) localeSet(ctx context.Context) (*entity.LocaleSet, error) {
 	if h.snapshot == nil {
-		return nil
+		return nil, nil
 	}
 	snap, err := h.snapshot(ctx)
-	if err != nil {
-		return nil
+	if errors.Is(err, errNoEntityService) {
+		return nil, nil
 	}
-	return snap.Locales()
+	if err != nil {
+		return nil, err
+	}
+	return snap.Locales(), nil
 }
 
 // snapshotDegraded reports that pages rendered now may not match the site's
@@ -298,11 +326,11 @@ func (h *renderHandlers) handleRenderCatchAll(w http.ResponseWriter, r *http.Req
 		return
 	}
 	serve := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.serve(w, r, path, func() (*routeResult, pageOutcome, error) {
+		h.serve(w, r, path, nil, func() (*routeResult, pageOutcome, error) {
 			return h.resolve(r.Context(), path, r)
 		})
 	})
-	set := h.localeSet(database.WithPoolBusyScope(r.Context()))
+	set, _ := h.localeSet(database.WithPoolBusyScope(r.Context()))
 	bare := path // the path without its locale segment
 	if _, rest, ok := set.Resolve(path); ok {
 		bare = rest
@@ -356,8 +384,9 @@ func writeRenderRedirect(w http.ResponseWriter, r *http.Request, hit *redirectHi
 	http.Redirect(w, r, target, status)
 }
 
-// serve runs the shared flow: cache, resolve, redirect/404/error, render.
-func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path string, load func() (*routeResult, pageOutcome, error)) {
+// serve runs the shared flow: cache, onMiss (optional, true = it answered),
+// resolve, redirect/404/error, render.
+func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path string, onMiss func() bool, load func() (*routeResult, pageOutcome, error)) {
 	filtered := h.pageFilter.Active()
 	pageN := pagedQuery(r.URL.RawQuery) // 0 unless the query is exactly the canonical ?page=N, N >= 2
 	cacheable := h.cache != nil && h.baseURLPinned && h.runtime.Enabled() && (r.URL.RawQuery == "" || pageN > 0) && !filtered && !h.uncached
@@ -384,6 +413,9 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		}
 	}
 
+	if onMiss != nil && onMiss() {
+		return
+	}
 	if cacheable && h.snapshotDegraded(r.Context()) {
 		cacheable = false
 	}

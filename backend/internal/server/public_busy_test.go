@@ -255,3 +255,52 @@ func TestStarvedPoolUncachedPageIs503(t *testing.T) {
 		t.Fatalf("status %d, want 503", w.Code)
 	}
 }
+
+// prefixAllSnapshot is a snapshot of a two-locale prefix-all site.
+func prefixAllSnapshot(t *testing.T) *entity.URLSnapshot {
+	t.Helper()
+	set, err := entity.NewLocaleSet("en", []entity.LocaleEntry{{Tag: "en", Segment: "en"}, {Tag: "fr", Segment: "fr"}}, true, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return entity.DefaultURLSnapshot().WithLocaleSet(set)
+}
+
+// The pre-cache locale lookup gave up but the snapshot is readable by the time
+// the page has to be built: the home must not be built from the missing set
+// and cached. On a prefix-all site "/" stays a redirect.
+func TestHomeMissAfterFailedLocaleLookupDoesNotCacheUnlocalized(t *testing.T) {
+	f := newRenderFixture(t)
+	snap := prefixAllSnapshot(t)
+	calls := 0
+	f.h.snapshot = func(ctx context.Context) (*entity.URLSnapshot, error) {
+		if calls++; calls == 1 {
+			database.NotePoolBusy(ctx)
+			return nil, fmt.Errorf("waiting for shared load: %w", database.ErrPoolBusy)
+		}
+		return snap, nil
+	}
+	w := getThroughBusyConverter(f, "/")
+	if w.Code != http.StatusFound || w.Header().Get("Location") != "/en" {
+		t.Fatalf("status %d location %q, want 302 /en", w.Code, w.Header().Get("Location"))
+	}
+	if len(f.cache.sets) != 0 {
+		t.Fatalf("cached %v", f.cache.sets)
+	}
+}
+
+// If the lookup still fails on the miss, the home is a 503 and nothing is cached.
+func TestHomeMissWithFailingLocaleLookupIs503(t *testing.T) {
+	f := newRenderFixture(t)
+	f.h.snapshot = func(ctx context.Context) (*entity.URLSnapshot, error) {
+		database.NotePoolBusy(ctx)
+		return nil, fmt.Errorf("waiting for shared load: %w", database.ErrPoolBusy)
+	}
+	w := getThroughBusyConverter(f, "/")
+	if w.Code != http.StatusServiceUnavailable || w.Header().Get("Retry-After") == "" {
+		t.Fatalf("status %d %v", w.Code, w.Header())
+	}
+	if len(f.cache.sets) != 0 {
+		t.Fatalf("cached %v", f.cache.sets)
+	}
+}
