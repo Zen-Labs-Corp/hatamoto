@@ -446,10 +446,20 @@ func (a *Admin) setupBackToStats(ctx context.Context) string {
 	return a.adminPath + "/setup/theme"
 }
 
+// setupStatsLevel is the card the Stats step shows checked: the stored answer
+// when the owner has given one, Detailed when the level is unset or unknown.
+func (a *Admin) setupStatsLevel(ctx context.Context) string {
+	v, err := a.deps.Stats.View(ctx)
+	if err != nil || !validStatsLevel(v.Level) {
+		return statsLevelDetailed
+	}
+	return v.Level
+}
+
 func (a *Admin) renderSetupStats(w http.ResponseWriter, r *http.Request, status int, needed bool) {
 	nv := a.NewView(w, r, "Help improve Hatamoto")
 	nv.Wide = true
-	nv.Data = setupData{Steps: steps(5), Back: a.adminPath + "/setup/theme", StatsCards: statsLevelCards(statsLevelDetailed), StatsDocsURL: statsDocsURL, StatsNeeded: needed}
+	nv.Data = setupData{Steps: steps(5), Back: a.adminPath + "/setup/theme", StatsCards: statsLevelCards(a.setupStatsLevel(r.Context())), StatsDocsURL: statsDocsURL, StatsNeeded: needed}
 	a.Render(w, r, status, "setup/stats", nv)
 }
 
@@ -477,8 +487,8 @@ func (a *Admin) handleSetupStats(w http.ResponseWriter, r *http.Request) {
 	}
 	choice := r.PostFormValue("choice")
 	if choice == "" {
-		// Detailed is the preselected card: a bare post is that answer.
-		choice = statsLevelDetailed
+		// A bare post is the preselected card: the stored answer, or Detailed.
+		choice = a.setupStatsLevel(r.Context())
 	}
 	if !validStatsLevel(choice) {
 		// Anything else is refused, never read as a level.

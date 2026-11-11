@@ -301,8 +301,8 @@ func newSetupStatsRig(t *testing.T, view StatsView) (*setupRig, *fakeStats) {
 func TestSetupStatsStepOffersThreeLevelsAndPreselectsDetailed(t *testing.T) {
 	t.Parallel()
 
-	// Detailed is preselected whatever level is stored.
-	g, f := newSetupStatsRig(t, StatsView{Level: "off"})
+	// Detailed is preselected when no level is stored.
+	g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
 	body := g.do("GET", "/admin/setup/stats", "owner-token", nil, nil).Body.String()
 	for _, want := range []string{"Help improve Hatamoto", `name="choice" value="off"`, `name="choice" value="basic"`, `name="choice" value="detailed"`, `href="https://hatamoto.dev/docs/operate/install-stats" target="_blank" rel="noopener">What is collected</a>`, "Continue", `href="/admin/setup/theme"><span>Back</span>`, "Step 6 of 8"} {
 		if !strings.Contains(body, want) {
@@ -324,6 +324,20 @@ func TestSetupStatsStepOffersThreeLevelsAndPreselectsDetailed(t *testing.T) {
 	rec := g.do("POST", "/admin/setup/theme", "owner-token", url.Values{"colour": {"#aa3300"}}, nil)
 	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/stats" {
 		t.Errorf("theme goes to %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
+func TestSetupStatsStepKeepsAStoredAnswer(t *testing.T) {
+	t.Parallel()
+
+	g, f := newSetupStatsRig(t, StatsView{Level: "off"})
+	body := g.do("GET", "/admin/setup/stats", "owner-token", nil, nil).Body.String()
+	if n := strings.Count(body, "checked"); n != 1 || !strings.Contains(body, `value="off" checked`) {
+		t.Errorf("want only Off checked, got %d checked in %s", n, body)
+	}
+	rec := g.do("POST", "/admin/setup/stats", "owner-token", url.Values{}, nil)
+	if rec.Code != 303 || len(f.chosen) != 1 || f.chosen[0] != "off" {
+		t.Errorf("Continue = %d, chose %v, want off", rec.Code, f.chosen)
 	}
 }
 
