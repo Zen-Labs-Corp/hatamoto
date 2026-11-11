@@ -102,6 +102,23 @@ func (a *Admin) uiPlugin(name, role string) (PluginInfo, bool) {
 
 type pluginUIData struct {
 	Name, Title, Src, Bridge, Functions string
+	// Camera: the manifest asks for ui.allow camera and the owner granted it.
+	// The page then carries data-camera and core's capture dialog.
+	Camera bool
+}
+
+// pluginPagePolicy is the Permissions-Policy of a granted plugin page: the
+// global value (geolocation, camera and microphone off) with the camera open
+// to the admin origin itself, so core's dialog can use it. The plugin's
+// sandboxed frame has an opaque origin and never gets it.
+const pluginPagePolicy = "geolocation=(), camera=(self), microphone=()"
+
+// setCameraPolicy opens the camera to the admin page, only when ui has the
+// camera granted. Any other page keeps the global header.
+func setCameraPolicy(w http.ResponseWriter, ui *pluginUIData) {
+	if ui != nil && ui.Camera {
+		w.Header().Set("Permissions-Policy", pluginPagePolicy)
+	}
 }
 
 // pluginUIFor is the plugin's admin UI frame for role, or nil when it has none,
@@ -124,7 +141,7 @@ func (a *Admin) pluginUIFor(r *http.Request, p PluginInfo, role string) *pluginU
 	if tok == "" {
 		return nil
 	}
-	d := &pluginUIData{Name: p.Name, Title: p.UI.Title, Src: "/plugin-ui/" + p.Name + "/" + entry + "?t=" + tok, Bridge: a.adminPath + "/plugins/" + p.Name + "/bridge"}
+	d := &pluginUIData{Camera: p.UI.Camera, Name: p.Name, Title: p.UI.Title, Src: "/plugin-ui/" + p.Name + "/" + entry + "?t=" + tok, Bridge: a.adminPath + "/plugins/" + p.Name + "/bridge"}
 	if role == "owner" { // host functions are the owner's (see handlePluginBridge)
 		d.Functions = strings.Join(p.UI.Functions, ",")
 	}

@@ -1,10 +1,10 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{template "hm/pluginhead" .}}
-{{with .Data}}{{with .UI}}{{template "hm/card-start" dict "ID" "plugin-page" "Title" .Title "Heading" "h2"}}<div class="hm-pluginframe-host" data-hm-pluginframe data-src="{{.Src}}" data-plugin="{{.Name}}" data-bridge="{{.Bridge}}" data-functions="{{.Functions}}">
+{{with .Data}}{{with .UI}}{{template "hm/card-start" dict "ID" "plugin-page" "Title" .Title "Heading" "h2"}}<div class="hm-pluginframe-host" data-hm-pluginframe data-src="{{.Src}}" data-plugin="{{.Name}}" data-bridge="{{.Bridge}}" data-functions="{{.Functions}}"{{if .Camera}} data-camera="1"{{end}}>
 <template><iframe class="hm-pluginframe" sandbox="allow-scripts" title="{{.Title}}" referrerpolicy="no-referrer"></iframe></template>
 <div role="alert">{{template "hm/callout" (dict "Kind" "warning" "Title" "Plugin page disconnected" "Body" "This plugin page navigated away from itself, so it was disconnected from the admin and reset. Reload the page to use it again." "Attrs" (attrmap "data-hm-pluginframe-notice" "" "hidden" "hidden"))}}</div>
 </div>
-<noscript><p class="hm-muted">This page needs JavaScript.</p></noscript>{{template "hm/card-end"}}{{end}}
+<noscript><p class="hm-muted">This page needs JavaScript.</p></noscript>{{template "hm/card-end"}}{{if .Camera}}{{template "hm/plugincamera" .}}{{end}}{{end}}
 {{with .Form}}<form id="run-form" method="post" action="{{.Action}}" class="hm-stack" data-hm-run-form data-hm-run-input-names="{{.InputNames}}">
 {{template "hm/csrf" $}}
 {{range .Run.Inputs}}<input type="hidden" name="input_{{.Name}}">

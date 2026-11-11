@@ -461,6 +461,7 @@ type pluginPageData struct {
 func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAdmin, status int, p PluginInfo, values map[string]any, errs schemaform.Errors, openPath string) {
 	role := userFrom(r.Context()).Role
 	d := pluginPageData{pluginHead: a.newPluginHead(p, "settings", role == "owner"), Owner: role == "owner", UI: a.pluginUIFor(r, p, role), Inactive: !p.Loaded && (p.Package == nil || (!p.Package.WidgetOnly && !p.Package.TagPack))}
+	setCameraPolicy(w, d.UI)
 	title := p.Name + " settings"
 	if !d.Owner && d.UI != nil {
 		title = d.UI.Title
