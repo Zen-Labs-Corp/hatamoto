@@ -110,6 +110,50 @@ func TestStandingTab(t *testing.T) {
 	}
 }
 
+// A rule that also creates says so on its own line before the Never line, and
+// the daily summary lists the new entries in a section of their own.
+func TestStandingTabWithCreate(t *testing.T) {
+	t.Parallel()
+
+	rule := standingRule
+	rule.CreateSchemas, rule.CreateMaxPerHour = []string{"events", "products"}, 20
+	fs := &fakeStanding{rule: rule, digest: []StandingDigestRow{
+		{Plugin: "shop-sync", Changes: 3, Created: 2}, {Plugin: "shop-sync", Changes: 1},
+	}}
+	g := newStandingRig(t, fs)
+	rec := g.do("GET", standingPath, "owner-token", nil, nil)
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("tab: %d", rec.Code)
+	}
+	create := "May publish new events and products entries on its own, up to 20 an hour"
+	never := "Never deletes, redirects, menus, media, other sources\u2019 content or other content types"
+	for _, want := range []string{create, never, "New entries published automatically"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("tab lacks %q", want)
+		}
+	}
+	if strings.Index(body, create) > strings.Index(body, never) {
+		t.Error("the create line comes after the Never line")
+	}
+	if strings.Contains(body, "Never text, links") {
+		t.Error("the short Never line stays for rules without create")
+	}
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %s", strings.Join(issues, "; "))
+	}
+	// The summary is dated by the wall clock, and this test runs in parallel so
+	// it cannot pin pluginsNow; freeze the date text for the golden instead.
+	today := fmtDate(time.Now().In(time.UTC))
+	frozen := strings.ReplaceAll(body, "Daily summary, "+today, "Daily summary, 10 Nov 2026")
+	compareGolden(t, "pages/plugins-automatic-create.html", normalizePage(frozen))
+
+	fs.digest = []StandingDigestRow{{Plugin: "shop-sync", Changes: 3}}
+	if body = g.do("GET", standingPath, "owner-token", nil, nil).Body.String(); strings.Contains(body, "New entries published automatically") {
+		t.Error("no creates, no section")
+	}
+}
+
 func TestStandingTabVisibility(t *testing.T) {
 	t.Parallel()
 

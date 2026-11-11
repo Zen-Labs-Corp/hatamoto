@@ -4,6 +4,8 @@ Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.
 
 > **0.22 changes (additive over 0.21).** New filter `request.redirect` and manifest field `redirect_paths`: a plugin declares exact public paths and, for GET and HEAD requests to them, may answer before routing, stored redirects and the page cache with a same-site 302 or 307 and declared cookies, using its declared cookies and the visitor's country. No existing type or wire output changed. See [request.redirect](#requestredirect).
 >
+> `standing_approval.create` also arrives in 0.22: it lets an approved run publish new entries by itself (see [Creating content automatically](#creating-content-automatically)). It needs `^0.22`; an older host ignores it and creates wait for review.
+>
 > **0.21 changes (additive over 0.20).** New permission `packages.inspect` and host function `packages.inspect`: download a package from an https URL on one of the plugin's `allowed_hosts` and get its kind, name, version, `sha256`, size, manifest summary and whether a given ed25519 key signed it, reported as `problems` and never as an error for a bad package. New helper package `hatamoto.dev/sdk/registry` with the registry index types and `registry.SignIndex`. No existing type, constant or function changed. See **packages.inspect** below.
 >
 > **0.20 changes (additive over 0.19).** `entities.get` and each item of `entities.list` carry `terms`, the entity's term assignments as `[{ kind, slug, name }]`, and `entities.list` takes `term: { kind, slug }` to keep only entities carrying that term. Both need `terms.read` (the key is absent without it), and `terms` is returned only to a plugin whose `sdk` range requires 0.20 or later; plugins built for `^0.19` or older get exactly the bytes they got before. See "Terms (SDK 0.20)" below. `EntityEvent` does not change.
@@ -625,14 +627,44 @@ Two ways to keep a value current without a review each time.
 | `standing_approval.fields` | attribute keys the run may change, 1 to 16, each matching the identifier pattern, no duplicates |
 | `standing_approval.schemas` | entity schema slugs the rule applies to, 1 to 16, same rules |
 | `standing_approval.max_per_hour` | most automatic changes an hour; 0 or absent means 200, and more than 200 is refused |
+| `standing_approval.create.schemas` | optional: entity schema slugs whose new entries the run may publish by itself, 1 to 16, each also listed in `standing_approval.schemas` |
+| `standing_approval.create.max_per_hour` | most new entries an hour, 1 to 100; there is no default, so it must be set |
 
 A run with a `standing_approval` takes no `inputs`, and a manifest may have only one such run (the host approves one rule per plugin; a second is refused at load). A cron-started run has no owner to confirm hosts, so its fetch phase may call the manifest's `allowed_hosts` (the owner saw them at install), except the `*` wildcard, which a cron-started run never gets. A manifest with a `standing_approval` may list at most 32 `allowed_hosts` besides `*`. The block is additive: older hosts ignore it, and there is no new host function or permission. Cron, hooks and routes still cannot write content: to change content on a schedule, use a cron-started run with a standing approval.
 
-Nothing happens until the owner approves the rule on the plugin's **Automatic updates** tab (a step-up sign-in is required). Without an active approval the cron tick does not start the run. With one, the run publishes itself only when every item is an update of a listed field on an object the plugin owns (`origin` is `plugin:<name>`), the field is a number, boolean, date or enum in the entity schema, nothing else in the item changed, there is no proposal and the hourly cap holds. Anything else stays staged for review as usual. Never published automatically: HTML, links, slugs, free text, creates, deletes, terms, menus, redirects and media.
+Nothing happens until the owner approves the rule on the plugin's **Automatic updates** tab (a step-up sign-in is required). Without an active approval the cron tick does not start the run. With one, the run publishes itself only when every item is an update of a listed field on an object the plugin owns (`origin` is `plugin:<name>`), the field is a number, boolean, date or enum in the entity schema, nothing else in the item changed, there is no proposal and the hourly cap holds. Anything else stays staged for review as usual. Never published automatically: HTML, links, slugs, free text, deletes, terms, menus, redirects and media. New entries wait for review too, unless the rule opts in with `create`, described next.
 
 Because the item replaces the whole attributes object, a price-only update must resend `slug`, `name` and `parent` unchanged (and the other attributes as they are); a changed slug, name or parent is outside the rule and the changeset waits for review.
 
-The approval is void when the plugin's version or manifest changes, when a schema the rule names changes, or when the plugin is uninstalled. The owner then sees the plugin as updated, with the rule paused until they review and allow it again. A once a day summary lists what published automatically, and Settings, Changes marks those changesets as published automatically.
+The approval is void when the plugin's version or manifest changes, when a schema the rule names changes, or when the plugin is uninstalled. The owner then sees the plugin as updated, with the rule paused until they review and allow it again. A once a day summary lists what published automatically, and Settings, Changes marks those changesets as published automatically. New entries are listed in their own section of the summary, apart from the updates.
+
+#### Creating content automatically
+
+Add `create` to the rule to let the approved run also publish new entries of the schemas it lists:
+
+```json
+"standing_approval": {
+  "fields": ["price"], "schemas": ["product"], "max_per_hour": 100,
+  "create": { "schemas": ["product"], "max_per_hour": 20 }
+}
+```
+
+The owner sees one more line on the Automatic updates tab ("May publish new product entries on its own, up to 20 an hour") before approving. New entries go through the same path as a change the owner reviews: validation, HTML sanitising, slug rules, events, revision history and undo. Their origin is `plugin:<name>`, so later updates to them follow the update rule.
+
+The hourly create cap is separate from the update cap: creates do not use the update budget, and updates do not use the create budget. Adding or changing `create` in a plugin update changes the manifest, so an existing approval is void until the owner allows the new rule.
+
+A changeset stays staged for review as a whole, with nothing published, when any item:
+
+- deletes anything, or is a redirect, a menu, a media item or alt text, a term to create, or a proposal;
+- creates an entry in a schema that `create.schemas` does not list, or sets a status other than draft or published;
+- touches content another source owns;
+- sets `translation_of` to an entry the plugin does not own, or to one outside the listed schemas;
+- gives a slug that is already taken in the schema;
+- carries a link, a path or a file in the entry's name, slug, locale or search text, or in any attribute value or key, at any depth: text with `://`, a scheme such as `http:`, `data:`, `javascript:`, `mailto:` or `tel:` directly followed by a character other than whitespace (`tel:+44...`), a leading `/` or `\`, a leading `www.`, a file name ending in an image, audio, video or PDF extension (`.jpg`, `.png`, `.svg`, `.mp4`, `.pdf` and so on), or CSS `url(` / `image-set(`. In HTML, a link attribute (`href`, `src`, `srcset`, `action`, `formaction`, `cite`, `data`, `poster`, `background`, `xlink:href`, `ping`, `longdesc`, `manifest`, `codebase`, `data-entity-id`) with a non-blank value makes the create wait whatever its target, relative ones included (`<a href="tickets">`, `<a href="#more">`), and any other attribute is checked like plain text. A link written in the middle of plain text counts only when it has `://` or one of the scheme forms above. This holds for every field, whatever the schema says, so a create with a ticket link waits for review. The names (top-level attribute keys only; `cover` is not one, since it can be a cover charge, and a cover image is caught as a link) `hero_image`, `thumbnail`, `headshot`, `logo`, `image`, `photo`, `featured_image` and `og_image` are treated as images and wait whenever they hold anything. Plain prose, numbers, times (`19:30`), labels with whitespace after the colon (`Doors: 7pm`, `Tel: 020 7946 0000`, `About: the venue`) and fractions (`see page 3/4`) are fine, as is HTML without links or link attributes (`<p class="lead">Doors 7pm</p>`);
+- is too large to publish on its own: a single string over 64 KiB, more than 4,096 strings (map keys included), or attributes over 256 KiB;
+- would take the hour past `create.max_per_hour`.
+
+A changeset that mixes a create with anything outside the rule waits as a whole. A new entry cannot carry terms: an entity item has no terms field, and a changeset with a term item waits for review.
 
 ### `on_run_step`
 

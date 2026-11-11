@@ -84,13 +84,17 @@ export BASE="http://127.0.0.1:$API_PORT" HATAMOTO_BIN="$W/hm"
 # The dev override loads this fixture (a plugin with an admin page and runs; its wasm is built below). A caller's
 # HATAMOTO_PLUGIN_DIR wins; the fixture is set for the server process only.
 PLUGIN_DIR=${HATAMOTO_PLUGIN_DIR:-}
-case " $* " in *" frame-tickets.mjs "*|*" tabs.mjs "*|*" runs-screens.mjs "*|*" review-flow.mjs "*|*" ownership-ui.mjs "*|*" standing-approvals.mjs "*)
+case " $* " in *" frame-tickets.mjs "*|*" tabs.mjs "*|*" runs-screens.mjs "*|*" review-flow.mjs "*|*" ownership-ui.mjs "*|*" standing-approvals.mjs "*|*" standing-create.mjs "*)
   if [ -z "$PLUGIN_DIR" ]; then
     # The fixture declares runs, so core wants its wasm to export on_run_step: build the
     # run driver's test plugin (backend/internal/pluginhost/testdata/runner) as the module.
     PLUGIN_DIR="$W/plugins"
     mkdir -p "$PLUGIN_DIR"
     cp -R "$QA/fixtures/frame-plugin/frameplug" "$PLUGIN_DIR/"
+    # standing-create.mjs needs the rule to also publish new entries; only the copy is patched.
+    case " $* " in *" standing-create.mjs "*)
+      node -e 'const f=process.argv[1],fs=require("fs"),m=JSON.parse(fs.readFileSync(f));m.runs.find(r=>r.standing_approval).standing_approval.create={schemas:["post"],max_per_hour:20};fs.writeFileSync(f,JSON.stringify(m,null,2))' "$PLUGIN_DIR/frameplug/plugin.json" || die "patching the fixture failed" ;;
+    esac
     (cd "$ROOT/backend/internal/pluginhost/testdata/runner" && GOOS=wasip1 GOARCH=wasm GOWORK=off go build -buildmode=c-shared -o "$PLUGIN_DIR/frameplug/plugin.wasm" .) || die "building the fixture wasm failed"
   fi ;;
 esac

@@ -169,6 +169,56 @@ func TestAutoPublishInsidePolicyMarksAutomatic(t *testing.T) {
 	}
 }
 
+const standingCreateManifest = `{"name":"pricer","version":"1.0.0","runs":[{"name":"prices","title":"Prices","cron":"daily",
+	"standing_approval":{"fields":["price"],"schemas":["product"],"max_per_hour":50,"create":{"schemas":["product"],"max_per_hour":7}}}],"cron":[{"name":"daily","every":"24h"}]}`
+
+// The approved create rule reaches the engine; a rule without one passes nil.
+func TestAutoPublishPassesTheApprovedCreatePolicy(t *testing.T) {
+	r := newStandingRig()
+	*r.manifest = jsontext.Value(standingCreateManifest)
+	hash, _ := standing.ManifestHash(*r.manifest)
+	ctx := context.Background()
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", hash); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.svc.autoPublish(ctx, "pricer", "prices", 9); err != nil {
+		t.Fatal(err)
+	}
+	if c := r.eng.policySeen.Create; c == nil || c.MaxPerHour != 7 || len(c.Schemas) != 1 || c.Schemas[0] != "product" {
+		t.Fatalf("create policy passed to the engine = %+v", c)
+	}
+}
+
+func TestAutoPublishWithoutACreateRulePassesNone(t *testing.T) {
+	r := newStandingRig()
+	ctx := context.Background()
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", standingHash); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.svc.autoPublish(ctx, "pricer", "prices", 9); err != nil {
+		t.Fatal(err)
+	}
+	if r.eng.policySeen.Create != nil {
+		t.Fatalf("create policy = %+v, want nil", r.eng.policySeen.Create)
+	}
+}
+
+// Adding a create rule changes the manifest, so the approval no longer holds.
+func TestAddingACreateRuleVoidsTheApproval(t *testing.T) {
+	r := newStandingRig()
+	ctx := context.Background()
+	if err := r.svc.Approve(ctx, "pricer", "prices", "owner", "1.0.0", standingHash); err != nil {
+		t.Fatal(err)
+	}
+	*r.manifest = jsontext.Value(standingCreateManifest)
+	if on, err := (standingGate{r.svc}).Active(ctx, "pricer", "prices"); err != nil || on {
+		t.Fatalf("Active = %v, %v", on, err)
+	}
+	if r.store.voided == nil || r.store.voided.Reason != "plugin updated" {
+		t.Fatalf("voided = %+v", r.store.voided)
+	}
+}
+
 func TestAutoPublishWaitsWhenStaleOrOutsidePolicy(t *testing.T) {
 	for name, mutate := range map[string]func(r standingRig){
 		"version changed": func(r standingRig) { *r.version = "1.1.0" },

@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/schemafield"
 	"hatamoto.dev/core/web"
 )
 
@@ -263,7 +264,7 @@ func (b *builder) kind(name string, n *Node, v any, hint UIHint) string {
 		if n.XHm == "html" {
 			return "html"
 		}
-		if n.XMedia || (n.Format == "uri" && strings.Contains(strings.ToLower(name), "image")) {
+		if schemafield.IsImageField(name, n.Format, n.XMedia) {
 			return "image"
 		}
 		if b.richText(name, n, hint) {

@@ -117,9 +117,13 @@ func (g *standingService) Policy(plugin string) (standingRule, bool) {
 	if max <= 0 || max > sdk.DefaultStandingPerHour {
 		max = sdk.DefaultStandingPerHour
 	}
-	return standingRule{Version: version, Hash: hash, Run: r.Name, Policy: standing.Policy{
+	pol := standing.Policy{
 		Fields: slices.Clone(r.StandingApproval.Fields), Schemas: slices.Clone(r.StandingApproval.Schemas), MaxPerHour: max,
-	}}, true
+	}
+	if c := r.StandingApproval.Create; c != nil {
+		pol.Create = &standing.CreatePolicy{Schemas: slices.Clone(c.Schemas), MaxPerHour: min(c.MaxPerHour, sdk.MaxStandingCreatePerHour)}
+	}
+	return standingRule{Version: version, Hash: hash, Run: r.Name, Policy: pol}, true
 }
 
 // Active returns the plugin's active approval for the run, nil when none.
@@ -294,9 +298,14 @@ func (g *standingService) publishUnderApproval(ctx context.Context, plugin, run 
 	if err := g.eng.Classify(ctx, csID); err != nil {
 		return false, err
 	}
-	v, res, err := g.eng.PublishUnderPolicy(ctx, csID, changeset.StandingPolicy{
+	// The create rule comes from what the owner approved, never the live manifest.
+	pol := changeset.StandingPolicy{
 		Plugin: plugin, Fields: a.Policy.Fields, Schemas: a.Policy.Schemas, MaxPerHour: a.Policy.MaxPerHour,
-	}, a.ID)
+	}
+	if c := a.Policy.Create; c != nil {
+		pol.Create = &changeset.CreatePolicy{Schemas: slices.Clone(c.Schemas), MaxPerHour: c.MaxPerHour}
+	}
+	v, res, err := g.eng.PublishUnderPolicy(ctx, csID, pol, a.ID)
 	if err != nil {
 		return false, err
 	}

@@ -1,0 +1,68 @@
+package schemafield
+
+import "testing"
+
+func TestIsURIField(t *testing.T) {
+	for _, c := range []struct {
+		format, xHm string
+		want        bool
+	}{
+		{"uri", "", true}, {"", "url", true}, {"", "image", true}, {"", "", false},
+		{"uri", "richtext", false}, {"uri", "code", false}, {"text", "", false},
+	} {
+		if got := IsURIField(c.format, c.xHm); got != c.want {
+			t.Errorf("IsURIField(%q, %q) = %v, want %v", c.format, c.xHm, got, c.want)
+		}
+	}
+}
+
+func TestMentionsMediaPath(t *testing.T) {
+	for in, want := range map[string]bool{
+		"/media/a.jpg": true, "media/a.jpg": true, "https://example.com/Media/a.jpg": true,
+		`<img src="/uploads/x.png">`: true, "a%2Fmedia%2Fb": true,
+		`/%6Dedia/x.jpg`: true, `\\MEDIA\\x.jpg`: true, "/%256Dedia/x": true, "&#47;media&#47;x": true,
+		"": false, "Hello": false, "/mediation/x": false, "https://example.com/about": false,
+	} {
+		if got := MentionsMediaPath(in); got != want {
+			t.Errorf("MentionsMediaPath(%q) = %v, want %v", in, got, want)
+		}
+	}
+}
+
+func TestIsImageAttributeName(t *testing.T) {
+	for _, k := range []string{"og_image", "featured_image", "image", "photo", "OG_Image", "hero_image", "thumbnail", "headshot", "logo", "Hero_Image"} {
+		if !IsImageAttributeName(k) {
+			t.Errorf("%q is read as an image by name", k)
+		}
+	}
+	for _, k := range []string{"title", "cover"} {
+		if IsImageAttributeName(k) {
+			t.Errorf("%q is not an image by name (cover is also a cover charge)", k)
+		}
+	}
+	if IsImageAttributeName("title") {
+		t.Error("title is not an image")
+	}
+}
+
+func TestEffectiveFormat(t *testing.T) {
+	for _, c := range []struct{ format, hint, want string }{
+		{"", "url", "uri"}, {"", "image", "uri"}, {"uri", "richtext", "richtext"},
+		{"uri", "code", "textarea"}, {"uri", "html", "textarea"}, {"", "css", "textarea"},
+		{"uri", "", "uri"}, {"date", "other", "date"}, {"", "", ""},
+	} {
+		if got := EffectiveFormat(c.format, c.hint); got != c.want {
+			t.Errorf("EffectiveFormat(%q,%q) = %q, want %q", c.format, c.hint, got, c.want)
+		}
+	}
+}
+
+func TestNormalizeValue(t *testing.T) {
+	for in, want := range map[string]string{
+		"/%6Dedia/X.JPG": "/media/x.jpg", `\Media\x`: "/media/x", "/%256Dedia/x": "/media/x", "plain": "plain",
+	} {
+		if got := NormalizeValue(in); got != want {
+			t.Errorf("NormalizeValue(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

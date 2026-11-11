@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/schemafield"
 )
 
 // Node is the subset of JSON Schema the admin forms understand. Properties keep
@@ -220,17 +221,10 @@ func (n *Node) label(name string) string {
 // textarea switches the name-based rich text rule off) and a "url" field named
 // "hero_image" is an image field (format uri switches the name rule on).
 func (n *Node) mapHint() {
-	switch n.XHm {
-	case "richtext":
-		n.Format = "richtext"
-	case "html", "code", "css":
-		n.Format = "textarea"
-	case "url":
-		n.Format = "uri"
-	case "image":
-		n.Format = "uri"
+	if n.XHm == "image" {
 		n.XMedia = true
 	}
+	n.Format = schemafield.EffectiveFormat(n.Format, n.XHm)
 }
 
 // SortNames orders property names by an x-hm-order list: the names it lists

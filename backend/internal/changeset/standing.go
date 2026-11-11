@@ -5,14 +5,17 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/schemafield"
 )
 
 // MaxStandingPerHour is the ceiling of the hourly cap of a standing policy, and
@@ -29,6 +32,33 @@ type StandingPolicy struct {
 	Fields     []string
 	Schemas    []string
 	MaxPerHour int
+	// Create, when set, lets the rule publish new entries of its schemas.
+	// Nil keeps the rule update-only.
+	Create *CreatePolicy
+}
+
+// MaxStandingCreatesPerHour is the ceiling of the hourly create cap.
+const MaxStandingCreatesPerHour = 100
+
+// CreatePolicy is the opt-in part of a standing policy that publishes new
+// entries of the named schemas, at most MaxPerHour an hour.
+type CreatePolicy struct {
+	Schemas    []string
+	MaxPerHour int
+}
+
+// createCap is how many creates an hour the policy allows. There is no
+// default: a missing or non-positive limit allows none.
+func (p StandingPolicy) createCap() int {
+	if p.Create == nil || p.Create.MaxPerHour <= 0 {
+		return 0
+	}
+	return min(p.Create.MaxPerHour, MaxStandingCreatesPerHour)
+}
+
+// createsEnabled reports whether any create can qualify under the policy.
+func (p StandingPolicy) createsEnabled() bool {
+	return p.createCap() > 0 && len(p.Create.Schemas) > 0
 }
 
 // PolicyVerdict says whether a changeset is inside a policy. Reasons are plain
@@ -52,12 +82,32 @@ func (e *Engine) AutoPublishedLastHour(ctx context.Context, plugin string) (int,
 }
 
 func autoPublishedSince(ctx context.Context, q rowQuerier, plugin string, since time.Time) (int, error) {
+	return countApplied(ctx, q, plugin, since, "")
+}
+
+// appliedCreate matches the items a publish applied as a new entity: a create
+// leaves no pre-image and no token of a live object (publishItem records both
+// for every update).
+const appliedCreate = `(i.kind = 'entity' AND i.op = 'upsert' AND i.before IS NULL AND i.before_token IS NULL)`
+
+// updatesSince counts the applied items of plugin's automatic changesets
+// that are not creates: the budget of the update rule.
+func updatesSince(ctx context.Context, q rowQuerier, plugin string, since time.Time) (int, error) {
+	return countApplied(ctx, q, plugin, since, ` AND NOT `+appliedCreate)
+}
+
+// createsSince counts the applied creates of plugin's automatic changesets.
+func createsSince(ctx context.Context, q rowQuerier, plugin string, since time.Time) (int, error) {
+	return countApplied(ctx, q, plugin, since, ` AND `+appliedCreate)
+}
+
+func countApplied(ctx context.Context, q rowQuerier, plugin string, since time.Time, filter string) (int, error) {
 	var n int
 	err := q.QueryRow(ctx, `
 		SELECT count(*) FROM hatamoto_changeset_items i
 		JOIN hatamoto_changesets c ON c.id = i.changeset_id
 		WHERE c.plugin = $1 AND c.auto_published AND c.state = 'published'
-		  AND c.published_at > $2 AND i.result = $3`,
+		  AND c.published_at > $2 AND i.result = $3`+filter,
 		plugin, since, ResultApplied).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count automatic changes: %w", err)
@@ -145,13 +195,15 @@ func (e *Engine) checkPolicyIn(ctx context.Context, tx pgx.Tx, cs changesetRow, 
 		v.refuse("The run changed nothing.")
 		return nil
 	}
-	used, err := autoPublishedSince(ctx, tx, cs.Plugin, e.now().Add(-time.Hour))
-	if err != nil {
-		return err
-	}
-	if used+int(cs.Items) > p.cap() {
-		v.refuse(fmt.Sprintf("It would pass %d automatic changes in an hour.", p.cap()))
-		return nil
+	if !p.createsEnabled() {
+		used, err := autoPublishedSince(ctx, tx, cs.Plugin, e.now().Add(-time.Hour))
+		if err != nil {
+			return err
+		}
+		if used+int(cs.Items) > p.cap() {
+			v.refuse(fmt.Sprintf("It would pass %d automatic changes in an hour.", p.cap()))
+			return nil
+		}
 	}
 	if err := e.ensureClassified(ctx, tx, csID, cs.Plugin); err != nil {
 		return err
@@ -159,6 +211,31 @@ func (e *Engine) checkPolicyIn(ctx context.Context, tx pgx.Tx, cs changesetRow, 
 	items, err := loadItems(ctx, tx, csID, false)
 	if err != nil {
 		return err
+	}
+	st := &standingRun{created: map[string]string{}, slugs: map[string]bool{}}
+	if p.createsEnabled() {
+		staged := 0
+		for _, it := range items {
+			if isCleanCreate(ctx, tx, p, it) {
+				staged++
+			}
+		}
+		used, err := updatesSince(ctx, tx, cs.Plugin, e.now().Add(-time.Hour))
+		if err != nil {
+			return err
+		}
+		if used+int(cs.Items)-staged > p.cap() {
+			v.refuse(fmt.Sprintf("It would pass %d automatic changes in an hour.", p.cap()))
+			return nil
+		}
+		usedCreates, err := createsSince(ctx, tx, cs.Plugin, e.now().Add(-time.Hour))
+		if err != nil {
+			return err
+		}
+		if usedCreates+staged > p.createCap() {
+			v.refuse(fmt.Sprintf("It would pass %d new entries in an hour.", p.createCap()))
+			return nil
+		}
 	}
 	risks, err := loadRisks(ctx, tx, csID)
 	if err != nil {
@@ -172,7 +249,7 @@ func (e *Engine) checkPolicyIn(ctx context.Context, tx pgx.Tx, cs changesetRow, 
 			v.refuse(fmt.Sprintf("Change %d needs a closer look.", it.Seq))
 			continue
 		}
-		if reason := checkStandingItem(ctx, tx, p, it); reason != "" {
+		if reason := checkStandingItem(ctx, tx, p, it, st); reason != "" {
 			v.refuse(fmt.Sprintf("Change %d: %s", it.Seq, reason))
 		}
 	}
@@ -200,7 +277,7 @@ func loadRisks(ctx context.Context, tx pgx.Tx, csID int64) (map[int]string, erro
 }
 
 // checkStandingItem returns why an item is outside the policy, or "".
-func checkStandingItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it StoredItem) string {
+func checkStandingItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it StoredItem, st *standingRun) string {
 	if it.Kind != KindEntity {
 		return "only page and record updates qualify."
 	}
@@ -209,6 +286,9 @@ func checkStandingItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it Stor
 	}
 	if len(it.BlobKeys) > 0 {
 		return "files never qualify."
+	}
+	if isCleanCreate(ctx, tx, p, it) {
+		return checkCreateItem(ctx, tx, p, it, st)
 	}
 	target := it.TargetID
 	if target == "" {
@@ -373,6 +453,430 @@ func isScalar(v any) bool {
 	switch v.(type) {
 	case float64, bool, string:
 		return true
+	}
+	return false
+}
+
+// standingRun is what the item checks of one changeset share: the creates
+// already accepted, so later items may name them as parent or translation
+// source (they apply in the same order).
+type standingRun struct {
+	created map[string]string // source key -> schema slug
+	slugs   map[string]bool   // schema slug + "/" + lowercased explicit slug
+}
+
+// isCleanCreate reports whether the item is a plain create the policy may
+// judge: an entity upsert with no target and no live or stale mapping. Anything
+// else (a mapped key, a target that is gone) is not a create and keeps the
+// update rule's refusal.
+func isCleanCreate(ctx context.Context, tx rowQuerier, p StandingPolicy, it StoredItem) bool {
+	if !p.createsEnabled() || it.Kind != KindEntity || it.Op != OpUpsert || it.TargetID != "" {
+		return false
+	}
+	mapped, err := mappedTarget(ctx, tx, Origin(p.Plugin), it.Kind, it.SourceKey)
+	return err == nil && mapped == ""
+}
+
+// Entity attribute keys the SEO block of a payload merges into, which a schema
+// need not declare.
+var undeclaredAttributeKeys = []string{"meta_title", "meta_description"}
+
+// checkCreateItem returns why a new entry is outside the create rule, or "".
+// Every check must pass; the writer applies the item as a human publish would.
+func checkCreateItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it StoredItem, st *standingRun) string {
+	var pl entityPayload
+	if jsonx.Unmarshal(it.Payload, &pl, jsonx.StoredLoose) != nil {
+		return "it could not be read."
+	}
+	if createTooLarge(pl) {
+		return "This entry is too large to publish on its own."
+	}
+	if !slices.Contains(p.Create.Schemas, pl.Schema) {
+		return "its type is not covered by the create rule."
+	}
+	if it.SourceKey != "" {
+		if _, dup := st.created[it.SourceKey]; dup {
+			return "two new entries share one source key."
+		}
+	}
+	switch pl.Status {
+	case "", "draft", "published":
+	default:
+		return "it sets a status other than draft or published."
+	}
+	if pl.ParentID != nil {
+		return "a new entry may not be placed under an existing page."
+	}
+	if pl.SEO != nil && pl.SEO.Canonical != "" {
+		return "it sets a canonical address."
+	}
+	origin := Origin(p.Plugin)
+	if pl.ParentKey != "" {
+		ok, reason := ownedOrStaged(ctx, tx, p, origin, pl.ParentKey, st, false)
+		if !ok {
+			return "its parent " + reason
+		}
+	}
+	if pl.TranslationOf != "" {
+		ok, reason := ownedOrStaged(ctx, tx, p, origin, pl.TranslationOf, st, true)
+		if !ok {
+			return "its translation source " + reason
+		}
+	}
+	var schemaID uuid.UUID
+	var schemaDoc []byte
+	if err := tx.QueryRow(ctx, `SELECT id, schema FROM hatamoto_entity_schemas WHERE slug = $1`, pl.Schema).Scan(&schemaID, &schemaDoc); err != nil {
+		return "its type could not be read."
+	}
+	if pl.Slug != "" {
+		key := pl.Schema + "/" + strings.ToLower(pl.Slug)
+		var taken bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (SELECT 1 FROM hatamoto_entities WHERE schema_id = $1 AND lower(slug) = lower($2) AND variant_key IS NULL)`,
+			schemaID, pl.Slug).Scan(&taken); err != nil {
+			return "its address could not be checked."
+		}
+		if taken || st.slugs[key] {
+			return "its address is already taken."
+		}
+		st.slugs[key] = true
+	}
+	if reason := checkCreateText(pl); reason != "" {
+		return reason
+	}
+	if reason := checkCreateAttributes(ctx, tx, schemaDoc, pl.Attributes); reason != "" {
+		return reason
+	}
+	if it.SourceKey != "" {
+		st.created[it.SourceKey] = pl.Schema
+	}
+	return ""
+}
+
+// ownedOrStaged resolves a parent or translation reference exactly as the
+// writer does and accepts only entities of this plugin in a listed schema, or
+// an earlier create of this changeset. A translation_of that parses as an id is
+// that entity (the writer never consults source keys then); a parent_key is
+// only ever a source key.
+func ownedOrStaged(ctx context.Context, tx pgx.Tx, p StandingPolicy, origin, ref string, st *standingRun, isTranslation bool) (bool, string) {
+	id, err := uuid.Parse(ref)
+	if !isTranslation || err != nil {
+		if schema, ok := st.created[ref]; ok {
+			if slices.Contains(p.Create.Schemas, schema) {
+				return true, ""
+			}
+			return false, "is in a type the create rule does not cover."
+		}
+		target, err := liveEntityTarget(ctx, tx, origin, ref)
+		if err != nil || target == "" {
+			return false, "could not be found."
+		}
+		if id, err = uuid.Parse(target); err != nil {
+			return false, "could not be found."
+		}
+	}
+	var liveOrigin, schema string
+	err = tx.QueryRow(ctx, `
+		SELECT e.origin, s.slug FROM hatamoto_entities e JOIN hatamoto_entity_schemas s ON s.id = e.schema_id WHERE e.id = $1`, id).
+		Scan(&liveOrigin, &schema)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, "could not be found."
+	}
+	if err != nil {
+		return false, "could not be read."
+	}
+	if liveOrigin != origin {
+		return false, "is something the plugin did not create."
+	}
+	if !slices.Contains(p.Create.Schemas, schema) {
+		return false, "is in a type the create rule does not cover."
+	}
+	return true, ""
+}
+
+// Size limits for an automatic create. Past any of them the entry waits for a
+// person, which keeps the scans below (and the library lookup, whose array is
+// at most a few times maxCreateStrings long) bounded by a constant.
+const (
+	maxCreateString     = 64 << 10
+	maxCreateStrings    = 4096
+	maxCreateAttributes = 256 << 10
+)
+
+// createTooLarge reports whether a create item is over a size limit: the
+// attributes JSON, any single string, or the number of strings (map keys
+// included). It only measures, so it is safe to run before any decoding.
+func createTooLarge(pl entityPayload) bool {
+	if len(pl.Attributes) > maxCreateAttributes {
+		return true
+	}
+	strs := 0
+	over := func(s string) bool {
+		strs++
+		return len(s) > maxCreateString || strs > maxCreateStrings
+	}
+	own := []string{pl.Name, pl.Slug, pl.Locale}
+	if pl.SEO != nil {
+		own = append(own, pl.SEO.MetaTitle, pl.SEO.MetaDescription, pl.SEO.Robots)
+	}
+	if slices.ContainsFunc(own, over) {
+		return true
+	}
+	attrs, ok := decodeObject(pl.Attributes)
+	return ok && tooLargeValue(attrs, over)
+}
+
+func tooLargeValue(v any, over func(string) bool) bool {
+	switch x := v.(type) {
+	case string:
+		return over(x)
+	case []any:
+		return slices.ContainsFunc(x, func(e any) bool { return tooLargeValue(e, over) })
+	case map[string]any:
+		for k, e := range x {
+			if over(k) || tooLargeValue(e, over) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// checkCreateText applies the markup and link rules of the attributes to the
+// other strings a create stores: name, slug, locale and the search text. The
+// public site prints and links them like any attribute, so a create carries no
+// link, path or picture in them either.
+func checkCreateText(pl entityPayload) string {
+	strs := []string{pl.Name, pl.Slug, pl.Locale}
+	if pl.SEO != nil {
+		strs = append(strs, pl.SEO.MetaTitle, pl.SEO.MetaDescription, pl.SEO.Robots)
+	}
+	if slices.ContainsFunc(strs, schemafield.MentionsImageMarkup) {
+		return "it carries image markup, which never qualifies."
+	}
+	if slices.ContainsFunc(strs, schemafield.LooksLikeURLOrPath) {
+		return "it carries links, paths or files, which need your review."
+	}
+	return ""
+}
+
+// checkCreateAttributes refuses a new entry that carries a media reference:
+// a non-empty value in a field the schema marks as an image or file, in a
+// key the schema does not declare, or in a field it cannot classify; and one
+// whose strings carry image markup.
+func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte, raw jsontext.Value) string {
+	attrs, ok := decodeObject(raw)
+	if !ok {
+		return "its values could not be read."
+	}
+	props, ok := schemaProperties(schemaDoc)
+	if !ok {
+		return "its type could not be read."
+	}
+	// A key an image field reads as its own (x-hm-alias) is as good as the image.
+	aliased := map[string]bool{}
+	for k, def := range props {
+		if hasMediaMarker(def) || imageByName(k, def) {
+			if d, ok := def.(map[string]any); ok {
+				if names, ok := d["x-hm-alias"].([]any); ok {
+					for _, a := range names {
+						if name, ok := a.(string); ok {
+							aliased[name] = true
+						}
+					}
+				}
+			}
+		}
+	}
+	for k, v := range attrs {
+		if (schemafield.IsImageAttributeName(k) || aliased[k]) && !isEmptyValue(v) {
+			return fmt.Sprintf("%q holds an image or file, which never qualifies.", k)
+		}
+		def, declared := props[k]
+		if !declared {
+			if isBareEmpty(v) {
+				continue
+			}
+			if slices.Contains(undeclaredAttributeKeys, k) {
+				continue
+			}
+			return fmt.Sprintf("it sends %q, which its type does not declare.", k)
+		}
+		if isEmptyValue(v) {
+			continue
+		}
+		if hasMediaMarker(def) || imageByName(k, def) {
+			return fmt.Sprintf("%q holds an image or file, which never qualifies.", k)
+		}
+	}
+	// Whatever the schema says, a value that points into the media library
+	// never qualifies: the readers resolve images by value, not by field.
+	var strs []string
+	collectStrings(attrs, &strs)
+	// Any picture or media element, in any string, waits for a person: whose
+	// file it is, and from which host, cannot be told from the markup alone.
+	if slices.ContainsFunc(strs, schemafield.MentionsImageMarkup) {
+		return "it carries image markup, which never qualifies."
+	}
+	if slices.ContainsFunc(strs, schemafield.MentionsMediaPath) {
+		return "it refers to a file in the media library, which never qualifies."
+	}
+	if len(strs) > 0 {
+		var hit bool
+		err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM hatamoto_media m
+				WHERE m.id::text = ANY($1) OR lower(m.public_url) = ANY($1) OR lower(m.storage_path) = ANY($1)
+				   OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.variants) = 'array' THEN m.variants ELSE '[]'::jsonb END) v
+				              WHERE lower(v->>'url') = ANY($1)))`, strs).Scan(&hit)
+		if err != nil {
+			return "its files could not be checked."
+		}
+		if hit {
+			return "it refers to a file in the media library, which never qualifies."
+		}
+	}
+	// An automatic create carries no link, path or file at all, whatever the
+	// field: the renderers turn plain values into pictures and links by name,
+	// by suffix and by host, so the only safe rule is the blunt one.
+	if slices.ContainsFunc(strs, schemafield.LooksLikeURLOrPath) {
+		return "it carries links, paths or files, which need your review."
+	}
+	return ""
+}
+
+// collectStrings gathers every string value and every map key at any depth,
+// each as written and normalised (decoded, slashes straightened, lowercased).
+// A string that parses as a URL also adds its path, and the normalised form
+// without its query and fragment, so an address of a library file matches
+// however the library stores it and however it is spelled or signed.
+func collectStrings(v any, out *[]string) {
+	add := func(s string) {
+		if s == "" {
+			return
+		}
+		n := schemafield.NormalizeValue(s)
+		*out = append(*out, strings.ToLower(s), n)
+		bare, _, _ := strings.Cut(n, "#")
+		bare, _, _ = strings.Cut(bare, "?")
+		if bare != n {
+			*out = append(*out, bare)
+		}
+		if u, err := url.Parse(bare); err == nil && u.Path != "" && (u.Host != "" || bare != n) {
+			*out = append(*out, u.Path, strings.TrimPrefix(u.Path, "/"))
+		}
+	}
+	switch x := v.(type) {
+	case string:
+		add(x)
+	case []any:
+		for _, e := range x {
+			collectStrings(e, out)
+		}
+	case map[string]any:
+		for k, e := range x {
+			add(k)
+			collectStrings(e, out)
+		}
+	}
+}
+
+// schemaProperties reads the declared fields exactly as the admin form does:
+// from the member named "properties". A document that spells that member any
+// other way as well (another case, which a loose reader would merge) is one the
+// gate cannot be sure it reads as the admin does, so it is refused.
+func schemaProperties(schemaDoc []byte) (map[string]any, bool) {
+	var doc map[string]any
+	if jsonx.Unmarshal(schemaDoc, &doc, jsonx.StoredLoose) != nil {
+		return nil, false
+	}
+	for k := range doc {
+		if k != "properties" && strings.EqualFold(k, "properties") {
+			return nil, false
+		}
+	}
+	props, _ := doc["properties"].(map[string]any)
+	return props, true
+}
+
+// isBareEmpty is the strict test for a key the schema does not declare: only
+// null, "", [] and {} are empty. A container with anything inside is not, even
+// when its elements or map keys look blank, because nothing says how the admin
+// would read it.
+func isBareEmpty(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case string:
+		return x == ""
+	case []any:
+		return len(x) == 0
+	case map[string]any:
+		return len(x) == 0
+	}
+	return false
+}
+
+func isEmptyValue(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case string:
+		return x == ""
+	case []any:
+		return !slices.ContainsFunc(x, func(e any) bool { return !isEmptyValue(e) })
+	case map[string]any:
+		for _, e := range x {
+			if !isEmptyValue(e) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// imageByName applies the admin's naming rule to a schema node and to every
+// property and array item below it. A node is named by its own key; array
+// items take the array's key, as the admin does.
+func imageByName(name string, node any) bool {
+	n, ok := node.(map[string]any)
+	if !ok {
+		return false
+	}
+	format, _ := n["format"].(string)
+	xHm, _ := n["x-hm-field"].(string)
+	if schemafield.IsImageField(name, schemafield.EffectiveFormat(format, xHm), false) {
+		return true
+	}
+	if props, ok := n["properties"].(map[string]any); ok {
+		for k, child := range props {
+			if imageByName(k, child) {
+				return true
+			}
+		}
+	}
+	return imageByName(name, n["items"])
+}
+
+// hasMediaMarker reports whether a schema node, or any node below it, is an
+// image or file field.
+func hasMediaMarker(node any) bool {
+	switch n := node.(type) {
+	case map[string]any:
+		if m, _ := n["x-media"].(bool); m {
+			return true
+		}
+		if f, _ := n["x-hm-field"].(string); f == "image" || f == "file" {
+			return true
+		}
+		for _, child := range n {
+			if hasMediaMarker(child) {
+				return true
+			}
+		}
+	case []any:
+		return slices.ContainsFunc(n, hasMediaMarker)
 	}
 	return false
 }

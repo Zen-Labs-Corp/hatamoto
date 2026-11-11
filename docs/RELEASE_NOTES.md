@@ -8,6 +8,12 @@
 - **Choices are kept.** An owner who chose Off or Basic is never changed. `HATAMOTO_TELEMETRY=off` still rules everything out: nothing is sent, no default is written, and the step and notice are left out.
 - **Migration.** Adds the `default_notice_pending` column to `hatamoto_install_stats`. Rollback floor: unchanged; an older release reads a defaulted install as an owner who chose Detailed and keeps sending.
 
+## Unreleased: SDK 0.22.0, standing approval create
+
+- **Create rule.** A cron run's `standing_approval` can add `create: {schemas, max_per_hour}` (1 to 100 an hour, separate from the update cap) so the approved run also publishes new entries of those schemas by itself, through the normal entity path. Anything else still waits for review, and a changeset that mixes a create with something outside the rule waits as a whole. The approval screen shows the extra line, the daily summary lists new entries in their own section, and adding or changing `create` voids an existing approval. A rule without `create` behaves as before. A plugin that declares it needs `^0.22`; an older host ignores it and creates wait for review.
+- **SDK.** `hatamoto.dev/sdk` 0.22.0 adds the optional `create` on `standing_approval`; `CompatibleWith` now ends at `0.21.0`.
+- **Migration.** None. Rollback floor: unchanged; a plugin that declares `^0.22` loads only on a server that serves SDK 0.22.
+
 ## Unreleased: Detailed install stats
 
 - **Three levels.** Install stats now have Off, Basic and Detailed, chosen with a radio group in the setup wizard, the owner banner and Settings > Updates. The "what is sent" preview is gone from the admin: a **What is collected** link opens the [Install stats](site/operate/install-stats.md) page, which lists what each level sends.

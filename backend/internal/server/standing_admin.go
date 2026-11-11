@@ -40,7 +40,11 @@ func (a standingAdmin) Rule(plugin string) (admin.StandingRule, bool) {
 	if !ok {
 		return admin.StandingRule{}, false
 	}
-	return admin.StandingRule{Version: r.Version, Hash: r.Hash, Run: r.Run, Fields: r.Policy.Fields, Schemas: r.Policy.Schemas, MaxPerHour: r.Policy.MaxPerHour}, true
+	rule := admin.StandingRule{Version: r.Version, Hash: r.Hash, Run: r.Run, Fields: r.Policy.Fields, Schemas: r.Policy.Schemas, MaxPerHour: r.Policy.MaxPerHour}
+	if c := r.Policy.Create; c != nil {
+		rule.CreateSchemas, rule.CreateMaxPerHour = c.Schemas, c.MaxPerHour
+	}
+	return rule, true
 }
 
 func (a standingAdmin) Active(ctx context.Context, plugin, run string) (*admin.StandingApproval, error) {
@@ -106,7 +110,7 @@ func (a standingAdmin) Digest(ctx context.Context, since time.Time) ([]admin.Sta
 	}
 	out := make([]admin.StandingDigestRow, len(rows))
 	for i, d := range rows {
-		out[i] = admin.StandingDigestRow{Plugin: d.Plugin, Changes: d.Changes}
+		out[i] = admin.StandingDigestRow{Plugin: d.Plugin, Changes: d.Changes, Created: d.Created}
 	}
 	return out, nil
 }
