@@ -1,19 +1,21 @@
 # Write and submit a theme
 
-How to build a Hatamoto theme in your own repo and get it approved for the
-registry. Part 1 covers writing and testing, Part 2 covers the submission. The
-full theme reference (layouts, template funcs, sections, markers) is
+How to build a Hatamoto theme in your own repo and publish it through a
+developer account. Part 1 covers writing and testing, Part 2 covers publishing.
+The full theme reference (layouts, template funcs, sections, markers) is
 [THEMES.md](THEMES.md); packaging and trust are in
 [PACKAGES.md](PACKAGES.md). Writing a plugin instead? See
 [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md).
 
-> **Status:** submissions to the registry open when Hatamoto core goes public
-> (roadmap item v1-24), the same moment as plugin submissions. Until then the
-> steps below describe the path you will follow. Everything in Part 1 works
-> today with the `hatamoto` binary.
+> **Status:** developer accounts are open at <https://hatamoto.dev/developers>.
+> Themes published there are listed as Developer packages. Everything in Part 1
+> works today with the `hatamoto` binary.
 
-Approved themes are listed at <https://hatamoto.dev/themes> and install with
-one click from Admin > Settings > Theme > Browse registry.
+Developer packages are listed at <https://hatamoto.dev/themes> and in Admin >
+Settings > Theme > Browse registry, once a site owner has allowed them (see
+Part 2). Themes in the first-party registry are listed another way, see
+[First-party listing](#first-party-listing).
+
 
 ## Part 1: Write a theme
 
@@ -25,7 +27,8 @@ your own repo.
 
 - The `hatamoto` binary, for `theme check` and `theme pack` (and `theme dev`,
   which also needs a running development server, see below).
-- A public git repo for your theme, or a place to host a zip over https.
+- A public GitHub repo for your theme. The packaged `.hmp` file goes on a
+  GitHub release of that repo.
 
 ### 1. Lay out the files
 
@@ -54,9 +57,8 @@ schemas in `schemas/` are in [THEMES.md](THEMES.md#directory-layout). Read that
 chapter before you start; this guide does not repeat it. The quickest start is to
 copy the files of the default theme that ships with Hatamoto and change them.
 
-A theme submitted to the registry must be self-contained. Ship your CSS, fonts,
-images and scripts inside `assets/`; do not load anything from another host
-(see [Review criteria](#review-criteria)).
+A theme you publish must be self-contained. Ship your CSS, fonts,
+images and scripts inside `assets/`; do not load anything from another host.
 
 Hidden files and folders (a leading dot) and links are refused in a package, so
 keep `.git` out of the folder you pack, and keep to the top-level folders the
@@ -75,7 +77,7 @@ package format allows ([PACKAGES.md](PACKAGES.md)).
 
 | Field | Meaning |
 |---|---|
-| `name` | `^[a-z][a-z0-9-]{1,39}$`; also the name of your manifest file in Part 2. `default` is reserved |
+| `name` | `^[a-z][a-z0-9-]{1,39}$`; `default` is reserved |
 | `version` | your theme's semver; bump it for every release |
 | `description` | shown on the directory card |
 | `screenshot` | **required for the registry**: path to a preview image under `assets/` |
@@ -126,206 +128,85 @@ hatamoto theme check ./hatamoto-kumo --registry
 This needs no key and no database, and writes nothing. It parses the folder as a
 theme package (name, semver version, the package safety rules in
 [PACKAGES.md](PACKAGES.md#safety-rules-for-the-archive) and the screenshot
-rules above) and the `menus` block when there is one, and, with `--registry`, also requires a valid screenshot and
-refuses the name `default`. On success it prints `ok: theme kumo v0.1.0`. This is
-the same check the registry runs, so if it passes here it passes there.
+rules above) and the `menus` block when there is one, and, with `--registry`, also
+requires a valid screenshot and refuses the name `default`. On success it prints
+`ok: theme kumo v0.1.0`.
 
 `theme check` does not render your templates; step 4 does. Run both.
 
-If you will submit a zip instead of a git repo, check the zip too:
-
-```sh
-hatamoto theme check --archive theme.zip --sha256 "$(sha256sum theme.zip | cut -d' ' -f1)" --registry
-```
-
-Add `--expect-name kumo` to either form to fail when `theme.json` names a
-different theme.
-
-### 6. Pack and try it as a package
+### 6. Pack and sign it
 
 ```sh
 hatamoto keys generate --name mykey      # mykey.key (secret) + mykey.pub
 hatamoto theme pack ./hatamoto-kumo --key mykey.key --out kumo.hmp
 ```
 
-Keep `mykey.key` out of git. This key is only for your own trials: the registry
-repacks your theme and signs it with the Hatamoto key, so your signature is never
-shipped. To install the package on a development server, trust your key with
-`HATAMOTO_TRUSTED_KEYS` or allow unsigned packages, as described in
+Keep `mykey.key` out of git and never share it. Hatamoto does not re-sign your
+theme: the `.hmp` you build carries your signature, and that is what site owners
+install. The command prints `signed by <key id>`. To try the package on your own
+development server, trust your key with `HATAMOTO_TRUSTED_KEYS` or allow
+unsigned packages, as described in
 [THEMES.md](THEMES.md#installing-and-activating-themes) and
 [PACKAGES.md](PACKAGES.md).
 
-### 7. Publish your repo and submit
+### 7. Publish a release and submit
 
-Push your theme to a public git host, copy the 40 character commit id you want
-reviewed (or build the zip and its sha256), and follow
-[Part 2](#part-2-submit-a-theme).
+Push your theme to GitHub, create a release and attach `kumo.hmp` to it. Then
+follow [Part 2](#part-2-publish-your-theme).
 
-## Part 2: Submit a theme
+## Part 2: Publish your theme
 
-Submissions go to the public plugins repository <https://github.com/Zen-Labs-Corp/hatamoto-plugins>, the
-same repository as plugins, in the folder `manifests/themes/`.
+Anyone can publish. Developer accounts are free for now. We may introduce a fee later and will announce it in advance. You need an account to submit, and Hatamoto never signs your code: your own key signs it.
 
-### How it works
+1. Sign in at <https://hatamoto.dev/developers> with GitHub, add a display name
+   and accept the developer terms. You need a verified email on your GitHub
+   account.
+2. Make a key with `hatamoto keys generate --name mykey`. Keep `mykey.key`
+   private. Paste the contents of `mykey.pub` under "Add key". An account has one
+   key.
+3. Pack and sign the theme with `hatamoto theme pack . --key mykey.key` and
+   attach the `.hmp` to a GitHub release.
+4. On the same page fill in the submit form and press "Check and submit":
+   - **Kind:** Theme.
+   - **Release file:** the link to the `.hmp`, in the form
+     `https://github.com/<owner>/<repo>/releases/download/<tag>/<file>.hmp`.
+     Other hosts and release page links are refused.
+   - **Source repository** and **Title:** optional.
+   - **What it does:** up to 600 characters.
+   - **Site type:** blog, business, docs, landing, portfolio or restaurant.
+   - **Screenshot link:** optional, an https link to a picture of the theme as
+     it looks on sample content. It must show this theme, not a mock-up.
 
-1. You keep your theme in your own public repo, or as a zip on a public https
-   URL.
-2. You open a pull request that adds one small manifest pinning a git commit or
-   a zip archive and its sha256.
-3. CI checks the manifest. A maintainer reviews your theme at that pin.
-4. A merge is the approval. After the merge the release manager fetches the pin,
-   repacks it, signs the result with the Hatamoto key and publishes it. Every
-   signed build is kept.
+The checks run at once and are shown as a list: signed by your key, the file is a
+theme, the name is free, the version is newer than the listed one, and the
+package passes the same rules as `theme check`. If one fails, fix it and press
+"Resubmit". If all pass, the status is "Waiting for approval". The site owner of
+hatamoto.dev approves it or says why not, and you get an email either way. No
+review time is promised.
 
-We never accept binaries or pre-signed packages. The registry builds from the
-files you pinned. There is nothing to compile and no author code runs during the
-build. By submitting you grant the project the right to repack, sign and
-redistribute your theme and its builds (the `archive_grant` field below).
+**Names.** Use lower case letters, digits and `-`, starting with a letter
+(`^[a-z][a-z0-9-]{1,39}$`). Reserved and first-party names are refused. A name
+becomes yours when your first submission is approved; there is no separate claim
+step.
 
-### The manifest
+### After approval
 
-Add `manifests/themes/<name>.json`, where `<name>` is the `name` in your
-`theme.json`. Use one of two shapes.
-
-A git source:
-
-```json
-{
-  "name": "kumo",
-  "repo": "https://codeberg.org/tanaka/hatamoto-kumo",
-  "commit": "0123456789abcdef0123456789abcdef01234567",
-  "subdir": "",
-  "title": "Kumo",
-  "author": "tanaka",
-  "license": "MIT",
-  "archive_grant": true,
-  "homepage": "https://example.com/kumo"
-}
-```
-
-An archive source:
-
-```json
-{
-  "name": "kumo",
-  "archive": "https://example.com/downloads/kumo-0.1.0.zip",
-  "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-  "author": "tanaka",
-  "license": "MIT",
-  "archive_grant": true
-}
-```
-
-| Field | Required | Rule |
-|---|---|---|
-| `name` | yes | `^[a-z][a-z0-9-]{1,39}$`; equals the file name and the `name` in `theme.json`; not reserved and unique across plugins and themes (see below) |
-| `repo` | git source | an `https://` URL on any public host (GitHub, Codeberg, GitLab, your own server) |
-| `commit` | git source | full 40 character lowercase hex commit id |
-| `subdir` | git source, optional | theme folder inside the repo; only letters, digits, `.`, `_`, `-` and `/`; no `..`, no leading `/`; not allowed with an archive |
-| `archive` | archive source | an `https://` URL of a `.zip` |
-| `sha256` | archive source | 64 lowercase hex characters, the hash of exactly the file at `archive` |
-| `title` | no | display name for the directory card, 1 to 60 characters, no control characters, no leading or trailing space; without it the card shows `name` |
-| `author` | yes | your name or handle, shown as "by author"; letters, digits, space and `. _ @ -`, starting with a letter or digit, at most 61 characters |
-| `license` | yes | one of: `MIT`, `Apache-2.0`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `MPL-2.0`, `GPL-2.0`, `GPL-3.0`, `LGPL-2.1`, `LGPL-3.0`, `AGPL-3.0` (the GPL, LGPL and AGPL ids also with `-only` or `-or-later`) |
-| `archive_grant` | yes | must be `true`: you grant us the right to repack, sign and redistribute the theme at that pin and its builds (see above) |
-| `homepage` | no | an `https://` link |
-
-Give exactly one source: `repo` plus `commit`, or `archive` plus `sha256`, never
-both. No other keys are allowed; in particular there is no `tier` for themes:
-yours is listed as Community.
-
-**Hosts.** The `repo` and `archive` hosts must be public DNS names reached over
-`https`. IP addresses, `localhost`, single-label names, internal suffixes (`.local`,
-`.internal`, `.lan`, `.home`, `.corp`, `.test`, `.invalid`), ports and credentials
-in the URL are refused.
-
-**Names.** `default`, `webhooks`, `hello`, `gtm` and `searchconsole` are
-reserved. A name is unique across plugins and themes together: if
-`manifests/<name>.json` (a plugin) exists, you cannot use `<name>` for a theme,
-and the other way round.
-
-**Archives.** For an archive source:
-
-- It must be a zip file, at most 64 MiB, and its sha256 must match the pin. Get
-  the hash with `sha256sum theme.zip` (on macOS `shasum -a 256 theme.zip`).
-- `theme.json` sits at the top of the zip, or inside exactly one wrapper folder
-  (what `zip -r` of a folder gives you); that one folder is stripped.
-- It follows the same safety limits as any package: entry count, sizes,
-  compression ratio, safe file names, no links or encrypted entries, see
-  [PACKAGES.md](PACKAGES.md#safety-rules-for-the-archive).
-- Host it somewhere that keeps serving the same bytes. Put the version in the
-  file name and never overwrite a published zip; a changed file no longer matches
-  its sha256.
-
-Check your manifest before you push:
-
-```sh
-scripts/validate-theme-manifest.sh manifests/themes/kumo.json --remote   # run in a clone of hatamoto-plugins
-```
-
-`--remote` also fetches your source, confirms that `theme.json` there has the
-same name, that it names a screenshot under `assets/`, and that the screenshot
-exists and is at most 2 MiB. When the `HATAMOTO_BIN` environment variable points
-at a `hatamoto` binary it also runs `hatamoto theme check ... --registry
---expect-name <name>` on the fetched theme. Run that yourself in any case, as in
-Part 1.
-
-### The pull request
-
-Fork the repo, add your manifest, and open a PR. Fill in the template. One theme
-per PR.
-
-### Review criteria
-
-A maintainer reads the theme at the pinned commit or in the pinned zip. We look
-for:
-
-- **Pinned source.** The commit exists in the public repo, or the zip downloads
-  and matches its sha256. Branches and tags are not accepted, only commit ids.
-- **Passes the checks.** `hatamoto theme check --registry` passes, and the theme
-  installs and renders on a current Hatamoto.
-- **No remote assets, no trackers.** CSS, fonts, images and scripts come from
-  `assets/`. No `<link>`, `<script>`, `@import` or `url()` pointing at another
-  host, no analytics, no beacons, no hidden calls home.
-- **Readable templates.** No obfuscated, minified-only or encoded blobs in
-  templates or scripts, and no hidden behaviour. Minified third-party libraries
-  are fine when the plain source and licence ship with them.
-- **Truthful screenshot.** It shows this theme, and what a site owner gets when
-  they install it.
-- **License.** The repo or zip has a license file, and it matches the manifest.
-  Fonts and images you ship must be licensed for redistribution too.
-- **Fit.** The theme works, and does not duplicate an existing one without a
-  good reason.
-
-Reviewers may ask for changes. Push fixes to your repo and update `commit` (or
-`archive` and `sha256`) in the PR.
-
-### After the merge
-
-The release manager fetches the pin, repacks the theme, signs it with the Hatamoto key and publishes a
-new registry index. Your own signature, if the package had one, is ignored: the
-published package carries the first-party signature only. Every signed build is
-kept in the signed-build archive, so an index can always be rebuilt from it. The
-theme then shows up in Admin > Settings > Theme > Browse registry on every
-Hatamoto server and as a card with your screenshot at
-<https://hatamoto.dev/themes>, labelled "Community" and "by author". Publishing is
-done by a person with the signing key, so it can lag the merge by a little.
-
-**There is no source mirror.** The registry keeps the signed builds, not a copy
-of your repository or zip. If your repo or URL disappears, versions already
-published stay installable, but a new build of that pin fails until you restore
-the source or submit a new pin.
+The theme is listed as a Developer package, "by @handle". A site owner who wants
+to use it first allows developer packages in Admin > Plugins > Package security
+> Allow developer packages. This takes three steps: switch on "I understand",
+type the site address, and enter the owner password. Hatamoto checks who signed a
+developer package, but does not review its code. After that the owner installs it
+from Browse registry or with `hatamoto package install <name>`.
 
 ### Updating a theme
 
-Open a new PR that changes `commit` (or `archive` and `sha256`) in your existing
-manifest. Bump `version` in `theme.json` first, so servers can tell the new build
-from the old one. The review looks at what changed since the previous pin.
+Raise `version` in `theme.json`, pack with the same key, attach the new `.hmp` to
+a new release and submit the new link. The new version replaces the old listing
+once approved. An update signed by a different key is refused.
 
 ### Removing a theme
 
-Open a PR that deletes your manifest. After it merges the release manager
-publishes an index without the theme. Copies already installed keep working until
-each site owner removes them, and the signed builds already made stay in the
-archive. If a theme is found to be harmful, maintainers may remove its manifest
-without notice and publish immediately.
+Contact us and we will remove the listing. We may refuse or remove listings under
+the developer terms. A listing also drops out by itself when the release file or
+its signer changes. Copies already installed stay on sites until their owners
+remove them.
