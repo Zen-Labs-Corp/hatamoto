@@ -17,7 +17,7 @@ In this guide you check how much memory your Hatamoto server holds, learn which 
 
 ### Know what to expect
 
-A site with the starter content, a few dozen pages and posts, and no plugins held about 130 MiB in total after it had been idle for a couple of minutes: roughly 105 MiB for the server process and 25 MiB for the supervisor that starts it. The project measures this on every full test run and fails the run when the number grows past its recorded baseline or past 200 MiB. This is a measurement of one small site, not a promise: plugins, many concurrent visitors and the first media upload each add memory.
+A site with the starter content, a few dozen pages and posts, and no plugins held about 130 MiB in total after it had been idle for a couple of minutes: roughly 105 MiB for the server process and 25 MiB for the supervisor that starts it. The project measures this on every full test run and fails the run when the number grows more than 30 percent past its recorded baseline or past 200 MiB. This is a measurement of one small site, not a promise: plugins, many concurrent visitors and the first media upload each add memory.
 
 Two things make the number move:
 
