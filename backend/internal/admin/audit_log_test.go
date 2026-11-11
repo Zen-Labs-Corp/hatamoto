@@ -40,7 +40,7 @@ func (f *fakeAuditLog) Recent(_ context.Context, limit, offset int) ([]AuditRow,
 func TestAuditLabelNamesEveryActionTheAdminWrites(t *testing.T) {
 	t.Parallel()
 
-	for _, a := range []string{"updates.apply_without_backup", "entity.schedule"} {
+	for _, a := range []string{"updates.apply_without_backup", "entity.schedule", "plugin.mail_quota"} {
 		if l := auditLabel(a); l == a || strings.Contains(l, ".") {
 			t.Errorf("%s has no plain label (%q)", a, l)
 		}

@@ -10,6 +10,12 @@
 {{end}}</fieldset>
 {{template "hm/card-foot"}}<span class="hm-muted hm-card__foot-note">{{if .Askable}}{{.GrantedCount}} of {{.Askable}} allowed. Nothing is allowed until you tick it.{{else}}Community plugins cannot use these permissions yet.{{end}}</span>{{if eq .State.Marker "Failed"}}{{template "hm/button" (dict "Label" "Save permissions" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "disabled" "disabled"))}}{{else}}{{template "hm/button" dict "Label" "Save permissions" "Variant" "primary" "Type" "submit"}}{{end}}{{template "hm/card-foot-end"}}</form>
 {{else}}{{template "hm/card-start" dict "ID" "perm-card" "Title" "Permissions" "Heading" "h2"}}<p class="hm-muted">It asks for no permissions.</p>{{template "hm/card-end"}}{{end}}
+{{if .HasMail}}{{template "hm/formerrors" dict "Errors" .Summary}}<form method="post" action="{{adminPath}}/plugins/{{$p.Name}}/mail" class="hm-cardform">
+{{template "hm/csrf" $}}
+{{template "hm/card-start" dict "ID" "mail-card" "Title" "Mail" "Heading" "h2"}}<p class="hm-muted">How many recipients this plugin may email an hour. The plugin cannot change this.</p>
+{{template "hm/field" dict "ID" "mail-per-hour" "Name" "mail-per-hour" "Label" "Recipients per hour" "Type" "number" "Value" .MailPerHour "Help" "Default 360, max 3600." "Error" (index .Errs "mail-per-hour") "Attrs" (attrmap "min" "1" "max" "3600" "inputmode" "numeric")}}
+<p class="hm-muted">Sent this hour: {{.MailSent}}</p>
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Variant" "primary" "Type" "submit"}}{{template "hm/card-foot-end"}}</form>{{end}}
 {{if $p.AllowedHosts}}{{template "hm/card-start" dict "ID" "hosts-card" "Title" "Web addresses it may call" "Heading" "h2"}}<ul role="list" class="hm-badgelist">{{range $p.AllowedHosts}}{{if ne . "*"}}<li>{{template "hm/badge" (dict "Label" . "Mono" true)}}</li>{{end}}{{end}}</ul>
 {{range $p.AllowedHosts}}{{if eq . "*"}}{{template "hm/callout" (dict "Kind" "warning" "Title" "Any public web address (ports 80 and 443)" "Body" "It may call every public web address, not a short list.")}}{{end}}{{end}}{{template "hm/card-end"}}{{end}}
 {{if $p.Routes}}{{template "hm/card-start" dict "ID" "routes-card" "Title" "Pages and endpoints it adds" "Heading" "h2"}}<ul class="hm-badgelist" role="list">{{range $p.Routes}}<li>{{template "hm/badge" (dict "Label" . "Mono" true)}}</li>{{end}}</ul>{{template "hm/card-end"}}{{end}}

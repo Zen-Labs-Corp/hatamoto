@@ -187,3 +187,16 @@ type InspectResult struct {
 	Description  string   `json:"description,omitempty"`
 	Problems     []string `json:"problems"` // never nil on the wire
 }
+
+// MailQuota is the owner-set mail.send allowance of a plugin (SDK 0.22.1).
+type MailQuota struct {
+	RecipientsPerHour int `json:"recipients_per_hour"`
+}
+
+// PermissionsResult is what the permissions host function returns. Mail is
+// present only for a plugin granted mail.send.
+type PermissionsResult struct {
+	Granted   []Permission `json:"granted"`
+	Requested []string     `json:"requested"`
+	Mail      *MailQuota   `json:"mail,omitempty"`
+}

@@ -99,9 +99,14 @@ package sdk
 // RedirectContext and Redirect types. Every failure leaves the request to
 // normal handling.
 //
+// 0.22.1 is additive over 0.22. The permissions host function result gains
+// `mail` ({recipients_per_hour}) for a plugin granted mail.send: the owner-set
+// number of recipients the plugin may email per hour. It adds the
+// PermissionsResult and MailQuota types.
+//
 // A run's standing_approval may also carry an optional `create` ({schemas,
 // max_per_hour}) that lets an approved run publish new entries on its own.
-const Version = "0.22.0"
+const Version = "0.22.1"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor

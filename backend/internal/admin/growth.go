@@ -232,6 +232,11 @@ type PluginAdmin interface {
 	// SaveSettings validates against the plugin's schema; problems come back as
 	// field errors (dotted paths), not as an error.
 	SaveSettings(ctx context.Context, name string, values map[string]any) (schemaform.Errors, error)
+	// MailQuota is the owner-set recipients per hour for the plugin's mail.send
+	// and the recipients it has sent this clock hour.
+	MailQuota(name string) (perHour, sentThisHour int)
+	// SetMailQuota stores the quota (1..3600) and applies it to the running plugin.
+	SetMailQuota(ctx context.Context, name string, perHour int) error
 }
 
 // GrowthDeps groups the services of the site and growth screens.

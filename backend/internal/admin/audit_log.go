@@ -52,6 +52,7 @@ var auditLabels = map[string]string{
 	"changeset.suggestion.approve": "Approved a plugin suggestion",
 	"changeset.suggestion.reject":  "Rejected a plugin suggestion",
 	"plugin.run.cancel":            "Cancelled a plugin run",
+	"plugin.mail_quota":            "Changed a plugin's mail quota",
 	"package.allow_unsigned":       "Changed the unsigned packages setting",
 	"package.allow_developer":      "Changed the developer packages setting",
 	"package.revoke_disable":       "Disabled a package revoked by the registry",

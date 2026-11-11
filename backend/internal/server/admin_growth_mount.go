@@ -439,6 +439,28 @@ func (s *Server) refusedPermissions(plugin string, perms []string) []string {
 	return out
 }
 
+// MailQuota is the plugin's live recipients per hour and the recipients it
+// mailed this hour.
+func (p pluginAdmin) MailQuota(name string) (perHour, sentThisHour int) {
+	if p.s.plugins == nil {
+		return pluginhost.DefaultMailPerHour, 0
+	}
+	return p.s.plugins.MailQuotaState(name)
+}
+
+// SetMailQuota stores the quota and applies it to the running plugin: no
+// reload, no restart.
+func (p pluginAdmin) SetMailQuota(ctx context.Context, name string, perHour int) error {
+	if p.s.plugins == nil || p.s.mailQuotas == nil {
+		return admin.ErrPluginNotFound
+	}
+	if err := p.s.mailQuotas.SetMailPerHour(ctx, name, perHour); err != nil {
+		return err
+	}
+	p.s.plugins.SetMailQuota(name, perHour)
+	return nil
+}
+
 func (p pluginAdmin) Grant(ctx context.Context, name string, perms []string) error {
 	if p.s.plugins == nil {
 		return admin.ErrPluginNotFound

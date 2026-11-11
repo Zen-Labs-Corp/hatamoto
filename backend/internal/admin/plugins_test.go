@@ -17,6 +17,23 @@ type fakePlugins struct {
 	settings map[string]map[string]any
 	saved    []map[string]any
 	secrets  map[string]map[string]bool
+	quota    map[string]int
+	quotaSet []int
+}
+
+func (f *fakePlugins) MailQuota(name string) (int, int) {
+	if n, ok := f.quota[name]; ok {
+		return n, 7
+	}
+	return 360, 7
+}
+func (f *fakePlugins) SetMailQuota(_ context.Context, name string, n int) error {
+	if f.quota == nil {
+		f.quota = map[string]int{}
+	}
+	f.quota[name] = n
+	f.quotaSet = append(f.quotaSet, n)
+	return nil
 }
 
 func (f *fakePlugins) Plugins() []PluginInfo { return f.list }
@@ -502,5 +519,68 @@ func TestPluginsPageDeveloperBanner(t *testing.T) {
 	rec := g.do("POST", "/admin/plugins/developer/off", "owner-token", url.Values{"return": {"plugins"}}, nil)
 	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/plugins" || pk.developerOn {
 		t.Fatalf("turn off: status %d, location %q, on %v", rec.Code, rec.Header().Get("Location"), pk.developerOn)
+	}
+}
+
+func TestPluginMailQuotaSave(t *testing.T) {
+	t.Parallel()
+
+	var events []AuditEvent
+	g, fp := newPluginRig(t)
+	g.a.deps.Audit = func(_ context.Context, e AuditEvent) { events = append(events, e) }
+	rec := g.do("POST", "/admin/plugins/hello/mail", "owner-token", url.Values{"mail-per-hour": {"3600"}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/plugins/hello/permissions" || fp.quota["hello"] != 3600 {
+		t.Fatalf("save: %d %q %v", rec.Code, rec.Header().Get("Location"), fp.quota)
+	}
+	if len(events) != 1 {
+		t.Fatalf("audit = %+v", events)
+	}
+	e := events[0]
+	if e.Action != "plugin.mail_quota" || e.Target != "plugin:hello" || e.Detail["from"] != 360 || e.Detail["to"] != 3600 {
+		t.Errorf("audit event = %+v", e)
+	}
+}
+
+func TestPluginMailQuotaRefusesBadValues(t *testing.T) {
+	t.Parallel()
+
+	for _, v := range []string{"0", "3601", "-5", "abc", ""} {
+		var events []AuditEvent
+		g, fp := newPluginRig(t)
+		g.a.deps.Audit = func(_ context.Context, e AuditEvent) { events = append(events, e) }
+		rec := g.do("POST", "/admin/plugins/hello/mail", "owner-token", url.Values{"mail-per-hour": {v}}, nil)
+		body := rec.Body.String()
+		if rec.Code != 422 || !strings.Contains(body, "Enter a whole number from 1 to 3600.") || !strings.Contains(body, `value="`+v+`"`) {
+			t.Errorf("%q: %d, want 422 with the field error and the typed value", v, rec.Code)
+		}
+		if len(fp.quotaSet) != 0 || len(events) != 0 {
+			t.Errorf("%q: writes=%v audit=%v, want none", v, fp.quotaSet, events)
+		}
+	}
+}
+
+func TestPluginMailQuotaOwnerOnly(t *testing.T) {
+	t.Parallel()
+
+	g, fp := newPluginRig(t)
+	if rec := g.do("POST", "/admin/plugins/hello/mail", "editor-token", url.Values{"mail-per-hour": {"100"}}, nil); rec.Code != 403 || len(fp.quotaSet) != 0 {
+		t.Errorf("editor: %d, writes %v", rec.Code, fp.quotaSet)
+	}
+}
+
+func TestPluginMailCardOnlyWithMailSend(t *testing.T) {
+	t.Parallel()
+
+	g, fp := newPluginRig(t)
+	body := g.do("GET", "/admin/plugins/hello/permissions", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `id="mail-card"`) || !strings.Contains(body, "Sent this hour: 7") || !strings.Contains(body, `value="360"`) {
+		t.Error("a plugin declaring mail.send must show the Mail card with the quota and the sent count")
+	}
+	fp.list[0].Permissions = []string{"kv"}
+	if body := g.do("GET", "/admin/plugins/hello/permissions", "owner-token", nil, nil).Body.String(); strings.Contains(body, "mail-card") {
+		t.Error("a plugin without mail.send must not show the Mail card")
+	}
+	if rec := g.do("POST", "/admin/plugins/hello/mail", "owner-token", url.Values{"mail-per-hour": {"10"}}, nil); rec.Code != 404 || len(fp.quotaSet) != 0 {
+		t.Errorf("save without mail.send: %d", rec.Code)
 	}
 }
