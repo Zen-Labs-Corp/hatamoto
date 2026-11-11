@@ -208,6 +208,10 @@ func runBrowse(all []RegistryEntry, q BrowseQuery, kind packages.Kind) BrowsePag
 		}
 	}
 	sort.SliceStable(matched, func(i, j int) bool {
+		// First-party packages come first in either direction.
+		if fi, fj := matched[i].Tier == packages.TierFirstParty, matched[j].Tier == packages.TierFirstParty; fi != fj {
+			return fi
+		}
 		a, b := browseKey(matched[i]), browseKey(matched[j])
 		if a != b {
 			if q.Sort == browseSortNameDesc {

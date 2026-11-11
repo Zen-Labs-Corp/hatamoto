@@ -96,7 +96,8 @@ func TestBrowseFiltersAndSort(t *testing.T) {
 		}
 	}
 	desc := getBrowse(g, "?sort=name-desc&hide=0")
-	if strings.Index(desc, "Charlie") > strings.Index(desc, "Alpha") {
+	// First-party Alpha stays first; the rest follow in descending order.
+	if strings.Index(desc, "Charlie") > strings.Index(desc, "Bravo") {
 		t.Error("descending sort not applied")
 	}
 	all := getBrowse(g, "?hide=0")
@@ -421,5 +422,23 @@ func TestBrowseDeveloperChipHiddenWithoutIndex(t *testing.T) {
 	g, _ := browseRig(t, v)
 	if body := getBrowse(g, ""); strings.Contains(body, `value="developer"`) {
 		t.Error("the Developer chip shows although the developer index is not offered")
+	}
+}
+
+// First-party packages are listed before developer ones whatever their titles,
+// in both sort directions.
+func TestBrowseListsFirstPartyFirst(t *testing.T) {
+	t.Parallel()
+
+	view := RegistryView{Host: "registry.example.test", DeveloperAvail: true, Entries: []RegistryEntry{
+		{Kind: "plugin", Name: "aaa-dev", Title: "AAA Search Console", Version: "1.0.0", Tier: "developer", Developer: true},
+		{Kind: "plugin", Name: "searchconsole", Title: "Search Console", Version: "1.0.0", Tier: "first-party"},
+	}}
+	g, _ := browseRig(t, view)
+	for _, query := range []string{"", "?sort=name-desc"} {
+		body := getBrowse(g, query)
+		if first, dev := strings.Index(body, "/admin/plugins/searchconsole/about"), strings.Index(body, "/admin/plugins/aaa-dev/about"); first < 0 || dev < 0 || first > dev {
+			t.Errorf("%q: first-party at %d, developer at %d", query, first, dev)
+		}
 	}
 }
