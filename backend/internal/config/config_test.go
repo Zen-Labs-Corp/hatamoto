@@ -235,6 +235,13 @@ func TestPublicAcquireTimeout(t *testing.T) {
 	if cfg.Database.PublicAcquireTimeout != 0 || cfg.Database.Validate() != nil {
 		t.Fatalf("0 must disable and validate, got %s", cfg.Database.PublicAcquireTimeout)
 	}
+	for _, bad := range []string{"3", "abc"} {
+		t.Setenv("DATABASE_PUBLIC_ACQUIRE_TIMEOUT", bad)
+		cfg, _ = Load()
+		if err := cfg.Database.Validate(); err == nil {
+			t.Fatalf("%q must be rejected, not silently replaced by the default", bad)
+		}
+	}
 	t.Setenv("DATABASE_PUBLIC_ACQUIRE_TIMEOUT", "-1s")
 	cfg, _ = Load()
 	if err := cfg.Database.Validate(); err == nil {
