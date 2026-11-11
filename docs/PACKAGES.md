@@ -289,7 +289,7 @@ refused. Registry fetches go through the server's SSRF guard (no private
 addresses) and are cached for 30 seconds.
 
 The admin lists the registry at **Plugins > Browse plugins** (`<admin>/plugins/browse`).
-Its query string is `q` (search words), `tier` (`first-party` or `community`, repeatable),
+Its query string is `q` (search words), `tier` (`first-party`, `community` or `developer`, repeatable),
 `cat` (a category above, repeatable), `perm` (`nonet`: makes no outgoing requests;
 `noscripts`: ships no front-end JavaScript; repeatable), `hide=1` (hide installed plugins),
 `sort` (`name`, or `name-desc`) and `page` (12 cards a page). Unknown values are ignored.
@@ -315,8 +315,8 @@ the configured registry inside the site theme; it needs no build step.
 CMS page: it renders the plugins of a
 signed index as one self-contained HTML directory page; it verifies the index like a
 server does and writes nothing if it is unsigned, altered, expired or signed by an
-untrusted key. For how outside authors submit plugins, see
-[PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md). Anyone can run a registry; users add its signing key to `HATAMOTO_TRUSTED_KEYS`
+untrusted key. Outside authors publish through a developer account; see
+[PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md#part-2-publish-your-plugin). Anyone can run a registry; users add its signing key to `HATAMOTO_TRUSTED_KEYS`
 and point `HATAMOTO_REGISTRY_URL` at it.
 
 ## First-party plugins

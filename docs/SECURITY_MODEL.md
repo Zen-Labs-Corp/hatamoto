@@ -19,7 +19,7 @@ run with `-tags=integration`; the others run with plain `go test`.
 | Editors and API keys | Do what their role or key scopes allow | Reach owner-only screens, or act outside a key's scopes |
 | Themes | Everything the template engine can do: a theme is trusted code like the binary | Be installed from an unknown signer (refused until the owner trusts the key) |
 | Plugins | Only the capabilities the owner granted, inside a WASM sandbox | Anything else: see "Plugins" |
-| The update channel and registry hosts | Nothing on their own: every release is checked against keys compiled into the binary, and every package against the first-party key plus the keys in `HATAMOTO_TRUSTED_KEYS` | Shipping code that is not signed |
+| The update channel and registry hosts | Nothing on their own: every release is checked against keys compiled into the binary, and every package against the first-party key, the keys in `HATAMOTO_TRUSTED_KEYS`, or (developer packages, only with the owner's switch on) the signer key registered in the developer index | Shipping code that is not signed |
 | Visitors | Read public pages, submit public forms (including a file on a form that has a file field) | Everything else |
 | Reverse proxies | Tell the server the client address, only when listed in `HATAMOTO_TRUSTED_PROXIES` (loopback by default) | Anything from an unlisted address |
 
@@ -124,11 +124,11 @@ whatever the data, because the rule reads the template source.
 | A script source added through the head hook needs the grant | `internal/pluginhost` | `TestHeadScriptSrcNeedsSiteScripts` |
 | The admin shows the grant in the permission prompt and leaves it unticked on a fresh install | `internal/admin` | `TestPluginPromptWarnsAboutSiteScripts`, `TestFreshInstallLeavesSiteScriptsUnticked` |
 
-Community packages are refused `site.scripts` and `builder.island` (grant and
+Community and developer packages are refused `site.scripts` and `builder.island` (grant and
 render), because both put JavaScript in the site origin. There is no island
 iframe. A page that carries a live community script would be served in a CSP
 sandbox (opaque origin, Layer B). **Themes are trusted and outside Layer B**: a
-theme controls every public template and its JavaScript, so a community theme
+theme controls every public template and its JavaScript, so a community or developer theme
 runs in the site origin. Install themes only from sources you trust.
 
 Limits you should know about:
