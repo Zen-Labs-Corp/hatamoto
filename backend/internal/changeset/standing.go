@@ -488,6 +488,9 @@ func checkCreateItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it Stored
 	if jsonx.Unmarshal(it.Payload, &pl, jsonx.StoredLoose) != nil {
 		return "it could not be read."
 	}
+	if createTooLarge(pl) {
+		return "This entry is too large to publish on its own."
+	}
 	if !slices.Contains(p.Create.Schemas, pl.Schema) {
 		return "its type is not covered by the create rule."
 	}
@@ -589,6 +592,54 @@ func ownedOrStaged(ctx context.Context, tx pgx.Tx, p StandingPolicy, origin, ref
 		return false, "is in a type the create rule does not cover."
 	}
 	return true, ""
+}
+
+// Size limits for an automatic create. Past any of them the entry waits for a
+// person, which keeps the scans below (and the library lookup, whose array is
+// at most a few times maxCreateStrings long) bounded by a constant.
+const (
+	maxCreateString     = 64 << 10
+	maxCreateStrings    = 4096
+	maxCreateAttributes = 256 << 10
+)
+
+// createTooLarge reports whether a create item is over a size limit: the
+// attributes JSON, any single string, or the number of strings (map keys
+// included). It only measures, so it is safe to run before any decoding.
+func createTooLarge(pl entityPayload) bool {
+	if len(pl.Attributes) > maxCreateAttributes {
+		return true
+	}
+	strs := 0
+	over := func(s string) bool {
+		strs++
+		return len(s) > maxCreateString || strs > maxCreateStrings
+	}
+	own := []string{pl.Name, pl.Slug, pl.Locale}
+	if pl.SEO != nil {
+		own = append(own, pl.SEO.MetaTitle, pl.SEO.MetaDescription, pl.SEO.Robots)
+	}
+	if slices.ContainsFunc(own, over) {
+		return true
+	}
+	attrs, ok := decodeObject(pl.Attributes)
+	return ok && tooLargeValue(attrs, over)
+}
+
+func tooLargeValue(v any, over func(string) bool) bool {
+	switch x := v.(type) {
+	case string:
+		return over(x)
+	case []any:
+		return slices.ContainsFunc(x, func(e any) bool { return tooLargeValue(e, over) })
+	case map[string]any:
+		for k, e := range x {
+			if over(k) || tooLargeValue(e, over) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // checkCreateText applies the markup and link rules of the attributes to the

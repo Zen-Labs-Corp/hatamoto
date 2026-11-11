@@ -547,6 +547,14 @@ func TestStandingCreatePublishes(t *testing.T) {
 		publish(s.newItem("txt", map[string]any{"attributes": map[string]any{"title": "T", "content": `<h2>Heading</h2><p class="lead">Read <a id="more">more</a> and <strong>more</strong>.</p>`}}))
 	})
 
+	t.Run("normal_event_with_some_text", func(t *testing.T) {
+		tags := map[string]any{}
+		for i := 0; i < 50; i++ {
+			tags[fmt.Sprint("tag", i)] = i
+		}
+		publish(s.newItem("norm", map[string]any{"attributes": map[string]any{"title": "T", "content": strings.Repeat("Doors at seven. ", 1000), "nested": tags}}))
+	})
+
 	t.Run("html_is_sanitised", func(t *testing.T) {
 		publish(s.newItem("html", map[string]any{"attributes": map[string]any{"title": "T", "content": "<p>hello</p><script>alert(1)</script>"}}))
 		var content string
@@ -802,6 +810,16 @@ func TestStandingCreateRefusals(t *testing.T) {
 			s.setSchema(linkFieldsSchema)
 			return s.stageAll(s.newItem("lkc", map[string]any{"attributes": map[string]any{"title": "T", "cover": "/x.jpg"}}))
 		}, "links, paths or files"},
+		{"too_large_one_string", func() int64 {
+			return s.stageAll(s.newItem("big1", map[string]any{"attributes": map[string]any{"title": "T", "content": strings.Repeat("a", 65*1024)}}))
+		}, "too large"},
+		{"too_many_strings", func() int64 {
+			many := map[string]any{}
+			for i := 0; i < 4097; i++ {
+				many[fmt.Sprint("s", i)] = 1
+			}
+			return s.stageAll(s.newItem("big2", map[string]any{"attributes": map[string]any{"title": "T", "nested": many}}))
+		}, "too large"},
 		{"link_like_markup_relative_href", func() int64 {
 			return s.stageAll(s.newItem("lhr", map[string]any{"attributes": map[string]any{"title": "T", "content": `<p><a href="tickets">Buy</a></p>`}}))
 		}, "links, paths or files"},
