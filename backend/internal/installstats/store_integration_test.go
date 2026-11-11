@@ -19,7 +19,7 @@ import (
 // migrations applied and drops it afterwards.
 func scratchPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	return applyMigrations(t, scratchBare(t), "202610280900_install_stats.sql", "202610281000_install_stats_last_ok.sql", "202611091000_install_stats_level.sql")
+	return applyMigrations(t, scratchBare(t), "202610280900_install_stats.sql", "202610281000_install_stats_last_ok.sql", "202611091000_install_stats_level.sql", "202611111000_install_stats_defaulted.sql")
 }
 
 // scratchBare creates a throwaway empty database and drops it afterwards.
@@ -206,7 +206,7 @@ func TestMigrationLevelDerivedFromConsent_Integration(t *testing.T) {
 			if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_install_stats (id, consent, install_id) VALUES (TRUE, '`+consent+`', `+id+`)`); err != nil {
 				t.Fatal(err)
 			}
-			applyMigrations(t, pool, "202611091000_install_stats_level.sql")
+			applyMigrations(t, pool, "202611091000_install_stats_level.sql", "202611111000_install_stats_defaulted.sql")
 			got, err := NewStore(pool).Load(ctx)
 			if err != nil || got.Level != want || string(got.Consent) != consent {
 				t.Fatalf("level = %q consent = %q (%v), want %q / %q", got.Level, got.Consent, err, want, consent)
@@ -409,6 +409,84 @@ func TestBannerKinds_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	want(BannerNone)
+	// A defaulted row shows the notice until acknowledged.
+	if err := st.Disable(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.db.Exec(ctx, `DELETE FROM hatamoto_install_stats`); err != nil {
+		t.Fatal(err)
+	}
+	if applied, err := st.ApplyDefault(ctx); err != nil || !applied {
+		t.Fatalf("ApplyDefault = %v, %v", applied, err)
+	}
+	want(BannerDefaulted)
+	if err := st.DismissNudge(ctx); err != nil {
+		t.Fatal(err)
+	}
+	want(BannerNone)
+}
+
+func TestStoreApplyDefault_Integration(t *testing.T) {
+	ctx := context.Background()
+	st := NewStore(scratchPool(t))
+	applied, err := st.ApplyDefault(ctx)
+	if err != nil || !applied {
+		t.Fatalf("first ApplyDefault = %v, %v; want true", applied, err)
+	}
+	got, err := st.Load(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Consent != ConsentYes || got.Level != LevelDetailed || got.InstallID == "" || !got.DefaultNoticePending || got.WindowStart == nil {
+		t.Fatalf("defaulted state = %+v", got)
+	}
+	if applied, err := st.ApplyDefault(ctx); err != nil || applied {
+		t.Fatalf("second ApplyDefault = %v, %v; want false", applied, err)
+	}
+	if again, _ := st.Load(ctx); again.InstallID != got.InstallID {
+		t.Fatal("second ApplyDefault replaced the install ID")
+	}
+	// Enable is an explicit choice and clears the notice.
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
+		t.Fatal(err)
+	}
+	if cur, _ := st.Load(ctx); cur.DefaultNoticePending {
+		t.Fatal("Enable left the notice pending")
+	}
+
+	for name, setup := range map[string]func(*Store) error{
+		"basic": func(s *Store) error { _, err := s.Enable(ctx, LevelBasic); return err },
+		"off":   func(s *Store) error { return s.Disable(ctx) },
+	} {
+		if _, err := st.db.Exec(ctx, `DELETE FROM hatamoto_install_stats`); err != nil {
+			t.Fatal(err)
+		}
+		if err := setup(st); err != nil {
+			t.Fatal(err)
+		}
+		before, _ := st.Load(ctx)
+		if applied, err := st.ApplyDefault(ctx); err != nil || applied {
+			t.Fatalf("%s: ApplyDefault = %v, %v; want false", name, applied, err)
+		}
+		after, _ := st.Load(ctx)
+		if after.Consent != before.Consent || after.Level != before.Level || after.InstallID != before.InstallID || after.DefaultNoticePending {
+			t.Fatalf("%s: row changed: %+v -> %+v", name, before, after)
+		}
+	}
+
+	// Disable clears a pending notice too.
+	if _, err := st.db.Exec(ctx, `DELETE FROM hatamoto_install_stats`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ApplyDefault(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Disable(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if cur, _ := st.Load(ctx); cur.DefaultNoticePending {
+		t.Fatal("Disable left the notice pending")
+	}
 }
 
 func TestDisableWipesCounters_Integration(t *testing.T) {
