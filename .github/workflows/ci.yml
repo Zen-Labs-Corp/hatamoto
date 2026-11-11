@@ -237,8 +237,6 @@ jobs:
           must_run ./internal/backup TestBackupRestoreAsSuperuserAndCreateRoleAdmin TestBootstrapNeedsGrantOptionOnDatabaseCreate TestBootstrapRefusesSchemaOfAnotherOwner TestBootstrapWorksForAdminWithoutInheritance TestBootstrapRefusesAdminWithoutSetOnAppRole
           # E3: the SDK builds from outside the repo (local mode: replace to backend/pkg/sdk).
           bash ../scripts/test-sdk-external.sh
-      # A PostgreSQL 16 backup restored into the 18 server. Only the 18 leg has an older source;
-      # on the 16 leg the test skips, which must_run would reject.
       # The idle memory budget boots the real binary against a scratch database and measures
       # the Pss of the supervisor and its serve child (about 3 minutes). It skips without the
       # binary, a database or Linux, and a skip passes silently, so the PASS line is required.
@@ -249,6 +247,8 @@ jobs:
           CGO_ENABLED=0 go build -tags nodynamic -trimpath -o bin/hatamoto-idlemem ./cmd/hatamoto
           HATAMOTO_IDLEMEM_BIN="$PWD/bin/hatamoto-idlemem" go test -count=1 -v -timeout 10m -run '^TestBudgetIdleMemory$' ./internal/idlemem | tee /tmp/idlemem.log
           bash ../scripts/must-run-check.sh /tmp/idlemem.log TestBudgetIdleMemory
+      # A PostgreSQL 16 backup restored into the 18 server. Only the 18 leg has an older source;
+      # on the 16 leg the test skips, which must_run would reject.
       - name: Must-run cross-major restore
         if: inputs.tier == 'full' && matrix.pg == '18'
         run: |
