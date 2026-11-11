@@ -2,6 +2,8 @@
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
+> **0.22.2 changes (additive over 0.22.1).** The `ui` block gains `"allow": ["camera"]`. When the owner ticks `ui.allow:camera` on the plugin's Permissions tab, the plugin's admin page may call `hatamoto.camera.capture()` and get one photo from the owner's camera. A host older than 0.22.2 ignores the field and the grant, so a plugin that relies on it declares `^0.22.2`. `permissions()` lists `ui.allow:camera` in `requested` (and in `granted` once ticked) for a plugin that asks, so `granted` stays a subset of `requested`. See [Camera](#camera).
+>
 > **0.22.1 changes (additive over 0.22.0).** `permissions()` gains `"mail": {"recipients_per_hour": N}` for a plugin granted `mail.send`: the number of recipients the plugin may email per hour. The limit is owner-set per plugin (default 360, range 1 to 3600, on the plugin Permissions tab) and the plugin cannot change it. The key is absent without the grant and on hosts older than 0.22.1, so treat a missing `mail` as unknown and assume the default; `granted` and `requested` are unchanged.
 >
 > **0.22 changes (additive over 0.21).** New filter `request.redirect` and manifest field `redirect_paths`: a plugin declares exact public paths and, for GET and HEAD requests to them, may answer before routing, stored redirects and the page cache with a same-site 302 or 307 and declared cookies, using its declared cookies and the visitor's country. No existing type or wire output changed. See [request.redirect](#requestredirect).
@@ -131,6 +133,27 @@ cannot read the user, the session, the CSRF token or other plugins.
 
 **Run inputs.** A plugin whose page lets the owner fill in a run's inputs calls `hatamoto.runInputs({name: value, ...})`. The admin page keeps the values in its own start form, outside the frame, and makes no request: only the inputs the run declares are kept (anything else is ignored), each value is cut at 4096 characters, and a value that is not an object is refused. The owner then starts the run with the admin's Start button. The hosts the run may reach are ticked by the owner in the admin, never chosen by the page.
 
+### Camera
+
+A plugin whose page needs a photo (a scan, a receipt, a profile picture) declares it in the manifest:
+
+```json
+"ui": {"title": "Scanner", "entry": "index.html", "allow": ["camera"]}
+```
+
+```js
+await hatamoto.ready;
+if (hatamoto.camera.available) {            // the owner granted it; false otherwise
+  const r = await hatamoto.camera.capture(); // call it from a click handler
+}
+//   -> {ok:true, image:"data:image/jpeg;base64,...", width, height}
+//   |  {ok:false, error:"cancelled" | "denied" | "unavailable"}
+```
+
+The call opens a dialog that **core** draws on the admin page, outside the frame: the person sees the live preview, clicks **Capture** and gets one JPEG, at most 1280 px on the longer side and about 1 MB. `cancelled` means they closed the dialog, `denied` that the browser refused the camera (the dialog stays open with the reason until the person closes it), `unavailable` that there is no camera or the browser cannot open one. The result shape and these three codes are stable.
+
+The owner must tick `ui.allow:camera` on the plugin's Permissions tab. It is unticked by default, kept when the plugin is updated and revoked when it is uninstalled. Without the grant the call does not return `{ok:false}`: the promise **rejects** with an `Error`, so check `hatamoto.camera.available` (also `camera` in the `hatamoto.ready` value) before showing a scan button, or wrap the call in `try`/`catch`. The call also needs a person's click in the page just before it: from a timer or on load the promise rejects with an `Error` too, and only one capture can be open at a time (a second call returns `cancelled`). After a capture ends without a photo (cancelled, denied, unavailable), new calls return `cancelled` without opening the dialog for about 5 seconds, so a page that calls again on `cancelled` cannot trap the person in it. If the browser's own camera prompt is left unanswered, further captures stay blocked until it is answered or the page is reloaded. Clicks on **Capture** are ignored for half a second after the preview appears. Revoking the grant applies the next time the page loads. The frame's sandbox and Content-Security-Policy stay as above: the plugin never touches the camera itself, and the camera stops when the dialog closes. Declare `^0.22.2` to rely on it: `^0.22` also matches a 0.22.1 host, which ignores `allow` and the grant.
+
 The bridge serves only the first document loaded in the frame, and every request
 carries a per-load nonce. If the page navigates the frame elsewhere, the host
 stops relaying and blanks the frame (its ticket is spent, so a reload inside the
@@ -139,13 +162,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.22.1`; plugins built for `^0.5` to `^0.21` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.22.2`; plugins built for `^0.5` to `^0.21` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.22.1
+go get hatamoto.dev/sdk@v0.22.2
 ```
 
 SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -155,7 +178,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.22.1` is the git tag `v0.22.1`. The core repository stays
+plain release tags: version `0.22.2` is the git tag `v0.22.2`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -172,7 +195,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.22 is current (0.22.1).
+> SDK 0.22 is current (0.22.2).
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -462,7 +485,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 |---|---|
 | `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
-| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.22.1 and also serves `^0.5` to `^0.21` plugins |
+| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.22.2 and also serves `^0.5` to `^0.21` plugins |
 | `description` | optional |
 | `config` | string map readable in the guest (`pdk.GetConfig`) |
 | `permissions` | capabilities the plugin asks for; see [Permissions](#permissions). Unknown names are refused |
@@ -524,7 +547,7 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 
 | Function | Arguments | Result |
 |---|---|---|
-| `permissions` (always allowed) | none | `{ "granted": [..], "requested": [..], "mail"?: { "recipients_per_hour": n } }`; `mail` only when `mail.send` is granted (SDK 0.22.1) |
+| `permissions` (always allowed) | none | `{ "granted": [..], "requested": [..], "mail"?: { "recipients_per_hour": n } }`; `mail` only when `mail.send` is granted (SDK 0.22.1). |
 | `entities.get` | `{ "id" }`, `{ "path": "/a/b" }`, or `{ "slug", "parent_id"?, "schema_slug"? }` (`schema_slug` needs `parent_id`; send one selector only) | Entity |
 | `entities.list` | `{ "schema_slug"?, "status"?, "search"?, "term"? (`{ "kind", "slug" }`, needs `terms.read`), "limit"? (50, max 200), "cursor"? }` | `{ "items": [Entity], "next_cursor" }` |
 | `entities.translations` | `{ "id" }` | `[ { "id", "locale", "status", "path"? } ]` (the entity's translation group, itself included, ordered by locale; `[]` when it has none or is alone) |

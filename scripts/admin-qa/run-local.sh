@@ -80,11 +80,11 @@ export HATAMOTO_DATA="$W/data"
 # No HATAMOTO_ADMIN_DIR: it re-parses every admin template per request (~1s each),
 # and the binary built above already embeds this checkout's admin files.
 export BASE="http://127.0.0.1:$API_PORT" HATAMOTO_BIN="$W/hm"
-# frame-tickets.mjs, tabs.mjs and mail-quota.mjs need a plugin with an admin page; the seeded instance has none.
+# frame-tickets.mjs, tabs.mjs, mail-quota.mjs and camera.mjs need a plugin with an admin page; the seeded instance has none.
 # The dev override loads this fixture (a plugin with an admin page and runs; its wasm is built below). A caller's
 # HATAMOTO_PLUGIN_DIR wins; the fixture is set for the server process only.
 PLUGIN_DIR=${HATAMOTO_PLUGIN_DIR:-}
-case " $* " in *" frame-tickets.mjs "*|*" tabs.mjs "*|*" runs-screens.mjs "*|*" review-flow.mjs "*|*" ownership-ui.mjs "*|*" standing-approvals.mjs "*|*" standing-create.mjs "*|*" mail-quota.mjs "*)
+case " $* " in *" frame-tickets.mjs "*|*" tabs.mjs "*|*" runs-screens.mjs "*|*" review-flow.mjs "*|*" ownership-ui.mjs "*|*" standing-approvals.mjs "*|*" standing-create.mjs "*|*" mail-quota.mjs "*|*" camera.mjs "*)
   if [ -z "$PLUGIN_DIR" ]; then
     # The fixture declares runs, so core wants its wasm to export on_run_step: build the
     # run driver's test plugin (backend/internal/pluginhost/testdata/runner) as the module.

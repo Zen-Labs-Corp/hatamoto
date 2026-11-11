@@ -118,6 +118,12 @@ func (f *fakePackages) Inspect(_ context.Context, data []byte) (PackageSummary, 
 			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewRedirectPaths: []string{"/go", "/go/"}, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
 	case strings.HasPrefix(s, "plugin-fresh-scripts:"): // a first install that asks for site.scripts
 		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-fresh-scripts:"), Version: "1.0.0", Permissions: []string{"kv", "site.scripts"}, Signed: true, Signer: "abc123"}, nil
+	case strings.HasPrefix(s, "plugin-camera:"): // a first install that asks for the camera
+		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-camera:"), Version: "1.0.0", Permissions: []string{"kv", "ui.allow:camera"}, Signed: true, Signer: "abc123"}, nil
+	case strings.HasPrefix(s, "plugin-camera-update:"): // an update that newly asks, and one that keeps an earlier grant
+		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-camera-update:"), Version: "1.1.0", Permissions: []string{"kv", "ui.allow:camera"}, Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "1.0.0", Granted: []string{"kv"}}, nil
+	case strings.HasPrefix(s, "plugin-camera-kept:"):
+		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-camera-kept:"), Version: "1.1.0", Permissions: []string{"kv", "ui.allow:camera"}, Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "1.0.0", Granted: []string{"kv", "ui.allow:camera"}}, nil
 	case strings.HasPrefix(s, "plugin-island:"): // a first install that asks for builder.island
 		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-island:"), Version: "1.0.0", Permissions: []string{"kv", "builder.island"}, Signed: true, Signer: "abc123"}, nil
 	case strings.HasPrefix(s, "plugin-refused:"): // the same, from a source whose policy refuses builder.island

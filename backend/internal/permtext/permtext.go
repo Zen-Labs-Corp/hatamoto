@@ -34,6 +34,7 @@ var texts = map[string]Text{
 	sdk.PermKV:              {Help: "Keep small values of its own"},
 	sdk.PermDB:              {Help: "Keep its own data tables"},
 	sdk.PermBuilderData:     {Help: "Offer data sources to the page builder"},
+	sdk.PermUICamera:        {Help: "Use the camera on this plugin's admin page (for example to scan tickets)"},
 	sdk.PermSiteScripts: {
 		Help:  "Runs its JavaScript on every public page, with full access to the site, including signed-in admins. Without it the plugin's script is not loaded.",
 		Short: "JavaScript on every public page.", Warn: true,

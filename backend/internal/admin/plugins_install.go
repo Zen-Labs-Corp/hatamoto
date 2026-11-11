@@ -65,14 +65,19 @@ type promptStatement struct {
 // is never granted by the install button alone.
 type promptScripts struct{ On bool }
 
+// promptCamera is the camera switch (ui.allow camera): off by default, never in
+// the hidden grant-all inputs. New marks an ask the installed version lacked.
+type promptCamera struct{ On, New bool }
+
 type promptData struct {
 	Staged   string
 	Sum      PackageSummary
 	Can      []promptStatement
 	Never    []promptStatement
-	Grant    []string // posted as hidden permission fields: every listed permission except site.scripts and the refused ones
+	Grant    []string // posted as hidden permission fields: every listed permission except site.scripts, the camera and the refused ones
 	Refused  string   // plain words for the requested permissions policy will not grant, "" when none
 	Scripts  *promptScripts
+	Camera   *promptCamera
 	Unsigned bool
 	Title    string     // "Install <Name> <version>?"
 	Chips    []ui.Badge // the signature, first-party and replaced-version badges beside the title
@@ -305,6 +310,9 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 	d := promptData{Staged: id, Sum: sum, Unsigned: !sum.Signed}
 	var added []string
 	perms := slices.DeleteFunc(slices.Clone(sum.Permissions), func(p string) bool { return slices.Contains(sum.Refused, p) })
+	// The camera has its own switch below, not a line in the list.
+	askCamera := slices.Contains(perms, sdk.PermUICamera)
+	perms = slices.DeleteFunc(perms, func(p string) bool { return p == sdk.PermUICamera })
 	var refused []string
 	for _, p := range sum.Refused {
 		refused = append(refused, strings.TrimSuffix(permtext.Lookup(p).Short, "."))
@@ -331,6 +339,10 @@ func (a *Admin) prompt(w http.ResponseWriter, r *http.Request, pk PackageAdmin, 
 			continue
 		}
 		d.Grant = append(d.Grant, p)
+	}
+	if askCamera {
+		had := sum.Updating && slices.Contains(sum.Granted, sdk.PermUICamera)
+		d.Camera = &promptCamera{On: had && !reset, New: sum.Updating && !had}
 	}
 	verb := "Install"
 	if sum.Updating {

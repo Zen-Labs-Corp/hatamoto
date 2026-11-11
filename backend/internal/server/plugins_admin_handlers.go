@@ -68,7 +68,7 @@ func (s *Server) pluginViews() []pluginView {
 		v := pluginView{
 			Name: st.Name, Loaded: st.Loaded, Error: st.Error, Hooks: st.Hooks,
 			Version: m.Version, SDK: m.SDK, Description: m.Description, AllowedHosts: m.AllowedHosts,
-			Permissions: m.Permissions, Cron: m.Cron,
+			Permissions: m.Asked(), Cron: m.Cron,
 			Cookies: m.Cookies, RedirectPaths: m.RedirectPaths, RequestHeaders: m.RequestHeaders, CSP: m.CSP, Funcs: m.Funcs, DataError: st.DataError, TempFileLimitOff: st.TempFileLimitOff,
 		}
 		for _, r := range m.Routes {

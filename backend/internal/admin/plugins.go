@@ -461,6 +461,7 @@ type pluginPageData struct {
 func (a *Admin) renderPlugin(w http.ResponseWriter, r *http.Request, pa PluginAdmin, status int, p PluginInfo, values map[string]any, errs schemaform.Errors, openPath string) {
 	role := userFrom(r.Context()).Role
 	d := pluginPageData{pluginHead: a.newPluginHead(p, "settings", role == "owner"), Owner: role == "owner", UI: a.pluginUIFor(r, p, role), Inactive: !p.Loaded && (p.Package == nil || (!p.Package.WidgetOnly && !p.Package.TagPack))}
+	setCameraPolicy(w, d.UI)
 	title := p.Name + " settings"
 	if !d.Owner && d.UI != nil {
 		title = d.UI.Title
@@ -569,7 +570,7 @@ func (a *Admin) renderPermissions(w http.ResponseWriter, r *http.Request, status
 	}
 	for _, perm := range p.Permissions {
 		removed := sdk.RemovedPermission(sdk.Permission(perm))
-		refused := removed || !sdk.ValidPermission(sdk.Permission(perm)) || slices.Contains(p.Refused, perm)
+		refused := removed || !sdk.ValidGrant(sdk.Permission(perm)) || slices.Contains(p.Refused, perm)
 		g := !refused && slices.Contains(p.Granted, perm)
 		d.Perms = append(d.Perms, permRow{Name: perm, Help: permtext.Help(perm), Granted: g, Refused: refused, Removed: removed})
 		switch {

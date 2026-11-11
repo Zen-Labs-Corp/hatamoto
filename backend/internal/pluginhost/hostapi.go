@@ -429,7 +429,7 @@ func fnPermissions(_ context.Context, a *API, e *callEnv, _ jsontext.Value) (any
 	if g == nil {
 		g = []sdk.Permission{}
 	}
-	out := map[string]any{"granted": g, "requested": e.manifest.Permissions}
+	out := map[string]any{"granted": g, "requested": e.manifest.Asked()}
 	if slices.Contains(g, sdk.PermMailSend) {
 		perHour, _ := a.MailQuotaState(e.plugin)
 		out["mail"] = map[string]any{"recipients_per_hour": perHour}

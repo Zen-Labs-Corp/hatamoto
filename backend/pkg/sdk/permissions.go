@@ -49,6 +49,12 @@ const (
 	// signed-in admin's, so the owner grants it explicitly. plugin.css needs
 	// no grant.
 	PermSiteScripts Permission = "site.scripts"
+
+	// PermUICamera (SDK 0.22.2) is the owner's grant for the camera on the
+	// plugin's admin page. A manifest asks for it with ui.allow ["camera"],
+	// never in permissions (it is not in Permissions), and the owner ticks it
+	// separately. It is stored with the other grants.
+	PermUICamera Permission = "ui.allow:camera"
 )
 
 // Permissions lists every capability, in a stable order.
@@ -62,6 +68,10 @@ var Permissions = []Permission{
 
 // ValidPermission reports whether p is a known capability.
 func ValidPermission(p Permission) bool { return slices.Contains(Permissions, p) }
+
+// ValidGrant reports whether p may be stored as a grant: a capability or
+// PermUICamera.
+func ValidGrant(p Permission) bool { return ValidPermission(p) || p == PermUICamera }
 
 // removedPermissions are the write permissions that went away in SDK 0.17.0,
 // each with the changeset function that replaces it. Content is written by a

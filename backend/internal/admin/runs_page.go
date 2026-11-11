@@ -66,6 +66,7 @@ func (a *Admin) handlePluginRuns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d := pluginRunsData{pluginHead: a.newPluginHead(p, "runs", true), UI: a.pluginUIFor(r, p, "owner")}
+	setCameraPolicy(w, d.UI)
 	d.Form = a.runForm(p, recent)
 	d.Table = a.runsTable(r, p, recent)
 	v := a.NewView(w, r, p.Name+" runs")

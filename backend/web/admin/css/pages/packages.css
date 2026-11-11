@@ -54,5 +54,6 @@
 .hm-pluginframe { width: 100%; min-height: 70vh; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
 .hm-pluginframe--preview { min-height: 60vh; }
 .hm-pluginframe-host [data-hm-pluginframe-notice][hidden] { display: none; }
+.hm-camera__video { width: 100%; max-height: 60vh; border-radius: var(--radius-md); background: var(--surface); }
 .hm-pluginhead { align-items: center; margin-block: var(--space-2) var(--space-4); }
 /* Routes and hosts are long identifiers: let them wrap inside the chip instead of widening the page at 390px. */

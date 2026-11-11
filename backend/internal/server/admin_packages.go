@@ -322,7 +322,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	switch pkg.Kind {
 	case packages.KindPlugin:
 		m, _ := pkg.PluginManifest()
-		sum.Description, sum.Permissions, sum.AllowedHosts = m.Description, m.Permissions, m.AllowedHosts
+		sum.Description, sum.Permissions, sum.AllowedHosts = m.Description, m.Asked(), m.AllowedHosts
 		sum.Refused = packages.RefusedPermissions(origin, pkg)
 		sum.RequestHeaders, sum.CSP = m.RequestHeaders, permtext.CSPLines(m.CSP)
 		sum.ContentTypes = packages.ContentTypeNames(pkg)
@@ -347,7 +347,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 		}
 	}
 	if sum.Problem == "" && pkg.Kind == packages.KindPlugin {
-		sum.Problem = p.unreviewedProblem(ctx, pkg.Name, sum.Signer, sum.Permissions)
+		sum.Problem = p.unreviewedProblem(ctx, pkg.Name, sum.Signer, slices.DeleteFunc(slices.Clone(sum.Permissions), func(perm string) bool { return perm == sdk.PermUICamera }))
 	}
 	if row, err := p.mgr().Store().Get(ctx, pkg.Kind, pkg.Name); err == nil {
 		sum.Updating, sum.InstalledVersion = true, row.Version
@@ -672,7 +672,7 @@ func (p *packageAdmin) decoratePlugins(infos []admin.PluginInfo) []admin.PluginI
 		meta.WidgetOnly = p.mgr().WidgetCount(r.Name) > 0 // no runtime status: a pack without wasm
 		meta.TagPack = p.mgr().TagCount(r.Name) > 0
 		infos = append(infos, admin.PluginInfo{
-			Name: r.Name, Version: m.Version, SDK: m.SDK, Description: m.Description, Permissions: m.Permissions,
+			Name: r.Name, Version: m.Version, SDK: m.SDK, Description: m.Description, Permissions: m.Asked(),
 			Granted: p.grantedOf(r.Name), AllowedHosts: m.AllowedHosts, Package: meta,
 			Refused: p.s.refusedPermissions(r.Name, m.Permissions), Runs: runDecls(m.Runs),
 		})
@@ -701,7 +701,7 @@ func (p *packageAdmin) meta(ctx context.Context, r packages.Row) *admin.PackageM
 		scripts = !p.s.plugins.Grants().Has(r.Name, sdk.PermSiteScripts)
 	}
 	m := &admin.PackageMeta{Enabled: r.Enabled, Signed: r.Signed(), Signer: r.SignerKeyID, FirstParty: firstPartyRow(r), Source: string(r.Source),
-		Update: p.updateFor(ctx, packages.KindPlugin, r.Name, r.Version), UpdateNew: p.updateNewFor(ctx, r.Name, r.Version, man.Permissions),
+		Update: p.updateFor(ctx, packages.KindPlugin, r.Name, r.Version), UpdateNew: p.updateNewFor(ctx, r.Name, r.Version, man.Asked()),
 		Blocked: p.mgr().Blocked(packages.KindPlugin, r.Name), Revoked: r.DisabledReason, LoadError: p.mgr().LoadError(r.Name), ScriptsBlocked: scripts, MarkupStopped: p.mgr().MarkupStopped(r.Name), AsksScripts: slices.Contains(man.Permissions, sdk.PermSiteScripts), Uninstalling: r.State == packages.StateUninstalling}
 	if r.Name == legacyWebhooksPlugin {
 		m.LegacyFirstParty = firstPartySigned(r)
@@ -715,7 +715,8 @@ func (p *packageAdmin) uiInfo(ui *sdk.AdminUI, granted []string) *admin.PluginUI
 	if entry == "" {
 		entry = sdk.DefaultUIEntry
 	}
-	return &admin.PluginUIInfo{Title: ui.Title, Entry: entry, Roles: ui.Roles, Functions: pluginhost.HostFunctionsFor(slices.Clone(granted))}
+	return &admin.PluginUIInfo{Title: ui.Title, Entry: entry, Roles: ui.Roles, Functions: pluginhost.HostFunctionsFor(slices.Clone(granted)),
+		Camera: slices.Contains(ui.Allow, sdk.UIAllowCamera) && slices.Contains(granted, sdk.PermUICamera)}
 }
 
 // tagInfos lists the tags of a tag pack for the install prompt; a package that

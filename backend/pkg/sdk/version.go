@@ -106,7 +106,13 @@ package sdk
 //
 // A run's standing_approval may also carry an optional `create` ({schemas,
 // max_per_hour}) that lets an approved run publish new entries on its own.
-const Version = "0.22.1"
+//
+// 0.22.2 is additive over 0.22.1: the AdminUI manifest block gains `allow`
+// ("camera" is the only value). When the owner grants it, the plugin's admin
+// page may call hatamoto.camera.capture(), which core's own dialog answers
+// with one JPEG data URL. It adds AdminUI.Allow, UIAllowCamera, PermUICamera,
+// ValidGrant and Manifest.Asked.
+const Version = "0.22.2"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor

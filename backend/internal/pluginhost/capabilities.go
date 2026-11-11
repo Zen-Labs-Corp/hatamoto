@@ -232,7 +232,7 @@ func (r *Runtime) Grant(ctx context.Context, name string, perms []sdk.Permission
 		return Status{}, fmt.Errorf("%w: %q", ErrPluginNotFound, name)
 	}
 	for _, p := range perms {
-		if !slices.Contains(st.Manifest.Permissions, p) {
+		if !slices.Contains(st.Manifest.Asked(), p) {
 			return st, fmt.Errorf("%w: %q", ErrNotRequested, p)
 		}
 	}
