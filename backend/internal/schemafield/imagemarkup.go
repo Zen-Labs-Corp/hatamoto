@@ -72,8 +72,15 @@ func MentionsImageMarkup(s string) bool {
 	return false
 }
 
+// scanHook, when set by a test, receives the length of every string a markup
+// scan reads, so a test can bound the work done without timing it.
+var scanHook func(n int)
+
 // markupHit tests one already lowercased form.
 func markupHit(l string) bool {
+	if scanHook != nil {
+		scanHook(len(l))
+	}
 	if strings.Contains(l, "![") || cssURLRe.MatchString(l) || dataURIRe.MatchString(l) || svgImageRe.MatchString(l) {
 		return true
 	}
@@ -112,6 +119,9 @@ func markupHit(l string) bool {
 // string, tokenised once. The tokenizer decodes entities in the values, and a
 // value is never parsed as markup again, so the work stays linear.
 func anyAttr(s string, pred func(key, val string) bool) bool {
+	if scanHook != nil {
+		scanHook(len(s))
+	}
 	if !strings.Contains(s, "<") {
 		return false
 	}

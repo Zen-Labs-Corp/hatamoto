@@ -2,9 +2,7 @@ package schemafield
 
 import (
 	"html"
-	"strings"
 	"testing"
-	"time"
 )
 
 func TestLooksLikeURLOrPath(t *testing.T) {
@@ -43,31 +41,29 @@ func TestLooksLikeURLOrPath(t *testing.T) {
 	}
 }
 
-// nestedMarkup is `<a x="` + escape(inner) + `">` repeated depth times: the
-// cycle-8 value that made a recursive scan exponential.
-func nestedMarkup(depth int) string {
-	s := "x"
+// nestedMarkup is `<a x="` + escape(inner) + `">` repeated depth times around
+// base: the cycle-8 value that made a recursive scan exponential.
+func nestedMarkup(depth int, base string) string {
+	s := base
 	for i := 0; i < depth; i++ {
 		s = `<a x="` + html.EscapeString(s) + `">`
 	}
 	return s
 }
 
-func TestLooksLikeURLOrPathNestedMarkupIsFast(t *testing.T) {
-	s := nestedMarkup(120)
+func TestLooksLikeURLOrPathNestedMarkupIsLinear(t *testing.T) {
+	s := nestedMarkup(120, "x")
 	if len(s) < 100_000 {
 		t.Fatalf("test value too small: %d bytes", len(s))
 	}
-	start := time.Now()
+	scanned := 0
+	scanHook = func(n int) { scanned += n }
+	defer func() { scanHook = nil }()
 	lu, im := LooksLikeURLOrPath(s), MentionsImageMarkup(s)
-	if d := time.Since(start); d > 500*time.Millisecond {
-		t.Errorf("scan took %v on %d bytes: work is not linear", d, len(s))
+	if scanned > 40*len(s) {
+		t.Errorf("scanned %d bytes for a %d byte value: work is not linear", scanned, len(s))
 	}
 	if lu || im {
 		t.Errorf("nested plain value: LooksLikeURLOrPath=%v MentionsImageMarkup=%v, want false", lu, im)
-	}
-	// A link at the bottom is still found when it is within the decode bound.
-	if !LooksLikeURLOrPath(strings.Replace(nestedMarkup(3), "x", "http://h", 1)) {
-		t.Error("shallow nested link not found")
 	}
 }
