@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -19,14 +20,18 @@ const (
 //
 // Unlike a plain singleflight, the load runs on a context detached from every
 // caller (values kept, cancellation dropped, acquire bound removed, Cap
-// applied), so one cancelled or short-bounded caller never fails the others;
-// each waiter still honours its own context and its own acquire bound.
+// applied only when a bounded caller started it), so one cancelled or
+// short-bounded caller never fails the others; each waiter still honours its
+// own context and its own acquire bound. A load that hit Cap is a limit of the
+// bounded (public) callers, not a failure of the dependency: it is not
+// remembered, and an unbounded caller that shared it runs its own load.
 //
 // The zero value is ready to use. A Flight must not be copied after first use.
 type Flight[T any] struct {
 	// ErrWindow is how long a failed load is shared; 0 means one second.
 	ErrWindow time.Duration
-	// Cap limits one load; 0 means ten seconds.
+	// Cap limits a load started by a bounded caller; 0 means ten seconds. A
+	// load started by an unbounded caller (admin, API, gate) has no cap.
 	Cap time.Duration
 
 	mu      sync.Mutex
@@ -38,9 +43,10 @@ type Flight[T any] struct {
 }
 
 type flightCall[T any] struct {
-	done chan struct{}
-	val  T
-	err  error
+	done   chan struct{}
+	val    T
+	err    error
+	capped bool // err is the Cap expiring, not a failure of the load itself
 }
 
 func (f *Flight[T]) clock() time.Time {
@@ -84,22 +90,29 @@ func (f *Flight[T]) DoCommit(ctx context.Context, load func(context.Context) (T,
 		}
 		f.lastErr = nil
 	}
+	gen := f.gen
 	c := f.cur
 	if c == nil {
 		c = &flightCall[T]{done: make(chan struct{})}
 		f.cur = c
-		go f.lead(ctx, c, f.gen, load, commit)
+		go f.lead(ctx, c, gen, load, commit)
 	}
 	f.mu.Unlock()
 
 	var bound <-chan time.Time
-	if d := AcquireBound(ctx); d > 0 {
+	d := AcquireBound(ctx)
+	if d > 0 {
 		t := time.NewTimer(d)
 		defer t.Stop()
 		bound = t.C
 	}
 	select {
 	case <-c.done:
+		if c.capped && d <= 0 {
+			// The shared load ran out of its cap on behalf of bounded callers;
+			// this caller never agreed to that limit, so it loads for itself.
+			return f.own(ctx, gen, load, commit)
+		}
 		return c.val, c.err
 	case <-ctx.Done():
 		return zero, ctx.Err()
@@ -109,13 +122,31 @@ func (f *Flight[T]) DoCommit(ctx context.Context, load func(context.Context) (T,
 	}
 }
 
-func (f *Flight[T]) lead(ctx context.Context, c *flightCall[T], gen uint64, load func(context.Context) (T, error), commit func(T)) {
-	limit := f.Cap
-	if limit <= 0 {
-		limit = defaultFlightCap
+// own runs load for one caller on its own context and commits a success unless
+// Forget was called since gen was read.
+func (f *Flight[T]) own(ctx context.Context, gen uint64, load func(context.Context) (T, error), commit func(T)) (T, error) {
+	val, err := load(ctx)
+	if err == nil && commit != nil {
+		f.mu.Lock()
+		if f.gen == gen {
+			commit(val)
+		}
+		f.mu.Unlock()
 	}
-	lctx, cancel := context.WithTimeout(WithoutAcquireBound(context.WithoutCancel(ctx)), limit)
-	defer cancel()
+	return val, err
+}
+
+func (f *Flight[T]) lead(ctx context.Context, c *flightCall[T], gen uint64, load func(context.Context) (T, error), commit func(T)) {
+	lctx := WithoutAcquireBound(context.WithoutCancel(ctx))
+	if AcquireBound(ctx) > 0 {
+		limit := f.Cap
+		if limit <= 0 {
+			limit = defaultFlightCap
+		}
+		var cancel context.CancelFunc
+		lctx, cancel = context.WithTimeout(lctx, limit)
+		defer cancel()
+	}
 
 	var val T
 	var err error
@@ -128,16 +159,19 @@ func (f *Flight[T]) lead(ctx context.Context, c *flightCall[T], gen uint64, load
 		val, err = load(lctx)
 	}()
 
+	capped := err != nil && errors.Is(lctx.Err(), context.DeadlineExceeded)
 	f.mu.Lock()
 	if f.gen == gen {
 		f.cur = nil
-		if err != nil {
+		if err == nil {
+			if commit != nil {
+				commit(val)
+			}
+		} else if !capped { // a cap expiry is not a failure of the dependency
 			f.lastErr, f.errAt = err, f.clock()
-		} else if commit != nil {
-			commit(val)
 		}
 	}
 	f.mu.Unlock()
-	c.val, c.err = val, err
+	c.val, c.err, c.capped = val, err, capped
 	close(c.done)
 }

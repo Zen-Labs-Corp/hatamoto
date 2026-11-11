@@ -205,3 +205,71 @@ func TestFlightRecoversLoaderPanic(t *testing.T) {
 		t.Fatal("want error from panic")
 	}
 }
+
+// blockUntilDone is a loader that only ends when its context does.
+func blockUntilDone(entered chan<- struct{}, calls *atomic.Int32) func(context.Context) (int, error) {
+	return func(ctx context.Context) (int, error) {
+		if calls.Add(1) == 1 && entered != nil {
+			close(entered)
+		}
+		if calls.Load() > 1 {
+			return 42, nil
+		}
+		<-ctx.Done()
+		return 0, ctx.Err()
+	}
+}
+
+// The cap belongs to bounded (public) callers: an unbounded caller that shared
+// a capped load must lead its own instead of inheriting the cap failure.
+func TestFlightCapFailureIsNotHandedToUnboundedCaller(t *testing.T) {
+	t.Parallel()
+	f := Flight[int]{Cap: 40 * time.Millisecond}
+	var calls atomic.Int32
+	entered := make(chan struct{})
+	load := blockUntilDone(entered, &calls)
+
+	boundedErr := make(chan error, 1)
+	go func() {
+		_, err := f.Do(WithAcquireBound(context.Background(), time.Minute), load)
+		boundedErr <- err
+	}()
+	<-entered
+	v, err := f.Do(context.Background(), load)
+	if err != nil || v != 42 {
+		t.Fatalf("unbounded caller: v=%d err=%v, want its own successful load", v, err)
+	}
+	<-boundedErr
+}
+
+// A cap expiry must not poison the next callers for the error window.
+func TestFlightCapFailureIsNotRemembered(t *testing.T) {
+	t.Parallel()
+	f := Flight[int]{Cap: 20 * time.Millisecond, ErrWindow: time.Hour}
+	var calls atomic.Int32
+	load := blockUntilDone(nil, &calls)
+	if _, err := f.Do(WithAcquireBound(context.Background(), time.Minute), load); err == nil {
+		t.Fatal("want the cap error for the bounded starter")
+	}
+	v, err := f.Do(context.Background(), load)
+	if err != nil || v != 42 || calls.Load() != 2 {
+		t.Fatalf("v=%d err=%v calls=%d, want a fresh load", v, err, calls.Load())
+	}
+}
+
+// A load started by an unbounded caller (admin, API, gate) is not capped.
+func TestFlightUnboundedStarterHasNoCap(t *testing.T) {
+	t.Parallel()
+	f := Flight[int]{Cap: 10 * time.Millisecond}
+	v, err := f.Do(context.Background(), func(ctx context.Context) (int, error) {
+		select {
+		case <-time.After(80 * time.Millisecond):
+			return 5, nil
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		}
+	})
+	if err != nil || v != 5 {
+		t.Fatalf("v=%d err=%v", v, err)
+	}
+}
