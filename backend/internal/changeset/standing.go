@@ -538,6 +538,9 @@ func checkCreateItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it Stored
 		}
 		st.slugs[key] = true
 	}
+	if reason := checkCreateText(pl); reason != "" {
+		return reason
+	}
 	if reason := checkCreateAttributes(ctx, tx, schemaDoc, pl.Attributes); reason != "" {
 		return reason
 	}
@@ -586,6 +589,24 @@ func ownedOrStaged(ctx context.Context, tx pgx.Tx, p StandingPolicy, origin, ref
 		return false, "is in a type the create rule does not cover."
 	}
 	return true, ""
+}
+
+// checkCreateText applies the markup and link rules of the attributes to the
+// other strings a create stores: name, slug, locale and the search text. The
+// public site prints and links them like any attribute, so a create carries no
+// link, path or picture in them either.
+func checkCreateText(pl entityPayload) string {
+	strs := []string{pl.Name, pl.Slug, pl.Locale}
+	if pl.SEO != nil {
+		strs = append(strs, pl.SEO.MetaTitle, pl.SEO.MetaDescription, pl.SEO.Robots)
+	}
+	if slices.ContainsFunc(strs, schemafield.MentionsImageMarkup) {
+		return "it carries image markup, which never qualifies."
+	}
+	if slices.ContainsFunc(strs, schemafield.LooksLikeURLOrPath) {
+		return "it carries links, paths or files, which need your review."
+	}
+	return ""
 }
 
 // checkCreateAttributes refuses a new entry that carries a media reference:

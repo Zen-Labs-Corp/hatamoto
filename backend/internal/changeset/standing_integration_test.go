@@ -543,8 +543,8 @@ func TestStandingCreatePublishes(t *testing.T) {
 		}
 	})
 
-	t.Run("text_html_with_links_and_headings", func(t *testing.T) {
-		publish(s.newItem("txt", map[string]any{"attributes": map[string]any{"title": "T", "content": `<h2>Heading</h2><p>Read <a href="/about">about us</a> and <strong>more</strong>.</p>`}}))
+	t.Run("text_html_with_headings", func(t *testing.T) {
+		publish(s.newItem("txt", map[string]any{"attributes": map[string]any{"title": "T", "content": `<h2>Heading</h2><p class="lead">Read <a href="#more">more</a> and <strong>more</strong>.</p>`}}))
 	})
 
 	t.Run("html_is_sanitised", func(t *testing.T) {
@@ -593,6 +593,11 @@ func TestStandingCreatePublishes(t *testing.T) {
 		if n := s.count(`SELECT count(*) FROM hatamoto_entities WHERE slug = $1 AND parent_id IS NOT NULL`, "kid-"+s.tag); n != 1 {
 			t.Errorf("child has no parent")
 		}
+	})
+
+	t.Run("plain_name_and_seo_text", func(t *testing.T) {
+		publish(s.newItem("pns", map[string]any{"name": "Doors: 7pm at the hall",
+			"seo": map[string]any{"meta_title": "Line-up", "meta_description": "An evening of music, 7pm."}}))
 	})
 
 	t.Run("plain_values_with_colons_and_digits", func(t *testing.T) {
@@ -788,6 +793,24 @@ func TestStandingCreateRefusals(t *testing.T) {
 			s.setSchema(linkFieldsSchema)
 			return s.stageAll(s.newItem("lk7", map[string]any{"attributes": map[string]any{"title": "T", "notes": "/about/us"}}))
 		}, "links, paths or files"},
+		{"link_like_markup_href", func() int64 {
+			return s.stageAll(s.newItem("lh", map[string]any{"attributes": map[string]any{"title": "T", "content": `<p>Read <a href="/about">about us</a>.</p>`}}))
+		}, "links, paths or files"},
+		{"link_like_name", func() int64 {
+			return s.stageAll(s.newItem("ln", map[string]any{"name": "Buy at https://x.example"}))
+		}, "links, paths or files"},
+		{"link_like_slug", func() int64 {
+			return s.stageAll(s.newItem("ls", map[string]any{"slug": "/tickets-" + s.tag}))
+		}, "links, paths or files"},
+		{"link_like_name_markup", func() int64 {
+			return s.stageAll(s.newItem("lm", map[string]any{"name": `<a href="//partner.example/buy">Buy</a>`}))
+		}, "links, paths or files"},
+		{"link_like_seo_description", func() int64 {
+			return s.stageAll(s.newItem("ld", map[string]any{"seo": map[string]any{"meta_description": "Tickets at https://x.example/t"}}))
+		}, "links, paths or files"},
+		{"image_markup_seo_title", func() int64 {
+			return s.stageAll(s.newItem("lt", map[string]any{"seo": map[string]any{"meta_title": `<img src="x">`}}))
+		}, "image markup"},
 		{"media_alias_of_image_field", func() int64 {
 			return s.stageAll(s.newItem("e10z", map[string]any{"attributes": map[string]any{"title": "T", "caption": "x.jpg"}}))
 		}, "image or file"},
