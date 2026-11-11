@@ -67,3 +67,14 @@ func TestLooksLikeURLOrPathNestedMarkupIsLinear(t *testing.T) {
 		t.Errorf("nested plain value: LooksLikeURLOrPath=%v MentionsImageMarkup=%v, want false", lu, im)
 	}
 }
+
+func TestLooksLikeURLOrPathNestedLink(t *testing.T) {
+	// A link in the innermost value is found while it is within the decode bound.
+	if !LooksLikeURLOrPath(nestedMarkup(3, "http://h")) {
+		t.Error("shallow nested link not found")
+	}
+	// Markup inside an attribute value is not parsed again, as browsers do not.
+	if LooksLikeURLOrPath(nestedMarkup(3, `<a href=tickets>`)) {
+		t.Error("link inside a nested attribute value should not be parsed as markup")
+	}
+}
