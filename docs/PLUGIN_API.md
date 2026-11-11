@@ -660,6 +660,7 @@ A changeset stays staged for review as a whole, with nothing published, when any
 - touches content another source owns;
 - sets `translation_of` to an entry the plugin does not own, or to one outside the listed schemas;
 - gives a slug that is already taken in the schema;
+- carries a link, a path or a file in any value or key, at any depth: text with `://`, a scheme such as `http:`, `data:`, `javascript:` or `mailto:`, a leading `/` or `\`, a leading `www.`, a file name ending in an image, audio, video or PDF extension (`.jpg`, `.png`, `.svg`, `.mp4`, `.pdf` and so on), or CSS `url(` / `image-set(`. This holds for every field, whatever the schema says, so a create with a ticket link waits for review. Plain prose, numbers, times (`19:30`), labels (`Doors: 7pm`) and fractions (`see page 3/4`) are fine;
 - would take the hour past `create.max_per_hour`.
 
 A changeset that mixes a create with anything outside the rule waits as a whole. A new entry cannot carry terms: an entity item has no terms field, and a changeset with a term item waits for review.
