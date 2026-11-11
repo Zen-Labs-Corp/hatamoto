@@ -204,6 +204,7 @@ To create a key step by step, follow [Invite people and create API keys](users-a
 |---|---|---|
 | `read:entities`, `write:entities` | Read entities, Write entities | Read or change content |
 | `write:media`, `write:menus`, `write:redirects`, `write:terms` | Write media, Write menus, Write redirects, Write terms | Site-structure writes, kept separate so a publishing key never gains them |
+| `read:media` | Read media | Lists the media library. `write:media` includes it. Both media scopes also unlock `GET /api/v1/media/` and `POST /api/v1/media/upload` over REST (upload needs `write:media`) |
 | `read:reports` | Read reports | Unlocks the MCP insight tools |
 | `read:citations`, `write:reports`, `read:query_suites`, `write:query_suites` | | Reserved: no route checks them today, so they grant nothing |
 | `*` | Everything (full access) | Everything |
