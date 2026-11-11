@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -66,7 +65,8 @@ func (f *Flight[T]) clock() time.Time {
 	return time.Now()
 }
 
-// WaitForWaiters blocks until n callers are waiting on a load (the one that
+// WaitForWaiters is a test hook (other packages' tests need it, so it cannot
+// live in an export_test.go): it blocks until n callers are waiting on a load (the one that
 // started it included) or timeout passes, and reports whether n was reached. It
 // lets tests release a blocked loader only once every caller has joined,
 // without guessing with a sleep.
@@ -76,7 +76,7 @@ func (f *Flight[T]) WaitForWaiters(n int, timeout time.Duration) bool {
 		if time.Now().After(deadline) {
 			return false
 		}
-		runtime.Gosched()
+		time.Sleep(time.Millisecond)
 	}
 	return true
 }
