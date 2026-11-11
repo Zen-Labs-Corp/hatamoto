@@ -7,11 +7,13 @@ import (
 
 var (
 	// urlSchemeRe finds a known scheme anywhere a reader could take it as one
-	// (at the start, or after punctuation or markup), so "Doors: 7pm" and
-	// "19:30" are not schemes but "javascript:x" and `href="mailto:a@b"` are.
+	// (at the start, or after punctuation or markup) with a non-space character
+	// right after the colon, so "Doors: 7pm", "Tel: 020 7946 0000", "About: the
+	// venue" and "19:30" are labels, not schemes, but "javascript:x",
+	// "tel:+44" and `href="mailto:a@b"` are.
 	// mailto and tel are included: they never render as a picture, but a link
 	// of any kind is something a person should look at.
-	urlSchemeRe = regexp.MustCompile(`(?:^|[^a-z0-9+.-])(?:https?|ftp|ftps|ws|wss|file|data|blob|javascript|vbscript|mailto|tel|sms|about)\s*:`)
+	urlSchemeRe = regexp.MustCompile(`(?:^|[^a-z0-9+.-])(?:https?|ftp|ftps|ws|wss|file|data|blob|javascript|vbscript|mailto|tel|sms|about)\s*:[^\s]`)
 	// mediaExtRe finds a file name with an image, audio, video or document
 	// extension, with or without a query or fragment after it.
 	mediaExtRe = regexp.MustCompile(`\.(?:jpe?g|png|gif|webp|avif|svg|bmp|ico|tiff?|heic|mp4|webm|mov|mp3|ogg|wav|pdf)\b`)
