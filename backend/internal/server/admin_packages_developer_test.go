@@ -24,6 +24,9 @@ func TestRegistryEntryDeveloper(t *testing.T) {
 	if !dev.Developer || dev.SignerKeyID != packages.KeyID(pub) || len(dev.SignerKeyID) != 16 {
 		t.Fatalf("developer entry = %+v", dev)
 	}
+	if f := p.registryEntry(packages.Entry{Kind: packages.KindPlugin, Name: "seo", Tier: packages.TierDeveloper, Featured: true}, nil); f.Featured {
+		t.Error("a developer entry must not be featured")
+	}
 	main := p.registryEntry(packages.Entry{Kind: packages.KindPlugin, Name: "gtm", Tier: packages.TierFirstParty}, nil)
 	if main.Developer || main.SignerKeyID != "" {
 		t.Fatalf("main entry = %+v", main)

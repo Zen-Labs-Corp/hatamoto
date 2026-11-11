@@ -243,6 +243,8 @@ func (p *packageAdmin) registryEntry(e packages.Entry, have map[string]string) a
 		Screenshot: packages.ScreenshotURL(screenshotBase(e.Tier, p.registryURL(), p.developerRegistryURL()), e.Screenshot), SiteType: e.SiteType, Flags: slices.Clone(e.Flags),
 	}
 	if e.Tier == packages.TierDeveloper {
+		// Only the main registry features packages.
+		out.Featured = false
 		out.Developer = true
 		if pub, err := packages.ParsePublicKey(e.SignerKey); err == nil {
 			out.SignerKeyID = packages.KeyID(pub)
