@@ -1,20 +1,19 @@
 # Write and submit a plugin
 
-How to write a Hatamoto plugin in your own GitHub repo and get it approved for
-the registry. Part 1 covers writing and testing, Part 2 covers the submission.
+How to write a Hatamoto plugin in your own GitHub repo and publish it through a
+developer account. Part 1 covers writing and testing, Part 2 covers publishing.
 The full reference (hooks, payloads, host functions, permissions) is
 [PLUGIN_API.md](PLUGIN_API.md); packaging and trust are in
 [PACKAGES.md](PACKAGES.md).
 
 > **Status:** the Hatamoto SDK (`hatamoto.dev/sdk`) is fetchable with `go get`
-> only once Hatamoto core goes public (roadmap item v1-24). Submissions to the
-> registry open at the same time. Until then the steps below describe the path
-> you will follow, and a plugin inside this repository uses the `replace`
-> described in PLUGIN_API.md.
+> only once Hatamoto core goes public (roadmap item v1-24). Until then the steps
+> below describe the path you will follow, and a plugin inside this repository
+> uses the `replace` described in PLUGIN_API.md.
 
-Approved plugins are listed at <https://hatamoto.dev/plugins> and install with
-one click from Admin > Plugins > Browse registry. Looking to publish a theme
-instead? See [THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md).
+Plugins published this way are listed as Developer packages in Admin > Plugins >
+Browse registry. Looking to publish a theme instead? See
+[THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md).
 
 ## Part 1: Write a plugin
 
@@ -299,14 +298,53 @@ To try the package on a development server, pick one:
   package, replacing an installed one of the same name. Nothing is stored and a
   restart reloads it. It is for development only, never for deployment.
 
-### 7. Publish your repo and submit
+### 7. Publish your repo and release
 
-Push your code to GitHub, tag a release if you like, copy the 40 character commit
-id you want reviewed, and follow [Part 2](#part-2-submit-a-plugin).
+Push your code to GitHub, build a signed `.hmp` file, attach it to a GitHub
+release, and follow [Part 2](#part-2-publish-your-plugin).
 
-## Part 2: Submit a plugin
+## Part 2: Publish your plugin
 
-Submissions go to the public plugins repository <https://github.com/Zen-Labs-Corp/hatamoto-plugins>.
+Anyone can publish. Developer accounts are free for now. We may introduce a fee later and will announce it in advance. You need an account to submit.
+
+1. **Create an account.** Open <https://hatamoto.dev/developers>, choose
+   "Sign in with GitHub", add a display name and accept the developer terms.
+2. **Make a signing key.** Run `hatamoto keys generate --name mykey`. Keep
+   `mykey.key` private. On the dashboard, paste the contents of `mykey.pub`
+   and choose "Add key". Each account has one key.
+3. **Pack and sign.** Run `hatamoto plugin pack . --key mykey.key`, then attach
+   the `.hmp` file to a release on GitHub.
+4. **Submit.** On the dashboard fill in the form and choose "Check and submit":
+   - Kind: Plugin.
+   - Release file: the link to the `.hmp` file, in the form
+     `https://github.com/<owner>/<repo>/releases/download/<tag>/<file>.hmp`.
+     Other hosts and release page links are refused.
+   - Source repository (optional), Title (optional).
+   - What it does (up to 600 characters) and Category.
+
+The checks run at once and each result is shown in a list. If one fails, nothing
+is submitted and the list says why. If all pass, the status is "Waiting for
+approval". The site owner approves the plugin or tells you why not, by email.
+We give no fixed review time.
+
+**Names.** A name is lower case letters, digits and hyphens, matching
+`^[a-z][a-z0-9-]{1,39}$`. It becomes yours when your first version is approved.
+
+**After approval.** The plugin appears as a Developer package. Hatamoto never
+signs your code, and it checks who signed a package but does not review the
+code. A site owner must first turn on Admin > Plugins > Package security >
+Allow developer packages. That takes three steps: an acknowledgement, typing
+the site address, and the owner password. Then anyone on that site can install
+it from Browse registry or with `hatamoto package install <name>`.
+
+**Updating.** Publish a new release with a higher version, signed by the same
+key, and submit it again. After a rejection, use "Resubmit".
+
+**Removing.** To take a plugin down, contact us. We may refuse or remove
+listings as the developer terms allow. A listing also drops out by itself if
+its file or signer changes.
+
+## First-party listing
 
 ### How it works
 
