@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/xml"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"golang.org/x/net/html"
 
 	"hatamoto.dev/core/internal/cache"
+	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/render"
@@ -100,10 +102,17 @@ func (s *Server) handleFeed(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/atom.xml" {
 		body = buildAtom(meta, items)
 	}
-	if s.infra != nil && s.infra.Cache != nil {
-		_ = s.infra.Cache.Set(ctx, key, body, time.Hour)
-	}
+	s.cacheFeed(ctx, key, body)
 	writeFeed(w, ctype, body)
+}
+
+// cacheFeed stores a built feed, unless a bounded acquire gave up while
+// building it: the feed may then carry fallback links.
+func (s *Server) cacheFeed(ctx context.Context, key string, body []byte) {
+	if s.infra == nil || s.infra.Cache == nil || database.PoolBusyHit(ctx) {
+		return
+	}
+	_ = s.infra.Cache.Set(ctx, key, body, time.Hour)
 }
 
 // writeFeedEncoded serves the stored compressed form of a cached feed.

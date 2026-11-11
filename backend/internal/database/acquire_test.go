@@ -68,3 +68,19 @@ func TestWithoutAcquireBound(t *testing.T) {
 		t.Fatal("zero bound must be a no-op")
 	}
 }
+
+func TestPoolBusyHitFlagsSwallowedBoundedAcquire(t *testing.T) {
+	ctx := WithAcquireBound(context.Background(), 20*time.Millisecond)
+	if PoolBusyHit(ctx) {
+		t.Fatal("flag set before any acquire")
+	}
+	if _, err := acquire(ctx, blockingAcquirer{}); !errors.Is(err, ErrPoolBusy) {
+		t.Fatal(err)
+	}
+	if !PoolBusyHit(ctx) {
+		t.Fatal("flag not set after ErrPoolBusy")
+	}
+	if PoolBusyHit(context.Background()) || PoolBusyHit(WithoutAcquireBound(ctx)) {
+		t.Fatal("flag leaked to an unbounded ctx")
+	}
+}

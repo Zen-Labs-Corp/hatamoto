@@ -104,6 +104,7 @@ func (f *Flight[T]) DoCommit(ctx context.Context, load func(context.Context) (T,
 	case <-ctx.Done():
 		return zero, ctx.Err()
 	case <-bound:
+		NotePoolBusy(ctx)
 		return zero, fmt.Errorf("waiting for shared load: %w", ErrPoolBusy)
 	}
 }

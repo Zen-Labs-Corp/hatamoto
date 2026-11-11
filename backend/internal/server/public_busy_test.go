@@ -4,12 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"hatamoto.dev/core/internal/cache"
+	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/render"
 )
@@ -93,5 +97,58 @@ func TestPublicAcquireBoundDisabled(t *testing.T) {
 		if got != 0 {
 			t.Errorf("d=%s: bound = %s, want none", d, got)
 		}
+	}
+}
+
+// A caller that swallows a pool-busy error (menus, fonts, settings) leaves a
+// page without data: it must answer 503, never be cached or sent public.
+func TestSwallowedPoolBusyIsNotCachedOrServed(t *testing.T) {
+	f := newRenderFixture(t)
+	f.next = okPage("About")
+	inner := f.h.buildView
+	f.h.buildView = func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error) {
+		database.NotePoolBusy(ctx) // e.g. the menu lookup gave up and rendered empty
+		return inner(ctx, r, rr)
+	}
+	w := f.get("/about", func(r *http.Request) {
+		*r = *r.WithContext(database.WithAcquireBound(r.Context(), time.Second))
+	})
+	if w.Code != http.StatusServiceUnavailable || w.Header().Get("Retry-After") != "2" {
+		t.Fatalf("status = %d, Retry-After = %q", w.Code, w.Header().Get("Retry-After"))
+	}
+	if strings.Contains(w.Header().Get("Cache-Control"), "public") {
+		t.Errorf("Cache-Control = %q", w.Header().Get("Cache-Control"))
+	}
+	if len(f.cache.sets) != 0 {
+		t.Errorf("degraded page cached: %v", f.cache.sets)
+	}
+}
+
+func TestPoolBusyHitSkipsSitemapAndFeedCache(t *testing.T) {
+	c := cache.New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	s := &Server{
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		infra:  &Infrastructure{Cache: c},
+		cfg:    &config.Config{PublicSite: config.PublicSiteConfig{BaseURL: "https://x.io"}},
+	}
+	busy := database.WithAcquireBound(context.Background(), time.Second)
+	database.NotePoolBusy(busy)
+	r := httptest.NewRequest(http.MethodGet, "/sitemap.xml", nil).WithContext(busy)
+	s.cacheSitemapXML(r, "index", []byte("<urlset/>"))
+	s.cacheFeed(busy, "feed-key", []byte("<rss/>"))
+	if b, _ := c.Get(busy, cache.SitemapKey("index")); len(b) > 0 {
+		t.Error("degraded sitemap cached")
+	}
+	if b, _ := c.Get(busy, "feed-key"); len(b) > 0 {
+		t.Error("degraded feed cached")
+	}
+	ok := database.WithAcquireBound(context.Background(), time.Second)
+	s.cacheSitemapXML(r.WithContext(ok), "index", []byte("<urlset/>"))
+	s.cacheFeed(ok, "feed-key", []byte("<rss/>"))
+	if b, err := c.Get(ok, cache.SitemapKey("index")); err != nil || len(b) == 0 {
+		t.Errorf("healthy sitemap not cached: %v", err)
+	}
+	if b, err := c.Get(ok, "feed-key"); err != nil || len(b) == 0 {
+		t.Errorf("healthy feed not cached: %v", err)
 	}
 }

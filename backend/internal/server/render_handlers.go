@@ -483,6 +483,13 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		// this request's own signals count, never the shared counters above.
 		h.logger.ErrorContext(r.Context(), "render: page degraded", "path", path)
 	}
+	if database.PoolBusyHit(r.Context()) {
+		// A bounded acquire gave up while building the page and a caller
+		// rendered without the data (menus, fonts, settings): never serve or
+		// cache that as a page.
+		h.writeBusy(w, r)
+		return
+	}
 	private := degraded || filtered || h.uncached
 	pluginhost.WriteSetCookies(w, r, cookies)
 	h.writeHTML(w, r, http.StatusOK, buf.Bytes(), private)

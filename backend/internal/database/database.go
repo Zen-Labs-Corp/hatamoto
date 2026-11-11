@@ -99,6 +99,7 @@ func acquire(ctx context.Context, a acquirer) (*pgxpool.Conn, error) {
 	conn, err := a.Acquire(actx)
 	if err != nil {
 		if ctx.Err() == nil && errors.Is(err, context.DeadlineExceeded) && AcquireBound(ctx) > 0 {
+			NotePoolBusy(ctx)
 			return nil, fmt.Errorf("failed to acquire connection: %w", ErrPoolBusy)
 		}
 		return nil, fmt.Errorf("failed to acquire connection: %w", err)
