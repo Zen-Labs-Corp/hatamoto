@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -47,6 +48,7 @@ func (a *Admin) mountPlugins(authed *httpx.Group) {
 	owner.HandleFunc("POST /plugins/{name}/settings", a.handlePluginSettingsSave)
 	owner.HandleFunc("GET /plugins/{name}/permissions", a.handlePluginPermissions)
 	owner.HandleFunc("POST /plugins/{name}/grant", a.handlePluginGrant)
+	owner.HandleFunc("POST /plugins/{name}/mail", a.handlePluginMail)
 	owner.HandleFunc("POST /plugins/{name}/runs/{run}/start", a.handlePluginRunStart)
 }
 
@@ -530,6 +532,12 @@ type pluginPermsData struct {
 	HooksText string
 	// Granted is the "N of M allowed" gauge; nil when the plugin asks for nothing.
 	Granted *ui.Progress
+	// HasMail shows the Mail card: the plugin declares mail.send (granted or not).
+	HasMail     bool
+	MailPerHour string
+	MailSent    int
+	Summary     []ui.FieldError
+	Errs        map[string]string
 }
 
 func (a *Admin) handlePluginPermissions(w http.ResponseWriter, r *http.Request) {
@@ -542,7 +550,23 @@ func (a *Admin) handlePluginPermissions(w http.ResponseWriter, r *http.Request) 
 		a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed.", a.adminPath+"/plugins", "Back to plugins")
 		return
 	}
-	d := pluginPermsData{pluginHead: a.newPluginHead(p, "permissions", true), HooksText: strings.Join(p.Hooks, ", ")}
+	a.renderPermissions(w, r, http.StatusOK, pa, p, nil, "")
+}
+
+// renderPermissions draws the Permissions tab. A refused Mail card save comes
+// back through it with the field errors and the typed value.
+func (a *Admin) renderPermissions(w http.ResponseWriter, r *http.Request, status int, pa PluginAdmin, p PluginInfo, errs []ui.FieldError, typed string) {
+	d := pluginPermsData{pluginHead: a.newPluginHead(p, "permissions", true), HooksText: strings.Join(p.Hooks, ", "), Summary: errs, Errs: map[string]string{}}
+	for _, e := range errs {
+		d.Errs[e.ID] = e.Message
+	}
+	if d.HasMail = slices.Contains(p.Permissions, "mail.send"); d.HasMail {
+		perHour, sent := pa.MailQuota(p.Name)
+		d.MailPerHour, d.MailSent = strconv.Itoa(perHour), sent
+		if errs != nil {
+			d.MailPerHour = typed
+		}
+	}
 	for _, perm := range p.Permissions {
 		removed := sdk.RemovedPermission(sdk.Permission(perm))
 		refused := removed || !sdk.ValidPermission(sdk.Permission(perm)) || slices.Contains(p.Refused, perm)
@@ -564,7 +588,44 @@ func (a *Admin) handlePluginPermissions(w http.ResponseWriter, r *http.Request) 
 	v.Width = "narrow"
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: p.Name, Href: a.pluginURL(p.Name, "settings")}, {Label: "Permissions"}}
 	v.Data = d
-	a.Render(w, r, http.StatusOK, "plugins/permissions", v)
+	a.Render(w, r, status, "plugins/permissions", v)
+}
+
+const maxMailPerHour = 3600
+
+// handlePluginMail saves the owner's recipients-per-hour quota for a plugin's
+// mail.send. The plugin can read it, never change it.
+func (a *Admin) handlePluginMail(w http.ResponseWriter, r *http.Request) {
+	pa, ok := a.pluginAdmin(w, r)
+	if !ok {
+		return
+	}
+	name := r.PathValue("name")
+	p, found := a.findPlugin(pa, name)
+	if !found || !slices.Contains(p.Permissions, "mail.send") {
+		a.ErrorBack(w, r, http.StatusNotFound, "Plugin not found", "That plugin is not installed or does not send mail.", a.adminPath+"/plugins", "Back to plugins")
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		a.Error(w, r, http.StatusBadRequest, "Bad request", "The form could not be read.")
+		return
+	}
+	typed := strings.TrimSpace(r.PostForm.Get("mail-per-hour"))
+	n, err := strconv.Atoi(typed)
+	if err != nil || n < 1 || n > maxMailPerHour {
+		msg := fmt.Sprintf("Enter a whole number from 1 to %d.", maxMailPerHour)
+		a.renderPermissions(w, r, http.StatusUnprocessableEntity, pa, p, []ui.FieldError{{ID: "mail-per-hour", Label: "Recipients per hour", Message: msg}}, typed)
+		return
+	}
+	old, _ := pa.MailQuota(name)
+	if err := pa.SetMailQuota(r.Context(), name, n); err != nil {
+		a.logger().Error("save plugin mail quota failed", "plugin", name, "err", err)
+		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The mail quota could not be saved.")
+		return
+	}
+	a.audit(r, "plugin.mail_quota", "plugin:"+name, map[string]any{"from": old, "to": n})
+	a.SetFlash(w, r, "success", "Mail quota saved for "+name+".")
+	http.Redirect(w, r, a.pluginURL(name, "permissions"), http.StatusSeeOther)
 }
 
 func (a *Admin) pluginWithSettings(w http.ResponseWriter, r *http.Request) (PluginAdmin, PluginInfo, bool) {

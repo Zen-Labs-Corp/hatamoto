@@ -439,6 +439,10 @@ func (s *Server) refusedPermissions(plugin string, perms []string) []string {
 	return out
 }
 
+// MailQuota and SetMailQuota are wired to the runtime in a later change.
+func (p pluginAdmin) MailQuota(string) (int, int)                     { return 360, 0 }
+func (p pluginAdmin) SetMailQuota(context.Context, string, int) error { return nil }
+
 func (p pluginAdmin) Grant(ctx context.Context, name string, perms []string) error {
 	if p.s.plugins == nil {
 		return admin.ErrPluginNotFound
