@@ -209,9 +209,17 @@ func (p *packageAdmin) addDeveloperEntries(ctx context.Context, v *admin.Registr
 		p.s.logger.Debug("packages: developer index", "error", err)
 		return
 	}
+	p.appendDeveloper(v, dev, have)
+}
+
+// appendDeveloper adds the entries of dev that it does not revoke: a revoked
+// package must not be offered, as the public directory does not.
+func (p *packageAdmin) appendDeveloper(v *admin.RegistryView, dev *packages.Index, have map[string]string) {
 	v.DeveloperAvail = true
 	for _, e := range dev.Packages {
-		v.Entries = append(v.Entries, p.registryEntry(e, have))
+		if !packages.Revoked(dev, e) {
+			v.Entries = append(v.Entries, p.registryEntry(e, have))
+		}
 	}
 }
 

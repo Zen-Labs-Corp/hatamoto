@@ -214,7 +214,7 @@ func (d *registryDirectory) withDeveloper(ctx context.Context, main *packages.In
 	merged := *main
 	merged.Packages = slices.Clone(main.Packages)
 	for _, e := range packages.FilterDeveloper(dev, main).Packages {
-		if !developerRevoked(dev, e) {
+		if !packages.Revoked(dev, e) {
 			merged.Packages = append(merged.Packages, e)
 		}
 	}
@@ -260,26 +260,6 @@ func (d *registryDirectory) logDeveloper(err error) {
 	case state == "ok" && prev != "":
 		d.logger.Info("plugin directory: developer index available again")
 	}
-}
-
-// developerRevoked reports whether dev revokes e by its signer key, or by name
-// (and version, when the revocation names one).
-func developerRevoked(dev *packages.Index, e packages.Entry) bool {
-	var key string
-	if pub, err := packages.ParsePublicKey(e.SignerKey); err == nil {
-		key = packages.KeyID(pub)
-	}
-	for _, rv := range dev.Revoked {
-		if rv.SignerKey != "" {
-			if pub, err := packages.ParsePublicKey(rv.SignerKey); err == nil && key != "" && packages.KeyID(pub) == key {
-				return true
-			}
-		}
-		if rv.Name != "" && rv.Name == e.Name && (rv.Version == "" || rv.Version == e.Version) {
-			return true
-		}
-	}
-	return false
 }
 
 // tierRank orders directory cards: first-party, community, then developer.

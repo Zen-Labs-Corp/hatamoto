@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
+	"strings"
 	"testing"
 
 	"hatamoto.dev/core/internal/admin"
@@ -68,4 +69,40 @@ func TestRegistryDeveloperIndexOffOrFailing(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Browse does not offer a developer package the developer index revokes, by
+// key, by name, or by the listed version.
+func TestAppendDeveloperSkipsRevoked(t *testing.T) {
+	keep, gone := newDevKey(t), newDevKey(t)
+	dev := &packages.Index{
+		Packages: []packages.Entry{
+			{Kind: packages.KindPlugin, Name: "keep", Version: "1.0.0", SignerKey: keep, Tier: packages.TierDeveloper},
+			{Kind: packages.KindPlugin, Name: "bykey", Version: "1.0.0", SignerKey: gone, Tier: packages.TierDeveloper},
+			{Kind: packages.KindPlugin, Name: "byname", Version: "1.0.0", SignerKey: keep, Tier: packages.TierDeveloper},
+			{Kind: packages.KindPlugin, Name: "byversion", Version: "1.0.0", SignerKey: keep, Tier: packages.TierDeveloper},
+			{Kind: packages.KindPlugin, Name: "otherversion", Version: "1.0.0", SignerKey: keep, Tier: packages.TierDeveloper},
+		},
+		Revoked: []packages.Revocation{
+			{SignerKey: gone}, {Name: "byname"}, {Name: "byversion", Version: "1.0.0"}, {Name: "otherversion", Version: "2.0.0"},
+		},
+	}
+	var v admin.RegistryView
+	(&packageAdmin{}).appendDeveloper(&v, dev, nil)
+	var got []string
+	for _, e := range v.Entries {
+		got = append(got, e.Name)
+	}
+	if want := "keep,otherversion"; strings.Join(got, ",") != want {
+		t.Fatalf("entries = %v, want %s", got, want)
+	}
+}
+
+func newDevKey(t *testing.T) string {
+	t.Helper()
+	pub, _, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return base64.StdEncoding.EncodeToString(pub)
 }
