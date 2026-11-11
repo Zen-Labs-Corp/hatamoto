@@ -67,7 +67,7 @@ func newPluginRig(t *testing.T) (*rig, *fakePlugins) {
 	t.Helper()
 	fp := &fakePlugins{settings: map[string]map[string]any{"hello": {"site_id": "abc"}}, list: []PluginInfo{
 		{Name: "hello", Version: "1.2.0", SDK: "1", Description: "Says <hello>", Loaded: true, Hooks: []string{"on_entity_published"}, Permissions: []string{"kv", "mail.send"}, Granted: []string{"kv"},
-			Routes: []string{"GET /p/hello/ping (public)"}, Cron: []string{"sync every 1h"}, AllowedHosts: []string{"api.example.com"}, RequestHeaders: []string{"stripe-signature"}, CSP: []permtext.CSPLine{{Name: "Scripts", Hosts: []string{"https://js.example.com"}}}, SettingsSchema: []byte(hookSchema)},
+			Routes: []string{"GET /p/hello/ping (public)"}, Cron: []string{"sync every 1h"}, AllowedHosts: []string{"api.example.com"}, RedirectPaths: []string{"/go", "/go/"}, RequestHeaders: []string{"stripe-signature"}, CSP: []permtext.CSPLine{{Name: "Scripts", Hosts: []string{"https://js.example.com"}}}, SettingsSchema: []byte(hookSchema)},
 		{Name: "broken", Error: "wasm: bad module"},
 	}}
 	return newRig(t, func(d *Deps) { d.Growth.Plugins = fp }), fp
@@ -192,7 +192,7 @@ func TestPluginPermissionsPage(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("status %d", rec.Code)
 	}
-	for _, want := range []string{"on_entity_published", "api.example.com", "1 of 2 allowed", "GET /p/hello/ping (public)", "sync every 1h", `id="headers-card"`, `id="csp-card"`, "Page security (CSP)", "https://js.example.com", "stripe-signature", "are never passed", `value="kv" checked`, `action="/admin/plugins/hello/grant"`} {
+	for _, want := range []string{"on_entity_published", "api.example.com", "1 of 2 allowed", "GET /p/hello/ping (public)", "sync every 1h", `id="headers-card"`, `id="csp-card"`, `id="redirects-card"`, "Pages it may redirect", `hm-badge--mono">/go/</span>`, "Page security (CSP)", "https://js.example.com", "stripe-signature", "are never passed", `value="kv" checked`, `action="/admin/plugins/hello/grant"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
@@ -242,6 +242,17 @@ func TestPluginPermissionsRefused(t *testing.T) {
 	fp.list[0].Refused = []string{"site.scripts"}
 	if rec := g.do("POST", "/admin/plugins/hello/grant", "owner-token", url.Values{"permission": {"kv"}}, nil); rec.Code != 303 || slices.Contains(fp.list[0].Granted, "site.scripts") {
 		t.Errorf("saving must revoke the stored grant: %d %v", rec.Code, fp.list[0].Granted)
+	}
+}
+
+func TestPluginPermissionsNoRedirectCardWithoutPaths(t *testing.T) {
+	t.Parallel()
+
+	g, fp := newPluginRig(t)
+	fp.list[0].RedirectPaths = nil
+	body := g.do("GET", "/admin/plugins/hello/permissions", "owner-token", nil, nil).Body.String()
+	if strings.Contains(body, "redirects-card") || strings.Contains(body, "Pages it may redirect") {
+		t.Errorf("the card shows for a plugin that declares no redirect paths:\n%s", body)
 	}
 }
 

@@ -28,6 +28,9 @@ type pluginView struct {
 	Routes      []routeView   `json:"routes,omitempty"`
 	Cron        []sdk.CronJob `json:"cron,omitempty"`
 	Cookies     []string      `json:"cookies,omitempty"`
+	// RedirectPaths are the exact public paths it may answer with a redirect
+	// (request.redirect).
+	RedirectPaths []string `json:"redirect_paths,omitempty"`
 	// RequestHeaders are the extra request headers its routes receive.
 	RequestHeaders []string `json:"request_headers,omitempty"`
 	// omitzero: a declared empty "csp":{} is still listed, as before.
@@ -66,7 +69,7 @@ func (s *Server) pluginViews() []pluginView {
 			Name: st.Name, Loaded: st.Loaded, Error: st.Error, Hooks: st.Hooks,
 			Version: m.Version, SDK: m.SDK, Description: m.Description, AllowedHosts: m.AllowedHosts,
 			Permissions: m.Permissions, Cron: m.Cron,
-			Cookies: m.Cookies, RequestHeaders: m.RequestHeaders, CSP: m.CSP, Funcs: m.Funcs, DataError: st.DataError, TempFileLimitOff: st.TempFileLimitOff,
+			Cookies: m.Cookies, RedirectPaths: m.RedirectPaths, RequestHeaders: m.RequestHeaders, CSP: m.CSP, Funcs: m.Funcs, DataError: st.DataError, TempFileLimitOff: st.TempFileLimitOff,
 		}
 		for _, r := range m.Routes {
 			v.Routes = append(v.Routes, routeView(r))

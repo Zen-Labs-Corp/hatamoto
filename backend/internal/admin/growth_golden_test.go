@@ -49,7 +49,7 @@ func TestGrowthPageGoldens(t *testing.T) {
 	fl := newFakeLinking()
 	target := fixedID(5)
 	fl.names[target] = "Services"
-	fp := &fakePlugins{settings: map[string]map[string]any{}, list: []PluginInfo{{Name: "hello", Version: "1.0.0", Loaded: true, Hooks: []string{"on_entity_published"}, Permissions: []string{"kv"}, Granted: []string{"kv"}}}}
+	fp := &fakePlugins{settings: map[string]map[string]any{}, list: []PluginInfo{{Name: "hello", Version: "1.0.0", Loaded: true, Hooks: []string{"on_entity_published"}, Permissions: []string{"kv"}, Granted: []string{"kv"}, RedirectPaths: []string{"/go", "/go/"}}}}
 	until := stamp.Add(24 * time.Hour)
 	pk := &fakePackages{unsigned: true, unsignedEnd: &until, signers: []SignerInfo{{Name: "Example signer", Algorithm: "ed25519", Fingerprint: "abc123", Source: "Built in"}}, registry: RegistryView{
 		Host: "registry.example", DeveloperAvail: true, FetchedAt: stamp.Add(-3 * time.Hour),

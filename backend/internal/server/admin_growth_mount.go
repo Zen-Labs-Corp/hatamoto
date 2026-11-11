@@ -394,7 +394,7 @@ func (p pluginAdmin) Plugins() []admin.PluginInfo {
 		info := admin.PluginInfo{
 			Runs: runDecls(runs[v.Name]), Standing: declaresRule(runs[v.Name]),
 			Name: v.Name, Version: v.Version, SDK: v.SDK, Description: v.Description, Error: v.Error, DataError: v.DataError, TempFileLimitOff: v.TempFileLimitOff, Loaded: v.Loaded,
-			Hooks: v.Hooks, Permissions: v.Permissions, Granted: v.Granted, AllowedHosts: v.AllowedHosts, Cookies: v.Cookies, RequestHeaders: v.RequestHeaders, CSP: permtext.CSPLines(v.CSP), Funcs: v.Funcs,
+			Hooks: v.Hooks, Permissions: v.Permissions, Granted: v.Granted, AllowedHosts: v.AllowedHosts, Cookies: v.Cookies, RedirectPaths: v.RedirectPaths, RequestHeaders: v.RequestHeaders, CSP: permtext.CSPLines(v.CSP), Funcs: v.Funcs,
 			Refused: p.s.refusedPermissions(v.Name, v.Permissions),
 		}
 		if p.s.packages != nil {

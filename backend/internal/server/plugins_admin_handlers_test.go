@@ -12,6 +12,28 @@ import (
 	"hatamoto.dev/sdk"
 )
 
+func TestListPlugins_ListsRedirectPaths(t *testing.T) {
+	s := &Server{pluginStatusFn: func() []pluginhost.Status {
+		return []pluginhost.Status{
+			{Name: "paths", Loaded: true, Manifest: sdk.Manifest{Name: "paths", RedirectPaths: []string{"/go", "/go/"}}},
+			{Name: "plain", Loaded: true, Manifest: sdk.Manifest{Name: "plain"}},
+		}
+	}}
+	rec := httptest.NewRecorder()
+	s.handleListPlugins(rec, httptest.NewRequest(http.MethodGet, "/plugins", nil))
+
+	testutil.RequireEqual(t, http.StatusOK, rec.Code)
+	var body struct {
+		Plugins []map[string]jsontext.Value `json:"plugins"`
+	}
+	testutil.RequireNoError(t, jsonx.Unmarshal(rec.Body.Bytes(), &body))
+	testutil.RequireLen(t, body.Plugins, 2)
+	testutil.JSONEqual(t, `["/go","/go/"]`, string(body.Plugins[0]["redirect_paths"]))
+	if _, ok := body.Plugins[1]["redirect_paths"]; ok {
+		t.Error("a plugin without redirect paths lists the field")
+	}
+}
+
 func TestListPlugins_InvalidSettingsSchemaDoesNotBreakList(t *testing.T) {
 	s := &Server{pluginStatusFn: func() []pluginhost.Status {
 		return []pluginhost.Status{
