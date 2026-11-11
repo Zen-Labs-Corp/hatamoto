@@ -55,8 +55,11 @@ func (s *Server) requestRedirect(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(withUncachedRequest(r.Context())))
 			return
 		}
+		// Not http.Redirect: it re-cleans the path, which could turn a
+		// validated "/./\\x" into "/\\x". The validated string is sent as is.
 		w.Header().Set("Cache-Control", "no-store")
-		http.Redirect(w, r, out.Redirect.Location, out.Redirect.Status)
+		w.Header().Set("Location", out.Redirect.Location)
+		w.WriteHeader(out.Redirect.Status)
 	})
 }
 

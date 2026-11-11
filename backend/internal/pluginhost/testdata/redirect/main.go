@@ -42,6 +42,9 @@ func init() {
 			p.Redirect = &sdk.Redirect{Status: 302, Location: "https://x"}
 		case "protoloc":
 			p.Redirect = &sdk.Redirect{Status: 302, Location: "//x"}
+		case "config-location": // answers with the config key "location" as is
+			loc, _ := guest.Config("location")
+			p.Redirect = &sdk.Redirect{Status: 302, Location: loc}
 		case "status301":
 			p.Redirect = &sdk.Redirect{Status: 301, Location: "/go"}
 		case "undeclared":

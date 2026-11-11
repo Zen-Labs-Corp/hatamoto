@@ -33,6 +33,11 @@ type redirectServer struct {
 
 func newRedirectServer(t *testing.T, mode string) *redirectServer {
 	t.Helper()
+	return newRedirectServerWith(t, map[string]string{"mode": mode})
+}
+
+func newRedirectServerWith(t *testing.T, config map[string]string) *redirectServer {
+	t.Helper()
 	s, err := routeShell()
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +58,7 @@ func newRedirectServer(t *testing.T, mode string) *redirectServer {
 	m := sdk.Manifest{
 		Name: "rdr", Version: "0.1.0", SDK: "^0.22",
 		Cookies: []string{"pref"}, RedirectPaths: []string{"/go", "/go/"},
-		Config: map[string]string{"mode": mode},
+		Config: config,
 	}
 	if st := rt.Load(context.Background(), m, plugintest.Build(t, "redirect")); !st.Loaded {
 		t.Fatalf("redirect plugin: %s", st.Error)
@@ -301,6 +306,32 @@ func TestRedirectPathRefusalCoversCoreRoutes(t *testing.T) {
 	for _, icon := range render.RootIcons {
 		if adminpath.RedirectPathRefusal("/"+icon) == "" {
 			t.Errorf("root icon /%s can be declared as a redirect path", icon)
+		}
+	}
+}
+
+// The Location core sends is the string the plugin returned, byte for byte
+// (http.Redirect would clean it), and a Location that is or could become a
+// cross-site target is dropped: the request is served normally.
+func TestRequestRedirectLocationIsSentVerbatimOrDropped(t *testing.T) {
+	for _, loc := range []string{"/a/./b?next=/../x", "/a//b"} {
+		rs := newRedirectServerWith(t, map[string]string{"mode": "config-location", "location": loc})
+		h, reached, _ := rs.chain()
+		rec := get(h, "GET", "/go")
+		if got := rec.Header().Get("Location"); rec.Code != http.StatusFound || got != loc || reached.Load() != 0 {
+			t.Errorf("%q: %d Location %q, want 302 verbatim", loc, rec.Code, got)
+		}
+	}
+	for _, loc := range []string{
+		"/./\\evil.example", "/../\\evil.example", "/.//evil.example", "/a/../\\evil.example",
+		"/\\evil.example", "\\\\evil.example", "//evil.example", "/\t/evil.example", "/\r\n/evil.example",
+		"/%2F%2Fevil.example", "/%5Cevil.example", "/%2e/%5cevil.example", "https://evil.example", "javascript:alert(1)",
+	} {
+		rs := newRedirectServerWith(t, map[string]string{"mode": "config-location", "location": loc})
+		h, reached, _ := rs.chain()
+		rec := get(h, "GET", "/go")
+		if rec.Code != http.StatusOK || rec.Header().Get("Location") != "" || reached.Load() != 1 {
+			t.Errorf("%q: %d Location %q, want the Location dropped and normal handling", loc, rec.Code, rec.Header().Get("Location"))
 		}
 	}
 }

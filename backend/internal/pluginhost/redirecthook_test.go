@@ -243,3 +243,40 @@ func TestRedirectFilterNilSafe(t *testing.T) {
 		t.Error("nil runtime gave a filter")
 	}
 }
+
+func TestStrictRedirectLocation(t *testing.T) {
+	for l, want := range map[string]bool{
+		"/":                     true,
+		"/go?c=XX&next=/a/../b": true,
+		"/a/./b":                true,
+		"/a//b":                 true,
+		"/a/../b#frag":          true,
+		"/./\\x":                false,
+		"/../\\x":               false,
+		"/a/../\\x":             false,
+		"/.//x":                 false,
+		"/././/x":               false,
+		"/../..//x":             false,
+		"/%2e//x":               false,
+		"/%2E/%2e/\\x":          false,
+		"//x":                   false,
+		"/\\x":                  false,
+		"\\\\x":                 false,
+		"/a\\b":                 false,
+		"/\t/x":                 false,
+		"/\n/x":                 false,
+		"/\r/x":                 false,
+		"/%2F%2Fx":              false,
+		"/%2f/x":                false,
+		"/%5Cx":                 false,
+		"/a%5cb":                false,
+		"https://x":             false,
+		"javascript:alert(1)":   false,
+		"x":                     false,
+		"":                      false,
+	} {
+		if got := strictRedirectLocation(l); got != want {
+			t.Errorf("strictRedirectLocation(%q) = %v, want %v", l, got, want)
+		}
+	}
+}

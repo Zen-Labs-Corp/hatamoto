@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"path"
 	"slices"
+	"strings"
 	"time"
 
 	"hatamoto.dev/core/internal/hooks"
@@ -67,11 +69,60 @@ func checkRedirect(m sdk.Manifest, res sdk.RedirectContext) error {
 		if rd.Status != 302 && rd.Status != 307 {
 			return fmt.Errorf("status %d is not 302 or 307", rd.Status)
 		}
-		if len(rd.Location) > maxRedirectLocation || !safeLocation(rd.Location) {
+		if len(rd.Location) > maxRedirectLocation || !strictRedirectLocation(rd.Location) {
 			return fmt.Errorf("location is not a same-site path")
 		}
 	}
 	return checkSetCookies(m, res.SetCookies)
+}
+
+// strictRedirectLocation is safeLocation plus the checks a request.redirect
+// answer needs because core sends the exact string as the Location header. The
+// path (before ? or #) must hold no backslash and no encoded slash or
+// backslash, and must not start with // or /\ after the dot-segment removal a
+// browser (or path.Clean) does: "/./\x" and "/.//x" both end up as "//x".
+func strictRedirectLocation(l string) bool {
+	if !safeLocation(l) {
+		return false
+	}
+	p := l
+	if i := strings.IndexAny(p, "?#"); i >= 0 {
+		p = p[:i]
+	}
+	low := strings.ToLower(p)
+	if strings.Contains(p, "\\") || strings.Contains(low, "%2f") || strings.Contains(low, "%5c") {
+		return false
+	}
+	low = strings.ReplaceAll(low, "%2e", ".")
+	if strings.HasPrefix(path.Clean(low), "//") || strings.HasPrefix(removeDotSegments(low), "//") {
+		return false
+	}
+	return true
+}
+
+// removeDotSegments drops "." and ".." segments the way a URL parser does,
+// keeping empty segments (path.Clean would merge them).
+func removeDotSegments(p string) string {
+	var out []string
+	segs := strings.Split(p, "/")
+	for i, s := range segs {
+		switch s {
+		case ".":
+			if i == len(segs)-1 {
+				out = append(out, "")
+			}
+		case "..":
+			if len(out) > 1 {
+				out = out[:len(out)-1]
+			}
+			if i == len(segs)-1 {
+				out = append(out, "")
+			}
+		default:
+			out = append(out, s)
+		}
+	}
+	return strings.Join(out, "/")
 }
 
 // redirectOwner returns the plugin that owns the request.redirect path, or "".
