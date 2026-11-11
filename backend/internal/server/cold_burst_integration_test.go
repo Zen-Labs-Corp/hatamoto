@@ -163,7 +163,7 @@ func TestStarvedPoolBoundsOnlyPublicPages_Integration(t *testing.T) {
 
 	// The API is not bounded: it is still waiting well past the bound, so the
 	// client gives up first (no answer at all, in particular no 503 or 500).
-	for _, path := range []string{"/api/v1/public/knowledge-graph"} {
+	for _, path := range []string{"/api/v1/public/knowledge-graph", "/admin/login"} {
 		c := &http.Client{Timeout: 1500 * time.Millisecond}
 		r, err := c.Get(ts.URL + path)
 		if err == nil {
@@ -179,7 +179,7 @@ func TestStarvedPoolBoundsOnlyPublicPages_Integration(t *testing.T) {
 	}
 
 	release()
-	for _, path := range []string{"/", "/api/v1/public/knowledge-graph"} {
+	for _, path := range []string{"/", "/api/v1/public/knowledge-graph", "/admin/login"} {
 		r, err := (&http.Client{Timeout: 10 * time.Second}).Get(ts.URL + path)
 		if err != nil {
 			t.Fatalf("%s after release: %v", path, err)
