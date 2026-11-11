@@ -37,9 +37,9 @@ Two things make the number move:
 
 ### Use the default limit
 
-When you set no `GOMEMLIMIT`, Hatamoto reads the memory limit of its container or systemd cgroup at boot and sets the soft limit to 88 percent of it, so a service started with `MemoryMax=512M` or `docker run --memory 512m` stays under about 450 MiB before the kernel steps in. It logs `memory limit set from the container limit` with the value in bytes. Without a cgroup limit, or with an unlimited one (`max`), Hatamoto sets nothing and the runtime uses its normal growth rules.
+When you set no `GOMEMLIMIT`, Hatamoto reads the memory limit of its own cgroup at boot, takes the smallest limit on the way up to the root (so a tighter limit on a parent slice counts), and sets the soft limit to 88 percent of it, so a service started with `MemoryMax=512M` or `docker run --memory 512m` stays under about 450 MiB before the kernel steps in. It logs `memory limit set from the container limit` with the value in bytes. Without a cgroup limit, or with an unlimited one (`max`), Hatamoto sets nothing and the runtime uses its normal growth rules.
 
-The limit is soft: it makes the runtime collect garbage and return memory more often as it gets near. It does not refuse requests. A limit below what the site really needs makes the server spend most of its time collecting, so leave room above the measured figure.
+The limit is soft: it makes the runtime collect garbage and return memory more often as it gets near. It does not refuse requests. A limit below what the site really needs can make the server spend up to half its processor time collecting, and the memory then grows past the limit anyway, so leave room above the measured figure.
 
 ### Set your own limit
 
