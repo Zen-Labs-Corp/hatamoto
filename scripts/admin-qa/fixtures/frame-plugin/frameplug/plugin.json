@@ -1,7 +1,7 @@
 {
   "name": "frameplug",
   "version": "0.1.0",
-  "sdk": "^0.8",
+  "sdk": "^0.22.2",
   "description": "QA fixture: a plugin with an admin page and an import run and a cron started run with a standing approval rule, for the browser scripts. Use it through run-local.sh, which builds its plugin.wasm.",
   "permissions": ["mail.send"],
   "allowed_hosts": ["example.com"],
@@ -25,5 +25,5 @@
     }
   ],
   "cron": [{ "name": "refresh_daily", "every": "24h" }],
-  "ui": { "title": "Frames", "entry": "index.html", "roles": ["owner", "editor"] }
+  "ui": { "title": "Frames", "entry": "index.html", "roles": ["owner", "editor"], "allow": ["camera"] }
 }
