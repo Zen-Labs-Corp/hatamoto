@@ -157,3 +157,22 @@ func TestDirectoryCardLinkFollowsLinked(t *testing.T) {
 		}
 	}
 }
+
+// A developer package's page says Hatamoto did not review it, for plugins and
+// themes; other tiers carry no such note.
+func TestRegistryPageDeveloperNote(t *testing.T) {
+	e, _ := New(Options{})
+	const note = "Not reviewed by Hatamoto."
+	v := registryPluginView()
+	if out := renderRegistry(t, e, v); strings.Contains(out, note) {
+		t.Errorf("community page carries the developer note")
+	}
+	v.Registry.Plugin.Tier, v.Registry.Plugin.TierLabel = "developer", "Developer"
+	if out := renderRegistry(t, e, v); !strings.Contains(out, note) {
+		t.Errorf("developer plugin page lacks the note:\n%s", mainInner(t, out))
+	}
+	v.Registry = &RegistryPageView{Type: "theme", ListName: "Themes", ListURL: "/themes", Theme: &ThemeCard{Name: "acme", Tier: "developer", TierLabel: "Developer"}}
+	if out := renderRegistry(t, e, v); !strings.Contains(out, note) {
+		t.Errorf("developer theme page lacks the note:\n%s", mainInner(t, out))
+	}
+}
