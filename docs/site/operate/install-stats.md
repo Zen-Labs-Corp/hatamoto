@@ -77,7 +77,7 @@ The body has the three Basic keys and these:
 | `age_months` | How long the install has existed, rounded down to one of 0, 1, 3, 6, 12, 24 or 36 months (36 means 36 or more). Never the exact date. |
 | `worker` | Whether the background worker runs on this server. |
 | `theme` | The name and version of the active theme. Always sent by name, whoever made it. |
-| `plugins` | The installed plugins that are first-party or published in the registry (community plugins): name, version and whether it is enabled. At most 100, sorted by name. |
+| `plugins` | The installed plugins that are first-party or published in the main registry (first-party and community plugins): name, version and whether it is enabled. At most 100, sorted by name. |
 | `other_plugins` | A count of all other plugins (self-built, unsigned or signed by another key). Their names never leave the server. |
 | `health` | Counts of problems since the last report, see below. |
 

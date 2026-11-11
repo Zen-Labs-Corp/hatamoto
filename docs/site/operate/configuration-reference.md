@@ -132,7 +132,8 @@ What these settings do is described under [Email delivery](#email-delivery).
 | Variable | Default | Meaning |
 |---|---|---|
 | `HATAMOTO_REGISTRY_URL` | `https://hatamoto.dev/registry.json` | Signed registry index to browse for plugins and themes. `off` (case-insensitive) disables browsing; uploads still work. Must be https. |
-| `HATAMOTO_REGISTRY_ALLOW_HTTP` | `false` | The exact value `true` (case-insensitive) accepts an `http://` registry. Development only. |
+| `HATAMOTO_DEVELOPER_REGISTRY_URL` | `https://hatamoto.dev/p/devportal/registry.json` | Signed index of packages published by registered developers. `off` (case-insensitive) turns the feature off: no request, no developer installs. Must be https unless `HATAMOTO_REGISTRY_ALLOW_HTTP=true`. Developer packages also need the owner to allow them in the admin. Not available on the public demo. |
+| `HATAMOTO_REGISTRY_ALLOW_HTTP` | `false` | The exact value `true` (case-insensitive) accepts an `http://` registry or developer registry. Development only. |
 | `HATAMOTO_TRUSTED_KEYS` | empty | Base64 ed25519 public keys of signers you trust, separated by commas, spaces, tabs or new lines. A malformed key stops the boot. |
 | `HATAMOTO_TRUST_FIRST_PARTY` | `true` | The exact value `false` (case-insensitive) stops trusting the built-in first-party signing key. |
 | `HATAMOTO_ADMIN_PATH` | unset | Pins the admin address and wins over the stored one. One segment of 4 to 64 lowercase letters, digits or dashes, like `/my-place`. When it is unset, a fresh install generates a private address and an upgraded install keeps `/admin`. An invalid or reserved value stops the server at boot. Print the address with `hatamoto admin-url`. |
@@ -408,6 +409,8 @@ Roles belong to the Postgres cluster, not to one database, so `pg_dump` of the d
 | `HATAMOTO_TRUSTED_KEYS holds "...", which is not an ed25519 public key` | A trusted key is not 32 bytes of base64. |
 | `HATAMOTO_REGISTRY_URL "..." must be an https URL (or "off")` | The registry address is not an http or https URL with a host. |
 | `HATAMOTO_REGISTRY_URL "..." is http: the registry must be served over https` | The registry address is http and `HATAMOTO_REGISTRY_ALLOW_HTTP=true` is not set. |
+| `HATAMOTO_DEVELOPER_REGISTRY_URL "..." must be an https URL (or "off")` | The developer registry address is not an http or https URL with a host. |
+| `HATAMOTO_DEVELOPER_REGISTRY_URL "..." is http: the index must be served over https` | The developer registry address is http and `HATAMOTO_REGISTRY_ALLOW_HTTP=true` is not set. |
 | `SMTP_FROM is required when SMTP_HOST is set` | Email is on but the sender is still the default. |
 | `HATAMOTO_THEME_DIR is no longer read` | An old theme directory variable is still set. |
 
