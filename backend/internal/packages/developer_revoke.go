@@ -39,6 +39,17 @@ func revocationFor(r Row, idx *Index) (Revocation, bool) {
 	return Revocation{}, false
 }
 
+// Revoked reports whether idx revokes the developer entry e: by its signer
+// key, by its exact name and version, or by its name alone.
+func Revoked(idx *Index, e Entry) bool {
+	row := Row{Developer: true, Name: e.Name, Version: e.Version}
+	if pub, err := ParsePublicKey(e.SignerKey); err == nil {
+		row.SignerKeyID = KeyID(pub)
+	}
+	_, ok := revocationFor(row, idx)
+	return ok
+}
+
 // revocationReason is the stored reason; a revocation without one still needs
 // a non-empty text, because the reason marks the row as revoked.
 func revocationReason(rv Revocation) string {

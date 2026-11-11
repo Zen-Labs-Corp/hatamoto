@@ -36,7 +36,13 @@ type directoryViews struct {
 // fetch is bounded by a short timeout, concurrent cold renders share one
 // fetch, and an index is never shown after its own expires_at.
 type registryDirectory struct {
-	registry     func() *packages.Registry
+	registry func() *packages.Registry
+	// dev is the optional developer index source; nil when developer packages
+	// are not offered. Its failure never affects the main registry's cards.
+	dev registryFetcher
+	// devURL is the developer index's URL, which its relative screenshot paths
+	// resolve against; nil when there is none.
+	devURL       func() string
 	logger       *slog.Logger
 	now          func() time.Time
 	fetchTimeout time.Duration
@@ -45,7 +51,11 @@ type registryDirectory struct {
 	snap     directorySnapshot
 	inflight chan struct{}
 	lastLog  string // state last logged: "" before the first fetch, "ok" or an error text
+	devLog   string // same for the developer index
 }
+
+// registryFetcher reads one verified, already name-filtered index.
+type registryFetcher func(ctx context.Context) (*packages.Index, error)
 
 type directorySnapshot struct {
 	views directoryViews
@@ -68,6 +78,20 @@ func (s *Server) pluginDirectory() *registryDirectory {
 			}
 			return s.packages.Registry
 		}, s.logger)
+		// The registry config decides, not the install switch: the manager
+		// answers ErrRegistryOff when the developer index is off or limited.
+		s.directory.dev = func(ctx context.Context) (*packages.Index, error) {
+			if s.packages == nil {
+				return nil, packages.ErrRegistryOff
+			}
+			return s.packages.DeveloperIndex(ctx, false)
+		}
+		s.directory.devURL = func() string {
+			if s.packages == nil || s.packages.DeveloperRegistry == nil {
+				return ""
+			}
+			return s.packages.DeveloperRegistry.URL
+		}
 	})
 	return s.directory
 }
@@ -148,7 +172,7 @@ func (d *registryDirectory) refresh(ctx context.Context) {
 		exp, err = time.Parse(time.RFC3339, idx.ExpiresAt)
 	}
 	if err == nil {
-		d.snap = directorySnapshot{views: directoriesFor(idx, registryURL), until: minTime(now.Add(directoryTTL), exp), indexExpires: exp}
+		d.snap = directorySnapshot{views: directoriesFor(idx, registryURL, d.developerURL()), until: minTime(now.Add(directoryTTL), exp), indexExpires: exp}
 		d.logState("ok", nil)
 		return
 	}
@@ -176,7 +200,86 @@ func (d *registryDirectory) fetch(ctx context.Context) (idx *packages.Index, reg
 	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), d.fetchTimeout)
 	defer cancel()
 	idx, err = reg.Fetch(fctx)
-	return idx, reg.URL, err
+	if err != nil || d.dev == nil {
+		return idx, reg.URL, err
+	}
+	return d.withDeveloper(fctx, idx), reg.URL, nil
+}
+
+// withDeveloper adds the developer entries to main. The developer index is
+// optional: when it is off, unreadable or expired, main is returned as is.
+// Otherwise the result expires with the earlier of the two indexes.
+func (d *registryDirectory) withDeveloper(ctx context.Context, main *packages.Index) *packages.Index {
+	dev, err := d.devIndex(ctx)
+	d.logDeveloper(err)
+	if dev == nil {
+		return main
+	}
+	mainExp, err1 := time.Parse(time.RFC3339, main.ExpiresAt)
+	devExp, err2 := time.Parse(time.RFC3339, dev.ExpiresAt)
+	if err1 != nil || err2 != nil || !devExp.After(d.now()) {
+		return main
+	}
+	merged := *main
+	merged.Packages = slices.Clone(main.Packages)
+	for _, e := range packages.FilterDeveloper(dev, main).Packages {
+		if !packages.Revoked(dev, e) {
+			merged.Packages = append(merged.Packages, e)
+		}
+	}
+	if devExp.Before(mainExp) {
+		merged.ExpiresAt = dev.ExpiresAt
+	}
+	return &merged
+}
+
+// devIndex reads the developer index; a panic is an error, an off index is nil.
+func (d *registryDirectory) devIndex(ctx context.Context) (idx *packages.Index, err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			idx, err = nil, fmt.Errorf("developer index fetch panicked: %v", p)
+		}
+	}()
+	idx, err = d.dev(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return idx, nil
+}
+
+// logDeveloper logs once when the developer index starts failing and once
+// when it recovers; an off index is not a failure.
+func (d *registryDirectory) logDeveloper(err error) {
+	state := "ok"
+	if errors.Is(err, packages.ErrRegistryOff) {
+		state, err = "off", nil
+	} else if err != nil {
+		state = err.Error()
+	}
+	d.mu.Lock()
+	prev := d.devLog
+	d.devLog = state
+	d.mu.Unlock()
+	if state == prev || d.logger == nil {
+		return
+	}
+	switch {
+	case err != nil:
+		d.logger.Warn("plugin directory: developer index unavailable", slog.Any("error", err))
+	case state == "ok" && prev != "":
+		d.logger.Info("plugin directory: developer index available again")
+	}
+}
+
+// tierRank orders directory cards: first-party, community, then developer.
+func tierRank(tier string) int {
+	switch tier {
+	case packages.TierFirstParty:
+		return 0
+	case packages.TierCommunity:
+		return 1
+	}
+	return 2
 }
 
 // logState logs when the fetch outcome differs from the last one logged: once
@@ -205,14 +308,32 @@ func minTime(a, b time.Time) time.Time {
 	return a
 }
 
-// directoriesFor maps one index to both directory views; registryURL anchors
-// relative screenshot paths.
-func directoriesFor(idx *packages.Index, registryURL string) directoryViews {
-	return directoryViews{plugins: directoryView(idx), themes: themeDirectoryView(idx, registryURL)}
+// developerURL is the developer index's URL, "" when there is none.
+func (d *registryDirectory) developerURL() string {
+	if d.devURL == nil {
+		return ""
+	}
+	return d.devURL()
 }
 
-// themeDirectoryView maps the theme entries of idx to cards, sorted by name.
-func themeDirectoryView(idx *packages.Index, registryURL string) render.ThemeDirectoryView {
+// directoriesFor maps one index to both directory views; registryURL anchors
+// the relative screenshot paths of its entries and developerURL those of the
+// developer entries.
+func directoriesFor(idx *packages.Index, registryURL, developerURL string) directoryViews {
+	return directoryViews{plugins: directoryView(idx), themes: themeDirectoryView(idx, registryURL, developerURL)}
+}
+
+// screenshotBase is the registry URL a relative screenshot path of an entry of
+// tier resolves against: developer entries live on the developer index's host.
+func screenshotBase(tier, registryURL, developerURL string) string {
+	if tier == packages.TierDeveloper {
+		return developerURL
+	}
+	return registryURL
+}
+
+// themeDirectoryView maps the theme entries of idx to cards, first-party first, then community, then developer, by name within each.
+func themeDirectoryView(idx *packages.Index, registryURL, developerURL string) render.ThemeDirectoryView {
 	var cards []render.ThemeCard
 	for _, e := range idx.Packages {
 		if e.Kind != packages.KindTheme {
@@ -220,7 +341,7 @@ func themeDirectoryView(idx *packages.Index, registryURL string) render.ThemeDir
 		}
 		c := render.ThemeCard{
 			Name: e.Name, Title: e.Title, Version: displayVersion(e.Version), Description: e.Description,
-			Source: packages.SafeHTTPS(e.Source), Screenshot: packages.ScreenshotURL(registryURL, e.Screenshot),
+			Source: packages.SafeHTTPS(e.Source), Screenshot: packages.ScreenshotURL(screenshotBase(e.Tier, registryURL, developerURL), e.Screenshot),
 			Search: strings.ToLower(e.Title + " " + e.Name + " " + e.Description + " " + e.Author),
 			About:  aboutParagraphs(e.About), Features: e.Features,
 		}
@@ -229,17 +350,21 @@ func themeDirectoryView(idx *packages.Index, registryURL string) render.ThemeDir
 			c.Tier, c.TierLabel = e.Tier, "First-party"
 		case packages.TierCommunity:
 			c.Tier, c.TierLabel, c.Author = e.Tier, "Community", e.Author
+		case packages.TierDeveloper:
+			c.Tier, c.TierLabel, c.Author = e.Tier, "Developer", e.Author
 		}
 		cards = append(cards, c)
 	}
-	slices.SortStableFunc(cards, func(a, b render.ThemeCard) int { return cmp.Compare(a.Name, b.Name) })
+	slices.SortStableFunc(cards, func(a, b render.ThemeCard) int {
+		return cmp.Or(cmp.Compare(tierRank(a.Tier), tierRank(b.Tier)), cmp.Compare(a.Name, b.Name))
+	})
 	if len(cards) == 0 {
 		return render.ThemeDirectoryView{State: render.PluginDirectoryEmpty}
 	}
 	return render.ThemeDirectoryView{State: render.PluginDirectoryOK, Cards: cards}
 }
 
-// directoryView maps the plugin entries of idx to cards, sorted by name.
+// directoryView maps the plugin entries of idx to cards, first-party first, then community, then developer, by name within each.
 func directoryView(idx *packages.Index) render.PluginDirectoryView {
 	var cards []render.PluginCard
 	for _, e := range idx.Packages {
@@ -263,10 +388,15 @@ func directoryView(idx *packages.Index) render.PluginDirectoryView {
 			c.Tier, c.TierLabel = e.Tier, "First-party"
 		case packages.TierCommunity:
 			c.Tier, c.TierLabel, c.Author = e.Tier, "Community", e.Author
+		case packages.TierDeveloper:
+			c.Tier, c.TierLabel, c.Author = e.Tier, "Developer", e.Author
+			c.Search += " " + strings.ToLower(e.Author)
 		}
 		cards = append(cards, c)
 	}
-	slices.SortStableFunc(cards, func(a, b render.PluginCard) int { return cmp.Compare(a.Name, b.Name) })
+	slices.SortStableFunc(cards, func(a, b render.PluginCard) int {
+		return cmp.Or(cmp.Compare(tierRank(a.Tier), tierRank(b.Tier)), cmp.Compare(a.Name, b.Name))
+	})
 	if len(cards) == 0 {
 		return render.PluginDirectoryView{State: render.PluginDirectoryEmpty}
 	}

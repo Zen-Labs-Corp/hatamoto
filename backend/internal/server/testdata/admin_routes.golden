@@ -82,6 +82,7 @@ GET /admin/plugins -> admin.(*Admin).handlePlugins-fm
 GET /admin/plugins/browse -> admin.(*Admin).handleBrowse-fm
 GET /admin/plugins/go -> admin.(*Admin).handlePluginsGo-fm
 GET /admin/plugins/security -> admin.(*Admin).handlePackageSecurity-fm
+GET /admin/plugins/security/developer -> admin.(*Admin).handleAllowDeveloperPage-fm
 GET /admin/plugins/upload -> admin.(*Admin).handleUploadPage-fm
 GET /admin/plugins/{name} -> admin.(*Admin).handlePluginRedirect-fm
 GET /admin/plugins/{name}/about -> admin.(*Admin).handleBrowseDetail-fm

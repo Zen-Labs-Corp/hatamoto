@@ -14,6 +14,7 @@ import (
 // turns the unsigned-package opt-in off (owner only).
 func (a *Admin) mountPluginSecurity(owner *httpx.Group) {
 	owner.HandleFunc("GET /plugins/security", a.handlePackageSecurity)
+	owner.HandleFunc("GET /plugins/security/developer", a.handleAllowDeveloperPage)
 	// Turning it on checks a password: share the sign-in rate limit.
 	on := owner
 	if a.deps.RateLimit != nil {
@@ -36,6 +37,10 @@ type pluginSecurityPage struct {
 	NoPassword  bool
 	ProfileHref string
 	Durations   []ui.Option
+	// Developer is the developer-packages switch.
+	Developer bool
+	// Cancel is where the developer page's Cancel goes.
+	Cancel string
 }
 
 // unsignedUntilText formats the end of a timed opt-in; empty when there is none.
@@ -76,6 +81,7 @@ func (a *Admin) handlePackageSecurity(w http.ResponseWriter, r *http.Request) {
 		State:       pk.UnsignedState(r.Context()),
 		Signers:     pk.Signers(r.Context()),
 		SiteHost:    a.packageHost(r),
+		Developer:   pk.AllowDeveloper(r.Context()),
 		ProfileHref: a.url("profile"),
 		Durations: []ui.Option{
 			{Value: unsignedHour, Label: "1 hour"},
@@ -90,6 +96,26 @@ func (a *Admin) handlePackageSecurity(w http.ResponseWriter, r *http.Request) {
 	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: "Package security"}}
 	v.Data = d
 	a.Render(w, r, http.StatusOK, "plugins/security", v)
+}
+
+// handleAllowDeveloperPage is the page with the gates for allowing developer
+// packages. The POST is handleAllowDeveloper; once the switch is on there is
+// nothing to ask, so it goes back to Package security.
+func (a *Admin) handleAllowDeveloperPage(w http.ResponseWriter, r *http.Request) {
+	pk, ok := a.packageAdmin(w, r)
+	if !ok {
+		return
+	}
+	security := a.adminPath + "/plugins/security"
+	if pk.AllowDeveloper(r.Context()) {
+		http.Redirect(w, r, security, http.StatusSeeOther)
+		return
+	}
+	v := a.NewView(w, r, "Allow developer packages")
+	v.Width = "narrow"
+	v.Crumbs = []Crumb{{Label: "Plugins", Href: a.adminPath + "/plugins"}, {Label: "Package security", Href: security}, {Label: "Allow developer packages"}}
+	v.Data = pluginSecurityPage{SiteHost: a.packageHost(r), NoPassword: !a.hasPassword(r), ProfileHref: a.url("profile"), Cancel: security}
+	a.Render(w, r, http.StatusOK, "plugins/securitydeveloper", v)
 }
 
 // hasPassword reports whether the signed-in user has a password to confirm
@@ -249,7 +275,9 @@ func (a *Admin) handleAllowDeveloper(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleStopDeveloper turns the developer-package opt-in off. One click and no
-// other gate. Packages that are already installed keep running.
+// other gate. The Plugins and Theme banners post return=plugins or return=theme
+// to come back to their page. The duration field the page's gate script needs
+// is never read. Packages that are already installed keep running.
 func (a *Admin) handleStopDeveloper(w http.ResponseWriter, r *http.Request) {
 	pk, ok := a.packageAdmin(w, r)
 	if !ok {
@@ -262,8 +290,11 @@ func (a *Admin) handleStopDeveloper(w http.ResponseWriter, r *http.Request) {
 	}
 	a.SetFlash(w, r, "success", "Developer packages are no longer allowed. Installed ones keep running.")
 	to := a.adminPath + "/plugins/security"
-	if r.PostFormValue("return") == "plugins" {
+	switch r.PostFormValue("return") {
+	case "plugins":
 		to = a.adminPath + "/plugins"
+	case "theme":
+		to = a.adminPath + "/theme/themes"
 	}
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }

@@ -240,3 +240,44 @@ func TestThemeBrowseHidesDefaultNamedEntry(t *testing.T) {
 		t.Error("registry theme named default is listed")
 	}
 }
+
+func TestThemeBrowseDeveloperCard(t *testing.T) {
+	t.Parallel()
+
+	view := RegistryView{Host: themeRegistryHost, DeveloperAvail: true, Entries: []RegistryEntry{
+		{Kind: "theme", Name: "hanshi", Title: "Hanshi", Tier: "first-party", Version: "1.0.0"},
+		{Kind: "theme", Name: "acme-dark", Title: "Acme Dark", Author: "acme", Tier: "developer", Developer: true, SignerKeyID: "3f9a1c2b7d4e5f60", Version: "1.0.0"},
+	}}
+	g, _ := themeBrowseRig(t, view)
+	body := getThemeBrowse(g, "")
+	for _, want := range []string{"by @acme", "Developer</span>", "Signed by a registered developer. Not reviewed by Hatamoto.", `value="developer"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("theme browse lacks %q", want)
+		}
+	}
+	if strings.Count(body, "Signed by a registered developer") != 1 {
+		t.Error("only the developer card carries the note")
+	}
+	if only := getThemeBrowse(g, "?tier=developer"); !strings.Contains(only, "Acme Dark") || strings.Contains(only, "Hanshi") {
+		t.Errorf("tier=developer: %s", only)
+	}
+	view.DeveloperAvail = false
+	g, _ = themeBrowseRig(t, view)
+	if strings.Contains(getThemeBrowse(g, ""), `value="developer"`) {
+		t.Error("the Developer chip shows although the developer index is not offered")
+	}
+}
+
+// A developer theme card shows the Developer badge with or without an author.
+func TestThemeBrowseDeveloperBadgeWithoutAuthor(t *testing.T) {
+	t.Parallel()
+
+	g, _ := themeBrowseRig(t, RegistryView{Host: themeRegistryHost, DeveloperAvail: true, Entries: []RegistryEntry{
+		{Kind: "theme", Name: "anon", Title: "Anon", Tier: "developer", Developer: true, Version: "1.0.0"},
+	}})
+	body := getThemeBrowse(g, "")
+	i := strings.Index(body, "hm-themecard__by")
+	if i < 0 || !strings.Contains(body[i:i+400], "Developer") || strings.Contains(body, "by @") {
+		t.Errorf("developer badge missing or an empty author shown:\n%s", body)
+	}
+}

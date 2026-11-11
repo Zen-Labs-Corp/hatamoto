@@ -149,6 +149,9 @@ func (f *fakePackages) SetEnabled(_ context.Context, name string, on bool) error
 	if name == "nope" {
 		return errors.New("not installed")
 	}
+	if name == "revoked" && on {
+		return &Refusal{Msg: "acme-seo is revoked by the registry (key leaked) and cannot be turned on."}
+	}
 	f.enabled[name] = on
 	return nil
 }

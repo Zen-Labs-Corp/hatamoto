@@ -24,7 +24,7 @@
 {{define "modules"}}@hm/pluginpanel{{end}}
 {{define "browse-total"}}{{if .Total}}{{.Total}} {{if eq .Total 1}}plugin{{else}}plugins{{end}}{{else}}No plugins{{end}}{{end}}
 {{define "browse-card"}}<li class="hm-plugincards__item"><a class="hm-plugincard" href="{{.Href}}" data-hm-open="plugin-panel">
-<span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">{{.Initial}}</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">{{.Title}}</span>{{if .Author}}<span class="hm-plugincard__by">{{.Author}}</span>{{end}}</span></span>
+<span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">{{.Initial}}</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">{{.Title}}</span>{{if .Author}}<span class="hm-plugincard__by">{{if .Developer}}by @{{.Author}}{{else}}{{.Author}}{{end}}</span>{{end}}{{if .Developer}}<span class="hm-plugincard__note">{{.DeveloperNote}}</span>{{end}}</span></span>
 <span class="hm-plugincard__meta hm-mono">{{.Meta}}</span>
 <span class="hm-plugincard__desc">{{.Description}}</span>
 <span class="hm-plugincard__foot"><span class="hm-plugincard__action">{{.Action}}</span></span></a></li>{{end}}

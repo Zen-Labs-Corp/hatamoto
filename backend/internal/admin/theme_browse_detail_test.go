@@ -201,3 +201,37 @@ func TestThemeBrowseDetailFeaturesWithoutAbout(t *testing.T) {
 		t.Error("features list missing without about text")
 	}
 }
+
+func TestThemeBrowseDetailDeveloper(t *testing.T) {
+	t.Parallel()
+
+	view := RegistryView{Host: themeRegistryHost, DeveloperAvail: true, Entries: []RegistryEntry{
+		{Kind: "theme", Name: "acme-dark", Title: "Acme Dark", Author: "acme", Tier: "developer", Developer: true, SignerKeyID: "3f9a1c2b7d4e5f60", Version: "1.0.0"},
+	}}
+	g, fp := browseRig(t, view)
+	for _, tc := range []struct {
+		on        bool
+		want, not []string
+	}{
+		{false, []string{"By @acme", "Developer", "Not reviewed by Hatamoto. Signed by key 3f9a1c2b7d4e5f60.", "Developer packages are off on this site.", `href="/admin/plugins/security"`, `disabled="disabled"`}, []string{`action="/admin/theme/themes/fetch"`}},
+		{true, []string{"Not reviewed by Hatamoto. Signed by key 3f9a1c2b7d4e5f60.", `action="/admin/theme/themes/fetch"`, ">Install<"}, []string{"Developer packages are off", `disabled="disabled"`}},
+	} {
+		fp.developerOn = tc.on
+		for _, hdr := range []map[string]string{nil, {"HX-Request": "true"}} {
+			code, body := getThemeAbout(g, "acme-dark", hdr)
+			if code != 200 {
+				t.Fatalf("on=%v: status %d", tc.on, code)
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(body, w) {
+					t.Errorf("on=%v hdr=%v: lacks %q", tc.on, hdr, w)
+				}
+			}
+			for _, n := range tc.not {
+				if strings.Contains(body, n) {
+					t.Errorf("on=%v hdr=%v: has %q", tc.on, hdr, n)
+				}
+			}
+		}
+	}
+}

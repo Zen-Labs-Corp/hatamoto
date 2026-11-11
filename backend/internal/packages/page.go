@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/url"
+	"slices"
 	"strings"
 
 	"hatamoto.dev/core/internal/permtext"
@@ -50,6 +51,7 @@ type PageOptions struct {
 
 type pageCard struct {
 	Heading, Name, Version, Description, Author, TierLabel, Source, Search string
+	Developer                                                              bool
 	PermCount                                                              int
 	PermWarn                                                               []string
 	PermLines                                                              []permtext.Line
@@ -84,7 +86,7 @@ func ScreenshotURL(registryURL, rel string) string {
 	return SafeHTTPS(base.ResolveReference(&url.URL{Path: rel}).String())
 }
 
-// RenderPage renders the plugin entries of idx (sorted as in the index) as one
+// RenderPage renders the plugin entries of idx (first-party first, then as in the index) as one
 // self-contained HTML page: inline style and script, no remote assets. The
 // index is expected to come from ParseIndex.
 func RenderPage(idx *Index, opts PageOptions) ([]byte, error) {
@@ -115,14 +117,29 @@ func RenderPage(idx *Index, opts PageOptions) ([]byte, error) {
 		case TierCommunity:
 			c.TierLabel = "Community"
 			c.Author = e.Author
+		case TierDeveloper:
+			c.TierLabel = "Developer"
+			c.Author = e.Author
+			c.Developer = true
 		}
 		data.Cards = append(data.Cards, c)
 	}
+	// First-party cards first; the index order is kept within each group.
+	slices.SortStableFunc(data.Cards, func(a, b pageCard) int {
+		return cmp.Compare(b2i(b.TierLabel == "First-party"), b2i(a.TierLabel == "First-party"))
+	})
 	var buf bytes.Buffer
 	if err := pageTemplate.Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("render page: %w", err)
 	}
 	return buf.Bytes(), nil
+}
+
+func b2i(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // displayVersion shows a version as "v1.2.0" whether or not the index has the "v".

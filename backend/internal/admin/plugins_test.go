@@ -422,3 +422,74 @@ func TestPluginsEmptyStateOnlyExplains(t *testing.T) {
 		t.Error("the header lost Upload or Browse")
 	}
 }
+
+// A package the registry revoked is a Disabled row with the revocation text,
+// not a generic Blocked one, on the list and on the plugin's pages.
+func TestRevokedPluginShowsRevocation(t *testing.T) {
+	t.Parallel()
+
+	g, _, fp := newPackageRig(t)
+	fp.list = append(fp.list,
+		PluginInfo{Name: "revoked", Version: "1.0.0", Package: &PackageMeta{Enabled: false, Blocked: "key leaked", Revoked: "key leaked"}},
+		PluginInfo{Name: "revoked-bare", Version: "1.0.0", Package: &PackageMeta{Enabled: false, Blocked: "revoked by the registry", Revoked: "revoked by the registry"}},
+	)
+	if st := pluginStatus(fp.list[len(fp.list)-2]); st.Badge.Label != "Disabled" || st.Marker != "Off" {
+		t.Errorf("revoked status = %+v", st)
+	}
+	list := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{"Disabled: revoked by the registry (key leaked)", "Disabled: revoked by the registry."} {
+		if !strings.Contains(list, want) {
+			t.Errorf("list lacks %q", want)
+		}
+	}
+	if strings.Contains(list, "Blocked") || strings.Contains(list, "()") {
+		t.Error("a revoked row is shown as Blocked, or with empty parentheses")
+	}
+	if disabled := g.do("GET", "/admin/plugins?view=disabled", "owner-token", nil, nil).Body.String(); !strings.Contains(disabled, "Disabled: revoked by the registry (key leaked)") {
+		t.Error("a revoked plugin is not in the Disabled tab")
+	}
+	for _, page := range []string{"settings", "permissions"} {
+		body := g.do("GET", "/admin/plugins/revoked/"+page, "owner-token", nil, nil).Body.String()
+		if !strings.Contains(body, "Disabled: revoked by the registry (key leaked)") || strings.Contains(body, "Policy blocks this plugin") {
+			t.Errorf("%s page: %.300s", page, body)
+		}
+	}
+}
+
+// Turning a revoked plugin back on answers with the refusal, not "not found".
+func TestEnableRevokedPluginExplainsRefusal(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	rec := g.do("POST", "/admin/plugins/revoked/enable", "owner-token", url.Values{}, nil)
+	body := rec.Body.String()
+	if rec.Code != 422 || !strings.Contains(body, "Not turned on") || !strings.Contains(body, "revoked by the registry (key leaked)") || strings.Contains(body, "Plugin not found") {
+		t.Fatalf("status %d: %.300s", rec.Code, body)
+	}
+	if rec := g.do("POST", "/admin/plugins/nope/enable", "owner-token", url.Values{}, nil); rec.Code != 404 {
+		t.Errorf("unknown plugin: status %d", rec.Code)
+	}
+}
+
+// While developer packages are allowed the Plugins page says so and offers
+// Turn off, which returns to the page; while off there is no notice.
+func TestPluginsPageDeveloperBanner(t *testing.T) {
+	t.Parallel()
+
+	g, pk, _ := newPackageRig(t)
+	if body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String(); strings.Contains(body, "Developer packages are allowed") {
+		t.Fatal("banner shown while developer packages are off")
+	}
+	pk.developerOn = true
+	body := g.do("GET", "/admin/plugins", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{`id="developer-banner"`, "Developer packages are allowed.", `action="/admin/plugins/developer/off"`, `name="return" value="plugins"`, ">Turn off<"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	a11yOK(t, body)
+	rec := g.do("POST", "/admin/plugins/developer/off", "owner-token", url.Values{"return": {"plugins"}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/plugins" || pk.developerOn {
+		t.Fatalf("turn off: status %d, location %q, on %v", rec.Code, rec.Header().Get("Location"), pk.developerOn)
+	}
+}

@@ -108,6 +108,14 @@ func (p *packageAdmin) registryURL() string {
 	return p.s.cfg.Packages.RegistryURL
 }
 
+// developerRegistryURL is the developer index's URL ("" when there is none).
+func (p *packageAdmin) developerRegistryURL() string {
+	if p.s == nil || p.s.packages == nil || p.s.packages.DeveloperRegistry == nil {
+		return ""
+	}
+	return p.s.packages.DeveloperRegistry.URL
+}
+
 func (p *packageAdmin) installedVersions(ctx context.Context) map[string]string {
 	out := map[string]string{}
 	rows, _ := p.mgr().Rows(ctx)
@@ -190,16 +198,77 @@ func (p *packageAdmin) Registry(ctx context.Context) admin.RegistryView {
 	have := p.installedVersions(ctx)
 	v := admin.RegistryView{Host: p.registryHost(), FetchedAt: p.fetchedTime()}
 	for _, e := range idx.Packages {
-		cur, installed := have[string(e.Kind)+"/"+e.Name]
-		v.Entries = append(v.Entries, admin.RegistryEntry{
-			Kind: string(e.Kind), Name: e.Name, Version: e.Version, Description: e.Description, Homepage: e.Homepage,
-			Permissions: e.Permissions, Installed: installed, InstalledVersion: cur, Update: installed && packages.Newer(e.Version, cur),
-			Title: e.Title, Author: e.Author, Tier: e.Tier, Category: e.Category, About: e.About, Source: e.Source, Commit: e.Commit,
-			Features: e.Features, Size: e.Size, Featured: e.Featured, Tags: registryTags(e.Tags),
-			Screenshot: packages.ScreenshotURL(p.registryURL(), e.Screenshot), SiteType: e.SiteType, Flags: slices.Clone(e.Flags),
-		})
+		v.Entries = append(v.Entries, p.registryEntry(e, have))
 	}
+	p.addDeveloperEntries(ctx, &v, have)
+	sortRegistryEntries(v.Entries)
 	return v
+}
+
+// addDeveloperEntries appends the developer index's entries to v. The developer
+// index has its own cache and error: when it is off or cannot be read, v keeps
+// the main list and no error.
+func (p *packageAdmin) addDeveloperEntries(ctx context.Context, v *admin.RegistryView, have map[string]string) {
+	dev, err := p.mgr().DeveloperIndex(ctx, false)
+	switch {
+	case errors.Is(err, packages.ErrRegistryOff):
+		return
+	case err != nil:
+		p.s.logger.Debug("packages: developer index", "error", err)
+		return
+	}
+	p.appendDeveloper(v, dev, have)
+}
+
+// appendDeveloper adds the entries of dev that it does not revoke: a revoked
+// package must not be offered, as the public directory does not.
+func (p *packageAdmin) appendDeveloper(v *admin.RegistryView, dev *packages.Index, have map[string]string) {
+	v.DeveloperAvail = true
+	for _, e := range dev.Packages {
+		if !packages.Revoked(dev, e) {
+			v.Entries = append(v.Entries, p.registryEntry(e, have))
+		}
+	}
+}
+
+// registryEntry is the admin's view of one index entry; have maps kind/name to
+// the installed version.
+func (p *packageAdmin) registryEntry(e packages.Entry, have map[string]string) admin.RegistryEntry {
+	cur, installed := have[string(e.Kind)+"/"+e.Name]
+	out := admin.RegistryEntry{
+		Kind: string(e.Kind), Name: e.Name, Version: e.Version, Description: e.Description, Homepage: e.Homepage,
+		Permissions: e.Permissions, Installed: installed, InstalledVersion: cur, Update: installed && packages.Newer(e.Version, cur),
+		Title: e.Title, Author: e.Author, Tier: e.Tier, Category: e.Category, About: e.About, Source: e.Source, Commit: e.Commit,
+		Features: e.Features, Size: e.Size, Featured: e.Featured, Tags: registryTags(e.Tags),
+		Screenshot: packages.ScreenshotURL(screenshotBase(e.Tier, p.registryURL(), p.developerRegistryURL()), e.Screenshot), SiteType: e.SiteType, Flags: slices.Clone(e.Flags),
+	}
+	if e.Tier == packages.TierDeveloper {
+		// Only the main registry features packages.
+		out.Featured = false
+		out.Developer = true
+		if pub, err := packages.ParsePublicKey(e.SignerKey); err == nil {
+			out.SignerKeyID = packages.KeyID(pub)
+		}
+	}
+	return out
+}
+
+// sortRegistryEntries puts first-party entries first, then orders by name
+// (stable), so every caller lists the same way.
+func sortRegistryEntries(entries []admin.RegistryEntry) {
+	slices.SortStableFunc(entries, func(a, b admin.RegistryEntry) int {
+		if c := firstPartyRank(a) - firstPartyRank(b); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Name, b.Name)
+	})
+}
+
+func firstPartyRank(e admin.RegistryEntry) int {
+	if e.Tier == packages.TierFirstParty {
+		return 0
+	}
+	return 1
 }
 
 func (p *packageAdmin) RefreshRegistry(ctx context.Context) admin.RegistryView {
@@ -326,7 +395,11 @@ func (p *packageAdmin) Install(ctx context.Context, data []byte, source string, 
 }
 
 func (p *packageAdmin) SetEnabled(ctx context.Context, name string, on bool) error {
-	return p.mgr().SetEnabled(actorCtx(ctx), name, on)
+	err := p.mgr().SetEnabled(actorCtx(ctx), name, on)
+	if errors.Is(err, packages.ErrRevoked) {
+		return refusal(err)
+	}
+	return err
 }
 
 func (p *packageAdmin) Uninstall(ctx context.Context, kind, name string, dropData, dropContentTypes bool) error {
@@ -429,6 +502,7 @@ func (p *packageAdmin) Themes(ctx context.Context) ([]admin.ThemeInfo, error) {
 			HasSettings: len(meta.SettingsSchema) > 0 && string(meta.SettingsSchema) != "null",
 			Update:      p.updateFor(ctx, packages.KindTheme, r.Name, r.Version),
 			Blocked:     p.mgr().Blocked(packages.KindTheme, r.Name),
+			Revoked:     r.DisabledReason,
 		})
 	}
 	return out, nil
@@ -608,7 +682,7 @@ func (p *packageAdmin) meta(ctx context.Context, r packages.Row) *admin.PackageM
 	}
 	m := &admin.PackageMeta{Enabled: r.Enabled, Signed: r.Signed(), Signer: r.SignerKeyID, FirstParty: firstPartyRow(r), Source: string(r.Source),
 		Update: p.updateFor(ctx, packages.KindPlugin, r.Name, r.Version), UpdateNew: p.updateNewFor(ctx, r.Name, r.Version, man.Permissions),
-		Blocked: p.mgr().Blocked(packages.KindPlugin, r.Name), LoadError: p.mgr().LoadError(r.Name), ScriptsBlocked: scripts, MarkupStopped: p.mgr().MarkupStopped(r.Name), AsksScripts: slices.Contains(man.Permissions, sdk.PermSiteScripts), Uninstalling: r.State == packages.StateUninstalling}
+		Blocked: p.mgr().Blocked(packages.KindPlugin, r.Name), Revoked: r.DisabledReason, LoadError: p.mgr().LoadError(r.Name), ScriptsBlocked: scripts, MarkupStopped: p.mgr().MarkupStopped(r.Name), AsksScripts: slices.Contains(man.Permissions, sdk.PermSiteScripts), Uninstalling: r.State == packages.StateUninstalling}
 	if r.Name == legacyWebhooksPlugin {
 		m.LegacyFirstParty = firstPartySigned(r)
 		m.WebhooksImported = p.s.webhooksImportRecorded(ctx)

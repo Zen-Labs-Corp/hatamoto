@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -108,7 +109,7 @@ func TestRegistryDirectoryCardsSortedPluginsOnly(t *testing.T) {
 	if v.State != render.PluginDirectoryOK || len(v.Cards) != 2 {
 		t.Fatalf("view = %+v", v)
 	}
-	a, z := v.Cards[0], v.Cards[1]
+	z, a := v.Cards[0], v.Cards[1] // first-party first
 	if a.Name != "alpha" || z.Name != "zeta" {
 		t.Fatalf("order: %s, %s", a.Name, z.Name)
 	}
@@ -375,7 +376,7 @@ func TestRegistryDirectoryViewsSplitKindsFromOneFetch(t *testing.T) {
 		t.Errorf("http registry screenshot %q, want none", z.Screenshot)
 	}
 	idx := &packages.Index{Packages: []packages.Entry{{Kind: packages.KindTheme, Name: "zen", Screenshot: "screenshots/zen.webp"}}}
-	if got := directoriesFor(idx, "https://hatamoto.dev/registry.json").themes.Cards[0].Screenshot; got != "https://hatamoto.dev/screenshots/zen.webp" {
+	if got := directoriesFor(idx, "https://hatamoto.dev/registry.json", "").themes.Cards[0].Screenshot; got != "https://hatamoto.dev/screenshots/zen.webp" {
 		t.Errorf("https screenshot %q", got)
 	}
 	if n := r.hits.Load(); n != 1 {
@@ -439,5 +440,150 @@ func TestRegistryDirectoryPermLineConversion(t *testing.T) {
 	got := render.PermLine(permtext.Line{Name: "a", Text: "b", Warn: true})
 	if want := (render.PermLine{Name: "a", Text: "b", Warn: true}); got != want {
 		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
+// devRig adds a developer index to a dirRig: devIdx is what the developer
+// source returns, devErr its failure.
+type devRig struct {
+	*dirRig
+	key    packages.Key
+	devIdx *packages.Index
+	devErr error
+}
+
+func newDevRig(t *testing.T) *devRig {
+	t.Helper()
+	key, err := packages.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &devRig{dirRig: newDirRig(t), key: key}
+	r.publish(24*time.Hour,
+		packages.Entry{Kind: packages.KindPlugin, Name: "zeta", Version: "1.0.0", Tier: packages.TierFirstParty},
+		packages.Entry{Kind: packages.KindPlugin, Name: "mid", Version: "1.0.0", Tier: packages.TierCommunity, Author: "acme"},
+	)
+	r.devIdx = &packages.Index{Version: 1, ExpiresAt: r.clock.Add(48 * time.Hour).Format(time.RFC3339)}
+	r.dir.dev = func(context.Context) (*packages.Index, error) { return r.devIdx, r.devErr }
+	return r
+}
+
+func (r *devRig) entry(kind packages.Kind, name, author string) packages.Entry {
+	return packages.Entry{Kind: kind, Name: name, Version: "1.0.0", Author: author, SignerKey: r.key.Public}
+}
+
+func cardNames(v render.PluginDirectoryView) []string {
+	var n []string
+	for _, c := range v.Cards {
+		n = append(n, c.Name)
+	}
+	return n
+}
+
+func TestRegistryDirectoryDeveloperMergedAndOrdered(t *testing.T) {
+	r := newDevRig(t)
+	r.devIdx.Packages = []packages.Entry{
+		r.entry(packages.KindPlugin, "aaa", "Dev1"),
+		r.entry(packages.KindTheme, "devtheme", "Dev1"),
+		r.entry(packages.KindPlugin, "zeta", "Dev1"), // shadows a main card
+	}
+	vs := r.dir.Views(context.Background())
+	if got := strings.Join(cardNames(vs.plugins), ","); got != "zeta,mid,aaa" {
+		t.Fatalf("plugin order %s", got)
+	}
+	a := vs.plugins.Cards[2]
+	if a.Tier != packages.TierDeveloper || a.TierLabel != "Developer" || a.Author != "Dev1" || !strings.Contains(a.Search, "dev1") {
+		t.Errorf("developer card %+v", a)
+	}
+	if z := vs.plugins.Cards[0]; z.TierLabel != "First-party" || z.Author != "" {
+		t.Errorf("shadowing entry replaced the first-party card: %+v", z)
+	}
+	if len(vs.themes.Cards) != 1 || vs.themes.Cards[0].TierLabel != "Developer" || vs.themes.Cards[0].Author != "Dev1" {
+		t.Errorf("themes %+v", vs.themes)
+	}
+}
+
+func TestRegistryDirectoryDeveloperFailureKeepsMain(t *testing.T) {
+	r := newDevRig(t)
+	r.devErr = errors.New("dev boom")
+	v := r.dir.View(context.Background())
+	if v.State != render.PluginDirectoryOK || len(v.Cards) != 2 {
+		t.Fatalf("view %+v", v)
+	}
+	if !strings.Contains(r.logs.String(), "developer index unavailable") {
+		t.Errorf("failure not logged: %s", r.logs)
+	}
+}
+
+func TestRegistryDirectoryDeveloperOffAndNil(t *testing.T) {
+	r := newDevRig(t)
+	r.devIdx.Packages = []packages.Entry{r.entry(packages.KindPlugin, "aaa", "Dev1")}
+	r.devIdx, r.devErr = nil, packages.ErrRegistryOff
+	if v := r.dir.View(context.Background()); len(v.Cards) != 2 || strings.Contains(r.logs.String(), "developer") {
+		t.Fatalf("off: %+v logs %s", v, r.logs)
+	}
+	r.dir.dev = nil
+	r.advance(directoryTTL + time.Second)
+	if v := r.dir.View(context.Background()); len(v.Cards) != 2 {
+		t.Fatalf("nil source: %+v", v)
+	}
+}
+
+func TestRegistryDirectoryDeveloperOnlyIsOK(t *testing.T) {
+	r := newDevRig(t)
+	r.publish(24 * time.Hour)
+	r.devIdx.Packages = []packages.Entry{r.entry(packages.KindPlugin, "aaa", "Dev1")}
+	if v := r.dir.View(context.Background()); v.State != render.PluginDirectoryOK || len(v.Cards) != 1 {
+		t.Fatalf("view %+v", v)
+	}
+}
+
+func TestRegistryDirectoryDeveloperRevokedHidden(t *testing.T) {
+	r := newDevRig(t)
+	other, err := packages.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	gone := r.entry(packages.KindPlugin, "gone", "Dev1")
+	gone.SignerKey = other.Public
+	r.devIdx.Packages = []packages.Entry{
+		r.entry(packages.KindPlugin, "keep", "Dev1"),
+		r.entry(packages.KindPlugin, "byname", "Dev1"),
+		r.entry(packages.KindPlugin, "byversion", "Dev1"),
+		gone,
+	}
+	r.devIdx.Revoked = []packages.Revocation{
+		{Name: "byname"},
+		{Name: "byversion", Version: "2.0.0"}, // another version: still shown
+		{SignerKey: other.Public},
+	}
+	if got := strings.Join(cardNames(r.dir.View(context.Background())), ","); got != "zeta,mid,byversion,keep" {
+		t.Fatalf("cards %s", got)
+	}
+}
+
+func TestRegistryDirectoryExpiryIsEarlierIndex(t *testing.T) {
+	r := newDevRig(t)
+	r.devIdx.Packages = []packages.Entry{r.entry(packages.KindPlugin, "aaa", "Dev1")}
+	r.devIdx.ExpiresAt = r.clock.Add(time.Hour).Format(time.RFC3339)
+	r.dir.View(context.Background())
+	if want := r.clock.Add(time.Hour); !r.dir.snap.indexExpires.Equal(want) {
+		t.Errorf("indexExpires %v, want %v", r.dir.snap.indexExpires, want)
+	}
+}
+
+// A developer theme's relative screenshot resolves against the developer
+// index, a main one against the main registry.
+func TestRegistryDirectoryDeveloperScreenshotUsesDeveloperURL(t *testing.T) {
+	idx := &packages.Index{Packages: []packages.Entry{
+		{Kind: packages.KindTheme, Name: "main", Tier: packages.TierFirstParty, Screenshot: "screenshots/main.png"},
+		{Kind: packages.KindTheme, Name: "dev", Tier: packages.TierDeveloper, Screenshot: "screenshots/dev.png"},
+	}}
+	cards := directoriesFor(idx, "https://hatamoto.test/registry.json", "https://hatamoto.test/p/devportal/registry.json").themes.Cards
+	if got := cards[0].Screenshot; got != "https://hatamoto.test/screenshots/main.png" {
+		t.Errorf("main screenshot %q", got)
+	}
+	if got := cards[1].Screenshot; got != "https://hatamoto.test/p/devportal/screenshots/dev.png" {
+		t.Errorf("developer screenshot %q", got)
 	}
 }

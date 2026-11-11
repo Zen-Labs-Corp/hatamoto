@@ -1,0 +1,12 @@
+{{template "layouts/shell" .}}
+{{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Allow developer packages" "Description" "Plugins and themes from registered developers."}}
+{{template "hm/callout-start" (dict "Kind" "warning" "ID" "developer-warning")}}Developer packages run code written by people Hatamoto has not reviewed, with every permission you grant them.{{template "hm/callout-end"}}
+{{if .NoPassword}}{{template "hm/card-start" dict "ID" "developer-allow" "Title" "Confirm" "Heading" "h2"}}<p>Set a password first. Allowing developer packages asks you to confirm with your password, and your account has none yet.</p>{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" .Cancel}}{{template "hm/button" dict "Label" "Set a password" "Variant" "primary" "Href" .ProfileHref}}{{template "hm/foot-end"}}{{template "hm/card-end"}}
+{{else}}<form method="post" action="{{adminPath}}/plugins/developer" class="hm-stack" data-hm-gate data-hm-gate-host="{{.SiteHost}}">{{template "hm/csrf" $}}
+<input type="hidden" name="duration" value="forever">
+{{template "hm/card-start" dict "ID" "developer-allow" "Title" "Confirm" "Heading" "h2"}}<div class="hm-stack">
+{{template "hm/field" dict "ID" "developer-understand" "Name" "understand" "Control" "switch" "Value" "1" "Label" "I understand"}}
+{{template "hm/field" dict "ID" "developer-host" "Name" "host" "Label" "Type your site address to confirm" "Help" (printf "Type %s exactly." .SiteHost) "Attrs" (attrmap "autocomplete" "off" "autocapitalize" "off" "spellcheck" "false")}}
+{{template "hm/field" dict "ID" "developer-password" "Name" "password" "Type" "password" "Label" "Your password" "Attrs" (attrmap "autocomplete" "current-password")}}
+</div>{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" .Cancel}}{{template "hm/button" dict "Label" "Allow developer packages" "Variant" "danger" "Type" "submit" "Attrs" (attrmap "data-hm-gate-submit" "")}}{{template "hm/foot-end"}}{{template "hm/card-end"}}</form>{{end}}
+{{end}}{{end}}

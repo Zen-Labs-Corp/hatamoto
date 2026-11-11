@@ -23,7 +23,7 @@
 <script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/pluginpanel.HASH.js" integrity="sha256-l&#43;Rrc4wSkPBH3FLm2x&#43;d7hFX21M6nxQUse0Ia0Eph8U="></script>
-<script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/settings/import/csv/*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/forms/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
+<script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/settings/import/csv/*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/developer*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/forms/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
 
 </head>
 <body>
@@ -90,7 +90,7 @@
 </header>
 <form class="hm-table__filters hm-filterbar hm-listbar" role="search" method="get" action="/admin/plugins/browse" hx-get="/admin/plugins/browse" hx-trigger="input changed delay:300ms from:#browse-q, change from:#browse-q, change from:#browse-p0, change from:#browse-seg, change from:#browse-filters, submit" hx-target="#browse-results" hx-select="#browse-results" hx-select-oob="#browse-count,#browse-status:innerHTML" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#browse-busy">
 <div class="hm-listbar__start"><fieldset class="hm-segmented" id="browse-seg"><legend class="hm-visually-hidden">Publisher</legend>
-<label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="" checked><span class="hm-segmented__btn">All</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="first-party"><span class="hm-segmented__btn">First-party</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="community"><span class="hm-segmented__btn">Community</span></label></fieldset>
+<label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="" checked><span class="hm-segmented__btn">All</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="first-party"><span class="hm-segmented__btn">First-party</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="community"><span class="hm-segmented__btn">Community</span></label><label class="hm-segmented__opt"><input class="hm-segmented__input" type="radio" name="tier" value="developer"><span class="hm-segmented__btn">Developer</span></label></fieldset>
 </div>
 <span class="hm-listbar__grow"></span>
 <div class="hm-listbar__end"><label class="hm-visually-hidden" for="browse-q">Search plugins</label><div class="hm-input-affix hm-table__search"><span class="hm-affix" aria-hidden="true"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span><input class="hm-field__control" type="search" id="browse-q" name="q" value="" placeholder="Search plugins"></div><label class="hm-visually-hidden" for="browse-p0">Sort</label><div class="hm-select" data-hm-select><select class="hm-field__control" id="browse-p0" name="sort"><option value="name" selected>Name A to Z</option><option value="name-desc">Name Z to A</option></select></div>
@@ -118,9 +118,9 @@
 <noscript><button type="submit" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-apply=""><span>Apply filters</span></button></noscript>
 
 <span class="hm-indicator" id="browse-busy" role="status" data-hm-busy-text="Loading results"><span class="hm-visually-hidden" data-hm-busy-label></span></span></form>
-<p id="browse-status" class="hm-visually-hidden" role="status">3 plugins</p>
+<p id="browse-status" class="hm-visually-hidden" role="status">4 plugins</p>
 <div id="browse-results" class="hm-pluginbrowse__results">
-<div class="hm-pluginbrowse__meta"><p class="hm-mono hm-muted">3 plugins</p>
+<div class="hm-pluginbrowse__meta"><p class="hm-mono hm-muted">4 plugins</p>
 </div>
 <p class="hm-muted hm-pluginbrowse__installed">1 installed hidden · <a href="/admin/plugins/browse?hide=0">Show installed</a></p>
 <section aria-labelledby="browse-featured"><h2 id="browse-featured" class="hm-pluginbrowse__heading">Featured</h2>
@@ -130,14 +130,18 @@
 <span class="hm-plugincard__desc">Photo galleries for pages.</span>
 <span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li></ul>
 </section><h2 class="hm-pluginbrowse__heading">All plugins</h2>
-<ul class="hm-plugincards" role="list"><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/gallery/about" data-hm-open="plugin-panel">
-<span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">G</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">Gallery</span><span class="hm-plugincard__by">Example Author</span></span></span>
-<span class="hm-plugincard__meta hm-mono">2 permissions</span>
-<span class="hm-plugincard__desc">Photo galleries for pages.</span>
-<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/google-analytics/about" data-hm-open="plugin-panel">
+<ul class="hm-plugincards" role="list"><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/google-analytics/about" data-hm-open="plugin-panel">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">G</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">Google Analytics</span></span></span>
 <span class="hm-plugincard__meta hm-mono">First-party · 2 permissions</span>
 <span class="hm-plugincard__desc">Adds the Google tag for your GA4 measurement ID.</span>
+<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/dev-tools/about" data-hm-open="plugin-panel">
+<span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">D</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">Dev Tools</span><span class="hm-plugincard__by">by @acme</span><span class="hm-plugincard__note">Signed by a registered developer. Not reviewed by Hatamoto.</span></span></span>
+<span class="hm-plugincard__meta hm-mono">Developer · 1 permission</span>
+<span class="hm-plugincard__desc">Helpers from a registered developer.</span>
+<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/gallery/about" data-hm-open="plugin-panel">
+<span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">G</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">Gallery</span><span class="hm-plugincard__by">Example Author</span></span></span>
+<span class="hm-plugincard__meta hm-mono">2 permissions</span>
+<span class="hm-plugincard__desc">Photo galleries for pages.</span>
 <span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/seo-helper/about" data-hm-open="plugin-panel">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">S</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">seo-helper</span></span></span>
 <span class="hm-plugincard__meta hm-mono">No permissions</span>

@@ -53,6 +53,8 @@ var auditLabels = map[string]string{
 	"changeset.suggestion.reject":  "Rejected a plugin suggestion",
 	"plugin.run.cancel":            "Cancelled a plugin run",
 	"package.allow_unsigned":       "Changed the unsigned packages setting",
+	"package.allow_developer":      "Changed the developer packages setting",
+	"package.revoke_disable":       "Disabled a package revoked by the registry",
 }
 
 // auditLabel is the label of an action, or the action itself when unknown.

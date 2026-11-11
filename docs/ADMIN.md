@@ -858,6 +858,19 @@ Services reach the admin through `Deps.Growth.Packages` (`PackageAdmin`, `packag
   password attempt. While the opt-in is on, a banner on the Plugins page says so and when it ends,
   with a one-click "Turn off now" (`POST <admin>/plugins/unsigned/off`, no other gate). A timed
   allowance is evaluated when it is read, so it lapses without a job. Turning it on or off is audited.
+* **Developer packages** are plugins and themes published by registered developers, listed in a
+  separate developer index (`HATAMOTO_DEVELOPER_REGISTRY_URL`; `off` removes it). Hatamoto checks who
+  signed them but does not review their code. The Package security page has a "Developer packages" row
+  with an On/Off badge. "Allow developer packages…" opens `<admin>/plugins/security/developer`
+  (owner only), whose form (`POST <admin>/plugins/developer`) has these gates, checked on the server in
+  this order: the acknowledgement, the site address typed exactly and the owner's password. There is
+  no duration. While it is on, a notice on the Plugins and Theme pages says so, with a one-click "Turn
+  off" (`POST <admin>/plugins/developer/off`, no other gate); packages already installed keep running.
+  Browse lists developer entries with a "Developer" badge and the words "Not reviewed by Hatamoto", and
+  the tier filter has a Developer choice. While the switch is off, installing a developer package is
+  disabled. A developer package the developer index revokes is disabled, not deleted, and shows
+  "Disabled: revoked by the registry" with the reason when there is one. The public plugin and theme
+  directories show developer entries too (see `docs/site/themes/sections.md`).
 * **Plugins subnav.** Every `<admin>/plugins*` page sits in a secondary sidebar built like the Settings
   one (`plugins_nav.go`, `partials/pluginsnav.html`): "All plugins", then one entry per installed plugin
   (`<admin>/plugins/{name}/settings`), read from the plugin registry so a new install adds an entry.

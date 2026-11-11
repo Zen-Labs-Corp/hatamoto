@@ -1,5 +1,6 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionheadact" dict "V" $ "Actions" .Actions}}
+{{if .Developer}}{{template "hm/callout-start" (dict "Kind" "warning" "ID" "developer-banner")}}<span class="hm-row hm-row--between hm-pluginlist__notice"><span><strong>Developer packages are allowed.</strong></span><form method="post" action="{{adminPath}}/plugins/developer/off">{{template "hm/csrf" $}}<input type="hidden" name="return" value="theme">{{template "hm/button" dict "Label" "Turn off" "Type" "submit" "Size" "sm"}}</form></span>{{template "hm/callout-end"}}{{end}}
 <div class="hm-themes">
 {{range .Themes}}<section class="hm-card hm-theme{{if .Active}} hm-theme--active{{end}}" id="theme-{{.Name}}" aria-labelledby="theme-{{.Name}}-title">
 {{$first := index .Palette 0}}{{if $first.Hex}}{{$sec := index .Palette 1}}{{$acc := index .Palette 2}}{{$bg := index .Palette 3}}{{$txt := index .Palette 4}}<svg class="hm-theme__preview" viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect fill="{{$bg.Hex}}" width="160" height="100"/><rect fill="{{$first.Hex}}" x="12" y="14" width="64" height="10" rx="2"/><rect fill="{{$txt.Hex}}" fill-opacity=".7" x="12" y="34" width="124" height="4" rx="2"/><rect fill="{{$txt.Hex}}" fill-opacity=".7" x="12" y="44" width="96" height="4" rx="2"/><rect fill="{{$sec.Hex}}" x="12" y="62" width="34" height="12" rx="3"/><rect fill="{{$acc.Hex}}" x="54" y="62" width="34" height="12" rx="3"/></svg>{{else}}<div class="hm-theme__mock" aria-hidden="true"><span class="hm-theme__mockbar"></span><span class="hm-theme__mockhead"></span><span class="hm-theme__mockline"></span><span class="hm-theme__mockline hm-theme__mockline--short"></span><span class="hm-theme__mockcards"><span></span><span></span></span></div>{{end}}
@@ -14,7 +15,7 @@
 {{template "hm/menuitem" dict "Table" $t "Action" (dict "Label" "Uninstall" "Icon" "trash" "Href" (printf "%s/theme/themes/%s/uninstall" adminPath .Name) "Danger" true)}}
 {{end}}</div></div></div>
 {{if .Description}}<p class="hm-muted">{{.Description}}</p>{{end}}
-{{if .Blocked}}{{template "hm/callout" (dict "Kind" "danger" "Title" "Not used" "Body" (printf "%s The theme is kept, not deleted." .Blocked))}}{{end}}
+{{if .Revoked}}{{template "hm/callout" (dict "Kind" "danger" "Title" "Not used" "Body" (printf "%s The theme is kept, not deleted." .RevokedText))}}{{else if .Blocked}}{{template "hm/callout" (dict "Kind" "danger" "Title" "Not used" "Body" (printf "%s The theme is kept, not deleted." .Blocked))}}{{end}}
 <div class="hm-theme__actions">{{if not .Active}}{{template "hm/button" dict "Label" "Activate" "Href" (printf "%s/theme/themes/%s/activate" adminPath .Name) "Variant" "secondary" "Size" "sm"}}
 {{else if .Update}}<form method="post" action="{{adminPath}}/theme/themes/fetch">{{template "hm/csrf" $}}<input type="hidden" name="name" value="{{.Name}}">{{template "hm/button" dict "Label" (printf "Update to %s" .Update) "Variant" "secondary" "Size" "sm" "Type" "submit"}}</form>{{end}}</div>
 {{template "hm/card-end"}}
