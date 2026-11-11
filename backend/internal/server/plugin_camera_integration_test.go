@@ -196,8 +196,12 @@ func TestPluginCameraIntegration(t *testing.T) {
 		t.Errorf("document CSP changed: %q", got)
 	}
 
-	// (c) an update that no longer asks keeps the stored grant but loses the page's camera.
+	// (c) a stored camera grant is inert once the manifest no longer asks (a one-click
+	// update keeps the stored grants): the page has no camera.
 	install(pack("1.1.0", nil))
+	if err := srv.plugins.Grants().Set(ctx, "camp", []sdk.Permission{sdk.PermKV, sdk.PermUICamera}); err != nil {
+		t.Fatal(err)
+	}
 	page = get("/admin/plugins/camp/settings")
 	if page.Code != 200 || hasCamera(page.Body.String()) || page.Header().Get("Permissions-Policy") != globalPolicy {
 		t.Errorf("after the ask is dropped: %d policy=%q camera=%v", page.Code, page.Header().Get("Permissions-Policy"), hasCamera(page.Body.String()))
