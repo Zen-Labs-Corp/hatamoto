@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"runtime/debug"
 
 	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/core/internal/auth"
@@ -364,6 +365,7 @@ func openDB(ctx context.Context) (*database.DB, error) {
 // serve is the one-process boot: secrets, migrations, then the server (which loads the plugins)
 // (which starts the background worker and renders the site).
 func serve(ctx context.Context, logger *slog.Logger) error {
+	applyDefaultMemLimit(logger)
 	if os.Getenv("HATAMOTO_SMOKE_ADDR") != "" {
 		// Under the supervisor: count render errors for its smoke endpoint.
 		logger = slog.New(server.NewCountingHandler(logger.Handler()))
@@ -440,6 +442,8 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	logger.Info("session cookie names set", "secure", cfg.AdminCookieSecure)
 
 	srv := server.New(cfg, db, logger)
+	// Boot garbage (parsed templates, migrations) is dead now: hand it back once.
+	debug.FreeOSMemory()
 	startUpdater(srv, db.Pool(), cfg.Server.MediaUploadDir, cfg.Demo.Enabled, cfg.Server.EnableWorker, logger)
 	if err := srv.Start(); err != nil {
 		return fmt.Errorf("server error: %w", err)
