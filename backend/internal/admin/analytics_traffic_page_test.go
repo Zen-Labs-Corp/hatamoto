@@ -92,7 +92,15 @@ func TestTrafficPageCountriesEmptyStateWithoutGeoIP(t *testing.T) {
 		t.Error("the IP note belongs to the data state")
 	}
 
-	g := trafficRig(t, func(d *Deps) { d.Growth.GeoStatus = func() (bool, bool) { return true, true } })
+	g := trafficRig(t, func(d *Deps) { d.Growth.GeoStatus = func() (bool, bool) { return true, false } })
+	body = g.do("GET", "/admin/analytics/traffic", "owner-token", nil, nil).Body.String()
+	for _, want := range []string{"could not be read. Check the path; it is rechecked automatically.", "Could not be read"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("configured but unloaded missing %q", want)
+		}
+	}
+
+	g = trafficRig(t, func(d *Deps) { d.Growth.GeoStatus = func() (bool, bool) { return true, true } })
 	body = g.do("GET", "/admin/analytics/traffic", "owner-token", nil, nil).Body.String()
 	for _, want := range []string{"Australia", "From the IP at request time; the IP is discarded.", "Loaded"} {
 		if !strings.Contains(body, want) {

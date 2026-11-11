@@ -149,23 +149,23 @@ type Server struct {
 	uploadsInFlight        atomic.Int32 // multipart bodies being read, see maxConcurrentUploads
 	apiKeyService          *auth.APIKeyService
 	// Test seams for /health and /ready; nil means the database and apiKeyService.
-	pingDB                   func(context.Context) error
-	keyValid                 func(ctx context.Context, raw string) bool
-	sectionTemplateService   *sectiontemplate.Service
-	redirectService          *redirect.Service
-	agentWriter              *agents.Writer
-	agentLogHandlers         *agents.LogHandlers // nil unless AGENT_LOG_INGEST + secret
-	agentLogTailer           *agents.Tailer      // nil unless AGENT_LOG_INGEST + AGENT_LOG_CADDY_PATH
-	agentAdminHandlers       *agents.AdminHandlers
-	agentFirstCrawl          *agents.FirstCrawlTracker
-	robotsPolicy             agents.RobotsStore
-	analyticsService         *analytics.Service
-	analyticsHandlers        *analytics.Handlers
-	geoConfigured, geoLoaded bool // HATAMOTO_GEOIP_DB set / country database opened
-	taxonomyService          *taxonomy.Service
-	termGroups               *taxonomy.TermGroupStore
-	taxonomyHandlers         *taxonomy.Handlers
-	authors                  *author.Store
+	pingDB                 func(context.Context) error
+	keyValid               func(ctx context.Context, raw string) bool
+	sectionTemplateService *sectiontemplate.Service
+	redirectService        *redirect.Service
+	agentWriter            *agents.Writer
+	agentLogHandlers       *agents.LogHandlers // nil unless AGENT_LOG_INGEST + secret
+	agentLogTailer         *agents.Tailer      // nil unless AGENT_LOG_INGEST + AGENT_LOG_CADDY_PATH
+	agentAdminHandlers     *agents.AdminHandlers
+	agentFirstCrawl        *agents.FirstCrawlTracker
+	robotsPolicy           agents.RobotsStore
+	analyticsService       *analytics.Service
+	analyticsHandlers      *analytics.Handlers
+	geoHolder              *analytics.GeoHolder // nil unless HATAMOTO_GEOIP_DB is set; reloads the country database
+	taxonomyService        *taxonomy.Service
+	termGroups             *taxonomy.TermGroupStore
+	taxonomyHandlers       *taxonomy.Handlers
+	authors                *author.Store
 	//lint:ignore SA1019 the rollback mirror API stays mounted until the author package is removed
 	authorHandlers *author.Handlers
 
@@ -964,6 +964,11 @@ func (s *Server) Start() error {
 		refresher := agents.NewCDNRefresher(nil, agents.NewRangeRepository(s.db))
 		go agents.RunCDNRefresh(s.lifecycleCtx, 24*time.Hour, refresher.Refresh, middleware.SetTrustedCDN)
 	}
+	// The country database is replaced by an atomic rename on refresh; poll for
+	// the change. The admin status read also rechecks, so it is never stale.
+	if s.geoHolder != nil {
+		go s.runGeoReload(s.lifecycleCtx, time.Minute)
+	}
 	// Upgrade seed: before the listener accepts, since the render-time header
 	// fallback no longer exists. Bounded; a failure retries on the next start.
 	seedCtx, seedCancel := context.WithTimeout(s.lifecycleCtx, 20*time.Second)
@@ -1255,13 +1260,12 @@ func (s *Server) setupTraffic() {
 	}
 
 	if s.cfg.GeoIPDB != "" {
-		s.geoConfigured = true
-		if g, err := analytics.OpenGeo(s.cfg.GeoIPDB); err != nil {
-			s.logger.Warn("analytics: country database not loaded, countries stay off")
-		} else {
-			s.analyticsHandlers.SetGeo(g)
-			s.geoLoaded = true
-		}
+		// The holder is installed even when the first load fails, so a file
+		// that appears later is picked up without a restart.
+		h := analytics.NewGeoHolder(s.cfg.GeoIPDB, s.logger)
+		h.Reload()
+		s.analyticsHandlers.SetGeo(h)
+		s.geoHolder = h
 	}
 
 	if s.scheduler != nil && workerJobEnabled(trafficPruneJob) {

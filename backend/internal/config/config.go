@@ -36,8 +36,9 @@ type Config struct {
 	// HATAMOTO_PAGE_CACHE_TTL, false when it is the built-in default.
 	PageCacheTTLFromEnv bool
 
-	// GeoIPDB is HATAMOTO_GEOIP_DB: path to a country .mmdb read once at boot
-	// to derive the visitor country of a pageview. Empty disables country.
+	// GeoIPDB is HATAMOTO_GEOIP_DB: path to a country .mmdb used to derive
+	// the visitor country of a pageview. The file is reloaded when it is
+	// replaced, without a restart. Empty disables country.
 	GeoIPDB string
 
 	// Warnings are non-fatal configuration problems found by Load (an invalid
