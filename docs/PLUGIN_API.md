@@ -39,7 +39,7 @@ ui/             optional: the plugin's admin page (see "Admin page")
 
 ## Packaging
 
-To get a plugin from your own GitHub repo into the registry, see [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md).
+To publish a plugin from your own GitHub repo, see [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md#part-2-publish-your-plugin).
 
 ```sh
 hatamoto keys generate --name mykey                       # once
@@ -568,7 +568,7 @@ Menu items: `link_type` is `entity`, `custom`, `external`, `archive` or `none`. 
 
 **packages.inspect** (SDK 0.21) downloads one package and returns a verdict; it needs the `packages.inspect` permission. It reaches only the hosts `http.fetch` may reach: the URL host must match the manifest's `allowed_hosts` (a `*` entry counts only with the `http.fetch.any` grant, and during the fetch phase of a run only the hosts the owner confirmed for that run count), and so must the host of every redirect hop; a host outside the list is `blocked`, as for `http.fetch`. A package on a GitHub release therefore needs `github.com` and the host GitHub redirects release downloads to, currently `release-assets.githubusercontent.com` (older links used `objects.githubusercontent.com`), in `allowed_hosts`. `url` must be `https` (`invalid_argument` if it is another scheme or empty, or longer than 2,048 bytes). Credentials in the URL, a port other than 443 or a missing host are `blocked`. The host resolves the name itself and refuses non-public addresses and every redirect hop that is not https on port 443 (`blocked`), exactly like `http.fetch`. The host runs at most two inspections at once (`rate_limited` "busy" while both are taken); a call that gets a slot then spends one token of the plugin's `http.fetch` rate limit (`rate_limited`). The whole call is subject to the 15 s host call ceiling (`timeout`). The archive is read up to 64 MiB; a longer body stops the read and is reported as a problem. `signer_key` is the base64 ed25519 public key the package is expected to be signed by; without it the signature is not accepted. The result is never an error for a bad package: an unreachable URL, a non-2xx answer ("download answered 404"), an oversized or corrupt archive, an unsigned package, a signature by another key (the problem names the package's own signer id, also returned as `signer_key_id`) or a changed file all give `signature_ok: false` and one or more strings in `problems` (never null). `kind`, `name`, `version`, `sdk`, `permissions`, `allowed_hosts` and `description` come from the package manifest and are filled only when the archive parsed; there is no `title`. `sha256` and `size` describe the archive. The package body, or any part of it, is never returned or logged, and nothing is installed.
 
-**Registry helper (SDK 0.21).** The package `hatamoto.dev/sdk/registry` has the types of a registry index (`Index`, `Entry`, `Revocation`) and `registry.SignIndex(index, privateKey)`, which signs an index JSON document into the same signed envelope the server verifies, byte for byte the same as the server's own signer, plus `registry.KeyID(publicKey)`. It uses the standard library only, so a plugin can import it. `Index.Revoked`, `Revocation` and `Entry.SignerKey` are reserved: hosts up to SDK 0.21 and this core release ignore them, so a revocation listed there is not enforced. A later core release will enforce them.
+**Registry helper (SDK 0.21).** The package `hatamoto.dev/sdk/registry` has the types of a registry index (`Index`, `Entry`, `Revocation`) and `registry.SignIndex(index, privateKey)`, which signs an index JSON document into the same signed envelope the server verifies, byte for byte the same as the server's own signer, plus `registry.KeyID(publicKey)`. It uses the standard library only, so a plugin can import it. `Index.Revoked`, `Revocation` and `Entry.SignerKey` are enforced for the developer index only: a revocation there disables (does not delete) the installed developer package on the next read of that index, which happens about every 6 hours while a developer package is installed. The first-party registry ignores them.
 
 ## Runs and changesets
 
@@ -865,7 +865,7 @@ Plugin directories may be symlinks. A Go guest's `init()` runs on the first hook
 
 ## Writing a plugin in Go
 
-Outside this repository (your own module, no `replace`) see [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md).
+Outside this repository (your own module, no `replace`) see [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md) to write and publish a plugin.
 
 ```go
 package main
@@ -967,6 +967,6 @@ copying:
 
 ## Writing a plugin in another language
 
-The registry builds Go plugins only (see [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md)); a plugin in another language can still be packed and installed on your own server.
+The first-party registry builds Go plugins only; the developer index takes any signed `.hmp` (see [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md#part-2-publish-your-plugin)). A plugin in another language can also be packed and installed on your own server.
 
 Use that language's Extism PDK: export the functions named above (hook exports, `http_handle`, `on_cron_<name>`, `func_<name>`), read the input as JSON, write the result as JSON, and set the error message plus a non-zero return for failures. To call a host function, import `hm_call` from `extism:host/user` (one `i64` memory offset in, one out) and send `{"fn": ..., "args": ...}` as described under [Host functions](#host-functions). Mind the limits: the module must start within `memory_pages`, and must not spin (the call is killed at the hook's timeout).

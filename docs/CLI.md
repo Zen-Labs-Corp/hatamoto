@@ -79,7 +79,7 @@ Unattended installs (no admin session needed; each writes the database and a run
   A package signed by another key than the index lists, or an update signed by another key than the installed version, is refused and `--confirm` does not change that. On success the line ends with `(developer: <author>, key <id>)`. `HATAMOTO_DEVELOPER_REGISTRY_URL=off` disables the developer index ([PACKAGES.md](PACKAGES.md#developer-packages)).
 - `package list` shows installed plugins and themes with version, source, signer and the active theme; `--json` also reports `allow_unsigned` and `allow_developer`.
 
-Packages (signing, trust, the registry): see [PACKAGES.md](PACKAGES.md); to submit a plugin, see [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md); to submit a theme, see [THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md). `package install` and `theme dev` write the database; a running server applies the change within seconds.
+Packages (signing, trust, the registry): see [PACKAGES.md](PACKAGES.md); to publish a plugin or a theme, see [PLUGINS_WRITE_AND_SUBMIT.md](PLUGINS_WRITE_AND_SUBMIT.md#part-2-publish-your-plugin) and [THEMES_WRITE_AND_SUBMIT.md](THEMES_WRITE_AND_SUBMIT.md#part-2-publish-your-theme). `package install` and `theme dev` write the database; a running server applies the change within seconds.
 
 Dates are `YYYY-MM-DD` (UTC); the default range is the last 30 days.
 
