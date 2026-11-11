@@ -1,6 +1,11 @@
 package schemafield
 
-import "testing"
+import (
+	"html"
+	"strings"
+	"testing"
+	"time"
+)
 
 func TestLooksLikeURLOrPath(t *testing.T) {
 	yes := []string{
@@ -14,6 +19,9 @@ func TestLooksLikeURLOrPath(t *testing.T) {
 		`<p class="lead">x</p><a href="/tickets">x</a>`, `<form action="//x.example/p"><button formaction="/go">x</button></form>`,
 		`<blockquote cite="/src">x</blockquote>`, `<svg><a xlink:href="//x.example/y">x</a></svg>`, `<object data="/f">x</object>`,
 		`<a href="&#47;tickets">x</a>`, `<A HREF="//Partner.example">x</A>`,
+		`<a href="tickets">x</a>`, `<a href="../../shop/x">x</a>`, `<a href="?aff=x">x</a>`, `<a href="#more">x</a>`,
+		`<a data-entity-id="0b3c1d52-0000-4000-8000-000000000000">x</a>`, `<img SRC=x>`, `<p ping="x">x</p>`,
+		`<a x="http://h">x</a>`,
 		`background:image-set("x.png" 1x)`, "image-set ('a')", "url(x)", "URL (x)",
 	}
 	for _, s := range yes {
@@ -25,11 +33,41 @@ func TestLooksLikeURLOrPath(t *testing.T) {
 		"", "  ", "Doors: 7pm", "19:30", "Wow, 3 pm", "see page 3/4", "Profile: done", "hotel: open",
 		"Hello world.", "e.g. a jpg file", "Price 12.50", "2026-11-10", "draft", "<p>Hello <strong>you</strong>.</p>",
 		"Tel: 020 7946 0000", "About: the venue", "Data: n/a", "File: see desk", "SMS: 123 456", "Mailto: a@b", "a.pdfx", "Dr. Smith", "caller id: 5",
-		`<p class="lead">Doors 7pm</p><h2>Line-up</h2>`, `<a href="#top" title="Tickets">x</a>`, `<p>5 / 6</p>`,
+		`<p class="lead">Doors 7pm</p><h2>Line-up</h2>`, `<a id="top" title="Tickets">x</a>`,
+		`<h2 id="line-up">x</h2>`, `<p>5 / 6</p>`,
 	}
 	for _, s := range no {
 		if LooksLikeURLOrPath(s) {
 			t.Errorf("%q: want no match", s)
 		}
+	}
+}
+
+// nestedMarkup is `<a x="` + escape(inner) + `">` repeated depth times: the
+// cycle-8 value that made a recursive scan exponential.
+func nestedMarkup(depth int) string {
+	s := "x"
+	for i := 0; i < depth; i++ {
+		s = `<a x="` + html.EscapeString(s) + `">`
+	}
+	return s
+}
+
+func TestLooksLikeURLOrPathNestedMarkupIsFast(t *testing.T) {
+	s := nestedMarkup(120)
+	if len(s) < 100_000 {
+		t.Fatalf("test value too small: %d bytes", len(s))
+	}
+	start := time.Now()
+	lu, im := LooksLikeURLOrPath(s), MentionsImageMarkup(s)
+	if d := time.Since(start); d > 500*time.Millisecond {
+		t.Errorf("scan took %v on %d bytes: work is not linear", d, len(s))
+	}
+	if lu || im {
+		t.Errorf("nested plain value: LooksLikeURLOrPath=%v MentionsImageMarkup=%v, want false", lu, im)
+	}
+	// A link at the bottom is still found when it is within the decode bound.
+	if !LooksLikeURLOrPath(strings.Replace(nestedMarkup(3), "x", "http://h", 1)) {
+		t.Error("shallow nested link not found")
 	}
 }

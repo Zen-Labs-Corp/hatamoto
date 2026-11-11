@@ -36,7 +36,26 @@ func LooksLikeURLOrPath(s string) bool {
 	}
 	l, n := strings.ToLower(s), NormalizeValue(s)
 	return looksLikeURLOrPath(l) || looksLikeURLOrPath(n) ||
-		anyAttrValue(l, LooksLikeURLOrPath) || anyAttrValue(n, LooksLikeURLOrPath)
+		anyAttr(l, markupLinkAttr) || anyAttr(n, markupLinkAttr)
+}
+
+// linkAttrs carry a link whatever their value: a relative one ("tickets",
+// "?aff=x") is a live same-origin link too, and data-entity-id gets an href at
+// render time (render/links.go).
+var linkAttrs = map[string]bool{
+	"href": true, "src": true, "srcset": true, "action": true, "formaction": true,
+	"cite": true, "data": true, "poster": true, "background": true,
+	"xlink:href": true, "ping": true, "longdesc": true, "manifest": true,
+	"codebase": true, "data-entity-id": true,
+}
+
+// markupLinkAttr tests one attribute of a tag. Its value is checked once, as
+// plain text (never as markup again), so nesting cannot multiply the work.
+func markupLinkAttr(key, val string) bool {
+	if strings.TrimSpace(val) == "" {
+		return false
+	}
+	return linkAttrs[key] || looksLikeURLOrPath(strings.ToLower(val)) || looksLikeURLOrPath(NormalizeValue(val))
 }
 
 func looksLikeURLOrPath(s string) bool {

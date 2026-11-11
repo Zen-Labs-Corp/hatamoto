@@ -108,9 +108,10 @@ func markupHit(l string) bool {
 	}
 }
 
-// anyAttrValue reports whether pred holds for the value of any attribute of any
-// tag in an HTML string. The tokenizer decodes entities in the values.
-func anyAttrValue(s string, pred func(string) bool) bool {
+// anyAttr reports whether pred holds for any attribute of any tag in an HTML
+// string, tokenised once. The tokenizer decodes entities in the values, and a
+// value is never parsed as markup again, so the work stays linear.
+func anyAttr(s string, pred func(key, val string) bool) bool {
 	if !strings.Contains(s, "<") {
 		return false
 	}
@@ -122,9 +123,9 @@ func anyAttrValue(s string, pred func(string) bool) bool {
 		case xhtml.StartTagToken, xhtml.SelfClosingTagToken:
 			_, hasAttr := z.TagName()
 			for hasAttr {
-				var v []byte
-				_, v, hasAttr = z.TagAttr()
-				if pred(string(v)) {
+				var k, v []byte
+				k, v, hasAttr = z.TagAttr()
+				if pred(string(k), string(v)) {
 					return true
 				}
 			}
