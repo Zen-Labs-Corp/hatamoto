@@ -467,7 +467,7 @@ func switchOffline(l Layout, c Config, p Pending) error {
 		phase := PhaseStagedOffline
 		if p.Kind == "rollback" && p.Before.Run == RunRelease && p.Before.Current != "" {
 			phase = PhaseManualRollback
-			st.AddBad(p.Before.Current, "manual rollback")
+			st.AddBad(p.Before.Current, ReasonManualRollback)
 		} else if p.Kind == "rollback" {
 			phase = PhaseRolledBackOffline
 			st.OfflineRollback = p.Version

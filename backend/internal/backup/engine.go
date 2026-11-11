@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -325,7 +326,7 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 	}
 	pr.finished()
 
-	var pluginNames []string
+	var pluginNames, roles []string
 	for _, p := range plugins {
 		pr.step("plugin " + p.Name)
 		if err := e.dumpPlugin(ctx, filepath.Join(work, p.Part()), p); err != nil {
@@ -335,6 +336,7 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 			return *info, err
 		}
 		pluginNames = append(pluginNames, p.Name)
+		roles = append(roles, p.Role)
 		pr.finished()
 	}
 
@@ -400,10 +402,12 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 	if mediaStorage != "" {
 		version = objectMediaManifestVersion
 	}
+	roles = append(roles, e.adminRole(ctx)...)
+	sort.Strings(roles)
 	mf := manifest{
 		Format: manifestFormat, Version: version, Created: info.Created,
 		Kind: info.Kind, Target: info.Target, HatamotoVersion: e.opts.Version,
-		ServerMajor: server, PgDump: pgVersion, Parts: parts, Plugins: pluginNames,
+		ServerMajor: server, PgDump: pgVersion, Parts: parts, Plugins: pluginNames, Roles: roles,
 		ContentRows: man.Rows, MediaFiles: man.MediaFiles, MediaBytes: man.MediaBytes, MediaMissing: man.MediaMissing, MediaStorage: mediaStorage,
 		Trust: &trust, ConfigPath: configPath,
 	}
@@ -581,4 +585,15 @@ func dirBytes(dir string) uint64 {
 		return nil
 	})
 	return n
+}
+
+// adminRole names the role admin of this instance (see role-admin-bootstrap.sql:
+// hatamoto_role_admin_ plus the first 8 characters of the instance id). Best
+// effort: an unreadable id yields none and never fails the backup.
+func (e *Engine) adminRole(ctx context.Context) []string {
+	var id string
+	if err := e.q.QueryRow(ctx, "SELECT id FROM public.hatamoto_instance LIMIT 1").Scan(&id); err != nil || len(id) < 8 {
+		return nil
+	}
+	return []string{"hatamoto_role_admin_" + id[:8]}
 }

@@ -267,6 +267,17 @@ func (x *restorer) check(ctx context.Context) (*RestorePlan, error) {
 		plan.Checks = append(plan.Checks, "admin url ok")
 	}
 
+	// The backup's cluster roles are free: the target database is empty, so a
+	// role that exists already was left by another database or an
+	// earlier failed restore.
+	if reasons, err := x.checkClusterRoles(ctx, q); err != nil {
+		return nil, fmt.Errorf("cannot check cluster roles: %w", err)
+	} else if len(reasons) > 0 {
+		refuse = append(refuse, reasons...)
+	} else if len(x.mf.Roles) > 0 {
+		plan.Checks = append(plan.Checks, "cluster roles ok")
+	}
+
 	// The target database holds nothing yet.
 	schemas, err := nonEmptySchemas(ctx, q)
 	if err != nil {
@@ -678,4 +689,32 @@ func (x *restorer) ambientLibpqProblems() []string {
 		}
 	}
 	return out
+}
+
+// checkClusterRoles refuses a cluster that already has a role the backup
+// recorded. Archives made before roles were recorded are not checked.
+func (x *restorer) checkClusterRoles(ctx context.Context, q Querier) ([]string, error) {
+	if len(x.mf.Roles) == 0 {
+		return nil, nil
+	}
+	rows, err := q.Query(ctx, `SELECT rolname FROM pg_roles WHERE rolname = ANY($1) ORDER BY 1`, x.mf.Roles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		names = append(names, n)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(names) == 0 {
+		return nil, nil
+	}
+	return []string{"cluster roles " + strings.Join(names, ", ") + " already exist; drop them if a failed restore left them, or restore into a cluster without them"}, nil
 }

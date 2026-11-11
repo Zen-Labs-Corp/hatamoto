@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -359,5 +360,47 @@ func TestUpdateRefusalOfASkippedRetry(t *testing.T) {
 	err := updateRefusal(updateArgs{verb: "retry", version: "v1.0.8"}, updater.Status{LastResult: updater.ResultSkipped, Reason: "busy"})
 	if err == nil || !strings.Contains(err.Error(), "v1.0.8") {
 		t.Fatalf("a skipped retry must fail: %v", err)
+	}
+}
+
+func TestSwitchResultSettlesAnApplyingStatus(t *testing.T) {
+	data := t.TempDir()
+	l := supervisor.NewLayout(data)
+	if err := os.MkdirAll(filepath.Join(l.Releases, "v1.2.1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.SwapSymlink("current", "v1.2.1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := supervisor.SaveState(l.StatePath(), &supervisor.State{Run: supervisor.RunRelease, CurrentSeen: "v1.2.1"}); err != nil {
+		t.Fatal(err)
+	}
+	fin := time.Date(2026, 11, 10, 10, 23, 0, 0, time.UTC)
+	if err := supervisor.AppendEvent(l.EventsPath(), supervisor.Event{ID: "1", From: "v1.2.0", To: "v1.2.1", Phase: supervisor.PhaseSuccess, StartedAt: fin.Add(-time.Minute), FinishedAt: fin}); err != nil {
+		t.Fatal(err)
+	}
+	stored := updater.Status{Decision: updater.KindApplying, Target: "v1.2.1", Reason: "staged v1.2.1; supervisor notified (health-gated switch in progress; see logs)"}
+	render := func() string {
+		var out bytes.Buffer
+		st := updater.ResolveStatus(stored, switchResultOf(l, stored.Target, "v1.0.0", slog.New(slog.DiscardHandler)))
+		renderUpdateStatus(&out, "v1.2.1", updater.Settings{Mode: "auto", Channel: "stable"}, st)
+		return out.String()
+	}
+	if got := render(); !strings.Contains(got, "status      up to date: running v1.2.1 (switched 10:23 UTC, gate passed)\n") {
+		t.Fatalf("settled status: %q", got)
+	}
+	// A switch still in progress keeps the stored text.
+	if err := supervisor.SaveState(l.StatePath(), &supervisor.State{Run: supervisor.RunRelease, CurrentSeen: "v1.2.1", Pending: &supervisor.Pending{Version: "v1.2.1"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := render(); !strings.Contains(got, "status      applying: staged v1.2.1") {
+		t.Fatalf("pending status: %q", got)
+	}
+	// An unreadable state keeps it too.
+	if err := os.WriteFile(l.StatePath(), []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := render(); !strings.Contains(got, "status      applying: staged v1.2.1") {
+		t.Fatalf("unreadable state: %q", got)
 	}
 }

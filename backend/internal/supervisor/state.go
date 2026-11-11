@@ -95,6 +95,16 @@ func (s *State) IsBad(version string) bool {
 	return false
 }
 
+// BadEntry returns the bad-list entry for version.
+func (s *State) BadEntry(version string) (BadEntry, bool) {
+	for _, b := range s.Bad {
+		if b.Version == version {
+			return b, true
+		}
+	}
+	return BadEntry{}, false
+}
+
 // AddBad records version once.
 func (s *State) AddBad(version, reason string) {
 	if s.IsBad(version) {
@@ -109,6 +119,10 @@ const (
 	ReasonStagedVerify = "staged release failed verification: " // a pending switch refused it
 	ReasonVerify       = "failed verification: "                // the supervisor refused to run it
 )
+
+// ReasonManualRollback is the reason of a release that was rolled back by
+// hand. Older state files hold the same value.
+const ReasonManualRollback = "manual rollback"
 
 // VerificationFailure reports whether the entry was listed because the staged
 // binary did not verify, as opposed to failing a health gate.

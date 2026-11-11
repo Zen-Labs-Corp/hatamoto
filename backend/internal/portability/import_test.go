@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"hatamoto.dev/core/internal/media"
 )
 
 func TestCheckMediaRowRejectsUnsafePaths(t *testing.T) {
@@ -17,7 +19,7 @@ func TestCheckMediaRowRejectsUnsafePaths(t *testing.T) {
 		`{"storage_path":""}`,
 		`{"storage_path":"ok.png","variants":[{"path":"../escape.png"}]}`,
 		`{"storage_path":"ok.png","variants":[{"path":"/abs.png"}]}`,
-		`{"storage_path":"ok.png","storage_provider":"s3"}`,
+		`{"storage_path":"ok.png","storage_provider":"gcs"}`,
 	}
 	for _, row := range bad {
 		if err := checkMediaRow([]byte(row)); err == nil {
@@ -27,6 +29,7 @@ func TestCheckMediaRowRejectsUnsafePaths(t *testing.T) {
 	good := []string{
 		`{"storage_path":"tenant/pic.png","storage_provider":"local","variants":[{"path":"tenant/pic_thumbnail.png"},{"path":""}]}`,
 		`{"storage_path":"pic.png"}`,
+		`{"storage_path":"pic.png","storage_provider":"s3"}`,
 	}
 	for _, row := range good {
 		if err := checkMediaRow([]byte(row)); err != nil {
@@ -191,5 +194,27 @@ func TestMediaStageSanitisesSVG(t *testing.T) {
 	}
 	if len(st.staged) != 1 {
 		t.Errorf("staged %v, want only ok.svg", st.staged)
+	}
+}
+
+func TestPrepareRowMediaProviderFollowsTarget(t *testing.T) {
+	for _, tc := range []struct{ source, target string }{{"s3", "local"}, {"local", "s3"}, {"s3", "s3"}} {
+		line := []byte(`{"id":"1","storage_path":"pic.png","storage_provider":"` + tc.source + `"}`)
+		got, err := prepareRow(table{name: "hatamoto_media"}, line, tc.target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := `"storage_provider":"` + tc.target + `"`; !strings.Contains(got, want) {
+			t.Errorf("%s -> %s: row = %s", tc.source, tc.target, got)
+		}
+	}
+}
+
+func TestMediaProvider(t *testing.T) {
+	if got := mediaProvider(ImportOptions{}); got != "local" {
+		t.Errorf("no store = %q, want local", got)
+	}
+	if got := mediaProvider(ImportOptions{Store: &media.S3Store{}}); got != "s3" {
+		t.Errorf("store set = %q, want s3", got)
 	}
 }

@@ -99,6 +99,8 @@ func TestEveryProtectedRouteDeniedForKeyUnlessAllowlisted(t *testing.T) {
 		"POST /api/v1/linking/insert":                  true, // wrap one anchor (write:entities)
 		"GET /api/v1/settings/seo/":                    true, // read:seo
 		"PATCH /api/v1/settings/seo/":                  true, // write:seo
+		"GET /api/v1/media/":                           true, // read:media
+		"POST /api/v1/media/upload":                    true, // write:media
 	}
 
 	seen := map[string]bool{}

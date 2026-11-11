@@ -151,6 +151,9 @@ func TestUpload_WithinPixelCapSucceeds(t *testing.T) {
 	if m.Width == nil || *m.Width != 32 {
 		t.Errorf("expected width 32, got %v", m.Width)
 	}
+	if m.StorageProvider != "local" {
+		t.Errorf("provider = %q, want local", m.StorageProvider)
+	}
 }
 
 func TestCreateVariants_PostDecodeBoundsGuard(t *testing.T) {

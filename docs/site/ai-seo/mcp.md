@@ -69,7 +69,8 @@ Every tool needs exactly one scope. A `read:` scope can never call a write tool.
 |---|---|---|
 | `read:entities` | Read entities | `entities_list`, `entities_get`, `search`, `schemas_list`, `schemas_get`, `terms_list`, `menus_list`, `menus_get`, `redirects_list`, `sitemap_preview`, `llms_txt_preview`, `jsonld_validate` |
 | `write:entities` | Write entities | `entities_create`, `entities_update`, `entities_publish`, `entities_unpublish` |
-| `write:media` | Write media | `media_upload` |
+| `read:media` | Read media | none over MCP; unlocks `GET /api/v1/media/` |
+| `write:media` | Write media | `media_upload`; also unlocks `POST /api/v1/media/upload` and `GET /api/v1/media/` |
 | `write:terms` | Write terms | `terms_create` |
 | `write:menus` | Write menus | `menus_update` |
 | `write:redirects` | Write redirects | `redirects_create`, `redirects_delete` |
@@ -80,7 +81,7 @@ Every tool needs exactly one scope. A `read:` scope can never call a write tool.
 
 The scope list also contains `read:citations`, `write:reports`, `read:query_suites` and `write:query_suites`. No MCP tool uses them.
 
-The four scopes `write:media`, `write:menus`, `write:redirects` and `write:terms` are reachable only through MCP. The two SEO scopes also open one REST route, `GET|PATCH /api/v1/settings/seo`. Apart from that, a REST API key reaches only a fixed list of routes: entities and their versions, the theme render preview, and internal-link suggestions and inserts.
+The three scopes `write:menus`, `write:redirects` and `write:terms` are reachable only through MCP. The media scopes also open two REST routes: `GET /api/v1/media/` (list, `read:media` or `write:media`) and `POST /api/v1/media/upload` (`write:media`). The two SEO scopes also open one REST route, `GET|PATCH /api/v1/settings/seo`. Apart from that, a REST API key reaches only a fixed list of routes: entities and their versions, the theme render preview, internal-link suggestions and inserts, and those media routes.
 
 A tool call without the needed scope fails with `forbidden: the API key lacks the <scope> scope`. The call is still written to the audit log.
 

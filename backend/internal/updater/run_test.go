@@ -835,6 +835,39 @@ func TestRunRetryAppliesABadVersionAndReportsWhy(t *testing.T) {
 	}
 }
 
+func TestRunNamedApplyBadListReasons(t *testing.T) {
+	at := time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		name   string
+		entry  supervisor.BadEntry
+		want   []string
+		reject string
+	}{
+		{"manual", supervisor.BadEntry{Version: "v1.0.1", Reason: supervisor.ReasonManualRollback, At: at},
+			[]string{"rolled back by hand on 2026-11-10", "update retry v1.0.1"}, "health gating"},
+		{"gate", supervisor.BadEntry{Version: "v1.0.1", Reason: "health gate failed: GET / returned 500", At: at},
+			[]string{"failed health gating before"}, "by hand"},
+		{"empty", supervisor.BadEntry{Version: "v1.0.1"},
+			[]string{"failed health gating before"}, "by hand"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			b := badBox(t, func(st *supervisor.State) { st.Bad = []supervisor.BadEntry{c.entry} })
+			_, err := b.u.Run(t.Context(), RunOpts{Apply: "v1.0.1"})
+			if err == nil {
+				t.Fatal("expected a refusal")
+			}
+			for _, w := range c.want {
+				if !strings.Contains(err.Error(), w) {
+					t.Fatalf("%q lacks %q", err, w)
+				}
+			}
+			if strings.Contains(err.Error(), c.reject) {
+				t.Fatalf("%q contains %q", err, c.reject)
+			}
+		})
+	}
+}
+
 func TestRunRetryRefusals(t *testing.T) {
 	halted := func(b *runBox) {
 		e := open100("v1.0.1")

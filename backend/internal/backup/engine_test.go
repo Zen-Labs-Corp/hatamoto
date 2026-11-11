@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -37,10 +39,30 @@ type engineQuerier struct {
 	major  int64
 	// Cluster identity answers; sysErr makes pg_control_system unreadable.
 	sysID, instance string
+	instanceID      string // public.hatamoto_instance.id
 	sysErr          error
-	notSuper        bool // the role is neither a superuser nor CREATEROLE and CREATEDB
-	noDBCreate      bool // the role lacks CREATE on the database
-	noAppInherit    bool // the role does not inherit the app role
+	notSuper        bool     // the role is neither a superuser nor CREATEROLE and CREATEDB
+	noDBCreate      bool     // the role lacks CREATE on the database
+	noAppInherit    bool     // the role does not inherit the app role
+	existingRoles   []string // roles already in the cluster, answered by the pg_roles lookup
+}
+
+// Query answers the pg_roles lookup with the existing roles among the asked
+// names; everything else goes to fakeQuerier. (The QueryRow switch below matches
+// "rolsuper" by substring, so this lookup must not go through it.)
+func (q *engineQuerier) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	if !strings.Contains(sql, "pg_roles WHERE rolname") {
+		return q.fakeQuerier.Query(ctx, sql, args...)
+	}
+	asked, _ := args[0].([]string)
+	var rows [][]string
+	for _, have := range q.existingRoles {
+		if slices.Contains(asked, have) {
+			rows = append(rows, []string{have})
+		}
+	}
+	slices.SortFunc(rows, func(a, b []string) int { return strings.Compare(a[0], b[0]) }) // the query's ORDER BY
+	return &fakeRows{rows: rows}, nil
 }
 
 // strRow scans one string, one bool or fails.
@@ -67,6 +89,8 @@ func (q *engineQuerier) QueryRow(_ context.Context, sql string, _ ...any) pgx.Ro
 	switch {
 	case strings.Contains(sql, "pg_control_system"):
 		return strRow{s: q.sysID, err: q.sysErr}
+	case strings.Contains(sql, "hatamoto_instance"):
+		return strRow{s: q.instanceID}
 	case strings.Contains(sql, "inet_server_addr"):
 		return strRow{s: q.instance}
 	case strings.Contains(sql, "pg_has_role"):
@@ -178,6 +202,38 @@ func TestCreateHappyPath(t *testing.T) {
 	}
 	if !strings.Contains(core, "--exclude-schema=plugin_webhooks") || !strings.Contains(plug, "--role=hm_p_abcd1234_webhooks") {
 		t.Errorf("core = %s\nplugin = %s", core, plug)
+	}
+}
+
+// The manifest records the plugin owner roles and the role admin, sorted; an
+// unreadable instance id leaves the role admin out without failing the backup.
+func TestCreateRecordsRoles(t *testing.T) {
+	r := newRig(t, "webhooks", "foo_bar")
+	r.q.instanceID = "abcd1234ef567890"
+	info, err := r.e.Create(t.Context(), Request{Kind: KindManual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc, err := scanArchive(filepath.Join(r.data, "backups", info.ID+".tar"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"hatamoto_role_admin_abcd1234", "hm_p_abcd1234_foo_bar", "hm_p_abcd1234_webhooks"}
+	if !reflect.DeepEqual(sc.mf.Roles, want) {
+		t.Fatalf("roles = %v, want %v", sc.mf.Roles, want)
+	}
+
+	r = newRig(t, "webhooks")
+	info, err = r.e.Create(t.Context(), Request{Kind: KindManual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc, err = scanArchive(filepath.Join(r.data, "backups", info.ID+".tar"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(sc.mf.Roles, []string{"hm_p_abcd1234_webhooks"}) {
+		t.Fatalf("roles = %v", sc.mf.Roles)
 	}
 }
 

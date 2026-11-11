@@ -108,7 +108,7 @@ It refuses a version that:
 
 - is not on your channel (`vX is not on channel stable`);
 - was withdrawn (`vX was withdrawn (<reason>)`);
-- is on this box's bad list (`vX is on this box's bad list (it failed health gating before)`; use `retry` once the cause is fixed);
+- is on this box's bad list: `vX is on this box's bad list (it failed health gating before)` after a failed health gate, or `vX was rolled back by hand on <date>; use `hatamoto update retry vX`` after a manual rollback. Use `retry` once the cause is fixed;
 - is already running;
 - needs a newer starting point first (`vX needs at least vY first (running vZ)`);
 - is below the running release's rollback floor;

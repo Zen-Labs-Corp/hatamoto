@@ -204,7 +204,7 @@ func (s *Service) prepareAttach(ctx context.Context, op MediaOp) (*Media, error)
 		OriginalFilename: op.Filename,
 		MimeType:         mimeType,
 		FileSize:         written,
-		StorageProvider:  "local",
+		StorageProvider:  s.storageProvider(),
 		StoragePath:      storagePath,
 		PublicURL:        &publicURL,
 		AltText:          op.AltText,

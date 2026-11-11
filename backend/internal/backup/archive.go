@@ -34,20 +34,24 @@ type part struct {
 // manifest is the last entry of the archive: what the parts are and where the
 // backup came from.
 type manifest struct {
-	Format          string           `json:"format"`
-	Version         int              `json:"version"`
-	Created         time.Time        `json:"created"`
-	Kind            Kind             `json:"kind"`
-	Target          string           `json:"target,omitempty"`
-	HatamotoVersion string           `json:"hatamoto_version,omitempty"`
-	ServerMajor     int              `json:"server_major"`
-	PgDump          string           `json:"pg_dump"`
-	Parts           []part           `json:"parts"`
-	Plugins         []string         `json:"plugins"`
-	ContentRows     map[string]int64 `json:"content_rows"`
-	MediaFiles      int              `json:"media_files"`
-	MediaBytes      int64            `json:"media_bytes"`
-	MediaMissing    int              `json:"media_missing,omitzero"`
+	Format          string    `json:"format"`
+	Version         int       `json:"version"`
+	Created         time.Time `json:"created"`
+	Kind            Kind      `json:"kind"`
+	Target          string    `json:"target,omitempty"`
+	HatamotoVersion string    `json:"hatamoto_version,omitempty"`
+	ServerMajor     int       `json:"server_major"`
+	PgDump          string    `json:"pg_dump"`
+	Parts           []part    `json:"parts"`
+	Plugins         []string  `json:"plugins"`
+	// Roles are the cluster roles the instance owns (role admin and plugin
+	// owners); restore refuses a cluster that already has them. Absent in older
+	// archives.
+	Roles        []string         `json:"roles,omitempty"`
+	ContentRows  map[string]int64 `json:"content_rows"`
+	MediaFiles   int              `json:"media_files"`
+	MediaBytes   int64            `json:"media_bytes"`
+	MediaMissing int              `json:"media_missing,omitzero"`
 	// MediaStorage names the driver ("s3") holding the media bytes when it is not
 	// the local disk; mediaManifestName then lists the objects.
 	MediaStorage string    `json:"media_storage,omitempty"`

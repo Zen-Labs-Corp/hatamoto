@@ -39,3 +39,21 @@ func TestSEOScopes(t *testing.T) {
 		t.Error("read:seo must not imply write:seo")
 	}
 }
+
+func TestMediaScopes(t *testing.T) {
+	if !IsValidScope("read:media") {
+		t.Fatal("read:media is not a valid scope")
+	}
+	r := &APIKey{Scopes: []APIKeyScope{ScopeReadMedia}}
+	w := &APIKey{Scopes: []APIKeyScope{ScopeWriteMedia}}
+	all := &APIKey{Scopes: []APIKeyScope{ScopeAll}}
+	if !r.HasScope(ScopeReadMedia) || r.HasScope(ScopeWriteMedia) {
+		t.Error("read:media must grant read only")
+	}
+	if !w.HasScope(ScopeReadMedia) || !w.HasScope(ScopeWriteMedia) {
+		t.Error("write:media must imply read:media")
+	}
+	if !all.HasScope(ScopeReadMedia) || !all.HasScope(ScopeWriteMedia) {
+		t.Error("* must grant both")
+	}
+}

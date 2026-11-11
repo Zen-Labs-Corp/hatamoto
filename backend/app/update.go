@@ -224,6 +224,7 @@ func runUpdateOnline(ctx context.Context, u updateArgs, cfg supervisor.Config, o
 		if err != nil {
 			return err
 		}
+		st = updater.ResolveStatus(st, switchResultOf(supervisor.NewLayout(cfg.Data), st.Target, version, env.Log))
 		renderUpdateStatus(out, version, set.Effective(os.Getenv), st)
 		return nil
 	case "pin", "unpin":
@@ -297,6 +298,30 @@ func runningVersionOf(cfg supervisor.Config) string {
 		return cfg.BootstrapVersion
 	}
 	return supervisor.RunningVersion(supervisor.NewLayout(cfg.Data), st, cfg.BootstrapVersion)
+}
+
+// switchResultOf reads what the supervisor recorded for target. It reads
+// without the lock and gives the zero result on any error, so the stored
+// status is then shown as it is.
+func switchResultOf(l supervisor.Layout, target, running string, log *slog.Logger) updater.SwitchResult {
+	if target == "" {
+		return updater.SwitchResult{}
+	}
+	state, err := supervisor.LoadState(l.StatePath())
+	if err != nil {
+		return updater.SwitchResult{}
+	}
+	events, err := readUpdateEvents(l.EventsPath(), log)
+	if err != nil {
+		return updater.SwitchResult{}
+	}
+	r := updater.SwitchResult{Pending: state.Pending != nil, Running: supervisor.RunningVersion(l, state, running)}
+	for _, e := range events { // oldest first: the last match is the newest
+		if e.To == target {
+			r.Outcome, r.Error, r.FinishedAt = e.Phase, e.Error, e.FinishedAt
+		}
+	}
+	return r
 }
 
 // renderUpdateStatus prints the settings and the last run's outcome.

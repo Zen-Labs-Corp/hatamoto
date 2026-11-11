@@ -43,6 +43,7 @@ const (
 	// Site-structure write scopes. They are separate from write:entities so
 	// keys issued for publishing content never gain them.
 	ScopeWriteMedia     APIKeyScope = "write:media"
+	ScopeReadMedia      APIKeyScope = "read:media"
 	ScopeWriteMenus     APIKeyScope = "write:menus"
 	ScopeWriteRedirects APIKeyScope = "write:redirects"
 	ScopeWriteTerms     APIKeyScope = "write:terms"
@@ -62,6 +63,7 @@ func ValidScopes() []APIKeyScope {
 		ScopeWriteReports,
 		ScopeReadQuerySuites,
 		ScopeWriteQuerySuites,
+		ScopeReadMedia,
 		ScopeWriteMedia,
 		ScopeWriteMenus,
 		ScopeWriteRedirects,
