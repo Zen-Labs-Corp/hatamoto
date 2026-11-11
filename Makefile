@@ -261,7 +261,8 @@ docs-publish-test:
 # budgets: deterministic size and allocation budgets (TestBudget* tests) against
 # the committed baselines in backend/testdata/budgets/*.json. No timing. The idle memory
 # budget (internal/idlemem) boots the built binary against a scratch database and so
-# needs HATAMOTO_TEST_DB_URL and Linux; without them it skips (about 70 s when it runs).
+# needs HATAMOTO_TEST_DB_URL and Linux (about 3 minutes, 150 s of it idle wait); without them it skips and
+# the recipe says so.
 # The recipe prints one table row per metric and exits non-zero on any failure.
 budgets:
 	@cd backend && CGO_ENABLED=0 go build -tags nodynamic -trimpath -o bin/hatamoto-idlemem ./cmd/hatamoto
@@ -269,6 +270,7 @@ budgets:
 	  rows=$$(printf "%s\n" "$$out" | sed -n "s/^.*\(BUDGET [^ ]* .*\)$$/\1/p"); \
 	  if command -v column >/dev/null 2>&1; then printf "%s\n" "$$rows" | column -t; else printf "%s\n" "$$rows"; fi; \
 	  if [ $$rc -ne 0 ]; then printf "%s\n" "$$out" | grep -E "^(--- FAIL|FAIL|panic)|\.go:[0-9]+:" >&2; echo "make budgets: FAILED" >&2; fi; \
+	  printf "%s\n" "$$rows" | grep -q "^BUDGET idlemem/" || echo "make budgets: idlemem SKIPPED (needs Linux and HATAMOTO_TEST_DB_URL); its budget was NOT checked" >&2; \
 	  exit $$rc'
 
 # budgets-update rewrites the baselines. It needs a reason, recorded in each
@@ -277,6 +279,7 @@ budgets:
 # a REASON on the make command line has its own $ expanded by make)
 budgets-update:
 	@test -n "$$REASON" || { echo "set REASON=\"why the budgets change\"" >&2; exit 1; }
+	@test -n "$$HATAMOTO_TEST_DB_URL" && test "$$(uname -s)" = Linux || { echo "budgets-update needs Linux and HATAMOTO_TEST_DB_URL: without them the idlemem baseline would not be refreshed" >&2; exit 1; }
 	cd backend && CGO_ENABLED=0 go build -tags nodynamic -trimpath -o bin/hatamoto-idlemem ./cmd/hatamoto
 	cd backend && HATAMOTO_IDLEMEM_BIN="$(CURDIR)/backend/bin/hatamoto-idlemem" HM_BUDGETS_UPDATE=1 HM_BUDGETS_REASON="$$REASON" go test -count=1 -run TestBudget ./internal/admin ./internal/render ./internal/server ./internal/idlemem
 
