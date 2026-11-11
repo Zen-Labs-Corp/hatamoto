@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/urlpattern"
 )
 
@@ -159,12 +160,17 @@ type URLRegistry struct {
 	mu       sync.Mutex
 	snap     *URLSnapshot
 	loadedAt time.Time
+
+	// flight shares one rebuild between concurrent callers; mu is never held
+	// across the database reads.
+	flight database.Flight[*URLSnapshot]
 }
 
 // SetTimezone installs the source of the site time zone used for date URL
 // tokens. It takes effect when the snapshot next reloads (at most
 // urlRegistryTTL), or at once after Invalidate.
 func (r *URLRegistry) SetTimezone(fn func(context.Context) string) {
+	r.flight.Forget()
 	r.mu.Lock()
 	r.timezone = fn
 	r.snap = nil
@@ -175,6 +181,7 @@ func (r *URLRegistry) SetTimezone(fn func(context.Context) string) {
 // entity paths. Like SetTimezone it takes effect when the snapshot next
 // reloads, or at once after Invalidate.
 func (r *URLRegistry) SetLocales(fn func(context.Context) (*LocaleSet, error)) {
+	r.flight.Forget()
 	r.mu.Lock()
 	r.locales = fn
 	r.snap = nil
@@ -191,18 +198,42 @@ func NewURLRegistry(lister SchemaLister, logger *slog.Logger) *URLRegistry {
 
 // Invalidate drops the cached snapshot; the next call reloads.
 func (r *URLRegistry) Invalidate() {
+	r.flight.Forget()
 	r.mu.Lock()
 	r.snap = nil
 	r.mu.Unlock()
 }
 
 // Snapshot returns the cached snapshot, reloading when missing or expired.
+// Concurrent callers on a miss share one reload.
 func (r *URLRegistry) Snapshot(ctx context.Context) (*URLSnapshot, error) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	if r.snap != nil && r.now().Sub(r.loadedAt) < urlRegistryTTL {
-		return r.snap, nil
+		snap := r.snap
+		r.mu.Unlock()
+		return snap, nil
 	}
+	r.mu.Unlock()
+	return r.flight.DoCommit(ctx, r.build, r.store)
+}
+
+// store caches a freshly built snapshot unless it is degraded. The flight
+// skips it when the registry was invalidated while the build ran.
+func (r *URLRegistry) store(snap *URLSnapshot) {
+	if snap.degraded {
+		return
+	}
+	r.mu.Lock()
+	r.snap, r.loadedAt = snap, r.now()
+	r.mu.Unlock()
+}
+
+// build reads the schemas, time zone and locales and assembles a snapshot.
+func (r *URLRegistry) build(ctx context.Context) (*URLSnapshot, error) {
+	r.mu.Lock()
+	timezone, locales := r.timezone, r.locales
+	r.mu.Unlock()
+
 	schemas, err := r.lister.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load schemas for url registry: %w", err)
@@ -211,8 +242,8 @@ func (r *URLRegistry) Snapshot(ctx context.Context) (*URLSnapshot, error) {
 	if err != nil {
 		return nil, err
 	}
-	if r.timezone != nil {
-		if name := strings.TrimSpace(r.timezone(ctx)); name != "" {
+	if timezone != nil {
+		if name := strings.TrimSpace(timezone(ctx)); name != "" {
 			if loc, err := time.LoadLocation(name); err == nil {
 				snap.loc = loc
 			} else {
@@ -220,8 +251,8 @@ func (r *URLRegistry) Snapshot(ctx context.Context) (*URLSnapshot, error) {
 			}
 		}
 	}
-	if r.locales != nil {
-		set, err := r.locales(ctx)
+	if locales != nil {
+		set, err := locales(ctx)
 		if err != nil {
 			// Serve the schemas' own routing, but do not cache it: the next
 			// call re-reads the locales.
@@ -231,7 +262,6 @@ func (r *URLRegistry) Snapshot(ctx context.Context) (*URLSnapshot, error) {
 		}
 		snap.locales = set
 	}
-	r.snap, r.loadedAt = snap, r.now()
 	return snap, nil
 }
 

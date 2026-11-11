@@ -15,7 +15,7 @@ import (
 func (s *Server) urlSnapshot(ctx context.Context) *entity.URLSnapshot {
 	snap, err := s.entityService.URLRegistry().Snapshot(ctx)
 	if err != nil {
-		s.logger.Error("url registry unavailable; using default url patterns", "error", err)
+		s.logLoadFailure("url registry unavailable; using default url patterns", err)
 		return entity.DefaultURLSnapshot()
 	}
 	return snap

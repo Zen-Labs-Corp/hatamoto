@@ -2,9 +2,11 @@ package server
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 
+	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/fonts"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/siteconfig"
@@ -18,6 +20,10 @@ func (s *Server) fontFaces(ctx context.Context, theme siteconfig.ThemeConfig) ([
 		return nil, ""
 	}
 	list, err := s.fonts.List(ctx)
+	if errors.Is(err, database.ErrPoolBusy) {
+		s.logger.Debug("render: listing fonts skipped, pool busy")
+		return nil, ""
+	}
 	if err != nil {
 		s.logger.Warn("render: listing fonts", slog.String("error", err.Error()))
 		return nil, ""

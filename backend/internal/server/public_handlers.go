@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/cache"
+	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
 	"hatamoto.dev/core/internal/jsonx"
@@ -472,7 +473,7 @@ func (s *Server) getCachedSitemapXML(r *http.Request, w http.ResponseWriter, cac
 
 // cacheSitemapXML stores serialized sitemap XML in the cache.
 func (s *Server) cacheSitemapXML(r *http.Request, sub string, data []byte) {
-	if !s.sitemapCacheable() || len(data) == 0 {
+	if !s.sitemapCacheable() || len(data) == 0 || database.PoolBusyHit(r.Context()) {
 		return
 	}
 	cacheKey := cache.SitemapKey(sub)

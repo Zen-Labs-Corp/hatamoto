@@ -191,6 +191,10 @@ type Store struct {
 	mu       sync.RWMutex
 	cached   *Config
 	cachedAt time.Time
+
+	flight database.Flight[*Config]
+	// loader overrides load; nil means load. A test seam.
+	loader func(context.Context) (*Config, error)
 }
 
 // NewStore constructs a site-config store backed by the given database.
@@ -215,29 +219,51 @@ func (s *Store) Get(ctx context.Context) (*Config, error) {
 	}
 	s.mu.RUnlock()
 
-	cfg, err := s.load(ctx)
+	cfg, err := s.flight.DoCommit(ctx, s.refresh, s.store)
 	if err != nil {
 		// Stale-on-error: surface the failure but keep serving.
 		s.mu.RLock()
 		stale := s.cached
 		s.mu.RUnlock()
 		if stale != nil {
-			s.logger.Warn("site config refresh failed, serving stale", slog.String("error", err.Error()))
 			return stale, nil
 		}
 		return nil, err
 	}
+	return cfg, nil
+}
 
+// refresh is the shared load: one run serves every concurrent caller, so the
+// failure is logged once per flight rather than once per caller.
+func (s *Store) refresh(ctx context.Context) (*Config, error) {
+	load := s.loader
+	if load == nil {
+		load = s.load
+	}
+	cfg, err := load(ctx)
+	if err != nil {
+		s.mu.RLock()
+		hasStale := s.cached != nil
+		s.mu.RUnlock()
+		if hasStale {
+			s.logger.Warn("site config refresh failed, serving stale", slog.String("error", err.Error()))
+		}
+	}
+	return cfg, err
+}
+
+// store records a fresh load; the flight skips it when Invalidate ran meanwhile.
+func (s *Store) store(cfg *Config) {
 	s.mu.Lock()
 	s.cached = cfg
 	s.cachedAt = time.Now()
 	s.mu.Unlock()
-	return cfg, nil
 }
 
 // Invalidate forces the next Get to hit the DB. Call from any write path
 // that mutates hatamoto_site_config so admin UI changes are immediately visible.
 func (s *Store) Invalidate() {
+	s.flight.Forget()
 	s.mu.Lock()
 	s.cached = nil
 	s.cachedAt = time.Time{}

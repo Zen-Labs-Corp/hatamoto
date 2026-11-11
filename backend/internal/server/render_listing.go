@@ -81,18 +81,18 @@ func (s *Server) resolveForRender(ctx context.Context, path string, r *http.Requ
 		lr.Path = path
 	}
 	if err != nil {
-		s.logger.ErrorContext(ctx, "render: resolve listing", "error", err, "path", path)
+		s.logLoadFailure("render: resolve listing", err, "path", path)
 		return nil, pageOutcome{Status: http.StatusInternalServerError},
-			&pageError{http.StatusInternalServerError, "failed to resolve path"}
+			loadFailure(err, "failed to resolve path")
 	}
 	if lr != nil {
 		return &routeResult{Listing: lr, Locale: locale, Rest: rr.Rest}, pageOutcome{Status: http.StatusOK}, nil
 	}
 	reg, err := s.resolveRegistry(ctx, bare, r)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "render: resolve registry page", "error", err, "path", path)
+		s.logLoadFailure("render: resolve registry page", err, "path", path)
 		return nil, pageOutcome{Status: http.StatusInternalServerError},
-			&pageError{http.StatusInternalServerError, "failed to resolve path"}
+			loadFailure(err, "failed to resolve path")
 	}
 	if reg != nil {
 		return &routeResult{Registry: reg, Locale: locale, Rest: rr.Rest}, pageOutcome{Status: http.StatusOK}, nil

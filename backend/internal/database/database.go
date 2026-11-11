@@ -3,6 +3,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -65,9 +66,9 @@ func (db *DB) Ping(ctx context.Context) error {
 // GetConn returns a connection with tenant context configured for RLS.
 // This is the primary way to acquire database connections.
 func (db *DB) GetConn(ctx context.Context) (*pgxpool.Conn, error) {
-	conn, err := db.pool.Acquire(ctx)
+	conn, err := acquire(ctx, db.pool)
 	if err != nil {
-		return nil, fmt.Errorf("failed to acquire connection: %w", err)
+		return nil, err
 	}
 
 	if err := db.setTenantContext(ctx, conn); err != nil {
@@ -75,6 +76,39 @@ func (db *DB) GetConn(ctx context.Context) (*pgxpool.Conn, error) {
 		return nil, err
 	}
 
+	return conn, nil
+}
+
+type acquirer interface {
+	Acquire(context.Context) (*pgxpool.Conn, error)
+}
+
+// AcquireFrom acquires a connection from pool, honouring the acquire bound
+// carried by ctx (see WithAcquireBound).
+func AcquireFrom(ctx context.Context, pool *pgxpool.Pool) (*pgxpool.Conn, error) {
+	return acquire(ctx, pool)
+}
+
+func acquire(ctx context.Context, a acquirer) (*pgxpool.Conn, error) {
+	if PoolBusyHit(ctx) {
+		// The request already gave up on the pool and will answer 503: do not
+		// queue behind it again.
+		return nil, fmt.Errorf("failed to acquire connection: %w", ErrPoolBusy)
+	}
+	actx := ctx
+	if bound := AcquireBound(ctx); bound > 0 {
+		var cancel context.CancelFunc
+		actx, cancel = context.WithTimeout(ctx, bound)
+		defer cancel()
+	}
+	conn, err := a.Acquire(actx)
+	if err != nil {
+		if ctx.Err() == nil && errors.Is(err, context.DeadlineExceeded) && AcquireBound(ctx) > 0 {
+			NotePoolBusy(ctx)
+			return nil, fmt.Errorf("failed to acquire connection: %w", ErrPoolBusy)
+		}
+		return nil, fmt.Errorf("failed to acquire connection: %w", err)
+	}
 	return conn, nil
 }
 

@@ -3,7 +3,10 @@ package entity
 import (
 	"context"
 	"encoding/json/jsontext"
+	"errors"
 	"reflect"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -385,5 +388,98 @@ func TestURLSnapshot_OverrideAttributesGroups(t *testing.T) {
 	}
 	if got, want := build(`{"archive_path":"/i","archive_groups":{"attribute":"sort","divisor":1,"path":"v{n}"}}`, `{"overrides":[{"attribute":"sort","equals":"a","url_pattern":"/a/{slug}"}]}`), []string{"sort"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("dedupe = %v want %v", got, want)
+	}
+}
+
+// blockingLister lets a test hold List open and count concurrent loads.
+type blockingLister struct {
+	schemas []*EntitySchema
+	calls   atomic.Int32
+	err     error
+	release chan struct{}
+}
+
+func (l *blockingLister) List(context.Context) ([]*EntitySchema, error) {
+	l.calls.Add(1)
+	if l.release != nil {
+		<-l.release
+	}
+	return l.schemas, l.err
+}
+
+func snapshotBurst(t *testing.T, r *URLRegistry, n int) []error {
+	t.Helper()
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	errs := make([]error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, errs[i] = r.Snapshot(context.Background())
+		}()
+	}
+	close(start)
+	wg.Wait()
+	return errs
+}
+
+func TestURLRegistry_ColdSnapshotsShareOneLoad(t *testing.T) {
+	t.Parallel()
+	l := &blockingLister{release: make(chan struct{})}
+	r := NewURLRegistry(l, nil)
+	go func() {
+		if !r.flight.WaitForWaiters(50, 30*time.Second) {
+			t.Error("not every caller joined the flight")
+		}
+		close(l.release)
+	}()
+	for _, err := range snapshotBurst(t, r, 50) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := l.calls.Load(); n != 1 {
+		t.Fatalf("lister ran %d times, want 1", n)
+	}
+}
+
+func TestURLRegistry_FailedLoadIsShared(t *testing.T) {
+	t.Parallel()
+	boom := errors.New("db down")
+	l := &blockingLister{err: boom}
+	r := NewURLRegistry(l, nil)
+	for _, err := range snapshotBurst(t, r, 50) {
+		if !errors.Is(err, boom) {
+			t.Fatalf("err = %v", err)
+		}
+	}
+	if n := l.calls.Load(); n != 1 {
+		t.Fatalf("lister ran %d times, want 1", n)
+	}
+}
+
+func TestURLRegistry_InvalidateDuringLoadIsNotOverwritten(t *testing.T) {
+	t.Parallel()
+	l := &blockingLister{
+		schemas: []*EntitySchema{schemaWith("doc", `{"url_pattern":"/old/{slug}"}`)},
+		release: make(chan struct{}),
+	}
+	r := NewURLRegistry(l, nil)
+	ctx := context.Background()
+	done := make(chan struct{})
+	go func() { defer close(done); _, _ = r.Snapshot(ctx) }()
+	for l.calls.Load() == 0 {
+		time.Sleep(time.Millisecond)
+	}
+	r.Invalidate()
+	close(l.release)
+	<-done
+
+	l.schemas = []*EntitySchema{schemaWith("doc", `{"url_pattern":"/new/{slug}"}`)}
+	u, _, err := r.URLFor(ctx, "doc", nil, urlpattern.Vars{Slug: "x"})
+	if err != nil || u != "/new/x" {
+		t.Fatalf("got %q %v; the older load must not be cached over the invalidation", u, err)
 	}
 }

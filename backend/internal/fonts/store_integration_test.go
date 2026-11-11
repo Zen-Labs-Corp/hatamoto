@@ -8,7 +8,9 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -107,4 +109,43 @@ func TestInsertEnforcesCap(t *testing.T) {
 	if err := s.Insert(ctx, []NewFont{newFont("One More", 400, "z")}); !errors.Is(err, ErrTooMany) {
 		t.Errorf("61st = %v, want ErrTooMany", err)
 	}
+}
+
+// A list load already running when a font is written must not be handed to
+// the callers that list afterwards.
+func TestWritesDetachRunningListLoad(t *testing.T) {
+	s := scratchStore(t)
+	ctx := context.Background()
+	read, release := make(chan struct{}), make(chan struct{})
+	var calls atomic.Int32
+	s.list = func(ctx context.Context) ([]Font, error) {
+		out, err := s.query(ctx) // reads the table as it is now
+		if calls.Add(1) == 1 {
+			close(read)
+			<-release
+		}
+		return out, err
+	}
+	stale := make(chan []Font, 1)
+	go func() { out, _ := s.List(ctx); stale <- out }()
+	<-read
+
+	if err := s.Insert(ctx, []NewFont{newFont("Brand Sans", 400, "a")}); err != nil {
+		t.Fatal(err)
+	}
+	// Joining the running load would block on release: fail instead of hanging.
+	lctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	out, err := s.List(lctx)
+	if err != nil || len(out) != 1 {
+		t.Fatalf("list after insert = %v, %v; want the new face", out, err)
+	}
+	if _, err := s.DeleteFamily(ctx, "Brand Sans"); err != nil {
+		t.Fatal(err)
+	}
+	if out, err = s.List(lctx); err != nil || len(out) != 0 {
+		t.Fatalf("list after delete = %v, %v; want none", out, err)
+	}
+	close(release)
+	<-stale
 }
