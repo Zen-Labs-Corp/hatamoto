@@ -48,7 +48,12 @@ page does it when the page calls `hatamoto.camera.capture()`, and only for a plu
 whose manifest asks (`ui.allow`) and whose owner ticked `ui.allow:camera`. The admin
 page sends `Permissions-Policy: camera=(self)` only on such granted plugin pages, a
 person clicks **Capture** in core's dialog, and the camera tracks are stopped when
-the dialog closes.
+the dialog closes. The call is refused unless the person just clicked in the page, one
+dialog is open at a time, and Capture ignores clicks for half a second after the
+preview appears. The camera ask is off by default, owner-only (the grant needs the
+owner role), shown with a New badge on the install prompt, and not part of the registry
+permission review (the index and the browse cards do not list it). Revoking the grant
+takes effect on the next page load.
 
 ### Plugin database role
 
