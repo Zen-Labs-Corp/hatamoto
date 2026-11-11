@@ -53,6 +53,7 @@ Under systemd put them in the environment file; under Docker use `environment:` 
 | `HATAMOTO_WORKER` | on | The in-process scheduler runs unless this is `off` (case-insensitive). |
 | `WORKER_DISABLE_JOBS` | empty | Comma-separated scheduler jobs to skip. The job names are listed in [Multiple replicas and health checks](multi-replica-and-health.md); `stats_ping` is the install stats job and `changeset_sweep` the content changeset housekeeping and `standing_digest` the daily mail about automatic runs and `user_access` the hourly job that ends access for users whose end date has passed. |
 | `WORKER_DRAIN` | unset | `1`, `true`, `yes` or `on` (case-insensitive) stops the worker loops from starting. For maintenance windows. |
+| `GOMEMLIMIT` | unset | Go runtime soft memory limit, for example `300MiB`. When it is unset and the process runs under a cgroup memory limit, Hatamoto sets the limit to 88 percent of that. A value you set always wins. See [Keep memory use low](memory.md). |
 | `REPORT_OUTPUT_DIR` | `./reports` | Read into the configuration but not used by any current feature. Leave it alone. |
 
 ## Data, secrets and files
