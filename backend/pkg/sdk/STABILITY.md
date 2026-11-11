@@ -13,7 +13,7 @@ the name is given. Where it is project policy only, the text says so. Paths in c
 |---|---|---|
 | Product (the `hatamoto` binary) | `vX.Y.Z`, git tag `vX.Y.Z` | `v1.1.0` |
 | Go module for the product source | `hatamoto.dev/core`, git tag `backend/vX.Y.Z`, created by `scripts/tag-release.sh` | follows the product |
-| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.21.0` |
+| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.22.0` |
 | Plugin manifest | the `sdk` range in `plugin.json` | follows the SDK |
 | Theme contract | `data-hm-contract` on `<html>` | `1` |
 | HTTP API | `/api/v1` path prefix | `v1` |
@@ -61,6 +61,8 @@ The SDK is bumped to 0.13.0 for `locale`, to 0.14.0 for the form attribution and
 change under the same version (`scripts/publish-sdk.sh` refuses to retag a different tree) and 0.10 and
 0.11 set the precedent of shipping additive payload changes as a minor.
 
+The 0.22.0 bump is additive over 0.21: the `request.redirect` filter and the `redirect_paths` manifest field, with the `RedirectContext` and `Redirect` types (see `version.go`).
+
 The 0.21.0 bump is additive over 0.20: the `packages.inspect` permission and host function, the `hatamoto.dev/sdk/registry` package and `guest.PackagesInspect` (see `version.go`).
 
 The 0.20.0 bump is additive over 0.19: entity terms and a term filter on `entities.get` and `entities.list`, and typed `params` on items builder sources, sent on the `builder.data` request (see `version.go`).
@@ -106,11 +108,11 @@ The `sdk` range in `plugin.json` is the handshake between a plugin and a host. A
 SDK version (`sdk.Version`) and every version in `sdk.CompatibleWith`, and refuses a plugin whose range
 matches none of them.
 
-- Every 0.x SDK minor from 0.5 stays served until SDK 1.0. Today `Version` is `0.21.0` and
-  `CompatibleWith` is `0.5.0` to `0.20.0`. Dropping an entry is a breaking change and is announced like
+- Every 0.x SDK minor from 0.5 stays served until SDK 1.0. Today `Version` is `0.22.0` and
+  `CompatibleWith` is `0.5.0` to `0.21.0`. Dropping an entry is a breaking change and is announced like
   any other.
-- A newer host serves older ranges. An older host refuses a newer range: a host that serves 0.20 refuses
-  a plugin that declares `^0.21`. Declare the oldest range your plugin needs.
+- A newer host serves older ranges. An older host refuses a newer range: a host that serves 0.21 refuses
+  a plugin that declares `^0.22`. Declare the oldest range your plugin needs.
 - Three tests pin this in `backend/pkg/sdk`: `TestVersionPinned` (the version constant),
   `TestCompatibleWithPinned` (the exact list, sorted, without the current version) and
   `TestCompatibleWithOldHost` (a host that reports 0.12.0 refuses `^0.13` and accepts `^0.12`,
