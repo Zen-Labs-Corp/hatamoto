@@ -261,8 +261,9 @@ func TestFlightCapFailureIsNotRemembered(t *testing.T) {
 	}
 }
 
-// A load started by an unbounded caller (admin, API, gate) is not capped.
-func TestFlightUnboundedStarterHasNoCap(t *testing.T) {
+// A load started by an unbounded caller (admin, API, gate) is not cut by the
+// bounded callers' Cap.
+func TestFlightUnboundedStarterIgnoresBoundedCap(t *testing.T) {
 	t.Parallel()
 	f := Flight[int]{Cap: 10 * time.Millisecond}
 	v, err := f.Do(context.Background(), func(ctx context.Context) (int, error) {
@@ -275,6 +276,39 @@ func TestFlightUnboundedStarterHasNoCap(t *testing.T) {
 	})
 	if err != nil || v != 5 {
 		t.Fatalf("v=%d err=%v", v, err)
+	}
+}
+
+// A stuck load started by an unbounded caller still ends at the hard cap and
+// frees every joiner with that error; it is shared for the error window only.
+func TestFlightUnboundedStarterHasHardCap(t *testing.T) {
+	t.Parallel()
+	f := Flight[int]{HardCap: 40 * time.Millisecond, ErrWindow: time.Hour}
+	var calls atomic.Int32
+	entered := make(chan struct{})
+	load := func(ctx context.Context) (int, error) {
+		if calls.Add(1) == 1 {
+			close(entered)
+		}
+		<-ctx.Done()
+		return 0, ctx.Err()
+	}
+	errs := make(chan error, 2)
+	go func() { _, err := f.Do(context.Background(), load); errs <- err }()
+	<-entered
+	go func() { _, err := f.Do(context.Background(), load); errs <- err }()
+	for i := 0; i < 2; i++ {
+		select {
+		case err := <-errs:
+			if !errors.Is(err, context.DeadlineExceeded) {
+				t.Fatalf("err = %v, want the hard cap error", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("a stuck unbounded load never released its callers")
+		}
+	}
+	if n := calls.Load(); n != 1 {
+		t.Fatalf("loads = %d, want one shared load", n)
 	}
 }
 

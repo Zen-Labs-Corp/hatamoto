@@ -13,6 +13,10 @@ import (
 const (
 	defaultFlightErrWindow = time.Second
 	defaultFlightCap       = 10 * time.Second
+	// defaultFlightHardCap is the safety net of a load started by an unbounded
+	// caller (admin, API, gate): generous, but a stuck query cannot hang every
+	// caller that joins it forever.
+	defaultFlightHardCap = 30 * time.Second
 )
 
 // Flight shares one in-flight load between concurrent callers and remembers a
@@ -22,7 +26,7 @@ const (
 //
 // Unlike a plain singleflight, the load runs on a context detached from every
 // caller (values kept, cancellation dropped, acquire bound removed, Cap
-// applied only when a bounded caller started it), so one cancelled or
+// applied to every load, shorter for a bounded starter), so one cancelled or
 // short-bounded caller never fails the others; each waiter still honours its
 // own context and its own acquire bound. A load that hit Cap is a limit of the
 // bounded (public) callers, not a failure of the dependency: it is not
@@ -32,9 +36,11 @@ const (
 type Flight[T any] struct {
 	// ErrWindow is how long a failed load is shared; 0 means one second.
 	ErrWindow time.Duration
-	// Cap limits a load started by a bounded caller; 0 means ten seconds. A
-	// load started by an unbounded caller (admin, API, gate) has no cap.
+	// Cap limits a load started by a bounded caller; 0 means ten seconds.
 	Cap time.Duration
+	// HardCap limits a load started by an unbounded caller (admin, API, gate);
+	// 0 means thirty seconds.
+	HardCap time.Duration
 
 	mu      sync.Mutex
 	gen     uint64
@@ -46,10 +52,11 @@ type Flight[T any] struct {
 }
 
 type flightCall[T any] struct {
-	done   chan struct{}
-	val    T
-	err    error
-	capped bool // err is the Cap expiring, not a failure of the load itself
+	done    chan struct{}
+	val     T
+	err     error
+	expired bool // the load ran out of its cap
+	bounded bool // a bounded caller started the load, so expired is not a failure of the load itself
 }
 
 func (f *Flight[T]) clock() time.Time {
@@ -128,15 +135,15 @@ func (f *Flight[T]) DoCommit(ctx context.Context, load func(context.Context) (T,
 	}
 	select {
 	case <-c.done:
-		if c.capped && d > 0 {
+		if c.expired && d > 0 {
 			// The cap is a limit of the bounded callers: this one gets the
 			// same answer as if its own bound had run out.
 			NotePoolBusy(ctx)
 			return zero, fmt.Errorf("waiting for shared load: %w", ErrPoolBusy)
 		}
-		if c.capped && d <= 0 {
-			// The shared load ran out of its cap on behalf of bounded callers;
-			// this caller never agreed to that limit, so it loads for itself.
+		if c.expired && c.bounded {
+			// The shared load ran out of the cap of a bounded caller; this
+			// caller never agreed to that limit, so it loads for itself.
 			return f.own(ctx, gen, load, commit)
 		}
 		return c.val, c.err
@@ -166,15 +173,19 @@ func (f *Flight[T]) own(ctx context.Context, gen uint64, load func(context.Conte
 
 func (f *Flight[T]) lead(ctx context.Context, c *flightCall[T], gen uint64, load func(context.Context) (T, error), commit func(T)) {
 	lctx := WithoutAcquireBound(context.WithoutCancel(ctx))
-	if AcquireBound(ctx) > 0 {
-		limit := f.Cap
+	bounded := AcquireBound(ctx) > 0
+	limit := f.HardCap
+	if limit <= 0 {
+		limit = defaultFlightHardCap
+	}
+	if bounded {
+		limit = f.Cap
 		if limit <= 0 {
 			limit = defaultFlightCap
 		}
-		var cancel context.CancelFunc
-		lctx, cancel = context.WithTimeout(lctx, limit)
-		defer cancel()
 	}
+	lctx, cancel := context.WithTimeout(lctx, limit)
+	defer cancel()
 
 	var val T
 	var err error
@@ -187,7 +198,7 @@ func (f *Flight[T]) lead(ctx context.Context, c *flightCall[T], gen uint64, load
 		val, err = load(lctx)
 	}()
 
-	capped := err != nil && errors.Is(lctx.Err(), context.DeadlineExceeded)
+	expired := err != nil && errors.Is(lctx.Err(), context.DeadlineExceeded)
 	func() {
 		f.mu.Lock()
 		defer f.mu.Unlock() // also when commit panics
@@ -204,10 +215,10 @@ func (f *Flight[T]) lead(ctx context.Context, c *flightCall[T], gen uint64, load
 			if commit != nil {
 				commit(val)
 			}
-		} else if !capped { // a cap expiry is not a failure of the dependency
+		} else if !(expired && bounded) { // a bounded cap expiry is not a failure of the dependency
 			f.lastErr, f.errAt = err, f.clock()
 		}
 	}()
-	c.val, c.err, c.capped = val, err, capped
+	c.val, c.err, c.expired, c.bounded = val, err, expired, bounded
 	close(c.done)
 }
