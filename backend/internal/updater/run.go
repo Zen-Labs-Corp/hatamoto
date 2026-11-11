@@ -478,6 +478,13 @@ func (u *Updater) named(m *release.ChannelManifest, state *supervisor.State, rec
 		}
 	}
 	if !retry && state.IsBad(version) {
+		if e, _ := state.BadEntry(version); e.Reason == supervisor.ReasonManualRollback {
+			when := ""
+			if !e.At.IsZero() {
+				when = " on " + e.At.UTC().Format("2006-01-02")
+			}
+			return Decision{}, fmt.Errorf("%s was rolled back by hand%s; use `hatamoto update retry %s`", version, when, version)
+		}
 		return Decision{}, fmt.Errorf("%s is on this box's bad list (it failed health gating before)", version)
 	}
 	if version == running {

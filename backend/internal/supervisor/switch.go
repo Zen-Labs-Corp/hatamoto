@@ -168,7 +168,7 @@ func (s *sup) finishSwitch(p Pending, from, target string) {
 		st.Phase, st.Pending, st.LastError, st.Unproven = "idle", nil, "", ""
 		if p.Kind == "rollback" && p.Before.Run == RunRelease && p.Before.Current != "" {
 			phase = PhaseManualRollback
-			st.AddBad(p.Before.Current, "manual rollback")
+			st.AddBad(p.Before.Current, ReasonManualRollback)
 		}
 		if p.Kind == "apply" && target != RunBootstrap {
 			st.Unproven = target // gate passed; proven once it has lived the boot window

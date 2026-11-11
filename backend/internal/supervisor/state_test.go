@@ -171,3 +171,29 @@ func TestVerificationReasonSitesUseTheConstants(t *testing.T) {
 		t.Error("VerificationFailure does not match the two reason prefixes exactly")
 	}
 }
+
+func TestBadEntryManualRollbackRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	s, err := LoadState(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.AddBad("v1.0.1", ReasonManualRollback)
+	if err := SaveState(path, s); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadState(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, ok := got.BadEntry("v1.0.1")
+	if !ok || e.Reason != ReasonManualRollback || e.At.IsZero() {
+		t.Fatalf("BadEntry = %+v, %v", e, ok)
+	}
+	if _, ok := got.BadEntry("v9.9.9"); ok {
+		t.Error("BadEntry found a version that is not listed")
+	}
+	if ReasonManualRollback != "manual rollback" {
+		t.Errorf("ReasonManualRollback changed: old state files hold %q", "manual rollback")
+	}
+}
