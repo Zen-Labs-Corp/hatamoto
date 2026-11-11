@@ -15,6 +15,7 @@ import (
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/render"
 )
 
@@ -199,5 +200,58 @@ func TestBusyConverterPassesHealthyAnswers(t *testing.T) {
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/x", nil))
 	if w.Code != http.StatusTeapot || w.Body.String() != "ok" || w.Header().Get("Cache-Control") != "public, max-age=60" {
 		t.Fatalf("%d %q %v", w.Code, w.Body.String(), w.Header())
+	}
+}
+
+// getThroughBusyConverter serves path the way the router does for a public
+// page: bounded request context, handler wrapped in busyConverter.
+func getThroughBusyConverter(f *renderFixture, path string) *httptest.ResponseRecorder {
+	h := busyConverter(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if path == "/" {
+			f.h.handleRenderHome(w, r)
+		} else {
+			f.h.handleRenderCatchAll(w, r)
+		}
+	}))
+	r := httptest.NewRequest(http.MethodGet, path, nil)
+	r = r.WithContext(database.WithAcquireBound(r.Context(), time.Second))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	return w
+}
+
+// A page in the cache is served as a 200 even when the pool is starved and the
+// URL snapshot gave up with a pool-busy flag.
+func TestStarvedPoolStillServesCachedPage(t *testing.T) {
+	for _, path := range []string{"/", "/about"} {
+		t.Run(path, func(t *testing.T) {
+			f := newRenderFixture(t)
+			f.next = okPage("About")
+			if w := f.get(path); w.Code != http.StatusOK {
+				t.Fatalf("warm: status %d", w.Code)
+			}
+			f.h.snapshot = func(ctx context.Context) (*entity.URLSnapshot, error) {
+				database.NotePoolBusy(ctx)
+				return nil, fmt.Errorf("waiting for shared load: %w", database.ErrPoolBusy)
+			}
+			w := getThroughBusyConverter(f, path)
+			if w.Code != http.StatusOK {
+				t.Fatalf("cached page under a starved pool: status %d, want 200", w.Code)
+			}
+		})
+	}
+}
+
+// A page that has to be built while the snapshot is unavailable is still a 503.
+func TestStarvedPoolUncachedPageIs503(t *testing.T) {
+	f := newRenderFixture(t)
+	f.next = okPage("About")
+	f.h.snapshot = func(ctx context.Context) (*entity.URLSnapshot, error) {
+		database.NotePoolBusy(ctx)
+		return nil, fmt.Errorf("waiting for shared load: %w", database.ErrPoolBusy)
+	}
+	w := getThroughBusyConverter(f, "/about")
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status %d, want 503", w.Code)
 	}
 }

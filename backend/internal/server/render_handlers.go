@@ -215,7 +215,7 @@ func (h *renderHandlers) handleRenderHome(w http.ResponseWriter, r *http.Request
 	}
 	// With prefix-all every locale, the default included, lives under its own
 	// segment: the bare root points at the default locale's home. Never cached.
-	set := h.localeSet(r.Context())
+	set := h.localeSet(database.WithPoolBusyScope(r.Context()))
 	if set.Multi() {
 		if prefix := set.Prefix(set.Default()); prefix != "" {
 			w.Header().Set("Cache-Control", "no-store")
@@ -245,7 +245,9 @@ func (h *renderHandlers) handleRenderHome(w http.ResponseWriter, r *http.Request
 // localeSet is the public locale set; nil (safe to call) on a single-locale
 // install, in a route-table build and while the URL snapshot cannot load: a
 // cached page or a redirect still answers then, and a miss is decided by the
-// resolver, which reads the snapshot itself.
+// resolver, which reads the snapshot itself. Callers pass a ctx under
+// database.WithPoolBusyScope: a give-up here must not turn a cached page into
+// a 503 (serve flags the request itself when it has to build the page).
 func (h *renderHandlers) localeSet(ctx context.Context) *entity.LocaleSet {
 	if h.snapshot == nil {
 		return nil
@@ -300,7 +302,7 @@ func (h *renderHandlers) handleRenderCatchAll(w http.ResponseWriter, r *http.Req
 			return h.resolve(r.Context(), path, r)
 		})
 	})
-	set := h.localeSet(r.Context())
+	set := h.localeSet(database.WithPoolBusyScope(r.Context()))
 	bare := path // the path without its locale segment
 	if _, rest, ok := set.Resolve(path); ok {
 		bare = rest

@@ -63,6 +63,17 @@ func WithAcquireBound(ctx context.Context, d time.Duration) context.Context {
 	return context.WithValue(ctx, acquireBoundKey{}, &acquireBound{d: d})
 }
 
+// WithPoolBusyScope returns ctx with the same bound but its own busy flag: a
+// give-up under the returned ctx does not flag the request. It is for reads
+// whose failure is harmless to the answer being built (a page-cache lookup).
+// ctx unchanged when it carries no bound.
+func WithPoolBusyScope(ctx context.Context) context.Context {
+	if d := AcquireBound(ctx); d > 0 {
+		return context.WithValue(ctx, acquireBoundKey{}, &acquireBound{d: d})
+	}
+	return ctx
+}
+
 // AcquireBound returns the bound set by WithAcquireBound, or 0.
 func AcquireBound(ctx context.Context) time.Duration {
 	if b, _ := ctx.Value(acquireBoundKey{}).(*acquireBound); b != nil {
