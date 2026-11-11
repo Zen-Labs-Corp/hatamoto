@@ -339,6 +339,7 @@ POST /admin/plugins/{name}/changesets/{id}/suggestions -> admin.(*Admin).handleR
 POST /admin/plugins/{name}/disable -> admin.(*Admin).handlePluginEnable-fm
 POST /admin/plugins/{name}/enable -> admin.(*Admin).handlePluginEnable-fm
 POST /admin/plugins/{name}/grant -> admin.(*Admin).handlePluginGrant-fm
+POST /admin/plugins/{name}/mail -> admin.(*Admin).handlePluginMail-fm
 POST /admin/plugins/{name}/runs/{id}/cancel -> admin.(*Admin).handleRunCancel-fm
 POST /admin/plugins/{name}/runs/{run}/start -> admin.(*Admin).handlePluginRunStart-fm
 POST /admin/plugins/{name}/settings -> admin.(*Admin).handlePluginSettingsSave-fm
