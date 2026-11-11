@@ -569,7 +569,7 @@ func (a *Admin) renderPermissions(w http.ResponseWriter, r *http.Request, status
 	}
 	for _, perm := range p.Permissions {
 		removed := sdk.RemovedPermission(sdk.Permission(perm))
-		refused := removed || !sdk.ValidPermission(sdk.Permission(perm)) || slices.Contains(p.Refused, perm)
+		refused := removed || !sdk.ValidGrant(sdk.Permission(perm)) || slices.Contains(p.Refused, perm)
 		g := !refused && slices.Contains(p.Granted, perm)
 		d.Perms = append(d.Perms, permRow{Name: perm, Help: permtext.Help(perm), Granted: g, Refused: refused, Removed: removed})
 		switch {
