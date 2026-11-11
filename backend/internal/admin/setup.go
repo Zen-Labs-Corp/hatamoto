@@ -448,18 +448,27 @@ func (a *Admin) setupBackToStats(ctx context.Context) string {
 
 // setupStatsLevel is the card the Stats step shows checked: the stored answer
 // when the owner has given one, Detailed when the level is unset or unknown.
-func (a *Admin) setupStatsLevel(ctx context.Context) string {
+// A failed read is returned, so the caller never mistakes it for "unset".
+func (a *Admin) setupStatsLevel(ctx context.Context) (string, error) {
 	v, err := a.deps.Stats.View(ctx)
-	if err != nil || !validStatsLevel(v.Level) {
-		return statsLevelDetailed
+	if err != nil {
+		return "", err
 	}
-	return v.Level
+	if !validStatsLevel(v.Level) {
+		return statsLevelDetailed, nil
+	}
+	return v.Level, nil
 }
 
 func (a *Admin) renderSetupStats(w http.ResponseWriter, r *http.Request, status int, needed bool) {
 	nv := a.NewView(w, r, "Help improve Hatamoto")
 	nv.Wide = true
-	nv.Data = setupData{Steps: steps(5), Back: a.adminPath + "/setup/theme", StatsCards: statsLevelCards(a.setupStatsLevel(r.Context())), StatsDocsURL: statsDocsURL, StatsNeeded: needed}
+	// On a failed read nothing is preselected, so an error never shows a level the owner did not pick.
+	level, err := a.setupStatsLevel(r.Context())
+	if err != nil {
+		a.logger().Warn("setup: stats view", "err", err)
+	}
+	nv.Data = setupData{Steps: steps(5), Back: a.adminPath + "/setup/theme", StatsCards: statsLevelCards(level), StatsDocsURL: statsDocsURL, StatsNeeded: needed}
 	a.Render(w, r, status, "setup/stats", nv)
 }
 
@@ -488,7 +497,13 @@ func (a *Admin) handleSetupStats(w http.ResponseWriter, r *http.Request) {
 	choice := r.PostFormValue("choice")
 	if choice == "" {
 		// A bare post is the preselected card: the stored answer, or Detailed.
-		choice = a.setupStatsLevel(r.Context())
+		level, err := a.setupStatsLevel(r.Context())
+		if err != nil {
+			// Unknown stored answer: record nothing rather than guess.
+			a.setupStatsSkip(w, r, "setup: stats view", err)
+			return
+		}
+		choice = level
 	}
 	if !validStatsLevel(choice) {
 		// Anything else is refused, never read as a level.

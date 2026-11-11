@@ -365,10 +365,10 @@ func TestChooseClearsTheDefaultedNotice(t *testing.T) {
 func TestRunSendsNothingWithoutConsent(t *testing.T) {
 	ctx := context.Background()
 	for name, setup := range map[string]func(*Service, *memStore){
-		"unset":  func(s *Service, _ *memStore) { s.setupComplete = nil }, // no default applied
-		"no":     func(s *Service, _ *memStore) { _ = s.Choose(ctx, LevelOff) },
-		"dev":    func(s *Service, _ *memStore) { _ = s.Choose(ctx, LevelBasic) },
-		"forced": func(_ *Service, m *memStore) { _, _ = m.Enable(ctx, LevelBasic) },
+		"setup pending": func(s *Service, _ *memStore) { s.setupComplete = nil }, // no default applied
+		"no":            func(s *Service, _ *memStore) { _ = s.Choose(ctx, LevelOff) },
+		"dev":           func(s *Service, _ *memStore) { _ = s.Choose(ctx, LevelBasic) },
+		"forced":        func(_ *Service, m *memStore) { _, _ = m.Enable(ctx, LevelBasic) },
 	} {
 		env, version := map[string]string{}, "v1.2.3"
 		switch name {

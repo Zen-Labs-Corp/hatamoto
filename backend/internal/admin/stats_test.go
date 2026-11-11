@@ -341,6 +341,25 @@ func TestSetupStatsStepKeepsAStoredAnswer(t *testing.T) {
 	}
 }
 
+func TestSetupStatsViewErrorKeepsTheStoredAnswer(t *testing.T) {
+	t.Parallel()
+
+	g, f := newSetupStatsRig(t, StatsView{Level: "off"})
+	f.viewErr = errors.New("pool timeout")
+	body := g.do("GET", "/admin/setup/stats", "owner-token", nil, nil).Body.String()
+	if strings.Contains(body, "checked") {
+		t.Errorf("a failed View preselected a card: %s", body)
+	}
+	rec := g.do("POST", "/admin/setup/stats", "owner-token", url.Values{}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" || len(f.chosen) != 0 {
+		t.Errorf("bare post = %d %s, chose %v, want content and no choice", rec.Code, rec.Header().Get("Location"), f.chosen)
+	}
+	rec = g.do("POST", "/admin/setup/stats", "owner-token", url.Values{"choice": {"basic"}}, nil)
+	if rec.Code != 303 || len(f.chosen) != 1 || f.chosen[0] != "basic" {
+		t.Errorf("explicit choice = %d, chose %v, want basic", rec.Code, f.chosen)
+	}
+}
+
 func TestSetupStatsChoice(t *testing.T) {
 	t.Parallel()
 
