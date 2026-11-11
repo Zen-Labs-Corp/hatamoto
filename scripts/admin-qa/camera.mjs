@@ -92,6 +92,13 @@ r = await waitOut(before);
 check(r.ok === false && r.error === "cancelled", "cancel: the plugin got cancelled", JSON.stringify(r));
 check(await p.evaluate(() => document.querySelector("#plugin-camera video").srcObject === null), "cancel: the camera stream was released");
 
+// A page that asks again right after a cancel gets no dialog (cooldown).
+const again = await pframe().locator("#out").textContent();
+await pframe().locator("#snap").click();
+r = await waitOut(again);
+check(r.ok === false && r.error === "cancelled", "cooldown: an immediate retry gets cancelled", JSON.stringify(r));
+check((await p.locator("dialog#plugin-camera[open]").count()) === 0, "cooldown: no dialog opened");
+
 await b.close();
 console.log(bad ? `\n${bad} problem(s)` : "\nok");
 process.exit(bad ? 1 : 0);

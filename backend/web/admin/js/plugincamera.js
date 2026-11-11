@@ -44,10 +44,16 @@ function encode(video) {
 export const CLICK_GUARD_MS = 500;
 let busy = false; // one capture at a time, held until its cleanup has run
 
+// After a capture ends without a photo, new calls are refused this long, so a
+// page that asks again on "cancelled" cannot trap the person in the modal.
+export const COOLDOWN_MS = 5000;
+let coolUntil = 0;
+
 export async function capture(dlg) {
   if (!navigator.mediaDevices?.getUserMedia || !dlg) return { ok: false, error: "unavailable" };
-  if (busy || dlg.open) return { ok: false, error: "cancelled" };
+  if (busy || dlg.open || Date.now() < coolUntil) return { ok: false, error: "cancelled" };
   busy = true;
+  let photo = false;
   const video = dlg.querySelector("[data-hm-camera-video]");
   const status = dlg.querySelector("[data-hm-camera-status]");
   const button = dlg.querySelector("[data-hm-camera-capture]");
@@ -93,8 +99,11 @@ export async function capture(dlg) {
     }
     video.srcObject = stream;
     if (!dlg.open) return { ok: false, error: "cancelled" };
-    return (await done) === "capture" ? encode(video) : { ok: false, error: "cancelled" };
+    if ((await done) !== "capture") return { ok: false, error: "cancelled" };
+    photo = true;
+    return encode(video);
   } finally {
+    if (!photo) coolUntil = Date.now() + COOLDOWN_MS;
     clearTimeout(timer);
     stream?.getTracks().forEach((t) => t.stop());
     if (video) {

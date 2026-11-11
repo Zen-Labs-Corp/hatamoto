@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const { fit, errorCode, capture, MAX_SIDE, CLICK_GUARD_MS } = await import(new URL("../../../backend/web/admin/js/plugincamera.js", import.meta.url));
+const { fit, errorCode, capture, MAX_SIDE, CLICK_GUARD_MS, COOLDOWN_MS } = await import(new URL("../../../backend/web/admin/js/plugincamera.js", import.meta.url));
 const frame = readFileSync(new URL("../../../backend/web/admin/js/pluginframe.js", import.meta.url), "utf8").replace(/\/\/.*$/gm, "");
 
 test("fit caps the longest side and keeps the ratio", () => {
@@ -75,7 +75,34 @@ test("an error keeps the dialog open with the message until it is closed", async
   assert.deepEqual(await p, { ok: false, error: "denied" });
 });
 
+test("after a capture ends without a photo, new calls are refused until the cooldown passes", async () => {
+  const realNow = Date.now;
+  let t = realNow();
+  Date.now = () => t;
+  try {
+    t += COOLDOWN_MS + 1; // clear any cooldown left by the tests above
+    const d = double({ gum: (stop) => async () => ({ getTracks: () => [{ stop }] }) });
+    const p = capture(d.dlg);
+    await new Promise((r) => setTimeout(r, 5));
+    d.dlg.close(); // the person cancels
+    assert.deepEqual(await p, { ok: false, error: "cancelled" });
+    assert.equal(d.dlg.opens, 1);
+    assert.deepEqual(await capture(d.dlg), { ok: false, error: "cancelled" });
+    assert.equal(d.dlg.opens, 1, "the immediate retry opens no dialog");
+    t += COOLDOWN_MS + 1;
+    const p2 = capture(d.dlg);
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(d.dlg.opens, 2, "after the cooldown the dialog opens again");
+    d.dlg.close();
+    await p2;
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test("only one capture at a time; a second call is refused and cannot close the first", async () => {
+  const realNow = Date.now;
+  Date.now = () => realNow() + 3 * COOLDOWN_MS; // past the cooldowns the tests above left
   const d = double({ gum: (stop) => () => new Promise(() => {}) });
   capture(d.dlg);
   await new Promise((r) => setTimeout(r, 5));
@@ -83,4 +110,5 @@ test("only one capture at a time; a second call is refused and cannot close the 
   assert.deepEqual(await capture(d.dlg), { ok: false, error: "cancelled" });
   assert.equal(d.dlg.opens, 1, "no second dialog");
   assert.ok(CLICK_GUARD_MS >= 500);
+  Date.now = realNow;
 });
