@@ -75,3 +75,24 @@ func TestAdminTemplateDirEdits(t *testing.T) {
 		t.Errorf("edited template not served: %q", sb.String())
 	}
 }
+
+// RenderPartial runs against the layouts and partials alone, so using it any
+// number of times parses no page.
+func TestRenderPartialParsesNoPage(t *testing.T) {
+	t.Parallel()
+
+	g := newRig(t)
+	for range 300 {
+		out, err := g.a.RenderPartial("hm/aia-policy-start", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = out
+	}
+	_, pages := g.a.state()
+	for key, ps := range pages {
+		if ps.t != nil || ps.err != nil {
+			t.Fatalf("RenderPartial parsed page %s", key)
+		}
+	}
+}

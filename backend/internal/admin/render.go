@@ -38,7 +38,7 @@ type pageSet struct {
 }
 
 // tmpl returns this Admin's executable copy of the page set, building it on
-// the first call.
+// the first call. A pageSet with no file is the layouts and partials alone.
 func (ps *pageSet) tmpl() (*template.Template, error) {
 	ps.once.Do(func() {
 		t, err := ps.base.Clone()
@@ -47,14 +47,16 @@ func (ps *pageSet) tmpl() (*template.Template, error) {
 			ps.err = fmt.Errorf("admin template %s: %w", ps.file, err)
 			return
 		}
-		body, err := fs.ReadFile(ps.fsys, ps.file)
-		if err != nil {
-			ps.err = fmt.Errorf("admin template %s: %w", ps.file, err)
-			return
-		}
-		if _, err := t.New("page").Parse(string(body)); err != nil {
-			ps.err = fmt.Errorf("admin template %s: %w", ps.file, err)
-			return
+		if ps.file != "" {
+			body, err := fs.ReadFile(ps.fsys, ps.file)
+			if err != nil {
+				ps.err = fmt.Errorf("admin template %s: %w", ps.file, err)
+				return
+			}
+			if _, err := t.New("page").Parse(string(body)); err != nil {
+				ps.err = fmt.Errorf("admin template %s: %w", ps.file, err)
+				return
+			}
 		}
 		ps.t = t.Funcs(ps.fm)
 	})
@@ -372,6 +374,7 @@ func (a *Admin) build() error {
 	}
 	a.mu.Lock()
 	a.assets, a.pages, a.loaded = as, pages, true
+	a.partials = &pageSet{base: srcs.base, fm: fm}
 	a.mu.Unlock()
 	return nil
 }
@@ -583,19 +586,22 @@ func pageWidth(w string) string {
 // RenderPartial executes one named partial (tests, and handlers that return a
 // fragment such as a table row after an htmx action).
 func (a *Admin) RenderPartial(name string, data any) (template.HTML, error) {
-	_, pages := a.state()
-	for _, ps := range pages {
-		tmpl, err := ps.tmpl()
-		if err != nil {
-			return "", err
-		}
-		var buf bytes.Buffer
-		if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
-			return "", err
-		}
-		return template.HTML(buf.String()), nil //nolint:gosec // produced by html/template
+	a.state() // rebuilds first with a template dir
+	a.mu.RLock()
+	ps := a.partials
+	a.mu.RUnlock()
+	if ps == nil {
+		return "", fmt.Errorf("admin: no templates loaded")
 	}
-	return "", fmt.Errorf("admin: no page templates loaded")
+	tmpl, err := ps.tmpl()
+	if err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
+		return "", err
+	}
+	return template.HTML(buf.String()), nil //nolint:gosec // produced by html/template
 }
 
 // prefix is the admin URL prefix of the view.
