@@ -48,7 +48,7 @@ func (m *memStore) Enable(_ context.Context, level Level) (State, error) {
 			m.st.WindowStart = &now
 		}
 	}
-	m.st.Consent, m.st.Level, m.st.NudgeDismissed = ConsentYes, level, true
+	m.st.Consent, m.st.Level, m.st.NudgeDismissed, m.st.DefaultNoticePending = ConsentYes, level, true, false
 	if m.st.InstallID == "" {
 		m.n++
 		m.st.InstallID = strings.Repeat(string(rune('a'+m.n)), 32)
@@ -58,7 +58,7 @@ func (m *memStore) Enable(_ context.Context, level Level) (State, error) {
 func (m *memStore) Disable(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.st.Consent, m.st.Level, m.st.InstallID = ConsentNo, LevelOff, ""
+	m.st.Consent, m.st.Level, m.st.InstallID, m.st.DefaultNoticePending = ConsentNo, LevelOff, "", false
 	m.st.Counts, m.st.Sent, m.st.WindowStart, m.st.DetailedSentAt = Counts{}, Counts{}, nil, nil
 	m.disabled++
 	return nil
@@ -126,10 +126,21 @@ func (m *memStore) AddHealth(_ context.Context, d Counts) error {
 func (m *memStore) DismissNudge(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.st.Level == LevelBasic {
-		m.st.NudgeDismissed = true
-	}
+	m.st.NudgeDismissed = m.st.NudgeDismissed || m.st.Level == LevelBasic
+	m.st.DefaultNoticePending = false
 	return nil
+}
+func (m *memStore) ApplyDefault(context.Context) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.st.Level != LevelUnset || m.st.Consent != ConsentUnset {
+		return false, nil
+	}
+	now := time.Now()
+	m.n++
+	m.st.Consent, m.st.Level, m.st.NudgeDismissed, m.st.DefaultNoticePending = ConsentYes, LevelDetailed, true, true
+	m.st.InstallID, m.st.WindowStart = strings.Repeat(string(rune('a'+m.n)), 32), &now
+	return true, nil
 }
 func (m *memStore) Banner(context.Context) (BannerKind, error) {
 	m.mu.Lock()
@@ -137,6 +148,8 @@ func (m *memStore) Banner(context.Context) (BannerKind, error) {
 	switch {
 	case m.st.Level == LevelUnset:
 		return BannerUnanswered, nil
+	case m.st.DefaultNoticePending && m.st.Level == LevelDetailed:
+		return BannerDefaulted, nil
 	case m.st.Level == LevelBasic && !m.st.NudgeDismissed:
 		return BannerNudge, nil
 	}
@@ -170,6 +183,154 @@ func rig(t *testing.T, env map[string]string, version string) (*Service, *memSto
 	s := New(Config{Store: m, Version: version, Getenv: envOf(env), HTTP: r,
 		Channel: func(context.Context) string { return "stable" }})
 	return s, m, r
+}
+
+// defaultRig is rig with the setup wizard reported complete (or not) and an
+// audit recorder.
+func defaultRig(t *testing.T, env map[string]string, version string, setupDone bool, demo bool) (*Service, *memStore, *recorder, *[]map[string]any) {
+	t.Helper()
+	m, r := newMem(), &recorder{}
+	var audits []map[string]any
+	s := New(Config{Store: m, Version: version, Getenv: envOf(env), HTTP: r, Demo: demo,
+		Channel:       func(context.Context) string { return "stable" },
+		SetupComplete: func(context.Context) (bool, error) { return setupDone, nil }})
+	s.SetAudit(func(_ context.Context, action, target string, detail map[string]any) {
+		audits = append(audits, map[string]any{"action": action, "target": target, "detail": detail})
+	})
+	return s, m, r, &audits
+}
+
+func TestRunDefaultsToDetailedWhenSetupComplete(t *testing.T) {
+	ctx := context.Background()
+	s, m, r, audits := defaultRig(t, nil, "v1.2.3", true, false)
+	if err := s.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.reqs) != 1 {
+		t.Fatalf("%d requests, want 1", len(r.reqs))
+	}
+	if st, _ := m.Load(ctx); st.Consent != ConsentYes || st.Level != LevelDetailed || !st.DefaultNoticePending {
+		t.Fatalf("state = %+v", st)
+	}
+	if got, _ := s.Banner(ctx); got != BannerDefaulted {
+		t.Fatalf("banner = %q, want defaulted", got)
+	}
+	if len(*audits) != 1 || (*audits)[0]["action"] != "stats.consent" || (*audits)[0]["target"] != "stats" {
+		t.Fatalf("audits = %v", *audits)
+	}
+	d := (*audits)[0]["detail"].(map[string]any)
+	if d["choice"] != "detailed" || d["default"] != true {
+		t.Fatalf("audit detail = %v", d)
+	}
+	// A second boot and run change nothing and do not audit again.
+	if err := s.Enforce(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(*audits) != 1 {
+		t.Fatalf("audits after second Enforce = %d, want 1", len(*audits))
+	}
+}
+
+func TestEnforceAtBootAppliesTheDefault(t *testing.T) {
+	ctx := context.Background()
+	s, m, r, _ := defaultRig(t, nil, "v1.2.3", true, false)
+	if err := s.Enforce(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := m.Load(ctx); st.Level != LevelDetailed || st.Consent != ConsentYes {
+		t.Fatalf("state = %+v", st)
+	}
+	if len(r.reqs) != 0 {
+		t.Fatalf("Enforce sent %d requests", len(r.reqs))
+	}
+}
+
+func TestDefaultNotAppliedWhenSetupIncomplete(t *testing.T) {
+	ctx := context.Background()
+	s, m, r, audits := defaultRig(t, nil, "v1.2.3", false, false)
+	if err := s.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := m.Load(ctx); st.Level != LevelUnset || len(r.reqs) != 0 || len(*audits) != 0 {
+		t.Fatalf("level %q, %d requests, %d audits", st.Level, len(r.reqs), len(*audits))
+	}
+	// A failing completeness check is "not complete".
+	s2 := New(Config{Store: m, Version: "v1.2.3", Getenv: envOf(nil), HTTP: r,
+		SetupComplete: func(context.Context) (bool, error) { return true, errors.New("db down") }})
+	if applied, err := s2.ApplyDefault(ctx); applied || err == nil {
+		t.Fatalf("ApplyDefault on check error = %v, %v", applied, err)
+	}
+	if st, _ := m.Load(ctx); st.Level != LevelUnset {
+		t.Fatalf("level = %q", st.Level)
+	}
+}
+
+func TestDefaultKeepsExplicitAnswers(t *testing.T) {
+	ctx := context.Background()
+	for name, level := range map[string]Level{"off": LevelOff, "basic": LevelBasic} {
+		s, m, _, audits := defaultRig(t, nil, "v1.2.3", true, false)
+		if err := s.Choose(ctx, level); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Enforce(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if st, _ := m.Load(ctx); st.Level != level || st.DefaultNoticePending || len(*audits) != 0 {
+			t.Errorf("%s: state %+v, %d audits", name, st, len(*audits))
+		}
+	}
+}
+
+func TestDefaultNeverAppliesWhenForcedOffDevOrDemo(t *testing.T) {
+	ctx := context.Background()
+	for name, c := range map[string]struct {
+		env     map[string]string
+		version string
+		demo    bool
+	}{
+		"env off": {map[string]string{EnvTelemetry: "off"}, "v1.2.3", false},
+		"dev":     {nil, "dev", false},
+		"demo":    {nil, "v1.2.3", true},
+	} {
+		s, m, r, audits := defaultRig(t, c.env, c.version, true, c.demo)
+		if err := s.Run(ctx); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		st, _ := m.Load(ctx)
+		if len(r.reqs) != 0 || len(*audits) != 0 || st.Level == LevelDetailed || st.DefaultNoticePending {
+			t.Errorf("%s: %d requests, %d audits, state %+v", name, len(r.reqs), len(*audits), st)
+		}
+		if name != "env off" && st.Consent != ConsentUnset {
+			t.Errorf("%s: row written: %+v", name, st)
+		}
+	}
+}
+
+func TestChooseClearsTheDefaultedNotice(t *testing.T) {
+	ctx := context.Background()
+	s, m, _, _ := defaultRig(t, nil, "v1.2.3", true, false)
+	for _, level := range []Level{LevelDetailed, LevelBasic, LevelOff} {
+		if _, err := s.ApplyDefault(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Choose(ctx, level); err != nil {
+			t.Fatal(err)
+		}
+		if st, _ := m.Load(ctx); st.DefaultNoticePending {
+			t.Fatalf("Choose(%s) left the notice pending", level)
+		}
+		m.st = State{Consent: ConsentUnset, Level: LevelUnset}
+	}
+	// "Got it" clears it too.
+	if _, err := s.ApplyDefault(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DismissNudge(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.Banner(ctx); got != BannerNone {
+		t.Fatalf("banner after dismiss = %q", got)
+	}
 }
 
 func TestRunSendsNothingWithoutConsent(t *testing.T) {

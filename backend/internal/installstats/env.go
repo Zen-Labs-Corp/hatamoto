@@ -9,8 +9,9 @@ import (
 
 // Environment variables an operator can set.
 const (
-	// EnvTelemetry set to "off" forces install stats off. No value turns them
-	// on: only the owner's choice does.
+	// EnvTelemetry set to "off" forces install stats off and wins over
+	// everything. Unset, a release install the owner never answered for sends
+	// Detailed once setup is complete; an explicit choice is kept.
 	EnvTelemetry = "HATAMOTO_TELEMETRY"
 	// EnvURL overrides the endpoint, for testing.
 	EnvURL = "HATAMOTO_TELEMETRY_URL"
