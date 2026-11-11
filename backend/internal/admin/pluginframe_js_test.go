@@ -49,6 +49,9 @@ func TestPluginFrameGatesCameraOnTheGrant(t *testing.T) {
 		`holder.dataset.camera === "1"`,
 		`m.op === "camera.capture"`,
 		`if (!camera) throw new Error(`,
+		`navigator.userActivation?.isActive`,
+		`await import("@hm/plugincamera")`,
+		`camera, nonce })`,
 		`capture(document.getElementById("plugin-camera"))`,
 	} {
 		if !strings.Contains(js, want) {
@@ -59,8 +62,13 @@ func TestPluginFrameGatesCameraOnTheGrant(t *testing.T) {
 	if gate < 0 || fetch < 0 || gate > fetch {
 		t.Error("the camera gate must come before the bridge request")
 	}
+	if strings.Contains(js, `import { capture }`) {
+		t.Error("plugincamera.js must load on demand, not statically: ungranted pages stay as they were")
+	}
 	sdk := string(readFileT(t, "../../web/admin/js/pluginsdk.js"))
-	if !strings.Contains(sdk, `camera: { capture: () => send({ op: "camera.capture" }) }`) {
-		t.Error("pluginsdk.js lost hatamoto.camera.capture")
+	for _, want := range []string{`capture: () => send({ op: "camera.capture" })`, `available: false`, `m.camera === true`} {
+		if !strings.Contains(sdk, want) {
+			t.Errorf("pluginsdk.js lost %q", want)
+		}
 	}
 }

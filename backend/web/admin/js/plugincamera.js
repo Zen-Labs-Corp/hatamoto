@@ -39,29 +39,45 @@ function encode(video) {
   }
 }
 
+// A click on Capture counts only this long after the preview goes live, so a
+// plugin page cannot land a click the person never meant.
+export const CLICK_GUARD_MS = 500;
+let busy = false; // one capture at a time, held until its cleanup has run
+
 export async function capture(dlg) {
   if (!navigator.mediaDevices?.getUserMedia || !dlg) return { ok: false, error: "unavailable" };
-  if (dlg.open) return { ok: false, error: "cancelled" };
+  if (busy || dlg.open) return { ok: false, error: "cancelled" };
+  busy = true;
   const video = dlg.querySelector("[data-hm-camera-video]");
   const status = dlg.querySelector("[data-hm-camera-status]");
   const button = dlg.querySelector("[data-hm-camera-capture]");
   let stream = null;
   let onClick;
   let onClose;
+  let onLive;
+  let timer;
   const say = (text) => {
     if (!status) return;
     status.textContent = text;
     status.hidden = !text;
   };
   say("");
+  if (button) button.disabled = true;
   try {
     // The dialog opens first so the person sees why the browser asks.
     dlg.showModal();
     const done = new Promise((resolve) => {
       onClick = (e) => {
         e.preventDefault(); // the footer form is method=dialog; keep the dialog until the frame is read
-        if (video.videoWidth) resolve("capture");
+        if (video.videoWidth && !button?.disabled) resolve("capture");
       };
+      onLive = () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          if (button) button.disabled = false;
+        }, CLICK_GUARD_MS);
+      };
+      video.addEventListener("loadeddata", onLive);
       onClose = () => resolve("cancelled");
       button?.addEventListener("click", onClick);
       dlg.addEventListener("close", onClose);
@@ -71,16 +87,24 @@ export async function capture(dlg) {
     } catch (err) {
       const error = errorCode(err);
       say(error === "denied" ? "Camera access was blocked. Allow it in the browser to use it here." : "No camera is available.");
+      // Keep the dialog open so the person can read why; Capture stays disabled.
+      await done;
       return { ok: false, error };
     }
     video.srcObject = stream;
     if (!dlg.open) return { ok: false, error: "cancelled" };
     return (await done) === "capture" ? encode(video) : { ok: false, error: "cancelled" };
   } finally {
+    clearTimeout(timer);
     stream?.getTracks().forEach((t) => t.stop());
-    if (video) video.srcObject = null;
+    if (video) {
+      video.srcObject = null;
+      video.removeEventListener("loadeddata", onLive);
+    }
+    if (button) button.disabled = false;
     button?.removeEventListener("click", onClick);
     dlg.removeEventListener("close", onClose);
     if (dlg.open) dlg.close();
+    busy = false;
   }
 }

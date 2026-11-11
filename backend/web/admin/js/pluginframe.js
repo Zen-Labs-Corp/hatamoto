@@ -4,11 +4,11 @@
 // to the bridge endpoint, which runs as the signed-in user and enforces the
 // plugin's granted permissions again on the server.
 //
-//   iframe -> {hm:1, id, op:"ready"}                         -> {hm:1, type:"hello", plugin, functions, nonce}
+//   iframe -> {hm:1, id, op:"ready"}                         -> {hm:1, type:"hello", plugin, functions, camera, nonce}
 //   iframe -> {hm:1, id, nonce, op:"route", method, path, query, body}  (the plugin's own routes)
 //   iframe -> {hm:1, id, nonce, op:"host", fn, args}                    (a granted host function; owner only)
 //   iframe -> {hm:1, id, nonce, op:"inputs", values}                    (run inputs, kept in core's start form; no request is made)
-//   iframe -> {hm:1, id, nonce, op:"camera.capture"}                    (only with the owner's camera grant: core's own dialog, one JPEG back; no request is made)
+//   iframe -> {hm:1, id, nonce, op:"camera.capture"}                    (only with the owner's camera grant and a recent click: core's own dialog, one JPEG back; no request is made)
 //
 // The bridge belongs to the ONE document the frame loads first. A sandboxed
 // frame can still navigate itself, and the next document has the same opaque
@@ -23,7 +23,8 @@
 // Not stopped here: a page can still leave through ONE navigation, with
 // whatever it had already read in the URL (docs/PLUGIN_API.md, "Admin page").
 
-import { capture } from "@hm/plugincamera";
+// The camera module is loaded only for a page that holds the grant, so an
+// ungranted page fetches nothing extra.
 
 function init() {
   const holder = document.querySelector("[data-hm-pluginframe]");
@@ -70,6 +71,9 @@ function init() {
       return setRunInputs(m.values);
     } else if (m.op === "camera.capture") {
       if (!camera) throw new Error("camera is not available to this plugin's page");
+      // Starting the camera needs a person's click (in the page or its frame), not a script.
+      if (!navigator.userActivation?.isActive) throw new Error("camera needs a click on the page first");
+      const { capture } = await import("@hm/plugincamera");
       return capture(document.getElementById("plugin-camera"));
     } else if (m.op === "route") {
       if (typeof m.path !== "string" || !m.path.startsWith("/")) throw new Error("path must start with /");
@@ -91,7 +95,7 @@ function init() {
 
   // The frame may announce itself before its load event, so the host greets it
   // on "ready" and again when the first load has finished.
-  const hello = () => reply({ type: "hello", plugin, functions: [...functions], nonce });
+  const hello = () => reply({ type: "hello", plugin, functions: [...functions], camera, nonce });
 
   frame.addEventListener("load", () => {
     loads++;
