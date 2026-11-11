@@ -27,7 +27,7 @@ One install is one site in one language. There are no per-language address prefi
 
 | Layer | What Hatamoto uses |
 |---|---|
-| Language | Go 1.27 (`go 1.27`, `toolchain go1.27.3` in `backend/go.mod`) |
+| Language | Go 1.27 (`go 1.27`, `toolchain go1.27.4` in `backend/go.mod`) |
 | HTTP routing | the standard library `net/http.ServeMux`, plus a small route-group helper in `internal/httpx` |
 | Database driver | `pgx/v5` |
 | Migrations | `goose/v3` used as a library, embedded in the program |
