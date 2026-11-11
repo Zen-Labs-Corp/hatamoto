@@ -65,7 +65,7 @@ The 0.22.0 bump is additive over 0.21: the `request.redirect` filter and the `re
 
 The 0.22.2 bump is additive over 0.22.1: the `ui` manifest block gains `allow` (`camera`), the owner grant `ui.allow:camera` and the page call `hatamoto.camera.capture()`, with `AdminUI.Allow`, `UIAllowCamera`, `PermUICamera`, `ValidGrant` and `Manifest.Asked`. The result shape (`ok`, `image`, `width`, `height`) and the error codes `cancelled`, `denied` and `unavailable` are stable. A host older than 0.22.2 ignores the field and the grant. Only plugins that ask for the camera see a change: `ui.allow:camera` can appear in `permissions[]` and `granted[]` of `/api/v1/plugins`, and in `requested` and `granted` of the `permissions()` host call. Nothing else changed.
 
-The 0.22.1 bump is additive over 0.22.0: `permissions()` gains `mail` (`recipients_per_hour`) for a plugin granted `mail.send`, with the `PermissionsResult` and `MailQuota` types. Only plugins that ask for the camera see a change: `ui.allow:camera` can appear in `permissions[]` and `granted[]` of `/api/v1/plugins`, and in `requested` and `granted` of the `permissions()` host call. Nothing else changed.
+The 0.22.1 bump is additive over 0.22.0: `permissions()` gains `mail` (`recipients_per_hour`) for a plugin granted `mail.send`, with the `PermissionsResult` and `MailQuota` types. No existing output changed.
 
 The 0.21.0 bump is additive over 0.20: the `packages.inspect` permission and host function, the `hatamoto.dev/sdk/registry` package and `guest.PackagesInspect` (see `version.go`).
 
