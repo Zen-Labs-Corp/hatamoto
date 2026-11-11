@@ -101,7 +101,7 @@ func (rs *redirectServer) chain() (h http.Handler, reached *atomic.Int32, uncach
 
 // get serves a request from 1.2.3.4 (the low half of the fixture) behind a
 // trusted proxy, with the given cookies as name=value strings.
-func get(h http.Handler, method, target string, cookies ...string) *httptest.ResponseRecorder {
+func getRedirect(h http.Handler, method, target string, cookies ...string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, target, nil)
 	req.RemoteAddr = "127.0.0.1:1234"
 	req.Header.Set("X-Forwarded-For", "1.2.3.4")
@@ -117,7 +117,7 @@ func get(h http.Handler, method, target string, cookies ...string) *httptest.Res
 func TestRequestRedirectAnswersDeclaredPath(t *testing.T) {
 	rs := newRedirectServer(t, "echo")
 	h, reached, _ := rs.chain()
-	rec := get(h, "GET", "/go?utm=x", "hmp_rdr_pref=v1", "hmp_rdr_hidden=b", "session=secret")
+	rec := getRedirect(h, "GET", "/go?utm=x", "hmp_rdr_pref=v1", "hmp_rdr_hidden=b", "session=secret")
 	if rec.Code != http.StatusTemporaryRedirect {
 		t.Fatalf("status = %d, want 307", rec.Code)
 	}
@@ -146,7 +146,7 @@ func TestRequestRedirectAnswersDeclaredPath(t *testing.T) {
 func TestRequestRedirectSetsNamespacedCookie(t *testing.T) {
 	rs := newRedirectServer(t, "redirect")
 	h, _, _ := rs.chain()
-	rec := get(h, "GET", "/go", "hmp_rdr_pref=v1")
+	rec := getRedirect(h, "GET", "/go", "hmp_rdr_pref=v1")
 	if rec.Code != http.StatusFound {
 		t.Fatalf("status = %d, want 302", rec.Code)
 	}
@@ -186,7 +186,7 @@ func TestRequestRedirectMethodsAndPaths(t *testing.T) {
 		{"GET", "/", false},
 	} {
 		before := rs.asked.Load()
-		rec := get(h, tc.method, tc.target)
+		rec := getRedirect(h, tc.method, tc.target)
 		if asked := rs.asked.Load() > before; asked != tc.asked {
 			t.Errorf("%s %s: plugin called = %v, want %v", tc.method, tc.target, asked, tc.asked)
 		}
@@ -206,7 +206,7 @@ func TestRequestRedirectWithoutRuntimeIsInert(t *testing.T) {
 	rs := newRedirectServer(t, "echo")
 	rs.s.plugins = nil
 	h, reached, _ := rs.chain()
-	if rec := get(h, "GET", "/go"); rec.Body.String() != "normal" || reached.Load() != 1 {
+	if rec := getRedirect(h, "GET", "/go"); rec.Body.String() != "normal" || reached.Load() != 1 {
 		t.Fatalf("no runtime: %d %q", rec.Code, rec.Body.String())
 	}
 	if rs.asked.Load() != 0 {
@@ -217,7 +217,7 @@ func TestRequestRedirectWithoutRuntimeIsInert(t *testing.T) {
 func TestRequestRedirectCookieOnlyBypassesCache(t *testing.T) {
 	rs := newRedirectServer(t, "cookie")
 	h, reached, uncached := rs.chain()
-	rec := get(h, "GET", "/go")
+	rec := getRedirect(h, "GET", "/go")
 	if rec.Body.String() != "normal" || reached.Load() != 1 {
 		t.Fatalf("cookie-only answer did not fall through: %d %q", rec.Code, rec.Body.String())
 	}
@@ -238,7 +238,7 @@ func TestRequestRedirectFailsOpen(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			rs := newRedirectServer(t, mode)
 			h, reached, uncached := rs.chain()
-			rec := get(h, "GET", "/go")
+			rec := getRedirect(h, "GET", "/go")
 			if rec.Code != http.StatusOK || rec.Body.String() != "normal" || reached.Load() != 1 {
 				t.Fatalf("%s: %d %q, want normal handling", mode, rec.Code, rec.Body.String())
 			}
@@ -255,7 +255,7 @@ func TestRequestRedirectFailsOpen(t *testing.T) {
 func TestRequestRedirectRunsBeforeRouterInDispatcher(t *testing.T) {
 	rs := newRedirectServer(t, "redirect")
 	rs.s.setupRoutes()
-	rec := get(rs.s.dispatcher(), "GET", "/go")
+	rec := getRedirect(rs.s.dispatcher(), "GET", "/go")
 	if rec.Code != http.StatusFound || rec.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("dispatcher: %d, %v", rec.Code, rec.Header())
 	}
@@ -265,7 +265,7 @@ func TestRequestRedirectSkipsPublicAPIPrefix(t *testing.T) {
 	rs := newRedirectServer(t, "echo")
 	rs.s.cfg.PublicSite.APIPrefix = "/go"
 	h, reached, _ := rs.chain()
-	if rec := get(h, "GET", "/go"); rec.Body.String() != "normal" || reached.Load() != 1 {
+	if rec := getRedirect(h, "GET", "/go"); rec.Body.String() != "normal" || reached.Load() != 1 {
 		t.Fatalf("the public API prefix was answered by a plugin: %d %q", rec.Code, rec.Body.String())
 	}
 }
@@ -274,7 +274,7 @@ func TestRequestRedirectFollowsCountryReload(t *testing.T) {
 	rs := newRedirectServer(t, "redirect")
 	h, _, _ := rs.chain()
 	country := func() string {
-		loc, _ := url.Parse(get(h, "GET", "/go").Header().Get("Location"))
+		loc, _ := url.Parse(getRedirect(h, "GET", "/go").Header().Get("Location"))
 		return loc.Query().Get("c")
 	}
 	if got := country(); got != "XX" {
@@ -291,7 +291,7 @@ func TestRequestRedirectNoGeoDatabaseGivesEmptyCountry(t *testing.T) {
 	rs := newRedirectServer(t, "redirect")
 	rs.s.geoHolder = nil
 	h, _, _ := rs.chain()
-	loc, _ := url.Parse(get(h, "GET", "/go").Header().Get("Location"))
+	loc, _ := url.Parse(getRedirect(h, "GET", "/go").Header().Get("Location"))
 	if c, ok := loc.Query()["c"]; !ok || c[0] != "" {
 		t.Fatalf("location = %q, want an empty country", loc)
 	}
@@ -319,7 +319,7 @@ func TestRequestRedirectLocationIsSentVerbatimOrDropped(t *testing.T) {
 	for _, loc := range []string{"/a/./b?next=/../x", "/a//b"} {
 		rs := newRedirectServerWith(t, map[string]string{"mode": "config-location", "location": loc})
 		h, reached, _ := rs.chain()
-		rec := get(h, "GET", "/go")
+		rec := getRedirect(h, "GET", "/go")
 		if got := rec.Header().Get("Location"); rec.Code != http.StatusFound || got != loc || reached.Load() != 0 {
 			t.Errorf("%q: %d Location %q, want 302 verbatim", loc, rec.Code, got)
 		}
@@ -331,7 +331,7 @@ func TestRequestRedirectLocationIsSentVerbatimOrDropped(t *testing.T) {
 	} {
 		rs := newRedirectServerWith(t, map[string]string{"mode": "config-location", "location": loc})
 		h, reached, _ := rs.chain()
-		rec := get(h, "GET", "/go")
+		rec := getRedirect(h, "GET", "/go")
 		if rec.Code != http.StatusOK || rec.Header().Get("Location") != "" || reached.Load() != 1 {
 			t.Errorf("%q: %d Location %q, want the Location dropped and normal handling", loc, rec.Code, rec.Header().Get("Location"))
 		}
@@ -341,7 +341,7 @@ func TestRequestRedirectLocationIsSentVerbatimOrDropped(t *testing.T) {
 // servedThrough serves GET path through the request.redirect wrapper in front
 // of the fixture's real catch-all handler.
 func (rs *redirectServer) servedThrough(f *renderFixture, path string) *httptest.ResponseRecorder {
-	return get(rs.s.requestRedirect(http.HandlerFunc(f.h.handleRenderCatchAll)), "GET", path)
+	return getRedirect(rs.s.requestRedirect(http.HandlerFunc(f.h.handleRenderCatchAll)), "GET", path)
 }
 
 func hasVaryCookie(h http.Header) bool {
@@ -470,7 +470,7 @@ func TestRequestRedirectNotCalledWhenSiteGateHoldsRequestBack(t *testing.T) {
 	}
 	rs.s.setupRoutes()
 	rs.s.renderHandlers = newRenderFixture(t).h // renders the gate's maintenance page
-	rec := get(rs.s.dispatcher(), "GET", "/go")
+	rec := getRedirect(rs.s.dispatcher(), "GET", "/go")
 	if rec.Code != http.StatusServiceUnavailable || rec.Header().Get("Location") != "" {
 		t.Fatalf("maintenance: %d, Location %q, want the gate's 503", rec.Code, rec.Header().Get("Location"))
 	}
@@ -480,7 +480,7 @@ func TestRequestRedirectNotCalledWhenSiteGateHoldsRequestBack(t *testing.T) {
 	rs.s.accessSettings = func(context.Context) (siteaccess.Settings, error) {
 		return siteaccess.Settings{Mode: siteaccess.ModeOpen}, nil
 	}
-	if rec := get(rs.s.dispatcher(), "GET", "/go"); rec.Code != http.StatusFound || rs.asked.Load() != 1 {
+	if rec := getRedirect(rs.s.dispatcher(), "GET", "/go"); rec.Code != http.StatusFound || rs.asked.Load() != 1 {
 		t.Fatalf("open site: %d, %d calls, want the plugin's redirect", rec.Code, rs.asked.Load())
 	}
 }
@@ -513,7 +513,7 @@ func TestRequestRedirectTimeoutIsCapped(t *testing.T) {
 	rs := newRedirectServer(t, "sl"+"eep")
 	h, reached, _ := rs.chain()
 	start := time.Now()
-	rec := get(h, "GET", "/go")
+	rec := getRedirect(h, "GET", "/go")
 	if elapsed := time.Since(start); elapsed > 3*time.Second {
 		t.Fatalf("a hung plugin held the request for %v", elapsed)
 	}

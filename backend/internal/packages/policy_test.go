@@ -220,7 +220,7 @@ func TestNewRequestHeaders(t *testing.T) {
 
 // An update that adds a redirect path is widened access; the same paths are not.
 func TestNewRedirectPaths(t *testing.T) {
-	p := parse(t, mustPack(t, pathsPack("promo", "1.1.0", "/go", "/start")))
+	p := parse(t, mustPackPaths(t, pathsPack("promo", "1.1.0", "/go", "/start")))
 	if got := newRedirectPaths([]byte(`{"name":"promo","version":"1.0.0","sdk":"^0.22"}`), p); !slices.Equal(got, []string{"/go", "/start"}) {
 		t.Errorf("new paths = %v, want both", got)
 	}
@@ -236,7 +236,7 @@ func TestNewRedirectPaths(t *testing.T) {
 	}
 }
 
-func mustPack(t *testing.T, files map[string][]byte) []byte {
+func mustPackPaths(t *testing.T, files map[string][]byte) []byte {
 	t.Helper()
 	raw, err := PackFiles(files, nil)
 	if err != nil {
