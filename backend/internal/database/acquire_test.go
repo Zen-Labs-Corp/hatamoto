@@ -84,3 +84,18 @@ func TestPoolBusyHitFlagsSwallowedBoundedAcquire(t *testing.T) {
 		t.Fatal("flag leaked to an unbounded ctx")
 	}
 }
+
+// Once a request gave up on the pool, its later acquires fail at once instead
+// of waiting another full bound.
+func TestAcquireAfterPoolBusyFailsFast(t *testing.T) {
+	ctx := WithAcquireBound(context.Background(), time.Minute)
+	NotePoolBusy(ctx)
+	start := time.Now()
+	_, err := acquire(ctx, blockingAcquirer{})
+	if !errors.Is(err, ErrPoolBusy) {
+		t.Fatalf("err = %v, want ErrPoolBusy", err)
+	}
+	if d := time.Since(start); d > time.Second {
+		t.Fatalf("took %s, want an immediate failure", d)
+	}
+}

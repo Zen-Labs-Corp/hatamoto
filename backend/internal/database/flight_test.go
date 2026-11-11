@@ -363,3 +363,15 @@ func TestFlightBoundedWaiterOfCappedLoadGetsPoolBusy(t *testing.T) {
 		t.Fatal("request not flagged busy after a capped shared load")
 	}
 }
+
+func TestFlightAfterPoolBusyFailsFast(t *testing.T) {
+	t.Parallel()
+	var f Flight[int]
+	ctx := WithAcquireBound(context.Background(), time.Minute)
+	NotePoolBusy(ctx)
+	var calls atomic.Int32
+	_, err := f.Do(ctx, blockUntilDone(nil, &calls))
+	if !errors.Is(err, ErrPoolBusy) || calls.Load() != 0 {
+		t.Fatalf("err = %v, loads = %d, want ErrPoolBusy without a load", err, calls.Load())
+	}
+}

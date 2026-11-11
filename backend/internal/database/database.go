@@ -90,6 +90,11 @@ func AcquireFrom(ctx context.Context, pool *pgxpool.Pool) (*pgxpool.Conn, error)
 }
 
 func acquire(ctx context.Context, a acquirer) (*pgxpool.Conn, error) {
+	if PoolBusyHit(ctx) {
+		// The request already gave up on the pool and will answer 503: do not
+		// queue behind it again.
+		return nil, fmt.Errorf("failed to acquire connection: %w", ErrPoolBusy)
+	}
 	actx := ctx
 	if bound := AcquireBound(ctx); bound > 0 {
 		var cancel context.CancelFunc

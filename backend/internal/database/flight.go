@@ -102,6 +102,9 @@ func (f *Flight[T]) Do(ctx context.Context, load func(context.Context) (T, error
 // commit must be quick and must not call back into the Flight.
 func (f *Flight[T]) DoCommit(ctx context.Context, load func(context.Context) (T, error), commit func(T)) (T, error) {
 	var zero T
+	if PoolBusyHit(ctx) {
+		return zero, fmt.Errorf("waiting for shared load: %w", ErrPoolBusy)
+	}
 	f.mu.Lock()
 	window := f.ErrWindow
 	if window <= 0 {
