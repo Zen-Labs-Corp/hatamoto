@@ -103,4 +103,4 @@ The card on **Theme > Themes** shows **Signed by** with your key id, and the sit
 
 If installing says `package is signed by a key you do not trust`, the key is missing from `HATAMOTO_TRUSTED_KEYS` where you ran the command. If the install worked but the site still shows the old theme, and the server log says `installed package not loaded` with `no longer in HATAMOTO_TRUSTED_KEYS`, the running server does not have the key: add it to the service's settings and restart.
 
-To publish for other sites, use a developer account at https://hatamoto.dev/developers, or run your own registry, a place other sites browse and install packages from. The package rules, the trust checks and the registry are described in [Package format and commands](package-format.md).
+To publish for other sites, use a [developer account](https://hatamoto.dev/developers), or run your own registry, a place other sites browse and install packages from. The package rules, the trust checks and the registry are described in [Package format and commands](package-format.md).

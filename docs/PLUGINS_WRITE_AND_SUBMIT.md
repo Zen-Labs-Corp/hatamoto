@@ -197,11 +197,11 @@ recommended.
 
 | Field | Meaning |
 |---|---|
-| `name` | `^[a-z][a-z0-9-]{1,39}$`; also the name of your manifest file here |
+| `name` | `^[a-z][a-z0-9-]{1,39}$` |
 | `version` | your plugin's semver; bump it for every release |
 | `sdk` | SDK range you built against, for example `^0.11` (declare `^0.11` until your users run v0.31.0, then `^0.12`) |
 | `description` | shown in the plugin directory |
-| `permissions` | capabilities you ask for (`settings`, `kv`, `db`, `http.fetch`, ...). Ask for the least you need; reviewers check each one |
+| `permissions` | capabilities you ask for (`settings`, `kv`, `db`, `http.fetch`, ...). Ask for the least you need; site owners see each one when they install |
 | `allowed_hosts` | the hosts `http.fetch` may call; list them exactly |
 | `routes`, `cron`, `funcs`, `cookies`, `limits`, `settings_schema` | optional, see the plugin reference |
 
@@ -217,12 +217,13 @@ cp plugin.json build/plugin.json
 for d in migrations ui assets; do if [ -d "$d" ]; then cp -r "$d" "build/$d"; fi; done
 ```
 
-`build/` is exactly what gets packed. This is also the recipe the registry
-uses, so if it works here it works there. Add `build/` to `.gitignore`.
+`build/` is exactly what gets packed. This is also the recipe the first-party
+registry uses, so if it works here it works there. Add `build/` to `.gitignore`.
 
-Only Go plugins can be listed today. A plugin written in another language can
-be packed and installed on your own server, but the registry builder runs the Go
-recipe above and does not build other toolchains.
+The first-party registry builds Go plugins only. A developer account takes any
+signed `.hmp`, so a plugin written in another language can be packed, installed
+on your own server and published through [Part 2](#part-2-publish-your-plugin).
+Only the build step above is Go specific.
 
 ### 5. Test on your machine
 
@@ -279,9 +280,10 @@ hatamoto keys generate --name mykey      # mykey.key (secret) + mykey.pub
 hatamoto plugin pack ./build --key mykey.key --out acme-seo.hmp
 ```
 
-Keep `mykey.key` out of git. This key is only for your own trials: the registry
-re-builds your plugin from source and signs it with the Hatamoto key, so your
-signature is never shipped.
+Keep `mykey.key` out of git and never share it. Hatamoto does not re-sign your
+plugin: the `.hmp` you build carries your signature, and that is what site
+owners install. An account has one key and updates must be signed with the same
+key, so keep it safe and reuse it in [Part 2](#part-2-publish-your-plugin).
 
 To try the package on a development server, pick one:
 
@@ -308,12 +310,13 @@ release, and follow [Part 2](#part-2-publish-your-plugin).
 Anyone can publish. Developer accounts are free for now. We may introduce a fee later and will announce it in advance. You need an account to submit.
 
 1. **Create an account.** Open <https://hatamoto.dev/developers>, choose
-   "Sign in with GitHub", add a display name and accept the developer terms.
-2. **Make a signing key.** Run `hatamoto keys generate --name mykey`. Keep
-   `mykey.key` private. On the dashboard, paste the contents of `mykey.pub`
-   and choose "Add key". Each account has one key.
-3. **Pack and sign.** Run `hatamoto plugin pack . --key mykey.key`, then attach
-   the `.hmp` file to a release on GitHub.
+   "Sign in with GitHub", add a display name and accept the developer terms. You need a verified email on your GitHub account.
+2. **Add your signing key.** Use the key you made in Part 1 step 6. Do not run
+   `keys generate` again with the same name, it refuses to overwrite `mykey.key`.
+   On the dashboard, paste the contents of `mykey.pub` and choose "Add key".
+   Each account has one key.
+3. **Pack and sign.** Run `hatamoto plugin pack ./build --key mykey.key`, then
+   attach the `.hmp` file to a release on GitHub.
 4. **Submit.** On the dashboard fill in the form and choose "Check and submit":
    - Kind: Plugin.
    - Release file: the link to the `.hmp` file, in the form
@@ -334,15 +337,20 @@ We give no fixed review time.
 signs your code, and it checks who signed a package but does not review the
 code. A site owner must first turn on Admin > Plugins > Package security >
 Allow developer packages. That takes three steps: an acknowledgement, typing
-the site address, and the owner password. Then anyone on that site can install
+the site address, and the owner password. Then the owner can install
 it from Browse registry or with `hatamoto package install <name>`.
 
 **Updating.** Publish a new release with a higher version, signed by the same
-key, and submit it again. After a rejection, use "Resubmit".
+key, and submit it again with the new release link. "Resubmit" sends the same
+link and the same text again, so it only helps when you replaced the file at that
+link. For a new release or new text, fill in the form again.
 
 **Removing.** To take a plugin down, contact us. We may refuse or remove
-listings as the developer terms allow. A listing also drops out by itself if
-its file or signer changes.
+listings as the developer terms allow. A removal by us revokes the listing, and
+sites that installed it have it turned off the next time they read the developer
+index, within about 6 hours. A listing also drops out by itself if its file or
+signer changes; that only takes it out of the listing and leaves installed copies
+alone.
 
 ## First-party listing
 
@@ -398,7 +406,7 @@ and that the commit exists.
 
 ### Listing rules
 
-The validator and the registry build both enforce these rules. The word lists
+The validator and the registry build both enforce these rules. First-party plugins are exempt from the brand, reserved-name and title-word rules. The word lists
 live in the `policy/` folder of the plugins repository.
 
 - `author` must equal the owner of `repo`, except for first-party plugins.

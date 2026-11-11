@@ -12,8 +12,8 @@ The full theme reference (layouts, template funcs, sections, markers) is
 > works today with the `hatamoto` binary.
 
 Developer packages are listed at <https://hatamoto.dev/themes> and in Admin >
-Settings > Theme > Browse registry, once a site owner has allowed them (see
-Part 2). Themes in the first-party registry are listed another way, see
+Settings > Theme > Browse registry. Site owners can install them once they allow
+developer packages (see Part 2). Themes in the first-party registry are listed another way, see
 [First-party listing](#first-party-listing).
 
 
@@ -80,7 +80,7 @@ package format allows ([PACKAGES.md](PACKAGES.md)).
 | `name` | `^[a-z][a-z0-9-]{1,39}$`; `default` is reserved |
 | `version` | your theme's semver; bump it for every release |
 | `description` | shown on the directory card |
-| `screenshot` | **required for the registry**: path to a preview image under `assets/` |
+| `screenshot` | **required for the registry** (the developer portal does not check it): path to a preview image under `assets/` |
 | `settings_schema` | optional, a JSON Schema that becomes a settings form, see [THEMES.md](THEMES.md#installing-and-activating-themes) |
 | `menus` | optional, the menu locations the theme renders and their default items, see [THEMES.md](THEMES.md#menu-locations-menus). `theme check` refuses a malformed block |
 
@@ -143,7 +143,8 @@ hatamoto theme pack ./hatamoto-kumo --key mykey.key --out kumo.hmp
 
 Keep `mykey.key` out of git and never share it. Hatamoto does not re-sign your
 theme: the `.hmp` you build carries your signature, and that is what site owners
-install. The command prints `signed by <key id>`. To try the package on your own
+install. An account has one key and updates must be signed with the same key, so
+keep it safe and reuse it in [Part 2](#part-2-publish-your-theme). The command prints `signed by <key id>`. To try the package on your own
 development server, trust your key with `HATAMOTO_TRUSTED_KEYS` or allow
 unsigned packages, as described in
 [THEMES.md](THEMES.md#installing-and-activating-themes) and
@@ -161,11 +162,11 @@ Anyone can publish. Developer accounts are free for now. We may introduce a fee 
 1. Sign in at <https://hatamoto.dev/developers> with GitHub, add a display name
    and accept the developer terms. You need a verified email on your GitHub
    account.
-2. Make a key with `hatamoto keys generate --name mykey`. Keep `mykey.key`
-   private. Paste the contents of `mykey.pub` under "Add key". An account has one
-   key.
-3. Pack and sign the theme with `hatamoto theme pack . --key mykey.key` and
-   attach the `.hmp` to a GitHub release.
+2. Use the key you made in Part 1 step 6. Do not run `keys generate` again with
+   the same name, it refuses to overwrite `mykey.key`. Paste the contents of
+   `mykey.pub` under "Add key". An account has one key.
+3. Pack and sign the theme with `hatamoto theme pack ./hatamoto-kumo --key
+   mykey.key` (your theme folder) and attach the `.hmp` to a GitHub release.
 4. On the same page fill in the submit form and press "Check and submit":
    - **Kind:** Theme.
    - **Release file:** the link to the `.hmp`, in the form
@@ -179,8 +180,11 @@ Anyone can publish. Developer accounts are free for now. We may introduce a fee 
 
 The checks run at once and are shown as a list: signed by your key, the file is a
 theme, the name is free, the version is newer than the listed one, and the
-package passes the same rules as `theme check`. If one fails, fix it and press
-"Resubmit". If all pass, the status is "Waiting for approval". The site owner of
+package passes the package safety rules. The portal does not check the
+screenshot, so run `theme check --registry` yourself. If one fails, nothing is
+submitted; fix it and fill in the form again with the new release link. "Resubmit"
+sends the same link and text again, so it only helps when you replaced the file
+at that link. If all pass, the status is "Waiting for approval". The site owner of
 hatamoto.dev approves it or says why not, and you get an email either way. No
 review time is promised.
 
@@ -201,15 +205,18 @@ from Browse registry or with `hatamoto package install <name>`.
 ### Updating a theme
 
 Raise `version` in `theme.json`, pack with the same key, attach the new `.hmp` to
-a new release and submit the new link. The new version replaces the old listing
+a new release and submit the new link (use the form, not "Resubmit"). The new version replaces the old listing
 once approved. An update signed by a different key is refused.
 
 ### Removing a theme
 
 Contact us and we will remove the listing. We may refuse or remove listings under
-the developer terms. A listing also drops out by itself when the release file or
-its signer changes. Copies already installed stay on sites until their owners
-remove them.
+the developer terms. A removal by us revokes the listing: sites that installed
+the theme have it turned off the next time they read the developer index, within
+about 6 hours, and a site that uses it as its active theme goes back to the
+default theme. A listing also drops out by itself when the release file or its
+signer changes; that only takes it out of the listing and leaves installed copies
+alone.
 
 ## First-party listing
 
