@@ -128,6 +128,12 @@ func (f *Flight[T]) DoCommit(ctx context.Context, load func(context.Context) (T,
 	}
 	select {
 	case <-c.done:
+		if c.capped && d > 0 {
+			// The cap is a limit of the bounded callers: this one gets the
+			// same answer as if its own bound had run out.
+			NotePoolBusy(ctx)
+			return zero, fmt.Errorf("waiting for shared load: %w", ErrPoolBusy)
+		}
 		if c.capped && d <= 0 {
 			// The shared load ran out of its cap on behalf of bounded callers;
 			// this caller never agreed to that limit, so it loads for itself.

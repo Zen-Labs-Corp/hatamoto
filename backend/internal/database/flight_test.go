@@ -305,3 +305,27 @@ func TestFlightCommitPanicDoesNotLockFlight(t *testing.T) {
 		t.Fatalf("v=%d err=%v", v, err)
 	}
 }
+
+func TestFlightBoundedWaiterOfCappedLoadGetsPoolBusy(t *testing.T) {
+	t.Parallel()
+	f := Flight[int]{Cap: 30 * time.Millisecond}
+	started := make(chan struct{})
+	var once sync.Once
+	load := func(ctx context.Context) (int, error) {
+		once.Do(func() { close(started) })
+		<-ctx.Done()
+		return 0, ctx.Err()
+	}
+	starter := WithAcquireBound(context.Background(), time.Minute)
+	go func() { _, _ = f.Do(starter, load) }()
+	<-started
+	// The waiter's own bound is longer than the cap, so the cap fires first.
+	ctx := WithAcquireBound(context.Background(), time.Minute)
+	_, err := f.Do(ctx, load)
+	if !errors.Is(err, ErrPoolBusy) {
+		t.Fatalf("err = %v, want ErrPoolBusy", err)
+	}
+	if !PoolBusyHit(ctx) {
+		t.Fatal("request not flagged busy after a capped shared load")
+	}
+}
