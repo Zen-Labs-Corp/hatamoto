@@ -52,7 +52,7 @@ type setupData struct {
 	// ContentItems are the three content choices as radio cards.
 	ContentItems []ui.RadioCardItem
 	// stats
-	StatsCards   []ui.RadioCardItem // the three levels, none preselected
+	StatsCards   []ui.RadioCardItem // the three levels, Detailed preselected
 	StatsDocsURL string
 	StatsNeeded  bool // the form was posted without choosing a level
 	// Back is the previous step's address; empty on the first steps.
@@ -446,10 +446,29 @@ func (a *Admin) setupBackToStats(ctx context.Context) string {
 	return a.adminPath + "/setup/theme"
 }
 
+// setupStatsLevel is the card the Stats step shows checked: the stored answer
+// when the owner has given one, Detailed when the level is unset or unknown.
+// A failed read is returned, so the caller never mistakes it for "unset".
+func (a *Admin) setupStatsLevel(ctx context.Context) (string, error) {
+	v, err := a.deps.Stats.View(ctx)
+	if err != nil {
+		return "", err
+	}
+	if !validStatsLevel(v.Level) {
+		return statsLevelDetailed, nil
+	}
+	return v.Level, nil
+}
+
 func (a *Admin) renderSetupStats(w http.ResponseWriter, r *http.Request, status int, needed bool) {
 	nv := a.NewView(w, r, "Help improve Hatamoto")
 	nv.Wide = true
-	nv.Data = setupData{Steps: steps(5), Back: a.adminPath + "/setup/theme", StatsCards: statsLevelCards(""), StatsDocsURL: statsDocsURL, StatsNeeded: needed}
+	// On a failed read nothing is preselected, so an error never shows a level the owner did not pick.
+	level, err := a.setupStatsLevel(r.Context())
+	if err != nil {
+		a.logger().Warn("setup: stats view", "err", err)
+	}
+	nv.Data = setupData{Steps: steps(5), Back: a.adminPath + "/setup/theme", StatsCards: statsLevelCards(level), StatsDocsURL: statsDocsURL, StatsNeeded: needed}
 	a.Render(w, r, status, "setup/stats", nv)
 }
 
@@ -476,8 +495,18 @@ func (a *Admin) handleSetupStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	choice := r.PostFormValue("choice")
+	if choice == "" {
+		// A bare post is the preselected card: the stored answer, or Detailed.
+		level, err := a.setupStatsLevel(r.Context())
+		if err != nil {
+			// Unknown stored answer: record nothing rather than guess.
+			a.setupStatsSkip(w, r, "setup: stats view", err)
+			return
+		}
+		choice = level
+	}
 	if !validStatsLevel(choice) {
-		// No level is a default: Enter on the form, or a bare post, asks again.
+		// Anything else is refused, never read as a level.
 		a.renderSetupStats(w, r, http.StatusUnprocessableEntity, true)
 		return
 	}
@@ -557,6 +586,13 @@ func (a *Admin) handleSetupContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
+	// Setup is complete now, so an install that never answered the Stats step
+	// gets the default. Best effort: it never blocks finishing setup.
+	if a.deps.Stats != nil {
+		if err := a.deps.Stats.ApplyDefault(r.Context()); err != nil {
+			a.logger().Warn("setup: install stats default failed", "err", err)
+		}
+	}
 	if choice == "wordpress" {
 		// Setup is finished; the import wizard takes over from here.
 		http.Redirect(w, r, a.adminPath+importBase, http.StatusSeeOther)

@@ -1,5 +1,13 @@
 # Release notes
 
+## Unreleased: Detailed install stats by default
+
+- **On by default.** A new install, and an existing one whose owner was never asked, sends the Detailed [install stats](site/operate/install-stats.md) once setup is finished. Release builds only: development builds and public demos send nothing.
+- **Setup wizard.** The Stats step now preselects Detailed.
+- **One-time notice.** The owner sees "Hatamoto now shares detailed install stats (version, plugins, theme, error counts)" with **Change in Settings** and **Got it**. **Got it**, or choosing any level, ends it.
+- **Choices are kept.** An owner who chose Off or Basic is never changed. `HATAMOTO_TELEMETRY=off` still rules everything out: nothing is sent, no default is written, and the step and notice are left out.
+- **Migration.** Adds the `default_notice_pending` column to `hatamoto_install_stats`. Rollback floor: unchanged; an older release reads a defaulted install as an owner who chose Detailed and keeps sending.
+
 ## Unreleased: Detailed install stats
 
 - **Three levels.** Install stats now have Off, Basic and Detailed, chosen with a radio group in the setup wizard, the owner banner and Settings > Updates. The "what is sent" preview is gone from the admin: a **What is collected** link opens the [Install stats](site/operate/install-stats.md) page, which lists what each level sends.

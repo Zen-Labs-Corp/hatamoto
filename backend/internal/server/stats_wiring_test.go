@@ -1,12 +1,14 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -20,9 +22,10 @@ import (
 
 // memStats is an in-memory installstats.Backend.
 type memStats struct {
-	mu    sync.Mutex
-	st    installstats.State
-	added installstats.Counts // everything AddHealth received
+	mu        sync.Mutex
+	st        installstats.State
+	added     installstats.Counts // everything AddHealth received
+	defaulted bool
 }
 
 func (m *memStats) Load(context.Context) (installstats.State, error) { return m.st, nil }
@@ -55,7 +58,18 @@ func (m *memStats) RecordResult(context.Context, string, string, *installstats.C
 func (m *memStats) RecordKeptDay(context.Context, string) error { return nil }
 func (m *memStats) DismissNudge(context.Context) error          { return nil }
 func (m *memStats) Banner(context.Context) (installstats.BannerKind, error) {
+	if m.st.Level == installstats.LevelDetailed && m.defaulted {
+		return installstats.BannerDefaulted, nil
+	}
 	return installstats.BannerNone, nil
+}
+func (m *memStats) ApplyDefault(context.Context) (bool, error) {
+	if m.st.Level != installstats.LevelUnset && m.st.Level != "" {
+		return false, nil
+	}
+	m.st = installstats.State{Consent: installstats.ConsentYes, Level: installstats.LevelDetailed, InstallID: "0123456789abcdef0123456789abcdef", DefaultNoticePending: true}
+	m.defaulted = true
+	return true, nil
 }
 
 func TestAdminStatsViewShowsLastSuccess(t *testing.T) {
@@ -144,6 +158,61 @@ func TestStartupLeavesConsentAloneWhenNotOff(t *testing.T) {
 	s.SetStats(s.stats)
 	if m.st.Consent != installstats.ConsentYes || m.st.InstallID == "" {
 		t.Fatalf("startup must not change consent: %+v", m.st)
+	}
+}
+
+// defaultTestServer is statsTestServer with the setup wizard reported done and
+// the log captured, to see the audit line.
+func defaultTestServer(setupDone bool) (*Server, *memStats, *bytes.Buffer) {
+	var buf bytes.Buffer
+	log := slog.New(slog.NewTextHandler(&buf, nil))
+	m := &memStats{}
+	s := &Server{logger: log}
+	s.stats = installstats.New(installstats.Config{Store: m, Version: "v1.2.3", Log: log, Health: installstats.NewHealth(),
+		SetupComplete: func(context.Context) (bool, error) { return setupDone, nil }})
+	return s, m, &buf
+}
+
+func TestStartupAppliesDefaultWhenSetupComplete(t *testing.T) {
+	t.Setenv("WORKER_DISABLE_JOBS", "")
+	t.Setenv("HATAMOTO_TELEMETRY", "")
+	s, m, logs := defaultTestServer(true)
+	s.SetStats(s.stats)
+	if m.st.Consent != installstats.ConsentYes || m.st.Level != installstats.LevelDetailed || m.st.InstallID == "" {
+		t.Fatalf("startup must apply the default: %+v", m.st)
+	}
+	if n := strings.Count(logs.String(), "action=stats.consent actor=system"); n != 1 {
+		t.Fatalf("%d audit lines, want 1:\n%s", n, logs)
+	}
+	// Another boot changes nothing and does not audit again.
+	s.SetStats(s.stats)
+	if n := strings.Count(logs.String(), "action=stats.consent"); n != 1 {
+		t.Fatalf("%d audit lines after second boot, want 1", n)
+	}
+}
+
+func TestStartupSkipsDefaultBeforeSetupAndUnderEnvOff(t *testing.T) {
+	t.Setenv("WORKER_DISABLE_JOBS", "")
+	t.Setenv("HATAMOTO_TELEMETRY", "")
+	s, m, logs := defaultTestServer(false)
+	s.SetStats(s.stats)
+	if m.st.Level == installstats.LevelDetailed || strings.Contains(logs.String(), "stats.consent") {
+		t.Fatalf("default applied before setup: %+v", m.st)
+	}
+	t.Setenv("HATAMOTO_TELEMETRY", "off")
+	s, m, logs = defaultTestServer(true)
+	s.SetStats(s.stats)
+	if m.st.Level == installstats.LevelDetailed || strings.Contains(logs.String(), "action=stats.consent actor=system") {
+		t.Fatalf("default applied under env off: %+v", m.st)
+	}
+}
+
+func TestAdminStatsBannerMapsDefaulted(t *testing.T) {
+	s, m := statsTestServer(false)
+	m.st = installstats.State{Consent: installstats.ConsentYes, Level: installstats.LevelDetailed}
+	m.defaulted = true
+	if got, err := (adminStats{s.stats}).Banner(context.Background()); err != nil || got != "defaulted" {
+		t.Fatalf("Banner = %q, %v", got, err)
 	}
 }
 

@@ -1,10 +1,10 @@
 ---
 title: Install stats
 nav_title: Install stats
-description: The optional anonymous install stats at three levels (Off, Basic, Detailed): what each sends, what is never sent, how to change it and how an operator rules it out.
+description: The anonymous install stats at three levels (Off, Basic, Detailed), Detailed by default: what each sends, what is never sent, how to change it and how an operator rules it out.
 ---
 
-Install stats are an anonymous report from a running Hatamoto install. An owner picks one of three levels: **Off**, **Basic** or **Detailed**. Nothing is sent, and no install ID exists, until an owner picks Basic or Detailed. This page is the one place that lists what each level sends and how to control it. The update check is a separate request and stays anonymous; see [Outbound connections](outbound-connections.md) for every call the server makes.
+Install stats are an anonymous report from a running Hatamoto install. An owner picks one of three levels: **Off**, **Basic** or **Detailed**. A new install, and an existing one that was never asked, sends the Detailed report once setup is finished, unless an owner picks another level or the server sets `HATAMOTO_TELEMETRY=off`. Development builds and public demos send nothing. An owner who chose Off or Basic keeps that choice. This page is the one place that lists what each level sends and how to control it. The update check is a separate request and stays anonymous; see [Outbound connections](outbound-connections.md) for every call the server makes.
 
 ## The three levels
 
@@ -34,7 +34,7 @@ The body is JSON with exactly three keys:
 
 | Key | Value |
 |---|---|
-| `install` | A random ID of 32 hexadecimal characters, made when the owner opts in. It is not derived from anything on your server. |
+| `install` | A random ID of 32 hexadecimal characters, made when stats are first turned on, by the owner or by the default. It is not derived from anything on your server. |
 | `version` | The release the server runs. |
 | `channel` | The update channel in use: `stable`, `edge` or `canary`. It is whatever you set, also when the update mode is `off`. |
 
@@ -104,12 +104,12 @@ Your site address, content, pages, settings, user names, email addresses, visito
 
 The receiver keeps one report per install and UTC day: a second report the same day replaces the first. This page does not state how long those daily reports are kept, because no retention period has been published yet; it will be added here when there is one.
 
-## Turn it on, off or reset it
+## Change it, turn it off or reset it
 
-An owner chooses in one of three places, and can change the choice at any time:
+Installs that were never asked start at Detailed once setup is finished, and the owner sees a one-time notice on the admin pages: **Hatamoto now shares detailed install stats (version, plugins, theme, error counts).** with **Change in Settings** and **Got it**. **Got it**, or choosing any level yourself, ends the notice. An owner chooses in one of three places, and can change the choice at any time:
 
-- On a new site, the setup wizard has a **Help improve Hatamoto** step after **Look**, with **Off**, **Basic** and **Detailed**, none preselected. See [First run](../getting-started/first-run.md).
-- On an install that has not answered yet, a banner asks the owner once, with **No thanks**, **Basic** and **Detailed**. An install that was already sending before Detailed existed (so it counts as Basic without having chosen it) is offered Detailed once, and **Dismiss** ends the offer for good. Choosing Basic yourself, in the setup step, the banner or Settings, never shows the offer.
+- On a new site, the setup wizard has a **Help improve Hatamoto** step after **Look**, with **Off**, **Basic** and **Detailed**, and Detailed preselected. See [First run](../getting-started/first-run.md).
+- If the default could not be applied (a development build, or a failure), a banner asks the owner, with **No thanks**, **Basic** and **Detailed**. An install that was already sending before Detailed existed (so it counts as Basic without having chosen it) is offered Detailed once, and **Dismiss** ends the offer for good. Choosing Basic yourself, in the setup step, the banner or Settings, never shows the offer.
 - **Settings > Updates** has an **Install stats** section with the three levels, a **What is collected** link to this page, and when it was last sent successfully. Editors do not see the question.
 
 Choosing Basic or Detailed creates the install ID. Choosing Off deletes it, and the health counts with it. While stats are on, **Reset ID** replaces the ID with a new random one, so earlier reports can no longer be linked to later ones.
@@ -118,7 +118,7 @@ Choosing Basic or Detailed creates the install ID. Choosing Off deletes it, and 
 
 Two environment variables, both listed in the [Configuration reference](configuration-reference.md#updates):
 
-- `HATAMOTO_TELEMETRY=off` rules out both levels. Nothing is sent, the stored install ID is deleted at start and before every daily run, and the choice is set to off, so removing the variable later does not start sending again without a new answer. The setup step and the banners are left out, and Settings > Updates shows **Turned off by the server configuration.** Any other value changes nothing: the variable can only turn stats off, never on.
+- `HATAMOTO_TELEMETRY=off` rules out both levels. Nothing is sent, the stored install ID is deleted at start and before every daily run, and the choice is set to off, so removing the variable later does not start sending again without a new answer. The setup step and the banners are left out, and Settings > Updates shows **Turned off by the server configuration.** Any other value changes nothing: the variable can only turn stats off, never on, and no default is applied while it is set to `off`.
 - `HATAMOTO_TELEMETRY_URL` replaces the endpoint, for testing. It must be a plain `https://host/path` with no user, query or fragment. An invalid value is ignored with a warning and the default is used.
 
 To skip the daily job without touching the choice, add `stats_ping` to `WORKER_DISABLE_JOBS`. Nothing is scheduled in a public demo.

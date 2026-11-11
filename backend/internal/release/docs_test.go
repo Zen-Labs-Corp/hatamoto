@@ -21,10 +21,10 @@ func readDoc(t *testing.T, path string) string {
 // would break the promise.
 func TestUpdatePromiseDocs(t *testing.T) {
 	readme := readDoc(t, "../../../README.md")
-	// The promise is "no telemetry unless you turn it on" plus a complete, linked list of outbound
+	// The promise is "install stats are on by default, one switch turns them off" plus a complete, linked list of outbound
 	// connections, each with its switch; updates can be turned off entirely.
 	for _, want := range []string{
-		"No telemetry unless you turn it on.",
+		"Anonymous install stats are on by default and one switch turns them off.",
 		"`HATAMOTO_TELEMETRY=off`",
 		"[Outbound connections](docs/site/operate/outbound-connections.md)",
 		"`off` (no network call at all)",

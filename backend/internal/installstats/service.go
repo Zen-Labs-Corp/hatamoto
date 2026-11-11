@@ -38,6 +38,7 @@ type Backend interface {
 	RecordKeptDay(ctx context.Context, version string) error
 	DismissNudge(ctx context.Context) error
 	Banner(ctx context.Context) (BannerKind, error)
+	ApplyDefault(ctx context.Context) (bool, error)
 }
 
 var _ Backend = (*Store)(nil)
@@ -57,26 +58,34 @@ type Config struct {
 	Log     *slog.Logger                 // nil means slog.Default()
 	Health  *Health                      // in-memory counts to flush; nil means none
 	Sources Sources                      // facts for the Detailed body; nil sends Basic instead
+	Demo    bool                         // demo mode never applies the default
+	// SetupComplete says the setup wizard is finished. Nil means not complete,
+	// so the default never applies by accident.
+	SetupComplete func(context.Context) (bool, error)
 }
 
 // Service holds the owner's choice and sends the daily ping.
 type Service struct {
-	store   Backend
-	version string
-	channel func(context.Context) string
-	getenv  func(string) string
-	http    HTTPDoer
-	log     *slog.Logger
-	url     string
-	health  *Health
-	sources Sources
-	warned  atomic.Bool // the "no sources" notice was logged
+	store         Backend
+	version       string
+	channel       func(context.Context) string
+	getenv        func(string) string
+	http          HTTPDoer
+	log           *slog.Logger
+	url           string
+	health        *Health
+	sources       Sources
+	demo          bool
+	setupComplete func(context.Context) (bool, error)
+	audit         func(ctx context.Context, action, target string, detail map[string]any)
+	warned        atomic.Bool // the "no sources" notice was logged
 }
 
 // New returns a Service. An invalid HATAMOTO_TELEMETRY_URL is reported once
 // and the default endpoint is used.
 func New(c Config) *Service {
-	s := &Service{store: c.Store, version: c.Version, channel: c.Channel, getenv: c.Getenv, http: c.HTTP, log: c.Log, health: c.Health, sources: c.Sources}
+	s := &Service{store: c.Store, version: c.Version, channel: c.Channel, getenv: c.Getenv, http: c.HTTP, log: c.Log, health: c.Health, sources: c.Sources,
+		demo: c.Demo, setupComplete: c.SetupComplete}
 	if s.getenv == nil {
 		s.getenv = os.Getenv
 	}
@@ -179,13 +188,46 @@ func (s *Service) Reset(ctx context.Context) error {
 	return err
 }
 
+// SetAudit sets the function called when the default is applied. Nil (the
+// default) records nothing.
+func (s *Service) SetAudit(fn func(ctx context.Context, action, target string, detail map[string]any)) {
+	s.audit = fn
+}
+
+// ApplyDefault turns on Detailed for an install that was never asked. It does
+// nothing under HATAMOTO_TELEMETRY=off, in demo mode, for a development build
+// or until setup is complete, and never changes an existing answer. applied
+// is true only when this call wrote the row; that is also when the audit
+// function runs.
+func (s *Service) ApplyDefault(ctx context.Context) (applied bool, err error) {
+	if ForcedOff(s.getenv) || s.demo || !isRelease(s.version) {
+		return false, nil
+	}
+	done, err := s.setupDone(ctx)
+	if err != nil || !done {
+		return false, err
+	}
+	applied, err = s.store.ApplyDefault(ctx)
+	if err != nil {
+		return false, fmt.Errorf("apply default install stats: %w", err)
+	}
+	if applied && s.audit != nil {
+		s.audit(ctx, "stats.consent", "stats", map[string]any{"choice": "detailed", "default": true})
+	}
+	return applied, nil
+}
+
 // Enforce applies HATAMOTO_TELEMETRY=off: consent becomes no and the ID is
-// deleted. Without the variable it only repairs the stored level. Lifting the variable later does not resume sending; the owner
-// turns it on again in Settings > Updates.
+// deleted. Without the variable it repairs the stored level and applies the
+// default (see ApplyDefault). Lifting the variable later does not resume
+// sending; the owner turns it on again in Settings > Updates.
 func (s *Service) Enforce(ctx context.Context) error {
 	if !ForcedOff(s.getenv) {
 		// Loading repairs a level an older binary left out of step with consent.
-		_, err := s.store.Load(ctx)
+		if _, err := s.store.Load(ctx); err != nil {
+			return err
+		}
+		_, err := s.ApplyDefault(ctx)
 		return err
 	}
 	return s.store.Disable(ctx)
@@ -205,8 +247,17 @@ func (s *Service) Flush(ctx context.Context) error {
 	return nil
 }
 
-// Run is the hourly job. It makes no request unless the variable is not off,
-// the level is Basic or Detailed, the build is a release, and this process won
+// setupDone reports whether setup is complete. Without a SetupComplete
+// function it is not: nothing is defaulted or sent.
+func (s *Service) setupDone(ctx context.Context) (bool, error) {
+	if s.setupComplete == nil {
+		return false, nil
+	}
+	return s.setupComplete(ctx)
+}
+
+// Run is the hourly job. It first applies the default (Enforce). It makes no
+// request unless setup is complete, the variable is not off, the level is Basic or Detailed, the build is a release, and this process won
 // the claim. It never retries: the claim stamps the time whatever the outcome.
 // A Detailed body that cannot be built (a value the receiver would refuse,
 // such as an odd theme version) is replaced by the Basic body, so the install
@@ -223,6 +274,10 @@ func (s *Service) Run(ctx context.Context) error {
 	// A development build is not a release; it never reports.
 	if !isRelease(s.version) {
 		return nil
+	}
+	// Nothing is sent before setup is complete, whatever the level.
+	if done, err := s.setupDone(ctx); err != nil || !done {
+		return err
 	}
 	if err := s.Flush(ctx); err != nil {
 		s.log.Warn("install stats: could not store health counts", "error", err)

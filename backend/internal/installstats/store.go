@@ -1,5 +1,7 @@
-// Package installstats is the opt-in, anonymous install stats sender. Nothing
-// is sent until the owner chooses Yes; see Service.Run for the rules.
+// Package installstats is the anonymous install stats sender. A release
+// install the owner never answered for defaults to Detailed once setup is
+// complete (HATAMOTO_TELEMETRY=off wins); an explicit Off or Basic is kept.
+// See Service.Run for the rules.
 package installstats
 
 import (
@@ -51,6 +53,7 @@ const (
 	BannerNone       BannerKind = "none"
 	BannerUnanswered BannerKind = "unanswered" // ask Off, Basic or Detailed
 	BannerNudge      BannerKind = "nudge"      // on Basic, not dismissed: offer Detailed
+	BannerDefaulted  BannerKind = "defaulted"  // Detailed was applied by default: tell the owner once
 )
 
 // maxPluginErrorKeys bounds the stored per-plugin error map; names beyond it
@@ -121,11 +124,14 @@ type State struct {
 	LastSentAt      *time.Time
 	LastOKAt        *time.Time // last successful report; unchanged by failed attempts
 	LastStatus      string
-	LastSentVersion string     // version of the last successful report
-	NudgeDismissed  bool       // the owner dismissed the Detailed offer
-	WindowStart     *time.Time // start of the health counts; nil outside Detailed
-	Counts          Counts
-	Sent            Counts // the counts the last report carried; Counts includes them until the next UTC day
+	LastSentVersion string // version of the last successful report
+	NudgeDismissed  bool   // the owner dismissed the Detailed offer
+	// DefaultNoticePending is set when the default wrote the row, until the
+	// owner acknowledges it or makes an explicit choice.
+	DefaultNoticePending bool
+	WindowStart          *time.Time // start of the health counts; nil outside Detailed
+	Counts               Counts
+	Sent                 Counts // the counts the last report carried; Counts includes them until the next UTC day
 	// DetailedSentAt is when the last ok report that carried a Detailed body
 	// was claimed; nil when none did since the level or consent changed.
 	DetailedSentAt *time.Time
@@ -143,7 +149,7 @@ type Store struct{ db Querier }
 func NewStore(db Querier) *Store { return &Store{db: db} }
 
 const stateColumns = `consent, level, install_id, last_sent_at, last_ok_at, last_status, last_sent_version,
-	nudge_dismissed, health_window_start, h_panics, h_http_5xx, h_render_errors, h_migration_failed, h_plugin_errors, h_sent,
+	nudge_dismissed, default_notice_pending, health_window_start, h_panics, h_http_5xx, h_render_errors, h_migration_failed, h_plugin_errors, h_sent,
 	h_sent_at, COALESCE((h_sent_at AT TIME ZONE 'UTC')::date = (now() AT TIME ZONE 'UTC')::date, FALSE)`
 
 func scanState(row pgx.Row) (State, error) {
@@ -154,7 +160,7 @@ func scanState(row pgx.Row) (State, error) {
 		sentJS []byte
 	)
 	if err := row.Scan(&st.Consent, &st.Level, &id, &st.LastSentAt, &st.LastOKAt, &st.LastStatus, &st.LastSentVersion,
-		&st.NudgeDismissed, &st.WindowStart, &st.Counts.Panics, &st.Counts.HTTP5xx, &st.Counts.RenderErrors,
+		&st.NudgeDismissed, &st.DefaultNoticePending, &st.WindowStart, &st.Counts.Panics, &st.Counts.HTTP5xx, &st.Counts.RenderErrors,
 		&st.Counts.MigrationFailed, &errsJS, &sentJS, &st.DetailedSentAt, &st.DetailedSentToday); err != nil {
 		return State{}, err
 	}
@@ -228,6 +234,7 @@ func (s *Store) Enable(ctx context.Context, level Level) (State, error) {
 		INSERT INTO hatamoto_install_stats (id, consent, level, install_id, nudge_dismissed, health_window_start)
 		VALUES (TRUE, 'yes', $2, $1, TRUE, CASE WHEN $2::text = 'detailed' THEN now() END)
 		ON CONFLICT (id) DO UPDATE SET consent = 'yes', level = EXCLUDED.level, nudge_dismissed = TRUE,
+			default_notice_pending = FALSE,
 			install_id = COALESCE(`+t+`.install_id, EXCLUDED.install_id),
 			health_window_start = CASE
 				WHEN `+t+`.level = EXCLUDED.level THEN `+t+`.health_window_start
@@ -246,12 +253,38 @@ func (s *Store) Enable(ctx context.Context, level Level) (State, error) {
 	return s.Load(ctx)
 }
 
+// ApplyDefault records the default (consent yes, level detailed, a new ID, the
+// Detailed offer counted as made, the notice pending) when the install was
+// never asked. One statement, so replicas and repeated runs write it once;
+// applied is false when a row already holds an answer.
+func (s *Store) ApplyDefault(ctx context.Context) (applied bool, err error) {
+	id, err := newID()
+	if err != nil {
+		return false, err
+	}
+	const t = `hatamoto_install_stats`
+	err = s.db.QueryRow(ctx, `
+		INSERT INTO hatamoto_install_stats (id, consent, level, install_id, nudge_dismissed, health_window_start, default_notice_pending)
+		VALUES (TRUE, 'yes', 'detailed', $1, TRUE, now(), TRUE)
+		ON CONFLICT (id) DO UPDATE SET consent = EXCLUDED.consent, level = EXCLUDED.level, install_id = EXCLUDED.install_id,
+			nudge_dismissed = TRUE, health_window_start = now(), default_notice_pending = TRUE
+		WHERE `+t+`.level = 'unset' AND `+t+`.consent = 'unset'
+		RETURNING TRUE`, id).Scan(&applied)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("apply default install stats: %w", err)
+	}
+	return applied, nil
+}
+
 // Disable records consent no (level off), deletes the ID and wipes the health
 // counts, in one statement.
 func (s *Store) Disable(ctx context.Context) error {
 	_, err := s.db.Exec(ctx, `
 		INSERT INTO hatamoto_install_stats (id, consent, level, install_id) VALUES (TRUE, 'no', 'off', NULL)
-		ON CONFLICT (id) DO UPDATE SET consent = 'no', level = 'off', install_id = NULL,
+		ON CONFLICT (id) DO UPDATE SET consent = 'no', level = 'off', install_id = NULL, default_notice_pending = FALSE,
 			health_window_start = NULL, h_panics = 0, h_http_5xx = 0, h_render_errors = 0,
 			h_migration_failed = 0, h_plugin_errors = '{}'::jsonb, h_sent = '{}'::jsonb, h_sent_at = NULL`)
 	if err != nil {
@@ -388,10 +421,11 @@ func (s *Store) RecordKeptDay(ctx context.Context, version string) error {
 	return nil
 }
 
-// DismissNudge stores that the owner dismissed the Detailed offer. It does
-// nothing unless the level is basic.
+// DismissNudge acknowledges the owner banner: it stores that the Detailed
+// offer was dismissed (only on basic) and clears the defaulted notice.
 func (s *Store) DismissNudge(ctx context.Context) error {
-	if _, err := s.db.Exec(ctx, `UPDATE hatamoto_install_stats SET nudge_dismissed = TRUE WHERE id AND level = 'basic'`); err != nil {
+	if _, err := s.db.Exec(ctx, `UPDATE hatamoto_install_stats SET nudge_dismissed = (nudge_dismissed OR level = 'basic'),
+		default_notice_pending = FALSE WHERE id`); err != nil {
 		return fmt.Errorf("dismiss install stats nudge: %w", err)
 	}
 	return nil
@@ -403,8 +437,9 @@ func (s *Store) Banner(ctx context.Context) (BannerKind, error) {
 	var (
 		level     Level
 		dismissed bool
+		pending   bool
 	)
-	err := s.db.QueryRow(ctx, `SELECT level, nudge_dismissed FROM hatamoto_install_stats WHERE id`).Scan(&level, &dismissed)
+	err := s.db.QueryRow(ctx, `SELECT level, nudge_dismissed, default_notice_pending FROM hatamoto_install_stats WHERE id`).Scan(&level, &dismissed, &pending)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return BannerUnanswered, nil
 	}
@@ -414,6 +449,8 @@ func (s *Store) Banner(ctx context.Context) (BannerKind, error) {
 	switch {
 	case level == LevelUnset:
 		return BannerUnanswered, nil
+	case pending && level == LevelDetailed:
+		return BannerDefaulted, nil
 	case level == LevelBasic && !dismissed:
 		return BannerNudge, nil
 	}
