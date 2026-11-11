@@ -153,6 +153,35 @@ func TestAuthOrAPIKeySEOSettings(t *testing.T) {
 	}
 }
 
+func TestAuthOrAPIKeyMedia(t *testing.T) {
+	h := newKeyHarness(t, true, map[string]*auth.APIKey{
+		"read":  testKey(auth.ScopeReadMedia),
+		"write": testKey(auth.ScopeWriteMedia),
+		"all":   testKey(auth.ScopeAll),
+		"other": testKey(auth.ScopeWriteEntities),
+	})
+	cases := []struct {
+		method, path string
+		want         map[string]bool
+	}{
+		{"GET", "/api/v1/media", map[string]bool{"read": true, "write": true, "all": true}},
+		{"GET", "/api/v1/media/", map[string]bool{"read": true, "write": true, "all": true}},
+		{"POST", "/api/v1/media/upload", map[string]bool{"write": true, "all": true}},
+		{"POST", "/api/v1/media/upload/", map[string]bool{"write": true, "all": true}},
+	}
+	for _, c := range cases {
+		for _, name := range []string{"read", "write", "all", "other"} {
+			wantCode := http.StatusForbidden
+			if c.want[name] {
+				wantCode = http.StatusOK
+			}
+			if rec := do(h.handler, c.method, c.path, name); rec.Code != wantCode {
+				t.Errorf("%s %s with %s key: got %d want %d", c.method, c.path, name, rec.Code, wantCode)
+			}
+		}
+	}
+}
+
 func TestDeniedRoutes(t *testing.T) {
 	h := newKeyHarness(t, true, map[string]*auth.APIKey{"all": testKey(auth.ScopeAll)})
 	denied := []struct{ method, path string }{
@@ -163,8 +192,10 @@ func TestDeniedRoutes(t *testing.T) {
 		{"POST", "/api/v1/api-keys"},
 		{"GET", "/api/v1/plugins"},
 		{"POST", "/api/v1/media"},
-		{"GET", "/api/v1/media"},
-		// the write:media/menus/redirects/terms scopes are MCP-only
+		{"GET", "/api/v1/media/abc"},
+		{"PUT", "/api/v1/media/abc"},
+		{"DELETE", "/api/v1/media/abc"},
+		// the write:menus/redirects/terms scopes are MCP-only
 		{"PUT", "/api/v1/menus/x"},
 		{"POST", "/api/v1/menus"},
 		{"POST", "/api/v1/redirects"},

@@ -59,6 +59,9 @@ var (
 		// Settings > SEO: read and partial update only.
 		{http.MethodGet, keyRoutePattern(`^/api/v1/settings/seo/?$`), auth.ScopeReadSEO},
 		{http.MethodPatch, keyRoutePattern(`^/api/v1/settings/seo/?$`), auth.ScopeWriteSEO},
+		// Media: list and upload only; per-item routes stay closed.
+		{http.MethodGet, keyRoutePattern(`^/api/v1/media/?$`), auth.ScopeReadMedia},
+		{http.MethodPost, keyRoutePattern(`^/api/v1/media/upload/?$`), auth.ScopeWriteMedia},
 	}
 )
 
