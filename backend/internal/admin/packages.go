@@ -164,6 +164,7 @@ type ConfirmInfo struct {
 	NewScripts             bool
 	NewCSPHosts            []string
 	NewRequestHeaders      []string
+	NewRedirectPaths       []string
 	NewTagHosts            []string
 	TagCategoryChanged     bool
 	OldVersion, NewVersion string

@@ -413,8 +413,11 @@ func writeRenderRedirect(w http.ResponseWriter, r *http.Request, hit *redirectHi
 // resolve, redirect/404/error, render.
 func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path string, onMiss func() bool, load func() (*routeResult, pageOutcome, error)) {
 	filtered := h.pageFilter.Active()
+	// A plugin's cookie answer (request.redirect) makes this response specific
+	// to the request: no cache read or write, private headers.
+	uncached := h.uncached || uncachedRequest(r.Context())
 	pageN := pagedQuery(r.URL.RawQuery) // 0 unless the query is exactly the canonical ?page=N, N >= 2
-	cacheable := h.cache != nil && h.baseURLPinned && h.runtime.Enabled() && (r.URL.RawQuery == "" || pageN > 0) && !filtered && !h.uncached
+	cacheable := h.cache != nil && h.baseURLPinned && h.runtime.Enabled() && (r.URL.RawQuery == "" || pageN > 0) && !filtered && !uncached
 	key := ""
 	var gen uint64
 	if cacheable {
@@ -549,7 +552,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		h.writeBusy(w, r)
 		return
 	}
-	private := degraded || filtered || h.uncached
+	private := degraded || filtered || uncached
 	pluginhost.WriteSetCookies(w, r, cookies)
 	h.writeHTML(w, r, http.StatusOK, buf.Bytes(), private)
 	if cacheable && !private && !v.Preview && !v.Dynamic && (pageN == 0 || (v.PagedLoop != nil && *v.PagedLoop)) {

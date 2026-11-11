@@ -2,9 +2,7 @@ package server
 
 import (
 	"net/http"
-	"strings"
 
-	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/sdk"
 )
@@ -17,17 +15,7 @@ func (h *renderHandlers) applyPageFilter(r *http.Request, path string, v *render
 	if v.Doc != nil {
 		return nil // builder-only page: the render.page contract is sections
 	}
-	in := sdk.PageContext{Path: path, Cookies: map[string]string{}, Blocks: make([]sdk.Block, 0, len(v.Sections))}
-	for _, c := range r.Cookies() {
-		// Only plugin-namespaced cookies enter the chain: never the session,
-		// CSRF or any other core cookie.
-		if !strings.HasPrefix(c.Name, pluginhost.CookiePrefix) {
-			continue
-		}
-		if _, seen := in.Cookies[c.Name]; !seen {
-			in.Cookies[c.Name] = c.Value
-		}
-	}
+	in := sdk.PageContext{Path: path, Cookies: pluginCookies(r), Blocks: make([]sdk.Block, 0, len(v.Sections))}
 	if e := v.Entity; e != nil {
 		in.Entity = &sdk.EntitySummary{ID: e.ID, SchemaSlug: e.Schema, Slug: e.Slug, Name: e.Title, Locale: firstNonEmpty(v.Locale, v.Site.Language)}
 	}

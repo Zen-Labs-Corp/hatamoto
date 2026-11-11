@@ -348,6 +348,22 @@ func TestPluginPromptWarnsAboutSiteScripts(t *testing.T) {
 	}
 }
 
+func TestPluginPromptNamesNewRedirectPaths(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	rec := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-redirects:hello")
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("%d", rec.Code)
+	}
+	for _, want := range []string{"needs your confirmation", "It will be able to redirect visitors on: <code>/go</code>, <code>/go/</code>.", `name="confirm"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("prompt missing %q", want)
+		}
+	}
+}
+
 // A first install that asks for site.scripts never starts with it granted:
 // the other permissions are posted as hidden fields, site.scripts is a switch
 // that is off, and the prompt shows it as something to review, not as allowed.

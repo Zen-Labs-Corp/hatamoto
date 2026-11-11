@@ -1,7 +1,9 @@
-# Plugin API (SDK 0.21)
+# Plugin API (SDK 0.22)
 
 Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.md).
 
+> **0.22 changes (additive over 0.21).** New filter `request.redirect` and manifest field `redirect_paths`: a plugin declares exact public paths and, for GET and HEAD requests to them, may answer before routing, stored redirects and the page cache with a same-site 302 or 307 and declared cookies, using its declared cookies and the visitor's country. No existing type or wire output changed. See [request.redirect](#requestredirect).
+>
 > **0.21 changes (additive over 0.20).** New permission `packages.inspect` and host function `packages.inspect`: download a package from an https URL on one of the plugin's `allowed_hosts` and get its kind, name, version, `sha256`, size, manifest summary and whether a given ed25519 key signed it, reported as `problems` and never as an error for a bad package. New helper package `hatamoto.dev/sdk/registry` with the registry index types and `registry.SignIndex`. No existing type, constant or function changed. See **packages.inspect** below.
 >
 > **0.20 changes (additive over 0.19).** `entities.get` and each item of `entities.list` carry `terms`, the entity's term assignments as `[{ kind, slug, name }]`, and `entities.list` takes `term: { kind, slug }` to keep only entities carrying that term. Both need `terms.read` (the key is absent without it), and `terms` is returned only to a plugin whose `sdk` range requires 0.20 or later; plugins built for `^0.19` or older get exactly the bytes they got before. See "Terms (SDK 0.20)" below. `EntityEvent` does not change.
@@ -133,13 +135,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.21.0`; plugins built for `^0.5` to `^0.20` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.22.0`; plugins built for `^0.5` to `^0.21` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.21.0
+go get hatamoto.dev/sdk@v0.22.0
 ```
 
 SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -149,7 +151,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.21.0` is the git tag `v0.21.0`. The core repository stays
+plain release tags: version `0.22.0` is the git tag `v0.22.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -166,7 +168,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.21 is current.
+> SDK 0.22 is current.
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -246,6 +248,7 @@ Entity reads also carry `sort_order` (the stored manual order among siblings, `0
 | `render.head` | filter | `filter_render_head` | [HeadContext](#headcontext) | HeadContext |
 | `render.site_graph` | filter | `filter_render_site_graph` | [SiteGraph](#sitegraph) | SiteGraph |
 | `render.page` | filter | `filter_render_page` | [PageContext](#pagecontext) | PageContext |
+| `request.redirect` | filter | `filter_request_redirect` | [RedirectContext](#requestredirect) | RedirectContext |
 | `entity.before_save` | filter | `filter_entity_before_save` | [EntityDraft](#entitydraft) | EntityDraft |
 | `builder.data` | filter | `filter_builder_data` | [BuilderDataRequest](#builderdata) | BuilderDataRequest |
 
@@ -350,6 +353,26 @@ A result that breaks a rule (undeclared cookie, too many blocks (200) or cookies
   "set_cookies": [ { "name": "visited", "value": "1", "max_age": 3600 } ] }
 ```
 
+#### request.redirect
+The value of `request.redirect` (SDK 0.22). The host calls it for a `GET` or `HEAD` request whose path is exactly one the plugin declared in `redirect_paths`, before routing, stored redirects and the page cache. It is never called for another path, another method, or a request the site's access gate holds back, and a path that differs only by a trailing slash is a different path. A declared path must start with `/`, carry no query, fragment, wildcard, whitespace, `..` or `//`, and be at most 256 bytes (16 paths per plugin). The host refuses a path it serves itself: the admin, the API, `/p/` plugin routes, media, uploads and static assets, `/health`, `robots.txt`, sitemaps and feeds, the root icons and any root-level `.txt` or `.xml` file. `/` is allowed. Paths that core already answers as scanner probes never reach the filter.
+
+`path` is the request path and `query` the raw query string. `cookies` holds only the cookies the plugin declared (`cookies`), under the short name. `country` is the visitor's ISO 3166-1 alpha-2 code, or empty when there is no country database or the address is unknown; the address itself is never passed. The database is the file named by `HATAMOTO_GEOIP_DB` (the same one the analytics country report uses); the host reloads it when the file changes, so a replaced file takes effect without a restart.
+
+The result may
+
+- set `redirect` to `{ "status": 302 | 307, "location": "/path?query" }`. `location` must be a same-site path with an optional query (no scheme, host, `//`, backslash or control byte, at most 2048 bytes), the same rule as a public route's `Location`. The response is the redirect with `Cache-Control: no-store`.
+- add `set_cookies`, with the same rules as `render.page` (declared names only, namespaced `hmp_<plugin>_<name>`, `HttpOnly`, `SameSite=Lax`).
+- answer with cookies only. The cookies are set and the page is rendered normally, but that response is `Cache-Control: no-store` with `Vary: Cookie`, whichever handler answers the path (page, stored redirect, 404), and is neither read from nor written to the page cache.
+
+An empty answer leaves the request to normal handling, including the page cache. Because the answer depends on the visitor, the normal response on a declared path is never shared-cacheable: `public` becomes `private`, `s-maxage` is dropped and `Vary: Cookie` is added (the rule plugin routes with declared cookies follow), so a CDN or proxy cache in front of the site cannot replay one visitor's response and skip the hook. The page cache inside core is still used. A result that breaks a rule (status other than 302 or 307, bad `location`, undeclared cookie) is dropped whole. Fail open applies: an error, a trap or a timeout is logged and the request is handled as if the plugin were not installed. The default timeout is 250 ms (the host also bounds the whole call), tunable with `limits.hook_timeouts_ms["request.redirect"]`. A plugin that uses `redirect_paths`, the `request.redirect` filter or that timeout key must declare `"sdk": "^0.22"`: a host older than 0.22 then refuses it visibly, where a lower range would load it with the field ignored (or, for the timeout key, refuse the manifest as an unknown hook) and the redirects would silently stop.
+
+Two plugins cannot declare the same path: the install, an upgrade and enabling a plugin are refused with a message naming the path, whether or not the other plugin is enabled. Declaring `redirect_paths` is shown to the owner in the plugin's permissions as "Pages it may redirect".
+```json
+{ "path": "/go", "query": "utm=x", "cookies": { "pref": "b" }, "country": "XX",
+  "redirect": { "status": 302, "location": "/start?utm=x" },
+  "set_cookies": [ { "name": "pref", "value": "b", "max_age": 31536000 } ] }
+```
+
 #### JSONLDDoc
 Modify and return `doc` (the schema.org document). Keep `entity` and `base_url` as received.
 ```json
@@ -435,7 +458,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 |---|---|
 | `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
-| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.21.0 and also serves `^0.5` to `^0.20` plugins |
+| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.22.0 and also serves `^0.5` to `^0.21` plugins |
 | `description` | optional |
 | `config` | string map readable in the guest (`pdk.GetConfig`) |
 | `permissions` | capabilities the plugin asks for; see [Permissions](#permissions). Unknown names are refused |
@@ -443,6 +466,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 | `routes` | HTTP routes the plugin serves; see [Routes](#routes) (at most 64) |
 | `cron` | scheduled calls; see [Cron](#cron) (at most 16) |
 | `cookies` | cookie names `render.page` and the plugin's public routes may read and set (at most 8; `[A-Za-z0-9_-]`) |
+| `redirect_paths` | exact public paths the `request.redirect` filter is called for, at most 16 (SDK 0.22; the plugin must declare `"sdk": "^0.22"`); see [request.redirect](#requestredirect). Paths are matched against the decoded request path, so declare them decoded: a `%` is refused. The host refuses paths it serves itself and a path another plugin already declares |
 | `request_headers` | extra request header names passed to the plugin's routes, at most 8 (SDK 0.18). `authorization`, `cookie`, `proxy-authorization`, `x-forwarded-for`, `x-real-ip`, `forwarded` and `cf-connecting-ip` are refused by name, and so is any header whose name carries an address (`ip`, `client`, `real`, `for`, `addr`, `forwarded` as a word, such as `true-client-ip` or `fastly-client-ip`), `proxy-*` and the hop-by-hop headers |
 | `csp` | `{ "script_src": [], "connect_src": [], "frame_src": [], "img_src": [] }`, each at most 8 entries of `https://host` or `https://*.host` (SDK 0.18; no wildcard in `script_src`, none over a shared suffix such as `*.github.io`, no IP address). The hosts join the public pages' Content-Security-Policy only while the plugin is installed and enabled: `script-src` and `connect-src` change what a page may load; `img-src` and `frame-src` are accepted and shown but change nothing while the base policy allows every https origin there. A community plugin may only list `img_src` (other lists are refused at install). An update that adds a host asks the owner to confirm. Composed in one place (`cspWithExtras` in the render handlers), per response, so enabling or disabling applies at once |
 | `render_page` | optional; `{ "full_blocks": true }` sends `render.page` the whole block content (SDK 0.9+; older plugins always get it) |
@@ -455,7 +479,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 
 A plugin always loads. What it may *do* is decided by the owner. Nothing is granted by default.
 
-- `GET /api/v1/plugins` (owner) lists each plugin with `permissions` (requested), `granted`, `routes`, `cron`, `cookies`, `funcs` and `data_error` (why its own data is not ready, if so).
+- `GET /api/v1/plugins` (owner) lists each plugin with `permissions` (requested), `granted`, `routes`, `cron`, `cookies`, `redirect_paths`, `funcs` and `data_error` (why its own data is not ready, if so).
 - `POST /api/v1/plugins/{name}/grant` (owner) with `{"permissions": ["kv", "db"]}` sets the granted set. The list **replaces** the earlier grant (grant fewer to revoke) and must be a subset of what `plugin.json` requests (`400` otherwise). The response is the plugin's view. Grants live in Postgres (`hatamoto_plugin_grants`) and apply at once; granting `kv` or `db` also prepares the plugin's data (see [Own data](#own-data)).
 - A host function called without its grant returns the typed error `{"code":"capability_denied","capability":"<permission>"}` (plus a `message`); the denied operation never reaches the service behind it, and the plugin keeps running. In Go, `guest.CapabilityDenied(err)` returns the permission name.
 

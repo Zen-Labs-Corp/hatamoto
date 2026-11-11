@@ -29,6 +29,7 @@ A plugin handles a hook by exporting a function named after it: replace `.` with
 | `render.head` | filter | `filter_render_head` | HeadContext | HeadContext |
 | `render.site_graph` | filter | `filter_render_site_graph` | SiteGraph | SiteGraph |
 | `render.page` | filter | `filter_render_page` | PageContext | PageContext |
+| `request.redirect` | filter | `filter_request_redirect` | RedirectContext | RedirectContext |
 | `entity.before_save` | filter | `filter_entity_before_save` | EntityDraft | EntityDraft |
 | `builder.data` | filter | `filter_builder_data` | BuilderDataRequest | BuilderDataRequest |
 
@@ -153,6 +154,10 @@ guest.OnFilter(sdk.RenderPage, func(p sdk.PageContext) (sdk.PageContext, error) 
 ```
 
 Handle `render.page` only when you need to. While any plugin handles it, pages are served `Cache-Control: private, no-store` with `Vary: Cookie` and are not stored in the page cache, because the answer depends on the request. Declared cookies are namespaced as `hmp_<plugin>_<name>`, so a plugin never sees the session or CSRF cookie. The host forces `HttpOnly`, `SameSite=Lax` and `Secure` on HTTPS. Values are cookie-safe ASCII up to 2 KiB and `max_age` is at most a year.
+
+### request.redirect
+
+Lets a plugin answer a `GET` or `HEAD` request for one of the exact paths it declared in `redirect_paths` (SDK 0.22: declare `"sdk": "^0.22"` in the manifest, also to use its `limits.hook_timeouts_ms` key), before routing, stored redirects and the page cache. The payload holds `path`, the raw `query`, the `cookies` the plugin declared and the visitor's `country` (an ISO code, or empty; never the address). The result may set `redirect` (`{ "status": 302 | 307, "location": "/same-site/path?query" }`) and `set_cookies` (declared names only, namespaced like `render.page`). A redirect is sent with `Cache-Control: no-store`; a cookie-only answer renders the page normally, but that response is `no-store` with `Vary: Cookie` and never enters the page cache. On a declared path every normal response is sent `private` with `Vary: Cookie` (no `s-maxage`), so a CDN or proxy in front of the site cannot bypass the hook; the page cache inside core is still used. An empty answer, an error, a trap, a timeout or a result that breaks a rule leaves the request to normal handling. Core-owned paths (admin, API, `/p/`, assets, `robots.txt`, sitemaps, feeds) cannot be declared, and a path can belong to one plugin only. The country comes from `HATAMOTO_GEOIP_DB`, reloaded when the file changes. The full contract is in [PLUGIN_API.md](https://github.com/Zen-Labs-Corp/hatamoto/blob/main/docs/PLUGIN_API.md#requestredirect).
 
 ### builder.data
 

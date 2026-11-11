@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/sdk"
 )
 
@@ -35,3 +36,16 @@ func sdkRefusal(name, rng, version string, list []string, ok bool, err error) er
 
 // minor shortens "0.11.0" to "0.11".
 func minor(v string) string { return strings.TrimSuffix(v, ".0") }
+
+// RedirectPathsRefusal is nil when none of the manifest's redirect_paths is
+// owned by core (admin, API, assets, well-known and verification files, ...).
+// The SDK checks the shape of the paths; only the host knows what it serves.
+// Load and install both report it.
+func RedirectPathsRefusal(m sdk.Manifest) error {
+	for _, p := range m.RedirectPaths {
+		if why := adminpath.RedirectPathRefusal(p); why != "" {
+			return fmt.Errorf("plugin %q cannot declare redirect path %q: %s", m.Name, p, why)
+		}
+	}
+	return nil
+}

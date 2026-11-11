@@ -89,6 +89,10 @@ type ConfirmationRequired struct {
 	// NewRequestHeaders are request headers the update asks to receive that
 	// the installed version did not; they count as widened access too.
 	NewRequestHeaders []string
+	// NewRedirectPaths are paths the update asks to redirect visitors from
+	// (request.redirect) that the installed version did not; they count as
+	// widened access too.
+	NewRedirectPaths []string
 	// NewTagHosts are page-policy origins a tag pack update adds;
 	// TagCategoryChanged is set when one of its tags moved to another consent
 	// category. Both count as widened access too.
@@ -109,7 +113,7 @@ func (e *ConfirmationRequired) Error() string {
 		why = append(why, fmt.Sprintf("it is signed by %s, not %s", orUnsigned(e.NewSigner), orUnsigned(e.OldSigner)))
 	}
 	if e.WidenedAccess {
-		why = append(why, "it can reach further than the installed version (new web addresses, http.fetch.any or JavaScript on your pages, site.scripts, or a tag loading from new hosts)")
+		why = append(why, "it can reach further than the installed version (new web addresses, http.fetch.any or JavaScript on your pages, site.scripts, redirecting visitors from new pages, or a tag loading from new hosts)")
 	}
 	if len(e.Missing) > 0 {
 		why = append(why, fmt.Sprintf("the active theme would lose %d section type(s) the content uses", len(e.Missing)))
@@ -332,6 +336,9 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if err := pluginhost.SDKRefusal(man); err != nil {
 			return nil, &ParseError{Msg: err.Error()}
 		}
+		if err := pluginhost.RedirectPathsRefusal(man); err != nil {
+			return nil, &ParseError{Msg: err.Error()}
+		}
 		if err := checkCommunityCSP(origin, man); err != nil {
 			return nil, err
 		}
@@ -369,6 +376,16 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 	}
 	if p.Kind == KindPlugin && (!updating || prev.Enabled) {
 		if err := m.checkSchemas(ctx, p); err != nil {
+			return nil, err
+		}
+	}
+	// A path is declared by one plugin only, whether or not it is enabled.
+	if p.Kind == KindPlugin {
+		rows, err := m.store.List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if err := redirectPathConflict(rows, p); err != nil {
 			return nil, err
 		}
 	}
@@ -557,6 +574,7 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 		c.NewHosts, c.NewFetchAny, c.NewIsland, c.NewScripts = widenedAccess(prev.Manifest, p)
 		c.NewCSPHosts = newCSPHosts(prev.Manifest, p)
 		c.NewRequestHeaders = newRequestHeaders(prev.Manifest, p)
+		c.NewRedirectPaths = newRedirectPaths(prev.Manifest, p)
 		// Fail closed: if the installed package cannot be read, its tags cannot
 		// be compared, so the owner is asked.
 		prevPkg, _, loadErr := m.store.Load(ctx, KindPlugin, p.Name)
@@ -564,7 +582,7 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 			c.NewTagHosts, c.TagCategoryChanged = newTagAccess(prevPkg, p)
 		}
 		c.TagCompareFailed = loadErr != nil
-		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
+		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewRedirectPaths) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
 	}
 	if !c.Downgrade && !c.SignerChange && !c.WidenedAccess && len(c.Missing) == 0 {
 		return nil, nil
@@ -591,6 +609,24 @@ func widenedAccess(installed jsontext.Value, p *Package) (hosts []string, fetchA
 		return slices.Contains(next.Permissions, perm) && !slices.Contains(old.Permissions, perm)
 	}
 	return hosts, newly(sdk.PermHTTPFetchAny), newly(sdk.PermBuilderIsland), newly(sdk.PermSiteScripts)
+}
+
+// newRedirectPaths lists the redirect_paths the update declares that the
+// installed manifest did not.
+func newRedirectPaths(installed jsontext.Value, p *Package) []string {
+	var old sdk.Manifest
+	_ = decodeManifest(installed, &old)
+	next, err := p.PluginManifest()
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, path := range next.RedirectPaths {
+		if !slices.Contains(old.RedirectPaths, path) {
+			out = append(out, path)
+		}
+	}
+	return out
 }
 
 // newRequestHeaders lists the request_headers (lower case) the update declares
@@ -858,6 +894,13 @@ func (m *Manager) SetEnabled(ctx context.Context, name string, on bool) error {
 	if on {
 		p, _, err := m.store.Load(ctx, KindPlugin, name)
 		if err != nil {
+			return err
+		}
+		rows, err := m.store.List(ctx)
+		if err != nil {
+			return err
+		}
+		if err := redirectPathConflict(rows, p); err != nil {
 			return err
 		}
 		// A plugin installed before content types existed may ship a schema the

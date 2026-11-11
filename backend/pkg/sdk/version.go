@@ -90,9 +90,17 @@ package sdk
 // manifest facts, and whether the signature matches the given signer key)
 // without ever returning the package body. It adds the InspectRequest and
 // InspectResult types and the sdk/registry helper for signing a registry index.
-const Version = "0.21.0"
+//
+// 0.22.0 is additive over 0.21. It adds the request.redirect filter and the
+// redirect_paths manifest field: a plugin declares up to 16 exact public paths
+// and, for GET and HEAD requests to them, may answer before routing, stored
+// redirects and the page cache with a same-site 302 or 307 and declared
+// cookies, using its declared cookies and the visitor's country. It adds the
+// RedirectContext and Redirect types. Every failure leaves the request to
+// normal handling.
+const Version = "0.22.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
 // lists its predecessors here. 0.4 plugins were native Go.
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0"}
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0"}

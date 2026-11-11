@@ -176,7 +176,7 @@ func TestManifestValidate(t *testing.T) {
 }
 
 func TestCompatible(t *testing.T) {
-	for rng, want := range map[string]bool{"^0.5": true, "^0.4": false, ">=0.5 <1": true, "^0.8": true, "^0.9": true, "^0.10": true, "^0.11": true, "^0.12": true, "^0.13": true, "^0.14": true, "^0.15": true, "^0.16": true, "^0.17": true, "^0.18": true, "^0.19": true, "^0.20": true, "^0.21": true, "^0.22": false} {
+	for rng, want := range map[string]bool{"^0.5": true, "^0.4": false, ">=0.5 <1": true, "^0.8": true, "^0.9": true, "^0.10": true, "^0.11": true, "^0.12": true, "^0.13": true, "^0.14": true, "^0.15": true, "^0.16": true, "^0.17": true, "^0.18": true, "^0.19": true, "^0.20": true, "^0.21": true, "^0.22": true, "^0.23": false} {
 		got, err := Manifest{SDK: rng}.Compatible()
 		if err != nil || got != want {
 			t.Errorf("Compatible(%s) = %v,%v want %v", rng, got, err, want)
@@ -379,6 +379,19 @@ func TestManifestCSP(t *testing.T) {
 		m.CSP = c
 		if err := m.Validate(); (err == nil) != strings.HasPrefix(name, "ok") {
 			t.Errorf("%s: err = %v", name, err)
+		}
+	}
+}
+
+func TestRedirectPathsRefusePercentEscapes(t *testing.T) {
+	m := Manifest{Name: "rdr", Version: "0.1.0", SDK: "^0.22", RedirectPaths: []string{"/caf\u00e9", "/a/b"}}
+	if err := m.Validate(); err != nil {
+		t.Fatalf("decoded paths refused: %v", err)
+	}
+	for _, p := range []string{"/caf%C3%A9", "/a%2Fb", "/%41", "/a%"} {
+		m.RedirectPaths = []string{p}
+		if err := m.Validate(); err == nil || !strings.Contains(err.Error(), `must not contain "%"`) {
+			t.Errorf("redirect_paths %q: err = %v, want a refusal of %%", p, err)
 		}
 	}
 }

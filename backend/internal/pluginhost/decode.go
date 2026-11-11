@@ -29,7 +29,9 @@ var (
 	// about 45 tokens an item) is under 40k tokens; 64k leaves room.
 	builderDataShape = shape{maxElems: 64, maxTokens: 64_000, maxDepth: 6}
 	jsonldShape      = shape{maxElems: 1_000, maxTokens: 100_000, maxDepth: 32}
-	defaultShape     = shape{maxElems: 10_000, maxTokens: 200_000, maxDepth: 32}
+	// request.redirect: a few declared cookies, one redirect, no nesting.
+	redirectShape = shape{maxElems: 16, maxTokens: 2_000, maxDepth: 4}
+	defaultShape  = shape{maxElems: 10_000, maxTokens: 200_000, maxDepth: 32}
 )
 
 func shapeOf(v any) shape {
@@ -42,6 +44,8 @@ func shapeOf(v any) shape {
 		return jsonldShape
 	case sdk.BuilderDataRequest:
 		return builderDataShape
+	case sdk.RedirectContext:
+		return redirectShape
 	}
 	return defaultShape
 }

@@ -17,7 +17,7 @@ Hatamoto keeps its dependency set small on purpose. The rules the project follow
 - Every dependency is pinned, and the browser files are pinned by SHA-256.
 - No Node, no npm and no bundler in the build. The Go toolchain is the only build tool. The one Node file in the repository is the development-only icon generator described under [Admin icons](#admin-icons).
 
-The Go version is `go 1.27` with `toolchain go1.27.3`, as declared in `backend/go.mod`. The authoritative list is always `go list -m all` and `backend/go.mod`; the tables below were checked against them.
+The Go version is `go 1.27` with `toolchain go1.27.4`, as declared in `backend/go.mod`. The authoritative list is always `go list -m all` and `backend/go.mod`; the tables below were checked against them.
 
 ## Go modules in the binary
 

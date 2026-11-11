@@ -218,6 +218,33 @@ func TestNewRequestHeaders(t *testing.T) {
 	}
 }
 
+// An update that adds a redirect path is widened access; the same paths are not.
+func TestNewRedirectPaths(t *testing.T) {
+	p := parse(t, mustPackPaths(t, pathsPack("promo", "1.1.0", "/go", "/start")))
+	if got := newRedirectPaths([]byte(`{"name":"promo","version":"1.0.0","sdk":"^0.22"}`), p); !slices.Equal(got, []string{"/go", "/start"}) {
+		t.Errorf("new paths = %v, want both", got)
+	}
+	if got := newRedirectPaths([]byte(`{"name":"promo","redirect_paths":["/go"]}`), p); !slices.Equal(got, []string{"/start"}) {
+		t.Errorf("new paths = %v, want only /start", got)
+	}
+	if got := newRedirectPaths([]byte(`{"name":"promo","redirect_paths":["/start","/go","/other"]}`), p); len(got) != 0 {
+		t.Errorf("unchanged paths = %v", got)
+	}
+	// A trailing slash is a different path.
+	if got := newRedirectPaths([]byte(`{"name":"promo","redirect_paths":["/go/","/start"]}`), p); !slices.Equal(got, []string{"/go"}) {
+		t.Errorf("new paths = %v, want only /go", got)
+	}
+}
+
+func mustPackPaths(t *testing.T, files map[string][]byte) []byte {
+	t.Helper()
+	raw, err := PackFiles(files, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+
 // A developer package gets the community policy at the prompt: Install would
 // refuse the same permissions and CSP hosts.
 func TestDeveloperPackageGetsCommunityPolicyAtThePrompt(t *testing.T) {

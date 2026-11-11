@@ -303,7 +303,7 @@ func refusal(err error) error {
 		errors.Is(err, packages.ErrUnsigned), errors.Is(err, packages.ErrUntrustedKey), errors.Is(err, packages.ErrBadSignature),
 		errors.Is(err, packages.ErrUnsignedNotAllowed), errors.Is(err, packages.ErrSignerNotAllowed), errors.Is(err, packages.ErrDevDisabled),
 		errors.Is(err, packages.ErrReservedName), errors.Is(err, packages.ErrPermission), errors.Is(err, packages.ErrRegistryOff), errors.Is(err, packages.ErrCommunityScripts),
-		errors.Is(err, packages.ErrDeveloperOff), errors.Is(err, packages.ErrDeveloperKeyMismatch), errors.Is(err, packages.ErrDeveloperSignerChanged), errors.Is(err, packages.ErrRevoked):
+		errors.Is(err, packages.ErrDeveloperOff), errors.Is(err, packages.ErrDeveloperKeyMismatch), errors.Is(err, packages.ErrDeveloperSignerChanged), errors.Is(err, packages.ErrRevoked), errors.Is(err, packages.ErrRedirectPathTaken):
 		return &admin.Refusal{Msg: strings.TrimPrefix(err.Error(), "package: ")}
 	}
 	if strings.Contains(err.Error(), "registry") || strings.Contains(err.Error(), "download") {
@@ -367,7 +367,7 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	sum.FirstParty = sum.Problem == "" && packages.Classify(pkg.Name, sum.Signer) == packages.OriginFirstParty
 	if need, err := p.mgr().NeedsConfirmation(ctx, pkg, packages.SourceUpload); err == nil && need != nil {
 		c := &admin.ConfirmInfo{Name: need.Name, Downgrade: need.Downgrade, SignerChange: need.SignerChange,
-			WidenedAccess: need.WidenedAccess, NewHosts: need.NewHosts, NewFetchAny: need.NewFetchAny, NewIsland: need.NewIsland, NewScripts: need.NewScripts, NewCSPHosts: need.NewCSPHosts, NewRequestHeaders: need.NewRequestHeaders, NewTagHosts: need.NewTagHosts, TagCategoryChanged: need.TagCategoryChanged,
+			WidenedAccess: need.WidenedAccess, NewHosts: need.NewHosts, NewFetchAny: need.NewFetchAny, NewIsland: need.NewIsland, NewScripts: need.NewScripts, NewCSPHosts: need.NewCSPHosts, NewRequestHeaders: need.NewRequestHeaders, NewRedirectPaths: need.NewRedirectPaths, NewTagHosts: need.NewTagHosts, TagCategoryChanged: need.TagCategoryChanged,
 			OldVersion: need.OldVersion, NewVersion: need.NewVersion, OldSigner: need.OldSigner, NewSigner: need.NewSigner}
 		for _, m := range need.Missing {
 			c.Missing = append(c.Missing, admin.MissingSection{Type: m.Type, Uses: m.Uses})
@@ -395,8 +395,14 @@ func (p *packageAdmin) Install(ctx context.Context, data []byte, source string, 
 }
 
 func (p *packageAdmin) SetEnabled(ctx context.Context, name string, on bool) error {
-	err := p.mgr().SetEnabled(actorCtx(ctx), name, on)
-	if errors.Is(err, packages.ErrRevoked) {
+	return enableRefusal(p.mgr().SetEnabled(actorCtx(ctx), name, on))
+}
+
+// enableRefusal turns the refusals enabling a plugin can produce (revoked, a
+// redirect path another plugin holds) into readable ones; anything else is
+// left as it is.
+func enableRefusal(err error) error {
+	if errors.Is(err, packages.ErrRevoked) || errors.Is(err, packages.ErrRedirectPathTaken) {
 		return refusal(err)
 	}
 	return err

@@ -68,6 +68,15 @@ var (
 	// set declared cookies. A page served through it is never shared-cached.
 	RenderPage = Filter[PageContext]{"render.page"}
 
+	// RequestRedirect lets a plugin answer a public GET or HEAD request for
+	// one of the exact paths it declared in its manifest (redirect_paths)
+	// before routing, stored redirects and the page cache (since 0.22.0). It
+	// sees the raw query, its declared cookies and the visitor's country, and
+	// may return a 302 or 307 to a same-site location and set declared
+	// cookies. Any error, trap, timeout, empty answer or rule violation is
+	// logged and the request is handled normally (fail open).
+	RequestRedirect = Filter[RedirectContext]{"request.redirect"}
+
 	// EntityBeforeSave runs before an entity is created, updated or restored.
 	// Rejecting (see RejectPrefix) refuses the save with HTTP 422 and the
 	// reason. Any other error, a trap or a timeout is logged and the filter's
@@ -91,7 +100,7 @@ var (
 		AgentHit.Name, AgentFirstCrawl.Name, FormSubmitted.Name,
 	}
 	FilterNames = []string{
-		JSONLDEnrich.Name, SitemapURLsF.Name, RenderHead.Name, RenderPage.Name, EntityBeforeSave.Name, BuilderData.Name, RenderSiteGraph.Name,
+		JSONLDEnrich.Name, SitemapURLsF.Name, RenderHead.Name, RenderPage.Name, EntityBeforeSave.Name, BuilderData.Name, RenderSiteGraph.Name, RequestRedirect.Name,
 	}
 )
 

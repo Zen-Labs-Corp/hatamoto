@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin"
@@ -84,8 +85,27 @@ func (s *Server) adminGrowth() admin.GrowthDeps {
 	return g
 }
 
-// geoStatus is whether a country database is configured and whether it opened.
-func (s *Server) geoStatus() (configured, loaded bool) { return s.geoConfigured, s.geoLoaded }
+// geoStatus is whether a country database is configured and whether it is
+// loaded now. It rechecks the file first (rate limited), so the admin page
+// reflects a refresh without waiting for the poll.
+func (s *Server) geoStatus() (configured, loaded bool) {
+	s.geoHolder.MaybeReload(5 * time.Second)
+	return s.geoHolder.Configured(), s.geoHolder.Loaded()
+}
+
+// runGeoReload rechecks the country database file every interval until ctx ends.
+func (s *Server) runGeoReload(ctx context.Context, interval time.Duration) {
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			s.geoHolder.Reload()
+		}
+	}
+}
 
 // engagementSetting is the engagement switch of the Traffic page: the store is the truth, the
 // service its cached copy that the request path reads.
@@ -374,7 +394,7 @@ func (p pluginAdmin) Plugins() []admin.PluginInfo {
 		info := admin.PluginInfo{
 			Runs: runDecls(runs[v.Name]), Standing: declaresRule(runs[v.Name]),
 			Name: v.Name, Version: v.Version, SDK: v.SDK, Description: v.Description, Error: v.Error, DataError: v.DataError, TempFileLimitOff: v.TempFileLimitOff, Loaded: v.Loaded,
-			Hooks: v.Hooks, Permissions: v.Permissions, Granted: v.Granted, AllowedHosts: v.AllowedHosts, Cookies: v.Cookies, RequestHeaders: v.RequestHeaders, CSP: permtext.CSPLines(v.CSP), Funcs: v.Funcs,
+			Hooks: v.Hooks, Permissions: v.Permissions, Granted: v.Granted, AllowedHosts: v.AllowedHosts, Cookies: v.Cookies, RedirectPaths: v.RedirectPaths, RequestHeaders: v.RequestHeaders, CSP: permtext.CSPLines(v.CSP), Funcs: v.Funcs,
 			Refused: p.s.refusedPermissions(v.Name, v.Permissions),
 		}
 		if p.s.packages != nil {

@@ -359,7 +359,7 @@ func (a *Admin) buildTraffic(ctx context.Context, q url.Values, rg agents.Range,
 	case !configured:
 		p.CountriesBefore, p.CountriesAfter = "Set ", " to a DB-IP Lite or GeoLite2 country .mmdb file."
 	case !loaded:
-		p.CountriesBefore, p.CountriesAfter = "The country file set in ", " could not be read. Check the path, then restart."
+		p.CountriesBefore, p.CountriesAfter = "The country file set in ", " could not be read. Check the path; it is rechecked automatically."
 	}
 	if p.CountriesBefore != "" {
 		p.CountriesEnv = "HATAMOTO_GEOIP_DB"

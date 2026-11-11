@@ -111,6 +111,11 @@ func (f *fakePackages) Inspect(_ context.Context, data []byte) (PackageSummary, 
 		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv", "site.scripts"},
 			Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "2.0.0", Granted: []string{"kv"},
 			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewScripts: true, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
+	case strings.HasPrefix(s, "plugin-redirects:"): // an update that newly declares redirect paths
+		name := strings.TrimPrefix(s, "plugin-redirects:")
+		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv"},
+			Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "2.0.0", Granted: []string{"kv"},
+			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewRedirectPaths: []string{"/go", "/go/"}, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
 	case strings.HasPrefix(s, "plugin-fresh-scripts:"): // a first install that asks for site.scripts
 		return PackageSummary{Kind: "plugin", Name: strings.TrimPrefix(s, "plugin-fresh-scripts:"), Version: "1.0.0", Permissions: []string{"kv", "site.scripts"}, Signed: true, Signer: "abc123"}, nil
 	case strings.HasPrefix(s, "plugin-island:"): // a first install that asks for builder.island
