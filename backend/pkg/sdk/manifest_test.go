@@ -3,6 +3,7 @@ package sdk
 import (
 	jsonv2 "encoding/json/v2"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -209,14 +210,18 @@ func TestExportNames(t *testing.T) {
 func TestManifestUIValidation(t *testing.T) {
 	base := Manifest{Name: "ui-plugin", Version: "1.0.0", SDK: "^0.7"}
 	for name, ui := range map[string]*AdminUI{
-		"ok":          {Title: "Leads"},
-		"ok entry":    {Title: "Leads", Entry: "app/main.html", Roles: []string{"owner", "editor"}},
-		"no title":    {},
-		"long title":  {Title: strings.Repeat("x", 41)},
-		"traversal":   {Title: "x", Entry: "../x.html"},
-		"absolute":    {Title: "x", Entry: "/x.html"},
-		"not html":    {Title: "x", Entry: "x.js"},
-		"viewer role": {Title: "x", Roles: []string{"viewer"}},
+		"ok":             {Title: "Leads"},
+		"ok entry":       {Title: "Leads", Entry: "app/main.html", Roles: []string{"owner", "editor"}},
+		"ok camera":      {Title: "Scan", Allow: []string{"camera"}},
+		"ok empty allow": {Title: "Scan", Allow: []string{}},
+		"bad mic":        {Title: "Scan", Allow: []string{"mic"}},
+		"bad dup":        {Title: "Scan", Allow: []string{"camera", "camera"}},
+		"no title":       {},
+		"long title":     {Title: strings.Repeat("x", 41)},
+		"traversal":      {Title: "x", Entry: "../x.html"},
+		"absolute":       {Title: "x", Entry: "/x.html"},
+		"not html":       {Title: "x", Entry: "x.js"},
+		"viewer role":    {Title: "x", Roles: []string{"viewer"}},
 	} {
 		m := base
 		m.UI = ui
@@ -224,6 +229,31 @@ func TestManifestUIValidation(t *testing.T) {
 		if want := strings.HasPrefix(name, "ok"); (err == nil) != want {
 			t.Errorf("%s: err = %v", name, err)
 		}
+	}
+}
+
+func TestManifestAskedCamera(t *testing.T) {
+	m := Manifest{Name: "ui-plugin", Version: "1.0.0", SDK: "^0.22", Permissions: []Permission{PermKV}}
+	if got := m.Asked(); !slices.Equal(got, []Permission{PermKV}) {
+		t.Fatalf("no ui: Asked = %v", got)
+	}
+	m.UI = &AdminUI{Title: "Scan"}
+	if got := m.Asked(); !slices.Equal(got, []Permission{PermKV}) {
+		t.Fatalf("no allow: Asked = %v", got)
+	}
+	m.UI.Allow = []string{UIAllowCamera}
+	if got := m.Asked(); !slices.Equal(got, []Permission{PermKV, PermUICamera}) {
+		t.Fatalf("camera: Asked = %v", got)
+	}
+	if len(m.Permissions) != 1 {
+		t.Fatalf("Asked mutated Permissions: %v", m.Permissions)
+	}
+	if !ValidGrant(PermUICamera) || ValidPermission(PermUICamera) || ValidGrant("mic") {
+		t.Fatal("PermUICamera must be a grant but not a listable permission")
+	}
+	m.Permissions = []Permission{PermUICamera}
+	if err := m.Validate(); err == nil {
+		t.Fatal("manifest listing ui.allow:camera in permissions was accepted")
 	}
 }
 

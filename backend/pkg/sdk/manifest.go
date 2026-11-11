@@ -408,7 +408,13 @@ type AdminUI struct {
 	Entry string `json:"entry,omitempty"`
 	// Roles may open the page; empty means owner only.
 	Roles []string `json:"roles,omitempty"`
+	// Allow lists browser features the page may ask for (SDK 0.22.2). Only
+	// UIAllowCamera exists; the owner still has to grant it (PermUICamera).
+	Allow []string `json:"allow,omitempty"`
 }
+
+// UIAllowCamera in AdminUI.Allow lets the page call hatamoto.camera.capture().
+const UIAllowCamera = "camera"
 
 // DefaultUIEntry is the AdminUI entry when none is declared.
 const DefaultUIEntry = "index.html"
@@ -428,7 +434,26 @@ func (u AdminUI) validate() error {
 			return fmt.Errorf("ui.roles: %q (want owner or editor)", role)
 		}
 	}
+	for i, a := range u.Allow {
+		if a != UIAllowCamera {
+			return fmt.Errorf("ui.allow: %q is not supported (only %q)", a, UIAllowCamera)
+		}
+		if slices.Contains(u.Allow[:i], a) {
+			return fmt.Errorf("ui.allow: duplicate %q", a)
+		}
+	}
 	return nil
+}
+
+// Asked is every grant the manifest asks the owner for: its permissions plus
+// PermUICamera when ui.allow lists the camera. PermUICamera is not a listable
+// permission, so Permissions alone never holds it.
+func (m Manifest) Asked() []Permission {
+	asked := slices.Clone(m.Permissions)
+	if m.UI != nil && slices.Contains(m.UI.Allow, UIAllowCamera) {
+		asked = append(asked, PermUICamera)
+	}
+	return asked
 }
 
 // CronJob is a scheduled call. Every is a Go duration of at least one minute.
