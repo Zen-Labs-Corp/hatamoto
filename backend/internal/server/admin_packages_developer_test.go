@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"hatamoto.dev/core/internal/admin"
+	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/packages"
 )
 
@@ -105,4 +106,15 @@ func newDevKey(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return base64.StdEncoding.EncodeToString(pub)
+}
+
+// Admin Browse resolves a developer entry's screenshot against the developer
+// index, not the main registry.
+func TestRegistryEntryDeveloperScreenshot(t *testing.T) {
+	p := developerRegistryRig(t, packages.Options{DeveloperRegistry: &packages.Registry{URL: "https://dev.example.test/p/devportal/registry.json"}})
+	p.s.cfg = &config.Config{}
+	e := p.registryEntry(packages.Entry{Kind: packages.KindTheme, Name: "acme", Tier: packages.TierDeveloper, Screenshot: "screenshots/acme.png"}, nil)
+	if want := "https://dev.example.test/p/devportal/screenshots/acme.png"; e.Screenshot != want {
+		t.Fatalf("screenshot = %q, want %q", e.Screenshot, want)
+	}
 }

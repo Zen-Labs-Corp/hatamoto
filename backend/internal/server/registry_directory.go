@@ -39,7 +39,10 @@ type registryDirectory struct {
 	registry func() *packages.Registry
 	// dev is the optional developer index source; nil when developer packages
 	// are not offered. Its failure never affects the main registry's cards.
-	dev          registryFetcher
+	dev registryFetcher
+	// devURL is the developer index's URL, which its relative screenshot paths
+	// resolve against; nil when there is none.
+	devURL       func() string
 	logger       *slog.Logger
 	now          func() time.Time
 	fetchTimeout time.Duration
@@ -82,6 +85,12 @@ func (s *Server) pluginDirectory() *registryDirectory {
 				return nil, packages.ErrRegistryOff
 			}
 			return s.packages.DeveloperIndex(ctx, false)
+		}
+		s.directory.devURL = func() string {
+			if s.packages == nil || s.packages.DeveloperRegistry == nil {
+				return ""
+			}
+			return s.packages.DeveloperRegistry.URL
 		}
 	})
 	return s.directory
@@ -163,7 +172,7 @@ func (d *registryDirectory) refresh(ctx context.Context) {
 		exp, err = time.Parse(time.RFC3339, idx.ExpiresAt)
 	}
 	if err == nil {
-		d.snap = directorySnapshot{views: directoriesFor(idx, registryURL), until: minTime(now.Add(directoryTTL), exp), indexExpires: exp}
+		d.snap = directorySnapshot{views: directoriesFor(idx, registryURL, d.developerURL()), until: minTime(now.Add(directoryTTL), exp), indexExpires: exp}
 		d.logState("ok", nil)
 		return
 	}
@@ -299,14 +308,32 @@ func minTime(a, b time.Time) time.Time {
 	return a
 }
 
+// developerURL is the developer index's URL, "" when there is none.
+func (d *registryDirectory) developerURL() string {
+	if d.devURL == nil {
+		return ""
+	}
+	return d.devURL()
+}
+
 // directoriesFor maps one index to both directory views; registryURL anchors
-// relative screenshot paths.
-func directoriesFor(idx *packages.Index, registryURL string) directoryViews {
-	return directoryViews{plugins: directoryView(idx), themes: themeDirectoryView(idx, registryURL)}
+// the relative screenshot paths of its entries and developerURL those of the
+// developer entries.
+func directoriesFor(idx *packages.Index, registryURL, developerURL string) directoryViews {
+	return directoryViews{plugins: directoryView(idx), themes: themeDirectoryView(idx, registryURL, developerURL)}
+}
+
+// screenshotBase is the registry URL a relative screenshot path of an entry of
+// tier resolves against: developer entries live on the developer index's host.
+func screenshotBase(tier, registryURL, developerURL string) string {
+	if tier == packages.TierDeveloper {
+		return developerURL
+	}
+	return registryURL
 }
 
 // themeDirectoryView maps the theme entries of idx to cards, first-party first, then community, then developer, by name within each.
-func themeDirectoryView(idx *packages.Index, registryURL string) render.ThemeDirectoryView {
+func themeDirectoryView(idx *packages.Index, registryURL, developerURL string) render.ThemeDirectoryView {
 	var cards []render.ThemeCard
 	for _, e := range idx.Packages {
 		if e.Kind != packages.KindTheme {
@@ -314,7 +341,7 @@ func themeDirectoryView(idx *packages.Index, registryURL string) render.ThemeDir
 		}
 		c := render.ThemeCard{
 			Name: e.Name, Title: e.Title, Version: displayVersion(e.Version), Description: e.Description,
-			Source: packages.SafeHTTPS(e.Source), Screenshot: packages.ScreenshotURL(registryURL, e.Screenshot),
+			Source: packages.SafeHTTPS(e.Source), Screenshot: packages.ScreenshotURL(screenshotBase(e.Tier, registryURL, developerURL), e.Screenshot),
 			Search: strings.ToLower(e.Title + " " + e.Name + " " + e.Description + " " + e.Author),
 			About:  aboutParagraphs(e.About), Features: e.Features,
 		}

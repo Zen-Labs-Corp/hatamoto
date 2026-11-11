@@ -108,6 +108,14 @@ func (p *packageAdmin) registryURL() string {
 	return p.s.cfg.Packages.RegistryURL
 }
 
+// developerRegistryURL is the developer index's URL ("" when there is none).
+func (p *packageAdmin) developerRegistryURL() string {
+	if p.s == nil || p.s.packages == nil || p.s.packages.DeveloperRegistry == nil {
+		return ""
+	}
+	return p.s.packages.DeveloperRegistry.URL
+}
+
 func (p *packageAdmin) installedVersions(ctx context.Context) map[string]string {
 	out := map[string]string{}
 	rows, _ := p.mgr().Rows(ctx)
@@ -232,7 +240,7 @@ func (p *packageAdmin) registryEntry(e packages.Entry, have map[string]string) a
 		Permissions: e.Permissions, Installed: installed, InstalledVersion: cur, Update: installed && packages.Newer(e.Version, cur),
 		Title: e.Title, Author: e.Author, Tier: e.Tier, Category: e.Category, About: e.About, Source: e.Source, Commit: e.Commit,
 		Features: e.Features, Size: e.Size, Featured: e.Featured, Tags: registryTags(e.Tags),
-		Screenshot: packages.ScreenshotURL(p.registryURL(), e.Screenshot), SiteType: e.SiteType, Flags: slices.Clone(e.Flags),
+		Screenshot: packages.ScreenshotURL(screenshotBase(e.Tier, p.registryURL(), p.developerRegistryURL()), e.Screenshot), SiteType: e.SiteType, Flags: slices.Clone(e.Flags),
 	}
 	if e.Tier == packages.TierDeveloper {
 		out.Developer = true

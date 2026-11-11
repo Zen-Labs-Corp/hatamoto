@@ -376,7 +376,7 @@ func TestRegistryDirectoryViewsSplitKindsFromOneFetch(t *testing.T) {
 		t.Errorf("http registry screenshot %q, want none", z.Screenshot)
 	}
 	idx := &packages.Index{Packages: []packages.Entry{{Kind: packages.KindTheme, Name: "zen", Screenshot: "screenshots/zen.webp"}}}
-	if got := directoriesFor(idx, "https://hatamoto.dev/registry.json").themes.Cards[0].Screenshot; got != "https://hatamoto.dev/screenshots/zen.webp" {
+	if got := directoriesFor(idx, "https://hatamoto.dev/registry.json", "").themes.Cards[0].Screenshot; got != "https://hatamoto.dev/screenshots/zen.webp" {
 		t.Errorf("https screenshot %q", got)
 	}
 	if n := r.hits.Load(); n != 1 {
@@ -569,5 +569,21 @@ func TestRegistryDirectoryExpiryIsEarlierIndex(t *testing.T) {
 	r.dir.View(context.Background())
 	if want := r.clock.Add(time.Hour); !r.dir.snap.indexExpires.Equal(want) {
 		t.Errorf("indexExpires %v, want %v", r.dir.snap.indexExpires, want)
+	}
+}
+
+// A developer theme's relative screenshot resolves against the developer
+// index, a main one against the main registry.
+func TestRegistryDirectoryDeveloperScreenshotUsesDeveloperURL(t *testing.T) {
+	idx := &packages.Index{Packages: []packages.Entry{
+		{Kind: packages.KindTheme, Name: "main", Tier: packages.TierFirstParty, Screenshot: "screenshots/main.png"},
+		{Kind: packages.KindTheme, Name: "dev", Tier: packages.TierDeveloper, Screenshot: "screenshots/dev.png"},
+	}}
+	cards := directoriesFor(idx, "https://hatamoto.test/registry.json", "https://hatamoto.test/p/devportal/registry.json").themes.Cards
+	if got := cards[0].Screenshot; got != "https://hatamoto.test/screenshots/main.png" {
+		t.Errorf("main screenshot %q", got)
+	}
+	if got := cards[1].Screenshot; got != "https://hatamoto.test/p/devportal/screenshots/dev.png" {
+		t.Errorf("developer screenshot %q", got)
 	}
 }
