@@ -49,6 +49,9 @@ func TestS3StageAttachSweep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if m.StorageProvider != "s3" {
+		t.Errorf("staged provider = %q, want s3", m.StorageProvider)
+	}
 	if isStagedKey(m.StoragePath) || !e.hasObject(m.StoragePath) || len(m.Variants) == 0 {
 		t.Errorf("attached record = %+v", m)
 	}

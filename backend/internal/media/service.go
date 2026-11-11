@@ -249,7 +249,7 @@ func (s *Service) Upload(ctx context.Context, userID *uuid.UUID, file io.Reader,
 		OriginalFilename: filename,
 		MimeType:         mimeType,
 		FileSize:         written,
-		StorageProvider:  "local",
+		StorageProvider:  s.storageProvider(),
 		StoragePath:      storagePath,
 		PublicURL:        &publicURL,
 		Folder:           "/",
@@ -431,6 +431,14 @@ func (s *Service) OpenFile(rel string) (*os.File, error) {
 // ObjectStorage reports whether the bytes live in a store other than the local
 // disk.
 func (s *Service) ObjectStorage() bool { return s.local == nil }
+
+// storageProvider names where the bytes live; recorded on every new row.
+func (s *Service) storageProvider() string {
+	if s.local == nil {
+		return "s3"
+	}
+	return "local"
+}
 
 // StatObject reports size and validator of a stored file by its path relative
 // to the store, without reading it. A missing file satisfies

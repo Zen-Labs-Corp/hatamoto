@@ -122,3 +122,18 @@ func TestS3UploadSmallPNGAndRejects(t *testing.T) {
 	}
 	e.assertClean(t)
 }
+
+func TestS3UploadRecordsProvider(t *testing.T) {
+	e := newS3Env(t)
+
+	m, err := e.svc.Upload(context.Background(), nil, bytes.NewReader(pngBytes(t, 64, 64)), "pic.png", "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.StorageProvider != "s3" {
+		t.Errorf("returned provider = %q, want s3", m.StorageProvider)
+	}
+	if got := e.repo.byID[m.ID].StorageProvider; got != "s3" {
+		t.Errorf("stored provider = %q, want s3", got)
+	}
+}
