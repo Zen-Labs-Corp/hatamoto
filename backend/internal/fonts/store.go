@@ -142,7 +142,11 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 			return fmt.Errorf("fonts: insert: %w", err)
 		}
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	s.flight.Forget() // a list load already running predates these faces
+	return nil
 }
 
 // DeleteFamily removes every face of family (case-insensitive) and returns
@@ -152,6 +156,7 @@ func (s *Store) DeleteFamily(ctx context.Context, family string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("fonts: delete: %w", err)
 	}
+	s.flight.Forget() // a list load already running predates the delete
 	return int(tag.RowsAffected()), nil
 }
 
