@@ -2,6 +2,7 @@ package pluginhost
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -151,5 +152,28 @@ func TestBurstFor(t *testing.T) {
 		if got := burstFor(n); got != want {
 			t.Errorf("burstFor(%d) = %d, want %d", n, got, want)
 		}
+	}
+}
+
+// granted is a subset of requested, also for the camera grant: requested lists
+// everything the manifest asks for (Asked), not only its permissions.
+func TestPermissionsRequestedCoversCameraGrant(t *testing.T) {
+	t.Parallel()
+	g := NewGrantStore(nil)
+	if err := g.Set(context.Background(), "p", []sdk.Permission{sdk.PermKV, sdk.PermUICamera}); err != nil {
+		t.Fatal(err)
+	}
+	a := NewAPI(Services{}, g, func(p string) (sdk.Manifest, bool) {
+		return sdk.Manifest{Name: p, Permissions: []sdk.Permission{sdk.PermKV}, UI: &sdk.AdminUI{Allow: []string{sdk.UIAllowCamera}}}, true
+	}, nil)
+	res := callPermissions(t, a, "p")
+	requested, _ := res["requested"].([]any)
+	for _, want := range []any{"kv", "ui.allow:camera"} {
+		if !slices.Contains(requested, want) {
+			t.Errorf("requested %v lacks %v", requested, want)
+		}
+	}
+	if len(requested) != 2 {
+		t.Errorf("requested = %v", requested)
 	}
 }
