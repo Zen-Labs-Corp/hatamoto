@@ -327,3 +327,24 @@ func TestMissAfterBusyLocaleLookupFailsFast(t *testing.T) {
 		})
 	}
 }
+
+// A prefixed search stays rate limited while the locale lookup fails.
+func TestPrefixedSearchIsLimitedWhileLocaleLookupFails(t *testing.T) {
+	f := newRenderFixture(t)
+	f.next = okPage("Search")
+	f.h.snapshot = failingSnapshot
+	limited := 0
+	f.h.searchLimit = func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			limited++
+			next.ServeHTTP(w, r)
+		})
+	}
+	for _, path := range []string{"/search?q=x", "/xx/search?q=x"} {
+		limited = 0
+		f.get(path)
+		if limited != 1 {
+			t.Fatalf("%s: limiter ran %d times, want 1", path, limited)
+		}
+	}
+}

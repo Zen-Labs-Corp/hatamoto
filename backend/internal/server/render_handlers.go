@@ -355,6 +355,11 @@ func (h *renderHandlers) handleRenderCatchAll(w http.ResponseWriter, r *http.Req
 	if _, rest, ok := set.Resolve(path); ok {
 		bare = rest
 	}
+	if lookupErr != nil && strings.HasSuffix(path, searchPath) {
+		// The locale set is unknown: any ".../search" may be a prefixed search,
+		// so it is limited like one.
+		bare = searchPath
+	}
 	if bare == searchPath && r.URL.Query().Get("q") != "" && h.searchLimit != nil {
 		h.searchLimit(serve).ServeHTTP(w, r)
 		return
