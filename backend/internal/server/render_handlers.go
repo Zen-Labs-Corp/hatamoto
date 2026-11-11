@@ -215,7 +215,8 @@ func (h *renderHandlers) handleRenderHome(w http.ResponseWriter, r *http.Request
 	}
 	// With prefix-all every locale, the default included, lives under its own
 	// segment: the bare root points at the default locale's home. Never cached.
-	set, lookupErr := h.localeSet(database.WithPoolBusyScope(r.Context()))
+	scoped := database.WithPoolBusyScope(r.Context())
+	set, lookupErr := h.localeSet(scoped)
 	if h.redirectHomeToDefault(w, r, set) {
 		return
 	}
@@ -224,6 +225,9 @@ func (h *renderHandlers) handleRenderHome(w http.ResponseWriter, r *http.Request
 	onMiss := func() bool {
 		if lookupErr == nil {
 			return false
+		}
+		if h.failFastIfBusy(w, r, scoped) {
+			return true
 		}
 		var err error
 		if set, err = h.localeSet(r.Context()); err != nil || database.PoolBusyHit(r.Context()) {
@@ -264,6 +268,18 @@ func (h *renderHandlers) redirectHomeToDefault(w http.ResponseWriter, r *http.Re
 		target += "?" + r.URL.RawQuery
 	}
 	http.Redirect(w, r, target, http.StatusFound)
+	return true
+}
+
+// failFastIfBusy answers 503 when the pre-cache lookup under scoped gave up on
+// a busy pool: the request has used its bound already, so it is flagged now
+// instead of waiting a second bound on the same load.
+func (h *renderHandlers) failFastIfBusy(w http.ResponseWriter, r *http.Request, scoped context.Context) bool {
+	if !database.PoolBusyHit(scoped) {
+		return false
+	}
+	database.NotePoolBusy(r.Context())
+	h.writeBusy(w, r)
 	return true
 }
 
@@ -325,12 +341,16 @@ func (h *renderHandlers) handleRenderCatchAll(w http.ResponseWriter, r *http.Req
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 		return
 	}
+	scoped := database.WithPoolBusyScope(r.Context())
+	set, lookupErr := h.localeSet(scoped)
 	serve := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.serve(w, r, path, nil, func() (*routeResult, pageOutcome, error) {
+		// The resolver reads the snapshot itself; a lookup that already gave up
+		// on a busy pool must not wait a second bound for it.
+		onMiss := func() bool { return lookupErr != nil && h.failFastIfBusy(w, r, scoped) }
+		h.serve(w, r, path, onMiss, func() (*routeResult, pageOutcome, error) {
 			return h.resolve(r.Context(), path, r)
 		})
 	})
-	set, _ := h.localeSet(database.WithPoolBusyScope(r.Context()))
 	bare := path // the path without its locale segment
 	if _, rest, ok := set.Resolve(path); ok {
 		bare = rest

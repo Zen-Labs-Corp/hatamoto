@@ -275,8 +275,7 @@ func TestHomeMissAfterFailedLocaleLookupDoesNotCacheUnlocalized(t *testing.T) {
 	calls := 0
 	f.h.snapshot = func(ctx context.Context) (*entity.URLSnapshot, error) {
 		if calls++; calls == 1 {
-			database.NotePoolBusy(ctx)
-			return nil, fmt.Errorf("waiting for shared load: %w", database.ErrPoolBusy)
+			return nil, errors.New("db down")
 		}
 		return snap, nil
 	}
@@ -302,5 +301,29 @@ func TestHomeMissWithFailingLocaleLookupIs503(t *testing.T) {
 	}
 	if len(f.cache.sets) != 0 {
 		t.Fatalf("cached %v", f.cache.sets)
+	}
+}
+
+// A lookup that gave up on a busy pool is not repeated on the miss: the
+// request is flagged at once (503) instead of waiting a second bound.
+func TestMissAfterBusyLocaleLookupFailsFast(t *testing.T) {
+	for _, path := range []string{"/", "/about"} {
+		t.Run(path, func(t *testing.T) {
+			f := newRenderFixture(t)
+			f.next = okPage("About")
+			calls := 0
+			f.h.snapshot = func(ctx context.Context) (*entity.URLSnapshot, error) {
+				calls++
+				database.NotePoolBusy(ctx)
+				return nil, fmt.Errorf("waiting for shared load: %w", database.ErrPoolBusy)
+			}
+			w := getThroughBusyConverter(f, path)
+			if w.Code != http.StatusServiceUnavailable {
+				t.Fatalf("status %d, want 503", w.Code)
+			}
+			if calls != 1 {
+				t.Fatalf("%d snapshot reads, want 1 (no second bound)", calls)
+			}
+		})
 	}
 }
