@@ -30,9 +30,14 @@ func TestMentionsMediaPath(t *testing.T) {
 }
 
 func TestIsImageAttributeName(t *testing.T) {
-	for _, k := range []string{"og_image", "featured_image", "image", "photo", "OG_Image", "cover", "hero_image", "thumbnail", "headshot", "logo", "Hero_Image"} {
+	for _, k := range []string{"og_image", "featured_image", "image", "photo", "OG_Image", "hero_image", "thumbnail", "headshot", "logo", "Hero_Image"} {
 		if !IsImageAttributeName(k) {
 			t.Errorf("%q is read as an image by name", k)
+		}
+	}
+	for _, k := range []string{"title", "cover"} {
+		if IsImageAttributeName(k) {
+			t.Errorf("%q is not an image by name (cover is also a cover charge)", k)
 		}
 	}
 	if IsImageAttributeName("title") {

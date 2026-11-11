@@ -38,11 +38,13 @@ func IsURIField(format, xHm string) bool {
 // image (internal/seopanel/attrs.go), og:image (internal/server/public_pages_loader.go),
 // sitemap images (internal/server/public_handlers.go) and JSON-LD images
 // (internal/entity/public_repository.go). The default theme's readers take
-// cover, hero_image, thumbnail, headshot and logo the same way
+// hero_image, thumbnail, headshot and logo the same way
 // (internal/server/render_listing.go, internal/render/bind.go and the JSON-LD
 // image); they are listed as defence in depth, since the automatic create also
-// refuses every link. A new reader of such a key belongs here.
-var ImageAttributeNames = []string{"og_image", "featured_image", "image", "photo", "cover", "hero_image", "thumbnail", "headshot", "logo"}
+// refuses every link. cover is left out on purpose: it is also a cover charge
+// ("£10"), and a real cover image is a link, which the URL-like rule already
+// catches. A new reader of such a key belongs here.
+var ImageAttributeNames = []string{"og_image", "featured_image", "image", "photo", "hero_image", "thumbnail", "headshot", "logo"}
 
 // IsImageAttributeName reports whether a public reader treats the attribute
 // key as an image by name.

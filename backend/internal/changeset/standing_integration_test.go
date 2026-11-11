@@ -544,7 +544,7 @@ func TestStandingCreatePublishes(t *testing.T) {
 	})
 
 	t.Run("text_html_with_headings", func(t *testing.T) {
-		publish(s.newItem("txt", map[string]any{"attributes": map[string]any{"title": "T", "content": `<h2>Heading</h2><p class="lead">Read <a href="#more">more</a> and <strong>more</strong>.</p>`}}))
+		publish(s.newItem("txt", map[string]any{"attributes": map[string]any{"title": "T", "content": `<h2>Heading</h2><p class="lead">Read <a id="more">more</a> and <strong>more</strong>.</p>`}}))
 	})
 
 	t.Run("html_is_sanitised", func(t *testing.T) {
@@ -600,6 +600,11 @@ func TestStandingCreatePublishes(t *testing.T) {
 			"seo": map[string]any{"meta_title": "Line-up", "meta_description": "An evening of music, 7pm."}}))
 	})
 
+	t.Run("cover_charge", func(t *testing.T) {
+		s.setSchema(linkFieldsSchema)
+		publish(s.newItem("cc", map[string]any{"attributes": map[string]any{"title": "T", "cover": "£10"}}))
+	})
+
 	t.Run("plain_values_with_colons_and_digits", func(t *testing.T) {
 		s.setSchema(linkFieldsSchema)
 		publish(s.newItem("col", map[string]any{"attributes": map[string]any{
@@ -619,7 +624,7 @@ func (s *standingFixture) idOfSlugIn(schema, slug string) string {
 	return id
 }
 
-const linkFieldsSchema = `{"type":"object","properties":{"title":{"type":"string"},"price":{"type":"number"},"cover":{"type":"string","format":"uri"},"thumbnail":{"type":"string"},"hero_image":{"type":"string"},"logo":{"type":"string"},"style":{"type":"string"},"ticket_url":{"type":"string","format":"uri"},"notes":{"type":"string"},"when":{"type":"string"},"starts":{"type":"string","format":"date"},"kind":{"type":"string","enum":["talk","show"]},"sold_out":{"type":"boolean"}}}`
+const linkFieldsSchema = `{"type":"object","properties":{"title":{"type":"string"},"price":{"type":"number"},"cover":{"type":"string"},"thumbnail":{"type":"string"},"hero_image":{"type":"string"},"logo":{"type":"string"},"style":{"type":"string"},"ticket_url":{"type":"string","format":"uri"},"notes":{"type":"string"},"when":{"type":"string"},"starts":{"type":"string","format":"date"},"kind":{"type":"string","enum":["talk","show"]},"sold_out":{"type":"boolean"}}}`
 
 func TestStandingCreateRefusals(t *testing.T) {
 	s := newStandingFixture(t)
@@ -764,7 +769,7 @@ func TestStandingCreateRefusals(t *testing.T) {
 		{"link_like_0_cover", func() int64 {
 			s.setSchema(linkFieldsSchema)
 			return s.stageAll(s.newItem("lk0", map[string]any{"attributes": map[string]any{"title": "T", "cover": "https://" + s.siteHost() + "/flyer.jpg"}}))
-		}, "image or file"},
+		}, "links, paths or files"},
 		{"link_like_1_thumbnail", func() int64 {
 			s.setSchema(linkFieldsSchema)
 			return s.stageAll(s.newItem("lk1", map[string]any{"attributes": map[string]any{"title": "T", "thumbnail": "/name.jpg"}}))
@@ -792,6 +797,16 @@ func TestStandingCreateRefusals(t *testing.T) {
 		{"link_like_7_notes", func() int64 {
 			s.setSchema(linkFieldsSchema)
 			return s.stageAll(s.newItem("lk7", map[string]any{"attributes": map[string]any{"title": "T", "notes": "/about/us"}}))
+		}, "links, paths or files"},
+		{"link_like_cover_path", func() int64 {
+			s.setSchema(linkFieldsSchema)
+			return s.stageAll(s.newItem("lkc", map[string]any{"attributes": map[string]any{"title": "T", "cover": "/x.jpg"}}))
+		}, "links, paths or files"},
+		{"link_like_markup_relative_href", func() int64 {
+			return s.stageAll(s.newItem("lhr", map[string]any{"attributes": map[string]any{"title": "T", "content": `<p><a href="tickets">Buy</a></p>`}}))
+		}, "links, paths or files"},
+		{"link_like_markup_entity_id", func() int64 {
+			return s.stageAll(s.newItem("lhe", map[string]any{"attributes": map[string]any{"title": "T", "content": `<p><a data-entity-id="0b3c1d52-0000-4000-8000-000000000000">Buy</a></p>`}}))
 		}, "links, paths or files"},
 		{"link_like_markup_href", func() int64 {
 			return s.stageAll(s.newItem("lh", map[string]any{"attributes": map[string]any{"title": "T", "content": `<p>Read <a href="/about">about us</a>.</p>`}}))
