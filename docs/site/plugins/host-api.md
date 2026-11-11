@@ -51,7 +51,7 @@ A plugin always loads. What it may do is decided by the owner, and nothing is gr
 | `builder.island` | no function: needed by a package whose widgets ship an `island.js`, a script that runs on your public pages; without the grant the widgets render but the script is not served |
 | `site.scripts` | no function: links `assets/plugin.js`, emits `script-src` tags from `render.head` and lets partials and sections that contain scripts register; runs JavaScript on every public page with full access to the site, including signed-in admins; ungranted plugins' `plugin.js` is not linked and their sections/partials must pass the markup check; warned in the install prompt |
 
-The function `permissions` is always allowed and returns `{ "granted": [..], "requested": [..] }`, plus `"mail": { "recipients_per_hour": n }` when `mail.send` is granted (SDK 0.22.1).
+The function `permissions` is always allowed and returns `{ "granted": [..], "requested": [..] }`, plus `"mail": { "recipients_per_hour": n }` when `mail.send` is granted (SDK 0.22.1). `mail` is absent on hosts older than 0.22.1, so treat a missing field as unknown and assume the default.
 
 > Your admin address is private to your install, for example `/k7qm-x2rf-9tdc`. Print it on the server with `hatamoto admin-url`. This page writes it as `<admin>`.
 
@@ -122,7 +122,7 @@ Notes on specific functions:
 
 - **Term `seo`** is read-only. A Term result carries it; the search appearance of a term is edited on its admin page only.
 - **`log`** allows 10 lines per second (burst 20), then `rate_limited`. Messages are cut at 4 KiB.
-- **`mail.send`** goes through the site's mail service and From identity, allows the owner-set recipients per hour (default 360, 1 to 3600, set on the plugin Permissions tab; the plugin cannot change it; burst clamp(N/36, 10, 100)), answers `rate_limited` "mail quota (N recipients per hour) reached" past it, and answers `unavailable` when mail is not configured.
+- **`mail.send`** goes through the site's mail service and From identity, allows the owner-set recipients per hour (default 360, 1 to 3600, set on the plugin Permissions tab; the plugin cannot change it; burst clamp(N/36, 10, 100), so a very low quota still allows a short burst of up to 10), answers `rate_limited` "mail quota (N recipients per hour) reached" past it, and answers `unavailable` when mail is not configured.
 - **`kv.set`** values are any JSON up to 256 KiB. A plugin may hold 10,000 keys and 64 MiB of values.
 - **`db.query`** returns at most 1,000 rows and 1 MiB. See [Data, routes and cron](data-routes-cron.md).
 
