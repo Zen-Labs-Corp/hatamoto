@@ -413,7 +413,21 @@ func (p *packageAdmin) Uninstall(ctx context.Context, kind, name string, dropDat
 	if errors.Is(err, packages.ErrThemeActive) {
 		return admin.ErrThemeActive
 	}
+	if err == nil && kind == string(packages.KindPlugin) {
+		p.s.resetMailQuota(name)
+	}
 	return err
+}
+
+// resetMailQuota returns an uninstalled plugin to the default quota: the
+// uninstall deleted its stored value, so a reinstall starts from the default.
+func (s *Server) resetMailQuota(name string) {
+	if s.mailQuotas != nil {
+		s.mailQuotas.Forget(name)
+	}
+	if s.plugins != nil {
+		s.plugins.SetMailQuota(name, pluginhost.DefaultMailPerHour)
+	}
 }
 
 func (p *packageAdmin) ContentTypes(ctx context.Context, name string) []admin.ContentTypeUse {

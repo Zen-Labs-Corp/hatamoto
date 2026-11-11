@@ -236,6 +236,8 @@ type Server struct {
 	plugins *pluginhost.Runtime
 	// pluginDB is the runtime's database service (nil before plugins are set up).
 	pluginDB *pluginhost.PluginDB
+	// mailQuotas holds the owner-set mail.send quotas (nil before plugins are set up).
+	mailQuotas *pluginhost.MailQuotaStore
 
 	// hooks is the plugin action/filter engine. Created at the top of
 	// setupDependencies so services built later (entity, lead) can capture

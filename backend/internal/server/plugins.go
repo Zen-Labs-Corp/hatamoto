@@ -34,12 +34,19 @@ func (s *Server) setupPlugins() {
 		// plugins still load, and nothing is granted by mistake.
 		s.logger.Error("plugins: grants not loaded; all capabilities denied", slog.Any("error", err))
 	}
+	quotas := pluginhost.NewMailQuotaStore(s.db.Pool())
+	if err := quotas.Load(ctx); err != nil {
+		// Plugins fall back to the default quota rather than none.
+		s.logger.Error("plugins: mail quotas not loaded; default quota applies", slog.Any("error", err))
+	}
+	s.mailQuotas = quotas
 	pdb := pluginhost.NewPluginDB(s.db.Pool(), s.logger)
 	pdb.AllowPublicObjects = s.cfg.Plugins.AllowPublicDBObjects
 	s.pluginDB = pdb
 	pdb.WarnPublicObjects(ctx)
 	cfg := pluginhost.Config{
-		Grants: grants,
+		Grants:     grants,
+		MailQuotas: quotas,
 		Services: pluginhost.Services{
 			Entities:  s.entityService,
 			Paths:     pluginEntityPaths{s},
