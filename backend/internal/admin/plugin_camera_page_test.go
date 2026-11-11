@@ -33,7 +33,7 @@ func TestPluginPageCameraPolicyFollowsTheGrant(t *testing.T) {
 	if got := rec.Header().Get("Permissions-Policy"); got != "" && strings.Contains(got, "camera=(self)") {
 		t.Errorf("ungranted page Permissions-Policy = %q", got)
 	}
-	for _, bad := range []string{"data-camera", "plugin-camera", "camera"} {
+	for _, bad := range []string{"data-camera", "plugin-camera", "hm-camera", "Camera: "} {
 		if strings.Contains(body, bad) {
 			t.Errorf("ungranted page mentions %q", bad)
 		}

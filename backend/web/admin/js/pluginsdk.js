@@ -7,6 +7,10 @@
 //                                      -> {ok, result|error}   (owner only; an editor's page uses routes)
 //   hatamoto.runInputs(values)         hand the run's input values to core's start form
 //                                      -> {ok:true}   (declared inputs only; core starts the run)
+//   hatamoto.camera.capture()          ask for one photo from the camera (only if the owner granted it)
+//                                      -> {ok:true, image:"data:image/jpeg;base64,...", width, height}
+//                                         | {ok:false, error:"cancelled"|"denied"|"unavailable"}
+//                                      (core shows its own dialog; a person presses Capture; longest side <= 1280px)
 // The page has no network access of its own; this is its only way out.
 (() => {
   const pending = new Map();
@@ -46,6 +50,7 @@
     route: (method, path, body, query) => send({ op: "route", method, path, body, query }),
     host: (fn, args) => send({ op: "host", fn, args }),
     runInputs: (values) => send({ op: "inputs", values }),
+    camera: { capture: () => send({ op: "camera.capture" }) },
   };
   parent.postMessage({ hm: 1, op: "ready" }, "*");
 })();

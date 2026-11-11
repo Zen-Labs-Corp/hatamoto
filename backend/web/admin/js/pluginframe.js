@@ -8,6 +8,7 @@
 //   iframe -> {hm:1, id, nonce, op:"route", method, path, query, body}  (the plugin's own routes)
 //   iframe -> {hm:1, id, nonce, op:"host", fn, args}                    (a granted host function; owner only)
 //   iframe -> {hm:1, id, nonce, op:"inputs", values}                    (run inputs, kept in core's start form; no request is made)
+//   iframe -> {hm:1, id, nonce, op:"camera.capture"}                    (only with the owner's camera grant: core's own dialog, one JPEG back; no request is made)
 //
 // The bridge belongs to the ONE document the frame loads first. A sandboxed
 // frame can still navigate itself, and the next document has the same opaque
@@ -21,6 +22,9 @@
 //
 // Not stopped here: a page can still leave through ONE navigation, with
 // whatever it had already read in the URL (docs/PLUGIN_API.md, "Admin page").
+
+import { capture } from "@hm/plugincamera";
+
 function init() {
   const holder = document.querySelector("[data-hm-pluginframe]");
   if (!holder || holder.dataset.bound) return;
@@ -31,6 +35,7 @@ function init() {
   const src = holder.dataset.src;
   const plugin = holder.dataset.plugin;
   const bridge = holder.dataset.bridge;
+  const camera = holder.dataset.camera === "1";
   const functions = new Set((holder.dataset.functions || "").split(",").filter(Boolean));
   const notice = holder.querySelector("[data-hm-pluginframe-notice]");
   const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content ?? "";
@@ -63,6 +68,9 @@ function init() {
     let body;
     if (m.op === "inputs") {
       return setRunInputs(m.values);
+    } else if (m.op === "camera.capture") {
+      if (!camera) throw new Error("camera is not available to this plugin's page");
+      return capture(document.getElementById("plugin-camera"));
     } else if (m.op === "route") {
       if (typeof m.path !== "string" || !m.path.startsWith("/")) throw new Error("path must start with /");
       body = { op: "route", method: String(m.method || "GET").toUpperCase(), path: m.path, query: m.query || {}, body: typeof m.body === "string" ? m.body : m.body == null ? "" : JSON.stringify(m.body) };

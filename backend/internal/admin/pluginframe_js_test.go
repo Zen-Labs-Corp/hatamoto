@@ -38,3 +38,29 @@ func TestPluginSDKSendsRunInputs(t *testing.T) {
 		t.Error("pluginsdk.js lost hatamoto.runInputs")
 	}
 }
+
+// camera.capture is core's own op: it needs the page's camera grant (the
+// data-camera flag), opens core's dialog and never reaches the bridge request.
+func TestPluginFrameGatesCameraOnTheGrant(t *testing.T) {
+	t.Parallel()
+
+	js := string(readFileT(t, "../../web/admin/js/pluginframe.js"))
+	for _, want := range []string{
+		`holder.dataset.camera === "1"`,
+		`m.op === "camera.capture"`,
+		`if (!camera) throw new Error(`,
+		`capture(document.getElementById("plugin-camera"))`,
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("pluginframe.js lost %q", want)
+		}
+	}
+	gate, fetch := strings.Index(js, `if (!camera) throw`), strings.Index(js, `await fetch(bridge`)
+	if gate < 0 || fetch < 0 || gate > fetch {
+		t.Error("the camera gate must come before the bridge request")
+	}
+	sdk := string(readFileT(t, "../../web/admin/js/pluginsdk.js"))
+	if !strings.Contains(sdk, `camera: { capture: () => send({ op: "camera.capture" }) }`) {
+		t.Error("pluginsdk.js lost hatamoto.camera.capture")
+	}
+}
