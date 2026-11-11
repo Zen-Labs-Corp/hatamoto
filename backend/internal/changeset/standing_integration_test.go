@@ -594,6 +594,13 @@ func TestStandingCreatePublishes(t *testing.T) {
 			t.Errorf("child has no parent")
 		}
 	})
+
+	t.Run("plain_values_with_colons_and_digits", func(t *testing.T) {
+		s.setSchema(linkFieldsSchema)
+		publish(s.newItem("col", map[string]any{"attributes": map[string]any{
+			"title": "Doors: 7pm", "price": 12.5, "notes": "see page 3/4", "when": "19:30",
+			"starts": "2026-11-10", "kind": "talk", "sold_out": false}}))
+	})
 }
 
 func (s *standingFixture) idOfSlugIn(schema, slug string) string {
@@ -606,6 +613,8 @@ func (s *standingFixture) idOfSlugIn(schema, slug string) string {
 	}
 	return id
 }
+
+const linkFieldsSchema = `{"type":"object","properties":{"title":{"type":"string"},"price":{"type":"number"},"cover":{"type":"string","format":"uri"},"thumbnail":{"type":"string"},"hero_image":{"type":"string"},"logo":{"type":"string"},"style":{"type":"string"},"ticket_url":{"type":"string","format":"uri"},"notes":{"type":"string"},"when":{"type":"string"},"starts":{"type":"string","format":"date"},"kind":{"type":"string","enum":["talk","show"]},"sold_out":{"type":"boolean"}}}`
 
 func TestStandingCreateRefusals(t *testing.T) {
 	s := newStandingFixture(t)
@@ -747,6 +756,38 @@ func TestStandingCreateRefusals(t *testing.T) {
 			s.mediaRow(u)
 			return s.stageAll(s.newItem("pn5", map[string]any{"attributes": map[string]any{"title": strings.ToUpper(u)}}))
 		}, "media library"},
+		{"link_like_0_cover", func() int64 {
+			s.setSchema(linkFieldsSchema)
+			return s.stageAll(s.newItem("lk0", map[string]any{"attributes": map[string]any{"title": "T", "cover": "https://" + s.siteHost() + "/flyer.jpg"}}))
+		}, "links, paths or files"},
+		{"link_like_1_thumbnail", func() int64 {
+			s.setSchema(linkFieldsSchema)
+			return s.stageAll(s.newItem("lk1", map[string]any{"attributes": map[string]any{"title": "T", "thumbnail": "/name.jpg"}}))
+		}, "links, paths or files"},
+		{"link_like_2_hero_image", func() int64 {
+			s.setSchema(linkFieldsSchema)
+			return s.stageAll(s.newItem("lk2", map[string]any{"attributes": map[string]any{"title": "T", "hero_image": "name.jpg"}}))
+		}, "links, paths or files"},
+		{"link_like_3_logo", func() int64 {
+			s.setSchema(linkFieldsSchema)
+			return s.stageAll(s.newItem("lk3", map[string]any{"attributes": map[string]any{"title": "T", "logo": "www.example.com/logo"}}))
+		}, "links, paths or files"},
+		{"link_like_4_style", func() int64 {
+			s.setSchema(linkFieldsSchema)
+			return s.stageAll(s.newItem("lk4", map[string]any{"attributes": map[string]any{"title": "T", "style": "background:image-set(\"x.png\" 1x)"}}))
+		}, "links, paths or files"},
+		{"link_like_5_ticket_url", func() int64 {
+			s.setSchema(linkFieldsSchema)
+			return s.stageAll(s.newItem("lk5", map[string]any{"attributes": map[string]any{"title": "T", "ticket_url": "https://tickets.example/e/1"}}))
+		}, "closer look"},
+		{"link_like_6_notes", func() int64 {
+			s.setSchema(linkFieldsSchema)
+			return s.stageAll(s.newItem("lk6", map[string]any{"attributes": map[string]any{"title": "T", "notes": "mail mailto:a@b.example"}}))
+		}, "links, paths or files"},
+		{"link_like_7_notes", func() int64 {
+			s.setSchema(linkFieldsSchema)
+			return s.stageAll(s.newItem("lk7", map[string]any{"attributes": map[string]any{"title": "T", "notes": "/about/us"}}))
+		}, "links, paths or files"},
 		{"media_alias_of_image_field", func() int64 {
 			return s.stageAll(s.newItem("e10z", map[string]any{"attributes": map[string]any{"title": "T", "caption": "x.jpg"}}))
 		}, "image or file"},

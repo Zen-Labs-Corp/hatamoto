@@ -664,6 +664,12 @@ func checkCreateAttributes(ctx context.Context, tx rowQuerier, schemaDoc []byte,
 			return "it refers to a file in the media library, which never qualifies."
 		}
 	}
+	// An automatic create carries no link, path or file at all, whatever the
+	// field: the renderers turn plain values into pictures and links by name,
+	// by suffix and by host, so the only safe rule is the blunt one.
+	if slices.ContainsFunc(strs, schemafield.LooksLikeURLOrPath) {
+		return "it carries links, paths or files, which need your review."
+	}
 	return ""
 }
 
