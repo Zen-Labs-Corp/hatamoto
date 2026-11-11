@@ -66,3 +66,25 @@ func TestFirstPartyRow(t *testing.T) {
 		}
 	}
 }
+
+// Enabling a plugin whose redirect path another plugin holds is a refusal that
+// names the path and the other plugin, not the "Plugin not found" page.
+func TestEnableRefusalRedirectPathTaken(t *testing.T) {
+	err := enableRefusal(fmt.Errorf("%w: %q is declared by plugin %q", packages.ErrRedirectPathTaken, "/go", "other"))
+	var r *admin.Refusal
+	if !errors.As(err, &r) {
+		t.Fatalf("got %T %v, want *admin.Refusal", err, err)
+	}
+	for _, want := range []string{"/go", "other", "another plugin"} {
+		if !strings.Contains(r.Msg, want) {
+			t.Errorf("message %q lacks %q", r.Msg, want)
+		}
+	}
+	if strings.HasPrefix(r.Msg, "package:") {
+		t.Errorf("message %q keeps the internal prefix", r.Msg)
+	}
+	other := errors.New("db down")
+	if got := enableRefusal(other); got != other {
+		t.Errorf("an unrelated error was changed: %v", got)
+	}
+}
