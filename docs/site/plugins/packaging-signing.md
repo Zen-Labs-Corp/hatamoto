@@ -69,6 +69,7 @@ The server trusts the Hatamoto first-party key (built in, so the first-party plu
 2. If it is signed, the key must be trusted and the signature must verify. An unknown signer or a bad signature is always refused.
 3. If it is unsigned, it is refused unless the owner switched on **Allow unsigned packages** on the Plugins page (`<admin>/plugins`, the Unsigned card). That switch is off by default, needs an acknowledgement tick and then shows a standing warning. An unsigned package runs any code its author wrote with every permission you give it.
 4. Replacing an installed package asks the owner to confirm when the new version is not newer, when another trusted key signed it (a plugin's grants are cleared), when the update lists new `allowed_hosts` or newly asks for `http.fetch.any` (grants are cleared), or when a theme would drop section types your content uses. The command line needs `--confirm`.
+5. A package from the developer registry is signed by the key of a registered developer, not by a key in your list. It installs only after the owner switches on **Allow developer packages** on the Package security page (`<admin>/plugins/security`), which takes an acknowledgement, the typed site address and the owner password. Hatamoto checks who signed it but does not review the code.
 
 To stop trusting the built-in key, set `HATAMOTO_TRUST_FIRST_PARTY=false`. Then only `HATAMOTO_TRUSTED_KEYS` is trusted and the first-party plugins install only from a registry you sign yourself. A package whose signer is no longer trusted is not loaded at boot, and the admin says so. To rotate a key, add the new one, re-sign and update the packages, then remove the old key.
 
@@ -151,7 +152,8 @@ Uninstalling never changes pages, posts, media, terms, menus, redirects, forms, 
 | `HATAMOTO_TRUSTED_KEYS` | Base64 ed25519 public keys of trusted signers. |
 | `HATAMOTO_TRUST_FIRST_PARTY` | `false` stops trusting the built-in first-party key. |
 | `HATAMOTO_REGISTRY_URL` | Registry index URL; `off` disables browsing. |
-| `HATAMOTO_REGISTRY_ALLOW_HTTP` | `true` allows an `http://` registry URL, for development. |
+| `HATAMOTO_DEVELOPER_REGISTRY_URL` | Developer registry index URL (default `https://hatamoto.dev/p/devportal/registry.json`); `off` disables developer packages. |
+| `HATAMOTO_REGISTRY_ALLOW_HTTP` | `true` allows an `http://` registry or developer registry URL, for development. |
 | `HATAMOTO_PLUGIN_FETCH_PER_MINUTE` | Outbound `http.fetch` requests per plugin per minute (default 600). |
 | `HATAMOTO_PLUGIN_DB_ALLOW_PUBLIC_OBJECTS` | `1` grants `db.*` even when objects are open to `PUBLIC`. |
 | `HATAMOTO_PLUGIN_DIR` | Development override: a directory of unsigned, in-memory plugins. |
