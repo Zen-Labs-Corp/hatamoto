@@ -77,6 +77,11 @@ type Runtime struct {
 	mu       sync.Mutex
 	statuses []Status
 
+	// redirectOwners maps each declared request.redirect path to the plugin
+	// that owns it (the first loaded wins); see redirecthook.go.
+	redirectOwners atomic.Pointer[map[string]string]
+	redirectMu     sync.Mutex
+
 	// gate decides about runs a cron job starts (see SetStandingGate).
 	gate atomic.Pointer[StandingGate]
 
@@ -280,6 +285,9 @@ func (r *Runtime) LoadWith(ctx context.Context, m sdk.Manifest, wasm []byte, ass
 	if err := SDKRefusal(m); err != nil {
 		return fail(err)
 	}
+	if err := RedirectPathsRefusal(m); err != nil {
+		return fail(err)
+	}
 	if len(m.SettingsSchema) > 0 {
 		if _, err := CompileSchema(m.SettingsSchema); err != nil {
 			return fail(err)
@@ -296,6 +304,7 @@ func (r *Runtime) LoadWith(ctx context.Context, m sdk.Manifest, wasm []byte, ass
 	st.Loaded = true
 	r.record(st) // host functions look the manifest up here: before any hook can run
 	st.Hooks = r.register(m)
+	r.claimRedirectPaths(m, st.Hooks)
 	r.mu.Lock()
 	r.assets[m.Name] = assets
 	r.mu.Unlock()
@@ -318,6 +327,7 @@ func (r *Runtime) Unload(ctx context.Context, name string) {
 	r.mu.Lock()
 	r.statuses = slices.DeleteFunc(r.statuses, func(s Status) bool { return s.Name == name })
 	r.mu.Unlock()
+	r.releaseRedirectPaths(name)
 	r.syncExtSources()
 }
 

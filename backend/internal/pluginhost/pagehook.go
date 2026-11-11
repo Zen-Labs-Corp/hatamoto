@@ -28,6 +28,9 @@ func (r *Runtime) hookFilter(m sdk.Manifest, hook, export string) func(context.C
 	if hook == sdk.RenderHead.Name {
 		return noteRenderFailure(hook, r.headScriptGate(m.Name, generic))
 	}
+	if hook == sdk.RequestRedirect.Name {
+		return r.redirectFilter(m, generic)
+	}
 	if hook != sdk.RenderPage.Name {
 		return noteRenderFailure(hook, generic)
 	}
