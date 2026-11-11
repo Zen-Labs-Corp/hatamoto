@@ -31,6 +31,10 @@ for t in TestBackupRestoreAsSuperuserAndCreateRoleAdmin TestBootstrapNeedsGrantO
   grep -qF "$t" <<<"$step" || fail "the Must-run step does not name $t"
 done
 grep -qF 'must-run-check.sh' <<<"$step" || fail "the Must-run step does not call must-run-check.sh"
+idle=$(awk '/^      - name: Idle memory budget really runs/{f=1;print;next} f&&/^      - name:/{exit} f' "$ci")
+[ -n "$idle" ] || fail "no Idle memory budget step in ci.yml"
+grep -qF 'TestBudgetIdleMemory' <<<"$idle" || fail "the idle memory step does not run TestBudgetIdleMemory"
+grep -qF 'must-run-check.sh' <<<"$idle" || fail "the idle memory step does not call must-run-check.sh"
 job=$(awk '/^  backend-matrix:/{f=1;print;next} f&&/^  [a-z]/{exit} f' "$ci")
 inst=$(grep -nF 'postgresql-client-' <<<"$job" | head -1 | cut -d: -f1 || true)
 [ -n "$inst" ] || fail "no postgresql-client install in backend-matrix"

@@ -141,6 +141,7 @@
         "backups",
         "managed-postgresql",
         "media-object-storage",
+        "memory",
         "hardening",
         "email"
       ],

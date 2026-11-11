@@ -34,8 +34,13 @@ func (a *Admin) renderStrength(s *strengthView) template.HTML {
 	if !ok {
 		return ""
 	}
+	tmpl, err := ps.tmpl()
+	if err != nil {
+		a.logger().Error("admin: render address strength", "err", err)
+		return ""
+	}
 	var b strings.Builder
-	if err := ps.tmpl().ExecuteTemplate(&b, "main", &View{Data: s}); err != nil {
+	if err := tmpl.ExecuteTemplate(&b, "main", &View{Data: s}); err != nil {
 		a.logger().Error("admin: render address strength", "err", err)
 		return ""
 	}

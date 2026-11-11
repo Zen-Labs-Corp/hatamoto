@@ -422,7 +422,10 @@ type Admin struct {
 	mu     sync.RWMutex
 	assets *Assets
 	pages  map[string]*pageSet
-	loaded bool
+	// partials is the layouts and partials with no page parsed in, which
+	// RenderPartial runs against.
+	partials *pageSet
+	loaded   bool
 
 	// secrets holds a freshly minted API key between the POST that created it
 	// and the one GET that shows it.
