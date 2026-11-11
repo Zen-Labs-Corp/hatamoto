@@ -24,6 +24,8 @@ type fakeStats struct {
 	chosen     []string
 	resets     int
 	dismissals int
+	defaults   int
+	defaultE   error
 }
 
 func (f *fakeStats) View(context.Context) (StatsView, error) {
@@ -49,6 +51,11 @@ func (f *fakeStats) Choose(_ context.Context, level string) error {
 func (f *fakeStats) DismissNudge(context.Context) error {
 	f.dismissals++
 	return f.dismissE
+}
+
+func (f *fakeStats) ApplyDefault(context.Context) error {
+	f.defaults++
+	return f.defaultE
 }
 
 func (f *fakeStats) Reset(context.Context) error {
@@ -291,18 +298,21 @@ func newSetupStatsRig(t *testing.T, view StatsView) (*setupRig, *fakeStats) {
 	return g, f
 }
 
-func TestSetupStatsStepOffersThreeLevelsAndPreselectsNothing(t *testing.T) {
+func TestSetupStatsStepOffersThreeLevelsAndPreselectsDetailed(t *testing.T) {
 	t.Parallel()
 
-	// Even a stored level is not preselected: the owner answers here.
-	g, f := newSetupStatsRig(t, StatsView{Level: "detailed"})
+	// Detailed is preselected whatever level is stored.
+	g, f := newSetupStatsRig(t, StatsView{Level: "off"})
 	body := g.do("GET", "/admin/setup/stats", "owner-token", nil, nil).Body.String()
 	for _, want := range []string{"Help improve Hatamoto", `name="choice" value="off"`, `name="choice" value="basic"`, `name="choice" value="detailed"`, `href="https://hatamoto.dev/docs/operate/install-stats" target="_blank" rel="noopener">What is collected</a>`, "Continue", `href="/admin/setup/theme"><span>Back</span>`, "Step 6 of 8"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("stats step lacks %q", want)
 		}
 	}
-	for _, not := range []string{"checked", "required", "hm-code", "No thanks", "Send stats"} {
+	if n := strings.Count(body, "checked"); n != 1 || !strings.Contains(body, `value="detailed" checked`) {
+		t.Errorf("want only Detailed checked, got %d checked in %s", n, body)
+	}
+	for _, not := range []string{"required", "hm-code", "No thanks", "Send stats"} {
 		if strings.Contains(body, not) {
 			t.Errorf("stats step has %q", not)
 		}
@@ -340,18 +350,49 @@ func TestSetupStatsChoice(t *testing.T) {
 	}
 }
 
-func TestSetupStatsWithoutAChoiceAsksAgain(t *testing.T) {
+func TestSetupStatsWithoutAChoiceIsDetailed(t *testing.T) {
+	t.Parallel()
+
+	for _, form := range []url.Values{{}, {"choice": {""}}} {
+		g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
+		rec := g.do("POST", "/admin/setup/stats", "owner-token", form, nil)
+		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
+			t.Errorf("post %v = %d %s", form, rec.Code, rec.Header().Get("Location"))
+		}
+		if len(f.chosen) != 1 || f.chosen[0] != "detailed" {
+			t.Errorf("post %v chose %v", form, f.chosen)
+		}
+	}
+}
+
+func TestSetupStatsInvalidChoiceAsksAgain(t *testing.T) {
 	t.Parallel()
 
 	g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
-	for _, form := range []url.Values{{}, {"choice": {""}}, {"choice": {"maybe"}}, {"choice": {"yes"}}} {
+	for _, form := range []url.Values{{"choice": {"maybe"}}, {"choice": {"yes"}}} {
 		rec := g.do("POST", "/admin/setup/stats", "owner-token", form, nil)
 		if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Choose Off, Basic or Detailed.") {
 			t.Errorf("post %v = %d", form, rec.Code)
 		}
 	}
 	if len(f.chosen) != 0 {
-		t.Errorf("an unanswered form chose %v", f.chosen)
+		t.Errorf("an invalid form chose %v", f.chosen)
+	}
+}
+
+func TestSetupFinishAppliesStatsDefault(t *testing.T) {
+	t.Parallel()
+
+	for name, failing := range map[string]error{"ok": nil, "failing": context.DeadlineExceeded} {
+		g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
+		f.defaultE = failing
+		rec := g.do("POST", "/admin/setup/content", "owner-token", url.Values{"content": {"empty"}}, nil)
+		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/done" {
+			t.Errorf("%s: finish = %d %s", name, rec.Code, rec.Header().Get("Location"))
+		}
+		if f.defaults != 1 {
+			t.Errorf("%s: ApplyDefault calls = %d, want 1", name, f.defaults)
+		}
 	}
 }
 

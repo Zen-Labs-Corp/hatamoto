@@ -52,7 +52,7 @@ type setupData struct {
 	// ContentItems are the three content choices as radio cards.
 	ContentItems []ui.RadioCardItem
 	// stats
-	StatsCards   []ui.RadioCardItem // the three levels, none preselected
+	StatsCards   []ui.RadioCardItem // the three levels, Detailed preselected
 	StatsDocsURL string
 	StatsNeeded  bool // the form was posted without choosing a level
 	// Back is the previous step's address; empty on the first steps.
@@ -449,7 +449,7 @@ func (a *Admin) setupBackToStats(ctx context.Context) string {
 func (a *Admin) renderSetupStats(w http.ResponseWriter, r *http.Request, status int, needed bool) {
 	nv := a.NewView(w, r, "Help improve Hatamoto")
 	nv.Wide = true
-	nv.Data = setupData{Steps: steps(5), Back: a.adminPath + "/setup/theme", StatsCards: statsLevelCards(""), StatsDocsURL: statsDocsURL, StatsNeeded: needed}
+	nv.Data = setupData{Steps: steps(5), Back: a.adminPath + "/setup/theme", StatsCards: statsLevelCards(statsLevelDetailed), StatsDocsURL: statsDocsURL, StatsNeeded: needed}
 	a.Render(w, r, status, "setup/stats", nv)
 }
 
@@ -476,8 +476,12 @@ func (a *Admin) handleSetupStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	choice := r.PostFormValue("choice")
+	if choice == "" {
+		// Detailed is the preselected card: a bare post is that answer.
+		choice = statsLevelDetailed
+	}
 	if !validStatsLevel(choice) {
-		// No level is a default: Enter on the form, or a bare post, asks again.
+		// Anything else is refused, never read as a level.
 		a.renderSetupStats(w, r, http.StatusUnprocessableEntity, true)
 		return
 	}
@@ -557,6 +561,13 @@ func (a *Admin) handleSetupContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.invalidate(r.Context())
+	// Setup is complete now, so an install that never answered the Stats step
+	// gets the default. Best effort: it never blocks finishing setup.
+	if a.deps.Stats != nil {
+		if err := a.deps.Stats.ApplyDefault(r.Context()); err != nil {
+			a.logger().Warn("setup: install stats default failed", "err", err)
+		}
+	}
 	if choice == "wordpress" {
 		// Setup is finished; the import wizard takes over from here.
 		http.Redirect(w, r, a.adminPath+importBase, http.StatusSeeOther)

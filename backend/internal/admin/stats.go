@@ -21,12 +21,13 @@ const (
 const (
 	statsBannerUnanswered = "unanswered"
 	statsBannerNudge      = "nudge"
+	statsBannerDefaulted  = "defaulted"
 )
 
 // statsDocsURL is the page that says what each level collects.
 const statsDocsURL = "https://hatamoto.dev/docs/operate/install-stats"
 
-// StatsService is the opt-in install stats as Settings > Updates, the setup
+// StatsService is the install stats as Settings > Updates, the setup
 // wizard and the owner banner use it. The server implements it on top of the
 // installstats package; the admin only validates forms and calls through.
 type StatsService interface {
@@ -34,7 +35,8 @@ type StatsService interface {
 	// off.
 	View(ctx context.Context) (StatsView, error)
 	// Banner is the question to put to the owner: "unanswered" (the level is
-	// unset), "nudge" (on Basic, Detailed not yet offered) or "" for none. It
+	// unset), "defaulted" (Detailed was applied by default, notice not yet
+	// acknowledged), "nudge" (on Basic, Detailed not yet offered) or "" for none. It
 	// must be cheap, the banner asks it on every owner page.
 	Banner(ctx context.Context) (string, error)
 	// ForcedOff reports HATAMOTO_TELEMETRY=off. It reads no state.
@@ -43,6 +45,9 @@ type StatsService interface {
 	Choose(ctx context.Context, level string) error
 	// DismissNudge stores that the owner does not want the Detailed nudge.
 	DismissNudge(ctx context.Context) error
+	// ApplyDefault stores the Detailed default for an install that was never
+	// asked, once setup is complete. It is a no-op when the server forbids it.
+	ApplyDefault(ctx context.Context) error
 	// Reset replaces the install ID with a new one.
 	Reset(ctx context.Context) error
 }
@@ -188,9 +193,10 @@ func (a *Admin) handleStatsReset(w http.ResponseWriter, r *http.Request) {
 }
 
 // StatsBanner is the owner's question about install stats: the first answer
-// ("unanswered") or the one-time offer of Detailed ("nudge").
+// ("unanswered"), the one-time notice that Detailed was applied by default
+// ("defaulted") or the one-time offer of Detailed ("nudge").
 type StatsBanner struct {
-	Kind    string // statsBannerUnanswered or statsBannerNudge
+	Kind    string // statsBannerUnanswered, statsBannerDefaulted or statsBannerNudge
 	DocsURL string
 }
 
@@ -208,7 +214,7 @@ func (a *Admin) statsBanner(r *http.Request, u *CurrentUser, setupPending bool) 
 		return nil
 	}
 	kind, err := a.deps.Stats.Banner(r.Context())
-	if err != nil || (kind != statsBannerUnanswered && kind != statsBannerNudge) {
+	if err != nil || (kind != statsBannerUnanswered && kind != statsBannerNudge && kind != statsBannerDefaulted) {
 		return nil
 	}
 	return &StatsBanner{Kind: kind, DocsURL: statsDocsURL}
