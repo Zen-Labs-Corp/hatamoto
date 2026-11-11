@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -40,9 +41,28 @@ type engineQuerier struct {
 	sysID, instance string
 	instanceID      string // public.hatamoto_instance.id
 	sysErr          error
-	notSuper        bool // the role is neither a superuser nor CREATEROLE and CREATEDB
-	noDBCreate      bool // the role lacks CREATE on the database
-	noAppInherit    bool // the role does not inherit the app role
+	notSuper        bool     // the role is neither a superuser nor CREATEROLE and CREATEDB
+	noDBCreate      bool     // the role lacks CREATE on the database
+	noAppInherit    bool     // the role does not inherit the app role
+	existingRoles   []string // roles already in the cluster, answered by the pg_roles lookup
+}
+
+// Query answers the pg_roles lookup with the existing roles among the asked
+// names; everything else goes to fakeQuerier. (The QueryRow switch below matches
+// "rolsuper" by substring, so this lookup must not go through it.)
+func (q *engineQuerier) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	if !strings.Contains(sql, "pg_roles WHERE rolname") {
+		return q.fakeQuerier.Query(ctx, sql, args...)
+	}
+	asked, _ := args[0].([]string)
+	var rows [][]string
+	for _, have := range q.existingRoles {
+		if slices.Contains(asked, have) {
+			rows = append(rows, []string{have})
+		}
+	}
+	slices.SortFunc(rows, func(a, b []string) int { return strings.Compare(a[0], b[0]) }) // the query's ORDER BY
+	return &fakeRows{rows: rows}, nil
 }
 
 // strRow scans one string, one bool or fails.

@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -557,6 +558,56 @@ func TestRestoreDryRunWritesNothing(t *testing.T) {
 		if len(c) != 2 || c[1] != "--version" {
 			t.Errorf("exec %v in a dry run", c)
 		}
+	}
+}
+
+func withRoles(s *archSpec) {
+	s.Mf.Roles = []string{"hatamoto_role_admin_abcd1234", "hm_p_abcd1234_forms"}
+}
+
+// A cluster that already holds the backup's roles refuses the dry run and the
+// real run alike, names the roles, and writes nothing.
+func TestRestoreRefusesExistingClusterRoles(t *testing.T) {
+	for _, dry := range []bool{true, false} {
+		r := newRestoreRig(t)
+		r.q.existingRoles = []string{"hm_p_abcd1234_forms", "hatamoto_role_admin_abcd1234", "unrelated"}
+		base := filepath.Dir(r.o.MediaDir)
+		before := snapshot(t, base)
+		_, err := Restore(t.Context(), r.o, RestoreRequest{Source: buildArchive(t, withRoles), AdminURL: "postgres://su:pw@h/postgres", DryRun: dry})
+		wantRefusal(t, err, "cluster roles hatamoto_role_admin_abcd1234, hm_p_abcd1234_forms already exist")
+		if strings.Contains(err.Error(), "unrelated") {
+			t.Errorf("refusal names an unrelated role: %v", err)
+		}
+		if after := snapshot(t, base); !reflect.DeepEqual(before, after) {
+			t.Fatalf("dry=%v: tree changed:\nbefore %v\nafter  %v", dry, before, after)
+		}
+		for _, c := range r.calls {
+			if len(c) != 2 || c[1] != "--version" {
+				t.Errorf("dry=%v: exec %v after a refusal", dry, c)
+			}
+		}
+	}
+}
+
+func TestRestoreClusterRolesFreeOrUnrecorded(t *testing.T) {
+	r := newRestoreRig(t)
+	r.q.existingRoles = []string{"unrelated"}
+	plan, err := r.dry(t, buildArchive(t, withRoles))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(plan.Checks, "cluster roles ok") {
+		t.Errorf("checks = %v", plan.Checks)
+	}
+	// An archive without recorded roles is not checked, even if names clash.
+	r = newRestoreRig(t)
+	r.q.existingRoles = []string{"hatamoto_role_admin_abcd1234", "hm_p_abcd1234_forms"}
+	plan, err = r.dry(t, buildArchive(t, nil))
+	if err != nil {
+		t.Fatalf("old manifest refused: %v", err)
+	}
+	if slices.Contains(plan.Checks, "cluster roles ok") {
+		t.Errorf("checks = %v", plan.Checks)
 	}
 }
 
