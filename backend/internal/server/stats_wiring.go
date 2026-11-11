@@ -40,8 +40,10 @@ func (s *Server) recoveryChain() []httpx.Middleware {
 
 // SetStats hands the install stats service to the server. Call it before
 // Start. HATAMOTO_TELEMETRY=off is applied here, once, even when the worker is
-// off, so a stored install ID is deleted at boot. The daily job is scheduled
-// when the worker is on.
+// off, so a stored install ID is deleted at boot; otherwise the Detailed
+// default is applied here for an install never asked (Service.ApplyDefault),
+// and audited as a system action. The daily job is scheduled when the worker
+// is on.
 func (s *Server) SetStats(svc *installstats.Service) {
 	s.stats = svc
 	if svc == nil {
@@ -49,6 +51,9 @@ func (s *Server) SetStats(svc *installstats.Service) {
 		return
 	}
 	s.health.Store(svc.Health())
+	svc.SetAudit(func(ctx context.Context, action, target string, detail map[string]any) {
+		s.adminAudit(ctx, admin.AuditEvent{Actor: "system", Action: action, Target: target, Detail: detail})
+	})
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := svc.Enforce(ctx); err != nil {
@@ -88,6 +93,8 @@ func (a adminStats) Banner(ctx context.Context) (string, error) {
 		return "unanswered", err
 	case installstats.BannerNudge:
 		return "nudge", err
+	case installstats.BannerDefaulted:
+		return "defaulted", err
 	}
 	return "", err
 }
@@ -108,13 +115,19 @@ func (a adminStats) Choose(ctx context.Context, level string) error {
 	return fmt.Errorf("install stats: unknown level %q", level)
 }
 
+// ApplyDefault applies the Detailed default when setup has just finished.
+func (a adminStats) ApplyDefault(ctx context.Context) error {
+	_, err := a.svc.ApplyDefault(ctx)
+	return err
+}
+
 func (a adminStats) DismissNudge(ctx context.Context) error { return a.svc.DismissNudge(ctx) }
 func (a adminStats) Reset(ctx context.Context) error        { return a.svc.Reset(ctx) }
 
 // scheduleStats puts the ping on the worker scheduler: a check every hour
 // (sending at most once a day), the first 5 to 15 minutes after start. Nothing is scheduled in a public demo or
-// when WORKER_DISABLE_JOBS names the job. The job itself sends only with the
-// owner's consent. It reports whether the job was scheduled.
+// when WORKER_DISABLE_JOBS names the job. The job itself sends only at Basic or
+// Detailed: the owner's choice, or the Detailed default after setup. It reports whether the job was scheduled.
 func (s *Server) scheduleStats() bool {
 	if s.stats == nil || s.scheduler == nil || s.demoOn() || !workerJobEnabled(statsJob) {
 		return false

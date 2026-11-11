@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"hatamoto.dev/core/internal/backup"
 	"hatamoto.dev/core/internal/config"
@@ -45,9 +46,9 @@ func updaterEnv(pool *pgxpool.Pool, eng *backup.Engine, logger *slog.Logger) (up
 	}, nil
 }
 
-// installStats builds the opt-in install stats service. Its channel is the
+// installStats builds the install stats service. Its channel is the
 // update channel; the update mode does not matter, stats have their own switch.
-func installStats(pool *pgxpool.Pool, version string, worker bool, logger *slog.Logger) *installstats.Service {
+func installStats(pool *pgxpool.Pool, version string, worker, demo bool, logger *slog.Logger) *installstats.Service {
 	us := updater.NewStore(pool)
 	h := installstats.NewHealth()
 	wasmhost.SetErrorObserver(h.PluginError)
@@ -56,6 +57,15 @@ func installStats(pool *pgxpool.Pool, version string, worker bool, logger *slog.
 		Health:  h,
 		Sources: statsSources{pool: pool, pkgs: packages.NewStore(pool), worker: worker},
 		Version: version,
+		Demo:    demo,
+		SetupComplete: func(ctx context.Context) (bool, error) {
+			var done bool
+			err := pool.QueryRow(ctx, `SELECT setup_completed_at IS NOT NULL FROM hatamoto_site_config LIMIT 1`).Scan(&done)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return false, nil
+			}
+			return done, err
+		},
 		Channel: func(ctx context.Context) string {
 			set, _, err := us.Load(ctx)
 			if err != nil {
@@ -94,7 +104,7 @@ func startUpdater(srv *server.Server, pool *pgxpool.Pool, mediaDir string, demo,
 	version, _ := buildInfo()
 	eng := newBackupEngine(pool, mediaDir, version, logger)
 	srv.SetBackups(eng)
-	srv.SetStats(installStats(pool, version, worker, logger))
+	srv.SetStats(installStats(pool, version, worker, demo, logger))
 	if demo {
 		// Public demo: no update check, no apply. The Updates page says so.
 		srv.NoUpdater(errors.New("updates are switched off in the public demo"))
