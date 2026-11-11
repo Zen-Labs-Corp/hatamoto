@@ -352,7 +352,7 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 			return nil, err
 		}
 		for _, g := range req.Grant {
-			if !slices.Contains(man.Permissions, g) {
+			if !slices.Contains(man.Asked(), g) {
 				return nil, fmt.Errorf("%w: %q", ErrPermission, g)
 			}
 			perms = append(perms, g)

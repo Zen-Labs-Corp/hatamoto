@@ -99,7 +99,7 @@ func (g *GrantStore) Set(ctx context.Context, plugin string, perms []sdk.Permiss
 	slices.Sort(perms)
 	perms = slices.Compact(perms)
 	for _, p := range perms {
-		if !sdk.ValidPermission(p) {
+		if !sdk.ValidGrant(p) {
 			return fmt.Errorf("%w: %q", ErrUnknownPermission, p)
 		}
 	}
