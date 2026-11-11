@@ -61,3 +61,16 @@ func TestMailQuotaStoreConcurrent(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestValidMailPerHour(t *testing.T) {
+	for _, n := range []int{0, -5, 3601, 2000000000} {
+		if validMailPerHour(n) {
+			t.Errorf("validMailPerHour(%d) = true, want false (Load must fall back to the default)", n)
+		}
+	}
+	for _, n := range []int{1, 360, 3600} {
+		if !validMailPerHour(n) {
+			t.Errorf("validMailPerHour(%d) = false, want true", n)
+		}
+	}
+}

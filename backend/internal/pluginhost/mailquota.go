@@ -42,6 +42,9 @@ func NewMailQuotaStore(pool *pgxpool.Pool) *MailQuotaStore {
 	return &MailQuotaStore{pool: pool, m: map[string]int{}}
 }
 
+// validMailPerHour reports whether n is a storable quota (1..MaxMailPerHour).
+func validMailPerHour(n int) bool { return n >= 1 && n <= MaxMailPerHour }
+
 // Load reads every stored quota.
 func (s *MailQuotaStore) Load(ctx context.Context) error {
 	if s.pool == nil {
@@ -59,7 +62,9 @@ func (s *MailQuotaStore) Load(ctx context.Context) error {
 		if err := rows.Scan(&plugin, &n); err != nil {
 			return err
 		}
-		m[plugin] = n
+		if validMailPerHour(n) {
+			m[plugin] = n // out of range (tampered import): treated as unset
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return err
@@ -82,7 +87,7 @@ func (s *MailQuotaStore) MailPerHour(plugin string) int {
 
 // SetMailPerHour persists the quota, then mirrors it.
 func (s *MailQuotaStore) SetMailPerHour(ctx context.Context, plugin string, n int) error {
-	if n < 1 || n > MaxMailPerHour {
+	if !validMailPerHour(n) {
 		return fmt.Errorf("%w: %d", ErrMailQuotaRange, n)
 	}
 	if s.pool != nil {
