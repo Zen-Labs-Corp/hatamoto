@@ -15,14 +15,25 @@ import (
 
 // Argon2id parameters following OWASP recommendations.
 const (
-	argon2Time    = 1
-	argon2Memory  = 64 * 1024 // 64 MB
-	argon2Threads = 4
+	argon2Time    = 2
+	argon2Memory  = 19 * 1024 // KiB = 19 MiB; OWASP m=19456,t=2,p=1
+	argon2Threads = 1
 	argon2KeyLen  = 32
 	argon2SaltLen = 16
 )
 
-// maxConcurrentHashes bounds argon2 work in flight. Each hash holds 64 MB, so
+// Bounds a stored hash must respect before it is verified: the parameters come
+// from the database string and drive allocation (and argon2.IDKey panics on
+// t=0 or p=0). The previous default of 64 MiB sits well inside them.
+const (
+	maxStoredMemory = 256 * 1024 // KiB
+	maxStoredTime   = 10
+	maxStoredThread = 16
+	minStoredKeyLen = 4
+	maxStoredKeyLen = 1024
+)
+
+// maxConcurrentHashes bounds argon2 work in flight. Each hash holds 19 MiB, so
 // a burst of sign-in attempts must queue rather than exhaust memory.
 const maxConcurrentHashes = 4
 
@@ -77,7 +88,7 @@ func HashPasswordContext(ctx context.Context, password string) (string, error) {
 		return "", err
 	}
 
-	// Encode as $argon2id$v=19$m=65536,t=1,p=4$<salt>$<hash>
+	// Encode as $argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>
 	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
 	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
 
@@ -171,7 +182,26 @@ func decodeHash(encodedHash string) (*argon2Params, []byte, []byte, error) {
 	}
 	params.keyLen = uint32(len(hash))
 
+	if params.time < 1 || params.time > maxStoredTime ||
+		params.threads < 1 || params.threads > maxStoredThread ||
+		params.memory < 8*uint32(params.threads) || params.memory > maxStoredMemory ||
+		params.keyLen < minStoredKeyLen || params.keyLen > maxStoredKeyLen {
+		return nil, nil, nil, ErrInvalidHash
+	}
+
 	return params, salt, hash, nil
+}
+
+// NeedsRehash reports whether a stored hash is weaker than the current target.
+// A hash that cannot be verified (bad format, "!reset-required", out-of-bounds
+// parameters) never needs a rehash. Parallelism is ignored: it splits the same
+// work, so a stronger hash is never rewritten to the target.
+func NeedsRehash(encoded string) bool {
+	p, _, _, err := decodeHash(encoded)
+	if err != nil {
+		return false
+	}
+	return p.memory < argon2Memory || p.time < argon2Time || p.keyLen < argon2KeyLen
 }
 
 // GenerateRandomString creates a cryptographically secure random string.

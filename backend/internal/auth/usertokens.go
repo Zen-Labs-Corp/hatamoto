@@ -142,7 +142,7 @@ func (t *UserTokens) ConsumeReset(ctx context.Context, token, newPassword string
 	if len(newPassword) < MinPasswordLen {
 		return nil, ErrPasswordShort
 	}
-	// A junk token costs one lookup, not a 64 MB hash.
+	// A junk token costs one lookup, not a 19 MiB hash.
 	if !t.live(ctx, token, tokenKindReset) {
 		return nil, ErrTokenInvalid
 	}
@@ -248,7 +248,7 @@ func (t *UserTokens) ConsumeInvite(ctx context.Context, token, name, password st
 		return nil, ErrPasswordShort
 	}
 	name = strings.TrimSpace(name)
-	// A junk token costs one lookup, not a 64 MB hash.
+	// A junk token costs one lookup, not a 19 MiB hash.
 	if _, err := t.PeekInvite(ctx, token); err != nil {
 		return nil, err
 	}
