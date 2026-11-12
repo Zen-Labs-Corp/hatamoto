@@ -14,6 +14,8 @@
 .PHONY: need-staticcheck all plugins registry registry-guard registry-pull-archive build build-api release-build release-bundles need-host deploy upload-api install-unit check-unit restart-api migrate check budgets budgets-update vendor vendor-verify vuln licenses design-check ui-check help docs-publish docs-publish-test hooks hooks-off test-hooks
 
 DEPLOY_HOST ?= $(shell cat .deploy-host 2>/dev/null)
+# `box`, `hmctl <slug>`, or `invalid` (a malformed DEPLOY_TARGET refuses instead of falling back to the box).
+DEPLOY_TARGET_KIND := $(shell scripts/deploy-target.sh 2>/dev/null || echo invalid)
 REMOTE_DIR  := /opt/hatamoto
 UNIT_PATH   := /etc/systemd/system/hatamoto-api.service
 FORCE_UNIT  ?=
@@ -97,14 +99,24 @@ registry-guard:
 	@test -n "$(COMMUNITY_DIR)" || { echo "ERROR: set COMMUNITY_DIR to a fresh checkout of the plugins repo (git -C <clone> pull). Every plugin, first-party ones included, is built from its manifest there; without it the signed index would be empty." >&2; exit 1; }
 
 # Fetch the archive already on the host (never overwrites a local file); run before `make registry`.
+# A cell target reads the published copy under the site's static root (DEPLOY_STATIC_ROOT).
+ifeq ($(DEPLOY_TARGET_KIND),box)
+PULL_ARCHIVE_SRC := $(REMOTE_REGISTRY)/archive
+else ifeq ($(word 1,$(DEPLOY_TARGET_KIND)),hmctl)
+PULL_ARCHIVE_SRC := $${DEPLOY_STATIC_ROOT:-/srv/sites/$(word 2,$(DEPLOY_TARGET_KIND))/static}/registry/archive
+else
+PULL_ARCHIVE_SRC := invalid-target
+endif
 registry-pull-archive:
-	@host=$$(DEPLOY_HOST="$(DEPLOY_HOST)" scripts/deploy-host.sh) || exit 1; \
-	case "$(REMOTE_REGISTRY)" in /*[!A-Za-z0-9._/-]*|[!/]*) echo "ERROR: REMOTE_REGISTRY must be a plain absolute path" >&2; exit 1;; esac; \
+	@test "$(PULL_ARCHIVE_SRC)" != invalid-target || { echo "ERROR: bad DEPLOY_TARGET (want box or hmctl:<slug>)" >&2; exit 1; }; \
+	host=$$(DEPLOY_HOST="$(DEPLOY_HOST)" scripts/deploy-host.sh) || exit 1; \
+	src="$(PULL_ARCHIVE_SRC)"; \
+	case "$$src" in /*[!A-Za-z0-9._/-]*|[!/]*) echo "ERROR: REMOTE_REGISTRY (or DEPLOY_STATIC_ROOT) must be a plain absolute path" >&2; exit 1;; esac; \
 	mkdir -p "$(ARCHIVE_DIR)" || exit 1; \
-	ssh "$$host" "test -d '$(REMOTE_REGISTRY)/archive'"; rc=$$?; \
+	ssh "$$host" "test -d '$$src'"; rc=$$?; \
 	if [ $$rc -eq 1 ]; then echo "registry-pull-archive: no archive on $$host yet, starting empty"; \
 	elif [ $$rc -ne 0 ]; then echo "ERROR: cannot reach $$host (ssh exit $$rc)" >&2; exit 1; \
-	else rsync -rt --ignore-existing --no-links "$$host:$(REMOTE_REGISTRY)/archive/" "$(ARCHIVE_DIR)/"; fi
+	else rsync -rt --ignore-existing --no-links "$$host:$$src/" "$(ARCHIVE_DIR)/"; fi
 
 registry: registry-guard
 	@command -v jq >/dev/null || { echo "ERROR: jq is required (apt install jq / brew install jq)"; exit 1; }
@@ -178,6 +190,11 @@ need-host:
 # runs `hatamoto migrate` with the new binary before the restart. The steps are
 # separate targets so ship.sh can interleave the migration and roll back;
 # `deploy` is all of them for a manual deploy.
+# A cell (hmctl) target owns the binary and the unit: ship.sh is the way to deploy there.
+ifneq ($(DEPLOY_TARGET_KIND),box)
+upload-api install-unit check-unit restart-api deploy:
+	@echo "target is not the box ($(word 1,$(DEPLOY_TARGET_KIND))): use scripts/ship.sh (hmctl owns the binary and the unit)" >&2; exit 1
+else
 upload-api: need-host build-api
 	scp backend/bin/hatamoto $(DEPLOY_HOST):$(REMOTE_DIR)/bin/hatamoto.new
 	ssh $(DEPLOY_HOST) "cd $(REMOTE_DIR)/bin && chmod +x hatamoto.new && mv -f hatamoto.new hatamoto"
@@ -201,6 +218,7 @@ restart-api: need-host
 
 deploy: upload-api install-unit check-unit restart-api
 	@echo "hatamoto.dev deployed and restarted"
+endif
 
 # --- Migrations are embedded in the binary (backend/migrations, see its README).
 migrate:

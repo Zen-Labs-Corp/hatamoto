@@ -16,6 +16,11 @@
 #   DEPLOY_HOST      ssh host alias; else .deploy-host (see scripts/deploy-host.sh)
 #   GH_REPO          OWNER/REPO or HOST/OWNER/REPO; else taken from origin (github.com only)
 #   REMOTE_PUBLIC    server directory (default /opt/hatamoto/public)
+#   DEPLOY_TARGET    box (default) or hmctl:<slug> (see scripts/deploy-target.sh). A cell
+#                    target publishes into DEPLOY_STATIC_ROOT (default
+#                    /srv/sites/<slug>/static) instead of REMOTE_PUBLIC: same temp file,
+#                    hash check and atomic rename. hmctl has no single-file publish
+#                    (`site static --path` takes a directory), hence the direct rename.
 set -Eeuo pipefail
 
 usage() { sed -n '5p' "$0" >&2; exit 64; }
@@ -25,7 +30,7 @@ DRY=0; TAG=""
 for a in "$@"; do
   case "$a" in
     --dry-run) DRY=1 ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
     -*) echo "unknown flag: $a" >&2; usage ;;
     *) if [[ -z "$TAG" ]]; then TAG=$a; else usage; fi ;;
   esac
@@ -47,6 +52,22 @@ echo "publish-install: tag $TAG at HEAD ok"
 
 # 2. Host (never printed, never stored in the repo).
 HOST=$("$HERE/deploy-host.sh") || die "no deploy host"
+
+# Target: box, or an hmctl cell whose static root takes the place of REMOTE.
+# Without the resolver (and no DEPLOY_TARGET) it is the box.
+SHOWN=$REMOTE   # what DRY lines print; a cell path may carry the site slug
+if [[ -x "$HERE/deploy-target.sh" ]]; then
+  TARGET=$("$HERE/deploy-target.sh") || exit 1
+elif [[ -n "${DEPLOY_TARGET:-}" && "$DEPLOY_TARGET" != box ]]; then
+  die "DEPLOY_TARGET is set but scripts/deploy-target.sh is missing"
+else
+  TARGET=box
+fi
+if [[ "$TARGET" != box ]]; then
+  REMOTE=${DEPLOY_STATIC_ROOT:-/srv/sites/${TARGET#hmctl }/static}
+  [[ "$REMOTE" =~ ^/[A-Za-z0-9._/-]+$ ]] || die "DEPLOY_STATIC_ROOT must be a plain absolute path"
+  SHOWN="<static-root>"
+fi
 
 # GitHub repo for `gh release download -R`: GH_REPO (OWNER/REPO or HOST/OWNER/REPO),
 # else the origin remote, but only when origin is on github.com (https, ssh://, scp form).
@@ -76,10 +97,10 @@ if (( DRY )); then
   echo "DRY: gh release download $TAG -R $SLUG --pattern install.sh --dir <tmp>/asset"
   echo "DRY: expected sha256 $(sha "$T/built/install.sh") (rebuilt from this checkout)"
   echo "DRY: compare sha256 of the built file and the release asset"
-  echo "DRY: scp install.sh <host>:$REMOTE/.install.sh.new"
-  echo "DRY: ssh <host> sha256sum $REMOTE/.install.sh.new (must match)"
-  echo "DRY: ssh <host> mv -f $REMOTE/.install.sh.new $REMOTE/install.sh"
-  echo "DRY: target <host>:$REMOTE/install.sh (atomic rename)"
+  echo "DRY: scp install.sh <host>:$SHOWN/.install.sh.new"
+  echo "DRY: ssh <host> sha256sum $SHOWN/.install.sh.new (must match)"
+  echo "DRY: ssh <host> mv -f $SHOWN/.install.sh.new $SHOWN/install.sh"
+  echo "DRY: target <host>:$SHOWN/install.sh (atomic rename)"
   exit 0
 fi
 

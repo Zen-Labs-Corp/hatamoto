@@ -19,6 +19,13 @@
 #                     else the main checkout)
 #   REMOTE_REGISTRY   default /opt/hatamoto/registry
 #   ARCHIVE_DIR       default registry/archive
+#   DEPLOY_TARGET     box (default) or hmctl:<slug> (see scripts/deploy-target.sh).
+#                     Cell mode stages the whole tree in a fresh DEPLOY_STAGING/run.XXXXXX
+#                     (default base /root/hatamoto-deploy: a private 0700 dir owned by
+#                     the ssh user) and publishes it with
+#                     `hmctl site static --path registry` (never --delete); the
+#                     archive check reads the published copy under DEPLOY_STATIC_ROOT
+#                     (default /srv/sites/<slug>/static). DEPLOY_HMCTL overrides hmctl.
 set -Eeuo pipefail
 
 die() { echo "publish-registry: $*" >&2; exit 1; }
@@ -27,7 +34,7 @@ DRY=0
 for a in "$@"; do
   case "$a" in
     --dry-run) DRY=1 ;;
-    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
     *) echo "unknown argument: $a" >&2; sed -n '4,5p' "$0" >&2; exit 64 ;;
   esac
 done
@@ -38,6 +45,35 @@ DEPLOY_HOST=$("$(dirname "${BASH_SOURCE[0]}")/deploy-host.sh") || exit 1
 REMOTE=${REMOTE_REGISTRY:-/opt/hatamoto/registry}
 [[ "$REMOTE" =~ ^/[A-Za-z0-9._/-]+$ ]] || die "REMOTE_REGISTRY must be a plain absolute path"
 ARCHIVE=${ARCHIVE_DIR:-registry/archive}
+
+# Target: box (REMOTE is the served directory) or an hmctl cell (REMOTE is staging).
+TARGET=$("$(dirname "${BASH_SOURCE[0]}")/deploy-target.sh") || exit 1
+CELL=0; SLUG=""; PUBROOT=""; STATIC_ROOT=""; HMCTL=hmctl
+# Plain absolute paths only (no '..', '//', trailing slash); nested = equal, inside or above.
+plain_path() { [[ "$1" =~ ^/([A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+$ && "$1/" != *"/../"* && "$1/" != *"/./"* ]]; }
+nested() { [[ "$1/" == "$2/"* || "$2/" == "$1/"* ]]; }   # equal, inside or above
+if [[ "$TARGET" != box ]]; then
+  CELL=1; SLUG=${TARGET#hmctl }
+  STAGING=${DEPLOY_STAGING:-/root/hatamoto-deploy}
+  plain_path "$STAGING" || die "DEPLOY_STAGING must be a plain absolute path (no '..', no trailing slash)"
+  STATIC_ROOT=${DEPLOY_STATIC_ROOT:-/srv/sites/$SLUG/static}
+  plain_path "$STATIC_ROOT" || die "DEPLOY_STATIC_ROOT must be a plain absolute path (no '..', no trailing slash)"
+  ! nested "$STAGING" "$STATIC_ROOT" || die "DEPLOY_STAGING must not equal, contain or sit inside DEPLOY_STATIC_ROOT"
+  ! nested "$STAGING" /srv/sites || die "DEPLOY_STAGING must be outside /srv/sites"
+  HMCTL=${DEPLOY_HMCTL:-hmctl}
+  [[ "$HMCTL" =~ ^[A-Za-z0-9._/\ -]+$ ]] || die "bad DEPLOY_HMCTL"
+  PUBROOT=$STATIC_ROOT/registry   # published copy: what the archive check reads
+  REMOTE=""                       # per-run dir under $STAGING: everything is uploaded here, then published
+fi
+# Per-run private staging dir on the host (prints its path). The base must be a real directory
+# owned by the ssh user (root, for hmctl) with mode 0700, so no other account can swap staged
+# files; every run gets a fresh mktemp dir below it.
+make_run_dir() {
+  local out
+  out=$(ssh "$DEPLOY_HOST" "umask 077; b='$STAGING'; mkdir -p -m 0700 -- \"\$b\" && if [ ! -e \"\$b\" ]; then echo \"\$b: missing\" >&2; exit 1; elif [ -L \"\$b\" ] || [ ! -d \"\$b\" ]; then echo \"\$b: not a real directory\" >&2; exit 1; elif [ ! -O \"\$b\" ]; then echo \"\$b: not owned by the ssh user\" >&2; exit 1; elif [ \"\$(stat -c %a \"\$b\")\" != 700 ]; then echo \"\$b: mode is \$(stat -c %a \"\$b\"), want 700\" >&2; exit 1; fi && mktemp -d -- \"\$b/run.XXXXXX\"") \
+    && [[ "$out" =~ ^"$STAGING"/run\.[A-Za-z0-9]+$ ]] || die "staging dir $STAGING on the host is not a private directory"
+  echo "$out"
+}
 
 [[ -s registry/registry.json && -d registry/packages ]] || die "registry/ is not built: run make registry first"
 plugins_page=()
@@ -58,8 +94,15 @@ if [[ -d "$ARCHIVE" ]]; then
   done
 fi
 declare -A remote_h=()
-while read -r h f; do [[ -n "${f:-}" ]] && remote_h["${f#./}"]=$h; done \
-  < <(ssh "$DEPLOY_HOST" "cd '$REMOTE/archive' 2>/dev/null && find . -type f -exec sha256sum -- {} +" || true)
+if (( CELL )); then
+  # Fail closed: a missing published archive counts as empty only while the static root itself exists.
+  pub_sums=$(ssh "$DEPLOY_HOST" "if [ -d '$PUBROOT/archive' ]; then cd '$PUBROOT/archive' && find . -type f -exec sha256sum -- {} +; elif [ ! -d '$STATIC_ROOT' ]; then exit 1; fi") \
+    || die "cannot read the published archive under $STATIC_ROOT on the host"
+  while read -r h f; do [[ -n "${f:-}" ]] && remote_h["${f#./}"]=$h; done <<<"$pub_sums"
+else
+  while read -r h f; do [[ -n "${f:-}" ]] && remote_h["${f#./}"]=$h; done \
+    < <(ssh "$DEPLOY_HOST" "cd '$REMOTE/archive' 2>/dev/null && find . -type f -exec sha256sum -- {} +" || true)
+fi
 declare -A local_set=()
 for f in "${archive_files[@]}"; do local_set["$f"]=1; done
 missing_local=0
@@ -82,7 +125,11 @@ up() { # up <rsync-args...> <src> <dest-subpath>
   if (( DRY )); then echo "DRY: rsync -rt --no-links ${args[*]} $DEPLOY_HOST:$REMOTE/$dest"; return; fi
   rsync -rt --no-links "${args[@]}" "$DEPLOY_HOST:$REMOTE/$dest"
 }
-if (( DRY )); then echo "DRY: ssh $DEPLOY_HOST mkdir -p $REMOTE/archive"; else ssh "$DEPLOY_HOST" "mkdir -p -- '$REMOTE/archive'"; fi
+if (( CELL )); then
+  # fresh private tree each run: leftovers of a failed run must not be published
+  if (( DRY )); then REMOTE=$STAGING/run.XXXXXX; echo "DRY: ssh $DEPLOY_HOST mkdir -m 0700 $REMOTE && mkdir $REMOTE/archive"
+  else REMOTE=$(make_run_dir); ssh "$DEPLOY_HOST" "mkdir -p -- '$REMOTE/archive'"; fi
+elif (( DRY )); then echo "DRY: ssh $DEPLOY_HOST mkdir -p $REMOTE/archive"; else ssh "$DEPLOY_HOST" "mkdir -p -- '$REMOTE/archive'"; fi
 if (( ${#todo[@]} )); then
   printf 'new:     archive/%s\n' "${todo[@]}"
   up --ignore-existing "$ARCHIVE/" archive/
@@ -102,5 +149,16 @@ fi
 up registry/packages/ packages/
 if (( ${#screenshots[@]} )); then up registry/screenshots/ screenshots/; fi
 if (( ${#plugins_page[@]} )); then up registry/plugins/ plugins/; fi
+# Cell: hmctl rsyncs the whole staging tree in one sorted pass, so publish in two stages and keep
+# registry.json last: the index must never point at a file that is not there yet.
+publish_cell() { # publish the staged registry sub-path only: no --delete, the rest of the site is untouched
+  if (( DRY )); then echo "DRY: hmctl site static ... --from $REMOTE --path registry"; return; fi
+  ssh "$DEPLOY_HOST" "$HMCTL site static $SLUG --from '$REMOTE' --path registry"
+}
+if (( CELL )); then publish_cell; fi
 up registry/registry.json registry.json
+if (( CELL )); then
+  publish_cell
+  if (( !DRY )); then ssh "$DEPLOY_HOST" "rm -rf -- '$REMOTE'" || true; fi
+fi
 echo "published registry to $DEPLOY_HOST:$REMOTE$( (( DRY )) && echo ' (dry run)')"

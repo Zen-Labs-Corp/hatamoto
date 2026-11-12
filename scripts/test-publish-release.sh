@@ -68,6 +68,7 @@ pub() { # pub <args...>: run the script against the stub box; sets OUT and RC
   set -e
 }
 export DEPLOY_HOST=stubhost
+export DEPLOY_TARGET=box   # a developer's real .deploy-target must not flip the box cases
 
 # 1. Good publish: files appear, release.json is uploaded last.
 pub $VER "$W/rel/good"
@@ -91,7 +92,7 @@ grep -q 'already published' <<<"$OUT" || fail "rerun did not say so"
 pass "rerun uploads nothing"
 
 # 3. A differing remote file: refused before any upload, nothing new on the box.
-rm -rf "$BOXDIR/$VER"; mkdir -p "$BOXDIR/$VER"
+rm -rf "${BOXDIR:?}/$VER"; mkdir -p "$BOXDIR/$VER"
 echo different > "$BOXDIR/$VER/hatamoto-linux-arm64"
 pub $VER "$W/rel/good"
 [[ $RC != 0 ]] || fail "differing remote file accepted"
@@ -151,4 +152,147 @@ if grep -q '^rsync' "$STUB_LOG"; then fail "dry-run called rsync"; fi
 [[ ! -e "$BOXDIR/$VER" ]] || fail "dry-run created the release directory"
 grep -q 'DRY: rsync' <<<"$OUT" || fail "dry-run did not show the rsync"
 pass "dry-run uploads nothing"
+
+# --- cell mode: stage on the host, publish with hmctl site static --path
+# hmctl runs the shared fake, with the rsync stub hidden (the fake publishes with the real one)
+cp "$ROOT/scripts/fake-hmctl.sh" "$W/bin/fake-hmctl.sh"
+printf '#!/usr/bin/env bash\nPATH=${PATH#"%s:"} exec bash "%s" "$@"\n' "$W/stubs" "$W/bin/fake-hmctl.sh" > "$W/stubs/hmctl"
+chmod +x "$W/stubs/hmctl"
+cat > "$W/stubs/ssh" <<'SSH'
+#!/usr/bin/env bash
+while [[ ${1:-} == -* ]]; do case $1 in -o) shift 2 ;; *) shift ;; esac; done
+shift   # host
+echo "ssh $*" >> "$STUB_LOG"
+# SSH_FAIL_READ=1: reading the published copy fails; PLANT_PUBLISHED=<file>: a racing publish
+# lands <file> (different content) while staging is prepared
+[[ ${SSH_FAIL_READ:-} == 1 && "$*" == *sha256sum* ]] && exit 255
+if [[ -n ${PLANT_PUBLISHED:-} && "$*" == *"mkdir -p"* ]]; then
+  mkdir -p "$DEPLOY_STATIC_ROOT/releases/$PLANT_VER"; echo raced > "$DEPLOY_STATIC_ROOT/releases/$PLANT_VER/$PLANT_PUBLISHED"
+fi
+sh -c "$*"
+SSH
+cat > "$W/stubs/rsync" <<'RSYNC'
+#!/usr/bin/env bash
+echo "rsync $*" >> "$STUB_LOG"
+args=("$@"); dest=${args[-1]#*:}; unset 'args[-1]'
+for a in "${args[@]}"; do
+  [[ "$a" == -* ]] && continue
+  [[ -e "$dest/$a" ]] && continue
+  cp "$a" "$dest/$a"
+done
+RSYNC
+export FAKE_STATIC="$W/cellstatic" FAKE_BIN_STATE="$W/cellbin" FAKE_MARK="$W/cellmark"
+CELLROOT="$W/cellstatic"   # DEPLOY_STATIC_ROOT: the published tree (the fake publishes here)
+cellpub() { # cellpub <args...>
+  : > "$STUB_LOG"; rm -f "$STUB_LOG.static-n"
+  [[ -n "${NO_STATIC_ROOT:-}" ]] || mkdir -p "$CELLROOT"   # the static root exists on a real host
+  set +e
+  OUT=$(cd "$ROOT" && PATH="$W/stubs:$PATH" RELEASE_TOOL="$TOOL" DEPLOY_TARGET=hmctl:example-site \
+    DEPLOY_STAGING="${STAGING_OVERRIDE:-$W/stage}" DEPLOY_STATIC_ROOT="$CELLROOT" "$SCRIPT" "$@" 2>&1)
+  RC=$?
+  set -e
+}
+
+# 10. Cell publish: three uploads into staging, one site static, no --delete.
+cellpub $VER "$W/rel/good"
+[[ $RC == 0 ]] || { echo "$OUT"; fail "cell publish exited $RC"; }
+[[ $(grep -c '^rsync' "$STUB_LOG") == 3 ]] || fail "cell: expected 3 rsync calls"
+grep '^rsync' "$STUB_LOG" | grep -qE "stubhost:$W/stage/run\.[A-Za-z0-9]+/\$" || fail "cell: rsync does not target a per-run staging dir"
+[[ $(grep '^rsync' "$STUB_LOG" | tail -1) == *" release.json stubhost:"* ]] || fail "cell: release.json not last"
+[[ $(grep -c '^hmctl site static' "$STUB_LOG") == 2 ]] || fail "cell: expected two site static calls (artifacts and signature, then the record)"
+grep -qE "hmctl site static example-site --from $W/stage/run\.[A-Za-z0-9]+ --path releases/$VER\$" "$STUB_LOG" || fail "cell: wrong site static call"
+if grep -q -- '--delete' "$STUB_LOG"; then fail "cell: --delete used"; fi
+for f in release.json release.json.sig hatamoto-linux-amd64; do
+  cmp -s "$W/rel/good/$f" "$CELLROOT/releases/$VER/$f" || fail "cell: $f not published"
+done
+pass "cell publish stages then site static --path releases/$VER"
+
+# 11. Cell rerun: nothing staged, hmctl not called.
+cellpub $VER "$W/rel/good"
+[[ $RC == 0 ]] || { echo "$OUT"; fail "cell rerun exited $RC"; }
+if grep -q '^rsync' "$STUB_LOG"; then fail "cell rerun called rsync"; fi
+if grep -q 'site static' "$STUB_LOG"; then fail "cell rerun called site static"; fi
+grep -q 'already published' <<<"$OUT" || fail "cell rerun did not say so"
+pass "cell rerun uploads and publishes nothing"
+
+# 12. Cell: a differing published file is refused, nothing staged or published.
+rm -rf "$CELLROOT" "$W/stage"; mkdir -p "$CELLROOT/releases/$VER"
+echo different > "$CELLROOT/releases/$VER/hatamoto-linux-arm64"
+cellpub $VER "$W/rel/good"
+[[ $RC != 0 ]] || fail "cell: differing published file accepted"
+if grep -qE '^rsync|site static|mkdir' "$STUB_LOG"; then fail "cell: touched the host despite a differing file"; fi
+[[ ! -e "$W/stage" ]] || fail "cell: staging created despite refusal"
+[[ $(cat "$CELLROOT/releases/$VER/hatamoto-linux-arm64") == different ]] || fail "cell: published file overwritten"
+pass "cell: changed published file refused before any upload"
+
+# 13. Cell dry-run: no rsync, no hmctl, shows both steps.
+rm -rf "$CELLROOT" "$W/stage"
+cellpub --dry-run $VER "$W/rel/good"
+[[ $RC == 0 ]] || { echo "$OUT"; fail "cell dry-run exited $RC"; }
+if grep -qE '^rsync|site static' "$STUB_LOG"; then fail "cell dry-run called rsync or hmctl"; fi
+grep -q 'DRY: rsync' <<<"$OUT" || fail "cell dry-run did not show the rsync"
+grep -q -- "--path releases/$VER" <<<"$OUT" || fail "cell dry-run did not show site static"
+if grep -q -- '--delete' <<<"$OUT"; then fail "cell dry-run shows --delete"; fi
+[[ ! -e "$W/stage" ]] || fail "cell dry-run created staging"
+pass "cell dry-run shows the steps, runs nothing"
+# 14. Cell fails closed: an unreadable published copy is not "absent", nothing is staged or published.
+rm -rf "$CELLROOT" "$W/stage"; mkdir -p "$CELLROOT"
+SSH_FAIL_READ=1 cellpub $VER "$W/rel/good"
+[[ $RC != 0 ]] || fail "cell: unreadable published copy accepted"
+if grep -qE '^rsync|site static' "$STUB_LOG"; then fail "cell: published despite an unreadable copy"; fi
+grep -q 'cannot read the published copy' <<<"$OUT" || fail "cell: no read-error message"
+pass "cell: unreadable published copy refuses the publish"
+
+# A missing or unlistable static root must not make every file look absent.
+rm -rf "$CELLROOT" "$W/stage"
+NO_STATIC_ROOT=1 cellpub $VER "$W/rel/good"
+[[ $RC != 0 ]] || fail "cell: missing static root accepted"
+if grep -qE '^rsync|site static' "$STUB_LOG"; then fail "cell: published into a missing static root"; fi
+grep -q 'static root' <<<"$OUT" || { echo "$OUT"; fail "cell: no static-root message"; }
+if [[ $(id -u) != 0 ]]; then
+  mkdir -p "$CELLROOT/releases/$VER"; chmod 000 "$CELLROOT"
+  cellpub $VER "$W/rel/good"
+  chmod 755 "$CELLROOT"
+  [[ $RC != 0 ]] || fail "cell: unreadable static root accepted"
+  if grep -qE '^rsync|site static' "$STUB_LOG"; then fail "cell: published into an unreadable static root"; fi
+  mkdir -p "$CELLROOT/releases/$VER"; chmod 000 "$CELLROOT/releases/$VER"
+  cellpub $VER "$W/rel/good"
+  chmod 755 "$CELLROOT/releases/$VER"
+  [[ $RC != 0 ]] || fail "cell: unreadable release dir accepted"
+  if grep -qE '^rsync|site static' "$STUB_LOG"; then fail "cell: published over an unreadable release dir"; fi
+fi
+pass "cell: missing or unreadable static root refuses the publish"
+
+# 15. Cell re-check: a file published by someone else after the first check is not overwritten.
+rm -rf "$CELLROOT" "$W/stage"; mkdir -p "$CELLROOT"
+PLANT_PUBLISHED=release.json PLANT_VER=$VER DEPLOY_STATIC_ROOT="$CELLROOT" cellpub $VER "$W/rel/good"
+[[ $RC != 0 ]] || fail "cell: raced publish accepted"
+[[ $(grep -c '^hmctl site static' "$STUB_LOG") == 1 ]] || fail "cell: site static ran for the record after it appeared"
+[[ $(cat "$CELLROOT/releases/$VER/release.json") == raced ]] || fail "cell: raced file overwritten"
+pass "cell: re-check before site static catches a racing publish"
+# 16. Staging containment: '..', a path equal to, inside or above the static root, a shared base.
+for bad in "$W/stage/../x" "$CELLROOT" "$CELLROOT/sub" "$W" /srv/sites/example-site/static; do
+  rm -rf "$W/stage" "$CELLROOT"; mkdir -p "$CELLROOT"
+  STAGING_OVERRIDE="$bad" cellpub $VER "$W/rel/good"
+  [[ $RC != 0 ]] || fail "cell: DEPLOY_STAGING=$bad accepted"
+  if grep -qE '^rsync|site static|rm -rf' "$STUB_LOG"; then fail "cell: host touched with DEPLOY_STAGING=$bad"; fi
+done
+rm -rf "$W/stage" "$CELLROOT"; mkdir -p "$W/stage" "$CELLROOT"; chmod 755 "$W/stage"
+cellpub $VER "$W/rel/good"
+[[ $RC != 0 ]] || fail "cell: world-readable staging base accepted"
+grep -q "not a private directory" <<<"$OUT" || { echo "$OUT"; fail "cell: no private-directory message"; }
+if grep -qE '^rsync|site static' "$STUB_LOG"; then fail "cell: staged into a shared base"; fi
+rm -rf "$W/stage" "$CELLROOT"
+cellpub $VER "$W/rel/good"
+[[ $RC == 0 ]] || { echo "$OUT"; fail "cell publish after the containment cases exited $RC"; }
+[[ -z "$(ls -A "$W/stage")" ]] || fail "cell: run dir left behind"
+pass "cell: staging must be a private dir outside the static root; run dir removed after publishing"
+# 17. Cell order: release.json goes live only after the signature. A failing second publish leaves
+# the artifacts and the signature published and the record absent.
+rm -rf "$W/stage" "$CELLROOT"; mkdir -p "$CELLROOT"
+FAKE_STATIC_FAIL_NTH=2 cellpub $VER "$W/rel/good"
+[[ $RC != 0 ]] || fail "cell: failed second publish accepted"
+[[ -f "$CELLROOT/releases/$VER/release.json.sig" && -f "$CELLROOT/releases/$VER/hatamoto-linux-amd64" ]] || fail "cell: signature/artifacts not published first"
+[[ ! -e "$CELLROOT/releases/$VER/release.json" ]] || fail "cell: release.json live before the second publish"
+pass "cell: release.json is published after the signature"
 echo "publish-release tests ok"

@@ -19,8 +19,8 @@ t-hooks          .githooks/**,Makefile,.gitleaks.toml,scripts/test-hooks.sh,scri
 migrations       *                                                  bash scripts/check-migrations.sh
 t-migrations     scripts/check-migrations.sh,scripts/baseline-ref.sh,scripts/test-check-migrations.sh   bash scripts/test-check-migrations.sh
 t-version        scripts/version.sh,scripts/test-version.sh        bash scripts/test-version.sh
-t-publish-rel    scripts/publish-release.sh,backend/tools/release/**,scripts/version.sh,scripts/test-publish-release.sh   bash scripts/test-publish-release.sh
-t-publish-reg    scripts/publish-registry.sh,scripts/deploy-host.sh,scripts/test-publish-registry.sh   bash scripts/test-publish-registry.sh
+t-publish-rel    scripts/publish-release.sh,scripts/fake-hmctl.sh,backend/tools/release/**,scripts/version.sh,scripts/test-publish-release.sh   bash scripts/test-publish-release.sh
+t-publish-reg    scripts/publish-registry.sh,scripts/deploy-host.sh,scripts/deploy-target.sh,scripts/fake-hmctl.sh,scripts/test-publish-registry.sh   bash scripts/test-publish-registry.sh
 t-publish-sdk    scripts/publish-sdk.sh,scripts/test-publish-sdk.sh   bash scripts/test-publish-sdk.sh
 t-tag-release    scripts/tag-release.sh,scripts/verify-tag-signature.sh,scripts/version.sh,.github/workflows/release.yml,.github/allowed_signers,scripts/test-tag-release.sh   bash scripts/test-tag-release.sh
 t-channel-fresh  scripts/check-channel-freshness.sh,scripts/test-check-channel-freshness.sh   bash scripts/test-check-channel-freshness.sh
@@ -44,7 +44,9 @@ t-pipe-todo     scripts/pipeline-gate.sh,.githooks/lib/gate-cache.sh,scripts/tes
 t-caddy-hdrs    deploy/caddy/**,deploy/well-known/security.txt,deploy/test-caddy-headers.sh   bash deploy/test-caddy-headers.sh
 t-verify-cut   scripts/verify-cutover.sh,scripts/test-verify-cutover.sh   bash scripts/test-verify-cutover.sh
 t-installer     deploy/install/**,deploy/systemd/**,deploy/install-unit.sh,backend/internal/release/keys/**   bash deploy/install/test-all.sh
-t-publish-install scripts/publish-install.sh,scripts/test-publish-install.sh,deploy/install/**   bash scripts/test-publish-install.sh
+t-publish-install scripts/publish-install.sh,scripts/deploy-target.sh,scripts/test-publish-install.sh,deploy/install/**   bash scripts/test-publish-install.sh
+t-deploy-target  scripts/deploy-target.sh,scripts/test-deploy-target.sh   bash scripts/test-deploy-target.sh
+t-ship-cell      scripts/ship.sh,scripts/fake-hmctl.sh,scripts/test-ship-cell.sh   bash scripts/test-ship-cell.sh
 t-ci-relevance   scripts/ci-relevance.sh,scripts/test-ci-relevance.sh   bash scripts/test-ci-relevance.sh
 t-ci-full   scripts/ci-full-plan.sh,scripts/ci-full-report.sh,scripts/test-ci-full.sh   bash scripts/test-ci-full.sh
 t-ci-smoke      scripts/ci-smoke-pkgs.sh,scripts/ci-smoke-exclude.txt,scripts/test-ci-smoke.sh   bash scripts/test-ci-smoke.sh
