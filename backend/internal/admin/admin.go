@@ -419,13 +419,14 @@ type Admin struct {
 	// appVersion is Deps.AppVersion as the shell's colophon shows it.
 	appVersion string
 
-	mu     sync.RWMutex
-	assets *Assets
-	pages  map[string]*pageSet
+	mu      sync.RWMutex
+	buildMu sync.Mutex // serialises the first build; see ensureBuilt
+	assets  *Assets
+	pages   map[string]*pageSet
 	// partials is the layouts and partials with no page parsed in, which
 	// RenderPartial runs against.
 	partials *pageSet
-	loaded   bool
+	loaded   bool // the assets and pages were built (on first use, or at once with a template dir)
 
 	// secrets holds a freshly minted API key between the POST that created it
 	// and the one GET that shows it.
@@ -498,8 +499,11 @@ func New(d Deps) (*Admin, error) {
 	if d.Dir != "" {
 		a.adminFS = os.DirFS(d.Dir)
 	}
-	if err := a.build(); err != nil {
-		return nil, err
+	if d.Dir != "" {
+		// A template dir is rebuilt on every request, so a broken tree shows at boot.
+		if err := a.build(); err != nil {
+			return nil, err
+		}
 	}
 	return a, nil
 }
@@ -576,7 +580,11 @@ func (a *Admin) fallback() http.Handler {
 }
 
 func (a *Admin) serveAssets(w http.ResponseWriter, r *http.Request) {
-	as, _ := a.state()
+	as, pages := a.state()
+	if pages == nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
 	as.Handler().ServeHTTP(w, r)
 }
 

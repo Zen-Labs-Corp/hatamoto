@@ -474,12 +474,41 @@ func newPageSources(fsys fs.FS) (*pageSources, error) {
 	return &pageSources{fsys: fsys, base: base, files: files}, nil
 }
 
-// state returns the current assets and pages; with a template dir it rebuilds
-// first so edits show without a restart.
-func (a *Admin) state() (*Assets, map[string]*pageSet) {
+// ensureBuilt builds the assets and page sources the first time the admin is
+// used, so a site nobody opens the admin on never holds them. A failed build is
+// not remembered: every call retries it until it succeeds. With a template dir
+// every call rebuilds so edits show without a restart.
+func (a *Admin) ensureBuilt() error {
 	if a.deps.Dir != "" {
-		if err := a.build(); err != nil {
-			a.logger().Error("admin rebuild failed", "err", err)
+		return a.build()
+	}
+	a.mu.RLock()
+	done := a.loaded
+	a.mu.RUnlock()
+	if done {
+		return nil
+	}
+	a.buildMu.Lock()
+	defer a.buildMu.Unlock()
+	a.mu.RLock()
+	done = a.loaded
+	a.mu.RUnlock()
+	if done {
+		return nil
+	}
+	return a.build()
+}
+
+// state returns the current assets and pages, building them on first use. If the
+// build fails it logs the error and returns empty assets and no pages, so every
+// page answers 500 until a build succeeds.
+func (a *Admin) state() (*Assets, map[string]*pageSet) {
+	if err := a.ensureBuilt(); err != nil {
+		a.logger().Error("admin build failed", "err", err)
+		a.mu.RLock()
+		defer a.mu.RUnlock()
+		if a.assets == nil {
+			return &Assets{}, nil
 		}
 	}
 	a.mu.RLock()
