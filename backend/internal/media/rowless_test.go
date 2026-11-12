@@ -40,6 +40,8 @@ func TestIgnoredKey(t *testing.T) {
 		"a/\xffb.png":             true,
 		"staged/x.png":            false,
 		"":                        true,
+		"a/b/":                    true,
+		tenant + "/":              true,
 	} {
 		if got := IgnoredKey(key); got != want {
 			t.Errorf("IgnoredKey(%q) = %v, want %v", key, got, want)
