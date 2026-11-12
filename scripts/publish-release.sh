@@ -118,9 +118,20 @@ remote_hash() { ssh "$DEPLOY_HOST" "sha256sum -- '$RDIR/$1' 2>/dev/null" | awk '
 if (( CELL )); then
   # hmctl overwrites what it publishes, so an unreadable published copy must never look absent:
   # prints the hash, or ABSENT for a missing file; any ssh or read error dies.
+  # Fail closed first: under a missing or unlistable static root every file would look absent.
+  ssh "$DEPLOY_HOST" "[ -d '$STATIC_ROOT' ] && [ -r '$STATIC_ROOT' ] && [ -x '$STATIC_ROOT' ] && ls -- '$STATIC_ROOT' >/dev/null" \
+    || die "static root $STATIC_ROOT on the host is missing, not a directory or not readable by the ssh user; nothing was published"
+  # Prints the hash, or ABSENT for a file that is not there; an unreadable path or any ssh error dies.
+  # Absent means the path is missing under a directory we can search, never merely hidden by permissions.
   remote_hash() {
     local out
-    out=$(ssh "$DEPLOY_HOST" "if [ -e '$RDIR/$1' ]; then sha256sum -- '$RDIR/$1'; else echo ABSENT; fi" | awk '{print $1}') \
+    out=$(ssh "$DEPLOY_HOST" "
+      if [ -e '$RDIR/$1' ]; then sha256sum -- '$RDIR/$1'
+      elif [ -d '$RDIR' ]; then [ -r '$RDIR' ] && [ -x '$RDIR' ] && echo ABSENT
+      elif [ -e '$RDIR' ] || [ -L '$RDIR' ]; then exit 1
+      elif [ -d '$STATIC_ROOT/releases' ]; then [ -r '$STATIC_ROOT/releases' ] && [ -x '$STATIC_ROOT/releases' ] && echo ABSENT
+      elif [ -e '$STATIC_ROOT/releases' ] || [ -L '$STATIC_ROOT/releases' ]; then exit 1
+      else echo ABSENT; fi" | awk '{print $1}') \
       && [[ "$out" =~ ^([0-9a-f]{64}|ABSENT)$ ]] || die "cannot read the published copy of $1 on the host; nothing was published"
     echo "$out"
   }

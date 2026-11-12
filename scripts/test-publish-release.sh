@@ -185,6 +185,7 @@ export FAKE_STATIC="$W/cellstatic" FAKE_BIN_STATE="$W/cellbin" FAKE_MARK="$W/cel
 CELLROOT="$W/cellstatic"   # DEPLOY_STATIC_ROOT: the published tree (the fake publishes here)
 cellpub() { # cellpub <args...>
   : > "$STUB_LOG"; rm -f "$STUB_LOG.static-n"
+  [[ -n "${NO_STATIC_ROOT:-}" ]] || mkdir -p "$CELLROOT"   # the static root exists on a real host
   set +e
   OUT=$(cd "$ROOT" && PATH="$W/stubs:$PATH" RELEASE_TOOL="$TOOL" DEPLOY_TARGET=hmctl:example-site \
     DEPLOY_STAGING="${STAGING_OVERRIDE:-$W/stage}" DEPLOY_STATIC_ROOT="$CELLROOT" "$SCRIPT" "$@" 2>&1)
@@ -241,6 +242,26 @@ SSH_FAIL_READ=1 cellpub $VER "$W/rel/good"
 if grep -qE '^rsync|site static' "$STUB_LOG"; then fail "cell: published despite an unreadable copy"; fi
 grep -q 'cannot read the published copy' <<<"$OUT" || fail "cell: no read-error message"
 pass "cell: unreadable published copy refuses the publish"
+
+# A missing or unlistable static root must not make every file look absent.
+rm -rf "$CELLROOT" "$W/stage"
+NO_STATIC_ROOT=1 cellpub $VER "$W/rel/good"
+[[ $RC != 0 ]] || fail "cell: missing static root accepted"
+if grep -qE '^rsync|site static' "$STUB_LOG"; then fail "cell: published into a missing static root"; fi
+grep -q 'static root' <<<"$OUT" || { echo "$OUT"; fail "cell: no static-root message"; }
+if [[ $(id -u) != 0 ]]; then
+  mkdir -p "$CELLROOT/releases/$VER"; chmod 000 "$CELLROOT"
+  cellpub $VER "$W/rel/good"
+  chmod 755 "$CELLROOT"
+  [[ $RC != 0 ]] || fail "cell: unreadable static root accepted"
+  if grep -qE '^rsync|site static' "$STUB_LOG"; then fail "cell: published into an unreadable static root"; fi
+  mkdir -p "$CELLROOT/releases/$VER"; chmod 000 "$CELLROOT/releases/$VER"
+  cellpub $VER "$W/rel/good"
+  chmod 755 "$CELLROOT/releases/$VER"
+  [[ $RC != 0 ]] || fail "cell: unreadable release dir accepted"
+  if grep -qE '^rsync|site static' "$STUB_LOG"; then fail "cell: published over an unreadable release dir"; fi
+fi
+pass "cell: missing or unreadable static root refuses the publish"
 
 # 15. Cell re-check: a file published by someone else after the first check is not overwritten.
 rm -rf "$CELLROOT" "$W/stage"; mkdir -p "$CELLROOT"
