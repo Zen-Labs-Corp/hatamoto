@@ -346,16 +346,9 @@ func runMediaAdopt(ctx context.Context, databaseURL string, args []string, out i
 		return err
 	}
 	cfg.Database.URL = databaseURL
-	store, err := media.NewStoreFromEnv(os.Getenv, "/media")
+	store, provider, err := openAdoptStore(os.Getenv, mediaDirOr(cfg.Server.MediaUploadDir), cfg.Server.MediaBaseURL)
 	if err != nil {
 		return err
-	}
-	provider := "s3"
-	if store == nil {
-		provider = "local"
-		if store, err = media.NewLocalStore(mediaDirOr(cfg.Server.MediaUploadDir), "/media"); err != nil {
-			return err
-		}
 	}
 	lister, ok := store.(media.Lister)
 	if !ok {
@@ -367,6 +360,23 @@ func runMediaAdopt(ctx context.Context, databaseURL string, args []string, out i
 	}
 	defer db.Close()
 	return mediaAdopt(ctx, mediaAdoptPlan{mediaAdoptFlags: f, repo: media.NewPostgresRepository(db), lister: lister, provider: provider, url: store.URL}, out)
+}
+
+// openAdoptStore opens the active media store with the public base URL the
+// server uses for uploads, and names its storage provider.
+func openAdoptStore(getenv func(string) string, localDir, baseURL string) (media.BlobStore, string, error) {
+	store, err := media.NewStoreFromEnv(getenv, baseURL)
+	if err != nil {
+		return nil, "", err
+	}
+	if store != nil {
+		return store, "s3", nil
+	}
+	store, err = media.NewLocalStore(localDir, baseURL)
+	if err != nil {
+		return nil, "", err
+	}
+	return store, "local", nil
 }
 
 func mediaAdopt(ctx context.Context, p mediaAdoptPlan, out io.Writer) error {

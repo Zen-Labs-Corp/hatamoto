@@ -330,3 +330,13 @@ func TestMediaAdoptReportsTooNewFiles(t *testing.T) {
 		t.Errorf("created %d rows, output:\n%s", len(repo.created), out.String())
 	}
 }
+
+func TestOpenAdoptStoreUsesConfiguredBaseURL(t *testing.T) {
+	store, provider, err := openAdoptStore(func(string) string { return "" }, t.TempDir(), "https://cdn.example/m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := store.URL("a/b.png"); got != "https://cdn.example/m/a/b.png" || provider != "local" {
+		t.Errorf("URL = %q, provider = %q; want the configured base", got, provider)
+	}
+}
