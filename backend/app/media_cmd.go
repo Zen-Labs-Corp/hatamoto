@@ -381,7 +381,7 @@ func mediaAdopt(ctx context.Context, p mediaAdoptPlan, out io.Writer) error {
 			fmt.Fprintf(out, "would adopt %s files (dry run; --apply to create the rows):\n", thousands(n))
 		}
 		for _, it := range res.Items[:min(n, maxSweepListed)] {
-			fmt.Fprintf(out, "  %s  %s  %s  folder %s\n", it.Key, it.Mime, humanBytes(it.Size), it.Folder)
+			fmt.Fprintf(out, "  %s  %s  %s  folder %s\n", media.DisplayKey(it.Key), it.Mime, humanBytes(it.Size), media.DisplayKey(it.Folder))
 		}
 		if n > maxSweepListed {
 			fmt.Fprintf(out, "  and %s more\n", thousands(n-maxSweepListed))

@@ -149,3 +149,36 @@ func (r *laterRowRepo) ReferencedKeys(context.Context) (map[string]struct{}, err
 	}
 	return map[string]struct{}{}, nil
 }
+
+// A key with control or bidi characters is never adopted, and is only ever
+// reported escaped.
+func TestAdoptSkipsKeysWithControlCharacters(t *testing.T) {
+	l := fixedLister{{Key: "a\nb.png", Size: 1}, {Key: "esc\x1b[2J.png", Size: 1}, {Key: "rtl\u202e.png", Size: 1}, {Key: "ok.png", Size: 1}}
+	repo := &fakeAdoptRepo{referenced: map[string]struct{}{}}
+	res, err := Adopt(context.Background(), repo, l, AdoptOptions{Apply: true, Provider: "local"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Adopted != 1 || len(repo.created) != 1 || len(res.Skipped) != 3 {
+		t.Fatalf("adopted %d, skipped %v, want 1 adopted and 3 skipped", res.Adopted, res.Skipped)
+	}
+	for _, s := range res.Skipped {
+		if strings.ContainsAny(s, "\n\x1b\u202e") {
+			t.Errorf("skip reason %q holds a raw control character", s)
+		}
+	}
+}
+
+func TestDisplayKey(t *testing.T) {
+	for in, want := range map[string]string{
+		"a/b c.png": "a/b c.png",
+		"é/ü.png":   "é/ü.png",
+		"x\ny":      `"x\ny"`,
+		"x\x1b[2Jy": `"x\x1b[2Jy"`,
+		"x\u202ey":  `"x\u202ey"`,
+	} {
+		if got := DisplayKey(in); got != want {
+			t.Errorf("DisplayKey(%q) = %s, want %s", in, got, want)
+		}
+	}
+}

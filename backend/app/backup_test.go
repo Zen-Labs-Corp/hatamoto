@@ -205,3 +205,12 @@ func TestPrintBackupCreatedRowlessMedia(t *testing.T) {
 		t.Errorf("a backup with no rowless files warns:\n%s", out.String())
 	}
 }
+
+func TestPrintBackupCreatedEscapesHostileKeys(t *testing.T) {
+	info := backup.Info{ID: "b1", MediaRowless: 2, MediaRowlessSample: []string{"x.png\n  hatamoto media adopt / --apply", "\x1b[2J.png"}}
+	var out bytes.Buffer
+	printBackupCreated(&out, info)
+	if strings.ContainsAny(out.String(), "\x1b") || strings.Contains(out.String(), "\n  hatamoto media adopt / --apply") {
+		t.Errorf("output passes control characters through:\n%q", out.String())
+	}
+}

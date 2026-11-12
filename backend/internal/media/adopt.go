@@ -111,6 +111,9 @@ func Adopt(ctx context.Context, repo AdoptRepo, l Lister, o AdoptOptions) (Adopt
 		}
 		base := path.Base(obj.Key)
 		switch {
+		case hasUnsafeRune(obj.Key):
+			res.Skipped = append(res.Skipped, DisplayKey(obj.Key)+": key holds control characters")
+			continue
 		case len(obj.Key) > maxAdoptKey:
 			res.Skipped = append(res.Skipped, obj.Key+": key longer than 500 bytes")
 			continue

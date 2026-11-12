@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -60,6 +62,22 @@ func isReplaceAside(name string) bool {
 	}
 	_, err := uuid.Parse(rest[len(rest)-36:])
 	return err == nil && rest[len(rest)-37] == '.'
+}
+
+// hasUnsafeRune reports whether key holds a control character or an invisible
+// format character (a bidi override, a zero-width joiner).
+func hasUnsafeRune(key string) bool {
+	return strings.IndexFunc(key, func(r rune) bool { return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) }) >= 0
+}
+
+// DisplayKey returns key as it is safe to print to a terminal: unchanged, or
+// quoted with the unsafe characters escaped when it holds control or format
+// characters (an escape sequence, a newline, a bidi override).
+func DisplayKey(key string) string {
+	if hasUnsafeRune(key) {
+		return strconv.Quote(key)
+	}
+	return key
 }
 
 // CleanKeyPrefix turns an operator-given directory into a key prefix relative
