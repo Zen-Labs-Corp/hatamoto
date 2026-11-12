@@ -221,3 +221,93 @@ func TestMediaSweepDryRunAndApply(t *testing.T) {
 		t.Errorf("objects after apply = %d, orphan still there = %v", len(left), ok)
 	}
 }
+
+func TestParseMediaAdopt(t *testing.T) {
+	f, err := parseMediaAdoptArgs(nil)
+	if err != nil || f.apply || f.dir != "" {
+		t.Fatalf("defaults = %+v, %v", f, err)
+	}
+	f, err = parseMediaAdoptArgs([]string{"wp/2020", "--apply"})
+	if err != nil || !f.apply || f.dir != "wp/2020" {
+		t.Fatalf("flags = %+v, %v", f, err)
+	}
+	for args, ok := range map[string]bool{
+		"media adopt":            true,
+		"media adopt /":          true,
+		"media adopt wp --apply": true,
+		"media adopt ../x":       false,
+		"media adopt a/../../b":  false,
+		"media adopt a b":        false,
+		"media adopt --to s3":    false,
+	} {
+		cmd, _ := parseArgs(strings.Fields(args))
+		if (cmd == cmdMedia) != ok {
+			t.Errorf("%q: command %v, want media=%v", args, cmd, ok)
+		}
+	}
+}
+
+type adoptRepoStub struct {
+	keys    map[string]struct{}
+	created []*media.Media
+}
+
+func (r *adoptRepoStub) ReferencedKeys(context.Context) (map[string]struct{}, error) {
+	return r.keys, nil
+}
+
+func (r *adoptRepoStub) Create(_ context.Context, m *media.Media) error {
+	r.created = append(r.created, m)
+	r.keys[m.StoragePath] = struct{}{}
+	return nil
+}
+
+func TestMediaAdoptDryRunAndApply(t *testing.T) {
+	store, err := media.NewLocalStore(t.TempDir(), "/media")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key, body := range map[string]string{"logo.png": "123", "wp/2020/01/hero.png": "12345", "docs/a.xyz": "1", "seen.png": "1"} {
+		if _, err := store.Put(context.Background(), key, strings.NewReader(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	repo := &adoptRepoStub{keys: map[string]struct{}{"seen.png": {}}}
+	plan := mediaAdoptPlan{repo: repo, lister: store.(media.Lister), provider: "local"}
+
+	var out bytes.Buffer
+	if err := mediaAdopt(context.Background(), plan, &out); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"would adopt 3 files (dry run; --apply to create the rows):\n",
+		"  docs/a.xyz  application/octet-stream  1 B  folder /docs\n",
+		"  logo.png  image/png  3 B  folder /\n",
+		"  wp/2020/01/hero.png  image/png  5 B  folder /wp/2020/01\n",
+		"skipped: 1 already have a row\n", "application/octet-stream",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("dry run output lacks %q:\n%s", want, out.String())
+		}
+	}
+	if len(repo.created) != 0 {
+		t.Fatalf("a dry run created %d rows", len(repo.created))
+	}
+
+	plan.apply = true
+	out.Reset()
+	if err := mediaAdopt(context.Background(), plan, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "adopted 3 files (rows created, no variants)\n") || len(repo.created) != 3 {
+		t.Errorf("apply output (%d rows):\n%s", len(repo.created), out.String())
+	}
+
+	out.Reset()
+	if err := mediaAdopt(context.Background(), plan, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "adopted 0 files") || !strings.Contains(out.String(), "skipped: 4 already have a row\n") || len(repo.created) != 3 {
+		t.Errorf("second run output:\n%s", out.String())
+	}
+}
