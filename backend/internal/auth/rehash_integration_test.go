@@ -26,6 +26,7 @@ func TestLoginRehashesLegacyHash(t *testing.T) {
 	r := newTokRig(t)
 	ctx := context.Background()
 	svc := NewService(r.users, nil, r.sessions)
+	t.Cleanup(svc.rehashes.Wait)
 	u := r.newUser(t, user.RoleEditor)
 	legacy := encodeWith(t, accessPassword, 65536, 1, 4)
 	if err := r.users.SetPassword(database.WithSuperadmin(ctx), u.ID, legacy); err != nil {
@@ -36,6 +37,7 @@ func TestLoginRehashesLegacyHash(t *testing.T) {
 	if _, _, err := svc.LoginSession(ctx, u.Email, "not-the-password", "ua", ""); err == nil {
 		t.Fatal("wrong password signed in")
 	}
+	svc.rehashes.Wait()
 	if got := r.storedHash(t, u); got.PasswordHash != legacy {
 		t.Fatalf("wrong password changed the hash to %q", got.PasswordHash)
 	}
@@ -43,6 +45,7 @@ func TestLoginRehashesLegacyHash(t *testing.T) {
 	if _, _, err := svc.LoginSession(ctx, u.Email, accessPassword, "ua", ""); err != nil {
 		t.Fatal(err)
 	}
+	svc.rehashes.Wait() // the upgrade runs after sign-in returns
 	got := r.storedHash(t, u)
 	if !strings.Contains(got.PasswordHash, "$m=19456,t=2,p=1$") {
 		t.Fatalf("stored hash = %q, want the new parameters", got.PasswordHash)
@@ -50,6 +53,7 @@ func TestLoginRehashesLegacyHash(t *testing.T) {
 	if _, _, err := svc.LoginSession(ctx, u.Email, accessPassword, "ua", ""); err != nil {
 		t.Fatalf("second sign-in: %v", err)
 	}
+	svc.rehashes.Wait()
 	// The CAS swap leaves the lockout counter alone (a successful sign-in resets it, this does not).
 	if err := r.users.RecordFailedLogin(database.WithSuperadmin(ctx), u.ID, 5, 0); err != nil {
 		t.Fatal(err)
