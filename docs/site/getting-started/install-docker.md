@@ -33,21 +33,21 @@ The Dockerfile below downloads the release binary and builds the container on yo
    ```
 
    ```text
-           "version": "v0.26.0",
+           "version": "v1.1.0",
            "halted": false
-           "version": "v0.27.1",
+           "version": "v1.3.0",
            "halted": false
-           "version": "v0.28.0",
+           "version": "v1.3.1",
            "halted": false
        "yanked": []
    ```
 
-   Skip a version followed by `"halted": true`. If the last part reads `"yanked": [` rather than `"yanked": []`, the versions after it were withdrawn too: skip them. Then take the highest number left (`v0.28.0` is higher than `v0.27.1`). The list is in release order, not number order, so the last version is not always it.
+   Skip a version followed by `"halted": true`. If the last part reads `"yanked": [` rather than `"yanked": []`, the versions after it were withdrawn too: skip them. Then take the highest number left (`v1.3.1` is higher than `v1.3.0`). The list is in release order, not number order, so the last version is not always it.
 
-3. Create a file named `.env` with that version. Docker reads it for every command you run in this folder. Replace `v0.28.0` with the version you found:
+3. Create a file named `.env` with that version. Docker reads it for every command you run in this folder. Replace `v1.3.1` with the version you found:
 
    ```text
-   VERSION=v0.28.0
+   VERSION=v1.3.1
    ```
 
 4. Create a file named `Dockerfile`. It describes the **container**, a small, sealed Linux system that Docker runs, here with the Hatamoto program added.
@@ -60,7 +60,7 @@ The Dockerfile below downloads the release binary and builds the container on yo
    RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
        && rm -rf /var/lib/apt/lists/* \
        && useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
-   ADD --chmod=755 https://hatamoto.dev/releases/${VERSION}/hatamoto-linux-${TARGETARCH} /usr/local/bin/hatamoto
+   ADD --chmod=755 https://github.com/Zen-Labs-Corp/hatamoto/releases/download/${VERSION}/hatamoto-linux-${TARGETARCH} /usr/local/bin/hatamoto
    WORKDIR /app
    RUN mkdir -p /app/uploads /data/secrets && chown -R app:app /app /data
    ENV HATAMOTO_DATA=/data HATAMOTO_SECRETS_DIR=/data/secrets

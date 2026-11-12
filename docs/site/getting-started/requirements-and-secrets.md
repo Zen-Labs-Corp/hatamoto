@@ -46,7 +46,7 @@ Release builds are published for four platforms. Each file is a single Go binary
 | `hatamoto-darwin-amd64` | macOS, Intel | `Darwin x86_64` |
 | `hatamoto-darwin-arm64` | macOS, Apple silicon | `Darwin arm64` |
 
-Files live at `https://hatamoto.dev/releases/<version>/hatamoto-<os>-<arch>`, where `<version>` has the form `vX.Y.Z` with the leading `v`. The `releases` address has no index page, so you need the version first.
+Download the files from the [GitHub releases](https://github.com/Zen-Labs-Corp/hatamoto/releases) page, or directly from `https://github.com/Zen-Labs-Corp/hatamoto/releases/download/<version>/hatamoto-<os>-<arch>`, where `<version>` has the form `vX.Y.Z` with the leading `v`. GitHub holds every release from `v1.0.1` on; older releases are not on GitHub.
 
 ### The current version
 

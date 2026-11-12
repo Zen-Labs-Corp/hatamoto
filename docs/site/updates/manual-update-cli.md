@@ -126,7 +126,7 @@ Like a scheduled install and the admin's **Update now**, this route takes the pr
 
 ## apply --file
 
-For servers with no internet access, download three files on another machine from `https://hatamoto.dev/releases/<version>/`: the binary for your platform (`hatamoto-linux-amd64`, `hatamoto-linux-arm64`, `hatamoto-darwin-amd64` or `hatamoto-darwin-arm64`), `release.json` and `release.json.sig`. Copy them over and run:
+For servers with no internet access, download three files on another machine from the version's [GitHub release](https://github.com/Zen-Labs-Corp/hatamoto/releases), `https://github.com/Zen-Labs-Corp/hatamoto/releases/download/<version>/` (releases from `v1.0.1` on; older ones are not on GitHub): the binary for your platform (`hatamoto-linux-amd64`, `hatamoto-linux-arm64`, `hatamoto-darwin-amd64` or `hatamoto-darwin-arm64`), `release.json` and `release.json.sig`. Copy them over and run:
 
 ```bash
 cd /opt/hatamoto && sudo -u hatamoto bin/hatamoto update apply \

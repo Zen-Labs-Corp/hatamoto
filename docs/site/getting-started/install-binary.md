@@ -24,11 +24,11 @@ In this guide you download Hatamoto, connect it to a Postgres database and start
    ```
 
    ```text
-           "version": "v0.26.0",
+           "version": "v1.1.0",
            "halted": false
-           "version": "v0.27.1",
+           "version": "v1.3.0",
            "halted": false
-           "version": "v0.28.0",
+           "version": "v1.3.1",
            "halted": false
        "yanked": []
    ```
@@ -37,11 +37,11 @@ In this guide you download Hatamoto, connect it to a Postgres database and start
 
    - Skip a version followed by `"halted": true`. It was withdrawn.
    - If the last part reads `"yanked": [` rather than `"yanked": []`, the versions after it were withdrawn too: skip them.
-   - Then take the highest number left (`v0.28.0` is higher than `v0.27.1`). The list is in release order, not number order, so the last version is not always it.
+   - Then take the highest number left (`v1.3.1` is higher than `v1.3.0`). The list is in release order, not number order, so the last version is not always it.
 
-   Above, that is `v0.28.0`. [Requirements and secrets](requirements-and-secrets.md) explains the file in full.
+   Above, that is `v1.3.1`. [Requirements and secrets](requirements-and-secrets.md) explains the file in full.
 
-   The [GitHub releases](https://github.com/Zen-Labs-Corp/hatamoto/releases) page offers, from the first public release, the same program as a `hatamoto-<os>-<arch>.tar.gz` bundle that also holds the licences, for example `hatamoto-linux-amd64.tar.gz`. Inside the bundle the program is `hatamoto-<os>-<arch>/hatamoto`: move it to `./hatamoto` to follow the steps below (for example `tar -xzf hatamoto-linux-amd64.tar.gz --strip-components=1 hatamoto-linux-amd64/hatamoto`). How releases are signed: [Trust and signing](../updates/trust-and-signing.md).
+   Release files are downloaded from the [GitHub releases](https://github.com/Zen-Labs-Corp/hatamoto/releases) page, which holds every release from `v1.0.1` on. Older releases are not on GitHub. Each release there also offers the same program as a `hatamoto-<os>-<arch>.tar.gz` bundle that also holds the licences, for example `hatamoto-linux-amd64.tar.gz`. Inside the bundle the program is `hatamoto-<os>-<arch>/hatamoto`: move it to `./hatamoto` to follow the steps below (for example `tar -xzf hatamoto-linux-amd64.tar.gz --strip-components=1 hatamoto-linux-amd64/hatamoto`). How releases are signed: [Trust and signing](../updates/trust-and-signing.md).
 
 2. Download the program file for your system. The file name ends with your system and processor type, from `uname -sm`:
 
@@ -52,11 +52,11 @@ In this guide you download Hatamoto, connect it to a Postgres database and start
    | `Darwin x86_64` | `hatamoto-darwin-amd64` |
    | `Darwin arm64` | `hatamoto-darwin-arm64` |
 
-   For Linux on x86, replace `v0.28.0` with the version you found:
+   For Linux on x86, replace `v1.3.1` with the version you found:
 
    ```bash
-   VERSION=v0.28.0
-   curl -fLo hatamoto "https://hatamoto.dev/releases/$VERSION/hatamoto-linux-amd64"
+   VERSION=v1.3.1
+   curl -fLo hatamoto "https://github.com/Zen-Labs-Corp/hatamoto/releases/download/$VERSION/hatamoto-linux-amd64"
    chmod +x hatamoto
    ```
 
