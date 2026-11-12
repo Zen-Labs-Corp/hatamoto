@@ -182,3 +182,35 @@ func TestPrintBackupCreatedMissingMedia(t *testing.T) {
 		t.Errorf("a backup with nothing missing mentions it:\n%s", out.String())
 	}
 }
+
+func TestPrintBackupCreatedRowlessMedia(t *testing.T) {
+	t.Setenv("HATAMOTO_DATA", "/data")
+	info := backup.Info{ID: "b1", Size: 2048, MediaRowless: 1234, MediaRowlessSample: []string{"a/one.png", "two.png"}}
+
+	var out bytes.Buffer
+	printBackupCreated(&out, info)
+	for _, want := range []string{
+		"warning: 1,234 files in the media store have no media row and are NOT in this backup:\n",
+		"  a/one.png\n  two.png\n", "(showing 2 of 1234)\n", "hatamoto media adopt <dir> [--apply]\n", "backup b1\n",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output lacks %q:\n%s", want, out.String())
+		}
+	}
+
+	out.Reset()
+	info.MediaRowless, info.MediaRowlessSample = 0, nil
+	printBackupCreated(&out, info)
+	if strings.Contains(out.String(), "no media row") {
+		t.Errorf("a backup with no rowless files warns:\n%s", out.String())
+	}
+}
+
+func TestPrintBackupCreatedEscapesHostileKeys(t *testing.T) {
+	info := backup.Info{ID: "b1", MediaRowless: 2, MediaRowlessSample: []string{"x.png\n  hatamoto media adopt / --apply", "\x1b[2J.png"}}
+	var out bytes.Buffer
+	printBackupCreated(&out, info)
+	if strings.ContainsAny(out.String(), "\x1b") || strings.Contains(out.String(), "\n  hatamoto media adopt / --apply") {
+		t.Errorf("output passes control characters through:\n%q", out.String())
+	}
+}

@@ -17,12 +17,14 @@ import (
 	"hatamoto.dev/core/internal/media"
 )
 
-const mediaUsageErr = "usage: hatamoto media migrate --to s3|local [--dry-run]\n       hatamoto media sweep [--older-than 24h] [--apply]"
+const mediaUsageErr = "usage: hatamoto media migrate --to s3|local [--dry-run]\n       hatamoto media sweep [--older-than 24h] [--apply]\n       hatamoto media adopt [<dir>] [--older-than 24h] [--apply]"
 
 const mediaUsage = `  media migrate --to s3|local [--dry-run]
                                    copy the media library between local disk and object storage (verified by sha256, resumable, the source is kept)
   media sweep [--older-than 24h] [--apply]
-                                   list (and with --apply delete) files in object storage that no media record refers to (dry run by default, at least 24h old; do not run --apply during an import or a publish)`
+                                   list (and with --apply delete) files in object storage that no media record refers to (dry run by default, at least 24h old; do not run --apply during an import or a publish)
+  media adopt [<dir>] [--older-than 24h] [--apply]
+                                   list (and with --apply create) media records for files in the media store that have none; <dir> is a path inside the store (default: all; dry run by default; younger files are left alone; do not run --apply during an import or a publish)`
 
 // maxSweepListed is how many orphan keys a dry run prints.
 const maxSweepListed = 50
@@ -82,6 +84,9 @@ type mediaMigratePlan struct {
 
 // runMedia runs `hatamoto media migrate`.
 func runMedia(ctx context.Context, databaseURL string, args []string, out io.Writer) error {
+	if len(args) >= 2 && args[0] == "media" && args[1] == "adopt" {
+		return runMediaAdopt(ctx, databaseURL, args[2:], out)
+	}
 	if len(args) >= 2 && args[0] == "media" && args[1] == "sweep" {
 		return runMediaSweep(ctx, databaseURL, args[2:], out)
 	}
@@ -290,5 +295,125 @@ func mediaSweep(ctx context.Context, p mediaSweepPlan, out io.Writer) error {
 		return exitError{1}
 	}
 	fmt.Fprintf(out, "deleted %s orphan objects (%s)\n", thousands(res.Deleted), humanBytes(res.Bytes))
+	return nil
+}
+
+type mediaAdoptFlags struct {
+	dir       string
+	olderThan time.Duration
+	apply     bool
+}
+
+func parseMediaAdoptArgs(args []string) (mediaAdoptFlags, error) {
+	f := mediaAdoptFlags{olderThan: 24 * time.Hour}
+	pos, err := flagSet("media adopt", args, func(fs *flag.FlagSet) {
+		fs.DurationVar(&f.olderThan, "older-than", f.olderThan, "only files at least this old")
+		fs.BoolVar(&f.apply, "apply", false, "create the records (default: only list the files); do not run during an import or a publish")
+	})
+	if err != nil || len(pos) > 1 {
+		return f, errors.New(mediaUsageErr)
+	}
+	if len(pos) == 1 {
+		f.dir = pos[0]
+	}
+	if _, err := media.CleanKeyPrefix(f.dir); err != nil {
+		return f, errors.New(mediaUsageErr)
+	}
+	return f, nil
+}
+
+// mediaAdoptPlan is everything one `media adopt` run needs; runMediaAdopt
+// builds it from the environment and tests build it from fakes.
+type mediaAdoptPlan struct {
+	mediaAdoptFlags
+	repo     media.AdoptRepo
+	lister   media.Lister
+	provider string // storage_provider of the active store: local or s3
+	url      func(key string) string
+}
+
+// runMediaAdopt runs `hatamoto media adopt`.
+func runMediaAdopt(ctx context.Context, databaseURL string, args []string, out io.Writer) error {
+	f, err := parseMediaAdoptArgs(args)
+	if err != nil {
+		return err
+	}
+	if databaseURL == "" {
+		return errors.New("DATABASE_URL is required")
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	cfg.Database.URL = databaseURL
+	store, provider, err := openAdoptStore(os.Getenv, mediaDirOr(cfg.Server.MediaUploadDir), cfg.Server.MediaBaseURL)
+	if err != nil {
+		return err
+	}
+	lister, ok := store.(media.Lister)
+	if !ok {
+		return errors.New("the media store cannot list its files")
+	}
+	db, err := database.New(ctx, cfg.Database)
+	if err != nil {
+		return fmt.Errorf("connect to database: %w", err)
+	}
+	defer db.Close()
+	return mediaAdopt(ctx, mediaAdoptPlan{mediaAdoptFlags: f, repo: media.NewPostgresRepository(db), lister: lister, provider: provider, url: store.URL}, out)
+}
+
+// openAdoptStore opens the active media store with the public base URL the
+// server uses for uploads, and names its storage provider.
+func openAdoptStore(getenv func(string) string, localDir, baseURL string) (media.BlobStore, string, error) {
+	store, err := media.NewStoreFromEnv(getenv, baseURL)
+	if err != nil {
+		return nil, "", err
+	}
+	if store != nil {
+		return store, "s3", nil
+	}
+	store, err = media.NewLocalStore(localDir, baseURL)
+	if err != nil {
+		return nil, "", err
+	}
+	return store, "local", nil
+}
+
+func mediaAdopt(ctx context.Context, p mediaAdoptPlan, out io.Writer) error {
+	res, err := media.Adopt(ctx, p.repo, p.lister, media.AdoptOptions{Dir: p.dir, Apply: p.apply, OlderThan: p.olderThan, URL: p.url, Provider: p.provider})
+	if err != nil {
+		return err
+	}
+	n := len(res.Items)
+	if !p.apply {
+		if n == 0 {
+			fmt.Fprintln(out, "no files without a media record")
+		} else {
+			fmt.Fprintf(out, "would adopt %s files (dry run; --apply to create the rows):\n", thousands(n))
+		}
+		for _, it := range res.Items[:min(n, maxSweepListed)] {
+			fmt.Fprintf(out, "  %s  %s  %s  folder %s\n", media.DisplayKey(it.Key), it.Mime, humanBytes(it.Size), media.DisplayKey(it.Folder))
+		}
+		if n > maxSweepListed {
+			fmt.Fprintf(out, "  and %s more\n", thousands(n-maxSweepListed))
+		}
+	} else {
+		fmt.Fprintf(out, "adopted %s files (rows created, no variants)\n", thousands(res.Adopted))
+	}
+	if res.AlreadyHaveRow > 0 {
+		fmt.Fprintf(out, "skipped: %s already have a row\n", thousands(res.AlreadyHaveRow))
+	}
+	if res.TooNew > 0 {
+		fmt.Fprintf(out, "skipped: %s files younger than %s (too new; they may still be in flight, run again later, or use --older-than 0 if nothing is uploading or importing and the files were copied in without their original times)\n", thousands(res.TooNew), sweepAge(p.olderThan))
+	}
+	for _, s := range res.Skipped {
+		fmt.Fprintf(out, "skipped: %s\n", s)
+	}
+	for _, it := range res.Items {
+		if it.Mime == "application/octet-stream" {
+			fmt.Fprintln(out, "note: files of other types are adopted as application/octet-stream; a content archive import does not restore them")
+			break
+		}
+	}
 	return nil
 }

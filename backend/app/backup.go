@@ -124,6 +124,14 @@ func printBackupCreated(out io.Writer, info backup.Info) {
 	if info.MediaMissing > 0 {
 		fmt.Fprintf(out, "media files missing: %d\n", info.MediaMissing)
 	}
+	if info.MediaRowless > 0 {
+		fmt.Fprintf(out, "warning: %s files in the media store have no media row and are NOT in this backup:\n", thousands(info.MediaRowless))
+		for _, key := range info.MediaRowlessSample {
+			fmt.Fprintf(out, "  %s\n", media.DisplayKey(key))
+		}
+		fmt.Fprintf(out, "  (showing %d of %d)\n  A restore or move will not bring them back. Create their rows first:\n    hatamoto media adopt <dir> [--apply]\n",
+			len(info.MediaRowlessSample), info.MediaRowless)
+	}
 	for _, name := range []string{"secrets.env", "config.env"} {
 		if slices.Contains(info.Parts, name) {
 			fmt.Fprintf(out, "includes %s\n", name)

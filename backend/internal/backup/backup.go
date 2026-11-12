@@ -44,6 +44,11 @@ type Info struct {
 	// MediaMissing counts media files the database references that were not
 	// on disk; the backup is still OK, it just lacks them.
 	MediaMissing int `json:"media_missing,omitzero"`
+	// MediaRowless counts files in the media store that no media row refers
+	// to, so the backup does not carry them; MediaRowlessSample names the
+	// first few. The backup is still OK, this is only a warning.
+	MediaRowless       int      `json:"media_rowless,omitzero"`
+	MediaRowlessSample []string `json:"media_rowless_sample,omitempty"`
 	// SHA256 is the hex digest of the archive, set when it was uploaded
 	// off-site. Offsite is "uploaded" or "failed" once an upload was tried and
 	// OffsiteError says why a failed one failed; all empty for local-only backups.

@@ -46,7 +46,7 @@ const (
 	cmdLocales  // locales convert (locales_convert.go)
 	cmdAdminURL // admin-url, admin-url set|random (admin_url.go)
 	cmdDoctor   // doctor json (doctor_json.go)
-	cmdMedia    // media migrate, sweep (media_cmd.go)
+	cmdMedia    // media migrate, sweep, adopt (media_cmd.go)
 	cmdHelp
 )
 
@@ -156,6 +156,11 @@ func parseArgs(args []string) (command, error) {
 		}
 		if len(args) >= 2 && args[1] == "sweep" {
 			if _, err := parseMediaSweepArgs(args[2:]); err == nil {
+				return cmdMedia, nil
+			}
+		}
+		if len(args) >= 2 && args[1] == "adopt" {
+			if _, err := parseMediaAdoptArgs(args[2:]); err == nil {
 				return cmdMedia, nil
 			}
 		}
