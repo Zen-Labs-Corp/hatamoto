@@ -92,7 +92,7 @@ grep -q 'already published' <<<"$OUT" || fail "rerun did not say so"
 pass "rerun uploads nothing"
 
 # 3. A differing remote file: refused before any upload, nothing new on the box.
-rm -rf "$BOXDIR/$VER"; mkdir -p "$BOXDIR/$VER"
+rm -rf "${BOXDIR:?}/$VER"; mkdir -p "$BOXDIR/$VER"
 echo different > "$BOXDIR/$VER/hatamoto-linux-arm64"
 pub $VER "$W/rel/good"
 [[ $RC != 0 ]] || fail "differing remote file accepted"

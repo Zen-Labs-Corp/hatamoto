@@ -21,7 +21,7 @@ pass "file read"
 [[ $(DEPLOY_TARGET=hmctl:other-site resolve) == 'hmctl other-site' ]] || fail "env must win over file"
 pass "env wins over file"
 
-[[ $(DEPLOY_TARGET= resolve) == box ]] || fail "empty env must be box"
+[[ $(DEPLOY_TARGET='' resolve) == box ]] || fail "empty env must be box"
 [[ $(DEPLOY_TARGET=box resolve) == box ]] || fail "env box must be box"
 pass "empty/box env = box"
 

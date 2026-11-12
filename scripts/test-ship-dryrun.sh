@@ -343,7 +343,7 @@ SSH
   git add -A && git commit -qm base
   git remote add origin "$W/origin.git"; git push -q origin main
   echo change > change.txt; git add -A && git commit -qm change
-  SHA=$(git rev-parse HEAD); TREE=$(git rev-parse HEAD^{tree})
+  SHA=$(git rev-parse HEAD); TREE=$(git rev-parse "HEAD^{tree}")
   git push -q origin HEAD:refs/pull/1/head
   git fetch -q origin
   SNAP=$(git rev-parse --git-common-dir)/hatamoto-hooks/snapshot/.githooks

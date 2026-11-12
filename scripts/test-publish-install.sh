@@ -189,7 +189,7 @@ run v1.2.3 --dry-run
 [[ ! -e "$STATIC/install.sh" ]] || fail "cell dry-run wrote install.sh"
 grep -q 'DRY: ' <<<"$OUT" || fail "cell dry-run printed no steps"
 if grep -q stubhost <<<"$OUT"; then fail "cell dry-run printed the host"; fi
-DEPLOY_STATIC_ROOT= run v1.2.3 --dry-run
+DEPLOY_STATIC_ROOT='' run v1.2.3 --dry-run
 if grep -q example-site <<<"$OUT"; then fail "cell dry-run printed the slug"; fi
 grep -qF "DRY: target <host>:<static-root>/install.sh" <<<"$OUT" || fail "cell dry-run did not print the target: $OUT"
 pass "cell: dry-run makes no remote call and prints neither host nor slug"

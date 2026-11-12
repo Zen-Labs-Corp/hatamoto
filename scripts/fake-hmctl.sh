@@ -80,7 +80,7 @@ case $verb in
     else echo "hmctl: site $slug has no mark \"${1:-}\"" >&2; exit 1; fi
     ;;
   static)
-    from= path=
+    from='' path=''
     while [[ $# -gt 0 ]]; do
       case $1 in --from) from=$2; shift ;; --path) path=$2; shift ;; esac
       shift
