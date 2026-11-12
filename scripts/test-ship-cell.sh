@@ -79,6 +79,7 @@ LOG=$W/calls.log; OUT=""
 ship() { # ship [ENV=VAL...]: real run in the scratch clone; sets OUT and RC
   # OLD_MARK=1: the site reports $OLD as deployed-sha; PRE_OVERRIDE=1: it runs an override binary
   : >"$LOG"; rm -f "$W/mark" "$W/bin-state" "$LOG.goose" "$LOG.stdin" "$LOG.binfail"; rm -rf "$W/stage" "$W/srv"
+  if [[ -n ${STAGE_MODE:-} ]]; then mkdir -p "$W/stage"; chmod "$STAGE_MODE" "$W/stage"; fi   # a pre-existing staging base
   if [[ ${OLD_MARK:-} == 1 ]]; then echo "$OLD" >"$W/mark"; fi
   if [[ ${PRE_OVERRIDE:-} == 1 ]]; then
     mkdir -p "$W/srv/sites/example-site/bin"; echo old-binary >"$W/srv/sites/example-site/bin/hatamoto"; cp "$W/srv/sites/example-site/bin/hatamoto" "$W/bin-state"
@@ -96,7 +97,7 @@ line() { grep -nF -- "$1" "$LOG" | head -1 | cut -d: -f1; }
 ship
 [[ $RC == 0 ]] || fail "healthy cell ship exited $RC"
 last=0
-for pat in "hmctl site status example-site" "hmctl site backup example-site" "hmctl site binary example-site --from $W/stage/hatamoto-$DEPLOY" \
+for pat in "hmctl site status example-site" "hmctl site backup example-site" "hmctl site binary example-site --from $W/stage/run." \
            "hmctl site run example-site -- migrate" "hmctl site mark example-site deployed-sha $DEPLOY"; do
   n=$(line "$pat"); [[ -n "$n" ]] || fail "call missing: $pat"
   (( n > last )) || fail "call out of order: $pat"
@@ -105,7 +106,9 @@ done
 if grep -qE 'site static|sudo|pg_dump' "$LOG"; then fail "box or static commands in a cell ship"; fi
 grep -q 'backup id: 20260101T000000Z-manual' <<<"$OUT" || fail "backup id not captured"
 [[ "$(cat "$W/mark")" == "$DEPLOY" ]] || fail "deployed-sha mark not set to the deploy sha"
-cmp -s "$W/bin-state" "$W/stage/hatamoto-$DEPLOY" || fail "binary handed to hmctl differs from the staged one"
+[[ "$(cat "$W/bin-state")" == new-binary ]] || fail "binary handed to hmctl is not the built one"
+grep -qE "site binary example-site --from $W/stage/run\\.[A-Za-z0-9]+/hatamoto-$DEPLOY\$" "$LOG" || fail "binary not staged in a per-run dir"
+[[ -z "$(ls -A "$W/stage" 2>/dev/null)" ]] || fail "run dir left behind after a healthy ship"
 grep -q 'SHIP-H OK' <<<"$OUT" || fail "no success line"
 grep -q 'hatamoto@example-site.service' "$LOG" || fail "health did not check the site unit"
 pass "healthy cell ship: call order, backup id, mark"
@@ -147,7 +150,7 @@ pass "psql banners are silenced; unreadable fingerprint aborts the preflight"
 # (a) goose unchanged, the site ran an override: a pre-ship copy of it is re-applied; exit 2, no DB message.
 OLD_MARK=1 PRE_OVERRIDE=1 CURL_FAIL_NEW=1 ship
 [[ $RC == 2 ]] || fail "rollback (a) exited $RC, want 2"
-grep -qE "hmctl site binary example-site --from $W/stage/hatamoto-pre-ship-" "$LOG" || fail "(a) old binary not re-applied"
+grep -qE "hmctl site binary example-site --from $W/stage/run\.[A-Za-z0-9]+/hatamoto-previous$" "$LOG" || fail "(a) old binary not re-applied"
 if grep -q -- '--clear' "$LOG"; then fail "(a) --clear would swap in the channel release"; fi
 [[ "$(cat "$W/bin-state")" == old-binary ]] || fail "(a) the site is not on the old binary"
 if grep -q 'DB changed by migration' <<<"$OUT"; then fail "(a) DB message although goose is unchanged"; fi
@@ -166,7 +169,7 @@ OLD_MARK=1 PRE_OVERRIDE=1 CURL_FAIL_NEW=1 ship FAKE_MIGRATE_BUMPS=1
 [[ $RC == 2 ]] || fail "rollback (c) exited $RC, want 2"
 grep -q 'DB NOT restored' <<<"$OUT" || fail "(c) no DB message"
 grep -q '20260101T000000Z-manual' <<<"$OUT" || fail "(c) message lacks the backup id"
-grep -qE "hmctl site binary example-site --from $W/stage/hatamoto-pre-ship-" "$LOG" || fail "(c) binary not rolled back"
+grep -qE "hmctl site binary example-site --from $W/stage/run\.[A-Za-z0-9]+/hatamoto-previous$" "$LOG" || fail "(c) binary not rolled back"
 if grep -qE 'restore|pg_|restart|suspend' "$LOG"; then fail "(c) a restore/restart command was run"; fi
 pass "changed goose version: binary rolled back, manual DB restore message, exit 2"
 # (d) `site binary` itself fails after the start-up migration changed the schema: the fingerprint is
@@ -181,4 +184,16 @@ PRE_OVERRIDE=1 ship FAKE_BINARY_SHOW=garbage
 [[ $RC == 1 ]] || fail "(e) unreadable binary state exited $RC, want 1"
 if grep -qE 'site (run|binary [^ ]+ --)' "$LOG"; then fail "(e) mutating call although the binary state is unknown"; fi
 pass "unknown binary state aborts the preflight"
+# 5. Staging containment: a base that others can write to, '..', or a path inside /srv/sites is refused
+# before anything is changed.
+STAGE_MODE=755 ship
+[[ $RC == 1 ]] || fail "shared staging base exited $RC, want 1"
+grep -q 'not a private directory' <<<"$OUT" || fail "no private-directory message"
+if grep -qE 'scp|site (binary|run)' "$LOG"; then fail "upload after a refused staging base"; fi
+for bad in "$W/stage/../x" /srv/sites/example-site/static /srv; do
+  ship DEPLOY_STAGING="$bad"
+  [[ $RC == 1 ]] || fail "DEPLOY_STAGING=$bad exited $RC, want 1"
+  grep -q 'bad DEPLOY_STAGING' <<<"$OUT" || fail "DEPLOY_STAGING=$bad not refused up front"
+done
+pass "staging: private base required, '..' and /srv/sites refused"
 echo "ALL OK"

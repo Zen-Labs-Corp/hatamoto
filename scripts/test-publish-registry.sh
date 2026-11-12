@@ -170,10 +170,10 @@ cell_setup() { # cell_setup <name>: like setup, plus a published static root; se
   export FAKE_STATIC=$static
 }
 cell_publish() { # cell_publish [args]
-  (cd "$repo" && DEPLOY_TARGET=hmctl:example-site DEPLOY_HOST=fakehost DEPLOY_STAGING="$stage" \
+  (cd "$repo" && DEPLOY_TARGET=hmctl:example-site DEPLOY_HOST=fakehost DEPLOY_STAGING="${STAGING_OVERRIDE:-$stage}" \
     DEPLOY_STATIC_ROOT="$static" "$SCRIPT" "$@")
 }
-cell_dests() { sed -n 's/^rsync .* fakehost:\(.*\)$/\1/p' "$LOG" | sed "s|^$stage/registry/||"; }
+cell_dests() { sed -n 's/^rsync .* fakehost:\(.*\)$/\1/p' "$LOG" | sed -E "s|^$stage/run\.[A-Za-z0-9]+/||"; }
 
 # 8. Cell publish: same upload order into staging, one site static, nothing deleted.
 cell_setup cell
@@ -182,7 +182,7 @@ echo old >"$static/registry/archive/hello/hello-0.9.0-cccccccccccc-k.hmp"
 cell_publish >"$W/out" 2>&1 || fail "cell publish failed: $(cat "$W/out")"
 [ "$(cell_dests | tr '\n' ' ')" = "archive/ packages/ plugins/ registry.json " ] || fail "cell upload order: $(cell_dests | tr '\n' ' ')"
 [ "$(grep -c '^hmctl site static' "$LOG")" = 1 ] || fail "cell: expected one site static: $(cat "$LOG")"
-grep -q "^hmctl site static example-site --from $stage/registry --path registry\$" "$LOG" || fail "cell: wrong site static call: $(cat "$LOG")"
+grep -qE "^hmctl site static example-site --from $stage/run\.[A-Za-z0-9]+ --path registry\$" "$LOG" || fail "cell: wrong site static call: $(cat "$LOG")"
 ! grep -q -- '--delete' "$LOG" || fail "cell: --delete used"
 cmp "$repo/registry/archive/hello/hello-1.0.0-aaaaaaaaaaaa-k.hmp" "$static/registry/archive/hello/hello-1.0.0-aaaaaaaaaaaa-k.hmp" || fail "cell: archive not published"
 [ -s "$static/registry/registry.json" ] && [ -s "$static/registry/packages/hello.hmp" ] || fail "cell: registry not published"
@@ -222,6 +222,21 @@ grep -q "hash mismatch after upload" <<<"$out" || fail "cellcorrupt: wrong error
 ! grep -q '^hmctl' "$LOG" || fail "cellcorrupt: hmctl ran: $(cat "$LOG")"
 [ ! -e "$static/registry/registry.json" ] || fail "cellcorrupt: index published"
 pass "cell: post-upload hash check dies before hmctl"
+
+# 11b. Cell: staging must be private and outside the static root; the run dir is removed afterwards.
+cell_setup cellstage
+for bad in "$stage/../x" "$static" "$static/sub" "$W" /srv/sites/example-site/static; do
+  : >"$LOG"
+  if out=$(STAGING_OVERRIDE=$bad cell_publish 2>&1); then fail "cell: DEPLOY_STAGING=$bad accepted"; fi
+  ! grep -qE '^rsync|^hmctl|rm -rf|mkdir' "$LOG" || fail "cell: host touched with DEPLOY_STAGING=$bad: $(cat "$LOG")"
+done
+mkdir -p "$stage"; chmod 755 "$stage"; : >"$LOG"
+if out=$(cell_publish 2>&1); then fail "cell: shared staging base accepted"; fi
+grep -q "not a private directory" <<<"$out" || fail "cellstage: wrong error: $out"
+! grep -qE '^rsync|^hmctl' "$LOG" || fail "cellstage: staged into a shared base"
+rm -rf "$stage"; cell_publish >"$W/out" 2>&1 || fail "cellstage: publish failed: $(cat "$W/out")"
+[ -z "$(ls -A "$stage")" ] || fail "cellstage: run dir left behind"
+pass "cell: private staging outside the static root, cleaned up"
 
 # --- Makefile in cell mode
 # 12. deploy and its steps refuse with a hint and never touch ssh/scp.

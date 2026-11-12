@@ -31,8 +31,9 @@
 #                             deployed-sha mark; nothing touches /opt/hatamoto or a
 #                             local postgres). Else read from the untracked file
 #                             .deploy-target (this checkout, else the main checkout).
-#   DEPLOY_STAGING            cell mode: host dir for the uploaded binary;
-#                             default /var/tmp/hatamoto-deploy
+#   DEPLOY_STAGING            cell mode: private host dir (created 0700, must be owned by
+#                             the ssh user) holding one run.XXXXXX dir per ship for the
+#                             uploaded binary; default /root/hatamoto-deploy
 #   DEPLOY_HMCTL              cell mode: hmctl command on the host (e.g. "sudo hmctl"
 #                             when the ssh user is not root); default hmctl
 #   REMOTE_DIR                default /opt/hatamoto
@@ -158,12 +159,15 @@ if [[ -z "${DEPLOY_TARGET+x}" ]]; then
     if [[ -r "$f" ]]; then DEPLOY_TARGET=$(tr -d '[:space:]' < "$f"); break; fi
   done
 fi
+# Plain absolute paths only (no '..', '//', trailing slash); nested = equal, inside or above.
+plain_path() { [[ "$1" =~ ^/([A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+$ && "$1/" != *"/../"* && "$1/" != *"/./"* ]]; }
+nested() { [[ "$1/" == "$2/"* || "$2/" == "$1/"* ]]; }   # equal, inside or above
 if [[ -n "$DEPLOY_TARGET" && "$DEPLOY_TARGET" != box ]]; then
   SLUG=${DEPLOY_TARGET#hmctl:}
   [[ "$DEPLOY_TARGET" == "hmctl:$SLUG" && "$SLUG" =~ ^[a-z][a-z0-9-]{1,28}$ && "$SLUG" != *- && "$SLUG" != *--* ]] \
     || { echo "SHIP-H: bad DEPLOY_TARGET (want box or hmctl:<slug>)" >&2; exit 1; }
-  STAGING=${DEPLOY_STAGING:-/var/tmp/hatamoto-deploy}
-  [[ "$STAGING" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "SHIP-H: bad DEPLOY_STAGING" >&2; exit 1; }
+  STAGING=${DEPLOY_STAGING:-/root/hatamoto-deploy}
+  if ! plain_path "$STAGING" || nested "$STAGING" /srv/sites; then echo "SHIP-H: bad DEPLOY_STAGING (plain absolute path, no '..', outside /srv/sites)" >&2; exit 1; fi
   HMCTL=${DEPLOY_HMCTL:-hmctl}
   [[ "$HMCTL" =~ ^[A-Za-z0-9._/\ -]+$ ]] || { echo "SHIP-H: bad DEPLOY_HMCTL" >&2; exit 1; }
   CELL=1
@@ -192,7 +196,18 @@ cell_psql() {
     | awk 'NF { l = $0 } END { print l }'
 }
 
+# Per-run private staging dir on the host (prints its path). The base must be a real directory
+# owned by the ssh user (root, for hmctl) with mode 0700, so no other account can swap staged
+# files; every run gets a fresh mktemp dir below it.
+make_run_dir() {
+  local out
+  out=$(ssh -T -o BatchMode=yes "$DEPLOY_HOST" "umask 077; b='$STAGING'; mkdir -p -m 0700 -- \"\$b\" && [ -d \"\$b\" ] && [ ! -L \"\$b\" ] && [ -O \"\$b\" ] && [ \"\$(stat -c %a \"\$b\")\" = 700 ] && mktemp -d -- \"\$b/run.XXXXXX\"") \
+    && [[ "$out" =~ ^"$STAGING"/run\.[A-Za-z0-9]+$ ]] || { echo "SHIP-H ABORT: staging dir $STAGING on the host is not a private directory (nothing was changed)" >&2; exit 1; }
+  echo "$out"
+}
+
 MIG=0; API=0; OLD_SHA=""; BACKUP_ID=""
+RUN_DIR=""   # cell: this run's staging dir on the host
 PRE_BIN=""   # cell: how to undo the binary step: "none" (no override, --clear) or a staged copy of the current binary
 DEPLOYED_API=0; MIG_RAN=0; GOOSE_PRE=""
 UNIT=/etc/systemd/system/hatamoto-api.service
@@ -1070,15 +1085,16 @@ fi
 if (( API && CELL )); then
   echo "-- the unit is owned by hmctl; recording the current binary state for a rollback"
   if (( DRY )); then
-    echo "DRY: $HMCTL site binary $SLUG show; copy an existing override to $STAGING/hatamoto-pre-ship-$TS"
+    echo "DRY: $HMCTL site binary $SLUG show; copy an existing override to $STAGING/run.XXXXXX/hatamoto-previous"
   else
+    RUN_DIR=$(make_run_dir)
     BIN_SHOW=$(hm binary show 2>&1) \
       || { echo "SHIP-H ABORT: hmctl site binary show failed (nothing was changed):" >&2; echo "$BIN_SHOW" >&2; exit 1; }
     case $(awk '$1 == "override" { print $2; exit }' <<< "$BIN_SHOW") in
       none) PRE_BIN=none ;;
       yes)
-        PRE_BIN=$STAGING/hatamoto-pre-ship-$TS
-        ssh -T -o BatchMode=yes "$DEPLOY_HOST" "mkdir -p $STAGING && cp -a /srv/sites/$SLUG/bin/hatamoto $PRE_BIN" \
+        PRE_BIN=$RUN_DIR/hatamoto-previous
+        ssh -T -o BatchMode=yes "$DEPLOY_HOST" "cp -a /srv/sites/$SLUG/bin/hatamoto $PRE_BIN" \
           || { echo "SHIP-H ABORT: could not copy the current binary of site $SLUG for a rollback (nothing was changed)" >&2; exit 1; } ;;
       *) echo "SHIP-H ABORT: cannot tell whether site $SLUG has a binary override (nothing was changed):" >&2; echo "$BIN_SHOW" >&2; exit 1 ;;
     esac
@@ -1110,9 +1126,9 @@ if (( API )); then
     # have changed the schema: the rollback must compare the fingerprint
     if (( MIG )); then MIG_RAN=1; fi
     # hmctl restarts the unit and waits for /ready; the old binary file stays for a rollback
-    run ssh "$DEPLOY_HOST" "mkdir -p $STAGING"
-    run scp -o BatchMode=yes "$TREE/backend/bin/hatamoto" "$DEPLOY_HOST:$STAGING/hatamoto-$DEPLOY_SHA"
-    run ssh "$DEPLOY_HOST" "$HMCTL site binary $SLUG --from $STAGING/hatamoto-$DEPLOY_SHA"
+    (( !DRY )) || RUN_DIR=$STAGING/run.XXXXXX
+    run scp -o BatchMode=yes "$TREE/backend/bin/hatamoto" "$DEPLOY_HOST:$RUN_DIR/hatamoto-$DEPLOY_SHA"
+    run ssh "$DEPLOY_HOST" "$HMCTL site binary $SLUG --from $RUN_DIR/hatamoto-$DEPLOY_SHA"
   else
     run tree_make -o build-api upload-api
   fi
@@ -1153,6 +1169,7 @@ if (( API || MIG )); then
       if ! hm mark deployed-sha "$DEPLOY_SHA"; then
         echo "WARNING: could not set the deployed-sha mark on site $SLUG (next ship does a full deploy)" >&2
       fi
+      if [[ -n "$RUN_DIR" ]]; then ssh -T -o BatchMode=yes "$DEPLOY_HOST" "rm -rf -- '$RUN_DIR'" || true; fi
     elif ! ssh "$DEPLOY_HOST" "echo $DEPLOY_SHA > $REMOTE_DIR/DEPLOYED_SHA"; then
       echo "WARNING: could not write $REMOTE_DIR/DEPLOYED_SHA (next ship does a full deploy)" >&2
     fi

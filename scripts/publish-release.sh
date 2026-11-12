@@ -22,7 +22,8 @@
 #                     (this checkout, else the main checkout). Cell mode uploads to
 #                     staging and publishes with `hmctl site static --path releases/vX`
 #                     (never --delete); the immutability checks read the published copy.
-#   DEPLOY_STAGING    cell mode: host staging dir (default /var/tmp/hatamoto-deploy)
+#   DEPLOY_STAGING    cell mode: host staging dir (default /root/hatamoto-deploy; a private
+#                     0700 dir owned by the ssh user, one run.XXXXXX dir per run)
 #   DEPLOY_STATIC_ROOT cell mode: published static root (default /srv/sites/<slug>/static)
 #   DEPLOY_HMCTL      cell mode: hmctl command on the host (default hmctl)
 set -Eeuo pipefail
@@ -78,20 +79,34 @@ if [[ -z "${DEPLOY_TARGET+x}" ]]; then
     if [[ -r "$f" ]]; then DEPLOY_TARGET=$(tr -d '[:space:]' < "$f"); break; fi
   done
 fi
+# Plain absolute paths only (no '..', '//', trailing slash); nested = equal, inside or above.
+plain_path() { [[ "$1" =~ ^/([A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+$ && "$1/" != *"/../"* && "$1/" != *"/./"* ]]; }
+nested() { [[ "$1/" == "$2/"* || "$2/" == "$1/"* ]]; }   # equal, inside or above
 if [[ -n "$DEPLOY_TARGET" && "$DEPLOY_TARGET" != box ]]; then
   SLUG=${DEPLOY_TARGET#hmctl:}
   [[ "$DEPLOY_TARGET" == "hmctl:$SLUG" && "$SLUG" =~ ^[a-z][a-z0-9-]{1,28}$ && "$SLUG" != *- && "$SLUG" != *--* ]] \
     || die "bad DEPLOY_TARGET (want box or hmctl:<slug>)"
   CELL=1
-  STAGING=${DEPLOY_STAGING:-/var/tmp/hatamoto-deploy}
-  [[ "$STAGING" =~ ^/[A-Za-z0-9._/-]+$ ]] || die "DEPLOY_STAGING must be a plain absolute path"
+  STAGING=${DEPLOY_STAGING:-/root/hatamoto-deploy}
+  plain_path "$STAGING" || die "DEPLOY_STAGING must be a plain absolute path (no '..', no trailing slash)"
   STATIC_ROOT=${DEPLOY_STATIC_ROOT:-/srv/sites/$SLUG/static}
-  [[ "$STATIC_ROOT" =~ ^/[A-Za-z0-9._/-]+$ ]] || die "DEPLOY_STATIC_ROOT must be a plain absolute path"
+  plain_path "$STATIC_ROOT" || die "DEPLOY_STATIC_ROOT must be a plain absolute path (no '..', no trailing slash)"
+  ! nested "$STAGING" "$STATIC_ROOT" || die "DEPLOY_STAGING must not equal, contain or sit inside DEPLOY_STATIC_ROOT"
+  ! nested "$STAGING" /srv/sites || die "DEPLOY_STAGING must be outside /srv/sites"
   HMCTL=${DEPLOY_HMCTL:-hmctl}
   [[ "$HMCTL" =~ ^[A-Za-z0-9._/\ -]+$ ]] || die "bad DEPLOY_HMCTL"
   RDIR="$STATIC_ROOT/releases/$VER"   # published copy: what the immutability checks read
-  STAGE="$STAGING/releases/$VER"      # where files are uploaded before hmctl publishes them
+  STAGE=""                            # per-run dir under $STAGING, created right before the upload
 fi
+# Per-run private staging dir on the host (prints its path). The base must be a real directory
+# owned by the ssh user (root, for hmctl) with mode 0700, so no other account can swap staged
+# files; every run gets a fresh mktemp dir below it.
+make_run_dir() {
+  local out
+  out=$(ssh "$DEPLOY_HOST" "umask 077; b='$STAGING'; mkdir -p -m 0700 -- \"\$b\" && [ -d \"\$b\" ] && [ ! -L \"\$b\" ] && [ -O \"\$b\" ] && [ \"\$(stat -c %a \"\$b\")\" = 700 ] && mktemp -d -- \"\$b/run.XXXXXX\"") \
+    && [[ "$out" =~ ^"$STAGING"/run\.[A-Za-z0-9]+$ ]] || die "staging dir $STAGING on the host is not a private directory"
+  echo "$out"
+}
 
 # 3. Verify offline: signature, version, size and hash of all four artifacts.
 RELEASE_TOOL=${RELEASE_TOOL:-"go run ./tools/release"}
@@ -131,9 +146,9 @@ if (( ${#todo[@]} == 0 )); then
   echo "already published: $VER (nothing to upload)"
 else
   if (( CELL )); then
-    # fresh staging dir each run: leftovers of a failed run must not be published
-    if (( DRY )); then echo "DRY: ssh $DEPLOY_HOST rm -rf $STAGE && mkdir -p $STAGE"
-    else ssh "$DEPLOY_HOST" "rm -rf -- '$STAGE' && mkdir -p -- '$STAGE'"; fi
+    # fresh private dir each run: leftovers of a failed run must not be published
+    if (( DRY )); then STAGE=$STAGING/run.XXXXXX; echo "DRY: ssh $DEPLOY_HOST mkdir -m 0700 $STAGE"
+    else STAGE=$(make_run_dir); fi
   else
     (( DRY )) && echo "DRY: ssh $DEPLOY_HOST mkdir -p $RDIR" || ssh "$DEPLOY_HOST" "mkdir -p -- '$RDIR'"
   fi
@@ -152,7 +167,9 @@ else
       for f in "${todo[@]}"; do
         [[ "$(remote_hash "$f")" == ABSENT ]] || die "$f appeared in the published copy during the run; releases are immutable, nothing was published"
       done
-      ssh "$DEPLOY_HOST" "$HMCTL site static $SLUG --from '$STAGE' --path releases/$VER"; fi
+      ssh "$DEPLOY_HOST" "$HMCTL site static $SLUG --from '$STAGE' --path releases/$VER"
+      ssh "$DEPLOY_HOST" "rm -rf -- '$STAGE'" || true
+    fi
   fi
 fi
 

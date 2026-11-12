@@ -187,7 +187,7 @@ cellpub() { # cellpub <args...>
   : > "$STUB_LOG"
   set +e
   OUT=$(cd "$ROOT" && PATH="$W/stubs:$PATH" RELEASE_TOOL="$TOOL" DEPLOY_TARGET=hmctl:example-site \
-    DEPLOY_STAGING="$W/stage" DEPLOY_STATIC_ROOT="$CELLROOT" "$SCRIPT" "$@" 2>&1)
+    DEPLOY_STAGING="${STAGING_OVERRIDE:-$W/stage}" DEPLOY_STATIC_ROOT="$CELLROOT" "$SCRIPT" "$@" 2>&1)
   RC=$?
   set -e
 }
@@ -196,10 +196,10 @@ cellpub() { # cellpub <args...>
 cellpub $VER "$W/rel/good"
 [[ $RC == 0 ]] || { echo "$OUT"; fail "cell publish exited $RC"; }
 [[ $(grep -c '^rsync' "$STUB_LOG") == 3 ]] || fail "cell: expected 3 rsync calls"
-grep '^rsync' "$STUB_LOG" | grep -q "stubhost:$W/stage/releases/$VER/\$" || fail "cell: rsync does not target staging"
+grep '^rsync' "$STUB_LOG" | grep -qE "stubhost:$W/stage/run\.[A-Za-z0-9]+/\$" || fail "cell: rsync does not target a per-run staging dir"
 [[ $(grep '^rsync' "$STUB_LOG" | tail -1) == *" release.json stubhost:"* ]] || fail "cell: release.json not last"
 [[ $(grep -c '^hmctl site static' "$STUB_LOG") == 1 ]] || fail "cell: expected one site static"
-grep -q "hmctl site static example-site --from $W/stage/releases/$VER --path releases/$VER\$" "$STUB_LOG" || fail "cell: wrong site static call"
+grep -qE "hmctl site static example-site --from $W/stage/run\.[A-Za-z0-9]+ --path releases/$VER\$" "$STUB_LOG" || fail "cell: wrong site static call"
 if grep -q -- '--delete' "$STUB_LOG"; then fail "cell: --delete used"; fi
 for f in release.json release.json.sig hatamoto-linux-amd64; do
   cmp -s "$W/rel/good/$f" "$CELLROOT/releases/$VER/$f" || fail "cell: $f not published"
@@ -249,4 +249,21 @@ PLANT_PUBLISHED=release.json PLANT_VER=$VER DEPLOY_STATIC_ROOT="$CELLROOT" cellp
 if grep -q 'site static' "$STUB_LOG"; then fail "cell: site static ran after the file appeared"; fi
 [[ $(cat "$CELLROOT/releases/$VER/release.json") == raced ]] || fail "cell: raced file overwritten"
 pass "cell: re-check before site static catches a racing publish"
+# 16. Staging containment: '..', a path equal to, inside or above the static root, a shared base.
+for bad in "$W/stage/../x" "$CELLROOT" "$CELLROOT/sub" "$W" /srv/sites/example-site/static; do
+  rm -rf "$W/stage" "$CELLROOT"; mkdir -p "$CELLROOT"
+  STAGING_OVERRIDE="$bad" cellpub $VER "$W/rel/good"
+  [[ $RC != 0 ]] || fail "cell: DEPLOY_STAGING=$bad accepted"
+  if grep -qE '^rsync|site static|rm -rf' "$STUB_LOG"; then fail "cell: host touched with DEPLOY_STAGING=$bad"; fi
+done
+rm -rf "$W/stage" "$CELLROOT"; mkdir -p "$W/stage" "$CELLROOT"; chmod 755 "$W/stage"
+cellpub $VER "$W/rel/good"
+[[ $RC != 0 ]] || fail "cell: world-readable staging base accepted"
+grep -q "not a private directory" <<<"$OUT" || { echo "$OUT"; fail "cell: no private-directory message"; }
+if grep -qE '^rsync|site static' "$STUB_LOG"; then fail "cell: staged into a shared base"; fi
+rm -rf "$W/stage" "$CELLROOT"
+cellpub $VER "$W/rel/good"
+[[ $RC == 0 ]] || { echo "$OUT"; fail "cell publish after the containment cases exited $RC"; }
+[[ -z "$(ls -A "$W/stage")" ]] || fail "cell: run dir left behind"
+pass "cell: staging must be a private dir outside the static root; run dir removed after publishing"
 echo "publish-release tests ok"
