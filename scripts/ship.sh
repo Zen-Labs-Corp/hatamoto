@@ -180,7 +180,16 @@ run() {
   if (( DRY )); then echo "DRY: $*"; else "$@"; fi
 }
 
-MIG=0; API=0
+# Cell helpers.
+# hmctl runs on the host: hm <verb> [args] = `hmctl site <verb> <slug> [args]` over ssh.
+# `site psql` takes no -c: the SQL goes in on stdin (tuples only, unaligned, stop on error).
+hm() { ssh -T -o BatchMode=yes "$DEPLOY_HOST" "$HMCTL site $1 $SLUG ${*:2}"; }
+cell_psql() {
+  printf '%s\n' '\set ON_ERROR_STOP on' '\pset tuples_only on' '\pset format unaligned' "$1;" \
+    | ssh -T -o BatchMode=yes "$DEPLOY_HOST" "$HMCTL site psql $SLUG --read-only"
+}
+
+MIG=0; API=0; OLD_SHA=""; BACKUP_ID=""
 DEPLOYED_API=0; MIG_RAN=0; GOOSE_PRE=""
 UNIT=/etc/systemd/system/hatamoto-api.service
 TS=$(date +%Y%m%d-%H%M%S)
@@ -752,6 +761,7 @@ if (( !NO_DEPLOY )); then
     BOX_SHA=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$DEPLOY_HOST" "cat $REMOTE_DIR/DEPLOYED_SHA 2>/dev/null" 2>/dev/null || true)
   fi
   BOX_SHA=${BOX_SHA//[[:space:]]/}
+  if (( CELL )) && [[ "$BOX_SHA" =~ ^[0-9a-f]{40}$ ]]; then OLD_SHA=$BOX_SHA; fi
   if [[ "$BOX_SHA" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "$BOX_SHA^{commit}" 2>/dev/null \
      && git merge-base --is-ancestor "$BOX_SHA" "$DEPLOY_SHA"; then
     BASE=$BOX_SHA; BASE_WHY="box DEPLOYED_SHA"
@@ -794,7 +804,16 @@ if (( !NO_DEPLOY && (MIG || API) )); then
     if (( DRY )); then
       echo "DRY: preflight: ssh -o BatchMode=yes $DEPLOY_HOST $HMCTL site status $SLUG (state running, health ok)"
     else
-      echo "SHIP-H ABORT: cell deploy is not implemented for real runs yet" >&2; exit 1
+      ssh -T -o BatchMode=yes -o ConnectTimeout=10 "$DEPLOY_HOST" true \
+        || { echo "SHIP-H ABORT: preflight: cannot ssh to $DEPLOY_HOST (BatchMode)" >&2; exit 1; }
+      # `site status` exits 0 even for an unhealthy site: parse the table row (STATE = field 2, HEALTH = last)
+      STATUS_OUT=$(hm status 2>&1) \
+        || { echo "SHIP-H ABORT: preflight: hmctl site status failed:" >&2; echo "$STATUS_OUT" >&2; exit 1; }
+      SITE_STATE=""; SITE_HEALTH=""
+      read -r SITE_STATE SITE_HEALTH < <(awk -v s="$SLUG" 'NR == 2 && $1 == s {print $2, $NF}' <<< "$STATUS_OUT") || true
+      [[ "$SITE_STATE" == running && "$SITE_HEALTH" == ok ]] \
+        || { echo "SHIP-H ABORT: preflight: site $SLUG is not running and healthy (state=${SITE_STATE:-?} health=${SITE_HEALTH:-?}); hmctl said:" >&2; echo "$STATUS_OUT" >&2; exit 1; }
+      echo "preflight: site $SLUG running, health ok"
     fi
   elif (( DRY )); then
     echo "DRY: preflight: ssh -o BatchMode=yes $DEPLOY_HOST true; sudo, SHIP_DB matches DATABASE_URL, deploy/sql/role-admin-bootstrap.sql as postgres, free disk >= 2.5x $DB (migrations are embedded in the binary)"
@@ -837,12 +856,20 @@ health() {
   local since=$1 i ok logs body
   for i in $(seq 1 10); do
     ok=1
+    if (( CELL )); then
+      ssh "$DEPLOY_HOST" systemctl is-active "hatamoto@$SLUG.service" >/dev/null 2>&1 || ok=0
+    else
     ssh "$DEPLOY_HOST" systemctl is-active hatamoto-api >/dev/null 2>&1 || ok=0
+    fi
     (( ok )) && { { body=$(curl -fsS "$SITE_URL/health") && { [[ "$body" == ok ]] || grep -q '"status":"healthy"' <<<"$body"; }; } && curl -fsS -o /dev/null "$SITE_URL/"; } 2>/dev/null || ok=0
     # /media is served from MEDIA_UPLOAD_DIR (relative to the unit's WorkingDirectory): a moved
     # upload dir would 404 uploads while the site stays up. Probe a real file if one exists.
     if (( ok )); then
+      if (( CELL )); then
+        media=$(cell_psql "SELECT public_url FROM hatamoto_media WHERE public_url LIKE '/media/%' ORDER BY created_at DESC LIMIT 1" 2>/dev/null | head -n1 | tr -d '[:space:]') || media=""
+      else
       media=$(ssh "$DEPLOY_HOST" "sudo -u postgres psql -d $DB -Atc \"SELECT public_url FROM hatamoto_media WHERE public_url LIKE '/media/%' ORDER BY created_at DESC LIMIT 1\"" 2>/dev/null | head -n1 | tr -d '[:space:]') || media=""
+      fi
       if [[ "$media" == /media/* ]]; then
         curl -fsS -o /dev/null "$SITE_URL$media" 2>/dev/null || { echo "health: $SITE_URL$media failed (uploads dir moved?)" >&2; ok=0; }
       else
@@ -851,12 +878,22 @@ health() {
       fi
     fi
     if (( ok )); then
+      if (( CELL )); then
+        if ! logs=$(ssh "$DEPLOY_HOST" "journalctl -u hatamoto@$SLUG.service --no-pager --since '$since'" 2>/dev/null); then
+          echo "health: could not read hatamoto@$SLUG logs since $since" >&2
+          ok=0
+        elif grep -Ei 'panic|FATAL' >/dev/null <<< "$logs"; then
+          echo "health: panic/FATAL in hatamoto@$SLUG logs since $since" >&2
+          ok=0
+        fi
+      else
       if ! logs=$(ssh "$DEPLOY_HOST" "journalctl -u hatamoto-api --no-pager --since '$since'" 2>/dev/null); then
         echo "health: could not read hatamoto-api logs since $since" >&2
         ok=0
       elif grep -Ei 'panic|FATAL' >/dev/null <<< "$logs"; then
         echo "health: panic/FATAL in hatamoto-api logs since $since" >&2
         ok=0
+      fi
       fi
     fi
     (( ok )) && return 0
@@ -872,7 +909,11 @@ health() {
 # out-of-order migration (older version) that leaves max(version_id) unchanged.
 goose_ver() {
   local v
+  if (( CELL )); then
+    v=$(cell_psql "SELECT count(*) || ':' || coalesce(max(id), 0) FROM goose_db_version" 2>/dev/null) || return 1
+  else
   v=$(ssh "$DEPLOY_HOST" "sudo -u postgres psql -d $DB -Atc \"SELECT count(*) || ':' || coalesce(max(id), 0) FROM goose_db_version\"" 2>/dev/null) || return 1
+  fi
   v=${v//[[:space:]]/}
   [[ "$v" =~ ^[0-9]+:[0-9]+$ ]] || return 1
   echo "$v"
@@ -888,6 +929,7 @@ RB_SINCE=""; RB_DB_FAILED=0
 rollback() {
   echo "-- rolling back"
   RB_SINCE=$(remote_now); RB_SINCE=${RB_SINCE:--2min}
+  if (( CELL )); then echo "rollback: cell rollback not implemented" >&2; return 0; fi
   if (( MIG_RAN )); then
     local post restore=1
     if [[ -n "$GOOSE_PRE" ]] && post=$(goose_ver); then
@@ -965,7 +1007,14 @@ if (( MIG )); then
   if (( !DRY )); then GOOSE_PRE=$(goose_ver) || GOOSE_PRE=""; fi
   if (( CELL )); then
     echo "-- backing up site $SLUG off-site (hmctl site backup)"
-    run ssh "$DEPLOY_HOST" "$HMCTL site backup $SLUG"
+    if (( DRY )); then
+      run ssh "$DEPLOY_HOST" "$HMCTL site backup $SLUG"
+    else
+      BACKUP_OUT=$(hm backup 2>&1) || { echo "SHIP-H ABORT: hmctl site backup failed:" >&2; echo "$BACKUP_OUT" >&2; exit 1; }
+      BACKUP_ID=$(sed -n 's/^ok  backup  *\([0-9]\{8\}T[0-9]\{6\}Z-[a-z]*\) uploaded.*/\1/p' <<< "$BACKUP_OUT" | head -n1)
+      [[ -n "$BACKUP_ID" ]] || { echo "SHIP-H ABORT: no backup id in the hmctl site backup output (format changed?):" >&2; echo "$BACKUP_OUT" >&2; exit 1; }
+      echo "backup id: $BACKUP_ID"
+    fi
   else
   echo "-- backing up $DB and verifying the dump (keeping newest 5)"
   run ssh "$DEPLOY_HOST" "umask 077; mkdir -p $REMOTE_DIR/backups && sudo -u postgres pg_dump -Fc $DB > $DUMP && pg_restore --list < $DUMP >/dev/null && ls -1 $REMOTE_DIR/backups/hcore-*.dump | sort | head -n -5 | xargs -r rm -f"
@@ -1001,7 +1050,7 @@ if (( API )); then
   if (( CELL )); then
     # hmctl restarts the unit and waits for /ready; the old binary file stays for a rollback
     run ssh "$DEPLOY_HOST" "mkdir -p $STAGING"
-    run scp "$TREE/backend/bin/hatamoto" "$DEPLOY_HOST:$STAGING/hatamoto-$DEPLOY_SHA"
+    run scp -o BatchMode=yes "$TREE/backend/bin/hatamoto" "$DEPLOY_HOST:$STAGING/hatamoto-$DEPLOY_SHA"
     run ssh "$DEPLOY_HOST" "$HMCTL site binary $SLUG --from $STAGING/hatamoto-$DEPLOY_SHA"
   else
     run tree_make -o build-api upload-api
@@ -1039,7 +1088,11 @@ if (( API || MIG )); then
     health "$DEPLOY_SINCE" || false   # ERR trap -> on_fail
     trap - ERR INT TERM HUP
     echo "healthy"
-    if ! ssh "$DEPLOY_HOST" "echo $DEPLOY_SHA > $REMOTE_DIR/DEPLOYED_SHA"; then
+    if (( CELL )); then
+      if ! hm mark deployed-sha "$DEPLOY_SHA"; then
+        echo "WARNING: could not set the deployed-sha mark on site $SLUG (next ship does a full deploy)" >&2
+      fi
+    elif ! ssh "$DEPLOY_HOST" "echo $DEPLOY_SHA > $REMOTE_DIR/DEPLOYED_SHA"; then
       echo "WARNING: could not write $REMOTE_DIR/DEPLOYED_SHA (next ship does a full deploy)" >&2
     fi
   fi
