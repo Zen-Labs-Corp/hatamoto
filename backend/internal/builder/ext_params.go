@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -38,7 +39,7 @@ type ExtParam struct {
 // ExtOption is one choice of a select param.
 type ExtOption struct{ Value, Label string }
 
-var extParamNameRe = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,31}$`)
+var extParamNameRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[a-z][a-z0-9_-]{0,31}$`) })
 
 func cloneExtParams(ps []ExtParam) []ExtParam {
 	if len(ps) == 0 {
@@ -60,7 +61,7 @@ func cleanExtParams(kind string, ps []ExtParam) []ExtParam {
 	var out []ExtParam
 	seen := map[string]bool{}
 	for _, p := range cloneExtParams(ps) {
-		if len(out) == maxExtParams || seen[p.Name] || !extParamNameRe.MatchString(p.Name) {
+		if len(out) == maxExtParams || seen[p.Name] || !extParamNameRe().MatchString(p.Name) {
 			continue
 		}
 		switch p.Type {

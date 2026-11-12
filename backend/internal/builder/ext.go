@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"sync"
 	"sync/atomic"
 )
 
@@ -25,7 +26,9 @@ type ExtSource struct {
 // ID is the source id used in node bindings and in a loop's source prop.
 func (s ExtSource) ID() string { return "ext." + s.Plugin + "." + s.Name }
 
-var extRe = regexp.MustCompile(`^ext\.([a-z][a-z0-9-]{1,39})\.([a-z][a-z0-9_-]{0,31})$`)
+var extRe = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`^ext\.([a-z][a-z0-9-]{1,39})\.([a-z][a-z0-9_-]{0,31})$`)
+})
 
 var extSources atomic.Pointer[[]ExtSource]
 
@@ -35,7 +38,7 @@ var extSources atomic.Pointer[[]ExtSource]
 func SetExtSources(ss []ExtSource) {
 	out := make([]ExtSource, 0, len(ss))
 	for _, s := range ss {
-		if !extRe.MatchString(s.ID()) || (s.Kind != ExtValue && s.Kind != ExtItems) {
+		if !extRe().MatchString(s.ID()) || (s.Kind != ExtValue && s.Kind != ExtItems) {
 			continue
 		}
 		if s.Kind == ExtValue && s.Class == "" {
@@ -67,7 +70,7 @@ func ExtSources() []ExtSource {
 }
 
 // ValidExtID reports whether id has the shape of an ext source id.
-func ValidExtID(id string) bool { return extRe.MatchString(id) }
+func ValidExtID(id string) bool { return extRe().MatchString(id) }
 
 // extBindSources are the registered value sources as vocabulary entries,
 // grouped by plugin name.
@@ -86,7 +89,7 @@ func extBindSources() []BindSource {
 // removed) is accepted as attribute-like so a saved doc stays valid and simply
 // resolves empty. A registered items source cannot be bound to a prop.
 func parseExtBind(src string) (class string, attr bool, err error) {
-	if !extRe.MatchString(src) {
+	if !extRe().MatchString(src) {
 		return "", false, fmt.Errorf("binding %q: want ext.<plugin>.<name>", src)
 	}
 	for _, s := range ExtSources() {

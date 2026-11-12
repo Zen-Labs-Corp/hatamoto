@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"hatamoto.dev/core/internal/jsonx"
@@ -54,7 +55,7 @@ var (
 	shadowLen   = `(0|-?[0-9]{1,3}px)`
 	shadowColor = `(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|rgba\([0-9]{1,3},[0-9]{1,3},[0-9]{1,3},(0|1|0?\.[0-9]{1,3})\))`
 	shadowLayer = shadowLen + ` ` + shadowLen + ` ` + shadowLen + `( ` + shadowLen + `)? ` + shadowColor
-	shadowRe    = regexp.MustCompile(`^` + shadowLayer + `(, ?` + shadowLayer + `)?$`)
+	shadowRe    = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^` + shadowLayer + `(, ?` + shadowLayer + `)?$`) })
 )
 
 // Tokens are the editable values of the design tokens. A missing entry means
@@ -100,16 +101,16 @@ func spaceNames() []string {
 }
 
 // tokenLenRe is lenRe with up to three decimals, which the built-in type scale needs (0.875rem).
-var tokenLenRe = regexp.MustCompile(`^(0|[0-9]{1,4}(\.[0-9]{1,3})?(px|rem|em|%|vh|vw))$`)
+var tokenLenRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^(0|[0-9]{1,4}(\.[0-9]{1,3})?(px|rem|em|%|vh|vw))$`) })
 
-func validLen(v string) bool { return tokenLenRe.MatchString(v) }
+func validLen(v string) bool { return tokenLenRe().MatchString(v) }
 
 var tokenClasses = []tokenClass{
 	{"color", "", colorTokenNames, map[string]string{"surface": "#fff", "muted": "#eef0f4", "accent": "#c8102e"},
-		hexRe.MatchString, func(t *Tokens) *map[string]string { return &t.Color }},
+		func(v string) bool { return hexRe().MatchString(v) }, func(t *Tokens) *map[string]string { return &t.Color }},
 	{"space", "space-", spaceNames(), spaceDefaults(), validLen, func(t *Tokens) *map[string]string { return &t.Space }},
 	{"fs", "fs-", fsTokenNames, copyMap(styleTokens["fs"]), validLen, func(t *Tokens) *map[string]string { return &t.FS }},
-	{"shadow", "shadow-", shadowTokenNames, copyMap(shadowDefaults), shadowRe.MatchString, func(t *Tokens) *map[string]string { return &t.Shadow }},
+	{"shadow", "shadow-", shadowTokenNames, copyMap(shadowDefaults), func(v string) bool { return shadowRe().MatchString(v) }, func(t *Tokens) *map[string]string { return &t.Shadow }},
 }
 
 func spaceDefaults() map[string]string {
@@ -226,7 +227,7 @@ func ParseDesign(themeExtra []byte) (Design, error) {
 	pt, _ := raw["parts"].(map[string]any)
 	for _, slot := range sortedKeys(pt) {
 		id, _ := pt[slot].(string)
-		if !ValidPartSlot(slot) || !uuidRe.MatchString(id) {
+		if !ValidPartSlot(slot) || !uuidRe().MatchString(id) {
 			errs = append(errs, fmt.Errorf("dropped part %q", slot))
 			continue
 		}
@@ -344,7 +345,7 @@ func MergeParts(themeExtra []byte, parts map[string]string) ([]byte, error) {
 		if !ValidPartSlot(slot) {
 			return nil, fmt.Errorf("unknown part slot %q", slot)
 		}
-		if id != "" && !uuidRe.MatchString(id) {
+		if id != "" && !uuidRe().MatchString(id) {
 			return nil, fmt.Errorf("bad part id for slot %s", slot)
 		}
 	}

@@ -190,7 +190,7 @@ func withUniversal(kind, schema string) string {
 			panic(fmt.Sprintf("builder: schema for kind %q declares universal prop %q", kind, k))
 		}
 	}
-	props["preset"] = map[string]any{"type": "string", "pattern": presetRe.String()}
+	props["preset"] = map[string]any{"type": "string", "pattern": presetRe().String()}
 	props["navlabel"] = map[string]any{"type": "string", "maxLength": 80, "pattern": `^[^\x00-\x1f\x7f]*$`}
 	if !noElementProps[kind] {
 		if !declared["anchor"] {

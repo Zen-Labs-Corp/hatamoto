@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // StyleSpec is the closed style vocabulary of the builder. It is data: the Go
@@ -23,7 +24,7 @@ type styleKey struct {
 	min, max int
 	// kind lit: tok names the styleTokens class; a value that is not a token
 	// must match pat and is emitted as written.
-	pat *regexp.Regexp
+	pat func() *regexp.Regexp
 	tok string
 	// signed (kind space): negative lengths and auto are accepted besides tokens.
 	signed bool
@@ -41,54 +42,72 @@ type styleKey struct {
 }
 
 var (
-	lenRe = regexp.MustCompile(`^(0|[0-9]{1,4}(\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$`)
-	hexRe = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$`)
+	lenRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^(0|[0-9]{1,4}(\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$`) })
+	hexRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$`) })
 
 	// The v2 patterns are portable to JavaScript (no lookaround, no flags): the
 	// table serves them to the client unchanged.
 
 	// signedLenRe is a margin or offset: a signed length or auto. lenRe stays
 	// unsigned for paddings.
-	signedLenRe = regexp.MustCompile(`^(auto|0|-?[0-9]{1,4}(\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$`)
+	signedLenRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^(auto|0|-?[0-9]{1,4}(\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$`)
+	})
 	// scrollLenRe is a scroll margin: a non-negative length without %, which
 	// scroll-margin does not take.
-	scrollLenRe = regexp.MustCompile(`^(0|[0-9]{1,4}(\.[0-9]{1,2})?(px|rem|em|vh|vw))$`)
+	scrollLenRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^(0|[0-9]{1,4}(\.[0-9]{1,2})?(px|rem|em|vh|vw))$`) })
 	// mediaRe is a root-relative media path of the shape the media service
 	// writes. Segments hold no dot, so .. and // cannot match.
-	mediaRe = regexp.MustCompile(`^/media/([A-Za-z0-9_-]{1,40}/){0,2}[A-Za-z0-9_-]{1,64}\.(png|jpe?g|webp|avif|gif)$`)
+	mediaRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^/media/([A-Za-z0-9_-]{1,40}/){0,2}[A-Za-z0-9_-]{1,64}\.(png|jpe?g|webp|avif|gif)$`)
+	})
 	// gradRe is the closed gradient form: linear-<angle>-<c1>-<c2>[-<c3>] or
 	// radial-<c1>-<c2>[-<c3>], a colour being a token or 3/6 hex digits without #.
-	gradRe = regexp.MustCompile(`^(linear-([0-9]|[1-9][0-9]|[12][0-9][0-9]|3[0-5][0-9]|360)-` + gradColor + `-` + gradColor + `(-` + gradColor + `)?|radial-` + gradColor + `-` + gradColor + `(-` + gradColor + `)?)$`)
+	gradRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^(linear-([0-9]|[1-9][0-9]|[12][0-9][0-9]|3[0-5][0-9]|360)-` + gradColor + `-` + gradColor + `(-` + gradColor + `)?|radial-` + gradColor + `-` + gradColor + `(-` + gradColor + `)?)$`)
+	})
 	// gtcRe is a list of up to six grid tracks, each auto or 1fr..12fr.
-	gtcRe = regexp.MustCompile(`^(auto|([1-9]|1[0-2])fr)( (auto|([1-9]|1[0-2])fr)){0,5}$`)
+	gtcRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^(auto|([1-9]|1[0-2])fr)( (auto|([1-9]|1[0-2])fr)){0,5}$`)
+	})
 	// lhRe is a unitless line height 0.8..3 with up to two decimals.
-	lhRe = regexp.MustCompile(`^(0\.[89][0-9]?|[12](\.[0-9]{1,2})?|3(\.0{1,2})?)$`)
+	lhRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^(0\.[89][0-9]?|[12](\.[0-9]{1,2})?|3(\.0{1,2})?)$`) })
 	// lsRe is a letter spacing within +-99.99 in px, rem or em.
-	lsRe = regexp.MustCompile(`^(0|-?([0-9]|[1-9][0-9])(\.[0-9]{1,2})?(px|rem|em))$`)
+	lsRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^(0|-?([0-9]|[1-9][0-9])(\.[0-9]{1,2})?(px|rem|em))$`)
+	})
 	// bwRe is a border width of 0..20px.
-	bwRe = regexp.MustCompile(`^(0|([0-9]|1[0-9])(\.[0-9]{1,2})?px|20px)$`)
+	bwRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^(0|([0-9]|1[0-9])(\.[0-9]{1,2})?px|20px)$`) })
 
 	// The E2 patterns are bounded like the rest: every literal carries its
 	// unit and a range, so a composed transform or filter holds no free text.
 
 	// shiftRe is a translation: 0, up to 400px or up to 100%, signed.
-	shiftRe = regexp.MustCompile(`^(0|-?(([0-9]|[1-9][0-9]|[1-3][0-9][0-9])(\.[0-9]{1,2})?|400)px|-?(([0-9]|[1-9][0-9])(\.[0-9]{1,2})?|100)%)$`)
+	shiftRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^(0|-?(([0-9]|[1-9][0-9]|[1-3][0-9][0-9])(\.[0-9]{1,2})?|400)px|-?(([0-9]|[1-9][0-9])(\.[0-9]{1,2})?|100)%)$`)
+	})
 	// scaleRe is a scale factor 0.5..2 with up to two decimals.
-	scaleRe = regexp.MustCompile(`^(0\.[5-9][0-9]?|1(\.[0-9]{1,2})?|2(\.0{1,2})?)$`)
+	scaleRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^(0\.[5-9][0-9]?|1(\.[0-9]{1,2})?|2(\.0{1,2})?)$`) })
 	// rotRe is a whole rotation of -360..360deg.
-	rotRe = regexp.MustCompile(`^-?(0|[1-9]|[1-9][0-9]|[12][0-9][0-9]|3[0-5][0-9]|360)deg$`)
+	rotRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^-?(0|[1-9]|[1-9][0-9]|[12][0-9][0-9]|3[0-5][0-9]|360)deg$`)
+	})
 	// skewRe is a whole skew of -45..45deg.
-	skewRe = regexp.MustCompile(`^-?([0-9]|[1-3][0-9]|4[0-5])deg$`)
+	skewRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^-?([0-9]|[1-3][0-9]|4[0-5])deg$`) })
 	// blurRe is a blur of 0..20px.
 	blurRe = bwRe
 	// bblurRe is a backdrop blur of 0..40px.
-	bblurRe = regexp.MustCompile(`^(0|([0-9]|[1-3][0-9])(\.[0-9]{1,2})?px|40px)$`)
+	bblurRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^(0|([0-9]|[1-3][0-9])(\.[0-9]{1,2})?px|40px)$`) })
 	// gainRe is a brightness, contrast or saturation of 0..200%.
-	gainRe = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9][0-9])(\.[0-9]{1,2})?|200)%$`)
+	gainRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9][0-9])(\.[0-9]{1,2})?|200)%$`)
+	})
 	// grayRe is a grayscale of 0..100%.
-	grayRe = regexp.MustCompile(`^(([0-9]|[1-9][0-9])(\.[0-9]{1,2})?|100)%$`)
+	grayRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^(([0-9]|[1-9][0-9])(\.[0-9]{1,2})?|100)%$`) })
 	// hueRe is a hue rotation of 0..360deg.
-	hueRe = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|[12][0-9][0-9]|3[0-5][0-9])(\.[0-9]{1,2})?|360)deg$`)
+	hueRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^(([0-9]|[1-9][0-9]|[12][0-9][0-9]|3[0-5][0-9])(\.[0-9]{1,2})?|360)deg$`)
+	})
 )
 
 const gradColor = `(primary|bg|text|surface|muted|accent|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})`
@@ -337,21 +356,21 @@ func StyleSpecTable() []StyleSpecEntry {
 		case "count":
 			e.Min, e.Max, e.Tpl = &sk.min, &sk.max, sk.tpl
 		case "color":
-			e.Tokens, e.Pattern = copyMap(styleTokens["color"]), hexRe.String()
+			e.Tokens, e.Pattern = copyMap(styleTokens["color"]), hexRe().String()
 		case "lit":
-			e.Pattern = sk.pat.String()
+			e.Pattern = sk.pat().String()
 			if t := styleTokens[sk.tok]; t != nil { // scrollmt takes lengths only
 				e.Tokens = copyMap(t)
 			}
 		case "media", "grad", "gtc":
-			e.Pattern = sk.pat.String()
+			e.Pattern = sk.pat().String()
 		case "space":
-			e.Tokens, e.Pattern = copyMap(styleTokens["space"]), lenRe.String()
+			e.Tokens, e.Pattern = copyMap(styleTokens["space"]), lenRe().String()
 			if sk.signed {
-				e.Pattern = signedLenRe.String()
+				e.Pattern = signedLenRe().String()
 			}
 		default:
-			e.Tokens, e.Pattern = copyMap(styleTokens[sk.kind]), lenRe.String()
+			e.Tokens, e.Pattern = copyMap(styleTokens[sk.kind]), lenRe().String()
 		}
 		out = append(out, e)
 	}
@@ -393,31 +412,31 @@ func styleDeclWith(k, v string, o CSSOpts) ([]decl, error) {
 			if sk.kind == "fs" && o.Vars {
 				css = "var(--hm-fs-" + v + "," + t + ")"
 			}
-		} else if sk.signed && signedLenRe.MatchString(v) {
+		} else if sk.signed && signedLenRe().MatchString(v) {
 			css = v
-		} else if !sk.signed && lenRe.MatchString(v) {
+		} else if !sk.signed && lenRe().MatchString(v) {
 			css = v
 		}
 	case "lit":
 		if t := styleTokens[sk.tok][v]; t != "" {
 			css = t
-		} else if sk.pat.MatchString(v) {
+		} else if sk.pat().MatchString(v) {
 			css = v
 		}
 	case "media":
-		if sk.pat.MatchString(v) && !strings.Contains(v, "..") && !strings.Contains(v, "//") {
+		if sk.pat().MatchString(v) && !strings.Contains(v, "..") && !strings.Contains(v, "//") {
 			css = `url("` + v + `")`
 		}
 	case "grad":
-		css = gradCSS(sk.pat, v)
+		css = gradCSS(sk.pat(), v)
 	case "gtc":
-		if sk.pat.MatchString(v) {
+		if sk.pat().MatchString(v) {
 			css = gtcCSS(v)
 		}
 	case "color":
 		if t := styleTokens["color"][v]; t != "" {
 			css = t
-		} else if hexRe.MatchString(v) {
+		} else if hexRe().MatchString(v) {
 			css = v
 		}
 	}
@@ -577,10 +596,10 @@ type CSSOpts struct {
 	Force bool
 }
 
-var presetRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+var presetRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`) })
 
 // ValidPresetName reports whether s is a legal style preset name.
-func ValidPresetName(s string) bool { return presetRe.MatchString(s) }
+func ValidPresetName(s string) bool { return presetRe().MatchString(s) }
 
 // NodePreset is the style preset a native node references, or "". A component
 // ignores presets, and an invalid name is not a reference.
@@ -609,7 +628,7 @@ func NodeCSSWith(n *Node, o CSSOpts) string { return nodeCSSIn(n, nil, o) }
 // id the parent-hover rules select on. A parent that cannot take parent-hover
 // (none, ref, component) leaves those rules out.
 func nodeCSSIn(n *Node, parent *Node, o CSSOpts) string {
-	if len(n.S) == 0 || !idRe.MatchString(n.ID) {
+	if len(n.S) == 0 || !idRe().MatchString(n.ID) {
 		return ""
 	}
 	sel := ".hm-n-" + n.ID
@@ -617,7 +636,7 @@ func nodeCSSIn(n *Node, parent *Node, o CSSOpts) string {
 		sel += sel
 	}
 	parentSel := ""
-	if canParentHover(parent) && idRe.MatchString(parent.ID) {
+	if canParentHover(parent) && idRe().MatchString(parent.ID) {
 		parentSel = ".hm-n-" + parent.ID
 	}
 	if n.T == "image" {

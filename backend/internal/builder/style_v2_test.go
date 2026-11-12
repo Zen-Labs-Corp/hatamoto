@@ -352,7 +352,7 @@ func TestV2PaddingStaysUnsigned(t *testing.T) {
 			}
 		}
 	}
-	if lenRe.String() != `^(0|[0-9]{1,4}(\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$` {
+	if lenRe().String() != `^(0|[0-9]{1,4}(\.[0-9]{1,2})?(px|rem|em|%|vh|vw))$` {
 		t.Error("lenRe was widened")
 	}
 }
@@ -504,7 +504,7 @@ func FuzzStyleCompose(f *testing.F) {
 				t.Fatalf("grad=%q img=%q compiled to forbidden %q", grad, img, out)
 			}
 			for _, u := range urlWrap.FindAllString(out, -1) {
-				if p := u[len(`url("`) : len(u)-2]; !mediaRe.MatchString(p) {
+				if p := u[len(`url("`) : len(u)-2]; !mediaRe().MatchString(p) {
 					t.Fatalf("url wraps a non-media path %q in %q", p, out)
 				}
 			}

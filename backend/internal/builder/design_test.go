@@ -34,7 +34,7 @@ func TestTokenValueValidation(t *testing.T) {
 		}
 	}
 	for _, v := range []string{"0 1px 2px red", "0 1px rgba(0,0,0,.1)", "0 1px 2px 3px 4px #000", "0 1px 2px #000, 0 1px 2px #000, 0 1px 2px #000", "0 1px 2px rgba(0,0,0,.1);", "0 1px 2px url(x)"} {
-		if shadowRe.MatchString(v) {
+		if shadowRe().MatchString(v) {
 			t.Errorf("shadow accepts %q", v)
 		}
 	}

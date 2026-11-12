@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // Bind classes: what a source yields and what a prop accepts (x-hm-bind).
@@ -77,7 +78,7 @@ var (
 		}
 		return m
 	}()
-	bindSegRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+	bindSegRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`) })
 	// bodies are never bound: the first path segment may not name one.
 	bodySegs = map[string]bool{"page_sections": true, "page_doc": true, "content": true}
 )
@@ -138,7 +139,7 @@ func parseBind(src string) (class string, attr bool, err error) {
 			return "", false, fmt.Errorf("binding %q: path has more than 4 segments", src)
 		}
 		for _, s := range segs {
-			if !bindSegRe.MatchString(s) {
+			if !bindSegRe().MatchString(s) {
 				return "", false, fmt.Errorf("binding %q: bad path segment %q", src, s)
 			}
 		}

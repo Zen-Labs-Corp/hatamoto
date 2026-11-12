@@ -20,7 +20,7 @@ import (
 // is unusable: "n" + hex(sha256("<i>|<type>"))[:10]. No randomness, so
 // converting twice yields identical JSON.
 func sectionNodeID(i int, s Section) string {
-	if idRe.MatchString(s.ID) {
+	if idRe().MatchString(s.ID) {
 		return s.ID
 	}
 	return hashID("n", fmt.Sprintf("%d|%s", i, s.Type))
@@ -38,7 +38,7 @@ type idAllocator map[string]bool
 // counter suffix in the unlikely event that is taken too).
 func (a idAllocator) take(want, fallback string) string {
 	id := want
-	for n := 0; !idRe.MatchString(id) || a[id]; n++ {
+	for n := 0; !idRe().MatchString(id) || a[id]; n++ {
 		id = fallback
 		if n > 0 {
 			id += strconv.Itoa(n)
