@@ -101,7 +101,7 @@ for a in "$@"; do
     --all) ALL=1 ;;
     --wait) WAIT=1 ;;
     --after-auto) AFTER_AUTO=1 ;;   # the deploy waiter (started by a queued ship)
-    -h|--help) sed -n '2,70p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,92p' "$0"; exit 0 ;;
     -*) echo "unknown flag: $a" >&2; exit 64 ;;
     *) PR="$a" ;;
   esac
