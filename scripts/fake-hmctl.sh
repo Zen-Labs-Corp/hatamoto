@@ -41,6 +41,8 @@ case $verb in
   psql)
     sql=$(cat)
     echo "$sql" >>"$STUB_LOG.stdin"
+    # real psql prints each \pset status line unless QUIET is on
+    if [[ $sql != *'\set QUIET on'* ]]; then echo "Tuples only is on."; echo "Output format is unaligned."; fi
     case $sql in
       *goose_db_version*) if [[ -f $goose_file ]]; then cat "$goose_file"; else echo "${FAKE_GOOSE:-5:20260101}"; fi ;;
       *hatamoto_media*) [[ -z ${FAKE_MEDIA:-} ]] || echo "$FAKE_MEDIA" ;;

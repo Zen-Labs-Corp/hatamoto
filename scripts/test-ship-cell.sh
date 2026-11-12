@@ -128,6 +128,18 @@ if grep -q 'site binary' "$LOG"; then fail "binary uploaded after a failed backu
 pass "backup without an id aborts before the binary"
 mv "$S/hmctl-real" "$S/hmctl"
 
+# 4. psql status lines: every query starts with \set QUIET on (the fake prints psql's \pset banners
+# otherwise), so a healthy ship still reads the fingerprint; an unreadable one aborts before the backup.
+ship
+[[ $RC == 0 ]] || fail "ship with psql banners exited $RC (QUIET not set?)"
+[[ -s "$LOG.stdin" ]] || fail "no psql query recorded"
+if grep -q '^\\set QUIET on$' "$LOG.stdin"; then :; else fail "psql input lacks \\set QUIET on"; fi
+ship FAKE_GOOSE=unreadable
+[[ $RC == 1 ]] || fail "unreadable fingerprint exited $RC, want 1"
+grep -q 'applied-migrations fingerprint' <<<"$OUT" || fail "no fingerprint message"
+if grep -qE 'site (backup|binary|run)' "$LOG"; then fail "mutating call although the fingerprint is unreadable"; fi
+pass "psql banners are silenced; unreadable fingerprint aborts the preflight"
+
 # --- rollback: the new binary is unhealthy
 # (a) goose unchanged, old binary still staged: it is re-applied; exit 2, no DB message.
 OLD_MARK=1 OLD_FILE=1 CURL_FAIL_NEW=1 ship

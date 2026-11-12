@@ -185,8 +185,11 @@ run() {
 # `site psql` takes no -c: the SQL goes in on stdin (tuples only, unaligned, stop on error).
 hm() { ssh -T -o BatchMode=yes "$DEPLOY_HOST" "$HMCTL site $1 $SLUG ${*:2}"; }
 cell_psql() {
-  printf '%s\n' '\set ON_ERROR_STOP on' '\pset tuples_only on' '\pset format unaligned' "$1;" \
-    | ssh -T -o BatchMode=yes "$DEPLOY_HOST" "$HMCTL site psql $SLUG --read-only"
+  # \set QUIET on first: without it psql echoes "Tuples only is on." for each \pset. Only the
+  # last non-empty output line is the answer (root's ~/.psqlrc may print more; hmctl passes no -X).
+  printf '%s\n' '\set QUIET on' '\set ON_ERROR_STOP on' '\pset tuples_only on' '\pset format unaligned' "$1;" \
+    | ssh -T -o BatchMode=yes "$DEPLOY_HOST" "$HMCTL site psql $SLUG --read-only" \
+    | awk 'NF { l = $0 } END { print l }'
 }
 
 MIG=0; API=0; OLD_SHA=""; BACKUP_ID=""
@@ -866,7 +869,7 @@ health() {
     # upload dir would 404 uploads while the site stays up. Probe a real file if one exists.
     if (( ok )); then
       if (( CELL )); then
-        media=$(cell_psql "SELECT public_url FROM hatamoto_media WHERE public_url LIKE '/media/%' ORDER BY created_at DESC LIMIT 1" 2>/dev/null | head -n1 | tr -d '[:space:]') || media=""
+        media=$(cell_psql "SELECT public_url FROM hatamoto_media WHERE public_url LIKE '/media/%' ORDER BY created_at DESC LIMIT 1" 2>/dev/null | tr -d '[:space:]') || media=""
       else
       media=$(ssh "$DEPLOY_HOST" "sudo -u postgres psql -d $DB -Atc \"SELECT public_url FROM hatamoto_media WHERE public_url LIKE '/media/%' ORDER BY created_at DESC LIMIT 1\"" 2>/dev/null | head -n1 | tr -d '[:space:]') || media=""
       fi
@@ -1033,6 +1036,11 @@ if (( MIG )); then
   echo "-- recording the applied-migrations fingerprint before migrating"
   GOOSE_PRE=""
   if (( !DRY )); then GOOSE_PRE=$(goose_ver) || GOOSE_PRE=""; fi
+  if (( CELL && !DRY )) && [[ -z "$GOOSE_PRE" ]]; then
+    # without the fingerprint a cell rollback cannot tell whether the database changed
+    echo "SHIP-H ABORT: cannot read the applied-migrations fingerprint of site $SLUG (nothing was changed)" >&2
+    exit 1
+  fi
   if (( CELL )); then
     echo "-- backing up site $SLUG off-site (hmctl site backup)"
     if (( DRY )); then
