@@ -59,16 +59,17 @@
 {{end}}{{with index .Errs "preload-interval"}}<p class="hm-field__error" id="preload-interval-error">{{.}}</p>{{end}}</div>
 <div class="hm-setrow__control"><div class="hm-select hm-select--auto" data-hm-select><select class="hm-field__control" id="preload-interval" name="interval"{{if index .Errs "preload-interval"}} aria-invalid="true" aria-describedby="preload-interval-error"{{end}}{{if not .Enabled}} disabled{{end}}>{{range .IntervalOptions}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div>
 </div>
-<div class="hm-setrow">
+{{/* While a preload runs this row asks again every 3 seconds and swaps itself; when idle there is no trigger, so nothing polls. */ -}}
+<div id="preload-live" class="hm-setrow"{{if .Running}} hx-get="{{adminPath}}/settings/performance" hx-trigger="every 3s" hx-target="this" hx-select="#preload-live" hx-select-oob="#preload-failures-slot" hx-swap="outerHTML" hx-indicator="#preload-busy"{{end}}>
 <div class="hm-setrow__text"><p class="hm-setrow__name">{{if .Running}}Preloading now{{else}}Last result{{end}}</p>
-{{if .Running}}<p class="hm-field__help">{{.Running}}</p>{{with .PreloadProgress}}{{template "hm/progress" .}}{{end}}
+{{if .Running}}<div class="hm-row">{{template "hm/indicator" dict "ID" "preload-busy" "Text" "" "On" true}}<p class="hm-field__help">{{.Running}}</p></div>{{with .PreloadProgress}}{{template "hm/progress" .}}{{end}}
 {{else if .LastPreload}}<p class="hm-field__help">{{.LastPreload}}</p>
 {{if .StoppedLine}}<p class="hm-field__help">{{.StoppedLine}}</p>
 {{end}}{{end}}</div>
 <div class="hm-setrow__control">{{if .Enabled}}{{template "hm/button" dict "Label" "Preload now" "Type" "submit" "Attrs" (attrmap "form" "preload-form")}}{{else}}{{template "hm/button" dict "Label" "Preload now" "Type" "submit" "Attrs" (attrmap "disabled" "disabled")}}{{end}}</div>
 </div>
-</div>{{if and .FailedLine (not .Running)}}{{template "hm/callout" (dict "Kind" "warning" "ID" "preload-failures" "Title" "Some pages could not be built" "Body" .FailedLine)}}
-{{end}}{{template "hm/card-end"}}
+</div><div id="preload-failures-slot">{{if and .FailedLine (not .Running)}}{{template "hm/callout" (dict "Kind" "warning" "ID" "preload-failures" "Title" "Some pages could not be built" "Body" .FailedLine)}}
+{{end}}</div>{{template "hm/card-end"}}
 </form>
 <form id="clear-form" method="post" action="{{adminPath}}/settings/performance/clear">{{template "hm/csrf" $}}</form>
 <form id="preload-form" method="post" action="{{adminPath}}/settings/performance/preload">{{template "hm/csrf" $}}</form>

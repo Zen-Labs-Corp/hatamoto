@@ -192,6 +192,9 @@ func (a *Admin) renderPerformance(w http.ResponseWriter, r *http.Request, status
 	d.Stats = performanceStats(stats, pre, loc)
 
 	v := a.NewView(w, r, "Performance")
+	if pre.Running {
+		v.Refresh = pollSeconds
+	}
 	v.Section, v.Tab = "performance", "performance"
 	v.Width = "compact"
 	v.Data = d

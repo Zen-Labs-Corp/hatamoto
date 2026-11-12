@@ -19,6 +19,9 @@ import (
 
 const (
 	preloadConcurrency = 2
+	// preloadPageTimeout bounds one page render, so a page that hangs is
+	// recorded as a failure instead of stalling the whole run.
+	preloadPageTimeout = 30 * time.Second
 	// preloadStopSizeLimit is the Reason when a run ends because the cache cap evicted pages.
 	preloadStopSizeLimit = "size limit reached"
 	preloadStopCancelled = "cancelled"
@@ -75,7 +78,8 @@ type pagePreloader struct {
 	// and unexpired. Either nil means refresh everything.
 	missingOnly func() bool
 	isCached    func(path string) bool
-	concurrency int // 0 means preloadConcurrency
+	concurrency int           // 0 means preloadConcurrency
+	pageTimeout time.Duration // 0 means preloadPageTimeout
 	now         func() time.Time
 	logger      *slog.Logger // nil discards
 
@@ -99,6 +103,12 @@ var errRenderPanic = errors.New("panic")
 // renderSafe runs one render; a panic becomes an error so one bad page cannot
 // take the process down.
 func (p *pagePreloader) renderSafe(ctx context.Context, path string) (cached bool, err error) {
+	timeout := p.pageTimeout
+	if timeout <= 0 {
+		timeout = preloadPageTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	defer func() {
 		if r := recover(); r != nil {
 			p.log().Error("preload render panicked", "path", path, "panic", r, "stack", string(debug.Stack()))
