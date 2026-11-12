@@ -71,24 +71,24 @@ func inPrefix(key, prefix string) bool {
 }
 
 // listRowless returns the objects under prefix that are not in referenced and
-// are not ignored, sorted by key.
-func listRowless(ctx context.Context, l Lister, referenced map[string]struct{}, prefix string) ([]ObjectInfo, error) {
+// are not ignored, sorted by key, and how many listed objects do have a row.
+func listRowless(ctx context.Context, l Lister, referenced map[string]struct{}, prefix string) (out []ObjectInfo, withRow int, err error) {
 	listed, err := l.List(ctx, prefix)
 	if err != nil {
-		return nil, fmt.Errorf("media: list: %w", err)
+		return nil, 0, fmt.Errorf("media: list: %w", err)
 	}
-	var out []ObjectInfo
 	for _, obj := range listed {
 		if !inPrefix(obj.Key, prefix) || IgnoredKey(obj.Key) {
 			continue
 		}
 		if _, ok := referenced[obj.Key]; ok {
+			withRow++
 			continue
 		}
 		out = append(out, obj)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
-	return out, nil
+	return out, withRow, nil
 }
 
 // Rowless finds the files of the store that no row refers to. referenced holds
@@ -99,7 +99,7 @@ func Rowless(ctx context.Context, l Lister, referenced map[string]struct{}, o Ro
 	if max <= 0 {
 		max = RowlessSampleMax
 	}
-	objs, err := listRowless(ctx, l, referenced, o.Prefix)
+	objs, _, err := listRowless(ctx, l, referenced, o.Prefix)
 	if err != nil {
 		return res, err
 	}
