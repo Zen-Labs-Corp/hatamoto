@@ -18,6 +18,13 @@
 #                     main checkout). There is no default.
 #   REMOTE_RELEASES   server directory (default /opt/hatamoto/public/releases)
 #   RELEASE_TOOL      verifier command, run from backend/ (default: go run ./tools/release)
+#   DEPLOY_TARGET     box (default; empty = box) or hmctl:<slug>; else .deploy-target
+#                     (this checkout, else the main checkout). Cell mode uploads to
+#                     staging and publishes with `hmctl site static --path releases/vX`
+#                     (never --delete); the immutability checks read the published copy.
+#   DEPLOY_STAGING    cell mode: host staging dir (default /var/tmp/hatamoto-deploy)
+#   DEPLOY_STATIC_ROOT cell mode: published static root (default /srv/sites/<slug>/static)
+#   DEPLOY_HMCTL      cell mode: hmctl command on the host (default hmctl)
 set -Eeuo pipefail
 
 usage() { sed -n '5,6p' "$0" >&2; exit 64; }
@@ -62,6 +69,30 @@ REMOTE=${REMOTE_RELEASES:-/opt/hatamoto/public/releases}
 [[ "$REMOTE" =~ ^/[A-Za-z0-9._/-]+$ ]] || die "REMOTE_RELEASES must be a plain absolute path"
 RDIR="$REMOTE/$VER"
 
+# Cell target (resolved inline: this script must work with no sibling files).
+CELL=0; SLUG=""; STAGE=""; HMCTL=hmctl
+if [[ -z "${DEPLOY_TARGET+x}" ]]; then
+  DEPLOY_TARGET=""
+  MAIN_CHECKOUT=${MAIN_CHECKOUT:-$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")}
+  for f in "$REPO/.deploy-target" "$MAIN_CHECKOUT/.deploy-target"; do
+    if [[ -r "$f" ]]; then DEPLOY_TARGET=$(tr -d '[:space:]' < "$f"); break; fi
+  done
+fi
+if [[ -n "$DEPLOY_TARGET" && "$DEPLOY_TARGET" != box ]]; then
+  SLUG=${DEPLOY_TARGET#hmctl:}
+  [[ "$DEPLOY_TARGET" == "hmctl:$SLUG" && "$SLUG" =~ ^[a-z][a-z0-9-]{1,28}$ && "$SLUG" != *- && "$SLUG" != *--* ]] \
+    || die "bad DEPLOY_TARGET (want box or hmctl:<slug>)"
+  CELL=1
+  STAGING=${DEPLOY_STAGING:-/var/tmp/hatamoto-deploy}
+  [[ "$STAGING" =~ ^/[A-Za-z0-9._/-]+$ ]] || die "DEPLOY_STAGING must be a plain absolute path"
+  STATIC_ROOT=${DEPLOY_STATIC_ROOT:-/srv/sites/$SLUG/static}
+  [[ "$STATIC_ROOT" =~ ^/[A-Za-z0-9._/-]+$ ]] || die "DEPLOY_STATIC_ROOT must be a plain absolute path"
+  HMCTL=${DEPLOY_HMCTL:-hmctl}
+  [[ "$HMCTL" =~ ^[A-Za-z0-9._/\ -]+$ ]] || die "bad DEPLOY_HMCTL"
+  RDIR="$STATIC_ROOT/releases/$VER"   # published copy: what the immutability checks read
+  STAGE="$STAGING/releases/$VER"      # where files are uploaded before hmctl publishes them
+fi
+
 # 3. Verify offline: signature, version, size and hash of all four artifacts.
 RELEASE_TOOL=${RELEASE_TOOL:-"go run ./tools/release"}
 ( cd "$REPO/backend" && $RELEASE_TOOL verify --chan edge --record "$DIR/release.json" \
@@ -82,13 +113,20 @@ done
 # 5. Upload in order: artifacts, signature, record last. rsync sorts one
 # invocation's file list, so each group is its own call.
 upload() { # upload <file>...
-  if (( DRY )); then echo "DRY: rsync -t --no-links --ignore-existing $* $DEPLOY_HOST:$RDIR/"; return; fi
-  ( cd "$DIR" && rsync -t --no-links --ignore-existing "$@" "$DEPLOY_HOST:$RDIR/" )
+  local dest=$RDIR; if (( CELL )); then dest=$STAGE; fi
+  if (( DRY )); then echo "DRY: rsync -t --no-links --ignore-existing $* $DEPLOY_HOST:$dest/"; return; fi
+  ( cd "$DIR" && rsync -t --no-links --ignore-existing "$@" "$DEPLOY_HOST:$dest/" )
 }
 if (( ${#todo[@]} == 0 )); then
   echo "already published: $VER (nothing to upload)"
 else
-  (( DRY )) && echo "DRY: ssh $DEPLOY_HOST mkdir -p $RDIR" || ssh "$DEPLOY_HOST" "mkdir -p -- '$RDIR'"
+  if (( CELL )); then
+    # fresh staging dir each run: leftovers of a failed run must not be published
+    if (( DRY )); then echo "DRY: ssh $DEPLOY_HOST rm -rf $STAGE && mkdir -p $STAGE"
+    else ssh "$DEPLOY_HOST" "rm -rf -- '$STAGE' && mkdir -p -- '$STAGE'"; fi
+  else
+    (( DRY )) && echo "DRY: ssh $DEPLOY_HOST mkdir -p $RDIR" || ssh "$DEPLOY_HOST" "mkdir -p -- '$RDIR'"
+  fi
   group=()
   for f in "${todo[@]}"; do
     if [[ "$f" == hatamoto-* ]]; then group+=("$f"); fi
@@ -97,6 +135,10 @@ else
   for f in release.json.sig release.json; do
     for t in "${todo[@]}"; do if [[ "$t" == "$f" ]]; then upload "$f"; fi; done
   done
+  if (( CELL )); then   # publish into releases/$VER only: no --delete, other releases untouched
+    if (( DRY )); then echo "DRY: hmctl site static ... --from $STAGE --path releases/$VER"
+    else ssh "$DEPLOY_HOST" "$HMCTL site static $SLUG --from '$STAGE' --path releases/$VER"; fi
+  fi
 fi
 
 # 6. Re-hash on the server.
