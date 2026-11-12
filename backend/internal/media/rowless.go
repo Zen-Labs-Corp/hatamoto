@@ -66,15 +66,18 @@ func isReplaceAside(name string) bool {
 	return err == nil && rest[len(rest)-37] == '.'
 }
 
-// hasUnsafeRune reports whether key holds a control character or an invisible
-// format character (a bidi override, a zero-width joiner).
+// hasUnsafeRune reports whether key holds a control character or a bidi
+// control (a direction mark, override, embedding or isolate), which can spoof
+// a name on a terminal. Joiners and the soft hyphen are legitimate in names.
 func hasUnsafeRune(key string) bool {
-	return strings.IndexFunc(key, func(r rune) bool { return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) }) >= 0
+	return strings.IndexFunc(key, func(r rune) bool {
+		return unicode.IsControl(r) || r == '\u200e' || r == '\u200f' || (r >= '\u202a' && r <= '\u202e') || (r >= '\u2066' && r <= '\u2069')
+	}) >= 0
 }
 
 // DisplayKey returns key as it is safe to print to a terminal: unchanged, or
-// quoted with the unsafe characters escaped when it holds control or format
-// characters (an escape sequence, a newline, a bidi override).
+// quoted with the unsafe characters escaped when it holds control or bidi
+// control characters (an escape sequence, a newline, a bidi override).
 func DisplayKey(key string) string {
 	if hasUnsafeRune(key) {
 		return strconv.Quote(key)

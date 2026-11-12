@@ -153,17 +153,18 @@ func (r *laterRowRepo) ReferencedKeys(context.Context) (map[string]struct{}, err
 // A key with control or bidi characters is never adopted, and is only ever
 // reported escaped.
 func TestAdoptSkipsKeysWithControlCharacters(t *testing.T) {
-	l := fixedLister{{Key: "a\nb.png", Size: 1}, {Key: "esc\x1b[2J.png", Size: 1}, {Key: "rtl\u202e.png", Size: 1}, {Key: "ok.png", Size: 1}}
+	l := fixedLister{{Key: "a\nb.png", Size: 1}, {Key: "esc\x1b[2J.png", Size: 1}, {Key: "rtl\u202e.png", Size: 1}, {Key: "ok.png", Size: 1}, {Key: "c1\u0085.png", Size: 1}, {Key: "iso\u2067.png", Size: 1}, {Key: "mark\u200e.png", Size: 1},
+		{Key: "zwnj\u200c.png", Size: 1}, {Key: "zwj\u200d.png", Size: 1}, {Key: "soft\u00ad.png", Size: 1}}
 	repo := &fakeAdoptRepo{referenced: map[string]struct{}{}}
 	res, err := Adopt(context.Background(), repo, l, AdoptOptions{Apply: true, Provider: "local"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Adopted != 1 || len(repo.created) != 1 || len(res.Skipped) != 3 {
-		t.Fatalf("adopted %d, skipped %v, want 1 adopted and 3 skipped", res.Adopted, res.Skipped)
+	if res.Adopted != 4 || len(repo.created) != 4 || len(res.Skipped) != 6 {
+		t.Fatalf("adopted %d, skipped %v, want 4 adopted (ok, zwnj, zwj, soft hyphen) and 6 skipped", res.Adopted, res.Skipped)
 	}
 	for _, s := range res.Skipped {
-		if strings.ContainsAny(s, "\n\x1b\u202e") {
+		if strings.ContainsAny(s, "\n\x1b\u202e\u0085\u2067\u200e") {
 			t.Errorf("skip reason %q holds a raw control character", s)
 		}
 	}
@@ -176,6 +177,12 @@ func TestDisplayKey(t *testing.T) {
 		"x\ny":      `"x\ny"`,
 		"x\x1b[2Jy": `"x\x1b[2Jy"`,
 		"x\u202ey":  `"x\u202ey"`,
+		"x\u2066y":  `"x\u2066y"`,
+		"x\u200fy":  `"x\u200fy"`,
+		"x\u0085y":  `"x\u0085y"`,
+		"x\u200cy":  "x\u200cy",
+		"x\u200dy":  "x\u200dy",
+		"x\u00ady":  "x\u00ady",
 	} {
 		if got := DisplayKey(in); got != want {
 			t.Errorf("DisplayKey(%q) = %s, want %s", in, got, want)
