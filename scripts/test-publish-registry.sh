@@ -33,6 +33,7 @@ fi
 STUB
 chmod +x "$W/stubs/ssh" "$W/stubs/rsync"
 export PATH="$W/stubs:$PATH"
+export DEPLOY_TARGET=box   # a developer's real .deploy-target must not flip the box cases
 
 # A local registry checkout (a throwaway git repo) and a fake host.
 setup() { # setup <name>: sets $repo $box, empties the log
@@ -152,4 +153,73 @@ for h in 'a b' '-oProxyCommand=x' 'a;b'; do
   if make -s registry-pull-archive DEPLOY_HOST="$h" ARCHIVE_DIR="$W/x" >/dev/null 2>&1; then fail "pull accepted '$h'"; fi
 done
 pass "deploy host validation"
+
+# --- cell mode: stage under DEPLOY_STAGING/registry, publish with hmctl site static --path registry
+cat >"$W/stubs/ssh" <<'STUB'
+#!/usr/bin/env bash
+echo "ssh ${*: -1}" >>"$LOG"
+exec bash -c "${*: -1}"
+STUB
+# hmctl is the shared fake with the rsync stub hidden (the fake publishes with the real one)
+cp "$ROOT/scripts/fake-hmctl.sh" "$W/fake-hmctl.sh"
+printf '#!/usr/bin/env bash\nPATH=${PATH#"%s:"} exec bash "%s" "$@"\n' "$W/stubs" "$W/fake-hmctl.sh" >"$W/stubs/hmctl"
+chmod +x "$W/stubs/hmctl"
+export STUB_LOG=$LOG FAKE_STATIC=$W/cellstatic
+cell_setup() { # cell_setup <name>: like setup, plus a published static root; sets $stage $static
+  setup "$1"; stage=$W/$1/stage; static=$W/$1/static; mkdir -p "$static"
+  export FAKE_STATIC=$static
+}
+cell_publish() { # cell_publish [args]
+  (cd "$repo" && DEPLOY_TARGET=hmctl:example-site DEPLOY_HOST=fakehost DEPLOY_STAGING="$stage" \
+    DEPLOY_STATIC_ROOT="$static" "$SCRIPT" "$@")
+}
+cell_dests() { sed -n 's/^rsync .* fakehost:\(.*\)$/\1/p' "$LOG" | sed "s|^$stage/registry/||"; }
+
+# 8. Cell publish: same upload order into staging, one site static, nothing deleted.
+cell_setup cell
+mkdir -p "$static/registry/archive/hello" "$static/other"; echo keep >"$static/other/f"
+echo old >"$static/registry/archive/hello/hello-0.9.0-cccccccccccc-k.hmp"
+cell_publish >"$W/out" 2>&1 || fail "cell publish failed: $(cat "$W/out")"
+[ "$(cell_dests | tr '\n' ' ')" = "archive/ packages/ plugins/ registry.json " ] || fail "cell upload order: $(cell_dests | tr '\n' ' ')"
+[ "$(grep -c '^hmctl site static' "$LOG")" = 1 ] || fail "cell: expected one site static: $(cat "$LOG")"
+grep -q "^hmctl site static example-site --from $stage/registry --path registry\$" "$LOG" || fail "cell: wrong site static call: $(cat "$LOG")"
+! grep -q -- '--delete' "$LOG" || fail "cell: --delete used"
+cmp "$repo/registry/archive/hello/hello-1.0.0-aaaaaaaaaaaa-k.hmp" "$static/registry/archive/hello/hello-1.0.0-aaaaaaaaaaaa-k.hmp" || fail "cell: archive not published"
+[ -s "$static/registry/registry.json" ] && [ -s "$static/registry/packages/hello.hmp" ] || fail "cell: registry not published"
+[ -f "$static/other/f" ] && [ -f "$static/registry/archive/hello/hello-0.9.0-cccccccccccc-k.hmp" ] || fail "cell: unrelated published files touched"
+grep -q "run make registry-pull-archive first" "$W/out" || fail "cell: no pull hint for a published-only file"
+pass "cell publish: staged in order, one site static --path registry"
+
+# 9. Cell: a published archive file that differs refuses before mkdir/rsync/hmctl.
+cell_setup celldiff
+mkdir -p "$static/registry/archive/hello"; echo OTHER >"$static/registry/archive/hello/hello-1.0.0-aaaaaaaaaaaa-k.hmp"
+if out=$(cell_publish 2>&1); then fail "cell: differing published archive accepted"; fi
+grep -q "differs from the file on the host" <<<"$out" || fail "celldiff: wrong error: $out"
+! grep -qE '^rsync|mkdir|^hmctl' "$LOG" || fail "celldiff: touched the host: $(cat "$LOG")"
+[ ! -e "$stage" ] || fail "celldiff: staging created"
+pass "cell: differing published archive refuses before any upload"
+
+# 9b. Cell fails closed when the static root is unreadable.
+cell_setup cellnoroot
+rmdir "$static"
+if out=$(cell_publish 2>&1); then fail "cell: missing static root accepted"; fi
+grep -q "cannot read the published archive" <<<"$out" || fail "cellnoroot: wrong error: $out"
+! grep -qE '^rsync|mkdir|^hmctl' "$LOG" || fail "cellnoroot: touched the host: $(cat "$LOG")"
+pass "cell: unreadable static root fails closed"
+
+# 10. Cell dry-run: shows the plan, runs no rsync, no mkdir, no hmctl.
+cell_setup celldry
+out=$(cell_publish --dry-run 2>&1) || fail "cell dry-run failed: $out"
+grep -q -- '--path registry' <<<"$out" || fail "cell dry-run: no site static line: $out"
+! grep -qE '^rsync|^hmctl|mkdir' "$LOG" || fail "cell dry-run touched the host: $(cat "$LOG")"
+[ ! -e "$stage" ] || fail "cell dry-run created staging"
+pass "cell dry-run uploads and publishes nothing"
+
+# 11. Cell: a corrupt upload dies before hmctl publishes anything.
+cell_setup cellcorrupt
+if out=$(FAKE_RSYNC_CORRUPT=1 cell_publish 2>&1); then fail "cell: corrupt upload accepted"; fi
+grep -q "hash mismatch after upload" <<<"$out" || fail "cellcorrupt: wrong error: $out"
+! grep -q '^hmctl' "$LOG" || fail "cellcorrupt: hmctl ran: $(cat "$LOG")"
+[ ! -e "$static/registry/registry.json" ] || fail "cellcorrupt: index published"
+pass "cell: post-upload hash check dies before hmctl"
 echo "ALL PASS"
