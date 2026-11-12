@@ -1084,6 +1084,9 @@ if (( API )); then
   echo "-- uploading the new hatamoto binary (the running service is untouched)"
   DEPLOYED_API=1
   if (( CELL )); then
+    # the new binary migrates the database when it starts, so a failure from here on may
+    # have changed the schema: the rollback must compare the fingerprint
+    if (( MIG )); then MIG_RAN=1; fi
     # hmctl restarts the unit and waits for /ready; the old binary file stays for a rollback
     run ssh "$DEPLOY_HOST" "mkdir -p $STAGING"
     run scp -o BatchMode=yes "$TREE/backend/bin/hatamoto" "$DEPLOY_HOST:$STAGING/hatamoto-$DEPLOY_SHA"

@@ -165,4 +165,11 @@ grep -q '20260101T000000Z-manual' <<<"$OUT" || fail "(c) message lacks the backu
 grep -q "hmctl site binary example-site --from $W/stage/hatamoto-$OLD" "$LOG" || fail "(c) binary not rolled back"
 if grep -qE 'restore|pg_|restart|suspend' "$LOG"; then fail "(c) a restore/restart command was run"; fi
 pass "changed goose version: binary rolled back, manual DB restore message, exit 2"
+# (d) `site binary` itself fails after the start-up migration changed the schema: the fingerprint is
+# still compared, so the manual-restore message appears.
+OLD_MARK=1 OLD_FILE=1 ship FAKE_BINARY_FAIL=1 FAKE_MIGRATE_BUMPS=1
+[[ $RC == 2 ]] || fail "rollback (d) exited $RC, want 2"
+grep -q 'DB NOT restored' <<<"$OUT" || fail "(d) no DB message although the binary step migrated"
+if grep -q 'site run example-site -- migrate' "$LOG"; then fail "(d) migrate ran after the failed binary step"; fi
+pass "failed binary step after a start-up migration: DB flagged for manual restore"
 echo "ALL OK"

@@ -15,6 +15,7 @@
 #                               once `site run -- migrate` bumped it
 #   FAKE_MIGRATE_BUMPS=1        `site run <slug> -- migrate` bumps the goose answer
 #   FAKE_MEDIA=                 answer to the newest-media query
+#   FAKE_BINARY_FAIL=1          the first `site binary --from` fails (see FAKE_MIGRATE_BUMPS)
 #   FAKE_BIN_STATE=<file>       `site binary --from F` copies F here; --clear removes it
 #   FAKE_MARK=<file>            `site mark` store (one value; get exits 1 when absent)
 #   FAKE_STATIC=<dir>           `site static --from D --path P` rsyncs D/ to $FAKE_STATIC/P/
@@ -50,7 +51,15 @@ case $verb in
     ;;
   binary)
     case ${1:-} in
-      --from) cp "$2" "${FAKE_BIN_STATE:?fake-hmctl: FAKE_BIN_STATE not set}" ;;
+      --from)
+        # FAKE_BINARY_FAIL=1: the first --from fails after the new binary's start-up migration
+        # (FAKE_MIGRATE_BUMPS) ran; hmctl restores the old binary itself, so nothing is copied
+        if [[ ${FAKE_BINARY_FAIL:-} == 1 && ! -e $STUB_LOG.binfail ]]; then
+          : >"$STUB_LOG.binfail"
+          if [[ ${FAKE_MIGRATE_BUMPS:-} == 1 ]]; then echo "6:20260102" >"$goose_file"; fi
+          echo "hmctl: binary $slug: binary override failed, previous binary restored" >&2; exit 1
+        fi
+        cp "$2" "${FAKE_BIN_STATE:?fake-hmctl: FAKE_BIN_STATE not set}" ;;
       --clear) rm -f "${FAKE_BIN_STATE:-/dev/null}" ;;
     esac
     ;;
