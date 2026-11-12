@@ -224,11 +224,11 @@ func TestMediaSweepDryRunAndApply(t *testing.T) {
 
 func TestParseMediaAdopt(t *testing.T) {
 	f, err := parseMediaAdoptArgs(nil)
-	if err != nil || f.apply || f.dir != "" {
+	if err != nil || f.apply || f.dir != "" || f.olderThan != 24*time.Hour {
 		t.Fatalf("defaults = %+v, %v", f, err)
 	}
-	f, err = parseMediaAdoptArgs([]string{"wp/2020", "--apply"})
-	if err != nil || !f.apply || f.dir != "wp/2020" {
+	f, err = parseMediaAdoptArgs([]string{"wp/2020", "--apply", "--older-than", "2h"})
+	if err != nil || !f.apply || f.dir != "wp/2020" || f.olderThan != 2*time.Hour {
 		t.Fatalf("flags = %+v, %v", f, err)
 	}
 	for args, ok := range map[string]bool{
@@ -309,5 +309,24 @@ func TestMediaAdoptDryRunAndApply(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "adopted 0 files") || !strings.Contains(out.String(), "skipped: 4 already have a row\n") || len(repo.created) != 3 {
 		t.Errorf("second run output:\n%s", out.String())
+	}
+}
+
+func TestMediaAdoptReportsTooNewFiles(t *testing.T) {
+	store, err := media.NewLocalStore(t.TempDir(), "/media")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Put(context.Background(), "fresh.png", strings.NewReader("1")); err != nil {
+		t.Fatal(err)
+	}
+	repo := &adoptRepoStub{keys: map[string]struct{}{}}
+	plan := mediaAdoptPlan{mediaAdoptFlags: mediaAdoptFlags{apply: true, olderThan: 24 * time.Hour}, repo: repo, lister: store.(media.Lister), provider: "local"}
+	var out bytes.Buffer
+	if err := mediaAdopt(context.Background(), plan, &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(repo.created) != 0 || !strings.Contains(out.String(), "skipped: 1 files younger than 24h (too new") {
+		t.Errorf("created %d rows, output:\n%s", len(repo.created), out.String())
 	}
 }

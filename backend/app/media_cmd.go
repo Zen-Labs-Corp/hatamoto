@@ -17,13 +17,14 @@ import (
 	"hatamoto.dev/core/internal/media"
 )
 
-const mediaUsageErr = "usage: hatamoto media migrate --to s3|local [--dry-run]\n       hatamoto media sweep [--older-than 24h] [--apply]\n       hatamoto media adopt [<dir>] [--apply]"
+const mediaUsageErr = "usage: hatamoto media migrate --to s3|local [--dry-run]\n       hatamoto media sweep [--older-than 24h] [--apply]\n       hatamoto media adopt [<dir>] [--older-than 24h] [--apply]"
 
 const mediaUsage = `  media migrate --to s3|local [--dry-run]
                                    copy the media library between local disk and object storage (verified by sha256, resumable, the source is kept)
   media sweep [--older-than 24h] [--apply]
                                    list (and with --apply delete) files in object storage that no media record refers to (dry run by default, at least 24h old; do not run --apply during an import or a publish)
-  media adopt [<dir>] [--apply]    list (and with --apply create) media records for files in the media store that have none; <dir> is a path inside the store (default: all; dry run by default)`
+  media adopt [<dir>] [--older-than 24h] [--apply]
+                                   list (and with --apply create) media records for files in the media store that have none; <dir> is a path inside the store (default: all; dry run by default; younger files are left alone; do not run --apply during an import or a publish)`
 
 // maxSweepListed is how many orphan keys a dry run prints.
 const maxSweepListed = 50
@@ -298,14 +299,16 @@ func mediaSweep(ctx context.Context, p mediaSweepPlan, out io.Writer) error {
 }
 
 type mediaAdoptFlags struct {
-	dir   string
-	apply bool
+	dir       string
+	olderThan time.Duration
+	apply     bool
 }
 
 func parseMediaAdoptArgs(args []string) (mediaAdoptFlags, error) {
-	var f mediaAdoptFlags
+	f := mediaAdoptFlags{olderThan: 24 * time.Hour}
 	pos, err := flagSet("media adopt", args, func(fs *flag.FlagSet) {
-		fs.BoolVar(&f.apply, "apply", false, "create the records (default: only list the files)")
+		fs.DurationVar(&f.olderThan, "older-than", f.olderThan, "only files at least this old")
+		fs.BoolVar(&f.apply, "apply", false, "create the records (default: only list the files); do not run during an import or a publish")
 	})
 	if err != nil || len(pos) > 1 {
 		return f, errors.New(mediaUsageErr)
@@ -366,7 +369,7 @@ func runMediaAdopt(ctx context.Context, databaseURL string, args []string, out i
 }
 
 func mediaAdopt(ctx context.Context, p mediaAdoptPlan, out io.Writer) error {
-	res, err := media.Adopt(ctx, p.repo, p.lister, media.AdoptOptions{Dir: p.dir, Apply: p.apply, Provider: p.provider})
+	res, err := media.Adopt(ctx, p.repo, p.lister, media.AdoptOptions{Dir: p.dir, Apply: p.apply, OlderThan: p.olderThan, Provider: p.provider})
 	if err != nil {
 		return err
 	}
@@ -388,6 +391,9 @@ func mediaAdopt(ctx context.Context, p mediaAdoptPlan, out io.Writer) error {
 	}
 	if res.AlreadyHaveRow > 0 {
 		fmt.Fprintf(out, "skipped: %s already have a row\n", thousands(res.AlreadyHaveRow))
+	}
+	if res.TooNew > 0 {
+		fmt.Fprintf(out, "skipped: %s files younger than %s (too new; they may still be in flight, run again later)\n", thousands(res.TooNew), sweepAge(p.olderThan))
 	}
 	for _, s := range res.Skipped {
 		fmt.Fprintf(out, "skipped: %s\n", s)

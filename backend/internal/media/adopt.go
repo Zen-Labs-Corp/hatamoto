@@ -31,6 +31,10 @@ type AdoptOptions struct {
 	Apply bool
 	// Provider is the storage_provider of the active store, "local" or "s3".
 	Provider string
+	// OlderThan skips files modified more recently than this (or of unknown
+	// age): a file may be in flight, written before its row. Zero or less
+	// disables the guard.
+	OlderThan time.Duration
 	// Now is the clock; nil means time.Now.
 	Now func() time.Time
 }
@@ -45,12 +49,14 @@ type AdoptItem struct {
 
 // AdoptResult is the outcome of Adopt. Items are the files found without a
 // row; Adopted how many rows were created; AlreadyHaveRow how many files in
-// scope already had one; Skipped the files that cannot get a row, each with
+// scope already had one; TooNew the files left alone because they are younger
+// than OlderThan; Skipped the files that cannot get a row, each with
 // the reason.
 type AdoptResult struct {
 	Items          []AdoptItem
 	Adopted        int
 	AlreadyHaveRow int
+	TooNew         int
 	Skipped        []string
 }
 
@@ -76,7 +82,29 @@ func Adopt(ctx context.Context, repo AdoptRepo, l Lister, o AdoptOptions) (Adopt
 	if o.Now != nil {
 		now = o.Now
 	}
+	if o.Apply {
+		// Rows may have appeared since the first load (an upload or an
+		// import that committed meanwhile): never make a second one.
+		fresh, err := repo.ReferencedKeys(ctx)
+		if err != nil {
+			return res, fmt.Errorf("media adopt: load media rows: %w", err)
+		}
+		kept := objs[:0]
+		for _, obj := range objs {
+			if _, ok := fresh[obj.Key]; ok {
+				res.AlreadyHaveRow++
+				continue
+			}
+			kept = append(kept, obj)
+		}
+		objs = kept
+	}
+	cutoff := now().Add(-o.OlderThan)
 	for _, obj := range objs {
+		if o.OlderThan > 0 && (obj.ModTime.IsZero() || obj.ModTime.After(cutoff)) {
+			res.TooNew++
+			continue
+		}
 		folder := "/"
 		if dir := path.Dir(obj.Key); dir != "." {
 			folder = "/" + dir

@@ -98,3 +98,54 @@ func TestAdoptRejectsBadDir(t *testing.T) {
 		t.Error("a rejected dir created rows")
 	}
 }
+
+// A file younger than OlderThan may be in flight, written before its row: it
+// is counted, not adopted.
+func TestAdoptSkipsFilesTooNew(t *testing.T) {
+	now := time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC)
+	l := fixedLister{
+		{Key: "old.png", Size: 1, ModTime: now.Add(-48 * time.Hour)},
+		{Key: "fresh.png", Size: 1, ModTime: now.Add(-time.Minute)},
+		{Key: "unknown.png", Size: 1},
+	}
+	repo := &fakeAdoptRepo{referenced: map[string]struct{}{}}
+	res, err := Adopt(context.Background(), repo, l, AdoptOptions{Apply: true, Provider: "local", OlderThan: 24 * time.Hour, Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Adopted != 1 || res.TooNew != 2 || len(repo.created) != 1 || repo.created[0].StoragePath != "old.png" {
+		t.Errorf("adopted %d, too new %d, created %d; want 1, 2, only old.png", res.Adopted, res.TooNew, len(repo.created))
+	}
+}
+
+// A row that appears between the first load and the insert (an import that
+// commits meanwhile) must not get a second row.
+func TestAdoptRechecksRowsBeforeInsert(t *testing.T) {
+	l := fixedLister{{Key: "a.png", Size: 1}, {Key: "b.png", Size: 1}}
+	repo := &laterRowRepo{fakeAdoptRepo: fakeAdoptRepo{referenced: map[string]struct{}{}}}
+	res, err := Adopt(context.Background(), repo, l, AdoptOptions{Apply: true, Provider: "local"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Adopted != 1 || len(repo.created) != 1 || repo.created[0].StoragePath != "b.png" {
+		t.Errorf("adopted %d rows %v, want only b.png", res.Adopted, len(repo.created))
+	}
+}
+
+type fixedLister []ObjectInfo
+
+func (f fixedLister) List(context.Context, string) ([]ObjectInfo, error) { return f, nil }
+
+// laterRowRepo reports a.png as referenced from the second load on.
+type laterRowRepo struct {
+	fakeAdoptRepo
+	loads int
+}
+
+func (r *laterRowRepo) ReferencedKeys(context.Context) (map[string]struct{}, error) {
+	r.loads++
+	if r.loads > 1 {
+		return map[string]struct{}{"a.png": {}}, nil
+	}
+	return map[string]struct{}{}, nil
+}
