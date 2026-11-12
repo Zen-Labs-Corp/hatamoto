@@ -421,7 +421,7 @@ func TestChangePasswordGuessesLockTheAccount(t *testing.T) {
 }
 
 // With every hash slot busy, junk tokens and a cancelled request must return
-// at once: nothing queues for a 64 MB hash it cannot use.
+// at once: nothing queues for a hash it cannot use.
 func TestTokenFlowsDoNotQueueUselessHashes(t *testing.T) {
 	r := newTokRig(t)
 	u := r.newUser(t, user.RoleEditor)
@@ -429,14 +429,14 @@ func TestTokenFlowsDoNotQueueUselessHashes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for range maxConcurrentHashes {
-		hashSlots <- struct{}{}
-	}
-	defer func() {
-		for range maxConcurrentHashes {
-			<-hashSlots
+	g := useLimit(t, 512*miB)
+	for range g.cap {
+		rel, err := g.acquire(context.Background(), 1)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}()
+		defer rel()
+	}
 	within := func(name string, f func(ctx context.Context) error, want error) {
 		t.Helper()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
