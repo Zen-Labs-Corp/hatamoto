@@ -163,6 +163,12 @@ cat > "$W/stubs/ssh" <<'SSH'
 while [[ ${1:-} == -* ]]; do case $1 in -o) shift 2 ;; *) shift ;; esac; done
 shift   # host
 echo "ssh $*" >> "$STUB_LOG"
+# SSH_FAIL_READ=1: reading the published copy fails; PLANT_PUBLISHED=<file>: a racing publish
+# lands <file> (different content) while staging is prepared
+[[ ${SSH_FAIL_READ:-} == 1 && "$*" == *sha256sum* ]] && exit 255
+if [[ -n ${PLANT_PUBLISHED:-} && "$*" == *"mkdir -p"* ]]; then
+  mkdir -p "$DEPLOY_STATIC_ROOT/releases/$PLANT_VER"; echo raced > "$DEPLOY_STATIC_ROOT/releases/$PLANT_VER/$PLANT_PUBLISHED"
+fi
 sh -c "$*"
 SSH
 cat > "$W/stubs/rsync" <<'RSYNC'
@@ -228,4 +234,19 @@ grep -q -- "--path releases/$VER" <<<"$OUT" || fail "cell dry-run did not show s
 if grep -q -- '--delete' <<<"$OUT"; then fail "cell dry-run shows --delete"; fi
 [[ ! -e "$W/stage" ]] || fail "cell dry-run created staging"
 pass "cell dry-run shows the steps, runs nothing"
+# 14. Cell fails closed: an unreadable published copy is not "absent", nothing is staged or published.
+rm -rf "$CELLROOT" "$W/stage"; mkdir -p "$CELLROOT"
+SSH_FAIL_READ=1 cellpub $VER "$W/rel/good"
+[[ $RC != 0 ]] || fail "cell: unreadable published copy accepted"
+if grep -qE '^rsync|site static' "$STUB_LOG"; then fail "cell: published despite an unreadable copy"; fi
+grep -q 'cannot read the published copy' <<<"$OUT" || fail "cell: no read-error message"
+pass "cell: unreadable published copy refuses the publish"
+
+# 15. Cell re-check: a file published by someone else after the first check is not overwritten.
+rm -rf "$CELLROOT" "$W/stage"; mkdir -p "$CELLROOT"
+PLANT_PUBLISHED=release.json PLANT_VER=$VER DEPLOY_STATIC_ROOT="$CELLROOT" cellpub $VER "$W/rel/good"
+[[ $RC != 0 ]] || fail "cell: raced publish accepted"
+if grep -q 'site static' "$STUB_LOG"; then fail "cell: site static ran after the file appeared"; fi
+[[ $(cat "$CELLROOT/releases/$VER/release.json") == raced ]] || fail "cell: raced file overwritten"
+pass "cell: re-check before site static catches a racing publish"
 echo "publish-release tests ok"

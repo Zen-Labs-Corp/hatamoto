@@ -100,11 +100,21 @@ RELEASE_TOOL=${RELEASE_TOOL:-"go run ./tools/release"}
 
 # 4. Compare with the server before touching it.
 remote_hash() { ssh "$DEPLOY_HOST" "sha256sum -- '$RDIR/$1' 2>/dev/null" | awk '{print $1}' || true; }
+if (( CELL )); then
+  # hmctl overwrites what it publishes, so an unreadable published copy must never look absent:
+  # prints the hash, or ABSENT for a missing file; any ssh or read error dies.
+  remote_hash() {
+    local out
+    out=$(ssh "$DEPLOY_HOST" "if [ -e '$RDIR/$1' ]; then sha256sum -- '$RDIR/$1'; else echo ABSENT; fi" | awk '{print $1}') \
+      && [[ "$out" =~ ^([0-9a-f]{64}|ABSENT)$ ]] || die "cannot read the published copy of $1 on the host; nothing was published"
+    echo "$out"
+  }
+fi
 todo=()
 for f in "${FILES[@]}"; do
   local_h=$(sha256sum "$DIR/$f" | awk '{print $1}')
   remote_h=$(remote_hash "$f")
-  if [[ -z "$remote_h" ]]; then todo+=("$f")
+  if [[ -z "$remote_h" || "$remote_h" == ABSENT ]]; then todo+=("$f")
   elif [[ "$remote_h" == "$local_h" ]]; then echo "same:    $f"
   else die "$f differs from the published file on the server; releases are immutable, nothing was uploaded"
   fi
@@ -137,7 +147,12 @@ else
   done
   if (( CELL )); then   # publish into releases/$VER only: no --delete, other releases untouched
     if (( DRY )); then echo "DRY: hmctl site static ... --from $STAGE --path releases/$VER"
-    else ssh "$DEPLOY_HOST" "$HMCTL site static $SLUG --from '$STAGE' --path releases/$VER"; fi
+    else
+      # hmctl overwrites: re-check right before that nothing was published since step 4
+      for f in "${todo[@]}"; do
+        [[ "$(remote_hash "$f")" == ABSENT ]] || die "$f appeared in the published copy during the run; releases are immutable, nothing was published"
+      done
+      ssh "$DEPLOY_HOST" "$HMCTL site static $SLUG --from '$STAGE' --path releases/$VER"; fi
   fi
 fi
 
