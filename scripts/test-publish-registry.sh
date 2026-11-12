@@ -181,7 +181,7 @@ mkdir -p "$static/registry/archive/hello" "$static/other"; echo keep >"$static/o
 echo old >"$static/registry/archive/hello/hello-0.9.0-cccccccccccc-k.hmp"
 cell_publish >"$W/out" 2>&1 || fail "cell publish failed: $(cat "$W/out")"
 [ "$(cell_dests | tr '\n' ' ')" = "archive/ packages/ plugins/ registry.json " ] || fail "cell upload order: $(cell_dests | tr '\n' ' ')"
-[ "$(grep -c '^hmctl site static' "$LOG")" = 1 ] || fail "cell: expected one site static: $(cat "$LOG")"
+[ "$(grep -c '^hmctl site static' "$LOG")" = 2 ] || fail "cell: expected two site static calls (everything, then the index): $(cat "$LOG")"
 grep -qE "^hmctl site static example-site --from $stage/run\.[A-Za-z0-9]+ --path registry\$" "$LOG" || fail "cell: wrong site static call: $(cat "$LOG")"
 ! grep -q -- '--delete' "$LOG" || fail "cell: --delete used"
 cmp "$repo/registry/archive/hello/hello-1.0.0-aaaaaaaaaaaa-k.hmp" "$static/registry/archive/hello/hello-1.0.0-aaaaaaaaaaaa-k.hmp" || fail "cell: archive not published"
@@ -222,6 +222,14 @@ grep -q "hash mismatch after upload" <<<"$out" || fail "cellcorrupt: wrong error
 ! grep -q '^hmctl' "$LOG" || fail "cellcorrupt: hmctl ran: $(cat "$LOG")"
 [ ! -e "$static/registry/registry.json" ] || fail "cellcorrupt: index published"
 pass "cell: post-upload hash check dies before hmctl"
+
+# 11a. Cell order: registry.json goes live only in the second publish.
+cell_setup cellorder
+rm -f "$LOG.static-n"
+if out=$(FAKE_STATIC_FAIL_NTH=2 cell_publish 2>&1); then fail "cell: failed second publish accepted"; fi
+[ -s "$static/registry/packages/hello.hmp" ] || fail "cellorder: packages not published first"
+[ ! -e "$static/registry/registry.json" ] || fail "cellorder: index live before the second publish"
+pass "cell: registry.json is published last"
 
 # 11b. Cell: staging must be private and outside the static root; the run dir is removed afterwards.
 cell_setup cellstage

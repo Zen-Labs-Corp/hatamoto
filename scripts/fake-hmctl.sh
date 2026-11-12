@@ -17,6 +17,7 @@
 #   FAKE_MEDIA=                 answer to the newest-media query
 #   FAKE_BINARY_FAIL=1          the first `site binary --from` fails (see FAKE_MIGRATE_BUMPS)
 #   FAKE_BINARY_SHOW=<text>     verbatim output of `site binary show` (default: from FAKE_BIN_STATE)
+#   FAKE_STATIC_FAIL_NTH=<n>    the n-th `site static` call fails (counter in $STUB_LOG.static-n)
 #   FAKE_BIN_STATE=<file>       `site binary --from F` copies F here; --clear removes it
 #   FAKE_MARK=<file>            `site mark` store (one value; get exits 1 when absent)
 #   FAKE_STATIC=<dir>           `site static --from D --path P` rsyncs D/ to $FAKE_STATIC/P/
@@ -85,6 +86,9 @@ case $verb in
       shift
     done
     [[ -n $path ]] || { echo "fake-hmctl: static without --path would mirror and delete" >&2; exit 3; }
+    # FAKE_STATIC_FAIL_NTH=2: the 2nd `site static` call fails before publishing anything
+    n=$(( $(cat "$STUB_LOG.static-n" 2>/dev/null || echo 0) + 1 )); echo "$n" >"$STUB_LOG.static-n"
+    [[ ${FAKE_STATIC_FAIL_NTH:-} != "$n" ]] || { echo "fake-hmctl: static call $n failed" >&2; exit 1; }
     mkdir -p "${FAKE_STATIC:?fake-hmctl: FAKE_STATIC not set}/$path"
     rsync -rlt "$from/" "$FAKE_STATIC/$path/"
     ;;

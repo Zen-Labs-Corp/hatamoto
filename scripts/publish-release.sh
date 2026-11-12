@@ -156,21 +156,29 @@ else
   for f in "${todo[@]}"; do
     if [[ "$f" == hatamoto-* ]]; then group+=("$f"); fi
   done
-  if (( ${#group[@]} )); then upload "${group[@]}"; fi
-  for f in release.json.sig release.json; do
-    for t in "${todo[@]}"; do if [[ "$t" == "$f" ]]; then upload "$f"; fi; done
+  # Cell: hmctl rsyncs the whole staging dir in one sorted pass, so publish in the box order with
+  # one `site static` per stage: artifacts and signature first, release.json last.
+  publish_cell() { # publish_cell <file>...: re-check them, then hmctl publishes the staging dir
+    if (( DRY )); then echo "DRY: hmctl site static ... --from $STAGE --path releases/$VER"; return; fi
+    local f   # hmctl overwrites: nothing may have been published since step 4
+    for f in "$@"; do
+      [[ "$(remote_hash "$f")" == ABSENT ]] || die "$f appeared in the published copy during the run; releases are immutable, it was not overwritten"
+    done
+    ssh "$DEPLOY_HOST" "$HMCTL site static $SLUG --from '$STAGE' --path releases/$VER"
+  }
+  early=()   # everything but release.json, in upload order
+  if (( ${#group[@]} )); then upload "${group[@]}"; early+=("${group[@]}"); fi
+  for t in "${todo[@]}"; do
+    if [[ "$t" == release.json.sig ]]; then upload release.json.sig; early+=("$t"); fi
   done
-  if (( CELL )); then   # publish into releases/$VER only: no --delete, other releases untouched
-    if (( DRY )); then echo "DRY: hmctl site static ... --from $STAGE --path releases/$VER"
-    else
-      # hmctl overwrites: re-check right before that nothing was published since step 4
-      for f in "${todo[@]}"; do
-        [[ "$(remote_hash "$f")" == ABSENT ]] || die "$f appeared in the published copy during the run; releases are immutable, nothing was published"
-      done
-      ssh "$DEPLOY_HOST" "$HMCTL site static $SLUG --from '$STAGE' --path releases/$VER"
-      ssh "$DEPLOY_HOST" "rm -rf -- '$STAGE'" || true
+  if (( CELL && ${#early[@]} )); then publish_cell "${early[@]}"; fi
+  for t in "${todo[@]}"; do
+    if [[ "$t" == release.json ]]; then
+      upload release.json
+      if (( CELL )); then publish_cell release.json; fi
     fi
-  fi
+  done
+  if (( CELL && !DRY )); then ssh "$DEPLOY_HOST" "rm -rf -- '$STAGE'" || true; fi
 fi
 
 # 6. Re-hash on the server.

@@ -149,12 +149,16 @@ fi
 up registry/packages/ packages/
 if (( ${#screenshots[@]} )); then up registry/screenshots/ screenshots/; fi
 if (( ${#plugins_page[@]} )); then up registry/plugins/ plugins/; fi
+# Cell: hmctl rsyncs the whole staging tree in one sorted pass, so publish in two stages and keep
+# registry.json last: the index must never point at a file that is not there yet.
+publish_cell() { # publish the staged registry sub-path only: no --delete, the rest of the site is untouched
+  if (( DRY )); then echo "DRY: hmctl site static ... --from $REMOTE --path registry"; return; fi
+  ssh "$DEPLOY_HOST" "$HMCTL site static $SLUG --from '$REMOTE' --path registry"
+}
+if (( CELL )); then publish_cell; fi
 up registry/registry.json registry.json
-if (( CELL )); then   # publish the registry sub-path only: no --delete, the rest of the site is untouched
-  if (( DRY )); then echo "DRY: hmctl site static ... --from $REMOTE --path registry"
-  else
-    ssh "$DEPLOY_HOST" "$HMCTL site static $SLUG --from '$REMOTE' --path registry"
-    ssh "$DEPLOY_HOST" "rm -rf -- '$REMOTE'" || true
-  fi
+if (( CELL )); then
+  publish_cell
+  if (( !DRY )); then ssh "$DEPLOY_HOST" "rm -rf -- '$REMOTE'" || true; fi
 fi
 echo "published registry to $DEPLOY_HOST:$REMOTE$( (( DRY )) && echo ' (dry run)')"

@@ -184,7 +184,7 @@ RSYNC
 export FAKE_STATIC="$W/cellstatic" FAKE_BIN_STATE="$W/cellbin" FAKE_MARK="$W/cellmark"
 CELLROOT="$W/cellstatic"   # DEPLOY_STATIC_ROOT: the published tree (the fake publishes here)
 cellpub() { # cellpub <args...>
-  : > "$STUB_LOG"
+  : > "$STUB_LOG"; rm -f "$STUB_LOG.static-n"
   set +e
   OUT=$(cd "$ROOT" && PATH="$W/stubs:$PATH" RELEASE_TOOL="$TOOL" DEPLOY_TARGET=hmctl:example-site \
     DEPLOY_STAGING="${STAGING_OVERRIDE:-$W/stage}" DEPLOY_STATIC_ROOT="$CELLROOT" "$SCRIPT" "$@" 2>&1)
@@ -198,7 +198,7 @@ cellpub $VER "$W/rel/good"
 [[ $(grep -c '^rsync' "$STUB_LOG") == 3 ]] || fail "cell: expected 3 rsync calls"
 grep '^rsync' "$STUB_LOG" | grep -qE "stubhost:$W/stage/run\.[A-Za-z0-9]+/\$" || fail "cell: rsync does not target a per-run staging dir"
 [[ $(grep '^rsync' "$STUB_LOG" | tail -1) == *" release.json stubhost:"* ]] || fail "cell: release.json not last"
-[[ $(grep -c '^hmctl site static' "$STUB_LOG") == 1 ]] || fail "cell: expected one site static"
+[[ $(grep -c '^hmctl site static' "$STUB_LOG") == 2 ]] || fail "cell: expected two site static calls (artifacts and signature, then the record)"
 grep -qE "hmctl site static example-site --from $W/stage/run\.[A-Za-z0-9]+ --path releases/$VER\$" "$STUB_LOG" || fail "cell: wrong site static call"
 if grep -q -- '--delete' "$STUB_LOG"; then fail "cell: --delete used"; fi
 for f in release.json release.json.sig hatamoto-linux-amd64; do
@@ -246,7 +246,7 @@ pass "cell: unreadable published copy refuses the publish"
 rm -rf "$CELLROOT" "$W/stage"; mkdir -p "$CELLROOT"
 PLANT_PUBLISHED=release.json PLANT_VER=$VER DEPLOY_STATIC_ROOT="$CELLROOT" cellpub $VER "$W/rel/good"
 [[ $RC != 0 ]] || fail "cell: raced publish accepted"
-if grep -q 'site static' "$STUB_LOG"; then fail "cell: site static ran after the file appeared"; fi
+[[ $(grep -c '^hmctl site static' "$STUB_LOG") == 1 ]] || fail "cell: site static ran for the record after it appeared"
 [[ $(cat "$CELLROOT/releases/$VER/release.json") == raced ]] || fail "cell: raced file overwritten"
 pass "cell: re-check before site static catches a racing publish"
 # 16. Staging containment: '..', a path equal to, inside or above the static root, a shared base.
@@ -266,4 +266,12 @@ cellpub $VER "$W/rel/good"
 [[ $RC == 0 ]] || { echo "$OUT"; fail "cell publish after the containment cases exited $RC"; }
 [[ -z "$(ls -A "$W/stage")" ]] || fail "cell: run dir left behind"
 pass "cell: staging must be a private dir outside the static root; run dir removed after publishing"
+# 17. Cell order: release.json goes live only after the signature. A failing second publish leaves
+# the artifacts and the signature published and the record absent.
+rm -rf "$W/stage" "$CELLROOT"; mkdir -p "$CELLROOT"
+FAKE_STATIC_FAIL_NTH=2 cellpub $VER "$W/rel/good"
+[[ $RC != 0 ]] || fail "cell: failed second publish accepted"
+[[ -f "$CELLROOT/releases/$VER/release.json.sig" && -f "$CELLROOT/releases/$VER/hatamoto-linux-amd64" ]] || fail "cell: signature/artifacts not published first"
+[[ ! -e "$CELLROOT/releases/$VER/release.json" ]] || fail "cell: release.json live before the second publish"
+pass "cell: release.json is published after the signature"
 echo "publish-release tests ok"
