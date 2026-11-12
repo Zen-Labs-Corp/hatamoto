@@ -5,7 +5,7 @@
 set -Eeuo pipefail
 # The cases set GH_REPO themselves; one inherited from the caller (scripts/ship.sh exports it) would
 # override the origin the throwaway repo is given.
-unset GH_REPO
+unset GH_REPO DEPLOY_TARGET
 cd "$(git rev-parse --show-toplevel)"
 ROOT=$PWD
 bash -n "$ROOT/scripts/publish-install.sh"
@@ -147,4 +147,50 @@ run v1.2.3
 grep -q 'GH_REPO' <<<"$OUT" || fail "no hint about GH_REPO"
 [[ ! -s "$STUB_LOG" ]] || fail "tools ran without a repo slug"
 pass "GH_REPO override; missing repo refused"
+
+# --- cell mode: same temp file, hash check and atomic rename, into the static root.
+# A second checkout that also carries the target resolver (the cases above run without it: box).
+R0=$R; R="$W/repo-cell"; cp -r "$R0" "$R"
+cp "$ROOT/scripts/deploy-target.sh" "$R/scripts/"
+git -C "$R" add -A
+git -C "$R" -c user.name=t -c user.email=t@example.test commit -q -m resolver
+git -C "$R" tag -f v1.2.3 >/dev/null; git -C "$R" tag -f backend/v1.2.3 >/dev/null
+git -C "$R" remote add origin https://github.com/example/widgets.git
+STATIC="$W/static"; mkdir -p "$STATIC"
+export DEPLOY_TARGET=hmctl:example-site DEPLOY_STATIC_ROOT="$STATIC"
+unset REMOTE_PUBLIC
+
+# 8. Happy path: gh, scp, ssh hash, ssh mv, into the static root; REMOTE_PUBLIC unused.
+run v1.2.3
+[[ $RC == 0 ]] || { echo "$OUT"; fail "cell happy path exited $RC"; }
+cmp -s "$W/asset/install.sh" "$STATIC/install.sh" || fail "cell: install.sh missing or different in the static root"
+[[ ! -e "$STATIC/.install.sh.new" ]] || fail "cell: temporary file left behind"
+order=$(awk '{print $1 ($1=="ssh" ? ($0 ~ /mv -f/ ? ":mv" : ":hash") : "")}' "$STUB_LOG" | tr '\n' ' ')
+[[ "$order" == "gh scp ssh:hash ssh:mv " ]] || fail "cell: wrong call order: $order"
+grep -q "scp.* stubhost:$STATIC/\.install\.sh\.new" "$STUB_LOG" || fail "cell: upload did not use the temporary name next to the target"
+if grep -qE 'hmctl|site static' "$STUB_LOG"; then fail "cell: hmctl was called for a single file"; fi
+pass "cell: gh, scp, remote hash, atomic mv into the static root"
+rm -f "$STATIC/install.sh"
+
+# 9. Corrupt upload: install.sh is not replaced, temp file removed.
+printf 'old\n' > "$STATIC/install.sh"
+STUB_CORRUPT=1 run v1.2.3
+[[ $RC != 0 ]] || fail "cell: remote hash mismatch accepted"
+if grep -q 'mv -f' "$STUB_LOG"; then fail "cell: mv ran after a hash mismatch"; fi
+[[ $(cat "$STATIC/install.sh") == old ]] || fail "cell: served install.sh was replaced"
+[[ ! -e "$STATIC/.install.sh.new" ]] || fail "cell: temporary file left in the static root"
+pass "cell: remote hash mismatch leaves install.sh untouched"
+rm -f "$STATIC/install.sh"
+
+# 10. Dry run: no stub call, neither host nor slug printed.
+run v1.2.3 --dry-run
+[[ $RC == 0 ]] || { echo "$OUT"; fail "cell dry-run exited $RC"; }
+[[ ! -s "$STUB_LOG" ]] || fail "cell dry-run called a stub"
+[[ ! -e "$STATIC/install.sh" ]] || fail "cell dry-run wrote install.sh"
+grep -q 'DRY: ' <<<"$OUT" || fail "cell dry-run printed no steps"
+if grep -q stubhost <<<"$OUT"; then fail "cell dry-run printed the host"; fi
+DEPLOY_STATIC_ROOT= run v1.2.3 --dry-run
+if grep -q example-site <<<"$OUT"; then fail "cell dry-run printed the slug"; fi
+grep -qF "DRY: target <host>:<static-root>/install.sh" <<<"$OUT" || fail "cell dry-run did not print the target: $OUT"
+pass "cell: dry-run makes no remote call and prints neither host nor slug"
 echo "publish-install tests ok"
