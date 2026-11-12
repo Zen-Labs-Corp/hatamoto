@@ -16,6 +16,7 @@
 #   FAKE_MIGRATE_BUMPS=1        `site run <slug> -- migrate` bumps the goose answer
 #   FAKE_MEDIA=                 answer to the newest-media query
 #   FAKE_BINARY_FAIL=1          the first `site binary --from` fails (see FAKE_MIGRATE_BUMPS)
+#   FAKE_BINARY_SHOW=<text>     verbatim output of `site binary show` (default: from FAKE_BIN_STATE)
 #   FAKE_BIN_STATE=<file>       `site binary --from F` copies F here; --clear removes it
 #   FAKE_MARK=<file>            `site mark` store (one value; get exits 1 when absent)
 #   FAKE_STATIC=<dir>           `site static --from D --path P` rsyncs D/ to $FAKE_STATIC/P/
@@ -61,6 +62,10 @@ case $verb in
         fi
         cp "$2" "${FAKE_BIN_STATE:?fake-hmctl: FAKE_BIN_STATE not set}" ;;
       --clear) rm -f "${FAKE_BIN_STATE:-/dev/null}" ;;
+      show)
+        if [[ -n ${FAKE_BINARY_SHOW:-} ]]; then echo "$FAKE_BINARY_SHOW"; exit 0; fi
+        if [[ -e ${FAKE_BIN_STATE:-/nonexistent} ]]; then echo "override  yes"; else echo "override  none"; fi
+        echo "sha256    0123456789ab" ;;
     esac
     ;;
   run)

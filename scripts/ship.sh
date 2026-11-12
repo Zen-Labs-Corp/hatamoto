@@ -193,6 +193,7 @@ cell_psql() {
 }
 
 MIG=0; API=0; OLD_SHA=""; BACKUP_ID=""
+PRE_BIN=""   # cell: how to undo the binary step: "none" (no override, --clear) or a staged copy of the current binary
 DEPLOYED_API=0; MIG_RAN=0; GOOSE_PRE=""
 UNIT=/etc/systemd/system/hatamoto-api.service
 TS=$(date +%Y%m%d-%H%M%S)
@@ -946,11 +947,14 @@ rollback() {
       fi
     fi
     if (( DEPLOYED_API )); then
-      local old=$STAGING/hatamoto-$OLD_SHA
-      if [[ -n "$OLD_SHA" ]] && ssh -T -o BatchMode=yes "$DEPLOY_HOST" "test -f '$old'"; then
-        hm binary --from "$old" || { RB_BIN_FAILED=1; echo "rollback: re-applying the previous binary failed" >&2; }
-      else
+      if [[ "$PRE_BIN" == none ]]; then
         hm binary --clear || { RB_BIN_FAILED=1; echo "rollback: clearing the binary override failed" >&2; }
+      elif [[ -n "$PRE_BIN" ]] && ssh -T -o BatchMode=yes "$DEPLOY_HOST" "test -f '$PRE_BIN'"; then
+        hm binary --from "$PRE_BIN" || { RB_BIN_FAILED=1; echo "rollback: re-applying the previous binary failed" >&2; }
+      else
+        # never --clear when the previous state is unknown: it would install the channel release
+        RB_BIN_FAILED=1
+        echo "rollback: the previous binary state is unknown; the binary was left as it is (check: $HMCTL site binary $SLUG show)" >&2
       fi
     fi
     return 0
@@ -1009,6 +1013,10 @@ on_fail() {
     echo "SHIP-H FAILED (binary rolled back; DB NOT restored: manual restore needed)" >&2
     exit 2
   fi
+  if (( CELL && RB_BIN_FAILED )); then
+    echo "SHIP-H FAILED (ROLLBACK INCOMPLETE: binary not rolled back)" >&2
+    exit 3
+  fi
   if (( RB_DB_FAILED )); then
     echo "SHIP-H FAILED (ROLLBACK INCOMPLETE: database not restored; restore $DUMP by hand)" >&2
     exit 3
@@ -1060,7 +1068,21 @@ fi
 # Rollback references are taken BEFORE anything is mutated (except the
 # pre-ship copy of the binary); any failure here aborts with exit 1.
 if (( API && CELL )); then
-  echo "-- the unit and the running binary are owned by hmctl: nothing to copy or check"
+  echo "-- the unit is owned by hmctl; recording the current binary state for a rollback"
+  if (( DRY )); then
+    echo "DRY: $HMCTL site binary $SLUG show; copy an existing override to $STAGING/hatamoto-pre-ship-$TS"
+  else
+    BIN_SHOW=$(hm binary show 2>&1) \
+      || { echo "SHIP-H ABORT: hmctl site binary show failed (nothing was changed):" >&2; echo "$BIN_SHOW" >&2; exit 1; }
+    case $(awk '$1 == "override" { print $2; exit }' <<< "$BIN_SHOW") in
+      none) PRE_BIN=none ;;
+      yes)
+        PRE_BIN=$STAGING/hatamoto-pre-ship-$TS
+        ssh -T -o BatchMode=yes "$DEPLOY_HOST" "mkdir -p $STAGING && cp -a /srv/sites/$SLUG/bin/hatamoto $PRE_BIN" \
+          || { echo "SHIP-H ABORT: could not copy the current binary of site $SLUG for a rollback (nothing was changed)" >&2; exit 1; } ;;
+      *) echo "SHIP-H ABORT: cannot tell whether site $SLUG has a binary override (nothing was changed):" >&2; echo "$BIN_SHOW" >&2; exit 1 ;;
+    esac
+  fi
 elif (( API )); then
   echo "-- saving pre-ship copies of the binaries (hatamoto, hatamoto-api) and the unit file"
   run ssh "$DEPLOY_HOST" "cd $REMOTE_DIR/bin && for b in hatamoto hatamoto-api; do rm -f \$b.pre-ship; if [ -f \$b ]; then cp -a \$b \$b.pre-ship; fi; done; rm -f hatamoto-api.service.pre-ship; if [ -f $UNIT ]; then cp -a $UNIT hatamoto-api.service.pre-ship; fi"

@@ -50,7 +50,8 @@ cat > "$S/ssh" <<'SSH'
 while [[ ${1:-} == -* ]]; do case $1 in -o) shift 2 ;; *) shift ;; esac; done
 shift   # host
 echo "ssh $*" >>"$STUB_LOG"
-exec sh -c "$*"
+cmd="$*"
+exec sh -c "${cmd//\/srv\/sites\//$SRV_ROOT/sites/}"
 SSH
 cat > "$S/scp" <<'SCP'
 #!/usr/bin/env bash
@@ -76,12 +77,14 @@ chmod +x "$S"/*
 
 LOG=$W/calls.log; OUT=""
 ship() { # ship [ENV=VAL...]: real run in the scratch clone; sets OUT and RC
-  # OLD_MARK=1: the site reports $OLD as deployed-sha; OLD_FILE=1: its binary is still staged
-  : >"$LOG"; rm -f "$W/mark" "$W/bin-state" "$LOG.goose" "$LOG.stdin"; rm -rf "$W/stage"
+  # OLD_MARK=1: the site reports $OLD as deployed-sha; PRE_OVERRIDE=1: it runs an override binary
+  : >"$LOG"; rm -f "$W/mark" "$W/bin-state" "$LOG.goose" "$LOG.stdin" "$LOG.binfail"; rm -rf "$W/stage" "$W/srv"
   if [[ ${OLD_MARK:-} == 1 ]]; then echo "$OLD" >"$W/mark"; fi
-  if [[ ${OLD_FILE:-} == 1 ]]; then mkdir -p "$W/stage"; echo old-binary >"$W/stage/hatamoto-$OLD"; fi
+  if [[ ${PRE_OVERRIDE:-} == 1 ]]; then
+    mkdir -p "$W/srv/sites/example-site/bin"; echo old-binary >"$W/srv/sites/example-site/bin/hatamoto"; cp "$W/srv/sites/example-site/bin/hatamoto" "$W/bin-state"
+  fi
   set +e
-  OUT=$(cd "$W/main" && env PATH="$S:$PATH" STUB_LOG="$LOG" FAKE_MARK="$W/mark" FAKE_BIN_STATE="$W/bin-state" \
+  OUT=$(cd "$W/main" && env PATH="$S:$PATH" STUB_LOG="$LOG" FAKE_MARK="$W/mark" FAKE_BIN_STATE="$W/bin-state" SRV_ROOT="$W/srv" \
     CURL_FAIL_NEW="${CURL_FAIL_NEW:-}" SHIP_EXPECTED_ORIGIN="$ORIGIN_SLUG" DEPLOY_HOST=stubhost DEPLOY_TARGET=hmctl:example-site \
     DEPLOY_STAGING="$W/stage" SHIP_REEXEC=1 SHIP_MERGEABLE_WAIT=0 "$@" bash scripts/ship.sh 1 2>&1)
   RC=$?
@@ -141,16 +144,17 @@ if grep -qE 'site (backup|binary|run)' "$LOG"; then fail "mutating call although
 pass "psql banners are silenced; unreadable fingerprint aborts the preflight"
 
 # --- rollback: the new binary is unhealthy
-# (a) goose unchanged, old binary still staged: it is re-applied; exit 2, no DB message.
-OLD_MARK=1 OLD_FILE=1 CURL_FAIL_NEW=1 ship
+# (a) goose unchanged, the site ran an override: a pre-ship copy of it is re-applied; exit 2, no DB message.
+OLD_MARK=1 PRE_OVERRIDE=1 CURL_FAIL_NEW=1 ship
 [[ $RC == 2 ]] || fail "rollback (a) exited $RC, want 2"
-grep -q "hmctl site binary example-site --from $W/stage/hatamoto-$OLD" "$LOG" || fail "(a) old binary not re-applied"
+grep -qE "hmctl site binary example-site --from $W/stage/hatamoto-pre-ship-" "$LOG" || fail "(a) old binary not re-applied"
+if grep -q -- '--clear' "$LOG"; then fail "(a) --clear would swap in the channel release"; fi
 [[ "$(cat "$W/bin-state")" == old-binary ]] || fail "(a) the site is not on the old binary"
 if grep -q 'DB changed by migration' <<<"$OUT"; then fail "(a) DB message although goose is unchanged"; fi
 if grep -qE 'mark example-site deployed-sha [0-9a-f]{40}' "$LOG"; then fail "(a) mark written for a failed ship"; fi
 pass "rollback re-applies the previous binary, exit 2"
 
-# (b) old binary file gone: the override is cleared.
+# (b) no override before the ship: the override is cleared.
 OLD_MARK=1 CURL_FAIL_NEW=1 ship
 [[ $RC == 2 ]] || fail "rollback (b) exited $RC, want 2"
 grep -q 'hmctl site binary example-site --clear' "$LOG" || fail "(b) --clear not used"
@@ -158,18 +162,23 @@ grep -q 'hmctl site binary example-site --clear' "$LOG" || fail "(b) --clear not
 pass "rollback without the old file clears the override"
 
 # (c) the migration bumped goose: binary rolled back, DB left, manual-restore message with the backup id.
-OLD_MARK=1 OLD_FILE=1 CURL_FAIL_NEW=1 ship FAKE_MIGRATE_BUMPS=1
+OLD_MARK=1 PRE_OVERRIDE=1 CURL_FAIL_NEW=1 ship FAKE_MIGRATE_BUMPS=1
 [[ $RC == 2 ]] || fail "rollback (c) exited $RC, want 2"
 grep -q 'DB NOT restored' <<<"$OUT" || fail "(c) no DB message"
 grep -q '20260101T000000Z-manual' <<<"$OUT" || fail "(c) message lacks the backup id"
-grep -q "hmctl site binary example-site --from $W/stage/hatamoto-$OLD" "$LOG" || fail "(c) binary not rolled back"
+grep -qE "hmctl site binary example-site --from $W/stage/hatamoto-pre-ship-" "$LOG" || fail "(c) binary not rolled back"
 if grep -qE 'restore|pg_|restart|suspend' "$LOG"; then fail "(c) a restore/restart command was run"; fi
 pass "changed goose version: binary rolled back, manual DB restore message, exit 2"
 # (d) `site binary` itself fails after the start-up migration changed the schema: the fingerprint is
 # still compared, so the manual-restore message appears.
-OLD_MARK=1 OLD_FILE=1 ship FAKE_BINARY_FAIL=1 FAKE_MIGRATE_BUMPS=1
+OLD_MARK=1 PRE_OVERRIDE=1 ship FAKE_BINARY_FAIL=1 FAKE_MIGRATE_BUMPS=1
 [[ $RC == 2 ]] || fail "rollback (d) exited $RC, want 2"
 grep -q 'DB NOT restored' <<<"$OUT" || fail "(d) no DB message although the binary step migrated"
 if grep -q 'site run example-site -- migrate' "$LOG"; then fail "(d) migrate ran after the failed binary step"; fi
 pass "failed binary step after a start-up migration: DB flagged for manual restore"
+# (e) the binary state cannot be read: preflight abort, nothing mutated (so --clear is never a guess).
+PRE_OVERRIDE=1 ship FAKE_BINARY_SHOW=garbage
+[[ $RC == 1 ]] || fail "(e) unreadable binary state exited $RC, want 1"
+if grep -qE 'site (run|binary [^ ]+ --)' "$LOG"; then fail "(e) mutating call although the binary state is unknown"; fi
+pass "unknown binary state aborts the preflight"
 echo "ALL OK"
