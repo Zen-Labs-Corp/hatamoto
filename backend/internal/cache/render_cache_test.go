@@ -203,22 +203,46 @@ func TestRenderValueLargerThanCapNotStored(t *testing.T) {
 	checkStats(t, c)
 }
 
-func TestCapNeverEvictsNonRenderKeys(t *testing.T) {
+func TestCapCountsAndEvictsEveryKind(t *testing.T) {
 	c := New(nil)
-	c.SetRenderMaxBytes(20)
+	c.SetRenderMaxBytes(100)
 	ctx := context.Background()
-	_ = c.Set(ctx, "public:big", make([]byte, 500), time.Hour)
-	_ = c.Set(ctx, "sitemap:x", make([]byte, 500), time.Hour)
-	for i := 0; i < 20; i++ {
-		_ = c.Set(ctx, fmt.Sprintf("render:%d", i), make([]byte, 10), time.Hour)
+	_ = c.Set(ctx, "sitemap:x", make([]byte, 40), time.Hour)
+	_ = c.Set(ctx, "menu:main", make([]byte, 40), time.Hour)
+	_ = c.Set(ctx, "public:p", make([]byte, 10), time.Hour)
+	if n, b := c.RenderStats(); n != 0 || b != 0 {
+		t.Fatalf("RenderStats = (%d, %d), must stay render-only", n, b)
 	}
-	for _, k := range []string{"public:big", "sitemap:x"} {
+	// 90 held + 20 incoming exceeds 100: oldest go first, across kinds.
+	_ = c.Set(ctx, "render:new", make([]byte, 20), time.Hour)
+	if _, err := c.Get(ctx, "sitemap:x"); err == nil {
+		t.Fatal("oldest entry (sitemap) should be evicted")
+	}
+	for _, k := range []string{"menu:main", "public:p", "render:new"} {
 		if _, err := c.Get(ctx, k); err != nil {
-			t.Fatalf("%s was evicted: %v", k, err)
+			t.Fatalf("%s should survive: %v", k, err)
 		}
 	}
-	if _, b := c.RenderStats(); b > 20 {
-		t.Fatalf("render bytes %d exceed cap", b)
+	if c.Evictions() != 1 {
+		t.Fatalf("evictions = %d, want 1", c.Evictions())
+	}
+	if c.totalBytes != 70 {
+		t.Fatalf("totalBytes = %d, want 70", c.totalBytes)
+	}
+	_ = c.Delete(ctx, "menu:main")
+	_ = c.Set(ctx, "public:p", make([]byte, 5), time.Hour) // overwrite
+	if c.totalBytes != 25 {
+		t.Fatalf("totalBytes = %d after delete and overwrite, want 25", c.totalBytes)
+	}
+}
+
+func TestNonRenderValueLargerThanCapNotStored(t *testing.T) {
+	c := New(nil)
+	c.SetRenderMaxBytes(10)
+	ctx := context.Background()
+	_ = c.Set(ctx, "sitemap:big", make([]byte, 11), time.Hour)
+	if _, err := c.Get(ctx, "sitemap:big"); err == nil {
+		t.Fatal("oversized sitemap value was stored")
 	}
 }
 
