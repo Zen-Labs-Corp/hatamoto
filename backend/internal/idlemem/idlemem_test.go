@@ -40,13 +40,13 @@ import (
 const (
 	ownerEmail = "owner@idlemem.test"
 	ownerPass  = "idlemem-password-123"
-	// idleWait outlasts the Go runtime's forced collection (every 2 minutes
-	// without one): a sign-in hashes a password in 64 MiB, and until the next
-	// collection the heap keeps that room. Measured sooner, the result swings
-	// by 100 MiB depending on when the last collection happened.
-	idleWait = 150 * time.Second
+	// idleWait lets the memory releaser settle: it frees the heap after 10 s
+	// without a request and checks every 2 s, so 30 s leaves a wide margin
+	// over the last request of the warm-up. Measured sooner, the result would
+	// include heap the releaser has not yet returned to the OS.
+	idleWait = 30 * time.Second
 	// capBytes is the hard ceiling no baseline may exceed.
-	capBytes = 200 << 20
+	capBytes = 120 << 20
 )
 
 func TestBudgetIdleMemory(t *testing.T) {
