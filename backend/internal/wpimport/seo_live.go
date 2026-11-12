@@ -58,7 +58,7 @@ func parseHeadSettings(page []byte) headSettings {
 		s = s[:i]
 	}
 	out := headSettings{Verification: map[string]string{}}
-	if m := titleRe.FindStringSubmatch(s); m != nil {
+	if m := titleRe().FindStringSubmatch(s); m != nil {
 		out.Title = strings.TrimSpace(html.UnescapeString(m[1]))
 	}
 	for _, m := range htmlCommentRe.FindAllStringSubmatch(s, -1) {
@@ -68,7 +68,7 @@ func parseHeadSettings(page []byte) headSettings {
 			}
 		}
 	}
-	for _, tag := range metaTagRe.FindAllString(s, -1) {
+	for _, tag := range metaTagRe().FindAllString(s, -1) {
 		a := attrsOf(tag)
 		name, content := strings.ToLower(a["name"]), strings.TrimSpace(a["content"])
 		switch {

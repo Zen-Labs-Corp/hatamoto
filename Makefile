@@ -279,7 +279,7 @@ docs-publish-test:
 # budgets: deterministic size and allocation budgets (TestBudget* tests) against
 # the committed baselines in backend/testdata/budgets/*.json. No timing. The idle memory
 # budget (internal/idlemem) boots the built binary against a scratch database and so
-# needs HATAMOTO_TEST_DB_URL and Linux (about 3 minutes, 150 s of it idle wait); without them it skips and
+# needs HATAMOTO_TEST_DB_URL and Linux (about 1 minute, 30 s of it idle wait); without them it skips and
 # the recipe says so.
 # The recipe prints one table row per metric and exits non-zero on any failure.
 budgets:

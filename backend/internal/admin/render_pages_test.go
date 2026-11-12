@@ -33,7 +33,7 @@ func TestAdminPagesParseLazily(t *testing.T) {
 	g := newRig(t)
 	_, pages := g.a.state()
 	for key, ps := range pages {
-		if ps.t != nil || ps.err != nil {
+		if ps.t != nil {
 			t.Fatalf("page %s was parsed at build", key)
 		}
 	}
@@ -91,7 +91,7 @@ func TestRenderPartialParsesNoPage(t *testing.T) {
 	}
 	_, pages := g.a.state()
 	for key, ps := range pages {
-		if ps.t != nil || ps.err != nil {
+		if ps.t != nil {
 			t.Fatalf("RenderPartial parsed page %s", key)
 		}
 	}

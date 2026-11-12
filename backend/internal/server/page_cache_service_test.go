@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -152,6 +153,29 @@ func TestPageCacheSaveAppliesLive(t *testing.T) {
 	got, _ := r.svc.Settings(context.Background())
 	if got.TTLSeconds != 3600 || got.MaxMB != 2 || !got.PreloadEnabled {
 		t.Fatalf("stored %+v", got)
+	}
+}
+
+func TestPageCacheMaxMBZeroMeansAutomatic(t *testing.T) {
+	r := newServiceRig(t, false, "https://x.test")
+	auto := cache.AutoMaxBytes(debug.SetMemoryLimit(-1))
+	save := func(mb int) {
+		t.Helper()
+		if err := r.svc.Save(context.Background(), admin.PageCacheSettings{Enabled: true, TTLSeconds: 3600, MaxMB: mb}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	save(0)
+	if got := r.cache.RenderMaxBytes(); got != auto {
+		t.Fatalf("MaxMB 0: cap %d, want auto %d", got, auto)
+	}
+	save(5)
+	if got := r.cache.RenderMaxBytes(); got != 5<<20 {
+		t.Fatalf("MaxMB 5: cap %d", got)
+	}
+	save(0)
+	if got := r.cache.RenderMaxBytes(); got != auto {
+		t.Fatalf("back to MaxMB 0: cap %d, want auto %d", got, auto)
 	}
 }
 

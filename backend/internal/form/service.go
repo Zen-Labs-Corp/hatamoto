@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -374,9 +375,9 @@ func (s *Service) deleteFile(formID uuid.UUID, fileID string) {
 // --- Slug Generation ---
 
 var (
-	slugRegex    = regexp.MustCompile(`[^a-z0-9-]+`)
-	multiDash    = regexp.MustCompile(`-+`)
-	slugTrimDash = regexp.MustCompile(`^-+|-+$`)
+	slugRegex    = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`[^a-z0-9-]+`) })
+	multiDash    = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`-+`) })
+	slugTrimDash = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^-+|-+$`) })
 )
 
 // generateSlug creates a URL-friendly slug from a name.
@@ -391,13 +392,13 @@ func generateSlug(name string) string {
 	slug = removeAccents(slug)
 
 	// Replace non-alphanumeric characters with dashes
-	slug = slugRegex.ReplaceAllString(slug, "-")
+	slug = slugRegex().ReplaceAllString(slug, "-")
 
 	// Collapse multiple dashes
-	slug = multiDash.ReplaceAllString(slug, "-")
+	slug = multiDash().ReplaceAllString(slug, "-")
 
 	// Trim leading/trailing dashes
-	slug = slugTrimDash.ReplaceAllString(slug, "")
+	slug = slugTrimDash().ReplaceAllString(slug, "")
 
 	// Truncate to reasonable length
 	if len(slug) > 100 {
@@ -413,9 +414,9 @@ func generateSlug(name string) string {
 // normalizeSlug cleans up a user-provided slug.
 func normalizeSlug(slug string) string {
 	slug = strings.ToLower(strings.TrimSpace(slug))
-	slug = slugRegex.ReplaceAllString(slug, "-")
-	slug = multiDash.ReplaceAllString(slug, "-")
-	slug = slugTrimDash.ReplaceAllString(slug, "")
+	slug = slugRegex().ReplaceAllString(slug, "-")
+	slug = multiDash().ReplaceAllString(slug, "-")
+	slug = slugTrimDash().ReplaceAllString(slug, "")
 	return slug
 }
 

@@ -52,7 +52,7 @@ type BootProp struct {
 func UniversalProps() []BootProp {
 	const noControl = `^[^\x00-\x1f\x7f]*$`
 	return []BootProp{
-		{Key: "preset", Type: "string", Pattern: presetRe.String()},
+		{Key: "preset", Type: "string", Pattern: presetRe().String()},
 		{Key: "navlabel", Type: "string", MaxLength: 80, Pattern: noControl},
 		{Key: "anchor", Type: "string", Pattern: anchorPattern},
 		{Key: "aria", Type: "string", MaxLength: 200, Pattern: noControl},

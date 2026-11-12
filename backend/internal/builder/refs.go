@@ -7,6 +7,7 @@ import (
 	"maps"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 // Limits on reference expansion (see Engine.expandRefs in render).
@@ -15,7 +16,9 @@ const (
 	RefMaxNodes = 1000 // expanded nodes per rendered page
 )
 
-var uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+var uuidRe = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+})
 
 // walkNodes visits ns and their descendants in document order.
 func walkNodes(ns []*Node, fn func(*Node)) {

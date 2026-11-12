@@ -311,7 +311,7 @@ access rules cover them. Files are checked by size and content type only; there 
 
 | Guarantee | Package | Tests |
 |---|---|---|
-| Password hashing (argon2id, 64 MB per hash) runs at most four at once; later attempts wait and give up when the client goes | `internal/auth` | `TestHashPassword_BoundedConcurrency`, `TestHashPassword_CancelledWaiterReturnsPromptly` |
+| Password hashing is argon2id with m=19456 KiB (19 MiB), t=2, p=1 (an OWASP-listed setting). Hashes in flight are bounded to a quarter of the memory limit (1 to 4 hashes of that size; by CPU count when there is no limit), and a stored hash with more memory counts for proportionally more (a legacy 64 MiB hash counts as 4). Later attempts wait and give up when the client goes. A weaker stored hash is replaced by the current one on the user's next successful sign-in | `internal/auth` | `TestHashPassword_BoundedConcurrency`, `TestHashPassword_CancelledWaiterReturnsPromptly`, `TestGateSlots`, `TestNeedsRehash`, `TestLoginRehashesLegacyHash` |
 | The setup code is at least 12 characters once normalised and not trivial; a fresh install with a weak code does not start; an install that already has users only warns | `internal/config`, `internal/server` | `TestSetupCodeValidation`, `TestSetupCodeFreshInstallWithShortCodeIsRefused`, `TestSetupCodeUpgradedInstallWithShortCodeStarts` |
 | The setup wizard needs the code and works once | `internal/admin` | `TestSetupRequiresCodeAndIsOneShot` |
 | An API key's secret is shown once | `internal/admin` | `TestAPIKeysSecretShownOnce` |

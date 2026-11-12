@@ -40,13 +40,19 @@ import (
 const (
 	ownerEmail = "owner@idlemem.test"
 	ownerPass  = "idlemem-password-123"
-	// idleWait outlasts the Go runtime's forced collection (every 2 minutes
-	// without one): a sign-in hashes a password in 64 MiB, and until the next
-	// collection the heap keeps that room. Measured sooner, the result swings
-	// by 100 MiB depending on when the last collection happened.
-	idleWait = 150 * time.Second
+	// idleWait lets the memory releaser settle: it frees the heap after 10 s
+	// without a request and checks every 2 s, so 30 s leaves a wide margin
+	// over the last request of the warm-up. Measured sooner, the result would
+	// include heap the releaser has not yet returned to the OS.
+	idleWait = 30 * time.Second
+	// settleMax bounds idleWait plus the polling for a stable reading, and
+	// settleTol is how far two reads, settlePoll apart, may differ and still
+	// count as settled.
+	settleMax  = 60 * time.Second
+	settlePoll = 3 * time.Second
+	settleTol  = 1 << 20
 	// capBytes is the hard ceiling no baseline may exceed.
-	capBytes = 200 << 20
+	capBytes = 120 << 20
 )
 
 func TestBudgetIdleMemory(t *testing.T) {
@@ -118,20 +124,9 @@ func TestBudgetIdleMemory(t *testing.T) {
 	}
 	warm(t, c, base)
 
-	time.Sleep(idleWait)
-
-	pids := tree(srv.Process.Pid)
-	if len(pids) < 2 {
-		t.Fatalf("expected the supervisor and its serve child, got pids %v\n%s", pids, logs.String())
-	}
-	var total int64
+	pids, total := settledPss(t, srv.Process.Pid, logs)
 	for _, pid := range pids {
-		p, err := pss(pid)
-		if err != nil {
-			t.Fatalf("pid %d: %v", pid, err)
-		}
-		t.Logf("pid %d (%s): Pss %.1f MiB", pid, cmdline(pid), float64(p)/(1<<20))
-		total += p
+		t.Logf("pid %d (%s)", pid, cmdline(pid))
 	}
 	t.Logf("idle Pss of the process tree: %.1f MiB", float64(total)/(1<<20))
 	budgetfile.Check(t, "idlemem", "idle_pss_bytes", total, budgetfile.Metric{
@@ -379,4 +374,43 @@ func pss(pid int) (int64, error) {
 		}
 	}
 	return 0, fmt.Errorf("no Pss line in smaps_rollup")
+}
+
+// treePss sums the Pss of the process tree rooted at pid.
+func treePss(t *testing.T, root int, logs *lockedBuilder) ([]int, int64) {
+	t.Helper()
+	pids := tree(root)
+	if len(pids) < 2 {
+		t.Fatalf("expected the supervisor and its serve child, got pids %v\n%s", pids, logs.String())
+	}
+	var total int64
+	for _, pid := range pids {
+		p, err := pss(pid)
+		if err != nil {
+			t.Fatalf("pid %d: %v", pid, err)
+		}
+		total += p
+	}
+	return pids, total
+}
+
+// settledPss waits idleWait, then reads the tree's Pss until two reads
+// settlePoll apart agree within settleTol (a release that landed late shows as
+// a drop), giving up at settleMax in total and returning the last read.
+func settledPss(t *testing.T, root int, logs *lockedBuilder) ([]int, int64) {
+	t.Helper()
+	start := time.Now()
+	time.Sleep(idleWait)
+	pids, prev := treePss(t, root, logs)
+	for time.Since(start)+settlePoll <= settleMax {
+		time.Sleep(settlePoll)
+		var cur int64
+		pids, cur = treePss(t, root, logs)
+		d := cur - prev
+		prev = cur
+		if d < settleTol && -d < settleTol {
+			break
+		}
+	}
+	return pids, prev
 }

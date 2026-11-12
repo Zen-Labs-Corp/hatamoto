@@ -26,41 +26,73 @@ import (
 // layouts and partials, parsed once and never executed (with embedded templates
 // it is shared by every Admin in the process). A page is cloned from it, parsed
 // and bound to the Admin's funcs on first use only: html/template escapes a set
-// in place the first time it runs, and most pages are never visited.
+// in place the first time it runs, and most pages are never visited. At most
+// maxExecSets executable copies are kept per Admin (see execLRU); an evicted
+// page is rebuilt on its next visit.
 type pageSet struct {
 	fsys fs.FS
 	file string
 	base *template.Template
 	fm   template.FuncMap
-	once sync.Once
-	t    *template.Template
-	err  error
+	lru  *execLRU
+	t    *template.Template // guarded by lru.mu
 }
 
-// tmpl returns this Admin's executable copy of the page set, building it on
-// the first call. A pageSet with no file is the layouts and partials alone.
+// maxExecSets bounds the executable page sets kept alive: each is about 1.5 MiB
+// once escaped, and admin pages are visited rarely.
+const maxExecSets = 4
+
+// execLRU tracks the page sets of one Admin that hold an executable copy, most
+// recently used last. Its mutex guards the list and every pageSet.t, so a set
+// is never evicted while it is being built. A request that already holds a set
+// keeps executing it after its pageSet drops the pointer.
+type execLRU struct {
+	mu   sync.Mutex
+	used []*pageSet
+}
+
+// touch moves ps to the most recent end of the LRU; lru.mu is held.
+func (ps *pageSet) touch() {
+	u := ps.lru.used
+	for i, o := range u {
+		if o == ps {
+			u = append(u[:i], u[i+1:]...)
+			break
+		}
+	}
+	ps.lru.used = append(u, ps)
+}
+
+// tmpl returns this Admin's executable copy of the page set, building it when
+// it has none. A pageSet with no file is the layouts and partials alone.
 func (ps *pageSet) tmpl() (*template.Template, error) {
-	ps.once.Do(func() {
-		t, err := ps.base.Clone()
+	ps.lru.mu.Lock()
+	defer ps.lru.mu.Unlock()
+	if ps.t != nil {
+		ps.touch()
+		return ps.t, nil
+	}
+	t, err := ps.base.Clone()
+	if err != nil {
+		// base is never executed, so Clone cannot fail.
+		return nil, fmt.Errorf("admin template %s: %w", ps.file, err)
+	}
+	if ps.file != "" {
+		body, err := fs.ReadFile(ps.fsys, ps.file)
 		if err != nil {
-			// base is never executed, so Clone cannot fail.
-			ps.err = fmt.Errorf("admin template %s: %w", ps.file, err)
-			return
+			return nil, fmt.Errorf("admin template %s: %w", ps.file, err)
 		}
-		if ps.file != "" {
-			body, err := fs.ReadFile(ps.fsys, ps.file)
-			if err != nil {
-				ps.err = fmt.Errorf("admin template %s: %w", ps.file, err)
-				return
-			}
-			if _, err := t.New("page").Parse(string(body)); err != nil {
-				ps.err = fmt.Errorf("admin template %s: %w", ps.file, err)
-				return
-			}
+		if _, err := t.New("page").Parse(string(body)); err != nil {
+			return nil, fmt.Errorf("admin template %s: %w", ps.file, err)
 		}
-		ps.t = t.Funcs(ps.fm)
-	})
-	return ps.t, ps.err
+	}
+	ps.t = t.Funcs(ps.fm)
+	ps.touch()
+	for len(ps.lru.used) > maxExecSets {
+		ps.lru.used[0].t = nil
+		ps.lru.used = ps.lru.used[1:]
+	}
+	return ps.t, nil
 }
 
 // pageSources is what an Admin tree yields without parsing any page: the
@@ -368,13 +400,14 @@ func (a *Admin) build() error {
 		return err
 	}
 	fm := a.funcMap()
+	lru := &execLRU{}
 	pages := make(map[string]*pageSet, len(srcs.files))
 	for key, file := range srcs.files {
-		pages[key] = &pageSet{fsys: srcs.fsys, file: file, base: srcs.base, fm: fm}
+		pages[key] = &pageSet{fsys: srcs.fsys, file: file, base: srcs.base, fm: fm, lru: lru}
 	}
 	a.mu.Lock()
 	a.assets, a.pages, a.loaded = as, pages, true
-	a.partials = &pageSet{base: srcs.base, fm: fm}
+	a.partials = &pageSet{base: srcs.base, fm: fm, lru: lru}
 	a.mu.Unlock()
 	return nil
 }
@@ -441,12 +474,48 @@ func newPageSources(fsys fs.FS) (*pageSources, error) {
 	return &pageSources{fsys: fsys, base: base, files: files}, nil
 }
 
-// state returns the current assets and pages; with a template dir it rebuilds
-// first so edits show without a restart.
-func (a *Admin) state() (*Assets, map[string]*pageSet) {
+// ensureBuilt builds the assets and page sources the first time the admin is
+// used, so a site nobody opens the admin on never holds them. A failed asset
+// build is not remembered: every call retries it until it succeeds. A failure
+// to parse the embedded page sources is permanent (the tree cannot change
+// within a process), so every later call returns it. With a template dir every
+// call rebuilds so edits show without a restart.
+func (a *Admin) ensureBuilt() error {
 	if a.deps.Dir != "" {
-		if err := a.build(); err != nil {
-			a.logger().Error("admin rebuild failed", "err", err)
+		return a.build()
+	}
+	a.mu.RLock()
+	done := a.loaded
+	a.mu.RUnlock()
+	if done {
+		return nil
+	}
+	a.buildMu.Lock()
+	defer a.buildMu.Unlock()
+	a.mu.RLock()
+	done = a.loaded
+	a.mu.RUnlock()
+	if done {
+		return nil
+	}
+	return a.build()
+}
+
+// state returns the current assets and pages, building them on first use. If the
+// build fails it logs the error and returns empty assets and no pages, so every
+// page answers 500 until a build succeeds (never, for an embedded build error,
+// which is logged once).
+func (a *Admin) state() (*Assets, map[string]*pageSet) {
+	if err := a.ensureBuilt(); err != nil {
+		if a.deps.Dir != "" {
+			a.logger().Error("admin build failed", "err", err)
+		} else {
+			a.buildErrOnce.Do(func() { a.logger().Error("admin build failed; every admin page answers 500", "err", err) })
+		}
+		a.mu.RLock()
+		defer a.mu.RUnlock()
+		if a.assets == nil {
+			return &Assets{}, nil
 		}
 	}
 	a.mu.RLock()

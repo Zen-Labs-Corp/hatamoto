@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"sync"
@@ -95,6 +96,10 @@ type Service struct {
 	codes CodeChecker
 	// required is the site policy; nil means no policy.
 	required FactorRequirement
+	// rehashing holds the users whose hash upgrade is in flight; rehashes lets
+	// tests wait for it.
+	rehashing sync.Map
+	rehashes  sync.WaitGroup
 }
 
 // SetFactorRequirement wires the site policy the JSON login enforces. Call it
@@ -222,6 +227,8 @@ func (s *Service) authenticate(ctx context.Context, email, password string) (u *
 		return nil, false, ErrInvalidCredentials
 	}
 
+	s.maybeRehash(ctx, superCtx, u, password)
+
 	// A user with a second factor is not signed in yet: keep the failure
 	// counter so wrong codes at the next step add to it. If we cannot tell
 	// whether a factor exists, refuse (fail closed).
@@ -239,6 +246,48 @@ func (s *Service) authenticate(ctx context.Context, email, password string) (u *
 	}
 
 	return u, false, nil
+}
+
+// passwordHashUpdater is the optional repository method that swaps a stored
+// hash for an upgraded one. It is not part of user.Repository: only the
+// Postgres repository has it, and mocks need not.
+type passwordHashUpdater interface {
+	UpdatePasswordHash(ctx context.Context, id uuid.UUID, oldHash, newHash string) (bool, error)
+}
+
+// maybeRehash upgrades a stored hash weaker than the current target after the
+// password was proven. It never fails or delays the sign-in: the upgrade runs
+// in its own goroutine (at most one per user; a sign-in that finds one in
+// flight skips it), and an error is logged and dropped, so the next sign-in
+// tries again. The write is a compare-and-swap on the old hash and leaves
+// lockout state and sessions alone. It uses a context detached from the request
+// so a client that disconnects keeps the upgrade. The CAS can make a
+// ChangePassword started at the same instant fail once (it compares the old
+// hash too); the user retries.
+func (s *Service) maybeRehash(ctx, superCtx context.Context, u *user.User, password string) {
+	up, ok := s.userRepo.(passwordHashUpdater)
+	if !ok || !NeedsRehash(u.PasswordHash) {
+		return
+	}
+	if _, busy := s.rehashing.LoadOrStore(u.ID, struct{}{}); busy {
+		return
+	}
+	rctx, cancel := context.WithTimeout(context.WithoutCancel(superCtx), 10*time.Second)
+	logCtx := context.WithoutCancel(ctx)
+	id, oldHash := u.ID, u.PasswordHash
+	s.rehashes.Add(1)
+	go func() {
+		defer s.rehashes.Done()
+		defer s.rehashing.Delete(id)
+		defer cancel()
+		newHash, err := HashPasswordContext(rctx, password)
+		if err == nil {
+			_, err = up.UpdatePasswordHash(rctx, id, oldHash, newHash)
+		}
+		if err != nil {
+			slog.WarnContext(logCtx, "password rehash failed; sign-in continues", "user_id", id, "err", err)
+		}
+	}()
 }
 
 // CheckPassword is the first step of admin sign-in: it verifies the password

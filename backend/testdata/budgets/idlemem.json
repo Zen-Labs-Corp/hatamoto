@@ -1,16 +1,20 @@
 {
   "metrics": {
     "idle_pss_bytes": {
-      "value": 133857280,
+      "value": 115757056,
       "unit": "bytes",
       "tol_pct": 30,
-      "cap": 209715200
+      "cap": 125829120
     }
   },
   "history": [
     {
       "reason": "idle memory baseline",
       "date": "2026-11-11"
+    },
+    {
+      "reason": "idle memory: release heap after bursts, lighter password hashing, lazy init",
+      "date": "2026-11-12"
     }
   ]
 }

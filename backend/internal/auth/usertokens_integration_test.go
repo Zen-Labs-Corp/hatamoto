@@ -421,7 +421,7 @@ func TestChangePasswordGuessesLockTheAccount(t *testing.T) {
 }
 
 // With every hash slot busy, junk tokens and a cancelled request must return
-// at once: nothing queues for a 64 MB hash it cannot use.
+// at once: nothing queues for a hash it cannot use.
 func TestTokenFlowsDoNotQueueUselessHashes(t *testing.T) {
 	r := newTokRig(t)
 	u := r.newUser(t, user.RoleEditor)
@@ -429,14 +429,14 @@ func TestTokenFlowsDoNotQueueUselessHashes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for range maxConcurrentHashes {
-		hashSlots <- struct{}{}
-	}
-	defer func() {
-		for range maxConcurrentHashes {
-			<-hashSlots
+	g := useLimit(t, 512*miB)
+	for range g.cap {
+		rel, err := g.acquire(context.Background(), 1)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}()
+		defer rel()
+	}
 	within := func(name string, f func(ctx context.Context) error, want error) {
 		t.Helper()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -665,5 +665,48 @@ func TestInviteOwnerWithAccessEndNeedsOpenOwner(t *testing.T) {
 	r.newUser(t, user.RoleOwner)
 	if _, _, err := r.tok.IssueInvite(ctx, email, user.RoleOwner, inviter.ID, &end); err != nil {
 		t.Fatalf("with an open owner: %v", err)
+	}
+}
+
+// A rehash that lands between ChangePassword reading the stored hash and
+// storing the new one fails the change, but the password was right, so it must
+// not count as a failed sign-in.
+func TestChangePasswordRaceWithRehashIsNotAStrike(t *testing.T) {
+	r := newTokRig(t)
+	ctx := context.Background()
+	u := r.newUser(t, user.RoleEditor)
+	g := useLimit(t, 128*miB) // one slot: ChangePassword waits in its verify
+	rel, err := g.acquire(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- r.tok.ChangePassword(ctx, u.ID, "an-old-password-123", "a-brand-new-password", nil)
+	}()
+	time.Sleep(300 * time.Millisecond) // it has read the old hash and queued
+	var old string
+	sctx := database.WithSuperadmin(ctx)
+	conn, err := r.db.GetConn(sctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Release()
+	if err := conn.QueryRow(ctx, `SELECT password_hash FROM hatamoto_users WHERE id = $1`, u.ID).Scan(&old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.Exec(ctx, `UPDATE hatamoto_users SET password_hash = $2 WHERE id = $1`, u.ID, old+"x"); err != nil {
+		t.Fatal(err)
+	}
+	rel()
+	if err := <-done; !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("ChangePassword = %v, want ErrInvalidCredentials", err)
+	}
+	var fails int
+	if err := conn.QueryRow(ctx, `SELECT failed_login_attempts FROM hatamoto_users WHERE id = $1`, u.ID).Scan(&fails); err != nil {
+		t.Fatal(err)
+	}
+	if fails != 0 {
+		t.Fatalf("failed_login_attempts = %d, want 0", fails)
 	}
 }

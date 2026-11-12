@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/taxonomy"
@@ -33,8 +34,8 @@ type seoPlan struct {
 // logical name and regexes whose first group is the post type or taxonomy.
 type seoSpec struct {
 	opt                           map[string]string
-	typeTitle, typeDesc, taxTitle *regexp.Regexp
-	typeNoindex, taxNoindex       *regexp.Regexp
+	typeTitle, typeDesc, taxTitle func() *regexp.Regexp
+	typeNoindex, taxNoindex       func() *regexp.Regexp
 	notMappedKeys                 map[string]string // option key prefix -> label
 	notMappedNoindex              map[string]string // option key -> label, when noindex
 	customRobots                  bool              // *_robots only applies when *_custom_robots is on (Rank Math)
@@ -52,9 +53,9 @@ var seoSpecs = map[string]seoSpec{
 			"google": "google_verify", "bing": "bing_verify", "yandex": "yandex_verify",
 			"baidu": "baidu_verify", "pinterest": "pinterest_verify",
 		},
-		typeTitle: regexp.MustCompile(`^pt_(.+)_title$`), typeDesc: regexp.MustCompile(`^pt_(.+)_description$`),
-		taxTitle:    regexp.MustCompile(`^tax_(.+)_title$`),
-		typeNoindex: regexp.MustCompile(`^pt_(.+)_robots$`), taxNoindex: regexp.MustCompile(`^tax_(.+)_robots$`),
+		typeTitle: lazyRE(`^pt_(.+)_title$`), typeDesc: lazyRE(`^pt_(.+)_description$`),
+		taxTitle:    lazyRE(`^tax_(.+)_title$`),
+		typeNoindex: lazyRE(`^pt_(.+)_robots$`), taxNoindex: lazyRE(`^tax_(.+)_robots$`),
 		notMappedKeys:    map[string]string{"local_": "Local SEO", "phone_numbers": "Local SEO", "opening_hours": "Local SEO", "redirections": "Redirections", "indexnow": "IndexNow key", "rank_math_indexnow": "IndexNow key"},
 		notMappedNoindex: map[string]string{"date_archive_robots": "Noindex on date archives", "404_robots": "Noindex on 404 pages"},
 	},
@@ -68,9 +69,9 @@ var seoSpecs = map[string]seoSpec{
 			"google": "googleverify", "bing": "msverify", "yandex": "yandexverify",
 			"baidu": "baiduverify", "pinterest": "pinterestverify",
 		},
-		typeTitle: regexp.MustCompile(`^title-(.+)$`), typeDesc: regexp.MustCompile(`^metadesc-(.+)$`),
-		taxTitle:    regexp.MustCompile(`^title-tax-(.+)$`),
-		typeNoindex: regexp.MustCompile(`^noindex-(.+)$`), taxNoindex: regexp.MustCompile(`^noindex-tax-(.+)$`),
+		typeTitle: lazyRE(`^title-(.+)$`), typeDesc: lazyRE(`^metadesc-(.+)$`),
+		taxTitle:    lazyRE(`^title-tax-(.+)$`),
+		typeNoindex: lazyRE(`^noindex-(.+)$`), taxNoindex: lazyRE(`^noindex-tax-(.+)$`),
 		notMappedKeys:    map[string]string{"indexnow": "IndexNow key", "enable_index_now": "IndexNow key", "redirect": "Redirections"},
 		notMappedNoindex: map[string]string{"noindex-archive-wpseo": "Noindex on date archives", "noindex-404-wpseo": "Noindex on 404 pages"},
 	},
@@ -82,7 +83,7 @@ var seoSpecs = map[string]seoSpec{
 			"google": "google_verification", "bing": "bing_verification", "yandex": "yandex_verification",
 			"baidu": "baidu_verification", "pinterest": "pint_verification",
 		},
-		typeNoindex: regexp.MustCompile(`^(.+)_noindex$`), taxNoindex: regexp.MustCompile(`^(category|post_tag)_noindex$`),
+		typeNoindex: lazyRE(`^(.+)_noindex$`), taxNoindex: lazyRE(`^(category|post_tag)_noindex$`),
 		notMappedNoindex: map[string]string{"date_noindex": "Noindex on date archives"},
 	},
 }
@@ -93,8 +94,8 @@ var seoSeparatorNames = map[string]map[string]string{
 }
 
 var (
-	metaContentRE = regexp.MustCompile(`(?i)content\s*=\s*["']([^"']*)["']`)
-	twitterURLRE  = regexp.MustCompile(`(?i)^(?:https?://)?(?:www\.)?(?:twitter|x)\.com/`)
+	metaContentRE = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?i)content\s*=\s*["']([^"']*)["']`) })
+	twitterURLRE  = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?i)^(?:https?://)?(?:www\.)?(?:twitter|x)\.com/`) })
 )
 
 // buildSEOPlan turns the parsed settings file and the live read into fields.
@@ -497,11 +498,11 @@ func pruneSEOPlan(cur seo.Settings, p seoPlan) (kept []seoField, dropped []strin
 	return kept, dropped
 }
 
-func matchName(re *regexp.Regexp, key string) string {
+func matchName(re func() *regexp.Regexp, key string) string {
 	if re == nil {
 		return ""
 	}
-	m := re.FindStringSubmatch(key)
+	m := re().FindStringSubmatch(key)
 	if m == nil {
 		return ""
 	}
@@ -594,7 +595,7 @@ func hasRobot(v any, directive string) bool {
 // twitterHandle normalises a handle or profile URL to "@name".
 func twitterHandle(v string) string {
 	v = strings.TrimSpace(v)
-	v = twitterURLRE.ReplaceAllString(v, "")
+	v = twitterURLRE().ReplaceAllString(v, "")
 	v = strings.Trim(strings.TrimPrefix(v, "@"), "/ ")
 	if v == "" {
 		return ""
@@ -605,8 +606,13 @@ func twitterHandle(v string) string {
 // verificationCode extracts the code from a value that may be a whole meta tag.
 func verificationCode(v string) string {
 	v = strings.TrimSpace(v)
-	if m := metaContentRE.FindStringSubmatch(v); m != nil {
+	if m := metaContentRE().FindStringSubmatch(v); m != nil {
 		return strings.TrimSpace(m[1])
 	}
 	return v
+}
+
+// lazyRE returns a getter that compiles src on first use.
+func lazyRE(src string) func() *regexp.Regexp {
+	return sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(src) })
 }

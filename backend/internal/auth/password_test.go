@@ -1,8 +1,12 @@
 package auth
 
 import (
+	"encoding/base64"
+	"fmt"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/argon2"
 
 	"hatamoto.dev/core/internal/testutil"
 )
@@ -211,5 +215,72 @@ func TestGenerateRandomString_Uniqueness(t *testing.T) {
 		_, exists := seen[s]
 		testutil.False(t, exists, "generated string should be unique")
 		seen[s] = struct{}{}
+	}
+}
+
+// encodeWith builds a stored hash with explicit parameters, as an older
+// install would have written it.
+func encodeWith(t *testing.T, password string, m, ti uint32, p uint8) string {
+	t.Helper()
+	salt := []byte("0123456789abcdef")
+	key := argon2.IDKey([]byte(password), salt, ti, m, p, 32)
+	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s", argon2.Version, m, ti, p,
+		base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(key))
+}
+
+func TestHashPassword_TargetParams(t *testing.T) {
+	enc, err := HashPassword("pw")
+	testutil.RequireNoError(t, err)
+	if !strings.Contains(enc, "$m=19456,t=2,p=1$") {
+		t.Fatalf("hash = %q, want m=19456,t=2,p=1", enc)
+	}
+	testutil.False(t, NeedsRehash(enc))
+}
+
+func TestNeedsRehash(t *testing.T) {
+	legacy := encodeWith(t, "pw", 65536, 1, 4)
+	ok, err := VerifyPassword("pw", legacy)
+	testutil.RequireNoError(t, err)
+	testutil.True(t, ok)
+
+	tests := []struct {
+		name string
+		enc  string
+		want bool
+	}{
+		{"legacy", legacy, true},
+		{"target", encodeWith(t, "pw", 19456, 2, 1), false},
+		{"more memory", encodeWith(t, "pw", 47104, 2, 1), false},
+		{"more time, other lanes", encodeWith(t, "pw", 65536, 2, 4), false},
+		{"time below target", encodeWith(t, "pw", 19456, 1, 1), true},
+		{"memory below target", encodeWith(t, "pw", 12288, 3, 1), true},
+		{"reset marker", "!reset-required", false},
+		{"garbage", "notahash", false},
+		{"wrong version", "$argon2id$v=99$m=19456,t=2,p=1$c29tZXNhbHQ$c29tZWhhc2g", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NeedsRehash(tt.enc); got != tt.want {
+				t.Errorf("NeedsRehash = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestVerifyPassword_OutOfBoundsParams(t *testing.T) {
+	for _, params := range []string{
+		"m=0,t=1,p=1", "m=19456,t=0,p=1", "m=19456,t=2,p=0", "m=1048576,t=1,p=1",
+		"m=19456,t=11,p=1", "m=19456,t=2,p=17", "m=4,t=1,p=1",
+	} {
+		enc := "$argon2id$v=19$" + params + "$c29tZXNhbHQ$c29tZWhhc2g"
+		ok, err := VerifyPassword("pw", enc)
+		testutil.False(t, ok)
+		testutil.ErrorIs(t, err, ErrInvalidHash)
+		testutil.False(t, NeedsRehash(enc))
+	}
+	// key length outside 4..1024
+	enc := "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHQ$YWI"
+	if _, err := VerifyPassword("pw", enc); err == nil {
+		t.Error("2-byte key accepted")
 	}
 }

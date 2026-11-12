@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"sync"
 	"sync/atomic"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
@@ -11,7 +12,7 @@ import (
 // swaps the pointer, so a call that takes one snapshot never sees a mix.
 type registry struct {
 	kinds   map[string]kindSpec
-	schemas map[string]*jsonschema.Schema
+	schemas func() map[string]*jsonschema.Schema // compiled on first use
 }
 
 // reg is the live snapshot: nativeKinds plus the embedded widgets.
@@ -22,9 +23,10 @@ func init() {
 	reg.Store(coreRegistry)
 }
 
-// newRegistry compiles the schema of every kind in ks.
+// newRegistry builds a snapshot of ks; the schema of every kind is compiled on
+// the first read of schemas, once.
 func newRegistry(ks map[string]kindSpec) *registry {
-	return &registry{kinds: ks, schemas: compileKinds(ks)}
+	return &registry{kinds: ks, schemas: sync.OnceValue(func() map[string]*jsonschema.Schema { return compileKinds(ks) })}
 }
 
 // kindOf returns the spec of a kind; the zero spec and false when unknown.
@@ -41,7 +43,7 @@ func TakesChildren(kind string) bool {
 
 // schemaOf returns the compiled prop schema of a kind, nil when unknown.
 func schemaOf(name string) *jsonschema.Schema {
-	return reg.Load().schemas[name]
+	return reg.Load().schemas()[name]
 }
 
 // coreRegistry is the snapshot without plugin kinds; SetPackKinds builds on it.

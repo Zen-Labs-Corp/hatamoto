@@ -414,6 +414,26 @@ func (r *PostgresRepository) SetPassword(ctx context.Context, id uuid.UUID, pass
 	return nil
 }
 
+// UpdatePasswordHash swaps a stored hash for an upgraded hash of the same
+// password. It does not touch lockout state or sessions. It reports false when
+// the stored hash is no longer oldHash (changed meanwhile), leaving it alone.
+func (r *PostgresRepository) UpdatePasswordHash(ctx context.Context, id uuid.UUID, oldHash, newHash string) (bool, error) {
+	conn, err := r.db.GetConn(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer conn.Release()
+
+	tag, err := conn.Exec(ctx, `
+		UPDATE hatamoto_users
+		SET password_hash = $3, updated_at = NOW()
+		WHERE id = $1 AND password_hash = $2`, id, oldHash, newHash)
+	if err != nil {
+		return false, fmt.Errorf("failed to update password hash: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 // Delete removes a user from the database.
 func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	conn, err := r.db.GetConn(ctx)

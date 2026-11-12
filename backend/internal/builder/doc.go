@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sync"
 
 	"hatamoto.dev/core/internal/jsonx"
 )
@@ -23,11 +24,11 @@ const (
 	MaxBytes = 1 << 20
 )
 
-var idRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+var idRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`) })
 
 // ValidID reports whether id is usable as a node id (and so in a class
 // selector or attribute value).
-func ValidID(id string) bool { return idRe.MatchString(id) }
+func ValidID(id string) bool { return idRe().MatchString(id) }
 
 // Doc is page_doc v2.
 type Doc struct {
@@ -129,7 +130,7 @@ func (d *Doc) Validate() error {
 			if count > MaxNodes {
 				return invalid("more than %d nodes", MaxNodes)
 			}
-			if x == nil || !idRe.MatchString(x.ID) {
+			if x == nil || !idRe().MatchString(x.ID) {
 				return invalid("bad node id")
 			}
 			if seen[x.ID] {
@@ -208,7 +209,7 @@ func validateProps(r *registry, x *Node) error {
 	} else if err := jsonx.Unmarshal(raw, &v, jsonx.Stored); err != nil {
 		return fmt.Errorf("props: %w", err)
 	}
-	s := r.schemas[x.T]
+	s := r.schemas()[x.T]
 	if s == nil {
 		return fmt.Errorf("unknown kind %q", x.T)
 	}

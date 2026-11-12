@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -72,17 +73,25 @@ type Cache struct {
 	gen        uint64 // bumped by every delete; see SetIfGeneration
 
 	// Accounting for "render:" entries only (see RenderStats).
-	seq            uint64 // last write sequence number
-	renderBytes    int64
-	renderCount    int
-	variantCount   int    // compressed variants among the render entries
+	seq          uint64 // last write sequence number
+	renderBytes  int64
+	renderCount  int
+	variantCount int // compressed variants among the render entries
+
+	// totalBytes sums every entry's value; renderMaxBytes caps it.
+	totalBytes     int64
 	renderMaxBytes int64  // 0 = no limit
 	evictions      uint64 // cap evictions, monotonic
 }
 
 // New creates an empty cache.
+//
+// The byte cap starts at the automatic value for the process memory limit, so
+// the cache is bounded before the stored settings are read.
 func New(logger *slog.Logger) *Cache {
-	return &Cache{entries: make(map[string]entry), logger: logger, maxEntries: defaultMaxEntries}
+	c := &Cache{entries: make(map[string]entry), logger: logger, maxEntries: defaultMaxEntries}
+	c.renderMaxBytes = AutoMaxBytes(debug.SetMemoryLimit(-1))
+	return c
 }
 
 // Get retrieves a value; expired entries count as misses.
@@ -143,6 +152,7 @@ func (c *Cache) removeLocked(key string) {
 	if !ok {
 		return
 	}
+	c.totalBytes -= int64(len(e.value))
 	if isRenderKey(key) {
 		c.renderBytes -= int64(len(e.value))
 		c.renderCount--
@@ -153,23 +163,21 @@ func (c *Cache) removeLocked(key string) {
 	delete(c.entries, key)
 }
 
-// evictOldestRenderLocked removes the oldest "render:" entries (lowest seq)
-// until renderBytes+incoming fits in target or none are left. One sort per
-// batch keeps a burst of writes from each paying for a scan.
-func (c *Cache) evictOldestRenderLocked(incoming, target int64) {
+// evictOldestLocked removes the oldest entries of any kind (lowest seq) until
+// totalBytes+incoming fits in target or none are left. One sort per batch
+// keeps a burst of writes from each paying for a scan.
+func (c *Cache) evictOldestLocked(incoming, target int64) {
 	type kv struct {
 		key string
 		seq uint64
 	}
-	all := make([]kv, 0, c.renderCount)
+	all := make([]kv, 0, len(c.entries))
 	for k, e := range c.entries {
-		if isRenderKey(k) {
-			all = append(all, kv{k, e.seq})
-		}
+		all = append(all, kv{k, e.seq})
 	}
 	sort.Slice(all, func(i, j int) bool { return all[i].seq < all[j].seq })
 	for _, o := range all {
-		if c.renderBytes+incoming <= target {
+		if c.totalBytes+incoming <= target {
 			break
 		}
 		c.removeLocked(o.key)
@@ -177,8 +185,8 @@ func (c *Cache) evictOldestRenderLocked(incoming, target int64) {
 	c.evictions++
 }
 
-// setLocked stores the value and reports whether it was stored (a render
-// value larger than the cap is refused).
+// setLocked stores the value and reports whether it was stored (a value
+// larger than the cap is refused).
 func (c *Cache) setLocked(key string, value []byte, ttl time.Duration) bool {
 	now := time.Now()
 	c.sets++
@@ -205,20 +213,20 @@ func (c *Cache) setLocked(key string, value []byte, ttl time.Duration) bool {
 			c.removeLocked(k)
 		}
 	}
-	render := isRenderKey(key)
-	if render {
-		// Overwrite: take the old value out of the accounting first.
-		c.removeLocked(key)
-		if max := c.renderMaxBytes; max > 0 {
-			size := int64(len(value))
-			if size > max {
-				c.evictions++
-				return false
-			}
-			if c.renderBytes+size > max {
-				c.evictOldestRenderLocked(size, max*9/10)
-			}
+	// Overwrite: take the old value out of the accounting first.
+	c.removeLocked(key)
+	if max := c.renderMaxBytes; max > 0 {
+		size := int64(len(value))
+		if size > max {
+			c.evictions++
+			return false
 		}
+		if c.totalBytes+size > max {
+			c.evictOldestLocked(size, max*9/10)
+		}
+	}
+	c.totalBytes += int64(len(value))
+	if isRenderKey(key) {
 		c.renderBytes += int64(len(value))
 		c.renderCount++
 		if isVariantKey(key) {
@@ -241,8 +249,10 @@ func (c *Cache) RenderStats() (pages int, bytes int64) {
 	return c.renderCount - c.variantCount, c.renderBytes
 }
 
-// SetRenderMaxBytes caps the bytes held by "render:" entries; 0 means no
-// limit. A lower cap takes effect on the next render write.
+// SetRenderMaxBytes caps the bytes held by all entries (rendered pages,
+// variants, sitemaps, JSON helpers); 0 means no limit. The name is kept from
+// when only "render:" entries counted. A lower cap takes effect on the next
+// write.
 func (c *Cache) SetRenderMaxBytes(n int64) {
 	if n < 0 {
 		n = 0
@@ -252,7 +262,7 @@ func (c *Cache) SetRenderMaxBytes(n int64) {
 	c.mu.Unlock()
 }
 
-// RenderMaxBytes returns the current cap (0 = no limit).
+// RenderMaxBytes returns the current byte cap (0 = no limit).
 func (c *Cache) RenderMaxBytes() int64 {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

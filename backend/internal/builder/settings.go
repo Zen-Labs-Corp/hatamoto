@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // ReservedAnchors are the ids the theme and the core own: an anchor equal to
@@ -25,11 +26,11 @@ func ReservedAnchor(a string) bool {
 }
 
 // anchorRe is the anchor grammar; it is also the "anchor" prop pattern.
-var anchorRe = regexp.MustCompile(anchorPattern)
+var anchorRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(anchorPattern) })
 
 // ValidAnchor reports whether a is usable as a public anchor id (the render
 // also checks it: canvas patches skip Validate).
-func ValidAnchor(a string) bool { return anchorRe.MatchString(a) && !ReservedAnchor(a) }
+func ValidAnchor(a string) bool { return anchorRe().MatchString(a) && !ReservedAnchor(a) }
 
 // TakesElementProps reports whether nodes of kind carry anchor, aria and tip.
 func TakesElementProps(kind string) bool { return !noElementProps[kind] }
@@ -97,7 +98,7 @@ var interactiveKinds = map[string]bool{
 }
 
 // inlineLinkRe finds a link in the inline html of a heading or text.
-var inlineLinkRe = regexp.MustCompile(`(?i)<a[\s>/]`)
+var inlineLinkRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?i)<a[\s>/]`) })
 
 // interactiveNode reports whether n itself renders (or may render) interactive content.
 func interactiveNode(n *Node) bool {
@@ -113,7 +114,7 @@ func interactiveNode(n *Node) bool {
 	case "gallery":
 		return n.P["lightbox"] == true
 	case "heading", "text":
-		return inlineLinkRe.MatchString(str(n.P, "html"))
+		return inlineLinkRe().MatchString(str(n.P, "html"))
 	}
 	return false
 }

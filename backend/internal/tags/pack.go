@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"unicode"
 
@@ -30,10 +31,10 @@ var packCategories = []string{"analytics", "marketing", "functional"}
 
 var (
 	hostLabel    = `[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?`
-	exactHostRE  = regexp.MustCompile(`^` + hostLabel + `(?:\.` + hostLabel + `)+$`)
-	wildHostRE   = regexp.MustCompile(`^\*\.` + hostLabel + `(?:\.` + hostLabel + `)+$`)
-	stemRE       = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,30}$`)
-	pluginNameRE = regexp.MustCompile(`^[a-z][a-z0-9-]{1,39}$`) // sdk.NamePattern
+	exactHostRE  = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^` + hostLabel + `(?:\.` + hostLabel + `)+$`) })
+	wildHostRE   = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^\*\.` + hostLabel + `(?:\.` + hostLabel + `)+$`) })
+	stemRE       = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,30}$`) })
+	pluginNameRE = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[a-z][a-z0-9-]{1,39}$`) }) // sdk.NamePattern
 )
 
 // Decl is the JSON a package carries in tags/<stem>.json. It holds data
@@ -60,10 +61,10 @@ type Decl struct {
 // returns the vendor it declares. Errors name the broken rule only; the
 // caller prefixes the file.
 func ParseDecl(plugin, stem string, raw []byte) (Vendor, error) {
-	if !pluginNameRE.MatchString(plugin) {
+	if !pluginNameRE().MatchString(plugin) {
 		return Vendor{}, errors.New("plugin name is not usable as a tag key prefix")
 	}
-	if !stemRE.MatchString(stem) {
+	if !stemRE().MatchString(stem) {
 		return Vendor{}, fmt.Errorf("file name %q must be lower-case letters, digits and dashes", stem)
 	}
 	var d Decl
@@ -97,7 +98,7 @@ func ParseDecl(plugin, stem string, raw []byte) (Vendor, error) {
 		ID:       plugin + "." + stem,
 		Label:    d.Name,
 		IDLabel:  d.ID.Label,
-		Pattern:  pattern,
+		Pattern:  fixedPattern(pattern),
 		Category: d.Category,
 		Src:      d.Script,
 		Boot:     genericBootKey,
@@ -189,7 +190,7 @@ func checkHosts(hosts []string) error {
 	}
 	seen := map[string]bool{}
 	for _, h := range hosts {
-		if !exactHostRE.MatchString(h) && !wildHostRE.MatchString(h) {
+		if !exactHostRE().MatchString(h) && !wildHostRE().MatchString(h) {
 			return fmt.Errorf("host %q must be a lower-case hostname or *.name.tld", h)
 		}
 		if seen[h] {
@@ -280,7 +281,7 @@ func IsPackKey(k string) bool { return strings.Contains(k, ".") }
 
 // ValidHost reports whether h is a host a declaration may list: a lower-case
 // hostname or "*.name.tld".
-func ValidHost(h string) bool { return exactHostRE.MatchString(h) || wildHostRE.MatchString(h) }
+func ValidHost(h string) bool { return exactHostRE().MatchString(h) || wildHostRE().MatchString(h) }
 
 // ValidCategory reports whether c is a consent category a tag may use.
 func ValidCategory(c string) bool { return validCategory(c) }

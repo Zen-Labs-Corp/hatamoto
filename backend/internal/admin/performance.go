@@ -210,7 +210,7 @@ func settingsDetail(s PageCacheSettings) map[string]any {
 	}
 }
 
-// maxMBText shows 0 (no limit) as an empty field.
+// maxMBText shows 0 (automatic limit) as an empty field.
 func maxMBText(v string) string {
 	if v == "0" {
 		return ""

@@ -46,7 +46,7 @@ func TestNavlabelHiddenFromKindProps(t *testing.T) {
 }
 
 func TestNavlabelNotDeclaredByKindSchemas(t *testing.T) {
-	for name, s := range reg.Load().schemas {
+	for name, s := range reg.Load().schemas() {
 		if _, ok := s.Properties["navlabel"]; !ok {
 			t.Errorf("kind %s has no navlabel", name)
 		}

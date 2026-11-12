@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
 	"hatamoto.dev/core/internal/jsonx"
@@ -29,19 +30,19 @@ const (
 // underscore, a widget directory name. No core kind contains "_", so a plugin
 // widget can never shadow a core kind, and plugin names are unique, so two
 // plugins cannot collide.
-var packKindRe = regexp.MustCompile(`^[a-z][a-z0-9-]{1,39}_[a-z][a-z0-9-]{0,31}$`)
+var packKindRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[a-z][a-z0-9-]{1,39}_[a-z][a-z0-9-]{0,31}$`) })
 
 var (
-	pluginNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{1,39}$`)
-	widgetNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+	pluginNameRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[a-z][a-z0-9-]{1,39}$`) })
+	widgetNameRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`) })
 )
 
 // PackKindName returns the builder kind of widget of plugin: "<plugin>_<widget>".
 func PackKindName(plugin, widget string) (string, error) {
-	if !pluginNameRe.MatchString(plugin) {
+	if !pluginNameRe().MatchString(plugin) {
 		return "", fmt.Errorf("bad plugin name %q", plugin)
 	}
-	if !widgetNameRe.MatchString(widget) {
+	if !widgetNameRe().MatchString(widget) {
 		return "", fmt.Errorf("bad widget name %q (lowercase letters, digits and \"-\", at most 32)", widget)
 	}
 	kind := plugin + "_" + widget
@@ -54,7 +55,7 @@ func PackKindName(plugin, widget string) (string, error) {
 // IsPackKind reports whether name has the shape of a plugin widget kind,
 // whether or not it is registered.
 func IsPackKind(name string) bool {
-	return len(name) <= maxKindName && packKindRe.MatchString(name)
+	return len(name) <= maxKindName && packKindRe().MatchString(name)
 }
 
 // PackWidgetSchema is one parsed plugin widget schema, ready for SetPackKinds.
@@ -164,7 +165,7 @@ func SetPackKinds(ws []PackWidgetSchema) error {
 		return fmt.Errorf("builder: %d plugin widgets, at most %d", len(ws), MaxPackWidgets)
 	}
 	kinds := maps.Clone(coreRegistry.kinds)
-	schemas := maps.Clone(coreRegistry.schemas)
+	schemas := maps.Clone(coreRegistry.schemas())
 	for _, w := range ws {
 		if !IsPackKind(w.Name) {
 			return fmt.Errorf("builder: %q is not a plugin widget kind", w.Name)
@@ -196,7 +197,7 @@ func SetPackKinds(ws []PackWidgetSchema) error {
 			return fmt.Errorf("builder: widget %q: only_in kind %q is not registered", n, m.OnlyIn)
 		}
 	}
-	reg.Store(&registry{kinds: kinds, schemas: schemas})
+	reg.Store(&registry{kinds: kinds, schemas: func() map[string]*jsonschema.Schema { return schemas }})
 	return nil
 }
 
@@ -223,7 +224,7 @@ func validateOrphan(x *Node) error {
 		return fmt.Errorf("props are larger than %d bytes", maxOrphanPropsBytes)
 	}
 	for key, src := range x.B {
-		if !bindSegRe.MatchString(key) {
+		if !bindSegRe().MatchString(key) {
 			return fmt.Errorf("bad binding key %q", key)
 		}
 		if _, _, err := parseBind(src); err != nil {

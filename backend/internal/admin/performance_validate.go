@@ -75,13 +75,13 @@ func validatePerformance(form url.Values, stored PageCacheSettings) (PageCacheSe
 	}
 
 	// A key absent from the form (its control was disabled) keeps the stored
-	// value; one posted empty means no limit.
+	// value; one posted empty means the automatic limit.
 	if !form.Has("max_mb") {
 		// keep stored
 	} else if mb := strings.TrimSpace(form.Get("max_mb")); mb == "" {
 		out.MaxMB = 0
 	} else if n, err := strconv.Atoi(mb); err != nil || n < 1 || n > maxCacheMB {
-		bad("max-mb", "Max cache size", "Enter a whole number of MB from 1 to 102400, or leave it empty for no limit.")
+		bad("max-mb", "Max cache size", "Enter a whole number of MB from 1 to 102400, or leave it empty for the automatic limit.")
 	} else {
 		out.MaxMB = n
 	}

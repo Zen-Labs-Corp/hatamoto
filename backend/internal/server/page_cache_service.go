@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -97,7 +98,12 @@ func (p *pageCacheService) Apply(c siteconfig.Config) (wasOn, isOn bool) {
 	wasOn = p.runtime.Enabled()
 	p.runtime.Apply(c.PageCacheEnabled, time.Duration(c.PageCacheTTLSeconds)*time.Second)
 	if p.cache != nil {
-		p.cache.SetRenderMaxBytes(int64(c.PageCacheMaxMB) << 20)
+		// 0 means automatic: a share of the process memory limit.
+		maxBytes := cache.AutoMaxBytes(debug.SetMemoryLimit(-1))
+		if c.PageCacheMaxMB > 0 {
+			maxBytes = int64(c.PageCacheMaxMB) << 20
+		}
+		p.cache.SetRenderMaxBytes(maxBytes)
 	}
 	p.missingOnly.Store(c.PagePreloadMode != siteconfig.PreloadModeAll)
 	p.afterChanges.Store(c.PagePreloadAfterChanges)

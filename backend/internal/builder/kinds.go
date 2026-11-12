@@ -133,7 +133,7 @@ func Kinds() []KindInfo {
 // kind or prop is unknown or has no limit.
 func PropMaxLength(kind, key string) int {
 	r := reg.Load()
-	if _, ok := r.schemas[kind]; !ok {
+	if _, ok := r.schemas()[kind]; !ok {
 		return 0
 	}
 	for _, p := range propInfosIn(r, kind) {
@@ -158,7 +158,7 @@ func defaultsIn(kinds map[string]kindSpec, kind string) map[string]any {
 
 func propInfosIn(r *registry, kind string) []PropInfo {
 	kinds := r.kinds
-	s := r.schemas[kind]
+	s := r.schemas()[kind]
 	required := map[string]bool{}
 	for _, r := range s.Required {
 		required[r] = true
@@ -260,7 +260,7 @@ func CoerceProp(kind, key, raw string) (any, error) {
 	if _, ok := r.kinds[kind]; !ok {
 		return nil, fmt.Errorf("builder: unknown kind %q", kind)
 	}
-	ps, ok := r.schemas[kind].Properties[key]
+	ps, ok := r.schemas()[kind].Properties[key]
 	if !ok {
 		return nil, fmt.Errorf("builder: kind %q has no prop %q", kind, key)
 	}
