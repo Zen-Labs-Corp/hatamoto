@@ -70,7 +70,7 @@ fi
 # files; every run gets a fresh mktemp dir below it.
 make_run_dir() {
   local out
-  out=$(ssh "$DEPLOY_HOST" "umask 077; b='$STAGING'; mkdir -p -m 0700 -- \"\$b\" && [ -d \"\$b\" ] && [ ! -L \"\$b\" ] && [ -O \"\$b\" ] && [ \"\$(stat -c %a \"\$b\")\" = 700 ] && mktemp -d -- \"\$b/run.XXXXXX\"") \
+  out=$(ssh "$DEPLOY_HOST" "umask 077; b='$STAGING'; mkdir -p -m 0700 -- \"\$b\" && if [ ! -e \"\$b\" ]; then echo \"\$b: missing\" >&2; exit 1; elif [ -L \"\$b\" ] || [ ! -d \"\$b\" ]; then echo \"\$b: not a real directory\" >&2; exit 1; elif [ ! -O \"\$b\" ]; then echo \"\$b: not owned by the ssh user\" >&2; exit 1; elif [ \"\$(stat -c %a \"\$b\")\" != 700 ]; then echo \"\$b: mode is \$(stat -c %a \"\$b\"), want 700\" >&2; exit 1; fi && mktemp -d -- \"\$b/run.XXXXXX\"") \
     && [[ "$out" =~ ^"$STAGING"/run\.[A-Za-z0-9]+$ ]] || die "staging dir $STAGING on the host is not a private directory"
   echo "$out"
 }
