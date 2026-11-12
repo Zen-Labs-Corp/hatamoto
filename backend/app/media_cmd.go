@@ -404,7 +404,7 @@ func mediaAdopt(ctx context.Context, p mediaAdoptPlan, out io.Writer) error {
 		fmt.Fprintf(out, "skipped: %s already have a row\n", thousands(res.AlreadyHaveRow))
 	}
 	if res.TooNew > 0 {
-		fmt.Fprintf(out, "skipped: %s files younger than %s (too new; they may still be in flight, run again later)\n", thousands(res.TooNew), sweepAge(p.olderThan))
+		fmt.Fprintf(out, "skipped: %s files younger than %s (too new; they may still be in flight, run again later, or use --older-than 0 if nothing is uploading or importing and the files were copied in without their original times)\n", thousands(res.TooNew), sweepAge(p.olderThan))
 	}
 	for _, s := range res.Skipped {
 		fmt.Fprintf(out, "skipped: %s\n", s)

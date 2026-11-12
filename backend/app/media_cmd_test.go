@@ -326,7 +326,7 @@ func TestMediaAdoptReportsTooNewFiles(t *testing.T) {
 	if err := mediaAdopt(context.Background(), plan, &out); err != nil {
 		t.Fatal(err)
 	}
-	if len(repo.created) != 0 || !strings.Contains(out.String(), "skipped: 1 files younger than 24h (too new") {
+	if len(repo.created) != 0 || !strings.Contains(out.String(), "skipped: 1 files younger than 24h (too new") || !strings.Contains(out.String(), "--older-than 0") {
 		t.Errorf("created %d rows, output:\n%s", len(repo.created), out.String())
 	}
 }
