@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // Face is one @font-face block of a Google Fonts stylesheet, reduced to the
@@ -21,11 +22,15 @@ type Face struct {
 }
 
 var (
-	srcRe       = regexp.MustCompile(`^url\(\s*(https://[A-Za-z0-9._~%/:@+=&?-]{1,500})\s*\)\s*format\(\s*['"]?woff2['"]?\s*\)$`)
-	rangeRe     = regexp.MustCompile(`^[Uu+0-9A-Fa-f?, -]+$`)
-	subsetRe    = regexp.MustCompile(`^[A-Za-z0-9 _-]{1,40}$`)
-	weightRe    = regexp.MustCompile(`^(\d{3})(?:\s+(\d{3}))?$`)
-	stretchRe   = regexp.MustCompile(`^(normal|(?:condensed|expanded|(?:ultra|extra|semi)-(?:condensed|expanded))|\d{1,3}(?:\.\d+)?%(?:\s+\d{1,3}(?:\.\d+)?%)?)$`)
+	srcRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^url\(\s*(https://[A-Za-z0-9._~%/:@+=&?-]{1,500})\s*\)\s*format\(\s*['"]?woff2['"]?\s*\)$`)
+	})
+	rangeRe   = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[Uu+0-9A-Fa-f?, -]+$`) })
+	subsetRe  = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[A-Za-z0-9 _-]{1,40}$`) })
+	weightRe  = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^(\d{3})(?:\s+(\d{3}))?$`) })
+	stretchRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^(normal|(?:condensed|expanded|(?:ultra|extra|semi)-(?:condensed|expanded))|\d{1,3}(?:\.\d+)?%(?:\s+\d{1,3}(?:\.\d+)?%)?)$`)
+	})
 	errSheet    = errors.New("Google Fonts answered with a stylesheet this server does not understand")
 	maxBlocks   = 200  // parser bound on @font-face blocks in one stylesheet
 	maxFaces    = 40   // font files one download may fetch, after the Latin filter
@@ -56,7 +61,7 @@ func ParseFaces(css string) ([]Face, error) {
 				return nil, sheetErr("unterminated comment")
 			}
 			c := strings.TrimSpace(s[2:end])
-			if subsetRe.MatchString(c) {
+			if subsetRe().MatchString(c) {
 				subset = c
 			} else {
 				subset = ""
@@ -122,7 +127,7 @@ func parseBlock(body string) (Face, error) {
 			}
 			f.Style = v
 		case "font-weight":
-			m := weightRe.FindStringSubmatch(v)
+			m := weightRe().FindStringSubmatch(v)
 			if m == nil {
 				return f, sheetErr("weight")
 			}
@@ -134,19 +139,19 @@ func parseBlock(body string) (Face, error) {
 		case "font-stretch":
 			// Google sends font-stretch: 100% for width-axis families (Open
 			// Sans, Roboto). Checked, then ignored like font-display.
-			if !stretchRe.MatchString(v) {
+			if !stretchRe().MatchString(v) {
 				return f, sheetErr("stretch")
 			}
 		case "font-display":
 			// Accepted and ignored: the site always emits swap.
 		case "src":
-			m := srcRe.FindStringSubmatch(v)
+			m := srcRe().FindStringSubmatch(v)
 			if m == nil {
 				return f, sheetErr("src")
 			}
 			f.URL = m[1]
 		case "unicode-range":
-			if len(v) > maxRangeLen || !rangeRe.MatchString(v) {
+			if len(v) > maxRangeLen || !rangeRe().MatchString(v) {
 				return f, sheetErr("unicode-range")
 			}
 			f.UnicodeRange = v

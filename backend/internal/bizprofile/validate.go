@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 )
@@ -87,14 +88,14 @@ func IsFoodType(t string) bool {
 var Days = []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
 
 var (
-	timeRE     = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
-	currencyRE = regexp.MustCompile(`^[A-Za-z]{3}$`)
-	decimalRE  = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$`)
-	naicsRE    = regexp.MustCompile(`^\d{2,6}$`)
-	isicRE     = regexp.MustCompile(`^\d{4}$`)
-	dunsRE     = regexp.MustCompile(`^\d{9}$`)
-	leiRE      = regexp.MustCompile(`^[A-Z0-9]{20}$`)
-	glnRE      = regexp.MustCompile(`^\d{13}$`)
+	timeRE     = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`) })
+	currencyRE = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[A-Za-z]{3}$`) })
+	decimalRE  = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$`) })
+	naicsRE    = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^\d{2,6}$`) })
+	isicRE     = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^\d{4}$`) })
+	dunsRE     = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^\d{9}$`) })
+	leiRE      = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[A-Z0-9]{20}$`) })
+	glnRE      = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^\d{13}$`) })
 )
 
 // ParseDecimal parses a decimal number: digits with an optional sign, fraction
@@ -102,7 +103,7 @@ var (
 // rejects hex floats, Inf, NaN and underscores, so a stored value always prints
 // as a JSON number.
 func ParseDecimal(v string) (float64, bool) {
-	if !decimalRE.MatchString(v) {
+	if !decimalRE().MatchString(v) {
 		return 0, false
 	}
 	f, err := strconv.ParseFloat(v, 64)
@@ -157,7 +158,7 @@ func Validate(p Profile) map[string]string {
 		}
 	}
 	clock := func(path, v string) {
-		if v != "" && !timeRE.MatchString(v) {
+		if v != "" && !timeRE().MatchString(v) {
 			errs[path] = "Use a 24 hour time such as 09:00."
 		}
 	}
@@ -178,8 +179,8 @@ func Validate(p Profile) map[string]string {
 		}
 	}
 
-	ident := func(path, v string, re *regexp.Regexp, msg string) {
-		if v != "" && !re.MatchString(strings.ToUpper(v)) {
+	ident := func(path, v string, re func() *regexp.Regexp, msg string) {
+		if v != "" && !re().MatchString(strings.ToUpper(v)) {
 			errs[path] = msg
 		}
 	}
@@ -312,7 +313,7 @@ func Validate(p Profile) map[string]string {
 	for i, v := range p.AreaServed {
 		text("area_served."+strconv.Itoa(i), v)
 	}
-	if p.Currency != "" && !currencyRE.MatchString(p.Currency) {
+	if p.Currency != "" && !currencyRE().MatchString(p.Currency) {
 		errs["currency"] = "Use a three letter currency code."
 	}
 	text("price_range", p.PriceRange)

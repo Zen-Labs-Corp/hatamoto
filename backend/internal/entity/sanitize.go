@@ -34,7 +34,9 @@ var defaultEmbedPaths = map[string]string{
 
 // embedHostRE is a plausible DNS name with at least one dot. Anything else
 // (a scheme, a port, a path, a wildcard, userinfo) is not a host.
-var embedHostRE = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`)
+var embedHostRE = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`)
+})
 
 // newIframeSrcRE builds the iframe src allowlist from the value of
 // HATAMOTO_EMBED_HOSTS. With no usable host in it the defaults apply, so a
@@ -48,7 +50,7 @@ func newIframeSrcRE(env string) *regexp.Regexp {
 		h = strings.ToLower(strings.TrimSpace(h))
 		switch {
 		case h == "":
-		case !embedHostRE.MatchString(h):
+		case !embedHostRE().MatchString(h):
 			slog.Warn("ignoring invalid host in "+EmbedHostsEnv, "host", h)
 		default:
 			paths[h] = defaultEmbedPaths[h]
@@ -160,14 +162,18 @@ func inlineText() *bluemonday.Policy {
 // styleBackstop is the regexp handed to bluemonday (which only accepts a
 // positive regexp): no CSS escapes and no tag breakouts. The real policy is
 // styleAllowed, applied by dropUnsafeStyles before bluemonday runs.
-var styleBackstop = regexp.MustCompile(`^[^\\<>]*$`)
+var styleBackstop = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[^\\<>]*$`) })
 
 var (
-	styleDeniedRe = regexp.MustCompile(`(?i)expression\s*\(|javascript:|vbscript:|@import|-moz-binding|(?:^|[;{\s])behavior\s*:`)
-	styleURLRe    = regexp.MustCompile(`(?i)url\(`)
-	styleURLArgRe = regexp.MustCompile(`(?i)^url\(\s*(?:"([^"]*)"|'([^']*)'|([^"'()\s]*))\s*\)`)
-	styleSchemeRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9+.\-]*:`)
-	styleDataRe   = regexp.MustCompile(`(?i)^data:image/(?:png|jpe?g|gif|webp)[;,]`)
+	styleDeniedRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`(?i)expression\s*\(|javascript:|vbscript:|@import|-moz-binding|(?:^|[;{\s])behavior\s*:`)
+	})
+	styleURLRe    = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?i)url\(`) })
+	styleURLArgRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`(?i)^url\(\s*(?:"([^"]*)"|'([^']*)'|([^"'()\s]*))\s*\)`)
+	})
+	styleSchemeRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9+.\-]*:`) })
+	styleDataRe   = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?i)^data:image/(?:png|jpe?g|gif|webp)[;,]`) })
 )
 
 // styleAllowed is the inline-`style` policy for html sections (denylist; the
@@ -178,16 +184,16 @@ var (
 // `behavior:` property, and url() whose target is not http(s), root-relative,
 // relative or a raster data:image (png/jpeg/gif/webp; svg+xml is excluded).
 func styleAllowed(v string) bool {
-	if !styleBackstop.MatchString(v) || styleDeniedRe.MatchString(v) {
+	if !styleBackstop().MatchString(v) || styleDeniedRe().MatchString(v) {
 		return false
 	}
 	rest := v
 	for {
-		loc := styleURLRe.FindStringIndex(rest)
+		loc := styleURLRe().FindStringIndex(rest)
 		if loc == nil {
 			return true
 		}
-		m := styleURLArgRe.FindStringSubmatch(rest[loc[0]:])
+		m := styleURLArgRe().FindStringSubmatch(rest[loc[0]:])
 		if m == nil {
 			return false
 		}
@@ -209,10 +215,10 @@ func styleURLTargetAllowed(t string) bool {
 	switch {
 	case strings.HasPrefix(lower, "http://"), strings.HasPrefix(lower, "https://"), strings.HasPrefix(t, "/"):
 		return true
-	case styleDataRe.MatchString(t):
+	case styleDataRe().MatchString(t):
 		return true
 	}
-	return !styleSchemeRe.MatchString(t)
+	return !styleSchemeRe().MatchString(t)
 }
 
 // dropUnsafeStyles removes every style attribute that fails styleAllowed,
@@ -280,7 +286,7 @@ func newHTMLSectionPolicy(iframeSrc *regexp.Regexp) *bluemonday.Policy {
 	p.AllowDataAttributes()
 
 	p.AllowAttrs("class", "id", "role").Globally()
-	p.AllowAttrs("style").Matching(styleBackstop).Globally()
+	p.AllowAttrs("style").Matching(styleBackstop()).Globally()
 	p.AllowAttrs(
 		"aria-label", "aria-labelledby", "aria-describedby", "aria-hidden", "aria-expanded",
 		"aria-controls", "aria-current", "aria-live", "aria-haspopup", "aria-selected",
