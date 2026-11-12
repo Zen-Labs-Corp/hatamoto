@@ -25,6 +25,16 @@
 #   DEPLOY_HOST               ssh host alias; if unset, read from the untracked
 #                             file .deploy-host (this checkout, else the main
 #                             checkout). Required; ship stops without it.
+#   DEPLOY_TARGET             deploy target: box (default; empty or unset = box) or
+#                             hmctl:<slug> to deploy to an hmctl-managed site over
+#                             ssh (status, backup, `site binary`, `site run -- migrate`,
+#                             deployed-sha mark; nothing touches /opt/hatamoto or a
+#                             local postgres). Else read from the untracked file
+#                             .deploy-target (this checkout, else the main checkout).
+#   DEPLOY_STAGING            cell mode: host dir for the uploaded binary;
+#                             default /var/tmp/hatamoto-deploy
+#   DEPLOY_HMCTL              cell mode: hmctl command on the host (e.g. "sudo hmctl"
+#                             when the ssh user is not root); default hmctl
 #   REMOTE_DIR                default /opt/hatamoto
 #   SHIP_DB                   default hatamoto_core; must equal the database in
 #                             config/hatamoto.env's DATABASE_URL (checked in
@@ -91,7 +101,7 @@ for a in "$@"; do
     --all) ALL=1 ;;
     --wait) WAIT=1 ;;
     --after-auto) AFTER_AUTO=1 ;;   # the deploy waiter (started by a queued ship)
-    -h|--help) sed -n '2,56p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,70p' "$0"; exit 0 ;;
     -*) echo "unknown flag: $a" >&2; exit 64 ;;
     *) PR="$a" ;;
   esac
@@ -137,6 +147,28 @@ REMOTE_DIR=${REMOTE_DIR:-/opt/hatamoto}
 DB=${SHIP_DB:-hatamoto_core}
 SITE_URL=${SITE_URL:-https://hatamoto.dev}
 [[ -n "$DEPLOY_HOST" ]] || { echo "SHIP-H: set DEPLOY_HOST (ssh host alias) or write it to .deploy-host" >&2; exit 1; }
+# Deploy target: box (default) or an hmctl cell site. Like the host it is never
+# committed: DEPLOY_TARGET (set but empty/box = box), else .deploy-target in this
+# checkout, else in the main checkout.
+CELL=0; SLUG=""; STAGING=""; HMCTL=hmctl
+if [[ -z "${DEPLOY_TARGET+x}" ]]; then
+  DEPLOY_TARGET=""
+  MAIN_CHECKOUT=${MAIN_CHECKOUT:-$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")}
+  for f in "$REPO/.deploy-target" "$MAIN_CHECKOUT/.deploy-target"; do  # .deploy-host sibling
+    if [[ -r "$f" ]]; then DEPLOY_TARGET=$(tr -d '[:space:]' < "$f"); break; fi
+  done
+fi
+if [[ -n "$DEPLOY_TARGET" && "$DEPLOY_TARGET" != box ]]; then
+  SLUG=${DEPLOY_TARGET#hmctl:}
+  [[ "$DEPLOY_TARGET" == "hmctl:$SLUG" && "$SLUG" =~ ^[a-z][a-z0-9-]{1,28}$ && "$SLUG" != *- && "$SLUG" != *--* ]] \
+    || { echo "SHIP-H: bad DEPLOY_TARGET (want box or hmctl:<slug>)" >&2; exit 1; }
+  STAGING=${DEPLOY_STAGING:-/var/tmp/hatamoto-deploy}
+  [[ "$STAGING" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "SHIP-H: bad DEPLOY_STAGING" >&2; exit 1; }
+  HMCTL=${DEPLOY_HMCTL:-hmctl}
+  [[ "$HMCTL" =~ ^[A-Za-z0-9._/\ -]+$ ]] || { echo "SHIP-H: bad DEPLOY_HMCTL" >&2; exit 1; }
+  CELL=1
+  echo "target: cell (hmctl site $SLUG)"
+fi
 # The Makefile is always the deploy tree's, and gets the host explicitly: the
 # worktree has no untracked .deploy-host, so it must never fall back to it.
 MAKE_VARS=(DEPLOY_HOST="$DEPLOY_HOST" REMOTE_DIR="$REMOTE_DIR")
@@ -266,7 +298,7 @@ full_suite_key() { # <tree>
 # full_suite_env: print the `-u NAME` arguments of an `env` that drops secrets before PR code runs.
 full_suite_env() {
   local v
-  for v in GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN DEPLOY_HOST HATAMOTO_POST_SHIP_HOOK SSH_AUTH_SOCK \
+  for v in GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN DEPLOY_HOST DEPLOY_TARGET DEPLOY_STAGING DEPLOY_HMCTL HATAMOTO_POST_SHIP_HOOK SSH_AUTH_SOCK \
            HATAMOTO_CHECK_SUITES HATAMOTO_FLAKES_FILE HATAMOTO_SKIP_INTEGRATION HATAMOTO_GATE_CACHE \
            PGPASSWORD DATABASE_URL; do
     printf '%s\n' "$v"
@@ -474,7 +506,7 @@ queue_auto_merge() {
   mkdir -p "$logdir"
   cp "$0" "$self"   # the checkout's copy may change while the waiter runs (bash reads scripts lazily)
   local extra=(); ((ALL)) && extra=(--all)
-  SHIP_AUTO_HEAD="$HEAD_SHA" DEPLOY_HOST="$DEPLOY_HOST" setsid nohup bash -c '
+  SHIP_AUTO_HEAD="$HEAD_SHA" DEPLOY_HOST="$DEPLOY_HOST" DEPLOY_TARGET="$DEPLOY_TARGET" DEPLOY_STAGING="${DEPLOY_STAGING:-}" DEPLOY_HMCTL="${DEPLOY_HMCTL:-}" setsid nohup bash -c '
     bash "$1" --after-auto "${@:3}"; rc=$?; rm -f "$1"
     echo "SHIP-H WAITER exit=$rc"
     command -v notify-send >/dev/null && notify-send "ship #$2: exit $rc" "$(tail -1 "$0" 2>/dev/null)" 2>/dev/null
@@ -676,7 +708,7 @@ if [[ -z "${SHIP_REEXEC:-}" ]]; then
     SELF=$(mktemp "${TMPDIR:-/tmp}/ship-$PR.XXXXXX")
     git show "$DEPLOY_SHA:scripts/ship.sh" > "$SELF"
     echo "note: ship.sh differs from the one at $DEPLOY_SHA; re-executing the deploy-sha copy"
-    SHIP_REEXEC=1 SHIP_DEPLOY_SHA="$DEPLOY_SHA" SHIP_SELF_TMP="$SELF" DEPLOY_HOST="$DEPLOY_HOST" exec bash "$SELF" "$@"
+    SHIP_REEXEC=1 SHIP_DEPLOY_SHA="$DEPLOY_SHA" SHIP_SELF_TMP="$SELF" DEPLOY_HOST="$DEPLOY_HOST" DEPLOY_TARGET="$DEPLOY_TARGET" DEPLOY_STAGING="${DEPLOY_STAGING:-}" DEPLOY_HMCTL="${DEPLOY_HMCTL:-}" exec bash "$SELF" "$@"
   fi
 fi
 if [[ "$MERGE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -714,7 +746,11 @@ step 3 "classify changed files"
 # everything is deployed. Both box reads below are read-only and also run in --dry-run.
 BASE=""; BASE_WHY=""; FULL=0
 if (( !NO_DEPLOY )); then
-  BOX_SHA=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$DEPLOY_HOST" "cat $REMOTE_DIR/DEPLOYED_SHA 2>/dev/null" 2>/dev/null || true)
+  if (( CELL )); then
+    BOX_SHA=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$DEPLOY_HOST" "$HMCTL site mark $SLUG deployed-sha 2>/dev/null" 2>/dev/null || true)
+  else
+    BOX_SHA=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$DEPLOY_HOST" "cat $REMOTE_DIR/DEPLOYED_SHA 2>/dev/null" 2>/dev/null || true)
+  fi
   BOX_SHA=${BOX_SHA//[[:space:]]/}
   if [[ "$BOX_SHA" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "$BOX_SHA^{commit}" 2>/dev/null \
      && git merge-base --is-ancestor "$BOX_SHA" "$DEPLOY_SHA"; then
@@ -754,7 +790,13 @@ fi
 # Config errors must fail here, before the backup or any migration.
 if (( !NO_DEPLOY && (MIG || API) )); then
   step 3b "preflight"
-  if (( DRY )); then
+  if (( CELL )); then
+    if (( DRY )); then
+      echo "DRY: preflight: ssh -o BatchMode=yes $DEPLOY_HOST $HMCTL site status $SLUG (state running, health ok)"
+    else
+      echo "SHIP-H ABORT: cell deploy is not implemented for real runs yet" >&2; exit 1
+    fi
+  elif (( DRY )); then
     echo "DRY: preflight: ssh -o BatchMode=yes $DEPLOY_HOST true; sudo, SHIP_DB matches DATABASE_URL, deploy/sql/role-admin-bootstrap.sql as postgres, free disk >= 2.5x $DB (migrations are embedded in the binary)"
   else
     ssh -o BatchMode=yes -o ConnectTimeout=10 "$DEPLOY_HOST" true \
@@ -921,13 +963,20 @@ if (( MIG )); then
   echo "-- recording the applied-migrations fingerprint before migrating"
   GOOSE_PRE=""
   if (( !DRY )); then GOOSE_PRE=$(goose_ver) || GOOSE_PRE=""; fi
+  if (( CELL )); then
+    echo "-- backing up site $SLUG off-site (hmctl site backup)"
+    run ssh "$DEPLOY_HOST" "$HMCTL site backup $SLUG"
+  else
   echo "-- backing up $DB and verifying the dump (keeping newest 5)"
   run ssh "$DEPLOY_HOST" "umask 077; mkdir -p $REMOTE_DIR/backups && sudo -u postgres pg_dump -Fc $DB > $DUMP && pg_restore --list < $DUMP >/dev/null && ls -1 $REMOTE_DIR/backups/hcore-*.dump | sort | head -n -5 | xargs -r rm -f"
+  fi
 fi
 
 # Rollback references are taken BEFORE anything is mutated (except the
 # pre-ship copy of the binary); any failure here aborts with exit 1.
-if (( API )); then
+if (( API && CELL )); then
+  echo "-- the unit and the running binary are owned by hmctl: nothing to copy or check"
+elif (( API )); then
   echo "-- saving pre-ship copies of the binaries (hatamoto, hatamoto-api) and the unit file"
   run ssh "$DEPLOY_HOST" "cd $REMOTE_DIR/bin && for b in hatamoto hatamoto-api; do rm -f \$b.pre-ship; if [ -f \$b ]; then cp -a \$b \$b.pre-ship; fi; done; rm -f hatamoto-api.service.pre-ship; if [ -f $UNIT ]; then cp -a $UNIT hatamoto-api.service.pre-ship; fi"
   echo "-- unit check: diff vs deploy/systemd/hatamoto-api.service; aborts on drop-ins / Environment= lines it would drop (FORCE_UNIT=1 overrides)"
@@ -949,14 +998,27 @@ if (( !DRY && (MIG || API) )); then DEPLOY_SINCE=$(remote_now); DEPLOY_SINCE=${D
 if (( API )); then
   echo "-- uploading the new hatamoto binary (the running service is untouched)"
   DEPLOYED_API=1
-  run tree_make -o build-api upload-api
+  if (( CELL )); then
+    # hmctl restarts the unit and waits for /ready; the old binary file stays for a rollback
+    run ssh "$DEPLOY_HOST" "mkdir -p $STAGING"
+    run scp "$TREE/backend/bin/hatamoto" "$DEPLOY_HOST:$STAGING/hatamoto-$DEPLOY_SHA"
+    run ssh "$DEPLOY_HOST" "$HMCTL site binary $SLUG --from $STAGING/hatamoto-$DEPLOY_SHA"
+  else
+    run tree_make -o build-api upload-api
+  fi
 fi
 if (( MIG )); then
   echo "-- applying migrations with the new binary: hatamoto migrate (env file sourced)"
   MIG_RAN=1
+  if (( CELL )); then
+    run ssh "$DEPLOY_HOST" "$HMCTL site run $SLUG -- migrate"
+  else
   run ssh "$DEPLOY_HOST" "cd $REMOTE_DIR && set -a && . config/hatamoto.env && set +a && bin/hatamoto migrate"
+  fi
 fi
-if (( API )); then
+if (( API && CELL )); then
+  :   # `site binary` already restarted the unit
+elif (( API )); then
   echo "-- installing the unit file (daemon-reload) and restarting hatamoto-api"
   run tree_make -o build-api install-unit restart-api
 fi
@@ -965,7 +1027,11 @@ fi
 # ---------------------------------------------------------------- health check
 step 6 "health"
 if (( API || MIG )); then
-  if (( DRY )); then
+  if (( DRY && CELL )); then
+    echo "DRY: health check x10 (systemctl is-active hatamoto@$SLUG.service; curl $SITE_URL/health, / and /media (newest upload, else /media/ non-5xx); journal scan since deploy restart for panic|FATAL)"
+    echo "DRY: on success -> $HMCTL site mark $SLUG deployed-sha $DEPLOY_SHA"
+    echo "DRY: on failure -> rollback (deploy=$DEPLOYED_API migrations=$MIG_RAN), re-check, exit 2 (3 if still unhealthy)"
+  elif (( DRY )); then
     echo "DRY: health check x10 (systemctl is-active hatamoto-api; curl $SITE_URL/health, / and /media (newest upload, else /media/ non-5xx); journal scan since deploy restart for panic|FATAL)"
     echo "DRY: on success -> write $DEPLOY_SHA to $REMOTE_DIR/DEPLOYED_SHA"
     echo "DRY: on failure -> rollback (deploy=$DEPLOYED_API migrations=$MIG_RAN), re-check, exit 2 (3 if still unhealthy)"

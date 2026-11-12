@@ -14,6 +14,8 @@ slug_of() { local u=${1%/}; u=${u%.git}; u=${u//:/\/}; awk -F/ 'NF >= 2 {print $
 export SHIP_EXPECTED_ORIGIN STUB_NWO
 SHIP_EXPECTED_ORIGIN=$(slug_of "$(git remote get-url origin)")
 STUB_NWO=$SHIP_EXPECTED_ORIGIN
+# a developer's own .deploy-target must not flip the box cases below
+export DEPLOY_TARGET=box
 cat > "$STUBS/gh" <<'GH'
 #!/usr/bin/env bash
 # gh {pr|repo} view ... --json <field> --jq <expr>
@@ -529,3 +531,31 @@ cmp -s "$T/box.service" "$T/before" || { echo "FAIL: unit changed despite refusa
 if DROPINS="/etc/systemd/system/x.d/o.conf" inst env >/dev/null 2>&1; then echo "FAIL: install-unit accepted drop-ins"; exit 1; fi
 DROPINS="/etc/systemd/system/x.d/o.conf" inst env FORCE_UNIT=1 >/dev/null || { echo "FAIL: FORCE_UNIT=1 did not override"; exit 1; }
 echo "install-unit ok"
+
+# --- cell target: hmctl steps only, none of the box commands
+COUT=$(PATH="$STUBS:$PATH" DEPLOY_TARGET=hmctl:example-site DEPLOY_HOST=stub SHIP_REEXEC=1 bash scripts/ship.sh --dry-run 1 2>&1) \
+  || { echo "$COUT"; echo "FAIL: cell dry-run exited non-zero"; exit 1; }
+cmust() { grep -qF -- "$1" <<< "$COUT" || { echo "$COUT"; echo "FAIL: cell dry-run output lacks: $1"; exit 1; }; }
+cnot() { if grep -qF -- "$1" <<< "$COUT"; then echo "$COUT"; echo "FAIL: cell dry-run output has: $1"; exit 1; fi; }
+cmust "target: cell (hmctl site example-site)"
+cmust "site status"
+cmust "site backup"
+cmust "site binary"
+cmust "site run example-site -- migrate"
+cmust "site mark"
+cmust "SHIP-H DRY-RUN OK"
+for n in "sudo -u postgres" "/opt/hatamoto" "hatamoto-api" "upload-api" "install-unit" "check-unit" "pre-ship"; do cnot "$n"; done
+# order: status < backup < binary < migrate < mark
+last=0
+for pat in "site status" "site backup" "site binary" "-- migrate" "deployed-sha"; do
+  n=$(grep -nF -- "$pat" <<< "$COUT" | head -1 | cut -d: -f1)
+  [[ -n "$n" ]] && (( n > last )) || { echo "$COUT"; echo "FAIL: cell step order broken at: $pat"; exit 1; }
+  last=$n
+done
+# box mode prints no target line
+if grep -q '^target:' <<< "$OUT"; then echo "FAIL: box dry-run printed a target line"; exit 1; fi
+# a malformed target is refused up front
+if PATH="$STUBS:$PATH" DEPLOY_TARGET='hmctl:Bad_Slug' DEPLOY_HOST=stub SHIP_REEXEC=1 bash scripts/ship.sh --dry-run 1 >/dev/null 2>&1; then
+  echo "FAIL: bad DEPLOY_TARGET accepted"; exit 1
+fi
+echo "ship cell dry-run ok"
