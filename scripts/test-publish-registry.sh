@@ -222,4 +222,32 @@ grep -q "hash mismatch after upload" <<<"$out" || fail "cellcorrupt: wrong error
 ! grep -q '^hmctl' "$LOG" || fail "cellcorrupt: hmctl ran: $(cat "$LOG")"
 [ ! -e "$static/registry/registry.json" ] || fail "cellcorrupt: index published"
 pass "cell: post-upload hash check dies before hmctl"
+
+# --- Makefile in cell mode
+# 12. deploy and its steps refuse with a hint and never touch ssh/scp.
+for t in deploy upload-api install-unit check-unit restart-api; do
+  : >"$LOG"
+  if out=$(DEPLOY_TARGET=hmctl:example-site make -s "$t" DEPLOY_HOST=fakehost 2>&1); then fail "make $t succeeded in cell mode"; fi
+  grep -q "scripts/ship.sh" <<<"$out" || fail "make $t: no hint: $out"
+  [ ! -s "$LOG" ] || fail "make $t called the host: $(cat "$LOG")"
+done
+if out=$(DEPLOY_TARGET=bogus make -s deploy DEPLOY_HOST=fakehost 2>&1); then fail "make deploy accepted a malformed target"; fi
+[ ! -s "$LOG" ] || fail "malformed target reached the host"
+pass "cell mode: make deploy refuses with a hint"
+
+# 13. registry-pull-archive in cell mode reads the published archive under the static root.
+cat >"$W/stubs/ssh" <<'STUB'
+#!/usr/bin/env bash
+echo "ssh ${*:2}" >>"$LOG"
+exec bash -c "${*: -1}"
+STUB
+: >"$LOG"; mkdir -p "$W/cellpull/static/registry/archive/hello"; echo a >"$W/cellpull/static/registry/archive/hello/f.hmp"
+DEPLOY_TARGET=hmctl:example-site DEPLOY_STATIC_ROOT="$W/cellpull/static" make -s registry-pull-archive DEPLOY_HOST=fakehost ARCHIVE_DIR="$W/cellpull/local" >"$W/out" 2>&1 || fail "cell pull failed: $(cat "$W/out")"
+[ -f "$W/cellpull/local/hello/f.hmp" ] || fail "cell pull did not fetch the published archive"
+grep -q "^rsync .* fakehost:$W/cellpull/static/registry/archive/ " "$LOG" || fail "cell pull: rsync not from the published path: $(cat "$LOG")"
+# No published archive yet: starts empty (ssh test -d exits 1).
+: >"$LOG"; mkdir -p "$W/cellpull2/static"
+DEPLOY_TARGET=hmctl:example-site DEPLOY_STATIC_ROOT="$W/cellpull2/static" make -s registry-pull-archive DEPLOY_HOST=fakehost ARCHIVE_DIR="$W/cellpull2/local" >"$W/out" 2>&1 || fail "cell pull (empty) failed: $(cat "$W/out")"
+grep -q "starting empty" "$W/out" || fail "cell pull (empty): $(cat "$W/out")"
+pass "cell mode: registry-pull-archive reads the published archive"
 echo "ALL PASS"
