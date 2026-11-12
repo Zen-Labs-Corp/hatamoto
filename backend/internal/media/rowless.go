@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
 )
 
 // RowlessSampleMax is how many keys a rowless report keeps by default.
@@ -32,7 +34,7 @@ type RowlessResult struct {
 
 // IgnoredKey reports whether key is a file the application itself owns or a
 // name nothing can adopt: a dot segment, a staged changeset file, a replace
-// temp file, an import temp name, a backslash, NUL or invalid UTF-8.
+// temp or leftover file, an import temp name, a backslash, NUL or invalid UTF-8.
 func IgnoredKey(key string) bool {
 	if key == "" || isStagedKey(key) || !utf8.ValidString(key) || strings.ContainsAny(key, "\\\x00") {
 		return true
@@ -44,9 +46,20 @@ func IgnoredKey(key string) bool {
 	}
 	if path.Dir(key) == legacyMediaTenantDir {
 		base := path.Base(key)
-		return strings.HasPrefix(base, "replace-") && strings.HasSuffix(base, ".tmp")
+		return strings.HasPrefix(base, "replace-") && (strings.HasSuffix(base, ".tmp") || strings.HasSuffix(base, ".tmp.old"))
 	}
-	return false
+	return isReplaceAside(path.Base(key))
+}
+
+// isReplaceAside reports whether name is a variant file a replace moved aside:
+// "<name>.<uuid>.old".
+func isReplaceAside(name string) bool {
+	rest, ok := strings.CutSuffix(name, ".old")
+	if !ok || len(rest) < 37 {
+		return false
+	}
+	_, err := uuid.Parse(rest[len(rest)-36:])
+	return err == nil && rest[len(rest)-37] == '.'
 }
 
 // CleanKeyPrefix turns an operator-given directory into a key prefix relative

@@ -22,19 +22,23 @@ func putKeys(t *testing.T, st interface {
 func TestIgnoredKey(t *testing.T) {
 	tenant := legacyMediaTenantDir
 	for key, want := range map[string]bool{
-		"a/b.png":                    false,
-		tenant + "/x.png":            false,
-		tenant + "/staged/run/x.png": true,
-		tenant + "/replace-1.tmp":    true,
-		"other/replace-1.tmp":        false,
-		".import-1/x.png":            true,
-		"a/.hidden":                  true,
-		"wpimport-123/x.png":         true,
-		"a\\b.png":                   true,
-		"a\x00b.png":                 true,
-		"a/\xffb.png":                true,
-		"staged/x.png":               false,
-		"":                           true,
+		"a/b.png":                     false,
+		tenant + "/x.png":             false,
+		tenant + "/staged/run/x.png":  true,
+		tenant + "/replace-1.tmp":     true,
+		"other/replace-1.tmp":         false,
+		tenant + "/replace-1.tmp.old": true,
+		"other/replace-1.tmp.old":     false,
+		tenant + "/2026/hero_thumb.webp.2f1c6b0e-8d0b-4c64-9a52-6a1d7c0e5b11.old": true,
+		tenant + "/hero.webp.old": false,
+		".import-1/x.png":         true,
+		"a/.hidden":               true,
+		"wpimport-123/x.png":      true,
+		"a\\b.png":                true,
+		"a\x00b.png":              true,
+		"a/\xffb.png":             true,
+		"staged/x.png":            false,
+		"":                        true,
 	} {
 		if got := IgnoredKey(key); got != want {
 			t.Errorf("IgnoredKey(%q) = %v, want %v", key, got, want)
