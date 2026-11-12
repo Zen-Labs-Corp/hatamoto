@@ -178,3 +178,59 @@ func TestHashPassword_CancelledWaiterReturnsPromptly(t *testing.T) {
 		r()
 	}
 }
+
+// While a large acquirer waits, a later small one queues behind it instead of
+// slipping into the free units.
+func TestHashGate_LargeWaiterIsNotStarved(t *testing.T) {
+	g := useLimit(t, 512*miB) // 4 slots
+	hold, err := g.acquire(context.Background(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	big := make(chan func(), 1)
+	go func() {
+		rel, err := g.acquire(context.Background(), 4)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		big <- rel
+	}()
+	time.Sleep(100 * time.Millisecond) // the big one is queued
+
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+	if rel, err := g.acquire(ctx, 1); err == nil {
+		rel()
+		t.Fatal("a small acquirer jumped the queue of a waiting large one")
+	}
+	hold()
+	select {
+	case rel := <-big:
+		rel()
+	case <-time.After(5 * time.Second):
+		t.Fatal("the large waiter never got the gate")
+	}
+	// A cancelled head of the queue lets the next waiter through.
+	hold, err = g.acquire(context.Background(), 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cctx, ccancel := context.WithCancel(context.Background())
+	go func() { _, _ = g.acquire(cctx, 4) }()
+	time.Sleep(50 * time.Millisecond)
+	next := make(chan func(), 1)
+	go func() {
+		rel, _ := g.acquire(context.Background(), 1)
+		next <- rel
+	}()
+	time.Sleep(50 * time.Millisecond)
+	ccancel()
+	hold()
+	select {
+	case rel := <-next:
+		rel()
+	case <-time.After(5 * time.Second):
+		t.Fatal("waiter behind a cancelled one never got the gate")
+	}
+}
