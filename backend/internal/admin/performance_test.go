@@ -217,6 +217,14 @@ func TestPerformancePageVariants(t *testing.T) {
 			t.Error("progress missing")
 		} else if !strings.Contains(body, "12 of 40 pages</span>") || !strings.Contains(body, "Running now") {
 			t.Error("preload gauge or stat missing")
+		} else if !strings.Contains(body, `hx-trigger="every 3s"`) || !strings.Contains(body, `http-equiv="refresh"`) {
+			t.Error("running preload does not poll")
+		}
+	})
+	t.Run("idle page does not poll", func(t *testing.T) {
+		f := newPerfFake()
+		if body := newPerfRig(t, f).get(t); strings.Contains(body, "hx-trigger=\"every") || strings.Contains(body, `http-equiv="refresh"`) {
+			t.Error("idle page polls")
 		}
 	})
 	t.Run("non preset lifetime stays selected", func(t *testing.T) {

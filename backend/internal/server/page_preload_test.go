@@ -372,3 +372,26 @@ func TestPreloadCachedMatchesServeKeyForEncodedPath(t *testing.T) {
 		}
 	}
 }
+
+// A page whose render hangs is cut off by the per-page timeout and counted as
+// a failure; the run still finishes and preloads the rest.
+func TestPreloadPageTimeoutUnsticksRun(t *testing.T) {
+	p := newTestPreloader([]string{"/hang", "/ok"}, func(ctx context.Context, path string) (bool, error) {
+		if path == "/hang" {
+			<-ctx.Done()
+			return false, ctx.Err()
+		}
+		return true, nil
+	})
+	p.concurrency = 1
+	p.pageTimeout = 20 * time.Millisecond
+	p.Trigger(context.Background())
+	waitIdle(t, p)
+	st := p.Status()
+	if st.Done != 2 || st.Pages != 1 || st.Errors != 1 || st.StoppedEarly {
+		t.Fatalf("status = %+v", st)
+	}
+	if len(st.Failures) != 1 || st.Failures[0].Path != "/hang" || !strings.Contains(st.Failures[0].Reason, "deadline") {
+		t.Fatalf("failures = %+v", st.Failures)
+	}
+}

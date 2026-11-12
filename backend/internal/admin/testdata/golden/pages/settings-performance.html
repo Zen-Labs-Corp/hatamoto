@@ -178,14 +178,14 @@
 </div>
 <div class="hm-setrow__control"><div class="hm-select hm-select--auto" data-hm-select><select class="hm-field__control" id="preload-interval" name="interval"><option value="900">15 min</option><option value="1800">30 min</option><option value="3600" selected>1 hour</option><option value="7200">2 hours</option><option value="21600">6 hours</option><option value="43200">12 hours</option><option value="86400">24 hours</option><option value="172800">48 hours</option><option value="432000">5 days</option><option value="2592000">30 days</option></select></div></div>
 </div>
-<div class="hm-setrow">
+<div id="preload-live" class="hm-setrow">
 <div class="hm-setrow__text"><p class="hm-setrow__name">Last result</p>
 <p class="hm-field__help">1,144 pages · 0 errors · 64 s</p>
 <p class="hm-field__help">(stopped early: size limit reached)</p>
 </div>
 <div class="hm-setrow__control"><button type="submit" class="hm-btn hm-btn--secondary" form="preload-form"><span>Preload now</span></button></div>
 </div>
-</div></div></section>
+</div><div id="preload-failures-slot"></div></div></section>
 </form>
 <form id="clear-form" method="post" action="/admin/settings/performance/clear"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
 <form id="preload-form" method="post" action="/admin/settings/performance/preload"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form>
