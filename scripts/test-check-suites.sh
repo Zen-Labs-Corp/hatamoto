@@ -58,6 +58,14 @@ while IFS= read -r c; do
     grep -qE "^${BASH_REMATCH[1]}:" Makefile || fail "make target missing: ${BASH_REMATCH[1]}"
   fi
 done <<<"$all"
+# the cell-mode suites copy these helpers into scratch trees: a push that changes one must run them
+need() { # need <suite id> <path>: the suite's globs include <path>
+  grep -E "^$1[[:space:]]" "$txt" | awk '{print $2}' | tr ',' '\n' | grep -qxF "$2" || fail "suite $1 does not watch $2"
+}
+need t-publish-rel scripts/fake-hmctl.sh
+need t-publish-reg scripts/fake-hmctl.sh; need t-publish-reg scripts/deploy-target.sh
+need t-publish-install scripts/deploy-target.sh
+need t-ship-cell scripts/fake-hmctl.sh
 # ids are unique
 dups=$(grep -vE '^(#|$)' "$txt" | awk '{print $1}' | sort | uniq -d)
 [[ -z $dups ]] || fail "duplicate suite ids: $dups"
