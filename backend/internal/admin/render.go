@@ -475,9 +475,11 @@ func newPageSources(fsys fs.FS) (*pageSources, error) {
 }
 
 // ensureBuilt builds the assets and page sources the first time the admin is
-// used, so a site nobody opens the admin on never holds them. A failed build is
-// not remembered: every call retries it until it succeeds. With a template dir
-// every call rebuilds so edits show without a restart.
+// used, so a site nobody opens the admin on never holds them. A failed asset
+// build is not remembered: every call retries it until it succeeds. A failure
+// to parse the embedded page sources is permanent (the tree cannot change
+// within a process), so every later call returns it. With a template dir every
+// call rebuilds so edits show without a restart.
 func (a *Admin) ensureBuilt() error {
 	if a.deps.Dir != "" {
 		return a.build()
@@ -501,10 +503,15 @@ func (a *Admin) ensureBuilt() error {
 
 // state returns the current assets and pages, building them on first use. If the
 // build fails it logs the error and returns empty assets and no pages, so every
-// page answers 500 until a build succeeds.
+// page answers 500 until a build succeeds (never, for an embedded build error,
+// which is logged once).
 func (a *Admin) state() (*Assets, map[string]*pageSet) {
 	if err := a.ensureBuilt(); err != nil {
-		a.logger().Error("admin build failed", "err", err)
+		if a.deps.Dir != "" {
+			a.logger().Error("admin build failed", "err", err)
+		} else {
+			a.buildErrOnce.Do(func() { a.logger().Error("admin build failed; every admin page answers 500", "err", err) })
+		}
 		a.mu.RLock()
 		defer a.mu.RUnlock()
 		if a.assets == nil {

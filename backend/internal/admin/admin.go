@@ -421,8 +421,10 @@ type Admin struct {
 
 	mu      sync.RWMutex
 	buildMu sync.Mutex // serialises the first build; see ensureBuilt
-	assets  *Assets
-	pages   map[string]*pageSet
+	// buildErrOnce logs a permanent (embedded) build error once, not per request.
+	buildErrOnce sync.Once
+	assets       *Assets
+	pages        map[string]*pageSet
 	// partials is the layouts and partials with no page parsed in, which
 	// RenderPartial runs against.
 	partials *pageSet
