@@ -69,6 +69,7 @@ __pycache__/
 
 # Deploy host ssh alias (never committed; see Makefile / scripts/ship.sh)
 /.deploy-host
+/.deploy-target
 
 # Changelog generator and bootstrap credentials (see docs/CHANGELOG_SITE.md)
 /.hatamoto-changelog.env
