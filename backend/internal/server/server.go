@@ -282,6 +282,10 @@ type Server struct {
 	// once loaded. The zero value (test shells) is off.
 	compressOn atomic.Bool
 
+	// lastReq is the UnixNano time of the latest request; the memory releaser
+	// reads it to tell an idle process from a busy one.
+	lastReq atomic.Int64
+
 	// compressCheck is the last public-address compression check (nil until
 	// one finished); compressCheckMu serialises runs.
 	compressCheck   atomic.Pointer[compressionResult]
@@ -720,6 +724,8 @@ func (s *Server) buildHandler() http.Handler {
 		legacy = s.sessionStore
 	}
 	chain := []httpx.Middleware{
+		// Stamps the request time for the idle memory releaser.
+		s.activityMiddleware,
 		// Security headers — applied first so every response includes them.
 		s.securityHeadersMiddleware,
 	}
@@ -971,6 +977,9 @@ func (s *Server) Start() error {
 	if s.geoHolder != nil {
 		go s.runGeoReload(s.lifecycleCtx, time.Minute)
 	}
+	// Boot counts as activity, so nothing is released in the first seconds.
+	s.lastReq.Store(time.Now().UnixNano())
+	s.startMemReleaser(s.lifecycleCtx)
 	// Upgrade seed: before the listener accepts, since the render-time header
 	// fallback no longer exists. Bounded; a failure retries on the next start.
 	seedCtx, seedCancel := context.WithTimeout(s.lifecycleCtx, 20*time.Second)
