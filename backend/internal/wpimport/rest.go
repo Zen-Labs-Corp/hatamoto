@@ -575,16 +575,16 @@ func (s *RESTSource) yoastItem(ctx context.Context, base, id string) (SEO, error
 }
 
 var (
-	titleRe     = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
-	metaTagRe   = regexp.MustCompile(`(?is)<meta\s+[^>]*>`)
-	linkTagRe   = regexp.MustCompile(`(?is)<link\s+[^>]*>`)
-	attrPairRe  = regexp.MustCompile(`(?is)([a-zA-Z:_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')`)
-	canonicalRe = regexp.MustCompile(`(?i)rel=["']canonical["']`)
+	titleRe     = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`) })
+	metaTagRe   = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?is)<meta\s+[^>]*>`) })
+	linkTagRe   = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?is)<link\s+[^>]*>`) })
+	attrPairRe  = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?is)([a-zA-Z:_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')`) })
+	canonicalRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?i)rel=["']canonical["']`) })
 )
 
 func attrsOf(tag string) map[string]string {
 	m := map[string]string{}
-	for _, p := range attrPairRe.FindAllStringSubmatch(tag, -1) {
+	for _, p := range attrPairRe().FindAllStringSubmatch(tag, -1) {
 		v := p[2]
 		if v == "" {
 			v = p[3]
@@ -600,10 +600,10 @@ func ParseHead(page, source string) SEO {
 		page = page[:i]
 	}
 	out := SEO{Source: source}
-	if m := titleRe.FindStringSubmatch(page); m != nil {
+	if m := titleRe().FindStringSubmatch(page); m != nil {
 		out.Title = strings.TrimSpace(html.UnescapeString(m[1]))
 	}
-	for _, tag := range metaTagRe.FindAllString(page, -1) {
+	for _, tag := range metaTagRe().FindAllString(page, -1) {
 		a := attrsOf(tag)
 		switch strings.ToLower(a["name"]) {
 		case "description":
@@ -615,8 +615,8 @@ func ParseHead(page, source string) SEO {
 			out.OGImage = a["content"]
 		}
 	}
-	for _, tag := range linkTagRe.FindAllString(page, -1) {
-		if canonicalRe.MatchString(tag) {
+	for _, tag := range linkTagRe().FindAllString(page, -1) {
+		if canonicalRe().MatchString(tag) {
 			out.Canonical = attrsOf(tag)["href"]
 		}
 	}
@@ -834,10 +834,10 @@ func intList(raw jsontext.Value) []int {
 	return out
 }
 
-var tagRe = regexp.MustCompile(`(?s)<[^>]*>`)
+var tagRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?s)<[^>]*>`) })
 
 func stripTags(s string) string {
-	return strings.TrimSpace(html.UnescapeString(tagRe.ReplaceAllString(s, "")))
+	return strings.TrimSpace(html.UnescapeString(tagRe().ReplaceAllString(s, "")))
 }
 
 func firstNonEmpty(v ...string) string {

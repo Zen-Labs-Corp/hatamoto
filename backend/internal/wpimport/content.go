@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	xhtml "golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
@@ -23,15 +24,25 @@ type Converted struct {
 }
 
 var (
-	blankLinesRe = regexp.MustCompile(`\n\s*\n(?:\s*\n)*`)
-	commentRe    = regexp.MustCompile(`(?s)<!--.*?-->`)
-	captionRe    = regexp.MustCompile(`(?s)\[caption[^\]]*\](.*?)\[/caption\]`)
-	captionImg   = regexp.MustCompile(`(?s)^\s*(<a[^>]*>\s*<img[^>]*>\s*</a>|<img[^>]*>)\s*(.*?)\s*$`)
-	embedSCRe    = regexp.MustCompile(`(?s)\[embed[^\]]*\](.*?)\[/embed\]`)
-	shortcodeRe  = regexp.MustCompile(`\[(/?)([a-zA-Z][a-zA-Z0-9_-]{1,40})((?:\s[^\[\]]*)?)\]`)
-	youtubeRe    = regexp.MustCompile(`^https?://(?:www\.|m\.)?(?:youtube\.com/(?:watch\?(?:[^#\s]*&)?v=|embed/|shorts/)|youtu\.be/|youtube-nocookie\.com/embed/)([A-Za-z0-9_-]{6,20})`)
-	vimeoRe      = regexp.MustCompile(`^https?://(?:www\.)?(?:player\.)?vimeo\.com/(?:video/)?(\d{5,12})`)
-	blockStart   = regexp.MustCompile(`(?i)^<(p|div|h[1-6]|ul|ol|li|table|blockquote|pre|figure|section|article|hr|iframe|form|aside|nav|header|footer|details|dl)[\s>/]`)
+	blankLinesRe = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`\n\s*\n(?:\s*\n)*`) })
+	commentRe    = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?s)<!--.*?-->`) })
+	captionRe    = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?s)\[caption[^\]]*\](.*?)\[/caption\]`) })
+	captionImg   = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`(?s)^\s*(<a[^>]*>\s*<img[^>]*>\s*</a>|<img[^>]*>)\s*(.*?)\s*$`)
+	})
+	embedSCRe   = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`(?s)\[embed[^\]]*\](.*?)\[/embed\]`) })
+	shortcodeRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`\[(/?)([a-zA-Z][a-zA-Z0-9_-]{1,40})((?:\s[^\[\]]*)?)\]`)
+	})
+	youtubeRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^https?://(?:www\.|m\.)?(?:youtube\.com/(?:watch\?(?:[^#\s]*&)?v=|embed/|shorts/)|youtu\.be/|youtube-nocookie\.com/embed/)([A-Za-z0-9_-]{6,20})`)
+	})
+	vimeoRe = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^https?://(?:www\.)?(?:player\.)?vimeo\.com/(?:video/)?(\d{5,12})`)
+	})
+	blockStart = sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`(?i)^<(p|div|h[1-6]|ul|ol|li|table|blockquote|pre|figure|section|article|hr|iframe|form|aside|nav|header|footer|details|dl)[\s>/]`)
+	})
 	// knownShortcodes are removed even without attributes (a bare "[gallery]").
 	knownShortcodes = map[string]bool{"gallery": true, "caption": true, "embed": true, "audio": true, "video": true, "playlist": true, "wpforms": true}
 )
@@ -84,11 +95,11 @@ func DetectBuilders(s string) []string {
 func Convert(in string, raw bool) Converted {
 	var res Converted
 	res.Builders = DetectBuilders(in)
-	s := commentRe.ReplaceAllString(in, "")
-	s = embedSCRe.ReplaceAllString(s, "<p>$1</p>")
-	s = captionRe.ReplaceAllStringFunc(s, func(m string) string {
-		inner := captionRe.FindStringSubmatch(m)[1]
-		if p := captionImg.FindStringSubmatch(inner); p != nil {
+	s := commentRe().ReplaceAllString(in, "")
+	s = embedSCRe().ReplaceAllString(s, "<p>$1</p>")
+	s = captionRe().ReplaceAllStringFunc(s, func(m string) string {
+		inner := captionRe().FindStringSubmatch(m)[1]
+		if p := captionImg().FindStringSubmatch(inner); p != nil {
 			cap := ""
 			if strings.TrimSpace(p[2]) != "" {
 				cap = "<figcaption>" + p[2] + "</figcaption>"
@@ -118,7 +129,7 @@ func Convert(in string, raw bool) Converted {
 	}
 	res.HTML = strings.TrimSpace(b.String())
 	if !strings.Contains(res.HTML, "<pre") { // blank lines inside preformatted text are content
-		res.HTML = blankLinesRe.ReplaceAllString(res.HTML, "\n")
+		res.HTML = blankLinesRe().ReplaceAllString(res.HTML, "\n")
 	}
 	return res
 }
@@ -263,14 +274,14 @@ func (c *converter) text(n *xhtml.Node) {
 		return
 	}
 	closing := map[string]bool{}
-	for _, m := range shortcodeRe.FindAllStringSubmatch(s, -1) {
+	for _, m := range shortcodeRe().FindAllStringSubmatch(s, -1) {
 		if m[1] == "/" {
 			closing[m[2]] = true
 		}
 	}
 	changed := false
-	out := shortcodeRe.ReplaceAllStringFunc(s, func(m string) string {
-		p := shortcodeRe.FindStringSubmatch(m)
+	out := shortcodeRe().ReplaceAllStringFunc(s, func(m string) string {
+		p := shortcodeRe().FindStringSubmatch(m)
 		name, attrs := p[2], strings.TrimSpace(p[3])
 		if p[1] != "/" && attrs == "" && !closing[name] && !knownShortcodes[name] {
 			return m // "[sic]", "[1]": not a shortcode
@@ -367,10 +378,10 @@ func embedIframe(u string) *xhtml.Node {
 	u = html.UnescapeString(strings.TrimSpace(u))
 	var src, title string
 	switch {
-	case youtubeRe.MatchString(u):
-		src, title = "https://www.youtube.com/embed/"+youtubeRe.FindStringSubmatch(u)[1], "YouTube video"
-	case vimeoRe.MatchString(u):
-		src, title = "https://player.vimeo.com/video/"+vimeoRe.FindStringSubmatch(u)[1], "Vimeo video"
+	case youtubeRe().MatchString(u):
+		src, title = "https://www.youtube.com/embed/"+youtubeRe().FindStringSubmatch(u)[1], "YouTube video"
+	case vimeoRe().MatchString(u):
+		src, title = "https://player.vimeo.com/video/"+vimeoRe().FindStringSubmatch(u)[1], "Vimeo video"
 		if pu, err := url.Parse(u); err == nil && pu.Query().Get("h") != "" { // private video hash
 			src += "?h=" + url.QueryEscape(pu.Query().Get("h"))
 		}
@@ -414,7 +425,7 @@ func textOf(n *xhtml.Node) string {
 // elements become paragraphs, single newlines inside them line breaks.
 func autop(s string) string {
 	s = strings.ReplaceAll(s, "\r\n", "\n")
-	if !strings.Contains(s, "\n\n") && blockStart.MatchString(strings.TrimSpace(s)) {
+	if !strings.Contains(s, "\n\n") && blockStart().MatchString(strings.TrimSpace(s)) {
 		return s
 	}
 	var out []string
@@ -423,7 +434,7 @@ func autop(s string) string {
 		if chunk == "" {
 			continue
 		}
-		if blockStart.MatchString(chunk) {
+		if blockStart().MatchString(chunk) {
 			out = append(out, chunk)
 			continue
 		}
