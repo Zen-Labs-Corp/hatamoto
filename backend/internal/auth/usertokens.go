@@ -370,6 +370,11 @@ func (t *UserTokens) ChangePassword(ctx context.Context, userID uuid.UUID, curre
 			err = t.setPassword(ctx, userID, old, hash, keepSession)
 		}
 	}
+	if errors.Is(err, errPasswordChanged) {
+		// The password was right but the hash moved under us (a rehash on
+		// another sign-in): not a guess, so no strike. The caller retries.
+		return ErrInvalidCredentials
+	}
 	if errors.Is(err, ErrInvalidCredentials) {
 		// Wrong current password counts like a wrong login (same lockout), so a
 		// stolen session cannot guess it without limit.
@@ -397,13 +402,20 @@ func (t *UserTokens) passwordHash(ctx context.Context, userID uuid.UUID) (string
 	return hash, nil
 }
 
+// errPasswordChanged means the stored hash changed between verifying the old
+// password and storing the new one.
+var errPasswordChanged = errors.New("password changed concurrently")
+
 // setPassword stores hash if the password is still old (no concurrent change
 // slipped in since it was verified) and signs out the other sessions.
 func (t *UserTokens) setPassword(ctx context.Context, userID uuid.UUID, old, hash string, keepSession *uuid.UUID) error {
 	return t.tx(ctx, func(tx pgx.Tx) error {
 		var cur string
-		if err := tx.QueryRow(ctx, `SELECT password_hash FROM hatamoto_users WHERE id = $1 FOR UPDATE`, userID).Scan(&cur); err != nil || cur != old {
+		if err := tx.QueryRow(ctx, `SELECT password_hash FROM hatamoto_users WHERE id = $1 FOR UPDATE`, userID).Scan(&cur); err != nil {
 			return ErrInvalidCredentials
+		}
+		if cur != old {
+			return errPasswordChanged
 		}
 		if _, err := tx.Exec(ctx, `UPDATE hatamoto_users SET password_hash = $2, failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = $1`, userID, hash); err != nil {
 			return err
