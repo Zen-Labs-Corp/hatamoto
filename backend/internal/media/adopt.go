@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,6 +36,9 @@ type AdoptOptions struct {
 	// age): a file may be in flight, written before its row. Zero or less
 	// disables the guard.
 	OlderThan time.Duration
+	// URL builds the public URL of a key; use the active store's URL, as
+	// uploads do. Nil means "/media/" plus the key.
+	URL func(key string) string
 	// Now is the clock; nil means time.Now.
 	Now func() time.Time
 }
@@ -114,6 +118,9 @@ func Adopt(ctx context.Context, repo AdoptRepo, l Lister, o AdoptOptions) (Adopt
 		case hasUnsafeRune(obj.Key):
 			res.Skipped = append(res.Skipped, DisplayKey(obj.Key)+": key holds control characters")
 			continue
+		case strings.HasPrefix(obj.Key, "/") || strings.ContainsAny(obj.Key, "?#"):
+			res.Skipped = append(res.Skipped, obj.Key+": key would not build a valid folder or URL")
+			continue
 		case len(obj.Key) > maxAdoptKey:
 			res.Skipped = append(res.Skipped, obj.Key+": key longer than 500 bytes")
 			continue
@@ -136,6 +143,9 @@ func Adopt(ctx context.Context, repo AdoptRepo, l Lister, o AdoptOptions) (Adopt
 			return res, err
 		}
 		url := "/media/" + obj.Key
+		if o.URL != nil {
+			url = o.URL(obj.Key)
+		}
 		ts := now().UTC()
 		m := &Media{
 			ID:               uuid.New(),

@@ -329,6 +329,7 @@ type mediaAdoptPlan struct {
 	repo     media.AdoptRepo
 	lister   media.Lister
 	provider string // storage_provider of the active store: local or s3
+	url      func(key string) string
 }
 
 // runMediaAdopt runs `hatamoto media adopt`.
@@ -365,11 +366,11 @@ func runMediaAdopt(ctx context.Context, databaseURL string, args []string, out i
 		return fmt.Errorf("connect to database: %w", err)
 	}
 	defer db.Close()
-	return mediaAdopt(ctx, mediaAdoptPlan{mediaAdoptFlags: f, repo: media.NewPostgresRepository(db), lister: lister, provider: provider}, out)
+	return mediaAdopt(ctx, mediaAdoptPlan{mediaAdoptFlags: f, repo: media.NewPostgresRepository(db), lister: lister, provider: provider, url: store.URL}, out)
 }
 
 func mediaAdopt(ctx context.Context, p mediaAdoptPlan, out io.Writer) error {
-	res, err := media.Adopt(ctx, p.repo, p.lister, media.AdoptOptions{Dir: p.dir, Apply: p.apply, OlderThan: p.olderThan, Provider: p.provider})
+	res, err := media.Adopt(ctx, p.repo, p.lister, media.AdoptOptions{Dir: p.dir, Apply: p.apply, OlderThan: p.olderThan, URL: p.url, Provider: p.provider})
 	if err != nil {
 		return err
 	}

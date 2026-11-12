@@ -182,3 +182,17 @@ func TestDisplayKey(t *testing.T) {
 		}
 	}
 }
+
+// The public URL comes from the store's URL builder, as for uploads, and keys
+// that cannot build a valid URL are skipped and reported.
+func TestAdoptUsesStoreURLAndSkipsUnbuildableKeys(t *testing.T) {
+	l := fixedLister{{Key: "a/b.png", Size: 1}, {Key: "q?x.png", Size: 1}, {Key: "h#x.png", Size: 1}, {Key: "/lead.png", Size: 1}}
+	repo := &fakeAdoptRepo{referenced: map[string]struct{}{}}
+	res, err := Adopt(context.Background(), repo, l, AdoptOptions{Apply: true, Provider: "s3", URL: func(k string) string { return "https://cdn.example/" + k }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(repo.created) != 1 || *repo.created[0].PublicURL != "https://cdn.example/a/b.png" || len(res.Skipped) != 3 {
+		t.Errorf("created %d, skipped %v, want 1 row with the store URL and 3 skipped", len(repo.created), res.Skipped)
+	}
+}
