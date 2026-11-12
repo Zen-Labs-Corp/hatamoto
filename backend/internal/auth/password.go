@@ -33,25 +33,18 @@ const (
 	maxStoredKeyLen = 1024
 )
 
-// maxConcurrentHashes bounds argon2 work in flight. Each hash holds 19 MiB, so
-// a burst of sign-in attempts must queue rather than exhaust memory.
-const maxConcurrentHashes = 4
-
-var hashSlots = make(chan struct{}, maxConcurrentHashes)
-
-// argon2ID runs argon2id once a slot is free. It stops waiting, without
-// hashing, when ctx ends (a request whose client has gone must not keep a
-// place in the queue).
+// argon2ID runs argon2id once the hash gate has room for it (see hashgate.go).
+// It stops waiting, without hashing, when ctx ends (a request whose client has
+// gone must not keep a place in the queue).
 func argon2ID(ctx context.Context, password, salt []byte, time, memory uint32, threads uint8, keyLen uint32) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	select {
-	case hashSlots <- struct{}{}:
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	release, err := theGate().acquire(ctx, costOf(memory))
+	if err != nil {
+		return nil, err
 	}
-	defer func() { <-hashSlots }()
+	defer release()
 	return argon2.IDKey(password, salt, time, memory, threads, keyLen), nil
 }
 
