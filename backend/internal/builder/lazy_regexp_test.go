@@ -24,3 +24,17 @@ func TestLazyRegexpsCompile(t *testing.T) {
 		}
 	}
 }
+
+// TestCoreSchemasCompile forces the lazy kind-schema compile; compileKinds
+// panics on a bad schema, so a broken kind fails here instead of at runtime.
+func TestCoreSchemasCompile(t *testing.T) {
+	schemas := coreRegistry.schemas()
+	for name := range coreRegistry.kinds {
+		if schemas[name] == nil {
+			t.Errorf("kind %q has no compiled schema", name)
+		}
+	}
+	if len(schemas) != len(coreRegistry.kinds) {
+		t.Errorf("%d schemas for %d kinds", len(schemas), len(coreRegistry.kinds))
+	}
+}

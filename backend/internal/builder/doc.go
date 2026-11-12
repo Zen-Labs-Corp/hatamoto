@@ -209,7 +209,7 @@ func validateProps(r *registry, x *Node) error {
 	} else if err := jsonx.Unmarshal(raw, &v, jsonx.Stored); err != nil {
 		return fmt.Errorf("props: %w", err)
 	}
-	s := r.schemas[x.T]
+	s := r.schemas()[x.T]
 	if s == nil {
 		return fmt.Errorf("unknown kind %q", x.T)
 	}

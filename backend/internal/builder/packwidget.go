@@ -165,7 +165,7 @@ func SetPackKinds(ws []PackWidgetSchema) error {
 		return fmt.Errorf("builder: %d plugin widgets, at most %d", len(ws), MaxPackWidgets)
 	}
 	kinds := maps.Clone(coreRegistry.kinds)
-	schemas := maps.Clone(coreRegistry.schemas)
+	schemas := maps.Clone(coreRegistry.schemas())
 	for _, w := range ws {
 		if !IsPackKind(w.Name) {
 			return fmt.Errorf("builder: %q is not a plugin widget kind", w.Name)
@@ -197,7 +197,7 @@ func SetPackKinds(ws []PackWidgetSchema) error {
 			return fmt.Errorf("builder: widget %q: only_in kind %q is not registered", n, m.OnlyIn)
 		}
 	}
-	reg.Store(&registry{kinds: kinds, schemas: schemas})
+	reg.Store(&registry{kinds: kinds, schemas: func() map[string]*jsonschema.Schema { return schemas }})
 	return nil
 }
 
