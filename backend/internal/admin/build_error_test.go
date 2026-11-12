@@ -16,6 +16,9 @@ func TestEmbeddedBuildErrorIsLoggedOnce(t *testing.T) {
 	savedErr := embedded.err
 	t.Cleanup(func() {
 		embedded.once = sync.Once{}
+		if saved == nil && savedErr == nil {
+			return // nothing was built before this test: let the next build run
+		}
 		embedded.once.Do(func() {})
 		embedded.srcs, embedded.err = saved, savedErr
 	})
