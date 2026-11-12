@@ -390,6 +390,7 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 				"missing", len(missing), "sample", missing[:min(len(missing), maxMissingLogged)])
 		}
 	}
+	rowless := e.checkRowless(ctx, mediaObjects)
 	pr.finished()
 
 	pr.step("finishing")
@@ -418,6 +419,7 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 	done := *info
 	done.State, done.Step, done.Percent, done.Error = StateOK, "", 100, ""
 	done.Size, done.Parts, done.Plugins, done.MediaMissing = size, names, pluginNames, man.MediaMissing
+	done.MediaRowless, done.MediaRowlessSample = rowless.Count, rowless.Sample
 	return done, nil
 }
 
@@ -482,8 +484,8 @@ func (e *Engine) exportContent(ctx context.Context, path string, withMedia bool)
 	if store := e.opts.MediaStore; store != nil {
 		opts.Store = store
 		opts.SkipMedia = !withMedia
-		opts.OnMedia = func(rel string) { referenced = append(referenced, rel) }
 	}
+	opts.OnMedia = func(rel string) { referenced = append(referenced, rel) }
 	man, err := e.exportFn(ctx, f, opts)
 	if cerr := f.Close(); err == nil {
 		err = cerr
@@ -509,7 +511,49 @@ func (e *Engine) exportContent(ctx context.Context, path string, withMedia bool)
 		e.opts.Log.Warn("backup: media files referenced by the database are missing and left out",
 			"dir", dir, "missing", man.MediaMissing, "sample", missing)
 	}
-	return man, nil, nil
+	return man, referenced, nil
+}
+
+// checkRowless lists the files of the media store that no row in the export
+// references. It only warns: a failed check never fails the backup.
+func (e *Engine) checkRowless(ctx context.Context, referenced []string) media.RowlessResult {
+	var lister media.Lister
+	if store := e.opts.MediaStore; store != nil {
+		l, ok := store.(media.Lister)
+		if !ok {
+			return media.RowlessResult{}
+		}
+		lister = l
+	} else {
+		dir := e.MediaDirAbs()
+		if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+			return media.RowlessResult{}
+		}
+		local, err := media.NewLocalStore(dir, "/media")
+		if err != nil {
+			e.opts.Log.Warn("backup: could not check the media directory for files without a media row", "error", err)
+			return media.RowlessResult{}
+		}
+		l, ok := local.(media.Lister)
+		if !ok {
+			return media.RowlessResult{}
+		}
+		lister = l
+	}
+	set := make(map[string]struct{}, len(referenced))
+	for _, k := range referenced {
+		set[k] = struct{}{}
+	}
+	res, err := media.Rowless(ctx, lister, set, media.RowlessOptions{})
+	if err != nil {
+		e.opts.Log.Warn("backup: could not check the media store for files without a media row", "error", err)
+		return media.RowlessResult{}
+	}
+	if res.Count > 0 {
+		e.opts.Log.Warn("backup: media store files have no media row at backup time and are not in this backup; `hatamoto media adopt` creates their rows",
+			"count", res.Count, "sample", res.Sample)
+	}
+	return res
 }
 
 // MediaDirAbs is the absolute path of the media dir the content export reads.

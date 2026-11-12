@@ -175,7 +175,7 @@ func TestLocalBackupHasNoMediaManifest(t *testing.T) {
 			t.Error("a local backup carries a media manifest")
 		}
 	}
-	if got.Store != nil || got.SkipMedia || got.OnMedia != nil {
+	if got.Store != nil || got.SkipMedia {
 		t.Errorf("export options = %+v", got)
 	}
 }
