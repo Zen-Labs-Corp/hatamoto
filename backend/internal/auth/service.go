@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"sync"
@@ -222,6 +223,8 @@ func (s *Service) authenticate(ctx context.Context, email, password string) (u *
 		return nil, false, ErrInvalidCredentials
 	}
 
+	s.maybeRehash(ctx, superCtx, u, password)
+
 	// A user with a second factor is not signed in yet: keep the failure
 	// counter so wrong codes at the next step add to it. If we cannot tell
 	// whether a factor exists, refuse (fail closed).
@@ -239,6 +242,36 @@ func (s *Service) authenticate(ctx context.Context, email, password string) (u *
 	}
 
 	return u, false, nil
+}
+
+// passwordHashUpdater is the optional repository method that swaps a stored
+// hash for an upgraded one. It is not part of user.Repository: only the
+// Postgres repository has it, and mocks need not.
+type passwordHashUpdater interface {
+	UpdatePasswordHash(ctx context.Context, id uuid.UUID, oldHash, newHash string) (bool, error)
+}
+
+// maybeRehash upgrades a stored hash weaker than the current target after the
+// password was proven. It never fails the sign-in: an error is logged and
+// dropped, and the next sign-in tries again. The write is a compare-and-swap on
+// the old hash and leaves lockout state and sessions alone. It uses a context
+// detached from the request so a client that disconnects keeps the upgrade.
+// The CAS can make a ChangePassword started at the same instant fail once (it
+// compares the old hash too); the user retries.
+func (s *Service) maybeRehash(ctx, superCtx context.Context, u *user.User, password string) {
+	up, ok := s.userRepo.(passwordHashUpdater)
+	if !ok || !NeedsRehash(u.PasswordHash) {
+		return
+	}
+	rctx, cancel := context.WithTimeout(context.WithoutCancel(superCtx), 10*time.Second)
+	defer cancel()
+	newHash, err := HashPasswordContext(rctx, password)
+	if err == nil {
+		_, err = up.UpdatePasswordHash(rctx, u.ID, u.PasswordHash, newHash)
+	}
+	if err != nil {
+		slog.WarnContext(ctx, "password rehash failed; sign-in continues", "user_id", u.ID, "err", err)
+	}
 }
 
 // CheckPassword is the first step of admin sign-in: it verifies the password
