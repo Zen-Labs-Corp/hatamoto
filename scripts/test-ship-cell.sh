@@ -24,8 +24,13 @@ git init -q -b main "$W/main"
   git add -A && git commit -qm base
   git remote add origin "$W/origin.git"
   git push -q origin main
+  # a second commit that touches backend/, so a known previous DEPLOYED_SHA classifies as a deploy
+  mkdir backend && echo change > backend/x
+  git add -A && git commit -qm change
+  git push -q origin main
 )
 DEPLOY=$(git -C "$W/main" rev-parse HEAD)
+OLD=$(git -C "$W/main" rev-parse HEAD~1)
 ORIGIN_SLUG=$(slug_of "$W/origin.git")
 
 # --- stubs: gh (PR already merged), ssh (drops flags and host, runs the string), scp, curl, systemctl, journalctl, sleep
@@ -55,6 +60,8 @@ cp "$1" "${2#*:}"
 SCP
 cat > "$S/curl" <<'CURL'
 #!/usr/bin/env bash
+# CURL_FAIL_NEW=1: the site is unhealthy while the new binary is installed
+if [[ ${CURL_FAIL_NEW:-} == 1 ]] && grep -q new-binary "$FAKE_BIN_STATE" 2>/dev/null; then exit 22; fi
 for a in "$@"; do
   [[ $a == -w ]] && { echo 200; exit 0; }
   [[ $a == */health ]] && { echo ok; exit 0; }
@@ -69,10 +76,13 @@ chmod +x "$S"/*
 
 LOG=$W/calls.log; OUT=""
 ship() { # ship [ENV=VAL...]: real run in the scratch clone; sets OUT and RC
+  # OLD_MARK=1: the site reports $OLD as deployed-sha; OLD_FILE=1: its binary is still staged
   : >"$LOG"; rm -f "$W/mark" "$W/bin-state" "$LOG.goose" "$LOG.stdin"; rm -rf "$W/stage"
+  if [[ ${OLD_MARK:-} == 1 ]]; then echo "$OLD" >"$W/mark"; fi
+  if [[ ${OLD_FILE:-} == 1 ]]; then mkdir -p "$W/stage"; echo old-binary >"$W/stage/hatamoto-$OLD"; fi
   set +e
   OUT=$(cd "$W/main" && env PATH="$S:$PATH" STUB_LOG="$LOG" FAKE_MARK="$W/mark" FAKE_BIN_STATE="$W/bin-state" \
-    SHIP_EXPECTED_ORIGIN="$ORIGIN_SLUG" DEPLOY_HOST=stubhost DEPLOY_TARGET=hmctl:example-site \
+    CURL_FAIL_NEW="${CURL_FAIL_NEW:-}" SHIP_EXPECTED_ORIGIN="$ORIGIN_SLUG" DEPLOY_HOST=stubhost DEPLOY_TARGET=hmctl:example-site \
     DEPLOY_STAGING="$W/stage" SHIP_REEXEC=1 SHIP_MERGEABLE_WAIT=0 "$@" bash scripts/ship.sh 1 2>&1)
   RC=$?
   set -e
@@ -116,4 +126,31 @@ ship
 grep -q 'no backup id' <<<"$OUT" || fail "no backup-id message"
 if grep -q 'site binary' "$LOG"; then fail "binary uploaded after a failed backup"; fi
 pass "backup without an id aborts before the binary"
+mv "$S/hmctl-real" "$S/hmctl"
+
+# --- rollback: the new binary is unhealthy
+# (a) goose unchanged, old binary still staged: it is re-applied; exit 2, no DB message.
+OLD_MARK=1 OLD_FILE=1 CURL_FAIL_NEW=1 ship
+[[ $RC == 2 ]] || fail "rollback (a) exited $RC, want 2"
+grep -q "hmctl site binary example-site --from $W/stage/hatamoto-$OLD" "$LOG" || fail "(a) old binary not re-applied"
+[[ "$(cat "$W/bin-state")" == old-binary ]] || fail "(a) the site is not on the old binary"
+if grep -q 'DB changed by migration' <<<"$OUT"; then fail "(a) DB message although goose is unchanged"; fi
+if grep -qE 'mark example-site deployed-sha [0-9a-f]{40}' "$LOG"; then fail "(a) mark written for a failed ship"; fi
+pass "rollback re-applies the previous binary, exit 2"
+
+# (b) old binary file gone: the override is cleared.
+OLD_MARK=1 CURL_FAIL_NEW=1 ship
+[[ $RC == 2 ]] || fail "rollback (b) exited $RC, want 2"
+grep -q 'hmctl site binary example-site --clear' "$LOG" || fail "(b) --clear not used"
+[[ ! -e "$W/bin-state" ]] || fail "(b) override still installed"
+pass "rollback without the old file clears the override"
+
+# (c) the migration bumped goose: binary rolled back, DB left, manual-restore message with the backup id.
+OLD_MARK=1 OLD_FILE=1 CURL_FAIL_NEW=1 ship FAKE_MIGRATE_BUMPS=1
+[[ $RC == 2 ]] || fail "rollback (c) exited $RC, want 2"
+grep -q 'DB NOT restored' <<<"$OUT" || fail "(c) no DB message"
+grep -q '20260101T000000Z-manual' <<<"$OUT" || fail "(c) message lacks the backup id"
+grep -q "hmctl site binary example-site --from $W/stage/hatamoto-$OLD" "$LOG" || fail "(c) binary not rolled back"
+if grep -qE 'restore|pg_|restart|suspend' "$LOG"; then fail "(c) a restore/restart command was run"; fi
+pass "changed goose version: binary rolled back, manual DB restore message, exit 2"
 echo "ALL OK"

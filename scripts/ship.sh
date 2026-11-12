@@ -922,14 +922,36 @@ goose_ver() {
 # Remote UTC timestamp for journalctl --since (taken right before a restart).
 remote_now() { ssh "$DEPLOY_HOST" 'date -u "+%Y-%m-%d %H:%M:%S"' 2>/dev/null | sed 's/$/ UTC/' || true; }
 
-RB_SINCE=""; RB_DB_FAILED=0
+RB_SINCE=""; RB_DB_FAILED=0; DB_MANUAL=0; RB_BIN_FAILED=0
 # Undoes whichever stages started (flags are set BEFORE each mutation).
 # The DB is restored by scripts/ship-db-restore.sh (fresh database from the
 # dump, renamed into place); the failed database is kept for forensics.
 rollback() {
   echo "-- rolling back"
   RB_SINCE=$(remote_now); RB_SINCE=${RB_SINCE:--2min}
-  if (( CELL )); then echo "rollback: cell rollback not implemented" >&2; return 0; fi
+  if (( CELL )); then
+    # hmctl has no in-place restore (`site restore` rebuilds into another slug), so only the
+    # binary is rolled back here: re-apply the previous one (kept in staging), else the channel one.
+    # A changed migration fingerprint leaves the database for a manual restore (DB_MANUAL).
+    if (( MIG_RAN )); then
+      local post
+      if [[ -n "$GOOSE_PRE" ]] && post=$(goose_ver) && [[ "$post" == "$GOOSE_PRE" ]]; then
+        echo "applied-migrations fingerprint unchanged ($GOOSE_PRE): database untouched"
+      else
+        DB_MANUAL=1
+        echo "applied-migrations fingerprint changed or unreadable (${GOOSE_PRE:-?} -> ${post:-?}): database needs a manual restore"
+      fi
+    fi
+    if (( DEPLOYED_API )); then
+      local old=$STAGING/hatamoto-$OLD_SHA
+      if [[ -n "$OLD_SHA" ]] && ssh -T -o BatchMode=yes "$DEPLOY_HOST" "test -f '$old'"; then
+        hm binary --from "$old" || { RB_BIN_FAILED=1; echo "rollback: re-applying the previous binary failed" >&2; }
+      else
+        hm binary --clear || { RB_BIN_FAILED=1; echo "rollback: clearing the binary override failed" >&2; }
+      fi
+    fi
+    return 0
+  fi
   if (( MIG_RAN )); then
     local post restore=1
     if [[ -n "$GOOSE_PRE" ]] && post=$(goose_ver); then
@@ -978,6 +1000,12 @@ on_fail() {
   trap - ERR INT TERM HUP
   echo "SHIP-H: deploy failed" >&2
   rollback
+  if (( CELL && DB_MANUAL )); then
+    echo "DB changed by migration: binary rolled back, DB NOT restored. Manual restore from pre-ship backup ${BACKUP_ID:-<none recorded>} (hmctl backup id) - see core docs/BACKUPS.md" >&2
+    if (( RB_BIN_FAILED )); then echo "SHIP-H FAILED (ROLLBACK INCOMPLETE: binary not rolled back, database not restored)" >&2; exit 3; fi
+    echo "SHIP-H FAILED (binary rolled back; DB NOT restored: manual restore needed)" >&2
+    exit 2
+  fi
   if (( RB_DB_FAILED )); then
     echo "SHIP-H FAILED (ROLLBACK INCOMPLETE: database not restored; restore $DUMP by hand)" >&2
     exit 3
