@@ -9,12 +9,41 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 )
+
+// IDPattern is an anchored id pattern. Built-in ones compile on first use so
+// the vendor table costs nothing until an id is validated.
+type IDPattern struct {
+	once sync.Once
+	src  string
+	re   *regexp.Regexp
+}
+
+func lazyPattern(src string) *IDPattern { return &IDPattern{src: src} }
+
+// fixedPattern wraps an already compiled expression.
+func fixedPattern(re *regexp.Regexp) *IDPattern { return &IDPattern{re: re} }
+
+func (p *IDPattern) regexp() *regexp.Regexp {
+	p.once.Do(func() {
+		if p.re == nil {
+			p.re = regexp.MustCompile(p.src)
+		}
+	})
+	return p.re
+}
+
+// MatchString reports whether s matches the pattern.
+func (p *IDPattern) MatchString(s string) bool { return p.regexp().MatchString(s) }
+
+// String returns the source of the pattern.
+func (p *IDPattern) String() string { return p.regexp().String() }
 
 // Field describes an extra id a vendor takes next to its main id.
 type Field struct {
 	Label   string
-	Pattern *regexp.Regexp
+	Pattern *IDPattern
 	Help    string
 }
 
@@ -24,9 +53,9 @@ type Vendor struct {
 	ID      string
 	Label   string
 	IDLabel string
-	Pattern *regexp.Regexp // whole-value, anchored
-	Fold    bool           // upper-case the id before validating (ids are case-insensitive)
-	Aux     *Field         // optional second field
+	Pattern *IDPattern // whole-value, anchored
+	Fold    bool       // upper-case the id before validating (ids are case-insensitive)
+	Aux     *Field     // optional second field
 	// Category is the consent category, one of consent.Categories.
 	Category string
 	// Src is the loader URL template; {id} is the only placeholder. May be empty.
@@ -58,7 +87,7 @@ var Vendors = []Vendor{
 		// https://developers.google.com/tag-platform/tag-manager/csp
 		ID: "ga4", Summary: "Visits, events and conversions in Google Analytics.",
 		Label: "Google Analytics 4", IDLabel: "Measurement ID",
-		Pattern: regexp.MustCompile(`^(G|GT)-[A-Z0-9]{4,16}$`), Fold: true,
+		Pattern: lazyPattern(`^(G|GT)-[A-Z0-9]{4,16}$`), Fold: true,
 		Category: "analytics", Boot: "ga4",
 		Src:     "https://www.googletagmanager.com/gtag/js?id={id}",
 		Script:  []string{"https://www.googletagmanager.com"},
@@ -69,7 +98,7 @@ var Vendors = []Vendor{
 		// https://developers.google.com/tag-platform/tag-manager/web
 		ID: "gtm", Summary: "Loads your Tag Manager container. Its tags from other hosts are blocked.",
 		Label: "Google Tag Manager", IDLabel: "Container ID",
-		Pattern: regexp.MustCompile(`^GTM-[A-Z0-9]{4,12}$`), Fold: true,
+		Pattern: lazyPattern(`^GTM-[A-Z0-9]{4,12}$`), Fold: true,
 		Category: "marketing", Boot: "gtm",
 		Src:      "https://www.googletagmanager.com/gtm.js?id={id}",
 		Script:   []string{"https://www.googletagmanager.com"},
@@ -80,8 +109,8 @@ var Vendors = []Vendor{
 		// https://support.google.com/google-ads/answer/7548399
 		ID: "gads", Summary: "Conversion tracking and remarketing for Google Ads.",
 		Label: "Google Ads", IDLabel: "Conversion ID",
-		Pattern: regexp.MustCompile(`^AW-[0-9]{6,12}$`), Fold: true,
-		Aux:      &Field{Label: "Conversion label", Pattern: regexp.MustCompile(`^[A-Za-z0-9_-]{4,40}$`), Help: "Optional. Sends a form conversion to this label."},
+		Pattern: lazyPattern(`^AW-[0-9]{6,12}$`), Fold: true,
+		Aux:      &Field{Label: "Conversion label", Pattern: lazyPattern(`^[A-Za-z0-9_-]{4,40}$`), Help: "Optional. Sends a form conversion to this label."},
 		Category: "marketing", Boot: "gads",
 		Src:     "https://www.googletagmanager.com/gtag/js?id={id}",
 		Script:  []string{"https://www.googletagmanager.com", "https://www.googleadservices.com", "https://googleads.g.doubleclick.net"},
@@ -92,7 +121,7 @@ var Vendors = []Vendor{
 		// https://developers.facebook.com/docs/meta-pixel/get-started
 		ID: "meta", Summary: "Conversions and audiences for Facebook and Instagram ads.",
 		Label: "Meta Pixel", IDLabel: "Pixel ID",
-		Pattern:  regexp.MustCompile(`^[0-9]{10,20}$`),
+		Pattern:  lazyPattern(`^[0-9]{10,20}$`),
 		Category: "marketing", Boot: "meta",
 		Src:      "https://connect.facebook.net/en_US/fbevents.js",
 		Script:   []string{"https://connect.facebook.net"},
@@ -104,7 +133,7 @@ var Vendors = []Vendor{
 		// https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-setup
 		ID: "clarity", Summary: "Heatmaps and session recordings.",
 		Label: "Microsoft Clarity", IDLabel: "Project ID",
-		Pattern:  regexp.MustCompile(`^[a-z0-9]{8,12}$`),
+		Pattern:  lazyPattern(`^[a-z0-9]{8,12}$`),
 		Category: "analytics", Boot: "clarity",
 		Src:     "https://www.clarity.ms/tag/{id}",
 		Script:  []string{"https://*.clarity.ms"},
@@ -115,7 +144,7 @@ var Vendors = []Vendor{
 		// https://help.ads.microsoft.com/#apex/ads/en/56688/2
 		ID: "uet", Summary: "Conversion tracking for Microsoft Advertising.",
 		Label: "Microsoft Advertising (UET)", IDLabel: "Tag ID",
-		Pattern:  regexp.MustCompile(`^[0-9]{6,12}$`),
+		Pattern:  lazyPattern(`^[0-9]{6,12}$`),
 		Category: "analytics", Boot: "uet",
 		Src:     "https://bat.bing.com/bat.js",
 		Script:  []string{"https://bat.bing.com"},
@@ -126,8 +155,8 @@ var Vendors = []Vendor{
 		// https://www.linkedin.com/help/lms/answer/a418880
 		ID: "linkedin", Summary: "Conversions and retargeting for LinkedIn ads.",
 		Label: "LinkedIn Insight Tag", IDLabel: "Partner ID",
-		Pattern:  regexp.MustCompile(`^[0-9]{5,12}$`),
-		Aux:      &Field{Label: "Conversion ID", Pattern: regexp.MustCompile(`^[0-9]{4,12}$`), Help: "Optional. Counts a form submit as this conversion."},
+		Pattern:  lazyPattern(`^[0-9]{5,12}$`),
+		Aux:      &Field{Label: "Conversion ID", Pattern: lazyPattern(`^[0-9]{4,12}$`), Help: "Optional. Counts a form submit as this conversion."},
 		Category: "analytics", Boot: "linkedin",
 		Src:     "https://snap.licdn.com/li.lms-analytics/insight.min.js",
 		Script:  []string{"https://snap.licdn.com"},
@@ -138,7 +167,7 @@ var Vendors = []Vendor{
 		// https://business-api.tiktok.com/portal/docs?id=1739585696931842
 		ID: "tiktok", Summary: "Conversions and audiences for TikTok ads.",
 		Label: "TikTok Pixel", IDLabel: "Pixel ID",
-		Pattern: regexp.MustCompile(`^[A-Z0-9]{10,30}$`), Fold: true,
+		Pattern: lazyPattern(`^[A-Z0-9]{10,30}$`), Fold: true,
 		Category: "marketing", Boot: "tiktok",
 		Src:     "https://analytics.tiktok.com/i18n/pixel/events.js?sdkid={id}&lib=ttq",
 		Script:  []string{"https://analytics.tiktok.com"},
@@ -149,7 +178,7 @@ var Vendors = []Vendor{
 		// https://help.pinterest.com/en/business/article/install-the-pinterest-tag
 		ID: "pinterest", Summary: "Conversions and audiences for Pinterest ads.",
 		Label: "Pinterest Tag", IDLabel: "Tag ID",
-		Pattern:  regexp.MustCompile(`^[0-9]{10,20}$`),
+		Pattern:  lazyPattern(`^[0-9]{10,20}$`),
 		Category: "marketing", Boot: "pinterest",
 		Src:     "https://s.pinimg.com/ct/core.js",
 		Script:  []string{"https://s.pinimg.com"},
@@ -160,7 +189,7 @@ var Vendors = []Vendor{
 		// https://help.tawk.to/article/content-security-policy
 		ID: "tawk", Summary: "A live chat widget on every page.",
 		Label: "Tawk.to chat", IDLabel: "Property and widget ID",
-		Pattern:  regexp.MustCompile(`^[0-9a-f]{24}/[0-9a-z]{6,12}$`),
+		Pattern:  lazyPattern(`^[0-9a-f]{24}/[0-9a-z]{6,12}$`),
 		Category: "functional", Boot: "tawk",
 		Src:     "https://embed.tawk.to/{id}",
 		Script:  []string{"https://embed.tawk.to", "https://*.tawk.to", "https://cdn.jsdelivr.net"},
@@ -173,7 +202,7 @@ var Vendors = []Vendor{
 		// https://docs.crisp.chat/guides/others/whitelisting-crisp-domains/
 		ID: "crisp", Summary: "A live chat and help desk widget.",
 		Label: "Crisp chat", IDLabel: "Website ID",
-		Pattern:  regexp.MustCompile(`^(?i:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`),
+		Pattern:  lazyPattern(`^(?i:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`),
 		Category: "functional", Boot: "crisp",
 		Src:     "https://client.crisp.chat/l.js",
 		Script:  []string{"https://client.crisp.chat"},
@@ -186,7 +215,7 @@ var Vendors = []Vendor{
 		// https://knowledge.hubspot.com/domains-and-urls/what-domains-do-i-need-to-allow-for-hubspot-tracking
 		ID: "hubspot", Summary: "HubSpot tracking, forms and chat.",
 		Label: "HubSpot", IDLabel: "Hub ID",
-		Pattern:  regexp.MustCompile(`^[0-9]{5,12}$`),
+		Pattern:  lazyPattern(`^[0-9]{5,12}$`),
 		Category: "marketing", Boot: "hubspot",
 		Src:     "https://js.hs-scripts.com/{id}.js",
 		Script:  []string{"https://js.hs-scripts.com", "https://js.hs-analytics.net", "https://js.hscollectedforms.net", "https://js.usemessages.com", "https://js.hs-banner.com"},
@@ -197,7 +226,7 @@ var Vendors = []Vendor{
 		// https://support.google.com/adsense/answer/9274025
 		ID: "adsense", Summary: "Shows Google ads on your pages.",
 		Label: "Google AdSense", IDLabel: "Publisher ID",
-		Pattern:  regexp.MustCompile(`^ca-pub-[0-9]{10,20}$`),
+		Pattern:  lazyPattern(`^ca-pub-[0-9]{10,20}$`),
 		Category: "marketing", Boot: "adsense",
 		Src:     "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={id}",
 		Script:  []string{"https://pagead2.googlesyndication.com", "https://*.googlesyndication.com", "https://www.googletagservices.com", "https://adservice.google.com", "https://partner.googleadservices.com"},
