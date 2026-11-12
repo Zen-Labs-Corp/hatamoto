@@ -23,7 +23,7 @@
 </div>
 <div class="hm-setrow">
 <div class="hm-setrow__text"><label class="hm-setrow__name" for="max-mb">Max cache size</label>
-<p class="hm-field__help" id="max-mb-help">Empty = no limit.</p>
+<p class="hm-field__help" id="max-mb-help">Empty = automatic (about 10% of the memory limit, at least 8 MiB; 64 MiB when the server has no memory limit).</p>
 {{with index .Errs "max-mb"}}<p class="hm-field__error" id="max-mb-error">{{.}}</p>{{end}}</div>
 <div class="hm-setrow__control"><input class="hm-field__control" type="number" id="max-mb" name="max_mb"{{if .MaxMB}} value="{{.MaxMB}}"{{end}} min="1" max="102400" step="1"{{if index .Errs "max-mb"}} aria-invalid="true"{{end}} aria-describedby="max-mb-help max-mb-unit{{if index .Errs "max-mb"}} max-mb-error{{end}}"{{if not .Enabled}} disabled{{end}}><span class="hm-setrow__unit" id="max-mb-unit">MB</span></div>
 </div>

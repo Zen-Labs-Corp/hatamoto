@@ -19,7 +19,7 @@ type PageCacheService interface {
 }
 
 // PageCacheSettings are the owner's stored choices. TTLSeconds 0 means "use
-// the server default", MaxMB 0 means no limit, PreloadIntervalSeconds 0 means
+// the server default", MaxMB 0 means the automatic limit, PreloadIntervalSeconds 0 means
 // "same as the lifetime".
 type PageCacheSettings struct {
 	Enabled                bool

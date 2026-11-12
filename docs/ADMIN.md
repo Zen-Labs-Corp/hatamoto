@@ -1126,7 +1126,7 @@ the right; On or Off is a segmented control):
   The value saved here wins over `HATAMOTO_PAGE_CACHE_TTL`; the page shows
   whether the lifetime is "set here" or the server default (environment or
   built-in 5 minutes).
-* **Max cache size** in MB (1 to 102400, empty means no limit). Over the limit
+* **Max cache size** in MB (1 to 102400, empty means automatic: about 10% of the memory limit, at least 8 MiB, or 64 MiB when there is no memory limit). Over the limit
   the oldest pages are evicted first; a single page larger than the limit is
   not stored. Applied at boot and on save; lowering the limit evicts on the
   next cache write, not at once.
