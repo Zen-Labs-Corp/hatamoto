@@ -30,6 +30,7 @@ func TestIgnoredKey(t *testing.T) {
 		tenant + "/replace-1.tmp.old": true,
 		"other/replace-1.tmp.old":     false,
 		tenant + "/2026/hero_thumb.webp.2f1c6b0e-8d0b-4c64-9a52-6a1d7c0e5b11.old": true,
+		tenant + "/hero_thumb.webp.2f1c6b0e-8d0b-4c64-9a52-6a1d7c0e5b11.old":      true,
 		tenant + "/hero.webp.old": false,
 		".import-1/x.png":         true,
 		"a/.hidden":               true,

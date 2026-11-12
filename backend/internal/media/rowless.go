@@ -48,7 +48,9 @@ func IgnoredKey(key string) bool {
 	}
 	if path.Dir(key) == legacyMediaTenantDir {
 		base := path.Base(key)
-		return strings.HasPrefix(base, "replace-") && (strings.HasSuffix(base, ".tmp") || strings.HasSuffix(base, ".tmp.old"))
+		if strings.HasPrefix(base, "replace-") && (strings.HasSuffix(base, ".tmp") || strings.HasSuffix(base, ".tmp.old")) {
+			return true
+		}
 	}
 	return isReplaceAside(path.Base(key))
 }
