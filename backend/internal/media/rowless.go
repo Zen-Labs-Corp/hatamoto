@@ -35,10 +35,10 @@ type RowlessResult struct {
 }
 
 // IgnoredKey reports whether key is a file the application itself owns or a
-// name nothing can adopt: a dot segment, a staged changeset file, a replace
+// name nothing can adopt: a trailing slash (a folder placeholder), a dot segment, a staged changeset file, a replace
 // temp or leftover file, an import temp name, a backslash, NUL or invalid UTF-8.
 func IgnoredKey(key string) bool {
-	if key == "" || isStagedKey(key) || !utf8.ValidString(key) || strings.ContainsAny(key, "\\\x00") {
+	if key == "" || strings.HasSuffix(key, "/") || isStagedKey(key) || !utf8.ValidString(key) || strings.ContainsAny(key, "\\\x00") {
 		return true
 	}
 	for _, seg := range strings.Split(key, "/") {
