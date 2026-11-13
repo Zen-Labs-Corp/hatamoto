@@ -54,11 +54,23 @@ func absoluteURL(baseURL, u string) string {
 	return u
 }
 
+// creativeWorkTypes are the allowed schema_org_type values that are a
+// schema.org CreativeWork, the types that take publisher and isPartOf.
+var creativeWorkTypes = map[string]bool{
+	"Article": true, "BlogPosting": true, "NewsArticle": true, "DefinedTerm": true,
+	"Course": true, "HowTo": true, "WebPage": true, "CreativeWork": true,
+}
+
 // applyStructuredLinks adds the site-graph references and the term set to a
 // generic document. It does nothing unless a structured-data key is set, so
 // unconfigured schemas keep today's output. Existing keys are never replaced.
+// publisher and isPartOf are CreativeWork properties and are added to those
+// types only.
 func applyStructuredLinks(doc map[string]any, st SchemaURLSettings, baseURL string) {
 	if !st.StructuredDataConfigured() {
+		return
+	}
+	if typ, _ := doc["@type"].(string); !creativeWorkTypes[typ] {
 		return
 	}
 	if _, ok := doc["publisher"]; !ok {

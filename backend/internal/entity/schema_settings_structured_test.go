@@ -71,6 +71,10 @@ func TestStructuredSettingsRoundTrip(t *testing.T) {
 			t.Errorf("unset %s serialised: %s", k, out)
 		}
 	}
+	sw := &EntitySchema{Settings: jsontext.Value(`{"emit_webpage":"off","emit_breadcrumb":"on"}`)}
+	if stw, _ := sw.URLSettings(); stw.StructuredDataConfigured() {
+		t.Error("the node switches alone must not count as configured")
+	}
 	s2 := &EntitySchema{Settings: jsontext.Value(`{"modified_from":"updated","emit_webpage":"off"}`)}
 	st2, _ := s2.URLSettings()
 	if st2.ModifiedFrom != "updated" || st2.EmitWebPage != NodeSwitchOff || !st2.StructuredDataConfigured() {

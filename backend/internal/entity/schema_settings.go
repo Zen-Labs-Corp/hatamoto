@@ -122,10 +122,11 @@ func (n *NodeSwitch) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// StructuredDataConfigured reports whether any structured-data key is set.
+// StructuredDataConfigured reports whether a key that changes the typed node
+// is set. The emit_webpage and emit_breadcrumb switches do not: they only add
+// or drop other nodes.
 func (st SchemaURLSettings) StructuredDataConfigured() bool {
-	return st.ModifiedFrom != "" || st.AuthorFrom != "" || st.TermSetURL != "" ||
-		st.EmitWebPage != "" || st.EmitBreadcrumb != ""
+	return st.ModifiedFrom != "" || st.AuthorFrom != "" || st.TermSetURL != ""
 }
 
 // LocaleNeutralSetting is settings.locale_neutral as stored. It decodes

@@ -118,7 +118,7 @@ The **Structured data** card of an entity type (Settings > Entity types) holds t
 | `emit_webpage` | `on`, `off` or empty. `off` leaves out the default `WebPage` node; `on` adds one next to the typed node. Empty keeps today's output. |
 | `emit_breadcrumb` | `on`, `off` or empty. `off` leaves out the `BreadcrumbList` block. The breadcrumb trail on the page itself does not change. |
 
-With any of these set, the typed node also refers to the site graph by `@id`: `publisher` points at `#organization` and `isPartOf` at `#website`, as article nodes already do.
+With `modified_from`, `author_from` or `term_set_url` set, a typed node of a creative-work type (`Article`, `BlogPosting`, `NewsArticle`, `DefinedTerm`, `WebPage`, `CreativeWork`, `HowTo` or `Course`) also refers to the site graph by `@id`: `publisher` points at `#organization` and `isPartOf` at `#website`, as article nodes already do. Other types, such as `Person` or `Organization`, never get these two properties, and the `emit_webpage` and `emit_breadcrumb` switches never add them.
 
 An entry can override both switches on the **Schema** tab of its SEO panel. **WebPage** and **BreadcrumbList** each offer **Use schema default**, **On** and **Off**, and an entry value wins over the schema. They are stored as the entry attributes `jsonld_webpage` and `jsonld_breadcrumb` (`on` or `off`; the key is removed for **Use schema default**). The `Accept: application/ld+json` answer applies the same switches as the HTML page.
 

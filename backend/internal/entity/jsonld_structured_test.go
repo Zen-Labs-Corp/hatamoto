@@ -138,3 +138,31 @@ func TestEnrichRunsAfterStructuredData(t *testing.T) {
 		t.Errorf("dateModified = %v, want the enricher's value", doc["dateModified"])
 	}
 }
+
+// publisher and isPartOf belong to CreativeWork types: a switch never adds
+// them, and a Person or Organization never gets them.
+func TestStructuredLinksOnlyOnCreativeWorks(t *testing.T) {
+	for _, tc := range []struct {
+		name, typ, settings string
+		want                bool
+	}{
+		{"person with breadcrumb off", "Person", `{"emit_breadcrumb":"off"}`, false},
+		{"person with webpage on", "Person", `{"emit_webpage":"on"}`, false},
+		{"person with modified_from", "Person", `{"modified_from":"reviewed"}`, false},
+		{"organization with author_from", "Organization", `{"author_from":"writer"}`, false},
+		{"article with only a switch", "Article", `{"emit_breadcrumb":"off"}`, false},
+		{"article with modified_from", "Article", `{"modified_from":"reviewed"}`, true},
+		{"course with term_set_url", "Course", `{"term_set_url":"/x"}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ent := overrideEntity("things", mergeTypeSetting(tc.settings, tc.typ), `{"type":"object"}`, `{}`)
+			doc, err := GenerateJSONLD(ent, structBase)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := doc["publisher"] != nil || doc["isPartOf"] != nil; got != tc.want {
+				t.Errorf("publisher/isPartOf present = %v, want %v: %v", got, tc.want, doc)
+			}
+		})
+	}
+}
