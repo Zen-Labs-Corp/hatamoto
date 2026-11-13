@@ -36,8 +36,8 @@ func FAQItemsFromList(v any) []FAQItem {
 
 // FAQItemsFromAttributes collects the structured FAQ of an entry: its own
 // faq list first, then the faq list of every page_doc component in document
-// order, then, only when the entry has no page_doc, of every legacy page_sections
-// entry.
+// order (hidden ones skipped), then, only when the entry has no page_doc, of
+// every visible legacy page_sections entry.
 func FAQItemsFromAttributes(attrs map[string]any) []FAQItem {
 	out := FAQItemsFromList(attrs[faqListKey])
 	raw, hasDoc := attrs[keyDoc]
@@ -45,6 +45,9 @@ func FAQItemsFromAttributes(attrs map[string]any) []FAQItem {
 		var doc builder.Doc
 		if b, err := jsonx.Marshal(raw); err == nil && jsonx.Unmarshal(b, &doc, jsonx.StoredLoose) == nil {
 			for _, n := range builder.Components(&doc) {
+				if hidden, _ := n.P["hidden"].(bool); hidden {
+					continue
+				}
 				out = append(out, FAQItemsFromList(n.P[faqListKey])...)
 			}
 		}
@@ -57,6 +60,12 @@ func FAQItemsFromAttributes(attrs map[string]any) []FAQItem {
 	sections, _ := attrs[keySections].([]any)
 	for _, s := range sections {
 		sec, _ := s.(map[string]any)
+		if visible, ok := sec["isVisible"].(bool); ok && !visible {
+			continue
+		}
+		if visible, ok := sec["is_visible"].(bool); ok && !visible {
+			continue
+		}
 		content, _ := sec["content"].(map[string]any)
 		out = append(out, FAQItemsFromList(content[faqListKey])...)
 	}
