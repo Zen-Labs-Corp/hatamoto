@@ -9,12 +9,6 @@
     "@id": "https://example.test/glossaire",
     "@type": "DefinedTermSet"
   },
-  "isPartOf": {
-    "@id": "https://example.test#website"
-  },
   "name": "Glossary term",
-  "publisher": {
-    "@id": "https://example.test#organization"
-  },
   "url": "https://example.test/term"
 }
