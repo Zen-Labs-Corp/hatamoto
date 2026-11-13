@@ -23,6 +23,7 @@ func (a *Admin) mountLocaleSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET /settings/locales", a.handleLocales)
 	owner.HandleFunc("GET /settings/locales/new", a.handleLocaleNew)
 	owner.HandleFunc("POST /settings/locales/add", a.handleLocaleAdd)
+	owner.HandleFunc("POST /settings/locales/entry", a.handleVisitorEntrySave)
 	owner.HandleFunc("POST /settings/locales/order", a.handleLocaleOrder)
 	owner.HandleFunc("GET /settings/locales/business", a.handleBusiness)
 	owner.HandleFunc("POST /settings/locales/business/{tag}", a.handleBusinessSave)
@@ -52,8 +53,13 @@ func (a *Admin) saveLocales(ctx context.Context, cfg *siteconfig.Config, entries
 		if entries, xdef, err = a.deps.ValidateLocales(ctx, cfg.Language, entries, prefixAll, xdef); err != nil {
 			field := "locales"
 			var lf localeFielder
-			if errors.As(err, &lf) && lf.LocaleField() == "x_default_locale" {
-				field = "xdefault"
+			if errors.As(err, &lf) {
+				switch lf.LocaleField() {
+				case "x_default_locale":
+					field = "xdefault"
+				case "countries":
+					field = "countries"
+				}
 			}
 			return map[string]string{field: err.Error()}, nil
 		}
@@ -89,7 +95,9 @@ func localeEntries(cfg *siteconfig.Config) ([]siteconfig.LocaleEntry, error) {
 // localeForm is the add and edit form of one locale.
 type localeForm struct {
 	Tag, Segment, Name string
-	Public             bool
+	// Countries is the comma separated country list the edit page shows.
+	Countries string
+	Public    bool
 	// Default marks the default locale: it is always public.
 	Default bool
 	Errs    map[string]string
@@ -112,6 +120,8 @@ type localesData struct {
 	Actions     []ui.Button
 	ShowConvert bool
 	ConvertHref string
+	// Entry is the Visitor entry panel; nil on a site with one locale.
+	Entry *visitorEntryForm
 }
 
 // localeRowActions are the row menu entries of the locale at index i of n.
@@ -165,7 +175,7 @@ func (a *Admin) localesTable(r *http.Request, cfg *siteconfig.Config) ui.Table {
 	}
 	t := ui.Table{
 		ID: "locales", Caption: "Your locales", BaseURL: a.url("settings", "locales"), CSRF: csrfToken(r.Context()),
-		Columns: []ui.Col{{Key: "locale", Label: "Locale"}, {Key: "address", Label: "Address"}, {Key: "status", Label: "Visitors"}, {Key: "business", Label: "Business details"}},
+		Columns: []ui.Col{{Key: "locale", Label: "Locale"}, {Key: "address", Label: "Address"}, {Key: "status", Label: "Visitors"}, {Key: "countries", Label: "Countries"}, {Key: "business", Label: "Business details"}},
 		Empty:   ui.Empty{Icon: "globe", Title: "No locales", Body: "Add a locale to publish your site in another language."},
 	}
 	for i, e := range entries {
@@ -199,7 +209,7 @@ func (a *Admin) localesTable(r *http.Request, cfg *siteconfig.Config) ui.Table {
 		if e.Tag == defTag {
 			label, kind = "Organisation", "success" // the default locale's business is the organisation
 		}
-		row := ui.Row{ID: e.Tag, Label: name, Cells: []ui.Cell{first, addr, {Badge: &vis}, {Badge: &ui.Badge{Label: label, Kind: kind}}}}
+		row := ui.Row{ID: e.Tag, Label: name, Cells: []ui.Cell{first, addr, {Badge: &vis}, {Text: strings.Join(e.Countries, ", ")}, {Badge: &ui.Badge{Label: label, Kind: kind}}}}
 		if multi {
 			row.Actions = a.localeRowActions(entries, i, defTag)
 		}
@@ -214,6 +224,12 @@ func (a *Admin) handleLocales(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
 		return
 	}
+	a.renderLocalesEntry(w, r, http.StatusOK, cfg, a.newVisitorEntryForm(cfg.VisitorEntry.Enabled, cfg.VisitorEntry.Paths, cfg.VisitorEntry.LegacyCookie, ""))
+}
+
+// renderLocalesEntry renders the Locales tab with entry as the Visitor entry
+// panel, which only a site with two or more locales shows.
+func (a *Admin) renderLocalesEntry(w http.ResponseWriter, r *http.Request, status int, cfg *siteconfig.Config, entry visitorEntryForm) {
 	d := localesData{
 		Table:       a.localesTable(r, cfg),
 		Form:        a.newLocaleForm(r.Context(), false),
@@ -221,10 +237,13 @@ func (a *Admin) handleLocales(w http.ResponseWriter, r *http.Request) {
 		ShowConvert: a.convertCandidates(r, cfg),
 		ConvertHref: a.convertURL(),
 	}
+	if len(cfg.Locales) >= 2 {
+		d.Entry = &entry
+	}
 	v := a.NewView(w, r, "Locales")
 	v.Section, v.Tab = "locales", "locales"
 	v.Data = d
-	a.Render(w, r, http.StatusOK, "settings/locales", v)
+	a.Render(w, r, status, "settings/locales", v)
 }
 
 func (a *Admin) newLocaleForm(ctx context.Context, public bool) localeForm {
@@ -258,13 +277,16 @@ func localeFormErrs(errs map[string]string, xdefaultField string) map[string]str
 	if m := errs["xdefault"]; m != "" {
 		out[xdefaultField] = m
 	}
+	if m := errs["countries"]; m != "" {
+		out["countries"] = m
+	}
 	return out
 }
 
 // localeSummary lists the errors of f the way the form shows them.
 func localeSummary(errs map[string]string) []ui.FieldError {
 	var out []ui.FieldError
-	for _, k := range []struct{ key, label string }{{"tag", "Language and region"}, {"segment", "Address prefix"}, {"name", "Display name"}, {"public", "Public"}} {
+	for _, k := range []struct{ key, label string }{{"tag", "Language and region"}, {"segment", "Address prefix"}, {"name", "Display name"}, {"countries", "Countries"}, {"public", "Public"}} {
 		if m := errs[k.key]; m != "" {
 			out = append(out, ui.FieldError{ID: "locale-" + k.key, Label: k.label, Message: m})
 		}
@@ -371,7 +393,7 @@ func (a *Admin) saveLocaleList(w http.ResponseWriter, r *http.Request, cfg *site
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The locales could not be saved.")
 		return
 	}
-	if msg := errs["locales"] + errs["xdefault"]; msg != "" {
+	if msg := errs["locales"] + errs["xdefault"] + errs["countries"]; msg != "" {
 		a.Error(w, r, http.StatusUnprocessableEntity, "Not saved", msg)
 		return
 	}
@@ -401,7 +423,7 @@ func (a *Admin) localeIndex(w http.ResponseWriter, r *http.Request) (*siteconfig
 
 func (a *Admin) editLocaleForm(cfg *siteconfig.Config, e siteconfig.LocaleEntry) localeForm {
 	return localeForm{
-		Tag: e.Tag, Segment: e.Segment, Name: e.Name, Public: !e.Hidden, Default: e.Tag == localeSetOf(cfg).Default(),
+		Tag: e.Tag, Segment: e.Segment, Name: e.Name, Countries: strings.Join(e.Countries, ", "), Public: !e.Hidden, Default: e.Tag == localeSetOf(cfg).Default(),
 		Action: a.url("settings", "locales", "update", e.Tag), Title: localeDisplayName(e.Tag), Submit: "Save locale", Cancel: a.url("settings", "locales"),
 	}
 }
@@ -442,6 +464,10 @@ func (a *Admin) handleLocaleUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.PostForm.Has("segment") {
 		e.Segment = strings.ToLower(strings.TrimSpace(r.PostFormValue("segment")))
 	}
+	if r.PostForm.Has("countries") {
+		// An empty field clears the list; a row menu action never posts it.
+		e.Countries = strings.FieldsFunc(strings.ToUpper(r.PostFormValue("countries")), func(c rune) bool { return c == ',' || c == ' ' })
+	}
 	if r.PostForm.Has("public") {
 		e.Hidden = r.PostFormValue("public") != "true"
 	}
@@ -461,7 +487,7 @@ func (a *Admin) handleLocaleUpdate(w http.ResponseWriter, r *http.Request) {
 	if len(errs) > 0 {
 		if !r.PostForm.Has("segment") && !r.PostForm.Has("name") {
 			// A row menu action: there is no form to show the message on.
-			a.SetFlash(w, r, "error", fullStop("Not saved: "+errs["locales"]+errs["xdefault"]))
+			a.SetFlash(w, r, "error", fullStop("Not saved: "+errs["locales"]+errs["xdefault"]+errs["countries"]))
 			http.Redirect(w, r, a.url("settings", "locales"), http.StatusSeeOther)
 			return
 		}

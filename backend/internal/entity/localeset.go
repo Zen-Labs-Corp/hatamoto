@@ -10,6 +10,8 @@ import (
 // maxLocaleSegmentLen bounds a locale URL segment.
 const maxLocaleSegmentLen = 32
 
+var countryCodeRe = regexp.MustCompile(`^[A-Z]{2}$`)
+
 var localeSegmentRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // maxLocaleNameLen bounds a locale display name, in runes.
@@ -17,12 +19,14 @@ const maxLocaleNameLen = 80
 
 // LocaleEntry is one configured locale: a BCP 47 tag, the free URL segment
 // that prefixes its paths, an optional display name and whether it is hidden
-// (not public yet).
+// (not public yet). Countries lists the ISO 3166-1 alpha-2 codes whose visitors
+// are sent to this locale; it is nil when none are configured.
 type LocaleEntry struct {
-	Tag     string
-	Segment string
-	Name    string
-	Hidden  bool
+	Tag       string
+	Segment   string
+	Name      string
+	Hidden    bool
+	Countries []string
 }
 
 // LocaleSet is the validated view of the multi-locale site settings. Entry
@@ -58,6 +62,7 @@ func NewLocaleSet(def string, entries []LocaleEntry, prefixAll bool, xDefault st
 		segByTag:  make(map[string]string, len(entries)),
 	}
 	segs := make(map[string]string, len(entries))
+	countryOwner := map[string]string{}
 	for _, e := range entries {
 		tag, err := NormalizeLocale(e.Tag)
 		if err != nil {
@@ -83,9 +88,13 @@ func NewLocaleSet(def string, entries []LocaleEntry, prefixAll bool, xDefault st
 		if e.Hidden && tag == defTag {
 			return nil, fmt.Errorf("%w: the default locale %q cannot be hidden", ErrValidationFailed, tag)
 		}
+		countries, err := normalizeCountries(tag, e.Countries, countryOwner)
+		if err != nil {
+			return nil, err
+		}
 		segs[seg] = tag
 		s.segByTag[tag] = seg
-		s.entries = append(s.entries, LocaleEntry{Tag: tag, Segment: seg, Name: e.Name, Hidden: e.Hidden})
+		s.entries = append(s.entries, LocaleEntry{Tag: tag, Segment: seg, Name: e.Name, Hidden: e.Hidden, Countries: countries})
 	}
 	if _, ok := s.segByTag[defTag]; !ok {
 		return nil, fmt.Errorf("%w: default locale %q is not in the locale list", ErrValidationFailed, defTag)
@@ -104,6 +113,56 @@ func NewLocaleSet(def string, entries []LocaleEntry, prefixAll bool, xDefault st
 		s.xDefault = x
 	}
 	return s, nil
+}
+
+// normalizeCountries upper-cases and checks the country codes of one locale,
+// drops exact duplicates and records each code in owner, failing when another
+// locale already owns it. It returns nil for an empty list.
+func normalizeCountries(tag string, in []string, owner map[string]string) ([]string, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+	out := make([]string, 0, len(in))
+	seen := make(map[string]bool, len(in))
+	for _, c := range in {
+		cc := strings.ToUpper(strings.TrimSpace(c))
+		if !countryCodeRe.MatchString(cc) {
+			return nil, fmt.Errorf("%w: country %q of locale %q must be a two-letter code", ErrValidationFailed, c, tag)
+		}
+		if seen[cc] {
+			continue
+		}
+		if other, dup := owner[cc]; dup {
+			return nil, fmt.Errorf("%w: country %s is assigned to %s and %s", ErrValidationFailed, cc, other, tag)
+		}
+		seen[cc] = true
+		owner[cc] = tag
+		out = append(out, cc)
+	}
+	return out, nil
+}
+
+// Pick returns the public (not hidden) locale that owns the country code. The
+// code is matched case-insensitively. ok is false when no public locale owns it.
+func (s *LocaleSet) Pick(country string) (tag string, ok bool) {
+	if s == nil {
+		return "", false
+	}
+	cc := strings.ToUpper(strings.TrimSpace(country))
+	if cc == "" {
+		return "", false
+	}
+	for _, e := range s.entries {
+		if e.Hidden {
+			continue
+		}
+		for _, c := range e.Countries {
+			if c == cc {
+				return e.Tag, true
+			}
+		}
+	}
+	return "", false
 }
 
 // Multi reports whether two or more locales are configured.

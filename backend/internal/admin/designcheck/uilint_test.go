@@ -125,6 +125,8 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-01", File: "pages/entities/builder.html", Needle: `<button role="menuitem">Duplicate</button>`, Reason: "overflow menu item that posts, inside a popup menu"},
 	{Rule: "UI-01", File: "pages/entities/blogedit.html", Needle: `<button role="menuitem">Duplicate</button>`, Reason: "overflow menu item that posts, inside a popup menu"},
 	{Rule: "UI-01", File: "partials/rowmenu.html", Needle: `{{$a.Post}}`, Reason: "row menu item that posts, inside a popup menu"},
+	{Rule: "UI-01", File: "pages/settings/locales.html", Needle: `"remove_entry_path"`, Reason: "Remove of an entry path row in the Visitor entry panel: a row operation that re-renders the panel without saving, like the schema field row buttons"},
+	{Rule: "UI-01", File: "pages/settings/locales.html", Needle: `"add_entry_path"`, Reason: "Add path of the Visitor entry panel: a row operation that re-renders the panel with one more input, without saving"},
 	{Rule: "UI-01", File: "partials/sidebar.html", Needle: `action="{{adminPath}}/theme"`, Reason: "theme toggle in the sidebar"},
 	{Rule: "UI-01", File: "partials/sidebar.html", Needle: `action="{{adminPath}}/logout"`, Reason: "sign out button in the sidebar"},
 	{Rule: "UI-01", File: "partials/table.html", Needle: `data-hm-bulk-toolbar`, Reason: "bulk action toolbar above a table, not a form footer"},
@@ -135,6 +137,7 @@ var uiAllow = []uiAllowEntry{
 
 	// UI-10: page-level forms that edit or remove something, not a create form beside the list.
 	{Rule: "UI-10", File: "pages/linking/rules.html", Needle: `rules/delete-source`, Reason: "removes a set of rules by source, a destructive action and not a create form"},
+	{Rule: "UI-10", File: "pages/settings/locales.html", Needle: `id="visitor-entry-form"`, Reason: "the Visitor entry settings form below the locales table, a settings form and not a create form; its Add path button re-renders the panel without saving"},
 	{Rule: "UI-10", File: "pages/settings/theme-strings.html", Needle: `id="theme-strings"`, Reason: "the one settings form of the page: the table is its inputs (one text per row), saved together, and not a create form beside a list"},
 	{Rule: "UI-10", File: "pages/settings/privacy.html", Needle: `action="{{adminPath}}/settings/privacy"`, Reason: "the cookie consent settings form, a settings form and not a create form; the counts table below is read-only"},
 	{Rule: "UI-10", File: "pages/settings/privacy.html", Needle: `id="email-protection-form"`, Reason: "the Email addresses switch, a settings form and not a create form; the counts table below is read-only"},

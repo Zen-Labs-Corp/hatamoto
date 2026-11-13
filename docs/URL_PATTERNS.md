@@ -163,6 +163,38 @@ own URL segment (free text: `fr-CA` may use `fr`), a default locale (the site
   never deleted for you.
 * While the list is non-empty, changing the site language does not move
   entities between locales.
+* `locale` is a reserved segment: no locale can use it, because `/locale` is the
+  switcher below.
+* **Visitor entry** (Settings > Locales, off by default). When it is on for a
+  site with two or more locales, a `GET` or `HEAD` of `/`, and of each entry path
+  listed there (such as `/contact-form`), answers `302` to the visitor's locale:
+  `/<locale>` for `/`, `/<locale>/contact-form` for the path, with the query
+  string kept. The locale is the saved choice (the `hm_locale` cookie), else the
+  locale whose Countries list holds the visitor's country, else the default
+  locale. Only public locales are chosen; an unknown or hidden cookie value is
+  ignored. The country is the one the CDN puts in the `CF-IPCountry` or
+  `CloudFront-Viewer-Country` header; with neither, the default is used. An
+  optional old cookie name (the same value, a public locale segment) is read only
+  when `hm_locale` is absent. The redirect carries `Cache-Control: private,
+  no-store` and `Vary: Cookie, CF-IPCountry, CloudFront-Viewer-Country`, so no
+  shared cache replays it. When the default locale is unprefixed and is the pick,
+  `/` (or the entry path) is served as today, with the same `Vary` and
+  `Cache-Control: private, no-store` in place of the page's own value, and no redirect. The redirect runs
+  before the page cache and before plugin redirects, after the site access gate.
+  With the setting off, or on a single-locale site, nothing changes: no redirect
+  and no new header.
+* **Switcher.** `GET /locale?l=<segment>&to=<path>` on a multi-locale site sets
+  the `hm_locale` cookie (value: the locale's segment, or its tag for an
+  unprefixed default locale; `Path=/`, one year, `HttpOnly`, `SameSite=Lax`,
+  `Secure` on https) and answers `302` to `to` when it is a same-site path under
+  that locale, else to the locale's home. `to` is refused (falling back to the
+  home) when it has `//`, a backslash, `%2f`, `%5c` or `%2e` in any case, a `.` or
+  `..` segment, `?` or `#`, a byte of 0x20 or below or 0x7f, or more than 2048
+  bytes. An unknown or hidden `l` answers `404` and sets no cookie.
+  `Cache-Control: private, no-store`. A page whose slug is `locale` on a
+  multi-locale site is shadowed by it. An install that already stores a locale
+  (public or hidden) with the segment `locale` keeps that locale's home at
+  `/locale`: the switcher is unavailable there until the segment is changed.
 
 Sitemaps, search, feeds and llms.txt follow the visible locale; see
 [Sitemaps](site/ai-seo/sitemaps.md) for the per-locale files.

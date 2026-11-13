@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 func seamStore(load func(context.Context) (*Config, error)) *Store {
@@ -127,5 +129,44 @@ func TestGetServesStaleOnError(t *testing.T) {
 	cfg, err := s.Get(context.Background())
 	if err != nil || cfg.CompanyName != "cached" {
 		t.Fatalf("got %+v %v, want stale copy", cfg, err)
+	}
+}
+
+// A locale list without countries encodes exactly as it did before the field
+// existed, so saving it back leaves the stored JSON unchanged.
+func TestLocaleEntryEncodingWithoutCountriesIsUnchanged(t *testing.T) {
+	raw, err := jsonx.Marshal([]LocaleEntry{{Tag: "en", Segment: ""}, {Tag: "fr", Segment: "fr", Name: "Français", Hidden: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `[{"tag":"en","segment":""},{"tag":"fr","segment":"fr","name":"Français","hidden":true}]`
+	if string(raw) != want {
+		t.Errorf("encoded = %s, want %s", raw, want)
+	}
+	raw, err = jsonx.Marshal([]LocaleEntry{{Tag: "fr", Segment: "fr", Countries: []string{"FR"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `[{"tag":"fr","segment":"fr","countries":["FR"]}]`; string(raw) != want {
+		t.Errorf("encoded = %s, want %s", raw, want)
+	}
+}
+
+// A stored document without the keys decodes to the zero value (off), and the
+// zero value encodes to {}, the column default.
+func TestVisitorEntryZeroValueIsTheColumnDefault(t *testing.T) {
+	var v VisitorEntry
+	if err := jsonx.Unmarshal([]byte(`{}`), &v, jsonx.StoredLoose); err != nil {
+		t.Fatal(err)
+	}
+	if v.Enabled || v.Paths != nil || v.LegacyCookie != "" {
+		t.Errorf("decoded = %#v, want zero", v)
+	}
+	raw, err := jsonx.Marshal(VisitorEntry{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != `{}` {
+		t.Errorf("zero value encodes to %s, want {}", raw)
 	}
 }

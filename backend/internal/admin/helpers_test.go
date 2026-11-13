@@ -133,6 +133,9 @@ func (f *fakeSite) Update(_ context.Context, in siteconfig.UpdateInput) (*siteco
 	if in.Locales != nil {
 		f.cfg.Locales = *in.Locales
 	}
+	if in.VisitorEntry != nil {
+		f.cfg.VisitorEntry = *in.VisitorEntry
+	}
 	if in.PrefixAll != nil {
 		f.cfg.PrefixAll = *in.PrefixAll
 	}

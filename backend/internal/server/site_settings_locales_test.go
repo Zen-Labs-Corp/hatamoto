@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -27,6 +28,9 @@ func (f *localeStore) Update(ctx context.Context, in siteconfig.UpdateInput) (*s
 	}
 	if in.XDefaultLocale != nil {
 		f.cfg.XDefaultLocale = *in.XDefaultLocale
+	}
+	if in.VisitorEntry != nil {
+		f.cfg.VisitorEntry = *in.VisitorEntry
 	}
 	if in.SitemapNaming != nil {
 		f.cfg.SitemapNaming = *in.SitemapNaming
@@ -232,7 +236,7 @@ func TestSiteSettings_LocaleCheckErrors(t *testing.T) {
 }
 
 func TestReservedSegmentReason(t *testing.T) {
-	for _, seg := range []string{"api", "media", "admin", "search", "category", "tag", "sitemap-x", "auth", "authors", "feed", "p", "plugin-ui", "forms"} {
+	for _, seg := range []string{"api", "media", "admin", "search", "category", "tag", "sitemap-x", "auth", "authors", "feed", "p", "plugin-ui", "forms", "locale"} {
 		if reservedSegmentReason(seg) == "" {
 			t.Errorf("%q is not reserved", seg)
 		}
@@ -257,7 +261,7 @@ func TestValidateLocaleSettingsKeepsHiddenAndName(t *testing.T) {
 		{Tag: "en"},
 		{Tag: "fr-CA", Segment: "fr-ca", Name: "Francais", Hidden: true},
 	}
-	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("entries = %+v, want %+v", got, want)
 	}
 }
@@ -293,4 +297,131 @@ func TestSiteSettings_LegacyRefusedForFileNameSegment(t *testing.T) {
 	}
 	rec = doSite(h, http.MethodPatch, "/settings/site/", `{"sitemap_naming":"group"}`)
 	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+}
+
+func TestValidateLocaleSettingsKeepsCountries(t *testing.T) {
+	in := localeSettingsRequest{Default: "en", Entries: []siteconfig.LocaleEntry{
+		{Tag: "en"},
+		{Tag: "fr", Segment: "fr", Countries: []string{"fr", " be "}},
+		{Tag: "es", Segment: "es", Countries: []string{"ES"}},
+	}}
+	got, _, err := validateLocaleSettings(context.Background(), in, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got[0].Countries != nil || !reflect.DeepEqual(got[1].Countries, []string{"FR", "BE"}) || !reflect.DeepEqual(got[2].Countries, []string{"ES"}) {
+		t.Fatalf("countries = %v %v %v", got[0].Countries, got[1].Countries, got[2].Countries)
+	}
+}
+
+func TestValidateLocaleSettingsCountryErrorsNameTheField(t *testing.T) {
+	for name, entries := range map[string][]siteconfig.LocaleEntry{
+		"one code in two locales": {{Tag: "en"}, {Tag: "fr", Segment: "fr", Countries: []string{"FR"}}, {Tag: "es", Segment: "es", Countries: []string{"fr"}}},
+		"not a two-letter code":   {{Tag: "en"}, {Tag: "fr", Segment: "fr", Countries: []string{"FRA"}}},
+	} {
+		_, _, err := validateLocaleSettings(context.Background(), localeSettingsRequest{Default: "en", Entries: entries}, nil)
+		var le *localeSettingsError
+		if !errors.As(err, &le) || le.Field != "countries" {
+			t.Errorf("%s: err = %v, want a countries error", name, err)
+		}
+	}
+}
+
+func TestSiteSettings_CountriesAndVisitorEntryRoundTrip(t *testing.T) {
+	store := &localeStore{}
+	store.cfg.Language = "en"
+	h := localeRouter(store, nil)
+
+	rec := doSite(h, http.MethodPatch, "/settings/site/", `{"locales":[{"tag":"en"},{"tag":"fr","segment":"fr","countries":["fr"]}],`+
+		`"visitor_entry":{"enabled":true,"paths":["/contact/"],"legacy_cookie":"old_loc"}}`)
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	for _, want := range []string{`"countries":["FR"]`, `"visitor_entry":{"enabled":true,"paths":["/contact"],"legacy_cookie":"old_loc"}`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("body lacks %s: %s", want, rec.Body)
+		}
+	}
+	// A patch that names neither leaves both alone.
+	rec = doSite(h, http.MethodPatch, "/settings/site/", `{"name":"Beta"}`)
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	if !store.cfg.VisitorEntry.Enabled || !reflect.DeepEqual(store.cfg.Locales[1].Countries, []string{"FR"}) {
+		t.Errorf("stored = %+v %+v", store.cfg.Locales, store.cfg.VisitorEntry)
+	}
+	// A rejected entry path stores nothing and names the field.
+	rec = doSite(h, http.MethodPatch, "/settings/site/", `{"visitor_entry":{"enabled":true,"paths":["/fr/x"]}}`)
+	testutil.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "invalid visitor_entry") || !reflect.DeepEqual(store.cfg.VisitorEntry.Paths, []string{"/contact"}) {
+		t.Errorf("body %s, stored %+v", rec.Body, store.cfg.VisitorEntry)
+	}
+	// Duplicate countries across locales are a 400 on the countries field.
+	rec = doSite(h, http.MethodPatch, "/settings/site/", `{"locales":[{"tag":"en"},{"tag":"fr","segment":"fr","countries":["FR"]},{"tag":"es","segment":"es","countries":["FR"]}]}`)
+	testutil.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "invalid countries") {
+		t.Errorf("body %s", rec.Body)
+	}
+}
+
+func TestSiteSettings_VisitorEntryAbsentUntilSet(t *testing.T) {
+	store := &localeStore{}
+	rec := doSite(localeRouter(store, nil), http.MethodGet, "/settings/site/", "")
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	if strings.Contains(rec.Body.String(), "visitor_entry") {
+		t.Errorf("an unused setting appears in the response: %s", rec.Body)
+	}
+}
+
+func TestValidateVisitorEntry(t *testing.T) {
+	segs := []string{"fr", "es"}
+	many := make([]string, 51)
+	for i := range many {
+		many[i] = fmt.Sprintf("/p%d", i)
+	}
+	bad := map[string]siteconfig.VisitorEntry{
+		"home":             {Paths: []string{"/"}},
+		"no leading slash": {Paths: []string{"contact"}},
+		"query":            {Paths: []string{"/a?b=1"}},
+		"double slash":     {Paths: []string{"/a//b"}},
+		"encoded slash":    {Paths: []string{"/a%2Fb"}},
+		"dot segment":      {Paths: []string{"/a/../b"}},
+		"locale segment":   {Paths: []string{"/fr"}},
+		"under a locale":   {Paths: []string{"/es/contact"}},
+		"switcher":         {Paths: []string{"/locale"}},
+		"reserved route":   {Paths: []string{"/admin/x"}},
+		"sitemap file":     {Paths: []string{"/sitemap.xml"}},
+		"plugin refusal":   {Paths: []string{"/robots.txt"}},
+		"api prefix":       {Paths: []string{"/api/v2/x"}},
+		"duplicate":        {Paths: []string{"/a", "/a/"}},
+		"51 paths":         {Paths: many},
+		"core cookie name": {LegacyCookie: "hm_locale"},
+		"cookie bad chars": {LegacyCookie: "a b"},
+		"cookie too long":  {LegacyCookie: strings.Repeat("a", 65)},
+	}
+	for name, v := range bad {
+		_, err := validateVisitorEntry(segs, v, "/api/v2")
+		var le *localeSettingsError
+		if !errors.As(err, &le) || le.Field != "visitor_entry" {
+			t.Errorf("%s: err = %v, want a visitor_entry error", name, err)
+		}
+	}
+	got, err := validateVisitorEntry(segs, siteconfig.VisitorEntry{Enabled: true, Paths: append([]string{"/contact/"}, many[:49]...), LegacyCookie: "old_loc"}, "/api/v2")
+	if err != nil || got.Paths[0] != "/contact" || len(got.Paths) != 50 || !got.Enabled || got.LegacyCookie != "old_loc" {
+		t.Errorf("valid entry: %+v, %v", got, err)
+	}
+}
+
+// A locale list is refused when one of its segments equals, or starts, a stored
+// visitor entry path, and accepted when none does.
+func TestEntryPathUnderSegment(t *testing.T) {
+	paths := []string{"/contact", "/es/landing", "/pricing/plans"}
+	for _, seg := range []string{"contact", "es", "pricing"} {
+		err := entryPathUnderSegment(paths, []string{"fr", seg})
+		if err == nil || !strings.Contains(err.Error(), "entry path") || !strings.Contains(err.Error(), `"`+seg+`"`) {
+			t.Errorf("segment %q: err = %v, want an entry path refusal", seg, err)
+		}
+	}
+	if err := entryPathUnderSegment(paths, []string{"fr", "en"}); err != nil {
+		t.Errorf("unrelated segments refused: %v", err)
+	}
+	if err := entryPathUnderSegment(nil, []string{"fr"}); err != nil {
+		t.Errorf("no entry paths refused: %v", err)
+	}
 }

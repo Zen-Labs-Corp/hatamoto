@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 
+	"hatamoto.dev/core/internal/adminpath"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/siteconfig"
@@ -23,7 +25,8 @@ import (
 // words without dots, so file roots (robots.txt, favicon.ico, feed.xml) cannot
 // collide; "sitemap" also reserves its prefix (sitemap-*.xml). "index" and "misc"
 // would clash with the sitemap index and the misc file of the legacy naming.
-var extraReservedLocaleSegments = []string{"category", "tag", "plugin-ui", "index", "misc"}
+// "locale" is the locale switcher route (GET /locale).
+var extraReservedLocaleSegments = []string{"category", "tag", "plugin-ui", "index", "misc", "locale"}
 
 // localeSettingsRequest is the part of a site settings change the locale
 // checks look at: the default locale plus the list, prefix-all and x-default.
@@ -75,20 +78,23 @@ func localeMessage(err error) string {
 func validateLocaleSettings(ctx context.Context, in localeSettingsRequest, check func(context.Context, []string) error) ([]siteconfig.LocaleEntry, string, error) {
 	entries := make([]entity.LocaleEntry, len(in.Entries))
 	for i, e := range in.Entries {
-		entries[i] = entity.LocaleEntry{Tag: e.Tag, Segment: e.Segment, Name: e.Name, Hidden: e.Hidden}
+		entries[i] = entity.LocaleEntry{Tag: e.Tag, Segment: e.Segment, Name: e.Name, Hidden: e.Hidden, Countries: e.Countries}
 	}
 	set, err := entity.NewLocaleSet(in.Default, entries, in.PrefixAll, in.XDefault)
 	if err != nil {
 		field := "locales"
-		if strings.Contains(err.Error(), "x-default") {
+		switch {
+		case strings.Contains(err.Error(), "x-default"):
 			field = "x_default_locale"
+		case strings.Contains(err.Error(), "country"):
+			field = "countries"
 		}
 		return nil, "", &localeSettingsError{Field: field, Message: localeMessage(err)}
 	}
 	out := make([]siteconfig.LocaleEntry, 0, len(set.Entries()))
 	var segments []string
 	for _, e := range set.Entries() {
-		out = append(out, siteconfig.LocaleEntry{Tag: e.Tag, Segment: e.Segment, Name: e.Name, Hidden: e.Hidden})
+		out = append(out, siteconfig.LocaleEntry{Tag: e.Tag, Segment: e.Segment, Name: e.Name, Hidden: e.Hidden, Countries: e.Countries})
 		if e.Segment != "" {
 			segments = append(segments, e.Segment)
 		}
@@ -125,6 +131,9 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 		for _, e := range cfg.Locales {
 			stored[e.Segment] = true
 		}
+		if err := entryPathUnderSegment(cfg.VisitorEntry.Paths, segments); err != nil {
+			return err
+		}
 	}
 	snap := s.urlSnapshot(ctx)
 	taken := map[string]string{}
@@ -140,8 +149,8 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 		taken[first] = "an archive of your site"
 	}
 	for _, seg := range segments {
-		// A stored index or misc segment is live in group naming: only a new one is refused.
-		if reason := reservedSegmentReason(seg); reason != "" && !(stored[seg] && (seg == "index" || seg == "misc")) {
+		// A stored index, misc or locale segment is live (group naming, or a segment taken before /locale was reserved): only a new one is refused.
+		if reason := reservedSegmentReason(seg); reason != "" && !(stored[seg] && (seg == "index" || seg == "misc" || seg == "locale")) {
 			return fmt.Errorf("segment %q is %s", seg, reason)
 		}
 		if stored[seg] {
@@ -271,4 +280,116 @@ func (h *siteSettingsHandlers) applyLocales(w http.ResponseWriter, r *http.Reque
 	}
 	update.Locales, update.PrefixAll, update.XDefaultLocale = &entries, &req.PrefixAll, &xdef
 	return true
+}
+
+const maxVisitorEntryPaths = 50
+
+var legacyCookieRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+// validateVisitorEntry checks the entry paths and the legacy cookie name and
+// returns the value to store (paths with their trailing slash trimmed).
+// segments are the URL segments of the site's locales and apiPrefix the public
+// API prefix ("" = none). A path is a bare, same-site path other than "/" (the
+// home always redirects) whose first segment is none of: a locale segment, a
+// reserved route, a plugin-refused path, the switcher or the API prefix.
+func validateVisitorEntry(segments []string, v siteconfig.VisitorEntry, apiPrefix string) (siteconfig.VisitorEntry, error) {
+	bad := func(format string, args ...any) error {
+		return &localeSettingsError{Field: "visitor_entry", Message: fmt.Sprintf(format, args...)}
+	}
+	if len(v.Paths) > maxVisitorEntryPaths {
+		return siteconfig.VisitorEntry{}, bad("at most %d entry paths", maxVisitorEntryPaths)
+	}
+	if v.LegacyCookie != "" && (!legacyCookieRe.MatchString(v.LegacyCookie) || v.LegacyCookie == localeCookieName) {
+		return siteconfig.VisitorEntry{}, bad("the old cookie name must be 1 to 64 letters, digits, - or _, and not %s", localeCookieName)
+	}
+	out := siteconfig.VisitorEntry{Enabled: v.Enabled, LegacyCookie: v.LegacyCookie}
+	seen := map[string]bool{}
+	for _, raw := range v.Paths {
+		p := strings.TrimSuffix(raw, "/")
+		if p == "" {
+			return siteconfig.VisitorEntry{}, bad("entry path %q: the home page always redirects, list another path", raw)
+		}
+		if !cleanLocalTarget(p) {
+			return siteconfig.VisitorEntry{}, bad("entry path %q must be a plain path such as /contact, without a query, fragment, // or encoded slashes or dots", raw)
+		}
+		first, _, _ := strings.Cut(p[1:], "/")
+		switch {
+		case slices.Contains(segments, first):
+			return siteconfig.VisitorEntry{}, bad("entry path %q starts with the locale segment %q", raw, first)
+		case first == "locale":
+			return siteconfig.VisitorEntry{}, bad("entry path %q is the locale switcher", raw)
+		case reservedSegmentReason(first) != "":
+			return siteconfig.VisitorEntry{}, bad("entry path %q is %s", raw, reservedSegmentReason(first))
+		case adminpath.RedirectPathRefusal(p) != "":
+			return siteconfig.VisitorEntry{}, bad("entry path %q: %s", raw, adminpath.RedirectPathRefusal(p))
+		case apiPrefix != "" && underPrefix(p, apiPrefix):
+			return siteconfig.VisitorEntry{}, bad("entry path %q is under the API prefix", raw)
+		case seen[p]:
+			return siteconfig.VisitorEntry{}, bad("entry path %q is listed twice", raw)
+		}
+		seen[p] = true
+		out.Paths = append(out.Paths, p)
+	}
+	return out, nil
+}
+
+// entryPathUnderSegment refuses a locale list whose segment equals, or is the
+// first segment of, a stored visitor entry path: that path would become the
+// locale's own page, and the entry redirect would send its visitors to a 404.
+func entryPathUnderSegment(paths, segments []string) error {
+	for _, p := range paths {
+		first, _, _ := strings.Cut(strings.TrimPrefix(p, "/"), "/")
+		if slices.Contains(segments, first) {
+			return fmt.Errorf("segment %q is the start of the visitor entry path %q; remove or change that entry path first", first, p)
+		}
+	}
+	return nil
+}
+
+// localeSegments are the non-empty URL segments of entries.
+func localeSegments(entries []siteconfig.LocaleEntry) []string {
+	var out []string
+	for _, e := range entries {
+		if e.Segment != "" {
+			out = append(out, e.Segment)
+		}
+	}
+	return out
+}
+
+// applyVisitorEntry validates the visitor entry of a PATCH against the locale
+// list that will be stored (the patched one, else the saved one) and copies it
+// into update. It writes the 400 and returns false when it is rejected.
+func (h *siteSettingsHandlers) applyVisitorEntry(w http.ResponseWriter, r *http.Request, in *siteSettingsPatch, update *siteconfig.UpdateInput) bool {
+	entries := update.Locales
+	if entries == nil {
+		cfg, err := h.store.Get(r.Context())
+		if err != nil {
+			h.logger.Error("site settings: load", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to update site settings")
+			return false
+		}
+		entries = &cfg.Locales
+	}
+	v, err := validateVisitorEntry(localeSegments(*entries), *in.VisitorEntry, h.apiPrefix)
+	if err != nil {
+		var le *localeSettingsError
+		if errors.As(err, &le) {
+			writeError(w, http.StatusBadRequest, "invalid "+le.Field+": "+le.Message)
+			return false
+		}
+		h.logger.Error("site settings: check visitor entry", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to update site settings")
+		return false
+	}
+	update.VisitorEntry = &v
+	return true
+}
+
+// publicAPIPrefix is the configured public API prefix ("" = none).
+func (s *Server) publicAPIPrefix() string {
+	if s.cfg == nil {
+		return ""
+	}
+	return s.cfg.PublicSite.APIPrefix
 }

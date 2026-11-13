@@ -210,3 +210,40 @@ func TestMarkMenusSeededIsStable(t *testing.T) {
 		t.Fatalf("marker changed: %v, want %v", cfg.MenusSeededAt, first)
 	}
 }
+
+func TestVisitorEntryAndCountriesRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	s := scratchStore(t)
+	cfg, err := s.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(cfg.VisitorEntry, siteconfig.VisitorEntry{}) {
+		t.Fatalf("default = %#v, want zero", cfg.VisitorEntry)
+	}
+	locales := []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Countries: []string{"FR", "BE"}}}
+	ve := siteconfig.VisitorEntry{Enabled: true, Paths: []string{"/contact-form"}, LegacyCookie: "old_loc"}
+	cfg, err = s.Update(ctx, siteconfig.UpdateInput{Locales: &locales, VisitorEntry: &ve})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(cfg.Locales, locales) || !reflect.DeepEqual(cfg.VisitorEntry, ve) {
+		t.Fatalf("got %#v %#v", cfg.Locales, cfg.VisitorEntry)
+	}
+	// An update that names neither leaves both alone.
+	company := "Renamed"
+	cfg, err = s.Update(ctx, siteconfig.UpdateInput{CompanyName: &company})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(cfg.Locales, locales) || !reflect.DeepEqual(cfg.VisitorEntry, ve) {
+		t.Fatalf("after unrelated update: %#v %#v", cfg.Locales, cfg.VisitorEntry)
+	}
+	set, err := s.LocaleSource()(ctx)
+	if err != nil || set == nil {
+		t.Fatalf("LocaleSource = %v, %v", set, err)
+	}
+	if tag, ok := set.Pick("BE"); !ok || tag != "fr" {
+		t.Errorf("Pick(BE) = %q, %v, want fr (Countries reach the locale set)", tag, ok)
+	}
+}

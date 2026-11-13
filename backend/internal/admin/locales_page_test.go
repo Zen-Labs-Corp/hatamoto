@@ -471,3 +471,52 @@ func TestLocaleNameFieldDoesNotPromiseAPublicEffect(t *testing.T) {
 		}
 	}
 }
+
+func TestLocaleEditSavesCountries(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	if c := postForm(g, "/update/fr", "segment", "fr", "name", "Francais", "countries", "fr, be", "public", "true"); c != 303 {
+		t.Fatalf("code = %d", c)
+	}
+	if got := strings.Join(site.cfg.Locales[1].Countries, ","); got != "FR,BE" {
+		t.Errorf("countries = %q", got)
+	}
+	body := g.do("GET", "/admin/settings/locales/edit/fr", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `value="FR, BE"`) {
+		t.Errorf("edit page does not show the saved countries")
+	}
+	list := g.do("GET", "/admin/settings/locales", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(list, ">Countries<") || !strings.Contains(list, "FR, BE") {
+		t.Errorf("table lacks the Countries column or value")
+	}
+	if c := postForm(g, "/update/fr", "segment", "fr", "name", "Francais", "countries", "", "public", "true"); c != 303 || len(site.cfg.Locales[1].Countries) != 0 {
+		t.Errorf("empty field: code=%d countries=%v", c, site.cfg.Locales[1].Countries)
+	}
+}
+
+func TestLocaleRowActionKeepsCountries(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	site.cfg.Locales[1].Countries = []string{"FR"}
+	if c := postForm(g, "/update/fr", "public", "true"); c != 303 {
+		t.Fatalf("code = %d", c)
+	}
+	if got := site.cfg.Locales[1].Countries; len(got) != 1 || got[0] != "FR" {
+		t.Errorf("countries = %v", got)
+	}
+}
+
+func TestLocaleEditShowsCountryError(t *testing.T) {
+	t.Parallel()
+	g, site := localeFixture(t)
+	g.a.deps.ValidateLocales = func(context.Context, string, []siteconfig.LocaleEntry, bool, string) ([]siteconfig.LocaleEntry, string, error) {
+		return nil, "", fieldErr{"countries", "country BE is assigned to en and fr"}
+	}
+	rec := g.do("POST", "/admin/settings/locales/update/fr", "owner-token", url.Values{"segment": {"fr"}, "name": {"Francais"}, "countries": {"BE"}, "public": {"true"}}, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "country BE is assigned") || !strings.Contains(rec.Body.String(), `id="locale-countries"`) {
+		t.Fatalf("code=%d", rec.Code)
+	}
+	if len(site.cfg.Locales[1].Countries) != 0 {
+		t.Errorf("a rejected save stored %v", site.cfg.Locales[1].Countries)
+	}
+}

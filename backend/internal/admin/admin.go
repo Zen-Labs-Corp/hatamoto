@@ -235,6 +235,10 @@ type Deps struct {
 	// returns the normalized list and x-default to store; nil rejects a locale
 	// list in the form.
 	ValidateLocales func(ctx context.Context, def string, entries []siteconfig.LocaleEntry, prefixAll bool, xDefault string) ([]siteconfig.LocaleEntry, string, error)
+	// ValidateVisitorEntry checks the visitor entry settings (entry paths, old
+	// cookie name) against the locale list that will be live and returns the
+	// value to store; nil rejects any change to them.
+	ValidateVisitorEntry func(ctx context.Context, entries []siteconfig.LocaleEntry, def string, prefixAll bool, v siteconfig.VisitorEntry) (siteconfig.VisitorEntry, error)
 	// Invalidate clears the rendered-page cache after settings change.
 	Invalidate func(context.Context)
 	// RobotsPreview is the /robots.txt a request would get with the given

@@ -31,7 +31,7 @@ var segmentRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 // extraReservedSegments are routes the site serves that taxonomy.ReservedSegment
 // does not cover. Kept in step with internal/server (which localeconv must not
 // import); the server's own list is the source of truth.
-var extraReservedSegments = []string{"category", "tag", "plugin-ui", "index", "misc"}
+var extraReservedSegments = []string{"category", "tag", "plugin-ui", "index", "misc", "locale"}
 
 // ReservedSegmentReason says why seg is a route of its own, or "".
 func ReservedSegmentReason(seg string) string {

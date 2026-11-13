@@ -124,7 +124,7 @@ func (s *Server) previewHost() string {
 // served by the preview handler alone: any other path there is a plain 404 and
 // nothing of the site or the admin answers on it.
 func (s *Server) dispatcher() http.Handler {
-	public := s.siteAccessGate(s.requestRedirect(httpx.WithErrorBodies(s.mux, jsonNotFoundOrNotAllowed)))
+	public := s.siteAccessGate(s.localeEntry(s.requestRedirect(httpx.WithErrorBodies(s.mux, jsonNotFoundOrNotAllowed))))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if h := s.previewHost(); h != "" && strings.EqualFold(r.Host, h) {
 			if b := s.adminBundle.Load(); b != nil {
