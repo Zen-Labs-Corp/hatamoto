@@ -3,6 +3,7 @@ package render
 import (
 	"reflect"
 	"sort"
+	"time"
 )
 
 // maxCollection bounds how many elements groupBy and sortBy process.
@@ -85,7 +86,7 @@ func groupBy(items, attr any) []Group {
 	for i := 0; i < rv.Len() && i < maxCollection; i++ {
 		el := rv.Index(i)
 		v, _ := elemAttr(el, name)
-		key := toStr(v)
+		key := attrText(v)
 		gi, seen := index[key]
 		if !seen {
 			gi = len(groups)
@@ -148,6 +149,11 @@ func compareAttr(a, b any) int {
 	case b == nil:
 		return -1
 	}
+	if x, ok := asTime(a); ok {
+		if y, ok := asTime(b); ok {
+			return x.Compare(y)
+		}
+	}
 	if x, ok := number(a); ok {
 		if y, ok := number(b); ok {
 			switch {
@@ -159,7 +165,7 @@ func compareAttr(a, b any) int {
 			return 0
 		}
 	}
-	sa, sb := toStr(a), toStr(b)
+	sa, sb := attrText(a), attrText(b)
 	switch {
 	case sa < sb:
 		return -1
@@ -226,4 +232,31 @@ func cmpOr(a, b string) string {
 		return a
 	}
 	return b
+}
+
+func asTime(v any) (time.Time, bool) {
+	switch t := v.(type) {
+	case time.Time:
+		return t, true
+	case *time.Time:
+		if t != nil {
+			return *t, true
+		}
+	}
+	return time.Time{}, false
+}
+
+// attrText is the text of a group or sort key: toStr, plus "true"/"false" for
+// bools and a UTC RFC 3339 form for times.
+func attrText(v any) string {
+	if t, ok := asTime(v); ok {
+		return t.UTC().Format(time.RFC3339Nano)
+	}
+	if b, ok := v.(bool); ok {
+		if b {
+			return "true"
+		}
+		return "false"
+	}
+	return toStr(v)
 }

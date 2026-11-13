@@ -3,6 +3,7 @@ package render
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 func keysOf(gs []Group) []string {
@@ -190,5 +191,42 @@ func TestPager(t *testing.T) {
 		if got := pager(in); got != nil {
 			t.Errorf("pager(%#v) = %v, want nil", in, got)
 		}
+	}
+}
+
+func TestSortGroupByTimeAndBool(t *testing.T) {
+	t.Parallel()
+	tm := func(h int, loc *time.Location) time.Time { return time.Date(2024, 1, 1, h, 0, 0, 0, loc) }
+	est := time.FixedZone("x", -5*3600)
+	// Text order of the default time format would put "2024-01-01 10:00" before
+	// "2024-01-01 9:00"; chronologically 09:00 UTC < 10:00 UTC < 11:00 UTC (06:00 EST).
+	times := []map[string]any{
+		{"n": "late", "when": tm(11, time.UTC)},
+		{"n": "none"},
+		{"n": "early", "when": tm(9, time.UTC)},
+		{"n": "mid", "when": tm(5, est)}, // 10:00 UTC
+	}
+	var got []string
+	for _, m := range sortBy(times, "when").([]map[string]any) {
+		got = append(got, m["n"].(string))
+	}
+	if want := []string{"early", "mid", "late", "none"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("time sort = %v, want %v", got, want)
+	}
+	gs := groupBy([]map[string]any{{"when": tm(9, time.UTC)}, {"when": tm(4, est)}, {"when": tm(10, time.UTC)}}, "when")
+	if want := []string{"2024-01-01T09:00:00Z", "2024-01-01T10:00:00Z"}; !reflect.DeepEqual(keysOf(gs), want) {
+		t.Errorf("time group keys = %v, want %v", keysOf(gs), want)
+	}
+
+	bools := []map[string]any{{"n": "t1", "b": true}, {"n": "f1", "b": false}, {"n": "none"}, {"n": "f2", "b": false}}
+	got = nil
+	for _, m := range sortBy(bools, "b").([]map[string]any) {
+		got = append(got, m["n"].(string))
+	}
+	if want := []string{"f1", "f2", "t1", "none"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("bool sort = %v, want %v", got, want)
+	}
+	if want := []string{"true", "false", ""}; !reflect.DeepEqual(keysOf(groupBy(bools, "b")), want) {
+		t.Errorf("bool group keys = %v, want %v", keysOf(groupBy(bools, "b")), want)
 	}
 }
