@@ -69,7 +69,8 @@ func GenerateSchemaDrivernJSONLD(ent *Entity, baseURL string) map[string]any {
 	entityURL := buildEntityURLForJSONLD(ent, baseURL)
 	jsonLD["url"] = entityURL
 	jsonLD["@id"] = entityURL + "#" + strings.ToLower(schemaDef.SchemaOrgType)
-	jsonLD["dateModified"] = ent.UpdatedAt.Format("2006-01-02T15:04:05Z07:00")
+	st := schemaSettingsOf(ent)
+	jsonLD["dateModified"] = modifiedTime(ent, attrs, st, ent.PublishedAt).Format("2006-01-02T15:04:05Z07:00")
 
 	// Add datePublished if available
 	if ent.PublishedAt != nil {
@@ -80,6 +81,8 @@ func GenerateSchemaDrivernJSONLD(ent *Entity, baseURL string) map[string]any {
 	if schemaDef.Properties != nil {
 		mapPropertiesToJSONLD(jsonLD, attrs, schemaDef.Properties, schemaDef.SchemaOrgType)
 	}
+
+	applyStructuredLinks(jsonLD, st, baseURL)
 
 	// For FAQ schema, the entity name should map to "name" if not already set
 	if _, hasName := jsonLD["name"]; !hasName {

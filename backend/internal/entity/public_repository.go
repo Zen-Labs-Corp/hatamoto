@@ -1061,7 +1061,7 @@ func buildArticleJSONLD(jsonLD map[string]any, entity *Entity, attrs map[string]
 	if publishedAt := entity.PublishedAt; publishedAt != nil {
 		jsonLD["datePublished"] = publishedAt.Format("2006-01-02T15:04:05Z07:00")
 	}
-	jsonLD["dateModified"] = entity.UpdatedAt.Format("2006-01-02T15:04:05Z07:00")
+	jsonLD["dateModified"] = modifiedTime(entity, attrs, schemaSettingsOf(entity), entity.PublishedAt).Format("2006-01-02T15:04:05Z07:00")
 
 	// Plain string author only -- no structured author-entity byline on
 	// the plugin-free base (decisions.md (g3)). Fall back to author_name
@@ -1722,8 +1722,10 @@ func buildSettingsTypedJSONLD(ent *Entity, typ, baseURL string) map[string]any {
 	if ent.PublishedAt != nil {
 		doc["datePublished"] = ent.PublishedAt.Format(time.RFC3339)
 	}
+	st := schemaSettingsOf(ent)
 	if !ent.UpdatedAt.IsZero() {
-		doc["dateModified"] = ent.UpdatedAt.Format(time.RFC3339)
+		doc["dateModified"] = modifiedTime(ent, attrs, st, ent.PublishedAt).Format(time.RFC3339)
 	}
+	applyStructuredLinks(doc, st, baseURL)
 	return doc
 }
