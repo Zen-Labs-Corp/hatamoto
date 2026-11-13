@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: Locale-aware links, locale names and locale-rooted breadcrumbs
+
+- **Breadcrumbs.** On multi-locale sites, pages of a locale served under a prefix now show the locale name as the first breadcrumb instead of Home; the default locale served without a prefix is unchanged. No setting. The BreadcrumbList JSON-LD lists the same crumbs. A saved home label does not apply on those pages.
+- **Themes.** New template func `localeURL`: `{{ localeURL . "/contact" }}` prefixes the page's locale segment onto a site-relative path (`/fr/contact`) and leaves absolute URLs, anchors, `mailto:`/`tel:`, already prefixed and shared paths alone. New data: `.LocaleName` on the page and `.Name` on each `.Alternates` item. All additive; nothing is renamed.
+- **Setting.** Settings > Locales has **Keep visitors in their locale** (`visitor_entry.keep_locale` over REST), off by default. When on, `url`-type section fields get the page's locale prefix at render time; stored content is untouched, and rich text and builder-page nodes are not rewritten. With it off the rendered pages are byte-identical.
+- **Migration.** None. The setting lives in the existing `visitor_entry` JSON. Rollback floor: unchanged; an older release ignores the new key.
+
 ## Unreleased: Visitors of / land in their own locale
 
 - **Visitor entry.** Settings > Locales has a **Visitor entry** panel for sites with two or more locales. Turn on **Send visitors of / to their locale** and `/`, and any entry paths you list, answer `302` to the visitor's locale: the saved choice first, then the country from the CDN header (`CF-IPCountry` or `CloudFront-Viewer-Country`) matched against the new per-locale **Countries**, then the default locale. The response is never shared-cacheable. An optional old cookie name is read when the visitor has no saved choice.

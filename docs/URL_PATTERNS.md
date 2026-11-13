@@ -183,6 +183,10 @@ own URL segment (free text: `fr-CA` may use `fr`), a default locale (the site
   before the page cache and before plugin redirects, after the site access gate.
   With the setting off, or on a single-locale site, nothing changes: no redirect
   and no new header.
+  The same panel has **Keep visitors in their locale** (`visitor_entry.keep_locale`,
+  off by default): when on, url-type link fields of a page's sections are
+  rendered with the page's locale segment (`/contact` to `/fr/contact`), and
+  themes can do the same with `localeURL`. It changes links only, not routing.
 * **Switcher.** `GET /locale?l=<segment>&to=<path>` on a multi-locale site sets
   the `hm_locale` cookie (value: the locale's segment, or its tag for an
   unprefixed default locale; `Path=/`, one year, `HttpOnly`, `SameSite=Lax`,
