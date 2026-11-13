@@ -647,9 +647,10 @@ func pluralLabel(name string) string {
 // groupCrumbs is the group page's trail: Home > archive > group.
 func (s *Server) groupCrumbs(ctx context.Context, cfg *entity.SchemaURLConfig, rr *routeResult, g *render.ArchiveGroupView) []BreadcrumbItem {
 	in := crumbInput{
-		Home:    BreadcrumbItem{Href: s.urlSnapshot(ctx).WithLocale(rr.Locale, "/")},
-		Archive: &BreadcrumbItem{Label: firstNonEmpty(cfg.ArchiveCrumbLabel, firstNonEmpty(cfg.ArchiveTitle, cfg.Name)), Href: s.urlSnapshot(ctx).WithLocale(rr.Locale, cfg.ArchivePath)},
-		Entry:   BreadcrumbItem{Label: g.Label, Href: g.URL},
+		Home:      BreadcrumbItem{Href: s.urlSnapshot(ctx).WithLocale(rr.Locale, "/")},
+		HomeLabel: localeRootLabel(s.urlSnapshot(ctx).Locales(), rr.Locale),
+		Archive:   &BreadcrumbItem{Label: firstNonEmpty(cfg.ArchiveCrumbLabel, firstNonEmpty(cfg.ArchiveTitle, cfg.Name)), Href: s.urlSnapshot(ctx).WithLocale(rr.Locale, cfg.ArchivePath)},
+		Entry:     BreadcrumbItem{Label: g.Label, Href: g.URL},
 	}
 	if set := s.seoSettings(ctx); set != nil {
 		in.Cfg = set.Breadcrumbs

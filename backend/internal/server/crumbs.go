@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/taxonomy"
 )
@@ -27,6 +28,20 @@ type crumbInput struct {
 	Title string
 	Term  *BreadcrumbItem
 	Cfg   seo.Breadcrumbs
+	// HomeLabel overrides the first crumb label (also the saved Cfg home label)
+	// when set: the locale name on a page of a prefixed locale.
+	HomeLabel string
+}
+
+// localeRootLabel is the first crumb label of a page of a locale served under
+// a prefix: the locale's display name, which replaces the Home crumb. It is ""
+// on one-locale sites, for shared pages and for a locale served without a
+// prefix, which keep the Home trail.
+func localeRootLabel(set *entity.LocaleSet, tag string) string {
+	if !set.Multi() || tag == "" || tag == entity.LocaleShared || set.Prefix(tag) == "" {
+		return ""
+	}
+	return set.DisplayName(tag)
 }
 
 // shapeCrumbs returns Home > archive > term > entry with the saved label and
@@ -35,6 +50,9 @@ type crumbInput struct {
 func shapeCrumbs(in crumbInput) []BreadcrumbItem {
 	home := in.Home
 	home.Label = in.Cfg.Home()
+	if in.HomeLabel != "" {
+		home.Label = in.HomeLabel
+	}
 	out := []BreadcrumbItem{home}
 	if in.Archive != nil {
 		out = append(out, *in.Archive)
