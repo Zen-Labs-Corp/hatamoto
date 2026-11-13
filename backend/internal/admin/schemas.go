@@ -717,23 +717,31 @@ type schemaForm struct {
 func (f *schemaForm) WebPageOptions() []ui.Option {
 	// Only a WebPage-typed schema prints the node by default; the generic
 	// "page" type is a WebPage while no structured data type is set.
+	// Annotations or a plugin builder decide the document type, so the label
+	// does not guess.
+	if _, hasBuilder := entity.LookupJSONLDBuilder(f.Slug); hasBuilder || strings.Contains(f.JSON, "x-schema-org-type") {
+		return nodeSwitchOptions(f.Settings.EmitWebPage, "Default")
+	}
 	printed := f.Settings.SchemaOrgType == "WebPage" || (f.Settings.SchemaOrgType == "" && f.Slug == "page")
-	return nodeSwitchOptions(f.Settings.EmitWebPage, printed)
+	return nodeSwitchOptions(f.Settings.EmitWebPage, defaultLabel(printed))
 }
 
 // BreadcrumbOptions are the choices of the schema's BreadcrumbList node. The
 // list is printed by default.
 func (f *schemaForm) BreadcrumbOptions() []ui.Option {
-	return nodeSwitchOptions(f.Settings.EmitBreadcrumb, true)
+	return nodeSwitchOptions(f.Settings.EmitBreadcrumb, defaultLabel(true))
 }
 
-func nodeSwitchOptions(current string, printedByDefault bool) []ui.Option {
-	def := "not printed"
-	if printedByDefault {
-		def = "printed"
+func defaultLabel(printed bool) string {
+	if printed {
+		return "Default (printed)"
 	}
+	return "Default (not printed)"
+}
+
+func nodeSwitchOptions(current, defaultLabel string) []ui.Option {
 	return []ui.Option{
-		{Value: "", Label: "Default (" + def + ")", Selected: current != string(entity.NodeSwitchOn) && current != string(entity.NodeSwitchOff)},
+		{Value: "", Label: defaultLabel, Selected: current != string(entity.NodeSwitchOn) && current != string(entity.NodeSwitchOff)},
 		{Value: string(entity.NodeSwitchOn), Label: "Print", Selected: current == string(entity.NodeSwitchOn)},
 		{Value: string(entity.NodeSwitchOff), Label: "Do not print", Selected: current == string(entity.NodeSwitchOff)},
 	}

@@ -798,6 +798,10 @@ func TestSchemaStructuredDataSettings(t *testing.T) {
 // The default is named for the type the schema has now.
 func TestSchemaNodeSwitchDefaultLabel(t *testing.T) {
 	t.Parallel()
+	entity.RegisterJSONLDBuilder("built-by-plugin", func(map[string]any, *entity.Entity, map[string]any, string) {})
+	if got := (&schemaForm{Slug: "built-by-plugin"}).WebPageOptions()[0].Label; got != "Default" {
+		t.Errorf("plugin builder: %q, want Default", got)
+	}
 	label := func(f *schemaForm) string { return f.WebPageOptions()[0].Label }
 	for _, tc := range []struct {
 		slug, typ, want string
@@ -806,8 +810,13 @@ func TestSchemaNodeSwitchDefaultLabel(t *testing.T) {
 		{"page", "Article", "Default (not printed)"},
 		{"notes", "WebPage", "Default (printed)"},
 		{"notes", "", "Default (not printed)"},
+		{"notes+annotated", "", "Default"},
 	} {
-		if got := label(&schemaForm{Slug: tc.slug, Settings: schemaSettingsForm{SchemaOrgType: tc.typ}}); got != tc.want {
+		f := &schemaForm{Slug: tc.slug, Settings: schemaSettingsForm{SchemaOrgType: tc.typ}}
+		if tc.slug == "notes+annotated" {
+			f.Slug, f.JSON = "page", `{"x-schema-org-type": "Article", "type": "object"}`
+		}
+		if got := label(f); got != tc.want {
 			t.Errorf("%s/%s: %q, want %q", tc.slug, tc.typ, got, tc.want)
 		}
 	}
