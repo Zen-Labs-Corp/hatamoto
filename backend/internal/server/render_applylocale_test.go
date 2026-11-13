@@ -132,7 +132,8 @@ func TestApplyLocale_LocaleNamesAndSharedPaths(t *testing.T) {
 		if v.KeepLocale {
 			t.Errorf("%s: KeepLocale on without site settings", tt.locale)
 		}
-		if v.LocaleShared == nil || !v.LocaleShared("/media/x.png") || !v.LocaleShared("/sitemap.xml") || v.LocaleShared("/contact") {
+		if v.LocaleShared == nil || !v.LocaleShared("/media/x.png") || !v.LocaleShared("/sitemap.xml") || v.LocaleShared("/contact") ||
+			v.LocaleShared("/search") || v.LocaleShared("/category/x") || v.LocaleShared("/tag/x") {
 			t.Errorf("%s: LocaleShared misclassifies paths", tt.locale)
 		}
 	}

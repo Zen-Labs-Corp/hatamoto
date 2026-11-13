@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"hatamoto.dev/core/internal/entity"
@@ -49,7 +50,7 @@ func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, 
 		v.LocaleName = set.DisplayName(loc)
 	}
 	v.KeepLocale = s.keepLocale(ctx)
-	v.LocaleShared = func(p string) bool { return reservedFirstSegment(p) || snap.PathIsLocaleNeutral(p) }
+	v.LocaleShared = func(p string) bool { return localeNeutralPath(p) || snap.PathIsLocaleNeutral(p) }
 	v.Site.Language = loc
 	v.Shared = shared
 	v.Locales = s.localesView(ctx, snap, set, baseURL)
@@ -76,16 +77,26 @@ func (s *Server) keepLocale(ctx context.Context) bool {
 	return err == nil && cfg.VisitorEntry.KeepLocale
 }
 
-// reservedFirstSegment reports whether the first segment of a site path is a
-// route of its own (media, api, sitemap files, ...): such paths are shared by
+// localeNeutralRoots are the first path segments served outside the locales:
+// links to them never take a locale prefix. It is not the reserved-segment
+// list: /search, /category, /tag, /author and /page are served under every
+// locale prefix, so they are left out and do get one.
+var localeNeutralRoots = []string{
+	"admin", "api", "media", "static", "theme", "feed", "robots", "llms", "mcp",
+	"health", "ready", "preview", "forms", "p", "plugin-ui", "locale", "index", "misc",
+}
+
+// localeNeutralPath reports whether the first segment of a site path is a route
+// outside the locales (media, api, sitemap files, ...): such paths are shared by
 // every locale and never take a locale prefix.
-func reservedFirstSegment(p string) bool {
+func localeNeutralPath(p string) bool {
 	first, _, _ := strings.Cut(strings.TrimPrefix(p, "/"), "/")
 	first = strings.ToLower(first)
 	if i := strings.LastIndexByte(first, '.'); i > 0 {
 		first = first[:i]
 	}
-	return first != "" && reservedSegmentReason(first) != ""
+	return first != "" && (slices.Contains(localeNeutralRoots, first) ||
+		strings.HasPrefix(first, "sitemap") || strings.HasPrefix(first, "auth"))
 }
 
 // isSharedPage reports whether the page belongs to no locale: an entity stored
