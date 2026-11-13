@@ -84,11 +84,15 @@ func (s *Server) keepLocale(ctx context.Context) bool {
 
 // localeNeutralRoots are the first path segments served outside the locales:
 // links to them never take a locale prefix. It is not the reserved-segment
-// list: /search, /category, /tag, /author and /page are served under every
-// locale prefix, so they are left out and do get one.
+// list: /search, /category, /tag and /page are served under every locale prefix,
+// so they are left out and do get one. /author is the exception: author
+// archives canonicalise to the unprefixed URL (people are shared, and a
+// default-locale person would 404 under /fr/), so links to it stay unprefixed.
+// Segments match exactly: /authorized-dealers is a page and does get a prefix.
 var localeNeutralRoots = []string{
 	"admin", "api", "media", "static", "theme", "feed", "robots", "llms", "mcp",
 	"health", "ready", "preview", "forms", "p", "plugin-ui", "locale", "index", "misc",
+	"auth", "author", "sitemap",
 }
 
 // localeNeutralPath reports whether the first segment of a site path is a route
@@ -100,8 +104,7 @@ func localeNeutralPath(p string) bool {
 	if i := strings.LastIndexByte(first, '.'); i > 0 {
 		first = first[:i]
 	}
-	return first != "" && (slices.Contains(localeNeutralRoots, first) ||
-		strings.HasPrefix(first, "sitemap") || strings.HasPrefix(first, "auth"))
+	return first != "" && slices.Contains(localeNeutralRoots, first)
 }
 
 // isSharedPage reports whether the page belongs to no locale: an entity stored

@@ -134,7 +134,9 @@ func TestApplyLocale_LocaleNamesAndSharedPaths(t *testing.T) {
 			t.Errorf("%s: KeepLocale on without site settings", tt.locale)
 		}
 		if v.LocaleShared == nil || !v.LocaleShared("/media/x.png") || !v.LocaleShared("/sitemap.xml") || v.LocaleShared("/contact") ||
-			v.LocaleShared("/search") || v.LocaleShared("/category/x") || v.LocaleShared("/tag/x") {
+			v.LocaleShared("/search") || v.LocaleShared("/category/x") || v.LocaleShared("/tag/x") ||
+			!v.LocaleShared("/auth/login") || !v.LocaleShared("/author/x") || !v.LocaleShared("/sitemap.xsl") ||
+			v.LocaleShared("/authorized-dealers") || v.LocaleShared("/sitemaps-guide") {
 			t.Errorf("%s: LocaleShared misclassifies paths", tt.locale)
 		}
 		// Without site settings v.Locales is empty; the segments come from the set.
