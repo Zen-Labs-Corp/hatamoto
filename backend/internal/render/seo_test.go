@@ -215,6 +215,29 @@ func TestBreadcrumbLDID(t *testing.T) {
 	}
 }
 
+func TestNoBreadcrumbLDKeepsVisibleTrail(t *testing.T) {
+	t.Parallel()
+	hasLD := func(v *PageView) bool {
+		for _, s := range seoHead(v, true).Scripts {
+			if strings.Contains(string(s), `"BreadcrumbList"`) {
+				return true
+			}
+		}
+		return false
+	}
+	v := &PageView{BaseURL: "https://x.io", Breadcrumb: []Crumb{{Name: "Home", URL: "/"}, {Name: "Here", URL: "/a"}}}
+	if !hasLD(v) {
+		t.Fatal("default view must emit the BreadcrumbList")
+	}
+	v.NoBreadcrumbLD = true
+	if hasLD(v) {
+		t.Error("NoBreadcrumbLD must drop the BreadcrumbList script")
+	}
+	if len(v.Breadcrumb) != 2 {
+		t.Error("the breadcrumb trail itself must stay")
+	}
+}
+
 func TestSEOArchiveCollectionPage(t *testing.T) {
 	t.Parallel()
 	v := &PageView{

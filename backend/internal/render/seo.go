@@ -114,7 +114,7 @@ func seoHeadWith(ctx context.Context, v *PageView, replaceSiteGraph bool, sg Sit
 			h.Scripts = append(h.Scripts, s)
 		}
 	}
-	if len(v.Breadcrumb) > 0 {
+	if len(v.Breadcrumb) > 0 && !v.NoBreadcrumbLD {
 		if s, ok := marshalLDScript(breadcrumbLD(v)); ok {
 			h.Scripts = append(h.Scripts, s)
 		}

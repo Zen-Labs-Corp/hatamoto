@@ -1,0 +1,12 @@
+{
+  "@context": "https://schema.org",
+  "@id": "https://example.test/term#person",
+  "@type": "Person",
+  "description": "Writer",
+  "name": "Glossary term",
+  "url": "https://example.test/term",
+  "worksFor": {
+    "@id": "https://example.test#organization",
+    "@type": "Organization"
+  }
+}

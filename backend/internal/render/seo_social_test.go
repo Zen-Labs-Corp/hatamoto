@@ -206,3 +206,21 @@ func TestSocialHeadOptionalIDsOnlyWhenFilled(t *testing.T) {
 		t.Errorf("twitter:site %q", got)
 	}
 }
+
+func TestEncodeURIRef(t *testing.T) {
+	t.Parallel()
+	for in, want := range map[string]string{
+		"https://example.test/a b.png":      "https://example.test/a%20b.png",
+		"https://example.test/café.png":     "https://example.test/caf%C3%A9.png",
+		"https://example.test/a%20b.png":    "https://example.test/a%20b.png",
+		"/x.png?a=b&c=d#x":                  "/x.png?a=b&c=d#x",
+		"/100%zz.png":                       "/100%25zz.png",
+		"/end%2":                            "/end%252",
+		"https://example.test/img/logo.png": "https://example.test/img/logo.png",
+		"":                                  "",
+	} {
+		if got := encodeURIRef(in); got != want {
+			t.Errorf("encodeURIRef(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

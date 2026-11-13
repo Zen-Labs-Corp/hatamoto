@@ -17,6 +17,11 @@ const MaxCustomJSONLDBytes = 16 << 10
 const (
 	attrSchemaType   = "schema_type"
 	attrCustomJSONLD = "custom_jsonld"
+	// attrJSONLDWebPage and attrJSONLDBreadcrumb override the schema's
+	// emit_webpage / emit_breadcrumb for one entry: "on" or "off", absent
+	// means use the schema default.
+	attrJSONLDWebPage    = "jsonld_webpage"
+	attrJSONLDBreadcrumb = "jsonld_breadcrumb"
 )
 
 // ValidateCustomJSONLD checks an entry's custom JSON-LD text: empty is fine;

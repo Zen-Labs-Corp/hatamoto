@@ -634,6 +634,32 @@ func TestBlogEditorAuthorPickerCreditsPeopleAndTheOrganisation(t *testing.T) {
 	}
 }
 
+func TestBlogEditorSavesNodeSwitches(t *testing.T) {
+	t.Parallel()
+
+	r := newBlogRig(t)
+	f := r.form(t)
+	f.Set("seo_jsonld_webpage", "off")
+	f.Set("seo_jsonld_breadcrumb", "on")
+	f.Set("_op", "save")
+	if rec := r.post(r.path(), f); rec.Code != 303 {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
+	}
+	if got := r.attrs(); got["jsonld_webpage"] != "off" || got["jsonld_breadcrumb"] != "on" {
+		t.Fatalf("stored: %v", got)
+	}
+	f = r.form(t)
+	f.Del("seo_jsonld_webpage")
+	f.Del("seo_jsonld_breadcrumb")
+	f.Set("_op", "save")
+	if rec := r.post(r.path(), f); rec.Code != 303 {
+		t.Fatalf("save: %d", rec.Code)
+	}
+	if got := r.attrs(); got["jsonld_webpage"] != "off" || got["jsonld_breadcrumb"] != "on" {
+		t.Errorf("unposted switches dropped: %v", got)
+	}
+}
+
 func TestBlogEditorSavesSchemaTabFields(t *testing.T) {
 	t.Parallel()
 

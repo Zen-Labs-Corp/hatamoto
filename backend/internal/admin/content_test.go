@@ -12,12 +12,14 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
@@ -705,6 +707,158 @@ func TestSchemaEditAddReorderAndSave(t *testing.T) {
 	}
 }
 
+func TestSchemaStructuredDataSettings(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	id := fid(1).String()
+	page := func() string { return c.get(t, "owner-token", "/admin/settings/types/"+id, "") }
+	// selected is what a browser posts for a select: the option marked selected.
+	selected := func(body, name string) string {
+		t.Helper()
+		sel := regexp.MustCompile(`(?s)<select[^>]*name="` + name + `".*?</select>`).FindString(body)
+		m := regexp.MustCompile(`<option value="([^"]*)" selected`).FindStringSubmatch(sel)
+		if m == nil {
+			t.Fatalf("no option of %s is selected:\n%s", name, sel)
+		}
+		return m[1]
+	}
+	save := func(change func(url.Values)) {
+		t.Helper()
+		if rec := c.post("/admin/settings/types/"+id, schemaPost(c, change)); rec.Code != 303 {
+			t.Fatalf("save: %d\n%s", rec.Code, rec.Body.String())
+		}
+	}
+	// saveUntouched posts the form the way the browser would, changing nothing.
+	saveUntouched := func() {
+		t.Helper()
+		body := page()
+		save(func(f url.Values) {
+			f.Set("emit_webpage", selected(body, "emit_webpage"))
+			f.Set("emit_breadcrumb", selected(body, "emit_breadcrumb"))
+		})
+	}
+	stored := func(k string) string {
+		var m map[string]any
+		_ = jsonx.Unmarshal(c.service.Settings, &m, jsonx.StoredLoose)
+		v, _ := m[k].(string)
+		return v
+	}
+
+	// absent keys: Default is selected, with the effective default named, and nothing is stored
+	body := page()
+	if selected(body, "emit_webpage") != "" || selected(body, "emit_breadcrumb") != "" {
+		t.Errorf("absent keys must select Default:\n%s", body)
+	}
+	has(t, body, `>Default (not printed)</option>`, `>Default (printed)</option>`, `>Print</option>`, `>Do not print</option>`, "WebPage node", "BreadcrumbList node")
+	saveUntouched()
+	for _, k := range []string{"emit_webpage", "emit_breadcrumb"} {
+		if strings.Contains(string(c.service.Settings), k) {
+			t.Errorf("untouched save of absent keys stored %s: %s", k, c.service.Settings)
+		}
+	}
+	// stored "on" and "off" survive an untouched save exactly, in both fields
+	for _, tc := range []struct{ web, crumb string }{{"on", "off"}, {"off", "on"}} {
+		c.service.Settings = jsontext.Value(`{"url_pattern":"/services/{path}","emit_webpage":"` + tc.web + `","emit_breadcrumb":"` + tc.crumb + `"}`)
+		if body := page(); selected(body, "emit_webpage") != tc.web || selected(body, "emit_breadcrumb") != tc.crumb {
+			t.Errorf("stored %v must be selected:\n%s", tc, body)
+		}
+		saveUntouched()
+		if stored("emit_webpage") != tc.web || stored("emit_breadcrumb") != tc.crumb {
+			t.Errorf("untouched save changed %v: %s", tc, c.service.Settings)
+		}
+	}
+	c.service.Settings = jsontext.Value(`{"url_pattern":"/services/{path}","emit_webpage":"on"}`)
+	saveUntouched()
+	if stored("emit_webpage") != "on" || strings.Contains(string(c.service.Settings), "emit_breadcrumb") {
+		t.Errorf("one key stored, one absent: %s", c.service.Settings)
+	}
+	// a chosen value is stored; Default removes the key; the selects keep the other settings
+	save(func(f url.Values) {
+		f.Set("emit_webpage", "off")
+		f.Set("emit_breadcrumb", "on")
+		f.Set("modified_from", "summary")
+		f.Set("author_from", "summary")
+		f.Set("term_set_url", "/glossary")
+	})
+	st := settingsFormFrom(c.service.Settings)
+	if st.EmitWebPage != "off" || st.EmitBreadcrumb != "on" || st.ModifiedFrom != "summary" || st.AuthorFrom != "summary" || st.TermSetURL != "/glossary" {
+		t.Errorf("saved: %s", c.service.Settings)
+	}
+	has(t, page(), `name="term_set_url" value="/glossary"`, `<option value="summary" selected>`)
+	// clearing the controls removes the keys again
+	save(nil)
+	for _, k := range []string{"modified_from", "author_from", "term_set_url", "emit_webpage", "emit_breadcrumb"} {
+		if strings.Contains(string(c.service.Settings), k) {
+			t.Errorf("%s kept: %s", k, c.service.Settings)
+		}
+	}
+}
+
+// The default is named for the type the schema has now.
+func TestSchemaNodeSwitchDefaultLabel(t *testing.T) {
+	t.Parallel()
+	entity.RegisterJSONLDBuilder("built-by-plugin", func(map[string]any, *entity.Entity, map[string]any, string) {})
+	if got := (&schemaForm{Slug: "built-by-plugin"}).WebPageOptions()[0].Label; got != "Default" {
+		t.Errorf("plugin builder: %q, want Default", got)
+	}
+	label := func(f *schemaForm) string { return f.WebPageOptions()[0].Label }
+	for _, tc := range []struct {
+		slug, typ, want string
+	}{
+		{"page", "", "Default (printed)"},
+		{"page", "Article", "Default (not printed)"},
+		{"notes", "WebPage", "Default (printed)"},
+		{"notes", "", "Default (not printed)"},
+		{"notes+annotated", "", "Default"},
+	} {
+		f := &schemaForm{Slug: tc.slug, Settings: schemaSettingsForm{SchemaOrgType: tc.typ}}
+		if tc.slug == "notes+annotated" {
+			f.Slug, f.JSON = "page", `{"x-schema-org-type": "Article", "type": "object"}`
+		}
+		if got := label(f); got != tc.want {
+			t.Errorf("%s/%s: %q, want %q", tc.slug, tc.typ, got, tc.want)
+		}
+	}
+}
+
+func TestSchemaStructuredDataOptions(t *testing.T) {
+	t.Parallel()
+
+	f := &schemaForm{
+		Fields: []schemaField{
+			{Name: "when", Kind: "text", Raw: `{"type":"string","format":"date"}`},
+			{Name: "seen", Kind: "text", Raw: `{"type":"string","format":"date-time"}`},
+			{Name: "title", Kind: "text", Raw: `{"type":"string"}`},
+			{Name: "writer", Kind: "reference", Ref: "person"},
+			{Name: "count", Kind: "number"},
+		},
+		RefNames: map[string]string{"person": "Person"},
+		Settings: schemaSettingsForm{ModifiedFrom: "gone"},
+	}
+	labels := func(opts []ui.Option) string {
+		var out []string
+		for _, o := range opts {
+			s := o.Value + "=" + o.Label
+			if o.Selected {
+				s += "*"
+			}
+			out = append(out, s)
+		}
+		return strings.Join(out, "|")
+	}
+	if got, want := labels(f.ModifiedFromOptions()), "=None|when=when|seen=seen|gone=gone*"; got != want {
+		t.Errorf("modified from: %s, want %s", got, want)
+	}
+	if got, want := labels(f.AuthorFromOptions()), "=None*|when=when|seen=seen|title=title|writer=writer (Person)"; got != want {
+		t.Errorf("author from: %s, want %s", got, want)
+	}
+	empty := &schemaForm{}
+	if got := labels(empty.ModifiedFromOptions()) + " " + labels(empty.AuthorFromOptions()); got != "=None* =None*" {
+		t.Errorf("no attributes: %s", got)
+	}
+}
+
 // A schema save no longer owns settings.sitemap: the object edited under
 // SEO > Sitemap, including keys this form never knew, comes back untouched.
 func TestSchemaSaveKeepsSitemapSettings(t *testing.T) {
@@ -745,6 +899,9 @@ func TestSchemaValidation(t *testing.T) {
 		"pattern no slash":     {func(f url.Values) { f.Set("url_pattern", "blog/{slug}") }, "Must start with"},
 		"bad type":             {func(f url.Values) { f.Set("schema_org_type", "Bogus") }, "Choose one of the listed types"},
 		"archive path":         {func(f url.Values) { f.Set("archive_path", "blog") }, "Start with a slash"},
+		"bad term set":         {func(f url.Values) { f.Set("term_set_url", "glossary") }, "term_set_url must start with"},
+		"bad modified from":    {func(f url.Values) { f.Set("modified_from", "1 bad") }, "not a valid attribute key"},
+		"bad webpage switch":   {func(f url.Values) { f.Set("emit_webpage", "maybe") }, "emit_webpage must be empty"},
 		"duplicate name":       {func(f url.Values) { f.Set("f.r1.name", "summary") }, "share a name"},
 		"bad name":             {func(f url.Values) { f.Set("f.r1.name", "1 bad name") }, "starting with a letter"},
 		"empty choices":        {func(f url.Values) { f.Set("f.r1.kind", "select"); f.Set("f.r1.options", " ") }, "at least one choice"},

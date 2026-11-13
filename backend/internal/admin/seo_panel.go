@@ -36,6 +36,9 @@ type seoPanel struct {
 	// JSON-LD box above the preview; SchemaTypes are the select's options.
 	ShowSchemaFields bool
 	SchemaTypes      []ui.Option
+	// WebPageOptions and BreadcrumbOptions are the node switch selects: the
+	// first option follows the schema, then On and Off.
+	WebPageOptions, BreadcrumbOptions []ui.Option
 }
 
 func buildPanel(in seoInput) seoPanel { return seoPanel{Panel: seopanel.Build(in)} }
@@ -57,6 +60,25 @@ func (p *seoPanel) withSchemaFields(sc *entity.EntitySchema, in seoInput) {
 	p.SchemaTypes = []ui.Option{{Value: "", Label: "Use type default (" + def + ")", Selected: in.SchemaType == ""}}
 	for _, t := range entity.AllowedSchemaOrgTypes {
 		p.SchemaTypes = append(p.SchemaTypes, ui.Option{Value: t, Label: t, Selected: in.SchemaType == t})
+	}
+	p.WebPageOptions = entrySwitchOptions(st.EmitWebPage, in.JSONLDWebPage)
+	p.BreadcrumbOptions = entrySwitchOptions(st.EmitBreadcrumb, in.JSONLDBreadcrumb)
+}
+
+// entrySwitchOptions are the choices of an entry's node switch. The first one
+// names what the schema does without an override.
+func entrySwitchOptions(schema entity.NodeSwitch, current string) []ui.Option {
+	def := "Auto"
+	switch schema {
+	case entity.NodeSwitchOn:
+		def = "On"
+	case entity.NodeSwitchOff:
+		def = "Off"
+	}
+	return []ui.Option{
+		{Value: "", Label: "Use schema default (" + def + ")", Selected: current == ""},
+		{Value: string(entity.NodeSwitchOn), Label: "On", Selected: current == string(entity.NodeSwitchOn)},
+		{Value: string(entity.NodeSwitchOff), Label: "Off", Selected: current == string(entity.NodeSwitchOff)},
 	}
 }
 

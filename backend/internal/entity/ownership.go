@@ -15,7 +15,7 @@ import (
 var structuralKeys = []string{
 	"content", "body", keyDoc, keySections,
 	"meta_title", "meta_description", "canonical_url", "no_index",
-	"schema_type", "custom_jsonld", "hide_from_sitemap", "breadcrumb_title", "primary_term",
+	"schema_type", "custom_jsonld", attrJSONLDWebPage, attrJSONLDBreadcrumb, "hide_from_sitemap", "breadcrumb_title", "primary_term",
 	"seo",
 }
 

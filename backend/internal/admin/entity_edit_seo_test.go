@@ -154,6 +154,48 @@ func TestEntityEditSavesSchemaTabFields(t *testing.T) {
 	}
 }
 
+func TestEntityEditSavesNodeSwitches(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	id := fid(11).String()
+	post := func(extra url.Values) *httptest.ResponseRecorder {
+		form := url.Values{"name": {"Alpha service"}, "slug": {"alpha"}, "status": {"published"}, "attr.summary": {"S"}}
+		for k, v := range extra {
+			form[k] = v
+		}
+		return c.do("POST", "/admin/entities/"+id, "editor-token", form, nil)
+	}
+	if rec := post(url.Values{"seo_jsonld_webpage": {"off"}, "seo_jsonld_breadcrumb": {"on"}}); rec.Code != 303 {
+		t.Fatalf("save = %d: %s", rec.Code, rec.Body)
+	}
+	if got := attrsMap(c.ents.ents[fid(11)].Attributes); got["jsonld_webpage"] != "off" || got["jsonld_breadcrumb"] != "on" {
+		t.Fatalf("attributes = %v", got)
+	}
+	body := c.do("GET", "/admin/entities/"+id, "editor-token", nil, nil).Body.String()
+	has(t, body, `name="seo_jsonld_webpage"`, `<option value="off" selected>`, `<option value="on" selected>`, "Use schema default (Auto)")
+	lacks(t, body, `name="attr.jsonld_webpage"`)
+	// A form without the fields keeps them.
+	if rec := post(nil); rec.Code != 303 {
+		t.Fatalf("save = %d", rec.Code)
+	}
+	if got := attrsMap(c.ents.ents[fid(11)].Attributes); got["jsonld_webpage"] != "off" || got["jsonld_breadcrumb"] != "on" {
+		t.Errorf("unposted switches dropped: %v", got)
+	}
+	// "Use schema default" deletes the key.
+	if rec := post(url.Values{"seo_jsonld_webpage": {""}, "seo_jsonld_breadcrumb": {""}}); rec.Code != 303 {
+		t.Fatalf("save = %d", rec.Code)
+	}
+	if got := attrsMap(c.ents.ents[fid(11)].Attributes); got["jsonld_webpage"] != nil || got["jsonld_breadcrumb"] != nil {
+		t.Errorf("default kept the keys: %v", got)
+	}
+	// Anything but on or off is refused.
+	rec := post(url.Values{"seo_jsonld_webpage": {"maybe"}})
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), `href="#seo_jsonld_webpage"`) {
+		t.Errorf("bad switch: %d", rec.Code)
+	}
+}
+
 func TestEntityEditRejectsBadSchemaTabFields(t *testing.T) {
 	t.Parallel()
 

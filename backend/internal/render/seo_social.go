@@ -34,6 +34,8 @@ func socialHead(h *headView, v *PageView, rawTitle string) {
 		image = absURL(v.BaseURL, firstNonEmpty(seo.SocialImage(v.SEO, in), so.Image))
 	}
 
+	image = encodeURIRef(image)
+
 	article := social && so.Articles && isArticle(v)
 	ogType := v.Page.OGType
 	if ogType == "" {
@@ -114,4 +116,27 @@ func formatTime(t time.Time) string {
 		return ""
 	}
 	return t.UTC().Format(time.RFC3339)
+}
+
+// encodeURIRef percent-encodes the bytes of a URL reference that are not valid
+// in one, like JavaScript's encodeURI: reserved characters and well-formed %XX
+// escapes are kept, so an already encoded URL is not encoded twice.
+func encodeURIRef(s string) string {
+	const hex = "0123456789ABCDEF"
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9',
+			strings.IndexByte("-_.!~*'();/?:@&=+$,#", c) >= 0:
+			b.WriteByte(c)
+		case c == '%' && i+2 < len(s) && isHex(s[i+1]) && isHex(s[i+2]):
+			b.WriteByte(c)
+		default:
+			b.WriteByte('%')
+			b.WriteByte(hex[c>>4])
+			b.WriteByte(hex[c&15])
+		}
+	}
+	return b.String()
 }

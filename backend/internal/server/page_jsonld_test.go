@@ -1,0 +1,316 @@
+package server
+
+import (
+	"context"
+	"encoding/json/jsontext"
+	"maps"
+	"net/url"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/admin/schemaform"
+	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/person"
+)
+
+const pageLDBase = "https://example.test"
+
+func pageLDEntity(slug, settings, attrs string) *entity.Entity {
+	pub := time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC)
+	return &entity.Entity{
+		ID: uuid.New(), Name: "Hello", Slug: "hello", PublishedAt: &pub, UpdatedAt: pub,
+		Attributes: jsontext.Value(attrs),
+		Schema: &entity.EntitySchema{Slug: slug, Name: slug,
+			Schema: jsontext.Value(`{"type":"object"}`), Settings: jsontext.Value(settings)},
+	}
+}
+
+func noBylines() *bylines {
+	return &bylines{credits: map[uuid.UUID]person.Credit{}, people: map[uuid.UUID]*person.Person{},
+		path: func(_ context.Context, slug string) string { return "/author/" + slug }}
+}
+
+func ldGraphTypes(doc map[string]any) []any {
+	g, _ := doc["@graph"].([]map[string]any)
+	var out []any
+	for _, n := range g {
+		out = append(out, n["@type"])
+	}
+	return out
+}
+
+// With no keys the document is what the generator and the canonical rewrite
+// always produced.
+func TestBuildPageJSONLDDefaultsUnchanged(t *testing.T) {
+	ent := pageLDEntity("page", `{}`, `{"description":"d"}`)
+	want, err := entity.GenerateJSONLDWithFAQ(ent, pageLDBase, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entity.ApplyCanonicalToJSONLD(want, "page", pageLDBase+"/hello")
+	got, noBC, err := buildPageJSONLD(context.Background(), ent, pageLDBase, "/hello", nil, noBylines())
+	if err != nil || noBC || !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v (noBC=%v err=%v)\nwant %v", got, noBC, err, want)
+	}
+}
+
+// Both response branches call buildPageJSONLD, so the switches are checked here once.
+func TestBuildPageJSONLDWebPageSwitch(t *testing.T) {
+	ctx := context.Background()
+	cases := []struct {
+		name, slug, settings, attrs string
+		faq                         bool
+		wantType                    string // single doc
+		wantGraph                   []any  // or graph node types
+	}{
+		{"schema off drops WebPage", "page", `{"emit_webpage":"off"}`, `{}`, false, "", nil},
+		{"entry on beats schema off", "page", `{"emit_webpage":"off"}`, `{"jsonld_webpage":"on"}`, false, "WebPage", nil},
+		{"entry off beats schema on", "page", `{"emit_webpage":"on"}`, `{"jsonld_webpage":"off"}`, false, "", nil},
+		{"on adds WebPage to a typed doc", "glossary", `{"schema_org_type":"DefinedTerm","emit_webpage":"on"}`, `{}`, false, "", []any{"DefinedTerm", "WebPage"}},
+		{"off keeps a typed doc", "glossary", `{"schema_org_type":"DefinedTerm","emit_webpage":"off"}`, `{}`, false, "DefinedTerm", nil},
+		{"off on a FAQ graph keeps the FAQPage", "page", `{"emit_webpage":"off"}`, `{"faq":[{"question":"Q?","answer":"A."}]}`, true, "", []any{"FAQPage"}},
+		{"on typed doc with FAQ appends WebPage", "glossary", `{"schema_org_type":"DefinedTerm","emit_webpage":"on"}`, `{"faq":[{"question":"Q?","answer":"A."}]}`, true, "", []any{"DefinedTerm", "FAQPage", "WebPage"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ent := pageLDEntity(tc.slug, tc.settings, tc.attrs)
+			doc, _, err := buildPageJSONLD(ctx, ent, pageLDBase, "/hello", pageFAQItems(ent), noBylines())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.wantGraph != nil {
+				if got := ldGraphTypes(doc); !reflect.DeepEqual(got, tc.wantGraph) {
+					t.Fatalf("graph types %v, want %v (%v)", got, tc.wantGraph, doc)
+				}
+				return
+			}
+			if got, _ := doc["@type"].(string); got != tc.wantType {
+				t.Fatalf("@type %q, want %q (%v)", got, tc.wantType, doc)
+			}
+		})
+	}
+}
+
+func TestBuildPageJSONLDBreadcrumbSwitch(t *testing.T) {
+	for _, tc := range []struct {
+		settings, attrs string
+		want            bool
+	}{
+		{`{}`, `{}`, false},
+		{`{"emit_breadcrumb":"off"}`, `{}`, true},
+		{`{"emit_breadcrumb":"off"}`, `{"jsonld_breadcrumb":"on"}`, false},
+		{`{"emit_breadcrumb":"on"}`, `{"jsonld_breadcrumb":"off"}`, true},
+	} {
+		ent := pageLDEntity("page", tc.settings, tc.attrs)
+		_, got, err := buildPageJSONLD(context.Background(), ent, pageLDBase, "/hello", nil, noBylines())
+		if err != nil || got != tc.want {
+			t.Errorf("%s %s: noBreadcrumbLD = %v, want %v (%v)", tc.settings, tc.attrs, got, tc.want, err)
+		}
+	}
+	rr := &routeResult{Page: &PublicPageResponse{NoBreadcrumbLD: true}}
+	if v := pageViewFromRoute(rr, pageLDBase, "/hello"); !v.NoBreadcrumbLD {
+		t.Error("the flag must reach the PageView")
+	}
+}
+
+// A section list reaches the page as FAQPage: from page_doc and legacy sections.
+func TestPageFAQItemsFromSections(t *testing.T) {
+	doc := `{"page_doc":{"v":2,"nodes":[{"id":"a","t":"component","p":{"content":{"faq":[{"question":"Where?","answer":"<p>Here.</p>"}]}}}]}}`
+	legacy := `{"page_sections":[{"type":"faq","content":{"faq":[{"question":"When?","answer":"Now."}]}}]}`
+	for name, attrs := range map[string]string{"page_doc": doc, "page_sections": legacy} {
+		ent := pageLDEntity("page", `{}`, attrs)
+		items := pageFAQItems(ent)
+		if len(items) != 1 {
+			t.Fatalf("%s: items %v", name, items)
+		}
+		out, _, err := buildPageJSONLD(context.Background(), ent, pageLDBase, "/hello", items, noBylines())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := ldGraphTypes(out); !reflect.DeepEqual(got, []any{"WebPage", "FAQPage"}) {
+			t.Errorf("%s: graph %v", name, got)
+		}
+	}
+	// The schema's off switch still wins.
+	ent := pageLDEntity("page", `{"faq_from_content":false}`, doc)
+	if items := pageFAQItems(ent); items != nil {
+		t.Errorf("faq_from_content=false: %v", items)
+	}
+}
+
+func TestApplyAuthorFrom(t *testing.T) {
+	ctx := context.Background()
+	pub := &person.Person{ID: uuid.New(), Slug: "ada", Name: "Ada Lovelace", Public: true}
+	priv := &person.Person{ID: uuid.New(), Slug: "bob", Name: "Bob", Public: false}
+	lookup := func(_ context.Context, ref string) *person.Person {
+		switch ref {
+		case "ada", pub.ID.String():
+			return pub
+		case "bob", priv.ID.String():
+			return priv
+		}
+		return nil
+	}
+	st := entity.SchemaURLSettings{AuthorFrom: "writer"}
+	run := func(b *bylines, ent *entity.Entity, doc map[string]any) map[string]any {
+		b.person = lookup
+		b.applyAuthorFrom(ctx, ent, st, pageLDBase, doc)
+		return doc
+	}
+	article := func() map[string]any {
+		return map[string]any{"@type": "Article", "author": map[string]any{"@type": "Person", "name": "Plain"}}
+	}
+	ent := pageLDEntity("post", `{}`, `{"writer":"ada"}`)
+
+	got := run(noBylines(), ent, article())["author"]
+	want := map[string]any{"@type": "Person", "@id": pageLDBase + "/author/ada#person", "name": "Ada Lovelace"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("public person: %v", got)
+	}
+	// A text attribute (a plain slug) and the reference list the entry form
+	// stores (shape taken from schemaform.Decode) credit the same person.
+	for name, attrs := range map[string]string{"text": `{"writer":" ada "}`, "form": formStoredRefs(t, pub.ID.String()), "form, first unusable": formStoredRefs(t, priv.ID.String(), uuid.NewString(), pub.ID.String()), "object": `{"writer":[{"id":"ada"}]}`} {
+		if got := run(noBylines(), pageLDEntity("post", `{}`, attrs), article())["author"]; !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: %v", name, got)
+		}
+	}
+	// Inside a @graph the first node is the entity.
+	g := map[string]any{"@graph": []map[string]any{article(), {"@type": "FAQPage"}}}
+	run(noBylines(), ent, g)
+	if first := g["@graph"].([]map[string]any)[0]; !reflect.DeepEqual(first["author"], want) {
+		t.Errorf("graph author: %v", first["author"])
+	}
+	// Not public, unknown, or missing attribute: the string author stays.
+	for _, attrs := range []string{`{"writer":"bob"}`, `{"writer":"nobody"}`, `{}`} {
+		if a := run(noBylines(), pageLDEntity("post", `{}`, attrs), article())["author"]; !reflect.DeepEqual(a, map[string]any{"@type": "Person", "name": "Plain"}) {
+			t.Errorf("%s: author changed to %v", attrs, a)
+		}
+	}
+	// A byline column wins.
+	by := noBylines()
+	pid := uuid.New()
+	by.credits[ent.ID] = person.Credit{PersonID: &pid}
+	if a := run(by, ent, article())["author"]; strings.Contains(authorNameOf(a), "Ada") {
+		t.Errorf("byline must win: %v", a)
+	}
+	// No author_from: untouched.
+	b := noBylines()
+	b.person = lookup
+	d := article()
+	b.applyAuthorFrom(ctx, ent, entity.SchemaURLSettings{}, pageLDBase, d)
+	if !reflect.DeepEqual(d, article()) {
+		t.Errorf("unconfigured: %v", d)
+	}
+}
+
+// formStoredRefs is the attributes JSON the admin entry form writes for a
+// reference attribute "writer" holding refs.
+func formStoredRefs(t *testing.T, ids ...string) string {
+	t.Helper()
+	schema := jsontext.Value(`{"type":"object","properties":{"writer":{"type":"array","items":{"type":"string"},"x-entity-schema":"person"}}}`)
+	form := url.Values{"_present.writer": {"1"}, "writer": {strings.Join(ids, ", ")}}
+	attrs, errs := schemaform.Decode(schema, form, nil, schemaform.Options{})
+	if len(errs) > 0 {
+		t.Fatalf("decode: %v", errs)
+	}
+	b, err := jsonx.Marshal(attrs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func authorNameOf(v any) string {
+	m, _ := v.(map[string]any)
+	n, _ := m["name"].(string)
+	return n
+}
+
+// The jsonld.enrich hook sees the flat entity node after author_from, before
+// the FAQPage wrap, the canonical rewrite, the bylines and the WebPage switch;
+// the plugin can override the author_from author.
+func TestBuildPageJSONLDEnrichOrder(t *testing.T) {
+	ctx := context.Background()
+	t.Cleanup(func() { entity.SetJSONLDEnricher(nil) })
+	var calls int
+	var seenType, seenAuthor any
+	entity.SetJSONLDEnricher(func(_ *entity.Entity, _ string, doc map[string]any) {
+		calls++
+		seenType, seenAuthor = doc["@type"], doc["author"]
+		doc["author"] = map[string]any{"@type": "Organization", "name": "Plugin"}
+	})
+	b := noBylines()
+	b.person = func(context.Context, string) *person.Person {
+		return &person.Person{ID: uuid.New(), Slug: "ada", Name: "Ada", Public: true}
+	}
+	faq := []entity.FAQItem{{Question: "q?", Answer: "a"}}
+	ent := pageLDEntity("glossary", `{"schema_org_type":"DefinedTerm","emit_webpage":"on","author_from":"writer"}`, `{"writer":"ada"}`)
+	doc, _, err := buildPageJSONLD(ctx, ent, pageLDBase, "/hello", faq, b)
+	if err != nil || calls != 1 {
+		t.Fatalf("err %v, calls %d", err, calls)
+	}
+	if seenType != "DefinedTerm" {
+		t.Errorf("hook saw @type %v, want the flat entity node", seenType)
+	}
+	if a, _ := seenAuthor.(map[string]any); a["name"] != "Ada" {
+		t.Errorf("hook did not see author_from: %v", seenAuthor)
+	}
+	if !reflect.DeepEqual(ldGraphTypes(doc), []any{"DefinedTerm", "FAQPage", "WebPage"}) {
+		t.Errorf("types after the hook: %v", ldGraphTypes(doc))
+	}
+	g, _ := doc["@graph"].([]map[string]any)
+	if a, _ := g[0]["author"].(map[string]any); a["name"] != "Plugin" {
+		t.Errorf("the plugin author was overwritten: %v", g[0]["author"])
+	}
+
+	// A failed generation is not enriched.
+	calls = 0
+	bad := pageLDEntity("page", `{}`, `{}`)
+	bad.Schema = nil
+	if _, _, err := buildPageJSONLD(ctx, bad, pageLDBase, "/hello", nil, noBylines()); err == nil || calls != 0 {
+		t.Errorf("nil schema: err %v calls %d", err, calls)
+	}
+}
+
+// With no new settings the hook input and the printed output are what the old
+// sequence produced: enrich on the entity node, then the FAQ wrap, canonical
+// and bylines.
+func TestBuildPageJSONLDMatchesLegacySequence(t *testing.T) {
+	t.Cleanup(func() { entity.SetJSONLDEnricher(nil) })
+	var inputs []map[string]any
+	entity.SetJSONLDEnricher(func(_ *entity.Entity, _ string, doc map[string]any) {
+		inputs = append(inputs, maps.Clone(doc))
+		doc["aggregateRating"] = "4.5"
+		doc["url"] = "plugin-url"
+	})
+	faq := []entity.FAQItem{{Question: "q?", Answer: "a"}}
+	for name, items := range map[string][]entity.FAQItem{"with FAQ": faq, "without FAQ": nil} {
+		t.Run(name, func(t *testing.T) {
+			inputs = nil
+			ent := pageLDEntity("post", `{}`, `{"description":"d"}`)
+			want, err := entity.GenerateJSONLDWithFAQ(ent, pageLDBase, items)
+			if err != nil {
+				t.Fatal(err)
+			}
+			entity.ApplyCanonicalToJSONLD(want, "post", pageLDBase+"/hello")
+			noBylines().applyJSONLD(context.Background(), ent.ID, pageLDBase, want)
+			legacyInput := inputs[0]
+			inputs = nil
+			got, _, err := buildPageJSONLD(context.Background(), ent, pageLDBase, "/hello", items, noBylines())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if inputs[0]["@type"] == nil || !reflect.DeepEqual(inputs[0], legacyInput) {
+				t.Errorf("hook input %v, want %v", inputs[0], legacyInput)
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("output %v\nwant %v", got, want)
+			}
+		})
+	}
+}

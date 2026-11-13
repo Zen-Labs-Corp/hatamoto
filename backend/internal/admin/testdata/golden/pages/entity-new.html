@@ -266,6 +266,18 @@
 <textarea class="hm-field__control" id="seo_custom_jsonld" name="seo_custom_jsonld" rows="6" aria-describedby="seo_custom_jsonld-help" autocomplete="off" spellcheck="false"></textarea>
 <p class="hm-field__help" id="seo_custom_jsonld-help">Must be valid JSON with @context and @type. Max 16 KB. It is added next to the generated data, never merged into it.</p>
 </div>
+<div class="hm-pair">
+<div class="hm-field">
+<label class="hm-field__label" for="seo_jsonld_webpage">WebPage</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="seo_jsonld_webpage" name="seo_jsonld_webpage" aria-describedby="seo_jsonld_webpage-help"><option value="" selected>Use schema default (Auto)</option><option value="on">On</option><option value="off">Off</option></select></div>
+<p class="hm-field__help" id="seo_jsonld_webpage-help">Print the default WebPage data for this service, or not.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="seo_jsonld_breadcrumb">BreadcrumbList</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="seo_jsonld_breadcrumb" name="seo_jsonld_breadcrumb" aria-describedby="seo_jsonld_breadcrumb-help"><option value="" selected>Use schema default (Auto)</option><option value="on">On</option><option value="off">Off</option></select></div>
+<p class="hm-field__help" id="seo_jsonld_breadcrumb-help">The visible breadcrumb does not change.</p>
+</div>
+</div>
 <div id="seo-schema"><p class="hm-muted">No structured data can be built until the entry has a name.</p></div>
 </section>
 <section class="hm-seo__panel hm-stack" role="tabpanel" id="seo-tabpanel-advanced" aria-labelledby="seo-tab-advanced" data-hm-seo-panel>

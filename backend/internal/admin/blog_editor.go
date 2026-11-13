@@ -355,6 +355,7 @@ func (a *Admin) panelFor(r *http.Request, e *entity.Entity, sc *entity.EntitySch
 		Keyword: b.Keyword, Canonical: p.f.SEO.Canonical, InLLMs: b.InLLMs,
 		OGTitle: p.f.SEO.OGTitle, OGDescription: p.f.SEO.OGDescription, OGImage: p.f.SEO.OGImage, Social: true, Published: e.Status == entity.StatusPublished,
 		SchemaType: p.f.SEO.SchemaType, CustomJSONLD: p.f.SEO.CustomJSONLD,
+		JSONLDWebPage: p.f.SEO.JSONLDWebPage, JSONLDBreadcrumb: p.f.SEO.JSONLDBreadcrumb,
 	}
 	if a.deps.BaseURL != nil {
 		in.BaseURL = a.deps.BaseURL(r)
@@ -552,7 +553,7 @@ func (a *Admin) buildBlogView(r *http.Request, e *entity.Entity, sc *entity.Enti
 }
 
 func (a *Admin) renderBlog(w http.ResponseWriter, r *http.Request, status int, d *blogData) {
-	for _, k := range []struct{ id, label string }{{"name", "Title"}, {"slug", "Slug"}, {"status", "Status"}, {"schedule", "Publish date"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}, {"seo_schema_type", "Schema type"}, {"seo_custom_jsonld", "Custom JSON-LD"}, {"seo_max_snippet", "Max snippet"}, {"seo_max_image_preview", "Max image preview"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Title"}, {"slug", "Slug"}, {"status", "Status"}, {"schedule", "Publish date"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}, {"seo_schema_type", "Schema type"}, {"seo_custom_jsonld", "Custom JSON-LD"}, {"seo_jsonld_webpage", "WebPage"}, {"seo_jsonld_breadcrumb", "BreadcrumbList"}, {"seo_max_snippet", "Max snippet"}, {"seo_max_image_preview", "Max image preview"}} {
 		if m := d.Errors[k.id]; m != "" {
 			d.Summary = append(d.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}

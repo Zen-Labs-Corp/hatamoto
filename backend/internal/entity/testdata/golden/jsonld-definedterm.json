@@ -1,0 +1,14 @@
+{
+  "@context": "https://schema.org",
+  "@id": "https://example.test/term#definedterm",
+  "@type": "DefinedTerm",
+  "dateModified": "2025-06-07T08:09:10Z",
+  "datePublished": "2024-02-01T00:00:00Z",
+  "description": "Une définition",
+  "inDefinedTermSet": {
+    "@id": "https://example.test/glossaire",
+    "@type": "DefinedTermSet"
+  },
+  "name": "Glossary term",
+  "url": "https://example.test/term"
+}

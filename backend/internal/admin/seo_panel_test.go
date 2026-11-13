@@ -94,6 +94,20 @@ func TestMarkHome(t *testing.T) {
 	}
 }
 
+func TestSEOPanelNodeSwitchOptions(t *testing.T) {
+	t.Parallel()
+
+	sc := &entity.EntitySchema{Slug: "page", Schema: []byte(`{"type":"object"}`), Settings: []byte(`{"emit_webpage":"off"}`)}
+	var p seoPanel
+	p.withSchemaFields(sc, seoInput{JSONLDBreadcrumb: "on"})
+	if got := p.WebPageOptions[0]; got.Label != "Use schema default (Off)" || !got.Selected {
+		t.Errorf("webpage first option = %+v", got)
+	}
+	if got := p.BreadcrumbOptions; got[0].Label != "Use schema default (Auto)" || got[0].Selected || !got[1].Selected || got[2].Selected {
+		t.Errorf("breadcrumb options = %+v", got)
+	}
+}
+
 func TestSEOPanelSchemaFields(t *testing.T) {
 	t.Parallel()
 

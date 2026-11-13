@@ -106,6 +106,41 @@ For a custom content type with no annotations, set `schema_org_type` in its sett
 
 The generated node has `@type`, `name`, `description` (the first of `description`, `meta_description` and `excerpt` that is set), `url`, `@id`, `image` (the first of `featured_image`, `image` and `og_image`), `datePublished` and `dateModified`, plus `headline` for the three article types. Types that need fields a generic document cannot supply, which are `FAQPage`, `Product` and `Event`, are refused on save: use annotations or a plugin builder for those. A stored value that is no longer valid is ignored for JSON-LD and never affects URL routing.
 
+### Structured data settings
+
+The **Structured data** card of an entity type (Settings > Entity types) holds the settings below. They are keys of the schema's settings (see [URL patterns](url-patterns.md#schema-settings)). A type that sets none of them prints the same JSON-LD as before.
+
+| Setting | Effect |
+|---|---|
+| `modified_from` | The attribute that supplies `dateModified`, as an RFC 3339 time or a `YYYY-MM-DD` date. A missing, empty or unreadable value falls back to the entry's last update, and the result is never earlier than `datePublished`. |
+| `author_from` | The attribute that holds a person's id or slug. When that person has a public page, `author` becomes `{"@type": "Person", "@id": "https://example.com/team/maria#person", "name": "Maria"}`. Without a public person the plain author name stays, and a person credited in the editor's byline always wins. |
+| `term_set_url` | For `DefinedTerm`: the page of the set the terms belong to, such as `/glossary`. The node gets `inDefinedTermSet` with a `DefinedTermSet` of that address. A root-relative value is made absolute with the public base URL. |
+| `emit_webpage` | `on`, `off` or empty. `off` leaves out the default `WebPage` node; `on` adds one next to the typed node. Empty keeps today's output. |
+| `emit_breadcrumb` | `on`, `off` or empty. `off` leaves out the `BreadcrumbList` block. The breadcrumb trail on the page itself does not change. |
+
+With `modified_from`, `author_from` or `term_set_url` set, a typed node of a creative-work type (`Article`, `BlogPosting`, `NewsArticle`, `WebPage`, `CreativeWork`, `HowTo` or `Course`) also refers to the site graph by `@id`: `publisher` points at `#organization` and `isPartOf` at `#website`, as article nodes already do. Other types, such as `DefinedTerm`, `Person` or `Organization`, never get these two properties, and the `emit_webpage` and `emit_breadcrumb` switches never add them.
+
+An entry can override both switches on the **Schema** tab of its SEO panel. **WebPage** and **BreadcrumbList** each offer **Use schema default**, **On** and **Off**, and an entry value wins over the schema. They are stored as the entry attributes `jsonld_webpage` and `jsonld_breadcrumb` (`on` or `off`; the key is removed for **Use schema default**). The `Accept: application/ld+json` answer applies the same switches as the HTML page.
+
+### FAQ from a list
+
+An entry can hold a list attribute named `faq`, where each item has a `question` and an `answer`:
+
+```json
+{
+  "faq": [
+    { "question": "Do you ship to France?", "answer": "<p>Yes, within three days.</p>" },
+    { "question": "Versenden Sie nach Deutschland?", "answer": "Ja." }
+  ]
+}
+```
+
+The list produces a `FAQPage` next to the entity node, after any items found through annotations or in the body. Markup in an answer is reduced to plain text, and an item without both parts is skipped. A page-builder component or a legacy section can carry the same `faq` list in its content; its items follow in document order, and a hidden section is skipped. The schema's `faq_from_content` setting, when `false`, turns all FAQ extraction off.
+
+## Social images
+
+`og:image` and `twitter:image` addresses are percent-encoded like JavaScript's `encodeURI`: spaces and non-ASCII characters become `%XX`, reserved characters such as `?`, `&`, `=` and `#` stay, and an existing `%XX` is not encoded again. The `og:url` is not changed.
+
 ## Editorial provenance
 
 If an entity has editorial metadata, the document is enriched: `reviewed_by` becomes an `editor`, each entry in `sources` becomes a `citation` item, and `last_verified_at` (or `reviewed_at`) becomes `lastReviewed`.
@@ -120,7 +155,7 @@ The base is the public base URL, so set `PUBLIC_BASE_URL` before you rely on any
 
 Two plugin hooks change structured data. See [Hooks and events](../plugins/hooks-and-events.md) for how filters are declared.
 
-- **`jsonld.enrich`** is a filter that receives the entity reference, the base URL and the finished document. A plugin changes the document, for example to add `aggregateRating`. It runs once per generation, on the success path only, so a plugin sees the final document.
+- **`jsonld.enrich`** is a filter that receives the entity reference, the base URL and the finished document. A plugin changes the document, for example to add `aggregateRating`. It runs once per generation, on the success path only. On an entry page it receives the entity node (never a `@graph`) after `author_from` is applied, so a plugin can override that author. The FAQPage wrap, the canonical address, the author credits and the WebPage switch are applied afterwards. It is not called when generation fails.
 - **`render.head`** lets a plugin add `meta`, `link`, `script-src` and `jsonld` tags to the head. Setting `ReplaceSiteGraph` tells Hatamoto to leave out its generic Organization and WebSite graph, because the plugin supplies its own `jsonld` tags. The host builds and escapes the markup, so a plugin never provides raw HTML.
 
 If a plugin or a custom theme template already writes its own entity JSON-LD, the page has two overlapping nodes. Remove the duplicate from the template, or have the plugin use `jsonld.enrich` instead. There is no per-template switch to turn the built-in output off.
