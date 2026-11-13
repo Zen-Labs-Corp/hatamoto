@@ -20,7 +20,8 @@ const maxSplit = 1000
 
 // extraFuncs are the generic arithmetic, string and JSON template funcs. All
 // are pure, never fail the render (bad input gives a zero value) and none
-// returns template.HTML/JS/URL, so html/template still escapes every result.
+// returns template.HTML/JS/URL (except docBody and toc, which only accept
+// template.HTML), so html/template still escapes every result.
 // String funcs take the subject first, like the strings package ("hasPrefix"):
 // {{ replace .Attrs.title "-" " " }}, {{ contains $s "x" }}.
 func extraFuncs() template.FuncMap {

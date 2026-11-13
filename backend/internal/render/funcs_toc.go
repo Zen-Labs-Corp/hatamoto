@@ -13,12 +13,14 @@ import (
 // TOCEntry is one h2 entry of the toc func's items.
 type TOCEntry struct{ ID, Text string }
 
-// tocFn gives the h2 headings of an already sanitised body ids and lists them:
+// tocFn gives the h2 headings of an already sanitised body ids and lists them.
+// Like docBody it takes template.HTML only, so a plain string (query param,
+// attribute) fails at exec instead of being promoted to trusted markup:
 // {"html": the body with the ids, "items": []TOCEntry}. Existing ids are kept,
 // duplicates get -2, -3, and headings inside pre or code are ignored. Empty or
 // unparsable input gives {"html": "", "items": nil}.
-func tocFn(body any) map[string]any {
-	src := toStr(body)
+func tocFn(body template.HTML) map[string]any {
+	src := string(body)
 	out := map[string]any{"html": template.HTML(""), "items": []TOCEntry(nil)}
 	if strings.TrimSpace(src) == "" {
 		return out

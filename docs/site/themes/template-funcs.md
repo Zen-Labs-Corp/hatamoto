@@ -112,7 +112,7 @@ The walk is depth-first, parents before children, and the path is matched after 
 
 ## Text, list and pager helpers
 
-All of these are pure and fail-open: bad input gives the zero value, never an error. None returns `template.HTML` except the `html` key of `toc`, so `html/template` still escapes every other result.
+All of these are pure and fail-open: bad input gives the zero value, never an error. None returns `template.HTML` except the `html` key of `toc`, which only accepts `template.HTML` (like `docBody`), so `html/template` still escapes every other result.
 
 **`excerpt s n`** returns the plain text of `s` (script and style blocks dropped, tags replaced by a space, entities decoded, whitespace collapsed) cut to at most `n` characters at a word boundary, with `...` appended when it was cut. `n <= 0` gives `""`.
 
@@ -132,7 +132,7 @@ All of these are pure and fail-open: bad input gives the zero value, never an er
 {{if not (isBlankHTML .Body)}}<div class="hm-prose">{{.Body}}</div>{{end}}
 ```
 
-**`toc body`** gives the `h2` headings of the already sanitised `.Body` an id and returns a map with two keys: `html` (the body with the ids) and `items` (a list of `{ID, Text}`). Ids follow the `docBody` rules (slug, `-2`, `-3`, reserved ids skipped, an existing id kept). Only `h2` counts, and headings inside `pre` or `code` are ignored. Empty input gives `html` `""` and no items.
+**`toc body`** takes a `template.HTML` value such as `.Body` (a plain string fails the render, so untrusted text is never promoted to markup), gives its `h2` headings an id and returns a map with two keys: `html` (the body with the ids) and `items` (a list of `{ID, Text}`). Ids follow the `docBody` rules (slug, `-2`, `-3`, reserved ids skipped, an existing id kept). Only `h2` counts, and headings inside `pre` or `code` are ignored. Empty input gives `html` `""` and no items.
 
 ```gotemplate
 {{$t := toc .Body}}

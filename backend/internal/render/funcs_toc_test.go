@@ -10,14 +10,12 @@ func TestTOC(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name  string
-		in    any
+		in    template.HTML
 		html  string
 		items []TOCEntry
 	}{
 		{"empty", "", "", nil},
 		{"blank", "  \n", "", nil},
-		{"nil", nil, "", nil},
-		{"non-string", struct{}{}, "", nil},
 		{"h2 ids", "<h2>Hello World</h2><p>x</p>", `<h2 id="hello-world">Hello World</h2><p>x</p>`,
 			[]TOCEntry{{"hello-world", "Hello World"}}},
 		{"dedup", "<h2>A</h2><h2>A</h2><h2>A</h2>", `<h2 id="a">A</h2><h2 id="a-2">A</h2><h2 id="a-3">A</h2>`,

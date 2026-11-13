@@ -2,6 +2,7 @@ package render
 
 import (
 	"bytes"
+	"html/template"
 	"io/fs"
 	"strings"
 	"testing"
@@ -12,7 +13,7 @@ import (
 const helpersLayout = `[ex:{{excerpt "<p>one two three</p><p>four</p>" 12}}]` +
 	`[in:{{initial "  jane"}}]` +
 	`[blank:{{isBlankHTML "<p>&nbsp;</p>"}}/{{isBlankHTML "<p>x</p>"}}]` +
-	`[toc:{{$t := toc "<h2>Intro</h2><h2>Intro</h2>"}}{{$t.html}}{{range $t.items}}({{.ID}}={{.Text}}){{end}}]` +
+	`[toc:{{$t := toc (sanitisedHTML "<h2>Intro</h2><h2>Intro</h2>")}}{{$t.html}}{{range $t.items}}({{.ID}}={{.Text}}){{end}}]` +
 	`[group:{{range groupBy .Items "Category"}}{{.Key}}:{{range .Items}}{{.Title}},{{end}};{{end}}]` +
 	`[sort:{{range sortBy .Items "Title"}}{{.Title}},{{end}}]` +
 	`[pager:{{range pager .Pagination}}{{.Kind}}{{if .Page}}{{.Page}}{{end}}{{if .Current}}*{{end}} {{end}}]` +
@@ -54,5 +55,21 @@ func TestHelpersInFixtureTheme(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}
+	}
+}
+
+// A plain string must not be promoted to trusted markup by toc.
+func TestTocRejectsPlainString(t *testing.T) {
+	tpl := template.Must(template.New("t").Funcs(extraFuncs()).Parse(`{{(toc .).html}}`))
+	for _, in := range []any{`<h2>x</h2><script>alert(1)</script><img src=x onerror=alert(1)>`, "<h2>x</h2>"} {
+		var buf bytes.Buffer
+		err := tpl.Execute(&buf, in)
+		if err == nil || strings.Contains(buf.String(), "<") {
+			t.Errorf("string %q: err=%v out=%q, want exec error and no markup", in, err, buf.String())
+		}
+	}
+	var buf bytes.Buffer
+	if err := tpl.Execute(&buf, template.HTML("<h2>x</h2>")); err != nil || !strings.Contains(buf.String(), `id="x"`) {
+		t.Errorf("template.HTML: err=%v out=%q", err, buf.String())
 	}
 }
