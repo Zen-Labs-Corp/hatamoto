@@ -101,10 +101,16 @@ func TestDefinedTermSetAndSiteLinks(t *testing.T) {
 		if !reflect.DeepEqual(doc["inDefinedTermSet"], wantSet) {
 			t.Errorf("inDefinedTermSet = %v", doc["inDefinedTermSet"])
 		}
-		if !reflect.DeepEqual(doc["publisher"], map[string]any{"@id": structBase + "#organization"}) ||
-			!reflect.DeepEqual(doc["isPartOf"], map[string]any{"@id": structBase + "#website"}) {
-			t.Errorf("site links = %v / %v", doc["publisher"], doc["isPartOf"])
+		// DefinedTerm is an Intangible, not a CreativeWork: no publisher/isPartOf.
+		if doc["publisher"] != nil || doc["isPartOf"] != nil {
+			t.Errorf("site links on a DefinedTerm: %v / %v", doc["publisher"], doc["isPartOf"])
 		}
+	}
+	// A CreativeWork type gets the site links once a key is configured.
+	cw := overrideEntity("glossary", `{"schema_org_type":"CreativeWork","term_set_url":"/glossary"}`, `{"type":"object"}`, `{}`)
+	if d, _ := GenerateJSONLD(cw, structBase); !reflect.DeepEqual(d["publisher"], map[string]any{"@id": structBase + "#organization"}) ||
+		!reflect.DeepEqual(d["isPartOf"], map[string]any{"@id": structBase + "#website"}) {
+		t.Errorf("site links = %v / %v", d["publisher"], d["isPartOf"])
 	}
 	// Annotated path gets the refs as well once a key is configured.
 	ent := overrideEntity("docs", `{"modified_from":"reviewed"}`, annotatedSchema, `{}`)

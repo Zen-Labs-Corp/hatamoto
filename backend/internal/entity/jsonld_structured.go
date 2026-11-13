@@ -57,7 +57,7 @@ func absoluteURL(baseURL, u string) string {
 // creativeWorkTypes are the allowed schema_org_type values that are a
 // schema.org CreativeWork, the types that take publisher and isPartOf.
 var creativeWorkTypes = map[string]bool{
-	"Article": true, "BlogPosting": true, "NewsArticle": true, "DefinedTerm": true,
+	"Article": true, "BlogPosting": true, "NewsArticle": true,
 	"Course": true, "HowTo": true, "WebPage": true, "CreativeWork": true,
 }
 
@@ -70,6 +70,12 @@ func applyStructuredLinks(doc map[string]any, st SchemaURLSettings, baseURL stri
 	if !st.StructuredDataConfigured() {
 		return
 	}
+	if doc["@type"] == "DefinedTerm" && st.TermSetURL != "" {
+		doc["inDefinedTermSet"] = map[string]any{
+			"@type": "DefinedTermSet",
+			"@id":   absoluteURL(baseURL, string(st.TermSetURL)),
+		}
+	}
 	if typ, _ := doc["@type"].(string); !creativeWorkTypes[typ] {
 		return
 	}
@@ -78,11 +84,5 @@ func applyStructuredLinks(doc map[string]any, st SchemaURLSettings, baseURL stri
 	}
 	if _, ok := doc["isPartOf"]; !ok {
 		doc["isPartOf"] = map[string]any{"@id": baseURL + "#website"}
-	}
-	if doc["@type"] == "DefinedTerm" && st.TermSetURL != "" {
-		doc["inDefinedTermSet"] = map[string]any{
-			"@type": "DefinedTermSet",
-			"@id":   absoluteURL(baseURL, string(st.TermSetURL)),
-		}
 	}
 }
