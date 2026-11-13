@@ -37,6 +37,21 @@ type LocaleEntry struct {
 	Segment string `json:"segment"`
 	Name    string `json:"name,omitempty"`  // shown to visitors, at most 80 runes
 	Hidden  bool   `json:"hidden,omitzero"` // not public: prefix 404s, left out of sitemaps and hreflang
+	// Countries are the upper-case ISO 3166-1 alpha-2 codes whose visitors are
+	// sent to this locale by the entry redirect; a code belongs to one locale.
+	Countries []string `json:"countries,omitempty"`
+}
+
+// VisitorEntry is the site-wide "send visitors of / to their locale" setting.
+// The zero value (the column default) is off. It is ignored on a single-locale
+// site.
+type VisitorEntry struct {
+	Enabled bool `json:"enabled,omitzero"`
+	// Paths are extra bare paths (besides "/") that redirect like the home.
+	Paths []string `json:"paths,omitempty"`
+	// LegacyCookie names an older cookie holding a locale segment; it is read
+	// only when the core locale cookie is absent.
+	LegacyCookie string `json:"legacy_cookie,omitempty"`
 }
 
 // SitemapFileSegment returns the first locale segment that is also the name of
@@ -75,6 +90,8 @@ type Config struct {
 	// default included (nil = a single-locale site). The default locale is
 	// Language.
 	Locales []LocaleEntry
+	// VisitorEntry configures the redirect of visitors of / to their locale.
+	VisitorEntry VisitorEntry
 	// PrefixAll puts the default locale under its own URL segment too.
 	PrefixAll bool
 	// XDefaultLocale is the locale tag used for hreflang x-default ("" = unset).
@@ -290,6 +307,7 @@ type UpdateInput struct {
 	Language        *string
 	// Locales replaces the whole list when non-nil (an empty slice clears it).
 	Locales           *[]LocaleEntry
+	VisitorEntry      *VisitorEntry // nil = unchanged
 	PrefixAll         *bool
 	XDefaultLocale    *string
 	SitemapNaming     *string // nil = unchanged
@@ -354,6 +372,7 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		businessHours     any = nil
 		legacyWP          any = nil
 		locales           any = nil
+		visitorEntry      any = nil
 		prefixAll         any = nil
 		xDefaultLocale    any = nil
 		businessProfile   any = nil
@@ -410,6 +429,13 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 			return nil, fmt.Errorf("encode locales: %w", err)
 		}
 		locales = raw
+	}
+	if in.VisitorEntry != nil {
+		raw, err := jsonx.Marshal(*in.VisitorEntry)
+		if err != nil {
+			return nil, fmt.Errorf("encode visitor entry: %w", err)
+		}
+		visitorEntry = raw
 	}
 	if in.PrefixAll != nil {
 		prefixAll = *in.PrefixAll
@@ -520,13 +546,14 @@ func (s *Store) Update(ctx context.Context, in UpdateInput) (*Config, error) {
 		  sitemap_naming     = COALESCE($29, sitemap_naming),
 		  compress_responses = COALESCE($30, compress_responses),
 		  two_factor_policy  = COALESCE($31, two_factor_policy),
+		  visitor_entry      = COALESCE($32, visitor_entry),
 		  updated_at         = NOW()
 		WHERE id = TRUE
 	`, companyName, logoURL, customDomain, primaryColor, themeExtra,
 		tagline, timezone, homepageEntityID, notificationEmail, postalAddress,
 		language, phone, businessHours, legacyWP, publicBaseURL, in.SetupCompleted,
 		cacheEnabled, cacheTTL, cacheMaxMB, preloadEnabled, preloadInterval,
-		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale, businessProfile, sitemapNaming, compress, twoFactorPolicy)
+		cacheTTLLegacy, preloadMode, preloadAfter, locales, prefixAll, xDefaultLocale, businessProfile, sitemapNaming, compress, twoFactorPolicy, visitorEntry)
 	if err != nil {
 		return nil, fmt.Errorf("update site config: %w", err)
 	}
@@ -783,7 +810,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 	cfg := &Config{}
 	var logoURL, customDomain, primaryColor, tagline, timezone, notificationEmail, phone, businessHours sql.NullString
 	var homepageEntityID *uuid.UUID
-	var themeExtra, postalAddress, locales, businessProfile, localeProfiles []byte
+	var themeExtra, postalAddress, locales, visitorEntry, businessProfile, localeProfiles []byte
 	var ttlSecs, ttlLegacy int
 
 	err = conn.QueryRow(ctx, `
@@ -802,7 +829,8 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		       site_access_epoch, site_access_heading, site_access_message,
 		       entity_versions_keep,
 		       admin_brand_name, admin_logo_url, admin_accent,
-		       admin_managed_by_text, admin_managed_by_url
+		       admin_managed_by_text, admin_managed_by_url,
+		       visitor_entry
 		FROM hatamoto_site_config
 		WHERE id = TRUE
 		LIMIT 1
@@ -822,6 +850,7 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		&cfg.EntityVersionsKeep,
 		&cfg.AdminBrand.Name, &cfg.AdminBrand.LogoURL, &cfg.AdminBrand.Accent,
 		&cfg.AdminBrand.ManagedText, &cfg.AdminBrand.ManagedURL,
+		&visitorEntry,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotConfigured
@@ -838,6 +867,12 @@ func (s *Store) load(ctx context.Context) (*Config, error) {
 		}
 		if len(cfg.Locales) == 0 {
 			cfg.Locales = nil
+		}
+	}
+
+	if len(visitorEntry) > 0 {
+		if err := jsonx.Unmarshal(visitorEntry, &cfg.VisitorEntry, jsonx.StoredLoose); err != nil {
+			return nil, fmt.Errorf("decode visitor entry: %w", err)
 		}
 	}
 
@@ -899,7 +934,7 @@ func (s *Store) LocaleSource() func(context.Context) (*entity.LocaleSet, error) 
 		}
 		entries := make([]entity.LocaleEntry, len(cfg.Locales))
 		for i, l := range cfg.Locales {
-			entries[i] = entity.LocaleEntry{Tag: l.Tag, Segment: l.Segment, Name: l.Name, Hidden: l.Hidden}
+			entries[i] = entity.LocaleEntry{Tag: l.Tag, Segment: l.Segment, Name: l.Name, Hidden: l.Hidden, Countries: l.Countries}
 		}
 		set, err := entity.NewLocaleSet(cfg.Language, entries, cfg.PrefixAll, cfg.XDefaultLocale)
 		if err != nil {
