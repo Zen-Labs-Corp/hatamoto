@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -154,4 +155,81 @@ func TestGeoHolderConcurrentLookupAndReload(t *testing.T) {
 		h.Reload()
 	}
 	wg.Wait()
+}
+
+func TestGeoHolderMmapRenameReplaceUnderLookups(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "c.mmdb")
+	writeGeo(t, path, "DE", "FR")
+	h, _ := newHolder(path)
+	h.SetMmap(true)
+	h.Reload()
+	if !h.Loaded() || h.Country("1.2.3.4") != "DE" {
+		t.Fatalf("mapped load: loaded=%v country=%q", h.Loaded(), h.Country("1.2.3.4"))
+	}
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				if c := h.Country("1.2.3.4"); c != "DE" && c != "IT" {
+					t.Errorf("lookup during swap = %q", c)
+					return
+				}
+			}
+		}()
+	}
+	for i := 0; i < 20; i++ {
+		code := "IT"
+		if i%2 == 1 {
+			code = "DE"
+		}
+		swapGeo(t, path, geotest.TinyMMDB(code, "FR"))
+		// Distinct sizes/mtimes are not guaranteed, so force a new signature.
+		future := time.Now().Add(time.Duration(i+1) * time.Hour)
+		_ = os.Chtimes(path, future, future)
+		h.Reload()
+		runtime.GC()
+	}
+	close(stop)
+	wg.Wait()
+	runtime.GC()
+	if got := h.Country("1.2.3.4"); got != "DE" {
+		t.Fatalf("after last swap = %q, want DE", got)
+	}
+}
+
+func TestGeoHolderMmapConcurrentReload(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "c.mmdb")
+	writeGeo(t, path, "DE", "FR")
+	h, _ := newHolder(path)
+	h.SetMmap(true)
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); h.Reload() }()
+	}
+	wg.Wait()
+	if h.Country("200.1.1.1") != "FR" {
+		t.Fatal("lookup after concurrent reload failed")
+	}
+}
+
+func TestGeoHolderDefaultCopiesFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "c.mmdb")
+	writeGeo(t, path, "DE", "FR")
+	h, _ := newHolder(path)
+	h.Reload()
+	// The default copy survives an in-place overwrite of the file.
+	writeGeo(t, path, "IT", "FR")
+	if got := h.Country("1.2.3.4"); got != "DE" {
+		t.Fatalf("default path lookup after overwrite = %q, want DE", got)
+	}
 }

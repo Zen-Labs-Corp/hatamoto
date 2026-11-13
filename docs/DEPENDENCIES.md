@@ -44,7 +44,7 @@ tests are the acceptance test for the runtime.
 | `golang.org/x/net` | v0.61.0 | BSD-3-Clause | HTML parsing and tokenising (`x/net/html`) | `go get golang.org/x/net@latest` |
 | `golang.org/x/text` | v0.43.0 | BSD-3-Clause | Unicode normalisation, language tags and names, slugs | `go get golang.org/x/text@latest` |
 | `golang.org/x/time` | v0.16.0 | BSD-3-Clause | Rate limiters | `go get golang.org/x/time@latest` |
-| `github.com/oschwald/maxminddb-golang` | v1.13.1 | ISC | GeoIP country lookup from an owner-supplied .mmdb (read into memory, no mmap, no cgo) | `go get github.com/oschwald/maxminddb-golang@latest` |
+| `github.com/oschwald/maxminddb-golang` | v1.13.1 | ISC | GeoIP country lookup from an owner-supplied .mmdb (read into memory by default; opt-in read-only mmap with `HATAMOTO_GEOIP_MMAP`; no cgo) | `go get github.com/oschwald/maxminddb-golang@latest` |
 | `github.com/klauspost/compress` | v1.20.3 | BSD-3-Clause | zstd and gzip response compression (pure Go, no cgo; `zstd` and `gzip` packages only) | `go get github.com/klauspost/compress@latest` |
 | `github.com/go-webauthn/webauthn` | v0.18.2 | BSD-3-Clause | WebAuthn registration and assertion verification for passkeys (pure Go, no cgo). TOTP is stdlib (RFC 6238, about 40 lines) and the tests use an in-repo virtual authenticator, so no test-only module is added | `go get github.com/go-webauthn/webauthn@latest` |
 | `github.com/boombuler/barcode` | v1.1.0 | MIT | QR module matrix for authenticator-app enrolment (`qr` package only); we render the matrix to inline SVG ourselves | `go get github.com/boombuler/barcode@latest` |

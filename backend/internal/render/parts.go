@@ -77,12 +77,12 @@ func contentSlot(layout string) string {
 // activeSlots are the slots to render for this layout: opted in by the theme
 // and assigned by the site. None for a canvas of a part (NoParts) or when the
 // engine has no RefSource.
-func (e *Engine) activeSlots(c *compiled, tmpl *template.Template, v *PageView) []string {
+func (e *Engine) activeSlots(c *compiled, le *layoutEntry, v *PageView) []string {
 	if v.NoParts || e.opts.Refs == nil || len(c.theme.BuilderParts) == 0 || len(v.Site.Design.Parts) == 0 {
 		return nil
 	}
 	var out []string
-	for _, s := range []string{builder.SlotHeader, builder.SlotFooter, c.contentSlots[tmpl]} {
+	for _, s := range []string{builder.SlotHeader, builder.SlotFooter, le.slot} {
 		if s != "" && c.theme.BuilderParts[s] && v.Site.Design.Parts[s] != "" {
 			out = append(out, s)
 		}
@@ -95,9 +95,9 @@ func (e *Engine) activeSlots(c *compiled, tmpl *template.Template, v *PageView) 
 // or that fails to render is skipped: the theme's own markup shows instead,
 // never a blank header. The second result holds the parts' CSS and kinds, to
 // merge into the page's.
-func (e *Engine) renderParts(c *compiled, tmpl *template.Template, v *PageView) (partOut, *builderCSS) {
+func (e *Engine) renderParts(c *compiled, le *layoutEntry, v *PageView) (partOut, *builderCSS) {
 	var out partOut
-	slots := e.activeSlots(c, tmpl, v)
+	slots := e.activeSlots(c, le, v)
 	if len(slots) == 0 {
 		return out, nil
 	}

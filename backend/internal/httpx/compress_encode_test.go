@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/klauspost/compress/gzip"
@@ -124,5 +125,46 @@ func TestZstdStreamEncoderMemoryIsBounded(t *testing.T) {
 	runtime.ReadMemStats(&after)
 	if got := after.TotalAlloc - before.TotalAlloc; got > 8<<20 {
 		t.Errorf("one stream encoder allocated %d MB, want under 8", got>>20)
+	}
+}
+
+// TestZstdBodyEncodersLazyAndConcurrent checks the whole-body encoders are not
+// built before first use (only provable when no earlier test used them, e.g.
+// under -run isolation) and that racing first callers share one instance.
+func TestZstdBodyEncodersLazyAndConcurrent(t *testing.T) {
+	if zstdBetterEnc == nil && zstdFastEnc == nil {
+		t.Log("encoders unbuilt before first use")
+	} else {
+		t.Log("encoders already built by an earlier test; laziness not asserted")
+	}
+	body := []byte(strings.Repeat("hello lazy zstd ", 200))
+	var wg sync.WaitGroup
+	for i := 0; i < 32; i++ {
+		wg.Add(1)
+		go func(cached bool) {
+			defer wg.Done()
+			out, err := CompressBytes(EncodingZstd, body, cached)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			dec, err := zstd.NewReader(nil)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			defer dec.Close()
+			got, err := dec.DecodeAll(out, nil)
+			if err != nil || !bytes.Equal(got, body) {
+				t.Errorf("round trip failed: %v", err)
+			}
+		}(i%2 == 0)
+	}
+	wg.Wait()
+	if zstdFastEnc == nil || zstdBetterEnc == nil {
+		t.Fatal("encoders not built after use")
+	}
+	if getZstdFast() != zstdFastEnc || getZstdBetter() != zstdBetterEnc {
+		t.Fatal("getters returned a different instance")
 	}
 }

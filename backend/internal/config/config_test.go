@@ -215,6 +215,19 @@ func TestGeoIPDBEnv(t *testing.T) {
 	}
 }
 
+func TestGeoIPMmapEnv(t *testing.T) {
+	for env, want := range map[string]bool{"": false, "0": false, "1": true, "true": true, "bogus": false} {
+		t.Setenv("HATAMOTO_GEOIP_MMAP", env)
+		cfg, err := Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.GeoIPMmap != want {
+			t.Errorf("HATAMOTO_GEOIP_MMAP=%q: GeoIPMmap=%v, want %v", env, cfg.GeoIPMmap, want)
+		}
+	}
+}
+
 func TestPublicAcquireTimeout(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://x")
 	t.Setenv("DATABASE_PUBLIC_ACQUIRE_TIMEOUT", "")

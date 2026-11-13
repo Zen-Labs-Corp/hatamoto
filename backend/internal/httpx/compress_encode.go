@@ -69,10 +69,22 @@ func NegotiateEncoding(r *http.Request) Encoding {
 	return EncodingNone
 }
 
+// The whole-body encoders are built on first use: each holds several MB of
+// state, and a process that never compresses a body should not pay for them.
 var (
-	zstdFast   = mustZstd(zstd.SpeedDefault)
-	zstdBetter = mustZstd(zstd.SpeedBetterCompression)
+	zstdFastOnce, zstdBetterOnce sync.Once
+	zstdFastEnc, zstdBetterEnc   *zstd.Encoder
 )
+
+func getZstdFast() *zstd.Encoder {
+	zstdFastOnce.Do(func() { zstdFastEnc = mustZstd(zstd.SpeedDefault) })
+	return zstdFastEnc
+}
+
+func getZstdBetter() *zstd.Encoder {
+	zstdBetterOnce.Do(func() { zstdBetterEnc = mustZstd(zstd.SpeedBetterCompression) })
+	return zstdBetterEnc
+}
 
 // zstdWindow caps the match window. The default is 8 MB, which makes a pooled
 // stream encoder hold a 16 MB history buffer once a body spans two blocks; a
@@ -93,11 +105,11 @@ func mustZstd(level zstd.EncoderLevel) *zstd.Encoder {
 func CompressBytes(enc Encoding, b []byte, cached bool) ([]byte, error) {
 	switch enc {
 	case EncodingZstd:
-		e := zstdFast
+		e := getZstdFast
 		if cached {
-			e = zstdBetter
+			e = getZstdBetter
 		}
-		return e.EncodeAll(b, make([]byte, 0, len(b)/3+64)), nil
+		return e().EncodeAll(b, make([]byte, 0, len(b)/3+64)), nil
 	case EncodingGzip:
 		level := 5
 		if cached {
