@@ -592,9 +592,8 @@ func (s schemaSettingsForm) settingsJSON(base jsontext.Value) (jsontext.Value, m
 	setStr("modified_from", s.ModifiedFrom)
 	setStr("author_from", s.AuthorFrom)
 	setStr("term_set_url", s.TermSetURL)
-	// A ticked box is the default (print), so it stores nothing.
-	setStr("emit_webpage", offOnly(s.EmitWebPage))
-	setStr("emit_breadcrumb", offOnly(s.EmitBreadcrumb))
+	setStr("emit_webpage", s.EmitWebPage)
+	setStr("emit_breadcrumb", s.EmitBreadcrumb)
 	var aliases []string
 	for _, a := range strings.Split(s.Aliases, ",") {
 		if a = strings.TrimSpace(a); a != "" {
@@ -712,22 +711,32 @@ type schemaForm struct {
 	BuiltinPostEditor bool
 }
 
-// offOnly keeps the one node switch value that is stored: "off". The ticked
-// box ("on") and an absent one both mean the default. Anything else is kept so
-// the settings check reports it.
-func offOnly(v string) string {
-	if v == string(entity.NodeSwitchOn) {
-		return ""
-	}
-	return v
+// WebPageOptions are the choices of the schema's WebPage node: the default
+// (named for the type the schema has now), print, or do not print. A stored
+// value is selected as it is, so an untouched save keeps it.
+func (f *schemaForm) WebPageOptions() []ui.Option {
+	// Only a WebPage-typed schema prints the node by default; the generic
+	// "page" type is a WebPage while no structured data type is set.
+	printed := f.Settings.SchemaOrgType == "WebPage" || (f.Settings.SchemaOrgType == "" && f.Slug == "page")
+	return nodeSwitchOptions(f.Settings.EmitWebPage, printed)
 }
 
-// PrintWebPage and PrintBreadcrumb tick the boxes: a node prints unless stored "off".
-func (f *schemaForm) PrintWebPage() bool {
-	return f.Settings.EmitWebPage != string(entity.NodeSwitchOff)
+// BreadcrumbOptions are the choices of the schema's BreadcrumbList node. The
+// list is printed by default.
+func (f *schemaForm) BreadcrumbOptions() []ui.Option {
+	return nodeSwitchOptions(f.Settings.EmitBreadcrumb, true)
 }
-func (f *schemaForm) PrintBreadcrumb() bool {
-	return f.Settings.EmitBreadcrumb != string(entity.NodeSwitchOff)
+
+func nodeSwitchOptions(current string, printedByDefault bool) []ui.Option {
+	def := "not printed"
+	if printedByDefault {
+		def = "printed"
+	}
+	return []ui.Option{
+		{Value: "", Label: "Default (" + def + ")", Selected: current != string(entity.NodeSwitchOn) && current != string(entity.NodeSwitchOff)},
+		{Value: string(entity.NodeSwitchOn), Label: "Print", Selected: current == string(entity.NodeSwitchOn)},
+		{Value: string(entity.NodeSwitchOff), Label: "Do not print", Selected: current == string(entity.NodeSwitchOff)},
+	}
 }
 
 // ModifiedFromOptions lists the date and datetime attributes.

@@ -713,8 +713,15 @@ func TestSchemaStructuredDataSettings(t *testing.T) {
 	c := newContentRig(t)
 	id := fid(1).String()
 	page := func() string { return c.get(t, "owner-token", "/admin/settings/types/"+id, "") }
-	checked := func(body, name string) bool {
-		return regexp.MustCompile(`<input[^>]*type="checkbox"[^>]*name="` + name + `"[^>]*checked`).MatchString(body)
+	// selected is what a browser posts for a select: the option marked selected.
+	selected := func(body, name string) string {
+		t.Helper()
+		sel := regexp.MustCompile(`(?s)<select[^>]*name="` + name + `".*?</select>`).FindString(body)
+		m := regexp.MustCompile(`<option value="([^"]*)" selected`).FindStringSubmatch(sel)
+		if m == nil {
+			t.Fatalf("no option of %s is selected:\n%s", name, sel)
+		}
+		return m[1]
 	}
 	save := func(change func(url.Values)) {
 		t.Helper()
@@ -722,45 +729,86 @@ func TestSchemaStructuredDataSettings(t *testing.T) {
 			t.Fatalf("save: %d\n%s", rec.Code, rec.Body.String())
 		}
 	}
+	// saveUntouched posts the form the way the browser would, changing nothing.
+	saveUntouched := func() {
+		t.Helper()
+		body := page()
+		save(func(f url.Values) {
+			f.Set("emit_webpage", selected(body, "emit_webpage"))
+			f.Set("emit_breadcrumb", selected(body, "emit_breadcrumb"))
+		})
+	}
+	stored := func(k string) string {
+		var m map[string]any
+		_ = jsonx.Unmarshal(c.service.Settings, &m, jsonx.StoredLoose)
+		v, _ := m[k].(string)
+		return v
+	}
 
-	// absent keys: both boxes ticked, and nothing is selected or stored
+	// absent keys: Default is selected, with the effective default named, and nothing is stored
 	body := page()
-	if !checked(body, "emit_webpage") || !checked(body, "emit_breadcrumb") {
-		t.Errorf("absent keys must tick both boxes:\n%s", body)
+	if selected(body, "emit_webpage") != "" || selected(body, "emit_breadcrumb") != "" {
+		t.Errorf("absent keys must select Default:\n%s", body)
 	}
-	// the cleared box posts "off" after the checkbox, so the browser sends the checkbox value first when ticked
-	if !strings.Contains(body, `<input type="hidden" name="emit_webpage" value="off">`) {
-		t.Errorf("missing the off value of the box")
-	}
-	// ticked: the key is removed
-	save(func(f url.Values) { f.Set("emit_webpage", "on"); f.Set("emit_breadcrumb", "on") })
+	has(t, body, `>Default (not printed)</option>`, `>Default (printed)</option>`, `>Print</option>`, `>Do not print</option>`, "WebPage node", "BreadcrumbList node")
+	saveUntouched()
 	for _, k := range []string{"emit_webpage", "emit_breadcrumb"} {
 		if strings.Contains(string(c.service.Settings), k) {
-			t.Errorf("ticked box kept %s: %s", k, c.service.Settings)
+			t.Errorf("untouched save of absent keys stored %s: %s", k, c.service.Settings)
 		}
 	}
-	// cleared: false is stored as "off" (the value the settings check accepts)
+	// stored "on" and "off" survive an untouched save exactly, in both fields
+	for _, tc := range []struct{ web, crumb string }{{"on", "off"}, {"off", "on"}} {
+		c.service.Settings = jsontext.Value(`{"url_pattern":"/services/{path}","emit_webpage":"` + tc.web + `","emit_breadcrumb":"` + tc.crumb + `"}`)
+		if body := page(); selected(body, "emit_webpage") != tc.web || selected(body, "emit_breadcrumb") != tc.crumb {
+			t.Errorf("stored %v must be selected:\n%s", tc, body)
+		}
+		saveUntouched()
+		if stored("emit_webpage") != tc.web || stored("emit_breadcrumb") != tc.crumb {
+			t.Errorf("untouched save changed %v: %s", tc, c.service.Settings)
+		}
+	}
+	c.service.Settings = jsontext.Value(`{"url_pattern":"/services/{path}","emit_webpage":"on"}`)
+	saveUntouched()
+	if stored("emit_webpage") != "on" || strings.Contains(string(c.service.Settings), "emit_breadcrumb") {
+		t.Errorf("one key stored, one absent: %s", c.service.Settings)
+	}
+	// a chosen value is stored; Default removes the key; the selects keep the other settings
 	save(func(f url.Values) {
 		f.Set("emit_webpage", "off")
+		f.Set("emit_breadcrumb", "on")
 		f.Set("modified_from", "summary")
 		f.Set("author_from", "summary")
 		f.Set("term_set_url", "/glossary")
 	})
 	st := settingsFormFrom(c.service.Settings)
-	if st.EmitWebPage != "off" || st.EmitBreadcrumb != "" || st.ModifiedFrom != "summary" || st.AuthorFrom != "summary" || st.TermSetURL != "/glossary" {
+	if st.EmitWebPage != "off" || st.EmitBreadcrumb != "on" || st.ModifiedFrom != "summary" || st.AuthorFrom != "summary" || st.TermSetURL != "/glossary" {
 		t.Errorf("saved: %s", c.service.Settings)
 	}
-	// stored off: unticked; the other stays ticked; selects keep their value
-	body = page()
-	if checked(body, "emit_webpage") || !checked(body, "emit_breadcrumb") {
-		t.Errorf("stored off must clear only its box:\n%s", body)
-	}
-	has(t, body, `name="term_set_url" value="/glossary"`, `<option value="summary" selected>`)
+	has(t, page(), `name="term_set_url" value="/glossary"`, `<option value="summary" selected>`)
 	// clearing the controls removes the keys again
 	save(nil)
 	for _, k := range []string{"modified_from", "author_from", "term_set_url", "emit_webpage", "emit_breadcrumb"} {
 		if strings.Contains(string(c.service.Settings), k) {
 			t.Errorf("%s kept: %s", k, c.service.Settings)
+		}
+	}
+}
+
+// The default is named for the type the schema has now.
+func TestSchemaNodeSwitchDefaultLabel(t *testing.T) {
+	t.Parallel()
+	label := func(f *schemaForm) string { return f.WebPageOptions()[0].Label }
+	for _, tc := range []struct {
+		slug, typ, want string
+	}{
+		{"page", "", "Default (printed)"},
+		{"page", "Article", "Default (not printed)"},
+		{"notes", "WebPage", "Default (printed)"},
+		{"notes", "", "Default (not printed)"},
+	} {
+		if got := label(&schemaForm{Slug: tc.slug, Settings: schemaSettingsForm{SchemaOrgType: tc.typ}}); got != tc.want {
+			t.Errorf("%s/%s: %q, want %q", tc.slug, tc.typ, got, tc.want)
 		}
 	}
 }
