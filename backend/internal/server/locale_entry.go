@@ -135,24 +135,33 @@ func pickEntryLocale(r *http.Request, st localeEntryState) string {
 
 // varyWriter adds the entry Vary tokens as the headers are sent, so a handler
 // that sets its own Vary (or a cache hit replaying stored headers) keeps them.
+// It also forces Cache-Control private, no-store, which replaces the page's own
+// public value: a shared cache that ignores Vary on these inputs must not store
+// the default locale's page and replay it to a visitor who is to be redirected.
 type varyWriter struct {
 	http.ResponseWriter
 	sent bool
 }
 
+func (v *varyWriter) markSent() {
+	if v.sent {
+		return
+	}
+	v.sent = true
+	h := v.Header()
+	h.Add("Vary", localeEntryVary)
+	h.Set("Cache-Control", "private, no-store")
+}
+
 func (v *varyWriter) WriteHeader(code int) {
-	if !v.sent && (code >= 200 || code == http.StatusSwitchingProtocols) {
-		v.sent = true
-		v.Header().Add("Vary", localeEntryVary)
+	if code >= 200 || code == http.StatusSwitchingProtocols {
+		v.markSent()
 	}
 	v.ResponseWriter.WriteHeader(code)
 }
 
 func (v *varyWriter) Write(b []byte) (int, error) {
-	if !v.sent {
-		v.sent = true
-		v.Header().Add("Vary", localeEntryVary)
-	}
+	v.markSent()
 	return v.ResponseWriter.Write(b)
 }
 

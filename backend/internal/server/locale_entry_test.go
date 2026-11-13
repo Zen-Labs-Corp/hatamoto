@@ -42,6 +42,7 @@ func newEntryRig(t *testing.T, set *entity.LocaleSet, entry siteconfig.VisitorEn
 	s := &Server{cfg: &config.Config{}}
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		rig.served++
+		w.Header().Set("Cache-Control", "public, max-age=300")
 		w.WriteHeader(http.StatusOK)
 	})
 	rig.h = s.localeEntryFrom(next, func(context.Context) (localeEntryState, bool) {
@@ -133,18 +134,23 @@ func TestLocaleEntryRedirect(t *testing.T) {
 }
 
 // A default-locale visitor on an unprefixed "/" is served the page as today,
-// with the Vary tokens and no no-store.
+// with the Vary tokens and Cache-Control private, no-store over the page's own
+// public value.
 func TestLocaleEntryDefaultPickFallsThroughWithVary(t *testing.T) {
 	rig := newEntryRig(t, localeEntrySet(t, false), siteconfig.VisitorEntry{Enabled: true}, true)
 	rec := rig.do(entryReq{target: "/"})
 	if rig.served != 1 || rec.Code != http.StatusOK {
 		t.Fatalf("served %d, status %d", rig.served, rec.Code)
 	}
+	rig = newEntryRig(t, localeEntrySet(t, false), siteconfig.VisitorEntry{Enabled: true, Paths: []string{"/contact"}}, true)
+	if got := rig.do(entryReq{target: "/contact"}).Header().Get("Cache-Control"); got != "private, no-store" {
+		t.Errorf("entry path Cache-Control %q, want private, no-store", got)
+	}
 	if got := rec.Header().Get("Vary"); got != "Cookie, CF-IPCountry, CloudFront-Viewer-Country" {
 		t.Errorf("Vary %q", got)
 	}
-	if got := rec.Header().Get("Cache-Control"); got != "" {
-		t.Errorf("Cache-Control %q, want it left to the page", got)
+	if got := rec.Header().Get("Cache-Control"); got != "private, no-store" {
+		t.Errorf("Cache-Control %q, want private, no-store", got)
 	}
 }
 
@@ -162,7 +168,7 @@ func TestLocaleEntryOffAddsNothing(t *testing.T) {
 	}
 	for name, rig := range cases {
 		rec := rig.do(entryReq{target: "/", headers: map[string]string{"CF-IPCountry": "FR"}})
-		if rig.served != 1 || rec.Code != http.StatusOK || len(rec.Header()) != 0 {
+		if rig.served != 1 || rec.Code != http.StatusOK || len(rec.Header()) != 1 || rec.Header().Get("Cache-Control") != "public, max-age=300" {
 			t.Errorf("%s: served %d, status %d, headers %v", name, rig.served, rec.Code, rec.Header())
 		}
 	}

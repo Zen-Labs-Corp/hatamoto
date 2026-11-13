@@ -178,7 +178,8 @@ own URL segment (free text: `fr-CA` may use `fr`), a default locale (the site
   when `hm_locale` is absent. The redirect carries `Cache-Control: private,
   no-store` and `Vary: Cookie, CF-IPCountry, CloudFront-Viewer-Country`, so no
   shared cache replays it. When the default locale is unprefixed and is the pick,
-  `/` is served as today, with the same `Vary` and no redirect. The redirect runs
+  `/` (or the entry path) is served as today, with the same `Vary` and
+  `Cache-Control: private, no-store` in place of the page's own value, and no redirect. The redirect runs
   before the page cache and before plugin redirects, after the site access gate.
   With the setting off, or on a single-locale site, nothing changes: no redirect
   and no new header.
