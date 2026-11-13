@@ -50,7 +50,7 @@ func TestGoldenJSONLD(t *testing.T) {
 				`{"description":"Writer","jobTitle":"Editor"}`), false},
 		{"jsonld-faqpage",
 			overrideEntity("page", `{}`, `{"type":"object"}`,
-				`{"faq":[{"question":"What is it?","answer":"A thing."}],"page_doc":{"v":2,"nodes":[{"id":"a","t":"component","p":{"faq":[{"question":"Où ?","answer":"Ici."}]}}]}}`), true},
+				`{"faq":[{"question":"What is it?","answer":"A thing."}],"page_doc":{"v":2,"nodes":[{"id":"a","t":"component","p":{"content":{"faq":[{"question":"Où ?","answer":"Ici."}]}}}]}}`), true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
