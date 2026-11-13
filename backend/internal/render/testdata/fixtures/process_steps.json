@@ -6,7 +6,7 @@
     "eyebrow": "Process",
     "steps": [
       {"number": "1", "heading": "Plan", "description": "<p>Agree the <em>scope</em>.</p>"},
-      {"title": "Build \"fast\" </script>", "label": "A", "description": "<p>Ship it.</p>"},
+      {"title": "Build \"fast\" </script>", "label": "A", "description": "<p>Ship it. &lt;/script&gt; &amp; go</p>"},
       {"title": "Launch"}
     ]
   }

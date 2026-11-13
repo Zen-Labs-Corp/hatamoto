@@ -120,6 +120,12 @@ All of these are pure and fail-open: bad input gives the zero value, never an er
 <p>{{excerpt .Body 160}}</p>
 ```
 
+**`plainText s`** returns the plain text of `s`: tags removed (block tags such as `<p>` become a space, inline tags leave no gap), entities decoded, whitespace collapsed, and `""` when nothing is left. It keeps at most 100,000 characters (longer text is cut, without `...`), and returns a plain string, so `html/template` escapes it for its context.
+
+```gotemplate
+{{$t := plainText .Body}}{{if $t}}<meta name="x" content="{{$t}}">{{end}}
+```
+
 **`initial s`** returns the first letter of `s`, upper-cased, or `""` when it has none.
 
 ```gotemplate

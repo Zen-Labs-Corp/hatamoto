@@ -10,9 +10,18 @@ import (
 
 	xhtml "golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
+	"hatamoto.dev/core/internal/entity"
 )
 
 var rawBlockRe = regexp.MustCompile(`(?is)<(script|style)\b.*?(?:</(?:script|style)\s*>|$)`)
+
+// plainTextMax is the most characters (runes) plainText keeps; it is far above
+// typical field sizes, so ordinary content is not cut.
+const plainTextMax = 100000
+
+// plainTextFn returns v as plain text: block tags become spaces, entities are
+// decoded and whitespace is collapsed. "" when nothing is left.
+func plainTextFn(v any) string { return entity.PlainText(toStr(v), plainTextMax) }
 
 // excerptFn returns the plain text of s (markup removed, entities decoded,
 // whitespace collapsed) cut to at most n runes at a word boundary, with "..."

@@ -38,6 +38,8 @@ func extraFuncs() template.FuncMap {
 		"pager": pager,
 		// excerpt s n: plain text of s cut to n runes at a word, with "...".
 		"excerpt": excerptFn,
+		// plainText s: s with HTML removed (block tags become spaces, entities decoded, whitespace collapsed); "" when none.
+		"plainText": plainTextFn,
 		// initial s: the first letter of s, upper-cased ("" when none).
 		"initial": initialFn,
 		// isBlankHTML s: true when s has no visible text and no media.

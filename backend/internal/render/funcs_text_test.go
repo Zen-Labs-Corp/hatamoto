@@ -1,6 +1,9 @@
 package render
 
-import "testing"
+import (
+	"html/template"
+	"testing"
+)
 
 func TestExcerpt(t *testing.T) {
 	t.Parallel()
@@ -29,6 +32,32 @@ func TestExcerpt(t *testing.T) {
 	for _, tc := range tests {
 		if got := excerptFn(tc.s, tc.n); got != tc.want {
 			t.Errorf("%s: excerpt(%q, %v) = %q, want %q", tc.name, tc.s, tc.n, got, tc.want)
+		}
+	}
+}
+
+func TestPlainText(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		in   any
+		want string
+	}{
+		{"nil", nil, ""},
+		{"inline tags", "<p>Agree the <em>scope</em>.</p>", "Agree the scope."},
+		{"paragraphs not glued", "<p>a</p><p>b</p>", "a b"},
+		{"entities", "fish &amp; chips&nbsp;&lt;3", "fish & chips <3"},
+		{"blank paragraph", "<p>&nbsp;</p>", ""},
+		{"script dropped", "x<script>alert(1)</script>y", "xy"},
+		{"template.HTML", template.HTML("<p>hi <b>there</b></p>"), "hi there"},
+		{"empty", "", ""},
+		{"whitespace only", " \t\n ", ""},
+		{"int", 42, "42"},
+		{"invalid utf-8", "a\xffb <b>c</b>", "a\xffb c"},
+	}
+	for _, tc := range tests {
+		if got := plainTextFn(tc.in); got != tc.want {
+			t.Errorf("%s: plainText(%q) = %q, want %q", tc.name, tc.in, got, tc.want)
 		}
 	}
 }
