@@ -73,6 +73,9 @@ type Input struct {
 	// SchemaType and CustomJSONLD are the entry's Schema tab values; only the
 	// forms that show the tab (entity form, blog editor) set them.
 	SchemaType, CustomJSONLD string
+	// JSONLDWebPage and JSONLDBreadcrumb are the entry's node switches
+	// ("", "on", "off"), shown on the same tab.
+	JSONLDWebPage, JSONLDBreadcrumb string
 }
 
 type serpPreview struct {

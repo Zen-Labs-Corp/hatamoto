@@ -35,11 +35,12 @@ const (
 )
 
 // seoSchemaKeys are the entity attributes of the SEO panel's Schema tab: the
-// per-entry schema type and one custom JSON-LD block. They are kept apart from
+// per-entry schema type, one custom JSON-LD block and the two JSON-LD node
+// switches ("on" or "off"; absent follows the schema). They are kept apart from
 // seoKeys because only the entity and blog forms edit them; the builder's SEO
 // drawer rewrites seoKeys and must leave these alone. Like seoKeys they are
 // removed from the attribute form.
-var seoSchemaKeys = []string{"schema_type", "custom_jsonld"}
+var seoSchemaKeys = []string{"schema_type", "custom_jsonld", "jsonld_webpage", "jsonld_breadcrumb"}
 
 // seoSitemapKeys is the entity attribute of the Advanced tab's "Hide from
 // sitemap" switch. Like seoSchemaKeys it stays out of seoKeys: the builder's
@@ -61,6 +62,9 @@ type seoForm struct {
 	NoIndex                                bool
 	// SchemaType and CustomJSONLD are written by mergeSchema, not merge.
 	SchemaType, CustomJSONLD string
+	// JSONLDWebPage and JSONLDBreadcrumb are the tri-state node switches
+	// ("", "on", "off"), written by mergeSchema.
+	JSONLDWebPage, JSONLDBreadcrumb string
 	// The robots directives of the Advanced tab, written by mergeRobots, not
 	// merge. MaxSnippet is the typed text so a bad value can be shown again.
 	NoFollow, NoArchive, NoSnippet bool
@@ -333,6 +337,7 @@ func seoFrom(m map[string]any) seoForm {
 	return seoForm{Title: f.Title, Description: f.Description, Canonical: f.Canonical, OGImage: f.OGImage,
 		OGTitle: f.OGTitle, OGDescription: f.OGDescription, NoIndex: f.NoIndex,
 		SchemaType: f.SchemaType, CustomJSONLD: f.CustomJSONLD, HideFromSitemap: f.HideFromSitemap,
+		JSONLDWebPage: str(m, "jsonld_webpage"), JSONLDBreadcrumb: str(m, "jsonld_breadcrumb"),
 		BreadcrumbTitle: f.BreadcrumbTitle, PrimaryTerm: f.PrimaryTerm,
 		NoFollow: f.NoFollow, NoArchive: f.NoArchive, NoSnippet: f.NoSnippet, MaxSnippet: f.MaxSnippet, MaxImagePreview: f.MaxImagePreview}
 }
@@ -459,10 +464,10 @@ func (s seoForm) ImagePreviewOptions() []ui.Option {
 	return opts
 }
 
-// mergeSchema writes the Schema tab's two keys into attrs, dropping empty
+// mergeSchema writes the Schema tab's keys into attrs, dropping empty
 // values. The entity and blog forms call it after merge; the builder never does.
 func (s seoForm) mergeSchema(m map[string]any) {
-	for k, v := range map[string]string{"schema_type": s.SchemaType, "custom_jsonld": s.CustomJSONLD} {
+	for k, v := range map[string]string{"schema_type": s.SchemaType, "custom_jsonld": s.CustomJSONLD, "jsonld_webpage": s.JSONLDWebPage, "jsonld_breadcrumb": s.JSONLDBreadcrumb} {
 		if v = strings.TrimSpace(v); v != "" {
 			m[k] = v
 		} else {
@@ -482,12 +487,23 @@ func (s *seoForm) keepUnpostedSchema(r *http.Request, prev map[string]any) {
 	if !r.PostForm.Has("seo_custom_jsonld") {
 		s.CustomJSONLD = stored.CustomJSONLD
 	}
+	if !r.PostForm.Has("seo_jsonld_webpage") {
+		s.JSONLDWebPage = stored.JSONLDWebPage
+	}
+	if !r.PostForm.Has("seo_jsonld_breadcrumb") {
+		s.JSONLDBreadcrumb = stored.JSONLDBreadcrumb
+	}
 }
 
 // schemaErrors checks the Schema tab fields into the form's error map.
 func (s seoForm) schemaErrors(errs map[string]string) {
 	if t := strings.TrimSpace(s.SchemaType); t != "" && !entity.IsAllowedSchemaOrgType(t) {
 		errs["seo_schema_type"] = "Choose one of the listed schema types"
+	}
+	for id, v := range map[string]string{"seo_jsonld_webpage": s.JSONLDWebPage, "seo_jsonld_breadcrumb": s.JSONLDBreadcrumb} {
+		if v != "" && v != string(entity.NodeSwitchOn) && v != string(entity.NodeSwitchOff) {
+			errs[id] = "Choose one of the listed options"
+		}
 	}
 	if err := entity.ValidateCustomJSONLD(s.CustomJSONLD); err != nil {
 		// Entity errors are lowercase Go strings; the form shows a sentence.
@@ -524,6 +540,7 @@ func seoFromForm(r *http.Request) seoForm {
 		OGImage: r.PostFormValue("seo_og_image"),
 		OGTitle: r.PostFormValue("seo_og_title"), OGDescription: r.PostFormValue("seo_og_description"), NoIndex: r.PostFormValue("seo_noindex") == "true",
 		SchemaType: r.PostFormValue("seo_schema_type"), CustomJSONLD: r.PostFormValue("seo_custom_jsonld"),
+		JSONLDWebPage: r.PostFormValue("seo_jsonld_webpage"), JSONLDBreadcrumb: r.PostFormValue("seo_jsonld_breadcrumb"),
 		HideFromSitemap: r.PostFormValue("seo_hide_sitemap") == "true",
 		BreadcrumbTitle: strings.TrimSpace(r.PostFormValue("seo_breadcrumb_title")), PrimaryTerm: strings.TrimSpace(r.PostFormValue("seo_primary_term")),
 		NoFollow: r.PostFormValue("seo_nofollow") == "true", NoArchive: r.PostFormValue("seo_noarchive") == "true", NoSnippet: r.PostFormValue("seo_nosnippet") == "true",
@@ -760,7 +777,7 @@ func (a *Admin) renderEntityForm(w http.ResponseWriter, r *http.Request, status 
 	if !f.New {
 		f.Ownership = a.ownershipPanel(r, e)
 	}
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"status", "Status"}, {"locale", "Locale"}, {"schedule", "Publish date"}, {"parent", "Parent"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}, {"seo_schema_type", "Schema type"}, {"seo_custom_jsonld", "Custom JSON-LD"}, {"seo_max_snippet", "Max snippet"}, {"seo_max_image_preview", "Max image preview"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"status", "Status"}, {"locale", "Locale"}, {"schedule", "Publish date"}, {"parent", "Parent"}, {"new_term_name", "New term"}, {"seo_title", "SEO title"}, {"seo_description", "SEO description"}, {"seo_canonical", "Canonical URL"}, {"seo_og_image", "Social image"}, {"seo_og_title", "Social title"}, {"seo_og_description", "Social description"}, {"seo_schema_type", "Schema type"}, {"seo_custom_jsonld", "Custom JSON-LD"}, {"seo_jsonld_webpage", "WebPage"}, {"seo_jsonld_breadcrumb", "BreadcrumbList"}, {"seo_max_snippet", "Max snippet"}, {"seo_max_image_preview", "Max image preview"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}
@@ -796,6 +813,7 @@ func (a *Admin) entityPanel(r *http.Request, e *entity.Entity, sc *entity.Entity
 		Canonical: f.SEO.Canonical, Published: f.Status == string(entity.StatusPublished), Mode: ModeMetaOnly, NoKeyword: true, NoLLMs: true,
 		OGTitle: f.SEO.OGTitle, OGDescription: f.SEO.OGDescription, OGImage: f.SEO.OGImage, Social: true,
 		SchemaType: f.SEO.SchemaType, CustomJSONLD: f.SEO.CustomJSONLD,
+		JSONLDWebPage: f.SEO.JSONLDWebPage, JSONLDBreadcrumb: f.SEO.JSONLDBreadcrumb,
 	}
 	if prop := seopanel.BodyProperty(sc); prop != "" {
 		in.Mode, in.Content = ModeBody, str(attrs, prop)
@@ -1049,7 +1067,7 @@ func (a *Admin) validateEntityForm(r *http.Request, p *posted, sc *entity.Entity
 					f.Errors["seo_og_title"] = msgs[0]
 				case "og_description":
 					f.Errors["seo_og_description"] = msgs[0]
-				case "no_index", "schema_type", "custom_jsonld", "breadcrumb_title", "primary_term":
+				case "no_index", "schema_type", "custom_jsonld", "jsonld_webpage", "jsonld_breadcrumb", "breadcrumb_title", "primary_term":
 				default:
 					if _, dup := p.errs[path]; !dup {
 						p.errs[path] = msgs
