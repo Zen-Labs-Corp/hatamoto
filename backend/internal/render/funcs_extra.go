@@ -27,6 +27,16 @@ func extraFuncs() template.FuncMap {
 	return template.FuncMap{
 		// docBody .Body: the body with ids on h2/h3 plus its .TOC items.
 		"docBody": docBody,
+		// excerpt s n: plain text of s cut to n runes at a word, with "...".
+		"excerpt": excerptFn,
+		// initial s: the first letter of s, upper-cased ("" when none).
+		"initial": initialFn,
+		// isBlankHTML s: true when s has no visible text and no media.
+		"isBlankHTML": isBlankHTML,
+		// videoID url: the id of a YouTube or Vimeo URL ("" otherwise).
+		"videoID": videoID,
+		// percent a b: a/b as a whole percent, half up (0 when b is 0).
+		"percent": percent,
 		"add":     func(a, b any) int { return toInt(a) + toInt(b) },
 		"sub":     func(a, b any) int { return toInt(a) - toInt(b) },
 		"mul":     func(a, b any) int { return toInt(a) * toInt(b) },
