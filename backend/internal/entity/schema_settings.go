@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json/jsontext"
 	"fmt"
+	"net/url"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -71,6 +72,60 @@ type SchemaURLSettings struct {
 	// ArchiveGroups splits the archive into numeric-bucket pages. Invalid
 	// values read as disabled (checked on write only).
 	ArchiveGroups ArchiveGroupsSettings `json:"archive_groups,omitzero"`
+	// ModifiedFrom names the date attribute that supplies JSON-LD dateModified
+	// (RFC 3339 or YYYY-MM-DD); empty means the entry's updated_at.
+	ModifiedFrom LooseString `json:"modified_from,omitempty"`
+	// AuthorFrom names the attribute holding a Person entry id or slug that
+	// supplies the JSON-LD author.
+	AuthorFrom LooseString `json:"author_from,omitempty"`
+	// TermSetURL is the DefinedTermSet the DefinedTerm documents belong to
+	// (root-relative or absolute http(s) URL).
+	TermSetURL LooseString `json:"term_set_url,omitempty"`
+	// EmitWebPage and EmitBreadcrumb switch the default WebPage and
+	// BreadcrumbList nodes on or off; empty keeps today's behaviour.
+	EmitWebPage    NodeSwitch `json:"emit_webpage,omitempty"`
+	EmitBreadcrumb NodeSwitch `json:"emit_breadcrumb,omitempty"`
+}
+
+// LooseString is a string setting that decodes leniently: a value that is not
+// a JSON string reads as "", so a stale or hand-edited value can never make
+// URLSettings fail and reset the schema's URL routing.
+type LooseString string
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (l *LooseString) UnmarshalJSON(b []byte) error {
+	var s string
+	if jsonx.Unmarshal(b, &s, jsonx.StoredLoose) != nil {
+		s = ""
+	}
+	*l = LooseString(s)
+	return nil
+}
+
+// NodeSwitch is a tri-state JSON-LD node switch: "" (schema default), "on" or
+// "off". Any other stored value reads as "" (checked on write only).
+type NodeSwitch string
+
+// Node switch values.
+const (
+	NodeSwitchOn  NodeSwitch = "on"
+	NodeSwitchOff NodeSwitch = "off"
+)
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (n *NodeSwitch) UnmarshalJSON(b []byte) error {
+	var s string
+	if jsonx.Unmarshal(b, &s, jsonx.StoredLoose) != nil || (s != string(NodeSwitchOn) && s != string(NodeSwitchOff)) {
+		s = ""
+	}
+	*n = NodeSwitch(s)
+	return nil
+}
+
+// StructuredDataConfigured reports whether any structured-data key is set.
+func (st SchemaURLSettings) StructuredDataConfigured() bool {
+	return st.ModifiedFrom != "" || st.AuthorFrom != "" || st.TermSetURL != "" ||
+		st.EmitWebPage != "" || st.EmitBreadcrumb != ""
 }
 
 // LocaleNeutralSetting is settings.locale_neutral as stored. It decodes
@@ -264,7 +319,57 @@ func ValidateSchemaSettingsForWrite(raw jsontext.Value) error {
 			return err
 		}
 	}
+	return validateStructuredData(obj)
+}
+
+// validateStructuredData is the write-time check of the structured-data keys.
+func validateStructuredData(obj map[string]jsontext.Value) error {
+	str := func(key string) (string, bool, error) {
+		v, ok := obj[key]
+		if !ok || string(bytes.TrimSpace(v)) == "null" {
+			return "", false, nil
+		}
+		var s string
+		if jsonx.Unmarshal(v, &s, jsonx.StoredLoose) != nil {
+			return "", true, settingsErr(key, "settings.%s must be a string", key)
+		}
+		return strings.TrimSpace(s), true, nil
+	}
+	for _, key := range []string{"modified_from", "author_from"} {
+		s, _, err := str(key)
+		if err != nil {
+			return err
+		}
+		if s != "" && !ValidAttrKey(s) {
+			return settingsErr(key, "settings.%s is not a valid attribute key", key)
+		}
+	}
+	u, _, err := str("term_set_url")
+	if err != nil {
+		return err
+	}
+	if u != "" && !validTermSetURL(u) {
+		return settingsErr("term_set_url", "settings.term_set_url must start with '/' or be an http(s) URL")
+	}
+	for _, key := range []string{"emit_webpage", "emit_breadcrumb"} {
+		s, _, err := str(key)
+		if err != nil {
+			return err
+		}
+		if s != "" && s != string(NodeSwitchOn) && s != string(NodeSwitchOff) {
+			return settingsErr(key, "settings.%s must be empty, %q or %q", key, NodeSwitchOn, NodeSwitchOff)
+		}
+	}
 	return nil
+}
+
+// validTermSetURL accepts a root-relative path or an absolute http(s) URL.
+func validTermSetURL(u string) bool {
+	if strings.HasPrefix(u, "/") {
+		return !strings.HasPrefix(u, "//")
+	}
+	p, err := url.Parse(u)
+	return err == nil && (p.Scheme == "http" || p.Scheme == "https") && p.Host != ""
 }
 
 // validateArchiveGroups is the write-time check of settings.archive_groups.
