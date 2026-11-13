@@ -52,6 +52,9 @@ type VisitorEntry struct {
 	// LegacyCookie names an older cookie holding a locale segment; it is read
 	// only when the core locale cookie is absent.
 	LegacyCookie string `json:"legacy_cookie,omitempty"`
+	// KeepLocale gives the url-kind fields of a page's sections the page's
+	// locale segment at render time ("/contact" becomes "/fr/contact").
+	KeepLocale bool `json:"keep_locale,omitzero"`
 }
 
 // SitemapFileSegment returns the first locale segment that is also the name of

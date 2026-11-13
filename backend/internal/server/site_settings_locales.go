@@ -302,7 +302,7 @@ func validateVisitorEntry(segments []string, v siteconfig.VisitorEntry, apiPrefi
 	if v.LegacyCookie != "" && (!legacyCookieRe.MatchString(v.LegacyCookie) || v.LegacyCookie == localeCookieName) {
 		return siteconfig.VisitorEntry{}, bad("the old cookie name must be 1 to 64 letters, digits, - or _, and not %s", localeCookieName)
 	}
-	out := siteconfig.VisitorEntry{Enabled: v.Enabled, LegacyCookie: v.LegacyCookie}
+	out := siteconfig.VisitorEntry{Enabled: v.Enabled, LegacyCookie: v.LegacyCookie, KeepLocale: v.KeepLocale}
 	seen := map[string]bool{}
 	for _, raw := range v.Paths {
 		p := strings.TrimSuffix(raw, "/")

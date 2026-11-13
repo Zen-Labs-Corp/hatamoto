@@ -222,7 +222,7 @@ func TestVisitorEntryAndCountriesRoundTrip(t *testing.T) {
 		t.Fatalf("default = %#v, want zero", cfg.VisitorEntry)
 	}
 	locales := []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Countries: []string{"FR", "BE"}}}
-	ve := siteconfig.VisitorEntry{Enabled: true, Paths: []string{"/contact-form"}, LegacyCookie: "old_loc"}
+	ve := siteconfig.VisitorEntry{Enabled: true, Paths: []string{"/contact-form"}, LegacyCookie: "old_loc", KeepLocale: true}
 	cfg, err = s.Update(ctx, siteconfig.UpdateInput{Locales: &locales, VisitorEntry: &ve})
 	if err != nil {
 		t.Fatal(err)
