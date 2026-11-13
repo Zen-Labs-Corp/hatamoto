@@ -534,7 +534,9 @@ func buildSchema(base jsontext.Value, rows []schemaField) (jsontext.Value, bool)
 
 type schemaSettingsForm struct {
 	URLPattern, ArchivePath, SitemapGroup, Aliases, ArchiveTitle, ArchiveCrumbLabel, ArchiveDescription, SchemaOrgType, Editor string
-	SectionPages, LocaleNeutral                                                                                                bool
+	// Structured data: attribute names, the term set address and the two node switches ("", "on", "off").
+	ModifiedFrom, AuthorFrom, TermSetURL, EmitWebPage, EmitBreadcrumb string
+	SectionPages, LocaleNeutral                                       bool
 }
 
 func settingsFormFrom(raw jsontext.Value) schemaSettingsForm {
@@ -543,6 +545,8 @@ func settingsFormFrom(raw jsontext.Value) schemaSettingsForm {
 	f := schemaSettingsForm{
 		URLPattern: st.URLPattern, ArchivePath: st.ArchivePath, SitemapGroup: st.SitemapGroup, Aliases: strings.Join(st.Aliases, ", "),
 		ArchiveTitle: st.ArchiveTitle, ArchiveCrumbLabel: st.ArchiveCrumbLabel, ArchiveDescription: st.ArchiveDescription, SchemaOrgType: st.SchemaOrgType, Editor: string(st.Editor),
+		ModifiedFrom: string(st.ModifiedFrom), AuthorFrom: string(st.AuthorFrom), TermSetURL: string(st.TermSetURL),
+		EmitWebPage: string(st.EmitWebPage), EmitBreadcrumb: string(st.EmitBreadcrumb),
 		SectionPages: st.SectionPages, LocaleNeutral: st.IsLocaleNeutral(),
 	}
 	return f
@@ -553,6 +557,8 @@ func settingsFormFromPost(r *http.Request) schemaSettingsForm {
 	return schemaSettingsForm{
 		URLPattern: g("url_pattern"), ArchivePath: g("archive_path"), SitemapGroup: g("sitemap_group"), Aliases: g("aliases"),
 		ArchiveTitle: g("archive_title"), ArchiveCrumbLabel: g("archive_crumb_label"), ArchiveDescription: g("archive_description"), SchemaOrgType: g("schema_org_type"), Editor: g("editor"),
+		ModifiedFrom: g("modified_from"), AuthorFrom: g("author_from"), TermSetURL: g("term_set_url"),
+		EmitWebPage: g("emit_webpage"), EmitBreadcrumb: g("emit_breadcrumb"),
 		SectionPages: r.PostFormValue("section_pages") == "true", LocaleNeutral: r.PostFormValue("locale_neutral") == "true",
 	}
 }
@@ -583,6 +589,11 @@ func (s schemaSettingsForm) settingsJSON(base jsontext.Value) (jsontext.Value, m
 	setStr("archive_description", s.ArchiveDescription)
 	setStr("schema_org_type", s.SchemaOrgType)
 	setStr("editor", s.Editor)
+	setStr("modified_from", s.ModifiedFrom)
+	setStr("author_from", s.AuthorFrom)
+	setStr("term_set_url", s.TermSetURL)
+	setStr("emit_webpage", s.EmitWebPage)
+	setStr("emit_breadcrumb", s.EmitBreadcrumb)
 	var aliases []string
 	for _, a := range strings.Split(s.Aliases, ",") {
 		if a = strings.TrimSpace(a); a != "" {
@@ -634,7 +645,8 @@ func settingsFormKey(err error) string {
 	var se *entity.SettingsError
 	if errors.As(err, &se) {
 		switch se.Field {
-		case "archive_title", "archive_crumb_label", "archive_description", "archive_path", "aliases", "schema_org_type", "editor":
+		case "archive_title", "archive_crumb_label", "archive_description", "archive_path", "aliases", "schema_org_type", "editor",
+			"modified_from", "author_from", "term_set_url", "emit_webpage", "emit_breadcrumb":
 			return se.Field
 		}
 	}
@@ -698,6 +710,49 @@ type schemaForm struct {
 	BuiltinPostEditor bool
 }
 
+// nodeSwitchOptions are the choices of a JSON-LD node switch.
+func nodeSwitchOptions(current string) []ui.Option {
+	return []ui.Option{
+		{Value: "", Label: "Default", Selected: current == ""},
+		{Value: string(entity.NodeSwitchOn), Label: "Print", Selected: current == string(entity.NodeSwitchOn)},
+		{Value: string(entity.NodeSwitchOff), Label: "Do not print", Selected: current == string(entity.NodeSwitchOff)},
+	}
+}
+
+// WebPageOptions and BreadcrumbOptions are the node switch choices.
+func (f *schemaForm) WebPageOptions() []ui.Option { return nodeSwitchOptions(f.Settings.EmitWebPage) }
+func (f *schemaForm) BreadcrumbOptions() []ui.Option {
+	return nodeSwitchOptions(f.Settings.EmitBreadcrumb)
+}
+
+// ModifiedFromOptions lists the text fields that can hold a date.
+func (f *schemaForm) ModifiedFromOptions() []ui.Option {
+	return f.attributeOptions(f.Settings.ModifiedFrom, "Time of the last edit", "text", "textarea")
+}
+
+// AuthorFromOptions lists the fields that can hold a Person entry.
+func (f *schemaForm) AuthorFromOptions() []ui.Option {
+	return f.attributeOptions(f.Settings.AuthorFrom, "Plain author name", "reference", "text")
+}
+
+// attributeOptions is the "not set" choice, then the named fields of the given
+// kinds. A saved name that is no longer a field stays selectable.
+func (f *schemaForm) attributeOptions(current, none string, kinds ...string) []ui.Option {
+	opts := []ui.Option{{Value: "", Label: none, Selected: current == ""}}
+	found := current == ""
+	for _, fld := range f.Fields {
+		if fld.Name == "" || !slices.Contains(kinds, fld.Kind) {
+			continue
+		}
+		found = found || fld.Name == current
+		opts = append(opts, ui.Option{Value: fld.Name, Label: fld.Name, Selected: fld.Name == current})
+	}
+	if !found {
+		opts = append(opts, ui.Option{Value: current, Label: current, Selected: true})
+	}
+	return opts
+}
+
 // LockAttrs are the attributes of the name input: a built-in type keeps its name.
 func (f *schemaForm) LockAttrs() map[string]string {
 	if f.Builtin && !f.ReadOnly {
@@ -734,7 +789,7 @@ func (a *Admin) renderSchemaForm(w http.ResponseWriter, r *http.Request, status 
 			f.Refs = append(f.Refs, s.Slug)
 		}
 	}
-	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"url_pattern", "Address pattern"}, {"archive_path", "Archive address"}, {"aliases", "Other slugs"}, {"schema_org_type", "Structured data type"}, {"editor", "Editor"}, {"archive_title", "Archive title"}, {"archive_crumb_label", "Breadcrumb label"}, {"archive_description", "Archive description"}, {"schema_json", "JSON schema"}} {
+	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"url_pattern", "Address pattern"}, {"archive_path", "Archive address"}, {"aliases", "Other slugs"}, {"schema_org_type", "Structured data type"}, {"modified_from", "Modified from"}, {"author_from", "Author from"}, {"term_set_url", "Term set URL"}, {"emit_webpage", "WebPage node"}, {"emit_breadcrumb", "BreadcrumbList node"}, {"editor", "Editor"}, {"archive_title", "Archive title"}, {"archive_crumb_label", "Breadcrumb label"}, {"archive_description", "Archive description"}, {"schema_json", "JSON schema"}} {
 		if m := f.Errors[k.id]; m != "" {
 			f.Summary = append(f.Summary, ui.FieldError{ID: k.id, Label: k.label, Message: m})
 		}

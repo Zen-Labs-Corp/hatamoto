@@ -707,6 +707,39 @@ func TestSchemaEditAddReorderAndSave(t *testing.T) {
 
 // A schema save no longer owns settings.sitemap: the object edited under
 // SEO > Sitemap, including keys this form never knew, comes back untouched.
+func TestSchemaStructuredDataSettings(t *testing.T) {
+	t.Parallel()
+
+	c := newContentRig(t)
+	id := fid(1).String()
+	rec := c.post("/admin/settings/types/"+id, schemaPost(c, func(f url.Values) {
+		f.Set("modified_from", "summary")
+		f.Set("author_from", "summary")
+		f.Set("term_set_url", "/glossary")
+		f.Set("emit_webpage", "off")
+		f.Set("emit_breadcrumb", "on")
+	}))
+	if rec.Code != 303 {
+		t.Fatalf("save: %d\n%s", rec.Code, rec.Body.String())
+	}
+	st := settingsFormFrom(c.service.Settings)
+	want := schemaSettingsForm{ModifiedFrom: "summary", AuthorFrom: "summary", TermSetURL: "/glossary", EmitWebPage: "off", EmitBreadcrumb: "on"}
+	if st.ModifiedFrom != want.ModifiedFrom || st.AuthorFrom != want.AuthorFrom || st.TermSetURL != want.TermSetURL || st.EmitWebPage != want.EmitWebPage || st.EmitBreadcrumb != want.EmitBreadcrumb {
+		t.Errorf("saved: %s", c.service.Settings)
+	}
+	body := c.get(t, "owner-token", "/admin/settings/types/"+id, "")
+	has(t, body, `name="term_set_url" value="/glossary"`, `<option value="summary" selected>`, `<option value="off" selected>`, `<option value="on" selected>`)
+	// clearing the controls removes the keys again
+	if rec := c.post("/admin/settings/types/"+id, schemaPost(c, nil)); rec.Code != 303 {
+		t.Fatalf("clear: %d", rec.Code)
+	}
+	for _, k := range []string{"modified_from", "author_from", "term_set_url", "emit_webpage", "emit_breadcrumb"} {
+		if strings.Contains(string(c.service.Settings), k) {
+			t.Errorf("%s kept: %s", k, c.service.Settings)
+		}
+	}
+}
+
 func TestSchemaSaveKeepsSitemapSettings(t *testing.T) {
 	t.Parallel()
 
@@ -745,6 +778,9 @@ func TestSchemaValidation(t *testing.T) {
 		"pattern no slash":     {func(f url.Values) { f.Set("url_pattern", "blog/{slug}") }, "Must start with"},
 		"bad type":             {func(f url.Values) { f.Set("schema_org_type", "Bogus") }, "Choose one of the listed types"},
 		"archive path":         {func(f url.Values) { f.Set("archive_path", "blog") }, "Start with a slash"},
+		"bad term set":         {func(f url.Values) { f.Set("term_set_url", "glossary") }, "term_set_url must start with"},
+		"bad modified from":    {func(f url.Values) { f.Set("modified_from", "1 bad") }, "not a valid attribute key"},
+		"bad webpage switch":   {func(f url.Values) { f.Set("emit_webpage", "maybe") }, "emit_webpage must be empty"},
 		"duplicate name":       {func(f url.Values) { f.Set("f.r1.name", "summary") }, "share a name"},
 		"bad name":             {func(f url.Values) { f.Set("f.r1.name", "1 bad name") }, "starting with a letter"},
 		"empty choices":        {func(f url.Values) { f.Set("f.r1.kind", "select"); f.Set("f.r1.options", " ") }, "at least one choice"},

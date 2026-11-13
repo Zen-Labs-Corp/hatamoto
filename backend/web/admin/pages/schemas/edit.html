@@ -64,14 +64,28 @@
 {{template "hm/field" dict "ID" "aliases" "Name" "aliases" "Label" "Other slugs served by this pattern" "Value" .Settings.Aliases "Help" "Comma separated." "Error" (index .Errors "aliases") "Attrs" (attrmap "autocomplete" "off")}}
 {{template "hm/field" dict "ID" "section_pages" "Name" "section_pages" "Label" "Entities named like the archive address become section pages" "Control" "switch" "Value" "true" "Checked" .Settings.SectionPages}}
 {{template "hm/field" dict "ID" "locale_neutral" "Name" "locale_neutral" "Label" "Shared across languages" "Help" "New entries default to all languages (no locale) when the site has more than one language. Existing entries are not changed." "Control" "switch" "Value" "true" "Checked" .Settings.LocaleNeutral}}
-<div class="hm-field{{if index .Errors "schema_org_type"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="schema_org_type">Structured data type (JSON-LD)</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="schema_org_type" name="schema_org_type"{{with index .Errors "schema_org_type"}} aria-invalid="true" aria-describedby="schema_org_type-error"{{end}}><option value="">Automatic</option>{{range .SchemaOrgTypes}}<option value="{{.}}"{{if eq . $.Data.Settings.SchemaOrgType}} selected{{end}}>{{.}}</option>{{end}}</select></div>
-{{with index .Errors "schema_org_type"}}<p class="hm-field__error" id="schema_org_type-error">{{.}}</p>{{end}}</div>
 <div class="hm-field{{if index .Errors "editor"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="editor">Editor</label>
 {{if .BuiltinPostEditor}}<div class="hm-select" data-hm-select><select class="hm-field__control" id="editor" name="editor" disabled><option>Post editor (built in)</option></select></div>{{else}}<div class="hm-select" data-hm-select><select class="hm-field__control" id="editor" name="editor"{{with index .Errors "editor"}} aria-invalid="true" aria-describedby="editor-error"{{end}}><option value="">Form</option><option value="post"{{if eq .Settings.Editor "post"}} selected{{end}}>Post editor</option></select></div>{{end}}
 {{with index .Errors "editor"}}<p class="hm-field__error" id="editor-error">{{.}}</p>{{end}}</div>
 {{template "hm/field" dict "ID" "sitemap_group" "Name" "sitemap_group" "Label" "Sitemap group" "Value" .Settings.SitemapGroup "Attrs" (attrmap "autocomplete" "off")}}
 {{template "hm/button" dict "Label" "Sitemap: managed in SEO > Sitemap" "Href" (printf "%s/settings/seo/sitemap" adminPath)}}
+</div>
+{{template "hm/card-end"}}
+
+{{template "hm/card-start" dict "ID" "structured-data" "Title" "Structured data" "Description" "The JSON-LD printed in the page head for entities of this type."}}
+<div class="hm-stack">
+<div class="hm-field{{if index .Errors "schema_org_type"}} hm-field--invalid{{end}}"><label class="hm-field__label" for="schema_org_type">Structured data type (JSON-LD)</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="schema_org_type" name="schema_org_type"{{with index .Errors "schema_org_type"}} aria-invalid="true" aria-describedby="schema_org_type-error"{{end}}><option value="">Automatic</option>{{range .SchemaOrgTypes}}<option value="{{.}}"{{if eq . $.Data.Settings.SchemaOrgType}} selected{{end}}>{{.}}</option>{{end}}</select></div>
+{{with index .Errors "schema_org_type"}}<p class="hm-field__error" id="schema_org_type-error">{{.}}</p>{{end}}</div>
+{{template "hm/field" dict "ID" "term_set_url" "Name" "term_set_url" "Label" "Term set URL" "Help" "For DefinedTerm: the page of the set the terms belong to, for example /glossary." "Value" .Settings.TermSetURL "Error" (index .Errors "term_set_url") "Attrs" (attrmap "autocomplete" "off")}}
+{{template "hm/pair-start"}}
+{{template "hm/field" dict "ID" "modified_from" "Name" "modified_from" "Label" "Modified from" "Control" "select" "Options" .ModifiedFromOptions "Help" "Where the modified date comes from. It is never earlier than the published date." "Error" (index .Errors "modified_from")}}
+{{template "hm/field" dict "ID" "author_from" "Name" "author_from" "Label" "Author from" "Control" "select" "Options" .AuthorFromOptions "Help" "A field holding a person's id or slug. Without a public person the author name is used." "Error" (index .Errors "author_from")}}
+{{template "hm/pair-end"}}
+{{template "hm/pair-start"}}
+{{template "hm/field" dict "ID" "emit_webpage" "Name" "emit_webpage" "Label" "Default WebPage" "Control" "select" "Options" .WebPageOptions "Error" (index .Errors "emit_webpage")}}
+{{template "hm/field" dict "ID" "emit_breadcrumb" "Name" "emit_breadcrumb" "Label" "BreadcrumbList" "Control" "select" "Options" .BreadcrumbOptions "Help" "The visible breadcrumb does not change. An entry can override both." "Error" (index .Errors "emit_breadcrumb")}}
+{{template "hm/pair-end"}}
 </div>
 {{template "hm/card-end"}}
 

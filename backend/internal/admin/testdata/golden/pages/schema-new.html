@@ -192,9 +192,6 @@
 <label class="hm-field__check hm-switch" for="locale_neutral"><input class="hm-field__box" type="checkbox" role="switch" id="locale_neutral" name="locale_neutral" value="true" aria-describedby="locale_neutral-help"><span>Shared across languages</span></label>
 <p class="hm-field__help" id="locale_neutral-help">New entries default to all languages (no locale) when the site has more than one language. Existing entries are not changed.</p>
 </div>
-<div class="hm-field"><label class="hm-field__label" for="schema_org_type">Structured data type (JSON-LD)</label>
-<div class="hm-select" data-hm-select><select class="hm-field__control" id="schema_org_type" name="schema_org_type"><option value="">Automatic</option><option value="Article">Article</option><option value="BlogPosting">BlogPosting</option><option value="NewsArticle">NewsArticle</option><option value="DefinedTerm">DefinedTerm</option><option value="Person">Person</option><option value="Service">Service</option><option value="Course">Course</option><option value="HowTo">HowTo</option><option value="WebPage">WebPage</option><option value="CreativeWork">CreativeWork</option><option value="Organization">Organization</option><option value="LocalBusiness">LocalBusiness</option></select></div>
-</div>
 <div class="hm-field"><label class="hm-field__label" for="editor">Editor</label>
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="editor" name="editor"><option value="">Form</option><option value="post">Post editor</option></select></div>
 </div>
@@ -203,6 +200,44 @@
 <input class="hm-field__control" type="text" id="sitemap_group" name="sitemap_group" autocomplete="off">
 </div>
 <a class="hm-btn hm-btn--secondary" href="/admin/settings/seo/sitemap"><span>Sitemap: managed in SEO &gt; Sitemap</span></a>
+</div>
+</div></section>
+
+<section class="hm-card" id="structured-data" aria-labelledby="structured-data-title">
+<div class="hm-card__head"><h2 class="hm-card__title" id="structured-data-title">Structured data</h2><p class="hm-muted">The JSON-LD printed in the page head for entities of this type.</p></div>
+<div class="hm-card__body">
+<div class="hm-stack">
+<div class="hm-field"><label class="hm-field__label" for="schema_org_type">Structured data type (JSON-LD)</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="schema_org_type" name="schema_org_type"><option value="">Automatic</option><option value="Article">Article</option><option value="BlogPosting">BlogPosting</option><option value="NewsArticle">NewsArticle</option><option value="DefinedTerm">DefinedTerm</option><option value="Person">Person</option><option value="Service">Service</option><option value="Course">Course</option><option value="HowTo">HowTo</option><option value="WebPage">WebPage</option><option value="CreativeWork">CreativeWork</option><option value="Organization">Organization</option><option value="LocalBusiness">LocalBusiness</option></select></div>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="term_set_url">Term set URL</label>
+<input class="hm-field__control" type="text" id="term_set_url" name="term_set_url" aria-describedby="term_set_url-help" autocomplete="off">
+<p class="hm-field__help" id="term_set_url-help">For DefinedTerm: the page of the set the terms belong to, for example /glossary.</p>
+</div>
+<div class="hm-pair">
+<div class="hm-field">
+<label class="hm-field__label" for="modified_from">Modified from</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="modified_from" name="modified_from" aria-describedby="modified_from-help"><option value="" selected>Time of the last edit</option></select></div>
+<p class="hm-field__help" id="modified_from-help">Where the modified date comes from. It is never earlier than the published date.</p>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="author_from">Author from</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="author_from" name="author_from" aria-describedby="author_from-help"><option value="" selected>Plain author name</option></select></div>
+<p class="hm-field__help" id="author_from-help">A field holding a person&#39;s id or slug. Without a public person the author name is used.</p>
+</div>
+</div>
+<div class="hm-pair">
+<div class="hm-field">
+<label class="hm-field__label" for="emit_webpage">Default WebPage</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="emit_webpage" name="emit_webpage"><option value="" selected>Default</option><option value="on">Print</option><option value="off">Do not print</option></select></div>
+</div>
+<div class="hm-field">
+<label class="hm-field__label" for="emit_breadcrumb">BreadcrumbList</label>
+<div class="hm-select" data-hm-select><select class="hm-field__control" id="emit_breadcrumb" name="emit_breadcrumb" aria-describedby="emit_breadcrumb-help"><option value="" selected>Default</option><option value="on">Print</option><option value="off">Do not print</option></select></div>
+<p class="hm-field__help" id="emit_breadcrumb-help">The visible breadcrumb does not change. An entry can override both.</p>
+</div>
+</div>
 </div>
 </div></section>
 
