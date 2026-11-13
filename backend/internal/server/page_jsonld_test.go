@@ -202,3 +202,51 @@ func authorNameOf(v any) string {
 	n, _ := m["name"].(string)
 	return n
 }
+
+// The jsonld.enrich hook runs last: it sees the document after author_from and
+// the WebPage switch, and what it writes is not overwritten.
+func TestBuildPageJSONLDEnrichRunsLast(t *testing.T) {
+	ctx := context.Background()
+	t.Cleanup(func() { entity.SetJSONLDEnricher(nil) })
+	var calls int
+	var seen map[string]any
+	entity.SetJSONLDEnricher(func(_ *entity.Entity, _ string, doc map[string]any) {
+		calls++
+		seen = map[string]any{"types": ldGraphTypes(doc)}
+		if g, ok := doc["@graph"].([]map[string]any); ok {
+			seen["author"] = g[0]["author"]
+			g[0]["author"] = map[string]any{"@type": "Organization", "name": "Plugin"}
+		}
+	})
+	b := noBylines()
+	b.person = func(context.Context, string) *person.Person {
+		return &person.Person{ID: uuid.New(), Slug: "ada", Name: "Ada", Public: true}
+	}
+	ent := pageLDEntity("glossary", `{"schema_org_type":"DefinedTerm","emit_webpage":"on","author_from":"writer"}`, `{"writer":"ada"}`)
+	doc, _, err := buildPageJSONLD(ctx, ent, pageLDBase, "/hello", nil, b)
+	if err != nil || calls != 1 {
+		t.Fatalf("err %v, calls %d", err, calls)
+	}
+	if !reflect.DeepEqual(seen["types"], []any{"DefinedTerm", "WebPage"}) {
+		t.Errorf("hook saw %v, want the document with the WebPage node", seen["types"])
+	}
+	if a, _ := seen["author"].(map[string]any); a["name"] != "Ada" {
+		t.Errorf("hook did not see author_from: %v", seen["author"])
+	}
+	g, _ := doc["@graph"].([]map[string]any)
+	if a, _ := g[0]["author"].(map[string]any); a["name"] != "Plugin" {
+		t.Errorf("the plugin author was overwritten: %v", g[0]["author"])
+	}
+
+	// A dropped document and a failed generation are not enriched.
+	calls = 0
+	off := pageLDEntity("page", `{"emit_webpage":"off"}`, `{}`)
+	if doc, _, err := buildPageJSONLD(ctx, off, pageLDBase, "/hello", nil, noBylines()); err != nil || doc != nil || calls != 0 {
+		t.Errorf("dropped doc: doc %v err %v calls %d", doc, err, calls)
+	}
+	bad := pageLDEntity("page", `{}`, `{}`)
+	bad.Schema = nil
+	if _, _, err := buildPageJSONLD(ctx, bad, pageLDBase, "/hello", nil, noBylines()); err == nil || calls != 0 {
+		t.Errorf("nil schema: err %v calls %d", err, calls)
+	}
+}

@@ -459,10 +459,24 @@ type FAQItem struct {
 // wraps the result in a @graph array that includes both the entity's own
 // JSON-LD and a FAQPage object.
 func GenerateJSONLDWithFAQ(ent *Entity, baseURL string, faqItems []FAQItem) (map[string]any, error) {
+	return generateJSONLDWithFAQ(ent, baseURL, faqItems, true)
+}
+
+// GenerateJSONLDWithFAQUnenriched is GenerateJSONLDWithFAQ without the
+// jsonld.enrich hook; see GenerateJSONLDUnenriched. The hook then sees the
+// whole result, @graph included, not only the entity node.
+func GenerateJSONLDWithFAQUnenriched(ent *Entity, baseURL string, faqItems []FAQItem) (map[string]any, error) {
+	return generateJSONLDWithFAQ(ent, baseURL, faqItems, false)
+}
+
+func generateJSONLDWithFAQ(ent *Entity, baseURL string, faqItems []FAQItem, enrich bool) (map[string]any, error) {
 	// Generate the base JSON-LD
-	baseJSONLD, err := GenerateJSONLD(ent, baseURL)
+	baseJSONLD, err := GenerateJSONLDUnenriched(ent, baseURL)
 	if err != nil {
 		return nil, err
+	}
+	if enrich && baseJSONLD != nil {
+		EnrichJSONLD(ent, baseURL, baseJSONLD)
 	}
 
 	if len(faqItems) == 0 {

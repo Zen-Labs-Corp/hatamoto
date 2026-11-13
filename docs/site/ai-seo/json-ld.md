@@ -155,7 +155,7 @@ The base is the public base URL, so set `PUBLIC_BASE_URL` before you rely on any
 
 Two plugin hooks change structured data. See [Hooks and events](../plugins/hooks-and-events.md) for how filters are declared.
 
-- **`jsonld.enrich`** is a filter that receives the entity reference, the base URL and the finished document. A plugin changes the document, for example to add `aggregateRating`. It runs once per generation, on the success path only, after the settings above are applied, so a plugin sees the final document and its changes are the last word.
+- **`jsonld.enrich`** is a filter that receives the entity reference, the base URL and the finished document. A plugin changes the document, for example to add `aggregateRating`. It runs once per generation, on the success path only, after the settings above are applied (the FAQ list, the canonical address, `author_from` and the author credits, and the WebPage switch), so a plugin sees the final document, a `@graph` when the page has a FAQPage or a WebPage node, and its changes are the last word. It is not called when generation fails or the document was dropped by the WebPage switch.
 - **`render.head`** lets a plugin add `meta`, `link`, `script-src` and `jsonld` tags to the head. Setting `ReplaceSiteGraph` tells Hatamoto to leave out its generic Organization and WebSite graph, because the plugin supplies its own `jsonld` tags. The host builds and escapes the markup, so a plugin never provides raw HTML.
 
 If a plugin or a custom theme template already writes its own entity JSON-LD, the page has two overlapping nodes. Remove the duplicate from the template, or have the plugin use `jsonld.enrich` instead. There is no per-template switch to turn the built-in output off.

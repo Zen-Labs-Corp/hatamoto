@@ -911,15 +911,30 @@ func (r *PostgresPublicRepository) ListPublishedByAttribute(ctx context.Context,
 // If the schema lacks annotations, it falls back to the legacy switch-based generator.
 // Supports: WebPage, Article, LocalBusiness, FAQPage, Service, Person, Organization, Product.
 func GenerateJSONLD(entity *Entity, baseURL string) (map[string]any, error) {
+	doc, err := GenerateJSONLDUnenriched(entity, baseURL)
+	if err == nil && doc != nil {
+		EnrichJSONLD(entity, baseURL, doc)
+	}
+	return doc, err
+}
+
+// GenerateJSONLDUnenriched is GenerateJSONLD without the jsonld.enrich hook,
+// for a caller that still changes the document and calls EnrichJSONLD itself
+// once the document is final.
+func GenerateJSONLDUnenriched(entity *Entity, baseURL string) (map[string]any, error) {
 	doc, err := generateBaseJSONLD(entity, baseURL)
 	if err == nil && doc != nil {
 		applyTypeOverrides(doc, entity)
-		// Once per call, success path only: plugins see the final document.
-		if enrich := currentJSONLDEnricher(); enrich != nil {
-			enrich(entity, baseURL, doc)
-		}
 	}
 	return doc, err
+}
+
+// EnrichJSONLD runs the jsonld.enrich hook (if one is installed) on doc in
+// place. Call it once per generation, on the success path only.
+func EnrichJSONLD(entity *Entity, baseURL string, doc map[string]any) {
+	if enrich := currentJSONLDEnricher(); enrich != nil {
+		enrich(entity, baseURL, doc)
+	}
 }
 
 func generateBaseJSONLD(entity *Entity, baseURL string) (map[string]any, error) {

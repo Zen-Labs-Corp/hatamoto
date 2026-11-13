@@ -401,7 +401,7 @@ Two plugins cannot declare the same path: the install, an upgrade and enabling a
 ```
 
 #### JSONLDDoc
-Modify and return `doc` (the schema.org document). Keep `entity` and `base_url` as received.
+Modify and return `doc` (the schema.org document). Keep `entity` and `base_url` as received. On an entry page the filter runs last: after the FAQPage wrap, the canonical rewrite, the credited author (`author_from` and the byline), the `emit_webpage` switch, so `doc` is the final document (a `@graph` when the page has a FAQPage or a WebPage node) and what the plugin sets is not overwritten. It is not called when generation fails or when the document was dropped.
 ```json
 { "entity": { "...EntityRef" }, "base_url": "https://example.com", "doc": { "@type": "Article" } }
 ```
