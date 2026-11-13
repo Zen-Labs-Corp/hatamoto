@@ -82,3 +82,25 @@ func TestHomeAlternatesSkipHiddenLocale(t *testing.T) {
 		t.Fatalf("alts = %+v", alts)
 	}
 }
+
+func TestHomeAlternates_Names(t *testing.T) {
+	set, err := entity.NewLocaleSet("en", []entity.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr", Name: "Francais"}, {Tag: "es", Segment: "es"}}, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := entity.NewURLRegistry(pageSchemaLister{}, nil)
+	reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return set, nil })
+	snap, err := reg.Snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	alts, _ := homeAlternates(snap, set, "https://x.io", "fr")
+	got := []string{alts[0].Name, alts[1].Name, alts[2].Name}
+	want := []string{"English", "Francais", "Spanish"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("Names = %v, want %v", got, want)
+			break
+		}
+	}
+}

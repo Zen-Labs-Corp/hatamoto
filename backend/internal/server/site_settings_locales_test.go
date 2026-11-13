@@ -360,6 +360,33 @@ func TestSiteSettings_CountriesAndVisitorEntryRoundTrip(t *testing.T) {
 	}
 }
 
+func TestSiteSettings_KeepLocaleRoundTrip(t *testing.T) {
+	store := &localeStore{}
+	store.cfg.Language = "en"
+	h := localeRouter(store, nil)
+
+	rec := doSite(h, http.MethodPatch, "/settings/site/", `{"locales":[{"tag":"en"},{"tag":"fr","segment":"fr"}],"visitor_entry":{"keep_locale":true}}`)
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	if !strings.Contains(rec.Body.String(), `"keep_locale":true`) || !store.cfg.VisitorEntry.KeepLocale {
+		t.Errorf("keep_locale not saved: %s / %+v", rec.Body, store.cfg.VisitorEntry)
+	}
+	rec = doSite(h, http.MethodGet, "/settings/site/", "")
+	if !strings.Contains(rec.Body.String(), `"keep_locale":true`) {
+		t.Errorf("GET lacks keep_locale: %s", rec.Body)
+	}
+	// A patch that names no visitor_entry leaves it alone.
+	doSite(h, http.MethodPatch, "/settings/site/", `{"name":"Beta"}`)
+	if !store.cfg.VisitorEntry.KeepLocale {
+		t.Error("an unrelated patch reset keep_locale")
+	}
+	// visitor_entry replaces the whole object: omitting the key turns it off.
+	rec = doSite(h, http.MethodPatch, "/settings/site/", `{"visitor_entry":{"enabled":true}}`)
+	testutil.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	if store.cfg.VisitorEntry.KeepLocale {
+		t.Error("keep_locale survived a whole-object replace")
+	}
+}
+
 func TestSiteSettings_VisitorEntryAbsentUntilSet(t *testing.T) {
 	store := &localeStore{}
 	rec := doSite(localeRouter(store, nil), http.MethodGet, "/settings/site/", "")

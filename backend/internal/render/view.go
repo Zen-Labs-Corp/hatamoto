@@ -76,6 +76,19 @@ type PageView struct {
 	// Segment is the stored URL segment of Locale ("" when unprefixed or on a
 	// one-locale site).
 	Segment string
+	// LocaleName is the display name of Locale ("" on a one-locale site and on
+	// shared pages).
+	LocaleName string
+	// KeepLocale is the site setting that gives url-kind section fields the
+	// locale segment at render time.
+	KeepLocale bool `json:"-"`
+	// LocaleSegments lists every URL segment of the locale set, hidden locales
+	// included, so a link that already carries one is not prefixed again.
+	LocaleSegments []string `json:"-"`
+	// LocaleShared reports whether a site-relative path is shared by every
+	// locale and so never takes a prefix. The server injects it; nil means
+	// nothing is shared.
+	LocaleShared func(path string) bool `json:"-"`
 	// Alternates lists the page in every configured locale, in settings order.
 	// It is nil on a one-locale site. XDefaultHref is the absolute URL for the
 	// hreflang x-default entry ("" for none).
@@ -763,8 +776,10 @@ type PageMeta struct {
 // Href is then that locale's home, and no hreflang is emitted for it. Default
 // marks the site's default locale.
 type Alternate struct {
-	Locale  string
-	Lang    string
+	Locale string
+	Lang   string
+	// Name is the locale's display name.
+	Name    string
 	Href    string
 	Current bool
 	Missing bool
@@ -776,8 +791,8 @@ type Alternate struct {
 type CrumbOpts struct {
 	Sep                   string
 	HideHome, HideCurrent bool
-	// Shaped is set when the trail carries a saved home label, primary term or
-	// breadcrumb title, so a layout that prints its own trail must print
+	// Shaped is set when the trail carries a saved home label, primary term,
+	// breadcrumb title or the locale name as its first crumb, so a layout that prints its own trail must print
 	// .Breadcrumb instead.
 	Shaped bool
 }
@@ -785,14 +800,19 @@ type CrumbOpts struct {
 // CrumbOpts returns the saved breadcrumb view options; the zero value when no
 // SEO settings are loaded.
 func (v *PageView) CrumbOpts() CrumbOpts {
-	if v == nil || v.SEO == nil {
+	if v == nil {
 		return CrumbOpts{}
+	}
+	// A prefixed locale's trail starts at the locale name (see localeRootLabel).
+	localeRoot := v.LocaleName != "" && v.Segment != "" && !v.Shared
+	if v.SEO == nil {
+		return CrumbOpts{Shaped: localeRoot}
 	}
 	b := v.SEO.Breadcrumbs
 	title, _ := v.Attrs["breadcrumb_title"].(string)
 	return CrumbOpts{
 		Sep: b.Separator, HideHome: b.HideHome, HideCurrent: b.HideCurrent,
-		Shaped: b.HomeLabel != "" || b.ShowTerm || strings.TrimSpace(title) != "",
+		Shaped: localeRoot || b.HomeLabel != "" || b.ShowTerm || strings.TrimSpace(title) != "",
 	}
 }
 

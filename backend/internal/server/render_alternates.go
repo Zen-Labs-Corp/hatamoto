@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"hatamoto.dev/core/internal/entity"
@@ -45,6 +46,16 @@ func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, 
 	v.Locale = loc
 	// Empty for a locale served without a prefix, even when a segment is stored.
 	v.Segment = strings.TrimPrefix(set.Prefix(loc), "/")
+	if !shared {
+		v.LocaleName = set.DisplayName(loc)
+	}
+	v.KeepLocale = s.keepLocale(ctx)
+	for _, e := range set.Entries() {
+		if e.Segment != "" {
+			v.LocaleSegments = append(v.LocaleSegments, e.Segment)
+		}
+	}
+	v.LocaleShared = func(p string) bool { return localeNeutralPath(p) || snap.PathIsLocaleNeutral(p) }
 	v.Site.Language = loc
 	v.Shared = shared
 	v.Locales = s.localesView(ctx, snap, set, baseURL)
@@ -59,6 +70,41 @@ func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, 
 	case ent.Locale != entity.LocaleShared && s.db != nil:
 		v.Alternates, v.XDefaultHref = s.alternatesFor(ctx, snap, baseURL, ent)
 	}
+}
+
+// keepLocale reads the "keep visitors in their locale" setting; off when the
+// site settings are unavailable.
+func (s *Server) keepLocale(ctx context.Context) bool {
+	if s.siteConfig == nil {
+		return false
+	}
+	cfg, err := s.siteConfig.Get(ctx)
+	return err == nil && cfg.VisitorEntry.KeepLocale
+}
+
+// localeNeutralRoots are the first path segments served outside the locales:
+// links to them never take a locale prefix. It is not the reserved-segment
+// list: /search, /category, /tag and /page are served under every locale prefix,
+// so they are left out and do get one. /author is the exception: author
+// archives canonicalise to the unprefixed URL (people are shared, and a
+// default-locale person would 404 under /fr/), so links to it stay unprefixed.
+// Segments match exactly: /authorized-dealers is a page and does get a prefix.
+var localeNeutralRoots = []string{
+	"admin", "api", "media", "static", "theme", "feed", "robots", "llms", "mcp",
+	"health", "ready", "preview", "forms", "p", "plugin-ui", "locale", "index", "misc",
+	"auth", "author", "sitemap",
+}
+
+// localeNeutralPath reports whether the first segment of a site path is a route
+// outside the locales (media, api, sitemap files, ...): such paths are shared by
+// every locale and never take a locale prefix.
+func localeNeutralPath(p string) bool {
+	first, _, _ := strings.Cut(strings.TrimPrefix(p, "/"), "/")
+	first = strings.ToLower(first)
+	if i := strings.LastIndexByte(first, '.'); i > 0 {
+		first = first[:i]
+	}
+	return first != "" && slices.Contains(localeNeutralRoots, first)
 }
 
 // isSharedPage reports whether the page belongs to no locale: an entity stored
@@ -77,7 +123,7 @@ func homeAlternates(snap *entity.URLSnapshot, set *entity.LocaleSet, baseURL, cu
 	var alts []render.Alternate
 	for _, tag := range set.PublicTags() {
 		alts = append(alts, render.Alternate{
-			Locale: tag, Lang: tag, Href: baseURL + snap.WithLocale(tag, "/"),
+			Locale: tag, Lang: tag, Name: set.DisplayName(tag), Href: baseURL + snap.WithLocale(tag, "/"),
 			Current: tag == current, Default: tag == set.Default(),
 		})
 	}
@@ -108,7 +154,7 @@ func (s *Server) alternatesFor(ctx context.Context, snap *entity.URLSnapshot, ba
 	}
 	var alts []render.Alternate
 	for _, tag := range set.PublicTags() {
-		a := render.Alternate{Locale: tag, Lang: tag, Current: tag == ent.Locale, Default: tag == set.Default()}
+		a := render.Alternate{Locale: tag, Lang: tag, Name: set.DisplayName(tag), Current: tag == ent.Locale, Default: tag == set.Default()}
 		if href, ok := hrefs[tag]; ok {
 			a.Href = href
 		} else {

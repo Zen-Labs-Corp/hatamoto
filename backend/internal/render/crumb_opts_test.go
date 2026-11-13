@@ -23,6 +23,41 @@ func TestCrumbOptsZero(t *testing.T) {
 	}
 }
 
+func TestCrumbOptsLocaleRoot(t *testing.T) {
+	t.Parallel()
+	fr := &PageView{Segment: "fr", LocaleName: "Francais"}
+	if !fr.CrumbOpts().Shaped {
+		t.Error("prefixed locale without SEO settings is not Shaped")
+	}
+	fr.SEO = &seo.Settings{}
+	if !fr.CrumbOpts().Shaped {
+		t.Error("prefixed locale with SEO settings is not Shaped")
+	}
+	for name, v := range map[string]*PageView{
+		"one locale": {},
+		"unprefixed": {LocaleName: "English"},
+		"shared":     {Segment: "fr", LocaleName: "Francais", Shared: true},
+	} {
+		if v.CrumbOpts().Shaped {
+			t.Errorf("%s is Shaped", name)
+		}
+	}
+}
+
+func TestSingleDocLocaleRootCrumb(t *testing.T) {
+	t.Parallel()
+	e := newTestEngine(t, Options{Data: docData{}})
+	v := hierarchyView()
+	v.EntityID, v.SchemaSlug, v.Kind, v.Path = "e9", "doc", KindSingle, "/fr/docs/themes/layouts"
+	v.Entity = &EntityView{ID: "e9", Title: "Layouts", Schema: "doc"}
+	v.Segment, v.LocaleName = "fr", "Francais"
+	v.Breadcrumb = []Crumb{{Name: "Francais", URL: "/fr"}, {Name: "Docs", URL: "/fr/docs"}, {Name: "Layouts", URL: "/fr/docs/themes/layouts"}}
+	out := renderToString(t, e, v)
+	if !strings.Contains(out, `<a href="/fr">Francais</a>`) {
+		t.Errorf("locale root crumb missing from the visible trail:\n%s", mainInner(t, out))
+	}
+}
+
 func TestSingleDocCrumbOptions(t *testing.T) {
 	t.Parallel()
 	e := newTestEngine(t, Options{Data: docData{}})

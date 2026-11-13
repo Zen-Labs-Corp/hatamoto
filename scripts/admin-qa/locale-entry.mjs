@@ -32,10 +32,12 @@ check(added === 200, `locale fr added (${added})`);
 
 await p.goto(locales);
 check((await p.locator("#visitor-entry-form").count()) === 1, "two locales: the Visitor entry panel is shown");
-check((await p.getByText("Keep visitors in their locale").count()) === 0, "the panel has no Keep visitors in their locale row");
+check((await p.getByText("Keep visitors in their locale").count()) === 1, "the panel has the Keep visitors in their locale row");
+check(!(await p.locator("#entry-keep-locale").isChecked()), "Keep visitors in their locale is off by default");
 
 // Fill it in: the switch, one path, Add path (no save, the typed path stays), a second path, the old cookie name.
 await p.locator("#entry-enabled").check({ force: true });
+await p.locator("#entry-keep-locale").check({ force: true });
 await p.fill("#entry-path-0", "/contact-form");
 await Promise.all([p.waitForLoadState("load"), p.click("button[name=add_entry_path]")]);
 check((await p.inputValue("#entry-path-0")) === "/contact-form" && (await p.locator("input[name=entry_path]").count()) === 3, "Add path keeps the typed path and adds a row");
@@ -44,7 +46,7 @@ await p.fill("#entry-cookie", "old_loc");
 await save(p);
 check(/Visitor entry saved/.test(await p.locator("body").innerText()), "the save shows a flash");
 await p.goto(locales);
-check((await p.locator("#entry-enabled").isChecked()) && (await p.inputValue("#entry-path-0")) === "/contact-form" && (await p.inputValue("#entry-path-1")) === "/pricing" && (await p.inputValue("#entry-cookie")) === "old_loc", "the saved panel reloads with its values");
+check((await p.locator("#entry-enabled").isChecked()) && (await p.locator("#entry-keep-locale").isChecked()) && (await p.inputValue("#entry-path-0")) === "/contact-form" && (await p.inputValue("#entry-path-1")) === "/pricing" && (await p.inputValue("#entry-cookie")) === "old_loc", "the saved panel reloads with its values");
 
 // Remove drops a row without saving; a path that cannot be an entry path is refused and nothing is saved.
 await Promise.all([p.waitForLoadState("load"), p.click("button[name=remove_entry_path][value='1']")]);
@@ -83,6 +85,7 @@ for (const theme of ["light", "dark"]) {
 // Put the site back: panel off and no paths, then remove fr.
 await p.goto(locales);
 await p.locator("#entry-enabled").uncheck({ force: true });
+await p.locator("#entry-keep-locale").uncheck({ force: true });
 for (let i = 2; i >= 0; i--) await p.fill(`#entry-path-${i}`, "");
 await save(p);
 await p.goto(`${locales}/remove/fr`);

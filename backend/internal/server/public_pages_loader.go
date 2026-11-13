@@ -167,9 +167,10 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 		crumbCfg = set.Breadcrumbs
 	}
 	crumbIn := crumbInput{
-		Home:  BreadcrumbItem{Href: s.urlSnapshot(ctx).WithLocale(ent.Locale, "/")},
-		Entry: BreadcrumbItem{Label: ent.Name, Href: loc.Path},
-		Cfg:   crumbCfg,
+		Home:      BreadcrumbItem{Href: s.urlSnapshot(ctx).WithLocale(ent.Locale, "/")},
+		HomeLabel: localeRootLabel(s.urlSnapshot(ctx).Locales(), ent.Locale),
+		Entry:     BreadcrumbItem{Label: ent.Name, Href: loc.Path},
+		Cfg:       crumbCfg,
 	}
 	crumbIn.Title, _ = attrs["breadcrumb_title"].(string)
 	if loc.ArchivePath != "" {

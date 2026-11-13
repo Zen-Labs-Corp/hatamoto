@@ -65,6 +65,9 @@ type SchemaURLConfig struct {
 	ArchiveGroups ArchiveGroupsSettings
 	// Explicit is true when the schema's settings supplied url_pattern.
 	Explicit bool
+	// LocaleNeutral is true when entries of the schema live in the shared
+	// locale (their URLs never carry a locale prefix).
+	LocaleNeutral bool
 }
 
 // URLSnapshot is an immutable view of every schema's routing configuration.
@@ -140,6 +143,26 @@ func (s *URLSnapshot) Config(schemaSlug string) (*SchemaURLConfig, bool) {
 		return c, ok
 	}
 	return nil, false
+}
+
+// PathIsLocaleNeutral reports whether path resolves only to locale-neutral
+// schemas, so its URL never takes a locale prefix. A path nothing resolves to
+// (or a nil snapshot) is not neutral.
+func (s *URLSnapshot) PathIsLocaleNeutral(path string) bool {
+	if s == nil || s.router == nil {
+		return false
+	}
+	cands := s.router.Resolve(path)
+	if len(cands) == 0 {
+		return false
+	}
+	for _, c := range cands {
+		cfg, ok := s.Config(c.SchemaSlug)
+		if !ok || !cfg.LocaleNeutral {
+			return false
+		}
+	}
+	return true
 }
 
 // URLRegistry loads schema routing settings, caches the resulting router and
@@ -350,6 +373,7 @@ func BuildURLSnapshot(schemas []*EntitySchema, logger *slog.Logger) (*URLSnapsho
 			ArchiveCrumbLabel:  strings.TrimSpace(p.st.ArchiveCrumbLabel),
 			ArchiveLimit:       int(min(p.st.ArchiveLimit, MaxArchiveLimit)),
 			Explicit:           p.st.URLPattern != "",
+			LocaleNeutral:      p.st.IsLocaleNeutral(),
 		}
 		patternText := p.st.URLPattern
 		group := p.st.SitemapGroup

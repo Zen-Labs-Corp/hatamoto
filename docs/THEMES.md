@@ -260,6 +260,28 @@ func returns, which is always a string) into `map[string]any`, `[]any`,
 `string`, `float64`, `bool` or `nil`. Input over 1 MiB, empty input and invalid
 JSON give `nil`. `{{with fromJSON (plugin_x_rows .Path)}}{{range .}}...{{end}}{{end}}`.
 
+**`localeURL page path`** gives a site-relative link the page's locale prefix:
+`{{ localeURL . "/contact" }}` prints `/fr/contact` on a page of the locale
+served under `/fr`, and `/contact` on a one-locale site or on a locale served
+without a prefix. The page comes first, like `t`: pass `.` in a layout or a
+page-level partial, and `$.Page` (or the page you were passed) inside a section
+partial, where `.` is the section. A dict with a `Segment` key also works, but it only knows that one segment: it
+skips the shared-path check (`/media/...` would get a prefix) and the other
+locales' segments. Pass the page when you can. The
+result goes through the same URL check as `cta`, so a `javascript:` or `//host`
+value prints `#`. Anything else for the page prints the path unchanged.
+
+| Input | Result on a page under `/fr` |
+| --- | --- |
+| `/contact` | `/fr/contact` |
+| `/contact?x=1#a` | `/fr/contact?x=1#a` (query and fragment kept) |
+| `/` | `/fr` |
+| `https://example.org/a`, `//example.org`, `#top`, `mailto:a@example.org`, `tel:+100`, `?q=1`, an empty or relative value | unchanged |
+| `/fr/contact`, `/es/contact` (already starts with any configured locale segment) | unchanged |
+| a shared path: a route of its own (`/media/...`, `/api/...`, sitemap files) or a path that only locale-neutral schemas serve | unchanged |
+
+Rich-text bodies are not rewritten: link them with the locale in the editor.
+
 **`pageNum .`** is the request's `?page=` as an `int`: 1 by default, clamped to
 1..1000, on every view (pass `.` or `$`; inside a section pass its own `.`, which
 carries the page number too). Pair it with `query`:
@@ -443,7 +465,8 @@ and archives through its own `page.html`, not the default's `single.html`.
 | `.Site` | `.Name`, `.Tagline`, `.LogoURL`, `.Language` (the site setting `language`, BCP 47, default `en`; on a site with several public locales it is the locale of the page being rendered, per request; also `<html lang>` and JSON-LD `inLanguage`), `.Phone`, `.Hours` and `.Address` (`.Street`, `.City`, `.State`, `.PostalCode`, `.Country`; the site settings, also emitted in the Organization JSON-LD), `.Settings` (the theme settings object), `.Nav`, `.FooterNav`, `.SocialLinks` |
 | `.Business` | the resolved local business of the page's locale on a site with several public locales: `.ID` (the locale segment, used in the JSON-LD `@id`), `.Type`, `.Name`, `.TaxID`, `.Phone`, `.Fax`, `.Email`, `.Hours` (the free-text hours note), `.Address` (`.Street`, `.City`, `.State`, `.PostalCode`, `.Country`), `.POBox`, `.Lat`, `.Lng`, `.MapURL`, `.GBPURL`, `.ContactPoints` (`.Type`, `.Phone`, `.Email`), `.OpeningHours` (`.Days`, `.Opens`, `.Closes`), `.SpecialHours` (`.From`, `.To`, `.Closed`, `.Opens`, `.Closes`), `.AreaServed`, `.Currency`, `.PriceRange`, `.GeoRegion`, `.SameAs`, `.Rating` (`.Value`, `.Count`, `.Best`, `.Worst`, `.CountType`), `.VATID`, `.Description`, `.Image` and `.CountryName`; and the extended details: `.Naics`, `.Isic`, `.Duns`, `.Lei`, `.Gln` (identifier codes, strings), `.Founders` and `.Memberships` (lists of `.Name`, `.URL`), `.ParentOrg` (`.Name`, `.URL`; an empty `.Name` means none), `.Brands`, `.PaymentMethods`, `.KnowsAbout`, `.Awards` (string lists), `.BookingURL`, `.OrderURL`, `.MenuURL`, `.ServiceRadiusKm` (a decimal string in kilometres), `.Services` (`.Name`, `.Description`, `.URL`, `.Price`), `.Amenities` (`.Name`, `.Value`; the fixed presets that are set, then custom rows) and `.AcceptsReservations`, `.PublicAccess`, `.FreeEntry` (pointers to a bool: nil is unset, so `{{if .PublicAccess}}` tests whether it is set, and `false` is an explicit no); a contact point also has `.Name`, `.AreaServed` and `.AvailableLanguage`. Each field, including the extended details, is the locale's own value, else the site-wide one (a list replaces the site-wide list as a whole), except the address, which is the locale's whole block. Nil on shared pages, on locales without an office and on sites with fewer than two locales, so test `{{if .Business}}` first. `.Site.Phone`, `.Site.Hours` and `.Site.Address` keep meaning the site-wide values on every page |
 | `.GeoRegion` | the geo region of the page's locale, else the site-wide one, on a site with several public locales; empty on shared pages and on a one-locale site. The default theme prints it as `geo.region` through the head data (`.Meta`), see below |
-| `.Locale`, `.Alternates`, `.XDefaultHref` | the page's locale tag and, on a site with several public locales, one entry per configured locale in the order of the locale list (empty otherwise): `.Locale`, `.Lang` (the hreflang value), `.Href` (absolute), `.Current` (the page's own locale), `.Missing` (no live copy: `.Href` is that locale's home) and `.Default`. Use it for a language switcher. Listing pages with a page number have none. `.XDefaultHref` is the absolute URL of the hreflang `x-default` entry (empty when there is none) |
+| `.Segment`, `.LocaleName` | the URL segment of the page's locale (empty when the locale is served without a prefix, and on a one-locale site) and its display name (same rule as `.Alternates[].Name`; empty on a one-locale site and on shared pages). `.Segment` is what `localeURL` prefixes |
+| `.Locale`, `.Alternates`, `.XDefaultHref` | the page's locale tag and, on a site with several public locales, one entry per configured locale in the order of the locale list (empty otherwise): `.Locale`, `.Lang` (the hreflang value), `.Href` (absolute), `.Current` (the page's own locale), `.Missing` (no live copy: `.Href` is that locale's home), `.Default` and `.Name` (the locale's display name: the name saved on Settings > Locales, else the English name of the language, else the tag). Use it for a language switcher. Listing pages with a page number have none. `.XDefaultHref` is the absolute URL of the hreflang `x-default` entry (empty when there is none) |
 
 **Hreflang.** The default theme's `head` partial prints one
 `<link rel="alternate" hreflang="..." href="...">` per live copy in the
@@ -515,6 +538,14 @@ byline card on a post uses `.Entity.Author` (the same fields, plus `.IsOrg`).
 **Breadcrumb section label.** The breadcrumb above an entry and the
 BreadcrumbList JSON-LD name the section with the schema's `archive_crumb_label`,
 else its `archive_title`, else the type name.
+
+**Locale-rooted breadcrumb.** On a site with several public locales, a page of
+a locale served under a prefix starts its `.Breadcrumb` (and the BreadcrumbList
+JSON-LD, which lists the same crumbs) with the locale's display name linking to
+the locale home (`/fr`) instead of a separate Home crumb; the saved home label
+does not apply there. A one-locale site and the locale served without a prefix
+keep the Home trail. The positional rule stays: `HideHome` hides the first
+crumb, so on a prefixed locale it hides the locale crumb.
 
 **Terms** are hierarchical and their kinds are free. A term has an optional
 `parent_id` (same kind, no cycles, at most 8 levels) and a `description`.
@@ -874,6 +905,16 @@ Extensions:
   }
 }
 ```
+
+**Locale links in sections.** When the site setting **Keep visitors in their
+locale** (Settings > Locales, off by default) is on, every `x-hm-field: "url"`
+string of a section on a page of a prefixed locale is rendered through the same
+rule as `localeURL`, including fields inside arrays (`ctas[].url`): `/contact`
+prints `/fr/contact`, absolute URLs, anchors and shared paths stay. Templates do
+not change, and with the setting off nothing is rewritten. Stored values are
+never touched, and the page editor shows them as saved. Rich-text fields,
+builder-page (`page_doc`) nodes and the `mapEmbedUrl` field are not rewritten;
+a theme with a link field of another kind can call `localeURL` itself.
 
 `theme.json` may carry a `settings_schema` (same subset) for theme-level
 settings; it is returned as-is by the theme endpoint.

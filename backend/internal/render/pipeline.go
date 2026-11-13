@@ -47,6 +47,8 @@ type sectionPage struct {
 	Params  url.Values
 	// Strings are the resolved theme strings (see pageData.Strings).
 	Strings map[string]string
+	// Links are the locale link rule inputs the localeURL func reads.
+	Links LocaleLinks
 }
 
 // CommentHTML returns the unknown-type marker as an HTML comment. Comment is
@@ -200,10 +202,20 @@ func prepareValueFor(n *schemaNode, v any, depth int, path string, canvas bool, 
 			return template.HTML(s) // #nosec G203 -- sanitised above
 		case "css":
 			return safeCSS(t)
+		case "url":
+			if page != nil && page.KeepLocale && !canvas && !isEmbedField(path) {
+				return LocalizeURL(page.LocaleLinks(), t)
+			}
 		}
 		return t
 	}
 	return v
+}
+
+// isEmbedField reports whether the last element of path names a map embed
+// source, which is never a page link.
+func isEmbedField(path string) bool {
+	return path == "mapEmbedUrl" || strings.HasSuffix(path, ".mapEmbedUrl")
 }
 
 func joinPath(path, key string) string {

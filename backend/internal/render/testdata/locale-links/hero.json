@@ -1,0 +1,28 @@
+{
+  "sections": [
+    {
+      "type": "hero",
+      "id": "sec-hero",
+      "content": {
+        "headline": "Publish fast, own your stack",
+        "primaryCta": "Get started",
+        "ctaUrl": "/contact",
+        "secondaryCta": "View source",
+        "secondaryCtaUrl": "https://example.org/source"
+      }
+    },
+    {
+      "type": "hero",
+      "id": "sec-hero-ctas",
+      "content": {
+        "headline": "Buttons list",
+        "ctas": [
+          {"text": "Pricing", "url": "/pricing"},
+          {"text": "Docs", "url": "/fr/docs"},
+          {"text": "Media", "url": "/media/guide.pdf"},
+          {"text": "Anchor", "url": "#top"}
+        ]
+      }
+    }
+  ]
+}
