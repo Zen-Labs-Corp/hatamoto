@@ -200,6 +200,17 @@
         }
       ],
       "halted": false
+    },
+    {
+      "version": "v1.3.3",
+      "record_sig": "d7effd9870698586:z71h+QW4fCO8NJq3Fvda53DuUBbOLULDReAyfT6TeVareKshNZYAP6hj85PeB+v/qIP2o8WKVMviIMhihe/iCA==",
+      "ramp": [
+        {
+          "from": "2026-11-13T10:21:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
     }
   ],
   "yanked": []
