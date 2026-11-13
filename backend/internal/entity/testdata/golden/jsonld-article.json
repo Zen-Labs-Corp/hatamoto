@@ -1,0 +1,23 @@
+{
+  "@context": "https://schema.org",
+  "@id": "https://example.test/blog/term#article",
+  "@type": "Article",
+  "author": {
+    "@type": "Person",
+    "name": "Alex Example"
+  },
+  "dateModified": "2025-09-01T00:00:00Z",
+  "datePublished": "2024-02-01T00:00:00Z",
+  "headline": "Glossary term",
+  "isPartOf": {
+    "@id": "https://example.test#website"
+  },
+  "mainEntityOfPage": {
+    "@id": "https://example.test/blog/term#webpage",
+    "@type": "WebPage"
+  },
+  "publisher": {
+    "@id": "https://example.test#organization"
+  },
+  "url": "https://example.test/blog/term"
+}
