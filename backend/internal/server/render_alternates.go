@@ -45,6 +45,11 @@ func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, 
 	v.Locale = loc
 	// Empty for a locale served without a prefix, even when a segment is stored.
 	v.Segment = strings.TrimPrefix(set.Prefix(loc), "/")
+	if !shared {
+		v.LocaleName = set.DisplayName(loc)
+	}
+	v.KeepLocale = s.keepLocale(ctx)
+	v.LocaleShared = func(p string) bool { return reservedFirstSegment(p) || snap.PathIsLocaleNeutral(p) }
 	v.Site.Language = loc
 	v.Shared = shared
 	v.Locales = s.localesView(ctx, snap, set, baseURL)
@@ -59,6 +64,28 @@ func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, 
 	case ent.Locale != entity.LocaleShared && s.db != nil:
 		v.Alternates, v.XDefaultHref = s.alternatesFor(ctx, snap, baseURL, ent)
 	}
+}
+
+// keepLocale reads the "keep visitors in their locale" setting; off when the
+// site settings are unavailable.
+func (s *Server) keepLocale(ctx context.Context) bool {
+	if s.siteConfig == nil {
+		return false
+	}
+	cfg, err := s.siteConfig.Get(ctx)
+	return err == nil && cfg.VisitorEntry.KeepLocale
+}
+
+// reservedFirstSegment reports whether the first segment of a site path is a
+// route of its own (media, api, sitemap files, ...): such paths are shared by
+// every locale and never take a locale prefix.
+func reservedFirstSegment(p string) bool {
+	first, _, _ := strings.Cut(strings.TrimPrefix(p, "/"), "/")
+	first = strings.ToLower(first)
+	if i := strings.LastIndexByte(first, '.'); i > 0 {
+		first = first[:i]
+	}
+	return first != "" && reservedSegmentReason(first) != ""
 }
 
 // isSharedPage reports whether the page belongs to no locale: an entity stored
@@ -77,7 +104,7 @@ func homeAlternates(snap *entity.URLSnapshot, set *entity.LocaleSet, baseURL, cu
 	var alts []render.Alternate
 	for _, tag := range set.PublicTags() {
 		alts = append(alts, render.Alternate{
-			Locale: tag, Lang: tag, Href: baseURL + snap.WithLocale(tag, "/"),
+			Locale: tag, Lang: tag, Name: set.DisplayName(tag), Href: baseURL + snap.WithLocale(tag, "/"),
 			Current: tag == current, Default: tag == set.Default(),
 		})
 	}
@@ -108,7 +135,7 @@ func (s *Server) alternatesFor(ctx context.Context, snap *entity.URLSnapshot, ba
 	}
 	var alts []render.Alternate
 	for _, tag := range set.PublicTags() {
-		a := render.Alternate{Locale: tag, Lang: tag, Current: tag == ent.Locale, Default: tag == set.Default()}
+		a := render.Alternate{Locale: tag, Lang: tag, Name: set.DisplayName(tag), Current: tag == ent.Locale, Default: tag == set.Default()}
 		if href, ok := hrefs[tag]; ok {
 			a.Href = href
 		} else {

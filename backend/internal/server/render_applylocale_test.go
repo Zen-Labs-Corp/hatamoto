@@ -105,3 +105,45 @@ func TestApplyLocale_SetsSegment(t *testing.T) {
 		t.Errorf("one locale: Locales = %+v, want nil", v.Locales)
 	}
 }
+
+func TestApplyLocale_LocaleNamesAndSharedPaths(t *testing.T) {
+	lookup := func(*entity.LocaleSet, string) (*render.BusinessView, string) { return nil, "" }
+	set, err := entity.NewLocaleSet("en", []entity.LocaleEntry{
+		{Tag: "en"},
+		{Tag: "fr", Segment: "fr", Name: "Francais"},
+		{Tag: "es", Segment: "es"},
+	}, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := entity.NewURLRegistry(pageSchemaLister{}, nil)
+	reg.SetLocales(func(context.Context) (*entity.LocaleSet, error) { return set, nil })
+	snap, err := reg.Snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct{ locale, want string }{{"fr", "Francais"}, {"es", "Spanish"}} {
+		v := &render.PageView{}
+		rr := &routeResult{Kind: resolveKindEntity, Locale: tt.locale, Page: &PublicPageResponse{Entity: &entity.Entity{Locale: tt.locale}}}
+		(&Server{}).applyLocaleSnap(context.Background(), snap, rr, v, "https://example.test", lookup)
+		if v.LocaleName != tt.want {
+			t.Errorf("%s: LocaleName = %q, want %q", tt.locale, v.LocaleName, tt.want)
+		}
+		if v.KeepLocale {
+			t.Errorf("%s: KeepLocale on without site settings", tt.locale)
+		}
+		if v.LocaleShared == nil || !v.LocaleShared("/media/x.png") || !v.LocaleShared("/sitemap.xml") || v.LocaleShared("/contact") {
+			t.Errorf("%s: LocaleShared misclassifies paths", tt.locale)
+		}
+	}
+	shared := &render.PageView{}
+	(&Server{}).applyLocaleSnap(context.Background(), snap, &routeResult{Kind: resolveKindEntity, Locale: "en", Page: &PublicPageResponse{Entity: &entity.Entity{Locale: entity.LocaleShared}}}, shared, "https://example.test", lookup)
+	if shared.LocaleName != "" {
+		t.Errorf("shared page LocaleName = %q, want empty", shared.LocaleName)
+	}
+	one := &render.PageView{}
+	(&Server{}).applyLocaleSnap(context.Background(), snap.WithLocaleSet(nil), &routeResult{Locale: "en"}, one, "https://example.test", lookup)
+	if one.LocaleName != "" {
+		t.Errorf("one locale: LocaleName = %q, want empty", one.LocaleName)
+	}
+}
