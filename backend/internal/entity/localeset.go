@@ -5,6 +5,9 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"golang.org/x/text/language"
+	"golang.org/x/text/language/display"
 )
 
 // maxLocaleSegmentLen bounds a locale URL segment.
@@ -219,6 +222,24 @@ func (s *LocaleSet) Name(tag string) string {
 		}
 	}
 	return ""
+}
+
+// DisplayName returns the stored name of tag, else the English language name
+// of the tag, else the tag itself. It is "" for the empty tag, the shared
+// marker and a nil set.
+func (s *LocaleSet) DisplayName(tag string) string {
+	if s == nil || tag == "" || tag == LocaleShared {
+		return ""
+	}
+	if n := s.Name(tag); n != "" {
+		return n
+	}
+	if t, err := language.Parse(tag); err == nil {
+		if n := display.English.Languages().Name(t); n != "" {
+			return n
+		}
+	}
+	return tag
 }
 
 // Entries returns the locales with normalized tags in settings order (a copy).
