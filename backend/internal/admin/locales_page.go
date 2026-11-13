@@ -224,7 +224,7 @@ func (a *Admin) handleLocales(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
 		return
 	}
-	a.renderLocalesEntry(w, r, http.StatusOK, cfg, a.newVisitorEntryForm(cfg.VisitorEntry.Enabled, cfg.VisitorEntry.Paths, cfg.VisitorEntry.LegacyCookie, ""))
+	a.renderLocalesEntry(w, r, http.StatusOK, cfg, a.newVisitorEntryForm(cfg.VisitorEntry.Enabled, cfg.VisitorEntry.KeepLocale, cfg.VisitorEntry.Paths, cfg.VisitorEntry.LegacyCookie, ""))
 }
 
 // renderLocalesEntry renders the Locales tab with entry as the Visitor entry

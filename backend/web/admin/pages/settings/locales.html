@@ -9,6 +9,7 @@
 <button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
 {{template "hm/card-start" dict "ID" "visitor-entry" "Title" "Visitor entry" "Heading" "h2" "Description" "Send visitors who open your site's home page, or a path below, to the locale that suits them. Off by default: nothing changes until you turn it on."}}
 {{template "hm/field" dict "ID" "entry-enabled" "Name" "enabled" "Label" "Send visitors of / to their locale" "Control" "switch" "Value" "true" "OffValue" "false" "Checked" .Enabled "Help" "Saved choice, then country, then the default locale."}}
+{{template "hm/field" dict "ID" "entry-keep-locale" "Name" "keep_locale" "Label" "Keep visitors in their locale" "Control" "switch" "Value" "true" "OffValue" "false" "Checked" .KeepLocale "Help" "Adds the locale to links that point to other pages."}}
 <p class="hm-muted">Entry paths go to /&lt;locale&gt;&lt;path&gt;, for example /contact-form.</p>
 {{range .Rows}}{{template "hm/field" dict "ID" .ID "Name" "entry_path" "Label" .Label "Value" .Value "Error" .Error "Attrs" (attrmap "autocomplete" "off" "spellcheck" "false" "autocapitalize" "none")}}
 {{if .Removable}}{{template "hm/button" dict "Label" "Remove" "Type" "submit" "Size" "sm" "AriaLabel" (printf "Remove %s" .Value) "Attrs" (attrmap "name" "remove_entry_path" "value" .Index "formnovalidate" "formnovalidate")}}

@@ -34,26 +34,57 @@ func entryPost(g *ownerRig, token string, kv url.Values) (int, string) {
 func TestVisitorEntrySavesAndReloads(t *testing.T) {
 	t.Parallel()
 	g, site := entryRig(t)
-	code, _ := entryPost(g, "owner-token", url.Values{"enabled": {"true"}, "entry_path": {"/contact-form", "", "/pricing"}, "legacy_cookie": {" old_loc "}})
+	code, _ := entryPost(g, "owner-token", url.Values{"enabled": {"true"}, "keep_locale": {"true"}, "entry_path": {"/contact-form", "", "/pricing"}, "legacy_cookie": {" old_loc "}})
 	if code != 303 {
 		t.Fatalf("code = %d", code)
 	}
 	v := site.cfg.VisitorEntry
-	if !v.Enabled || strings.Join(v.Paths, ",") != "/contact-form,/pricing" || v.LegacyCookie != "old_loc" || g.flushed != 1 {
+	if !v.Enabled || strings.Join(v.Paths, ",") != "/contact-form,/pricing" || v.LegacyCookie != "old_loc" || !v.KeepLocale || g.flushed != 1 {
 		t.Errorf("stored = %+v flushed=%d", v, g.flushed)
 	}
 	body := g.do("GET", "/admin/settings/locales", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{`id="visitor-entry-form"`, `value="/contact-form"`, `value="/pricing"`, `value="old_loc"`, "Send visitors of / to their locale", "Switcher link:"} {
+	for _, want := range []string{`id="visitor-entry-form"`, `value="/contact-form"`, `value="/pricing"`, `value="old_loc"`, "Send visitors of / to their locale", "Switcher link:", "Keep visitors in their locale"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("panel lacks %q", want)
 		}
 	}
-	if strings.Contains(body, "Keep visitors in their locale") {
-		t.Error("the panel shows a row that belongs to another part")
+	if !keepLocaleChecked(body) {
+		t.Error("the saved keep_locale switch is not checked on reload")
 	}
 	_, form, _ := strings.Cut(body, `id="visitor-entry-form"`)
 	if _, afterInput, _ := strings.Cut(form, "<input"); !strings.HasPrefix(afterInput, ` type="hidden" name="_csrf"`) {
 		t.Error("the csrf field is not the first field of the form")
+	}
+}
+
+// keepLocaleChecked reports whether the keep-locale switch renders checked.
+func keepLocaleChecked(body string) bool {
+	_, rest, ok := strings.Cut(body, `id="entry-keep-locale"`)
+	if !ok {
+		return false
+	}
+	tag, _, _ := strings.Cut(rest, ">")
+	return strings.Contains(tag, "checked")
+}
+
+func TestVisitorEntryKeepLocaleDefaultsOffAndSurvivesRowButtons(t *testing.T) {
+	t.Parallel()
+	g, site := entryRig(t)
+	body := g.do("GET", "/admin/settings/locales", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `id="entry-keep-locale"`) || keepLocaleChecked(body) {
+		t.Error("the keep-locale switch must be present and off by default")
+	}
+	_, body = entryPost(g, "owner-token", url.Values{"keep_locale": {"true"}, "entry_path": {"/a", ""}, "add_entry_path": {"1"}})
+	if !keepLocaleChecked(body) {
+		t.Error("add row lost the keep-locale switch")
+	}
+	_, body = entryPost(g, "owner-token", url.Values{"keep_locale": {"true"}, "entry_path": {"/bad"}})
+	if !keepLocaleChecked(body) || site.cfg.VisitorEntry.KeepLocale {
+		t.Error("a rejected save must keep the posted switch and store nothing")
+	}
+	entryPost(g, "owner-token", url.Values{"keep_locale": {"false"}, "entry_path": {"/a"}})
+	if site.cfg.VisitorEntry.KeepLocale {
+		t.Error("an off switch saved as on")
 	}
 }
 

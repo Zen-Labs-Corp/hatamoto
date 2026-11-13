@@ -26,9 +26,11 @@ type entryRow struct {
 // wide switch, the entry paths and the old cookie name.
 type visitorEntryForm struct {
 	Enabled bool
-	Rows    []entryRow
-	Cookie  string
-	Action  string
+	// KeepLocale is the "keep visitors in their locale" switch.
+	KeepLocale bool
+	Rows       []entryRow
+	Cookie     string
+	Action     string
 	// CookieError is the message shown on the old cookie name field.
 	CookieError string
 	Summary     []ui.FieldError
@@ -37,8 +39,8 @@ type visitorEntryForm struct {
 // newVisitorEntryForm lays out paths as one input each, plus one blank row to
 // type a new path into. errMsg is the validation message to show, placed on
 // the cookie field when it is about the cookie and on the first path otherwise.
-func (a *Admin) newVisitorEntryForm(enabled bool, paths []string, cookie, errMsg string) visitorEntryForm {
-	f := visitorEntryForm{Enabled: enabled, Cookie: cookie, Action: a.url("settings", "locales", "entry")}
+func (a *Admin) newVisitorEntryForm(enabled, keepLocale bool, paths []string, cookie, errMsg string) visitorEntryForm {
+	f := visitorEntryForm{Enabled: enabled, KeepLocale: keepLocale, Cookie: cookie, Action: a.url("settings", "locales", "entry")}
 	for i, p := range append(slices.Clone(paths), "") {
 		n := strconv.Itoa(i)
 		row := entryRow{ID: "entry-path-" + n, Label: "Entry path " + strconv.Itoa(i+1), Value: p, Index: n, Removable: p != ""}
@@ -85,6 +87,7 @@ func (a *Admin) handleVisitorEntrySave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	enabled, cookie := r.PostFormValue("enabled") == "true", strings.TrimSpace(r.PostFormValue("legacy_cookie"))
+	keep := r.PostFormValue("keep_locale") == "true"
 	paths := postedEntryPaths(r)
 	if i, err := strconv.Atoi(r.PostFormValue("remove_entry_path")); err == nil {
 		// Index into the posted rows, blank ones included.
@@ -98,20 +101,20 @@ func (a *Admin) handleVisitorEntrySave(w http.ResponseWriter, r *http.Request) {
 				paths = append(paths, p)
 			}
 		}
-		a.renderLocalesEntry(w, r, http.StatusOK, cfg, a.newVisitorEntryForm(enabled, paths, cookie, ""))
+		a.renderLocalesEntry(w, r, http.StatusOK, cfg, a.newVisitorEntryForm(enabled, keep, paths, cookie, ""))
 		return
 	}
 	if r.PostForm.Has("add_entry_path") {
 		// The blank row the panel always ends with is already there: keep what
 		// was typed and add one more blank row beside it.
-		f := a.newVisitorEntryForm(enabled, paths, cookie, "")
+		f := a.newVisitorEntryForm(enabled, keep, paths, cookie, "")
 		f.Rows = append(f.Rows, entryRow{ID: "entry-path-" + strconv.Itoa(len(f.Rows)), Label: "Entry path " + strconv.Itoa(len(f.Rows)+1), Index: strconv.Itoa(len(f.Rows))})
 		a.renderLocalesEntry(w, r, http.StatusOK, cfg, f)
 		return
 	}
-	v, err := a.deps.ValidateVisitorEntry(r.Context(), cfg.Locales, localeSetOf(cfg).Default(), cfg.PrefixAll, siteconfig.VisitorEntry{Enabled: enabled, Paths: paths, LegacyCookie: cookie})
+	v, err := a.deps.ValidateVisitorEntry(r.Context(), cfg.Locales, localeSetOf(cfg).Default(), cfg.PrefixAll, siteconfig.VisitorEntry{Enabled: enabled, Paths: paths, LegacyCookie: cookie, KeepLocale: keep})
 	if err != nil {
-		a.renderLocalesEntry(w, r, http.StatusUnprocessableEntity, cfg, a.newVisitorEntryForm(enabled, paths, cookie, err.Error()))
+		a.renderLocalesEntry(w, r, http.StatusUnprocessableEntity, cfg, a.newVisitorEntryForm(enabled, keep, paths, cookie, err.Error()))
 		return
 	}
 	if _, err := a.deps.Site.Update(r.Context(), siteconfig.UpdateInput{VisitorEntry: &v}); err != nil {
