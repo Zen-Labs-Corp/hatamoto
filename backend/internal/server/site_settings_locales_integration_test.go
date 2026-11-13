@@ -239,3 +239,32 @@ func TestLocaleSegmentChecks_StoredFileNameSegment_Integration(t *testing.T) {
 		t.Error("new index segment accepted")
 	}
 }
+
+// Saving the locale list re-checks the stored visitor entry paths: a segment
+// that starts one is refused, with the error on the locales field.
+func TestLocaleSegmentChecks_StoredEntryPath_Integration(t *testing.T) {
+	srv, ctx := localeCheckServer(t)
+	var prev []byte
+	hadSite := srv.db.Pool().QueryRow(ctx, `SELECT locales FROM hatamoto_site_config`).Scan(&prev) == nil
+	if _, err := srv.db.Pool().Exec(ctx, `INSERT INTO hatamoto_site_config (company_name, language, locales, visitor_entry) VALUES ('Segment IT', 'en', $1::jsonb, $2::jsonb)
+		ON CONFLICT (id) DO UPDATE SET language = 'en', locales = EXCLUDED.locales, visitor_entry = EXCLUDED.visitor_entry`,
+		`[{"tag":"en","segment":""},{"tag":"fr","segment":"fr"}]`, `{"enabled":true,"paths":["/es/landing"]}`); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		c := context.Background()
+		if hadSite {
+			_, _ = srv.db.Pool().Exec(c, `UPDATE hatamoto_site_config SET locales=$1::jsonb, visitor_entry='{}'`, string(prev))
+		} else {
+			_, _ = srv.db.Pool().Exec(c, `DELETE FROM hatamoto_site_config`)
+		}
+	})
+	srv.siteConfig.Invalidate()
+	_, _, err := validateLocaleSettings(ctx, localeSettingsRequest{
+		Default: "en", Entries: []siteconfig.LocaleEntry{{Tag: "en"}, {Tag: "fr", Segment: "fr"}, {Tag: "es", Segment: "es"}},
+	}, srv.checkLocaleSegments)
+	var le *localeSettingsError
+	if !errors.As(err, &le) || le.Field != "locales" || !strings.Contains(le.Message, "entry path") {
+		t.Fatalf("err = %v, want a locales field error naming the entry path", err)
+	}
+}

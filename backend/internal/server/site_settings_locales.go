@@ -131,6 +131,9 @@ func (s *Server) checkLocaleSegments(ctx context.Context, segments []string) err
 		for _, e := range cfg.Locales {
 			stored[e.Segment] = true
 		}
+		if err := entryPathUnderSegment(cfg.VisitorEntry.Paths, segments); err != nil {
+			return err
+		}
 	}
 	snap := s.urlSnapshot(ctx)
 	taken := map[string]string{}
@@ -328,6 +331,19 @@ func validateVisitorEntry(segments []string, v siteconfig.VisitorEntry, apiPrefi
 		out.Paths = append(out.Paths, p)
 	}
 	return out, nil
+}
+
+// entryPathUnderSegment refuses a locale list whose segment equals, or is the
+// first segment of, a stored visitor entry path: that path would become the
+// locale's own page, and the entry redirect would send its visitors to a 404.
+func entryPathUnderSegment(paths, segments []string) error {
+	for _, p := range paths {
+		first, _, _ := strings.Cut(strings.TrimPrefix(p, "/"), "/")
+		if slices.Contains(segments, first) {
+			return fmt.Errorf("segment %q is the start of the visitor entry path %q; remove or change that entry path first", first, p)
+		}
+	}
+	return nil
 }
 
 // localeSegments are the non-empty URL segments of entries.

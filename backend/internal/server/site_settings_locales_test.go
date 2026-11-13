@@ -407,3 +407,21 @@ func TestValidateVisitorEntry(t *testing.T) {
 		t.Errorf("valid entry: %+v, %v", got, err)
 	}
 }
+
+// A locale list is refused when one of its segments equals, or starts, a stored
+// visitor entry path, and accepted when none does.
+func TestEntryPathUnderSegment(t *testing.T) {
+	paths := []string{"/contact", "/es/landing", "/pricing/plans"}
+	for _, seg := range []string{"contact", "es", "pricing"} {
+		err := entryPathUnderSegment(paths, []string{"fr", seg})
+		if err == nil || !strings.Contains(err.Error(), "entry path") || !strings.Contains(err.Error(), `"`+seg+`"`) {
+			t.Errorf("segment %q: err = %v, want an entry path refusal", seg, err)
+		}
+	}
+	if err := entryPathUnderSegment(paths, []string{"fr", "en"}); err != nil {
+		t.Errorf("unrelated segments refused: %v", err)
+	}
+	if err := entryPathUnderSegment(nil, []string{"fr"}); err != nil {
+		t.Errorf("no entry paths refused: %v", err)
+	}
+}
