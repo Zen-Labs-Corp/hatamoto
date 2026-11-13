@@ -74,7 +74,7 @@ func TestLazyLayoutBuildsOnce(t *testing.T) {
 	if !c.has("home") {
 		t.Fatal("default theme has no home layout")
 	}
-	before := layoutBuilds.Load()
+	before := c.builds.Load()
 	const n = 32
 	entries := make([]*layoutEntry, n)
 	var wg sync.WaitGroup
@@ -91,7 +91,7 @@ func TestLazyLayoutBuildsOnce(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	if got := layoutBuilds.Load() - before; got != 1 {
+	if got := c.builds.Load() - before; got != 1 {
 		t.Fatalf("builds = %d, want 1", got)
 	}
 	for _, le := range entries {

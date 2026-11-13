@@ -183,6 +183,8 @@ type compiled struct {
 	layerSrc map[layoutKey]string
 	// layouts is immutable after compileChain; each slot builds once.
 	layouts map[layoutKey]*layoutSlot
+	// builds counts on-demand layout builds of this chain (not the activation checks).
+	builds  atomic.Int64
 	assets  http.Handler
 	cssName string
 	hasJS   bool
@@ -205,9 +207,6 @@ type layoutSlot struct {
 	e    *layoutEntry
 	err  error
 }
-
-// layoutBuilds counts on-demand layout builds (not the activation checks).
-var layoutBuilds atomic.Int64
 
 // buildLayout clones root, parses the layout source into the clone and wraps
 // its content slot. It is the single definition of a layout, used both to
@@ -241,7 +240,7 @@ func (c *compiled) layout(k layoutKey) (le *layoutEntry, ok bool, err error) {
 		return nil, false, nil
 	}
 	ls.once.Do(func() {
-		layoutBuilds.Add(1)
+		c.builds.Add(1)
 		ls.e, ls.err = buildLayout(c.root, c.theme, k.name, c.layerSrc[k])
 	})
 	return ls.e, true, ls.err
