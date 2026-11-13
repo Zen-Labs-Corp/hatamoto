@@ -459,33 +459,24 @@ type FAQItem struct {
 // wraps the result in a @graph array that includes both the entity's own
 // JSON-LD and a FAQPage object.
 func GenerateJSONLDWithFAQ(ent *Entity, baseURL string, faqItems []FAQItem) (map[string]any, error) {
-	return generateJSONLDWithFAQ(ent, baseURL, faqItems, true)
-}
-
-// GenerateJSONLDWithFAQUnenriched is GenerateJSONLDWithFAQ without the
-// jsonld.enrich hook; see GenerateJSONLDUnenriched. The hook then sees the
-// whole result, @graph included, not only the entity node.
-func GenerateJSONLDWithFAQUnenriched(ent *Entity, baseURL string, faqItems []FAQItem) (map[string]any, error) {
-	return generateJSONLDWithFAQ(ent, baseURL, faqItems, false)
-}
-
-func generateJSONLDWithFAQ(ent *Entity, baseURL string, faqItems []FAQItem, enrich bool) (map[string]any, error) {
-	// Generate the base JSON-LD
-	baseJSONLD, err := GenerateJSONLDUnenriched(ent, baseURL)
+	baseJSONLD, err := GenerateJSONLD(ent, baseURL)
 	if err != nil {
 		return nil, err
 	}
-	if enrich && baseJSONLD != nil {
-		EnrichJSONLD(ent, baseURL, baseJSONLD)
-	}
+	return WrapFAQ(baseJSONLD, faqItems), nil
+}
 
+// WrapFAQ puts the FAQPage of faqItems next to the entity node in a @graph.
+// It returns baseJSONLD unchanged when there are no items or the entity is
+// already a FAQPage.
+func WrapFAQ(baseJSONLD map[string]any, faqItems []FAQItem) map[string]any {
 	if len(faqItems) == 0 {
-		return baseJSONLD, nil
+		return baseJSONLD
 	}
 
 	// If the entity is already a FAQPage, do not add a second one
 	if entityType, ok := baseJSONLD["@type"].(string); ok && entityType == "FAQPage" {
-		return baseJSONLD, nil
+		return baseJSONLD
 	}
 
 	// Build FAQPage JSON-LD
@@ -518,7 +509,7 @@ func generateJSONLDWithFAQ(ent *Entity, baseURL string, faqItems []FAQItem, enri
 		},
 	}
 
-	return graphJSONLD, nil
+	return graphJSONLD
 }
 
 // EditorialProvenance represents the editorial metadata stored on an entity.

@@ -8,9 +8,10 @@ import (
 )
 
 // buildPageJSONLD is the JSON-LD document of an entry page, shared by the
-// HTML and the Accept: application/ld+json responses: the generated document
-// (plus FAQPage), the canonical rewrite, the author, the WebPage switch of
-// the schema or entry, then the jsonld.enrich hook. noBreadcrumbLD says the BreadcrumbList script must
+// HTML and the Accept: application/ld+json responses: the generated entity
+// node, author_from, the jsonld.enrich hook (on the flat entity node), the
+// FAQPage wrap, the canonical rewrite, the byline credits, then the WebPage
+// switch of the schema or entry. noBreadcrumbLD says the BreadcrumbList script must
 // be left out; the visible trail is not affected. It is set even when
 // generation fails.
 func buildPageJSONLD(ctx context.Context, ent *entity.Entity, baseURL, pagePath string, faqItems []entity.FAQItem, by *bylines) (doc map[string]any, noBreadcrumbLD bool, err error) {
@@ -23,22 +24,23 @@ func buildPageJSONLD(ctx context.Context, ent *entity.Entity, baseURL, pagePath 
 	sw := entity.ResolveNodeSwitches(st, attrs)
 	noBreadcrumbLD = sw.Breadcrumb != nil && !*sw.Breadcrumb
 
-	doc, err = entity.GenerateJSONLDWithFAQUnenriched(ent, baseURL, faqItems)
+	doc, err = entity.GenerateJSONLDUnenriched(ent, baseURL)
 	if err != nil {
 		return nil, noBreadcrumbLD, err
 	}
+	by.applyAuthorFrom(ctx, ent, st, baseURL, doc)
+	// The hook sees the entity node, after author_from and before the FAQPage
+	// wrap, the canonical rewrite and the byline, as it always did.
+	if doc != nil {
+		entity.EnrichJSONLD(ent, baseURL, doc)
+	}
+	doc = entity.WrapFAQ(doc, faqItems)
 	if ent.Schema != nil {
 		entity.ApplyCanonicalToJSONLD(doc, ent.Schema.Slug, baseURL+pagePath)
 	}
-	by.applyAuthorFrom(ctx, ent, st, baseURL, doc)
 	by.applyJSONLD(ctx, ent.ID, baseURL, doc)
 	if sw.WebPage != nil {
 		doc = switchWebPage(doc, *sw.WebPage, ent.Name, baseURL, pagePath)
-	}
-	// Last, so a jsonld.enrich plugin sees the final document and keeps the
-	// last word. On the success path only, and not for a dropped document.
-	if doc != nil {
-		entity.EnrichJSONLD(ent, baseURL, doc)
 	}
 	return doc, noBreadcrumbLD, nil
 }
