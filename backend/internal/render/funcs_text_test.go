@@ -50,6 +50,10 @@ func TestPlainText(t *testing.T) {
 		{"blank paragraph", "<p>&nbsp;</p>", ""},
 		{"script dropped", "x<script>alert(1)</script>y", "xy"},
 		{"template.HTML", template.HTML("<p>hi <b>there</b></p>"), "hi there"},
+		{"empty", "", ""},
+		{"whitespace only", " \t\n ", ""},
+		{"int", 42, "42"},
+		{"invalid utf-8", "a\xffb <b>c</b>", "a\xffb c"},
 	}
 	for _, tc := range tests {
 		if got := plainTextFn(tc.in); got != tc.want {

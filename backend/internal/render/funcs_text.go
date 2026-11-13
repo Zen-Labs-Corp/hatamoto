@@ -15,7 +15,8 @@ import (
 
 var rawBlockRe = regexp.MustCompile(`(?is)<(script|style)\b.*?(?:</(?:script|style)\s*>|$)`)
 
-// plainTextMax is the richtext field limit, so nothing is cut.
+// plainTextMax is the most characters (runes) plainText keeps; it is far above
+// typical field sizes, so ordinary content is not cut.
 const plainTextMax = 100000
 
 // plainTextFn returns v as plain text: block tags become spaces, entities are
