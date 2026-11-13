@@ -107,6 +107,7 @@ func TestValidateCodes(t *testing.T) {
 		{"bad sitemap_naming", func(p *Plan) { p.SitemapNaming = "flat" }, CodeBadSitemapNaming},
 		{"reserved index", func(p *Plan) { p.Locales[0].Segment = "index" }, CodeReservedSegment},
 		{"reserved misc", func(p *Plan) { p.Locales[0].Segment = "misc" }, CodeReservedSegment},
+		{"reserved locale", func(p *Plan) { p.Locales[0].Segment = "locale" }, CodeReservedSegment},
 		{"bad on_conflict", func(p *Plan) { p.Home.OnConflict = "skip" }, CodeBadOnConflict},
 	}
 	for _, tc := range cases {

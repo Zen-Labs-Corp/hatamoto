@@ -12,6 +12,7 @@ import (
 var redirectOwned = []string{
 	"admin", "mcp", "uploads", "sitemap.xsl", "-",
 	"favicon-16.png", "favicon-32.png", "apple-icon.png", "icon-192.png", "icon-512.png",
+	"locale",
 }
 
 // RedirectPathRefusal returns "" when a plugin may declare p as a
