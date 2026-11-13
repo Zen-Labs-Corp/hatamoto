@@ -76,6 +76,16 @@ type PageView struct {
 	// Segment is the stored URL segment of Locale ("" when unprefixed or on a
 	// one-locale site).
 	Segment string
+	// LocaleName is the display name of Locale ("" on a one-locale site and on
+	// shared pages).
+	LocaleName string
+	// KeepLocale is the site setting that gives url-kind section fields the
+	// locale segment at render time.
+	KeepLocale bool `json:"-"`
+	// LocaleShared reports whether a site-relative path is shared by every
+	// locale and so never takes a prefix. The server injects it; nil means
+	// nothing is shared.
+	LocaleShared func(path string) bool `json:"-"`
 	// Alternates lists the page in every configured locale, in settings order.
 	// It is nil on a one-locale site. XDefaultHref is the absolute URL for the
 	// hreflang x-default entry ("" for none).
@@ -763,8 +773,10 @@ type PageMeta struct {
 // Href is then that locale's home, and no hreflang is emitted for it. Default
 // marks the site's default locale.
 type Alternate struct {
-	Locale  string
-	Lang    string
+	Locale string
+	Lang   string
+	// Name is the locale's display name.
+	Name    string
 	Href    string
 	Current bool
 	Missing bool
