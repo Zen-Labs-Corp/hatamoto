@@ -117,7 +117,7 @@ func TestBuildPageJSONLDBreadcrumbSwitch(t *testing.T) {
 
 // A section list reaches the page as FAQPage: from page_doc and legacy sections.
 func TestPageFAQItemsFromSections(t *testing.T) {
-	doc := `{"page_doc":{"v":2,"nodes":[{"id":"a","t":"component","p":{"faq":[{"question":"Where?","answer":"<p>Here.</p>"}]}}]}}`
+	doc := `{"page_doc":{"v":2,"nodes":[{"id":"a","t":"component","p":{"content":{"faq":[{"question":"Where?","answer":"<p>Here.</p>"}]}}}]}}`
 	legacy := `{"page_sections":[{"type":"faq","content":{"faq":[{"question":"When?","answer":"Now."}]}}]}`
 	for name, attrs := range map[string]string{"page_doc": doc, "page_sections": legacy} {
 		ent := pageLDEntity("page", `{}`, attrs)
