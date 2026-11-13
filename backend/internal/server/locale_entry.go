@@ -62,7 +62,7 @@ func (s *Server) localeEntryFrom(next http.Handler, load func(context.Context) (
 			next.ServeHTTP(w, r)
 			return
 		}
-		if p == "/locale" {
+		if p == "/locale" && !hasLocaleSegment(st.set, "locale") {
 			s.localeSwitch(w, r, st.set)
 			return
 		}
@@ -96,6 +96,19 @@ func (s *Server) localeEntryFrom(next http.Handler, load func(context.Context) (
 		h.Add("Vary", localeEntryVary)
 		w.WriteHeader(http.StatusFound)
 	})
+}
+
+// hasLocaleSegment reports whether any locale, public or hidden, uses seg as
+// its URL segment. An install that kept the segment "locale" from before the
+// switcher existed serves that locale's home at /locale, so the switcher stays
+// off there.
+func hasLocaleSegment(set *entity.LocaleSet, seg string) bool {
+	for _, e := range set.Entries() {
+		if e.Segment == seg {
+			return true
+		}
+	}
+	return false
 }
 
 // pickEntryLocale is the locale tag a visitor lands on: a public locale, the

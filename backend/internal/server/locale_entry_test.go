@@ -184,3 +184,22 @@ func TestLocaleEntryDispatchesTheSwitcher(t *testing.T) {
 		t.Errorf("single-locale site: /locale served %d times by next, want 1", rig.served)
 	}
 }
+
+// A locale that kept the segment "locale" owns /locale: the switcher stays off
+// and the request reaches the mux, public or hidden locale alike.
+func TestLocaleEntryLeavesALocaleSegmentLocaleAlone(t *testing.T) {
+	for _, hidden := range []bool{false, true} {
+		set, err := entity.NewLocaleSet("en", []entity.LocaleEntry{
+			{Tag: "en"},
+			{Tag: "fr", Segment: "locale", Hidden: hidden},
+		}, false, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		rig := newEntryRig(t, set, siteconfig.VisitorEntry{}, true)
+		rec := rig.do(entryReq{target: "/locale"})
+		if rig.served != 1 || rec.Code != http.StatusOK || rec.Header().Get("Set-Cookie") != "" {
+			t.Errorf("hidden=%v: served %d, status %d, cookie %q", hidden, rig.served, rec.Code, rec.Header().Get("Set-Cookie"))
+		}
+	}
+}

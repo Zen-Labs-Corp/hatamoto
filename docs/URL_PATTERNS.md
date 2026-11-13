@@ -191,7 +191,9 @@ own URL segment (free text: `fr-CA` may use `fr`), a default locale (the site
   `..` segment, `?` or `#`, a byte of 0x20 or below or 0x7f, or more than 2048
   bytes. An unknown or hidden `l` answers `404` and sets no cookie.
   `Cache-Control: private, no-store`. A page whose slug is `locale` on a
-  multi-locale site is shadowed by it.
+  multi-locale site is shadowed by it. An install that already stores a locale
+  (public or hidden) with the segment `locale` keeps that locale's home at
+  `/locale`: the switcher is unavailable there until the segment is changed.
 
 Sitemaps, search, feeds and llms.txt follow the visible locale; see
 [Sitemaps](site/ai-seo/sitemaps.md) for the per-locale files.
