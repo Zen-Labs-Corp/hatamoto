@@ -1,5 +1,13 @@
 # Release notes
 
+## Unreleased: Visitors of / land in their own locale
+
+- **Visitor entry.** Settings > Locales has a **Visitor entry** panel for sites with two or more locales. Turn on **Send visitors of / to their locale** and `/`, and any entry paths you list, answer `302` to the visitor's locale: the saved choice first, then the country from the CDN header (`CF-IPCountry` or `CloudFront-Viewer-Country`) matched against the new per-locale **Countries**, then the default locale. The response is never shared-cacheable. An optional old cookie name is read when the visitor has no saved choice.
+- **Switcher.** `GET /locale?l=<segment>&to=<path>` saves the choice in the `hm_locale` cookie and redirects to a same-site path under that locale. The segment `locale` is now reserved: a locale cannot take it, a plugin cannot declare `/locale` in `redirect_paths`, and a page with the slug `locale` on a multi-locale site is shadowed by the switcher.
+- **REST.** `GET` and `PATCH /api/v1/settings/site` gain `visitor_entry` (`enabled`, `paths`, `legacy_cookie`), and each locale entry gains `countries`. Both are additive; existing fields are unchanged.
+- **Nothing changes until the setting is on.** With it off, and on a one-locale site, there is no redirect and no new header; stored locales stay as they were.
+- **Migration.** Adds the `visitor_entry` column (default `{}`) to `hatamoto_site_config`. Rollback floor: unchanged; an older release ignores the column and the countries.
+
 ## Unreleased: plugin camera on the admin page
 
 - **Camera.** A plugin whose manifest declares `"ui": {"allow": ["camera"]}` can ask for one photo with `hatamoto.camera.capture()`. Core opens its own capture dialog on the admin page, the person clicks **Capture**, and the page gets one JPEG (at most 1280 px, about 1 MB) or `cancelled`, `denied` or `unavailable`. The owner ticks the camera switch on the install prompt or the plugin's Permissions tab; it is off by default, kept on update and revoked on uninstall. The page's sandbox and CSP are unchanged, and the camera policy is sent only on granted plugin pages.
