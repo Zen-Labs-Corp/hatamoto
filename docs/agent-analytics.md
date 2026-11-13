@@ -258,9 +258,10 @@ counts can drop slightly. The script itself sends nothing when
 spike of automated browsers seen on one site in October.
 
 **Countries.** Country needs a database you supply and is off otherwise.
-Set `HATAMOTO_GEOIP_DB` to the path of a country `.mmdb` file. It is read once
-at boot (up to 256 MB, a regular file, loaded into memory), so **restart to
-reload** it; replace the file by renaming a new one over it. Hatamoto never
+Set `HATAMOTO_GEOIP_DB` to the path of a country `.mmdb` file. It is loaded
+at boot (up to 256 MB, a regular file). The file is checked about once a
+minute, and a replaced file is loaded without a restart; a bad replacement
+keeps the old database. Hatamoto never
 downloads GeoIP data and never reads `CF-IPCountry` or other proxy country
 headers; the lookup uses the same trusted client address as the rest of the
 server and the address is not kept. There is no admin setting for the path.
@@ -269,8 +270,9 @@ GeoLite2 Country (MaxMind account and EULA). You are responsible for the
 licence terms of the file you use. A bad or missing file logs a warning and
 countries stay off. Set `HATAMOTO_GEOIP_MMAP=1` to map the file read-only
 instead of copying it into memory (off by default); then replace it only by
-writing a temporary file and renaming it over the old one, never by
-overwriting it in place.
+writing the new file next to it and renaming it over the old one, never by
+overwriting or truncating it in place with `cp`. With a single-file Docker
+bind mount, mount the directory instead, or restart after updating.
 
 **AI assistants here and on Referrals can differ.** The Traffic channel counts
 visits that arrive with a page load and a beacon. The Referrals tab counts the
