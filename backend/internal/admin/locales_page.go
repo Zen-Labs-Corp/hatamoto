@@ -23,6 +23,7 @@ func (a *Admin) mountLocaleSettings(owner *httpx.Group) {
 	owner.HandleFunc("GET /settings/locales", a.handleLocales)
 	owner.HandleFunc("GET /settings/locales/new", a.handleLocaleNew)
 	owner.HandleFunc("POST /settings/locales/add", a.handleLocaleAdd)
+	owner.HandleFunc("POST /settings/locales/entry", a.handleVisitorEntrySave)
 	owner.HandleFunc("POST /settings/locales/order", a.handleLocaleOrder)
 	owner.HandleFunc("GET /settings/locales/business", a.handleBusiness)
 	owner.HandleFunc("POST /settings/locales/business/{tag}", a.handleBusinessSave)
@@ -119,6 +120,8 @@ type localesData struct {
 	Actions     []ui.Button
 	ShowConvert bool
 	ConvertHref string
+	// Entry is the Visitor entry panel; nil on a site with one locale.
+	Entry *visitorEntryForm
 }
 
 // localeRowActions are the row menu entries of the locale at index i of n.
@@ -221,6 +224,12 @@ func (a *Admin) handleLocales(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The settings could not be loaded.")
 		return
 	}
+	a.renderLocalesEntry(w, r, http.StatusOK, cfg, a.newVisitorEntryForm(cfg.VisitorEntry.Enabled, cfg.VisitorEntry.Paths, cfg.VisitorEntry.LegacyCookie, ""))
+}
+
+// renderLocalesEntry renders the Locales tab with entry as the Visitor entry
+// panel, which only a site with two or more locales shows.
+func (a *Admin) renderLocalesEntry(w http.ResponseWriter, r *http.Request, status int, cfg *siteconfig.Config, entry visitorEntryForm) {
 	d := localesData{
 		Table:       a.localesTable(r, cfg),
 		Form:        a.newLocaleForm(r.Context(), false),
@@ -228,10 +237,13 @@ func (a *Admin) handleLocales(w http.ResponseWriter, r *http.Request) {
 		ShowConvert: a.convertCandidates(r, cfg),
 		ConvertHref: a.convertURL(),
 	}
+	if len(cfg.Locales) >= 2 {
+		d.Entry = &entry
+	}
 	v := a.NewView(w, r, "Locales")
 	v.Section, v.Tab = "locales", "locales"
 	v.Data = d
-	a.Render(w, r, http.StatusOK, "settings/locales", v)
+	a.Render(w, r, status, "settings/locales", v)
 }
 
 func (a *Admin) newLocaleForm(ctx context.Context, public bool) localeForm {

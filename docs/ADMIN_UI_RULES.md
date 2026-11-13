@@ -834,6 +834,8 @@ reason:
 | Consent gates: `pages/settings/plugins.html`, `packageconfirm.html`, `pluginprompt.html` | Acknowledgements, not settings, so they stay checkboxes. |
 | Multi-pick lists: API scopes, webhook events, permissions, content types, terms, table select, media tile select, schemaform clear box | Pick several, so checkboxes are correct. |
 | One-button POST forms in rows, menus and headers (`forms/submission.html`, `linking/suggestions.html`, `partials/pageheader.html`, `pluginhead.html`, `rowmenu.html`, `sidebar.html`, the bulk toolbar in `partials/table.html`) | Not a form footer. Each is one named entry. The webhook row actions (Pause, Resume, Send test, Retry) are `ui.Action{Post}` items rendered by `rowmenu.html`, so they are covered by its entry and need none of their own. |
+| Visitor entry form in `pages/settings/locales.html` | A settings form below the locales table, not a create form; its Add path and Remove buttons only re-render the panel, so it works without JavaScript. |
+| Entry path Remove and Add path buttons in `pages/settings/locales.html` | Row operations of the Visitor entry panel: they re-render the panel without saving, so it needs no JavaScript. |
 | Editor CSS overrides (`blogeditor.css`, `pageeditor.css`, `listbox.css`, `popover.css`) | Editor scope; `editor_polish_test.go` asserts `blogeditor.css`. |
 
 ### How to add an allowlist entry
