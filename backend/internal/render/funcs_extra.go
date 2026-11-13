@@ -54,7 +54,48 @@ func extraFuncs() template.FuncMap {
 		"hasSuffix":  func(s, p any) bool { return strings.HasSuffix(toStr(s), toStr(p)) },
 		"atoi":       toInt,
 		"fromJSON":   fromJSON,
+		// localeURL . "/contact": the path with the page's locale segment
+		// ("/fr/contact"); see LocalizeURL. Fails open to the plain link.
+		"localeURL": localeURLFunc,
 	}
+}
+
+// linksOf reads the locale link inputs from a template's "." the way stringsOf
+// reads strings: a page, a section, a section's .Page or a dict with Segment.
+func linksOf(v any) LocaleLinks {
+	switch p := v.(type) {
+	case *pageData:
+		return p.PageView.LocaleLinks()
+	case pageData:
+		return p.PageView.LocaleLinks()
+	case *preparedSection:
+		return p.Page.Links
+	case preparedSection:
+		return p.Page.Links
+	case *sectionPage:
+		return p.Links
+	case sectionPage:
+		return p.Links
+	case *PageView:
+		return p.LocaleLinks()
+	case map[string]any:
+		seg, _ := p["Segment"].(string)
+		return LocaleLinks{Segment: seg}
+	}
+	return LocaleLinks{}
+}
+
+// localeURLFunc backs localeURL. The result still goes through safeHref, so a
+// protocol-relative or script value becomes "#" exactly as with cta.
+func localeURLFunc(page, raw any) template.URL {
+	var s string
+	switch r := raw.(type) {
+	case string:
+		s = r
+	case template.URL:
+		s = string(r)
+	}
+	return safeHref(LocalizeURL(linksOf(page), s))
 }
 
 // split cuts s at every sep (an empty sep splits into characters), at most

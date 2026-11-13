@@ -806,7 +806,7 @@ func dropScriptSrc(tags []extTag) []extTag {
 // template reads: entity links resolved, form/submit state, theme settings.
 func finishBlock(p *preparedSection, v *PageView, settings map[string]any, strs map[string]string) {
 	p.Content, _ = rewriteLinksIn(p.Content, v.EntityLinks).(map[string]any)
-	p.Page = sectionPage{Forms: v.Forms, PluginDirectory: v.PluginDirectory, ThemeDirectory: v.ThemeDirectory, Path: v.Path, Submitted: v.Submitted, FormError: v.FormError, PageNum: v.PageNum, Params: v.Params, Strings: strs}
+	p.Page = sectionPage{Forms: v.Forms, PluginDirectory: v.PluginDirectory, ThemeDirectory: v.ThemeDirectory, Path: v.Path, Submitted: v.Submitted, FormError: v.FormError, PageNum: v.PageNum, Params: v.Params, Strings: strs, Links: v.LocaleLinks()}
 	p.Settings = settings
 }
 

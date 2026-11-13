@@ -47,6 +47,8 @@ type sectionPage struct {
 	Params  url.Values
 	// Strings are the resolved theme strings (see pageData.Strings).
 	Strings map[string]string
+	// Links are the locale link rule inputs the localeURL func reads.
+	Links LocaleLinks
 }
 
 // CommentHTML returns the unknown-type marker as an HTML comment. Comment is
