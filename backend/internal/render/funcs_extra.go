@@ -27,6 +27,8 @@ func extraFuncs() template.FuncMap {
 	return template.FuncMap{
 		// docBody .Body: the body with ids on h2/h3 plus its .TOC items.
 		"docBody": docBody,
+		// toc .Body: {"html": body with h2 ids, "items": [{ID, Text}]}.
+		"toc": tocFn,
 		// excerpt s n: plain text of s cut to n runes at a word, with "...".
 		"excerpt": excerptFn,
 		// initial s: the first letter of s, upper-cased ("" when none).
