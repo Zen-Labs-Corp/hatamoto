@@ -47,3 +47,5 @@ backend/internal/render/hm_track.js                        backend  ./internal/a
 docs/site/themes/engine-details.md                         backend  ./internal/render
 docs/RELEASE_NOTES.md                                      backend  ./internal/render
 docs/site/admin/settings-users-email.md                    backend  ./internal/render
+docs/THEMES.md                                             backend  ./internal/render
+docs/site/themes/template-funcs.md                        backend  ./internal/render
