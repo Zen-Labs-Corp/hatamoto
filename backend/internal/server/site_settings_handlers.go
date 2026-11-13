@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"time"
 	"unicode/utf8"
 
@@ -37,6 +38,8 @@ type siteSettingsHandlers struct {
 	// checkLocales validates the locale list against the running site (see
 	// Server.checkLocaleSegments); nil runs the pure rules only.
 	checkLocales func(context.Context, []string) error
+	// apiPrefix is the public API prefix ("" = none); entry paths may not sit under it.
+	apiPrefix string
 }
 
 // siteSettingsResponse is the wire shape of GET/PATCH /settings/site.
@@ -55,6 +58,9 @@ type siteSettingsResponse struct {
 	Locales        []siteconfig.LocaleEntry `json:"locales"`
 	PrefixAll      bool                     `json:"prefix_all"`
 	XDefaultLocale string                   `json:"x_default_locale"`
+	// VisitorEntry is the "send visitors of / to their locale" setting; absent
+	// while it is unset, so the response of a site that never used it is unchanged.
+	VisitorEntry *siteconfig.VisitorEntry `json:"visitor_entry,omitempty"`
 	// SitemapNaming is "group" (default) or "legacy" (see siteconfig.Config).
 	SitemapNaming     string                 `json:"sitemap_naming"`
 	Phone             string                 `json:"phone"`
@@ -82,6 +88,7 @@ type siteSettingsPatch struct {
 	Locales           *[]siteconfig.LocaleEntry `json:"locales"`
 	PrefixAll         *bool                     `json:"prefix_all"`
 	XDefaultLocale    *string                   `json:"x_default_locale"`
+	VisitorEntry      *siteconfig.VisitorEntry  `json:"visitor_entry"`
 	SitemapNaming     *string                   `json:"sitemap_naming"`
 	Phone             *string                   `json:"phone"`
 	BusinessHours     *string                   `json:"business_hours"`
@@ -143,6 +150,7 @@ func (s *Server) mountSiteSettingsRoutes(r *httpx.Group) {
 		invalidate: s.invalidateSiteSettings,
 
 		checkLocales: s.checkLocaleSegments,
+		apiPrefix:    s.publicAPIPrefix(),
 	})
 }
 
@@ -203,6 +211,10 @@ func siteSettingsFrom(cfg *siteconfig.Config) siteSettingsResponse {
 		id := cfg.HomepageEntityID
 		resp.HomepageEntityID = &id
 	}
+	if !reflect.DeepEqual(cfg.VisitorEntry, siteconfig.VisitorEntry{}) {
+		ve := cfg.VisitorEntry
+		resp.VisitorEntry = &ve
+	}
 	return resp
 }
 
@@ -259,6 +271,9 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 		if !h.applyLocales(w, r, &in, &update) {
 			return
 		}
+	}
+	if in.VisitorEntry != nil && !h.applyVisitorEntry(w, r, &in, &update) {
+		return
 	}
 	if in.SitemapNaming != nil && *in.SitemapNaming == "legacy" {
 		entries := update.Locales

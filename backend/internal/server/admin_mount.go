@@ -101,6 +101,9 @@ func (s *Server) buildAdminDeps() (admin.Deps, error) {
 	d.ValidateLocales = func(ctx context.Context, def string, entries []siteconfig.LocaleEntry, prefixAll bool, xdef string) ([]siteconfig.LocaleEntry, string, error) {
 		return validateLocaleSettings(ctx, localeSettingsRequest{Default: def, Entries: entries, PrefixAll: prefixAll, XDefault: xdef}, s.checkLocaleSegments)
 	}
+	d.ValidateVisitorEntry = func(ctx context.Context, entries []siteconfig.LocaleEntry, def string, prefixAll bool, v siteconfig.VisitorEntry) (siteconfig.VisitorEntry, error) {
+		return validateVisitorEntry(localeSegments(entries), v, s.publicAPIPrefix())
+	}
 	d.BuilderTokens = func() bool { return s.renderEngine != nil && s.renderEngine.BuilderTokens() }
 	d.BuilderParts = func() []string {
 		if s.renderEngine == nil {
