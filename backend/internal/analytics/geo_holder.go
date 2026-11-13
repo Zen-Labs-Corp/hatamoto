@@ -3,6 +3,7 @@ package analytics
 import (
 	"log/slog"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -30,7 +31,13 @@ type GeoHolder struct {
 	sig       atomic.Pointer[geoSig] // signature of the loaded file
 	failed    atomic.Pointer[geoSig] // signature of the last file that failed to load
 	lastCheck atomic.Int64           // unix nanoseconds of the last stat
+	mmap      bool                   // map the file instead of copying it; set before the first Reload
+	reloadMu  sync.Mutex             // serializes Reload (poller and admin can race)
 }
+
+// SetMmap selects the memory-mapped open mode for later reloads. Call it
+// before the first Reload.
+func (h *GeoHolder) SetMmap(on bool) { h.mmap = on }
 
 // NewGeoHolder returns a holder for the database at path. Call Reload to load
 // it. An empty path makes a holder that is not configured and never loads.
@@ -64,6 +71,8 @@ func (h *GeoHolder) Reload() {
 	if !h.Configured() {
 		return
 	}
+	h.reloadMu.Lock()
+	defer h.reloadMu.Unlock()
 	h.lastCheck.Store(time.Now().UnixNano())
 	fi, err := os.Stat(h.path)
 	if err != nil {
@@ -74,7 +83,11 @@ func (h *GeoHolder) Reload() {
 	if sig.same(h.sig.Load()) || sig.same(h.failed.Load()) {
 		return
 	}
-	g, err := OpenGeo(h.path)
+	open := OpenGeo
+	if h.mmap {
+		open = OpenGeoMapped
+	}
+	g, err := open(h.path)
 	if err != nil {
 		h.failed.Store(sig)
 		h.noteFailure(sig, err)
