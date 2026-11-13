@@ -218,3 +218,67 @@ func TestLocaleSetNameTooLong(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestLocaleSetCountries(t *testing.T) {
+	en := LocaleEntry{Tag: "en"}
+	mk := func(fr, es []string, hideEs bool) (*LocaleSet, error) {
+		return NewLocaleSet("en", []LocaleEntry{en,
+			{Tag: "fr", Segment: "fr", Countries: fr},
+			{Tag: "es", Segment: "es", Countries: es, Hidden: hideEs}}, false, "")
+	}
+	bad := []struct {
+		name   string
+		fr, es []string
+	}{
+		{"three letters", []string{"FRA"}, nil},
+		{"digit", []string{"1a"}, nil},
+		{"empty", []string{""}, nil},
+		{"two locales", []string{"FR"}, []string{"fr"}},
+	}
+	for _, tc := range bad {
+		if _, err := mk(tc.fr, tc.es, false); !errors.Is(err, ErrValidationFailed) {
+			t.Errorf("%s: err = %v, want ErrValidationFailed", tc.name, err)
+		}
+	}
+
+	s, err := mk([]string{" fr ", "FR", "be"}, []string{"es"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.Entries()[1].Countries; strings.Join(got, ",") != "FR,BE" {
+		t.Errorf("normalised countries = %v, want [FR BE]", got)
+	}
+	for cc, want := range map[string]string{"fr": "fr", "BE": "fr", "ES": "es"} {
+		if tag, ok := s.Pick(cc); !ok || tag != want {
+			t.Errorf("Pick(%q) = %q,%v, want %q", cc, tag, ok, want)
+		}
+	}
+	if _, ok := s.Pick("ZZ"); ok {
+		t.Error("Pick(ZZ) found a locale")
+	}
+
+	h, err := mk([]string{"FR"}, []string{"ES"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := h.Pick("ES"); ok {
+		t.Error("Pick returned a hidden locale")
+	}
+
+	none, err := mk(nil, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range none.Entries() {
+		if e.Countries != nil {
+			t.Errorf("%s: Countries = %v, want nil", e.Tag, e.Countries)
+		}
+	}
+	if _, ok := none.Pick("FR"); ok {
+		t.Error("Pick found a locale in a set without countries")
+	}
+	var nilSet *LocaleSet
+	if _, ok := nilSet.Pick("FR"); ok {
+		t.Error("nil set Pick found a locale")
+	}
+}
