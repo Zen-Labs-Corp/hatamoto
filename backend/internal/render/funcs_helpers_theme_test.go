@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"html/template"
 	"io/fs"
+	"os"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -71,5 +72,22 @@ func TestTocRejectsPlainString(t *testing.T) {
 	var buf bytes.Buffer
 	if err := tpl.Execute(&buf, template.HTML("<h2>x</h2>")); err != nil || !strings.Contains(buf.String(), `id="x"`) {
 		t.Errorf("template.HTML: err=%v out=%q", err, buf.String())
+	}
+}
+
+// The excerpt doc example must use a field a view has: EntityView has no
+// Content, the entity body is .Body.
+func TestHelperDocExamplesUseRealFields(t *testing.T) {
+	for _, f := range []string{"../../../docs/THEMES.md", "../../../docs/site/themes/template-funcs.md"} {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(b), ".Entity.Content") {
+			t.Errorf("%s: .Entity.Content does not exist; use .Body", f)
+		}
+		if !strings.Contains(string(b), "{{excerpt .Body 160}}") {
+			t.Errorf("%s: excerpt example missing", f)
+		}
 	}
 }
