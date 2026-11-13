@@ -24,10 +24,6 @@ const (
 	attrJSONLDBreadcrumb = "jsonld_breadcrumb"
 )
 
-// SEOStructuredKeys are the per-entry structured-data attribute keys, in the
-// order the admin shows them.
-var SEOStructuredKeys = []string{attrJSONLDWebPage, attrJSONLDBreadcrumb}
-
 // ValidateCustomJSONLD checks an entry's custom JSON-LD text: empty is fine;
 // otherwise it must be at most MaxCustomJSONLDBytes of JSON holding one object
 // or an array of objects, each with a non-empty @context and @type.

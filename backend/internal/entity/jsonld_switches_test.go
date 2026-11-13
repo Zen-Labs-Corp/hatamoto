@@ -50,7 +50,7 @@ func TestResolveNodeSwitches(t *testing.T) {
 }
 
 func TestNodeSwitchKeysAreStructural(t *testing.T) {
-	for _, k := range SEOStructuredKeys {
+	for _, k := range []string{attrJSONLDWebPage, attrJSONLDBreadcrumb} {
 		if !isStructuralKey(k) || !IsSEOAttr(k) {
 			t.Errorf("%s must be a structural SEO attribute", k)
 		}

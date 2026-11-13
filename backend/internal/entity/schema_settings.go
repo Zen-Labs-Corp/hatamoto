@@ -334,7 +334,12 @@ func validateStructuredData(obj map[string]jsontext.Value) error {
 		if jsonx.Unmarshal(v, &s, jsonx.StoredLoose) != nil {
 			return "", true, settingsErr(key, "settings.%s must be a string", key)
 		}
-		return strings.TrimSpace(s), true, nil
+		// The stored value is what is read back, so it must already be trimmed:
+		// " reviewed" would pass the key check and never match an attribute.
+		if s != strings.TrimSpace(s) {
+			return "", true, settingsErr(key, "settings.%s must not start or end with whitespace", key)
+		}
+		return s, true, nil
 	}
 	for _, key := range []string{"modified_from", "author_from"} {
 		s, _, err := str(key)
