@@ -7,8 +7,8 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 )
 
-// faqListKey is the attribute (entity level, and prop of a page_doc component
-// or key of a legacy section's content) holding a list of
+// faqListKey is the attribute (entity level, and in the content of a page_doc component
+// or key of a legacy section's content, also in a page_doc component's content) holding a list of
 // {question, answer} objects.
 const faqListKey = "faq"
 
@@ -34,6 +34,27 @@ func FAQItemsFromList(v any) []FAQItem {
 	return out
 }
 
+// docFAQItems reads the faq list of every visible component, in document
+// order. A converted section keeps its data in p.content and is hidden through
+// its container, so a node is skipped when it or any ancestor is hidden.
+func docFAQItems(nodes []*builder.Node) []FAQItem {
+	var out []FAQItem
+	for _, n := range nodes {
+		if n == nil {
+			continue
+		}
+		if hidden, _ := n.P["hidden"].(bool); hidden {
+			continue
+		}
+		if n.T == "component" {
+			content, _ := n.P["content"].(map[string]any)
+			out = append(out, FAQItemsFromList(content[faqListKey])...)
+		}
+		out = append(out, docFAQItems(n.C)...)
+	}
+	return out
+}
+
 // FAQItemsFromAttributes collects the structured FAQ of an entry: its own
 // faq list first, then the faq list of every page_doc component in document
 // order (hidden ones skipped), then, only when the entry has no page_doc, of
@@ -44,12 +65,7 @@ func FAQItemsFromAttributes(attrs map[string]any) []FAQItem {
 	if hasDoc && raw != nil {
 		var doc builder.Doc
 		if b, err := jsonx.Marshal(raw); err == nil && jsonx.Unmarshal(b, &doc, jsonx.StoredLoose) == nil {
-			for _, n := range builder.Components(&doc) {
-				if hidden, _ := n.P["hidden"].(bool); hidden {
-					continue
-				}
-				out = append(out, FAQItemsFromList(n.P[faqListKey])...)
-			}
+			out = append(out, docFAQItems(doc.Nodes)...)
 		}
 	}
 	if hasDoc && raw != nil {

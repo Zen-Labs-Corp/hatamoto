@@ -135,7 +135,7 @@ An entry can hold a list attribute named `faq`, where each item has a `question`
 }
 ```
 
-The list produces a `FAQPage` next to the entity node, after any items found through annotations or in the body. Markup in an answer is reduced to plain text, and an item without both parts is skipped. A page-builder component or a legacy section can carry the same `faq` list in its props or content; its items follow in document order. The schema's `faq_from_content` setting, when `false`, turns all FAQ extraction off.
+The list produces a `FAQPage` next to the entity node, after any items found through annotations or in the body. Markup in an answer is reduced to plain text, and an item without both parts is skipped. A page-builder component or a legacy section can carry the same `faq` list in its content; its items follow in document order, and a hidden section is skipped. The schema's `faq_from_content` setting, when `false`, turns all FAQ extraction off.
 
 ## Social images
 
