@@ -29,6 +29,12 @@ func extraFuncs() template.FuncMap {
 		"docBody": docBody,
 		// toc .Body: {"html": body with h2 ids, "items": [{ID, Text}]}.
 		"toc": tocFn,
+		// groupBy items "attr": [{Key, Items}] in first-seen order.
+		"groupBy": groupBy,
+		// sortBy items "attr" ["attr2" ...]: a stably sorted copy.
+		"sortBy": sortBy,
+		// pager .Pagination: rows {Kind, Page, Href, Current} for prev/page/gap/next.
+		"pager": pager,
 		// excerpt s n: plain text of s cut to n runes at a word, with "...".
 		"excerpt": excerptFn,
 		// initial s: the first letter of s, upper-cased ("" when none).
