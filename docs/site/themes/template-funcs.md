@@ -110,6 +110,66 @@ The walk is depth-first, parents before children, and the path is matched after 
 {{range $b.TOC}}<a href="#{{.ID}}">{{.Text}}</a>{{end}}
 ```
 
+## Text, list and pager helpers
+
+All of these are pure and fail-open: bad input gives the zero value, never an error. None returns `template.HTML` except the `html` key of `toc`, which only accepts `template.HTML` (like `docBody`), so `html/template` still escapes every other result.
+
+**`excerpt s n`** returns the plain text of `s` (script and style blocks dropped, tags replaced by a space, entities decoded, whitespace collapsed) cut to at most `n` characters at a word boundary, with `...` appended when it was cut. `n <= 0` gives `""`.
+
+```gotemplate
+<p>{{excerpt .Body 160}}</p>
+```
+
+**`initial s`** returns the first letter of `s`, upper-cased, or `""` when it has none.
+
+```gotemplate
+<span class="avatar">{{initial .Author.Name}}</span>
+```
+
+**`isBlankHTML s`** is true when `s` shows nothing: no text (non-breaking spaces count as blank, script and style are ignored) and no `img`, `iframe`, `video`, `audio`, `embed`, `object`, `svg`, `picture` or `canvas`. Empty input is blank.
+
+```gotemplate
+{{if not (isBlankHTML .Body)}}<div class="hm-prose">{{.Body}}</div>{{end}}
+```
+
+**`toc body`** takes a `template.HTML` value such as `.Body` (a plain string fails the render, so untrusted text is never promoted to markup), gives its `h2` headings an id and returns a map with two keys: `html` (the body with the ids) and `items` (a list of `{ID, Text}`). Ids follow the `docBody` rules (slug, `-2`, `-3`, reserved ids skipped, an existing id kept). Only `h2` counts, and headings inside `pre` or `code` are ignored. Empty input gives `html` `""` and no items.
+
+```gotemplate
+{{$t := toc .Body}}
+<ol>{{range $t.items}}<li><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}</ol>
+<div class="hm-prose">{{$t.html}}</div>
+```
+
+**`groupBy items attr`** groups a slice in first-seen order and returns a list of `{Key, Items}`. `Items` is a slice of the input's own type, so `.Title` still works. `attr` is looked up per element as a map key, then an exported struct field, then an entry of the struct's `Attrs`. The match is exact and case-sensitive (`"Category"` is the field of a listing item, `"order"` an `Attrs` key), and fields promoted from an embedded struct are not looked up. The key is the value as text (`""` when missing). Only the first 1000 elements are used; anything that is not a slice gives no groups.
+
+```gotemplate
+{{range groupBy .Items "Category"}}<h3>{{.Key}}</h3>{{range .Items}}<a href="{{.URL}}">{{.Title}}</a>{{end}}{{end}}
+```
+
+**`sortBy items attr ...`** returns a stably sorted copy of a slice (the input is untouched), with the same lookup as `groupBy`. Extra arguments are further sort keys. Two numbers compare as numbers, two times chronologically, anything else as text (a bool is `false` or `true`, so false sorts first), and elements missing the attribute come last. Only the first 1000 elements are used; anything that is not a slice gives nil.
+
+```gotemplate
+{{range sortBy .Items "order" "Title"}}{{.Title}}{{end}}
+```
+
+**`pager .Pagination`** returns rows `{Kind, Page, Href, Current}` for a pagination control. `Kind` is `prev`, `page`, `gap` or `next`: the first page, the last page and the current page plus or minus 1 are `page` rows, a `gap` row (no `Page` or `Href`) marks skipped pages, and `prev` and `next` are left out on the first and last page. `prev` and `next` rows carry the target page in `Page` and its URL in `Href`; `Current` is true only on the `page` row of the current page. Like `paginate`, it takes a `*Pagination`; one page, nil or another type give no rows.
+
+```gotemplate
+<nav>{{range pager .Pagination}}{{if eq .Kind "gap"}}<span>...</span>{{else}}<a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}}>{{if eq .Kind "page"}}{{.Page}}{{else}}{{.Kind}}{{end}}</a>{{end}}{{end}}</nav>
+```
+
+**`videoID url`** returns the id of a YouTube (`watch?v=`, `youtu.be/`, `/embed/`, `/shorts/`, `/live/`, also the `youtube-nocookie.com` host) or Vimeo (`vimeo.com/<digits>`, `player.vimeo.com/video/<digits>`) http or https URL, and `""` for anything else. It does not check the embed host allowlist.
+
+```gotemplate
+{{with videoID .Attrs.video}}<iframe src="https://www.youtube-nocookie.com/embed/{{.}}"></iframe>{{end}}
+```
+
+**`percent a b`** returns `a / b` as a whole percent, rounded half up (`percent 2 3` is 67). A zero `b` gives 0.
+
+```gotemplate
+<progress value="{{percent .Done .Total}}" max="100"></progress>
+```
+
 ## Content queries
 
 All of these are fail-open: an error or timeout gives no items and the page still renders. Limits for `recent`, `popular`, `related` and `terms` are clamped to 1 to 50.

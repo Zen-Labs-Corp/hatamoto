@@ -20,13 +20,32 @@ const maxSplit = 1000
 
 // extraFuncs are the generic arithmetic, string and JSON template funcs. All
 // are pure, never fail the render (bad input gives a zero value) and none
-// returns template.HTML/JS/URL, so html/template still escapes every result.
+// returns template.HTML/JS/URL (except docBody and toc, which only accept
+// template.HTML), so html/template still escapes every result.
 // String funcs take the subject first, like the strings package ("hasPrefix"):
 // {{ replace .Attrs.title "-" " " }}, {{ contains $s "x" }}.
 func extraFuncs() template.FuncMap {
 	return template.FuncMap{
 		// docBody .Body: the body with ids on h2/h3 plus its .TOC items.
 		"docBody": docBody,
+		// toc .Body: {"html": body with h2 ids, "items": [{ID, Text}]}.
+		"toc": tocFn,
+		// groupBy items "attr": [{Key, Items}] in first-seen order.
+		"groupBy": groupBy,
+		// sortBy items "attr" ["attr2" ...]: a stably sorted copy.
+		"sortBy": sortBy,
+		// pager .Pagination: rows {Kind, Page, Href, Current} for prev/page/gap/next.
+		"pager": pager,
+		// excerpt s n: plain text of s cut to n runes at a word, with "...".
+		"excerpt": excerptFn,
+		// initial s: the first letter of s, upper-cased ("" when none).
+		"initial": initialFn,
+		// isBlankHTML s: true when s has no visible text and no media.
+		"isBlankHTML": isBlankHTML,
+		// videoID url: the id of a YouTube or Vimeo URL ("" otherwise).
+		"videoID": videoID,
+		// percent a b: a/b as a whole percent, half up (0 when b is 0).
+		"percent": percent,
 		"add":     func(a, b any) int { return toInt(a) + toInt(b) },
 		"sub":     func(a, b any) int { return toInt(a) - toInt(b) },
 		"mul":     func(a, b any) int { return toInt(a) * toInt(b) },
