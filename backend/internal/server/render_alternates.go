@@ -50,6 +50,11 @@ func (s *Server) applyLocaleSnap(ctx context.Context, snap *entity.URLSnapshot, 
 		v.LocaleName = set.DisplayName(loc)
 	}
 	v.KeepLocale = s.keepLocale(ctx)
+	for _, e := range set.Entries() {
+		if e.Segment != "" {
+			v.LocaleSegments = append(v.LocaleSegments, e.Segment)
+		}
+	}
 	v.LocaleShared = func(p string) bool { return localeNeutralPath(p) || snap.PathIsLocaleNeutral(p) }
 	v.Site.Language = loc
 	v.Shared = shared

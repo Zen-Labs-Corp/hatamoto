@@ -82,6 +82,9 @@ type PageView struct {
 	// KeepLocale is the site setting that gives url-kind section fields the
 	// locale segment at render time.
 	KeepLocale bool `json:"-"`
+	// LocaleSegments lists every URL segment of the locale set, hidden locales
+	// included, so a link that already carries one is not prefixed again.
+	LocaleSegments []string `json:"-"`
 	// LocaleShared reports whether a site-relative path is shared by every
 	// locale and so never takes a prefix. The server injects it; nil means
 	// nothing is shared.

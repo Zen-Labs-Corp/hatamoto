@@ -265,7 +265,9 @@ JSON give `nil`. `{{with fromJSON (plugin_x_rows .Path)}}{{range .}}...{{end}}{{
 served under `/fr`, and `/contact` on a one-locale site or on a locale served
 without a prefix. The page comes first, like `t`: pass `.` in a layout or a
 page-level partial, and `$.Page` (or the page you were passed) inside a section
-partial, where `.` is the section. A dict with a `Segment` key also works. The
+partial, where `.` is the section. A dict with a `Segment` key also works, but it only knows that one segment: it
+skips the shared-path check (`/media/...` would get a prefix) and the other
+locales' segments. Pass the page when you can. The
 result goes through the same URL check as `cta`, so a `javascript:` or `//host`
 value prints `#`. Anything else for the page prints the path unchanged.
 

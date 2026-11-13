@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json/jsontext"
+	"slices"
 	"testing"
 
 	"hatamoto.dev/core/internal/entity"
@@ -135,6 +136,10 @@ func TestApplyLocale_LocaleNamesAndSharedPaths(t *testing.T) {
 		if v.LocaleShared == nil || !v.LocaleShared("/media/x.png") || !v.LocaleShared("/sitemap.xml") || v.LocaleShared("/contact") ||
 			v.LocaleShared("/search") || v.LocaleShared("/category/x") || v.LocaleShared("/tag/x") {
 			t.Errorf("%s: LocaleShared misclassifies paths", tt.locale)
+		}
+		// Without site settings v.Locales is empty; the segments come from the set.
+		if !slices.Equal(v.LocaleSegments, []string{"fr", "es"}) {
+			t.Errorf("%s: LocaleSegments = %v, want [fr es]", tt.locale, v.LocaleSegments)
 		}
 	}
 	shared := &render.PageView{}

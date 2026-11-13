@@ -32,9 +32,9 @@ func localeURLContent() map[string]any {
 
 func frView(keep bool) *PageView {
 	return &PageView{
-		Segment:    "fr",
-		KeepLocale: keep,
-		Locales:    []LocaleSummary{{Tag: "en"}, {Tag: "fr", Segment: "fr"}, {Tag: "es", Segment: "es"}},
+		Segment:        "fr",
+		KeepLocale:     keep,
+		LocaleSegments: []string{"fr", "es"},
 	}
 }
 

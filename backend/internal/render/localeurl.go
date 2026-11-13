@@ -3,7 +3,7 @@ package render
 import "strings"
 
 // LocaleLinks is what the locale-aware link rule needs about a page: its own
-// URL segment, every configured segment (to spot a link that is already
+// URL segment (always counted as known), every configured segment (to spot a link that is already
 // prefixed) and the shared-path predicate.
 type LocaleLinks struct {
 	Segment  string
@@ -17,13 +17,7 @@ func (v *PageView) LocaleLinks() LocaleLinks {
 	if v == nil {
 		return LocaleLinks{}
 	}
-	l := LocaleLinks{Segment: v.Segment, Shared: v.LocaleShared}
-	for _, loc := range v.Locales {
-		if loc.Segment != "" {
-			l.Segments = append(l.Segments, loc.Segment)
-		}
-	}
-	return l
+	return LocaleLinks{Segment: v.Segment, Segments: v.LocaleSegments, Shared: v.LocaleShared}
 }
 
 // LocalizeURL prefixes the page's locale segment onto a site-relative path.
@@ -41,6 +35,9 @@ func LocalizeURL(l LocaleLinks, raw string) string {
 	}
 	first, _, _ := strings.Cut(strings.TrimPrefix(path, "/"), "/")
 	first = strings.ToLower(first)
+	if first == strings.ToLower(l.Segment) {
+		return raw
+	}
 	for _, seg := range l.Segments {
 		if first == strings.ToLower(seg) {
 			return raw

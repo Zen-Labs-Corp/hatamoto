@@ -39,6 +39,14 @@ func TestLocalizeURL(t *testing.T) {
 			t.Errorf("LocalizeURL(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
+	// The page's own segment counts even when no segment list is known.
+	own := LocaleLinks{Segment: "fr"}
+	if got := LocalizeURL(own, "/fr/contact"); got != "/fr/contact" {
+		t.Errorf("own segment prefixed twice: %q", got)
+	}
+	if got := localeURLFunc(map[string]any{"Segment": "fr"}, "/fr/contact"); got != "/fr/contact" {
+		t.Errorf("dict form prefixed twice: %q", got)
+	}
 	if got := LocalizeURL(LocaleLinks{}, "/contact"); got != "/contact" {
 		t.Errorf("empty segment rewrote the URL: %q", got)
 	}
@@ -47,8 +55,8 @@ func TestLocalizeURL(t *testing.T) {
 func TestPageViewLocaleLinks(t *testing.T) {
 	t.Parallel()
 	v := &PageView{
-		Segment: "fr",
-		Locales: []LocaleSummary{{Tag: "en"}, {Tag: "fr", Segment: "fr"}, {Tag: "es", Segment: "es"}},
+		Segment:        "fr",
+		LocaleSegments: []string{"fr", "es"},
 	}
 	l := v.LocaleLinks()
 	if l.Segment != "fr" || len(l.Segments) != 2 {
