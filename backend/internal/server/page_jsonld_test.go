@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"maps"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -11,7 +12,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"hatamoto.dev/core/internal/admin/schemaform"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/person"
 )
 
@@ -146,9 +149,9 @@ func TestApplyAuthorFrom(t *testing.T) {
 	priv := &person.Person{ID: uuid.New(), Slug: "bob", Name: "Bob", Public: false}
 	lookup := func(_ context.Context, ref string) *person.Person {
 		switch ref {
-		case "ada":
+		case "ada", pub.ID.String():
 			return pub
-		case "bob":
+		case "bob", priv.ID.String():
 			return priv
 		}
 		return nil
@@ -168,6 +171,13 @@ func TestApplyAuthorFrom(t *testing.T) {
 	want := map[string]any{"@type": "Person", "@id": pageLDBase + "/author/ada#person", "name": "Ada Lovelace"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("public person: %v", got)
+	}
+	// A text attribute (a plain slug) and the reference list the entry form
+	// stores (shape taken from schemaform.Decode) credit the same person.
+	for name, attrs := range map[string]string{"text": `{"writer":" ada "}`, "form": formStoredRefs(t, pub.ID.String()), "form, first unusable": formStoredRefs(t, priv.ID.String(), uuid.NewString(), pub.ID.String()), "object": `{"writer":[{"id":"ada"}]}`} {
+		if got := run(noBylines(), pageLDEntity("post", `{}`, attrs), article())["author"]; !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: %v", name, got)
+		}
 	}
 	// Inside a @graph the first node is the entity.
 	g := map[string]any{"@graph": []map[string]any{article(), {"@type": "FAQPage"}}}
@@ -196,6 +206,23 @@ func TestApplyAuthorFrom(t *testing.T) {
 	if !reflect.DeepEqual(d, article()) {
 		t.Errorf("unconfigured: %v", d)
 	}
+}
+
+// formStoredRefs is the attributes JSON the admin entry form writes for a
+// reference attribute "writer" holding refs.
+func formStoredRefs(t *testing.T, ids ...string) string {
+	t.Helper()
+	schema := jsontext.Value(`{"type":"object","properties":{"writer":{"type":"array","items":{"type":"string"},"x-entity-schema":"person"}}}`)
+	form := url.Values{"_present.writer": {"1"}, "writer": {strings.Join(ids, ", ")}}
+	attrs, errs := schemaform.Decode(schema, form, nil, schemaform.Options{})
+	if len(errs) > 0 {
+		t.Fatalf("decode: %v", errs)
+	}
+	b, err := jsonx.Marshal(attrs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }
 
 func authorNameOf(v any) string {

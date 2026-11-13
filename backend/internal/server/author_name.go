@@ -199,16 +199,24 @@ func (b *bylines) applyAuthorFrom(ctx context.Context, ent *entity.Entity, st en
 	if jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.StoredLoose) != nil {
 		return
 	}
-	ref, _ := attrs[string(st.AuthorFrom)].(string)
-	if ref = strings.TrimSpace(ref); ref == "" {
+	refs := authorRefs(attrs[string(st.AuthorFrom)])
+	if len(refs) == 0 {
 		return
 	}
 	node := doc
 	if g, ok := doc["@graph"].([]map[string]any); ok && len(g) > 0 {
 		node = g[0]
 	}
-	p := b.person(ctx, ref)
-	if p == nil || !p.Public {
+	// A reference attribute stores a list of ids; the first that is a public
+	// person is the author.
+	var p *person.Person
+	for _, ref := range refs {
+		if c := b.person(ctx, ref); c != nil && c.Public {
+			p = c
+			break
+		}
+	}
+	if p == nil {
 		return
 	}
 	node["author"] = map[string]any{
@@ -216,6 +224,27 @@ func (b *bylines) applyAuthorFrom(ctx context.Context, ent *entity.Entity, st en
 		"@id":   baseURL + b.path(ctx, p.Slug) + "#person",
 		"name":  p.Name,
 	}
+}
+
+// authorRefs are the person references held by an author_from attribute: a
+// text value (an id or slug), a reference list as the entry form stores it
+// (an array of ids) or an object carrying an id. Blank entries are dropped.
+func authorRefs(v any) []string {
+	switch x := v.(type) {
+	case string:
+		if x = strings.TrimSpace(x); x != "" {
+			return []string{x}
+		}
+	case map[string]any:
+		return authorRefs(x["id"])
+	case []any:
+		var out []string
+		for _, e := range x {
+			out = append(out, authorRefs(e)...)
+		}
+		return out
+	}
+	return nil
 }
 
 // creditedNames are the display names of the entities credited to a person or
