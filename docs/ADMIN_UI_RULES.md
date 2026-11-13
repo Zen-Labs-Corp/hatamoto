@@ -832,6 +832,7 @@ reason:
 | Page and blog editor toolbars, canvas, section ops, bubble, slash menu (`pages/entities/pageedit.html`, `blogedit.html`, `js/editor/*`, `js/canvas/*`) | Editor toolbar and canvas controls, not form actions. |
 | Schema field row buttons (`pages/schemas/edit.html`, `schemaform/field.html`) | Small row operations (move, remove, add item) inside repeaters. |
 | Consent gates: `pages/settings/plugins.html`, `packageconfirm.html`, `pluginprompt.html` | Acknowledgements, not settings, so they stay checkboxes. |
+| JSON-LD node boxes in `pages/schemas/edit.html` (Also print default WebPage, Also print BreadcrumbList) | The picked design draws them as boxes; they post `OffValue` "off" when cleared. |
 | Multi-pick lists: API scopes, webhook events, permissions, content types, terms, table select, media tile select, schemaform clear box | Pick several, so checkboxes are correct. |
 | One-button POST forms in rows, menus and headers (`forms/submission.html`, `linking/suggestions.html`, `partials/pageheader.html`, `pluginhead.html`, `rowmenu.html`, `sidebar.html`, the bulk toolbar in `partials/table.html`) | Not a form footer. Each is one named entry. The webhook row actions (Pause, Resume, Send test, Retry) are `ui.Action{Post}` items rendered by `rowmenu.html`, so they are covered by its entry and need none of their own. |
 | Visitor entry form in `pages/settings/locales.html` | A settings form below the locales table, not a create form; its Add path and Remove buttons only re-render the panel, so it works without JavaScript. |

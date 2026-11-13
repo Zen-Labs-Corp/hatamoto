@@ -12,12 +12,14 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/a11y"
+	"hatamoto.dev/core/internal/admin/ui"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
@@ -705,34 +707,57 @@ func TestSchemaEditAddReorderAndSave(t *testing.T) {
 	}
 }
 
-// A schema save no longer owns settings.sitemap: the object edited under
-// SEO > Sitemap, including keys this form never knew, comes back untouched.
 func TestSchemaStructuredDataSettings(t *testing.T) {
 	t.Parallel()
 
 	c := newContentRig(t)
 	id := fid(1).String()
-	rec := c.post("/admin/settings/types/"+id, schemaPost(c, func(f url.Values) {
+	page := func() string { return c.get(t, "owner-token", "/admin/settings/types/"+id, "") }
+	checked := func(body, name string) bool {
+		return regexp.MustCompile(`<input[^>]*type="checkbox"[^>]*name="` + name + `"[^>]*checked`).MatchString(body)
+	}
+	save := func(change func(url.Values)) {
+		t.Helper()
+		if rec := c.post("/admin/settings/types/"+id, schemaPost(c, change)); rec.Code != 303 {
+			t.Fatalf("save: %d\n%s", rec.Code, rec.Body.String())
+		}
+	}
+
+	// absent keys: both boxes ticked, and nothing is selected or stored
+	body := page()
+	if !checked(body, "emit_webpage") || !checked(body, "emit_breadcrumb") {
+		t.Errorf("absent keys must tick both boxes:\n%s", body)
+	}
+	// the cleared box posts "off" after the checkbox, so the browser sends the checkbox value first when ticked
+	if !strings.Contains(body, `<input type="hidden" name="emit_webpage" value="off">`) {
+		t.Errorf("missing the off value of the box")
+	}
+	// ticked: the key is removed
+	save(func(f url.Values) { f.Set("emit_webpage", "on"); f.Set("emit_breadcrumb", "on") })
+	for _, k := range []string{"emit_webpage", "emit_breadcrumb"} {
+		if strings.Contains(string(c.service.Settings), k) {
+			t.Errorf("ticked box kept %s: %s", k, c.service.Settings)
+		}
+	}
+	// cleared: false is stored as "off" (the value the settings check accepts)
+	save(func(f url.Values) {
+		f.Set("emit_webpage", "off")
 		f.Set("modified_from", "summary")
 		f.Set("author_from", "summary")
 		f.Set("term_set_url", "/glossary")
-		f.Set("emit_webpage", "off")
-		f.Set("emit_breadcrumb", "on")
-	}))
-	if rec.Code != 303 {
-		t.Fatalf("save: %d\n%s", rec.Code, rec.Body.String())
-	}
+	})
 	st := settingsFormFrom(c.service.Settings)
-	want := schemaSettingsForm{ModifiedFrom: "summary", AuthorFrom: "summary", TermSetURL: "/glossary", EmitWebPage: "off", EmitBreadcrumb: "on"}
-	if st.ModifiedFrom != want.ModifiedFrom || st.AuthorFrom != want.AuthorFrom || st.TermSetURL != want.TermSetURL || st.EmitWebPage != want.EmitWebPage || st.EmitBreadcrumb != want.EmitBreadcrumb {
+	if st.EmitWebPage != "off" || st.EmitBreadcrumb != "" || st.ModifiedFrom != "summary" || st.AuthorFrom != "summary" || st.TermSetURL != "/glossary" {
 		t.Errorf("saved: %s", c.service.Settings)
 	}
-	body := c.get(t, "owner-token", "/admin/settings/types/"+id, "")
-	has(t, body, `name="term_set_url" value="/glossary"`, `<option value="summary" selected>`, `<option value="off" selected>`, `<option value="on" selected>`)
-	// clearing the controls removes the keys again
-	if rec := c.post("/admin/settings/types/"+id, schemaPost(c, nil)); rec.Code != 303 {
-		t.Fatalf("clear: %d", rec.Code)
+	// stored off: unticked; the other stays ticked; selects keep their value
+	body = page()
+	if checked(body, "emit_webpage") || !checked(body, "emit_breadcrumb") {
+		t.Errorf("stored off must clear only its box:\n%s", body)
 	}
+	has(t, body, `name="term_set_url" value="/glossary"`, `<option value="summary" selected>`)
+	// clearing the controls removes the keys again
+	save(nil)
 	for _, k := range []string{"modified_from", "author_from", "term_set_url", "emit_webpage", "emit_breadcrumb"} {
 		if strings.Contains(string(c.service.Settings), k) {
 			t.Errorf("%s kept: %s", k, c.service.Settings)
@@ -740,6 +765,45 @@ func TestSchemaStructuredDataSettings(t *testing.T) {
 	}
 }
 
+func TestSchemaStructuredDataOptions(t *testing.T) {
+	t.Parallel()
+
+	f := &schemaForm{
+		Fields: []schemaField{
+			{Name: "when", Kind: "text", Raw: `{"type":"string","format":"date"}`},
+			{Name: "seen", Kind: "text", Raw: `{"type":"string","format":"date-time"}`},
+			{Name: "title", Kind: "text", Raw: `{"type":"string"}`},
+			{Name: "writer", Kind: "reference", Ref: "person"},
+			{Name: "count", Kind: "number"},
+		},
+		RefNames: map[string]string{"person": "Person"},
+		Settings: schemaSettingsForm{ModifiedFrom: "gone"},
+	}
+	labels := func(opts []ui.Option) string {
+		var out []string
+		for _, o := range opts {
+			s := o.Value + "=" + o.Label
+			if o.Selected {
+				s += "*"
+			}
+			out = append(out, s)
+		}
+		return strings.Join(out, "|")
+	}
+	if got, want := labels(f.ModifiedFromOptions()), "=None|when=when|seen=seen|gone=gone*"; got != want {
+		t.Errorf("modified from: %s, want %s", got, want)
+	}
+	if got, want := labels(f.AuthorFromOptions()), "=None*|when=when|seen=seen|title=title|writer=writer (Person)"; got != want {
+		t.Errorf("author from: %s, want %s", got, want)
+	}
+	empty := &schemaForm{}
+	if got := labels(empty.ModifiedFromOptions()) + " " + labels(empty.AuthorFromOptions()); got != "=None* =None*" {
+		t.Errorf("no attributes: %s", got)
+	}
+}
+
+// A schema save no longer owns settings.sitemap: the object edited under
+// SEO > Sitemap, including keys this form never knew, comes back untouched.
 func TestSchemaSaveKeepsSitemapSettings(t *testing.T) {
 	t.Parallel()
 

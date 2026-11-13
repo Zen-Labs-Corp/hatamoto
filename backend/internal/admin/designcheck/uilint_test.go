@@ -183,6 +183,7 @@ var uiAllow = []uiAllowEntry{
 	{Rule: "UI-03", File: "partials/table.html", Needle: `data-hm-select-all`, Reason: "table select-all box"},
 	{Rule: "UI-03", File: "partials/table.html", Needle: `data-hm-row-select`, Reason: "table row select box"},
 	{Rule: "UI-03", File: "partials/mediatile.html", Needle: `name="id"`, Reason: "media tile select box"},
+	{Rule: "UI-03", File: "pages/schemas/edit.html", Needle: `"Control" "checkbox"`, Max: 2, Reason: "the two JSON-LD node boxes of the Structured data panel (Also print default WebPage, Also print BreadcrumbList): the picked design draws them as boxes"},
 	{Rule: "UI-03", File: "schemaform/field.html", Needle: `__clear`, Reason: "clear the stored value, a destructive tick and not a setting"},
 
 	// UI-04: shadows outside the popup list.

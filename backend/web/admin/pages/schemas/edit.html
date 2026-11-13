@@ -82,10 +82,8 @@
 {{template "hm/field" dict "ID" "modified_from" "Name" "modified_from" "Label" "Modified from" "Control" "select" "Options" .ModifiedFromOptions "Help" "Where the modified date comes from. It is never earlier than the published date." "Error" (index .Errors "modified_from")}}
 {{template "hm/field" dict "ID" "author_from" "Name" "author_from" "Label" "Author from" "Control" "select" "Options" .AuthorFromOptions "Help" "A field holding a person's id or slug. Without a public person the author name is used." "Error" (index .Errors "author_from")}}
 {{template "hm/pair-end"}}
-{{template "hm/pair-start"}}
-{{template "hm/field" dict "ID" "emit_webpage" "Name" "emit_webpage" "Label" "Default WebPage" "Control" "select" "Options" .WebPageOptions "Error" (index .Errors "emit_webpage")}}
-{{template "hm/field" dict "ID" "emit_breadcrumb" "Name" "emit_breadcrumb" "Label" "BreadcrumbList" "Control" "select" "Options" .BreadcrumbOptions "Help" "The visible breadcrumb does not change. An entry can override both." "Error" (index .Errors "emit_breadcrumb")}}
-{{template "hm/pair-end"}}
+{{template "hm/field" dict "ID" "emit_webpage" "Name" "emit_webpage" "Label" "Also print default WebPage" "Control" "checkbox" "Value" "on" "OffValue" "off" "Checked" .PrintWebPage "Error" (index .Errors "emit_webpage")}}
+{{template "hm/field" dict "ID" "emit_breadcrumb" "Name" "emit_breadcrumb" "Label" "Also print BreadcrumbList" "Control" "checkbox" "Value" "on" "OffValue" "off" "Checked" .PrintBreadcrumb "Help" "The visible breadcrumb does not change. An entry can override both." "Error" (index .Errors "emit_breadcrumb")}}
 </div>
 {{template "hm/card-end"}}
 

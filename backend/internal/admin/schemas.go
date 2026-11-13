@@ -592,8 +592,9 @@ func (s schemaSettingsForm) settingsJSON(base jsontext.Value) (jsontext.Value, m
 	setStr("modified_from", s.ModifiedFrom)
 	setStr("author_from", s.AuthorFrom)
 	setStr("term_set_url", s.TermSetURL)
-	setStr("emit_webpage", s.EmitWebPage)
-	setStr("emit_breadcrumb", s.EmitBreadcrumb)
+	// A ticked box is the default (print), so it stores nothing.
+	setStr("emit_webpage", offOnly(s.EmitWebPage))
+	setStr("emit_breadcrumb", offOnly(s.EmitBreadcrumb))
 	var aliases []string
 	for _, a := range strings.Split(s.Aliases, ",") {
 		if a = strings.TrimSpace(a); a != "" {
@@ -701,6 +702,7 @@ type schemaForm struct {
 	Summary          []ui.FieldError
 	Kinds, Items     []kindDef
 	Refs             []string
+	RefNames         map[string]string // schema slug -> name
 	SchemaOrgTypes   []string
 	Entities         int
 	Actions          []ui.Button
@@ -710,42 +712,65 @@ type schemaForm struct {
 	BuiltinPostEditor bool
 }
 
-// nodeSwitchOptions are the choices of a JSON-LD node switch.
-func nodeSwitchOptions(current string) []ui.Option {
-	return []ui.Option{
-		{Value: "", Label: "Default", Selected: current == ""},
-		{Value: string(entity.NodeSwitchOn), Label: "Print", Selected: current == string(entity.NodeSwitchOn)},
-		{Value: string(entity.NodeSwitchOff), Label: "Do not print", Selected: current == string(entity.NodeSwitchOff)},
+// offOnly keeps the one node switch value that is stored: "off". The ticked
+// box ("on") and an absent one both mean the default. Anything else is kept so
+// the settings check reports it.
+func offOnly(v string) string {
+	if v == string(entity.NodeSwitchOn) {
+		return ""
 	}
+	return v
 }
 
-// WebPageOptions and BreadcrumbOptions are the node switch choices.
-func (f *schemaForm) WebPageOptions() []ui.Option { return nodeSwitchOptions(f.Settings.EmitWebPage) }
-func (f *schemaForm) BreadcrumbOptions() []ui.Option {
-	return nodeSwitchOptions(f.Settings.EmitBreadcrumb)
+// PrintWebPage and PrintBreadcrumb tick the boxes: a node prints unless stored "off".
+func (f *schemaForm) PrintWebPage() bool {
+	return f.Settings.EmitWebPage != string(entity.NodeSwitchOff)
+}
+func (f *schemaForm) PrintBreadcrumb() bool {
+	return f.Settings.EmitBreadcrumb != string(entity.NodeSwitchOff)
 }
 
-// ModifiedFromOptions lists the text fields that can hold a date.
+// ModifiedFromOptions lists the date and datetime attributes.
 func (f *schemaForm) ModifiedFromOptions() []ui.Option {
-	return f.attributeOptions(f.Settings.ModifiedFrom, "Time of the last edit", "text", "textarea")
+	return f.attributeOptions(f.Settings.ModifiedFrom, func(fld schemaField) (string, bool) {
+		format, _ := decodeProperty(fld.Raw)["format"].(string)
+		return fld.Name, format == "date" || format == "date-time"
+	})
 }
 
-// AuthorFromOptions lists the fields that can hold a Person entry.
+// AuthorFromOptions lists the reference attributes, then the text ones (the
+// string fallback).
 func (f *schemaForm) AuthorFromOptions() []ui.Option {
-	return f.attributeOptions(f.Settings.AuthorFrom, "Plain author name", "reference", "text")
+	return f.attributeOptions(f.Settings.AuthorFrom, func(fld schemaField) (string, bool) {
+		switch fld.Kind {
+		case "reference":
+			if fld.Ref == "" {
+				return fld.Name, true
+			}
+			target := f.RefNames[fld.Ref]
+			if target == "" {
+				target = fld.Ref
+			}
+			return fld.Name + " (" + target + ")", true
+		case "text":
+			return fld.Name, true
+		}
+		return "", false
+	})
 }
 
-// attributeOptions is the "not set" choice, then the named fields of the given
-// kinds. A saved name that is no longer a field stays selectable.
-func (f *schemaForm) attributeOptions(current, none string, kinds ...string) []ui.Option {
-	opts := []ui.Option{{Value: "", Label: none, Selected: current == ""}}
+// attributeOptions is the empty choice, then the fields label accepts. A saved
+// name that is no longer offered stays selectable so a save keeps it.
+func (f *schemaForm) attributeOptions(current string, label func(schemaField) (string, bool)) []ui.Option {
+	opts := []ui.Option{{Value: "", Label: "None", Selected: current == ""}}
 	found := current == ""
 	for _, fld := range f.Fields {
-		if fld.Name == "" || !slices.Contains(kinds, fld.Kind) {
+		text, ok := label(fld)
+		if fld.Name == "" || !ok {
 			continue
 		}
 		found = found || fld.Name == current
-		opts = append(opts, ui.Option{Value: fld.Name, Label: fld.Name, Selected: fld.Name == current})
+		opts = append(opts, ui.Option{Value: fld.Name, Label: text, Selected: fld.Name == current})
 	}
 	if !found {
 		opts = append(opts, ui.Option{Value: current, Label: current, Selected: true})
@@ -785,8 +810,10 @@ func (f *schemaForm) lockBuiltin(s *entity.EntitySchema) {
 func (a *Admin) renderSchemaForm(w http.ResponseWriter, r *http.Request, status int, f *schemaForm) {
 	f.Kinds, f.Items, f.SchemaOrgTypes = fieldKinds, itemKinds, entity.AllowedSchemaOrgTypes
 	if list, err := a.deps.Content.Entities.ListSchemas(r.Context()); err == nil {
+		f.RefNames = map[string]string{}
 		for _, s := range list {
 			f.Refs = append(f.Refs, s.Slug)
+			f.RefNames[s.Slug] = s.Name
 		}
 	}
 	for _, k := range []struct{ id, label string }{{"name", "Name"}, {"slug", "Slug"}, {"url_pattern", "Address pattern"}, {"archive_path", "Archive address"}, {"aliases", "Other slugs"}, {"schema_org_type", "Structured data type"}, {"modified_from", "Modified from"}, {"author_from", "Author from"}, {"term_set_url", "Term set URL"}, {"emit_webpage", "WebPage node"}, {"emit_breadcrumb", "BreadcrumbList node"}, {"editor", "Editor"}, {"archive_title", "Archive title"}, {"archive_crumb_label", "Breadcrumb label"}, {"archive_description", "Archive description"}, {"schema_json", "JSON schema"}} {
