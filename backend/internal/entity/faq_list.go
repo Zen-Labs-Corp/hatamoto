@@ -36,16 +36,23 @@ func FAQItemsFromList(v any) []FAQItem {
 
 // FAQItemsFromAttributes collects the structured FAQ of an entry: its own
 // faq list first, then the faq list of every page_doc component in document
-// order, then of every legacy page_sections entry.
+// order, then, only when the entry has no page_doc, of every legacy page_sections
+// entry.
 func FAQItemsFromAttributes(attrs map[string]any) []FAQItem {
 	out := FAQItemsFromList(attrs[faqListKey])
-	if raw, ok := attrs[keyDoc]; ok {
+	raw, hasDoc := attrs[keyDoc]
+	if hasDoc && raw != nil {
 		var doc builder.Doc
 		if b, err := jsonx.Marshal(raw); err == nil && jsonx.Unmarshal(b, &doc, jsonx.StoredLoose) == nil {
 			for _, n := range builder.Components(&doc) {
 				out = append(out, FAQItemsFromList(n.P[faqListKey])...)
 			}
 		}
+	}
+	if hasDoc && raw != nil {
+		// A converted page keeps a frozen page_sections mirror; the renderer
+		// ignores it once page_doc exists, so the FAQ must too.
+		return out
 	}
 	sections, _ := attrs[keySections].([]any)
 	for _, s := range sections {
