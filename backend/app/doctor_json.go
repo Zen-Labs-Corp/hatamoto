@@ -102,6 +102,7 @@ var doctorRegistry = map[string]colCheck{
 	"hatamoto_site_config.business_profile":        {decode: decodeAs[bizprofile.Profile]()},
 	"hatamoto_site_config.locale_profiles":         {decode: decodeAs[map[string]bizprofile.Profile]()},
 	"hatamoto_site_config.postal_address":          {decode: decodeAs[bizprofile.Address]()},
+	"hatamoto_site_config.visitor_entry":           {decode: decodeAs[siteconfig.VisitorEntry]()},
 	"hatamoto_standing_approvals.fingerprint":      opaque,
 	"hatamoto_standing_approvals.policy":           opaque,
 	"hatamoto_terms.seo":                           opaque,
