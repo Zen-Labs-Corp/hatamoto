@@ -41,6 +41,11 @@ type Config struct {
 	// replaced, without a restart. Empty disables country.
 	GeoIPDB string
 
+	// GeoIPMmap is HATAMOTO_GEOIP_MMAP: map the GeoIP file read-only instead
+	// of copying it into memory. Off by default. The file must then be
+	// replaced by rename, never overwritten in place.
+	GeoIPMmap bool
+
 	// Warnings are non-fatal configuration problems found by Load (an invalid
 	// value fell back to its default); the caller logs them at boot.
 	Warnings []string
@@ -353,6 +358,7 @@ func Load() (*Config, error) {
 	}
 
 	cfg.GeoIPDB = strings.TrimSpace(os.Getenv("HATAMOTO_GEOIP_DB"))
+	cfg.GeoIPMmap = getEnvBool("HATAMOTO_GEOIP_MMAP", false)
 
 	warned := len(cfg.Warnings)
 	cfg.PageCacheTTL, cfg.Warnings = loadPageCacheTTL(cfg.Warnings)

@@ -267,7 +267,10 @@ server and the address is not kept. There is no admin setting for the path.
 Sources: DB-IP Lite country (CC-BY-4.0, attribution required) or MaxMind
 GeoLite2 Country (MaxMind account and EULA). You are responsible for the
 licence terms of the file you use. A bad or missing file logs a warning and
-countries stay off.
+countries stay off. Set `HATAMOTO_GEOIP_MMAP=1` to map the file read-only
+instead of copying it into memory (off by default); then replace it only by
+writing a temporary file and renaming it over the old one, never by
+overwriting it in place.
 
 **AI assistants here and on Referrals can differ.** The Traffic channel counts
 visits that arrive with a page load and a beacon. The Referrals tab counts the

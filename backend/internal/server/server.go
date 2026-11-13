@@ -1274,6 +1274,7 @@ func (s *Server) setupTraffic() {
 		// The holder is installed even when the first load fails, so a file
 		// that appears later is picked up without a restart.
 		h := analytics.NewGeoHolder(s.cfg.GeoIPDB, s.logger)
+		h.SetMmap(s.cfg.GeoIPMmap)
 		h.Reload()
 		s.analyticsHandlers.SetGeo(h)
 		s.geoHolder = h
