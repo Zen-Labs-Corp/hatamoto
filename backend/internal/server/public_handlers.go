@@ -34,6 +34,9 @@ type PublicPageResponse struct {
 	Meta       PageMeta               `json:"meta"`
 	Breadcrumb []BreadcrumbItem       `json:"breadcrumb"`
 	Editorial  jsontext.Value         `json:"editorial,omitzero"`
+	// NoBreadcrumbLD leaves the BreadcrumbList script out of the HTML head
+	// (the schema or the entry switched it off); the visible trail stays.
+	NoBreadcrumbLD bool `json:"-"`
 	// ExtraJSONLD holds the entry's custom JSON-LD objects, rendered as extra
 	// ld+json scripts after JSONLD. HTML pages only.
 	ExtraJSONLD []jsontext.Value         `json:"-"`

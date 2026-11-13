@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 
@@ -35,12 +36,15 @@ type bylines struct {
 	org     string // the site organisation's name
 	// path is the public path of a person slug.
 	path func(ctx context.Context, slug string) string
+	// person resolves an author_from reference (a person id or slug); nil
+	// when unknown.
+	person func(ctx context.Context, ref string) *person.Person
 }
 
 // bylinesOf resolves the byline of each entity id; a failure is logged and
 // answered with no credits, so the plain-text bylines still render.
 func (s *Server) bylinesOf(ctx context.Context, ids ...uuid.UUID) *bylines {
-	b := &bylines{path: s.personPath, credits: map[uuid.UUID]person.Credit{}, people: map[uuid.UUID]*person.Person{}}
+	b := &bylines{path: s.personPath, person: s.personByRef, credits: map[uuid.UUID]person.Credit{}, people: map[uuid.UUID]*person.Person{}}
 	if s.db == nil {
 		return b
 	}
@@ -152,6 +156,65 @@ func (b *bylines) applyJSONLD(ctx context.Context, id uuid.UUID, baseURL string,
 			node["@id"], node["url"] = u+"#person", u
 		}
 		doc["author"] = node
+	}
+}
+
+// personByRef finds a person by id or slug; nil when there is none or the
+// lookup fails.
+func (s *Server) personByRef(ctx context.Context, ref string) *person.Person {
+	if s.db == nil {
+		return nil
+	}
+	var (
+		p   *person.Person
+		err error
+	)
+	if id, perr := uuid.Parse(ref); perr == nil {
+		p, err = s.people().Get(ctx, id)
+	} else {
+		p, err = s.people().GetBySlug(ctx, ref)
+	}
+	if err != nil {
+		if !errors.Is(err, person.ErrNotFound) {
+			s.logger.Warn("render: author_from person", "error", err)
+		}
+		return nil
+	}
+	return p
+}
+
+// applyAuthorFrom sets the author of the entity's document from the person
+// named by the attribute settings.author_from, as a Person node linked by
+// @id. The byline columns keep precedence, a person who is not public is
+// ignored, and in both cases the generated author stays. The entity node is
+// the document itself or, when a FAQPage wraps it, the first @graph node.
+func (b *bylines) applyAuthorFrom(ctx context.Context, ent *entity.Entity, st entity.SchemaURLSettings, baseURL string, doc map[string]any) {
+	if doc == nil || st.AuthorFrom == "" || b.person == nil {
+		return
+	}
+	if c := b.credits[ent.ID]; c.PersonID != nil || c.Org {
+		return
+	}
+	var attrs map[string]any
+	if jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.StoredLoose) != nil {
+		return
+	}
+	ref, _ := attrs[string(st.AuthorFrom)].(string)
+	if ref = strings.TrimSpace(ref); ref == "" {
+		return
+	}
+	node := doc
+	if g, ok := doc["@graph"].([]map[string]any); ok && len(g) > 0 {
+		node = g[0]
+	}
+	p := b.person(ctx, ref)
+	if p == nil || !p.Public {
+		return
+	}
+	node["author"] = map[string]any{
+		"@type": "Person",
+		"@id":   baseURL + b.path(ctx, p.Slug) + "#person",
+		"name":  p.Name,
 	}
 }
 

@@ -116,23 +116,17 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 	// Content negotiation: if Accept: application/ld+json, return pure JSON-LD
 	acceptHeader := r.Header.Get("Accept")
 	if strings.Contains(acceptHeader, "application/ld+json") {
-		jsonLD, err := entity.GenerateJSONLDWithFAQ(ent, baseURL, faqItems)
+		jsonLD, _, err := buildPageJSONLD(ctx, ent, baseURL, loc.Path, faqItems, s.bylinesOf(ctx, ent.ID))
 		if err != nil {
 			return nil, pageOutcome{Status: http.StatusInternalServerError},
 				&pageError{http.StatusInternalServerError, "failed to generate JSON-LD"}
 		}
-		entity.ApplyCanonicalToJSONLD(jsonLD, ent.Schema.Slug, baseURL+loc.Path)
-		s.bylinesOf(ctx, ent.ID).applyJSONLD(ctx, ent.ID, baseURL, jsonLD)
 		outcome.LDJSON = jsonLD
 		return nil, outcome, nil
 	}
 
 	// Generate JSON-LD with FAQ enrichment
-	jsonLD, _ := entity.GenerateJSONLDWithFAQ(ent, baseURL, faqItems)
-	if ent.Schema != nil {
-		entity.ApplyCanonicalToJSONLD(jsonLD, ent.Schema.Slug, baseURL+loc.Path)
-	}
-	s.bylinesOf(ctx, ent.ID).applyJSONLD(ctx, ent.ID, baseURL, jsonLD)
+	jsonLD, noBreadcrumbLD, _ := buildPageJSONLD(ctx, ent, baseURL, loc.Path, faqItems, s.bylinesOf(ctx, ent.ID))
 
 	// Parse attributes for meta
 	var attrs map[string]interface{}
@@ -183,10 +177,11 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 	breadcrumb := shapeCrumbs(crumbIn)
 
 	response := PublicPageResponse{
-		Entity:     ent,
-		JSONLD:     jsonLD,
-		Meta:       meta,
-		Breadcrumb: breadcrumb,
+		Entity:         ent,
+		JSONLD:         jsonLD,
+		Meta:           meta,
+		Breadcrumb:     breadcrumb,
+		NoBreadcrumbLD: noBreadcrumbLD,
 		// The entry's own JSON-LD block: extra scripts for the HTML page,
 		// never merged into the generated document.
 		ExtraJSONLD: entity.CustomJSONLDDocs(ent.Attributes),
@@ -306,7 +301,8 @@ func firstNonBlankAttr(attrs map[string]any, keys ...string) string {
 	return ""
 }
 
-// pageFAQItems extracts the FAQ blocks of an entry's body, or nil when the
+// pageFAQItems extracts the FAQ blocks of an entry's body and its structured
+// faq lists (entry and sections), or nil when the
 // schema turned FAQ extraction off (settings.faq_from_content=false).
 func pageFAQItems(ent *entity.Entity) []entity.FAQItem {
 	if st, err := ent.Schema.URLSettings(); err == nil && !st.FAQEnabled() {
@@ -318,5 +314,10 @@ func pageFAQItems(ent *entity.Entity) []entity.FAQItem {
 	if jsonx.Unmarshal(ent.Attributes, &body, jsonx.StoredLoose) != nil {
 		return nil
 	}
-	return entity.ExtractFAQItems(body.Content)
+	items := entity.ExtractFAQItems(body.Content)
+	var attrs map[string]any
+	if jsonx.Unmarshal(ent.Attributes, &attrs, jsonx.StoredLoose) == nil {
+		items = append(items, entity.FAQItemsFromAttributes(attrs)...)
+	}
+	return items
 }

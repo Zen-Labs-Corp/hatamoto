@@ -131,6 +131,9 @@ type PageView struct {
 	BaseURL    string
 	Path       string
 	Breadcrumb []Crumb
+	// NoBreadcrumbLD leaves the BreadcrumbList JSON-LD out of the head; the
+	// visible trail (Breadcrumb) is unaffected.
+	NoBreadcrumbLD bool
 	// JSONLD holds backend-built JSON-LD documents, emitted verbatim (escaped).
 	JSONLD []jsontext.Value
 	// AICrawlerComment is an optional HTML comment body for AI crawlers.
