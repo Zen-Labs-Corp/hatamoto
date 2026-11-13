@@ -228,11 +228,7 @@ func (s *Server) loadHomepage(r *http.Request) (*PublicPageResponse, pageOutcome
 
 	baseURL := s.publicBaseURL(r)
 	home := s.urlSnapshot(ctx).WithLocale(ent.Locale, "/")
-	jsonLD, _ := entity.GenerateJSONLD(ent, baseURL)
-	if ent.Schema != nil {
-		entity.ApplyCanonicalToJSONLD(jsonLD, ent.Schema.Slug, baseURL+home)
-	}
-	s.bylinesOf(ctx, ent.ID).applyJSONLD(ctx, ent.ID, baseURL, jsonLD)
+	jsonLD, noBreadcrumbLD, _ := buildPageJSONLD(ctx, ent, baseURL, home, nil, s.bylinesOf(ctx, ent.ID))
 
 	// Parse attributes for meta
 	var attrs map[string]interface{}
@@ -252,9 +248,10 @@ func (s *Server) loadHomepage(r *http.Request) (*PublicPageResponse, pageOutcome
 	}
 
 	response := PublicPageResponse{
-		Entity: ent,
-		JSONLD: jsonLD,
-		Meta:   meta,
+		Entity:         ent,
+		JSONLD:         jsonLD,
+		Meta:           meta,
+		NoBreadcrumbLD: noBreadcrumbLD,
 	}
 
 	response.AICrawlerComment = entity.GenerateAICrawlerComment(

@@ -189,6 +189,24 @@ func TestPublicPagesJSON_Integration(t *testing.T) {
 			t.Errorf("builder-only doc: %s", a)
 		}
 	})
+	// The homepage goes through the same JSON-LD builder as a page: the
+	// schema's WebPage and BreadcrumbList switches apply to "/" too.
+	t.Run("homepage switches", func(t *testing.T) {
+		exec(`UPDATE hatamoto_entity_schemas SET settings = settings || '{"emit_webpage":"on","emit_breadcrumb":"off"}'::jsonb WHERE id = $1`, schemaID)
+		t.Cleanup(func() {
+			exec(`UPDATE hatamoto_entity_schemas SET settings = settings - 'emit_webpage' - 'emit_breadcrumb' WHERE id = $1`, schemaID)
+		})
+		res, out, err := srv.loadHomepage(req("/"))
+		if err != nil || out.NotFound || res == nil {
+			t.Fatalf("loadHomepage: %v %+v", err, out)
+		}
+		if got := ldGraphTypes(res.JSONLD); len(got) != 2 || got[1] != "WebPage" {
+			t.Errorf("emit_webpage=on: homepage graph types %v, want the entity and a WebPage (%v)", got, res.JSONLD)
+		}
+		if !res.NoBreadcrumbLD {
+			t.Error("emit_breadcrumb=off: NoBreadcrumbLD is false on the homepage")
+		}
+	})
 	t.Run("not found", func(t *testing.T) {
 		if res, out, err := srv.loadPublicPage(req("/pj-missing"), "pj-missing"); err != nil || !out.NotFound {
 			t.Fatalf("missing page: res=%v out=%+v err=%v", res, out, err)
