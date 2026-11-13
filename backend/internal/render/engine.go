@@ -175,17 +175,76 @@ type compiled struct {
 	version    string
 	pluginSize int
 	layers     int // chain length
-	layouts    map[layoutKey]*template.Template
-	assets     http.Handler
-	cssName    string
-	hasJS      bool
+	// root is the shared base set (base, partials, sections, dispatch). It is
+	// never executed, only cloned, once per layout that is first requested.
+	root *template.Template
+	// layerSrc holds each layout's source, read at compile time so a later
+	// rewrite of the layer's files cannot change a lazily built layout.
+	layerSrc map[layoutKey]string
+	// layouts is immutable after compileChain; each slot builds once.
+	layouts map[layoutKey]*layoutSlot
+	assets  http.Handler
+	cssName string
+	hasJS   bool
 	// legacyBeacon: the theme's own hm.js still posts the old pageview beacon, so
 	// the core hm-track.js tag is skipped (one sender, no double count).
 	legacyBeacon bool
-	// contentSlots maps a single*/archive* layout (a clone of the base set) to
-	// the part slot wrapped around its content; empty when the theme did not
-	// opt in.
-	contentSlots map[*template.Template]string
+}
+
+// layoutEntry is one built layout: a clone of the base set plus the part slot
+// wrapped around its content (empty when the theme did not opt in or the
+// layout is not a single*/archive* one).
+type layoutEntry struct {
+	tmpl *template.Template
+	slot string
+}
+
+// layoutSlot builds its layout at most once, caching the result and the error.
+type layoutSlot struct {
+	once sync.Once
+	e    *layoutEntry
+	err  error
+}
+
+// layoutBuilds counts on-demand layout builds (not the activation checks).
+var layoutBuilds atomic.Int64
+
+// buildLayout clones root, parses the layout source into the clone and wraps
+// its content slot. It is the single definition of a layout, used both to
+// validate a theme (result discarded) and to serve requests.
+func buildLayout(root *template.Template, th *Theme, name, src string) (*layoutEntry, error) {
+	clone, err := root.Clone()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := clone.New("layouts/" + name + ".html").Parse(src); err != nil {
+		return nil, fmt.Errorf("layouts/%s.html: %w", name, err)
+	}
+	if clone.Lookup("content") == nil {
+		return nil, fmt.Errorf("layouts/%s.html must define \"content\"", name)
+	}
+	le := &layoutEntry{tmpl: clone}
+	if slot := contentSlot(name); slot != "" && th.BuilderParts[slot] {
+		if err := wrapPartial(clone, "content", contentWrapper); err != nil {
+			return nil, fmt.Errorf("layouts/%s.html: %w", name, err)
+		}
+		le.slot = slot
+	}
+	return le, nil
+}
+
+// layout returns the built layout for k, building it on first use. ok is false
+// when no such layout file exists.
+func (c *compiled) layout(k layoutKey) (le *layoutEntry, ok bool, err error) {
+	ls, ok := c.layouts[k]
+	if !ok {
+		return nil, false, nil
+	}
+	ls.once.Do(func() {
+		layoutBuilds.Add(1)
+		ls.e, ls.err = buildLayout(c.root, c.theme, k.name, c.layerSrc[k])
+	})
+	return ls.e, true, ls.err
 }
 
 // New builds an Engine with chain [o.Layers..., embedded default].
@@ -453,10 +512,9 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 		version:    chainHash(chain),
 		pluginSize: size,
 		layers:     len(chain),
-		layouts:    map[layoutKey]*template.Template{},
-	}
-	if len(th.BuilderParts) > 0 {
-		c.contentSlots = map[*template.Template]string{}
+		root:       root,
+		layerSrc:   map[layoutKey]string{},
+		layouts:    map[layoutKey]*layoutSlot{},
 	}
 	// Every layer's layouts are parsed, not only the winning copy of each name:
 	// the hierarchy falls through a theme's own files before the default's.
@@ -478,27 +536,18 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 			if err != nil {
 				return nil, err
 			}
-			clone, err := root.Clone()
-			if err != nil {
+			// Validate now (parse errors, missing content), keep nothing: one
+			// throwaway clone alive at a time. Requests rebuild from the source.
+			if _, err := buildLayout(root, th, name, string(src)); err != nil {
 				return nil, err
 			}
-			if _, err := clone.New("layouts/" + name + ".html").Parse(string(src)); err != nil {
-				return nil, fmt.Errorf("layouts/%s.html: %w", name, err)
-			}
-			if clone.Lookup("content") == nil {
-				return nil, fmt.Errorf("layouts/%s.html must define \"content\"", name)
-			}
-			if slot := contentSlot(name); slot != "" && th.BuilderParts[slot] {
-				if err := wrapPartial(clone, "content", contentWrapper); err != nil {
-					return nil, fmt.Errorf("layouts/%s.html: %w", name, err)
-				}
-				c.contentSlots[clone] = slot
-			}
-			c.layouts[layoutKey{layer, name}] = clone
+			k := layoutKey{layer, name}
+			c.layerSrc[k] = string(src)
+			c.layouts[k] = &layoutSlot{}
 		}
 	}
 	for _, name := range []string{"page", "404", "error"} {
-		if _, ok := c.pick(name); !ok {
+		if !c.has(name) {
 			return nil, fmt.Errorf("theme has no layouts/%s.html", name)
 		}
 	}
@@ -547,15 +596,36 @@ type pageData struct {
 
 // pick returns the layout for the first candidate any layer has, trying every
 // candidate in the highest-precedence layer before the next layer.
-func (c *compiled) pick(candidates ...string) (*template.Template, bool) {
+// The layout is built on first use; a build error is returned with ok true.
+func (c *compiled) pickEntry(candidates ...string) (*layoutEntry, bool, error) {
 	for layer := range c.layers {
 		for _, name := range candidates {
-			if t, ok := c.layouts[layoutKey{layer, name}]; ok {
-				return t, true
+			if _, ok := c.layouts[layoutKey{layer, name}]; ok {
+				return c.layout(layoutKey{layer, name})
 			}
 		}
 	}
-	return nil, false
+	return nil, false, nil
+}
+
+// has reports whether any layer ships the layout, without building it.
+func (c *compiled) has(name string) bool {
+	for layer := range c.layers {
+		if _, ok := c.layouts[layoutKey{layer, name}]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// pick is pickEntry for callers that only need the template; a layout that
+// cannot be built counts as absent.
+func (c *compiled) pick(candidates ...string) (*template.Template, bool) {
+	le, ok, err := c.pickEntry(candidates...)
+	if !ok || err != nil {
+		return nil, false
+	}
+	return le.tmpl, true
 }
 
 // escapeProbe runs html/template's contextual escaping on the section alone, in
@@ -587,10 +657,14 @@ func (e *Engine) execute(w io.Writer, candidates []string, v *PageView, status i
 }
 
 func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *PageView, status int) error {
-	tmpl, ok := c.pick(candidates...)
+	le, ok, err := c.pickEntry(candidates...)
 	if !ok {
 		return fmt.Errorf("render: no layout among %v", candidates)
 	}
+	if err != nil {
+		return fmt.Errorf("render %s: %w", candidates[0], err)
+	}
+	tmpl := le.tmpl
 	settings := *e.settings.Load()
 	v.strs = resolveStrings(c.theme.Strings, v.StringOverrides)
 	d := &pageData{
@@ -612,7 +686,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	// Body is expanded here, before the form island decision below.
 	d.Body = template.HTML(RewriteEntityLinks(string(sanitisedHTML(v.Attrs["content"], v)), v.EntityLinks)) // #nosec G203 -- sanitised, only href replaced
 	docCSS.markFormSections(d.Blocks, v.Forms)
-	if parts, pc := e.renderParts(c, tmpl, v); pc != nil {
+	if parts, pc := e.renderParts(c, le, v); pc != nil {
 		d.Part = parts
 		docCSS.merge(*pc)
 		docCSS.compilePresets(v.Site.Design)
@@ -713,7 +787,7 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 	if !framed && !v.Site.EmailPlain { // access notices are public, so they are protected too
 		out = protectEmails(out) // last: later steps must not add literal addresses
 	}
-	_, err := w.Write(out)
+	_, err = w.Write(out)
 	return err
 }
 
