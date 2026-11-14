@@ -101,6 +101,9 @@ func TestEveryProtectedRouteDeniedForKeyUnlessAllowlisted(t *testing.T) {
 		"PATCH /api/v1/settings/seo/":                  true, // write:seo
 		"GET /api/v1/media/":                           true, // read:media
 		"POST /api/v1/media/upload":                    true, // write:media
+		"GET /api/v1/forms/":                           true, // read:forms
+		"GET /api/v1/forms/{id}":                       true, // read:forms
+		"GET /api/v1/forms/{id}/submissions":           true, // read:forms
 	}
 
 	seen := map[string]bool{}

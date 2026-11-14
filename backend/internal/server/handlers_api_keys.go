@@ -220,6 +220,7 @@ func (s *Server) handleGetAPIKeyScopes(w http.ResponseWriter, r *http.Request) {
 		auth.ScopeWriteTerms:       "Create tags and categories (MCP only)",
 		auth.ScopeReadSEO:          "Read Settings > SEO values, the AI-crawler policy and the 404 log",
 		auth.ScopeWriteSEO:         "Change Settings > SEO values and the AI-crawler policy (includes read)",
+		auth.ScopeReadForms:        "Read forms and their submissions (contains personal data)",
 		auth.ScopeAll:              "Full access to all resources",
 	}
 
