@@ -217,7 +217,7 @@ curl -H "X-API-Key: $KEY" "https://example.com/api/v1/forms/<id>/submissions?lim
 # {"submissions":[...],"total":250,"limit":100,"offset":0}
 ```
 
-Submissions come newest first. Reading one submission by id, and every change to forms or submissions, stays closed to keys.
+Submissions come newest first. Each submission has a status (`new`, `read`, `archived` or `spam`). The list returns all of them unless you add `?status=<one>`, so skip `spam` on your side. Without `limit` a page holds 50 submissions. Pages can overlap while new submissions arrive, so de-duplicate by `id`. Reading one submission by id, and every change to forms or submissions, stays closed to keys.
 
 | Rule | Behaviour |
 |---|---|
