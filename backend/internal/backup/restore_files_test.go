@@ -60,7 +60,7 @@ func TestRestoreRunsEveryStepInOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(log, ","); got != "pg_restore,pg_restore,pg_restore,pg_restore,psql" { // analysis (list, grants), core list, core restore, bootstrap
+	if got := strings.Join(log, ","); got != "pg_restore,pg_restore,pg_restore,pg_restore,pg_restore,pg_restore,psql" { // role check and analysis (list, grants each), core list, core restore, bootstrap
 		t.Fatalf("exec order = %s", got)
 	}
 	if mediaAtPsql || secretsAtPsql {

@@ -55,6 +55,7 @@ func (x *dbRestorer) steps(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("restore stopped at role check: %w", err)
 	}
+	x.ana = ana
 	if err := x.recordSchemas(ctx); err != nil {
 		return fmt.Errorf("restore stopped at target inspection: %w", err)
 	}
