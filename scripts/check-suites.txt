@@ -47,6 +47,7 @@ t-installer     deploy/install/**,deploy/systemd/**,deploy/install-unit.sh,backe
 t-publish-install scripts/publish-install.sh,scripts/deploy-target.sh,scripts/test-publish-install.sh,deploy/install/**   bash scripts/test-publish-install.sh
 t-deploy-target  scripts/deploy-target.sh,scripts/test-deploy-target.sh   bash scripts/test-deploy-target.sh
 t-ship-cell      scripts/ship.sh,scripts/fake-hmctl.sh,scripts/test-ship-cell.sh   bash scripts/test-ship-cell.sh
+t-ship-preflight scripts/ship.sh,scripts/test-ship-preflight.sh   bash scripts/test-ship-preflight.sh
 t-ci-relevance   scripts/ci-relevance.sh,scripts/test-ci-relevance.sh   bash scripts/test-ci-relevance.sh
 t-ci-full   scripts/ci-full-plan.sh,scripts/ci-full-report.sh,scripts/test-ci-full.sh   bash scripts/test-ci-full.sh
 t-ci-smoke      scripts/ci-smoke-pkgs.sh,scripts/ci-smoke-exclude.txt,scripts/test-ci-smoke.sh   bash scripts/test-ci-smoke.sh
