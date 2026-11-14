@@ -17,6 +17,7 @@ import (
 // exactly that and nothing else.
 type rollbackLedger struct {
 	coreDone         bool     // the core dump is committed
+	schemasBefore    []string // schemas the target database had before the run
 	bootstrapStarted bool     // the role bootstrap ran (or began to)
 	plugins          []string // plugins whose provisioning was attempted
 
@@ -201,7 +202,7 @@ func (x *restorer) rollbackDatabase(ctx context.Context, f *RestoreFailure) (emp
 		}
 	}
 	if x.led.coreDone {
-		emptied = sql(appEnv, "schemas of database "+d.dbName, emptyDatabaseSQL)
+		emptied = sql(appEnv, "schemas of database "+d.dbName, emptyDatabaseSQL(x.led.schemasBefore))
 	}
 	return emptied, roles
 }
@@ -237,15 +238,25 @@ func revokeTempFileLimitSQL(role string) string {
 		sqlLiteral(role) + `) THEN EXECUTE format('REVOKE SET ON PARAMETER temp_file_limit FROM %I', ` + sqlLiteral(role) + `); END IF; END $$`
 }
 
-// emptyDatabaseSQL drops every schema the dump created and recreates public as
-// a new database has it. It runs as the database owner.
-const emptyDatabaseSQL = `DO $$ DECLARE s name; BEGIN ` +
-	`FOR s IN SELECT nspname FROM pg_namespace WHERE nspname NOT IN ('public', 'information_schema') AND nspname NOT LIKE 'pg\_%' ` +
-	`LOOP EXECUTE format('DROP SCHEMA %I CASCADE', s); END LOOP; ` +
-	`DROP SCHEMA IF EXISTS public CASCADE; ` +
-	`IF current_setting('server_version_num')::int >= 150000 THEN ` +
-	`CREATE SCHEMA public AUTHORIZATION pg_database_owner; GRANT USAGE ON SCHEMA public TO PUBLIC; ` +
-	`ELSE CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO PUBLIC; END IF; END $$`
+// emptyDatabaseSQL drops the schemas the dump created (those not in before)
+// and recreates public as a new database has it. It runs as the database owner.
+func emptyDatabaseSQL(before []string) string {
+	keep := "ARRAY['public','information_schema']::name[]"
+	if len(before) > 0 {
+		lits := make([]string, len(before))
+		for i, s := range before {
+			lits[i] = sqlLiteral(s)
+		}
+		keep = "ARRAY['public','information_schema'," + strings.Join(lits, ",") + "]::name[]"
+	}
+	return `DO $$ DECLARE s name; BEGIN ` +
+		`FOR s IN SELECT nspname FROM pg_namespace WHERE nspname <> ALL (` + keep + `) AND nspname NOT LIKE 'pg\_%' ` +
+		`LOOP EXECUTE format('DROP SCHEMA %I CASCADE', s); END LOOP; ` +
+		`DROP SCHEMA IF EXISTS public CASCADE; ` +
+		`IF current_setting('server_version_num')::int >= 150000 THEN ` +
+		`CREATE SCHEMA public AUTHORIZATION pg_database_owner; GRANT USAGE ON SCHEMA public TO PUBLIC; ` +
+		`ELSE CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO PUBLIC; END IF; END $$`
+}
 
 func sqlLiteral(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
 

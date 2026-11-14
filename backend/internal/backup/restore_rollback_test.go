@@ -190,3 +190,27 @@ func TestRollbackMediaLeftover(t *testing.T) {
 type failingDelete struct{ media.BlobStore }
 
 func (failingDelete) Delete(context.Context, string) error { return errors.New("denied") }
+
+func TestRollbackDropsOnlySchemasTheRunCreated(t *testing.T) {
+	r := newRollbackRig(t)
+	r.x.led.schemasBefore = []string{"analytics", "it's"}
+	if err := r.x.rollback(context.Background(), errors.New("stopped")); err == nil {
+		t.Fatal("no error")
+	}
+	last := r.stmts[len(r.stmts)-1]
+	for _, want := range []string{"ARRAY['public','information_schema','analytics','it''s']::name[]", "nspname <> ALL"} {
+		if !strings.Contains(last, want) {
+			t.Errorf("empty-database statement lacks %q:\n%s", want, last)
+		}
+	}
+}
+
+func TestRecordSchemasKeepsWhatTheTargetHad(t *testing.T) {
+	x := &dbRestorer{restorer: &restorer{o: RestoreOptions{Q: &fakeQuerier{schemas: [][]string{{"analytics"}, {"pg_catalog"}}}}}}
+	if err := x.recordSchemas(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(x.led.schemasBefore, ","); got != "analytics,pg_catalog" {
+		t.Fatalf("schemasBefore = %s", got)
+	}
+}

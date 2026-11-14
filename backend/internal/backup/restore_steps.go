@@ -55,6 +55,9 @@ func (x *dbRestorer) steps(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("restore stopped at role check: %w", err)
 	}
+	if err := x.recordSchemas(ctx); err != nil {
+		return fmt.Errorf("restore stopped at target inspection: %w", err)
+	}
 	if err := x.restoreCore(ctx, work); err != nil {
 		return fmt.Errorf("restore stopped at core database: %w", err)
 	}
@@ -81,6 +84,31 @@ func (x *dbRestorer) analyze(ctx context.Context, work string) (*roleAnalysis, e
 	}
 	defer closeQ()
 	return analyzeRoles(ctx, x.restorer, q, work, x.appRole)
+}
+
+// recordSchemas notes the schemas the target database has before anything is
+// written, so a rollback drops only the ones the restore created.
+func (x *dbRestorer) recordSchemas(ctx context.Context) error {
+	q, closeQ, err := x.querier(ctx)
+	if err != nil {
+		return err
+	}
+	defer closeQ()
+	rows, err := q.Query(ctx, `SELECT nspname FROM pg_namespace WHERE nspname <> 'public' ORDER BY 1`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return err
+		}
+		names = append(names, s)
+	}
+	x.led.schemasBefore = names
+	return rows.Err()
 }
 
 // skipWarnings is the plan warning for each role whose grants are skipped.
