@@ -691,3 +691,28 @@ func TestRestoreIntegrationRollbackKeepsPreexistingPublicObjects(t *testing.T) {
 		t.Errorf("%d relations left in public", n)
 	}
 }
+
+// A grant statement is sent over the extended protocol, so a string holding
+// two commands is refused and nothing in it is applied.
+func TestRestoreIntegrationGrantsRefuseMultipleCommands(t *testing.T) {
+	ctx := context.Background()
+	pool, appURL := scratchDB(t, modeCreateRole)
+	if _, err := pool.Exec(ctx, `CREATE TABLE grant_scratch (id int)`); err != nil {
+		t.Fatal(err)
+	}
+	x := &dbRestorer{restorer: &restorer{o: RestoreOptions{DatabaseURL: appURL}}}
+	err := x.execGrants(ctx, []grantScript{{
+		label: "scratch",
+		stmts: []string{`GRANT SELECT ON grant_scratch TO PUBLIC; GRANT INSERT ON grant_scratch TO PUBLIC`},
+	}})
+	if err == nil {
+		t.Fatal("a two-command string was accepted")
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.role_table_grants WHERE table_name = 'grant_scratch' AND grantee = 'PUBLIC'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("%d grants applied despite the error", n)
+	}
+}

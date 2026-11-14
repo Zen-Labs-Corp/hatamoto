@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -213,8 +212,10 @@ func (x *dbRestorer) execGrants(ctx context.Context, scripts []grantScript) erro
 			}
 		}
 		for _, st := range sc.stmts {
-			if _, err := tx.Exec(ctx, st, pgx.QueryExecModeExec); err != nil {
-				return fmt.Errorf("%s: %w", sc.label, err)
+			// ExecParams always uses the extended protocol, so the server
+			// refuses a string holding more than one command.
+			if res := tx.Conn().PgConn().ExecParams(ctx, st, nil, nil, nil, nil).Read(); res.Err != nil {
+				return fmt.Errorf("%s: %w", sc.label, res.Err)
 			}
 		}
 		if sc.role != "" {
