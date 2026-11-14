@@ -182,6 +182,25 @@ func TestAuthOrAPIKeyMedia(t *testing.T) {
 	}
 }
 
+func TestAuthOrAPIKeyForms(t *testing.T) {
+	h := newKeyHarness(t, true, map[string]*auth.APIKey{
+		"read":  testKey(auth.ScopeReadForms),
+		"all":   testKey(auth.ScopeAll),
+		"other": testKey(auth.ScopeReadMedia),
+	})
+	for _, path := range []string{
+		"/api/v1/forms", "/api/v1/forms/", "/api/v1/forms/x", "/api/v1/forms/x/submissions",
+	} {
+		for name, want := range map[string]int{
+			"read": http.StatusOK, "all": http.StatusOK, "other": http.StatusForbidden,
+		} {
+			if rec := do(h.handler, "GET", path, name); rec.Code != want {
+				t.Errorf("GET %s with %s key: got %d want %d", path, name, rec.Code, want)
+			}
+		}
+	}
+}
+
 func TestDeniedRoutes(t *testing.T) {
 	h := newKeyHarness(t, true, map[string]*auth.APIKey{"all": testKey(auth.ScopeAll)})
 	denied := []struct{ method, path string }{
@@ -234,6 +253,20 @@ func TestDeniedRoutes(t *testing.T) {
 		{"GET", "/api/v1/settings/seo%2Fx"},
 		{"GET", "/api/v1/settings/site"},
 		{"PATCH", "/api/v1/settings/site"},
+		// forms: GET list/one/submissions only
+		{"POST", "/api/v1/forms"},
+		{"PUT", "/api/v1/forms"},
+		{"DELETE", "/api/v1/forms"},
+		{"POST", "/api/v1/forms/x"},
+		{"PUT", "/api/v1/forms/x"},
+		{"DELETE", "/api/v1/forms/x"},
+		{"GET", "/api/v1/forms/x/submissions/y"},
+		{"PATCH", "/api/v1/forms/x/submissions/y"},
+		{"DELETE", "/api/v1/forms/x/submissions/y"},
+		{"POST", "/api/v1/forms/x/submissions/y/email"},
+		{"GET", "/api/v1/forms/x/submissions/y/extra"},
+		{"GET", "/api/v1/forms/x%2Fy"},
+		{"GET", "/api/v1/forms/../users"},
 	}
 	for _, c := range denied {
 		if rec := do(h.handler, c.method, c.path, "all"); rec.Code != http.StatusForbidden {

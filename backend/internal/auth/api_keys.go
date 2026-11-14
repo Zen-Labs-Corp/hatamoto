@@ -50,7 +50,9 @@ const (
 	// SEO settings (Settings > SEO): write:seo implies read:seo.
 	ScopeReadSEO  APIKeyScope = "read:seo"
 	ScopeWriteSEO APIKeyScope = "write:seo"
-	ScopeAll      APIKeyScope = "*"
+	// Forms and their submissions (personal data): read only.
+	ScopeReadForms APIKeyScope = "read:forms"
+	ScopeAll       APIKeyScope = "*"
 )
 
 // ValidScopes returns all valid API key scopes.
@@ -70,6 +72,7 @@ func ValidScopes() []APIKeyScope {
 		ScopeWriteTerms,
 		ScopeReadSEO,
 		ScopeWriteSEO,
+		ScopeReadForms,
 		ScopeAll,
 	}
 }

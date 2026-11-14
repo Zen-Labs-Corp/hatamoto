@@ -57,3 +57,22 @@ func TestMediaScopes(t *testing.T) {
 		t.Error("* must grant both")
 	}
 }
+
+func TestFormsScope(t *testing.T) {
+	if !IsValidScope("read:forms") {
+		t.Fatal("read:forms is not a valid scope")
+	}
+	listed := false
+	for _, sc := range ValidScopes() {
+		listed = listed || sc == ScopeReadForms
+	}
+	if !listed {
+		t.Error("read:forms missing from ValidScopes")
+	}
+	if (&APIKey{Scopes: []APIKeyScope{ScopeReadMedia}}).HasScope(ScopeReadForms) {
+		t.Error("read:media grants read:forms")
+	}
+	if !(&APIKey{Scopes: []APIKeyScope{ScopeAll}}).HasScope(ScopeReadForms) {
+		t.Error("* does not grant read:forms")
+	}
+}

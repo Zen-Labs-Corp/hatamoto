@@ -62,6 +62,10 @@ var (
 		// Media: list and upload only; per-item routes stay closed.
 		{http.MethodGet, keyRoutePattern(`^/api/v1/media/?$`), auth.ScopeReadMedia},
 		{http.MethodPost, keyRoutePattern(`^/api/v1/media/upload/?$`), auth.ScopeWriteMedia},
+		// Forms: read-only. Single submissions and every write stay closed.
+		{http.MethodGet, keyRoutePattern(`^/api/v1/forms/?$`), auth.ScopeReadForms},
+		{http.MethodGet, keyRoutePattern(`^/api/v1/forms/[^/]+/?$`), auth.ScopeReadForms},
+		{http.MethodGet, keyRoutePattern(`^/api/v1/forms/[^/]+/submissions/?$`), auth.ScopeReadForms},
 	}
 )
 
