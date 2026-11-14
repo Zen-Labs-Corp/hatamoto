@@ -205,9 +205,19 @@ To create a key step by step, follow [Invite people and create API keys](users-a
 | `read:entities`, `write:entities` | Read entities, Write entities | Read or change content |
 | `write:media`, `write:menus`, `write:redirects`, `write:terms` | Write media, Write menus, Write redirects, Write terms | Site-structure writes, kept separate so a publishing key never gains them |
 | `read:media` | Read media | Lists the media library. `write:media` includes it. Both media scopes also unlock `GET /api/v1/media/` and `POST /api/v1/media/upload` over REST (upload needs `write:media`) |
+| `read:forms` | Read forms | Lists forms and their submissions over REST (`GET /api/v1/forms`, `GET /api/v1/forms/{id}`, `GET /api/v1/forms/{id}/submissions`, paged with `limit` and `offset`). Submissions hold visitors' personal data (answers, IP address, browser, and the page and referrer they came from). Read only |
 | `read:reports` | Read reports | Unlocks the MCP insight tools |
 | `read:citations`, `write:reports`, `read:query_suites`, `write:query_suites` | | Reserved: no route checks them today, so they grant nothing |
 | `*` | Everything (full access) | Everything |
+
+A key with `read:forms` reads submissions like this. The `{id}` is the form's UUID; find it in the forms list by its slug.
+
+```bash
+curl -H "X-API-Key: $KEY" "https://example.com/api/v1/forms/<id>/submissions?limit=100&offset=0"
+# {"submissions":[...],"total":250,"limit":100,"offset":0}
+```
+
+Submissions come newest first. Each submission has a status (`new`, `read`, `archived` or `spam`). The list returns all of them unless you add `?status=<one>`, so skip `spam` on your side. Without `limit` a page holds 50 submissions. Pages can overlap while new submissions arrive, so de-duplicate by `id`. Reading one submission by id, and every change to forms or submissions, stays closed to keys.
 
 | Rule | Behaviour |
 |---|---|

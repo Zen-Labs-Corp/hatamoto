@@ -17,7 +17,7 @@ No key, or a revoked/expired key, gets `401`. The key's rate limit applies to ev
 
 ## Scopes
 
-Each tool needs one scope. A `read:*` scope cannot call a write tool; `write:entities` implies `read:entities`; `*` allows all. Media, menus, redirects and terms have their own write scopes: `write:entities` does **not** grant them, and existing keys do not gain them. `write:menus`, `write:redirects` and `write:terms` are MCP-only. `read:media` and `write:media` also unlock two REST routes: `GET /api/v1/media/` (list) and `POST /api/v1/media/upload`; `write:media` implies `read:media`. `read:seo` and `write:seo` also unlock one REST route, `GET|PATCH /api/v1/settings/seo`; otherwise REST API keys reach nothing but entities, linking and those media routes. `write:seo` implies `read:seo`.
+Each tool needs one scope. A `read:*` scope cannot call a write tool; `write:entities` implies `read:entities`; `*` allows all. Media, menus, redirects and terms have their own write scopes: `write:entities` does **not** grant them, and existing keys do not gain them. `write:menus`, `write:redirects` and `write:terms` are MCP-only. `read:media` and `write:media` also unlock two REST routes: `GET /api/v1/media/` (list) and `POST /api/v1/media/upload`; `write:media` implies `read:media`. `read:seo` and `write:seo` also unlock one REST route, `GET|PATCH /api/v1/settings/seo`; otherwise REST API keys reach nothing but entities, linking and those media, SEO and forms routes. `write:seo` implies `read:seo`. `read:forms` has no MCP tool; it unlocks `GET` on `/api/v1/forms`, `/api/v1/forms/{id}` and `/api/v1/forms/{id}/submissions`.
 
 | Scope | Tools |
 |---|---|

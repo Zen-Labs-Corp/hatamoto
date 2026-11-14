@@ -101,13 +101,16 @@ func TestEveryProtectedRouteDeniedForKeyUnlessAllowlisted(t *testing.T) {
 		"PATCH /api/v1/settings/seo/":                  true, // write:seo
 		"GET /api/v1/media/":                           true, // read:media
 		"POST /api/v1/media/upload":                    true, // write:media
+		"GET /api/v1/forms/":                           true, // read:forms
+		"GET /api/v1/forms/{id}":                       true, // read:forms
+		"GET /api/v1/forms/{id}/submissions":           true, // read:forms
 	}
 
 	seen := map[string]bool{}
 	for _, rt := range routes {
 		id := rt[0] + " " + strings.ReplaceAll(strings.ReplaceAll(rt[1], "{$}", ""), "/{rest...}", "")
 		seen[id] = true
-		url := paramRe.ReplaceAllString(strings.ReplaceAll(rt[1], "{$}", ""), "x")
+		url := paramRe.ReplaceAllString(strings.ReplaceAll(rt[1], "{$}", ""), "0b6f6a52-6c1e-4d3b-9a43-2f1f5e7c8d90")
 		req := httptest.NewRequest(rt[0], url, nil)
 		req.Header.Set("X-API-Key", "nxk_test")
 		rec := httptest.NewRecorder()

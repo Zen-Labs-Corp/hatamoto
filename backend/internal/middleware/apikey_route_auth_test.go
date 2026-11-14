@@ -182,6 +182,44 @@ func TestAuthOrAPIKeyMedia(t *testing.T) {
 	}
 }
 
+func TestAuthOrAPIKeyForms(t *testing.T) {
+	h := newKeyHarness(t, true, map[string]*auth.APIKey{
+		"read":  testKey(auth.ScopeReadForms),
+		"all":   testKey(auth.ScopeAll),
+		"other": testKey(auth.ScopeReadMedia),
+	})
+	const id = "0b6f6a52-6c1e-4d3b-9a43-2f1f5e7c8d90"
+	for _, path := range []string{
+		"/api/v1/forms", "/api/v1/forms/", "/api/v1/forms/" + id, "/api/v1/forms/" + id + "/",
+		"/api/v1/forms/" + id + "/submissions", "/api/v1/forms/" + id + "/submissions/",
+	} {
+		for name, want := range map[string]int{
+			"read": http.StatusOK, "all": http.StatusOK, "other": http.StatusForbidden,
+		} {
+			if rec := do(h.handler, "GET", path, name); rec.Code != want {
+				t.Errorf("GET %s with %s key: got %d want %d", path, name, rec.Code, want)
+			}
+		}
+	}
+}
+
+func TestAuthOrAPIKeyFormsRejectsNonUUID(t *testing.T) {
+	h := newKeyHarness(t, true, map[string]*auth.APIKey{
+		"read": testKey(auth.ScopeReadForms),
+		"all":  testKey(auth.ScopeAll),
+	})
+	for _, path := range []string{
+		"/api/v1/forms/export", "/api/v1/forms/not-a-uuid/submissions", "/api/v1/forms/x",
+		"/api/v1/forms/0b6f6a52-6c1e-4d3b-9a43-2f1f5e7c8d9/submissions",
+	} {
+		for _, name := range []string{"read", "all"} {
+			if rec := do(h.handler, "GET", path, name); rec.Code != http.StatusForbidden {
+				t.Errorf("GET %s with %s key: got %d want 403", path, name, rec.Code)
+			}
+		}
+	}
+}
+
 func TestDeniedRoutes(t *testing.T) {
 	h := newKeyHarness(t, true, map[string]*auth.APIKey{"all": testKey(auth.ScopeAll)})
 	denied := []struct{ method, path string }{
@@ -234,6 +272,20 @@ func TestDeniedRoutes(t *testing.T) {
 		{"GET", "/api/v1/settings/seo%2Fx"},
 		{"GET", "/api/v1/settings/site"},
 		{"PATCH", "/api/v1/settings/site"},
+		// forms: GET list/one/submissions only
+		{"POST", "/api/v1/forms"},
+		{"PUT", "/api/v1/forms"},
+		{"DELETE", "/api/v1/forms"},
+		{"POST", "/api/v1/forms/x"},
+		{"PUT", "/api/v1/forms/x"},
+		{"DELETE", "/api/v1/forms/x"},
+		{"GET", "/api/v1/forms/x/submissions/y"},
+		{"PATCH", "/api/v1/forms/x/submissions/y"},
+		{"DELETE", "/api/v1/forms/x/submissions/y"},
+		{"POST", "/api/v1/forms/x/submissions/y/email"},
+		{"GET", "/api/v1/forms/x/submissions/y/extra"},
+		{"GET", "/api/v1/forms/x%2Fy"},
+		{"GET", "/api/v1/forms/../users"},
 	}
 	for _, c := range denied {
 		if rec := do(h.handler, c.method, c.path, "all"); rec.Code != http.StatusForbidden {

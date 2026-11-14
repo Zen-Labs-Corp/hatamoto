@@ -35,6 +35,10 @@ func keyRoutePattern(p string) *regexp.Regexp { return regexp.MustCompile(p) }
 var (
 	entityPath = keyRoutePattern(`^/api/v1/entities/[^/]+/?$`)
 
+	// formID matches a form UUID, so literal siblings such as /forms/export
+	// never reach a key.
+	formID = `[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`
+
 	// keyRoutes is the complete, fail-closed list of routes an API key may
 	// reach through AuthOrAPIKey. Anything not listed is 403, whatever the
 	// key's scopes (including "*"). Patterns are anchored; ids are one
@@ -62,6 +66,10 @@ var (
 		// Media: list and upload only; per-item routes stay closed.
 		{http.MethodGet, keyRoutePattern(`^/api/v1/media/?$`), auth.ScopeReadMedia},
 		{http.MethodPost, keyRoutePattern(`^/api/v1/media/upload/?$`), auth.ScopeWriteMedia},
+		// Forms: read-only. Single submissions and every write stay closed.
+		{http.MethodGet, keyRoutePattern(`^/api/v1/forms/?$`), auth.ScopeReadForms},
+		{http.MethodGet, keyRoutePattern(`^/api/v1/forms/` + formID + `/?$`), auth.ScopeReadForms},
+		{http.MethodGet, keyRoutePattern(`^/api/v1/forms/` + formID + `/submissions/?$`), auth.ScopeReadForms},
 	}
 )
 
