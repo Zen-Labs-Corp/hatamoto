@@ -320,8 +320,9 @@ CREATEDB or CREATEROLE). `<db>` is the new database. Run the Hatamoto commands a
 2. Create the app role (if the cluster is new) and an empty database owned by it:
    `CREATE ROLE "<app role>" LOGIN PASSWORD '...'; CREATE DATABASE "<db>" OWNER "<app role>";`
    Everything restored is owned by this role, and the grants and default privileges the backup
-   gave the source site's app role are given to it. Grants to any other role that this cluster
-   does not have are skipped, with one warning per role.
+   gave the source site's app role are given to it. Roles other than that one and the plugin
+   roles must exist in this cluster before step 3 (create them, or expect errors for their
+   grants): this procedure skips nothing and prints no warning for them.
 3. As the app role, restore the core dump without its `DEFAULT ACL` entries, which name the
    source's app role, then set the default privileges for yours:
    `pg_restore -l core.dump | grep -v ' DEFAULT ACL - ' > core.list`
