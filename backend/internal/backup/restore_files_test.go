@@ -268,3 +268,61 @@ func TestRestoreLeavesRetentionFile(t *testing.T) {
 		t.Fatalf("mode = %v", fi.Mode().Perm())
 	}
 }
+
+func TestRestoreFilesRecordWhatTheRunWrote(t *testing.T) {
+	var log []string
+	r := execRig(t, &log, nil)
+	out := filepath.Join(t.TempDir(), "hatamoto.env")
+	arch := buildArchive(t, noPlugins)
+	sc, err := scanArchive(arch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := &restorer{o: r.o, src: arch, scan: sc, mf: sc.mf, configTarget: out}
+	if err := x.fileSteps(t.Context(), &RestorePlan{}); err != nil {
+		t.Fatal(err)
+	}
+	keys := slices.Clone(x.led.mediaKeys)
+	slices.Sort(keys)
+	if !slices.Equal(keys, []string{"2026/a.txt", "b.txt"}) || x.led.store == nil || !x.led.mediaDirCreated {
+		t.Errorf("media ledger = %v, store %v, dir created %v", keys, x.led.store, x.led.mediaDirCreated)
+	}
+	if want := filepath.Join(r.o.SecretsDir, secretsName); x.led.secretsCreated != want || !x.led.secretsDirCreated {
+		t.Errorf("secrets ledger = %q, dir created %v", x.led.secretsCreated, x.led.secretsDirCreated)
+	}
+	if x.led.configCreated != out {
+		t.Errorf("config ledger = %q", x.led.configCreated)
+	}
+}
+
+func TestRestoreFilesLedgerSkipsWhatWasThereBefore(t *testing.T) {
+	var log []string
+	r := execRig(t, &log, nil)
+	arch := buildArchive(t, noPlugins)
+	sc, err := scanArchive(arch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	existing := filepath.Join(t.TempDir(), "mine.env")
+	if err := os.WriteFile(existing, []byte("MINE\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{r.o.MediaDir, r.o.SecretsDir} {
+		if err := os.MkdirAll(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(r.o.SecretsDir, secretsName), sc.secrets, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	x := &restorer{o: r.o, src: arch, scan: sc, mf: sc.mf, configTarget: existing}
+	if err := x.fileSteps(t.Context(), &RestorePlan{}); err != nil {
+		t.Fatal(err)
+	}
+	if x.led.secretsCreated != "" || x.led.secretsDirCreated || x.led.configCreated != "" || x.led.mediaDirCreated {
+		t.Errorf("ledger claims what was already there: %+v", x.led)
+	}
+	if len(x.led.mediaKeys) != 2 {
+		t.Errorf("media keys = %v", x.led.mediaKeys)
+	}
+}
