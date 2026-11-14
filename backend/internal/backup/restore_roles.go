@@ -252,7 +252,8 @@ func (x *restorer) aclStatements(ctx context.Context, work, dump string, listing
 
 // checkGrantStmt accepts only what pg_dump writes for an ACL entry: one GRANT,
 // REVOKE or ALTER DEFAULT PRIVILEGES statement ending in its only semicolon,
-// with no backslash outside a quoted identifier or literal. The archive is
+// with no backslash, comment opener, dollar sign or E-string outside a quoted
+// identifier or literal (pg_dump writes none of them in an ACL line). The archive is
 // untrusted input; anything else makes the restore refuse.
 func checkGrantStmt(stmt string) error {
 	if !strings.HasPrefix(stmt, "GRANT ") && !strings.HasPrefix(stmt, "REVOKE ") && !strings.HasPrefix(stmt, "ALTER DEFAULT PRIVILEGES ") {
@@ -266,8 +267,12 @@ func checkGrantStmt(stmt string) error {
 			if c == quote {
 				quote = 0
 			}
+		case c == '\'' && i > 0 && (stmt[i-1] == 'E' || stmt[i-1] == 'e'):
+			return fmt.Errorf("statement %q holds an escape string", capLine(stmt))
 		case c == '"' || c == '\'':
 			quote = c
+		case c == '$' || c == '-' && i+1 < len(stmt) && stmt[i+1] == '-' || c == '/' && i+1 < len(stmt) && stmt[i+1] == '*':
+			return fmt.Errorf("statement %q holds a comment or dollar quote outside quotes", capLine(stmt))
 		case c == '\\':
 			return fmt.Errorf("statement %q holds a backslash outside quotes", capLine(stmt))
 		case c == ';' && i != len(stmt)-1:

@@ -186,6 +186,7 @@ func TestCheckGrantStmt(t *testing.T) {
 		`GRANT SELECT ON TABLE public.t TO "odd;\\role" WITH GRANT OPTION;`,
 		`REVOKE ALL ON FUNCTION public.f() FROM PUBLIC;`,
 		`ALTER DEFAULT PRIVILEGES FOR ROLE hm_dst IN SCHEMA public GRANT SELECT ON TABLES TO reporting;`,
+		`GRANT SELECT ON TABLE public.t TO "a--b$c/*d";`,
 	} {
 		if err := checkGrantStmt(ok); err != nil {
 			t.Errorf("%s: %v", ok, err)
@@ -197,6 +198,10 @@ func TestCheckGrantStmt(t *testing.T) {
 		`GRANT SELECT ON TABLE public.t TO hm_src; DROP TABLE public.t;`,
 		`GRANT SELECT ON TABLE public.t TO "hm_src;`,
 		`DROP TABLE public.t;`,
+		`GRANT SELECT ON TABLE public.t TO a /* ' */ ; COMMIT; /* " */ b;`,
+		`GRANT SELECT ON TABLE public.t TO a; -- x`,
+		`GRANT SELECT ON TABLE public.t TO a $$ ; $$;`,
+		`GRANT SELECT ON TABLE public.t TO a E'\\';`,
 	} {
 		if err := checkGrantStmt(bad); err == nil {
 			t.Errorf("accepted %s", bad)
