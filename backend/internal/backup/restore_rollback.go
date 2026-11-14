@@ -342,11 +342,11 @@ func emptyDatabaseSQL(before []string, pub publicState) string {
 		}
 		keep = "ARRAY['public','information_schema'," + strings.Join(lits, ",") + "]::name[]"
 	}
-	head := `DO $$ DECLARE s name; r record; had text[] := ` + textArray(pub.objects) + `; BEGIN ` +
+	head := `DECLARE s name; r record; had text[] := ` + textArray(pub.objects) + `; BEGIN ` +
 		`FOR s IN SELECT nspname FROM pg_namespace WHERE nspname <> ALL (` + keep + `) AND nspname NOT LIKE 'pg\_%' ` +
 		`LOOP EXECUTE format('DROP SCHEMA %I CASCADE', s); END LOOP; `
 	if !pub.exists {
-		return head + `DROP SCHEMA IF EXISTS public CASCADE; END $$`
+		return doBlock(head + `DROP SCHEMA IF EXISTS public CASCADE; END`)
 	}
 	var b strings.Builder
 	b.WriteString(head)
@@ -368,8 +368,18 @@ func emptyDatabaseSQL(before []string, pub publicState) string {
 	for _, g := range pub.acl {
 		b.WriteString("EXECUTE " + sqlLiteral(g) + "; ")
 	}
-	b.WriteString("END $$")
-	return b.String()
+	b.WriteString("END")
+	return doBlock(b.String())
+}
+
+// doBlock wraps a plpgsql body in DO with a dollar-quote tag the body does not
+// contain, so a name holding $$ cannot end the block early.
+func doBlock(body string) string {
+	tag := "$hm_rb$"
+	for strings.Contains(body, tag) {
+		tag = "$hm_rb_" + tag[1:]
+	}
+	return "DO " + tag + " " + body + " " + tag
 }
 
 // textArray is a SQL text[] literal of items.

@@ -312,3 +312,19 @@ func TestRollbackPluginRoleLeftoverNeedsNoAdminSchema(t *testing.T) {
 		t.Errorf("the leftover command needs the schema the rollback drops:\n%s", text)
 	}
 }
+
+func TestEmptyDatabaseSQLDollarInName(t *testing.T) {
+	for _, pub := range []publicState{
+		{exists: true, acl: []string{`GRANT USAGE ON SCHEMA public TO "a$$b";`}},
+		{exists: true, acl: []string{`GRANT USAGE ON SCHEMA public TO "a$hm_rb$b";`}},
+	} {
+		sql := emptyDatabaseSQL([]string{"x$$y"}, pub)
+		tag := sql[len("DO ") : strings.Index(sql[len("DO "):], " ")+len("DO ")]
+		if !strings.HasSuffix(sql, " "+tag) {
+			t.Fatalf("block not closed by %s: %s", tag, sql)
+		}
+		if body := strings.TrimSuffix(strings.TrimPrefix(sql, "DO "+tag+" "), " "+tag); strings.Contains(body, tag) {
+			t.Errorf("tag %s appears inside the body", tag)
+		}
+	}
+}
