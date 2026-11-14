@@ -815,6 +815,34 @@ elif (( !MIG && !API )); then
   echo "no deploy needed"
 fi
 
+# site_state_health SLUG < `hmctl site status` output: prints "STATE HEALTH" from the
+# row of SLUG (line 2), found by header name. Cells are sliced at the header's column
+# offsets because a cell may hold spaces (UPDATE: "up to date"); prints nothing when
+# the header, either column or the row is missing.
+# test-ship-preflight.sh extracts this function: keep it self-contained.
+site_state_health() {
+  awk -v s="$1" '
+    NR == 1 {
+      n = 0; h = $0
+      while (match(h, /[^ ]+/)) {
+        n++; name[n] = substr(h, RSTART, RLENGTH); start[n] = off + RSTART
+        off += RSTART + RLENGTH - 1; h = substr(h, RSTART + RLENGTH)
+      }
+      for (i = 1; i <= n; i++) { if (name[i] == "STATE") si = i; if (name[i] == "HEALTH") hi = i }
+      next
+    }
+    NR == 2 && si && hi {
+      split($0, f, " "); if (f[1] != s) exit
+      for (i = 1; i <= n; i++) {
+        e = (i < n) ? start[i + 1] - start[i] : length($0) - start[i] + 1
+        c = substr($0, start[i], e); gsub(/^ +| +$/, "", c)
+        if (i == si) st = c; if (i == hi) hl = c
+      }
+      if (st != "" && hl != "") print st, hl
+      exit
+    }'
+}
+
 # ---------------------------------------------------------------- preflight
 # Config errors must fail here, before the backup or any migration.
 if (( !NO_DEPLOY && (MIG || API) )); then
@@ -825,11 +853,11 @@ if (( !NO_DEPLOY && (MIG || API) )); then
     else
       ssh -T -o BatchMode=yes -o ConnectTimeout=10 "$DEPLOY_HOST" true \
         || { echo "SHIP-H ABORT: preflight: cannot ssh to $DEPLOY_HOST (BatchMode)" >&2; exit 1; }
-      # `site status` exits 0 even for an unhealthy site: parse the table row (STATE = field 2, HEALTH = last)
+      # `site status` exits 0 even for an unhealthy site: parse the STATE and HEALTH cells by header name
       STATUS_OUT=$(hm status 2>&1) \
         || { echo "SHIP-H ABORT: preflight: hmctl site status failed:" >&2; echo "$STATUS_OUT" >&2; exit 1; }
       SITE_STATE=""; SITE_HEALTH=""
-      read -r SITE_STATE SITE_HEALTH < <(awk -v s="$SLUG" 'NR == 2 && $1 == s {print $2, $NF}' <<< "$STATUS_OUT") || true
+      read -r SITE_STATE SITE_HEALTH < <(site_state_health "$SLUG" <<< "$STATUS_OUT") || true
       [[ "$SITE_STATE" == running && "$SITE_HEALTH" == ok ]] \
         || { echo "SHIP-H ABORT: preflight: site $SLUG is not running and healthy (state=${SITE_STATE:-?} health=${SITE_HEALTH:-?}); hmctl said:" >&2; echo "$STATUS_OUT" >&2; exit 1; }
       echo "preflight: site $SLUG running, health ok"

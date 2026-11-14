@@ -35,8 +35,14 @@ goose_file=${FAKE_GOOSE_FILE:-$STUB_LOG.goose}
 case $verb in
   status)
     health=${FAKE_HEALTH:-ok}; [[ ${FAKE_HEALTH_FAIL:-} == 1 ]] && health=down
-    echo "SITE  STATE  MEM  CPU  BACKUP  VERSION  UPDATE  HEALTH"
-    echo "$slug  ${FAKE_STATE:-running}  1M  1%  3h  v1  ok  $health"
+    # laid out like hmctl's status.Format: every cell padded to its column's widest cell + 2,
+    # the last cell unpadded
+    printf '%s\n' "SLUG|STATE|PLAN|MEM|CPU|VERSION|CHANNEL|UPDATE|HEALTH|BACKUP" \
+      "$slug|${FAKE_STATE:-running}|small|1M|1%|v1|stable|up to date|$health|3h" |
+      awk -F'|' '{ for (i = 1; i <= NF; i++) { c[NR, i] = $i; if (length($i) > w[i]) w[i] = length($i) } n = NF }
+        END { for (r = 1; r <= NR; r++) { line = ""
+                for (i = 1; i <= n; i++) line = line (i < n ? sprintf("%-" w[i] + 2 "s", c[r, i]) : c[r, i])
+                print line } }'
     ;;
   backup)
     echo "ok  backup      20260101T000000Z-manual uploaded to sites/$slug/backups/20260101T000000Z-manual.tar"
