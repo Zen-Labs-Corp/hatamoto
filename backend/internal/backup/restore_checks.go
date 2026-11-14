@@ -316,12 +316,51 @@ func (x *restorer) check(ctx context.Context) (*RestorePlan, error) {
 		}
 	}
 
+	// The dumps' grants against this cluster's roles: which role the source
+	// app role becomes, and which grants have no role to go to. Last, and not read
+	// for a backup that is refused anyway.
+	if pgOK && len(refuse) == 0 {
+		reasons, err := x.checkRoleMapping(ctx, q, plan)
+		if err != nil {
+			return nil, err
+		}
+		refuse = append(refuse, reasons...)
+	}
+
 	if len(refuse) > 0 {
 		return nil, &RefusalError{Reasons: refuse}
 	}
 	x.planConfig(plan)
 	x.buildPlan(plan)
 	return plan, nil
+}
+
+// checkRoleMapping reads the dumps' grants (into a temp dir, nothing else is
+// written) and adds the roles check and the skipped-role warnings to plan.
+func (x *restorer) checkRoleMapping(ctx context.Context, q Querier, plan *RestorePlan) ([]string, error) {
+	target := &dbRestorer{restorer: x}
+	if err := target.parseTarget(); err != nil {
+		return nil, nil // checkAdmin refuses it
+	}
+	work, err := os.MkdirTemp("", "hatamoto-restore-")
+	if err != nil {
+		return nil, fmt.Errorf("cannot check the roles: %w", err)
+	}
+	defer os.RemoveAll(work)
+	if err := target.extractDumps(work); err != nil {
+		return []string{"cannot read the dumps for the role check: " + err.Error()}, nil
+	}
+	a, err := analyzeRoles(ctx, x, q, work, target.appRole)
+	if err != nil {
+		return []string{"cannot read the dumps for the role check: " + errorLine(err)}, nil
+	}
+	mapping := a.Target
+	if a.Source != "" && a.Source != a.Target {
+		mapping = a.Source + " -> " + a.Target
+	}
+	plan.Checks = append(plan.Checks, fmt.Sprintf("roles ok (%s, %d skipped)", mapping, len(a.Skipped)))
+	plan.Warnings = append(plan.Warnings, skipWarnings(a)...)
+	return nil, nil
 }
 
 // checkAdmin checks what the real run's database steps would need: the

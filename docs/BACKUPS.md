@@ -229,6 +229,9 @@ Before you run it:
 3. Create the app role and an empty database it owns (as a superuser). The role name may use
    lowercase letters, digits and underscores, and need not match the role of the source site:
    `CREATE ROLE "<app role>" LOGIN PASSWORD '...'; CREATE DATABASE "<db>" OWNER "<app role>";`
+   Everything restored is owned by this role, and the grants and default privileges the backup
+   gave the source site's app role are given to it. Grants to any other role that this cluster
+   does not have are skipped, with one warning per role.
 4. Use a cluster that no longer has the original plugin roles (`hm_p_<id>_<name>`) or the
    `hatamoto_role_admin_<id>` role: those names are cluster-wide, and restoring into the cluster
    that still holds the original site is not supported. Backups made by a release that records
@@ -253,8 +256,9 @@ hatamoto backup restore 20261025T101500Z-manual --admin-url postgres://postgres@
 A dry run prints what the real run would do:
 
 ```
+warning  grants to role reporting are skipped (no such role here)
 backup   20261025T101500Z-manual (hatamoto "v0.9.3", pg 16, 1 plugin)
-checks   version ok, pg major ok (backup 16, server 18), trust keys ok, admin url ok, target db empty, media dir empty
+checks   version ok, pg major ok (backup 16, server 18), trust keys ok, admin url ok, target db empty, media dir empty, roles ok (hm_app -> site_app, 1 skipped)
 would    restore core.dump, run role bootstrap, provision plugin_forms, restore plugin_forms.dump,
          restore 42 media files (3.1 MiB), write secrets.env,
          write config to /opt/hatamoto/config/hatamoto.env
@@ -262,7 +266,9 @@ dry run: nothing written
 ```
 
 The real run prints `done` instead of `would` and ends with `restore complete`. Warnings print as
-`warning  <text>` lines before `checks`. The order is: core dump, role bootstrap, each plugin
+`warning  <text>` lines before `checks`. `roles ok (<source role> -> <app role>, N skipped)` says which
+role the backup's app role becomes (`roles ok (<app role>, N skipped)` when they are the same) and
+for how many roles the grants are skipped. The order is: core dump, role bootstrap, each plugin
 (role and schema, then its data), media, `secrets.env`, config.
 
 **Refusals.** Every check runs first; all reasons are reported together, the command exits non-zero,
@@ -276,7 +282,7 @@ and nothing is written:
 | admin URL | `--admin-url` is missing, is not a postgres URL, cannot connect to the target database, is not a superuser, or reaches a different PostgreSQL cluster than `DATABASE_URL`. |
 | `DATABASE_URL` | It names no app role or no database, the role has an unusual name, it is not a postgres URL, or it holds a host list, `service`, or a query parameter the tools cannot be given. |
 | `--config-out` | The path is not absolute and clean, or its directory does not exist. |
-| cluster roles exist | The cluster already holds a role the backup recorded (the role admin or a plugin role), so it belongs to another database or was left by an earlier failed restore. The message names the roles; drop them or restore into another cluster. Not checked for backups that record no roles. |
+| cluster roles exist | The cluster already holds a role the backup recorded (the role admin or a plugin role), so it belongs to another database or was left by a restore whose rollback failed. The message names the roles; drop them or restore into another cluster. Not checked for backups that record no roles. |
 | target database not empty | Any table, view, sequence or similar outside the system schemas, including `hatamoto_admin` from an early bootstrap. The message names the schemas. |
 | media directory not empty | `MEDIA_UPLOAD_DIR` holds any file or directory. A missing directory counts as empty. |
 | media prefix not empty | With `MEDIA_STORAGE=s3` and an archive that holds media bytes: the bucket prefix already holds objects. |
@@ -291,10 +297,16 @@ written because `--config-out` was not given (the warning names the recorded pat
 already exists. Restore never overwrites a config file, and
 writes `secrets.env` with mode 0600 in a 0700 directory.
 
-**If a step fails** the error names the step reached. Nothing is rolled back: drop and recreate the
-empty database (and empty the media directory), then run the command again. Roles made by a
-failed run belong to the cluster: drop the plugin roles (`hm_p_<id8>_*`) and the role-admin role
-(`hatamoto_role_admin_<id8>`) before retrying on the same cluster.
+**If a step fails** the error names the step reached, and restore rolls back what the run wrote:
+the database is emptied, the roles the run created are dropped, and the media, `secrets.env` and
+config it wrote are removed. Nothing that was there before the run is touched. The error ends with
+`rolled back: ...` and `target unchanged: fix the cause and run the command again`; fix the cause
+and run the same command again, with no cleanup by hand.
+
+If a rollback step itself fails, the command exits non-zero and the error says
+`rollback incomplete`, listing each leftover with the command that removes it (for example
+`psql -d <db> -c '...'`, to be run as a role that may drop it). Run those, then run the restore
+again.
 
 ### Manual procedure (fallback)
 
@@ -307,6 +319,10 @@ CREATEDB or CREATEROLE). `<db>` is the new database. Run the Hatamoto commands a
 1. Unpack the archive: `tar -xf <id>.tar`.
 2. Create the app role (if the cluster is new) and an empty database owned by it:
    `CREATE ROLE "<app role>" LOGIN PASSWORD '...'; CREATE DATABASE "<db>" OWNER "<app role>";`
+   Everything restored is owned by this role, and the grants and default privileges the backup
+   gave the source site's app role are given to it. Roles other than that one and the plugin
+   roles must exist in this cluster before step 3 (create them, or expect errors for their
+   grants): this procedure skips nothing and prints no warning for them.
 3. As the app role, restore the core dump without its `DEFAULT ACL` entries, which name the
    source's app role, then set the default privileges for yours:
    `pg_restore -l core.dump | grep -v ' DEFAULT ACL - ' > core.list`

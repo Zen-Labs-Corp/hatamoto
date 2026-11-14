@@ -140,14 +140,16 @@ type restoreRig struct {
 	// adminURL is the URL OpenAdmin was last called with; adminErr fails it.
 	adminURL string
 	adminErr error
+	grants   string // the SQL the rig's pg_restore prints for a dump's ACL entries
 }
 
 func newRestoreRig(t *testing.T) *restoreRig {
 	t.Helper()
 	r := &restoreRig{
-		q:     &engineQuerier{major: 16, sysID: "7001", instance: "10.0.0.1:5432@t0"},
-		admin: &engineQuerier{major: 16, sysID: "7001", instance: "10.0.0.1:5432@t0"},
-		tools: map[string]string{"pg_restore": "pg_restore (PostgreSQL) 16.2", "psql": "psql (PostgreSQL) 16.2"},
+		grants: "GRANT SELECT ON TABLE public.hatamoto_instance TO hm_src;\nGRANT SELECT ON TABLE public.hatamoto_instance TO reporting;\n",
+		q:      &engineQuerier{major: 16, sysID: "7001", instance: "10.0.0.1:5432@t0"},
+		admin:  &engineQuerier{major: 16, sysID: "7001", instance: "10.0.0.1:5432@t0"},
+		tools:  map[string]string{"pg_restore": "pg_restore (PostgreSQL) 16.2", "psql": "psql (PostgreSQL) 16.2"},
 	}
 	base := t.TempDir()
 	r.o = RestoreOptions{
@@ -168,10 +170,29 @@ func newRestoreRig(t *testing.T) *restoreRig {
 			if out, ok := r.tools[name]; ok && len(args) == 1 && args[0] == "--version" {
 				return []byte(out + "\n"), nil
 			}
+			if name == "pg_restore" && len(args) > 0 {
+				return r.readDump(args), nil
+			}
 			return nil, errors.New("unexpected exec " + name)
 		},
 	}
 	return r
+}
+
+// restoreListing is what the rig's pg_restore -l prints for a dump: the source
+// app role owns the instance table, and one ACL entry has no grantee in it.
+const restoreListing = `;
+2000; 1259 9 TABLE public hatamoto_instance hm_src
+2001; 0 0 ACL public TABLE hatamoto_instance hm_src
+`
+
+// readDump answers the role analysis: the listing of any dump, and the grants
+// of the ACL entries (r.grants, one statement per line).
+func (r *restoreRig) readDump(args []string) []byte {
+	if args[0] == "-l" {
+		return []byte(restoreListing)
+	}
+	return []byte(r.grants)
 }
 
 // serverTools makes the server and both client tools report one major.
@@ -207,9 +228,10 @@ func TestRestoreDryRunPlanOutput(t *testing.T) {
 	}
 	var out bytes.Buffer
 	plan.Print(&out)
-	want := `warning  config not written; recorded path "/etc/hatamoto/hatamoto.env"; pass --config-out with the path you want
+	want := `warning  grants to role reporting are skipped (no such role here)
+warning  config not written; recorded path "/etc/hatamoto/hatamoto.env"; pass --config-out with the path you want
 backup   20261025T101500Z-manual (hatamoto "v1.2.3", pg 16, 1 plugin)
-checks   version ok, pg major ok (backup 16, server 16), trust keys ok, admin url ok, target db empty, media dir empty
+checks   version ok, pg major ok (backup 16, server 16), trust keys ok, admin url ok, target db empty, media dir empty, roles ok (hm_src -> u, 1 skipped)
 would    restore core.dump, run role bootstrap, provision plugin_forms, restore plugin_forms.dump,
          restore 2 media files (0.0 MiB), write secrets.env
 dry run: nothing written
@@ -218,7 +240,7 @@ dry run: nothing written
 		t.Fatalf("got:\n%s\nwant:\n%s", out.String(), want)
 	}
 	// The recorded path is a hint only: nothing is written there.
-	if w := "config not written; recorded path \"/etc/hatamoto/hatamoto.env\"; pass --config-out with the path you want"; len(plan.Warnings) != 1 || plan.Warnings[0] != w {
+	if w := "config not written; recorded path \"/etc/hatamoto/hatamoto.env\"; pass --config-out with the path you want"; !slices.Contains(plan.Warnings, w) {
 		t.Errorf("warnings = %v", plan.Warnings)
 	}
 }
@@ -481,7 +503,7 @@ func TestRestoreEnvTrustDifferenceIsAWarning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.Warnings) != 2 || !strings.Contains(plan.Warnings[0], "HATAMOTO_TRUSTED_KEYS") { // the second is the config hint
+	if len(plan.Warnings) != 3 || !strings.Contains(plan.Warnings[0], "HATAMOTO_TRUSTED_KEYS") { // then the skipped grants, then the config hint
 		t.Fatalf("warnings = %v", plan.Warnings)
 	}
 }
@@ -553,9 +575,10 @@ func TestRestoreDryRunWritesNothing(t *testing.T) {
 	if tmpAfter, _ := filepath.Glob(filepath.Join(os.TempDir(), "hatamoto-restore-*")); len(tmpAfter) != len(tmpBefore) {
 		t.Error("dry run left temp files")
 	}
-	// Only --version probes ran: no restore tool did any work.
+	// Only --version probes and the read-only dump reads of the role check ran.
 	for _, c := range r.calls {
-		if len(c) != 2 || c[1] != "--version" {
+		readOnly := c[0] == "pg_restore" && !slices.ContainsFunc(c, func(a string) bool { return strings.HasPrefix(a, "--dbname") })
+		if !readOnly && (len(c) != 2 || c[1] != "--version") {
 			t.Errorf("exec %v in a dry run", c)
 		}
 	}
@@ -768,4 +791,52 @@ func TestRestoreQuotesManifestStrings(t *testing.T) {
 	if err != nil && strings.ContainsAny(err.Error(), "\x1b") || strings.Count(err.Error(), "\n") != 1 {
 		t.Errorf("raw control characters in %q", err)
 	}
+}
+
+func TestRestoreDryRunReportsRoleMapping(t *testing.T) {
+	cases := map[string]struct {
+		url      string
+		existing []string
+		want     string
+		warns    []string
+	}{
+		"mapped, one skipped": {testURL, nil, "roles ok (hm_src -> u, 1 skipped)", []string{"grants to role reporting are skipped (no such role here)"}},
+		"grantee exists here": {testURL, []string{"reporting"}, "roles ok (hm_src -> u, 0 skipped)", nil},
+		"same role":           {"postgres://hm_src:pw@db.example:5433/site", []string{"reporting"}, "roles ok (hm_src, 0 skipped)", nil},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			r := newRestoreRig(t)
+			r.o.DatabaseURL = c.url
+			r.q.existingRoles = c.existing
+			plan, err := r.dry(t, buildArchive(t, nil))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Contains(plan.Checks, c.want) {
+				t.Errorf("checks = %v, want %q", plan.Checks, c.want)
+			}
+			var got []string
+			for _, w := range plan.Warnings {
+				if strings.HasPrefix(w, "grants to role ") {
+					got = append(got, w)
+				}
+			}
+			if !slices.Equal(got, c.warns) {
+				t.Errorf("skip warnings = %v, want %v", got, c.warns)
+			}
+		})
+	}
+}
+
+func TestRestoreDryRunRefusesUnreadableDumps(t *testing.T) {
+	r := newRestoreRig(t)
+	r.o.Run = func(_ context.Context, _ []string, name string, args ...string) ([]byte, error) {
+		if len(args) == 1 && args[0] == "--version" {
+			return []byte(r.tools[name] + "\n"), nil
+		}
+		return []byte("pg_restore: error: not a dump\n"), errors.New("exit status 1")
+	}
+	_, err := r.dry(t, buildArchive(t, nil))
+	wantRefusal(t, err, "cannot read the dumps for the role check")
 }

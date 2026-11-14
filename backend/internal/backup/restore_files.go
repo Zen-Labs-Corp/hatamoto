@@ -15,7 +15,7 @@ import (
 )
 
 // fileSteps restores what lives outside the database: media, secrets.env, then
-// the config. A failure names the step; nothing is rolled back.
+// the config. A failure names the step; Restore then rolls back what the run wrote.
 func (x *restorer) fileSteps(ctx context.Context, plan *RestorePlan) error {
 	if err := x.restoreMedia(ctx); err != nil {
 		return fmt.Errorf("restore stopped at media: %w", err)
@@ -80,12 +80,15 @@ func (x *restorer) restoreMedia(ctx context.Context) error {
 	}
 	store := x.o.MediaStore
 	if store == nil {
+		_, statErr := os.Stat(x.o.MediaDir)
 		local, err := media.NewLocalStore(x.o.MediaDir, "/media")
 		if err != nil {
 			return err
 		}
 		store = local
+		x.led.mediaDirCreated = errors.Is(statErr, os.ErrNotExist)
 	}
+	x.led.store = store
 	r, c, err := x.entryReader(contentName)
 	if err != nil {
 		return err
@@ -108,6 +111,8 @@ func (x *restorer) restoreMedia(ctx context.Context) error {
 		if !ok || h.Typeflag != tar.TypeReg || !safeKey(key) {
 			continue
 		}
+		// Recorded first: a Put that stored the bytes and then failed is undone too.
+		x.led.mediaKeys = append(x.led.mediaKeys, key)
 		if _, err := store.Put(ctx, key, tr); err != nil {
 			return fmt.Errorf("%s: %w", key, err)
 		}
@@ -130,6 +135,8 @@ func (x *restorer) writeSecrets() error {
 	case !errors.Is(err, os.ErrNotExist):
 		return err
 	}
+	_, statErr := os.Stat(x.o.SecretsDir)
+	dirCreated := errors.Is(statErr, os.ErrNotExist)
 	if err := os.MkdirAll(x.o.SecretsDir, 0o700); err != nil {
 		return err
 	}
@@ -141,6 +148,7 @@ func (x *restorer) writeSecrets() error {
 		os.Remove(tmp)
 		return err
 	}
+	x.led.secretsCreated, x.led.secretsDirCreated = target, dirCreated
 	return nil
 }
 
@@ -159,6 +167,7 @@ func (x *restorer) writeConfig() (warning string, err error) {
 	if err != nil {
 		return "", err
 	}
+	x.led.configCreated = x.configTarget
 	if _, err := io.Copy(out, r); err != nil {
 		out.Close()
 		os.Remove(x.configTarget)

@@ -19,8 +19,9 @@ import (
 
 // dbSteps restores the database side of a backup, in the order that works:
 // core dump (app role), superuser bootstrap, then each plugin (provision its
-// role and schema as the app role, restore its dump as that role). A failure
-// names the step; nothing is rolled back.
+// role and schema as the app role, restore its dump as that role), then the
+// grants of both. A failure names the step; Restore then rolls back what the
+// run wrote.
 func (r *restorer) dbSteps(ctx context.Context) error {
 	return (&dbRestorer{restorer: r}).steps(ctx)
 }
@@ -34,6 +35,10 @@ type dbRestorer struct {
 	// provision and ownerOf replace the pluginhost calls in tests.
 	provision func(ctx context.Context, plugin string) error
 	ownerOf   func(ctx context.Context, schema string) (string, error)
+	// grants replaces the connection that runs the grant scripts in tests.
+	grants func(ctx context.Context, scripts []grantScript) error
+
+	pluginRoles map[string]string // plugin schema -> owner role, set by restorePlugins
 }
 
 func (x *dbRestorer) steps(ctx context.Context) error {
@@ -48,6 +53,14 @@ func (x *dbRestorer) steps(ctx context.Context) error {
 	if err := x.extractDumps(work); err != nil {
 		return fmt.Errorf("extract dumps: %w", err)
 	}
+	ana, err := x.analyze(ctx, work)
+	if err != nil {
+		return fmt.Errorf("restore stopped at role check: %w", err)
+	}
+	x.ana = ana
+	if err := x.recordSchemas(ctx); err != nil {
+		return fmt.Errorf("restore stopped at target inspection: %w", err)
+	}
 	if err := x.restoreCore(ctx, work); err != nil {
 		return fmt.Errorf("restore stopped at core database: %w", err)
 	}
@@ -57,7 +70,161 @@ func (x *dbRestorer) steps(ctx context.Context) error {
 	if err := x.pauseOffsiteSync(ctx); err != nil {
 		return fmt.Errorf("restore stopped at off-site backup pause: %w", err)
 	}
-	return x.restorePlugins(ctx, work)
+	if err := x.restorePlugins(ctx, work); err != nil {
+		return err
+	}
+	if err := x.applyACLs(ctx, ana); err != nil {
+		return fmt.Errorf("restore stopped at grants: %w", err)
+	}
+	return nil
+}
+
+// analyze reads the dumps' grants against the target cluster.
+func (x *dbRestorer) analyze(ctx context.Context, work string) (*roleAnalysis, error) {
+	q, closeQ, err := x.querier(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer closeQ()
+	return analyzeRoles(ctx, x.restorer, q, work, x.appRole)
+}
+
+// recordSchemas notes the schemas the target database has before anything is
+// written, so a rollback drops only the ones the restore created.
+func (x *dbRestorer) recordSchemas(ctx context.Context) error {
+	q, closeQ, err := x.querier(ctx)
+	if err != nil {
+		return err
+	}
+	defer closeQ()
+	rows, err := q.Query(ctx, `SELECT nspname FROM pg_namespace WHERE nspname <> 'public' ORDER BY 1`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return err
+		}
+		names = append(names, s)
+	}
+	x.led.schemasBefore = names
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	return x.recordPublic(ctx, q)
+}
+
+// recordPublic notes what schema public holds before anything is written.
+func (x *dbRestorer) recordPublic(ctx context.Context, q Querier) error {
+	rows, err := q.Query(ctx, publicSnapshotSQL)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var got []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return err
+		}
+		got = append(got, s)
+	}
+	x.led.public = parsePublicState(got)
+	return rows.Err()
+}
+
+// skipWarnings is the plan warning for each role whose grants are skipped.
+func skipWarnings(a *roleAnalysis) []string {
+	if a == nil {
+		return nil
+	}
+	var out []string
+	for _, r := range a.Skipped {
+		out = append(out, fmt.Sprintf("grants to role %s are skipped (no such role here)", r))
+	}
+	return out
+}
+
+// grantScript is the grants of one dump, run as role (the app role when "").
+type grantScript struct {
+	label, role string
+	stmts       []string
+}
+
+// applyACLs runs the grants the restore lists left out, after everything they
+// can name exists: the core ones as the app role, each plugin's as its owner
+// role. The statements come from the archive, so they run as plain SQL over a
+// pgx connection (never through psql, whose backslash commands run programs),
+// all in one transaction, and each is checked again first.
+func (x *dbRestorer) applyACLs(ctx context.Context, a *roleAnalysis) error {
+	var todo []grantScript
+	add := func(sc grantScript) {
+		if len(sc.stmts) > 0 {
+			todo = append(todo, sc)
+		}
+	}
+	add(grantScript{"core", "", a.Core})
+	for _, name := range x.mf.Plugins {
+		schema := schemaName(name)
+		if role := x.pluginRoles[schema]; role != "" {
+			add(grantScript{"plugin " + name, role, a.Plugin[schema]})
+		}
+	}
+	for _, sc := range todo {
+		for _, st := range sc.stmts {
+			if err := checkGrantStmt(st); err != nil {
+				return fmt.Errorf("%s: %w", sc.label, err)
+			}
+		}
+	}
+	if len(todo) == 0 {
+		return nil
+	}
+	if x.grants != nil {
+		return x.grants(ctx, todo)
+	}
+	return x.execGrants(ctx, todo)
+}
+
+func (x *dbRestorer) execGrants(ctx context.Context, scripts []grantScript) error {
+	open := x.o.OpenPool
+	if open == nil {
+		open = func(ctx context.Context, url string) (*pgxpool.Pool, error) { return pgxpool.New(ctx, url) }
+	}
+	pool, err := open(ctx, x.o.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("cannot reach the restored database: %w", err)
+	}
+	defer pool.Close()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	for _, sc := range scripts {
+		if sc.role != "" {
+			if _, err := tx.Exec(ctx, "SET LOCAL ROLE "+quoteRole(sc.role)); err != nil {
+				return fmt.Errorf("%s: %w", sc.label, err)
+			}
+		}
+		for _, st := range sc.stmts {
+			// ExecParams always uses the extended protocol, so the server
+			// refuses a string holding more than one command.
+			if res := tx.Conn().PgConn().ExecParams(ctx, st, nil, nil, nil, nil).Read(); res.Err != nil {
+				return fmt.Errorf("%s: %w", sc.label, res.Err)
+			}
+		}
+		if sc.role != "" {
+			if _, err := tx.Exec(ctx, "RESET ROLE"); err != nil {
+				return fmt.Errorf("%s: %w", sc.label, err)
+			}
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 // parseTarget reads the app role and the database name from DatabaseURL. The
@@ -123,11 +290,11 @@ func (x *dbRestorer) extractDumps(dir string) error {
 	}
 }
 
-// restoreCore loads the core dump into the empty database as the app role.
-// The dump's DEFAULT ACL entries name the source's app role ("FOR ROLE <it>"),
-// which may not exist on this server under that name, so they are left out of
-// the restore list. pauseOffsiteSQL sets the same default privileges for the
-// app role afterwards.
+// restoreCore loads the core dump into the empty database as the app role, in
+// one transaction: a failure writes nothing. The dump's ACL and DEFAULT ACL
+// entries name roles (the source's app role, others) that may not exist here,
+// so they are left out of the restore list; applyACLs runs them mapped.
+// pauseOffsiteSQL sets the global default privileges for the app role.
 func (x *dbRestorer) restoreCore(ctx context.Context, work string) error {
 	env, err := pgEnv("DATABASE_URL", x.o.DatabaseURL, true)
 	if err != nil {
@@ -138,16 +305,17 @@ func (x *dbRestorer) restoreCore(ctx context.Context, work string) error {
 	if err != nil {
 		return fmt.Errorf("list: %s", restoreError(listing, err))
 	}
-	list, err := writeTemp0600(work, "core-*.list", []byte(filterDefaultACL(string(listing))))
+	list, err := writeTemp0600(work, "core-*.list", []byte(excludeACL(string(listing))+"\n"))
 	if err != nil {
 		return err
 	}
 	defer os.Remove(list)
-	out, err := x.run(ctx, env, "pg_restore", "--no-owner", "--role="+x.appRole, "--exit-on-error",
+	out, err := x.run(ctx, env, "pg_restore", "--no-owner", "--role="+x.appRole, "--exit-on-error", "--single-transaction",
 		"-L", list, "--dbname="+x.dbName, dump)
 	if err != nil {
 		return errors.New(restoreError(out, err))
 	}
+	x.led.coreDone = true
 	return nil
 }
 
@@ -215,6 +383,7 @@ func (x *dbRestorer) runBootstrap(ctx context.Context, work string) error {
 		return err
 	}
 	env = append(withoutVar(env, "PGDATABASE"), "PGDATABASE="+x.dbName)
+	x.led.bootstrapStarted = true
 	file, err := writeTemp0600(work, "role-admin-bootstrap-*.sql", []byte(bootstrapSQL))
 	if err != nil {
 		return err
@@ -260,9 +429,11 @@ func (x *dbRestorer) restorePlugins(ctx context.Context, work string) error {
 	if err != nil {
 		return err
 	}
+	x.pluginRoles = map[string]string{}
 	for _, name := range x.mf.Plugins {
 		step := "plugin " + name
 		schema := schemaName(name)
+		x.led.plugins = append(x.led.plugins, name)
 		if err := provision(ctx, name); err != nil {
 			return fmt.Errorf("restore stopped at %s: provision: %w", step, err)
 		}
@@ -273,16 +444,17 @@ func (x *dbRestorer) restorePlugins(ctx context.Context, work string) error {
 		if !rolePattern.MatchString(role) {
 			return fmt.Errorf("restore stopped at %s: schema %s has no usable owner role (%q)", step, schema, role)
 		}
+		x.pluginRoles[schema] = role
 		dump := filepath.Join(work, schema+".dump")
 		listing, err := x.run(ctx, env, "pg_restore", "-l", dump)
 		if err != nil {
 			return fmt.Errorf("restore stopped at %s: list: %s", step, restoreError(listing, err))
 		}
-		list, err := writeTemp0600(work, schema+"-*.list", []byte(filterSchemaLine(string(listing))))
+		list, err := writeTemp0600(work, schema+"-*.list", []byte(excludeACL(filterSchemaLine(string(listing)))+"\n"))
 		if err != nil {
 			return err
 		}
-		out, err := x.run(ctx, env, "pg_restore", "--clean", "--if-exists", "--no-owner", "--role="+role,
+		out, err := x.run(ctx, env, "pg_restore", "--clean", "--if-exists", "--no-owner", "--role="+role, "--single-transaction",
 			"-L", list, "--dbname="+x.dbName, dump)
 		os.Remove(list)
 		if err != nil {

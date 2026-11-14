@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -84,6 +85,8 @@ type restorer struct {
 	scan         *scanned
 	mf           manifest
 	configTarget string // empty when the config will not be written
+	led          rollbackLedger
+	ana          *roleAnalysis // the real run's role analysis, set by dbSteps
 }
 
 // Restore checks a backup against this machine and, unless it is a dry run,
@@ -115,10 +118,15 @@ func Restore(ctx context.Context, o RestoreOptions, req RestoreRequest) (*Restor
 		return plan, nil
 	}
 	if err := x.dbSteps(ctx); err != nil {
-		return plan, err
+		return plan, x.rollback(ctx, err)
 	}
 	if err := x.fileSteps(ctx, plan); err != nil {
-		return plan, err
+		return plan, x.rollback(ctx, err)
+	}
+	// The grants were read again for the run; roles may have changed since the checks.
+	if x.ana != nil {
+		plan.Warnings = slices.DeleteFunc(plan.Warnings, func(w string) bool { return strings.HasPrefix(w, "grants to role ") })
+		plan.Warnings = append(plan.Warnings, skipWarnings(x.ana)...)
 	}
 	plan.Done = true
 	return plan, nil
