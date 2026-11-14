@@ -184,6 +184,10 @@ func (x *restorer) rollbackDatabase(ctx context.Context, f *RestoreFailure) (emp
 		name := strings.TrimPrefix(schemaName(x.led.plugins[i]), "plugin_")
 		schema := schemaName(x.led.plugins[i])
 		ok := sql(appEnv, "plugin "+x.led.plugins[i]+" schema", dropOwnedSchemaSQL(schema))
+		// Provisioning granted CONNECT on the database; the role cannot be dropped while it holds it.
+		if role := x.roleNamed("hm_p_", "_"+name); role != "" {
+			ok = sql(appEnv, "plugin "+x.led.plugins[i]+" database privileges", "REVOKE ALL ON DATABASE "+quoteRole(d.dbName)+" FROM "+quoteRole(role)) && ok
+		}
 		if sql(appEnv, "plugin "+x.led.plugins[i]+" role", "SELECT hatamoto_admin.drop_plugin_role("+sqlLiteral(name)+")") && ok {
 			if r := x.roleNamed("hm_p_", "_"+name); r != "" {
 				roles = append(roles, r)

@@ -101,8 +101,8 @@ func TestRollbackUndoesEverythingTheRunWrote(t *testing.T) {
 	if _, err := os.Stat(r.preexist); err != nil {
 		t.Errorf("a file the run did not write was touched: %v", err)
 	}
-	// Order: plugin schema, plugin role, admin schema, grant, admin role, database.
-	wantStmts := []string{"DROP SCHEMA", "drop_plugin_role('webhooks')", "hatamoto_admin CASCADE", "REVOKE SET ON PARAMETER", "DROP ROLE IF EXISTS hatamoto_role_admin_abcd1234", "pg_database_owner"}
+	// Order: plugin schema, its database privileges, plugin role, admin schema, grant, admin role, database.
+	wantStmts := []string{"DROP SCHEMA", "REVOKE ALL ON DATABASE target FROM hm_p_abcd1234_webhooks", "drop_plugin_role('webhooks')", "hatamoto_admin CASCADE", "REVOKE SET ON PARAMETER", "DROP ROLE IF EXISTS hatamoto_role_admin_abcd1234", "pg_database_owner"}
 	if len(r.stmts) != len(wantStmts) {
 		t.Fatalf("%d statements, want %d:\n%s", len(r.stmts), len(wantStmts), strings.Join(r.stmts, "\n"))
 	}
@@ -111,8 +111,8 @@ func TestRollbackUndoesEverythingTheRunWrote(t *testing.T) {
 			t.Errorf("statement %d = %s, want it to contain %q", i, r.stmts[i], w)
 		}
 	}
-	if !strings.Contains(strings.Join(r.envs[2], " "), "PGUSER=adm") || !strings.Contains(strings.Join(r.envs[0], " "), "PGUSER=hm_dst") {
-		t.Errorf("plugin steps run as the app role, admin steps as the admin URL role:\n%v\n%v", r.envs[0], r.envs[2])
+	if !strings.Contains(strings.Join(r.envs[3], " "), "PGUSER=adm") || !strings.Contains(strings.Join(r.envs[0], " "), "PGUSER=hm_dst") {
+		t.Errorf("plugin steps run as the app role, admin steps as the admin URL role:\n%v\n%v", r.envs[0], r.envs[3])
 	}
 }
 
