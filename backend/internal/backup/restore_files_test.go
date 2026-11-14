@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -59,7 +60,7 @@ func TestRestoreRunsEveryStepInOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(log, ","); got != "pg_restore,pg_restore,psql" {
+	if got := strings.Join(log, ","); got != "pg_restore,pg_restore,pg_restore,pg_restore,psql" { // analysis (list, grants), core list, core restore, bootstrap
 		t.Fatalf("exec order = %s", got)
 	}
 	if mediaAtPsql || secretsAtPsql {
@@ -232,6 +233,9 @@ func TestRestoreStopsAtFailingDatabaseStepBeforeFiles(t *testing.T) {
 	r.o.Run = func(_ context.Context, _ []string, name string, args ...string) ([]byte, error) {
 		if len(args) == 1 && args[0] == "--version" {
 			return []byte(name + " (PostgreSQL) 16.2\n"), nil
+		}
+		if name == "pg_restore" && !slices.ContainsFunc(args, func(a string) bool { return strings.HasPrefix(a, "--dbname=") }) {
+			return nil, nil // the listings and the grants read by the role analysis
 		}
 		return []byte("pg_restore: error: boom\n"), os.ErrInvalid
 	}

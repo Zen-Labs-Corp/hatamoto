@@ -222,12 +222,8 @@ func rewriteStmt(stmt, from, to string) string {
 // aclStatements runs pg_restore on the dump's ACL entries only and keeps the
 // GRANT, REVOKE and ALTER DEFAULT PRIVILEGES lines. pg_dump writes each on one
 // line; one that is not is an error, never a guess.
-func (x *restorer) aclStatements(ctx context.Context, work, dump string, core bool) ([]string, error) {
+func (x *restorer) aclStatements(ctx context.Context, work, dump string, listing []byte, core bool) ([]string, error) {
 	path := filepath.Join(work, dump)
-	listing, err := x.run(ctx, nil, "pg_restore", "-l", path)
-	if err != nil {
-		return nil, fmt.Errorf("list %s: %s", dump, restoreError(listing, err))
-	}
 	list, err := writeTemp0600(work, "acl-*.list", []byte(aclOnlyList(string(listing), core)+"\n"))
 	if err != nil {
 		return nil, err
@@ -262,14 +258,18 @@ func analyzeRoles(ctx context.Context, x *restorer, q Querier, work, target stri
 		return nil, fmt.Errorf("list %s: %s", coreName, restoreError(listing, err))
 	}
 	a.Source = sourceAppRole(string(listing))
-	core, err := x.aclStatements(ctx, work, coreName, true)
+	core, err := x.aclStatements(ctx, work, coreName, listing, true)
 	if err != nil {
 		return nil, err
 	}
 	plugin := map[string][]string{}
 	for _, name := range x.mf.Plugins {
 		schema := schemaName(name)
-		if plugin[schema], err = x.aclStatements(ctx, work, schema+".dump", false); err != nil {
+		pl, err := x.run(ctx, nil, "pg_restore", "-l", filepath.Join(work, schema+".dump"))
+		if err != nil {
+			return nil, fmt.Errorf("list %s.dump: %s", schema, restoreError(pl, err))
+		}
+		if plugin[schema], err = x.aclStatements(ctx, work, schema+".dump", pl, false); err != nil {
 			return nil, err
 		}
 	}

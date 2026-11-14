@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -22,6 +24,23 @@ const pluginListing = `;
 2037; 826 3 DEFAULT ACL - DEFAULT PRIVILEGES FOR FUNCTIONS hm_source_app
 `
 
+// stepsCoreListing is the fake core dump listing: the source app role owns
+// the instance table; ACL entries carry no grantees.
+const stepsCoreListing = `;
+2000; 1259 9 TABLE public hatamoto_instance hm_source_app
+2001; 0 0 ACL public TABLE hatamoto_instance hm_source_app
+2002; 826 8 DEFAULT ACL public DEFAULT PRIVILEGES FOR TABLES hm_source_app
+2037; 826 3 DEFAULT ACL - DEFAULT PRIVILEGES FOR FUNCTIONS hm_source_app
+1259; 1259 2 TABLE plugin_forms deliveries hm_p_1a2b3c4d_forms
+`
+
+// analysisLog is what the role analysis runs for a dump: its listing, then
+// its grants.
+const analysisLog = "pg_restore-l,pg_restore-acl"
+
+// fullAnalysis is the analysis of the core dump and the one plugin dump.
+const fullAnalysis = analysisLog + "," + analysisLog
+
 // stepsRig records every exec, provision and owner lookup in one call log and
 // captures the files the tools would read at call time.
 type stepsRig struct {
@@ -33,7 +52,9 @@ type stepsRig struct {
 	paths map[string]string // label to file path
 	fail  map[string]error  // first arg or tool name to a failure
 
-	pauseSQL []string // the SQL the off-site pause ran as the app role
+	pauseSQL []string          // the SQL the off-site pause ran as the app role
+	aclSQL   map[string]string // dump file -> what pg_restore prints for its grants
+	scripts  []string          // the grant scripts psql was given, at call time
 }
 
 func newStepsRig(t *testing.T, mut func(*archSpec)) *stepsRig {
@@ -43,12 +64,17 @@ func newStepsRig(t *testing.T, mut func(*archSpec)) *stepsRig {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := &stepsRig{seen: map[string]string{}, paths: map[string]string{}, fail: map[string]error{}}
+	r := &stepsRig{seen: map[string]string{}, paths: map[string]string{}, fail: map[string]error{}, aclSQL: map[string]string{
+		coreName:            "GRANT SELECT ON TABLE public.hatamoto_instance TO hm_source_app;\nGRANT SELECT ON TABLE public.hatamoto_instance TO gone;\n",
+		"plugin_forms.dump": "GRANT SELECT ON TABLE plugin_forms.deliveries TO hm_source_app;\n",
+	}}
 	rr := &restorer{
 		o:   RestoreOptions{DatabaseURL: stepsAppURL},
 		req: RestoreRequest{AdminURL: stepsAdminURL},
 		src: arch, scan: sc, mf: sc.mf,
+		log: slog.New(slog.DiscardHandler),
 	}
+	rr.o.Q = &engineQuerier{}
 	rr.o.PauseOffsite = func(_ context.Context, sql string) error {
 		r.log = append(r.log, "pause offsite")
 		r.pauseSQL = append(r.pauseSQL, sql)
@@ -61,10 +87,14 @@ func newStepsRig(t *testing.T, mut func(*archSpec)) *stepsRig {
 		if name == "pg_restore" && len(args) > 0 && args[0] == "-l" {
 			label = "pg_restore-l"
 		}
+		if name == "pg_restore" && slices.Contains(args, "-f") {
+			label = "pg_restore-acl"
+		}
 		r.log = append(r.log, label)
 		// Remember what the files named in the args hold right now.
+		grantScript := name == "psql" && slices.Contains(args, "--single-transaction")
 		for i, a := range args {
-			if (a == "-f" || a == "-L") && i+1 < len(args) {
+			if (a == "-f" || a == "-L") && i+1 < len(args) && args[i+1] != "-" && !grantScript {
 				b, err := os.ReadFile(args[i+1])
 				if err != nil {
 					t.Errorf("%s reads %s: %v", name, args[i+1], err)
@@ -86,8 +116,18 @@ func newStepsRig(t *testing.T, mut func(*archSpec)) *stepsRig {
 		if err, ok := r.fail[label]; ok {
 			return []byte("pg_restore: error: boom\nCommand was: x\n"), err
 		}
+		if label == "pg_restore-l" && strings.HasSuffix(args[len(args)-1], "/"+coreName) {
+			return []byte(stepsCoreListing), nil
+		}
 		if label == "pg_restore-l" {
 			return []byte(pluginListing), nil
+		}
+		if label == "pg_restore-acl" {
+			return []byte(r.aclSQL[filepath.Base(args[len(args)-1])]), nil
+		}
+		if grantScript {
+			b, _ := os.ReadFile(args[len(args)-1])
+			r.scripts = append(r.scripts, string(b))
 		}
 		return nil, nil
 	}
@@ -109,25 +149,25 @@ func TestRestoreStepsOrderAndArguments(t *testing.T) {
 	if err := r.d.steps(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	want := "pg_restore-l,pg_restore,psql,pause offsite,provision forms,owner plugin_forms,pg_restore-l,pg_restore"
+	want := fullAnalysis + ",pg_restore-l,pg_restore,psql,pause offsite,provision forms,owner plugin_forms,pg_restore-l,pg_restore,psql,psql"
 	if got := strings.Join(r.log, ","); got != want {
 		t.Fatalf("order = %s, want %s", got, want)
 	}
-	core := r.calls[1]
-	if strings.Join(core[:4], " ") != "pg_restore --no-owner --role=hm_app --exit-on-error" || core[4] != "-L" ||
-		core[6] != "--dbname=site" || !strings.HasSuffix(core[7], "/core.dump") {
+	core := r.calls[5]
+	if strings.Join(core[:5], " ") != "pg_restore --no-owner --role=hm_app --exit-on-error --single-transaction" || core[5] != "-L" ||
+		core[7] != "--dbname=site" || !strings.HasSuffix(core[8], "/core.dump") {
 		t.Errorf("core call = %v", core)
 	}
-	if got := r.seen["core -L"]; strings.Contains(got, "DEFAULT ACL") || !strings.Contains(got, "TABLE plugin_forms") {
+	if got := r.seen["core -L"]; strings.Contains(got, "ACL") || !strings.Contains(got, "TABLE plugin_forms") {
 		t.Errorf("core list = %q", got)
 	}
-	psql := r.calls[2]
+	psql := r.calls[6]
 	if strings.Join(psql[:7], " ") != "psql -X -q -v ON_ERROR_STOP=1 -v app_role=hm_app" || psql[7] != "-f" {
 		t.Errorf("psql call = %v", psql)
 	}
-	last := r.calls[len(r.calls)-1]
+	last := r.calls[len(r.calls)-3]
 	if strings.Join(last[:4], " ") != "pg_restore --clean --if-exists --no-owner" || last[4] != "--role=hm_p_1a2b3c4d_forms" ||
-		last[5] != "-L" || last[7] != "--dbname=site" || !strings.HasSuffix(last[8], "/plugin_forms.dump") {
+		last[5] != "--single-transaction" || last[6] != "-L" || last[8] != "--dbname=site" || !strings.HasSuffix(last[9], "/plugin_forms.dump") {
 		t.Errorf("plugin call = %v", last)
 	}
 	// The dumps reached the tools intact.
@@ -156,12 +196,17 @@ func TestRestoreStepsCredentialsOnlyByEnv(t *testing.T) {
 		}
 		return false
 	}
-	if !has(r.envs[0], "PGPASSWORD=apppw") || !has(r.envs[0], "PGUSER=hm_app") {
-		t.Errorf("core env = %v", r.envs[0])
+	if !has(r.envs[5], "PGPASSWORD=apppw") || !has(r.envs[5], "PGUSER=hm_app") {
+		t.Errorf("core env = %v", r.envs[5])
+	}
+	for _, i := range []int{len(r.envs) - 2, len(r.envs) - 1} { // the grant scripts
+		if !has(r.envs[i], "PGPASSWORD=apppw") || !has(r.envs[i], "PGUSER=hm_app") {
+			t.Errorf("grant script env = %v", r.envs[i])
+		}
 	}
 	// The bootstrap runs as the superuser against the target database, not
 	// the database the admin URL points at.
-	boot := r.envs[2]
+	boot := r.envs[6]
 	if !has(boot, "PGUSER=su") || !has(boot, "PGPASSWORD=adminpw") || !has(boot, "PGDATABASE=site") || has(boot, "PGDATABASE=postgres") {
 		t.Errorf("bootstrap env = %v", boot)
 	}
@@ -216,7 +261,7 @@ func TestRestoreStepsPauseOffsiteRunsAsAppRoleAfterBootstrap(t *testing.T) {
 			}
 		}
 	}
-	if got := strings.Join(r.log[:4], ","); got != "pg_restore-l,pg_restore,psql,pause offsite" {
+	if got := strings.Join(r.log[:8], ","); got != fullAnalysis+",pg_restore-l,pg_restore,psql,pause offsite" {
 		t.Errorf("pause not right after the bootstrap: %s", strings.Join(r.log, ","))
 	}
 }
@@ -228,7 +273,7 @@ func TestRestoreStepsPauseOffsiteFailureAborts(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "off-site backup pause") || !strings.Contains(err.Error(), "permission denied") {
 		t.Fatalf("err = %v", err)
 	}
-	if got := strings.Join(r.log, ","); got != "pg_restore-l,pg_restore,psql,pause offsite" {
+	if got := strings.Join(r.log, ","); got != fullAnalysis+",pg_restore-l,pg_restore,psql,pause offsite" {
 		t.Fatalf("ran %s after a failed pause", got)
 	}
 }
@@ -254,7 +299,7 @@ func TestRestoreStepsCoreFailureStopsEverything(t *testing.T) {
 	if strings.Contains(err.Error(), "Command was") {
 		t.Errorf("error repeats the command: %v", err)
 	}
-	if got := strings.Join(r.log, ","); got != "pg_restore-l,pg_restore" {
+	if got := strings.Join(r.log, ","); got != fullAnalysis+",pg_restore-l,pg_restore" {
 		t.Fatalf("ran %s after a core failure", got)
 	}
 }
@@ -266,7 +311,7 @@ func TestRestoreStepsBootstrapFailureStopsBeforePlugins(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "role bootstrap") {
 		t.Fatalf("err = %v", err)
 	}
-	if got := strings.Join(r.log, ","); got != "pg_restore-l,pg_restore,psql" {
+	if got := strings.Join(r.log, ","); got != fullAnalysis+",pg_restore-l,pg_restore,psql" {
 		t.Fatalf("ran %s", got)
 	}
 }
@@ -278,7 +323,7 @@ func TestRestoreStepsPluginFailureNamesPlugin(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "plugin forms") || !strings.Contains(err.Error(), "role unavailable") {
 		t.Fatalf("err = %v", err)
 	}
-	if strings.Count(strings.Join(r.log, ","), "pg_restore-l") != 1 { // the core listing only
+	if strings.Count(strings.Join(r.log, ","), "pg_restore-l") != 3 { // both analysed, the core restored
 		t.Error("plugin dump listed after a failed provision")
 	}
 }
@@ -299,7 +344,7 @@ func TestRestoreStepsWithoutPlugins(t *testing.T) {
 	if err := r.d.steps(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(r.log, ","); got != "pg_restore-l,pg_restore,psql,pause offsite" {
+	if got := strings.Join(r.log, ","); got != analysisLog+",pg_restore-l,pg_restore,psql,pause offsite,psql" {
 		t.Fatalf("ran %s", got)
 	}
 }
@@ -399,7 +444,7 @@ func TestRestoreStepsGuardPrecedesBootstrapInOneSession(t *testing.T) {
 	var psql []string
 	n := 0
 	for _, c := range r.calls {
-		if c[0] == "psql" {
+		if c[0] == "psql" && !slices.Contains(c, "--single-transaction") {
 			psql = c
 			n++
 		}
@@ -443,5 +488,84 @@ func TestProvisionCheckedReturnsTheRoleError(t *testing.T) {
 		func(string) error { t.Error("role error read after a failed provision"); return nil })
 	if !errors.Is(err, boom) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// The restore lists leave out every ACL entry; the grants come back mapped to
+// the target app role, once the plugin roles exist, and a grant to a role
+// that is not here is dropped.
+func TestRestoreStepsGrantScripts(t *testing.T) {
+	r := newStepsRig(t, nil)
+	if err := r.d.steps(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.seen["pg_restore -L"]; strings.Contains(got, "ACL") {
+		t.Errorf("plugin list keeps an ACL entry: %q", got)
+	}
+	if len(r.scripts) != 2 {
+		t.Fatalf("%d grant scripts, want core and plugin: %q", len(r.scripts), r.scripts)
+	}
+	wantCore := "GRANT SELECT ON TABLE public.hatamoto_instance TO hm_app;\n"
+	if r.scripts[0] != wantCore {
+		t.Errorf("core script = %q, want %q", r.scripts[0], wantCore)
+	}
+	wantPlugin := "SET ROLE hm_p_1a2b3c4d_forms;\nGRANT SELECT ON TABLE plugin_forms.deliveries TO hm_app;\n"
+	if r.scripts[1] != wantPlugin {
+		t.Errorf("plugin script = %q, want %q", r.scripts[1], wantPlugin)
+	}
+	for _, s := range r.scripts {
+		if strings.Contains(s, "hm_source_app") || strings.Contains(s, "gone") {
+			t.Errorf("script names a source or absent role: %q", s)
+		}
+	}
+	if got := skipWarnings(&roleAnalysis{Skipped: []string{"gone"}}); len(got) != 1 || got[0] != "grants to role gone are skipped (no such role here)" {
+		t.Errorf("skipWarnings = %q", got)
+	}
+}
+
+func TestRestoreStepsGrantScriptFailureStopsTheRestore(t *testing.T) {
+	r := newStepsRig(t, nil)
+	run := r.d.run
+	r.d.run = func(ctx context.Context, env []string, name string, args ...string) ([]byte, error) {
+		out, err := run(ctx, env, name, args...)
+		if name == "psql" && slices.Contains(args, "--single-transaction") {
+			return []byte("psql: error: boom"), errors.New("exit status 3")
+		}
+		return out, err
+	}
+	err := r.d.steps(t.Context())
+	if err == nil || !strings.Contains(err.Error(), "restore stopped at grants: core: psql: error: boom") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestRestoreStepsLedger(t *testing.T) {
+	r := newStepsRig(t, nil)
+	if err := r.d.steps(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if l := r.d.led; !l.coreDone || !l.bootstrapStarted || len(l.plugins) != 1 || l.plugins[0] != "forms" {
+		t.Errorf("ledger after a full run = %+v", l)
+	}
+
+	r = newStepsRig(t, nil)
+	r.fail["pg_restore"] = errors.New("exit status 1")
+	_ = r.d.steps(t.Context())
+	if l := r.d.led; l.coreDone || l.bootstrapStarted {
+		t.Errorf("ledger after a core failure = %+v", l)
+	}
+
+	r = newStepsRig(t, nil)
+	r.fail["psql"] = errors.New("exit status 3")
+	_ = r.d.steps(t.Context())
+	if l := r.d.led; !l.coreDone || !l.bootstrapStarted || len(l.plugins) != 0 {
+		t.Errorf("ledger after a bootstrap failure = %+v", l)
+	}
+
+	r = newStepsRig(t, nil)
+	r.fail["provision"] = errors.New("role unavailable")
+	_ = r.d.steps(t.Context())
+	if l := r.d.led; len(l.plugins) != 1 {
+		t.Errorf("a plugin whose provisioning failed must be in the ledger: %+v", l)
 	}
 }
