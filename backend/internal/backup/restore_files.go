@@ -15,7 +15,7 @@ import (
 )
 
 // fileSteps restores what lives outside the database: media, secrets.env, then
-// the config. A failure names the step; nothing is rolled back.
+// the config. A failure names the step; Restore then rolls back what the run wrote.
 func (x *restorer) fileSteps(ctx context.Context, plan *RestorePlan) error {
 	if err := x.restoreMedia(ctx); err != nil {
 		return fmt.Errorf("restore stopped at media: %w", err)

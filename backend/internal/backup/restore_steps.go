@@ -20,7 +20,7 @@ import (
 // dbSteps restores the database side of a backup, in the order that works:
 // core dump (app role), superuser bootstrap, then each plugin (provision its
 // role and schema as the app role, restore its dump as that role). A failure
-// names the step; nothing is rolled back.
+// names the step; Restore then rolls back what the run wrote.
 func (r *restorer) dbSteps(ctx context.Context) error {
 	return (&dbRestorer{restorer: r}).steps(ctx)
 }
