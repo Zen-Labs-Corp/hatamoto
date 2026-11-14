@@ -344,14 +344,14 @@ func emptyDatabaseSQL(before []string, pub publicState) string {
 	}
 	head := `DECLARE s name; r record; had text[] := ` + textArray(pub.objects) + `; BEGIN ` +
 		`FOR s IN SELECT nspname FROM pg_namespace WHERE nspname <> ALL (` + keep + `) AND nspname NOT LIKE 'pg\_%' ` +
-		`LOOP EXECUTE format('DROP SCHEMA %I CASCADE', s); END LOOP; `
+		`LOOP EXECUTE format('DROP SCHEMA %I CASCADE', s); END LOOP; ` +
+		`FOR r IN SELECT extname FROM pg_extension WHERE ('e:' || oid) <> ALL (had) ` +
+		`LOOP EXECUTE format('DROP EXTENSION IF EXISTS %I CASCADE', r.extname); END LOOP; `
 	if !pub.exists {
 		return doBlock(head + `DROP SCHEMA IF EXISTS public CASCADE; END`)
 	}
 	var b strings.Builder
 	b.WriteString(head)
-	b.WriteString(`FOR r IN SELECT extname FROM pg_extension WHERE ('e:' || oid) <> ALL (had) ` +
-		`LOOP EXECUTE format('DROP EXTENSION IF EXISTS %I CASCADE', r.extname); END LOOP; `)
 	b.WriteString(`FOR r IN SELECT c.relname, c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace ` +
 		`WHERE n.nspname = 'public' AND ('c:' || c.oid) <> ALL (had) AND ` + notMember("pg_class", "c") + ` ORDER BY c.oid DESC ` +
 		`LOOP EXECUTE format('DROP %s IF EXISTS public.%I CASCADE', CASE r.relkind WHEN 'v' THEN 'VIEW' WHEN 'm' THEN 'MATERIALIZED VIEW' ` +

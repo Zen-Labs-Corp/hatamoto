@@ -328,3 +328,9 @@ func TestEmptyDatabaseSQLDollarInName(t *testing.T) {
 		}
 	}
 }
+
+func TestEmptyDatabaseSQLDropsExtensionsWithoutPublic(t *testing.T) {
+	if sql := emptyDatabaseSQL(nil, publicState{}); !strings.Contains(sql, "DROP EXTENSION") {
+		t.Errorf("extensions are not cleaned up when public did not exist: %s", sql)
+	}
+}
