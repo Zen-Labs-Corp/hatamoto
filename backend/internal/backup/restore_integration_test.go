@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -374,5 +375,256 @@ func TestRestoreIntegrationGuardStopsPlantedInstanceView(t *testing.T) {
 	var super bool
 	if err := d.admin.QueryRow(ctx, `SELECT rolsuper FROM pg_roles WHERE rolname = $1`, d.appRole).Scan(&super); err != nil || super {
 		t.Errorf("app role superuser = %v, %v", super, err)
+	}
+}
+
+// targetRole is a role other than the backup's app role that will own the
+// restored database; the cleanup drops it and what the restore made.
+const targetRole = "hm_bk_target"
+
+// freshTargetAs creates an empty database owned by a new app role and returns
+// the URL for that role. The role and database go when the test ends.
+func (d *destroyed) freshTargetAs(t *testing.T, name, role string) string {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := d.admin.Exec(ctx, "DROP ROLE IF EXISTS "+role); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.admin.Exec(ctx, "CREATE ROLE "+role+" LOGIN PASSWORD 'x' NOCREATEROLE"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = d.admin.Exec(ctx, "DROP ROLE IF EXISTS "+role)
+	})
+	if _, err := d.admin.Exec(ctx, "CREATE DATABASE "+name+" OWNER "+role); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = d.admin.Exec(ctx, "DROP DATABASE "+name+" WITH (FORCE)")
+		// What a restore made in the cluster: the roles of the dumped site.
+		for _, r := range []string{"hm_p_" + d.id8 + "_webhooks", "hatamoto_role_admin_" + d.id8} {
+			_, _ = d.admin.Exec(ctx, "REVOKE SET ON PARAMETER temp_file_limit FROM "+pgx.Identifier{r}.Sanitize())
+			_, _ = d.admin.Exec(ctx, "DROP ROLE IF EXISTS "+pgx.Identifier{r}.Sanitize())
+		}
+	})
+	u := mustParse(t, withDatabase(t, d.appURL, name))
+	u.User = url.UserPassword(role, "x")
+	return u.String()
+}
+
+// grantsExtraRole seeds grants to a role the backup's cluster will not have.
+func grantsExtraRole(t *testing.T, role string) func(ctx context.Context, pool *pgxpool.Pool) {
+	return func(ctx context.Context, pool *pgxpool.Pool) {
+		admin, err := pgx.Connect(ctx, os.Getenv("DATABASE_URL"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer admin.Close(ctx)
+		if _, err := admin.Exec(ctx, "CREATE ROLE "+role); err != nil {
+			t.Fatal(err)
+		}
+		for _, q := range []string{
+			"GRANT SELECT ON hatamoto_entities TO " + role,
+			"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO " + role,
+		} {
+			if _, err := pool.Exec(ctx, q); err != nil {
+				t.Fatalf("%s: %v", q, err)
+			}
+		}
+	}
+}
+
+func (d *destroyed) count(t *testing.T, db, query string, args ...any) int {
+	t.Helper()
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, withDatabase(t, d.adminURL, db))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(ctx)
+	var n int
+	if err := conn.QueryRow(ctx, query, args...).Scan(&n); err != nil {
+		t.Fatalf("%s: %v", query, err)
+	}
+	return n
+}
+
+func dbOf(t *testing.T, raw string) string { return strings.TrimPrefix(mustParse(t, raw).Path, "/") }
+
+// A backup taken under one app role restores into a database owned by another:
+// ownership, default privileges and grants all follow the target role, and
+// grants to a role that is not there are skipped and reported.
+func TestRestoreIntegrationIntoDifferentAppRole(t *testing.T) {
+	for _, name := range []string{"source role absent", "source role present"} {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			d := seedAndDestroyWith(t, grantsExtraRole(t, "hm_bk_extra"))
+			if _, err := d.admin.Exec(ctx, "DROP ROLE hm_bk_extra"); err != nil {
+				t.Fatal(err)
+			}
+			if name == "source role absent" {
+				if _, err := d.admin.Exec(ctx, "DROP ROLE "+d.appRole); err != nil {
+					t.Fatal(err)
+				}
+			}
+			target := d.freshTargetAs(t, "hm_bk_remap", targetRole)
+			db := dbOf(t, target)
+			o, _, _, configOut := d.options(t, target)
+			req := RestoreRequest{Source: d.archive, AdminURL: d.adminURL, ConfigOut: configOut}
+
+			req.DryRun = true
+			dry, err := Restore(ctx, o, req)
+			if err != nil {
+				t.Fatalf("dry run: %v", err)
+			}
+			var out bytes.Buffer
+			dry.Print(&out)
+			t.Logf("\n%s", out.String())
+			if !regexp.MustCompile(`roles ok \(`+d.appRole+` -> `+targetRole+`, \d+ skipped\)`).MatchString(out.String()) ||
+				!strings.Contains(out.String(), "warning  grants to role hm_bk_extra are skipped (no such role here)") {
+				t.Errorf("dry run output:\n%s", out.String())
+			}
+
+			req.DryRun = false
+			plan, err := Restore(ctx, o, req)
+			if err != nil {
+				t.Fatalf("Restore: %v", err)
+			}
+			if !plan.Done || !slices.Contains(plan.Warnings, "grants to role hm_bk_extra are skipped (no such role here)") {
+				t.Errorf("plan = %+v", plan)
+			}
+
+			// ISC-3: everything in public is owned by the target role.
+			owned := func(query string) int { return d.count(t, db, query, targetRole) }
+			if n := owned(`SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+				WHERE n.nspname = 'public' AND c.relkind IN ('r','p','v','m','S') AND pg_get_userbyid(c.relowner) = $1`); n == 0 {
+				t.Error("no relation in public is owned by the target role")
+			}
+			if n := owned(`SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+				WHERE n.nspname = 'public' AND c.relkind IN ('r','p','v','m','S') AND pg_get_userbyid(c.relowner) <> $1`); n != 0 {
+				t.Errorf("%d relations in public are owned by someone else", n)
+			}
+			if n := owned(`SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+				WHERE n.nspname = 'public' AND pg_get_userbyid(p.proowner) <> $1
+				AND NOT EXISTS (SELECT 1 FROM pg_depend x WHERE x.objid = p.oid AND x.deptype = 'e')`); n != 0 { // extension members belong to the extension's creator
+				t.Errorf("%d functions in public are owned by someone else", n)
+			}
+			// ISC-4: default privileges name the target role, never the source.
+			if n := owned(`SELECT count(*) FROM pg_default_acl WHERE pg_get_userbyid(defaclrole) = $1`); n == 0 {
+				t.Error("no default privileges for the target role")
+			}
+			if n := d.count(t, db, `SELECT count(*) FROM pg_default_acl a CROSS JOIN LATERAL aclexplode(a.defaclacl) x
+				WHERE pg_get_userbyid(a.defaclrole) = $1 OR pg_get_userbyid(x.grantee) = $1 OR pg_get_userbyid(x.grantor) = $1`, d.appRole); n != 0 {
+				t.Errorf("%d default privileges still name %s", n, d.appRole)
+			}
+			// ISC-5: no grant names the source role as grantee or grantor.
+			for _, q := range []string{
+				`SELECT count(*) FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) x WHERE pg_get_userbyid(x.grantee) = $1 OR pg_get_userbyid(x.grantor) = $1`,
+				`SELECT count(*) FROM pg_proc c CROSS JOIN LATERAL aclexplode(c.proacl) x WHERE pg_get_userbyid(x.grantee) = $1 OR pg_get_userbyid(x.grantor) = $1`,
+				`SELECT count(*) FROM pg_namespace c CROSS JOIN LATERAL aclexplode(c.nspacl) x WHERE pg_get_userbyid(x.grantee) = $1 OR pg_get_userbyid(x.grantor) = $1`,
+			} {
+				if n := d.count(t, db, q, d.appRole); n != 0 {
+					t.Errorf("%d grants still name %s: %s", n, d.appRole, q)
+				}
+			}
+		})
+	}
+}
+
+// failingPluginRestore makes the plugin pg_restore fail, after the core dump,
+// the role bootstrap and the plugin provisioning have all been committed.
+func failingPluginRestore(o *RestoreOptions) {
+	o.Run = func(ctx context.Context, env []string, name string, args ...string) ([]byte, error) {
+		if name == "pg_restore" && slices.ContainsFunc(args, func(a string) bool { return strings.HasPrefix(a, "--role=hm_p_") }) {
+			return []byte("pg_restore: error: forced failure\n"), errors.New("exit status 1")
+		}
+		return OSExec(ctx, env, name, args...)
+	}
+}
+
+// A restore that fails after the database was written is rolled back: the
+// target is empty again, the roles it made are gone, nothing it wrote to disk
+// remains, and the same command then succeeds.
+func TestRestoreIntegrationFailureRollsBackAndRerunSucceeds(t *testing.T) {
+	cases := map[string]func(t *testing.T, o *RestoreOptions){
+		"plugin restore fails": func(t *testing.T, o *RestoreOptions) { failingPluginRestore(o) },
+		"secrets dir unwritable": func(t *testing.T, o *RestoreOptions) {
+			if os.Geteuid() == 0 {
+				t.Skip("a read-only directory does not stop root")
+			}
+			ro := filepath.Join(t.TempDir(), "ro")
+			if err := os.Mkdir(ro, 0o500); err != nil {
+				t.Fatal(err)
+			}
+			o.SecretsDir = filepath.Join(ro, "secrets")
+		},
+	}
+	for name, fail := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			d := seedAndDestroy(t)
+			target := d.freshTargetAs(t, "hm_bk_rollback", targetRole)
+			db := dbOf(t, target)
+			o, mediaDir, secretsDir, configOut := d.options(t, target)
+			good := o
+			fail(t, &o)
+			secretsDir = o.SecretsDir
+			req := RestoreRequest{Source: d.archive, AdminURL: d.adminURL, ConfigOut: configOut}
+
+			_, err := Restore(ctx, o, req)
+			if err == nil {
+				t.Fatal("the forced failure did not stop the restore")
+			}
+			t.Logf("\n%v", err)
+			for _, want := range []string{"restore stopped at", "rolled back: ", "target unchanged: "} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error lacks %q:\n%v", want, err)
+				}
+			}
+			var rf *RestoreFailure
+			if !errors.As(err, &rf) || len(rf.Leftovers) != 0 {
+				t.Errorf("failure = %+v", rf)
+			}
+
+			// ISC-9: no relation, no schema but public.
+			pool, err := pgxpool.New(ctx, target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rels, _ := nonEmptySchemas(ctx, pool)
+			pool.Close()
+			if len(rels) != 0 {
+				t.Errorf("relations left in %v", rels)
+			}
+			if n := d.count(t, db, `SELECT count(*) FROM pg_namespace WHERE nspname NOT IN ('public', 'information_schema') AND nspname NOT LIKE 'pg\_%'`); n != 0 {
+				t.Errorf("%d schemas left besides public", n)
+			}
+			// ISC-10: the roles the run created are gone.
+			if n := d.count(t, db, `SELECT count(*) FROM pg_roles WHERE rolname IN ($1, $2)`,
+				"hm_p_"+d.id8+"_webhooks", "hatamoto_role_admin_"+d.id8); n != 0 {
+				t.Errorf("%d roles left", n)
+			}
+			// ISC-11: nothing written to disk remains.
+			for _, p := range []string{mediaDir, filepath.Join(secretsDir, "secrets.env"), configOut} {
+				if _, err := os.Stat(p); err == nil {
+					t.Errorf("%s was left behind", p)
+				}
+			}
+
+			// ISC-13: the same command, minus the fault, succeeds.
+			if name == "secrets dir unwritable" {
+				good.SecretsDir = o.SecretsDir
+				if err := os.Chmod(filepath.Dir(o.SecretsDir), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			plan, err := Restore(ctx, good, req)
+			if err != nil || !plan.Done {
+				t.Fatalf("rerun: %+v, %v", plan, err)
+			}
+			if b, err := os.ReadFile(filepath.Join(mediaDir, mediaKey)); err != nil || !bytes.Equal(b, mediaBytes) {
+				t.Errorf("media after the rerun = %v, %v", b, err)
+			}
+		})
 	}
 }
