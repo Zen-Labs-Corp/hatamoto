@@ -92,9 +92,8 @@ func newStepsRig(t *testing.T, mut func(*archSpec)) *stepsRig {
 		}
 		r.log = append(r.log, label)
 		// Remember what the files named in the args hold right now.
-		grantScript := name == "psql" && slices.Contains(args, "--single-transaction")
 		for i, a := range args {
-			if (a == "-f" || a == "-L") && i+1 < len(args) && args[i+1] != "-" && !grantScript {
+			if (a == "-f" || a == "-L") && i+1 < len(args) && args[i+1] != "-" {
 				b, err := os.ReadFile(args[i+1])
 				if err != nil {
 					t.Errorf("%s reads %s: %v", name, args[i+1], err)
@@ -125,13 +124,20 @@ func newStepsRig(t *testing.T, mut func(*archSpec)) *stepsRig {
 		if label == "pg_restore-acl" {
 			return []byte(r.aclSQL[filepath.Base(args[len(args)-1])]), nil
 		}
-		if grantScript {
-			b, _ := os.ReadFile(args[len(args)-1])
-			r.scripts = append(r.scripts, string(b))
-		}
 		return nil, nil
 	}
 	r.d = &dbRestorer{restorer: rr,
+		grants: func(_ context.Context, scripts []grantScript) error {
+			r.log = append(r.log, "grants")
+			for _, sc := range scripts {
+				prefix := ""
+				if sc.role != "" {
+					prefix = "SET ROLE " + sc.role + ";\n"
+				}
+				r.scripts = append(r.scripts, prefix+strings.Join(sc.stmts, "\n")+"\n")
+			}
+			return r.fail["grants"]
+		},
 		provision: func(_ context.Context, name string) error {
 			r.log = append(r.log, "provision "+name)
 			return r.fail["provision"]
@@ -149,7 +155,7 @@ func TestRestoreStepsOrderAndArguments(t *testing.T) {
 	if err := r.d.steps(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	want := fullAnalysis + ",pg_restore-l,pg_restore,psql,pause offsite,provision forms,owner plugin_forms,pg_restore-l,pg_restore,psql,psql"
+	want := fullAnalysis + ",pg_restore-l,pg_restore,psql,pause offsite,provision forms,owner plugin_forms,pg_restore-l,pg_restore,grants"
 	if got := strings.Join(r.log, ","); got != want {
 		t.Fatalf("order = %s, want %s", got, want)
 	}
@@ -165,7 +171,7 @@ func TestRestoreStepsOrderAndArguments(t *testing.T) {
 	if strings.Join(psql[:7], " ") != "psql -X -q -v ON_ERROR_STOP=1 -v app_role=hm_app" || psql[7] != "-f" {
 		t.Errorf("psql call = %v", psql)
 	}
-	last := r.calls[len(r.calls)-3]
+	last := r.calls[len(r.calls)-1]
 	if strings.Join(last[:4], " ") != "pg_restore --clean --if-exists --no-owner" || last[4] != "--role=hm_p_1a2b3c4d_forms" ||
 		last[5] != "--single-transaction" || last[6] != "-L" || last[8] != "--dbname=site" || !strings.HasSuffix(last[9], "/plugin_forms.dump") {
 		t.Errorf("plugin call = %v", last)
@@ -198,11 +204,6 @@ func TestRestoreStepsCredentialsOnlyByEnv(t *testing.T) {
 	}
 	if !has(r.envs[5], "PGPASSWORD=apppw") || !has(r.envs[5], "PGUSER=hm_app") {
 		t.Errorf("core env = %v", r.envs[5])
-	}
-	for _, i := range []int{len(r.envs) - 2, len(r.envs) - 1} { // the grant scripts
-		if !has(r.envs[i], "PGPASSWORD=apppw") || !has(r.envs[i], "PGUSER=hm_app") {
-			t.Errorf("grant script env = %v", r.envs[i])
-		}
 	}
 	// The bootstrap runs as the superuser against the target database, not
 	// the database the admin URL points at.
@@ -344,7 +345,7 @@ func TestRestoreStepsWithoutPlugins(t *testing.T) {
 	if err := r.d.steps(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(r.log, ","); got != analysisLog+",pg_restore-l,pg_restore,psql,pause offsite,psql" {
+	if got := strings.Join(r.log, ","); got != analysisLog+",pg_restore-l,pg_restore,psql,pause offsite,grants" {
 		t.Fatalf("ran %s", got)
 	}
 }
@@ -525,16 +526,9 @@ func TestRestoreStepsGrantScripts(t *testing.T) {
 
 func TestRestoreStepsGrantScriptFailureStopsTheRestore(t *testing.T) {
 	r := newStepsRig(t, nil)
-	run := r.d.run
-	r.d.run = func(ctx context.Context, env []string, name string, args ...string) ([]byte, error) {
-		out, err := run(ctx, env, name, args...)
-		if name == "psql" && slices.Contains(args, "--single-transaction") {
-			return []byte("psql: error: boom"), errors.New("exit status 3")
-		}
-		return out, err
-	}
+	r.fail["grants"] = errors.New("boom")
 	err := r.d.steps(t.Context())
-	if err == nil || !strings.Contains(err.Error(), "restore stopped at grants: core: psql: error: boom") {
+	if err == nil || !strings.Contains(err.Error(), "restore stopped at grants: boom") {
 		t.Fatalf("err = %v", err)
 	}
 }

@@ -242,9 +242,42 @@ func (x *restorer) aclStatements(ctx context.Context, work, dump string, listing
 		if !strings.HasSuffix(l, ";") {
 			return nil, fmt.Errorf("cannot read the grants of %s: statement %q spans lines", dump, capLine(l))
 		}
+		if err := checkGrantStmt(l); err != nil {
+			return nil, fmt.Errorf("refusing the grants of %s: %w", dump, err)
+		}
 		stmts = append(stmts, l)
 	}
 	return stmts, nil
+}
+
+// checkGrantStmt accepts only what pg_dump writes for an ACL entry: one GRANT,
+// REVOKE or ALTER DEFAULT PRIVILEGES statement ending in its only semicolon,
+// with no backslash outside a quoted identifier or literal. The archive is
+// untrusted input; anything else makes the restore refuse.
+func checkGrantStmt(stmt string) error {
+	if !strings.HasPrefix(stmt, "GRANT ") && !strings.HasPrefix(stmt, "REVOKE ") && !strings.HasPrefix(stmt, "ALTER DEFAULT PRIVILEGES ") {
+		return fmt.Errorf("statement %q is not a GRANT, REVOKE or ALTER DEFAULT PRIVILEGES", capLine(stmt))
+	}
+	var quote byte
+	for i := 0; i < len(stmt); i++ {
+		c := stmt[i]
+		switch {
+		case quote != 0:
+			if c == quote {
+				quote = 0
+			}
+		case c == '"' || c == '\'':
+			quote = c
+		case c == '\\':
+			return fmt.Errorf("statement %q holds a backslash outside quotes", capLine(stmt))
+		case c == ';' && i != len(stmt)-1:
+			return fmt.Errorf("statement %q holds more than one statement", capLine(stmt))
+		}
+	}
+	if quote != 0 || !strings.HasSuffix(stmt, ";") {
+		return fmt.Errorf("statement %q is not one complete statement", capLine(stmt))
+	}
+	return nil
 }
 
 // analyzeRoles reads the grants of the extracted dumps in work and sorts them

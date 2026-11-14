@@ -179,3 +179,41 @@ func TestAnalyzeRolesRefusesMultiLineStatement(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestCheckGrantStmt(t *testing.T) {
+	for _, ok := range []string{
+		`GRANT SELECT ON TABLE public.t TO hm_dst;`,
+		`GRANT SELECT ON TABLE public.t TO "odd;\\role" WITH GRANT OPTION;`,
+		`REVOKE ALL ON FUNCTION public.f() FROM PUBLIC;`,
+		`ALTER DEFAULT PRIVILEGES FOR ROLE hm_dst IN SCHEMA public GRANT SELECT ON TABLES TO reporting;`,
+	} {
+		if err := checkGrantStmt(ok); err != nil {
+			t.Errorf("%s: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{
+		`GRANT SELECT ON TABLE public.t TO hm_src WITH GRANT OPTION; \! id ;`,
+		`GRANT SELECT ON TABLE public.t TO hm_src \! id;`,
+		`GRANT SELECT ON TABLE public.t TO hm_src; DROP TABLE public.t;`,
+		`GRANT SELECT ON TABLE public.t TO "hm_src;`,
+		`DROP TABLE public.t;`,
+	} {
+		if err := checkGrantStmt(bad); err == nil {
+			t.Errorf("accepted %s", bad)
+		}
+	}
+}
+
+func TestAnalyzeRolesRefusesMetaCommandAndSecondStatement(t *testing.T) {
+	for _, line := range []string{
+		`GRANT SELECT ON TABLE public.t TO hm_src WITH GRANT OPTION; \! id ;`,
+		`GRANT SELECT ON TABLE public.t TO hm_src; DROP TABLE public.t;`,
+	} {
+		var calls []string
+		x := &restorer{run: aclRig(coreListing, map[string]string{"core.dump": line + "\n"}, &calls)}
+		_, err := analyzeRoles(context.Background(), x, &engineQuerier{}, t.TempDir(), "hm_dst")
+		if err == nil || !strings.Contains(err.Error(), "refusing the grants") {
+			t.Errorf("%q: err = %v", line, err)
+		}
+	}
+}

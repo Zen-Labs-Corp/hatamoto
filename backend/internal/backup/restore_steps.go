@@ -35,6 +35,8 @@ type dbRestorer struct {
 	// provision and ownerOf replace the pluginhost calls in tests.
 	provision func(ctx context.Context, plugin string) error
 	ownerOf   func(ctx context.Context, schema string) (string, error)
+	// grants replaces the connection that runs the grant scripts in tests.
+	grants func(ctx context.Context, scripts []grantScript) error
 
 	pluginRoles map[string]string // plugin schema -> owner role, set by restorePlugins
 }
@@ -71,7 +73,7 @@ func (x *dbRestorer) steps(ctx context.Context) error {
 	if err := x.restorePlugins(ctx, work); err != nil {
 		return err
 	}
-	if err := x.applyACLs(ctx, work, ana); err != nil {
+	if err := x.applyACLs(ctx, ana); err != nil {
 		return fmt.Errorf("restore stopped at grants: %w", err)
 	}
 	return nil
@@ -124,43 +126,80 @@ func skipWarnings(a *roleAnalysis) []string {
 	return out
 }
 
+// grantScript is the grants of one dump, run as role (the app role when "").
+type grantScript struct {
+	label, role string
+	stmts       []string
+}
+
 // applyACLs runs the grants the restore lists left out, after everything they
 // can name exists: the core ones as the app role, each plugin's as its owner
-// role. Each script is one transaction.
-func (x *dbRestorer) applyACLs(ctx context.Context, work string, a *roleAnalysis) error {
-	env, err := pgEnv("DATABASE_URL", x.o.DatabaseURL, true)
+// role. The statements come from the archive, so they run as plain SQL over a
+// pgx connection (never through psql, whose backslash commands run programs),
+// all in one transaction, and each is checked again first.
+func (x *dbRestorer) applyACLs(ctx context.Context, a *roleAnalysis) error {
+	var todo []grantScript
+	add := func(sc grantScript) {
+		if len(sc.stmts) > 0 {
+			todo = append(todo, sc)
+		}
+	}
+	add(grantScript{"core", "", a.Core})
+	for _, name := range x.mf.Plugins {
+		schema := schemaName(name)
+		if role := x.pluginRoles[schema]; role != "" {
+			add(grantScript{"plugin " + name, role, a.Plugin[schema]})
+		}
+	}
+	for _, sc := range todo {
+		for _, st := range sc.stmts {
+			if err := checkGrantStmt(st); err != nil {
+				return fmt.Errorf("%s: %w", sc.label, err)
+			}
+		}
+	}
+	if len(todo) == 0 {
+		return nil
+	}
+	if x.grants != nil {
+		return x.grants(ctx, todo)
+	}
+	return x.execGrants(ctx, todo)
+}
+
+func (x *dbRestorer) execGrants(ctx context.Context, scripts []grantScript) error {
+	open := x.o.OpenPool
+	if open == nil {
+		open = func(ctx context.Context, url string) (*pgxpool.Pool, error) { return pgxpool.New(ctx, url) }
+	}
+	pool, err := open(ctx, x.o.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("cannot reach the restored database: %w", err)
+	}
+	defer pool.Close()
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	apply := func(label, prefix string, stmts []string) error {
-		if len(stmts) == 0 {
-			return nil
+	defer func() { _ = tx.Rollback(ctx) }()
+	for _, sc := range scripts {
+		if sc.role != "" {
+			if _, err := tx.Exec(ctx, "SET LOCAL ROLE "+quoteRole(sc.role)); err != nil {
+				return fmt.Errorf("%s: %w", sc.label, err)
+			}
 		}
-		file, err := writeTemp0600(work, "acl-*.sql", []byte(prefix+strings.Join(stmts, "\n")+"\n"))
-		if err != nil {
-			return err
+		for _, st := range sc.stmts {
+			if _, err := tx.Exec(ctx, st); err != nil {
+				return fmt.Errorf("%s: %w", sc.label, err)
+			}
 		}
-		defer os.Remove(file)
-		out, err := x.run(ctx, env, "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", file)
-		if err != nil {
-			return fmt.Errorf("%s: %s", label, restoreError(out, err))
-		}
-		return nil
-	}
-	if err := apply("core", "", a.Core); err != nil {
-		return err
-	}
-	for _, name := range x.mf.Plugins {
-		schema := schemaName(name)
-		role := x.pluginRoles[schema]
-		if role == "" {
-			continue
-		}
-		if err := apply("plugin "+name, "SET ROLE "+quoteRole(role)+";\n", a.Plugin[schema]); err != nil {
-			return err
+		if sc.role != "" {
+			if _, err := tx.Exec(ctx, "RESET ROLE"); err != nil {
+				return fmt.Errorf("%s: %w", sc.label, err)
+			}
 		}
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 // parseTarget reads the app role and the database name from DatabaseURL. The
