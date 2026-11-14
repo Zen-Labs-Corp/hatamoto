@@ -173,14 +173,23 @@ func (x *restorer) rollbackDatabase(ctx context.Context, f *RestoreFailure) (emp
 		f.Leftovers = append(f.Leftovers, leftover{"database", "empty the target database by hand"})
 		return false, nil
 	}
-	sql := func(env []string, what, stmt string) bool {
+	// sqlFix runs stmt; when it fails, remedy is the statement that removes
+	// the leftover by hand.
+	sqlFix := func(env []string, what, stmt, remedy string) bool {
 		out, err := x.run(ctx, env, "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-c", stmt)
 		if err != nil {
-			f.Leftovers = append(f.Leftovers, leftover{what, fmt.Sprintf("psql -d %s -c %s", shellQuote(d.dbName), shellQuote(stmt))})
+			f.Leftovers = append(f.Leftovers, leftover{what, fmt.Sprintf("psql -d %s -c %s", shellQuote(d.dbName), shellQuote(remedy))})
 			x.log.Warn("restore rollback step failed", "step", what, "error", restoreError(out, err))
 			return false
 		}
 		return true
+	}
+	sql := func(env []string, what, stmt string) bool { return sqlFix(env, what, stmt, stmt) }
+	// roleExists says whether the cluster has the role; when it cannot tell, it
+	// says yes, so the cleanup is attempted and a failure is reported.
+	roleExists := func(env []string, role string) bool {
+		out, err := x.run(ctx, env, "psql", "-X", "-q", "-tA", "-c", "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = "+sqlLiteral(role)+")")
+		return err != nil || strings.TrimSpace(string(out)) != "f"
 	}
 	adminEnv := func() []string {
 		env, err := pgEnv("--admin-url", x.req.AdminURL, true)
@@ -198,19 +207,23 @@ func (x *restorer) rollbackDatabase(ctx context.Context, f *RestoreFailure) (emp
 		if !slices.Contains(x.led.schemasBefore, schema) {
 			ok = sql(appEnv, "plugin "+x.led.plugins[i]+" schema", dropOwnedSchemaSQL(schema))
 		}
-		// Provisioning granted CONNECT on the database; the role cannot be dropped while it holds it.
-		if role := x.roleNamed("hm_p_", "_"+name); role != "" {
-			ok = sql(appEnv, "plugin "+x.led.plugins[i]+" database privileges", "REVOKE ALL ON DATABASE "+quoteRole(d.dbName)+" FROM "+quoteRole(role)) && ok
+		// A role exists only if this run created it (the cluster check refuses
+		// a run when one is already there); provisioning may have failed before.
+		role := x.pluginRole(name)
+		if role == "" || !roleExists(appEnv, role) {
+			continue
 		}
-		if sql(appEnv, "plugin "+x.led.plugins[i]+" role", "SELECT hatamoto_admin.drop_plugin_role("+sqlLiteral(name)+")") && ok {
-			if r := x.roleNamed("hm_p_", "_"+name); r != "" {
-				roles = append(roles, r)
-			}
+		// Provisioning granted CONNECT on the database; the role cannot be dropped while it holds it.
+		ok = sql(appEnv, "plugin "+x.led.plugins[i]+" database privileges", "REVOKE ALL ON DATABASE "+quoteRole(d.dbName)+" FROM "+quoteRole(role)) && ok
+		// The remedy must not need hatamoto_admin, which this rollback drops next.
+		remedy := "DROP OWNED BY " + quoteRole(role) + "; DROP ROLE " + quoteRole(role)
+		if sqlFix(appEnv, "plugin "+x.led.plugins[i]+" role", "SELECT hatamoto_admin.drop_plugin_role("+sqlLiteral(name)+")", remedy) && ok {
+			roles = append(roles, role)
 		}
 	}
 	if x.led.bootstrapStarted {
 		env := adminEnv()
-		admin := x.roleNamed("hatamoto_role_admin_", "")
+		admin := x.adminRole()
 		ok := true
 		if !slices.Contains(x.led.schemasBefore, "hatamoto_admin") {
 			ok = sql(env, "schema hatamoto_admin", dropAdminSchemaSQL)
@@ -228,15 +241,31 @@ func (x *restorer) rollbackDatabase(ctx context.Context, f *RestoreFailure) (emp
 	return emptied, roles
 }
 
-// roleNamed finds the role this run recorded with the given prefix and suffix.
-func (x *restorer) roleNamed(prefix, suffix string) string {
+// adminRole is the admin role the manifest records, or "".
+func (x *restorer) adminRole() string {
 	for _, r := range x.mf.Roles {
-		if strings.HasPrefix(r, prefix) && strings.HasSuffix(r, suffix) {
+		if strings.HasPrefix(r, adminRolePrefix) {
 			return r
 		}
 	}
 	return ""
 }
+
+// pluginRole is the exact role of a plugin, built from the admin role's id, or
+// "" when the manifest has no such role.
+func (x *restorer) pluginRole(name string) string {
+	admin := x.adminRole()
+	if admin == "" {
+		return ""
+	}
+	want := "hm_p_" + strings.TrimPrefix(admin, adminRolePrefix) + "_" + name
+	if slices.Contains(x.mf.Roles, want) {
+		return want
+	}
+	return ""
+}
+
+const adminRolePrefix = "hatamoto_role_admin_"
 
 // dropOwnedSchemaSQL drops a schema as the role that owns it (the app role has
 // SET on the plugin roles, not their privileges).

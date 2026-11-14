@@ -19,7 +19,8 @@ type rollbackRig struct {
 	x          *restorer
 	stmts      []string // the -c statement of each psql call
 	envs       [][]string
-	failOn     string // a psql statement containing this fails
+	failOn     string          // a psql statement containing this fails
+	absent     map[string]bool // role existence checks answered "no", keyed by the quoted name and a closing parenthesis
 	dir        string
 	mediaDir   string
 	secretsEnv string
@@ -63,6 +64,12 @@ func newRollbackRig(t *testing.T) *rollbackRig {
 		run: func(_ context.Context, env []string, name string, args ...string) ([]byte, error) {
 			stmt := args[len(args)-1]
 			r.stmts = append(r.stmts, stmt)
+			if strings.Contains(stmt, "FROM pg_roles WHERE rolname") && strings.HasPrefix(stmt, "SELECT EXISTS") {
+				if r.absent[stmt[strings.Index(stmt, "= ")+2:]] {
+					return []byte("f\n"), nil
+				}
+				return []byte("t\n"), nil
+			}
 			r.envs = append(r.envs, env)
 			if r.failOn != "" && strings.Contains(stmt, r.failOn) {
 				return []byte("ERROR: permission denied"), errors.New("exit status 1")
@@ -102,8 +109,8 @@ func TestRollbackUndoesEverythingTheRunWrote(t *testing.T) {
 	if _, err := os.Stat(r.preexist); err != nil {
 		t.Errorf("a file the run did not write was touched: %v", err)
 	}
-	// Order: plugin schema, its database privileges, plugin role, admin schema, grant, admin role, database.
-	wantStmts := []string{"DROP SCHEMA", "REVOKE ALL ON DATABASE target FROM hm_p_abcd1234_webhooks", "drop_plugin_role('webhooks')", "hatamoto_admin CASCADE", "REVOKE SET ON PARAMETER", "DROP ROLE IF EXISTS hatamoto_role_admin_abcd1234", "DROP EXTENSION"}
+	// Order: plugin schema, role lookup, its database privileges, plugin role, admin schema, grant, admin role, database.
+	wantStmts := []string{"DROP SCHEMA", "SELECT EXISTS", "REVOKE ALL ON DATABASE target FROM hm_p_abcd1234_webhooks", "drop_plugin_role('webhooks')", "hatamoto_admin CASCADE", "REVOKE SET ON PARAMETER", "DROP ROLE IF EXISTS hatamoto_role_admin_abcd1234", "DROP EXTENSION"}
 	if len(r.stmts) != len(wantStmts) {
 		t.Fatalf("%d statements, want %d:\n%s", len(r.stmts), len(wantStmts), strings.Join(r.stmts, "\n"))
 	}
@@ -112,8 +119,8 @@ func TestRollbackUndoesEverythingTheRunWrote(t *testing.T) {
 			t.Errorf("statement %d = %s, want it to contain %q", i, r.stmts[i], w)
 		}
 	}
-	if !strings.Contains(strings.Join(r.envs[3], " "), "PGUSER=adm") || !strings.Contains(strings.Join(r.envs[0], " "), "PGUSER=hm_dst") {
-		t.Errorf("plugin steps run as the app role, admin steps as the admin URL role:\n%v\n%v", r.envs[0], r.envs[3])
+	if !strings.Contains(strings.Join(r.envs[4], " "), "PGUSER=adm") || !strings.Contains(strings.Join(r.envs[0], " "), "PGUSER=hm_dst") {
+		t.Errorf("plugin steps run as the app role, admin steps as the admin URL role:\n%v\n%v", r.envs[0], r.envs[4])
 	}
 }
 
@@ -250,5 +257,58 @@ func TestParsePublicState(t *testing.T) {
 	st := parsePublicState([]string{"ns", "c:1", "p:2", "e:3", "acl:GRANT USAGE ON SCHEMA public TO PUBLIC", "analytics"})
 	if !st.exists || len(st.objects) != 3 || len(st.acl) != 1 {
 		t.Fatalf("state = %+v", st)
+	}
+}
+
+func TestRollbackPluginRoleIsAnExactMatch(t *testing.T) {
+	r := newRollbackRig(t)
+	r.x.mf = manifest{
+		Plugins: []string{"contact_forms", "forms"},
+		Roles:   []string{"hm_p_abcd1234_contact_forms", "hm_p_abcd1234_forms", "hatamoto_role_admin_abcd1234"},
+	}
+	r.x.led.plugins = []string{"contact_forms", "forms"}
+	if err := r.x.rollback(context.Background(), errors.New("stopped")); err == nil {
+		t.Fatal("no error")
+	}
+	var revoked []string
+	for _, st := range r.stmts {
+		if strings.HasPrefix(st, "REVOKE ALL ON DATABASE") {
+			revoked = append(revoked, st)
+		}
+	}
+	want := []string{"REVOKE ALL ON DATABASE target FROM hm_p_abcd1234_forms", "REVOKE ALL ON DATABASE target FROM hm_p_abcd1234_contact_forms"}
+	if strings.Join(revoked, "|") != strings.Join(want, "|") {
+		t.Fatalf("revoked %q, want %q", revoked, want)
+	}
+}
+
+func TestRollbackSkipsPluginRoleThatWasNeverCreated(t *testing.T) {
+	r := newRollbackRig(t)
+	r.absent = map[string]bool{"'hm_p_abcd1234_webhooks')": true}
+	err := r.x.rollback(context.Background(), errors.New("stopped"))
+	var rf *RestoreFailure
+	if !errors.As(err, &rf) || len(rf.Leftovers) != 0 {
+		t.Fatalf("err = %v", err)
+	}
+	for _, st := range r.stmts {
+		if strings.Contains(st, "REVOKE ALL ON DATABASE") || strings.Contains(st, "drop_plugin_role") {
+			t.Errorf("acted on a role that does not exist: %s", st)
+		}
+	}
+	if strings.Contains(err.Error(), "hm_p_abcd1234_webhooks") {
+		t.Errorf("the role is reported as dropped:\n%v", err)
+	}
+}
+
+func TestRollbackPluginRoleLeftoverNeedsNoAdminSchema(t *testing.T) {
+	r := newRollbackRig(t)
+	r.failOn = "drop_plugin_role"
+	text := r.x.rollback(context.Background(), errors.New("stopped")).Error()
+	cmd := `psql -d target -c 'DROP OWNED BY hm_p_abcd1234_webhooks; DROP ROLE hm_p_abcd1234_webhooks'`
+	if !strings.Contains(text, cmd) {
+		t.Fatalf("leftover %q missing:\n%s", cmd, text)
+	}
+	if strings.Contains(text, "hatamoto_admin.") {
+		t.Errorf("the leftover command needs the schema the rollback drops:\n%s", text)
 	}
 }
