@@ -565,10 +565,10 @@ func TestRestoreIntegrationFailureRollsBackAndRerunSucceeds(t *testing.T) {
 			d := seedAndDestroy(t)
 			target := d.freshTargetAs(t, "hm_bk_rollback", targetRole)
 			db := dbOf(t, target)
-			o, mediaDir, secretsDir, configOut := d.options(t, target)
+			o, mediaDir, _, configOut := d.options(t, target)
 			good := o
 			fail(t, &o)
-			secretsDir = o.SecretsDir
+			secretsDir := o.SecretsDir
 			req := RestoreRequest{Source: d.archive, AdminURL: d.adminURL, ConfigOut: configOut}
 
 			_, err := Restore(ctx, o, req)
