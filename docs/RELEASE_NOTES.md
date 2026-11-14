@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased: read:forms API-key scope
+
+- **Scopes.** New API key scope `read:forms`. Existing keys do not gain it, except `*` keys, which allow everything and so can now read form submissions, which hold visitors' personal data (answers, IP address, browser). Review any `*` key before you upgrade. The admin key form lists it as **Read forms**.
+- **REST.** `GET /api/v1/forms`, `GET /api/v1/forms/{id}` and `GET /api/v1/forms/{id}/submissions` (paged with `limit` and `offset`, newest first) accept the key. Reading one submission by id, and every write, stay closed to keys.
+- **Migration.** None. Rollback floor: unchanged; an older release rejects keys that carry the new scope.
+
 ## Unreleased: Locale-aware links, locale names and locale-rooted breadcrumbs
 
 - **Breadcrumbs.** On multi-locale sites, pages of a locale served under a prefix now show the locale name as the first breadcrumb instead of Home; the default locale served without a prefix is unchanged. No setting. The BreadcrumbList JSON-LD lists the same crumbs. A saved home label does not apply on those pages.

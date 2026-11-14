@@ -74,6 +74,7 @@ Every tool needs exactly one scope. A `read:` scope can never call a write tool.
 | `write:terms` | Write terms | `terms_create` |
 | `write:menus` | Write menus | `menus_update` |
 | `write:redirects` | Write redirects | `redirects_create`, `redirects_delete` |
+| `read:forms` | Read forms | none over MCP; unlocks `GET` on `/api/v1/forms`, `/api/v1/forms/{id}` and `/api/v1/forms/{id}/submissions` |
 | `read:seo` | Read SEO settings | `seo_get`, `seo_preview`, `seo_analyze`, `seo_404_list` |
 | `write:seo` | Change SEO settings | `seo_update` |
 | `read:reports` | Read reports | `analytics_crawler_hits`, `analytics_first_crawls`, `analytics_google`, `analytics_ai_referrals`, `analytics_traffic`, `analytics_conversions` |
@@ -81,7 +82,7 @@ Every tool needs exactly one scope. A `read:` scope can never call a write tool.
 
 The scope list also contains `read:citations`, `write:reports`, `read:query_suites` and `write:query_suites`. No MCP tool uses them.
 
-The three scopes `write:menus`, `write:redirects` and `write:terms` are reachable only through MCP. The media scopes also open two REST routes: `GET /api/v1/media/` (list, `read:media` or `write:media`) and `POST /api/v1/media/upload` (`write:media`). The two SEO scopes also open one REST route, `GET|PATCH /api/v1/settings/seo`. Apart from that, a REST API key reaches only a fixed list of routes: entities and their versions, the theme render preview, internal-link suggestions and inserts, and those media routes.
+The three scopes `write:menus`, `write:redirects` and `write:terms` are reachable only through MCP. The media scopes also open two REST routes: `GET /api/v1/media/` (list, `read:media` or `write:media`) and `POST /api/v1/media/upload` (`write:media`). The two SEO scopes also open one REST route, `GET|PATCH /api/v1/settings/seo`. `read:forms` opens `GET` on the forms list, one form and its submissions. Apart from that, a REST API key reaches only a fixed list of routes: entities and their versions, the theme render preview, internal-link suggestions and inserts, and those media, SEO and forms routes.
 
 A tool call without the needed scope fails with `forbidden: the API key lacks the <scope> scope`. The call is still written to the audit log.
 
