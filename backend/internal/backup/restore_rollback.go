@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 type rollbackLedger struct {
 	coreDone         bool     // the core dump is committed
 	schemasBefore    []string // schemas the target database had before the run
+	public           publicState
 	bootstrapStarted bool     // the role bootstrap ran (or began to)
 	plugins          []string // plugins whose provisioning was attempted
 
@@ -28,6 +30,15 @@ type rollbackLedger struct {
 	secretsCreated    string // path of the secrets.env this run created
 	secretsDirCreated bool
 	configCreated     string // path of the config this run created
+}
+
+// publicState is what schema public held before the run: its objects (as
+// "c:<oid>" relations, "p:" functions, "t:" types, "e:" extensions) that are
+// not members of something else, and its grants as statements.
+type publicState struct {
+	exists  bool
+	objects []string
+	acl     []string
 }
 
 // leftover is something a rollback could not undo, with the command that does.
@@ -183,7 +194,10 @@ func (x *restorer) rollbackDatabase(ctx context.Context, f *RestoreFailure) (emp
 	for i := len(x.led.plugins) - 1; i >= 0; i-- {
 		name := strings.TrimPrefix(schemaName(x.led.plugins[i]), "plugin_")
 		schema := schemaName(x.led.plugins[i])
-		ok := sql(appEnv, "plugin "+x.led.plugins[i]+" schema", dropOwnedSchemaSQL(schema))
+		ok := true
+		if !slices.Contains(x.led.schemasBefore, schema) {
+			ok = sql(appEnv, "plugin "+x.led.plugins[i]+" schema", dropOwnedSchemaSQL(schema))
+		}
 		// Provisioning granted CONNECT on the database; the role cannot be dropped while it holds it.
 		if role := x.roleNamed("hm_p_", "_"+name); role != "" {
 			ok = sql(appEnv, "plugin "+x.led.plugins[i]+" database privileges", "REVOKE ALL ON DATABASE "+quoteRole(d.dbName)+" FROM "+quoteRole(role)) && ok
@@ -197,7 +211,10 @@ func (x *restorer) rollbackDatabase(ctx context.Context, f *RestoreFailure) (emp
 	if x.led.bootstrapStarted {
 		env := adminEnv()
 		admin := x.roleNamed("hatamoto_role_admin_", "")
-		ok := sql(env, "schema hatamoto_admin", dropAdminSchemaSQL)
+		ok := true
+		if !slices.Contains(x.led.schemasBefore, "hatamoto_admin") {
+			ok = sql(env, "schema hatamoto_admin", dropAdminSchemaSQL)
+		}
 		if admin != "" {
 			sql(env, "temp_file_limit grant of "+admin, revokeTempFileLimitSQL(admin))
 			if sql(env, "role "+admin, "DROP ROLE IF EXISTS "+quoteRole(admin)) && ok {
@@ -206,7 +223,7 @@ func (x *restorer) rollbackDatabase(ctx context.Context, f *RestoreFailure) (emp
 		}
 	}
 	if x.led.coreDone {
-		emptied = sql(appEnv, "schemas of database "+d.dbName, emptyDatabaseSQL(x.led.schemasBefore))
+		emptied = sql(appEnv, "schemas of database "+d.dbName, emptyDatabaseSQL(x.led.schemasBefore, x.led.public))
 	}
 	return emptied, roles
 }
@@ -242,9 +259,52 @@ func revokeTempFileLimitSQL(role string) string {
 		sqlLiteral(role) + `) THEN EXECUTE format('REVOKE SET ON PARAMETER temp_file_limit FROM %I', ` + sqlLiteral(role) + `); END IF; END $$`
 }
 
+// notMember is the condition that a catalog row was made on its own, not as
+// part of an extension or another object.
+func notMember(class, alias string) string {
+	if class == "pg_class" {
+		// Tables and views can carry internal dependencies of their own; only
+		// sequences, indexes and partitions belong to another relation.
+		return "(" + alias + ".relkind IN ('r','p','v','m','f','c') AND NOT " + alias + ".relispartition AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_class'::regclass AND d.objid = " + alias + ".oid AND d.deptype = 'e') OR " +
+			alias + ".relkind = 'S' AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_class'::regclass AND d.objid = " + alias + ".oid AND d.deptype IN ('e','i','a')))"
+	}
+	return "NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = '" + class + "'::regclass AND d.objid = " + alias +
+		".oid AND d.deptype IN ('e','i','a'))"
+}
+
+// publicSnapshotSQL lists what public holds now, one text per row: "ns" when
+// the schema exists, one "kind:oid" per object (see publicState) and one
+// "acl:<GRANT statement>" per privilege on the schema.
+var publicSnapshotSQL = `SELECT 'ns' FROM pg_namespace WHERE nspname = 'public'
+UNION ALL SELECT 'c:' || c.oid FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND ` + notMember("pg_class", "c") + `
+UNION ALL SELECT 'p:' || p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND ` + notMember("pg_proc", "p") + `
+UNION ALL SELECT 't:' || t.oid FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE n.nspname = 'public' AND ` + notMember("pg_type", "t") + `
+UNION ALL SELECT 'e:' || oid FROM pg_extension
+UNION ALL SELECT 'acl:' || format('GRANT %s ON SCHEMA public TO %s%s', a.privilege_type,
+  CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(a.grantee)) END,
+  CASE WHEN a.is_grantable THEN ' WITH GRANT OPTION' ELSE '' END)
+  FROM pg_namespace n, aclexplode(n.nspacl) a WHERE n.nspname = 'public'`
+
+// parsePublicState reads the rows of publicSnapshotSQL.
+func parsePublicState(rows []string) publicState {
+	var st publicState
+	for _, r := range rows {
+		switch {
+		case r == "ns":
+			st.exists = true
+		case strings.HasPrefix(r, "acl:"):
+			st.acl = append(st.acl, strings.TrimPrefix(r, "acl:"))
+		case len(r) > 2 && r[1] == ':':
+			st.objects = append(st.objects, r)
+		}
+	}
+	return st
+}
+
 // emptyDatabaseSQL drops the schemas the dump created (those not in before)
-// and recreates public as a new database has it. It runs as the database owner.
-func emptyDatabaseSQL(before []string) string {
+// and, in public, only what the run added: the objects, extensions and grants
+// public held before stay (or are put back). It runs as the database owner.
+func emptyDatabaseSQL(before []string, pub publicState) string {
 	keep := "ARRAY['public','information_schema']::name[]"
 	if len(before) > 0 {
 		lits := make([]string, len(before))
@@ -253,13 +313,46 @@ func emptyDatabaseSQL(before []string) string {
 		}
 		keep = "ARRAY['public','information_schema'," + strings.Join(lits, ",") + "]::name[]"
 	}
-	return `DO $$ DECLARE s name; BEGIN ` +
+	head := `DO $$ DECLARE s name; r record; had text[] := ` + textArray(pub.objects) + `; BEGIN ` +
 		`FOR s IN SELECT nspname FROM pg_namespace WHERE nspname <> ALL (` + keep + `) AND nspname NOT LIKE 'pg\_%' ` +
-		`LOOP EXECUTE format('DROP SCHEMA %I CASCADE', s); END LOOP; ` +
-		`DROP SCHEMA IF EXISTS public CASCADE; ` +
-		`IF current_setting('server_version_num')::int >= 150000 THEN ` +
-		`CREATE SCHEMA public AUTHORIZATION pg_database_owner; GRANT USAGE ON SCHEMA public TO PUBLIC; ` +
-		`ELSE CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO PUBLIC; END IF; END $$`
+		`LOOP EXECUTE format('DROP SCHEMA %I CASCADE', s); END LOOP; `
+	if !pub.exists {
+		return head + `DROP SCHEMA IF EXISTS public CASCADE; END $$`
+	}
+	var b strings.Builder
+	b.WriteString(head)
+	b.WriteString(`FOR r IN SELECT extname FROM pg_extension WHERE ('e:' || oid) <> ALL (had) ` +
+		`LOOP EXECUTE format('DROP EXTENSION IF EXISTS %I CASCADE', r.extname); END LOOP; `)
+	b.WriteString(`FOR r IN SELECT c.relname, c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace ` +
+		`WHERE n.nspname = 'public' AND ('c:' || c.oid) <> ALL (had) AND ` + notMember("pg_class", "c") + ` ORDER BY c.oid DESC ` +
+		`LOOP EXECUTE format('DROP %s IF EXISTS public.%I CASCADE', CASE r.relkind WHEN 'v' THEN 'VIEW' WHEN 'm' THEN 'MATERIALIZED VIEW' ` +
+		`WHEN 'f' THEN 'FOREIGN TABLE' WHEN 'S' THEN 'SEQUENCE' WHEN 'c' THEN 'TYPE' ELSE 'TABLE' END, r.relname); END LOOP; `)
+	b.WriteString(`FOR r IN SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS args FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace ` +
+		`WHERE n.nspname = 'public' AND ('p:' || p.oid) <> ALL (had) AND ` + notMember("pg_proc", "p") + ` ` +
+		`LOOP EXECUTE format('DROP ROUTINE IF EXISTS public.%I(%s) CASCADE', r.proname, r.args); END LOOP; `)
+	b.WriteString(`FOR r IN SELECT t.typname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace ` +
+		`WHERE n.nspname = 'public' AND t.typrelid = 0 AND t.typcategory <> 'A' AND ('t:' || t.oid) <> ALL (had) AND ` + notMember("pg_type", "t") + ` ` +
+		`LOOP EXECUTE format('DROP TYPE IF EXISTS public.%I CASCADE', r.typname); END LOOP; `)
+	b.WriteString(`FOR r IN SELECT DISTINCT CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(a.grantee)) END AS who ` +
+		`FROM pg_namespace n, aclexplode(n.nspacl) a WHERE n.nspname = 'public' AND a.grantee <> n.nspowner ` +
+		`LOOP EXECUTE 'REVOKE ALL ON SCHEMA public FROM ' || r.who; END LOOP; `)
+	for _, g := range pub.acl {
+		b.WriteString("EXECUTE " + sqlLiteral(g) + "; ")
+	}
+	b.WriteString("END $$")
+	return b.String()
+}
+
+// textArray is a SQL text[] literal of items.
+func textArray(items []string) string {
+	if len(items) == 0 {
+		return "ARRAY[]::text[]"
+	}
+	lits := make([]string, len(items))
+	for i, it := range items {
+		lits[i] = sqlLiteral(it)
+	}
+	return "ARRAY[" + strings.Join(lits, ",") + "]::text[]"
 }
 
 func sqlLiteral(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }

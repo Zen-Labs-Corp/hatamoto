@@ -72,7 +72,8 @@ func newRollbackRig(t *testing.T) *rollbackRig {
 	}
 	r.x.led = rollbackLedger{
 		coreDone: true, bootstrapStarted: true, plugins: []string{"webhooks"},
-		store: store, mediaKeys: []string{"a/one.bin", "a/b/two.bin"}, mediaDirCreated: true,
+		public: publicState{exists: true},
+		store:  store, mediaKeys: []string{"a/one.bin", "a/b/two.bin"}, mediaDirCreated: true,
 		secretsCreated: r.secretsEnv, secretsDirCreated: true, configCreated: r.config,
 	}
 	return r
@@ -102,7 +103,7 @@ func TestRollbackUndoesEverythingTheRunWrote(t *testing.T) {
 		t.Errorf("a file the run did not write was touched: %v", err)
 	}
 	// Order: plugin schema, its database privileges, plugin role, admin schema, grant, admin role, database.
-	wantStmts := []string{"DROP SCHEMA", "REVOKE ALL ON DATABASE target FROM hm_p_abcd1234_webhooks", "drop_plugin_role('webhooks')", "hatamoto_admin CASCADE", "REVOKE SET ON PARAMETER", "DROP ROLE IF EXISTS hatamoto_role_admin_abcd1234", "pg_database_owner"}
+	wantStmts := []string{"DROP SCHEMA", "REVOKE ALL ON DATABASE target FROM hm_p_abcd1234_webhooks", "drop_plugin_role('webhooks')", "hatamoto_admin CASCADE", "REVOKE SET ON PARAMETER", "DROP ROLE IF EXISTS hatamoto_role_admin_abcd1234", "DROP EXTENSION"}
 	if len(r.stmts) != len(wantStmts) {
 		t.Fatalf("%d statements, want %d:\n%s", len(r.stmts), len(wantStmts), strings.Join(r.stmts, "\n"))
 	}
@@ -212,5 +213,42 @@ func TestRecordSchemasKeepsWhatTheTargetHad(t *testing.T) {
 	}
 	if got := strings.Join(x.led.schemasBefore, ","); got != "analytics,pg_catalog" {
 		t.Fatalf("schemasBefore = %s", got)
+	}
+}
+
+func TestRollbackKeepsWhatPublicHeldBefore(t *testing.T) {
+	r := newRollbackRig(t)
+	r.x.led.public = publicState{exists: true, objects: []string{"p:111", "e:222"}, acl: []string{"GRANT USAGE ON SCHEMA public TO monitoring"}}
+	if err := r.x.rollback(context.Background(), errors.New("stopped")); err == nil {
+		t.Fatal("no error")
+	}
+	last := r.stmts[len(r.stmts)-1]
+	if strings.Contains(last, "DROP SCHEMA IF EXISTS public") || strings.Contains(last, "DROP SCHEMA public") {
+		t.Errorf("public is dropped:\n%s", last)
+	}
+	for _, want := range []string{"ARRAY['p:111','e:222']::text[]", "<> ALL (had)", "EXECUTE 'GRANT USAGE ON SCHEMA public TO monitoring'"} {
+		if !strings.Contains(last, want) {
+			t.Errorf("statement lacks %q:\n%s", want, last)
+		}
+	}
+}
+
+func TestRollbackKeepsSchemasTheTargetHad(t *testing.T) {
+	r := newRollbackRig(t)
+	r.x.led.schemasBefore = []string{"plugin_webhooks", "hatamoto_admin"}
+	if err := r.x.rollback(context.Background(), errors.New("stopped")); err == nil {
+		t.Fatal("no error")
+	}
+	for _, st := range r.stmts {
+		if strings.HasPrefix(st, "DO $$ DECLARE o name;") { // the plugin and admin schema drops
+			t.Errorf("a schema the target had is dropped: %s", st)
+		}
+	}
+}
+
+func TestParsePublicState(t *testing.T) {
+	st := parsePublicState([]string{"ns", "c:1", "p:2", "e:3", "acl:GRANT USAGE ON SCHEMA public TO PUBLIC", "analytics"})
+	if !st.exists || len(st.objects) != 3 || len(st.acl) != 1 {
+		t.Fatalf("state = %+v", st)
 	}
 }

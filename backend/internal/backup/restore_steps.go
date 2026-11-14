@@ -111,6 +111,29 @@ func (x *dbRestorer) recordSchemas(ctx context.Context) error {
 		names = append(names, s)
 	}
 	x.led.schemasBefore = names
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	return x.recordPublic(ctx, q)
+}
+
+// recordPublic notes what schema public holds before anything is written.
+func (x *dbRestorer) recordPublic(ctx context.Context, q Querier) error {
+	rows, err := q.Query(ctx, publicSnapshotSQL)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var got []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return err
+		}
+		got = append(got, s)
+	}
+	x.led.public = parsePublicState(got)
 	return rows.Err()
 }
 

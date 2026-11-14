@@ -628,3 +628,66 @@ func TestRestoreIntegrationFailureRollsBackAndRerunSucceeds(t *testing.T) {
 		})
 	}
 }
+
+// A restore that fails after the core dump must not take with it what the
+// target's public schema held before the run: an extension, a function, a type
+// and the schema's grants.
+func TestRestoreIntegrationRollbackKeepsPreexistingPublicObjects(t *testing.T) {
+	ctx := context.Background()
+	d := seedAndDestroy(t)
+	target := d.freshTargetAs(t, "hm_bk_keeppub", targetRole)
+	db := dbOf(t, target)
+	conn, err := pgx.Connect(ctx, withDatabase(t, d.adminURL, db))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		"DROP ROLE IF EXISTS hm_bk_monitor",
+		"CREATE ROLE hm_bk_monitor",
+		"CREATE EXTENSION pgcrypto SCHEMA public",
+		"CREATE FUNCTION public.hm_bk_keep() RETURNS int LANGUAGE sql AS 'SELECT 1'",
+		"CREATE TYPE public.hm_bk_mood AS ENUM ('ok')",
+		"REVOKE ALL ON SCHEMA public FROM PUBLIC",
+		"GRANT USAGE ON SCHEMA public TO hm_bk_monitor",
+	} {
+		if _, err := conn.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	conn.Close(ctx)
+	t.Cleanup(func() {
+		c, err := pgx.Connect(ctx, d.adminURL)
+		if err == nil {
+			_, _ = c.Exec(ctx, "DROP ROLE IF EXISTS hm_bk_monitor")
+			c.Close(ctx)
+		}
+	})
+
+	o, _, _, configOut := d.options(t, target)
+	failingPluginRestore(&o)
+	_, err = Restore(ctx, o, RestoreRequest{Source: d.archive, AdminURL: d.adminURL, ConfigOut: configOut})
+	if err == nil {
+		t.Fatal("the forced failure did not stop the restore")
+	}
+	var rf *RestoreFailure
+	if !errors.As(err, &rf) || len(rf.Leftovers) != 0 {
+		t.Fatalf("failure = %v", err)
+	}
+	for what, q := range map[string]string{
+		"extension": `SELECT count(*) FROM pg_extension WHERE extname = 'pgcrypto'`,
+		"function":  `SELECT count(*) FROM pg_proc WHERE proname = 'hm_bk_keep'`,
+		"type":      `SELECT count(*) FROM pg_type WHERE typname = 'hm_bk_mood'`,
+		"grant":     `SELECT count(*) FROM aclexplode((SELECT nspacl FROM pg_namespace WHERE nspname = 'public')) a WHERE pg_get_userbyid(a.grantee) = 'hm_bk_monitor'`,
+	} {
+		if d.count(t, db, q) != 1 {
+			t.Errorf("the target's %s is gone", what)
+		}
+	}
+	if n := d.count(t, db, `SELECT count(*) FROM aclexplode((SELECT nspacl FROM pg_namespace WHERE nspname = 'public')) a WHERE a.grantee = 0`); n != 0 {
+		t.Errorf("PUBLIC holds %d privileges on public again", n)
+	}
+	// What the run created is gone.
+	if n := d.count(t, db, `SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind IN ('r','p','v','S')`); n != 0 {
+		t.Errorf("%d relations left in public", n)
+	}
+}
