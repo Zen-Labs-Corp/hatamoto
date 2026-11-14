@@ -4,7 +4,7 @@
 
 - **Scopes.** New API key scope `read:forms`. Existing keys do not gain it, except `*` keys, which allow everything and so can now read form submissions, which hold visitors' personal data (answers, IP address, browser). Review any `*` key before you upgrade. The admin key form lists it as **Read forms**.
 - **REST.** `GET /api/v1/forms`, `GET /api/v1/forms/{id}` and `GET /api/v1/forms/{id}/submissions` (paged with `limit` and `offset`, newest first) accept the key. Reading one submission by id, and every write, stay closed to keys.
-- **Migration.** None. Rollback floor: unchanged; an older release rejects keys that carry the new scope.
+- **Migration.** None. Rollback floor: unchanged. An older release still accepts a key that carries `read:forms`, but the scope grants nothing there, so the forms routes answer 403, and updating that key's scopes over REST is refused until the scope is removed.
 
 ## Unreleased: Locale-aware links, locale names and locale-rooted breadcrumbs
 
