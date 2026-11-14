@@ -60,7 +60,7 @@ API keys are created in the admin (Settings) or with `hatamoto apikey create`. A
 
 `read:entities`, `write:entities`, `read:media`, `write:media`, `write:menus`, `write:redirects`, `write:seo`, `write:terms`, `read:seo`, `read:forms`, plus the wildcard `*`. The media scopes also unlock `GET /api/v1/media/` (list) and `POST /api/v1/media/upload` (upload, `write:media` only); `write:media` implies `read:media`. The admin form also offers `read:reports`, which unlocks the MCP insight tools (`read:seo` and `write:seo` unlock the SEO tools and `GET|PATCH /api/v1/settings/seo`; `write:seo` implies `read:seo`), and four reserved scopes (`read:citations`, `write:reports`, `read:query_suites`, `write:query_suites`) that no route checks today, so they grant nothing.
 
-`read:forms` unlocks only `GET /api/v1/forms`, `GET /api/v1/forms/{id}` and `GET /api/v1/forms/{id}/submissions`, read only. Submissions contain visitors' personal data, and `*` keys can read them too.
+`read:forms` unlocks only `GET /api/v1/forms`, `GET /api/v1/forms/{id}` and `GET /api/v1/forms/{id}/submissions`, read only. Submissions contain visitors' personal data (answers, IP address, browser, and the page and referrer they came from), and `*` keys can read them too.
 
 Two further limits apply to every key:
 

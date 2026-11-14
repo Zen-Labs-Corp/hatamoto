@@ -45,7 +45,7 @@ var scopeHelp = map[string]string{
 	"write:terms":        "Create and change taxonomy terms.",
 	"read:seo":           "Read every Settings > SEO value, the 404 log, previews and analysis.",
 	"write:seo":          "Change Settings > SEO values and the AI-crawler policy. Includes reading.",
-	"read:forms":         "Read forms and their submissions. Submissions contain visitors' personal data: their answers, IP address and browser. Keys with * can read them too.",
+	"read:forms":         "Read forms and their submissions. Submissions contain visitors' personal data: their answers, IP address, browser, and the page and referrer they came from. Keys with * can read them too.",
 	"*":                  "Everything above, and anything added later. Give it only to keys you fully trust.",
 }
 
