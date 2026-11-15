@@ -2,12 +2,14 @@ package pgbouncertest
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // ScratchDB creates a private copy of the database in directDSN (the DSN's
@@ -27,7 +29,18 @@ func ScratchDB(t testing.TB, directDSN string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := admin.Exec(ctx, `CREATE DATABASE `+name+` TEMPLATE `+template); err != nil {
+	create := `CREATE DATABASE ` + name + ` TEMPLATE ` + template
+	_, err = admin.Exec(ctx, create)
+	var pe *pgconn.PgError
+	if errors.As(err, &pe) && pe.Code == "55006" {
+		// A template must be idle. Connections left by earlier tests (a pooler
+		// keeps its server connections open) are cut; the gate's databases are
+		// private to the package.
+		_, _ = admin.Exec(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+			WHERE datname = $1 AND pid <> pg_backend_pid()`, template)
+		_, err = admin.Exec(ctx, create)
+	}
+	if err != nil {
 		_ = admin.Close(ctx)
 		t.Fatal(err)
 	}
