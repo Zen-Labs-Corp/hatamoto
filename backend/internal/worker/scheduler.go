@@ -15,6 +15,7 @@ import (
 
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/idle"
 )
 
 // DrainMode reports whether the WORKER_DRAIN env var instructs the scheduler
@@ -55,6 +56,8 @@ type Scheduler struct {
 
 	recorder Recorder // last-run bookkeeping; nil records nothing
 
+	idle *idle.Gate // nil: every loop keeps its fixed cadence
+
 	// Control channels
 	stopCh chan struct{}
 	wg     sync.WaitGroup
@@ -78,7 +81,9 @@ type jobState struct {
 	fn            func(context.Context) error
 	manual        func(context.Context) error // Run now variant, nil: fn
 	next          time.Time                   // zero: not waiting yet
-	run           sync.Mutex                  // held for the length of a run
+	idleOpt       bool                        // waits through the idle gate
+	nextDue       func(context.Context) (time.Time, bool)
+	run           sync.Mutex // held for the length of a run
 	running       atomic.Bool
 }
 
@@ -108,6 +113,60 @@ func NewScheduler(db *database.DB, logger *slog.Logger) *Scheduler {
 		db:     db,
 		logger: logger,
 		stopCh: make(chan struct{}),
+	}
+}
+
+// SetIdle sets the gate that stretches opted-in jobs (see OnIdle) to a shared
+// beat while the install is idle. Call it before Start. Nil: no job stretches.
+func (s *Scheduler) SetIdle(g *idle.Gate) { s.idle = g }
+
+// OnIdle opts the core job id in to the idle gate: while the install is idle
+// it checks only on the shared beat, or at nextDue when that is sooner (nil:
+// beat only), and a request after an idle spell wakes it at once. Its
+// configured interval is unchanged while the site is active. Only core ids may
+// opt in; plugin jobs keep their schedule.
+func (s *Scheduler) OnIdle(id string, nextDue func(context.Context) (time.Time, bool)) {
+	if IsPluginJob(id) {
+		return
+	}
+	st := s.state(id)
+	s.jobsMu.Lock()
+	st.idleOpt, st.nextDue = true, nextDue
+	s.jobsMu.Unlock()
+}
+
+// idleJob returns the next-due function of id and whether the job waits
+// through the idle gate.
+func (s *Scheduler) idleJob(id string) (func(context.Context) (time.Time, bool), bool) {
+	if s.idle == nil {
+		return nil, false
+	}
+	st := s.state(id)
+	s.jobsMu.Lock()
+	defer s.jobsMu.Unlock()
+	return st.nextDue, st.idleOpt
+}
+
+// stopCtx is ctx, also ended when the scheduler stops.
+func (s *Scheduler) stopCtx(ctx context.Context) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		select {
+		case <-s.stopCh:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, cancel
+}
+
+// runIdle is the loop of an opted-in job after its first run: each wait goes
+// through the gate, and next shown on the Jobs screen is the planned wake.
+func (s *Scheduler) runIdle(ctx context.Context, name string, nextDue func(context.Context) (time.Time, bool), wait func() time.Duration, fn func(context.Context) error) {
+	ctx, cancel := s.stopCtx(ctx)
+	defer cancel()
+	for s.idle.WaitPlanned(ctx, wait(), nextDue, func(t time.Time) { s.setNext(name, t) }) {
+		s.runJob(ctx, name, fn)
 	}
 }
 
@@ -264,6 +323,28 @@ func (s *Scheduler) startDynLocked(id string, j *dynJob) {
 func (s *Scheduler) runJittered(ctx context.Context, j *dynJob, name string) {
 	defer s.wg.Done()
 	wait := j.first
+	nextWait := func() time.Duration {
+		w := j.every
+		if j.jitter > 0 {
+			w += time.Duration(jitterRand(int64(2*j.jitter)+1)) - j.jitter
+		}
+		return w
+	}
+	idleDue, gated := s.idleJob(name)
+	if gated {
+		// First run as scheduled, then every wait through the gate.
+		s.setNext(name, time.Now().Add(wait))
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.stopCh:
+			return
+		case <-time.After(wait):
+			s.runJob(ctx, name, j.fn)
+		}
+		s.runIdle(ctx, name, idleDue, nextWait, j.fn)
+		return
+	}
 	for {
 		s.setNext(name, time.Now().Add(wait))
 		t := time.NewTimer(wait)
@@ -277,10 +358,7 @@ func (s *Scheduler) runJittered(ctx context.Context, j *dynJob, name string) {
 		case <-t.C:
 			s.runJob(ctx, name, j.fn)
 		}
-		wait = j.every
-		if j.jitter > 0 {
-			wait += time.Duration(jitterRand(int64(2*j.jitter)+1)) - j.jitter
-		}
+		wait = nextWait()
 	}
 }
 
@@ -298,6 +376,10 @@ func (s *Scheduler) runEvery(ctx context.Context, first, interval time.Duration,
 	case <-time.After(first):
 		s.setNext(name, time.Now().Add(interval))
 		s.runJob(ctx, name, fn)
+	}
+	if due, gated := s.idleJob(name); gated {
+		s.runIdle(ctx, name, due, func() time.Duration { return interval }, fn)
+		return
 	}
 	t := time.NewTicker(interval)
 	defer t.Stop()
