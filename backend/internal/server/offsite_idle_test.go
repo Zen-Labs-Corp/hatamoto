@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -32,5 +33,19 @@ func TestOffsiteNextDue(t *testing.T) {
 	store.set.NextDueAt = time.Time{} // saved, not yet slotted
 	if got, ok := o.nextDue(ctx); !ok || !got.Equal(now) {
 		t.Fatalf("unslotted nextDue = %v, %v; want now", got, ok)
+	}
+}
+
+type failingOffsiteStore struct{ *memOffsiteStore }
+
+func (*failingOffsiteStore) Get(context.Context) (offsite.Settings, bool, error) {
+	return offsite.Settings{}, false, errors.New("db down")
+}
+
+func TestOffsiteNextDueStoreErrorIsDueNow(t *testing.T) {
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	o := &offsiteService{store: &failingOffsiteStore{&memOffsiteStore{}}, now: func() time.Time { return now }}
+	if got, ok := o.nextDue(context.Background()); !ok || !got.Equal(now) {
+		t.Fatalf("nextDue = %v, %v; want now so the gate keeps the normal interval", got, ok)
 	}
 }

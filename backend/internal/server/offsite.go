@@ -10,6 +10,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/backup"
+	"hatamoto.dev/core/internal/idle"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/worker"
 )
@@ -47,6 +48,7 @@ type offsiteService struct {
 	audit  func(ctx context.Context, e admin.AuditEvent)
 	logger *slog.Logger
 	wg     *sync.WaitGroup // background runs; Shutdown waits on it
+	due    idle.DueLookup
 }
 
 func (o *offsiteService) clock() time.Time {
@@ -96,7 +98,10 @@ func (o *offsiteService) tick(ctx context.Context) error {
 // not yet slotted is due now, which the gate holds to the job's own interval.
 func (o *offsiteService) nextDue(ctx context.Context) (time.Time, bool) {
 	set, found, err := o.store.Get(ctx)
-	if err != nil || !found || !set.Enabled || set.Schedule.Kind == offsite.ScheduleOff {
+	if err != nil {
+		return o.due.Result(nil, err, o.clock(), o.logger, "off-site backup")
+	}
+	if !found || !set.Enabled || set.Schedule.Kind == offsite.ScheduleOff {
 		return time.Time{}, false
 	}
 	if set.NextDueAt.IsZero() {

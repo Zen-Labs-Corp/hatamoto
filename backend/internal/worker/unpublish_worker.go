@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/idle"
 )
 
 // UnpublishWorker takes published entities offline once their scheduled
@@ -23,6 +24,7 @@ type UnpublishWorker struct {
 	// minDue reads the earliest unpublish time; a variable so tests need no
 	// database.
 	minDue func(ctx context.Context) (*time.Time, error)
+	due    idle.DueLookup
 }
 
 // UnpublishSink performs one unpublish. It claims the schedule row itself
@@ -48,10 +50,7 @@ func NewUnpublishWorker(db *database.DB, logger *slog.Logger, sink UnpublishSink
 // PublishWorker.NextDue).
 func (w *UnpublishWorker) NextDue(ctx context.Context) (time.Time, bool) {
 	t, err := w.minDue(ctx)
-	if err != nil || t == nil {
-		return time.Time{}, false
-	}
-	return *t, true
+	return w.due.Result(t, err, time.Now(), w.logger, "unpublish")
 }
 
 // Run executes one tick and returns how many entities it handled. A failing

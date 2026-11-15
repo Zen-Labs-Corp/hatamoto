@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/idle"
 )
 
 // ErrNotFound is returned when a subscription (or delivery) does not exist.
@@ -14,7 +15,11 @@ var ErrNotFound = errors.New("webhook not found")
 
 // Repo is the Postgres access to hatamoto_webhooks and
 // hatamoto_webhook_deliveries.
-type Repo struct{ db *database.DB }
+type Repo struct {
+	db     *database.DB
+	minDue func(ctx context.Context) (*time.Time, error) // tests; nil reads the database
+	due    idle.DueLookup
+}
 
 // NewRepo returns a Repo on db.
 func NewRepo(db *database.DB) *Repo { return &Repo{db: db} }

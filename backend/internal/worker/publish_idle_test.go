@@ -22,8 +22,9 @@ func TestPublishNextDue(t *testing.T) {
 		t.Fatal("nothing scheduled must report no due time")
 	}
 	w.minDue = fakeMinDue(&due, errors.New("db down"))
-	if _, ok := w.NextDue(context.Background()); ok {
-		t.Fatal("a failed query must fall back to the beat")
+	before := time.Now()
+	if got, ok := w.NextDue(context.Background()); !ok || got.Before(before) {
+		t.Fatalf("a failed query = %v, %v; want due now so the gate keeps the normal interval", got, ok)
 	}
 }
 
@@ -59,4 +60,12 @@ func TestIdlePublishWakesAtDueNotBeat(t *testing.T) {
 	}
 	r.fire <- time.Time{}
 	<-r.ran
+}
+
+func TestUnpublishNextDueErrorIsDueNow(t *testing.T) {
+	w := &UnpublishWorker{minDue: fakeMinDue(nil, errors.New("db down"))}
+	before := time.Now()
+	if got, ok := w.NextDue(context.Background()); !ok || got.Before(before) {
+		t.Fatalf("a failed query = %v, %v; want due now", got, ok)
+	}
 }
