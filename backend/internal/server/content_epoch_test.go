@@ -75,20 +75,20 @@ func expectPurges(t *testing.T, sp *scriptedPoll, want ...int) {
 }
 
 var (
-	idle   = pollStep{}
+	quiet  = pollStep{}
 	change = pollStep{changed: true}
 	fail   = pollStep{err: errors.New("db down")}
 )
 
 func TestContentEpochPoller_IdleNeverPurges(t *testing.T) {
-	sp := &scriptedPoll{steps: []pollStep{idle, idle, idle, idle, idle, idle}}
+	sp := &scriptedPoll{steps: []pollStep{quiet, quiet, quiet, quiet, quiet, quiet}}
 	sp.run(t, 5*time.Second)
 	expectPurges(t, sp)
 }
 
 func TestContentEpochPoller_OneChangeOnePurge(t *testing.T) {
 	// Tick 0 only seeds; a change at tick 3 purges once, at once.
-	sp := &scriptedPoll{steps: []pollStep{idle, idle, idle, change, idle, idle, idle}}
+	sp := &scriptedPoll{steps: []pollStep{quiet, quiet, quiet, change, quiet, quiet, quiet}}
 	sp.run(t, 5*time.Second)
 	expectPurges(t, sp, 3)
 }
@@ -96,18 +96,18 @@ func TestContentEpochPoller_OneChangeOnePurge(t *testing.T) {
 func TestContentEpochPoller_BurstIsCoalescedWithTrailingPurge(t *testing.T) {
 	// A change every tick for 12 ticks with a 5s gap: a leading purge at tick 1,
 	// then at most one per gap, then a trailing one on the first quiet tick.
-	steps := []pollStep{idle}
+	steps := []pollStep{quiet}
 	for range 12 {
 		steps = append(steps, change)
 	}
-	steps = append(steps, idle, idle, idle)
+	steps = append(steps, quiet, quiet, quiet)
 	sp := &scriptedPoll{steps: steps}
 	sp.run(t, 5*time.Second)
 	expectPurges(t, sp, 1, 6, 11, 13)
 }
 
 func TestContentEpochPoller_ChangeInsideGapPurgesOnQuietTick(t *testing.T) {
-	sp := &scriptedPoll{steps: []pollStep{idle, change, change, idle, idle}}
+	sp := &scriptedPoll{steps: []pollStep{quiet, change, change, quiet, quiet}}
 	sp.run(t, 5*time.Second)
 	expectPurges(t, sp, 1, 3)
 }
@@ -115,7 +115,7 @@ func TestContentEpochPoller_ChangeInsideGapPurgesOnQuietTick(t *testing.T) {
 func TestContentEpochPoller_ErrorNeverPurgesAndRecovers(t *testing.T) {
 	// Seeded, then reads fail, then recover with nothing new: no purge. A
 	// change after that purges once.
-	sp := &scriptedPoll{steps: []pollStep{idle, fail, fail, idle, idle, change, idle}}
+	sp := &scriptedPoll{steps: []pollStep{quiet, fail, fail, quiet, quiet, change, quiet}}
 	sp.run(t, 5*time.Second)
 	expectPurges(t, sp, 5)
 }
@@ -123,7 +123,7 @@ func TestContentEpochPoller_ErrorNeverPurgesAndRecovers(t *testing.T) {
 func TestContentEpochPoller_FailedSeedPurgesOnFirstSuccess(t *testing.T) {
 	// Reads failed at boot: a change may have landed unseen, so the first
 	// success purges once, and only once.
-	sp := &scriptedPoll{steps: []pollStep{fail, fail, idle, idle, idle}}
+	sp := &scriptedPoll{steps: []pollStep{fail, fail, quiet, quiet, quiet}}
 	sp.run(t, 5*time.Second)
 	expectPurges(t, sp, 2)
 }
