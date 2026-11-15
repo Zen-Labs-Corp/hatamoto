@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/idle"
 )
 
 // scriptedPoll drives a poller through a fixed list of tick results with a
@@ -206,4 +207,48 @@ func TestOnContentEpochChangeNilSafe(t *testing.T) {
 		}
 	}()
 	s.onContentEpochChange(context.Background())
+}
+
+func TestContentEpochPoller_IdleWaitsForBeatAndWakesOnRequest(t *testing.T) {
+	now := time.Unix(1_000, 0)
+	g := idle.New(time.Minute, 5*time.Minute, func() time.Time { return now })
+	waits := make(chan time.Duration, 4)
+	fire := make(chan time.Time, 4)
+	g.SetTimer(func(d time.Duration) (<-chan time.Time, func()) {
+		waits <- d
+		return fire, func() {}
+	})
+	reads := make(chan struct{}, 8)
+	p := &contentEpochPoller{
+		changed:  func(context.Context) (bool, error) { reads <- struct{}{}; return false, nil },
+		onChange: func(context.Context) {},
+		every:    3 * time.Second,
+		gap:      15 * time.Second,
+		gate:     g,
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); p.Run(ctx) }()
+
+	<-reads // seed read
+	if d := <-waits; d != 3*time.Second {
+		t.Fatalf("active wait = %v, want 3s", d)
+	}
+	now = now.Add(2 * time.Minute) // idle
+	fire <- now
+	<-reads
+	if d := <-waits; d <= 3*time.Second || d > 5*time.Minute {
+		t.Fatalf("idle wait = %v, want up to the 5m beat", d)
+	}
+	if len(reads) != 0 {
+		t.Fatal("read before the beat while idle")
+	}
+	g.Touch() // the first request wakes the poller
+	<-reads
+	if d := <-waits; d != 3*time.Second {
+		t.Fatalf("wait after wake = %v, want 3s", d)
+	}
+	cancel()
+	<-done
 }
