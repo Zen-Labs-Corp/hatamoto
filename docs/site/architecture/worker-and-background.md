@@ -35,13 +35,30 @@ Each job is a function the scheduler calls on a timer. Every run has a 10 minute
 
 The prune and version jobs work in bounded batches (using `ctid` for deletes; the IP truncation selects by primary key, because `ctid` is unique only within one partition) so a large backlog never holds a long lock.
 
+## Idle back-off
+
+A site that nobody visits would otherwise touch the database every few seconds and keep a connection open for good. So the frequent checks back off once the install is **idle**: no request has been served for `DATABASE_MAX_CONN_IDLE_TIME` (default `30m`). Requests to `/health` and `/ready` do not count, so a probe or uptime monitor does not keep the site awake; any other traffic, bots included, does.
+
+While idle, these checks stop running on their own cadence and share one **idle beat** instead, so they run together in a single burst and the database connections can close in the gaps:
+
+- the jobs `publish`, `agent_verify`, `webhook_deliver` and `backup_offsite`,
+- the package reconcile,
+- the content change poll (see [Multiple replicas](../operate/multi-replica-and-health.md)),
+- the email settings check across replicas.
+
+The beat is twice `DATABASE_MAX_CONN_IDLE_TIME`, kept between 5 and 15 minutes, so the gap is always longer than the time a pooled connection may sit idle. The first request after an idle spell wakes all of them at once for an immediate check; the request itself is served as usual.
+
+Work that is due is not delayed. A scheduled post, a webhook retry and a scheduled unpublish wake their job at the due time even while idle, and an enabled off-site backup keeps checking between its slots. Every other job, including all plugin `cron` jobs, and every interval above are unchanged. While the site is active nothing changes either. The Jobs screen shows the real next run.
+
+Changes saved from the admin in the running process (email, theme settings, installing or activating a package) apply at once and never wait for a check. A change made by another replica or by the command line may take up to the idle beat to be noticed while the site is idle; the next request shortens that to an immediate check. For the densest hosting, set `DATABASE_MIN_CONNECTIONS=0` and `DATABASE_MAX_CONN_IDLE_TIME=2m`.
+
 ## Other background loops
 
 These run whenever the server runs, whether or not the scheduler is enabled:
 
 - **Analytics flush.** Pageviews and AI referrals are buffered in memory and written to the daily rollup every 30 seconds, and flushed again on shutdown.
 - **Agent hit writer.** Crawler hits recorded by the page handlers go through a channel to a writer goroutine that resolves paths to entities and inserts in batches, so the response never waits for the database.
-- **Package reconcile.** Every 5 seconds in production (every second otherwise) the server compares installed packages in the database with what is loaded, so a plugin installed from the command line, or by another replica, goes live without a restart.
+- **Package reconcile.** Every 5 seconds in production (every second otherwise) the server compares installed packages in the database with what is loaded, so a plugin installed from the command line, or by another replica, goes live without a restart. While the site is idle this check moves to the idle beat (see [Idle back-off](#idle-back-off)).
 - **Page cache preload.** When the owner enables preload, pages are re-rendered to warm the cache, with a concurrency of 2, either all pages or only the missing ones. It runs on the scheduler at the preload interval (by default the cache lifetime, at least one minute; this part needs the scheduler) and, when "after changes" is on, a short while after content changes. It stops when the cache size limit is reached. See [Performance and the page cache](../admin/performance-cache.md).
 - **Access log tailer.** Only when `AGENT_LOG_INGEST` is on and `AGENT_LOG_CADDY_PATH` points at a reverse-proxy access log: it follows the file read-only and feeds crawler hits that never reached the application. See [Access log ingest](../ai-seo/access-log-ingest.md).
 - **Update events watcher.** Picks up update outcomes that the supervisor wrote to `releases/events.jsonl` in the data directory and records them in the database.
