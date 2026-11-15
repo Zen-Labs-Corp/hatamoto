@@ -63,16 +63,11 @@ func (db *DB) Ping(ctx context.Context) error {
 	return db.pool.Ping(ctx)
 }
 
-// GetConn returns a connection with tenant context configured for RLS.
-// This is the primary way to acquire database connections.
+// GetConn returns a pooled connection. It sets no session state, so it is
+// safe behind a transaction-mode pooler.
 func (db *DB) GetConn(ctx context.Context) (*pgxpool.Conn, error) {
 	conn, err := acquire(ctx, db.pool)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := db.setTenantContext(ctx, conn); err != nil {
-		conn.Release()
 		return nil, err
 	}
 
@@ -110,24 +105,6 @@ func acquire(ctx context.Context, a acquirer) (*pgxpool.Conn, error) {
 		return nil, fmt.Errorf("failed to acquire connection: %w", err)
 	}
 	return conn, nil
-}
-
-// setTenantContext configures PostgreSQL session variables. Post-Path-B
-// the only remaining session variable is app.current_user_id (used for
-// audit-trail context in some triggers). app.current_tenant_id and
-// app.is_superadmin are no longer set because RLS is gone (migration
-// 075 dropped all policies). Kept as a method so existing call sites
-// in GetConn remain unchanged.
-func (db *DB) setTenantContext(ctx context.Context, conn *pgxpool.Conn) error {
-	userID, hasUser := GetUserID(ctx)
-	if !hasUser {
-		return nil
-	}
-	_, err := conn.Exec(ctx, "SELECT set_config($1, $2, false)", "app.current_user_id", userID.String())
-	if err != nil {
-		return fmt.Errorf("failed to set app.current_user_id: %w", err)
-	}
-	return nil
 }
 
 // WithTx executes a function within a transaction with tenant context.
