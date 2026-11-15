@@ -142,7 +142,7 @@ run_pkg() { # run_pkg <dsn> <package>
     */pluginhost|*/backup) ;;
     *) [[ -n $pport ]] && pooled=${1/:$port\//:$pport/} ;;
   esac
-  DATABASE_URL=$pooled HATAMOTO_TEST_DB_URL=$1 DATABASE_DIRECT_URL=${pport:+$1} EMAIL_DISABLED=true \
+  DATABASE_URL=$pooled HATAMOTO_TEST_DB_URL=$1 DATABASE_DIRECT_URL=${pport:+$1} HATAMOTO_POOLER_TERMINATE=${pport:+1} EMAIL_DISABLED=true \
     bash "$root/scripts/go-test-flaky.sh" "-tags=integration -p 1" "$2"
 }
 

@@ -19,6 +19,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// binary returns the pgbouncer executable, or skips the test when there is none.
+func binary(t testing.TB) string {
+	t.Helper()
+	if bin := os.Getenv("PGBOUNCER_BIN"); bin != "" {
+		return bin
+	}
+	p, err := exec.LookPath("pgbouncer")
+	if err != nil {
+		t.Skip("pgbouncer not found (set PGBOUNCER_BIN)")
+	}
+	return p
+}
+
 // Start launches PgBouncer for the server in directDSN and returns a DSN that
 // reaches the same database through it. The pooler uses pool_mode=transaction
 // and max_prepared_statements=100, with poolSize server connections per
@@ -27,14 +40,7 @@ import (
 // when the test ends. Start skips the test when no binary is found.
 func Start(t testing.TB, directDSN string, poolSize int) (pooledDSN string) {
 	t.Helper()
-	bin := os.Getenv("PGBOUNCER_BIN")
-	if bin == "" {
-		p, err := exec.LookPath("pgbouncer")
-		if err != nil {
-			t.Skip("pgbouncer not found (set PGBOUNCER_BIN)")
-		}
-		bin = p
-	}
+	bin := binary(t)
 	u, err := url.Parse(directDSN)
 	if err != nil || u.User == nil {
 		t.Fatalf("pgbouncertest: need a postgres URL with credentials: %v", err)
