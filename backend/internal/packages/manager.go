@@ -24,6 +24,7 @@ import (
 
 	"hatamoto.dev/core/internal/builder"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/idle"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/menu"
 	"hatamoto.dev/core/internal/permtext"
@@ -174,6 +175,9 @@ type Options struct {
 	Engine  ThemeEngine
 	// NewPreview builds a second engine for previewing an installed theme.
 	NewPreview func(layers []fs.FS, settings map[string]any) (*render.Engine, error)
+	// Idle stretches Run's polling to the shared idle beat while the install is
+	// idle. nil: a plain timer.
+	Idle *idle.Gate
 	// AllowDev lets packages from `hatamoto theme dev` be installed and loaded.
 	// It is the server's decision (never in production); dev rows are ignored
 	// at load time when it is off, whatever was written to the database.
@@ -202,6 +206,7 @@ type Options struct {
 type Manager struct {
 	Options
 	store *Store
+	now   func() time.Time // time.Now when nil; tests
 
 	devMu sync.Mutex // guards dev
 	dev   developerState
@@ -1391,28 +1396,52 @@ func (m *Manager) Reconcile(ctx context.Context) {
 }
 
 // Run reconciles every interval until ctx ends, so a package installed by the
-// CLI (or another replica) goes live without a restart.
+// CLI (or another replica) goes live without a restart. Once the install is
+// idle (Options.Idle) it reconciles on the shared idle beat instead, and the
+// first request after that reconciles at once. Changes made in this process
+// (installs, activation, theme settings) apply directly and never wait for it.
 //
 // While a developer package is installed it also reads the developer index
 // shortly after start and then every DeveloperEvery, which applies its
 // revocations. A site without one makes no such request.
 func (m *Manager) Run(ctx context.Context, every time.Duration) {
-	t := time.NewTicker(every)
+	m.run(ctx, every, m.Reconcile, m.refreshDeveloper)
+}
+
+func (m *Manager) run(ctx context.Context, every time.Duration, reconcile, refreshDeveloper func(context.Context)) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		m.developerLoop(ctx, DeveloperFirstRead+rand.N(DeveloperFirstRead), refreshDeveloper)
+	}()
+	for m.Idle.Wait(ctx, every, nil) {
+		reconcile(ctx)
+	}
+	wg.Wait()
+}
+
+// developerLoop calls refresh after the first delay and then once per
+// DeveloperEvery. While idle the gate wakes it on every beat, which is far
+// more often than that, so a wake before the period is up does nothing.
+func (m *Manager) developerLoop(ctx context.Context, first time.Duration, refresh func(context.Context)) {
+	now := m.now
+	if now == nil {
+		now = time.Now
+	}
+	t := time.NewTimer(first)
 	defer t.Stop()
-	dev := time.NewTicker(DeveloperEvery)
-	defer dev.Stop()
-	first := time.NewTimer(DeveloperFirstRead + rand.N(DeveloperFirstRead))
-	defer first.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			m.Reconcile(ctx)
-		case <-first.C:
-			m.refreshDeveloper(ctx)
-		case <-dev.C:
-			m.refreshDeveloper(ctx)
+	select {
+	case <-ctx.Done():
+		return
+	case <-t.C:
+	}
+	refresh(ctx)
+	last := now()
+	for m.Idle.Wait(ctx, DeveloperEvery, nil) {
+		if now().Sub(last) >= DeveloperEvery {
+			refresh(ctx)
+			last = now()
 		}
 	}
 }

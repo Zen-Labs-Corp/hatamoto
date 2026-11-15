@@ -37,6 +37,7 @@ func (s *Server) setupPackages() {
 	}
 	opts := packages.Options{
 		Pool:     s.db.Pool(),
+		Idle:     s.idle,
 		Trust:    trust,
 		AllowDev: s.cfg.Environment != "production",
 		OnChange: s.invalidateRendered,
