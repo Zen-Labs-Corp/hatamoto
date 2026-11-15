@@ -45,7 +45,7 @@ func TestImportRunning_Integration(t *testing.T) {
 
 	running := func() bool {
 		t.Helper()
-		r, err := ImportRunning(ctx, pool)
+		r, err := ImportRunning(ctx, PoolSource{pool})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -54,7 +54,7 @@ func TestImportRunning_Integration(t *testing.T) {
 	if running() {
 		t.Fatal("no import holds the lock, yet ImportRunning is true")
 	}
-	release, err := AcquireImportLock(ctx, pool)
+	release, err := AcquireImportLock(ctx, PoolSource{pool})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestImportRunning_Integration(t *testing.T) {
 		t.Fatal("lock released, yet ImportRunning is true")
 	}
 	// The probe gives the lock back: a real import can still take it.
-	rel2, err := AcquireImportLock(ctx, pool)
+	rel2, err := AcquireImportLock(ctx, PoolSource{pool})
 	if err != nil {
 		t.Fatalf("probe leaked the lock: %v", err)
 	}
