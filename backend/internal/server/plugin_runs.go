@@ -63,7 +63,7 @@ func (s *Server) recoverPluginRuns(ctx context.Context, rt *pluginhost.Runtime) 
 	if err := rt.RecoverRuns(ctx); err != nil {
 		s.logger.Error("plugins: failed to recover interrupted runs", slog.Any("error", err))
 	}
-	rt.RecoverRunsEvery(time.Minute)
+	rt.RecoverRunsEvery(time.Minute, s.idle)
 }
 
 // runUploads opens the file the owner uploaded for a run, from the staged

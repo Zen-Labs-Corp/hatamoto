@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/changeset"
+	"hatamoto.dev/core/internal/idle"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/plugrun"
 	"hatamoto.dev/core/internal/wasmhost"
@@ -165,22 +166,19 @@ func (r *Runtime) RecoverRuns(ctx context.Context) error {
 // RecoverRunsEvery calls RecoverRuns every interval until the runtime
 // closes, so a run orphaned by a crash is failed about RecoverAfter later
 // even when the process restarted at once. Every replica may run it: failing
-// a run is conditional on it still running.
-func (r *Runtime) RecoverRunsEvery(interval time.Duration) {
-	go func() {
-		t := time.NewTicker(interval)
-		defer t.Stop()
-		for {
-			select {
-			case <-r.runCtx.Done():
-				return
-			case <-t.C:
-				if err := r.RecoverRuns(r.runCtx); err != nil && r.runCtx.Err() == nil {
-					r.log.Error("plugins: failed to recover interrupted runs", slog.Any("error", err))
-				}
-			}
+// a run is conditional on it still running. A non-nil gate stretches the
+// interval to the idle beat while the install is idle, so the pass does not
+// keep a database connection open; a nil gate is a plain timer.
+func (r *Runtime) RecoverRunsEvery(interval time.Duration, gate *idle.Gate) {
+	go recoverLoop(r.runCtx, gate, interval, r.RecoverRuns, r.log)
+}
+
+func recoverLoop(ctx context.Context, gate *idle.Gate, interval time.Duration, recoverRuns func(context.Context) error, log *slog.Logger) {
+	for gate.Wait(ctx, interval, nil) {
+		if err := recoverRuns(ctx); err != nil && ctx.Err() == nil {
+			log.Error("plugins: failed to recover interrupted runs", slog.Any("error", err))
 		}
-	}()
+	}
 }
 
 // failStale fails the plugin's running run when it has not moved for
