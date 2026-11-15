@@ -14,7 +14,8 @@ import (
 
 // DB wraps a pgx connection pool with tenant-aware operations.
 type DB struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	direct *Direct
 }
 
 // New creates a new database connection pool.
@@ -29,7 +30,17 @@ func New(ctx context.Context, cfg config.DatabaseConfig) (*DB, error) {
 	poolConfig.MaxConnLifetime = cfg.MaxConnLifetime
 	poolConfig.MaxConnIdleTime = cfg.MaxConnIdleTime
 
-	return NewWithConfig(ctx, poolConfig)
+	db, err := NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		return nil, err
+	}
+	direct, err := newDirect(cfg.EffectiveDirectURL(), cfg.URL, db.pool)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	db.direct = direct
+	return db, nil
 }
 
 // NewWithConfig creates the pool from a ready pgx config, for callers that
@@ -45,7 +56,7 @@ func NewWithConfig(ctx context.Context, poolConfig *pgxpool.Config) (*DB, error)
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &DB{pool: pool}, nil
+	return &DB{pool: pool, direct: &Direct{fallback: pool}}, nil
 }
 
 // Close closes the database connection pool.
