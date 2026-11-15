@@ -33,6 +33,16 @@ func newDirect(url, mainURL string, fallback *pgxpool.Pool) (*Direct, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse direct database URL: %w", err)
 	}
+	mc, err := pgxpool.ParseConfig(mainURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse database URL: %w", err)
+	}
+	// Migrations, backups and plugin grants run over this URL and assume the
+	// same role and database as the pooled one. Hosts and ports may differ.
+	// The message carries no URL, so no password.
+	if pc.ConnConfig.User != mc.ConnConfig.User || pc.ConnConfig.Database != mc.ConnConfig.Database {
+		return nil, fmt.Errorf("DATABASE_DIRECT_URL must use the same user and database name as DATABASE_URL")
+	}
 	d.url = url
 	d.cfg = pc.ConnConfig
 	return d, nil

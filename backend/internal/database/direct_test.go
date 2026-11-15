@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -87,5 +88,24 @@ func TestDirectPoolSeparateWhenSet(t *testing.T) {
 	defer closeFn()
 	if pool.Config().MaxConns != 2 {
 		t.Fatalf("MaxConns = %d, want 2", pool.Config().MaxConns)
+	}
+}
+
+func TestNewDirectRejectsOtherUserOrDatabase(t *testing.T) {
+	main := "postgres://app:p@pooler:6432/site"
+	for _, direct := range []string{
+		"postgres://admin:secret@pg:5432/site",
+		"postgres://app:secret@pg:5432/site_alias",
+	} {
+		_, err := newDirect(direct, main, nil)
+		if err == nil {
+			t.Fatalf("%q accepted", direct)
+		}
+		if strings.Contains(err.Error(), "secret") {
+			t.Fatalf("error leaks the password: %v", err)
+		}
+	}
+	if _, err := newDirect("postgres://app:q@pg:5432/site", main, nil); err != nil {
+		t.Fatalf("other host and password must be accepted: %v", err)
 	}
 }

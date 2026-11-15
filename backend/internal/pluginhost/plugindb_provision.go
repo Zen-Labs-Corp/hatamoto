@@ -303,7 +303,7 @@ func (d *PluginDB) credential(ctx context.Context, tx pgx.Tx, plugin string, rot
 	return pw, err
 }
 
-func (d *PluginDB) dbName() string { return d.pool.Config().ConnConfig.Database }
+func (d *PluginDB) dbName() string { return d.baseConfig().Database }
 
 func createRoleDirect(ctx context.Context, tx pgx.Tx, role, plugin, verifier string) error {
 	var exists bool
