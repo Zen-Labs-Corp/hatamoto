@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/idle"
 )
 
 // PublishWorker promotes scheduled entities to published once their
@@ -30,6 +32,11 @@ type PublishWorker struct {
 	db     *database.DB
 	logger *slog.Logger
 	events PublishEventSink
+
+	// minDue reads the earliest scheduled time; a variable so tests need no
+	// database.
+	minDue func(ctx context.Context) (*time.Time, error)
+	due    idle.DueLookup
 }
 
 // PublishEventSink is told about each entity the worker promotes so the
@@ -44,7 +51,23 @@ func (w *PublishWorker) SetEvents(s PublishEventSink) { w.events = s }
 
 // NewPublishWorker constructs the worker.
 func NewPublishWorker(db *database.DB, logger *slog.Logger) *PublishWorker {
-	return &PublishWorker{db: db, logger: logger}
+	w := &PublishWorker{db: db, logger: logger}
+	w.minDue = func(ctx context.Context) (*time.Time, error) {
+		var t *time.Time
+		err := w.db.Pool().QueryRow(database.WithSuperadmin(ctx),
+			`SELECT min(published_at) FROM hatamoto_entities WHERE status = 'scheduled'`).Scan(&t)
+		return t, err
+	}
+	return w
+}
+
+// NextDue reports when the earliest scheduled entity falls due, for the idle
+// gate: an idle scheduler wakes for it instead of waiting for the next beat.
+// It uses the same predicate as Run (idx_entities_scheduled_due). A query error
+// reports due now, which the gate holds to the normal interval.
+func (w *PublishWorker) NextDue(ctx context.Context) (time.Time, bool) {
+	t, err := w.minDue(ctx)
+	return w.due.Result(t, err, time.Now(), w.logger, "publish")
 }
 
 // PublishedEntity identifies one row this worker promoted.

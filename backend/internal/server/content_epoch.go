@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"time"
 
+	"hatamoto.dev/core/internal/idle"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -38,10 +40,13 @@ type contentEpochPoller struct {
 	every    time.Duration
 	gap      time.Duration
 	now      func() time.Time // time.Now when nil
+	gate     *idle.Gate       // nil: a plain timer of every
 	logger   *slog.Logger
 }
 
-// Run polls every interval until ctx ends. A read error never purges and is
+// Run polls every interval until ctx ends; once the install is idle it polls
+// on the shared idle beat instead (see package idle), and the first request
+// after that polls at once. The coalescing gap stays tied to the normal interval. A read error never purges and is
 // retried on the next tick. If reads failed before the first success, a change
 // may have landed unseen in the meantime, so the first success purges once.
 func (p *contentEpochPoller) Run(ctx context.Context) {
@@ -91,16 +96,9 @@ func (p *contentEpochPoller) Run(ctx context.Context) {
 	if !check() {
 		return
 	}
-	t := time.NewTicker(p.every)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
+	for p.gate.Wait(ctx, p.every, nil) {
+		if !check() {
 			return
-		case <-t.C:
-			if !check() {
-				return
-			}
 		}
 	}
 }
@@ -228,6 +226,7 @@ func (s *Server) runContentEpochPoller(ctx context.Context) {
 		onChange: s.onContentEpochChange,
 		every:    every,
 		gap:      5 * every,
+		gate:     s.idle,
 		logger:   s.logger,
 	}
 	p.Run(ctx)

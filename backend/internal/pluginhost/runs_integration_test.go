@@ -457,7 +457,7 @@ func TestRunRecoveredPeriodically(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r.rt.RecoverRunsEvery(10 * time.Millisecond)
+	r.rt.RecoverRunsEvery(10*time.Millisecond, nil)
 	deadline := time.Now().Add(10 * time.Second)
 	for {
 		got, _ := r.runs.Get(ctx, run.ID)

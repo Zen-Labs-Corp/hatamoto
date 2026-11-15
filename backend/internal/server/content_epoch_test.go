@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/idle"
 )
 
 // scriptedPoll drives a poller through a fixed list of tick results with a
@@ -75,20 +76,20 @@ func expectPurges(t *testing.T, sp *scriptedPoll, want ...int) {
 }
 
 var (
-	idle   = pollStep{}
+	quiet  = pollStep{}
 	change = pollStep{changed: true}
 	fail   = pollStep{err: errors.New("db down")}
 )
 
 func TestContentEpochPoller_IdleNeverPurges(t *testing.T) {
-	sp := &scriptedPoll{steps: []pollStep{idle, idle, idle, idle, idle, idle}}
+	sp := &scriptedPoll{steps: []pollStep{quiet, quiet, quiet, quiet, quiet, quiet}}
 	sp.run(t, 5*time.Second)
 	expectPurges(t, sp)
 }
 
 func TestContentEpochPoller_OneChangeOnePurge(t *testing.T) {
 	// Tick 0 only seeds; a change at tick 3 purges once, at once.
-	sp := &scriptedPoll{steps: []pollStep{idle, idle, idle, change, idle, idle, idle}}
+	sp := &scriptedPoll{steps: []pollStep{quiet, quiet, quiet, change, quiet, quiet, quiet}}
 	sp.run(t, 5*time.Second)
 	expectPurges(t, sp, 3)
 }
@@ -96,18 +97,18 @@ func TestContentEpochPoller_OneChangeOnePurge(t *testing.T) {
 func TestContentEpochPoller_BurstIsCoalescedWithTrailingPurge(t *testing.T) {
 	// A change every tick for 12 ticks with a 5s gap: a leading purge at tick 1,
 	// then at most one per gap, then a trailing one on the first quiet tick.
-	steps := []pollStep{idle}
+	steps := []pollStep{quiet}
 	for range 12 {
 		steps = append(steps, change)
 	}
-	steps = append(steps, idle, idle, idle)
+	steps = append(steps, quiet, quiet, quiet)
 	sp := &scriptedPoll{steps: steps}
 	sp.run(t, 5*time.Second)
 	expectPurges(t, sp, 1, 6, 11, 13)
 }
 
 func TestContentEpochPoller_ChangeInsideGapPurgesOnQuietTick(t *testing.T) {
-	sp := &scriptedPoll{steps: []pollStep{idle, change, change, idle, idle}}
+	sp := &scriptedPoll{steps: []pollStep{quiet, change, change, quiet, quiet}}
 	sp.run(t, 5*time.Second)
 	expectPurges(t, sp, 1, 3)
 }
@@ -115,7 +116,7 @@ func TestContentEpochPoller_ChangeInsideGapPurgesOnQuietTick(t *testing.T) {
 func TestContentEpochPoller_ErrorNeverPurgesAndRecovers(t *testing.T) {
 	// Seeded, then reads fail, then recover with nothing new: no purge. A
 	// change after that purges once.
-	sp := &scriptedPoll{steps: []pollStep{idle, fail, fail, idle, idle, change, idle}}
+	sp := &scriptedPoll{steps: []pollStep{quiet, fail, fail, quiet, quiet, change, quiet}}
 	sp.run(t, 5*time.Second)
 	expectPurges(t, sp, 5)
 }
@@ -123,7 +124,7 @@ func TestContentEpochPoller_ErrorNeverPurgesAndRecovers(t *testing.T) {
 func TestContentEpochPoller_FailedSeedPurgesOnFirstSuccess(t *testing.T) {
 	// Reads failed at boot: a change may have landed unseen, so the first
 	// success purges once, and only once.
-	sp := &scriptedPoll{steps: []pollStep{fail, fail, idle, idle, idle}}
+	sp := &scriptedPoll{steps: []pollStep{fail, fail, quiet, quiet, quiet}}
 	sp.run(t, 5*time.Second)
 	expectPurges(t, sp, 2)
 }
@@ -206,4 +207,48 @@ func TestOnContentEpochChangeNilSafe(t *testing.T) {
 		}
 	}()
 	s.onContentEpochChange(context.Background())
+}
+
+func TestContentEpochPoller_IdleWaitsForBeatAndWakesOnRequest(t *testing.T) {
+	now := time.Unix(1_000, 0)
+	g := idle.New(time.Minute, 5*time.Minute, func() time.Time { return now })
+	waits := make(chan time.Duration, 4)
+	fire := make(chan time.Time, 4)
+	g.SetTimer(func(d time.Duration) (<-chan time.Time, func()) {
+		waits <- d
+		return fire, func() {}
+	})
+	reads := make(chan struct{}, 8)
+	p := &contentEpochPoller{
+		changed:  func(context.Context) (bool, error) { reads <- struct{}{}; return false, nil },
+		onChange: func(context.Context) {},
+		every:    3 * time.Second,
+		gap:      15 * time.Second,
+		gate:     g,
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); p.Run(ctx) }()
+
+	<-reads // seed read
+	if d := <-waits; d != 3*time.Second {
+		t.Fatalf("active wait = %v, want 3s", d)
+	}
+	now = now.Add(2 * time.Minute) // idle
+	fire <- now
+	<-reads
+	if d := <-waits; d <= 3*time.Second || d > 5*time.Minute {
+		t.Fatalf("idle wait = %v, want up to the 5m beat", d)
+	}
+	if len(reads) != 0 {
+		t.Fatal("read before the beat while idle")
+	}
+	g.Touch() // the first request wakes the poller
+	<-reads
+	if d := <-waits; d != 3*time.Second {
+		t.Fatalf("wait after wake = %v, want 3s", d)
+	}
+	cancel()
+	<-done
 }

@@ -70,7 +70,7 @@ You do this once, and use the same key for every package you make.
    ```text
    installed theme my-theme v1.0.0
    activate it in Admin > Themes
-   a running server applies it within a few seconds; no restart is needed
+   a running server applies it within a few seconds (while the site is idle with the back-off on, up to the idle beat of 5 to 15 minutes); no restart is needed
    ```
 
    Installing does not change what visitors see.

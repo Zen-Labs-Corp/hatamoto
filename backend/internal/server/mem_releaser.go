@@ -9,10 +9,14 @@ import (
 	"hatamoto.dev/core/internal/memrelease"
 )
 
-// activityMiddleware stamps the request time before the handler runs.
+// activityMiddleware stamps the request time before the handler runs and
+// wakes the idle background loops (health and readiness probes do not count).
 func (s *Server) activityMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.lastReq.Store(time.Now().UnixNano())
+		if !isProbe(r) {
+			s.idle.Touch()
+		}
 		next.ServeHTTP(w, r)
 	})
 }

@@ -24,9 +24,10 @@ const localesConvertUsageLine = "usage: hatamoto locales convert --suggest | --p
 
 // contentPollNote is printed after a write. The server polls the content
 // change log every 3 seconds (1 second in development, see
-// Server.contentEpochEvery) and then drops its cached site config, URL
+// Server.contentEpochEvery; on the idle beat while the site has no visitors)
+// and then drops its cached site config, URL
 // registry and rendered pages.
-const contentPollNote = "running servers pick the change up within the content poll interval (3 seconds, 1 second in development); no restart is needed"
+const contentPollNote = "running servers pick the change up within the content poll interval (3 seconds, 1 second in development), or within the idle beat (5 to 15 minutes) while the site has no visitors; no restart is needed"
 
 // localesOpts are the flags of `hatamoto locales convert`.
 type localesOpts struct {

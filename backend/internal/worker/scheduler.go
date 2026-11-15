@@ -15,6 +15,7 @@ import (
 
 	"hatamoto.dev/core/internal/agents"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/idle"
 )
 
 // DrainMode reports whether the WORKER_DRAIN env var instructs the scheduler
@@ -55,6 +56,8 @@ type Scheduler struct {
 
 	recorder Recorder // last-run bookkeeping; nil records nothing
 
+	idle *idle.Gate // nil: every loop keeps its fixed cadence
+
 	// Control channels
 	stopCh chan struct{}
 	wg     sync.WaitGroup
@@ -78,7 +81,9 @@ type jobState struct {
 	fn            func(context.Context) error
 	manual        func(context.Context) error // Run now variant, nil: fn
 	next          time.Time                   // zero: not waiting yet
-	run           sync.Mutex                  // held for the length of a run
+	idleOpt       bool                        // waits through the idle gate
+	nextDue       func(context.Context) (time.Time, bool)
+	run           sync.Mutex // held for the length of a run
 	running       atomic.Bool
 }
 
@@ -108,6 +113,61 @@ func NewScheduler(db *database.DB, logger *slog.Logger) *Scheduler {
 		db:     db,
 		logger: logger,
 		stopCh: make(chan struct{}),
+	}
+}
+
+// SetIdle sets the gate that stretches opted-in jobs (see OnIdle) to a shared
+// beat while the install is idle. Call it before Start. Nil: no job stretches.
+func (s *Scheduler) SetIdle(g *idle.Gate) { s.idle = g }
+
+// OnIdle opts the core job id in to the idle gate: while the install is idle
+// it checks only on the shared beat, or at nextDue when that is sooner (nil:
+// beat only), and a request after an idle spell wakes it at once. Its
+// configured interval is unchanged while the site is active. Call it before
+// Schedule or ScheduleJitter for the same id: a loop reads the opt-in once, when
+// it starts, so a later call is ignored. Only core ids may opt in; plugin jobs keep their schedule.
+func (s *Scheduler) OnIdle(id string, nextDue func(context.Context) (time.Time, bool)) {
+	if IsPluginJob(id) {
+		return
+	}
+	st := s.state(id)
+	s.jobsMu.Lock()
+	st.idleOpt, st.nextDue = true, nextDue
+	s.jobsMu.Unlock()
+}
+
+// idleJob returns the next-due function of id and whether the job waits
+// through the idle gate.
+func (s *Scheduler) idleJob(id string) (func(context.Context) (time.Time, bool), bool) {
+	if s.idle == nil {
+		return nil, false
+	}
+	st := s.state(id)
+	s.jobsMu.Lock()
+	defer s.jobsMu.Unlock()
+	return st.nextDue, st.idleOpt
+}
+
+// stopCtx is ctx, also ended when the scheduler stops.
+func (s *Scheduler) stopCtx(ctx context.Context) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		select {
+		case <-s.stopCh:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, cancel
+}
+
+// runIdle is the loop of an opted-in job after its first run: each wait goes
+// through the gate, and next shown on the Jobs screen is the planned wake.
+func (s *Scheduler) runIdle(ctx context.Context, name string, nextDue func(context.Context) (time.Time, bool), wait func() time.Duration, fn func(context.Context) error) {
+	ctx, cancel := s.stopCtx(ctx)
+	defer cancel()
+	for s.idle.WaitPlanned(ctx, wait(), nextDue, func(t time.Time) { s.setNext(name, t) }) {
+		s.runJob(ctx, name, fn)
 	}
 }
 
@@ -264,6 +324,28 @@ func (s *Scheduler) startDynLocked(id string, j *dynJob) {
 func (s *Scheduler) runJittered(ctx context.Context, j *dynJob, name string) {
 	defer s.wg.Done()
 	wait := j.first
+	nextWait := func() time.Duration {
+		w := j.every
+		if j.jitter > 0 {
+			w += time.Duration(jitterRand(int64(2*j.jitter)+1)) - j.jitter
+		}
+		return w
+	}
+	idleDue, gated := s.idleJob(name)
+	if gated {
+		// First run as scheduled, then every wait through the gate.
+		s.setNext(name, time.Now().Add(wait))
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.stopCh:
+			return
+		case <-time.After(wait):
+			s.runJob(ctx, name, j.fn)
+		}
+		s.runIdle(ctx, name, idleDue, nextWait, j.fn)
+		return
+	}
 	for {
 		s.setNext(name, time.Now().Add(wait))
 		t := time.NewTimer(wait)
@@ -277,10 +359,7 @@ func (s *Scheduler) runJittered(ctx context.Context, j *dynJob, name string) {
 		case <-t.C:
 			s.runJob(ctx, name, j.fn)
 		}
-		wait = j.every
-		if j.jitter > 0 {
-			wait += time.Duration(jitterRand(int64(2*j.jitter)+1)) - j.jitter
-		}
+		wait = nextWait()
 	}
 }
 
@@ -298,6 +377,10 @@ func (s *Scheduler) runEvery(ctx context.Context, first, interval time.Duration,
 	case <-time.After(first):
 		s.setNext(name, time.Now().Add(interval))
 		s.runJob(ctx, name, fn)
+	}
+	if due, gated := s.idleJob(name); gated {
+		s.runIdle(ctx, name, due, func() time.Duration { return interval }, fn)
+		return
 	}
 	t := time.NewTicker(interval)
 	defer t.Stop()
@@ -531,6 +614,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 
 	// Promote due scheduled entities every minute.
 	if s.publishWorker != nil {
+		s.OnIdle("publish", s.publishNextDue)
 		s.startFixed(ctx, "publish", 30*time.Second, time.Minute, s.publishAndUnpublish)
 	}
 
@@ -554,6 +638,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 		s.startFixed(ctx, "agent_ranges_refresh", 90*time.Second, 24*time.Hour, s.agentRangesRefreshWorker.RunRefresh)
 	}
 	if s.agentVerifyWorker != nil {
+		s.OnIdle("agent_verify", nil)
 		s.startFixed(ctx, "agent_verify", 2*time.Minute, 5*time.Minute, s.agentVerifyWorker.RunVerify)
 	}
 
@@ -614,6 +699,27 @@ func (s *Scheduler) publishAndUnpublish(ctx context.Context) error {
 		}
 	}
 	return err
+}
+
+// publishNextDue is the earliest of the next scheduled publish and unpublish.
+func (s *Scheduler) publishNextDue(ctx context.Context) (time.Time, bool) {
+	due := []func(context.Context) (time.Time, bool){s.publishWorker.NextDue}
+	if s.unpublishWorker != nil {
+		due = append(due, s.unpublishWorker.NextDue)
+	}
+	return earliestDue(ctx, due...)
+}
+
+// earliestDue returns the soonest time any of fns reports.
+func earliestDue(ctx context.Context, fns ...func(context.Context) (time.Time, bool)) (time.Time, bool) {
+	var best time.Time
+	var found bool
+	for _, fn := range fns {
+		if t, ok := fn(ctx); ok && (!found || t.Before(best)) {
+			best, found = t, true
+		}
+	}
+	return best, found
 }
 
 // startFixed registers a core job under its canonical id and starts its loop.

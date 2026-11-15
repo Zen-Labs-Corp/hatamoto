@@ -1,9 +1,13 @@
 package server
 
 import (
+	"context"
+	"errors"
+	"hatamoto.dev/core/internal/idle"
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/worker"
@@ -73,5 +77,48 @@ func TestWebhookWorkerOffKeepsHooksRegistered(t *testing.T) {
 	}
 	if !s.hooks.HasAction(sdk.EntityPublished.Name) {
 		t.Fatal("entity.published has no listener with the worker off")
+	}
+}
+
+type fakeEnqueuer struct {
+	n   int
+	err error
+}
+
+func (f fakeEnqueuer) Enqueue(context.Context, string, any, time.Time) (int, error) {
+	return f.n, f.err
+}
+
+func TestKickingEnqueuerWakesIdleDelivery(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		enq  fakeEnqueuer
+		want bool
+	}{
+		{"queued", fakeEnqueuer{n: 1}, true},
+		{"nothing queued", fakeEnqueuer{}, false},
+		{"error", fakeEnqueuer{err: errors.New("db down")}, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			now := time.Unix(1_000, 0)
+			g := idle.New(time.Minute, 5*time.Minute, func() time.Time { return now })
+			woke := make(chan struct{})
+			g.SetTimer(func(time.Duration) (<-chan time.Time, func()) { close(woke); return make(chan time.Time), func() {} })
+			now = now.Add(2 * time.Minute)
+			done := make(chan bool, 1)
+			go func() { done <- g.Wait(context.Background(), time.Second, nil) }()
+			<-woke // the loop is parked on the beat
+			kickingEnqueuer{c.enq, g}.Enqueue(context.Background(), "e", nil, now)
+			select {
+			case <-done:
+				if !c.want {
+					t.Fatal("woke without a queued delivery")
+				}
+			case <-time.After(50 * time.Millisecond):
+				if c.want {
+					t.Fatal("a queued delivery did not wake the idle loop")
+				}
+			}
+		})
 	}
 }

@@ -10,6 +10,7 @@ import (
 
 	"hatamoto.dev/core/internal/admin"
 	"hatamoto.dev/core/internal/backup"
+	"hatamoto.dev/core/internal/idle"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/worker"
 )
@@ -47,6 +48,7 @@ type offsiteService struct {
 	audit  func(ctx context.Context, e admin.AuditEvent)
 	logger *slog.Logger
 	wg     *sync.WaitGroup // background runs; Shutdown waits on it
+	due    idle.DueLookup
 }
 
 func (o *offsiteService) clock() time.Time {
@@ -88,6 +90,24 @@ func (o *offsiteService) tick(ctx context.Context) error {
 	// still stop on shutdown.
 	o.run(worker.JobParent(ctx), set, backup.KindScheduled, "system", true)
 	return nil
+}
+
+// nextDue is the idle gate's wake time for the job: the next backup slot while
+// the schedule is on (a slot never waits for the idle beat), nothing otherwise,
+// so an install with no off-site backup lets the job idle. A schedule saved but
+// not yet slotted is due now, which the gate holds to the job's own interval.
+func (o *offsiteService) nextDue(ctx context.Context) (time.Time, bool) {
+	set, found, err := o.store.Get(ctx)
+	if err != nil {
+		return o.due.Result(nil, err, o.clock(), o.logger, "off-site backup")
+	}
+	if !found || !set.Enabled || set.Schedule.Kind == offsite.ScheduleOff {
+		return time.Time{}, false
+	}
+	if set.NextDueAt.IsZero() {
+		return o.clock(), true
+	}
+	return set.NextDueAt, true
 }
 
 // RunNow starts a manual backup that is uploaded when it is done and returns
@@ -225,6 +245,7 @@ func (s *Server) setupOffsite(eng *backup.Engine) {
 		s.admin.SetOffsite(s.offsiteAdm)
 	}
 	if s.scheduler != nil && workerJobEnabled(offsiteJob) {
+		s.scheduler.OnIdle(offsiteJob, s.offsite.nextDue)
 		if err := s.scheduler.Schedule(offsiteJob, time.Minute, s.offsite.tick); err != nil {
 			s.logger.Error("off-site backup job not scheduled", "error", err)
 		}

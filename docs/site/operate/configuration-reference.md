@@ -82,9 +82,9 @@ Under systemd put them in the environment file; under Docker use `environment:` 
 | Variable | Default | Meaning |
 |---|---|---|
 | `DATABASE_MAX_CONNECTIONS` | `25` | Maximum connections in the pool (integer). |
-| `DATABASE_MIN_CONNECTIONS` | `5` | Connections kept open (integer). |
+| `DATABASE_MIN_CONNECTIONS` | `5` | Connections kept open (integer). `0` lets an unvisited site release its connections and turns on the idle back-off of the background checks; any other value leaves them on their normal schedule (see [Worker and background](../architecture/worker-and-background.md#idle-back-off)). |
 | `DATABASE_MAX_CONN_LIFETIME` | `1h` | Longest age of a connection before it is recycled (duration). |
-| `DATABASE_MAX_CONN_IDLE_TIME` | `30m` | How long an idle connection may stay open (duration). |
+| `DATABASE_MAX_CONN_IDLE_TIME` | `30m` | How long an idle connection may stay open (duration). With `DATABASE_MIN_CONNECTIONS=0` it is also how long the site may go without a request before the background checks back off to a 5 to 15 minute beat (twice this value); see [Worker and background](../architecture/worker-and-background.md#idle-back-off). |
 | `DATABASE_PUBLIC_ACQUIRE_TIMEOUT` | `3s` | How long a public page request may wait for a pool connection before it answers 503 with `Retry-After: 2` (duration). `0` disables the bound. Admin, API and background work are not affected. Useful with a small `DATABASE_MAX_CONNECTIONS`. |
 
 With several processes, multiply the maximum by the number of processes and check it against Postgres's `max_connections`. Every plugin that uses `db` adds a pool of up to 2 connections. To size the pools for many sites on one cluster, see [Run on managed PostgreSQL](managed-postgresql.md).
@@ -340,7 +340,7 @@ Email settings come from one of two places:
 | Username, Password | Both blank means no sign-in. The password is encrypted with `HATAMOTO_SECRET` and never shown. A blank password keeps the saved one only while host and username are unchanged. |
 | From address, From name | A blank From name uses the site name stored in the database, looked up when each mail is sent, so a rename applies at once. |
 
-**Save** (`POST <admin>/settings/email`) connects, negotiates TLS, signs in and sends MAIL FROM, with a 10 second limit, and sends no mail. On failure the page shows the SMTP code and message and nothing is stored. **Send a test email** (`<admin>/settings/email/test`) mails the signed-in owner with the settings in use. A change applies at once on the process that saved it; the others check every 30 seconds and pick it up.
+**Save** (`POST <admin>/settings/email`) connects, negotiates TLS, signs in and sends MAIL FROM, with a 10 second limit, and sends no mail. On failure the page shows the SMTP code and message and nothing is stored. **Send a test email** (`<admin>/settings/email/test`) mails the signed-in owner with the settings in use. A change applies at once on the process that saved it; the others check every 30 seconds and pick it up (while a site is idle, up to the idle beat of 5 to 15 minutes; the next request starts a check at once, but may itself still see the old settings).
 
 ### The connection
 
@@ -375,7 +375,7 @@ While nothing is saved in **Settings > Email** and `SMTP_HOST` is empty or `loca
 
 With `EMAIL_DISABLED=true`, every send is dropped with the warn log line `email disabled by EMAIL_DISABLED env var, dropping send`, and the caller sees success.
 
-Each process sends directly. There is no shared mail queue, and a failed send is logged, not retried. Settings saved in the admin live in the database and reach every process within 30 seconds; the `SMTP_*` variables are read per process, so give every process the same values.
+Each process sends directly. There is no shared mail queue, and a failed send is logged, not retried. Settings saved in the admin live in the database and reach every process within 30 seconds (up to the 5 to 15 minute idle beat while the site is idle, and at once on the next request); the `SMTP_*` variables are read per process, so give every process the same values.
 
 ### Errors in the log
 

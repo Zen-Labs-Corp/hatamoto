@@ -39,6 +39,7 @@ import (
 	"hatamoto.dev/core/internal/form"
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/idle"
 	"hatamoto.dev/core/internal/importjob"
 	"hatamoto.dev/core/internal/indexnow"
 	"hatamoto.dev/core/internal/installstats"
@@ -286,6 +287,11 @@ type Server struct {
 	// reads it to tell an idle process from a busy one.
 	lastReq atomic.Int64
 
+	// idle paces the background loops: they stretch to a shared beat once no
+	// request (probes aside) has arrived for the pool idle time. Nil in test
+	// shells, where every loop keeps its plain cadence.
+	idle *idle.Gate
+
 	// compressCheck is the last public-address compression check (nil until
 	// one finished); compressCheckMu serialises runs.
 	compressCheck   atomic.Pointer[compressionResult]
@@ -314,6 +320,7 @@ func New(cfg *config.Config, db *database.DB, logger *slog.Logger) *Server {
 		db:     db,
 		mux:    http.NewServeMux(),
 		logger: logger,
+		idle:   newIdleGate(cfg),
 	}
 	s.compressOn.Store(true)
 
@@ -579,6 +586,7 @@ func (s *Server) setupDependencies() {
 	if s.cfg.Server.EnableWorker {
 		s.scheduler = worker.NewScheduler(s.db, s.logger)
 		s.scheduler.SetRecorder(worker.NewStatusStore(s.db))
+		s.scheduler.SetIdle(s.idle)
 		if d := disabledWorkerJobs(); len(d) > 0 {
 			s.logger.Info("worker jobs disabled by WORKER_DISABLE_JOBS", "jobs", d)
 		}

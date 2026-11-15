@@ -281,7 +281,7 @@ While the mode is not open, owners and editors see a banner on every admin page.
 |---|---|
 | Precedence | Saved settings replace the `SMTP_*` environment as a whole, not field by field. |
 | Password | Encrypted with `HATAMOTO_SECRET`. If the secret changes, Hatamoto uses the environment and the page asks you to "Re-enter your SMTP password". |
-| Several replicas | Changes apply at once on the replica you used; the others pick them up within 30 seconds. |
+| Several replicas | Changes apply at once on the replica you used; the others pick them up within 30 seconds, or within the idle beat of 5 to 15 minutes while the site has had no visitors (the next request starts a check at once, but may itself still see the old settings). |
 | Kill switch | `EMAIL_DISABLED=true` still switches all sending off. |
 
 Links in emails use the configured site address (`PUBLIC_BASE_URL`, else the site address under **Settings > General**), never request headers. Without a site address, or without email set up, nothing is emailed: invitations and resets created by an owner show the one-time link on screen to pass on, and "forgot password" points to `hatamoto user reset-password`. Reset links last an hour. See [Set up email](../operate/email.md) for the full guide.

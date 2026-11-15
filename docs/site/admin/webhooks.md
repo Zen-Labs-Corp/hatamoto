@@ -87,7 +87,7 @@ For the older header, HMAC the body alone and compare with `sha256=<hex>` the sa
 
 ## Delivery, retries and retention
 
-An event writes one row per matching webhook with no network call, so a slow receiver or a burst of events never delays or drops an event. The `webhook_deliver` job runs every 10 seconds (with a little jitter) and sends due rows one at a time, up to 100 per run within 25 seconds. A webhook whose request got no answer is skipped for the rest of the run, so one hung receiver cannot starve the others.
+An event writes one row per matching webhook with no network call, so a slow receiver or a burst of events never delays or drops an event. The `webhook_deliver` job runs every 10 seconds (with a little jitter; while the site is idle with the back-off on, it runs on the idle beat of 5 to 15 minutes, and sooner when a webhook is queued in the same process or a retry falls due) and sends due rows one at a time, up to 100 per run within 25 seconds. A webhook whose request got no answer is skipped for the rest of the run, so one hung receiver cannot starve the others.
 
 Any answer other than 2xx, or a network error, is a failed attempt. The next attempt comes after `retry_delay_seconds * 2^attempt` (`attempt` being the number of attempts made so far, counting the one that has failed, so the first retry comes after twice the delay), at most one hour, up to the webhook's retry count. After that the delivery is `failed`. A claimed row is leased for 60 seconds, so if the process dies mid-request the request may be sent twice. A webhook with 5,000 pending deliveries gets no new ones until it drains. Queued deliveries of a paused webhook are marked `failed` when the delivery job next reaches them.
 

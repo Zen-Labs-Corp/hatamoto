@@ -70,7 +70,7 @@ A **package** is one `.hmp` file that holds a whole plugin. **Signing** proves w
 
    ```text
    installed plugin counter v0.2.0
-   a running server applies it within a few seconds; no restart is needed
+   a running server applies it within a few seconds (while the site is idle with the back-off on, up to the idle beat of 5 to 15 minutes); no restart is needed
    ```
 
 ### Update and remove

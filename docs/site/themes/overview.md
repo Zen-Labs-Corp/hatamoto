@@ -53,7 +53,7 @@ A theme decides how your site looks: the HTML of every page, its CSS and its ima
 
    ```text
    theme my-theme is now live
-   a running server applies it within a few seconds; no restart is needed
+   a running server applies it within a few seconds (while the site is idle with the back-off on, up to the idle beat of 5 to 15 minutes); no restart is needed
    ```
 
    Unlike the admin, `theme activate` refuses while sections are missing unless you add `--force`. Run `hatamoto theme activate default` to go back to the built-in theme.

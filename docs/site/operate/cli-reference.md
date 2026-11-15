@@ -146,7 +146,7 @@ Moves pages from `page_sections` to the page-builder document tree. Each page is
 
 ### What the command line does not do
 
-The command line is a separate process. Its page and menu writes make a running server clear its page cache within a few seconds (see [Multiple replicas and health checks](multi-replica-and-health.md#the-page-cache)). It does not fire `entity.*` plugin events (so [webhooks](../admin/webhooks.md) send nothing for command-line changes), does not run plugin `before_save` checks and does not reindex internal links. Use the API or the MCP server when those must run. See [Multiple replicas and health checks](multi-replica-and-health.md).
+The command line is a separate process. Its page and menu writes make a running server clear its page cache within a few seconds (while the site is idle with the back-off on, up to the idle beat of 5 to 15 minutes; see [Multiple replicas and health checks](multi-replica-and-health.md#the-page-cache)). It does not fire `entity.*` plugin events (so [webhooks](../admin/webhooks.md) send nothing for command-line changes), does not run plugin `before_save` checks and does not reindex internal links. Use the API or the MCP server when those must run. See [Multiple replicas and health checks](multi-replica-and-health.md).
 
 ## Redirects
 

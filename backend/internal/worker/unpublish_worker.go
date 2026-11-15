@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/idle"
 )
 
 // UnpublishWorker takes published entities offline once their scheduled
@@ -18,6 +20,11 @@ type UnpublishWorker struct {
 	db     *database.DB
 	logger *slog.Logger
 	sink   UnpublishSink
+
+	// minDue reads the earliest unpublish time; a variable so tests need no
+	// database.
+	minDue func(ctx context.Context) (*time.Time, error)
+	due    idle.DueLookup
 }
 
 // UnpublishSink performs one unpublish. It claims the schedule row itself
@@ -29,7 +36,21 @@ type UnpublishSink interface {
 
 // NewUnpublishWorker constructs the worker.
 func NewUnpublishWorker(db *database.DB, logger *slog.Logger, sink UnpublishSink) *UnpublishWorker {
-	return &UnpublishWorker{db: db, logger: logger, sink: sink}
+	w := &UnpublishWorker{db: db, logger: logger, sink: sink}
+	w.minDue = func(ctx context.Context) (*time.Time, error) {
+		var t *time.Time
+		err := w.db.Pool().QueryRow(database.WithSuperadmin(ctx),
+			`SELECT min(unpublish_at) FROM hatamoto_entity_schedule`).Scan(&t)
+		return t, err
+	}
+	return w
+}
+
+// NextDue reports when the earliest scheduled unpublish falls due (see
+// PublishWorker.NextDue).
+func (w *UnpublishWorker) NextDue(ctx context.Context) (time.Time, bool) {
+	t, err := w.minDue(ctx)
+	return w.due.Result(t, err, time.Now(), w.logger, "unpublish")
 }
 
 // Run executes one tick and returns how many entities it handled. A failing
