@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"hatamoto.dev/core/internal/adminpath"
 )
 
@@ -163,7 +165,11 @@ type ServerConfig struct {
 
 // DatabaseConfig holds PostgreSQL connection settings.
 type DatabaseConfig struct {
-	URL             string
+	URL string
+	// DirectURL (DATABASE_DIRECT_URL) is an optional connection string that
+	// bypasses a transaction-mode pooler. Migrations, backups, session locks
+	// and plugin databases use it. Empty means DATABASE_URL.
+	DirectURL       string
 	MaxConnections  int
 	MinConnections  int
 	MaxConnLifetime time.Duration
@@ -176,8 +182,22 @@ type DatabaseConfig struct {
 	publicAcquireInvalid string
 }
 
+// EffectiveDirectURL is the URL for work that needs real server sessions:
+// DirectURL when set, else URL.
+func (d DatabaseConfig) EffectiveDirectURL() string {
+	if d.DirectURL != "" {
+		return d.DirectURL
+	}
+	return d.URL
+}
+
 // Validate rejects settings that cannot work.
 func (d DatabaseConfig) Validate() error {
+	if d.DirectURL != "" {
+		if _, err := pgxpool.ParseConfig(d.DirectURL); err != nil {
+			return fmt.Errorf("DATABASE_DIRECT_URL is not a valid PostgreSQL connection string")
+		}
+	}
 	if d.publicAcquireInvalid != "" {
 		return fmt.Errorf("DATABASE_PUBLIC_ACQUIRE_TIMEOUT %q is not a duration (use e.g. 3s or 500ms)", d.publicAcquireInvalid)
 	}
@@ -330,6 +350,7 @@ func Load() (*Config, error) {
 	// Database config
 	cfg.Database = DatabaseConfig{
 		URL:             getEnvRequired("DATABASE_URL"),
+		DirectURL:       strings.TrimSpace(getEnv("DATABASE_DIRECT_URL", "")),
 		MaxConnections:  getEnvInt("DATABASE_MAX_CONNECTIONS", 25),
 		MinConnections:  getEnvInt("DATABASE_MIN_CONNECTIONS", 5),
 		MaxConnLifetime: getDuration("DATABASE_MAX_CONN_LIFETIME", 1*time.Hour),
