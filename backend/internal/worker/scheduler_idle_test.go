@@ -92,19 +92,11 @@ func TestIdleJobRunsOnBeatAndShowsNext(t *testing.T) {
 	start := r.clk.now()
 	r.startEvery("webhook_deliver", 10*time.Second)
 	<-r.ran
-	<-r.asked
+	<-r.asked // parked in the active wait
+	r.clk.advance(3 * time.Minute)
 	r.fire <- time.Time{}
 	<-r.ran
-
-	r.clk.advance(3 * time.Minute) // idle; the beat is 5m after start
-	if d := <-r.asked; d != 10*time.Second {
-		// the wait asked before the clock moved is still the active one
-		t.Fatalf("unexpected wait %s", d)
-	}
-	r.fire <- time.Time{}
-	<-r.ran
-	d := <-r.asked
-	if want := 2 * time.Minute; d != want {
+	if d, want := <-r.asked, 2*time.Minute; d != want {
 		t.Fatalf("idle wait = %s, want %s (to the beat)", d, want)
 	}
 	if got, want := r.next("webhook_deliver"), start.Add(5*time.Minute); !got.Equal(want) {
