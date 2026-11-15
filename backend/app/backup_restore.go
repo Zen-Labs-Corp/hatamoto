@@ -107,7 +107,7 @@ func runBackupRestore(ctx context.Context, args []string, out io.Writer, logger 
 		MediaDir:    mediaDirOr(os.Getenv("MEDIA_UPLOAD_DIR")),
 		MediaStore:  mediaStore,
 		SecretsDir:  secretsDirFromEnv(),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
+		DatabaseURL: directDatabaseURL(),
 		Version:     ver,
 		Run:         backup.OSExec,
 		Trust:       trustIDs(logger),

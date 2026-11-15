@@ -71,7 +71,7 @@ func runImportWordPress(ctx context.Context, db *database.DB, cfg *config.Config
 	if err != nil {
 		return err
 	}
-	if err := migrateUp(ctx, db.Pool(), logger); err != nil {
+	if err := migrateUpDirect(ctx, db, logger); err != nil {
 		return err
 	}
 	mc, err := media.ConfigFromServer(cfg.Server, os.Getenv, logger)
@@ -86,7 +86,7 @@ func runImportWordPress(ctx context.Context, db *database.DB, cfg *config.Config
 func importWordPress(ctx context.Context, deps *wpimport.Deps, f *wpFlags, out io.Writer) error {
 	say := func(phase, msg string) { fmt.Fprintf(out, "[%s] %s\n", phase, msg) }
 	// One import at a time, shared with the admin wizard's jobs.
-	release, err := wpimport.AcquireImportLock(ctx, deps.DB.Pool())
+	release, err := wpimport.AcquireImportLock(ctx, deps.DB.Direct())
 	if err != nil {
 		if errors.Is(err, wpimport.ErrImportRunning) {
 			return fmt.Errorf("%w (the admin wizard or another `hatamoto import wordpress`): wait for it to finish", err)

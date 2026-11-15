@@ -24,7 +24,7 @@ func attributionDB(t *testing.T) *database.DB {
 	if dsn == "" {
 		t.Skip("DATABASE_URL not set — skipping integration test")
 	}
-	db, err := database.New(context.Background(), config.DatabaseConfig{URL: dsn, MaxConnections: 8, MinConnections: 1,
+	db, err := database.New(context.Background(), config.DatabaseConfig{URL: dsn, DirectURL: os.Getenv("DATABASE_DIRECT_URL"), MaxConnections: 8, MinConnections: 1,
 		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
 	if err != nil {
 		t.Fatal(err)
@@ -211,11 +211,11 @@ func TestAttributionBackfill_RemembersMisses_Integration(t *testing.T) {
 func TestAttributionBackfill_SingleRun_Integration(t *testing.T) {
 	ctx := context.Background()
 	db := attributionDB(t)
-	holder, err := db.GetConn(ctx)
+	holder, release, err := db.Direct().Session(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer holder.Release()
+	defer release()
 	var got bool
 	if err := holder.QueryRow(ctx, attributionLockSQL).Scan(&got); err != nil || !got {
 		t.Fatalf("take the job lock: %v %v", got, err)

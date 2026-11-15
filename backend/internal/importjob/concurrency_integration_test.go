@@ -241,7 +241,7 @@ func TestImportLockIsSharedWithTheCLI(t *testing.T) {
 	ctx := context.Background()
 
 	// The command line holds the lock: the wizard's start is refused, nothing changes.
-	release, err := wpimport.AcquireImportLock(ctx, r.pool)
+	release, err := wpimport.AcquireImportLock(ctx, wpimport.PoolSource{Pool: r.pool})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +261,7 @@ func TestImportLockIsSharedWithTheCLI(t *testing.T) {
 	if err := r.m.Start(ctx, id, Actor{}, "h", DefaultOptions(), nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := wpimport.AcquireImportLock(ctx, r.pool); !errors.Is(err, wpimport.ErrImportRunning) {
+	if _, err := wpimport.AcquireImportLock(ctx, wpimport.PoolSource{Pool: r.pool}); !errors.Is(err, wpimport.ErrImportRunning) {
 		t.Fatalf("the CLI took the lock during a web import: %v", err)
 	}
 	if err := r.m.Cancel(ctx, id, Actor{}); err != nil {
@@ -269,7 +269,7 @@ func TestImportLockIsSharedWithTheCLI(t *testing.T) {
 	}
 	r.waitFree(id)
 	// Released when the job ends.
-	release, err = wpimport.AcquireImportLock(ctx, r.pool)
+	release, err = wpimport.AcquireImportLock(ctx, wpimport.PoolSource{Pool: r.pool})
 	if err != nil {
 		t.Fatalf("the lock was not released: %v", err)
 	}

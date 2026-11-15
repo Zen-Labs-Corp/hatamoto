@@ -25,7 +25,7 @@ func (s *Server) newImportManager() *importjob.Manager {
 		Store: mc.Store,
 	}, s.logger)
 	return importjob.New(importjob.Config{
-		Pool: s.db.Pool(), Deps: deps, Key: importjob.DeriveKey(s.cfg.Secret), Logger: s.logger, AdminPath: s.adminPathValue,
+		Pool: s.db.Pool(), Sessions: s.db.Direct(), Deps: deps, Key: importjob.DeriveKey(s.cfg.Secret), Logger: s.logger, AdminPath: s.adminPathValue,
 		Handler: func() http.Handler { return s.router },
 		Purge: func(ctx context.Context) {
 			s.entityService.URLRegistry().Invalidate()

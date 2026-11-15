@@ -61,8 +61,26 @@ type PluginDB struct {
 	// role does not own are open to PUBLIC (HATAMOTO_PLUGIN_DB_ALLOW_PUBLIC_OBJECTS=1).
 	AllowPublicObjects bool
 
+	// base, when set, supplies the connection config plugin pools start from
+	// (host, port, database, TLS). The server sets it to the direct database
+	// config so plugin roles bypass a transaction-mode pooler. Nil: the core
+	// pool's own config.
+	base func() *pgx.ConnConfig
+
 	mu    sync.Mutex
 	state map[string]*dbState
+}
+
+// SetBaseConfig makes plugin pools connect with the config f returns (user and
+// password are still the plugin role's). Call it before the first plugin query.
+func (d *PluginDB) SetBaseConfig(f func() *pgx.ConnConfig) { d.base = f }
+
+// baseConfig is the config plugin pools start from.
+func (d *PluginDB) baseConfig() *pgx.ConnConfig {
+	if d.base != nil {
+		return d.base()
+	}
+	return d.pool.Config().ConnConfig
 }
 
 type dbState struct {

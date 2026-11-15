@@ -120,11 +120,13 @@ func NewAttributionBackfill(db *database.DB, resolve ResolveFunc, retention time
 // job (a replica, or the start-up run beside the scheduled one) it returns
 // at once with nothing done.
 func (b *AttributionBackfill) Run(ctx context.Context) (int64, error) {
-	conn, err := b.db.GetConn(ctx)
+	// A session lock must stay on one server session, so it is taken on a
+	// direct connection, never on the (possibly pooled) main pool.
+	conn, release, err := b.db.Direct().Session(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("get connection: %w", err)
 	}
-	defer conn.Release()
+	defer release()
 	var got bool
 	if err := conn.QueryRow(ctx, attributionLockSQL).Scan(&got); err != nil {
 		return 0, fmt.Errorf("job lock: %w", err)
@@ -137,7 +139,7 @@ func (b *AttributionBackfill) Run(ctx context.Context) (int64, error) {
 		defer cancel()
 		var ok bool
 		if err := conn.QueryRow(uctx, attributionUnlockSQL).Scan(&ok); err != nil || !ok {
-			_ = conn.Conn().Close(uctx) // never hand a session still holding the lock back to the pool
+			_ = conn.Close(uctx) // never hand a session still holding the lock back to the pool
 		}
 	}()
 

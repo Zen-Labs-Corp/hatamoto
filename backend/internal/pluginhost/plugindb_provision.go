@@ -303,7 +303,7 @@ func (d *PluginDB) credential(ctx context.Context, tx pgx.Tx, plugin string, rot
 	return pw, err
 }
 
-func (d *PluginDB) dbName() string { return d.pool.Config().ConnConfig.Database }
+func (d *PluginDB) dbName() string { return d.baseConfig().Database }
 
 func createRoleDirect(ctx context.Context, tx pgx.Tx, role, plugin, verifier string) error {
 	var exists bool
@@ -409,7 +409,7 @@ func (d *PluginDB) pluginPool(ctx context.Context, plugin string) (*pgxpool.Pool
 	if err != nil {
 		return nil, err
 	}
-	cfg.ConnConfig = pluginConnConfig(d.pool.Config().ConnConfig, plugin, st.role, st.password)
+	cfg.ConnConfig = pluginConnConfig(d.baseConfig(), plugin, st.role, st.password)
 	cfg.MaxConns, cfg.MinConns = pluginPoolConns, 0
 	cfg.MaxConnIdleTime = time.Minute
 	cfg.MaxConnLifetime = time.Hour
@@ -434,7 +434,7 @@ func (d *PluginDB) pluginPool(ctx context.Context, plugin string) (*pgxpool.Pool
 			return nil, fmt.Errorf("%w: %s may not connect to the database: %v (CONNECT is revoked from PUBLIC; run GRANT CONNECT ON DATABASE %s TO %s as the database owner)",
 				ErrRoleUnavailable, st.role, err, ident(d.dbName()), ident(st.role))
 		}
-		return nil, fmt.Errorf("%w: cannot connect as %s: %v (pg_hba.conf must allow password authentication for plugin roles on the host DATABASE_URL uses, e.g. `host all all 127.0.0.1/32 scram-sha-256`; see docs/PLUGIN_API.md)",
+		return nil, fmt.Errorf("%w: cannot connect as %s: %v (pg_hba.conf must allow password authentication for plugin roles on the host of the direct database URL (DATABASE_DIRECT_URL, else DATABASE_URL), e.g. `host all all 127.0.0.1/32 scram-sha-256`; see docs/PLUGIN_API.md)",
 			ErrRoleUnavailable, st.role, err)
 	}
 	st.pool = pool

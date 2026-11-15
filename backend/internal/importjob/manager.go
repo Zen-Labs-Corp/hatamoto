@@ -115,7 +115,11 @@ var ErrState = errors.New("this action does not fit the import's state")
 // Config wires a Manager.
 type Config struct {
 	Pool *pgxpool.Pool
-	Deps *wpimport.Deps
+	// Sessions supplies the connection that holds the import lock. A session
+	// lock must not go through a transaction-mode pooler, so the server passes
+	// database.Direct here. Nil uses a connection from Pool.
+	Sessions wpimport.SessionSource
+	Deps     *wpimport.Deps
 	// Key seals stored credentials (see DeriveKey).
 	Key []byte
 	// SpoolDir keeps uploaded export files until the import completes.
@@ -600,7 +604,7 @@ func (m *Manager) startRun(ctx context.Context, id uuid.UUID, actor Actor, host 
 		return ErrState
 	}
 	// One import at a time on the site, whichever process or run it is.
-	if j.release, err = wpimport.AcquireImportLock(ctx, m.cfg.Pool); err != nil {
+	if j.release, err = wpimport.AcquireImportLock(ctx, m.sessions()); err != nil {
 		return err
 	}
 	if cred != nil {
@@ -776,4 +780,12 @@ func (m *Manager) audit(ctx context.Context, actor Actor, action string, run uui
 		m.cfg.Logger.Error("admin audit write failed", "action", action, "err", err)
 	}
 	m.cfg.Logger.Info("admin audit", "action", action, "actor", actor.Email, "run", run, "detail", string(raw))
+}
+
+// sessions returns the source of the import lock's connection.
+func (m *Manager) sessions() wpimport.SessionSource {
+	if m.cfg.Sessions != nil {
+		return m.cfg.Sessions
+	}
+	return wpimport.PoolSource{Pool: m.cfg.Pool}
 }

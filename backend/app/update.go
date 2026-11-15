@@ -191,7 +191,7 @@ func runUpdateOnline(ctx context.Context, u updateArgs, cfg supervisor.Config, o
 	}
 	version := runningVersionOf(cfg)
 	env := updater.Env{Data: cfg.Data, Version: cfg.BootstrapVersion, Supervisor: cfg, BaseURL: os.Getenv("HATAMOTO_UPDATE_URL"),
-		DatabaseURL: os.Getenv("DATABASE_URL"), Log: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))}
+		DatabaseURL: directDatabaseURL(), Log: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))}
 	withDB := (u.verb != "fetch" && u.verb != "retry") || (os.Getenv("DATABASE_URL") != "" && !u.force)
 	// The backup needs the database even when --force skips the plugin preflight.
 	wantBackup := takesBackup(u)
@@ -204,7 +204,7 @@ func runUpdateOnline(ctx context.Context, u updateArgs, cfg supervisor.Config, o
 		if withDB {
 			env.Store = updater.NewStore(db.Pool())
 			env.Plugins = server.UpdatePlugins(packages.NewStore(db.Pool()))
-			env.Imports = importProbe{db.Pool()}
+			env.Imports = importProbe{db.Direct()}
 			env.Site = siteLocation(db.Pool())
 		}
 		if wantBackup {

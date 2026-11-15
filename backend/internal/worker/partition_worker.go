@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"hatamoto.dev/core/internal/database"
 )
 
@@ -92,28 +93,16 @@ func (w *PartitionWorker) ensureStatements(now time.Time, ahead int) (names, ddl
 // Errors are logged, never returned: startup must not depend on it.
 func (w *PartitionWorker) EnsureCurrentAndNext(ctx context.Context) {
 	adminCtx := database.WithSuperadmin(ctx)
-	conn, err := w.db.GetConn(adminCtx)
-	if err != nil {
-		w.logger.Error("ensure partitions: acquire conn failed", slog.String("parent", w.parent), slog.Any("error", err))
-		return
-	}
-	defer conn.Release()
-	defer func() { _, _ = conn.Exec(context.Background(), `RESET lock_timeout`) }()
-	if _, err := conn.Exec(adminCtx, `SET lock_timeout = '5s'`); err != nil {
-		w.logger.Error("ensure partitions: set lock_timeout failed", slog.String("parent", w.parent), slog.Any("error", err))
-		return
-	}
-
 	names, ddls := w.ensureStatements(time.Now(), 1)
 	for i, ddl := range ddls {
-		if _, err := conn.Exec(adminCtx, ddl); err != nil {
+		if err := w.execLocal(adminCtx, ddl); err != nil {
 			w.logger.Error("create partition failed", slog.String("parent", w.parent), slog.String("partition", names[i]), slog.Any("error", err))
 		}
 	}
 
 	var hasRows bool
 	q := fmt.Sprintf(`SELECT EXISTS (SELECT 1 FROM public.%s_default)`, w.parent)
-	if err := conn.QueryRow(adminCtx, q).Scan(&hasRows); err != nil {
+	if err := w.db.Pool().QueryRow(adminCtx, q).Scan(&hasRows); err != nil {
 		w.logger.Error("check default partition failed", slog.String("parent", w.parent), slog.Any("error", err))
 		return
 	}
@@ -146,27 +135,11 @@ func (w *PartitionWorker) expired(name string, cutoff time.Time) bool {
 // YYYY_MM partition whose month ended more than `retention` months ago.
 func (w *PartitionWorker) Run(ctx context.Context) error {
 	adminCtx := database.WithSuperadmin(ctx)
-	conn, err := w.db.GetConn(adminCtx)
-	if err != nil {
-		return fmt.Errorf("acquire conn: %w", err)
-	}
-	defer conn.Release()
-	// Reset the session-level lock_timeout before the conn returns to the pool
-	// (defers run LIFO, so this fires before Release). Otherwise the 5s timeout
-	// would leak to the next request that reuses this pooled connection.
-	defer func() { _, _ = conn.Exec(context.Background(), `RESET lock_timeout`) }()
-
-	// Bound how long any single DDL will wait for its lock so partition
-	// maintenance can never block event writes/reads for minutes.
-	if _, err := conn.Exec(adminCtx, `SET lock_timeout = '5s'`); err != nil {
-		return fmt.Errorf("set lock_timeout: %w", err)
-	}
-
 	base := firstOfMonthUTC(time.Now())
 	names, ddls := w.ensureStatements(base, w.ahead)
 	for i, ddl := range ddls {
 		name := names[i]
-		if _, err := conn.Exec(adminCtx, ddl); err != nil {
+		if err := w.execLocal(adminCtx, ddl); err != nil {
 			// Don't abort the whole run: one month's failure (e.g. the DEFAULT
 			// partition already holds rows for it, or a lock timeout) must not
 			// stop later months from being created or old ones from being dropped.
@@ -176,34 +149,60 @@ func (w *PartitionWorker) Run(ctx context.Context) error {
 
 	// Drop partitions whose month is older than the retention cutoff.
 	cutoff := w.dropCutoff(base)
-	rows, err := conn.Query(adminCtx, `
-		SELECT c.relname
-		FROM pg_inherits i
-		JOIN pg_class c ON c.oid = i.inhrelid
-		JOIN pg_class p ON p.oid = i.inhparent
-		WHERE p.relname = $1`, w.parent)
+	drop, err := w.listExpired(adminCtx, cutoff)
 	if err != nil {
-		return fmt.Errorf("list partitions: %w", err)
+		return err
 	}
-	var drop []string
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			rows.Close()
-			return err
-		}
-		if w.expired(name, cutoff) {
-			drop = append(drop, name)
-		}
-	}
-	rows.Close()
 
 	for _, name := range drop {
-		if _, err := conn.Exec(adminCtx, fmt.Sprintf(`DROP TABLE IF EXISTS public.%s`, name)); err != nil {
+		if err := w.execLocal(adminCtx, fmt.Sprintf(`DROP TABLE IF EXISTS public.%s`, name)); err != nil {
 			w.logger.Error("drop aged partition failed", slog.String("parent", w.parent), slog.String("partition", name), slog.Any("error", err))
 			continue
 		}
 		w.logger.Info("dropped aged partition", slog.String("parent", w.parent), slog.String("partition", name))
 	}
 	return nil
+}
+
+// execLocal runs one DDL statement in its own transaction with a bounded lock
+// wait, so partition maintenance can never block event writes/reads for
+// minutes. SET LOCAL ends with the transaction: nothing is left on the
+// connection, which matters behind a transaction-mode pooler.
+func (w *PartitionWorker) execLocal(ctx context.Context, ddl string) error {
+	return w.db.WithTx(ctx, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '5s'`); err != nil {
+			return fmt.Errorf("set lock_timeout: %w", err)
+		}
+		_, err := tx.Exec(ctx, ddl)
+		return err
+	})
+}
+
+// listExpired returns the child partitions whose month is older than cutoff.
+// The rows are fully read before any drop runs.
+func (w *PartitionWorker) listExpired(ctx context.Context, cutoff time.Time) ([]string, error) {
+	var drop []string
+	err := w.db.WithTx(ctx, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `
+			SELECT c.relname
+			FROM pg_inherits i
+			JOIN pg_class c ON c.oid = i.inhrelid
+			JOIN pg_class p ON p.oid = i.inhparent
+			WHERE p.relname = $1`, w.parent)
+		if err != nil {
+			return fmt.Errorf("list partitions: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err != nil {
+				return err
+			}
+			if w.expired(name, cutoff) {
+				drop = append(drop, name)
+			}
+		}
+		return rows.Err()
+	})
+	return drop, err
 }

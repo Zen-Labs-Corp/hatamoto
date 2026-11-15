@@ -18,9 +18,20 @@
 #         and the must-run step, gets its own copy of the migrated database (createdb -T), so a
 #         package that truncates tables cannot disturb another. The go wrapper spreads the runs over
 #         the build hosts. Each package's output is printed whole, in argument order, when it ends.
+# POOLER_SUBSET=1  run the pooler subset behind a PgBouncer in transaction-pooling mode: one pgbouncer
+#         (PGBOUNCER_BIN, else PATH; exit 2 when missing) is started after the migration with a wildcard
+#         database entry and a pool of 5 server connections. Each package gets DATABASE_URL pointing at
+#         the pooler, DATABASE_DIRECT_URL and HATAMOTO_TEST_DB_URL at Postgres (the tests' DDL and session
+#         locks stay direct). pluginhost and backup keep a direct DATABASE_URL: their fixtures create
+#         cluster roles the pooler cannot authenticate (their pooler tests start their own pooler).
+#         With no package argument it runs db, worker, wpimport, agents, pluginhost and backup.
+#         Off by default: a normal run is unchanged.
 # Exit: 0 pass, 1 test failure, 2 setup failure (no Postgres, migrate failed).
 set -uo pipefail
 root=$(cd "${1:?usage: integration-gate.sh <repo-root> <package>...}" && pwd); shift
+if [[ ${POOLER_SUBSET:-} == 1 && ${#@} -eq 0 ]]; then
+  set -- ./internal/database ./internal/worker ./internal/wpimport ./internal/agents ./internal/pluginhost ./internal/backup
+fi
 ((${#@})) || [[ -n ${INTEGRATION_MUST_RUN:-} ]] || { echo "integration-gate: no packages given" >&2; exit 2; }
 
 pgdir=${PG_BIN:-}
@@ -42,6 +53,7 @@ kill_tree() { # kill_tree <pid>: the job and everything under it (go-test-flaky,
 }
 cleanup() {
   local j; for j in $(jobs -p); do kill_tree "$j"; done; wait 2>/dev/null
+  [[ -n ${pgb_pid:-} ]] && kill "$pgb_pid" 2>/dev/null
   "$pgdir/pg_ctl" -D "$T/data" -m immediate stop >/dev/null 2>&1; rm -rf "$T" "$S"
 }
 trap cleanup EXIT
@@ -76,6 +88,45 @@ go build -o "$T/hm" ./cmd/hatamoto || exit 2
   || { tail -20 "$T/migrate.log" >&2; exit 2; }
 echo "integration-gate: migrated on port $port"
 
+pport=""
+if [[ ${POOLER_SUBSET:-} == 1 ]]; then
+  pgb=${PGBOUNCER_BIN:-$(command -v pgbouncer || true)}
+  [[ -x $pgb ]] || { echo "integration-gate: POOLER_SUBSET=1 needs pgbouncer (install it or set PGBOUNCER_BIN)" >&2; exit 2; }
+  printf '"postgres" "pw"\n' >"$T/userlist.txt"
+  for _ in 1 2 3; do
+    p=$(shuf -i 20000-32000 -n 1)
+    cat >"$T/pgbouncer.ini" <<EOF2
+[databases]
+* = host=127.0.0.1 port=$port
+
+[pgbouncer]
+listen_addr = 127.0.0.1
+listen_port = $p
+unix_socket_dir =
+auth_type = scram-sha-256
+auth_file = $T/userlist.txt
+pool_mode = transaction
+max_prepared_statements = 100
+default_pool_size = 5
+max_client_conn = 400
+ignore_startup_parameters = extra_float_digits,options
+logfile = $T/pgbouncer.log
+pidfile = $T/pgbouncer.pid
+EOF2
+    "$pgb" "$T/pgbouncer.ini" >/dev/null 2>&1 &
+    pgb_pid=$!
+    for _ in $(seq 50); do
+      kill -0 "$pgb_pid" 2>/dev/null || break
+      (exec 3<>"/dev/tcp/127.0.0.1/$p") 2>/dev/null && { pport=$p; break; }
+      read -r -t 0.1 _ < <(:) || true
+    done
+    [[ -n $pport ]] && break
+    kill "$pgb_pid" 2>/dev/null; pgb_pid=""
+  done
+  [[ -n $pport ]] || { echo "integration-gate: pgbouncer did not start" >&2; tail "$T/pgbouncer.log" >&2; exit 2; }
+  echo "integration-gate: pgbouncer (transaction pooling) on port $pport"
+fi
+
 jobs_max=${INTEGRATION_JOBS:-6}
 [[ $jobs_max =~ ^[1-9][0-9]*$ ]] || { echo "integration-gate: INTEGRATION_JOBS wants a positive number" >&2; exit 2; }
 
@@ -86,7 +137,12 @@ copy_db() {
 }
 
 run_pkg() { # run_pkg <dsn> <package>
-  DATABASE_URL=$1 HATAMOTO_TEST_DB_URL=$1 EMAIL_DISABLED=true \
+  local pooled=$1
+  case $2 in
+    */pluginhost|*/backup) ;;
+    *) [[ -n $pport ]] && pooled=${1/:$port\//:$pport/} ;;
+  esac
+  DATABASE_URL=$pooled HATAMOTO_TEST_DB_URL=$1 DATABASE_DIRECT_URL=${pport:+$1} HATAMOTO_POOLER_TERMINATE=${pport:+1} EMAIL_DISABLED=true \
     bash "$root/scripts/go-test-flaky.sh" "-tags=integration -p 1" "$2"
 }
 
