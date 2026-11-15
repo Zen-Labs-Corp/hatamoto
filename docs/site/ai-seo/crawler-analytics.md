@@ -88,7 +88,7 @@ The jobs run in the in-process worker. Turn one off with the comma-separated env
 | Job | Schedule | Purpose |
 |---|---|---|
 | `agent_ranges_refresh` | About 90 seconds after start, then daily | Download operator IP ranges. |
-| `agent_verify` | About 2 minutes after start, then every 5 minutes | Verify up to 500 distinct (agent, IP) pairs per run, oldest first. |
+| `agent_verify` | About 2 minutes after start, then every 5 minutes (the idle beat while the site is idle with the back-off on, see [Worker and background](../architecture/worker-and-background.md#idle-back-off)) | Verify up to 500 distinct (agent, IP) pairs per run, oldest first. |
 | `agent_hits_maintenance` | Daily | Truncate client IPs older than 30 days. |
 | `agent_hits_partition` | Daily | Keep monthly partitions ahead and drop old ones. |
 

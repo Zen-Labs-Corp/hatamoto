@@ -105,7 +105,9 @@ For the older header, HMAC the body alone and compare with
 An event writes one row per matching subscription, in one statement and with no
 network call, so a slow receiver or a burst of events (bulk publish, an import)
 never delays or drops an event. The `webhook_deliver` job runs every 10 seconds
-(with a little jitter) and sends due rows one at a time, up to 100 per run and
+(with a little jitter; while the site is idle with the back-off on, on the idle
+beat of 5 to 15 minutes, and sooner when a webhook is queued in the same process
+or a retry falls due) and sends due rows one at a time, up to 100 per run and
 within a time budget of 25 seconds. Each request's timeout is the subscription's
 (1 to 5 seconds, default 5), cut to the time left in the run. A subscription whose
 request got no answer is skipped for the rest of the run, so one hung receiver
@@ -156,7 +158,7 @@ them and the old one stops working at once.
 Relative to the first-party webhooks plugin, receivers see no difference in the
 body, headers, signatures or secrets. Delivery can be faster: the plugin sent up
 to a minute after the event (its cron ran every minute), while the core job runs
-every 10 seconds. Delivery is still at least once, so keep deduplicating by
+every 10 seconds (see the idle back-off above). Delivery is still at least once, so keep deduplicating by
 `X-Webhook-Delivery`.
 
 ## Upgrading

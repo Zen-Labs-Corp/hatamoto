@@ -84,7 +84,7 @@ func runThemeActivate(ctx context.Context, args []string, logger *slog.Logger, o
 		return err
 	}
 	fmt.Fprintf(out, "theme %s is now live\n", pos[0])
-	fmt.Fprintln(out, "a running server applies it within a few seconds; no restart is needed")
+	fmt.Fprintln(out, "a running server applies it within a few seconds (while the site is idle with the back-off on, up to the idle beat of 5 to 15 minutes); no restart is needed")
 	return nil
 }
 

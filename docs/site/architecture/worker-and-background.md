@@ -18,15 +18,15 @@ Each job is a function the scheduler calls on a timer. Every run has a 10 minute
 
 | Job name | What it does | First run | Interval |
 |---|---|---|---|
-| `publish` | promotes `scheduled` entities whose `published_at` has passed to `published`, emits the `entity.published` event and clears cached pages | 30 seconds | every minute |
+| `publish` | promotes `scheduled` entities whose `published_at` has passed to `published`, emits the `entity.published` event and clears cached pages | 30 seconds | every minute (idle beat while the site is idle with the back-off on) |
 | `retention_purge` | deletes expired admin sessions and expired or used one-time user tokens | 6 minutes | daily |
 | `agent_hits_partition` | creates monthly partitions of the AI-crawler hits table (2 ahead) and drops partitions that are old enough (hits are kept for at least 90 days) | 45 seconds | daily |
 | `agent_hits_maintenance` | truncates stored client IPs older than 30 days (to a /24 for IPv4, a /48 for IPv6) in batches of 5000 | 12 minutes | daily |
 | `agent_ranges_refresh` | downloads the published IP ranges of AI operators used to verify crawler hits | 90 seconds | daily |
-| `agent_verify` | verifies pending crawler hits against those ranges | 2 minutes | every 5 minutes |
+| `agent_verify` | verifies pending crawler hits against those ranges | 2 minutes | every 5 minutes (idle beat while the site is idle with the back-off on) |
 | `prune` | batch-deletes old rows: the 404 log after 90 days, the MCP audit after 90 days, the admin audit after 1 year | 8 minutes | daily |
 | `entity_versions` | merges identical consecutive versions and keeps the newest N per entity (setting, default 50) and every version live in the last 30 days | 10 minutes | daily |
-| `webhook_deliver` | sends due outgoing webhook deliveries, up to 100 per run within 25 seconds, see [Webhooks](../admin/webhooks.md) | 5 seconds | every 10 seconds, give or take 2 seconds |
+| `webhook_deliver` | sends due outgoing webhook deliveries, up to 100 per run within 25 seconds, see [Webhooks](../admin/webhooks.md) | 5 seconds | every 10 seconds, give or take 2 seconds (idle beat while the site is idle with the back-off on) |
 | `webhook_prune` | deletes old webhook deliveries (30 days delivered, 90 days other, at most 1,000 per webhook) | 2 minutes | hourly, give or take 5 minutes |
 | `changeset_sweep` | closes staged content changesets past their 72 hour expiry (their items, buffer and staged files go), deletes finished runs and removes staged files nothing refers to (left over by a crash) | 3 minutes | hourly, give or take 5 minutes |
 | `user_access` | signs out and revokes the API keys of users whose access end date has passed, writes an audit entry, and mails the other owners three days before an end when mail is set up | 10 minutes | hourly |
@@ -37,7 +37,7 @@ The prune and version jobs work in bounded batches (using `ctid` for deletes; th
 
 ## Idle back-off
 
-A site that nobody visits would otherwise touch the database every few seconds and keep a connection open for good. So, when you let the pool drain, the frequent checks back off once the install is **idle**. The back-off is on only when `DATABASE_MIN_CONNECTIONS=0` (the default is `5`: connections are kept warm anyway, nothing backs off and every interval on this page applies as written). With it on, the install is idle when no request has been served for `DATABASE_MAX_CONN_IDLE_TIME` (default `30m`). Requests to `/health` and `/ready` do not count, so a probe or uptime monitor does not keep the site awake; any other traffic, bots included, does.
+A site that nobody visits would otherwise touch the database every few seconds and keep a connection open for good. So, when you let the pool drain, the frequent checks back off once the install is **idle**. The back-off is on only when `DATABASE_MIN_CONNECTIONS=0` (the default is `5`: connections are kept warm anyway, nothing backs off and every interval on this page applies as written). With it on, the install is idle when no request has been served for `DATABASE_MAX_CONN_IDLE_TIME` (default `30m`). Requests to `/health` and `/ready` do not count, so a monitor pointed at those paths does not keep the site awake (one that fetches a page does count); any other traffic, bots included, does.
 
 While idle, these checks stop running on their own cadence and share one **idle beat** instead, so they run together in a single burst and the database connections can close in the gaps:
 
@@ -46,11 +46,11 @@ While idle, these checks stop running on their own cadence and share one **idle 
 - the content change poll (see [Multiple replicas](../operate/multi-replica-and-health.md)),
 - the email settings check across replicas.
 
-The beat is twice `DATABASE_MAX_CONN_IDLE_TIME`, kept between 5 and 15 minutes, so the gap is always longer than the time a pooled connection may sit idle. The first request after an idle spell wakes all of them at once for an immediate check; the request itself is served as usual.
+The beat is twice `DATABASE_MAX_CONN_IDLE_TIME`, kept between 5 and 15 minutes, so the gap is always longer than the time a pooled connection may sit idle. The first request after an idle spell wakes all of them for an immediate check that runs alongside it; that request is served as usual, so it can still show the old content when the change came from another process.
 
 Work that is already known is not delayed. A scheduled post, a webhook retry and a scheduled unpublish that exist when the wait starts wake their job at the due time even while idle, and a webhook queued by an event in this process wakes delivery at once. Idleness is per process, though: a process that serves no traffic, such as a worker-only replica, notices posts scheduled and webhooks queued by other processes (other replicas, the command line) only on the beat, 5 to 15 minutes. If you need prompt delivery across processes, keep `DATABASE_MIN_CONNECTIONS` above `0`, which turns the back-off off. Every other job, including all plugin `cron` jobs, and every interval above are unchanged. While the site is active nothing changes either. The Jobs screen shows the real next run.
 
-Changes saved from the admin in the running process (email, theme settings, installing or activating a package) apply at once and never wait for a check. A change made by another replica or by the command line may take up to the idle beat to be noticed while the site is idle; the next request shortens that to an immediate check. For the densest hosting, set `DATABASE_MIN_CONNECTIONS=0` and `DATABASE_MAX_CONN_IDLE_TIME=2m`.
+Changes saved from the admin in the running process (email, theme settings, installing or activating a package) apply at once and never wait for a check. A change made by another replica or by the command line may take up to the idle beat to be noticed while the site is idle; the next request starts an immediate check, but that request itself may still see the old state. For the densest hosting, set `DATABASE_MIN_CONNECTIONS=0` and `DATABASE_MAX_CONN_IDLE_TIME=2m`.
 
 ## Other background loops
 

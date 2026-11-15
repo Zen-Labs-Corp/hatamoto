@@ -340,7 +340,7 @@ Email settings come from one of two places:
 | Username, Password | Both blank means no sign-in. The password is encrypted with `HATAMOTO_SECRET` and never shown. A blank password keeps the saved one only while host and username are unchanged. |
 | From address, From name | A blank From name uses the site name stored in the database, looked up when each mail is sent, so a rename applies at once. |
 
-**Save** (`POST <admin>/settings/email`) connects, negotiates TLS, signs in and sends MAIL FROM, with a 10 second limit, and sends no mail. On failure the page shows the SMTP code and message and nothing is stored. **Send a test email** (`<admin>/settings/email/test`) mails the signed-in owner with the settings in use. A change applies at once on the process that saved it; the others check every 30 seconds and pick it up (while a site is idle, up to the idle beat of 5 to 15 minutes; the next request checks at once).
+**Save** (`POST <admin>/settings/email`) connects, negotiates TLS, signs in and sends MAIL FROM, with a 10 second limit, and sends no mail. On failure the page shows the SMTP code and message and nothing is stored. **Send a test email** (`<admin>/settings/email/test`) mails the signed-in owner with the settings in use. A change applies at once on the process that saved it; the others check every 30 seconds and pick it up (while a site is idle, up to the idle beat of 5 to 15 minutes; the next request starts a check at once, but may itself still see the old settings).
 
 ### The connection
 

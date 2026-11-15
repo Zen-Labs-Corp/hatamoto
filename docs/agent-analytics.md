@@ -76,7 +76,7 @@ Hits older than 7 days are not looked at.
 | Job | Schedule |
 |---|---|
 | `agent_ranges_refresh` | first run ~90s after start (so ranges exist), then daily |
-| `agent_verify` | every 5 minutes, up to 500 distinct (agent, IP) pairs per run, oldest first |
+| `agent_verify` | every 5 minutes (the idle beat while the site is idle with the back-off on), up to 500 distinct (agent, IP) pairs per run, oldest first |
 
 With `HATAMOTO_WORKER=off`, hits stay `pending` (capture itself is unaffected).
 
