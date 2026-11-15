@@ -613,6 +613,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 
 	// Promote due scheduled entities every minute.
 	if s.publishWorker != nil {
+		s.OnIdle("publish", s.publishNextDue)
 		s.startFixed(ctx, "publish", 30*time.Second, time.Minute, s.publishAndUnpublish)
 	}
 
@@ -636,6 +637,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 		s.startFixed(ctx, "agent_ranges_refresh", 90*time.Second, 24*time.Hour, s.agentRangesRefreshWorker.RunRefresh)
 	}
 	if s.agentVerifyWorker != nil {
+		s.OnIdle("agent_verify", nil)
 		s.startFixed(ctx, "agent_verify", 2*time.Minute, 5*time.Minute, s.agentVerifyWorker.RunVerify)
 	}
 
@@ -696,6 +698,27 @@ func (s *Scheduler) publishAndUnpublish(ctx context.Context) error {
 		}
 	}
 	return err
+}
+
+// publishNextDue is the earliest of the next scheduled publish and unpublish.
+func (s *Scheduler) publishNextDue(ctx context.Context) (time.Time, bool) {
+	due := []func(context.Context) (time.Time, bool){s.publishWorker.NextDue}
+	if s.unpublishWorker != nil {
+		due = append(due, s.unpublishWorker.NextDue)
+	}
+	return earliestDue(ctx, due...)
+}
+
+// earliestDue returns the soonest time any of fns reports.
+func earliestDue(ctx context.Context, fns ...func(context.Context) (time.Time, bool)) (time.Time, bool) {
+	var best time.Time
+	var found bool
+	for _, fn := range fns {
+		if t, ok := fn(ctx); ok && (!found || t.Before(best)) {
+			best, found = t, true
+		}
+	}
+	return best, found
 }
 
 // startFixed registers a core job under its canonical id and starts its loop.
