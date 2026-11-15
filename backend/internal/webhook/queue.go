@@ -117,6 +117,20 @@ func (r *Repo) DBNow(ctx context.Context) (time.Time, error) {
 	return t, err
 }
 
+// NextDue reports when the earliest pending delivery is due: its next attempt,
+// or for a leased one the end of its lease (SettleDead then takes it back). It
+// is the idle gate's wake time, so a retry that falls due while the install is
+// idle is not held back to the next beat. An error reports nothing due.
+func (r *Repo) NextDue(ctx context.Context) (time.Time, bool) {
+	var t *time.Time
+	err := r.db.Pool().QueryRow(ctx, `SELECT min(CASE WHEN leased_until IS NULL THEN next_attempt_at ELSE leased_until END)
+		FROM hatamoto_webhook_deliveries WHERE status = 'pending'`).Scan(&t)
+	if err != nil || t == nil {
+		return time.Time{}, false
+	}
+	return *t, true
+}
+
 // SettleDead counts the attempt of every delivery whose lease ran out: the
 // process that claimed it died, possibly after the receiver got the request,
 // so the attempt is spent. A delivery that keeps killing its attempt ends up failed.

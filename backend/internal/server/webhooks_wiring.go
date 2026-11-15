@@ -34,6 +34,7 @@ func (s *Server) scheduleWebhooks() {
 	}
 	// A public demo never sends webhooks (its subscriptions cannot be made either).
 	if workerJobEnabled(webhookDeliverJob) && !s.demoOn() {
+		s.scheduler.OnIdle(webhookDeliverJob, s.webhooks.Repo().NextDue)
 		err := s.scheduler.ScheduleJitter(webhookDeliverJob, 10*time.Second, 2*time.Second, 5*time.Second, s.webhookDeliverer.Run)
 		if err != nil {
 			s.logger.Error("webhooks: delivery job not scheduled", "error", err)
