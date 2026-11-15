@@ -299,6 +299,17 @@
         }
       ],
       "halted": false
+    },
+    {
+      "version": "v1.3.5",
+      "record_sig": "d7effd9870698586:7HxFmcp/ZgytiorBsFkfDVlQSxXbLI/77iQXAJV0QvPDkN1W0scezn4SnEFCrvGp8bRKkcOUNl3Eq/e7VZPWAA==",
+      "ramp": [
+        {
+          "from": "2026-11-17T10:01:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
     }
   ],
   "yanked": []
