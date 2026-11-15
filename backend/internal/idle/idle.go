@@ -30,7 +30,7 @@ type Gate struct {
 	after, beat time.Duration
 	now         func() time.Time
 	epoch       time.Time
-	last        atomic.Int64 // unix nanos of the latest request
+	last        atomic.Int64 // nanos since epoch of the latest request (monotonic when now is time.Now)
 
 	mu    sync.Mutex
 	wake  chan struct{} // closed, then replaced, on each idle->active edge
@@ -48,7 +48,6 @@ func New(after, beat time.Duration, now func() time.Time) *Gate {
 		beat = Beat(after)
 	}
 	g := &Gate{after: after, beat: beat, now: now, epoch: now(), wake: make(chan struct{}), timer: realTimer}
-	g.last.Store(g.epoch.UnixNano())
 	return g
 }
 
@@ -70,7 +69,7 @@ func (g *Gate) Touch() {
 	if g == nil {
 		return
 	}
-	now := g.now().UnixNano()
+	now := int64(g.now().Sub(g.epoch))
 	prev := g.last.Swap(now)
 	if g.after > 0 && now-prev >= int64(g.after) {
 		g.Kick()
@@ -95,7 +94,7 @@ func (g *Gate) Idle() bool {
 	if g == nil || g.after <= 0 {
 		return false
 	}
-	return g.now().UnixNano()-g.last.Load() >= int64(g.after)
+	return int64(g.now().Sub(g.epoch))-g.last.Load() >= int64(g.after)
 }
 
 // nextBeat is the first beat boundary strictly after t.

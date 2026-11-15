@@ -56,7 +56,14 @@ func newIdleRig(t *testing.T) *idleRig {
 	return r
 }
 
-func (r *idleRig) fn(context.Context) error { r.ran <- struct{}{}; return nil }
+// fn reports a run without ever blocking, so a loop mid-run cannot hold up cleanup.
+func (r *idleRig) fn(context.Context) error {
+	select {
+	case r.ran <- struct{}{}:
+	default:
+	}
+	return nil
+}
 
 // startEvery runs id through runEvery with an immediate first run.
 func (r *idleRig) startEvery(id string, interval time.Duration) {

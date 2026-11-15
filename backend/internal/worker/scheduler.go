@@ -123,8 +123,9 @@ func (s *Scheduler) SetIdle(g *idle.Gate) { s.idle = g }
 // OnIdle opts the core job id in to the idle gate: while the install is idle
 // it checks only on the shared beat, or at nextDue when that is sooner (nil:
 // beat only), and a request after an idle spell wakes it at once. Its
-// configured interval is unchanged while the site is active. Only core ids may
-// opt in; plugin jobs keep their schedule.
+// configured interval is unchanged while the site is active. Call it before
+// Schedule or ScheduleJitter for the same id: a loop reads the opt-in once, when
+// it starts, so a later call is ignored. Only core ids may opt in; plugin jobs keep their schedule.
 func (s *Scheduler) OnIdle(id string, nextDue func(context.Context) (time.Time, bool)) {
 	if IsPluginJob(id) {
 		return
