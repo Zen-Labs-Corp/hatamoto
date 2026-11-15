@@ -64,6 +64,8 @@ HATAMOTO_WORKER=on
 HATAMOTO_WORKER=off
 ```
 
+With `DATABASE_MIN_CONNECTIONS=0` the worker replica backs off when it serves no traffic (health probes do not count): posts scheduled and webhooks queued on another replica are then noticed only on the idle beat, 5 to 15 minutes. Keep `DATABASE_MIN_CONNECTIONS` above `0` (the default) if you need prompt delivery across replicas; see [Idle back-off](../architecture/worker-and-background.md#idle-back-off).
+
 If the worker replica is down, scheduled posts are published late rather than lost: they publish on the next run of an enabled worker. With the worker off everywhere, nothing is published on schedule, nothing is purged, crawler hits stay unverified, and nothing truncates old IP addresses or drops old partitions. The server still creates the current and next month's analytics partition at startup regardless, so hits never land in the default partition.
 
 ## Secrets and configuration
