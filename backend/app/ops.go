@@ -445,7 +445,7 @@ func runImport(ctx context.Context, db *database.DB, mediaDir string, store medi
 		defer f.Close()
 	}
 	// A new database may not be migrated yet.
-	if err := migrateUp(ctx, db.Pool(), logger); err != nil {
+	if err := migrateUpDirect(ctx, db, logger); err != nil {
 		return err
 	}
 	res, err := portability.Import(ctx, db.Pool(), f, portability.ImportOptions{MediaDir: mediaDirOr(mediaDir), Store: store})

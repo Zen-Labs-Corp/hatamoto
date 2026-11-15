@@ -81,7 +81,8 @@ commands:
   healthcheck                      exit 0 when the local server answers /health (Docker HEALTHCHECK)
   version [--json]                 print version and commit (--json adds sdk and schema head)
 
-environment: DATABASE_URL (required); HATAMOTO_SECRET (or its old name JWT_SECRET) is generated and
+environment: DATABASE_URL (required); DATABASE_DIRECT_URL (optional, bypasses a connection pooler for migrations,
+backups and locks); HATAMOTO_SECRET (or its old name JWT_SECRET) is generated and
 persisted in $HATAMOTO_SECRETS_DIR (default ./data/secrets) when not set.`
 
 // parseArgs maps CLI arguments (without argv[0]) to a command.
@@ -331,9 +332,9 @@ func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) e
 	defer db.Close()
 	switch cmd {
 	case cmdMigrate:
-		return migrateUp(ctx, db.Pool(), logger)
+		return migrateUpDirect(ctx, db, logger)
 	case cmdMigrateStatus:
-		return migrateStatus(ctx, db.Pool(), os.Stdout)
+		return migrateStatusDirect(ctx, db, os.Stdout)
 	case cmdAdminURL:
 		base := adminBaseURL(db.Pool(), os.Getenv)
 		site := loadSQLSite(ctx, db.Pool(), base(ctx))
@@ -407,7 +408,7 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	defer db.Close()
 	logger.Info("connected to database")
 
-	if err := migrateUp(ctx, db.Pool(), logger); err != nil {
+	if err := migrateUpDirect(ctx, db, logger); err != nil {
 		return err
 	}
 	if err := checkMediaOffsiteOverlap(ctx, os.Getenv, offsite.NewStore(db.Pool()).Get); err != nil {

@@ -15,6 +15,7 @@ import (
 	"github.com/pressly/goose/v3/lock"
 
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/migrations"
 )
 
@@ -74,6 +75,28 @@ func migrateUp(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) err
 		}
 		return nil
 	})
+}
+
+// migrateUpDirect is migrateUp on a direct connection: the goose session lock
+// and its migrations need one server session, which a transaction-mode pooler
+// does not give. Two connections: the lock holder and the work connection.
+func migrateUpDirect(ctx context.Context, db *database.DB, logger *slog.Logger) error {
+	pool, closeFn, err := db.Direct().Pool(ctx, 2)
+	if err != nil {
+		return err
+	}
+	defer closeFn()
+	return migrateUp(ctx, pool, logger)
+}
+
+// migrateStatusDirect is migrateStatus on a direct connection.
+func migrateStatusDirect(ctx context.Context, db *database.DB, w io.Writer) error {
+	pool, closeFn, err := db.Direct().Pool(ctx, 2)
+	if err != nil {
+		return err
+	}
+	defer closeFn()
+	return migrateStatus(ctx, pool, w)
 }
 
 // migrateStatus prints "VERSION  STATE  FILE" per migration.
