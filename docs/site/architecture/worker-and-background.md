@@ -37,7 +37,7 @@ The prune and version jobs work in bounded batches (using `ctid` for deletes; th
 
 ## Idle back-off
 
-A site that nobody visits would otherwise touch the database every few seconds and keep a connection open for good. So the frequent checks back off once the install is **idle**: no request has been served for `DATABASE_MAX_CONN_IDLE_TIME` (default `30m`). Requests to `/health` and `/ready` do not count, so a probe or uptime monitor does not keep the site awake; any other traffic, bots included, does.
+A site that nobody visits would otherwise touch the database every few seconds and keep a connection open for good. So, when you let the pool drain, the frequent checks back off once the install is **idle**. The back-off is on only when `DATABASE_MIN_CONNECTIONS=0` (the default is `5`: connections are kept warm anyway, nothing backs off and every interval on this page applies as written). With it on, the install is idle when no request has been served for `DATABASE_MAX_CONN_IDLE_TIME` (default `30m`). Requests to `/health` and `/ready` do not count, so a probe or uptime monitor does not keep the site awake; any other traffic, bots included, does.
 
 While idle, these checks stop running on their own cadence and share one **idle beat** instead, so they run together in a single burst and the database connections can close in the gaps:
 

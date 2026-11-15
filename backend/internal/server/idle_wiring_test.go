@@ -33,6 +33,7 @@ func TestActivityMiddlewareProbesDoNotWakeIdleGate(t *testing.T) {
 
 func TestNewIdleGateUsesPoolIdleTime(t *testing.T) {
 	cfg := &config.Config{}
+	cfg.Database.MinConnections = 0
 	cfg.Database.MaxConnIdleTime = 2 * time.Minute
 	if g := newIdleGate(cfg); g == nil || g.Idle() {
 		t.Fatal("gate must exist and start active")
@@ -40,5 +41,16 @@ func TestNewIdleGateUsesPoolIdleTime(t *testing.T) {
 	cfg.Database.MaxConnIdleTime = 0
 	if newIdleGate(cfg).Idle() {
 		t.Fatal("a zero idle time disables idling")
+	}
+}
+
+// With warm connections kept (the default), there is no gate: loops keep
+// their normal schedule and an untuned install behaves as before.
+func TestNewIdleGateOffWhenPoolKeepsConnections(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Database.MinConnections = 5
+	cfg.Database.MaxConnIdleTime = 30 * time.Minute
+	if g := newIdleGate(cfg); g != nil {
+		t.Fatal("DATABASE_MIN_CONNECTIONS > 0 must build no gate")
 	}
 }
