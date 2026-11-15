@@ -73,11 +73,21 @@ func (g *Gate) Touch() {
 	now := g.now().UnixNano()
 	prev := g.last.Swap(now)
 	if g.after > 0 && now-prev >= int64(g.after) {
-		g.mu.Lock()
-		close(g.wake)
-		g.wake = make(chan struct{})
-		g.mu.Unlock()
+		g.Kick()
 	}
+}
+
+// Kick wakes every idle waiting loop once, without counting as activity: the
+// gate stays idle and each loop checks, then waits again. Call it when work
+// was queued in this process that a loop's sampled next-due time cannot know.
+func (g *Gate) Kick() {
+	if g == nil {
+		return
+	}
+	g.mu.Lock()
+	close(g.wake)
+	g.wake = make(chan struct{})
+	g.mu.Unlock()
 }
 
 // Idle reports whether no request has been seen for the idle threshold.

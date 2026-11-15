@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"time"
 
+	"hatamoto.dev/core/internal/idle"
 	"hatamoto.dev/core/internal/webhook"
 	"hatamoto.dev/core/internal/worker"
 )
@@ -21,7 +23,7 @@ const (
 // delivery only starts at Start, after the old plugin has been retired.
 func (s *Server) setupWebhooks() {
 	s.webhooks = webhook.NewService(s.db, s.logger)
-	webhook.Register(s.hooks, s.webhooks.Repo(), s.logger)
+	webhook.Register(s.hooks, kickingEnqueuer{s.webhooks.Repo(), s.idle}, s.logger)
 	// Production never allows private targets or odd ports (Options{} only).
 	s.webhookDeliverer = webhook.NewDeliverer(s.webhooks.Repo(), s.logger, webhook.Options{})
 }
@@ -54,4 +56,19 @@ func (s *Server) logWebhookDelivery() {
 	if s.webhooks != nil && !s.webhookDeliveryOn {
 		s.logger.Info("webhooks are queued but not delivered: the worker, WORKER_DRAIN or the webhook_deliver job is off")
 	}
+}
+
+// kickingEnqueuer wakes the idle delivery job when a delivery was queued: the
+// job's sampled next-due time cannot know about a row added after its wait began.
+type kickingEnqueuer struct {
+	webhook.Enqueuer
+	gate *idle.Gate
+}
+
+func (k kickingEnqueuer) Enqueue(ctx context.Context, event string, data any, now time.Time) (int, error) {
+	n, err := k.Enqueuer.Enqueue(ctx, event, data, now)
+	if err == nil && n > 0 {
+		k.gate.Kick()
+	}
+	return n, err
 }

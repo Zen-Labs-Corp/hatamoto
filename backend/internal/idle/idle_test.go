@@ -246,3 +246,17 @@ func TestZeroAfterNeverIdle(t *testing.T) {
 		t.Fatal("after <= 0 disables idling")
 	}
 }
+
+func TestKickWakesIdleWaiterWithoutActivity(t *testing.T) {
+	g, clk, ft := testGate(2*time.Minute, 5*time.Minute)
+	clk.Advance(3 * time.Minute)
+	out := waitAsync(g, 10*time.Second, nil)
+	<-ft.asked // parked until the beat
+	g.Kick()
+	if !<-out {
+		t.Fatal("a kicked wait must report true")
+	}
+	if !g.Idle() {
+		t.Fatal("a kick is not activity: the gate must stay idle")
+	}
+}

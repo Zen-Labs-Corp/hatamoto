@@ -183,3 +183,20 @@ func TestPluginJobCannotOptIn(t *testing.T) {
 		t.Fatal("plugin jobs must never wait on the idle gate")
 	}
 }
+
+func TestIdleJobWakesOnKickAndStaysIdle(t *testing.T) {
+	r := newIdleRig(t)
+	r.s.OnIdle("webhook_deliver", nil)
+	r.startEvery("webhook_deliver", 10*time.Second)
+	<-r.ran
+	<-r.asked
+	r.clk.advance(3 * time.Minute)
+	r.fire <- time.Time{}
+	<-r.ran
+	<-r.asked // waiting idle for the beat
+	r.gate.Kick()
+	<-r.ran // woken before the beat, timer not fired
+	if d := <-r.asked; d <= 10*time.Second {
+		t.Fatalf("after a kick the gate is still idle, wait = %s", d)
+	}
+}
