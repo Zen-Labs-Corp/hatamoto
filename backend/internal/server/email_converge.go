@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"time"
+
+	"hatamoto.dev/core/internal/idle"
 )
 
 // emailConvergeEvery is how often each replica checks whether another one
@@ -13,16 +15,17 @@ const emailConvergeEvery = 30 * time.Second
 // changed (saved, replaced or cleared) since this replica last resolved it, so
 // a change made on one replica reaches the others without a restart. It runs
 // until ctx ends.
+// Once the install has been idle for a while the check moves to the shared
+// idle beat (see package idle); the next request wakes it at once.
 func (s *Server) runEmailConvergence(ctx context.Context, every time.Duration) {
-	t := time.NewTicker(every)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			s.syncEmail(ctx)
-		}
+	loopEmailConvergence(ctx, s.idle, every, s.syncEmail)
+}
+
+// loopEmailConvergence calls sync after every wait through the gate (nil gate:
+// a plain timer of every).
+func loopEmailConvergence(ctx context.Context, g *idle.Gate, every time.Duration, sync func(context.Context)) {
+	for g.Wait(ctx, every, nil) {
+		sync(ctx)
 	}
 }
 
