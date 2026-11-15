@@ -59,6 +59,9 @@ func (d *Direct) Session(ctx context.Context) (*pgx.Conn, func(), error) {
 		}
 		return pc.Conn(), pc.Release, nil
 	}
+	// A blackholed direct host must not hang a request until the OS gives up.
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 	conn, err := pgx.ConnectConfig(ctx, d.cfg.Copy())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to direct database: %w", err)
