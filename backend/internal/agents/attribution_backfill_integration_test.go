@@ -24,7 +24,7 @@ func attributionDB(t *testing.T) *database.DB {
 	if dsn == "" {
 		t.Skip("DATABASE_URL not set — skipping integration test")
 	}
-	db, err := database.New(context.Background(), config.DatabaseConfig{URL: dsn, MaxConnections: 8, MinConnections: 1,
+	db, err := database.New(context.Background(), config.DatabaseConfig{URL: dsn, DirectURL: os.Getenv("DATABASE_DIRECT_URL"), MaxConnections: 8, MinConnections: 1,
 		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
 	if err != nil {
 		t.Fatal(err)
