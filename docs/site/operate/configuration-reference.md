@@ -40,6 +40,7 @@ Under systemd put them in the environment file; under Docker use `environment:` 
 | Variable | Default | Meaning |
 |---|---|---|
 | `DATABASE_URL` | none (required) | Postgres connection string, for example `postgres://user:pw@db:5432/hatamoto?sslmode=disable`. |
+| `DATABASE_DIRECT_URL` | `DATABASE_URL` | Optional connection string that reaches Postgres without a transaction-mode pooler such as PgBouncer. Migrations, backups and restores, the import and attribution locks, and plugin databases use it. Leave it unset when `DATABASE_URL` already goes straight to Postgres. See [Run on managed PostgreSQL](managed-postgresql.md). |
 | `API_HOST` | `0.0.0.0` | Address the HTTP server listens on. |
 | `API_PORT` | `8090` | Listen port (integer). Also used by `hatamoto healthcheck`. |
 | `ENVIRONMENT` | `development` | `production` switches logs to JSON, sends HSTS, and makes `ADMIN_COOKIE_SECURE` default to on. Any other value behaves as development. |
@@ -390,7 +391,7 @@ Each process sends directly. There is no shared mail queue, and a failed send is
 Plugins that use the `db` host API run under their own Postgres login roles, named `hm_p_<id8>_<name>`. Three things must hold for them:
 
 - Nothing in the database may be open to `PUBLIC` that the application role does not own. Otherwise `db.*` stays off until the owner of those objects runs `REVOKE ... FROM PUBLIC`, and the log says so. `HATAMOTO_PLUGIN_DB_ALLOW_PUBLIC_OBJECTS=1` accepts the exposure instead.
-- `pg_hba.conf` must allow password authentication for the plugin roles on the host `DATABASE_URL` uses, for example `host all all 127.0.0.1/32 scram-sha-256`, or the provider's role login rules on a managed cluster ([Run on managed PostgreSQL](managed-postgresql.md)).
+- `pg_hba.conf` must allow password authentication for the plugin roles on the host `DATABASE_DIRECT_URL` uses (`DATABASE_URL` when it is unset), for example `host all all 127.0.0.1/32 scram-sha-256`, or the provider's role login rules on a managed cluster ([Run on managed PostgreSQL](managed-postgresql.md)).
 - `DATABASE_URL` must use a TCP host, not a Unix socket with peer authentication.
 
 Roles belong to the Postgres cluster, not to one database, so `pg_dump` of the database does not include them. A plugin's schema and tables are in the dump. After a restore into another cluster, reload or grant the plugin again so the server creates its role. Plugins that only use their key-value storage are not affected.

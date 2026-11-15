@@ -19,6 +19,11 @@ true on the Postgres host:
    host  all  all  127.0.0.1/32  scram-sha-256
    ```
 
+   The host is the one in `DATABASE_DIRECT_URL` when that is set (a connection
+   pooler in front of `DATABASE_URL` does not carry plugin roles), else
+   `DATABASE_URL`. Plugin pools hold their connections on Postgres itself, up
+   to 2 per plugin, outside any pooler.
+
    (and `DATABASE_URL` must use `127.0.0.1`/`localhost`, not a Unix socket with
    `peer` authentication). Without it `db.*` answers `unavailable` with that
    message; `kv` and the rest of the site are unaffected. Check with:

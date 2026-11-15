@@ -44,17 +44,27 @@ Hosts, users and passwords below are examples. Use `~/.pgpass` or `PGPASSWORD` i
    DATABASE_URL="postgres://site_app@db.example.com:5432/site?sslmode=verify-full&sslrootcert=/etc/ssl/provider-ca.pem"
    ```
 
-   The setting reaches the main pool, migrations, plugin pools, `backup create` and `backup restore`.
+   The setting reaches the main pool, migrations, plugin pools, `backup create` and `backup restore`. With `DATABASE_DIRECT_URL` set, migrations, plugin pools and backups use that URL instead, with the same TLS options.
 
-4. Connect directly, or through a pooler in session mode. Never use transaction mode: migrations hold a session level advisory lock for the whole run, and transaction pooling can release it on another connection or never. Plugin migrations do the same.
+4. Connect directly, or through PgBouncer in transaction mode (the next step). A pooler in session mode also works. Other transaction-mode poolers are untested.
 
-5. Size the pools. The main pool keeps `DATABASE_MIN_CONNECTIONS` (default 5) connections open and grows to `DATABASE_MAX_CONNECTIONS` (default 25). Every plugin that uses `db` adds a pool of up to 2 connections. With many sites on one cluster, add these up per site and compare the total with the cluster's `max_connections`. For small sites, lower both, for example `DATABASE_MIN_CONNECTIONS=1` and `DATABASE_MAX_CONNECTIONS=5`. See the [configuration reference](configuration-reference.md).
+5. Optional: put PgBouncer in front of Postgres. Hatamoto is safe behind PgBouncer in transaction pooling mode (`pool_mode = transaction`) when:
 
-6. Plugin roles log in from the Hatamoto host with a password. If the provider controls login rules instead of `pg_hba.conf`, make sure the application database accepts password logins for new roles from that host.
+   - PgBouncer is 1.21 or newer and sets `max_prepared_statements` above 0 (for example `100`). Hatamoto keeps the default prepared statement mode of its Postgres driver, which needs it.
+   - `DATABASE_URL` points at PgBouncer and `DATABASE_DIRECT_URL` points at Postgres itself, with the same database name and user. Without `DATABASE_DIRECT_URL`, everything uses `DATABASE_URL`, as before.
+   - PgBouncer lists the application role and its password in its `auth_file`.
+   - If PgBouncer rejects connection settings the driver sends, add them to `ignore_startup_parameters` (`extra_float_digits` is the usual one).
 
-7. Start Hatamoto. It runs its migrations as the application role.
+   Work that needs a real Postgres session uses `DATABASE_DIRECT_URL`: migrations, the import lock, the attribution backfill lock, `backup create` and `backup restore`, the pre-update backup, and plugin databases. Plugin databases stay off the pooler on purpose, because each plugin logs in as its own role and a pooler cannot be told when a plugin password changes. Hatamoto uses no `LISTEN` or `NOTIFY` and no other session features on the pooled connections.
 
-8. To restore a backup, give the admin role to the restore command. Create the empty target database in the same order as in step 1, then:
+   Count the connections on Postgres itself: PgBouncer's `default_pool_size` for each database and user pair, plus up to 2 direct connections for every loaded plugin that uses `db` (each plugin role is limited to 4), plus 1 for each running import or backfill, plus 1 for a running `pg_dump`, plus 2 while migrations run. Postgres `max_connections` must cover the sum. Plugin roles must be allowed to log in to Postgres directly (see the `pg_hba.conf` rule in step 7).
+6. Size the pools. The main pool keeps `DATABASE_MIN_CONNECTIONS` (default 5) connections open and grows to `DATABASE_MAX_CONNECTIONS` (default 25). Every plugin that uses `db` adds a pool of up to 2 connections. With many sites on one cluster, add these up per site and compare the total with the cluster's `max_connections`. For small sites, lower both, for example `DATABASE_MIN_CONNECTIONS=1` and `DATABASE_MAX_CONNECTIONS=5`. See the [configuration reference](configuration-reference.md).
+
+7. Plugin roles log in from the Hatamoto host with a password. If the provider controls login rules instead of `pg_hba.conf`, make sure the application database accepts password logins for new roles from that host.
+
+8. Start Hatamoto. It runs its migrations as the application role.
+
+9. To restore a backup, give the admin role to the restore command. Create the empty target database in the same order as in step 1, then:
 
    ```bash
    hatamoto backup restore 20261025T101500Z-manual \
