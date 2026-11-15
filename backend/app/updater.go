@@ -40,7 +40,7 @@ func updaterEnv(pool *pgxpool.Pool, sessions wpimport.SessionSource, eng *backup
 		Store:       updater.NewStore(pool),
 		Imports:     importProbe{sessions},
 		Backups:     preUpdateBackups{eng},
-		DatabaseURL: os.Getenv("DATABASE_URL"),
+		DatabaseURL: directDatabaseURL(),
 		BaseURL:     os.Getenv("HATAMOTO_UPDATE_URL"),
 		Log:         logger,
 	}, nil
