@@ -211,11 +211,11 @@ func TestAttributionBackfill_RemembersMisses_Integration(t *testing.T) {
 func TestAttributionBackfill_SingleRun_Integration(t *testing.T) {
 	ctx := context.Background()
 	db := attributionDB(t)
-	holder, err := db.GetConn(ctx)
+	holder, release, err := db.Direct().Session(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer holder.Release()
+	defer release()
 	var got bool
 	if err := holder.QueryRow(ctx, attributionLockSQL).Scan(&got); err != nil || !got {
 		t.Fatalf("take the job lock: %v %v", got, err)
