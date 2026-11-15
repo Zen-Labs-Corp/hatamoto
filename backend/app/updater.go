@@ -20,14 +20,14 @@ import (
 )
 
 // importProbe tells the updater whether a content import holds its lock.
-type importProbe struct{ pool *pgxpool.Pool }
+type importProbe struct{ sessions wpimport.SessionSource }
 
 func (p importProbe) ImportRunning(ctx context.Context) (bool, error) {
-	return wpimport.ImportRunning(ctx, p.pool)
+	return wpimport.ImportRunning(ctx, p.sessions)
 }
 
 // updaterEnv is the update agent's view of this process.
-func updaterEnv(pool *pgxpool.Pool, eng *backup.Engine, logger *slog.Logger) (updater.Env, error) {
+func updaterEnv(pool *pgxpool.Pool, sessions wpimport.SessionSource, eng *backup.Engine, logger *slog.Logger) (updater.Env, error) {
 	sup, err := superviseConfig(logger)
 	if err != nil {
 		return updater.Env{}, err
@@ -38,7 +38,7 @@ func updaterEnv(pool *pgxpool.Pool, eng *backup.Engine, logger *slog.Logger) (up
 		Version:     version,
 		Supervisor:  sup,
 		Store:       updater.NewStore(pool),
-		Imports:     importProbe{pool},
+		Imports:     importProbe{sessions},
 		Backups:     preUpdateBackups{eng},
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		BaseURL:     os.Getenv("HATAMOTO_UPDATE_URL"),
@@ -99,7 +99,7 @@ func countMigrationFailures(svc *installstats.Service, h *installstats.Health, d
 
 // startUpdater hands the update agent to the server. A problem here (say an
 // unusable update URL) is logged and never stops the site from starting.
-func startUpdater(srv *server.Server, pool *pgxpool.Pool, mediaDir string, demo, worker bool, logger *slog.Logger) {
+func startUpdater(srv *server.Server, pool *pgxpool.Pool, sessions wpimport.SessionSource, mediaDir string, demo, worker bool, logger *slog.Logger) {
 	// One engine serves the updater's pre-update backup and the admin page.
 	version, _ := buildInfo()
 	eng := newBackupEngine(pool, mediaDir, version, logger)
@@ -110,7 +110,7 @@ func startUpdater(srv *server.Server, pool *pgxpool.Pool, mediaDir string, demo,
 		srv.NoUpdater(errors.New("updates are switched off in the public demo"))
 		return
 	}
-	env, err := updaterEnv(pool, eng, logger)
+	env, err := updaterEnv(pool, sessions, eng, logger)
 	if err == nil {
 		err = srv.SetUpdater(env)
 	}

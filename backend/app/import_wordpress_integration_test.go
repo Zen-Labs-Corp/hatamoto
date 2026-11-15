@@ -450,7 +450,7 @@ func TestWordPressFixtureRedirects_Integration(t *testing.T) {
 // command refuses at once, before it reads any source.
 func TestWordPressCLIRefusesWhileAnotherImportRuns_Integration(t *testing.T) {
 	r := newWPRig(t, "http://old.example.test")
-	release, err := wpimport.AcquireImportLock(r.ctx, r.db.Pool())
+	release, err := wpimport.AcquireImportLock(r.ctx, wpimport.PoolSource{Pool: r.db.Pool()})
 	if err != nil {
 		t.Fatal(err)
 	}

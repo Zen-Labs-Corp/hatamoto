@@ -204,7 +204,7 @@ func runUpdateOnline(ctx context.Context, u updateArgs, cfg supervisor.Config, o
 		if withDB {
 			env.Store = updater.NewStore(db.Pool())
 			env.Plugins = server.UpdatePlugins(packages.NewStore(db.Pool()))
-			env.Imports = importProbe{db.Pool()}
+			env.Imports = importProbe{db.Direct()}
 			env.Site = siteLocation(db.Pool())
 		}
 		if wantBackup {
