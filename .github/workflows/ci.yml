@@ -329,6 +329,15 @@ jobs:
       - name: Migration linter
         if: steps.rel.outputs.relevant == 'true'
         run: bash scripts/check-migrations.sh
+      # n-1.sh fails on any skipped DB test, and the baseline's TestPooler_* tests skip
+      # without a pgbouncer binary (internal/testutil/pgbouncertest starts its own).
+      - name: Install pgbouncer
+        if: steps.rel.outputs.relevant == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pgbouncer
+          sudo systemctl stop pgbouncer || true
+          command -v pgbouncer
       - name: Previous release on this schema
         if: steps.rel.outputs.relevant == 'true'
         run: bash scripts/n-1.sh
