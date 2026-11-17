@@ -83,14 +83,10 @@ func TestStoreMissingRowIsUnset_Integration(t *testing.T) {
 	}
 }
 
-func TestStoreEnableDisableReset_Integration(t *testing.T) {
+func TestStoreEnableDisable_Integration(t *testing.T) {
 	ctx := context.Background()
 	st := NewStore(scratchPool(t))
 
-	// Reset before consent creates nothing.
-	if got, err := st.Reset(ctx); err != nil || got.InstallID != "" {
-		t.Fatalf("reset without consent: %+v %v", got, err)
-	}
 	first, err := st.Enable(ctx, LevelBasic)
 	if err != nil || first.Consent != ConsentYes || len(first.InstallID) != 32 {
 		t.Fatalf("enable: %+v %v", first, err)
@@ -99,19 +95,12 @@ func TestStoreEnableDisableReset_Integration(t *testing.T) {
 	if err != nil || again.InstallID != first.InstallID {
 		t.Fatalf("a second enable must keep the id: %+v %v", again, err)
 	}
-	reset, err := st.Reset(ctx)
-	if err != nil || reset.InstallID == "" || reset.InstallID == first.InstallID || reset.Consent != ConsentYes {
-		t.Fatalf("reset must give a different id: %+v %v", reset, err)
-	}
 	if err := st.Disable(ctx); err != nil {
 		t.Fatal(err)
 	}
 	off, err := st.Load(ctx)
 	if err != nil || off.Consent != ConsentNo || off.InstallID != "" {
 		t.Fatalf("disable must clear the id: %+v %v", off, err)
-	}
-	if got, err := st.Reset(ctx); err != nil || got.InstallID != "" {
-		t.Fatalf("reset with consent no: %+v %v", got, err)
 	}
 	// A new yes after no is a new id.
 	back, err := st.Enable(ctx, LevelBasic)
@@ -386,18 +375,8 @@ func TestBannerKinds_Integration(t *testing.T) {
 			t.Fatalf("banner = %q (%v), want %q", got, err, k)
 		}
 	}
-	want(BannerUnanswered)
-	// An explicit choice of Basic is not nudged towards Detailed.
+	want(BannerNone) // no row
 	if _, err := st.Enable(ctx, LevelBasic); err != nil {
-		t.Fatal(err)
-	}
-	want(BannerNone)
-	// A row migrated from consent yes is, once, until dismissed.
-	if _, err := st.db.Exec(ctx, `UPDATE hatamoto_install_stats SET nudge_dismissed = FALSE`); err != nil {
-		t.Fatal(err)
-	}
-	want(BannerNudge)
-	if err := st.DismissNudge(ctx); err != nil {
 		t.Fatal(err)
 	}
 	want(BannerNone)

@@ -50,10 +50,8 @@ const (
 type BannerKind string
 
 const (
-	BannerNone       BannerKind = "none"
-	BannerUnanswered BannerKind = "unanswered" // ask Off, Basic or Detailed
-	BannerNudge      BannerKind = "nudge"      // on Basic, not dismissed: offer Detailed
-	BannerDefaulted  BannerKind = "defaulted"  // Detailed was applied by default: tell the owner once
+	BannerNone      BannerKind = "none"
+	BannerDefaulted BannerKind = "defaulted" // Detailed was applied by default: tell the owner once
 )
 
 // maxPluginErrorKeys bounds the stored per-plugin error map; names beyond it
@@ -293,20 +291,6 @@ func (s *Store) Disable(ctx context.Context) error {
 	return nil
 }
 
-// Reset replaces the ID with a new random one. It does nothing unless consent
-// is yes: an ID never exists without it.
-func (s *Store) Reset(ctx context.Context) (State, error) {
-	id, err := newID()
-	if err != nil {
-		return State{}, err
-	}
-	if _, err := s.db.Exec(ctx, `
-		UPDATE hatamoto_install_stats SET install_id = $1 WHERE id AND consent = 'yes'`, id); err != nil {
-		return State{}, fmt.Errorf("reset install id: %w", err)
-	}
-	return s.Load(ctx)
-}
-
 // Claim takes the right to send now: it stamps last_sent_at and returns the ID,
 // but only when consent is yes, the level is Basic or Detailed and either the last claim is older than the
 // interval, or the running version differs from the last one reported and the
@@ -421,38 +405,33 @@ func (s *Store) RecordKeptDay(ctx context.Context, version string) error {
 	return nil
 }
 
-// DismissNudge acknowledges the owner banner: it stores that the Detailed
-// offer was dismissed (only on basic) and clears the defaulted notice.
+// DismissNudge acknowledges the defaulted notice. nudge_dismissed is set too:
+// the column stays, and the previous release still reads it.
 func (s *Store) DismissNudge(ctx context.Context) error {
-	if _, err := s.db.Exec(ctx, `UPDATE hatamoto_install_stats SET nudge_dismissed = (nudge_dismissed OR level = 'basic'),
+	if _, err := s.db.Exec(ctx, `UPDATE hatamoto_install_stats SET nudge_dismissed = TRUE,
 		default_notice_pending = FALSE WHERE id`); err != nil {
 		return fmt.Errorf("dismiss install stats nudge: %w", err)
 	}
 	return nil
 }
 
-// Banner says which owner banner to show, from one cheap query. The variable
-// HATAMOTO_TELEMETRY=off is the Service's concern, not the Store's.
+// Banner says which owner banner to show, from one cheap query: the defaulted
+// notice while it is pending, else none. The variable HATAMOTO_TELEMETRY=off is
+// the Service's concern, not the Store's.
 func (s *Store) Banner(ctx context.Context) (BannerKind, error) {
 	var (
-		level     Level
-		dismissed bool
-		pending   bool
+		level   Level
+		pending bool
 	)
-	err := s.db.QueryRow(ctx, `SELECT level, nudge_dismissed, default_notice_pending FROM hatamoto_install_stats WHERE id`).Scan(&level, &dismissed, &pending)
+	err := s.db.QueryRow(ctx, `SELECT level, default_notice_pending FROM hatamoto_install_stats WHERE id`).Scan(&level, &pending)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return BannerUnanswered, nil
+		return BannerNone, nil
 	}
 	if err != nil {
 		return BannerNone, fmt.Errorf("load install stats banner: %w", err)
 	}
-	switch {
-	case level == LevelUnset:
-		return BannerUnanswered, nil
-	case pending && level == LevelDetailed:
+	if pending && level == LevelDetailed {
 		return BannerDefaulted, nil
-	case level == LevelBasic && !dismissed:
-		return BannerNudge, nil
 	}
 	return BannerNone, nil
 }

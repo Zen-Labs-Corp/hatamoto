@@ -89,10 +89,6 @@ func (a adminStats) View(ctx context.Context) (admin.StatsView, error) {
 func (a adminStats) Banner(ctx context.Context) (string, error) {
 	k, err := a.svc.Banner(ctx)
 	switch k {
-	case installstats.BannerUnanswered:
-		return "unanswered", err
-	case installstats.BannerNudge:
-		return "nudge", err
 	case installstats.BannerDefaulted:
 		return "defaulted", err
 	}
@@ -122,7 +118,6 @@ func (a adminStats) ApplyDefault(ctx context.Context) error {
 }
 
 func (a adminStats) DismissNudge(ctx context.Context) error { return a.svc.DismissNudge(ctx) }
-func (a adminStats) Reset(ctx context.Context) error        { return a.svc.Reset(ctx) }
 
 // scheduleStats puts the ping on the worker scheduler: a check every hour
 // (sending at most once a day), the first 5 to 15 minutes after start. Nothing is scheduled in a public demo or

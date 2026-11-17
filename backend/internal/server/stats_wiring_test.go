@@ -37,7 +37,6 @@ func (m *memStats) Disable(context.Context) error {
 	m.st = installstats.State{Consent: installstats.ConsentNo, Level: installstats.LevelOff}
 	return nil
 }
-func (m *memStats) Reset(context.Context) (installstats.State, error)   { return m.st, nil }
 func (m *memStats) Claim(context.Context, string) (string, bool, error) { return "", false, nil }
 func (m *memStats) AddHealth(_ context.Context, d installstats.Counts) error {
 	m.mu.Lock()

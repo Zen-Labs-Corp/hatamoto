@@ -31,7 +31,6 @@ type Backend interface {
 	Load(ctx context.Context) (State, error)
 	Enable(ctx context.Context, level Level) (State, error)
 	Disable(ctx context.Context) error
-	Reset(ctx context.Context) (State, error)
 	Claim(ctx context.Context, version string) (id string, ok bool, err error)
 	AddHealth(ctx context.Context, d Counts) error
 	RecordResult(ctx context.Context, status, version string, sent *Counts) error
@@ -155,7 +154,7 @@ func (s *Service) Banner(ctx context.Context) (BannerKind, error) {
 	return s.store.Banner(ctx)
 }
 
-// DismissNudge hides the Detailed offer for good.
+// DismissNudge acknowledges the defaulted notice for good.
 func (s *Service) DismissNudge(ctx context.Context) error {
 	if s.ForcedOff() {
 		return ErrForcedOff
@@ -177,15 +176,6 @@ func (s *Service) Choose(ctx context.Context, level Level) error {
 		return err
 	}
 	return fmt.Errorf("install stats: unknown level %q", level)
-}
-
-// Reset replaces the install ID with a new one.
-func (s *Service) Reset(ctx context.Context) error {
-	if ForcedOff(s.getenv) {
-		return ErrForcedOff
-	}
-	_, err := s.store.Reset(ctx)
-	return err
 }
 
 // SetAudit sets the function called when the default is applied. Nil (the

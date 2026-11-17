@@ -63,15 +63,6 @@ func (m *memStore) Disable(context.Context) error {
 	m.disabled++
 	return nil
 }
-func (m *memStore) Reset(context.Context) (State, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.st.Consent == ConsentYes {
-		m.n++
-		m.st.InstallID = strings.Repeat(string(rune('a'+m.n)), 32)
-	}
-	return m.st, nil
-}
 func (m *memStore) Claim(_ context.Context, version string) (string, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -126,7 +117,7 @@ func (m *memStore) AddHealth(_ context.Context, d Counts) error {
 func (m *memStore) DismissNudge(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.st.NudgeDismissed = m.st.NudgeDismissed || m.st.Level == LevelBasic
+	m.st.NudgeDismissed = true
 	m.st.DefaultNoticePending = false
 	return nil
 }
@@ -145,13 +136,8 @@ func (m *memStore) ApplyDefault(context.Context) (bool, error) {
 func (m *memStore) Banner(context.Context) (BannerKind, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	switch {
-	case m.st.Level == LevelUnset:
-		return BannerUnanswered, nil
-	case m.st.DefaultNoticePending && m.st.Level == LevelDetailed:
+	if m.st.DefaultNoticePending && m.st.Level == LevelDetailed {
 		return BannerDefaulted, nil
-	case m.st.Level == LevelBasic && !m.st.NudgeDismissed:
-		return BannerNudge, nil
 	}
 	return BannerNone, nil
 }
@@ -426,9 +412,6 @@ func TestEnforceDeletesTheID(t *testing.T) {
 	if err := s.Choose(ctx, LevelBasic); !errors.Is(err, ErrForcedOff) {
 		t.Fatalf("choose under env off = %v", err)
 	}
-	if err := s.Reset(ctx); !errors.Is(err, ErrForcedOff) {
-		t.Fatalf("reset under env off = %v", err)
-	}
 	if st, _ := m.Load(ctx); st.Consent != ConsentNo || st.InstallID != "" {
 		t.Fatalf("a refused choice must change nothing: %+v", st)
 	}
@@ -516,7 +499,7 @@ func TestBannerKinds(t *testing.T) {
 		level Level
 		want  BannerKind
 	}{
-		{"unset", nil, LevelUnset, BannerUnanswered},
+		{"unset", nil, LevelUnset, BannerNone},
 		{"explicit basic", nil, LevelBasic, BannerNone},
 		{"detailed", nil, LevelDetailed, BannerNone},
 		{"off", nil, LevelOff, BannerNone},
@@ -530,12 +513,13 @@ func TestBannerKinds(t *testing.T) {
 			t.Errorf("%s: Banner = %q, %v; want %q", c.name, got, err, c.want)
 		}
 	}
-	// A Basic row that was never chosen here (migrated from consent yes) is offered Detailed once.
-	s, m, _ := rig(t, nil, "v1.2.3")
-	_ = s.Choose(ctx, LevelBasic)
-	m.st.NudgeDismissed = false
-	if got, _ := s.Banner(ctx); got != BannerNudge {
-		t.Fatalf("migrated basic: %q, want nudge", got)
+	// Only the defaulted notice is ever shown, and Got it clears it.
+	s, _, _ := rig(t, nil, "v1.2.3")
+	if _, err := s.ApplyDefault(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.Banner(ctx); got != BannerDefaulted {
+		t.Fatalf("defaulted: %q, want defaulted", got)
 	}
 	if err := s.DismissNudge(ctx); err != nil {
 		t.Fatal(err)
@@ -559,10 +543,6 @@ func TestViewLevels(t *testing.T) {
 	_ = s.Run(ctx)
 	if v, _ := s.View(ctx); v.Level != LevelDetailed || v.LastSent != nil && !v.LastSent.Equal(*m.st.LastOKAt) {
 		t.Fatalf("detailed view: %+v", v)
-	}
-	first := m.st.InstallID
-	if err := s.Reset(ctx); err != nil || m.st.InstallID == first {
-		t.Fatalf("reset: %v", err)
 	}
 	f, fm, _ := rig(t, map[string]string{EnvTelemetry: "off"}, "v1.2.3")
 	_, _ = fm.Enable(ctx, LevelDetailed)
