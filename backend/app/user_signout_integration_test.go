@@ -21,12 +21,14 @@ import (
 )
 
 type signOutFixture struct {
-	ctx        context.Context
-	db         *database.DB
-	sessToken  string
-	apiToken   string
-	apiKey     string
-	previewTok string
+	ctx         context.Context
+	db          *database.DB
+	sessToken   string
+	apiToken    string
+	apiKey      string
+	previewTok  string
+	resetToken  string
+	inviteToken string
 }
 
 // seedSignOut builds two users, two sessions, three API keys (one already
@@ -80,10 +82,10 @@ func seedSignOut(t *testing.T) *signOutFixture {
 	}
 
 	tokens := auth.NewUserTokens(db)
-	if _, err := tokens.IssueReset(ctx, bob.ID); err != nil {
+	if f.resetToken, err = tokens.IssueReset(ctx, bob.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := tokens.IssueInvite(ctx, "new@example.test", user.RoleEditor, ana.ID, nil); err != nil {
+	if f.inviteToken, _, err = tokens.IssueInvite(ctx, "new@example.test", user.RoleEditor, ana.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -184,6 +186,33 @@ func TestSignOutAllRevokesEverything_Integration(t *testing.T) {
 	f := seedSignOut(t)
 	snap := f.snapshot(t)
 
+	// Positive controls: every credential works before the command, so the
+	// refusals after it can only come from the sign-out.
+	ss := session.NewStore(f.db)
+	keySvc := auth.NewAPIKeyService(f.db, quietLogger())
+	if _, err := ss.Validate(f.ctx, f.sessToken); err != nil {
+		t.Fatalf("admin session invalid before: %v", err)
+	}
+	if _, err := ss.Validate(f.ctx, f.apiToken); err != nil {
+		t.Fatalf("api session invalid before: %v", err)
+	}
+	if _, err := keySvc.ValidateKey(f.ctx, f.apiKey); err != nil {
+		t.Fatalf("api key invalid before: %v", err)
+	}
+	if _, ok := previewlink.New(f.db).Resolve(f.ctx, f.previewTok); !ok {
+		t.Fatal("preview link does not resolve before")
+	}
+	if f.resetToken == "" || f.inviteToken == "" {
+		t.Fatal("seed did not capture invite/reset tokens")
+	}
+	tokens := auth.NewUserTokens(f.db)
+	if !tokens.ResetValid(f.ctx, f.resetToken) {
+		t.Fatal("reset token unusable before")
+	}
+	if _, err := tokens.PeekInvite(f.ctx, f.inviteToken); err != nil {
+		t.Fatalf("invite token unusable before: %v", err)
+	}
+
 	var out bytes.Buffer
 	if err := runUserSignOutAll(f.ctx, f.db, &out); err != nil {
 		t.Fatal(err)
@@ -208,18 +237,23 @@ func TestSignOutAllRevokesEverything_Integration(t *testing.T) {
 	}
 
 	// Old credentials are refused at once (no caches).
-	ss := session.NewStore(f.db)
 	if _, err := ss.Validate(f.ctx, f.sessToken); err == nil {
 		t.Error("admin session still valid")
 	}
 	if _, err := ss.Validate(f.ctx, f.apiToken); err == nil {
 		t.Error("api session still valid")
 	}
-	if _, err := auth.NewAPIKeyService(f.db, quietLogger()).ValidateKey(f.ctx, f.apiKey); err == nil {
+	if _, err := keySvc.ValidateKey(f.ctx, f.apiKey); err == nil {
 		t.Error("api key still valid")
 	}
 	if _, ok := previewlink.New(f.db).Resolve(f.ctx, f.previewTok); ok {
 		t.Error("preview link still resolves")
+	}
+	if tokens.ResetValid(f.ctx, f.resetToken) {
+		t.Error("reset token still usable")
+	}
+	if _, err := tokens.PeekInvite(f.ctx, f.inviteToken); err == nil {
+		t.Error("invite token still usable")
 	}
 
 	var actor, detail string

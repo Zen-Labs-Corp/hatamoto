@@ -38,3 +38,10 @@ func TestUsageListsSignOutAll(t *testing.T) {
 		t.Error("usage does not list user sign-out-all")
 	}
 }
+
+func TestSignOutRefusalText(t *testing.T) {
+	const want = "error: signs out every user and revokes every API key; re-run with --yes"
+	if signOutRefusal != want {
+		t.Errorf("refusal = %q, want %q", signOutRefusal, want)
+	}
+}
