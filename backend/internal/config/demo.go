@@ -34,6 +34,9 @@ type DemoConfig struct {
 	// (every non-GET): HATAMOTO_DEMO_WRITES_PER_SECOND (default 2), burst 20.
 	WritesPerSecond float64
 	WriteBurst      int
+	// Pitches are the optional notes the admin shows above each section of a
+	// demo (HATAMOTO_DEMO_PITCH_FILE), keyed by section; see DemoPitchFor.
+	Pitches map[string]DemoPitch
 }
 
 // LoadDemoConfig reads the demo env vars. In demo mode it also sets
@@ -63,6 +66,13 @@ func LoadDemoConfig() (DemoConfig, error) {
 	d.LoginEmail = strings.TrimSpace(os.Getenv("HATAMOTO_DEMO_LOGIN_EMAIL"))
 	d.LoginPassword = os.Getenv("HATAMOTO_DEMO_LOGIN_PASSWORD")
 	_ = os.Setenv("EMAIL_DISABLED", "true")
+	if p := strings.TrimSpace(os.Getenv("HATAMOTO_DEMO_PITCH_FILE")); p != "" {
+		pitches, err := LoadDemoPitches(p)
+		if err != nil {
+			return DemoConfig{}, err
+		}
+		d.Pitches = pitches
+	}
 	return d, nil
 }
 

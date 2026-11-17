@@ -75,6 +75,28 @@ over-match (they deny more), never under-match.
 A fixed notice, "Public demo, resets every hour", in the admin (a warning callout above the page)
 and as a small strip at the foot of every public page, and the demo login on the sign-in page.
 
+## Notes per admin section (optional)
+
+`HATAMOTO_DEMO_PITCH_FILE` names a JSON file of short notes the admin shows above each section, under
+the demo notice: what that part of the product does well, for someone trying it. Each note is an info
+box with a title, the text and the fixed line "Demo only: this note is not shown on real installs."
+Visitors can dismiss a note in their browser.
+
+```json
+{
+  "home":               {"title": "One program and PostgreSQL", "body": "Nothing else to install or keep patched."},
+  "analytics":          {"title": "AI analytics, built in", "body": "See which AI crawlers read your pages."},
+  "analytics/crawlers": {"title": "Real or fake?", "body": "Each fetch is checked against the operator's published address ranges."}
+}
+```
+
+A key is the first part of the path after `<admin>` (`analytics`, `plugins`, `entities`), or the first
+two parts for one page (`analytics/crawlers`, which wins over `analytics`); `home` is the dashboard.
+Values are plain text (never HTML): `body` is required, up to 400 characters, `title` up to 80; at most
+100 entries in a file of at most 64 KB. Without demo mode the variable is ignored and the file is never
+read. In demo mode a missing or invalid file stops the server at start with the reason, like an invalid
+`HATAMOTO_DEMO`. The file is read once at start: restart the service after editing it.
+
 ## Resetting
 
 `deploy/demo/reset.sh` puts a demo back to its seeded state (database copied from a template
