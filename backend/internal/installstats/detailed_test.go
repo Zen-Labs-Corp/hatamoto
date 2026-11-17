@@ -25,6 +25,9 @@ func validateDetailed(body []byte) error {
 	}
 	want := []string{"install", "version", "channel", "level", "os", "arch", "postgres", "age_months",
 		"worker", "theme", "plugins", "other_plugins", "health"}
+	if len(entries) > 4 && entries[4].Key == "host" { // optional, right after level
+		want = append(want[:4:4], append([]string{"host"}, want[4:]...)...)
+	}
 	if len(entries) != len(want) {
 		return fmt.Errorf("%d top-level keys, want %d", len(entries), len(want))
 	}
@@ -38,6 +41,7 @@ func validateDetailed(body []byte) error {
 		Version      string           `json:"version"`
 		Channel      string           `json:"channel"`
 		Level        string           `json:"level"`
+		Host         string           `json:"host"`
 		OS           string           `json:"os"`
 		Arch         string           `json:"arch"`
 		Postgres     int              `json:"postgres"`
@@ -54,6 +58,8 @@ func validateDetailed(body []byte) error {
 	switch {
 	case b.Level != "detailed":
 		return errors.New("level")
+	case b.Host != "" && NormalizeHost(b.Host) != b.Host:
+		return errors.New("host")
 	case !osArchRE.MatchString(b.OS) || !osArchRE.MatchString(b.Arch):
 		return errors.New("os/arch")
 	case b.Postgres < 9 || b.Postgres > 99:
@@ -120,6 +126,8 @@ type fakeSources struct {
 	startErr       error
 	failed, rolled int64
 	updErr         error
+	host           string
+	hostErr        error
 	since          time.Time
 }
 
@@ -134,6 +142,9 @@ func (f *fakeSources) UpdateCounts(_ context.Context, since time.Time) (int64, i
 	return f.failed, f.rolled, f.updErr
 }
 func (f *fakeSources) WorkerOn() bool { return true }
+func (f *fakeSources) Host(context.Context) (string, error) {
+	return f.host, f.hostErr
+}
 
 var testNow = time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
 
@@ -379,5 +390,33 @@ func TestBuildDetailedHundredPluginsFit(t *testing.T) {
 	got := build(t, f, Counts{}, nil)
 	if n := strings.Count(got, `"enabled"`); n != maxPlugins {
 		t.Fatalf("%d listed, want %d", n, maxPlugins)
+	}
+}
+
+func TestBuildDetailedHost(t *testing.T) {
+	cases := []struct {
+		name, host string
+		err        error
+		want       string // substring, or "" for no host key
+	}{
+		{"public domain", "https://Example.com:8443/x", nil, `"level":"detailed","host":"example.com","os":`},
+		{"localhost", "http://localhost:8080", nil, ""},
+		{"ip literal", "http://10.0.0.5", nil, ""},
+		{"local suffix", "https://box.local", nil, ""},
+		{"empty", "", nil, ""},
+		{"source error", "https://example.com", errors.New("db down"), ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := newFake()
+			f.host, f.hostErr = c.host, c.err
+			got := build(t, f, Counts{}, nil)
+			if c.want != "" && !strings.Contains(got, c.want) {
+				t.Fatalf("want %s in %s", c.want, got)
+			}
+			if c.want == "" && strings.Contains(got, `"host"`) {
+				t.Fatalf("host must be omitted: %s", got)
+			}
+		})
 	}
 }

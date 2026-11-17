@@ -89,6 +89,17 @@ func TestStatsSources_Integration(t *testing.T) {
 	if failed, rolled, _ = src.UpdateCounts(ctx, now.Add(-72*time.Hour)); failed != 1 || rolled != 2 {
 		t.Fatalf("wider window = %d, %d", failed, rolled)
 	}
+	if h, err := src.Host(ctx); err != nil || h != "" {
+		t.Fatalf("host without a site row = %q, %v", h, err)
+	}
+	exec(`INSERT INTO hatamoto_site_config (company_name, public_base_url) VALUES ('Example', 'https://stored.example.com')`)
+	if h, err := src.Host(ctx); err != nil || h != "https://stored.example.com" {
+		t.Fatalf("stored host = %q, %v", h, err)
+	}
+	src.baseURL = " https://env.example.com "
+	if h, err := src.Host(ctx); err != nil || h != "https://env.example.com" {
+		t.Fatalf("env host = %q, %v", h, err)
+	}
 	if !src.WorkerOn() {
 		t.Fatal("worker flag lost")
 	}

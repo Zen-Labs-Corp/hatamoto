@@ -52,6 +52,9 @@ type Sources interface {
 	InstallStart(ctx context.Context) (time.Time, error)
 	UpdateCounts(ctx context.Context, since time.Time) (failed, rolledBack int64, err error)
 	WorkerOn() bool
+	// Host is the raw public base URL (or domain) of the site; BuildDetailed
+	// normalises it and omits the key when it is not a public domain.
+	Host(ctx context.Context) (string, error)
 }
 
 // BuildInput is everything BuildDetailed needs.
@@ -92,6 +95,7 @@ type detailedBody struct {
 	Version      string           `json:"version"`
 	Channel      string           `json:"channel"`
 	Level        string           `json:"level"`
+	Host         string           `json:"host,omitempty"`
 	OS           string           `json:"os"`
 	Arch         string           `json:"arch"`
 	Postgres     int              `json:"postgres"`
@@ -149,9 +153,13 @@ func BuildDetailed(ctx context.Context, in BuildInput) ([]byte, error) {
 	if in.WindowStart != nil {
 		sinceHours = clamp(int64(in.Now.Sub(*in.WindowStart)/time.Hour), maxSinceHours)
 	}
+	host := ""
+	if h, err := in.Src.Host(ctx); err == nil {
+		host = NormalizeHost(h)
+	}
 	c := in.Counts
 	body := detailedBody{
-		Install: in.Install, Version: in.Version, Channel: in.Channel, Level: string(LevelDetailed),
+		Install: in.Install, Version: in.Version, Channel: in.Channel, Level: string(LevelDetailed), Host: host,
 		OS: runtime.GOOS, Arch: runtime.GOARCH, Postgres: pg, AgeMonths: age, Worker: in.Src.WorkerOn(),
 		Theme:        detailedTheme{Name: theme.Name, Version: themeVersion},
 		Plugins:      listed,
