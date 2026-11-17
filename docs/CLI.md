@@ -124,5 +124,14 @@ hatamoto locales convert --revert 1 [--force]          # undo conversion 1
 - `--as EMAIL` attributes the change (`created_by` / `updated_by`) to an existing user; without it the columns stay empty.
 - The CLI builds the entity service without the server's plugin host, so it does **not** fire `entity.*` plugin events (so webhooks send nothing for CLI changes), does not run plugin `before_save` validation, and does not reindex internal links or rewrite links on a slug change. Use the API or MCP server when those must run; the CLI is for operator and recovery work. Redirect commands bypass nothing of the redirect rules (same validation); a running server reads redirect rules again within about a minute.
 - `user reset-2fa --email E` removes a user's authenticator app, passkeys and recovery codes.
+- `user sign-out-all --yes` cuts every way into the site except passwords: it deletes every session, revokes every API key, voids every unused invite and password-reset link and revokes every preview link. Use it when handing a site to someone else, or after restoring a backup for a new owner. Users, passwords, passkeys, authenticator apps and recovery codes are not touched. Without `--yes` it prints `error: signs out every user and revokes every API key; re-run with --yes` to stderr and exits 1 before it opens the database. It works while the server runs and takes effect at once (sessions, API keys and preview links are checked in the database on every request, with no cache). All changes and one audit row (`user.sign_out_all`, counts only) are written in one transaction, so a failure revokes nothing. The command locks the session, API key, invite/reset and preview link tables against writes for the length of the transaction. Writes already in progress finish first and are swept, and new writes wait until it commits. A request already in flight can still complete after the command, so for a hard guarantee stop the server first. If the tables stay busy the command gives up after 5 seconds with `sign out all: tables busy, nothing was changed; re-run` and changes nothing. Counts are the rows newly changed, so a link that is already expired but not yet revoked is counted, and a second run prints zeros. The output is a stable contract: four lines of `<label> <n> <verb>`, the label padded to 13 columns, then a closing sentence:
+
+  ```text
+  sessions      4 deleted
+  api keys      3 revoked
+  invite/reset  1 revoked
+  preview links 2 revoked
+  users, passwords and second factors are unchanged
+  ```
 - `user create` and `user reset-password` are documented in the README; they also work on an imported database.
 - Export and import: see [EXPORT.md](EXPORT.md). Importing a WordPress site: see [IMPORT-WORDPRESS.md](IMPORT-WORDPRESS.md).
