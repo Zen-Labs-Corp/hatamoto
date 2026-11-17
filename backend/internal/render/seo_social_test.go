@@ -39,7 +39,9 @@ func TestSocialHeadImagesAndCard(t *testing.T) {
 	}{
 		{"site default is absolute and large (A1)", PageMeta{Name: "N"}, site, "https://x.io/site.png", "summary_large_image"},
 		{"type default beats site default", PageMeta{Name: "N"}, typed, "https://x.io/type.png", "summary_large_image"},
-		{"entry image beats type default, kept as stored", PageMeta{Name: "N", OGImage: "/own.png"}, typed, "/own.png", "summary_large_image"},
+		{"entry image beats type default, made absolute", PageMeta{Name: "N", OGImage: "/own.png"}, typed, "https://x.io/own.png", "summary_large_image"},
+		{"absolute entry image kept", PageMeta{Name: "N", OGImage: "https://cdn.example/own.png"}, typed, "https://cdn.example/own.png", "summary_large_image"},
+		{"entry image without social settings made absolute", PageMeta{Name: "N", OGImage: "/own.png"}, func(*seo.Social) {}, "https://x.io/own.png", "summary_large_image"},
 		{"card summary forced", PageMeta{Name: "N"}, summary, "https://x.io/site.png", "summary"},
 		{"no image no card upgrade", PageMeta{Name: "N"}, func(s *seo.Social) { s.SiteTags = true }, "", "summary"},
 	}
