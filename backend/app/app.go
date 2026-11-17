@@ -33,6 +33,7 @@ const (
 	cmdUserCreate
 	cmdUserResetPassword
 	cmdUserReset2FA
+	cmdUserSignOutAll
 	cmdPluginsList
 	cmdSanitizeHTMLSections
 	cmdRoutes
@@ -61,6 +62,7 @@ commands:
   user reset-password --email E [--password P | --password-stdin]
                                    set a new password (temporary one printed unless given), unlock, sign out
   user reset-2fa --email E         remove the authenticator app, passkeys and recovery codes of a user (password sign-in only afterwards)
+  user sign-out-all --yes          sign out every user and revoke every API key, unused invite/reset link and preview link (passwords are kept)
   admin-url                        print the admin address
   admin-url set PATH [--i-understand-weak]
                                    store a new admin address (weak ones need the flag; applies after a restart)
@@ -144,6 +146,9 @@ func parseArgs(args []string) (command, error) {
 		}
 		if len(args) >= 2 && args[1] == "reset-2fa" {
 			return cmdUserReset2FA, nil
+		}
+		if len(args) >= 2 && args[1] == "sign-out-all" {
+			return cmdUserSignOutAll, nil
 		}
 	case "admin-url":
 		if _, err := parseAdminURLArgs(args[1:]); err == nil {
@@ -306,6 +311,18 @@ func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) e
 		return runLocalesConvert(ctx, os.Getenv("DATABASE_URL"), args[2:], os.Stdout, os.Stderr)
 	}
 
+	// Refuse before opening the database.
+	if cmd == cmdUserSignOutAll {
+		yes, err := parseSignOutFlags(args[2:])
+		if err != nil {
+			return err
+		}
+		if !yes {
+			fmt.Fprintln(os.Stderr, signOutRefusal)
+			return exitError{1}
+		}
+	}
+
 	// Remaining commands only need the database.
 	var (
 		uf  *userFlags
@@ -348,6 +365,8 @@ func run(ctx context.Context, cmd command, args []string, logger *slog.Logger) e
 		return runUserResetPassword(ctx, db, uf, os.Stdin, os.Stdout)
 	case cmdUserReset2FA:
 		return runUserReset2FA(ctx, db, uf, os.Stdout)
+	case cmdUserSignOutAll:
+		return runUserSignOutAll(ctx, db, os.Stdout)
 	}
 	return fmt.Errorf("unhandled command %d", cmd)
 }
