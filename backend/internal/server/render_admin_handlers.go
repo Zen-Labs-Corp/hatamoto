@@ -228,6 +228,7 @@ func (h *renderAdminHandlers) attributesView(r *http.Request, req *previewReques
 	if req.UpdatedAt != nil {
 		v.UpdatedAt = *req.UpdatedAt
 	}
+	v.Entity = draftEntityView(v)
 	site, forms, err := h.chrome(r.Context(), formSections(sections, doc))
 	if err != nil {
 		return nil, err
@@ -236,6 +237,22 @@ func (h *renderAdminHandlers) attributesView(r *http.Request, req *previewReques
 	v.PluginDirectory, v.ThemeDirectory = h.directoryFor(r.Context(), sections, doc)
 	v.Related = noRelated
 	return v, nil
+}
+
+// draftEntityView is .Entity for an attributes-only preview: an entity page
+// (EntityID set) always has one, so a theme's single layout can read
+// .Entity.Title for a draft that has no public route yet. It carries only
+// what the request posted: no terms, byline or public URL. Nil without an
+// entity id, as on the public site for a page that is not an entity.
+func draftEntityView(v *render.PageView) *render.EntityView {
+	if v.EntityID == "" {
+		return nil
+	}
+	return &render.EntityView{
+		ID: v.EntityID, Title: firstNonEmpty(strAttr(v.Attrs, "title"), v.Page.Name), Schema: v.SchemaSlug,
+		Excerpt: firstAttr(v.Attrs, excerptKeys...), Image: firstAttr(v.Attrs, imageKeys...),
+		Attributes: v.Attrs, PublishedAt: v.PublishedAt, UpdatedAt: v.UpdatedAt,
+	}
 }
 
 // directoryFor is the directory views of a draft, nil for a kind it has none

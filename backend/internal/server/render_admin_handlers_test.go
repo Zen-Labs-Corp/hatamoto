@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/google/uuid"
 
@@ -121,6 +122,31 @@ func TestRenderPreviewOversizeBody(t *testing.T) {
 func TestRenderPreviewBadJSON(t *testing.T) {
 	if w := preview(t, newPreviewHandlers(t), `{`); w.Code != http.StatusBadRequest {
 		t.Fatalf("status %d", w.Code)
+	}
+}
+
+// A draft has no public route, so its preview is the attributes-only view.
+// A single layout that reads .Entity without a guard must still render.
+func TestRenderPreviewDraftHasEntity(t *testing.T) {
+	h := newPreviewHandlers(t)
+	engine := h.engine.(*render.Engine)
+	if err := engine.SetTheme(fstest.MapFS{
+		"theme.json":               {Data: []byte(`{"name":"d","version":"1.0.0"}`)},
+		"layouts/single-post.html": {Data: []byte(`{{define "content"}}{{$e := .Entity}}<h1>{{$e.Title}}</h1><p>{{$e.Excerpt}}|{{$e.Schema}}|{{$e.ID}}</p>{{end}}`)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.NewString()
+	w := preview(t, h, `{"entity_id":"`+id+`","schema":"post","name":"Draft name","attributes":{"excerpt":"Short","content":"<p>x</p>"}}`)
+	if w.Code != 200 {
+		t.Fatalf("status %d: %s", w.Code, w.Body)
+	}
+	if want := "<h1>Draft name</h1><p>Short|post|" + id + "</p>"; !strings.Contains(w.Body.String(), want) {
+		t.Errorf("missing %q in %s", want, w.Body)
+	}
+	w = preview(t, h, `{"entity_id":"`+id+`","schema":"post","name":"Draft name","attributes":{"title":"Attr title"}}`)
+	if !strings.Contains(w.Body.String(), "<h1>Attr title</h1>") {
+		t.Errorf("title attribute not preferred: %s", w.Body)
 	}
 }
 
