@@ -86,6 +86,49 @@ func TestDemoBannerAndLogin(t *testing.T) {
 	}
 }
 
+var demoPitches = map[string]config.DemoPitch{
+	"home":               {Title: "One program", Body: "Home pitch."},
+	"analytics":          {Title: "AI analytics", Body: "Section pitch <b>escaped</b>."},
+	"analytics/crawlers": {Title: "Crawlers", Body: "Page pitch."},
+}
+
+// Each admin section shows its pitch with the demo-only footnote; a section
+// without one shows none.
+func TestDemoPitchPerSection(t *testing.T) {
+	t.Parallel()
+
+	g := newRig(t, func(d *Deps) {
+		d.Demo = config.DemoConfig{Enabled: true, Pitches: demoPitches}
+	})
+	for path, want := range map[string]string{
+		"/admin/analytics/traffic":  "Section pitch",
+		"/admin/analytics/crawlers": "Page pitch.",
+	} {
+		page := g.do("GET", path, "owner-token", nil, nil).Body.String()
+		if !strings.Contains(page, want) || !strings.Contains(page, config.DemoPitchFootnote) || !strings.Contains(page, "data-hm-demo-pitch") {
+			t.Errorf("%s: no pitch %q with the footnote", path, want)
+		}
+	}
+	if page := g.do("GET", "/admin/analytics/traffic", "owner-token", nil, nil).Body.String(); strings.Contains(page, "<b>escaped</b>") {
+		t.Error("pitch text is not escaped")
+	}
+	if page := g.do("GET", "/admin/settings/general", "owner-token", nil, nil).Body.String(); strings.Contains(page, "data-hm-demo-pitch") {
+		t.Error("a section without a pitch shows one")
+	}
+}
+
+// A pitch file means nothing without HATAMOTO_DEMO.
+func TestDemoPitchOffShowsNothing(t *testing.T) {
+	t.Parallel()
+
+	g := newRig(t, func(d *Deps) {
+		d.Demo = config.DemoConfig{Pitches: demoPitches}
+	})
+	if page := g.do("GET", "/admin/analytics/traffic", "owner-token", nil, nil).Body.String(); strings.Contains(page, "data-hm-demo-pitch") || strings.Contains(page, config.DemoPitchFootnote) {
+		t.Error("pitch with the demo off")
+	}
+}
+
 // Without HATAMOTO_DEMO nothing changes: no banner, no login hint, no refusal.
 func TestDemoOffChangesNothing(t *testing.T) {
 	t.Parallel()

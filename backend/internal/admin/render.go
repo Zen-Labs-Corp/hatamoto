@@ -198,7 +198,15 @@ type View struct {
 	AccessBanner *AccessBanner
 	// DemoBanner is the public demo notice ("" outside demo mode).
 	DemoBanner string
-	Data       any // page-specific data
+	// DemoPitch is the demo's note for this section (HATAMOTO_DEMO_PITCH_FILE),
+	// nil outside demo mode or when the file has none for it.
+	DemoPitch *DemoPitch
+	Data      any // page-specific data
+}
+
+// DemoPitch is a demo note as the shell renders it.
+type DemoPitch struct {
+	Key, Title, Body, Footnote string
 }
 
 // NavGroups is the sidebar: Nav folded into titled groups.
@@ -534,6 +542,11 @@ func (a *Admin) NewView(w http.ResponseWriter, r *http.Request, title string) *V
 	}
 	if a.deps.Demo.Enabled {
 		v.DemoBanner = config.DemoBanner
+		rel := strings.TrimPrefix(r.URL.Path, a.adminPath)
+		if p, ok := a.deps.Demo.DemoPitchFor(rel); ok {
+			// The key names the dismissal; "/" in a section/page key becomes "-".
+			v.DemoPitch = &DemoPitch{Key: strings.ReplaceAll(p.Key, "/", "-"), Title: p.Title, Body: p.Body, Footnote: config.DemoPitchFootnote}
+		}
 	}
 	if v.SiteName == "" {
 		v.SiteName = "Hatamoto"
