@@ -458,7 +458,7 @@ type updatesData struct {
 	Pin                      string
 	History                  ui.Table
 	InstallStats             *StatsView // nil when there is no stats service or it failed
-	StatsOn                  bool       // the Install stats checkbox is ticked
+	StatsOn                  bool       // the Install stats switch is on
 	StatsDocsURL             string
 	StatsLastSent            string // time of the last successful report, "" before the first
 }

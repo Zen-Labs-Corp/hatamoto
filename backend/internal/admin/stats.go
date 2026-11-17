@@ -51,13 +51,13 @@ type StatsView struct {
 	LastSent  *time.Time // time of the last successful report
 }
 
-// statsTicked reports whether the Settings checkbox is ticked: stats are on
+// statsTicked reports whether the Settings switch is on: stats are on
 // unless the owner turned them off or the server configuration forbids them.
 // An unset level counts as on (Detailed is applied by default) and a leftover
 // basic level is Detailed.
 func statsTicked(v StatsView) bool { return !v.ForcedOff && v.Level != statsLevelOff }
 
-// validStatsLevel is what the checkbox posts: install stats are Detailed or off.
+// validStatsLevel is what the switch posts: install stats are Detailed or off.
 func validStatsLevel(level string) bool {
 	return level == statsLevelOff || level == statsLevelDetailed
 }
@@ -117,7 +117,7 @@ func (a *Admin) statsChoose(w http.ResponseWriter, r *http.Request, level string
 	http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
 }
 
-// handleStatsLevel is the Settings > Updates checkbox: level=off|detailed.
+// handleStatsLevel is the Settings > Updates switch: level=off|detailed.
 // Anything else is refused, never read as a default.
 func (a *Admin) handleStatsLevel(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()

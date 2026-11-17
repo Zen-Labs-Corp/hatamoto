@@ -1,10 +1,10 @@
 ---
 title: Install stats
 nav_title: Install stats
-description: Anonymous install stats are on by default and can be turned off: what is sent, what is never sent and how to turn it off or rule it out.
+description: Install stats are on by default and can be turned off: what is sent, what is never sent and how to turn it off or rule it out.
 ---
 
-Install stats are an anonymous report from a running Hatamoto install. They have two states: **on** (the Detailed report) and **off**. A new install, and an existing one that was never asked, sends the report once setup is finished, unless an owner turns it off or the server sets `HATAMOTO_TELEMETRY=off`. Development builds and public demos send nothing. An owner who turned stats off keeps that choice. This page lists what is sent and how to control it. The update check is a separate request and stays anonymous; see [Outbound connections](outbound-connections.md) for every call the server makes.
+Install stats are a report from a running Hatamoto install, sent with a random install ID and the site domain. They have two states: **on** (the Detailed report) and **off**. A new install, and an existing one that was never asked, sends the report once setup is finished, unless an owner turns it off or the server sets `HATAMOTO_TELEMETRY=off`. Development builds and public demos send nothing. An owner who turned stats off keeps that choice. This page lists what is sent and how to control it. The update check is a separate request and stays anonymous; see [Outbound connections](outbound-connections.md) for every call the server makes.
 
 An install that sent the older, smaller Basic report moves to the Detailed report when it upgrades. Off stays off.
 
@@ -50,7 +50,7 @@ The body is JSON with these keys:
 | `version` | The release the server runs. |
 | `channel` | The update channel in use: `stable`, `edge` or `canary`. It is whatever you set, also when the update mode is `off`. |
 | `level` | Always `detailed`. |
-| `host` | The public site domain, taken from the site address setting (or `PUBLIC_BASE_URL`): lower-case, no port, no path, for example `example.com`. Left out when the site address is empty, is `localhost`, an IP address, or ends in `.local`, `.internal` or `.localhost`. It is never the machine's own hostname. |
+| `host` | The public site domain, taken from `PUBLIC_BASE_URL` if it is set, else from the site address setting: lower-case, no port, no path, for example `example.com`. Left out when it is not a valid public domain name (empty, `localhost`, an IP address, or ending in `.local`, `.internal` or `.localhost`). It is never the machine's own hostname. |
 | `os`, `arch` | The operating system and CPU architecture the server runs on, as Go names them (`linux`, `amd64`). |
 | `postgres` | The major version of the database, for example `16`. |
 | `age_months` | How long the install has existed, rounded down to one of 0, 1, 3, 6, 12, 24 or 36 months (36 means 36 or more). Never the exact date. |
@@ -87,7 +87,7 @@ The receiver keeps one report per install and UTC day: a second report the same 
 
 Installs that were never asked send the report once setup is finished, and the owner sees a one-time notice on the admin pages: **Hatamoto shares usage stats (version, site address, plugins, theme, error counts).** with **Change in Settings** and **Got it**. **Got it**, or changing the setting yourself, ends the notice.
 
-There is no setup step for it. **Settings > Updates** has a **Usage stats** section with one checkbox, **Share usage stats with Hatamoto**, ticked by default. Untick it and select **Save** to turn stats off, and tick it again to turn them on. The section also has a **What is collected** link to this page and shows when a report was last sent successfully. Editors do not see it.
+There is no setup step for it. **Settings > Updates** has a **Usage stats** section with one switch, **Share usage stats with Hatamoto**, on by default. Turn it off and select **Save** to turn stats off, and turn it on again to turn them on. The section also has a **What is collected** link to this page and shows when a report was last sent successfully. Editors do not see it.
 
 Turning stats on creates the install ID. Turning them off deletes it, and the health counts with it. There is no separate reset: turn stats off and on again to get a new random ID.
 
@@ -95,7 +95,7 @@ Turning stats on creates the install ID. Turning them off deletes it, and the he
 
 Two environment variables, both listed in the [Configuration reference](configuration-reference.md#updates):
 
-- `HATAMOTO_TELEMETRY=off` rules stats out. Nothing is sent, the stored install ID is deleted at start and before every daily run, and the choice is set to off, so removing the variable later does not start sending again without a new answer. The notice is left out, the checkbox is disabled and unticked, and Settings > Updates shows **Turned off by the server configuration.** Any other value changes nothing: the variable can only turn stats off, never on, and no default is applied while it is set to `off`.
+- `HATAMOTO_TELEMETRY=off` rules stats out. Nothing is sent, the stored install ID is deleted at start and before every daily run, and the choice is set to off, so removing the variable later does not start sending again without a new answer. The notice is left out, the switch is disabled and off, and Settings > Updates shows **Turned off by the server configuration.** Any other value changes nothing: the variable can only turn stats off, never on, and no default is applied while it is set to `off`.
 - `HATAMOTO_TELEMETRY_URL` replaces the endpoint, for testing. It must be a plain `https://host/path` with no user, query or fragment. An invalid value is ignored with a warning and the default is used.
 
 To skip the daily job without touching the choice, add `stats_ping` to `WORKER_DISABLE_JOBS`. Nothing is scheduled in a public demo.

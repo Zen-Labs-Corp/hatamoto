@@ -24,7 +24,7 @@ func TestUpdatePromiseDocs(t *testing.T) {
 	// The promise is "install stats are on by default, one switch turns them off" plus a complete, linked list of outbound
 	// connections, each with its switch; updates can be turned off entirely.
 	for _, want := range []string{
-		"Anonymous install stats are on by default and one switch turns them off.",
+		"Install stats are on by default and one switch turns them off.",
 		"`HATAMOTO_TELEMETRY=off`",
 		"[Outbound connections](docs/site/operate/outbound-connections.md)",
 		"`off` (no network call at all)",
@@ -42,7 +42,7 @@ func TestUpdatePromiseDocs(t *testing.T) {
 		"https://hatamoto.dev/p/stats/v1/ping",
 		"hatamoto-stats",
 		"HATAMOTO_TELEMETRY=off",
-		"three keys: `install`",
+		"three keys, `install`",
 	} {
 		if !strings.Contains(outbound, want) {
 			t.Errorf("outbound connections page lacks the install stats detail %q", want)
