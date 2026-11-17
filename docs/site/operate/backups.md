@@ -1,7 +1,7 @@
 ---
 title: Back up and restore
 nav_title: Backups
-description: Back up and restore a site with one command, or by hand: the database, the server secret and uploaded media, in the right order, and test the restore before you need it.
+description: Back up and restore a site with one command or by hand: the database, the server secret and uploaded media, in order, and test the restore before you need it.
 next: ../updates/backups-and-rollback.md, hardening.md, configuration-reference.md
 ---
 

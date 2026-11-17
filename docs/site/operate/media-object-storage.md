@@ -1,7 +1,7 @@
 ---
 title: Keep media in object storage
 nav_title: Media in object storage
-description: Store the media library in an S3-compatible bucket instead of on the server's disk, move existing files across with one command, and back up and restore a site that uses it.
+description: Store the media library in an S3-compatible bucket instead of on disk, move existing files across with one command, and back up and restore the site.
 next: backups.md, configuration-reference.md, hardening.md
 ---
 

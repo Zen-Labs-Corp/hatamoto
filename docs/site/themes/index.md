@@ -1,5 +1,5 @@
 ---
-title: Themes
+title: Theme development
 nav_title: Themes
 description: Change or build the look of your site: templates, blocks, colours and fonts, then preview the result and install it.
 ---
