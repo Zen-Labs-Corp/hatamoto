@@ -16,12 +16,10 @@ type fakeStats struct {
 	banner     string // what Banner answers; "" for none
 	viewErr    error
 	chooseE    error
-	resetE     error
 	dismissE   error
 	views      int
 	asks       int
 	chosen     []string
-	resets     int
 	dismissals int
 	defaults   int
 	defaultE   error
@@ -57,11 +55,6 @@ func (f *fakeStats) ApplyDefault(context.Context) error {
 	return f.defaultE
 }
 
-func (f *fakeStats) Reset(context.Context) error {
-	f.resets++
-	return f.resetE
-}
-
 const statsTestID = "0123456789abcdef0123456789abcdef"
 
 func newStatsRig(t *testing.T, f *fakeStats) *updatesRig {
@@ -73,7 +66,7 @@ func newStatsRig(t *testing.T, f *fakeStats) *updatesRig {
 	return u
 }
 
-var statsPosts = []string{"/stats", "/stats/choice", "/stats/dismiss", "/stats/reset"}
+var statsPosts = []string{"/stats", "/stats/choice", "/stats/dismiss"}
 
 func TestStatsPostsAreOwnerOnlyAndNeedCSRF(t *testing.T) {
 	f := &fakeStats{view: StatsView{Level: "unset"}}
@@ -90,7 +83,7 @@ func TestStatsPostsAreOwnerOnlyAndNeedCSRF(t *testing.T) {
 			t.Errorf("no CSRF POST %s = %d, want 403", target, rec.Code)
 		}
 	}
-	if f.views != 0 || len(f.chosen) != 0 || f.resets != 0 || f.dismissals != 0 || len(u.events) != 0 {
+	if f.views != 0 || len(f.chosen) != 0 || f.dismissals != 0 || len(u.events) != 0 {
 		t.Error("a refused request reached the service")
 	}
 }
@@ -98,14 +91,14 @@ func TestStatsPostsAreOwnerOnlyAndNeedCSRF(t *testing.T) {
 func TestStatsPostsWithoutServiceAre503(t *testing.T) {
 	u := newStatsRig(t, nil)
 	for _, p := range statsPosts {
-		if rec := u.do("POST", "/admin/settings/updates"+p, "owner-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil); rec.Code != 503 {
+		if rec := u.do("POST", "/admin/settings/updates"+p, "owner-token", url.Values{"choice": {"detailed"}, "level": {"detailed"}}, nil); rec.Code != 503 {
 			t.Errorf("POST %s without a service = %d, want 503", p, rec.Code)
 		}
 	}
 }
 
 func TestStatsChoiceCallsServiceOnceAndAuditsWithoutID(t *testing.T) {
-	for _, choice := range []string{"off", "basic", "detailed"} {
+	for _, choice := range []string{"off", "detailed"} {
 		f := &fakeStats{view: StatsView{Level: "unset"}}
 		u := newStatsRig(t, f)
 		rec := u.do("POST", "/admin/settings/updates/stats/choice", "owner-token", url.Values{"choice": {choice}}, nil)
@@ -127,7 +120,7 @@ func TestStatsChoiceCallsServiceOnceAndAuditsWithoutID(t *testing.T) {
 func TestStatsChoiceRefusesAnythingElse(t *testing.T) {
 	f := &fakeStats{view: StatsView{Level: "unset"}}
 	u := newStatsRig(t, f)
-	for _, form := range []url.Values{{}, {"choice": {""}}, {"choice": {"maybe"}}, {"choice": {"yes"}}, {"choice": {"Basic"}}} {
+	for _, form := range []url.Values{{}, {"choice": {""}}, {"choice": {"maybe"}}, {"choice": {"yes"}}, {"choice": {"Basic"}}, {"choice": {"basic"}}} {
 		if rec := u.do("POST", "/admin/settings/updates/stats/choice", "owner-token", form, nil); rec.Code != 400 {
 			t.Errorf("choice %v = %d, want 400", form, rec.Code)
 		}
@@ -138,7 +131,7 @@ func TestStatsChoiceRefusesAnythingElse(t *testing.T) {
 }
 
 func TestStatsLevelPost(t *testing.T) {
-	for _, level := range []string{"off", "basic", "detailed"} {
+	for _, level := range []string{"off", "detailed"} {
 		f := &fakeStats{view: StatsView{Level: "off"}}
 		u := newStatsRig(t, f)
 		rec := u.do("POST", "/admin/settings/updates/stats", "owner-token", url.Values{"level": {level}}, nil)
@@ -152,9 +145,16 @@ func TestStatsLevelPost(t *testing.T) {
 			t.Errorf("level %q: audit = %+v", level, u.events)
 		}
 	}
+	// The checkbox posts level=detailed when ticked and the hidden level=off after it
+	// when not; the first value wins, so a ticked box is never read as off.
+	f0 := &fakeStats{view: StatsView{Level: "off"}}
+	u0 := newStatsRig(t, f0)
+	if rec := u0.do("POST", "/admin/settings/updates/stats", "owner-token", url.Values{"level": {"detailed", "off"}}, nil); rec.Code != 303 || len(f0.chosen) != 1 || f0.chosen[0] != "detailed" {
+		t.Errorf("ticked box: %d, chose %v", rec.Code, f0.chosen)
+	}
 	f := &fakeStats{view: StatsView{Level: "basic"}}
 	u := newStatsRig(t, f)
-	for _, form := range []url.Values{{}, {"level": {""}}, {"level": {"on"}}, {"stats": {"on"}}} {
+	for _, form := range []url.Values{{}, {"level": {""}}, {"level": {"on"}}, {"level": {"basic"}}, {"stats": {"on"}}} {
 		if rec := u.do("POST", "/admin/settings/updates/stats", "owner-token", form, nil); rec.Code != 400 {
 			t.Errorf("level %v = %d, want 400", form, rec.Code)
 		}
@@ -185,22 +185,8 @@ func TestStatsForcedOffChangesNothing(t *testing.T) {
 			t.Errorf("POST %s: flash missing %q", p, statsForcedOffNote)
 		}
 	}
-	if len(f.chosen) != 0 || f.resets != 0 || f.dismissals != 0 || len(u.events) != 0 {
-		t.Errorf("forced off: Choose %v, Reset %d, dismissals %d, audit %d", f.chosen, f.resets, f.dismissals, len(u.events))
-	}
-}
-
-func TestStatsResetCallsServiceOnce(t *testing.T) {
-	f := &fakeStats{view: StatsView{Level: "basic"}}
-	u := newStatsRig(t, f)
-	if rec := u.do("POST", "/admin/settings/updates/stats/reset", "owner-token", url.Values{}, nil); rec.Code != 303 {
-		t.Fatalf("reset = %d", rec.Code)
-	}
-	if f.resets != 1 {
-		t.Errorf("Reset calls = %d, want 1", f.resets)
-	}
-	if len(u.events) != 1 || u.events[0].Action != "stats.reset" || len(u.events[0].Detail) != 0 {
-		t.Errorf("audit = %+v", u.events)
+	if len(f.chosen) != 0 || f.dismissals != 0 || len(u.events) != 0 {
+		t.Errorf("forced off: Choose %v, dismissals %d, audit %d", f.chosen, f.dismissals, len(u.events))
 	}
 }
 
@@ -215,12 +201,10 @@ func TestStatsServiceErrorsAreQuietAndNotAudited(t *testing.T) {
 		{"level", &fakeStats{view: StatsView{Level: "basic"}, chooseE: boom}, "/stats"},
 		{"dismiss", &fakeStats{view: StatsView{Level: "basic"}, dismissE: boom}, "/stats/dismiss"},
 		{"view", &fakeStats{viewErr: boom}, "/stats/choice"},
-		{"reset view", &fakeStats{viewErr: boom}, "/stats/reset"},
-		{"reset", &fakeStats{view: StatsView{Level: "basic"}, resetE: boom}, "/stats/reset"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			u := newStatsRig(t, c.f)
-			rec := u.do("POST", "/admin/settings/updates"+c.path, "owner-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil)
+			rec := u.do("POST", "/admin/settings/updates"+c.path, "owner-token", url.Values{"choice": {"detailed"}, "level": {"detailed"}}, nil)
 			if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/updates" {
 				t.Fatalf("= %d %s, want a quiet 303 to Settings > Updates", rec.Code, rec.Header().Get("Location"))
 			}
@@ -246,19 +230,18 @@ func TestStatsServiceStillRefusesWithoutServiceOrChoice(t *testing.T) {
 
 func TestUpdatesInstallStatsCardStates(t *testing.T) {
 	sent := updatesClock.Add(-3 * time.Hour)
-	common := []string{`id="updates-stats"`, `name="level"`, "Nothing is sent", "Version and update channel", "Basic, plus plugins, theme and error counts", `href="https://hatamoto.dev/docs/operate/install-stats" target="_blank" rel="noopener">What is collected</a>`}
+	common := []string{`id="updates-stats"`, `name="level"`, `id="stats-on"`, "Share usage stats with Hatamoto", `href="https://hatamoto.dev/docs/operate/install-stats" target="_blank" rel="noopener">What is collected</a>`}
+	const ticked, off = `value="detailed" checked`, `value="off"`
 	for _, c := range []struct {
 		name    string
 		view    StatsView
 		wants   []string
 		absents []string
 	}{
-		{"unset", StatsView{Level: "unset"}, common, []string{`name="level" value="off" checked`, `name="level" value="basic" checked`, `name="level" value="detailed" checked`, "Reset ID", "Last sent"}},
-		{"off", StatsView{Level: "off"}, append([]string{`name="level" value="off" checked`}, common...), []string{`name="level" value="basic" checked`, "Reset ID", "Last sent"}},
-		{"basic", StatsView{Level: "basic", LastSent: &sent}, append([]string{`name="level" value="basic" checked`, "Reset ID", `id="reset-stats-form"`, "Last sent"}, common...), []string{`name="level" value="off" checked`, "Not sent yet."}},
-		{"detailed", StatsView{Level: "detailed", LastSent: &sent}, append([]string{`name="level" value="detailed" checked`, "Reset ID", "Last sent"}, common...), []string{`name="level" value="off" checked`, "Not sent yet."}},
-		{"detailed_never_sent", StatsView{Level: "detailed"}, []string{"Last sent", "Not sent yet. Hatamoto tries again once a day."}, nil},
-		{"forced_off", StatsView{Level: "off", ForcedOff: true}, []string{"Turned off by the server configuration.", "hm-badge"}, []string{`name="level"`, `id="stats-form"`, "Reset ID"}},
+		{"unset", StatsView{Level: "unset"}, append([]string{ticked, "Last sent: not sent yet."}, common...), nil},
+		{"off", StatsView{Level: "off"}, append([]string{off}, common...), []string{ticked, "Last sent"}},
+		{"detailed", StatsView{Level: "detailed", LastSent: &sent}, append([]string{ticked, "Last sent: "}, common...), []string{"not sent yet"}},
+		{"forced_off", StatsView{Level: "off", ForcedOff: true}, []string{`id="stats-on"`, "disabled", "Turned off by the server configuration."}, []string{ticked, `id="stats-form"`, "What is collected"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f := &fakeStats{view: c.view}
@@ -268,15 +251,17 @@ func TestUpdatesInstallStatsCardStates(t *testing.T) {
 					t.Errorf("page lacks %q", w)
 				}
 			}
-			for _, b := range append(c.absents, "hm-code", "What is sent", "error: ") {
+			for _, b := range append(c.absents, "Reset ID", `name="level" value="basic"`, "Basic", "hm-code", "What is sent", "error: ") {
 				if strings.Contains(body, b) {
 					t.Errorf("page has %q", b)
 				}
 			}
-			if c.name != "detailed_never_sent" {
-				compareGolden(t, "pages/settings-updates-stats-"+c.name+".html", normalizePage(body))
-			}
+			compareGolden(t, "pages/settings-updates-stats-"+c.name+".html", normalizePage(body))
 		})
+	}
+	// A leftover basic level is shown as on.
+	if body := newStatsRig(t, &fakeStats{view: StatsView{Level: "basic"}}).get(t); !strings.Contains(body, ticked) {
+		t.Error("a basic level is not ticked")
 	}
 }
 
