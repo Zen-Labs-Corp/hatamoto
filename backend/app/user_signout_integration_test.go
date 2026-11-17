@@ -297,3 +297,29 @@ func TestSignOutAllRollsBack_Integration(t *testing.T) {
 		t.Errorf("rows changed despite failure: %v -> %v", before, after)
 	}
 }
+
+func TestSignOutAllBusyTimesOut_Integration(t *testing.T) {
+	f := seedSignOut(t)
+	before := f.state(t)
+	old := signOutLockTimeout
+	signOutLockTimeout = "200ms"
+	t.Cleanup(func() { signOutLockTimeout = old })
+
+	// A writer holding ROW EXCLUSIVE on one of the tables blocks the lock.
+	holder, err := f.db.Pool().Begin(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer holder.Rollback(f.ctx)
+	if _, err := holder.Exec(f.ctx, `LOCK TABLE hatamoto_preview_links IN ROW EXCLUSIVE MODE`); err != nil {
+		t.Fatal(err)
+	}
+
+	err = runUserSignOutAll(f.ctx, f.db, &bytes.Buffer{})
+	if !errors.Is(err, errSignOutBusy) {
+		t.Fatalf("err = %v, want errSignOutBusy", err)
+	}
+	if after := f.state(t); after != before {
+		t.Errorf("rows changed despite timeout: %v -> %v", before, after)
+	}
+}

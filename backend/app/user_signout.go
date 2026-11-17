@@ -2,11 +2,13 @@ package app
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/jsonx"
@@ -14,6 +16,13 @@ import (
 
 // signOutRefusal is printed when `user sign-out-all` runs without --yes.
 const signOutRefusal = "error: signs out every user and revokes every API key; re-run with --yes"
+
+// signOutLockTimeout bounds the wait for the table locks; a variable so the
+// integration test can shorten it.
+var signOutLockTimeout = "5s"
+
+// errSignOutBusy is returned when the table locks time out (SQLSTATE 55P03).
+var errSignOutBusy = errors.New("tables busy, nothing was changed; re-run")
 
 // signOutCounts are the rows newly changed by one sign-out-all run.
 type signOutCounts struct{ Sessions, APIKeys, Tokens, Previews int64 }
@@ -41,9 +50,18 @@ func signOutAll(ctx context.Context, db *database.DB, hook func() error) (signOu
 	var c signOutCounts
 	err := db.WithTx(ctx, func(tx pgx.Tx) error {
 		// Block concurrent INSERT/UPDATE/DELETE (sign-ins, key creation) until
-		// commit so nothing issued mid-sweep survives; reads are not blocked.
-		// Taken first and in one statement, so lock order is fixed.
-		if _, err := tx.Exec(ctx, `LOCK TABLE hatamoto_sessions, hatamoto_api_keys IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+		// commit; reads are not blocked. Taken first, in one statement, in the
+		// order the server writes (ConsumeReset: tokens then sessions;
+		// revokeIfEnded: sessions then api_keys), so no new lock cycle appears.
+		// The wait is bounded so a stuck holder cannot queue every writer.
+		if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '`+signOutLockTimeout+`'`); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `LOCK TABLE hatamoto_user_tokens, hatamoto_preview_links, hatamoto_sessions, hatamoto_api_keys IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+			var pe *pgconn.PgError
+			if errors.As(err, &pe) && pe.Code == "55P03" {
+				return errSignOutBusy
+			}
 			return err
 		}
 		steps := []struct {
