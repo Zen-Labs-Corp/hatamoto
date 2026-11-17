@@ -7,6 +7,9 @@
 -- Basic after a rollback, this release reads that as Detailed.
 
 -- +goose Up
+-- hatamoto:backfill idempotent
+-- Both statements set fixed values on a table with at most one row, guarded by
+-- WHERE, so running them again leaves the same result.
 UPDATE hatamoto_install_stats
 SET level = 'detailed', health_window_start = COALESCE(health_window_start, now())
 WHERE level = 'basic' AND consent = 'yes';
