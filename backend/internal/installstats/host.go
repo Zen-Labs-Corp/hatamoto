@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"golang.org/x/net/idna"
 )
 
 var hostLabelRE = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
@@ -25,6 +27,12 @@ func NormalizeHost(rawURL string) string {
 		return ""
 	}
 	h := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	if !isASCII(h) {
+		if h, err = idna.Lookup.ToASCII(h); err != nil {
+			return ""
+		}
+		h = strings.ToLower(h)
+	}
 	if h == "" || len(h) > 253 || net.ParseIP(h) != nil || !strings.Contains(h, ".") {
 		return ""
 	}
@@ -39,4 +47,13 @@ func NormalizeHost(rawURL string) string {
 		}
 	}
 	return h
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
 }

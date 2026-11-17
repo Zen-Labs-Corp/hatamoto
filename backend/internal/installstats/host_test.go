@@ -33,6 +33,15 @@ func TestNormalizeHost(t *testing.T) {
 		{"https://under_score.example.com", ""},
 		{"https://a..com", ""},
 		{"intranet", ""},
+		{"https://" + strings.Repeat("a", 63) + ".com", strings.Repeat("a", 63) + ".com"},
+		{"https://" + strings.Repeat("a", 64) + ".com", ""},
+		{"https://" + strings.Repeat("a", 63) + "." + strings.Repeat("b", 63) + "." + strings.Repeat("c", 63) + "." + strings.Repeat("d", 58) + ".com", ""},
+		{"https://trailing-.example.com", ""},
+		{"https://example-.com", ""},
+		{"https://[2001:db8::1]/x", ""},
+		{"http://192.168.1.10:8080", ""},
+		{"https://bücher.example", "xn--bcher-kva.example"},
+		{"https://münchen", ""},
 	}
 	for _, c := range cases {
 		if got := NormalizeHost(c.in); got != c.want {
