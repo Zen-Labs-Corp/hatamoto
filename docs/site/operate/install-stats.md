@@ -1,7 +1,7 @@
 ---
 title: Install stats
 nav_title: Install stats
-description: The anonymous install stats at three levels (Off, Basic, Detailed), Detailed by default: what each sends, what is never sent, how to change it and how an operator rules it out.
+description: The three anonymous install stats levels (Off, Basic, and Detailed, the default): what each sends, what is never sent and how to change or rule it out.
 ---
 
 Install stats are an anonymous report from a running Hatamoto install. An owner picks one of three levels: **Off**, **Basic** or **Detailed**. A new install, and an existing one that was never asked, sends the Detailed report once setup is finished, unless an owner picks another level or the server sets `HATAMOTO_TELEMETRY=off`. Development builds and public demos send nothing. An owner who chose Off or Basic keeps that choice. This page is the one place that lists what each level sends and how to control it. The update check is a separate request and stays anonymous; see [Outbound connections](outbound-connections.md) for every call the server makes.

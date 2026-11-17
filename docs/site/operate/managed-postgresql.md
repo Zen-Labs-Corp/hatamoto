@@ -1,7 +1,7 @@
 ---
 title: Run on managed PostgreSQL
 nav_title: Managed PostgreSQL
-description: Run Hatamoto on a managed PostgreSQL cluster where you have no superuser: create the roles and database in the right order, set up plugin roles, size the pools and connect over verified TLS.
+description: Run Hatamoto on managed PostgreSQL without a superuser: create the roles and database in order, set up plugin roles, size the pools and use verified TLS.
 next: backups.md, configuration-reference.md, hardening.md
 ---
 

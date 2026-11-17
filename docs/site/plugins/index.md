@@ -1,5 +1,5 @@
 ---
-title: Plugins
+title: Plugin development
 nav_title: Plugins
 description: Add features to your site with plugins: react to events, store data, add admin pages, then package and install them.
 ---
