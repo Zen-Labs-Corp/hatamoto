@@ -40,6 +40,12 @@ func signOutAll(ctx context.Context, db *database.DB, hook func() error) (signOu
 	ctx = database.WithSuperadmin(ctx)
 	var c signOutCounts
 	err := db.WithTx(ctx, func(tx pgx.Tx) error {
+		// Block concurrent INSERT/UPDATE/DELETE (sign-ins, key creation) until
+		// commit so nothing issued mid-sweep survives; reads are not blocked.
+		// Taken first and in one statement, so lock order is fixed.
+		if _, err := tx.Exec(ctx, `LOCK TABLE hatamoto_sessions, hatamoto_api_keys IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+			return err
+		}
 		steps := []struct {
 			dst *int64
 			sql string
