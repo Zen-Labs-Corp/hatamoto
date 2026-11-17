@@ -205,7 +205,7 @@ flowchart LR
 | systemd or Docker | [Deploy with systemd](docs/site/operate/deploy-systemd.md), [Deploy with Docker](docs/site/operate/deploy-docker.md) |
 | Backups and updates | [Backups](docs/site/operate/backups.md), [Updates](docs/site/updates/index.md) |
 
-Anonymous install stats are on by default and one switch turns them off. The one install report is Detailed once setup is finished unless an owner chooses Basic or Off, and `HATAMOTO_TELEMETRY=off` rules it out. Every connection the server makes, with the switch that turns it off, is listed in
+Anonymous install stats are on by default and one switch turns them off. The install report is sent once setup is finished unless an owner unticks one checkbox in Settings > Updates, and `HATAMOTO_TELEMETRY=off` rules it out. Every connection the server makes, with the switch that turns it off, is listed in
 [Outbound connections](docs/site/operate/outbound-connections.md). Updates can stop entirely: set `HATAMOTO_UPDATES`
 to `off` (no network call at all).
 

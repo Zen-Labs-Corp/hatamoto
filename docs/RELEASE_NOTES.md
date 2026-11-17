@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: install stats always detailed
+
+- **Setup.** The wizard no longer has a Stats step. It has seven screens: Your account, Admin address, Your site, Email, Look, Content and Done.
+- **Settings.** Settings > Updates has one checkbox, **Share usage stats with Hatamoto**, ticked by default. Install stats are on (the Detailed report) or off. The Basic level is gone, and so is **Reset ID**: turn stats off and on again for a new ID. The one-time notice now reads "Hatamoto shares usage stats (version, site address, plugins, theme, error counts)." with Change in Settings and Got it. `HATAMOTO_TELEMETRY=off` still turns stats off for good.
+- **Report.** The Detailed body gains a `host` key: the public site domain, lower-case, no port. It is left out for localhost, IP addresses and `.local`, `.internal` or `.localhost` names. No machine hostname or IP address is collected.
+- **Migration.** Data-only: installs on Basic move to Detailed; Off stays Off. Rollback floor: unchanged; an older release reads the same level values.
+
 ## Unreleased: read:forms API-key scope
 
 - **Scopes.** New API key scope `read:forms`. Existing keys do not gain it, except `*` keys, which allow everything and so can now read form submissions, which hold visitors' personal data (answers, IP address, browser, and the page and referrer they came from). Review any `*` key before you upgrade. The admin key form lists it as **Read forms**.
