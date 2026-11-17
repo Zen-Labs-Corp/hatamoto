@@ -66,20 +66,20 @@ func newStatsRig(t *testing.T, f *fakeStats) *updatesRig {
 	return u
 }
 
-var statsPosts = []string{"/stats", "/stats/choice", "/stats/dismiss"}
+var statsPosts = []string{"/stats", "/stats/dismiss"}
 
 func TestStatsPostsAreOwnerOnlyAndNeedCSRF(t *testing.T) {
 	f := &fakeStats{view: StatsView{Level: "unset"}}
 	u := newStatsRig(t, f)
 	for _, p := range statsPosts {
 		target := "/admin/settings/updates" + p
-		if rec := u.do("POST", target, "editor-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil); rec.Code != 403 {
+		if rec := u.do("POST", target, "editor-token", url.Values{"level": {"detailed"}}, nil); rec.Code != 403 {
 			t.Errorf("editor POST %s = %d, want 403", target, rec.Code)
 		}
-		if rec := u.do("POST", target, "", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil); rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), "/admin/login") {
+		if rec := u.do("POST", target, "", url.Values{"level": {"detailed"}}, nil); rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), "/admin/login") {
 			t.Errorf("anonymous POST %s = %d %s", target, rec.Code, rec.Header().Get("Location"))
 		}
-		if rec := u.do("POST", target, "owner-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, map[string]string{"X-CSRF-Token": ""}); rec.Code != 403 {
+		if rec := u.do("POST", target, "owner-token", url.Values{"level": {"detailed"}}, map[string]string{"X-CSRF-Token": ""}); rec.Code != 403 {
 			t.Errorf("no CSRF POST %s = %d, want 403", target, rec.Code)
 		}
 	}
@@ -97,39 +97,6 @@ func TestStatsPostsWithoutServiceAre503(t *testing.T) {
 	}
 }
 
-func TestStatsChoiceCallsServiceOnceAndAuditsWithoutID(t *testing.T) {
-	for _, choice := range []string{"off", "detailed"} {
-		f := &fakeStats{view: StatsView{Level: "unset"}}
-		u := newStatsRig(t, f)
-		rec := u.do("POST", "/admin/settings/updates/stats/choice", "owner-token", url.Values{"choice": {choice}}, nil)
-		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/updates" {
-			t.Fatalf("choice %s = %d %s", choice, rec.Code, rec.Header().Get("Location"))
-		}
-		if len(f.chosen) != 1 || f.chosen[0] != choice {
-			t.Errorf("choice %s: Choose calls = %v", choice, f.chosen)
-		}
-		if len(u.events) != 1 || u.events[0].Action != "stats.consent" || u.events[0].Detail["choice"] != choice {
-			t.Fatalf("choice %s: audit = %+v", choice, u.events)
-		}
-		if strings.Contains(fmt.Sprint(u.events), statsTestID) {
-			t.Error("audit detail carries the install ID")
-		}
-	}
-}
-
-func TestStatsChoiceRefusesAnythingElse(t *testing.T) {
-	f := &fakeStats{view: StatsView{Level: "unset"}}
-	u := newStatsRig(t, f)
-	for _, form := range []url.Values{{}, {"choice": {""}}, {"choice": {"maybe"}}, {"choice": {"yes"}}, {"choice": {"Basic"}}, {"choice": {"basic"}}} {
-		if rec := u.do("POST", "/admin/settings/updates/stats/choice", "owner-token", form, nil); rec.Code != 400 {
-			t.Errorf("choice %v = %d, want 400", form, rec.Code)
-		}
-	}
-	if len(f.chosen) != 0 || len(u.events) != 0 {
-		t.Error("an invalid choice reached the service")
-	}
-}
-
 func TestStatsLevelPost(t *testing.T) {
 	for _, level := range []string{"off", "detailed"} {
 		f := &fakeStats{view: StatsView{Level: "off"}}
@@ -143,6 +110,9 @@ func TestStatsLevelPost(t *testing.T) {
 		}
 		if len(u.events) != 1 || u.events[0].Detail["choice"] != level {
 			t.Errorf("level %q: audit = %+v", level, u.events)
+		}
+		if strings.Contains(fmt.Sprint(u.events), statsTestID) {
+			t.Error("audit detail carries the install ID")
 		}
 	}
 	// The checkbox posts level=detailed when ticked and the hidden level=off after it
@@ -165,7 +135,7 @@ func TestStatsLevelPost(t *testing.T) {
 }
 
 func TestStatsDismissCallsServiceOnce(t *testing.T) {
-	f := &fakeStats{view: StatsView{Level: "basic"}, banner: statsBannerNudge}
+	f := &fakeStats{view: StatsView{Level: "basic"}, banner: statsBannerDefaulted}
 	u := newStatsRig(t, f)
 	rec := u.do("POST", "/admin/settings/updates/stats/dismiss", "owner-token", url.Values{}, nil)
 	if rec.Code != 303 || f.dismissals != 1 || len(f.chosen) != 0 {
@@ -197,10 +167,9 @@ func TestStatsServiceErrorsAreQuietAndNotAudited(t *testing.T) {
 		f    *fakeStats
 		path string
 	}{
-		{"choose", &fakeStats{view: StatsView{Level: "unset"}, chooseE: boom}, "/stats/choice"},
-		{"level", &fakeStats{view: StatsView{Level: "basic"}, chooseE: boom}, "/stats"},
+		{"level", &fakeStats{view: StatsView{Level: "detailed"}, chooseE: boom}, "/stats"},
 		{"dismiss", &fakeStats{view: StatsView{Level: "basic"}, dismissE: boom}, "/stats/dismiss"},
-		{"view", &fakeStats{viewErr: boom}, "/stats/choice"},
+		{"view", &fakeStats{viewErr: boom}, "/stats"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			u := newStatsRig(t, c.f)
@@ -218,13 +187,6 @@ func TestStatsServiceErrorsAreQuietAndNotAudited(t *testing.T) {
 				t.Error("a failed change was audited")
 			}
 		})
-	}
-}
-
-func TestStatsServiceStillRefusesWithoutServiceOrChoice(t *testing.T) {
-	u := newStatsRig(t, &fakeStats{view: StatsView{Level: "unset"}})
-	if rec := u.do("POST", "/admin/settings/updates/stats/choice", "owner-token", url.Values{"choice": {"maybe"}}, nil); rec.Code != 400 {
-		t.Errorf("bad choice = %d, want 400", rec.Code)
 	}
 }
 

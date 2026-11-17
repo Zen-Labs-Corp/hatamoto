@@ -312,9 +312,9 @@ type Deps struct {
 	// the owner banner; nil renders that page as unavailable and no banner.
 	// Set it only when non-nil: a typed nil would defeat the check.
 	Updates UpdatesService
-	// Stats is the opt-in install stats service behind the Install stats card
-	// on Settings > Updates, the setup wizard step and the owner banner; nil
-	// hides all three. Set it only when non-nil.
+	// Stats is the install stats service behind the Usage stats checkbox on
+	// Settings > Updates and the one-time owner notice; nil hides both. Set it
+	// only when non-nil.
 	Stats StatsService
 	// UpdatesUnavailable is why Updates is nil, shown on the page.
 	UpdatesUnavailable string

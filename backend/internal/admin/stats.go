@@ -15,12 +15,9 @@ const (
 	statsLevelDetailed = "detailed"
 )
 
-// Banner kinds: what the owner is asked on every page.
-const (
-	statsBannerUnanswered = "unanswered"
-	statsBannerNudge      = "nudge"
-	statsBannerDefaulted  = "defaulted"
-)
+// statsBannerDefaulted is the one banner kind: the one-time notice that
+// stats are on by default.
+const statsBannerDefaulted = "defaulted"
 
 // statsDocsURL is the page that says what each level collects.
 const statsDocsURL = "https://hatamoto.dev/docs/operate/install-stats"
@@ -32,16 +29,15 @@ type StatsService interface {
 	// View is the stored level and whether the server configuration forces it
 	// off.
 	View(ctx context.Context) (StatsView, error)
-	// Banner is the question to put to the owner: "unanswered" (the level is
-	// unset), "defaulted" (Detailed was applied by default, notice not yet
-	// acknowledged), "nudge" (on Basic, Detailed not yet offered) or "" for none. It
+	// Banner is the notice to show the owner: "defaulted" (Detailed was
+	// applied by default, notice not yet acknowledged) or "" for none. It
 	// must be cheap, the banner asks it on every owner page.
 	Banner(ctx context.Context) (string, error)
 	// ForcedOff reports HATAMOTO_TELEMETRY=off. It reads no state.
 	ForcedOff() bool
 	// Choose stores the owner's answer: "off" or "detailed".
 	Choose(ctx context.Context, level string) error
-	// DismissNudge stores that the owner does not want the Detailed nudge.
+	// DismissNudge acknowledges the defaulted notice ("Got it").
 	DismissNudge(ctx context.Context) error
 	// ApplyDefault stores the Detailed default for an install that was never
 	// asked, once setup is complete. It is a no-op when the server forbids it.
@@ -133,19 +129,7 @@ func (a *Admin) handleStatsLevel(w http.ResponseWriter, r *http.Request) {
 	a.statsChoose(w, r, level)
 }
 
-// handleStatsChoice is the banner answer: choice=off|detailed. Anything
-// else is refused, never read as a default.
-func (a *Admin) handleStatsChoice(w http.ResponseWriter, r *http.Request) {
-	_ = r.ParseForm()
-	choice := r.PostFormValue("choice")
-	if !validStatsLevel(choice) {
-		a.Error(w, r, http.StatusBadRequest, "Choose on or off", "Install stats are either on or off.")
-		return
-	}
-	a.statsChoose(w, r, choice)
-}
-
-// handleStatsDismiss stores that the owner does not want the Detailed nudge.
+// handleStatsDismiss acknowledges the one-time defaulted notice.
 func (a *Admin) handleStatsDismiss(w http.ResponseWriter, r *http.Request) {
 	v, ok := a.statsView(w, r)
 	if !ok {
@@ -163,20 +147,17 @@ func (a *Admin) handleStatsDismiss(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.adminPath+updatesPath, http.StatusSeeOther)
 }
 
-// StatsBanner is the owner's question about install stats: the first answer
-// ("unanswered"), the one-time notice that Detailed was applied by default
-// ("defaulted") or the one-time offer of Detailed ("nudge").
+// StatsBanner is the one-time notice that install stats are on by default.
 type StatsBanner struct {
-	Kind    string // statsBannerUnanswered, statsBannerDefaulted or statsBannerNudge
+	Kind    string // statsBannerDefaulted
 	DocsURL string
 }
 
 // statsBanner is the banner for a page view: nil unless the owner is on a GET
 // page of a finished setup and the service has a question for them (never
 // under a forced-off server). Editors never reach the service, and the Updates
-// pages already show the choice as their Install stats card. The answer is a
-// POST (see handleStatsChoice, handleStatsDismiss), not a browser-side
-// dismissal.
+// pages already show the choice as their Usage stats card. Got it is a POST
+// (see handleStatsDismiss), not a browser-side dismissal.
 func (a *Admin) statsBanner(r *http.Request, u *CurrentUser, setupPending bool) *StatsBanner {
 	if a.deps.Stats == nil || a.deps.Demo.Enabled || u == nil || u.Role != "owner" || setupPending {
 		return nil
@@ -185,7 +166,7 @@ func (a *Admin) statsBanner(r *http.Request, u *CurrentUser, setupPending bool) 
 		return nil
 	}
 	kind, err := a.deps.Stats.Banner(r.Context())
-	if err != nil || (kind != statsBannerUnanswered && kind != statsBannerNudge && kind != statsBannerDefaulted) {
+	if err != nil || (kind != statsBannerDefaulted) {
 		return nil
 	}
 	return &StatsBanner{Kind: kind, DocsURL: statsDocsURL}

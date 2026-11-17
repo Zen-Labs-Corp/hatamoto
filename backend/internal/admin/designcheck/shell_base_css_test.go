@@ -134,12 +134,12 @@ func TestShellNoticesAreOneHairlineGroup(t *testing.T) {
 		}
 	}
 	shell := readWeb(t, "layouts/shell.html")
-	if !strings.Contains(shell, `"Label" "No thanks" "Size" "sm" "Variant" "ghost"`) {
-		t.Error(`the stats notice's "No thanks" must be a ghost button`)
+	if !strings.Contains(shell, `"Label" "Got it" "Size" "sm" "Variant" "ghost"`) {
+		t.Error(`the stats notice's "Got it" must be a ghost button`)
 	}
 	for _, line := range strings.Split(shell, "\n") {
 		if strings.Contains(line, "data-hm-stats-banner") && strings.Contains(line, `"Variant" "primary"`) {
-			t.Error(`the stats notice's "Send stats" must be a secondary (outline) button`)
+			t.Error(`the stats notice's "Change in Settings" must be a secondary (outline) button`)
 		}
 	}
 }
