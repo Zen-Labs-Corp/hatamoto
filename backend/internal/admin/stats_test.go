@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/url"
 	"strings"
 	"testing"
@@ -298,118 +297,34 @@ func newSetupStatsRig(t *testing.T, view StatsView) (*setupRig, *fakeStats) {
 	return g, f
 }
 
-func TestSetupStatsStepOffersThreeLevelsAndPreselectsDetailed(t *testing.T) {
+// The wizard has no Stats step: Look goes straight to Content and Content's Back goes to Look.
+func TestSetupStatsStepGone(t *testing.T) {
 	t.Parallel()
 
-	// Detailed is preselected when no level is stored.
 	g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
-	body := g.do("GET", "/admin/setup/stats", "owner-token", nil, nil).Body.String()
-	for _, want := range []string{"Help improve Hatamoto", `name="choice" value="off"`, `name="choice" value="basic"`, `name="choice" value="detailed"`, `href="https://hatamoto.dev/docs/operate/install-stats" target="_blank" rel="noopener">What is collected</a>`, "Continue", `href="/admin/setup/theme"><span>Back</span>`, "Step 6 of 8"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("stats step lacks %q", want)
-		}
-	}
-	if n := strings.Count(body, "checked"); n != 1 || !strings.Contains(body, `value="detailed" checked`) {
-		t.Errorf("want only Detailed checked, got %d checked in %s", n, body)
-	}
-	for _, not := range []string{"required", "hm-code", "No thanks", "Send stats"} {
-		if strings.Contains(body, not) {
-			t.Errorf("stats step has %q", not)
+	for _, m := range []string{"GET", "POST"} {
+		if rec := g.do(m, "/admin/setup/stats", "owner-token", url.Values{"choice": {"detailed"}}, nil); rec.Code != 404 {
+			t.Errorf("%s /admin/setup/stats = %d, want 404", m, rec.Code)
 		}
 	}
 	if len(f.chosen) != 0 {
-		t.Error("viewing the step stored a choice")
+		t.Errorf("Choose called %v", f.chosen)
 	}
-	// Look goes on to it, and the owner can go on past it without ever choosing.
 	rec := g.do("POST", "/admin/setup/theme", "owner-token", url.Values{"colour": {"#aa3300"}}, nil)
-	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/stats" {
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
 		t.Errorf("theme goes to %d %s", rec.Code, rec.Header().Get("Location"))
 	}
-}
-
-func TestSetupStatsStepKeepsAStoredAnswer(t *testing.T) {
-	t.Parallel()
-
-	g, f := newSetupStatsRig(t, StatsView{Level: "off"})
-	body := g.do("GET", "/admin/setup/stats", "owner-token", nil, nil).Body.String()
-	if n := strings.Count(body, "checked"); n != 1 || !strings.Contains(body, `value="off" checked`) {
-		t.Errorf("want only Off checked, got %d checked in %s", n, body)
+	body := g.do("GET", "/admin/setup/content", "owner-token", nil, nil).Body.String()
+	if !strings.Contains(body, `href="/admin/setup/theme"><span>Back</span>`) || strings.Contains(body, "/admin/setup/stats") {
+		t.Error("Back from Content must go to Look")
 	}
-	rec := g.do("POST", "/admin/setup/stats", "owner-token", url.Values{}, nil)
-	if rec.Code != 303 || len(f.chosen) != 1 || f.chosen[0] != "off" {
-		t.Errorf("Continue = %d, chose %v, want off", rec.Code, f.chosen)
-	}
-}
-
-func TestSetupStatsViewErrorKeepsTheStoredAnswer(t *testing.T) {
-	t.Parallel()
-
-	g, f := newSetupStatsRig(t, StatsView{Level: "off"})
-	f.viewErr = errors.New("pool timeout")
-	body := g.do("GET", "/admin/setup/stats", "owner-token", nil, nil).Body.String()
-	if strings.Contains(body, "checked") {
-		t.Errorf("a failed View preselected a card: %s", body)
-	}
-	rec := g.do("POST", "/admin/setup/stats", "owner-token", url.Values{}, nil)
-	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" || len(f.chosen) != 0 {
-		t.Errorf("bare post = %d %s, chose %v, want content and no choice", rec.Code, rec.Header().Get("Location"), f.chosen)
-	}
-	rec = g.do("POST", "/admin/setup/stats", "owner-token", url.Values{"choice": {"basic"}}, nil)
-	if rec.Code != 303 || len(f.chosen) != 1 || f.chosen[0] != "basic" {
-		t.Errorf("explicit choice = %d, chose %v, want basic", rec.Code, f.chosen)
-	}
-}
-
-func TestSetupStatsChoice(t *testing.T) {
-	t.Parallel()
-
-	for _, choice := range []string{"off", "basic", "detailed"} {
-		g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
-		var events []AuditEvent
-		g.a.deps.Audit = func(_ context.Context, e AuditEvent) { events = append(events, e) }
-		rec := g.do("POST", "/admin/setup/stats", "owner-token", url.Values{"choice": {choice}}, nil)
-		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
-			t.Fatalf("%s: %d %s", choice, rec.Code, rec.Header().Get("Location"))
-		}
-		if len(f.chosen) != 1 || f.chosen[0] != choice {
-			t.Errorf("%s: Choose calls = %v", choice, f.chosen)
-		}
-		if len(events) != 1 || events[0].Action != "stats.consent" || events[0].Detail["choice"] != choice {
-			t.Errorf("%s: audit = %+v", choice, events)
-		}
-		if g.site.cfg.SetupCompletedAt != nil {
-			t.Error("the Stats step finished setup")
+	for _, step := range []string{"Your account", "Admin address", "Your site", "Email", "Look", "Content", "Done"} {
+		if !strings.Contains(body, step) {
+			t.Errorf("step list lacks %q", step)
 		}
 	}
-}
-
-func TestSetupStatsWithoutAChoiceIsDetailed(t *testing.T) {
-	t.Parallel()
-
-	for _, form := range []url.Values{{}, {"choice": {""}}} {
-		g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
-		rec := g.do("POST", "/admin/setup/stats", "owner-token", form, nil)
-		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
-			t.Errorf("post %v = %d %s", form, rec.Code, rec.Header().Get("Location"))
-		}
-		if len(f.chosen) != 1 || f.chosen[0] != "detailed" {
-			t.Errorf("post %v chose %v", form, f.chosen)
-		}
-	}
-}
-
-func TestSetupStatsInvalidChoiceAsksAgain(t *testing.T) {
-	t.Parallel()
-
-	g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
-	for _, form := range []url.Values{{"choice": {"maybe"}}, {"choice": {"yes"}}} {
-		rec := g.do("POST", "/admin/setup/stats", "owner-token", form, nil)
-		if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Choose Off, Basic or Detailed.") {
-			t.Errorf("post %v = %d", form, rec.Code)
-		}
-	}
-	if len(f.chosen) != 0 {
-		t.Errorf("an invalid form chose %v", f.chosen)
+	if strings.Contains(body, ">Stats<") || !strings.Contains(body, "Step 6 of 7") {
+		t.Errorf("step list still has Stats or wrong count")
 	}
 }
 
@@ -429,37 +344,7 @@ func TestSetupFinishAppliesStatsDefault(t *testing.T) {
 	}
 }
 
-func TestSetupStatsSkippedUnderEnvOffOrWithoutService(t *testing.T) {
-	t.Parallel()
-
-	for name, setup := range map[string]func(g *setupRig, f *fakeStats){
-		"forced off": func(g *setupRig, f *fakeStats) { f.view.ForcedOff = true },
-		"no service": func(g *setupRig, f *fakeStats) { g.a.deps.Stats = nil },
-	} {
-		g, f := newSetupStatsRig(t, StatsView{Level: "off"})
-		setup(g, f)
-		for _, m := range []string{"GET", "POST"} {
-			rec := g.do(m, "/admin/setup/stats", "owner-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil)
-			if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
-				t.Errorf("%s %s = %d %s", name, m, rec.Code, rec.Header().Get("Location"))
-			}
-		}
-		if len(f.chosen) != 0 {
-			t.Errorf("%s: Choose called %v", name, f.chosen)
-		}
-		rec := g.do("POST", "/admin/setup/theme", "owner-token", url.Values{"colour": {"#aa3300"}}, nil)
-		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
-			t.Errorf("%s: theme goes to %s", name, rec.Header().Get("Location"))
-		}
-		body := g.do("GET", "/admin/setup/content", "owner-token", nil, nil).Body.String()
-		if !strings.Contains(body, `href="/admin/setup/theme"><span>Back</span>`) || strings.Contains(body, "/admin/setup/stats") {
-			t.Errorf("%s: Back from Content must skip the Stats step", name)
-		}
-	}
-}
-
-// The seed script posts Look and Content directly: the Stats step is optional
-// and leaves the choice unset.
+// The seed script posts Look and Content directly; finishing setup never chooses for the owner.
 func TestSetupCompletesWithoutTheStatsStep(t *testing.T) {
 	t.Parallel()
 
@@ -469,73 +354,5 @@ func TestSetupCompletesWithoutTheStatsStep(t *testing.T) {
 	}
 	if len(f.chosen) != 0 {
 		t.Error("finishing setup chose for the owner")
-	}
-}
-
-func TestSetupStatsIsOwnerOnly(t *testing.T) {
-	t.Parallel()
-
-	g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
-	for _, m := range []string{"GET", "POST"} {
-		if rec := g.do(m, "/admin/setup/stats", "editor-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil); rec.Code != 403 {
-			t.Errorf("editor %s = %d, want 403", m, rec.Code)
-		}
-	}
-	if len(f.chosen) != 0 {
-		t.Error("an editor chose")
-	}
-}
-
-func TestSetupStatsStoreErrorsContinueToContent(t *testing.T) {
-	t.Parallel()
-
-	boom := errors.New("db down " + statsTestID)
-	for _, c := range []struct {
-		name   string
-		method string
-		form   url.Values
-		setup  func(f *fakeStats)
-	}{
-		{"post choose", "POST", url.Values{"choice": {"basic"}}, func(f *fakeStats) { f.chooseE = boom }},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
-			c.setup(f)
-			var logs strings.Builder
-			g.a.deps.Logger = slog.New(slog.NewTextHandler(&logs, nil))
-			var events []AuditEvent
-			g.a.deps.Audit = func(_ context.Context, e AuditEvent) { events = append(events, e) }
-			rec := g.do(c.method, "/admin/setup/stats", "owner-token", c.form, nil)
-			if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
-				t.Fatalf("= %d %s, want 303 to Content", rec.Code, rec.Header().Get("Location"))
-			}
-			if len(events) != 0 {
-				t.Errorf("audit = %+v", events)
-			}
-			if !strings.Contains(logs.String(), "level=WARN") {
-				t.Errorf("log = %q, want a warning", logs.String())
-			}
-		})
-	}
-}
-
-func TestSetupStatsSkippedInDemo(t *testing.T) {
-	t.Parallel()
-
-	g, f := newSetupStatsRig(t, StatsView{Level: "unset"})
-	g.a.deps.Demo.Enabled = true
-	for _, m := range []string{"GET", "POST"} {
-		rec := g.do(m, "/admin/setup/stats", "owner-token", url.Values{"choice": {"basic"}, "level": {"basic"}}, nil)
-		if rec.Code != 303 || rec.Header().Get("Location") != "/admin/setup/content" {
-			t.Errorf("%s = %d %s", m, rec.Code, rec.Header().Get("Location"))
-		}
-	}
-	if len(f.chosen) != 0 {
-		t.Errorf("Choose called %v", f.chosen)
-	}
-	rec := g.do("POST", "/admin/setup/theme", "owner-token", url.Values{"colour": {"#aa3300"}}, nil)
-	if rec.Header().Get("Location") != "/admin/setup/content" {
-		t.Errorf("theme goes to %s", rec.Header().Get("Location"))
 	}
 }
