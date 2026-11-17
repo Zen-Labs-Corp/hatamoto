@@ -41,10 +41,14 @@ func NormalizeHost(rawURL string) string {
 			return ""
 		}
 	}
-	for _, label := range strings.Split(h, ".") {
+	labels := strings.Split(h, ".")
+	for _, label := range labels {
 		if !hostLabelRE.MatchString(label) {
 			return ""
 		}
+	}
+	if isAllDigits(labels[len(labels)-1]) {
+		return "" // 127.1, 10.0.1: IP shorthand, not a domain
 	}
 	return h
 }
@@ -52,6 +56,15 @@ func NormalizeHost(rawURL string) string {
 func isASCII(s string) bool {
 	for i := 0; i < len(s); i++ {
 		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
+}
+
+func isAllDigits(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
 			return false
 		}
 	}
