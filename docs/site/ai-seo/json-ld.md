@@ -139,7 +139,7 @@ The list produces a `FAQPage` next to the entity node, after any items found thr
 
 ## Social images
 
-`og:image` and `twitter:image` addresses are percent-encoded like JavaScript's `encodeURI`: spaces and non-ASCII characters become `%XX`, reserved characters such as `?`, `&`, `=` and `#` stay, and an existing `%XX` is not encoded again. The `og:url` is not changed.
+`og:image` and `twitter:image` are always full addresses: a social image stored as a path on the site, such as `/media/<id>/photo.png`, is printed with the public base URL in front, like the site and type defaults. A full `https://` address is printed as it is. The addresses are percent-encoded like JavaScript's `encodeURI`: spaces and non-ASCII characters become `%XX`, reserved characters such as `?`, `&`, `=` and `#` stay, and an existing `%XX` is not encoded again. The `og:url` is not changed.
 
 ## Editorial provenance
 

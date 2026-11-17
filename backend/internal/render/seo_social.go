@@ -28,7 +28,9 @@ func socialHead(h *headView, v *PageView, rawTitle string) {
 	}
 	description := firstNonEmpty(v.Page.OGDescription, h.Description)
 
-	image := v.Page.OGImage
+	// og:image and twitter:image must be absolute: a site path stored on the
+	// entry (a media library upload) is resolved like the defaults below.
+	image := absURL(v.BaseURL, v.Page.OGImage)
 	if image == "" && social {
 		in := seoInput(v, rawTitle)
 		image = absURL(v.BaseURL, firstNonEmpty(seo.SocialImage(v.SEO, in), so.Image))
