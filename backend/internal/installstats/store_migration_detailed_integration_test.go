@@ -16,12 +16,12 @@ func TestMigrationBasicToDetailed_Integration(t *testing.T) {
 	cases := []struct {
 		name, level, consent, id string
 		wantLevel                string
-		wantWindow               bool
+		wantWindow, wantNotice   bool
 	}{
-		{"basic becomes detailed", "basic", "yes", "'0123456789abcdef0123456789abcdef'", "detailed", true},
-		{"detailed stays", "detailed", "yes", "'0123456789abcdef0123456789abcdef'", "detailed", false},
-		{"off stays", "off", "no", "NULL", "off", false},
-		{"unset stays", "unset", "unset", "NULL", "unset", false},
+		{"basic becomes detailed", "basic", "yes", "'0123456789abcdef0123456789abcdef'", "detailed", true, true},
+		{"detailed stays", "detailed", "yes", "'0123456789abcdef0123456789abcdef'", "detailed", false, true},
+		{"off stays", "off", "no", "NULL", "off", false, false},
+		{"unset stays", "unset", "unset", "NULL", "unset", false, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -31,12 +31,12 @@ func TestMigrationBasicToDetailed_Integration(t *testing.T) {
 			}
 			applyMigrations(t, pool, basicToDetailedMigration)
 			var level string
-			var window bool
-			if err := pool.QueryRow(ctx, `SELECT level, health_window_start IS NOT NULL FROM hatamoto_install_stats`).Scan(&level, &window); err != nil {
+			var window, notice bool
+			if err := pool.QueryRow(ctx, `SELECT level, health_window_start IS NOT NULL, default_notice_pending FROM hatamoto_install_stats`).Scan(&level, &window, &notice); err != nil {
 				t.Fatal(err)
 			}
-			if level != c.wantLevel || window != c.wantWindow {
-				t.Fatalf("level = %q window set = %v, want %q / %v", level, window, c.wantLevel, c.wantWindow)
+			if level != c.wantLevel || window != c.wantWindow || notice != c.wantNotice {
+				t.Fatalf("level = %q window set = %v notice = %v, want %q / %v / %v", level, window, notice, c.wantLevel, c.wantWindow, c.wantNotice)
 			}
 		})
 	}

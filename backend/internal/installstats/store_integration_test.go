@@ -540,6 +540,25 @@ func TestOldBinaryConsentChangeIsReconciled_Integration(t *testing.T) {
 		if err != nil || got.Level != LevelDetailed || got.WindowStart == nil || got.Consent != ConsentYes {
 			t.Fatalf("leftover basic: %+v (%v), want detailed", got, err)
 		}
+		var pending bool
+		if err := pool.QueryRow(ctx, `SELECT default_notice_pending FROM hatamoto_install_stats WHERE id`).Scan(&pending); err != nil || !pending {
+			t.Fatalf("notice pending = %v (%v), want true after repair", pending, err)
+		}
+	})
+
+	// An off row stays off and gets no notice.
+	t.Run("off row gets no notice", func(t *testing.T) {
+		pool := scratchPool(t)
+		if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_install_stats (id, consent, level, default_notice_pending) VALUES (TRUE, 'no', 'detailed', FALSE)`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := NewStore(pool).Load(ctx); err != nil {
+			t.Fatal(err)
+		}
+		var pending bool
+		if err := pool.QueryRow(ctx, `SELECT default_notice_pending FROM hatamoto_install_stats WHERE id`).Scan(&pending); err != nil || pending {
+			t.Fatalf("notice pending = %v (%v), want false", pending, err)
+		}
 	})
 
 	t.Run("disable from detailed", func(t *testing.T) {

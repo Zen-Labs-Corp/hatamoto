@@ -182,12 +182,13 @@ func scanState(row pgx.Row) (State, error) {
 // consent: its Enable leaves level off or unset (or basic), and its Disable
 // leaves basic or detailed (with the health counts). Consent wins: yes becomes
 // detailed (stats are on or off, there is no Basic), no becomes off with the
-// counts wiped. A row where the two agree is untouched.
+// counts wiped. A repaired yes row also shows the notice once more. A row where the two agree is untouched.
 func (s *Store) reconcile(ctx context.Context) error {
 	_, err := s.db.Exec(ctx, `
 		UPDATE hatamoto_install_stats SET
 			level = CASE consent WHEN 'yes' THEN 'detailed' ELSE 'off' END,
 			health_window_start = CASE consent WHEN 'yes' THEN COALESCE(health_window_start, now()) END,
+			default_notice_pending = CASE consent WHEN 'yes' THEN TRUE ELSE default_notice_pending END,
 			h_panics = 0, h_http_5xx = 0, h_render_errors = 0, h_migration_failed = 0, h_plugin_errors = '{}'::jsonb, h_sent = '{}'::jsonb, h_sent_at = NULL
 		WHERE (consent = 'yes' AND level <> 'detailed')
 		   OR (consent = 'no' AND level <> 'off')`)
