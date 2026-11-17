@@ -142,7 +142,9 @@ when the person has made their profile public and the entity's schema has an
 archive (see Routes), otherwise the name is shown unlinked. `author_entity_slug`
 stays raw; core does no lookup.
 Drafts never reach `.Attrs` on the public site; the admin preview fills it from
-the posted attributes.
+the posted attributes. The preview of a draft with no public route still sets
+`.Entity` (title, schema, excerpt, image, attributes and dates from the posted
+draft), but without `.Terms`, `.Author` or `.URL`, so guard those.
 
 **Funcs.**
 

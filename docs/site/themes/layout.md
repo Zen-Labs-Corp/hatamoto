@@ -90,7 +90,7 @@ Every layout receives these fields. Which ones are filled depends on the view ki
 
 `.Site.Language` is the site setting `language` (default `en`); it also feeds `<html lang>` and the JSON-LD `inLanguage`.
 
-An entity's byline, `.Entity.Author`, is the person it credits, the site organisation, or a plain `author` or `author_name` attribute string. It is never the account that created the entity. Its `.URL` is set only when the person has made their profile public and the entity's schema has an archive; otherwise the name shows unlinked. Drafts never reach `.Attrs` on the public site; the admin preview fills it from the posted attributes.
+An entity's byline, `.Entity.Author`, is the person it credits, the site organisation, or a plain `author` or `author_name` attribute string. It is never the account that created the entity. Its `.URL` is set only when the person has made their profile public and the entity's schema has an archive; otherwise the name shows unlinked. Drafts never reach `.Attrs` on the public site; the admin preview fills it from the posted attributes. The preview of a draft with no public route still sets `.Entity` (title, schema, excerpt, image, attributes and dates from the posted draft), but without `.Terms`, `.Author` or `.URL`, so guard those.
 
 ### Related items
 
