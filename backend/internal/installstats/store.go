@@ -179,16 +179,17 @@ func scanState(row pgx.Row) (State, error) {
 }
 
 // reconcile repairs a row an older binary changed. That binary only knows
-// consent: its Enable leaves level off or unset, and its Disable leaves basic
-// or detailed (with the health counts). Consent wins: yes becomes basic, no
-// becomes off with the counts wiped. A row where the two agree is untouched.
+// consent: its Enable leaves level off or unset (or basic), and its Disable
+// leaves basic or detailed (with the health counts). Consent wins: yes becomes
+// detailed (stats are on or off, there is no Basic), no becomes off with the
+// counts wiped. A row where the two agree is untouched.
 func (s *Store) reconcile(ctx context.Context) error {
 	_, err := s.db.Exec(ctx, `
 		UPDATE hatamoto_install_stats SET
-			level = CASE consent WHEN 'yes' THEN 'basic' ELSE 'off' END,
-			health_window_start = NULL, h_panics = 0, h_http_5xx = 0, h_render_errors = 0,
-			h_migration_failed = 0, h_plugin_errors = '{}'::jsonb, h_sent = '{}'::jsonb, h_sent_at = NULL
-		WHERE (consent = 'yes' AND level NOT IN ('basic', 'detailed'))
+			level = CASE consent WHEN 'yes' THEN 'detailed' ELSE 'off' END,
+			health_window_start = CASE consent WHEN 'yes' THEN COALESCE(health_window_start, now()) END,
+			h_panics = 0, h_http_5xx = 0, h_render_errors = 0, h_migration_failed = 0, h_plugin_errors = '{}'::jsonb, h_sent = '{}'::jsonb, h_sent_at = NULL
+		WHERE (consent = 'yes' AND level <> 'detailed')
 		   OR (consent = 'no' AND level <> 'off')`)
 	if err != nil {
 		return fmt.Errorf("reconcile install stats level: %w", err)
@@ -218,8 +219,8 @@ func (s *Store) Load(ctx context.Context) (State, error) {
 // is created. Entering Detailed starts a
 // fresh health window with zero counts; leaving it zeroes them.
 func (s *Store) Enable(ctx context.Context, level Level) (State, error) {
-	if level != LevelBasic && level != LevelDetailed {
-		return State{}, fmt.Errorf("enable install stats: level %q shares nothing", level)
+	if level != LevelDetailed {
+		return State{}, fmt.Errorf("enable install stats: level %q is not on", level)
 	}
 	id, err := newID()
 	if err != nil {
@@ -292,7 +293,7 @@ func (s *Store) Disable(ctx context.Context) error {
 }
 
 // Claim takes the right to send now: it stamps last_sent_at and returns the ID,
-// but only when consent is yes, the level is Basic or Detailed and either the last claim is older than the
+// but only when consent is yes, the level is Detailed (a leftover Basic row counts) and either the last claim is older than the
 // interval, or the running version differs from the last one reported and the
 // last claim is older than versionRetry. The check and the stamp are one
 // statement, so replicas and restarts cannot both send. ok is false when

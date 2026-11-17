@@ -87,11 +87,11 @@ func TestStoreEnableDisable_Integration(t *testing.T) {
 	ctx := context.Background()
 	st := NewStore(scratchPool(t))
 
-	first, err := st.Enable(ctx, LevelBasic)
+	first, err := st.Enable(ctx, LevelDetailed)
 	if err != nil || first.Consent != ConsentYes || len(first.InstallID) != 32 {
 		t.Fatalf("enable: %+v %v", first, err)
 	}
-	again, err := st.Enable(ctx, LevelBasic)
+	again, err := st.Enable(ctx, LevelDetailed)
 	if err != nil || again.InstallID != first.InstallID {
 		t.Fatalf("a second enable must keep the id: %+v %v", again, err)
 	}
@@ -103,7 +103,7 @@ func TestStoreEnableDisable_Integration(t *testing.T) {
 		t.Fatalf("disable must clear the id: %+v %v", off, err)
 	}
 	// A new yes after no is a new id.
-	back, err := st.Enable(ctx, LevelBasic)
+	back, err := st.Enable(ctx, LevelDetailed)
 	if err != nil || back.InstallID == "" || back.InstallID == first.InstallID {
 		t.Fatalf("enable after disable: %+v %v", back, err)
 	}
@@ -113,7 +113,7 @@ func TestStoreClaim_Integration(t *testing.T) {
 	ctx := context.Background()
 	pool := scratchPool(t)
 	st := NewStore(pool)
-	enabled, err := st.Enable(ctx, LevelBasic)
+	enabled, err := st.Enable(ctx, LevelDetailed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func rawScratch(t *testing.T) *pgxpool.Pool {
 
 func TestMigrationLevelDerivedFromConsent_Integration(t *testing.T) {
 	ctx := context.Background()
-	for consent, want := range map[string]Level{"yes": LevelBasic, "no": LevelOff, "unset": LevelUnset} {
+	for consent, want := range map[string]Level{"yes": LevelDetailed, "no": LevelOff, "unset": LevelUnset} {
 		t.Run(consent, func(t *testing.T) {
 			pool := rawScratch(t)
 			id := "NULL"
@@ -211,7 +211,7 @@ func TestClaimVersionChange_Integration(t *testing.T) {
 	ctx := context.Background()
 	pool := scratchPool(t)
 	st := NewStore(pool)
-	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
 		t.Fatal(err)
 	}
 	set := func(ago, version string) {
@@ -239,7 +239,7 @@ func TestClaimVersionChange_Integration(t *testing.T) {
 func TestLastSentVersionOnlyOnOk_Integration(t *testing.T) {
 	ctx := context.Background()
 	st := NewStore(scratchPool(t))
-	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.RecordResult(ctx, "error: network", "v2", nil); err != nil {
@@ -355,14 +355,17 @@ func TestAddHealthIgnoredUnlessDetailed_Integration(t *testing.T) {
 	if err := st.AddHealth(ctx, Counts{Panics: 1}); err != nil { // no row yet
 		t.Fatal(err)
 	}
-	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Disable(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.AddHealth(ctx, Counts{Panics: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := st.Load(ctx); !got.Counts.IsZero() {
-		t.Fatalf("basic level stored %+v", got.Counts)
+		t.Fatalf("off level stored %+v", got.Counts)
 	}
 }
 
@@ -376,7 +379,7 @@ func TestBannerKinds_Integration(t *testing.T) {
 		}
 	}
 	want(BannerNone) // no row
-	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
 		t.Fatal(err)
 	}
 	want(BannerNone)
@@ -434,7 +437,7 @@ func TestStoreApplyDefault_Integration(t *testing.T) {
 	}
 
 	for name, setup := range map[string]func(*Store) error{
-		"basic": func(s *Store) error { _, err := s.Enable(ctx, LevelBasic); return err },
+		"basic": func(s *Store) error { _, err := s.Enable(ctx, LevelDetailed); return err },
 		"off":   func(s *Store) error { return s.Disable(ctx) },
 	} {
 		if _, err := st.db.Exec(ctx, `DELETE FROM hatamoto_install_stats`); err != nil {
@@ -484,14 +487,14 @@ func TestDisableWipesCounters_Integration(t *testing.T) {
 	if !got.Counts.IsZero() || got.WindowStart != nil || got.Level != LevelOff || got.Consent != ConsentNo || got.InstallID != "" {
 		t.Fatalf("after disable: %+v", got)
 	}
-	// Leaving Detailed for Basic zeroes too, and consent stays yes.
+	// Enabling again while Detailed keeps the counts.
 	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
 		t.Fatal(err)
 	}
 	_ = st.AddHealth(ctx, Counts{Panics: 1})
-	basic, _ := st.Enable(ctx, LevelBasic)
-	if !basic.Counts.IsZero() || basic.Consent != ConsentYes {
-		t.Fatalf("detailed -> basic: %+v", basic)
+	again, _ := st.Enable(ctx, LevelDetailed)
+	if again.Counts.Panics != 1 || again.Consent != ConsentYes {
+		t.Fatalf("detailed -> detailed: %+v", again)
 	}
 }
 
@@ -518,14 +521,26 @@ func TestOldBinaryConsentChangeIsReconciled_Integration(t *testing.T) {
 				t.Fatalf("claim before the level is repaired: ok=%v err=%v", ok, err)
 			}
 			got, err := st.Load(ctx)
-			if err != nil || got.Level != LevelBasic || got.InstallID == "" {
-				t.Fatalf("after old Enable: level %q id %q (%v), want basic with an id", got.Level, got.InstallID, err)
+			if err != nil || got.Level != LevelDetailed || got.InstallID == "" || got.WindowStart == nil {
+				t.Fatalf("after old Enable: level %q id %q (%v), want detailed with an id and a window", got.Level, got.InstallID, err)
 			}
 			if _, ok, err := st.Claim(ctx, "v1"); err != nil || !ok {
 				t.Fatalf("claim after repair: ok=%v err=%v", ok, err)
 			}
 		})
 	}
+
+	// A row the previous release left at consent yes / basic is repaired to detailed.
+	t.Run("leftover basic", func(t *testing.T) {
+		pool := scratchPool(t)
+		if _, err := pool.Exec(ctx, `INSERT INTO hatamoto_install_stats (id, consent, level, install_id) VALUES (TRUE, 'yes', 'basic', '0123456789abcdef0123456789abcdef')`); err != nil {
+			t.Fatal(err)
+		}
+		got, err := NewStore(pool).Load(ctx)
+		if err != nil || got.Level != LevelDetailed || got.WindowStart == nil || got.Consent != ConsentYes {
+			t.Fatalf("leftover basic: %+v (%v), want detailed", got, err)
+		}
+	})
 
 	t.Run("disable from detailed", func(t *testing.T) {
 		pool := scratchPool(t)
@@ -559,7 +574,7 @@ func TestRolloverNeverReachesBeforeDetailedChoice_Integration(t *testing.T) {
 	ctx := context.Background()
 	pool := scratchPool(t)
 	st := NewStore(pool)
-	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
 		t.Fatal(err)
 	}
 	// A Basic report long ago, then Off, then Detailed.
@@ -609,7 +624,7 @@ func TestBasicThenDetailedWindowStartsAtChoice_Integration(t *testing.T) {
 	ctx := context.Background()
 	pool := scratchPool(t)
 	st := NewStore(pool)
-	if _, err := st.Enable(ctx, LevelBasic); err != nil {
+	if _, err := st.Enable(ctx, LevelDetailed); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `UPDATE hatamoto_install_stats SET last_ok_at = now() - interval '30 hours'`); err != nil {
