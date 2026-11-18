@@ -412,6 +412,25 @@
         }
       ],
       "halted": false
+    },
+    {
+      "version": "v1.3.7",
+      "record_sig": "d7effd9870698586:uBSaQbAZCA6duDFphvAmlAhFbfjx6C4JCOP9PdGwMdZ1P8I9cRAkAFnQf6LNHpdizzP4hlxOu8nP3LuUck+wAg==",
+      "ramp": [
+        {
+          "from": "2026-11-25T06:56:00Z",
+          "pct": 5
+        },
+        {
+          "from": "2026-11-27T06:56:00Z",
+          "pct": 25
+        },
+        {
+          "from": "2026-11-29T06:56:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
     }
   ],
   "yanked": []
