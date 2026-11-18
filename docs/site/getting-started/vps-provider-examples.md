@@ -4,7 +4,7 @@ nav_title: VPS provider examples
 description: Ready-to-paste launch scripts and cloud-init files that install Hatamoto on a new Vultr, DigitalOcean, Lightsail, Amazon EC2, Hetzner or Linode server.
 ---
 
-This page has one example per hosting provider for the launch form of a new server, where you can paste a script or a cloud-init file that runs once when the server first starts. It supports the guide [Install on a VPS](install-vps.md), which explains the options and what the installer does. Every example installs the same thing, so pick the one for your provider.
+This page has one example per hosting provider for the launch form of a new server, where you can paste a script or a cloud-init file that runs once when the server first starts. It supports the guide [Install on a VPS](install-vps.md), which explains the options and what the installer does. Every example installs the same thing, so pick the one for your provider. Each provider also has a step-by-step page on hatamoto.dev, linked under its example, with the plan to pick, what it costs and how to check the result.
 
 **cloud-init** is the standard tool that reads such a file on the first start of a cloud server. A file for it starts with the line `#cloud-config`. A plain script starts with `#!/bin/sh`.
 
@@ -29,6 +29,8 @@ In the deploy form, under **Additional Features**, turn on **Cloud-Init User Dat
 sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh && chmod +x /tmp/hatamoto-install.sh && env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com /tmp/hatamoto-install.sh'
 ```
 
+For every click, the costs and the provider's own snags, see [Deploy Hatamoto on Vultr](https://hatamoto.dev/deploy-hatamoto-on-vultr).
+
 ## DigitalOcean
 
 When you create the Droplet, expand **Additional Options**, turn on **Startup scripts**, and paste this into the box that appears:
@@ -38,6 +40,8 @@ When you create the Droplet, expand **Additional Options**, turn on **Startup sc
 runcmd:
   - sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh && chmod +x /tmp/hatamoto-install.sh && env HATAMOTO_DOMAIN=cms.example.com HATAMOTO_ADMIN_EMAIL=you@example.com /tmp/hatamoto-install.sh'
 ```
+
+For every click, the costs and the provider's own snags, see [Deploy Hatamoto on DigitalOcean](https://hatamoto.dev/deploy-hatamoto-on-digitalocean).
 
 ## Amazon Lightsail
 
@@ -49,6 +53,8 @@ sh -c 'curl -fsSL -o /tmp/hatamoto-install.sh https://hatamoto.dev/install.sh &&
 ```
 
 After it launches, open the networking tab of the instance and add a rule for port 443 (HTTPS). Lightsail opens only 22 and 80 by default. The login user is `ubuntu` on Ubuntu images and `admin` on Debian images.
+
+For every click, the costs and the provider's own snags, see [Deploy Hatamoto on AWS Lightsail](https://hatamoto.dev/deploy-hatamoto-on-aws-lightsail).
 
 ## Amazon EC2
 
@@ -65,6 +71,8 @@ The public address EC2 assigns at launch changes every time the instance is stop
 
 EC2 puts the public address in front of the instance (NAT), so the server only sees a private address. The installer asks an outside service for the public one and logs a warning naming both; that warning is normal here. The login user is `ubuntu` on Ubuntu images and `admin` on Debian images.
 
+For every click, the costs and the provider's own snags, see [Deploy Hatamoto on AWS EC2](https://hatamoto.dev/deploy-hatamoto-on-aws-ec2).
+
 ## Hetzner
 
 When you create the server, paste this into the cloud config field:
@@ -76,6 +84,8 @@ runcmd:
 ```
 
 Hetzner has no firewall unless you attach one. If you attach one, allow ports 22, 80 and 443.
+
+For every click, the costs and the provider's own snags, see [Deploy Hatamoto on Hetzner](https://hatamoto.dev/deploy-hatamoto-on-hetzner).
 
 ## Linode
 
@@ -89,6 +99,10 @@ runcmd:
 
 If your Linode image does not offer user data, create the server, open its console and run the one-line command from the guide instead. The login user is `root` (the SSH key you add goes to root), so later commands need no `sudo`. The web console (Launch LISH Console) needs a root password, so set one on the create form if you want to use it.
 
+For every click, the costs and the provider's own snags, see [Deploy Hatamoto on Linode](https://hatamoto.dev/deploy-hatamoto-on-linode).
+
 ## Any other provider
 
 If the provider accepts cloud-init, use the DigitalOcean example. If it accepts a script, use the Vultr example. If it accepts neither, sign in once and run the command from [Install on a VPS](install-vps.md).
+
+To skip running a server, deploy the Hatamoto template on Railway instead: see [Deploy on Railway](deploy-railway.md), or the step-by-step page [Deploy Hatamoto on Railway](https://hatamoto.dev/deploy-hatamoto-on-railway).

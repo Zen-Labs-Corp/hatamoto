@@ -9,7 +9,7 @@ In this guide you deploy Hatamoto on **Railway**, a hosting service that runs co
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/hatamoto)
 
-The template is at [railway.com/deploy/hatamoto](https://railway.com/deploy/hatamoto).
+The template is at [railway.com/deploy/hatamoto](https://railway.com/deploy/hatamoto). For prices, backups and command-line steps, see [Deploy Hatamoto on Railway](https://hatamoto.dev/deploy-hatamoto-on-railway).
 
 ## Before you start
 
@@ -76,7 +76,7 @@ If you lose the admin address, install the Railway command-line tool, run `railw
 
 ### Use your own domain
 
-1. On the hatamoto service, open **Settings**, then **Networking**, and add your domain. Railway shows the DNS record to create at your domain provider.
+1. On the hatamoto service, open **Settings**, find **Public Networking** and click **+ Custom Domain**. Type your domain. Railway shows a `CNAME` record and a `TXT` record: create both at your domain provider. Without the `TXT` record the domain answers 404.
 2. Under **Variables**, set `PUBLIC_BASE_URL` to `https://` followed by your domain, for example `https://example.com`, and deploy the change.
 
 Railway issues the HTTPS certificate for you.
@@ -84,7 +84,7 @@ Railway issues the HTTPS certificate for you.
 ## Check it worked
 
 - The hatamoto service shows the latest deployment as **Active**. Railway checks the address `/health` before it switches traffic, so an active deployment is a healthy one.
-- The public address (under **Settings**, **Networking**) opens the starter home page.
+- The public address (under **Settings**, **Public Networking**) opens the starter home page.
 - You can sign in at your admin address with the owner account you created.
 
 If the deployment fails, read the deploy log. A line naming `DATABASE_URL` means the Postgres service is not running or the variable was changed; set it back to `${{Postgres.DATABASE_URL}}`. If the site works but links point at the wrong address, check `PUBLIC_BASE_URL`.

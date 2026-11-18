@@ -28,7 +28,7 @@ There are two ways. Pick one.
   curl -fsSL https://hatamoto.dev/install.sh | sudo sh
   ```
 
-- **Paste a cloud-init file.** Many providers have a box named user-data, launch script or startup script, where you paste a file that runs once when the server first starts. The [VPS provider examples](vps-provider-examples.md) page has a ready file for each provider.
+- **Paste a cloud-init file.** Many providers have a box named user-data, launch script or startup script, where you paste a file that runs once when the server first starts. The [VPS provider examples](vps-provider-examples.md) page has a ready file for each provider, and links each provider's step-by-step page.
 
 ### Set your options (optional)
 
