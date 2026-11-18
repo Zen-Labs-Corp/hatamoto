@@ -15,7 +15,7 @@ import (
 	"hatamoto.dev/core/internal/user"
 )
 
-var setupSteps = []string{"Your account", "Admin address", "Your site", "Email", "Look", "Stats", "Content", "Done"}
+var setupSteps = []string{"Your account", "Admin address", "Your site", "Email", "Look", "Content", "Done"}
 
 func steps(current int) []ui.Step {
 	out := make([]ui.Step, len(setupSteps))
@@ -51,10 +51,6 @@ type setupData struct {
 	ThemeItems        []ui.RadioCardItem
 	// ContentItems are the three content choices as radio cards.
 	ContentItems []ui.RadioCardItem
-	// stats
-	StatsCards   []ui.RadioCardItem // the three levels, Detailed preselected
-	StatsDocsURL string
-	StatsNeeded  bool // the form was posted without choosing a level
 	// Back is the previous step's address; empty on the first steps.
 	Back string
 	// content
@@ -93,8 +89,6 @@ func (a *Admin) mountSetup(public, authed *httpx.Group) {
 	owner.HandleFunc("POST /setup/email", a.handleSetupEmail)
 	owner.HandleFunc("GET /setup/theme", a.handleSetupThemeForm)
 	owner.HandleFunc("POST /setup/theme", a.handleSetupTheme)
-	owner.HandleFunc("GET /setup/stats", a.handleSetupStatsForm)
-	owner.HandleFunc("POST /setup/stats", a.handleSetupStats)
 	owner.HandleFunc("GET /setup/content", a.handleSetupContentForm)
 	owner.HandleFunc("POST /setup/content", a.handleSetupContent)
 	authed.Group("", a.RequireRole("owner")).HandleFunc("GET /setup/done", a.handleSetupDone)
@@ -415,106 +409,6 @@ func (a *Admin) handleSetupTheme(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	a.invalidate(r.Context())
-	http.Redirect(w, r, a.setupAfterTheme(r.Context()), http.StatusSeeOther)
-}
-
-// setupStatsStep reports whether the Stats step is part of this wizard: it is
-// skipped when the build has no install stats service or the server
-// configuration turns them off (HATAMOTO_TELEMETRY=off). Like the Email step,
-// a skipped step's form sends the owner straight forward again.
-func (a *Admin) setupStatsStep(ctx context.Context) bool {
-	if a.deps.Stats == nil || a.deps.Demo.Enabled {
-		return false
-	}
-	// Only the server configuration matters here, not the stored choice.
-	return !a.deps.Stats.ForcedOff()
-}
-
-// setupAfterTheme is where the Look step goes on to.
-func (a *Admin) setupAfterTheme(ctx context.Context) string {
-	if a.setupStatsStep(ctx) {
-		return a.adminPath + "/setup/stats"
-	}
-	return a.adminPath + "/setup/content"
-}
-
-// setupBackToStats is where Back on the Content step goes.
-func (a *Admin) setupBackToStats(ctx context.Context) string {
-	if a.setupStatsStep(ctx) {
-		return a.adminPath + "/setup/stats"
-	}
-	return a.adminPath + "/setup/theme"
-}
-
-// setupStatsLevel is the card the Stats step shows checked: the stored answer
-// when the owner has given one, Detailed when the level is unset or unknown.
-// A failed read is returned, so the caller never mistakes it for "unset".
-func (a *Admin) setupStatsLevel(ctx context.Context) (string, error) {
-	v, err := a.deps.Stats.View(ctx)
-	if err != nil {
-		return "", err
-	}
-	if !validStatsLevel(v.Level) {
-		return statsLevelDetailed, nil
-	}
-	return v.Level, nil
-}
-
-func (a *Admin) renderSetupStats(w http.ResponseWriter, r *http.Request, status int, needed bool) {
-	nv := a.NewView(w, r, "Help improve Hatamoto")
-	nv.Wide = true
-	// On a failed read nothing is preselected, so an error never shows a level the owner did not pick.
-	level, err := a.setupStatsLevel(r.Context())
-	if err != nil {
-		a.logger().Warn("setup: stats view", "err", err)
-	}
-	nv.Data = setupData{Steps: steps(5), Back: a.adminPath + "/setup/theme", StatsCards: statsLevelCards(level), StatsDocsURL: statsDocsURL, StatsNeeded: needed}
-	a.Render(w, r, status, "setup/stats", nv)
-}
-
-// setupStatsSkip handles a stats store error in the wizard: warn and go on to
-// Content, so the optional step can never block setup.
-func (a *Admin) setupStatsSkip(w http.ResponseWriter, r *http.Request, msg string, err error) {
-	a.logger().Warn(msg, "err", err)
-	http.Redirect(w, r, a.adminPath+"/setup/content", http.StatusSeeOther)
-}
-
-// The Stats step is optional and never ends setup: the owner may skip past it
-// with consent left unset, and the Content step finishes the wizard.
-func (a *Admin) handleSetupStatsForm(w http.ResponseWriter, r *http.Request) {
-	if !a.setupStatsStep(r.Context()) {
-		http.Redirect(w, r, a.adminPath+"/setup/content", http.StatusSeeOther)
-		return
-	}
-	a.renderSetupStats(w, r, http.StatusOK, false)
-}
-
-func (a *Admin) handleSetupStats(w http.ResponseWriter, r *http.Request) {
-	if !a.setupStatsStep(r.Context()) {
-		http.Redirect(w, r, a.adminPath+"/setup/content", http.StatusSeeOther)
-		return
-	}
-	choice := r.PostFormValue("choice")
-	if choice == "" {
-		// A bare post is the preselected card: the stored answer, or Detailed.
-		level, err := a.setupStatsLevel(r.Context())
-		if err != nil {
-			// Unknown stored answer: record nothing rather than guess.
-			a.setupStatsSkip(w, r, "setup: stats view", err)
-			return
-		}
-		choice = level
-	}
-	if !validStatsLevel(choice) {
-		// Anything else is refused, never read as a level.
-		a.renderSetupStats(w, r, http.StatusUnprocessableEntity, true)
-		return
-	}
-	if err := a.deps.Stats.Choose(r.Context(), choice); err != nil {
-		a.setupStatsSkip(w, r, "setup: stats choose", err)
-		return
-	}
-	a.audit(r, "stats.consent", "stats", map[string]any{"choice": choice})
 	http.Redirect(w, r, a.adminPath+"/setup/content", http.StatusSeeOther)
 }
 
@@ -533,7 +427,7 @@ func (a *Admin) renderContent(w http.ResponseWriter, r *http.Request, status int
 	}
 	v := a.NewView(w, r, "Start with content")
 	v.Wide = true
-	v.Data = setupData{Steps: steps(6), Choice: choice, Failed: failed, ContentItems: contentItems(choice), Back: a.setupBackToStats(r.Context())}
+	v.Data = setupData{Steps: steps(5), Choice: choice, Failed: failed, ContentItems: contentItems(choice), Back: a.adminPath + "/setup/theme"}
 	a.Render(w, r, status, "setup/content", v)
 }
 
@@ -604,7 +498,7 @@ func (a *Admin) handleSetupContent(w http.ResponseWriter, r *http.Request) {
 func (a *Admin) handleSetupDone(w http.ResponseWriter, r *http.Request) {
 	v := a.NewView(w, r, "You are all set")
 	v.Wide = true
-	d := setupData{Steps: steps(7), Home: "/", Mail: a.mailConfigured(), Links: []doneLink{
+	d := setupData{Steps: steps(6), Home: "/", Mail: a.mailConfigured(), Links: []doneLink{
 		{Icon: "external", Title: "View your site", Href: "/"},
 		{Icon: "edit", Title: "Edit pages and posts", Href: a.adminPath + "/entities"},
 		{Icon: "users", Title: "Invite someone", Href: a.adminPath + "/settings/users"},

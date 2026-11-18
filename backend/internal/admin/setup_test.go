@@ -161,14 +161,6 @@ func TestSetupWizardPagesAccessibleAndGolden(t *testing.T) {
 		}
 		pages[name] = rec.Body.String()
 	}
-	// the Stats step exists only with the install stats service
-	g.a.deps.Stats = &fakeStats{view: StatsView{Level: "unset"}}
-	rec = g.do("GET", "/admin/setup/stats", "owner-token", nil, nil)
-	if rec.Code != 200 {
-		t.Fatalf("setup-stats: %d", rec.Code)
-	}
-	pages["setup-stats"] = rec.Body.String()
-	g.a.deps.Stats = nil
 	// error states
 	g.count.n = 0
 	rec = g.do("POST", "/admin/setup", "", url.Values{"code": {"nope"}, "email": {"bad"}, "password": {"short"}}, nil)
@@ -514,8 +506,7 @@ func TestSetupStepsHaveBack(t *testing.T) {
 
 	g := newSetupRig(t)
 	g.count.n = 1
-	g.a.deps.Stats = &fakeStats{view: StatsView{Level: "unset"}}
-	for path, back := range map[string]string{"/admin/setup/site": "/admin/setup/admin-address", "/admin/setup/email": "/admin/setup/site", "/admin/setup/theme": "/admin/setup/email", "/admin/setup/stats": "/admin/setup/theme", "/admin/setup/content": "/admin/setup/stats"} {
+	for path, back := range map[string]string{"/admin/setup/site": "/admin/setup/admin-address", "/admin/setup/email": "/admin/setup/site", "/admin/setup/theme": "/admin/setup/email", "/admin/setup/content": "/admin/setup/theme"} {
 		body := g.do("GET", path, "owner-token", nil, nil).Body.String()
 		i, j := strings.Index(body, `href="`+back+`"><span>Back</span>`), strings.Index(body, "hm-btn--primary")
 		if i < 0 || j < i {

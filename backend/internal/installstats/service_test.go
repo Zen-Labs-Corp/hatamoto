@@ -63,15 +63,6 @@ func (m *memStore) Disable(context.Context) error {
 	m.disabled++
 	return nil
 }
-func (m *memStore) Reset(context.Context) (State, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.st.Consent == ConsentYes {
-		m.n++
-		m.st.InstallID = strings.Repeat(string(rune('a'+m.n)), 32)
-	}
-	return m.st, nil
-}
 func (m *memStore) Claim(_ context.Context, version string) (string, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -126,7 +117,7 @@ func (m *memStore) AddHealth(_ context.Context, d Counts) error {
 func (m *memStore) DismissNudge(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.st.NudgeDismissed = m.st.NudgeDismissed || m.st.Level == LevelBasic
+	m.st.NudgeDismissed = true
 	m.st.DefaultNoticePending = false
 	return nil
 }
@@ -145,13 +136,8 @@ func (m *memStore) ApplyDefault(context.Context) (bool, error) {
 func (m *memStore) Banner(context.Context) (BannerKind, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	switch {
-	case m.st.Level == LevelUnset:
-		return BannerUnanswered, nil
-	case m.st.DefaultNoticePending && m.st.Level == LevelDetailed:
+	if m.st.DefaultNoticePending && m.st.Level == LevelDetailed {
 		return BannerDefaulted, nil
-	case m.st.Level == LevelBasic && !m.st.NudgeDismissed:
-		return BannerNudge, nil
 	}
 	return BannerNone, nil
 }
@@ -203,7 +189,7 @@ func defaultRig(t *testing.T, env map[string]string, version string, setupDone b
 
 func TestRunSendsOnlyOnceSetupIsComplete(t *testing.T) {
 	ctx := context.Background()
-	for _, level := range []Level{LevelDetailed, LevelBasic} {
+	for _, level := range []Level{LevelDetailed} {
 		done := false
 		s, m, r := rig(t, nil, "v1.2.3")
 		s.setupComplete = func(context.Context) (bool, error) { return done, nil }
@@ -296,7 +282,7 @@ func TestDefaultNotAppliedWhenSetupIncomplete(t *testing.T) {
 
 func TestDefaultKeepsExplicitAnswers(t *testing.T) {
 	ctx := context.Background()
-	for name, level := range map[string]Level{"off": LevelOff, "basic": LevelBasic} {
+	for name, level := range map[string]Level{"off": LevelOff, "detailed": LevelDetailed} {
 		s, m, _, audits := defaultRig(t, nil, "v1.2.3", true, false)
 		if err := s.Choose(ctx, level); err != nil {
 			t.Fatal(err)
@@ -338,7 +324,7 @@ func TestDefaultNeverAppliesWhenForcedOffDevOrDemo(t *testing.T) {
 func TestChooseClearsTheDefaultedNotice(t *testing.T) {
 	ctx := context.Background()
 	s, m, _, _ := defaultRig(t, nil, "v1.2.3", true, false)
-	for _, level := range []Level{LevelDetailed, LevelBasic, LevelOff} {
+	for _, level := range []Level{LevelDetailed, LevelOff} {
 		if _, err := s.ApplyDefault(ctx); err != nil {
 			t.Fatal(err)
 		}
@@ -367,7 +353,7 @@ func TestRunSendsNothingWithoutConsent(t *testing.T) {
 	for name, setup := range map[string]func(*Service, *memStore){
 		"setup pending": func(s *Service, _ *memStore) { s.setupComplete = nil }, // no default applied
 		"no":            func(s *Service, _ *memStore) { _ = s.Choose(ctx, LevelOff) },
-		"dev":           func(s *Service, _ *memStore) { _ = s.Choose(ctx, LevelBasic) },
+		"dev":           func(s *Service, _ *memStore) { _ = s.Choose(ctx, LevelDetailed) },
 		"forced":        func(_ *Service, m *memStore) { _, _ = m.Enable(ctx, LevelBasic) },
 	} {
 		env, version := map[string]string{}, "v1.2.3"
@@ -396,7 +382,7 @@ func TestRunNeverSendsFromASourceBuild(t *testing.T) {
 		"v1.4.3+dirty", "1.4.3", "",
 	} {
 		s, _, r := rig(t, nil, version)
-		_ = s.Choose(ctx, LevelBasic)
+		_ = s.Choose(ctx, LevelDetailed)
 		if err := s.Run(ctx); err != nil {
 			t.Fatalf("%q: %v", version, err)
 		}
@@ -406,7 +392,7 @@ func TestRunNeverSendsFromASourceBuild(t *testing.T) {
 	}
 	for _, version := range []string{"v1.5.0", "v1.5.0-rc.1"} {
 		s, _, r := rig(t, nil, version)
-		_ = s.Choose(ctx, LevelBasic)
+		_ = s.Choose(ctx, LevelDetailed)
 		if err := s.Run(ctx); err != nil || len(r.reqs) != 1 {
 			t.Errorf("%q: err %v, %d requests, want 1", version, err, len(r.reqs))
 		}
@@ -423,11 +409,8 @@ func TestEnforceDeletesTheID(t *testing.T) {
 	if st, _ := m.Load(ctx); st.Consent != ConsentNo || st.InstallID != "" {
 		t.Fatalf("env off must leave consent no and no id: %+v", st)
 	}
-	if err := s.Choose(ctx, LevelBasic); !errors.Is(err, ErrForcedOff) {
+	if err := s.Choose(ctx, LevelDetailed); !errors.Is(err, ErrForcedOff) {
 		t.Fatalf("choose under env off = %v", err)
-	}
-	if err := s.Reset(ctx); !errors.Is(err, ErrForcedOff) {
-		t.Fatalf("reset under env off = %v", err)
 	}
 	if st, _ := m.Load(ctx); st.Consent != ConsentNo || st.InstallID != "" {
 		t.Fatalf("a refused choice must change nothing: %+v", st)
@@ -437,7 +420,7 @@ func TestEnforceDeletesTheID(t *testing.T) {
 func TestRunSendsOnceWithTheExactBody(t *testing.T) {
 	ctx := context.Background()
 	s, m, r := rig(t, nil, "v1.2.3")
-	if err := s.Choose(ctx, LevelBasic); err != nil {
+	if err := s.Choose(ctx, LevelDetailed); err != nil {
 		t.Fatal(err)
 	}
 	id := m.st.InstallID
@@ -473,7 +456,7 @@ func TestRunSendsOnceWithTheExactBody(t *testing.T) {
 func TestRunErrorKeepsLastSuccessTime(t *testing.T) {
 	ctx := context.Background()
 	s, m, r := rig(t, nil, "v1.2.3")
-	_ = s.Choose(ctx, LevelBasic)
+	_ = s.Choose(ctx, LevelDetailed)
 	if err := s.Run(ctx); err != nil || m.st.LastOKAt == nil {
 		t.Fatalf("ok run: %v, last ok %v", err, m.st.LastOKAt)
 	}
@@ -497,7 +480,7 @@ func TestRunStatusNeverHoldsTheID(t *testing.T) {
 	}{{404, nil, "error: http 404"}, {302, nil, "error: http 302"}, {0, errors.New("dial https://hatamoto.dev: refused"), "error: network"}} {
 		s, m, r := rig(t, nil, "v1.2.3")
 		r.status, r.err = c.status, c.err
-		_ = s.Choose(ctx, LevelBasic)
+		_ = s.Choose(ctx, LevelDetailed)
 		id := m.st.InstallID
 		if err := s.Run(ctx); err != nil {
 			t.Fatal(err)
@@ -516,7 +499,7 @@ func TestBannerKinds(t *testing.T) {
 		level Level
 		want  BannerKind
 	}{
-		{"unset", nil, LevelUnset, BannerUnanswered},
+		{"unset", nil, LevelUnset, BannerNone},
 		{"explicit basic", nil, LevelBasic, BannerNone},
 		{"detailed", nil, LevelDetailed, BannerNone},
 		{"off", nil, LevelOff, BannerNone},
@@ -530,12 +513,13 @@ func TestBannerKinds(t *testing.T) {
 			t.Errorf("%s: Banner = %q, %v; want %q", c.name, got, err, c.want)
 		}
 	}
-	// A Basic row that was never chosen here (migrated from consent yes) is offered Detailed once.
-	s, m, _ := rig(t, nil, "v1.2.3")
-	_ = s.Choose(ctx, LevelBasic)
-	m.st.NudgeDismissed = false
-	if got, _ := s.Banner(ctx); got != BannerNudge {
-		t.Fatalf("migrated basic: %q, want nudge", got)
+	// Only the defaulted notice is ever shown, and Got it clears it.
+	s, _, _ := rig(t, nil, "v1.2.3")
+	if _, err := s.ApplyDefault(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.Banner(ctx); got != BannerDefaulted {
+		t.Fatalf("defaulted: %q, want defaulted", got)
 	}
 	if err := s.DismissNudge(ctx); err != nil {
 		t.Fatal(err)
@@ -560,10 +544,6 @@ func TestViewLevels(t *testing.T) {
 	if v, _ := s.View(ctx); v.Level != LevelDetailed || v.LastSent != nil && !v.LastSent.Equal(*m.st.LastOKAt) {
 		t.Fatalf("detailed view: %+v", v)
 	}
-	first := m.st.InstallID
-	if err := s.Reset(ctx); err != nil || m.st.InstallID == first {
-		t.Fatalf("reset: %v", err)
-	}
 	f, fm, _ := rig(t, map[string]string{EnvTelemetry: "off"}, "v1.2.3")
 	_, _ = fm.Enable(ctx, LevelDetailed)
 	if v, _ := f.View(ctx); !v.ForcedOff || v.Level != LevelOff {
@@ -573,7 +553,7 @@ func TestViewLevels(t *testing.T) {
 
 func TestChooseRejectsUnknownLevels(t *testing.T) {
 	s, m, _ := rig(t, nil, "v1.2.3")
-	for _, l := range []Level{LevelUnset, "bogus"} {
+	for _, l := range []Level{LevelUnset, LevelBasic, "bogus"} {
 		if err := s.Choose(context.Background(), l); err == nil {
 			t.Errorf("Choose(%q) accepted", l)
 		}
@@ -614,17 +594,17 @@ func detailedRig(t *testing.T) (*Service, *memStore, *recorder, *Health, *fakeSo
 	return s, m, r, h, f
 }
 
-func TestRunBasicBodyIsThreeKeys(t *testing.T) {
+// A row the previous release left at Basic is sent as Detailed.
+func TestRunLeftoverBasicRowSendsDetailedBody(t *testing.T) {
 	ctx := context.Background()
-	s, _, r, h, _ := detailedRig(t)
-	_ = s.Choose(ctx, LevelBasic)
+	s, m, r, h, _ := detailedRig(t)
+	_, _ = m.Enable(ctx, LevelBasic)
 	h.Panic()
 	if err := s.Run(ctx); err != nil || len(r.bodies) != 1 {
 		t.Fatalf("run: %v, %d bodies", err, len(r.bodies))
 	}
-	entries, err := jsonx.ObjectEntries([]byte(r.bodies[0]))
-	if err != nil || len(entries) != 3 || entries[0].Key != "install" || entries[1].Key != "version" || entries[2].Key != "channel" {
-		t.Fatalf("basic body: %s (%v)", r.bodies[0], err)
+	if err := validateDetailed([]byte(r.bodies[0])); err != nil {
+		t.Fatalf("%v\n%s", err, r.bodies[0])
 	}
 }
 

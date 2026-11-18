@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io/fs"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/installstats"
@@ -23,6 +25,9 @@ type statsSources struct {
 	pool   *pgxpool.Pool
 	pkgs   *packages.Store
 	worker bool // the background worker runs in this process
+	// baseURL is the PUBLIC_SITE base URL from the environment; it wins over
+	// the stored site config, like the admin address check.
+	baseURL string
 }
 
 var _ installstats.Sources = statsSources{}
@@ -119,6 +124,23 @@ func (s statsSources) UpdateCounts(ctx context.Context, since time.Time) (failed
 		return 0, 0, fmt.Errorf("count updates: %w", err)
 	}
 	return failed, rolledBack, nil
+}
+
+// Host is the raw public base URL, read on every call because the owner can
+// change it at runtime. No stored row means no host.
+func (s statsSources) Host(ctx context.Context) (string, error) {
+	if base := strings.TrimSpace(s.baseURL); base != "" {
+		return base, nil
+	}
+	var base string
+	err := s.pool.QueryRow(ctx, `SELECT public_base_url FROM hatamoto_site_config LIMIT 1`).Scan(&base)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read public base url: %w", err)
+	}
+	return base, nil
 }
 
 func (s statsSources) WorkerOn() bool { return s.worker }

@@ -171,22 +171,17 @@
 <form id="unpin-form" method="post" action="/admin/settings/updates/unpin"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form></div>
 <form method="post" action="/admin/settings/updates/stats" class="hm-cardform" id="stats-form">
 <input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789">
-<button type="submit" class="hm-visually-hidden" tabindex="-1" aria-hidden="true">Save</button>
 <section class="hm-card" id="updates-stats" aria-labelledby="updates-stats-title">
-<div class="hm-card__head"><h2 class="hm-card__title" id="updates-stats-title">Install stats</h2></div>
-<div class="hm-card__body"><div class="hm-setlist">
-<div class="hm-setrow">
-<div class="hm-setrow__text"><fieldset class="hm-radiocards hm-radiocards--3" id="level" aria-describedby="stats-help"><legend class="hm-field__label">Install stats</legend>
-<label class="hm-radiocard" for="level-0"><input class="hm-radiocard__input" type="radio" id="level-0" name="level" value="off" checked><span class="hm-radiocard__body"><span class="hm-radiocard__title">Off</span><span class="hm-muted">Nothing is sent</span></span></label>
-<label class="hm-radiocard" for="level-1"><input class="hm-radiocard__input" type="radio" id="level-1" name="level" value="basic"><span class="hm-radiocard__body"><span class="hm-radiocard__title">Basic</span><span class="hm-muted">Version and update channel</span></span></label>
-<label class="hm-radiocard" for="level-2"><input class="hm-radiocard__input" type="radio" id="level-2" name="level" value="detailed"><span class="hm-radiocard__body"><span class="hm-radiocard__title">Detailed</span><span class="hm-muted">Basic, plus plugins, theme and error counts</span></span></label>
-</fieldset>
-<p class="hm-field__help" id="stats-help">Anonymous, once a day, to hatamoto.dev. <a href="https://hatamoto.dev/docs/operate/install-stats" target="_blank" rel="noopener">What is collected</a></p></div>
+<div class="hm-card__head"><h2 class="hm-card__title" id="updates-stats-title">Usage stats</h2></div>
+<div class="hm-card__body">
+<div class="hm-field">
+<label class="hm-field__check hm-switch" for="stats-on"><input class="hm-field__box" type="checkbox" role="switch" id="stats-on" name="level" value="detailed" aria-describedby="stats-on-help"><span>Share usage stats with Hatamoto</span></label><input type="hidden" name="level" value="off">
+<p class="hm-field__help" id="stats-on-help">Version, site address, theme, plugins and error counts, once a day.</p>
 </div>
+<p class="hm-field__help"><a href="https://hatamoto.dev/docs/operate/install-stats" target="_blank" rel="noopener">What is collected</a></p>
 
-</div></div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
+</div><footer class="hm-card__foot"><button type="submit" class="hm-btn hm-btn--primary"><span>Save</span></button></footer></section>
 </form>
-<div hidden><form id="reset-stats-form" method="post" action="/admin/settings/updates/stats/reset"><input type="hidden" name="_csrf" value="csrf-token-csrf-token-csrf-token-0123456789"></form></div>
 
 </div>
 </div>

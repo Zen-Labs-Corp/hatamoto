@@ -50,10 +50,8 @@ const (
 type BannerKind string
 
 const (
-	BannerNone       BannerKind = "none"
-	BannerUnanswered BannerKind = "unanswered" // ask Off, Basic or Detailed
-	BannerNudge      BannerKind = "nudge"      // on Basic, not dismissed: offer Detailed
-	BannerDefaulted  BannerKind = "defaulted"  // Detailed was applied by default: tell the owner once
+	BannerNone      BannerKind = "none"
+	BannerDefaulted BannerKind = "defaulted" // Detailed was applied by default: tell the owner once
 )
 
 // maxPluginErrorKeys bounds the stored per-plugin error map; names beyond it
@@ -181,16 +179,18 @@ func scanState(row pgx.Row) (State, error) {
 }
 
 // reconcile repairs a row an older binary changed. That binary only knows
-// consent: its Enable leaves level off or unset, and its Disable leaves basic
-// or detailed (with the health counts). Consent wins: yes becomes basic, no
-// becomes off with the counts wiped. A row where the two agree is untouched.
+// consent: its Enable leaves level off or unset (or basic), and its Disable
+// leaves basic or detailed (with the health counts). Consent wins: yes becomes
+// detailed (stats are on or off, there is no Basic), no becomes off with the
+// counts wiped. A repaired yes row also shows the notice once more. A row where the two agree is untouched.
 func (s *Store) reconcile(ctx context.Context) error {
 	_, err := s.db.Exec(ctx, `
 		UPDATE hatamoto_install_stats SET
-			level = CASE consent WHEN 'yes' THEN 'basic' ELSE 'off' END,
-			health_window_start = NULL, h_panics = 0, h_http_5xx = 0, h_render_errors = 0,
-			h_migration_failed = 0, h_plugin_errors = '{}'::jsonb, h_sent = '{}'::jsonb, h_sent_at = NULL
-		WHERE (consent = 'yes' AND level NOT IN ('basic', 'detailed'))
+			level = CASE consent WHEN 'yes' THEN 'detailed' ELSE 'off' END,
+			health_window_start = CASE consent WHEN 'yes' THEN COALESCE(health_window_start, now()) END,
+			default_notice_pending = CASE consent WHEN 'yes' THEN TRUE ELSE default_notice_pending END,
+			h_panics = 0, h_http_5xx = 0, h_render_errors = 0, h_migration_failed = 0, h_plugin_errors = '{}'::jsonb, h_sent = '{}'::jsonb, h_sent_at = NULL
+		WHERE (consent = 'yes' AND level <> 'detailed')
 		   OR (consent = 'no' AND level <> 'off')`)
 	if err != nil {
 		return fmt.Errorf("reconcile install stats level: %w", err)
@@ -220,8 +220,8 @@ func (s *Store) Load(ctx context.Context) (State, error) {
 // is created. Entering Detailed starts a
 // fresh health window with zero counts; leaving it zeroes them.
 func (s *Store) Enable(ctx context.Context, level Level) (State, error) {
-	if level != LevelBasic && level != LevelDetailed {
-		return State{}, fmt.Errorf("enable install stats: level %q shares nothing", level)
+	if level != LevelDetailed {
+		return State{}, fmt.Errorf("enable install stats: level %q is not on", level)
 	}
 	id, err := newID()
 	if err != nil {
@@ -293,22 +293,8 @@ func (s *Store) Disable(ctx context.Context) error {
 	return nil
 }
 
-// Reset replaces the ID with a new random one. It does nothing unless consent
-// is yes: an ID never exists without it.
-func (s *Store) Reset(ctx context.Context) (State, error) {
-	id, err := newID()
-	if err != nil {
-		return State{}, err
-	}
-	if _, err := s.db.Exec(ctx, `
-		UPDATE hatamoto_install_stats SET install_id = $1 WHERE id AND consent = 'yes'`, id); err != nil {
-		return State{}, fmt.Errorf("reset install id: %w", err)
-	}
-	return s.Load(ctx)
-}
-
 // Claim takes the right to send now: it stamps last_sent_at and returns the ID,
-// but only when consent is yes, the level is Basic or Detailed and either the last claim is older than the
+// but only when consent is yes, the level is Detailed (a leftover Basic row counts) and either the last claim is older than the
 // interval, or the running version differs from the last one reported and the
 // last claim is older than versionRetry. The check and the stamp are one
 // statement, so replicas and restarts cannot both send. ok is false when
@@ -421,38 +407,33 @@ func (s *Store) RecordKeptDay(ctx context.Context, version string) error {
 	return nil
 }
 
-// DismissNudge acknowledges the owner banner: it stores that the Detailed
-// offer was dismissed (only on basic) and clears the defaulted notice.
+// DismissNudge acknowledges the defaulted notice. nudge_dismissed is set too:
+// the column stays, and the previous release still reads it.
 func (s *Store) DismissNudge(ctx context.Context) error {
-	if _, err := s.db.Exec(ctx, `UPDATE hatamoto_install_stats SET nudge_dismissed = (nudge_dismissed OR level = 'basic'),
+	if _, err := s.db.Exec(ctx, `UPDATE hatamoto_install_stats SET nudge_dismissed = TRUE,
 		default_notice_pending = FALSE WHERE id`); err != nil {
 		return fmt.Errorf("dismiss install stats nudge: %w", err)
 	}
 	return nil
 }
 
-// Banner says which owner banner to show, from one cheap query. The variable
-// HATAMOTO_TELEMETRY=off is the Service's concern, not the Store's.
+// Banner says which owner banner to show, from one cheap query: the defaulted
+// notice while it is pending, else none. The variable HATAMOTO_TELEMETRY=off is
+// the Service's concern, not the Store's.
 func (s *Store) Banner(ctx context.Context) (BannerKind, error) {
 	var (
-		level     Level
-		dismissed bool
-		pending   bool
+		level   Level
+		pending bool
 	)
-	err := s.db.QueryRow(ctx, `SELECT level, nudge_dismissed, default_notice_pending FROM hatamoto_install_stats WHERE id`).Scan(&level, &dismissed, &pending)
+	err := s.db.QueryRow(ctx, `SELECT level, default_notice_pending FROM hatamoto_install_stats WHERE id`).Scan(&level, &pending)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return BannerUnanswered, nil
+		return BannerNone, nil
 	}
 	if err != nil {
 		return BannerNone, fmt.Errorf("load install stats banner: %w", err)
 	}
-	switch {
-	case level == LevelUnset:
-		return BannerUnanswered, nil
-	case pending && level == LevelDetailed:
+	if pending && level == LevelDetailed {
 		return BannerDefaulted, nil
-	case level == LevelBasic && !dismissed:
-		return BannerNudge, nil
 	}
 	return BannerNone, nil
 }

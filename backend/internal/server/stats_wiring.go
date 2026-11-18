@@ -78,9 +78,8 @@ func (a adminStats) View(ctx context.Context) (admin.StatsView, error) {
 	switch v.Level {
 	case installstats.LevelOff:
 		level = "off"
-	case installstats.LevelBasic:
-		level = "basic"
-	case installstats.LevelDetailed:
+	case installstats.LevelBasic, installstats.LevelDetailed:
+		// Basic is gone: a leftover basic row is on, and sent as Detailed.
 		level = "detailed"
 	}
 	return admin.StatsView{Level: level, ForcedOff: v.ForcedOff, LastSent: v.LastSent}, nil
@@ -89,10 +88,6 @@ func (a adminStats) View(ctx context.Context) (admin.StatsView, error) {
 func (a adminStats) Banner(ctx context.Context) (string, error) {
 	k, err := a.svc.Banner(ctx)
 	switch k {
-	case installstats.BannerUnanswered:
-		return "unanswered", err
-	case installstats.BannerNudge:
-		return "nudge", err
 	case installstats.BannerDefaulted:
 		return "defaulted", err
 	}
@@ -107,8 +102,6 @@ func (a adminStats) Choose(ctx context.Context, level string) error {
 	switch level {
 	case "off":
 		return a.svc.Choose(ctx, installstats.LevelOff)
-	case "basic":
-		return a.svc.Choose(ctx, installstats.LevelBasic)
 	case "detailed":
 		return a.svc.Choose(ctx, installstats.LevelDetailed)
 	}
@@ -122,11 +115,10 @@ func (a adminStats) ApplyDefault(ctx context.Context) error {
 }
 
 func (a adminStats) DismissNudge(ctx context.Context) error { return a.svc.DismissNudge(ctx) }
-func (a adminStats) Reset(ctx context.Context) error        { return a.svc.Reset(ctx) }
 
 // scheduleStats puts the ping on the worker scheduler: a check every hour
 // (sending at most once a day), the first 5 to 15 minutes after start. Nothing is scheduled in a public demo or
-// when WORKER_DISABLE_JOBS names the job. The job itself sends only at Basic or
+// when WORKER_DISABLE_JOBS names the job. The job itself sends only at
 // Detailed: the owner's choice, or the Detailed default after setup. It reports whether the job was scheduled.
 func (s *Server) scheduleStats() bool {
 	if s.stats == nil || s.scheduler == nil || s.demoOn() || !workerJobEnabled(statsJob) {

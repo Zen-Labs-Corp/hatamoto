@@ -31,7 +31,6 @@ type Backend interface {
 	Load(ctx context.Context) (State, error)
 	Enable(ctx context.Context, level Level) (State, error)
 	Disable(ctx context.Context) error
-	Reset(ctx context.Context) (State, error)
 	Claim(ctx context.Context, version string) (id string, ok bool, err error)
 	AddHealth(ctx context.Context, d Counts) error
 	RecordResult(ctx context.Context, status, version string, sent *Counts) error
@@ -155,7 +154,7 @@ func (s *Service) Banner(ctx context.Context) (BannerKind, error) {
 	return s.store.Banner(ctx)
 }
 
-// DismissNudge hides the Detailed offer for good.
+// DismissNudge acknowledges the defaulted notice for good.
 func (s *Service) DismissNudge(ctx context.Context) error {
 	if s.ForcedOff() {
 		return ErrForcedOff
@@ -163,8 +162,8 @@ func (s *Service) DismissNudge(ctx context.Context) error {
 	return s.store.DismissNudge(ctx)
 }
 
-// Choose records the owner's answer. Basic and Detailed create the install ID;
-// Off deletes it.
+// Choose records the owner's answer. Detailed creates the install ID; Off
+// deletes it. Basic is no longer a choice.
 func (s *Service) Choose(ctx context.Context, level Level) error {
 	if ForcedOff(s.getenv) {
 		return ErrForcedOff
@@ -172,20 +171,11 @@ func (s *Service) Choose(ctx context.Context, level Level) error {
 	switch level {
 	case LevelOff:
 		return s.store.Disable(ctx)
-	case LevelBasic, LevelDetailed:
+	case LevelDetailed:
 		_, err := s.store.Enable(ctx, level)
 		return err
 	}
 	return fmt.Errorf("install stats: unknown level %q", level)
-}
-
-// Reset replaces the install ID with a new one.
-func (s *Service) Reset(ctx context.Context) error {
-	if ForcedOff(s.getenv) {
-		return ErrForcedOff
-	}
-	_, err := s.store.Reset(ctx)
-	return err
 }
 
 // SetAudit sets the function called when the default is applied. Nil (the
@@ -308,7 +298,8 @@ func (s *Service) Run(ctx context.Context) error {
 // without sources, or when the Detailed body cannot be built, unless a Detailed
 // body was already sent today (errKeepDetailedDay); the counts then stay stored.
 func (s *Service) body(ctx context.Context, id string, st State) ([]byte, *Counts, error) {
-	if st.Level == LevelDetailed {
+	// A leftover basic row (written by the previous release) is Detailed too.
+	if st.Level == LevelDetailed || st.Level == LevelBasic {
 		if s.sources != nil {
 			now := time.Now()
 			b, err := BuildDetailed(ctx, BuildInput{

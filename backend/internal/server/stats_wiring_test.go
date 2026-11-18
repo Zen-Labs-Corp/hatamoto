@@ -37,7 +37,6 @@ func (m *memStats) Disable(context.Context) error {
 	m.st = installstats.State{Consent: installstats.ConsentNo, Level: installstats.LevelOff}
 	return nil
 }
-func (m *memStats) Reset(context.Context) (installstats.State, error)   { return m.st, nil }
 func (m *memStats) Claim(context.Context, string) (string, bool, error) { return "", false, nil }
 func (m *memStats) AddHealth(_ context.Context, d installstats.Counts) error {
 	m.mu.Lock()
@@ -143,7 +142,7 @@ func TestStartupEnforcesTelemetryOff(t *testing.T) {
 	t.Setenv("WORKER_DISABLE_JOBS", "")
 	t.Setenv("HATAMOTO_TELEMETRY", "off")
 	s, m := statsTestServer(false) // the worker is off: the ID must go anyway
-	_, _ = m.Enable(context.Background(), installstats.LevelBasic)
+	_, _ = m.Enable(context.Background(), installstats.LevelDetailed)
 	s.SetStats(s.stats)
 	if m.st.Consent != installstats.ConsentNo || m.st.InstallID != "" {
 		t.Fatalf("env off at startup must clear the id: %+v", m.st)
@@ -154,7 +153,7 @@ func TestStartupLeavesConsentAloneWhenNotOff(t *testing.T) {
 	t.Setenv("WORKER_DISABLE_JOBS", "")
 	t.Setenv("HATAMOTO_TELEMETRY", "")
 	s, m := statsTestServer(false)
-	_, _ = m.Enable(context.Background(), installstats.LevelBasic)
+	_, _ = m.Enable(context.Background(), installstats.LevelDetailed)
 	s.SetStats(s.stats)
 	if m.st.Consent != installstats.ConsentYes || m.st.InstallID == "" {
 		t.Fatalf("startup must not change consent: %+v", m.st)
@@ -213,6 +212,24 @@ func TestAdminStatsBannerMapsDefaulted(t *testing.T) {
 	m.defaulted = true
 	if got, err := (adminStats{s.stats}).Banner(context.Background()); err != nil || got != "defaulted" {
 		t.Fatalf("Banner = %q, %v", got, err)
+	}
+}
+
+// The admin adapter knows only on (detailed) and off: a leftover basic row is
+// shown as detailed and basic is refused as a choice.
+func TestAdminStatsBasicIsDetailed(t *testing.T) {
+	s, m := statsTestServer(false)
+	m.st = installstats.State{Consent: installstats.ConsentYes, Level: installstats.LevelBasic}
+	a := adminStats{s.stats}
+	if v, err := a.View(context.Background()); err != nil || v.Level != "detailed" {
+		t.Fatalf("View = %+v, %v; want detailed", v, err)
+	}
+	m.st = installstats.State{}
+	if err := a.Choose(context.Background(), "basic"); err == nil || m.st.Level == installstats.LevelBasic {
+		t.Fatalf("Choose(basic) = %v, state %+v", err, m.st)
+	}
+	if err := a.Choose(context.Background(), "detailed"); err != nil || m.st.Level != installstats.LevelDetailed {
+		t.Fatalf("Choose(detailed) = %v, state %+v", err, m.st)
 	}
 }
 
