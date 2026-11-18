@@ -10,6 +10,7 @@
         "install-binary",
         "install-docker",
         "install-vps",
+        "deploy-railway",
         "first-run",
         "create-users"
       ],
