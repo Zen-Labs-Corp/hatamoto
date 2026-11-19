@@ -57,10 +57,9 @@ func TestPluginMailQuotaRoundTrips(t *testing.T) {
 	}
 }
 
-// The row that records the one-time keep of an installed plugin's entity
-// filter lives in hatamoto_plugin_grants. An archive restores it, and a target
-// that already holds its own copy does not block the import; an archive from
-// before the row existed leaves the target without it, to be claimed again.
+// The host's own bookkeeping row in hatamoto_plugin_grants (its name has a
+// ':', no plugin has one) belongs to the target: an import neither removes it
+// nor takes the archive's copy, whether or not the archive carries one.
 func TestImportGrantsWithMarker(t *testing.T) {
 	ctx := context.Background()
 	const marker = "core:grandfather:entities.filter"
@@ -75,32 +74,23 @@ func TestImportGrantsWithMarker(t *testing.T) {
 	}
 	withoutMarker := exportArchive(t, src, t.TempDir())
 
-	for name, tc := range map[string]struct {
-		archive []byte
-		want    []string
-	}{
-		"archive with the row":    {withMarker, []string{"shop"}},
-		"archive without the row": {withoutMarker, nil},
-	} {
+	for name, archive := range map[string][]byte{"archive with the row": withMarker, "archive without the row": withoutMarker} {
 		t.Run(name, func(t *testing.T) {
 			dst := scratchPool(t)
-			if _, err := dst.Exec(ctx, `INSERT INTO hatamoto_plugin_grants (plugin, permissions) VALUES ($1, '{}')
-				ON CONFLICT (plugin) DO NOTHING`, marker); err != nil {
+			if _, err := dst.Exec(ctx, `INSERT INTO hatamoto_plugin_grants (plugin, permissions) VALUES ($1, '{own}')
+				ON CONFLICT (plugin) DO UPDATE SET permissions = EXCLUDED.permissions`, marker); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := Import(ctx, dst, bytes.NewReader(tc.archive), ImportOptions{MediaDir: t.TempDir()}); err != nil {
+			if _, err := Import(ctx, dst, bytes.NewReader(archive), ImportOptions{MediaDir: t.TempDir()}); err != nil {
 				t.Fatalf("import: %v", err)
 			}
 			var got []string
-			err := dst.QueryRow(ctx, `SELECT permissions FROM hatamoto_plugin_grants WHERE plugin = $1`, marker).Scan(&got)
-			if tc.want == nil {
-				if err == nil {
-					t.Errorf("marker = %v, want no row", got)
-				}
-				return
+			if err := dst.QueryRow(ctx, `SELECT permissions FROM hatamoto_plugin_grants WHERE plugin = $1`, marker).Scan(&got); err != nil || len(got) != 1 || got[0] != "own" {
+				t.Errorf("marker = %v, %v, want the target's own [own]", got, err)
 			}
-			if err != nil || len(got) != 1 || got[0] != "shop" {
-				t.Errorf("marker = %v, %v, want [shop]", got, err)
+			var shop int
+			if err := dst.QueryRow(ctx, `SELECT count(*) FROM hatamoto_plugin_grants WHERE plugin = 'shop'`).Scan(&shop); err != nil || shop != 1 {
+				t.Errorf("shop rows = %d, %v, want the archive's grant imported", shop, err)
 			}
 		})
 	}

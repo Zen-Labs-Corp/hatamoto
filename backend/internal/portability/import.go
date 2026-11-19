@@ -164,12 +164,6 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 	if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_entity_schemas; DELETE FROM hatamoto_site_config`); err != nil {
 		return nil, err
 	}
-	// The target may hold the host's own bookkeeping row in the grants table
-	// (its name has a ':', no plugin has one). The archive's copy replaces it;
-	// an archive without one leaves the host to record a fresh one.
-	if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_plugin_grants WHERE plugin LIKE '%:%'`); err != nil {
-		return nil, err
-	}
 	// The updated_at triggers would overwrite imported timestamps when the
 	// parent links are set below.
 	for _, t := range tables {
@@ -567,6 +561,11 @@ func insertQuery(ctx context.Context, tx pgx.Tx, t table, firstLine []byte) (str
 	list := strings.Join(cols, ", ")
 	tbl := pgx.Identifier{"public", t.name}.Sanitize()
 	q := fmt.Sprintf(`INSERT INTO %s (%s) SELECT %s FROM jsonb_populate_record(NULL::%s, $1::jsonb)`, tbl, list, list, tbl)
+	if t.name == "hatamoto_plugin_grants" {
+		// A name with a ':' is the host's own bookkeeping row (no plugin has
+		// one). The target keeps its own; the archive's copy is not applied.
+		q += ` WHERE plugin NOT LIKE '%:%'`
+	}
 	if t.selfRef == "" {
 		return q, nil
 	}
