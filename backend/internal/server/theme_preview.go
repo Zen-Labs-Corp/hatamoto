@@ -143,7 +143,7 @@ func (p *themePreview) start(w http.ResponseWriter, r *http.Request) bool {
 	q.Del(previewParam)
 	u := url.URL{Path: r.URL.Path, RawQuery: q.Encode()}
 	w.Header().Set("Cache-Control", cachePrivate)
-	http.Redirect(w, r, u.String(), http.StatusSeeOther)
+	http.Redirect(w, r, safeLocalPath(u.String()), http.StatusSeeOther)
 	return true
 }
 
