@@ -449,7 +449,6 @@ func getEnvRequired(key string) string {
 	return value
 }
 
-// getEnvInt returns environment variable as int or default.
 // defaultFormUploadMaxTotalMB is the form upload store cap when the knob is unset.
 const defaultFormUploadMaxTotalMB = 1024
 
@@ -463,6 +462,7 @@ func (c ServerConfig) FormUploadMaxTotalBytes() int64 {
 	return int64(mb) << 20
 }
 
+// getEnvInt returns environment variable as int or default.
 func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if i, err := strconv.Atoi(value); err == nil {
