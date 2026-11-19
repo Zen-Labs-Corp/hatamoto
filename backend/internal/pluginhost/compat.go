@@ -51,10 +51,14 @@ func RedirectPathsRefusal(m sdk.Manifest) error {
 }
 
 // PagePathsRefusal is nil when none of the manifest's page_paths is a path
-// core serves itself (same list as redirect_paths). Load and install both
+// core serves itself (same list as redirect_paths) and none ends in a slash
+// (except "/"), which serve never matches. Load and install both
 // report it.
 func PagePathsRefusal(m sdk.Manifest) error {
 	for _, p := range m.PagePaths {
+		if len(p) > 1 && strings.HasSuffix(p, "/") {
+			return fmt.Errorf("plugin %q cannot declare page path %q: drop the trailing slash (the request path is matched without it)", m.Name, p)
+		}
 		if why := adminpath.RedirectPathRefusal(p); why != "" {
 			return fmt.Errorf("plugin %q cannot declare page path %q: %s", m.Name, p, why)
 		}

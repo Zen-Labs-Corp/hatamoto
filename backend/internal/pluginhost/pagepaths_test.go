@@ -84,7 +84,7 @@ func TestPagePathsRefusal(t *testing.T) {
 	if err := PagePathsRefusal(sdk.Manifest{Name: "pager", PagePaths: []string{"/", "/members"}}); err != nil {
 		t.Errorf("clean paths refused: %v", err)
 	}
-	for _, p := range []string{"/api/x", "/robots.txt"} {
+	for _, p := range []string{"/api/x", "/robots.txt", "/members/"} {
 		if err := PagePathsRefusal(sdk.Manifest{Name: "pager", PagePaths: []string{p}}); err == nil {
 			t.Errorf("%q not refused", p)
 		}

@@ -11,9 +11,16 @@ func pagePathsManifest(paths ...string) Manifest {
 }
 
 func TestPagePathsValid(t *testing.T) {
-	m := pagePathsManifest("/", "/members", "/account/", "/caf\u00e9")
+	m := pagePathsManifest("/", "/members", "/account", "/caf\u00e9")
 	if err := m.Validate(); err != nil {
 		t.Fatalf("valid page_paths refused: %v", err)
+	}
+}
+
+func TestPagePathsTrailingSlashRefused(t *testing.T) {
+	err := pagePathsManifest("/account/").Validate()
+	if err == nil || !strings.Contains(err.Error(), `"/account/"`) || !strings.Contains(err.Error(), "trailing slash") {
+		t.Errorf("err = %v, want a trailing slash refusal naming the path", err)
 	}
 }
 

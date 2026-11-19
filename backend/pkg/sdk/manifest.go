@@ -90,9 +90,11 @@ type Manifest struct {
 	RedirectPaths []string `json:"redirect_paths,omitempty"`
 
 	// PagePaths narrow the plugin's render.page filter to these exact public
-	// paths (as requested: trailing slash and locale prefix are distinct). Only
+	// request paths. No trailing slash (except "/"): the request path is matched
+	// after its trailing slash is dropped. They are request paths, not pages: a
+	// locale-prefixed or alternate URL of the same content is not covered. Only
 	// they are served private and uncached and only for them is the filter
-	// called; every other page is page-cached as if the plugin handled nothing.
+	// called; every other path is page-cached as if the plugin handled nothing.
 	// Empty: the filter runs for every page, which is then never shared-cached.
 	// At most MaxPagePaths. Several plugins may declare the same path. The host
 	// additionally refuses paths it serves itself (SDK 0.24).
@@ -750,7 +752,8 @@ func (m Manifest) validateRedirectPaths() error {
 
 // validatePagePaths checks the declared render.page paths with the same shape
 // rules as redirect_paths (checkRedirectPath): exact, clean, absolute, no
-// query, fragment, wildcard or percent escape.
+// query, fragment, wildcard or percent escape. Unlike redirect_paths, a
+// trailing slash is refused (except "/"): serve drops it before matching.
 func (m Manifest) validatePagePaths() error {
 	if len(m.PagePaths) > MaxPagePaths {
 		return fmt.Errorf("sdk: plugin %q: more than %d page_paths", m.Name, MaxPagePaths)
@@ -759,6 +762,9 @@ func (m Manifest) validatePagePaths() error {
 	for _, p := range m.PagePaths {
 		if err := checkRedirectPath(p); err != nil {
 			return fmt.Errorf("sdk: plugin %q: page_paths %q: %w", m.Name, p, err)
+		}
+		if len(p) > 1 && strings.HasSuffix(p, "/") {
+			return fmt.Errorf("sdk: plugin %q: page_paths %q: drop the trailing slash (the host matches the request path without it)", m.Name, p)
 		}
 		if seen[p] {
 			return fmt.Errorf("sdk: plugin %q: duplicate page_paths %q", m.Name, p)

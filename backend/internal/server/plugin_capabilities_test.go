@@ -391,6 +391,27 @@ func TestRenderPagePluginDeclaredPaths(t *testing.T) {
 	}
 }
 
+// serve drops the trailing slash, so a declared /members covers /members/:
+// private, filtered, never stored.
+func TestRenderPagePluginDeclaredPathTrailingSlash(t *testing.T) {
+	f := newRenderFixture(t)
+	_, s := bootRoutes(t)
+	rt := capaRuntimeWith(t, s, func(m *sdk.Manifest) { m.PagePaths = []string{"/members"} })
+	f.h.pageFilter = pluginhost.NewPageFilter(rt, s.hooks)
+	f.next = membersPage
+
+	w := f.get("/members/")
+	if cc := w.Header().Get("Cache-Control"); !strings.Contains(cc, "no-store") || w.Header().Get("Vary") != "Cookie" {
+		t.Fatalf("Cache-Control=%q Vary=%q, want private", cc, w.Header().Get("Vary"))
+	}
+	if strings.Contains(w.Body.String(), "SECRET-BLOCK") {
+		t.Error("the filter did not run on /members/")
+	}
+	if len(f.cache.sets) != 0 {
+		t.Fatalf("/members/ was stored: %d sets", len(f.cache.sets))
+	}
+}
+
 // Disabling a site-wide render.page plugin restores the page cache.
 func TestRenderPagePluginUnloadRestoresCache(t *testing.T) {
 	f := newRenderFixture(t)
