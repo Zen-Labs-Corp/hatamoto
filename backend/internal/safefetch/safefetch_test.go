@@ -8,7 +8,7 @@ import (
 )
 
 func TestBlockedAddr(t *testing.T) {
-	for _, s := range []string{"127.0.0.1", "10.1.2.3", "169.254.169.254", "192.168.0.1", "100.64.0.1", "::1", "fe80::1", "fc00::1", "::ffff:10.0.0.1", "2002:0a00:0001::1", "0.0.0.0", "224.0.0.1"} {
+	for _, s := range []string{"127.0.0.1", "10.1.2.3", "169.254.169.254", "192.168.0.1", "100.64.0.1", "::1", "fe80::1", "fc00::1", "::ffff:10.0.0.1", "2002:0a00:0001::1", "0.0.0.0", "224.0.0.1", "::%lo", "::127.0.0.1%lo", "64:ff9b::a9fe:a9fe%lo", "2001:db8::1%lo", "2606:4700:4700::1111%lo"} {
 		if !BlockedAddr(netip.MustParseAddr(s)) {
 			t.Errorf("%s must be blocked", s)
 		}
@@ -17,6 +17,13 @@ func TestBlockedAddr(t *testing.T) {
 		if BlockedAddr(netip.MustParseAddr(s)) {
 			t.Errorf("%s must be allowed", s)
 		}
+	}
+}
+
+func TestDialContextRefusesZonedLiteral(t *testing.T) {
+	_, err := (&Dialer{}).DialContext(context.Background(), "tcp", "[::%lo]:80")
+	if !errors.Is(err, ErrBlocked) {
+		t.Errorf("zoned literal must be refused: %v", err)
 	}
 }
 
