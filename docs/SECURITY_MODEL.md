@@ -126,6 +126,12 @@ in text: a branch that ends inside a tag, a comment or a raw-text element is
 refused, and so is a template that does. Such a section or partial is refused
 whatever the data, because the rule reads the template source.
 
+Whatever the grant, a `range` in a plugin section or partial may only iterate a
+field chain such as `.Content.items` (or the dot), never a number, a variable or
+a function result, so a template cannot loop without bound; one that does is not
+registered. The sample render of a template is cut off at 256 KiB of output and
+the template is refused when it reaches that.
+
 | Guarantee | Package | Tests |
 |---|---|---|
 | `plugin.js` is not linked without the grant (the stylesheet is not gated) | `internal/render` | `TestPluginScriptNeedsGate` |
