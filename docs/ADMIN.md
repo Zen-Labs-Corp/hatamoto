@@ -1088,7 +1088,9 @@ entries for** takes 30, 90, 180 or 365 days; the daily prune removes older entri
 value keeps 90). **Never log these paths** takes one pattern per line (at most 50): `*` matches any
 text anywhere, the query string is ignored and matching is case-sensitive, so `/wp-admin/*` and
 `*.php` both work. A new pattern stops future logging only; entries already logged are kept. The
-tab shows how many addresses are logged and links to the log. **Delete all…** in the Danger zone
+tab shows how many addresses are logged and links to the log. A path over 2048 bytes is not logged,
+the referrer and user agent are cut to 512 bytes, and the log holds at most 50,000 addresses (known
+addresses keep counting hits). **Delete all…** in the Danger zone
 opens a confirm page that needs the typed phrase `delete 404 log`, empties the log and writes the
 audit entry `404log.cleared` with the number of deleted entries only, never the paths. On Settings
 > Redirects > 404 log, **Show** limits the list to All, People or Bots, judged by the last user

@@ -105,3 +105,60 @@ func TestDeleteAll404Entries_Integration(t *testing.T) {
 		t.Fatalf("left %d, err %v", total, err)
 	}
 }
+
+// DATABASE_URL=... go test -tags=integration ./internal/redirect -run RowCap
+func TestUpsert404EntryRowCap_Integration(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+	ctx := context.Background()
+	db, err := database.New(ctx, config.DatabaseConfig{URL: dsn, MaxConnections: 4, MinConnections: 1,
+		MaxConnLifetime: time.Minute, MaxConnIdleTime: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	repo := NewRepository(db)
+
+	clean := func() {
+		_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_404_log WHERE path LIKE '/rowcap/%'`)
+	}
+	clean()
+	t.Cleanup(clean)
+
+	var existing int
+	if err := db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_404_log`).Scan(&existing); err != nil {
+		t.Fatal(err)
+	}
+	repo.maxRows = existing + 2
+
+	for _, p := range []string{"/rowcap/a", "/rowcap/b", "/rowcap/c"} {
+		if err := repo.Upsert404Entry(ctx, p, "", "ua"); err != nil {
+			t.Fatalf("%s: %v", p, err)
+		}
+	}
+	var stored int
+	if err := db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_404_log WHERE path LIKE '/rowcap/%'`).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored != 2 {
+		t.Fatalf("stored %d rowcap paths, want 2", stored)
+	}
+	var cHits int
+	err = db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_404_log WHERE path = '/rowcap/c'`).Scan(&cHits)
+	if err != nil || cHits != 0 {
+		t.Fatalf("/rowcap/c stored: n=%d err=%v", cHits, err)
+	}
+
+	if err := repo.Upsert404Entry(ctx, "/rowcap/a", "", "ua"); err != nil {
+		t.Fatal(err)
+	}
+	var hits int
+	if err := db.Pool().QueryRow(ctx, `SELECT hit_count FROM hatamoto_404_log WHERE path = '/rowcap/a'`).Scan(&hits); err != nil {
+		t.Fatal(err)
+	}
+	if hits != 2 {
+		t.Fatalf("hit_count = %d, want 2", hits)
+	}
+}
