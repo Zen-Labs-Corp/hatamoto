@@ -560,12 +560,30 @@ func TestPluginRegRefusesUnboundedRange(t *testing.T) {
 		"in else":  `{{if .A}}y{{else}}{{range 5}}x{{end}}{{end}}`,
 		"in range": `{{range .A}}{{range 5}}x{{end}}{{end}}`,
 		"define":   `{{define "other"}}{{range 5}}x{{end}}{{end}}ok`,
+		// a with over a constant makes the dot a number
+		"with const dot":  `{{with 9000000000000000000}}{{range .}}{{end}}{{end}}`,
+		"root dot":        `{{range .}}x{{end}}`,
+		"method int":      `{{range .PublishedAt.UnixNano}}x{{end}}`,
+		"page number":     `{{range .Page.PageNum}}x{{end}}`,
+		"declared var":    `{{$x := .Content.items}}{{range $x}}x{{end}}`,
+		"root field":      `{{range .Items}}x{{end}}`,
+		"number method":   `{{range .Content.n.Int64}}x{{end}}`,
+		"var chain":       `{{$x := 1}}{{range $x.Items}}x{{end}}`,
+		"piped":           `{{range .Content.items | f}}x{{end}}`,
+		"with unknown":    `{{with .Page}}{{range .Items}}x{{end}}{{end}}`,
+		"with then field": `{{with .Content.box}}{{with 5}}{{range .}}x{{end}}{{end}}{{end}}`,
+		"else of range":   `{{range .Content.items}}y{{else}}{{range .Count}}x{{end}}{{end}}`,
 	}
 	accepted := map[string]string{
-		"field":  `{{range .Content.items}}x{{end}}`,
-		"decl":   `{{range $i, $v := .Content.items}}x{{end}}`,
-		"dot":    `{{range .}}x{{end}}`,
-		"nested": `{{range .Content.a}}{{range .b}}x{{end}}{{end}}`,
+		"field":         `{{range .Content.items}}x{{end}}`,
+		"decl":          `{{range $i, $v := .Content.items}}x{{end}}`,
+		"nested":        `{{range .Content.a}}{{range .b}}x{{end}}{{end}}`,
+		"root var":      `{{range $.Content.items}}x{{end}}`,
+		"children":      `{{range .Content.items}}{{range .children}}x{{end}}{{end}}`,
+		"dot in range":  `{{range .Content.items}}{{range .}}x{{end}}{{end}}`,
+		"root in range": `{{range .Content.items}}{{range $.Content.tags}}x{{end}}{{end}}`,
+		"with content":  `{{with .Content.box}}{{range .items}}x{{end}}{{end}}`,
+		"with root var": `{{with $.Content.box}}{{range .items}}x{{end}}{{end}}`,
 	}
 	wrap := func(s string) string {
 		if strings.Contains(s, "{{define") {
@@ -614,7 +632,7 @@ func TestPluginRegRefusesUnboundedRange(t *testing.T) {
 
 func TestSampleRenderIsCapped(t *testing.T) {
 	t.Parallel()
-	if err := scanSampleRender(strings.Repeat("x", maxPackOutput+1), nil); !errors.Is(err, errPackOutput) {
+	if err := scanSampleRender(strings.Repeat("x", maxPackOutput+1), nil); !errors.Is(err, errPluginOutput) {
 		t.Fatalf("over the cap: err = %v", err)
 	}
 	if err := scanSampleRender(strings.Repeat("x", maxPackOutput), nil); err != nil {

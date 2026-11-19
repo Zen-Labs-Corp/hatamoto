@@ -61,10 +61,57 @@ func checkPluginScripts(src string, funcs template.FuncMap) error {
 	return nil
 }
 
-// checkPluginLoops refuses a range over anything but a field chain or the dot
-// (a number, a variable, a function result) in any template src defines, at any
-// depth, so a plugin template cannot loop without bound. A source that does not
-// parse is left to vet, which rejects it.
+// dotKind says what the dot is while checkPluginLoops walks a template.
+type dotKind int
+
+const (
+	dotRoot    dotKind = iota // the data the template was called with
+	dotContent                // a value reached through .Content
+	dotUnknown                // anything else (a with over a number, say)
+)
+
+// contentChain reports whether idents is a field chain a plugin may range over
+// or narrow to. Content values come from JSON: maps, slices, strings, booleans
+// and json.Number, whose Int64 and Float64 methods a field chain would call.
+func contentChain(idents []string) bool {
+	for _, id := range idents {
+		if id == "Int64" || id == "Float64" {
+			return false
+		}
+	}
+	return true
+}
+
+// contentPipe reports whether p is one command with one argument that is data
+// from the section's Content, given what the dot is.
+func contentPipe(p *parse.PipeNode, dot dotKind) bool {
+	if p == nil || len(p.Cmds) != 1 || len(p.Cmds[0].Args) != 1 {
+		return false
+	}
+	switch a := p.Cmds[0].Args[0].(type) {
+	case *parse.FieldNode:
+		switch dot {
+		case dotRoot:
+			return a.Ident[0] == "Content" && contentChain(a.Ident)
+		case dotContent:
+			return contentChain(a.Ident)
+		}
+	case *parse.VariableNode:
+		return len(a.Ident) > 1 && a.Ident[0] == "$" && a.Ident[1] == "Content" && contentChain(a.Ident)
+	case *parse.DotNode:
+		return dot == dotContent
+	}
+	return false
+}
+
+// checkPluginLoops refuses a range in any template src defines, at any depth,
+// unless it iterates content data: .Content... or $.Content... (also inside a
+// range or with over such data, where the dot is content). A number, a
+// variable, a function result or a method result (.PublishedAt.UnixNano) can
+// be arbitrarily large, so a template could not be stopped by its output cap.
+// The dot of a template is whatever its caller passes, so every template root
+// counts as unknown data and only .Content chains are accepted there. A source
+// that does not parse is left to vet, which rejects it.
 func checkPluginLoops(src string) error {
 	p := parse.New("loops")
 	p.Mode = parse.SkipFuncCheck
@@ -72,28 +119,33 @@ func checkPluginLoops(src string) error {
 	if _, err := p.Parse(src, "", "", trees); err != nil {
 		return nil
 	}
-	var walk func(*parse.ListNode) error
-	walk = func(l *parse.ListNode) error {
+	errRange := errors.New("range may only iterate content data such as .Content.items, not a number, a variable or a function result")
+	var walk func(*parse.ListNode, dotKind) error
+	walk = func(l *parse.ListNode, dot dotKind) error {
 		if l == nil {
 			return nil
 		}
 		for _, n := range l.Nodes {
 			var body, other *parse.ListNode
+			inner := dot
 			switch x := n.(type) {
 			case *parse.RangeNode:
-				if !withPipe(x.Pipe) {
-					return errors.New("range may only iterate a field such as .Content.items, not a number, a variable or a function result")
+				if !contentPipe(x.Pipe, dot) {
+					return errRange
 				}
-				body, other = x.List, x.ElseList
+				body, other, inner = x.List, x.ElseList, dotContent
 			case *parse.IfNode:
 				body, other = x.List, x.ElseList
 			case *parse.WithNode:
-				body, other = x.List, x.ElseList
+				body, other, inner = x.List, x.ElseList, dotUnknown
+				if contentPipe(x.Pipe, dot) {
+					inner = dotContent
+				}
 			}
-			if err := walk(body); err != nil {
+			if err := walk(body, inner); err != nil {
 				return err
 			}
-			if err := walk(other); err != nil {
+			if err := walk(other, dot); err != nil {
 				return err
 			}
 		}
@@ -103,12 +155,15 @@ func checkPluginLoops(src string) error {
 		if t.Root == nil {
 			continue
 		}
-		if err := walk(t.Root); err != nil {
+		if err := walk(t.Root, dotRoot); err != nil {
 			return err
 		}
 	}
 	return nil
 }
+
+// errPluginOutput is errPackOutput worded for a plugin template.
+var errPluginOutput = errors.New("plugin template output exceeds the size cap")
 
 // stubFuncs has every plugin func answer with nothing: a sample render must
 // not call into plugin code.
@@ -136,7 +191,7 @@ func scanSampleRender(src string, funcs template.FuncMap) error {
 		data := preparedSection{Section: Section{Content: map[string]any{}}, Settings: map[string]any{}}
 		err := d.Execute(&cappedWriter{buf: &out, max: maxPackOutput}, data)
 		if errors.Is(err, errPackOutput) {
-			return fmt.Errorf("markup: sample render of %s: %w", d.Name(), err)
+			return fmt.Errorf("markup: sample render of %s: %w", d.Name(), errPluginOutput)
 		}
 		if err != nil {
 			continue
@@ -164,7 +219,11 @@ func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (pluginSnapsho
 			err = scanSampleRender(src, s.funcs)
 		}
 		if err != nil {
-			why[plugin] = append(why[plugin], label+": "+err.Error()+" (not allowed without site.scripts)")
+			msg := label + ": " + err.Error()
+			if !errors.Is(err, errPluginOutput) {
+				msg += " (not allowed without site.scripts)"
+			}
+			why[plugin] = append(why[plugin], msg)
 			return false
 		}
 		return true
