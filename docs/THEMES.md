@@ -939,7 +939,8 @@ purge above happens. A plugin cannot clear the page cache itself (there is no
 delay of one TTL, or save an entity or the plugin's settings to force a purge.
 A page whose plugin func fails, times out or is skipped by its breaker is served
 but never cached, and a `render.page` filter that handles a request makes that
-page uncached.
+page uncached (only the paths it declares in `page_paths` when it declares
+any, otherwise every page).
 
 ## Section schemas
 

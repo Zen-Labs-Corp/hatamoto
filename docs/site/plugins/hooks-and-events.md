@@ -153,7 +153,7 @@ guest.OnFilter(sdk.RenderPage, func(p sdk.PageContext) (sdk.PageContext, error) 
 })
 ```
 
-Handle `render.page` only when you need to. While any plugin handles it, pages are served `Cache-Control: private, no-store` with `Vary: Cookie` and are not stored in the page cache, because the answer depends on the request. Declared cookies are namespaced as `hmp_<plugin>_<name>`, so a plugin never sees the session or CSRF cookie. The host forces `HttpOnly`, `SameSite=Lax` and `Secure` on HTTPS. Values are cookie-safe ASCII up to 2 KiB and `max_age` is at most a year.
+A plugin that declares `page_paths` in its manifest (SDK 0.24; exact public paths as requested, trailing slash and locale prefix distinct, at most 16, same rules as `redirect_paths`, core paths refused) is called only for those paths, and only they are served `Cache-Control: private, no-store` with `Vary: Cookie` and kept out of the page cache. Every other page is cached as if the plugin handled nothing. Without `page_paths` the filter runs for every page and no page is shared-cached, so declare the paths whenever the filter only acts on a few pages. Several plugins may declare the same path. An older host ignores `page_paths` and keeps the filter site-wide (slower, not wrong): a plugin may keep its lower `sdk` range and declare `^0.24` only to rely on the caching. Declared cookies are namespaced as `hmp_<plugin>_<name>`, so a plugin never sees the session or CSRF cookie. The host forces `HttpOnly`, `SameSite=Lax` and `Secure` on HTTPS. Values are cookie-safe ASCII up to 2 KiB and `max_age` is at most a year.
 
 ### request.redirect
 
