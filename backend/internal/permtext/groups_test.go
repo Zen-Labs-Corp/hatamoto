@@ -97,6 +97,21 @@ func TestNeverList(t *testing.T) {
 	}
 }
 
+func TestNeverListDropsEditLineWhenFilterRequested(t *testing.T) {
+	got := Group([]string{sdk.PermEntitiesFilter}, false, false)
+	for _, s := range got.Never {
+		if s.Title == "Edit or delete pages you wrote" {
+			t.Errorf("never list contradicts the can list: %v", titles(got.Never))
+		}
+	}
+	if len(got.Never) != 3 || got.Never[0].Title != "Change your live site directly" {
+		t.Errorf("never = %v", titles(got.Never))
+	}
+	if len(got.Can) != 1 || got.Can[0].Kind != KindReview || got.Can[0].Title != "Review and change content as you save it" || !got.Can[0].Warn {
+		t.Errorf("can = %+v", got.Can)
+	}
+}
+
 func TestNeverListDropsPublicCodeLineWhenCodeIsRequested(t *testing.T) {
 	for _, perm := range []string{sdk.PermSiteScripts, sdk.PermBuilderIsland} {
 		for _, s := range Group([]string{perm}, false, false).Never {

@@ -27,7 +27,7 @@ func TestWarnSet(t *testing.T) {
 		}
 	}
 	slices.Sort(got)
-	want := []string{"builder.island", "http.fetch.any", "site.scripts"}
+	want := []string{"builder.island", "entities.filter", "http.fetch.any", "site.scripts"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("warn set = %v, want %v", got, want)
 	}
@@ -106,15 +106,25 @@ func TestContentTypesLine(t *testing.T) {
 	}
 }
 
-func TestTagLinesSayItRunsNoCode(t *testing.T) {
+func TestPermissionTextEntitiesFilter(t *testing.T) {
+	tx := Lookup(sdk.PermEntitiesFilter)
+	if tx.Help == "" || tx.Help == sdk.PermEntitiesFilter || tx.Short == "" || !tx.Warn {
+		t.Fatalf("entities.filter text = %+v", tx)
+	}
+}
+
+func TestTagLinesNameTheScriptHosts(t *testing.T) {
 	ls := TagLines("Site ID", []string{"a.example", "*.b.example"}, "marketing", true)
 	if len(ls) != 3 {
 		t.Fatalf("lines = %+v", ls)
 	}
-	for _, want := range []string{"runs no code", "a.example, *.b.example", "WebSocket"} {
+	for _, want := range []string{"adds a script from a.example, *.b.example", "WebSocket"} {
 		if !strings.Contains(ls[0].Text, want) {
 			t.Errorf("script line lacks %q: %s", want, ls[0].Text)
 		}
+	}
+	if strings.Contains(strings.ToLower(ls[0].Text), "runs no code") {
+		t.Errorf("script line must not claim the pack runs no code: %s", ls[0].Text)
 	}
 	if !strings.Contains(ls[1].Text, "Marketing") || !strings.Contains(ls[2].Text, "Site ID") {
 		t.Errorf("lines = %+v", ls)
