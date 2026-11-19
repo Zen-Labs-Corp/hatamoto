@@ -38,14 +38,15 @@ func (s stepAuth) IssueVerifiedSession(ctx context.Context, id uuid.UUID, _, _ s
 // fakeTwoFactor models twofactor.Service: an app code that works once, one
 // recovery code that works once, and a lock after 3 wrong codes.
 type fakeTwoFactor struct {
-	mu       sync.Mutex
-	uid      uuid.UUID
-	passkeys int
-	hasErr   error
-	totp     string
-	recovery string
-	fails    int
-	verifies int
+	mu        sync.Mutex
+	uid       uuid.UUID
+	passkeys  int
+	hasErr    error
+	totp      string
+	recovery  string
+	fails     int
+	lockAfter int // wrong codes before the fake locks; 0 means 3
+	verifies  int
 
 	// Security page state: secure switches the fake from "has a factor" to the fields below.
 	secure   bool
@@ -132,11 +133,18 @@ func (f *fakeTwoFactor) RemovePasskey(_ context.Context, _, id uuid.UUID) (bool,
 	return false, nil
 }
 
+func (f *fakeTwoFactor) lockLimit() int {
+	if f.lockAfter != 0 {
+		return f.lockAfter
+	}
+	return 3
+}
+
 func (f *fakeTwoFactor) Verify(_ context.Context, id uuid.UUID, code string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.verifies++
-	if id != f.uid || f.fails >= 3 {
+	if id != f.uid || f.fails >= f.lockLimit() {
 		return twofactor.ErrWrongCode
 	}
 	switch {
@@ -297,6 +305,30 @@ func TestTwoStepWrongCodesLockAndStayNeutral(t *testing.T) {
 	}
 	if normalizePage(locked.Body.String()) != normalizePage(wrong) {
 		t.Error("a locked account answers differently from a wrong code")
+	}
+}
+
+func TestTwoStepCapsWrongCodesPerPending(t *testing.T) {
+	t.Parallel()
+
+	g := newTwoStepRig(t)
+	g.tf.lockAfter = 1000
+	p := g.password(t)
+	for i := 0; i < maxTwoStepAttempts; i++ {
+		if rec := g.second(p, "000000", nil); rec.Code != 422 {
+			t.Fatalf("wrong code %d: %d", i, rec.Code)
+		}
+	}
+	before := g.tf.verifies
+	rec := g.second(p, g.tf.totp, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/login" || cookieNamed(rec, "hatamoto_session") != nil {
+		t.Fatalf("attempt over the cap: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if g.tf.verifies != before {
+		t.Error("an attempt over the cap reached Verify")
+	}
+	if rec := g.second(g.password(t), g.tf.totp, nil); rec.Code != 303 || cookieNamed(rec, "hatamoto_session") == nil {
+		t.Fatalf("fresh pending sign-in: %d", rec.Code)
 	}
 }
 
