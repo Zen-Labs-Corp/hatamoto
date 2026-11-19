@@ -331,16 +331,43 @@ func (s *Server) planSitemapLogged(in sitemapInput) *sitemapPlan {
 // historicName reports whether sub looks like a file name the site had under
 // another naming or before locales: misc, a bare group key, or a locale
 // segment alone or followed by a group. Only multi-locale sites have any.
-func (p *sitemapPlan) historicName(sub string) bool {
-	if !p.multi() {
-		return false
+func (p *sitemapPlan) historicName(sub string) bool { return p.names().historic(sub) }
+
+// sitemapNamesSub is the reserved cache name of the remembered file names.
+// It is never served as a child.
+const sitemapNamesSub = ".names"
+
+// sitemapNames is what answering a child name needs from a plan. It holds no
+// base URL, so it is cached whether or not PUBLIC_BASE_URL is set.
+type sitemapNames struct {
+	Keys []string `json:"keys"`
+	Bare []string `json:"bare,omitempty"`
+	Segs []string `json:"segs,omitempty"`
+}
+
+func (p *sitemapPlan) names() sitemapNames {
+	var n sitemapNames
+	for k := range p.byKey {
+		n.Keys = append(n.Keys, k)
 	}
-	if sub == miscSitemapGroupKey || slices.Contains(p.bare, sub) {
+	if !p.multi() {
+		return n
+	}
+	n.Bare = append([]string{miscSitemapGroupKey}, p.bare...)
+	for _, e := range p.locales().Entries() {
+		if seg, _ := p.locales().Segment(e.Tag); seg != "" {
+			n.Segs = append(n.Segs, seg)
+		}
+	}
+	return n
+}
+
+func (n sitemapNames) historic(sub string) bool {
+	if slices.Contains(n.Bare, sub) {
 		return true
 	}
-	for _, e := range p.locales().Entries() {
-		seg, _ := p.locales().Segment(e.Tag)
-		if seg != "" && (sub == seg || strings.HasPrefix(sub, seg+"-")) {
+	for _, seg := range n.Segs {
+		if sub == seg || strings.HasPrefix(sub, seg+"-") {
 			return true
 		}
 	}
@@ -363,7 +390,7 @@ func sitemapChild(file string) (string, bool) {
 // settings and plugins, plus misc) are valid, unknown values return 404.
 func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) {
 	sub, ok := sitemapChild(r.PathValue("file"))
-	if !ok {
+	if !ok || sub == sitemapNamesSub {
 		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
@@ -375,6 +402,20 @@ func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// An unknown name is answered from the remembered file names, with no
+	// database work. The entry goes with the sitemaps on every invalidation.
+	hasCache := s.infra != nil && s.infra.Cache != nil
+	var known sitemapNames
+	if hasCache && s.infra.Cache.GetJSON(r.Context(), cache.SitemapKey(sitemapNamesSub), &known) == nil && !slices.Contains(known.Keys, sub) {
+		if known.historic(sub) {
+			w.Header().Set("Cache-Control", "no-store")
+			http.Redirect(w, r, "/sitemap.xml", http.StatusMovedPermanently)
+			return
+		}
+		writeError(w, http.StatusNotFound, "sitemap not found")
+		return
+	}
+
 	in, err := s.loadSitemapInput(r)
 	if err != nil {
 		s.logger.Error("failed to generate sitemap", slog.String("error", err.Error()), slog.String("sub", sub))
@@ -382,6 +423,9 @@ func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	plan := s.planSitemapLogged(in)
+	if hasCache && !in.NamingUnread && !database.PoolBusyHit(r.Context()) {
+		_ = s.infra.Cache.SetJSON(r.Context(), cache.SitemapKey(sitemapNamesSub), plan.names(), cache.TTLSitemap)
+	}
 
 	if !plan.HasGroup(sub) {
 		// A name the site used under the other naming, or before locales,
