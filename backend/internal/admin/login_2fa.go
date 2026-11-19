@@ -90,7 +90,8 @@ func (s *spentIDs) has(id string) bool {
 }
 
 // clearPending ends the pending sign-in: the cookie goes, and its token cannot
-// be used again. Call it only once the sign-in succeeded.
+// be used again. It runs once the sign-in succeeded and when the attempt cap
+// for the pending sign-in is reached.
 func (a *Admin) clearPending(w http.ResponseWriter, r *http.Request) {
 	if p, ok := a.readPending(r); ok {
 		a.spentPending.add(p.ID, p.Expires, time.Now())
