@@ -151,6 +151,11 @@ func (d *PluginDB) Query(ctx context.Context, plugin, sql string, args ...any) (
 		}
 		size := 0
 		for rows.Next() {
+			// Judge the wire size before anything is decoded or re-encoded.
+			if rawRowSize(rows.RawValues()) > maxDBResultBytes {
+				res.Truncated = true
+				return nil
+			}
 			vals, err := rows.Values()
 			if err != nil {
 				return err
@@ -169,6 +174,15 @@ func (d *PluginDB) Query(ctx context.Context, plugin, sql string, args ...any) (
 		return rows.Err()
 	}, nil)
 	return res, err
+}
+
+// rawRowSize is the wire size of a row's values.
+func rawRowSize(raw [][]byte) int {
+	n := 0
+	for _, v := range raw {
+		n += len(v)
+	}
+	return n
 }
 
 // Exec runs one guarded statement as the plugin and returns the rows it touched.

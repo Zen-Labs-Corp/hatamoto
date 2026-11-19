@@ -43,3 +43,12 @@ func TestPluginConnConfigBoundsServerMessages(t *testing.T) {
 		t.Fatalf("the core config must not be capped: %v", err)
 	}
 }
+
+func TestRawRowSize(t *testing.T) {
+	if got := rawRowSize(nil); got != 0 {
+		t.Fatalf("empty row: %d", got)
+	}
+	if got := rawRowSize([][]byte{[]byte("abc"), nil, []byte(""), []byte("wxyz")}); got != 7 {
+		t.Fatalf("row size: %d", got)
+	}
+}
