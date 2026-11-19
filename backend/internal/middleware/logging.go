@@ -4,24 +4,9 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
-	"unicode/utf8"
+
+	"hatamoto.dev/core/internal/logutil"
 )
-
-// maxLoggedField bounds a request-supplied string written to a log record, so
-// one record stays far below the line-length limit of the log pipeline.
-const maxLoggedField = 1024
-
-// capField cuts s to maxLoggedField bytes on a rune boundary and marks the cut.
-func capField(s string) string {
-	if len(s) <= maxLoggedField {
-		return s
-	}
-	cut := maxLoggedField
-	for cut > 0 && !utf8.RuneStart(s[cut]) {
-		cut--
-	}
-	return s[:cut] + "..."
-}
 
 // responseWriter wraps http.ResponseWriter to capture status code.
 type responseWriter struct {
@@ -72,13 +57,13 @@ func RequestLogger(logger *slog.Logger, redact func(path string) string) func(ht
 
 			// Log request
 			logger.Info("http request",
-				slog.String("method", r.Method),
+				slog.String("method", logutil.CapField(r.Method)),
 				slog.String("path", path),
 				slog.String("remote_addr", r.RemoteAddr),
 				slog.Int("status", wrapped.status),
 				slog.Int("size", wrapped.size),
 				slog.Duration("duration", duration),
-				slog.String("user_agent", capField(r.UserAgent())),
+				slog.String("user_agent", logutil.CapField(r.UserAgent())),
 			)
 		})
 	}
@@ -89,7 +74,7 @@ func redactPath(redact func(string) string, p string) string {
 	if redact != nil {
 		p = redact(p)
 	}
-	return capField(p)
+	return logutil.CapField(p)
 }
 
 // RecoveryOption tunes RecoveryLogger.
@@ -120,7 +105,7 @@ func RecoveryLogger(logger *slog.Logger, redact func(path string) string, opts .
 					}
 					logger.Error("panic recovered",
 						slog.Any("error", err),
-						slog.String("method", r.Method),
+						slog.String("method", logutil.CapField(r.Method)),
 						slog.String("path", path),
 					)
 					http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)

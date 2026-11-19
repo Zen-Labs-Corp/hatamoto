@@ -19,6 +19,7 @@ func TestLogRecordsCapRequestFields(t *testing.T) {
 		h := RequestLogger(slog.New(slog.NewTextHandler(&buf, nil)), nil)(
 			http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 		req := httptest.NewRequest(http.MethodGet, "/"+long, nil)
+		req.Method = long
 		req.Header.Set("User-Agent", long)
 		h.ServeHTTP(httptest.NewRecorder(), req)
 		if buf.Len() > limit {
@@ -34,6 +35,7 @@ func TestLogRecordsCapRequestFields(t *testing.T) {
 		h := RecoveryLogger(slog.New(slog.NewJSONHandler(&buf, nil)), nil)(
 			http.HandlerFunc(func(http.ResponseWriter, *http.Request) { panic("boom") }))
 		req := httptest.NewRequest(http.MethodGet, "/"+long, nil)
+		req.Method = long
 		h.ServeHTTP(httptest.NewRecorder(), req)
 		if buf.Len() > limit {
 			t.Fatalf("record is %d bytes, want <= %d", buf.Len(), limit)

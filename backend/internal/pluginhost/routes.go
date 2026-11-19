@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"hatamoto.dev/core/internal/logutil"
 	"io"
 	"log/slog"
 	"net/http"
@@ -201,7 +202,7 @@ func (g *RouteRegistry) Serve(w http.ResponseWriter, r *http.Request, plugin, re
 		if errors.Is(err, wasmhost.ErrCircuitOpen) || errors.Is(err, wasmhost.ErrSaturated) || errors.Is(err, wasmhost.ErrNotLoaded) {
 			status = http.StatusServiceUnavailable
 		}
-		g.log.Warn("plugin route failed", slog.String("plugin", plugin), slog.String("path", path), slog.Any("error", err))
+		g.log.Warn("plugin route failed", slog.String("plugin", plugin), slog.String("path", logutil.CapField(path)), slog.Any("error", err))
 		writeJSONError(w, status, "plugin error")
 		return
 	}
