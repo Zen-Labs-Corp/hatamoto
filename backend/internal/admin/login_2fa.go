@@ -36,8 +36,36 @@ func (a *Admin) pendingCookie(r *http.Request, value string, maxAge int) *http.C
 
 // spentIDs remembers finished pending sign-ins until they would have expired.
 type spentIDs struct {
-	mu  sync.Mutex
-	ids map[string]time.Time
+	mu    sync.Mutex
+	ids   map[string]time.Time
+	tries map[string]attempts
+}
+
+// maxTwoStepAttempts is how many codes one pending sign-in may try.
+const maxTwoStepAttempts = 5
+
+type attempts struct {
+	until time.Time
+	n     int
+}
+
+// attempt counts one code try against a pending token and reports whether it may proceed.
+func (s *spentIDs) attempt(id string, until, now time.Time) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.tries == nil {
+		s.tries = map[string]attempts{}
+	}
+	for k, t := range s.tries {
+		if !now.Before(t.until) {
+			delete(s.tries, k)
+		}
+	}
+	t := s.tries[id]
+	t.until = until
+	t.n++
+	s.tries[id] = t
+	return t.n <= maxTwoStepAttempts
 }
 
 func (s *spentIDs) add(id string, until, now time.Time) {
@@ -62,7 +90,8 @@ func (s *spentIDs) has(id string) bool {
 }
 
 // clearPending ends the pending sign-in: the cookie goes, and its token cannot
-// be used again. Call it only once the sign-in succeeded.
+// be used again. It runs once the sign-in succeeded and when the attempt cap
+// for the pending sign-in is reached.
 func (a *Admin) clearPending(w http.ResponseWriter, r *http.Request) {
 	if p, ok := a.readPending(r); ok {
 		a.spentPending.add(p.ID, p.Expires, time.Now())
@@ -155,6 +184,11 @@ func (a *Admin) handleTwoStep(w http.ResponseWriter, r *http.Request) {
 	}
 	p, ok := a.readPending(r)
 	if !ok {
+		http.Redirect(w, r, a.adminPath+"/login", http.StatusSeeOther)
+		return
+	}
+	if !a.spentPending.attempt(p.ID, p.Expires, time.Now()) {
+		a.clearPending(w, r)
 		http.Redirect(w, r, a.adminPath+"/login", http.StatusSeeOther)
 		return
 	}

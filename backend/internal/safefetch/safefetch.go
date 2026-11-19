@@ -49,6 +49,10 @@ var blockedPrefixes = func() []netip.Prefix {
 
 // BlockedAddr reports whether a connection to ip must be refused.
 func BlockedAddr(ip netip.Addr) bool {
+	// A zone only selects a local interface; no public destination carries one.
+	if ip.Zone() != "" {
+		return true
+	}
 	ip = ip.Unmap()
 	if !ip.IsValid() || ip.IsUnspecified() || ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
 		ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() || ip.IsMulticast() {

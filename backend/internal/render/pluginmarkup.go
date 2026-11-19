@@ -202,7 +202,7 @@ func (c *markupCheck) tag(tok string) error {
 	for _, o := range c.found(tok) {
 		in := false
 		for _, sp := range spans {
-			in = in || (o.pos >= sp[0] && o.end <= sp[1])
+			in = in || (o.pos >= sp.start && o.end <= sp.end)
 		}
 		if o.kind != actPrint {
 			return fmt.Errorf("%s inside a tag is not allowed without site.scripts: control actions and template calls belong in text content", actNames[o.kind])
@@ -211,7 +211,56 @@ func (c *markupCheck) tag(tok string) error {
 			return fmt.Errorf("an action inside a tag name, an attribute name or an unquoted value is not allowed without site.scripts: outside text it may only sit inside a quoted attribute value")
 		}
 	}
+	for _, sp := range spans {
+		if !markupURLAttrs[sp.name] {
+			continue
+		}
+		if !c.urlValueOK(tok[sp.start:sp.end]) {
+			return fmt.Errorf("action-context: %s value: an action may not form part of the URL scheme (before the first /, ? or #); not allowed without site.scripts", sp.name)
+		}
+	}
 	return nil
+}
+
+// markupURLAttrs are the attributes whose value is read as a URL (exact names:
+// data-id is not data).
+var markupURLAttrs = map[string]bool{
+	"href": true, "src": true, "action": true, "formaction": true, "poster": true,
+	"cite": true, "data": true, "background": true, "xlink:href": true,
+}
+
+// urlValueOK judges the value of a URL attribute. The rule only keeps an
+// action from contributing to the scheme. The head is the value up to its first
+// '/', '?' or '#'. It is fine when it holds no action, when it is exactly one
+// action at its start (html/template filters the scheme of a leading action)
+// followed by literal text with no ':' and no '&' (a file-name tail), or when literal text before the first action starts with http:, https:,
+// mailto: or tel:.
+func (c *markupCheck) urlValueOK(val string) bool {
+	head := val
+	if i := strings.IndexAny(val, "/?#"); i >= 0 {
+		head = val[:i]
+	}
+	occ := c.found(head)
+	if len(occ) == 0 {
+		return true
+	}
+	if occ[0].pos == 0 {
+		return len(occ) == 1 && !strings.ContainsAny(head[occ[0].end:], ":&")
+	}
+	lit := strings.ToLower(head[:occ[0].pos])
+	for _, p := range []string{"http:", "https:", "mailto:", "tel:"} {
+		if strings.HasPrefix(lit, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// quotedAttr is a quoted attribute value: its lower-cased name and its
+// [start, end) byte range in the tag token.
+type quotedAttr struct {
+	name       string
+	start, end int
 }
 
 func isWS(c byte) bool {
@@ -222,8 +271,8 @@ func isWS(c byte) bool {
 // values of a complete start tag token. It follows the tokenizer's own reading
 // of a tag (readTag, readTagAttrKey, readTagAttrVal in x/net/html), over a token
 // whose extent the tokenizer has already fixed.
-func quotedValues(tok string) [][2]int {
-	var out [][2]int
+func quotedValues(tok string) []quotedAttr {
+	var out []quotedAttr
 	i, n := 1, len(tok)
 	skip := func() {
 		for i < n && isWS(tok[i]) {
@@ -248,6 +297,7 @@ func quotedValues(tok string) [][2]int {
 			}
 			i++
 		}
+		name := strings.ToLower(tok[start:i])
 		skip()
 		switch {
 		case i < n && tok[i] == '/':
@@ -263,7 +313,7 @@ func quotedValues(tok string) [][2]int {
 				if j < 0 {
 					return out
 				}
-				out = append(out, [2]int{i + 1, i + 1 + j})
+				out = append(out, quotedAttr{name, i + 1, i + 1 + j})
 				i += j + 2
 			default: // unquoted
 				for i < n && !isWS(tok[i]) && tok[i] != '>' {
