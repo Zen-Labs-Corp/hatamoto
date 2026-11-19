@@ -23,7 +23,13 @@ import (
 // compatibility — call sites will be cleaned up wholesale in PR 3.
 type Repository struct {
 	db *database.DB
+	// maxRows caps the rows of the 404 log; 0 means default404MaxRows.
+	maxRows int
 }
+
+// default404MaxRows is the most distinct paths the 404 log keeps. Known paths
+// keep counting hits once it is reached.
+const default404MaxRows = 50000
 
 // NewRepository creates a new redirect repository.
 func NewRepository(db *database.DB) *Repository {
@@ -44,7 +50,11 @@ func (r *Repository) Upsert404Entry(ctx context.Context, path, referrer, userAge
 
 	query := `
 		INSERT INTO hatamoto_404_log (path, last_referrer, last_user_agent)
-		VALUES ($1, $2, $3)
+		SELECT $1::text, $2::text, $3::text
+		WHERE CASE
+			WHEN EXISTS (SELECT 1 FROM hatamoto_404_log WHERE path = $1::text) THEN true
+			ELSE (SELECT count(*) FROM (SELECT 1 FROM hatamoto_404_log LIMIT $4::int) c) < $4::int
+		END
 		ON CONFLICT (path)
 		DO UPDATE SET
 			hit_count = hatamoto_404_log.hit_count + 1,
@@ -61,7 +71,12 @@ func (r *Repository) Upsert404Entry(ctx context.Context, path, referrer, userAge
 		uaPtr = &userAgent
 	}
 
-	_, err = conn.Exec(ctx, query, path, refPtr, uaPtr)
+	maxRows := r.maxRows
+	if maxRows <= 0 {
+		maxRows = default404MaxRows
+	}
+
+	_, err = conn.Exec(ctx, query, path, refPtr, uaPtr, maxRows)
 	if err != nil {
 		return fmt.Errorf("failed to upsert 404 entry: %w", err)
 	}

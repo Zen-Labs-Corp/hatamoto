@@ -69,6 +69,7 @@ Under systemd put them in the environment file; under Docker use `environment:` 
 | `MEDIA_UPLOAD_DIR` | `./uploads` (`/app/uploads` in the image) | Directory for uploaded media files. It may itself be a symlink (it is resolved once at start). Symlinks **inside** it that lead elsewhere (for example `uploads/<folder> -> /mnt/disk`) are refused: uploads fail with an error in the log and existing files there return 403. To keep media on another disk, point `MEDIA_UPLOAD_DIR` at that disk. |
 | `MEDIA_BASE_URL` | `/media` | URL prefix under which media is served. |
 | `MEDIA_MAX_SIZE_MB` | `10` | Largest accepted upload, in megabytes (integer). |
+| `FORM_UPLOAD_MAX_TOTAL_MB` | `1024` | Total size, in megabytes, of files kept for public form submissions; further file uploads are refused until space is freed (integer, 0 means the default). |
 | `MEDIA_STORAGE` | `local` | Where media bytes live: `local` (the directory above) or `s3` (S3-compatible object storage, set up with the `HATAMOTO_MEDIA_S3_*` variables). Case-insensitive. Any other value stops `serve` at boot. See [Keep media in object storage](media-object-storage.md). |
 | `HATAMOTO_MEDIA_S3_ENDPOINT` | empty | Endpoint of the object storage service, a bare `https://host` (`http` only for local or private addresses). Empty means Amazon S3 in the region below. Read when `MEDIA_STORAGE=s3`, and by `hatamoto media migrate`. |
 | `HATAMOTO_MEDIA_S3_REGION` | none | Region of the bucket. Required for `s3`. |

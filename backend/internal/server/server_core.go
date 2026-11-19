@@ -303,9 +303,9 @@ func (s *Server) mountCorePublicCMSRoutes(r *httpx.Group) {
 	// Public form routes
 	r.HandleFunc("GET /forms/{slug}", s.handleGetPublicForm)
 	handleCORS(r, http.MethodGet, "/forms/{slug}/token", s.handleFormToken)
-	// Per-IP limit (0.1 rps, burst 5): submit is anonymous and can trigger a
+	// Per-IP limit (IPv6 clients by /64; 0.1 rps, burst 5): submit is anonymous and can trigger a
 	// confirmation email, so it must not be an open relay.
-	formSubmitLimiter := middleware.NewRateLimiter(0.1, 5)
+	formSubmitLimiter := middleware.NewRateLimiter(0.1, 5).ByIPv6Prefix()
 	handleCORS(r, http.MethodPost, "/forms/{slug}/submit", s.handlePublicFormSubmit, formSubmitLimiter.Middleware)
 
 	// Cookie consent: the region answer is per request and never cached; the

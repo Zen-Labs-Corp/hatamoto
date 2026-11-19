@@ -100,6 +100,71 @@ type Service struct {
 	// tests wait for it.
 	rehashing sync.Map
 	rehashes  sync.WaitGroup
+	// now is the clock; nil means time.Now. Tests set it.
+	now func() time.Time
+	// strikes counts wrong passwords of the JSON login per user, in memory
+	// only. The JSON login never writes the persisted lockout, so it cannot
+	// lock the account out of the admin sign-in.
+	strikeMu sync.Mutex
+	strikes  map[uuid.UUID]*loginStrikes
+}
+
+// loginStrikes is the failure count of one user within the current window.
+type loginStrikes struct {
+	n     int
+	first time.Time
+}
+
+// failureMode selects where a wrong password is counted.
+type failureMode int
+
+const (
+	// failDB counts in the persisted lockout state (admin sign-in, sudo).
+	failDB failureMode = iota
+	// failMemory counts in this process only (JSON login).
+	failMemory
+)
+
+func (s *Service) clock() time.Time {
+	if s.now != nil {
+		return s.now()
+	}
+	return time.Now()
+}
+
+// strikeLocked reports whether id has used up its in-memory failures.
+func (s *Service) strikeLocked(id uuid.UUID) bool {
+	s.strikeMu.Lock()
+	defer s.strikeMu.Unlock()
+	st := s.strikes[id]
+	return st != nil && st.n >= MaxFailedLogins && s.clock().Sub(st.first) < LockoutDuration
+}
+
+// addStrike counts one wrong password for id and drops expired entries.
+func (s *Service) addStrike(id uuid.UUID) {
+	s.strikeMu.Lock()
+	defer s.strikeMu.Unlock()
+	now := s.clock()
+	for k, st := range s.strikes {
+		if now.Sub(st.first) >= LockoutDuration {
+			delete(s.strikes, k)
+		}
+	}
+	if s.strikes == nil {
+		s.strikes = make(map[uuid.UUID]*loginStrikes)
+	}
+	st := s.strikes[id]
+	if st == nil {
+		st = &loginStrikes{first: now}
+		s.strikes[id] = st
+	}
+	st.n++
+}
+
+func (s *Service) clearStrikes(id uuid.UUID) {
+	s.strikeMu.Lock()
+	defer s.strikeMu.Unlock()
+	delete(s.strikes, id)
 }
 
 // SetFactorRequirement wires the site policy the JSON login enforces. Call it
@@ -175,7 +240,9 @@ func dummyHash() string {
 // recorded (locking at the threshold), a success clears the failure state.
 // It reports whether the user has a second factor; for such a user a correct
 // password alone does not clear the failure state, the second step does.
-func (s *Service) authenticate(ctx context.Context, email, password string) (u *user.User, hasFactor bool, err error) {
+// With failMemory, failures are counted in process memory instead of the
+// persisted lockout, which is then only read.
+func (s *Service) authenticate(ctx context.Context, email, password string, mode failureMode) (u *user.User, hasFactor bool, err error) {
 	// Use superadmin context for login since we don't know the tenant yet
 	superCtx := database.WithSuperadmin(ctx)
 
@@ -203,6 +270,12 @@ func (s *Service) authenticate(ctx context.Context, email, password string) (u *
 		}
 		return nil, false, ErrAccountLocked
 	}
+	if mode == failMemory && !s.neverLocked(u.Email) && s.strikeLocked(u.ID) {
+		if _, err := VerifyPasswordContext(ctx, password, dummyHash()); err != nil {
+			return nil, false, fmt.Errorf("sign-in abandoned: %w", err)
+		}
+		return nil, false, ErrAccountLocked
+	}
 
 	// Verify password
 	valid, err := VerifyPasswordContext(ctx, password, u.PasswordHash)
@@ -213,6 +286,10 @@ func (s *Service) authenticate(ctx context.Context, email, password string) (u *
 		// Record the failure (increments counter, locks at the threshold).
 		// Best-effort: a bookkeeping error must not change the auth outcome.
 		if s.neverLocked(u.Email) {
+			return nil, false, ErrInvalidCredentials
+		}
+		if mode == failMemory {
+			s.addStrike(u.ID)
 			return nil, false, ErrInvalidCredentials
 		}
 		if recErr := s.userRepo.RecordFailedLogin(superCtx, u.ID, MaxFailedLogins, LockoutDuration); recErr != nil {
@@ -241,6 +318,7 @@ func (s *Service) authenticate(ctx context.Context, email, password string) (u *
 	}
 
 	// Successful password: clear any accumulated failure state.
+	s.clearStrikes(u.ID)
 	if rstErr := s.userRepo.ResetFailedLogins(superCtx, u.ID); rstErr != nil {
 		fmt.Printf("failed to reset failed logins (non-fatal): %v\n", rstErr)
 	}
@@ -295,7 +373,7 @@ func (s *Service) maybeRehash(ctx, superCtx context.Context, u *user.User, passw
 // asks the user for a second factor when one exists and then calls
 // IssueVerifiedSession.
 func (s *Service) CheckPassword(ctx context.Context, email, password string) (*user.User, error) {
-	u, _, err := s.authenticate(ctx, email, password)
+	u, _, err := s.authenticate(ctx, email, password, failDB)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +384,7 @@ func (s *Service) CheckPassword(ctx context.Context, email, password string) (*u
 // LoginSession authenticates and issues a server-side session. It returns the
 // user and the opaque session token to set as the cookie.
 func (s *Service) LoginSession(ctx context.Context, email, password, userAgent, ip string) (*user.User, string, error) {
-	u, hasFactor, err := s.authenticate(ctx, email, password)
+	u, hasFactor, err := s.authenticate(ctx, email, password, failDB)
 	if err != nil {
 		return nil, "", err
 	}
@@ -332,7 +410,7 @@ func (s *Service) LoginSession(ctx context.Context, email, password, userAgent, 
 // site policy requires to have a factor, and who has none, gets
 // ErrFactorSetupRequired instead of a session.
 func (s *Service) LoginAPISession(ctx context.Context, email, password, code, userAgent, ip string) (*user.User, string, error) {
-	u, hasFactor, err := s.authenticate(ctx, email, password)
+	u, hasFactor, err := s.authenticate(ctx, email, password, failMemory)
 	if err != nil {
 		return nil, "", err
 	}
@@ -355,6 +433,7 @@ func (s *Service) LoginAPISession(ctx context.Context, email, password, code, us
 			}
 			return nil, "", fmt.Errorf("check second factor: %w", err)
 		}
+		s.clearStrikes(u.ID)
 	}
 	if s.sessions == nil {
 		return nil, "", errors.New("sessions are not configured")

@@ -100,10 +100,20 @@ func (s *Server) formRateCheck(ctx context.Context, f *form.Form, ip string, now
 		}
 		return s.formRates.over(f.ID.String(), middleware.IPBucket(ip), limit, now)
 	}
+	// An IPv6 sender is also counted by its /64 in memory, since the stored
+	// count matches the exact address only. The larger of the two decides.
+	memOver := false
+	if bucket := middleware.IPBucket(ip); bucket != ip {
+		if record {
+			memOver = s.formRates.over(f.ID.String(), bucket, limit, now)
+		} else {
+			memOver = s.formRates.exhausted(f.ID.String(), bucket, limit, now)
+		}
+	}
 	n, err := s.formService.CountRecentSubmissionsByIP(ctx, f.ID, ip, now.Add(-formRateWindow))
 	if err != nil {
 		s.logger.Error("form rate limit count failed", "error", err, "form_id", f.ID.String())
-		return false
+		return memOver
 	}
-	return n >= limit
+	return memOver || n >= limit
 }

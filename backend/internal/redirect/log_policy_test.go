@@ -6,17 +6,22 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"unicode/utf8"
 )
 
 type upsertRecorder struct {
 	*fakeStore
-	mu    sync.Mutex
-	paths []string
+	mu         sync.Mutex
+	paths      []string
+	referrers  []string
+	userAgents []string
 }
 
-func (u *upsertRecorder) Upsert404Entry(_ context.Context, path, _, _ string) error {
+func (u *upsertRecorder) Upsert404Entry(_ context.Context, path, referrer, userAgent string) error {
 	u.mu.Lock()
 	u.paths = append(u.paths, path)
+	u.referrers = append(u.referrers, referrer)
+	u.userAgents = append(u.userAgents, userAgent)
 	u.mu.Unlock()
 	return nil
 }
@@ -97,12 +102,42 @@ func TestMatchIgnore(t *testing.T) {
 	}
 }
 
-// Paths beyond maxMatchPath skip pattern matching and are logged.
-func TestLog404PolicyOverlongPathIsLogged(t *testing.T) {
+// Paths beyond maxMatchPath are not logged; shorter ones still go through the
+// ignore patterns.
+func TestLog404PolicyOverlongPathIsNotLogged(t *testing.T) {
 	long := "/" + strings.Repeat("a", maxMatchPath) + ".php"
 	short := "/" + strings.Repeat("a", maxMatchPath-10) + ".php"
 	got := logged(func() Log404Policy { return Log404Policy{Ignore: []string{"*.php"}} }, long, short)
-	if len(got) != 1 || got[0] != long {
-		t.Fatalf("got %d paths", len(got))
+	if len(got) != 0 {
+		t.Fatalf("got %d paths, want none", len(got))
+	}
+}
+
+func TestLog404AsyncBoundsFields(t *testing.T) {
+	rec := &upsertRecorder{fakeStore: newFakeStore()}
+	s := NewServiceWithStore(rec, slog.Default())
+	big := strings.Repeat("é", 1<<19) // 1 MB
+	s.Log404Async("/missing", big, big)
+	s.Log404Async("/"+strings.Repeat("a", maxMatchPath), "r", "ua") // 2049 bytes
+	s.Close()
+	if len(rec.paths) != 1 || rec.paths[0] != "/missing" {
+		t.Fatalf("paths = %d, want only /missing", len(rec.paths))
+	}
+	for name, v := range map[string]string{"referrer": rec.referrers[0], "user agent": rec.userAgents[0]} {
+		if len(v) == 0 || len(v) > 512 || !utf8.ValidString(v) {
+			t.Errorf("%s: len %d valid=%v", name, len(v), utf8.ValidString(v))
+		}
+	}
+}
+
+// A multibyte rune straddling the byte limit is dropped whole, not split.
+func TestClipFieldBacksOffToRuneStart(t *testing.T) {
+	in := "a" + strings.Repeat("é", maxLoggedField) // é starts at odd offsets, so the limit lands mid-rune
+	if utf8.RuneStart(in[maxLoggedField]) {
+		t.Fatal("test input must straddle the limit")
+	}
+	got := clipField(in)
+	if len(got) != maxLoggedField-1 || !utf8.ValidString(got) {
+		t.Errorf("len %d valid=%v, want %d and valid", len(got), utf8.ValidString(got), maxLoggedField-1)
 	}
 }

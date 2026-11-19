@@ -288,7 +288,7 @@ func TestAttachFormFileStoreUsesPrivateDataFolder(t *testing.T) {
 	data := t.TempDir()
 	t.Setenv("HATAMOTO_DATA", data)
 	svc := form.NewService(&fakeFormRepo{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	attachFormFileStore(svc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	attachFormFileStore(svc, slog.New(slog.NewTextHandler(io.Discard, nil)), 0)
 	if svc.FileStore() == nil {
 		t.Fatal("file store not attached")
 	}
@@ -360,5 +360,31 @@ func TestFormUploadConcurrencyIsCapped(t *testing.T) {
 	}
 	if got := srv.uploadsInFlight.Load(); got != maxConcurrentUploads-1 {
 		t.Errorf("in flight = %d after a send", got)
+	}
+}
+
+func TestFormUploadTotalCap(t *testing.T) {
+	t.Parallel()
+	srv, repo, root := newUploadServer(t)
+	srv.formService.FileStore().SetMaxTotalBytes(int64(2*len(testPDF) + 10))
+	submit := func() *httptest.ResponseRecorder {
+		body, ct := multipartBody(t, map[string]string{"name": "Ada"}, uploadPart{"cv", "cv.pdf", testPDF})
+		return postMultipart(srv, body, ct)
+	}
+	for i := range 2 {
+		if rec := submit(); rec.Code != http.StatusCreated {
+			t.Fatalf("submit %d: status %d: %s", i, rec.Code, rec.Body)
+		}
+	}
+	rec := submit()
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"cv"`) ||
+		!strings.Contains(rec.Body.String(), "can't be accepted right now") {
+		t.Fatalf("status %d body %s", rec.Code, rec.Body)
+	}
+	if len(repo.subs) != 2 {
+		t.Errorf("submissions = %d, want 2", len(repo.subs))
+	}
+	if files := storedFiles(t, root); len(files) != 2 {
+		t.Errorf("files = %v, want 2", files)
 	}
 }

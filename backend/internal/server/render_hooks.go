@@ -169,7 +169,7 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 
 	// Own limiter: the public API form route has its own bucket, and the two
 	// must not share a budget.
-	formLimiter := middleware.NewRateLimiter(0.1, 5)
+	formLimiter := middleware.NewRateLimiter(0.1, 5).ByIPv6Prefix()
 	handleCORS(r, http.MethodPost, "/forms/{slug}/submit", rt.formPost, formLimiter.Middleware)
 
 	if rt.preview != nil {

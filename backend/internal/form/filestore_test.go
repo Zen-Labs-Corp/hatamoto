@@ -260,3 +260,40 @@ func TestNewFileStoreSweepsStaleStagedFiles(t *testing.T) {
 		t.Errorf("recent staged file removed: %v", err)
 	}
 }
+
+func TestFileStoreTotalCap(t *testing.T) {
+	t.Parallel()
+	s, root := newTestStore(t)
+	s.totalTTL = 0 // measure on every Stage
+	s.SetMaxTotalBytes(30)
+	body := strings.Repeat("a", 10)
+	var staged []*Staged
+	for i := range 3 {
+		st, err := s.Stage(strings.NewReader(body), 100)
+		if err != nil {
+			t.Fatalf("stage %d: %v", i, err)
+		}
+		staged = append(staged, st)
+	}
+	if _, err := s.Stage(strings.NewReader(body), 100); !errors.Is(err, ErrStoreFull) {
+		t.Fatalf("stage at cap = %v, want ErrStoreFull", err)
+	}
+	if got := countFiles(t, root); got != 3 {
+		t.Fatalf("files = %d, want 3", got)
+	}
+	staged[0].Discard()
+	// 20 bytes used: a 15-byte stream fits the limit but not the room left.
+	if _, err := s.Stage(strings.NewReader(strings.Repeat("b", 15)), 100); !errors.Is(err, ErrStoreFull) {
+		t.Fatalf("overrun of room = %v, want ErrStoreFull", err)
+	}
+	if got := countFiles(t, root); got != 2 {
+		t.Fatalf("files after overrun = %d, want 2", got)
+	}
+	// The per-field limit still reports its own error.
+	if _, err := s.Stage(strings.NewReader(body), 5); !errors.Is(err, ErrFileTooLarge) {
+		t.Fatalf("over limit = %v, want ErrFileTooLarge", err)
+	}
+	if _, err := s.Stage(strings.NewReader(body), 100); err != nil {
+		t.Fatalf("stage after discard: %v", err)
+	}
+}

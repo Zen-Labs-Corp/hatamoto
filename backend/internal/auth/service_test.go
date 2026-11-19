@@ -379,7 +379,7 @@ func TestService_Login_WrongPasswordRecordsFailure(t *testing.T) {
 	repo := &mockUserRepo{getByEmailReturn: u}
 	svc := NewService(repo, nil, nil)
 
-	_, err = svc.Login(context.Background(), &LoginRequest{Email: u.Email, Password: "wrong"}, "ua", "1.2.3.4")
+	_, _, err = svc.LoginSession(context.Background(), u.Email, "wrong", "ua", "1.2.3.4")
 	testutil.RequireErrorIs(t, err, ErrInvalidCredentials)
 	testutil.True(t, repo.recordFailedCalled, "a wrong password records a failed attempt")
 	testutil.Equal(t, u.ID, repo.recordFailedID)
@@ -412,7 +412,7 @@ func TestService_Login_NeverLockAccountIsNotLocked(t *testing.T) {
 	svc.NeverLock(" TEST@example.com ")
 
 	// Failures are not recorded, so five of them cannot lock the shared login.
-	_, err = svc.Login(context.Background(), &LoginRequest{Email: u.Email, Password: "wrong"}, "ua", "1.2.3.4")
+	_, _, err = svc.LoginSession(context.Background(), u.Email, "wrong", "ua", "1.2.3.4")
 	testutil.RequireErrorIs(t, err, ErrInvalidCredentials)
 	testutil.False(t, repo.recordFailedCalled, "a failure on the exempt account must not count")
 
@@ -426,6 +426,76 @@ func TestService_Login_NeverLockAccountIsNotLocked(t *testing.T) {
 	other := &mockUserRepo{getByEmailReturn: newTestUser(user.RoleOwner, hash)}
 	svc2 := NewService(other, nil, nil)
 	svc2.NeverLock("someone-else@example.com")
-	_, _ = svc2.Login(context.Background(), &LoginRequest{Email: "test@example.com", Password: "wrong"}, "ua", "1.2.3.4")
+	_, _, _ = svc2.LoginSession(context.Background(), "test@example.com", "wrong", "ua", "1.2.3.4")
 	testutil.True(t, other.recordFailedCalled, "other accounts keep the lockout")
+}
+
+func TestLoginAPIStrikesDoNotLockAccount(t *testing.T) {
+	t.Parallel()
+	hash, err := HashPassword("correct-password")
+	testutil.RequireNoError(t, err)
+
+	u := newTestUser(user.RoleOwner, hash)
+	repo := &mockUserRepo{getByEmailReturn: u}
+	svc := NewService(repo, nil, nil)
+
+	for range MaxFailedLogins {
+		_, err = svc.Login(context.Background(), &LoginRequest{Email: u.Email, Password: "wrong"}, "ua", "1.2.3.4")
+		testutil.RequireErrorIs(t, err, ErrInvalidCredentials)
+	}
+	testutil.False(t, repo.recordFailedCalled, "the JSON login must not write the account lock")
+
+	_, err = svc.Login(context.Background(), &LoginRequest{Email: u.Email, Password: "correct-password"}, "ua", "1.2.3.4")
+	testutil.RequireErrorIs(t, err, ErrAccountLocked)
+	testutil.False(t, repo.resetFailedCalled, "must not reset while refused")
+
+	got, err := svc.CheckPassword(context.Background(), u.Email, "correct-password")
+	testutil.RequireNoError(t, err)
+	testutil.Nil(t, got.LockedUntil)
+}
+
+func TestLoginAPIStrikesExpire(t *testing.T) {
+	t.Parallel()
+	hash, err := HashPassword("correct-password")
+	testutil.RequireNoError(t, err)
+
+	u := newTestUser(user.RoleOwner, hash)
+	repo := &mockUserRepo{getByEmailReturn: u}
+	svc := NewService(repo, nil, nil)
+	now := time.Now()
+	svc.now = func() time.Time { return now }
+
+	for range MaxFailedLogins {
+		_, _ = svc.Login(context.Background(), &LoginRequest{Email: u.Email, Password: "wrong"}, "ua", "1.2.3.4")
+	}
+	_, err = svc.Login(context.Background(), &LoginRequest{Email: u.Email, Password: "correct-password"}, "ua", "1.2.3.4")
+	testutil.RequireErrorIs(t, err, ErrAccountLocked)
+
+	now = now.Add(LockoutDuration + time.Minute)
+	// No session store: the login stops after the lock check and password.
+	_, err = svc.Login(context.Background(), &LoginRequest{Email: u.Email, Password: "correct-password"}, "ua", "1.2.3.4")
+	testutil.False(t, errors.Is(err, ErrAccountLocked), "expired strikes must not refuse the login")
+	testutil.True(t, repo.resetFailedCalled, "the password was accepted")
+}
+
+func TestLoginAPIStrikesDoNotAffectOtherUsers(t *testing.T) {
+	t.Parallel()
+	hash, err := HashPassword("correct-password")
+	testutil.RequireNoError(t, err)
+
+	first := newTestUser(user.RoleOwner, hash)
+	repo := &mockUserRepo{getByEmailReturn: first}
+	svc := NewService(repo, nil, nil)
+
+	for range MaxFailedLogins {
+		_, _ = svc.Login(context.Background(), &LoginRequest{Email: first.Email, Password: "wrong"}, "ua", "1.2.3.4")
+	}
+	_, err = svc.Login(context.Background(), &LoginRequest{Email: first.Email, Password: "correct-password"}, "ua", "1.2.3.4")
+	testutil.RequireErrorIs(t, err, ErrAccountLocked)
+
+	second := newTestUser(user.RoleOwner, hash)
+	second.ID = uuid.New()
+	repo.getByEmailReturn = second
+	_, err = svc.Login(context.Background(), &LoginRequest{Email: second.Email, Password: "correct-password"}, "ua", "1.2.3.4")
+	testutil.False(t, errors.Is(err, ErrAccountLocked), "another account is not refused")
 }
