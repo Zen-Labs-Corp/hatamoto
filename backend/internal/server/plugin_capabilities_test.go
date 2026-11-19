@@ -187,7 +187,7 @@ func TestRenderPagePlugin(t *testing.T) {
 	f := newRenderFixture(t)
 	_, s := bootRoutes(t)
 	capaRuntime(t, s)
-	f.h.pageFilter = pluginhost.NewPageFilter(s.hooks)
+	f.h.pageFilter = pluginhost.NewPageFilter(s.plugins, s.hooks)
 	if !f.h.pageFilter.Active() {
 		t.Fatal("the filter must be active once a plugin handles render.page")
 	}

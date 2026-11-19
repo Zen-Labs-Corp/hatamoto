@@ -108,7 +108,8 @@ type renderHandlers struct {
 	resolve   func(ctx context.Context, path string, r *http.Request) (*routeResult, pageOutcome, error)
 	buildView func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error)
 	// pageFilter (optional) is the render.page plugin chain. While a plugin
-	// handles it, pages depend on the request and are never shared-cached.
+	// handles a page (see page_paths), that page depends on the request and is
+	// never shared-cached.
 	pageFilter *pluginhost.PageFilter
 	// preview (optional) renders with another installed theme for a signed-in
 	// owner or editor; such responses are never cached (uncached).
@@ -149,10 +150,12 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 		resolve:       s.resolveForRender,
 		buildView:     s.buildPageView,
 		searchLimit:   middleware.NewRateLimiter(2, 30).Middleware,
-		pageFilter:    pluginhost.NewPageFilter(s.hooks),
-		renderFailed:  func() { s.healthSink().RenderError() },
-		preview:       s.preview,
-		runtime:       s.pageRuntime,
+		// setupPlugins runs before the render routes mount, so s.plugins is set
+		// (nil: the runtime failed, so no plugin filters).
+		pageFilter:   pluginhost.NewPageFilter(s.plugins, s.hooks),
+		renderFailed: func() { s.healthSink().RenderError() },
+		preview:      s.preview,
+		runtime:      s.pageRuntime,
 
 		cspExtras:        s.cspExtras,
 		pluginCSP:        s.pluginCSPHosts,
@@ -413,7 +416,7 @@ func writeRenderRedirect(w http.ResponseWriter, r *http.Request, hit *redirectHi
 // serve runs the shared flow: cache, onMiss (optional, true = it answered),
 // resolve, redirect/404/error, render.
 func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path string, onMiss func() bool, load func() (*routeResult, pageOutcome, error)) {
-	filtered := h.pageFilter.Active()
+	filtered := h.pageFilter.Applies(path)
 	// A plugin's cookie answer (request.redirect) makes this response specific
 	// to the request: no cache read or write, private headers.
 	uncached := h.uncached || uncachedRequest(r.Context())

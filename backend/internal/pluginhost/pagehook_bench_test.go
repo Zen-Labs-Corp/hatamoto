@@ -52,7 +52,7 @@ func pageFilterRig(tb testing.TB, mutate func(*sdk.Manifest)) *PageFilter {
 	if !st.Loaded {
 		tb.Fatalf("capa not loaded: %s", st.Error)
 	}
-	pf := NewPageFilter(engine)
+	pf := NewPageFilter(rt, engine)
 	if !pf.Active() {
 		tb.Fatal("render.page not registered")
 	}

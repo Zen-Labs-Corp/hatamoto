@@ -109,7 +109,7 @@ func TestPageFilterFillsEntityLocale(t *testing.T) {
 		got = in.Entity.Locale
 		return in, nil
 	})
-	h := &renderHandlers{pageFilter: pluginhost.NewPageFilter(engine)}
+	h := &renderHandlers{pageFilter: pluginhost.NewPageFilter(nil, engine)}
 	v := &render.PageView{Entity: &render.EntityView{ID: "e1", Slug: "s", Title: "T", Schema: "page"}, Site: render.SiteView{Language: "fr"}}
 	h.applyPageFilter(httptest.NewRequest("GET", "/s", nil), "/s", v)
 	if got != "fr" {
