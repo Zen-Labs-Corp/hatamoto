@@ -723,7 +723,9 @@ func isFresh(ctx context.Context) bool { v, _ := ctx.Value(freshKey{}).(bool); r
 // called with one (render.head, jsonld.enrich) can still be cut short by it;
 // that cut is not counted against the circuit breaker when our own waiting
 // (slot wait plus cold start) was what shortened the guest's run; a guest cut
-// by a short caller deadline that it had to itself is charged as usual.
+// by a short caller deadline that it had to itself is charged as usual. A
+// caller that cancels (disconnects) is never charged; the instance is still
+// discarded. The hook's own timeout is always charged.
 func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte, error) {
 	entry := time.Now()
 	fresh := isFresh(ctx)
@@ -859,9 +861,11 @@ func (h *Host) Call(ctx context.Context, name, export string, in []byte) ([]byte
 		// than it waited. A guest that had the time to itself and still ran
 		// into the deadline (a hang) is charged, so it cannot dodge the
 		// breaker by declaring a timeout longer than its caller's. The
-		// interrupted instance is discarded either way.
+		// interrupted instance is discarded either way. A caller that went away
+		// (cancelled, no deadline) says nothing about the guest: not charged.
 		ran := time.Since(start)
-		if callerCtx.Err() == nil || ran >= timeout || ran >= start.Sub(entry) {
+		if !errors.Is(callerCtx.Err(), context.Canceled) &&
+			(callerCtx.Err() == nil || ran >= timeout || ran >= start.Sub(entry)) {
 			p.failed(export)
 			observeError(name)
 		}

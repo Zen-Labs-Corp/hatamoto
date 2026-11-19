@@ -240,6 +240,10 @@ func (e *Engine) HasFilter(name string) bool {
 	return len(e.filters[name]) > 0
 }
 
+// ErrFailClosed marks a filter error that must refuse a validating (strict)
+// chain instead of being skipped. Non-strict chains ignore the mark.
+var ErrFailClosed = errors.New("hooks: filter unavailable")
+
 // Apply runs the filter chain for name over v and returns the result. A
 // filter that errors, panics or changes the value's type is logged and
 // skipped; the value stays as it was before that filter.
@@ -250,8 +254,9 @@ func (e *Engine) Apply(ctx context.Context, name string, v any) any {
 
 // ApplyStrict is Apply, except a *sdk.Reject RETURNED by a filter (matched
 // with errors.As) stops the chain and is returned to the caller (used by
-// entity.before_save to reject a save). Any other error, and panics, are
-// logged and skipped like in Apply: the filter's change is dropped.
+// entity.before_save to reject a save) and so does an error wrapping
+// ErrFailClosed. Any other error, and panics, are logged and skipped like in
+// Apply: the filter's change is dropped.
 func (e *Engine) ApplyStrict(ctx context.Context, name string, v any) (any, error) {
 	return e.apply(ctx, name, v, true)
 }
@@ -269,7 +274,7 @@ func (e *Engine) apply(ctx context.Context, name string, v any, strict bool) (an
 			continue
 		case err != nil:
 			var rej *sdk.Reject
-			if strict && errors.As(err, &rej) {
+			if strict && (errors.As(err, &rej) || errors.Is(err, ErrFailClosed)) {
 				return v, err
 			}
 			e.log.Error("hooks: filter failed",

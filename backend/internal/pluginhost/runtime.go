@@ -403,8 +403,9 @@ func (r *Runtime) action(m sdk.Manifest, hook, export string) func(context.Conte
 
 // filter returns a hooks filter that calls the plugin's filter_<hook> export.
 // Any failure comes back as an error, which the engine logs and answers by
-// keeping the value unchanged (fail open); only a deliberate rejection
-// becomes *sdk.Reject.
+// keeping the value unchanged (fail open); a deliberate rejection becomes
+// *sdk.Reject, and a hook the circuit breaker switched off is marked
+// hooks.ErrFailClosed so a strict chain (entity.before_save) refuses instead.
 func (r *Runtime) filter(name, export string) func(context.Context, any) (any, error) {
 	return func(ctx context.Context, v any) (any, error) {
 		in, err := jsonx.MarshalPinned(v)
@@ -415,6 +416,9 @@ func (r *Runtime) filter(name, export string) func(context.Context, any) (any, e
 		if err != nil {
 			if reason, ok := rejection(err); ok {
 				return v, &sdk.Reject{Reason: reason}
+			}
+			if errors.Is(err, wasmhost.ErrCircuitOpen) {
+				return v, fmt.Errorf("%w: %w", hooks.ErrFailClosed, err)
 			}
 			return v, err
 		}

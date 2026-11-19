@@ -126,6 +126,31 @@ in text: a branch that ends inside a tag, a comment or a raw-text element is
 refused, and so is a template that does. Such a section or partial is refused
 whatever the data, because the rule reads the template source.
 
+Plugin template text is trusted for CPU and memory, like theme markup: install
+only plugins you trust. The following rules are guards against accidental
+recursion, fan-out and nesting, not a bound on what a template can cost. A
+`range` may only iterate content data: `.Content...` or `$.Content...`, or a
+field of an item reached that way inside a `range` or `with` over it; a number,
+a variable, a function or method result and the bare dot of a template's root
+are refused. Ranges that start again from the content (`$.Content...`, or
+`.Content...` at a template root) may nest at most two deep, counting such
+ranges in a template called from inside a range; ranges over the current item's
+children add no depth. Across all of one plugin's templates, `{{template}}`
+calls may not form a cycle (a template that reaches itself, directly or through
+others), a template may not call another plugin's templates (its partials or its section names), and no template
+may expand to more than 1000 template calls. The range rule is checked on every
+load, including for a plugin that is already installed; a section or partial
+that breaks it is logged and not registered, and the plugin's other templates
+are unaffected. A broken call rule (a cycle, a call to another plugin, too many
+calls, ranges nested too deep) is checked together with the other template
+rules and rejects all of that plugin's templates, logged. For a plugin without
+`site.scripts` the sample render of a template is also cut off at 256 KiB of
+output (the template is refused when it reaches that), and its string-building
+builtins (`printf`, `print`, `println`, `slice`, `html`, `js`, `urlquery`) return
+their real result cut to 4 KiB, so the compile-time render stays cheap and still
+sees a literal they build; the output of plugin funcs is not represented. A time or memory budget for
+template execution at request time is not part of this model.
+
 | Guarantee | Package | Tests |
 |---|---|---|
 | `plugin.js` is not linked without the grant (the stylesheet is not gated) | `internal/render` | `TestPluginScriptNeedsGate` |

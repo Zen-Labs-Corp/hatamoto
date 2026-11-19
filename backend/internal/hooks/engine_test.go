@@ -75,6 +75,34 @@ func TestApplyStrictReturnsErrorAndStops(t *testing.T) {
 	}
 }
 
+func TestApplyStrictStopsOnFailClosed(t *testing.T) {
+	e := testEngine()
+	var ranAfter bool
+	e.AddFilter("f", 1, func(_ context.Context, v any) (any, error) { return v, fmt.Errorf("%w: x", ErrFailClosed) })
+	e.AddFilter("f", 2, func(_ context.Context, v any) (any, error) { ranAfter = true; return v, nil })
+	_, err := e.ApplyStrict(context.Background(), "f", 1)
+	if !errors.Is(err, ErrFailClosed) {
+		t.Fatalf("err = %v, want ErrFailClosed", err)
+	}
+	if ranAfter {
+		t.Fatal("chain should stop at the fail-closed filter")
+	}
+}
+
+func TestApplyIgnoresFailClosed(t *testing.T) {
+	e := testEngine()
+	e.AddFilter("f", 1, func(_ context.Context, v any) (any, error) { return v, fmt.Errorf("%w: x", ErrFailClosed) })
+	e.AddFilter("f", 2, func(_ context.Context, v any) (any, error) { return v.(int) + 1, nil })
+	if got := e.Apply(context.Background(), "f", 1); got != 2 {
+		t.Fatalf("got %v, want the chain to continue", got)
+	}
+	e.AddFilter("g", 1, func(_ context.Context, v any) (any, error) { return v, errors.New("plain") })
+	e.AddFilter("g", 2, func(_ context.Context, v any) (any, error) { return v.(int) + 1, nil })
+	if got, err := e.ApplyStrict(context.Background(), "g", 1); err != nil || got != 2 {
+		t.Fatalf("plain error must stay skipped: %v, %v", got, err)
+	}
+}
+
 func TestApplyStrictSkipsPanic(t *testing.T) {
 	e := testEngine()
 	e.AddFilter("f", 1, func(_ context.Context, v any) (any, error) { panic("x") })

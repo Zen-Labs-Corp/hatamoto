@@ -1,10 +1,16 @@
 package render
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
 	"hash/fnv"
 	"html/template"
+	"reflect"
+	"regexp"
 	"sort"
 	"strings"
+	"text/template/parse"
 )
 
 // A plugin's partials and sections are markup the page emits as written. They
@@ -57,10 +63,199 @@ func checkPluginScripts(src string, funcs template.FuncMap) error {
 	return nil
 }
 
-// stubFuncs has every plugin func answer with nothing: a sample render must
-// not call into plugin code.
+// dotKind says what the dot is while checkPluginLoops walks a template.
+type dotKind int
+
+const (
+	dotRoot    dotKind = iota // the data the template was called with
+	dotContent                // the content root, or a part of it narrowed by a with
+	dotItem                   // the current item of a range over content (or a field of it)
+	dotUnknown                // anything else (a with over a number, say)
+)
+
+// contentChain reports whether idents is a field chain a plugin may range over
+// or narrow to. Content holds JSON-decoded values (maps, slices, strings,
+// float64 or jsontext.Value, template.HTML after prepare); none has a method
+// that returns a large int. Int64 and Float64 are refused in case a json.Number
+// reaches it.
+func contentChain(idents []string) bool {
+	for _, id := range idents {
+		if id == "Int64" || id == "Float64" {
+			return false
+		}
+	}
+	return true
+}
+
+// contentPipe reports whether p is one command with one argument that is data
+// from the section's Content, given what the dot is.
+func contentPipe(p *parse.PipeNode, dot dotKind) bool {
+	if p == nil || len(p.Cmds) != 1 || len(p.Cmds[0].Args) != 1 {
+		return false
+	}
+	switch a := p.Cmds[0].Args[0].(type) {
+	case *parse.FieldNode:
+		switch dot {
+		case dotRoot:
+			return a.Ident[0] == "Content" && contentChain(a.Ident)
+		case dotContent, dotItem:
+			return contentChain(a.Ident)
+		}
+	case *parse.VariableNode:
+		return len(a.Ident) > 1 && a.Ident[0] == "$" && a.Ident[1] == "Content" && contentChain(a.Ident)
+	case *parse.DotNode:
+		return dot == dotContent || dot == dotItem
+	}
+	return false
+}
+
+// withDot is the dot inside a with over p, when the dot outside is dot. A with
+// over a field of an item stays an item; one that starts at the content root
+// ($.Content..., .Content... at a template root) is the content again.
+func withDot(p *parse.PipeNode, dot dotKind) dotKind {
+	if !contentPipe(p, dot) {
+		return dotUnknown
+	}
+	if dot == dotItem {
+		if _, ok := p.Cmds[0].Args[0].(*parse.VariableNode); !ok {
+			return dotItem
+		}
+	}
+	return dotContent
+}
+
+// checkPluginLoops refuses a range in any template src defines, at any depth,
+// unless it iterates content data: .Content... or $.Content... (also inside a
+// range or with over such data, where the dot is content). A number, a
+// variable, a function result or a method result (.PublishedAt.UnixNano) can
+// be arbitrarily large, so a template could not be stopped by its output cap.
+// The dot of a template is whatever its caller passes, so every template root
+// counts as unknown data and only .Content chains are accepted there. A source
+// that does not parse is left to vet, which rejects it.
+func checkPluginLoops(src string) error {
+	p := parse.New("loops")
+	p.Mode = parse.SkipFuncCheck
+	trees := map[string]*parse.Tree{}
+	if _, err := p.Parse(src, "", "", trees); err != nil {
+		return nil
+	}
+	errRange := errors.New("range may only iterate content data such as .Content.items, not a number, a variable or a function result")
+	var walk func(*parse.ListNode, dotKind) error
+	walk = func(l *parse.ListNode, dot dotKind) error {
+		if l == nil {
+			return nil
+		}
+		for _, n := range l.Nodes {
+			var body, other *parse.ListNode
+			inner := dot
+			switch x := n.(type) {
+			case *parse.RangeNode:
+				if !contentPipe(x.Pipe, dot) {
+					return errRange
+				}
+				body, other, inner = x.List, x.ElseList, dotItem
+			case *parse.IfNode:
+				body, other = x.List, x.ElseList
+			case *parse.WithNode:
+				body, other, inner = x.List, x.ElseList, withDot(x.Pipe, dot)
+			}
+			if err := walk(body, inner); err != nil {
+				return err
+			}
+			if err := walk(other, dot); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	for _, t := range trees {
+		if t.Root == nil {
+			continue
+		}
+		if err := walk(t.Root, dotRoot); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// errPluginOutput is errPackOutput worded for a plugin template.
+var errPluginOutput = errors.New("plugin template output exceeds the size cap")
+
+// maxStubString caps every string a stubbed builtin returns, so a chain of
+// assignments that doubles a value cannot grow past it.
+const maxStubString = 4 << 10
+
+var errStubTooLarge = errors.New("sample render: builtin argument too large")
+
+// wideFormat matches a width or precision that could allocate a lot.
+var wideFormat = regexp.MustCompile(`\*|\d{4,}`)
+
+func capStub(s string) string {
+	if len(s) > maxStubString {
+		return s[:maxStubString]
+	}
+	return s
+}
+
+// stubBuiltins are the builtins that build strings, with the real result cut to
+// maxStubString: the sample render still sees what a literal expands to
+// ("java{{print "script:"}}") but nothing can grow without limit.
+func stubBuiltins() template.FuncMap {
+	escaper := func(f func(...any) string) func(...any) string {
+		return func(args ...any) string { return capStub(f(args...)) }
+	}
+	return template.FuncMap{
+		"print":   func(args ...any) string { return capStub(fmt.Sprint(args...)) },
+		"println": func(args ...any) string { return capStub(fmt.Sprintln(args...)) },
+		"printf": func(format string, args ...any) (string, error) {
+			if len(format) > maxStubString || wideFormat.MatchString(format) {
+				return "", errStubTooLarge
+			}
+			return capStub(fmt.Sprintf(format, args...)), nil
+		},
+		"html":     escaper(template.HTMLEscaper),
+		"js":       escaper(template.JSEscaper),
+		"urlquery": escaper(template.URLQueryEscaper),
+		"slice":    stubSlice,
+	}
+}
+
+// stubSlice is the slice builtin for strings and slices (a result never
+// outgrows its operand; a string result is capped).
+func stubSlice(item any, idx ...int) (any, error) {
+	v := reflect.ValueOf(item)
+	if !v.IsValid() || len(idx) > 2 {
+		return nil, errors.New("slice: bad arguments")
+	}
+	n := 0
+	switch v.Kind() {
+	case reflect.String, reflect.Slice:
+		n = v.Len()
+	default:
+		return nil, errors.New("slice: cannot slice this value")
+	}
+	lo, hi := 0, n
+	if len(idx) > 0 {
+		lo = idx[0]
+	}
+	if len(idx) > 1 {
+		hi = idx[1]
+	}
+	if lo < 0 || hi < lo || hi > n {
+		return nil, errors.New("slice: index out of range")
+	}
+	if v.Kind() == reflect.String {
+		return capStub(v.String()[lo:hi]), nil
+	}
+	return v.Slice(lo, hi).Interface(), nil
+}
+
+// stubFuncs has every plugin func answer with nothing (a sample render must not
+// call into plugin code) and the string builtins answer capped: builtin output
+// is represented, plugin-func output is not.
 func stubFuncs(funcs template.FuncMap) template.FuncMap {
-	out := template.FuncMap{}
+	out := stubBuiltins()
 	for name := range funcs {
 		out[name] = func(...any) (string, error) { return "", nil }
 	}
@@ -79,9 +274,13 @@ func scanSampleRender(src string, funcs template.FuncMap) error {
 		return nil
 	}
 	for _, d := range t.Templates() {
-		var out strings.Builder
+		var out bytes.Buffer
 		data := preparedSection{Section: Section{Content: map[string]any{}}, Settings: map[string]any{}}
-		if d.Execute(&out, data) != nil {
+		err := d.Execute(&cappedWriter{buf: &out, max: maxPackOutput}, data)
+		if errors.Is(err, errPackOutput) {
+			return fmt.Errorf("markup: sample render of %s: %w", d.Name(), errPluginOutput)
+		}
+		if err != nil {
 			continue
 		}
 		if err := scanPluginScripts("sample render of "+d.Name(), out.String()); err != nil {
@@ -98,16 +297,27 @@ func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (pluginSnapsho
 	why := map[string][]string{}
 	out := s
 	out.partials, out.sections = map[string]string{}, map[string]string{}
+	graphFaults := s.callGraphFaults(s.partials, s.sections)
 	keep := func(plugin, label, src string) bool {
 		if allowed != nil && allowed(plugin) {
 			return true
 		}
-		err := checkPluginScripts(src, s.funcs)
+		// A call-graph fault is refused here too: vet may see a different set
+		// and find nothing, and a template of that plugin is never executed
+		// unchecked.
+		err := graphFaults[plugin]
+		if err == nil {
+			err = checkPluginScripts(src, s.funcs)
+		}
 		if err == nil {
 			err = scanSampleRender(src, s.funcs)
 		}
 		if err != nil {
-			why[plugin] = append(why[plugin], label+": "+err.Error()+" (not allowed without site.scripts)")
+			msg := label + ": " + err.Error()
+			if !errors.Is(err, errPluginOutput) && graphFaults[plugin] == nil {
+				msg += " (not allowed without site.scripts)"
+			}
+			why[plugin] = append(why[plugin], msg)
 			return false
 		}
 		return true

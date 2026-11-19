@@ -529,6 +529,33 @@ func TestCallerDeadlineDoesNotShieldHangFromBreaker(t *testing.T) {
 	}
 }
 
+// A caller that went away (cancel, not a deadline) says nothing about the
+// guest: the breaker stays closed, the interrupted instance is still dropped.
+func TestCallerCancelDoesNotChargeBreaker(t *testing.T) {
+	h := newHost(t)
+	load(t, h, "bad", sdk.Limits{HookTimeoutsMS: timeouts(5000, "hostile_loop", "echo")})
+	for i := 0; i < breakerThreshold; i++ {
+		// Each cancelled call must start on a warm instance: a cold start
+		// would make it run for less than it waited, which is never charged.
+		call(h, "bad", "echo", "")
+		before := h.Discarded("bad")
+		ctx, cancel := context.WithCancel(context.Background())
+		time.AfterFunc(300*time.Millisecond, cancel)
+		_, err := h.Call(ctx, "bad", "hostile_loop", nil)
+		cancel()
+		if err == nil || errors.Is(err, ErrCircuitOpen) {
+			t.Fatalf("call %d: want a cancel error, got %v", i, err)
+		}
+		if got := h.Discarded("bad") - before; got != 1 {
+			t.Fatalf("call %d: discarded %d instances, want the cancelled one dropped", i, got)
+		}
+	}
+	p := (*h.reg.Load())["bad"]
+	if !p.allow("hostile_loop") {
+		t.Fatalf("breaker opened after %d caller cancels", breakerThreshold)
+	}
+}
+
 // A guest cut to a sliver by our own slot wait is not the plugin's fault: the
 // breaker stays closed.
 func TestSlotWaitCutDoesNotChargeBreaker(t *testing.T) {
