@@ -117,9 +117,16 @@ package sdk
 // plugin's entity.before_save filter is registered only while the owner holds
 // it, whatever range the plugin declares. A plugin that asks for it declares `^0.23`, because older hosts refuse
 // the unknown permission name.
-const Version = "0.23.0"
+//
+// 0.24.0 is additive over 0.23: the manifest field page_paths (at most 16
+// exact public paths) narrows a plugin's render.page filter to those paths.
+// Only they are served private and uncached; every other page is page-cached.
+// An older host ignores the field and keeps the filter site-wide (slower, not
+// wrong), so a plugin may keep its lower range; it declares ^0.24 only to rely
+// on the caching.
+const Version = "0.24.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
 // lists its predecessors here. 0.4 plugins were native Go.
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2"}
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2", "0.23.0"}
