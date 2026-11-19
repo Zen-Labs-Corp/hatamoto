@@ -51,8 +51,10 @@ func (r *Repository) Upsert404Entry(ctx context.Context, path, referrer, userAge
 	query := `
 		INSERT INTO hatamoto_404_log (path, last_referrer, last_user_agent)
 		SELECT $1::text, $2::text, $3::text
-		WHERE (SELECT count(*) FROM (SELECT 1 FROM hatamoto_404_log LIMIT $4::int) c) < $4::int
-		   OR EXISTS (SELECT 1 FROM hatamoto_404_log WHERE path = $1::text)
+		WHERE CASE
+			WHEN EXISTS (SELECT 1 FROM hatamoto_404_log WHERE path = $1::text) THEN true
+			ELSE (SELECT count(*) FROM (SELECT 1 FROM hatamoto_404_log LIMIT $4::int) c) < $4::int
+		END
 		ON CONFLICT (path)
 		DO UPDATE SET
 			hit_count = hatamoto_404_log.hit_count + 1,
