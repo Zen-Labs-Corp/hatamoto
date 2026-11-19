@@ -41,6 +41,9 @@ file system and no host access except through capabilities the owner granted.
 | A capability is denied until the owner grants it, and a grant the manifest does not request is refused | `internal/pluginhost` | `TestDeniedUntilGranted`, `TestGrantMustBeRequested` |
 | A host call request over 1 MiB is refused | `internal/wasmhost` | `TestHostCall` |
 | Guest logging, `mail.send` and `http.fetch` are rate limited per plugin; other host calls are not rate limited | `internal/pluginhost` | `TestHostCallLimits` (log), `TestFetchRateCapPerPlugin` (`http.fetch`), `TestMailSendRateLimitPerPlugin` (`mail.send`: per recipient, per plugin) |
+| A plugin's `entity.before_save` filter is registered only while the owner holds `entities.filter`; plugins installed earlier keep it once, a stored grant is kept and a new ask in an update needs confirmation | `internal/pluginhost`, `internal/packages` (Postgres) | `TestBeforeSaveNeedsEntitiesFilterGrant`, `TestGrandfatherEntityFilterOnce`, `TestUpdateAskingEntitiesFilterNeedsConfirmation` |
+| Community and developer packages cannot carry tracking tags | `internal/packages` (Postgres) | `TestInstallRefusesTagPackFromRestrictedOrigin` |
+| A standing approval cannot add a translation link | `internal/changeset` (Postgres) | `TestStandingUpdateRefusesNewTranslationLink` |
 | A plugin's admin page runs in a sandboxed iframe, its bridge carries only granted capabilities, and the camera is opened by core's page, never by plugin code, only after the owner granted `ui.allow:camera` | `internal/admin` | `TestPluginUIPageIsASandboxedIframe`, `TestBridgeCarriesOnlyGrantedCapabilities`, `TestBridgeIsRateLimitedPerUserAndPlugin`, `TestPluginPageCameraPolicyFollowsTheGrant` |
 
 The camera follows the same rule. The plugin page's iframe keeps its sandbox and
@@ -164,7 +167,7 @@ template execution at request time is not part of this model.
 | The admin shows the grant in the permission prompt and leaves it unticked on a fresh install | `internal/admin` | `TestPluginPromptWarnsAboutSiteScripts`, `TestFreshInstallLeavesSiteScriptsUnticked` |
 
 Community and developer packages are refused `site.scripts` and `builder.island` (grant and
-render), because both put JavaScript in the site origin. There is no island
+render) and cannot carry tracking tags, because both put JavaScript in the site origin. There is no island
 iframe. A page that carries a live community script would be served in a CSP
 sandbox (opaque origin, Layer B). **Themes are trusted and outside Layer B**: a
 theme controls every public template and its JavaScript, so a community or developer theme

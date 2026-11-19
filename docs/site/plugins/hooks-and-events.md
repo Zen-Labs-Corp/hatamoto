@@ -30,7 +30,7 @@ A plugin handles a hook by exporting a function named after it: replace `.` with
 | `render.site_graph` | filter | `filter_render_site_graph` | SiteGraph | SiteGraph |
 | `render.page` | filter | `filter_render_page` | PageContext | PageContext |
 | `request.redirect` | filter | `filter_request_redirect` | RedirectContext | RedirectContext |
-| `entity.before_save` | filter | `filter_entity_before_save` | EntityDraft | EntityDraft |
+| `entity.before_save` | filter (needs `entities.filter`) | `filter_entity_before_save` | EntityDraft | EntityDraft |
 | `builder.data` | filter | `filter_builder_data` | BuilderDataRequest | BuilderDataRequest |
 
 The Go tokens are `sdk.EntityCreated`, `sdk.EntityUpdated`, `sdk.EntityPublished`, `sdk.EntityDeleted`, `sdk.ImportCompleted`, `sdk.AgentHit`, `sdk.AgentFirstCrawl`, `sdk.FormSubmitted`, `sdk.JSONLDEnrich`, `sdk.SitemapURLsF`, `sdk.RenderHead`, `sdk.RenderPage`, `sdk.EntityBeforeSave` and `sdk.BuilderData`. The host registers a handler for every hook whose export exists and ignores the rest, so handle only what you need.
@@ -53,7 +53,7 @@ Default timeouts are 250 ms for filters and 10 seconds for actions. Override the
 
 ## The one exception: refusing a save
 
-`entity.before_save` runs before an entity is created, updated or restored. To refuse the save, set the error message to `hatamoto:reject:<reason>` and return non-zero. The API client gets HTTP 422 with the reason. Any other failure fails open. In Go, return `guest.Reject("reason")`:
+`entity.before_save` runs before an entity is created, updated or restored. It is registered only for a plugin that holds the `entities.filter` permission, because it sees every draft as it is saved: the plugin asks for the permission in its manifest and the owner grants it on the Permissions tab. Plugins that were already installed and used this hook keep it (the owner can revoke it there). To refuse the save, set the error message to `hatamoto:reject:<reason>` and return non-zero. The API client gets HTTP 422 with the reason. Any other failure fails open. In Go, return `guest.Reject("reason")`:
 
 ```go
 guest.OnFilter(sdk.EntityBeforeSave, func(d sdk.EntityDraft) (sdk.EntityDraft, error) {

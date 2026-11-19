@@ -65,7 +65,7 @@ The range uses npm rules: `>=x`, `>x`, `<=x`, `<x`, `=x`, a bare version, `^x` a
 
 A plugin that uses `csp`, `request_headers`, `translation_of`, `changeset.media.alt` or shipped content types must declare `^0.18`: an older host ignores those fields without an error. A plugin that uses `redirect_paths`, the `request.redirect` filter or its `limits.hook_timeouts_ms` key must declare `^0.22`, so that an older host refuses it instead of silently dropping the redirects.
 
-The server serves SDK `0.22.2` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.21.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. Declare `^0.22.2` for the camera: `^0.22` also matches a 0.22.1 host. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
+The server serves SDK `0.23.0` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.22.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. Declare `^0.22.2` for the camera: `^0.22` also matches a 0.22.1 host. A plugin that asks for `entities.filter` declares `^0.23`, because an older host refuses the unknown permission name. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
 
 ## Permissions
 
@@ -76,6 +76,7 @@ entities.read  terms.read  menus.read  media.read
 redirects.read  forms.read
 settings  log  mail.send  http.fetch  http.fetch.any  kv  db
 builder.data  builder.island  site.scripts
+entities.filter
 ```
 
 The manifest only lists what the plugin asks for. The owner decides what it gets, and a plugin always loads even with nothing granted.
@@ -177,6 +178,7 @@ Older plugins keep working, with these changes to be aware of:
 - **0.8:** `sitemap.urls` became additions only; a refused host call answers `capability_denied` (it was `permission_denied`); and `limits.hook_timeouts_ms` replaced `limits.timeout_ms`, which is now ignored.
 - **0.9:** `render.page` sends slim blocks. A plugin built for an older range keeps receiving whole blocks, and `render_page.full_blocks` opts a newer plugin in.
 - **0.10:** the entity host functions gained `parent_id`, `path` and `url`. Purely additive.
+- **0.23:** the `entities.filter` permission: a plugin's `entity.before_save` filter is registered only while the owner holds it. Additive.
 - **0.11:** the `builder.data` filter, the `builder.data` and `builder.island` permissions and the `builder_sources` field. Purely additive.
 - **0.12:** the `site.scripts` permission: a plugin's browser JavaScript is served only once it is granted. This is not purely additive: an installed plugin's JavaScript stops being injected until the owner grants `site.scripts`, whatever `sdk` range it declares. Enforcement reached hosts in v0.30.0. Declare the permission and ask owners to grant it. Which range to declare is covered in [The sdk range](#the-sdk-range).
 - **0.13:** entity payloads carry `locale` (`EntityRef`, `EntityEvent`, `EntitySummary`, `EntityDraft`). Purely additive.

@@ -60,10 +60,10 @@ keep their nodes as placeholders. Details: [WIDGET_PACKS.md](WIDGET_PACKS.md).
 
 A plugin package with a `tags/` directory and no `plugin.wasm`, `widgets/` or `ui/` is a **tag pack**: each
 `tags/<name>.json` declares one tracking tag (name, ID label and pattern, `https` script template, hosts, consent
-category, optional websockets and noscript image) that appears in Settings > Privacy & tracking > Tracking as `<plugin>.<name>`. It runs no
-code and asks for no permissions; its manifest may hold only `name`, `version`, `sdk` and `description`. At most 4 tags
+category, optional websockets and noscript image) that appears in Settings > Privacy & tracking > Tracking as `<plugin>.<name>`. It has no
+plugin code and asks for no permissions; its manifest may hold only `name`, `version`, `sdk` and `description`. At most 4 tags
 per package. Install refuses a broken declaration with `tags/<name>.json: <rule>`; an update that adds a host or changes
-a category needs confirmation. Registry entries carry a `tags` summary. Guide: [site/plugins/tag-packs.md](site/plugins/tag-packs.md).
+a category needs confirmation. Each tag adds a third-party script to the public pages, so a community or developer package that carries tags is refused at install and at update (an installed one keeps working); first-party and self-built packages may carry them. Registry entries carry a `tags` summary. Guide: [site/plugins/tag-packs.md](site/plugins/tag-packs.md).
 
 ## Safety rules for the archive
 

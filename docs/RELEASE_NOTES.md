@@ -1,11 +1,16 @@
 # Release notes
 
-## Unreleased: plugin host limits
+## Unreleased: plugin host limits, entities.filter permission and tag pack origin rule
 
 - **Wasm modules.** The host now caps the total table entries a plugin module declares, and it refuses a module that repeats a section. Reference types are off when a module loads. Go `wasip1` guests are unaffected. A guest built with reference types must disable them (see PLUGIN_API.md). A plugin that is over a limit is not loaded after the upgrade; its status and the log name the reason.
 - **Instantiation.** Instantiating a module is bounded by the start timeout (5 s) at load. Compiling is not part of that bound.
 - **Plugin database.** Plugin database connections cap each server message at 4 MiB, and a result is judged by raw row size before it is decoded. A call that goes over fails with an error and the connection is replaced.
 - **Migration.** None. Rollback floor: unchanged.
+- **Permission.** New plugin permission `entities.filter` (SDK 0.23.0). A plugin's `entity.before_save` filter, which sees every page, post and draft as it is saved and can change or refuse the save, now runs only while the owner has granted it. The install prompt and the Permissions tab show it as a warning permission. A plugin that asks for it declares `^0.23`.
+- **Existing plugins.** A plugin that was already installed and registers the filter keeps it: the first start of this version grants `entities.filter` to each such loaded plugin once, and the owner can revoke it on the plugin's Permissions tab. Plugins installed afterwards, and a plugin that was not loaded at that first start (disabled or failed), need the grant. An update that newly asks for `entities.filter` needs the owner's confirmation, like other widened access.
+- **Tag packs.** A tag adds a third-party script to the public pages. Community and developer packages that carry tags are now refused at install and at update; first-party and self-built packages may carry them. Tag packs that are already installed keep working. The install prompt and the plugin directory say that a tag pack adds a script to your public pages.
+- **Automatic updates.** A standing approval no longer lets a run link a page to a translation; such an item waits for review. Resending a link the page already has stays inside the approval.
+- **Migration.** None. One reserved row in `hatamoto_plugin_grants` records that the one-time grant ran. Rollback floor: unchanged; the grants table is untouched, and an older release reads a stored `entities.filter` grant as an unknown permission only if a manifest lists it.
 
 ## Unreleased: install stats always detailed
 
