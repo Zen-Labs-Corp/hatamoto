@@ -113,13 +113,13 @@ package sdk
 // with one JPEG data URL. It adds AdminUI.Allow, UIAllowCamera, PermUICamera,
 // ValidGrant and Manifest.Asked.
 //
-// 0.23.0 is additive over 0.22.2: it adds the entities.filter permission. A
+// 0.23.0 adds the entities.filter permission. It is not purely additive: a
 // plugin's entity.before_save filter is registered only while the owner holds
-// it. A plugin that asks for it declares `^0.23`, because older hosts refuse
+// it, whatever range the plugin declares. A plugin that asks for it declares `^0.23`, because older hosts refuse
 // the unknown permission name.
 const Version = "0.23.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
 // Caret ranges before 1.0 stop at the next minor, so a purely additive minor
 // lists its predecessors here. 0.4 plugins were native Go.
-var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0"}
+var CompatibleWith = []string{"0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0", "0.11.0", "0.12.0", "0.13.0", "0.14.0", "0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0", "0.20.0", "0.21.0", "0.22.0", "0.22.2"}
