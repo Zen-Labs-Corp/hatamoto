@@ -225,7 +225,15 @@ func TestBeforeSaveRejectAndFailOpen(t *testing.T) {
 
 func TestBeforeSaveFailsClosedWhenBreakerOpen(t *testing.T) {
 	rt, engine, _ := newRuntime(t)
-	hostile(t, rt, "crashy", "panic")
+	m := sdk.Manifest{Name: "crashy", Version: "0.1.0", SDK: "^0.5", Config: map[string]string{"mode": "panic"},
+		Permissions: []sdk.Permission{sdk.PermEntitiesFilter},
+		Limits:      sdk.Limits{MemoryPages: 256, HookTimeoutsMS: map[string]uint64{"entity.published": 400}}}
+	if st := rt.Load(context.Background(), m, hostileWasm); !st.Loaded {
+		t.Fatal(st.Error)
+	}
+	if _, err := rt.Grant(context.Background(), "crashy", []sdk.Permission{sdk.PermEntitiesFilter}); err != nil {
+		t.Fatal(err)
+	}
 	draft := sdk.EntityDraft{Operation: "create", SchemaSlug: "post", Name: "n", Slug: "n"}
 
 	// Single crashes still fail open until the breaker trips.
