@@ -129,3 +129,15 @@ func TestLog404AsyncBoundsFields(t *testing.T) {
 		}
 	}
 }
+
+// A multibyte rune straddling the byte limit is dropped whole, not split.
+func TestClipFieldBacksOffToRuneStart(t *testing.T) {
+	in := "a" + strings.Repeat("é", maxLoggedField) // é starts at odd offsets, so the limit lands mid-rune
+	if utf8.RuneStart(in[maxLoggedField]) {
+		t.Fatal("test input must straddle the limit")
+	}
+	got := clipField(in)
+	if len(got) != maxLoggedField-1 || !utf8.ValidString(got) {
+		t.Errorf("len %d valid=%v, want %d and valid", len(got), utf8.ValidString(got), maxLoggedField-1)
+	}
+}
