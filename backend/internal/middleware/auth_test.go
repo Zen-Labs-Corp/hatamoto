@@ -265,12 +265,13 @@ func TestRequireOwnerOrKeyScope(t *testing.T) {
 	h := RequireOwnerOrKeyScope(auth.ScopeReadSEO, auth.ScopeWriteSEO)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	keyCtx := func(scope auth.APIKeyScope) context.Context {
-		ctx := context.WithValue(context.Background(), apiKeyContextKey, &auth.APIKey{Scopes: []auth.APIKeyScope{scope}})
+	keyCtxAs := func(creator string, scope auth.APIKeyScope) context.Context {
+		ctx := context.WithValue(context.Background(), apiKeyContextKey, &auth.APIKey{Scopes: []auth.APIKeyScope{scope}, CreatorRole: creator})
 		ctx = context.WithValue(ctx, authTypeContextKey, AuthTypeAPIKey)
-		// keys run with editor claims; the role must not matter
+		// keys run with editor claims; the decision follows the creator's role
 		return ContextWithClaims(ctx, &auth.Claims{UserID: uuid.New(), Role: "editor"})
 	}
+	keyCtx := func(scope auth.APIKeyScope) context.Context { return keyCtxAs("owner", scope) }
 	session := func(role string) context.Context {
 		return ContextWithClaims(context.Background(), &auth.Claims{UserID: uuid.New(), Role: role})
 	}
@@ -290,6 +291,9 @@ func TestRequireOwnerOrKeyScope(t *testing.T) {
 		{"write key PATCH", keyCtx(auth.ScopeWriteSEO), "PATCH", 200},
 		{"other key GET", keyCtx(auth.ScopeWriteEntities), "GET", 403},
 		{"other key PATCH", keyCtx(auth.ScopeWriteEntities), "PATCH", 403},
+		{"editor-creator write key GET", keyCtxAs("editor", auth.ScopeWriteSEO), "GET", 403},
+		{"editor-creator write key PATCH", keyCtxAs("editor", auth.ScopeWriteSEO), "PATCH", 403},
+		{"editor-creator all key PATCH", keyCtxAs("editor", auth.ScopeAll), "PATCH", 403},
 		{"no auth", context.Background(), "GET", 401},
 	}
 	for _, c := range cases {
