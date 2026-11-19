@@ -62,6 +62,11 @@ func (r *Runtime) releasePagePaths(name string) {
 // pageFiltered reports whether render.page must run for path, given n filters
 // registered on the engine. A filter the runtime has no manifest for (n larger
 // than what it registered) makes every page filtered, as before page_paths.
+// The comparison counts filters, not names: it assumes every engine render.page
+// filter except an unknown one has an index entry. That holds because the only
+// removers (Load, Unload, Reregister, grant changes) release or re-add the
+// entry at once; a new remover must keep it, or a removed filter would cancel
+// out an unknown one.
 // Lock-free: one atomic load and a map lookup per request.
 func (r *Runtime) pageFiltered(path string, n int) bool {
 	if n == 0 {
