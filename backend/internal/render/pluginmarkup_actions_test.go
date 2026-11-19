@@ -154,18 +154,26 @@ func TestPluginMarkupActionsNeedTheGrant(t *testing.T) { //nolint:paralleltest /
 // actions.
 func TestPluginMarkupURLAttrSplit(t *testing.T) { //nolint:paralleltest // sets the global script gate
 	dropped := map[string]string{
-		"split scheme":      `<a href="java{{"script"}}:x">x</a>`,
-		"action then tail":  `<a href="{{.Content.a}}:x">x</a>`,
-		"two actions":       `<a href="{{.Content.a}}{{.Content.b}}">x</a>`,
-		"protocol-relative": `<a href="//{{.Content.h}}">x</a>`,
-		"src tail":          `<img src="{{.Content.a}}x">`,
+		"split scheme":     `<a href="java{{"script"}}:x">x</a>`,
+		"action then tail": `<a href="{{.Content.a}}:x">x</a>`,
+		"two actions":      `<a href="{{.Content.a}}{{.Content.b}}:x">x</a>`,
+		"text then action": `<a href="x{{.Content.a}}:y">x</a>`,
+		"src tail":         `<img src="{{.Content.a}}x">`,
 	}
 	kept := map[string]string{
-		"whole value":  `<a href="{{.Content.url}}">x</a>`,
-		"path prefix":  `<a href="/blog/{{.Content.slug}}">x</a>`,
-		"https prefix": `<a href="https://x.test/{{.Content.s}}">x</a>`,
-		"fragment":     `<a href="#{{.Content.s}}">x</a>`,
-		"data- attr":   `<p data-id="a{{.Content.i}}">x</p>`,
+		"whole value":    `<a href="{{.Content.url}}">x</a>`,
+		"path prefix":    `<a href="/blog/{{.Content.slug}}">x</a>`,
+		"lang prefix":    `<a href="/{{.Content.lang}}/x">x</a>`,
+		"protocol-rel":   `<a href="//{{.Content.h}}">x</a>`,
+		"mailto":         `<a href="mailto:{{.Content.e}}">x</a>`,
+		"tel":            `<a href="tel:{{.Content.t}}">x</a>`,
+		"base then path": `<a href="{{.Content.base}}/x">x</a>`,
+		"relative":       `<a href="page/{{.Content.p}}">x</a>`,
+		"dot relative":   `<a href="./{{.Content.p}}">x</a>`,
+		"query":          `<a href="?q={{.Content.q}}">x</a>`,
+		"https prefix":   `<a href="https://x.test/{{.Content.s}}">x</a>`,
+		"fragment":       `<a href="#{{.Content.s}}">x</a>`,
+		"data- attr":     `<p data-id="a{{.Content.i}}">x</p>`,
 	}
 	for name, m := range dropped {
 		if gatedSections(t, map[string]string{"s": m}, false)["s"] {

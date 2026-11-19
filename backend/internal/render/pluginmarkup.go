@@ -229,26 +229,27 @@ var markupURLAttrs = map[string]bool{
 	"cite": true, "data": true, "background": true, "xlink:href": true,
 }
 
-// urlValueOK judges the value of a URL attribute: without an action it is
-// fine; otherwise the action is either the whole value, or follows a literal
-// start that fixes the scheme and host (a path, fragment, query or http(s)).
+// urlValueOK judges the value of a URL attribute. The rule only keeps an
+// action from contributing to the scheme. The head is the value up to its first
+// '/', '?' or '#'. It is fine when it holds no action, when it is exactly one
+// action at its start (html/template filters the scheme of a leading action),
+// or when literal text before the first action starts with http:, https:,
+// mailto: or tel:.
 func (c *markupCheck) urlValueOK(val string) bool {
-	occ := c.found(val)
+	head := val
+	if i := strings.IndexAny(val, "/?#"); i >= 0 {
+		head = val[:i]
+	}
+	occ := c.found(head)
 	if len(occ) == 0 {
 		return true
 	}
 	if occ[0].pos == 0 {
-		return len(occ) == 1 && occ[0].end == len(val)
+		return len(occ) == 1 && occ[0].end == len(head)
 	}
-	head := strings.ToLower(val[:occ[0].pos])
-	if head == "/" || strings.HasPrefix(head, "//") || strings.HasPrefix(head, "/\\") {
-		return false
-	}
-	if strings.HasPrefix(val, "/") && len(val) > 1 && (val[1] == '/' || val[1] == '\\') {
-		return false
-	}
-	for _, p := range []string{"/", "#", "?", "http://", "https://"} {
-		if strings.HasPrefix(strings.ToLower(val), p) {
+	lit := strings.ToLower(head[:occ[0].pos])
+	for _, p := range []string{"http:", "https:", "mailto:", "tel:"} {
+		if strings.HasPrefix(lit, p) {
 			return true
 		}
 	}
