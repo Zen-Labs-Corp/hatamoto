@@ -69,7 +69,7 @@ func protectedRoutes(t *testing.T) [][2]string {
 // the intended allowlist is reachable (ISC-A-2: default deny).
 func TestEveryProtectedRouteDeniedForKeyUnlessAllowlisted(t *testing.T) {
 	creator := uuid.New()
-	key := &auth.APIKey{ID: uuid.New(), Name: "all", Scopes: []auth.APIKeyScope{auth.ScopeAll}, CreatedBy: &creator, CreatorRole: "editor", RateLimit: 1000}
+	key := &auth.APIKey{ID: uuid.New(), Name: "all", Scopes: []auth.APIKeyScope{auth.ScopeAll}, CreatedBy: &creator, CreatorRole: "owner", RateLimit: 1000}
 
 	sessionHit := false
 	session := func(next http.Handler) http.Handler {

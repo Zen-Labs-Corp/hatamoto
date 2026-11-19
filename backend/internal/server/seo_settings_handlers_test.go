@@ -65,7 +65,7 @@ func (seoKeyValidator) RecordUsage(context.Context, uuid.UUID, string) error { r
 
 func seoKey(name string, scopes ...auth.APIKeyScope) *auth.APIKey {
 	creator := uuid.New()
-	return &auth.APIKey{ID: uuid.New(), Name: name, Scopes: scopes, CreatedBy: &creator, CreatorRole: "editor", IsActive: true}
+	return &auth.APIKey{ID: uuid.New(), Name: name, Scopes: scopes, CreatedBy: &creator, CreatorRole: "owner", IsActive: true}
 }
 
 // seoRouter mounts the SEO routes under /api/v1 behind the same key-or-session
