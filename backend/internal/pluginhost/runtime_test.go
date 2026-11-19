@@ -17,6 +17,7 @@ import (
 
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/wasmhost"
 	"hatamoto.dev/sdk"
 )
 
@@ -206,6 +207,29 @@ func TestBeforeSaveRejectAndFailOpen(t *testing.T) {
 	var rej *sdk.Reject
 	if !errors.As(err, &rej) || rej.Reason != "no thanks" {
 		t.Fatalf("want a rejection with its reason, got %v", err)
+	}
+}
+
+func TestBeforeSaveFailsClosedWhenBreakerOpen(t *testing.T) {
+	rt, engine, _ := newRuntime(t)
+	hostile(t, rt, "crashy", "panic")
+	draft := sdk.EntityDraft{Operation: "create", SchemaSlug: "post", Name: "n", Slug: "n"}
+
+	// Single crashes still fail open until the breaker trips.
+	for i := 0; i < 3; i++ {
+		out, err := engine.ApplyStrict(context.Background(), sdk.EntityBeforeSave.Name, draft)
+		if err != nil || out.(sdk.EntityDraft).Name != "n" {
+			t.Fatalf("call %d must fail open: %+v %v", i, out, err)
+		}
+	}
+	// With the hook switched off, the strict chain refuses the save.
+	_, err := engine.ApplyStrict(context.Background(), sdk.EntityBeforeSave.Name, draft)
+	if !errors.Is(err, wasmhost.ErrCircuitOpen) || !errors.Is(err, hooks.ErrFailClosed) {
+		t.Fatalf("want a circuit-open refusal, got %v", err)
+	}
+	// A non-strict chain over the same open breaker stays fail open.
+	if out := engine.Apply(context.Background(), sdk.EntityBeforeSave.Name, draft); out.(sdk.EntityDraft).Name != "n" {
+		t.Fatalf("non-strict apply must fail open: %+v", out)
 	}
 }
 
