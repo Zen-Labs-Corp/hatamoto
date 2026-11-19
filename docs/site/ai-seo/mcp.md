@@ -63,7 +63,7 @@ A request with no key, or with an invalid, revoked or expired key, answers `401`
 
 ## Scopes
 
-Every tool needs exactly one scope. A `read:` scope can never call a write tool. A `write:X` scope implies `read:X` (so `write:seo` can also read SEO settings), and `*` allows everything. The media, menu, redirect and term scopes are separate: `write:entities` does not grant them, and keys created before they existed do not gain them.
+Every tool needs exactly one scope. A `read:` scope can never call a write tool. A `write:X` scope implies `read:X` (so `write:seo` can also read SEO settings), and `*` allows everything, except that `read:seo`, `write:seo` and `write:terms` (also through `*`) work only while the key's creator is an owner; a key created by an editor does not get them. The media, menu, redirect and term scopes are separate: `write:entities` does not grant them, and keys created before they existed do not gain them.
 
 | Scope | Admin label | Tools |
 |---|---|---|
