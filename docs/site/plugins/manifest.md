@@ -48,7 +48,7 @@ A manifest that uses most fields:
 | `routes` | no | HTTP routes, at most 64. |
 | `cron` | no | Scheduled calls, at most 16. |
 | `redirect_paths` | no | Exact public paths the `request.redirect` filter is called for, at most 16 (SDK 0.22; declare `^0.22`, see [The sdk range](#the-sdk-range)). Paths are matched decoded: declare `/café`, not `/caf%C3%A9` (a `%` is refused). |
-| `page_paths` | no | Exact public paths the `render.page` filter is called for and that stay uncached, at most 16 (SDK 0.24; optional range bump, see [The sdk range](#the-sdk-range)). Same rules as `redirect_paths`; core paths are refused. |
+| `page_paths` | no | Exact public paths the `render.page` filter is called for and that stay uncached, at most 16 (SDK 0.24; optional range bump, see [The sdk range](#the-sdk-range)). No trailing slash (except `/`); the request path is matched after the trailing slash is dropped. Otherwise the rules of `redirect_paths`; core paths are refused. Request paths, not pages: a locale-prefixed or alternate URL of the same content is not covered and is page-cached. |
 | `request_headers` | no | Extra request header names passed to this plugin's routes (for example `Stripe-Signature`), at most 8. `Authorization`, `Cookie`, `Proxy-Authorization` and every header that carries the visitor's address are refused. The plugin page lists them. |
 | `csp` | no | Hosts to add to your public pages' Content-Security-Policy: `script_src`, `connect_src`, `frame_src`, `img_src`, each at most 8 entries of the form `https://host` or `https://*.host`. No keywords, no `*`, no path or port. The owner sees them in the permission prompt and on the plugin page. Community plugins may only list `img_src`; anything else is refused at install with "Community plugins may only add image hosts." An update that adds a host asks the owner to confirm again. Hosts apply to the public pages only while the plugin is enabled; `script_src` and `connect_src` take effect, `img_src` and `frame_src` are no-ops while the site policy already allows every https image and frame. |
 | `cookies` | no | Cookie names `render.page` and the plugin's public routes may read and set, at most 8. |
@@ -64,7 +64,7 @@ A manifest that uses most fields:
 
 The range uses npm rules: `>=x`, `>x`, `<=x`, `<x`, `=x`, a bare version, `^x` and `~x`, and several comparators separated by spaces must all hold. Before 1.0 a caret stops at the next minor, so `^0.8` contains `0.8.x` only.
 
-A plugin that uses `csp`, `request_headers`, `translation_of`, `changeset.media.alt` or shipped content types must declare `^0.18`: an older host ignores those fields without an error. `page_paths` does not need a range bump: an older host ignores it and keeps the `render.page` filter site-wide (slower, not wrong), so a plugin may keep its lower range and declare `^0.24` only to rely on the caching.
+A plugin that uses `csp`, `request_headers`, `translation_of`, `changeset.media.alt` or shipped content types must declare `^0.18`: an older host ignores those fields without an error. `page_paths` does not force a range bump, but an older host ignores it and calls the `render.page` filter on every page, so a plugin that keeps a lower range must still check `p.Path` in its filter to stay correct there; declare `^0.24` to rely on the host doing the scoping.
 
 A plugin that uses `redirect_paths`, the `request.redirect` filter or its `limits.hook_timeouts_ms` key must declare `^0.22`, so that an older host refuses it instead of silently dropping the redirects.
 

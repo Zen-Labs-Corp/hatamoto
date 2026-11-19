@@ -10,7 +10,7 @@ Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.
 >
 > **0.22.1 changes (additive over 0.22.0).** `permissions()` gains `"mail": {"recipients_per_hour": N}` for a plugin granted `mail.send`: the number of recipients the plugin may email per hour. The limit is owner-set per plugin (default 360, range 1 to 3600, on the plugin Permissions tab) and the plugin cannot change it. The key is absent without the grant and on hosts older than 0.22.1, so treat a missing `mail` as unknown and assume the default; `granted` and `requested` are unchanged.
 >
-> **0.24 changes (additive over 0.23).** New manifest field `page_paths`: a `render.page` plugin declares the exact public paths it acts on (for example `/members`, `/account`) and is then called, and kept out of the page cache, only for those paths. No existing type or wire output changed. An older host ignores the field and keeps the filter site-wide, so the plugin may keep its lower `sdk` range. See the manifest table below.
+> **0.24 changes (additive over 0.23).** New manifest field `page_paths`: a `render.page` plugin declares the exact public paths it acts on (for example `/members`, `/account`) and is then called, and kept out of the page cache, only for those paths. No existing type or wire output changed. An older host ignores the field and calls the filter on every page, so a plugin on a lower `sdk` range must check `p.Path` itself (declare `^0.24` otherwise). See the manifest table below.
 >
 > **0.22 changes (additive over 0.21).** New filter `request.redirect` and manifest field `redirect_paths`: a plugin declares exact public paths and, for GET and HEAD requests to them, may answer before routing, stored redirects and the page cache with a same-site 302 or 307 and declared cookies, using its declared cookies and the visitor's country. No existing type or wire output changed. See [request.redirect](#requestredirect).
 >
@@ -168,13 +168,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.23.0`; plugins built for `^0.5` to `^0.22.2` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.24.0`; plugins built for `^0.5` to `^0.23` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.23.0
+go get hatamoto.dev/sdk@v0.24.0
 ```
 
 SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -184,7 +184,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.23.0` is the git tag `v0.23.0`. The core repository stays
+plain release tags: version `0.24.0` is the git tag `v0.24.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -201,7 +201,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.23 is current (0.23.0).
+> SDK 0.24 is current (0.24.0).
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -380,7 +380,7 @@ The result may
 - list block ids in `hide` to drop them without rebuilding the list (return only `hide` and `blocks` stays as received),
 - add `set_cookies`. Each name must be declared in the manifest. **Cookies are namespaced:** the browser cookie is `hmp_<plugin>_<name>` (the host maps it both ways), so a plugin never receives or sets the session cookie, the CSRF cookie, `__Host-`/`__Secure-` cookies or another plugin's cookies, and the manifest refuses names starting with `hatamoto_`, `__Host-`, `__Secure-` or `hmp_`; the host forces `HttpOnly`, `SameSite=Lax`, `Secure` on HTTPS and `Path=/` unless a path is given, values must be cookie-safe ASCII (at most 2 KiB), `max_age` at most one year.
 
-A result that breaks a rule (undeclared cookie, too many blocks (200) or cookies (8)) is dropped whole: fail open, the page keeps what it had. Plugins run in name order and each sees the previous result. A plugin that declares `page_paths` in its manifest (SDK 0.24; exact public paths as requested, trailing slash and locale prefix distinct, at most 16, same rules as `redirect_paths`, core paths refused) is called only for those paths, and only they are served `Cache-Control: private, no-store` with `Vary: Cookie` and kept out of the page cache. Every other page is cached as if the plugin handled nothing. Without `page_paths` the filter runs for every page and no page is shared-cached, so declare the paths whenever the filter only acts on a few pages. Several plugins may declare the same path. An older host ignores `page_paths` and keeps the filter site-wide (slower, not wrong): a plugin may keep its lower `sdk` range and declare `^0.24` only to rely on the caching.
+A result that breaks a rule (undeclared cookie, too many blocks (200) or cookies (8)) is dropped whole: fail open, the page keeps what it had. Plugins run in name order and each sees the previous result. A plugin that declares `page_paths` in its manifest (SDK 0.24; exact public request paths, no trailing slash (except `/`); the request path is matched after the trailing slash is dropped, at most 16, otherwise the same rules as `redirect_paths`, core paths refused) is called only for those paths, and only they are served `Cache-Control: private, no-store` with `Vary: Cookie` and kept out of the page cache. Every other page is cached as if the plugin handled nothing. Without `page_paths` the filter runs for every page and no page is shared-cached, so declare the paths whenever the filter only acts on a few pages. Several plugins may declare the same path. An older host ignores `page_paths` and calls the filter on every page, so a plugin that keeps a lower `sdk` range must still return early in its filter unless `p.Path` is one of its paths; declare `^0.24` to rely on the host doing the scoping. `page_paths` are request paths, not pages: a locale-prefixed or alternate URL of the same content is not covered, the plugin is not called there and that response is page-cached, so list every URL the filter must act on.
 ```json
 { "path": "/members/guide", "cookies": { "unlock": "1" },
   "entity": { "id": "string", "schema_slug": "page", "slug": "guide", "locale": "en", "name": "Guide" },
@@ -495,7 +495,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 |---|---|
 | `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
-| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.23.0 and also serves `^0.5` to `^0.22.2` plugins |
+| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.24.0 and also serves `^0.5` to `^0.23` plugins |
 | `description` | optional |
 | `config` | string map readable in the guest (`pdk.GetConfig`) |
 | `permissions` | capabilities the plugin asks for; see [Permissions](#permissions). Unknown names are refused |
@@ -504,7 +504,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 | `cron` | scheduled calls; see [Cron](#cron) (at most 16) |
 | `cookies` | cookie names `render.page` and the plugin's public routes may read and set (at most 8; `[A-Za-z0-9_-]`) |
 | `redirect_paths` | exact public paths the `request.redirect` filter is called for, at most 16 (SDK 0.22; the plugin must declare `"sdk": "^0.22"`); see [request.redirect](#requestredirect). Paths are matched against the decoded request path, so declare them decoded: a `%` is refused. The host refuses paths it serves itself and a path another plugin already declares |
-| `page_paths` | exact public paths the `render.page` filter is called for and that stay uncached, at most 16 (SDK 0.24; same shape rules as `redirect_paths`; the host refuses core paths and duplicates within the manifest; several plugins may declare the same path). Optional range bump: an older host ignores it and keeps the filter site-wide |
+| `page_paths` | exact public paths the `render.page` filter is called for and that stay uncached, at most 16 (SDK 0.24; no trailing slash except `/`; otherwise the shape rules of `redirect_paths`; the host refuses core paths and duplicates within the manifest; several plugins may declare the same path). Request paths, not pages: locale or alternate URLs are not covered. An older host ignores it and calls the filter on every page, so the filter must check `p.Path` itself unless you declare `^0.24` |
 | `request_headers` | extra request header names passed to the plugin's routes, at most 8 (SDK 0.18). `authorization`, `cookie`, `proxy-authorization`, `x-forwarded-for`, `x-real-ip`, `forwarded` and `cf-connecting-ip` are refused by name, and so is any header whose name carries an address (`ip`, `client`, `real`, `for`, `addr`, `forwarded` as a word, such as `true-client-ip` or `fastly-client-ip`), `proxy-*` and the hop-by-hop headers |
 | `csp` | `{ "script_src": [], "connect_src": [], "frame_src": [], "img_src": [] }`, each at most 8 entries of `https://host` or `https://*.host` (SDK 0.18; no wildcard in `script_src`, none over a shared suffix such as `*.github.io`, no IP address). The hosts join the public pages' Content-Security-Policy only while the plugin is installed and enabled: `script-src` and `connect-src` change what a page may load; `img-src` and `frame-src` are accepted and shown but change nothing while the base policy allows every https origin there. A community plugin may only list `img_src` (other lists are refused at install). An update that adds a host asks the owner to confirm. Composed in one place (`cspWithExtras` in the render handlers), per response, so enabling or disabling applies at once |
 | `render_page` | optional; `{ "full_blocks": true }` sends `render.page` the whole block content (SDK 0.9+; older plugins always get it) |

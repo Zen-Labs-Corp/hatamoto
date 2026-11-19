@@ -121,9 +121,9 @@ package sdk
 // 0.24.0 is additive over 0.23: the manifest field page_paths (at most 16
 // exact public paths) narrows a plugin's render.page filter to those paths.
 // Only they are served private and uncached; every other page is page-cached.
-// An older host ignores the field and keeps the filter site-wide (slower, not
-// wrong), so a plugin may keep its lower range; it declares ^0.24 only to rely
-// on the caching.
+// An older host ignores the field and calls the filter on every
+// page, so a plugin that keeps a lower range must still check p.Path itself;
+// it declares ^0.24 to rely on the host doing the scoping.
 const Version = "0.24.0"
 
 // CompatibleWith lists earlier versions whose plugins this SDK still serves.
