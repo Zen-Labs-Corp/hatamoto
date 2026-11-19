@@ -1,7 +1,6 @@
 package packages
 
 import (
-	"errors"
 	"slices"
 
 	"hatamoto.dev/core/internal/pluginhost"
@@ -84,7 +83,13 @@ func CheckCommunityCSP(o Origin, p *Package) error {
 
 // ErrCommunityTags is the refusal for a community or developer package that
 // carries tag declarations: a tag adds a third-party script to the public pages.
-var ErrCommunityTags = errors.New("Community and developer packages cannot add tracking tags.")
+var ErrCommunityTags error = communityTagsError{}
+
+type communityTagsError struct{}
+
+func (communityTagsError) Error() string {
+	return "Community and developer packages cannot add tracking tags."
+}
 
 // checkCommunityTags refuses tag declarations in a package of a restricted
 // origin. A declaration error is left to validateTagPack.
