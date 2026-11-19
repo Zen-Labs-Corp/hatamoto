@@ -158,6 +158,9 @@ type ServerConfig struct {
 	MediaUploadDir string
 	MediaBaseURL   string
 	MediaMaxSizeMB int
+	// FormUploadMaxTotalMB caps the total size of files kept for public form
+	// submissions. Zero or negative means the default (see FormUploadMaxTotalBytes).
+	FormUploadMaxTotalMB int
 	// MediaStorage is where media bytes live: "local" (default) or "s3".
 	// The S3 target itself comes from HATAMOTO_MEDIA_S3_* and is never held here.
 	MediaStorage string
@@ -322,17 +325,18 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid API_PORT: %w", err)
 	}
 	cfg.Server = ServerConfig{
-		Host:            getEnv("API_HOST", "0.0.0.0"),
-		Port:            port,
-		ReadTimeout:     getDuration("SERVER_READ_TIMEOUT", 30*time.Second),
-		WriteTimeout:    getDuration("SERVER_WRITE_TIMEOUT", 30*time.Second),
-		IdleTimeout:     getDuration("SERVER_IDLE_TIMEOUT", 120*time.Second),
-		ReportOutputDir: getEnv("REPORT_OUTPUT_DIR", "./reports"),
-		EnableWorker:    !strings.EqualFold(strings.TrimSpace(os.Getenv("HATAMOTO_WORKER")), "off"), // on unless HATAMOTO_WORKER=off
-		MediaUploadDir:  getEnv("MEDIA_UPLOAD_DIR", "./uploads"),
-		MediaBaseURL:    getEnv("MEDIA_BASE_URL", "/media"),
-		MediaMaxSizeMB:  getEnvInt("MEDIA_MAX_SIZE_MB", 10),
-		MediaStorage:    strings.ToLower(strings.TrimSpace(getEnv("MEDIA_STORAGE", "local"))),
+		Host:                 getEnv("API_HOST", "0.0.0.0"),
+		Port:                 port,
+		ReadTimeout:          getDuration("SERVER_READ_TIMEOUT", 30*time.Second),
+		WriteTimeout:         getDuration("SERVER_WRITE_TIMEOUT", 30*time.Second),
+		IdleTimeout:          getDuration("SERVER_IDLE_TIMEOUT", 120*time.Second),
+		ReportOutputDir:      getEnv("REPORT_OUTPUT_DIR", "./reports"),
+		EnableWorker:         !strings.EqualFold(strings.TrimSpace(os.Getenv("HATAMOTO_WORKER")), "off"), // on unless HATAMOTO_WORKER=off
+		MediaUploadDir:       getEnv("MEDIA_UPLOAD_DIR", "./uploads"),
+		MediaBaseURL:         getEnv("MEDIA_BASE_URL", "/media"),
+		MediaMaxSizeMB:       getEnvInt("MEDIA_MAX_SIZE_MB", 10),
+		FormUploadMaxTotalMB: getEnvInt("FORM_UPLOAD_MAX_TOTAL_MB", defaultFormUploadMaxTotalMB),
+		MediaStorage:         strings.ToLower(strings.TrimSpace(getEnv("MEDIA_STORAGE", "local"))),
 	}
 
 	cfg.Packages = LoadPackageConfig()
@@ -446,6 +450,19 @@ func getEnvRequired(key string) string {
 }
 
 // getEnvInt returns environment variable as int or default.
+// defaultFormUploadMaxTotalMB is the form upload store cap when the knob is unset.
+const defaultFormUploadMaxTotalMB = 1024
+
+// FormUploadMaxTotalBytes is FormUploadMaxTotalMB in bytes, with the default
+// for a zero or negative value.
+func (c ServerConfig) FormUploadMaxTotalBytes() int64 {
+	mb := c.FormUploadMaxTotalMB
+	if mb <= 0 {
+		mb = defaultFormUploadMaxTotalMB
+	}
+	return int64(mb) << 20
+}
+
 func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if i, err := strconv.Atoi(value); err == nil {
