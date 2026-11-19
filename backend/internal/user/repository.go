@@ -109,7 +109,8 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, 
 
 	query := `
 		SELECT id, email, password_hash, role, name, avatar_url,
-		       last_login_at, access_ends_at, created_at, updated_at
+		       last_login_at, failed_login_attempts, locked_until,
+		       access_ends_at, created_at, updated_at
 		FROM hatamoto_users
 		WHERE id = $1
 	`
@@ -117,7 +118,8 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, 
 	var u User
 	err = conn.QueryRow(ctx, query, id).Scan(
 		&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.Name,
-		&u.AvatarURL, &u.LastLoginAt, &u.AccessEndsAt, &u.CreatedAt, &u.UpdatedAt,
+		&u.AvatarURL, &u.LastLoginAt, &u.FailedLoginAttempts, &u.LockedUntil,
+		&u.AccessEndsAt, &u.CreatedAt, &u.UpdatedAt,
 	)
 
 	if err != nil {
