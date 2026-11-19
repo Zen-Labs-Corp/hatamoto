@@ -11,6 +11,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -32,6 +33,17 @@ const stagedMaxAge = time.Hour
 // ErrFileTooLarge is returned by Stage when the upload exceeds its limit.
 var ErrFileTooLarge = errors.New("file too large")
 
+// ErrStoreFull is returned by Stage when the store has reached its total size
+// cap (see SetMaxTotalBytes).
+var ErrStoreFull = errors.New("file store full")
+
+// DefaultMaxTotalBytes is the total size the store holds unless told otherwise.
+const DefaultMaxTotalBytes int64 = 1 << 30
+
+// defaultTotalTTL is how long a measured store size is reused before the
+// directory is walked again.
+const defaultTotalTTL = 5 * time.Second
+
 var fileIDRe = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 // ValidFileID reports whether id has the shape of a generated file id. Check
@@ -46,14 +58,60 @@ func ValidFileID(id string) bool { return fileIDRe.MatchString(id) }
 //
 // Typical use: Stage the part, Staged.Check it, then Commit once the whole
 // submission is accepted (or Discard on any failure).
-type FileStore struct{ root string }
+type FileStore struct {
+	root string
+
+	mu       sync.Mutex
+	maxTotal int64
+	totalTTL time.Duration
+	walkedAt time.Time
+	walked   int64 // bytes found by the last directory walk
+	tally    int64 // bytes staged (minus discarded) since that walk
+}
+
+// SetMaxTotalBytes sets the total size the store may hold, tmp and committed
+// files together. n <= 0 restores the default.
+func (s *FileStore) SetMaxTotalBytes(n int64) {
+	if n <= 0 {
+		n = DefaultMaxTotalBytes
+	}
+	s.mu.Lock()
+	s.maxTotal = n
+	s.mu.Unlock()
+}
+
+// remaining returns how many more bytes may be stored.
+func (s *FileStore) remaining(root *os.Root, now time.Time) int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.walkedAt.IsZero() || now.Sub(s.walkedAt) >= s.totalTTL {
+		var total int64
+		_ = fs.WalkDir(root.FS(), ".", func(_ string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			if info, err := d.Info(); err == nil && info.Mode().IsRegular() {
+				total += info.Size()
+			}
+			return nil
+		})
+		s.walked, s.tally, s.walkedAt = total, 0, now
+	}
+	return s.maxTotal - max(s.walked+s.tally, 0)
+}
+
+func (s *FileStore) addTally(n int64) {
+	s.mu.Lock()
+	s.tally += n
+	s.mu.Unlock()
+}
 
 // NewFileStore returns a store rooted at root, created if missing.
 func NewFileStore(root string) (*FileStore, error) {
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return nil, fmt.Errorf("create file store root: %w", err)
 	}
-	st := &FileStore{root: root}
+	st := &FileStore{root: root, maxTotal: DefaultMaxTotalBytes, totalTTL: defaultTotalTTL}
 	st.sweepStaged(time.Now())
 	return st, nil
 }
@@ -103,13 +161,18 @@ type Staged struct {
 }
 
 // Stage streams r into the tmp area. It reads at most limit bytes: a longer
-// stream fails with ErrFileTooLarge and leaves nothing behind.
+// stream fails with ErrFileTooLarge and leaves nothing behind. When the store
+// has no room left for the stream, Stage returns ErrStoreFull instead.
 func (s *FileStore) Stage(r io.Reader, limit int64) (*Staged, error) {
 	root, err := s.open()
 	if err != nil {
 		return nil, err
 	}
 	defer root.Close()
+	room := s.remaining(root, time.Now())
+	if room <= 0 {
+		return nil, ErrStoreFull
+	}
 	if err := root.MkdirAll(tmpDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create staging directory: %w", err)
 	}
@@ -122,17 +185,22 @@ func (s *FileStore) Stage(r io.Reader, limit int64) (*Staged, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create staged file: %w", err)
 	}
-	n, err := io.Copy(out, io.LimitReader(r, limit+1))
+	budget := min(limit, room)
+	n, err := io.Copy(out, io.LimitReader(r, budget+1))
 	if cerr := out.Close(); err == nil {
 		err = cerr
 	}
-	if err == nil && n > limit {
+	if err == nil && n > budget {
 		err = ErrFileTooLarge
+		if budget < limit {
+			err = ErrStoreFull
+		}
 	}
 	if err != nil {
 		_ = root.Remove(key)
 		return nil, err
 	}
+	s.addTally(n)
 	return &Staged{Size: n, store: s, key: key}, nil
 }
 
@@ -161,6 +229,7 @@ func (st *Staged) Discard() {
 		_ = root.Remove(st.key)
 		root.Close()
 	}
+	st.store.addTally(-st.Size)
 	st.key = ""
 }
 
