@@ -110,6 +110,10 @@ refuses "verify: unsigned annotated tag" "no valid signature" bash "$VERIFY" --a
 refuses "verify: lightweight tag" "lightweight" bash "$VERIFY" --allowed-signers "$W/allowed_signers" light-1
 refuses "verify: signed by another key" "no valid signature" bash "$VERIFY" --allowed-signers "$W/allowed_signers" other-1
 refuses "verify: no such tag" "no tag" bash "$VERIFY" --allowed-signers "$W/allowed_signers" nope
+git update-ref refs/tags/renamed-1 "$(git rev-parse refs/tags/good-1)"
+refuses "verify: signed tag under another name" "signed name must match" bash "$VERIFY" --allowed-signers "$W/allowed_signers" renamed-1
+git tag -s nested-1 -m x good-1   # tag of a tag: header matches, type is tag
+refuses "verify: tag of a tag" "must tag a commit directly" bash "$VERIFY" --allowed-signers "$W/allowed_signers" nested-1
 out=$(bash "$VERIFY" --allowed-signers "$W/empty_signers" unsigned-1) || fail "placeholder allowed_signers must not block"
 grep -q 'NOT enforced' <<<"$out" || fail "placeholder mode did not warn: $out"
 pass "verify: placeholder allowed_signers warns and passes (enforcement is off until a key is added)"
