@@ -3,6 +3,7 @@ package media
 import (
 	"encoding/binary"
 	"io"
+	"math"
 	"os"
 )
 
@@ -15,8 +16,12 @@ const maxWebpChunks = 100_000
 // padding/JUNK chunk cannot push the frame chunk out of view.
 //
 // Returns:
-//   - (pixels>0, true): the real frame area (what Go's decoder will allocate).
-//   - (0, true): the file IS a WebP but no frame chunk could be parsed —
+//   - (pixels>0, true): for a still image, the largest declared canvas or
+//     frame area (VP8X canvas, top-level VP8/VP8L). For an animation, that
+//     largest area multiplied by the number of ANMF frames, because the
+//     decoder may hold one full canvas per frame; the product saturates at
+//     math.MaxInt64 instead of overflowing.
+//   - (0, true): the file IS a WebP but no VP8/VP8L/ANMF frame could be parsed —
 //     callers MUST reject it (fail closed) rather than decode.
 //   - (0, false): not a WebP container at all — callers use the normal path.
 //
@@ -38,6 +43,11 @@ func webpFramePixels(path string) (int64, bool) {
 	}
 	// From here the file is a WebP: never fall through to a canvas-based check.
 
+	// The decoder allocates for the VP8X canvas and for the frame, so the
+	// size reported is the largest of every dimension declared in the file.
+	var maxPx int64
+	var sawFrame bool
+	var anmfFrames int64
 	var off int64 = 12
 	chunkHdr := make([]byte, 8)
 	for range maxWebpChunks {
@@ -45,12 +55,23 @@ func webpFramePixels(path string) (int64, bool) {
 			return 0, true
 		}
 		if _, err := io.ReadFull(f, chunkHdr); err != nil {
-			return 0, true // ran off the end without a frame chunk
+			if !sawFrame || maxPx <= 0 {
+				return 0, true // ran off the end without a frame chunk
+			}
+			return animationPixels(maxPx, anmfFrames), true
 		}
 		fourcc := string(chunkHdr[0:4])
 		size := int64(binary.LittleEndian.Uint32(chunkHdr[4:8]))
 
 		switch fourcc {
+		case "VP8X": // extended header: 24-bit (w-1),(h-1) canvas at payload offset 4..10
+			p := make([]byte, 10)
+			if _, err := io.ReadFull(f, p); err != nil {
+				return 0, true
+			}
+			w := (int64(p[4]) | int64(p[5])<<8 | int64(p[6])<<16) + 1
+			h := (int64(p[7]) | int64(p[8])<<8 | int64(p[9])<<16) + 1
+			maxPx = max(maxPx, w*h)
 		case "VP8 ": // lossy: 14-bit w/h at payload offset 6..10
 			p := make([]byte, 10)
 			if _, err := io.ReadFull(f, p); err != nil {
@@ -58,7 +79,8 @@ func webpFramePixels(path string) (int64, bool) {
 			}
 			w := int64(binary.LittleEndian.Uint16(p[6:8]) & 0x3FFF)
 			h := int64(binary.LittleEndian.Uint16(p[8:10]) & 0x3FFF)
-			return w * h, true
+			maxPx = max(maxPx, w*h)
+			sawFrame = true
 		case "VP8L": // lossless: 0x2f signature then packed 14-bit (w-1),(h-1)
 			p := make([]byte, 5)
 			if _, err := io.ReadFull(f, p); err != nil {
@@ -70,15 +92,18 @@ func webpFramePixels(path string) (int64, bool) {
 			bits := binary.LittleEndian.Uint32(p[1:5])
 			w := int64(bits&0x3FFF) + 1
 			h := int64((bits>>14)&0x3FFF) + 1
-			return w * h, true
-		case "ANMF": // animated frame: 24-bit (w-1),(h-1) at payload offset 6..12
+			maxPx = max(maxPx, w*h)
+			sawFrame = true
+		case "ANMF": // animation frame: 24-bit (w-1),(h-1) at payload offset 6..12
 			p := make([]byte, 12)
 			if _, err := io.ReadFull(f, p); err != nil {
 				return 0, true
 			}
 			w := (int64(p[6]) | int64(p[7])<<8 | int64(p[8])<<16) + 1
 			h := (int64(p[9]) | int64(p[10])<<8 | int64(p[11])<<16) + 1
-			return w * h, true
+			maxPx = max(maxPx, w*h)
+			sawFrame = true
+			anmfFrames++
 		}
 		// Skip this chunk (header + body + even-padding) and keep scanning.
 		adv := 8 + size
@@ -91,4 +116,16 @@ func webpFramePixels(path string) (int64, bool) {
 		off += adv
 	}
 	return 0, true // too many chunks: treat as unsizable -> reject
+}
+
+// animationPixels scales the per-frame area by the frame count (a still image
+// has none), saturating so the result never wraps below a pixel cap.
+func animationPixels(area, frames int64) int64 {
+	if frames <= 1 {
+		return area
+	}
+	if area > math.MaxInt64/frames {
+		return math.MaxInt64
+	}
+	return area * frames
 }

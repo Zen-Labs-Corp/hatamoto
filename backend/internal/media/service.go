@@ -591,6 +591,11 @@ func (s *Service) createVariants(ctx context.Context, m *Media, sourcePath strin
 func (s *Service) buildVariants(ctx context.Context, m *Media, sourcePath string, avifBudget time.Duration) ([]ImageVariant, error) {
 	var variants []ImageVariant
 
+	// Check the header size first so an oversized file is never decoded.
+	if err := s.enforcePixelCap(sourcePath); err != nil {
+		return nil, err
+	}
+
 	// Open source image
 	srcFile, err := os.Open(sourcePath)
 	if err != nil {

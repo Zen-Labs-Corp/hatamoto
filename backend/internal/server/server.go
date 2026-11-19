@@ -1264,7 +1264,9 @@ func (s *Server) mountPublicAPI(r *httpx.Group, prefix string, notFound http.Han
 	// ServeMux wildcards span whole segments, so "sitemap-{sub}.xml" is
 	// matched as "{file}": sitemap children go to the sitemap handler,
 	// any other single segment is a 404.
-	subSitemap := s.publicTenantMiddleware(http.HandlerFunc(s.handlePublicSubSitemap))
+	// Own limiter: the root mount has its own bucket for the same files.
+	subLimiter := middleware.NewRateLimiter(2, 30).ByIPv6Prefix()
+	subSitemap := subLimiter.Middleware(s.publicTenantMiddleware(http.HandlerFunc(s.handlePublicSubSitemap)))
 	r.HandleFunc("GET /{file}", func(w http.ResponseWriter, req *http.Request) {
 		if _, ok := sitemapChild(req.PathValue("file")); ok {
 			subSitemap.ServeHTTP(w, req)

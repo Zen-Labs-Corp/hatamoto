@@ -85,3 +85,19 @@ func TestPreviewBuildViewCarriesTheme(t *testing.T) {
 		t.Errorf("theme seen by the view build = %q", seen)
 	}
 }
+
+func TestPreviewStartRejectsSchemeRelativeTarget(t *testing.T) {
+	p := &themePreview{key: []byte("k")}
+	for _, target := range []string{
+		"/%2Fevil.example?" + previewParam + "=x",
+		"/%2Fevil.example/a?" + previewParam + "=off",
+	} {
+		w := httptest.NewRecorder()
+		if !p.start(w, httptest.NewRequest(http.MethodGet, target, nil)) {
+			t.Fatalf("%s: start did not answer", target)
+		}
+		if loc := w.Result().Header.Get("Location"); loc != "/" {
+			t.Errorf("%s: Location = %q, want /", target, loc)
+		}
+	}
+}

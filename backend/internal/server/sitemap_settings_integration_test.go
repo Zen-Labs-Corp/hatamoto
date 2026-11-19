@@ -16,12 +16,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/seo"
 	"hatamoto.dev/core/internal/siteconfig"
+	"hatamoto.dev/core/internal/testutil"
 )
 
 // The sitemap handlers honour the saved SEO > Sitemap settings: path
@@ -182,5 +184,96 @@ func TestSitemapSettings_Integration(t *testing.T) {
 	}
 	if noIndex {
 		t.Error("hide_from_sitemap made the entry noindex")
+	}
+}
+
+// A child name the plan does not contain is answered from the remembered file
+// names, with no database work, and a child that appears later is served once
+// the sitemaps are invalidated.
+func TestSitemapUnknownChildIsAnsweredFromCache_Integration(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	pcfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var counter testutil.QueryCounter
+	pcfg.ConnConfig.Tracer = &counter
+	pcfg.MaxConns, pcfg.MinConns = 4, 1
+	db, err := database.NewWithConfig(ctx, pcfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+
+	tag := uuid.NewString()[:6]
+	t.Cleanup(func() {
+		_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_entities WHERE slug LIKE $1`, "smn"+tag+"-%")
+		_, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_seo_settings`)
+	})
+	for _, name := range []string{"one", "two"} {
+		if _, err := db.Pool().Exec(ctx, `
+			INSERT INTO hatamoto_entities (schema_id, name, slug, status, published_at, attributes)
+			SELECT s.id, $1, $1, 'published', now(), '{}'::jsonb FROM hatamoto_entity_schemas s WHERE s.slug = 'page'`,
+			"smn"+tag+"-"+name); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// The site settings must be readable, otherwise nothing is remembered.
+	var hadConfig bool
+	if err := db.Pool().QueryRow(ctx, `SELECT true FROM hatamoto_site_config LIMIT 1`).Scan(&hadConfig); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatal(err)
+	}
+	if !hadConfig {
+		if _, err := db.Pool().Exec(ctx, `INSERT INTO hatamoto_site_config (company_name) VALUES ('Sitemap names')`); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _, _ = db.Pool().Exec(ctx, `DELETE FROM hatamoto_site_config`) })
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	srv := &Server{db: db, entityService: entity.NewService(entity.NewPostgresSchemaRepository(db), nil, logger),
+		siteConfig: siteconfig.NewStore(db, slog.Default()), seoStore: seo.NewStore(db.Pool()), logger: logger,
+		infra: NewInfrastructure(logger)}
+	fetch := func(sub string) int {
+		name := "sitemap-" + sub + ".xml"
+		req := httptest.NewRequest(http.MethodGet, "http://example.test/"+name, nil)
+		req.SetPathValue("file", name)
+		rec := httptest.NewRecorder()
+		srv.handlePublicSubSitemap(rec, req)
+		return rec.Code
+	}
+
+	if code := fetch("nope1"); code != http.StatusNotFound {
+		t.Fatalf("first unknown child = %d, want 404", code)
+	}
+	before := counter.Count()
+	if code := fetch("nope2"); code != http.StatusNotFound {
+		t.Fatalf("second unknown child = %d, want 404", code)
+	}
+	if n := counter.Count() - before; n != 0 {
+		t.Errorf("second unknown child ran %d queries: %v", n, counter.Since(before))
+	}
+	if code := fetch(".names"); code != http.StatusNotFound {
+		t.Errorf("reserved name = %d, want 404", code)
+	}
+	if code := fetch("misc"); code != http.StatusOK {
+		t.Errorf("known child = %d, want 200", code)
+	}
+
+	// A further file appears once the URL limit is lowered; it is served after
+	// the sitemaps are invalidated.
+	if err := srv.seoStore.Merge(ctx, func(s *seo.Settings) { s.Sitemap = seo.Sitemap{MaxURLs: 1} }); err != nil {
+		t.Fatal(err)
+	}
+	if err := srv.infra.CacheInvalidator.InvalidateSitemaps(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if code := fetch("misc-2"); code != http.StatusOK {
+		t.Errorf("new child after invalidation = %d, want 200", code)
 	}
 }
