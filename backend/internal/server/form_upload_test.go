@@ -288,7 +288,7 @@ func TestAttachFormFileStoreUsesPrivateDataFolder(t *testing.T) {
 	data := t.TempDir()
 	t.Setenv("HATAMOTO_DATA", data)
 	svc := form.NewService(&fakeFormRepo{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	attachFormFileStore(svc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	attachFormFileStore(svc, slog.New(slog.NewTextHandler(io.Discard, nil)), 0)
 	if svc.FileStore() == nil {
 		t.Fatal("file store not attached")
 	}

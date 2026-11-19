@@ -491,7 +491,7 @@ func (s *Server) setupDependencies() {
 	// Form service
 	formRepo := form.NewPostgresRepository(s.db)
 	s.formService = form.NewService(formRepo, s.logger)
-	attachFormFileStore(s.formService, s.logger)
+	attachFormFileStore(s.formService, s.logger, s.cfg.Server.FormUploadMaxTotalBytes())
 	s.seoStore = seo.NewStore(s.db.Pool())
 	s.consentStore = consent.NewStore(s.db.Pool())
 	s.consentCounter = consent.NewCounter(s.db.Pool())
@@ -946,18 +946,27 @@ func (s *Server) addFormRetention(w *worker.RetentionPurgeWorker) {
 	w.AddPurge("form submissions", s.formService.PurgeExpiredSubmissions)
 }
 
+// maxHeaderBytes bounds the request line and headers a client may send.
+const maxHeaderBytes = 64 << 10
+
+// newHTTPServer builds the http.Server Start runs.
+func (s *Server) newHTTPServer() *http.Server {
+	return &http.Server{
+		Addr:           s.cfg.Server.Address(),
+		Handler:        s.router,
+		ReadTimeout:    s.cfg.Server.ReadTimeout,
+		WriteTimeout:   s.cfg.Server.WriteTimeout,
+		IdleTimeout:    s.cfg.Server.IdleTimeout,
+		MaxHeaderBytes: maxHeaderBytes,
+	}
+}
+
 // Start begins listening for HTTP requests.
 func (s *Server) Start() error {
 	if s.renderErr != nil {
 		return s.renderErr
 	}
-	s.httpServer = &http.Server{
-		Addr:         s.cfg.Server.Address(),
-		Handler:      s.router,
-		ReadTimeout:  s.cfg.Server.ReadTimeout,
-		WriteTimeout: s.cfg.Server.WriteTimeout,
-		IdleTimeout:  s.cfg.Server.IdleTimeout,
-	}
+	s.httpServer = s.newHTTPServer()
 
 	// Establish the server's lifecycle context. Plugin goroutines watch
 	// its Done channel; Shutdown cancels it to signal clean exit.
@@ -1324,11 +1333,13 @@ func (s *Server) voidStandingForSchemas(ctx context.Context) {
 
 // attachFormFileStore gives the form service its private upload folder under the data
 // directory, outside the public media tree; files are served only through the admin.
-func attachFormFileStore(svc *form.Service, logger *slog.Logger) {
+// maxTotalBytes caps the total size of the stored files (0 means the default).
+func attachFormFileStore(svc *form.Service, logger *slog.Logger, maxTotalBytes int64) {
 	store, err := form.NewFileStore(filepath.Join(config.ResolveDataDir(), "private", "form-uploads"))
 	if err != nil {
 		logger.Error("form upload store unavailable, file fields will refuse uploads", "error", err)
 		return
 	}
+	store.SetMaxTotalBytes(maxTotalBytes)
 	svc.SetFileStore(store)
 }
