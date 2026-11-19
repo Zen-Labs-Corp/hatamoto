@@ -35,6 +35,16 @@ cd "$W"; mkdir plain; cd plain
 got=$(GIT_CEILING_DIRECTORIES=$W sh "$V"); [[ "$got" == v0.0.0-dev.0 ]] || { echo "FAIL: not a checkout: $got"; exit 1; }
 echo "PASS: not a checkout -> $got"
 
+# a tag whose prerelease part has shell metacharacters falls back
+cd "$W"; git init -q -b main u; cd u
+git config user.email t@t; git config user.name t
+git commit -q --allow-empty -m c
+git tag 'v1.3.8-x";touch${IFS}marker;"'
+git tag -l | grep -q touch || { echo "FAIL: fixture tag missing"; exit 1; }
+got=$(sh "$V")
+[[ "$got" =~ ^v0\.0\.0-dev\.[0-9]+$ ]] || { echo "FAIL: unsafe tag printed '$got'"; exit 1; }
+echo "PASS: unsafe tag text falls back -> $got"
+
 cd "$REPO"
 line=$(make -n build-api | grep -o 'app.Version=v[^ ]*' | head -1)
 [[ "v${line#app.Version=v}" =~ $RE ]] || { echo "FAIL: build-api stamps '$line'"; exit 1; }
