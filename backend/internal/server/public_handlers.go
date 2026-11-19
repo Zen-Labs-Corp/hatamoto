@@ -174,7 +174,14 @@ func (s *Server) loadSitemapInput(r *http.Request) (sitemapInput, error) {
 // loadSitemapInputFor is loadSitemapInput without a request: the base URL is
 // given (the preloader has no request to derive it from).
 func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitemapInput, error) {
-	snap := s.urlSnapshot(ctx)
+	snap, err := s.urlSnapshotOrErr(ctx)
+	// A snapshot that is missing, degraded or the built-in fallback is served
+	// but never remembered as the site's own.
+	namingUnread := err != nil || snap == nil || snap.Degraded()
+	if err != nil || snap == nil {
+		s.logLoadFailure("url registry unavailable; using default url patterns", err)
+		snap = entity.DefaultURLSnapshot()
+	}
 	repo := entity.NewPostgresPublicRepository(s.db)
 	listCtx := ctx
 	if set := snap.Locales(); set.Multi() {
@@ -200,7 +207,7 @@ func (s *Server) loadSitemapInputFor(ctx context.Context, baseURL string) (sitem
 	if s.redirectService != nil {
 		redirected = func(path string) bool { return s.redirectService.Peek(ctx, path) != nil }
 	}
-	naming, namingUnread := "group", false
+	naming := "group"
 	if s.siteConfig != nil {
 		cfg, err := s.siteConfig.Get(ctx)
 		switch {
@@ -285,6 +292,25 @@ func (s *Server) handlePublicSitemap(w http.ResponseWriter, r *http.Request) {
 	if !in.NamingUnread {
 		s.cacheSitemapXML(r, "index", xmlBytes)
 	}
+}
+
+// cacheGeneration is the purge counter to read before loading data that is
+// stored with rememberSitemapNames.
+func (s *Server) cacheGeneration() uint64 {
+	if s.infra == nil || s.infra.Cache == nil {
+		return 0
+	}
+	return s.infra.Cache.Generation()
+}
+
+// rememberSitemapNames stores the file names unless a purge ran since gen was
+// read: names computed before a change must not outlive the invalidation.
+func (s *Server) rememberSitemapNames(ctx context.Context, gen uint64, names sitemapNames) {
+	data, err := jsonx.Marshal(names)
+	if err != nil {
+		return
+	}
+	_, _ = s.infra.Cache.SetIfGeneration(ctx, cache.SitemapKey(sitemapNamesSub), data, cache.TTLSitemap, gen)
 }
 
 // maxSitemapLogged bounds how many planner reports are remembered.
@@ -416,6 +442,7 @@ func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	gen := s.cacheGeneration() // before any read of sitemap data
 	in, err := s.loadSitemapInput(r)
 	if err != nil {
 		s.logger.Error("failed to generate sitemap", slog.String("error", err.Error()), slog.String("sub", sub))
@@ -424,7 +451,7 @@ func (s *Server) handlePublicSubSitemap(w http.ResponseWriter, r *http.Request) 
 	}
 	plan := s.planSitemapLogged(in)
 	if hasCache && !in.NamingUnread && !database.PoolBusyHit(r.Context()) {
-		_ = s.infra.Cache.SetJSON(r.Context(), cache.SitemapKey(sitemapNamesSub), plan.names(), cache.TTLSitemap)
+		s.rememberSitemapNames(r.Context(), gen, plan.names())
 	}
 
 	if !plan.HasGroup(sub) {
