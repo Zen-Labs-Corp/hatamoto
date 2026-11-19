@@ -30,6 +30,9 @@ type entityFilterKeep struct {
 	claimed bool // the snapshot row exists
 	done    bool // the snapshot is empty: nothing is left to keep
 	seen    int  // length of the snapshot at the last read
+	// needReload is set when the stored grants changed and cleared once
+	// Grants.Load has succeeded.
+	needReload bool
 }
 
 // claimEntityFilterSnapshot records, once, which plugins were installed before
@@ -71,8 +74,8 @@ func forgetEntityFilterSnapshot(ctx context.Context, tx pgx.Tx, name string) err
 // is granted it once (stored grants are unioned, never replaced) and leaves
 // the snapshot, so a later revoke sticks. Plugins that are not loaded stay in
 // the snapshot until they are. It also rebuilds the hooks of a loaded plugin
-// whose registration differs from its stored grant (another replica granted or
-// revoked it).
+// whose registration differs from the grants in memory (refreshed when the
+// snapshot changes or a plugin loads).
 func (m *Manager) grandfatherEntityFilter(ctx context.Context) {
 	if m.Pool == nil || !m.claimEntityFilterSnapshot(ctx) {
 		return
@@ -82,33 +85,33 @@ func (m *Manager) grandfatherEntityFilter(ctx context.Context) {
 		return
 	}
 	statuses := m.Plugins.Statuses()
-	reload := false
 	if !m.filterKeep.done {
 		var snap []string
 		if err := m.Pool.QueryRow(ctx, `SELECT permissions FROM hatamoto_plugin_grants WHERE plugin = $1`, grandfatherEntityFilterKey).Scan(&snap); err != nil {
 			m.Logger.Warn("packages: entity filter snapshot not read", "error", err)
 			return
 		}
-		reload = len(snap) != m.filterKeep.seen
+		m.filterKeep.needReload = m.filterKeep.needReload || len(snap) != m.filterKeep.seen
 		m.filterKeep.seen = len(snap)
 		for _, st := range statuses {
 			if !st.Loaded || !slices.Contains(snap, st.Name) {
 				continue
 			}
 			if m.keepEntityFilter(ctx, st, rt) {
-				reload = true
+				m.filterKeep.needReload = true
 				m.filterKeep.seen--
 			}
 		}
 		m.filterKeep.done = m.filterKeep.seen == 0
 	}
-	if reload {
+	if m.filterKeep.needReload {
 		if g, ok := m.Grants.(interface{ Load(context.Context) error }); ok {
 			if err := g.Load(ctx); err != nil {
 				m.Logger.Error("packages: grants not reloaded", "error", err)
 				return
 			}
 		}
+		m.filterKeep.needReload = false
 	}
 	for _, st := range statuses {
 		if !st.Loaded {

@@ -3,6 +3,7 @@
 package packages
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"slices"
@@ -10,6 +11,7 @@ import (
 
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/portability"
 	"hatamoto.dev/sdk"
 )
 
@@ -323,5 +325,72 @@ func TestUpdateAskingEntitiesFilterNeedsConfirmation(t *testing.T) {
 	}
 	if err := r.installPlugin(r.plugin("1.3.0"), []string{sdk.PermKV, sdk.PermEntitiesFilter}, InstallRequest{}); err != nil {
 		t.Fatalf("update keeping the permission: %v", err)
+	}
+}
+
+// Importing a site from before this release must leave the target's own
+// snapshot alone: a plugin installed here earlier is still not kept.
+func TestEntityFilterNotKeptAfterImportOfOlderSite(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	raw, err := PackFiles(r.plugin("1.0.0"), &r.key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.mgr.Install(ctx, raw, InstallRequest{Source: SourceUpload}); err != nil {
+		t.Fatal(err)
+	}
+
+	// An archive of a database that never ran a pool-backed manager: no snapshot row.
+	var archive bytes.Buffer
+	if _, err := portability.Export(ctx, scratchDB(t), &archive, portability.ExportOptions{MediaDir: t.TempDir()}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := portability.Import(ctx, r.pool, &archive, portability.ImportOptions{MediaDir: t.TempDir()}); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	rt := &filterRuntime{PluginRuntime: r.rt, statuses: []pluginhost.Status{loadedStatus("capa")}, exports: map[string]bool{"capa": true}}
+	r.mgr.Plugins = rt
+	r.mgr = NewManager(r.mgr.Options)
+	r.mgr.grandfatherEntityFilter(ctx)
+	if r.mgr.Grants.Has("capa", sdk.PermEntitiesFilter) {
+		t.Fatal("a plugin installed after the snapshot was granted the filter by a later start")
+	}
+}
+
+// failingLoad is a grant store whose reload fails while fail is set.
+type failingLoad struct {
+	*pluginhost.GrantStore
+	fail bool
+}
+
+func (f *failingLoad) Load(ctx context.Context) error {
+	if f.fail {
+		return errors.New("db unavailable")
+	}
+	return f.GrantStore.Load(ctx)
+}
+
+// A reload that fails right after a keep is retried by the next pass.
+func TestEntityFilterReloadRetriedAfterFailure(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	legacyRow(t, r, "old", true)
+	rt := &filterRuntime{PluginRuntime: r.rt, statuses: []pluginhost.Status{loadedStatus("old")}, exports: map[string]bool{"old": true}}
+	r.mgr.Plugins = rt
+	opts := r.mgr.Options
+	grants := &failingLoad{GrantStore: pluginhost.NewGrantStore(r.pool), fail: true}
+	opts.Grants = grants
+	r.mgr = NewManager(opts)
+
+	r.mgr.grandfatherEntityFilter(ctx)
+	if grants.Has("old", sdk.PermEntitiesFilter) {
+		t.Fatal("grants were reloaded although the reload failed")
+	}
+	grants.fail = false
+	r.mgr.grandfatherEntityFilter(ctx)
+	if !grants.Has("old", sdk.PermEntitiesFilter) {
+		t.Fatal("the kept grant was not loaded by the next pass")
 	}
 }
