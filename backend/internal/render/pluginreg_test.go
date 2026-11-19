@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"io/fs"
@@ -640,5 +641,84 @@ func TestSampleRenderIsCapped(t *testing.T) {
 	}
 	if err := scanSampleRender("<p>hello</p>", nil); err != nil {
 		t.Fatalf("small template: %v", err)
+	}
+}
+
+// vetPlugin registers the partials and sections of one plugin, each on its
+// own as a host does, and returns what vet lets through.
+func vetPlugin(t *testing.T, partials, sections map[string]string) (gotPartials, gotSections map[string]string) {
+	t.Helper()
+	reg := newPluginRegistry()
+	for name, src := range partials {
+		if err := reg.registerPartial("acme", name, src); err != nil {
+			t.Fatalf("partial %s: %v", name, err)
+		}
+	}
+	for typ, src := range sections {
+		if err := reg.registerSection("acme", typ, src); err != nil {
+			t.Fatalf("section %s: %v", typ, err)
+		}
+	}
+	return reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+}
+
+func TestPluginVetBoundsCallsAndNesting(t *testing.T) {
+	t.Parallel()
+	fanOut := map[string]string{"t0": `x`}
+	for i := 1; i <= 60; i++ {
+		prev := fmt.Sprintf(`plugin/acme/t%d`, i-1)
+		fanOut[fmt.Sprintf("t%d", i)] = fmt.Sprintf(`{{template %q}}{{template %q}}`, prev, prev)
+	}
+	section := func(body string) map[string]string {
+		return map[string]string{"x": `{{define "section-x"}}` + body + `{{end}}`}
+	}
+	cases := []struct {
+		name     string
+		partials map[string]string
+		sections map[string]string
+		refused  bool
+	}{
+		{"fan-out of 60 levels", fanOut, section(`{{template "plugin/acme/t60"}}`), true},
+		{"slice recursion", map[string]string{
+			"r": `{{if .}}{{template "plugin/acme/r" (slice . 1)}}{{template "plugin/acme/r" (slice . 1)}}{{end}}`,
+		}, section(`{{template "plugin/acme/r" "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}`), true},
+		{"mutual recursion across a partial and a section", map[string]string{
+			"p": `{{template "section-x"}}`,
+		}, section(`{{template "plugin/acme/p"}}`), true},
+		{"three nested ranges", nil, section(`{{range $.Content.items}}{{range .a}}{{range .b}}z{{end}}{{end}}{{end}}`), true},
+		{"two nested ranges", nil, section(`{{range $.Content.items}}{{range .a}}z{{end}}{{end}}`), false},
+		{"range calling a partial with two nested ranges", map[string]string{
+			"inner": `{{range .Content.a}}{{range .b}}z{{end}}{{end}}`,
+		}, section(`{{range $.Content.items}}{{template "plugin/acme/inner" $}}{{end}}`), true},
+		{"a few partial calls", map[string]string{
+			"a": `<i>{{template "plugin/acme/b"}}{{template "plugin/acme/b"}}</i>`,
+			"b": `<b>{{template "head"}}</b>`,
+		}, section(`{{template "plugin/acme/a"}}{{range $.Content.items}}{{template "plugin/acme/b"}}{{end}}`), false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			partials, sections := vetPlugin(t, tc.partials, tc.sections)
+			kept := len(partials) + len(sections)
+			if tc.refused && kept != 0 {
+				t.Errorf("kept %d templates, want none", kept)
+			}
+			if !tc.refused && kept != len(tc.partials)+len(tc.sections) {
+				t.Errorf("kept %d templates, want %d", kept, len(tc.partials)+len(tc.sections))
+			}
+		})
+	}
+}
+
+// A core func that returns a map (dict) is not available to plugin templates:
+// a template that builds its own Content would get past the range rule.
+func TestPluginVetRefusesDict(t *testing.T) {
+	t.Parallel()
+	reg := newPluginRegistry()
+	if err := reg.registerPartial("acme", "p", `{{template "plugin/acme/q" (dict "Content" 5)}}`); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil))); len(got) != 0 {
+		t.Fatal("dict was available to a plugin template")
 	}
 }

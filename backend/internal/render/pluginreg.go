@@ -250,7 +250,10 @@ func (r *pluginRegistry) snapshot() pluginSnapshot {
 	defer r.mu.RUnlock()
 	funcs := maps.Clone(r.funcs)
 	// "t" is the one core func plugin templates may call (theme strings); the
-	// vetting scratch sets know only the funcs of this snapshot.
+	// vetting scratch sets know only the funcs of this snapshot. Do not add a
+	// core func that returns a map or a struct (dict, say): checkPluginLoops
+	// trusts any .Content chain at a template root because a plugin template
+	// cannot build a value with a Content of its own.
 	funcs["t"] = tFunc
 	return pluginSnapshot{
 		funcs:    funcs,
@@ -265,8 +268,9 @@ func (r *pluginRegistry) snapshot() pluginSnapshot {
 // "plugin/<ident>/..." and a section defines "section-<type>" (the type must
 // not exist in the theme) and "plugin/<ident>/...". Anything else (a
 // {{define "head"}} that would replace the theme's template, a syntax error, an
-// unknown func, a section that does not define its own entry) rejects ALL of
-// that plugin's templates, with a log line. The theme is never touched.
+// unknown func, a section that does not define its own entry, a call cycle,
+// too many template calls or ranges nested too deeply across the plugin's
+// templates) rejects ALL of that plugin's templates, with a log line. The theme is never touched.
 func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logger) (partials, sections map[string]string) {
 	rejected := map[string]bool{} // plugin name
 	reject := func(plugin, what string, err error) {
@@ -319,6 +323,9 @@ func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logg
 			continue
 		}
 		sections[typ] = src
+	}
+	for plugin, err := range s.callGraphFaults(partials, sections) {
+		reject(plugin, "templates", err)
 	}
 	for name := range s.partials {
 		if rejected[s.owner["p:"+name]] {

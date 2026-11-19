@@ -71,8 +71,10 @@ const (
 )
 
 // contentChain reports whether idents is a field chain a plugin may range over
-// or narrow to. Content values come from JSON: maps, slices, strings, booleans
-// and json.Number, whose Int64 and Float64 methods a field chain would call.
+// or narrow to. Content holds JSON-decoded values (maps, slices, strings,
+// float64 or jsontext.Value, template.HTML after prepare); none has a method
+// that returns a large int. Int64 and Float64 are refused in case a json.Number
+// reaches it.
 func contentChain(idents []string) bool {
 	for _, id := range idents {
 		if id == "Int64" || id == "Float64" {
@@ -210,12 +212,13 @@ func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (pluginSnapsho
 	why := map[string][]string{}
 	out := s
 	out.partials, out.sections = map[string]string{}, map[string]string{}
+	graphFaults := s.callGraphFaults(s.partials, s.sections)
 	keep := func(plugin, label, src string) bool {
 		if allowed != nil && allowed(plugin) {
 			return true
 		}
 		err := checkPluginScripts(src, s.funcs)
-		if err == nil {
+		if err == nil && graphFaults[plugin] == nil { // vet rejects those; never execute them
 			err = scanSampleRender(src, s.funcs)
 		}
 		if err != nil {
