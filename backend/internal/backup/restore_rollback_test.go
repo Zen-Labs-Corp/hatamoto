@@ -318,7 +318,7 @@ func TestEmptyDatabaseSQLDollarInName(t *testing.T) {
 		{exists: true, acl: []string{`GRANT USAGE ON SCHEMA public TO "a$$b";`}},
 		{exists: true, acl: []string{`GRANT USAGE ON SCHEMA public TO "a$hm_rb$b";`}},
 	} {
-		sql := emptyDatabaseSQL([]string{"x$$y"}, pub)
+		sql := strings.TrimPrefix(emptyDatabaseSQL([]string{"x$$y"}, pub), searchPathPinSQL)
 		tag := sql[len("DO ") : strings.Index(sql[len("DO "):], " ")+len("DO ")]
 		if !strings.HasSuffix(sql, " "+tag) {
 			t.Fatalf("block not closed by %s: %s", tag, sql)
@@ -333,4 +333,46 @@ func TestEmptyDatabaseSQLDropsExtensionsWithoutPublic(t *testing.T) {
 	if sql := emptyDatabaseSQL(nil, publicState{}); !strings.Contains(sql, "DROP EXTENSION") {
 		t.Errorf("extensions are not cleaned up when public did not exist: %s", sql)
 	}
+}
+
+func TestRollbackAdminStatementsPinSearchPath(t *testing.T) {
+	const prefix = "SET search_path = pg_catalog, pg_temp;"
+	t.Run("statements", func(t *testing.T) {
+		r := newRollbackRig(t)
+		if err := r.x.rollback(context.Background(), errors.New("stopped")); err == nil {
+			t.Fatal("no error")
+		}
+		// The role lookup has no env entry, so pair each statement with its env here.
+		checked, ei := 0, 0
+		for _, stmt := range r.stmts {
+			if strings.HasPrefix(stmt, "SELECT EXISTS") {
+				continue
+			}
+			env := strings.Join(r.envs[ei], " ")
+			ei++
+			isAdmin := strings.Contains(env, "PGUSER=adm") && strings.Contains(stmt, "DO $$")
+			isOwned := strings.Contains(env, "PGUSER=hm_dst") && strings.Contains(stmt, "DROP SCHEMA") // the owned schema drop and emptyDatabaseSQL
+			if !isAdmin && !isOwned {
+				continue
+			}
+			checked++
+			if !strings.HasPrefix(stmt, prefix) {
+				t.Errorf("statement does not pin search_path: %s", stmt)
+			}
+			if !strings.Contains(stmt, "pg_catalog.format") || strings.Contains(stmt, " format(") {
+				t.Errorf("statement calls format unqualified: %s", stmt)
+			}
+		}
+		if checked != 4 {
+			t.Errorf("checked %d statements, want 4 (owned schema, admin schema, temp_file_limit, emptied database):\n%s", checked, strings.Join(r.stmts, "\n"))
+		}
+	})
+	t.Run("failure text", func(t *testing.T) {
+		r := newRollbackRig(t)
+		r.failOn = "hatamoto_admin CASCADE"
+		err := r.x.rollback(context.Background(), errors.New("stopped"))
+		if err == nil || !strings.Contains(err.Error(), "-c '"+prefix+" DO $$") {
+			t.Fatalf("failure text lacks the executed statement:\n%v", err)
+		}
+	})
 }

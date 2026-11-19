@@ -278,7 +278,12 @@ front-end JavaScript; `builder`: works with the page builder). They feed the the
 filters. `registry index` refuses an unknown value, and either key on a plugin; a client drops an
 unknown value (and repeated flags) and keeps the entry, and ignores a value of the wrong JSON type. `issued_at` and `expires_at` (RFC 3339, at most 180 days apart) are signed with
 the index. The server refuses an expired index, one issued in the future or one
-without both times, so an old copy cannot be replayed to hide newer versions.
+without both times. It also records the newest `issued_at` accepted per registry URL and
+refuses an older one (`registry index is older than one already accepted`). An older copy that
+is still within its window is refused only once a newer index from that URL has been seen; the
+first fetch of a fresh install sets the mark. Operators should re-sign on a short schedule
+(`--valid-days`); re-signing with an earlier `issued_at` than one already published is refused
+until a newer-or-equal one is served.
 `HATAMOTO_REGISTRY_URL` must be `https://` (an explicit test override aside).
 
 `url` may be relative to the index. The server refuses an index that is unsigned,

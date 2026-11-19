@@ -23,6 +23,8 @@ run with `-tags=integration`; the others run with plain `go test`.
 | Visitors | Read public pages, submit public forms (including a file on a form that has a file field) | Everything else |
 | Reverse proxies | Tell the server the client address, only when listed in `HATAMOTO_TRUSTED_PROXIES` (loopback by default) | Anything from an unlisted address |
 
+The SEO and terms key scopes (`read:seo`, `write:seo`, `write:terms`) work only while the key's creator is an owner, also through `*`. Keys minted with `hatamoto apikey create --as <editor>` do not get them.
+
 ## Guarantees and the tests that enforce them
 
 ### Plugin sandbox

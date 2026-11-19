@@ -272,7 +272,15 @@ func NewManager(o Options) *Manager {
 	if o.DeveloperRegistry != nil && o.DeveloperRegistry.Limits == (Limits{}) {
 		o.DeveloperRegistry.Limits = DefaultLimits
 	}
-	return &Manager{Options: o, store: NewStore(o.Pool), loaded: map[string]loadedPlugin{}, preview: map[string]previewEntry{}, blocked: map[string]string{}}
+	st := NewStore(o.Pool)
+	if o.Pool != nil { // NewStore(nil) is non-nil: a store without a pool must not be wired
+		for _, r := range []*Registry{o.Registry, o.DeveloperRegistry} {
+			if r != nil && r.Seen == nil {
+				r.Seen = st
+			}
+		}
+	}
+	return &Manager{Options: o, store: st, loaded: map[string]loadedPlugin{}, preview: map[string]previewEntry{}, blocked: map[string]string{}}
 }
 
 // Store gives access to the underlying rows.

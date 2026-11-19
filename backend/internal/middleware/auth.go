@@ -138,7 +138,8 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 
 // RequireOwnerOrKeyScope admits an API key holding read (GET/HEAD) or write
 // (any other method) scope, or a session whose role is owner. Keys carry
-// synthesised editor claims, so the decision for a key never looks at the role.
+// synthesised editor claims, so the claims are not consulted for a key; the
+// scope check itself requires an owner creator for owner-only scopes.
 func RequireOwnerOrKeyScope(read, write auth.APIKeyScope) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

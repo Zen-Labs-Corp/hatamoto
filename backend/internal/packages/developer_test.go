@@ -23,12 +23,17 @@ type devFixture struct {
 	idx     Index // developer entries
 	mainIdx Index
 	srv     *httptest.Server
+	raw     map[string][]byte // path -> signed document served as is (a replayed copy)
 }
 
 func newDevFixture(t *testing.T) *devFixture {
 	t.Helper()
 	f := &devFixture{t: t, listing: newKey(t), main: newKey(t)}
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if doc, ok := f.raw[r.URL.Path]; ok {
+			_, _ = w.Write(doc)
+			return
+		}
 		var idx Index
 		var key Key
 		switch r.URL.Path {
@@ -282,5 +287,58 @@ func TestDeveloperIndexDoesNotCacheACancelledRead(t *testing.T) {
 	}
 	if _, err := m.DeveloperIndex(context.Background(), false); err != nil {
 		t.Fatalf("the next read inherited the cancellation: %v", err)
+	}
+}
+
+func TestDeveloperGrantStillRefusesRevokedKeyAfterReplay(t *testing.T) {
+	f := newDevFixture(t)
+	devKey := newKey(t)
+	p := f.theme("sunrise", devKey, devKey)
+	// A copy of the developer index that lists the theme, signed before the
+	// key was revoked.
+	staleIdx := f.idx
+	staleIdx.Version = 1
+	staleIdx.IssuedAt = time.Now().UTC().Add(-48 * time.Hour).Format(time.RFC3339)
+	staleIdx.ExpiresAt = time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
+	staleBody, err := jsonx.Marshal(staleIdx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale, err := SignIndex(staleBody, f.listing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.idx.Revoked = []Revocation{{SignerKey: devKey.Public, Reason: "key leaked"}}
+	ctx := context.Background()
+
+	// Without a store the replayed copy lists the theme and carries no
+	// revocation, so developerGrant would go on to grant the revoked key.
+	f.raw = map[string][]byte{"/developer.json": stale}
+	old, err := f.manager().DeveloperIndex(ctx, true)
+	if err != nil {
+		t.Fatalf("control: the stale copy is not accepted without a store: %v", err)
+	}
+	if _, ok := old.Find(p.Kind, p.Name); !ok {
+		t.Fatal("control: the stale copy does not list the theme")
+	}
+	if _, revoked := revocationFor(Row{Developer: true, Name: p.Name, Version: p.Version, SignerKeyID: devKey.ID}, old); revoked {
+		t.Fatal("control: the stale copy already carries the revocation")
+	}
+	f.raw = nil
+
+	seen := &memSeen{}
+	m := f.manager(func(o *Options) { o.Registry.Seen, o.DeveloperRegistry.Seen = seen, seen })
+	// The index that revokes the key is the newest one the server has seen.
+	if dev, err := m.DeveloperRegistry.Fetch(ctx); err != nil || len(dev.Revoked) != 1 {
+		t.Fatalf("fresh developer index: %v, %+v", err, dev)
+	}
+
+	f.raw = map[string][]byte{"/developer.json": stale}
+	if _, err := m.DeveloperIndex(ctx, true); !errors.Is(err, ErrIndexRolledBack) {
+		t.Fatalf("replayed index: err = %v, want ErrIndexRolledBack", err)
+	}
+	grant, err := m.developerGrant(ctx, p, ErrUntrustedKey)
+	if grant != nil || err == nil || !strings.Contains(err.Error(), ErrIndexRolledBack.Error()) {
+		t.Fatalf("replayed index granted a revoked key: grant=%v err=%v", grant, err)
 	}
 }

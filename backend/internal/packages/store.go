@@ -261,6 +261,16 @@ func (s *Store) SetServerEnvironment(ctx context.Context, env string) error {
 	return err
 }
 
+// AdvanceIssued records issued as the newest index time accepted from url
+// unless a newer one is stored, and returns the newest now stored.
+func (s *Store) AdvanceIssued(ctx context.Context, url string, issued time.Time) (time.Time, error) {
+	var newest time.Time
+	err := s.pool.QueryRow(ctx, `INSERT INTO hatamoto_registry_seen (url, issued_at) VALUES ($1, $2)
+		ON CONFLICT (url) DO UPDATE SET issued_at = GREATEST(hatamoto_registry_seen.issued_at, EXCLUDED.issued_at)
+		RETURNING issued_at`, url, issued.UTC()).Scan(&newest)
+	return newest, err
+}
+
 // SetState marks a package row installed or uninstalling.
 func (s *Store) SetState(ctx context.Context, kind Kind, name, state string) error {
 	tag, err := s.pool.Exec(ctx, `UPDATE hatamoto_packages SET state = $3, updated_at = now() WHERE kind = $1 AND name = $2`, string(kind), name, state)

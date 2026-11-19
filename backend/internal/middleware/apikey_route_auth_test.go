@@ -125,10 +125,15 @@ func TestAuthOrAPIKeyAllowlist(t *testing.T) {
 }
 
 func TestAuthOrAPIKeySEOSettings(t *testing.T) {
+	ownerKey := func(scope auth.APIKeyScope) *auth.APIKey {
+		k := testKey(scope)
+		k.CreatorRole = "owner"
+		return k
+	}
 	h := newKeyHarness(t, true, map[string]*auth.APIKey{
-		"read":  testKey(auth.ScopeReadSEO),
-		"write": testKey(auth.ScopeWriteSEO),
-		"all":   testKey(auth.ScopeAll),
+		"read":  ownerKey(auth.ScopeReadSEO),
+		"write": ownerKey(auth.ScopeWriteSEO),
+		"all":   ownerKey(auth.ScopeAll),
 		"other": testKey(auth.ScopeWriteEntities),
 	})
 	cases := []struct {
@@ -410,6 +415,33 @@ func TestAuthOrAPIKeyRejectsCreatorWithoutEditRole(t *testing.T) {
 				t.Fatalf("status = %d, want %d", rec.Code, tc.want)
 			}
 		})
+	}
+}
+
+func TestAuthOrAPIKeyOwnerOnlyScopeNeedsOwnerCreator(t *testing.T) {
+	for _, scope := range []auth.APIKeyScope{auth.ScopeReadSEO, auth.ScopeWriteSEO, auth.ScopeAll} {
+		for _, role := range []string{"owner", "editor"} {
+			t.Run(string(scope)+"/"+role, func(t *testing.T) {
+				k := testKey(scope)
+				k.CreatorRole = role
+				h := newKeyHarness(t, true, map[string]*auth.APIKey{"k": k})
+				for _, method := range []string{"GET", "PATCH"} {
+					rec := do(h.handler, method, "/api/v1/settings/seo", "k")
+					needWrite := method == "PATCH"
+					allowed := role == "owner" && (scope == auth.ScopeAll || scope == auth.ScopeWriteSEO || (!needWrite && scope == auth.ScopeReadSEO))
+					if allowed && rec.Code == http.StatusForbidden {
+						t.Errorf("%s: owner creator refused (403)", method)
+					}
+					if !allowed && (rec.Code != http.StatusForbidden || strings.TrimSpace(rec.Body.String()) != `{"error":"forbidden"}`) {
+						t.Errorf("%s: got %d %q, want 403 forbidden", method, rec.Code, rec.Body.String())
+					}
+				}
+			})
+		}
+	}
+	h := newKeyHarness(t, true, map[string]*auth.APIKey{"k": testKey(auth.ScopeAll)})
+	if rec := do(h.handler, "GET", "/api/v1/entities", "k"); rec.Code != http.StatusOK {
+		t.Errorf("* editor key on entities: got %d want 200", rec.Code)
 	}
 }
 

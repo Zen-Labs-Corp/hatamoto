@@ -13,6 +13,12 @@
 - **Automatic updates.** A standing approval no longer lets a run link a page to a translation; such an item waits for review. Resending a link the page already has stays inside the approval.
 - **Migration.** None. One reserved row in `hatamoto_plugin_grants` holds the snapshot of the installed plugins that have not been kept yet; a grant row is written for each plugin that is kept. Rollback floor: unchanged; an older release reads a stored `entities.filter` grant as an unknown permission only if a manifest lists it.
 
+## Unreleased: owner-only key scopes and registry index freshness
+
+- **Scopes.** `read:seo`, `write:seo` and `write:terms` (also through `*`) now work only while the key's creator is an owner. Keys created by an editor, including `*` keys and keys made with `hatamoto apikey create --as <editor's email>`, lose them: REST answers 403 and MCP answers `forbidden`. Create a new key as an owner for integrations that need them.
+- **Packages.** The server remembers the newest registry index time (`issued_at`) it has accepted for each registry URL and refuses an older signed index with "registry index is older than one already accepted". Re-sign the index with a current time to clear it.
+- **Migration.** Adds the `hatamoto_registry_seen` table. Rollback floor: unchanged; an older release never reads it.
+
 ## Unreleased: install stats always detailed
 
 - **Setup.** The wizard no longer has a Stats step. It has seven screens: Your account, Admin address, Your site, Email, Look, Content and Done.

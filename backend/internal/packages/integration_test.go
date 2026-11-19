@@ -106,7 +106,7 @@ func coreChecksum(t *testing.T, pool *pgxpool.Pool) map[string]string {
 	t.Helper()
 	ctx := context.Background()
 	rows, err := pool.Query(ctx, `SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-		AND tablename NOT LIKE 'hatamoto\_package%' AND tablename NOT IN ('hatamoto_theme_settings', 'hatamoto_admin_audit')
+		AND tablename NOT LIKE 'hatamoto\_package%' AND tablename NOT IN ('hatamoto_theme_settings', 'hatamoto_admin_audit', 'hatamoto_registry_seen')
 		AND tablename NOT LIKE 'hatamoto\_plugin\_%' AND tablename NOT LIKE 'goose%' ORDER BY 1`)
 	if err != nil {
 		t.Fatal(err)
