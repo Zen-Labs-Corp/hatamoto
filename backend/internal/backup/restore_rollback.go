@@ -267,25 +267,30 @@ func (x *restorer) pluginRole(name string) string {
 
 const adminRolePrefix = "hatamoto_role_admin_"
 
+// adminSearchPathSQL starts statements that run as the admin URL's role (and
+// the app role's schema drop): the restored objects are in public by then and
+// must not be resolved.
+const adminSearchPathSQL = `SET search_path = pg_catalog, pg_temp; `
+
 // dropOwnedSchemaSQL drops a schema as the role that owns it (the app role has
 // SET on the plugin roles, not their privileges).
 func dropOwnedSchemaSQL(schema string) string {
-	return `DO $$ DECLARE o name; BEGIN ` +
+	return adminSearchPathSQL + `DO $$ DECLARE o name; BEGIN ` +
 		`SELECT pg_get_userbyid(nspowner) INTO o FROM pg_namespace WHERE nspname = ` + sqlLiteral(schema) + `; ` +
-		`IF o IS NOT NULL THEN EXECUTE format('SET LOCAL ROLE %I', o); EXECUTE format('DROP SCHEMA %I CASCADE', ` + sqlLiteral(schema) + `); END IF; END $$`
+		`IF o IS NOT NULL THEN EXECUTE pg_catalog.format('SET LOCAL ROLE %I', o); EXECUTE pg_catalog.format('DROP SCHEMA %I CASCADE', ` + sqlLiteral(schema) + `); END IF; END $$`
 }
 
 // dropAdminSchemaSQL drops hatamoto_admin as the admin URL's role, which sets
 // the role that owns the schema first unless it is a superuser.
-const dropAdminSchemaSQL = `DO $$ DECLARE o name; BEGIN ` +
+const dropAdminSchemaSQL = adminSearchPathSQL + `DO $$ DECLARE o name; BEGIN ` +
 	`SELECT pg_get_userbyid(nspowner) INTO o FROM pg_namespace WHERE nspname = 'hatamoto_admin'; ` +
 	`IF o IS NOT NULL THEN ` +
-	`IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN EXECUTE format('SET LOCAL ROLE %I', o); END IF; ` +
+	`IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN EXECUTE pg_catalog.format('SET LOCAL ROLE %I', o); END IF; ` +
 	`DROP SCHEMA hatamoto_admin CASCADE; END IF; END $$`
 
 func revokeTempFileLimitSQL(role string) string {
-	return `DO $$ BEGIN IF current_setting('server_version_num')::int >= 150000 AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = ` +
-		sqlLiteral(role) + `) THEN EXECUTE format('REVOKE SET ON PARAMETER temp_file_limit FROM %I', ` + sqlLiteral(role) + `); END IF; END $$`
+	return adminSearchPathSQL + `DO $$ BEGIN IF current_setting('server_version_num')::int >= 150000 AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = ` +
+		sqlLiteral(role) + `) THEN EXECUTE pg_catalog.format('REVOKE SET ON PARAMETER temp_file_limit FROM %I', ` + sqlLiteral(role) + `); END IF; END $$`
 }
 
 // notMember is the condition that a catalog row was made on its own, not as
