@@ -211,6 +211,65 @@ func (r *capaRig) grant(t *testing.T, perms ...string) {
 
 // --- tests ---------------------------------------------------------------------
 
+func TestBeforeSaveNeedsEntitiesFilterGrant(t *testing.T) {
+	r := newCapaRig(t)
+	ctx := context.Background()
+	draft := sdk.EntityDraft{Operation: "create", SchemaSlug: "post", Name: "n", Slug: "n"}
+	save := func() string {
+		t.Helper()
+		out, err := r.engine.ApplyStrict(ctx, sdk.EntityBeforeSave.Name, draft)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out.(sdk.EntityDraft).Name
+	}
+	hasHook := func() bool {
+		st, _ := r.rt.status("capa")
+		return slices.Contains(st.Hooks, sdk.EntityBeforeSave.Name)
+	}
+
+	r.load(t, func(m *sdk.Manifest) { m.Permissions = append(m.Permissions, sdk.PermEntitiesFilter) })
+	if !r.rt.ExportsEntityFilter("capa") {
+		t.Fatal("the fixture must export the filter")
+	}
+	if hasHook() || save() != "n" {
+		t.Fatal("the filter must not run before the grant")
+	}
+	r.grant(t, sdk.PermEntitiesFilter)
+	if !hasHook() || save() != "filtered" {
+		t.Fatal("the filter must run as soon as it is granted")
+	}
+	r.grant(t)
+	if hasHook() || save() != "n" {
+		t.Fatal("revoking must unregister the filter at once")
+	}
+}
+
+func TestEntityFilterGrantKeptWithoutManifest(t *testing.T) {
+	r := newCapaRig(t)
+	ctx := context.Background()
+	r.load(t, nil) // the manifest does not list entities.filter
+
+	if _, err := r.rt.Grant(ctx, "capa", []sdk.Permission{sdk.PermEntitiesFilter}); !errors.Is(err, ErrNotRequested) {
+		t.Fatalf("a new un-asked grant: %v, want ErrNotRequested", err)
+	}
+	if err := r.rt.Grants().Set(ctx, "capa", []sdk.Permission{sdk.PermEntitiesFilter}); err != nil {
+		t.Fatal(err)
+	}
+	r.rt.Reregister("capa")
+	if st, _ := r.rt.status("capa"); !slices.Contains(st.Hooks, sdk.EntityBeforeSave.Name) {
+		t.Fatalf("a held grant registers the filter: %v", st.Hooks)
+	}
+	r.grant(t, sdk.PermEntitiesFilter) // re-submitting the held grant is fine
+	if _, err := r.rt.Grant(ctx, "capa", []sdk.Permission{sdk.PermEntitiesFilter, sdk.PermMailSend}); err == nil {
+		t.Fatal("other un-asked permissions still need the manifest")
+	}
+	r.grant(t) // and it can be revoked
+	if r.rt.Grants().Has("capa", sdk.PermEntitiesFilter) {
+		t.Fatal("revoke did not clear the grant")
+	}
+}
+
 func TestDeniedUntilGranted(t *testing.T) {
 	r := newCapaRig(t)
 	r.load(t, nil)

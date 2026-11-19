@@ -120,6 +120,12 @@ func init() {
 		p.SetCookies = append(p.SetCookies, sdk.SetCookie{Name: name, Value: "1", MaxAge: 3600})
 		return p, nil
 	})
+
+	// entity.before_save: renames the draft so a test can see the hook ran.
+	guest.OnFilter(sdk.EntityBeforeSave, func(d sdk.EntityDraft) (sdk.EntityDraft, error) {
+		d.Name = "filtered"
+		return d, nil
+	})
 }
 
 //go:wasmexport http_handle
@@ -136,6 +142,9 @@ func onFormSubmitted() int32 { return guest.Run(sdk.FormSubmitted.Export()) }
 
 //go:wasmexport filter_render_page
 func filterRenderPage() int32 { return guest.Run(sdk.RenderPage.Export()) }
+
+//go:wasmexport filter_entity_before_save
+func filterEntityBeforeSave() int32 { return guest.Run(sdk.EntityBeforeSave.Export()) }
 
 // call_host: input is a CallRequest; output an outcome.
 //

@@ -192,7 +192,20 @@ func TestHostilePluginsCannotAffectRequests(t *testing.T) {
 
 func TestBeforeSaveRejectAndFailOpen(t *testing.T) {
 	rt, engine, _ := newRuntime(t)
-	hostile(t, rt, "crashy", "panic")
+	ctx := context.Background()
+	filtering := func(name, mode string) {
+		t.Helper()
+		m := sdk.Manifest{Name: name, Version: "0.1.0", SDK: "^0.23", Config: map[string]string{"mode": mode},
+			Permissions: []string{sdk.PermEntitiesFilter},
+			Limits:      sdk.Limits{MemoryPages: 256, HookTimeoutsMS: map[string]uint64{"entity.published": 400}}}
+		if st := rt.Load(ctx, m, hostileWasm); !st.Loaded {
+			t.Fatalf("%s: %s", name, st.Error)
+		}
+		if _, err := rt.Grant(ctx, name, []sdk.Permission{sdk.PermEntitiesFilter}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	filtering("crashy", "panic")
 	draft := sdk.EntityDraft{Operation: "create", SchemaSlug: "post", Name: "n", Slug: "n"}
 
 	// A crash is fail-open: the save goes ahead with the draft untouched.
@@ -202,7 +215,7 @@ func TestBeforeSaveRejectAndFailOpen(t *testing.T) {
 	}
 
 	// A deliberate rejection refuses the save with its reason.
-	hostile(t, rt, "gatekeeper", "reject")
+	filtering("gatekeeper", "reject")
 	_, err = engine.ApplyStrict(context.Background(), sdk.EntityBeforeSave.Name, draft)
 	var rej *sdk.Reject
 	if !errors.As(err, &rej) || rej.Reason != "no thanks" {
