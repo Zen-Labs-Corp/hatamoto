@@ -15,9 +15,11 @@ package wasmhost
 import (
 	"context"
 	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"os"
 	"reflect"
 	"slices"
@@ -28,6 +30,7 @@ import (
 
 	extism "github.com/extism/go-sdk"
 	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/sdk"
@@ -52,6 +55,10 @@ const (
 	// slot and maxStartWait for a cold instance to start.
 	minSlotWait  = 2 * time.Second
 	maxStartWait = 5 * time.Second
+
+	// maxTableEntries bounds the summed declared table minimums of a module.
+	// Go guests declare about 8k entries.
+	maxTableEntries = 1 << 20
 )
 
 // slotWait is how long a call to export with the given hook timeout may wait
@@ -266,6 +273,84 @@ func (p *plugin) guestLog(level extism.LogLevel, msg string) {
 	p.log.Log(context.Background(), slogLevel(level), msg)
 }
 
+// readU32 decodes an unsigned LEB128 value of at most 32 bits from the start
+// of b and returns it with the number of bytes used. ok is false for an empty,
+// truncated, overlong or out-of-range encoding.
+func readU32(b []byte) (v uint64, n int, ok bool) {
+	for i := 0; i < len(b) && i < 5; i++ {
+		v |= uint64(b[i]&0x7f) << (7 * uint(i))
+		if b[i]&0x80 == 0 {
+			return v, i + 1, v <= math.MaxUint32
+		}
+	}
+	return 0, 0, false
+}
+
+// checkTables refuses a module whose table section is malformed or declares
+// more than maxTableEntries entries in total. It fails closed: anything it
+// cannot parse is an error.
+func checkTables(wasm []byte) error {
+	if len(wasm) < 8 || string(wasm[:4]) != "\x00asm" || binary.LittleEndian.Uint32(wasm[4:8]) != 1 {
+		return errors.New("not a wasm module")
+	}
+	b := wasm[8:]
+	for len(b) > 0 {
+		id := b[0]
+		size, n, ok := readU32(b[1:])
+		if !ok {
+			return errors.New("malformed section size")
+		}
+		b = b[1+n:]
+		if size > uint64(len(b)) {
+			return errors.New("section extends past the end of the module")
+		}
+		sec := b[:size]
+		b = b[size:]
+		if id != 4 {
+			if id > 12 && id != 0 {
+				return fmt.Errorf("unknown section %d", id)
+			}
+			continue
+		}
+		count, n, ok := readU32(sec)
+		if !ok {
+			return errors.New("malformed table count")
+		}
+		sec = sec[n:]
+		var total uint64
+		for i := uint64(0); i < count; i++ {
+			if len(sec) < 2 || sec[0] != 0x70 {
+				return errors.New("table is not a funcref table")
+			}
+			flags := sec[1]
+			if flags > 1 {
+				return fmt.Errorf("unsupported table limits flag %#x", flags)
+			}
+			sec = sec[2:]
+			min, n, ok := readU32(sec)
+			if !ok {
+				return errors.New("malformed table minimum")
+			}
+			sec = sec[n:]
+			if flags == 1 {
+				if _, n, ok = readU32(sec); !ok {
+					return errors.New("malformed table maximum")
+				}
+				sec = sec[n:]
+			}
+			total += min // at most 2^32 per table, so no overflow for any realistic count
+			if total > maxTableEntries {
+				return fmt.Errorf("tables declare %d entries (max %d)", total, maxTableEntries)
+			}
+		}
+		if len(sec) != 0 {
+			return errors.New("trailing bytes in table section")
+		}
+		return nil // sections are ordered: nothing after this one is a table
+	}
+	return nil
+}
+
 // Load compiles wasm and places the plugin under m.Name, replacing a plugin
 // of the same name once the old one's in-flight calls have finished. The
 // manifest is validated and defaulted here; a module that cannot be
@@ -281,6 +366,9 @@ func (h *Host) Load(ctx context.Context, m sdk.Manifest, wasm []byte) error {
 // load is Load for a manifest that is already validated.
 func (h *Host) load(ctx context.Context, m sdk.Manifest, wasm []byte) error {
 	m = m.WithDefaults()
+	if err := checkTables(wasm); err != nil {
+		return fmt.Errorf("wasmhost: %s: %w", m.Name, err)
+	}
 	manifest := extism.Manifest{
 		Wasm: []extism.Wasm{extism.WasmData{Data: wasm, Name: "main"}},
 		// MaxPages bounds every module of the runtime (kernel and guest), so
@@ -304,8 +392,12 @@ func (h *Host) load(ctx context.Context, m sdk.Manifest, wasm []byte) error {
 	}
 	funcs := []extism.HostFunction{h.hostFunction(m.Name, h.log.With(slog.String("plugin", m.Name)))}
 	compiled, err := extism.NewCompiledPlugin(ctx, manifest, extism.PluginConfig{
-		EnableWasi:    true, // Go wasip1 needs clock, random and proc_exit; nothing else is mounted
-		RuntimeConfig: wazero.NewRuntimeConfig().WithCompilationCache(h.cache),
+		EnableWasi: true, // Go wasip1 needs clock, random and proc_exit; nothing else is mounted
+		// Reference types stay off: the module cannot grow tables at run time
+		// or declare more than one, which keeps checkTables exact.
+		RuntimeConfig: wazero.NewRuntimeConfig().
+			WithCoreFeatures(api.CoreFeaturesV2 &^ api.CoreFeatureReferenceTypes).
+			WithCompilationCache(h.cache),
 	}, funcs)
 	if err != nil {
 		return fmt.Errorf("wasmhost: compile %s: %w", m.Name, err)
