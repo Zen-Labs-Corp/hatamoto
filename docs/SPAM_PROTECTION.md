@@ -21,7 +21,9 @@ JavaScript form or a plain browser post. Configure it once at **Forms > Spam pro
    site action is refuse.
 5. **Per-form rate limit.** A form can allow N submissions an hour per visitor (Settings, 0 or empty
    is no limit). The count comes from the stored IP; when the form does not keep IPs, an in-memory
-   counter per process is used. Over the limit is stored as spam with the reason "rate limit".
+   counter per process is used. An IPv6 sender is counted per /64 (its whole network prefix), and
+   that count is also kept in memory per process, so a restart resets it. Over the limit is stored
+   as spam with the reason "rate limit".
 
 The minimum time and the content rules apply to every form, with or without the captcha.
 
@@ -33,6 +35,11 @@ file is deleted with that submission. The body is capped at the form's file limi
 allowance, but a proxy or CDN in front has its own body-size limit (some default to 1 MB), so
 raise it to at least the form's largest file (25 MB at most) for the form paths, or large
 uploads fail before reaching Hatamoto.
+
+The store of form files holds at most `FORM_UPLOAD_MAX_TOTAL_MB` megabytes in total (default 1024,
+see the [configuration reference](site/operate/configuration-reference.md)). When it is full, a
+file part is refused with a message on that field and the submission is not saved; space frees up
+as submissions with files are deleted.
 
 When a rule trips, **Save as Spam** (the default) stores the submission with the Spam status. The
 visitor still sees the normal success message, but no notification email, confirmation email or
