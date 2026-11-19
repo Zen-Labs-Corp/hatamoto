@@ -287,13 +287,17 @@ func readU32(b []byte) (v uint64, n int, ok bool) {
 }
 
 // checkTables refuses a module whose table section is malformed or declares
-// more than maxTableEntries entries in total. It fails closed: anything it
-// cannot parse is an error.
+// more than maxTableEntries entries in total. It walks every section of the
+// module and refuses a repeated section: wazero does not enforce section
+// order or uniqueness and keeps the last section it reads, so looking only at
+// the first table section would not describe the table that gets allocated.
+// It fails closed: anything it cannot parse is an error.
 func checkTables(wasm []byte) error {
 	if len(wasm) < 8 || string(wasm[:4]) != "\x00asm" || binary.LittleEndian.Uint32(wasm[4:8]) != 1 {
 		return errors.New("not a wasm module")
 	}
 	b := wasm[8:]
+	var seen [13]bool
 	for len(b) > 0 {
 		id := b[0]
 		size, n, ok := readU32(b[1:])
@@ -306,10 +310,16 @@ func checkTables(wasm []byte) error {
 		}
 		sec := b[:size]
 		b = b[size:]
-		if id != 4 {
-			if id > 12 && id != 0 {
+		if id != 0 {
+			if id > 12 {
 				return fmt.Errorf("unknown section %d", id)
 			}
+			if seen[id] {
+				return fmt.Errorf("duplicate section %d", id)
+			}
+			seen[id] = true
+		}
+		if id != 4 {
 			continue
 		}
 		count, n, ok := readU32(sec)
@@ -346,7 +356,6 @@ func checkTables(wasm []byte) error {
 		if len(sec) != 0 {
 			return errors.New("trailing bytes in table section")
 		}
-		return nil // sections are ordered: nothing after this one is a table
 	}
 	return nil
 }
@@ -394,7 +403,7 @@ func (h *Host) load(ctx context.Context, m sdk.Manifest, wasm []byte) error {
 	compiled, err := extism.NewCompiledPlugin(ctx, manifest, extism.PluginConfig{
 		EnableWasi: true, // Go wasip1 needs clock, random and proc_exit; nothing else is mounted
 		// Reference types stay off: the module cannot grow tables at run time
-		// or declare more than one, which keeps checkTables exact.
+		// or declare more than one, and checkTables sees the one table section wazero keeps.
 		RuntimeConfig: wazero.NewRuntimeConfig().
 			WithCoreFeatures(api.CoreFeaturesV2 &^ api.CoreFeatureReferenceTypes).
 			WithCompilationCache(h.cache),

@@ -42,6 +42,15 @@ func TestTablesAreBounded(t *testing.T) {
 		// ref.null func; i32.const 1; table.grow 0; drop
 		section(0x0a, 0x01, 0x0a, 0x00, 0xd0, 0x70, 0x41, 0x01, 0xfc, 0x0f, 0x00, 0x1a, 0x0b),
 	)
+	// wazero keeps the last of two table sections, so the first one must not
+	// vouch for the module.
+	dupModule := concat(wasmHeader,
+		section(0x01, 0x01, 0x60, 0x00, 0x00),
+		section(0x03, 0x01, 0x00),
+		section(0x04, 0x01, 0x70, 0x00, 0x01),
+		section(0x04, 0x01, 0x70, 0x00, 0x80, 0x80, 0x80, 0x40), // 1<<27 entries
+		section(0x0a, 0x01, 0x02, 0x00, 0x0b),
+	)
 	cases := []struct {
 		name string
 		wasm []byte
@@ -49,6 +58,7 @@ func TestTablesAreBounded(t *testing.T) {
 	}{
 		{"grow instruction", growModule, false},
 		{"minimum of 2^24 entries", tableModule(0x80, 0x80, 0x80, 0x08), false},
+		{"second table section of 2^27 entries", dupModule, false},
 		{"minimum of 8000 entries", tableModule(0xc0, 0x3e), true},
 	}
 	for _, c := range cases {

@@ -6,6 +6,12 @@ func TestCheckTablesFailsClosed(t *testing.T) {
 	twoTables := concat(wasmHeader, section(0x04, 0x02,
 		0x70, 0x00, 0x80, 0x80, 0x40, // 1<<20 entries
 		0x70, 0x00, 0x01))
+	dupTables := concat(wasmHeader,
+		section(0x04, 0x01, 0x70, 0x00, 0x01),
+		section(0x04, 0x01, 0x70, 0x00, 0x80, 0x80, 0x80, 0x40)) // second: 1<<27 entries
+	dupSmall := concat(wasmHeader,
+		section(0x04, 0x01, 0x70, 0x00, 0x01),
+		section(0x04, 0x01, 0x70, 0x00, 0x01))
 	cases := []struct {
 		name string
 		wasm []byte
@@ -24,6 +30,9 @@ func TestCheckTablesFailsClosed(t *testing.T) {
 		{"trailing bytes", concat(wasmHeader, section(0x04, 0x01, 0x70, 0x00, 0x01, 0x00)), false},
 		{"missing maximum", concat(wasmHeader, section(0x04, 0x01, 0x70, 0x01, 0x01)), false},
 		{"sum across tables over the cap", twoTables, false},
+		{"two table sections, second over the cap", dupTables, false},
+		{"two table sections, both small", dupSmall, false},
+		{"table section after a custom section", concat(wasmHeader, section(0x00, 0x01, 'x'), section(0x04, 0x01, 0x70, 0x00, 0x01)), true},
 		{"no table section", concat(wasmHeader, section(0x01, 0x01, 0x60, 0x00, 0x00)), true},
 		{"table of 8000 entries", tableModule(0xc0, 0x3e), true},
 		{"table at the cap with a maximum", concat(wasmHeader, section(0x04, 0x01, 0x70, 0x01, 0x80, 0x80, 0x40, 0x80, 0x80, 0x40)), true},
