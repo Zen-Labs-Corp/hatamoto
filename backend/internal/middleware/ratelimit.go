@@ -18,7 +18,15 @@ type RateLimiter struct {
 	cleanup  time.Duration
 	stopCh   chan struct{}
 	slash64  bool
+
+	// maxVisitors bounds the visitors map. Once it is full of live entries,
+	// new keys share the overflow limiter instead of getting their own.
+	maxVisitors int
+	overflow    *rate.Limiter
 }
+
+// defaultMaxVisitors is the visitors map size a limiter allows by default.
+const defaultMaxVisitors = 100000
 
 type visitor struct {
 	limiter  *rate.Limiter
@@ -35,6 +43,8 @@ func NewRateLimiter(rps float64, burst int) *RateLimiter {
 		burst:    burst,
 		cleanup:  3 * time.Minute,
 		stopCh:   make(chan struct{}),
+
+		maxVisitors: defaultMaxVisitors,
 	}
 
 	// Start cleanup goroutine
@@ -69,6 +79,15 @@ func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
 
 	v, exists := rl.visitors[ip]
 	if !exists {
+		if len(rl.visitors) >= rl.maxVisitors {
+			rl.sweepLocked()
+		}
+		if len(rl.visitors) >= rl.maxVisitors {
+			if rl.overflow == nil {
+				rl.overflow = rate.NewLimiter(rl.rate, rl.burst)
+			}
+			return rl.overflow
+		}
 		limiter := rate.NewLimiter(rl.rate, rl.burst)
 		rl.visitors[ip] = &visitor{limiter: limiter, lastSeen: time.Now()}
 		return limiter
@@ -78,17 +97,22 @@ func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
 	return v.limiter
 }
 
+// sweepLocked deletes idle entries. The caller holds rl.mu.
+func (rl *RateLimiter) sweepLocked() {
+	for ip, v := range rl.visitors {
+		if time.Since(v.lastSeen) > rl.cleanup {
+			delete(rl.visitors, ip)
+		}
+	}
+}
+
 // cleanupVisitors removes stale entries. It exits when stopCh is closed.
 func (rl *RateLimiter) cleanupVisitors() {
 	for {
 		select {
 		case <-time.After(time.Minute):
 			rl.mu.Lock()
-			for ip, v := range rl.visitors {
-				if time.Since(v.lastSeen) > rl.cleanup {
-					delete(rl.visitors, ip)
-				}
-			}
+			rl.sweepLocked()
 			rl.mu.Unlock()
 		case <-rl.stopCh:
 			return
