@@ -603,6 +603,10 @@ func (h *Host) HasExport(name, export string) bool {
 	inst, err := p.newInstance(startCtx)
 	cancelStart()
 	if err != nil {
+		// Callers register hooks from this answer, so say that false here
+		// means "could not start", not "no such export".
+		p.log.Warn("wasmhost: could not start an instance to look up an export",
+			slog.String("export", export), slog.Any("error", err))
 		return false
 	}
 	defer inst.Close(context.Background())
