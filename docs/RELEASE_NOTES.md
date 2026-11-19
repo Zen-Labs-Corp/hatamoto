@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: profile photo only for public profiles
+
+- **Complete your profile.** The photo is needed only when **Show my public profile** is on. A user whose profile stays hidden completes the step with a name alone. The site already shows a person who is not public as a name only, with no photo.
+- **Profile form.** The Photo field on Your profile and on Complete your profile no longer shows Required. It carries the hint "Needed for a public profile." Saving a public profile without a photo is refused with "Add a photo to show your public profile."
+- **Existing users.** Nobody is newly sent to the step. A user with a hidden profile and no photo is let through.
+- **Migration.** None. Rollback floor: unchanged. An older release sends users with a hidden profile and no photo back to the step.
+
 ## Unreleased: plugin host limits, entities.filter permission and tag pack origin rule
 
 - **Wasm modules.** The host now caps the total table entries a plugin module declares, and it refuses a module that repeats a section. Reference types are off when a module loads. Go `wasip1` guests are unaffected. A guest built with reference types must disable them (see PLUGIN_API.md). A plugin that is over a limit is not loaded after the upgrade; its status and the log name the reason.

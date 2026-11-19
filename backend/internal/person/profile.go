@@ -23,10 +23,11 @@ const (
 )
 
 // Complete reports whether a profile has what a signed-in user must provide:
-// a name and a photo. The admin sends users with an incomplete profile to the
-// "Complete your profile" step.
+// a name, and a photo when the profile is public. A hidden person is never
+// shown to visitors, so it needs no photo. The admin sends users with an
+// incomplete profile to the "Complete your profile" step.
 func Complete(p *Person) bool {
-	return p != nil && strings.TrimSpace(p.Name) != "" && strings.TrimSpace(p.Photo) != ""
+	return p != nil && strings.TrimSpace(p.Name) != "" && (!p.Public || strings.TrimSpace(p.Photo) != "")
 }
 
 // ProfileInput is what the profile forms edit. The person's other attributes
@@ -48,8 +49,9 @@ func (e *ValidationError) Error() string {
 	return fmt.Sprintf("invalid profile: %d field(s)", len(e.Fields))
 }
 
-// Validate trims the input and checks it. Name and photo are required; the
-// rest is optional. It returns nil when the input is good.
+// Validate trims the input and checks it. The name is required, and so is the
+// photo when the profile is public; the rest is optional. It returns nil when
+// the input is good.
 func (in *ProfileInput) Validate() *ValidationError {
 	in.Name, in.Photo = strings.TrimSpace(in.Name), strings.TrimSpace(in.Photo)
 	in.JobTitle, in.ShortBio, in.LinkedIn = strings.TrimSpace(in.JobTitle), strings.TrimSpace(in.ShortBio), strings.TrimSpace(in.LinkedIn)
@@ -60,8 +62,8 @@ func (in *ProfileInput) Validate() *ValidationError {
 	case utf8.RuneCountInString(in.Name) > maxProfileName:
 		errs["name"] = fmt.Sprintf("Use at most %d characters", maxProfileName)
 	}
-	if in.Photo == "" {
-		errs["photo"] = "Add a photo"
+	if in.Photo == "" && in.Public {
+		errs["photo"] = "Add a photo to show your public profile"
 	}
 	if utf8.RuneCountInString(in.JobTitle) > maxProfileJobTitle {
 		errs["job_title"] = fmt.Sprintf("Use at most %d characters", maxProfileJobTitle)

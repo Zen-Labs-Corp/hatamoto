@@ -73,16 +73,18 @@ func inputTag(body, id string) string {
 	return body[start : i+end]
 }
 
-func TestCompleteProfileRequiresPhoto(t *testing.T) {
+// A public profile needs a photo: it is shown on the author page.
+func TestCompleteProfilePublicNeedsPhoto(t *testing.T) {
 	t.Parallel()
 
 	g, people := newProfileRig(t)
-	rec := g.do("POST", "/admin/profile/complete", "editor-token", completeForm(url.Values{"photo": {""}}), nil)
+	// A checked switch posts "true" then the off value.
+	rec := g.do("POST", "/admin/profile/complete", "editor-token", completeForm(url.Values{"photo": {""}, "public": {"true", "false"}}), nil)
 	if rec.Code != 422 {
 		t.Fatalf("status %d, want 422", rec.Code)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Add a photo") || !strings.Contains(body, `aria-invalid="true"`) {
+	if !strings.Contains(body, "Add a photo to show your public profile") || !strings.Contains(body, `aria-invalid="true" aria-describedby="photo-help photo-error"`) {
 		t.Errorf("no field error for the photo:\n%s", body)
 	}
 	if !strings.Contains(body, `value="Edie Editor"`) {
@@ -99,6 +101,45 @@ func TestCompleteProfileRequiresPhoto(t *testing.T) {
 	rec = g.do("POST", "/admin/profile/complete", "editor-token", completeForm(url.Values{"name": {" "}}), nil)
 	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Enter your name") {
 		t.Errorf("blank name: %d", rec.Code)
+	}
+}
+
+// A hidden profile needs only a name: nobody outside the admin sees it.
+func TestCompleteProfileHiddenNeedsNoPhoto(t *testing.T) {
+	t.Parallel()
+
+	g, people := newProfileRig(t)
+	rec := g.do("POST", "/admin/profile/complete", "editor-token", completeForm(url.Values{"photo": {""}, "next": {"/admin/entities"}}), nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/entities" {
+		t.Fatalf("save without a photo = %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	p, err := people.ForUser(context.Background(), g.editor.ID)
+	if err != nil || p.Photo != "" || p.Public || !person.Complete(p) {
+		t.Fatalf("saved person = %+v, %v", p, err)
+	}
+	// The gate lets the user through, and the step has nothing more to ask.
+	if rec := g.do("GET", "/admin/entities", "editor-token", nil, nil); strings.HasPrefix(rec.Header().Get("Location"), completeProfilePath) {
+		t.Errorf("still sent to the step: %q", rec.Header().Get("Location"))
+	}
+	rec = g.do("GET", "/admin/profile/complete?next=/admin/settings/design", "editor-token", nil, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin/settings/design" {
+		t.Errorf("step for a complete hidden profile = %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
+// A user with no person yet is never complete, even though the form is
+// prefilled with the account name and a hidden profile needs no photo: the
+// step renders instead of sending the user on, which the gate would undo in a
+// redirect loop.
+func TestCompleteProfileWithoutPersonRenders(t *testing.T) {
+	t.Parallel()
+
+	g, _ := newProfileRig(t)
+	name := "Edie Editor"
+	g.editor.Name = &name
+	rec := g.do("GET", "/admin/profile/complete?next=/admin/entities", "editor-token", nil, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `value="Edie Editor"`) {
+		t.Fatalf("no person, account name set = %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 }
 

@@ -47,6 +47,24 @@ func TestProfileGateBouncesIncompleteUser(t *testing.T) {
 	}
 }
 
+// The photo counts only for a public person: a public person without one is
+// sent to the step, a hidden one is let through.
+func TestProfileGatePhotoOnlyForPublicProfiles(t *testing.T) {
+	t.Parallel()
+
+	g, people := gateRig(t)
+	people.set(g.editor.ID, &person.Person{Name: "Edie Editor", Public: true, Slug: "edie", Links: map[string]string{}})
+	rec := g.do("GET", "/admin/entities", "editor-token", nil, nil)
+	if rec.Code != http.StatusSeeOther || !strings.HasPrefix(rec.Header().Get("Location"), completeProfilePath) {
+		t.Errorf("public without a photo = %d %q, want the profile step", rec.Code, rec.Header().Get("Location"))
+	}
+	people.set(g.editor.ID, &person.Person{Name: "Edie Editor", Slug: "edie", Links: map[string]string{}})
+	rec = g.do("GET", "/admin/entities", "editor-token", nil, nil)
+	if strings.HasPrefix(rec.Header().Get("Location"), completeProfilePath) {
+		t.Errorf("hidden without a photo sent to %q", rec.Header().Get("Location"))
+	}
+}
+
 func TestProfileGateExemptRoutesAreReachable(t *testing.T) {
 	t.Parallel()
 
@@ -71,7 +89,8 @@ func TestProfileGateExemptRoutesAreReachable(t *testing.T) {
 			}
 			var form url.Values
 			if c.method == "POST" {
-				form = url.Values{"name": {"E"}}
+				// Public without a photo: a profile save is refused, so the user stays incomplete.
+				form = url.Values{"name": {"E"}, "public": {"true"}}
 			}
 			rec := g.do(c.method, c.path, "editor-token", form, hdr)
 			if l := loc(rec); strings.HasPrefix(l, "/admin/profile/complete") && !strings.HasPrefix(c.path, "/admin/profile") {
@@ -219,8 +238,9 @@ func TestProfileGateSkipsSetupWizardUntilSetupCompletes(t *testing.T) {
 	}
 }
 
-// A profile with no photo shows initials and a hidden preview; the Required marker and the bare
-// layout (no sidebar) belong to the gated "Complete your profile" step only.
+// A profile with no photo shows initials and a hidden preview; the bare layout
+// (no sidebar) belongs to the gated "Complete your profile" step only. Neither
+// page marks the photo Required: it is needed only for a public profile.
 func TestProfilePhotoFallbackAndCompleteLayout(t *testing.T) {
 	t.Parallel()
 
@@ -229,16 +249,16 @@ func TestProfilePhotoFallbackAndCompleteLayout(t *testing.T) {
 	if !strings.Contains(profile, `class="hm-avatar hm-avatar--lg hm-photo-avatar"`) || !strings.Contains(profile, `class="hm-sf-image hm-photo-preview" src="" alt="Your photo" data-hm-photo hidden`) {
 		t.Errorf("no photo: initials avatar and a hidden preview expected:\n%s", profile)
 	}
-	if strings.Contains(profile, `Photo <span class="hm-field__req">`) {
-		t.Error("the photo label must not show Required on the profile page")
+	if strings.Contains(profile, `Photo <span class="hm-field__req">`) || !strings.Contains(profile, `<p class="hm-field__help" id="photo-help">Needed for a public profile.</p>`) {
+		t.Error("the profile page: no Required on the photo, and the public profile hint")
 	}
 	// The owner has a photo: the identity row shows it instead of initials.
 	if own := g.do("GET", "/admin/profile", "owner-token", nil, nil).Body.String(); !strings.Contains(own, `<img class="hm-avatar" src="/media/olga.jpg" alt="" data-hm-photo data-initials="`) {
 		t.Error("the identity row must show the photo (with the initials fallback) when there is one")
 	}
 	complete := g.do("GET", "/admin/profile/complete", "editor-token", nil, nil).Body.String()
-	if !strings.Contains(complete, `Photo <span class="hm-field__req">`) {
-		t.Error("the photo label must show Required on Complete your profile")
+	if strings.Contains(complete, `Photo <span class="hm-field__req">`) || !strings.Contains(complete, `<p class="hm-field__help" id="photo-help">Needed for a public profile.</p>`) {
+		t.Error("Complete your profile: no Required on the photo, and the public profile hint")
 	}
 	if strings.Contains(complete, "hm-sidebar") || !strings.Contains(complete, `class="hm-bare"`) {
 		t.Error("Complete your profile must render without the sidebar")

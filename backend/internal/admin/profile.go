@@ -28,8 +28,6 @@ type profileData struct {
 	SlugFixed       bool
 	// Next is where "Save and continue" goes (the complete-profile page).
 	Next string
-	// PhotoRequired marks the photo with * on "Complete your profile" only.
-	PhotoRequired bool
 	// Initials fill the avatar until a photo exists; RoleLabel and RoleKind draw the role badge.
 	Initials, RoleLabel, RoleKind string
 
@@ -61,14 +59,14 @@ func (a *Admin) mountProfile(authed *httpx.Group) {
 	a.mountSecurity(authed)
 }
 
-// fillPerson loads the signed-in user's person into d. A user who has none yet
-// gets an empty form: the person is made on the first save, from the name typed
-// there.
-func (a *Admin) fillPerson(r *http.Request, d *profileData) error {
+// fillPerson loads the signed-in user's person into d and returns it. A user
+// who has none yet gets an empty form and a nil person: the person is made on
+// the first save, from the name typed there.
+func (a *Admin) fillPerson(r *http.Request, d *profileData) (*person.Person, error) {
 	u := userFrom(r.Context())
 	id, err := uuid.Parse(u.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	p, err := a.deps.People.ForUser(r.Context(), id)
 	if errors.Is(err, person.ErrNotFound) {
@@ -76,16 +74,16 @@ func (a *Admin) fillPerson(r *http.Request, d *profileData) error {
 			d.Name = u.Name
 		}
 		a.setPublicURL(r.Context(), d, nil)
-		return nil
+		return nil, nil
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	d.Name = p.Name
 	d.Photo, d.JobTitle, d.ShortBio, d.LinkedIn = p.Photo, p.JobTitle, p.ShortBio, p.Links["linkedin"]
 	d.Public = p.Public
 	a.setPublicURL(r.Context(), d, p)
-	return nil
+	return p, nil
 }
 
 // setPublicURL fills the page address shown beside the public switch. A person
@@ -128,7 +126,6 @@ func (a *Admin) renderProfile(w http.ResponseWriter, r *http.Request, status int
 	if page == "profile/complete" {
 		v.Title = "Complete your profile"
 		v.Wide = true // the gated step has no nav: it renders on the bare layout
-		d.PhotoRequired = true
 	}
 	v.Data = d
 	v.Width = "narrow"
@@ -146,7 +143,7 @@ func (a *Admin) peopleReady(w http.ResponseWriter, r *http.Request) bool {
 func (a *Admin) handleProfile(w http.ResponseWriter, r *http.Request) {
 	var d profileData
 	if a.deps.People != nil {
-		if err := a.fillPerson(r, &d); err != nil {
+		if _, err := a.fillPerson(r, &d); err != nil {
 			a.logger().Error("load profile failed", "err", err)
 			a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "Your profile could not be loaded.")
 			return
@@ -163,12 +160,15 @@ func (a *Admin) handleProfileComplete(w http.ResponseWriter, r *http.Request) {
 	}
 	next := SafeNextFor(a.adminPath, r.URL.Query().Get("next"))
 	var d profileData
-	if err := a.fillPerson(r, &d); err != nil {
+	p, err := a.fillPerson(r, &d)
+	if err != nil {
 		a.logger().Error("load profile failed", "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "Your profile could not be loaded.")
 		return
 	}
-	if d.Name != "" && d.Photo != "" {
+	// The same rule as the gate. A user with no person yet is never complete,
+	// even when the form is prefilled with the account name.
+	if person.Complete(p) {
 		http.Redirect(w, r, a.afterProfile(next), http.StatusSeeOther)
 		return
 	}
@@ -314,7 +314,7 @@ func (a *Admin) handleProfilePassword(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if a.deps.People != nil {
-		_ = a.fillPerson(r, &d)
+		_, _ = a.fillPerson(r, &d)
 	}
 	a.renderProfile(w, r, http.StatusUnprocessableEntity, "profile/index", d)
 }
