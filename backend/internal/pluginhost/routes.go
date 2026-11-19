@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"hatamoto.dev/core/internal/logutil"
 	"io"
 	"log/slog"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/logutil"
 	"hatamoto.dev/core/internal/wasmhost"
 	"hatamoto.dev/sdk"
 )

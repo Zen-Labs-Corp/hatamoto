@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/logutil"
 )
 
 const (
@@ -164,7 +165,7 @@ func (s *Service) processLogEntries() {
 	for entry := range s.logCh {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		if err := s.repo.Upsert404Entry(ctx, entry.Path, entry.Referrer, entry.UserAgent); err != nil {
-			s.logger.Error("failed to log 404", slog.String("path", entry.Path), slog.String("error", err.Error()))
+			s.logger.Error("failed to log 404", slog.String("path", logutil.CapField(entry.Path)), slog.String("error", err.Error()))
 		}
 		cancel()
 	}
@@ -198,7 +199,7 @@ func (s *Service) Log404Async(path, referrer, userAgent string) {
 	select {
 	case s.logCh <- entry:
 	default:
-		s.logger.Warn("404 log channel full, dropping entry", slog.String("path", path))
+		s.logger.Warn("404 log channel full, dropping entry", slog.String("path", logutil.CapField(path)))
 	}
 }
 
