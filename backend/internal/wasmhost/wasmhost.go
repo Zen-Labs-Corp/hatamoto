@@ -318,7 +318,11 @@ func (h *Host) load(ctx context.Context, m sdk.Manifest, wasm []byte) error {
 		wasmBytes: int64(len(wasm)),
 		now:       h.now,
 	}
-	inst, err := p.newInstance(ctx)
+	// A wasm start section runs during instantiation: bound it like a cold
+	// start in Call.
+	startCtx, cancelStart := context.WithTimeout(ctx, maxStartWait)
+	inst, err := p.newInstance(startCtx)
+	cancelStart()
 	if err != nil {
 		_ = compiled.Close(ctx)
 		return fmt.Errorf("wasmhost: instantiate %s: %w", m.Name, err)
@@ -494,7 +498,9 @@ func (h *Host) HasExport(name, export string) bool {
 		p.release(inst) // HasExport holds no slot, so the pool may have refilled
 		return ok
 	}
-	inst, err := p.newInstance(context.Background())
+	startCtx, cancelStart := context.WithTimeout(context.Background(), maxStartWait)
+	inst, err := p.newInstance(startCtx)
+	cancelStart()
 	if err != nil {
 		return false
 	}
