@@ -234,6 +234,8 @@ func register[In any](s *Server, spec toolSpec, h func(ctx context.Context, key 
 		}
 		var out any
 		switch {
+		case hmauth.OwnerOnlyScope(spec.scope) && key.CreatorRole != "owner":
+			err = userErr("forbidden: the %s scope needs a key created by an owner", spec.scope)
 		case !key.HasScope(spec.scope):
 			err = userErr("forbidden: the API key lacks the %s scope", spec.scope)
 		default:

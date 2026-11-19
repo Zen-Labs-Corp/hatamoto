@@ -211,8 +211,8 @@ func TestOwnerOnlyToolsNeedOwnerCreator(t *testing.T) {
 				sess := session(t, ts)
 				text, isErr := call(t, sess, name, args)
 				sess.Close()
-				if role == "editor" && (!isErr || !strings.Contains(text, "forbidden")) {
-					t.Errorf("%s, editor creator, scopes %v: isError=%v %q, want forbidden", name, scopes, isErr, text)
+				if role == "editor" && (!isErr || !strings.Contains(text, "needs a key created by an owner")) {
+					t.Errorf("%s, editor creator, scopes %v: isError=%v %q, want the owner-created key refusal", name, scopes, isErr, text)
 				}
 				if role == "owner" && isErr {
 					t.Errorf("%s, owner creator, scopes %v: %s", name, scopes, text)
