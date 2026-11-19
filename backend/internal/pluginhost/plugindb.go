@@ -23,7 +23,11 @@ const (
 	maxDBResultBytes = 1 << 20
 	maxDBArgs        = 64
 	maxDBSQLBytes    = 64 << 10
-	dbLockTimeout    = 2 * time.Second
+	// maxDBMessageBytes is the largest protocol message body accepted from the
+	// server on a plugin connection. A larger row fails the call and drops the
+	// connection.
+	maxDBMessageBytes = 4 << 20
+	dbLockTimeout     = 2 * time.Second
 )
 
 // SchemaName is the Postgres schema of a plugin's data. Plugin names are
@@ -145,8 +149,13 @@ func (d *PluginDB) Query(ctx context.Context, plugin, sql string, args ...any) (
 		for _, f := range rows.FieldDescriptions() {
 			res.Columns = append(res.Columns, f.Name)
 		}
-		size := 0
+		size, raw := 0, 0
 		for rows.Next() {
+			// Judge the wire size before anything is decoded or re-encoded.
+			if raw += rawRowSize(rows.RawValues()); raw > maxDBMessageBytes {
+				res.Truncated = true
+				return nil
+			}
 			vals, err := rows.Values()
 			if err != nil {
 				return err
@@ -165,6 +174,20 @@ func (d *PluginDB) Query(ctx context.Context, plugin, sql string, args ...any) (
 		return rows.Err()
 	}, nil)
 	return res, err
+}
+
+// rawRowSize is the wire size of a row's values. Query uses it as a bound on
+// the decode work (running total, at most maxDBMessageBytes) and leaves the
+// exact cap to the marshalled size against maxDBResultBytes: binary-format
+// values can be several times larger on the wire than in JSON (an int4[] of
+// single digits is 4x, a numeric[] more), so a raw cap at maxDBResultBytes
+// would truncate results that fit the JSON cap.
+func rawRowSize(raw [][]byte) int {
+	n := 0
+	for _, v := range raw {
+		n += len(v)
+	}
+	return n
 }
 
 // Exec runs one guarded statement as the plugin and returns the rows it touched.

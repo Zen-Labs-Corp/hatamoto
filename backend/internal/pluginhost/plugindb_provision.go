@@ -453,6 +453,9 @@ func pluginConnConfig(base *pgx.ConnConfig, plugin, role, password string) *pgx.
 	// under the driver's feet.
 	cc.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
 	cc.StatementCacheCapacity, cc.DescriptionCacheCapacity = 0, 0
+	// The driver applies this after BuildFrontend, so it must be set here
+	// rather than inherited from the core config.
+	cc.MaxProtocolMessageBodyLen = maxDBMessageBytes
 	return cc
 }
 

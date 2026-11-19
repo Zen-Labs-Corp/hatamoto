@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: plugin host limits
+
+- **Wasm modules.** The host now caps the total table entries a plugin module declares, and it refuses a module that repeats a section. Reference types are off when a module loads. Go `wasip1` guests are unaffected. A guest built with reference types must disable them (see PLUGIN_API.md). A plugin that is over a limit is not loaded after the upgrade; its status and the log name the reason.
+- **Instantiation.** Instantiating a module is bounded by the start timeout (5 s) at load. Compiling is not part of that bound.
+- **Plugin database.** Plugin database connections cap each server message at 4 MiB, and a result is judged by raw row size before it is decoded. A call that goes over fails with an error and the connection is replaced.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: install stats always detailed
 
 - **Setup.** The wizard no longer has a Stats step. It has seven screens: Your account, Admin address, Your site, Email, Look, Content and Done.
