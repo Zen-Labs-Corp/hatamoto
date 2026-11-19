@@ -302,7 +302,7 @@ func refusal(err error) error {
 	case errors.As(err, &pe), errors.Is(err, packages.ErrUninstalling), errors.Is(err, packages.ErrIndexExpired), errors.Is(err, packages.ErrIndexNotFresh), errors.Is(err, packages.ErrInsecureURL),
 		errors.Is(err, packages.ErrUnsigned), errors.Is(err, packages.ErrUntrustedKey), errors.Is(err, packages.ErrBadSignature),
 		errors.Is(err, packages.ErrUnsignedNotAllowed), errors.Is(err, packages.ErrSignerNotAllowed), errors.Is(err, packages.ErrDevDisabled),
-		errors.Is(err, packages.ErrReservedName), errors.Is(err, packages.ErrPermission), errors.Is(err, packages.ErrRegistryOff), errors.Is(err, packages.ErrCommunityScripts),
+		errors.Is(err, packages.ErrReservedName), errors.Is(err, packages.ErrPermission), errors.Is(err, packages.ErrRegistryOff), errors.Is(err, packages.ErrCommunityScripts), errors.Is(err, packages.ErrCommunityTags), errors.Is(err, packages.ErrCommunityCSP),
 		errors.Is(err, packages.ErrDeveloperOff), errors.Is(err, packages.ErrDeveloperKeyMismatch), errors.Is(err, packages.ErrDeveloperSignerChanged), errors.Is(err, packages.ErrRevoked), errors.Is(err, packages.ErrRedirectPathTaken):
 		return &admin.Refusal{Msg: strings.TrimPrefix(err.Error(), "package: ")}
 	}
@@ -343,6 +343,11 @@ func (p *packageAdmin) Inspect(ctx context.Context, data []byte) (admin.PackageS
 	}
 	if sum.Problem == "" && pkg.Kind == packages.KindPlugin {
 		if err := packages.CheckCommunityCSP(origin, pkg); err != nil {
+			sum.Problem = err.Error()
+		}
+	}
+	if sum.Problem == "" && pkg.Kind == packages.KindPlugin {
+		if err := packages.CheckCommunityTags(origin, pkg); err != nil {
 			sum.Problem = err.Error()
 		}
 	}
