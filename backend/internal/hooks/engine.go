@@ -240,6 +240,15 @@ func (e *Engine) HasFilter(name string) bool {
 	return len(e.filters[name]) > 0
 }
 
+// FilterCount is the number of callbacks registered for the filter (one per
+// plugin for a plugin hook). The render.page cache decision compares it with
+// the runtime's own count to spot filters it knows no manifest for.
+func (e *Engine) FilterCount(name string) int {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return len(e.filters[name])
+}
+
 // ErrFailClosed marks a filter error that must refuse a validating (strict)
 // chain instead of being skipped. Non-strict chains ignore the mark.
 var ErrFailClosed = errors.New("hooks: filter unavailable")

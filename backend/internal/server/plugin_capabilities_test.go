@@ -30,13 +30,23 @@ func capaManifest() sdk.Manifest {
 
 func capaRuntime(t *testing.T, s *Server) *pluginhost.Runtime {
 	t.Helper()
+	return capaRuntimeWith(t, s, nil)
+}
+
+// capaRuntimeWith is capaRuntime with a change to the manifest.
+func capaRuntimeWith(t *testing.T, s *Server, mutate func(*sdk.Manifest)) *pluginhost.Runtime {
+	t.Helper()
 	rt, err := pluginhost.NewRuntime(slog.New(slog.NewTextHandler(io.Discard, nil)), s.hooks, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { rt.Close(context.Background()) })
 	rt.Configure(pluginhost.Config{})
-	if st := rt.Load(context.Background(), capaManifest(), plugintest.Build(t, "capa")); !st.Loaded {
+	m := capaManifest()
+	if mutate != nil {
+		mutate(&m)
+	}
+	if st := rt.Load(context.Background(), m, plugintest.Build(t, "capa")); !st.Loaded {
 		t.Fatalf("capa: %s", st.Error)
 	}
 	s.plugins = rt
@@ -181,23 +191,26 @@ func TestPluginGrantAPI(t *testing.T) {
 	}
 }
 
+// membersPage is a page with a visible intro block and a secret one.
+func membersPage() (*routeResult, pageOutcome, error) {
+	p := pageResponse("Members")
+	p.Entity.Attributes = jsontext.Value(`{"page_sections":[
+		{"id":"intro","type":"content","title":"Intro","content":{"headline":"INTRO-VISIBLE","body":"<p>hi</p>"}},
+		{"id":"secret","type":"content","title":"Secret","content":{"headline":"SECRET-BLOCK","body":"<p>members only</p>"}}]}`)
+	return &routeResult{Page: p, Kind: resolveKindEntity}, pageOutcome{Status: 200}, nil
+}
+
 // render.page hides a block and sets a declared cookie, and such pages are
 // request-dependent: private and never cached.
 func TestRenderPagePlugin(t *testing.T) {
 	f := newRenderFixture(t)
 	_, s := bootRoutes(t)
 	capaRuntime(t, s)
-	f.h.pageFilter = pluginhost.NewPageFilter(s.hooks)
+	f.h.pageFilter = pluginhost.NewPageFilter(s.plugins, s.hooks)
 	if !f.h.pageFilter.Active() {
 		t.Fatal("the filter must be active once a plugin handles render.page")
 	}
-	f.next = func() (*routeResult, pageOutcome, error) {
-		p := pageResponse("Members")
-		p.Entity.Attributes = jsontext.Value(`{"page_sections":[
-			{"id":"intro","type":"content","title":"Intro","content":{"headline":"INTRO-VISIBLE","body":"<p>hi</p>"}},
-			{"id":"secret","type":"content","title":"Secret","content":{"headline":"SECRET-BLOCK","body":"<p>members only</p>"}}]}`)
-		return &routeResult{Page: p, Kind: resolveKindEntity}, pageOutcome{Status: 200}, nil
-	}
+	f.next = membersPage
 
 	w := f.get("/members")
 	body := w.Body.String()
@@ -314,5 +327,106 @@ func TestFormAttributionEvent(t *testing.T) {
 	b, _ = jsonx.Marshal(sdk.FormSubmittedEvent{})
 	if strings.Contains(string(b), "attribution") {
 		t.Errorf("empty event carries attribution: %s", b)
+	}
+}
+
+// A render.page plugin that declares page_paths makes only those pages
+// request-dependent; every other page is cached and public.
+func TestRenderPagePluginDeclaredPaths(t *testing.T) {
+	f := newRenderFixture(t)
+	_, s := bootRoutes(t)
+	rt := capaRuntimeWith(t, s, func(m *sdk.Manifest) { m.PagePaths = []string{"/members"} })
+	f.h.pageFilter = pluginhost.NewPageFilter(rt, s.hooks)
+	f.next = membersPage
+
+	w := f.get("/about")
+	if cc := w.Header().Get("Cache-Control"); cc != "public, max-age=60, s-maxage=300" {
+		t.Fatalf("undeclared path Cache-Control = %q", cc)
+	}
+	if strings.Contains(w.Header().Get("Vary"), "Cookie") {
+		t.Errorf("undeclared path Vary = %q", w.Header().Get("Vary"))
+	}
+	if !strings.Contains(w.Body.String(), "SECRET-BLOCK") {
+		t.Errorf("the filter ran on an undeclared path:\n%s", w.Body)
+	}
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "hmp_capa_visited" {
+			t.Error("an undeclared path set the plugin cookie")
+		}
+	}
+	if len(f.cache.sets) != 1 {
+		t.Fatalf("undeclared page stored %d times, want 1", len(f.cache.sets))
+	}
+	resolves := f.resolves
+	f.get("/about")
+	if f.resolves != resolves {
+		t.Fatal("the second request was not a cache hit")
+	}
+
+	w = f.get("/members")
+	if cc := w.Header().Get("Cache-Control"); !strings.Contains(cc, "no-store") || w.Header().Get("Vary") != "Cookie" {
+		t.Fatalf("declared path must be private: Cache-Control=%q Vary=%q", cc, w.Header().Get("Vary"))
+	}
+	if strings.Contains(w.Body.String(), "SECRET-BLOCK") {
+		t.Error("the filter did not run on the declared path")
+	}
+	var visited bool
+	for _, c := range w.Result().Cookies() {
+		visited = visited || c.Name == "hmp_capa_visited"
+	}
+	if !visited {
+		t.Error("the declared path did not get the plugin cookie")
+	}
+	if len(f.cache.sets) != 1 {
+		t.Fatalf("declared page was stored: %d sets", len(f.cache.sets))
+	}
+
+	rt.Unload(context.Background(), "capa")
+	w = f.get("/members")
+	if cc := w.Header().Get("Cache-Control"); cc != "public, max-age=60, s-maxage=300" || !strings.Contains(w.Body.String(), "SECRET-BLOCK") {
+		t.Fatalf("after unload: Cache-Control=%q\n%s", cc, w.Body)
+	}
+	if len(f.cache.sets) != 2 {
+		t.Fatalf("after unload %d sets, want 2", len(f.cache.sets))
+	}
+}
+
+// serve drops the trailing slash, so a declared /members covers /members/:
+// private, filtered, never stored.
+func TestRenderPagePluginDeclaredPathTrailingSlash(t *testing.T) {
+	f := newRenderFixture(t)
+	_, s := bootRoutes(t)
+	rt := capaRuntimeWith(t, s, func(m *sdk.Manifest) { m.PagePaths = []string{"/members"} })
+	f.h.pageFilter = pluginhost.NewPageFilter(rt, s.hooks)
+	f.next = membersPage
+
+	w := f.get("/members/")
+	if cc := w.Header().Get("Cache-Control"); !strings.Contains(cc, "no-store") || w.Header().Get("Vary") != "Cookie" {
+		t.Fatalf("Cache-Control=%q Vary=%q, want private", cc, w.Header().Get("Vary"))
+	}
+	if strings.Contains(w.Body.String(), "SECRET-BLOCK") {
+		t.Error("the filter did not run on /members/")
+	}
+	if len(f.cache.sets) != 0 {
+		t.Fatalf("/members/ was stored: %d sets", len(f.cache.sets))
+	}
+}
+
+// Disabling a site-wide render.page plugin restores the page cache.
+func TestRenderPagePluginUnloadRestoresCache(t *testing.T) {
+	f := newRenderFixture(t)
+	_, s := bootRoutes(t)
+	rt := capaRuntime(t, s)
+	f.h.pageFilter = pluginhost.NewPageFilter(rt, s.hooks)
+	f.next = okPage("About")
+
+	w := f.get("/about")
+	if !strings.Contains(w.Header().Get("Cache-Control"), "no-store") || len(f.cache.sets) != 0 {
+		t.Fatalf("site-wide plugin: Cache-Control=%q sets=%d", w.Header().Get("Cache-Control"), len(f.cache.sets))
+	}
+	rt.Unload(context.Background(), "capa")
+	w = f.get("/about")
+	if cc := w.Header().Get("Cache-Control"); cc != "public, max-age=60, s-maxage=300" || len(f.cache.sets) != 1 {
+		t.Fatalf("after unload: Cache-Control=%q sets=%d", cc, len(f.cache.sets))
 	}
 }

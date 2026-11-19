@@ -631,7 +631,7 @@ func TestTemplateFuncsAndSections(t *testing.T) {
 func TestRenderPageFilter(t *testing.T) {
 	r := newCapaRig(t)
 	r.load(t, nil)
-	pf := NewPageFilter(r.engine)
+	pf := NewPageFilter(r.rt, r.engine)
 	if !pf.Active() {
 		t.Fatal("a plugin with filter_render_page must make the page filter active")
 	}
@@ -681,7 +681,7 @@ func TestRenderPageFilter(t *testing.T) {
 func TestRenderPageCookiesAreNamespaced(t *testing.T) {
 	r := newCapaRig(t)
 	r.load(t, nil)
-	pf := NewPageFilter(r.engine)
+	pf := NewPageFilter(r.rt, r.engine)
 	out := pf.Apply(context.Background(), sdk.PageContext{Path: "/echo-cookies", Cookies: map[string]string{
 		"hatamoto_session": "SESSION-TOKEN", "hatamoto_csrf": "CSRF", "__Host-x": "h", "__Secure-y": "s",
 		"unlock": "raw-undeclared-prefix", "hmp_other_unlock": "other-plugin", "hmp_capa_unlock": "mine", "hmp_capa_secret": "undeclared",
@@ -711,7 +711,7 @@ func TestRenderPageCookiesAreNamespaced(t *testing.T) {
 func TestRenderPageSlimBlocks(t *testing.T) {
 	r := newCapaRig(t)
 	r.load(t, slimManifest)
-	pf := NewPageFilter(r.engine)
+	pf := NewPageFilter(r.rt, r.engine)
 	rich := map[string]any{"headline": "H", "body": "<p>long rich text</p>", "variant": "dark", "items": []any{map[string]any{"a": "b"}}}
 	blocks := []sdk.Block{{ID: "intro", Type: "hero", Title: "Hi", Content: rich}, {ID: "secret", Type: "text", Title: "Members only", Content: rich}}
 	out := pf.Apply(context.Background(), sdk.PageContext{Path: "/p", Blocks: blocks})

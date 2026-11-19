@@ -34,9 +34,18 @@ func (r *Runtime) hookFilter(m sdk.Manifest, hook, export string) func(context.C
 	if hook != sdk.RenderPage.Name {
 		return noteRenderFailure(hook, generic)
 	}
+	// A plugin that declared page_paths is called only for them; every other
+	// page is the chain's value unchanged (no call, so no failure to note).
+	var only map[string]bool
+	if len(m.PagePaths) > 0 {
+		only = make(map[string]bool, len(m.PagePaths))
+		for _, p := range m.PagePaths {
+			only[p] = true
+		}
+	}
 	return noteRenderFailure(hook, func(ctx context.Context, v any) (any, error) {
 		pc, ok := v.(sdk.PageContext)
-		if !ok {
+		if !ok || (only != nil && !only[pc.Path]) {
 			return v, nil
 		}
 		// The plugin sees only its own namespaced cookies it declared (under
@@ -174,24 +183,43 @@ func mergePageResult(cur, res sdk.PageContext, m sdk.Manifest) (sdk.PageContext,
 
 // PageFilter applies the render.page chain. Cookies are the request's plugin
 // cookies by browser name (hmp_<plugin>_<name>; core cookies are never put in).
-type PageFilter struct{ engine *hooks.Engine }
+type PageFilter struct {
+	rt     *Runtime // nil: every registered filter counts as site-wide
+	engine *hooks.Engine
+}
 
-// NewPageFilter returns the adapter over engine; nil engine gives nil.
-func NewPageFilter(engine *hooks.Engine) *PageFilter {
+// NewPageFilter returns the adapter over the runtime and its engine; nil
+// engine gives nil. A nil runtime (engine-only callers) treats every
+// registered filter as handling every page.
+func NewPageFilter(rt *Runtime, engine *hooks.Engine) *PageFilter {
 	if engine == nil {
 		return nil
 	}
-	return &PageFilter{engine: engine}
+	return &PageFilter{rt: rt, engine: engine}
 }
 
 // Active reports whether any plugin handles render.page; pages are then
 // request-dependent and must not be shared-cached.
 func (p *PageFilter) Active() bool { return p != nil && p.engine.HasFilter(sdk.RenderPage.Name) }
 
+// Applies reports whether the render.page chain must run for path: a plugin
+// that declared no page_paths handles every page, one that did only its own.
+// Such a page is request-dependent and must not be shared-cached.
+func (p *PageFilter) Applies(path string) bool {
+	if p == nil {
+		return false
+	}
+	n := p.engine.FilterCount(sdk.RenderPage.Name)
+	if p.rt == nil {
+		return n > 0
+	}
+	return p.rt.pageFiltered(path, n)
+}
+
 // Apply runs the chain over in and returns the result (in itself when nothing
 // handled it or everything failed).
 func (p *PageFilter) Apply(ctx context.Context, in sdk.PageContext) sdk.PageContext {
-	if !p.Active() {
+	if !p.Applies(in.Path) {
 		return in
 	}
 	if out, ok := p.engine.Apply(ctx, sdk.RenderPage.Name, in).(sdk.PageContext); ok {

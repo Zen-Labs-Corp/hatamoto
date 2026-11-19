@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: render.page page_paths (SDK 0.24.0)
+
+- **Plugin authors.** A plugin whose `render.page` filter only matters on a few pages can declare them in the new manifest field `page_paths` (up to 16 exact public request paths without a trailing slash, for example `/members` or `/account`; a locale-prefixed or alternate URL of the same content is not covered and is page-cached, so list every URL the filter must act on). The filter is then called only for those paths. A plugin that declares none behaves exactly as before: it is called on every page.
+- **Page cache.** While any plugin handles `render.page` on every page, no page is shared-cached. Pages outside the declared paths of the plugins that declare them are page-cached and served with public `Cache-Control` again. Declared paths stay private, uncached and per visitor.
+- **Compatibility.** Additive. An older host ignores `page_paths` and calls the filter on every page, so a plugin that keeps a lower `sdk` range must still check `p.Path` in its filter; declare `^0.24` to rely on the host doing the scoping. The host refuses a path it serves itself (for example `/admin`) at load and at install.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: profile photo only for public profiles
 
 - **Complete your profile.** The photo is needed only when **Show my public profile** is on. A user whose profile stays hidden completes the step with a name alone. The site already shows a person who is not public as a name only, with no photo.

@@ -195,7 +195,7 @@ func TestWireHostToGuestPayloads(t *testing.T) {
 	})
 
 	t.Run("filter", func(t *testing.T) {
-		pf := NewPageFilter(w.engine)
+		pf := NewPageFilter(w.rt, w.engine)
 		pf.Apply(ctx, sdk.PageContext{Path: "/p?x=<1>", Cookies: map[string]string{"hmp_wire_b": "2", "hmp_wire_a": "1", "session": "s"}, Blocks: nil})
 		const want = `{"path":"/p?x=\u003c1\u003e","cookies":{"a":"1","b":"2"},"blocks":null}`
 		if got := w.take(t); got != want {

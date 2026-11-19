@@ -89,6 +89,17 @@ type Manifest struct {
 	// routes itself, and a path another plugin already declared.
 	RedirectPaths []string `json:"redirect_paths,omitempty"`
 
+	// PagePaths narrow the plugin's render.page filter to these exact public
+	// request paths. No trailing slash (except "/"): the request path is matched
+	// after its trailing slash is dropped. They are request paths, not pages: a
+	// locale-prefixed or alternate URL of the same content is not covered. Only
+	// they are served private and uncached and only for them is the filter
+	// called; every other path is page-cached as if the plugin handled nothing.
+	// Empty: the filter runs for every page, which is then never shared-cached.
+	// At most MaxPagePaths. Several plugins may declare the same path. The host
+	// additionally refuses paths it serves itself (SDK 0.24).
+	PagePaths []string `json:"page_paths,omitempty"`
+
 	// RequestHeaders are extra request header names (for example a webhook
 	// signature) passed to this plugin's routes, on top of the fixed list.
 	// Credentials and the visitor's address can never be listed
@@ -474,7 +485,9 @@ const (
 	MaxRedirectPaths = 16
 	// MaxRedirectPathLen caps the length of one redirect path in bytes.
 	MaxRedirectPathLen = 256
-	MinCronEvery       = time.Minute
+	// MaxPagePaths caps Manifest.PagePaths.
+	MaxPagePaths = 16
+	MinCronEvery = time.Minute
 )
 
 // identPattern is a cron job, template func or section name.
@@ -704,6 +717,9 @@ func (m Manifest) validateCapabilities() error {
 	if err := m.validateRedirectPaths(); err != nil {
 		return err
 	}
+	if err := m.validatePagePaths(); err != nil {
+		return err
+	}
 	if m.CSP != nil {
 		if err := m.CSP.validate(); err != nil {
 			return fmt.Errorf("sdk: plugin %q: %w", m.Name, err)
@@ -728,6 +744,30 @@ func (m Manifest) validateRedirectPaths() error {
 		}
 		if seen[p] {
 			return fmt.Errorf("sdk: plugin %q: duplicate redirect_paths %q", m.Name, p)
+		}
+		seen[p] = true
+	}
+	return nil
+}
+
+// validatePagePaths checks the declared render.page paths with the same shape
+// rules as redirect_paths (checkRedirectPath): exact, clean, absolute, no
+// query, fragment, wildcard or percent escape. Unlike redirect_paths, a
+// trailing slash is refused (except "/"): serve drops it before matching.
+func (m Manifest) validatePagePaths() error {
+	if len(m.PagePaths) > MaxPagePaths {
+		return fmt.Errorf("sdk: plugin %q: more than %d page_paths", m.Name, MaxPagePaths)
+	}
+	seen := map[string]bool{}
+	for _, p := range m.PagePaths {
+		if err := checkRedirectPath(p); err != nil {
+			return fmt.Errorf("sdk: plugin %q: page_paths %q: %w", m.Name, p, err)
+		}
+		if len(p) > 1 && strings.HasSuffix(p, "/") {
+			return fmt.Errorf("sdk: plugin %q: page_paths %q: drop the trailing slash (the host matches the request path without it)", m.Name, p)
+		}
+		if seen[p] {
+			return fmt.Errorf("sdk: plugin %q: duplicate page_paths %q", m.Name, p)
 		}
 		seen[p] = true
 	}

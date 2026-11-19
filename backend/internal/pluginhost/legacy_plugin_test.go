@@ -71,7 +71,7 @@ func TestLegacyWasmLoadsAndRuns(t *testing.T) {
 	}
 
 	// Filter: hides the block, sets a namespaced cookie.
-	pf := NewPageFilter(engine)
+	pf := NewPageFilter(rt, engine)
 	got := pf.Apply(context.Background(), sdk.PageContext{Path: "/p", Blocks: []sdk.Block{{ID: "intro", Type: "hero"}, {ID: "secret", Type: "text"}}})
 	if len(got.Blocks) != 1 || got.Blocks[0].ID != "intro" || len(got.SetCookies) != 1 || got.SetCookies[0].Name != "hmp_legacy_visited" {
 		t.Fatalf("filter result = %+v", got)
