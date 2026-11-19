@@ -23,12 +23,17 @@ type devFixture struct {
 	idx     Index // developer entries
 	mainIdx Index
 	srv     *httptest.Server
+	raw     map[string][]byte // path -> signed document served as is (a replayed copy)
 }
 
 func newDevFixture(t *testing.T) *devFixture {
 	t.Helper()
 	f := &devFixture{t: t, listing: newKey(t), main: newKey(t)}
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if doc, ok := f.raw[r.URL.Path]; ok {
+			_, _ = w.Write(doc)
+			return
+		}
 		var idx Index
 		var key Key
 		switch r.URL.Path {
@@ -282,5 +287,31 @@ func TestDeveloperIndexDoesNotCacheACancelledRead(t *testing.T) {
 	}
 	if _, err := m.DeveloperIndex(context.Background(), false); err != nil {
 		t.Fatalf("the next read inherited the cancellation: %v", err)
+	}
+}
+
+func TestDeveloperGrantStillRefusesRevokedKeyAfterReplay(t *testing.T) {
+	f := newDevFixture(t)
+	devKey := newKey(t)
+	p := f.theme("sunrise", devKey, devKey)
+	// A copy of the developer index signed earlier, before the key was revoked.
+	stale := signedAt(t, f.listing, time.Now().Add(-48*time.Hour))
+	f.idx.Revoked = []Revocation{{SignerKey: devKey.Public, Reason: "key leaked"}}
+
+	seen := &memSeen{}
+	m := f.manager(func(o *Options) { o.Registry.Seen, o.DeveloperRegistry.Seen = seen, seen })
+	ctx := context.Background()
+	// The index that revokes the key is the newest one the server has seen.
+	if dev, err := m.DeveloperRegistry.Fetch(ctx); err != nil || len(dev.Revoked) != 1 {
+		t.Fatalf("fresh developer index: %v, %+v", err, dev)
+	}
+
+	f.raw = map[string][]byte{"/developer.json": stale}
+	if _, err := m.DeveloperIndex(ctx, true); !errors.Is(err, ErrIndexRolledBack) {
+		t.Fatalf("replayed index: err = %v, want ErrIndexRolledBack", err)
+	}
+	grant, err := m.developerGrant(ctx, p, ErrUntrustedKey)
+	if grant != nil || err == nil {
+		t.Fatalf("replayed index granted a revoked key: grant=%v err=%v", grant, err)
 	}
 }

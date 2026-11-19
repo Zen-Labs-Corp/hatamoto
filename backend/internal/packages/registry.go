@@ -291,7 +291,10 @@ const (
 var (
 	ErrIndexExpired  = errors.New("registry index has expired")
 	ErrIndexNotFresh = errors.New("registry index has no valid issued_at / expires_at")
-	ErrInsecureURL   = errors.New("registry URLs must use https")
+	// ErrIndexRolledBack is an index signed and still in date but issued
+	// before one already accepted from the same URL.
+	ErrIndexRolledBack = errors.New("registry index is older than one already accepted")
+	ErrInsecureURL     = errors.New("registry URLs must use https")
 )
 
 // ErrRegistryOff means no registry is configured.
@@ -299,6 +302,13 @@ var ErrRegistryOff = errors.New("no registry is configured")
 
 // maxIndexBytes bounds a registry index download.
 const maxIndexBytes = 4 << 20
+
+// IndexSeen keeps the newest issued_at accepted per registry URL.
+type IndexSeen interface {
+	// AdvanceIssued records issued for url when it is newer than the stored
+	// time and returns the newest time now stored.
+	AdvanceIssued(ctx context.Context, url string, issued time.Time) (time.Time, error)
+}
 
 // Registry reads a signed registry index and downloads the packages it lists.
 type Registry struct {
@@ -311,6 +321,9 @@ type Registry struct {
 	AllowInsecure bool
 	// Now is the clock (tests); time.Now when nil.
 	Now func() time.Time
+	// Seen records the newest index accepted, so an older signed copy is
+	// refused. Nil keeps no record (tools, tests).
+	Seen IndexSeen
 }
 
 func (r *Registry) now() time.Time {
@@ -384,7 +397,24 @@ func (r *Registry) Fetch(ctx context.Context) (*Index, error) {
 	if err != nil {
 		return nil, fmt.Errorf("registry: %w", err)
 	}
-	return ParseIndex(body, r.Trust, r.now())
+	idx, err := ParseIndex(body, r.Trust, r.now())
+	if err != nil || r.Seen == nil {
+		return idx, err
+	}
+	// ParseIndex has checked the signature and the freshness, so issued_at
+	// parses; only a verified index advances the mark.
+	issued, err := time.Parse(time.RFC3339, idx.IssuedAt)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrIndexNotFresh, err)
+	}
+	newest, err := r.Seen.AdvanceIssued(ctx, r.URL, issued)
+	if err != nil {
+		return nil, fmt.Errorf("registry: reading the newest accepted index time: %w", err)
+	}
+	if issued.Before(newest) {
+		return nil, fmt.Errorf("%w (issued %s, newest seen %s)", ErrIndexRolledBack, idx.IssuedAt, newest.UTC().Format(time.RFC3339))
+	}
+	return idx, nil
 }
 
 // ParseIndex verifies a signed registry.json document against trust, checks
