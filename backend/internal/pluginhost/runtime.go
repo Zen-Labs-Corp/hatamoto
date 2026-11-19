@@ -368,6 +368,9 @@ func (r *Runtime) register(m sdk.Manifest) []string {
 		if hook == sdk.BuilderData.Name && !r.offersBuilderData(m) {
 			continue // not granted or no declared sources: the filter is not registered
 		}
+		if hook == sdk.EntityBeforeSave.Name && !r.caps.grants.Has(name, sdk.PermEntitiesFilter) {
+			continue // not granted: the filter is not registered
+		}
 		if r.host.HasExport(name, export) {
 			reg.AddFilter(hook, 0, r.hookFilter(m, hook, export))
 			got = append(got, hook)

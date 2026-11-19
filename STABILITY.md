@@ -13,7 +13,7 @@ the name is given. Where it is project policy only, the text says so. Paths in c
 |---|---|---|
 | Product (the `hatamoto` binary) | `vX.Y.Z`, git tag `vX.Y.Z` | `v1.1.0` |
 | Go module for the product source | `hatamoto.dev/core`, git tag `backend/vX.Y.Z`, created by `scripts/tag-release.sh` | follows the product |
-| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.22.2` |
+| Plugin SDK (`hatamoto.dev/sdk`) | semantic, git tag `vA.B.C` in the public `Zen-Labs-Corp/hatamoto-sdk` repository, exported from this repository by `scripts/publish-sdk.sh` | `0.23.0` |
 | Plugin manifest | the `sdk` range in `plugin.json` | follows the SDK |
 | Theme contract | `data-hm-contract` on `<html>` | `1` |
 | HTTP API | `/api/v1` path prefix | `v1` |
@@ -62,6 +62,8 @@ change under the same version (`scripts/publish-sdk.sh` refuses to retag a diffe
 0.11 set the precedent of shipping additive payload changes as a minor.
 
 The 0.22.0 bump is additive over 0.21: the `request.redirect` filter and the `redirect_paths` manifest field, with the `RedirectContext` and `Redirect` types, and a standing approval `create` rule (see `version.go`). A plugin that uses them, or the `request.redirect` key of `limits.hook_timeouts_ms`, must declare `^0.22`: an older host would ignore the field and the redirects would silently stop.
+
+The 0.23.0 bump adds the `entities.filter` permission. A plugin's `entity.before_save` filter is registered only while the owner holds it; there is no host function. This is not purely additive: a plugin built for `^0.22` or older has its `entity.before_save` filter run only with the grant. Authors add `entities.filter` to `permissions` and declare `^0.23`. Plugins that were installed before the permission existed and register the filter keep it: the first start of this version records the installed plugins (whatever their state), and each one is granted `entities.filter` once, when it is next loaded; the owner can revoke it. A plugin installed or updated afterwards is not kept and must ask for the permission. If you roll back to an older release and upgrade again, plugins installed on the older release in between are not kept. An update that widens access or changes the signer clears the plugin's grants, including a kept `entities.filter`, and a plugin whose new manifest does not ask for it cannot get it back until its author ships a manifest that asks. An update that newly asks for it needs the owner's confirmation and clears the grants, like `site.scripts` (a plugin that already holds it, kept from before, is not asked again). A plugin that asks for it declares `^0.23`, because an older host refuses the unknown permission name. Nothing else changed.
 
 The 0.22.2 bump is additive over 0.22.1: the `ui` manifest block gains `allow` (`camera`), the owner grant `ui.allow:camera` and the page call `hatamoto.camera.capture()`, with `AdminUI.Allow`, `UIAllowCamera`, `PermUICamera`, `ValidGrant` and `Manifest.Asked`. The result shape (`ok`, `image`, `width`, `height`) and the error codes `cancelled`, `denied` and `unavailable` are stable. A host older than 0.22.2 ignores the field and the grant. Only plugins that ask for the camera see a change: `ui.allow:camera` can appear in `permissions[]` and `granted[]` of `/api/v1/plugins`, and in `requested` and `granted` of the `permissions()` host call. Nothing else changed.
 
@@ -112,11 +114,11 @@ The `sdk` range in `plugin.json` is the handshake between a plugin and a host. A
 SDK version (`sdk.Version`) and every version in `sdk.CompatibleWith`, and refuses a plugin whose range
 matches none of them.
 
-- Every 0.x SDK minor from 0.5 stays served until SDK 1.0. Today `Version` is `0.22.2` and
-  `CompatibleWith` is `0.5.0` to `0.21.0`. Dropping an entry is a breaking change and is announced like
+- Every 0.x SDK minor from 0.5 stays served until SDK 1.0. Today `Version` is `0.23.0` and
+  `CompatibleWith` is `0.5.0` to `0.22.2`. Dropping an entry is a breaking change and is announced like
   any other.
-- A newer host serves older ranges. An older host refuses a newer range: a host that serves 0.21 refuses
-  a plugin that declares `^0.22`. Declare the oldest range your plugin needs.
+- A newer host serves older ranges. An older host refuses a newer range: a host that serves 0.22 refuses
+  a plugin that declares `^0.23`. Declare the oldest range your plugin needs.
 - Three tests pin this in `backend/pkg/sdk`: `TestVersionPinned` (the version constant),
   `TestCompatibleWithPinned` (the exact list, sorted, without the current version) and
   `TestCompatibleWithOldHost` (a host that reports 0.12.0 refuses `^0.13` and accepts `^0.12`,

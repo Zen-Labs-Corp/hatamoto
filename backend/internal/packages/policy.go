@@ -81,6 +81,32 @@ func CheckCommunityCSP(o Origin, p *Package) error {
 	return checkCommunityCSP(o, m)
 }
 
+// ErrCommunityTags is the refusal for a community or developer package that
+// carries tag declarations: a tag adds a third-party script to the public pages.
+var ErrCommunityTags error = communityTagsError{}
+
+type communityTagsError struct{}
+
+func (communityTagsError) Error() string {
+	return "Community and developer packages cannot add tracking tags."
+}
+
+// checkCommunityTags refuses tag declarations in a package of a restricted
+// origin. A declaration error is left to validateTagPack.
+func checkCommunityTags(o Origin, p *Package) error {
+	if !refuseCommunityScripts || !o.restricted() {
+		return nil
+	}
+	if v, _ := p.TagVendors(); len(v) > 0 {
+		return ErrCommunityTags
+	}
+	return nil
+}
+
+// CheckCommunityTags is checkCommunityTags for a parsed package of origin o
+// (from Manager.PolicyOrigin), for the install prompt.
+func CheckCommunityTags(o Origin, p *Package) error { return checkCommunityTags(o, p) }
+
 // RefusedPermissions is the part of a plugin package's requested permissions
 // that policy would refuse to grant it (site.scripts and builder.island for a
 // community or developer package of origin o), so a prompt can say so instead

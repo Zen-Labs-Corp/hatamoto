@@ -1,6 +1,7 @@
 package packages
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -216,9 +217,9 @@ func TestPackDirSkipsStrayFilesUnderTags(t *testing.T) {
 	}
 }
 
-// A tag pack carries no permission or CSP, so community policy has nothing to
-// refuse: it is eligible for community authors.
-func TestTagPackCommunityAllowed(t *testing.T) {
+// A tag pack adds a script to the public pages, so community and developer
+// origins are refused; first-party and self-built ones are accepted.
+func TestTagPackRestrictedOriginRefused(t *testing.T) {
 	raw, err := PackDir(filepath.Join("testdata", "tagpacks", "hotjar"), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -227,11 +228,17 @@ func TestTagPackCommunityAllowed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p.Signature = &Signature{Signer: FirstPartyKeyIDs[0]}
-	if got := RefusedPermissions(OriginCommunity, p); len(got) != 0 {
-		t.Fatalf("community refused = %v", got)
+	for o, refused := range map[Origin]bool{OriginCommunity: true, OriginDeveloper: true, OriginFirstParty: false, OriginSelfBuilt: false} {
+		if got := checkCommunityTags(o, p); errors.Is(got, ErrCommunityTags) != refused || (got != nil) != refused {
+			t.Errorf("origin %v: got %v, refused want %v", o, got, refused)
+		}
+		if got := CheckCommunityTags(o, p); (got != nil) != refused {
+			t.Errorf("exported, origin %v: got %v", o, got)
+		}
 	}
-	if err := CheckCommunityCSP(OriginCommunity, p); err != nil {
-		t.Fatal(err)
+	defer func(v bool) { refuseCommunityScripts = v }(refuseCommunityScripts)
+	refuseCommunityScripts = false
+	if err := checkCommunityTags(OriginCommunity, p); err != nil {
+		t.Fatalf("policy off: %v", err)
 	}
 }

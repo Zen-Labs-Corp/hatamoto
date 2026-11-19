@@ -41,7 +41,7 @@ A plugin declares in `plugin.json` which hooks it handles, which permissions it 
 | Filters (return a modified value) | `jsonld.enrich`, `sitemap.urls`, `render.head`, `render.site_graph`, `render.page`, `entity.before_save`, `builder.data` |
 | Other exports | `http_handle` (routes), `on_cron_<job>` (scheduled jobs), `func_<name>` (template functions) |
 
-**Actions** run in their own goroutine with panic recovery and a timeout, and cannot delay the request that triggered them. **Filters** run synchronously in ascending priority order and each receives the previous filter's result. A failing, timing-out or oversized filter leaves the value unchanged, so a broken plugin degrades its own feature, not the site. The only filter that can block something is `entity.before_save`, and only by returning an explicit rejection (an error starting with `hatamoto:reject:`); any other error is logged and ignored. `builder.data` answers the data requests of the visual editor's blocks for the sources the plugin declares, once per page render; it is registered only with the `builder.data` permission, and a failure leaves those values empty.
+**Actions** run in their own goroutine with panic recovery and a timeout, and cannot delay the request that triggered them. **Filters** run synchronously in ascending priority order and each receives the previous filter's result. A failing, timing-out or oversized filter leaves the value unchanged, so a broken plugin degrades its own feature, not the site. The only filter that can block something is `entity.before_save`, and only by returning an explicit rejection (an error starting with `hatamoto:reject:`); any other error is logged and ignored. `builder.data` answers the data requests of the visual editor's blocks for the sources the plugin declares, once per page render; it is registered only with the `builder.data` permission, and a failure leaves those values empty. `entity.before_save` is registered only with the `entities.filter` permission.
 
 ## Permissions
 
@@ -65,6 +65,7 @@ A plugin has no permission to change content. Since SDK 0.17 (Hatamoto 1.1) the 
 | `kv` | a small key-value store |
 | `db` | SQL on the plugin's own schema |
 | `builder.data` | answer data requests for the plugin's declared builder sources |
+| `entities.filter` | run the plugin's `entity.before_save` filter, which sees every entity draft as it is saved and can change it or refuse the save; without it the filter is not registered |
 | `builder.island` | serve the `island.js` script of the plugin's widgets on public pages, where it runs with the visitor's privileges; without it the widget renders but its script is not served |
 | `site.scripts` | link `assets/plugin.js` and emit `script-src` tags from `render.head`; runs JavaScript on every public page with full access to the site, including signed-in admins; ungranted plugins' `plugin.js` is not linked and their sections/partials must pass the markup check; warned in the install prompt |
 

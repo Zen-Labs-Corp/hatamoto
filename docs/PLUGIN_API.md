@@ -4,6 +4,8 @@ Compatibility promises for everything on this page: [STABILITY.md](../STABILITY.
 
 > **Host limits (compat, no SDK change).** Core now bounds what a guest module may declare or do while it is instantiated, and the same checks apply every time a plugin is loaded, at boot included: a module may declare at most 1,048,576 table entries in total (Go guests declare about 8,000) and no duplicate section; the WebAssembly reference-types feature is off (see [Writing a plugin in another language](#writing-a-plugin-in-another-language)); instantiating a module, start section included, must finish within the 5 s start bound; and a protocol message above 4 MiB from the plugin's database fails the call and replaces the connection (results stay capped at 1000 rows and 1 MiB). No manifest field, host function or SDK type changed, and Go `wasip1` plugins, including all first-party ones, are unaffected. An installed plugin that exceeds a limit is not loaded after the upgrade: it is reported with an error (the plugin's status and the server log, for example `tables declare N entries (max 1048576)`), and it loads again once rebuilt within the limits.
 >
+> **0.23.0 changes (not purely additive).** New permission `entities.filter`. A plugin's `entity.before_save` filter is registered only while the owner holds it: the plugin asks for it in `permissions`, and the owner ticks it on the plugin's Permissions tab. This is not purely additive: a plugin built for `^0.22` or older has its `entity.before_save` filter run only with the grant. Authors add `entities.filter` to `permissions` and declare `^0.23`. Plugins that were installed before the permission existed and register the filter keep it: the first start of this version records the installed plugins (whatever their state), and each one is granted `entities.filter` once, when it is next loaded; the owner can revoke it. A plugin installed or updated afterwards is not kept and must ask for the permission. If you roll back to an older release and upgrade again, plugins installed on the older release in between are not kept. An update that widens access or changes the signer clears the plugin's grants, including a kept `entities.filter`, and a plugin whose new manifest does not ask for it cannot get it back until its author ships a manifest that asks. An update that newly asks for it needs the owner's confirmation and clears the grants, like `site.scripts` (a plugin that already holds it, kept from before, is not asked again). A plugin that asks for it declares `^0.23`, because an older host refuses the unknown permission name.
+>
 > **0.22.2 changes (additive over 0.22.1).** The `ui` block gains `"allow": ["camera"]`. When the owner ticks `ui.allow:camera` on the plugin's Permissions tab, the plugin's admin page may call `hatamoto.camera.capture()` and get one photo from the owner's camera. A host older than 0.22.2 ignores the field and the grant, so a plugin that relies on it declares `^0.22.2`. `permissions()` lists `ui.allow:camera` in `requested` (and in `granted` once ticked) for a plugin that asks, so `granted` stays a subset of `requested`. See [Camera](#camera).
 >
 > **0.22.1 changes (additive over 0.22.0).** `permissions()` gains `"mail": {"recipients_per_hour": N}` for a plugin granted `mail.send`: the number of recipients the plugin may email per hour. The limit is owner-set per plugin (default 360, range 1 to 3600, on the plugin Permissions tab) and the plugin cannot change it. The key is absent without the grant and on hosts older than 0.22.1, so treat a missing `mail` as unknown and assume the default; `granted` and `requested` are unchanged.
@@ -164,13 +166,13 @@ still navigate itself once, so a plugin UI can leak what it can read (what the
 bridge returned to it) through that navigation; the CSP cannot stop it. Install
 only plugins you trust with what their page can see.
 
-The contract is the Go module `hatamoto.dev/sdk` (version `0.22.2`; plugins built for `^0.5` to `^0.21` still load, unless they request a removed write permission):
+The contract is the Go module `hatamoto.dev/sdk` (version `0.23.0`; plugins built for `^0.5` to `^0.22.2` still load, unless they request a removed write permission):
 hook names, payload types and the manifest. Its subpackage `sdk/guest` is the
 Go guest layer. Any language with an [Extism PDK](https://extism.org/docs/concepts/pdk)
 can write a plugin from this document alone.
 
 ```sh
-go get hatamoto.dev/sdk@v0.22.2
+go get hatamoto.dev/sdk@v0.23.0
 ```
 
 SDK 0.19.0 ships with Hatamoto `v1.1.0`, which serves every range back to `^0.5`. Declare the oldest range your plugin needs, so it also loads on older servers. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown.
@@ -180,7 +182,7 @@ answers `?go-get=1` with a `go-import` meta tag pointing at the code repository
 (`deploy/caddy/hatamoto.dev.caddy`), so the import path never changes when the
 repository moves. `hatamoto.dev/sdk` is the public repository
 [Zen-Labs-Corp/hatamoto-sdk](https://github.com/Zen-Labs-Corp/hatamoto-sdk), a root module with
-plain release tags: version `0.22.2` is the git tag `v0.22.2`. The core repository stays
+plain release tags: version `0.23.0` is the git tag `v0.23.0`. The core repository stays
 the source of truth for the code (`backend/pkg/sdk`); `scripts/publish-sdk.sh` exports that
 directory to the SDK repository and tags it `v<Version>` (the `Version` constant in
 `version.go`). Send SDK changes to core. Core release tags are plain `vX.Y.Z` too, in a
@@ -197,7 +199,7 @@ different repository.
 > `HeadContext.language` is the locale of the page being rendered, `EntitySummary.locale` is the entity's locale, and the
 > `sitemap.urls` filter gets the file's locale tag in `language` (it stays empty on a one-language site). The host prints
 > hreflang itself, and drops a `render.head` link with `rel` `alternate` and an `hreflang` that duplicates one it computed.
-> SDK 0.22 is current (0.22.2).
+> SDK 0.23 is current (0.23.0).
 >
 > **0.13 changes (additive):** entity payloads carry `locale` (the entity's BCP 47 tag, for example `en` or `fr`):
 > `EntityRef`, `EntityEvent`, `EntitySummary` and the Entity of `entities.get`/`entities.list` have it,
@@ -278,7 +280,7 @@ Entity reads also carry `sort_order` (the stored manual order among siblings, `0
 | `render.site_graph` | filter | `filter_render_site_graph` | [SiteGraph](#sitegraph) | SiteGraph |
 | `render.page` | filter | `filter_render_page` | [PageContext](#pagecontext) | PageContext |
 | `request.redirect` | filter | `filter_request_redirect` | [RedirectContext](#requestredirect) | RedirectContext |
-| `entity.before_save` | filter | `filter_entity_before_save` | [EntityDraft](#entitydraft) | EntityDraft |
+| `entity.before_save` | filter (needs the `entities.filter` grant) | `filter_entity_before_save` | [EntityDraft](#entitydraft) | EntityDraft |
 | `builder.data` | filter | `filter_builder_data` | [BuilderDataRequest](#builderdata) | BuilderDataRequest |
 
 **Actions** run asynchronously after the event, in a background goroutine; the
@@ -301,7 +303,7 @@ When a request runs several filters under one deadline (page head, JSON-LD,
 sitemap), each filter gets at most its fair share of the time that is left, so
 a slow plugin cannot starve the ones after it.
 
-The one deliberate exception is `entity.before_save`: set the error message to
+The one deliberate exception is `entity.before_save`, which runs only while the plugin holds the `entities.filter` permission: set the error message to
 `hatamoto:reject:<reason>` and return non-zero to **refuse the save** (HTTP 422
 with `<reason>`). One failed call there still fails open. While the circuit breaker has this hook
 switched off (3 failed calls in a row, see above), the save is **refused**
@@ -491,7 +493,7 @@ Caps (the whole result is dropped when broken): at most 16 requests per render, 
 |---|---|
 | `name` | `^[a-z][a-z0-9-]{1,39}$`; equals the directory name. `browse`, `security` and `webhooks` are reserved: a new install under them is refused (the admin serves `/plugins/browse` and `/plugins/security`), while a plugin already installed as `browse` or `security` can still be updated and uninstalled |
 | `version` | the plugin's own semver |
-| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.22.2 and also serves `^0.5` to `^0.21` plugins |
+| `sdk` | SDK range the plugin was built against (`^0.8`, `>=0.5 <0.9`); the host refuses a plugin whose range does not contain its SDK version. This SDK is 0.23.0 and also serves `^0.5` to `^0.22.2` plugins |
 | `description` | optional |
 | `config` | string map readable in the guest (`pdk.GetConfig`) |
 | `permissions` | capabilities the plugin asks for; see [Permissions](#permissions). Unknown names are refused |
@@ -536,6 +538,7 @@ A plugin always loads. What it may *do* is decided by the owner. Nothing is gran
 | `site.scripts` | no host function: the plugin's browser JavaScript runs on your public pages. Needed for `assets/plugin.js` to be linked and for `script-src` tags of a `render.head` filter to be emitted. The prompt shows it as a warning: "Runs its JavaScript on every public page, with full access to the site, including signed-in admins. Without it the plugin's script is not loaded." (an update that newly asks for it, and the plugin's page in the admin, repeat that wording). The warning is deliberately broad. The script has the visitor's page privileges and the admin is sealed against it, with the limits listed in `docs/SECURITY_MODEL.md` (Admin isolation); an update that newly asks for it needs the owner's confirmation and clears the grants. `sections/*.html` and `partials/*.html` that contain scripts are also stopped without it. A plugin that ships a script without the grant shows a note in the admin with a link to grant it |
 | `builder.island` | no host function: a widget pack whose `widgets/*/island.js` runs JavaScript on your site's pages. Required in `plugin.json` when the package ships an island; shown as a warning in the prompt; an update that newly asks for it needs the owner's confirmation and clears the grants. Without the grant the widgets render but no island is served |
 | `builder.data` | the `builder.data` filter: the plugin answers page-builder data requests for the sources it declares in `builder_sources` (no host function; without the grant the filter is not registered) |
+| `entities.filter` | the `entity.before_save` filter: the plugin sees every entity draft as it is saved and may change it or refuse the save (no host function; without the grant the filter is not registered). A plugin that asks for it declares `^0.23` |
 
 ## Host functions
 

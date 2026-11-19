@@ -65,7 +65,7 @@ The range uses npm rules: `>=x`, `>x`, `<=x`, `<x`, `=x`, a bare version, `^x` a
 
 A plugin that uses `csp`, `request_headers`, `translation_of`, `changeset.media.alt` or shipped content types must declare `^0.18`: an older host ignores those fields without an error. A plugin that uses `redirect_paths`, the `request.redirect` filter or its `limits.hook_timeouts_ms` key must declare `^0.22`, so that an older host refuses it instead of silently dropping the redirects.
 
-The server serves SDK `0.22.2` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.21.0` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. Declare `^0.22.2` for the camera: `^0.22` also matches a 0.22.1 host. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
+The server serves SDK `0.23.0` (`sdk.Version` in `backend/pkg/sdk/version.go`) and also plugins built for `0.5.0` to `0.22.2` (`sdk.CompatibleWith`). It refuses a plugin whose range contains neither the current version nor one in that list. So `"sdk": "^0.8"` loads because `0.8.0` is in the list. A new plugin declares `^0.11` until your users run Hatamoto `v0.31.0` (the release that ships SDK 0.12.0), then `^0.12`. The `site.scripts` permission belongs to SDK 0.12.0, but the range you declare does not gate it: hosts from v0.30.0 accept it under any range and enforce it, older hosts reject it as unknown. Declare `^0.22.2` for the camera: `^0.22` also matches a 0.22.1 host. A plugin that asks for `entities.filter` declares `^0.23`, because an older host refuses the unknown permission name. (SDK releases are plain `vX.Y.Z` tags in the public SDK repository.)
 
 ## Permissions
 
@@ -76,6 +76,7 @@ entities.read  terms.read  menus.read  media.read
 redirects.read  forms.read
 settings  log  mail.send  http.fetch  http.fetch.any  kv  db
 builder.data  builder.island  site.scripts
+entities.filter
 ```
 
 The manifest only lists what the plugin asks for. The owner decides what it gets, and a plugin always loads even with nothing granted.
@@ -185,6 +186,7 @@ Older plugins keep working, with these changes to be aware of:
 - **0.16:** the `render.site_graph` filter. Purely additive.
 - **0.17 (breaking, Hatamoto 1.1):** content writes move into runs and changesets. The five `*.write` permissions and the twelve direct write functions (`entities.create`, `entities.update`, `entities.set_status`, `entities.delete`, `terms.save`, `terms.delete`, `menus.save`, `menus.add_item`, `menus.delete_item`, `media.upload`, `redirects.create`, `redirects.delete`) are removed. Added: the `runs` field, the `on_run_step` export, the run, upload, buffer and changeset host functions (see [The host API](host-api.md#runs-and-changesets)) and the error codes `phase_denied` and `not_owned`. A plugin that requests a removed permission is refused at load.
 - **0.18 (additive over 0.17):** `request_headers` and `csp` in `plugin.json`, declared cookies on public routes, `translation_of` on `changeset.entity.upsert`, `caption` and `credit` on `changeset.media.attach`, `changeset.media.alt`, public content reads in the run fetch phase, and content types shipped as `schemas/<name>.json`.
+- **0.23:** the `entities.filter` permission: a plugin's `entity.before_save` filter is registered only while the owner holds it. This is not purely additive: a plugin built for `^0.22` or older has its filter run only with the grant, whatever `sdk` range it declares. Plugins installed before the permission existed keep it once (recorded at the first start of this version, granted when each is next loaded); a plugin installed or updated afterwards must ask. An update that widens access or changes the signer clears grants, including a kept `entities.filter`; the author then ships a manifest that asks for it. Add `entities.filter` to `permissions` and declare `^0.23`.
 
 ## Runs
 

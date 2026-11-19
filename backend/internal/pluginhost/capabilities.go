@@ -232,7 +232,7 @@ func (r *Runtime) Grant(ctx context.Context, name string, perms []sdk.Permission
 		return Status{}, fmt.Errorf("%w: %q", ErrPluginNotFound, name)
 	}
 	for _, p := range perms {
-		if !slices.Contains(st.Manifest.Asked(), p) {
+		if !slices.Contains(st.Manifest.Asked(), p) && !r.keptEntityFilter(name, p) {
 			return st, fmt.Errorf("%w: %q", ErrNotRequested, p)
 		}
 	}
@@ -241,6 +241,10 @@ func (r *Runtime) Grant(ctx context.Context, name string, perms []sdk.Permission
 			return st, err
 		}
 	}
+	registered := func() [2]bool {
+		return [2]bool{r.caps.grants.Has(name, sdk.PermBuilderData), r.caps.grants.Has(name, sdk.PermEntitiesFilter)}
+	}
+	before := registered()
 	if err := r.caps.grants.Set(ctx, name, perms); err != nil {
 		return st, err
 	}
@@ -250,8 +254,8 @@ func (r *Runtime) Grant(ctx context.Context, name string, perms []sdk.Permission
 		r.mu.Unlock()
 		st.DataError = r.prepareData(ctx, st.Manifest, a)
 		st.TempFileLimitOff = r.tempFileLimitOff(st.Manifest.Name, st.DataError)
-		if len(st.Manifest.BuilderSources) > 0 {
-			// builder.data is registered only while granted: apply the change now.
+		// Some hooks are registered only while granted: apply the change now.
+		if registered() != before {
 			r.engine.RemovePlugin(name)
 			st.Hooks = r.register(st.Manifest)
 		}
@@ -259,6 +263,31 @@ func (r *Runtime) Grant(ctx context.Context, name string, perms []sdk.Permission
 	}
 	r.syncExtSources()
 	return st, nil
+}
+
+// keptEntityFilter reports whether p is the entities.filter grant the plugin
+// already holds without listing it in its manifest (an installed plugin that
+// already filtered saves keeps it). It may be re-submitted or revoked, never
+// newly given.
+func (r *Runtime) keptEntityFilter(name string, p sdk.Permission) bool {
+	return p == sdk.PermEntitiesFilter && r.caps.grants.Has(name, p)
+}
+
+// ExportsEntityFilter reports whether the loaded module exports the
+// entity.before_save filter, granted or not.
+func (r *Runtime) ExportsEntityFilter(name string) bool {
+	return r.host.HasExport(name, sdk.ExportName("filter_", sdk.EntityBeforeSave.Name))
+}
+
+// Reregister rebuilds a loaded plugin's hook handlers from the current grants.
+func (r *Runtime) Reregister(name string) {
+	st, ok := r.status(name)
+	if !ok || !st.Loaded {
+		return
+	}
+	r.engine.RemovePlugin(name)
+	st.Hooks = r.register(st.Manifest)
+	r.record(st)
 }
 
 // --- cron ---------------------------------------------------------------------

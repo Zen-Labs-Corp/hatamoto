@@ -23,6 +23,24 @@ func TestRefusalCommunityGrant(t *testing.T) {
 	}
 }
 
+// A restricted-origin refusal of tag packs or of csp script hosts reads as a
+// refusal with its own sentence, not a 500.
+func TestPackageInstallRefusalForCommunityTags(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"tags", fmt.Errorf("package: %w", packages.ErrCommunityTags), "tracking tags"},
+		{"csp", packages.ErrCommunityCSP, "image hosts"},
+	} {
+		var r *admin.Refusal
+		if err := refusal(c.err); !errors.As(err, &r) || !strings.Contains(r.Msg, c.want) {
+			t.Errorf("%s: got %v, want a refusal containing %q", c.name, err, c.want)
+		}
+	}
+}
+
 // The developer-trust refusals are readable refusals (422), never a 500, and
 // the client-view text reaches the owner.
 func TestRefusalDeveloperTrust(t *testing.T) {

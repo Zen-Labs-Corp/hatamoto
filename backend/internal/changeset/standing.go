@@ -345,8 +345,24 @@ func checkStandingItem(ctx context.Context, tx pgx.Tx, p StandingPolicy, it Stor
 		return "it moves the page."
 	case pl.SEO != nil:
 		return "it changes search settings."
+	case pl.TranslationOf != "" && !alreadyTranslationOf(ctx, tx, origin, id, pl.TranslationOf):
+		return "it links the page to a translation."
 	}
 	return checkStandingAttributes(p, schema, attrs, pl.Attributes)
+}
+
+// alreadyTranslationOf reports whether the entity already shares a translation
+// group with the resolved source (a resend of an existing link).
+func alreadyTranslationOf(ctx context.Context, tx pgx.Tx, origin string, id uuid.UUID, ref string) bool {
+	src, err := translationSource(ctx, tx, origin, ref)
+	if err != nil || src == uuid.Nil {
+		return false
+	}
+	var same bool
+	err = tx.QueryRow(ctx, `
+		SELECT COALESCE(e.translation_group = s.translation_group, false)
+		FROM hatamoto_entities e, hatamoto_entities s WHERE e.id = $1 AND s.id = $2`, id, src).Scan(&same)
+	return err == nil && same
 }
 
 // checkStandingAttributes compares the attributes an update sends with the

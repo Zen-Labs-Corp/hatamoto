@@ -12,8 +12,9 @@ import (
 
 // A tag pack is a plugin package that holds only plugin.json and
 // tags/<stem>.json: declarations of third-party tags core loads itself, after
-// consent, with only the declared hosts in the page policy. It carries no
-// code, so it needs no permissions and may come from a community author.
+// consent, with only the declared hosts in the page policy. It adds a script
+// from those hosts to the public pages, so install and update accept it only
+// from first-party and self-built origins.
 const (
 	tagsDir     = "tags"
 	maxPackTags = 4 // tag files in one package

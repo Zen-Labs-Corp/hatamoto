@@ -86,9 +86,9 @@ func ContentTypesLine(names []string) string {
 
 // TagLines is the prompt text for one tag of a tag pack: what core loads, from
 // which hosts, after which consent, and which id the owner enters. A tag pack
-// runs no code, so the permission list does not apply to it.
+// has no permissions: it adds a script from the hosts it declares.
 func TagLines(idLabel string, hosts []string, category string, websockets bool) []Line {
-	from := "It runs no code of its own. Core loads one script from: " + strings.Join(hosts, ", ")
+	from := "It adds a script from " + strings.Join(hosts, ", ") + " to your public pages, loaded after the visitor agrees"
 	if websockets {
 		from += ", and may open live connections (WebSocket) to them"
 	}

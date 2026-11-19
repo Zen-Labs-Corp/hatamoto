@@ -1,10 +1,10 @@
 ---
 title: Tag packs
 nav_title: Tag packs
-description: Add a tracking tag to Settings > Privacy & tracking > Tracking with a package that holds only a small JSON file and runs no code.
+description: Add a tracking tag to Settings > Privacy & tracking > Tracking with a package that holds only a small JSON file and no plugin code.
 ---
 
-A **tag pack** is a plugin package that adds one to four tracking tags to [Settings > Privacy & tracking > Tracking](../admin/settings-users-email.md). It holds no code: each tag is a JSON file, and the server loads the tag's script itself, after the visitor's cookie consent, the same way it loads the built-in tags. Use it for a vendor the built-in list does not cover. To pack and sign a package, see [Package and install a plugin](package-and-install.md).
+A **tag pack** is a plugin package that adds one to four tracking tags to [Settings > Privacy & tracking > Tracking](../admin/settings-users-email.md). It holds no plugin code: each tag is a JSON file, and the server loads the tag's script itself, after the visitor's cookie consent, the same way it loads the built-in tags. A tag adds a third-party script to your public pages, and the install prompt says so. Use it for a vendor the built-in list does not cover. To pack and sign a package, see [Package and install a plugin](package-and-install.md).
 
 ## The package layout
 
@@ -51,6 +51,6 @@ An update that adds a host or changes a tag's category needs the owner to confir
 
 ## Registries
 
-A registry index lists a tag pack as a normal plugin with a `tags` list (name, category, hosts) that the index builder reads from the package. The directory and the install prompt show it before anything is downloaded. Community packs are eligible: a tag pack runs no code and needs no permission.
+A registry index lists a tag pack as a normal plugin with a `tags` list (name, category, hosts) that the index builder reads from the package. The directory and the install prompt show it before anything is downloaded. A tag adds a script to the public pages, so only first-party packages and packages you build and sign yourself can carry tags. Community and developer packages that hold tags are refused at install and at update, with the message "Community and developer packages cannot add tracking tags." A tag pack that is already installed keeps working.
 
 Servers older than this release refuse a package with `tags/` ("needs plugin.wasm or widgets/").

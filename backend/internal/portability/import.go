@@ -561,6 +561,11 @@ func insertQuery(ctx context.Context, tx pgx.Tx, t table, firstLine []byte) (str
 	list := strings.Join(cols, ", ")
 	tbl := pgx.Identifier{"public", t.name}.Sanitize()
 	q := fmt.Sprintf(`INSERT INTO %s (%s) SELECT %s FROM jsonb_populate_record(NULL::%s, $1::jsonb)`, tbl, list, list, tbl)
+	if t.name == "hatamoto_plugin_grants" {
+		// A name with a ':' is the host's own bookkeeping row (no plugin has
+		// one). The target keeps its own; the archive's copy is not applied.
+		q += ` WHERE plugin NOT LIKE '%:%'`
+	}
 	if t.selfRef == "" {
 		return q, nil
 	}

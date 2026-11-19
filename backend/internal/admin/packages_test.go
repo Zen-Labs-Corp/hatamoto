@@ -111,6 +111,11 @@ func (f *fakePackages) Inspect(_ context.Context, data []byte) (PackageSummary, 
 		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv", "site.scripts"},
 			Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "2.0.0", Granted: []string{"kv"},
 			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewScripts: true, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
+	case strings.HasPrefix(s, "plugin-filter-update:"): // an update that newly asks for entities.filter
+		name := strings.TrimPrefix(s, "plugin-filter-update:")
+		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv", "entities.filter"},
+			Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "2.0.0", Granted: []string{"kv"},
+			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewEntitiesFilter: true, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
 	case strings.HasPrefix(s, "plugin-redirects:"): // an update that newly declares redirect paths
 		name := strings.TrimPrefix(s, "plugin-redirects:")
 		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv"},
@@ -1137,14 +1142,17 @@ func TestTagPackCardAndDetailShowHostsNotPermissions(t *testing.T) {
 	view := RegistryView{Host: "registry.example.test", Entries: []RegistryEntry{{Kind: "plugin", Name: "acme", Version: "1.0.0", Description: "Acme tag",
 		Tags: []TagInfo{{Name: "Acme", Category: "marketing", Hosts: []string{"cdn.acme.example"}}}}}}
 	g, _ := browseRig(t, view)
-	if body := getBrowse(g, ""); !strings.Contains(body, "Tag pack · Runs no code") {
+	if body := getBrowse(g, ""); !strings.Contains(body, "Tag pack · Adds a script") {
 		t.Error("card lacks the tag pack line")
 	}
 	_, body := getAbout(g, "acme", nil)
-	for _, want := range []string{"cdn.acme.example", "Marketing", "runs no code"} {
+	for _, want := range []string{"cdn.acme.example", "Marketing", "adds a script from"} {
 		if !strings.Contains(strings.ToLower(body), strings.ToLower(want)) {
 			t.Errorf("detail lacks %q", want)
 		}
+	}
+	if strings.Contains(strings.ToLower(body), "runs no code") {
+		t.Error("detail still says the tag pack runs no code")
 	}
 	if strings.Contains(body, "It asks for no permissions") {
 		t.Error("detail shows a permission list for a tag pack")

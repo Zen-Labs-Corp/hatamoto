@@ -241,7 +241,7 @@ func (a *Admin) browseCard(e RegistryEntry) browseCard {
 		c.Meta = fmt.Sprintf("%d permissions", n)
 	}
 	if len(e.Tags) > 0 {
-		c.Meta = "Tag pack · Runs no code"
+		c.Meta = "Tag pack · Adds a script"
 	}
 	switch {
 	case c.FirstParty:

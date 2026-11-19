@@ -394,7 +394,7 @@ func (p pluginAdmin) Plugins() []admin.PluginInfo {
 		info := admin.PluginInfo{
 			Runs: runDecls(runs[v.Name]), Standing: declaresRule(runs[v.Name]),
 			Name: v.Name, Version: v.Version, SDK: v.SDK, Description: v.Description, Error: v.Error, DataError: v.DataError, TempFileLimitOff: v.TempFileLimitOff, Loaded: v.Loaded,
-			Hooks: v.Hooks, Permissions: v.Permissions, Granted: v.Granted, AllowedHosts: v.AllowedHosts, Cookies: v.Cookies, RedirectPaths: v.RedirectPaths, RequestHeaders: v.RequestHeaders, CSP: permtext.CSPLines(v.CSP), Funcs: v.Funcs,
+			Hooks: v.Hooks, Permissions: withKeptFilterGrant(v.Permissions, v.Granted), Granted: v.Granted, AllowedHosts: v.AllowedHosts, Cookies: v.Cookies, RedirectPaths: v.RedirectPaths, RequestHeaders: v.RequestHeaders, CSP: permtext.CSPLines(v.CSP), Funcs: v.Funcs,
 			Refused: p.s.refusedPermissions(v.Name, v.Permissions),
 		}
 		if p.s.packages != nil {
@@ -423,6 +423,17 @@ func (p pluginAdmin) Plugins() []admin.PluginInfo {
 		out = p.pkgs.decoratePlugins(out)
 	}
 	return out
+}
+
+// withKeptFilterGrant adds entities.filter to a plugin's listed permissions
+// when the owner holds it without the manifest asking (an installed plugin
+// that already filtered saves keeps it), so the Permissions tab shows it and
+// the owner can revoke it.
+func withKeptFilterGrant(perms, granted []string) []string {
+	if slices.Contains(granted, sdk.PermEntitiesFilter) && !slices.Contains(perms, sdk.PermEntitiesFilter) {
+		return append(slices.Clone(perms), sdk.PermEntitiesFilter)
+	}
+	return perms
 }
 
 // refusedPermissions is the part of perms that policy never lets plugin hold.

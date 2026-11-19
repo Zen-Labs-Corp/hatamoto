@@ -348,6 +348,22 @@ func TestPluginPromptWarnsAboutSiteScripts(t *testing.T) {
 	}
 }
 
+func TestPluginPromptNamesNewEntitiesFilter(t *testing.T) {
+	t.Parallel()
+
+	g, _, _ := newPackageRig(t)
+	rec := postMultipart(g, "/admin/plugins/upload", "owner-token", "p.hmp", "plugin-filter-update:hello")
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("%d", rec.Code)
+	}
+	for _, want := range []string{"needs your confirmation", "<code>entities.filter</code>", "see every page, post and draft when it is saved", `name="confirm"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("prompt missing %q", want)
+		}
+	}
+}
+
 func TestPluginPromptNamesNewRedirectPaths(t *testing.T) {
 	t.Parallel()
 
@@ -523,6 +539,9 @@ func (p islandPackages) Inspect(ctx context.Context, data []byte) (PackageSummar
 	if name, ok := strings.CutPrefix(string(data), "plugin-island:"); ok {
 		return PackageSummary{Kind: "plugin", Name: name, Version: "1.0.0", Permissions: []string{"builder.island"}, Signed: true, Signer: "abc123"}, nil
 	}
+	if name, ok := strings.CutPrefix(string(data), "plugin-filter:"); ok {
+		return PackageSummary{Kind: "plugin", Name: name, Version: "1.0.0", Permissions: []string{"entities.filter"}, Signed: true, Signer: "abc123"}, nil
+	}
 	return p.fakePackages.Inspect(ctx, data)
 }
 
@@ -539,6 +558,7 @@ func TestPluginPromptShowsReachingPermissionsAsReview(t *testing.T) {
 		{"http.fetch.any", "plugin-any:x", "Any web address."},
 		{"site.scripts", "plugin-scripts:x", "JavaScript on every public page."},
 		{"builder.island", "plugin-island:x", "Runs JavaScript on your site's pages."},
+		{"entities.filter", "plugin-filter:x", "Review and change content as you save it."},
 	} {
 		short := permtext.Lookup(tc.perm).Short
 		if short != tc.literal {
@@ -551,6 +571,14 @@ func TestPluginPromptShowsReachingPermissionsAsReview(t *testing.T) {
 		}
 		if !strings.Contains(body, "Handle with care") {
 			t.Errorf("%s: no warning badge", tc.perm)
+		}
+		if tc.perm == "entities.filter" {
+			if !strings.Contains(body, "Sees every page, post and draft") {
+				t.Errorf("%s: sub line missing", tc.perm)
+			}
+			if strings.Contains(body, "Edit or delete pages you wrote") {
+				t.Errorf("%s: the never list still denies what the permission allows", tc.perm)
+			}
 		}
 		i := strings.Index(body, title)
 		if i < 0 {

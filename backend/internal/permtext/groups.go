@@ -100,16 +100,23 @@ func Group(perms []string, declaresRuns, proposes bool) Grouped {
 		// must not contradict each other.
 		g.Never = slices.DeleteFunc(g.Never, func(s Statement) bool { return s.Title == neverPublicCode })
 	}
+	if slices.Contains(perms, sdk.PermEntitiesFilter) {
+		// A save filter can change what is saved to pages the owner wrote.
+		g.Never = slices.DeleteFunc(g.Never, func(s Statement) bool { return s.Title == neverEditOwn })
+	}
 	return g
 }
 
-const neverPublicCode = "Run code on your public pages"
+const (
+	neverPublicCode = "Run code on your public pages"
+	neverEditOwn    = "Edit or delete pages you wrote"
+)
 
 // NeverList is the fixed list of things no plugin can do, whatever it asks for.
 func NeverList() []Statement {
 	titles := []string{
 		"Change your live site directly",
-		"Edit or delete pages you wrote",
+		neverEditOwn,
 		"Touch user accounts, passwords, email settings or your site address",
 		neverPublicCode,
 	}

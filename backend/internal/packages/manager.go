@@ -41,14 +41,15 @@ const DefaultTheme = "default"
 
 // Errors the admin and the CLI report to the owner.
 var (
-	ErrUnsignedNotAllowed = errors.New("this package is not signed; installing unsigned packages is switched off (an owner can allow it in Admin > Plugins)")
-	ErrDevDisabled        = errors.New("development packages are disabled in production")
-	ErrThemeActive        = errors.New("this theme is active; activate another theme first")
-	ErrReservedName       = errors.New("that name is reserved (the built-in theme, the webhooks that moved into core, or a name the admin uses)")
-	ErrPermission         = errors.New("permission not requested by the plugin")
-	ErrUnknownSource      = errors.New("unknown package source")
-	ErrUninstalling       = errors.New("this package is being uninstalled; finish the uninstall first")
-	ErrSignerNotAllowed   = errors.New("only first-party packages can be installed here (public demo)")
+	ErrUnsignedNotAllowed   = errors.New("this package is not signed; installing unsigned packages is switched off (an owner can allow it in Admin > Plugins)")
+	ErrDevDisabled          = errors.New("development packages are disabled in production")
+	ErrThemeActive          = errors.New("this theme is active; activate another theme first")
+	errEntityFilterSnapshot = errors.New("packages: the record of installed plugins could not be written; try again")
+	ErrReservedName         = errors.New("that name is reserved (the built-in theme, the webhooks that moved into core, or a name the admin uses)")
+	ErrPermission           = errors.New("permission not requested by the plugin")
+	ErrUnknownSource        = errors.New("unknown package source")
+	ErrUninstalling         = errors.New("this package is being uninstalled; finish the uninstall first")
+	ErrSignerNotAllowed     = errors.New("only first-party packages can be installed here (public demo)")
 )
 
 // ReservedPluginName is the name of the former first-party webhooks plugin.
@@ -84,6 +85,9 @@ type ConfirmationRequired struct {
 	NewIsland bool
 	// NewScripts: the update newly asks for site.scripts.
 	NewScripts bool
+	// NewEntitiesFilter: the update newly asks for entities.filter (it sees
+	// and may change every save); it counts as widened access too.
+	NewEntitiesFilter bool
 	// NewCSPHosts are page-security (csp) hosts the update adds; it counts as
 	// widened access too.
 	NewCSPHosts []string
@@ -114,7 +118,7 @@ func (e *ConfirmationRequired) Error() string {
 		why = append(why, fmt.Sprintf("it is signed by %s, not %s", orUnsigned(e.NewSigner), orUnsigned(e.OldSigner)))
 	}
 	if e.WidenedAccess {
-		why = append(why, "it can reach further than the installed version (new web addresses, http.fetch.any or JavaScript on your pages, site.scripts, redirecting visitors from new pages, or a tag loading from new hosts)")
+		why = append(why, "it can reach further than the installed version (new web addresses, http.fetch.any or JavaScript on your pages, site.scripts, reviewing every save with entities.filter, redirecting visitors from new pages, or a tag loading from new hosts)")
 	}
 	if len(e.Missing) > 0 {
 		why = append(why, fmt.Sprintf("the active theme would lose %d section type(s) the content uses", len(e.Missing)))
@@ -211,10 +215,12 @@ type Manager struct {
 	devMu sync.Mutex // guards dev
 	dev   developerState
 
-	mu      sync.Mutex // serialises changes and reconciliation
-	loaded  map[string]loadedPlugin
-	theme   appliedTheme
-	preview map[string]previewEntry
+	mu sync.Mutex // serialises changes and reconciliation
+	// filterKeep tracks the one-time keep of entity filters (see grandfather.go).
+	filterKeep entityFilterKeep
+	loaded     map[string]loadedPlugin
+	theme      appliedTheme
+	preview    map[string]previewEntry
 	// blocked maps kind/name to why an installed package is not loaded (dev
 	// package in production, signer no longer trusted); rebuilt on reconcile.
 	blocked map[string]string
@@ -353,6 +359,9 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if err := validateTagPack(p); err != nil {
 			return nil, &ParseError{Msg: err.Error()}
 		}
+		if err := checkCommunityTags(origin, p); err != nil {
+			return nil, err
+		}
 		if _, err := p.EntitySchemas(); err != nil {
 			return nil, err
 		}
@@ -366,6 +375,11 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	// The snapshot of already installed plugins is taken before this install
+	// can be part of it.
+	if p.Kind == KindPlugin && !m.claimEntityFilterSnapshot(ctx) {
+		return nil, errEntityFilterSnapshot
+	}
 	prev, err := m.store.Get(ctx, p.Kind, p.Name)
 	updating := err == nil
 	if err != nil && !errors.Is(err, ErrNotFound) {
@@ -442,6 +456,11 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 				return fmt.Errorf("failed to void standing approvals: %w", err)
 			}
 			voided = n
+		}
+		if p.Kind == KindPlugin {
+			if err := forgetEntityFilterSnapshot(ctx, tx, p.Name); err != nil {
+				return err
+			}
 		}
 		if grants != nil {
 			if _, err := tx.Exec(ctx, `
@@ -577,6 +596,9 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 	}
 	if p.Kind == KindPlugin && !devLoop {
 		c.NewHosts, c.NewFetchAny, c.NewIsland, c.NewScripts = widenedAccess(prev.Manifest, p)
+		// A plugin that already holds the grant (kept from before it was a
+		// permission) is not asked again when it starts to list it.
+		c.NewEntitiesFilter = newEntitiesFilter(prev.Manifest, p) && !m.holdsGrant(ctx, p.Name, sdk.PermEntitiesFilter)
 		c.NewCSPHosts = newCSPHosts(prev.Manifest, p)
 		c.NewRequestHeaders = newRequestHeaders(prev.Manifest, p)
 		c.NewRedirectPaths = newRedirectPaths(prev.Manifest, p)
@@ -587,7 +609,7 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 			c.NewTagHosts, c.TagCategoryChanged = newTagAccess(prevPkg, p)
 		}
 		c.TagCompareFailed = loadErr != nil
-		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewRedirectPaths) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
+		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || c.NewEntitiesFilter || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewRedirectPaths) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
 	}
 	if !c.Downgrade && !c.SignerChange && !c.WidenedAccess && len(c.Missing) == 0 {
 		return nil, nil
@@ -614,6 +636,22 @@ func widenedAccess(installed jsontext.Value, p *Package) (hosts []string, fetchA
 		return slices.Contains(next.Permissions, perm) && !slices.Contains(old.Permissions, perm)
 	}
 	return hosts, newly(sdk.PermHTTPFetchAny), newly(sdk.PermBuilderIsland), newly(sdk.PermSiteScripts)
+}
+
+// holdsGrant reports whether the stored grants of plugin include perm. A read
+// error counts as not holding it, so the owner is asked.
+func (m *Manager) holdsGrant(ctx context.Context, plugin string, perm sdk.Permission) bool {
+	var held bool
+	err := m.Pool.QueryRow(ctx, `SELECT COALESCE($2 = ANY(permissions), false) FROM hatamoto_plugin_grants WHERE plugin = $1`, plugin, string(perm)).Scan(&held)
+	return err == nil && held
+}
+
+// newEntitiesFilter reports whether the update newly asks for entities.filter.
+func newEntitiesFilter(installed jsontext.Value, p *Package) bool {
+	var old sdk.Manifest
+	_ = decodeManifest(installed, &old)
+	next, err := p.PluginManifest()
+	return err == nil && slices.Contains(next.Permissions, sdk.PermEntitiesFilter) && !slices.Contains(old.Permissions, sdk.PermEntitiesFilter)
 }
 
 // newRedirectPaths lists the redirect_paths the update declares that the
@@ -836,6 +874,9 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts Un
 		}
 	}
 	if _, err := m.Pool.Exec(ctx, `DELETE FROM hatamoto_plugin_grants WHERE plugin = $1`, name); err != nil {
+		return err
+	}
+	if err := pgx.BeginFunc(ctx, m.Pool, func(tx pgx.Tx) error { return forgetEntityFilterSnapshot(ctx, tx, name) }); err != nil {
 		return err
 	}
 	var droppedTypes []string
@@ -1572,6 +1613,7 @@ func (m *Manager) reconcilePlugins(ctx context.Context, rows []Row) bool {
 		m.loaded[name] = loadedPlugin{sha: row.SHA256, pkg: p}
 		changed = true
 	}
+	m.grandfatherEntityFilter(ctx)
 	return changed
 }
 
