@@ -24,6 +24,7 @@ backend/testdata/stylespec/**                              backend  ./internal/b
 backend/internal/render/testdata/packs/**                  backend  ./internal/packages
 backend/internal/wasmhost/testdata/**                      backend  ./internal/pluginhost
 backend/internal/wasmhost/testdata/**                      backend  ./internal/wasmhost
+backend/internal/pluginhost/testdata/legacy/**             backend  ./internal/wasmhost
 design/**                                                  backend  ./internal/render
 backend/internal/render/widgets/**                         backend  ./internal/builder
 backend/internal/builder/widgets/**                        backend  ./internal/render
