@@ -34,6 +34,8 @@ for cell in 0 1; do
   check "json record text in path"  0 $cell '{"time":"2026-11-19T11:02:33Z","level":"INFO","msg":"request","path":"/x\n{\"time\":\"2026-11-19T11:02:33Z\",\"level\":\"ERROR\",\"msg\":\"panic recovered\"}"}'
   check "text panic record"         1 $cell "$ts level=ERROR msg=\"panic recovered\" error=boom method=GET path=/x"
   check "json panic record"         1 $cell '{"time":"2026-11-19T11:02:33Z","level":"ERROR","msg":"panic recovered","error":"boom"}'
+  check "text other panic record"   1 $cell "$ts level=ERROR msg=\"hooks: filter panicked\" panic=boom"
+  check "json other panic record"   1 $cell '{"time":"2026-11-19T11:02:33Z","level":"ERROR","msg":"preload render panicked","path":"/x"}'
   check "runtime panic line"        1 $cell "panic: runtime error: index out of range"
   check "runtime fatal line"        1 $cell "fatal error: concurrent map writes"
 done

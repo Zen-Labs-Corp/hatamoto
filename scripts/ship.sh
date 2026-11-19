@@ -897,9 +897,9 @@ fi
 
 # ---------------------------------------------------------------- health
 # Records the server itself writes (journalctl -o cat prints the bare message, so a line
-# can only start with time=/{"time" when the server logged it): panic-recovered records
+# can only start with time=/{"time" when the server logged it): recovered-panic records
 # in text or JSON form, and runtime panic/fatal lines.
-PANIC_RE='^time=[^ ]+ level=ERROR msg="panic recovered"|^\{"time":"[^"]+","level":"ERROR","msg":"panic recovered"|^panic: |^fatal error: '
+PANIC_RE='^time=[^ ]+ level=ERROR msg="(panic recovered|preload render panicked|import job panicked|host call panicked|hooks: (action|filter) panicked|admin: nav count panicked)"|^\{"time":"[^"]+","level":"ERROR","msg":"(panic recovered|preload render panicked|import job panicked|host call panicked|hooks: (action|filter) panicked|admin: nav count panicked)"|^panic: |^fatal error: '
 # Usage: health <journal-since>. Only logs since that remote timestamp count,
 # so a previous (failed) binary's panic cannot fail a later check.
 # Prints failures to stderr; returns 0 only when everything is healthy.
