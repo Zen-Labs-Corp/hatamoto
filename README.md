@@ -94,7 +94,7 @@ each one is who it claims to be, and lets you allow or block a whole purpose (tr
 ### Let agents publish through MCP
 
 Hatamoto is an MCP server. An agent connects with an API key and gets tools for content, the page builder,
-media, SEO and analytics, limited to the scopes on its key. This session is real: the agent drafts a post,
+media, SEO and analytics, limited to the scopes on its key as set by the admin. This session is real: the agent drafts a post,
 publishes it, and the page is live. [MCP](docs/site/ai-seo/mcp.md), [Connect an AI agent](docs/site/ai-seo/connect-an-ai-agent.md)
 
 <table>
