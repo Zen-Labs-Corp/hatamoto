@@ -132,7 +132,7 @@ In the blog editor's author picker, typing a new name creates a person who is no
 
 ### Your own profile
 
-`<admin>/profile` edits the person linked to your login: name, photo, job title, short bio, LinkedIn and the **Public profile** switch. You can also change your password there (at least 12 characters) and sign out on all devices. Until your person has a name and a photo you are sent to `<admin>/profile/complete` after signing in.
+`<admin>/profile` edits the person linked to your login: name, photo, job title, short bio, LinkedIn and the **Public profile** switch. You can also change your password there (at least 12 characters) and sign out on all devices. Until your person has a name (and a photo, when it is public) you are sent to `<admin>/profile/complete` after signing in.
 
 ### Possible duplicates
 

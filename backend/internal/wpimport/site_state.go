@@ -46,7 +46,7 @@ type SiteState struct {
 // the mode of the first run.
 func InspectSite(ctx context.Context, pool *pgxpool.Pool, keyPrefix string) (*SiteState, error) {
 	// People are not site content: every user has one (the admin asks for a
-	// name and photo at first sign-in), so counting them made a fresh site
+	// name at first sign-in), so counting them made a fresh site
 	// look like a site with content.
 	rows, err := pool.Query(ctx, `
 		SELECT e.slug, e.attributes FROM hatamoto_entities e

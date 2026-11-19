@@ -42,11 +42,13 @@ fields fill the gaps in the kept person, except when the kept person is public a
 one was hidden: then nothing is copied, so a hidden person's details never become public.
 
 **Complete your profile.** `RequireProfile` runs after `RequireSession` on every admin
-route. A user whose person has no name or no photo is sent to `<admin>/profile/complete`
+route. A user whose person has no name, or is public without a photo, is sent to
+`<admin>/profile/complete`
 (a GET carries `next=`, an htmx request gets `HX-Redirect`, a POST is redirected without
 `next`). Exempt: `<admin>/profile*`, `logout`, `assets`, `media/upload`, `media/picker`,
 `theme` (that exact path only: it is the colour-scheme switch, and the Theme pages under
 `<admin>/theme/...` are gated). "Complete" is derived from the person (`person.Complete`), nothing is stored.
+A hidden person needs no photo: the site shows a person who is not public as a name only.
 
 The main menu lists Overview, then Site (Entities, Media, Forms, Analytics) and Customize
 (Plugins, Theme, Settings). Forms and Media are main-menu items at `<admin>/forms` and

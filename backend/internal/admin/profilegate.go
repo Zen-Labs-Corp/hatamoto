@@ -62,9 +62,10 @@ func (a *Admin) inSetupWizard(r *http.Request) bool {
 	return (p == setup || strings.HasPrefix(p, setup+"/")) && !a.setupCompleted(r)
 }
 
-// RequireProfile sends a signed-in user whose person has no name or no photo
-// to the complete-profile step. It runs after RequireSession and never writes:
-// "complete" is derived from the person, so there is no flag to keep in step.
+// RequireProfile sends a signed-in user whose person has no name, or is public
+// without a photo, to the complete-profile step. It runs after RequireSession
+// and never writes: "complete" is derived from the person, so there is no flag
+// to keep in step.
 // A GET navigation carries next= so the step ends where the user was headed;
 // an htmx request gets HX-Redirect (next is the page it came from); anything
 // else (a POST) is redirected without next, since replaying it is not safe.

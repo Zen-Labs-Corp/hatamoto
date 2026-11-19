@@ -25,7 +25,7 @@ In this guide you sign in to the admin, the private part of your site where you 
 
    - If the site was installed a moment ago and nobody has finished setting it up, `<admin>/setup` opens a short wizard instead. The server logs the full setup address when it starts. It asks for the **setup code**, a one-time code the server prints to its log so only someone with access to the server can create the first owner. [First run](../getting-started/first-run.md) walks you through it.
 
-3. If the admin asks you to complete your profile, add your name and a photo, then save. The admin shows this step at `<admin>/profile/complete` until your profile has both.
+3. If the admin asks you to complete your profile, add your name, then save. A photo is needed only when **Show my public profile** is on. The admin shows this step at `<admin>/profile/complete` until your profile has what it needs.
 
 ### Look around
 

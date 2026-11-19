@@ -21,9 +21,12 @@ func TestComplete(t *testing.T) {
 	}{
 		{"nil", nil, false},
 		{"name and photo", &Person{Name: "Ada", Photo: "/a.jpg"}, true},
-		{"no photo", &Person{Name: "Ada"}, false},
+		{"hidden, no photo", &Person{Name: "Ada"}, true},
+		{"public, name and photo", &Person{Name: "Ada", Photo: "/a.jpg", Public: true}, true},
+		{"public, no photo", &Person{Name: "Ada", Public: true}, false},
+		{"public, blank photo", &Person{Name: "Ada", Photo: " ", Public: true}, false},
 		{"blank name", &Person{Name: "  ", Photo: "/a.jpg"}, false},
-		{"blank photo", &Person{Name: "Ada", Photo: " "}, false},
+		{"hidden, blank name", &Person{Name: "  "}, false},
 	}
 	for _, c := range cases {
 		if got := Complete(c.p); got != c.want {
@@ -41,6 +44,7 @@ func TestProfileInputValidate(t *testing.T) {
 		t.Errorf("input not trimmed: %+v", good)
 	}
 	bad := ProfileInput{
+		Public:   true, // a public profile needs a photo
 		Name:     strings.Repeat("é", 121),
 		JobTitle: strings.Repeat("x", 121),
 		ShortBio: strings.Repeat("x", 301),
@@ -60,8 +64,15 @@ func TestProfileInputValidate(t *testing.T) {
 	if err := ok.Validate(); err != nil {
 		t.Errorf("120 runes refused: %v", err)
 	}
-	if err := (&ProfileInput{}).Validate(); err == nil || err.Fields["name"] == "" || err.Fields["photo"] == "" {
+	if err := (&ProfileInput{}).Validate(); err == nil || err.Fields["name"] == "" || err.Fields["photo"] != "" {
 		t.Errorf("empty input: %v", err)
+	}
+	// The photo is required only when the profile is public.
+	if err := (&ProfileInput{Name: "Ada"}).Validate(); err != nil {
+		t.Errorf("hidden profile without a photo refused: %v", err)
+	}
+	if err := (&ProfileInput{Name: "Ada", Photo: " ", Public: true}).Validate(); err == nil || err.Fields["photo"] == "" {
+		t.Errorf("public profile with a blank photo: %v", err)
 	}
 }
 
@@ -195,9 +206,9 @@ func TestSaveMakesThePersonFromTheTypedName(t *testing.T) {
 	if err != nil || other.Slug != "alex-carter-2" {
 		t.Errorf("slug collision = %+v, %v", other, err)
 	}
-	// Invalid input makes nothing.
+	// Invalid input (a public profile without a photo) makes nothing.
 	n := w.creates
-	if _, err := p.Save(ctx, uuid.New(), ProfileInput{Name: "No Photo"}); err == nil || w.creates != n {
+	if _, err := p.Save(ctx, uuid.New(), ProfileInput{Name: "No Photo", Public: true}); err == nil || w.creates != n {
 		t.Errorf("invalid save: %v; creates %d -> %d", err, n, w.creates)
 	}
 }
@@ -238,8 +249,8 @@ func TestSaveWritesProfileAndKeepsOtherAttributes(t *testing.T) {
 	}
 	w.ents[cur.ID].Attributes = jsontext.Value(`{"public":false,"bio":"<p>Long</p>","github":"https://g.example/ada"}`)
 
-	if _, err := p.Save(ctx, user, ProfileInput{Name: "Ada L", Photo: ""}); err == nil {
-		t.Fatal("missing photo saved")
+	if _, err := p.Save(ctx, user, ProfileInput{Name: "Ada L", Photo: "", Public: true}); err == nil {
+		t.Fatal("public profile without a photo saved")
 	} else {
 		var verr *ValidationError
 		if !errors.As(err, &verr) || verr.Fields["photo"] == "" {
