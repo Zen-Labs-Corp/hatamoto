@@ -137,6 +137,9 @@ func (r *pluginRegistry) checkPartial(plugin, name, src string) error {
 	if src == "" {
 		return fmt.Errorf("render: plugin partial %s/%s: empty source", plugin, name)
 	}
+	if err := checkPluginLoops(src); err != nil {
+		return fmt.Errorf("render: plugin partial %s/%s: %w", plugin, name, err)
+	}
 	full := "plugin/" + pluginIdent(plugin) + "/" + name
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -181,6 +184,9 @@ func (r *pluginRegistry) registerPartial(plugin, name, src string) error {
 func (r *pluginRegistry) registerSection(plugin, typ, src string) error {
 	if !sectionTypeRe.MatchString(typ) || strings.TrimSpace(src) == "" {
 		return fmt.Errorf("render: plugin section %s/%s: bad type (want %s) or empty source", plugin, typ, sectionTypeRe)
+	}
+	if err := checkPluginLoops(src); err != nil {
+		return fmt.Errorf("render: plugin section %s/%s: %w", plugin, typ, err)
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()

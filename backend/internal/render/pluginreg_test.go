@@ -548,3 +548,66 @@ func TestPluginSampleRenderCanary(t *testing.T) {
 		}
 	}
 }
+
+func TestPluginRegRefusesUnboundedRange(t *testing.T) {
+	t.Parallel()
+	refused := map[string]string{
+		"number":   `{{range 2000000000}}x{{end}}`,
+		"variable": `{{$n := 9}}{{range $n}}x{{end}}`,
+		"func":     `{{range index .Content "items"}}x{{end}}`,
+		"in if":    `{{if .A}}{{range 5}}x{{end}}{{end}}`,
+		"in with":  `{{with .A}}{{range 5}}x{{end}}{{end}}`,
+		"in else":  `{{if .A}}y{{else}}{{range 5}}x{{end}}{{end}}`,
+		"in range": `{{range .A}}{{range 5}}x{{end}}{{end}}`,
+		"define":   `{{define "other"}}{{range 5}}x{{end}}{{end}}ok`,
+	}
+	accepted := map[string]string{
+		"field":  `{{range .Content.items}}x{{end}}`,
+		"decl":   `{{range $i, $v := .Content.items}}x{{end}}`,
+		"dot":    `{{range .}}x{{end}}`,
+		"nested": `{{range .Content.a}}{{range .b}}x{{end}}{{end}}`,
+	}
+	wrap := func(s string) string {
+		if strings.Contains(s, "{{define") {
+			return `{{define "section-x"}}y{{end}}` + s
+		}
+		return `{{define "section-x"}}` + s + `{{end}}`
+	}
+	for name, src := range refused {
+		t.Run("section refused "+name, func(t *testing.T) {
+			t.Parallel()
+			reg := newPluginRegistry()
+			if err := reg.registerSection("acme", "x", wrap(src)); err == nil {
+				t.Error("accepted")
+			}
+			if reg.size() != 0 {
+				t.Error("registry changed")
+			}
+		})
+		t.Run("partial refused "+name, func(t *testing.T) {
+			t.Parallel()
+			reg := newPluginRegistry()
+			if err := reg.registerPartial("acme", "x", src); err == nil {
+				t.Error("accepted")
+			}
+			if err := reg.checkPartial("acme", "x", src); err == nil {
+				t.Error("dry run accepted")
+			}
+			if reg.size() != 0 {
+				t.Error("registry changed")
+			}
+		})
+	}
+	for name, src := range accepted {
+		t.Run("accepted "+name, func(t *testing.T) {
+			t.Parallel()
+			reg := newPluginRegistry()
+			if err := reg.registerSection("acme", "x", wrap(src)); err != nil {
+				t.Error(err)
+			}
+			if err := reg.registerPartial("acme", "x", src); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}

@@ -1,10 +1,12 @@
 package render
 
 import (
+	"errors"
 	"hash/fnv"
 	"html/template"
 	"sort"
 	"strings"
+	"text/template/parse"
 )
 
 // A plugin's partials and sections are markup the page emits as written. They
@@ -52,6 +54,55 @@ func checkPluginScripts(src string, funcs template.FuncMap) error {
 			if err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// checkPluginLoops refuses a range over anything but a field chain or the dot
+// (a number, a variable, a function result) in any template src defines, at any
+// depth, so a plugin template cannot loop without bound. A source that does not
+// parse is left to vet, which rejects it.
+func checkPluginLoops(src string) error {
+	p := parse.New("loops")
+	p.Mode = parse.SkipFuncCheck
+	trees := map[string]*parse.Tree{}
+	if _, err := p.Parse(src, "", "", trees); err != nil {
+		return nil
+	}
+	var walk func(*parse.ListNode) error
+	walk = func(l *parse.ListNode) error {
+		if l == nil {
+			return nil
+		}
+		for _, n := range l.Nodes {
+			var body, other *parse.ListNode
+			switch x := n.(type) {
+			case *parse.RangeNode:
+				if !withPipe(x.Pipe) {
+					return errors.New("range may only iterate a field such as .Content.items, not a number, a variable or a function result")
+				}
+				body, other = x.List, x.ElseList
+			case *parse.IfNode:
+				body, other = x.List, x.ElseList
+			case *parse.WithNode:
+				body, other = x.List, x.ElseList
+			}
+			if err := walk(body); err != nil {
+				return err
+			}
+			if err := walk(other); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	for _, t := range trees {
+		if t.Root == nil {
+			continue
+		}
+		if err := walk(t.Root); err != nil {
+			return err
 		}
 	}
 	return nil
