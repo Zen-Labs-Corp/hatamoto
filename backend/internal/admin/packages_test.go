@@ -111,6 +111,11 @@ func (f *fakePackages) Inspect(_ context.Context, data []byte) (PackageSummary, 
 		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv", "site.scripts"},
 			Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "2.0.0", Granted: []string{"kv"},
 			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewScripts: true, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
+	case strings.HasPrefix(s, "plugin-filter-update:"): // an update that newly asks for entities.filter
+		name := strings.TrimPrefix(s, "plugin-filter-update:")
+		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv", "entities.filter"},
+			Signed: true, Signer: "abc123", Updating: true, InstalledVersion: "2.0.0", Granted: []string{"kv"},
+			Confirm: &ConfirmInfo{Name: name, WidenedAccess: true, NewEntitiesFilter: true, OldVersion: "2.0.0", NewVersion: "2.1.0", OldSigner: "abc123", NewSigner: "abc123"}}, nil
 	case strings.HasPrefix(s, "plugin-redirects:"): // an update that newly declares redirect paths
 		name := strings.TrimPrefix(s, "plugin-redirects:")
 		return PackageSummary{Kind: "plugin", Name: name, Version: "2.1.0", Permissions: []string{"kv"},

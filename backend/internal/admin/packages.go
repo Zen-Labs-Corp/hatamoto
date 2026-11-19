@@ -162,6 +162,7 @@ type ConfirmInfo struct {
 	NewFetchAny            bool
 	NewIsland              bool
 	NewScripts             bool
+	NewEntitiesFilter      bool
 	NewCSPHosts            []string
 	NewRequestHeaders      []string
 	NewRedirectPaths       []string
