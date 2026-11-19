@@ -3,6 +3,7 @@ package render
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"text/template/parse"
 )
 
@@ -13,8 +14,12 @@ import (
 // registered one by one, but they call each other.
 const (
 	maxPluginCalls      = 1000 // expanded {{template}} invocations per template
-	maxPluginRangeDepth = 2    // nested ranges, also across {{template}} calls
+	maxPluginRangeDepth = 2    // re-entering ranges, also across {{template}} calls
 )
+
+// These limits are guards against accidental recursion, fan-out and nesting.
+// They are not a bound on what a template can cost: template text is trusted
+// for CPU and memory like theme markup.
 
 // pluginCall is one {{template "name"}} in a tree and the number of ranges
 // that enclose it.
@@ -29,8 +34,24 @@ type pluginTree struct {
 	depth int // deepest range nesting inside the template itself
 }
 
-// collectCalls records the calls and the range depth of l.
-func collectCalls(l *parse.ListNode, depth int, t *pluginTree) {
+// reentersContent reports whether the range pipe starts again from the
+// section's content ($.Content..., or .Content... at a template root). A range
+// over the current item's children (dotContent) only walks the data once, so it
+// adds no depth.
+func reentersContent(p *parse.PipeNode, dot dotKind) bool {
+	if p == nil || len(p.Cmds) == 0 || len(p.Cmds[0].Args) == 0 {
+		return true
+	}
+	switch p.Cmds[0].Args[0].(type) {
+	case *parse.FieldNode, *parse.DotNode:
+		return dot != dotContent
+	}
+	return true
+}
+
+// collectCalls records the calls and the range depth of l. dot says what the
+// dot is, as in checkPluginLoops.
+func collectCalls(l *parse.ListNode, depth int, dot dotKind, t *pluginTree) {
 	if l == nil {
 		return
 	}
@@ -40,14 +61,22 @@ func collectCalls(l *parse.ListNode, depth int, t *pluginTree) {
 		case *parse.TemplateNode:
 			t.calls = append(t.calls, pluginCall{x.Name, depth})
 		case *parse.RangeNode:
-			collectCalls(x.List, depth+1, t)
-			collectCalls(x.ElseList, depth, t)
+			d := depth
+			if reentersContent(x.Pipe, dot) {
+				d++
+			}
+			collectCalls(x.List, d, dotContent, t)
+			collectCalls(x.ElseList, depth, dot, t)
 		case *parse.IfNode:
-			collectCalls(x.List, depth, t)
-			collectCalls(x.ElseList, depth, t)
+			collectCalls(x.List, depth, dot, t)
+			collectCalls(x.ElseList, depth, dot, t)
 		case *parse.WithNode:
-			collectCalls(x.List, depth, t)
-			collectCalls(x.ElseList, depth, t)
+			inner := dotUnknown
+			if contentPipe(x.Pipe, dot) {
+				inner = dotContent
+			}
+			collectCalls(x.List, depth, inner, t)
+			collectCalls(x.ElseList, depth, dot, t)
 		}
 	}
 }
@@ -55,8 +84,9 @@ func collectCalls(l *parse.ListNode, depth int, t *pluginTree) {
 // checkPluginCalls takes every template source of one plugin, by root name,
 // and refuses a call cycle (a template that reaches itself), more than
 // maxPluginCalls expanded invocations from any template, and range nesting
-// deeper than maxPluginRangeDepth, counting ranges that enclose a call to a
-// template that ranges itself. Calls to names the sources do not define (the
+// deeper than maxPluginRangeDepth, counting ranges that start again from the
+// content ($.Content..., not a range over the current item) and ranges that
+// enclose a call to a template that ranges itself. Calls to names the sources do not define (the
 // theme's templates) are leaves. A source that does not parse is left to vet.
 func checkPluginCalls(srcs map[string]string) error {
 	graph := map[string]*pluginTree{}
@@ -81,7 +111,7 @@ func checkPluginCalls(srcs map[string]string) error {
 				t = &pluginTree{}
 				graph[name] = t
 			}
-			collectCalls(tr.Root, 0, t)
+			collectCalls(tr.Root, 0, dotRoot, t)
 		}
 	}
 	names := make([]string, 0, len(graph))
@@ -160,4 +190,24 @@ func (s pluginSnapshot) callGraphFaults(partials, sections map[string]string) ma
 		}
 	}
 	return faults
+}
+
+// foreignCall returns the first {{template}} in src that calls a template of
+// another plugin ("plugin/<other>/..."), or "" when there is none. prefix is
+// the calling plugin's own "plugin/<ident>/". A source that does not parse is
+// left to vet.
+func foreignCall(trees []*parse.Tree, prefix string) string {
+	for _, tr := range trees {
+		if tr == nil || tr.Root == nil {
+			continue
+		}
+		var t pluginTree
+		collectCalls(tr.Root, 0, dotRoot, &t)
+		for _, c := range t.calls {
+			if strings.HasPrefix(c.name, "plugin/") && !strings.HasPrefix(c.name, prefix) {
+				return c.name
+			}
+		}
+	}
+	return ""
 }

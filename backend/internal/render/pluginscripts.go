@@ -167,10 +167,19 @@ func checkPluginLoops(src string) error {
 // errPluginOutput is errPackOutput worded for a plugin template.
 var errPluginOutput = errors.New("plugin template output exceeds the size cap")
 
-// stubFuncs has every plugin func answer with nothing: a sample render must
-// not call into plugin code.
+// stringBuiltins are the builtins that build strings. A sample render stubs
+// them so that repeated concatenation in an assignment cannot grow without
+// limit while the plugin is compiled.
+var stringBuiltins = []string{"printf", "print", "println", "slice", "html", "js", "urlquery"}
+
+// stubFuncs has every plugin func and every string-building builtin answer with
+// nothing: a sample render must not call into plugin code, nor build large
+// strings.
 func stubFuncs(funcs template.FuncMap) template.FuncMap {
 	out := template.FuncMap{}
+	for _, name := range stringBuiltins {
+		out[name] = func(...any) (string, error) { return "", nil }
+	}
 	for name := range funcs {
 		out[name] = func(...any) (string, error) { return "", nil }
 	}
@@ -217,13 +226,19 @@ func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (pluginSnapsho
 		if allowed != nil && allowed(plugin) {
 			return true
 		}
-		err := checkPluginScripts(src, s.funcs)
-		if err == nil && graphFaults[plugin] == nil { // vet rejects those; never execute them
+		// A call-graph fault is refused here too: vet may see a different set
+		// and find nothing, and a template of that plugin is never executed
+		// unchecked.
+		err := graphFaults[plugin]
+		if err == nil {
+			err = checkPluginScripts(src, s.funcs)
+		}
+		if err == nil {
 			err = scanSampleRender(src, s.funcs)
 		}
 		if err != nil {
 			msg := label + ": " + err.Error()
-			if !errors.Is(err, errPluginOutput) {
+			if !errors.Is(err, errPluginOutput) && graphFaults[plugin] == nil {
 				msg += " (not allowed without site.scripts)"
 			}
 			why[plugin] = append(why[plugin], msg)

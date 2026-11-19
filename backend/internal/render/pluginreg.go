@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"text/template/parse"
 )
 
 // pluginNameRe constrains plugin and entry names so the namespaced func name
@@ -268,7 +269,7 @@ func (r *pluginRegistry) snapshot() pluginSnapshot {
 // "plugin/<ident>/..." and a section defines "section-<type>" (the type must
 // not exist in the theme) and "plugin/<ident>/...". Anything else (a
 // {{define "head"}} that would replace the theme's template, a syntax error, an
-// unknown func, a section that does not define its own entry, a call cycle,
+// unknown func, a call to another plugin's template, a section that does not define its own entry, a call cycle,
 // too many template calls or ranges nested too deeply across the plugin's
 // templates) rejects ALL of that plugin's templates, with a log line. The theme is never touched.
 func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logger) (partials, sections map[string]string) {
@@ -280,15 +281,20 @@ func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logg
 		}
 		rejected[plugin] = true
 	}
-	ok := func(src string, root string, allow func(string) bool) error {
+	ok := func(src string, root string, prefix string, allow func(string) bool) error {
 		t, err := template.New(root).Funcs(s.funcs).Parse(src)
 		if err != nil {
 			return err
 		}
+		var trees []*parse.Tree
 		for _, d := range t.Templates() {
 			if n := d.Name(); n != root && !allow(n) {
 				return fmt.Errorf("defines %q, which is not a name of its own", n)
 			}
+			trees = append(trees, d.Tree)
+		}
+		if name := foreignCall(trees, prefix); name != "" {
+			return fmt.Errorf("calls %q: templates may not call another plugin's templates", name)
 		}
 		return nil
 	}
@@ -300,7 +306,7 @@ func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logg
 			reject(plugin, name, fmt.Errorf("partial name outside %s", prefix))
 			continue
 		}
-		if err := ok(src, name, func(n string) bool { return strings.HasPrefix(n, prefix) }); err != nil {
+		if err := ok(src, name, prefix, func(n string) bool { return strings.HasPrefix(n, prefix) }); err != nil {
 			reject(plugin, name, err)
 			continue
 		}
@@ -313,7 +319,7 @@ func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logg
 		plugin := s.owner["s:"+typ]
 		prefix := "plugin/" + pluginIdent(plugin) + "/"
 		root := "sections/" + typ + ".html"
-		if err := ok(src, root, func(n string) bool { return n == "section-"+typ || strings.HasPrefix(n, prefix) }); err != nil {
+		if err := ok(src, root, prefix, func(n string) bool { return n == "section-"+typ || strings.HasPrefix(n, prefix) }); err != nil {
 			reject(plugin, root, err)
 			continue
 		}

@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPluginRegFuncValidation(t *testing.T) {
@@ -685,10 +686,14 @@ func TestPluginVetBoundsCallsAndNesting(t *testing.T) {
 		{"mutual recursion across a partial and a section", map[string]string{
 			"p": `{{template "section-x"}}`,
 		}, section(`{{template "plugin/acme/p"}}`), true},
-		{"three nested ranges", nil, section(`{{range $.Content.items}}{{range .a}}{{range .b}}z{{end}}{{end}}{{end}}`), true},
+		{"three nested ranges, two over the current item", nil, section(`{{range $.Content.items}}{{range .a}}{{range .b}}z{{end}}{{end}}{{end}}`), false},
 		{"two nested ranges", nil, section(`{{range $.Content.items}}{{range .a}}z{{end}}{{end}}`), false},
-		{"range calling a partial with two nested ranges", map[string]string{
-			"inner": `{{range .Content.a}}{{range .b}}z{{end}}{{end}}`,
+		{"ranges over the children of the current item", nil,
+			section(`{{range .Content.groups}}{{range .items}}{{range .tags}}x{{end}}{{end}}{{end}}`), false},
+		{"three nested ranges from the content root", nil,
+			section(`{{range $.Content.items}}{{range $.Content.a}}{{range $.Content.b}}z{{end}}{{end}}{{end}}`), true},
+		{"range calling a partial that ranges the content again", map[string]string{
+			"inner": `{{range .Content.a}}{{range $.Content.b}}z{{end}}{{end}}`,
 		}, section(`{{range $.Content.items}}{{template "plugin/acme/inner" $}}{{end}}`), true},
 		{"a few partial calls", map[string]string{
 			"a": `<i>{{template "plugin/acme/b"}}{{template "plugin/acme/b"}}</i>`,
@@ -707,6 +712,61 @@ func TestPluginVetBoundsCallsAndNesting(t *testing.T) {
 				t.Errorf("kept %d templates, want %d", kept, len(tc.partials)+len(tc.sections))
 			}
 		})
+	}
+}
+
+// Two plugins that call each other's partials would rebuild the recursion that
+// the per-plugin call graph refuses, so a call to another plugin's template
+// rejects the plugin that makes it.
+func TestPluginVetRefusesCallsToAnotherPlugin(t *testing.T) {
+	t.Parallel()
+	reg := newPluginRegistry()
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(reg.registerPartial("acme", "p", `{{if .}}{{template "plugin/beta/q" (slice . 1)}}{{template "plugin/beta/q" (slice . 1)}}{{end}}`))
+	must(reg.registerSection("acme", "x", `{{define "section-x"}}{{template "plugin/acme/p" "aaaa"}}{{end}}`))
+	must(reg.registerPartial("beta", "q", `{{if .}}{{template "plugin/acme/p" (slice . 1)}}{{template "plugin/acme/p" (slice . 1)}}{{end}}`))
+	must(reg.registerPartial("beta", "ok", `<b>{{template "plugin/beta/q" "a"}}</b>`))
+	partials, sections := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if len(partials) != 0 || len(sections) != 0 {
+		t.Errorf("kept partials %v, sections %v, want none", partials, sections)
+	}
+}
+
+// The sample render stubs the string builtins: doubling a string 40 times would
+// need terabytes if it ran.
+func TestSampleRenderDoesNotBuildStrings(t *testing.T) {
+	t.Parallel()
+	body := `{{$s := "aaaaaaaa"}}` + strings.Repeat(`{{$s = printf "%s%s" $s $s}}`, 40)
+	start := time.Now()
+	if err := scanSampleRender(`{{define "a"}}`+body+`{{end}}`, nil); err != nil {
+		t.Fatal(err)
+	}
+	if d := time.Since(start); d > 3*time.Second {
+		t.Errorf("sample render took %v", d)
+	}
+}
+
+// A call-graph fault is refused when the plugin is gated, not kept unchecked.
+func TestPluginGateRefusesACallGraphFault(t *testing.T) {
+	t.Parallel()
+	reg := newPluginRegistry()
+	if err := reg.registerSection("acme", "x", `{{define "section-x"}}{{template "section-x"}}{{end}}`); err != nil {
+		t.Fatal(err)
+	}
+	if err := reg.registerSection("acme", "y", `{{define "section-y"}}<p>ok</p>{{end}}`); err != nil {
+		t.Fatal(err)
+	}
+	out, why := reg.snapshot().withoutScripts(nil)
+	if len(out.sections) != 0 {
+		t.Errorf("kept sections %v, want none", out.sections)
+	}
+	if len(why["acme"]) != 2 || strings.Contains(why["acme"][0], "site.scripts") {
+		t.Errorf("why = %v", why["acme"])
 	}
 }
 
