@@ -172,6 +172,8 @@ The Dockerfile below downloads the release binary and builds the container on yo
 
 Open `http://localhost:8090/` in a browser to see the starter home page, and open the setup address from the log line to reach the setup wizard. `hatamoto admin-url` prints your admin address if you need it again. Continue with [First run](first-run.md).
 
+Open the admin on the computer that runs Docker, through `localhost`. From another device on your network, for example at `http://192.168.1.20:8090`, the public pages load but every admin page, the setup wizard included, answers with the site's not-found page. Browsers send the request headers the admin checks (`Sec-Fetch-*`) only over HTTPS or to `localhost`, and the admin refuses requests without them; the log says `admin request without fetch metadata refused`. To use the admin from another device, serve it over HTTPS, as in [Without a domain](../operate/reverse-proxy-tls.md#without-a-domain).
+
 `docker compose ps` shows the `hatamoto` container as `healthy` within about a minute of starting.
 
 If `docker compose up` stops with `set VERSION to a release such as vX.Y.Z`, the `.env` file is missing or is not in this folder. If the build fails while downloading, check that the version in `.env` exists and starts with `v`.

@@ -48,7 +48,7 @@ In a cloud-init file or launch script, put the same names after `env` in the ins
 | `HATAMOTO_ADMIN_EMAIL` | Your email address, given to the certificate authority for expiry notices. | none |
 | `HATAMOTO_SETUP_CODE` | Your own setup code, at least 12 letters or digits. | a random code |
 | `HATAMOTO_BACKUPS` | `1` for nightly backups, `0` for none. | `1` |
-| `HATAMOTO_TLS` | `auto` for real certificates, `internal` for test certificates, `off` for plain HTTP. | `auto` |
+| `HATAMOTO_TLS` | `auto` for real certificates, `internal` for test certificates, `off` for plain HTTP. With `off`, a browser that reaches the server over plain HTTP gets the not-found page for every admin page: browsers send the headers the admin checks only over HTTPS. | `auto` |
 | `HATAMOTO_FIREWALL` | `0` leaves the server's firewall alone, for hosts with a provider firewall only. | `1` |
 | `HATAMOTO_PUBLIC_IP` | The server's public address. Detected by asking an outside service and checking the answer against the addresses on the server. If they differ, the server's own public address wins. If the server has none (providers that put it behind NAT, such as Amazon Lightsail), the outside answer is used and a warning names both. Set this to decide yourself. | detected |
 

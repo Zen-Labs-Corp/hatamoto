@@ -88,6 +88,19 @@ In this guide you put a reverse proxy in front of Hatamoto so visitors reach you
 
 The repository's own site file, `deploy/caddy/hatamoto.dev.caddy`, adds extras for the project's own host: it serves signed release files and the plugin registry as static files, and answers Go import paths. A self-hosted site needs none of that; if you run your own package registry or release server, see [SDK and registry](../migrate-contribute/sdk-and-registry.md). To feed the proxy's access log into crawler analytics, see [Access-log ingest](../ai-seo/access-log-ingest.md); it needs `AGENT_LOG_INGEST`, a secret and, for Caddy, the path of the JSON log file.
 
+## Without a domain
+
+The admin opens only over HTTPS or through `localhost`. Browsers send the request headers it checks (`Sec-Fetch-*`) only there, so over plain HTTP from another device every admin page answers with the site's not-found page. To use the admin from other devices before you have a domain, let Caddy issue its own test certificate with `tls internal` for the server's address on your network, here `192.168.1.20`:
+
+```text
+https://192.168.1.20 {
+    tls internal
+    reverse_proxy localhost:8090
+}
+```
+
+Open `https://192.168.1.20/` and accept the browser's certificate warning on each device. The warning stays because the certificate comes from Caddy's own authority, not a public one, so use this for testing only.
+
 ## Behind Cloudflare
 
 If Cloudflare proxies your domain and forwards to your Caddy (or nginx) on the server, the connection the app sees is Cloudflare, then your proxy. To make the app see the real visitor:

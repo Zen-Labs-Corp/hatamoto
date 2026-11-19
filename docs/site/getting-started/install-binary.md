@@ -129,6 +129,8 @@ The first line of the answer is `HTTP/1.1 200 OK`. `./hatamoto healthcheck` make
 
 Then open `http://localhost:8090/` in a browser to see the starter home page, and open the setup address from the log line to reach the setup wizard. `hatamoto admin-url` prints your admin address if you need it again. Continue with [First run](first-run.md).
 
+Open the admin through `localhost` on the same computer, or over HTTPS. Over plain HTTP from another device every admin page answers with the not-found page; see [Without a domain](../operate/reverse-proxy-tls.md#without-a-domain).
+
 If the program stops at once, read its last line:
 
 - `DATABASE_URL is required`: the variable is missing. Check that `DATABASE_URL=` is on the same command line as `./hatamoto serve`.
