@@ -85,6 +85,8 @@ type Server struct {
 	routes *httpx.Group
 	router http.Handler
 	logger *slog.Logger
+	// storeFullWarnAt is the unix time of the last upload store full warning.
+	storeFullWarnAt atomic.Int64
 	// mediaFormats stores the modern-format switches and the rebuild state.
 	mediaFormats mediaFormatStore
 	// mediaRebuilder runs the image rebuild; mediaFormatsSvc is the admin's view of it.

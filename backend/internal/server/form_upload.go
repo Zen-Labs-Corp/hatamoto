@@ -189,6 +189,7 @@ func (s *Server) stagePart(f *form.Form, fld *form.FormField, part *multipart.Pa
 	case errors.Is(err, form.ErrFileTooLarge):
 		return nil, fileMessage(fld, "must be smaller than "+strconv.Itoa(fld.FileMaxMB())+" MB."), nil
 	case errors.Is(err, form.ErrStoreFull):
+		s.warnStoreFull()
 		return nil, fileMessage(fld, "can't be accepted right now. Try again later."), nil
 	case err != nil:
 		return nil, "", err
@@ -249,4 +250,14 @@ func (s *Server) removeUploads(f *form.Form, ids []string) {
 			s.logger.Warn("failed to remove uploaded file", "error", err, "form_id", f.ID.String())
 		}
 	}
+}
+
+// warnStoreFull logs that the form upload store is full, at most once a minute.
+func (s *Server) warnStoreFull() {
+	now := time.Now().Unix()
+	last := s.storeFullWarnAt.Load()
+	if now-last < 60 || !s.storeFullWarnAt.CompareAndSwap(last, now) {
+		return
+	}
+	s.logger.Warn("form upload store is full; refusing file uploads until space is freed")
 }
