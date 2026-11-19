@@ -267,29 +267,29 @@ func (x *restorer) pluginRole(name string) string {
 
 const adminRolePrefix = "hatamoto_role_admin_"
 
-// adminSearchPathSQL starts statements that run as the admin URL's role (and
-// the app role's schema drop): the restored objects are in public by then and
-// must not be resolved.
-const adminSearchPathSQL = `SET search_path = pg_catalog, pg_temp; `
+// searchPathPinSQL starts the statements that run once the dump's objects are
+// in public (as the admin URL's role or the app role): those objects must not
+// be resolved.
+const searchPathPinSQL = `SET search_path = pg_catalog, pg_temp; `
 
 // dropOwnedSchemaSQL drops a schema as the role that owns it (the app role has
 // SET on the plugin roles, not their privileges).
 func dropOwnedSchemaSQL(schema string) string {
-	return adminSearchPathSQL + `DO $$ DECLARE o name; BEGIN ` +
+	return searchPathPinSQL + `DO $$ DECLARE o name; BEGIN ` +
 		`SELECT pg_get_userbyid(nspowner) INTO o FROM pg_namespace WHERE nspname = ` + sqlLiteral(schema) + `; ` +
 		`IF o IS NOT NULL THEN EXECUTE pg_catalog.format('SET LOCAL ROLE %I', o); EXECUTE pg_catalog.format('DROP SCHEMA %I CASCADE', ` + sqlLiteral(schema) + `); END IF; END $$`
 }
 
 // dropAdminSchemaSQL drops hatamoto_admin as the admin URL's role, which sets
 // the role that owns the schema first unless it is a superuser.
-const dropAdminSchemaSQL = adminSearchPathSQL + `DO $$ DECLARE o name; BEGIN ` +
+const dropAdminSchemaSQL = searchPathPinSQL + `DO $$ DECLARE o name; BEGIN ` +
 	`SELECT pg_get_userbyid(nspowner) INTO o FROM pg_namespace WHERE nspname = 'hatamoto_admin'; ` +
 	`IF o IS NOT NULL THEN ` +
 	`IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN EXECUTE pg_catalog.format('SET LOCAL ROLE %I', o); END IF; ` +
 	`DROP SCHEMA hatamoto_admin CASCADE; END IF; END $$`
 
 func revokeTempFileLimitSQL(role string) string {
-	return adminSearchPathSQL + `DO $$ BEGIN IF current_setting('server_version_num')::int >= 150000 AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = ` +
+	return searchPathPinSQL + `DO $$ BEGIN IF current_setting('server_version_num')::int >= 150000 AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = ` +
 		sqlLiteral(role) + `) THEN EXECUTE pg_catalog.format('REVOKE SET ON PARAMETER temp_file_limit FROM %I', ` + sqlLiteral(role) + `); END IF; END $$`
 }
 
@@ -337,7 +337,7 @@ func parsePublicState(rows []string) publicState {
 
 // emptyDatabaseSQL drops the schemas the dump created (those not in before)
 // and, in public, only what the run added: the objects, extensions and grants
-// public held before stay (or are put back). It runs as the database owner.
+// public held before stay (or are put back). It runs as the database owner, with the search path pinned.
 func emptyDatabaseSQL(before []string, pub publicState) string {
 	keep := "ARRAY['public','information_schema']::name[]"
 	if len(before) > 0 {
@@ -349,24 +349,24 @@ func emptyDatabaseSQL(before []string, pub publicState) string {
 	}
 	head := `DECLARE s name; r record; had text[] := ` + textArray(pub.objects) + `; BEGIN ` +
 		`FOR s IN SELECT nspname FROM pg_namespace WHERE nspname <> ALL (` + keep + `) AND nspname NOT LIKE 'pg\_%' ` +
-		`LOOP EXECUTE format('DROP SCHEMA %I CASCADE', s); END LOOP; ` +
+		`LOOP EXECUTE pg_catalog.format('DROP SCHEMA %I CASCADE', s); END LOOP; ` +
 		`FOR r IN SELECT extname FROM pg_extension WHERE ('e:' || oid) <> ALL (had) ` +
-		`LOOP EXECUTE format('DROP EXTENSION IF EXISTS %I CASCADE', r.extname); END LOOP; `
+		`LOOP EXECUTE pg_catalog.format('DROP EXTENSION IF EXISTS %I CASCADE', r.extname); END LOOP; `
 	if !pub.exists {
-		return doBlock(head + `DROP SCHEMA IF EXISTS public CASCADE; END`)
+		return searchPathPinSQL + doBlock(head+`DROP SCHEMA IF EXISTS public CASCADE; END`)
 	}
 	var b strings.Builder
 	b.WriteString(head)
 	b.WriteString(`FOR r IN SELECT c.relname, c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace ` +
 		`WHERE n.nspname = 'public' AND ('c:' || c.oid) <> ALL (had) AND ` + notMember("pg_class", "c") + ` ORDER BY c.oid DESC ` +
-		`LOOP EXECUTE format('DROP %s IF EXISTS public.%I CASCADE', CASE r.relkind WHEN 'v' THEN 'VIEW' WHEN 'm' THEN 'MATERIALIZED VIEW' ` +
+		`LOOP EXECUTE pg_catalog.format('DROP %s IF EXISTS public.%I CASCADE', CASE r.relkind WHEN 'v' THEN 'VIEW' WHEN 'm' THEN 'MATERIALIZED VIEW' ` +
 		`WHEN 'f' THEN 'FOREIGN TABLE' WHEN 'S' THEN 'SEQUENCE' WHEN 'c' THEN 'TYPE' ELSE 'TABLE' END, r.relname); END LOOP; `)
 	b.WriteString(`FOR r IN SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS args FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace ` +
 		`WHERE n.nspname = 'public' AND ('p:' || p.oid) <> ALL (had) AND ` + notMember("pg_proc", "p") + ` ` +
-		`LOOP EXECUTE format('DROP ROUTINE IF EXISTS public.%I(%s) CASCADE', r.proname, r.args); END LOOP; `)
+		`LOOP EXECUTE pg_catalog.format('DROP ROUTINE IF EXISTS public.%I(%s) CASCADE', r.proname, r.args); END LOOP; `)
 	b.WriteString(`FOR r IN SELECT t.typname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace ` +
 		`WHERE n.nspname = 'public' AND t.typrelid = 0 AND t.typcategory <> 'A' AND ('t:' || t.oid) <> ALL (had) AND ` + notMember("pg_type", "t") + ` ` +
-		`LOOP EXECUTE format('DROP TYPE IF EXISTS public.%I CASCADE', r.typname); END LOOP; `)
+		`LOOP EXECUTE pg_catalog.format('DROP TYPE IF EXISTS public.%I CASCADE', r.typname); END LOOP; `)
 	b.WriteString(`FOR r IN SELECT DISTINCT CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(a.grantee)) END AS who ` +
 		`FROM pg_namespace n, aclexplode(n.nspacl) a WHERE n.nspname = 'public' AND a.grantee <> n.nspowner ` +
 		`LOOP EXECUTE 'REVOKE ALL ON SCHEMA public FROM ' || r.who; END LOOP; `)
@@ -374,7 +374,7 @@ func emptyDatabaseSQL(before []string, pub publicState) string {
 		b.WriteString("EXECUTE " + sqlLiteral(g) + "; ")
 	}
 	b.WriteString("END")
-	return doBlock(b.String())
+	return searchPathPinSQL + doBlock(b.String())
 }
 
 // doBlock wraps a plpgsql body in DO with a dollar-quote tag the body does not

@@ -318,7 +318,7 @@ func TestEmptyDatabaseSQLDollarInName(t *testing.T) {
 		{exists: true, acl: []string{`GRANT USAGE ON SCHEMA public TO "a$$b";`}},
 		{exists: true, acl: []string{`GRANT USAGE ON SCHEMA public TO "a$hm_rb$b";`}},
 	} {
-		sql := emptyDatabaseSQL([]string{"x$$y"}, pub)
+		sql := strings.TrimPrefix(emptyDatabaseSQL([]string{"x$$y"}, pub), searchPathPinSQL)
 		tag := sql[len("DO ") : strings.Index(sql[len("DO "):], " ")+len("DO ")]
 		if !strings.HasSuffix(sql, " "+tag) {
 			t.Fatalf("block not closed by %s: %s", tag, sql)
@@ -351,7 +351,7 @@ func TestRollbackAdminStatementsPinSearchPath(t *testing.T) {
 			env := strings.Join(r.envs[ei], " ")
 			ei++
 			isAdmin := strings.Contains(env, "PGUSER=adm") && strings.Contains(stmt, "DO $$")
-			isOwned := strings.Contains(env, "PGUSER=hm_dst") && strings.Contains(stmt, "DROP SCHEMA") && !strings.Contains(stmt, "$hm_rb$") // emptyDatabaseSQL is out of scope
+			isOwned := strings.Contains(env, "PGUSER=hm_dst") && strings.Contains(stmt, "DROP SCHEMA") // the owned schema drop and emptyDatabaseSQL
 			if !isAdmin && !isOwned {
 				continue
 			}
@@ -363,8 +363,8 @@ func TestRollbackAdminStatementsPinSearchPath(t *testing.T) {
 				t.Errorf("statement calls format unqualified: %s", stmt)
 			}
 		}
-		if checked != 3 {
-			t.Errorf("checked %d statements, want 3 (owned schema, admin schema, temp_file_limit):\n%s", checked, strings.Join(r.stmts, "\n"))
+		if checked != 4 {
+			t.Errorf("checked %d statements, want 4 (owned schema, admin schema, temp_file_limit, emptied database):\n%s", checked, strings.Join(r.stmts, "\n"))
 		}
 	})
 	t.Run("failure text", func(t *testing.T) {
