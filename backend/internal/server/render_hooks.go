@@ -189,7 +189,7 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 	pages := r.Group("", capture)
 	// Own limiter: every unknown child name costs a lookup, so children are
 	// throttled per client, outside capture. The index and pages are not.
-	subLimiter := middleware.NewRateLimiter(2, 30)
+	subLimiter := middleware.NewRateLimiter(2, 30).ByIPv6Prefix()
 	subSitemap := subLimiter.Middleware(capture(rt.subSitemap))
 	// "sitemap-<sub>.xml" cannot be a ServeMux pattern (wildcards span a
 	// whole segment), so single-segment paths are routed here: sitemap
