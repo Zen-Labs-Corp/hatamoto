@@ -56,3 +56,52 @@ func TestPluginMailQuotaRoundTrips(t *testing.T) {
 		t.Errorf("archive without the column: %v, want both NULL", old)
 	}
 }
+
+// The row that records the one-time keep of an installed plugin's entity
+// filter lives in hatamoto_plugin_grants. An archive restores it, and a target
+// that already holds its own copy does not block the import; an archive from
+// before the row existed leaves the target without it, to be claimed again.
+func TestImportGrantsWithMarker(t *testing.T) {
+	ctx := context.Background()
+	const marker = "core:grandfather:entities.filter"
+	src := scratchPool(t)
+	if _, err := src.Exec(ctx, `INSERT INTO hatamoto_plugin_grants (plugin, permissions) VALUES ($1, '{shop}'), ('shop', '{kv}')
+		ON CONFLICT (plugin) DO UPDATE SET permissions = EXCLUDED.permissions`, marker); err != nil {
+		t.Fatal(err)
+	}
+	withMarker := exportArchive(t, src, t.TempDir())
+	if _, err := src.Exec(ctx, `DELETE FROM hatamoto_plugin_grants WHERE plugin = $1`, marker); err != nil {
+		t.Fatal(err)
+	}
+	withoutMarker := exportArchive(t, src, t.TempDir())
+
+	for name, tc := range map[string]struct {
+		archive []byte
+		want    []string
+	}{
+		"archive with the row":    {withMarker, []string{"shop"}},
+		"archive without the row": {withoutMarker, nil},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dst := scratchPool(t)
+			if _, err := dst.Exec(ctx, `INSERT INTO hatamoto_plugin_grants (plugin, permissions) VALUES ($1, '{}')
+				ON CONFLICT (plugin) DO NOTHING`, marker); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Import(ctx, dst, bytes.NewReader(tc.archive), ImportOptions{MediaDir: t.TempDir()}); err != nil {
+				t.Fatalf("import: %v", err)
+			}
+			var got []string
+			err := dst.QueryRow(ctx, `SELECT permissions FROM hatamoto_plugin_grants WHERE plugin = $1`, marker).Scan(&got)
+			if tc.want == nil {
+				if err == nil {
+					t.Errorf("marker = %v, want no row", got)
+				}
+				return
+			}
+			if err != nil || len(got) != 1 || got[0] != "shop" {
+				t.Errorf("marker = %v, %v, want [shop]", got, err)
+			}
+		})
+	}
+}

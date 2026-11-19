@@ -164,6 +164,12 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 	if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_entity_schemas; DELETE FROM hatamoto_site_config`); err != nil {
 		return nil, err
 	}
+	// The target may hold the host's own bookkeeping row in the grants table
+	// (its name has a ':', no plugin has one). The archive's copy replaces it;
+	// an archive without one leaves the host to record a fresh one.
+	if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_plugin_grants WHERE plugin LIKE '%:%'`); err != nil {
+		return nil, err
+	}
 	// The updated_at triggers would overwrite imported timestamps when the
 	// parent links are set below.
 	for _, t := range tables {
