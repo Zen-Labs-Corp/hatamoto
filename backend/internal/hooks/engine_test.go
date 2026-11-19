@@ -263,3 +263,23 @@ func TestFireKeepsCallerValuesAndHasFilter(t *testing.T) {
 		t.Fatal("HasFilter must see the registration")
 	}
 }
+
+func TestFilterCount(t *testing.T) {
+	e := testEngine()
+	if n := e.FilterCount("x"); n != 0 {
+		t.Fatalf("new engine: %d", n)
+	}
+	f := func(_ context.Context, v any) (any, error) { return v, nil }
+	e.For("a").AddFilter("x", 0, f)
+	e.For("b").AddFilter("x", 0, f)
+	if n := e.FilterCount("x"); n != 2 {
+		t.Fatalf("two plugins: %d", n)
+	}
+	e.RemovePlugin("a")
+	if n := e.FilterCount("x"); n != 1 {
+		t.Fatalf("after remove: %d", n)
+	}
+	if n := e.FilterCount("other"); n != 0 {
+		t.Fatalf("other name: %d", n)
+	}
+}
