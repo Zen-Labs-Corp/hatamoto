@@ -37,6 +37,10 @@ const (
 	// builder_sources it declares. Without the grant the filter is not
 	// registered.
 	PermBuilderData Permission = "builder.data"
+	// PermEntitiesFilter (SDK 0.23.0) lets the plugin's entity.before_save
+	// filter run. It has no host function: without the grant the filter is not
+	// registered.
+	PermEntitiesFilter Permission = "entities.filter"
 	// PermBuilderIsland is required of a package whose widgets ship an
 	// island.js. The script runs on the site's public pages with the
 	// visitor's privileges, so the owner grants it explicitly; without the
@@ -63,7 +67,7 @@ var Permissions = []Permission{
 	PermRedirectsRead, PermFormsRead,
 	PermSettings, PermLog, PermMailSend, PermHTTPFetch, PermHTTPFetchAny, PermKV, PermDB,
 	PermBuilderData, PermBuilderIsland, PermSiteScripts,
-	PermPackagesInspect,
+	PermPackagesInspect, PermEntitiesFilter,
 }
 
 // ValidPermission reports whether p is a known capability.
