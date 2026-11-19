@@ -182,11 +182,6 @@ func checkPluginLoops(src string) error {
 // errPluginOutput is errPackOutput worded for a plugin template.
 var errPluginOutput = errors.New("plugin template output exceeds the size cap")
 
-// stringBuiltins are the builtins that build strings. A sample render stubs
-// them so that repeated concatenation in an assignment cannot grow without
-// limit while the plugin is compiled.
-var stringBuiltins = []string{"printf", "print", "println", "slice", "html", "js", "urlquery"}
-
 // maxStubString caps every string a stubbed builtin returns, so a chain of
 // assignments that doubles a value cannot grow past it.
 const maxStubString = 4 << 10
