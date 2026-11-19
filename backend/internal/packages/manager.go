@@ -41,14 +41,15 @@ const DefaultTheme = "default"
 
 // Errors the admin and the CLI report to the owner.
 var (
-	ErrUnsignedNotAllowed = errors.New("this package is not signed; installing unsigned packages is switched off (an owner can allow it in Admin > Plugins)")
-	ErrDevDisabled        = errors.New("development packages are disabled in production")
-	ErrThemeActive        = errors.New("this theme is active; activate another theme first")
-	ErrReservedName       = errors.New("that name is reserved (the built-in theme, the webhooks that moved into core, or a name the admin uses)")
-	ErrPermission         = errors.New("permission not requested by the plugin")
-	ErrUnknownSource      = errors.New("unknown package source")
-	ErrUninstalling       = errors.New("this package is being uninstalled; finish the uninstall first")
-	ErrSignerNotAllowed   = errors.New("only first-party packages can be installed here (public demo)")
+	ErrUnsignedNotAllowed   = errors.New("this package is not signed; installing unsigned packages is switched off (an owner can allow it in Admin > Plugins)")
+	ErrDevDisabled          = errors.New("development packages are disabled in production")
+	ErrThemeActive          = errors.New("this theme is active; activate another theme first")
+	errEntityFilterSnapshot = errors.New("packages: the record of installed plugins could not be written; try again")
+	ErrReservedName         = errors.New("that name is reserved (the built-in theme, the webhooks that moved into core, or a name the admin uses)")
+	ErrPermission           = errors.New("permission not requested by the plugin")
+	ErrUnknownSource        = errors.New("unknown package source")
+	ErrUninstalling         = errors.New("this package is being uninstalled; finish the uninstall first")
+	ErrSignerNotAllowed     = errors.New("only first-party packages can be installed here (public demo)")
 )
 
 // ReservedPluginName is the name of the former first-party webhooks plugin.
@@ -214,10 +215,12 @@ type Manager struct {
 	devMu sync.Mutex // guards dev
 	dev   developerState
 
-	mu      sync.Mutex // serialises changes and reconciliation
-	loaded  map[string]loadedPlugin
-	theme   appliedTheme
-	preview map[string]previewEntry
+	mu sync.Mutex // serialises changes and reconciliation
+	// filterKeep tracks the one-time keep of entity filters (see grandfather.go).
+	filterKeep entityFilterKeep
+	loaded     map[string]loadedPlugin
+	theme      appliedTheme
+	preview    map[string]previewEntry
 	// blocked maps kind/name to why an installed package is not loaded (dev
 	// package in production, signer no longer trusted); rebuilt on reconcile.
 	blocked map[string]string
@@ -372,6 +375,11 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	// The snapshot of already installed plugins is taken before this install
+	// can be part of it.
+	if p.Kind == KindPlugin && !m.claimEntityFilterSnapshot(ctx) {
+		return nil, errEntityFilterSnapshot
+	}
 	prev, err := m.store.Get(ctx, p.Kind, p.Name)
 	updating := err == nil
 	if err != nil && !errors.Is(err, ErrNotFound) {
@@ -448,6 +456,11 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 				return fmt.Errorf("failed to void standing approvals: %w", err)
 			}
 			voided = n
+		}
+		if p.Kind == KindPlugin {
+			if err := forgetEntityFilterSnapshot(ctx, tx, p.Name); err != nil {
+				return err
+			}
 		}
 		if grants != nil {
 			if _, err := tx.Exec(ctx, `
@@ -583,7 +596,9 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 	}
 	if p.Kind == KindPlugin && !devLoop {
 		c.NewHosts, c.NewFetchAny, c.NewIsland, c.NewScripts = widenedAccess(prev.Manifest, p)
-		c.NewEntitiesFilter = newEntitiesFilter(prev.Manifest, p)
+		// A plugin that already holds the grant (kept from before it was a
+		// permission) is not asked again when it starts to list it.
+		c.NewEntitiesFilter = newEntitiesFilter(prev.Manifest, p) && !m.holdsGrant(ctx, p.Name, sdk.PermEntitiesFilter)
 		c.NewCSPHosts = newCSPHosts(prev.Manifest, p)
 		c.NewRequestHeaders = newRequestHeaders(prev.Manifest, p)
 		c.NewRedirectPaths = newRedirectPaths(prev.Manifest, p)
@@ -621,6 +636,14 @@ func widenedAccess(installed jsontext.Value, p *Package) (hosts []string, fetchA
 		return slices.Contains(next.Permissions, perm) && !slices.Contains(old.Permissions, perm)
 	}
 	return hosts, newly(sdk.PermHTTPFetchAny), newly(sdk.PermBuilderIsland), newly(sdk.PermSiteScripts)
+}
+
+// holdsGrant reports whether the stored grants of plugin include perm. A read
+// error counts as not holding it, so the owner is asked.
+func (m *Manager) holdsGrant(ctx context.Context, plugin string, perm sdk.Permission) bool {
+	var held bool
+	err := m.Pool.QueryRow(ctx, `SELECT COALESCE($2 = ANY(permissions), false) FROM hatamoto_plugin_grants WHERE plugin = $1`, plugin, string(perm)).Scan(&held)
+	return err == nil && held
 }
 
 // newEntitiesFilter reports whether the update newly asks for entities.filter.
@@ -851,6 +874,9 @@ func (m *Manager) Uninstall(ctx context.Context, kind Kind, name string, opts Un
 		}
 	}
 	if _, err := m.Pool.Exec(ctx, `DELETE FROM hatamoto_plugin_grants WHERE plugin = $1`, name); err != nil {
+		return err
+	}
+	if err := pgx.BeginFunc(ctx, m.Pool, func(tx pgx.Tx) error { return forgetEntityFilterSnapshot(ctx, tx, name) }); err != nil {
 		return err
 	}
 	var droppedTypes []string
