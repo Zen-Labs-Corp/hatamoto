@@ -23,7 +23,11 @@ const (
 	maxDBResultBytes = 1 << 20
 	maxDBArgs        = 64
 	maxDBSQLBytes    = 64 << 10
-	dbLockTimeout    = 2 * time.Second
+	// maxDBMessageBytes is the largest protocol message body accepted from the
+	// server on a plugin connection. A larger row fails the call and drops the
+	// connection.
+	maxDBMessageBytes = 4 << 20
+	dbLockTimeout     = 2 * time.Second
 )
 
 // SchemaName is the Postgres schema of a plugin's data. Plugin names are
