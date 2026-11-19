@@ -7,7 +7,7 @@ on nothing but the standard library, never imports Hatamoto core packages, and t
 module has its own `go.mod`.
 
 ```sh
-go get hatamoto.dev/sdk@v0.23.0
+go get hatamoto.dev/sdk@v0.24.0
 ```
 
 Releases are plain `vX.Y.Z` tags of this repository, where `X.Y.Z` is the `Version`
@@ -41,6 +41,7 @@ needs in `plugin.json` (the examples in the core repository declare `^0.8` or `^
 
 | SDK | Change |
 |---|---|
+| 0.24.0 | Additive over 0.23: manifest field `page_paths` (up to 16 exact public paths, same shape rules as `redirect_paths`, reserved core paths refused by the host). A `render.page` plugin that declares it is called only for those paths and only they are uncached; without it the filter stays site-wide. Older hosts ignore the field (site-wide, slower). |
 | 0.23.0 | Permission `entities.filter` (not purely additive: a `^0.22` plugin's filter runs only with the grant). A plugin's `entity.before_save` filter is registered only while the owner holds it; a plugin that asks for it declares `^0.23`. |
 | 0.22.2 | Additive over 0.22.1: the `ui` manifest block gains `allow` (`camera`); with the owner's `ui.allow:camera` grant the admin page may call `hatamoto.camera.capture()`. Adds `AdminUI.Allow`, `UIAllowCamera`, `PermUICamera`, `ValidGrant` and `Manifest.Asked`. |
 | 0.22.1 | Additive over 0.22.0: `permissions()` returns `mail` (`{recipients_per_hour}`) for a plugin granted `mail.send`, the owner-set mail quota (default 360, 1 to 3600). Adds the `PermissionsResult` and `MailQuota` types. |
