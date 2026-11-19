@@ -34,9 +34,18 @@ func (r *Runtime) hookFilter(m sdk.Manifest, hook, export string) func(context.C
 	if hook != sdk.RenderPage.Name {
 		return noteRenderFailure(hook, generic)
 	}
+	// A plugin that declared page_paths is called only for them; every other
+	// page is the chain's value unchanged (no call, so no failure to note).
+	var only map[string]bool
+	if len(m.PagePaths) > 0 {
+		only = make(map[string]bool, len(m.PagePaths))
+		for _, p := range m.PagePaths {
+			only[p] = true
+		}
+	}
 	return noteRenderFailure(hook, func(ctx context.Context, v any) (any, error) {
 		pc, ok := v.(sdk.PageContext)
-		if !ok {
+		if !ok || (only != nil && !only[pc.Path]) {
 			return v, nil
 		}
 		// The plugin sees only its own namespaced cookies it declared (under
