@@ -84,6 +84,9 @@ type ConfirmationRequired struct {
 	NewIsland bool
 	// NewScripts: the update newly asks for site.scripts.
 	NewScripts bool
+	// NewEntitiesFilter: the update newly asks for entities.filter (it sees
+	// and may change every save); it counts as widened access too.
+	NewEntitiesFilter bool
 	// NewCSPHosts are page-security (csp) hosts the update adds; it counts as
 	// widened access too.
 	NewCSPHosts []string
@@ -114,7 +117,7 @@ func (e *ConfirmationRequired) Error() string {
 		why = append(why, fmt.Sprintf("it is signed by %s, not %s", orUnsigned(e.NewSigner), orUnsigned(e.OldSigner)))
 	}
 	if e.WidenedAccess {
-		why = append(why, "it can reach further than the installed version (new web addresses, http.fetch.any or JavaScript on your pages, site.scripts, redirecting visitors from new pages, or a tag loading from new hosts)")
+		why = append(why, "it can reach further than the installed version (new web addresses, http.fetch.any or JavaScript on your pages, site.scripts, reviewing every save with entities.filter, redirecting visitors from new pages, or a tag loading from new hosts)")
 	}
 	if len(e.Missing) > 0 {
 		why = append(why, fmt.Sprintf("the active theme would lose %d section type(s) the content uses", len(e.Missing)))
@@ -577,6 +580,7 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 	}
 	if p.Kind == KindPlugin && !devLoop {
 		c.NewHosts, c.NewFetchAny, c.NewIsland, c.NewScripts = widenedAccess(prev.Manifest, p)
+		c.NewEntitiesFilter = newEntitiesFilter(prev.Manifest, p)
 		c.NewCSPHosts = newCSPHosts(prev.Manifest, p)
 		c.NewRequestHeaders = newRequestHeaders(prev.Manifest, p)
 		c.NewRedirectPaths = newRedirectPaths(prev.Manifest, p)
@@ -587,7 +591,7 @@ func (m *Manager) needsConfirmation(ctx context.Context, p *Package, prev Row, s
 			c.NewTagHosts, c.TagCategoryChanged = newTagAccess(prevPkg, p)
 		}
 		c.TagCompareFailed = loadErr != nil
-		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewRedirectPaths) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
+		c.WidenedAccess = len(c.NewHosts) > 0 || c.NewFetchAny || c.NewIsland || c.NewScripts || c.NewEntitiesFilter || len(c.NewCSPHosts) > 0 || len(c.NewRequestHeaders) > 0 || len(c.NewRedirectPaths) > 0 || len(c.NewTagHosts) > 0 || c.TagCategoryChanged || c.TagCompareFailed
 	}
 	if !c.Downgrade && !c.SignerChange && !c.WidenedAccess && len(c.Missing) == 0 {
 		return nil, nil
@@ -614,6 +618,14 @@ func widenedAccess(installed jsontext.Value, p *Package) (hosts []string, fetchA
 		return slices.Contains(next.Permissions, perm) && !slices.Contains(old.Permissions, perm)
 	}
 	return hosts, newly(sdk.PermHTTPFetchAny), newly(sdk.PermBuilderIsland), newly(sdk.PermSiteScripts)
+}
+
+// newEntitiesFilter reports whether the update newly asks for entities.filter.
+func newEntitiesFilter(installed jsontext.Value, p *Package) bool {
+	var old sdk.Manifest
+	_ = decodeManifest(installed, &old)
+	next, err := p.PluginManifest()
+	return err == nil && slices.Contains(next.Permissions, sdk.PermEntitiesFilter) && !slices.Contains(old.Permissions, sdk.PermEntitiesFilter)
 }
 
 // newRedirectPaths lists the redirect_paths the update declares that the
@@ -1572,6 +1584,7 @@ func (m *Manager) reconcilePlugins(ctx context.Context, rows []Row) bool {
 		m.loaded[name] = loadedPlugin{sha: row.SHA256, pkg: p}
 		changed = true
 	}
+	m.grandfatherEntityFilter(ctx)
 	return changed
 }
 
