@@ -1119,3 +1119,53 @@ func TestStandingCreateParentKeyIsNeverAnEntityID(t *testing.T) {
 		t.Errorf("reasons %q lack the parent", v.Reasons)
 	}
 }
+
+// An update may resend a translation link that exists, never add one.
+func TestStandingUpdateRefusesNewTranslationLink(t *testing.T) {
+	setup := func(t *testing.T) (*standingFixture, string, int64) {
+		s := newStandingFixture(t)
+		owner := s.liveEntity("", s.slug, "ow")
+		// Distinct languages first: with equal ones the writer only conflicts.
+		for id, loc := range map[string]string{owner: "en", s.target: "es"} {
+			if _, err := s.db.Pool().Exec(s.ctx, `UPDATE hatamoto_entities SET locale = $1 WHERE id = $2`, loc, id); err != nil {
+				t.Fatal(err)
+			}
+		}
+		cs := s.begin(standingPlugin)
+		s.stage(cs, Item{Kind: KindEntity, Op: OpUpsert, SourceKey: "k-" + s.tag, Payload: raw(map[string]any{
+			"schema": s.slug, "name": "N", "slug": "s-" + s.tag, "attributes": s.attrs(),
+			"translation_of": owner, "locale": "es"})})
+		return s, owner, cs
+	}
+	t.Run("new_link_waits", func(t *testing.T) {
+		s, owner, cs := setup(t)
+		v := s.mustWait(cs)
+		if !strings.Contains(strings.Join(v.Reasons, "|"), "translation") {
+			t.Errorf("reasons %q lack the translation", v.Reasons)
+		}
+		if g := s.translationGroup(owner); g != nil {
+			t.Errorf("owner linked: %v", *g)
+		}
+		if g := s.translationGroup(s.target); g != nil {
+			t.Errorf("target linked: %v", *g)
+		}
+	})
+	t.Run("existing_link_resent", func(t *testing.T) {
+		s, owner, cs := setup(t)
+		tx, err := s.db.Pool().Begin(s.ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := entity.LinkTx(s.ctx, tx, uuid.MustParse(owner), uuid.MustParse(s.target)); err != nil {
+			_ = tx.Rollback(s.ctx)
+			t.Fatal(err)
+		}
+		if err := tx.Commit(s.ctx); err != nil {
+			t.Fatal(err)
+		}
+		v, res, err := s.eng.PublishUnderPolicy(s.ctx, cs, s.policy, 9)
+		if err != nil || !v.OK || res.Applied != 1 {
+			t.Fatalf("verdict %+v applied=%d err=%v", v, res.Applied, err)
+		}
+	})
+}
