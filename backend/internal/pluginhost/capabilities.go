@@ -241,6 +241,10 @@ func (r *Runtime) Grant(ctx context.Context, name string, perms []sdk.Permission
 			return st, err
 		}
 	}
+	registered := func() [2]bool {
+		return [2]bool{r.caps.grants.Has(name, sdk.PermBuilderData), r.caps.grants.Has(name, sdk.PermEntitiesFilter)}
+	}
+	before := registered()
 	if err := r.caps.grants.Set(ctx, name, perms); err != nil {
 		return st, err
 	}
@@ -251,8 +255,10 @@ func (r *Runtime) Grant(ctx context.Context, name string, perms []sdk.Permission
 		st.DataError = r.prepareData(ctx, st.Manifest, a)
 		st.TempFileLimitOff = r.tempFileLimitOff(st.Manifest.Name, st.DataError)
 		// Some hooks are registered only while granted: apply the change now.
-		r.engine.RemovePlugin(name)
-		st.Hooks = r.register(st.Manifest)
+		if registered() != before {
+			r.engine.RemovePlugin(name)
+			st.Hooks = r.register(st.Manifest)
+		}
 		st = r.record(st)
 	}
 	r.syncExtSources()
