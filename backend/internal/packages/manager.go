@@ -356,6 +356,9 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if err := validateTagPack(p); err != nil {
 			return nil, &ParseError{Msg: err.Error()}
 		}
+		if err := checkCommunityTags(origin, p); err != nil {
+			return nil, err
+		}
 		if _, err := p.EntitySchemas(); err != nil {
 			return nil, err
 		}
