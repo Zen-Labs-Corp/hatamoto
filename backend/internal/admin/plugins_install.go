@@ -90,7 +90,7 @@ type tagCard struct {
 	Lines []permtext.Line
 }
 
-// tagCards shapes tag infos for a prompt: the lines say the tag runs no code.
+// tagCards shapes tag infos for a prompt: the lines name the hosts the script loads from.
 func tagCards(in []TagInfo) []tagCard {
 	out := make([]tagCard, len(in))
 	for i, t := range in {

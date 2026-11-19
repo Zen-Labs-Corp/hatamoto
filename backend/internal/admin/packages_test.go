@@ -1142,7 +1142,7 @@ func TestTagPackCardAndDetailShowHostsNotPermissions(t *testing.T) {
 	view := RegistryView{Host: "registry.example.test", Entries: []RegistryEntry{{Kind: "plugin", Name: "acme", Version: "1.0.0", Description: "Acme tag",
 		Tags: []TagInfo{{Name: "Acme", Category: "marketing", Hosts: []string{"cdn.acme.example"}}}}}}
 	g, _ := browseRig(t, view)
-	if body := getBrowse(g, ""); !strings.Contains(body, "Tag pack · Runs no code") {
+	if body := getBrowse(g, ""); !strings.Contains(body, "Tag pack · Adds a script") {
 		t.Error("card lacks the tag pack line")
 	}
 	_, body := getAbout(g, "acme", nil)
@@ -1150,6 +1150,9 @@ func TestTagPackCardAndDetailShowHostsNotPermissions(t *testing.T) {
 		if !strings.Contains(strings.ToLower(body), strings.ToLower(want)) {
 			t.Errorf("detail lacks %q", want)
 		}
+	}
+	if strings.Contains(strings.ToLower(body), "runs no code") {
+		t.Error("detail still says the tag pack runs no code")
 	}
 	if strings.Contains(body, "It asks for no permissions") {
 		t.Error("detail shows a permission list for a tag pack")
