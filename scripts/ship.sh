@@ -896,6 +896,10 @@ REMOTE
 fi
 
 # ---------------------------------------------------------------- health
+# Records the server itself writes (journalctl -o cat prints the bare message, so a line
+# can only start with time=/{"time" when the server logged it): recovered-panic records
+# in text or JSON form, and runtime panic/fatal lines.
+PANIC_RE='^time=[^ ]+ level=ERROR msg="(panic recovered|preload render panicked|import job panicked|host call panicked|hooks: (action|filter) panicked|admin: nav count panicked)"|^\{"time":"[^"]+","level":"ERROR","msg":"(panic recovered|preload render panicked|import job panicked|host call panicked|hooks: (action|filter) panicked|admin: nav count panicked)"|^panic: |^fatal error: '
 # Usage: health <journal-since>. Only logs since that remote timestamp count,
 # so a previous (failed) binary's panic cannot fail a later check.
 # Prints failures to stderr; returns 0 only when everything is healthy.
@@ -926,19 +930,19 @@ health() {
     fi
     if (( ok )); then
       if (( CELL )); then
-        if ! logs=$(ssh "$DEPLOY_HOST" "journalctl -u hatamoto@$SLUG.service --no-pager --since '$since'" 2>/dev/null); then
+        if ! logs=$(ssh "$DEPLOY_HOST" "journalctl -u hatamoto@$SLUG.service --no-pager -o cat --since '$since'" 2>/dev/null); then
           echo "health: could not read hatamoto@$SLUG logs since $since" >&2
           ok=0
-        elif grep -Ei 'panic|FATAL' >/dev/null <<< "$logs"; then
-          echo "health: panic/FATAL in hatamoto@$SLUG logs since $since" >&2
+        elif grep -E "$PANIC_RE" >/dev/null <<< "$logs"; then
+          echo "health: panic in hatamoto@$SLUG logs since $since" >&2
           ok=0
         fi
       else
-      if ! logs=$(ssh "$DEPLOY_HOST" "journalctl -u hatamoto-api --no-pager --since '$since'" 2>/dev/null); then
+      if ! logs=$(ssh "$DEPLOY_HOST" "journalctl -u hatamoto-api --no-pager -o cat --since '$since'" 2>/dev/null); then
         echo "health: could not read hatamoto-api logs since $since" >&2
         ok=0
-      elif grep -Ei 'panic|FATAL' >/dev/null <<< "$logs"; then
-        echo "health: panic/FATAL in hatamoto-api logs since $since" >&2
+      elif grep -E "$PANIC_RE" >/dev/null <<< "$logs"; then
+        echo "health: panic in hatamoto-api logs since $since" >&2
         ok=0
       fi
       fi
@@ -1182,11 +1186,11 @@ fi
 step 6 "health"
 if (( API || MIG )); then
   if (( DRY && CELL )); then
-    echo "DRY: health check x10 (systemctl is-active hatamoto@$SLUG.service; curl $SITE_URL/health, / and /media (newest upload, else /media/ non-5xx); journal scan since deploy restart for panic|FATAL)"
+    echo "DRY: health check x10 (systemctl is-active hatamoto@$SLUG.service; curl $SITE_URL/health, / and /media (newest upload, else /media/ non-5xx); journal scan (-o cat) since deploy restart for panic-recovered records and runtime panic/fatal lines)"
     echo "DRY: on success -> $HMCTL site mark $SLUG deployed-sha $DEPLOY_SHA"
     echo "DRY: on failure -> rollback (deploy=$DEPLOYED_API migrations=$MIG_RAN), re-check, exit 2 (3 if still unhealthy)"
   elif (( DRY )); then
-    echo "DRY: health check x10 (systemctl is-active hatamoto-api; curl $SITE_URL/health, / and /media (newest upload, else /media/ non-5xx); journal scan since deploy restart for panic|FATAL)"
+    echo "DRY: health check x10 (systemctl is-active hatamoto-api; curl $SITE_URL/health, / and /media (newest upload, else /media/ non-5xx); journal scan (-o cat) since deploy restart for panic-recovered records and runtime panic/fatal lines)"
     echo "DRY: on success -> write $DEPLOY_SHA to $REMOTE_DIR/DEPLOYED_SHA"
     echo "DRY: on failure -> rollback (deploy=$DEPLOYED_API migrations=$MIG_RAN), re-check, exit 2 (3 if still unhealthy)"
   else

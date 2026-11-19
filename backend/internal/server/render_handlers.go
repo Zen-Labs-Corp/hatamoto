@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/httpx"
+	"hatamoto.dev/core/internal/logutil"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/redirect"
@@ -632,7 +633,7 @@ func (h *renderHandlers) writeNotFoundQuiet(w http.ResponseWriter, r *http.Reque
 // writeFailure maps a loader error to a themed error page.
 func (h *renderHandlers) writeFailure(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, database.ErrPoolBusy) {
-		h.logger.DebugContext(r.Context(), "render: pool busy", "path", r.URL.Path)
+		h.logger.DebugContext(r.Context(), "render: pool busy", "path", logutil.CapField(r.URL.Path))
 		h.writeBusy(w, r)
 		return
 	}
@@ -645,7 +646,7 @@ func (h *renderHandlers) writeFailure(w http.ResponseWriter, r *http.Request, er
 		h.writeError(w, r, pe.status, nil)
 		return
 	}
-	h.logger.ErrorContext(r.Context(), "render: load", "error", err, "path", r.URL.Path)
+	h.logger.ErrorContext(r.Context(), "render: load", "error", err, "path", logutil.CapField(r.URL.Path))
 	h.writeError(w, r, http.StatusInternalServerError, nil)
 }
 

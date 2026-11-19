@@ -46,4 +46,8 @@ out=$(git -c gpg.format=ssh -c "gpg.ssh.allowedSignersFile=$file" tag -v "$tag" 
   die "$tag has no valid signature from a signer in $file"
 }
 echo "$out" | grep -E 'Good "git" signature' || true
+signed=$(git cat-file tag "refs/tags/$tag" | sed -n '1,/^$/s/^tag //p')
+[ "$signed" = "$tag" ] || die "$tag points at a tag object signed as '$signed'; the signed name must match the ref"
+kind=$(git cat-file tag "refs/tags/$tag" | sed -n '1,/^$/s/^type //p')
+[ "$kind" = commit ] || die "$tag must tag a commit directly (found a $kind)"
 echo "verify-tag-signature: $tag is signed by a listed signer"

@@ -12,8 +12,9 @@ fallback() { n=$(git rev-list --count HEAD 2>/dev/null || echo 0); echo "v0.0.0-
 desc=$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --long 2>/dev/null) || fallback
 # desc = vX.Y.Z[-pre]-N-gSHA
 n=${desc%-g*}; n=${n##*-}; tag=${desc%-"$n"-g*}
-# the glob also matches v1.2.3x or v1.2.3-foo-bar: only a canonical semver tag counts
+# the glob also matches v1.2.3x or v1.2.3-foo-bar: only a canonical semver tag counts; text outside [0-9A-Za-z.-] is never echoed
 case $tag in v[0-9]*.[0-9]*.[0-9]*) ;; *) fallback ;; esac
+case $tag in *[!0-9A-Za-z.-]*) fallback ;; esac
 core=${tag#v}; core=${core%%-*}
 case $core in *[!0-9.]*|*..*|.*|*.) fallback ;; esac
 [ "$n" = 0 ] && { echo "$tag"; exit 0; }

@@ -297,3 +297,36 @@ func TestWithoutCountingSkipsHit(t *testing.T) {
 		t.Fatalf("ordinary lookup must count: %v", store.hits)
 	}
 }
+
+// failingUpsertStore records Upsert404Entry calls and fails them.
+type failingUpsertStore struct {
+	*fakeStore
+	paths chan string
+}
+
+func (f *failingUpsertStore) Upsert404Entry(_ context.Context, path, _, _ string) error {
+	f.paths <- path
+	return errors.New("index row size exceeds maximum")
+}
+
+func TestLog404AsyncSkipsOverlongPaths(t *testing.T) {
+	store := &failingUpsertStore{fakeStore: newFakeStore(), paths: make(chan string, 4)}
+	var logs bytes.Buffer
+	s := NewServiceWithStore(store, slog.New(slog.NewTextHandler(&logs, nil)))
+
+	s.Log404Async("/"+strings.Repeat("a", maxMatchPath), "", "")
+	s.Log404Async("/"+strings.Repeat("b", maxMatchPath-1), "", "") // exactly at the limit
+	s.Close()
+
+	close(store.paths)
+	var got []string
+	for p := range store.paths {
+		got = append(got, p)
+	}
+	if len(got) != 1 || len(got[0]) != maxMatchPath {
+		t.Fatalf("recorded paths = %d entries, want only the one at the limit", len(got))
+	}
+	if n := logs.Len(); n > 2048 {
+		t.Fatalf("failure log record is %d bytes, want it bounded", n)
+	}
+}

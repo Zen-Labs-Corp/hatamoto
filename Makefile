@@ -23,7 +23,10 @@ FORCE_UNIT  ?=
 # Stamped into `hatamoto version`.
 VERSION := $(shell sh scripts/version.sh)
 COMMIT  := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
-GO_LDFLAGS := -X hatamoto.dev/core/app.Version=$(VERSION) -X hatamoto.dev/core/app.Commit=$(COMMIT)
+# Passed through the environment so the values are data, never recipe text.
+export HM_VERSION := $(VERSION)
+export HM_COMMIT  := $(COMMIT)
+GO_LDFLAGS := -X hatamoto.dev/core/app.Version=$$HM_VERSION -X hatamoto.dev/core/app.Commit=$$HM_COMMIT
 
 
 all: build

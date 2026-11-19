@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"hatamoto.dev/core/internal/logutil"
 )
 
 // responseWriter wraps http.ResponseWriter to capture status code.
@@ -55,24 +57,24 @@ func RequestLogger(logger *slog.Logger, redact func(path string) string) func(ht
 
 			// Log request
 			logger.Info("http request",
-				slog.String("method", r.Method),
+				slog.String("method", logutil.CapField(r.Method)),
 				slog.String("path", path),
 				slog.String("remote_addr", r.RemoteAddr),
 				slog.Int("status", wrapped.status),
 				slog.Int("size", wrapped.size),
 				slog.Duration("duration", duration),
-				slog.String("user_agent", r.UserAgent()),
+				slog.String("user_agent", logutil.CapField(r.UserAgent())),
 			)
 		})
 	}
 }
 
-// redactPath applies redact to p; a nil redact leaves p unchanged.
+// redactPath applies redact to p (a nil redact leaves it unchanged) and caps the result.
 func redactPath(redact func(string) string, p string) string {
-	if redact == nil {
-		return p
+	if redact != nil {
+		p = redact(p)
 	}
-	return redact(p)
+	return logutil.CapField(p)
 }
 
 // RecoveryOption tunes RecoveryLogger.
@@ -103,7 +105,7 @@ func RecoveryLogger(logger *slog.Logger, redact func(path string) string, opts .
 					}
 					logger.Error("panic recovered",
 						slog.Any("error", err),
-						slog.String("method", r.Method),
+						slog.String("method", logutil.CapField(r.Method)),
 						slog.String("path", path),
 					)
 					http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
