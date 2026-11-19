@@ -1146,7 +1146,7 @@ func TestTagPackCardAndDetailShowHostsNotPermissions(t *testing.T) {
 		t.Error("card lacks the tag pack line")
 	}
 	_, body := getAbout(g, "acme", nil)
-	for _, want := range []string{"cdn.acme.example", "Marketing", "runs no code"} {
+	for _, want := range []string{"cdn.acme.example", "Marketing", "adds a script from"} {
 		if !strings.Contains(strings.ToLower(body), strings.ToLower(want)) {
 			t.Errorf("detail lacks %q", want)
 		}
