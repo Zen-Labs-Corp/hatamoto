@@ -12,7 +12,7 @@ func TestSiteWriteScopes(t *testing.T) {
 		if (&APIKey{Scopes: []APIKeyScope{ScopeWriteEntities}}).HasScope(sc) {
 			t.Errorf("write:entities grants %s", sc)
 		}
-		if !(&APIKey{Scopes: []APIKeyScope{sc}}).HasScope(sc) || !(&APIKey{Scopes: []APIKeyScope{ScopeAll}}).HasScope(sc) {
+		if !(&APIKey{Scopes: []APIKeyScope{sc}, CreatorRole: "owner"}).HasScope(sc) || !(&APIKey{Scopes: []APIKeyScope{ScopeAll}, CreatorRole: "owner"}).HasScope(sc) {
 			t.Errorf("%s not honoured", sc)
 		}
 	}
@@ -26,12 +26,12 @@ func TestSEOScopes(t *testing.T) {
 		if (&APIKey{Scopes: []APIKeyScope{ScopeWriteEntities}}).HasScope(sc) {
 			t.Errorf("write:entities grants %s", sc)
 		}
-		if !(&APIKey{Scopes: []APIKeyScope{ScopeAll}}).HasScope(sc) {
+		if !(&APIKey{Scopes: []APIKeyScope{ScopeAll}, CreatorRole: "owner"}).HasScope(sc) {
 			t.Errorf("* does not grant %s", sc)
 		}
 	}
-	w := &APIKey{Scopes: []APIKeyScope{ScopeWriteSEO}}
-	r := &APIKey{Scopes: []APIKeyScope{ScopeReadSEO}}
+	w := &APIKey{Scopes: []APIKeyScope{ScopeWriteSEO}, CreatorRole: "owner"}
+	r := &APIKey{Scopes: []APIKeyScope{ScopeReadSEO}, CreatorRole: "owner"}
 	if !w.HasScope(ScopeReadSEO) {
 		t.Error("write:seo must imply read:seo")
 	}
@@ -74,5 +74,32 @@ func TestFormsScope(t *testing.T) {
 	}
 	if !(&APIKey{Scopes: []APIKeyScope{ScopeAll}}).HasScope(ScopeReadForms) {
 		t.Error("* does not grant read:forms")
+	}
+}
+
+// Owner-only scopes follow the creator's current role, also through "*".
+func TestAPIKeyOwnerOnlyScopes(t *testing.T) {
+	ownerOnly := []APIKeyScope{ScopeReadSEO, ScopeWriteSEO, ScopeWriteTerms}
+	granted := func(held, want APIKeyScope) bool {
+		if held == ScopeAll || held == want {
+			return true
+		}
+		return held == ScopeWriteSEO && want == ScopeReadSEO
+	}
+	for _, role := range []string{"owner", "editor", ""} {
+		for _, held := range append([]APIKeyScope{ScopeAll}, ownerOnly...) {
+			k := &APIKey{Scopes: []APIKeyScope{held}, CreatorRole: role}
+			for _, want := range ownerOnly {
+				if got, exp := k.HasScope(want), role == "owner" && granted(held, want); got != exp {
+					t.Errorf("role %q holding %s: HasScope(%s) = %v, want %v", role, held, want, got, exp)
+				}
+			}
+		}
+	}
+	editor := &APIKey{Scopes: []APIKeyScope{ScopeAll}, CreatorRole: "editor"}
+	for _, sc := range []APIKeyScope{ScopeReadForms, ScopeWriteEntities} {
+		if !editor.HasScope(sc) {
+			t.Errorf("* held by an editor creator must still grant %s", sc)
+		}
 	}
 }

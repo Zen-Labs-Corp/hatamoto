@@ -552,8 +552,22 @@ func (s *APIKeyService) RecordUsage(ctx context.Context, keyID uuid.UUID, ipAddr
 	return err
 }
 
-// HasScope checks if an API key has a specific scope.
+// ownerOnlyScope reports scopes that open surfaces only owners reach in the
+// admin. A key holds them only while its creator is an owner.
+func ownerOnlyScope(s APIKeyScope) bool {
+	switch s {
+	case ScopeReadSEO, ScopeWriteSEO, ScopeWriteTerms:
+		return true
+	}
+	return false
+}
+
+// HasScope checks if an API key has a specific scope. Owner-only scopes are
+// refused (also through "*") unless the creator's current role is owner.
 func (k *APIKey) HasScope(scope APIKeyScope) bool {
+	if ownerOnlyScope(scope) && k.CreatorRole != "owner" {
+		return false
+	}
 	for _, s := range k.Scopes {
 		if s == ScopeAll || s == scope {
 			return true
