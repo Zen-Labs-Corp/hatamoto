@@ -126,116 +126,22 @@ in text: a branch that ends inside a tag, a comment or a raw-text element is
 refused, and so is a template that does. Such a section or partial is refused
 whatever the data, because the rule reads the template source.
 
-Whatever the grant, a `range` in a plugin section or partial may only iterate
-content data: `.Content...` or `$.Content...`, or a field of an item reached
-that way inside a `range` or `with` over it. A number, a variable, a function
-or method result and the bare dot of a template's root are refused. The rule
-is checked on every load, including for a plugin that is already installed;
-a section or partial that breaks it is logged and not registered, and the
-plugin's other templates are unaffected. For a plugin without `site.scripts`
-the sample render of a template is also cut off at 256 KiB of output and the
-template is refused when it reaches that.
-
-| Guarantee | Package | Tests |
-|---|---|---|
-| A guest cannot open a connection, even when its manifest lists a host | `internal/wasmhost` | `TestNoNetwork` |
-| A guest cannot read a host file | `internal/wasmhost` | `TestNoFilesystem` |
-| Memory is capped, also under concurrent attempts | `internal/wasmhost` | `TestMemoryBombHitsCap`, `TestMemoryCapRejectsTinyModuleBudget`, `TestMemoryCeilingIsTwiceMaxPages`, `TestConcurrentMemoryBombsBounded` |
-| A call that runs too long is stopped, with or without a caller deadline | `internal/wasmhost` | `TestTimeoutIsEnforcedWithoutCallerDeadline`, `TestPerHookTimeouts`, `TestSlotWaitIsBoundedWithoutCallerDeadline` |
-| Guest log output is truncated and rate limited | `internal/wasmhost` | `TestGuestLogsAreTruncatedAndRateLimited` |
-| A capability is denied until the owner grants it, and a grant the manifest does not request is refused | `internal/pluginhost` | `TestDeniedUntilGranted`, `TestGrantMustBeRequested` |
-| A host call request over 1 MiB is refused | `internal/wasmhost` | `TestHostCall` |
-| Guest logging, `mail.send` and `http.fetch` are rate limited per plugin; other host calls are not rate limited | `internal/pluginhost` | `TestHostCallLimits` (log), `TestFetchRateCapPerPlugin` (`http.fetch`), `TestMailSendRateLimitPerPlugin` (`mail.send`: per recipient, per plugin) |
-| A plugin's admin page runs in a sandboxed iframe, its bridge carries only granted capabilities, and the camera is opened by core's page, never by plugin code, only after the owner granted `ui.allow:camera` | `internal/admin` | `TestPluginUIPageIsASandboxedIframe`, `TestBridgeCarriesOnlyGrantedCapabilities`, `TestBridgeIsRateLimitedPerUserAndPlugin`, `TestPluginPageCameraPolicyFollowsTheGrant` |
-
-The camera follows the same rule. The plugin page's iframe keeps its sandbox and
-Content-Security-Policy, so plugin code cannot open a camera. Core's trusted admin
-page does it when the page calls `hatamoto.camera.capture()`, and only for a plugin
-whose manifest asks (`ui.allow`) and whose owner ticked `ui.allow:camera`. The admin
-page sends `Permissions-Policy: camera=(self)` only on such granted plugin pages, a
-person clicks **Capture** in core's dialog, and the camera tracks are stopped when
-the dialog closes. The call is refused unless the person just clicked in the page, one
-dialog is open at a time, and Capture ignores clicks for half a second after the
-preview appears. The camera ask is off by default, owner-only (the grant needs the
-owner role), shown with a New badge on the install prompt, and not part of the registry
-permission review (the index and the browse cards do not list it). Revoking the grant
-takes effect on the next page load.
-
-### Plugin database role
-
-Each plugin that asks for `db.*` gets its own Postgres login role that owns one
-schema and nothing else. The SQL guard in the host is a second layer: the tests
-below switch it off and attack the database itself.
-
-| Guarantee | Package | Tests |
-|---|---|---|
-| The role has no privilege on core tables, and one plugin's role cannot reach another plugin's schema | `internal/pluginhost` (Postgres) | `TestPluginRoleHasNoCorePrivileges`, `TestPluginsAreIsolatedFromEachOther` |
-| Escape attempts hold even without the SQL guard | `internal/pluginhost` (Postgres) | `TestPluginEscapesHoldWithoutTheGuard`, `TestEscapePayloadsThroughTheGuard` |
-| A database dump uses the plugin's role and keeps the database password out of the command line | `internal/backup` | `TestDumpPluginUsesRoleAndKeepsPasswordOutOfArgs` |
-
-### Outbound requests from plugins (`http.fetch`)
-
-| Guarantee | Package | Tests |
-|---|---|---|
-| Private, loopback and link-local targets are refused | `internal/pluginhost` | `TestBlockedAddr`, `TestFetchBlocksPrivateTargets` |
-| Only hosts the manifest lists are reachable; a wildcard needs the `http.fetch.any` grant | `internal/pluginhost` | `TestFetchAllowlistAndURLRules`, `TestHostAllowed`, `TestWildcardHostNeedsTheFetchAnyGrant` |
-| A DNS answer is resolved once, so rebinding cannot swap the address | `internal/pluginhost` | `TestFetchRebindingResolvesOnce` |
-| Every hop, including a redirect, is dialled through the address guard; redirects off the allowlist and redirect loops are refused | `internal/pluginhost` | `TestFetchBlocksPrivateTargets`, `TestFetchRedirects` |
-| Size and time caps apply, and proxy environment variables are ignored | `internal/pluginhost` | `TestFetchCaps`, `TestFetchIgnoresProxyEnvironment` |
-| Widening a plugin's hosts or adding `http.fetch.any` in an update needs the owner's confirmation | `internal/packages` (Postgres) | `TestWidenedHostsOrFetchAnyNeedConfirmationAndResetGrants` |
-
-If the operator sets `HATAMOTO_PLUGIN_DB_ALLOW_PUBLIC_OBJECTS=1`, objects the
-application role does not own and that are open to PUBLIC are readable by every
-plugin role; by default the host refuses `db.*` while any exist.
-
-The same address guard protects other outbound features: outgoing webhooks
-(`TestPrivateAddressRefusedAtDialTime` in `internal/webhook`) and the WordPress
-importer (`TestClientIsSSRFGuarded` in `internal/wpimport`).
-
-### Browser JavaScript and markup from plugins (`site.scripts`)
-
-A plugin's script on public pages, and any markup of its sections and partials
-that could run script, needs the owner's `site.scripts` grant. Without it the
-script is not linked and the template is not registered. Plugin templates get
-the same markup check as widget packs (see `docs/PLUGIN_API.md` for the list),
-with two exceptions: a `<form>` whose `action` is an http(s) or relative URL,
-and CSS: `<style>` elements and `style` attributes. Without `site.scripts` a
-plugin's sections can therefore still restyle the whole page.
-
-What this does not cover: the visitor's browser. With no grant at all, a
-plugin's markup and CSS (sections, partials and `assets/plugin.css`, which is
-linked on every page and not gated) can make visitors' browsers load resources
-from other hosts: an `<img src="https://...">`, a CSS `url()`. The public
-page CSP allows images from any https host. Such a request carries the
-visitor's address and the page it was made from, so an installed plugin can
-track visitors. CSS attribute selectors can also test the attributes of any
-element on the page and report a match through such a request. `http.fetch`
-and `allowed_hosts` limit only the plugin's own (server-side) network.
-Install plugins from publishers you trust. Core keeps this harmless as a
-reader: public HTML carries no per-user secrets (no session, CSRF or other
-token), and an owner browsing the site gets the same markup as a visitor.
-
-Without the grant a structural rule applies as well. Each branch of a template
-(the body and every `if`/`else`/`range`/`with` body) has every action replaced
-by an inert token and is run through the HTML tokenizer of `golang.org/x/net/html`,
-which follows the HTML specification for tags, quoting, comments, doctype and
-raw-text elements; the scanner does not model HTML itself. A printing action
-(`{{.X}}`, `{{print ...}}`) may stand only in text content outside raw-text
-elements, or entirely inside a quoted attribute value. It is refused in a tag
-name, an attribute name, an unquoted value, an end tag, a comment, a doctype and
-in the content of any raw-text element (`<style>`, `<textarea>`, `<title>`,
-`<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<noscript>`, `<plaintext>`,
-`<script>`). `{{if}}`, `{{range}}`, `{{with}}`, `{{break}}`, `{{continue}}` and
-`{{template}}` may stand in text content only. Every branch must start and end
-in text: a branch that ends inside a tag, a comment or a raw-text element is
-refused, and so is a template that does. Such a section or partial is refused
-whatever the data, because the rule reads the template source.
-
-Whatever the grant, a `range` in a plugin section or partial may only iterate a
-field chain such as `.Content.items` (or the dot), never a number, a variable or
-a function result, so a template cannot loop without bound; one that does is not
-registered. The sample render of a template is cut off at 256 KiB of output and
-the template is refused when it reaches that.
+Whatever the grant, the work a plugin template can do is bounded by the
+source alone. A `range` may only iterate content data: `.Content...` or
+`$.Content...`, or a field of an item reached that way inside a `range` or
+`with` over it; a number, a variable, a function or method result and the bare
+dot of a template's root are refused. Nesting is limited too: at most two
+nested ranges, counting the ranges of a template called from inside a range.
+Across all of one plugin's templates, `{{template}}` calls may not form a cycle
+(a template that reaches itself, directly or through others), and no template
+may expand to more than 1000 template calls. The range rule is checked on every
+load, including for a plugin that is already installed; a section or partial
+that breaks it is logged and not registered, and the plugin's other templates
+are unaffected. A broken call graph (a cycle, too many calls, ranges nested too
+deep) is checked together with the other template rules and rejects all of that
+plugin's templates, logged. For a plugin without `site.scripts` the sample
+render of a template is also cut off at 256 KiB of output and the template is
+refused when it reaches that.
 
 | Guarantee | Package | Tests |
 |---|---|---|
