@@ -611,3 +611,16 @@ func TestPluginRegRefusesUnboundedRange(t *testing.T) {
 		})
 	}
 }
+
+func TestSampleRenderIsCapped(t *testing.T) {
+	t.Parallel()
+	if err := scanSampleRender(strings.Repeat("x", maxPackOutput+1), nil); !errors.Is(err, errPackOutput) {
+		t.Fatalf("over the cap: err = %v", err)
+	}
+	if err := scanSampleRender(strings.Repeat("x", maxPackOutput), nil); err != nil {
+		t.Fatalf("at the cap: %v", err)
+	}
+	if err := scanSampleRender("<p>hello</p>", nil); err != nil {
+		t.Fatalf("small template: %v", err)
+	}
+}

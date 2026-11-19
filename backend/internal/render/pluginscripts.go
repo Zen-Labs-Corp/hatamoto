@@ -1,7 +1,9 @@
 package render
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"hash/fnv"
 	"html/template"
 	"sort"
@@ -130,9 +132,13 @@ func scanSampleRender(src string, funcs template.FuncMap) error {
 		return nil
 	}
 	for _, d := range t.Templates() {
-		var out strings.Builder
+		var out bytes.Buffer
 		data := preparedSection{Section: Section{Content: map[string]any{}}, Settings: map[string]any{}}
-		if d.Execute(&out, data) != nil {
+		err := d.Execute(&cappedWriter{buf: &out, max: maxPackOutput}, data)
+		if errors.Is(err, errPackOutput) {
+			return fmt.Errorf("markup: sample render of %s: %w", d.Name(), err)
+		}
+		if err != nil {
 			continue
 		}
 		if err := scanPluginScripts("sample render of "+d.Name(), out.String()); err != nil {
