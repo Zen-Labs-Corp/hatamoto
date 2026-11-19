@@ -82,6 +82,10 @@ type Runtime struct {
 	redirectOwners atomic.Pointer[map[string]string]
 	redirectMu     sync.Mutex
 
+	// pageIdx is the render.page path snapshot; see pagepaths.go.
+	pageIdx atomic.Pointer[pageIndex]
+	pageMu  sync.Mutex
+
 	// gate decides about runs a cron job starts (see SetStandingGate).
 	gate atomic.Pointer[StandingGate]
 
@@ -288,6 +292,9 @@ func (r *Runtime) LoadWith(ctx context.Context, m sdk.Manifest, wasm []byte, ass
 	if err := RedirectPathsRefusal(m); err != nil {
 		return fail(err)
 	}
+	if err := PagePathsRefusal(m); err != nil {
+		return fail(err)
+	}
 	if len(m.SettingsSchema) > 0 {
 		if _, err := CompileSchema(m.SettingsSchema); err != nil {
 			return fail(err)
@@ -305,6 +312,7 @@ func (r *Runtime) LoadWith(ctx context.Context, m sdk.Manifest, wasm []byte, ass
 	r.record(st) // host functions look the manifest up here: before any hook can run
 	st.Hooks = r.register(m)
 	r.claimRedirectPaths(m, st.Hooks)
+	r.claimPagePaths(m, st.Hooks)
 	r.mu.Lock()
 	r.assets[m.Name] = assets
 	r.mu.Unlock()
@@ -328,6 +336,7 @@ func (r *Runtime) Unload(ctx context.Context, name string) {
 	r.statuses = slices.DeleteFunc(r.statuses, func(s Status) bool { return s.Name == name })
 	r.mu.Unlock()
 	r.releaseRedirectPaths(name)
+	r.releasePagePaths(name)
 	r.syncExtSources()
 }
 

@@ -358,6 +358,9 @@ func (m *Manager) Install(ctx context.Context, raw []byte, req InstallRequest) (
 		if err := pluginhost.RedirectPathsRefusal(man); err != nil {
 			return nil, &ParseError{Msg: err.Error()}
 		}
+		if err := pluginhost.PagePathsRefusal(man); err != nil {
+			return nil, &ParseError{Msg: err.Error()}
+		}
 		if err := checkCommunityCSP(origin, man); err != nil {
 			return nil, err
 		}

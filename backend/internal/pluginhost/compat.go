@@ -49,3 +49,15 @@ func RedirectPathsRefusal(m sdk.Manifest) error {
 	}
 	return nil
 }
+
+// PagePathsRefusal is nil when none of the manifest's page_paths is a path
+// core serves itself (same list as redirect_paths). Load and install both
+// report it.
+func PagePathsRefusal(m sdk.Manifest) error {
+	for _, p := range m.PagePaths {
+		if why := adminpath.RedirectPathRefusal(p); why != "" {
+			return fmt.Errorf("plugin %q cannot declare page path %q: %s", m.Name, p, why)
+		}
+	}
+	return nil
+}
