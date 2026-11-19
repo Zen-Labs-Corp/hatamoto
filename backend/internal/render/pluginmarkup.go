@@ -216,7 +216,7 @@ func (c *markupCheck) tag(tok string) error {
 			continue
 		}
 		if !c.urlValueOK(tok[sp.start:sp.end]) {
-			return fmt.Errorf("action-context: %s value mixes text and an action; not allowed without site.scripts", sp.name)
+			return fmt.Errorf("action-context: %s value: an action may not form part of the URL scheme (before the first /, ? or #); not allowed without site.scripts", sp.name)
 		}
 	}
 	return nil
@@ -232,8 +232,8 @@ var markupURLAttrs = map[string]bool{
 // urlValueOK judges the value of a URL attribute. The rule only keeps an
 // action from contributing to the scheme. The head is the value up to its first
 // '/', '?' or '#'. It is fine when it holds no action, when it is exactly one
-// action at its start (html/template filters the scheme of a leading action),
-// or when literal text before the first action starts with http:, https:,
+// action at its start (html/template filters the scheme of a leading action)
+// followed by literal text with no ':' and no '&' (a file-name tail), or when literal text before the first action starts with http:, https:,
 // mailto: or tel:.
 func (c *markupCheck) urlValueOK(val string) bool {
 	head := val
@@ -245,7 +245,7 @@ func (c *markupCheck) urlValueOK(val string) bool {
 		return true
 	}
 	if occ[0].pos == 0 {
-		return len(occ) == 1 && occ[0].end == len(head)
+		return len(occ) == 1 && !strings.ContainsAny(head[occ[0].end:], ":&")
 	}
 	lit := strings.ToLower(head[:occ[0].pos])
 	for _, p := range []string{"http:", "https:", "mailto:", "tel:"} {

@@ -158,9 +158,13 @@ func TestPluginMarkupURLAttrSplit(t *testing.T) { //nolint:paralleltest // sets 
 		"action then tail": `<a href="{{.Content.a}}:x">x</a>`,
 		"two actions":      `<a href="{{.Content.a}}{{.Content.b}}:x">x</a>`,
 		"text then action": `<a href="x{{.Content.a}}:y">x</a>`,
-		"src tail":         `<img src="{{.Content.a}}x">`,
+		"bare pair":        `<a href="{{.Content.a}}{{.Content.b}}">x</a>`,
+		"tail dot entity":  `<a href="{{.Content.x}}.&#58;y">x</a>`,
+		"tail entity":      `<a href="{{.Content.x}}&#58;y">x</a>`,
 	}
 	kept := map[string]string{
+		"file tail":      `<img src="{{.Content.file}}.webp">`,
+		"html tail":      `<a href="{{.Content.slug}}.html">x</a>`,
 		"whole value":    `<a href="{{.Content.url}}">x</a>`,
 		"path prefix":    `<a href="/blog/{{.Content.slug}}">x</a>`,
 		"lang prefix":    `<a href="/{{.Content.lang}}/x">x</a>`,

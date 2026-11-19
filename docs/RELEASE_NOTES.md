@@ -19,6 +19,11 @@
 - **Packages.** The server remembers the newest registry index time (`issued_at`) it has accepted for each registry URL and refuses an older signed index with "registry index is older than one already accepted". Re-sign the index with a current time to clear it.
 - **Migration.** Adds the `hatamoto_registry_seen` table. Rollback floor: unchanged; an older release never reads it.
 
+## Unreleased: plugin markup URL attributes
+
+- **Plugins.** In a plugin partial or section without `site.scripts`, a template action in a URL attribute (`href`, `src`, `action`, `formaction`, `poster`, `cite`, `data`, `background`, `xlink:href`) may no longer form part of the URL scheme. That covers `href="{{.X}}:y"`, `href="java{{.X}}:..."`, two actions before the first `/`, `?` or `#`, and a literal before an action that is not a scheme, like `href="post-{{.X}}"`. Such templates are not registered, and the plugin's admin page shows the reason. Grant `site.scripts`, or put a literal `/`, `?`, `#` or `http(s):`/`mailto:`/`tel:` prefix first. See `docs/PLUGIN_API.md`.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: install stats always detailed
 
 - **Setup.** The wizard no longer has a Stats step. It has seven screens: Your account, Admin address, Your site, Email, Look, Content and Done.
