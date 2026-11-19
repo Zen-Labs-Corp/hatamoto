@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"hash/fnv"
 	"html/template"
+	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"text/template/parse"
@@ -66,7 +68,8 @@ type dotKind int
 
 const (
 	dotRoot    dotKind = iota // the data the template was called with
-	dotContent                // a value reached through .Content
+	dotContent                // the content root, or a part of it narrowed by a with
+	dotItem                   // the current item of a range over content (or a field of it)
 	dotUnknown                // anything else (a with over a number, say)
 )
 
@@ -95,15 +98,30 @@ func contentPipe(p *parse.PipeNode, dot dotKind) bool {
 		switch dot {
 		case dotRoot:
 			return a.Ident[0] == "Content" && contentChain(a.Ident)
-		case dotContent:
+		case dotContent, dotItem:
 			return contentChain(a.Ident)
 		}
 	case *parse.VariableNode:
 		return len(a.Ident) > 1 && a.Ident[0] == "$" && a.Ident[1] == "Content" && contentChain(a.Ident)
 	case *parse.DotNode:
-		return dot == dotContent
+		return dot == dotContent || dot == dotItem
 	}
 	return false
+}
+
+// withDot is the dot inside a with over p, when the dot outside is dot. A with
+// over a field of an item stays an item; one that starts at the content root
+// ($.Content..., .Content... at a template root) is the content again.
+func withDot(p *parse.PipeNode, dot dotKind) dotKind {
+	if !contentPipe(p, dot) {
+		return dotUnknown
+	}
+	if dot == dotItem {
+		if _, ok := p.Cmds[0].Args[0].(*parse.VariableNode); !ok {
+			return dotItem
+		}
+	}
+	return dotContent
 }
 
 // checkPluginLoops refuses a range in any template src defines, at any depth,
@@ -135,14 +153,11 @@ func checkPluginLoops(src string) error {
 				if !contentPipe(x.Pipe, dot) {
 					return errRange
 				}
-				body, other, inner = x.List, x.ElseList, dotContent
+				body, other, inner = x.List, x.ElseList, dotItem
 			case *parse.IfNode:
 				body, other = x.List, x.ElseList
 			case *parse.WithNode:
-				body, other, inner = x.List, x.ElseList, dotUnknown
-				if contentPipe(x.Pipe, dot) {
-					inner = dotContent
-				}
+				body, other, inner = x.List, x.ElseList, withDot(x.Pipe, dot)
 			}
 			if err := walk(body, inner); err != nil {
 				return err
@@ -172,14 +187,80 @@ var errPluginOutput = errors.New("plugin template output exceeds the size cap")
 // limit while the plugin is compiled.
 var stringBuiltins = []string{"printf", "print", "println", "slice", "html", "js", "urlquery"}
 
-// stubFuncs has every plugin func and every string-building builtin answer with
-// nothing: a sample render must not call into plugin code, nor build large
-// strings.
-func stubFuncs(funcs template.FuncMap) template.FuncMap {
-	out := template.FuncMap{}
-	for _, name := range stringBuiltins {
-		out[name] = func(...any) (string, error) { return "", nil }
+// maxStubString caps every string a stubbed builtin returns, so a chain of
+// assignments that doubles a value cannot grow past it.
+const maxStubString = 4 << 10
+
+var errStubTooLarge = errors.New("sample render: builtin argument too large")
+
+// wideFormat matches a width or precision that could allocate a lot.
+var wideFormat = regexp.MustCompile(`\*|\d{4,}`)
+
+func capStub(s string) string {
+	if len(s) > maxStubString {
+		return s[:maxStubString]
 	}
+	return s
+}
+
+// stubBuiltins are the builtins that build strings, with the real result cut to
+// maxStubString: the sample render still sees what a literal expands to
+// ("java{{print "script:"}}") but nothing can grow without limit.
+func stubBuiltins() template.FuncMap {
+	escaper := func(f func(...any) string) func(...any) string {
+		return func(args ...any) string { return capStub(f(args...)) }
+	}
+	return template.FuncMap{
+		"print":   func(args ...any) string { return capStub(fmt.Sprint(args...)) },
+		"println": func(args ...any) string { return capStub(fmt.Sprintln(args...)) },
+		"printf": func(format string, args ...any) (string, error) {
+			if len(format) > maxStubString || wideFormat.MatchString(format) {
+				return "", errStubTooLarge
+			}
+			return capStub(fmt.Sprintf(format, args...)), nil
+		},
+		"html":     escaper(template.HTMLEscaper),
+		"js":       escaper(template.JSEscaper),
+		"urlquery": escaper(template.URLQueryEscaper),
+		"slice":    stubSlice,
+	}
+}
+
+// stubSlice is the slice builtin for strings and slices (a result never
+// outgrows its operand; a string result is capped).
+func stubSlice(item any, idx ...int) (any, error) {
+	v := reflect.ValueOf(item)
+	if !v.IsValid() || len(idx) > 2 {
+		return nil, errors.New("slice: bad arguments")
+	}
+	n := 0
+	switch v.Kind() {
+	case reflect.String, reflect.Slice:
+		n = v.Len()
+	default:
+		return nil, errors.New("slice: cannot slice this value")
+	}
+	lo, hi := 0, n
+	if len(idx) > 0 {
+		lo = idx[0]
+	}
+	if len(idx) > 1 {
+		hi = idx[1]
+	}
+	if lo < 0 || hi < lo || hi > n {
+		return nil, errors.New("slice: index out of range")
+	}
+	if v.Kind() == reflect.String {
+		return capStub(v.String()[lo:hi]), nil
+	}
+	return v.Slice(lo, hi).Interface(), nil
+}
+
+// stubFuncs has every plugin func answer with nothing (a sample render must not
+// call into plugin code) and the string builtins answer capped: builtin output
+// is represented, plugin-func output is not.
+func stubFuncs(funcs template.FuncMap) template.FuncMap {
+	out := stubBuiltins()
 	for name := range funcs {
 		out[name] = func(...any) (string, error) { return "", nil }
 	}

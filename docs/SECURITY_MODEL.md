@@ -137,7 +137,7 @@ are refused. Ranges that start again from the content (`$.Content...`, or
 ranges in a template called from inside a range; ranges over the current item's
 children add no depth. Across all of one plugin's templates, `{{template}}`
 calls may not form a cycle (a template that reaches itself, directly or through
-others), a template may not call another plugin's templates, and no template
+others), a template may not call another plugin's templates (its partials or its section names), and no template
 may expand to more than 1000 template calls. The range rule is checked on every
 load, including for a plugin that is already installed; a section or partial
 that breaks it is logged and not registered, and the plugin's other templates
@@ -146,8 +146,9 @@ calls, ranges nested too deep) is checked together with the other template
 rules and rejects all of that plugin's templates, logged. For a plugin without
 `site.scripts` the sample render of a template is also cut off at 256 KiB of
 output (the template is refused when it reaches that), and its string-building
-builtins (`printf`, `print`, `println`, `slice`, `html`, `js`, `urlquery`) are
-stubbed so the compile-time render stays cheap. A time or memory budget for
+builtins (`printf`, `print`, `println`, `slice`, `html`, `js`, `urlquery`) return
+their real result cut to 4 KiB, so the compile-time render stays cheap and still
+sees a literal they build; the output of plugin funcs is not represented. A time or memory budget for
 template execution at request time is not part of this model.
 
 | Guarantee | Package | Tests |

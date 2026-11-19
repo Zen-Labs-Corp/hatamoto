@@ -36,7 +36,7 @@ type pluginTree struct {
 
 // reentersContent reports whether the range pipe starts again from the
 // section's content ($.Content..., or .Content... at a template root). A range
-// over the current item's children (dotContent) only walks the data once, so it
+// over the current item's children (dotItem) only walks the data once, so it
 // adds no depth.
 func reentersContent(p *parse.PipeNode, dot dotKind) bool {
 	if p == nil || len(p.Cmds) == 0 || len(p.Cmds[0].Args) == 0 {
@@ -44,7 +44,7 @@ func reentersContent(p *parse.PipeNode, dot dotKind) bool {
 	}
 	switch p.Cmds[0].Args[0].(type) {
 	case *parse.FieldNode, *parse.DotNode:
-		return dot != dotContent
+		return dot != dotItem
 	}
 	return true
 }
@@ -65,17 +65,13 @@ func collectCalls(l *parse.ListNode, depth int, dot dotKind, t *pluginTree) {
 			if reentersContent(x.Pipe, dot) {
 				d++
 			}
-			collectCalls(x.List, d, dotContent, t)
+			collectCalls(x.List, d, dotItem, t)
 			collectCalls(x.ElseList, depth, dot, t)
 		case *parse.IfNode:
 			collectCalls(x.List, depth, dot, t)
 			collectCalls(x.ElseList, depth, dot, t)
 		case *parse.WithNode:
-			inner := dotUnknown
-			if contentPipe(x.Pipe, dot) {
-				inner = dotContent
-			}
-			collectCalls(x.List, depth, inner, t)
+			collectCalls(x.List, depth, withDot(x.Pipe, dot), t)
 			collectCalls(x.ElseList, depth, dot, t)
 		}
 	}
@@ -192,11 +188,12 @@ func (s pluginSnapshot) callGraphFaults(partials, sections map[string]string) ma
 	return faults
 }
 
-// foreignCall returns the first {{template}} in src that calls a template of
-// another plugin ("plugin/<other>/..."), or "" when there is none. prefix is
-// the calling plugin's own "plugin/<ident>/". A source that does not parse is
-// left to vet.
-func foreignCall(trees []*parse.Tree, prefix string) string {
+// foreignCall returns the first {{template}} in the trees that calls a template
+// of another plugin, or "" when there is none. That is any "plugin/<other>/..."
+// name, and any name owned (reports true) by a different plugin: its partials,
+// "section-<type>" and "sections/<type>.html". prefix is the calling plugin's
+// own "plugin/<ident>/".
+func foreignCall(trees []*parse.Tree, prefix string, foreign func(name string) bool) string {
 	for _, tr := range trees {
 		if tr == nil || tr.Root == nil {
 			continue
@@ -204,7 +201,7 @@ func foreignCall(trees []*parse.Tree, prefix string) string {
 		var t pluginTree
 		collectCalls(tr.Root, 0, dotRoot, &t)
 		for _, c := range t.calls {
-			if strings.HasPrefix(c.name, "plugin/") && !strings.HasPrefix(c.name, prefix) {
+			if strings.HasPrefix(c.name, "plugin/") && !strings.HasPrefix(c.name, prefix) || foreign(c.name) {
 				return c.name
 			}
 		}

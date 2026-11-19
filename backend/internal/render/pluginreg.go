@@ -281,7 +281,16 @@ func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logg
 		}
 		rejected[plugin] = true
 	}
-	ok := func(src string, root string, prefix string, allow func(string) bool) error {
+	// owned maps every template name a plugin can define to that plugin.
+	owned := map[string]string{}
+	for name := range s.partials {
+		owned[name] = s.owner["p:"+name]
+	}
+	for typ := range s.sections {
+		owned["section-"+typ] = s.owner["s:"+typ]
+		owned["sections/"+typ+".html"] = s.owner["s:"+typ]
+	}
+	ok := func(src, root, prefix, plugin string, allow func(string) bool) error {
 		t, err := template.New(root).Funcs(s.funcs).Parse(src)
 		if err != nil {
 			return err
@@ -293,7 +302,7 @@ func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logg
 			}
 			trees = append(trees, d.Tree)
 		}
-		if name := foreignCall(trees, prefix); name != "" {
+		if name := foreignCall(trees, prefix, func(n string) bool { o, found := owned[n]; return found && o != plugin }); name != "" {
 			return fmt.Errorf("calls %q: templates may not call another plugin's templates", name)
 		}
 		return nil
@@ -306,7 +315,7 @@ func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logg
 			reject(plugin, name, fmt.Errorf("partial name outside %s", prefix))
 			continue
 		}
-		if err := ok(src, name, prefix, func(n string) bool { return strings.HasPrefix(n, prefix) }); err != nil {
+		if err := ok(src, name, prefix, plugin, func(n string) bool { return strings.HasPrefix(n, prefix) }); err != nil {
 			reject(plugin, name, err)
 			continue
 		}
@@ -319,7 +328,7 @@ func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logg
 		plugin := s.owner["s:"+typ]
 		prefix := "plugin/" + pluginIdent(plugin) + "/"
 		root := "sections/" + typ + ".html"
-		if err := ok(src, root, prefix, func(n string) bool { return n == "section-"+typ || strings.HasPrefix(n, prefix) }); err != nil {
+		if err := ok(src, root, prefix, plugin, func(n string) bool { return n == "section-"+typ || strings.HasPrefix(n, prefix) }); err != nil {
 			reject(plugin, root, err)
 			continue
 		}

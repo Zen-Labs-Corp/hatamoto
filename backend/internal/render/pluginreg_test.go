@@ -690,6 +690,12 @@ func TestPluginVetBoundsCallsAndNesting(t *testing.T) {
 		{"two nested ranges", nil, section(`{{range $.Content.items}}{{range .a}}z{{end}}{{end}}`), false},
 		{"ranges over the children of the current item", nil,
 			section(`{{range .Content.groups}}{{range .items}}{{range .tags}}x{{end}}{{end}}{{end}}`), false},
+		{"ranges over a with over the content root", nil,
+			section(`{{range $.Content.items}}{{with $.Content}}{{range .items}}{{with $.Content}}{{range .items}}x{{end}}{{end}}{{end}}{{end}}{{end}}`), true},
+		{"a with over the content root, then three re-entering ranges", nil,
+			section(`{{with .Content}}{{range .a}}{{range $.Content.b}}{{range $.Content.c}}z{{end}}{{end}}{{end}}{{end}}`), true},
+		{"ranges under a with over a field of the item", nil,
+			section(`{{range .Content.groups}}{{with .meta}}{{range .items}}{{range .tags}}x{{end}}{{end}}{{end}}{{end}}`), false},
 		{"three nested ranges from the content root", nil,
 			section(`{{range $.Content.items}}{{range $.Content.a}}{{range $.Content.b}}z{{end}}{{end}}{{end}}`), true},
 		{"range calling a partial that ranges the content again", map[string]string{
@@ -734,6 +740,53 @@ func TestPluginVetRefusesCallsToAnotherPlugin(t *testing.T) {
 	partials, sections := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if len(partials) != 0 || len(sections) != 0 {
 		t.Errorf("kept partials %v, sections %v, want none", partials, sections)
+	}
+}
+
+// Templates of two plugins may not call each other through section names.
+func TestPluginVetRefusesCallsToAnotherPluginsSections(t *testing.T) {
+	t.Parallel()
+	recurse := func(target string) string {
+		return `{{if .}}{{template "` + target + `" (slice . 1)}}{{template "` + target + `" (slice . 1)}}{{end}}`
+	}
+	cases := map[string]struct{ a, b string }{
+		"section entries": {
+			`{{define "section-ax"}}` + recurse("section-bx") + `{{end}}`,
+			`{{define "section-bx"}}` + recurse("section-ax") + `{{end}}`,
+		},
+		"section roots": {
+			`{{define "section-ax"}}{{end}}` + recurse("sections/bx.html"),
+			`{{define "section-bx"}}{{end}}` + recurse("sections/ax.html"),
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			reg := newPluginRegistry()
+			if err := reg.registerSection("acme", "ax", tc.a); err != nil {
+				t.Fatal(err)
+			}
+			if err := reg.registerSection("beta", "bx", tc.b); err != nil {
+				t.Fatal(err)
+			}
+			_, sections := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+			if len(sections) != 0 {
+				t.Errorf("kept sections %v, want none", sections)
+			}
+		})
+	}
+}
+
+// A literal split around a builtin's output is still seen by the sample render.
+func TestSampleRenderSeesBuiltinOutput(t *testing.T) {
+	t.Parallel()
+	for _, act := range []string{`{{print "script:alert(1)"}}`, `{{printf "%s" "script:alert(1)"}}`, `{{slice "xscript:alert(1)" 1}}`} {
+		if err := scanSampleRender(`<a href="java`+act+`">x</a>`, nil); err == nil {
+			t.Errorf("%s: javascript: URL accepted", act)
+		}
+	}
+	if err := scanSampleRender(`<a href="/a{{print "b"}}">x</a>`, nil); err != nil {
+		t.Errorf("plain link refused: %v", err)
 	}
 }
 
