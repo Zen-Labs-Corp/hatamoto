@@ -63,6 +63,16 @@ func TestEnforcePixelCap_WebPCanvasAndFrameBounds(t *testing.T) {
 
 	animCanvasBomb := appendChunk(buildVP8XWebP(0x02, 46340, 46340), "ANMF", anmfPayload(1, 1))
 
+	animManySmall := buildVP8XWebP(0x02, 100, 100)
+	for range 5 {
+		animManySmall = appendChunk(animManySmall, "ANMF", anmfPayload(100, 100))
+	}
+
+	animCanvasPerFrame := buildVP8XWebP(0x02, 6000, 6000)
+	for range 20 {
+		animCanvasPerFrame = appendChunk(animCanvasPerFrame, "ANMF", anmfPayload(1, 1))
+	}
+
 	canvasOnly := buildVP8XWebP(0x02, 64, 64)
 
 	alphaLossy := appendChunk(buildVP8XWebP(0x10, 64, 64), "ALPH", make([]byte, 4))
@@ -80,6 +90,8 @@ func TestEnforcePixelCap_WebPCanvasAndFrameBounds(t *testing.T) {
 		{"animation within the cap", animOK, nil},
 		{"animation frame over the cap", animBomb, ErrImageTooLarge},
 		{"animation canvas over the cap", animCanvasBomb, ErrImageTooLarge},
+		{"small canvas with a few frames", animManySmall, nil},
+		{"large canvas repeated per frame", animCanvasPerFrame, ErrImageTooLarge},
 		{"canvas without any frame", canvasOnly, ErrImageTooLarge},
 		{"canvas with alpha and lossy frame", alphaLossy, nil},
 		{"plain lossy", buildVP8WebP(t, 64, 64), nil},

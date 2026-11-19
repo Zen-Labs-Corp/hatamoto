@@ -3,6 +3,7 @@ package media
 import (
 	"encoding/binary"
 	"io"
+	"math"
 	"os"
 )
 
@@ -15,8 +16,11 @@ const maxWebpChunks = 100_000
 // padding/JUNK chunk cannot push the frame chunk out of view.
 //
 // Returns:
-//   - (pixels>0, true): the largest declared canvas or frame area (VP8X
-//     canvas, top-level VP8/VP8L, or ANMF animation frame).
+//   - (pixels>0, true): for a still image, the largest declared canvas or
+//     frame area (VP8X canvas, top-level VP8/VP8L). For an animation, that
+//     largest area multiplied by the number of ANMF frames, because the
+//     decoder may hold one full canvas per frame; the product saturates at
+//     math.MaxInt64 instead of overflowing.
 //   - (0, true): the file IS a WebP but no VP8/VP8L/ANMF frame could be parsed —
 //     callers MUST reject it (fail closed) rather than decode.
 //   - (0, false): not a WebP container at all — callers use the normal path.
@@ -43,6 +47,7 @@ func webpFramePixels(path string) (int64, bool) {
 	// size reported is the largest of every dimension declared in the file.
 	var maxPx int64
 	var sawFrame bool
+	var anmfFrames int64
 	var off int64 = 12
 	chunkHdr := make([]byte, 8)
 	for range maxWebpChunks {
@@ -53,7 +58,7 @@ func webpFramePixels(path string) (int64, bool) {
 			if !sawFrame || maxPx <= 0 {
 				return 0, true // ran off the end without a frame chunk
 			}
-			return maxPx, true
+			return animationPixels(maxPx, anmfFrames), true
 		}
 		fourcc := string(chunkHdr[0:4])
 		size := int64(binary.LittleEndian.Uint32(chunkHdr[4:8]))
@@ -98,6 +103,7 @@ func webpFramePixels(path string) (int64, bool) {
 			h := (int64(p[9]) | int64(p[10])<<8 | int64(p[11])<<16) + 1
 			maxPx = max(maxPx, w*h)
 			sawFrame = true
+			anmfFrames++
 		}
 		// Skip this chunk (header + body + even-padding) and keep scanning.
 		adv := 8 + size
@@ -110,4 +116,16 @@ func webpFramePixels(path string) (int64, bool) {
 		off += adv
 	}
 	return 0, true // too many chunks: treat as unsizable -> reject
+}
+
+// animationPixels scales the per-frame area by the frame count (a still image
+// has none), saturating so the result never wraps below a pixel cap.
+func animationPixels(area, frames int64) int64 {
+	if frames <= 1 {
+		return area
+	}
+	if area > math.MaxInt64/frames {
+		return math.MaxInt64
+	}
+	return area * frames
 }
