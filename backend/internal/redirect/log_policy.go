@@ -36,8 +36,8 @@ func (s *Service) skipLog(path string) bool {
 }
 
 // maxMatchPath is the longest path the ignore patterns are matched against.
-// Matching costs len(pattern)*len(path), so longer (attacker-chosen) paths are
-// not matched and are logged as if no pattern applied.
+// Matching costs len(pattern)*len(path), and paths longer than this are not
+// logged at all (see Log404Async).
 const maxMatchPath = 2048
 
 // matchIgnore reports whether path, without its query string, matches any

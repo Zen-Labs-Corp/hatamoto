@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -171,15 +172,31 @@ func (s *Service) processLogEntries() {
 
 // ── 404 Log API ──────────────────────────────────────────────────────────────
 
+// maxLoggedField is the longest referrer or user agent kept in the 404 log.
+const maxLoggedField = 512
+
+// clipField cuts s to maxLoggedField bytes without splitting a rune.
+func clipField(s string) string {
+	if len(s) <= maxLoggedField {
+		return s
+	}
+	cut := maxLoggedField
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
+}
+
 // Log404Async enqueues a 404 hit for background persistence unless the log
-// policy skips it. It never waits on the queue (a full queue drops the entry);
+// policy skips it or the path is longer than maxMatchPath. It never waits on the queue (a full queue drops the entry);
 // the policy function itself must be cheap, see SetLogPolicy.
 func (s *Service) Log404Async(path, referrer, userAgent string) {
-	if s.skipLog(path) {
+	if len(path) > maxMatchPath || s.skipLog(path) {
 		return
 	}
+	entry := logEntry{Path: path, Referrer: clipField(referrer), UserAgent: clipField(userAgent)}
 	select {
-	case s.logCh <- logEntry{Path: path, Referrer: referrer, UserAgent: userAgent}:
+	case s.logCh <- entry:
 	default:
 		s.logger.Warn("404 log channel full, dropping entry", slog.String("path", path))
 	}
