@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -18,9 +20,14 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/menu"
+	"hatamoto.dev/core/internal/taxonomy"
 )
 
-type fakeKeys struct{ scopes []hmauth.APIKeyScope }
+// fakeKeys validates the bearer "good"; role is the creator's role.
+type fakeKeys struct {
+	scopes []hmauth.APIKeyScope
+	role   string
+}
 
 var fakeKeyID, fakeOwner = uuid.New(), uuid.New()
 
@@ -29,7 +36,7 @@ func (f fakeKeys) ValidateKey(_ context.Context, plain string) (*hmauth.APIKey, 
 		return nil, hmauth.ErrAPIKeyNotFound
 	}
 	owner := fakeOwner
-	return &hmauth.APIKey{ID: fakeKeyID, Name: "t", Scopes: f.scopes, CreatedBy: &owner, CreatorRole: "owner", IsActive: true}, nil
+	return &hmauth.APIKey{ID: fakeKeyID, Name: "t", Scopes: f.scopes, CreatedBy: &owner, CreatorRole: f.role, IsActive: true}, nil
 }
 func (fakeKeys) RecordUsage(context.Context, uuid.UUID, string) error { return nil }
 
@@ -46,7 +53,13 @@ func (l *countLimiter) Allow(uuid.UUID, int) bool { return l.n.Add(1) <= l.max }
 
 func newTestServer(t *testing.T, scopes []hmauth.APIKeyScope, d Deps) *httptest.Server {
 	t.Helper()
-	d.Keys = fakeKeys{scopes}
+	return newTestServerRole(t, "owner", scopes, d)
+}
+
+// newTestServerRole is newTestServer with the key's creator holding role.
+func newTestServerRole(t *testing.T, role string, scopes []hmauth.APIKeyScope, d Deps) *httptest.Server {
+	t.Helper()
+	d.Keys = fakeKeys{scopes: scopes, role: role}
 	if d.Audit == nil {
 		d.Audit = nopAudit{}
 	}
@@ -175,6 +188,37 @@ func TestSiteWriteScopesAreSeparate(t *testing.T) {
 			t.Errorf("%s with every scope but %s: isError=%v %q", name, tc.scope, res.IsError, text)
 		}
 		sess.Close()
+	}
+}
+
+type createTerms struct{ taxonomy.Repository }
+
+func (createTerms) CreateTerm(context.Context, *taxonomy.Term) error { return nil }
+
+// The SEO and terms scopes hold only while the key's creator is an owner,
+// also through "*".
+func TestOwnerOnlyToolsNeedOwnerCreator(t *testing.T) {
+	tools := map[string]map[string]any{
+		"seo_update":   {"patch": map[string]any{}},
+		"terms_create": {"kind": "tag", "name": "x"},
+	}
+	scopeSets := [][]hmauth.APIKeyScope{{hmauth.ScopeAll}, {hmauth.ScopeWriteSEO, hmauth.ScopeWriteTerms}}
+	for _, role := range []string{"editor", "owner"} {
+		for _, scopes := range scopeSets {
+			for name, args := range tools {
+				d := Deps{SEO: &fakeSEO{}, Changed: func(context.Context) {}, Taxonomy: taxonomy.NewService(createTerms{}, slog.New(slog.NewTextHandler(io.Discard, nil)))}
+				ts := newTestServerRole(t, role, scopes, d)
+				sess := session(t, ts)
+				text, isErr := call(t, sess, name, args)
+				sess.Close()
+				if role == "editor" && (!isErr || !strings.Contains(text, "forbidden")) {
+					t.Errorf("%s, editor creator, scopes %v: isError=%v %q, want forbidden", name, scopes, isErr, text)
+				}
+				if role == "owner" && isErr {
+					t.Errorf("%s, owner creator, scopes %v: %s", name, scopes, text)
+				}
+			}
+		}
 	}
 }
 
