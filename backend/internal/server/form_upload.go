@@ -188,6 +188,8 @@ func (s *Server) stagePart(f *form.Form, fld *form.FormField, part *multipart.Pa
 	switch {
 	case errors.Is(err, form.ErrFileTooLarge):
 		return nil, fileMessage(fld, "must be smaller than "+strconv.Itoa(fld.FileMaxMB())+" MB."), nil
+	case errors.Is(err, form.ErrStoreFull):
+		return nil, fileMessage(fld, "can't be accepted right now. Try again later."), nil
 	case err != nil:
 		return nil, "", err
 	}
