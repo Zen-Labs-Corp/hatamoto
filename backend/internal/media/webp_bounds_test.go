@@ -34,7 +34,16 @@ func vp8lPayload(w, h int) []byte {
 	return p
 }
 
-func TestEnforcePixelCap_RejectsCanvasAndLaterFrameBombs(t *testing.T) {
+// anmfPayload carries the 16-byte ANMF header with the given frame size.
+func anmfPayload(w, h int) []byte {
+	p := make([]byte, 16)
+	fw, fh := uint32(w-1), uint32(h-1)
+	p[6], p[7], p[8] = byte(fw), byte(fw>>8), byte(fw>>16)
+	p[9], p[10], p[11] = byte(fh), byte(fh>>8), byte(fh>>16)
+	return p
+}
+
+func TestEnforcePixelCap_WebPCanvasAndFrameBounds(t *testing.T) {
 	svc := newTestService(t, Config{MaxPixels: defaultMaxPixels})
 	dir := filepath.Join(svc.config.UploadDir, legacyMediaTenantDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -44,8 +53,20 @@ func TestEnforcePixelCap_RejectsCanvasAndLaterFrameBombs(t *testing.T) {
 	canvasBomb := appendChunk(buildVP8XWebP(0x10, 46340, 46340), "ALPH", make([]byte, 4))
 	canvasBomb = appendChunk(canvasBomb, "VP8 ", vp8Payload(1, 1))
 
-	laterFrame := appendChunk(buildVP8XWebP(0x02, 1, 1), "ANMF", make([]byte, 16))
+	laterFrame := appendChunk(buildVP8XWebP(0x00, 1, 1), "VP8 ", vp8Payload(1, 1))
 	laterFrame = appendChunk(laterFrame, "VP8L", vp8lPayload(16384, 16384))
+
+	animOK := appendChunk(buildVP8XWebP(0x02, 64, 64), "ANMF", anmfPayload(32, 32))
+	animOK = appendChunk(animOK, "ANMF", anmfPayload(64, 64))
+
+	animBomb := appendChunk(buildVP8XWebP(0x02, 1, 1), "ANMF", anmfPayload(16384, 16384))
+
+	animCanvasBomb := appendChunk(buildVP8XWebP(0x02, 46340, 46340), "ANMF", anmfPayload(1, 1))
+
+	canvasOnly := buildVP8XWebP(0x02, 64, 64)
+
+	alphaLossy := appendChunk(buildVP8XWebP(0x10, 64, 64), "ALPH", make([]byte, 4))
+	alphaLossy = appendChunk(alphaLossy, "VP8 ", vp8Payload(64, 64))
 
 	smallL := appendChunk([]byte("RIFF\x00\x00\x00\x00WEBP"), "VP8L", vp8lPayload(64, 64))
 
@@ -55,7 +76,12 @@ func TestEnforcePixelCap_RejectsCanvasAndLaterFrameBombs(t *testing.T) {
 		want error
 	}{
 		{"canvas with alpha and tiny frame", canvasBomb, ErrImageTooLarge},
-		{"animation chunk before big frame", laterFrame, ErrImageTooLarge},
+		{"small frame before big later frame", laterFrame, ErrImageTooLarge},
+		{"animation within the cap", animOK, nil},
+		{"animation frame over the cap", animBomb, ErrImageTooLarge},
+		{"animation canvas over the cap", animCanvasBomb, ErrImageTooLarge},
+		{"canvas without any frame", canvasOnly, ErrImageTooLarge},
+		{"canvas with alpha and lossy frame", alphaLossy, nil},
 		{"plain lossy", buildVP8WebP(t, 64, 64), nil},
 		{"plain lossless", smallL, nil},
 	}

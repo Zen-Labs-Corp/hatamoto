@@ -15,9 +15,9 @@ const maxWebpChunks = 100_000
 // padding/JUNK chunk cannot push the frame chunk out of view.
 //
 // Returns:
-//   - (pixels>0, true): the largest declared canvas or frame area (what Go's
-//     decoder will allocate).
-//   - (0, true): the file IS a WebP but no frame chunk could be parsed —
+//   - (pixels>0, true): the largest declared canvas or frame area (VP8X
+//     canvas, top-level VP8/VP8L, or ANMF animation frame).
+//   - (0, true): the file IS a WebP but no VP8/VP8L/ANMF frame could be parsed —
 //     callers MUST reject it (fail closed) rather than decode.
 //   - (0, false): not a WebP container at all — callers use the normal path.
 //
@@ -42,6 +42,7 @@ func webpFramePixels(path string) (int64, bool) {
 	// The decoder allocates for the VP8X canvas and for the frame, so the
 	// size reported is the largest of every dimension declared in the file.
 	var maxPx int64
+	var sawFrame bool
 	var off int64 = 12
 	chunkHdr := make([]byte, 8)
 	for range maxWebpChunks {
@@ -49,7 +50,7 @@ func webpFramePixels(path string) (int64, bool) {
 			return 0, true
 		}
 		if _, err := io.ReadFull(f, chunkHdr); err != nil {
-			if maxPx <= 0 {
+			if !sawFrame || maxPx <= 0 {
 				return 0, true // ran off the end without a frame chunk
 			}
 			return maxPx, true
@@ -74,6 +75,7 @@ func webpFramePixels(path string) (int64, bool) {
 			w := int64(binary.LittleEndian.Uint16(p[6:8]) & 0x3FFF)
 			h := int64(binary.LittleEndian.Uint16(p[8:10]) & 0x3FFF)
 			maxPx = max(maxPx, w*h)
+			sawFrame = true
 		case "VP8L": // lossless: 0x2f signature then packed 14-bit (w-1),(h-1)
 			p := make([]byte, 5)
 			if _, err := io.ReadFull(f, p); err != nil {
@@ -86,8 +88,16 @@ func webpFramePixels(path string) (int64, bool) {
 			w := int64(bits&0x3FFF) + 1
 			h := int64((bits>>14)&0x3FFF) + 1
 			maxPx = max(maxPx, w*h)
-		case "ANMF": // animation is not supported: fail closed
-			return 0, true
+			sawFrame = true
+		case "ANMF": // animation frame: 24-bit (w-1),(h-1) at payload offset 6..12
+			p := make([]byte, 12)
+			if _, err := io.ReadFull(f, p); err != nil {
+				return 0, true
+			}
+			w := (int64(p[6]) | int64(p[7])<<8 | int64(p[8])<<16) + 1
+			h := (int64(p[9]) | int64(p[10])<<8 | int64(p[11])<<16) + 1
+			maxPx = max(maxPx, w*h)
+			sawFrame = true
 		}
 		// Skip this chunk (header + body + even-padding) and keep scanning.
 		adv := 8 + size
