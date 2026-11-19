@@ -150,6 +150,38 @@ func TestPluginMarkupActionsNeedTheGrant(t *testing.T) { //nolint:paralleltest /
 	}
 }
 
+// A URL attribute's scheme and host come from literal text, not from joined
+// actions.
+func TestPluginMarkupURLAttrSplit(t *testing.T) { //nolint:paralleltest // sets the global script gate
+	dropped := map[string]string{
+		"split scheme":      `<a href="java{{"script"}}:x">x</a>`,
+		"action then tail":  `<a href="{{.Content.a}}:x">x</a>`,
+		"two actions":       `<a href="{{.Content.a}}{{.Content.b}}">x</a>`,
+		"protocol-relative": `<a href="//{{.Content.h}}">x</a>`,
+		"src tail":          `<img src="{{.Content.a}}x">`,
+	}
+	kept := map[string]string{
+		"whole value":  `<a href="{{.Content.url}}">x</a>`,
+		"path prefix":  `<a href="/blog/{{.Content.slug}}">x</a>`,
+		"https prefix": `<a href="https://x.test/{{.Content.s}}">x</a>`,
+		"fragment":     `<a href="#{{.Content.s}}">x</a>`,
+		"data- attr":   `<p data-id="a{{.Content.i}}">x</p>`,
+	}
+	for name, m := range dropped {
+		if gatedSections(t, map[string]string{"s": m}, false)["s"] {
+			t.Errorf("dropped/%s: registered without site.scripts: %s", name, m)
+		}
+		if !gatedSections(t, map[string]string{"s": m}, true)["s"] {
+			t.Errorf("dropped/%s: not registered with site.scripts: %s", name, m)
+		}
+	}
+	for name, m := range kept {
+		if !gatedSections(t, map[string]string{"s": m}, false)["s"] {
+			t.Errorf("kept/%s: refused without site.scripts: %s", name, m)
+		}
+	}
+}
+
 // The reason an admin is shown names the rule, not a generic scan failure.
 func TestPluginMarkupActionsReason(t *testing.T) {
 	err := checkPluginScripts(`{{define "s"}}<p {{.Content.a}}>x</p>{{end}}`, nil)
