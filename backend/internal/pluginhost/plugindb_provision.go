@@ -9,13 +9,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgproto3"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -455,11 +453,9 @@ func pluginConnConfig(base *pgx.ConnConfig, plugin, role, password string) *pgx.
 	// under the driver's feet.
 	cc.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
 	cc.StatementCacheCapacity, cc.DescriptionCacheCapacity = 0, 0
-	cc.BuildFrontend = func(r io.Reader, w io.Writer) *pgproto3.Frontend {
-		fe := pgproto3.NewFrontend(r, w)
-		fe.SetMaxBodyLen(maxDBMessageBytes)
-		return fe
-	}
+	// The driver applies this after BuildFrontend, so it must be set here
+	// rather than inherited from the core config.
+	cc.MaxProtocolMessageBodyLen = maxDBMessageBytes
 	return cc
 }
 

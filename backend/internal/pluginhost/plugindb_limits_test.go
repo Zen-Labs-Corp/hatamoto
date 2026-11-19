@@ -23,24 +23,31 @@ func TestPluginConnConfigBoundsServerMessages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A looser core value must not carry over to the plugin's connections:
+	// the driver applies this field after BuildFrontend.
+	const looser = 64 << 20
+	cfg.ConnConfig.MaxProtocolMessageBodyLen = looser
 	cc := pluginConnConfig(cfg.ConnConfig, "capa", "hm_p_1234abcd_capa", "pw")
 
+	if cc.MaxProtocolMessageBodyLen != maxDBMessageBytes {
+		t.Fatalf("plugin cap = %d, want %d", cc.MaxProtocolMessageBodyLen, maxDBMessageBytes)
+	}
+	if cfg.ConnConfig.MaxProtocolMessageBodyLen != looser {
+		t.Fatalf("the core config must keep its own value: %d", cfg.ConnConfig.MaxProtocolMessageBodyLen)
+	}
+
+	// The effective limit, as the driver applies it, refuses a message over
+	// the cap at the header and accepts one at the cap (body absent here).
 	var tooLong *pgproto3.ExceededMaxBodyLenErr
-	_, err = cc.BuildFrontend(bytes.NewReader(dataRowHeader(maxDBMessageBytes+1)), io.Discard).Receive()
-	if !errors.As(err, &tooLong) {
+	fe := cc.BuildFrontend(bytes.NewReader(dataRowHeader(maxDBMessageBytes+1)), io.Discard)
+	fe.SetMaxBodyLen(cc.MaxProtocolMessageBodyLen)
+	if _, err = fe.Receive(); !errors.As(err, &tooLong) {
 		t.Fatalf("a message over the cap must be refused at the header: %v", err)
 	}
-
-	// At the cap the header is accepted; the body is absent here.
-	_, err = cc.BuildFrontend(bytes.NewReader(dataRowHeader(maxDBMessageBytes)), io.Discard).Receive()
-	if errors.As(err, &tooLong) {
+	fe = cc.BuildFrontend(bytes.NewReader(dataRowHeader(maxDBMessageBytes)), io.Discard)
+	fe.SetMaxBodyLen(cc.MaxProtocolMessageBodyLen)
+	if _, err = fe.Receive(); errors.As(err, &tooLong) {
 		t.Fatalf("a message at the cap must not be refused: %v", err)
-	}
-
-	// The core pool's config keeps the driver default.
-	_, err = cfg.ConnConfig.BuildFrontend(bytes.NewReader(dataRowHeader(maxDBMessageBytes+1)), io.Discard).Receive()
-	if errors.As(err, &tooLong) {
-		t.Fatalf("the core config must not be capped: %v", err)
 	}
 }
 
