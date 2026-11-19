@@ -34,8 +34,9 @@ file system and no host access except through capabilities the owner granted.
 |---|---|---|
 | A guest cannot open a connection, even when its manifest lists a host | `internal/wasmhost` | `TestNoNetwork` |
 | A guest cannot read a host file | `internal/wasmhost` | `TestNoFilesystem` |
-| Memory is capped, also under concurrent attempts | `internal/wasmhost` | `TestMemoryBombHitsCap`, `TestMemoryCapRejectsTinyModuleBudget`, `TestMemoryCeilingIsTwiceMaxPages`, `TestConcurrentMemoryBombsBounded` |
-| A call that runs too long is stopped, with or without a caller deadline | `internal/wasmhost` | `TestTimeoutIsEnforcedWithoutCallerDeadline`, `TestPerHookTimeouts`, `TestSlotWaitIsBoundedWithoutCallerDeadline` |
+| Memory is capped, also under concurrent attempts | `internal/wasmhost` | `TestMemoryBombHitsCap`, `TestMemoryCapRejectsTinyModuleBudget`, `TestMemoryCeilingIsTwiceMaxPages`, `TestConcurrentMemoryBombsBounded`, `TestTablesAreBounded` |
+| A call that runs too long is stopped, with or without a caller deadline, and so is a module's start section at load | `internal/wasmhost` | `TestTimeoutIsEnforcedWithoutCallerDeadline`, `TestPerHookTimeouts`, `TestSlotWaitIsBoundedWithoutCallerDeadline`, `TestStartSectionIsBounded` |
+| Result and message sizes from the database are capped | `internal/pluginhost` | `TestPluginConnConfigBoundsServerMessages`, `TestPluginDBHugeRowIsBounded_Integration` |
 | Guest log output is truncated and rate limited | `internal/wasmhost` | `TestGuestLogsAreTruncatedAndRateLimited` |
 | A capability is denied until the owner grants it, and a grant the manifest does not request is refused | `internal/pluginhost` | `TestDeniedUntilGranted`, `TestGrantMustBeRequested` |
 | A host call request over 1 MiB is refused | `internal/wasmhost` | `TestHostCall` |
