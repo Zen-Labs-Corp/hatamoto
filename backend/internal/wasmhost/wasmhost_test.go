@@ -534,22 +534,25 @@ func TestCallerDeadlineDoesNotShieldHangFromBreaker(t *testing.T) {
 func TestCallerCancelDoesNotChargeBreaker(t *testing.T) {
 	h := newHost(t)
 	load(t, h, "bad", sdk.Limits{HookTimeoutsMS: timeouts(5000, "hostile_loop", "echo")})
-	call(h, "bad", "echo", "") // warm the pool: a cold start would mask the charge
 	for i := 0; i < breakerThreshold; i++ {
+		// Each cancelled call must start on a warm instance: a cold start
+		// would make it run for less than it waited, which is never charged.
+		call(h, "bad", "echo", "")
+		before := h.Discarded("bad")
 		ctx, cancel := context.WithCancel(context.Background())
-		time.AfterFunc(100*time.Millisecond, cancel)
+		time.AfterFunc(300*time.Millisecond, cancel)
 		_, err := h.Call(ctx, "bad", "hostile_loop", nil)
 		cancel()
 		if err == nil || errors.Is(err, ErrCircuitOpen) {
 			t.Fatalf("call %d: want a cancel error, got %v", i, err)
 		}
+		if got := h.Discarded("bad") - before; got != 1 {
+			t.Fatalf("call %d: discarded %d instances, want the cancelled one dropped", i, got)
+		}
 	}
 	p := (*h.reg.Load())["bad"]
 	if !p.allow("hostile_loop") {
 		t.Fatalf("breaker opened after %d caller cancels", breakerThreshold)
-	}
-	if got := h.Discarded("bad"); got < breakerThreshold {
-		t.Fatalf("discarded %d instances, want the %d cancelled ones dropped", got, breakerThreshold)
 	}
 }
 
