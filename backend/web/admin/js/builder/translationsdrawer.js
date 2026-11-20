@@ -1,11 +1,13 @@
 // The page's Translations drawer: a slide-over beside the canvas holding the server-rendered panel (the page's copies
 // with Open and Create, and what search engines see). It is fetched on the first open, so first paint pays nothing for it.
 
+const FAILED = ["htmx:responseError", "htmx:sendError", "htmx:timeout"];
+
 /**
- * mountTranslationsDrawer({doc, btn, root, url, onError, fetch}): btn opens and closes root; focus moves into the drawer on
+ * mountTranslationsDrawer({doc, btn, root, url, onError, htmx}): btn opens and closes root; focus moves into the drawer on
  * open and back to btn on Escape or Close. Returns {open, close, toggle, isOpen}.
  */
-export function mountTranslationsDrawer({ doc = document, btn, root, url, onError = () => {}, fetch: f = (...a) => globalThis.fetch(...a) }) {
+export function mountTranslationsDrawer({ doc = document, btn, root, url, onError = () => {}, htmx: hx = () => globalThis.htmx }) {
   let loaded = null;
   let busy = false;
   const isOpen = () => !root.hidden;
@@ -15,13 +17,22 @@ export function mountTranslationsDrawer({ doc = document, btn, root, url, onErro
     btn.setAttribute("aria-expanded", "false");
     if (back) btn.focus();
   };
-  const fill = async () => {
-    // The fragment page answers a bare panel only to an htmx-style request.
-    const res = await f(url, { headers: { "HX-Request": "true", "HX-Target": root.id } });
-    if (!res.ok) throw new Error("The translations did not load.");
-    root.querySelector("[data-hm-trdrawer-body]").innerHTML = await res.text(); // the server's own markup
-    globalThis.htmx?.process?.(root);
-  };
+  // htmx asks for the panel with the body as its target (it names the body's id), so the server answers the
+  // bare panel and htmx swaps and processes it.
+  const fill = () =>
+    new Promise((resolve, reject) => {
+      const body = root.querySelector("[data-hm-trdrawer-body]");
+      const api = hx();
+      const failed = () => new Error("The translations did not load.");
+      if (!api || !body?.id) return reject(failed());
+      const fail = () => {
+        off();
+        reject(failed());
+      };
+      const off = () => FAILED.forEach((t) => body.removeEventListener(t, fail));
+      FAILED.forEach((t) => body.addEventListener(t, fail));
+      api.ajax("GET", url, { source: body, target: body, swap: "innerHTML" }).then(() => { off(); resolve(); }, fail);
+    });
   const open = async () => {
     if (isOpen() || busy) return;
     busy = true;
