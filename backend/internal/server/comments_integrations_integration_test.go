@@ -15,7 +15,8 @@ import (
 )
 
 // The plugin read API must see published entities of every public locale of a
-// multi-locale site, shared (und) content included, and still hide a draft.
+// multi-locale site, shared (und) content included, and still hide a draft and
+// an entity of a locale the site does not serve.
 func TestPluginCommentReaderLocales_Integration(t *testing.T) {
 	ctx := context.Background()
 	env := newWireEnv(t, nil)
@@ -66,7 +67,7 @@ func TestPluginCommentReaderLocales_Integration(t *testing.T) {
 		}
 		return id
 	}
-	en, nl, und, draft := seed("en", "published"), seed("nl", "published"), seed("und", "published"), seed("nl", "draft")
+	en, nl, und, draft, hidden := seed("en", "published"), seed("nl", "published"), seed("und", "published"), seed("nl", "draft"), seed("fr", "published")
 
 	r := pluginCommentReader{s}
 	for name, id := range map[string]uuid.UUID{"en": en, "nl": nl, "und": und} {
@@ -78,7 +79,10 @@ func TestPluginCommentReaderLocales_Integration(t *testing.T) {
 	if th, err := r.Thread(ctx, draft, 1); err != nil || len(th.Items) != 0 {
 		t.Errorf("Thread(draft) = %d items, %v; want 0", len(th.Items), err)
 	}
-	counts, err := r.Counts(ctx, []uuid.UUID{en, nl, und, draft})
+	if th, err := r.Thread(ctx, hidden, 1); err != nil || len(th.Items) != 0 {
+		t.Errorf("Thread(hidden locale) = %d items, %v; want 0", len(th.Items), err)
+	}
+	counts, err := r.Counts(ctx, []uuid.UUID{en, nl, und, draft, hidden})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,5 +93,8 @@ func TestPluginCommentReaderLocales_Integration(t *testing.T) {
 	}
 	if counts[draft] != 0 {
 		t.Errorf("Counts(draft) = %d, want 0", counts[draft])
+	}
+	if counts[hidden] != 0 {
+		t.Errorf("Counts(hidden locale) = %d, want 0", counts[hidden])
 	}
 }
