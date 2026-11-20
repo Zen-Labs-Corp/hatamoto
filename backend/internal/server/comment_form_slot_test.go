@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"strings"
@@ -85,17 +86,32 @@ func TestCommentSlotFillPersonalises(t *testing.T) {
 		t.Fatal("names do not derive from the token")
 	}
 
-	ipHash, _ := keys.HashIP("203.0.113.9")
-	otherHash, _ := keys.HashIP("198.51.100.1")
-	store := &slotTokens{used: map[string]bool{}}
-	now := time.Now().Add(time.Minute)
 	subj := spam.CommentSubject(id.String())
-	if _, res := spam.CheckCommentToken(context.Background(), slot.tokenKey, store, subj, otherHash, string(ta), now); res == spam.TokenOK {
-		t.Fatal("token verified for another ip")
+	now := time.Now().Add(time.Minute)
+	for _, tc := range []struct {
+		ip string
+		ok bool
+	}{
+		{"198.51.100.1", false},
+		{"203.0.113.9", true},
+		{"203.0.113.200", true},
+	} {
+		_, netHash := keys.HashIP(tc.ip)
+		tok := string(slotTokRe.FindSubmatch(mustFill(t, slot, r, page))[1])
+		store := &slotTokens{used: map[string]bool{}}
+		if _, res := spam.CheckCommentToken(context.Background(), slot.tokenKey, store, subj, netHash, tok, now); (res == spam.TokenOK) != tc.ok {
+			t.Fatalf("token checked from %s = %v, want ok=%v", tc.ip, res, tc.ok)
+		}
 	}
-	if _, res := spam.CheckCommentToken(context.Background(), slot.tokenKey, store, subj, ipHash, string(ta), now); res != spam.TokenOK {
-		t.Fatalf("token for the same ip = %v", res)
+}
+
+func mustFill(t *testing.T, slot *commentSlot, r *http.Request, page []byte) []byte {
+	t.Helper()
+	out, ok := slot.fill(r, page)
+	if !ok {
+		t.Fatal("not personalised")
 	}
+	return out
 }
 
 func TestCommentSlotFillUnchanged(t *testing.T) {

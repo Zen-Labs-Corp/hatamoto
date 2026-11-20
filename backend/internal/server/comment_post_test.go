@@ -132,8 +132,8 @@ func newPostRig(t *testing.T) *postRig {
 
 // form returns a valid post issued issuedAgo ago for the rig's address.
 func (r *postRig) form(issuedAgo time.Duration) url.Values {
-	ipHash, _ := r.c.keys.HashIP(postIP)
-	tok := spam.IssueCommentToken(spam.CommentTokenKey(postSecret), spam.CommentSubject(r.entity.String()), ipHash, time.Now().Add(-issuedAgo))
+	_, netHash := r.c.keys.HashIP(postIP)
+	tok := spam.IssueCommentToken(spam.CommentTokenKey(postSecret), spam.CommentSubject(r.entity.String()), netHash, time.Now().Add(-issuedAgo))
 	n := spam.FieldNames(spam.FieldNameKey(postSecret), tok)
 	return url.Values{
 		commentsubmit.TokenField: {tok}, n.Body: {"A thoughtful remark."}, n.Name: {"Ada"}, n.Email: {"ada@example.test"},
@@ -244,6 +244,21 @@ func TestCommentPostReplayedTokenStoresOnce(t *testing.T) {
 	}
 	if len(r.c.stored) != 1 || r.ident.mails != 1 {
 		t.Fatalf("stored %d mails %d, want 1 each", len(r.c.stored), r.ident.mails)
+	}
+}
+
+func TestCommentPostTokenFollowsNetwork(t *testing.T) {
+	r := newPostRig(t)
+	from := func(addr string) func(*http.Request) {
+		return func(q *http.Request) { q.RemoteAddr = addr }
+	}
+	rec := r.do(r.form(time.Minute), from("203.0.113.99:4711"))
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != postPath+"?cnotice=check_email#hm-comments" || len(r.c.stored) != 1 {
+		t.Fatalf("same /24: %d %q stored %d", rec.Code, rec.Header().Get("Location"), len(r.c.stored))
+	}
+	rec = r.do(r.form(time.Minute), from("198.51.100.9:4711"))
+	if rec.Header().Get("Location") != postFake || len(r.c.stored) != 1 {
+		t.Fatalf("other network: %q stored %d", rec.Header().Get("Location"), len(r.c.stored))
 	}
 }
 
@@ -432,8 +447,8 @@ func TestCommentPostHTMXFragment(t *testing.T) {
 
 	// A fresh form from the fragment is accepted once the dwell has passed:
 	// its token verifies for this address and entity.
-	ipHash, _ := r.c.keys.HashIP(postIP)
-	if _, res := spam.CheckCommentToken(context.Background(), spam.CommentTokenKey(postSecret), r.c, spam.CommentSubject(r.entity.String()), ipHash, m[1], time.Now().Add(time.Minute)); res != spam.TokenOK {
+	_, netHash := r.c.keys.HashIP(postIP)
+	if _, res := spam.CheckCommentToken(context.Background(), spam.CommentTokenKey(postSecret), r.c, spam.CommentSubject(r.entity.String()), netHash, m[1], time.Now().Add(time.Minute)); res != spam.TokenOK {
 		t.Fatalf("fragment token = %v", res)
 	}
 }

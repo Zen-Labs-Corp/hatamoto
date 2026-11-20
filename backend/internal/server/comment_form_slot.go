@@ -58,8 +58,8 @@ func (c *commentSlot) fill(r *http.Request, body []byte) ([]byte, bool) {
 	if err != nil {
 		return body, true
 	}
-	ipHash, _ := c.hashIP(middleware.GetClientIP(r))
-	tok := spam.IssueCommentToken(c.tokenKey, spam.CommentSubject(id.String()), ipHash, c.now())
+	_, netHash := c.hashIP(middleware.GetClientIP(r))
+	tok := spam.IssueCommentToken(c.tokenKey, spam.CommentSubject(id.String()), netHash, c.now())
 	names := spam.FieldNames(c.nameKey, tok)
 	p := render.CommentFormPlaceholders
 	filled := strings.NewReplacer(
