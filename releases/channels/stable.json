@@ -449,7 +449,8 @@
           "pct": 100
         }
       ],
-      "halted": false
+      "halted": true,
+      "halt_reason": "plugin template range rule refuses existing plugin sections and partials after upgrade; fix in v1.3.9"
     }
   ],
   "yanked": []
