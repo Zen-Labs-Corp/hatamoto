@@ -314,6 +314,7 @@ func TestSubmitCaptcha(t *testing.T) {
 		kind  OutcomeKind
 	}{
 		{"passed", "cf-turnstile-response", true, CheckEmail},
+		{"hm.js field", "hm_captcha", true, CheckEmail},
 		{"rejected", "cf-turnstile-response", false, FakeSuccess},
 		{"missing", "", true, FakeSuccess},
 	} {

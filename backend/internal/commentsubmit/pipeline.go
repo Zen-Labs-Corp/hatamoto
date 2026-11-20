@@ -39,8 +39,9 @@ const (
 // duplicateWindow is how far back an identical body counts as a duplicate.
 const duplicateWindow = 24 * time.Hour
 
-// providerCaptchaFields are the response fields the captcha widgets post.
-var providerCaptchaFields = []string{"cf-turnstile-response", "g-recaptcha-response", "h-captcha-response"}
+// providerCaptchaFields are the response fields the captcha widgets post. hm_captcha
+// comes first: hm.js writes the token there (the only field a reCAPTCHA v3 form has).
+var providerCaptchaFields = []string{"hm_captcha", "cf-turnstile-response", "g-recaptcha-response", "h-captcha-response"}
 
 // Request is one comment submit as the handler parsed it.
 type Request struct {
