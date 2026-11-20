@@ -124,7 +124,7 @@ func Domains(links []Link) []string {
 }
 
 // trimTail drops sentence punctuation that trails a URL.
-func trimTail(u string) string { return strings.TrimRight(u, ".,;:!?)") }
+func trimTail(u string) string { return strings.TrimRight(u, ".,;:!?)*_") }
 
 func isHTTP(u string) bool {
 	l := strings.ToLower(u)
