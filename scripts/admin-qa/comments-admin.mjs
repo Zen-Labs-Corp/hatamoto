@@ -33,10 +33,8 @@ const sw = (p) => p.getByRole("switch").first();
 const overflow = (p) => p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 const commentsLink = (p) => p.locator(`.hm-nav-link[href$="/comments"]`).first();
 const badge = (p) => commentsLink(p).locator(".hm-nav-link__badge [aria-hidden]").first().innerText({ timeout: 500 }).then((t) => Number(t), () => 0);
-const tabCount = async (p, label) => {
-  const t = await p.locator(".hm-tabs a, .hm-tabs button").filter({ hasText: label }).first().innerText();
-  return Number(t.replace(/\D+/g, " ").trim().split(" ").pop() || 0);
-};
+// The status filter is the segmented control #comments-seg; each option carries its count in #comments-seg-<status>-n.
+const tabCount = async (p, status) => Number(await p.locator(`#comments-seg-${status}-n`).innerText());
 
 // The editor signs in with the same password; lib.mjs logs in as one role per run.
 async function editorSession() {
@@ -125,20 +123,20 @@ try {
     await page.goto(`${base}${admin}/comments?status=pending`);
     ok((await text(page)).includes("Held: contains a link, first comment"), "queue: a held row says why");
     const rows = page.locator("table tbody tr");
-    const approved = await tabCount(page, "Approved");
+    const approved = await tabCount(page, "approved");
     await rows.first().locator('[popovertarget^="menu-"]').click();
-    await page.getByRole("menuitem", { name: /Approve/ }).or(page.getByRole("button", { name: /^Approve/ })).first().click();
+    await page.getByRole("menuitem", { name: "Approve", exact: true }).click();
     await page.waitForLoadState("load");
     await page.goto(`${base}${admin}/comments?status=pending`);
-    ok((await tabCount(page, "Approved")) === approved + 1, "queue: approving one raises the Approved count by 1");
-    const trash = await tabCount(page, "Trash");
+    ok((await tabCount(page, "approved")) === approved + 1, "queue: approving one raises the Approved count by 1");
+    const trash = await tabCount(page, "trash");
     const sel = page.locator("input[data-hm-row-select]");
     await sel.nth(0).check();
     await sel.nth(1).check();
     await page.locator('[data-hm-bulk-toolbar] button:has-text("Trash")').click();
     await page.waitForLoadState("load");
     await page.goto(`${base}${admin}/comments?status=pending`);
-    ok((await tabCount(page, "Trash")) === trash + 2, "queue: bulk trash of two raises the Trash count by 2");
+    ok((await tabCount(page, "trash")) === trash + 2, "queue: bulk trash of two raises the Trash count by 2");
   } else skip("moderation");
 
   // ============ a phone ============
