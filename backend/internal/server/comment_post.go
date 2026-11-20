@@ -292,7 +292,8 @@ func (s *Server) writeCommentFragment(w http.ResponseWriter, r *http.Request, id
 // writeCommentPage answers a no-JS post the sender can fix with the page
 // itself: 200 on the POST, private and no-store, the form holding the error,
 // their values, a fresh token and new field names. False (nothing written)
-// when the page handlers are not mounted.
+// when the page handlers are not mounted or do not answer 200 (a redirect, a
+// 404 or a failure never answers the post).
 func (s *Server) writeCommentPage(w http.ResponseWriter, r *http.Request, path string, echo commentEcho) bool {
 	h := s.renderHandlers
 	if h == nil || h.engine == nil || s.commentSlot == nil {
@@ -306,10 +307,19 @@ func (s *Server) writeCommentPage(w http.ResponseWriter, r *http.Request, path s
 	req.Form, req.PostForm = nil, nil
 	req.Header.Del("HX-Request")
 	req.Header.Del("Content-Type")
+	bw := &bufferedResponse{h: http.Header{}}
 	if path == "/" {
-		hp.handleRenderHome(w, req)
+		hp.handleRenderHome(bw, req)
 	} else {
-		hp.handleRenderCatchAll(w, req)
+		hp.handleRenderCatchAll(bw, req)
 	}
+	if bw.status != http.StatusOK {
+		return false // a redirect, 404 or 5xx must not answer the post
+	}
+	for k, v := range bw.h {
+		w.Header()[k] = v
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(bw.body)
 	return true
 }

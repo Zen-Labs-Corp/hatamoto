@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -521,6 +522,33 @@ func TestCommentPostNoJSInvalidRerendersPage(t *testing.T) {
 	}
 	if len(f.notFound) != 0 {
 		t.Fatalf("404 rows: %v", f.notFound)
+	}
+}
+
+func TestCommentPostNoJSNon200PageFallsBackTo303(t *testing.T) {
+	for name, set := range map[string]func(f *renderFixture){
+		"failure": func(f *renderFixture) {
+			f.next = func() (*routeResult, pageOutcome, error) { return nil, pageOutcome{}, errors.New("boom") }
+		},
+		"not found": func(f *renderFixture) {
+			f.next = func() (*routeResult, pageOutcome, error) {
+				return &routeResult{NotFound: true}, pageOutcome{Status: 404, NotFound: true}, nil
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := newPostRig(t)
+			set(r.mountPage(t))
+			v, long := r.longPost()
+			rec := r.do(v)
+			loc := rec.Header().Get("Location")
+			if rec.Code != http.StatusSeeOther || !strings.Contains(loc, "?cerror=body_long#hm-comment-form") {
+				t.Fatalf("status %d Location %q, want the 303 ?cerror= fallback", rec.Code, loc)
+			}
+			if strings.Contains(loc+rec.Body.String(), long[:50]) || strings.Contains(rec.Header().Get("Cache-Control"), "public") {
+				t.Fatalf("typed text or a public cache header leaked: %v", rec.Header())
+			}
+		})
 	}
 }
 
