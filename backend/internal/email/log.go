@@ -92,11 +92,15 @@ const (
 
 // cleanError turns a send error into the text the log keeps: the first line,
 // whitespace collapsed, the configured SMTP credentials replaced and capped.
-func cleanError(err error, c Config) string {
+func cleanError(err error, c Config, mask map[string]string) string {
 	if err == nil {
 		return ""
 	}
 	msg := err.Error()
+	// Mask addresses before the cap, so a cut cannot leave a fragment.
+	for addr, masked := range mask {
+		msg = strings.NewReplacer(addr, masked, strings.ToLower(addr), masked).Replace(msg)
+	}
 	for _, secret := range []string{c.SMTPPassword, c.SMTPUsername} {
 		if secret != "" {
 			msg = strings.ReplaceAll(msg, secret, "[redacted]")
@@ -119,6 +123,21 @@ func capBody(s string) string {
 	return strings.ToValidUTF8(s[:maxLoggedBody], "")
 }
 
+// scrub returns the recipients and error text the log may keep for a mail of
+// this kind: masked where the kind keeps no plaintext address.
+func scrub(kind Kind, to []string, sendErr error, c Config) ([]string, string) {
+	if kind.StoresRecipients() {
+		return to, cleanError(sendErr, c, nil)
+	}
+	masked := make([]string, len(to))
+	mask := make(map[string]string, len(to))
+	for i, addr := range to {
+		masked[i] = maskAddress(addr)
+		mask[addr] = masked[i]
+	}
+	return masked, cleanError(sendErr, c, mask)
+}
+
 // record writes one log entry. It is the only writer: SendTrackedWith calls
 // it on every exit. A failure is logged and swallowed so a log problem never
 // turns a delivered mail into an error.
@@ -131,14 +150,7 @@ func (s *Service) record(ctx context.Context, c Config, opts SendOptions, to []s
 	if kind == "" {
 		kind = KindOther
 	}
-	recipients, errText := to, cleanError(sendErr, c)
-	if !kind.StoresRecipients() {
-		recipients = make([]string, len(to))
-		for i, addr := range to {
-			recipients[i] = maskAddress(addr)
-			errText = strings.NewReplacer(addr, recipients[i], strings.ToLower(addr), recipients[i]).Replace(errText)
-		}
-	}
+	recipients, errText := scrub(kind, to, sendErr, c)
 	e := LogEntry{
 		Recipients: recipients, Subject: subject, Kind: kind, Plugin: opts.Plugin, Status: status,
 		Error: errText, MessageID: messageID, ResentFrom: opts.ResentFrom,

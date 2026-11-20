@@ -1,8 +1,10 @@
 package email
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
@@ -169,15 +171,15 @@ func TestResentFromAndBodyCap(t *testing.T) {
 
 func TestCleanError(t *testing.T) {
 	c := Config{SMTPUsername: "AKIAUSER", SMTPPassword: "s3cret"}
-	got := cleanError(errors.New("auth AKIAUSER  s3cret\r\nsecond   line"), c)
+	got := cleanError(errors.New("auth AKIAUSER  s3cret\r\nsecond   line"), c, nil)
 	if got != "auth [redacted] [redacted]" {
 		t.Errorf("got %q", got)
 	}
-	long := cleanError(errors.New(strings.Repeat("é", 500)), Config{})
+	long := cleanError(errors.New(strings.Repeat("é", 500)), Config{}, nil)
 	if r := []rune(long); len(r) != maxLoggedError {
 		t.Errorf("cap = %d runes", len(r))
 	}
-	if cleanError(nil, c) != "" {
+	if cleanError(nil, c, nil) != "" {
 		t.Error("nil error must give empty text")
 	}
 }
@@ -203,6 +205,8 @@ func TestCommentConfirmationLogKeepsNoAddress(t *testing.T) {
 	check("sent", rec.entries[0])
 
 	svc, rec, _ = newLoggedSink(t, smtptest.Options{RejectRcpt: true}, nil)
+	var logs bytes.Buffer
+	svc.logger = slog.New(slog.NewTextHandler(&logs, nil))
 	if err := svc.SendCommentConfirmation(context.Background(), addr, data); err == nil {
 		t.Fatal("want the refusal")
 	}
@@ -210,4 +214,16 @@ func TestCommentConfirmationLogKeepsNoAddress(t *testing.T) {
 		t.Fatalf("row = %+v", rec.entries[0])
 	}
 	check("failed", rec.entries[0])
+	if strings.Contains(strings.ToLower(logs.String()), "visitor.name") {
+		t.Errorf("address in the process log: %s", logs.String())
+	}
+}
+
+func TestCleanErrorMasksBeforeTruncating(t *testing.T) {
+	addr := strings.Repeat("a", 290) + "@example.test"
+	err := errors.New("rcpt " + strings.Repeat("x", 250) + " " + addr)
+	got := cleanError(err, Config{}, map[string]string{addr: maskAddress(addr)})
+	if strings.Contains(got, "aaaaaaaa") {
+		t.Errorf("address fragment kept: %q", got)
+	}
 }
