@@ -65,7 +65,12 @@ type renderFixture struct {
 	resolves int
 	next     func() (*routeResult, pageOutcome, error)
 	redirect *redirect.Redirect
+	// now is the validators' clock. Last-Modified appears only once it has
+	// moved past the construction floor (start + 1s): use advance.
+	now time.Time
 }
+
+func (f *renderFixture) advance(d time.Duration) { f.now = f.now.Add(d) }
 
 func newRenderFixture(t *testing.T) *renderFixture {
 	t.Helper()
@@ -73,11 +78,12 @@ func newRenderFixture(t *testing.T) *renderFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := &renderFixture{cache: &memCache{}}
+	f := &renderFixture{cache: &memCache{}, now: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)}
 	f.h = &renderHandlers{
 		baseURLPinned: true,
 		engine:        engine,
 		cache:         f.cache,
+		validators:    newPageValidators(func() time.Time { return f.now }),
 		logger:        slog.New(slog.NewTextHandler(io.Discard, nil)),
 		log404:        func(path, _, _ string) { f.notFound = append(f.notFound, path) },
 		checkRedirect: func(context.Context, string) *redirect.Redirect {
