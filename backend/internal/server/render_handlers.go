@@ -468,9 +468,18 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	// Concurrent misses on one key render once: the first request leads, the
 	// rest wait for its stored page. A refresh must re-render and a smoke
 	// request judges its own render, so neither joins.
+	// A key whose last render was not storable (dynamic, degraded, 404) skips
+	// the flight too: its followers would only wait to render themselves.
 	var call *flightCall
 	leader := false
-	if cacheable && h.flight != nil && !refreshRequested(r.Context()) && !isSmokeRequest(r.Context()) {
+	flightEligible := cacheable && h.flight != nil && !refreshRequested(r.Context()) && !isSmokeRequest(r.Context())
+	// notStorable records that this key's render will not be cached.
+	notStorable := func() {
+		if flightEligible {
+			h.flight.markUnstorable(key)
+		}
+	}
+	if flightEligible && !h.flight.skip(key) {
 		call, leader = h.flight.join(key)
 		if leader {
 			// Covers every exit that does not store: followers then render on their own.
@@ -507,10 +516,12 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		return
 	}
 	if rr.Redirect != nil {
+		notStorable()
 		writeRenderRedirect(w, r, rr.Redirect)
 		return
 	}
 	if rr.NotFound || outcome.NotFound {
+		notStorable()
 		h.writeNotFound(w, r, path)
 		return
 	}
@@ -529,6 +540,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	v, err := h.buildView(r.Context(), r, rr)
 	var pe *pageError
 	if errors.As(err, &pe) && pe.status == http.StatusNotFound {
+		notStorable()
 		h.writeNotFoundQuiet(w, r) // e.g. ?page past the last page: not a broken link
 		return
 	}
@@ -563,6 +575,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 
 	// a failed query reports no items, not a missing page: that degrades below instead
 	if v.LoopOutOfRange != nil && *v.LoopOutOfRange && (h.dataFailures == nil || h.dataFailures() == failuresBefore) {
+		notStorable()
 		h.writeNotFoundQuiet(w, r) // a paged loop has no such page
 		return
 	}
@@ -605,6 +618,13 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 			h.logger.Warn("render: cache set failed", "error", err)
 		}
 		stored = ok && err == nil
+	}
+	if flightEligible {
+		if stored {
+			h.flight.markStorable(key)
+		} else if !storable {
+			h.flight.markUnstorable(key)
+		}
 	}
 	if leader {
 		h.flight.finish(key, call, flightResult{body: buf.Bytes(), stored: stored})

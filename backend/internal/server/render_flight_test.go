@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -239,5 +240,72 @@ func TestFlightFollowerRendersItselfWhenLeaderStalls(t *testing.T) {
 	close(release)
 	if w := <-leaderDone; w.Code != http.StatusOK {
 		t.Fatalf("leader: status %d", w.Code)
+	}
+}
+
+func TestFlightSkippedForRecentlyUnstorableKey(t *testing.T) {
+	const n = 4
+	f := newRenderFixture(t)
+	unc := true
+	build := f.h.buildView
+	f.h.buildView = func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error) {
+		v, err := build(ctx, r, rr)
+		v.Uncacheable = &unc // flipped only between bursts
+		return v, err
+	}
+	var inLoad atomic.Int32
+	var overlap atomic.Bool
+	f.next = func() (*routeResult, pageOutcome, error) {
+		inLoad.Add(1)
+		deadline := time.Now().Add(5 * time.Second)
+		for inLoad.Load() < n && time.Now().Before(deadline) {
+			time.Sleep(time.Millisecond)
+		}
+		if inLoad.Load() >= n {
+			overlap.Store(true)
+		}
+		return okPage("About")()
+	}
+	if w := f.get("/about"); w.Code != http.StatusOK { // marks the key; inLoad = 1
+		t.Fatalf("first: status %d", w.Code)
+	}
+	inLoad.Store(0)
+	var wg sync.WaitGroup
+	for range n {
+		wg.Add(1)
+		go func() { defer wg.Done(); f.get("/about") }()
+	}
+	wg.Wait()
+	if !overlap.Load() {
+		t.Fatal("requests for a known-unstorable key parked behind a leader")
+	}
+
+	// A storable render clears the mark: the key joins flights again.
+	unc = false
+	if w := f.get("/about"); w.Code != http.StatusOK || len(f.cache.sets) != 1 {
+		t.Fatalf("storable render: status %d, stores %v", w.Code, f.cache.sets)
+	}
+	if f.h.flight.skip(cache.RenderedPageKey(f.h.engine.Version(), "/about")) {
+		t.Fatal("mark survived a storable render")
+	}
+}
+
+func TestFlightUnstorableMarksExpireAndStayBounded(t *testing.T) {
+	var f renderFlight
+	f.unstorableFor = time.Millisecond
+	f.markUnstorable("k")
+	if !f.skip("k") {
+		t.Fatal("fresh mark not honoured")
+	}
+	time.Sleep(5 * time.Millisecond)
+	if f.skip("k") {
+		t.Fatal("expired mark still honoured")
+	}
+	f.unstorableFor = time.Hour
+	for i := range 3 * maxUnstorable {
+		f.markUnstorable(strconv.Itoa(i))
+	}
+	if len(f.unstorable) > maxUnstorable {
+		t.Fatalf("%d marks kept, bound is %d", len(f.unstorable), maxUnstorable)
 	}
 }
