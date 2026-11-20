@@ -267,6 +267,17 @@
       ],
       "halted": true,
       "halt_reason": "plugin template range rule refuses existing plugin sections and partials after upgrade; fix in v1.3.9"
+    },
+    {
+      "version": "v1.3.9",
+      "record_sig": "d7effd9870698586:ub0mbo8CeOxQq7BctDMRL14juSC7PtzVdXlPVLhEKqwRRQDhQw1fJqVxJj98sb+6Zgc4Eg+fucytfYdkyUMNAA==",
+      "ramp": [
+        {
+          "from": "2026-11-20T09:45:00Z",
+          "pct": 100
+        }
+      ],
+      "halted": false
     }
   ],
   "yanked": []
