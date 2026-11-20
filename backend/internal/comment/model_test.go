@@ -12,7 +12,7 @@ func TestDefaults(t *testing.T) {
 	want := Settings{
 		Thresholds:    Thresholds{KnownApproved: 3, KnownDays: 7, TrustedApproved: 15, TrustedDays: 30},
 		AutoCloseDays: 30, MaxDepth: 5, PageSize: 50, Sort: SortNewest,
-		SlowModeSeconds: 120, DeviceCookieDays: 90, PurgeDays: 30,
+		SlowModeSeconds: 120, DeviceCookieDays: 90, PurgeDays: 30, NotifyMode: NotifyPerComment,
 	}
 	if d != want {
 		t.Errorf("Defaults() = %+v, want %+v", d, want)
@@ -50,6 +50,33 @@ func TestNormalize(t *testing.T) {
 	var fe *FieldError
 	if err := s.Validate(); !errors.As(err, &fe) || fe.Field != "max_depth" {
 		t.Errorf("Validate() = %v, want max_depth field error", err)
+	}
+}
+
+func TestNotifyMode(t *testing.T) {
+	t.Parallel()
+	if got := Defaults().NotifyMode; got != NotifyPerComment {
+		t.Errorf("Defaults().NotifyMode = %q, want per_comment", got)
+	}
+	s := Defaults()
+	s.NotifyMode = "weird"
+	if got := s.Normalize().NotifyMode; got != NotifyPerComment {
+		t.Errorf("Normalize() NotifyMode = %q, want per_comment", got)
+	}
+	s.NotifyMode = ""
+	if got := s.Normalize().NotifyMode; got != NotifyPerComment {
+		t.Errorf("Normalize() of empty NotifyMode = %q, want per_comment", got)
+	}
+	s.NotifyMode = "weird"
+	var fe *FieldError
+	if err := s.Validate(); !errors.As(err, &fe) || fe.Field != "notify_mode" {
+		t.Errorf("Validate() = %v, want notify_mode field error", err)
+	}
+	for _, m := range []NotifyMode{NotifyPerComment, NotifyDigest, NotifyOff} {
+		s.NotifyMode = m
+		if err := s.Validate(); err != nil {
+			t.Errorf("Validate() with %q = %v", m, err)
+		}
 	}
 }
 

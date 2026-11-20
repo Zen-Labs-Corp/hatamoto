@@ -581,11 +581,32 @@ func TestNoPlainEmailOrIPStored(t *testing.T) {
 	}
 }
 
+func TestStoreNotifyReplies(t *testing.T) {
+	f := newFixture(t)
+	d := f.draft("notify@example.test", "ask me")
+	d.NotifyReplies = true
+	stored := f.store(d)
+	got, err := f.svc.Get(f.ctx, stored.ID)
+	if err != nil || !got.NotifyReplies {
+		t.Errorf("opted-in comment: NotifyReplies = %v, err %v, want true", got.NotifyReplies, err)
+	}
+	admin := f.draft("", "from staff")
+	admin.NotifyReplies = true
+	got, err = f.svc.Get(f.ctx, f.store(admin).ID)
+	if err != nil || got.NotifyReplies {
+		t.Errorf("admin draft: NotifyReplies = %v, err %v, want false", got.NotifyReplies, err)
+	}
+	plain, err := f.svc.Get(f.ctx, f.store(f.draft("quiet@example.test", "no mail")).ID)
+	if err != nil || plain.NotifyReplies {
+		t.Errorf("default draft: NotifyReplies = %v, err %v, want false", plain.NotifyReplies, err)
+	}
+}
+
 func TestEraseByEmail(t *testing.T) {
 	f := newFixture(t)
 	mine := func(body string, parent *uuid.UUID) Comment {
 		d := f.draft("erase@example.test", body)
-		d.ParentID, d.Status = parent, StatusApproved
+		d.ParentID, d.Status, d.NotifyReplies = parent, StatusApproved, true
 		return f.store(d)
 	}
 	withReply := mine("keep the shape", nil)
@@ -615,6 +636,11 @@ func TestEraseByEmail(t *testing.T) {
 	f.scalar(&commenter, `SELECT commenter_id FROM hatamoto_comments WHERE id = $1`, withReply.ID)
 	if name != "" || body != deletedBody || ip != "" || commenter != nil {
 		t.Errorf("anonymised row: name %q body %q hashes %q commenter %v", name, body, ip, commenter)
+	}
+	var notify bool
+	f.scalar(&notify, `SELECT notify_replies FROM hatamoto_comments WHERE id = $1`, withReply.ID)
+	if notify {
+		t.Error("anonymised row still has notify_replies")
 	}
 	var n int
 	f.scalar(&n, `SELECT count(*) FROM hatamoto_comments WHERE id = $1`, reply.ID)
