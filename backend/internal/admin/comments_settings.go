@@ -323,6 +323,9 @@ func (a *Admin) handleCommentSwitch(w http.ResponseWriter, r *http.Request) {
 // handleCommentEnablePage is the no-JS confirm step: the second warning and
 // the tick.
 func (a *Admin) handleCommentEnablePage(w http.ResponseWriter, r *http.Request) {
+	if !a.requireOwner(w, r) {
+		return
+	}
 	if a.deps.Comments == nil {
 		a.unavailable(w, r, "Comments")
 		return

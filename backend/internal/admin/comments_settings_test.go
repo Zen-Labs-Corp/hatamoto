@@ -96,6 +96,20 @@ func csetPost(p *perfRig, path, token string, form url.Values, hdr map[string]st
 	return p.do("POST", csetURL+path, token, form, hdr)
 }
 
+// The handler re-checks the owner role itself, whatever the mount group does.
+func TestCommentEnablePageHandlerRefusesEditor(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, &fakeComments{})
+	r := httptest.NewRequest("GET", csetURL+"/enable", nil)
+	r = r.WithContext(context.WithValue(r.Context(), userKey, &CurrentUser{ID: "u", Role: "editor"}))
+	w := httptest.NewRecorder()
+	p.a.handleCommentEnablePage(w, r)
+	if w.Code != 403 {
+		t.Errorf("editor = %d, want 403", w.Code)
+	}
+}
+
 func TestCommentEnablePage(t *testing.T) {
 	t.Parallel()
 
