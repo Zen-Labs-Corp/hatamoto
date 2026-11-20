@@ -169,3 +169,19 @@ func TestRangeRewriteSurvivesClone(t *testing.T) {
 		t.Fatalf("got %q want %q", b.String(), want)
 	}
 }
+
+func TestRangeRewriteIsIdempotent(t *testing.T) {
+	t.Parallel()
+	const src = `{{range .Items}}{{range .}}x{{end}}{{end}}`
+	root := template.New("x").Funcs(template.FuncMap{rangeBudgetFunc: standaloneRangeHandle})
+	template.Must(root.Parse(src))
+	rewritePluginRanges(root, "x", src, "acme")
+	rewritePluginRanges(root, "x", src, "acme")
+	got := root.Tree.Root.String()
+	if n := strings.Count(got, rangeBudgetVar+" :="); n != 1 {
+		t.Errorf("%d budget decls after two rewrites, want 1:\n%s", n, got)
+	}
+	if n := strings.Count(got, rangeBudgetVar+".Spend"); n != 2 {
+		t.Errorf("%d guards after two rewrites, want 2 (one per range):\n%s", n, got)
+	}
+}

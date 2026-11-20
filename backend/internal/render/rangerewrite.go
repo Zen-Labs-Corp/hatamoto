@@ -60,11 +60,23 @@ func guardRanges(l *parse.ListNode) bool {
 	return found
 }
 
+// rangeRewritten reports whether the root already starts with the budget
+// declaration. A later source that redefines a name with an empty body leaves
+// the earlier tree in place, so the same tree can come up for a second rewrite,
+// and a second guard would halve its budget.
+func rangeRewritten(root *parse.ListNode) bool {
+	if len(root.Nodes) == 0 {
+		return false
+	}
+	a, ok := root.Nodes[0].(*parse.ActionNode)
+	return ok && a.Pipe != nil && len(a.Pipe.Decl) > 0 && a.Pipe.Decl[0].Ident[0] == rangeBudgetVar
+}
+
 // rewriteRangeTree guards tree t and, if it holds a range, declares the
 // budget variable first in the tree. plugin and name travel as string
 // literals so a budget hit can be logged against the right template.
 func rewriteRangeTree(t *parse.Tree, plugin, name string) {
-	if t == nil || t.Root == nil || !guardRanges(t.Root) {
+	if t == nil || t.Root == nil || rangeRewritten(t.Root) || !guardRanges(t.Root) {
 		return
 	}
 	decl := rangeDecl.Copy().(*parse.ActionNode)
