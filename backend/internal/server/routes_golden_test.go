@@ -91,6 +91,8 @@ func allowedExtraPattern(pattern string, expected map[string]bool) bool {
 		return method == "GET"
 	case "/-/comments/confirm/{token}": // comment confirmation link: GET shows a button, POST confirms
 		return method == "GET" || method == "POST"
+	case "/-/comments/{entityID}", "/-/comments/edit/{commentID}", "/-/comments/delete/{commentID}": // public comment post, and edit/delete of one's own
+		return method == "POST"
 	case "/favicon.ico", "/favicon-16.png", "/favicon-32.png", "/apple-icon.png", "/icon-192.png", "/icon-512.png":
 		return method == "GET" // v1-08 site icons, served from the theme
 	case "/plugin-ui/_sdk/bridge.js", "/plugin-ui/{plugin}/{file...}": // v1-18 plugin admin pages (sandboxed iframe)
