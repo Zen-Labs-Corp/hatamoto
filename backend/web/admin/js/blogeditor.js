@@ -815,12 +815,12 @@ export class BlogEditor {
   linksDialog() {
     if (this.links) return this.links;
     const dlg = document.createElement("dialog");
+    dlg.id = "be-links";
     dlg.className = "hm-dialog hm-be__links";
     dlg.setAttribute("aria-labelledby", "be-links-t");
     dlg.innerHTML = `<div class="hm-be__dialog-head"><h2 class="hm-dialog__title" id="be-links-t">Link suggestions</h2></div>
 <div class="hm-be__links-body"><p class="hm-muted hm-be__links-note" role="status" aria-live="polite" data-hm-links-note></p><ul class="hm-be__links-list" data-hm-links-list></ul></div>
-<div class="hm-dialog__foot"><button type="button" class="hm-btn hm-btn--ghost" data-hm-links-refresh>Refresh</button><button type="button" class="hm-btn hm-btn--primary" data-hm-links-close>Close</button></div>`;
-    dlg.querySelector("[data-hm-links-close]").addEventListener("click", () => dlg.close());
+<div class="hm-dialog__foot"><button type="button" class="hm-btn hm-btn--ghost" data-hm-links-refresh>Refresh</button><button type="button" class="hm-btn hm-btn--primary" command="close" commandfor="be-links" data-hm-links-close>Close</button></div>`;
     dlg.querySelector("[data-hm-links-refresh]").addEventListener("click", () => this.openLinks());
     dlg.addEventListener("close", () => this.ed?.focus());
     document.body.append(dlg);
