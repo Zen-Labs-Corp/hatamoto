@@ -918,3 +918,27 @@ func TestEraseRemovesOnlyItsOwnLearnedIPBlock(t *testing.T) {
 		t.Errorf("the other spammer's own IP block was lifted: %+v", hits)
 	}
 }
+
+func TestMarkSpamOnTrashedDraftLeavesEmailAlone(t *testing.T) {
+	f := newFixture(t)
+	f.enable()
+	d := f.draft("ceo@victim-company.example", "buy pills")
+	d.BodyHash = "trashed-draft-hash"
+	draft := f.store(d)
+	if _, err := f.svc.Trash(f.ctx, draft.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.MarkSpam(f.ctx, draft.ID, nil, Learn{EmailDomain: true}); err != nil {
+		t.Fatal(err)
+	}
+	cm, err := f.svc.Commenter(f.ctx, f.svc.Keys().HashEmail("ceo@victim-company.example"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cm.Trust == TrustBlocked || cm.LastSpamAt != nil || cm.TokenVersion != 1 {
+		t.Errorf("unconfirmed email was punished after a trash: %+v", cm)
+	}
+	if hits, _ := f.svc.MatchBlocks(f.ctx, Probe{EmailDomain: "victim-company.example"}); len(hits) != 0 {
+		t.Errorf("domain was blocked: %+v", hits)
+	}
+}

@@ -322,7 +322,9 @@ type afterFunc func(ctx context.Context, tx pgx.Tx, before, c Comment, now time.
 
 // transition moves a comment to another status through CanTransition, keeps the
 // entity counts and the commenter's trust right in the same transaction and
-// fires the observers after commit. after may be nil.
+// fires the observers after commit. It never sets confirmed_at: only Confirm and
+// Store with a non-draft status do, so it keeps meaning "the email is proven".
+// after may be nil.
 func (s *Service) transition(ctx context.Context, id uuid.UUID, to Status, by *uuid.UUID, after afterFunc) (Comment, error) {
 	set, err := s.Settings(ctx)
 	if err != nil {
@@ -345,7 +347,6 @@ func (s *Service) transition(ctx context.Context, id uuid.UUID, to Status, by *u
 			approvedAt, approvedBy = &now, by
 		}
 		out, err = scanComment(tx.QueryRow(ctx, `UPDATE hatamoto_comments SET status = $2, updated_at = $3,
-				confirmed_at = COALESCE(confirmed_at, $3),
 				approved_at = CASE WHEN $2::text = 'approved' THEN $4 ELSE approved_at END,
 				approved_by = CASE WHEN $2::text = 'approved' THEN $5 ELSE approved_by END
 			WHERE id = $1 RETURNING `+commentColumns, id, string(to), now, approvedAt, approvedBy))
