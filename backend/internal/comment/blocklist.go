@@ -2,6 +2,7 @@ package comment
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -156,9 +157,22 @@ func (s *Service) RemoveBlock(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// MaxFormTokenID bounds a form token id; callers pass a hex SHA-256 (64 chars).
+const MaxFormTokenID = 128
+
+// ErrFormTokenID is returned for an empty or oversized form token id.
+var ErrFormTokenID = errors.New("comment: form token id empty or too long")
+
 // ConsumeFormToken records a single-use form token id until expiresAt. fresh is
-// false when the token was already used. Issuing tokens is the caller's job.
+// false when the token was already used or is already expired (nothing is
+// written then). Issuing tokens is the caller's job.
 func (s *Service) ConsumeFormToken(ctx context.Context, tokenID string, expiresAt time.Time) (bool, error) {
+	if tokenID == "" || len(tokenID) > MaxFormTokenID {
+		return false, ErrFormTokenID
+	}
+	if !expiresAt.After(s.utcNow()) {
+		return false, nil
+	}
 	tag, err := s.db.Pool().Exec(ctx, `INSERT INTO hatamoto_comment_form_tokens (token_id, expires_at, used_at)
 		VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, tokenID, expiresAt.UTC(), s.utcNow())
 	if err != nil {
