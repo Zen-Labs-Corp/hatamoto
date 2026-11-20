@@ -232,6 +232,59 @@ ok(!(await rows.nth(3).evaluate((r) => r.classList.contains("hm-ss__row--unread"
 await page.keyboard.press("Escape");
 await page.waitForFunction(() => !document.querySelector("dialog[open]"));
 
+// ============ the drawer through htmx: address, history, focus, shell, modified click, failure ============
+const sParam = () => new URL(page.url()).searchParams.get("s");
+const inDrawer = () => page.evaluate(() => !!document.activeElement?.closest("dialog[open]"));
+const waitId = (id) => page.waitForFunction((x) => document.querySelector("[data-hm-ss-drawer-body] [data-hm-ss-id]")?.dataset.hmSsId === x, id);
+await open();
+await rows.nth(0).locator("a[data-hm-ss-open]").click();
+await waitId(ids[0]);
+ok(sParam() === ids[0], "address: a row click puts its id in ?s=");
+ok(await inDrawer(), "focus: after the click it is inside the open drawer");
+ok(await page.evaluate(() => {
+  const body = document.querySelector("[data-hm-ss-drawer-body]");
+  return !!body.querySelector("[data-hm-ss-id]") && !body.querySelector(".hm-sidebar, main");
+}), "shell: the drawer body holds the bare fragment (no sidebar, no main)");
+await page.keyboard.press("j");
+await waitId(ids[1]);
+ok(sParam() === ids[1], "address: j moves ?s= to the next id");
+await page.keyboard.press("k");
+await waitId(ids[0]);
+ok(sParam() === ids[0], "address: k moves ?s= back");
+await page.evaluate(() => { window.__qaMark = 1; });
+await page.keyboard.press("j");
+await waitId(ids[1]);
+await page.goBack();
+await page.waitForFunction(() => window.__qaMark === undefined); // the new page, not the one being left
+await page.waitForLoadState("load");
+await page.waitForSelector("dialog[open]");
+ok(!(await page.evaluate(() => window.__qaMark)) && sParam() === ids[0] && (await drawerId()) === ids[0], "Back: the page reloads on the previous address with that submission open");
+await page.keyboard.press("Escape");
+await page.waitForFunction(() => !document.querySelector("dialog[open]"));
+
+// a modified click is a plain link: a new page, no drawer here
+await open();
+const [tabPage] = await Promise.all([page.context().waitForEvent("page"), rows.nth(1).locator("a[data-hm-ss-open]").click({ modifiers: ["Control"] })]);
+ok(!!tabPage && !(await drawer.evaluate((d) => d.open)), "Ctrl-click: the link opens in a new page and the drawer stays closed");
+await tabPage.close();
+
+// a failed drawer request falls back to the full tab with that submission open
+const errsBefore = errors.length;
+const failDrawer = (route) => {
+  const r = route.request();
+  return r.headers()["hx-request"] && new URL(r.url()).searchParams.has("s") ? route.fulfill({ status: 500, body: "" }) : route.continue();
+};
+await page.route("**/submissions?*", failDrawer);
+await rows.nth(2).locator("a[data-hm-ss-open]").click();
+await page.waitForURL(/[?&]s=/);
+await page.waitForSelector("[data-hm-ss-autoopen] dialog[open]");
+await page.unroute("**/submissions?*", failDrawer);
+ok((await drawerId()) === ids[2] && (await drawer.evaluate((d) => d.open)), "failure: a 500 falls back to the full tab with the drawer auto-opened");
+const expectedErrs = ["Failed to load resource", "Response Status Error Code 500", "Transition was aborted because of invalid state"];
+for (let i = errors.length - 1; i >= errsBefore; i--) if (expectedErrs.some((x) => errors[i].includes(x))) errors.splice(i, 1);
+await page.keyboard.press("Escape");
+await page.waitForFunction(() => !document.querySelector("dialog[open]"));
+
 // ============ old addresses end on the tab ============
 await page.goto(`${base}${admin}/forms/submissions?form=${formId}`);
 ok(new URL(page.url()).pathname === tab && (await rows.count()) === 5, "old list address: ends on the tab");

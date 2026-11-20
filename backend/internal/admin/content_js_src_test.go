@@ -15,7 +15,7 @@ func readContentJS(t *testing.T) string {
 	return string(b)
 }
 
-// The picker body is injected with innerHTML, which fires no htmx:afterSettle, so openPicker
+// A kept picker page is injected with innerHTML, which fires no htmx:afterSettle, so openPicker
 // must wire the dropzone itself or a dropped file navigates away from the editor.
 func TestContentJSPickerInitialisesDropzone(t *testing.T) {
 	t.Parallel()
@@ -31,6 +31,37 @@ func TestContentJSPickerInitialisesDropzone(t *testing.T) {
 	}
 	if !strings.Contains(body, "initUpload(body)") {
 		t.Error("openPicker must call initUpload(body) after injecting the picker")
+	}
+}
+
+// The picker loads through htmx (no hand-made headers) and keeps its first page per type.
+func TestContentJSPickerLoadsThroughHTMX(t *testing.T) {
+	t.Parallel()
+
+	src := readContentJS(t)
+	for _, banned := range []string{`"HX-Request"`, `"HX-Target"`} {
+		if strings.Contains(src, banned) {
+			t.Errorf("content.js must not contain %s: htmx sends the request", banned)
+		}
+	}
+	for _, want := range []string{`window.htmx.ajax("GET"`, "pickerPages.get(type)"} {
+		if !strings.Contains(src, want) {
+			t.Errorf("content.js must contain %s", want)
+		}
+	}
+}
+
+// hx-sync is inherited by the forms inside the picker body: a search would abort an upload.
+// An earlier open's load is aborted explicitly instead.
+func TestContentJSPickerBodyHasNoHxSync(t *testing.T) {
+	t.Parallel()
+
+	src := readContentJS(t)
+	if strings.Contains(src, "hx-sync") {
+		t.Error("the picker body must not carry hx-sync: its forms inherit it")
+	}
+	if !strings.Contains(src, `window.htmx?.trigger(body, "htmx:abort")`) {
+		t.Error("openPicker must abort the body's in-flight load before loading or inserting a kept page")
 	}
 }
 

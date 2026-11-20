@@ -149,7 +149,15 @@ document.addEventListener("reset", (evt) => {
 });
 
 // ---- media picker ---------------------------------------------------------
+// Opening the picker asks for its first page through htmx (target #hm-media-picker-body); the page keeps
+// that first page per type until it reloads. Search, folders, pages and uploads inside it are htmx forms
+// and still go to the server. An upload clears the kept pages.
+const PICKER_FAILED = ["htmx:responseError", "htmx:sendError", "htmx:timeout"];
+const pickerPages = new Map(); // "" (images) or "document" -> first-page HTML
 let pickerTarget = null;
+let pickerLoad = 0;
+let pickerOpener = null;
+const pickerType = (path) => new URL(path, location.href).searchParams.get("type") ?? "";
 
 function pickerDialog() {
   let dlg = document.getElementById("hm-media-picker");
@@ -162,6 +170,10 @@ function pickerDialog() {
     '<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="hm-media-picker-title">Choose an image</h2>' +
     '<div class="hm-dialog__body" id="hm-media-picker-body" aria-live="polite"></div>' +
     '<div class="hm-dialog__foot"><button class="hm-btn" type="button" data-hm-picker-close>Cancel</button></div></div>';
+  // Esc or Cancel leave focus nowhere: return it to the opener (a pick focuses its field).
+  dlg.addEventListener("close", () => {
+    if (!document.activeElement || document.activeElement === document.body) pickerOpener?.focus();
+  });
   document.body.appendChild(dlg);
   return dlg;
 }
@@ -181,26 +193,61 @@ function markPicked(root) {
 }
 document.addEventListener("htmx:afterSettle", (evt) => { if (evt.target.closest?.("#hm-media-picker")) markPicked(evt.target); });
 
+function loadPicker(body, url) {
+  return new Promise((resolve, reject) => {
+    const fail = (evt) => {
+      if (evt.detail?.requestConfig?.elt === body) {
+        off();
+        reject(new Error("picker"));
+      }
+    };
+    const off = () => PICKER_FAILED.forEach((t) => body.removeEventListener(t, fail));
+    PICKER_FAILED.forEach((t) => body.addEventListener(t, fail));
+    window.htmx.ajax("GET", url, { source: body, target: body, swap: "innerHTML" }).then(() => { off(); resolve(); }, (e) => { off(); reject(e); });
+  });
+}
+document.addEventListener("htmx:beforeSwap", (evt) => {
+  const d = evt.detail;
+  if (d.requestConfig?.elt?.id === "hm-media-picker-body" && d.xhr.status === 200) pickerPages.set(pickerType(d.pathInfo.requestPath), d.serverResponse);
+});
+// beforeRequest: htmx swaps #hm-picker out before afterRequest, so the upload form is detached by then.
+document.addEventListener("htmx:beforeRequest", (evt) => {
+  const d = evt.detail;
+  if (d.requestConfig?.verb?.toLowerCase() !== "get" && d.elt?.closest?.("#hm-media-picker")) pickerPages.clear();
+});
+
 async function openPicker(opener) {
   const dlg = pickerDialog();
+  pickerOpener = opener;
   pickerTarget = document.getElementById(opener.dataset.hmMediaPicker);
   const body = dlg.querySelector("#hm-media-picker-body");
   const type = opener.dataset.hmMediaType || "";
   const docs = type === "document";
   dlg.querySelector("#hm-media-picker-title").textContent = docs ? "Choose a document" : "Choose an image";
-  body.innerHTML = '<div class="hm-media-skeleton" role="status"><span class="hm-visually-hidden">' + (docs ? "Loading documents…" : "Loading images…") + "</span>" + "<i></i>".repeat(8) + "</div>";
-  dlg.showModal();
-  try {
-    const res = await fetch(adminBase() + "/media/picker" + (type ? "?type=" + encodeURIComponent(type) : ""), { headers: { "HX-Request": "true", "HX-Target": "hm-media-picker-body" }, credentials: "same-origin" });
-    if (!res.ok) throw new Error(String(res.status));
-    body.innerHTML = await res.text();
+  const mine = ++pickerLoad;
+  const kept = pickerPages.get(type);
+  // The body carries no sync attribute: forms inside inherit it and a search would abort an upload.
+  window.htmx?.trigger(body, "htmx:abort"); // an earlier open's load must not land over this one
+  if (kept !== undefined) {
+    body.innerHTML = kept; // the server's own markup from the first open
     window.htmx?.process(body);
-    initUpload(body);
-    markPicked(body);
-    focusPickerSearch();
-  } catch {
-    body.textContent = "The library could not be loaded. Close this and try again.";
+  } else {
+    body.innerHTML = '<div class="hm-media-skeleton" role="status"><span class="hm-visually-hidden">' + (docs ? "Loading documents…" : "Loading images…") + "</span>" + "<i></i>".repeat(8) + "</div>";
   }
+  dlg.showModal();
+  if (kept === undefined) {
+    try {
+      if (!window.htmx) throw new Error("no htmx");
+      await loadPicker(body, adminBase() + "/media/picker" + (type ? "?type=" + encodeURIComponent(type) : ""));
+    } catch {
+      if (mine === pickerLoad) body.textContent = "The library could not be loaded. Close this and try again.";
+      return;
+    }
+    if (mine !== pickerLoad) return;
+  }
+  initUpload(body);
+  markPicked(body);
+  focusPickerSearch();
 }
 
 document.addEventListener("click", (evt) => {

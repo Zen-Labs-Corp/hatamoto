@@ -240,12 +240,23 @@ func submissionsTabColumns(f *form.Form) []ui.Col {
 	return append(cols, ui.Col{Key: "page", Label: "Page"}, ui.Col{Key: "received", Label: "Received"})
 }
 
+// submissionDrawerID is the swap target of the row links: the id the submissions
+// tab handler answers with the bare drawer (forms_tabs.go), so keep the two equal.
+const submissionDrawerID = "hm-ss-drawer"
+
 // submissionsTabRow is one table row; openURL opens the submission's drawer.
 // The Received cell shows the relative time and the exact one (in the site's
 // time zone) as its title.
 func submissionsTabRow(f *form.Form, s *form.FormSubmission, now time.Time, loc *time.Location, openURL string) ui.Row {
 	from := submissionFrom(f, s)
-	cells := []ui.Cell{{Text: from, Link: openURL, LinkAttrs: map[string]string{"data-hm-ss-open": ""}, Sub: submissionCompany(f, s)}, {Text: submissionEmail(f, s), Clip: true}}
+	cells := []ui.Cell{{Text: from, Link: openURL, LinkAttrs: map[string]string{
+		"data-hm-ss-open": "",
+		"hx-get":          openURL,
+		"hx-target":       "#" + submissionDrawerID,
+		"hx-swap":         "innerHTML",
+		"hx-sync":         "#" + submissionDrawerID + ":replace",
+		"hx-push-url":     "true",
+	}, Sub: submissionCompany(f, s)}, {Text: submissionEmail(f, s), Clip: true}}
 	class := "hm-ss__row"
 	if s.Status == form.SubmissionStatusNew {
 		cells[0].Tag = &ui.Badge{Label: "New", Kind: "info"}

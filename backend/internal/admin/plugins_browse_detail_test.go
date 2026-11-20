@@ -128,16 +128,30 @@ func TestBrowseDetailFragment(t *testing.T) {
 	}
 }
 
-// The drawer's fetch must send the HX-Target the server needs to answer with a fragment.
-func TestPluginPanelJSSendsHXTarget(t *testing.T) {
+// The panel loads through htmx: no hand-made headers or fetch, and the cards and the
+// dialog agree on the swap target id the server needs to answer with a fragment.
+func TestPluginPanelLoadsThroughHTMX(t *testing.T) {
 	t.Parallel()
 
 	b, err := os.ReadFile("../../web/admin/js/pluginpanel.js")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if src := string(b); !strings.Contains(src, `"HX-Request": "true"`) || !strings.Contains(src, `"HX-Target": "plugin-panel"`) {
-		t.Error("pluginpanel.js must send HX-Request and HX-Target so the server returns the fragment")
+	for _, banned := range []string{`"HX-Request"`, `"HX-Target"`, "fetch("} {
+		if strings.Contains(string(b), banned) {
+			t.Errorf("pluginpanel.js must not contain %s: htmx makes the request", banned)
+		}
+	}
+	for _, page := range []string{"plugins", "theme"} {
+		tpl, err := os.ReadFile("../../web/admin/pages/" + page + "/browse.html")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range []string{`id="plugin-panel-body"`, `hx-target="#plugin-panel-body"`} {
+			if !strings.Contains(string(tpl), want) {
+				t.Errorf("%s/browse.html must contain %s", page, want)
+			}
+		}
 	}
 }
 

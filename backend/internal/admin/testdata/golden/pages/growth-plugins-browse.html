@@ -22,7 +22,7 @@
 <link rel="modulepreload" href="/admin/_/js/pluginpanel.HASH.js" integrity="sha256-SRI">
 <script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
-<script type="module" nonce="NONCE" src="/admin/_/js/pluginpanel.HASH.js" integrity="sha256-l&#43;Rrc4wSkPBH3FLm2x&#43;d7hFX21M6nxQUse0Ia0Eph8U="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/pluginpanel.HASH.js" integrity="sha256-qg8WA0VrXmYf7vkNuqJWBzM7BSJvs5e8delroe7kmZA="></script>
 <script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/settings/import/csv/*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/developer*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/forms/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
 
 </head>
@@ -124,25 +124,25 @@
 </div>
 <p class="hm-muted hm-pluginbrowse__installed">1 installed hidden · <a href="/admin/plugins/browse?hide=0">Show installed</a></p>
 <section aria-labelledby="browse-featured"><h2 id="browse-featured" class="hm-pluginbrowse__heading">Featured</h2>
-<ul class="hm-plugincards" role="list"><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/gallery/about" data-hm-open="plugin-panel">
+<ul class="hm-plugincards" role="list"><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/gallery/about" data-hm-open="plugin-panel" hx-get="/admin/plugins/gallery/about" hx-target="#plugin-panel-body" hx-swap="innerHTML" hx-sync="#plugin-panel-body:replace" hx-indicator="#plugin-panel-body">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">G</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">Gallery</span><span class="hm-plugincard__by">Example Author</span></span></span>
 <span class="hm-plugincard__meta hm-mono">2 permissions</span>
 <span class="hm-plugincard__desc">Photo galleries for pages.</span>
 <span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li></ul>
 </section><h2 class="hm-pluginbrowse__heading">All plugins</h2>
-<ul class="hm-plugincards" role="list"><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/google-analytics/about" data-hm-open="plugin-panel">
+<ul class="hm-plugincards" role="list"><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/google-analytics/about" data-hm-open="plugin-panel" hx-get="/admin/plugins/google-analytics/about" hx-target="#plugin-panel-body" hx-swap="innerHTML" hx-sync="#plugin-panel-body:replace" hx-indicator="#plugin-panel-body">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">G</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">Google Analytics</span></span></span>
 <span class="hm-plugincard__meta hm-mono">First-party · 2 permissions</span>
 <span class="hm-plugincard__desc">Adds the Google tag for your GA4 measurement ID.</span>
-<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/dev-tools/about" data-hm-open="plugin-panel">
+<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/dev-tools/about" data-hm-open="plugin-panel" hx-get="/admin/plugins/dev-tools/about" hx-target="#plugin-panel-body" hx-swap="innerHTML" hx-sync="#plugin-panel-body:replace" hx-indicator="#plugin-panel-body">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">D</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">Dev Tools</span><span class="hm-plugincard__by">by @acme</span><span class="hm-plugincard__note">Signed by a registered developer. Not reviewed by Hatamoto.</span></span></span>
 <span class="hm-plugincard__meta hm-mono">Developer · 1 permission</span>
 <span class="hm-plugincard__desc">Helpers from a registered developer.</span>
-<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/gallery/about" data-hm-open="plugin-panel">
+<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/gallery/about" data-hm-open="plugin-panel" hx-get="/admin/plugins/gallery/about" hx-target="#plugin-panel-body" hx-swap="innerHTML" hx-sync="#plugin-panel-body:replace" hx-indicator="#plugin-panel-body">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">G</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">Gallery</span><span class="hm-plugincard__by">Example Author</span></span></span>
 <span class="hm-plugincard__meta hm-mono">2 permissions</span>
 <span class="hm-plugincard__desc">Photo galleries for pages.</span>
-<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/seo-helper/about" data-hm-open="plugin-panel">
+<span class="hm-plugincard__foot"><span class="hm-plugincard__action">Install</span></span></a></li><li class="hm-plugincards__item"><a class="hm-plugincard" href="/admin/plugins/seo-helper/about" data-hm-open="plugin-panel" hx-get="/admin/plugins/seo-helper/about" hx-target="#plugin-panel-body" hx-swap="innerHTML" hx-sync="#plugin-panel-body:replace" hx-indicator="#plugin-panel-body">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">S</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">seo-helper</span></span></span>
 <span class="hm-plugincard__meta hm-mono">No permissions</span>
 <span class="hm-plugincard__desc">Checks titles.</span>
@@ -153,7 +153,7 @@
 
 <dialog class="hm-dialog" id="plugin-panel" aria-labelledby="plugin-panel-title" data-side="end" data-width="wide">
 <div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="plugin-panel-title">Plugin details</h2>
-<div class="hm-dialog__body"><p class="hm-muted">Loading...</p></div>
+<div class="hm-dialog__body"><div id="plugin-panel-body"><p class="hm-muted">Loading...</p></div></div>
 <form method="dialog" class="hm-dialog__foot"><button type="submit" class="hm-btn hm-btn--secondary"><span>Close</span></button></form>
 </div></dialog>
 </div>
