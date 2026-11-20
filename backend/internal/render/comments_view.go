@@ -69,6 +69,10 @@ type CommentForm struct {
 	// replaces with the escaped typed values. Notify re-checks the reply opt-in.
 	BodyValue, NameValue, EmailValue string
 	Notify                           bool
+
+	// Focus names the field an error is about ("body", "name" or "email"); the
+	// default form puts autofocus on it so the browser lands at the form.
+	Focus string
 }
 
 // CommentCaptcha names the captcha widget the form shows.

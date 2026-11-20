@@ -208,6 +208,7 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 		if echo.ParentID != "" {
 			p.ParentID, p.ReplyTo = echo.ParentID, replyable[echo.ParentID]
 		}
+		p.Focus = commentFocus(echo.Code)
 		if t := echo.Typed; t != nil {
 			vp := render.CommentValuePlaceholders
 			if t.Body != "" {

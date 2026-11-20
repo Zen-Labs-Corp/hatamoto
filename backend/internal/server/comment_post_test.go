@@ -484,6 +484,9 @@ func (r *postRig) checkRerender(t *testing.T, body, long, sentTok string) {
 	if strings.Contains(body, "__hmcf_") {
 		t.Errorf("placeholders left")
 	}
+	if strings.Count(body, "autofocus") != 1 || !regexp.MustCompile(`<textarea[^>]* autofocus[ >]`).MatchString(body) {
+		t.Errorf("want autofocus on the body field only")
+	}
 	m := slotTokRe.FindStringSubmatch(body)
 	if m == nil || m[1] == sentTok {
 		t.Fatalf("token %v, want a fresh one", m)

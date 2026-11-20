@@ -231,6 +231,9 @@ func (s *Server) writeCommentFragment(w http.ResponseWriter, r *http.Request, id
 		if out.Kind == commentsubmit.Invalid && req.ParentID != nil {
 			form.ParentID = req.ParentID.String() // keep the reply target on a retry
 		}
+		if echo != nil {
+			form.Focus = commentFocus(echo.Code)
+		}
 		if echo != nil && echo.Typed != nil {
 			vp := render.CommentValuePlaceholders
 			if echo.Typed.Body != "" {

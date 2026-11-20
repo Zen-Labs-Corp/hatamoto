@@ -43,6 +43,17 @@ type commentEcho struct {
 	Typed    *commentsubmit.Typed
 }
 
+// commentFocus is the form field a fixable error code is about.
+func commentFocus(code string) string {
+	switch code {
+	case commentsubmit.CodeName:
+		return "name"
+	case commentsubmit.CodeEmail, commentsubmit.CodeEmailDomain:
+		return "email"
+	}
+	return "body"
+}
+
 type commentEchoKey struct{}
 
 func withCommentEcho(ctx context.Context, e commentEcho) context.Context {
