@@ -1,9 +1,14 @@
 package render
 
 import (
+	"fmt"
+	"html/template"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"hatamoto.dev/core/internal/budgetfile"
 	"hatamoto.dev/core/internal/builder"
@@ -60,4 +65,66 @@ func TestBudgetAllocs(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) { budgetfile.CheckAllocs(t, "render", name, b) })
 	}
+}
+
+// comments50View is a post with an open comment form and 50 top-level
+// comments, each with a reply chain of 1 to 4 levels below it (190 items).
+func comments50View() *PageView {
+	at := time.Date(2031, 5, 30, 8, 0, 0, 0, time.UTC)
+	const maxDepth = 5
+	var chain func(id string, depth, levels int) CommentItem
+	chain = func(id string, depth, levels int) CommentItem {
+		it := CommentItem{
+			ID: id, Author: "Commenter " + id, Body: template.HTML("<p>A comment body of ordinary length.</p>"),
+			CreatedAt: at, Depth: depth,
+		}
+		if depth < maxDepth {
+			it.ReplyURL = "/blog/hello?replyto=" + id + "#respond"
+		}
+		if levels > 1 {
+			it.Replies = []CommentItem{chain(id+"r", depth+1, levels-1)}
+		}
+		return it
+	}
+	th := &CommentThread{Total: 190, Page: 1, Pages: 1, Newest: true}
+	for i := 0; i < 50; i++ {
+		th.Items = append(th.Items, chain(fmt.Sprintf("c%d", i), 1, min(maxDepth, 2+i%5)))
+	}
+	form := CommentFormPlaceholders
+	form.Action, form.MaxBody = goldenCommentAction, 5000
+	v := commentSingleView()
+	v.Comments, v.CommentsOpen, v.CommentForm = th, true, &form
+	return v
+}
+
+func BenchmarkRenderComments50(b *testing.B) {
+	e, err := New(Options{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	v := comments50View()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := e.RenderPage(io.Discard, v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// A page with 50 top-level comments and about 190 items in all: its size and
+// allocations are pinned (no timing).
+func TestBudgetComments50(t *testing.T) {
+	nowFunc = func() time.Time { return time.Date(2031, 6, 1, 0, 0, 0, 0, time.UTC) }
+	defer func() { nowFunc = time.Now }()
+	e, err := New(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	if err := e.RenderPage(&b, comments50View()); err != nil {
+		t.Fatal(err)
+	}
+	budgetfile.Check(t, "render", "comments_page50_bytes", int64(b.Len()), budgetfile.Metric{Unit: "bytes", TolPct: 5})
+	budgetfile.CheckAllocs(t, "render", "alloc_comments_page50", BenchmarkRenderComments50)
 }
