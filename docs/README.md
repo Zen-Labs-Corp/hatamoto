@@ -49,6 +49,7 @@ Compatibility promises for all of these: [STABILITY.md](../STABILITY.md).
 | [URL_PATTERNS.md](URL_PATTERNS.md) | where content lives on the public site (schema data, not code) |
 | [LOCALE_CONVERSION.md](LOCALE_CONVERSION.md) | turning region page trees into locales |
 | [SPAM_PROTECTION.md](SPAM_PROTECTION.md) | the spam pipeline for public forms |
+| [COMMENTS.md](COMMENTS.md) | comments: turning them on, moderation, trust levels, privacy (being built) |
 | [SECURITY_MODEL.md](SECURITY_MODEL.md) | what Hatamoto protects, from whom, and the tests that prove it |
 | [DEPENDENCIES.md](DEPENDENCIES.md) | every third-party module in the binary |
 | [deploy/](deploy/) | deployment notes: Caddy, demo mode, plugin database roles |
