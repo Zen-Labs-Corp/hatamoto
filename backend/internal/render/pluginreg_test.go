@@ -650,6 +650,19 @@ func TestSampleRenderSharesOneBudget(t *testing.T) {
 	}
 }
 
+// The shared pool makes the verdict depend on which template runs first, so the
+// order must be fixed: the same source gives the same verdict every time.
+func TestSampleRenderVerdictIsStable(t *testing.T) {
+	t.Parallel()
+	src := `{{define "plugin/acme/warm"}}{{range 100000}}{{end}}{{end}}` +
+		`{{define "plugin/acme/grid"}}{{range 30000}}<span class="cell">0123456789</span>{{end}}{{end}}`
+	for i := range 20 {
+		if err := scanSampleRender(src, nil); !errors.Is(err, errPluginOutput) {
+			t.Fatalf("run %d: err = %v, want errPluginOutput", i, err)
+		}
+	}
+}
+
 func TestSampleRenderIsCapped(t *testing.T) {
 	t.Parallel()
 	if err := scanSampleRender(strings.Repeat("x", maxPackOutput+1), nil); !errors.Is(err, errPluginOutput) {

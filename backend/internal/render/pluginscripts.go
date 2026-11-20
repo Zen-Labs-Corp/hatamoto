@@ -228,7 +228,11 @@ func scanSampleRender(src string, funcs template.FuncMap) error {
 		return nil
 	}
 	rewritePluginRanges(t, "sample", src, "")
-	for _, d := range t.Templates() {
+	// Templates() walks a map; the pool is shared, so the order decides which
+	// template meets an empty pool. Sort for one verdict per source.
+	tmpls := t.Templates()
+	sort.Slice(tmpls, func(i, j int) bool { return tmpls[i].Name() < tmpls[j].Name() })
+	for _, d := range tmpls {
 		var out bytes.Buffer
 		data := preparedSection{Section: Section{Content: map[string]any{}}, Settings: map[string]any{}}
 		err := d.Execute(&cappedWriter{buf: &out, max: maxPackOutput}, data)
