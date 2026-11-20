@@ -257,7 +257,7 @@ var ErrFailClosed = errors.New("hooks: filter unavailable")
 // filter that errors, panics or changes the value's type is logged and
 // skipped; the value stays as it was before that filter.
 func (e *Engine) Apply(ctx context.Context, name string, v any) any {
-	out, _ := e.apply(ctx, name, v, false)
+	out, _ := e.apply(ctx, name, v, false, false)
 	return out
 }
 
@@ -267,10 +267,17 @@ func (e *Engine) Apply(ctx context.Context, name string, v any) any {
 // ErrFailClosed. Any other error, and panics, are logged and skipped like in
 // Apply: the filter's change is dropped.
 func (e *Engine) ApplyStrict(ctx context.Context, name string, v any) (any, error) {
-	return e.apply(ctx, name, v, true)
+	return e.apply(ctx, name, v, true, false)
 }
 
-func (e *Engine) apply(ctx context.Context, name string, v any, strict bool) (any, error) {
+// ApplyClosed is for verdicts that must not pass on a broken filter: any
+// filter error, panic or change of the value's type stops the chain and is
+// returned wrapped in ErrFailClosed, so the caller can refuse or hold.
+func (e *Engine) ApplyClosed(ctx context.Context, name string, v any) (any, error) {
+	return e.apply(ctx, name, v, true, true)
+}
+
+func (e *Engine) apply(ctx context.Context, name string, v any, strict, closed bool) (any, error) {
 	e.mu.RLock()
 	list := append([]filterEntry(nil), e.filters[name]...)
 	e.mu.RUnlock()
@@ -280,6 +287,9 @@ func (e *Engine) apply(ctx context.Context, name string, v any, strict bool) (an
 		case panicked:
 			e.log.Error("hooks: filter panicked",
 				slog.String("plugin", ent.plugin), slog.String("hook", name), slog.Any("panic", err))
+			if closed {
+				return v, fmt.Errorf("%w: %s panicked: %v", ErrFailClosed, ent.plugin, err)
+			}
 			continue
 		case err != nil:
 			var rej *sdk.Reject
@@ -288,12 +298,18 @@ func (e *Engine) apply(ctx context.Context, name string, v any, strict bool) (an
 			}
 			e.log.Error("hooks: filter failed",
 				slog.String("plugin", ent.plugin), slog.String("hook", name), slog.Any("error", err))
+			if closed {
+				return v, fmt.Errorf("%w: %s: %v", ErrFailClosed, ent.plugin, err)
+			}
 			continue
 		}
 		if v != nil && reflect.TypeOf(next) != reflect.TypeOf(v) {
 			e.log.Error("hooks: filter returned wrong payload type; ignored",
 				slog.String("plugin", ent.plugin), slog.String("hook", name),
 				slog.String("want", fmt.Sprintf("%T", v)), slog.String("got", fmt.Sprintf("%T", next)))
+			if closed {
+				return v, fmt.Errorf("%w: %s returned %T", ErrFailClosed, ent.plugin, next)
+			}
 			continue
 		}
 		v = next

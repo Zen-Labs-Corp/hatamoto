@@ -1,0 +1,10 @@
+{{define "content"}}{{with .CommentConfirm}}<section class="hm-error">
+<div class="hm-container">
+<p class="hm-error__code">{{$.Site.Name}}</p>
+{{if .Invalid}}<h1>{{t $ "comment_link_expired_title"}}</h1>
+<p>{{t $ "comment_link_expired_message"}}</p>
+{{else}}<h1>{{t $ "comment_confirm_title"}}</h1>
+<p>{{t $ "comment_confirm_message"}} <strong>{{.EntityTitle}}</strong></p>
+<form method="post" action="{{.Action}}"><button class="hm-btn" type="submit">{{t $ "comment_confirm_button"}}</button></form>
+{{end}}</div>
+</section>{{end}}{{end}}

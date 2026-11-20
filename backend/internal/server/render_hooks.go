@@ -90,12 +90,23 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		capture:        capture,
 		preview:        s.handlePreviewShare,
 		commentConfirm: s.handleCommentConfirm,
+		commentPost:    s.handleCommentPost,
+		commentEdit:    s.handleCommentEdit,
+		commentDelete:  s.handleCommentDelete,
 		formPage:       s.handleFormPage,
 		favicon:        s.siteFavicon,
 
 		acquireBound: s.cfg.Database.PublicAcquireTimeout,
 	})
 }
+
+// Comment POST paths, next to identity's /-/comments/confirm/ (the "-" first
+// segment is reserved for the system, so no user path can collide).
+const (
+	commentPostPrefix   = "/-/comments/"
+	commentEditPrefix   = "/-/comments/edit/"
+	commentDeletePrefix = "/-/comments/delete/"
+)
 
 // renderRoutes are the handlers mountRenderRoutes wires; split from Server so
 // the routing is testable without a database.
@@ -126,6 +137,11 @@ type renderRoutes struct {
 	// /-/comments/confirm/{token}. Mounted outside capture and the page cache:
 	// GET only shows a button, POST confirms.
 	commentConfirm http.HandlerFunc
+	// commentPost, commentEdit and commentDelete (optional) take the public
+	// comment form, POST /-/comments/{entityID}, and the 15-minute edit and
+	// delete of one's own comment. POST only, outside capture and the page
+	// cache, behind the site-access gate (these paths are not in its bypass).
+	commentPost, commentEdit, commentDelete http.HandlerFunc
 	// formPage (optional) serves the hosted form page, GET /f/{slug}.
 	formPage http.HandlerFunc
 	// favicon (optional) returns the owner's favicon address ("" = none); the
@@ -198,6 +214,24 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 		h := confirmLimiter.Middleware(rt.commentConfirm).ServeHTTP
 		r.HandleFunc("GET "+commentConfirmPrefix+"{token}", h) // GET also matches HEAD
 		r.HandleFunc("POST "+commentConfirmPrefix+"{token}", h)
+	}
+
+	if rt.commentPost != nil || rt.commentEdit != nil || rt.commentDelete != nil {
+		// One per-client limiter for the three comment POST routes. No CORS:
+		// the handlers refuse cross-site posts themselves.
+		commentLimiter := middleware.NewRateLimiter(0.2, 5).ByIPv6Prefix()
+		for _, m := range []struct {
+			pattern string
+			h       http.HandlerFunc
+		}{
+			{"POST " + commentPostPrefix + "{entityID}", rt.commentPost},
+			{"POST " + commentEditPrefix + "{commentID}", rt.commentEdit},
+			{"POST " + commentDeletePrefix + "{commentID}", rt.commentDelete},
+		} {
+			if m.h != nil {
+				r.HandleFunc(m.pattern, commentLimiter.Middleware(m.h).ServeHTTP)
+			}
+		}
 	}
 
 	if rt.formPage != nil {

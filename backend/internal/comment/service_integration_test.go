@@ -212,8 +212,8 @@ func TestThreadPageOneQuery(t *testing.T) {
 	if got := f.counter.Count() - n; got != 1 {
 		t.Fatalf("Thread ran %d statements, want 1: %v", got, f.counter.Since(n))
 	}
-	if !page.HasMore || page.Page != 1 {
-		t.Errorf("HasMore = %v Page = %d", page.HasMore, page.Page)
+	if !page.HasMore || page.Page != 1 || page.Pages != 2 {
+		t.Errorf("HasMore = %v Page = %d Pages = %d, want pages 2", page.HasMore, page.Page, page.Pages)
 	}
 
 	var rootOrder []uuid.UUID
@@ -260,7 +260,7 @@ func TestThreadPageOneQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if page2.HasMore || len(page2.Comments) == 0 || page2.Comments[0].ID != roots[0].id {
+	if page2.HasMore || page2.Pages != 2 || len(page2.Comments) == 0 || page2.Comments[0].ID != roots[0].id {
 		t.Errorf("page 2 = %d comments, HasMore %v, want the oldest root and its chain", len(page2.Comments), page2.HasMore)
 	}
 	for _, c := range page2.Comments {
@@ -979,5 +979,47 @@ func TestMarkSpamOnTrashedDraftLeavesEmailAlone(t *testing.T) {
 	}
 	if hits, _ := f.svc.MatchBlocks(f.ctx, Probe{EmailDomain: "victim-company.example"}); len(hits) != 0 {
 		t.Errorf("domain was blocked: %+v", hits)
+	}
+}
+
+func TestEditHeldDemotesApprovedComment(t *testing.T) {
+	f := newFixture(t)
+	var got [][2]Status
+	f.svc.Register(&updateRecorder{got: &got})
+	d := f.draft("held@example.test", "hello")
+	d.Status = StatusApproved
+	c := f.store(d)
+	c, err := f.svc.Edit(f.ctx, c.ID, Edited{BodyRaw: "hi", BodyHTML: "<p>hi</p>", Hold: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Status != StatusPending {
+		t.Errorf("held edit = %s, want pending", c.Status)
+	}
+	if want := [][2]Status{{StatusApproved, StatusPending}}; len(got) != 1 || got[0] != want[0] {
+		t.Errorf("OnUpdated events = %v, want %v", got, want)
+	}
+}
+
+func TestReplyParent(t *testing.T) {
+	f := newFixture(t)
+	d := f.draft("rp@example.test", "hello")
+	d.Status = StatusApproved
+	ok := f.store(d)
+	d = f.draft("rp2@example.test", "waiting")
+	d.Status = StatusPending
+	pending := f.store(d)
+	for name, tc := range map[string]struct {
+		entity, parent uuid.UUID
+		want           bool
+	}{
+		"approved":     {f.entity, ok.ID, true},
+		"pending":      {f.entity, pending.ID, false},
+		"other entity": {uuid.New(), ok.ID, false},
+		"unknown":      {f.entity, uuid.New(), false},
+	} {
+		if got, err := f.svc.ReplyParent(f.ctx, tc.entity, tc.parent); err != nil || got != tc.want {
+			t.Errorf("%s: ReplyParent = %v, %v; want %v", name, got, err, tc.want)
+		}
 	}
 }

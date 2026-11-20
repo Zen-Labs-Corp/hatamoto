@@ -1,0 +1,20 @@
+.hm-comments { margin-top: 3rem; margin-bottom: 3rem; padding-bottom: 1.5rem; max-width: 46rem; }
+.hm-comments__title { font-size: 1.4rem; margin-bottom: 1rem; }
+.hm-comments__form { margin-bottom: 2.5rem; }
+.hm-comments__replying { color: var(--ht-fg-muted); }
+.hm-comments__closed { color: var(--ht-fg-muted); }
+.hm-comments__count { font-size: 1.1rem; margin-bottom: 1rem; padding-top: 1.5rem; border-top: 1px solid var(--ht-line); }
+.hm-comments__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.5rem; }
+.hm-comments__list--nested { margin-top: 1rem; padding-left: 1.25rem; border-left: 2px solid var(--ht-line); }
+.hm-comment__meta { color: var(--ht-fg-muted); margin: 0 0 0.35rem; }
+.hm-comment__author { color: var(--ht-fg); }
+.hm-comment__badge { font-size: 0.75rem; padding: 0.1rem 0.4rem; border: 1px solid var(--ht-line); border-radius: var(--hm-radius-sm); }
+.hm-comment__body > :first-child { margin-top: 0; }
+.hm-comment__body > :last-child { margin-bottom: 0; }
+.hm-comment__actions { margin: 0.5rem 0 0; font-size: 0.875rem; }
+.hm-comment__edit { margin-top: 0.5rem; }
+.hm-comment__edit textarea { width: 100%; font: inherit; color: inherit; background: var(--hm-bg); border: 1px solid var(--ht-line); border-radius: var(--hm-radius-md); padding: 0.5rem 0.75rem; }
+.hm-comment__delete { margin-top: 0.5rem; }
+.hm-comments__pager { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: 1.5rem; }
+/* Anchors clear the sticky site header (4rem) */
+#hm-comments, #hm-comment-form, .hm-comment { scroll-margin-top: 5rem; }

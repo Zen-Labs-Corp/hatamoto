@@ -121,12 +121,14 @@ func (s *Server) loadPublicPage(r *http.Request, slug string) (*PublicPageRespon
 			return nil, pageOutcome{Status: http.StatusInternalServerError},
 				&pageError{http.StatusInternalServerError, "failed to generate JSON-LD"}
 		}
+		jsonLD = s.withCommentCount(ctx, ent, jsonLD)
 		outcome.LDJSON = jsonLD
 		return nil, outcome, nil
 	}
 
 	// Generate JSON-LD with FAQ enrichment
 	jsonLD, noBreadcrumbLD, _ := buildPageJSONLD(ctx, ent, baseURL, loc.Path, faqItems, s.bylinesOf(ctx, ent.ID))
+	jsonLD = s.withCommentCount(ctx, ent, jsonLD)
 
 	// Parse attributes for meta
 	var attrs map[string]interface{}

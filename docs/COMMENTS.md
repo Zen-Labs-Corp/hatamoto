@@ -31,7 +31,15 @@ The Overview shows a Comments card with the newest waiting comments and a link t
 
 ## Themes
 
-Comments are threaded, up to 5 levels by default. Themes can override the comment list, item and form partials. Posting needs no JavaScript. Not written yet.
+On a page with comments on, the default theme shows the form first and the thread below it, newest first unless the owner chose oldest first. Replies nest up to 5 levels by default, 50 top-level comments make a page, and older pages are reached with `?cpage=N` links (those pages are `noindex`). Comments with a link, and a first comment from a new address, wait for review.
+
+Three partials make the section: `comments-list`, `comments-item` and `comments-form`. A theme overrides any one of them by shipping a file of the same name under `partials/`; the others keep the default. The styles are in the asset `comments.css`, which the default section loads only on pages with comments. The page that opens from the confirmation email is the layout `comment-confirm`, so it matches the site. How to write these is in [THEMES.md](THEMES.md#comments).
+
+Posting needs no JavaScript: the form is a plain `POST` answered with a redirect back to the page, to the new comment (`#comment-<id>`) or, when the comment waits for the confirmation email or review, to a notice. A theme that loads htmx gets the form and the new comment as a fragment instead of a reload.
+
+A visitor who has posted sees their own comments that are not public yet, marked as theirs, and their approved comments can be edited or deleted for 15 minutes. Nobody else sees them.
+
+Pages with an open form are not cached by browsers or CDNs (see [Page cache](THEMES.md#page-cache)): the form carries a token that works once.
 
 ## Privacy and retention
 
@@ -43,7 +51,7 @@ Plugins can add to a comment's spam score through a hook that never sees the IP 
 
 ## For developers
 
-This part ships the data model and services only. Nothing is wired to the server yet, so none of this is visible on a site. The rules behind the design are in [ADR 0005](adr/0005-comments-in-core.md).
+The rules behind the design are in [ADR 0005](adr/0005-comments-in-core.md).
 
 ### Tables
 
@@ -76,7 +84,7 @@ The default mode for a content type is `entity_schemas.settings.comments.mode`; 
 
 ### internal/comment
 
-`comment.Service` methods: `Store`, `Confirm`, `Approve`, `MarkSpam`, `Trash`, `Delete`, `Edit`, `Thread`, `Counts`, `StatusCounts`, `Queue`, `Vouch`, `Block`, `RevokeDevices`, `ExportByEmail`, `EraseByEmail`, `Settings`, `SaveSettings`, `EntityMode`, `SetEntityMode`, `Commenter`, `MatchBlocks`, `Blocks`, `AddBlock`, `RemoveBlock`, `ConsumeFormToken`.
+`comment.Service` methods: `Store`, `Confirm`, `Approve`, `MarkSpam`, `Trash`, `Delete`, `Edit`, `Get`, `Thread`, `Counts`, `HasNonPublic`, `ViewerComments`, `HasEditable`, `EditableComments`, `DuplicateSince`, `PurgeFormTokens`, `StatusCounts`, `Queue`, `Vouch`, `Block`, `RevokeDevices`, `ExportByEmail`, `EraseByEmail`, `Settings`, `SaveSettings`, `EntityMode`, `SetEntityMode`, `Commenter`, `MatchBlocks`, `Blocks`, `AddBlock`, `RemoveBlock`, `ConsumeFormToken`.
 
 `Store` takes a draft that is already formatted and scored. The package does not import `internal/spam` or `internal/commentfmt`; the caller maps their results onto the draft.
 
@@ -96,13 +104,53 @@ A `Checker` adds to the spam decision. Its input is the body, the link domains a
 
 `CommentSubject` gives the subject key for a comment form token, and `Hold` is a comment-only decision that forms never get. `Score`, `ScoreInput` and `Signal` sort a submission into three buckets: allow, hold or spam. Form behaviour is unchanged.
 
+### Public form
+
+Routes, all under the reserved `/-/` segment (the word `comments` itself is not reserved, so no page path changes):
+
+- `POST /-/comments/{entityID}` posts a comment.
+- `POST /-/comments/edit/{commentID}` edits one (the field is `body`).
+- `POST /-/comments/delete/{commentID}` moves one to the trash.
+- `GET` and `POST /-/comments/confirm/{token}` is the confirmation link, see Identity.
+
+All of them answer `404` while the site switch is off, sit behind the site-access gate (maintenance, coming-soon and password modes refuse them), are limited per IP network and are sent `Cache-Control: no-store`. A post answers `303` to the page: `#comment-<id>` when posted, `?cnotice=check_email#hm-comments` when it waits for the email, `?cnotice=posted#hm-comments` when it was dropped (see below), `?cerror=<code>#hm-comment-form` for an error the visitor can fix (`body_empty`, `body_long`, `name`, `email`, `email_domain`) and `?cerror=closed#hm-comments` when the page is closed. With `HX-Request: true` the answer is a fragment.
+
+**Token and field names.** Each view of a page with an open form gets a token (`hm_ct`) that is bound to the page and to a hash of the visitor's address, works once, and expires after 4 hours. The names of the body, name, email and honeypot fields are derived from the token, so they change on every view. A token used or expired answers like a success and stores nothing. The used tokens are kept in `hatamoto_comment_form_tokens` and purged hourly by the job `comment_drafts_purge`.
+
+**Submit order.** Cheapest checks first; everything that rejects a bot answers with the same redirect a held comment gets, except mistakes a person can fix:
+
+1. Site switch on and the page open. Closed or auto-closed pages store nothing.
+2. Surge breaker: above a site-wide rate every new comment is held as pending, whatever the trust level. The start of a surge is logged once.
+3. Single-use token.
+4. Fields are read only under the rotated names.
+5. Rate limits per IP hash, network hash, email hash and page. They live in memory, per process, and reset on a restart.
+6. Honeypot filled.
+7. `Sec-Fetch-Site` other than `same-origin`, or an `Origin` that is `null` or another host.
+8. Captcha, only when the owner enabled it.
+9. Size limits (5000 characters of body, 80 of name) and a valid email address.
+10. Formatting, then the blocklists (email domain, link domains, hashes).
+11. A duplicate body posted recently on the site.
+12. Link check: any link holds the comment as pending.
+13. Spam score into allow, hold or spam.
+14. The `comment.check` hook (`comment.Checker`) adds to the decision. It has a 500 ms timeout; a timeout or an error holds the comment.
+
+Then trust decides: a trusted commenter is approved, others wait, and slow mode (`slow_mode_seconds`, trusted commenters exempt) holds a commenter's next comment on the same page.
+
+**Shadow hold.** A comment scored as spam or blocked is stored but looks posted to its sender: it appears through their own device cookie and nowhere else, and nothing tells them it is held. Visitors without the cookie never see it.
+
+**Admins.** An owner or editor signed in to the admin posts as the site: no email, no confirmation, no trust or slow mode, stored approved with the account as author.
+
+**Edit and delete.** The commenter can edit or delete their own comment for `comment.EditWindow` (15 minutes) through the signed `hm_c` cookie; ownership never comes from the form. An edit that adds a link moves the comment back to pending. Delete moves it to the trash. A request from another site, without the cookie, for another commenter's comment, past the window, or for a trashed comment is answered `403`; an unknown id is `404`. A bad edit goes back to the page with `?cerror=body_empty` or `body_long`.
+
+**Cache.** A page with an open form is cached as a template and filled per request, so it is sent `private, no-cache, no-store`. A visitor with own comments that are not public yet, or still editable, gets an uncached page. A cookie that is not validly signed is ignored and gets the cached page. Details: [THEMES.md](THEMES.md#page-cache).
+
 ### Identity
 
 Package `internal/comment/identity` confirms the commenter's email address and keeps the commenter signed in on that device. The flow:
 
 1. The public part stores the comment as a draft and calls `RequestConfirmation`.
 2. A mail goes out with the site name, the page title and a link. It never contains the commenter's name or the comment text.
-3. The link, `/-/comments/confirm/<token>`, opens a page with one Confirm button. A GET never confirms anything, because mail scanners and link previews fetch links.
+3. The link, `/-/comments/confirm/<token>`, opens a page with one Confirm button, rendered with the theme's `comment-confirm` layout (the plain built-in page when no theme is active). A GET never confirms anything, because mail scanners and link previews fetch links.
 4. A same-origin POST consumes the link, calls `comment.Service.Confirm`, sets the `hm_c` cookie and redirects to `#comment-<id>` on the page.
 
 The link works once and for 24 hours. Only its SHA-256 is stored, in `hatamoto_comment_confirmations`. At most 3 mails go to one address, 10 to one `ip_hash` and 30 to one `net_hash` per 24 hours. Over the limit the visitor sees the same page as before and nothing is sent.
@@ -117,7 +165,19 @@ Set the site address before enabling comments: without it no confirmation mail i
 
 ### Comment counts
 
-Counts live in `hatamoto_comment_entities`, not on the page row, so a moderation action never purges the whole page cache. Until targeted cache invalidation lands, a listing page can show counts up to the page cache time (5 minutes) out of date.
+Counts live in `hatamoto_comment_entities`, not on the page row, so a moderation action never purges the whole page cache. A comment change drops only the cached copies of that one page. Listings do not show counts, so they are not dropped; the count is rendered only on the page itself.
+
+### Load
+
+The test `TestCommentLoadIntegration` (`internal/server`, build tag `integration`) seeds one post with 500 approved comments in a tree 5 levels deep (100 threads of 5) and renders it through the real handler. One run on a development machine with a local Postgres 16, 100 renders each:
+
+| Page | p50 | p95 | Allocations | HTML |
+|---|---|---|---|---|
+| Page 1, rendered from scratch | 84 ms | 89 ms | 30,000 | 165 KB |
+| Page 2, rendered from scratch | 84 ms | 90 ms | 30,000 | 164 KB |
+| Page 1, from the page cache | 0.4 ms | 1.9 ms | | |
+
+Each uncached render runs exactly one thread query. With a stream of one approval every 10 seconds and 100 reads in between, the post renders once per approval and a page of another post never re-renders. The test logs these numbers and asserts only the query and render counts, never a time.
 
 ### Server secret
 

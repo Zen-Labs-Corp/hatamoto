@@ -71,6 +71,7 @@ func (s *Server) buildPageView(ctx context.Context, r *http.Request, rr *routeRe
 	v.Forms = s.formsForSections(ctx, formSecs)
 	v.EntityLinks = s.entityLinkTargets(ctx, v)
 	v.Uncacheable = new(bool)
+	s.fillComments(ctx, r, rr, v)
 	s.applyPluginDirectory(ctx, v)
 	v.PagedLoop, v.LoopOutOfRange = new(bool), new(bool)
 	v.Related = s.relatedFunc(ctx, v.EntityID, v.SchemaSlug, v.Uncacheable)

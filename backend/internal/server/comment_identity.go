@@ -11,7 +11,10 @@ import (
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
+	"hatamoto.dev/core/internal/commentsubmit"
 	"hatamoto.dev/core/internal/middleware"
+	"hatamoto.dev/core/internal/render"
+	"hatamoto.dev/core/internal/spam"
 )
 
 // commentConfirmPrefix is the path of the comment confirmation link.
@@ -81,10 +84,9 @@ func (s *Server) commentConfirmHandler(ci commentIdentity, lookup commentEntityL
 		}
 		http.Error(w, "Something went wrong", http.StatusInternalServerError)
 	}
-	invalid := func(w http.ResponseWriter) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusNotFound)
-		_ = identity.RenderPage(w, identity.PageData{State: identity.PageInvalid})
+	invalid := func(w http.ResponseWriter, r *http.Request) {
+		s.writeCommentConfirm(w, r, http.StatusNotFound, &render.CommentConfirmView{Invalid: true},
+			identity.PageData{State: identity.PageInvalid})
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -102,7 +104,7 @@ func (s *Server) commentConfirmHandler(ci commentIdentity, lookup commentEntityL
 		case http.MethodGet, http.MethodHead:
 			p, err := ci.Peek(ctx, raw)
 			if errors.Is(err, identity.ErrTokenInvalid) {
-				invalid(w)
+				invalid(w, r)
 				return
 			}
 			if err != nil {
@@ -111,15 +113,13 @@ func (s *Server) commentConfirmHandler(ci commentIdentity, lookup commentEntityL
 			}
 			title, _, ok := lookup(ctx, p.EntityID)
 			if !ok {
-				invalid(w)
+				invalid(w, r)
 				return
 			}
 			name, _, _ := s.digestSite(ctx)
-			h.Set("Content-Type", "text/html; charset=utf-8")
-			w.WriteHeader(http.StatusOK)
-			_ = identity.RenderPage(w, identity.PageData{
-				SiteName: name, EntityTitle: title, Action: commentConfirmPrefix + raw, State: identity.PageConfirm,
-			})
+			action := commentConfirmPrefix + raw
+			s.writeCommentConfirm(w, r, http.StatusOK, &render.CommentConfirmView{EntityTitle: title, Action: action},
+				identity.PageData{SiteName: name, EntityTitle: title, Action: action, State: identity.PageConfirm})
 		case http.MethodPost:
 			if !commentConfirmSameOrigin(r) {
 				http.Error(w, "Forbidden", http.StatusForbidden)
@@ -127,7 +127,7 @@ func (s *Server) commentConfirmHandler(ci commentIdentity, lookup commentEntityL
 			}
 			c, err := ci.Confirm(ctx, raw)
 			if errors.Is(err, identity.ErrTokenInvalid) {
-				invalid(w)
+				invalid(w, r)
 				return
 			}
 			if err != nil {
@@ -135,6 +135,7 @@ func (s *Server) commentConfirmHandler(ci commentIdentity, lookup commentEntityL
 				return
 			}
 			http.SetCookie(w, ci.Cookie(c, s.commentCookieSecure(r)))
+			s.commentBypass.forget(c.CommenterID) // the confirmed comment shows at once, not after the 30 s cache
 			_, path, ok := lookup(ctx, c.Comment.EntityID)
 			if !ok || path == "" {
 				path = "/"
@@ -158,6 +159,34 @@ func (s *Server) setupComments() {
 		return
 	}
 	s.comments = comment.New(s.db, s.cfg.Secret, s.logger)
+	secret := s.cfg.Secret
+
+	// The edit and delete routes read the switch from the same cached settings
+	// the page render uses. An unreadable setting counts as on: the routes check
+	// the device cookie and ownership anyway.
+	on := func() bool {
+		set, err := s.comments.Settings(context.Background())
+		return err != nil || set.Enabled
+	}
+	devKey := identity.DeviceKey(secret)
+	s.commentSlot = &commentSlot{
+		tokenKey: spam.CommentTokenKey(secret), nameKey: spam.FieldNameKey(secret),
+		hashIP: s.comments.Keys().HashIP, now: time.Now, on: on,
+	}
+	// A visitor with a comment of their own that is not public yet, or still
+	// editable, gets an uncached page.
+	s.commentBypass = newCommentBypass(
+		func(v string, t time.Time) (identity.DeviceClaims, bool) { return identity.VerifyDevice(devKey, v, t) },
+		func(ctx context.Context, id uuid.UUID) (bool, error) {
+			if has, err := s.comments.HasNonPublic(ctx, id); has || err != nil {
+				return has, err
+			}
+			return s.comments.HasEditable(ctx, id)
+		}, nil)
+	s.comments.Register(commentCacheObserver{
+		drop: s.dropRenderedEntity, all: s.invalidateRendered,
+		forget: s.commentBypass.forget,
+	})
 	if s.emailService == nil {
 		return
 	}
@@ -174,6 +203,13 @@ func (s *Server) setupComments() {
 		return
 	}
 	s.commentIdentity = svc
+	s.commentSubmit = &commentsubmit.Pipeline{
+		Comments: s.comments, Identity: svc, Spam: s.spam,
+		TokenKey: spam.CommentTokenKey(secret), NameKey: spam.FieldNameKey(secret),
+		Limits:   commentsubmit.NewLimits(time.Now),
+		Checkers: []comment.Checker{commentsubmit.HookChecker{Engine: s.hooks}},
+		Log:      s.logger,
+	}
 }
 
 // handleCommentConfirm is the mounted handler: 404 until setupComments built
@@ -186,13 +222,23 @@ func (s *Server) handleCommentConfirm(w http.ResponseWriter, r *http.Request) {
 	s.commentConfirmHandler(ci, s.commentEntity)(w, r)
 }
 
+// purgeCommentDrafts is the hourly job: unconfirmed drafts and tokens, then the
+// used form tokens. A failed form-token purge is logged and does not fail the job.
+func (s *Server) purgeCommentDrafts(ctx context.Context) error {
+	err := s.commentIdentity.Purge(ctx)
+	if _, e := s.comments.PurgeFormTokens(ctx); e != nil {
+		s.logger.Warn("comment form tokens purge", "error", e)
+	}
+	return err
+}
+
 // scheduleCommentDraftsPurge schedules the hourly purge unless there is no
 // scheduler, database or identity service, or WORKER_DISABLE_JOBS names it.
 func (s *Server) scheduleCommentDraftsPurge() bool {
 	if s.db == nil || s.scheduler == nil || s.commentIdentity == nil || !workerJobEnabled(commentDraftsPurgeJob) {
 		return false
 	}
-	err := s.scheduler.ScheduleJitter(commentDraftsPurgeJob, time.Hour, 10*time.Minute, 3*time.Minute, s.commentIdentity.Purge)
+	err := s.scheduler.ScheduleJitter(commentDraftsPurgeJob, time.Hour, 10*time.Minute, 3*time.Minute, s.purgeCommentDrafts)
 	if err != nil {
 		s.logger.Error("comment drafts purge job not scheduled", "error", err)
 	}

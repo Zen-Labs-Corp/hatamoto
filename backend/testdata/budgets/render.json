@@ -60,10 +60,27 @@
       "tol_pct": 10,
       "tol_abs": 64
     },
+    "alloc_comments_page50_allocs": {
+      "value": 26844,
+      "unit": "allocs",
+      "tol_pct": 10,
+      "tol_abs": 2
+    },
+    "alloc_comments_page50_bytes": {
+      "value": 1098653,
+      "unit": "bytes",
+      "tol_pct": 10,
+      "tol_abs": 64
+    },
     "canvas_bridge_gzip": {
       "value": 16847,
       "unit": "bytes",
       "tol_abs": 512
+    },
+    "comments_page50_bytes": {
+      "value": 81113,
+      "unit": "bytes",
+      "tol_pct": 5
     },
     "golden_cta_bytes": {
       "value": 473,
@@ -167,10 +184,6 @@
   },
   "history": [
     {
-      "reason": "builder-e4: ctxmenu/clipops/picker/history chunks, contextmenu bridge msg, host handle, moveSubject, empty-node floor",
-      "date": "2026-10-24"
-    },
-    {
       "reason": "e4 review fixes: v1 shape, clipboard on sections, visible refusals, menu rows (+1.2 KB total, +670 B first paint, canvas bridge +empty marker)",
       "date": "2026-10-24"
     },
@@ -245,6 +258,10 @@
     {
       "reason": "form file upload field adds widget CSS/JS and designer palette entry",
       "date": "2026-11-07"
+    },
+    {
+      "reason": "comments: 50-comment page render budget (new bytes and allocation entries for a 190-item thread with the open form; comments.css is its own asset, so the global theme css budget is unchanged)",
+      "date": "2026-11-20"
     }
   ]
 }

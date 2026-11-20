@@ -147,6 +147,11 @@ type renderHandlers struct {
 	// conditional requests with 304. A pointer shared by forRequest's shallow
 	// copies; nil = off.
 	validators *pageValidators
+	// slot personalises the comment form of a page body per view; nil = off.
+	slot *commentSlot
+	// commentBypass sends a visitor with own non-public comments around the
+	// shared page cache; nil = never.
+	commentBypass *commentBypass
 }
 
 // newRenderHandlers wires the handlers to the server's services. pageCache may
@@ -166,10 +171,12 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 		searchLimit:   middleware.NewRateLimiter(2, 30).Middleware,
 		// setupPlugins runs before the render routes mount, so s.plugins is set
 		// (nil: the runtime failed, so no plugin filters).
-		pageFilter:   pluginhost.NewPageFilter(s.plugins, s.hooks),
-		renderFailed: func() { s.healthSink().RenderError() },
-		preview:      s.preview,
-		runtime:      s.pageRuntime,
+		pageFilter:    pluginhost.NewPageFilter(s.plugins, s.hooks),
+		renderFailed:  func() { s.healthSink().RenderError() },
+		preview:       s.preview,
+		runtime:       s.pageRuntime,
+		slot:          s.commentSlot,
+		commentBypass: s.commentBypass,
 
 		cspExtras:        s.cspExtras,
 		pluginCSP:        s.pluginCSPHosts,
@@ -438,7 +445,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 	filtered := h.pageFilter.Applies(path)
 	// A plugin's cookie answer (request.redirect) makes this response specific
 	// to the request: no cache read or write, private headers.
-	uncached := h.uncached || uncachedRequest(r.Context())
+	uncached := h.uncached || uncachedRequest(r.Context()) || h.commentBypass.applies(r)
 	pageN := pagedQuery(r.URL.RawQuery) // 0 unless the query is exactly the canonical ?page=N, N >= 2
 	cacheable := h.cache != nil && h.baseURLPinned && h.runtime.Enabled() && (r.URL.RawQuery == "" || pageN > 0) && !filtered && !uncached
 	key := ""
@@ -630,6 +637,12 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		h.flight.finish(key, call, flightResult{body: buf.Bytes(), stored: stored})
 	}
 	pluginhost.WriteSetCookies(w, r, cookies)
+	// The stored and shared bytes stay the template; only this response is
+	// personalised (private, no validators, never a 304).
+	if out, personal := h.slot.fill(r, buf.Bytes()); personal {
+		h.writeHTML(w, r, http.StatusOK, out, true)
+		return
+	}
 	if pv := h.validators; storable && pv != nil {
 		// Hash exactly the bytes that get cached, so a later hit agrees.
 		sum := fingerprintSum(buf.Bytes())
@@ -652,6 +665,12 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 func (h *renderHandlers) serveCached(w http.ResponseWriter, r *http.Request, path, key string, body []byte, hitGen uint64) {
 	// The redirect lookup is cheap (cached in the redirect service).
 	if h.redirectIfMatched(w, r, path) {
+		return
+	}
+	// A page with the comment form is filled per request: private, no validators,
+	// no stored variant, never 304. Followers of a flight come through here too.
+	if out, ok := h.slot.fill(r, body); ok {
+		h.writeHTML(w, r, http.StatusOK, out, true)
 		return
 	}
 	var fp []byte
