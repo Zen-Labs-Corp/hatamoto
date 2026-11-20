@@ -1,0 +1,50 @@
+package admin
+
+import (
+	"net/http"
+
+	"hatamoto.dev/core/internal/httpx"
+)
+
+// mountComments registers every comments route. Moderation, blocklists and
+// commenter trust are owner+editor (editors moderate everything); the site
+// switch, site settings, schema defaults and privacy export/erase are
+// owner-only.
+func (a *Admin) mountComments(authed *httpx.Group) {
+	ed := authed.Group("", a.RequireRole("owner", "editor"))
+	owner := authed.Group("", a.RequireRole("owner"))
+	ed.HandleFunc("GET /comments", a.handleComments)
+	ed.HandleFunc("POST /comments/bulk", a.handleCommentsBulk)
+	ed.HandleFunc("POST /comments/{id}/approve", a.handleCommentApprove)
+	ed.HandleFunc("GET /comments/{id}/spam", a.handleCommentSpamPage)
+	ed.HandleFunc("POST /comments/{id}/spam", a.handleCommentSpam)
+	ed.HandleFunc("POST /comments/{id}/trash", a.handleCommentTrash)
+	ed.HandleFunc("GET /comments/{id}/reply", a.handleCommentReplyPage)
+	ed.HandleFunc("POST /comments/{id}/reply", a.handleCommentReply)
+	ed.HandleFunc("GET /comments/{id}/edit", a.handleCommentEditPage)
+	ed.HandleFunc("POST /comments/{id}/edit", a.handleCommentEdit)
+	ed.HandleFunc("POST /entities/{id}/comments", a.handleEntityComments)
+	ed.HandleFunc("GET /settings/comments", a.handleCommentSettings)
+	ed.HandleFunc("GET /settings/comments/blocklists", a.handleCommentBlocklists)
+	ed.HandleFunc("POST /settings/comments/blocklists", a.handleCommentBlocklistsSave)
+	ed.HandleFunc("GET /settings/comments/commenters", a.handleCommenters)
+	ed.HandleFunc("POST /settings/comments/commenters/{id}/{action}", a.handleCommenterAction) // vouch, block or signout
+	owner.HandleFunc("POST /settings/comments", a.handleCommentSettingsSave)
+	owner.HandleFunc("POST /settings/comments/switch", a.handleCommentSwitch)
+	owner.HandleFunc("GET /settings/comments/enable", a.handleCommentEnablePage)
+	owner.HandleFunc("POST /settings/comments/enable", a.handleCommentEnable)
+	owner.HandleFunc("POST /settings/types/{id}/comments", a.handleSchemaComments)
+	owner.HandleFunc("GET /settings/comments/commenters/{id}/export", a.handleCommenterExport)
+	owner.HandleFunc("GET /settings/comments/commenters/{id}/erase", a.handleCommenterErasePage)
+	owner.HandleFunc("POST /settings/comments/commenters/{id}/erase", a.handleCommenterErase)
+}
+
+// requireOwner is the in-handler re-check behind the owner group: it answers
+// 403 and reports false for anyone but an owner.
+func (a *Admin) requireOwner(w http.ResponseWriter, r *http.Request) bool {
+	if u := userFrom(r.Context()); u == nil || u.Role != "owner" {
+		a.forbidden(w, r)
+		return false
+	}
+	return true
+}

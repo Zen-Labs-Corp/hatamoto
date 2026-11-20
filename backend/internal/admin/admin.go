@@ -577,6 +577,7 @@ func (a *Admin) mountScreens(public, authed *httpx.Group) {
 	a.mountSettings(authed)
 	a.mountGrowth(authed)
 	a.mountContent(authed)
+	a.mountComments(authed)
 	a.mountImport(authed)
 	a.mountPageEditor(authed, public)
 	a.mountChangesets(authed, public)
