@@ -250,7 +250,7 @@ is sent once to "Complete your profile" before using the admin.
 
 **Exports.** Archives carry `hatamoto_user_people`; an archive from before people
 imports as it is and gets its people made after the commit (`docs/EXPORT.md`).
-The format version stays 1 (the layout is unchanged), but a binary from before
+The format version is 2 (it added the server secret check), and a binary from before
 people refuses an archive that lists `hatamoto_user_people` ("unknown table"):
 import new archives with the new binary.
 
