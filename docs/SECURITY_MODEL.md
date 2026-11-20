@@ -134,9 +134,9 @@ whatever the data, because the rule reads the template source.
 Plugin template text is trusted for CPU and memory, like theme markup: install
 only plugins you trust. A plugin `range` may iterate any value. Every plugin
 `range` in a render draws on one budget of 100000 iterations per page render
-(theme templates are not counted); the trial render of sections and the page
-render each get their own budget, and the sample render of a template gets a
-standalone one. When the budget is spent the loop stops and the rest of every
+(theme templates are not counted); builder blocks and the trial render of
+sections share the first budget and the page render gets a second, and the
+sample render gets one budget per sample render, not per template. When the budget is spent the loop stops and the rest of every
 later plugin loop in that render is left out; the page is served but not cached,
 and a warning naming the plugin and the template is logged, at most once a
 minute for each. The following rules are static guards against accidental

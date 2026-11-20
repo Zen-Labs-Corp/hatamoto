@@ -2,7 +2,7 @@
 
 ## Unreleased: plugin templates refused by 1.3.8's range rule register again
 
-- **Plugin templates.** Plugin templates refused by 1.3.8's range rule register again. A plugin section or partial may `range` over any value; every plugin loop draws on one budget of 100000 iterations per page render, enforced while the page renders. A render that reaches it stops the loop, is served but not cached, and logs "plugin template range budget exceeded" with the plugin and template (at most once a minute each).
+- **Plugin templates.** Plugin templates refused by 1.3.8's range rule register again. A plugin section or partial may `range` over any value; every plugin loop draws on one budget of 100000 iterations per page render, enforced while the page renders. A render that reaches it stops the loop, is served but not cached, and logs "plugin template range budget exceeded" with the plugin and template (at most once a minute each). 1.3.7 had no cap on plugin loops, so a page whose plugin loops exceed 100000 iterations is now cut short, served uncached and marked degraded.
 - **Admin.** A plugin's page lists, under Needs attention, every section or partial that is not registered and why; `GET /api/v1/plugins` returns the same list as `templates_refused`.
 - **Unchanged.** The scripts, theme-name, structural markup, call-graph and range-depth rules and the 256 KiB sample-render cap.
 - **Migration.** None. Rollback floor: unchanged.
