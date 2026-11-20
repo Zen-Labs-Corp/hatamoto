@@ -1,0 +1,242 @@
+package email
+
+import (
+	"context"
+	"strings"
+	"testing"
+
+	"hatamoto.dev/core/internal/email/smtptest"
+)
+
+const testUnsub = "https://example.test/-/comments/unsubscribe/TOKEN"
+
+func modData(items ...CommentModerationItem) CommentModerationData {
+	return CommentModerationData{
+		SiteName: "Site S", Items: items, ModerateURL: "https://example.test/admin/comments?status=pending",
+		UnsubscribeURL: testUnsub,
+	}
+}
+
+func replyData() CommentReplyData {
+	return CommentReplyData{SiteName: "Site S", EntityTitle: "Post P", ReplierName: "Bob",
+		URL: "https://example.test/p#comment-1", UnsubscribeURL: testUnsub}
+}
+
+func oneMessage(t *testing.T, srv *smtptest.Server) (head, body string) {
+	t.Helper()
+	msgs := srv.Messages()
+	if len(msgs) != 1 {
+		t.Fatalf("messages = %d, want 1", len(msgs))
+	}
+	head, body, _ = strings.Cut(msgs[0].Data, "\r\n\r\n")
+	return head, body
+}
+
+func TestSendCommentModeration_SingleAndDigest(t *testing.T) {
+	svc, rec, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	ctx := context.Background()
+	one := CommentModerationItem{AuthorName: "Ann", EntityTitle: "Post P", Held: "contains a link, first comment"}
+	if err := svc.SendCommentModeration(ctx, "mod@example.test", modData(one)); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SendCommentModeration(ctx, "mod@example.test", modData(one, one)); err != nil {
+		t.Fatal(err)
+	}
+	msgs := srv.Messages()
+	if len(msgs) != 2 {
+		t.Fatalf("messages = %d", len(msgs))
+	}
+	if !strings.Contains(msgs[0].Data, "Subject: New comment waiting on Site S\r\n") ||
+		!strings.Contains(msgs[0].Data, `Ann on "Post P": held because: contains a link, first comment`) {
+		t.Errorf("single mail:\n%s", msgs[0].Data)
+	}
+	if !strings.Contains(msgs[1].Data, "Subject: 2 comments waiting on Site S\r\n") {
+		t.Errorf("digest mail:\n%s", msgs[1].Data)
+	}
+	if len(rec.entries) != 2 || rec.entries[0].Kind != KindCommentModeration || rec.entries[1].Kind != KindCommentDigest {
+		t.Fatalf("log = %+v", rec.entries)
+	}
+	for _, e := range rec.entries {
+		if e.BodyText != "" || e.BodyHTML != "" {
+			t.Errorf("body stored: %+v", e)
+		}
+		if len(e.Recipients) != 1 || e.Recipients[0] != "mod@example.test" {
+			t.Errorf("recipients = %v", e.Recipients)
+		}
+	}
+}
+
+func TestSendCommentModeration_CapsItems(t *testing.T) {
+	svc, _, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	var items []CommentModerationItem
+	for i := 0; i < 25; i++ {
+		items = append(items, CommentModerationItem{AuthorName: "N", EntityTitle: "T", Held: "h"})
+	}
+	if err := svc.SendCommentModeration(context.Background(), "mod@example.test", modData(items...)); err != nil {
+		t.Fatal(err)
+	}
+	head, body := oneMessage(t, srv)
+	if !strings.Contains(head, "Subject: 25 comments waiting on Site S") || !strings.Contains(body, "and 5 more") {
+		t.Errorf("mail:\n%s\n%s", head, body)
+	}
+	if err := svc.SendCommentModeration(context.Background(), "mod@example.test", modData()); err == nil {
+		t.Error("no items must be an error")
+	}
+}
+
+func TestSendCommentReply_LogAndHeaders(t *testing.T) {
+	svc, rec, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	if err := svc.SendCommentReply(context.Background(), "a@b.test", replyData()); err != nil {
+		t.Fatal(err)
+	}
+	head, _ := oneMessage(t, srv)
+	if !strings.Contains(head, "Subject: New reply on \"Post P\"\r\n") {
+		t.Errorf("subject:\n%s", head)
+	}
+	e := rec.entries[0]
+	if e.Kind != KindCommentReply || e.BodyText != "" || e.BodyHTML != "" {
+		t.Errorf("entry = %+v", e)
+	}
+	if len(e.Recipients) != 1 || e.Recipients[0] != "a***@b***.test" {
+		t.Errorf("recipients = %v", e.Recipients)
+	}
+}
+
+func TestCommentNotify_UnsubscribeEverywhere(t *testing.T) {
+	for name, send := range map[string]func(*Service) error{
+		"moderation": func(s *Service) error {
+			return s.SendCommentModeration(context.Background(), "m@example.test", modData(CommentModerationItem{AuthorName: "A", EntityTitle: "T", Held: "h"}))
+		},
+		"reply": func(s *Service) error { return s.SendCommentReply(context.Background(), "a@b.test", replyData()) },
+	} {
+		srv := smtptest.Start(t, smtptest.Options{})
+		svc := newSink(t, sinkConfig(srv, SecurityNone))
+		if err := send(svc); err != nil {
+			t.Fatal(err)
+		}
+		head, body := oneMessage(t, srv)
+		if !strings.Contains(head, "List-Unsubscribe: <"+testUnsub+">\r\n") ||
+			!strings.Contains(head, "List-Unsubscribe-Post: List-Unsubscribe=One-Click\r\n") {
+			t.Errorf("%s: headers:\n%s", name, head)
+		}
+		if n := strings.Count(body, testUnsub); n < 2 {
+			t.Errorf("%s: unsubscribe URL in body %d times, want text and HTML", name, n)
+		}
+	}
+}
+
+func TestCommentNotify_NameInjection(t *testing.T) {
+	const evil = "Eve\r\nBcc: x@example.test"
+	svc, _, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	ctx := context.Background()
+	if err := svc.SendCommentModeration(ctx, "m@example.test", modData(CommentModerationItem{AuthorName: evil, EntityTitle: "T", Held: "h"})); err != nil {
+		t.Fatal(err)
+	}
+	d := replyData()
+	d.ReplierName = evil
+	if err := svc.SendCommentReply(ctx, "a@b.test", d); err != nil {
+		t.Fatal(err)
+	}
+	msgs := srv.Messages()
+	if len(msgs) != 2 {
+		t.Fatalf("messages = %d", len(msgs))
+	}
+	for _, m := range msgs {
+		head, body, _ := strings.Cut(m.Data, "\r\n\r\n")
+		if strings.Contains(head, "Bcc:") || strings.Contains(head, "Eve") {
+			t.Errorf("name reached the header block:\n%s", head)
+		}
+		if !strings.Contains(body, "Eve  Bcc: x@example.test") {
+			t.Errorf("space-folded name missing from the body:\n%s", body)
+		}
+		if strings.Contains(body, "\r\nBcc:") {
+			t.Errorf("line starting with Bcc in the body:\n%s", body)
+		}
+	}
+}
+
+func TestCommentNotify_NameLimits(t *testing.T) {
+	if got := notifyName(""); got != "Someone" {
+		t.Errorf("empty = %q", got)
+	}
+	if got := notifyName(" \r\n\t "); got != "Someone" {
+		t.Errorf("blank = %q", got)
+	}
+	if got := notifyName(strings.Repeat("é", 200)); len([]rune(got)) != 80 {
+		t.Errorf("runes = %d", len([]rune(got)))
+	}
+}
+
+func TestCommentNotify_SubjectFallbacks(t *testing.T) {
+	svc, _, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	ctx := context.Background()
+	evil := "T\r\nBcc: x@example.test"
+
+	d := replyData()
+	d.EntityTitle = evil
+	if err := svc.SendCommentReply(ctx, "a@b.test", d); err != nil {
+		t.Fatal(err)
+	}
+	m := modData(CommentModerationItem{AuthorName: "A", EntityTitle: "T", Held: "h"})
+	m.SiteName = evil
+	if err := svc.SendCommentModeration(ctx, "m@example.test", m); err != nil {
+		t.Fatal(err)
+	}
+	m2 := modData(CommentModerationItem{AuthorName: "A", EntityTitle: "T", Held: "h"}, CommentModerationItem{AuthorName: "B", EntityTitle: "T", Held: "h"})
+	m2.SiteName = evil
+	if err := svc.SendCommentModeration(ctx, "m@example.test", m2); err != nil {
+		t.Fatal(err)
+	}
+	msgs := srv.Messages()
+	if len(msgs) != 3 {
+		t.Fatalf("messages = %d", len(msgs))
+	}
+	for i, want := range []string{"New reply to your comment", "New comment waiting", "Comments waiting"} {
+		head, _, _ := strings.Cut(msgs[i].Data, "\r\n\r\n")
+		if strings.Contains(head, "Bcc:") {
+			t.Errorf("mail %d: injected header:\n%s", i, head)
+		}
+		if !strings.Contains(head, "Subject: "+want+"\r\n") {
+			t.Errorf("mail %d: subject did not fall back to %q:\n%s", i, want, head)
+		}
+	}
+}
+
+func TestCommentNotify_BadRecipient(t *testing.T) {
+	for _, to := range []string{"a@b.test\r\nBcc: c@d.test", "Name <a@b.test>", "<a@b.test>", ""} {
+		srv := smtptest.Start(t, smtptest.Options{})
+		svc := newSink(t, sinkConfig(srv, SecurityNone))
+		if err := svc.SendCommentReply(context.Background(), to, replyData()); err == nil {
+			t.Errorf("reply to %q: want an error", to)
+		}
+		if err := svc.SendCommentModeration(context.Background(), to, modData(CommentModerationItem{AuthorName: "A", EntityTitle: "T", Held: "h"})); err == nil {
+			t.Errorf("moderation to %q: want an error", to)
+		}
+		if len(srv.Messages()) != 0 {
+			t.Errorf("%q: mail was sent", to)
+		}
+	}
+}
+
+func TestCommentNotify_EscapesHTML(t *testing.T) {
+	svc, _, srv := newLoggedSink(t, smtptest.Options{}, nil)
+	ctx := context.Background()
+	if err := svc.SendCommentModeration(ctx, "m@example.test", modData(CommentModerationItem{AuthorName: "<script>a", EntityTitle: "<script>t", Held: "<script>h"})); err != nil {
+		t.Fatal(err)
+	}
+	d := replyData()
+	d.ReplierName, d.EntityTitle = "<script>r", "<script>e"
+	if err := svc.SendCommentReply(ctx, "a@b.test", d); err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range srv.Messages() {
+		_, body, _ := strings.Cut(m.Data, "\r\n\r\n")
+		_, html, ok := strings.Cut(body, "text/html")
+		if !ok {
+			t.Fatalf("no HTML part:\n%s", body)
+		}
+		if strings.Contains(html, "<script>") || !strings.Contains(html, "&lt;script&gt;") {
+			t.Errorf("HTML not escaped:\n%s", html)
+		}
+	}
+}
