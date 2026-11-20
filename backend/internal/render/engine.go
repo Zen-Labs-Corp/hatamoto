@@ -429,7 +429,12 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 	// Plugin templates are vetted in scratch sets first (they may only define
 	// names of their own) and only the vetted ones join the theme's set, so a
 	// plugin can neither replace a theme template nor stop the theme compiling.
-	pPartials, pSections := snap.vet(th.Sections, e.log)
+	pPartials, pSections, vetWhy := snap.vet(th.Sections, e.log)
+	// refused feeds the admin list of templates that are not registered.
+	refused := map[string][]string{}
+	for plugin, why := range vetWhy {
+		refused[plugin] = append(refused[plugin], why)
+	}
 	names := make([]string, 0, len(pPartials))
 	for n := range pPartials {
 		names = append(names, n)
@@ -438,6 +443,8 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 	for _, n := range names {
 		if _, err := root.New(n).Parse(pPartials[n]); err != nil {
 			e.log.Warn("render: skipping plugin partial", "partial", n, "error", err) // fail-open
+			p := snap.owner["p:"+n]
+			refused[p] = append(refused[p], "partial "+n+": "+err.Error())
 			continue
 		}
 		rewritePluginRanges(root, n, pPartials[n], snap.owner["p:"+n])
@@ -456,6 +463,10 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 		types = append(types, typ)
 	}
 	sort.Strings(types)
+	skipSection := func(typ, reason string) {
+		p := snap.owner["s:"+typ]
+		refused[p] = append(refused[p], "section "+typ+": "+reason)
+	}
 	first := true
 	for _, typ := range types {
 		if !sectionTypeRe.MatchString(typ) {
@@ -465,6 +476,7 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 		if _, err := root.New("sections/" + typ + ".html").Parse(th.Sections[typ].Template); err != nil {
 			if fromPlugin { // fail-open: a plugin section never breaks the theme
 				e.log.Warn("render: skipping plugin section", "type", typ, "error", err)
+				skipSection(typ, err.Error())
 				continue
 			}
 			return nil, fmt.Errorf("sections/%s.html: %w", typ, err)
@@ -472,6 +484,7 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 		if root.Lookup("section-"+typ) == nil {
 			if fromPlugin {
 				e.log.Warn("render: skipping plugin section", "type", typ, "error", "does not define its section template")
+				skipSection(typ, "does not define its section template")
 				continue
 			}
 			return nil, fmt.Errorf("sections/%s.html must define \"section-%s\"", typ, typ)
@@ -480,6 +493,7 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 			rewritePluginRanges(root, "sections/"+typ+".html", th.Sections[typ].Template, snap.owner["s:"+typ])
 			if err := escapeProbe(root, typ); err != nil { // fail-open, as for a parse error
 				e.log.Warn("render: skipping plugin section", "type", typ, "error", err)
+				skipSection(typ, err.Error())
 				continue
 			}
 		}
@@ -493,6 +507,7 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 		dispatch.WriteString(`{{end}}`)
 	}
 	dispatch.WriteString(`{{end}}`)
+	e.plugins.noteCompileRefused(slices.Compact(slices.Sorted(maps.Values(snap.owner))), refused)
 	if _, err := root.New("section-dispatch").Parse(dispatch.String()); err != nil {
 		return nil, fmt.Errorf("section dispatch: %w", err)
 	}

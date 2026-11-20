@@ -49,10 +49,20 @@ type pluginRegistry struct {
 	// registered it, so a plugin's registrations can be removed on reload.
 	owner map[string]string
 	gen   int // bumped on every change
+	// refused holds, per plugin, what registration refused; compiled holds
+	// what the last template compile left out (vet rejections, fail-open
+	// skips). Both only feed the admin list: recording never bumps gen, so a
+	// refusal cannot trigger a rebuild.
+	refused  map[string][]string
+	compiled map[string][]string
 }
 
+// maxRefusedPerPlugin caps each per-plugin refusal list and the merged view.
+const maxRefusedPerPlugin = 20
+
 func newPluginRegistry() *pluginRegistry {
-	return &pluginRegistry{funcs: template.FuncMap{}, partials: map[string]string{}, sections: map[string]string{}, owner: map[string]string{}}
+	return &pluginRegistry{funcs: template.FuncMap{}, partials: map[string]string{}, sections: map[string]string{}, owner: map[string]string{},
+		refused: map[string][]string{}, compiled: map[string][]string{}}
 }
 
 var defaultPlugins = newPluginRegistry()
@@ -70,14 +80,66 @@ func RegisterPluginFunc(plugin, name string, fn any) error {
 // RegisterPluginPartial registers an html/template source as the partial
 // "plugin/<plugin>/<name>".
 func RegisterPluginPartial(plugin, name, src string) error {
-	return defaultPlugins.registerPartial(plugin, name, src)
+	err := defaultPlugins.registerPartial(plugin, name, src)
+	if err != nil {
+		defaultPlugins.noteRefused(plugin, err)
+	}
+	return err
 }
 
 // RegisterPluginSection registers an html/template source as the section type
 // typ. It defines "section-<typ>" like a theme's sections/<typ>.html and has
 // lower precedence: a theme section of the same type wins.
 func RegisterPluginSection(plugin, typ, src string) error {
-	return defaultPlugins.registerSection(plugin, typ, src)
+	err := defaultPlugins.registerSection(plugin, typ, src)
+	if err != nil {
+		defaultPlugins.noteRefused(plugin, err)
+	}
+	return err
+}
+
+// PluginTemplatesRefused lists the plugin's sections and partials that are
+// not registered, each with its reason: what registration refused plus what
+// the last template compile left out. The compile part is replaced on every
+// compile, so with engines on different themes the last compile wins. The
+// list is sorted, deduplicated and capped; it is nil when nothing was refused.
+func PluginTemplatesRefused(plugin string) []string {
+	return defaultPlugins.templatesRefused(plugin)
+}
+
+func (r *pluginRegistry) noteRefused(plugin string, err error) {
+	msg := strings.TrimPrefix(err.Error(), "render: ")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if l := r.refused[plugin]; len(l) < maxRefusedPerPlugin && !slices.Contains(l, msg) {
+		r.refused[plugin] = append(l, msg)
+	}
+}
+
+// noteCompileRefused replaces the compile-time record of each plugin in
+// plugins with why[plugin] (none: the record is cleared).
+func (r *pluginRegistry) noteCompileRefused(plugins []string, why map[string][]string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, p := range plugins {
+		if l := why[p]; len(l) > 0 {
+			r.compiled[p] = slices.Clone(l)
+		} else {
+			delete(r.compiled, p)
+		}
+	}
+}
+
+func (r *pluginRegistry) templatesRefused(plugin string) []string {
+	r.mu.RLock()
+	out := slices.Concat(r.refused[plugin], r.compiled[plugin])
+	r.mu.RUnlock()
+	if len(out) == 0 {
+		return nil
+	}
+	slices.Sort(out)
+	out = slices.Compact(out)
+	return out[:min(len(out), maxRefusedPerPlugin)]
 }
 
 // PluginSectionOwner returns the plugin that registered the section type, if
@@ -197,6 +259,8 @@ func (r *pluginRegistry) registerSection(plugin, typ, src string) error {
 func (r *pluginRegistry) removePlugin(plugin string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	delete(r.refused, plugin)
+	delete(r.compiled, plugin)
 	for key, who := range r.owner {
 		if who != plugin {
 			continue
@@ -264,10 +328,13 @@ func (r *pluginRegistry) snapshot() pluginSnapshot {
 // unknown func, a call to another plugin's template, a section that does not define its own entry, a call cycle,
 // too many template calls or ranges nested too deeply across the plugin's
 // templates) rejects ALL of that plugin's templates, with a log line. The theme is never touched.
-func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logger) (partials, sections map[string]string) {
+// why says, per rejected plugin, the first reason (the one that is logged).
+func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logger) (partials, sections map[string]string, why map[string]string) {
 	rejected := map[string]bool{} // plugin name
+	why = map[string]string{}
 	reject := func(plugin, what string, err error) {
 		if !rejected[plugin] {
+			why[plugin] = "all templates: " + what + ": " + err.Error()
 			log.Warn("render: plugin templates rejected", "plugin", plugin, "template", what, "error", err)
 			NoteBootFault("plugin-templates-rejected:" + plugin)
 		}
@@ -344,7 +411,7 @@ func (s pluginSnapshot) vet(themeSections map[string]*SectionDef, log *slog.Logg
 			delete(sections, typ)
 		}
 	}
-	return partials, sections
+	return partials, sections, why
 }
 
 func validatePluginFunc(fn any) error {

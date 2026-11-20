@@ -658,7 +658,8 @@ func vetPlugin(t *testing.T, partials, sections map[string]string) (gotPartials,
 			t.Fatalf("section %s: %v", typ, err)
 		}
 	}
-	return reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	p, s, _ := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return p, s
 }
 
 func TestPluginVetBoundsCallsAndNesting(t *testing.T) {
@@ -735,7 +736,7 @@ func TestPluginVetRefusesCallsToAnotherPlugin(t *testing.T) {
 	must(reg.registerSection("acme", "x", `{{define "section-x"}}{{template "plugin/acme/p" "aaaa"}}{{end}}`))
 	must(reg.registerPartial("beta", "q", `{{if .}}{{template "plugin/acme/p" (slice . 1)}}{{template "plugin/acme/p" (slice . 1)}}{{end}}`))
 	must(reg.registerPartial("beta", "ok", `<b>{{template "plugin/beta/q" "a"}}</b>`))
-	partials, sections := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	partials, sections, _ := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if len(partials) != 0 || len(sections) != 0 {
 		t.Errorf("kept partials %v, sections %v, want none", partials, sections)
 	}
@@ -767,7 +768,7 @@ func TestPluginVetRefusesCallsToAnotherPluginsSections(t *testing.T) {
 			if err := reg.registerSection("beta", "bx", tc.b); err != nil {
 				t.Fatal(err)
 			}
-			_, sections := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+			_, sections, _ := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 			if len(sections) != 0 {
 				t.Errorf("kept sections %v, want none", sections)
 			}
@@ -829,7 +830,7 @@ func TestPluginVetRefusesDict(t *testing.T) {
 	if err := reg.registerPartial("acme", "p", `{{template "plugin/acme/q" (dict "Content" 5)}}`); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil))); len(got) != 0 {
+	if got, _, _ := reg.snapshot().vet(nil, slog.New(slog.NewTextHandler(io.Discard, nil))); len(got) != 0 {
 		t.Fatal("dict was available to a plugin template")
 	}
 }
