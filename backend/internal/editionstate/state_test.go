@@ -83,6 +83,7 @@ func TestRegisterPanics(t *testing.T) {
 		{"after freeze", func() { Freeze(); Register("example", g) }},
 		{"twice", func() { Register("example", g); Register("other", g) }},
 		{"nil gate", func() { Register("example", nil) }},
+		{"typed nil gate", func() { Register("example", (*fakeGate)(nil)) }},
 		{"community", func() { Register(Community, g) }},
 		{"empty", func() { Register("", g) }},
 		{"upper", func() { Register("Upper", g) }},

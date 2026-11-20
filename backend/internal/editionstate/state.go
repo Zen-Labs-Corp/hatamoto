@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 	"sync"
 	"sync/atomic"
@@ -40,7 +41,7 @@ var (
 )
 
 // Register installs the edition name and gate. It panics after Freeze, on a
-// second call, with a nil gate, or with a reserved or invalid name.
+// second call, with a nil (or typed-nil) gate, or with a reserved or invalid name.
 func Register(name string, g Gate) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -49,12 +50,25 @@ func Register(name string, g Gate) {
 		panic("edition: Register called after app.Main started; register from an init function")
 	case reg.Load() != nil:
 		panic(fmt.Sprintf("edition: Register called twice (already %q)", reg.Load().name))
-	case g == nil:
+	case isNil(g):
 		panic("edition: Register with a nil gate")
 	case name == Community || !validName.MatchString(name):
 		panic(fmt.Sprintf("edition: invalid edition name %q", name))
 	}
 	reg.Store(&registration{name: name, gate: g})
+}
+
+// isNil reports whether g is nil or an interface holding a nil pointer, map,
+// slice, func or chan, which would panic on first use.
+func isNil(g Gate) bool {
+	if g == nil {
+		return true
+	}
+	switch v := reflect.ValueOf(g); v.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan, reflect.Interface:
+		return v.IsNil()
+	}
+	return false
 }
 
 // Freeze makes any later Register panic. Core calls it first thing in Main.
