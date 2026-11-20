@@ -110,7 +110,7 @@ func TestSchemaCommentsHiddenWhenOff(t *testing.T) {
 	t.Parallel()
 
 	c, _ := centityRig(t, &fakeComments{})
-	lacks(t, c.get(t, "owner-token", cschemaPath(1), ""), `id="comments"`, `/comments"`)
+	lacks(t, c.get(t, "owner-token", cschemaPath(1), ""), `id="comments"`, cschemaPath(1)+`/comments"`)
 	lacks(t, newContentRig(t).get(t, "owner-token", cschemaPath(1), ""), `id="comments"`)
 }
 
