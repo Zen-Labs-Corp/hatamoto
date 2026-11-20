@@ -192,7 +192,7 @@ func TestCommentConfirmationLogKeepsNoAddress(t *testing.T) {
 		if strings.Contains(strings.ToLower(all), "visitor.name") {
 			t.Errorf("%s: address kept in the log: %+v", name, e)
 		}
-		if len(e.Recipients) != 1 || e.Recipients[0] != "V***@example.test" {
+		if len(e.Recipients) != 1 || e.Recipients[0] != "V***@e***.test" {
 			t.Errorf("%s: recipients = %v", name, e.Recipients)
 		}
 	}
@@ -225,5 +225,36 @@ func TestCleanErrorMasksBeforeTruncating(t *testing.T) {
 	got := cleanError(err, Config{}, map[string]string{addr: maskAddress(addr)})
 	if strings.Contains(got, "aaaaaaaa") {
 		t.Errorf("address fragment kept: %q", got)
+	}
+}
+
+func TestCommentKindsStorage(t *testing.T) {
+	for _, k := range []Kind{KindCommentModeration, KindCommentDigest, KindCommentReply} {
+		if k.StoresBody() {
+			t.Errorf("%s must not store bodies", k)
+		}
+	}
+	for k, want := range map[Kind]bool{
+		KindCommentConfirmation: false, KindCommentReply: false,
+		KindCommentModeration: true, KindCommentDigest: true,
+	} {
+		if got := k.StoresRecipients(); got != want {
+			t.Errorf("%s StoresRecipients = %v, want %v", k, got, want)
+		}
+	}
+}
+
+func TestMaskAddress(t *testing.T) {
+	for in, want := range map[string]string{
+		"Visitor@example.test": "V***@e***.test",
+		"a@localhost":          "a***@l***",
+		"a@b.co.uk":            "a***@b***.uk",
+		"@x":                   "***",
+		"x@":                   "***",
+		"nope":                 "***",
+	} {
+		if got := maskAddress(in); got != want {
+			t.Errorf("maskAddress(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
