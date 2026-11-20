@@ -168,7 +168,7 @@ function pickerDialog() {
   dlg.setAttribute("aria-labelledby", "hm-media-picker-title");
   dlg.innerHTML =
     '<div class="hm-dialog__panel"><h2 class="hm-dialog__title" id="hm-media-picker-title">Choose an image</h2>' +
-    '<div class="hm-dialog__body" id="hm-media-picker-body" aria-live="polite" hx-sync="this:replace"></div>' +
+    '<div class="hm-dialog__body" id="hm-media-picker-body" aria-live="polite"></div>' +
     '<div class="hm-dialog__foot"><button class="hm-btn" type="button" data-hm-picker-close>Cancel</button></div></div>';
   // Esc or Cancel leave focus nowhere: return it to the opener (a pick focuses its field).
   dlg.addEventListener("close", () => {
@@ -225,6 +225,8 @@ async function openPicker(opener) {
   dlg.querySelector("#hm-media-picker-title").textContent = docs ? "Choose a document" : "Choose an image";
   const mine = ++pickerLoad;
   const kept = pickerPages.get(type);
+  // The body carries no sync attribute: forms inside inherit it and a search would abort an upload.
+  window.htmx?.trigger(body, "htmx:abort"); // an earlier open's load must not land over this one
   if (kept !== undefined) {
     body.innerHTML = kept; // the server's own markup from the first open
     window.htmx?.process(body);

@@ -51,6 +51,20 @@ func TestContentJSPickerLoadsThroughHTMX(t *testing.T) {
 	}
 }
 
+// hx-sync is inherited by the forms inside the picker body: a search would abort an upload.
+// An earlier open's load is aborted explicitly instead.
+func TestContentJSPickerBodyHasNoHxSync(t *testing.T) {
+	t.Parallel()
+
+	src := readContentJS(t)
+	if strings.Contains(src, "hx-sync") {
+		t.Error("the picker body must not carry hx-sync: its forms inherit it")
+	}
+	if !strings.Contains(src, `window.htmx?.trigger(body, "htmx:abort")`) {
+		t.Error("openPicker must abort the body's in-flight load before loading or inserting a kept page")
+	}
+}
+
 // htmx 2 gives htmx:xhr:loadend no xhr, so a status read from it is always undefined and the
 // failure row never shows. The outcome has to come from htmx:afterRequest.
 func TestContentJSUploadFailureUsesAfterRequest(t *testing.T) {
