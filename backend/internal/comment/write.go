@@ -110,11 +110,15 @@ func (s *Service) Store(ctx context.Context, d Draft) (Comment, error) {
 			if err != nil {
 				return err
 			}
+			// Lock order everywhere: entity counts row, then commenter row. So no
+			// lock on the commenter row is taken here; last_seen_at is touched
+			// after the recount below.
+			if _, err := tx.Exec(ctx, `INSERT INTO hatamoto_commenters (email_hash, email_sealed, created_at, last_seen_at)
+				VALUES ($1, $2, $3, $3) ON CONFLICT (email_hash) DO NOTHING`, h, sealed, now); err != nil {
+				return err
+			}
 			var id uuid.UUID
-			if err := tx.QueryRow(ctx, `INSERT INTO hatamoto_commenters (email_hash, email_sealed, created_at, last_seen_at)
-				VALUES ($1, $2, $3, $3)
-				ON CONFLICT (email_hash) DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at
-				RETURNING id`, h, sealed, now).Scan(&id); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT id FROM hatamoto_commenters WHERE email_hash = $1`, h).Scan(&id); err != nil {
 				return err
 			}
 			commenterID = &id
@@ -174,9 +178,14 @@ func (s *Service) Store(ctx context.Context, d Draft) (Comment, error) {
 				return err
 			}
 		}
-		if c.Status == StatusApproved && c.CommenterID != nil {
-			if err := refreshCommenter(ctx, tx, *c.CommenterID, set.Thresholds, now); err != nil {
+		if c.CommenterID != nil {
+			if _, err := tx.Exec(ctx, `UPDATE hatamoto_commenters SET last_seen_at = $2 WHERE id = $1`, *c.CommenterID, now); err != nil {
 				return err
+			}
+			if c.Status == StatusApproved {
+				if err := refreshCommenter(ctx, tx, *c.CommenterID, set.Thresholds, now); err != nil {
+					return err
+				}
 			}
 		}
 		out = c
@@ -375,7 +384,8 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 		}
 		gone = c
 		rows, err := tx.Query(ctx, `SELECT DISTINCT commenter_id FROM hatamoto_comments
-			WHERE commenter_id IS NOT NULL AND path >= $1 AND path < $1 || '/'`, c.Path)
+			WHERE commenter_id IS NOT NULL AND path >= $1 AND path < $1 || '/'
+			ORDER BY commenter_id`, c.Path)
 		if err != nil {
 			return err
 		}

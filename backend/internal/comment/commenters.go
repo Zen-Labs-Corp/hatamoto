@@ -1,9 +1,11 @@
 package comment
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -225,13 +227,19 @@ func (s *Service) EraseByEmail(ctx context.Context, email string) (EraseResult, 
 		if err := rows.Err(); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_commenters WHERE id = $1`, c.ID); err != nil {
-			return err
-		}
+		// Entity counts rows first (in id order), the commenter row last.
+		entities := make([]uuid.UUID, 0, len(touched))
 		for e := range touched {
+			entities = append(entities, e)
+		}
+		slices.SortFunc(entities, func(x, y uuid.UUID) int { return bytes.Compare(x[:], y[:]) })
+		for _, e := range entities {
 			if err := lockAndRecount(ctx, tx, e, now); err != nil {
 				return fmt.Errorf("recount: %w", err)
 			}
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_commenters WHERE id = $1`, c.ID); err != nil {
+			return err
 		}
 		return nil
 	})
