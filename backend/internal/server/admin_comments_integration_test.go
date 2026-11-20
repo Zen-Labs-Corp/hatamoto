@@ -29,8 +29,6 @@ func (nopMailer) SendCommentConfirmation(context.Context, string, email.CommentC
 	return nil
 }
 
-// TestCommentsAdminIntegration drives the adapter against a migrated database.
-// Comments and commenters are seeded through comment.Service only.
 // modeRecorder records only OnModeChanged; uuid.Nil is a type-default change.
 type modeRecorder struct {
 	comment.NopObserver
@@ -46,6 +44,8 @@ func (m *modeRecorder) OnModeChanged(_ context.Context, id uuid.UUID) {
 	m.entities = append(m.entities, id)
 }
 
+// TestCommentsAdminIntegration drives the adapter against a migrated database.
+// Comments and commenters are seeded through comment.Service only.
 func TestCommentsAdminIntegration(t *testing.T) {
 	ctx := context.Background()
 	env := newWireEnv(t, nil)
