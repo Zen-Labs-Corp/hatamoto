@@ -215,9 +215,14 @@ func stubFuncs(funcs template.FuncMap) template.FuncMap {
 // branch above.
 func scanSampleRender(src string, funcs template.FuncMap) error {
 	// Without a load-time range rule a template could spin on a huge range
-	// that prints nothing, so the sample render gets its own silent budget.
+	// that prints nothing, so the sample render gets one silent budget, shared
+	// by every template and every call in it: a template called from a range
+	// must not get a fresh budget per call.
 	fm := stubFuncs(funcs)
-	fm[rangeBudgetFunc] = standaloneRangeHandle
+	shared := &rangeBudget{left: pluginRangeBudget}
+	fm[rangeBudgetFunc] = func(plugin, tmpl string) *rangeHandle {
+		return &rangeHandle{b: shared, plugin: plugin, tmpl: tmpl}
+	}
 	t, err := template.New("sample").Funcs(fm).Parse(src)
 	if err != nil {
 		return nil

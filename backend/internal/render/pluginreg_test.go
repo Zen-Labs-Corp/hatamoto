@@ -630,6 +630,26 @@ func TestSampleRenderBoundsRanges(t *testing.T) { //nolint:paralleltest // sets 
 	}
 }
 
+// The sample render has one budget for the whole render: a template called
+// from a range, or called many times, must not get a fresh budget per call.
+func TestSampleRenderSharesOneBudget(t *testing.T) {
+	t.Parallel()
+	for name, src := range map[string]string{
+		"define called from a range": `{{define "inner"}}{{range 100000000}}{{end}}{{end}}` +
+			`{{define "outer"}}{{range 100}}{{template "inner"}}{{end}}{{end}}`,
+		"many static calls": `{{define "inner"}}{{range 100000000}}{{end}}{{end}}` +
+			`{{define "outer"}}` + strings.Repeat(`{{template "inner"}}`, 100) + `{{end}}`,
+	} {
+		start := time.Now()
+		if err := scanSampleRender(src, nil); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+		if d := time.Since(start); d > 2*time.Second {
+			t.Errorf("%s: sample render took %v", name, d)
+		}
+	}
+}
+
 func TestSampleRenderIsCapped(t *testing.T) {
 	t.Parallel()
 	if err := scanSampleRender(strings.Repeat("x", maxPackOutput+1), nil); !errors.Is(err, errPluginOutput) {
