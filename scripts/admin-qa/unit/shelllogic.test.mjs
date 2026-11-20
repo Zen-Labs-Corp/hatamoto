@@ -2,7 +2,7 @@
 // Run: node --test scripts/admin-qa/unit/shelllogic.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { carryHref, confirmPost, isDismissed, markDismissed, photoFailed, photoFallback, phraseMatches, rememberSidebar, rememberedSidebar, safeStorage, unsignedGatesMet } from "../../../backend/web/admin/js/shelllogic.js";
+import { ackGateMet, carryHref, confirmPost, isDismissed, markDismissed, photoFailed, photoFallback, phraseMatches, rememberSidebar, rememberedSidebar, safeStorage, unsignedGatesMet } from "../../../backend/web/admin/js/shelllogic.js";
 
 // A form whose controls are named like the bulk toolbar: a field called "action" shadows form.action.
 const attrs = (o) => ({ getAttribute: (k) => o[k] ?? null });
@@ -173,4 +173,9 @@ test("unsigned gates: an unknown site address never matches", () => {
 test("unsigned gates: the acknowledgement must be exactly true", () => {
   assert.equal(unsignedGatesMet({ ...gates, ack: "1" }), false);
   assert.equal(unsignedGatesMet({ ...gates, ack: undefined }), false);
+});
+
+test("ackGateMet needs a real true", () => {
+  assert.equal(ackGateMet(true), true);
+  for (const v of [false, undefined, "true", 1]) assert.equal(ackGateMet(v), false);
 });

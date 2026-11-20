@@ -73,6 +73,10 @@ export const UNSIGNED_DURATIONS = ["1h", "24h", "forever"];
 export const unsignedGatesMet = ({ ack, host, siteHost, password, duration }) =>
   ack === true && siteHost !== "" && String(host).trim().toLowerCase() === siteHost.toLowerCase() && UNSIGNED_DURATIONS.includes(duration) && String(password) !== "";
 
+// Tick-to-confirm form (data-hm-ack): true once the "I understand" switch is on. It only enables
+// the confirm button; the server checks understand=1 again.
+export const ackGateMet = (checked) => checked === true;
+
 // Admin fetches carry the token.
 export function installCsrfFetch(g, base, token) {
   const f = g.fetch;
