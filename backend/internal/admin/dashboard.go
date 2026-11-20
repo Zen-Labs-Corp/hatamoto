@@ -103,7 +103,7 @@ type dashView struct {
 func (v *dashView) Left() []*dashSection { return v.pick("dash-health", "dash-activity") }
 
 func (v *dashView) Right() []*dashSection {
-	return v.pick("dash-pages", "dash-submissions", "dash-missing")
+	return v.pick("dash-pages", "dash-submissions", "dash-comments", "dash-missing")
 }
 
 // OneColumn reports that only one of the two columns has cards.
@@ -562,7 +562,7 @@ func dashChange(cur, prev int64) *ui.StatChange {
 // only: the owner-only stores (404 log, analytics) are never called
 // for them.
 func (a *Admin) dashJobs(role string) []dashJob {
-	candidates := []*dashJob{a.contentJob(), a.submissionsJob()}
+	candidates := []*dashJob{a.contentJob(), a.submissionsJob(), a.commentsJob()}
 	if role == "owner" {
 		candidates = append(candidates, a.healthJob(), a.referralsJob(), a.missingJob(), a.topPagesJob(), a.activityJob())
 	}
