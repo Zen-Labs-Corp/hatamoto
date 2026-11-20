@@ -707,7 +707,7 @@ func (p *packageAdmin) meta(ctx context.Context, r packages.Row) *admin.PackageM
 	}
 	m := &admin.PackageMeta{Enabled: r.Enabled, Signed: r.Signed(), Signer: r.SignerKeyID, FirstParty: firstPartyRow(r), Source: string(r.Source),
 		Update: p.updateFor(ctx, packages.KindPlugin, r.Name, r.Version), UpdateNew: p.updateNewFor(ctx, r.Name, r.Version, man.Asked()),
-		Blocked: p.mgr().Blocked(packages.KindPlugin, r.Name), Revoked: r.DisabledReason, LoadError: p.mgr().LoadError(r.Name), ScriptsBlocked: scripts, MarkupStopped: p.mgr().MarkupStopped(r.Name), AsksScripts: slices.Contains(man.Permissions, sdk.PermSiteScripts), Uninstalling: r.State == packages.StateUninstalling}
+		Blocked: p.mgr().Blocked(packages.KindPlugin, r.Name), Revoked: r.DisabledReason, LoadError: p.mgr().LoadError(r.Name), ScriptsBlocked: scripts, MarkupStopped: p.mgr().MarkupStopped(r.Name), TemplatesRefused: p.mgr().TemplatesRefused(r.Name), AsksScripts: slices.Contains(man.Permissions, sdk.PermSiteScripts), Uninstalling: r.State == packages.StateUninstalling}
 	if r.Name == legacyWebhooksPlugin {
 		m.LegacyFirstParty = firstPartySigned(r)
 		m.WebhooksImported = p.s.webhooksImportRecorded(ctx)
