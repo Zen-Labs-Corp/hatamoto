@@ -7,9 +7,11 @@ import (
 	"context"
 	"crypto/x509"
 	"embed"
+	"errors"
 	"fmt"
 	"html/template"
 	"log/slog"
+	"net/url"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -373,6 +375,22 @@ type SendOptions struct {
 	Plugin string
 	// ResentFrom is the log id of the entry this send repeats, or 0.
 	ResentFrom int64
+	// ListUnsubscribe is an absolute http(s) URL. When set, the mail carries
+	// List-Unsubscribe: <URL> and List-Unsubscribe-Post: List-Unsubscribe=One-Click
+	// (RFC 8058). An unsafe value fails the send with ErrBadHeader.
+	ListUnsubscribe string
+}
+
+// ErrBadHeader is returned when a header value supplied in SendOptions is unsafe.
+var ErrBadHeader = errors.New("email: unsafe header value")
+
+// validListUnsubscribe reports whether v is safe to put inside <> in a header.
+func validListUnsubscribe(v string) bool {
+	if _, ok := SanitizeHeader(v); !ok || len(v) > 2048 || strings.ContainsAny(v, "<>, \t\x00") {
+		return false
+	}
+	u, err := url.Parse(v)
+	return err == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Host != "" && u.User == nil
 }
 
 // SetRecorder makes every send leave one email log entry. Pass nil to stop.
@@ -405,6 +423,10 @@ func (s *Service) SendTrackedWith(ctx context.Context, opts SendOptions, to []st
 	c := *s.cfg.Load()
 	if opts.FromName == "" {
 		opts.FromName = s.siteFromName(ctx, c)
+	}
+	if opts.ListUnsubscribe != "" && !validListUnsubscribe(opts.ListUnsubscribe) {
+		s.record(ctx, c, opts, to, subject, htmlBody, textBody, "", StatusFailed, ErrBadHeader)
+		return "", ErrBadHeader
 	}
 	if !c.configured() {
 		s.logger.Info("email service not configured, dropping send",
@@ -539,6 +561,10 @@ func (s *Service) buildMIMEMessage(c Config, to []string, subject, htmlBody, tex
 	}
 	msg.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(to, ", ")))
 	msg.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+	if opts.ListUnsubscribe != "" {
+		msg.WriteString("List-Unsubscribe: <" + opts.ListUnsubscribe + ">\r\n")
+		msg.WriteString("List-Unsubscribe-Post: List-Unsubscribe=One-Click\r\n")
+	}
 	msg.WriteString("MIME-Version: 1.0\r\n")
 	// Message-ID, wrapped in angle-brackets per RFC 5322.
 	if messageID != "" {
