@@ -212,7 +212,7 @@ document.addEventListener("htmx:beforeSwap", (evt) => {
 });
 document.addEventListener("htmx:afterRequest", (evt) => {
   const d = evt.detail;
-  if (d.successful && d.requestConfig?.verb === "post" && d.requestConfig.elt?.closest?.("#hm-media-picker")) pickerPages.clear();
+  if (d.requestConfig?.verb !== "get" && d.requestConfig?.elt?.closest?.("#hm-media-picker")) pickerPages.clear();
 });
 
 async function openPicker(opener) {

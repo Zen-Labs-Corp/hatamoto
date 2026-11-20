@@ -65,6 +65,12 @@ document.addEventListener("htmx:beforeSwap", (evt) => {
   if (card(evt) && evt.detail.xhr.status === 200) cache.set(evt.detail.pathInfo.requestPath, evt.detail.serverResponse);
 });
 
+// An install, update or other write from inside the panel makes the kept fragments stale.
+document.addEventListener("htmx:afterRequest", (evt) => {
+  const cfg = evt.detail.requestConfig;
+  if (cfg?.verb !== "get" && cfg?.elt?.closest?.("#" + BODY)) cache.clear();
+});
+
 document.addEventListener("htmx:afterSwap", (evt) => {
   if (card(evt) && evt.target.id === BODY) settle(dialog(), evt.target);
 });
