@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/httpx"
 
 	"hatamoto.dev/core/internal/entity"
@@ -267,24 +269,69 @@ func (s *Server) purgeRendered(ctx context.Context) {
 	}
 }
 
-// registerRenderInvalidation also resets the form usage index. It drops the cached rendered pages whenever an
-// entity is created, updated, published (or unpublished) or deleted; cached
-// sitemaps go with them (scheduled publishes fire the same hook). Pages
-// embed siblings and navigation, so the whole set goes (coarse on purpose).
-// Menu edits call invalidateRendered from their handlers.
+// invalidateEntityRendered runs when one entity's content changed. It drops
+// that entity's pages, every page tagged as possibly listing any entity, and
+// the sitemaps, without moving the global generation: an in-flight render of a
+// page that depends on no entity is still stored.
+func (s *Server) invalidateEntityRendered(ctx context.Context, id uuid.UUID) {
+	if s.infra == nil || s.infra.CacheInvalidator == nil {
+		return
+	}
+	if err := s.infra.CacheInvalidator.InvalidateEntity(ctx, id, ""); err != nil {
+		s.logger.Warn("render: invalidate entity pages", "error", err)
+	}
+	s.pageCache.notifyContentChanged()
+}
+
+// entityEventID reads the entity ID of an entity hook payload (value or
+// pointer); false when there is none or it does not parse.
+func entityEventID(p any) (uuid.UUID, bool) {
+	var raw string
+	switch ev := p.(type) {
+	case sdk.EntityEvent:
+		raw = ev.ID
+	case *sdk.EntityEvent:
+		if ev == nil {
+			return uuid.Nil, false
+		}
+		raw = ev.ID
+	default:
+		return uuid.Nil, false
+	}
+	id, err := uuid.Parse(raw)
+	return id, err == nil
+}
+
+// registerRenderInvalidation drops cached pages and sitemaps when an entity is
+// created, updated, published (or unpublished) or deleted (scheduled publishes
+// fire the same hook). An event that names its entity takes the targeted path
+// (invalidateEntityRendered); one without a usable ID, and import.completed,
+// drop everything. Menu edits call invalidateRendered from their handlers.
+// The same events change where a form is placed, so the form usage index
+// is reset too.
 func (s *Server) registerRenderInvalidation() {
+	resetFormUsage := func() {
+		if s.formUsage != nil {
+			s.formUsage.Invalidate()
+		}
+	}
 	for _, name := range []string{
 		sdk.EntityCreated.Name, sdk.EntityUpdated.Name,
-		sdk.EntityPublished.Name, sdk.EntityDeleted.Name, sdk.ImportCompleted.Name,
+		sdk.EntityPublished.Name, sdk.EntityDeleted.Name,
 	} {
-		s.hooks.AddAction(name, 0, func(ctx context.Context, _ any) {
-			s.invalidateRendered(ctx)
-			// The same events change where a form is placed.
-			if s.formUsage != nil {
-				s.formUsage.Invalidate()
+		s.hooks.AddAction(name, 0, func(ctx context.Context, p any) {
+			if id, ok := entityEventID(p); ok {
+				s.invalidateEntityRendered(ctx, id)
+			} else {
+				s.invalidateRendered(ctx)
 			}
+			resetFormUsage()
 		})
 	}
+	s.hooks.AddAction(sdk.ImportCompleted.Name, 0, func(ctx context.Context, _ any) {
+		s.invalidateRendered(ctx)
+		resetFormUsage()
+	})
 }
 
 // communityScriptsLive reports a community plugin script live on public pages;

@@ -16,6 +16,7 @@ import (
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/hooks"
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/sdk"
 )
 
 // renderProbe wraps a real in-process cache holding one rendered-page entry,
@@ -55,8 +56,19 @@ func TestEntityEventsClearRenderedPages(t *testing.T) {
 		s.registerRenderInvalidation()
 		sink := pluginhost.NewEntitySink(s.hooks, log)
 
+		tok := c.Generation()
 		sink.Emit(context.Background(), entity.Event{Kind: kind, ID: uuid.New(), Slug: "x"})
 		s.hooks.Wait()
+
+		// The global generation did not move: a page of another entity that
+		// started rendering before the event is still stored; one that may list
+		// any entity is not.
+		if ok, _ := c.SetIfGenerationTagged(context.Background(), "render:v1:probe:-:/b", []byte("b"), time.Minute, tok, cache.EntityTag(uuid.New())); !ok {
+			t.Errorf("%s: in-flight store of an unrelated page rejected", kind)
+		}
+		if ok, _ := c.SetIfGenerationTagged(context.Background(), "render:v1:probe:-:/l", []byte("l"), time.Minute, tok, cache.TagAnyEntity); ok {
+			t.Errorf("%s: in-flight store of a listing page accepted", kind)
+		}
 
 		if !probe.cleared() {
 			t.Errorf("%s did not clear render:*", kind)
@@ -64,6 +76,55 @@ func TestEntityEventsClearRenderedPages(t *testing.T) {
 		if _, err := c.Get(context.Background(), cache.SitemapKey("index")); err == nil {
 			t.Errorf("%s left a stale cached sitemap", kind)
 		}
+	}
+}
+
+// ownTaggedStoreSurvives registers the entity hooks over a real cache and
+// reports whether an in-flight store of another entity's page, started before
+// fire, is still accepted after it.
+func ownTaggedStoreSurvives(t *testing.T, fire func(*Server)) bool {
+	t.Helper()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	c := cache.New(log)
+	s := &Server{
+		logger: log,
+		hooks:  hooks.New(log),
+		infra:  &Infrastructure{Cache: c, CacheInvalidator: cache.NewCacheInvalidator(c, log)},
+	}
+	s.registerRenderInvalidation()
+	tok := c.Generation()
+	fire(s)
+	s.hooks.Wait()
+	ok, _ := c.SetIfGenerationTagged(context.Background(), "render:v1:probe:-:/b", []byte("b"), time.Minute, tok, cache.EntityTag(uuid.New()))
+	return ok
+}
+
+func TestImportCompletedStaysGlobal(t *testing.T) {
+	if ownTaggedStoreSurvives(t, func(s *Server) {
+		pluginhost.NewEntitySink(s.hooks, s.logger).Emit(context.Background(), entity.Event{
+			Kind: entity.EventImportCompleted, Import: &entity.ImportSummary{Source: "x"},
+		})
+	}) {
+		t.Fatal("import.completed left an in-flight store alive")
+	}
+}
+
+func TestEntityEventWithoutIDStaysGlobal(t *testing.T) {
+	for name, payload := range map[string]any{
+		"empty id":   sdk.EntityEvent{ID: ""},
+		"bad id":     sdk.EntityEvent{ID: "not-a-uuid"},
+		"other type": "x",
+	} {
+		if ownTaggedStoreSurvives(t, func(s *Server) {
+			s.hooks.Fire(context.Background(), sdk.EntityUpdated.Name, payload)
+		}) {
+			t.Errorf("%s: event without a usable ID did not purge globally", name)
+		}
+	}
+	if !ownTaggedStoreSurvives(t, func(s *Server) {
+		s.hooks.Fire(context.Background(), sdk.EntityUpdated.Name, &sdk.EntityEvent{ID: uuid.NewString()})
+	}) {
+		t.Error("pointer payload with an ID went global")
 	}
 }
 
