@@ -170,6 +170,8 @@ type PageView struct {
 	// >= 1 (pass .PageNum). Lazy and memoised per (limit, page). Never nil in a
 	// layout: a zero PostsPage on any other entity.
 	PostsByAuthor func(limit, page int) PostsPage
+	// CommentConfirm is set only for the comment confirmation page.
+	CommentConfirm *CommentConfirmView
 	// Comments is the public thread; nil when comments are off, hidden or in
 	// preview, and themes then render nothing. CommentForm is nil when closed.
 	Comments     *CommentThread

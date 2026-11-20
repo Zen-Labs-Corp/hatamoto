@@ -170,7 +170,12 @@
     "comment_ago_hour_one": "{n} hour ago",
     "comment_ago_hour_other": "{n} hours ago",
     "comment_ago_day_one": "{n} day ago",
-    "comment_ago_day_other": "{n} days ago"
+    "comment_ago_day_other": "{n} days ago",
+    "comment_confirm_title": "Confirm your comment",
+    "comment_confirm_message": "Press the button to publish your comment on this page:",
+    "comment_confirm_button": "Confirm",
+    "comment_link_expired_title": "Link expired",
+    "comment_link_expired_message": "This link has expired or was already used. If you still want to comment, post it again and we will send a new link."
   },
   "settings_schema": {
     "type": "object",
