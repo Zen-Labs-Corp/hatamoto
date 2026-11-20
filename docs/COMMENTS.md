@@ -7,11 +7,23 @@ Comments are off on every site until an owner turns them on.
 
 ## Enable comments
 
-Only an owner can turn comments on, in Settings > Comments, after two warnings that comments invite spam. Editors see the switch read-only. Not written yet.
+Only an owner can turn comments on, in Settings > Comments. Turning them on takes two warnings that comments invite spam: a notice on the page, then a confirmation where the owner ticks "I understand this will invite spam" before the button works. The switch is recorded in the audit log. Editors can open the page but see the switch and the settings read-only.
+
+Once comments are on, the page shows the trust levels, limits, sort order and captcha settings, and a per-type and per-entry control appears on the schema and entry screens to open, close or hide comments there.
+
+Set the site address and outgoing email first: without them no confirmation mail is sent and new commenters cannot confirm.
 
 ## Moderation
 
-Owners and editors moderate every comment. Every comment with a link and every first comment waits in the queue. Not written yet.
+Owners and editors moderate every comment. Every comment with a link and every first comment waits in the queue.
+
+The Comments screen in the sidebar lists comments in four tabs: Pending, Approved, Spam and Trash. Search by text and filter by entry, commenter trust or "has links". A held comment shows why it was held, for example a link or a first comment. The sidebar item shows the number of comments waiting, and shows once comments are on or any comment exists.
+
+Each row can be approved, replied to as the site, edited, marked as spam or trashed. Approving a comment from a new commenter can also vouch for them, which raises their trust level. Marking spam can teach the site to catch the same text, address or links again. Select several rows to approve, mark as spam, trash or delete them together; deleting removes a comment and its replies for good and asks first.
+
+Under Settings > Comments there are two more pages. Commenters lists the people who commented: search them, vouch for or block one, export what is stored about them, sign them out everywhere or erase them. Sign out all devices ends the commenter's sign-in on every device; the trust level stays. Erasing has one behaviour: comments without replies are deleted and the others are made anonymous. Blocklists holds the email and link domains that mark a comment as spam, which owners and editors can edit, and the spam texts, addresses and networks learned from Mark as spam, which can only be cleared.
+
+The Overview shows a Comments card with the newest waiting comments and a link to the queue; it is left out while comments are off and nothing is waiting.
 
 ## Trust levels
 
