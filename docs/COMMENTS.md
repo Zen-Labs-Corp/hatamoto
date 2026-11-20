@@ -15,7 +15,7 @@ Owners and editors moderate every comment. Every comment with a link and every f
 
 ## Trust levels
 
-`new`, `known`, `trusted` and `blocked`. The defaults are 3 approved comments and 7 days for `known`, and 15 comments and 30 days for `trusted`; both are editable. Links are held at every level. Not written yet.
+`new`, `known`, `trusted` and `blocked`. The defaults are 3 approved comments and 7 days for `known`, and 15 comments and 30 days for `trusted`; both are editable. Links are held at every level, except in replies written by an owner or editor as the site. Not written yet.
 
 ## Themes
 
@@ -23,7 +23,7 @@ Comments are threaded, up to 5 levels by default. Themes can override the commen
 
 ## Privacy and retention
 
-No raw IP address is stored, only keyed hashes. There is no website field. Spam and trash are purged after 30 days by default, and unconfirmed comments after 24 hours. The owner can export or erase everything held for an email address. Not written yet.
+No raw IP address is stored, only keyed hashes, which are pseudonymous personal data. A truncated user agent is stored with each comment. There is no website field. Spam and trash are purged after 30 days by default, and unconfirmed comments after 24 hours. The owner can export or erase (delete or anonymise) everything held for an email address. Not written yet.
 
 ## Plugins
 

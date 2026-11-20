@@ -17,8 +17,10 @@ described below is not one (Decision 4).
    a moderator. Owners and editors moderate everything.
 4. No raw IP address is stored. Core keeps keyed hashes of the address and its
    network only.
-5. Spam protection runs on the site. No comment data, hash or signature is sent
-   to a shared, federated or hosted spam list.
+5. Core's spam protection runs on the site. Core sends no comment data, hash or
+   signature to any outside service and uses no shared, federated or hosted
+   spam list. A `comment.check` plugin the owner installs may call one; core
+   never hands it the raw IP or the email.
 6. No JavaScript is needed to read or post a comment.
 7. Spam and blocked submissions look posted to their sender and are shown to
    nobody else.
@@ -76,8 +78,8 @@ plugin API a second core.
 - **Backup and export.** Comments belong in the backup and in the export, with
   the rest of the site.
 - **Webhooks.** Comment events use the same signed delivery as other events.
-- **MCP.** The MCP server can read and moderate comments with the same
-  permissions as the admin.
+- **MCP.** The MCP server can read and moderate comments through API-key
+  scopes, like the other MCP tools.
 - **WordPress import.** The importer can bring existing comments across.
 
 ### 3. Identity: a confirmed email and a device cookie
@@ -132,19 +134,23 @@ why each comment was held, so a moderator never has to guess.
 ### 6. Privacy: hashes, not addresses
 
 Core never stores a raw IP address. It stores `ip_hash` and `net_hash`, which
-are HMACs of the address and of its network (/24 for IPv4, /64 for IPv6) made
-with the server secret. They are enough for rate limits and blocklists. They
-cannot be turned back into an address, and they are useless without the
-secret.
+are keyed HMACs of the address and of its network (/24 for IPv4, /64 for IPv6)
+made with the server secret. They are enough for rate limits and blocklists.
+They are pseudonymous personal data, not anonymous. Without the server secret
+they cannot be linked to an address, but anyone who has the secret can recover
+IPv4 addresses by brute force, and backups include the secret. Treat the hashes
+and backups as personal data. Each comment also stores a truncated user agent,
+for moderation.
 
 Retention is short and automatic. Unconfirmed drafts are purged after 24
 hours. Spam and trash are purged after a number of days, 30 by default.
 Used form tokens are purged when they expire. A visitor's comments are
-removed with the rest of their record when the owner erases an email address.
+deleted or anonymised with the rest of their record when the owner erases an
+email address.
 
 ### 7. Spam protection stays local
 
-Checks run cheapest first, on the site, with no outside service:
+Checks run cheapest first, in core, with no outside service:
 
 1. Site and entity gates, including site access modes.
 2. A surge breaker: above a site-wide rate, new comments are held whatever the
@@ -165,9 +171,11 @@ and are never marked as held. Bots get no signal to adapt to.
 
 A `comment.check` plugin hook can add to the score. It receives the body, link
 domains and hashes, never the raw IP or the email, and it has a timeout. On a
-timeout or an error the comment is held. There is no shared, federated or
+timeout or an error the comment is held. A plugin the owner installs may call an
+outside spam service within its own network grants, and the owner is then
+responsible for telling visitors. Core itself has no shared, federated or
 hosted spam list and no data-sharing contract with a spam service. Local rules
-and the hook are the whole design.
+and the hook are the whole core design.
 
 ### 8. Threads, format and rendering
 
@@ -221,7 +229,9 @@ adds no plugin write API in this work.
 ## Implementation order
 
 1. This ADR.
-2. Targeted render-cache invalidation and per-key cache generations.
+2. Targeted render-cache invalidation and per-key cache generations, the
+   comment text format and the core spam primitives. These and step 3 do not
+   depend on each other and can go in any order; rendering needs the cache part.
 3. The data model and service. The migration leaves comments off.
 4. Identity, admin, rendering, the submit pipeline, integrations (webhooks,
    MCP), import and export, and notifications, in parallel where possible.
