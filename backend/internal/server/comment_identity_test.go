@@ -186,6 +186,9 @@ func TestConfirmTokenIsRedactedInLogs(t *testing.T) {
 	if got := redactPreviewToken(commentConfirmPrefix + "SECRET"); got != commentConfirmPrefix+"<token>" {
 		t.Errorf("redactPreviewToken = %q", got)
 	}
+	if got := redactPreviewToken("/" + commentConfirmPrefix + "SECRET"); got != commentConfirmPrefix+"<token>" {
+		t.Errorf("non-canonical path: redactPreviewToken = %q", got)
+	}
 	if got := redactPreviewToken("/-/comments/other"); got != "/-/comments/other" {
 		t.Errorf("redactPreviewToken touched %q", got)
 	}

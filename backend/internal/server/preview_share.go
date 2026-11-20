@@ -89,7 +89,7 @@ const previewShareCSP = "sandbox allow-same-origin; script-src 'none'"
 // path in a logged path: both are bearer secrets.
 func redactPreviewToken(p string) string {
 	for _, prefix := range []string{previewPathPrefix, commentConfirmPrefix} {
-		if strings.HasPrefix(p, prefix) {
+		if strings.HasPrefix(p, prefix) || strings.HasPrefix(muxCleanPath(p), prefix) {
 			return prefix + "<token>"
 		}
 	}
