@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/admin/a11y"
@@ -366,6 +367,56 @@ func TestLanguageAndTimezoneOptions(t *testing.T) {
 	for _, z := range timezones {
 		if f := (siteForm{Name: "x", Language: "en", Timezone: z}); f.validate()["timezone"] != "" {
 			t.Errorf("offered time zone %q is not valid on this system", z)
+		}
+	}
+}
+
+// A site must find a time zone with its own clock: an offered zone with the
+// same UTC offset on every day, or scheduled posts and the update window run
+// an hour or more off. Each place below follows rules that none of the other
+// offered zones share (no summer time, a half or quarter hour, its own dates).
+func TestTimezonesCoverPlacesWithTheirOwnRules(t *testing.T) {
+	t.Parallel()
+
+	offered := make([]*time.Location, 0, len(timezones))
+	for _, z := range timezones {
+		loc, err := time.LoadLocation(z)
+		if err != nil {
+			t.Fatalf("%s: %v", z, err)
+		}
+		offered = append(offered, loc)
+	}
+	sameClock := func(a, b *time.Location) bool {
+		for d := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC); d.Year() < 2028; d = d.AddDate(0, 0, 1) {
+			_, oa := d.In(a).Zone()
+			_, ob := d.In(b).Zone()
+			if oa != ob {
+				return false
+			}
+		}
+		return true
+	}
+	for _, place := range []string{
+		"Australia/Brisbane", "Pacific/Port_Moresby", "Australia/Darwin",
+		"Asia/Tehran", "Asia/Kabul", "Asia/Kathmandu", "Asia/Yangon",
+		"Africa/Casablanca", "Atlantic/Azores", "Atlantic/Cape_Verde",
+		"America/Caracas", "America/La_Paz", "America/Puerto_Rico",
+		"America/Vancouver", "America/Edmonton", "America/Winnipeg",
+		"Pacific/Noumea", "Pacific/Guadalcanal", "Pacific/Fiji", "Pacific/Tongatapu", "Pacific/Apia",
+	} {
+		loc, err := time.LoadLocation(place)
+		if err != nil {
+			t.Fatalf("%s: %v", place, err)
+		}
+		found := false
+		for _, o := range offered {
+			if sameClock(loc, o) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("no offered time zone keeps the time of %s", place)
 		}
 	}
 }
