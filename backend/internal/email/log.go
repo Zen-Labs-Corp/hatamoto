@@ -26,6 +26,7 @@ const (
 	KindCommentModeration   Kind = "comment_moderation" // one held comment, to a moderator
 	KindCommentDigest       Kind = "comment_digest"     // several held comments, to a moderator
 	KindCommentReply        Kind = "comment_reply"      // a reply, to an opted-in commenter
+	KindCommentSurge        Kind = "comment_surge"      // surge mode started, to the owners
 	KindPlugin              Kind = "plugin"
 	KindOther               Kind = "other"
 )
@@ -64,7 +65,7 @@ type Recorder interface {
 func (k Kind) StoresBody() bool {
 	switch k {
 	case KindPasswordReset, KindInvite, KindAdminAddressChanged, KindAdminAddressSetup, KindCommentConfirmation,
-		KindCommentModeration, KindCommentDigest, KindCommentReply:
+		KindCommentModeration, KindCommentDigest, KindCommentReply, KindCommentSurge:
 		return false
 	}
 	return true

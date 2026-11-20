@@ -381,13 +381,55 @@ func TestSubmitCaptchaOffWhenUnusable(t *testing.T) {
 	}
 }
 
+func TestSubmitSurgeCallsOnSurge(t *testing.T) {
+	for _, surge := range []bool{false, true} {
+		h := newHarness(t)
+		now := t0
+		h.p.Limits = NewLimits(func() time.Time { return now }) // explicit clock, moved by hand below
+		calls := 0
+		h.p.OnSurge = func(context.Context) { calls++ }
+		if surge {
+			for i := 0; i < defaultSurgeLimit; i++ {
+				h.p.Limits.Surge().Note()
+			}
+		}
+		submit := func() {
+			h.fresh(now.Add(-time.Minute))
+			h.req.Now = now
+			h.submit(t)
+		}
+		submit()
+		submit() // same instant: throttled to one report
+		want := 0
+		if surge {
+			want = 1
+		}
+		if calls != want {
+			t.Fatalf("surge=%v: OnSurge calls = %d, want %d", surge, calls, want)
+		}
+		now = now.Add(SurgeBeat)
+		submit() // a beat later the surge reports again
+		if surge {
+			want = 2
+		}
+		if calls != want {
+			t.Fatalf("surge=%v after a beat: OnSurge calls = %d, want %d", surge, calls, want)
+		}
+	}
+}
+
 func TestSubmitSurgeIgnoresInvalidTokens(t *testing.T) {
 	h := newHarness(t)
+	calls := 0
+	h.p.OnSurge = func(context.Context) { calls++ }
 	for i := 0; i < defaultSurgeLimit+5; i++ {
 		h.req.Post = url.Values{TokenField: {"forged"}}
 		if out := h.submit(t); out.Kind != FakeSuccess {
 			t.Fatalf("forged submit %d = %d", i, out.Kind)
 		}
+	}
+	if calls != 0 {
+		t.Fatalf("OnSurge called %d times for forged posts", calls)
 	}
 	if active, _ := h.p.Limits.Surge().Note(); active {
 		t.Fatal("forged posts started surge mode")

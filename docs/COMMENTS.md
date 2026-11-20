@@ -33,6 +33,8 @@ Commenters can tick "Email me when someone replies". It only takes effect once t
 
 Every mail has a one-click unsubscribe link, also sent as a `List-Unsubscribe` header. A moderator who unsubscribed can turn mail back on from the same page.
 
+When surge mode starts, every owner with an email address gets one mail (whatever the Email moderators setting), with a link to the pending queue. The next one comes only after the surge has ended: no server that can send the surge mail has reported a surge for 12 minutes (the 10 minute window plus the one minute between reports and the one minute a mail run may take). A server that cannot send (no outgoing email, no site address, or `comment_notify` switched off) does not report, so it does not keep the episode open. The mail holds no comment text and no commenter names, and has no unsubscribe link (it is a rare site alarm). It needs the site address and outgoing email, like the other mails.
+
 ## Trust levels
 
 `new`, `known`, `trusted` and `blocked`. The defaults are 3 approved comments and 7 days for `known`, and 15 comments and 30 days for `trusted`; both are editable. Links are held at every level, except in replies written by an owner or editor as the site. Not written yet.
@@ -59,7 +61,7 @@ No raw IP address is stored, only keyed hashes (`ip_hash` and `net_hash`), which
 
 **Erase.** Erasing has one behaviour: comments without replies are deleted, the others are made anonymous, and the commenter is removed. IP-hash blocks that marking one of their comments as spam added are removed. Network (/24) blocks are shared by everyone on that network and are kept.
 
-**Email log.** Confirmation and reply mails to commenters are logged with a masked address (only the first letter of the name, the first letter of the domain and its last label are kept, like `a***@e***.com`) and no body, so an erase can not match them and does not need to. Moderator mails go to staff addresses and their bodies are not stored either. These rows age out with the email log retention setting.
+**Email log.** Confirmation and reply mails to commenters are logged with a masked address (only the first letter of the name, the first letter of the domain and its last label are kept, like `a***@e***.com`) and no body, so an erase can not match them and does not need to. Moderator mails and the surge mail go to staff addresses and their bodies are not stored either. These rows age out with the email log retention setting.
 
 **Limits.** Erase does not reach backups: older copies keep the data until the backups rotate.
 
@@ -108,9 +110,9 @@ The default mode for a content type is `entity_schemas.settings.comments.mode`; 
 
 ### internal/comment
 
-`comment.Service` methods: `Store`, `Confirm`, `Approve`, `MarkSpam`, `Trash`, `Delete`, `Edit`, `Get`, `Thread`, `Counts`, `HasNonPublic`, `ViewerComments`, `HasEditable`, `EditableComments`, `DuplicateSince`, `PurgeFormTokens`, `StatusCounts`, `Queue`, `Vouch`, `Block`, `RevokeDevices`, `ExportByEmail`, `EraseByEmail`, `Settings`, `SaveSettings`, `EntityMode`, `SetEntityMode`, `Commenter`, `MatchBlocks`, `Blocks`, `AddBlock`, `RemoveBlock`, `ConsumeFormToken`, `PurgeSpamTrash`, `QueueModeration`, `ClaimModeration`, `ClearModeration`, `SetModeratorMuted`, `QueueReply`, `ClaimReplies`, `PruneModerationQueue`, `PruneReplyQueue`, `UnsubscribeReplies`.
+`comment.Service` methods: `Store`, `Confirm`, `Approve`, `MarkSpam`, `Trash`, `Delete`, `Edit`, `Get`, `Thread`, `Counts`, `HasNonPublic`, `ViewerComments`, `HasEditable`, `EditableComments`, `DuplicateSince`, `PurgeFormTokens`, `StatusCounts`, `Queue`, `Vouch`, `Block`, `RevokeDevices`, `ExportByEmail`, `EraseByEmail`, `Settings`, `SaveSettings`, `EntityMode`, `SetEntityMode`, `Commenter`, `MatchBlocks`, `Blocks`, `AddBlock`, `RemoveBlock`, `ConsumeFormToken`, `PurgeSpamTrash`, `QueueModeration`, `ClaimModeration`, `ClearModeration`, `SetModeratorMuted`, `QueueReply`, `ClaimReplies`, `PruneModerationQueue`, `PruneReplyQueue`, `UnsubscribeReplies`, `NoteSurge`.
 
-The job `comment_notify` runs every minute (switch it off with `comment_notify` in `WORKER_DISABLE_JOBS`). Spam and trash are purged inside `retention_purge`. The unsubscribe link is `/-/comments/unsubscribe/<token>`: a GET shows a button and a POST unsubscribes (RFC 8058 one-click).
+The job `comment_notify` runs every minute (switch it off with `comment_notify` in `WORKER_DISABLE_JOBS`; that also stops the surge mail from that server). Spam and trash are purged inside `retention_purge`. The unsubscribe link is `/-/comments/unsubscribe/<token>`: a GET shows a button and a POST unsubscribes (RFC 8058 one-click).
 
 `Store` takes a draft that is already formatted and scored. The package does not import `internal/spam` or `internal/commentfmt`; the caller maps their results onto the draft.
 
@@ -146,7 +148,7 @@ All of them answer `404` while the site switch is off, sit behind the site-acces
 **Submit order.** Cheapest checks first; everything that rejects a bot answers with the same redirect a held comment gets, except mistakes a person can fix:
 
 1. Site switch on and the page open. Closed or auto-closed pages store nothing.
-2. Surge breaker: above a site-wide rate every new comment is held as pending, whatever the trust level. The start of a surge is logged once.
+2. Surge breaker: above a site-wide rate every new comment is held as pending, whatever the trust level. The start of a surge is logged, and the owners are emailed once per surge (state shared between servers in `hatamoto_digest_state` under the name `comment_surge`).
 3. Single-use token.
 4. Fields are read only under the rotated names.
 5. Rate limits per IP hash, network hash, email hash and page. They live in memory, per process, and reset on a restart.

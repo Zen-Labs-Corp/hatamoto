@@ -86,3 +86,24 @@ func TestSurge(t *testing.T) {
 		t.Fatal("active after the window")
 	}
 }
+
+func TestSurgeBeat(t *testing.T) {
+	c := &fakeClock{t: time.Unix(1000, 0)}
+	l := NewLimits(c.now)
+	defer l.Stop()
+	s := l.Surge()
+	if !s.Beat(true) {
+		t.Fatal("start did not report")
+	}
+	c.t = c.t.Add(30 * time.Second)
+	if s.Beat(false) {
+		t.Fatal("beat inside the minute reported")
+	}
+	c.t = c.t.Add(31 * time.Second)
+	if !s.Beat(false) {
+		t.Fatal("beat after a minute did not report")
+	}
+	if !s.Beat(true) {
+		t.Fatal("a new start did not report")
+	}
+}

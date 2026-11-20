@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/mail"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -40,6 +41,44 @@ type CommentReplyData struct {
 	ReplierName    string
 	URL            string
 	UnsubscribeURL string
+}
+
+// CommentSurgeData drives comment_surge.html. It carries no comment or commenter data.
+type CommentSurgeData struct {
+	SiteName    string
+	Limit       int           // comments within Window that trip surge mode
+	Window      time.Duration // the surge window
+	ModerateURL string        // <base><admin>/comments?status=pending
+}
+
+// surgeView is what comment_surge.html renders.
+type surgeView struct {
+	CommentSurgeData
+	WindowText string
+}
+
+// SendCommentSurge tells a site owner that surge mode started. There is no
+// unsubscribe link: it is a site alarm, not a subscription.
+func (s *Service) SendCommentSurge(ctx context.Context, to string, d CommentSurgeData) error {
+	site := d.SiteName
+	d.SiteName = notifyText(d.SiteName)
+	win := windowText(d.Window)
+	html, err := s.render("comment_surge.html", surgeView{d, win})
+	if err != nil {
+		return err
+	}
+	text := fmt.Sprintf("More than %d comments arrived in %s, so every new comment is now held for moderation, whatever the commenter's trust level.\nSurge mode ends by itself when the rate drops.\n\nModerate: %s\n", d.Limit, win, d.ModerateURL)
+	subject := headerOr("Comments on "+site+" are in surge mode", "Comments are in surge mode")
+	return s.sendComment(ctx, KindCommentSurge, to, site, subject, html, text, "")
+}
+
+// windowText renders a window as whole minutes: "1 minute", "10 minutes".
+func windowText(w time.Duration) string {
+	m := int(w / time.Minute)
+	if m == 1 {
+		return "1 minute"
+	}
+	return fmt.Sprintf("%d minutes", m)
 }
 
 // SendCommentModeration mails a moderator about held comments: one comment is a
