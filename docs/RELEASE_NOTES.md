@@ -1,5 +1,11 @@
 # Release notes
 
+## Unreleased: comments data model (off)
+
+- **Comments data model.** The tables and Go services for comments exist: storage, threads, trust levels, a blocklist, a safe-HTML formatter, and a comment-only spam decision. Nothing is wired to the server. Comments stay off; nothing is visible.
+- **Docs.** [Comments](COMMENTS.md) has a developer section with the contracts.
+- **Migration.** Six new tables (hatamoto_comments, hatamoto_commenters, hatamoto_comment_settings, hatamoto_comment_entities, hatamoto_comment_blocks, hatamoto_comment_form_tokens). Expand only. Rollback floor: unchanged.
+
 ## Unreleased: edition package and site id
 
 - **Editions.** A new public Go package, `hatamoto.dev/core/edition`, lets a wrapper module that calls `app.Main` register an edition name and a feature gate from an `init` function. A standard build registers nothing: the edition is `community` and every gated feature is off. A gate that errors denies.
