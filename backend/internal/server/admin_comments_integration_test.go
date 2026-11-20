@@ -42,6 +42,12 @@ func TestCommentsAdminIntegration(t *testing.T) {
 	svc := comment.New(env.db, secret, logger)
 	entities := entity.NewService(entity.NewPostgresSchemaRepository(env.db), entity.NewPostgresEntityRepository(env.db), logger)
 	a := commentsAdmin{svc: svc, db: env.db, entities: entities}
+	modes := commentCacheObserver{}
+	var modeDrops []uuid.UUID
+	var modeAlls int
+	modes.drop = func(_ context.Context, id uuid.UUID) { modeDrops = append(modeDrops, id) }
+	modes.all = func(context.Context) { modeAlls++ }
+	svc.Register(modes)
 
 	must := func(err error) {
 		t.Helper()
@@ -269,6 +275,9 @@ func TestCommentsAdminIntegration(t *testing.T) {
 		t.Errorf("EntityComments = %+v", ec)
 	}
 	must(a.SetEntityMode(ctx, ent.ID.String(), ""))
+	if len(modeDrops) != 2 || modeDrops[0] != ent.ID || modeAlls != 0 {
+		t.Errorf("entity mode drops = %v, all %d", modeDrops, modeAlls)
+	}
 	if ec, err = a.EntityComments(ctx, ent.ID.String()); err != nil || ec.Override != "" {
 		t.Errorf("EntityComments after clear = %+v, %v", ec, err)
 	}
@@ -280,6 +289,9 @@ func TestCommentsAdminIntegration(t *testing.T) {
 		t.Errorf("schema settings lost url_pattern: %s, %v", kept.Settings, err)
 	}
 	must(a.SetSchemaMode(ctx, sch.ID.String(), ""))
+	if modeAlls != 2 || len(modeDrops) != 2 {
+		t.Errorf("type mode drops = %v, all %d, want 2 global drops", modeDrops, modeAlls)
+	}
 	if m, err := a.SchemaMode(ctx, sch.ID.String()); err != nil || m != "" {
 		t.Errorf("SchemaMode after clear = %q, %v", m, err)
 	}

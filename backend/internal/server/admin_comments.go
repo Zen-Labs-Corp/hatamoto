@@ -664,8 +664,11 @@ func (a commentsAdmin) SetSchemaMode(ctx context.Context, schemaID, mode string)
 		return err
 	}
 	merged := jsontext.Value(raw)
-	_, err = a.entities.UpdateSchema(ctx, id, &entity.UpdateSchemaInput{Settings: &merged})
-	return err
+	if _, err := a.entities.UpdateSchema(ctx, id, &entity.UpdateSchemaInput{Settings: &merged}); err != nil {
+		return err
+	}
+	a.svc.TypeModeChanged(ctx)
+	return nil
 }
 
 func (a commentsAdmin) EntityOptions(ctx context.Context, limit int) ([]admin.EntityOption, error) {

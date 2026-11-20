@@ -49,6 +49,16 @@ func (o commentCacheObserver) OnSettingsChanged(ctx context.Context, _ comment.S
 	o.all(ctx)
 }
 
+// OnModeChanged drops the entity's pages when its override changed, and every
+// rendered page when a type default changed (any entity of the type).
+func (o commentCacheObserver) OnModeChanged(ctx context.Context, entityID uuid.UUID) {
+	if entityID == uuid.Nil {
+		o.all(ctx)
+		return
+	}
+	o.drop(ctx, entityID)
+}
+
 // dropRenderedEntity is the observer's drop: that entity's pages, then a
 // debounced preload. Nil-safe without a cache (tests).
 func (s *Server) dropRenderedEntity(ctx context.Context, id uuid.UUID) {
