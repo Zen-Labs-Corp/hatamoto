@@ -84,7 +84,7 @@ func (x *restorer) checkSecret(plan *RestorePlan) (refuse string, err error) {
 		plan.Warnings = append(plan.Warnings, "no server secret is set (HATAMOTO_SECRET or secrets.env); the backup's secret check was not verified")
 	case portability.SecretMismatch:
 		if !x.req.Force {
-			return "the backup was made with a different server secret: commenter emails in it can't be decrypted and comment hashes won't match; restore with the original HATAMOTO_SECRET, or re-run with --force to restore and drop the unreadable commenter emails", nil
+			return "the backup was made with a different server secret: commenter emails in it can't be decrypted and comment hashes won't match; restore with the original HATAMOTO_SECRET, or re-run with --force to restore and drop the unreadable commenter emails; a full backup restored under another secret also leaves the other sealed data unreadable (two-factor authenticator secrets and recovery codes, the SMTP password, the off-site secret key, the spam-protection secret), so reset 2FA with `hatamoto user reset-2fa --email E` and enter the others again in the admin", nil
 		}
 		x.dropEmails = true
 		plan.Warnings = append(plan.Warnings, "--force: the backup was made with a different server secret; its commenter emails are dropped")

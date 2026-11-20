@@ -60,7 +60,7 @@ func parseRestoreArgs(args []string) (restoreArgs, error) {
 	var a restoreArgs
 	pos, err := flagSet("backup restore", args, func(fs *flag.FlagSet) {
 		fs.BoolVar(&a.dryRun, "dry-run", false, "run every check, write nothing")
-		fs.BoolVar(&a.force, "force", false, "restore a backup made with a different server secret and drop its unreadable commenter emails")
+		fs.BoolVar(&a.force, "force", false, "restore a backup made with a different server secret and drop its unreadable commenter emails (2FA, SMTP password, off-site key and spam secret stay unreadable too; see docs/BACKUPS.md)")
 		fs.StringVar(&a.adminURL, "admin-url", "", "superuser DSN for the role bootstrap")
 		fs.StringVar(&a.configOut, "config-out", "", "absolute path to write the saved config to; without it the config is not written")
 		fs.StringVar(&a.fromOffsite, "from-offsite", "", "restore backup `id` from the off-site bucket instead of a local archive")
