@@ -90,15 +90,15 @@ func TestPartialButtonRejectsUnsafeInput(t *testing.T) {
 func TestAttrsWhitelistPlainHTML(t *testing.T) {
 	t.Parallel()
 
-	got, err := attrs(map[string]string{"popovertarget": "p", "popovertargetaction": "hide", "hidden": "", "download": ""})
+	got, err := attrs(map[string]string{"popovertarget": "p", "popovertargetaction": "hide", "hidden": "", "download": "", "command": "close", "commandfor": "d"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := ` download="" hidden="" popovertarget="p" popovertargetaction="hide"`
+	want := ` command="close" commandfor="d" download="" hidden="" popovertarget="p" popovertargetaction="hide"`
 	if string(got) != want {
 		t.Errorf("attrs = %q, want %q", got, want)
 	}
-	for _, k := range []string{"onclick", "onpopovertoggle", "hx-on:click", "popoverTargetx", "hiddenx", "srcdoc"} {
+	for _, k := range []string{"onclick", "onpopovertoggle", "hx-on:click", "popoverTargetx", "hiddenx", "srcdoc", "hx-params", "hx-ext", "hx-inherit", "hx-disinherit", "oncommand"} {
 		if _, err := attrs(map[string]string{k: "x"}); err == nil {
 			t.Errorf("%s must stay rejected", k)
 		}
