@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 // Observer receives committed changes. Calls run synchronously after commit,
@@ -20,6 +22,9 @@ type Observer interface {
 	// move to pending (an unapproval). before is the comment as it was.
 	OnUpdated(ctx context.Context, before, after Comment)
 	OnSettingsChanged(ctx context.Context, s Settings)
+	// OnModeChanged fires when a comment mode changed: one entity's override
+	// (entityID), or a type default (uuid.Nil: any entity of the type may change).
+	OnModeChanged(ctx context.Context, entityID uuid.UUID)
 }
 
 // NopObserver implements Observer with no-ops; embed it to handle a subset.
@@ -45,6 +50,9 @@ func (NopObserver) OnUpdated(context.Context, Comment, Comment) {}
 
 // OnSettingsChanged does nothing.
 func (NopObserver) OnSettingsChanged(context.Context, Settings) {}
+
+// OnModeChanged does nothing.
+func (NopObserver) OnModeChanged(context.Context, uuid.UUID) {}
 
 type observers struct {
 	mu   sync.RWMutex

@@ -643,7 +643,8 @@ func TestEntityModeAndObservers(t *testing.T) {
 		t.Fatalf("comments off: %s, %v", m, err)
 	}
 	var settingsEvents int
-	f.svc.Register(&settingsRecorder{n: &settingsEvents})
+	var modeEvents []uuid.UUID
+	f.svc.Register(&settingsRecorder{n: &settingsEvents, modes: &modeEvents})
 	f.enable()
 	if settingsEvents != 1 {
 		t.Errorf("OnSettingsChanged fired %d times", settingsEvents)
@@ -670,6 +671,10 @@ func TestEntityModeAndObservers(t *testing.T) {
 	if err := f.svc.SetEntityMode(f.ctx, f.entity, "bogus"); err == nil {
 		t.Error("bogus mode accepted")
 	}
+	f.svc.TypeModeChanged(f.ctx)
+	if len(modeEvents) != 3 || modeEvents[0] != f.entity || modeEvents[1] != f.entity || modeEvents[2] != uuid.Nil {
+		t.Errorf("OnModeChanged events = %v", modeEvents)
+	}
 	if _, err := f.svc.EntityMode(f.ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
 		t.Errorf("unknown entity = %v", err)
 	}
@@ -677,10 +682,17 @@ func TestEntityModeAndObservers(t *testing.T) {
 
 type settingsRecorder struct {
 	NopObserver
-	n *int
+	n     *int
+	modes *[]uuid.UUID
 }
 
 func (s *settingsRecorder) OnSettingsChanged(context.Context, Settings) { *s.n++ }
+
+func (s *settingsRecorder) OnModeChanged(_ context.Context, id uuid.UUID) {
+	if s.modes != nil {
+		*s.modes = append(*s.modes, id)
+	}
+}
 
 func TestQueueAndStatusCounts(t *testing.T) {
 	f := newFixture(t)

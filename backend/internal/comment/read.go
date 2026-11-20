@@ -282,7 +282,17 @@ func (s *Service) SetEntityMode(ctx context.Context, entityID uuid.UUID, m Mode)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (entity_id) DO UPDATE SET mode = EXCLUDED.mode, updated_at = EXCLUDED.updated_at`,
 		entityID, v, s.utcNow())
-	return err
+	if err != nil {
+		return err
+	}
+	s.obs.each("mode", func(o Observer) { o.OnModeChanged(ctx, entityID) })
+	return nil
+}
+
+// TypeModeChanged tells the observers that a type's default comment mode
+// changed. The default lives in the schema settings, written by the caller.
+func (s *Service) TypeModeChanged(ctx context.Context) {
+	s.obs.each("mode", func(o Observer) { o.OnModeChanged(ctx, uuid.Nil) })
 }
 
 func decodeReasons(raw []byte) []string {
