@@ -22,10 +22,14 @@ func (s *Server) aiReferralMiddleware(next http.Handler) http.Handler {
 		}
 		ww := httpx.NewRecorder(w)
 		next.ServeHTTP(ww, r)
-		if st := ww.Status(); st != 0 && st != http.StatusOK {
+		// A revalidated page answers 304, which carries no Content-Type; only
+		// the page handler produces one on these routes, and it is the same
+		// visit the 200 would have been.
+		st := ww.Status()
+		if st != 0 && st != http.StatusOK && st != http.StatusNotModified {
 			return
 		}
-		if !strings.HasPrefix(ww.Header().Get("Content-Type"), "text/html") {
+		if st != http.StatusNotModified && !strings.HasPrefix(ww.Header().Get("Content-Type"), "text/html") {
 			return
 		}
 		reg := agents.Default()

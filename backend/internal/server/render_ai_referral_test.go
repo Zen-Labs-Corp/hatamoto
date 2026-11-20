@@ -41,6 +41,7 @@ func TestAIReferralMiddleware(t *testing.T) {
 		"bot with referrer":  {http.MethodGet, "/", "https://chatgpt.com/", captureGPTUA, html(200, "text/html"), nil},
 		"not found":          {http.MethodGet, "/x", "https://chatgpt.com/", browser, html(404, "text/html"), nil},
 		"sitemap not a page": {http.MethodGet, "/sitemap.xml", "https://chatgpt.com/", browser, html(200, "application/xml"), nil},
+		"revalidated page":   {http.MethodGet, "/", "https://chatgpt.com/", browser, html(304, ""), []string{"ai_referral:chatgpt"}},
 		"HEAD not counted":   {http.MethodHead, "/", "https://chatgpt.com/", browser, html(200, "text/html"), nil},
 		"implicit 200 status": {http.MethodGet, "/", "https://claude.ai/", browser, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
