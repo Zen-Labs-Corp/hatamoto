@@ -102,6 +102,20 @@ check(!!bf, "the blog preview frame loaded a ticketed URL");
 check((await canvasText(bf)).trim().length > 20, "the blog preview rendered the post");
 check(docStatuses().at(-1) === 200, "blog preview: the frame document answered 200", JSON.stringify(seen.at(-1)));
 await shot(p, "blog-preview.png");
+await p.locator("[data-hm-be-preview-close]").click();
+check(!(await p.evaluate(() => document.querySelector("#be-preview").open)), "blog preview: Close closes the dialog");
+check(await p.evaluate(() => document.activeElement?.matches("[data-hm-be-preview-toggle]")), "blog preview: focus returns to the Preview button");
+await p.locator("[data-hm-be-preview-toggle]").click();
+await p.waitForSelector("#be-preview[open]");
+await p.keyboard.press("Escape");
+check(!(await p.evaluate(() => document.querySelector("#be-preview").open)), "blog preview: Esc closes the dialog");
+const suggest = p.locator('[aria-label="Suggest links from your link rules"]');
+if (await suggest.count()) {
+  await suggest.first().click();
+  await p.waitForSelector("#be-links[open]", { timeout: 5000 });
+  await p.locator("[data-hm-links-close]").click();
+  check(!(await p.evaluate(() => document.querySelector("#be-links").open)), "link suggestions: Close closes the dialog");
+} else console.log("note: no Suggest links toolbar button on this page; links dialog left to manual evidence");
 
 // ---- (c) plugin page ----
 await p.goto(`${base}/admin/plugins/frameplug/settings`);

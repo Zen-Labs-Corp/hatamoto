@@ -415,6 +415,15 @@ await check("builder shortcut sheet: ? opens the dialog, Tab trapped, Esc closes
   await p.evaluate(() => document.getElementById("bs-more")?.hidePopover?.()); // leave the ⋯ menu closed for the next check
   return "trapped over 6 Tabs; Esc returns focus to the tree row or the button that opened it";
 });
+await check("builder shortcut sheet: the Close button closes it (command/commandfor)", async () => {
+  await openBuilder();
+  await p.locator(TREE).first().focus();
+  await press("?");
+  await p.waitForSelector("dialog#hm-bs-sheet[open]", { timeout: 2000 });
+  await p.locator("#hm-bs-sheet button", { hasText: "Close" }).click();
+  if (await p.evaluate(() => !!document.querySelector("dialog#hm-bs-sheet[open]"))) throw new Error("the Close button did not close the sheet");
+  return "closed";
+});
 
 // ---- builder direct manipulation (E4): menu, rename, text-control isolation, multi-select, history ----
 const MENU = '.hm-menu[aria-label="Element actions"]';
