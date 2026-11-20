@@ -138,9 +138,6 @@ func (r *pluginRegistry) checkPartial(plugin, name, src string) error {
 	if src == "" {
 		return fmt.Errorf("render: plugin partial %s/%s: empty source", plugin, name)
 	}
-	if err := checkPluginLoops(src); err != nil {
-		return fmt.Errorf("render: plugin partial %s/%s: %w", plugin, name, err)
-	}
 	full := "plugin/" + pluginIdent(plugin) + "/" + name
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -185,9 +182,6 @@ func (r *pluginRegistry) registerPartial(plugin, name, src string) error {
 func (r *pluginRegistry) registerSection(plugin, typ, src string) error {
 	if !sectionTypeRe.MatchString(typ) || strings.TrimSpace(src) == "" {
 		return fmt.Errorf("render: plugin section %s/%s: bad type (want %s) or empty source", plugin, typ, sectionTypeRe)
-	}
-	if err := checkPluginLoops(src); err != nil {
-		return fmt.Errorf("render: plugin section %s/%s: %w", plugin, typ, err)
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -250,11 +244,9 @@ func (r *pluginRegistry) snapshot() pluginSnapshot {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	funcs := maps.Clone(r.funcs)
-	// "t" is the one core func plugin templates may call (theme strings); the
-	// vetting scratch sets know only the funcs of this snapshot. Do not add a
-	// core func that returns a map or a struct (dict, say): checkPluginLoops
-	// trusts any .Content chain at a template root because a plugin template
-	// cannot build a value with a Content of its own.
+	// "t" is the one core func plugin templates may call; the vetting scratch
+	// sets know only the funcs of this snapshot (a plugin template cannot reach
+	// a core func such as dict).
 	funcs["t"] = tFunc
 	return pluginSnapshot{
 		funcs:    funcs,

@@ -63,7 +63,7 @@ func checkPluginScripts(src string, funcs template.FuncMap) error {
 	return nil
 }
 
-// dotKind says what the dot is while checkPluginLoops walks a template.
+// dotKind says what the dot is while collectCalls walks a template.
 type dotKind int
 
 const (
@@ -122,61 +122,6 @@ func withDot(p *parse.PipeNode, dot dotKind) dotKind {
 		}
 	}
 	return dotContent
-}
-
-// checkPluginLoops refuses a range in any template src defines, at any depth,
-// unless it iterates content data: .Content... or $.Content... (also inside a
-// range or with over such data, where the dot is content). A number, a
-// variable, a function result or a method result (.PublishedAt.UnixNano) can
-// be arbitrarily large, so a template could not be stopped by its output cap.
-// The dot of a template is whatever its caller passes, so every template root
-// counts as unknown data and only .Content chains are accepted there. A source
-// that does not parse is left to vet, which rejects it.
-func checkPluginLoops(src string) error {
-	p := parse.New("loops")
-	p.Mode = parse.SkipFuncCheck
-	trees := map[string]*parse.Tree{}
-	if _, err := p.Parse(src, "", "", trees); err != nil {
-		return nil
-	}
-	errRange := errors.New("range may only iterate content data such as .Content.items, not a number, a variable or a function result")
-	var walk func(*parse.ListNode, dotKind) error
-	walk = func(l *parse.ListNode, dot dotKind) error {
-		if l == nil {
-			return nil
-		}
-		for _, n := range l.Nodes {
-			var body, other *parse.ListNode
-			inner := dot
-			switch x := n.(type) {
-			case *parse.RangeNode:
-				if !contentPipe(x.Pipe, dot) {
-					return errRange
-				}
-				body, other, inner = x.List, x.ElseList, dotItem
-			case *parse.IfNode:
-				body, other = x.List, x.ElseList
-			case *parse.WithNode:
-				body, other, inner = x.List, x.ElseList, withDot(x.Pipe, dot)
-			}
-			if err := walk(body, inner); err != nil {
-				return err
-			}
-			if err := walk(other, dot); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	for _, t := range trees {
-		if t.Root == nil {
-			continue
-		}
-		if err := walk(t.Root, dotRoot); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // errPluginOutput is errPackOutput worded for a plugin template.
@@ -269,10 +214,15 @@ func stubFuncs(funcs template.FuncMap) template.FuncMap {
 // call on nothing) is skipped here and is covered by the source scan of every
 // branch above.
 func scanSampleRender(src string, funcs template.FuncMap) error {
-	t, err := template.New("sample").Funcs(stubFuncs(funcs)).Parse(src)
+	// Without a load-time range rule a template could spin on a huge range
+	// that prints nothing, so the sample render gets its own silent budget.
+	fm := stubFuncs(funcs)
+	fm[rangeBudgetFunc] = standaloneRangeHandle
+	t, err := template.New("sample").Funcs(fm).Parse(src)
 	if err != nil {
 		return nil
 	}
+	rewritePluginRanges(t, "sample", src, "")
 	for _, d := range t.Templates() {
 		var out bytes.Buffer
 		data := preparedSection{Section: Section{Content: map[string]any{}}, Settings: map[string]any{}}
