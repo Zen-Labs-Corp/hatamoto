@@ -29,6 +29,21 @@ func (nopMailer) SendCommentConfirmation(context.Context, string, email.CommentC
 	return nil
 }
 
+// modeRecorder records only OnModeChanged; uuid.Nil is a type-default change.
+type modeRecorder struct {
+	comment.NopObserver
+	entities []uuid.UUID
+	types    int
+}
+
+func (m *modeRecorder) OnModeChanged(_ context.Context, id uuid.UUID) {
+	if id == uuid.Nil {
+		m.types++
+		return
+	}
+	m.entities = append(m.entities, id)
+}
+
 // TestCommentsAdminIntegration drives the adapter against a migrated database.
 // Comments and commenters are seeded through comment.Service only.
 func TestCommentsAdminIntegration(t *testing.T) {
@@ -42,6 +57,8 @@ func TestCommentsAdminIntegration(t *testing.T) {
 	svc := comment.New(env.db, secret, logger)
 	entities := entity.NewService(entity.NewPostgresSchemaRepository(env.db), entity.NewPostgresEntityRepository(env.db), logger)
 	a := commentsAdmin{svc: svc, db: env.db, entities: entities}
+	modes := &modeRecorder{}
+	svc.Register(modes)
 
 	must := func(err error) {
 		t.Helper()
@@ -269,6 +286,9 @@ func TestCommentsAdminIntegration(t *testing.T) {
 		t.Errorf("EntityComments = %+v", ec)
 	}
 	must(a.SetEntityMode(ctx, ent.ID.String(), ""))
+	if len(modes.entities) != 2 || modes.entities[0] != ent.ID || modes.entities[1] != ent.ID || modes.types != 0 {
+		t.Errorf("entity mode changes = %v, type changes %d", modes.entities, modes.types)
+	}
 	if ec, err = a.EntityComments(ctx, ent.ID.String()); err != nil || ec.Override != "" {
 		t.Errorf("EntityComments after clear = %+v, %v", ec, err)
 	}
@@ -280,6 +300,9 @@ func TestCommentsAdminIntegration(t *testing.T) {
 		t.Errorf("schema settings lost url_pattern: %s, %v", kept.Settings, err)
 	}
 	must(a.SetSchemaMode(ctx, sch.ID.String(), ""))
+	if modes.types != 2 || len(modes.entities) != 2 {
+		t.Errorf("type mode changes = %d, entity changes %v, want 2 type changes", modes.types, modes.entities)
+	}
 	if m, err := a.SchemaMode(ctx, sch.ID.String()); err != nil || m != "" {
 		t.Errorf("SchemaMode after clear = %q, %v", m, err)
 	}

@@ -328,3 +328,50 @@ func TestCommentFlightFollowerGetsOwnToken(t *testing.T) {
 		t.Fatal("the cache must hold the template bytes only")
 	}
 }
+
+// modeEngine renders the comment form only while the entity is open, like the
+// real theme does from the resolved mode.
+type modeEngine struct {
+	threadEngine
+	closed *atomic.Bool
+}
+
+func (e modeEngine) RenderPage(w io.Writer, v *render.PageView) error {
+	if e.closed.Load() {
+		_, err := io.WriteString(w, "<html><body><p>Comments are closed.</p></body></html>")
+		return err
+	}
+	return e.threadEngine.RenderPage(w, v)
+}
+
+// Closing an entity's comments in admin drops its cached page, so the next
+// visitor no longer gets the comment form.
+func TestCommentCloseEntityStopsCachedForm(t *testing.T) {
+	r := newCacheRig(t)
+	var closed atomic.Bool
+	r.h.engine = modeEngine{threadEngine: r.h.engine.(threadEngine), closed: &closed}
+	if w := r.get("/a"); !strings.Contains(w.Body.String(), "data-hm-cform") {
+		t.Fatalf("open page has no form: %s", w.Body.String())
+	}
+	r.get("/b")
+	if !r.cached("/a") || !r.cached("/b") {
+		t.Fatal("pages not primed")
+	}
+
+	closed.Store(true)
+	if w := r.get("/a"); !strings.Contains(w.Body.String(), "data-hm-cform") {
+		t.Fatal("rig: the cached page should still carry the form before the drop")
+	}
+	o := commentCacheObserver{drop: r.dropEntity, all: func(context.Context) { t.Fatal("entity change dropped everything") }}
+	o.OnModeChanged(context.Background(), r.ids["/a"])
+	if r.cached("/a") || !r.cached("/b") {
+		t.Fatal("closing entity A must drop its pages only")
+	}
+	w := r.get("/a")
+	if body := w.Body.String(); strings.Contains(body, "data-hm-cform") || strings.Contains(body, "__hmcf_") {
+		t.Fatalf("closed entity still serves the comment form: %s", body)
+	}
+	if r.resolvesOf("/a") != 2 {
+		t.Fatalf("resolves a=%d, want 2", r.resolvesOf("/a"))
+	}
+}

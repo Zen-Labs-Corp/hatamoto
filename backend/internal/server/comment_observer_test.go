@@ -81,6 +81,19 @@ func TestCommentObserverSettingsChangeDropsEverything(t *testing.T) {
 	}
 }
 
+func TestCommentObserverModeChange(t *testing.T) {
+	r := newObserverRig()
+	id := uuid.New()
+	r.o.OnModeChanged(context.Background(), id)
+	if len(r.drops) != 1 || r.drops[0] != id || r.alls != 0 {
+		t.Fatalf("entity mode: drops %v, all %d", r.drops, r.alls)
+	}
+	r.o.OnModeChanged(context.Background(), uuid.Nil) // a type default
+	if len(r.drops) != 1 || r.alls != 1 {
+		t.Fatalf("type mode: drops %v, all %d", r.drops, r.alls)
+	}
+}
+
 func TestCommentObserverDropIsNilSafeWithoutACache(t *testing.T) {
 	(&Server{}).dropRenderedEntity(context.Background(), uuid.New())
 }
