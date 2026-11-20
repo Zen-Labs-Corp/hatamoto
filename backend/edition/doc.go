@@ -15,6 +15,13 @@
 //
 //	func main() { app.Main() }
 //
+// The wrapper module's go.mod needs a replace directive for the plugin SDK,
+// because core requires a placeholder sdk version that cannot be resolved
+// from outside the repository. Point it at the matching sdk version or
+// directory:
+//
+//	replace hatamoto.dev/sdk => hatamoto.dev/sdk vX.Y.Z
+//
 // Release builds of a wrapper should set the version and commit explicitly,
 // so the binary reports core's release and not the wrapper's:
 //
