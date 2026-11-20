@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"text/template/parse"
 )
 
@@ -55,6 +56,22 @@ type pluginRegistry struct {
 	// refusal cannot trigger a rebuild.
 	refused  map[string][]string
 	compiled map[string][]string
+	// gate memoises the script/call-graph gate (a sample render of every
+	// template) for one registry generation and grant state. gateMu is never
+	// held together with mu while scanning.
+	gateMu    sync.Mutex
+	gateMemo  gateResult
+	gateScans atomic.Int64 // full gate passes run (test seam)
+}
+
+// gateResult is one withoutScripts pass and the state it was computed for.
+// Its maps are shared between callers and must not be modified.
+type gateResult struct {
+	valid      bool
+	gen        int
+	fp         uint64
+	out        pluginSnapshot
+	why, graph map[string][]string
 }
 
 // maxRefusedPerPlugin caps each per-plugin refusal list and the merged view.
@@ -99,13 +116,15 @@ func RegisterPluginSection(plugin, typ, src string) error {
 }
 
 // PluginTemplatesRefused lists the plugin's sections and partials that are
-// not registered, each with its reason: what registration refused plus what
-// the last template compile left out. The compile part is replaced on every
-// compile, so with engines on different themes the last compile wins. The
-// list is sorted, deduplicated and capped; it is nil when nothing was refused.
+// not registered, each with its reason: what registration refused, what the
+// last template compile left out, and the call-graph faults the gate finds
+// now (the live part, memoised per registry change and grant change). The
+// compile part is replaced on every compile, so with engines on different
+// themes the last compile wins. The list is sorted, deduplicated and capped;
+// it is nil when nothing was refused.
 func PluginTemplatesRefused(plugin string) []string {
-	_, _, graph := defaultPlugins.snapshot().withoutScripts(pluginScriptsAllowed())
-	return defaultPlugins.templatesRefused(plugin, graph[plugin]...)
+	g := defaultPlugins.gateResult()
+	return defaultPlugins.templatesRefused(plugin, g.graph[plugin]...)
 }
 
 func (r *pluginRegistry) noteRefused(plugin string, err error) {
@@ -292,8 +311,25 @@ func (r *pluginRegistry) size() int {
 // gated is snapshot without the partials and sections that carry script
 // constructs while their plugin lacks site.scripts.
 func (r *pluginRegistry) gated() pluginSnapshot {
-	s, _, _ := r.snapshot().withoutScripts(pluginScriptsAllowed())
-	return s
+	return r.gateResult().out
+}
+
+// gateResult returns the gate's answer for the current registry and grants,
+// rerunning the scan only when either changed. Concurrent callers wait for
+// one scan; the registry lock is held only to copy the snapshot.
+func (r *pluginRegistry) gateResult() gateResult {
+	allowed := pluginScriptsAllowed()
+	fp := r.gateFingerprint(allowed)
+	r.gateMu.Lock()
+	defer r.gateMu.Unlock()
+	snap, gen := r.snapshotGen()
+	if m := r.gateMemo; m.valid && m.gen == gen && m.fp == fp {
+		return m
+	}
+	r.gateScans.Add(1)
+	out, why, graph := snap.withoutScripts(allowed)
+	r.gateMemo = gateResult{valid: true, gen: gen, fp: fp, out: out, why: why, graph: graph}
+	return r.gateMemo
 }
 
 // pluginSnapshot is a consistent copy of the registry.
@@ -306,6 +342,12 @@ type pluginSnapshot struct {
 }
 
 func (r *pluginRegistry) snapshot() pluginSnapshot {
+	s, _ := r.snapshotGen()
+	return s
+}
+
+// snapshotGen is snapshot plus the generation it was taken at.
+func (r *pluginRegistry) snapshotGen() (pluginSnapshot, int) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	funcs := maps.Clone(r.funcs)
@@ -318,7 +360,7 @@ func (r *pluginRegistry) snapshot() pluginSnapshot {
 		partials: maps.Clone(r.partials),
 		sections: maps.Clone(r.sections),
 		owner:    maps.Clone(r.owner),
-	}
+	}, r.gen
 }
 
 // vet returns the plugin templates that may be added to a theme's template

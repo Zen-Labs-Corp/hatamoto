@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"text/template/parse"
@@ -282,12 +283,12 @@ func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (out pluginSna
 		}
 		if err != nil {
 			msg := label + ": " + err.Error()
-			if !errors.Is(err, errPluginOutput) && graphFaults[plugin] == nil {
-				msg += " (not allowed without site.scripts)"
-			}
 			if graphFaults[plugin] != nil {
 				graph[plugin] = append(graph[plugin], msg)
 			} else {
+				if !errors.Is(err, errPluginOutput) {
+					msg += " (not allowed without site.scripts)"
+				}
 				why[plugin] = append(why[plugin], msg)
 			}
 			return false
@@ -342,7 +343,5 @@ func (r *pluginRegistry) gateFingerprint(allowed func(string) bool) uint64 {
 // plugin that are not registered because they carry script constructs and the
 // plugin does not hold site.scripts. It is empty once the owner grants it.
 func PluginMarkupStopped(plugin string) []string {
-	snap := defaultPlugins.snapshot()
-	_, why, _ := snap.withoutScripts(pluginScriptsAllowed())
-	return why[plugin]
+	return slices.Clone(defaultPlugins.gateResult().why[plugin])
 }

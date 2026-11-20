@@ -131,3 +131,38 @@ func TestPluginTemplatesRefusedCallGraph(t *testing.T) { //nolint:paralleltest /
 		t.Errorf("stopped = %v, want none", stopped)
 	}
 }
+
+// The gate scan is memoised: repeated admin reads do not rerun it, and a
+// registry change or a grant change does.
+func TestPluginGateMemoised(t *testing.T) { //nolint:paralleltest // uses the process-wide plugin registry and script gate
+	const plugin = "acme-memo"
+	t.Cleanup(func() { SetPluginScriptGate(nil); RemovePlugin(plugin) })
+	SetPluginScriptGate(nil)
+	if err := RegisterPluginPartial(plugin, "card", `<p>{{.}}</p>`); err != nil {
+		t.Fatal(err)
+	}
+	scans := func() int64 { return defaultPlugins.gateScans.Load() }
+	PluginTemplatesRefused(plugin)
+	base := scans()
+	PluginTemplatesRefused(plugin)
+	PluginMarkupStopped(plugin)
+	if scans() != base {
+		t.Fatalf("repeat calls reran the scan: %d -> %d", base, scans())
+	}
+	if err := RegisterPluginPartial(plugin, "more", `<b>{{.}}</b>`); err != nil {
+		t.Fatal(err)
+	}
+	PluginMarkupStopped(plugin)
+	if scans() != base+1 {
+		t.Fatalf("registry change did not invalidate: %d, want %d", scans(), base+1)
+	}
+	SetPluginScriptGate(func(p string) bool { return p == plugin })
+	PluginTemplatesRefused(plugin)
+	if scans() != base+2 {
+		t.Fatalf("grant change did not invalidate: %d, want %d", scans(), base+2)
+	}
+	PluginTemplatesRefused(plugin)
+	if scans() != base+2 {
+		t.Fatalf("repeat after grant reran the scan: %d", scans())
+	}
+}
