@@ -870,3 +870,26 @@ func TestMarkSpamOnDraftLeavesEmailAlone(t *testing.T) {
 		t.Errorf("blocklist hits = %+v, want only the body hash", hits)
 	}
 }
+
+func TestEraseRemovesLearnedNetworkBlocks(t *testing.T) {
+	f := newFixture(t)
+	d := f.draft("gone@example.test", "spam")
+	d.IP = "192.0.2.10"
+	c, err := f.svc.Confirm(f.ctx, f.store(d).ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.MarkSpam(f.ctx, c.ID, nil, Learn{Hashes: true}); err != nil {
+		t.Fatal(err)
+	}
+	ip, net := f.svc.Keys().HashIP("192.0.2.10")
+	if hits, _ := f.svc.MatchBlocks(f.ctx, Probe{IPHash: ip, NetHash: net}); len(hits) == 0 {
+		t.Fatal("nothing learned to begin with")
+	}
+	if _, err := f.svc.EraseByEmail(f.ctx, "gone@example.test"); err != nil {
+		t.Fatal(err)
+	}
+	if hits, _ := f.svc.MatchBlocks(f.ctx, Probe{IPHash: ip, NetHash: net}); len(hits) != 0 {
+		t.Errorf("erase left learned blocks: %+v", hits)
+	}
+}

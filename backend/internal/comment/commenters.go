@@ -180,6 +180,15 @@ func (s *Service) EraseByEmail(ctx context.Context, email string) (EraseResult, 
 		if err != nil {
 			return err
 		}
+		// Blocklist rows MarkSpam learned from this commenter's IP and network
+		// hashes are personal data too; they go with the comments. A /24 hash is
+		// shared, so this can also lift a block another spammer on that network
+		// taught: erasure wins.
+		if _, err := tx.Exec(ctx, `DELETE FROM hatamoto_comment_blocks WHERE source = 'spam' AND (
+				(kind = 'ip_hash' AND value IN (SELECT ip_hash FROM hatamoto_comments WHERE commenter_id = $1))
+				OR (kind = 'net_hash' AND value IN (SELECT net_hash FROM hatamoto_comments WHERE commenter_id = $1)))`, c.ID); err != nil {
+			return err
+		}
 		touched := map[uuid.UUID]bool{}
 		// Delete leaves first; deleting a leaf can turn its parent into one.
 		for {
