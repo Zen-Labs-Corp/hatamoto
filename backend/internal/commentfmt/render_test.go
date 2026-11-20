@@ -81,3 +81,37 @@ func TestBodyHash(t *testing.T) {
 		t.Fatal("different bodies share a hash")
 	}
 }
+
+func TestRenderDetectsOnNormalisedBody(t *testing.T) {
+	t.Parallel()
+	cases := []struct{ in, domain string }{
+		{"http://evil\u202E.com", "evil.com"},
+		{"www.evil\x01.com", "evil.com"},
+		{"pills\u200E.com", "pills.com"},
+		{"see ev\u200Bil.com now", "evil.com"},
+		{"visit https://ev\u00ADil.com/x", "evil.com"},
+	}
+	for _, c := range cases {
+		res, err := Render(c.in)
+		if err != nil {
+			t.Fatalf("Render(%q): %v", c.in, err)
+		}
+		if !res.HasLinks || len(res.LinkDomains) != 1 || res.LinkDomains[0] != c.domain {
+			t.Errorf("Render(%q): HasLinks=%v domains=%v, want %s", c.in, res.HasLinks, res.LinkDomains, c.domain)
+		}
+	}
+}
+
+func TestBodyHashIgnoresInvisible(t *testing.T) {
+	t.Parallel()
+	want := BodyHash("hello world")
+	for _, in := range []string{"hel\u200Elo world", "hello\x01 world", "he\u202Dllo wor\u200Bld", "\uFEFFhello world", "hel\u00ADlo world"} {
+		if got := BodyHash(in); got != want {
+			t.Errorf("BodyHash(%q) differs from plain", in)
+		}
+		res, err := Render(in)
+		if err != nil || res.BodyHash != want {
+			t.Errorf("Render(%q).BodyHash = %q, err %v", in, res.BodyHash, err)
+		}
+	}
+}

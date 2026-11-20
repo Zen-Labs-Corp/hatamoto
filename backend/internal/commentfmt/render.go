@@ -81,23 +81,26 @@ func Render(raw string) (Result, error) {
 	out := sanitise(b.String())
 	return Result{
 		HTML:        out,
-		HasLinks:    HasLinks(raw) || strings.Contains(out, "<a "),
-		LinkDomains: Domains(FindLinks(raw)),
-		BodyHash:    BodyHash(raw),
+		HasLinks:    HasLinks(body) || strings.Contains(out, "<a "),
+		LinkDomains: Domains(FindLinks(body)),
+		BodyHash:    BodyHash(body),
 	}, nil
 }
 
 // BodyHash is the hex SHA-256 of the body lowercased, with every whitespace run
-// collapsed to one space and the ends trimmed.
+// collapsed to one space and the ends trimmed. It hashes the normalised text,
+// so invisible characters never change the hash.
 func BodyHash(raw string) string {
-	s := strings.TrimSpace(reSpaces.ReplaceAllString(strings.ToLower(raw), " "))
+	s := strings.TrimSpace(reSpaces.ReplaceAllString(strings.ToLower(normalise(raw)), " "))
 	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])
 }
 
 // normalise unifies newlines and drops invalid UTF-8, NUL and other C0
-// controls (except \n and \t), DEL and bidirectional overrides, then trims
-// surrounding blank lines and trailing space.
+// controls (except \n and \t), DEL, bidirectional controls and zero-width or
+// soft-hyphen format characters, then trims surrounding blank lines and
+// trailing space. Render displays, detects links in and hashes this exact
+// text; it is idempotent.
 func normalise(s string) string {
 	s = strings.ToValidUTF8(s, "\uFFFD")
 	s = strings.ReplaceAll(s, "\r\n", "\n")
@@ -106,7 +109,7 @@ func normalise(s string) string {
 		switch {
 		case r == '\n' || r == '\t':
 			return r
-		case r < 0x20 || r == 0x7f || unicode.Is(unicode.Cf, r) && isBidi(r):
+		case r < 0x20 || r == 0x7f || unicode.Is(unicode.Cf, r) && isInvisible(r):
 			return -1
 		}
 		return r
@@ -114,8 +117,8 @@ func normalise(s string) string {
 	return strings.TrimRight(strings.Trim(s, "\n"), " \t\n")
 }
 
-func isBidi(r rune) bool {
-	return r >= 0x202A && r <= 0x202E || r >= 0x2066 && r <= 0x2069 || r == 0x200E || r == 0x200F
+func isInvisible(r rune) bool {
+	return r == 0xAD || r == 0x200B || r == 0x2060 || r == 0xFEFF || r >= 0x202A && r <= 0x202E || r >= 0x2066 && r <= 0x2069 || r == 0x200E || r == 0x200F
 }
 
 func renderBlock(block string) string {
