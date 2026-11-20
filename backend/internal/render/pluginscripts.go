@@ -214,6 +214,13 @@ func stubFuncs(funcs template.FuncMap) template.FuncMap {
 // call on nothing) is skipped here and is covered by the source scan of every
 // branch above.
 func scanSampleRender(src string, funcs template.FuncMap) error {
+	_, err := sampleRender(src, funcs)
+	return err
+}
+
+// sampleRender is scanSampleRender that also returns the pool it drew on, so a
+// test can count what was spent.
+func sampleRender(src string, funcs template.FuncMap) (*rangeBudget, error) {
 	// Without a load-time range rule a template could spin on a huge range
 	// that prints nothing, so the sample render gets one silent budget, shared
 	// by every template and every call in it: a template called from a range
@@ -225,7 +232,7 @@ func scanSampleRender(src string, funcs template.FuncMap) error {
 	}
 	t, err := template.New("sample").Funcs(fm).Parse(src)
 	if err != nil {
-		return nil
+		return shared, nil
 	}
 	rewritePluginRanges(t, "sample", src, "")
 	// Templates() walks a map; the pool is shared, so the order decides which
@@ -237,16 +244,16 @@ func scanSampleRender(src string, funcs template.FuncMap) error {
 		data := preparedSection{Section: Section{Content: map[string]any{}}, Settings: map[string]any{}}
 		err := d.Execute(&cappedWriter{buf: &out, max: maxPackOutput}, data)
 		if errors.Is(err, errPackOutput) {
-			return fmt.Errorf("markup: sample render of %s: %w", d.Name(), errPluginOutput)
+			return shared, fmt.Errorf("markup: sample render of %s: %w", d.Name(), errPluginOutput)
 		}
 		if err != nil {
 			continue
 		}
 		if err := scanPluginScripts("sample render of "+d.Name(), out.String()); err != nil {
-			return err
+			return shared, err
 		}
 	}
-	return nil
+	return shared, nil
 }
 
 // withoutScripts drops the sections and blanks the partials of every plugin the gate

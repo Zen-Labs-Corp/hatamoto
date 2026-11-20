@@ -640,12 +640,14 @@ func TestSampleRenderSharesOneBudget(t *testing.T) {
 		"many static calls": `{{define "inner"}}{{range 100000000}}{{end}}{{end}}` +
 			`{{define "outer"}}` + strings.Repeat(`{{template "inner"}}`, 100) + `{{end}}`,
 	} {
-		start := time.Now()
-		if err := scanSampleRender(src, nil); err != nil {
+		b, err := sampleRender(src, nil)
+		if err != nil {
 			t.Errorf("%s: %v", name, err)
 		}
-		if d := time.Since(start); d > 2*time.Second {
-			t.Errorf("%s: sample render took %v", name, d)
+		// Every guard spend draws on the one pool, so it ends spent. With a
+		// pool per call this one would stay untouched.
+		if b.left != 0 {
+			t.Errorf("%s: %d left in the shared pool, want 0", name, b.left)
 		}
 	}
 }

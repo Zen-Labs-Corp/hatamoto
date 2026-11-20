@@ -115,8 +115,8 @@ func newRangeHandle(log *slog.Logger, plugin, tmpl string) *rangeHandle {
 	return &rangeHandle{b: boundRangeBudget(), log: log, plugin: plugin, tmpl: tmpl}
 }
 
-// standaloneRangeHandle is a silent handle with its own budget, for renders
-// that are not page renders (the compile-time sample render).
+// standaloneRangeHandle is a silent handle with its own budget. A test helper:
+// the sample render must not use it, it shares one budget across its handles.
 func standaloneRangeHandle(plugin, tmpl string) *rangeHandle {
 	return &rangeHandle{b: &rangeBudget{left: pluginRangeBudget}, plugin: plugin, tmpl: tmpl}
 }
