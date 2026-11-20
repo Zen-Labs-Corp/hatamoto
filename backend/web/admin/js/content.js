@@ -210,9 +210,10 @@ document.addEventListener("htmx:beforeSwap", (evt) => {
   const d = evt.detail;
   if (d.requestConfig?.elt?.id === "hm-media-picker-body" && d.xhr.status === 200) pickerPages.set(pickerType(d.pathInfo.requestPath), d.serverResponse);
 });
-document.addEventListener("htmx:afterRequest", (evt) => {
+// beforeRequest: htmx swaps #hm-picker out before afterRequest, so the upload form is detached by then.
+document.addEventListener("htmx:beforeRequest", (evt) => {
   const d = evt.detail;
-  if (d.requestConfig?.verb !== "get" && d.requestConfig?.elt?.closest?.("#hm-media-picker")) pickerPages.clear();
+  if (d.requestConfig?.verb?.toLowerCase() !== "get" && d.elt?.closest?.("#hm-media-picker")) pickerPages.clear();
 });
 
 async function openPicker(opener) {
