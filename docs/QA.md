@@ -467,8 +467,8 @@ owner and an editor), then run the commands under "Harness".
 
 ### Feel
 
-* **No `hx-boost`**: `grep -rn 'hx-boost\|hx-history' backend/web/admin backend/internal`
-  prints nothing (`TestNoHxBoost` enforces it). A sidebar click is a full document navigation:
+* **No `hx-boost`**: `grep -rnE 'hx-(boost|history|vars|params|prompt|ext|inherit|disinherit|request)' backend/web/admin backend/internal --include=*.go --include=*.html --include=*.js --include=*.css | grep -v _test.go`
+  prints nothing (`TestNoHxBoost` enforces it; lowercase only, the `HX-Request` header is fine). A sidebar click is a full document navigation:
   in the Network panel the click is a `document` request, not `fetch/xhr`, and the
   Performance navigation entry has `type` `navigate`.
 * **View Transitions** (Chrome 126 and later, Safari 18.2 and later): moving between

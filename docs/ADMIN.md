@@ -633,7 +633,9 @@ keyword, SEO title and description, canonical, social image, noindex, include in
 ## Navigation and htmx conventions
 
 1. **Real page loads.** Links and forms are ordinary navigation. The admin does not use
-   `hx-boost` or `hx-history` anywhere (a test fails on either). Every mutation is a real
+   `hx-boost` or `hx-history` anywhere, nor any attribute htmx 4 removes (`hx-vars`,
+   `hx-params`, `hx-prompt`, `hx-ext`, `hx-inherit`, `hx-disinherit`, `hx-request`);
+   `TestNoHxBoost` fails on any of them. Every mutation is a real
    `<form method="post">`, answered with 303 and a flash, or 422 and the re-rendered page,
    so the whole admin works without JS and with CSRF and cookies the simple way.
 2. **Cross-document View Transitions.** `partials/sidebar.css` opts in with
@@ -666,7 +668,11 @@ keyword, SEO title and description, canonical, social image, noindex, include in
    Toasts from htmx use `HX-Trigger: {"hm:toast": {...}}` (`admin.Toast`).
 8. Tables keep their state in the URL (`?q&sort&dir&page`); a table is
    `hx-target`/`hx-select` on its own id, and the filter form is a real GET form that
-   works without JS.
+   works without JS. `hx-target`, `hx-indicator` and `hx-include` sit on the element that
+   makes the request, never on a wrapper (htmx 4 drops implicit inheritance); a designcheck
+   test fails otherwise. A dialog Close button that only closes uses
+   `command="close" commandfor="<dialog id>"` instead of a click listener (Esc closes
+   everywhere; there is no JS fallback).
 9. Destructive actions never fire on one click and never use `hx-confirm`: a
    table `ui.Action` with `Confirm` is a link to a confirmation page (the no-JS
    path) that `components.js` upgrades to the native `<dialog>` `#hm-confirm`.
