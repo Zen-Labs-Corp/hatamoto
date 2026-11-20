@@ -67,17 +67,23 @@ async function editorSession() {
 const page = await newSession(b, { width: 1440 });
 watch(page);
 let nojs;
+// The Site address the instance had before the run; the cleanup puts back exactly this.
+let originalAddress = null;
 try {
+  await page.goto(base + general);
+  originalAddress = await page.inputValue("#url");
   // ============ 0. no site address: warned and blocked ============
   await page.goto(base + settings);
-  ok((await text(page)).includes(NO_ADDRESS), "no address: settings say comments need the public address");
-  ok(await sw(page).isDisabled(), "no address: the switch is disabled");
-  ok((await page.locator("dialog#comments-enable").count()) === 0, "no address: there is no enable dialog");
-  ok((await page.locator('a[href$="/settings/general#identity"]').count()) > 0, "no address: a link leads to Settings > General");
-  await page.screenshot({ path: path.join(shots, "settings-comments-no-address.png"), fullPage: true });
-  await setAddress(page, base);
-  await page.goto(base + settings);
-  ok(!(await text(page)).includes(NO_ADDRESS), "address set: the warning is gone");
+  if ((await text(page)).includes(NO_ADDRESS)) {
+    ok((await text(page)).includes(NO_ADDRESS), "no address: settings say comments need the public address");
+    ok(await sw(page).isDisabled(), "no address: the switch is disabled");
+    ok((await page.locator("dialog#comments-enable").count()) === 0, "no address: there is no enable dialog");
+    ok((await page.locator('a[href$="/settings/general#identity"]').count()) > 0, "no address: a link leads to Settings > General");
+    await page.screenshot({ path: path.join(shots, "settings-comments-no-address.png"), fullPage: true });
+    await setAddress(page, base);
+    await page.goto(base + settings);
+    ok(!(await text(page)).includes(NO_ADDRESS), "address set: the warning is gone");
+  } else console.log(`skip no-address checks (the instance already has a site address: ${originalAddress || "set by the environment"})`);
 
   // ============ 1. the callout and the switch, off ============
   await page.goto(base + settings);
@@ -177,7 +183,10 @@ try {
   }
   await page.goto(base + settings);
   ok(!(await sw(page).isChecked()), "cleanup: comments are off again");
-  await setAddress(page, "");
+  if (originalAddress !== null) {
+    await page.goto(base + general);
+    if ((await page.inputValue("#url")) !== originalAddress) await setAddress(page, originalAddress);
+  }
   await nojs?.context().close();
 }
 ok(errors.length === 0, `no console or page errors${errors.length ? ": " + errors.slice(0, 3).join(" | ") : ""}`);
