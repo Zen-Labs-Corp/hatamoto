@@ -56,7 +56,8 @@ func (s *Service) Thread(ctx context.Context, entityID uuid.UUID, page int) (Thr
 	if set.Sort == SortOldest {
 		q = threadOldestSQL
 	}
-	rows, err := s.db.Pool().Query(ctx, q, entityID, set.PageSize+1, (page-1)*set.PageSize)
+	offset := (page - 1) * set.PageSize
+	rows, err := s.db.Pool().Query(ctx, q, entityID, set.PageSize+1, offset)
 	if err != nil {
 		return ThreadPage{}, err
 	}
@@ -71,7 +72,7 @@ func (s *Service) Thread(ctx context.Context, entityID uuid.UUID, page int) (Thr
 			&tc.BodyHTML, &tc.CreatedAt, &tc.EditedAt, &rk); err != nil {
 			return ThreadPage{}, err
 		}
-		if rk > int64(set.PageSize) {
+		if rk > int64(offset+set.PageSize) { // rk counts from the first root, not from the page
 			out.HasMore = true
 			continue
 		}
