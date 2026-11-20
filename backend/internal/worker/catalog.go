@@ -38,6 +38,7 @@ var Catalog = []JobDef{
 	{ID: "standing_digest", Name: "Standing digest mail", Schedule: "daily", Switch: true},
 	{ID: "user_access", Name: "Expiring user access", Schedule: "hourly", Switch: true},
 	{ID: "comment_drafts_purge", Name: "Unconfirmed comment purge", Schedule: "hourly", Switch: true},
+	{ID: "comment_notify", Name: "Comment notification mail", Schedule: "every minute", Switch: true},
 	{ID: "stats_ping", Name: "Install statistics", Schedule: "daily", Switch: true},
 	{ID: "backup_offsite", Name: "Off-site backup", Schedule: "checked every minute; slower while idle", Switch: true},
 	{ID: "core:preload", Name: "Page cache preload", Schedule: "as set in page cache settings"},
