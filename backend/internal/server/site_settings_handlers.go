@@ -46,6 +46,7 @@ type siteSettingsHandlers struct {
 type siteSettingsResponse struct {
 	Name              string `json:"name"`
 	LogoURL           string `json:"logo_url"`
+	FaviconURL        string `json:"favicon_url"`
 	PrimaryColor      string `json:"primary_color"`
 	CustomDomain      string `json:"custom_domain"`
 	NotificationEmail string `json:"notification_email"`
@@ -80,6 +81,7 @@ type siteSettingsResponse struct {
 type siteSettingsPatch struct {
 	Name              *string                   `json:"name"`
 	LogoURL           *string                   `json:"logo_url"`
+	FaviconURL        *string                   `json:"favicon_url"`
 	PrimaryColor      *string                   `json:"primary_color"`
 	CustomDomain      *string                   `json:"custom_domain"`
 	NotificationEmail *string                   `json:"notification_email"`
@@ -191,6 +193,7 @@ func siteSettingsFrom(cfg *siteconfig.Config) siteSettingsResponse {
 	resp := siteSettingsResponse{
 		Name:              cfg.CompanyName,
 		LogoURL:           cfg.LogoURL,
+		FaviconURL:        cfg.FaviconURL,
 		PrimaryColor:      cfg.PrimaryColor,
 		CustomDomain:      cfg.CustomDomain,
 		NotificationEmail: cfg.NotificationEmail,
@@ -238,6 +241,10 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "invalid logo_url: must be an http(s), relative or protocol-relative URL")
 		return
 	}
+	if in.FaviconURL != nil && !validSiteURL(*in.FaviconURL) {
+		writeError(w, http.StatusBadRequest, "invalid favicon_url: must be an http(s), relative or protocol-relative URL")
+		return
+	}
 	if in.PrimaryColor != nil && !validColor(*in.PrimaryColor) {
 		writeError(w, http.StatusBadRequest, "invalid primary_color")
 		return
@@ -250,6 +257,7 @@ func (h *siteSettingsHandlers) handlePatch(w http.ResponseWriter, r *http.Reques
 		SitemapNaming:     in.SitemapNaming,
 		CompanyName:       in.Name,
 		LogoURL:           in.LogoURL,
+		FaviconURL:        in.FaviconURL,
 		PrimaryColor:      in.PrimaryColor,
 		CustomDomain:      in.CustomDomain,
 		NotificationEmail: in.NotificationEmail,

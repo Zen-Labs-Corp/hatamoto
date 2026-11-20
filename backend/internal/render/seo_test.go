@@ -288,3 +288,19 @@ func TestSEOFeedAlternateLinks(t *testing.T) {
 		t.Error("no feeds, no alternate links")
 	}
 }
+
+// An owner favicon replaces the theme's root icon links in the head.
+func TestHeadOwnerFavicon(t *testing.T) {
+	t.Parallel()
+	v := loadFixtureView(t, "head")
+	v.Site.FaviconURL = "/media/icon.png"
+	got := renderHead(t, buildHeadView(context.Background(), v, nil))
+	for _, want := range []string{`<link rel="icon" href="/media/icon.png">`, `<link rel="apple-touch-icon" href="/media/icon.png">`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("head lacks %s:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "/favicon.ico") || strings.Contains(got, "/apple-icon.png") {
+		t.Errorf("head still links the theme icons:\n%s", got)
+	}
+}

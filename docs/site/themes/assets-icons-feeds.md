@@ -56,6 +56,8 @@ A theme may replace `hm.js` or drop it. If you ship your own, keep the progressi
 
 The default theme ships a full set. A theme overrides any of them by shipping a file of the same name, and the rest still come from the default. The default `head` partial links `/favicon.ico`, `/favicon-32.png` and `/apple-icon.png`; if your theme has its own `head.html`, link whichever you ship. These are fixed names, so there is no manifest to edit.
 
+When the owner sets a favicon in **Settings > General**, it wins over the theme's icons: every path in the table answers with a redirect to that image (cached for 5 minutes), and the default `head` partial links the image directly as `<link rel="icon">` and `<link rel="apple-touch-icon">` (its `headView` field is `.Icon`, empty when no favicon is set). A theme with its own `head.html` that links the fixed names keeps working; to link the owner's favicon directly, use `{{with .Icon}}...{{else}}...{{end}}` like the default partial.
+
 ## Feeds
 
 When the site has a `post` schema, `/feed.xml` (RSS 2.0) and `/atom.xml` (Atom 1.0) list the 20 newest published posts, with sanitised bodies, absolute links and the author attribute. A site with no `post` schema answers 404. Feeds are cached with the other rendered pages and are cleared by the same content changes.

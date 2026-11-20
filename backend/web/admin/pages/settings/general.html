@@ -1,5 +1,10 @@
 {{template "layouts/shell" .}}
 {{define "modules"}}@hm/searchselect @hm/jumptabs{{end}}
+{{define "general-image"}}<div class="hm-field{{if .Error}} hm-field--invalid{{end}}"><label class="hm-field__label" for="{{.ID}}">{{.Label}}</label>
+<img class="hm-sf-image"{{with .Value}} src="{{.}}"{{else}} hidden{{end}} alt="">
+<div class="hm-row"><input class="hm-field__control" type="text" id="{{.ID}}" name="{{.ID}}" value="{{.Value}}" maxlength="500" data-hm-image autocomplete="off" aria-describedby="{{.ID}}-help{{if .Error}} {{.ID}}-error{{end}}"{{if .Error}} aria-invalid="true"{{end}}>{{template "hm/button" (dict "Label" "Choose from library" "Size" "sm" "Attrs" (attrmap "data-hm-media-picker" .ID "hidden" "hidden"))}}</div>
+<p class="hm-field__help" id="{{.ID}}-help">{{.Help}}</p>
+{{with .Error}}<p class="hm-field__error" id="{{$.ID}}-error">{{.}}</p>{{end}}</div>{{end}}
 {{define "main"}}{{with .Data}}{{template "hm/sectionhead" $}}
 {{template "hm/tabs" dict "Label" "On this page" "Items" .Tabs}}
 <section id="identity" class="hm-stack">
@@ -17,7 +22,8 @@
 {{template "hm/field" dict "ID" "language" "Name" "language" "Label" "Language" "Control" "select" "Options" .Ident.Languages "Error" (index .Ident.SiteErrs "language")}}
 {{template "hm/field" dict "ID" "timezone" "Name" "timezone" "Label" "Time zone" "Control" "select" "Options" .Ident.Timezones "Error" (index .Ident.SiteErrs "timezone")}}
 {{template "hm/pair-end"}}
-{{template "hm/field" dict "ID" "logo" "Name" "logo" "Label" "Logo address" "Value" .Ident.LogoURL "Help" "A web address or a path like /media/logo.png." "Error" (index .Ident.SiteErrs "logo")}}
+{{template "general-image" dict "ID" "logo" "Label" "Logo" "Value" .Ident.LogoURL "Help" "Shown in the site header and in search results. Choose an image from the media library, or enter a web address." "Error" (index .Ident.SiteErrs "logo")}}
+{{template "general-image" dict "ID" "favicon" "Label" "Favicon" "Value" .Ident.FaviconURL "Help" "The small icon in browser tabs and bookmarks. Use a square PNG, SVG or ICO, ideally 512 by 512 pixels. Empty uses the theme's icon." "Error" (index .Ident.SiteErrs "favicon")}}
 {{template "hm/card-foot"}}
 {{template "hm/button" dict "Label" "Save identity" "Variant" "primary" "Type" "submit"}}
 {{template "hm/card-foot-end"}}

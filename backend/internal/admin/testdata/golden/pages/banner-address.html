@@ -21,10 +21,13 @@
 <link rel="modulepreload" href="/admin/_/js/admin.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/searchselect.HASH.js" integrity="sha256-SRI">
 <link rel="modulepreload" href="/admin/_/js/jumptabs.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/listlogic.HASH.js" integrity="sha256-SRI">
+<link rel="modulepreload" href="/admin/_/js/content.HASH.js" integrity="sha256-SRI">
 <script nonce="NONCE" defer src="/admin/_/vendor/htmx-2.0.11.min.js" integrity="sha256-1v3HXyBOa976mbab8ebUrGm4o2T3eSn0XBNHa0AA9xc="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/admin.HASH.js"></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/searchselect.HASH.js" integrity="sha256-rLH5dgw1s&#43;ujRNqNX7g0dgQgajm7nrh4jWkKFzxXxPA="></script>
 <script type="module" nonce="NONCE" src="/admin/_/js/jumptabs.HASH.js" integrity="sha256-MVv4G7ALuNSTQXgDBvT5z6wQQ9QjsK5SfA1LVBXD1Po="></script>
+<script type="module" nonce="NONCE" src="/admin/_/js/content.HASH.js" integrity="sha256-NBBKbUAyRKy5HzJW8QsNt1RXYywyr1SstBb&#43;ZeSZQxI="></script>
 <script type="speculationrules" nonce="NONCE">{"prerender":[{"eagerness":"moderate","where":{"and":[{"href_matches":"/admin/*"},{"not":{"href_matches":["/admin/login*","/admin/logout*","/admin/forgot*","/admin/reset*","/admin/accept*","/admin/setup*","/admin/theme","/admin/_/*","/admin/preview/*","/admin/*/preview*","/admin/plugins/*/ui*","/admin/plugins/*/settings*","/admin/plugins/*/bridge*","/admin/*/delete*","/admin/*/confirm*","/admin/settings/api-keys/secret*","/admin/*/export.csv*","/admin/settings/import/csv/*","/admin/*/revoke*","/admin/*/regenerate*","/admin/*/resend*","/admin/*/activate*","/admin/*/status*","/admin/*/toggle*","/admin/*/ignore*","/admin/*/restore*","/admin/*/email*","/admin/*/bulk*","/admin/*/start*","/admin/*/resume*","/admin/*/cancel*","/admin/*/fetch*","/admin/*/upload*","/admin/*/install*","/admin/*/unsigned*","/admin/*/developer*","/admin/*/check-updates*","/admin/*/enable*","/admin/*/disable*","/admin/*/grant*","/admin/forms/submissions/*","/admin/entities/*/edit*","/admin/entities/new*","/admin/entities/drafts*","/admin/*/insert*","/admin/*/uninstall*","/admin/*/autosave*","/admin/*/analyze*"]}}]}}]}</script>
 
 </head>
@@ -153,10 +156,15 @@
 <div class="hm-select" data-hm-select><select class="hm-field__control" id="timezone" name="timezone">{options}</select></div>
 </div>
 </div>
-<div class="hm-field">
-<label class="hm-field__label" for="logo">Logo address</label>
-<input class="hm-field__control" type="text" id="logo" name="logo" aria-describedby="logo-help">
-<p class="hm-field__help" id="logo-help">A web address or a path like /media/logo.png.</p>
+<div class="hm-field"><label class="hm-field__label" for="logo">Logo</label>
+<img class="hm-sf-image" hidden alt="">
+<div class="hm-row"><input class="hm-field__control" type="text" id="logo" name="logo" value="" maxlength="500" data-hm-image autocomplete="off" aria-describedby="logo-help"><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-media-picker="logo" hidden="hidden"><span>Choose from library</span></button></div>
+<p class="hm-field__help" id="logo-help">Shown in the site header and in search results. Choose an image from the media library, or enter a web address.</p>
+</div>
+<div class="hm-field"><label class="hm-field__label" for="favicon">Favicon</label>
+<img class="hm-sf-image" hidden alt="">
+<div class="hm-row"><input class="hm-field__control" type="text" id="favicon" name="favicon" value="" maxlength="500" data-hm-image autocomplete="off" aria-describedby="favicon-help"><button type="button" class="hm-btn hm-btn--secondary hm-btn--sm" data-hm-media-picker="favicon" hidden="hidden"><span>Choose from library</span></button></div>
+<p class="hm-field__help" id="favicon-help">The small icon in browser tabs and bookmarks. Use a square PNG, SVG or ICO, ideally 512 by 512 pixels. Empty uses the theme&#39;s icon.</p>
 </div>
 </div><footer class="hm-card__foot">
 <button type="submit" class="hm-btn hm-btn--primary"><span>Save identity</span></button>
@@ -225,5 +233,6 @@
 <template id="hm-toast-tpl"><div class="hm-toast"><span class="hm-toast__icon" aria-hidden="true"><span data-hm-toast-icon="success"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span data-hm-toast-icon="error"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span><span data-hm-toast-icon="warning"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span data-hm-toast-icon="info"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span></span><span data-hm-toast-message></span><button type="button" class="hm-toast__close" data-hm-toast-close aria-label="Dismiss notification"><svg class="hm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></template>
 </body>
 </html>
+
 
 

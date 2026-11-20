@@ -43,7 +43,7 @@ Entity types and taxonomies are described in [Entity types and taxonomies](entit
 
 `<admin>/settings/general` is one page with several cards, each saved on its own:
 
-- **Identity**: site name, tagline, **site address**, optional custom domain, **language**, **time zone** and a logo address. The site address is the public origin, like `https://example.com`, and is used in links and emails. The time zone is what schedule fields and dates use.
+- **Identity**: site name, tagline, **site address**, optional custom domain, **language**, **time zone**, the **logo** and the **favicon**. Pick the logo and the favicon from the media library with **Choose from library**, or type a web address. The favicon is the icon in browser tabs and bookmarks; a square PNG, SVG or ICO around 512 by 512 pixels works best, and leaving it empty keeps the theme's icons. The site address is the public origin, like `https://example.com`, and is used in links and emails. The time zone is what schedule fields and dates use.
 - **Homepage**: which entity is served at `/`.
 - **Email**: the **notification email** (where form messages and alerts go), and whether outgoing mail is set up, with a link to **Settings > Email**. See [Email](#email).
 

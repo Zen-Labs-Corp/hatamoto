@@ -37,7 +37,7 @@ func (a *Admin) renderGeneral(w http.ResponseWriter, r *http.Request, status int
 		return
 	}
 	if g.Ident == nil {
-		d := settingsData{Site: siteFormFrom(cfg), LogoURL: cfg.LogoURL, Tagline: cfg.Tagline, Domain: cfg.CustomDomain}
+		d := settingsData{Site: siteFormFrom(cfg), LogoURL: cfg.LogoURL, FaviconURL: cfg.FaviconURL, Tagline: cfg.Tagline, Domain: cfg.CustomDomain}
 		d.Languages, d.Timezones = languageOptions(d.Site.Language), timezoneOptions(d.Site.Timezone)
 		g.Ident = &d
 	}
