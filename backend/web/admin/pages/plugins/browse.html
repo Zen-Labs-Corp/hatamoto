@@ -20,10 +20,10 @@
 {{else}}{{template "hm/empty" dict "Icon" "puzzle" "Title" "The registry has no plugins yet" "Body" "Check back later, or upload a package from the Plugins page."}}{{end}}
 </div>
 {{end}}
-{{template "hm/dialog-start" dict "ID" "plugin-panel" "Title" "Plugin details" "Side" "end" "Width" "wide"}}<p class="hm-muted">Loading...</p>{{template "hm/dialog-end" dict "CloseLabel" "Close"}}{{end}}{{end}}
+{{template "hm/dialog-start" dict "ID" "plugin-panel" "Title" "Plugin details" "Side" "end" "Width" "wide"}}<div id="plugin-panel-body"><p class="hm-muted">Loading...</p></div>{{template "hm/dialog-end" dict "CloseLabel" "Close"}}{{end}}{{end}}
 {{define "modules"}}@hm/pluginpanel{{end}}
 {{define "browse-total"}}{{if .Total}}{{.Total}} {{if eq .Total 1}}plugin{{else}}plugins{{end}}{{else}}No plugins{{end}}{{end}}
-{{define "browse-card"}}<li class="hm-plugincards__item"><a class="hm-plugincard" href="{{.Href}}" data-hm-open="plugin-panel">
+{{define "browse-card"}}<li class="hm-plugincards__item"><a class="hm-plugincard" href="{{.Href}}" data-hm-open="plugin-panel" hx-get="{{.Href}}" hx-target="#plugin-panel-body" hx-swap="innerHTML" hx-sync="#plugin-panel-body:replace">
 <span class="hm-plugincard__top"><span class="hm-plugintile" aria-hidden="true">{{.Initial}}</span><span class="hm-plugincard__id"><span class="hm-plugincard__name">{{.Title}}</span>{{if .Author}}<span class="hm-plugincard__by">{{if .Developer}}by @{{.Author}}{{else}}{{.Author}}{{end}}</span>{{end}}{{if .Developer}}<span class="hm-plugincard__note">{{.DeveloperNote}}</span>{{end}}</span></span>
 <span class="hm-plugincard__meta hm-mono">{{.Meta}}</span>
 <span class="hm-plugincard__desc">{{.Description}}</span>
