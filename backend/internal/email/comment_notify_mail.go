@@ -144,6 +144,59 @@ func (s *Service) SendCommentReply(ctx context.Context, to string, d CommentRepl
 	return s.sendComment(ctx, KindCommentReply, to, site, subject, html, text, d.UnsubscribeURL)
 }
 
+// maxReplyItems is how many replies one reply summary lists.
+const maxReplyItems = 20
+
+// CommentReplyItem is one reply in a reply summary. No reply text: only the replier's name.
+type CommentReplyItem struct {
+	ReplierName string
+	EntityTitle string
+	URL         string
+}
+
+// CommentReplyDigestData drives comment_reply_digest.html.
+type CommentReplyDigestData struct {
+	SiteName       string
+	Items          []CommentReplyItem // at most 20 shown
+	More           int                // replies not listed
+	UnsubscribeURL string
+}
+
+// SendCommentReplyDigest mails a commenter several replies in one KindCommentReplyDigest mail.
+func (s *Service) SendCommentReplyDigest(ctx context.Context, to string, d CommentReplyDigestData) error {
+	if len(d.Items) == 0 {
+		return fmt.Errorf("email: no replies to report")
+	}
+	if len(d.Items) > maxReplyItems {
+		d.More += len(d.Items) - maxReplyItems
+		d.Items = d.Items[:maxReplyItems]
+	}
+	site := d.SiteName
+	d.Items = append([]CommentReplyItem(nil), d.Items...)
+	for i := range d.Items {
+		d.Items[i].ReplierName = notifyName(d.Items[i].ReplierName)
+		d.Items[i].EntityTitle = notifyText(d.Items[i].EntityTitle)
+	}
+	d.SiteName = notifyText(d.SiteName)
+
+	total := len(d.Items) + d.More
+	subject := headerOr(fmt.Sprintf("%d new replies on %s", total, site), "New replies to your comments")
+	html, err := s.render("comment_reply_digest.html", d)
+	if err != nil {
+		return err
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d new replies on %s:\n\n", total, d.SiteName)
+	for _, it := range d.Items {
+		fmt.Fprintf(&b, "- %s replied on \"%s\": %s\n", it.ReplierName, it.EntityTitle, it.URL)
+	}
+	if d.More > 0 {
+		fmt.Fprintf(&b, "and %d more\n", d.More)
+	}
+	fmt.Fprintf(&b, "\nStop reply emails: %s\n", d.UnsubscribeURL)
+	return s.sendComment(ctx, KindCommentReplyDigest, to, site, subject, html, b.String(), d.UnsubscribeURL)
+}
+
 // sendComment sends one comment notification with its one-click unsubscribe header.
 func (s *Service) sendComment(ctx context.Context, kind Kind, to, siteName, subject, html, text, unsub string) error {
 	addr, err := commentRecipient(to)
