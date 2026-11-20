@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,23 +27,44 @@ import (
 	"hatamoto.dev/core/internal/spam"
 )
 
+// memCache is safe for concurrent use; tests read its fields directly only
+// after the requests are done.
 type memCache struct {
+	mu   sync.Mutex
 	data map[string][]byte
 	sets []string
 	ttls []time.Duration
+	tags map[string][]string
 	gen  uint64
 }
 
-func (m *memCache) Generation() uint64 { return m.gen }
+func (m *memCache) Generation() uint64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.gen
+}
 
 func (m *memCache) SetIfGeneration(ctx context.Context, k string, v []byte, ttl time.Duration, gen uint64) (bool, error) {
+	return m.SetIfGenerationTagged(ctx, k, v, ttl, gen)
+}
+
+func (m *memCache) SetIfGenerationTagged(ctx context.Context, k string, v []byte, ttl time.Duration, gen uint64, tags ...string) (bool, error) {
+	m.mu.Lock()
 	if m.gen != gen {
+		m.mu.Unlock()
 		return false, nil
 	}
+	if m.tags == nil {
+		m.tags = map[string][]string{}
+	}
+	m.tags[k] = tags
+	m.mu.Unlock()
 	return true, m.Set(ctx, k, v, ttl)
 }
 
 func (m *memCache) Get(_ context.Context, k string) ([]byte, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if b, ok := m.data[k]; ok {
 		return b, nil
 	}
@@ -49,6 +72,8 @@ func (m *memCache) Get(_ context.Context, k string) ([]byte, error) {
 }
 
 func (m *memCache) Set(_ context.Context, k string, v []byte, ttl time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.ttls = append(m.ttls, ttl)
 	if m.data == nil {
 		m.data = map[string][]byte{}
@@ -61,6 +86,7 @@ func (m *memCache) Set(_ context.Context, k string, v []byte, ttl time.Duration)
 type renderFixture struct {
 	h        *renderHandlers
 	cache    *memCache
+	mu       sync.Mutex // guards notFound and resolves
 	notFound []string
 	resolves int
 	next     func() (*routeResult, pageOutcome, error)
@@ -85,7 +111,7 @@ func newRenderFixture(t *testing.T) *renderFixture {
 		cache:         f.cache,
 		validators:    newPageValidators(func() time.Time { return f.now }),
 		logger:        slog.New(slog.NewTextHandler(io.Discard, nil)),
-		log404:        func(path, _, _ string) { f.notFound = append(f.notFound, path) },
+		log404:        func(path, _, _ string) { f.mu.Lock(); f.notFound = append(f.notFound, path); f.mu.Unlock() },
 		checkRedirect: func(context.Context, string) *redirect.Redirect {
 			return f.redirect
 		},
@@ -93,7 +119,9 @@ func newRenderFixture(t *testing.T) *renderFixture {
 			return pageResponse("Home"), pageOutcome{Status: 200}, nil
 		},
 		resolve: func(context.Context, string, *http.Request) (*routeResult, pageOutcome, error) {
+			f.mu.Lock()
 			f.resolves++
+			f.mu.Unlock()
 			return f.next()
 		},
 		buildView: func(_ context.Context, r *http.Request, rr *routeResult) (*render.PageView, error) {
@@ -939,5 +967,36 @@ func TestPDFWidgetFrameFollowsSandbox(t *testing.T) {
 		if !strings.Contains(body, `href="/media/b.pdf"`) || strings.Contains(body, "<iframe") == live {
 			t.Errorf("live=%v: iframe=%v link=%v", live, strings.Contains(body, "<iframe"), strings.Contains(body, "href=\"/media/b.pdf\""))
 		}
+	}
+}
+
+func TestPageStoreTagsOwnEntityAndAnyEntity(t *testing.T) {
+	f := newRenderFixture(t)
+	resp := pageResponse("About")
+	f.next = func() (*routeResult, pageOutcome, error) {
+		return &routeResult{Page: resp, Kind: resolveKindEntity}, pageOutcome{Status: 200}, nil
+	}
+	if w := f.get("/about"); w.Code != 200 {
+		t.Fatalf("status %d", w.Code)
+	}
+	key := cache.RenderedPageKey(f.h.engine.Version(), "/about")
+	want := []string{cache.TagAnyEntity, cache.EntityTag(resp.Entity.ID)}
+	if got := f.cache.tags[key]; !slices.Equal(got, want) {
+		t.Fatalf("entity page tags = %v, want %v", got, want)
+	}
+
+	// A page with no entity (the archive/listing route) carries only TagAnyEntity.
+	f.next = func() (*routeResult, pageOutcome, error) {
+		return &routeResult{Kind: resolveKindArchive, Archive: &resolvedArchive{}}, pageOutcome{Status: 200}, nil
+	}
+	f.h.buildView = func(_ context.Context, r *http.Request, _ *routeResult) (*render.PageView, error) {
+		return &render.PageView{Kind: render.KindPage, Site: render.SiteView{Name: "Fixture Site"}, Path: requestPath(r)}, nil
+	}
+	if w := f.get("/news"); w.Code != 200 {
+		t.Fatalf("status %d", w.Code)
+	}
+	key = cache.RenderedPageKey(f.h.engine.Version(), "/news")
+	if got := f.cache.tags[key]; !slices.Equal(got, []string{cache.TagAnyEntity}) {
+		t.Fatalf("listing page tags = %v, want [%s]", got, cache.TagAnyEntity)
 	}
 }

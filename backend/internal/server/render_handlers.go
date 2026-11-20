@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"hatamoto.dev/core/internal/cache"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
@@ -72,6 +74,9 @@ type htmlCache interface {
 	// the cache: it may have read the data from before the change.
 	Generation() uint64
 	SetIfGeneration(ctx context.Context, key string, value []byte, ttl time.Duration, gen uint64) (bool, error)
+	// SetIfGenerationTagged stores a page that depends only on the given tags:
+	// it is rejected by a global purge or a drop of one of those tags.
+	SetIfGenerationTagged(ctx context.Context, key string, value []byte, ttl time.Duration, gen uint64, tags ...string) (bool, error)
 }
 
 // renderHandlers serves the public site from the Go theme engine. Every
@@ -600,7 +605,7 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		h.writeHTML(w, r, http.StatusOK, buf.Bytes(), private)
 	}
 	if storable {
-		if _, err := h.cache.SetIfGeneration(r.Context(), key, buf.Bytes(), h.pageTTLFor(v), gen); err != nil {
+		if _, err := h.cache.SetIfGenerationTagged(r.Context(), key, buf.Bytes(), h.pageTTLFor(v), gen, pageCacheTags(v)...); err != nil {
 			h.logger.Warn("render: cache set failed", "error", err)
 		}
 	}
@@ -614,6 +619,21 @@ func (h *renderHandlers) pageTTLFor(v *render.PageView) time.Duration {
 		ttl = v.MaxCacheAge
 	}
 	return ttl
+}
+
+// pageCacheTags: every page may show other entities (recent/query funcs in any
+// layout, related, breadcrumbs, alternates, refs), so it always carries
+// TagAnyEntity; its own entity tag lets an own-entity drop reach it.
+func pageCacheTags(v *render.PageView) []string {
+	tags := []string{cache.TagAnyEntity}
+	id := v.EntityID
+	if id == "" && v.Entity != nil {
+		id = v.Entity.ID
+	}
+	if u, err := uuid.Parse(id); err == nil {
+		tags = append(tags, cache.EntityTag(u))
+	}
+	return tags
 }
 
 // pagedQuery is N when rawQuery is exactly "page=N" in canonical decimal form
