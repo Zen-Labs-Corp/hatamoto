@@ -5,7 +5,8 @@
 package main
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"slices"
 	"strconv"
 	"strings"
@@ -19,8 +20,8 @@ func main() {}
 
 // receivedKeys lists the top-level JSON keys the host sent, sorted and comma-joined.
 func receivedKeys() string {
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(guest.Input(), &m); err != nil {
+	var m map[string]jsontext.Value
+	if err := jsonv2.Unmarshal(guest.Input(), &m); err != nil {
 		return "unreadable: " + err.Error()
 	}
 	keys := make([]string, 0, len(m))
