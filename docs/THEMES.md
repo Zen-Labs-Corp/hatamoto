@@ -43,10 +43,14 @@ my-theme/
     search.html         optional: /search
     registry.html       optional: a plugin or theme detail page, see Routes
     404.html            defines "content" for not-found
+    comment-confirm.html  optional: the page behind the comment confirmation link, see Comments
     error.html          defines "content" for 5xx
   partials/
     head.html header.html nav.html footer.html section.html scripts.html
     plugin-assets.html  optional: the plugin-head / plugin-body slots (default theme has them)
+    comments-list.html comments-item.html comments-form.html
+                        optional: the comment thread, one comment and the comment form;
+                        each is overridden on its own, see Comments
   sections/
     hero.html           defines "section-hero"
     faq.html            defines "section-faq"
@@ -58,6 +62,7 @@ my-theme/
     css/base.css        bundled first, then every other css/*.css (wp-compat.css, blog.css, docs.css), then css/sections/*.css
     css/sections/hero.css
     js/hm.js
+    comments.css        optional: styles of the comment partials, see Comments
     sitemap.xsl         (optional) stylesheet for /sitemap.xml
     screenshot.webp     (optional) the preview image named by theme.json "screenshot"
 ```
@@ -132,6 +137,10 @@ never to build a path.
 | `.Series` | `func() *SeriesView`, see Series below |
 | `.PostsByAuthor` | `func(limit, page int) PostsPage`, see Posts by author below |
 | `.PageNum` | `int`: the request's `?page=N`, 1 when absent or not a positive integer, clamped to 1..1000 |
+| `.Comments` | `*CommentThread`: the public thread of this entity; nil when comments are off, hidden or in a preview, and the theme then prints nothing. See [Comments](#comments) |
+| `.CommentCount` | `int`: approved comments on this entity |
+| `.CommentsOpen` | `bool`: the form is shown (the entity is open, not closed) |
+| `.CommentForm` | `*CommentForm`: the form values; nil when the entity is closed. See [Comments](#comments) |
 
 Authors: `.Entity.Author` is the entity's **byline**: the person it credits
 (`byline_person_id`, an entity of the `person` type; see Authors below), the
@@ -231,6 +240,86 @@ Without an entity slug it returns an empty page.
   {{range call .Related 3}}<a href="{{.URL}}">{{.Title}}</a>{{end}}
 </article>{{end}}
 ```
+
+### Comments
+
+When an owner turns comments on, entity pages carry `.Comments`, `.CommentCount`,
+`.CommentsOpen` and `.CommentForm`. Nothing is added to a page when comments are
+off, so a theme that never mentions them renders exactly as before. The default
+theme prints the form first and the thread below it, newest first by default.
+It works with JavaScript off: the form is a plain `POST`.
+
+**Partials.** Three partials, each in its own file and each overridable on its
+own (a theme file with the same name wins over the embedded default):
+
+| File | Defines | Data |
+| --- | --- | --- |
+| `partials/comments-list.html` | `comments/list`: the count, the `<ol id="comments-list">` and the older/newer pager | the page data |
+| `partials/comments-item.html` | `comments/item`: one comment and, recursively, its replies | `dict "Item" <CommentItem> "Strings" $.Strings` |
+| `partials/comments-form.html` | `comments/form`: the notice or error, the form, or the "closed" line | the page data |
+
+`CommentThread` has `Items` (top-level `CommentItem`s, each with `Replies`),
+`Total`, `Page`, `Pages`, `PrevURL`, `NextURL`, `Notice`, `Error` and `Newest`.
+`CommentItem` has `ID`, `Author`, `IsSiteAuthor`, `Body` (already sanitised HTML,
+print it as is), `CreatedAt`, `Depth`, `Replies`, `ReplyURL` (empty at the
+maximum depth), `Own`, `Editable`, `EditAction` and `DeleteAction`.
+`Notice` is a code, `check_email` or `posted`. `Error` is a code, `body_empty`,
+`body_long`, `name`, `email`, `email_domain` or `closed`. The theme maps the codes
+to its own text; the default strings are the `comment_*` and `comments_*` keys of
+`theme.json` `strings`.
+
+**Putting the section in a layout.** The default `article` partial already
+includes the section. A theme whose own layout does not call `article` adds it
+where the thread should go:
+
+```gotemplate
+{{with .Comments}}<section id="comments">
+  <h2>{{t $ "comments_title"}}</h2>
+  {{template "comments/form" $}}
+  {{template "comments/list" $}}
+</section>{{end}}
+```
+
+**The `ago` func.** `ago t` gives a coarse age as `{Unit, N}`: `Unit` is `now`,
+`min`, `hour`, `day` or `date` (older than 30 days: print the date yourself),
+and `N` is the count for the first three. The theme chooses the words.
+
+**Form contract.** The server fills the form per visitor, so a theme overriding
+`comments/form` must keep these rules or posting stops working:
+
+- Keep the attribute `data-hm-cform` on the `<form>`. It marks the form for the
+  server; without it the form keeps the cached placeholders and a post is
+  silently dropped.
+- Print `.Token`, `.Body`, `.Name`, `.Email` and `.Honeypot` of `.CommentForm`
+  verbatim. `.Token` is the value of the hidden field `hm_ct`. The other four
+  are the field names, and they change on every page view: use each one as both
+  `id` and `name`, and point the `<label for>` at it. The field `parent` is
+  static and carries `.ParentID`.
+- Keep the honeypot field (`.Honeypot`) in the form, hidden from people.
+- Keep the empty `{{block "comments/form-extra" .}}{{end}}` between the body
+  field and the submit button. It is the spot for extra fields a later version
+  adds; a theme may leave it empty.
+- Never add a website or URL field. Comments have none.
+- `data-hm-captcha` marks where a captcha widget goes when the owner enabled one
+  (`.CommentForm.Captcha` is set).
+
+**The confirmation page.** The link in the confirmation email opens a page
+rendered with `layouts/comment-confirm.html`, which defines `content` and reads
+`.CommentConfirm` with `Invalid` (the link expired or was used), `EntityTitle`
+and `Action`. Keep the `<form method="post" action="{{.Action}}">` with a
+submit button: a GET never confirms anything. The page is `noindex`, sent
+`no-store` with `Referrer-Policy: no-referrer`, and runs no page scripts, so do
+not add any.
+
+**Styles.** The default theme loads `/theme/assets/comments.css` from the
+section, so the comment styles cost nothing on pages without comments. A theme
+can ship its own `assets/comments.css` (it replaces the default) or style the
+`hm-comments*` and `hm-comment*` classes in its own bundle.
+
+**Own comments.** A visitor sees their own comments that are not public yet, and
+their own approved comments for 15 minutes with `Editable` set. The default
+item partial then shows an edit form (a `body` field posted to `.EditAction`) and
+a delete form (posted to `.DeleteAction`).
 
 ## Template funcs reference
 
@@ -477,6 +566,11 @@ All of these are pure and fail-open: bad input gives the zero value, never an er
 ```
 <progress value="{{percent .Done .Total}}" max="100"></progress>
 ```
+
+**`ago t`** returns `{Unit, N}`, the coarse age of a `time.Time`: `Unit` is
+`now` (under a minute), `min`, `hour`, `day` (up to 30 days) or `date`, and `N`
+counts minutes, hours or days. Pair it with `t` strings for the wording; see
+[Comments](#comments).
 
 ## Template hierarchy
 
@@ -901,6 +995,25 @@ sitemaps) at once, not at TTL expiry:
   writes them (admin, REST, MCP or a plugin through `menus.*` / `terms.*`);
   inserting a link from the linking suggestion panel, and the link rewrite that
   follows a slug or parent change, clear it too.
+
+**Comments.** A comment change (a new approved comment, an approval, an edit,
+a spam mark or a delete) drops only the cached copies of that one entity, not the
+whole cache, so a busy site does not lose its warm pages to a comment. Listings do
+not show comment counts, so they are not dropped. Turning comments on or off, or
+changing the comment settings, drops every page. These requests are never cached:
+any page with `?cpage`, `?creply`, `?cnotice` or `?cerror` in the query, and any
+page that shows the visitor's own comments that are not public yet (the visitor
+is recognised by a signed `hm_c` cookie; a forged cookie gets the normal cached
+page).
+
+A page with an open comment form carries a fresh single-use token and fresh field
+names for every visitor. The server therefore keeps the page in its cache without
+the token and fills the form per request: the render cost stays cached and
+filling the form is cheap. Because the filled page is specific to one view, the
+response is sent `Cache-Control: private, no-cache, no-store`, without `ETag` or
+`Last-Modified`, and is never answered with a 304. Browsers and CDNs do not store
+a page with an open form; the server cache still does. A page with comments off,
+or closed to new comments, has no form and is sent as any other page.
 
 A page that is being rendered at the moment of a purge is served to its visitor
 but not stored, so a purge is never undone by a render that read the data
@@ -1427,6 +1540,15 @@ The default theme works with JavaScript off:
 forms as JSON to `/api/v1/public/forms/{slug}/submit` and shows the success
 message in place, falling back to the native post on any failure; Escape closes
 the menu. A theme may replace or drop `hm.js`.
+
+Comments work the same way. The comment form posts with a plain `POST` and the
+server answers `303`. The default form also carries `hx-post`, `hx-target` and
+`hx-swap` attributes: a theme that loads [htmx](https://htmx.org) gets the answer
+as a fragment (the form, with the new comment inserted at the top of
+`#comments-list`) without a page reload. Core only adds the attributes; the theme
+ships htmx as its own asset, which keeps a strict script policy intact (see
+[Strict script policy](#strict-script-policy-cspstrictscripts)). Without htmx the
+attributes do nothing.
 
 ## Site icons
 
