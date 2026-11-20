@@ -138,6 +138,10 @@ func TestCommentNotifyIntegration(t *testing.T) {
 	backdate := func(d time.Duration) {
 		exec(`UPDATE hatamoto_comment_moderator_notify SET last_sent_at = last_sent_at - make_interval(secs => $1)`, d.Seconds())
 	}
+	// backdateReplies moves the reply queue back in time: a window that has ended.
+	backdateReplies := func(d time.Duration) {
+		exec(`UPDATE hatamoto_comment_reply_queue SET sent_at = sent_at - make_interval(secs => $1), queued_at = queued_at - make_interval(secs => $1)`, d.Seconds())
+	}
 	total := func() int { return len(srv.Messages()) }
 
 	// A4: moderator mail is throttled per moderator.
@@ -237,6 +241,33 @@ func TestCommentNotifyIntegration(t *testing.T) {
 		t.Error("a self-reply was mailed")
 	}
 
+	// Replies inside the 15-minute window are held, then go out as one summary.
+	store("cy@cn.test", "Cy", comment.StatusApproved, &parent.ID, false)
+	store("di@cn.test", "Di", comment.StatusApproved, &parent.ID, false)
+	run()
+	if len(to("ada@cn.test")) != 1 {
+		t.Fatal("a reply inside the window was mailed at once")
+	}
+	backdateReplies(16 * time.Minute)
+	run()
+	mails = to("ada@cn.test")
+	if len(mails) != 2 {
+		t.Fatalf("mails to ada = %d, want 2 (one summary after the window)", len(mails))
+	}
+	head, body, _ = strings.Cut(mails[1].Data, "\r\n\r\n")
+	if !strings.Contains(head, "Subject: 2 new replies on Site") ||
+		!strings.Contains(head, "List-Unsubscribe: <https://site.test"+commentUnsubscribePrefix) ||
+		!strings.Contains(head, "List-Unsubscribe-Post: List-Unsubscribe=One-Click") {
+		t.Errorf("summary headers:\n%s", head)
+	}
+	if strings.Count(body, "#comment-") < 2 || unsubscribeURLRe.FindStringSubmatch(body) == nil {
+		t.Errorf("summary body needs two reply links and the unsubscribe URL:\n%s", body)
+	}
+	if last := logs.entries[len(logs.entries)-1]; last.Kind != email.KindCommentReplyDigest ||
+		strings.Contains(strings.Join(last.Recipients, ","), "ada@cn.test") || last.BodyText != "" || last.BodyHTML != "" {
+		t.Errorf("summary log entry = %+v", last)
+	}
+
 	// The unsubscribe route: no Origin, no session, the one-click body.
 	post := func(path string) int {
 		t.Helper()
@@ -253,8 +284,9 @@ func TestCommentNotifyIntegration(t *testing.T) {
 		t.Fatalf("unsubscribe POST = %d", code)
 	}
 	store("bob@cn.test", "Bob", comment.StatusApproved, &parent.ID, false)
+	backdateReplies(16 * time.Minute) // past the window, so only the unsubscribe can stop the mail
 	run()
-	if len(to("ada@cn.test")) != 1 {
+	if len(to("ada@cn.test")) != 2 {
 		t.Error("reply mail was sent after the unsubscribe")
 	}
 
