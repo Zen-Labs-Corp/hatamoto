@@ -384,6 +384,8 @@ func TestSubmitCaptchaOffWhenUnusable(t *testing.T) {
 func TestSubmitSurgeCallsOnSurge(t *testing.T) {
 	for _, surge := range []bool{false, true} {
 		h := newHarness(t)
+		now := t0
+		h.p.Limits = NewLimits(func() time.Time { return now }) // explicit clock, moved by hand below
 		calls := 0
 		h.p.OnSurge = func(context.Context) { calls++ }
 		if surge {
@@ -391,16 +393,27 @@ func TestSubmitSurgeCallsOnSurge(t *testing.T) {
 				h.p.Limits.Surge().Note()
 			}
 		}
-		for i := 0; i < 2; i++ {
-			h.fresh(t0.Add(-time.Minute))
+		submit := func() {
+			h.fresh(now.Add(-time.Minute))
+			h.req.Now = now
 			h.submit(t)
 		}
+		submit()
+		submit() // same instant: throttled to one report
 		want := 0
 		if surge {
 			want = 1
 		}
 		if calls != want {
 			t.Fatalf("surge=%v: OnSurge calls = %d, want %d", surge, calls, want)
+		}
+		now = now.Add(SurgeBeat)
+		submit() // a beat later the surge reports again
+		if surge {
+			want = 2
+		}
+		if calls != want {
+			t.Fatalf("surge=%v after a beat: OnSurge calls = %d, want %d", surge, calls, want)
 		}
 	}
 }

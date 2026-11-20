@@ -200,19 +200,30 @@ func TestSurgeAsyncSkipsWhileRunning(t *testing.T) {
 	claim := &fakeSurgeClaim{now: time.Now()}
 	mail := &fakeSurgeMail{configured: true, block: make(chan struct{})}
 	n := newSurgeNotifier(claim, mail, "https://site.test", "a@example.test")
+	waitIdle := func() {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for n.running.Load() && time.Now().Before(deadline) {
+			time.Sleep(5 * time.Millisecond)
+		}
+		if n.running.Load() {
+			t.Fatal("run did not finish")
+		}
+	}
 
 	n.async(context.Background())
 	n.async(context.Background()) // skipped: the first run is blocked in the mailer
 	close(mail.block)
-
-	deadline := time.Now().Add(5 * time.Second)
-	for n.running.Load() && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
-	}
-	if n.running.Load() {
-		t.Fatal("run did not finish")
-	}
+	waitIdle()
 	if claim.calls != 1 || len(mail.sent) != 1 {
-		t.Errorf("claims = %d, mails = %d; want 1 and 1", claim.calls, len(mail.sent))
+		t.Fatalf("claims = %d, mails = %d; want 1 and 1", claim.calls, len(mail.sent))
+	}
+
+	// The flag is released: a call after the first run finished starts a new one.
+	mail.block = nil
+	n.async(context.Background())
+	waitIdle()
+	if claim.calls != 2 {
+		t.Errorf("claims = %d after the run finished, want 2 (running flag stuck?)", claim.calls)
 	}
 }
