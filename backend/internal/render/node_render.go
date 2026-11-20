@@ -13,6 +13,8 @@ import (
 // runs no layout, head or section preparation, so the canvas can patch a node
 // without rendering the page around it. Hidden nodes write nothing.
 func (e *Engine) RenderNode(w io.Writer, v *PageView, n *builder.Node, canvas bool) error {
+	f := enterRangeFunnel()
+	defer f.exit()
 	var b bytes.Buffer
 	if n != nil {
 		n = e.expandRefs(requestCtx(v), n, &refState{})
@@ -71,6 +73,8 @@ func (e *Engine) PrefetchExt(v *PageView, nodes []*builder.Node) {
 // Canvas markers are always on. ok is false when the node renders nothing
 // (hidden or blank), so a full render would not contain it either.
 func (e *Engine) RenderTop(v *PageView, n *builder.Node) (Fragment, bool, error) {
+	f := enterRangeFunnel()
+	defer f.exit()
 	if n == nil || nodeHidden(n) || !builder.ValidID(n.ID) {
 		return Fragment{}, false, nil
 	}
@@ -107,6 +111,7 @@ func (e *Engine) RenderTop(v *PageView, n *builder.Node) (Fragment, bool, error)
 
 // execSection runs the theme "section" partial, turning a template panic into
 // an error.
+// Callers run inside a range funnel (see enterRangeFunnel).
 func execSection(t *template.Template, w *bytes.Buffer, p preparedSection) (err error) {
 	defer func() {
 		if r := recover(); r != nil {

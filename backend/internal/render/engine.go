@@ -401,6 +401,8 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 	snap := e.plugins.gated()
 	maps.Copy(funcs, snap.funcs)
 	funcs["t"] = newTFunc(th.Strings) // after the copy: the snapshot carries the generic one
+	// Compile-set only: the plugin snapshot never carries it, so plugin source cannot call it.
+	funcs[rangeBudgetFunc] = func(plugin, tmpl string) *rangeHandle { return newRangeHandle(e.log, plugin, tmpl) }
 
 	baseSrc, err := chain.ReadFile("layouts/base.html")
 	if err != nil {
@@ -436,7 +438,9 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 	for _, n := range names {
 		if _, err := root.New(n).Parse(pPartials[n]); err != nil {
 			e.log.Warn("render: skipping plugin partial", "partial", n, "error", err) // fail-open
+			continue
 		}
+		rewritePluginRanges(root, n, pPartials[n], snap.owner["p:"+n])
 	}
 
 	// Plugin section packs sit below the theme: a theme section of the same
@@ -473,6 +477,7 @@ func (e *Engine) compileChain(chain Chain, ds DataSource) (*compiled, error) {
 			return nil, fmt.Errorf("sections/%s.html must define \"section-%s\"", typ, typ)
 		}
 		if fromPlugin {
+			rewritePluginRanges(root, "sections/"+typ+".html", th.Sections[typ].Template, snap.owner["s:"+typ])
 			if err := escapeProbe(root, typ); err != nil { // fail-open, as for a parse error
 				e.log.Warn("render: skipping plugin section", "type", typ, "error", err)
 				continue
@@ -656,6 +661,8 @@ func (e *Engine) execute(w io.Writer, candidates []string, v *PageView, status i
 }
 
 func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *PageView, status int) error {
+	f := enterRangeFunnel()
+	defer f.exit()
 	le, ok, err := c.pickEntry(candidates...)
 	if !ok {
 		return fmt.Errorf("render: no layout among %v", candidates)
@@ -752,6 +759,8 @@ func (e *Engine) executeWith(c *compiled, w io.Writer, candidates []string, v *P
 		d.JSHref = AssetPrefix + "hm.js"
 	}
 	e.isolateSections(v.Ctx, tmpl, d.Blocks)
+	// The trial render must not use up the page's range budget.
+	f.reset()
 	var buf bytes.Buffer // render fully first so a template error never emits a partial page
 	if err := safeExecute(&buf, tmpl, "base", d); err != nil {
 		return fmt.Errorf("render %s: %w", candidates[0], err)
@@ -828,6 +837,8 @@ func prepareBlock(c *compiled, v *PageView, s Section, canvas bool, settings map
 
 // safeExecute is ExecuteTemplate that turns a template panic into an error, so
 // one section cannot take the process down.
+// Callers run inside a range funnel (see enterRangeFunnel): plugin ranges bind
+// their budget to it.
 func safeExecute(w io.Writer, t *template.Template, name string, data any) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
