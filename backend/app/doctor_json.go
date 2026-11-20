@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/consent"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/form"
@@ -59,6 +60,8 @@ var doctorRegistry = map[string]colCheck{
 	"hatamoto_forms.settings":                      {decode: decodeAs[form.FormSettings](), shape: keynorm.ShapeOf(reflect.TypeFor[form.FormSettings]())},
 	"hatamoto_site_config.locales":                 {decode: decodeAs[[]siteconfig.LocaleEntry](), shape: keynorm.ShapeOf(reflect.TypeFor[[]siteconfig.LocaleEntry]())},
 	"hatamoto_media.variants":                      {decode: decodeAs[[]media.ImageVariant](), shape: keynorm.ShapeOf(reflect.TypeFor[[]media.ImageVariant]())},
+	"hatamoto_comment_settings.settings":           {decode: decodeAs[comment.Settings](), shape: keynorm.ShapeOf(reflect.TypeFor[comment.Settings]())},
+	"hatamoto_comments.spam_reasons":               {decode: decodeAs[[]string]()},
 	"hatamoto_api_keys.scopes":                     {decode: decodeAs[[]string]()},
 	"hatamoto_webhooks.events":                     {decode: decodeAs[[]string]()},
 	"hatamoto_webhooks.headers":                    {decode: decodeAs[map[string]string]()},

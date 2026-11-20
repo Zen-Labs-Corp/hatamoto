@@ -22,8 +22,8 @@ type Pipeline struct {
 // Input is one submission as the pipeline sees it. Data holds the validated
 // field values only: control fields must already be stripped.
 type Input struct {
-	Slug            string
-	CaptchaRequired bool // the form's "Require the spam check" switch
+	Slug            string // the subject key: the form slug as-is (comments use CommentSubject)
+	CaptchaRequired bool   // the form's "Require the spam check" switch
 	Data            map[string]interface{}
 	Timing          string // the hm_ts token the page fetched at load
 	Captcha         string // the provider's response token
@@ -60,6 +60,7 @@ func (p *Pipeline) CaptchaUsable(s Settings) bool {
 // Check runs, in order: the captcha (only when the form requires it and a
 // provider with a readable secret is set up), the minimum time to submit, and
 // the content rules. reason names the rule that tripped, never user content.
+// It never returns Hold.
 func (p *Pipeline) Check(ctx context.Context, in Input) (v Verdict, reason string) {
 	set, err := p.Settings.Get(ctx)
 	if err != nil {

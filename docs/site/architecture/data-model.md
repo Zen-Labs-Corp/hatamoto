@@ -85,6 +85,12 @@ Bylines point at **people**, not at user accounts. A person is an entity of the 
 | `hatamoto_webhooks`, `hatamoto_webhook_deliveries` | outgoing webhooks (signing secrets stored unencrypted) and their delivery queue and log, see [Webhooks](../admin/webhooks.md) |
 | `hatamoto_forms`, `hatamoto_form_submissions` | form definitions and submissions, with CSV export in the admin |
 | `hatamoto_spam_settings` | one row of site-wide spam protection settings; the captcha secret is stored sealed with AES-256-GCM; no row means the built-in defaults |
+| `hatamoto_comments` | comments in a tree per entity (status, sanitised body, spam verdict); `ip_hash` and `net_hash` are pseudonymous keyed hashes; there is no raw IP and no author URL column |
+| `hatamoto_commenters` | one row per commenter email: HMAC of the address, sealed copy, trust level, approval counts |
+| `hatamoto_comment_settings` | one row of comment settings; `enabled` is false by default |
+| `hatamoto_comment_entities` | per entity: approved and pending comment counts and the open/closed/hidden mode (NULL = inherit) |
+| `hatamoto_comment_blocks` | blocked email domains, link domains and hashes, seeded with disposable email domains |
+| `hatamoto_comment_form_tokens` | comment form tokens already used |
 | `hatamoto_section_templates` | reusable page sections saved by editors |
 | `hatamoto_entity_link_index`, `hatamoto_entity_link_audit`, `hatamoto_internal_link_rules` | the internal linking index and its audit trail |
 

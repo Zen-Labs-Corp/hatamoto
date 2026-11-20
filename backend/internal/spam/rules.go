@@ -16,6 +16,7 @@ const (
 	Spam                       // store with status spam, send nothing
 	Refuse                     // reject the submission
 	CaptchaFail                // the captcha was missing, wrong or could not be checked
+	Hold                       // comments only: store for moderation. Check (forms) never returns it.
 )
 
 // Reasons EvaluateRules reports. They name the rule only, never user content.
