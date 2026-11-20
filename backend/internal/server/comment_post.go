@@ -131,15 +131,15 @@ func (s *Server) commentNotFound(w http.ResponseWriter, r *http.Request) {
 }
 
 // commentCrossSite is true unless the browser vouches for a same-origin post.
-// Unlike the confirm link, Origin "null" counts as cross-site: public pages
-// send a real Origin on a same-origin post.
+// Origin "null" is what a same-origin form post sends under Referrer-Policy
+// no-referrer, so it passes only with Sec-Fetch-Site: same-origin.
 func commentCrossSite(r *http.Request) bool {
 	if sfs := r.Header.Get("Sec-Fetch-Site"); sfs != "" && sfs != "same-origin" {
 		return true
 	}
 	if o := r.Header.Get("Origin"); o != "" {
-		if o == "null" {
-			return true
+		if o == "null" { // a no-referrer same-origin post; only Sec-Fetch-Site can vouch for it
+			return r.Header.Get("Sec-Fetch-Site") != "same-origin"
 		}
 		u, err := url.Parse(o)
 		return err != nil || u.Host != r.Host

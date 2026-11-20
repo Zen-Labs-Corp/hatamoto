@@ -253,6 +253,15 @@ func TestCommentPostSameOriginPasses(t *testing.T) {
 	}
 }
 
+// A same-origin post under Referrer-Policy no-referrer sends Origin: null.
+func TestCommentPostOriginNullSameOriginPasses(t *testing.T) {
+	r := newPostRig(t)
+	rec := r.do(r.form(time.Minute), header("Sec-Fetch-Site", "same-origin"), header("Origin", "null"))
+	if rec.Header().Get("Location") != postPath+"?cnotice=check_email#hm-comments" || len(r.c.stored) != 1 {
+		t.Fatalf("Location %q stored %d", rec.Header().Get("Location"), len(r.c.stored))
+	}
+}
+
 func TestCommentPostTrustedWithLinkIsPendingAdminIsApproved(t *testing.T) {
 	r := newPostRig(t)
 	dev := r.knownDevice()

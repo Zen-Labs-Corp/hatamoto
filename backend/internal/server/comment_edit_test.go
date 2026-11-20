@@ -174,9 +174,12 @@ func TestCommentEditDeleteTrashes(t *testing.T) {
 func TestCommentEditCrossSite(t *testing.T) {
 	r := newEditRig()
 	for name, mut := range map[string]func(*http.Request){
-		"fetch site":  func(q *http.Request) { q.Header.Set("Sec-Fetch-Site", "cross-site") },
-		"origin":      func(q *http.Request) { q.Header.Set("Origin", "https://evil.test") },
-		"null origin": func(q *http.Request) { q.Header.Set("Origin", "null") },
+		"fetch site": func(q *http.Request) { q.Header.Set("Sec-Fetch-Site", "cross-site") },
+		"origin":     func(q *http.Request) { q.Header.Set("Origin", "https://evil.test") },
+		"null origin without fetch site": func(q *http.Request) {
+			q.Header.Set("Origin", "null")
+			q.Header.Del("Sec-Fetch-Site")
+		},
 	} {
 		if w := r.do(false, editForm("x"), mut); w.Code != http.StatusForbidden || r.ed.edited != nil {
 			t.Errorf("%s edit: %d", name, w.Code)
@@ -184,6 +187,13 @@ func TestCommentEditCrossSite(t *testing.T) {
 		if w := r.do(true, nil, mut); w.Code != http.StatusForbidden || r.ed.trashed {
 			t.Errorf("%s delete: %d", name, w.Code)
 		}
+	}
+}
+
+func TestCommentEditNullOriginSameOriginPasses(t *testing.T) {
+	r := newEditRig()
+	if w := r.do(false, editForm("x"), func(q *http.Request) { q.Header.Set("Origin", "null") }); w.Code != http.StatusSeeOther || r.ed.edited == nil {
+		t.Errorf("same-origin null origin edit: %d", w.Code)
 	}
 }
 
