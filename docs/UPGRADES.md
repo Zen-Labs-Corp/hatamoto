@@ -93,13 +93,22 @@ A type change is the same: add a column of the new type, dual-write, backfill, s
 ### rollback_floor
 
 `rollback_floor` is the oldest release whose binary passes the n-1 check against this release's
-schema. Normally that is the previous release that is still live: the newest earlier release that
-is not halted or yanked on every channel and that passes `scripts/check-migrations.sh` with it as the
-base. A halted release is never the floor, because no channel offers it and every install below it
-would be stranded. A major release sets the floor to itself.
+schema. An install updates to a release only when it runs the floor or newer; below it, it steps
+through a release whose floor it meets. So the floor is the oldest release of the same major that:
 
-Halting a release that a later release names as its floor strands the installs below it: cut a new
-release whose floor is an earlier live release.
+- passes `scripts/check-migrations.sh` with it as the base, and is not older than the `unused-since`
+  of any contract migration added after it;
+- is not halted or yanked on every channel, and has no such release on its own floor chain (its
+  floor, that release's floor, and so on);
+- is not below a recorded minimum for a break the schema check cannot see (a plugin API call that
+  older binaries still serve, see below).
+
+A major release sets the floor to itself. Taking the previous release instead would chain every
+release to the one before it, and halting any one of them would strand every install below it.
+
+Halting or yanking a release is refused while it would strand installs (a later release's floor chain
+runs through it). Cut a patch first: its floor steps over the release about to be halted. A halt that
+cannot wait (a security fix) can be forced; cut that patch straight after.
 
 Rolling back across the release that added the timed unsigned allowance (the
 `allow_unsigned_until` column of `hatamoto_package_config`) needs no migration edit, but an older
@@ -109,8 +118,8 @@ stays on until someone turns it off. After such a rollback, check **Plugins > Pa
 
 The release that adds changesets (core 1.1.0, SDK 0.17) migrates the data by expanding the schema only, so
 the n-1 check passes. It also removes the direct content write functions of the plugin API, which an older
-binary still serves to plugins that rely on them. Set `rollback_floor` for that release consciously
-instead of taking the previous live release by default.
+binary still serves to plugins that rely on them. That is the recorded minimum: no release after it
+takes a floor below 1.1.0.
 
 ### Squashing migrations
 
