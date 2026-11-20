@@ -34,7 +34,9 @@ type postComments struct {
 	used   map[string]bool
 	stored []comment.Draft
 	lastID uuid.UUID
-	keys   comment.Keys
+	// parents are the approved comments a reply may target.
+	parents map[uuid.UUID]bool
+	keys    comment.Keys
 }
 
 func (f *postComments) Settings(context.Context) (comment.Settings, error) { return f.set, nil }
@@ -65,6 +67,9 @@ func (f *postComments) ConsumeFormToken(_ context.Context, id string, _ time.Tim
 	}
 	f.used[id] = true
 	return true, nil
+}
+func (f *postComments) ReplyParent(_ context.Context, _, parent uuid.UUID) (bool, error) {
+	return f.parents[parent], nil
 }
 func (f *postComments) Keys() comment.Keys { return f.keys }
 
@@ -250,6 +255,31 @@ func TestCommentPostSameOriginPasses(t *testing.T) {
 	}
 	if r.c.stored[0].Status != comment.StatusDraft {
 		t.Fatalf("status = %s", r.c.stored[0].Status)
+	}
+}
+
+func TestCommentPostReplyParentValidated(t *testing.T) {
+	r := newPostRig(t)
+	good := uuid.New()
+	r.c.parents = map[uuid.UUID]bool{good: true}
+	for name, tc := range map[string]struct {
+		parent string
+		want   *uuid.UUID
+	}{
+		"approved parent": {good.String(), &good},
+		"unknown parent":  {uuid.NewString(), nil},
+	} {
+		r.c.stored = nil
+		v := r.form(time.Minute)
+		v.Set(parentField, tc.parent)
+		rec := r.do(v)
+		if rec.Code != http.StatusSeeOther || len(r.c.stored) != 1 {
+			t.Fatalf("%s: status %d stored %d", name, rec.Code, len(r.c.stored))
+		}
+		got := r.c.stored[0].ParentID
+		if (got == nil) != (tc.want == nil) || (got != nil && *got != *tc.want) {
+			t.Errorf("%s: stored parent %v, want %v", name, got, tc.want)
+		}
 	}
 }
 

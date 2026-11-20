@@ -1000,3 +1000,26 @@ func TestEditHeldDemotesApprovedComment(t *testing.T) {
 		t.Errorf("OnUpdated events = %v, want %v", got, want)
 	}
 }
+
+func TestReplyParent(t *testing.T) {
+	f := newFixture(t)
+	d := f.draft("rp@example.test", "hello")
+	d.Status = StatusApproved
+	ok := f.store(d)
+	d = f.draft("rp2@example.test", "waiting")
+	d.Status = StatusPending
+	pending := f.store(d)
+	for name, tc := range map[string]struct {
+		entity, parent uuid.UUID
+		want           bool
+	}{
+		"approved":     {f.entity, ok.ID, true},
+		"pending":      {f.entity, pending.ID, false},
+		"other entity": {uuid.New(), ok.ID, false},
+		"unknown":      {f.entity, uuid.New(), false},
+	} {
+		if got, err := f.svc.ReplyParent(f.ctx, tc.entity, tc.parent); err != nil || got != tc.want {
+			t.Errorf("%s: ReplyParent = %v, %v; want %v", name, got, err, tc.want)
+		}
+	}
+}

@@ -23,6 +23,16 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Comment, error) {
 	return c, err
 }
 
+// ReplyParent reports whether a reply to parentID is allowed on the entity:
+// the parent exists there and is approved (the only status the thread shows,
+// so a reply under anything else would never be visible).
+func (s *Service) ReplyParent(ctx context.Context, entityID, parentID uuid.UUID) (bool, error) {
+	var ok bool
+	err := s.db.Pool().QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hatamoto_comments
+		WHERE id = $1 AND entity_id = $2 AND status = 'approved')`, parentID, entityID).Scan(&ok)
+	return ok, err
+}
+
 // HasNonPublic reports whether the commenter has a draft, pending or spam comment
 // (what only their own device may see).
 func (s *Service) HasNonPublic(ctx context.Context, commenterID uuid.UUID) (bool, error) {

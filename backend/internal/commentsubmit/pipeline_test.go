@@ -57,6 +57,9 @@ func (f *fakeComments) ConsumeFormToken(_ context.Context, id string, _ time.Tim
 	f.used[id] = true
 	return true, nil
 }
+func (f *fakeComments) ReplyParent(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return true, nil
+}
 func (f *fakeComments) Keys() comment.Keys { return f.keys }
 
 type fakeIdentity struct {

@@ -93,6 +93,7 @@ type Comments interface {
 	MatchBlocks(context.Context, comment.Probe) ([]comment.Block, error)
 	DuplicateSince(context.Context, string, time.Time) (int, error)
 	ConsumeFormToken(context.Context, string, time.Time) (bool, error)
+	ReplyParent(context.Context, uuid.UUID, uuid.UUID) (bool, error)
 	Keys() comment.Keys
 }
 

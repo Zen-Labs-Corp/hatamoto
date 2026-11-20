@@ -70,7 +70,16 @@ func (s *Server) handleCommentPost(w http.ResponseWriter, r *http.Request) {
 	}
 	if raw := r.PostForm.Get(parentField); raw != "" {
 		if pid, err := uuid.Parse(raw); err == nil {
-			req.ParentID = &pid
+			// Before the token is spent: a parent that is gone, on another
+			// entity or not approved makes the post top-level, never an error.
+			usable, err := p.Comments.ReplyParent(ctx, id, pid)
+			if err != nil {
+				s.commentFail(w, r, "comment submit: parent", err)
+				return
+			}
+			if usable {
+				req.ParentID = &pid
+			}
 		}
 	}
 	if s.entityService != nil {
