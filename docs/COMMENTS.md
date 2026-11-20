@@ -70,7 +70,7 @@ The default mode for a content type is `entity_schemas.settings.comments.mode`; 
 
 ### Observer and Checker
 
-An `Observer` hears `OnCreated`, `OnConfirmed`, `OnApproved`, `OnSpam`, `OnDeleted` and `OnSettingsChanged`. Events fire after the commit and never fail a write.
+An `Observer` hears `OnCreated`, `OnConfirmed`, `OnApproved`, `OnSpam`, `OnDeleted`, `OnUpdated` and `OnSettingsChanged`. `OnUpdated(before, after)` covers what the others do not: every `Edit` and every move to pending (an unapproval), so a cache that shows a published comment can always see it change. Events fire after the commit and never fail a write.
 
 A `Checker` adds to the spam decision. Its input is the body, the link domains and the hashes, never the IP address or the email. If it returns an error or times out, the comment is held.
 

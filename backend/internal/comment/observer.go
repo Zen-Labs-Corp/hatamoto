@@ -16,6 +16,9 @@ type Observer interface {
 	OnApproved(ctx context.Context, c Comment)
 	OnSpam(ctx context.Context, c Comment)
 	OnDeleted(ctx context.Context, c Comment) // trash and hard delete
+	// OnUpdated fires for a change the other events do not cover: an edit, and a
+	// move to pending (an unapproval). before is the comment as it was.
+	OnUpdated(ctx context.Context, before, after Comment)
 	OnSettingsChanged(ctx context.Context, s Settings)
 }
 
@@ -36,6 +39,9 @@ func (NopObserver) OnSpam(context.Context, Comment) {}
 
 // OnDeleted does nothing.
 func (NopObserver) OnDeleted(context.Context, Comment) {}
+
+// OnUpdated does nothing.
+func (NopObserver) OnUpdated(context.Context, Comment, Comment) {}
 
 // OnSettingsChanged does nothing.
 func (NopObserver) OnSettingsChanged(context.Context, Settings) {}

@@ -707,3 +707,31 @@ func TestQueueAndStatusCounts(t *testing.T) {
 		t.Errorf("status counts = %v, %v", sc, err)
 	}
 }
+
+type updateRecorder struct {
+	NopObserver
+	got *[][2]Status
+}
+
+func (u *updateRecorder) OnUpdated(_ context.Context, before, after Comment) {
+	*u.got = append(*u.got, [2]Status{before.Status, after.Status})
+}
+
+func TestObserverSeesEditAndUnapproval(t *testing.T) {
+	f := newFixture(t)
+	var got [][2]Status
+	f.svc.Register(&updateRecorder{got: &got})
+	d := f.draft("upd@example.test", "hello")
+	d.Status = StatusApproved
+	c := f.store(d)
+	if _, err := f.svc.Edit(f.ctx, c.ID, Edited{BodyRaw: "hi", BodyHTML: "<p>hi</p>"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.transition(f.ctx, c.ID, StatusPending, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	want := [][2]Status{{StatusApproved, StatusApproved}, {StatusApproved, StatusPending}}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("OnUpdated events = %v, want %v", got, want)
+	}
+}

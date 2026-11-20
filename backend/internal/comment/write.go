@@ -296,12 +296,13 @@ func (s *Service) transition(ctx context.Context, id uuid.UUID, to Status, by *u
 		return Comment{}, err
 	}
 	now := s.utcNow()
-	var out Comment
+	var out, before Comment
 	err = s.db.WithTx(ctx, func(tx pgx.Tx) error {
 		c, err := selectForUpdate(ctx, tx, id)
 		if err != nil {
 			return err
 		}
+		before = c
 		if !CanTransition(c.Status, to) {
 			return ErrBadTransition
 		}
@@ -343,6 +344,8 @@ func (s *Service) transition(ctx context.Context, id uuid.UUID, to Status, by *u
 		s.obs.each("spam", func(o Observer) { o.OnSpam(ctx, out) })
 	case StatusTrash:
 		s.obs.each("deleted", func(o Observer) { o.OnDeleted(ctx, out) })
+	case StatusPending:
+		s.obs.each("updated", func(o Observer) { o.OnUpdated(ctx, before, out) })
 	}
 	return out, nil
 }
@@ -417,12 +420,13 @@ func (s *Service) Edit(ctx context.Context, id uuid.UUID, e Edited) (Comment, er
 		return Comment{}, err
 	}
 	now := s.utcNow()
-	var out Comment
+	var out, before Comment
 	err = s.db.WithTx(ctx, func(tx pgx.Tx) error {
 		c, err := selectForUpdate(ctx, tx, id)
 		if err != nil {
 			return err
 		}
+		before = c
 		status := c.Status
 		if !e.ByAdmin && e.HasLinks && c.Status == StatusApproved {
 			status = StatusPending
@@ -449,5 +453,6 @@ func (s *Service) Edit(ctx context.Context, id uuid.UUID, e Edited) (Comment, er
 	if err != nil {
 		return Comment{}, err
 	}
+	s.obs.each("updated", func(o Observer) { o.OnUpdated(ctx, before, out) })
 	return out, nil
 }
