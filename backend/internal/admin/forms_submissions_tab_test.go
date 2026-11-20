@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -200,5 +201,33 @@ func TestSubmissionsTabColumnsAndRow(t *testing.T) {
 	}
 	if cells[5].Text != "3h ago" || cells[5].Title != "7 Nov 2026 09:00" {
 		t.Errorf("received cell = %q title %q", cells[5].Text, cells[5].Title)
+	}
+}
+
+// The row link opens the drawer through htmx; its target id is the one the tab handler answers
+// with the bare drawer, so the template's body id must stay equal to it.
+func TestSubmissionsRowOpensDrawerThroughHTMX(t *testing.T) {
+	t.Parallel()
+
+	s := &form.FormSubmission{ID: uuid.New(), Status: form.SubmissionStatusRead, Data: map[string]any{"name": "Ada"}}
+	f := &form.Form{}
+	attrs := submissionsTabRow(f, s, time.Now(), time.UTC, "/open?s=1").Cells[0].LinkAttrs
+	want := map[string]string{"hx-get": "/open?s=1", "hx-target": "#hm-ss-drawer", "hx-swap": "innerHTML", "hx-sync": "#hm-ss-drawer:replace", "hx-push-url": "true"}
+	for k, v := range want {
+		if attrs[k] != v {
+			t.Errorf("%s = %q, want %q", k, attrs[k], v)
+		}
+	}
+	if _, ok := attrs["data-hm-ss-open"]; !ok {
+		t.Error("data-hm-ss-open missing")
+	}
+	tpl, err := os.ReadFile("../../web/admin/pages/forms/submissionstab.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, w := range []string{`id="hm-ss-drawer" data-hm-ss-drawer-body`, `"ID" "hm-ss-drawer-dialog"`} {
+		if !strings.Contains(string(tpl), w) {
+			t.Errorf("submissionstab.html must contain %s", w)
+		}
 	}
 }
