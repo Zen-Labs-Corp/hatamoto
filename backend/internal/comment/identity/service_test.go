@@ -191,7 +191,7 @@ func TestRequestConfirmation_MailCarriesNoCommenterText(t *testing.T) {
 	if strings.Contains(got, "SENTINEL") {
 		t.Errorf("mail data leaks commenter text: %s", got)
 	}
-	prefix := "https://example.test/comments/confirm/"
+	prefix := "https://example.test/-/comments/confirm/"
 	url := e.m.calls[0].d.URL
 	if !strings.HasPrefix(url, prefix) || len(url)-len(prefix) != 43 {
 		t.Errorf("URL = %q", url)

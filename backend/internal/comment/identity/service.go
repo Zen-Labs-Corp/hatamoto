@@ -166,7 +166,7 @@ func (s *Service) RequestConfirmation(ctx context.Context, req ConfirmRequest) (
 		s.log.Debug("comment confirmation not sent: limit reached")
 		return OutcomeCheckEmail, nil
 	}
-	url := strings.TrimRight(base, "/") + "/comments/confirm/" + raw
+	url := strings.TrimRight(base, "/") + "/-/comments/confirm/" + raw
 	if err := s.mailer.SendCommentConfirmation(ctx, req.Email, email.CommentConfirmationData{
 		SiteName: name, EntityTitle: req.EntityTitle, URL: url, ExpiresIn: "24 hours",
 	}); err != nil {

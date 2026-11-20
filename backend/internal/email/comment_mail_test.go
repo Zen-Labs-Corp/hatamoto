@@ -25,9 +25,9 @@ func sendCommentConfirmation(t *testing.T, data CommentConfirmationData) string 
 
 func TestSendCommentConfirmation_NoCommenterText(t *testing.T) {
 	data := sendCommentConfirmation(t, CommentConfirmationData{
-		SiteName: "Site S", EntityTitle: "Post P", URL: "https://example.test/comments/confirm/TOKEN", ExpiresIn: "24 hours",
+		SiteName: "Site S", EntityTitle: "Post P", URL: "https://example.test/-/comments/confirm/TOKEN", ExpiresIn: "24 hours",
 	})
-	for _, want := range []string{"Subject: Confirm your comment on Site S", "Site S", "Post P", "https://example.test/comments/confirm/TOKEN"} {
+	for _, want := range []string{"Subject: Confirm your comment on Site S", "Site S", "Post P", "https://example.test/-/comments/confirm/TOKEN"} {
 		if !strings.Contains(data, want) {
 			t.Errorf("message lacks %q:\n%s", want, data)
 		}

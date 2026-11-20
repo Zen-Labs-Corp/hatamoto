@@ -23,7 +23,7 @@ Comments are threaded, up to 5 levels by default. Themes can override the commen
 
 ## Privacy and retention
 
-No raw IP address is stored, only keyed hashes, which are pseudonymous personal data. A truncated user agent is stored with each comment. There is no website field. Spam and trash are purged after 30 days by default, and unconfirmed comments after 24 hours.. The owner can export or erase (delete or anonymise) everything held for an email address, including the IP-hash block that marking one of its comments as spam added to the blocklist. Network (/24) blocks are shared by everyone on that network and are never removed by an erase. Not written yet.
+No raw IP address is stored, only keyed hashes, which are pseudonymous personal data. A truncated user agent is stored with each comment. There is no website field. Spam and trash are purged after 30 days by default, and unconfirmed comments after 24 hours. The owner can export or erase (delete or anonymise) everything held for an email address, including the IP-hash block that marking one of its comments as spam added to the blocklist. Network (/24) blocks are shared by everyone on that network and are never removed by an erase. Not written yet.
 
 ## Plugins
 
@@ -88,7 +88,7 @@ Package `internal/comment/identity` confirms the commenter's email address and k
 
 1. The public part stores the comment as a draft and calls `RequestConfirmation`.
 2. A mail goes out with the site name, the page title and a link. It never contains the commenter's name or the comment text.
-3. The link opens a page with one Confirm button. A GET never confirms anything, because mail scanners and link previews fetch links.
+3. The link, `/-/comments/confirm/<token>`, opens a page with one Confirm button. A GET never confirms anything, because mail scanners and link previews fetch links.
 4. A same-origin POST consumes the link, calls `comment.Service.Confirm`, sets the `hm_c` cookie and redirects to `#comment-<id>` on the page.
 
 The link works once and for 24 hours. Only its SHA-256 is stored, in `hatamoto_comment_confirmations`. At most 3 mails go to one address, 10 to one `ip_hash` and 30 to one `net_hash` per 24 hours. Over the limit the visitor sees the same page as before and nothing is sent.

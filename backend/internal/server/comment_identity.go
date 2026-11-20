@@ -15,7 +15,7 @@ import (
 )
 
 // commentConfirmPrefix is the path of the comment confirmation link.
-const commentConfirmPrefix = "/comments/confirm/"
+const commentConfirmPrefix = "/-/comments/confirm/"
 
 // commentIdentity is the narrow surface the confirm handler needs
 // (*identity.Service satisfies it; tests use a fake).

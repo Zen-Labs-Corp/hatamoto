@@ -19,7 +19,7 @@ const (
 type PageData struct {
 	SiteName    string
 	EntityTitle string
-	Action      string // "/comments/confirm/<token>", path only
+	Action      string // "/-/comments/confirm/<token>", path only
 	State       PageState
 }
 

@@ -72,7 +72,7 @@ func TestEveryKindLeavesOneRow(t *testing.T) {
 		{KindPlugin, func() error { return svc.SendPlugin(ctx, "acme", []string{"a@example.com"}, "Hi", "<p>x</p>", "x") }},
 		{KindOther, func() error { return svc.Send(ctx, []string{"a@example.com"}, "Hi", "<p>x</p>", "x") }},
 		{KindCommentConfirmation, func() error {
-			return svc.SendCommentConfirmation(ctx, "a@example.com", CommentConfirmationData{SiteName: "S", EntityTitle: "T", URL: "https://x/comments/confirm/SECRET", ExpiresIn: "24 hours"})
+			return svc.SendCommentConfirmation(ctx, "a@example.com", CommentConfirmationData{SiteName: "S", EntityTitle: "T", URL: "https://x/-/comments/confirm/SECRET", ExpiresIn: "24 hours"})
 		}},
 	}
 	for i, st := range steps {

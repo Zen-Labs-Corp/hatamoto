@@ -123,7 +123,7 @@ type renderRoutes struct {
 	// outside capture and the page cache.
 	preview http.HandlerFunc
 	// commentConfirm (optional) serves the comment confirmation link,
-	// /comments/confirm/{token}. Mounted outside capture and the page cache:
+	// /-/comments/confirm/{token}. Mounted outside capture and the page cache:
 	// GET only shows a button, POST confirms.
 	commentConfirm http.HandlerFunc
 	// formPage (optional) serves the hosted form page, GET /f/{slug}.
