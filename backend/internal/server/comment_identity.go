@@ -187,6 +187,9 @@ func (s *Server) setupComments() {
 		drop: s.dropRenderedEntity, all: s.invalidateRendered,
 		forget: s.commentBypass.forget,
 	})
+	if s.hooks != nil {
+		s.comments.Register(newCommentEventObserver(s.hooks))
+	}
 	if s.emailService == nil {
 		return
 	}
