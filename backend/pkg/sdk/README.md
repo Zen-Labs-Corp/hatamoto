@@ -7,7 +7,7 @@ on nothing but the standard library, never imports Hatamoto core packages, and t
 module has its own `go.mod`.
 
 ```sh
-go get hatamoto.dev/sdk@v0.24.0
+go get hatamoto.dev/sdk@v0.25.0
 ```
 
 Releases are plain `vX.Y.Z` tags of this repository, where `X.Y.Z` is the `Version`
@@ -41,6 +41,7 @@ needs in `plugin.json` (the examples in the core repository declare `^0.8` or `^
 
 | SDK | Change |
 |---|---|
+| 0.25.0 | Additive over 0.24: permission `comments.read`; actions `comment.created`, `comment.approved`, `comment.spam` and `comment.deleted` (`CommentEvent`, no email, hash, IP address, user agent, spam score or raw body); filter `comment.check` (`CommentCheck`: `body`, `link_domains`, `body_hash` in, `score` 0 to 100 and `reasons` out; it may only add to the spam score and any failure holds the comment); host functions `comments.thread` and `comments.counts` (approved comments only). Nothing is delivered without the grant; a plugin that asks for it declares `^0.25`. |
 | 0.24.0 | Additive over 0.23: manifest field `page_paths` (up to 16 exact public request paths, no trailing slash except `/`, otherwise the shape rules of `redirect_paths`, reserved core paths refused by the host). A `render.page` plugin that declares it is called only for those paths and only they are uncached; without it the filter stays site-wide. Request paths, not pages: locale or alternate URLs are not covered and are page-cached. Older hosts ignore the field and call the filter on every page, so check `p.Path` in the filter unless you declare `^0.24`. |
 | 0.23.0 | Permission `entities.filter` (not purely additive: a `^0.22` plugin's filter runs only with the grant). A plugin's `entity.before_save` filter is registered only while the owner holds it; a plugin that asks for it declares `^0.23`. |
 | 0.22.2 | Additive over 0.22.1: the `ui` manifest block gains `allow` (`camera`); with the owner's `ui.allow:camera` grant the admin page may call `hatamoto.camera.capture()`. Adds `AdminUI.Allow`, `UIAllowCamera`, `PermUICamera`, `ValidGrant` and `Manifest.Asked`. |
