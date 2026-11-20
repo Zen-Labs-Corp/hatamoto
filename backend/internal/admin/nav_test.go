@@ -86,6 +86,7 @@ func TestNavActive(t *testing.T) {
 	t.Parallel()
 
 	n := editorPluginNav("hreflang")
+	n.update("comments", func(it *NavItem) { it.Visible = nil })
 	for _, tc := range []struct{ path, label, cur string }{
 		{"/admin", "Overview", "page"},
 		{"/admin/", "Overview", "page"},
@@ -96,6 +97,8 @@ func TestNavActive(t *testing.T) {
 		{"/admin/forms/edit/7", "Forms", "page"},
 		{"/admin/forms/submissions/3", "Forms", "page"},
 		{"/admin/forms/spam", "Forms", "page"},
+		{"/admin/comments", "Comments", "page"},
+		{"/admin/comments/commenters", "Comments", "page"},
 		{"/admin/analytics/referrals", "Analytics", "page"},
 		{"/admin/analytics/health", "Analytics", "page"},
 		{"/admin/analytics/google", "Analytics", "page"},
