@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"slices"
 	"strings"
@@ -342,5 +343,100 @@ func TestCommentReplyServiceTooLong(t *testing.T) {
 	rec := p.do("POST", "/admin/comments/"+commentsTestID+"/reply", "owner-token", url.Values{"body": {"hello"}}, nil)
 	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "This text is too long.") {
 		t.Errorf("service too long = %d", rec.Code)
+	}
+}
+
+const modSecondID = "7d2a1b3c-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
+
+func modBulk(p *perfRig, token string, form url.Values, hdr map[string]string) (int, string) {
+	rec := p.do("POST", "/admin/comments/bulk", token, form, hdr)
+	return rec.Code, rec.Body.String()
+}
+
+func TestCommentsBulkApprove(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{}
+	p := newCommentsRig(t, svc)
+	code, _ := modBulk(p, "editor-token", url.Values{"action": {"approve"}, "id": {commentsTestID, modSecondID, commentsTestID}}, nil)
+	if code != 303 || !slices.Equal(svc.calls, []string{"approve"}) || !slices.Equal(svc.lastIDs, []string{commentsTestID, modSecondID}) {
+		t.Errorf("code=%d calls=%v ids=%v", code, svc.calls, svc.lastIDs)
+	}
+}
+
+func TestCommentsBulkSpam(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{}
+	p := newCommentsRig(t, svc)
+	code, _ := modBulk(p, "owner-token", url.Values{"action": {"spam"}, "id": {commentsTestID}}, nil)
+	if code != 303 || !slices.Equal(svc.calls, []string{"spam"}) || svc.lastTeach != (SpamTeach{}) {
+		t.Errorf("code=%d calls=%v teach=%+v", code, svc.calls, svc.lastTeach)
+	}
+}
+
+func TestCommentsBulkDeleteNeedsConfirm(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{}
+	p := newCommentsRig(t, svc)
+	code, body := modBulk(p, "owner-token", url.Values{"action": {"delete"}, "id": {commentsTestID, modSecondID}}, nil)
+	if code != 200 || !strings.Contains(body, "and their replies") || !strings.Contains(body, `name="confirmed"`) {
+		t.Errorf("unconfirmed delete = %d", code)
+	}
+	if len(svc.calls) != 0 {
+		t.Errorf("calls = %v", svc.calls)
+	}
+	code, _ = modBulk(p, "owner-token", url.Values{"action": {"delete"}, "confirmed": {"1"}, "id": {commentsTestID, modSecondID}}, nil)
+	if code != 303 || !slices.Equal(svc.calls, []string{"delete"}) {
+		t.Errorf("confirmed delete = %d calls=%v", code, svc.calls)
+	}
+	if len(p.events) != 1 || p.events[0].Action != "comments.delete" || p.events[0].Detail["count"] != 2 {
+		t.Errorf("audit events = %+v", p.events)
+	}
+}
+
+func TestCommentsBulkCap(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{}
+	p := newCommentsRig(t, svc)
+	form := url.Values{"action": {"trash"}}
+	for i := range 101 {
+		form.Add("id", fmt.Sprintf("00000000-0000-4000-8000-%012d", i))
+	}
+	code, _ := modBulk(p, "owner-token", form, nil)
+	if code != 303 || len(svc.calls) != 0 {
+		t.Errorf("code=%d calls=%v", code, svc.calls)
+	}
+	code, _ = modBulk(p, "owner-token", url.Values{"action": {"trash"}}, nil)
+	if code != 303 || len(svc.calls) != 0 {
+		t.Errorf("no ids: code=%d calls=%v", code, svc.calls)
+	}
+}
+
+func TestCommentsBulkBadAction(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{}
+	p := newCommentsRig(t, svc)
+	if code, _ := modBulk(p, "owner-token", url.Values{"action": {"nuke"}, "id": {commentsTestID}}, nil); code != 400 {
+		t.Errorf("bad action = %d, want 400", code)
+	}
+	if len(svc.calls) != 0 {
+		t.Errorf("calls = %v", svc.calls)
+	}
+}
+
+func TestCommentsBulkNoCSRF(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{}
+	p := newCommentsRig(t, svc)
+	if code, _ := modBulk(p, "owner-token", url.Values{"action": {"trash"}, "id": {commentsTestID}}, map[string]string{"X-CSRF-Token": ""}); code != 403 {
+		t.Errorf("no CSRF = %d, want 403", code)
+	}
+	if len(svc.calls) != 0 {
+		t.Errorf("calls = %v", svc.calls)
 	}
 }

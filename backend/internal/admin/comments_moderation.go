@@ -170,6 +170,7 @@ func (a *Admin) handleComments(w http.ResponseWriter, r *http.Request) {
 		PrimaryFilters: primary, PopoverFilters: popover, Chips: chips,
 		ClearHref: modHref(base, commentListParams{Status: p.Status, Q: p.Q, Entity: p.Entity, Trust: p.Trust}.query()),
 		ListBar:   true, Live: true, Target: "comments-results", ChipsOutside: true,
+		Bulk: modBulkActions(a.adminPath), BulkURL: a.adminPath + "/comments/bulk",
 		Empty: ui.Empty{Icon: "message-square", Title: "No comments here", Body: "Nothing matches this view."},
 	}
 
@@ -277,11 +278,6 @@ func modExcerpt(body string) string {
 		return string(rs[:modExcerptRunes]) + "…"
 	}
 	return s
-}
-
-// handleCommentsBulk is a stub until its screen lands.
-func (a *Admin) handleCommentsBulk(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
 }
 
 // modLoad is the shared start of a single-comment action: the service, the
@@ -505,4 +501,101 @@ func (a *Admin) handleCommentEdit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	a.renderModForm(w, r, http.StatusUnprocessableEntity, "comments/edit", "Edit comment", "Comment", d, msg)
+}
+
+// modMaxBulk caps one bulk request.
+const modMaxBulk = 100
+
+func modBulkActions(adminPath string) []ui.BulkAction {
+	target := adminPath + "/comments/bulk"
+	return []ui.BulkAction{
+		{Label: "Approve selected", Action: target, Value: "approve"},
+		{Label: "Spam", Action: target, Value: "spam", Danger: true},
+		{Label: "Trash", Action: target, Value: "trash", Danger: true},
+		{Label: "Delete", Action: target, Value: "delete", Danger: true, Confirm: "Delete the selected comments and their replies for good?"},
+	}
+}
+
+// modUniqueIDs keeps the valid, distinct ids in order.
+func modUniqueIDs(raw []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range raw {
+		id, err := uuid.Parse(s)
+		if err != nil || seen[id.String()] {
+			continue
+		}
+		seen[id.String()] = true
+		out = append(out, id.String())
+	}
+	return out
+}
+
+func (a *Admin) handleCommentsBulk(w http.ResponseWriter, r *http.Request) {
+	svc := a.deps.Comments
+	if svc == nil {
+		a.unavailable(w, r, "Comments")
+		return
+	}
+	_ = r.ParseForm()
+	back := a.modBack(r)
+	ids := modUniqueIDs(r.PostForm["id"])
+	if len(ids) == 0 {
+		a.SetFlash(w, r, "error", "Select at least one comment.")
+		Redirect(w, r, back)
+		return
+	}
+	if len(ids) > modMaxBulk {
+		a.SetFlash(w, r, "error", fmt.Sprintf("Select at most %d comments.", modMaxBulk))
+		Redirect(w, r, back)
+		return
+	}
+	ctx, actor := r.Context(), modActor(r)
+	action := r.PostFormValue("action")
+	var (
+		n    int
+		err  error
+		verb string
+	)
+	switch action {
+	case "approve":
+		n, err = svc.Approve(ctx, ids, actor)
+		verb = "approved"
+	case "spam":
+		n, err = svc.MarkSpam(ctx, ids, SpamTeach{}, actor)
+		verb = "marked as spam"
+	case "trash":
+		n, err = svc.Trash(ctx, ids, actor)
+		verb = "moved to trash"
+	case "delete":
+		if r.PostFormValue("confirmed") != "1" {
+			hidden := []hiddenField{{"action", "delete"}, {"confirmed", "1"}, {"back", back}}
+			for _, id := range ids {
+				hidden = append(hidden, hiddenField{"id", id})
+			}
+			noun := plural(len(ids), "comment", "comments")
+			a.renderConfirm(w, r, confirmData{
+				Title:   fmt.Sprintf("Delete %d %s?", len(ids), noun),
+				Message: fmt.Sprintf("Delete %d %s and their replies for good? This cannot be undone.", len(ids), noun),
+				Post:    a.adminPath + "/comments/bulk", Label: fmt.Sprintf("Delete %d %s", len(ids), noun), Back: back, Danger: true, Hidden: hidden,
+			})
+			return
+		}
+		n, err = svc.Delete(ctx, ids, actor)
+		verb = "deleted"
+		if err == nil {
+			a.audit(r, "comments.delete", "comments", map[string]any{"count": n})
+		}
+	default:
+		a.Error(w, r, http.StatusBadRequest, "Unknown action", "Choose an action for the selected comments.")
+		return
+	}
+	if err != nil {
+		a.logger().Error("comment bulk "+action+" failed", "err", err)
+		a.SetFlash(w, r, "error", "The selected comments could not be changed.")
+		Redirect(w, r, back)
+		return
+	}
+	a.SetFlash(w, r, "success", fmt.Sprintf("%d %s %s.", n, plural(n, "comment", "comments"), verb))
+	Redirect(w, r, back)
 }
