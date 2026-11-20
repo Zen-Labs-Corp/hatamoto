@@ -308,7 +308,9 @@ and `N` is the count for the first three. The theme chooses the words.
   `.BodyValue` verbatim as the textarea content, each only when set
   (`{{with .NameValue}} value="{{.}}"{{end}}`), and add `checked` to the reply
   opt-in when `.Notify` is true. They hold placeholders that the server swaps
-  for the escaped values. A theme that omits them still works; its form comes
+  for the HTML-escaped values, so they are safe only inside a double-quoted
+  attribute value or as element text (the textarea); never print them
+  unquoted, in a script or in a URL. A theme that omits them still works; its form comes
   back blank.
 - Never add a website or URL field. Comments have none.
 - `data-hm-captcha` marks where a captcha widget goes when the owner enabled one
