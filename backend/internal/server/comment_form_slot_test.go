@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http/httptest"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -104,11 +105,7 @@ func TestCommentSlotFillUnchanged(t *testing.T) {
 		t.Fatal("marker absent: want the same slice and false")
 	}
 
-	off, _ := slotFixture(false)
 	page := slotPage(id)
-	if out, ok := off.fill(r, page); ok || &out[0] != &page[0] {
-		t.Fatal("off: want the same slice and false")
-	}
 
 	var nilSlot *commentSlot
 	if out, ok := nilSlot.fill(r, page); ok || &out[0] != &page[0] {
@@ -116,12 +113,35 @@ func TestCommentSlotFillUnchanged(t *testing.T) {
 	}
 
 	bad := bytes.ReplaceAll(page, []byte(id.String()), []byte("not-a-uuid"))
-	if out, ok := slot.fill(r, bad); ok || &out[0] != &bad[0] {
-		t.Fatal("bad entity id: want the same slice and false")
+	if out, ok := slot.fill(r, bad); !ok || &out[0] != &bad[0] {
+		t.Fatal("bad entity id: want the same slice and private")
 	}
 
 	allocs := testing.AllocsPerRun(50, func() { slot.fill(r, plain) })
 	if allocs > 1 {
 		t.Fatalf("allocs without marker = %v", allocs)
+	}
+}
+
+// The marker decides, not the site switch: with the flag reading off a page that
+// carries the form is still filled, and sent private with no validators, on the
+// miss and on the hit.
+func TestCommentSlotFillsWhateverTheFlagSays(t *testing.T) {
+	off, _ := slotFixture(false)
+	page := slotPage(uuid.New())
+	out, ok := off.fill(httptest.NewRequest("GET", "/p", nil), page)
+	if !ok || !slotTokRe.Match(out) {
+		t.Fatalf("flag off: private %v, form not filled in %s", ok, out)
+	}
+
+	f := newBypassFixture(t)
+	slot, _ := slotFixture(false)
+	f.h.slot = slot
+	for i, name := range []string{"miss", "hit"} {
+		w := f.get("/go")
+		if w.Header().Get("ETag") != "" || !strings.Contains(w.Header().Get("Cache-Control"), "private") ||
+			strings.Contains(w.Body.String(), "__hmcf_") {
+			t.Fatalf("%s %d: ETag %q, Cache-Control %q, body %s", name, i, w.Header().Get("ETag"), w.Header().Get("Cache-Control"), w.Body)
+		}
 	}
 }

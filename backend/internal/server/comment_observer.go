@@ -16,7 +16,6 @@ type commentCacheObserver struct {
 	comment.NopObserver
 	drop   func(ctx context.Context, entityID uuid.UUID) // InvalidateRenderedEntity + preload; logs its error
 	all    func(ctx context.Context)                     // global drop, for a settings change
-	setOn  func(bool)                                    // the "comments are on" flag the form slot reads
 	forget func(commenterID uuid.UUID)                   // the commenter's cached "has own items" answer
 }
 
@@ -45,10 +44,9 @@ func (o commentCacheObserver) OnUpdated(ctx context.Context, before, after comme
 }
 
 // OnSettingsChanged drops every rendered page (the form and the thread appear
-// or vanish site-wide) and records whether comments are on.
-func (o commentCacheObserver) OnSettingsChanged(ctx context.Context, set comment.Settings) {
+// or vanish site-wide).
+func (o commentCacheObserver) OnSettingsChanged(ctx context.Context, _ comment.Settings) {
 	o.all(ctx)
-	o.setOn(set.Enabled)
 }
 
 // dropRenderedEntity is the observer's drop: that entity's pages, then a

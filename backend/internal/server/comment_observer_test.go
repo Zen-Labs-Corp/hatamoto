@@ -17,7 +17,6 @@ type observerRig struct {
 	o      commentCacheObserver
 	drops  []uuid.UUID
 	alls   int
-	on     bool
 	forgot []uuid.UUID
 }
 
@@ -26,7 +25,6 @@ func newObserverRig() *observerRig {
 	r.o = commentCacheObserver{
 		drop:   func(_ context.Context, id uuid.UUID) { r.drops = append(r.drops, id) },
 		all:    func(context.Context) { r.alls++ },
-		setOn:  func(v bool) { r.on = v },
 		forget: func(id uuid.UUID) { r.forgot = append(r.forgot, id) },
 	}
 	return r
@@ -71,15 +69,15 @@ func TestCommentObserverDropsOnlyThePublicThreadChanges(t *testing.T) {
 	}
 }
 
-func TestCommentObserverSettingsChangeDropsEverythingAndSetsTheFlag(t *testing.T) {
+func TestCommentObserverSettingsChangeDropsEverything(t *testing.T) {
 	r := newObserverRig()
 	r.o.OnSettingsChanged(context.Background(), comment.Settings{Enabled: true})
-	if r.alls != 1 || !r.on || len(r.drops) != 0 {
-		t.Fatalf("all %d on %v drops %v", r.alls, r.on, r.drops)
+	if r.alls != 1 || len(r.drops) != 0 {
+		t.Fatalf("all %d drops %v", r.alls, r.drops)
 	}
 	r.o.OnSettingsChanged(context.Background(), comment.Settings{})
-	if r.alls != 2 || r.on {
-		t.Fatalf("all %d on %v", r.alls, r.on)
+	if r.alls != 2 {
+		t.Fatalf("all %d", r.alls)
 	}
 }
 

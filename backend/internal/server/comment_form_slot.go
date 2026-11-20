@@ -30,33 +30,33 @@ type commentSlot struct {
 // (comments not wired) says false: callers have their own nil checks.
 func (c *commentSlot) off() bool { return c != nil && c.on != nil && !c.on() }
 
-// fill returns the body to write and whether it was personalised. It returns
-// the body unchanged when comments are off or the marker is absent. The input
-// is never modified: it is the cached entry.
+// fill returns the body to write and whether the response must be private
+// (no validators, no shared cache). The marker alone decides, never the site
+// switch: a page that carries it is never sent with placeholders or public
+// headers. A marker the slot cannot fill (an unreadable form) is returned as is
+// and private. Without the marker the body is unchanged and the flag false. The
+// input is never modified: it is the cached entry.
 func (c *commentSlot) fill(r *http.Request, body []byte) ([]byte, bool) {
 	if c == nil || bytes.Index(body, []byte(render.CommentFormMarker)) < 0 {
 		return body, false
 	}
-	if c.on != nil && !c.on() {
-		return body, false
-	}
 	start, end := commentFormSpan(body)
 	if start < 0 {
-		return body, false
+		return body, true
 	}
 	span := body[start:end]
 	i := bytes.Index(span, []byte(commentActionPrefix))
 	if i < 0 {
-		return body, false
+		return body, true
 	}
 	rest := span[i+len(commentActionPrefix):]
 	j := bytes.IndexByte(rest, '"')
 	if j < 0 {
-		return body, false
+		return body, true
 	}
 	id, err := uuid.Parse(string(rest[:j]))
 	if err != nil {
-		return body, false
+		return body, true
 	}
 	ipHash, _ := c.hashIP(middleware.GetClientIP(r))
 	tok := spam.IssueCommentToken(c.tokenKey, spam.CommentSubject(id.String()), ipHash, c.now())

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -162,16 +161,17 @@ func (s *Server) setupComments() {
 	s.comments = comment.New(s.db, s.cfg.Secret, s.logger)
 	secret := s.cfg.Secret
 
-	// The slot and the observer share one "comments are on" flag, read from the
-	// settings at boot and kept current by the settings event.
-	on := new(atomic.Bool)
-	if set, err := s.comments.Settings(context.Background()); err == nil {
-		on.Store(set.Enabled)
+	// The edit and delete routes read the switch from the same cached settings
+	// the page render uses. An unreadable setting counts as on: the routes check
+	// the device cookie and ownership anyway.
+	on := func() bool {
+		set, err := s.comments.Settings(context.Background())
+		return err != nil || set.Enabled
 	}
 	devKey := identity.DeviceKey(secret)
 	s.commentSlot = &commentSlot{
 		tokenKey: spam.CommentTokenKey(secret), nameKey: spam.FieldNameKey(secret),
-		hashIP: s.comments.Keys().HashIP, now: time.Now, on: on.Load,
+		hashIP: s.comments.Keys().HashIP, now: time.Now, on: on,
 	}
 	// A visitor with a comment of their own that is not public yet, or still
 	// editable, gets an uncached page.
@@ -184,7 +184,7 @@ func (s *Server) setupComments() {
 			return s.comments.HasEditable(ctx, id)
 		}, nil)
 	s.comments.Register(commentCacheObserver{
-		drop: s.dropRenderedEntity, all: s.invalidateRendered, setOn: on.Store,
+		drop: s.dropRenderedEntity, all: s.invalidateRendered,
 		forget: s.commentBypass.forget,
 	})
 	if s.emailService == nil {
