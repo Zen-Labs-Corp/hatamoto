@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -125,5 +127,129 @@ func TestHeldWhyUnknownCode(t *testing.T) {
 	}
 	if got := heldWhy(CommentRow{Status: "approved", Reasons: []string{"new commenter"}}); got != "" {
 		t.Errorf("approved heldWhy = %q, want empty", got)
+	}
+}
+
+func modPost(t *testing.T, p *perfRig, token, path string, form url.Values) string {
+	t.Helper()
+	rec := p.do("POST", "/admin/comments/"+commentsTestID+path, token, form, nil)
+	if rec.Code != 303 {
+		t.Fatalf("POST %s = %d, want 303", path, rec.Code)
+	}
+	return rec.Header().Get("Location")
+}
+
+func TestCommentApprove(t *testing.T) {
+	t.Parallel()
+
+	for _, tok := range []string{"owner-token", "editor-token"} {
+		svc := &fakeComments{rows: modRows()}
+		p := newCommentsRig(t, svc)
+		modPost(t, p, tok, "/approve", url.Values{})
+		if !slices.Equal(svc.calls, []string{"approve"}) || !slices.Equal(svc.lastIDs, []string{commentsTestID}) || svc.lastActor == "" {
+			t.Errorf("%s: calls=%v ids=%v actor=%q", tok, svc.calls, svc.lastIDs, svc.lastActor)
+		}
+	}
+}
+
+func TestCommentApproveVouch(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{rows: modRows()}
+	p := newCommentsRig(t, svc)
+	modPost(t, p, "owner-token", "/approve", url.Values{"vouch": {"1"}})
+	if !slices.Equal(svc.calls, []string{"approve", "vouch"}) || !slices.Equal(svc.lastIDs, []string{"c1"}) {
+		t.Errorf("calls=%v ids=%v", svc.calls, svc.lastIDs)
+	}
+}
+
+func TestCommentTrash(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{rows: modRows()}
+	p := newCommentsRig(t, svc)
+	modPost(t, p, "editor-token", "/trash", url.Values{})
+	if !slices.Equal(svc.calls, []string{"trash"}) || !slices.Equal(svc.lastIDs, []string{commentsTestID}) {
+		t.Errorf("calls=%v ids=%v", svc.calls, svc.lastIDs)
+	}
+}
+
+func TestCommentSpamPage(t *testing.T) {
+	t.Parallel()
+
+	rows := modRows()
+	rows[0].HasLinks = true
+	p := newCommentsRig(t, &fakeComments{rows: rows})
+	body := modGet(t, p, "owner-token", "/admin/comments/"+commentsTestID+"/spam")
+	for _, want := range []string{`name="link_domains"`, `name="email_domain"`, "This blocks the commenter and remembers the text.", "Nice post"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page lacks %q", want)
+		}
+	}
+	if strings.Contains(body, " disabled") {
+		t.Error("the spam page ships a disabled control")
+	}
+}
+
+func TestCommentSpamTeach(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{rows: modRows()}
+	p := newCommentsRig(t, svc)
+	modPost(t, p, "owner-token", "/spam", url.Values{"link_domains": {"1"}})
+	if !slices.Equal(svc.calls, []string{"spam"}) || !svc.lastTeach.LinkDomains || svc.lastTeach.EmailDomain {
+		t.Errorf("calls=%v teach=%+v", svc.calls, svc.lastTeach)
+	}
+}
+
+func TestCommentBackGuard(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, &fakeComments{rows: modRows()})
+	loc := modPost(t, p, "owner-token", "/trash", url.Values{"back": {"https://evil.example"}})
+	if !strings.HasPrefix(loc, "/admin/comments") {
+		t.Errorf("redirect = %q, want it under /admin/comments", loc)
+	}
+	loc = modPost(t, p, "owner-token", "/trash", url.Values{"back": {"/admin/comments?status=spam"}})
+	if loc != "/admin/comments?status=spam" {
+		t.Errorf("redirect = %q, want the page it came from", loc)
+	}
+}
+
+func TestCommentNotFound(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{err: ErrCommentNotFound}
+	p := newCommentsRig(t, svc)
+	for _, path := range []string{"/approve", "/trash", "/spam"} {
+		if rec := p.do("POST", "/admin/comments/"+commentsTestID+path, "owner-token", url.Values{}, nil); rec.Code != 404 {
+			t.Errorf("POST %s = %d, want 404", path, rec.Code)
+		}
+	}
+	if rec := p.do("GET", "/admin/comments/"+commentsTestID+"/spam", "owner-token", nil, nil); rec.Code != 404 {
+		t.Errorf("GET spam = %d, want 404", rec.Code)
+	}
+	if len(svc.calls) != 0 {
+		t.Errorf("calls = %v", svc.calls)
+	}
+}
+
+func TestCommentRowActionsPerTab(t *testing.T) {
+	t.Parallel()
+
+	rows := modRows()
+	rows[0].Status = "spam"
+	p := newCommentsRig(t, &fakeComments{rows: rows})
+	body := modGet(t, p, "owner-token", "/admin/comments?status=spam")
+	if !strings.Contains(body, "Not spam") {
+		t.Error("spam tab lacks Not spam")
+	}
+	if strings.Contains(body, "Unapprove") || strings.Contains(body, "Approve + vouch") {
+		t.Error("spam tab offers an action the model has no path for")
+	}
+	rows[0].Status = "trash"
+	p = newCommentsRig(t, &fakeComments{rows: rows})
+	if body := modGet(t, p, "owner-token", "/admin/comments?status=trash"); !strings.Contains(body, "Restore") {
+		t.Error("trash tab lacks Restore")
 	}
 }

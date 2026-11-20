@@ -2,6 +2,7 @@ package admin
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -283,26 +284,6 @@ func (a *Admin) handleCommentsBulk(w http.ResponseWriter, r *http.Request) {
 	a.unavailable(w, r, "Comments")
 }
 
-// handleCommentApprove is a stub until its screen lands.
-func (a *Admin) handleCommentApprove(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
-}
-
-// handleCommentSpamPage is a stub until its screen lands.
-func (a *Admin) handleCommentSpamPage(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
-}
-
-// handleCommentSpam is a stub until its screen lands.
-func (a *Admin) handleCommentSpam(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
-}
-
-// handleCommentTrash is a stub until its screen lands.
-func (a *Admin) handleCommentTrash(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
-}
-
 // handleCommentReplyPage is a stub until its screen lands.
 func (a *Admin) handleCommentReplyPage(w http.ResponseWriter, r *http.Request) {
 	a.unavailable(w, r, "Comments")
@@ -321,4 +302,125 @@ func (a *Admin) handleCommentEditPage(w http.ResponseWriter, r *http.Request) {
 // handleCommentEdit is a stub until its screen lands.
 func (a *Admin) handleCommentEdit(w http.ResponseWriter, r *http.Request) {
 	a.unavailable(w, r, "Comments")
+}
+
+// modLoad is the shared start of a single-comment action: the service, the
+// comment id and the comment itself. It answers 503, 404 or 500 and reports
+// false when it cannot go on.
+func (a *Admin) modLoad(w http.ResponseWriter, r *http.Request) (CommentsService, CommentRow, bool) {
+	svc := a.deps.Comments
+	if svc == nil {
+		a.unavailable(w, r, "Comments")
+		return nil, CommentRow{}, false
+	}
+	id, ok := uuidParam(r, "id")
+	if !ok {
+		a.modNotFound(w, r)
+		return nil, CommentRow{}, false
+	}
+	row, err := svc.Comment(r.Context(), id.String())
+	if errors.Is(err, ErrCommentNotFound) {
+		a.modNotFound(w, r)
+		return nil, CommentRow{}, false
+	}
+	if err != nil {
+		a.serverError(w, r, "comment load failed", err)
+		return nil, CommentRow{}, false
+	}
+	return svc, row, true
+}
+
+func (a *Admin) modNotFound(w http.ResponseWriter, r *http.Request) {
+	a.notFound(w, r, "Comment", a.adminPath+"/comments", "Back to comments")
+}
+
+// modActor is the signed-in user's id, as the service records it.
+func modActor(r *http.Request) string {
+	if u := userFrom(r.Context()); u != nil {
+		return u.ID
+	}
+	return ""
+}
+
+// modBack is where an action returns to: the page it came from, kept under the comments area.
+func (a *Admin) modBack(r *http.Request) string {
+	return backTo(r, a.adminPath+"/comments", a.adminPath+"/comments")
+}
+
+// modFail logs err, tells the user the action failed without detail and goes back.
+func (a *Admin) modFail(w http.ResponseWriter, r *http.Request, what string, err error) {
+	a.logger().Error("comment "+what+" failed", "err", err)
+	a.SetFlash(w, r, "error", "The comment could not be "+what+".")
+	Redirect(w, r, a.modBack(r))
+}
+
+func (a *Admin) handleCommentApprove(w http.ResponseWriter, r *http.Request) {
+	svc, row, ok := a.modLoad(w, r)
+	if !ok {
+		return
+	}
+	ctx, actor := r.Context(), modActor(r)
+	if _, err := svc.Approve(ctx, []string{row.ID}, actor); err != nil {
+		a.modFail(w, r, "approved", err)
+		return
+	}
+	msg := "Comment approved."
+	if r.PostFormValue("vouch") == "1" && row.CommenterID != "" {
+		trust, err := svc.Vouch(ctx, row.CommenterID, actor)
+		if err != nil {
+			a.logger().Error("comment vouch failed", "err", err)
+			a.SetFlash(w, r, "error", "Comment approved, but the commenter could not be vouched for.")
+			Redirect(w, r, a.modBack(r))
+			return
+		}
+		msg += " " + cmp.Or(row.AuthorName, "The commenter") + " is now " + trust + "."
+	}
+	a.SetFlash(w, r, "success", msg)
+	Redirect(w, r, a.modBack(r))
+}
+
+func (a *Admin) handleCommentTrash(w http.ResponseWriter, r *http.Request) {
+	svc, row, ok := a.modLoad(w, r)
+	if !ok {
+		return
+	}
+	if _, err := svc.Trash(r.Context(), []string{row.ID}, modActor(r)); err != nil {
+		a.modFail(w, r, "moved to trash", err)
+		return
+	}
+	a.SetFlash(w, r, "success", "Comment moved to trash.")
+	Redirect(w, r, a.modBack(r))
+}
+
+// modSpamData drives pages/comments/spam.
+type modSpamData struct {
+	ID, Excerpt, Back string
+	HasLinks          bool
+}
+
+func (a *Admin) handleCommentSpamPage(w http.ResponseWriter, r *http.Request) {
+	_, row, ok := a.modLoad(w, r)
+	if !ok {
+		return
+	}
+	v := a.NewView(w, r, "Mark as spam")
+	v.Width = "narrow"
+	v.Crumbs = crumbList("Comments", a.adminPath+"/comments", "Mark as spam")
+	v.Data = modSpamData{ID: row.ID, Excerpt: modExcerpt(row.BodyRaw), Back: a.modBack(r), HasLinks: row.HasLinks}
+	a.Render(w, r, http.StatusOK, "comments/spam", v)
+}
+
+func (a *Admin) handleCommentSpam(w http.ResponseWriter, r *http.Request) {
+	svc, row, ok := a.modLoad(w, r)
+	if !ok {
+		return
+	}
+	on := func(name string) bool { v := r.PostFormValue(name); return v == "1" || v == "true" }
+	teach := SpamTeach{LinkDomains: on("link_domains"), EmailDomain: on("email_domain")}
+	if _, err := svc.MarkSpam(r.Context(), []string{row.ID}, teach, modActor(r)); err != nil {
+		a.modFail(w, r, "marked as spam", err)
+		return
+	}
+	a.SetFlash(w, r, "success", "Comment marked as spam.")
+	Redirect(w, r, a.modBack(r))
 }
