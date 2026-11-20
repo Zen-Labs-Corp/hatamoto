@@ -97,7 +97,7 @@ func readCommentParams(r *http.Request) commentListParams {
 	}
 	p.HasLinks = q.Get("has_links") == "1"
 	if n, err := strconv.Atoi(q.Get("page")); err == nil && n > 1 {
-		p.Page = n
+		p.Page = min(n, maxListPage)
 	}
 	return p
 }

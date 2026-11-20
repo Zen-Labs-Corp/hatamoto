@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"net/http/httptest"
 	"net/url"
 	"slices"
 	"strings"
@@ -86,6 +87,20 @@ func TestCommentsListCommenterFilter(t *testing.T) {
 	modGet(t, p, "owner-token", "/admin/comments?commenter=not-a-uuid")
 	if svc.lastFilter.CommenterID != "" {
 		t.Errorf("a malformed commenter id reached the queue: %q", svc.lastFilter.CommenterID)
+	}
+}
+
+func TestCommentsListPageClamped(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{rows: modRows()}
+	p := newCommentsRig(t, svc)
+	modGet(t, p, "owner-token", "/admin/comments?page=9223372036854775807")
+	if svc.lastFilter.Page != maxListPage {
+		t.Errorf("queue page = %d, want it clamped to %d", svc.lastFilter.Page, maxListPage)
+	}
+	if got := pageParam(httptest.NewRequest("GET", "/x?page=9223372036854775807", nil)); got != maxListPage {
+		t.Errorf("pageParam = %d, want %d", got, maxListPage)
 	}
 }
 

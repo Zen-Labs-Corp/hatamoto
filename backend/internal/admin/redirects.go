@@ -57,11 +57,11 @@ func (a *Admin) redirectTabs(active string) []ui.Tab {
 
 func pageParam(r *http.Request) int {
 	p, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if p < 1 {
-		p = 1
-	}
-	return p
+	return min(max(p, 1), maxListPage)
 }
+
+// maxListPage caps a ?page= value so (page-1)*perPage cannot overflow into a negative OFFSET.
+const maxListPage = 10000
 
 type redirectsPage struct {
 	Tabs    []ui.Tab
