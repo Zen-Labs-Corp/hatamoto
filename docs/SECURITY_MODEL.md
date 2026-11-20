@@ -134,7 +134,7 @@ whatever the data, because the rule reads the template source.
 Plugin template text is trusted for CPU and memory, like theme markup: install
 only plugins you trust. A plugin `range` may iterate any value. Every plugin
 `range` in a render draws on one budget of 100000 iterations per page render
-(theme templates are not counted); builder blocks and the trial render of
+(theme templates are not counted); builder blocks, layout parts and the trial render of
 sections share the first budget and the page render gets a second, and the
 sample render gets one budget per sample render, not per template. When the budget is spent the loop stops and the rest of every
 later plugin loop in that render is left out; the page is served but not cached,
@@ -165,7 +165,7 @@ time and memory are otherwise not budgeted.
 |---|---|---|
 | `plugin.js` is not linked without the grant (the stylesheet is not gated) | `internal/render` | `TestPluginScriptNeedsGate` |
 | Public HTML is the same signed in and signed out, and no cookie value reaches it, so CSS on the page has no per-user secret to read | `internal/server` | `TestPublicHTMLCarriesNoPerUserSecrets` |
-| Plugin ranges stop at the per-render budget | `internal/render` | `TestPluginRangeBudgetStopsAndDegrades`, `TestSampleRenderBoundsRanges` |
+| Plugin ranges stop at the per-render budget | `internal/render` | `TestPluginRangeBudgetStopsAndDegrades`, `TestSampleRenderBoundsRanges`, `TestSampleRenderSharesOneBudget` |
 | Sections and partials with scripting markup follow the grant, and the two exceptions stay allowed | `internal/render` | `TestPluginMarkupScriptsFollowTheGrant`, `TestPluginMarkupRefusedWithoutTheGrant`, `TestPluginMarkupExceptionsStayAllowed` |
 | The sample render is a defence-in-depth layer: the template is also rendered once on empty data and the output scanned. The source rule refuses `<scr{{"ipt"}}>`-style sources first, so the gate's call to it is not pinned by any test. Five representative printing-action sources passing both layers is a canary, not a proof | `internal/render` | `TestPluginSampleRenderStopsWhatTheSourceScanCannotSee`, `TestPluginSampleRenderCanary` |
 | A printing action only in text or in a quoted attribute value, never in a name, unquoted value, comment, doctype or raw-text element (`<style>` included); control structures, `{{break}}`/`{{continue}}` and `{{template}}` only in text; every branch starts and ends in text. Tag boundaries come from `x/net/html`'s tokenizer | `internal/render`, `internal/packages` (Postgres) | `TestPluginMarkupActionsNeedTheGrant`, `TestPluginMarkupActionsPartials`, `TestPluginMarkupActionsDefineEnd`, `TestHostilePluginJS_SectionsAndPartialsNeedTheGrant` |
