@@ -14,6 +14,7 @@ import (
 	"hatamoto.dev/core/internal/comment/identity"
 	"hatamoto.dev/core/internal/commentsubmit"
 	"hatamoto.dev/core/internal/middleware"
+	"hatamoto.dev/core/internal/render"
 	"hatamoto.dev/core/internal/spam"
 )
 
@@ -84,10 +85,9 @@ func (s *Server) commentConfirmHandler(ci commentIdentity, lookup commentEntityL
 		}
 		http.Error(w, "Something went wrong", http.StatusInternalServerError)
 	}
-	invalid := func(w http.ResponseWriter) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusNotFound)
-		_ = identity.RenderPage(w, identity.PageData{State: identity.PageInvalid})
+	invalid := func(w http.ResponseWriter, r *http.Request) {
+		s.writeCommentConfirm(w, r, http.StatusNotFound, &render.CommentConfirmView{Invalid: true},
+			identity.PageData{State: identity.PageInvalid})
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -105,7 +105,7 @@ func (s *Server) commentConfirmHandler(ci commentIdentity, lookup commentEntityL
 		case http.MethodGet, http.MethodHead:
 			p, err := ci.Peek(ctx, raw)
 			if errors.Is(err, identity.ErrTokenInvalid) {
-				invalid(w)
+				invalid(w, r)
 				return
 			}
 			if err != nil {
@@ -114,15 +114,13 @@ func (s *Server) commentConfirmHandler(ci commentIdentity, lookup commentEntityL
 			}
 			title, _, ok := lookup(ctx, p.EntityID)
 			if !ok {
-				invalid(w)
+				invalid(w, r)
 				return
 			}
 			name, _, _ := s.digestSite(ctx)
-			h.Set("Content-Type", "text/html; charset=utf-8")
-			w.WriteHeader(http.StatusOK)
-			_ = identity.RenderPage(w, identity.PageData{
-				SiteName: name, EntityTitle: title, Action: commentConfirmPrefix + raw, State: identity.PageConfirm,
-			})
+			action := commentConfirmPrefix + raw
+			s.writeCommentConfirm(w, r, http.StatusOK, &render.CommentConfirmView{EntityTitle: title, Action: action},
+				identity.PageData{SiteName: name, EntityTitle: title, Action: action, State: identity.PageConfirm})
 		case http.MethodPost:
 			if !commentConfirmSameOrigin(r) {
 				http.Error(w, "Forbidden", http.StatusForbidden)
@@ -130,7 +128,7 @@ func (s *Server) commentConfirmHandler(ci commentIdentity, lookup commentEntityL
 			}
 			c, err := ci.Confirm(ctx, raw)
 			if errors.Is(err, identity.ErrTokenInvalid) {
-				invalid(w)
+				invalid(w, r)
 				return
 			}
 			if err != nil {
