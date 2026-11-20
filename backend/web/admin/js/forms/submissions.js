@@ -1,18 +1,25 @@
 // Submissions tab: a click on a row's link opens that submission in the side drawer without leaving the list.
-// The drawer body is the server-rendered fragment of the same ?s= URL the link points to, so without script,
-// or when the fetch fails, the link works as a plain link. Opening, Esc and the backdrop are the dialog's own
-// (components.js); this adds row selection, j/k between rows and focus back to the row on close.
-import { nextIndex, shouldHandleKey, drawerURL, listURL } from "@hm/forms/submissionslogic";
+// The link carries hx-get/hx-target/hx-sync/hx-push-url (forms_submissions_tab.go): htmx asks for the
+// server-rendered fragment of the same ?s= URL, swaps it into the drawer body and pushes that URL. Without
+// script, or when the request fails, the link works as a plain link. Opening, Esc and the backdrop are the
+// dialog's own (components.js); this adds row selection, j/k between rows and focus back to the row on close.
+import { nextIndex, shouldHandleKey, listURL } from "@hm/forms/submissionslogic";
 
 const ROW = "tr[data-hm-ss-row]";
 const OPEN = "a[data-hm-ss-open]";
-const BODY = "[data-hm-ss-drawer-body]";
+const BODY_ID = "hm-ss-drawer"; // the swap target; the server answers this target with the bare drawer
+const FOCUS = "input, select, textarea, button, [href]";
+const FAILED = ["htmx:responseError", "htmx:sendError", "htmx:timeout"]; // never htmx:sendAbort: a newer request replaced it
 let latest = 0;
 
-const body = () => document.querySelector(BODY);
+const body = () => document.getElementById(BODY_ID);
 const drawer = () => body()?.closest("dialog") ?? null;
 const rows = () => Array.from(document.querySelectorAll(ROW));
 const selectedIndex = () => rows().findIndex((r) => r.getAttribute("aria-selected") === "true");
+const link = (evt) => {
+  const el = evt.detail?.requestConfig?.elt;
+  return el?.matches?.(OPEN) ? el : null;
+};
 
 function select(row) {
   for (const r of rows()) r.removeAttribute("aria-selected");
@@ -20,40 +27,48 @@ function select(row) {
   row.classList.remove("hm-ss__row--unread"); // opening marks it read on the server
 }
 
-async function open(row) {
-  const link = row.querySelector(OPEN);
+// Capture phase, like the plugin panel: a modified click (new tab, new window), or a page without htmx /
+// showModal, stays a plain link. Stopping it here keeps htmx, which takes every click on an hx-get link, away.
+document.addEventListener("click", (evt) => {
+  const a = evt.target.closest?.(`${ROW} ${OPEN}`);
+  if (!a) return;
   const dlg = drawer();
-  const target = body();
-  if (!link || !dlg || !target || typeof dlg.showModal !== "function") return false;
-  const mine = ++latest;
-  const url = drawerURL(link.href, row.dataset.hmSsId ?? "");
-  try {
-    const res = await fetch(url, { headers: { "HX-Request": "true", "HX-Target": "hm-ss-drawer" }, credentials: "same-origin" });
-    if (!res.ok) throw new Error(String(res.status));
-    const doc = new DOMParser().parseFromString(await res.text(), "text/html");
-    if (mine !== latest) return true;
-    target.replaceChildren(...Array.from(doc.body.childNodes, (n) => document.importNode(n, true)));
-    select(row);
-    if (!dlg.open) dlg.showModal();
-    history.pushState(null, "", url);
-    target.querySelector("input, select, textarea, button, [href]")?.focus();
-    return true;
-  } catch {
-    if (mine === latest) location.href = link.href;
-    return true;
+  if (evt.defaultPrevented || evt.button !== 0 || evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey
+    || !window.htmx || typeof dlg?.showModal !== "function") evt.stopPropagation();
+}, true);
+
+// With the drawer open, j/k load the next submission through the same attributes the link carries.
+function open(row) {
+  const a = row.querySelector(OPEN);
+  if (!a) return;
+  if (!window.htmx) {
+    location.href = a.href;
+    return;
   }
+  window.htmx.ajax("GET", a.getAttribute("hx-get") ?? a.href, { source: a, target: `#${BODY_ID}`, swap: "innerHTML" }).catch(() => {}); // a newer j/k aborts this one
 }
 
-// Capture phase, like the plugin panel: a modified click (new tab, new window) stays a plain link.
-document.addEventListener("click", (evt) => {
-  const link = evt.target.closest?.(`${ROW} ${OPEN}`);
-  if (!link) return;
-  if (evt.defaultPrevented || evt.button !== 0 || evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey) return;
-  if (!drawer()) return;
-  evt.preventDefault();
-  evt.stopPropagation();
-  open(link.closest(ROW));
-}, true);
+document.addEventListener("htmx:beforeRequest", (evt) => {
+  if (link(evt)) evt.detail.requestConfig.hmGen = ++latest;
+});
+// A request overtaken by a close (or a newer one) must not swap or push its address.
+document.addEventListener("htmx:beforeSwap", (evt) => {
+  if (link(evt) && evt.detail.requestConfig.hmGen !== latest) evt.detail.shouldSwap = false;
+});
+document.addEventListener("htmx:afterSwap", (evt) => {
+  const a = link(evt);
+  if (!a || evt.target !== body()) return;
+  select(a.closest(ROW));
+  const dlg = drawer();
+  if (!dlg.open) dlg.showModal();
+  body().querySelector(FOCUS)?.focus();
+});
+for (const type of FAILED) {
+  document.addEventListener(type, (evt) => {
+    const a = link(evt);
+    if (a && evt.detail.requestConfig.hmGen === latest) location.href = a.href;
+  });
+}
 
 // j/k move between rows from anywhere on the page, also from focus inside the open drawer (key events
 // bubble out of a modal dialog). With the drawer open the next submission loads into it; otherwise the row
