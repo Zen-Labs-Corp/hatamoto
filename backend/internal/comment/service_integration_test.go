@@ -458,7 +458,10 @@ func TestBlocklistLearning(t *testing.T) {
 	keys := f.svc.Keys()
 	d := f.draft("bot@throwaway.example.test", "buy now")
 	d.LinkDomains, d.BodyHash, d.IP = []string{"spam.example.com"}, "hash-of-body", "192.0.2.10"
-	c := f.store(d)
+	c, err := f.svc.Confirm(f.ctx, f.store(d).ID) // only a confirmed email teaches the domain
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := f.svc.MarkSpam(f.ctx, c.ID, nil, Learn{EmailDomain: true, LinkDomains: true, Hashes: true}); err != nil {
 		t.Fatal(err)
 	}
@@ -839,5 +842,31 @@ func TestApprovedCountUnderConcurrentApprovals(t *testing.T) {
 	}
 	if cm, err := f.svc.Commenter(f.ctx, h); err != nil || cm.ApprovedCount != 2 {
 		t.Errorf("approved_count = %d, %v; want 2", cm.ApprovedCount, err)
+	}
+}
+
+func TestMarkSpamOnDraftLeavesEmailAlone(t *testing.T) {
+	f := newFixture(t)
+	f.enable()
+	d := f.draft("ceo@victim-company.example", "buy pills")
+	d.BodyHash = "draft-spam-hash"
+	draft := f.store(d)
+	got, err := f.svc.MarkSpam(f.ctx, draft.ID, nil, Learn{EmailDomain: true, Hashes: true})
+	if err != nil || got.Status != StatusSpam {
+		t.Fatalf("mark spam on draft = %s, %v", got.Status, err)
+	}
+	cm, err := f.svc.Commenter(f.ctx, f.svc.Keys().HashEmail("ceo@victim-company.example"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cm.Trust == TrustBlocked || cm.LastSpamAt != nil || cm.TokenVersion != 1 {
+		t.Errorf("unconfirmed email was punished: %+v", cm)
+	}
+	hits, err := f.svc.MatchBlocks(f.ctx, Probe{EmailDomain: "victim-company.example", BodyHash: "draft-spam-hash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 1 || hits[0].Kind != BlockBodyHash {
+		t.Errorf("blocklist hits = %+v, want only the body hash", hits)
 	}
 }

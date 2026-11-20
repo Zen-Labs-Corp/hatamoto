@@ -300,7 +300,8 @@ func mergeReasons(have, add []string) []string {
 }
 
 // afterFunc runs inside a transition's transaction, after the status update.
-type afterFunc func(ctx context.Context, tx pgx.Tx, c Comment, now time.Time) error
+// before is the comment as it was, c as it is now.
+type afterFunc func(ctx context.Context, tx pgx.Tx, before, c Comment, now time.Time) error
 
 // transition moves a comment to another status through CanTransition, keeps the
 // entity counts and the commenter's trust right in the same transaction and
@@ -340,7 +341,7 @@ func (s *Service) transition(ctx context.Context, id uuid.UUID, to Status, by *u
 			}
 		}
 		if after != nil {
-			if err := after(ctx, tx, out, now); err != nil {
+			if err := after(ctx, tx, before, out, now); err != nil {
 				return err
 			}
 		}

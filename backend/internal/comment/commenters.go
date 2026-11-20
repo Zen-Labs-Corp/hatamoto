@@ -63,16 +63,18 @@ type Learn struct {
 }
 
 // MarkSpam moves a comment to spam, blocks its commenter (last_spam_at set, device
-// cookies revoked) and, as asked, learns from it. Fires OnSpam.
+// cookies revoked; only when the comment was confirmed, a draft's email is unproven) and, as asked, learns from it. Fires OnSpam.
 func (s *Service) MarkSpam(ctx context.Context, id uuid.UUID, by *uuid.UUID, learn Learn) (Comment, error) {
-	return s.transition(ctx, id, StatusSpam, by, func(ctx context.Context, tx pgx.Tx, c Comment, now time.Time) error {
+	return s.transition(ctx, id, StatusSpam, by, func(ctx context.Context, tx pgx.Tx, before, c Comment, now time.Time) error {
 		var values []Block
 		add := func(kind BlockKind, v string) {
 			if v != "" {
 				values = append(values, Block{Kind: kind, Value: v})
 			}
 		}
-		if c.CommenterID != nil {
+		// Only a confirmed address is proven to belong to the commenter; a draft
+		// may carry anyone's email, so it must not block or domain-block it.
+		if c.CommenterID != nil && before.ConfirmedAt != nil {
 			var hash string
 			var sealed []byte
 			if err := tx.QueryRow(ctx, `UPDATE hatamoto_commenters SET trust_level = 'blocked', last_spam_at = $2,
