@@ -375,11 +375,11 @@ Every phase is additive and N-1 safe, and an install with no locale list stays b
 - SQLite or any second database.
 - Compiled-in Go plugins.
 - Redis, OpenTelemetry, JWT, CORS, Google sign-in.
-- Facts, author role, visitor profiles.
+- Facts, author role, visitor profiles (the comment moderation record in [ADR 0005](adr/0005-comments-in-core.md) is not one).
 - Search Console in core (it is a registry plugin).
 - Browser test automation (manual QA checklist instead).
 - Multi-site in one database (one install = one site).
-- Comments, e-commerce, page-builder layout conversion, newsletters, public demo instance.
+- E-commerce, page-builder layout conversion, newsletters, public demo instance. Comments moved into core, off by default: see [ADR 0005](adr/0005-comments-in-core.md).
 - Hand-rolled replacements for libraries that already work.
 
 ## 9. Decisions taken for 1.0
