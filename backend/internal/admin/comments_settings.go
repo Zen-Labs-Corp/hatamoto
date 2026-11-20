@@ -46,9 +46,10 @@ type csetCard struct {
 	Numbers   []csetNumber
 	Sort      *csetChoice // threads card only
 	Captcha   *csetToggle // limits card only
+	Notify    *csetChoice // notifications card only
 }
 
-// csetChoice is the sort select; csetToggle the captcha switch.
+// csetChoice is a select (sort order, notify mode); csetToggle the captcha switch.
 type csetChoice struct {
 	ID, Error string
 	Options   []ui.Option
@@ -91,7 +92,7 @@ func csetFieldID(name string) string { return "comments-" + strings.ReplaceAll(n
 
 // csetValues is the form as the stored settings fill it.
 func csetValues(s CommentSettings) url.Values {
-	v := url.Values{"sort": {s.Sort}}
+	v := url.Values{"sort": {s.Sort}, "notify_mode": {s.NotifyMode}}
 	for name, p := range csetInts(&s) {
 		v.Set(name, strconv.Itoa(*p))
 	}
@@ -129,6 +130,12 @@ func csetValidate(form url.Values, stored CommentSettings) (next CommentSettings
 	default:
 		errs = append(errs, csetError{"sort", "Choose newest first or oldest first."})
 	}
+	switch form.Get("notify_mode") {
+	case "per_comment", "digest", "off":
+		next.NotifyMode = form.Get("notify_mode")
+	default:
+		errs = append(errs, csetError{"notify_mode", "Choose for each comment, hourly summary or off."})
+	}
 	next.Captcha = form.Get("captcha") == "true"
 	return next, errs
 }
@@ -158,6 +165,9 @@ func csetChanged(old, next CommentSettings) []string {
 	if old.Sort != next.Sort {
 		out = append(out, "sort")
 	}
+	if old.NotifyMode != next.NotifyMode {
+		out = append(out, "notify_mode")
+	}
 	if old.Captcha != next.Captcha {
 		out = append(out, "captcha")
 	}
@@ -177,10 +187,17 @@ func csetCards(vals url.Values, errs map[string]string) []csetCard {
 		{Value: "newest", Label: "Newest first", Selected: vals.Get("sort") != "oldest"},
 		{Value: "oldest", Label: "Oldest first", Selected: vals.Get("sort") == "oldest"},
 	}}
+	mode := vals.Get("notify_mode")
+	notify := &csetChoice{ID: csetFieldID("notify_mode"), Error: errs["notify_mode"], Options: []ui.Option{
+		{Value: "per_comment", Label: "For each comment", Selected: mode != "digest" && mode != "off"},
+		{Value: "digest", Label: "Hourly summary", Selected: mode == "digest"},
+		{Value: "off", Label: "Off", Selected: mode == "off"},
+	}}
 	return []csetCard{
 		{ID: "comments-trust", Title: "Trust levels", Numbers: csetNumbers(csetTrustFields, vals, errs)},
 		{ID: "comments-threads", Title: "Threads", Numbers: csetNumbers(csetThreadFields, vals, errs), Sort: sort},
 		{ID: "comments-limits", Title: "Limits", Numbers: csetNumbers(csetLimitFields, vals, errs), Captcha: &csetToggle{ID: csetFieldID("captcha"), Checked: vals.Get("captcha") == "true"}},
+		{ID: "comments-notify", Title: "Notifications", Notify: notify},
 	}
 }
 
@@ -214,6 +231,9 @@ func (a *Admin) renderCommentSettings(w http.ResponseWriter, r *http.Request, st
 		}
 		if e.Name == "sort" {
 			label = "Sort order"
+		}
+		if e.Name == "notify_mode" {
+			label = "Email moderators"
 		}
 		d.FormErrors = append(d.FormErrors, ui.FieldError{ID: csetFieldID(e.Name), Label: label, Message: e.Message})
 	}

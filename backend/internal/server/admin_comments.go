@@ -65,6 +65,7 @@ func fromSettings(s comment.Settings) admin.CommentSettings {
 		Captcha:            s.Captcha,
 		CookieDays:         s.DeviceCookieDays,
 		PurgeDays:          s.PurgeDays,
+		NotifyMode:         string(s.NotifyMode),
 	}
 }
 
@@ -85,6 +86,7 @@ func toSettings(s admin.CommentSettings) comment.Settings {
 		Captcha:          s.Captcha,
 		DeviceCookieDays: s.CookieDays,
 		PurgeDays:        s.PurgeDays,
+		NotifyMode:       comment.NotifyMode(s.NotifyMode),
 	}
 }
 
