@@ -602,3 +602,12 @@ func TestCommentsBulkNoCSRF(t *testing.T) {
 func init() {
 	areaPages["commentsmoderation"] = []string{"comments/list", "comments/spam", "comments/reply", "comments/edit"}
 }
+
+func TestHeldReasonLabels(t *testing.T) {
+	t.Parallel()
+
+	got := HeldReasonLabels([]string{"contains a link", "new commenter", "x"})
+	if want := []string{"contains a link", "first comment", "x"}; !slices.Equal(got, want) {
+		t.Errorf("HeldReasonLabels = %v, want %v", got, want)
+	}
+}

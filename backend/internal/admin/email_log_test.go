@@ -283,3 +283,18 @@ func TestEmailLogSuppressedHasNoResend(t *testing.T) {
 		t.Error("a suppressed row was sent")
 	}
 }
+
+func TestEmailKindLabelComments(t *testing.T) {
+	t.Parallel()
+
+	for kind, want := range map[string]string{
+		"comment_confirmation": "Comment confirmation",
+		"comment_moderation":   "Comment waiting",
+		"comment_digest":       "Comments summary",
+		"comment_reply":        "Comment reply",
+	} {
+		if got := emailKindLabel(kind, ""); got != want {
+			t.Errorf("emailKindLabel(%q) = %q, want %q", kind, got, want)
+		}
+	}
+}

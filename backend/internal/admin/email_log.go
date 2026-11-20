@@ -57,6 +57,14 @@ func emailKindLabel(kind, plugin string) string {
 		return "Run digest"
 	case email.KindAccessEnding:
 		return "Access ending"
+	case email.KindCommentConfirmation:
+		return "Comment confirmation"
+	case "comment_moderation": // the email.KindComment* values; swap to the constants once they are merged
+		return "Comment waiting"
+	case "comment_digest":
+		return "Comments summary"
+	case "comment_reply":
+		return "Comment reply"
 	case email.KindPlugin:
 		return "Plugin: " + plugin
 	}
