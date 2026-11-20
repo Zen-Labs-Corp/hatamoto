@@ -21,6 +21,7 @@ import (
 
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/cache"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
@@ -141,6 +142,41 @@ func TestPageCacheInvalidation_Integration(t *testing.T) {
 	}
 	if rec := get("/" + laterSlug); rec.Code != 200 {
 		t.Errorf("scheduled page after the worker ran: %d", rec.Code)
+	}
+	srv.hooks.Wait()
+
+	// --- A comment approval drops only its own entity's pages (real wiring:
+	// setupComments registered the observer on the real invalidator). --------
+	otherSlug := "other-" + sfx
+	exec(`INSERT INTO hatamoto_entities (id,schema_id,name,slug,status,published_at,attributes)
+		VALUES ($1,$2,'Other',$3,'published',now(),'{"page_sections":[]}'::jsonb)`, uuid.New(), schemaID, otherSlug)
+	for _, slug := range []string{liveSlug, otherSlug} {
+		if rec := get("/" + slug); rec.Code != 200 {
+			t.Fatalf("%s: %d %.300s", slug, rec.Code, rec.Body)
+		}
+	}
+	otherKey := cache.RenderedPageKey(srv.renderEngine.Version(), "/"+otherSlug)
+	for _, k := range []string{realKey(), otherKey} {
+		if _, err := srv.infra.Cache.Get(ctx, k); err != nil {
+			t.Fatalf("page %q was not cached: %v", k, err)
+		}
+	}
+	pending, err := srv.comments.Store(ctx, comment.Draft{
+		EntityID: livePageID, BodyRaw: "hi", BodyHTML: "<p>hi</p>", Status: comment.StatusPending, SpamVerdict: "allow"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.infra.Cache.Get(ctx, realKey()); err != nil {
+		t.Fatalf("a pending comment dropped the page: %v", err)
+	}
+	if _, err := srv.comments.Approve(ctx, pending.ID, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.infra.Cache.Get(ctx, realKey()); err == nil {
+		t.Error("approving a comment left its entity's page cached")
+	}
+	if _, err := srv.infra.Cache.Get(ctx, otherKey); err != nil {
+		t.Errorf("approving a comment dropped another entity's page: %v", err)
 	}
 	srv.hooks.Wait()
 
