@@ -78,7 +78,7 @@ func TestCommentEditWindow(t *testing.T) {
 	r := newEditRig()
 	r.ed.c.CreatedAt = r.now.Add(-comment.EditWindow + time.Second) // 14m59s
 	w := r.do(false, editForm("A better remark."))
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/blog/hello#comments" {
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/blog/hello#hm-comments" {
 		t.Fatalf("14m59s: %d %q", w.Code, w.Header().Get("Location"))
 	}
 	if w.Header().Get("Cache-Control") != "no-store" {
@@ -152,7 +152,7 @@ func TestCommentEditBodyLimits(t *testing.T) {
 	r := newEditRig()
 	for body, code := range map[string]string{"   ": "body_empty", strings.Repeat("a", 5001): "body_long"} {
 		w := r.do(false, editForm(body))
-		if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/blog/hello?cerror="+code+"#comments" {
+		if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/blog/hello?cerror="+code+"#hm-comments" {
 			t.Errorf("%d runes: %d %q", len(body), w.Code, w.Header().Get("Location"))
 		}
 	}
@@ -164,7 +164,7 @@ func TestCommentEditBodyLimits(t *testing.T) {
 func TestCommentEditDeleteTrashes(t *testing.T) {
 	r := newEditRig()
 	w := r.do(true, nil)
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/blog/hello#comments" || !r.ed.trashed {
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/blog/hello#hm-comments" || !r.ed.trashed {
 		t.Fatalf("delete: %d %q trashed=%v", w.Code, w.Header().Get("Location"), r.ed.trashed)
 	}
 }

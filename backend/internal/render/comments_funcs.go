@@ -32,7 +32,7 @@ func ago(t time.Time) Ago {
 }
 
 // RenderCommentsFragment writes the answer to an htmx comment post: the
-// comments/form partial (which replaces #comment-form) and, when item is set,
+// comments/form partial (which replaces #hm-comment-form) and, when item is set,
 // the new comment as an out-of-band insert at the top of the list.
 func (e *Engine) RenderCommentsFragment(w io.Writer, v *PageView, item *CommentItem) error {
 	c := e.current()
@@ -48,7 +48,7 @@ func (e *Engine) RenderCommentsFragment(w io.Writer, v *PageView, item *CommentI
 		return fmt.Errorf("render comments/form: %w", err)
 	}
 	if item != nil {
-		buf.WriteString(`<div hx-swap-oob="afterbegin:#comments-list">`)
+		buf.WriteString(`<div hx-swap-oob="afterbegin:#hm-comments-list">`)
 		err := safeExecute(&buf, le.tmpl, "comments/item", map[string]any{"Item": *item, "Strings": d.Strings})
 		if err != nil {
 			return fmt.Errorf("render comments/item: %w", err)

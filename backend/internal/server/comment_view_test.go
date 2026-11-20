@@ -132,7 +132,7 @@ func TestCommentViewOpenTree(t *testing.T) {
 	if len(items) != 2 || len(items[0].Replies) != 1 || items[0].Replies[0].Author != "reply" {
 		t.Fatalf("tree = %+v", items)
 	}
-	if items[0].ReplyURL != "/post?creply="+f.root.ID.String()+"#comment-form" {
+	if items[0].ReplyURL != "/post?creply="+f.root.ID.String()+"#hm-comment-form" {
 		t.Fatalf("ReplyURL = %q", items[0].ReplyURL)
 	}
 	if items[0].Replies[0].ReplyURL != "" {
@@ -173,11 +173,11 @@ func TestCommentViewPaging(t *testing.T) {
 	if f.fake.gotPage != 2 || !v.Page.NoIndex {
 		t.Fatalf("page %d noindex %v", f.fake.gotPage, v.Page.NoIndex)
 	}
-	if v.Comments.PrevURL != "/post#comments" || v.Comments.NextURL != "/post?cpage=3#comments" {
+	if v.Comments.PrevURL != "/post#hm-comments" || v.Comments.NextURL != "/post?cpage=3#hm-comments" {
 		t.Fatalf("pager = %q %q", v.Comments.PrevURL, v.Comments.NextURL)
 	}
 	v = f.run("/post?cpage=3")
-	if v.Comments.PrevURL != "/post?cpage=2#comments" {
+	if v.Comments.PrevURL != "/post?cpage=2#hm-comments" {
 		t.Fatalf("PrevURL = %q", v.Comments.PrevURL)
 	}
 	for _, bad := range []string{"abc", "-4", "0", ""} {

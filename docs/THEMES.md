@@ -254,7 +254,7 @@ own (a theme file with the same name wins over the embedded default):
 
 | File | Defines | Data |
 | --- | --- | --- |
-| `partials/comments-list.html` | `comments/list`: the count, the `<ol id="comments-list">` and the older/newer pager | the page data |
+| `partials/comments-list.html` | `comments/list`: the count, the `<ol id="hm-comments-list">` and the older/newer pager | the page data |
 | `partials/comments-item.html` | `comments/item`: one comment and, recursively, its replies | `dict "Item" <CommentItem> "Strings" $.Strings` |
 | `partials/comments-form.html` | `comments/form`: the notice or error, the form, or the "closed" line | the page data |
 
@@ -273,7 +273,7 @@ includes the section. A theme whose own layout does not call `article` adds it
 where the thread should go:
 
 ```gotemplate
-{{with .Comments}}<section id="comments">
+{{with .Comments}}<section id="hm-comments">
   <h2>{{t $ "comments_title"}}</h2>
   {{template "comments/form" $}}
   {{template "comments/list" $}}
@@ -1545,7 +1545,7 @@ Comments work the same way. The comment form posts with a plain `POST` and the
 server answers `303`. The default form also carries `hx-post`, `hx-target` and
 `hx-swap` attributes: a theme that loads [htmx](https://htmx.org) gets the answer
 as a fragment (the form, with the new comment inserted at the top of
-`#comments-list`) without a page reload. Core only adds the attributes; the theme
+`#hm-comments-list`) without a page reload. Core only adds the attributes; the theme
 ships htmx as its own asset, which keeps a strict script policy intact (see
 [Strict script policy](#strict-script-policy-cspstrictscripts)). Without htmx the
 attributes do nothing.

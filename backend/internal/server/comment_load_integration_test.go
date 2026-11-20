@@ -164,7 +164,7 @@ func TestCommentLoadIntegration(t *testing.T) {
 		{"page 1 uncached", postPath + "?cpage=1"},
 		{"page 2 uncached", postPath + "?cpage=2"},
 	} {
-		if rec, _ := get(tc.path); rec.Code != 200 || !strings.Contains(rec.Body.String(), `id="comments"`) {
+		if rec, _ := get(tc.path); rec.Code != 200 || !strings.Contains(rec.Body.String(), `id="hm-comments"`) {
 			t.Fatalf("%s: status %d, no comments section in %.200s", tc.name, rec.Code, rec.Body)
 		}
 		mark := counter.Count()

@@ -103,15 +103,15 @@ func (s *Server) handleCommentPost(w http.ResponseWriter, r *http.Request) {
 		s.commentNotFound(w, r)
 		return
 	case commentsubmit.Closed:
-		errCode, target = "closed", path+"?cerror=closed#comments"
+		errCode, target = "closed", path+"?cerror=closed#hm-comments"
 	case commentsubmit.Invalid:
-		errCode, target = out.Code, path+"?cerror="+url.QueryEscape(out.Code)+"#comment-form"
+		errCode, target = out.Code, path+"?cerror="+url.QueryEscape(out.Code)+"#hm-comment-form"
 	case commentsubmit.CheckEmail:
-		notice, target = "check_email", path+"?cnotice=check_email#comments"
+		notice, target = "check_email", path+"?cnotice=check_email#hm-comments"
 	case commentsubmit.Posted:
 		target = path + "#comment-" + out.Comment.ID.String()
 	default: // FakeSuccess: the shape of a post the sender cannot see
-		notice, target = "posted", path+"?cnotice=posted#comments"
+		notice, target = "posted", path+"?cnotice=posted#hm-comments"
 	}
 	if r.Header.Get("HX-Request") == "true" {
 		if s.writeCommentFragment(w, r, id, path, req, out, notice, errCode) {

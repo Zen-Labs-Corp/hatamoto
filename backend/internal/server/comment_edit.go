@@ -101,7 +101,7 @@ func (s *Server) serveOwnComment(w http.ResponseWriter, r *http.Request, ed comm
 			return
 		}
 		s.commentBypass.forget(commenter)
-		http.Redirect(w, r, path+"#comments", http.StatusSeeOther)
+		http.Redirect(w, r, path+"#hm-comments", http.StatusSeeOther)
 		return
 	}
 
@@ -112,7 +112,7 @@ func (s *Server) serveOwnComment(w http.ResponseWriter, r *http.Request, ed comm
 		return
 	}
 	if code != "" {
-		http.Redirect(w, r, path+"?cerror="+url.QueryEscape(code)+"#comments", http.StatusSeeOther)
+		http.Redirect(w, r, path+"?cerror="+url.QueryEscape(code)+"#hm-comments", http.StatusSeeOther)
 		return
 	}
 	_, err = ed.Edit(ctx, id, comment.Edited{
@@ -124,7 +124,7 @@ func (s *Server) serveOwnComment(w http.ResponseWriter, r *http.Request, ed comm
 		return
 	}
 	s.commentBypass.forget(commenter) // an edit with links may have made it pending
-	http.Redirect(w, r, path+"#comments", http.StatusSeeOther)
+	http.Redirect(w, r, path+"#hm-comments", http.StatusSeeOther)
 }
 
 // renderEditBody applies the submit limits (1..MaxBodyRunes runes) and formats

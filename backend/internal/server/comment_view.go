@@ -117,7 +117,7 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 	for _, tc := range tp.Comments {
 		it := commentItem(tc)
 		if tc.Depth < set.MaxDepth {
-			it.ReplyURL = v.Path + "?creply=" + tc.ID.String() + "#comment-form"
+			it.ReplyURL = v.Path + "?creply=" + tc.ID.String() + "#hm-comment-form"
 		}
 		nodes.add(tc.ParentID, it, false)
 		if tc.Depth < set.MaxDepth {
@@ -169,14 +169,14 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 		Items: nodes.items(), Total: counts[id].Approved, Page: page, Newest: set.Sort == comment.SortNewest,
 	}
 	if tp.HasMore {
-		thread.NextURL = v.Path + "?cpage=" + strconv.Itoa(page+1) + "#comments"
+		thread.NextURL = v.Path + "?cpage=" + strconv.Itoa(page+1) + "#hm-comments"
 	}
 	if page > 1 {
 		thread.PrevURL = v.Path
 		if page > 2 {
 			thread.PrevURL += "?cpage=" + strconv.Itoa(page-1)
 		}
-		thread.PrevURL += "#comments"
+		thread.PrevURL += "#hm-comments"
 	}
 	if n := q.Get("cnotice"); commentNotices[n] {
 		thread.Notice = n

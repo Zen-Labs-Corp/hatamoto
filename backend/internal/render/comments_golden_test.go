@@ -82,13 +82,13 @@ var reNoWebsiteField = regexp.MustCompile(`(?i)website|homepage|name="url"`)
 func TestCommentsOpenMarkup(t *testing.T) {
 	e := hierarchyEngine(t)
 	out := renderToString(t, e, commentOpenView())
-	for _, want := range []string{CommentFormMarker, "__hmcf_body__", `id="comments"`, `for="__hmcf_name__"`} {
+	for _, want := range []string{CommentFormMarker, "__hmcf_body__", `id="hm-comments"`, `for="__hmcf_name__"`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("open page lacks %q", want)
 		}
 	}
 	// Only the comments section: the page chrome may say "WebSite" in its JSON-LD.
-	if m := reNoWebsiteField.FindString(out[strings.Index(out, `id="comments"`):]); m != "" {
+	if m := reNoWebsiteField.FindString(out[strings.Index(out, `id="hm-comments"`):]); m != "" {
 		t.Errorf("open page has a website field: %q", m)
 	}
 }

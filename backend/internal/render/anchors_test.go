@@ -133,3 +133,16 @@ func TestAriaOnlyWhereItNamesSomething(t *testing.T) {
 		t.Errorf("icon label written %d times", n)
 	}
 }
+
+// An author's anchors named after the comment section's old ids are theirs: they render and validate with comments off.
+func TestCommentLikeAnchorsStayUsable(t *testing.T) {
+	for _, a := range []string{"comments", "comment-form", "comments-list"} {
+		if !builder.ValidAnchor(a) {
+			t.Errorf("anchor %q is reserved", a)
+		}
+		d := &builder.Doc{V: 2, Nodes: []*builder.Node{container("box", map[string]any{"anchor": a})}}
+		if out := renderDoc(t, nil, d, false); !strings.Contains(out, `id="`+a+`"`) {
+			t.Errorf("anchor %q was dropped:\n%s", a, out)
+		}
+	}
+}

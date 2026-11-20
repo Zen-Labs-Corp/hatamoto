@@ -160,7 +160,7 @@ func (r *postRig) knownDevice() func(*http.Request) {
 	return func(req *http.Request) { req.AddCookie(&http.Cookie{Name: identity.CookieName, Value: "good"}) }
 }
 
-const postFake = postPath + "?cnotice=posted#comments"
+const postFake = postPath + "?cnotice=posted#hm-comments"
 
 func TestCommentPostSwitchOffIs404(t *testing.T) {
 	r := newPostRig(t)
@@ -231,7 +231,7 @@ func TestCommentPostReplayedTokenStoresOnce(t *testing.T) {
 	v := r.form(time.Minute)
 	first := r.do(v)
 	second := r.do(v)
-	if first.Header().Get("Location") != postPath+"?cnotice=check_email#comments" {
+	if first.Header().Get("Location") != postPath+"?cnotice=check_email#hm-comments" {
 		t.Fatalf("first Location = %q", first.Header().Get("Location"))
 	}
 	if second.Code != http.StatusSeeOther || second.Header().Get("Location") != postFake {
@@ -245,7 +245,7 @@ func TestCommentPostReplayedTokenStoresOnce(t *testing.T) {
 func TestCommentPostSameOriginPasses(t *testing.T) {
 	r := newPostRig(t)
 	rec := r.do(r.form(time.Minute), header("Sec-Fetch-Site", "same-origin"), header("Origin", "http://example.com"))
-	if rec.Header().Get("Location") != postPath+"?cnotice=check_email#comments" || len(r.c.stored) != 1 {
+	if rec.Header().Get("Location") != postPath+"?cnotice=check_email#hm-comments" || len(r.c.stored) != 1 {
 		t.Fatalf("Location %q stored %d", rec.Header().Get("Location"), len(r.c.stored))
 	}
 	if r.c.stored[0].Status != comment.StatusDraft {
@@ -335,7 +335,7 @@ func TestCommentPostClosedStoresNothing(t *testing.T) {
 	r := newPostRig(t)
 	r.c.mode = comment.ModeClosed
 	rec := r.do(r.form(time.Minute))
-	if rec.Header().Get("Location") != postPath+"?cerror=closed#comments" || len(r.c.stored) != 0 {
+	if rec.Header().Get("Location") != postPath+"?cerror=closed#hm-comments" || len(r.c.stored) != 0 {
 		t.Fatalf("Location %q stored %d", rec.Header().Get("Location"), len(r.c.stored))
 	}
 }
@@ -345,7 +345,7 @@ func TestCommentPostInvalidRedirectsWithCode(t *testing.T) {
 	v := r.form(time.Minute)
 	v.Set(r.names(v).Body, "   ")
 	rec := r.do(v)
-	if rec.Header().Get("Location") != postPath+"?cerror=body_empty#comment-form" || len(r.c.stored) != 0 {
+	if rec.Header().Get("Location") != postPath+"?cerror=body_empty#hm-comment-form" || len(r.c.stored) != 0 {
 		t.Fatalf("Location %q stored %d", rec.Header().Get("Location"), len(r.c.stored))
 	}
 }
@@ -370,10 +370,10 @@ func TestCommentPostHTMXFragment(t *testing.T) {
 		t.Fatalf("status %d Cache-Control %q body %s", rec.Code, rec.Header().Get("Cache-Control"), rec.Body)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, `id="comment-form"`) {
+	if !strings.Contains(body, `id="hm-comment-form"`) {
 		t.Fatalf("no form in %s", body)
 	}
-	if !strings.Contains(body, `hx-swap-oob="afterbegin:#comments-list"`) || !strings.Contains(body, `id="comment-`+r.c.lastID.String()+`"`) {
+	if !strings.Contains(body, `hx-swap-oob="afterbegin:#hm-comments-list"`) || !strings.Contains(body, `id="comment-`+r.c.lastID.String()+`"`) {
 		t.Fatalf("no new item in %s", body)
 	}
 	if strings.Contains(body, "__hmcf_") {
@@ -410,7 +410,7 @@ func TestCommentPostHTMXNoticesAndErrors(t *testing.T) {
 	v := r.form(time.Minute)
 	v.Set(r.names(v).Body, "")
 	rec = r.do(v, hx)
-	if !strings.Contains(rec.Body.String(), "hm-form__error") || !strings.Contains(rec.Body.String(), `id="comment-form"`) {
+	if !strings.Contains(rec.Body.String(), "hm-form__error") || !strings.Contains(rec.Body.String(), `id="hm-comment-form"`) {
 		t.Fatalf("invalid fragment: %s", rec.Body)
 	}
 	if postNoHomepage.MatchString(rec.Body.String()) {

@@ -1,10 +1,10 @@
-{{define "comments/form"}}<div id="comment-form">
+{{define "comments/form"}}<div id="hm-comment-form">
 {{with $.Comments}}{{if .Notice}}<p class="hm-form__success" role="status">{{if eq .Notice "check_email"}}{{t $ "comment_notice_check_email"}}{{else}}{{t $ "comment_notice_posted"}}{{end}}</p>
 {{end}}{{if .Error}}<p class="hm-form__error" role="alert">{{if eq .Error "body_empty"}}{{t $ "comment_error_body_empty"}}{{else if eq .Error "body_long"}}{{t $ "comment_error_body_long"}}{{else if eq .Error "name"}}{{t $ "comment_error_name"}}{{else if eq .Error "email"}}{{t $ "comment_error_email"}}{{else if eq .Error "email_domain"}}{{t $ "comment_error_email_domain"}}{{else}}{{t $ "comment_error_closed"}}{{end}}</p>
-{{end}}{{end}}{{if $.CommentForm}}{{with $.CommentForm}}<form class="hm-form hm-comments__form" method="post" action="{{.Action}}" data-hm-cform hx-post="{{.Action}}" hx-target="#comment-form" hx-swap="outerHTML">
+{{end}}{{end}}{{if $.CommentForm}}{{with $.CommentForm}}<form class="hm-form hm-comments__form" method="post" action="{{.Action}}" data-hm-cform hx-post="{{.Action}}" hx-target="#hm-comment-form" hx-swap="outerHTML">
 <input type="hidden" name="hm_ct" value="{{.Token}}">
 <input type="hidden" name="parent" value="{{.ParentID}}">
-{{if .ReplyTo}}<p class="hm-comments__replying">{{t $ "comment_reply"}}: <strong>{{.ReplyTo}}</strong> <a href="#comments">{{t $ "comment_cancel_reply"}}</a></p>
+{{if .ReplyTo}}<p class="hm-comments__replying">{{t $ "comment_reply"}}: <strong>{{.ReplyTo}}</strong> <a href="#hm-comments">{{t $ "comment_cancel_reply"}}</a></p>
 {{end}}<div class="hm-form__field"><label class="hm-form__label" for="{{.Name}}">{{t $ "comment_name"}}</label>
 <input id="{{.Name}}" name="{{.Name}}" type="text" autocomplete="name" maxlength="80" required></div>
 <div class="hm-form__field"><label class="hm-form__label" for="{{.Email}}">{{t $ "comment_email"}}</label>

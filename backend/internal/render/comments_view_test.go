@@ -51,7 +51,7 @@ func TestRenderCommentsFragmentHasForm(t *testing.T) {
 	if err := e.RenderCommentsFragment(&b, v, item); err != nil {
 		t.Fatal(err)
 	}
-	for _, w := range []string{CommentFormMarker, `hx-post="/-/comments/e1"`, `name="__hmcf_tok__"`, `afterbegin:#comments-list`, `id="comment-c1"`} {
+	for _, w := range []string{CommentFormMarker, `hx-post="/-/comments/e1"`, `name="__hmcf_tok__"`, `afterbegin:#hm-comments-list`, `id="comment-c1"`} {
 		if w == `name="__hmcf_tok__"` {
 			w = `value="__hmcf_tok__"`
 		}
@@ -81,10 +81,10 @@ func TestDefaultThemeRendersThread(t *testing.T) {
 	f := CommentFormPlaceholders
 	f.Action = "/-/comments/e1"
 	child := CommentItem{ID: "c2", Author: "Owner", IsSiteAuthor: true, Body: "<p>Thanks</p>", CreatedAt: time.Now().Add(-26 * time.Hour)}
-	v.Comments = &CommentThread{Total: 2, Items: []CommentItem{{ID: "c1", Author: "Ana", Body: "<p>Hi</p>", CreatedAt: time.Now().Add(-5 * time.Hour), ReplyURL: "?creply=c1#comment-form", Replies: []CommentItem{child}}}, NextURL: "?cpage=2#comments"}
+	v.Comments = &CommentThread{Total: 2, Items: []CommentItem{{ID: "c1", Author: "Ana", Body: "<p>Hi</p>", CreatedAt: time.Now().Add(-5 * time.Hour), ReplyURL: "?creply=c1#hm-comment-form", Replies: []CommentItem{child}}}, NextURL: "?cpage=2#hm-comments"}
 	v.CommentForm = &f
 	out := renderToString(t, e, v)
-	for _, w := range []string{`id="comments"`, "2 comments", "5 hours ago", "1 day ago", "Thanks", `?cpage=2#comments`, `hm-comments__list--nested`, `href="/theme/assets/comments.css"`} {
+	for _, w := range []string{`id="hm-comments"`, "2 comments", "5 hours ago", "1 day ago", "Thanks", `?cpage=2#hm-comments`, `hm-comments__list--nested`, `href="/theme/assets/comments.css"`} {
 		if !strings.Contains(out, w) {
 			t.Errorf("missing %q", w)
 		}
