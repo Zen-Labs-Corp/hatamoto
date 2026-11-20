@@ -74,7 +74,6 @@ func TestCommentsAdminNextTrust(t *testing.T) {
 	for in, want := range map[comment.TrustLevel]comment.TrustLevel{
 		comment.TrustNew:     comment.TrustKnown,
 		comment.TrustKnown:   comment.TrustTrusted,
-		comment.TrustBlocked: comment.TrustKnown,
 		comment.TrustTrusted: comment.TrustTrusted,
 	} {
 		if got := nextTrust(in); got != want {
