@@ -23,7 +23,7 @@ Comments are threaded, up to 5 levels by default. Themes can override the commen
 
 ## Privacy and retention
 
-No raw IP address is stored, only keyed hashes, which are pseudonymous personal data. A truncated user agent is stored with each comment. There is no website field. Spam and trash are purged after 30 days by default, and unconfirmed comments after 24 hours. The owner can export or erase (delete or anonymise) everything held for an email address, including the IP and network hashes that marking its comments as spam added to the blocklist. Not written yet.
+No raw IP address is stored, only keyed hashes, which are pseudonymous personal data. A truncated user agent is stored with each comment. There is no website field. Spam and trash are purged after 30 days by default, and unconfirmed comments after 24 hours. The owner can export or erase (delete or anonymise) everything held for an email address, including the IP-hash block that marking one of its comments as spam added to the blocklist. Network (/24) blocks are shared by everyone on that network and are never removed by an erase. Not written yet.
 
 ## Plugins
 

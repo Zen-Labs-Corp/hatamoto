@@ -871,25 +871,50 @@ func TestMarkSpamOnDraftLeavesEmailAlone(t *testing.T) {
 	}
 }
 
-func TestEraseRemovesLearnedNetworkBlocks(t *testing.T) {
+func TestEraseRemovesOnlyItsOwnLearnedIPBlock(t *testing.T) {
 	f := newFixture(t)
-	d := f.draft("gone@example.test", "spam")
-	d.IP = "192.0.2.10"
-	c, err := f.svc.Confirm(f.ctx, f.store(d).ID)
-	if err != nil {
+	spam := func(email, ip string) {
+		d := f.draft(email, "spam "+email)
+		d.IP = ip
+		c, err := f.svc.Confirm(f.ctx, f.store(d).ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.svc.MarkSpam(f.ctx, c.ID, nil, Learn{Hashes: true}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spam("gone@example.test", "192.0.2.10")
+	spam("other@example.test", "192.0.2.20") // same /24, another spammer
+	// A bystander on the same network whose comment was never spam.
+	d := f.draft("fine@example.test", "hello")
+	d.IP = "192.0.2.30"
+	if _, err := f.svc.Confirm(f.ctx, f.store(d).ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.svc.MarkSpam(f.ctx, c.ID, nil, Learn{Hashes: true}); err != nil {
+	ip10, net := f.svc.Keys().HashIP("192.0.2.10")
+	ip20, _ := f.svc.Keys().HashIP("192.0.2.20")
+	ip30, _ := f.svc.Keys().HashIP("192.0.2.30")
+	f.exec(`INSERT INTO hatamoto_comment_blocks (kind, value, source, note, created_at) VALUES ('ip_hash', $1, 'spam', '', now())`, ip30)
+
+	if _, err := f.svc.EraseByEmail(f.ctx, "fine@example.test"); err != nil {
 		t.Fatal(err)
 	}
-	ip, net := f.svc.Keys().HashIP("192.0.2.10")
-	if hits, _ := f.svc.MatchBlocks(f.ctx, Probe{IPHash: ip, NetHash: net}); len(hits) == 0 {
-		t.Fatal("nothing learned to begin with")
+	if hits, _ := f.svc.MatchBlocks(f.ctx, Probe{IPHash: ip10, NetHash: net}); len(hits) != 2 {
+		t.Errorf("erasing a commenter who was never marked spam lifted blocks: %+v", hits)
 	}
+	if hits, _ := f.svc.MatchBlocks(f.ctx, Probe{IPHash: ip30}); len(hits) != 1 {
+		t.Errorf("a block no spam comment of the erased commenter taught was lifted: %+v", hits)
+	}
+
 	if _, err := f.svc.EraseByEmail(f.ctx, "gone@example.test"); err != nil {
 		t.Fatal(err)
 	}
-	if hits, _ := f.svc.MatchBlocks(f.ctx, Probe{IPHash: ip, NetHash: net}); len(hits) != 0 {
-		t.Errorf("erase left learned blocks: %+v", hits)
+	hits, _ := f.svc.MatchBlocks(f.ctx, Probe{IPHash: ip10, NetHash: net})
+	if len(hits) != 1 || hits[0].Kind != BlockNetHash {
+		t.Errorf("after erase want only the shared /24 block, got %+v", hits)
+	}
+	if hits, _ := f.svc.MatchBlocks(f.ctx, Probe{IPHash: ip20}); len(hits) != 1 {
+		t.Errorf("the other spammer's own IP block was lifted: %+v", hits)
 	}
 }
