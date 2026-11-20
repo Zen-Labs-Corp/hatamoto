@@ -29,9 +29,9 @@ The Overview shows a Comments card with the newest waiting comments and a link t
 
 Owners and editors who have an email address get a mail when a comment waits for review. The "Email moderators" setting under Settings > Comments chooses how: a mail for each comment (at most one every 10 minutes per person, the rest in one summary), an hourly summary, or off. The mails go out from a job that runs every minute. Set the site address and outgoing email first, or nothing is sent.
 
-Commenters can tick "Email me when someone replies". It only takes effect once their address is confirmed, either through the confirmation email or on a device that already confirmed it. When a reply to their comment is approved, they get one mail with the link to the page. Nobody is mailed about their own reply.
+Commenters can tick "Email me when someone replies". It only takes effect once their address is confirmed, either through the confirmation email or on a device that already confirmed it. When a reply to their comment is approved, they get a mail with the link to the page: at most one every 15 minutes per person. Replies that arrive in between go out together in one summary when the 15 minutes are over. Nobody is mailed about their own reply.
 
-Every mail has a one-click unsubscribe link, also sent as a `List-Unsubscribe` header. A moderator who unsubscribed can turn mail back on from the same page.
+Every mail (the reply summary too) has a one-click unsubscribe link, also sent as a `List-Unsubscribe` header. A moderator who unsubscribed can turn mail back on from the same page.
 
 When surge mode starts, every owner with an email address gets one mail (whatever the Email moderators setting), with a link to the pending queue. The next one comes only after the surge has ended: no server that can send the surge mail has reported a surge for 12 minutes (the 10 minute window plus the one minute between reports and the one minute a mail run may take). A server that cannot send (no outgoing email, no site address, or `comment_notify` switched off) does not report, so it does not keep the episode open. The mail holds no comment text and no commenter names, and has no unsubscribe link (it is a rare site alarm). It needs the site address and outgoing email, like the other mails.
 
@@ -61,7 +61,7 @@ No raw IP address is stored, only keyed hashes (`ip_hash` and `net_hash`), which
 
 **Erase.** Erasing has one behaviour: comments without replies are deleted, the others are made anonymous, and the commenter is removed. IP-hash blocks that marking one of their comments as spam added are removed. Network (/24) blocks are shared by everyone on that network and are kept.
 
-**Email log.** Confirmation and reply mails to commenters are logged with a masked address (only the first letter of the name, the first letter of the domain and its last label are kept, like `a***@e***.com`) and no body, so an erase can not match them and does not need to. Moderator mails and the surge mail go to staff addresses and their bodies are not stored either. These rows age out with the email log retention setting.
+**Email log.** Confirmation, reply and reply-summary mails to commenters are logged with a masked address (only the first letter of the name, the first letter of the domain and its last label are kept, like `a***@e***.com`) and no body, so an erase can not match them and does not need to. Moderator mails and the surge mail go to staff addresses and their bodies are not stored either. These rows age out with the email log retention setting.
 
 **Limits.** Erase does not reach backups: older copies keep the data until the backups rotate.
 
@@ -83,7 +83,7 @@ The rules behind the design are in [ADR 0005](adr/0005-comments-in-core.md).
 - `hatamoto_comment_form_tokens`: form tokens already used, so each works once.
 - `hatamoto_comment_moderator_notify`: per moderator, the mute flag and the last mail time.
 - `hatamoto_comment_notify_queue`: comments waiting to be mailed to moderators.
-- `hatamoto_comment_reply_queue`: approved replies waiting to be mailed to the parent's author.
+- `hatamoto_comment_reply_queue`: approved replies waiting to be mailed to the parent's author; sent rows also hold the 15-minute limit per person (no separate table).
 
 `hatamoto_comments.notify_replies` holds the reply opt-in of that comment. It only takes effect once the commenter's address is confirmed.
 
@@ -106,13 +106,13 @@ The JSON keys in `hatamoto_comment_settings.settings`, with their defaults:
 | `purge_days` | 30 |
 | `notify_mode` | `per_comment` (or `digest`, `off`) |
 
-The default mode for a content type is `entity_schemas.settings.comments.mode`; a page overrides it with its own `mode`. Three numbers are fixed in code, not settings: `EditWindow` (15 minutes), `DraftTTL` (24 hours) and the 90-day spam quiet period a trusted commenter needs.
+The default mode for a content type is `entity_schemas.settings.comments.mode`; a page overrides it with its own `mode`. Four numbers are fixed in code, not settings: `EditWindow` (15 minutes), `DraftTTL` (24 hours), the 90-day spam quiet period a trusted commenter needs and the 15-minute reply-mail window.
 
 ### internal/comment
 
-`comment.Service` methods: `Store`, `Confirm`, `Approve`, `MarkSpam`, `Trash`, `Delete`, `Edit`, `Get`, `Thread`, `Counts`, `HasNonPublic`, `ViewerComments`, `HasEditable`, `EditableComments`, `DuplicateSince`, `PurgeFormTokens`, `StatusCounts`, `Queue`, `Vouch`, `Block`, `RevokeDevices`, `ExportByEmail`, `EraseByEmail`, `Settings`, `SaveSettings`, `EntityMode`, `SetEntityMode`, `Commenter`, `MatchBlocks`, `Blocks`, `AddBlock`, `RemoveBlock`, `ConsumeFormToken`, `PurgeSpamTrash`, `QueueModeration`, `ClaimModeration`, `ClearModeration`, `SetModeratorMuted`, `QueueReply`, `ClaimReplies`, `PruneModerationQueue`, `PruneReplyQueue`, `UnsubscribeReplies`, `NoteSurge`.
+`comment.Service` methods: `Store`, `Confirm`, `Approve`, `MarkSpam`, `Trash`, `Delete`, `Edit`, `Get`, `Thread`, `Counts`, `HasNonPublic`, `ViewerComments`, `HasEditable`, `EditableComments`, `DuplicateSince`, `PurgeFormTokens`, `StatusCounts`, `Queue`, `Vouch`, `Block`, `RevokeDevices`, `ExportByEmail`, `EraseByEmail`, `Settings`, `SaveSettings`, `EntityMode`, `SetEntityMode`, `Commenter`, `MatchBlocks`, `Blocks`, `AddBlock`, `RemoveBlock`, `ConsumeFormToken`, `PurgeSpamTrash`, `QueueModeration`, `ClaimModeration`, `ClearModeration`, `SetModeratorMuted`, `QueueReply`, `ClaimReplyBatches`, `PruneModerationQueue`, `PruneReplyQueue`, `UnsubscribeReplies`, `NoteSurge`.
 
-The job `comment_notify` runs every minute (switch it off with `comment_notify` in `WORKER_DISABLE_JOBS`; that also stops the surge mail from that server). Spam and trash are purged inside `retention_purge`. The unsubscribe link is `/-/comments/unsubscribe/<token>`: a GET shows a button and a POST unsubscribes (RFC 8058 one-click).
+The job `comment_notify` runs every minute (switch it off with `comment_notify` in `WORKER_DISABLE_JOBS`; that also stops the surge mail from that server). Spam and trash are purged inside `retention_purge`. The unsubscribe link is `/-/comments/unsubscribe/<token>`: a GET shows a button and a POST unsubscribes (RFC 8058 one-click). Reply mail is limited per commenter with a fixed 15-minute window (a constant, not a setting); several replicas can run the job, each commenter is claimed under a Postgres advisory lock.
 
 `Store` takes a draft that is already formatted and scored. The package does not import `internal/spam` or `internal/commentfmt`; the caller maps their results onto the draft.
 
