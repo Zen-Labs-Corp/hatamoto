@@ -492,21 +492,19 @@ document.addEventListener("DOMContentLoaded", () => syncGateAll(document));
 window.addEventListener("pageshow", () => syncGateAll(document));
 document.addEventListener("htmx:afterSettle", (evt) => syncGateAll(evt.target));
 
-// form[data-hm-ack]: its [data-hm-ack-submit] buttons, inside the form or outside it with
-// form=<id> (a dialog footer), stay disabled until the [name="understand"] switch is on. Server
-// HTML never disables them, so the page works without JS.
+// form[data-hm-ack]: its [data-hm-ack-submit] buttons (inside, or outside with form=<id>) stay
+// disabled until the "understand" switch is on. Server HTML never disables them.
 function syncAck(form) {
-  const on = ackGateMet(form.querySelector('[name="understand"]')?.checked === true);
-  const outside = form.id ? document.querySelectorAll(`[form="${form.id}"][data-hm-ack-submit]`) : [];
-  for (const b of [...form.querySelectorAll("[data-hm-ack-submit]"), ...outside]) b.disabled = !on;
+  const on = ackGateMet(form.elements.understand?.checked === true);
+  for (const b of document.querySelectorAll("[data-hm-ack-submit]")) if (b.form === form) b.disabled = !on;
 }
 const syncAckAll = (root) => root.querySelectorAll?.("form[data-hm-ack]").forEach(syncAck);
-for (const type of ["input", "change"]) {
-  document.addEventListener(type, (evt) => {
-    const form = evt.target.closest?.("form[data-hm-ack]");
-    if (form) syncAck(form);
-  });
-}
+const onAck = (evt) => {
+  const f = evt.target.closest?.("form[data-hm-ack]");
+  if (f) syncAck(f);
+};
+document.addEventListener("input", onAck);
+document.addEventListener("change", onAck);
 document.addEventListener("DOMContentLoaded", () => syncAckAll(document));
 window.addEventListener("pageshow", () => syncAckAll(document));
 document.addEventListener("htmx:afterSettle", (evt) => syncAckAll(evt.target));
