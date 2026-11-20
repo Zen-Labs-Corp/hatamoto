@@ -29,9 +29,11 @@ Each tool needs one scope. A `read:*` scope cannot call a write tool; `write:ent
 | `write:redirects` | `redirects_create`, `redirects_delete` |
 | `read:seo` | `seo_get`, `seo_preview`, `seo_analyze`, `seo_404_list` |
 | `write:seo` | `seo_update` |
+| `read:comments` | `comments_list` |
+| `write:comments` | `comments_approve`, `comments_spam`, `comments_reply` |
 | `read:reports` | `analytics_crawler_hits`, `analytics_first_crawls`, `analytics_google`, `analytics_ai_referrals`, `analytics_traffic`, `analytics_conversions` |
 
-`entities_update`, `entities_unpublish`, `builder_apply_ops`, `menus_update` and `redirects_delete` are marked destructive in the tool annotations, so clients can ask before running them.
+`entities_update`, `entities_unpublish`, `builder_apply_ops`, `menus_update`, `redirects_delete` and `comments_spam` are marked destructive in the tool annotations, so clients can ask before running them.
 
 A term in `terms_list` carries its `seo` when one is saved. It is read-only here: `terms_create` takes no `seo`, and a term's search appearance is edited on its admin page.
 
@@ -54,6 +56,7 @@ Entity writes are attributed to the key's creator and tagged `[mcp:<key name>]` 
 - `menus_update` returns the menu fields at the top level (`id`, `name`, `items`, ...) plus a `warnings` array that is always present, `[]` when there is nothing to report. An item that is accepted but has no target (an `entity` item without `entity_id`, a `custom` item without `url`, an `archive` item without `schema_slug` or `url`) renders as plain text, and the save succeeds with one string per such item, for example `items[2] "Docs": no target, it renders as plain text` (`2` is the position in the `items` you sent). `none` items are never reported. Read `warnings` after a write to catch items that lost their link.
 - `jsonld_validate` reads the JSON-LD from the live page when the entity is published (otherwise it generates it from the draft) and checks JSON validity, `@context`, `@type` and the required fields of common types (Article, BlogPosting, WebPage, Organization, LocalBusiness, Product, Service, Event, FAQPage, HowTo, BreadcrumbList ...). Unknown types only get their `@type` checked.
 - `sitemap_preview` and `llms_txt_preview` serve the real route in process, so they return exactly what crawlers get.
+- The comment tools use the same comment service as the admin Comments screen, so webhooks and plugin events fire from the same transitions, and a comment approved or marked as spam through MCP is treated like one handled in the admin. Their results never include the commenter's email, hashes, IP address or user agent. They work whenever comments are available on the site, even while the site-wide comments switch is off.
 - AI referrals are counted per assistant and day only (the site keeps no visitor or per-page referral data); crawler hits are per page and per agent.
 
 ## SEO tools
@@ -81,6 +84,19 @@ How a patch merges:
 - The whole patch is validated before anything is written, and the settings and per-type rows are saved in one transaction. A failure changes nothing.
 - Invalid input is a REST `422` `{"error": "...", "fields": {"<field>": "<message>"}}`, a tool error elsewhere. Field names look like `type[doc][title]`, `type_settings[<slug>][<field>]`, `ai_crawlers[denied_purposes]`; a body that does not decode is named by its section.
 - Each change writes an audit row with the way in (`api` or `mcp`), the key and the sections changed; values and the IndexNow key are not logged.
+
+## Comment tools
+
+Four tools moderate comments (see [COMMENTS.md](COMMENTS.md)). `read:comments` and `write:comments` are not owner-only: a key created by an editor can hold them, like the Comments screen an editor can use. A `*` key gets both. They are reachable only through MCP; no REST route takes these scopes.
+
+| Tool | Scope | What it does |
+|---|---|---|
+| `comments_list` | `read:comments` | Comments with a `status` of `pending` (the default), `approved`, `spam` or `trash`; a `draft` is refused. Each row has the text, the author name, the entry, the status and, for a held comment, why it was held (score, reasons, links, trust). The result has `has_more`, not a total: ask for the next page while it is true. |
+| `comments_approve` | `write:comments` | Approves a comment. Approving an approved comment changes nothing. |
+| `comments_spam` | `write:comments` | Marks a comment as spam. Like the admin, this blocks the commenter and teaches the spam filters; it adds no blocked link domains. Marked destructive. |
+| `comments_reply` | `write:comments` | (inputs: the comment `id` and the reply text) Adds a reply that is approved at once. It is authored under the name of the user who created the key, like a reply written in the admin, so a key whose creator no longer exists cannot reply. Not idempotent: a repeated call adds another reply. |
+
+An action on a comment that is not found, or is in a state that does not allow it, fails with a tool error and changes nothing.
 
 ## Builder tools
 
