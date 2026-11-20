@@ -19,8 +19,8 @@ func TestImportReportShowsTheCommentsCard(t *testing.T) {
 	run.Result = &res
 	body := g.do("GET", "/admin/settings/import/wordpress/"+ids["done"].String(), "owner-token", nil, nil).Body.String()
 	for _, want := range []string{
-		`id="comments"`, ">Comments<", "<dt>Comments imported</dt><dd>412</dd>", "<dt>Approved</dt><dd>380</dd>", "<dt>Commenters created</dt><dd>133</dd>",
-		"<dt>Skipped without an email address</dt><dd>4</dd>", "<dt>Author website addresses dropped</dt><dd>250</dd>",
+		`id="comments"`, ">Comments<", "<dt>Comments imported</dt><dd>412</dd>", "<dt>Approved</dt><dd>380</dd>", "<dt>Commenters created</dt><dd>133 <span class=\"hm-muted\">(trust capped at known)</span></dd>",
+		"<dt>Skipped without an email address</dt><dd>4</dd>", "<dt>Author website addresses dropped</dt><dd>250 <span class=\"hm-muted\">(not stored)</span></dd>",
 		"First post (#8)", "And 15 more.", "Comments remain off. Turn them on in Settings &gt; Comments.",
 	} {
 		if !strings.Contains(body, want) {

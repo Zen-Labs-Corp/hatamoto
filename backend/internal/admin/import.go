@@ -853,21 +853,28 @@ type seoReportView struct {
 	URL       string
 }
 
+// commentsRow is a countRow with an optional muted note after the value.
+type commentsRow struct {
+	Label string
+	Value int
+	Note  string
+}
+
 // commentsReportView is the "Comments" card: only set when the run has comment results.
 type commentsReportView struct {
-	Rows      []countRow
+	Rows      []commentsRow
 	Pings     []string
 	MorePings int
 	Off       bool // comments are still off: say how to turn them on
 }
 
 func newCommentsReportView(c *wpimport.CommentsResult) *commentsReportView {
-	v := &commentsReportView{Off: !c.Enabled, Rows: []countRow{
-		{"Comments imported", c.Imported}, {"Approved", c.Approved}, {"Waiting for review", c.Pending}, {"Spam", c.Spam}, {"Trash", c.Trash},
-		{"Commenters created", c.CommentersCreated}, {"Pingbacks and trackbacks skipped", c.PingsTotal},
-		{"Skipped without an email address", c.SkippedNoEmail}, {"Skipped (page not imported)", c.SkippedNoPost},
-		{"Skipped (empty or too long)", c.SkippedBody}, {"Moved to the top level", c.Reparented},
-		{"Author website addresses dropped", c.URLsDropped}}}
+	v := &commentsReportView{Off: !c.Enabled, Rows: []commentsRow{
+		{"Comments imported", c.Imported, ""}, {"Approved", c.Approved, ""}, {"Waiting for review", c.Pending, ""}, {"Spam", c.Spam, ""}, {"Trash", c.Trash, ""},
+		{"Commenters created", c.CommentersCreated, "(trust capped at known)"}, {"Pingbacks and trackbacks skipped", c.PingsTotal, ""},
+		{"Skipped without an email address", c.SkippedNoEmail, ""}, {"Skipped (page not imported)", c.SkippedNoPost, ""},
+		{"Skipped (empty or too long)", c.SkippedBody, ""}, {"Moved to the top level", c.Reparented, ""},
+		{"Author website addresses dropped", c.URLsDropped, "(not stored)"}}}
 	for i, p := range c.Pings {
 		if i >= listCap {
 			break
