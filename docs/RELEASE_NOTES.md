@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased: plugin templates refused by 1.3.8's range rule register again
+
+- **Plugin templates.** Plugin templates refused by 1.3.8's range rule register again. A plugin section or partial may `range` over any value; every plugin loop draws on one budget of 100000 iterations per page render, enforced while the page renders. A render that reaches it stops the loop, is served but not cached, and logs "plugin template range budget exceeded" with the plugin and template (at most once a minute each).
+- **Admin.** A plugin's page lists, under Needs attention, every section or partial that is not registered and why; `GET /api/v1/plugins` returns the same list as `templates_refused`.
+- **Unchanged.** The scripts, theme-name, structural markup, call-graph and range-depth rules and the 256 KiB sample-render cap.
+- **Migration.** None. Rollback floor: unchanged.
+
 ## Unreleased: render.page page_paths (SDK 0.24.0)
 
 - **Plugin authors.** A plugin whose `render.page` filter only matters on a few pages can declare them in the new manifest field `page_paths` (up to 16 exact public request paths without a trailing slash, for example `/members` or `/account`; a locale-prefixed or alternate URL of the same content is not covered and is page-cached, so list every URL the filter must act on). The filter is then called only for those paths. A plugin that declares none behaves exactly as before: it is called on every page.
