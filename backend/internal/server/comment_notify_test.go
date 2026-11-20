@@ -16,12 +16,14 @@ import (
 )
 
 type fakeNotifyStore struct {
-	mode    comment.NotifyMode
-	batches []comment.ModerationBatch
-	notices []comment.ReplyNotice
-	gaps    []time.Duration
-	claims  int // ClaimModeration + ClaimReplies calls
-	cleared int
+	mode         comment.NotifyMode
+	batches      []comment.ModerationBatch
+	replyBatches []comment.ReplyBatch
+	replyErr     error
+	windows      []time.Duration
+	gaps         []time.Duration
+	claims       int // ClaimModeration + ClaimReplyBatches calls
+	cleared      int
 }
 
 func (f *fakeNotifyStore) Settings(context.Context) (comment.Settings, error) {
@@ -36,9 +38,10 @@ func (f *fakeNotifyStore) ClaimModeration(_ context.Context, gap time.Duration) 
 
 func (f *fakeNotifyStore) ClearModeration(context.Context) error { f.cleared++; return nil }
 
-func (f *fakeNotifyStore) ClaimReplies(context.Context, int) ([]comment.ReplyNotice, error) {
+func (f *fakeNotifyStore) ClaimReplyBatches(_ context.Context, _ int, window time.Duration) ([]comment.ReplyBatch, error) {
 	f.claims++
-	return f.notices, nil
+	f.windows = append(f.windows, window)
+	return f.replyBatches, f.replyErr
 }
 
 func (f *fakeNotifyStore) PruneReplyQueue(context.Context) (int64, error) { return 0, nil }
@@ -53,10 +56,16 @@ type sentReply struct {
 	d  email.CommentReplyData
 }
 
+type sentReplyDigest struct {
+	to string
+	d  email.CommentReplyDigestData
+}
+
 type fakeNotifyMailer struct {
 	configured bool
 	mods       []sentModeration
 	replies    []sentReply
+	digests    []sentReplyDigest
 	failFirst  bool
 }
 
@@ -67,6 +76,11 @@ func (f *fakeNotifyMailer) SendCommentModeration(_ context.Context, to string, d
 	if f.failFirst && len(f.mods) == 1 {
 		return errors.New("smtp down")
 	}
+	return nil
+}
+
+func (f *fakeNotifyMailer) SendCommentReplyDigest(_ context.Context, to string, d email.CommentReplyDigestData) error {
+	f.digests = append(f.digests, sentReplyDigest{to, d})
 	return nil
 }
 
@@ -193,35 +207,125 @@ func TestCommentNotifySkipsUnknownModerator(t *testing.T) {
 	}
 }
 
+func (f *notifyFixture) reply(entity uuid.UUID, name string) comment.Comment {
+	return comment.Comment{ID: uuid.New(), EntityID: entity, AuthorName: name}
+}
+
+func unsubVerifies(t *testing.T, f *notifyFixture, url string, want uuid.UUID) {
+	t.Helper()
+	kind, id, ok := comment.VerifyUnsubscribe(f.n.unsubKey, url[len("https://site.test"+commentUnsubscribePrefix):])
+	if !ok || kind != comment.UnsubscribeReplies || id != want {
+		t.Errorf("unsubscribe URL verifies to %c %s %v", kind, id, ok)
+	}
+}
+
 func TestCommentNotifyReplyMail(t *testing.T) {
 	f := newNotifyFixture("https://site.test")
-	cid, rid := uuid.New(), uuid.New()
-	f.store.notices = []comment.ReplyNotice{
-		{Reply: comment.Comment{ID: rid, EntityID: f.page, AuthorName: "Bob"}, CommenterID: cid, Email: "ada@example.test"},
-		{Reply: comment.Comment{ID: uuid.New(), EntityID: uuid.New()}, CommenterID: uuid.New(), Email: "gone@example.test"},
+	cid := uuid.New()
+	rep := f.reply(f.page, "Bob")
+	f.store.replyBatches = []comment.ReplyBatch{
+		{CommenterID: cid, Email: "ada@example.test", Replies: []comment.Comment{rep}},
+		{CommenterID: uuid.New(), Email: "gone@example.test", Replies: []comment.Comment{f.reply(uuid.New(), "")}},
 	}
 	if err := f.n.run(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if len(f.mail.replies) != 1 {
-		t.Fatalf("sent %d replies, want 1 (unknown entity skipped)", len(f.mail.replies))
+	if len(f.mail.replies) != 1 || len(f.mail.digests) != 0 {
+		t.Fatalf("sent %d replies, %d digests, want 1 reply (unknown entity skipped)", len(f.mail.replies), len(f.mail.digests))
 	}
 	r := f.mail.replies[0]
-	if r.to != "ada@example.test" || r.d.URL != "https://site.test/p#comment-"+rid.String() || r.d.ReplierName != "Bob" {
+	if r.to != "ada@example.test" || r.d.URL != "https://site.test/p#comment-"+rep.ID.String() || r.d.ReplierName != "Bob" {
 		t.Errorf("reply = %+v", r)
 	}
-	kind, id, ok := comment.VerifyUnsubscribe(f.n.unsubKey, r.d.UnsubscribeURL[len("https://site.test"+commentUnsubscribePrefix):])
-	if !ok || kind != comment.UnsubscribeReplies || id != cid {
-		t.Errorf("unsubscribe URL verifies to %c %s %v", kind, id, ok)
+	unsubVerifies(t, f, r.d.UnsubscribeURL, cid)
+}
+
+func TestCommentNotifyReplyDigest(t *testing.T) {
+	f := newNotifyFixture("https://site.test")
+	cid := uuid.New()
+	a, b, c := f.reply(f.page, "Bob"), f.reply(uuid.New(), "Gone"), f.reply(f.page, "Cy")
+	f.store.replyBatches = []comment.ReplyBatch{{CommenterID: cid, Email: "ada@example.test", Replies: []comment.Comment{a, b, c}}}
+	if err := f.n.run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.mail.digests) != 1 || len(f.mail.replies) != 0 {
+		t.Fatalf("sent %d digests, %d replies, want 1 digest", len(f.mail.digests), len(f.mail.replies))
+	}
+	d := f.mail.digests[0]
+	if d.to != "ada@example.test" || d.d.SiteName != "Site" || d.d.More != 0 || len(d.d.Items) != 2 {
+		t.Fatalf("digest = %+v", d)
+	}
+	want := []email.CommentReplyItem{
+		{ReplierName: "Bob", EntityTitle: "Page", URL: "https://site.test/p#comment-" + a.ID.String()},
+		{ReplierName: "Cy", EntityTitle: "Page", URL: "https://site.test/p#comment-" + c.ID.String()},
+	}
+	for i := range want {
+		if d.d.Items[i] != want[i] {
+			t.Errorf("item %d = %+v, want %+v", i, d.d.Items[i], want[i])
+		}
+	}
+	unsubVerifies(t, f, d.d.UnsubscribeURL, cid)
+}
+
+func TestCommentNotifyReplyDigestOneResolvableIsSingle(t *testing.T) {
+	f := newNotifyFixture("https://site.test")
+	f.store.replyBatches = []comment.ReplyBatch{{CommenterID: uuid.New(), Email: "ada@example.test",
+		Replies: []comment.Comment{f.reply(uuid.New(), "Gone"), f.reply(f.page, "Bob")}}}
+	if err := f.n.run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.mail.replies) != 1 || len(f.mail.digests) != 0 {
+		t.Fatalf("sent %d replies, %d digests, want a single reply mail", len(f.mail.replies), len(f.mail.digests))
+	}
+}
+
+func TestCommentNotifyReplyDigestCapsItems(t *testing.T) {
+	f := newNotifyFixture("https://site.test")
+	b := comment.ReplyBatch{CommenterID: uuid.New(), Email: "ada@example.test"}
+	for range 25 {
+		b.Replies = append(b.Replies, f.reply(f.page, "Bob"))
+	}
+	f.store.replyBatches = []comment.ReplyBatch{b}
+	if err := f.n.run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.mail.digests) != 1 {
+		t.Fatalf("sent %d digests, want 1", len(f.mail.digests))
+	}
+	if d := f.mail.digests[0].d; len(d.Items) != 20 || d.More != 5 {
+		t.Errorf("items %d, more %d; want 20, 5", len(d.Items), d.More)
+	}
+}
+
+func TestCommentNotifyReplyWindow(t *testing.T) {
+	f := newNotifyFixture("https://site.test")
+	if err := f.n.run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.store.windows) != 1 || f.store.windows[0] != 15*time.Minute {
+		t.Errorf("claim windows = %v, want [15m]", f.store.windows)
+	}
+}
+
+func TestCommentNotifyClaimErrorStillMailsClaimedBatches(t *testing.T) {
+	f := newNotifyFixture("https://site.test")
+	f.store.replyBatches = []comment.ReplyBatch{{CommenterID: uuid.New(), Email: "ada@example.test",
+		Replies: []comment.Comment{f.reply(f.page, "Bob")}}}
+	f.store.replyErr = errors.New("db down")
+	if err := f.n.run(context.Background()); err == nil {
+		t.Fatal("run = nil, want the claim error")
+	}
+	if len(f.mail.replies) != 1 {
+		t.Errorf("sent %d, want the claimed batch mailed", len(f.mail.replies))
 	}
 }
 
 func TestCommentNotifySendErrorDoesNotStopTheRun(t *testing.T) {
 	f := newNotifyFixture("https://site.test")
 	f.mail.failFirst = true
-	f.store.notices = []comment.ReplyNotice{
-		{Reply: comment.Comment{ID: uuid.New(), EntityID: f.page}, CommenterID: uuid.New(), Email: "a@example.test"},
-		{Reply: comment.Comment{ID: uuid.New(), EntityID: f.page}, CommenterID: uuid.New(), Email: "b@example.test"},
+	f.store.replyBatches = []comment.ReplyBatch{
+		{CommenterID: uuid.New(), Email: "a@example.test", Replies: []comment.Comment{f.reply(f.page, "")}},
+		{CommenterID: uuid.New(), Email: "b@example.test", Replies: []comment.Comment{f.reply(f.page, "")}},
 	}
 	if err := f.n.run(context.Background()); err != nil {
 		t.Fatalf("run = %v", err)

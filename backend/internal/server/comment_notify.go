@@ -21,8 +21,11 @@ const (
 	commentNotifyJob = "comment_notify"
 	modPerCommentGap = 10 * time.Minute
 	modDigestGap     = time.Hour
-	replyClaimBatch  = 100
+	replyClaimBatch  = 100 // commenters per run
 	modMaxListed     = 20
+	// replyMailGap is the most a commenter is mailed about replies: one mail per window.
+	replyMailGap   = 15 * time.Minute
+	replyMaxListed = 20
 )
 
 // notifyStore is the part of *comment.Service the notifier uses.
@@ -30,7 +33,7 @@ type notifyStore interface {
 	Settings(ctx context.Context) (comment.Settings, error)
 	ClaimModeration(ctx context.Context, gap time.Duration) ([]comment.ModerationBatch, error)
 	ClearModeration(ctx context.Context) error
-	ClaimReplies(ctx context.Context, limit int) ([]comment.ReplyNotice, error)
+	ClaimReplyBatches(ctx context.Context, limit int, window time.Duration) ([]comment.ReplyBatch, error)
 	PruneReplyQueue(ctx context.Context) (int64, error)
 }
 
@@ -39,6 +42,7 @@ type notifyMailer interface {
 	IsConfigured() bool
 	SendCommentModeration(ctx context.Context, to string, d email.CommentModerationData) error
 	SendCommentReply(ctx context.Context, to string, d email.CommentReplyData) error
+	SendCommentReplyDigest(ctx context.Context, to string, d email.CommentReplyDigestData) error
 }
 
 // commentNotifier is the comment_notify job. The comment observers only queue
@@ -142,23 +146,58 @@ func (n *commentNotifier) moderation(ctx context.Context, mode comment.NotifyMod
 }
 
 func (n *commentNotifier) replies(ctx context.Context, name, base string) error {
-	notices, err := n.store.ClaimReplies(ctx, replyClaimBatch)
-	if err != nil {
-		return fmt.Errorf("failed to claim reply mail: %w", err)
+	// Batches claimed before an error are already stamped: mail them anyway.
+	batches, claimErr := n.store.ClaimReplyBatches(ctx, replyClaimBatch, replyMailGap)
+	type entityInfo struct {
+		title, path string
+		ok          bool
 	}
-	for _, r := range notices {
-		title, path, ok := n.entity(ctx, r.Reply.EntityID)
-		if !ok {
+	entities := map[uuid.UUID]entityInfo{}
+	lookup := func(id uuid.UUID) entityInfo {
+		e, seen := entities[id]
+		if !seen {
+			e.title, e.path, e.ok = n.entity(ctx, id)
+			entities[id] = e
+		}
+		return e
+	}
+	for _, b := range batches {
+		unsub := base + commentUnsubscribePrefix + comment.UnsubscribeToken(n.unsubKey, comment.UnsubscribeReplies, b.CommenterID)
+		var items []email.CommentReplyItem
+		for _, r := range b.Replies {
+			e := lookup(r.EntityID)
+			if !e.ok {
+				continue
+			}
+			items = append(items, email.CommentReplyItem{
+				ReplierName: r.AuthorName, EntityTitle: e.title,
+				URL: base + e.path + "#comment-" + r.ID.String(),
+			})
+		}
+		var err error
+		switch {
+		case len(items) == 0:
 			continue
+		case len(items) == 1:
+			err = n.mail.SendCommentReply(ctx, b.Email, email.CommentReplyData{
+				SiteName: name, EntityTitle: items[0].EntityTitle, ReplierName: items[0].ReplierName,
+				URL: items[0].URL, UnsubscribeURL: unsub,
+			})
+		default:
+			d := email.CommentReplyDigestData{SiteName: name, UnsubscribeURL: unsub}
+			if len(items) > replyMaxListed {
+				d.More = len(items) - replyMaxListed
+				items = items[:replyMaxListed]
+			}
+			d.Items = items
+			err = n.mail.SendCommentReplyDigest(ctx, b.Email, d)
 		}
-		d := email.CommentReplyData{
-			SiteName: name, EntityTitle: title, ReplierName: r.Reply.AuthorName,
-			URL:            base + path + "#comment-" + r.Reply.ID.String(),
-			UnsubscribeURL: base + commentUnsubscribePrefix + comment.UnsubscribeToken(n.unsubKey, comment.UnsubscribeReplies, r.CommenterID),
-		}
-		if err := n.mail.SendCommentReply(ctx, r.Email, d); err != nil {
+		if err != nil {
 			n.log.WarnContext(ctx, "comment reply mail not sent", slog.Any("error", err))
 		}
+	}
+	if claimErr != nil {
+		return fmt.Errorf("failed to claim reply mail: %w", claimErr)
 	}
 	return nil
 }
