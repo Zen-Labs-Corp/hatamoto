@@ -100,18 +100,22 @@ func (s *Server) queueCommentReply(ctx context.Context, c comment.Comment) {
 	}
 }
 
-// setupCommentNotify registers the observer and schedules comment_notify.
-// Without comments, mail, users or a scheduler, or with the job disabled,
-// nothing is registered, so nothing queues that would never be sent.
+// setupCommentNotify registers the observer that queues mail work and, where
+// this replica sends mail, schedules comment_notify. Queueing is database-only,
+// so it happens on every replica: a comment handled on a replica without the
+// worker is still mailed by the one that has it.
 func (s *Server) setupCommentNotify() bool {
-	if s.comments == nil || s.emailService == nil || s.userRepo == nil || s.scheduler == nil || s.cfg == nil || !workerJobEnabled(commentNotifyJob) {
+	if s.comments == nil || s.userRepo == nil {
+		return false
+	}
+	s.comments.Register(commentNotifyObserver{moderation: s.queueCommentModeration, reply: s.queueCommentReply})
+	if s.emailService == nil || s.scheduler == nil || s.cfg == nil || !workerJobEnabled(commentNotifyJob) {
 		return false
 	}
 	n := &commentNotifier{
 		store: s.comments, mail: s.emailService, moderators: s.commentModerators, site: s.digestSite,
 		entity: s.commentEntity, unsubKey: comment.UnsubscribeKey(s.cfg.Secret), log: s.logger,
 	}
-	s.comments.Register(commentNotifyObserver{moderation: s.queueCommentModeration, reply: s.queueCommentReply})
 	err := s.scheduler.ScheduleJitter(commentNotifyJob, time.Minute, 10*time.Second, time.Minute, n.run)
 	if err != nil {
 		s.logger.Error("comment notify job not scheduled", "error", err)

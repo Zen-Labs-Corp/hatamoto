@@ -287,3 +287,42 @@ type statusWriter struct {
 func (w *statusWriter) Header() http.Header         { return w.header }
 func (w *statusWriter) Write(b []byte) (int, error) { return len(b), nil }
 func (w *statusWriter) WriteHeader(code int)        { w.code = code }
+
+// TestCommentNotifyQueuesWithoutWorker: a replica that runs no worker (here the
+// wire environment sets HATAMOTO_WORKER=off) still queues mail work, so a
+// replica that does run the job can send it.
+func TestCommentNotifyQueuesWithoutWorker(t *testing.T) {
+	ctx := context.Background()
+	env := newWireEnv(t, nil)
+	s, _ := env.server(t, "/admin")
+	env.addOwner(t, s)
+	if s.scheduler != nil {
+		t.Fatal("test needs a server without a scheduler")
+	}
+	entities := entity.NewService(entity.NewPostgresSchemaRepository(env.db), entity.NewPostgresEntityRepository(env.db), s.logger)
+	sch, err := entities.CreateSchema(ctx, &entity.CreateSchemaInput{
+		Name: "Nw Page", Slug: "nw-page",
+		Schema:   jsontext.Value(`{"type":"object","properties":{}}`),
+		Settings: jsontext.Value(`{"url_pattern":"/nw-page/{slug}"}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ent, err := entities.CreateEntity(ctx, nil, &entity.CreateEntityInput{SchemaID: sch.ID, Name: "Nw Entity", Slug: "nw-entity", Attributes: jsontext.Value(`{}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.comments.Store(ctx, comment.Draft{
+		EntityID: ent.ID, Email: "a@nw.test", AuthorName: "Ann", BodyRaw: "text", BodyHTML: "<p>text</p>",
+		BodyHash: "h-" + uuid.NewString(), SpamVerdict: "allow", Status: comment.StatusPending, Locale: "und",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var queued int
+	if err := env.db.Pool().QueryRow(ctx, `SELECT count(*) FROM hatamoto_comment_notify_queue`).Scan(&queued); err != nil {
+		t.Fatal(err)
+	}
+	if queued != 1 {
+		t.Fatalf("queue rows = %d, want 1 on a replica without the worker", queued)
+	}
+}

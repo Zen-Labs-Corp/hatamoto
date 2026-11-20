@@ -87,4 +87,8 @@ func TestSetupCommentNotifyNeedsItsParts(t *testing.T) {
 	if (&Server{}).setupCommentNotify() {
 		t.Error("setupCommentNotify scheduled without comments, mail, users or a scheduler")
 	}
+	// Queueing is not gated on the scheduler, only scheduling is.
+	if (&Server{comments: &comment.Service{}, userRepo: moderatorUsers{}}).setupCommentNotify() {
+		t.Error("setupCommentNotify scheduled without mail or a scheduler")
+	}
 }

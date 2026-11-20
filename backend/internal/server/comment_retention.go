@@ -8,7 +8,7 @@ type retentionAdder interface {
 }
 
 // addCommentRetention makes the daily purge delete old spam and trash comments
-// and old reply-queue rows. The worker is built before setupComments, so the
+// old reply-queue rows and moderator-queue rows of comments no longer held. The worker is built before setupComments, so the
 // comment service is read when the purge runs; without it the purge does
 // nothing. It does not depend on mail being set up.
 func (s *Server) addCommentRetention(w retentionAdder) {
@@ -22,6 +22,11 @@ func (s *Server) addCommentRetention(w retentionAdder) {
 		if s.comments == nil {
 			return 0, nil
 		}
-		return s.comments.PruneReplyQueue(ctx)
+		moderation, err := s.comments.PruneModerationQueue(ctx)
+		if err != nil {
+			return moderation, err
+		}
+		replies, err := s.comments.PruneReplyQueue(ctx)
+		return moderation + replies, err
 	})
 }

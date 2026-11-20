@@ -36,6 +36,17 @@ func (s *Service) QueueModeration(ctx context.Context, commentID uuid.UUID, user
 	})
 }
 
+// PruneModerationQueue deletes queue rows whose comment is no longer pending.
+// Without it the queue only shrinks where a replica sends mail.
+func (s *Service) PruneModerationQueue(ctx context.Context) (int64, error) {
+	tag, err := s.db.Pool().Exec(ctx, `DELETE FROM hatamoto_comment_notify_queue q
+		WHERE NOT EXISTS (SELECT 1 FROM hatamoto_comments c WHERE c.id = q.comment_id AND c.status = 'pending')`)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // ClaimModeration takes, in one transaction, the queued comments of every
 // moderator whose last mail is at least gap old: rows of comments that are no
 // longer pending and of muted moderators are dropped first; the claim is the

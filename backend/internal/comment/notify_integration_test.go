@@ -215,3 +215,22 @@ func TestModerationConcurrentClaims(t *testing.T) {
 		}
 	}
 }
+
+func TestPruneModerationQueue(t *testing.T) {
+	f := newFixture(t)
+	u := f.user("a@example.test")
+	held, approved := f.pending(), f.pending()
+	for _, c := range []Comment{held, approved} {
+		if err := f.svc.QueueModeration(f.ctx, c.ID, []uuid.UUID{u}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.exec(`UPDATE hatamoto_comments SET status = 'approved' WHERE id = $1`, approved.ID)
+	n, err := f.svc.PruneModerationQueue(f.ctx)
+	if err != nil || n != 1 {
+		t.Fatalf("pruned = %d, %v, want 1", n, err)
+	}
+	if f.queueLen(u) != 1 {
+		t.Errorf("queue = %d, want the still-pending row only", f.queueLen(u))
+	}
+}
