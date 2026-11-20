@@ -709,6 +709,7 @@ type schemaForm struct {
 	FocusOp          string // the move button to focus again after a reorder
 	// BuiltinPostEditor is a built-in post type: it always opens the post editor.
 	BuiltinPostEditor bool
+	Comments          *schemaCommentsPanel // nil: no comment service or the site switch is off
 }
 
 // WebPageOptions are the choices of the schema's WebPage node: the default
@@ -826,6 +827,7 @@ func (f *schemaForm) lockBuiltin(s *entity.EntitySchema) {
 
 func (a *Admin) renderSchemaForm(w http.ResponseWriter, r *http.Request, status int, f *schemaForm) {
 	f.Kinds, f.Items, f.SchemaOrgTypes = fieldKinds, itemKinds, entity.AllowedSchemaOrgTypes
+	f.Comments = a.schemaCommentsPanel(r, f.ID, f.Builtin)
 	if list, err := a.deps.Content.Entities.ListSchemas(r.Context()); err == nil {
 		f.RefNames = map[string]string{}
 		for _, s := range list {
