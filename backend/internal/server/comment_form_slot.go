@@ -37,7 +37,7 @@ func (c *commentSlot) off() bool { return c != nil && c.on != nil && !c.on() }
 // and private. Without the marker the body is unchanged and the flag false. The
 // input is never modified: it is the cached entry.
 func (c *commentSlot) fill(r *http.Request, body []byte) ([]byte, bool) {
-	if c == nil || bytes.Index(body, []byte(render.CommentFormMarker)) < 0 {
+	if c == nil || !bytes.Contains(body, []byte(render.CommentFormMarker)) {
 		return body, false
 	}
 	start, end := commentFormSpan(body)
