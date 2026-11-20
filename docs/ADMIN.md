@@ -668,9 +668,10 @@ keyword, SEO title and description, canonical, social image, noindex, include in
    Toasts from htmx use `HX-Trigger: {"hm:toast": {...}}` (`admin.Toast`).
 8. Tables keep their state in the URL (`?q&sort&dir&page`); a table is
    `hx-target`/`hx-select` on its own id, and the filter form is a real GET form that
-   works without JS. `hx-target`, `hx-indicator` and `hx-include` sit on the element that
-   makes the request, never on a wrapper (htmx 4 drops implicit inheritance); a designcheck
-   test fails otherwise. A dialog Close button that only closes uses
+   works without JS. htmx 4 stops inheriting attributes, so every htmx attribute sits on the element
+   that makes the request, never on a wrapper. A designcheck test enforces this for
+   `hx-target`, `hx-indicator` and `hx-include`: it fails on a template tag that carries one
+   without a request verb, or on a requester that would have inherited one. A dialog Close button that only closes uses
    `command="close" commandfor="<dialog id>"` instead of a click listener (Esc closes
    everywhere; there is no JS fallback).
 9. Destructive actions never fire on one click and never use `hx-confirm`: a
