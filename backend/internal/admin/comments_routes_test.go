@@ -48,7 +48,8 @@ func TestCommentsOwnerRoutesRefuseEditor(t *testing.T) {
 func TestCommentsEditorRoutesReachable(t *testing.T) {
 	t.Parallel()
 
-	p := newCommentsRig(t, &fakeComments{})
+	// The comment exists, so a 404 means the route is not mounted.
+	p := newCommentsRig(t, &fakeComments{rows: []CommentRow{{ID: commentsTestID}}})
 	id := commentsTestID
 	routes := []struct{ method, path string }{
 		{"GET", "/admin/comments"},
