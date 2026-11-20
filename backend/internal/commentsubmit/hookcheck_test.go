@@ -2,6 +2,7 @@ package commentsubmit
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -19,7 +20,7 @@ type fakeEngine struct {
 }
 
 func (f *fakeEngine) FilterCount(string) int { return f.count }
-func (f *fakeEngine) ApplyStrict(ctx context.Context, _ string, v any) (any, error) {
+func (f *fakeEngine) ApplyClosed(ctx context.Context, _ string, v any) (any, error) {
 	f.calls++
 	f.got = v
 	return f.apply(ctx, v)
@@ -90,5 +91,31 @@ func TestCheckPayloadFields(t *testing.T) {
 				t.Errorf("CheckPayload has field %s", n)
 			}
 		}
+	}
+}
+
+// Against the real engine: a filter that errors, panics, returns the wrong type
+// or runs out of time holds the comment, alone or after a clean one.
+func TestHookCheckerRealEngineHolds(t *testing.T) {
+	for name, fn := range map[string]func(context.Context, any) (any, error){
+		"error":      func(context.Context, any) (any, error) { return nil, errors.New("x") },
+		"panic":      func(context.Context, any) (any, error) { panic("boom") },
+		"wrong type": func(context.Context, any) (any, error) { return 7, nil },
+		"timeout":    func(ctx context.Context, _ any) (any, error) { <-ctx.Done(); return nil, ctx.Err() },
+	} {
+		e := hooks.New(nil)
+		e.AddFilter(HookName, 10, func(_ context.Context, v any) (any, error) { return v, nil })
+		e.AddFilter(HookName, 20, fn)
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		_, _, err := HookChecker{Engine: e}.Check(ctx, comment.CheckInput{Body: "x"})
+		cancel()
+		if err != ErrHookHold {
+			t.Errorf("%s: err = %v, want ErrHookHold", name, err)
+		}
+	}
+	// The adapter itself survives an engine that panics.
+	f := &fakeEngine{count: 1, apply: func(context.Context, any) (any, error) { panic("boom") }}
+	if _, _, err := (HookChecker{Engine: f}).Check(context.Background(), comment.CheckInput{}); err != ErrHookHold {
+		t.Errorf("engine panic: err = %v", err)
 	}
 }
