@@ -75,10 +75,12 @@ type Services struct {
 	Media     *media.Service
 	Redirects *redirect.Service
 	Forms     *form.Service
-	Mail      Mailer
-	Settings  *SettingsStore
-	DB        *PluginDB
-	Fetcher   *Fetcher
+	// Comments serves comments.thread/counts (approved comments only); nil = unavailable.
+	Comments CommentReader
+	Mail     Mailer
+	Settings *SettingsStore
+	DB       *PluginDB
+	Fetcher  *Fetcher
 	// Packages gives packages.inspect its verdict; nil makes it unavailable.
 	Packages PackageInspector
 	// FetchPerMinute caps one plugin's outbound http.fetch requests per
@@ -421,6 +423,8 @@ var hostFns = map[string]hostFn{
 	sdk.FnMediaList:            {perm: sdk.PermMediaRead, run: fnMediaList},
 	sdk.FnRedirectsList:        {perm: sdk.PermRedirectsRead, run: fnRedirectsList},
 	sdk.FnFormsList:            {perm: sdk.PermFormsRead, run: fnFormsList},
+	sdk.FnCommentsThread:       {perm: sdk.PermCommentsRead, run: fnCommentsThread},
+	sdk.FnCommentsCounts:       {perm: sdk.PermCommentsRead, run: fnCommentsCounts},
 	sdk.FnFormsSubmissions:     {perm: sdk.PermFormsRead, run: fnFormsSubmissions},
 }
 
