@@ -266,7 +266,7 @@ type CommentItem struct {
 	AuthorName string    `json:"author_name"`
 	Staff      bool      `json:"staff,omitempty"`
 	BodyHTML   string    `json:"body_html"`
-	CreatedAt  time.Time `json:"created_at,omitzero"` // left out on comment.deleted
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // CommentThread is the result of comments.thread.

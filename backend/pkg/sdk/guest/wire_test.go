@@ -667,7 +667,7 @@ var wireCases = []struct{ typ, state, want string }{
 	{"Proposal", "edge", `{"kind":"","payload":{}}`},
 	{"Proposal", "edge null", `{"kind":"","payload":null}`},
 	{"Proposal", "edge empty string", `{"kind":"","payload":""}`},
-	{"CommentEvent", "zero", `{"id":"","entity_id":"","status":"","created_at":"0001-01-01T00:00:00Z"}`},
+	{"CommentEvent", "zero", `{"id":"","entity_id":"","status":""}`},
 	{"CommentEvent", "full", `{"id":"s\u003c","entity_id":"s\u003c","parent_id":"s\u003c","author_name":"s\u003c","staff":true,"body_html":"s\u003c","status":"s\u003c","locale":"s\u003c","created_at":"2024-01-02T03:04:05Z"}`},
 	{"CommentEvent", "edge", `{"id":"","entity_id":"","status":"","created_at":"2024-01-02T03:04:05Z"}`},
 	{"CommentCheck", "zero", `{"body":""}`},
