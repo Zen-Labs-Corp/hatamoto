@@ -16,11 +16,13 @@ import (
 	"hatamoto.dev/core/internal/auth"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/database"
+	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/media"
 	"hatamoto.dev/core/internal/middleware"
 	"hatamoto.dev/core/internal/offsite"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/server"
+	"hatamoto.dev/core/internal/siteid"
 	"hatamoto.dev/core/internal/user"
 )
 
@@ -243,6 +245,8 @@ func newLogger() *slog.Logger {
 
 // Main runs hatamoto's server or one of its subcommands and exits on failure.
 func Main() {
+	// Registration by a wrapper module happens in init; nothing registers after this.
+	editionstate.Freeze()
 	logger := newLogger()
 	slog.SetDefault(logger)
 
@@ -430,6 +434,7 @@ func serve(ctx context.Context, logger *slog.Logger) error {
 	if err := migrateUpDirect(ctx, db, logger); err != nil {
 		return err
 	}
+	editionstate.SetSiteIDSource(siteid.New(db.Pool()).Get)
 	if err := checkMediaOffsiteOverlap(ctx, os.Getenv, offsite.NewStore(db.Pool()).Get); err != nil {
 		return err
 	}

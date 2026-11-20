@@ -5,6 +5,7 @@ import (
 	"io"
 	"runtime/debug"
 
+	"hatamoto.dev/core/internal/editionstate"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/migrations"
 	"hatamoto.dev/sdk"
@@ -46,7 +47,7 @@ func buildInfo() (version, commit string) {
 
 func printVersion(w io.Writer) {
 	v, c := buildInfo()
-	fmt.Fprintf(w, "hatamoto %s (commit %s, sdk %s)\n", v, c, sdk.Version)
+	fmt.Fprintf(w, "hatamoto %s (commit %s, sdk %s) (%s)\n", v, c, sdk.Version, editionstate.Name())
 }
 
 // versionInfo is the shape of `hatamoto version --json`; the release tooling
