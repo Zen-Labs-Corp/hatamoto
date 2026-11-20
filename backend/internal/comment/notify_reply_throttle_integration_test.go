@@ -254,3 +254,39 @@ func TestReplyThrottleConcurrentClaims(t *testing.T) {
 		}
 	}
 }
+
+// TestReplyThrottleSkipsLockedRecipient holds one recipient's advisory lock
+// (the production key) from another transaction: that recipient is skipped and
+// left unstamped while the other is still claimed; once released it is claimed.
+func TestReplyThrottleSkipsLockedRecipient(t *testing.T) {
+	f := newFixture(t)
+	a, b := f.parentBy("a@example.test"), f.parentBy("b@example.test")
+	t0 := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	ra := f.queueAt(a, t0)
+	rb := f.queueAt(b, t0)
+
+	tx, err := f.svc.db.Pool().Begin(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(f.ctx)
+	if _, err := tx.Exec(f.ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1 || $2::text, 0))`,
+		replyLockPrefix, *a.CommenterID); err != nil {
+		t.Fatal(err)
+	}
+
+	got := wantOne(t, "a locked", f.batches(t0))
+	if got.CommenterID != *b.CommenterID {
+		t.Fatalf("claimed recipient %s, want the unlocked %s", got.CommenterID, *b.CommenterID)
+	}
+	sameIDs(t, "b", replyIDs(got), rb)
+	if f.replyQueued(ra) != 1 {
+		t.Fatal("locked recipient's row was deleted, want kept")
+	}
+
+	if err := tx.Rollback(f.ctx); err != nil {
+		t.Fatal(err)
+	}
+	got = wantOne(t, "a released", f.batches(t0))
+	sameIDs(t, "a released", replyIDs(got), ra)
+}
