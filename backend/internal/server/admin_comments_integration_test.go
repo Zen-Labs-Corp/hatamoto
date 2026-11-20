@@ -155,6 +155,9 @@ func TestCommentsAdminIntegration(t *testing.T) {
 	if p, err := a.Queue(ctx, admin.CommentFilter{Status: "pending", HasLinks: true, Page: 1, PerPage: 50}); err != nil || len(p.Rows) != 1 {
 		t.Errorf("HasLinks queue = %d rows, %v", len(p.Rows), err)
 	}
+	if p, err := a.Queue(ctx, admin.CommentFilter{Status: "pending", CommenterID: link.CommenterID, Page: 1, PerPage: 50}); err != nil || len(p.Rows) != 2 {
+		t.Errorf("commenter queue = %d rows, %v, want Alice's 2", len(p.Rows), err)
+	}
 	if p, err := a.Queue(ctx, admin.CommentFilter{Query: "second", Page: 1, PerPage: 50}); err != nil || len(p.Rows) != 2 {
 		t.Errorf("search queue = %d rows, %v", len(p.Rows), err)
 	}

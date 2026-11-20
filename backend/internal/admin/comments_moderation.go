@@ -39,14 +39,14 @@ var modTrustOptions = []ui.Option{
 
 // commentListParams are the moderation screen's filters, read from the URL.
 type commentListParams struct {
-	Status, Q, Entity, Trust string
-	HasLinks                 bool
-	Page                     int
+	Status, Q, Entity, Commenter, Trust string
+	HasLinks                            bool
+	Page                                int
 }
 
 // filtered reports whether a filter other than the status tab is set.
 func (p commentListParams) filtered() bool {
-	return p.Q != "" || p.Entity != "" || p.Trust != "" || p.HasLinks
+	return p.Q != "" || p.Entity != "" || p.Commenter != "" || p.Trust != "" || p.HasLinks
 }
 
 // query is the URL state the pagination links carry.
@@ -60,6 +60,9 @@ func (p commentListParams) query() url.Values {
 	}
 	if p.Entity != "" {
 		q.Set("entity", p.Entity)
+	}
+	if p.Commenter != "" {
+		q.Set("commenter", p.Commenter)
 	}
 	if p.Trust != "" {
 		q.Set("trust", p.Trust)
@@ -83,6 +86,9 @@ func readCommentParams(r *http.Request) commentListParams {
 	}
 	if _, err := uuid.Parse(q.Get("entity")); err == nil {
 		p.Entity = q.Get("entity")
+	}
+	if id, err := uuid.Parse(q.Get("commenter")); err == nil {
+		p.Commenter = id.String()
 	}
 	for _, o := range modTrustOptions[1:] {
 		if q.Get("trust") == o.Value {
@@ -155,6 +161,11 @@ func (a *Admin) handleComments(w http.ResponseWriter, r *http.Request) {
 	popover := []ui.Filter{{Control: "switch", Name: "has_links", Label: "Has links", Value: "1", Checked: p.HasLinks}}
 
 	var chips []ui.Chip
+	if p.Commenter != "" {
+		rest := p
+		rest.Commenter = ""
+		chips = append(chips, ui.Chip{Label: "One commenter", RemoveHref: modHref(base, rest.query())})
+	}
 	if p.HasLinks {
 		rest := p
 		rest.HasLinks = false
@@ -169,14 +180,14 @@ func (a *Admin) handleComments(w http.ResponseWriter, r *http.Request) {
 		},
 		Segmented: status, Query: p.Q, SearchLabel: "Search comments",
 		PrimaryFilters: primary, PopoverFilters: popover, Chips: chips,
-		ClearHref: modHref(base, commentListParams{Status: p.Status, Q: p.Q, Entity: p.Entity, Trust: p.Trust}.query()),
+		ClearHref: modHref(base, commentListParams{Status: p.Status, Q: p.Q, Entity: p.Entity, Commenter: p.Commenter, Trust: p.Trust}.query()),
 		ListBar:   true, Live: true, Target: "comments-results", ChipsOutside: true,
 		Bulk: modBulkActions(a.adminPath, p.Status), BulkURL: a.adminPath + "/comments/bulk",
 		Empty: ui.Empty{Icon: "inbox", Title: "No comments here", Body: "Nothing matches this view."},
 	}
 
 	page, err := svc.Queue(ctx, CommentFilter{
-		Status: p.Status, Query: p.Q, EntityID: p.Entity, Trust: p.Trust, HasLinks: p.HasLinks, Page: p.Page, PerPage: modPerPage,
+		Status: p.Status, Query: p.Q, EntityID: p.Entity, CommenterID: p.Commenter, Trust: p.Trust, HasLinks: p.HasLinks, Page: p.Page, PerPage: modPerPage,
 	})
 	if err != nil {
 		a.logger().Error("comment queue failed", "err", err)

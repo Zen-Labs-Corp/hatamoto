@@ -71,6 +71,24 @@ func TestCommentsListCountsOnlyUnfiltered(t *testing.T) {
 	}
 }
 
+func TestCommentsListCommenterFilter(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{rows: modRows()}
+	p := newCommentsRig(t, svc)
+	body := modGet(t, p, "owner-token", "/admin/comments?status=approved&commenter="+cmtrTestID)
+	if svc.lastFilter.CommenterID != cmtrTestID || svc.lastFilter.Status != "approved" {
+		t.Errorf("filter = %+v, want the commenter and status passed to the queue", svc.lastFilter)
+	}
+	if !strings.Contains(body, "One commenter") || strings.Contains(body, `comments-seg-approved-n`) {
+		t.Error("a commenter-filtered view has no chip, or shows site-wide tab counts")
+	}
+	modGet(t, p, "owner-token", "/admin/comments?commenter=not-a-uuid")
+	if svc.lastFilter.CommenterID != "" {
+		t.Errorf("a malformed commenter id reached the queue: %q", svc.lastFilter.CommenterID)
+	}
+}
+
 func TestCommentsListHasMore(t *testing.T) {
 	t.Parallel()
 
