@@ -160,13 +160,7 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 		return Outcome{Kind: NotFound}, nil
 	}
 
-	// 2. Surge window.
-	surge, started := p.Limits.Surge().Note()
-	if started {
-		p.log().WarnContext(ctx, "comment surge mode started", "reason", "surge")
-	}
-
-	// 3. Single-use token. The form field names derive from it, so the email
+	// 2. Single-use token. The form field names derive from it, so the email
 	// (and its limit bucket) is only known after this step.
 	keys := p.Comments.Keys()
 	ipHash, netHash := keys.HashIP(req.IP)
@@ -175,6 +169,13 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	issued, res := spam.CheckCommentToken(ctx, p.TokenKey, p.Comments, spam.CommentSubject(entityID), ipHash, tok, now)
 	if res != spam.TokenOK {
 		return p.drop(ctx, "token")
+	}
+
+	// 3. Surge window. Only a submit with a valid token counts, so forged posts
+	// cannot push the site into surge mode.
+	surge, started := p.Limits.Surge().Note()
+	if started {
+		p.log().WarnContext(ctx, "comment surge mode started", "reason", "surge")
 	}
 
 	// 4. Fields, only under the rotated names.

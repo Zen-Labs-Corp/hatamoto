@@ -345,3 +345,16 @@ func TestSubmitCaptchaOffWhenUnusable(t *testing.T) {
 		t.Fatalf("kind = %d", out.Kind)
 	}
 }
+
+func TestSubmitSurgeIgnoresInvalidTokens(t *testing.T) {
+	h := newHarness(t)
+	for i := 0; i < defaultSurgeLimit+5; i++ {
+		h.req.Post = url.Values{TokenField: {"forged"}}
+		if out := h.submit(t); out.Kind != FakeSuccess {
+			t.Fatalf("forged submit %d = %d", i, out.Kind)
+		}
+	}
+	if active, _ := h.p.Limits.Surge().Note(); active {
+		t.Fatal("forged posts started surge mode")
+	}
+}
