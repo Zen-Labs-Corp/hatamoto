@@ -309,27 +309,49 @@ func (r *pluginRegistry) size() int {
 }
 
 // gated is snapshot without the partials and sections that carry script
-// constructs while their plugin lacks site.scripts.
+// constructs while their plugin lacks site.scripts. It is the serving path:
+// it always runs the scan against the live grants and never reads the memo,
+// so a revoke takes effect at once. It refreshes the memo with its own
+// result, keyed by the exact grant answers the scan used.
 func (r *pluginRegistry) gated() pluginSnapshot {
-	return r.gateResult().out
+	snap, gen := r.snapshotGen()
+	res := r.scan(snap, gen, askGrants(snap.owner, pluginScriptsAllowed()))
+	r.gateMu.Lock()
+	r.gateMemo = res
+	r.gateMu.Unlock()
+	return res.out
 }
 
 // gateResult returns the gate's answer for the current registry and grants,
-// rerunning the scan only when either changed. Concurrent callers wait for
-// one scan; the registry lock is held only to copy the snapshot.
+// for the admin reads: the scan reruns only when either changed. Concurrent
+// callers wait for one scan; the registry lock is held only to copy the
+// snapshot. The grants are asked once, under gateMu, and the same answers
+// key the memo and drive the scan.
 func (r *pluginRegistry) gateResult() gateResult {
 	allowed := pluginScriptsAllowed()
-	fp := r.gateFingerprint(allowed)
 	r.gateMu.Lock()
 	defer r.gateMu.Unlock()
-	snap, gen := r.snapshotGen()
-	if m := r.gateMemo; m.valid && m.gen == gen && m.fp == fp {
+	r.mu.RLock()
+	gen, owners := r.gen, maps.Clone(r.owner)
+	r.mu.RUnlock()
+	answers := askGrants(owners, allowed)
+	if m := r.gateMemo; m.valid && m.gen == gen && m.fp == fingerprintOf(answers) {
 		return m
 	}
-	r.gateScans.Add(1)
-	out, why, graph := snap.withoutScripts(allowed)
-	r.gateMemo = gateResult{valid: true, gen: gen, fp: fp, out: out, why: why, graph: graph}
+	snap, snapGen := r.snapshotGen()
+	if snapGen != gen { // registry changed since the first look: ask again for the new owners
+		gen, answers = snapGen, askGrants(snap.owner, allowed)
+	}
+	r.gateMemo = r.scan(snap, gen, answers)
 	return r.gateMemo
+}
+
+// scan runs the gate over snap with the given grant answers and keys the
+// result by them, so key and result cannot describe different grant states.
+func (r *pluginRegistry) scan(snap pluginSnapshot, gen int, answers map[string]bool) gateResult {
+	r.gateScans.Add(1)
+	out, why, graph := snap.withoutScripts(func(plugin string) bool { return answers[plugin] })
+	return gateResult{valid: true, gen: gen, fp: fingerprintOf(answers), out: out, why: why, graph: graph}
 }
 
 // pluginSnapshot is a consistent copy of the registry.

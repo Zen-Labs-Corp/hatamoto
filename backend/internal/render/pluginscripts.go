@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"html/template"
+	"maps"
 	"reflect"
 	"regexp"
 	"slices"
@@ -322,16 +323,29 @@ func (s pluginSnapshot) withoutScripts(allowed func(string) bool) (out pluginSna
 // does, so engines rebuild when the owner grants or revokes site.scripts.
 func (r *pluginRegistry) gateFingerprint(allowed func(string) bool) uint64 {
 	r.mu.RLock()
-	seen := map[string]bool{}
-	for _, plugin := range r.owner {
-		seen[plugin] = true
-	}
+	owners := maps.Clone(r.owner)
 	r.mu.RUnlock()
+	return fingerprintOf(askGrants(owners, allowed))
+}
+
+// askGrants asks the gate once per plugin that owns something in owners.
+func askGrants(owners map[string]string, allowed func(string) bool) map[string]bool {
+	answers := map[string]bool{}
+	for _, plugin := range owners {
+		if _, done := answers[plugin]; !done {
+			answers[plugin] = allowed != nil && allowed(plugin)
+		}
+	}
+	return answers
+}
+
+// fingerprintOf hashes a set of grant answers.
+func fingerprintOf(answers map[string]bool) uint64 {
 	var sum uint64
-	for plugin := range seen {
+	for plugin, ok := range answers {
 		h := fnv.New64a()
 		h.Write([]byte(plugin))
-		if allowed != nil && allowed(plugin) {
+		if ok {
 			h.Write([]byte{1})
 		}
 		sum += h.Sum64() // order-independent

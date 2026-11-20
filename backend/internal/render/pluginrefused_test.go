@@ -166,3 +166,44 @@ func TestPluginGateMemoised(t *testing.T) { //nolint:paralleltest // uses the pr
 		t.Fatalf("repeat after grant reran the scan: %d", scans())
 	}
 }
+
+// The memo key and the scan use one set of grant answers: a gate that changes
+// its mind after the first question cannot file a result under another state.
+func TestPluginGateKeyMatchesScan(t *testing.T) { //nolint:paralleltest // uses the process-wide plugin registry and script gate
+	const plugin = "acme-flip"
+	t.Cleanup(func() { SetPluginScriptGate(nil); RemovePlugin(plugin) })
+	if err := RegisterPluginPartial(plugin, "card", `<script>x()</script>`); err != nil {
+		t.Fatal(err)
+	}
+	asked := 0
+	SetPluginScriptGate(func(string) bool { asked++; return asked == 1 }) // true once, then false
+	g := defaultPlugins.gateResult()
+	if g.fp != fingerprintOf(map[string]bool{plugin: true}) || len(g.out.partials) == 0 {
+		t.Fatalf("result not keyed by the answers it used: fp=%d partials=%v", g.fp, g.out.partials)
+	}
+	// With the grant revoked for real, the stored "allowed" entry must not be reused.
+	SetPluginScriptGate(func(string) bool { return false })
+	if stopped := PluginMarkupStopped(plugin); len(stopped) == 0 {
+		t.Fatal("revoked grant still serves the script partial from the memo")
+	}
+}
+
+// The serving path reflects a revoke at once even with a warm memo.
+func TestPluginGateServingIgnoresMemo(t *testing.T) { //nolint:paralleltest // uses the process-wide plugin registry and script gate
+	const plugin = "acme-revoke"
+	t.Cleanup(func() { SetPluginScriptGate(nil); RemovePlugin(plugin) })
+	if err := RegisterPluginPartial(plugin, "card", `<script>x()</script>`); err != nil {
+		t.Fatal(err)
+	}
+	SetPluginScriptGate(func(string) bool { return true })
+	if len(defaultPlugins.gated().partials) == 0 {
+		t.Fatal("granted plugin's partial missing")
+	}
+	PluginMarkupStopped(plugin) // warm memo, granted
+	SetPluginScriptGate(func(string) bool { return false })
+	for name, src := range defaultPlugins.gated().partials {
+		if strings.Contains(src, "<script") {
+			t.Fatalf("partial %s still served after revoke", name)
+		}
+	}
+}
