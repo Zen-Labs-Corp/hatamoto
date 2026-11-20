@@ -32,6 +32,9 @@ type ExportOptions struct {
 	SkipMedia bool
 	// NoSubmissions leaves out form submissions (visitor data).
 	NoSubmissions bool
+	// Secret is the server secret; when set, the header records
+	// SecretCheck(Secret) (never the secret). Empty: no check, as before.
+	Secret string
 	// OnMedia, when set, is called once with the relative path of each media
 	// file the rows reference (the stored file and its variants), whether or
 	// not the bytes are exported.
@@ -79,7 +82,7 @@ func Export(ctx context.Context, pool *pgxpool.Pool, w io.Writer, opts ExportOpt
 	if now.IsZero() {
 		now = time.Now()
 	}
-	hdr := Header{Format: FormatName, Version: FormatVersion, CreatedAt: now.UTC(), SchemaVersion: schemaVersion, IncludeSubmission: !opts.NoSubmissions}
+	hdr := Header{Format: FormatName, Version: FormatVersion, CreatedAt: now.UTC(), SchemaVersion: schemaVersion, IncludeSubmission: !opts.NoSubmissions, SecretCheck: SecretCheck(opts.Secret)}
 	for _, t := range picked {
 		hdr.Tables = append(hdr.Tables, t.name)
 	}
