@@ -6,12 +6,15 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
+	"hatamoto.dev/core/internal/commentsubmit"
 	"hatamoto.dev/core/internal/middleware"
+	"hatamoto.dev/core/internal/spam"
 )
 
 // commentConfirmPrefix is the path of the comment confirmation link.
@@ -135,6 +138,7 @@ func (s *Server) commentConfirmHandler(ci commentIdentity, lookup commentEntityL
 				return
 			}
 			http.SetCookie(w, ci.Cookie(c, s.commentCookieSecure(r)))
+			s.commentBypass.forget(c.CommenterID) // the confirmed comment shows at once, not after the 30 s cache
 			_, path, ok := lookup(ctx, c.Comment.EntityID)
 			if !ok || path == "" {
 				path = "/"
@@ -158,6 +162,33 @@ func (s *Server) setupComments() {
 		return
 	}
 	s.comments = comment.New(s.db, s.cfg.Secret, s.logger)
+	secret := s.cfg.Secret
+
+	// The slot and the observer share one "comments are on" flag, read from the
+	// settings at boot and kept current by the settings event.
+	on := new(atomic.Bool)
+	if set, err := s.comments.Settings(context.Background()); err == nil {
+		on.Store(set.Enabled)
+	}
+	devKey := identity.DeviceKey(secret)
+	s.commentSlot = &commentSlot{
+		tokenKey: spam.CommentTokenKey(secret), nameKey: spam.FieldNameKey(secret),
+		hashIP: s.comments.Keys().HashIP, now: time.Now, on: on.Load,
+	}
+	// A visitor with a comment of their own that is not public yet, or still
+	// editable, gets an uncached page.
+	s.commentBypass = newCommentBypass(
+		func(v string, t time.Time) (identity.DeviceClaims, bool) { return identity.VerifyDevice(devKey, v, t) },
+		func(ctx context.Context, id uuid.UUID) (bool, error) {
+			if has, err := s.comments.HasNonPublic(ctx, id); has || err != nil {
+				return has, err
+			}
+			return s.comments.HasEditable(ctx, id)
+		}, nil)
+	s.comments.Register(commentCacheObserver{
+		drop: s.dropRenderedEntity, all: s.invalidateRendered, setOn: on.Store,
+		forget: s.commentBypass.forget,
+	})
 	if s.emailService == nil {
 		return
 	}
@@ -174,6 +205,13 @@ func (s *Server) setupComments() {
 		return
 	}
 	s.commentIdentity = svc
+	s.commentSubmit = &commentsubmit.Pipeline{
+		Comments: s.comments, Identity: svc, Spam: s.spam,
+		TokenKey: spam.CommentTokenKey(secret), NameKey: spam.FieldNameKey(secret),
+		Limits:   commentsubmit.NewLimits(time.Now),
+		Checkers: []comment.Checker{commentsubmit.HookChecker{Engine: s.hooks}},
+		Log:      s.logger,
+	}
 }
 
 // handleCommentConfirm is the mounted handler: 404 until setupComments built
@@ -186,13 +224,23 @@ func (s *Server) handleCommentConfirm(w http.ResponseWriter, r *http.Request) {
 	s.commentConfirmHandler(ci, s.commentEntity)(w, r)
 }
 
+// purgeCommentDrafts is the hourly job: unconfirmed drafts and tokens, then the
+// used form tokens. A failed form-token purge is logged and does not fail the job.
+func (s *Server) purgeCommentDrafts(ctx context.Context) error {
+	err := s.commentIdentity.Purge(ctx)
+	if _, e := s.comments.PurgeFormTokens(ctx); e != nil {
+		s.logger.Warn("comment form tokens purge", "error", e)
+	}
+	return err
+}
+
 // scheduleCommentDraftsPurge schedules the hourly purge unless there is no
 // scheduler, database or identity service, or WORKER_DISABLE_JOBS names it.
 func (s *Server) scheduleCommentDraftsPurge() bool {
 	if s.db == nil || s.scheduler == nil || s.commentIdentity == nil || !workerJobEnabled(commentDraftsPurgeJob) {
 		return false
 	}
-	err := s.scheduler.ScheduleJitter(commentDraftsPurgeJob, time.Hour, 10*time.Minute, 3*time.Minute, s.commentIdentity.Purge)
+	err := s.scheduler.ScheduleJitter(commentDraftsPurgeJob, time.Hour, 10*time.Minute, 3*time.Minute, s.purgeCommentDrafts)
 	if err != nil {
 		s.logger.Error("comment drafts purge job not scheduled", "error", err)
 	}
