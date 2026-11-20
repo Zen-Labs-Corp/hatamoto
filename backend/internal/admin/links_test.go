@@ -122,8 +122,39 @@ func TestRenderedFormsPagesLinkToNewPaths(t *testing.T) {
 	}
 }
 
-// TestNoHxBoost keeps the admin on real page loads: no hx-boost and no
-// hx-history anywhere in its templates, scripts or Go source.
+// bannedHXAttrs: hx-boost by policy (real page loads); the rest are removed in
+// htmx 4 (hx-history also covers hx-history-elt). The renamed ones (hx-disable,
+// hx-disabled-elt) stay.
+var bannedHXAttrs = []string{"hx-boost", "hx-history", "hx-vars", "hx-params", "hx-prompt",
+	"hx-ext", "hx-disinherit", "hx-inherit", "hx-request"}
+
+// bannedHX lists the banned attribute names src contains (case-sensitive, so
+// the HX-Request header never matches).
+func bannedHX(src string) []string {
+	var out []string
+	for _, bad := range bannedHXAttrs {
+		if strings.Contains(src, bad) {
+			out = append(out, bad)
+		}
+	}
+	return out
+}
+
+func TestNoHxBoostSelfTest(t *testing.T) {
+	t.Parallel()
+
+	for _, bad := range bannedHXAttrs {
+		if got := bannedHX(`<div ` + bad + `="x">`); len(got) == 0 {
+			t.Errorf("%s not caught", bad)
+		}
+	}
+	if got := bannedHX(`r.Header.Get("HX-Request") <button hx-get="/a" hx-target="#b" hx-disabled-elt="this">`); len(got) != 0 {
+		t.Errorf("false positive: %v", got)
+	}
+}
+
+// TestNoHxBoost keeps the admin on real page loads: no hx-boost, no hx-history
+// and no attribute htmx 4 removes anywhere in its templates, scripts or Go source.
 func TestNoHxBoost(t *testing.T) {
 	t.Parallel()
 
@@ -150,10 +181,8 @@ func TestNoHxBoost(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			for _, bad := range []string{"hx-boost", "hx-history"} {
-				if strings.Contains(string(b), bad) {
-					t.Errorf("%s uses %s", path, bad)
-				}
+			for _, bad := range bannedHX(string(b)) {
+				t.Errorf("%s uses %s", path, bad)
 			}
 			return nil
 		})

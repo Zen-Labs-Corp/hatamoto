@@ -66,9 +66,9 @@ func describedBy(id string, help, errMsg any, extra ...any) string {
 }
 
 // allowedAttr is the whitelist of extra attributes a partial caller may add:
-// htmx (minus inline-code and header/value injection), data-*, aria-*, form
+// htmx (minus inline-code, header/value injection and attributes htmx 4 removes), data-*, aria-*, form
 // association and a few plain ones.
-var allowedAttr = regexp.MustCompile(`^(hx-(get|post|put|patch|delete|target|swap|trigger|select|push-url|indicator|disabled-elt|include|params|sync|encoding|ext|disinherit|inherit|preserve)|data-[a-z0-9-]+|aria-[a-z-]+|form|formaction|formmethod|formnovalidate|formtarget|formenctype|disabled|name|value|id|title|autofocus|autocomplete|autocapitalize|autocorrect|spellcheck|inputmode|maxlength|minlength|pattern|min|max|step|readonly|rel|target|accept|popovertarget|popovertargetaction|hidden|download|list)$`)
+var allowedAttr = regexp.MustCompile(`^(hx-(get|post|put|patch|delete|target|swap|trigger|select|push-url|indicator|disabled-elt|include|sync|encoding|preserve)|data-[a-z0-9-]+|aria-[a-z-]+|form|formaction|formmethod|formnovalidate|formtarget|formenctype|disabled|name|value|id|title|autofocus|autocomplete|autocapitalize|autocorrect|spellcheck|inputmode|maxlength|minlength|pattern|min|max|step|readonly|rel|target|accept|popovertarget|popovertargetaction|command|commandfor|hidden|download|list)$`)
 
 // attrs renders a caller-supplied attribute map as safe HTML attributes. An
 // attribute outside the whitelist is an error, never silently dropped.

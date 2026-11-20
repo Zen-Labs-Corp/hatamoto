@@ -77,7 +77,7 @@ export function filterGroups(groups, q) {
 
 /** The shortcut sheet: a modal <dialog> built once; open() shows it, Escape closes it. */
 export function createSheet(groups = GROUPS) {
-  const close = h("button", { type: "button", class: "hm-btn hm-btn--primary", text: "Close" });
+  const close = h("button", { type: "button", class: "hm-btn hm-btn--primary", text: "Close", command: "close", commandfor: "hm-bs-sheet" });
   const search = h("input", { type: "search", class: "hm-field__control", id: "hm-bs-sheet-q", autocomplete: "off", placeholder: "Search shortcuts…", "aria-label": "Search shortcuts", "aria-controls": "hm-bs-sheet-body" });
   // The list scrolls inside the dialog: it takes a Tab stop (a keyboard user scrolls it with the arrows) and a name, as axe requires of a scroll region.
   const body = h("div", { class: "hm-dialog__body", id: "hm-bs-sheet-body", tabindex: "0", role: "region", "aria-label": "Shortcut list" });
@@ -103,7 +103,6 @@ export function createSheet(groups = GROUPS) {
     status.textContent = search.value ? `${shown.reduce((n, [, r]) => n + r.length, 0)} shortcuts` : "";
   }
   search.addEventListener("input", paint);
-  close.addEventListener("click", () => dlg.close());
   paint();
   document.body.append(dlg);
   return { open: () => !dlg.open && dlg.showModal(), el: dlg };

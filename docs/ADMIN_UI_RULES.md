@@ -113,8 +113,8 @@ handoff material are stale, do not copy them.
 
    `hm/button` accepts extra attributes through `Attrs` (built with `attrmap`).
    The whitelist lives in `backend/internal/admin/partialfuncs.go`: htmx
-   attributes, `data-*`, `aria-*`, form association (`form`, `formaction`, ...),
-   `popovertarget`, `popovertargetaction`, `hidden`, `download` and a few plain
+   attributes (not the ones htmx 4 removes), `data-*`, `aria-*`, form association (`form`, `formaction`, ...),
+   `popovertarget`, `popovertargetaction`, `command`, `commandfor`, `hidden`, `download` and a few plain
    ones. Event handlers (`on*`, `hx-on`) are rejected and must stay that way.
 
 
