@@ -64,8 +64,10 @@ func secureHeaders(next http.Handler) http.Handler {
 		}
 		h.Set("Cache-Control", "no-store")
 		h.Add("Vary", "Cookie")
-		h.Add("Vary", "HX-Request")
-		h.Add("Vary", "HX-Target")
+		// The htmx headers pick page vs fragment (htmx.go), so caches must key on them.
+		h.Add("Vary", hxRequestHeader)
+		h.Add("Vary", hxTargetHeader)
+		h.Add("Vary", hxRequestTypeHeader)
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), nonceKey, nonce)))
 	})
 }
