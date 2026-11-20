@@ -1,10 +1,12 @@
 {{template "layouts/shell" .}}
 {{define "main"}}{{with .Data}}{{template "hm/pageheader" dict "Title" "Turn comments on?"}}
-<form method="post" action="{{adminPath}}/settings/comments/enable" class="hm-stack" data-hm-ack>
+{{if .NoAddress}}{{template "hm/callout-start" (dict "Kind" "warning" "ID" "comments-no-address")}}<p>Comments need your site's public address to send confirmation emails. Set it in Settings > General first.</p>{{template "hm/button" dict "Label" "Go to Settings > General" "Href" (print (adminPath "settings" "general") "#identity")}}{{template "hm/callout-end"}}
+{{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "settings" "comments")}}
+{{else}}<form method="post" action="{{adminPath}}/settings/comments/enable" class="hm-stack" data-hm-ack>
 {{template "hm/csrf" $}}
 {{template "hm/card-start" dict "ID" "comments-enable-confirm" "Title" "Confirm" "Heading" "h2"}}<div class="hm-stack">
 <p>Are you sure? Turning comments on will invite spam to this site. You will need to check the moderation queue regularly.</p>
 {{template "hm/field" dict "ID" "comments-understand" "Name" "understand" "Control" "switch" "Value" "1" "Label" "I understand this will invite spam" "Error" .Err}}
 </div>{{template "hm/foot"}}{{template "hm/button" dict "Label" "Cancel" "Href" (adminPath "settings" "comments")}}{{template "hm/button" dict "Label" "Turn on" "Variant" "primary" "Type" "submit" "Attrs" (attrmap "data-hm-ack-submit" "")}}{{template "hm/foot-end"}}{{template "hm/card-end"}}
 </form>
-{{end}}{{end}}
+{{end}}{{end}}{{end}}

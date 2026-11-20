@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"net/http"
 	"sync"
 	"testing"
 )
@@ -297,5 +298,6 @@ func newCommentsRig(t *testing.T, svc *fakeComments) *perfRig {
 	t.Helper()
 	p := newPerfRig(t, nil)
 	p.a.deps.Comments = svc
+	p.a.deps.BaseURL = func(*http.Request) string { return "https://example.com" }
 	return p
 }

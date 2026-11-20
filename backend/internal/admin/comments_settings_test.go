@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"errors"
+	"html"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -445,5 +447,140 @@ func TestCommentSettingsNotifyMode(t *testing.T) {
 	}
 	if changed, _ := p.events[0].Detail["changed"].([]string); strings.Join(changed, ",") != "notify_mode" {
 		t.Errorf("detail %+v", p.events[0].Detail)
+	}
+}
+
+// noAddress clears the site address on the rig (the default rig has one).
+func noAddress(p *perfRig) { p.a.deps.BaseURL = func(*http.Request) string { return "" } }
+
+func TestCommentSettingsNoAddressBlocksSwitch(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, &fakeComments{})
+	noAddress(p)
+	body := csetGet(t, p, "owner-token")
+	for _, want := range []string{`id="comments-no-address"`, "Comments need your site", "/admin/settings/general#identity", csetCallout} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page lacks %q", want)
+		}
+	}
+	for _, bad := range []string{`data-hm-open="comments-enable"`, `id="comments-enable"`} {
+		if strings.Contains(body, bad) {
+			t.Errorf("page has %q", bad)
+		}
+	}
+	i := strings.Index(body, `id="comments-enabled"`)
+	if i < 0 {
+		t.Fatal("no switch")
+	}
+	tag := body[strings.LastIndex(body[:i], "<input"):]
+	tag = tag[:strings.Index(tag, ">")]
+	if !strings.Contains(tag, " disabled") {
+		t.Errorf("switch not disabled: %s", tag)
+	}
+}
+
+func TestCommentEnableNoAddressRefused(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{}
+	p := newCommentsRig(t, svc)
+	noAddress(p)
+	rec := csetPost(p, "/enable", "owner-token", url.Values{"understand": {"1"}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != csetURL {
+		t.Fatalf("POST = %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(svc.calls) != 0 || len(p.events) != 0 {
+		t.Errorf("calls %v events %v", svc.calls, p.events)
+	}
+	if body := p.followFlash(rec.Result().Cookies()); !strings.Contains(body, html.EscapeString(csetNoAddressMsg)) {
+		t.Error("no error flash")
+	}
+}
+
+func TestCommentSwitchOnNoAddressRefused(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{}
+	p := newCommentsRig(t, svc)
+	noAddress(p)
+	rec := csetPost(p, "/switch", "owner-token", url.Values{"enabled": {"true"}}, nil)
+	if rec.Code != 303 || rec.Header().Get("Location") != csetURL {
+		t.Fatalf("POST = %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if len(svc.calls) != 0 || len(p.events) != 0 {
+		t.Errorf("calls %v events %v", svc.calls, p.events)
+	}
+	if body := p.followFlash(rec.Result().Cookies()); !strings.Contains(body, html.EscapeString(csetNoAddressMsg)) {
+		t.Error("no error flash")
+	}
+}
+
+func TestCommentEnablePageNoAddress(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, &fakeComments{})
+	noAddress(p)
+	rec := p.do("GET", csetURL+"/enable", "owner-token", nil, nil)
+	if rec.Code != 200 {
+		t.Fatalf("GET = %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if issues := a11y.Check(body, a11y.Options{Page: true}); len(issues) > 0 {
+		t.Errorf("a11y: %v", issues)
+	}
+	if !strings.Contains(body, `id="comments-no-address"`) || strings.Contains(body, ">Turn on<") {
+		t.Error("want the warning and no Turn on button")
+	}
+}
+
+func TestCommentSettingsOnNoAddressWarnsAndCanTurnOff(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{settings: CommentSettings{Enabled: true}}
+	p := newCommentsRig(t, svc)
+	noAddress(p)
+	body := csetGet(t, p, "owner-token")
+	if !strings.Contains(body, `id="comments-no-address"`) {
+		t.Error("no warning")
+	}
+	i := strings.Index(body, `id="comments-enabled"`)
+	tag := body[strings.LastIndex(body[:i], "<input"):]
+	tag = tag[:strings.Index(tag, ">")]
+	if strings.Contains(tag, " disabled") {
+		t.Errorf("switch disabled while on: %s", tag)
+	}
+	rec := csetPost(p, "/switch", "owner-token", url.Values{"enabled": {"off"}}, nil)
+	if rec.Code != 303 || len(svc.calls) != 1 || svc.settings.Enabled {
+		t.Fatalf("POST = %d calls %v enabled %v", rec.Code, svc.calls, svc.settings.Enabled)
+	}
+	if len(p.events) != 1 || p.events[0].Action != "comments.disable" {
+		t.Fatalf("events %+v", p.events)
+	}
+}
+
+func TestCommentSettingsWithAddressUnchanged(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{}
+	p := newCommentsRig(t, svc)
+	body := csetGet(t, p, "owner-token")
+	if strings.Contains(body, "comments-no-address") || !strings.Contains(body, `data-hm-open="comments-enable"`) {
+		t.Error("address set: no warning and the dialog trigger expected")
+	}
+	rec := csetPost(p, "/enable", "owner-token", url.Values{"understand": {"1"}}, nil)
+	if rec.Code != 303 || !svc.settings.Enabled {
+		t.Errorf("enable = %d enabled %v", rec.Code, svc.settings.Enabled)
+	}
+}
+
+func TestCommentSettingsEditorNoAddressNoLink(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, &fakeComments{})
+	noAddress(p)
+	body := csetGet(t, p, "editor-token")
+	if !strings.Contains(body, `id="comments-no-address"`) || strings.Contains(body, "Go to Settings &gt; General") {
+		t.Error("editor wants the callout without the button")
 	}
 }

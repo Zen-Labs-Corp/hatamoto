@@ -16,12 +16,20 @@ const (
 	csetCallout       = "Turning comments on will invite spam. Bots and spammers find comment forms within days. Every comment with a link and every first comment will wait in your moderation queue."
 	csetSecondWarning = "Are you sure? Turning comments on will invite spam to this site. You will need to check the moderation queue regularly."
 	csetTick          = "I understand this will invite spam"
+
+	// csetNoAddressMsg is the error flash when an owner tries to turn comments on with no site address.
+	csetNoAddressMsg = "Set your site address in Settings > General before turning comments on."
 )
+
+// commentsNoAddress reports that no site address is configured (PUBLIC_BASE_URL, else the Site
+// address setting). Confirmation mails need it; a request's own host is never used.
+func (a *Admin) commentsNoAddress(r *http.Request) bool { return a.siteAddress(r) == "" }
 
 // commentSettingsView is the data behind Settings > Comments. Cards are the
 // site settings, shown only while comments are on.
 type commentSettingsView struct {
 	Enabled, Owner bool
+	NoAddress      bool
 	S              CommentSettings
 	Cards          []csetCard
 	FormErrors     []ui.FieldError
@@ -219,7 +227,7 @@ func (a *Admin) handleCommentSettings(w http.ResponseWriter, r *http.Request) {
 // renderCommentSettings shows the page with vals in the site settings form
 // (the posted values after a refused save) and errs beside their fields.
 func (a *Admin) renderCommentSettings(w http.ResponseWriter, r *http.Request, status int, s CommentSettings, vals url.Values, errs []csetError) {
-	d := commentSettingsView{Enabled: s.Enabled, Owner: csetIsOwner(r), S: s}
+	d := commentSettingsView{Enabled: s.Enabled, Owner: csetIsOwner(r), NoAddress: a.commentsNoAddress(r), S: s}
 	byName := map[string]string{}
 	for _, e := range errs {
 		byName[e.Name] = e.Message
@@ -320,6 +328,11 @@ func (a *Admin) handleCommentSwitch(w http.ResponseWriter, r *http.Request) {
 	want := r.PostFormValue("enabled") == "true"
 	switch {
 	case want && !s.Enabled:
+		if a.commentsNoAddress(r) {
+			a.SetFlash(w, r, "error", csetNoAddressMsg)
+			Redirect(w, r, a.csetPath())
+			return
+		}
 		Redirect(w, r, a.csetPath()+"/enable")
 	case !want && s.Enabled:
 		was, err := svc.SetEnabled(ctx, false, csetActor(r))
@@ -358,7 +371,10 @@ func (a *Admin) renderCommentEnable(w http.ResponseWriter, r *http.Request, stat
 	v := a.NewView(w, r, "Turn comments on?")
 	v.Section, v.Tab = "comments", "comments"
 	v.Width = "compact"
-	v.Data = struct{ Err string }{errMsg}
+	v.Data = struct {
+		Err       string
+		NoAddress bool
+	}{errMsg, a.commentsNoAddress(r)}
 	a.Render(w, r, status, "settings/comments-enable", v)
 }
 
@@ -371,6 +387,11 @@ func (a *Admin) handleCommentEnable(w http.ResponseWriter, r *http.Request) {
 	svc := a.deps.Comments
 	if svc == nil {
 		a.unavailable(w, r, "Comments")
+		return
+	}
+	if a.commentsNoAddress(r) {
+		a.SetFlash(w, r, "error", csetNoAddressMsg)
+		Redirect(w, r, a.csetPath())
 		return
 	}
 	if r.PostFormValue("understand") != "1" {
