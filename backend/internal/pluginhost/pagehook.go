@@ -25,6 +25,9 @@ func (r *Runtime) hookFilter(m sdk.Manifest, hook, export string) func(context.C
 		return r.builderDataFilter(m, export)
 	}
 	generic := r.filter(m.Name, export)
+	if hook == sdk.CommentCheckF.Name {
+		return r.commentCheckFilter(m, generic)
+	}
 	if hook == sdk.RenderHead.Name {
 		return noteRenderFailure(hook, r.headScriptGate(m.Name, generic))
 	}
