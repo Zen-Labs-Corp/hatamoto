@@ -2,8 +2,8 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"hatamoto.dev/core/internal/jsonx"
 	"strings"
 	"testing"
 
@@ -31,7 +31,7 @@ func articleDoc() map[string]any {
 
 func jsonOf(t *testing.T, v any) string {
 	t.Helper()
-	b, err := json.Marshal(v)
+	b, err := jsonx.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}
