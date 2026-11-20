@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/jsonx"
+	"hatamoto.dev/core/internal/portability"
 )
 
 var restoreTrust = TrustIDs{Release: []string{"r1", "r2"}, Manifest: []string{"m1"}, Env: []string{"e1"}}
@@ -34,10 +35,17 @@ type archSpec struct {
 	tamper func(*manifest)
 }
 
+// specSecrets is the secrets.env body of the test archives; the manifest's
+// check matches it.
+const (
+	specSecret  = "test-secret"
+	specSecrets = "HATAMOTO_SECRET=" + specSecret + "\n"
+)
+
 func baseSpec() *archSpec {
 	trust := restoreTrust
 	return &archSpec{
-		Bodies: map[string][]byte{coreName: []byte("core"), "plugin_forms.dump": []byte("forms"), secretsName: []byte("SECRET_LINE\n"), configName: []byte("CFG=1\n")},
+		Bodies: map[string][]byte{coreName: []byte("core"), "plugin_forms.dump": []byte("forms"), secretsName: []byte(specSecrets), configName: []byte("CFG=1\n")},
 		Parts:  []string{coreName, "plugin_forms.dump", secretsName, configName, contentName},
 		Media:  map[string]string{"media/2026/a.txt": "aaaa", "media/b.txt": "bb"},
 		Mf: manifest{
@@ -45,6 +53,7 @@ func baseSpec() *archSpec {
 			Created:         time.Date(2026, 10, 25, 10, 15, 0, 0, time.UTC),
 			HatamotoVersion: "v1.2.3", ServerMajor: 16, PgDump: "16.2",
 			Plugins: []string{"forms"}, Trust: &trust, ConfigPath: "/etc/hatamoto/hatamoto.env",
+			SecretCheck: portability.SecretCheck(specSecret),
 		},
 	}
 }
@@ -231,7 +240,7 @@ func TestRestoreDryRunPlanOutput(t *testing.T) {
 	want := `warning  grants to role reporting are skipped (no such role here)
 warning  config not written; recorded path "/etc/hatamoto/hatamoto.env"; pass --config-out with the path you want
 backup   20261025T101500Z-manual (hatamoto "v1.2.3", pg 16, 1 plugin)
-checks   version ok, pg major ok (backup 16, server 16), trust keys ok, admin url ok, target db empty, media dir empty, roles ok (hm_src -> u, 1 skipped)
+checks   version ok, pg major ok (backup 16, server 16), trust keys ok, admin url ok, target db empty, media dir empty, server secret ok, roles ok (hm_src -> u, 1 skipped)
 would    restore core.dump, run role bootstrap, provision plugin_forms, restore plugin_forms.dump,
          restore 2 media files (0.0 MiB), write secrets.env
 dry run: nothing written
@@ -418,7 +427,7 @@ func TestRestoreSecretsFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(r.o.SecretsDir, secretsName)
-	if err := os.WriteFile(path, []byte("SECRET_LINE\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(specSecrets), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := r.dry(t, arch); err != nil {

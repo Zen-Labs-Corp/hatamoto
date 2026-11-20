@@ -55,6 +55,8 @@ type RestoreRequest struct {
 	AdminURL  string // DSN of a superuser, or of a role with CREATEROLE, CREATEDB and CREATE on the target database, for the role bootstrap
 	ConfigOut string // where to write the recorded config; empty means the config is not written
 	DryRun    bool
+	// Force restores a backup made under a different server secret; its commenter emails are blanked.
+	Force bool
 }
 
 // RestorePlan is what a restore checked and does (or would do).
@@ -87,6 +89,7 @@ type restorer struct {
 	configTarget string // empty when the config will not be written
 	led          rollbackLedger
 	ana          *roleAnalysis // the real run's role analysis, set by dbSteps
+	dropEmails   bool          // set by check: Force over a secret mismatch
 }
 
 // Restore checks a backup against this machine and, unless it is a dry run,
