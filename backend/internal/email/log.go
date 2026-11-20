@@ -23,10 +23,11 @@ const (
 	KindRunDigest           Kind = "run_digest"
 	KindAccessEnding        Kind = "access_ending"
 	KindCommentConfirmation Kind = "comment_confirmation"
-	KindCommentModeration   Kind = "comment_moderation" // one held comment, to a moderator
-	KindCommentDigest       Kind = "comment_digest"     // several held comments, to a moderator
-	KindCommentReply        Kind = "comment_reply"      // a reply, to an opted-in commenter
-	KindCommentSurge        Kind = "comment_surge"      // surge mode started, to the owners
+	KindCommentModeration   Kind = "comment_moderation"   // one held comment, to a moderator
+	KindCommentDigest       Kind = "comment_digest"       // several held comments, to a moderator
+	KindCommentReply        Kind = "comment_reply"        // a reply, to an opted-in commenter
+	KindCommentReplyDigest  Kind = "comment_reply_digest" // several replies, to an opted-in commenter
+	KindCommentSurge        Kind = "comment_surge"        // surge mode started, to the owners
 	KindPlugin              Kind = "plugin"
 	KindOther               Kind = "other"
 )
@@ -65,7 +66,7 @@ type Recorder interface {
 func (k Kind) StoresBody() bool {
 	switch k {
 	case KindPasswordReset, KindInvite, KindAdminAddressChanged, KindAdminAddressSetup, KindCommentConfirmation,
-		KindCommentModeration, KindCommentDigest, KindCommentReply, KindCommentSurge:
+		KindCommentModeration, KindCommentDigest, KindCommentReply, KindCommentReplyDigest, KindCommentSurge:
 		return false
 	}
 	return true
@@ -73,10 +74,11 @@ func (k Kind) StoresBody() bool {
 
 // StoresRecipients reports whether the log may keep the recipient addresses of
 // a mail of this kind. A comment confirmation goes to an address a visitor
-// typed, which may not be theirs, and so does a reply notification, so only a
+// typed, which may not be theirs, and so does a reply notification or a reply
+// summary, so only a
 // masked form is kept. Moderator mails go to staff addresses and keep them.
 func (k Kind) StoresRecipients() bool {
-	return k != KindCommentConfirmation && k != KindCommentReply
+	return k != KindCommentConfirmation && k != KindCommentReply && k != KindCommentReplyDigest
 }
 
 // maskAddress keeps the first letter of the local part and of the domain and
