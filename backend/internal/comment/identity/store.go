@@ -3,6 +3,7 @@ package identity
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,14 +34,22 @@ type issueRow struct {
 }
 
 // Issue records one confirmation unless a limit is reached. The counts and the
-// insert run under a per-commenter advisory lock, so parallel requests cannot
-// overshoot. The INSERT takes foreign-key share locks on the comment row, then
-// the commenter row (column order in the migration), the model's lock order.
-// A mail that later fails to send still counts: the row is written first.
+// insert run under advisory transaction locks, so parallel requests cannot
+// overshoot: one per commenter, one per ip_hash and one per net_hash. Every
+// caller takes them in that fixed order (commenter, ip, net; empty hashes are
+// skipped), so two requests can never wait on each other in a cycle. The
+// INSERT then takes foreign-key share locks on the comment row and the
+// commenter row; no other path holds those while waiting for these advisory
+// locks. A mail that later fails to send still counts: the row is written first.
 func (s *pgStore) Issue(ctx context.Context, r issueRow, l Limits) (limited bool, err error) {
 	err = s.db.WithTx(ctx, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('hm-comment-confirm:' || $1::text, 0))`, r.CommenterID); err != nil {
-			return err
+		for _, key := range []string{"hm-comment-confirm:" + r.CommenterID.String(), "hm-comment-confirm-ip:" + r.IPHash, "hm-comment-confirm-net:" + r.NetHash} {
+			if strings.HasSuffix(key, ":") {
+				continue // no hash to count under
+			}
+			if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, key); err != nil {
+				return err
+			}
 		}
 		since := r.Now.Add(-limitWindow)
 		var byCommenter, byIP, byNet int

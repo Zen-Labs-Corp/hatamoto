@@ -340,6 +340,48 @@ func TestStore_IssueConcurrent(t *testing.T) {
 	}
 }
 
+// Many addresses from one IP (or one /24) must not overshoot the shared caps.
+func TestStore_IssueConcurrentAcrossCommenters(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		ip     func(i int) string
+		limits Limits
+	}{
+		{"ip_hash", func(int) string { return "192.0.2.1" }, Limits{PerCommenter: 3, PerIP: 3, PerNet: 100}},
+		{"net_hash", func(i int) string { return fmt.Sprintf("192.0.2.%d", i+1) }, Limits{PerCommenter: 3, PerIP: 100, PerNet: 3}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t)
+			now := time.Now().UTC()
+			const n = 12
+			drafts := make([]comment.Comment, n)
+			for i := range drafts {
+				drafts[i] = f.draft("", tc.ip(i))
+			}
+			var wg sync.WaitGroup
+			for _, c := range drafts {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					_, hash, err := NewToken()
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					if _, err := f.store.Issue(f.ctx, issueRow{Hash: hash, CommentID: c.ID, CommenterID: *c.CommenterID,
+						IPHash: c.IPHash, NetHash: c.NetHash, Now: now}, tc.limits); err != nil {
+						t.Error(err)
+					}
+				}()
+			}
+			wg.Wait()
+			if got := f.confirmations(); got != 3 {
+				t.Errorf("rows = %d, want exactly 3", got)
+			}
+		})
+	}
+}
+
 func TestStore_Purge(t *testing.T) {
 	f := newFixture(t)
 	now := time.Now().UTC()
