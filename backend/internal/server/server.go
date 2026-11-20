@@ -31,6 +31,7 @@ import (
 	"hatamoto.dev/core/internal/changeset"
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/comment/identity"
+	"hatamoto.dev/core/internal/commentsubmit"
 	"hatamoto.dev/core/internal/config"
 	"hatamoto.dev/core/internal/consent"
 	"hatamoto.dev/core/internal/database"
@@ -144,8 +145,10 @@ type Server struct {
 	comments *comment.Service
 	// commentIdentity confirms commenter emails and signs hm_c (nil = confirm route 404s).
 	commentIdentity        *identity.Service
-	commentSlot            *commentSlot   // fills the comment form per view; nil until setupComments
-	commentBypass          *commentBypass // keeps visitors with own non-public comments off the page cache
+	commentSubmit          *commentsubmit.Pipeline // nil until setupComments: the post route answers 404
+	commentPost            commentPostHooks        // test seams; zero value = production lookups
+	commentSlot            *commentSlot            // fills the comment form per view; nil until setupComments
+	commentBypass          *commentBypass          // keeps visitors with own non-public comments off the page cache
 	mailStore              smtpSettingsStore
 	emailLog               *emaillog.Store
 	fonts                  *fonts.Store  // owner fonts; nil in tests that skip them
