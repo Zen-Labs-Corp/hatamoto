@@ -201,7 +201,7 @@ func TestCommentSpamPage(t *testing.T) {
 	rows[0].HasLinks = true
 	p := newCommentsRig(t, &fakeComments{rows: rows})
 	body := modGet(t, p, "owner-token", "/admin/comments/"+commentsTestID+"/spam")
-	for _, want := range []string{`name="link_domains"`, `name="email_domain"`, "This blocks the commenter and remembers the text.", "Nice post"} {
+	for _, want := range []string{`name="link_domains"`, `name="email_domain"`, "This blocks the commenter and remembers the text.", "Nice post", "Only for throwaway domains", "such as gmail.com"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
 		}
