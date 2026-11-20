@@ -83,6 +83,15 @@ func (m mcpComments) moderate(ctx context.Context, id uuid.UUID, want comment.St
 }
 
 func (m mcpComments) Reply(ctx context.Context, parent, actor uuid.UUID, body string) (mcpserver.CommentRow, error) {
+	// Like the Comments screen, which offers Reply on pending and approved only:
+	// a reply under any other parent would be counted but never shown.
+	p, err := m.store.Comment(ctx, parent.String())
+	if err != nil {
+		return mcpserver.CommentRow{}, mcpCommentErr(err)
+	}
+	if p.Status != string(comment.StatusPending) && p.Status != string(comment.StatusApproved) {
+		return mcpserver.CommentRow{}, mcpserver.ErrCommentState
+	}
 	id, err := m.store.Reply(ctx, parent.String(), body, actor.String(), m.name(ctx, actor))
 	if err != nil {
 		return mcpserver.CommentRow{}, mcpCommentErr(err)

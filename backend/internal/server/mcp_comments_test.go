@@ -103,10 +103,13 @@ func TestMCPCommentSpamPassesActorAndNoTeach(t *testing.T) {
 }
 
 func TestMCPCommentReplyPassesActorAndName(t *testing.T) {
-	actor := uuid.New()
-	f := &fakeMCPStore{rows: map[string]admin.CommentRow{"new": {ID: "new", Status: "approved", AuthorUserID: actor.String()}}}
+	actor, parent := uuid.New(), uuid.New()
+	f := &fakeMCPStore{rows: map[string]admin.CommentRow{
+		"new":           {ID: "new", Status: "approved", AuthorUserID: actor.String()},
+		parent.String(): {ID: parent.String(), Status: "pending"},
+	}}
 	m := mcpComments{store: f, name: func(context.Context, uuid.UUID) string { return "Site" }}
-	row, err := m.Reply(context.Background(), uuid.New(), actor, "thanks")
+	row, err := m.Reply(context.Background(), parent, actor, "thanks")
 	if err != nil || row.ID != "new" || !row.Staff {
 		t.Fatalf("%+v %v", row, err)
 	}
@@ -114,8 +117,31 @@ func TestMCPCommentReplyPassesActorAndName(t *testing.T) {
 		t.Errorf("reply got %q %q %q", f.replyActor, f.replyName, f.replyBody)
 	}
 	f.err = admin.ErrCommentEmpty
-	if _, err := m.Reply(context.Background(), uuid.New(), actor, ""); !errors.Is(err, mcpserver.ErrCommentInvalid) {
+	if _, err := m.Reply(context.Background(), parent, actor, ""); !errors.Is(err, mcpserver.ErrCommentInvalid) {
 		t.Errorf("empty: %v", err)
+	}
+	if _, err := m.Reply(context.Background(), uuid.New(), actor, "x"); !errors.Is(err, mcpserver.ErrCommentNotFound) {
+		t.Errorf("unknown parent: %v", err)
+	}
+}
+
+// A reply under a parent the Comments screen offers no Reply for is refused
+// before anything is stored.
+func TestMCPCommentReplyParentStatus(t *testing.T) {
+	actor, parent := uuid.New(), uuid.New()
+	for _, status := range []string{"approved", "pending", "spam", "trash", "draft"} {
+		f := &fakeMCPStore{rows: map[string]admin.CommentRow{
+			"new":           {ID: "new", Status: "approved"},
+			parent.String(): {ID: parent.String(), Status: status},
+		}}
+		_, err := mcpComments{store: f, name: func(context.Context, uuid.UUID) string { return "Site" }}.Reply(context.Background(), parent, actor, "hi")
+		open := status == "approved" || status == "pending"
+		if open && err != nil {
+			t.Errorf("%s parent: %v", status, err)
+		}
+		if !open && (!errors.Is(err, mcpserver.ErrCommentState) || f.replyBody != "") {
+			t.Errorf("%s parent: err %v, stored %q", status, err, f.replyBody)
+		}
 	}
 }
 
