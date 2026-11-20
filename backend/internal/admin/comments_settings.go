@@ -60,17 +60,104 @@ func (a *Admin) handleCommentSettingsSave(w http.ResponseWriter, r *http.Request
 	a.unavailable(w, r, "Comments")
 }
 
-// handleCommentSwitch is a stub until its screen lands.
+// csetPath is the Settings > Comments page.
+func (a *Admin) csetPath() string { return a.adminPath + "/settings/comments" }
+
+// handleCommentSwitch applies the site switch. Turning off is one step. Turning
+// on saves nothing: the confirm step (handleCommentEnable) decides.
 func (a *Admin) handleCommentSwitch(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
+	if !a.requireOwner(w, r) {
+		return
+	}
+	svc := a.deps.Comments
+	if svc == nil {
+		a.unavailable(w, r, "Comments")
+		return
+	}
+	ctx := r.Context()
+	s, err := svc.Settings(ctx)
+	if err != nil {
+		a.logger().Error("comment settings", "err", err)
+		a.SetFlash(w, r, "error", "The comment settings could not be loaded.")
+		Redirect(w, r, a.csetPath())
+		return
+	}
+	want := r.PostFormValue("enabled") == "true"
+	switch {
+	case want && !s.Enabled:
+		Redirect(w, r, a.csetPath()+"/enable")
+	case !want && s.Enabled:
+		was, err := svc.SetEnabled(ctx, false, csetActor(r))
+		if err != nil {
+			a.logger().Error("comments disable", "err", err)
+			a.SetFlash(w, r, "error", "Comments could not be turned off.")
+			Redirect(w, r, a.csetPath())
+			return
+		}
+		a.audit(r, "comments.disable", "comments", map[string]any{"old": was, "new": false})
+		if a.deps.Invalidate != nil {
+			a.deps.Invalidate(ctx)
+		}
+		a.SetFlash(w, r, "success", "Comments are off. Nothing new can be posted.")
+		Redirect(w, r, a.csetPath())
+	default:
+		Redirect(w, r, a.csetPath())
+	}
 }
 
-// handleCommentEnablePage is a stub until its screen lands.
+// handleCommentEnablePage is the no-JS confirm step: the second warning and
+// the tick.
 func (a *Admin) handleCommentEnablePage(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
+	if a.deps.Comments == nil {
+		a.unavailable(w, r, "Comments")
+		return
+	}
+	a.renderCommentEnable(w, r, http.StatusOK, "")
 }
 
-// handleCommentEnable is a stub until its screen lands.
+func (a *Admin) renderCommentEnable(w http.ResponseWriter, r *http.Request, status int, errMsg string) {
+	v := a.NewView(w, r, "Turn comments on?")
+	v.Section, v.Tab = "comments", "comments"
+	v.Width = "compact"
+	v.Data = struct{ Err string }{errMsg}
+	a.Render(w, r, status, "settings/comments-enable", v)
+}
+
+// handleCommentEnable turns comments on once the tick is posted. It is the
+// only path that calls SetEnabled(true).
 func (a *Admin) handleCommentEnable(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
+	if !a.requireOwner(w, r) {
+		return
+	}
+	svc := a.deps.Comments
+	if svc == nil {
+		a.unavailable(w, r, "Comments")
+		return
+	}
+	if r.PostFormValue("understand") != "1" {
+		a.renderCommentEnable(w, r, http.StatusUnprocessableEntity, "Tick the box to confirm you understand.")
+		return
+	}
+	ctx := r.Context()
+	was, err := svc.SetEnabled(ctx, true, csetActor(r))
+	if err != nil {
+		a.logger().Error("comments enable", "err", err)
+		a.SetFlash(w, r, "error", "Comments could not be turned on.")
+		Redirect(w, r, a.csetPath())
+		return
+	}
+	a.audit(r, "comments.enable", "comments", map[string]any{"old": was, "new": true})
+	if a.deps.Invalidate != nil {
+		a.deps.Invalidate(ctx)
+	}
+	a.SetFlash(w, r, "success", "Comments are on. New comments wait in the moderation queue.")
+	Redirect(w, r, a.csetPath())
+}
+
+// csetActor is the signed-in user's id for the service, "" when there is none.
+func csetActor(r *http.Request) string {
+	if u := userFrom(r.Context()); u != nil {
+		return u.ID
+	}
+	return ""
 }
