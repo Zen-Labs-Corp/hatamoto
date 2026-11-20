@@ -53,10 +53,13 @@ func TestCommentsListHeldWhy(t *testing.T) {
 
 	p := newCommentsRig(t, &fakeComments{rows: modRows(), counts: CommentCounts{Pending: 1}})
 	body := modGet(t, p, "owner-token", "/admin/comments")
-	for _, want := range []string{"Held: contains a link, first comment", ">new<", "0 approved"} {
+	for _, want := range []string{`<p class="hm-muted">Nice post</p>`, `<p class="hm-muted">Held: contains a link, first comment</p>`, ">new<", "0 approved"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
 		}
+	}
+	if strings.Contains(body, "Nice post · Held") {
+		t.Error("excerpt and reason share a line")
 	}
 }
 

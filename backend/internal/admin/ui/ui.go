@@ -62,18 +62,19 @@ type Cell struct {
 	Link      string
 	LinkAttrs map[string]string // extra attributes on the Link anchor (script hooks)
 	Badge     *Badge
-	Dot       bool   // quiet status: text with a decorative success dot (published rows)
-	Depth     int    // indent of a tree row's name, in levels
-	Nowrap    bool   // keep the text on one line (dates)
-	Mono      bool   // muted monospace text (a slug or an address)
-	Title     string // hover text for plain text (the exact time behind "3h ago")
-	Clip      bool   // cut long text with an ellipsis; the full text is the title (addresses)
-	Sub       string // muted monospace line under the text (a URL path)
-	Initials  string // decorative avatar before the text (a person's initials)
-	Suffix    string // muted text after the name, e.g. "(you)"
-	Tag       *Badge // small badge after the text, e.g. "not encrypted"
-	Bar       *Bar   // inline proportion bar after the text
-	Spark     *Spark // trend line after the text (a focusable role=img with a summary)
+	Dot       bool     // quiet status: text with a decorative success dot (published rows)
+	Depth     int      // indent of a tree row's name, in levels
+	Nowrap    bool     // keep the text on one line (dates)
+	Mono      bool     // muted monospace text (a slug or an address)
+	Title     string   // hover text for plain text (the exact time behind "3h ago")
+	Clip      bool     // cut long text with an ellipsis; the full text is the title (addresses)
+	Sub       string   // muted monospace line under the text (a URL path)
+	Notes     []string // muted plain-text lines under the text (a comment excerpt)
+	Initials  string   // decorative avatar before the text (a person's initials)
+	Suffix    string   // muted text after the name, e.g. "(you)"
+	Tag       *Badge   // small badge after the text, e.g. "not encrypted"
+	Bar       *Bar     // inline proportion bar after the text
+	Spark     *Spark   // trend line after the text (a focusable role=img with a summary)
 	// Edit turns the cell into an editable control (see EditCell); the other
 	// fields are then ignored.
 	Edit *EditCell

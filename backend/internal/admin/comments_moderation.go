@@ -245,9 +245,9 @@ func modHref(base string, q url.Values) string {
 func (a *Admin) modRow(c CommentRow, tab, back string) ui.Row {
 	base := a.adminPath + "/comments/" + c.ID
 	name := cmp.Or(c.AuthorName, "Unnamed")
-	who := ui.Cell{Text: name, Sub: modExcerpt(c.BodyRaw)}
+	who := ui.Cell{Text: name, Notes: []string{modExcerpt(c.BodyRaw)}}
 	if why := heldWhy(c); why != "" {
-		who.Sub += " · " + why
+		who.Notes = append(who.Notes, why)
 	}
 	trust := ui.Cell{}
 	if c.AuthorUserID != "" {
