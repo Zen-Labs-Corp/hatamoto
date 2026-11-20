@@ -11,6 +11,11 @@ import (
 	"hatamoto.dev/core/internal/admin/a11y"
 )
 
+// The a11y tests below cover both pages (TestEveryPageTemplateIsExercised).
+func init() {
+	areaPages["commentssettings"] = []string{"settings/comments", "settings/comments-enable"}
+}
+
 const csetURL = "/admin/settings/comments"
 
 func csetGet(t *testing.T, p *perfRig, token string) string {
