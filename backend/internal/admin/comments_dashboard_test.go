@@ -15,6 +15,7 @@ func cdashRig(t *testing.T, svc *fakeComments) *dashRig {
 	t.Helper()
 	g := newDashRig(t)
 	g.a.deps.Comments = svc
+	g.a.deps.BaseURL = func(*http.Request) string { return "https://example.com" }
 	return g
 }
 
@@ -94,5 +95,57 @@ func TestDashCommentsError(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("page lacks %q", want)
 		}
+	}
+}
+
+const cdashWarn = "Confirmation emails are not being sent: set your site address in Settings &gt; General."
+
+func TestDashCommentsWarnsWithoutAddress(t *testing.T) {
+	t.Parallel()
+
+	rows := []CommentRow{{ID: "c1", AuthorName: "Ada", EntityTitle: "Alpha service", BodyRaw: "Hi", CreatedAt: time.Now()}}
+	for name, svc := range map[string]*fakeComments{
+		"rows":  {settings: CommentSettings{Enabled: true}, counts: CommentCounts{Pending: 12}, rows: rows},
+		"empty": {settings: CommentSettings{Enabled: true}},
+	} {
+		g := cdashRig(t, svc)
+		g.a.deps.BaseURL = func(*http.Request) string { return "" }
+		for _, token := range []string{"owner-token", "editor-token"} {
+			body := cdashPage(t, g, token)
+			_, card, _ := strings.Cut(body, `id="dash-comments"`)
+			want := cdashWarn
+			if token == "editor-token" {
+				want = "an owner must set the site address in Settings &gt; General."
+			}
+			if !strings.Contains(card, want) {
+				t.Errorf("%s/%s: no warning %q in the card", name, token, want)
+			}
+			if link := strings.Contains(card, `/settings/general#identity"`); link != (token == "owner-token") {
+				t.Errorf("%s/%s: settings link present = %v", name, token, link)
+			}
+			if name == "empty" && !strings.Contains(card, "No comments waiting") {
+				t.Errorf("%s: no empty state", token)
+			}
+		}
+	}
+}
+
+func TestDashCommentsNoWarnWithAddress(t *testing.T) {
+	t.Parallel()
+
+	body := cdashPage(t, cdashRig(t, &fakeComments{settings: CommentSettings{Enabled: true}}), "owner-token")
+	if strings.Contains(body, "Confirmation emails are not being sent") {
+		t.Error("warning shown with an address set")
+	}
+}
+
+func TestDashCommentsNoWarnWhenOff(t *testing.T) {
+	t.Parallel()
+
+	g := cdashRig(t, &fakeComments{counts: CommentCounts{Pending: 3}})
+	g.a.deps.BaseURL = func(*http.Request) string { return "" }
+	body := cdashPage(t, g, "owner-token")
+	if !strings.Contains(body, `id="dash-comments"`) || strings.Contains(body, "Confirmation emails are not being sent") {
+		t.Error("want the card without the warning")
 	}
 }

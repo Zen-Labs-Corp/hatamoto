@@ -736,6 +736,7 @@ func (s *Server) setupDependencies() {
 	s.setupComments()
 	s.scheduleCommentDraftsPurge()
 	s.setupCommentNotify()
+	s.warnCommentsWithoutAddressAtBoot()
 }
 
 // buildHandler wraps the finished mux in the global middleware. It runs after

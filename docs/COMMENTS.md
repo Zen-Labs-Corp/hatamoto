@@ -11,7 +11,7 @@ Only an owner can turn comments on, in Settings > Comments. Turning them on take
 
 Once comments are on, the page shows the trust levels, limits, sort order and captcha settings, and a per-type and per-entry control appears on the schema and entry screens to open, close or hide comments there.
 
-Set the site address and outgoing email first: without them no confirmation mail is sent and new commenters cannot confirm.
+Comments cannot be turned on until the site address is set (Settings > General, or `PUBLIC_BASE_URL`): the settings page says so and links there. If comments are already on and the address is removed, Settings > Comments and the Overview card warn, the server logs it once at start, and comments can still be turned off.
 
 ## Moderation
 
