@@ -525,43 +525,15 @@ func NewCacheInvalidator(cache *Cache, logger *slog.Logger) *CacheInvalidator {
 	}
 }
 
-// InvalidateEntity invalidates all cache entries related to an entity.
+// InvalidateEntity drops what one entity's content change can reach: its own
+// pages, every page that may list or embed any entity, and the sitemaps. It
+// never moves the global generation, so an in-flight render of a page tagged
+// only with another entity is still stored. slug is only logged.
 func (ci *CacheInvalidator) InvalidateEntity(ctx context.Context, entityID uuid.UUID, slug string) error {
-	keys := []string{
-		PublicPageKey(slug),
-		PublicHomepageKey(),
-		EntityJSONLDKey(entityID),
-	}
-
-	if err := ci.cache.Delete(ctx, keys...); err != nil {
-		ci.logger.Warn("failed to invalidate entity cache",
-			slog.String("entity_id", entityID.String()),
-			slog.String("error", err.Error()))
-		return err
-	}
-
-	// Also invalidate archives since entity content may have changed
-	if err := ci.cache.DeletePattern(ctx, fmt.Sprintf("public:archive:%s:*", legacyKeyNamespace)); err != nil {
-		ci.logger.Warn("failed to invalidate archive cache",
-			slog.String("error", err.Error()))
-	}
-
-	// Invalidate all sitemap cache entries since entity publish state affects sitemaps
-	if err := ci.cache.DeletePattern(ctx, SitemapPattern()); err != nil {
-		ci.logger.Warn("failed to invalidate sitemap cache",
-			slog.String("error", err.Error()))
-	}
-
-	// Rendered pages embed navigation and sibling data: drop them all.
-	if err := ci.InvalidateRendered(ctx); err != nil {
-		ci.logger.Warn("failed to invalidate rendered pages",
-			slog.String("error", err.Error()))
-	}
-
+	ci.cache.DeleteTagged(ctx, EntityTag(entityID), TagAnyEntity, TagSitemaps)
 	ci.logger.Debug("invalidated entity cache",
 		slog.String("entity_id", entityID.String()),
 		slog.String("slug", slug))
-
 	return nil
 }
 

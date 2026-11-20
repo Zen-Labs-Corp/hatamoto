@@ -63,22 +63,32 @@ func TestContentInvalidationsAlsoDropRenderedPages(t *testing.T) {
 	for name, call := range calls {
 		c := New(log)
 		key := RenderedPageKey("v", "/p")
+		// An untagged page counts as TagAnyEntity, so a content change drops it.
 		_ = c.Set(ctx, key, []byte("x"), time.Minute)
+		other := RenderedPageKey("v", "/other")
+		_, _ = c.SetIfGenerationTagged(ctx, other, []byte("y"), time.Minute, c.Generation(), EntityTag(uuid.New()))
 		if err := call(NewCacheInvalidator(c, log)); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 		if _, err := c.Get(ctx, key); err == nil {
 			t.Errorf("%s: rendered page survived invalidation", name)
 		}
+		// A content change spares another entity's own page; menu and tenant drops do not.
+		if _, err := c.Get(ctx, other); (err == nil) != (name == "entity") {
+			t.Errorf("%s: other entity's own page survived = %v", name, err == nil)
+		}
 	}
 }
 
-// sumRender recomputes the render stats straight from the map.
+// sumRender recomputes the render stats straight from the map (variants add
+// bytes but are not pages).
 func sumRender(c *Cache) (int, int64) {
 	n, b := 0, int64(0)
 	for k, e := range c.entries {
 		if isRenderKey(k) {
-			n++
+			if !isVariantKey(k) {
+				n++
+			}
 			b += int64(len(e.value))
 		}
 	}
@@ -298,22 +308,182 @@ func TestCapEvictionTenThousandEntriesIsFast(t *testing.T) {
 	checkStats(t, c)
 }
 
-// A paged builder loop caches ?page=N under path+"?page=N": the entity purge
-// drops those keys with every other rendered page.
+// A paged builder loop caches ?page=N under path+"?page=N", tagged with the
+// entity: dropping the entity's rendered pages takes every one of them.
 func TestEntityInvalidationDropsPagedLoopKeys(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	ctx := context.Background()
 	c := New(log)
+	id := uuid.New()
 	keys := []string{RenderedPageKey("v", "/news"), RenderedPageKey("v", "/news?page=2"), RenderedPageKey("v", "/news?page=3")}
 	for _, k := range keys {
-		_ = c.Set(ctx, k, []byte("x"), time.Minute)
+		_, _ = c.SetIfGenerationTagged(ctx, k, []byte("x"), time.Minute, c.Generation(), EntityTag(id))
 	}
-	if err := NewCacheInvalidator(c, log).InvalidateEntity(ctx, uuid.New(), "news"); err != nil {
+	ci := NewCacheInvalidator(c, log)
+	if err := ci.InvalidateRenderedEntity(ctx, uuid.New()); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range keys {
+		if _, err := c.Get(ctx, k); err != nil {
+			t.Errorf("%s dropped by an unrelated entity", k)
+		}
+	}
+	if err := ci.InvalidateRenderedEntity(ctx, id); err != nil {
 		t.Fatal(err)
 	}
 	for _, k := range keys {
 		if _, err := c.Get(ctx, k); err == nil {
 			t.Errorf("%s survived the purge", k)
+		}
+	}
+}
+
+func TestInvalidateRenderedEntity_OnlyThatEntity(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+	c := New(log)
+	a, b := uuid.New(), uuid.New()
+	store := func(path string, tags ...string) string {
+		k := RenderedPageKey("v", path)
+		if ok, _ := c.SetIfGenerationTagged(ctx, k, []byte("page"), time.Minute, c.Generation(), tags...); !ok {
+			t.Fatalf("store %s rejected", path)
+		}
+		return k
+	}
+	var gone []string
+	for _, p := range []string{"/a", "/fr/a", "/a?page=2"} {
+		k := store(p, EntityTag(a))
+		gone = append(gone, k)
+		for _, enc := range []string{"gzip", "zstd"} {
+			ek := EncodedKey(k, enc)
+			if ok, _ := c.SetIfGeneration(ctx, ek, []byte("enc"), time.Minute, c.Generation()); !ok {
+				t.Fatalf("variant %s rejected", ek)
+			}
+			gone = append(gone, ek)
+		}
+	}
+	keepB := store("/b", EntityTag(b))
+	keepList := store("/", TagAnyEntity)
+	checkStats(t, c)
+	checkTags(t, c)
+
+	ci := NewCacheInvalidator(c, log)
+	if err := ci.InvalidateRenderedEntity(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range gone {
+		if _, err := c.Get(ctx, k); err == nil {
+			t.Errorf("%s survived", k)
+		}
+	}
+	for _, k := range []string{keepB, keepList} {
+		if _, err := c.Get(ctx, k); err != nil {
+			t.Errorf("%s dropped", k)
+		}
+	}
+	checkStats(t, c)
+	checkTags(t, c)
+
+	// A content change keeps B's own-tagged page too.
+	store("/a", EntityTag(a))
+	if err := ci.InvalidateEntity(ctx, a, "a"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Get(ctx, keepB); err != nil {
+		t.Error("InvalidateEntity(A) dropped B's own page")
+	}
+	if _, err := c.Get(ctx, keepList); err == nil {
+		t.Error("InvalidateEntity(A) kept the listing page")
+	}
+	checkTags(t, c)
+}
+
+func TestInflightRenderOtherPageStillStored(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+	ci := func(c *Cache) *CacheInvalidator { return NewCacheInvalidator(c, log) }
+	a, b := uuid.New(), uuid.New()
+	put := func(c *Cache, tok uint64, path string, tags ...string) bool {
+		ok, _ := c.SetIfGenerationTagged(ctx, RenderedPageKey("v", path), []byte("x"), time.Minute, tok, tags...)
+		return ok
+	}
+
+	c := New(log)
+	tok := c.Generation()
+	_ = ci(c).InvalidateRenderedEntity(ctx, a)
+	_ = ci(c).InvalidateEntity(ctx, a, "a")
+	if !put(c, tok, "/b", EntityTag(b)) {
+		t.Error("in-flight store of B rejected")
+	}
+	if put(c, tok, "/a", EntityTag(a)) {
+		t.Error("in-flight store of A accepted")
+	}
+
+	c = New(log)
+	tok = c.Generation()
+	_ = ci(c).InvalidateRenderedEntity(ctx, a)
+	if !put(c, tok, "/", TagAnyEntity) {
+		t.Error("listing store rejected after InvalidateRenderedEntity")
+	}
+	c = New(log)
+	tok = c.Generation()
+	_ = ci(c).InvalidateEntity(ctx, a, "a")
+	if put(c, tok, "/", TagAnyEntity) {
+		t.Error("listing store accepted after InvalidateEntity")
+	}
+}
+
+func TestEntityContentInvalidationDropsListingsAndSitemaps(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+	c := New(log)
+	a, b := uuid.New(), uuid.New()
+	tag := func(path string, tags ...string) string {
+		k := RenderedPageKey("v", path)
+		_, _ = c.SetIfGenerationTagged(ctx, k, []byte("x"), time.Minute, c.Generation(), tags...)
+		return k
+	}
+	dropped := []string{tag("/a", EntityTag(a)), tag("/list", TagAnyEntity), SitemapKey("index")}
+	_ = c.Set(ctx, dropped[2], []byte("<xml/>"), time.Minute)
+	untagged := RenderedPageKey("v", "/feed")
+	_ = c.Set(ctx, untagged, []byte("x"), time.Minute)
+	dropped = append(dropped, untagged)
+	keep := tag("/b", EntityTag(b))
+
+	if err := NewCacheInvalidator(c, log).InvalidateEntity(ctx, a, "a"); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range dropped {
+		if _, err := c.Get(ctx, k); err == nil {
+			t.Errorf("%s survived", k)
+		}
+	}
+	if _, err := c.Get(ctx, keep); err != nil {
+		t.Error("B's own page dropped")
+	}
+	checkTags(t, c)
+}
+
+func TestGlobalDropStillRejectsAllInflight(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+	calls := map[string]func(*CacheInvalidator) error{
+		"rendered": func(ci *CacheInvalidator) error { return ci.InvalidateRendered(ctx) },
+		"menu":     func(ci *CacheInvalidator) error { return ci.InvalidateMenu(ctx) },
+		"tenant":   func(ci *CacheInvalidator) error { return ci.InvalidateTenant(ctx) },
+	}
+	for name, call := range calls {
+		c := New(log)
+		tok := c.Generation()
+		if err := call(NewCacheInvalidator(c, log)); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		k := RenderedPageKey("v", "/b")
+		if ok, _ := c.SetIfGenerationTagged(ctx, k, []byte("x"), time.Minute, tok, EntityTag(uuid.New())); ok {
+			t.Errorf("%s: tagged in-flight store accepted", name)
+		}
+		if ok, _ := c.SetIfGeneration(ctx, k, []byte("x"), time.Minute, tok); ok {
+			t.Errorf("%s: untagged in-flight store accepted", name)
 		}
 	}
 }

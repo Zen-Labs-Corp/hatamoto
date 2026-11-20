@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // renderKeyPrefix namespaces every server-rendered HTML entry so a single
@@ -39,9 +41,20 @@ func plainKeyOf(variant string) string {
 	return renderKeyPrefix + rest
 }
 
-// InvalidateRendered drops every cached rendered page. Pages embed navigation
-// and sibling data, so any content, menu or site-config change invalidates the
-// whole set (coarse on purpose).
+// EntityTag is the tag of the pages rendered for one entity.
+func EntityTag(id uuid.UUID) string { return "entity:" + id.String() }
+
+// InvalidateRenderedEntity drops the pages stored for one entity: every locale
+// path, ?page=N and the encoded variants. Pages that only list it are kept
+// (InvalidateEntity covers a content change).
+func (ci *CacheInvalidator) InvalidateRenderedEntity(ctx context.Context, id uuid.UUID) error {
+	ci.cache.DeleteTagged(ctx, EntityTag(id))
+	return nil
+}
+
+// InvalidateRendered drops every cached rendered page and rejects every
+// in-flight store. It is the global drop for menu, settings and flush changes;
+// a change to one entity uses InvalidateEntity or InvalidateRenderedEntity.
 func (ci *CacheInvalidator) InvalidateRendered(ctx context.Context) error {
 	return ci.cache.DeletePattern(ctx, renderKeyPrefix+"*")
 }
