@@ -160,6 +160,9 @@ func TestPluginRangeFieldShapesRender(t *testing.T) { //nolint:paralleltest // r
 }
 
 func TestPluginRangeBudgetStopsAndDegrades(t *testing.T) { //nolint:paralleltest // reads the process-wide degraded counter and warn limiter
+	old := rangeWarns
+	rangeWarns = &warnLimiter{last: map[string]time.Time{}}
+	t.Cleanup(func() { rangeWarns = old })
 	reg := newPluginRegistry()
 	mustRegister(t, reg, "acme-stops", nil, map[string]string{
 		"huge":   rangeSection("huge", `{{range 1000000000}}`+mark+`{{end}}`),
