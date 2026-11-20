@@ -42,7 +42,7 @@
 <dialog class="hm-dialog hm-be__dialog" id="be-preview" aria-labelledby="be-preview-t" data-hm-be-preview-pane>
 <div class="hm-be__dialog-head"><h2 class="hm-dialog__title" id="be-preview-t">Preview</h2>
 <div class="hm-row hm-be__dialog-tools">{{template "hm/segmented" (dict "Mode" "buttons" "Label" "Preview width" "Items" (list (dict "Label" "Desktop" "Pressed" true "Attrs" (attrmap "data-hm-be-width" "1100")) (dict "Label" "Mobile" "Attrs" (attrmap "data-hm-be-width" "390"))))}}{{template "hm/button" (dict "Label" "Refresh preview" "Size" "sm" "Variant" "ghost" "Attrs" (attrmap "data-hm-be-width" "refresh"))}}</div>
-{{template "hm/button" (dict "Label" "Close" "Size" "sm" "Attrs" (attrmap "data-hm-be-preview-close" ""))}}</div>
+{{template "hm/button" (dict "Label" "Close" "Size" "sm" "Attrs" (attrmap "data-hm-be-preview-close" "" "command" "close" "commandfor" "be-preview"))}}</div>
 <div class="hm-be__stage" data-hm-be-stage></div>
 </dialog>
 <div class="hm-be__grid">

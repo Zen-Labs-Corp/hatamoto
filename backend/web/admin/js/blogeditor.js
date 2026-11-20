@@ -434,8 +434,7 @@ export class BlogEditor {
     const toggle = $(form, "[data-hm-be-preview-toggle]");
     toggle?.addEventListener("click", () => this.openPreview(toggle));
     const dialog = $(form, "[data-hm-be-preview-pane]");
-    $(form, "[data-hm-be-preview-close]")?.addEventListener("click", () => dialog.close());
-    // Esc and Close both end here: the focus goes back to the Preview button.
+    // Esc and the Close button (command="close") both end here: the focus goes back to the Preview button.
     dialog?.addEventListener("close", () => toggle?.focus());
     for (const b of form.querySelectorAll("[data-hm-be-width]")) {
       b.addEventListener("click", () => (b.dataset.hmBeWidth === "refresh" ? this.refreshPreview() : this.setWidth(b)));
