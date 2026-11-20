@@ -449,10 +449,11 @@ func (a commentsAdmin) Delete(ctx context.Context, ids []string, _ string) (int,
 	return each(parsed, func(id uuid.UUID) error { return a.svc.Delete(ctx, id) })
 }
 
-// nextTrust is the level one Vouch click moves a commenter to.
+// nextTrust is the level one Vouch click moves a commenter to. A blocked
+// commenter is refused before this is asked.
 func nextTrust(t comment.TrustLevel) comment.TrustLevel {
 	switch t {
-	case comment.TrustNew, comment.TrustBlocked:
+	case comment.TrustNew:
 		return comment.TrustKnown
 	}
 	return comment.TrustTrusted
@@ -470,6 +471,9 @@ func (a commentsAdmin) Vouch(ctx context.Context, commenterID, _ string) (string
 	}
 	if err != nil {
 		return "", err
+	}
+	if comment.TrustLevel(cur) == comment.TrustBlocked {
+		return "", admin.ErrCommentBlocked
 	}
 	next := nextTrust(comment.TrustLevel(cur))
 	if err := a.svc.Vouch(ctx, id, next); err != nil {

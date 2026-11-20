@@ -204,6 +204,25 @@ func TestCommentModerationAudited(t *testing.T) {
 	}
 }
 
+func TestCommentApproveVouchKeepsBlock(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{rows: modRows(), blocked: true}
+	p := newCommentsRig(t, svc)
+	rec := p.do("POST", "/admin/comments/"+commentsTestID+"/approve", "owner-token", url.Values{"vouch": {"1"}}, nil)
+	if rec.Code != 303 || !slices.Equal(svc.calls, []string{"approve"}) {
+		t.Fatalf("code=%d calls=%v, want the approval only", rec.Code, svc.calls)
+	}
+	if flash := p.followFlash(rec.Result().Cookies()); !strings.Contains(flash, "blocked, so they were not vouched for") {
+		t.Errorf("flash = %q", flash)
+	}
+	// The commenter list's own Vouch refuses a blocked commenter too.
+	rec = p.do("POST", "/admin/settings/comments/commenters/"+cmtrTestID+"/vouch", "owner-token", url.Values{}, nil)
+	if rec.Code != 303 || len(svc.calls) != 1 || !strings.Contains(p.followFlash(rec.Result().Cookies()), "cannot be vouched for") {
+		t.Errorf("commenter vouch: code=%d calls=%v", rec.Code, svc.calls)
+	}
+}
+
 func TestCommentTrash(t *testing.T) {
 	t.Parallel()
 

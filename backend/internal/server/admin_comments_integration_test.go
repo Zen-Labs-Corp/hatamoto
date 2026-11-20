@@ -374,6 +374,9 @@ func TestCommentsAdminIntegration(t *testing.T) {
 	if _, ok := idSvc.Device(ctx, cc); ok {
 		t.Error("cookie still valid after Block")
 	}
+	if _, err := a.Vouch(ctx, caraID, actor.String()); !errors.Is(err, admin.ErrCommentBlocked) {
+		t.Errorf("Vouch blocked err = %v, want ErrCommentBlocked", err)
+	}
 	if err := a.Block(ctx, uuid.NewString(), actor.String()); !errors.Is(err, admin.ErrCommentNotFound) {
 		t.Errorf("Block unknown err = %v", err)
 	}

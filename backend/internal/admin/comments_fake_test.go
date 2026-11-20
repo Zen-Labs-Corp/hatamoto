@@ -27,7 +27,8 @@ type fakeComments struct {
 	commenters []CommenterRow
 	options    []EntityOption
 	hasMore    bool
-	skip       int // rows a bulk action cannot change (stale state)
+	blocked    bool // Vouch refuses: the commenter is blocked
+	skip       int  // rows a bulk action cannot change (stale state)
 	err        error
 }
 
@@ -124,6 +125,9 @@ func (f *fakeComments) Vouch(_ context.Context, commenterID, actor string) (stri
 	defer f.mu.Unlock()
 	if f.err != nil {
 		return "", f.err
+	}
+	if f.blocked {
+		return "", ErrCommentBlocked
 	}
 	f.record("vouch", actor, commenterID)
 	return "known", nil

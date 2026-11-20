@@ -356,6 +356,11 @@ func (a *Admin) handleCommentApprove(w http.ResponseWriter, r *http.Request) {
 	msg := "Comment approved."
 	if r.PostFormValue("vouch") == "1" && row.CommenterID != "" {
 		trust, err := svc.Vouch(ctx, row.CommenterID, actor)
+		if errors.Is(err, ErrCommentBlocked) {
+			a.SetFlash(w, r, "success", "Comment approved. The commenter is blocked, so they were not vouched for.")
+			Redirect(w, r, a.modBack(r))
+			return
+		}
 		if err != nil {
 			a.logger().Error("comment vouch failed", "err", err)
 			a.SetFlash(w, r, "error", "Comment approved, but the commenter could not be vouched for.")

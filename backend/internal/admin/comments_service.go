@@ -13,6 +13,10 @@ var ErrCommentsUnsupported = errors.New("comments: not supported")
 // ErrCommentNotFound means no comment (or commenter, entity, type) has that id.
 var ErrCommentNotFound = errors.New("comments: not found")
 
+// ErrCommentBlocked means a vouch was refused because the commenter is blocked.
+// Vouching never lifts a block.
+var ErrCommentBlocked = errors.New("comments: commenter is blocked")
+
 // ErrCommentEmpty and ErrCommentTooLong mean the body formatter refused the
 // text of a reply or an edit.
 var (
@@ -124,6 +128,7 @@ type CommentsService interface {
 	Queue(ctx context.Context, f CommentFilter) (CommentPage, error)
 	Comment(ctx context.Context, id string) (CommentRow, error)
 	Approve(ctx context.Context, ids []string, actorID string) (int, error)
+	// Vouch returns ErrCommentBlocked for a blocked commenter.
 	Vouch(ctx context.Context, commenterID, actorID string) (newTrust string, err error)
 	MarkSpam(ctx context.Context, ids []string, teach SpamTeach, actorID string) (int, error)
 	Trash(ctx context.Context, ids []string, actorID string) (int, error)

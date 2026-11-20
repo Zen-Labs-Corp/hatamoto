@@ -368,6 +368,11 @@ func (a *Admin) handleCommenterAction(w http.ResponseWriter, r *http.Request) {
 		a.Error(w, r, http.StatusNotFound, "Not found", "That commenter does not exist.")
 		return
 	}
+	if errors.Is(err, ErrCommentBlocked) {
+		a.SetFlash(w, r, "error", "A blocked commenter cannot be vouched for.")
+		Redirect(w, r, backTo(r, a.adminPath+cmtrCommentersPath, a.adminPath+cmtrCommentersPath))
+		return
+	}
 	if err != nil {
 		a.logger().Error("comment commenter action", "action", action, "err", err)
 		a.Error(w, r, http.StatusInternalServerError, "Something went wrong", "The commenter could not be changed.")
