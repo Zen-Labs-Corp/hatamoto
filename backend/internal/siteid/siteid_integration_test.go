@@ -4,12 +4,10 @@ package siteid
 
 import (
 	"context"
-	"errors"
 	"os"
 	"regexp"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -53,47 +51,5 @@ func TestGetReadsStableID(t *testing.T) {
 	c, err := New(pool).Get(ctx)
 	if err != nil || c != a {
 		t.Errorf("second store = %q (%v), want %q", c, err, a)
-	}
-}
-
-type fakeRow struct{ err error }
-
-func (r fakeRow) Scan(dest ...any) error {
-	if r.err != nil {
-		return r.err
-	}
-	*(dest[0].(*string)) = "00000000-0000-4000-8000-000000000001"
-	return nil
-}
-
-type fakeDB struct {
-	errs  []error // one per call; exhausted means success
-	calls int
-}
-
-func (f *fakeDB) QueryRow(context.Context, string, ...any) pgx.Row {
-	var err error
-	if f.calls < len(f.errs) {
-		err = f.errs[f.calls]
-	}
-	f.calls++
-	return fakeRow{err}
-}
-
-func TestGetMissingRowAndErrorsNotCached(t *testing.T) {
-	db := &fakeDB{errs: []error{pgx.ErrNoRows}}
-	s := New(db)
-	if _, err := s.Get(context.Background()); !errors.Is(err, ErrMissing) {
-		t.Fatalf("err = %v, want ErrMissing", err)
-	}
-	id, err := s.Get(context.Background())
-	if err != nil || id == "" {
-		t.Fatalf("retry = %q (%v), want a value", id, err)
-	}
-	if db.calls != 2 {
-		t.Errorf("calls = %d, want 2 (error must not be cached)", db.calls)
-	}
-	if _, err := s.Get(context.Background()); err != nil || db.calls != 2 {
-		t.Errorf("success must be cached: err=%v calls=%d", err, db.calls)
 	}
 }

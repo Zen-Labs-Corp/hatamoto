@@ -22,7 +22,7 @@ var ErrMissing = errors.New("site id missing: run hatamoto migrate")
 // Store reads the site id lazily and caches it.
 type Store struct {
 	db DB
-	mu sync.Mutex
+	mu sync.Mutex // guards id only; never held across a query
 	id string
 }
 
@@ -30,14 +30,17 @@ type Store struct {
 func New(db DB) *Store { return &Store{db: db} }
 
 // Get returns the site id, reading it once; later calls return the cached
-// value. Errors are not cached, so the next call retries.
+// value. Errors are not cached, so the next call retries. The query runs
+// without the lock and with the caller's ctx, so a slow database never makes
+// other callers wait past their own deadline. Concurrent first calls may each
+// query; the id is the same row, so they store the same value.
 func (s *Store) Get(ctx context.Context) (string, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.id != "" {
-		return s.id, nil
+	id := s.id
+	s.mu.Unlock()
+	if id != "" {
+		return id, nil
 	}
-	var id string
 	err := s.db.QueryRow(ctx, `SELECT site_id::text FROM hatamoto_site_identity WHERE id`).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrMissing
@@ -45,6 +48,8 @@ func (s *Store) Get(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read site id: %w", err)
 	}
+	s.mu.Lock()
 	s.id = id
+	s.mu.Unlock()
 	return id, nil
 }
