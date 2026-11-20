@@ -866,14 +866,37 @@ type commenterExport struct {
 	Comments      []exportComment `json:"comments"`
 }
 
+// exportComment is one comment as stored. body_html, body_hash, has_links,
+// link_domains, path and depth are left out: they derive from body_raw.
 type exportComment struct {
-	ID         string     `json:"id"`
-	EntityID   string     `json:"entity_id"`
-	Status     string     `json:"status"`
-	AuthorName string     `json:"author_name"`
-	BodyRaw    string     `json:"body_raw"`
-	CreatedAt  time.Time  `json:"created_at"`
-	EditedAt   *time.Time `json:"edited_at"`
+	ID            string     `json:"id"`
+	EntityID      string     `json:"entity_id"`
+	ParentID      *string    `json:"parent_id"`
+	Status        string     `json:"status"`
+	AuthorName    string     `json:"author_name"`
+	BodyRaw       string     `json:"body_raw"`
+	IPHash        string     `json:"ip_hash"`
+	NetHash       string     `json:"net_hash"`
+	UserAgent     string     `json:"user_agent"`
+	NotifyReplies bool       `json:"notify_replies"`
+	SpamScore     int        `json:"spam_score"`
+	SpamVerdict   string     `json:"spam_verdict"`
+	SpamReasons   []string   `json:"spam_reasons"`
+	Locale        string     `json:"locale"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	ConfirmedAt   *time.Time `json:"confirmed_at"`
+	ApprovedAt    *time.Time `json:"approved_at"`
+	EditedAt      *time.Time `json:"edited_at"`
+}
+
+// utcPtr is t in UTC, nil when unset.
+func utcPtr(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	u := t.UTC()
+	return &u
 }
 
 func (a commentsAdmin) ExportCommenter(ctx context.Context, commenterID string) ([]byte, error) {
@@ -891,9 +914,22 @@ func (a commentsAdmin) ExportCommenter(ctx context.Context, commenterID string) 
 		Comments: make([]exportComment, 0, len(ex.Comments)),
 	}
 	for _, c := range ex.Comments {
+		var parent *string
+		if c.ParentID != nil {
+			p := c.ParentID.String()
+			parent = &p
+		}
+		reasons := c.SpamReasons
+		if reasons == nil {
+			reasons = []string{}
+		}
 		out.Comments = append(out.Comments, exportComment{
-			ID: c.ID.String(), EntityID: c.EntityID.String(), Status: string(c.Status),
-			AuthorName: c.AuthorName, BodyRaw: c.BodyRaw, CreatedAt: c.CreatedAt.UTC(), EditedAt: c.EditedAt,
+			ID: c.ID.String(), EntityID: c.EntityID.String(), ParentID: parent, Status: string(c.Status),
+			AuthorName: c.AuthorName, BodyRaw: c.BodyRaw, IPHash: c.IPHash, NetHash: c.NetHash,
+			UserAgent: c.UserAgent, NotifyReplies: c.NotifyReplies, SpamScore: c.SpamScore,
+			SpamVerdict: c.SpamVerdict, SpamReasons: reasons, Locale: c.Locale,
+			CreatedAt: c.CreatedAt.UTC(), UpdatedAt: c.UpdatedAt.UTC(), ConfirmedAt: utcPtr(c.ConfirmedAt),
+			ApprovedAt: utcPtr(c.ApprovedAt), EditedAt: utcPtr(c.EditedAt),
 		})
 	}
 	return jsonx.Indent(out)
