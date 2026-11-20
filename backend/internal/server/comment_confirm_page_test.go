@@ -86,3 +86,27 @@ func TestCommentConfirm_FallbackWithoutThemedEngine(t *testing.T) {
 	}
 	confirmPageHeaders(t, w)
 }
+
+// The token is in the URL: the page may print it only in the form action, and
+// no script may run that could read location.href.
+func TestCommentConfirm_ThemedPageKeepsTokenOutOfUrlsAndRunsNoScript(t *testing.T) {
+	const tok = "SECRETTOKEN"
+	f, lookup, _ := newCommentFixture("/post")
+	s := themedConfirmServer(t)
+	r := httptest.NewRequest(http.MethodGet, commentConfirmPrefix+tok, nil)
+	r.SetPathValue("token", tok)
+	w := httptest.NewRecorder()
+	s.commentConfirmHandler(f, lookup)(w, r)
+
+	body := w.Body.String()
+	if w.Code != http.StatusOK || !strings.Contains(body, `action="`+commentConfirmPrefix+tok+`"`) {
+		t.Fatalf("status %d, body %s", w.Code, body)
+	}
+	// JSON-LD is inert data; no executable script may be on the page.
+	if strings.Count(body, "<script") != strings.Count(body, `<script type="application/ld+json">`) {
+		t.Errorf("confirm page runs a script:\n%s", body)
+	}
+	if got := strings.Count(body, tok); got != 1 {
+		t.Errorf("token printed %d times, want only the form action:\n%s", got, body)
+	}
+}

@@ -1,6 +1,9 @@
 package render
 
-import "io"
+import (
+	"io"
+	"strings"
+)
 
 // CommentConfirmView feeds layouts/comment-confirm.html. Invalid shows the
 // expired or already-used message instead of the confirm button. Action is a
@@ -15,12 +18,15 @@ type CommentConfirmView struct {
 // button page or the invalid-link page. It is noindex, has no sections and
 // suppresses the chrome exactly as RenderAccess does (no parts, nav, feeds or
 // contact float, and no plugin, tracking or page script), so nothing on the
-// page can read the token in the URL. v.CommentConfirm must be set.
+// page can read the token in the URL, and the canonical link and og:url name
+// the site root instead of the token path. v.CommentConfirm must be set.
 func (e *Engine) RenderCommentConfirm(w io.Writer, v *PageView, status int) error {
 	nv := *v
 	nv.Sections, nv.Doc = nil, nil
 	nv.Kind = KindPage
 	nv.Page.NoIndex, nv.Page.RobotsRaw = true, ""
+	// The page path carries the token: keep it out of the canonical link and og:url.
+	nv.Page.CanonicalURL = strings.TrimRight(nv.BaseURL, "/") + "/"
 	nv.NoParts = true
 	nv.Site.ContactFloat = ContactFloat{}
 	nv.Site.Nav, nv.Site.FooterNav, nv.Site.SocialLinks = nil, nil, nil
