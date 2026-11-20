@@ -510,7 +510,15 @@ func scanCounts(rep *wpimport.Report) []countRow {
 	for _, t := range types {
 		rows = append(rows, countRow{"Custom type " + t, rep.CustomTypes[t]})
 	}
-	return append(rows, countRow{"Drafts", rep.Drafts}, countRow{"Private posts", rep.Private}, countRow{"Addresses in the old sitemap", rep.OldURLs})
+	rows = append(rows, countRow{"Drafts", rep.Drafts}, countRow{"Private posts", rep.Private}, countRow{"Addresses in the old sitemap", rep.OldURLs})
+	// Only a source with comments shows these rows, so the pages of a source without any are unchanged.
+	if rep.Comments > 0 {
+		rows = append(rows, countRow{"Comments", rep.Comments})
+	}
+	if rep.CommentPings > 0 {
+		rows = append(rows, countRow{"Pingbacks and trackbacks (skipped)", rep.CommentPings})
+	}
+	return rows
 }
 
 func (a *Admin) renderImportScan(w http.ResponseWriter, r *http.Request, run *importjob.Run) {
@@ -829,6 +837,7 @@ type importReportData struct {
 	MoreLow     int
 	SiteMode    string
 	SEO         *seoReportView
+	Comments    *commentsReportView
 	ResyncURL   string
 	ResumeTo    string
 	CSRFHint    bool
@@ -842,6 +851,33 @@ type seoReportView struct {
 	Would     []wpimport.SEORow
 	NotMapped []string
 	URL       string
+}
+
+// commentsReportView is the "Comments" card: only set when the run has comment results.
+type commentsReportView struct {
+	Rows      []countRow
+	Pings     []string
+	MorePings int
+	Off       bool // comments are still off: say how to turn them on
+}
+
+func newCommentsReportView(c *wpimport.CommentsResult) *commentsReportView {
+	v := &commentsReportView{Off: !c.Enabled, Rows: []countRow{
+		{"Comments imported", c.Imported}, {"Approved", c.Approved}, {"Waiting for review", c.Pending}, {"Spam", c.Spam}, {"Trash", c.Trash},
+		{"Commenters created", c.CommentersCreated}, {"Pingbacks and trackbacks skipped", c.PingsTotal},
+		{"Skipped without an email address", c.SkippedNoEmail}, {"Skipped (page not imported)", c.SkippedNoPost},
+		{"Skipped (empty or too long)", c.SkippedBody}, {"Moved to the top level", c.Reparented},
+		{"Author website addresses dropped", c.URLsDropped}}}
+	for i, p := range c.Pings {
+		if i >= listCap {
+			break
+		}
+		v.Pings = append(v.Pings, p)
+	}
+	if c.PingsTotal > len(v.Pings) {
+		v.MorePings = c.PingsTotal - len(v.Pings)
+	}
+	return v
 }
 
 type lowRow struct {
@@ -911,6 +947,9 @@ func (a *Admin) renderImportReport(w http.ResponseWriter, r *http.Request, run *
 		}
 		if sr := res.SEO; sr != nil {
 			d.SEO = &seoReportView{Existing: res.SiteMode == wpimport.ModeExisting, Applied: sr.Applied, Would: sr.Would, NotMapped: sr.NotMapped, URL: a.adminPath + seoTitlesPath}
+		}
+		if res.Comments != nil {
+			d.Comments = newCommentsReportView(res.Comments)
 		}
 		for _, rd := range run.Redirects {
 			d.Redirects = append(d.Redirects, linkRow{Path: rd.From, Link: sitePath(rd.From), Note: fmt.Sprintf("%d to %s", rd.Code, rd.To)})
