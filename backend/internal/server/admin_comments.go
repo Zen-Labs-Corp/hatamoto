@@ -876,13 +876,13 @@ func (a commentsAdmin) ExportCommenter(ctx context.Context, commenterID string) 
 	}
 	out := commenterExport{
 		Email: email, Trust: string(ex.Commenter.Trust), ApprovedCount: ex.Commenter.ApprovedCount,
-		CreatedAt: ex.Commenter.CreatedAt, LastSeenAt: ex.Commenter.LastSeenAt,
+		CreatedAt: ex.Commenter.CreatedAt.UTC(), LastSeenAt: ex.Commenter.LastSeenAt.UTC(),
 		Comments: make([]exportComment, 0, len(ex.Comments)),
 	}
 	for _, c := range ex.Comments {
 		out.Comments = append(out.Comments, exportComment{
 			ID: c.ID.String(), EntityID: c.EntityID.String(), Status: string(c.Status),
-			AuthorName: c.AuthorName, BodyRaw: c.BodyRaw, CreatedAt: c.CreatedAt, EditedAt: c.EditedAt,
+			AuthorName: c.AuthorName, BodyRaw: c.BodyRaw, CreatedAt: c.CreatedAt.UTC(), EditedAt: c.EditedAt,
 		})
 	}
 	return jsonx.Indent(out)
