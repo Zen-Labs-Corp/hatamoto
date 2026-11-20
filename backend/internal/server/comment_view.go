@@ -23,6 +23,7 @@ type commentReader interface {
 	Thread(context.Context, uuid.UUID, int) (comment.ThreadPage, error)
 	Counts(context.Context, []uuid.UUID) (map[uuid.UUID]comment.EntityCounts, error)
 	ViewerComments(context.Context, uuid.UUID, uuid.UUID) ([]comment.ThreadComment, error)
+	EditableComments(context.Context, uuid.UUID, uuid.UUID) ([]comment.ThreadComment, error)
 }
 
 // commentView holds what fillComments reads. device resolves a hm_c value to a
@@ -139,14 +140,26 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 				it := commentItem(tc)
 				it.Own = true
 				if now.Sub(tc.CreatedAt) < comment.EditWindow {
-					it.Editable = true
-					it.EditAction = "/-/comments/edit/" + tc.ID.String()
-					it.DeleteAction = "/-/comments/delete/" + tc.ID.String()
+					setEditable(&it, tc.ID)
 				}
 				// A reply whose parent is off this page shows on the first page only.
 				nodes.add(tc.ParentID, it, page == 1)
 			}
-			if len(own) > 0 && v.Uncacheable != nil {
+			// Their approved comments are already in the thread; inside the
+			// edit window they get the same actions.
+			editable, err := c.reader.EditableComments(ctx, id, cid)
+			if err != nil {
+				fail("comments: editable items", err)
+				return
+			}
+			marked := 0
+			for _, tc := range editable {
+				if n := nodes.byID[tc.ID.String()]; n != nil && now.Sub(tc.CreatedAt) < comment.EditWindow {
+					setEditable(&n.item, tc.ID)
+					marked++
+				}
+			}
+			if (len(own) > 0 || marked > 0) && v.Uncacheable != nil {
 				*v.Uncacheable = true
 			}
 		}
@@ -189,6 +202,13 @@ func (c *commentView) fill(ctx context.Context, r *http.Request, v *render.PageV
 		}
 	}
 	v.CommentForm = &p
+}
+
+// setEditable gives an own item its edit and delete actions.
+func setEditable(it *render.CommentItem, id uuid.UUID) {
+	it.Editable = true
+	it.EditAction = "/-/comments/edit/" + id.String()
+	it.DeleteAction = "/-/comments/delete/" + id.String()
 }
 
 func commentItem(tc comment.ThreadComment) render.CommentItem {

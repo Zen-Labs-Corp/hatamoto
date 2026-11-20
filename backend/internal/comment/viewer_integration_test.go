@@ -97,3 +97,24 @@ func TestDuplicateSince(t *testing.T) {
 		t.Errorf("empty hash = %d, want 0", n)
 	}
 }
+
+func TestEditableComments(t *testing.T) {
+	f := newFixture(t)
+	fresh := f.storeAs("a@example.test", "fresh", "", StatusApproved)
+	old := f.storeAs("a@example.test", "old", "", StatusApproved)
+	f.exec(`UPDATE hatamoto_comments SET created_at = now() - interval '16 minutes' WHERE id = $1`, old.ID)
+	f.storeAs("a@example.test", "waiting", "", StatusPending)
+	other := f.storeAs("b@example.test", "theirs", "", StatusApproved)
+
+	got, err := f.svc.EditableComments(f.ctx, f.entity, *fresh.CommenterID)
+	if err != nil || len(got) != 1 || got[0].ID != fresh.ID {
+		t.Fatalf("EditableComments = %+v, %v; want only the fresh approved one", got, err)
+	}
+	if has, err := f.svc.HasEditable(f.ctx, *fresh.CommenterID); err != nil || !has {
+		t.Errorf("HasEditable = %v, %v", has, err)
+	}
+	f.exec(`UPDATE hatamoto_comments SET created_at = now() - interval '16 minutes' WHERE id = $1`, other.ID)
+	if has, _ := f.svc.HasEditable(f.ctx, *other.CommenterID); has {
+		t.Error("an expired window still counts as editable")
+	}
+}

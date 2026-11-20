@@ -23,6 +23,7 @@ type fakeCommentReader struct {
 	threadErr error
 	approved  int
 	own       []comment.ThreadComment
+	editable  []comment.ThreadComment
 
 	threadCalls, countCalls, ownCalls int
 	gotPage                           int
@@ -44,6 +45,10 @@ func (f *fakeCommentReader) Counts(_ context.Context, ids []uuid.UUID) (map[uuid
 func (f *fakeCommentReader) ViewerComments(context.Context, uuid.UUID, uuid.UUID) ([]comment.ThreadComment, error) {
 	f.ownCalls++
 	return f.own, nil
+}
+
+func (f *fakeCommentReader) EditableComments(context.Context, uuid.UUID, uuid.UUID) ([]comment.ThreadComment, error) {
+	return f.editable, nil
 }
 
 type viewFixture struct {
@@ -278,5 +283,37 @@ func TestCommentViewCaptcha(t *testing.T) {
 	f.cv.captcha = func(context.Context) *captchaWidget { return &captchaWidget{} }
 	if v := f.run("/post"); v.CommentForm.Captcha != nil {
 		t.Fatal("captcha shown without a usable provider")
+	}
+}
+
+func TestCommentViewOwnApprovedGetsActionsInsideTheWindow(t *testing.T) {
+	f := newViewFixture()
+	f.cv.device = func(context.Context, string) (uuid.UUID, bool) { return uuid.New(), true }
+	cookie := func(r *http.Request) { r.AddCookie(&http.Cookie{Name: identity.CookieName, Value: "good"}) }
+	roots := len(f.run("/post").Comments.Items)
+	mine := f.root
+	mine.CreatedAt = time.Now().Add(-time.Minute)
+	f.fake.editable = []comment.ThreadComment{mine}
+
+	v := f.run("/post", cookie)
+	root := v.Comments.Items[0]
+	if !root.Editable || root.EditAction != "/-/comments/edit/"+root.ID || root.DeleteAction != "/-/comments/delete/"+root.ID {
+		t.Fatalf("own approved item = %+v", root)
+	}
+	if !*v.Uncacheable {
+		t.Fatal("a view with an editable own item must not be cached")
+	}
+	if len(v.Comments.Items) != roots {
+		t.Fatalf("approved item duplicated: %d roots, want %d", len(v.Comments.Items), roots)
+	}
+
+	// Window over, or somebody else's item: nothing is offered.
+	f.fake.editable[0].CreatedAt = time.Now().Add(-time.Hour)
+	if r := f.run("/post", cookie).Comments.Items[0]; r.Editable {
+		t.Fatal("editable after the window")
+	}
+	f.fake.editable = []comment.ThreadComment{{ID: uuid.New(), CreatedAt: time.Now()}}
+	if v := f.run("/post", cookie); v.Comments.Items[0].Editable || *v.Uncacheable {
+		t.Fatal("an item that is not on the page was marked")
 	}
 }
