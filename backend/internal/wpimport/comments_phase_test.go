@@ -1,10 +1,13 @@
 package wpimport
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/commentfmt"
@@ -124,5 +127,29 @@ func TestCommentsResultCarriesNoPersonalData(t *testing.T) {
 	}
 	if strings.Contains(string(b), "@") || strings.Contains(string(b), "http") {
 		t.Errorf("result JSON has an address or URL: %s", b)
+	}
+}
+
+// An id-map read that fails must stop the step before any write: treating it
+// as "nothing imported yet" would insert every comment a second time.
+func TestImportCommentsStopsWhenIDMapUnreadable(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), "postgres://x@127.0.0.1:1/none?sslmode=disable&connect_timeout=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	r := &Runner{
+		// A zero Importer panics if Import is called, which is the failure to catch.
+		d:    &Deps{Comments: &comment.Importer{}},
+		st:   NewStore(pool, "https://example.test"),
+		dump: parseCommentsFixture(t),
+		res:  &Result{},
+	}
+	err = r.importComments(context.Background())
+	if err == nil {
+		t.Fatal("importComments succeeded with an unreadable id map")
+	}
+	if r.res.Comments != nil && r.res.Comments.Imported != 0 {
+		t.Errorf("imported %d comments", r.res.Comments.Imported)
 	}
 }

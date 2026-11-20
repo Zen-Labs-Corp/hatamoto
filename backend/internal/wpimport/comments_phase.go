@@ -122,8 +122,8 @@ func orderThread(cs []Comment) []Comment {
 }
 
 // importComments writes the comments of every imported item. It never turns
-// comments on and never fails the run: a post that cannot be written is
-// reported and the step goes on.
+// comments on. A post that cannot be written is reported and the step goes on;
+// an unreadable id map stops the step, so nothing is imported twice.
 func (r *Runner) importComments(ctx context.Context) error {
 	total := 0
 	for i := range r.dump.Items {
@@ -136,6 +136,12 @@ func (r *Runner) importComments(ctx context.Context) error {
 	if r.d.Comments == nil {
 		r.res.Warnings = append(r.res.Warnings, "comments not imported: the server secret is not configured")
 		return nil
+	}
+	// One read of the id map. A failed read must stop the step: treating it as
+	// empty would import every comment a second time.
+	imported, err := r.st.All(ctx, KindComment)
+	if err != nil {
+		return fmt.Errorf("comments: read the id map: %w", err)
 	}
 	cr := &CommentsResult{SkippedNoPost: r.dump.CommentsDropped}
 	r.res.Comments = cr
@@ -151,7 +157,7 @@ func (r *Runner) importComments(ctx context.Context) error {
 		}
 		done++
 		r.say("comments", "%d/%d posts", done, len(r.dump.Items))
-		r.importItemComments(ctx, it, cr)
+		r.importItemComments(ctx, it, cr, imported)
 	}
 
 	if set, err := comment.NewSettingsStore(r.d.DB.Pool()).Get(ctx); err == nil {
@@ -162,7 +168,7 @@ func (r *Runner) importComments(ctx context.Context) error {
 	return nil
 }
 
-func (r *Runner) importItemComments(ctx context.Context, it *Item, cr *CommentsResult) {
+func (r *Runner) importItemComments(ctx context.Context, it *Item, cr *CommentsResult, imported map[string]uuid.UUID) {
 	info := r.infos[it.ID]
 	var real []Comment
 	for _, c := range it.Comments {
@@ -195,11 +201,11 @@ func (r *Runner) importItemComments(ctx context.Context, it *Item, cr *CommentsR
 		}
 		var parentID *uuid.UUID
 		if !topLevel(c.ParentID) {
-			if pid, ok, err := r.st.Lookup(ctx, KindComment, c.ParentID); err == nil && ok {
+			if pid, ok := imported[c.ParentID]; ok {
 				parentID = &pid
 			}
 		}
-		if _, ok, err := r.st.Lookup(ctx, KindComment, c.ID); err == nil && ok {
+		if _, ok := imported[c.ID]; ok {
 			cr.AlreadyImported++
 			continue
 		}
@@ -241,6 +247,7 @@ func (r *Runner) importItemComments(ctx context.Context, it *Item, cr *CommentsR
 		if err := r.st.Put(ctx, r.run.ID, KindComment, key, id, ""); err != nil {
 			r.res.Warnings = append(r.res.Warnings, "id map: "+err.Error())
 		}
+		imported[key] = id
 		cr.Imported++
 		switch status[key] {
 		case comment.StatusApproved:
