@@ -16,8 +16,10 @@ func TestRangeBudgetSpendsAndStops(t *testing.T) {
 			t.Fatalf("spent at iteration %d, want %d allowed", i, pluginRangeBudget)
 		}
 	}
-	if !h.Spend() || !h.Spend() {
-		t.Fatal("handle kept allowing iterations after the budget")
+	for i := 0; i < 2; i++ {
+		if !h.Spend() {
+			t.Fatalf("handle kept allowing iterations after the budget (extra call %d)", i+1)
+		}
 	}
 }
 
