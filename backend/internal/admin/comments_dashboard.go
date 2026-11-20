@@ -60,6 +60,8 @@ func (a *Admin) dashComments(ctx context.Context, owner bool) (dashResult, error
 		sec.Warn = "Confirmation emails are not being sent: set your site address in Settings > General."
 		if owner {
 			sec.WarnHref = a.adminPath + "/settings/general#identity"
+		} else {
+			sec.Warn = "Confirmation emails are not being sent: an owner must set the site address in Settings > General."
 		}
 	}
 	if len(sec.Rows) == 0 {

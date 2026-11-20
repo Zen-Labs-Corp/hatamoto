@@ -113,8 +113,12 @@ func TestDashCommentsWarnsWithoutAddress(t *testing.T) {
 		for _, token := range []string{"owner-token", "editor-token"} {
 			body := cdashPage(t, g, token)
 			_, card, _ := strings.Cut(body, `id="dash-comments"`)
-			if !strings.Contains(card, cdashWarn) {
-				t.Errorf("%s/%s: no warning in the card", name, token)
+			want := cdashWarn
+			if token == "editor-token" {
+				want = "an owner must set the site address in Settings &gt; General."
+			}
+			if !strings.Contains(card, want) {
+				t.Errorf("%s/%s: no warning %q in the card", name, token, want)
 			}
 			if link := strings.Contains(card, `/settings/general#identity"`); link != (token == "owner-token") {
 				t.Errorf("%s/%s: settings link present = %v", name, token, link)
