@@ -144,6 +144,8 @@ type Server struct {
 	comments *comment.Service
 	// commentIdentity confirms commenter emails and signs hm_c (nil = confirm route 404s).
 	commentIdentity        *identity.Service
+	commentSlot            *commentSlot   // fills the comment form per view; nil until setupComments
+	commentBypass          *commentBypass // keeps visitors with own non-public comments off the page cache
 	mailStore              smtpSettingsStore
 	emailLog               *emaillog.Store
 	fonts                  *fonts.Store  // owner fonts; nil in tests that skip them
