@@ -16,24 +16,24 @@ import (
 //	-ldflags "-X hatamoto.dev/core/app.Version=v1.0.0 -X hatamoto.dev/core/app.Commit=abc1234"
 //
 // When unset they fall back to the module version and VCS revision that
-// `go build` stamps into the binary.
+// `go build` stamps into the binary. A wrapper binary (see package edition)
+// should set both with -ldflags for release builds.
 var (
 	Version string
 	Commit  string
 )
 
+const corePath = "hatamoto.dev/core"
+
 func buildInfo() (version, commit string) {
 	version, commit = Version, Commit
 	if bi, ok := debug.ReadBuildInfo(); ok {
-		if version == "" && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
-			version = bi.Main.Version
+		bv, bc := moduleVersionCommit(bi)
+		if version == "" {
+			version = bv
 		}
 		if commit == "" {
-			for _, s := range bi.Settings {
-				if s.Key == "vcs.revision" {
-					commit = s.Value
-				}
-			}
+			commit = bc
 		}
 	}
 	if version == "" {
@@ -41,6 +41,36 @@ func buildInfo() (version, commit string) {
 	}
 	if commit == "" {
 		commit = "unknown"
+	}
+	return version, commit
+}
+
+// moduleVersionCommit returns core's version and commit as recorded in bi.
+// Either may be empty. When core is the main module they come from the main
+// module and the VCS settings. In a wrapper binary the main module is the
+// wrapper, so the version comes from the core dependency (following a
+// replace) and the VCS revision, which belongs to the wrapper, is ignored.
+func moduleVersionCommit(bi *debug.BuildInfo) (version, commit string) {
+	if bi.Main.Path == corePath {
+		version = bi.Main.Version
+		for _, s := range bi.Settings {
+			if s.Key == "vcs.revision" {
+				commit = s.Value
+			}
+		}
+	} else {
+		for _, d := range bi.Deps {
+			if d.Path != corePath {
+				continue
+			}
+			if d.Replace != nil {
+				d = d.Replace
+			}
+			version = d.Version
+		}
+	}
+	if version == "(devel)" {
+		version = ""
 	}
 	return version, commit
 }
