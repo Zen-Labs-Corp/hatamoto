@@ -667,6 +667,7 @@ func (a commentsAdmin) SetSchemaMode(ctx context.Context, schemaID, mode string)
 	if _, err := a.entities.UpdateSchema(ctx, id, &entity.UpdateSchemaInput{Settings: &merged}); err != nil {
 		return err
 	}
+	// UpdateSchema's schema hook already drops every rendered page; this event tells comment observers about the type default.
 	a.svc.TypeModeChanged(ctx)
 	return nil
 }
