@@ -46,6 +46,8 @@ var scopeHelp = map[string]string{
 	"read:seo":           "Read every Settings > SEO value, the 404 log, previews and analysis.",
 	"write:seo":          "Change Settings > SEO values and the AI-crawler policy. Includes reading.",
 	"read:forms":         "Read forms and their submissions. Submissions contain visitors' personal data: their answers, IP address, browser, and the page and referrer they came from. Keys with * can read them too.",
+	"read:comments":      "List comments in the moderation queue, with why each was held. Shows commenter names and comment text, never email addresses. Keys with * can do it too.",
+	"write:comments":     "Approve comments, mark them as spam, and reply as the key's creator. Includes read:comments.",
 	"*":                  "Everything above, and anything added later. Give it only to keys you fully trust.",
 }
 

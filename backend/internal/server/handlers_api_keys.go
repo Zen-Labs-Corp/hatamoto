@@ -221,6 +221,8 @@ func (s *Server) handleGetAPIKeyScopes(w http.ResponseWriter, r *http.Request) {
 		auth.ScopeReadSEO:          "Read Settings > SEO values, the AI-crawler policy and the 404 log",
 		auth.ScopeWriteSEO:         "Change Settings > SEO values and the AI-crawler policy (includes read)",
 		auth.ScopeReadForms:        "Read forms and their submissions (contains personal data)",
+		auth.ScopeReadComments:     "Read comments and the moderation queue",
+		auth.ScopeWriteComments:    "Moderate and reply to comments",
 		auth.ScopeAll:              "Full access to all resources",
 	}
 
