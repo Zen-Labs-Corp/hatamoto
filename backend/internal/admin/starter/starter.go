@@ -151,7 +151,9 @@ func (in *Installer) ensure(ctx context.Context, o Options, schemaID uuid.UUID, 
 		if e.replaceSeed && isSeed(existing) {
 			b, _ := jsonx.Marshal(e.attrs)
 			raw := jsontext.Value(b)
-			if _, err := in.Entities.UpdateEntity(ctx, existing.ID, o.UserID, &entity.UpdateEntityInput{Attributes: &raw}); err != nil {
+			// The name too: the seed carries the name the server started
+			// with, which the setup wizard has replaced by now.
+			if _, err := in.Entities.UpdateEntity(ctx, existing.ID, o.UserID, &entity.UpdateEntityInput{Name: &e.name, Attributes: &raw}); err != nil {
 				return uuid.Nil, false, err
 			}
 			return existing.ID, true, nil
@@ -210,6 +212,72 @@ func isSeed(e *entity.Entity) bool {
 		return len(cs) == 1 && cs[0].ID == "welcome"
 	}
 	return len(a.Sections) == 1 && a.Sections[0].ID == "welcome"
+}
+
+// NameSeedHome gives the first-boot home page the site name, for a setup that
+// does not install the starter content (Install names it itself). The server
+// makes that page before the wizard asks for a name, so its title and its
+// headline carry the name the server started with. It reports whether it
+// changed the page. A home page that is no longer the seed is left alone, and
+// so is a headline that no longer matches the page name.
+func (in *Installer) NameSeedHome(ctx context.Context, o Options) (bool, error) {
+	if o.SiteName == "" {
+		return false, nil
+	}
+	home, err := in.Entities.GetEntityBySlug(ctx, "home")
+	if errors.Is(err, entity.ErrEntityNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !isSeed(home) || home.Name == o.SiteName {
+		return false, nil
+	}
+	upd := &entity.UpdateEntityInput{Name: &o.SiteName}
+	if attrs, ok := seedHeadline(home.Attributes, home.Name, o.SiteName); ok {
+		upd.Attributes = &attrs
+	}
+	if _, err := in.Entities.UpdateEntity(ctx, home.ID, o.UserID, upd); err != nil {
+		return false, err
+	}
+	if in.Invalidate != nil {
+		in.Invalidate(ctx)
+	}
+	return true, nil
+}
+
+// seedHeadline returns the seed's attributes with the welcome headline set to
+// name, when it still reads old. Only the page_doc shape is changed; ok is
+// false when there is nothing to change.
+func seedHeadline(raw jsontext.Value, old, name string) (jsontext.Value, bool) {
+	var attrs map[string]jsontext.Value
+	if jsonx.Unmarshal(raw, &attrs, jsonx.StoredLoose) != nil || len(attrs["page_doc"]) == 0 {
+		return nil, false
+	}
+	d, err := builder.Parse(attrs["page_doc"])
+	if err != nil {
+		return nil, false
+	}
+	cs := builder.Components(d)
+	if len(cs) != 1 {
+		return nil, false
+	}
+	content, _ := cs[0].P["content"].(map[string]any)
+	if headline, _ := content["headline"].(string); content == nil || headline != old {
+		return nil, false
+	}
+	content["headline"] = name
+	doc, err := jsonx.Marshal(d)
+	if err != nil {
+		return nil, false
+	}
+	attrs["page_doc"] = doc
+	out, err := jsonx.Marshal(attrs)
+	if err != nil {
+		return nil, false
+	}
+	return out, true
 }
 
 func (in *Installer) contactForm(ctx context.Context, o Options, res *Result) error {

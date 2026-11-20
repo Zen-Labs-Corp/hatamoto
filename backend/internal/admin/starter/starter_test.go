@@ -3,6 +3,7 @@ package starter
 import (
 	"context"
 	"encoding/json/jsontext"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -23,6 +24,8 @@ type mem struct {
 	site     siteconfig.UpdateInput
 	updates  int
 	flushed  int
+	// entityUpdates counts UpdateEntity calls.
+	entityUpdates int
 }
 
 func newMem() *mem {
@@ -52,9 +55,13 @@ func (m *mem) CreateEntity(_ context.Context, _ *uuid.UUID, in *entity.CreateEnt
 func (m *mem) UpdateEntity(_ context.Context, id uuid.UUID, _ *uuid.UUID, in *entity.UpdateEntityInput) (*entity.Entity, error) {
 	for _, e := range m.entities {
 		if e.ID == id {
+			if in.Name != nil {
+				e.Name = *in.Name
+			}
 			if in.Attributes != nil {
 				e.Attributes = *in.Attributes
 			}
+			m.entityUpdates++
 			return e, nil
 		}
 	}
@@ -143,6 +150,9 @@ func TestInstallCreatesEverythingOnceAndReusesTheSeedHome(t *testing.T) {
 	if m.entities["home"].ID != homeID {
 		t.Error("the seeded home page was duplicated instead of reused")
 	}
+	if got := m.entities["home"].Name; got != "Acme <Co>" {
+		t.Errorf("home page name = %q, want the site name", got)
+	}
 	for slug, e := range m.entities {
 		if e.Status != entity.StatusPublished {
 			t.Errorf("%s not published", slug)
@@ -204,6 +214,9 @@ func TestInstallNeverTouchesEditedHomeOrExistingPages(t *testing.T) {
 	}
 	if string(m.entities["home"].Attributes) != `{"page_sections":[{"id":"mine","type":"hero","sort_order":1}]}` || string(m.entities["about"].Attributes) != `{"content":"mine"}` {
 		t.Error("existing content was overwritten")
+	}
+	if m.entities["home"].Name != "Mine" {
+		t.Errorf("edited home page renamed to %q", m.entities["home"].Name)
 	}
 }
 
@@ -359,5 +372,133 @@ func TestStarterDocRoundTripsToSections(t *testing.T) {
 		if !ok || len(secs) == 0 {
 			t.Errorf("%s doc is not v1-expressible", p.slug)
 		}
+	}
+}
+
+// docSeedHome is the home page as the server's first boot makes it
+// (app/firstboot.go): one "welcome" hero in a page_doc, named after the site
+// name the server started with.
+func docSeedHome(t *testing.T, m *mem, name string) *entity.Entity {
+	t.Helper()
+	doc, err := jsonx.Marshal(builder.FromSections([]builder.Section{{
+		ID: "welcome", Type: "hero", SortOrder: 1,
+		Content: map[string]any{"headline": name, "subheadline": "Your site is running. Sign in to the admin to edit this page."},
+	}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	attrs, err := jsonx.Marshal(map[string]any{"page_doc": jsontext.Value(doc), "content": "<p>Your site is running.</p>"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &entity.Entity{ID: uuid.New(), SchemaID: m.schemas["page"], Name: name, Slug: "home", Status: entity.StatusPublished, Attributes: jsontext.Value(attrs)}
+	m.entities["home"] = e
+	return e
+}
+
+func welcome(t *testing.T, e *entity.Entity) map[string]any {
+	t.Helper()
+	var a struct {
+		Doc jsontext.Value `json:"page_doc"`
+	}
+	if err := jsonx.Unmarshal(e.Attributes, &a); err != nil {
+		t.Fatal(err)
+	}
+	d, err := builder.Parse(a.Doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cs := builder.Components(d)
+	if len(cs) != 1 {
+		t.Fatalf("%d components", len(cs))
+	}
+	content, _ := cs[0].P["content"].(map[string]any)
+	return content
+}
+
+func TestNameSeedHomeRenamesTheFirstBootPage(t *testing.T) {
+	m := newMem()
+	home := docSeedHome(t, m, "My Hatamoto site")
+	in := m.installer()
+	uid := uuid.New()
+	changed, err := in.NameSeedHome(context.Background(), Options{SiteName: "Acme Plumbing", UserID: &uid})
+	if err != nil || !changed {
+		t.Fatalf("changed=%v err=%v", changed, err)
+	}
+	if home.Name != "Acme Plumbing" {
+		t.Errorf("name = %q", home.Name)
+	}
+	c := welcome(t, home)
+	if c["headline"] != "Acme Plumbing" || c["subheadline"] != "Your site is running. Sign in to the admin to edit this page." {
+		t.Errorf("welcome content = %v", c)
+	}
+	if !contains(string(home.Attributes), `"content":"<p>Your site is running.</p>"`) {
+		t.Errorf("other attributes lost: %s", home.Attributes)
+	}
+	if !isSeed(home) {
+		t.Error("the renamed page must still count as the seed, so the starter content can replace it later")
+	}
+	if m.flushed != 1 {
+		t.Errorf("page cache flushed %d times, want 1", m.flushed)
+	}
+
+	// Again with the same name: nothing to do.
+	if changed, err := in.NameSeedHome(context.Background(), Options{SiteName: "Acme Plumbing"}); err != nil || changed {
+		t.Errorf("second run: changed=%v err=%v", changed, err)
+	}
+	if m.entityUpdates != 1 {
+		t.Errorf("%d entity updates, want 1", m.entityUpdates)
+	}
+}
+
+func TestNameSeedHomeLeavesOtherPagesAlone(t *testing.T) {
+	ctx := context.Background()
+
+	// No home page at all.
+	m := newMem()
+	if changed, err := m.installer().NameSeedHome(ctx, Options{SiteName: "Acme"}); err != nil || changed {
+		t.Errorf("no home: changed=%v err=%v", changed, err)
+	}
+
+	// A home page someone built.
+	m = newMem()
+	m.entities["home"] = &entity.Entity{ID: uuid.New(), Slug: "home", Name: "Mine",
+		Attributes: jsontext.Value(`{"page_sections":[{"id":"mine","type":"hero","sort_order":1}]}`)}
+	if changed, err := m.installer().NameSeedHome(ctx, Options{SiteName: "Acme"}); err != nil || changed || m.entities["home"].Name != "Mine" {
+		t.Errorf("edited home: changed=%v err=%v name=%q", changed, err, m.entities["home"].Name)
+	}
+
+	// The starter's home page.
+	m = newMem()
+	if _, err := m.installer().Install(ctx, Options{SiteName: "Acme"}); err != nil {
+		t.Fatal(err)
+	}
+	before := string(m.entities["home"].Attributes)
+	if changed, err := m.installer().NameSeedHome(ctx, Options{SiteName: "Other"}); err != nil || changed || m.entities["home"].Name != "Acme" || string(m.entities["home"].Attributes) != before {
+		t.Errorf("starter home: changed=%v err=%v name=%q", changed, err, m.entities["home"].Name)
+	}
+
+	// No site name.
+	m = newMem()
+	docSeedHome(t, m, "My Hatamoto site")
+	if changed, err := m.installer().NameSeedHome(ctx, Options{}); err != nil || changed || m.entities["home"].Name != "My Hatamoto site" {
+		t.Errorf("empty name: changed=%v err=%v", changed, err)
+	}
+}
+
+// A seed whose headline was changed keeps it; only the page name follows.
+func TestNameSeedHomeKeepsAChangedHeadline(t *testing.T) {
+	m := newMem()
+	home := docSeedHome(t, m, "My Hatamoto site")
+	attrs := strings.Replace(string(home.Attributes), `"headline":"My Hatamoto site"`, `"headline":"Hello"`, 1)
+	if attrs == string(home.Attributes) {
+		t.Fatalf("test setup: headline not found in %s", home.Attributes)
+	}
+	home.Attributes = jsontext.Value(attrs)
+	if changed, err := m.installer().NameSeedHome(context.Background(), Options{SiteName: "Acme"}); err != nil || !changed {
+		t.Fatalf("changed=%v err=%v", changed, err)
+	}
+	if home.Name != "Acme" || string(home.Attributes) != attrs {
+		t.Errorf("name=%q attributes=%s", home.Name, home.Attributes)
 	}
 }
