@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/media"
@@ -29,6 +30,7 @@ type Deps struct {
 	Redirects  *redirect.Service
 	Site       *siteconfig.Store
 	SEO        *seo.Store
+	Comments   *comment.Importer // nil without a server secret: comments are not imported
 	Logger     *slog.Logger
 }
 
@@ -39,6 +41,8 @@ type DepsConfig struct {
 	MediaMaxMB   int
 	// Store holds the media bytes; nil = local disk under MediaDir.
 	Store media.BlobStore
+	// Secret is the server secret the comment hashes and sealed emails derive from.
+	Secret string
 }
 
 // NewDeps wires the services over db. Call Close when done.
@@ -68,8 +72,13 @@ func NewDeps(db *database.DB, cfg DepsConfig, logger *slog.Logger) *Deps {
 	}
 	mc.Store = cfg.Store
 	termRepo := taxonomy.NewPostgresRepository(db)
+	var comments *comment.Importer
+	if cfg.Secret != "" {
+		comments = comment.NewImporter(db, cfg.Secret)
+	}
 	return &Deps{
-		DB: db, Entities: ents, SchemaRepo: schemaRepo,
+		Comments: comments,
+		DB:       db, Entities: ents, SchemaRepo: schemaRepo,
 		Media:    media.NewService(media.NewPostgresRepository(db), mc, logger),
 		Taxonomy: taxonomy.NewService(termRepo, logger), TermRepo: termRepo,
 		Menus:  menu.NewService(menu.NewPostgresRepository(db), logger),

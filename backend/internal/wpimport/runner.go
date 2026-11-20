@@ -111,6 +111,9 @@ type Result struct {
 	Report   *Report      `json:"report,omitempty"`
 	// SEO is what the global SEO settings step applied or would change.
 	SEO *SEOResult `json:"seo,omitempty"`
+	// Comments is what the comments step did; nil when the source had none
+	// (and for runs stored before comments were imported).
+	Comments *CommentsResult `json:"comments,omitempty"`
 }
 
 type entInfo struct {
@@ -246,7 +249,7 @@ func (r *Runner) Run(ctx context.Context, resume uuid.UUID) (res *Result, err er
 		{"media", func(ctx context.Context) error { r.importMedia(ctx); return nil }},
 		{"authors", r.importAuthors},
 		{"terms", r.importTerms},
-		{"content", r.importContent},
+		{"content", r.importContentAndComments},
 		{"links", r.rewriteLinks},
 		{"menus", r.importMenus},
 		{"redirects", r.importRedirects},

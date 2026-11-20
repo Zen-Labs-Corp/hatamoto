@@ -78,7 +78,15 @@ func runImportWordPress(ctx context.Context, db *database.DB, cfg *config.Config
 	if err != nil {
 		return err
 	}
-	deps := wpimport.NewDeps(db, wpimport.DepsConfig{MediaDir: mediaDirOr(cfg.Server.MediaUploadDir), MediaBaseURL: cfg.Server.MediaBaseURL, MediaMaxMB: cfg.Server.MediaMaxSizeMB, Store: mc.Store}, logger)
+	// serve keeps a generated secret only in secrets.env, which the environment
+	// does not carry. Read it, read-only, so the comments are not skipped.
+	secret := cfg.Secret
+	if secret == "" {
+		if secret, err = storedSecret(secretsDirFromEnv()); err != nil {
+			return fmt.Errorf("read the server secret: %w", err)
+		}
+	}
+	deps := wpimport.NewDeps(db, wpimport.DepsConfig{MediaDir: mediaDirOr(cfg.Server.MediaUploadDir), MediaBaseURL: cfg.Server.MediaBaseURL, MediaMaxMB: cfg.Server.MediaMaxSizeMB, Store: mc.Store, Secret: secret}, logger)
 	defer deps.Close()
 	return importWordPress(ctx, deps, f, out)
 }
@@ -258,6 +266,7 @@ func printImportResult(out io.Writer, r *wpimport.Result, took time.Duration, as
 		fmt.Fprintf(out, "  wp-content URL left: %s\n", u)
 	}
 	printSEOResult(out, r.SEO)
+	printCommentsResult(out, r.Comments)
 	if a := r.Audit; a != nil {
 		fmt.Fprintf(out, "  URL audit: %d checked, %d answer 200, %d answer one 301, %d failed\n", a.Checked, a.OK, a.Redirected, len(a.Failures))
 		for _, fl := range a.Failures {
@@ -266,6 +275,27 @@ func printImportResult(out io.Writer, r *wpimport.Result, took time.Duration, as
 	} else {
 		fmt.Fprintln(out, "  URL audit skipped: pass --audit-url https://your-new-site to check every old URL")
 	}
+}
+
+// printCommentsResult prints the one-line comments summary; nothing when the
+// source had no comments (or the run predates comment import).
+func printCommentsResult(out io.Writer, c *wpimport.CommentsResult) {
+	if c == nil {
+		return
+	}
+	fmt.Fprintf(out, "  Comments: %d imported (approved %d, pending %d, spam %d, trash %d), %d commenters", c.Imported, c.Approved, c.Pending, c.Spam, c.Trash, c.CommentersCreated)
+	if c.PingsTotal > 0 {
+		fmt.Fprintf(out, ", %d pingbacks/trackbacks skipped", c.PingsTotal)
+	}
+	if skipped := c.SkippedNoEmail + c.SkippedNoPost + c.SkippedOtherType + c.SkippedBody; skipped > 0 {
+		fmt.Fprintf(out, ", %d skipped", skipped)
+	}
+	fmt.Fprint(out, "; author URLs dropped")
+	if c.Enabled {
+		fmt.Fprintln(out)
+		return
+	}
+	fmt.Fprintln(out, "; comments stay off")
 }
 
 // printSEOResult lists what the SEO settings step applied, would change or could not map.

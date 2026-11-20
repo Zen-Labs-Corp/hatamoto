@@ -79,7 +79,8 @@ sitemap), the permalink structure and whether it becomes a Hatamoto URL pattern,
 Builder, Bricks), forms (Contact Form 7, Gravity Forms, WPForms, Ninja Forms, Formidable), multilingual
 plugins (WPML, Polylang: every language is imported and tagged where the source says which, and the report counts the items per language), the
 other plugins found (listed as unsupported), every shortcode left in a body, and **expected fidelity**:
-the share of items that import without loss, with each medium or low item and why.
+the share of items that import without loss, with each medium or low item and why. For a WXR file it also
+counts the comments found and the pingbacks and trackbacks that will be skipped.
 
 ## What is imported and how
 
@@ -100,6 +101,7 @@ the share of items that import without loss, with each medium or low item and wh
 | Global SEO settings (title separator, home, archive and 404 titles, per-type title templates and noindex, social handle and card, verification tags, robots.txt extras, per-type sitemap exclusion, organization name, logo and profiles) | the site's SEO settings, the `post`/type schemas' sitemap setting and the site configuration. See "Global SEO settings" below. |
 | Menus | menus with nesting; pages become entity links; location from the menu name (header, footer, sidebar); the imported menu takes the location from its previous holder, which is left unassigned |
 | Private, password-protected and draft content | drafts (listed in the report) |
+| Comments (WXR file only, not the REST source) | Comments with their status, threading, dates and commenters; see "Comments" below. **Importing never turns comments on.** |
 
 Body conversion: Gutenberg comments are stripped; YouTube and Vimeo embeds are kept as iframes (also from a
 bare URL or an unrendered `wp-block-embed`); form markup and shortcodes are removed and reported (the
@@ -108,6 +110,20 @@ iframe is removed and reported. **No `wp-content` URL remains in imported conten
 rewritten to their new media URL, a file that cannot be fetched is removed (an image) or unlinked, and the
 run's `wp_content_left` list, which must stay empty, is checked in the database at the end. Internal links
 (`/2024/05/hello/`, `?p=12`) become `<a data-entity-id>` links, so they follow later renames.
+
+### Comments
+
+Comments are read from a WXR file only; the REST source does not carry them. Each run applies these rules:
+
+- **Status:** `1` becomes approved, `0` pending, `spam` spam and `trash` trash; a comment on a trashed post (`post-trashed`) becomes trash and any other value becomes pending. The imported status is kept, so a comment with a link that was approved in WordPress stays approved.
+- **Threading:** replies follow `comment_parent`. A reply whose parent is missing or skipped becomes top level; one nested deeper than the comment settings' maximum depth (default 5) is attached to the deepest reply allowed. The original dates are kept.
+- **Commenters:** one per name and email address. Trust comes from the number of approved comments, capped at *known*; the import never makes anyone *trusted* and never blocks anyone (a commenter already blocked stays blocked). Comments of WordPress users import as ordinary commenters. A comment without a usable email address is skipped and counted.
+- **Personal data:** the author's website URL is dropped and never stored. The IP address is stored only as hashes, and the browser user agent is not imported. Emails are stored sealed with the server secret, like live comments.
+- **Body:** converted to the comment text format (bold, italic, code, quotes; links become text with the address). A comment that ends up empty or longer than 16 KiB is skipped and counted.
+- **Pingbacks and trackbacks** are skipped and listed by post title and comment number, never by the pinging address.
+- **Comments stay off.** The import writes the comments but never changes the comments switch or a page's mode; turn comments on in the comment settings when you are ready. Nothing is sent to anyone and no webhook fires.
+
+The server secret is needed. The command reads it from `HATAMOTO_SECRET` (or `JWT_SECRET`), else from `secrets.env` in `HATAMOTO_SECRETS_DIR` (default `./data/secrets`), the file the server writes on first boot. It never creates one. Without a secret no comment is imported and the report carries a warning; supply it and run the import again.
 
 Menu items whose URL is not http, https, mailto, tel, sms or relative (a `javascript:` link) are left out and
 reported.
@@ -123,7 +139,7 @@ redirect by hand.
 Each run is a row of `hatamoto_import_runs` (options without secrets, phase, report). The source id of
 everything imported is kept in `hatamoto_import_map` (scoped by site), and entities carry
 `metadata.import_key`. A re-run updates the same rows: entities are updated in place (a version snapshot
-only when the body changed), terms, menus and redirects are updated, authors that became people are found again by slug (a person you edited is left alone), media with the same source
+only when the body changed), terms, menus and redirects are updated, authors that became people are found again by slug (a person you edited is left alone), comments already imported are skipped and never overwritten (a status a moderator changed stays, and a comment deleted here is not recreated), media with the same source
 id or the same bytes is reused and not downloaded again. Entities and redirects are scoped by the source
 site's host **and path**, so two WordPress sub-sites on one host stay apart.
 
@@ -163,10 +179,12 @@ archives or 404 pages). A value that fails validation is listed there with the r
 ## Limits
 
 One language per install; page-builder layouts are not reproduced (the text is kept, the page is listed);
-forms are not converted; WooCommerce, events and other plugin data are not imported; comments are not
-imported; Rank Math, SEOPress and All in One SEO data over REST are read from each page's `<head>`
+forms are not converted; WooCommerce, events and other plugin data are not imported; comments come from a WXR
+file only; Rank Math, SEOPress and All in One SEO data over REST are read from each page's `<head>`
 (published items only), Yoast's from its REST field. Sites with plain permalinks (`?p=12`) import, but their
 old URLs cannot be listed from posts: they are audited from the sitemap only.
+
+The command prints one comments line in its summary.
 
 ## Development: the fixture
 
@@ -239,7 +257,8 @@ without JavaScript:
 5. **Report**: per-item errors, warnings, the redirects created, the URL audit (run in process against this
    site's own handler, every old URL with a link), the **SEO settings** (Applied, or Would change on a site with
    content, and Not mapped), the old URLs a live page already answers, edits that were
-   overwritten or kept, and the pages to review, each linking to its edit screen. **Re-sync** opens the Source
+   overwritten or kept, a **Comments** card (counts by status, commenters created, pingbacks skipped with their
+   list, author URLs dropped, with a note that comments remain off), and the pages to review, each linking to its edit screen. **Re-sync** opens the Source
    step prefilled with the address and username (never the password).
 
 The wizard cannot lift the engine's private-host guard: the source is fetched through the same SSRF guard as

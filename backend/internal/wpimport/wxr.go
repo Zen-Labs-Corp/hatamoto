@@ -117,6 +117,8 @@ type wxrItem struct {
 	terms  []TermRef
 	meta   map[string]string
 	nav    string // nav_menu slug
+	// comments are the flat wp:comment children; comment_author_url is dropped in buildFromWXR.
+	comments []map[string]string
 }
 
 // ParseWXR reads a WordPress export as a stream and returns the Dump. The file
@@ -306,6 +308,12 @@ func readItem(dec *wxrDecoder, start xml.StartElement) (wxrItem, error) {
 				if k := f["meta_key"]; k != "" {
 					it.meta[k] = f["meta_value"]
 				}
+			case "comment":
+				f, err := flat(dec, t)
+				if err != nil {
+					return it, err
+				}
+				it.comments = append(it.comments, f)
 			case "encoded":
 				var v string
 				if err := dec.decode(&v, t); err != nil {
@@ -344,6 +352,29 @@ func parseWXRTime(s string) time.Time {
 	return t
 }
 
+// commentsFromWXR converts the raw wp:comment maps. comment_author_url is read
+// only to set HadURL; its value is never kept. comment_agent and
+// comment_user_id are not copied.
+func commentsFromWXR(raw []map[string]string, postDate time.Time) []Comment {
+	out := make([]Comment, 0, len(raw))
+	for _, f := range raw {
+		date := parseWXRTime(f["comment_date_gmt"])
+		if date.IsZero() {
+			date = parseWXRTime(f["comment_date"])
+		}
+		if date.IsZero() {
+			date = postDate
+		}
+		out = append(out, Comment{
+			ID: f["comment_id"], ParentID: f["comment_parent"],
+			AuthorName: html.UnescapeString(f["comment_author"]), AuthorEmail: f["comment_author_email"], IP: f["comment_author_IP"],
+			Date: date.UTC(), Content: f["comment_content"], Approved: f["comment_approved"], Type: f["comment_type"],
+			HadURL: f["comment_author_url"] != "",
+		})
+	}
+	return out
+}
+
 func buildFromWXR(d *Dump, raw []wxrItem, termByID map[string]TermRef, navNames map[string]string) {
 	menus := map[string]*Menu{}
 	var menuOrder []string
@@ -356,9 +387,11 @@ func buildFromWXR(d *Dump, raw []wxrItem, termByID map[string]TermRef, navNames 
 		id := f["post_id"]
 		switch {
 		case status == "auto-draft" || status == wpTrash:
+			d.CommentsDropped += len(w.comments)
 			continue
 		case typ == "attachment":
 			url := f["attachment_url"]
+			d.CommentsDropped += len(w.comments)
 			if url == "" {
 				continue
 			}
@@ -384,17 +417,21 @@ func buildFromWXR(d *Dump, raw []wxrItem, termByID map[string]TermRef, navNames 
 				}
 			}
 			m.Items = append(m.Items, mi)
+			d.CommentsDropped += len(w.comments)
 			continue
 		case typ == "custom_css":
 			// One item per theme; the newest published one is the live CSS.
 			if m := f["post_modified_gmt"]; status == wpPublish && m >= cssModified {
 				cssModified, d.CustomCSS = m, f["content"]
 			}
+			d.CommentsDropped += len(w.comments)
 			continue
 		case typ == "" || skipType(typ):
+			d.CommentsDropped += len(w.comments)
 			continue
 		}
 		if seen[id] {
+			d.CommentsDropped += len(w.comments)
 			continue
 		}
 		seen[id] = true
@@ -429,6 +466,7 @@ func buildFromWXR(d *Dump, raw []wxrItem, termByID map[string]TermRef, navNames 
 			}
 		}
 		it.SEO = seoFromMeta(w.meta, d.Site, it)
+		it.Comments = commentsFromWXR(w.comments, it.Date)
 		d.Items = append(d.Items, it)
 		if typ != "post" && typ != "page" && !hasCustomType(d.Detect.CustomTypes, typ) {
 			d.Detect.CustomTypes = append(d.Detect.CustomTypes, CustomType{Slug: typ, Name: typ})

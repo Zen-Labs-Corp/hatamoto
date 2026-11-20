@@ -41,6 +41,8 @@ type Dump struct {
 	CustomCSS string
 	// CustomCSSNote says why none was read, when the source cannot tell.
 	CustomCSSNote string
+	// CommentsDropped counts comments on items the import skips.
+	CommentsDropped int
 	// Warnings are non-fatal problems met while reading.
 	Warnings []string
 }
@@ -118,6 +120,21 @@ type Item struct {
 	Lang          string // language tag as the source gave it (WPML or Polylang); empty when it gave none
 	SEO           SEO
 	Meta          map[string]string
+	Comments      []Comment
+}
+
+// Comment is a WordPress comment. There is no author URL field on purpose:
+// comment_author_url is dropped while parsing and never kept.
+type Comment struct {
+	ID, ParentID string // "" or "0" parent = top level
+	AuthorName   string
+	AuthorEmail  string `json:"-"` // raw, in memory only; hashed and sealed by comment.Importer
+	IP           string `json:"-"` // raw, in memory only; hashed by comment.Importer (Keys.HashIP)
+	Date         time.Time
+	Content      string // comment HTML as WordPress stored it
+	Approved     string // 1, 0, spam, trash, post-trashed, ...
+	Type         string // "", comment, pingback, trackback, ...
+	HadURL       bool   // comment_author_url was non-empty (counted, value dropped)
 }
 
 // SEO is the search metadata the SEO plugin held for an item.

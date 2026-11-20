@@ -36,6 +36,8 @@ In this guide you move a Hatamoto site to a new server. You save the whole site'
    hatamoto export site.tar.gz --no-submissions
    ```
 
+   This also leaves out comments and commenters. When they are included, keep the same `HATAMOTO_SECRET` on the new server: commenter emails are sealed with it.
+
 ### Rebuild the site on the new server
 
 1. Copy `site.tar.gz` to the new server, for example with `scp site.tar.gz you@new-server.example.com:`.

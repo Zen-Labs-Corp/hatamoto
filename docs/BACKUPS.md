@@ -12,9 +12,9 @@ One backup is one tar file, `<id>.tar`, with these parts:
 
 | Part | What it is |
 |---|---|
-| `core.dump` | `pg_dump --format=custom` of the whole database except the plugin schemas and the privileged `hatamoto_admin` schema. |
+| `core.dump` | `pg_dump --format=custom` of the whole database except the plugin schemas and the privileged `hatamoto_admin` schema. It holds the comments and commenters, the comment settings, the per-page comment modes and counts, and the blocklists. |
 | `plugin_<name>.dump` | One `pg_dump` per plugin schema (`plugin_<name>`), so a plugin's own tables travel with the backup. |
-| `content.tar.gz` | The content export (the same format as `hatamoto export`: content, menus, settings, media files). |
+| `content.tar.gz` | The content export (the same format as `hatamoto export`: content, menus, settings, media files, comments and commenters). |
 | `media-manifest.json` | Only for a site whose media is in object storage (`MEDIA_STORAGE=s3`): `{"version":1,"files":[{"key","size","sha256"}]}`, one entry per file the media library references, with the object name relative to the bucket prefix. A referenced file that is not in the bucket is left out and counted in `media_missing`. It is a normal part: listed in `parts` and written before `manifest.json`. |
 | `secrets.env` | A verbatim copy of `<secrets dir>/secrets.env` (`HATAMOTO_SECRETS_DIR`, default `./data/secrets`), when that file exists. If the secret lives only in the environment (`HATAMOTO_SECRET` set, nothing written to disk) there is nothing to copy and the part is left out. |
 | `config.env` | A verbatim copy of your environment file, when you name one with `--config` or `HATAMOTO_CONFIG_FILE` (see "Taking a backup"). Left out otherwise. |
@@ -84,6 +84,8 @@ plugin database roles (`hatamoto_plugin_credentials`) and everything else in the
 `secrets.env` (when present) and your config file if you stored one. Treat
 the file like the database itself: keep it private, and encrypt it before it leaves the server.
 Anyone who can read a backup can read all of that.
+
+Commenter emails are encrypted with the server secret (`HATAMOTO_SECRET`). Restoring with a different secret leaves them unreadable and the commenter hashes unmatched, so restore with the secret the backup was taken under (it is in `secrets.env` when that file exists).
 
 Backups made before this feature (`$HATAMOTO_DATA/backups/pre-<version>.dump`) are left alone: they
 are not listed, pruned or deleted. Delete them by hand when you no longer need them.
@@ -365,6 +367,6 @@ removes the files, so the directory only holds files of submissions that still e
 
 To move only the content into a new site, import `content.tar.gz` into an **empty** database with
 `hatamoto import content.tar.gz`. This is an alternative to steps 3 to 6, not an addition to them.
-It brings content, menus, settings and media; it does not bring plugin data, sessions, API keys or
-audit rows. Imported users get an unusable password and must reset it (`hatamoto user
+It brings content, menus, settings, media, comments and commenters (without the per-page comment modes, which only the full restore carries); it does not bring plugin data, sessions, API keys or
+audit rows. Keep the same `HATAMOTO_SECRET` or the commenter emails stay unreadable. Imported users get an unusable password and must reset it (`hatamoto user
 reset-password --email E`).
