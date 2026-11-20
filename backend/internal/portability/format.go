@@ -68,7 +68,8 @@ type table struct {
 
 // tables lists what is exported, parents before children. Fonts are included
 // (bytes in the row). Not exported, on
-// purpose: API keys and sessions (secrets), agent hits, analytics
+// purpose: comment settings, per-page comment modes and counts, blocklists and
+// form tokens (a backup carries them), API keys and sessions (secrets), agent hits, analytics
 // and 404 logs (history, not content), the link index (rebuilt on save),
 // installed packages (plugins and themes: reinstall them, see docs/EXPORT.md),
 // plugin credentials, settings and files, and plugin schemas.
@@ -92,6 +93,12 @@ var tables = []table{
 	{name: "hatamoto_menus"},
 	{name: "hatamoto_menu_items", selfRef: "parent_id"},
 	{name: "hatamoto_redirects"},
+	// Comments are visitor data (pii): left out by --no-submissions. Emails are
+	// sealed with the server secret and travel as bytes; hashes travel as is.
+	// Counts and per-page modes (hatamoto_comment_entities) are not exported:
+	// comment.Resync rebuilds the counts on import.
+	{name: "hatamoto_commenters", pii: true},
+	{name: "hatamoto_comments", selfRef: "parent_id", pii: true},
 	{name: "hatamoto_forms"},
 	{name: "hatamoto_form_submissions", pii: true},
 	{name: "hatamoto_section_templates"},

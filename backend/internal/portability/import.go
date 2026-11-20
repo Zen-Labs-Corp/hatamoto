@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"hatamoto.dev/core/internal/bizprofile"
+	"hatamoto.dev/core/internal/comment"
 	"hatamoto.dev/core/internal/entity"
 	"hatamoto.dev/core/internal/jsonx"
 	"hatamoto.dev/core/internal/media"
@@ -70,6 +71,7 @@ type ImportResult struct {
 var contentTables = []string{
 	"hatamoto_entities", "hatamoto_authors", "hatamoto_user_people", "hatamoto_users", "hatamoto_terms", "hatamoto_menus", "hatamoto_redirects",
 	"hatamoto_forms", "hatamoto_media", "hatamoto_section_templates", "hatamoto_internal_link_rules",
+	"hatamoto_comments", "hatamoto_commenters",
 }
 
 const insertBatch = 200
@@ -245,6 +247,11 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 
 	if err := linkParents(ctx, tx); err != nil {
 		return nil, err
+	}
+	// Comment rows keep their archived seq; move the sequence past them and
+	// rebuild the counts (not in the archive) from the rows.
+	if err := comment.Resync(ctx, tx); err != nil {
+		return nil, fmt.Errorf("resync comments: %w", err)
 	}
 	// The slug_nested trigger was off while rows went in; an archive from before
 	// that column existed leaves every row flat. Settle the flags now, still
