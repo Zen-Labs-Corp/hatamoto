@@ -210,6 +210,7 @@ func (s *Server) setupComments() {
 		Comments: s.comments, Identity: svc, Spam: s.spam,
 		TokenKey: spam.CommentTokenKey(secret), NameKey: spam.FieldNameKey(secret),
 		Limits:   commentsubmit.NewLimits(time.Now),
+		OnSurge:  s.commentSurgeHook(),
 		Checkers: []comment.Checker{commentsubmit.HookChecker{Engine: s.hooks}},
 		Log:      s.logger,
 	}
