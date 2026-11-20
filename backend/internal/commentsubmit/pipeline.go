@@ -114,6 +114,9 @@ type Pipeline struct {
 	Limits   *Limits
 	Checkers []comment.Checker
 	Log      *slog.Logger
+	// OnSurge, if set, is called while surge mode is active: when it starts and at
+	// most once a minute after. It must return at once (the caller sends mail elsewhere).
+	OnSurge func(ctx context.Context)
 }
 
 func (p *Pipeline) log() *slog.Logger {
@@ -177,6 +180,9 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	surge, started := p.Limits.Surge().Note()
 	if started {
 		p.log().WarnContext(ctx, "comment surge mode started", "reason", "surge")
+	}
+	if surge && p.OnSurge != nil && p.Limits.Surge().Beat(started) {
+		p.OnSurge(ctx)
 	}
 
 	// 4. Fields, only under the rotated names.

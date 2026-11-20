@@ -13,6 +13,14 @@ const (
 	slowModeCap       = 10000
 )
 
+const (
+	// SurgeLimit is how many comments within SurgeWindow trip surge mode.
+	SurgeLimit = defaultSurgeLimit
+	// SurgeWindow is the surge sliding window; an episode ends after a full window without a surge.
+	SurgeWindow = surgeWindow
+	surgeBeat   = time.Minute // at most one surge callback per replica per minute
+)
+
 // ReasonSlowMode is the hold reason this part adds next to the model's comment.Reason* constants.
 const ReasonSlowMode = "slow mode"
 
@@ -108,11 +116,12 @@ func (s *slowMode) mark(key string) {
 // Surge is a site-wide sliding window of submits. It is checked before any
 // skippable DB write and does no I/O.
 type Surge struct {
-	mu     sync.Mutex
-	now    func() time.Time
-	limit  int
-	times  []time.Time // within the window, oldest first, at most limit+1
-	active bool
+	mu       sync.Mutex
+	now      func() time.Time
+	limit    int
+	times    []time.Time // within the window, oldest first, at most limit+1
+	active   bool
+	lastBeat time.Time
 }
 
 // Note records a submit. active is true while more than the limit arrived
@@ -134,4 +143,17 @@ func (s *Surge) Note() (active bool, started bool) {
 	started = active && !s.active
 	s.active = active
 	return active, started
+}
+
+// Beat reports whether the caller should report the surge now: when it just
+// started, or when a minute passed since the last report. Call it only while active.
+func (s *Surge) Beat(started bool) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.now()
+	if !started && !s.lastBeat.IsZero() && now.Sub(s.lastBeat) < surgeBeat {
+		return false
+	}
+	s.lastBeat = now
+	return true
 }
