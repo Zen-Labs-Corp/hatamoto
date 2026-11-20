@@ -28,16 +28,18 @@ type Report struct {
 	Source string `json:"source"`
 	Site   Site   `json:"site"`
 
-	Posts       int            `json:"posts"`
-	Pages       int            `json:"pages"`
-	CustomTypes map[string]int `json:"custom_types,omitempty"`
-	Drafts      int            `json:"drafts"`
-	Private     int            `json:"private"`
-	Media       int            `json:"media"`
-	Terms       int            `json:"terms"`
-	Authors     int            `json:"authors"`
-	Menus       int            `json:"menus"`
-	OldURLs     int            `json:"old_urls"`
+	Posts        int            `json:"posts"`
+	Pages        int            `json:"pages"`
+	CustomTypes  map[string]int `json:"custom_types,omitempty"`
+	Drafts       int            `json:"drafts"`
+	Private      int            `json:"private"`
+	Media        int            `json:"media"`
+	Terms        int            `json:"terms"`
+	Authors      int            `json:"authors"`
+	Menus        int            `json:"menus"`
+	OldURLs      int            `json:"old_urls"`
+	Comments     int            `json:"comments,omitzero"`      // comments and replies on imported items
+	CommentPings int            `json:"comment_pings,omitzero"` // pingbacks and trackbacks (never imported)
 
 	// SiteMode is "empty" or "existing" (see InspectSite); set by ApplySiteState.
 	SiteMode        SiteMode `json:"site_mode,omitempty"`
@@ -134,6 +136,13 @@ func Scan(d *Dump, source string) *Report {
 		}
 		if it.Protected {
 			r.MembersOnly = append(r.MembersOnly, note(it, "password protected: imported as a draft"))
+		}
+		for _, cm := range it.Comments {
+			if cm.Type == "" || cm.Type == "comment" {
+				r.Comments++
+			} else {
+				r.CommentPings++
+			}
 		}
 		c := Convert(it.Content, d.RawBodies)
 		r.Embeds += c.Embeds
