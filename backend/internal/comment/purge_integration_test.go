@@ -3,6 +3,7 @@
 package comment
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -125,5 +126,48 @@ func TestPurgeSpamTrashHonoursPurgeDays(t *testing.T) {
 	}
 	if f.exists(eight.id) || !f.exists(six.id) {
 		t.Errorf("8 d old exists = %v (want false), 6 d old exists = %v (want true)", f.exists(eight.id), f.exists(six.id))
+	}
+}
+
+// A comment restored while the purge waits on its row lock must survive: the
+// delete re-checks status and age on the row itself, not only in the subquery.
+func TestPurgeSpamTrashSparesCommentRestoredMidPurge(t *testing.T) {
+	f := newFixture(t)
+	c := f.seedAged(nil, StatusTrash, 31)
+
+	tx, err := f.db.Pool().Begin(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(context.Background())
+	if _, err := tx.Exec(f.ctx, `UPDATE hatamoto_comments SET status = 'approved', updated_at = now() WHERE id = $1`, c.id); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := f.svc.PurgeSpamTrash(f.ctx)
+		done <- err
+	}()
+	// Wait until the purge is blocked on the restored row's lock.
+	for i := 0; ; i++ {
+		var waiting int
+		f.scalar(&waiting, `SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE 'DELETE FROM hatamoto_comments%'`)
+		if waiting > 0 {
+			break
+		}
+		if i > 200 {
+			t.Fatal("purge never blocked on the row")
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if err := tx.Commit(f.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if !f.exists(c.id) {
+		t.Error("a comment restored mid-purge was deleted")
 	}
 }

@@ -23,7 +23,8 @@ func (s *Service) PurgeSpamTrash(ctx context.Context) (int64, error) {
 			SELECT x.id FROM hatamoto_comments x
 			WHERE x.status IN ('spam','trash') AND x.updated_at < $1
 			  AND NOT EXISTS (SELECT 1 FROM hatamoto_comments ch WHERE ch.parent_id = x.id)
-			LIMIT 1000)`, cutoff)
+			LIMIT 1000)
+		  AND status IN ('spam','trash') AND updated_at < $1`, cutoff)
 		if err != nil {
 			return n, err
 		}
