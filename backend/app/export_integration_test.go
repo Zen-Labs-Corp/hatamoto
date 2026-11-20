@@ -369,7 +369,7 @@ func TestImportRejectsUnknownVersion(t *testing.T) {
 	tw.Close()
 	gz.Close()
 	_, err := portability.Import(context.Background(), nil, &buf, portability.ImportOptions{})
-	if err == nil || !strings.Contains(err.Error(), "version 99") {
+	if err == nil || !strings.Contains(err.Error(), "v99 is newer than this hatamoto supports") || !strings.Contains(err.Error(), "upgrade first") {
 		t.Fatalf("err = %v", err)
 	}
 }
