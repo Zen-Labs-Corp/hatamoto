@@ -92,6 +92,38 @@ func TestCommentSettingsOnHidesCallout(t *testing.T) {
 	}
 }
 
+// The cards belong in the page column next to the settings sub-nav, under the
+// section tabs: an unbalanced card closed the column early and dropped the
+// thresholds into the sub-nav.
+func TestCommentSettingsOnCardsInPageColumn(t *testing.T) {
+	t.Parallel()
+
+	for _, tok := range []string{"owner-token", "editor-token"} {
+		p := newCommentsRig(t, &fakeComments{settings: CommentSettings{Enabled: true}})
+		body := csetGet(t, p, tok)
+		_, page, ok := strings.Cut(body, `<div class="hm-page"`)
+		if !ok {
+			t.Fatalf("%s: no page column", tok)
+		}
+		page, _, _ = strings.Cut(page, "</main>")
+		for _, want := range []string{`aria-label="Comments sections"`, `id="comments-site"`, `id="comments-trust"`, `id="comments-threads"`, `id="comments-limits"`} {
+			if !strings.Contains(page, want) {
+				t.Errorf("%s: page column lacks %s", tok, want)
+			}
+		}
+		if strings.Index(page, `aria-label="Comments sections"`) > strings.Index(page, `id="comments-site"`) {
+			t.Errorf("%s: section tabs come after the cards", tok)
+		}
+		// Every card closes itself: the page column and the settings wrapper close after it.
+		if o, c := strings.Count(page, "<section"), strings.Count(page, "</section>"); o != c {
+			t.Errorf("%s: %d <section> but %d </section>", tok, o, c)
+		}
+		if o, c := strings.Count(page, "<div"), strings.Count(page, "</div>"); c != o+2 {
+			t.Errorf("%s: %d <div> and %d </div> in the page column, want two extra closes", tok, o, c)
+		}
+	}
+}
+
 func csetPost(p *perfRig, path, token string, form url.Values, hdr map[string]string) *httptest.ResponseRecorder {
 	return p.do("POST", csetURL+path, token, form, hdr)
 }
