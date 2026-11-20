@@ -149,6 +149,11 @@ func TestCommentBlocklistsBadKind(t *testing.T) {
 	}
 }
 
+// The a11y tests below cover these pages (TestEveryPageTemplateIsExercised).
+func init() {
+	areaPages["commentscommenters"] = []string{"settings/comments-blocklists", "settings/comments-commenters", "settings/comments-erase"}
+}
+
 const cmtrTestID = "5d1c7d3e-0a53-4d52-8d0e-6a3c6f6b8a11"
 
 func cmtrCommentersFake() *fakeComments {
