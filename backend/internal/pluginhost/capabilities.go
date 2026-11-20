@@ -241,8 +241,12 @@ func (r *Runtime) Grant(ctx context.Context, name string, perms []sdk.Permission
 			return st, err
 		}
 	}
-	registered := func() [2]bool {
-		return [2]bool{r.caps.grants.Has(name, sdk.PermBuilderData), r.caps.grants.Has(name, sdk.PermEntitiesFilter)}
+	registered := func() [3]bool {
+		return [3]bool{
+			r.caps.grants.Has(name, sdk.PermBuilderData),
+			r.caps.grants.Has(name, sdk.PermEntitiesFilter),
+			r.caps.grants.Has(name, sdk.PermCommentsRead),
+		}
 	}
 	before := registered()
 	if err := r.caps.grants.Set(ctx, name, perms); err != nil {

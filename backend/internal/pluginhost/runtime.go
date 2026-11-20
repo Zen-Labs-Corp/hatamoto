@@ -380,6 +380,9 @@ func (r *Runtime) register(m sdk.Manifest) []string {
 		if hook == sdk.EntityBeforeSave.Name && !r.caps.grants.Has(name, sdk.PermEntitiesFilter) {
 			continue // not granted: the filter is not registered
 		}
+		if hook == sdk.CommentCheckF.Name && !r.caps.grants.Has(name, sdk.PermCommentsRead) {
+			continue // not granted: the filter is not registered
+		}
 		if r.host.HasExport(name, export) {
 			reg.AddFilter(hook, 0, r.hookFilter(m, hook, export))
 			got = append(got, hook)
@@ -402,6 +405,9 @@ func (r *Runtime) action(m sdk.Manifest, hook, export string) func(context.Conte
 		if hook == sdk.FormSubmitted.Name && !r.caps.grants.Has(name, sdk.PermFormsRead) {
 			return // the payload carries submitted data: only plugins granted forms.read see it
 		}
+		if isCommentEvent(hook) && !r.caps.grants.Has(name, sdk.PermCommentsRead) {
+			return // comment events carry author name and body: only plugins granted comments.read see them
+		}
 		in, err := jsonx.MarshalPinned(payload)
 		if err == nil {
 			_, err = r.host.Call(ctx, name, export, in)
@@ -411,6 +417,15 @@ func (r *Runtime) action(m sdk.Manifest, hook, export string) func(context.Conte
 				slog.String("plugin", name), slog.String("hook", hook), slog.Any("error", err))
 		}
 	}
+}
+
+// isCommentEvent reports whether h is one of the comment actions.
+func isCommentEvent(h string) bool {
+	switch h {
+	case sdk.CommentCreated.Name, sdk.CommentApproved.Name, sdk.CommentSpam.Name, sdk.CommentDeleted.Name:
+		return true
+	}
+	return false
 }
 
 // filter returns a hooks filter that calls the plugin's filter_<hook> export.
