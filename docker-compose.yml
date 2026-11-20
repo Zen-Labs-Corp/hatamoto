@@ -1,8 +1,10 @@
 # Local/demo stack for hatamoto core (single-tenant, core-only OSS build).
 # `docker compose up` boots db -> hatamoto (migrates, generates secrets, serves
-# the site and the admin on :8090). Open http://localhost:8090/admin and enter
-# the setup code printed in `docker compose logs hatamoto`.
-# Not a production topology — see README "Production hardening".
+# the site and the admin on :8090). Open the setup address that
+# `docker compose logs hatamoto` prints ("Setup: open /<admin>/setup and enter
+# code ..."): the admin lives at a private path, which
+# `docker compose exec hatamoto hatamoto admin-url` prints at any time.
+# Not a production topology: see README "Run it in production".
 services:
   db:
     image: postgres:16
@@ -10,7 +12,7 @@ services:
       POSTGRES_USER: hatamoto
       # Local-demo default only — change this for any real/internet-facing
       # deploy. The compose stack is not a production topology (see README
-      # "Production hardening").
+      # "Run it in production").
       POSTGRES_PASSWORD: hatamoto
       POSTGRES_DB: hatamoto
     volumes:

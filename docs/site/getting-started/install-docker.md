@@ -90,8 +90,6 @@ The Dockerfile below downloads the release binary and builds the container on yo
          interval: 5s
          timeout: 5s
          retries: 10
-       ports:
-         - "127.0.0.1:5432:5432"
 
      hatamoto:
        build:
@@ -122,6 +120,8 @@ The Dockerfile below downloads the release binary and builds the container on yo
      uploads:
      data:
    ```
+
+   The database publishes no port on your computer, so a Postgres you already run there does not get in the way. Only Hatamoto reaches it, inside Docker; to open it yourself, run `docker compose exec db psql -U hatamoto`.
 
    `CSP_ENFORCE: "false"` makes browsers only report, not block, scripts from other sites. [Hardening](../operate/hardening.md) explains when to turn blocking on for a real site.
 
