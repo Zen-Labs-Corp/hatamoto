@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -107,6 +109,18 @@ func TestCommentEventDeletedCarriesIDsOnly(t *testing.T) {
 	ev := (*got)[0].ev
 	if ev.BodyHTML != "" || ev.AuthorName != "" || ev.Staff || ev.ID != c.ID.String() || ev.Status != "approved" {
 		t.Errorf("deleted payload %+v", ev)
+	}
+	b, err := jsonx.MarshalPinned(ev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var keys map[string]any
+	if err := jsonx.Unmarshal(b, &keys); err != nil {
+		t.Fatal(err)
+	}
+	gotKeys := slices.Sorted(maps.Keys(keys))
+	if want := []string{"entity_id", "id", "parent_id", "status"}; !slices.Equal(gotKeys, want) {
+		t.Errorf("deleted payload keys %v, want %v (docs: ids and status only)", gotKeys, want)
 	}
 }
 

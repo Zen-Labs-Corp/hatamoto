@@ -236,7 +236,7 @@ type CommentEvent struct {
 	BodyHTML   string    `json:"body_html,omitempty"` // sanitised once on write
 	Status     string    `json:"status"`              // pending|approved|spam|trash
 	Locale     string    `json:"locale,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
+	CreatedAt  time.Time `json:"created_at,omitzero"` // left out on comment.deleted
 }
 
 // CommentCheckMaxScore is the most one comment.check plugin can add; larger
@@ -266,7 +266,7 @@ type CommentItem struct {
 	AuthorName string    `json:"author_name"`
 	Staff      bool      `json:"staff,omitempty"`
 	BodyHTML   string    `json:"body_html"`
-	CreatedAt  time.Time `json:"created_at"`
+	CreatedAt  time.Time `json:"created_at,omitzero"` // left out on comment.deleted
 }
 
 // CommentThread is the result of comments.thread.

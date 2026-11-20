@@ -61,7 +61,7 @@ func (o *commentEventObserver) OnDeleted(ctx context.Context, c comment.Comment)
 	}
 	o.fire(ctx, sdk.CommentDeleted.Name, sdk.CommentEvent{
 		ID: c.ID.String(), EntityID: c.EntityID.String(), ParentID: idString(c.ParentID),
-		Status: string(c.Status), CreatedAt: c.CreatedAt.UTC(),
+		Status: string(c.Status),
 	})
 }
 
