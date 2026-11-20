@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -41,6 +42,12 @@ type ImportOptions struct {
 	// MaxBytes caps the decompressed archive (a gzip-bomb guard). Zero means
 	// DefaultMaxImportBytes.
 	MaxBytes int64
+	// Secret is the server secret to check the archive against. Empty means
+	// the check cannot be verified (a notice, not a refusal).
+	Secret string
+	// Force imports an archive made with a different server secret and blanks
+	// its commenter emails, which that secret cannot open.
+	Force bool
 }
 
 // DefaultMaxImportBytes is the decompressed-size cap when none is set.
@@ -58,11 +65,18 @@ type ImportResult struct {
 	Users      int64
 	// Warnings lists media files the import skipped (per-file, not fatal).
 	Warnings []string
+	// Notices lists non-media remarks, such as the secret check. They are kept
+	// apart from Warnings, which callers count as skipped media files.
+	Notices []string
+	// DroppedEmails is how many commenter emails a forced import blanked.
+	DroppedEmails int64
 	// People is how many person entities the post-import backfill made for an
 	// archive that predates people (zero for an archive that has them).
 	People int
 	// needPeople is set inside the import transaction: authors but no people.
 	needPeople bool
+	// dropEmails is set when a forced import must blank commenter emails.
+	dropEmails bool
 }
 
 // contentTables must be empty before an import. The entity schemas and the
@@ -86,9 +100,9 @@ const insertBatch = 200
 //
 // An archive from before people existed has authors and no person entities:
 // once it is committed, person.Backfill makes the people (it is idempotent, so
-// running it again after a failure is safe). No FormatVersion bump: the
-// archive layout is unchanged, hatamoto_user_people is just one more table
-// file, and archives without it import as before.
+// running it again after a failure is safe). People needed no FormatVersion
+// bump (hatamoto_user_people is just one more table file); version 2 added the
+// server secret check, see secretGate.
 func Import(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts ImportOptions) (*ImportResult, error) {
 	res, err := importArchive(ctx, pool, r, opts)
 	if err != nil || !res.needPeople {
@@ -126,6 +140,12 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 	tr := tar.NewReader(io.LimitReader(gz, maxBytes))
 
 	hdr, err := readHeader(tr)
+	if err != nil {
+		return nil, err
+	}
+
+	// Header-level, so a refusal happens before any transaction.
+	secretNotice, dropEmails, err := secretGate(hdr, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +199,10 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 		return nil, err
 	}
 
-	res = &ImportResult{Header: *hdr, Rows: map[string]int64{}}
+	res = &ImportResult{Header: *hdr, Rows: map[string]int64{}, dropEmails: dropEmails}
+	if secretNotice != "" {
+		res.Notices = append(res.Notices, secretNotice)
+	}
 	var man *Manifest
 	next := 0 // index into hdr.Tables: data files must follow the header's order
 	for {
@@ -247,6 +270,14 @@ func importArchive(ctx context.Context, pool *pgxpool.Pool, r io.Reader, opts Im
 
 	if err := linkParents(ctx, tx); err != nil {
 		return nil, err
+	}
+	if res.dropEmails {
+		tag, err := tx.Exec(ctx, DropCommenterEmailsSQL)
+		if err != nil {
+			return nil, fmt.Errorf("drop commenter emails: %w", err)
+		}
+		res.DroppedEmails = tag.RowsAffected()
+		res.Notices = append(res.Notices, fmt.Sprintf("dropped %d commenter emails (different server secret)", res.DroppedEmails))
 	}
 	// Comment rows keep their archived seq; move the sequence past them and
 	// rebuild the counts (not in the archive) from the rows.
@@ -354,8 +385,11 @@ func readHeader(tr *tar.Reader) (*Header, error) {
 	if hdr.Format != FormatName {
 		return nil, fmt.Errorf("not a hatamoto export (format %q)", hdr.Format)
 	}
-	if hdr.Version < 1 || hdr.Version > FormatVersion {
-		return nil, fmt.Errorf("archive format version %d is not supported (this binary reads up to %d)", hdr.Version, FormatVersion)
+	if hdr.Version < 1 {
+		return nil, fmt.Errorf("archive format version %d is not supported", hdr.Version)
+	}
+	if hdr.Version > FormatVersion {
+		return nil, fmt.Errorf("archive format v%d is newer than this hatamoto supports (v%d); upgrade first", hdr.Version, FormatVersion)
 	}
 	for _, name := range hdr.Tables {
 		if _, ok := tableByName(name); !ok {
@@ -363,6 +397,27 @@ func readHeader(tr *tar.Reader) (*Header, error) {
 		}
 	}
 	return &hdr, nil
+}
+
+// secretGate decides, from the header alone, whether the archive may be
+// imported under opts.Secret. Only archives with comment tables are checked:
+// nothing else in an export is sealed with the server secret.
+func secretGate(hdr *Header, opts ImportOptions) (notice string, drop bool, err error) {
+	if !slices.ContainsFunc(hdr.Tables, func(n string) bool { return n == "hatamoto_commenters" || n == "hatamoto_comments" }) {
+		return "", false, nil
+	}
+	switch VerifySecret(hdr.SecretCheck, opts.Secret) {
+	case SecretNoCheck:
+		return "archive has no server secret check (made by an older hatamoto): if the source used a different HATAMOTO_SECRET, commenter emails will be unreadable", false, nil
+	case SecretUnknown:
+		return "no server secret is set here (HATAMOTO_SECRET or secrets.env), so the archive's secret check was not verified", false, nil
+	case SecretMismatch:
+		if !opts.Force {
+			return "", false, ErrSecretMismatch
+		}
+		return "", true, nil
+	}
+	return "", false, nil
 }
 
 // requireSchemaNotNewer refuses an archive from a newer Hatamoto: columns this

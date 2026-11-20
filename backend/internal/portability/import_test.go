@@ -1,7 +1,13 @@
 package portability
 
 import (
+	"archive/tar"
 	"bufio"
+	"bytes"
+	"compress/gzip"
+	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -216,5 +222,71 @@ func TestMediaProvider(t *testing.T) {
 	}
 	if got := mediaProvider(ImportOptions{Store: &media.S3Store{}}); got != "s3" {
 		t.Errorf("store set = %q, want s3", got)
+	}
+}
+
+func TestSecretGate(t *testing.T) {
+	withComments := &Header{Tables: []string{"hatamoto_entities", "hatamoto_commenters"}, SecretCheck: SecretCheck("a")}
+	noComments := &Header{Tables: []string{"hatamoto_entities"}, SecretCheck: SecretCheck("a")}
+
+	if n, d, err := secretGate(noComments, ImportOptions{Secret: "b"}); n != "" || d || err != nil {
+		t.Errorf("no comment tables: %q %v %v", n, d, err)
+	}
+	if n, d, err := secretGate(withComments, ImportOptions{Secret: "a"}); n != "" || d || err != nil {
+		t.Errorf("match: %q %v %v", n, d, err)
+	}
+	old := &Header{Tables: withComments.Tables}
+	if n, d, err := secretGate(old, ImportOptions{Secret: "a"}); !strings.Contains(n, "no server secret check") || d || err != nil {
+		t.Errorf("no check: %q %v %v", n, d, err)
+	}
+	if n, d, err := secretGate(withComments, ImportOptions{}); !strings.Contains(n, "not verified") || d || err != nil {
+		t.Errorf("unknown: %q %v %v", n, d, err)
+	}
+	if _, _, err := secretGate(withComments, ImportOptions{Secret: "b"}); !errors.Is(err, ErrSecretMismatch) {
+		t.Errorf("mismatch: %v", err)
+	}
+	if n, d, err := secretGate(withComments, ImportOptions{Secret: "b", Force: true}); n != "" || !d || err != nil {
+		t.Errorf("force: %q %v %v", n, d, err)
+	}
+}
+
+func headerArchive(t *testing.T, body string) *bytes.Buffer {
+	t.Helper()
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	if err := tw.WriteHeader(&tar.Header{Name: "format.json", Mode: 0o644, Size: int64(len(body))}); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = tw.Write([]byte(body))
+	tw.Close()
+	gz.Close()
+	return &buf
+}
+
+// The gate runs on the header alone: a nil pool would panic on Begin.
+func TestImportRefusesSecretMismatchBeforeTx(t *testing.T) {
+	body := fmt.Sprintf(`{"format":"hatamoto-export","version":2,"secret_check":%q,"tables":["hatamoto_commenters"]}`, SecretCheck("a"))
+	_, err := Import(context.Background(), nil, headerArchive(t, body), ImportOptions{Secret: "other"})
+	if !errors.Is(err, ErrSecretMismatch) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestReadHeaderVersions(t *testing.T) {
+	read := func(body string) error {
+		gz, err := gzip.NewReader(headerArchive(t, body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = readHeader(tar.NewReader(gz))
+		return err
+	}
+	err := read(`{"format":"hatamoto-export","version":99,"tables":[]}`)
+	if err == nil || !strings.Contains(err.Error(), "v99 is newer than this hatamoto supports (v2); upgrade first") {
+		t.Errorf("v99: %v", err)
+	}
+	if err := read(`{"format":"hatamoto-export","version":1,"tables":[]}`); err != nil {
+		t.Errorf("v1: %v", err)
 	}
 }
