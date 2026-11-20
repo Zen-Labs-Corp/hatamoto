@@ -172,8 +172,12 @@ func (a *Admin) handleComments(w http.ResponseWriter, r *http.Request) {
 		chips = append(chips, ui.Chip{Label: "Has links", RemoveHref: modHref(base, rest.query())})
 	}
 
+	var hidden map[string]string
+	if p.Commenter != "" {
+		hidden = map[string]string{"commenter": p.Commenter}
+	}
 	t := ui.Table{
-		ID: "comments", Caption: "Comments", BaseURL: base, CSRF: csrfToken(ctx), Wrap: true,
+		ID: "comments", Hidden: hidden, Caption: "Comments", BaseURL: base, CSRF: csrfToken(ctx), Wrap: true,
 		Columns: []ui.Col{
 			{Key: "comment", Label: "Comment", Role: "title"}, {Key: "trust", Label: "Trust"},
 			{Key: "entity", Label: "On"}, {Key: "when", Label: "Written"},

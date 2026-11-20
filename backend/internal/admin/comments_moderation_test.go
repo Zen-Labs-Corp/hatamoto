@@ -90,6 +90,23 @@ func TestCommentsListCommenterFilter(t *testing.T) {
 	}
 }
 
+func TestCommentsListFormKeepsCommenter(t *testing.T) {
+	t.Parallel()
+
+	p := newCommentsRig(t, &fakeComments{rows: modRows()})
+	body := modGet(t, p, "owner-token", "/admin/comments?status=approved&commenter="+cmtrTestID)
+	want := `<input type="hidden" name="commenter" value="` + cmtrTestID + `">`
+	if !strings.Contains(body, want) {
+		t.Error("the filter form (status tabs, search, selects) does not carry commenter")
+	}
+	if !strings.Contains(body, "commenter="+cmtrTestID) {
+		t.Error("the chip/clear links lost commenter")
+	}
+	if body := modGet(t, p, "owner-token", "/admin/comments"); strings.Contains(body, `name="commenter"`) {
+		t.Error("an unfiltered list carries a commenter field")
+	}
+}
+
 func TestCommentsListPageClamped(t *testing.T) {
 	t.Parallel()
 
