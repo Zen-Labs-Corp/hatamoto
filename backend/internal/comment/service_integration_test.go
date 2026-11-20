@@ -807,6 +807,45 @@ func TestLockOrderCountsBeforeCommenter(t *testing.T) {
 	}
 }
 
+// A reply must lock its parent comment before the entity counts row: a
+// moderator transition holds the comment and then waits for the counts row.
+func TestLockOrderParentBeforeCounts(t *testing.T) {
+	f := newFixture(t)
+	f.enable()
+	seed := f.draft("parent@example.test", "parent")
+	seed.Status = StatusApproved
+	parent := f.store(seed)
+
+	holder, err := f.db.Pool().Begin(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer holder.Rollback(f.ctx)
+	if _, err := holder.Exec(f.ctx, `SELECT 1 FROM hatamoto_comments WHERE id = $1 FOR UPDATE`, parent.ID); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		d := f.draft("reply@example.test", "reply")
+		d.Status, d.ParentID = StatusPending, &parent.ID
+		_, err := f.svc.Store(f.ctx, d)
+		done <- err
+	}()
+	f.waitForLockWait(1)
+	probe, err := f.db.Pool().Begin(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := probe.Exec(f.ctx, `SELECT 1 FROM hatamoto_comment_entities WHERE entity_id = $1 FOR UPDATE NOWAIT`, f.entity); err != nil {
+		t.Errorf("reply holds the counts row while it waits for the parent comment: %v", err)
+	}
+	probe.Rollback(f.ctx)
+	holder.Rollback(f.ctx)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestApprovedCountUnderConcurrentApprovals(t *testing.T) {
 	f := newFixture(t)
 	f.enable()

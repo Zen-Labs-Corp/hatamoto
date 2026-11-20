@@ -121,9 +121,32 @@ func (s *Service) Store(ctx context.Context, d Draft) (Comment, error) {
 
 	var out Comment
 	err = s.db.WithTx(ctx, func(tx pgx.Tx) error {
-		// Lock order everywhere: entity counts row, then commenter row. The
-		// comment INSERT takes a KEY SHARE lock on the commenter row (foreign
-		// key), so the counts row has to be locked before it.
+		// Lock order everywhere: comment rows, entity counts row, commenter row.
+		// The INSERT takes KEY SHARE locks on the parent comment and the
+		// commenter row (foreign keys); transition, Delete, Edit and Erase lock
+		// the comment before the counts row, so the parent is locked first here
+		// and the counts row has to be locked before the commenter.
+		var parentID *uuid.UUID
+		parentPath, depth := "", 1
+		if d.ParentID != nil {
+			var entity uuid.UUID
+			var path string
+			err := tx.QueryRow(ctx, `SELECT entity_id, path FROM hatamoto_comments WHERE id = $1 FOR KEY SHARE`, *d.ParentID).Scan(&entity, &path)
+			if errors.Is(err, pgx.ErrNoRows) || (err == nil && entity != d.EntityID) {
+				return ErrNotFound
+			}
+			if err != nil {
+				return err
+			}
+			if attach := ReplyParentPath(path, set.MaxDepth); attach != "" {
+				var id uuid.UUID
+				if err := tx.QueryRow(ctx, `SELECT id FROM hatamoto_comments WHERE path = $1 FOR KEY SHARE`, attach).Scan(&id); err != nil {
+					return err
+				}
+				parentID, parentPath, depth = &id, attach, Depth(attach)+1
+			}
+		}
+
 		if countsStatus(d.Status) {
 			if err := lockCounts(ctx, tx, d.EntityID); err != nil {
 				return err
@@ -145,27 +168,6 @@ func (s *Service) Store(ctx context.Context, d Draft) (Comment, error) {
 				return err
 			}
 			commenterID = &id
-		}
-
-		var parentID *uuid.UUID
-		parentPath, depth := "", 1
-		if d.ParentID != nil {
-			var entity uuid.UUID
-			var path string
-			err := tx.QueryRow(ctx, `SELECT entity_id, path FROM hatamoto_comments WHERE id = $1`, *d.ParentID).Scan(&entity, &path)
-			if errors.Is(err, pgx.ErrNoRows) || (err == nil && entity != d.EntityID) {
-				return ErrNotFound
-			}
-			if err != nil {
-				return err
-			}
-			if attach := ReplyParentPath(path, set.MaxDepth); attach != "" {
-				var id uuid.UUID
-				if err := tx.QueryRow(ctx, `SELECT id FROM hatamoto_comments WHERE path = $1`, attach).Scan(&id); err != nil {
-					return err
-				}
-				parentID, parentPath, depth = &id, attach, Depth(attach)+1
-			}
 		}
 
 		var confirmedAt, approvedAt *time.Time
