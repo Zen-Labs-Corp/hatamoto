@@ -316,6 +316,12 @@ func (x *restorer) check(ctx context.Context) (*RestorePlan, error) {
 		}
 	}
 
+	if r, err := x.checkSecret(plan); err != nil {
+		return nil, err
+	} else if r != "" {
+		refuse = append(refuse, r)
+	}
+
 	// The dumps' grants against this cluster's roles: which role the source
 	// app role becomes, and which grants have no role to go to. Last, and not read
 	// for a backup that is refused anyway.
@@ -612,6 +618,9 @@ func (x *restorer) buildPlan(plan *RestorePlan) {
 		plan.Would = append(plan.Would, fmt.Sprintf("restore %d media file%s (%s) to object storage", x.scan.mediaFiles, plural(x.scan.mediaFiles), mib(x.scan.mediaBytes)))
 	default:
 		plan.Would = append(plan.Would, fmt.Sprintf("restore %d media file%s (%s)", x.scan.mediaFiles, plural(x.scan.mediaFiles), mib(x.scan.mediaBytes)))
+	}
+	if x.dropEmails {
+		plan.Would = append(plan.Would, fmt.Sprintf("drop %d commenter emails (different server secret)", x.mf.ContentRows["hatamoto_commenters"]))
 	}
 	if x.scan.hasSecrets {
 		plan.Would = append(plan.Would, "write secrets.env")

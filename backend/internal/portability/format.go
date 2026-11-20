@@ -11,9 +11,10 @@ import (
 
 // FormatName and FormatVersion identify the archive. A reader refuses a newer
 // version than it knows; the version only changes when the layout does.
+// Version 2 adds Header.SecretCheck; version 1 archives still import.
 const (
 	FormatName    = "hatamoto-export"
-	FormatVersion = 1
+	FormatVersion = 2
 )
 
 // Archive entry names.
@@ -36,7 +37,8 @@ type Header struct {
 	CreatedAt         time.Time `json:"created_at"`
 	SchemaVersion     int64     `json:"schema_version"` // newest applied database migration
 	IncludeSubmission bool      `json:"include_form_submissions"`
-	Tables            []string  `json:"tables"` // order the data files appear in
+	Tables            []string  `json:"tables"`                 // order the data files appear in
+	SecretCheck       string    `json:"secret_check,omitempty"` // HMAC of a fixed label under the server secret, never the secret; see secretcheck.go
 }
 
 // Manifest is the last entry: what the archive must contain. An import checks

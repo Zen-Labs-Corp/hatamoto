@@ -53,6 +53,10 @@ func TestParseRestoreArgs(t *testing.T) {
 	if a != want {
 		t.Errorf("got %+v, want %+v", a, want)
 	}
+	a, err = parseRestoreArgs([]string{"b.tar", "--force", "--admin-url", "postgres://su@h/postgres"})
+	if err != nil || !a.force || a.dryRun {
+		t.Errorf("--force: got %+v, %v", a, err)
+	}
 }
 
 func TestBackupRestoreUnknownIDNamesIt(t *testing.T) {

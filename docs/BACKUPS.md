@@ -14,7 +14,7 @@ One backup is one tar file, `<id>.tar`, with these parts:
 |---|---|
 | `core.dump` | `pg_dump --format=custom` of the whole database except the plugin schemas and the privileged `hatamoto_admin` schema. It holds the comments and commenters, the comment settings, the per-page comment modes and counts, and the blocklists. |
 | `plugin_<name>.dump` | One `pg_dump` per plugin schema (`plugin_<name>`), so a plugin's own tables travel with the backup. |
-| `content.tar.gz` | The content export (the same format as `hatamoto export`: content, menus, settings, media files, comments and commenters). |
+| `content.tar.gz` | The content export (the same format as `hatamoto export`: content, menus, settings, media files, comments and commenters). It is a site export of format v2, which older hatamoto versions refuse to import. |
 | `media-manifest.json` | Only for a site whose media is in object storage (`MEDIA_STORAGE=s3`): `{"version":1,"files":[{"key","size","sha256"}]}`, one entry per file the media library references, with the object name relative to the bucket prefix. A referenced file that is not in the bucket is left out and counted in `media_missing`. It is a normal part: listed in `parts` and written before `manifest.json`. |
 | `secrets.env` | A verbatim copy of `<secrets dir>/secrets.env` (`HATAMOTO_SECRETS_DIR`, default `./data/secrets`), when that file exists. If the secret lives only in the environment (`HATAMOTO_SECRET` set, nothing written to disk) there is nothing to copy and the part is left out. |
 | `config.env` | A verbatim copy of your environment file, when you name one with `--config` or `HATAMOTO_CONFIG_FILE` (see "Taking a backup"). Left out otherwise. |
@@ -27,7 +27,8 @@ major version), `pg_dump` (the client version), `parts` (name, size and SHA-256 
 export), `media_files`, `media_bytes` and `media_missing` (referenced files that were not on disk or in the bucket; left out when 0), `media_storage` (`s3` when the media was in object storage; left out for local disk),
 `trust` (the key IDs of the release and manifest signing keys built into the binary that made the
 backup, and of the keys in `HATAMOTO_TRUSTED_KEYS`) and `config_path` (the absolute path the config file had; restore shows it as a hint and never writes there).
-Backups made before `trust`, `secrets.env` and `config.env` existed lack them; they still restore,
+`secret_check` is the check value of the server secret, left out when no secret was available. The manifest `version` is unchanged, and older releases ignore the field.
+Backups made before `trust`, `secrets.env`, `config.env` and `secret_check` existed lack them; they still restore,
 with warnings.
 
 ### Media in object storage
@@ -85,7 +86,7 @@ plugin database roles (`hatamoto_plugin_credentials`) and everything else in the
 the file like the database itself: keep it private, and encrypt it before it leaves the server.
 Anyone who can read a backup can read all of that.
 
-Commenter emails are encrypted with the server secret (`HATAMOTO_SECRET`). Restoring with a different secret leaves them unreadable and the commenter hashes unmatched, so restore with the secret the backup was taken under (it is in `secrets.env` when that file exists).
+Commenter emails are encrypted with the server secret (`HATAMOTO_SECRET`). A backup records a check value of that secret (`secret_check` in `manifest.json`, never the secret itself). Restore compares it with the secret the restored server will use: `HATAMOTO_SECRET` or `JWT_SECRET` from the environment, else the backup's `secrets.env`, else an existing `secrets.env` in the secrets directory. A mismatch refuses the restore. `hatamoto backup restore --force` restores anyway and blanks the commenter emails after the database is restored; the plan says `drop N commenter emails (different server secret)`. The database also holds other data sealed with the server secret, and `--force` does not repair it: users' two-factor authenticator secrets and recovery codes, the SMTP password, the off-site backup secret key and the spam-protection (captcha) secret stay unreadable. Remove a user's 2FA with `hatamoto user reset-2fa --email E`, and enter the SMTP password, off-site key and spam secret again in the admin. A backup without the check (made by an older release) restores with a warning.
 
 Backups made before this feature (`$HATAMOTO_DATA/backups/pre-<version>.dump`) are left alone: they
 are not listed, pruned or deleted. Delete them by hand when you no longer need them.
@@ -252,6 +253,7 @@ hatamoto backup restore 20261025T101500Z-manual --admin-url postgres://postgres@
 |---|---|
 | `<id\|path.tar>` | A backup id from `hatamoto backup list`, or the path of a `.tar` (anything ending in `.tar` or holding a `/` is a path). |
 | `--admin-url <DSN>` | Required. A superuser DSN, used only to run the role bootstrap (`deploy/sql/role-admin-bootstrap.sql`, built into the binary). Restore passes the tools the DSN's parts through `PG*` environment variables, so no password is on their command lines. The `--admin-url` you type is on restore's own command line, though, and visible in the process list and your shell history: leave the password out (`postgres://postgres@host/postgres`) and give it through `PGPASSWORD` or a `~/.pgpass` entry, which the tools and restore's own checks read. A password in the DSN still works. `PGPASSWORD` beats `~/.pgpass` for every connection restore makes, including the app role's, so if `DATABASE_URL` has no password of its own, use `~/.pgpass` entries for both roles rather than `PGPASSWORD`. Restore hands the tools the DSN's host, port, user, database and password, plus the query parameters that have a libpq environment variable (`sslmode`, `sslrootcert`, `sslcert`, `sslkey`, `channel_binding`, `krbsrvname`, `connect_timeout`, `application_name`, `options`, `target_session_attrs`, `require_auth`, `sslnegotiation`, `min_protocol_version`, `max_protocol_version`, `passfile`). pgx-only parameters (`pool_*`, `default_query_exec_mode`, `statement_cache_capacity`, `description_cache_capacity`, `min_read_buffer_size`) are dropped. Restore refuses a list of hosts, `service` and `servicefile`, and any query parameter with no libpq environment variable (for example `search_path` or `sslpassword`), in `DATABASE_URL` as well, because it must write to the one server it checked. `backup create` refuses none of these. A `user` or `dbname` query parameter wins over the URL's user and path, as it does for the server. Restore also refuses while `PGSERVICE`, `PGSERVICEFILE` or `PGHOSTADDR` is set in the environment, because libpq would let them send the tools to another server than the one checked; unset them first. |
+| `--force` | Restore a backup made under a different server secret. Commenter emails are dropped; 2FA, the SMTP password, the off-site key and the spam secret stay unreadable (see the paragraph on the server secret above). |
 | `--dry-run` | Verify the archive and run every check, print the plan, write nothing. |
 | `--config-out <path>` | Where to write the saved config. An absolute, clean path whose directory already exists; restore creates no directories for it. Without it the config is not written: a warning names the recorded `config_path` and the flag to pass. The recorded path is a hint only, because a backup archive must not choose where this machine writes a file. |
 
@@ -288,6 +290,7 @@ and nothing is written:
 | target database not empty | Any table, view, sequence or similar outside the system schemas, including `hatamoto_admin` from an early bootstrap. The message names the schemas. |
 | media directory not empty | `MEDIA_UPLOAD_DIR` holds any file or directory. A missing directory counts as empty. |
 | media prefix not empty | With `MEDIA_STORAGE=s3` and an archive that holds media bytes: the bucket prefix already holds objects. |
+| server secret | The backup's secret check does not match the effective server secret (without `--force`). |
 | different `secrets.env` | The secrets directory already holds a `secrets.env` with other contents. The same contents are accepted. |
 | unsafe media path | The archive holds a media file that would land outside the media directory. |
 | damaged archive | A part is missing or does not match its SHA-256 in the manifest. |
@@ -296,7 +299,7 @@ and nothing is written:
 `HATAMOTO_TRUSTED_KEYS` here differing from the recorded key IDs (the restored config carries the
 backup's); no `secrets.env` in the backup (set `HATAMOTO_SECRET` yourself); a config that is not
 written because `--config-out` was not given (the warning names the recorded path) or the target
-already exists. Restore never overwrites a config file, and
+already exists; a backup with no secret check, or no server secret available to compare it with (the check cannot be verified). Restore never overwrites a config file, and
 writes `secrets.env` with mode 0600 in a 0700 directory.
 
 **If a step fails** the error names the step reached, and restore rolls back what the run wrote:

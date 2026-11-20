@@ -41,13 +41,13 @@ const opsUsage = `  entity list [--schema S] [--status S] [--search Q] [--limit 
   analytics first-crawls [--from D] [--to D] [--limit N]
   analytics referrals [--from D] [--to D]                AI-assistant visits per day (D = YYYY-MM-DD)
   export <file.tar.gz> [--no-submissions]   full-site archive (see docs/EXPORT.md); "-" = stdout
-  import <file.tar.gz>                      into an empty database only; users need reset-password
+  import <file.tar.gz> [--force]            into an empty database only; users need reset-password; --force: different server secret, drops commenter emails
   import wordpress (--url URL --user U --app-password P | --wxr FILE) [--scan-only] [--resume RUN] [--audit-url URL]
                                             import a WordPress site (docs/IMPORT-WORDPRESS.md)
   backup create [--config P]                full backup into $HATAMOTO_DATA/backups (needs DATABASE_URL and pg_dump); holds secrets
   backup list [--json] [--remote]           backups on disk, or in the off-site bucket with --remote (no database needed)
   backup delete <id>                        remove one backup
-  backup restore <id|path.tar> [--dry-run] --admin-url DSN [--config-out P]   rebuild a clean machine from a backup
+  backup restore <id|path.tar> [--dry-run] --admin-url DSN [--config-out P] [--force]   rebuild a clean machine from a backup
   backup restore --from-offsite <id> ...    same, downloading the backup from the off-site bucket (target in HATAMOTO_OFFSITE_*)`
 
 // runOps runs the entity, redirect, analytics, export and import commands
@@ -76,10 +76,19 @@ func runOps(ctx context.Context, args []string, _ *slog.Logger, out io.Writer) e
 		if err != nil {
 			return err
 		}
-		if args[0] == "export" {
-			return runExport(ctx, db, cfg.Server.MediaUploadDir, store, args[1:], out)
+		secret, err := serverSecret()
+		if err != nil {
+			if args[0] == "import" {
+				return fmt.Errorf("read the server secret: %w", err)
+			}
+			// An export is still useful without a check, as in the backup engine.
+			fmt.Fprintf(os.Stderr, "warning: cannot read the server secret (%v); exporting without a secret check\n", err)
+			secret = ""
 		}
-		return runImport(ctx, db, cfg.Server.MediaUploadDir, store, args[1:], logger, out)
+		if args[0] == "export" {
+			return runExport(ctx, db, cfg.Server.MediaUploadDir, store, secret, args[1:], out)
+		}
+		return runImport(ctx, db, cfg.Server.MediaUploadDir, store, secret, args[1:], logger, out)
 	case "entity":
 		return runEntity(ctx, db, args[1:], out, logger)
 	case "redirect":
@@ -394,7 +403,7 @@ func mediaDirOr(dir string) string {
 	return dir
 }
 
-func runExport(ctx context.Context, db *database.DB, mediaDir string, store media.BlobStore, args []string, out io.Writer) error {
+func runExport(ctx context.Context, db *database.DB, mediaDir string, store media.BlobStore, secret string, args []string, out io.Writer) error {
 	var noSub bool
 	pos, err := flagSet("export", args, func(fs *flag.FlagSet) {
 		fs.BoolVar(&noSub, "no-submissions", false, "leave out form submissions (visitor data)")
@@ -402,7 +411,7 @@ func runExport(ctx context.Context, db *database.DB, mediaDir string, store medi
 	if err != nil || len(pos) != 1 {
 		return errors.New("usage: hatamoto export <file.tar.gz> [--no-submissions]")
 	}
-	opts := portability.ExportOptions{MediaDir: mediaDirOr(mediaDir), Store: store, NoSubmissions: noSub}
+	opts := portability.ExportOptions{MediaDir: mediaDirOr(mediaDir), Store: store, NoSubmissions: noSub, Secret: secret}
 	if pos[0] == "-" {
 		_, err := portability.Export(ctx, db.Pool(), os.Stdout, opts)
 		return err
@@ -432,10 +441,13 @@ func runExport(ctx context.Context, db *database.DB, mediaDir string, store medi
 	return nil
 }
 
-func runImport(ctx context.Context, db *database.DB, mediaDir string, store media.BlobStore, args []string, logger *slog.Logger, out io.Writer) error {
-	pos, err := flagSet("import", args, func(*flag.FlagSet) {})
+func runImport(ctx context.Context, db *database.DB, mediaDir string, store media.BlobStore, secret string, args []string, logger *slog.Logger, out io.Writer) error {
+	var force bool
+	pos, err := flagSet("import", args, func(fs *flag.FlagSet) {
+		fs.BoolVar(&force, "force", false, "import an archive made with a different server secret and drop its unreadable commenter emails")
+	})
 	if err != nil || len(pos) != 1 {
-		return errors.New("usage: hatamoto import <file.tar.gz>")
+		return errors.New("usage: hatamoto import <file.tar.gz> [--force]")
 	}
 	f := os.Stdin
 	if pos[0] != "-" {
@@ -448,7 +460,7 @@ func runImport(ctx context.Context, db *database.DB, mediaDir string, store medi
 	if err := migrateUpDirect(ctx, db, logger); err != nil {
 		return err
 	}
-	res, err := portability.Import(ctx, db.Pool(), f, portability.ImportOptions{MediaDir: mediaDirOr(mediaDir), Store: store})
+	res, err := portability.Import(ctx, db.Pool(), f, portability.ImportOptions{MediaDir: mediaDirOr(mediaDir), Store: store, Secret: secret, Force: force})
 	if err != nil {
 		return err
 	}
@@ -464,6 +476,9 @@ func runImport(ctx context.Context, db *database.DB, mediaDir string, store medi
 	fmt.Fprintln(out)
 	for _, w := range res.Warnings {
 		fmt.Fprintf(out, "warning: %s\n", w)
+	}
+	for _, n := range res.Notices {
+		fmt.Fprintf(out, "warning: %s\n", n)
 	}
 	if res.Users > 0 {
 		fmt.Fprintf(out, "%d users imported without passwords: set one with `hatamoto user reset-password --email <email>`\n", res.Users)

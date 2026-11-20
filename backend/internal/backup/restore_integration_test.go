@@ -145,8 +145,10 @@ func seedAndDestroyWith(t *testing.T, mutate func(ctx context.Context, pool *pgx
 	}
 
 	data := t.TempDir()
+	// The check matches the secrets.env written above, so every restore in
+	// these tests runs under the same secret unless it sets its own env.
 	e := New(Options{Data: data, MediaDir: media, DatabaseURL: appURL, Pool: pool, Version: restoreVersion, Log: quiet(),
-		SecretsDir: secretsDir, ConfigPath: cfgPath})
+		SecretsDir: secretsDir, ConfigPath: cfgPath, Secret: func() (string, error) { return "abc123", nil }})
 	info, err := e.Create(ctx, Request{Kind: KindManual})
 	if err != nil || info.State != StateOK {
 		t.Fatalf("Create: %+v, %v", info, err)

@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"hatamoto.dev/core/internal/pluginhost"
+	"hatamoto.dev/core/internal/portability"
 )
 
 // dbSteps restores the database side of a backup, in the order that works:
@@ -352,10 +353,20 @@ ALTER DEFAULT PRIVILEGES REVOKE ALL ON TABLES FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES REVOKE ALL ON SEQUENCES FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`
 
-// pauseOffsiteSync runs pauseOffsiteSQL on the restored database as the app role.
+// pauseOffsiteSync runs pauseOffsiteSQL on the restored database as the app
+// role. On a forced restore over a different server secret it also blanks the
+// commenter emails, in the same call.
 func (x *dbRestorer) pauseOffsiteSync(ctx context.Context) error {
+	sql := pauseOffsiteSQL
+	if x.dropEmails {
+		// The backup was made under another server secret and --force was given:
+		// blank the sealed emails no key here can open (see
+		// portability.DropCommenterEmailsSQL). Guarded for databases without
+		// comment tables.
+		sql += ";\nDO $$ BEGIN IF to_regclass('public.hatamoto_commenters') IS NOT NULL THEN " + portability.DropCommenterEmailsSQL + "; END IF; END $$"
+	}
 	if x.o.PauseOffsite != nil {
-		return x.o.PauseOffsite(ctx, pauseOffsiteSQL)
+		return x.o.PauseOffsite(ctx, sql)
 	}
 	open := x.o.OpenPool
 	if open == nil {
@@ -366,7 +377,7 @@ func (x *dbRestorer) pauseOffsiteSync(ctx context.Context) error {
 		return fmt.Errorf("cannot reach the restored database: %w", err)
 	}
 	defer pool.Close()
-	_, err = pool.Exec(ctx, pauseOffsiteSQL)
+	_, err = pool.Exec(ctx, sql)
 	return err
 }
 

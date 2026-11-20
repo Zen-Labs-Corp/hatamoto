@@ -4,6 +4,10 @@ package backup
 
 import (
 	"context"
+	"errors"
+	"os"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,13 +36,10 @@ func readCommentsSnapshot(t *testing.T, ctx context.Context, pool *pgxpool.Pool)
 	return s
 }
 
-// TestRestoreIntegrationComments: comments, commenters (with the sealed email),
-// per-entity counts and settings survive create, destroy and restore.
-func TestRestoreIntegrationComments(t *testing.T) {
-	ctx := context.Background()
-	var before commentsSnapshot
-	var maxSeq int64
-	d := seedAndDestroyWith(t, func(ctx context.Context, pool *pgxpool.Pool) {
+// seedComments seeds one commenter, a two-comment thread, an entity row and
+// the settings, recording the snapshot and the highest seq.
+func seedComments(t *testing.T, before *commentsSnapshot, maxSeq *int64) func(context.Context, *pgxpool.Pool) {
+	return func(ctx context.Context, pool *pgxpool.Pool) {
 		k := comment.NewKeys(commentsSecret)
 		hash := k.HashEmail(commenterEmail)
 		sealed, err := k.SealEmail(commenterEmail, hash)
@@ -78,17 +79,39 @@ func TestRestoreIntegrationComments(t *testing.T) {
 			VALUES ($1, 'closed', 1, 1)`, entityID); err != nil {
 			t.Fatalf("seeding comment entity: %v", err)
 		}
-		maxSeq = replySeq
-		before = readCommentsSnapshot(t, ctx, pool)
-	})
+		*maxSeq = replySeq
+		*before = readCommentsSnapshot(t, ctx, pool)
+	}
+}
+
+// TestRestoreIntegrationComments: comments, commenters (with the sealed email),
+// per-entity counts and settings survive create, destroy and restore.
+func TestRestoreIntegrationComments(t *testing.T) {
+	ctx := context.Background()
+	var before commentsSnapshot
+	var maxSeq int64
+	d := seedAndDestroyWith(t, seedComments(t, &before, &maxSeq))
 	if before.comments == "" || maxSeq == 0 {
 		t.Fatal("the seed hook did not run")
 	}
 
 	target := d.freshTarget(t, "hm_bk_comments")
 	o, _, _, _ := d.options(t, target)
-	if _, err := Restore(ctx, o, RestoreRequest{Source: d.archive, AdminURL: d.adminURL, ConfigOut: o.Data + ".env"}); err != nil {
+	o.Getenv = func(string) string { return "" }
+	// The archive records a check of the secret, never the secret itself.
+	sc, err := scanArchive(d.archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sc.mf.SecretCheck == "" || strings.Contains(sc.mf.SecretCheck, commentsSecret) {
+		t.Errorf("secret_check = %q", sc.mf.SecretCheck)
+	}
+	plan, err := Restore(ctx, o, RestoreRequest{Source: d.archive, AdminURL: d.adminURL, ConfigOut: o.Data + ".env"})
+	if err != nil {
 		t.Fatalf("Restore: %v", err)
+	}
+	if !slices.Contains(plan.Checks, "server secret ok") {
+		t.Errorf("checks = %v", plan.Checks)
 	}
 	pool, err := pgxpool.New(ctx, target)
 	if err != nil {
@@ -140,5 +163,63 @@ func TestRestoreIntegrationComments(t *testing.T) {
 	}
 	if next <= maxSeq {
 		t.Errorf("next seq after restore = %d, want > %d", next, maxSeq)
+	}
+}
+
+// A restore under another server secret is refused and writes nothing; with
+// Force it restores, blanks every sealed email and leaves the rest as it was.
+func TestRestoreIntegrationCommentsSecretMismatch(t *testing.T) {
+	ctx := context.Background()
+	var before commentsSnapshot
+	var maxSeq int64
+	d := seedAndDestroyWith(t, seedComments(t, &before, &maxSeq))
+
+	target := d.freshTarget(t, "hm_bk_comments_other")
+	o, _, _, _ := d.options(t, target)
+	o.Getenv = func(k string) string {
+		if k == "HATAMOTO_SECRET" {
+			return "another-secret"
+		}
+		return ""
+	}
+	req := RestoreRequest{Source: d.archive, AdminURL: d.adminURL, ConfigOut: o.Data + ".env"}
+	_, err := Restore(ctx, o, req)
+	var ref *RefusalError
+	if !errors.As(err, &ref) || !strings.Contains(err.Error(), "different server secret") {
+		t.Fatalf("err = %v, want a refusal naming the secret", err)
+	}
+	if _, serr := os.Stat(o.Data + ".env"); serr == nil {
+		t.Error("a refused restore wrote the config")
+	}
+
+	req.Force = true
+	plan, err := Restore(ctx, o, req)
+	if err != nil {
+		t.Fatalf("forced Restore: %v", err)
+	}
+	if !slices.Contains(plan.Would, "drop 1 commenter emails (different server secret)") {
+		t.Errorf("would = %v", plan.Would)
+	}
+	pool, err := pgxpool.New(ctx, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+
+	var blank, total int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE octet_length(email_sealed) = 0), count(*) FROM hatamoto_commenters`).Scan(&blank, &total); err != nil || total != 1 || blank != total {
+		t.Fatalf("blank %d of %d commenters, %v", blank, total, err)
+	}
+	var hash string
+	var sealed []byte
+	if err := pool.QueryRow(ctx, `SELECT email_hash, email_sealed FROM hatamoto_commenters`).Scan(&hash, &sealed); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := comment.NewKeys(commentsSecret).OpenEmail(sealed, hash); ok {
+		t.Error("a blanked email still opens")
+	}
+	after := readCommentsSnapshot(t, ctx, pool)
+	if after.comments != before.comments || after.entities != before.entities || after.settings != before.settings {
+		t.Error("comment rows changed beyond the emails")
 	}
 }

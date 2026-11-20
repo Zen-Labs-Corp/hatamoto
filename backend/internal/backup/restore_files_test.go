@@ -69,7 +69,7 @@ func TestRestoreRunsEveryStepInOrder(t *testing.T) {
 	for path, want := range map[string]string{
 		filepath.Join(r.o.MediaDir, "2026", "a.txt"): "aaaa",
 		filepath.Join(r.o.MediaDir, "b.txt"):         "bb",
-		filepath.Join(r.o.SecretsDir, secretsName):   "SECRET_LINE\n",
+		filepath.Join(r.o.SecretsDir, secretsName):   specSecrets,
 		out: "CFG=1\n",
 	} {
 		b, err := os.ReadFile(path)
@@ -118,7 +118,7 @@ func TestRestoreSecretsPermsAndExisting(t *testing.T) {
 	if err := os.MkdirAll(r2.o.SecretsDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(r2.o.SecretsDir, secretsName), []byte("SECRET_LINE\n"), 0o640); err != nil {
+	if err := os.WriteFile(filepath.Join(r2.o.SecretsDir, secretsName), []byte(specSecrets), 0o640); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := realRun(t, r2, buildArchive(t, noPlugins)); err != nil {
