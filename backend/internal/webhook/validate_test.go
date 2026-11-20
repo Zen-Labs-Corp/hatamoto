@@ -100,6 +100,16 @@ func TestValidateMessages(t *testing.T) {
 	}
 }
 
+func TestValidateAcceptsCommentEvents(t *testing.T) {
+	for _, e := range []string{EventCommentCreated, EventCommentApproved, EventCommentSpam, EventCommentDeleted} {
+		s := validSub()
+		s.Events = []string{e}
+		if err := s.Validate(); err != nil {
+			t.Errorf("%s refused: %v", e, err)
+		}
+	}
+}
+
 func TestApplyDefaults(t *testing.T) {
 	var s Subscription
 	s.ApplyDefaults()
@@ -110,7 +120,7 @@ func TestApplyDefaults(t *testing.T) {
 
 func TestValidEventsStableAndCopied(t *testing.T) {
 	ev := ValidEvents()
-	if len(ev) != 6 || ev[0] != EventEntityCreated || ev[5] != EventImportCompleted {
+	if len(ev) != 10 || ev[0] != EventEntityCreated || ev[5] != EventImportCompleted || ev[9] != EventCommentDeleted {
 		t.Fatalf("events: %v", ev)
 	}
 	for _, e := range ev {

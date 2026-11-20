@@ -28,6 +28,7 @@ func Register(h Registrar, q Enqueuer, log *slog.Logger) {
 	for _, name := range []string{
 		sdk.EntityCreated.Name, sdk.EntityUpdated.Name, sdk.EntityPublished.Name, sdk.EntityDeleted.Name,
 		sdk.ImportCompleted.Name, sdk.FormSubmitted.Name,
+		sdk.CommentCreated.Name, sdk.CommentApproved.Name, sdk.CommentSpam.Name, sdk.CommentDeleted.Name,
 	} {
 		h.AddAction(name, hookPriority, func(ctx context.Context, p any) {
 			data, ok := mapPayload(name, p)
@@ -75,11 +76,27 @@ type (
 		Source  string `json:"source"`
 		Updated int    `json:"updated"`
 	}
+	commentData struct {
+		CommentID  string    `json:"comment_id"`
+		EntityID   string    `json:"entity_id"`
+		ParentID   *string   `json:"parent_id"` // null when top level
+		AuthorName string    `json:"author_name"`
+		BodyHTML   string    `json:"body_html"` // sanitised HTML
+		Status     string    `json:"status"`
+		CreatedAt  time.Time `json:"created_at"`
+	}
+	commentDeletedData struct {
+		CommentID string  `json:"comment_id"`
+		EntityID  string  `json:"entity_id"`
+		ParentID  *string `json:"parent_id"`
+	}
 )
 
 // mapPayload builds the webhook data of a hook payload. The submitted form
 // fields are personal data and are never forwarded: a webhook announces the
-// submission, the receiver reads it through the API if it needs it.
+// submission, the receiver reads it through the API if it needs it. Likewise
+// the commenter's email, hashes, IP, user agent, spam reasons and the raw body
+// are never forwarded; a comment carries its sanitised HTML only.
 func mapPayload(name string, p any) (any, bool) {
 	switch ev := p.(type) {
 	case sdk.EntityEvent:
@@ -94,6 +111,18 @@ func mapPayload(name string, p any) (any, bool) {
 	case sdk.FormSubmittedEvent:
 		if name == sdk.FormSubmitted.Name {
 			return formData{FormID: ev.FormID, FormSlug: ev.FormSlug, SubmissionID: ev.SubmissionID, Attribution: ev.Attribution}, true
+		}
+	case sdk.CommentEvent:
+		var parent *string
+		if ev.ParentID != "" {
+			parent = &ev.ParentID
+		}
+		switch name {
+		case sdk.CommentCreated.Name, sdk.CommentApproved.Name, sdk.CommentSpam.Name:
+			return commentData{CommentID: ev.ID, EntityID: ev.EntityID, ParentID: parent, AuthorName: ev.AuthorName,
+				BodyHTML: ev.BodyHTML, Status: ev.Status, CreatedAt: ev.CreatedAt}, true
+		case sdk.CommentDeleted.Name:
+			return commentDeletedData{CommentID: ev.ID, EntityID: ev.EntityID, ParentID: parent}, true
 		}
 	case sdk.ImportEvent:
 		if name == sdk.ImportCompleted.Name {
