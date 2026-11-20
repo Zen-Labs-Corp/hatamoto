@@ -17,10 +17,10 @@
       "cap": 108761
     },
     "editor_js_total_gzip": {
-      "value": 296708,
+      "value": 296752,
       "unit": "bytes",
       "tol_abs": 1024,
-      "cap": 297732
+      "cap": 297776
     },
     "vendor_htmx_bytes": {
       "value": 52182,
@@ -40,10 +40,6 @@
     }
   },
   "history": [
-    {
-      "reason": "builder chrome rebased onto the Translations drawer: editor_js_first_gzip 103395 -> 103525 (+130 B), the drawer opener and lazy chunk plus the chrome work, measured",
-      "date": "2026-11-01"
-    },
     {
       "reason": "builder chrome rebased onto the Translations drawer: editor_js_total_gzip 273094 -> 274238 (+1144 B), the drawer opener and lazy chunk plus the chrome work, measured",
       "date": "2026-11-01"
@@ -121,7 +117,7 @@
       "date": "2026-11-10"
     },
     {
-      "reason": "panel fixes: abort in-flight picker loads, clear aria-busy, drop cache after in-panel writes (editor_js_total_gzip 295649 -> 296708, cap 296673 -> 297732)",
+      "reason": "admin panels load through htmx with per-page caching; abort in-flight picker loads (editor_js_total_gzip 295649 -> 296752, cap 296673 -> 297776)",
       "date": "2026-11-20"
     }
   ]
