@@ -125,6 +125,7 @@ GET /admin/settings/comments/blocklists -> admin.(*Admin).handleCommentBlocklist
 GET /admin/settings/comments/commenters -> admin.(*Admin).handleCommenters-fm
 GET /admin/settings/comments/commenters/{id}/erase -> admin.(*Admin).handleCommenterErasePage-fm
 GET /admin/settings/comments/commenters/{id}/export -> admin.(*Admin).handleCommenterExport-fm
+GET /admin/settings/comments/commenters/{id}/{action} -> admin.(*Admin).handleCommenterConfirm-fm
 GET /admin/settings/comments/enable -> admin.(*Admin).handleCommentEnablePage-fm
 GET /admin/settings/content-model -> admin.(*Admin).mountSettingsFrame.func1
 GET /admin/settings/email -> admin.(*Admin).handleEmail-fm
