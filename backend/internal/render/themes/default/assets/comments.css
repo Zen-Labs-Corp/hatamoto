@@ -1,4 +1,4 @@
-.hm-comments { margin-top: 3rem; max-width: 46rem; }
+.hm-comments { margin-top: 3rem; margin-bottom: 3rem; padding-bottom: 1.5rem; max-width: 46rem; }
 .hm-comments__title { font-size: 1.4rem; margin-bottom: 1rem; }
 .hm-comments__form { margin-bottom: 2.5rem; }
 .hm-comments__replying { color: var(--ht-fg-muted); }
