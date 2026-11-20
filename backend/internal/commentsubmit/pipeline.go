@@ -184,6 +184,7 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 	body := req.Post.Get(names.Body)
 	name := strings.TrimSpace(req.Post.Get(names.Name))
 	email := strings.TrimSpace(req.Post.Get(names.Email))
+	notify := req.Post.Get(names.Extra) != ""
 	if admin {
 		name, email = strings.TrimSpace(req.AdminName), ""
 	}
@@ -308,7 +309,7 @@ func (p *Pipeline) Submit(ctx context.Context, req Request) (Outcome, error) {
 		IP: req.IP, UserAgent: req.UserAgent,
 		SpamScore: sr.Score, SpamVerdict: verdict,
 		SpamReasons: append(append([]string{}, sr.Reasons...), why...),
-		Locale:      req.Locale,
+		Locale:      req.Locale, NotifyReplies: notify && !admin,
 	}
 
 	// 12. Store. An unconfirmed address waits as a draft; the verdict is held

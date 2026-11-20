@@ -219,7 +219,7 @@ func (s *Service) EraseByEmail(ctx context.Context, email string) (EraseResult, 
 		}
 		rows, err := tx.Query(ctx, `UPDATE hatamoto_comments SET author_name = '', body_raw = $2, body_html = $2,
 				has_links = false, link_domains = '{}', body_hash = '', ip_hash = '', net_hash = '',
-				user_agent = '', updated_at = $3
+				user_agent = '', notify_replies = false, updated_at = $3
 			WHERE commenter_id = $1 RETURNING entity_id`, c.ID, deletedBody, now)
 		if err != nil {
 			return err

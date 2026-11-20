@@ -74,27 +74,28 @@ func (s *Server) mountRenderRoutes(r *httpx.Group) {
 		fontsHandler = fonts.Handler(s.fonts)
 	}
 	mountRenderRoutes(r, renderRoutes{
-		pages:          h,
-		assets:         s.renderEngine.AssetHandler(),
-		fonts:          fontsHandler,
-		robots:         s.handleRobots,
-		sitemap:        s.handlePublicSitemap,
-		subSitemap:     s.handlePublicSubSitemap,
-		llms:           s.handleLLMsTxt,
-		adsTxt:         s.handleAdsTxt(false),
-		appAdsTxt:      s.handleAdsTxt(true),
-		feed:           s.handleFeed,
-		xsl:            s.handleSitemapXSL,
-		formPost:       s.handlePublicFormPost,
-		keyFile:        s.indexNowKeyFile,
-		capture:        capture,
-		preview:        s.handlePreviewShare,
-		commentConfirm: s.handleCommentConfirm,
-		commentPost:    s.handleCommentPost,
-		commentEdit:    s.handleCommentEdit,
-		commentDelete:  s.handleCommentDelete,
-		formPage:       s.handleFormPage,
-		favicon:        s.siteFavicon,
+		pages:              h,
+		assets:             s.renderEngine.AssetHandler(),
+		fonts:              fontsHandler,
+		robots:             s.handleRobots,
+		sitemap:            s.handlePublicSitemap,
+		subSitemap:         s.handlePublicSubSitemap,
+		llms:               s.handleLLMsTxt,
+		adsTxt:             s.handleAdsTxt(false),
+		appAdsTxt:          s.handleAdsTxt(true),
+		feed:               s.handleFeed,
+		xsl:                s.handleSitemapXSL,
+		formPost:           s.handlePublicFormPost,
+		keyFile:            s.indexNowKeyFile,
+		capture:            capture,
+		preview:            s.handlePreviewShare,
+		commentConfirm:     s.handleCommentConfirm,
+		commentUnsubscribe: s.handleCommentUnsubscribe,
+		commentPost:        s.handleCommentPost,
+		commentEdit:        s.handleCommentEdit,
+		commentDelete:      s.handleCommentDelete,
+		formPage:           s.handleFormPage,
+		favicon:            s.siteFavicon,
 
 		acquireBound: s.cfg.Database.PublicAcquireTimeout,
 	})
@@ -137,6 +138,11 @@ type renderRoutes struct {
 	// /-/comments/confirm/{token}. Mounted outside capture and the page cache:
 	// GET only shows a button, POST confirms.
 	commentConfirm http.HandlerFunc
+	// commentUnsubscribe (optional) serves the unsubscribe link of comment mail,
+	// /-/comments/unsubscribe/{token}: GET shows a button, POST (also the
+	// one-click request) turns the mail off. Mounted whether or not comments
+	// are on, so people can always stop mail.
+	commentUnsubscribe http.HandlerFunc
 	// commentPost, commentEdit and commentDelete (optional) take the public
 	// comment form, POST /-/comments/{entityID}, and the 15-minute edit and
 	// delete of one's own comment. POST only, outside capture and the page
@@ -214,6 +220,13 @@ func mountRenderRoutes(r *httpx.Group, rt renderRoutes) {
 		h := confirmLimiter.Middleware(rt.commentConfirm).ServeHTTP
 		r.HandleFunc("GET "+commentConfirmPrefix+"{token}", h) // GET also matches HEAD
 		r.HandleFunc("POST "+commentConfirmPrefix+"{token}", h)
+	}
+
+	if rt.commentUnsubscribe != nil {
+		unsubscribeLimiter := middleware.NewRateLimiter(1, 20)
+		h := unsubscribeLimiter.Middleware(rt.commentUnsubscribe).ServeHTTP
+		r.HandleFunc("GET "+commentUnsubscribePrefix+"{token}", h)
+		r.HandleFunc("POST "+commentUnsubscribePrefix+"{token}", h)
 	}
 
 	if rt.commentPost != nil || rt.commentEdit != nil || rt.commentDelete != nil {

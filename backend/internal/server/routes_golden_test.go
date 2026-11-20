@@ -89,7 +89,7 @@ func allowedExtraPattern(pattern string, expected map[string]bool) bool {
 		return method == "GET"
 	case "/preview/{token}": // shared draft preview links
 		return method == "GET"
-	case "/-/comments/confirm/{token}": // comment confirmation link: GET shows a button, POST confirms
+	case "/-/comments/confirm/{token}", "/-/comments/unsubscribe/{token}": // comment confirmation and unsubscribe links: GET shows a button, POST acts
 		return method == "GET" || method == "POST"
 	case "/-/comments/{entityID}", "/-/comments/edit/{commentID}", "/-/comments/delete/{commentID}": // public comment post, and edit/delete of one's own
 		return method == "POST"

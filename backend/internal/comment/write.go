@@ -184,17 +184,17 @@ func (s *Service) Store(ctx context.Context, d Draft) (Comment, error) {
 			INSERT INTO hatamoto_comments (seq, entity_id, parent_id, path, depth, status, body_raw, body_html,
 				has_links, link_domains, body_hash, commenter_id, author_name, author_user_id, ip_hash, net_hash,
 				user_agent, spam_score, spam_verdict, spam_reasons, created_at, updated_at, confirmed_at,
-				approved_at, approved_by, locale)
+				approved_at, approved_by, locale, notify_replies)
 			SELECT s.v, $1, $2,
 				CASE WHEN $3::text = '' THEN '' ELSE $3::text || '.' END || lpad(to_hex(s.v), 12, '0'),
-				$4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20, $20, $21, $22, $23, $24
+				$4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20, $20, $21, $22, $23, $24, $25
 			FROM s
 			RETURNING `+commentColumns,
 			d.EntityID, parentID, parentPath, depth, string(d.Status), d.BodyRaw, d.BodyHTML,
 			d.HasLinks, nonNil(d.LinkDomains), d.BodyHash, commenterID,
 			truncRunes(d.AuthorName, maxAuthorName), d.AuthorUserID, ipHash, netHash,
 			truncRunes(d.UserAgent, maxUserAgent), d.SpamScore, verdict, reasons,
-			now, confirmedAt, approvedAt, approvedBy, d.Locale))
+			now, confirmedAt, approvedAt, approvedBy, d.Locale, d.NotifyReplies && d.Email != ""))
 		if err != nil {
 			return err
 		}

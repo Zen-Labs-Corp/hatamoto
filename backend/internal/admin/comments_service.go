@@ -42,7 +42,8 @@ type CommentSettings struct {
 	Sort                                                                     string // "newest" or "oldest"
 	SlowModeSeconds                                                          int
 	Captcha                                                                  bool
-	CookieDays, PurgeDays                                                    int // cookie 120 days, purge unconfirmed drafts after 30
+	CookieDays, PurgeDays                                                    int    // cookie 120 days, delete spam and trash after N days
+	NotifyMode                                                               string // "per_comment", "digest" or "off"
 }
 
 // CommentFilter narrows the moderation queue. PerPage is at most 200.

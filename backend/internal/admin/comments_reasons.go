@@ -18,19 +18,26 @@ var commentReasonLabels = map[string]string{
 	"check timed out":   "plugin check timed out",
 }
 
+// HeldReasonLabels maps stored hold reasons to the words moderators see
+// ("new commenter" -> "first comment"); unknown reasons pass through.
+func HeldReasonLabels(reasons []string) []string {
+	labels := make([]string, 0, len(reasons))
+	for _, r := range reasons {
+		if l, ok := commentReasonLabels[r]; ok {
+			r = l
+		}
+		labels = append(labels, r)
+	}
+	return labels
+}
+
 // heldWhy says why a comment is waiting: "Held: contains a link, first
 // comment · score 4". It is empty for an approved comment.
 func heldWhy(c CommentRow) string {
 	if c.Status == "approved" {
 		return ""
 	}
-	labels := make([]string, 0, len(c.Reasons))
-	for _, r := range c.Reasons {
-		if l, ok := commentReasonLabels[r]; ok {
-			r = l
-		}
-		labels = append(labels, r)
-	}
+	labels := HeldReasonLabels(c.Reasons)
 	if len(labels) == 0 && c.Score <= 0 {
 		return ""
 	}

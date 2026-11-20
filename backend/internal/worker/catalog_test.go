@@ -38,7 +38,7 @@ func TestCatalogSafeSet(t *testing.T) {
 
 func TestSwitchJobs(t *testing.T) {
 	got := SwitchJobs()
-	if len(got) != 19 || slices.Contains(got, "core:preload") || !slices.Contains(got, "comment_drafts_purge") || !slices.Contains(got, "backup_offsite") {
+	if len(got) != 20 || !slices.Contains(got, "comment_notify") || slices.Contains(got, "core:preload") || !slices.Contains(got, "comment_drafts_purge") || !slices.Contains(got, "backup_offsite") {
 		t.Fatalf("SwitchJobs = %v", got)
 	}
 }

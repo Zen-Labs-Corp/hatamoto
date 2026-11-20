@@ -25,6 +25,14 @@ Under Settings > Comments there are two more pages. Commenters lists the people 
 
 The Overview shows a Comments card with the newest waiting comments and a link to the queue; it is left out while comments are off and nothing is waiting.
 
+## Notifications
+
+Owners and editors who have an email address get a mail when a comment waits for review. The "Email moderators" setting under Settings > Comments chooses how: a mail for each comment (at most one every 10 minutes per person, the rest in one summary), an hourly summary, or off. The mails go out from a job that runs every minute. Set the site address and outgoing email first, or nothing is sent.
+
+Commenters can tick "Email me when someone replies". It only takes effect once their address is confirmed, either through the confirmation email or on a device that already confirmed it. When a reply to their comment is approved, they get one mail with the link to the page. Nobody is mailed about their own reply.
+
+Every mail has a one-click unsubscribe link, also sent as a `List-Unsubscribe` header. A moderator who unsubscribed can turn mail back on from the same page.
+
 ## Trust levels
 
 `new`, `known`, `trusted` and `blocked`. The defaults are 3 approved comments and 7 days for `known`, and 15 comments and 30 days for `trusted`; both are editable. Links are held at every level, except in replies written by an owner or editor as the site. Not written yet.
@@ -43,7 +51,17 @@ Pages with an open form are not cached by browsers or CDNs (see [Page cache](THE
 
 ## Privacy and retention
 
-No raw IP address is stored, only keyed hashes, which are pseudonymous personal data. A truncated user agent is stored with each comment. There is no website field. Spam and trash are purged after 30 days by default, and unconfirmed comments after 24 hours. The owner can export or erase (delete or anonymise) everything held for an email address, including the IP-hash block that marking one of its comments as spam added to the blocklist. Network (/24) blocks are shared by everyone on that network and are never removed by an erase. The email log keeps only a masked form of the address a confirmation mail was sent to, and the owner's erase does not cover those rows. Not written yet.
+No raw IP address is stored, only keyed hashes (`ip_hash` and `net_hash`), which are pseudonymous personal data. A truncated user agent is stored with each comment. There is no website field.
+
+**Purging.** The daily retention job deletes spam and trash `purge_days` (default 30) after their last status change (`updated_at`). One that still has replies is not deleted: its text, name, hashes and user agent are blanked so the thread stays intact. The hourly job removes unconfirmed drafts after 24 hours and used or expired form tokens. The daily job also prunes reply-notification rows and moderator-notification rows of comments that are no longer held.
+
+**Export.** The owner can export everything stored for an email address: the address, trust level, approved count and dates of the commenter, and for each of their comments its ids, status, name, text, `ip_hash`, `net_hash`, the user agent, the reply opt-in, the spam score, verdict and reasons, the locale and the dates. Fields computed from the body (`body_html`, `body_hash`, link data, path and depth) and internal references (the stored address hash and sealed copy, the approving user) are left out.
+
+**Erase.** Erasing has one behaviour: comments without replies are deleted, the others are made anonymous, and the commenter is removed. IP-hash blocks that marking one of their comments as spam added are removed. Network (/24) blocks are shared by everyone on that network and are kept.
+
+**Email log.** Confirmation and reply mails to commenters are logged with a masked address (only the first letter of the name, the first letter of the domain and its last label are kept, like `a***@e***.com`) and no body, so an erase can not match them and does not need to. Moderator mails go to staff addresses and their bodies are not stored either. These rows age out with the email log retention setting.
+
+**Limits.** Erase does not reach backups: older copies keep the data until the backups rotate.
 
 ## Plugins
 
@@ -61,6 +79,11 @@ The rules behind the design are in [ADR 0005](adr/0005-comments-in-core.md).
 - `hatamoto_comment_entities`: per page: `comment_count`, `pending_count` and `mode` (`open`, `closed` or `hidden`; NULL means inherit).
 - `hatamoto_comment_blocks`: blocked values by kind (email domain, link domain, hashes), seeded with disposable email domains.
 - `hatamoto_comment_form_tokens`: form tokens already used, so each works once.
+- `hatamoto_comment_moderator_notify`: per moderator, the mute flag and the last mail time.
+- `hatamoto_comment_notify_queue`: comments waiting to be mailed to moderators.
+- `hatamoto_comment_reply_queue`: approved replies waiting to be mailed to the parent's author.
+
+`hatamoto_comments.notify_replies` holds the reply opt-in of that comment. It only takes effect once the commenter's address is confirmed.
 
 There is no author URL column and no raw IP column: only `ip_hash` and `net_hash`, which are pseudonymous personal data, never anonymous. The email is stored as an HMAC (to look a commenter up) plus a sealed copy (to read it back).
 
@@ -79,12 +102,15 @@ The JSON keys in `hatamoto_comment_settings.settings`, with their defaults:
 | captcha | false |
 | `device_cookie_days` | 90 (how long the `hm_c` commenter cookie lasts) |
 | `purge_days` | 30 |
+| `notify_mode` | `per_comment` (or `digest`, `off`) |
 
 The default mode for a content type is `entity_schemas.settings.comments.mode`; a page overrides it with its own `mode`. Three numbers are fixed in code, not settings: `EditWindow` (15 minutes), `DraftTTL` (24 hours) and the 90-day spam quiet period a trusted commenter needs.
 
 ### internal/comment
 
-`comment.Service` methods: `Store`, `Confirm`, `Approve`, `MarkSpam`, `Trash`, `Delete`, `Edit`, `Get`, `Thread`, `Counts`, `HasNonPublic`, `ViewerComments`, `HasEditable`, `EditableComments`, `DuplicateSince`, `PurgeFormTokens`, `StatusCounts`, `Queue`, `Vouch`, `Block`, `RevokeDevices`, `ExportByEmail`, `EraseByEmail`, `Settings`, `SaveSettings`, `EntityMode`, `SetEntityMode`, `Commenter`, `MatchBlocks`, `Blocks`, `AddBlock`, `RemoveBlock`, `ConsumeFormToken`.
+`comment.Service` methods: `Store`, `Confirm`, `Approve`, `MarkSpam`, `Trash`, `Delete`, `Edit`, `Get`, `Thread`, `Counts`, `HasNonPublic`, `ViewerComments`, `HasEditable`, `EditableComments`, `DuplicateSince`, `PurgeFormTokens`, `StatusCounts`, `Queue`, `Vouch`, `Block`, `RevokeDevices`, `ExportByEmail`, `EraseByEmail`, `Settings`, `SaveSettings`, `EntityMode`, `SetEntityMode`, `Commenter`, `MatchBlocks`, `Blocks`, `AddBlock`, `RemoveBlock`, `ConsumeFormToken`, `PurgeSpamTrash`, `QueueModeration`, `ClaimModeration`, `ClearModeration`, `SetModeratorMuted`, `QueueReply`, `ClaimReplies`, `PruneModerationQueue`, `PruneReplyQueue`, `UnsubscribeReplies`.
+
+The job `comment_notify` runs every minute (switch it off with `comment_notify` in `WORKER_DISABLE_JOBS`). Spam and trash are purged inside `retention_purge`. The unsubscribe link is `/-/comments/unsubscribe/<token>`: a GET shows a button and a POST unsubscribes (RFC 8058 one-click).
 
 `Store` takes a draft that is already formatted and scored. The package does not import `internal/spam` or `internal/commentfmt`; the caller maps their results onto the draft.
 

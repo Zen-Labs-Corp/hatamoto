@@ -23,6 +23,9 @@ const (
 	KindRunDigest           Kind = "run_digest"
 	KindAccessEnding        Kind = "access_ending"
 	KindCommentConfirmation Kind = "comment_confirmation"
+	KindCommentModeration   Kind = "comment_moderation" // one held comment, to a moderator
+	KindCommentDigest       Kind = "comment_digest"     // several held comments, to a moderator
+	KindCommentReply        Kind = "comment_reply"      // a reply, to an opted-in commenter
 	KindPlugin              Kind = "plugin"
 	KindOther               Kind = "other"
 )
@@ -56,10 +59,12 @@ type Recorder interface {
 
 // StoresBody reports whether the log may keep the bodies of a mail of this
 // kind. The kinds that carry a one-time link or the secret admin address
-// never do.
+// never do, nor do the comment notifications (an unsubscribe bearer link and
+// commenter-written names).
 func (k Kind) StoresBody() bool {
 	switch k {
-	case KindPasswordReset, KindInvite, KindAdminAddressChanged, KindAdminAddressSetup, KindCommentConfirmation:
+	case KindPasswordReset, KindInvite, KindAdminAddressChanged, KindAdminAddressSetup, KindCommentConfirmation,
+		KindCommentModeration, KindCommentDigest, KindCommentReply:
 		return false
 	}
 	return true
@@ -67,18 +72,25 @@ func (k Kind) StoresBody() bool {
 
 // StoresRecipients reports whether the log may keep the recipient addresses of
 // a mail of this kind. A comment confirmation goes to an address a visitor
-// typed, which may not be theirs, so only a masked form is kept.
+// typed, which may not be theirs, and so does a reply notification, so only a
+// masked form is kept. Moderator mails go to staff addresses and keep them.
 func (k Kind) StoresRecipients() bool {
-	return k != KindCommentConfirmation
+	return k != KindCommentConfirmation && k != KindCommentReply
 }
 
-// maskAddress keeps the first letter and the domain: "a***@example.com".
+// maskAddress keeps the first letter of the local part and of the domain and
+// the last domain label: "a***@e***.com". A domain alone can identify a person.
 func maskAddress(addr string) string {
 	at := strings.LastIndex(addr, "@")
-	if at < 1 {
+	if at < 1 || at == len(addr)-1 {
 		return "***"
 	}
-	return addr[:1] + "***" + addr[at:]
+	domain := addr[at+1:]
+	tld := ""
+	if dot := strings.LastIndex(domain, "."); dot > 0 {
+		tld = domain[dot:]
+	}
+	return addr[:1] + "***@" + domain[:1] + "***" + tld
 }
 
 const (

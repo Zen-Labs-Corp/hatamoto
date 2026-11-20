@@ -21,6 +21,7 @@ import (
 	"hatamoto.dev/core/internal/commentfmt"
 	"hatamoto.dev/core/internal/email"
 	"hatamoto.dev/core/internal/entity"
+	"hatamoto.dev/core/internal/jsonx"
 )
 
 type nopMailer struct{}
@@ -404,14 +405,14 @@ func TestCommentsAdminIntegration(t *testing.T) {
 		t.Errorf("Block unknown err = %v", err)
 	}
 
-	// Privacy: export has the email and no hashes; erase counts.
+	// Privacy: export has the email and no email or body hashes; erase counts.
 	data, err := a.ExportCommenter(ctx, aliceID)
 	must(err)
 	text := string(data)
 	if !strings.Contains(text, "a@cmm.test") || !strings.Contains(text, "edited *text*") {
 		t.Errorf("export lacks email or comments: %s", text)
 	}
-	for _, banned := range []string{"ip_hash", "net_hash", "user_agent", "email_hash", "body_hash"} {
+	for _, banned := range []string{"email_hash", "body_hash"} {
 		if strings.Contains(text, banned) {
 			t.Errorf("export contains %q", banned)
 		}
@@ -429,6 +430,40 @@ func TestCommentsAdminIntegration(t *testing.T) {
 	}
 	if _, err := a.Comment(ctx, replyID); !errors.Is(err, admin.ErrCommentNotFound) {
 		t.Errorf("reply still there: %v", err)
+	}
+
+	// Export carries the stored network columns (hashes, never the raw IP) and the reply opt-in.
+	dres, err := commentfmt.Render("export me")
+	must(err)
+	dc, err := svc.Store(ctx, comment.Draft{
+		EntityID: ent.ID, Email: "d@cmm.test", AuthorName: "Dee", BodyRaw: "export me", BodyHTML: dres.HTML,
+		BodyHash: dres.BodyHash, SpamVerdict: "allow", Status: comment.StatusDraft, Locale: "und",
+		IP: "203.0.113.7", UserAgent: "TestUA/1", NotifyReplies: true,
+	})
+	must(err)
+	var deeID uuid.UUID
+	sel(&deeID, `SELECT commenter_id FROM hatamoto_comments WHERE id = $1`, dc.ID)
+	deeData, err := a.ExportCommenter(ctx, deeID.String())
+	must(err)
+	var deeEx struct {
+		Comments []struct {
+			IPHash        string   `json:"ip_hash"`
+			NetHash       string   `json:"net_hash"`
+			UserAgent     string   `json:"user_agent"`
+			NotifyReplies bool     `json:"notify_replies"`
+			SpamReasons   []string `json:"spam_reasons"`
+		} `json:"comments"`
+	}
+	must(jsonx.Unmarshal(deeData, &deeEx))
+	wantIP, wantNet := svc.Keys().HashIP("203.0.113.7")
+	if len(deeEx.Comments) != 1 {
+		t.Fatalf("export has %d comments, want 1", len(deeEx.Comments))
+	}
+	if x := deeEx.Comments[0]; x.IPHash == "" || x.IPHash != wantIP || x.NetHash == "" || x.NetHash != wantNet || x.UserAgent != "TestUA/1" || !x.NotifyReplies || x.SpamReasons == nil {
+		t.Errorf("export comment = %+v, want hashes %q %q", x, wantIP, wantNet)
+	}
+	if strings.Contains(string(deeData), "203.0.113.7") {
+		t.Errorf("export has the raw IP: %s", deeData)
 	}
 
 	for f, want := range map[string]bool{"privacy": true, "blocklists": true, "entity-options": true, "schema-mode": true, "schema-mode-builtin": false} {

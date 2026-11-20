@@ -84,6 +84,15 @@ const EditWindow = 15 * time.Minute
 // purges it. This package only names the number.
 const DraftTTL = 24 * time.Hour
 
+// NotifyMode is how moderators hear about held comments.
+type NotifyMode string
+
+const (
+	NotifyPerComment NotifyMode = "per_comment" // at most one mail per moderator per 10 min, the rest in a digest
+	NotifyDigest     NotifyMode = "digest"      // at most one mail per moderator per hour
+	NotifyOff        NotifyMode = "off"
+)
+
 // Settings are the site-wide comment settings. The stored JSON decodes over
 // Defaults, so a later release can add a key without a migration.
 type Settings struct {
@@ -97,6 +106,7 @@ type Settings struct {
 	Captcha          bool       `json:"captcha"`
 	DeviceCookieDays int        `json:"device_cookie_days"`
 	PurgeDays        int        `json:"purge_days"`
+	NotifyMode       NotifyMode `json:"notify_mode"`
 }
 
 // Defaults returns the settings of a site that never changed them: comments off.
@@ -110,7 +120,12 @@ func Defaults() Settings {
 		SlowModeSeconds:  120,
 		DeviceCookieDays: 90,
 		PurgeDays:        30,
+		NotifyMode:       NotifyPerComment,
 	}
+}
+
+func (m NotifyMode) valid() bool {
+	return m == NotifyPerComment || m == NotifyDigest || m == NotifyOff
 }
 
 // Normalize replaces out-of-range values with defaults so a bad stored value
@@ -151,6 +166,9 @@ func (s Settings) Normalize() Settings {
 	if s.PurgeDays < 1 {
 		s.PurgeDays = d.PurgeDays
 	}
+	if !s.NotifyMode.valid() {
+		s.NotifyMode = d.NotifyMode
+	}
 	return s
 }
 
@@ -185,6 +203,8 @@ func (s Settings) Validate() error {
 		return bad("device_cookie_days", "must be at least 1")
 	case s.PurgeDays < 1:
 		return bad("purge_days", "must be at least 1")
+	case !s.NotifyMode.valid():
+		return bad("notify_mode", "must be per_comment, digest or off")
 	}
 	return nil
 }
@@ -218,6 +238,7 @@ type Comment struct {
 	EditedAt             *time.Time
 	ApprovedBy           *uuid.UUID
 	Locale               string
+	NotifyReplies        bool // the commenter asked for reply mail; effective only with ConfirmedAt set
 }
 
 // Commenter is a visitor identified by a hashed email address.
@@ -255,6 +276,8 @@ type Draft struct {
 
 	Status Status // draft, or the final status chosen with Decide
 	Locale string
+
+	NotifyReplies bool // the form's opt-in box; ignored without Email (admin posts)
 }
 
 // Edited is a re-formatted body for Service.Edit.

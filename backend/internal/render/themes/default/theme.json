@@ -145,6 +145,7 @@
     "comment_body": "Comment",
     "comment_links_note": "Comments with links are reviewed before they appear.",
     "comment_submit": "Post comment",
+    "comment_notify_replies": "Email me when someone replies",
     "comment_hp_label": "Leave this field empty",
     "comment_reply": "Reply",
     "comment_cancel_reply": "Cancel reply",

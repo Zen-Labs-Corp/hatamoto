@@ -296,9 +296,12 @@ and `N` is the count for the first three. The theme chooses the words.
   `id` and `name`, and point the `<label for>` at it. The field `parent` is
   static and carries `.ParentID`.
 - Keep the honeypot field (`.Honeypot`) in the form, hidden from people.
-- Keep the empty `{{block "comments/form-extra" .}}{{end}}` between the body
-  field and the submit button. It is the spot for extra fields a later version
-  adds; a theme may leave it empty.
+- Keep `{{block "comments/form-extra" .}}` between the body field and the
+  submit button. The default block holds the reply opt-in checkbox, named
+  `.Extra` (use it as both `id` and `name`; it changes on every page view like
+  the other field names). A theme may override the block or drop it, but then
+  nobody can opt in to reply mail. Inside the block `$` is the `CommentForm`,
+  so `t` prints the theme's default text for `comment_notify_replies`.
 - Never add a website or URL field. Comments have none.
 - `data-hm-captcha` marks where a captcha widget goes when the owner enabled one
   (`.CommentForm.Captcha` is set).

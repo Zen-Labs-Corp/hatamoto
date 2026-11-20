@@ -282,14 +282,14 @@ func csetValidForm() url.Values {
 	return url.Values{
 		"known_min_approved": {"3"}, "known_min_age_days": {"7"}, "trusted_min_approved": {"15"}, "trusted_min_age_days": {"30"},
 		"auto_close_days": {"30"}, "max_depth": {"5"}, "page_size": {"50"}, "sort": {"newest"},
-		"slow_mode_seconds": {"120"}, "cookie_days": {"90"}, "purge_days": {"30"},
+		"slow_mode_seconds": {"120"}, "cookie_days": {"90"}, "purge_days": {"30"}, "notify_mode": {"per_comment"},
 	}
 }
 
 func csetDefaults() CommentSettings {
 	return CommentSettings{
 		Enabled: true, KnownMinApproved: 3, KnownMinAgeDays: 7, TrustedMinApproved: 15, TrustedMinAgeDays: 30,
-		AutoCloseDays: 30, MaxDepth: 5, PageSize: 50, Sort: "newest", SlowModeSeconds: 120, CookieDays: 90, PurgeDays: 30,
+		AutoCloseDays: 30, MaxDepth: 5, PageSize: 50, Sort: "newest", SlowModeSeconds: 120, CookieDays: 90, PurgeDays: 30, NotifyMode: "per_comment",
 	}
 }
 
@@ -349,6 +349,7 @@ func TestCommentSettingsValidation(t *testing.T) {
 		"trusted < known":   {"trusted_min_approved", "2", "Use at least 3, the number for known commenters."},
 		"trusted age short": {"trusted_min_age_days", "6", "Use at least 7, the number of days for known commenters."},
 		"bad sort":          {"sort", "random", "Choose newest first or oldest first."},
+		"bad notify mode":   {"notify_mode", "weekly", "Choose for each comment, hourly summary or off."},
 	} {
 		svc := &fakeComments{settings: csetDefaults()}
 		p := newCommentsRig(t, svc)
@@ -423,5 +424,26 @@ func TestCommentSettingsEditorDisabled(t *testing.T) {
 	}
 	if len(svc.calls) != 0 || len(p.events) != 0 {
 		t.Errorf("calls %v events %v", svc.calls, p.events)
+	}
+}
+
+func TestCommentSettingsNotifyMode(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{settings: csetDefaults()}
+	p := newCommentsRig(t, svc)
+	body := csetGet(t, p, "owner-token")
+	for _, want := range []string{`id="comments-notify"`, `<option value="per_comment" selected>`, "Email moderators"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page lacks %q", want)
+		}
+	}
+	form := csetValidForm()
+	form.Set("notify_mode", "digest")
+	if rec := csetPost(p, "", "owner-token", form, nil); rec.Code != 303 || svc.settings.NotifyMode != "digest" {
+		t.Fatalf("POST = %d, mode %q", rec.Code, svc.settings.NotifyMode)
+	}
+	if changed, _ := p.events[0].Detail["changed"].([]string); strings.Join(changed, ",") != "notify_mode" {
+		t.Errorf("detail %+v", p.events[0].Detail)
 	}
 }

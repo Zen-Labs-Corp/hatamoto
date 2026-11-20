@@ -64,7 +64,7 @@ func (c *commentSlot) fill(r *http.Request, body []byte) ([]byte, bool) {
 	p := render.CommentFormPlaceholders
 	filled := strings.NewReplacer(
 		p.Token, tok, p.Body, names.Body, p.Name, names.Name,
-		p.Email, names.Email, p.Honeypot, names.Honeypot,
+		p.Email, names.Email, p.Honeypot, names.Honeypot, p.Extra, names.Extra,
 	).Replace(string(span))
 	out := make([]byte, 0, len(body)-len(span)+len(filled))
 	out = append(out, body[:start]...)
