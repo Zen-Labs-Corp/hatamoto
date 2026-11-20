@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"io"
 	"log/slog"
@@ -134,6 +135,10 @@ type renderHandlers struct {
 	// encodeCached reports whether cache hits are served from stored compressed
 	// variants; nil means never (the compression middleware may still compress).
 	encodeCached func() bool
+	// validators gives cached pages their ETag and Last-Modified and answers
+	// conditional requests with 304. A pointer shared by forRequest's shallow
+	// copies; nil = off.
+	validators *pageValidators
 }
 
 // newRenderHandlers wires the handlers to the server's services. pageCache may
@@ -163,6 +168,11 @@ func (s *Server) newRenderHandlers(engine pageRenderer, pageCache *cache.Cache) 
 		communityPlugin:  s.communityPlugin,
 		// Demo pages get their banner from a middleware that needs plain bytes.
 		encodeCached: func() bool { return s.compressOn.Load() && !s.demoOn() },
+	}
+	// Demo pages get their banner from a middleware that rewrites the body, so
+	// an ETag of the cached bytes would not describe what goes out.
+	if !s.demoOn() {
+		h.validators = newPageValidators(nil)
 	}
 	if s.cfg != nil {
 		h.cacheTTL = s.cfg.PageCacheTTL
@@ -439,7 +449,20 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 			if h.redirectIfMatched(w, r, path) {
 				return
 			}
-			enc, packed := h.encodedVariant(r, key, body, hitGen)
+			var fp []byte
+			if pv := h.validators; pv != nil {
+				sum := fingerprintSum(body)
+				now := pv.clock()
+				since := pv.stamp(key, sum)
+				setValidators(w.Header(), sum, since, now)
+				if notModified(r, sum, since, now) {
+					h.writeNotModified(w, r, body)
+					return
+				}
+				var fpBuf [fingerprintLen]byte
+				fp = binary.BigEndian.AppendUint64(fpBuf[:0], sum)
+			}
+			enc, packed := h.encodedVariantFP(r, key, body, fp, hitGen)
 			h.writeHTMLEncoded(w, r, http.StatusOK, body, false, enc, packed)
 			return
 		}
@@ -557,9 +580,26 @@ func (h *renderHandlers) serve(w http.ResponseWriter, r *http.Request, path stri
 		return
 	}
 	private := degraded || filtered || uncached
+	// storable is the page-cache write condition. The validators use the same
+	// one: a response the cache would not keep (preview, dynamic, a page past
+	// a paged loop) must not answer 304 either.
+	storable := cacheable && !private && !v.Preview && !v.Dynamic && (pageN == 0 || (v.PagedLoop != nil && *v.PagedLoop))
 	pluginhost.WriteSetCookies(w, r, cookies)
-	h.writeHTML(w, r, http.StatusOK, buf.Bytes(), private)
-	if cacheable && !private && !v.Preview && !v.Dynamic && (pageN == 0 || (v.PagedLoop != nil && *v.PagedLoop)) {
+	if pv := h.validators; storable && pv != nil {
+		// Hash exactly the bytes that get cached, so a later hit agrees.
+		sum := fingerprintSum(buf.Bytes())
+		now := pv.clock()
+		since := pv.stamp(key, sum)
+		setValidators(w.Header(), sum, since, now)
+		if notModified(r, sum, since, now) {
+			h.writeNotModified(w, r, buf.Bytes())
+		} else {
+			h.writeHTML(w, r, http.StatusOK, buf.Bytes(), false)
+		}
+	} else {
+		h.writeHTML(w, r, http.StatusOK, buf.Bytes(), private)
+	}
+	if storable {
 		if _, err := h.cache.SetIfGeneration(r.Context(), key, buf.Bytes(), h.pageTTLFor(v), gen); err != nil {
 			h.logger.Warn("render: cache set failed", "error", err)
 		}
@@ -703,6 +743,34 @@ func (h *renderHandlers) writeHTML(w http.ResponseWriter, r *http.Request, statu
 // already carries a Content-Encoding alone.
 func (h *renderHandlers) writeHTMLEncoded(w http.ResponseWriter, r *http.Request, status int, body []byte, private bool, enc httpx.Encoding, packed []byte) {
 	hd := w.Header()
+	h.setPageHeaders(hd, r, body, private)
+	if packed != nil {
+		body = packed
+		hd.Set("Content-Encoding", string(enc))
+		hd.Add("Vary", "Accept-Encoding")
+		hd.Set("Content-Length", strconv.Itoa(len(body)))
+	}
+	w.WriteHeader(status)
+	if r.Method != http.MethodHead {
+		_, _ = w.Write(body)
+	}
+}
+
+// writeNotModified answers a conditional request for a public page: the 200's
+// headers (Cache-Control incl. the directory TTL, CSP) and no body. The
+// compression middleware adds no Vary to a bodiless 304, so it is set here to
+// match the 200.
+func (h *renderHandlers) writeNotModified(w http.ResponseWriter, r *http.Request, body []byte) {
+	hd := w.Header()
+	h.setPageHeaders(hd, r, body, false)
+	hd.Del("Content-Type")
+	hd.Add("Vary", "Accept-Encoding")
+	w.WriteHeader(http.StatusNotModified)
+}
+
+// setPageHeaders sets the headers that follow the plain body: content type,
+// cache policy, CSP and the plugin sandbox.
+func (h *renderHandlers) setPageHeaders(hd http.Header, r *http.Request, body []byte, private bool) {
 	hd.Set("Content-Type", "text/html; charset=utf-8")
 	if private {
 		hd.Set("Cache-Control", cachePrivate)
@@ -724,16 +792,6 @@ func (h *renderHandlers) writeHTMLEncoded(w http.ResponseWriter, r *http.Request
 		// headers combine (the intersection applies). Set even with
 		// SECURITY_HEADERS_DISABLED: it is a safety control, not a hardening extra.
 		hd.Add("Content-Security-Policy", sandboxCSP)
-	}
-	if packed != nil {
-		body = packed
-		hd.Set("Content-Encoding", string(enc))
-		hd.Add("Vary", "Accept-Encoding")
-		hd.Set("Content-Length", strconv.Itoa(len(body)))
-	}
-	w.WriteHeader(status)
-	if r.Method != http.MethodHead {
-		_, _ = w.Write(body)
 	}
 }
 

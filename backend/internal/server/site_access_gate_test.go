@@ -365,3 +365,24 @@ func TestSiteAccessUnreadableSettingsNeverServeCachedPages(t *testing.T) {
 		t.Fatalf("unreadable settings: %d reached %d %q", w.Code, x.reach-before, w.Body.String())
 	}
 }
+
+// A let-through visitor's revalidation must never refresh a shared cache's
+// public copy: the 304 carries the same private, no-store as the 200.
+func TestSiteAccessLetThrough304IsNotPublicCacheable(t *testing.T) {
+	x := newGateFixture(t)
+	x.f.advance(2 * time.Second)
+	x.set.Mode = siteaccess.ModePassword
+	x.signed = true
+	first := x.do("GET", "/about", "")
+	if first.Code != 200 || first.Header().Get("Cache-Control") != "private, no-store" {
+		t.Fatalf("200: %d %q", first.Code, first.Header().Get("Cache-Control"))
+	}
+	x.f.advance(time.Second)
+	w := x.do("GET", "/about", "", func(r *http.Request) { r.Header.Set("If-None-Match", "*") })
+	if w.Code != http.StatusNotModified {
+		t.Fatalf("status %d, want 304 from the page handler", w.Code)
+	}
+	if got := w.Header().Get("Cache-Control"); got != "private, no-store" {
+		t.Fatalf("304 Cache-Control = %q, want private, no-store", got)
+	}
+}

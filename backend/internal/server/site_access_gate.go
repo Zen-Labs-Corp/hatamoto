@@ -320,7 +320,7 @@ type noStoreWriter struct {
 func (n *noStoreWriter) WriteHeader(code int) {
 	if !n.wrote {
 		n.wrote = true
-		if code >= 200 && code != http.StatusNotModified {
+		if code >= 200 {
 			n.Header().Set("Cache-Control", "private, no-store")
 		}
 	}
