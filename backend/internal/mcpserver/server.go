@@ -86,6 +86,9 @@ type Deps struct {
 		Duplicate(ctx context.Context, userID, srcID uuid.UUID) (*entity.Entity, error)
 	}
 
+	// Comments serves the comments_* tools; optional, the tools say so when nil.
+	Comments Comments
+
 	// SEO and NotFound serve the seo_* tools; both are optional and the tools
 	// say so when one is nil.
 	SEO      seosvc.Service
@@ -121,6 +124,7 @@ func New(d Deps, version string) http.Handler {
 	s.registerInsight()
 	s.registerBuilder()
 	s.registerSEO()
+	s.registerComments()
 
 	// A base64 upload of the largest allowed file (plus JSON framing) must fit.
 	// The SDK's DNS-rebinding guard rejects a non-loopback Host on a loopback
@@ -278,7 +282,9 @@ func publicError(l *slog.Logger, tool string, err error) error {
 		errors.Is(err, redirect.ErrInvalidStatusCode), errors.Is(err, redirect.ErrInvalidPattern), errors.Is(err, redirect.ErrUnsafePattern),
 		errors.Is(err, media.ErrFileTooLarge), errors.Is(err, media.ErrImageTooLarge), errors.Is(err, media.ErrInvalidMimeType),
 		errors.Is(err, media.ErrInvalidSVG), errors.Is(err, media.ErrInvalidFolder),
-		errors.Is(err, taxonomy.ErrTermSlugConflict):
+		errors.Is(err, taxonomy.ErrTermSlugConflict),
+		errors.Is(err, ErrCommentNotFound), errors.Is(err, ErrCommentState),
+		errors.Is(err, ErrCommentInvalid), errors.Is(err, ErrCommentsUnavailable):
 		return err
 	}
 	if l != nil {
