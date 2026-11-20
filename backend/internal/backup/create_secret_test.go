@@ -1,7 +1,9 @@
 package backup
 
 import (
+	"context"
 	"errors"
+	"io"
 	"path/filepath"
 	"testing"
 
@@ -21,7 +23,16 @@ func createdManifest(t *testing.T, r *rig) manifest {
 func TestCreateRecordsSecretCheck(t *testing.T) {
 	r := newRig(t)
 	r.e.opts.Secret = func() (string, error) { return "s3cret", nil }
+	var exported portability.ExportOptions
+	r.e.exportFn = func(_ context.Context, w io.Writer, o portability.ExportOptions) (*portability.Manifest, error) {
+		exported = o
+		_, err := w.Write([]byte("content"))
+		return &portability.Manifest{}, err
+	}
 	mf := createdManifest(t, r)
+	if exported.Secret != "s3cret" {
+		t.Fatalf("export secret = %q", exported.Secret)
+	}
 	if mf.SecretCheck == "" || mf.SecretCheck != portability.SecretCheck("s3cret") {
 		t.Fatalf("secret_check = %q", mf.SecretCheck)
 	}

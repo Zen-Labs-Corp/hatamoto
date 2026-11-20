@@ -375,7 +375,7 @@ func (e *Engine) build(ctx context.Context, s *Store, info *Info, work string, r
 	}
 
 	pr.step("content")
-	man, mediaObjects, err := e.exportContent(ctx, filepath.Join(work, "content.tar.gz"), req.WithMedia)
+	man, mediaObjects, err := e.exportContent(ctx, filepath.Join(work, "content.tar.gz"), req.WithMedia, secret)
 	if err != nil {
 		return *info, err
 	}
@@ -484,13 +484,13 @@ const maxMissingLogged = 10
 // exportContent writes the content archive. With a media store it returns the
 // paths of every media object the rows reference, for the media manifest; the
 // bytes go into the archive only when withMedia is set.
-func (e *Engine) exportContent(ctx context.Context, path string, withMedia bool) (*portability.Manifest, []string, error) {
+func (e *Engine) exportContent(ctx context.Context, path string, withMedia bool, secret string) (*portability.Manifest, []string, error) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o600)
 	if err != nil {
 		return nil, nil, err
 	}
 	var missing, referenced []string
-	opts := portability.ExportOptions{MediaDir: e.mediaDir(), OnMissing: func(rel string) {
+	opts := portability.ExportOptions{MediaDir: e.mediaDir(), Secret: secret, OnMissing: func(rel string) {
 		if len(missing) < maxMissingLogged {
 			missing = append(missing, rel)
 		}
