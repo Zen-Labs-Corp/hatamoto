@@ -90,6 +90,15 @@ func inheritFindings(name, src string) []string {
 				}
 			}
 			line := lineOf(blank, start)
+			// A tag with the keys but no verb is a wrapper, or a requester that a
+			// partial renders (the verb is in a template action, blanked above).
+			if !requester {
+				for _, k := range inheritKeys {
+					if own[k] {
+						out = append(out, fmt.Sprintf("%s:%d: <%s> sets %s without a request verb on the same tag", name, line, tag, k))
+					}
+				}
+			}
 			if requester {
 				for _, k := range inheritKeys {
 					if own[k] {
@@ -144,6 +153,7 @@ func TestHTMXInheritanceSelfTest(t *testing.T) {
 		"wrapper":  `<div hx-target="#x"><button hx-get="/y">go</button></div>`,
 		"nested":   `<form hx-get="/a" hx-target="#r" hx-indicator="#i"><input hx-get="/b" hx-target="#r" name="q"></form>`,
 		"attrmap":  `{{template "hm/button" (dict "Label" "x" "Attrs" (attrmap "hx-target" "#x"))}}`,
+		"partial":  `<div class="l" hx-target="#rows">{{template "hm/button" (dict "Attrs" (attrmap "hx-get" "/x?page=2"))}}</div>`,
 		"template": `<div {{if .X}}hx-indicator="#i"{{end}}><a hx-get="/z" hx-target="#t">z</a></div>`,
 	}
 	for n, src := range bad {
