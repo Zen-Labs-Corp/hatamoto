@@ -1,6 +1,9 @@
 package render
 
 import (
+	"bytes"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -33,5 +36,73 @@ func TestCommentFieldsZeroValueSafe(t *testing.T) {
 	var v PageView
 	if v.Comments != nil || v.CommentForm != nil || v.CommentsOpen || v.CommentCount != 0 {
 		t.Fatal("comment fields must default to off")
+	}
+}
+
+func TestRenderCommentsFragmentHasForm(t *testing.T) {
+	e := newTestEngine(t, Options{})
+	v := minimalView()
+	p := CommentFormPlaceholders
+	p.Action = "/-/comments/e1"
+	v.Comments = &CommentThread{}
+	v.CommentForm = &p
+	var b bytes.Buffer
+	item := &CommentItem{ID: "c1", Author: "Ana", Body: "<p>Hi</p>", CreatedAt: time.Now()}
+	if err := e.RenderCommentsFragment(&b, v, item); err != nil {
+		t.Fatal(err)
+	}
+	for _, w := range []string{CommentFormMarker, `hx-post="/-/comments/e1"`, `name="__hmcf_tok__"`, `afterbegin:#comments-list`, `id="comment-c1"`} {
+		if w == `name="__hmcf_tok__"` {
+			w = `value="__hmcf_tok__"`
+		}
+		if !strings.Contains(b.String(), w) {
+			t.Errorf("fragment lacks %q:\n%s", w, b.String())
+		}
+	}
+	if strings.Contains(b.String(), "website") {
+		t.Error("fragment carries a website field")
+	}
+}
+
+func TestDefaultThemeCommentsOffEmitsNothing(t *testing.T) {
+	e := newTestEngine(t, Options{})
+	v := minimalView()
+	v.Kind = KindSingle
+	if strings.Contains(renderToString(t, e, v), "hm-comments") {
+		t.Error("comments markup with Comments == nil")
+	}
+}
+
+func TestDefaultThemeRendersThread(t *testing.T) {
+	e := newTestEngine(t, Options{})
+	v := minimalView()
+	v.Kind = KindSingle
+	v.Entity = &EntityView{ID: "e1", Title: "Hello", Schema: "post"}
+	f := CommentFormPlaceholders
+	f.Action = "/-/comments/e1"
+	child := CommentItem{ID: "c2", Author: "Owner", IsSiteAuthor: true, Body: "<p>Thanks</p>", CreatedAt: time.Now().Add(-26 * time.Hour)}
+	v.Comments = &CommentThread{Total: 2, Items: []CommentItem{{ID: "c1", Author: "Ana", Body: "<p>Hi</p>", CreatedAt: time.Now().Add(-5 * time.Hour), ReplyURL: "?creply=c1#comment-form", Replies: []CommentItem{child}}}, NextURL: "?cpage=2#comments"}
+	v.CommentForm = &f
+	out := renderToString(t, e, v)
+	for _, w := range []string{`id="comments"`, "2 comments", "5 hours ago", "1 day ago", "Thanks", `?cpage=2#comments`, `hm-comments__list--nested`, `href="/theme/assets/comments.css"`} {
+		if !strings.Contains(out, w) {
+			t.Errorf("missing %q", w)
+		}
+	}
+}
+
+func TestCommentsStylesheetServedOutsideBundle(t *testing.T) {
+	th, err := LoadTheme(Chain{DefaultFS()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	css, _, _ := buildBundle(th)
+	if bytes.Contains(css, []byte(".hm-comments")) {
+		t.Error("comments.css leaked into the global bundle")
+	}
+	rec := httptest.NewRecorder()
+	th.AssetHandler().ServeHTTP(rec, httptest.NewRequest("GET", AssetPrefix+"comments.css", nil))
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), ".hm-comments") {
+		t.Errorf("comments.css not served: %d", rec.Code)
 	}
 }

@@ -17,7 +17,10 @@
 {{end}}</div>
 </aside>
 {{end}}{{end}}</article>
-{{if and $e (ne $e.Schema "page")}}{{with related . 3}}<section class="hm-container hm-related" aria-labelledby="hm-related-h">
+{{with .Comments}}<section class="hm-container hm-comments" id="comments" aria-labelledby="hm-comments-h"><h2 id="hm-comments-h" class="hm-comments__title">{{t $ "comments_title"}}</h2>
+<link rel="stylesheet" href="/theme/assets/comments.css">
+{{template "comments/form" $}}{{template "comments/list" $}}</section>
+{{end}}{{if and $e (ne $e.Schema "page")}}{{with related . 3}}<section class="hm-container hm-related" aria-labelledby="hm-related-h">
 <h2 id="hm-related-h" class="hm-related__title">{{t $ "keep_reading"}}</h2>
 <div class="hm-cards">{{range .}}{{template "post-card-h3" .}}{{end}}</div>
 </section>

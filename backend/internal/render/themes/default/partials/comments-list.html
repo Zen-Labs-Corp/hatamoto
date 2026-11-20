@@ -1,0 +1,5 @@
+{{define "comments/list"}}{{with $.Comments}}<div class="hm-comments__thread">
+<h3 class="hm-comments__count">{{if eq .Total 1}}{{t $ "comments_count_one" .Total}}{{else}}{{t $ "comments_count_other" .Total}}{{end}}</h3>
+<ol class="hm-comments__list" id="comments-list">{{range .Items}}{{template "comments/item" dict "Item" . "Strings" $.Strings}}{{end}}</ol>
+{{if or .PrevURL .NextURL}}<nav class="hm-comments__pager" aria-label="{{t $ "comments_pager_label"}}">{{if .NextURL}}<a rel="next" href="{{.NextURL}}">{{t $ "comments_older"}}</a>{{end}}{{if .PrevURL}}<a rel="prev" href="{{.PrevURL}}">{{t $ "comments_newer"}}</a>{{end}}</nav>
+{{end}}</div>{{end}}{{end}}

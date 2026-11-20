@@ -13,7 +13,7 @@ import (
 // the -strip-label suffix the section strips. A node id of the same doc is
 // reserved too (form fields render it as their id); see CheckSettings.
 // A test in render scans the default theme for literal ids against this.
-var ReservedAnchors = []string{"main-content", "toc", "top", "main", "content"}
+var ReservedAnchors = []string{"main-content", "toc", "top", "main", "content", "comments", "comment-form", "comments-list"}
 
 // ReservedAnchor reports whether a is an id the page itself uses.
 func ReservedAnchor(a string) bool {
