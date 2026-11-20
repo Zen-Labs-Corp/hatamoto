@@ -252,10 +252,16 @@ func (s *Service) Confirm(ctx context.Context, raw string) (Confirmed, error) {
 	}, nil
 }
 
+const releaseTimeout = 3 * time.Second
+
 // release makes a consumed token usable again after a failed confirmation. A
 // failure to release is logged; the visitor can request a new mail.
 func (s *Service) release(ctx context.Context, hash []byte) {
-	if err := s.store.Release(context.WithoutCancel(ctx), hash); err != nil {
+	// Detached from the request so a gone client cannot skip it, but bounded so
+	// a hung database cannot hold the handler.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), releaseTimeout)
+	defer cancel()
+	if err := s.store.Release(ctx, hash); err != nil {
 		s.log.Warn("comment confirmation token not released", "error", err)
 	}
 }

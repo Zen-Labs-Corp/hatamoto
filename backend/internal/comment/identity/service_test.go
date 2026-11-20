@@ -53,13 +53,14 @@ func (f *fakeMailer) SendCommentConfirmation(_ context.Context, to string, d ema
 
 // fakeStore applies the real limit arithmetic over an in-memory list.
 type fakeStore struct {
-	rows       []issueRow
-	issueN     int
-	versions   map[uuid.UUID]int
-	versionQs  int
-	peekOK     bool
-	released   int
-	versionErr error
+	rows               []issueRow
+	issueN             int
+	versions           map[uuid.UUID]int
+	versionQs          int
+	peekOK             bool
+	released           int
+	releaseHadDeadline bool
+	versionErr         error
 }
 
 func (f *fakeStore) Issue(_ context.Context, r issueRow, l Limits) (bool, error) {
@@ -91,8 +92,9 @@ func (f *fakeStore) Consume(context.Context, []byte, time.Time) (a, b uuid.UUID,
 	return uuid.New(), uuid.New(), true, nil
 }
 
-func (f *fakeStore) Release(context.Context, []byte) error {
+func (f *fakeStore) Release(ctx context.Context, _ []byte) error {
 	f.released++
+	_, f.releaseHadDeadline = ctx.Deadline()
 	return nil
 }
 
@@ -409,6 +411,9 @@ func TestConfirm_ReleasesTokenOnTransientVersionError(t *testing.T) {
 	e.st.versionErr = errors.New("boom")
 	if _, err := e.svc.Confirm(context.Background(), validToken(t)); err == nil || errors.Is(err, ErrTokenInvalid) {
 		t.Fatalf("err = %v, want the transient error", err)
+	}
+	if !e.st.releaseHadDeadline {
+		t.Error("Release ran without a deadline")
 	}
 	if e.st.released != 1 || len(e.c.confirmed) != 0 {
 		t.Errorf("released = %d, confirmed = %d; want the token released before any confirm", e.st.released, len(e.c.confirmed))
