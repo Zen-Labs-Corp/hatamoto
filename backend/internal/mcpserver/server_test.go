@@ -156,13 +156,19 @@ func TestSiteWriteScopesAreSeparate(t *testing.T) {
 		"redirects_delete": {hmauth.ScopeWriteRedirects, map[string]any{"id": uuid.NewString()}},
 		"seo_update":       {hmauth.ScopeWriteSEO, map[string]any{"patch": map[string]any{}}},
 		"seo_preview":      {hmauth.ScopeReadSEO, map[string]any{"entity_id": uuid.NewString()}},
+		"comments_list":    {hmauth.ScopeReadComments, map[string]any{}},
+		"comments_approve": {hmauth.ScopeWriteComments, map[string]any{"id": uuid.NewString()}},
+		"comments_spam":    {hmauth.ScopeWriteComments, map[string]any{"id": uuid.NewString()}},
+		"comments_reply":   {hmauth.ScopeWriteComments, map[string]any{"id": uuid.NewString(), "body": "hi"}},
 	}
 	// Keys holding every other scope (including write:entities) are refused.
 	others := func(skip hmauth.APIKeyScope) []hmauth.APIKeyScope {
 		var s []hmauth.APIKeyScope
 		for _, sc := range hmauth.ValidScopes() {
 			// write:seo implies read:seo, so it is skipped with its read scope.
-			if sc != skip && sc != hmauth.ScopeAll && !(skip == hmauth.ScopeReadSEO && sc == hmauth.ScopeWriteSEO) {
+			implied := (skip == hmauth.ScopeReadSEO && sc == hmauth.ScopeWriteSEO) ||
+				(skip == hmauth.ScopeReadComments && sc == hmauth.ScopeWriteComments)
+			if sc != skip && sc != hmauth.ScopeAll && !implied {
 				s = append(s, sc)
 			}
 		}
@@ -245,7 +251,8 @@ func TestDestructiveAnnotations(t *testing.T) {
 	}
 	want := map[string]bool{"redirects_delete": true, "menus_update": true, "entities_update": true, "entities_unpublish": true,
 		"entities_create": false, "entities_duplicate": false, "entities_reorder": false, "terms_reorder": false, "entities_publish": false, "media_upload": false, "terms_create": false, "redirects_create": false,
-		"seo_update": false, "seo_get": false}
+		"seo_update": false, "seo_get": false,
+		"comments_spam": true, "comments_approve": false, "comments_reply": false}
 	for _, tool := range list.Tools {
 		if w, ok := want[tool.Name]; ok {
 			got := tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
