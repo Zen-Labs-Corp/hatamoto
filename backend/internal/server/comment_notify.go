@@ -174,6 +174,10 @@ func (n *commentNotifier) replies(ctx context.Context, name, base string) error 
 				URL: base + e.path + "#comment-" + r.ID.String(),
 			})
 		}
+		if lost := len(b.Replies) - len(items); lost > 0 {
+			n.log.WarnContext(ctx, "comment reply mail lost: page not found",
+				slog.Int("replies", lost), slog.String("commenter", b.CommenterID.String()))
+		}
 		var err error
 		switch {
 		case len(items) == 0:
