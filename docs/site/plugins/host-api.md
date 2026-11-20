@@ -39,6 +39,7 @@ A plugin always loads. What it may do is decided by the owner, and nothing is gr
 | `redirects.read` | `redirects.list` |
 | removed in 0.17 | `entities.write`, `terms.write`, `menus.write`, `media.write` and `redirects.write` no longer exist. A manifest that lists one is refused at load. Content is staged in a run with the `changeset.*` functions, which need no permission (see [Runs and changesets](#runs-and-changesets)) |
 | `forms.read` | `forms.list`, `forms.submissions`, and delivery of the `form.submitted` action |
+| `comments.read` | `comments.thread`, `comments.counts`, delivery of the `comment.*` actions, and the `comment.check` filter; there is no write function for comments |
 | `settings` | `settings.get` (the plugin's own settings) |
 | `log` | `log` |
 | `mail.send` | `mail.send` |
@@ -109,6 +110,8 @@ Every call has a deadline of at most 15 seconds and never longer than the hook c
 | `redirects.list` | `{ "search"?, "page"?, "per_page"? }` | `{ "items", "total" }` |
 | `forms.list` | `{}` | `{ "items": [ { id, name, slug, status, fields } ] }` |
 | `forms.submissions` | `{ "form_slug", "limit"?, "offset"? }` | `{ "items", "total" }`, never with IP or user agent |
+| `comments.thread` | `{ "entity_id", "page"? }` | `{ "items": [ { id, parent_id?, depth?, author_name, staff?, body_html, created_at } ], "page", "has_more"? }`: approved comments of a published entity whose comments are shown, otherwise an empty thread. Never the email, hashes, IP address, user agent or author web address |
+| `comments.counts` | `{ "entity_ids": [1 to 100 ids] }` | `{ "counts": { "<id>": n } }`: approved comments per entity, `0` when the entity is not public or has comments hidden or off. An empty list or more than 100 ids is `invalid_argument` |
 | `settings.get` | `{}` | the plugin's settings, schema defaults merged in |
 | `log` | `{ "level", "message" }` (level is `debug`, `info`, `warn` or `error`) | `{}` |
 | `mail.send` | `{ "to": [1 to 10 addresses], "subject", "text"?, "html"? }` | `{ "sent": n }` |
@@ -136,7 +139,7 @@ Content changes are made by a **run** the owner starts. The plugin declares it i
 | `permissions`, `log`, `settings.get`, `run.info`, `run.checkpoint`, `run.progress`, `run.finish`, `run.fail` | yes | yes |
 | `http.fetch`, `packages.inspect`, `upload.read`, `buffer.put`, `media.import_url` | yes | no |
 | `buffer.get`, `buffer.list`, `site.info`, `entities.slug_taken`, published reads, `changeset.*` | no | yes |
-| `kv.*`, `db.*`, `mail.send`, `forms.list`, `forms.submissions` | no | no |
+| `kv.*`, `db.*`, `mail.send`, `forms.list`, `forms.submissions`, `comments.thread`, `comments.counts` | no | no |
 
 A function not allowed in the current phase fails with `phase_denied`, and so does a run function called outside a run.
 

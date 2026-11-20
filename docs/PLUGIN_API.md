@@ -284,6 +284,11 @@ Entity reads also carry `sort_order` (the stored manual order among siblings, `0
 | `request.redirect` | filter | `filter_request_redirect` | [RedirectContext](#requestredirect) | RedirectContext |
 | `entity.before_save` | filter (needs the `entities.filter` grant) | `filter_entity_before_save` | [EntityDraft](#entitydraft) | EntityDraft |
 | `builder.data` | filter | `filter_builder_data` | [BuilderDataRequest](#builderdata) | BuilderDataRequest |
+| `comment.created` | action (needs `comments.read`) | `on_comment_created` | [CommentEvent](#commentevent) | none |
+| `comment.approved` | action (needs `comments.read`) | `on_comment_approved` | CommentEvent | none |
+| `comment.spam` | action (needs `comments.read`) | `on_comment_spam` | CommentEvent | none |
+| `comment.deleted` | action (needs `comments.read`) | `on_comment_deleted` | CommentEvent (ids and `status` only) | none |
+| `comment.check` | filter (needs `comments.read`) | `filter_comment_check` | [CommentCheck](#commentcheck) | CommentCheck (`score`, `reasons` only) |
 
 **Actions** run asynchronously after the event, in a background goroutine; the
 output is ignored and a failure is only logged. **Filters** run in order on the
@@ -312,6 +317,8 @@ switched off (3 failed calls in a row, see above), the save is **refused**
 instead, with the message that the plugin hook is disabled after repeated
 failures; it works again when the 30 seconds are over. Filters of other hooks
 stay fail open.
+
+`comment.check` is the second deliberate exception, and it fails closed in the other direction: it runs on a comment a visitor is submitting, and any error, trap, timeout, `hatamoto:reject:` answer, busy plugin or open circuit breaker **holds the comment for moderation** (it is not lost and not published). All plugins share one budget of 500 ms for the whole chain, and each call also has the plugin's own hook timeout (default 250 ms, `limits.hook_timeouts_ms["comment.check"]`). A cold plugin instance may not start within the budget, so the first comment after a restart can be held. The filter is registered only while the plugin holds `comments.read`.
 
 ### Payload schemas
 
@@ -346,6 +353,31 @@ are only counted.
 ```json
 { "source": "wordpress", "created": 120, "updated": 3, "failed": 1 }
 ```
+
+#### CommentEvent
+Fired for `comment.created`, `comment.approved`, `comment.spam` and `comment.deleted`, and delivered **only to plugins that hold `comments.read`** (checked at each delivery). Since SDK 0.25.0.
+```json
+{ "id": "string", "entity_id": "string", "parent_id": "string", "author_name": "Ada", "staff": false,
+  "body_html": "<p>Nice post.</p>", "status": "pending", "locale": "en", "created_at": "2026-01-02T03:04:05Z" }
+```
+`parent_id`, `author_name`, `staff`, `body_html` and `locale` are left out when empty. `status` is `pending`, `approved`, `spam` or `trash`; `staff` is true for a comment written by a signed-in owner or editor. `body_html` is sanitised once when the comment is written.
+
+- `comment.created` fires when a comment is stored as pending or approved, or confirmed by its author. A comment that is auto-approved also fires `comment.approved` right after. A comment the spam filters store as spam fires nothing, and no event fires for an unconfirmed draft.
+- `comment.approved` fires when a comment becomes approved.
+- `comment.spam` fires when a moderator marks a comment as spam.
+- `comment.deleted` fires when a comment is trashed or deleted and when a commenter's data is erased. The payload holds ids and `status` only. It may arrive twice for one comment (trash, then delete) and is not sent for replies removed together with their parent or for unconfirmed drafts purged after 24 hours. Use `id` as the idempotency key.
+- Edits and unapprovals send no event.
+
+A comment event never carries the commenter's email, a hash, the IP address, the user agent, the author's web address, a spam score or reasons, or the raw body.
+
+#### CommentCheck
+The value of the `comment.check` filter, run on a new comment before it is stored, only for plugins that hold `comments.read`. Since SDK 0.25.0.
+```json
+{ "body": "string", "link_domains": ["example.com"], "body_hash": "string", "score": 0, "reasons": ["string"] }
+```
+`body` is the raw comment text, `link_domains` the domains it links to and `body_hash` a site-keyed hash of the normalised body. The payload never holds the IP address, a network hash, the email, the name or the entity. `score` and `reasons` are **output only** and arrive empty; every other field of the answer is ignored.
+
+A plugin can only add to the spam score. `score` is `0` to `sdk.CommentCheckMaxScore` (100): a negative value counts as 0 and a larger one is cut to 100. The host adds the scores of all plugins (cut to 100 again) and maps the sum onto its own scale; 100 alone marks the comment as spam, lower sums may hold it for moderation. `reasons` keeps at most 8 entries of 200 bytes, each prefixed with the plugin name, and is shown to the moderator. Failures hold the comment, see [Failure handling](#failure-handling-fail-open).
 
 #### AgentHitEvent
 No IP address and no user agent are ever included. `entity_id` is `""` when the path is not an entity page; `status` is `0` when unknown.
@@ -530,6 +562,7 @@ A plugin always loads. What it may *do* is decided by the owner. Nothing is gran
 | `redirects.read` | `redirects.list` |
 | removed in 0.17 | `entities.write`, `terms.write`, `menus.write`, `media.write`, `redirects.write`: no longer exist. Use a run and the `changeset.*` functions (no permission needed). A manifest that lists one is refused at load |
 | `forms.read` | `forms.list`, `forms.submissions`, and delivery of the `form.submitted` action |
+| `comments.read` | `comments.thread`, `comments.counts`, delivery of the `comment.created`, `comment.approved`, `comment.spam` and `comment.deleted` actions, and the `comment.check` filter (without the grant none of these is registered). There is no write function for comments. Not a warning permission. A plugin that asks for it declares `^0.25` |
 | `settings` | `settings.get` (the plugin's own settings) |
 | `log` | `log` |
 | `mail.send` | `mail.send` |
@@ -570,6 +603,8 @@ Error codes: `capability_denied` (the error also has `capability`: the missing p
 | `redirects.list` | `{ "search"?, "page"?, "per_page"? }` | `{ "items", "total" }` |
 | `forms.list` | `{}` | `{ "items": [ { id, name, slug, status, fields } ] }` |
 | `forms.submissions` | `{ "form_slug", "limit"?, "offset"? }` | `{ "items": [ { id, status, data, created_at } ], "total" }`. IP address and user agent are never included |
+| `comments.thread` | `{ "entity_id", "page"? }` | `{ "items": [ { id, parent_id?, depth?, author_name, staff?, body_html, created_at } ], "page", "has_more"? }`. Approved comments only, of a published entity whose comments are shown; an entity that is not public, or whose comments are hidden or off, gives an empty thread, never an error. `page` is clamped. The email, hashes, IP address, user agent and author web address are never included |
+| `comments.counts` | `{ "entity_ids": [1 to 100 ids] }` | `{ "counts": { "<id>": n } }`: approved comments per entity, `0` for an entity that is not public or has comments hidden or off. An empty list or more than 100 ids is `invalid_argument` |
 | `settings.get` | `{}` | the plugin's own settings object, schema defaults merged in (write-only values included: they are the plugin's own secrets) |
 | `log` | `{ "level": "debug|info|warn|error", "message" }` | `{}`. At most 10 lines/s (burst 20), then `rate_limited`; messages are cut at 4 KiB |
 | `mail.send` | `{ "to": [1..10 plain addresses], "subject", "text"?, "html"? }` | `{ "sent": n }`. Goes through the site's mail service and From identity; owner-set recipients per hour (default 360, which is 6 a minute; 1 to 3600, set by the owner on the plugin Permissions tab; burst clamp(N/36, 10, 100), so a very low quota still allows a short burst of up to 10; one token per recipient), then `rate_limited` "mail quota (N recipients per hour) reached"; `unavailable` when mail is not configured. The plugin cannot change the limit |

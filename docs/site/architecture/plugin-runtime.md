@@ -37,8 +37,8 @@ A plugin declares in `plugin.json` which hooks it handles, which permissions it 
 
 | Kind | Hooks |
 |---|---|
-| Actions (fire and forget) | `entity.created`, `entity.updated`, `entity.published`, `entity.deleted`, `import.completed`, `agent.hit`, `agent.first_crawl`, `form.submitted` |
-| Filters (return a modified value) | `jsonld.enrich`, `sitemap.urls`, `render.head`, `render.site_graph`, `render.page`, `entity.before_save`, `builder.data` |
+| Actions (fire and forget) | `entity.created`, `entity.updated`, `entity.published`, `entity.deleted`, `import.completed`, `agent.hit`, `agent.first_crawl`, `form.submitted`, `comment.created`, `comment.approved`, `comment.spam`, `comment.deleted` |
+| Filters (return a modified value) | `jsonld.enrich`, `sitemap.urls`, `render.head`, `render.site_graph`, `render.page`, `entity.before_save`, `builder.data`, `comment.check` |
 | Other exports | `http_handle` (routes), `on_cron_<job>` (scheduled jobs), `func_<name>` (template functions) |
 
 **Actions** run in their own goroutine with panic recovery and a timeout, and cannot delay the request that triggered them. **Filters** run synchronously in ascending priority order and each receives the previous filter's result. A failing, timing-out or oversized filter leaves the value unchanged, so a broken plugin degrades its own feature, not the site. The only filter that can block something is `entity.before_save`, and only by returning an explicit rejection (an error starting with `hatamoto:reject:`); any other error is logged and ignored. `builder.data` answers the data requests of the visual editor's blocks for the sources the plugin declares, once per page render; it is registered only with the `builder.data` permission, and a failure leaves those values empty. `entity.before_save` is registered only with the `entities.filter` permission.
@@ -55,6 +55,7 @@ Nothing is available to a plugin by default. The manifest lists the permissions 
 | `media.read` | media records |
 | `redirects.read` | redirect rules |
 | `forms.read` | form definitions and submissions |
+| `comments.read` | approved comments, comment events, and the `comment.check` filter that can add to a new comment's spam score (it fails closed: a failure holds the comment for moderation) |
 | `settings` | the plugin's own settings |
 | `log` | write to the server log |
 | `mail.send` | send mail through the site's SMTP settings |
