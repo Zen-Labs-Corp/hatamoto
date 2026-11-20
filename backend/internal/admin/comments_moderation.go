@@ -284,26 +284,6 @@ func (a *Admin) handleCommentsBulk(w http.ResponseWriter, r *http.Request) {
 	a.unavailable(w, r, "Comments")
 }
 
-// handleCommentReplyPage is a stub until its screen lands.
-func (a *Admin) handleCommentReplyPage(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
-}
-
-// handleCommentReply is a stub until its screen lands.
-func (a *Admin) handleCommentReply(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
-}
-
-// handleCommentEditPage is a stub until its screen lands.
-func (a *Admin) handleCommentEditPage(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
-}
-
-// handleCommentEdit is a stub until its screen lands.
-func (a *Admin) handleCommentEdit(w http.ResponseWriter, r *http.Request) {
-	a.unavailable(w, r, "Comments")
-}
-
 // modLoad is the shared start of a single-comment action: the service, the
 // comment id and the comment itself. It answers 503, 404 or 500 and reports
 // false when it cannot go on.
@@ -423,4 +403,106 @@ func (a *Admin) handleCommentSpam(w http.ResponseWriter, r *http.Request) {
 	}
 	a.SetFlash(w, r, "success", "Comment marked as spam.")
 	Redirect(w, r, a.modBack(r))
+}
+
+// modFormData drives pages/comments/reply and pages/comments/edit.
+type modFormData struct {
+	ID, Parent, Body, Back string
+	Errs                   map[string]string
+	Summary                []ui.FieldError
+}
+
+// modCheckBody trims the text and says what is wrong with it ("" when fine).
+// The formatter has the last word; this only refuses early with its limit.
+func modCheckBody(body, empty string) (string, string) {
+	body = strings.TrimSpace(body)
+	switch {
+	case body == "":
+		return body, empty
+	case len(body) > maxCommentBodyBytes:
+		return body, "This text is too long."
+	}
+	return body, ""
+}
+
+func (a *Admin) renderModForm(w http.ResponseWriter, r *http.Request, status int, page, title, label string, d modFormData, msg string) {
+	d.Errs = map[string]string{}
+	if msg != "" {
+		d.Errs["body"] = msg
+		d.Summary = []ui.FieldError{{ID: "body", Label: label, Message: msg}}
+	}
+	v := a.NewView(w, r, title)
+	v.Width = "narrow"
+	v.Crumbs = crumbList("Comments", a.adminPath+"/comments", title)
+	v.Data = d
+	a.Render(w, r, status, page, v)
+}
+
+func (a *Admin) handleCommentReplyPage(w http.ResponseWriter, r *http.Request) {
+	_, row, ok := a.modLoad(w, r)
+	if !ok {
+		return
+	}
+	a.renderModForm(w, r, http.StatusOK, "comments/reply", "Reply", "Reply", modFormData{ID: row.ID, Parent: modExcerpt(row.BodyRaw), Back: a.modBack(r)}, "")
+}
+
+func (a *Admin) handleCommentReply(w http.ResponseWriter, r *http.Request) {
+	svc, row, ok := a.modLoad(w, r)
+	if !ok {
+		return
+	}
+	body, msg := modCheckBody(r.PostFormValue("body"), "Write a reply.")
+	d := modFormData{ID: row.ID, Parent: modExcerpt(row.BodyRaw), Body: body, Back: a.modBack(r)}
+	if msg == "" {
+		u := userFrom(r.Context())
+		_, err := svc.Reply(r.Context(), row.ID, body, modActor(r), cmp.Or(u.Name, u.Email))
+		switch {
+		case err == nil:
+			a.SetFlash(w, r, "success", "Reply posted.")
+			Redirect(w, r, a.adminPath+"/comments?status=approved")
+			return
+		case errors.Is(err, ErrCommentEmpty):
+			msg = "Write a reply."
+		case errors.Is(err, ErrCommentTooLong):
+			msg = "This text is too long."
+		default:
+			a.modFail(w, r, "posted", err)
+			return
+		}
+	}
+	a.renderModForm(w, r, http.StatusUnprocessableEntity, "comments/reply", "Reply", "Reply", d, msg)
+}
+
+func (a *Admin) handleCommentEditPage(w http.ResponseWriter, r *http.Request) {
+	_, row, ok := a.modLoad(w, r)
+	if !ok {
+		return
+	}
+	a.renderModForm(w, r, http.StatusOK, "comments/edit", "Edit comment", "Comment", modFormData{ID: row.ID, Body: row.BodyRaw, Back: a.modBack(r)}, "")
+}
+
+func (a *Admin) handleCommentEdit(w http.ResponseWriter, r *http.Request) {
+	svc, row, ok := a.modLoad(w, r)
+	if !ok {
+		return
+	}
+	body, msg := modCheckBody(r.PostFormValue("body"), "Write a comment.")
+	d := modFormData{ID: row.ID, Body: body, Back: a.modBack(r)}
+	if msg == "" {
+		err := svc.Edit(r.Context(), row.ID, body, modActor(r))
+		switch {
+		case err == nil:
+			a.SetFlash(w, r, "success", "Comment saved.")
+			Redirect(w, r, d.Back)
+			return
+		case errors.Is(err, ErrCommentEmpty):
+			msg = "Write a comment."
+		case errors.Is(err, ErrCommentTooLong):
+			msg = "This text is too long."
+		default:
+			a.modFail(w, r, "saved", err)
+			return
+		}
+	}
+	a.renderModForm(w, r, http.StatusUnprocessableEntity, "comments/edit", "Edit comment", "Comment", d, msg)
 }

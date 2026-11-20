@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"net/url"
 	"slices"
 	"strings"
@@ -251,5 +252,95 @@ func TestCommentRowActionsPerTab(t *testing.T) {
 	p = newCommentsRig(t, &fakeComments{rows: rows})
 	if body := modGet(t, p, "owner-token", "/admin/comments?status=trash"); !strings.Contains(body, "Restore") {
 		t.Error("trash tab lacks Restore")
+	}
+}
+
+// modTooLongService refuses every reply like the formatter does for a long text.
+type modTooLongService struct{ *fakeComments }
+
+func (modTooLongService) Reply(context.Context, string, string, string, string) (string, error) {
+	return "", ErrCommentTooLong
+}
+
+func modNoInput(t *testing.T, body string) {
+	t.Helper()
+	for _, bad := range []string{`name="url"`, `name="website"`, `name="author_url"`} {
+		if strings.Contains(body, bad) {
+			t.Errorf("page has an input %s", bad)
+		}
+	}
+}
+
+func TestCommentReply(t *testing.T) {
+	t.Parallel()
+
+	for _, tok := range []string{"owner-token", "editor-token"} {
+		svc := &fakeComments{rows: modRows()}
+		p := newCommentsRig(t, svc)
+		body := modGet(t, p, tok, "/admin/comments/"+commentsTestID+"/reply")
+		modNoInput(t, body)
+		loc := modPost(t, p, tok, "/reply", url.Values{"body": {"  Thanks!  "}})
+		if loc != "/admin/comments?status=approved" {
+			t.Errorf("%s: redirect = %q", tok, loc)
+		}
+		if !slices.Equal(svc.calls, []string{"reply"}) || svc.lastActor == "" || svc.lastBody != "Thanks!" || !slices.Equal(svc.lastIDs, []string{commentsTestID}) {
+			t.Errorf("%s: calls=%v actor=%q body=%q ids=%v", tok, svc.calls, svc.lastActor, svc.lastBody, svc.lastIDs)
+		}
+	}
+}
+
+func TestCommentReplyEmpty(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{rows: modRows()}
+	p := newCommentsRig(t, svc)
+	rec := p.do("POST", "/admin/comments/"+commentsTestID+"/reply", "owner-token", url.Values{"body": {"   "}}, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "Write a reply.") {
+		t.Errorf("empty reply = %d", rec.Code)
+	}
+	if len(svc.calls) != 0 {
+		t.Errorf("calls = %v", svc.calls)
+	}
+}
+
+func TestCommentEdit(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{rows: modRows()}
+	p := newCommentsRig(t, svc)
+	body := modGet(t, p, "owner-token", "/admin/comments/"+commentsTestID+"/edit")
+	modNoInput(t, body)
+	if !strings.Contains(body, "Nice post") {
+		t.Error("the edit page does not prefill the text")
+	}
+	modPost(t, p, "editor-token", "/edit", url.Values{"body": {"Better text"}})
+	if !slices.Equal(svc.calls, []string{"edit"}) || svc.lastBody != "Better text" {
+		t.Errorf("calls=%v body=%q", svc.calls, svc.lastBody)
+	}
+}
+
+func TestCommentEditTooLong(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{rows: modRows()}
+	p := newCommentsRig(t, svc)
+	rec := p.do("POST", "/admin/comments/"+commentsTestID+"/edit", "owner-token", url.Values{"body": {strings.Repeat("a", maxCommentBodyBytes+1)}}, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "This text is too long.") {
+		t.Errorf("long edit = %d", rec.Code)
+	}
+	if len(svc.calls) != 0 {
+		t.Errorf("calls = %v", svc.calls)
+	}
+}
+
+func TestCommentReplyServiceTooLong(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeComments{rows: modRows()}
+	p := newCommentsRig(t, svc)
+	p.a.deps.Comments = modTooLongService{svc}
+	rec := p.do("POST", "/admin/comments/"+commentsTestID+"/reply", "owner-token", url.Values{"body": {"hello"}}, nil)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "This text is too long.") {
+		t.Errorf("service too long = %d", rec.Code)
 	}
 }
