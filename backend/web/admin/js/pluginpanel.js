@@ -1,10 +1,18 @@
-// Browse plugins: a click on a plugin card opens its detail page in the side
-// panel (#plugin-panel) instead of navigating. The panel shows the server
-// rendered fragment of the same /plugins/<name>/about page the link points to,
-// so without script, or when the fetch fails, the link works as a plain link.
-// Opening, Esc, the backdrop and returning focus are done by components.js.
+// Browse plugins and themes: a click on a card opens its detail page in the side panel (#plugin-panel).
+// The card carries hx-get/hx-target/hx-sync (pages/plugins/browse.html, pages/theme/browse.html): htmx asks
+// for the fragment of the same /about page the link points to and swaps it into #plugin-panel-body. Without
+// script, or when the request fails, the link works as a plain link. Opening, Esc, the backdrop and returning
+// focus are components.js. Each page's fragment is kept until the page reloads.
 const SELECTOR = 'a[data-hm-open="plugin-panel"]';
-let latest = 0;
+const BODY = "plugin-panel-body";
+const FOCUS = "input, select, textarea, button, [href]";
+const FAILED = ["htmx:responseError", "htmx:sendError", "htmx:timeout"]; // never htmx:sendAbort: a newer click replaced it
+const cache = new Map(); // request path -> fragment HTML
+const card = (evt) => {
+  const el = evt.detail?.requestConfig?.elt;
+  return el?.matches?.(SELECTOR) ? el : null;
+};
+const dialog = () => document.getElementById("plugin-panel");
 
 // A fragment may carry a [data-hm-panel-actions] block (opt-in; the plugin
 // fragment has none): it is moved into the drawer footer, after Close, and
@@ -15,44 +23,56 @@ document.addEventListener("close", (evt) => {
   if (evt.target.id === "plugin-panel") clearActions(evt.target);
 }, true);
 
-// Runs in the capture phase so a modified click (new tab, new window) stays a
-// plain link: stopping it here keeps components.js from opening the dialog.
+// Capture phase: a modified click (new tab, new window), or a page without htmx / showModal, stays a plain
+// link. Stopping it here keeps htmx and components.js from taking it.
 document.addEventListener("click", (evt) => {
   const link = evt.target.closest?.(SELECTOR);
   if (!link) return;
-  if (evt.defaultPrevented || evt.button !== 0 || evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey) {
-    evt.stopPropagation();
-    return;
-  }
-  const dlg = document.getElementById("plugin-panel");
-  const body = dlg?.querySelector(".hm-dialog__body");
-  if (!body || typeof dlg.showModal !== "function") {
-    evt.stopPropagation();
-    return;
-  }
-  load(link.href, dlg, body);
+  const dlg = dialog();
+  if (evt.defaultPrevented || evt.button !== 0 || evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey
+    || !window.htmx || !document.getElementById(BODY) || typeof dlg?.showModal !== "function") evt.stopPropagation();
 }, true);
 
-async function load(href, dlg, body) {
-  const mine = ++latest;
+function settle(dlg, body) {
+  const actions = body.querySelector(ACTIONS);
+  const foot = dlg.querySelector(".hm-dialog__foot");
+  if (actions && foot) foot.append(actions);
+  setTimeout(() => (actions ?? body).querySelector(FOCUS)?.focus(), 0); // after components.js's own focus
+}
+
+document.addEventListener("htmx:beforeRequest", (evt) => {
+  if (!card(evt)) return;
+  const dlg = dialog();
+  const body = document.getElementById(BODY);
   clearActions(dlg);
+  const html = cache.get(evt.detail.pathInfo.requestPath);
+  if (html !== undefined) {
+    evt.preventDefault(); // no request: the fragment is already here
+    body.innerHTML = html; // the server's own markup, kept from the first open
+    window.htmx.process(body);
+    settle(dlg, body);
+    return;
+  }
   const loading = document.createElement("p");
   loading.className = "hm-muted";
   loading.textContent = "Loading...";
   body.replaceChildren(loading);
-  try {
-    const res = await fetch(href, { headers: { "HX-Request": "true", "HX-Target": "plugin-panel" }, credentials: "same-origin" });
-    if (!res.ok) throw new Error(String(res.status));
-    const doc = new DOMParser().parseFromString(await res.text(), "text/html");
-    if (mine !== latest) return;
-    body.replaceChildren(...Array.from(doc.body.childNodes, (n) => document.importNode(n, true)));
-    const actions = body.querySelector(ACTIONS);
-    const foot = dlg.querySelector(".hm-dialog__foot");
-    if (actions && foot) foot.append(actions);
-    (actions ?? body).querySelector("input, select, textarea, button, [href]")?.focus();
-  } catch {
-    if (mine !== latest) return;
-    dlg.close();
-    location.href = href;
-  }
+});
+
+document.addEventListener("htmx:beforeSwap", (evt) => {
+  // Before the actions block moves to the footer, so the cached copy is the server's markup.
+  if (card(evt) && evt.detail.xhr.status === 200) cache.set(evt.detail.pathInfo.requestPath, evt.detail.serverResponse);
+});
+
+document.addEventListener("htmx:afterSwap", (evt) => {
+  if (card(evt) && evt.target.id === BODY) settle(dialog(), evt.target);
+});
+
+for (const type of FAILED) {
+  document.addEventListener(type, (evt) => {
+    const link = card(evt);
+    if (!link) return;
+    dialog()?.close();
+    location.href = link.href;
+  });
 }
