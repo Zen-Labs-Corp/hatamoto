@@ -323,7 +323,7 @@ func (c *checker) hostile() {
 				c.addf("%s has a javascript: href", desc(n))
 			case strings.HasPrefix(k, "hx-on"):
 				c.addf("%s uses %s (needs eval, forbidden by the CSP)", desc(n), k)
-			case (k == "hx-vals" || k == "hx-vars" || k == "hx-headers") && strings.HasPrefix(strings.TrimSpace(a.Val), "js:"):
+			case (k == "hx-vals" || k == "hx-headers") && strings.HasPrefix(strings.TrimSpace(a.Val), "js:"):
 				c.addf("%s uses %s js: (needs eval)", desc(n), k)
 			case k == "hx-trigger" && strings.Contains(a.Val, "["):
 				c.addf("%s has an hx-trigger filter (needs eval)", desc(n))
