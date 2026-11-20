@@ -125,7 +125,7 @@ func TestCommentBlocklistsUnsupported(t *testing.T) {
 		t.Errorf("a11y: %v", issues)
 	}
 	rec = p.do("POST", "/admin/settings/comments/blocklists", "owner-token", url.Values{"kind": {"email_domain"}, "entries": {"a.example"}}, nil)
-	if rec.Code != 404 || len(svc.calls) != 0 || len(p.events) != 0 {
+	if rec.Code != 303 || len(svc.calls) != 0 || len(p.events) != 0 {
 		t.Errorf("POST = %d calls=%v events=%d", rec.Code, svc.calls, len(p.events))
 	}
 }

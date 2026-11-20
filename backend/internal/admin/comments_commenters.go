@@ -115,7 +115,8 @@ func (a *Admin) handleCommentBlocklistsSave(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if !svc.Supports("blocklists") {
-		a.Error(w, r, http.StatusNotFound, "Not found", "Blocklists are not available yet.")
+		a.SetFlash(w, r, "error", "Blocklists are not available yet.")
+		Redirect(w, r, a.adminPath+cmtrBlocklistsPath)
 		return
 	}
 	_ = r.ParseForm() // a malformed body leaves the form empty and fails the kind check
