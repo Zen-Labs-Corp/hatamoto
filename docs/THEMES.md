@@ -302,6 +302,14 @@ and `N` is the count for the first three. The theme chooses the words.
   the other field names). A theme may override the block or drop it, but then
   nobody can opt in to reply mail. Inside the block `$` is the `CommentForm`,
   so `t` prints the theme's default text for `comment_notify_replies`.
+- `.BodyValue`, `.NameValue`, `.EmailValue` and `.Notify` of `.CommentForm` are
+  optional and set only when a fixable error sends the form back. Print
+  `.NameValue` and `.EmailValue` verbatim as the input's `value` attribute and
+  `.BodyValue` verbatim as the textarea content, each only when set
+  (`{{with .NameValue}} value="{{.}}"{{end}}`), and add `checked` to the reply
+  opt-in when `.Notify` is true. They hold placeholders that the server swaps
+  for the escaped values. A theme that omits them still works; its form comes
+  back blank.
 - Never add a website or URL field. Comments have none.
 - `data-hm-captcha` marks where a captcha widget goes when the owner enabled one
   (`.CommentForm.Captcha` is set).
