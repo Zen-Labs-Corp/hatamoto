@@ -13,6 +13,7 @@ import (
 func (a *Admin) mountComments(authed *httpx.Group) {
 	ed := authed.Group("", a.RequireRole("owner", "editor"))
 	owner := authed.Group("", a.RequireRole("owner"))
+	sudo := owner.Group("", a.RequireSudo) // personal data out or gone: confirm the password first
 	ed.HandleFunc("GET /comments", a.handleComments)
 	ed.HandleFunc("POST /comments/bulk", a.handleCommentsBulk)
 	ed.HandleFunc("POST /comments/{id}/approve", a.handleCommentApprove)
@@ -35,9 +36,9 @@ func (a *Admin) mountComments(authed *httpx.Group) {
 	owner.HandleFunc("GET /settings/comments/enable", a.handleCommentEnablePage)
 	owner.HandleFunc("POST /settings/comments/enable", a.handleCommentEnable)
 	owner.HandleFunc("POST /settings/types/{id}/comments", a.handleSchemaComments)
-	owner.HandleFunc("GET /settings/comments/commenters/{id}/export", a.handleCommenterExport)
-	owner.HandleFunc("GET /settings/comments/commenters/{id}/erase", a.handleCommenterErasePage)
-	owner.HandleFunc("POST /settings/comments/commenters/{id}/erase", a.handleCommenterErase)
+	sudo.HandleFunc("GET /settings/comments/commenters/{id}/export", a.handleCommenterExport)
+	sudo.HandleFunc("GET /settings/comments/commenters/{id}/erase", a.handleCommenterErasePage)
+	sudo.HandleFunc("POST /settings/comments/commenters/{id}/erase", a.handleCommenterErase)
 }
 
 // requireOwner is the in-handler re-check behind the owner group: it answers

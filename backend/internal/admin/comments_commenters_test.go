@@ -326,6 +326,11 @@ func TestCommenterExport(t *testing.T) {
 		t.Fatalf("editor GET = %d calls=%v", rec.Code, svc.calls)
 	}
 	rec = p.do("GET", path, "owner-token", nil, nil)
+	if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), p.a.sudoPath()) || len(svc.calls) != 0 {
+		t.Fatalf("no sudo: %d %s calls=%v", rec.Code, rec.Header().Get("Location"), svc.calls)
+	}
+	grantSudo(p.rig)
+	rec = p.do("GET", path, "owner-token", nil, nil)
 	h := rec.Header()
 	if rec.Code != 200 || h.Get("Content-Type") != "application/json" || h.Get("Cache-Control") != "no-store" ||
 		h.Get("X-Content-Type-Options") != "nosniff" || h.Get("Content-Disposition") != `attachment; filename="commenter-`+cmtrTestID+`.json"` {
@@ -338,6 +343,7 @@ func TestCommenterExport(t *testing.T) {
 	// Unsupported: the feature flag or the service itself refuses.
 	off := cmtrCommentersFake()
 	p2 := newCommentsRig(t, off)
+	grantSudo(p2.rig)
 	if rec := p2.do("GET", path, "owner-token", nil, nil); rec.Code != 404 || len(off.calls) != 0 {
 		t.Errorf("unsupported GET = %d", rec.Code)
 	}
@@ -353,7 +359,12 @@ func TestCommenterErase(t *testing.T) {
 	svc := cmtrPrivacyFake()
 	p := newCommentsRig(t, svc)
 	path := "/admin/settings/comments/commenters/" + cmtrTestID + "/erase"
-	rec := p.do("POST", path, "owner-token", url.Values{"confirm_phrase": {"nope"}}, nil)
+	rec := p.do("POST", path, "owner-token", url.Values{"confirm_phrase": {"erase"}}, nil)
+	if rec.Code != 303 || !strings.HasPrefix(rec.Header().Get("Location"), p.a.sudoPath()) || len(svc.calls) != 0 {
+		t.Fatalf("no sudo: %d %s calls=%v", rec.Code, rec.Header().Get("Location"), svc.calls)
+	}
+	grantSudo(p.rig)
+	rec = p.do("POST", path, "owner-token", url.Values{"confirm_phrase": {"nope"}}, nil)
 	if rec.Code != 422 || len(svc.calls) != 0 || len(p.events) != 0 {
 		t.Fatalf("wrong phrase = %d calls=%v events=%d", rec.Code, svc.calls, len(p.events))
 	}
@@ -393,6 +404,7 @@ func TestCommenterErasePage(t *testing.T) {
 	t.Parallel()
 
 	p := newCommentsRig(t, cmtrPrivacyFake())
+	grantSudo(p.rig)
 	rec := p.do("GET", "/admin/settings/comments/commenters/"+cmtrTestID+"/erase", "owner-token", nil, nil)
 	body := rec.Body.String()
 	if rec.Code != 200 || !strings.Contains(body, "Comments nobody replied to are deleted.") {
