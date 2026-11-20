@@ -1,0 +1,8 @@
+{{/* hm/comments-card: the Comments card of the entity editors (a *commentsPanel; nil renders nothing): the entity's own comment setting and a link to its waiting comments. Its select and button belong to hm/comments-form, which the editor renders after its own form (form= attr). */}}
+{{define "hm/comments-card"}}{{with .}}{{template "hm/card-start" dict "ID" .CardID "Title" "Comments"}}
+<div class="hm-stack">
+{{template "hm/field" dict "ID" (printf "%s-mode" .CardID) "Name" "comments_mode" "Label" "New comments" "Control" "select" "Options" .Options "Attrs" (attrmap "form" .FormID)}}
+{{with .Summary}}<p><a href="{{$.QueueHref}}">{{.}}</a></p>{{end}}
+</div>
+{{template "hm/card-foot"}}{{template "hm/button" dict "Label" "Save" "Type" "submit" "Attrs" (attrmap "form" .FormID)}}{{template "hm/card-foot-end"}}{{end}}{{end}}
+{{define "hm/comments-form"}}{{with .P}}<form method="post" action="{{adminPath}}/entities/{{.EntityID}}/comments" id="{{.FormID}}">{{template "hm/csrf" $}}<input type="hidden" name="back" value="{{.Back}}"></form>{{end}}{{end}}

@@ -511,6 +511,9 @@ func (a *Admin) buildBlogView(r *http.Request, e *entity.Entity, sc *entity.Enti
 	if d.Ownership = a.ownershipPanel(r, e); d.Ownership != nil {
 		d.Ownership.CardID = "be-own"
 	}
+	if d.Comments = a.commentsPanel(r, f.ID); d.Comments != nil {
+		d.Comments.CardID = "be-comments"
+	}
 	if !e.UpdatedAt.IsZero() {
 		d.UpdatedAt = fmtDateTime(e.UpdatedAt.In(a.siteLocation(r.Context())))
 	}
