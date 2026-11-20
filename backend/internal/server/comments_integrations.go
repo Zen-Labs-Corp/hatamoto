@@ -111,7 +111,7 @@ func (r pluginCommentReader) Counts(ctx context.Context, ids []uuid.UUID) (map[u
 	if r.s.comments == nil || r.s.db == nil || len(ids) == 0 {
 		return out, nil
 	}
-	pub, err := entity.NewPostgresPublicRepository(r.s.db).GetPublishedByIDs(ctx, ids)
+	pub, err := entity.NewPostgresPublicRepository(r.s.db).GetPublishedByIDs(r.scoped(ctx), ids)
 	if err != nil {
 		return nil, err
 	}
@@ -141,6 +141,16 @@ func (r pluginCommentReader) Counts(ctx context.Context, ids []uuid.UUID) (map[u
 	return out, nil
 }
 
+// scoped lets the published check see every public locale of a multi-locale
+// site (and shared content), as the sitemap does; without it only the site
+// language passes.
+func (r pluginCommentReader) scoped(ctx context.Context) context.Context {
+	if set := r.s.urlSnapshot(ctx).Locales(); set.Multi() {
+		return entity.WithVisibleLocaleSet(ctx, set.PublicTags()...)
+	}
+	return ctx
+}
+
 // visible reports whether the entity's thread is public.
 func (r pluginCommentReader) visible(ctx context.Context, id uuid.UUID) (bool, error) {
 	if r.s.comments == nil || r.s.db == nil {
@@ -156,7 +166,7 @@ func (r pluginCommentReader) visible(ctx context.Context, id uuid.UUID) (bool, e
 	if mode == comment.ModeOff || mode == comment.ModeHidden {
 		return false, nil
 	}
-	if _, err := entity.NewPostgresPublicRepository(r.s.db).GetPublishedByID(ctx, id); err != nil {
+	if _, err := entity.NewPostgresPublicRepository(r.s.db).GetPublishedByID(r.scoped(ctx), id); err != nil {
 		if errors.Is(err, entity.ErrEntityNotFound) {
 			return false, nil
 		}
