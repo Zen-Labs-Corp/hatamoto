@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"hatamoto.dev/core/internal/config"
+	"hatamoto.dev/core/internal/database"
 	"hatamoto.dev/core/internal/pluginhost"
 	"hatamoto.dev/core/internal/redirect"
 	"hatamoto.dev/core/internal/render"
@@ -165,6 +166,7 @@ func TestPageIfNoneMatch(t *testing.T) {
 		{"list", "GET", map[string]string{"If-None-Match": `"nope", ` + etag}, 304},
 		{"star", "GET", map[string]string{"If-None-Match": "*"}, 304},
 		{"head", "HEAD", map[string]string{"If-None-Match": etag}, 304},
+		{"empty", "GET", map[string]string{"If-None-Match": ""}, 200},
 		{"mismatch", "GET", map[string]string{"If-None-Match": `W/"0000000000000000"`}, 200},
 		{"mismatch beats If-Modified-Since", "GET", map[string]string{
 			"If-None-Match":     `W/"0000000000000000"`,
@@ -194,6 +196,61 @@ func TestPageIfNoneMatch(t *testing.T) {
 			check(t, "/about", tc.name, tc.method, tc.hdr, tc.want)
 			if f.resolves != before+1 {
 				t.Fatalf("resolves %d -> %d, want a fresh render", before, f.resolves)
+			}
+		})
+	}
+}
+
+// An empty If-None-Match is an absent one: If-Modified-Since still decides.
+func TestPageEmptyIfNoneMatchFallsBack(t *testing.T) {
+	f, _ := warmedFixture(t)
+	lm := f.conditionalGet(http.MethodGet, "/about", nil).Header().Get("Last-Modified")
+	if lm == "" {
+		t.Fatal("no Last-Modified to revalidate with")
+	}
+	w := f.conditionalGet(http.MethodGet, "/about", map[string]string{"If-None-Match": "", "If-Modified-Since": lm})
+	if w.Code != http.StatusNotModified {
+		t.Fatalf("empty If-None-Match + current If-Modified-Since: status %d, want 304", w.Code)
+	}
+}
+
+// A request whose bounded acquire gave up never gets validators or a 304,
+// whether the page comes from the cache or is rendered.
+func TestPageValidatorsNeverOnPoolBusy(t *testing.T) {
+	for _, purge := range []bool{false, true} {
+		name := "hit"
+		if purge {
+			name = "fresh"
+		}
+		t.Run(name, func(t *testing.T) {
+			f, etag := warmedFixture(t)
+			if purge {
+				f.cache.data = nil
+			}
+			if purge { // a menu or settings lookup gave up while the page was built
+				build := f.h.buildView
+				f.h.buildView = func(ctx context.Context, r *http.Request, rr *routeResult) (*render.PageView, error) {
+					database.NotePoolBusy(ctx)
+					return build(ctx, r, rr)
+				}
+			} else { // the redirect lookup gave up in front of the cached copy
+				f.h.checkRedirect = func(ctx context.Context, _ string) *redirect.Redirect {
+					database.NotePoolBusy(ctx)
+					return nil
+				}
+			}
+			for _, inm := range []string{"", etag} {
+				h := busyConverter(http.HandlerFunc(f.h.handleRenderCatchAll))
+				r := httptest.NewRequest(http.MethodGet, "/about", nil)
+				r = r.WithContext(database.WithAcquireBound(r.Context(), time.Second))
+				if inm != "" {
+					r.Header.Set("If-None-Match", inm)
+				}
+				w := httptest.NewRecorder()
+				h.ServeHTTP(w, r)
+				if w.Code != http.StatusServiceUnavailable || w.Header().Get("ETag") != "" || w.Header().Get("Last-Modified") != "" {
+					t.Errorf("If-None-Match %q: status %d headers %v, want a bare 503", inm, w.Code, w.Header())
+				}
 			}
 		})
 	}
