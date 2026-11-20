@@ -96,6 +96,7 @@ The report ends with the expected fidelity: the share of items that import witho
 | SEO title, description, canonical, noindex, social image | `meta_title`, `meta_description`, `seo.canonical`, `no_index`, `og_image`. |
 | Menus | Menus with nesting. Pages become entity links. |
 | Private, protected and draft content | Drafts, listed in the report. |
+| Comments (WXR file only) | Status kept (approved, pending, spam, trash), threading from `comment_parent` (deeper than the maximum depth attaches to the deepest allowed reply), original dates, and commenters from name and email with trust capped at *known*. Author website URLs are dropped, IP addresses are stored only as hashes and the user agent is not imported. Bodies become comment text; empty or over-16 KiB comments, comments without a usable email, and pingbacks and trackbacks are skipped and listed or counted. Re-runs skip comments already imported. **Importing never turns comments on.** |
 
 Body conversion strips Gutenberg comments, keeps YouTube and Vimeo embeds, removes form markup and shortcodes (and reports them rather than guessing), turns `[caption]` into a figure and drops any other iframe. No `wp-content` URL remains in imported content: images and files are rewritten to their new media URL, and the run checks the database at the end. Internal links such as `/2024/05/hello/` or `?p=12` become entity links, so they follow later renames.
 
@@ -139,7 +140,7 @@ What is not imported or reproduced:
 - One language per install: items in other languages are stored with their locale but are not public, and get no redirects.
 - Page-builder layouts are not reproduced. The text is kept and the page is listed for review.
 - Forms are not converted; recreate them with Hatamoto forms.
-- WooCommerce orders and coupons and comments are not imported. Products and event posts are ordinary custom types: they come across as plain pages (text and images, no prices, cart, stock or event dates logic).
+- WooCommerce orders and coupons are not imported, and comments come from a WXR file only. Products and event posts are ordinary custom types: they come across as plain pages (text and images, no prices, cart, stock or event dates logic).
 - Sites with plain permalinks (`?p=12`) import, but their old URLs are audited from the sitemap only.
 
 See [Redirect rules](redirect-rules.md) for what happens to old URLs at cutover, including the `legacy_wp_redirects` setting.

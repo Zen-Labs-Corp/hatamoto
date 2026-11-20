@@ -68,6 +68,8 @@ The default mode for a content type is `entity_schemas.settings.comments.mode`; 
 
 `Store` takes a draft that is already formatted and scored. The package does not import `internal/spam` or `internal/commentfmt`; the caller maps their results onto the draft.
 
+`Importer` writes comments from another system (the WordPress import) in one transaction per page: historical dates and statuses, threading clamped to the max depth, commenters hashed and sealed like live ones, trust capped at known. It fires no observer. `Resync` runs after a bulk load of comment rows (the site import): it moves the comment sequence past the loaded rows and rebuilds the per-page counts. Neither changes the site switch or a page's mode.
+
 ### Observer and Checker
 
 An `Observer` hears `OnCreated`, `OnConfirmed`, `OnApproved`, `OnSpam`, `OnDeleted`, `OnUpdated` and `OnSettingsChanged`. `OnUpdated(before, after)` covers what the others do not: every `Edit` and every move to pending (an unapproval), so a cache that shows a published comment can always see it change. Events fire after the commit and never fail a write.
