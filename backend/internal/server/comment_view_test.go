@@ -1,0 +1,282 @@
+package server
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"hatamoto.dev/core/internal/comment"
+	"hatamoto.dev/core/internal/comment/identity"
+	"hatamoto.dev/core/internal/render"
+)
+
+type fakeCommentReader struct {
+	set       comment.Settings
+	mode      comment.Mode
+	modeErr   error
+	thread    comment.ThreadPage
+	threadErr error
+	approved  int
+	own       []comment.ThreadComment
+
+	threadCalls, countCalls, ownCalls int
+	gotPage                           int
+}
+
+func (f *fakeCommentReader) Settings(context.Context) (comment.Settings, error) { return f.set, nil }
+func (f *fakeCommentReader) EntityMode(context.Context, uuid.UUID) (comment.Mode, error) {
+	return f.mode, f.modeErr
+}
+func (f *fakeCommentReader) Thread(_ context.Context, _ uuid.UUID, page int) (comment.ThreadPage, error) {
+	f.threadCalls++
+	f.gotPage = page
+	return f.thread, f.threadErr
+}
+func (f *fakeCommentReader) Counts(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]comment.EntityCounts, error) {
+	f.countCalls++
+	return map[uuid.UUID]comment.EntityCounts{ids[0]: {Approved: f.approved}}, nil
+}
+func (f *fakeCommentReader) ViewerComments(context.Context, uuid.UUID, uuid.UUID) ([]comment.ThreadComment, error) {
+	f.ownCalls++
+	return f.own, nil
+}
+
+type viewFixture struct {
+	fake              *fakeCommentReader
+	cv                *commentView
+	id                uuid.UUID
+	root, reply, deep comment.ThreadComment
+}
+
+func newViewFixture() *viewFixture {
+	id := uuid.New()
+	now := time.Now()
+	mk := func(parent *uuid.UUID, depth int, name string) comment.ThreadComment {
+		return comment.ThreadComment{ID: uuid.New(), ParentID: parent, Depth: depth, AuthorName: name, BodyHTML: "<p>" + name + "</p>", CreatedAt: now}
+	}
+	f := &viewFixture{id: id}
+	f.root = mk(nil, 1, "root")
+	f.reply = mk(&f.root.ID, 2, "reply")
+	f.deep = mk(nil, 1, "second")
+	f.fake = &fakeCommentReader{
+		set:      comment.Settings{MaxDepth: 2, PageSize: 50, Sort: comment.SortNewest},
+		mode:     comment.ModeOpen,
+		thread:   comment.ThreadPage{Page: 1, Comments: []comment.ThreadComment{f.root, f.reply, f.deep}},
+		approved: 3,
+	}
+	f.cv = &commentView{
+		reader: f.fake, now: time.Now,
+		logf: func(context.Context, string, error) {},
+	}
+	return f
+}
+
+func (f *viewFixture) run(url string, mut ...func(*http.Request)) *render.PageView {
+	r := httptest.NewRequest(http.MethodGet, url, nil)
+	for _, m := range mut {
+		m(r)
+	}
+	v := &render.PageView{EntityID: f.id.String(), Path: "/post", Uncacheable: new(bool)}
+	f.cv.fill(context.Background(), r, v)
+	return v
+}
+
+func TestCommentViewOffAndHidden(t *testing.T) {
+	f := newViewFixture()
+	f.fake.mode = comment.ModeOff
+	if v := f.run("/post"); v.Comments != nil || v.CommentForm != nil {
+		t.Fatal("off: want no comments")
+	}
+	f.fake.mode = comment.ModeHidden
+	if v := f.run("/post"); v.Comments != nil {
+		t.Fatal("hidden: want no comments")
+	}
+	f.fake.mode, f.fake.modeErr = comment.ModeOpen, comment.ErrNotFound
+	if v := f.run("/post"); v.Comments != nil {
+		t.Fatal("unknown entity: want no comments")
+	}
+	// no entity, preview
+	f.fake.modeErr = nil
+	v := &render.PageView{Path: "/"}
+	f.cv.fill(context.Background(), httptest.NewRequest("GET", "/", nil), v)
+	if v.Comments != nil {
+		t.Fatal("no entity: want no comments")
+	}
+	v = &render.PageView{EntityID: f.id.String(), Preview: true}
+	f.cv.fill(context.Background(), httptest.NewRequest("GET", "/", nil), v)
+	if v.Comments != nil {
+		t.Fatal("preview: want no comments")
+	}
+}
+
+func TestCommentViewOpenTree(t *testing.T) {
+	f := newViewFixture()
+	v := f.run("/post")
+	if v.Comments == nil || !v.CommentsOpen || v.CommentForm == nil {
+		t.Fatal("open: want thread, open flag and form")
+	}
+	if v.CommentCount != 3 || v.Comments.Total != 3 {
+		t.Fatalf("count = %d/%d", v.CommentCount, v.Comments.Total)
+	}
+	items := v.Comments.Items
+	if len(items) != 2 || len(items[0].Replies) != 1 || items[0].Replies[0].Author != "reply" {
+		t.Fatalf("tree = %+v", items)
+	}
+	if items[0].ReplyURL != "/post?creply="+f.root.ID.String()+"#comment-form" {
+		t.Fatalf("ReplyURL = %q", items[0].ReplyURL)
+	}
+	if items[0].Replies[0].ReplyURL != "" {
+		t.Fatal("reply at the max depth must have no reply link")
+	}
+	if string(items[0].Body) != "<p>root</p>" {
+		t.Fatalf("body = %q", items[0].Body)
+	}
+	form := v.CommentForm
+	if form.Action != "/-/comments/"+f.id.String() || form.Token != render.CommentFormPlaceholders.Token ||
+		form.Body != render.CommentFormPlaceholders.Body || form.MaxBody != 5000 {
+		t.Fatalf("form = %+v", form)
+	}
+	if f.fake.threadCalls != 1 || f.fake.countCalls != 1 {
+		t.Fatalf("queries: thread %d counts %d, want 1 each", f.fake.threadCalls, f.fake.countCalls)
+	}
+	if *v.Uncacheable {
+		t.Fatal("a plain view must stay cacheable")
+	}
+	if v.Page.NoIndex || v.Comments.PrevURL != "" || v.Comments.NextURL != "" {
+		t.Fatal("first page: no noindex, no pager")
+	}
+}
+
+func TestCommentViewClosedShowsNoForm(t *testing.T) {
+	f := newViewFixture()
+	f.fake.mode = comment.ModeClosed
+	v := f.run("/post")
+	if v.Comments == nil || v.CommentForm != nil || v.CommentsOpen {
+		t.Fatalf("closed: thread %v form %v open %v", v.Comments != nil, v.CommentForm != nil, v.CommentsOpen)
+	}
+}
+
+func TestCommentViewPaging(t *testing.T) {
+	f := newViewFixture()
+	f.fake.thread.HasMore = true
+	v := f.run("/post?cpage=2")
+	if f.fake.gotPage != 2 || !v.Page.NoIndex {
+		t.Fatalf("page %d noindex %v", f.fake.gotPage, v.Page.NoIndex)
+	}
+	if v.Comments.PrevURL != "/post#comments" || v.Comments.NextURL != "/post?cpage=3#comments" {
+		t.Fatalf("pager = %q %q", v.Comments.PrevURL, v.Comments.NextURL)
+	}
+	v = f.run("/post?cpage=3")
+	if v.Comments.PrevURL != "/post?cpage=2#comments" {
+		t.Fatalf("PrevURL = %q", v.Comments.PrevURL)
+	}
+	for _, bad := range []string{"abc", "-4", "0", ""} {
+		f.run("/post?cpage=" + bad)
+		if f.fake.gotPage != 1 {
+			t.Fatalf("cpage=%q -> page %d", bad, f.fake.gotPage)
+		}
+	}
+}
+
+func TestCommentViewReplyTarget(t *testing.T) {
+	f := newViewFixture()
+	v := f.run("/post?creply=" + f.root.ID.String())
+	if v.CommentForm.ParentID != f.root.ID.String() || v.CommentForm.ReplyTo != "root" {
+		t.Fatalf("form = %+v", v.CommentForm)
+	}
+	for name, target := range map[string]string{
+		"max depth": f.reply.ID.String(), "unknown": uuid.NewString(), "junk": "x\"><script>",
+	} {
+		if v := f.run("/post?creply=" + target); v.CommentForm.ParentID != "" || v.CommentForm.ReplyTo != "" {
+			t.Fatalf("%s: reply target accepted: %+v", name, v.CommentForm)
+		}
+	}
+}
+
+func TestCommentViewNoticeAndErrorWhitelist(t *testing.T) {
+	f := newViewFixture()
+	v := f.run("/post?cnotice=check_email&cerror=body_long")
+	if v.Comments.Notice != "check_email" || v.Comments.Error != "body_long" {
+		t.Fatalf("codes = %q %q", v.Comments.Notice, v.Comments.Error)
+	}
+	v = f.run("/post?cnotice=%3Cb%3E&cerror=whatever")
+	if v.Comments.Notice != "" || v.Comments.Error != "" {
+		t.Fatalf("unknown codes passed: %q %q", v.Comments.Notice, v.Comments.Error)
+	}
+}
+
+func TestCommentViewOwnItemsNeedAVerifiedCookie(t *testing.T) {
+	f := newViewFixture()
+	f.fake.own = []comment.ThreadComment{{
+		ID: uuid.New(), ParentID: &f.root.ID, Depth: 2, AuthorName: "mine", BodyHTML: "<p>mine</p>", CreatedAt: time.Now(),
+	}}
+	cookie := func(val string) func(*http.Request) {
+		return func(r *http.Request) { r.AddCookie(&http.Cookie{Name: identity.CookieName, Value: val}) }
+	}
+	f.cv.device = func(_ context.Context, val string) (uuid.UUID, bool) { return uuid.New(), val == "good" }
+
+	for name, mut := range map[string][]func(*http.Request){"no cookie": nil, "rejected cookie": {cookie("forged")}} {
+		v := f.run("/post", mut...)
+		if f.fake.ownCalls != 0 || len(v.Comments.Items[0].Replies) != 1 || *v.Uncacheable {
+			t.Fatalf("%s: own items read or shown", name)
+		}
+	}
+	v := f.run("/post", cookie("good"))
+	if f.fake.ownCalls != 1 {
+		t.Fatalf("ViewerComments calls = %d", f.fake.ownCalls)
+	}
+	replies := v.Comments.Items[0].Replies
+	if len(replies) != 2 || replies[1].Author != "mine" || !replies[1].Own || !replies[1].Editable {
+		t.Fatalf("replies = %+v", replies)
+	}
+	if replies[1].EditAction != "/-/comments/edit/"+replies[1].ID || replies[1].DeleteAction != "/-/comments/delete/"+replies[1].ID {
+		t.Fatalf("actions = %q %q", replies[1].EditAction, replies[1].DeleteAction)
+	}
+	if !*v.Uncacheable {
+		t.Fatal("a view with own items must not be cached")
+	}
+	// Past the edit window the item stays but is no longer editable.
+	f.fake.own[0].CreatedAt = time.Now().Add(-time.Hour)
+	if r := f.run("/post", cookie("good")).Comments.Items[0].Replies[1]; r.Editable || r.EditAction != "" {
+		t.Fatal("item past the edit window is editable")
+	}
+	// An own reply to a comment on another page shows on page 1 only.
+	f.fake.own[0].ParentID = &[]uuid.UUID{uuid.New()}[0]
+	if n := len(f.run("/post", cookie("good")).Comments.Items); n != 3 {
+		t.Fatalf("page 1 roots = %d, want the orphan own reply as a root", n)
+	}
+	if n := len(f.run("/post?cpage=2", cookie("good")).Comments.Items); n != 2 {
+		t.Fatalf("page 2 roots = %d, want 2", n)
+	}
+}
+
+func TestCommentViewErrorKeepsPageOutOfCache(t *testing.T) {
+	f := newViewFixture()
+	f.fake.threadErr = errors.New("db down")
+	v := f.run("/post")
+	if v.Comments != nil || v.CommentForm != nil || !*v.Uncacheable {
+		t.Fatalf("error: comments %v uncacheable %v", v.Comments != nil, *v.Uncacheable)
+	}
+}
+
+func TestCommentViewCaptcha(t *testing.T) {
+	f := newViewFixture()
+	f.cv.captcha = func(context.Context) *captchaWidget { return &captchaWidget{provider: "turnstile", siteKey: "k"} }
+	if v := f.run("/post"); v.CommentForm.Captcha != nil {
+		t.Fatal("captcha shown while the setting is off")
+	}
+	f.fake.set.Captcha = true
+	v := f.run("/post")
+	if v.CommentForm.Captcha == nil || v.CommentForm.Captcha.Provider != "turnstile" || v.CommentForm.Captcha.SiteKey != "k" {
+		t.Fatalf("captcha = %+v", v.CommentForm.Captcha)
+	}
+	f.cv.captcha = func(context.Context) *captchaWidget { return &captchaWidget{} }
+	if v := f.run("/post"); v.CommentForm.Captcha != nil {
+		t.Fatal("captcha shown without a usable provider")
+	}
+}
