@@ -60,6 +60,12 @@ func (s *Server) mountMCP(r *httpx.Group) {
 	if s.sectionTemplateService != nil {
 		deps.Templates = s.sectionTemplateService
 	}
+	if s.comments != nil && s.db != nil && s.entityService != nil {
+		deps.Comments = mcpComments{
+			store: commentsAdmin{svc: s.comments, db: s.db, entities: s.entityService},
+			name:  s.mcpReplyName,
+		}
+	}
 	h := mcpserver.New(deps, "1")
 	for _, method := range []string{http.MethodPost, http.MethodGet, http.MethodDelete} {
 		r.Handle(method+" /mcp", h)
