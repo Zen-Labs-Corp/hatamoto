@@ -2,7 +2,7 @@
 // The card carries hx-get/hx-target/hx-sync (pages/plugins/browse.html, pages/theme/browse.html): htmx asks
 // for the fragment of the same /about page the link points to and swaps it into #plugin-panel-body. Without
 // script, or when the request fails, the link works as a plain link. Opening, Esc, the backdrop and returning
-// focus are components.js. Each page's fragment is kept until the page reloads.
+// focus is components.js. Each page's fragment is kept until the page reloads; writes in the panel are full-page posts.
 const SELECTOR = 'a[data-hm-open="plugin-panel"]';
 const BODY = "plugin-panel-body";
 const FOCUS = "input, select, textarea, button, [href]";
@@ -63,12 +63,6 @@ document.addEventListener("htmx:beforeRequest", (evt) => {
 document.addEventListener("htmx:beforeSwap", (evt) => {
   // Before the actions block moves to the footer, so the cached copy is the server's markup.
   if (card(evt) && evt.detail.xhr.status === 200) cache.set(evt.detail.pathInfo.requestPath, evt.detail.serverResponse);
-});
-
-// An install, update or other write from inside the panel makes the kept fragments stale.
-document.addEventListener("htmx:afterRequest", (evt) => {
-  const cfg = evt.detail.requestConfig;
-  if (cfg?.verb !== "get" && cfg?.elt?.closest?.("#" + BODY)) cache.clear();
 });
 
 document.addEventListener("htmx:afterSwap", (evt) => {
