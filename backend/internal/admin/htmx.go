@@ -8,13 +8,48 @@ import (
 	"hatamoto.dev/core/internal/jsonx"
 )
 
-// IsHTMX reports an htmx-issued request .
-func IsHTMX(r *http.Request) bool { return r.Header.Get("HX-Request") == "true" }
+// htmx request headers. htmx 4 (https://four.htmx.org/docs, request headers)
+// still sends HX-Request: true, adds HX-Request-Type ("partial" for targeted
+// swaps, "full" for body-level or hx-select requests) and sends HX-Target as
+// tag#id where htmx 2 sends the bare id. Both forms are accepted here, so the
+// 4.x upgrade needs no Go change. Every HX-* request header read lives in this file.
+const (
+	hxRequestHeader     = "HX-Request"
+	hxTargetHeader      = "HX-Target"
+	hxRequestTypeHeader = "HX-Request-Type"
+	hxCurrentURLHeader  = "HX-Current-URL"
+)
+
+// IsHTMX reports an htmx-issued request, whatever its target or type.
+func IsHTMX(r *http.Request) bool { return r.Header.Get(hxRequestHeader) == "true" }
 
 // isFragment is an htmx request that wants only a region, not the whole page.
+// htmx 4 says so with HX-Request-Type; htmx 2 by naming a target.
 func isFragment(r *http.Request) bool {
-	return IsHTMX(r) && r.Header.Get("HX-Target") != ""
+	if !IsHTMX(r) {
+		return false
+	}
+	if t := r.Header.Get(hxRequestTypeHeader); t != "" {
+		return t == "partial"
+	}
+	return r.Header.Get(hxTargetHeader) != ""
 }
+
+// hxTargetIs reports an htmx request aimed at the element with this id
+// (htmx 2 "id", htmx 4 "tag#id").
+func hxTargetIs(r *http.Request, id string) bool {
+	t := r.Header.Get(hxTargetHeader)
+	if !IsHTMX(r) || id == "" || t == "" {
+		return false
+	}
+	if i := strings.LastIndexByte(t, '#'); i >= 0 {
+		t = t[i+1:]
+	}
+	return t == id
+}
+
+// hxCurrentURL is the page the htmx request was issued from ("" otherwise).
+func hxCurrentURL(r *http.Request) string { return r.Header.Get(hxCurrentURLHeader) }
 
 // Redirect sends the browser to target after a successful action: a 303 for
 // plain requests, HX-Redirect (a full navigation) for htmx ones.

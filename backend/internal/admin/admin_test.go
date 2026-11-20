@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -224,8 +225,19 @@ func TestHTMXFragmentVsFullPage(t *testing.T) {
 	if frag.Header().Get("HX-Reswap") != "none" || !strings.Contains(frag.Header().Get("HX-Trigger"), "hm:toast") {
 		t.Fatalf("fragment error headers: %v", frag.Header())
 	}
-	if !strings.Contains(full, "<!doctype html>") || !strings.Contains(strings.Join(frag.Header().Values("Vary"), ","), "HX-Target") {
-		t.Error("full page or Vary missing")
+	if !strings.Contains(full, "<!doctype html>") {
+		t.Error("full page missing")
+	}
+	var vary []string
+	for _, v := range frag.Header().Values("Vary") {
+		for _, tok := range strings.Split(v, ",") {
+			vary = append(vary, strings.TrimSpace(tok))
+		}
+	}
+	for _, want := range []string{"Cookie", "HX-Request", "HX-Target", "HX-Request-Type"} {
+		if !slices.Contains(vary, want) {
+			t.Errorf("Vary %v lacks %s", vary, want)
+		}
 	}
 }
 
